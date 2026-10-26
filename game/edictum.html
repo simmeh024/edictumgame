@@ -13589,7 +13589,7 @@ function warControls(x){
     }
     return `<div class="war-box"><p class="war-k">${ws.direct?'At war':'Alliance war'} since ${fmtDate(ws.since)}</p>${body}</div>`;
   }
-  if(pol(S.nation).pacifistConstitution)return `<div class="war-box calm"><p>Your pacifist constitution forbids declaring war. An issue may give you the chance to change it.</p></div>`;
+  if(pol(S.nation).pacifistConstitution)return `<div class="war-box calm"><p>Your pacifist constitution forbids declaring war. An edict may give you the chance to change it.</p></div>`;
   if(ws.truceUntil&&ws.truceUntil>now)return `<div class="war-box calm"><p>A truce holds until ${fmtTime(ws.truceUntil)}${new Date(ws.truceUntil).toDateString()!==new Date(now).toDateString()?' tomorrow':''}.</p></div>`;
   if(!canFeature(S.nation,'war'))return `<div class="war-box calm"><p>Declaring war unlocks at ${fmtPopShort(featureAt('war'))} people. Until then, grow, trade and make friends.</p></div>`;
   if(!x.npc&&!canFeature(x.n,'war'))return `<div class="war-box calm"><p>${nm} has fewer than ${fmtPopShort(featureAt('war'))} people, so it is protected from war.</p></div>`;
@@ -13993,7 +13993,7 @@ function resPolicyNote(n){
   const pol=n.policies||{},pct=m=>(m>1?'+':'−')+Math.round(Math.abs(m-1)*100)+'%';
   const act=Object.keys(RES_POL).filter(k=>pol[k]&&POLICIES[k]).map(k=>POLICIES[k][0]+' ('+Object.entries(RES_POL[k]).map(([r,m])=>RES_INFO[r][0].toLowerCase()+' '+pct(m)).join(', ')+(k==='importTariffs'?', imports worth 20% less':'')+')');
   if(pol.strategicReserves)act.push('Strategic Reserves (shortages do half as much harm)');
-  return `<p class="hint res-pol">${act.length?'Policies in force: '+esc(list(act))+'.':'None of your policies change your output yet. Issues about farms, forests, mines, oil and industry can.'}</p>`;
+  return `<p class="hint res-pol">${act.length?'Policies in force: '+esc(list(act))+'.':'None of your policies change your output yet. Edicts about farms, forests, mines, oil and industry can.'}</p>`;
 }
 function tradeView(){
   const n=S.nation,E=economy(),me=myId(),i=E.T.byId[me];
@@ -14584,7 +14584,7 @@ function cabinetSection(n){
   const now=Date.now(),cab=cabOf(n),age=leaderAge(n),fx=fxWords(cabFxOnly(n),true);
   return `<section class="section"><h2 class="h2">Cabinet</h2>
     <div class="leader"><div><p class="eyebrow">Head of government</p><h3 class="leader-n">${esc(n.leader)}${n.ruler?' '+esc(n.ruler):''}</h3><p class="muted">Age ${age}${typeof n.lt==='number'&&n.lt>0?` · in office since ${fmtDate(n.lt)}`:''}${age>=SUCCESSION_AGE?' · the succession question is in the air':''}</p></div>
-    <p class="hint">Leaders grow a year older every two days. From ${SUCCESSION_AGE}, issues about the succession start to arrive.${n.ruler?'':' Name your leader in Settings.'}</p></div>
+    <p class="hint">Leaders grow a year older every two days. From ${SUCCESSION_AGE}, edicts about the succession start to arrive.${n.ruler?'':' Name your leader in Settings.'}</p></div>
     ${loyaltyNote(n)}<p class="cab-fx"><b>Your cabinet:</b> ${fx.length?esc(fx.join(', '))+'.':'no strong effects either way.'}</p>
     ${S.cabMsg?`<p class="war-msg">${esc(S.cabMsg)}</p>`:''}
     <div class="mins">${PF_KEYS.map(pf=>minCard(pf,cab[pf],n,now)).join('')}</div>
@@ -15592,13 +15592,13 @@ function neighboursSection(){
   const P=cellOf(n.loc)>=0?geoProfile(myId()):null;
   const head=`<section class="section"><h2 class="h2">Neighbours</h2>`;
   if(!P)return head+`<p class="muted">Settle on the map to meet your neighbours.</p></section>`;
-  if(!P.nb.length)return head+`<p class="muted">No other nation lies within ${NB_RANGE} hexes of ${esc(n.name)}. Once one does, border disputes, trade quarrels and shared issues with the nation next door start to arrive.</p></section>`;
+  if(!P.nb.length)return head+`<p class="muted">No other nation lies within ${NB_RANGE} hexes of ${esc(n.name)}. Once one does, border disputes, trade quarrels and shared edicts with the nation next door start to arrive.</p></section>`;
   const rows=P.nb.map(({id,e,d})=>{
     const x=findNation(id);if(!x)return '';const mine=gwOf(n,id),theirs=x.npc?null:gwOf(x.n,myId());
     const rel=x.npc?`${esc(x.n.name)} regards you: <b>${gwWord(mine)}</b> (${mine>0?'+':''}${mine})`:`Your record: <b>${gwWord(mine)}</b> (${mine>0?'+':''}${mine}) · Theirs: <b>${gwWord(theirs)}</b> (${theirs>0?'+':''}${theirs})`;
     return `<li class="mem"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span class="mem-n">${nationLink(x.id,x.n.name,x.me)}${x.npc?'<span class="chip">Computer</span>':''}</span><span class="mem-v">${e?'Shares a border':d+(d===1?' hex away':' hexes away')}</span><span class="nb-rel">${rel}</span></li>`;
   }).join('');
-  return head+`<p class="muted">The nearest nations to ${esc(n.name)}. Goodwill rises and falls with the issues you decide, and computer nations weigh it when you ask them to join an alliance.</p><ul class="mems">${rows}</ul></section>`;
+  return head+`<p class="muted">The nearest nations to ${esc(n.name)}. Goodwill rises and falls with the edicts you decide, and computer nations weigh it when you ask them to join an alliance.</p><ul class="mems">${rows}</ul></section>`;
 }
 
 /* Statistics: the land itself */
@@ -16868,7 +16868,7 @@ setInterval(()=>{
 /* First steps: a checklist on the Nation page, ticked from the nation's own record. A viewer can
    hide it on this device (localStorage, keyed by the nation's seed); it goes for good once all is done. */
 const FIRST_STEPS=[
-  ['issue','Answer an issue','Rule on an issue waiting on your desk.','issues','Open issues',n=>decisions(n)>0],
+  ['issue','Answer an edict','Rule on an edict waiting on your desk.','issues','Open edicts',n=>decisions(n)>0],
   ['settle','Settle on the map','Choose the hex where your capital stands.','map','Open the map',n=>cellOf(n.loc)>=0],
   ['land','Spend a land credit','Claim free land next to your border.','map','Open the map',n=>Array.isArray(n.claims)&&n.claims.length>0],
   ['build','Start a building','Put up a farm, a sawmill or a market in a city.','cities','Open cities',n=>(n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0],
@@ -16901,7 +16901,7 @@ function stepsReset(){
 }
 
 /* Help: every system in plain words, with the game's own numbers */
-const HELP_SECS=[['start','Getting started'],['issues','Issues'],['time','Time'],['pop','Population and growth'],['land','Land'],['cities','Cities and buildings'],['trade','Resources and trade'],['mig','Migration'],['nb','Neighbours and goodwill'],['war','War'],['alli','Alliances'],['spies','Spies'],['exp','Expeditions'],['games','The Meridian Games'],['navy','The navy'],['cab','Cabinet and succession'],['npc','Computer nations'],['world','Regions and moving'],['track','Keeping track']];
+const HELP_SECS=[['start','Getting started'],['issues','Edicts'],['time','Time'],['pop','Population and growth'],['land','Land'],['cities','Cities and buildings'],['trade','Resources and trade'],['mig','Migration'],['nb','Neighbours and goodwill'],['war','War'],['alli','Alliances'],['spies','Spies'],['exp','Expeditions'],['games','The Meridian Games'],['navy','The navy'],['cab','Cabinet and succession'],['npc','Computer nations'],['world','Regions and moving'],['track','Keeping track']];
 const INTEL_FX={caught:'Your agent is arrested. Happiness falls, the arrest costs goodwill, and the next agent takes an hour longer to train.',nothing:'Nothing happens.',dossier:'You see their army, readiness, defence spending, alliance and military policies.',survey:'Their weakest border hex is marked: your attacks on it are 25% stronger for 6 hours.',theft:'Science +2 and military +1, once a day for each nation you spy on.',sabotage:'Their defences against you are 25% weaker for 2 hours.',informant:'Your attacks on them are 15% stronger for 6 hours, and you see their army.',master:'Their defences are 25% weaker for 3 hours, their weakest hex is marked, you see their army, and you gain a readiness point.'};
 function helpBody(n){
   const fp=k=>fmtPopShort(featureAt(k)),hrs=ms=>{const h=ms/3600e3;return h===1?'an hour':h+' hours';},mins=ms=>Math.round(ms/60000)+' minutes';
@@ -16914,24 +16914,24 @@ function helpBody(n){
   const go=(v,l)=>`<p class="help-go"><button class="linkish small" data-act="go" data-v="${v}">${l} →</button></p>`,G=v=>n?v:'';
   const ul=a=>`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`;
   const body={
-    start:`<p>You lead a nation in ${REGION}. Issues land on your desk, and every decision moves your nation’s census figures: its freedoms, economy, health, happiness and dozens more. As your people multiply you claim land, found cities, trade, make friends and, if you must, go to war.</p>
+    start:`<p>You lead a nation in ${REGION}. Edicts land on your desk, and every decision moves your nation’s census figures: its freedoms, economy, health, happiness and dozens more. As your people multiply you claim land, found cities, trade, make friends and, if you must, go to war.</p>
       <p>The game runs in real time and keeps going while you are away. Other players see your nation, and ${num(NPC_NATIONS.length)} computer-run nations share the region with you.</p>
-      <ol class="help-ol"><li>Answer the issues waiting on your desk.</li><li>Settle on the map, if you skipped it when founding.</li><li>Spend land credits as they arrive, to grow your borders.</li><li>Put up buildings in your capital and found more cities.</li><li>Trade spare resources, write to your neighbours and send explorers.</li></ol>`,
-    issues:`<p>Each issue sets out a problem and several positions. Accepting one changes your census figures, and some also enact or repeal a policy, shift the budget, move a minister’s loyalty or change how a neighbour sees you. The result page shows every change. Dismissing an issue leaves your nation as it was.</p>
+      <ol class="help-ol"><li>Answer the edicts waiting on your desk.</li><li>Settle on the map, if you skipped it when founding.</li><li>Spend land credits as they arrive, to grow your borders.</li><li>Put up buildings in your capital and found more cities.</li><li>Trade spare resources, write to your neighbours and send explorers.</li></ol>`,
+    issues:`<p>Each edict sets out a problem and several positions. Accepting one changes your census figures, and some also enact or repeal a policy, shift the budget, move a minister’s loyalty or change how a neighbour sees you. The result page shows every change. Dismissing an edict leaves your nation as it was.</p>
       ${issHelp()}
-      <p>A new issue arrives ${pace}${n?'':' by default'}. You can change the pace in Settings, from ${FREQS[0][1].toLowerCase()} to ${FREQS[FREQS.length-1][1].toLowerCase()}. Up to ${CAP} issues wait on your desk; while it is full, no new ones arrive.</p>
-      <p>Some stories continue: a follow-up can arrive some hours after your decision. Issues often draw on your land, your coast and your neighbours, and players next door can raise a matter with you that lands on your desk. In Settings you can ask for more or fewer issues on each topic.</p>${G(go('issues','Open issues'))}`,
+      <p>A new edict arrives ${pace}${n?'':' by default'}. You can change the pace in Settings, from ${FREQS[0][1].toLowerCase()} to ${FREQS[FREQS.length-1][1].toLowerCase()}. Up to ${CAP} edicts wait on your desk; while it is full, no new ones arrive.</p>
+      <p>Some stories continue: a follow-up can arrive some hours after your decision. Edicts often draw on your land, your coast and your neighbours, and players next door can raise a matter with you that lands on your desk. In Settings you can ask for more or fewer edicts on each topic.</p>${G(go('issues','Open edicts'))}`,
     time:`<p>Everything happens in real time. A year of game time passes every ${yrDays===1?'day':yrDays+' days'}, so leaders and ministers grow a year older every ${yrDays} days, and the statistics count years the same way. Computer nations pass one law a day. Buildings, expeditions, readiness and spies all recover or finish on the clock, whether or not you are playing.</p>`,
     pop:`<p>Your population grows along a curve towards what your land can support, its capacity. Capacity comes from the land you hold: reclaimed land and farmland support the most people, mountains the fewest. Each city adds room for about 6 million more and each building about 1 million, and the total rises with science and health and falls when food runs short.${n&&n.pk?` Right now ${esc(n.name)} can support about ${fmtPop(n.pk)}.`:''}</p>
       <p>How fast you grow depends on health, safety, happiness and wealth, on food, hospitals, housing and your Minister of Health and Education. Income tax above 50% slows growth. Above capacity, the population slowly shrinks. Migration adds or takes people on top.</p>
       <p>At set populations you reach milestones. They unlock buildings, more cities and bonus land credits, declaring war (at ${fp('war')}), founding alliances (at ${fp('alli')}) and bidding to host the Games (at ${fp('host')}). The Growth section of your Nation page lists them all.</p>`,
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
-    land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. You earn credits as your population grows, and bonus credits at milestones, from some issues and from remarkable discoveries.</p>
+    land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. You earn credits as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
       <p>On the map, select a highlighted block next to your border. A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 45 hexes of your capital and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
-      <p>There is only one way to win land from the sea: some issues for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
+      <p>There is only one way to win land from the sea: some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
     cities:`<p>Your capital is your first city. More cities unlock at milestones, up to ${MAX_CITIES}. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
       <p>A city works the land within ${CITY_DISTRICT} hexes. ${blkHelp()} Each city builds one thing at a time${typeof C3_QMAX==='number'?`, with up to ${num(C3_QMAX)} more waiting in its queue`:''}; buildings are paid for from your stockpile and take hours to finish, wonders a day. Cancelling a project returns half the materials.</p>
       <p>Production buildings raise output; society buildings help growth, the economy and your census figures; defence buildings strengthen your army and borders; wonders do a little of everything. Some need hills, oil, a coast or high science, and more unlock at milestones. A city works for whoever holds its hex, so a captured city serves its conqueror.</p>${G(go('cities','Open cities'))}`,
@@ -16941,9 +16941,9 @@ function helpBody(n){
     mig:`<p>People move towards nations that are richer, happier, freer, safer, healthier and better educated, within ${MIG_RANGE} hexes of each other’s capitals. Income tax above 45%, overcrowding, war and occupied land put them off, and a nation that is losing land in a war sends out refugees.</p>
       <p>Arrivals and departures are each capped at half of natural growth, so migration bends your growth but never rules it. Open Borders, a Border Wall, Skilled Worker Visas and an Exit Tax all change the flows. The Migration tab in Statistics shows who comes and who goes.</p>`,
     nb:`<p>Your neighbours are the nearest nations within ${NB_RANGE} hexes, up to three of them. Border disputes, trade quarrels and shared stories involve them, and the Diplomacy page lists them.</p>
-      <p>Goodwill runs from −${GW_MAX} to +${GW_MAX}, from Hostile to Firm friends. It moves with the issues you decide, and falls when you declare war on a nation (−15), take its land (−3 a hex), are caught spying on it (−5, or −10 if it is your ally) or send explorers across its land. Withdrawing your troops when you make peace earns +8. Players keep their own record of you, shown on their page.</p>
+      <p>Goodwill runs from −${GW_MAX} to +${GW_MAX}, from Hostile to Firm friends. It moves with the edicts you decide, and falls when you declare war on a nation (−15), take its land (−3 a hex), are caught spying on it (−5, or −10 if it is your ally) or send explorers across its land. Withdrawing your troops when you make peace earns +8. Players keep their own record of you, shown on their page.</p>
       <p>Computer nations count goodwill (up to 20 points either way) in their affinity with you, and a hawkish computer neighbour that dislikes you may go to war.</p>`,
-    war:`<p>Declaring war unlocks at ${fp('war')} people. Player nations below that size are protected: nobody can declare war on them, computer nations leave them alone, and they are not drawn into their allies’ wars. A Pacifist Constitution forbids declaring war, though an issue may let you change it.</p>
+    war:`<p>Declaring war unlocks at ${fp('war')} people. Player nations below that size are protected: nobody can declare war on them, computer nations leave them alone, and they are not drawn into their allies’ wars. A Pacifist Constitution forbids declaring war, though an edict may let you change it.</p>
       <h3 class="help-h3">Your army</h3>
       <p>Strength, in brigades, comes from your population, military score, defence spending, science, policies and supplies of iron and oil. Your army has ${READY_BASE} readiness points (${READY_BASE+2} with an Army Reserve), and one returns every 15 minutes (10 with Rapid Mobilisation). Each attack uses one point and costs a little wealth and happiness.</p>
       <h3 class="help-h3">Attacking</h3>
@@ -16964,14 +16964,14 @@ function helpBody(n){
     exp:`<p>There are ${SITE_MAX} rumoured sites scattered over the map: waterfalls, ruins, wrecks and stranger things. You can send one expedition at a time to a site within ${EXP_RANGE} hexes of your land (${EXP_RANGE+15} with a Blue-Water Navy). It costs food and oil, and the further it goes, the more it costs and the longer it takes.</p>
       <p>The expedition rolls a twenty-sided die against the site’s difficulty, from ${Math.min(...dcs)} on farmland to ${Math.max(...dcs)} on mountains. Science, education, a genius in the cabinet and earlier traces help, as do mountain troops in high country and a navy on islets; foreign soil and long journeys hurt.</p>
       <dl class="help-tbl">${EXP_TABLE.map(([r,l])=>`<div><dt>${r}</dt><dd>${l}</dd></div>`).join('')}</dl>
-      <p>The first nation to make a discovery names the site and gains its rewards, and a follow-up issue may come of it. A remarkable discovery gives half as much again and a bonus land credit. Exploring a site on another nation’s land costs goodwill with it.</p>${G(go('explore','Open expeditions'))}`,
+      <p>The first nation to make a discovery names the site and gains its rewards, and a follow-up edict may come of it. A remarkable discovery gives half as much again and a bonus land credit. Exploring a site on another nation’s land costs goodwill with it.</p>${G(go('explore','Open expeditions'))}`,
     games:`<p>Every week the nations of ${REGION} meet at the Meridian Games in five events: the host’s national sport and four more drawn for that week. Your team enters automatically whenever you make a decision during the week.</p>
       <p>Scores come from your census figures, your Minister of Culture and Sport, your buildings and luck on the day. Focus your training on one event for ${FOCUS_BONUS} more points. Medals lift happiness, and gold medals culture too.</p>
       <p>From ${fp('host')} people you can bid to host next week’s Games for ${cost(BID_COST)}, returned if you lose. The strongest bid wins${typeof C3_RAISE_MAX==='number'?`; you can raise your bid up to ${num(C3_RAISE_MAX)} times, or withdraw it, though the committee keeps part of the stake`:''}. The host’s team scores ${HOST_BONUS} more in every event, and hosting brings tourism, culture and happiness at a small cost to incomes. Enhanced Sport makes your team score 10% more, but one Games in four it is disqualified.</p>${G(go('games','Open the Games'))}`,
-    navy:`<p>A Blue-Water Navy is a policy. With it your troops cross the sea without losing strength, and your explorers travel 15 hexes further and do better on remote islets. It comes from issues: coastal nations meet them most often${navy.length?`, among them ${list(navy)}`:''}${lake?', and even a landlocked nation may be offered a fleet on its lakes':''}. Coastal Batteries, from similar issues, make your coastal hexes 25% harder to take.</p>`,
+    navy:`<p>A Blue-Water Navy is a policy. With it your troops cross the sea without losing strength, and your explorers travel 15 hexes further and do better on remote islets. It comes from edicts: coastal nations meet them most often${navy.length?`, among them ${list(navy)}`:''}${lake?', and even a landlocked nation may be offered a fleet on its lakes':''}. Coastal Batteries, from similar edicts, make your coastal hexes 25% harder to take.</p>`,
     cab:`<p>Seven ministers run your departments. Each has a skill from 1 to 5, one or two traits and a loyalty score. Skill above 3 helps their department and skill below 3 hurts it: the economy, the army, affinity with computer nations, your defences, building speed, growth or Games scores. Traits add quirks.</p>
-      <p>Loyalty rises and falls with the issues you decide and the ministers you sack. Below 20 a minister is plotting: their skill counts half, and every ${hrs(RESIGN_SLOT)} there is a one-in-five chance they resign. You can replace a minister on the Government page once every ${hrs(SACK_MS)}, but sacking upsets the rest of the cabinet.</p>
-      <p>Everyone grows a year older every ${yrDays} days. Ministers retire at ${RETIRE_MIN} and your leader at ${RETIRE_LEADER}. From ${SUCCESSION_AGE}, issues about the succession arrive more and more often.</p>
+      <p>Loyalty rises and falls with the edicts you decide and the ministers you sack. Below 20 a minister is plotting: their skill counts half, and every ${hrs(RESIGN_SLOT)} there is a one-in-five chance they resign. You can replace a minister on the Government page once every ${hrs(SACK_MS)}, but sacking upsets the rest of the cabinet.</p>
+      <p>Everyone grows a year older every ${yrDays} days. Ministers retire at ${RETIRE_MIN} and your leader at ${RETIRE_LEADER}. From ${SUCCESSION_AGE}, edicts about the succession arrive more and more often.</p>
       <p>On the Government page you can also repeal any policy by decree, once a day. It costs a little happiness and political freedom.</p>${G(go('government','Open the Government page'))}`,
     npc:`<p>${Num(NPC_NATIONS.length)} computer-run nations share ${REGION}. Each passes one law a day, choosing what suits its founding character, then drifts 12% of the way back to that character, so its values stay recognisable.</p>
       <p>They have half the people their founding papers promised and hold half the land those people would give a player, so most of the map is left free for players. They grow slowly, trade when the terms suit them and answer your letters within a minute or two. A hawkish one may declare war on a hostile neighbour every ${hrs(WAR_SLOT)}, offers peace after a day or two of fighting, and leaves your alliance if your values drift apart.</p>`,
@@ -17026,7 +17026,7 @@ const REPEAL_FX={happy:-1,pol:-1},REPEAL_MS=DAY;
 function repealWait(n,now){return Math.max(0,((n&&n.rpAt)||0)+REPEAL_MS-(now||Date.now()));}
 function repealIntro(n){
   const w=repealWait(n);
-  return `<p class="hint pol-intro">Issues enact and repeal most policies, but you can also repeal one by decree, once a day. Overruling parliament costs 1 happiness and 1 political freedom.${w?` Your next decree is possible in ${fmtDur(w)}.`:''}</p>${S.govMsg?`<p class="war-msg" role="status">${esc(S.govMsg)}</p>`:''}`;
+  return `<p class="hint pol-intro">Edicts enact and repeal most policies, but you can also repeal one by decree, once a day. Overruling parliament costs 1 happiness and 1 political freedom.${w?` Your next decree is possible in ${fmtDur(w)}.`:''}</p>${S.govMsg?`<p class="war-msg" role="status">${esc(S.govMsg)}</p>`:''}`;
 }
 function repealCtl(k){
   const n=S.nation;if(!n||!n.policies[k])return '';
@@ -17071,7 +17071,7 @@ function resignTick(n,now){
 }
 function loyaltyNote(n){
   const cab=cabOf(n),low=PF_KEYS.filter(pf=>cab[pf]&&cab[pf].lo<20);
-  return `<p class="hint loy-note">Loyalty: Devoted from 70, Steady from 45, Restless from 20, Plotting below. A plotting minister’s skill counts half, and every ${RESIGN_SLOT/3600e3} hours there is a one-in-five chance they resign. Issues and sackings move loyalty; Loyal and Honest ministers never sink that low.</p>${low.length?`<p class="war-msg">${list(low.map(pf=>`<b>${esc(cab[pf].nm)}</b> (${PF[pf][2]})`))} ${low.length===1?'is':'are'} plotting and may resign.</p>`:''}`;
+  return `<p class="hint loy-note">Loyalty: Devoted from 70, Steady from 45, Restless from 20, Plotting below. A plotting minister’s skill counts half, and every ${RESIGN_SLOT/3600e3} hours there is a one-in-five chance they resign. Edicts and sackings move loyalty; Loyal and Honest ministers never sink that low.</p>${low.length?`<p class="war-msg">${list(low.map(pf=>`<b>${esc(cab[pf].nm)}</b> (${PF[pf][2]})`))} ${low.length===1?'is':'are'} plotting and may resign.</p>`:''}`;
 }
 
 /* Names for a new nation, and what its people are called */
@@ -17386,7 +17386,7 @@ const COL_SETS=[
   ['le-bottle','A Message in a Bottle','bottle','#2A9D8F','r','Washed up on your coast, addressed to nobody in particular. It says ‘wish you were here’, which is unsettling.','The sea sometimes answers those who write often.',colDraw('bottle','dm',1/12,40)],
   ['le-fence','A Note over the Fence','card','#8DB33A','c','A neighbour’s complaint about something your nation did, written on the back of their complaint about something else.','Make five decisions that involve your neighbours.',colT('iss:nb',5)],
   ['le-file','The Follow-Up File','book','#46606E','u','Where unfinished stories go to become finished stories. The file is thicker than the story.','See a story through to its sequel.',colT('iss:chain',3)],
-  ['le-due','The Postage Due Notice','ticket','#D1495B','c','Stamped on every issue sent back unanswered. The fee is waived, but the look is not.','Dismiss three issues.',colT('dismiss',3)],
+  ['le-due','The Postage Due Notice','ticket','#D1495B','c','Stamped on every edict sent back unanswered. The fee is waived, but the look is not.','Dismiss three edicts.',colT('dismiss',3)],
   ['le-carbon','The Carbon Copy','card','#3A8FD1','c','A faint blue copy of your first trade offer, made so the original could go off and be accepted.','Propose a trade deal.',colT('deal',1)]]},
  {id:'spies',n:'Spy Gadgets',d:'Equipment of the intelligence service, declassified once it stopped working, or once it worked a little too well.',u:['c-moon'],fx:{safety:1},items:[
   ['sp-moustache','The False Moustache','moustache','#3B3530','c','Issued to every new agent. The adhesive is strong enough for one mission and one sneeze.','Send a spy abroad.',colT('spy',1)],
@@ -17935,18 +17935,18 @@ achDef('found','found-lore6','s','Official Historian','Write all six chapters of
   .forEach(([id,t,n,g,d])=>achDef('found',id,t,n,d,g,x=>x.npc||!x.n.founded?0:Math.floor(Math.max(0,x.now-x.n.founded)/YEAR_MS),{fm:'yr'}));
 
 /* ── Lawmaking ── */
-[['law-1','b','First Signature',1,'Make your first decision on an issue.'],['law-25','b','Rubber Stamp',25,'Make 25 decisions. The ink pad is holding up.'],['law-100','s','Order Paper',100,'Make 100 decisions, most of them on purpose.'],['law-300','g','The Lawgiver',300,'Make 300 decisions. The pen is mightier, and very tired.','t-lawgiver'],['law-750','p','Paper Mountain',750,'Make 750 decisions. The archive has asked for a second building.','s-gold']]
+[['law-1','b','First Signature',1,'Make your first decision on an edict.'],['law-25','b','Rubber Stamp',25,'Make 25 decisions. The ink pad is holding up.'],['law-100','s','Order Paper',100,'Make 100 decisions, most of them on purpose.'],['law-300','g','The Lawgiver',300,'Make 300 decisions. The pen is mightier, and very tired.','t-lawgiver'],['law-750','p','Paper Mountain',750,'Make 750 decisions. The archive has asked for a second building.','s-gold']]
   .forEach(([id,t,n,g,d,u])=>achDef('law',id,t,n,d,g,aDec,{u}));
 const ACH_TOPIC_N={econ:'Dismal Scientist',society:'Agony Aunt',rights:'Learned Friend',gov:'Constitutional Tinkerer',welfare:'Bedside Manner',nature:'Green Fingers',tech:'Early Adopter',culture:'Patron of the Arts',world:'Realpolitik',weird:'Curiouser and Curiouser'};
-for(const [k,l] of ISSUE_TOPICS)achDef('law','law-t-'+k,'b',ACH_TOPIC_N[k]||l,`Decide 20 issues on ${l.charAt(0).toLowerCase()+l.slice(1)}.`,20,x=>aT(x,'iss:'+k));
-achDef('law','law-poly','s','Polymath','Decide at least five issues in every one of the ten topics.',5,x=>Math.min(...ISSUE_TOPICS.map(([k])=>aT(x,'iss:'+k))));
-achDef('law','law-every','g','Encyclopaedic','Decide at least twenty issues in every topic.',20,x=>Math.min(...ISSUE_TOPICS.map(([k])=>aT(x,'iss:'+k))),{u:'a-violet'});
+for(const [k,l] of ISSUE_TOPICS)achDef('law','law-t-'+k,'b',ACH_TOPIC_N[k]||l,`Decide 20 edicts on ${l.charAt(0).toLowerCase()+l.slice(1)}.`,20,x=>aT(x,'iss:'+k));
+achDef('law','law-poly','s','Polymath','Decide at least five edicts in every one of the ten topics.',5,x=>Math.min(...ISSUE_TOPICS.map(([k])=>aT(x,'iss:'+k))));
+achDef('law','law-every','g','Encyclopaedic','Decide at least twenty edicts in every topic.',20,x=>Math.min(...ISSUE_TOPICS.map(([k])=>aT(x,'iss:'+k))),{u:'a-violet'});
 [['law-chain1','b','To Be Continued',1,'Decide a follow-up to an earlier decision.'],['law-chain10','s','Long-Running Saga',10,'Decide 10 follow-ups. The plot thickens, then thickens again.'],['law-chain30','g','Soap Opera',30,'Decide 30 follow-ups.']]
   .forEach(([id,t,n,g,d])=>achDef('law',id,t,n,d,g,x=>aT(x,'iss:chain')));
-achDef('law','law-nb1','b','Over the Fence','Decide an issue involving one of your neighbours.',1,x=>aT(x,'iss:nb'));
-achDef('law','law-nb10','s','Good Neighbour','Decide 10 issues involving your neighbours.',10,x=>aT(x,'iss:nb'));
-achDef('law','law-dismiss','b','Not My Department','Dismiss an issue without deciding it.',1,x=>aT(x,'dismiss'));
-achDef('law','law-dismiss25','s','In-Tray, Out-Tray','Dismiss 25 issues.',25,x=>aT(x,'dismiss'),{sec:'Some problems solve themselves, if ignored with enough conviction.'});
+achDef('law','law-nb1','b','Over the Fence','Decide an edict involving one of your neighbours.',1,x=>aT(x,'iss:nb'));
+achDef('law','law-nb10','s','Good Neighbour','Decide 10 edicts involving your neighbours.',10,x=>aT(x,'iss:nb'));
+achDef('law','law-dismiss','b','Not My Department','Dismiss an edict without deciding it.',1,x=>aT(x,'dismiss'));
+achDef('law','law-dismiss25','s','In-Tray, Out-Tray','Dismiss 25 edicts.',25,x=>aT(x,'dismiss'),{sec:'Some problems solve themselves, if ignored with enough conviction.'});
 achDef('law','law-busy','s','Midnight Oil','Make 20 decisions within 24 hours. Sleep is for the opposition.',20,aBusy);
 achDef('law','law-night','b','Night Shift','Make a decision between two and five in the morning.',1,x=>achYes((x.n.answered||[]).some(a=>{if(a.o<0||!a.t)return false;const h=new Date(a.t).getHours();return h>=2&&h<5;})),{fm:'bool',sec:'The ministry never sleeps. Neither, it seems, do you.'});
 
@@ -18337,7 +18337,7 @@ function achSummary(x,me){
   const n=x.n,st=achState(x),rk=st.rank,recent=st.rows.filter(q=>q.on).sort((a,b)=>b.t-a.t||ACH_TIER[b.a.t].p-ACH_TIER[a.a.t].p).slice(0,3),mine=me?null:(S.nation&&S.nation.ach)||{};
   const item=q=>{const hid=mine&&q.a.sec&&!mine[q.a.id];return `<li>${achMedal(q.a.t)}<span><b>${esc(hid?'A secret achievement':q.a.n)}</b><span class="hint">${esc(ACH_CAT[q.a.c])} · ${q.t?fmtDate(q.t):'at the next save'}</span></span></li>`;};
   return `<div class="ach-sum"><div class="ach-sum-n"><p class="eyebrow">Prestige</p><p class="ach-pp"><span class="ach-big num">${fmt0(st.pts)}</span><span class="ach-rank">${esc(rk.name)}</span></p><p class="hint">${st.earned} of ${st.rows.length} achievements${rk.next?` · ${fmt0(rk.next.at-st.pts)} to ${esc(rk.next.name)}`:''}</p></div>
-    ${recent.length?`<ul class="ach-recent">${recent.map(item).join('')}</ul>`:`<p class="hint ach-recent">${me?'Nothing on the register yet. Decide an issue and see what follows.':'Nothing on the register yet.'}</p>`}</div>`;
+    ${recent.length?`<ul class="ach-recent">${recent.map(item).join('')}</ul>`:`<p class="hint ach-recent">${me?'Nothing on the register yet. Decide an edict and see what follows.':'Nothing on the register yet.'}</p>`}</div>`;
 }
 NATION_SECTIONS.push((x,now)=>{
   if(!x||!x.n||x.n.npc)return '';
@@ -20683,7 +20683,7 @@ NORM_HOOKS.push((n,d)=>{
 });
 function issHelp(){
   const w=['','once','twice','three times','four times','five times','six times','seven times','eight times','nine times','ten times'][HOT_W]||HOT_W+' times';
-  return `<p>An issue you have answered or dismissed stays away for at least ${ISSUE_REPEAT_DAYS} days. Issues you have never seen come first, then the ones you saw longest ago. Only a nation that has seen every available issue in the past ${ISSUE_REPEAT_DAYS} days gets one back sooner, and then it is the one it saw longest ago.${ISSUE_HOT.size?` Newer issues on artificial intelligence, robots, medicine, young people and social media are ${w} as likely to be drawn as the rest.`:''}</p>`;
+  return `<p>An edict you have answered or dismissed stays away for at least ${ISSUE_REPEAT_DAYS} days. Edicts you have never seen come first, then the ones you saw longest ago. Only a nation that has seen every available edict in the past ${ISSUE_REPEAT_DAYS} days gets one back sooner, and then it is the one it saw longest ago.${ISSUE_HOT.size?` Newer edicts on artificial intelligence, robots, medicine, young people and social media are ${w} as likely to be drawn as the rest.`:''}</p>`;
 }
 
 /* ───────── the Regional Assembly and its Delegate (Round 9, A) ───────── */
@@ -21389,7 +21389,7 @@ HELP_EXT.push({k:'assembly',t:'The Regional Assembly',body:n=>`<p>Every region h
    the desk, a minister's loyalty, a lost shipment. Kinds: s scandal, b blueprints, d sabotage, m bribe.
    Computer-run nations can be targets, but only the attacker's gains and the newspapers apply. */
 const CV_KINDS={
-  s:{n:'Plant a scandal',d:'An awkward scandal lands on their desk as an issue, and every answer costs them something.',v:'planting a scandal on',base:60,xb:0,cost:{goods:16,timber:6},cw:'printing, photographers and a long lunch'},
+  s:{n:'Plant a scandal',d:'An awkward scandal lands on their desk as an edict, and every answer costs them something.',v:'planting a scandal on',base:60,xb:0,cost:{goods:16,timber:6},cw:'printing, photographers and a long lunch'},
   b:{n:'Steal blueprints',d:'Science +1.5, and the plans for one of their buildings you have not unlocked: build it once within 7 days.',v:'stealing blueprints from',base:50,xb:-5,cost:{goods:12,iron:6},cw:'a camera hidden in a sandwich'},
   d:{n:'Sabotage a trade deal',d:'One of their deals delivers nothing for 12 hours, and a few crates find their way to you.',v:'sabotaging the trade of',base:50,xb:5,cost:{goods:10,oil:8},cw:'fuel for the getaway lorry'},
   m:{n:'Bribe a minister',d:'One of their ministers loses 12 loyalty, and you get cabinet gossip and a look at their stockpile.',v:'bribing a minister of',base:55,xb:0,cost:{goods:20,food:10},cw:'the fruit basket'}
@@ -21686,7 +21686,7 @@ function cvReport(op,mine){
   const r=cvRoll(op),K=CV_KINDS[op.k],tn=esc(op.tn),x=findNation(op.tg),npc=NPC_SET.has(op.tg);
   let body='';
   if(op.k==='s'){const is=ISSUE_BY_ID[op.is];
-    body=r.ok?`<p>Your agents leaked a story to the newspapers in ${esc(x?x.n.capital:'their capital')}: <b>“${esc(is?is.t:'a scandal')}”</b>.${npc?' Computer-run nations shrug off scandals, but the newspapers do not, and the Dispatch will run it.':` It is now on ${tn}’s desk as an issue, and every answer costs them something.`}</p>`
+    body=r.ok?`<p>Your agents leaked a story to the newspapers in ${esc(x?x.n.capital:'their capital')}: <b>“${esc(is?is.t:'a scandal')}”</b>.${npc?' Computer-run nations shrug off scandals, but the newspapers do not, and the Dispatch will run it.':` It is now on ${tn}’s desk as an edict, and every answer costs them something.`}</p>`
       :`<p>No newspaper in ${esc(x?x.n.capital:'their capital')} would print the story. Your agent left the photographs on a bus.</p>`;}
   else if(op.k==='b'){const B=BUILDINGS[op.b];
     body=r.ok?(B?`<p>Your agent photographed the plans for the ${esc(B.n)}. Science rose by 1.5, and you may build one ${esc(B.n)} within 7 days of the theft, even though it is still locked for you.${op.u?' You have used the plans.':''}</p>`:`<p>Your agent photographed everything in ${tn}’s archive and found nothing you do not already have. The photocopies sold for 12 goods, and science rose by 1.5.</p>`)
@@ -21784,7 +21784,7 @@ function cvIssueTag(x){
   let e=null;try{e=cvAgainst(S.nation,4).find(e=>e.op.k==='s'&&e.op.is===x.id&&e.ok);}catch(err){}
   return ' · Scandal'+(e?(e.ex?' planted by '+esc(e.bn):' · source unknown'):'');
 }
-function cvDismissHint(id){return CV_SCN_SET.has(id)?`Dismissing a scandal is reported as “No comment”: happiness falls by ${CV_DISMISS}.`:'Dismissing an issue leaves your nation unchanged.';}
+function cvDismissHint(id){return CV_SCN_SET.has(id)?`Dismissing a scandal is reported as “No comment”: happiness falls by ${CV_DISMISS}.`:'Dismissing an edict leaves your nation unchanged.';}
 
 /* ── bell, happenings, nation pages, the Dispatch ── */
 NOTIF_SOURCES.push((n,now)=>{
@@ -21825,7 +21825,7 @@ DISPATCH_SOURCES.push(ctx=>{
   }
   return out;
 });
-HELP_EXT.push({k:'covert',t:'Covert operations',body:n=>`<p>The Intelligence page runs covert operations against any nation in ${REGION}, player or computer. There are four: <b>plant a scandal</b> (an awkward issue lands on their desk, with no cheap answer), <b>steal blueprints</b> (science +1.5 and the plans for one of their buildings you have not unlocked, which you may build once within 7 days), <b>sabotage a trade deal</b> (one of their deals delivers nothing for 12 hours and you keep a few crates) and <b>bribe a minister</b> (the minister loses ${CV_LOY} loyalty and you get cabinet gossip and a look at their stockpile).</p>
+HELP_EXT.push({k:'covert',t:'Covert operations',body:n=>`<p>The Intelligence page runs covert operations against any nation in ${REGION}, player or computer. There are four: <b>plant a scandal</b> (an awkward edict lands on their desk, with no cheap answer), <b>steal blueprints</b> (science +1.5 and the plans for one of their buildings you have not unlocked, which you may build once within 7 days), <b>sabotage a trade deal</b> (one of their deals delivers nothing for 12 hours and you keep a few crates) and <b>bribe a minister</b> (the minister loses ${CV_LOY} loyalty and you get cabinet gossip and a look at their stockpile).</p>
   <p>Each costs goods and one other resource, and uses one of your agents, the same agents as military missions. You can run one operation every 8 hours, and target the same nation once a day. Nations founded in the last 3 days can neither run nor suffer them.</p>
   <p>Success starts at 50 to 60% and rises with a Foreign Intelligence Service (+12), your science and the target’s corruption, and falls with their Counter-Intelligence Bureau (−15), mass surveillance and safety. Exposure is rolled separately, starting at 30%. When an operation is exposed, the target learns who did it, the region hears of it, you lose 8 goodwill with the target (12 with an ally) and 1 with everyone else, and for 48 hours the target’s first operation against you costs half, is 15 points likelier to succeed and ignores the waiting times. Unexposed, the target only sees what happened.</p>
   <p>Against a computer-run nation only your own gains and the newspaper story apply. A scandal dismissed without an answer is reported as “No comment” and costs ${CV_DISMISS} happiness. Effects reach an absent player when they next log in, if they are less than 72 hours old.</p>`});
@@ -21867,7 +21867,7 @@ const DSP_SECS=[['politics','Politics'],['world','World'],['business','Business'
 const DSP_SECSET=new Set(['front'].concat(DSP_SECS.map(s=>s[0])));
 const DSP_CAT={gov:'politics',rights:'politics',world:'world',econ:'business',tech:'business',society:'society',welfare:'society',nature:'society',culture:'culture',weird:'culture'};
 const DSP_KICK={gov:'Government',rights:'Rights',world:'Foreign affairs',econ:'Economy',tech:'Science',society:'Home affairs',welfare:'Health and welfare',nature:'Environment',culture:'Arts and leisure',weird:'Curiosities'};
-const DSP_GO={nation:'Your nation',issues:'Your issues',map:'The map',diplomacy:'Diplomacy',trade:'Trade',games:'The Games',museum:'The museum',achievements:'Achievements',government:'Government',cities:'Cities',explore:'Expeditions',settings:'Settings',assembly:'The Assembly',intel:'Intelligence',region:'The region'};
+const DSP_GO={nation:'Your nation',issues:'Your edicts',map:'The map',diplomacy:'Diplomacy',trade:'Trade',games:'The Games',museum:'The museum',achievements:'Achievements',government:'Government',cities:'Cities',explore:'Expeditions',settings:'Settings',assembly:'The Assembly',intel:'Intelligence',region:'The region'};
 const DSP_DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],DSP_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function dspDate(no){const d=new Date(dspStartOf(no));return DSP_DAYS[d.getUTCDay()]+' '+d.getUTCDate()+' '+DSP_MONTHS[d.getUTCMonth()]+' '+d.getUTCFullYear();}
 function dspShort(no){const d=new Date(dspStartOf(no));return DSP_DAYS[d.getUTCDay()].slice(0,3)+' '+d.getUTCDate()+' '+DSP_MONTHS[d.getUTCMonth()].slice(0,3);}
@@ -21969,7 +21969,7 @@ const DSP_LETTER=[
   'Dear Editor, The price of your newspaper has not risen in a week. What are you hiding?','Dear Editor, Our minister of culture was seen at the opera, awake. Surely a first.',
   'Dear Editor, Why do other nations get all the interesting scandals? We have had nothing since the incident with the {A}.','Dear Editor, I am ninety-three and have outlived four governments, two currencies and a very determined goose. Please print this so my grandchildren believe me.',
   'Dear Editor, Could you please stop printing horoscopes? Mine keeps coming true and it is unsettling.','Dear Editor, The new bypass will destroy a meadow that has been in my family for generations, in the sense that we have looked at it.',
-  'Dear Editor, In my day we answered our own issues, by hand, uphill.','Dear Editor, I have written to you every day for eleven years. Today I have nothing to say, and I wanted you to hear it from me first.'
+  'Dear Editor, In my day we answered our own edicts, by hand, uphill.','Dear Editor, I have written to you every day for eleven years. Today I have nothing to say, and I wanted you to hear it from me first.'
 ];
 const DSP_SIGNOFF=['Mrs E. Pargeter','A. Concerned','Disgusted, of {CAP}','Name and address supplied','Col. (retd) H. Fothergill','A {D} pensioner','Dr R. Ambleside','The Misses Thorne','A regular reader','Name withheld on the advice of my lawyer'];
 const DSP_JOKE_AD=[
@@ -22404,7 +22404,7 @@ NATION_SECTIONS.push((x,now)=>{
   if(!hit)return '';
   return `<section class="section dsp-tz" aria-labelledby="dsp-tz-h"><div class="dsp-tz-in"><p class="eyebrow">In the news · The Daily Dispatch, ${hit.no===today?'today':'yesterday'}</p><h2 class="dsp-tz-h" id="dsp-tz-h">${esc(hit.s.h)}</h2><button class="btn ghost" data-act="dsp-open" data-no="${hit.no}">Read the Dispatch</button></div></section>`;
 });
-HELP_EXT.push({k:'dispatch',t:'The Daily Dispatch',body:n=>`<p>${esc(cap1(REG.the))} has a newspaper. A new edition comes out every day at midnight UTC and covers that day: the issues players decide, wars, peace, alliances, trade, cities, discoveries, the Games, museum finds and honours, the laws the computer nations pass, and news from the Assembly and the intelligence services. Each player’s first ${DSP_PER} decisions of the day make the paper.</p>
+HELP_EXT.push({k:'dispatch',t:'The Daily Dispatch',body:n=>`<p>${esc(cap1(REG.the))} has a newspaper. A new edition comes out every day at midnight UTC and covers that day: the edicts players decide, wars, peace, alliances, trade, cities, discoveries, the Games, museum finds and honours, the laws the computer nations pass, and news from the Assembly and the intelligence services. Each player’s first ${DSP_PER} decisions of the day make the paper.</p>
   <p>Every reader in the region gets the same paper. Today’s edition fills in as the day goes on, and the ${DSP_BACK} editions before it stay on file. Stories about your nation carry a “You” marker, and the bell tells you once a day when the paper mentions you, or when you have not read it for two days.</p>
   <p>A classified advertisement costs ${esc(costText(DSP_AD_COST))} and runs for 3 days. You can have ${DSP_AD_MAX} running at a time and place ${DSP_AD_DAY} a day, ${DSP_AD_LEN} characters each, signed with your nation’s name. Anyone can hide an advertisement on their own device.</p>${n?`<p class="help-go"><button class="linkish small" data-act="go" data-v="dispatch">Read the Dispatch →</button></p>`:''}`});
 /* ───────── Round 10, A: rivers and lakes ─────────
@@ -24056,7 +24056,7 @@ function ldrGovSection(n){
   return `<section class="section ldr-gov"><h2 class="h2">Leadership</h2>
     <p class="ldr-gov-p">${g.length?`As ${esc(theName(n))}, your nation counts as ${list(ldrNames(g).map(x=>'<b>'+esc(x)+'</b>'))}, so it may build the ${esc(list(ok))}.`:`${esc(cap1(theName(n)))} belongs to no leadership group at present, so it may build none of the ${Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].lead).length} leadership buildings.`}</p>
     ${dorm.length?`<p class="ldr-gov-p"><b class="ldr-dorm">Dormant under your new government:</b> the ${esc(list(dorm))}. ${dorm.length===1?'It works':'They work'} again if your government returns.</p>`:''}
-    <p class="hint">The groups follow your type of state, which Settings and some issues change, and your freedoms. <button class="linkish small" data-act="ldr-help">How leadership buildings work</button></p></section>`;
+    <p class="hint">The groups follow your type of state, which Settings and some edicts change, and your freedoms. <button class="linkish small" data-act="ldr-help">How leadership buildings work</button></p></section>`;
 }
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!old||!old.s||!Array.isArray(n.cities))return [];
@@ -24071,7 +24071,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
 /* ── How to play ── */
 HELP_EXT.push({k:'leadbld',t:'Leadership buildings',body:n=>{
   const g=n?ldrOf(n):[];
-  return `<p>Twelve buildings belong to a kind of government. A nation’s leadership groups follow its type of state, set in Settings and changed by some issues, and its freedoms. A nation can belong to several groups, or to none.${n?` Right now ${esc(n.name)} counts as ${g.length?list(ldrNames(g).map(esc)):'none of them'}.`:''}</p>
+  return `<p>Twelve buildings belong to a kind of government. A nation’s leadership groups follow its type of state, set in Settings and changed by some edicts, and its freedoms. A nation can belong to several groups, or to none.${n?` Right now ${esc(n.name)} counts as ${g.length?list(ldrNames(g).map(esc)):'none of them'}.`:''}</p>
     <ul>${LDR.map(G=>`<li><b>${esc(G.n)}</b>: ${esc(G.who)}. ${esc(cap1(list(Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].lead===G.k).map(k=>BUILDINGS[k].n+' ('+ldrLow(BUILDINGS[k].d.replace(/\.$/,''))+')'))))}.</li>`).join('')}</ul>
     <p>The catalogue tags each one, such as “Crown only”. Most are one per nation. If your government changes and you leave a group, its buildings are never lost: they fall dormant, keep their block, give nothing, and work again the moment you return. A captured one works only if its new holder belongs to the group. Stolen plans cannot unlock them.</p>`;}});
 HELP_EXT.push({k:'giants',t:'Beyond a billion',body:n=>`<p>Above a billion people, land alone cannot hold a nation. Vertical Farms, Arcologies, Orbital Habitats and the Orbital Elevator add room for billions more, counted with your science and health like the rest of your capacity. Fusion Plants and Hyperloop Terminals keep them supplied, and the Lunar Colony, the last wonder, opens the Moon.</p>
@@ -28207,7 +28207,7 @@ function blkAchParts(x){
 function blkHelp(){
   const at=b=>cpFmt(BLK_NEED[b]),iss=ISSUES.filter(i=>!i.fo&&!/\{/.test(i.t)&&i.o.some(o=>o.e&&o.e.blk)).map(i=>'‘'+i.t+'’').slice(0,3);
   return `Every city has its own population: your cities hold the share of your people that lives in towns and cities, the capital the largest part and the others by the land and yields around them, their buildings (housing, a harbour, a market or a university draw people most), a coast or a river, and their age. The rest live in the countryside.</p>
-      <p>A city has a building block for each building, and its blocks grow with its own population: a capital always has at least ${BLK_CAP0} and a new city ${BLK_CITY0}, and each block beyond needs about ${BLK_R} times as many people as the one before: ${BLK_CAP0+1} blocks at ${at(BLK_CAP0+1)} people, 10 at ${at(10)}, 14 at ${at(14)}, 20 at ${at(20)}, and the most a city can have, ${BLK_MAX}, at ${at(BLK_MAX)}. Some rare issues add or take away blocks for good${iss.length?`, such as ${list(iss)}`:''}, either for every city (new ones included) or for the capital alone, up to +${BLK_HI} or down to −${-BLK_LO} each. A city with more buildings than blocks, after its people leave or a decision takes blocks away, keeps every building but can’t start another until it has room again.</p>
+      <p>A city has a building block for each building, and its blocks grow with its own population: a capital always has at least ${BLK_CAP0} and a new city ${BLK_CITY0}, and each block beyond needs about ${BLK_R} times as many people as the one before: ${BLK_CAP0+1} blocks at ${at(BLK_CAP0+1)} people, 10 at ${at(10)}, 14 at ${at(14)}, 20 at ${at(20)}, and the most a city can have, ${BLK_MAX}, at ${at(BLK_MAX)}. Some rare edicts add or take away blocks for good${iss.length?`, such as ${list(iss)}`:''}, either for every city (new ones included) or for the capital alone, up to +${BLK_HI} or down to −${-BLK_LO} each. A city with more buildings than blocks, after its people leave or a decision takes blocks away, keeps every building but can’t start another until it has room again.</p>
       <details class="blk-help"><summary>Blocks by population</summary><div class="blk-tbl">${Array.from({length:BLK_MAX-BLK_CITY0},(_,j)=>j+BLK_CITY0+1).map(b=>`<span><b>${b}</b> ${at(b)}</span>`).join('')}</div></details><p>`;
 }
 
@@ -28984,7 +28984,7 @@ function fkGuide(C){
     try{if(typeof flAlive==='function'){let best=null;const D0=flDist(T,mi),rg0=flRange(n);for(const s of flAlive(now)){if(!(D0[s.c]>=0&&D0[s.c]<=rg0))continue;if(best&&D0[s.c]>=best.P.d)continue;const P=flPlan(n,s,now);if(P.why)continue;if(!best||P.d<best.P.d)best={s,P};}
       if(best){const K=flKindOf(best.s);out.push({k:'fleet',p:3,bank:'gFleet',ex:{KA:K.a,KAc:fkCap(K.a),PLACE:placePhrase(best.s.c),D:String(best.P.d)},go:{act:'fl-map',k:best.s.key,l:'Show on the map'},start:best.s.b,key:best.s.key});}}}catch(e){}
   }
-  try{const old=(syncInbox(n,now).inbox||[]).filter(e=>now-e.at>DAY).sort((a,b)=>a.at-b.at)[0];if(old){const is=ISSUE_BY_ID[old.id];if(is)out.push({k:'issue',p:5,bank:'gIssue',ex:{T:fkTitle(is,n)},go:{act:'open',id:old.id,l:'Read the issue'},start:old.at+DAY,key:old.id});}}catch(e){}
+  try{const old=(syncInbox(n,now).inbox||[]).filter(e=>now-e.at>DAY).sort((a,b)=>a.at-b.at)[0];if(old){const is=ISSUE_BY_ID[old.id];if(is)out.push({k:'issue',p:5,bank:'gIssue',ex:{T:fkTitle(is,n)},go:{act:'open',id:old.id,l:'Read the edict'},start:old.at+DAY,key:old.id});}}catch(e){}
   try{const st=asmState(now);if(st&&st.cur&&asmMemberAt(n,now)&&st.t1-now<12*FK_HR){const a=asmA(n),voted=a&&a.v&&a.v.some(v=>v.c===st.c&&v.k===st.cur.k);if(!voted)out.push({k:'asm',p:4,bank:'gAsm',ex:{AT:st.cur.ti,WHEN:fmtDur(st.t1-now)},go:{act:'go',v:'assembly',l:'The Assembly'},start:st.t1-12*FK_HR});}}catch(e){}
   out.sort((a,b)=>b.p-a.p||(a.k<b.k?-1:1));
   for(const g of out.slice(0,2)){
@@ -29307,9 +29307,9 @@ NATION_SECTIONS.push((x,now)=>{
   return `<section class="section fk-teaser">${FK_SPRITE}<div class="fk-teaser-h"><h2 class="h2">What people are saying</h2><button class="linkish" data-act="go" data-v="flock">Open Flock →</button></div><div id="fk-teaser-body">${body||'<p class="hint">Listening in…</p>'}</div></section>`;
 });
 /* ── How to play ── */
-HELP_EXT.push({k:'flock',t:'Flock',body:n=>`<p><b>Flock</b> is the platform most citizens use, and the page of that name is its timeline. Citizens, your ministers, your own head of government, the national ${esc(n&&n.animal?n.animal:'animal')}’s fan club and the Daily Dispatch post about what is really happening: the issues you decide, the stats that move, the buildings that open in your cities, the weather over them, wars, trade, the Assembly, fleeting finds and space. Nobody talks about a building your city does not have.</p>
+HELP_EXT.push({k:'flock',t:'Flock',body:n=>`<p><b>Flock</b> is the platform most citizens use, and the page of that name is its timeline. Citizens, your ministers, your own head of government, the national ${esc(n&&n.animal?n.animal:'animal')}’s fan club and the Daily Dispatch post about what is really happening: the edicts you decide, the stats that move, the buildings that open in your cities, the weather over them, wars, trade, the Assembly, fleeting finds and space. Nobody talks about a building your city does not have.</p>
 <p><b>Who posts.</b> Every nation has thirty citizens of its own, with names in the flavour of its region and language, homes in its real cities, jobs and temperaments: grumblers, boosters, wits, experts, a conspiracy uncle, a gossip and a local reporter. The first seven post the most, so you will get to know them. Ministers post as themselves, and only while they hold office.</p>
-<p><b>When.</b> Within minutes of a decision, several people react: the reporter quotes the new law, the minister defends it, and others cheer, complain or make jokes. Bigger effects get more reactions. When nothing much happens, people still talk, just less; busy days and big nations are louder. About one post in ten, while it is true, is a citizen’s tip that points somewhere useful: food running short, land credits unspent, an issue left waiting a day, a vote about to close, a fleeting find in reach, a city with free building ${typeof blkOf==='function'?'blocks':'plots'}, idle explorers, tired troops at war or a sabotaged trade route.</p>
+<p><b>When.</b> Within minutes of a decision, several people react: the reporter quotes the new law, the minister defends it, and others cheer, complain or make jokes. Bigger effects get more reactions. When nothing much happens, people still talk, just less; busy days and big nations are louder. About one post in ten, while it is true, is a citizen’s tip that points somewhere useful: food running short, land credits unspent, an edict left waiting a day, a vote about to close, a fleeting find in reach, a city with free building ${typeof blkOf==='function'?'blocks':'plots'}, idle explorers, tired troops at war or a sabotaged trade route.</p>
 <p><b>Nation, Region and All.</b> The switch at the top chooses whose peeps you see: your nation’s, the rest of ${esc(REG.the)} (other players’ citizens and leaders, the computer nations’ governments, the Assembly and the Dispatch), or both, with a badge on each peep showing where it comes from. Trending follows the same choice, and selecting a trend filters the timeline.</p>
 <p><b>Your voice.</b> You may peep as your head of government, up to ${FK_DAYMAX} times a day and ${FK_LEN} characters each. Citizens answer, warmly or not, depending on your government’s approval and what you said, and other players see your peeps in their region feed. Likes, repeeps and follows are kept on this device only, for fun.</p>
 <p><b>Everyone sees the same feed.</b> Peeps are worked out from the region’s records and the clock, so they stay put when you reload and other players see the same ones. The last two days show first; older peeps, back to a week, come with “Show older peeps”.</p>`});
@@ -29416,7 +29416,7 @@ function tutNewCard(n){
   const bt=tutCall(()=>btReady(n),false),it=[[bt?'space':'help',bt?'belt':'',bt?'':'help-belt','The asteroid belt','A five-month voyage from Mars, then mining, claims and platinum rushes.'],
     ['explore','','','Fleeting finds','Shipwrecks, whales and fairs that last a few hours; the first five parties share them.'],
     ['cities','','','Cities with their own people','Every city has a population, and building blocks that grow with it.'],
-    ['issues','','','More than 250 new issues','On government, rights, energy, the seasons, space, trade, the press, faith and stranger things.'],
+    ['issues','','','More than 250 new edicts','On government, rights, energy, the seasons, space, trade, the press, faith and stranger things.'],
     ['help','','help-tut','Next steps and space guides','A land credit for every tutorial step, a second checklist on this page, and guides that open on the Moon, Mars and in the belt.']];
   const soc=tutSoc();if(soc)it.push([soc.id,'','',soc.name,'Hear what your people are saying.']);
   return `<section class="tut-new" aria-labelledby="tut-new-h"><div class="tut-new-h"><div><p class="eyebrow">What’s new in Version ${TUT_V}</p><h2 class="stp-t" id="tut-new-h" tabindex="-1">Since you last played</h2></div><button class="linkish small" data-act="tut-new-x" aria-label="Dismiss what’s new">Dismiss</button></div>
@@ -29752,7 +29752,7 @@ const NAV_GROUPS=[
   {k:'other',l:'Other pages',v:[]},
   {k:'opts',l:'Options',v:['customise','settings','help']}];
 const NAV_LABELS={},NAV_PARENT={visit:'region',explore:'map',atlas:'map'},NAV_TABS=['nation','issues','map','region'];
-const NAV_WORDS={nation:'overview home flag factbook',issues:'decisions desk cabinet office',government:'cabinet ministers budget laws policies treasury',
+const NAV_WORDS={nation:'overview home flag factbook',issues:'issues decisions desk cabinet office',government:'cabinet ministers budget laws policies treasury',
   cities:'buildings towns blocks works',stats:'statistics figures economy bureau',census:'rankings scales',map:'land territory claims credits expeditions atlas',
   space:'moon mars asteroid belt colony starport',region:'nations neighbours visit',diplomacy:'alliances allies wars peace',trade:'resources deals goods food timber iron oil',
   intel:'spies covert operations missions',assembly:'votes resolutions delegate',games:'sport events medals',world:'regions move',
@@ -30802,7 +30802,7 @@ HELP_EXT.push({k:'provinces',t:'Provinces and states',body:n=>{const T2=n?prvT2(
   return `<p>Any player nation may divide itself into provinces, or states, counties, cantons, prefectures, departments, oblasts, shires, duchies or lands. It is off until you switch it on in <button type="button" class="linkish" data-act="prv-cz">Customise</button>, where you also choose the word. Switched on, ${esc(prvLow(n&&n.prov?T2:'they'))} get a page of their own in the menu, under Your nation. Switching off hides them and keeps everything.</p>
   <p><b>Borders.</b> Every hex you hold belongs to the ${esc(t1)} whose seat is nearest through your own land, unless you move it by hand. A capital ${esc(t1)} is made round your capital, and a second round your second city if you have one. You may have one for every ${PRV_PER} hexes you hold (up to ${PRV_MAXL}), each with at least ${PRV_MIN} hexes, and each must stay in one piece: a move that would cut one in two is refused. New land joins the nearest; lost land leaves; a seat lost in war moves to the nearest hex still held.</p>
   <p><b>People.</b> Each ${esc(t1)} counts the people of its cities, and a share of the countryside by its hexes and what they yield, so together they add up to the nation exactly.</p>
-  <p><b>Governors, councils and autonomy.</b> Each ${esc(t1)} has a governor with two traits (a Builder speeds construction, a Farmer adds food from its land, an Iron Fist cuts crime and costs happiness, and so on), and may have a council of a Treasurer, a Constable and a Planner. Their effects reach the nation in proportion to the ${esc(t1)}’s share of the people, and all together never move a census figure by more than 2 points. More autonomy brings local happiness and civil rights but costs economy and building speed. Loyalty drifts with autonomy, traits and how the ${esc(t1)} is doing; a disloyal governor’s traits count half. Some issues name a ${esc(t1)} and its governor, and can sack them, test their loyalty or change their autonomy.</p>
+  <p><b>Governors, councils and autonomy.</b> Each ${esc(t1)} has a governor with two traits (a Builder speeds construction, a Farmer adds food from its land, an Iron Fist cuts crime and costs happiness, and so on), and may have a council of a Treasurer, a Constable and a Planner. Their effects reach the nation in proportion to the ${esc(t1)}’s share of the people, and all together never move a census figure by more than 2 points. More autonomy brings local happiness and civil rights but costs economy and building speed. Loyalty drifts with autonomy, traits and how the ${esc(t1)} is doing; a disloyal governor’s traits count half. Some edicts name a ${esc(t1)} and its governor, and can sack them, test their loyalty or change their autonomy.</p>
   <p><b>Flags and arms.</b> Each ${esc(t1)} flies a variant of your own flag or bears a variant of your arms until you design its own from the same patterns, emblems, shields and charges you hold.</p>
   <p><b>On the map.</b> Fine dashed lines mark the borders from mid zoom, and names appear closer in. The Provinces lens colours every player’s ${esc(t2)} in tints of its colour; the tile inspector and the tips name the ${esc(t1)}, its people and its governor.</p>`;}});
 
@@ -31358,7 +31358,7 @@ function cvLeader(n,now){
         <div><dt>Approval</dt><dd>${appr}% <span class="cv-gauge cv-${ak}" role="img" aria-label="Approval ${appr} of 100"><i style="width:${appr}%"></i></span></dd></div>
       </dl>
       ${age>=SUCCESSION_AGE?'<p class="cv-succ"><span class="chip">Succession</span> The question of who comes next is in the air.</p>':''}
-      <p class="hint cv-lead-note">Leaders grow a year older every two days. From ${SUCCESSION_AGE}, issues about the succession start to arrive, and at ${RETIRE_LEADER} the leader retires.</p>
+      <p class="hint cv-lead-note">Leaders grow a year older every two days. From ${SUCCESSION_AGE}, edicts about the succession start to arrive, and at ${RETIRE_LEADER} the leader retires.</p>
     </div>
   </article>`;
 }
@@ -31376,7 +31376,7 @@ function cvSummary(n,cab){
   <details class="loy-note cv-how" id="cv-how"${S.cvHow?' open':''}><summary><span class="cv-how-h">How loyalty works</span><span class="cv-tally">${tally}</span></summary>
     <div class="cv-how-b"><ol class="cv-scale" aria-label="Loyalty bands">
       <li class="cv-dev"><i class="cv-dot"></i><b>Devoted</b> 70 to 100</li><li class="cv-std"><i class="cv-dot"></i><b>Steady</b> 45 to 69</li><li class="cv-rst"><i class="cv-dot"></i><b>Restless</b> 20 to 44</li><li class="cv-plt"><i class="cv-dot"></i><b>Plotting</b> below 20</li></ol>
-    <p>A plotting minister’s skill counts half, and every ${RESIGN_SLOT/3600e3} hours there is a one-in-five chance they resign. Issues and sackings move loyalty. Loyal ministers never fall below 50, and Honest ones never below 30.</p></div>
+    <p>A plotting minister’s skill counts half, and every ${RESIGN_SLOT/3600e3} hours there is a one-in-five chance they resign. Edicts and sackings move loyalty. Loyal ministers never fall below 50, and Honest ones never below 30.</p></div>
   </details>
   ${low.length?`<p class="war-msg cv-plotmsg">${list(low.map(pf=>`<b>${esc(cab[pf].nm)}</b> (${PF[pf][2]})`))} ${low.length===1?'is':'are'} plotting and may resign.</p>`:''}`;
 }
@@ -31636,7 +31636,7 @@ function muLaws(x,now,vis){
   const first=tallyFirst(n,'iss'),dec=n.npc?tot:Math.max(tot,tallyOf(n,'iss'),decisions(n));
   if(!dec&&!pol.length&&!laws.length&&!rep.length&&!cat.length){
     const w=Array.isArray(n.inbox)?n.inbox.length:0;
-    return muEmpty('The first law is yet to be made',vis?`${esc(n.name)} has not yet ruled on an issue.`:`Every issue you decide is filed here by topic, with the laws it made and the statutes in force.${w?` ${w===1?'One issue is':w+' issues are'} waiting on your desk.`:''}`,{g:'gavel',go:vis?null:[['issues','Go to Issues']]});
+    return muEmpty('The first law is yet to be made',vis?`${esc(n.name)} has not yet ruled on an edict.`:`Every edict you decide is filed here by topic, with the laws it made and the statutes in force.${w?` ${w===1?'One edict is':w+' edicts are'} waiting on your desk.`:''}`,{g:'gavel',go:vis?null:[['issues','Go to Edicts']]});
   }
   return `${muFigs([['Decisions',fmt0(dec)],['Laws in force',String(pol.length)],['Repealed by decree',String(tallyOf(n,'log:repeal'))],['Dismissed',String(tallyOf(n,'dismiss'))]])}
   <div class="mu-two">
@@ -32234,7 +32234,7 @@ function allNations(){
 function findNation(id){return allNations().find(x=>x.id===id);}
 
 /* ───────── views ───────── */
-const NAV=[['nation','Nation'],['issues','Issues'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
+const NAV=[['nation','Nation'],['issues','Edicts'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
 
 function modeChip(){
   if(S.mode==='world')return `<p class="mode world"><i></i><span>Connected to ${REGION}. Your nation is visible to other players.</span></p>`;
@@ -32327,11 +32327,11 @@ function factbook(n,now,live,id){
 }
 function legislation(n){
   const items=n.answered.filter(a=>a.o>=0&&a.fx).slice(-8).reverse();
-  return `<section class="section"><h2 class="h2">${n.npc&&!(n.laws&&n.laws.length)?'Notable laws':'Recent legislation'}</h2>${items.length?`<ul class="legis">${items.map(a=>`<li><span class="when">${n.npc&&!a.t?'Standing law':fmtDate(a.t)}</span><span>${esc(cap1(a.fx))}.</span></li>`).join('')}</ul>`:`<div class="empty"><p class="empty-h">No legislation yet</p>${n===S.nation?'<p>Rule on an issue and the outcome is recorded here.</p><div class="empty-act"><button class="btn ghost" data-act="go" data-v="issues">Open your issues</button></div>':`<p>${esc(n.name)} has not ruled on an issue yet.</p>`}</div>`}</section>`;
+  return `<section class="section"><h2 class="h2">${n.npc&&!(n.laws&&n.laws.length)?'Notable laws':'Recent legislation'}</h2>${items.length?`<ul class="legis">${items.map(a=>`<li><span class="when">${n.npc&&!a.t?'Standing law':fmtDate(a.t)}</span><span>${esc(cap1(a.fx))}.</span></li>`).join('')}</ul>`:`<div class="empty"><p class="empty-h">No legislation yet</p>${n===S.nation?'<p>Rule on an edict and the outcome is recorded here.</p><div class="empty-act"><button class="btn ghost" data-act="go" data-v="issues">Open your edicts</button></div>':`<p>${esc(n.name)} has not ruled on an edict yet.</p>`}</div>`}</section>`;
 }
 function nationView(v,now){
   const n=S.nation,cnt=v.inbox.length;
-  return `${cnt?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">Cabinet office</span><span>${cnt===1?'One issue is':cnt+' issues are'} waiting for your decision.</span><span class="notice-go">Open issues →</span></button>`:''}
+  return `${cnt?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">Cabinet office</span><span>${cnt===1?'One edict is':cnt+' edicts are'} waiting for your decision.</span><span class="notice-go">Open edicts →</span></button>`:''}
   ${landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}
   ${firstStepsCard(n)}${hero(n)}
   ${freedoms(n.s)}
@@ -32348,26 +32348,26 @@ function issuesView(v,now){
   const n=S.nation,f=n.freq*60000,full=v.inbox.length>=CAP;
   const freqL=(FREQS.find(x=>x[0]===n.freq)||FREQS[1])[1].toLowerCase();
   const made=decisions(n);
-  const next=full?'':`The next issue arrives in <b data-live="next">${fmtDur(v.issueClock+f-now)}</b>.`;
-  return `<header class="vh"><p class="eyebrow">Cabinet office</p><h1>Issues</h1>
-    <p>${full?'Your desk is full. Answer or dismiss an issue to receive new ones.':next} New issues arrive ${freqL}, and up to ${CAP} can wait on your desk. You can change the pace in Settings.</p></header>
+  const next=full?'':`The next edict arrives in <b data-live="next">${fmtDur(v.issueClock+f-now)}</b>.`;
+  return `<header class="vh"><p class="eyebrow">Cabinet office</p><h1>Edicts</h1>
+    <p>${full?'Your desk is full. Answer or dismiss an edict to receive new ones.':next} New edicts arrive ${freqL}, and up to ${CAP} can wait on your desk. You can change the pace in Settings.</p></header>
   <div class="issue-meta"><span>${made} decision${made===1?'':'s'} made</span><span>${v.inbox.length} of ${CAP} on your desk</span></div>
-  ${v.inbox.length?`<ul class="issue-list">${v.inbox.map(x=>{const is=ISSUE_BY_ID[x.id];return `<li><button class="issue-card" data-act="open" data-id="${x.id}"><span class="form-code">Issue No. ${pad(is.no)} · arrived ${rel(x.at)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</span><span class="issue-title">${esc(fill(is.t,n,x))}</span><span class="issue-lede">${esc(firstSentence(fill(is.q,n,x)))}</span><span class="issue-go">Read the issue →</span></button></li>`;}).join('')}</ul>`
+  ${v.inbox.length?`<ul class="issue-list">${v.inbox.map(x=>{const is=ISSUE_BY_ID[x.id];return `<li><button class="issue-card" data-act="open" data-id="${x.id}"><span class="form-code">Edict No. ${pad(is.no)} · arrived ${rel(x.at)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</span><span class="issue-title">${esc(fill(is.t,n,x))}</span><span class="issue-lede">${esc(firstSentence(fill(is.q,n,x)))}</span><span class="issue-go">Read the edict →</span></button></li>`;}).join('')}</ul>`
   :`<div class="empty"><p class="empty-h">Your desk is clear</p><p>Meanwhile, see how your nation compares with its neighbours.</p><div style="margin-top:14px"><button class="btn ghost" data-act="go" data-v="census">Open the Census</button></div></div>`}`;
 }
 function issueView(v){
   const id=S.openIssue,n=S.nation;
   if(!v.inbox.some(x=>x.id===id)){S.openIssue=null;return issuesView(v,Date.now());}
   const is=ISSUE_BY_ID[id],x=v.inbox.find(e=>e.id===id);
-  return `<button class="back" data-act="close-issue">← All issues</button>
+  return `<button class="back" data-act="close-issue">← All edicts</button>
   <article class="paper">
-    <p class="form-code">Issue No. ${pad(is.no)} · Cabinet Office of ${esc(n.name)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</p>
+    <p class="form-code">Edict No. ${pad(is.no)} · Cabinet Office of ${esc(n.name)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</p>
     <h1 class="h1">${esc(fill(is.t,n,x))}</h1>
-    <h2 class="lbl-h">The issue</h2>
+    <h2 class="lbl-h">The edict</h2>
     <p class="issue-q">${esc(fill(is.q,n,x))}</p>
     <h2 class="lbl-h">The debate</h2>
     <ol class="opts">${is.o.map((o,i)=>`<li class="opt"><span class="opt-n" aria-hidden="true">${i+1}</span><div class="opt-b"><p>${esc(fill(o.t,n,x))}</p><button class="btn" data-act="answer" data-id="${id}" data-o="${i}">Accept position ${i+1}</button></div></li>`).join('')}</ol>
-    <div class="issue-foot"><button class="btn ghost" data-act="dismiss" data-id="${id}">Dismiss issue</button><span class="hint">${cvDismissHint(id)}</span></div>
+    <div class="issue-foot"><button class="btn ghost" data-act="dismiss" data-id="${id}">Dismiss edict</button><span class="hint">${cvDismissHint(id)}</span></div>
   </article>`;
 }
 function resultView(){
@@ -32377,7 +32377,7 @@ function resultView(){
   const fmt=(k,x)=>k==='tax'?x.toFixed(1)+'%':x.toFixed(1);
   return `<article class="paper result">
     ${czStamp(n)}
-    <p class="form-code">Issue No. ${pad(is.no)} · Decision recorded at ${fmtTime(r.t)}</p>
+    <p class="form-code">Edict No. ${pad(is.no)} · Decision recorded at ${fmtTime(r.t)}</p>
     <h1 class="h1">${esc(fill(is.t,n,r.ctx))}</h1>
     <p class="result-fx">Following new legislation in ${esc(n.name)}, ${esc(r.fx)}.</p>
     ${r.catBefore!==r.catAfter?`<p class="reclass">${esc(n.name)} has been reclassified from <b>${esc(r.catBefore)}</b> to <b>${esc(r.catAfter)}</b>.</p>`:''}
@@ -32388,14 +32388,14 @@ function resultView(){
     <h2 class="lbl-h">Census changes</h2>
     ${deltas.length?`<ul class="deltas">${deltas.map(x=>{const g=STATS[x.k].g*Math.sign(x.d);return `<li class="${g>0?'d-up':g<0?'d-down':''}"><span class="d-name">${STATS[x.k].n}</span><span class="d-vals">${fmt(x.k,x.a)} → <span data-count-from="${x.a}" data-count-to="${x.b}" data-count-fmt="${x.k==='tax'?'1%':'1'}">${fmt(x.k,x.b)}</span></span><span class="d-chg ${g>0?'up':g<0?'down':''}">${x.d>0?'▲':'▼'} <span data-count-to="${Math.abs(x.d)}" data-count-fmt="1">${Math.abs(x.d).toFixed(1)}</span></span>${fxBar(x.a,x.b)}</li>`;}).join('')}</ul>`:'<p class="muted" style="margin-bottom:24px">No census figures moved.</p>'}
     ${r.bud&&r.bud.length?`<h2 class="lbl-h">Budget changes</h2><ul class="deltas">${r.bud.map(x=>`<li><span class="d-name">${x.name}</span><span class="d-vals">${x.a.toFixed(1)}% → <span data-count-from="${x.a}" data-count-to="${x.b}" data-count-fmt="1%">${x.b.toFixed(1)}%</span></span><span class="d-chg">${x.b>x.a?'▲':'▼'} <span data-count-to="${Math.abs(x.b-x.a)}" data-count-fmt="1">${Math.abs(x.b-x.a).toFixed(1)}</span></span>${fxBar(x.a,x.b)}</li>`).join('')}</ul>`:''}
-    <div class="row">${v.inbox.length?`<button class="btn" data-act="open" data-id="${v.inbox[0].id}">Next issue</button>`:''}<button class="btn ghost" data-act="go" data-v="issues">All issues</button><button class="btn ghost" data-act="go" data-v="nation">View nation</button></div>
+    <div class="row">${v.inbox.length?`<button class="btn" data-act="open" data-id="${v.inbox[0].id}">Next edict</button>`:''}<button class="btn ghost" data-act="go" data-v="issues">All edicts</button><button class="btn ghost" data-act="go" data-v="nation">View nation</button></div>
   </article>`;
 }
 function govView(now){
   const n=S.nation,g=gdp(n,now),spend=g*n.s.tax/100,b=budgetSorted(n),cur=esc(plural(n.currency));
   const pols=Object.keys(n.policies).filter(k=>POLICIES[k]);
   const max=b[0].pct||1;
-  return `<header class="vh"><p class="eyebrow">Treasury</p><h1>Government</h1><p>Your cabinet, where the money goes, and the laws that define ${esc(theName(n))}. All of them shift with the issues you decide.</p></header>
+  return `<header class="vh"><p class="eyebrow">Treasury</p><h1>Government</h1><p>Your cabinet, where the money goes, and the laws that define ${esc(theName(n))}. All of them shift with the edicts you decide.</p></header>
   <div class="figs">
     <div class="fig"><span class="lbl">Government spending</span><span class="fig-v">${fmtBig(spend)}</span><span class="fig-s">${cur} a year</span></div>
     <div class="fig"><span class="lbl">Income tax</span><span class="fig-v">${Math.round(n.s.tax)}%</span><span class="fig-s">average rate</span></div>
@@ -32405,7 +32405,7 @@ function govView(now){
   <h2 class="h2" style="margin-top:44px">Budget</h2><p class="hint bud-intro">Each department’s share of spending, and what it gets a year, in ${cur}.</p>
   <ul class="bud" aria-label="Budget by department">${b.map(x=>`<li title="${x.name}: ${x.pct.toFixed(1)}%, ${fmtBig(spend*x.pct/100)} ${cur}"><span>${x.name}</span><span class="bar"><i style="width:${(x.pct/max*100).toFixed(1)}%"></i></span><span class="pct">${x.pct.toFixed(1)}%</span><span class="amt">${fmtBig(spend*x.pct/100)}</span></li>`).join('')}</ul>
   <section class="section" id="gov-pols"><h2 class="h2">Policies</h2>${repealIntro(n)}
-  ${pols.length?`<div class="pols">${pols.map(k=>`<div class="pol"><b>${POLICIES[k][0]}</b><span>${POLICIES[k][1]}</span>${repealCtl(k)}</div>`).join('')}</div>`:`<div class="empty"><p class="empty-h">No major policies yet</p><p>Some issues enact or repeal a policy. They will appear here.</p><div class="empty-act"><button class="btn ghost" data-act="go" data-v="issues">Open your issues</button></div></div>`}
+  ${pols.length?`<div class="pols">${pols.map(k=>`<div class="pol"><b>${POLICIES[k][0]}</b><span>${POLICIES[k][1]}</span>${repealCtl(k)}</div>`).join('')}</div>`:`<div class="empty"><p class="empty-h">No major policies yet</p><p>Some edicts enact or repeal a policy. They will appear here.</p><div class="empty-act"><button class="btn ghost" data-act="go" data-v="issues">Open your edicts</button></div></div>`}
   </section>`;
 }
 function statVal(k,x,now){return k==='dev'?devOf(x.id):k==='army'?armyPower(x.n)*10:k==='area'?areaOf(x.id):k==='pop'?popNow(x.n,now):k==='wealth'?avgIncome(x.n,x.id):x.n.s[k];}
@@ -32564,7 +32564,7 @@ function foundView(){
   return `<div class="found">
     <header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator · Region of ${REGION}</span></header>
     <div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>
-      <p class="lede">Name your country, design its flag and set out its founding principles. Then issues start arriving on your desk, and each decision you make reshapes your nation’s freedoms, economy and character.</p><p class="found-how">New to Edictum? <button type="button" class="linkish" data-act="found-help">Read how to play</button></p></div>
+      <p class="lede">Name your country, design its flag and set out its founding principles. Then edicts start arriving on your desk, and each decision you make reshapes your nation’s freedoms, economy and character.</p><p class="found-how">New to Edictum? <button type="button" class="linkish" data-act="found-help">Read how to play</button></p></div>
     ${foundRegionBox()}<div class="found-grid">
       <form class="found-form" id="found-form" novalidate>
         <fieldset class="fs"><legend class="fs-l"><span class="fs-n">I</span>Name</legend>
@@ -32578,7 +32578,7 @@ function foundView(){
         <fieldset class="fs"><legend class="fs-l"><span class="fs-n">II</span>Particulars</legend>${particulars(d,'d')}</fieldset>
         <fieldset class="fs"><legend class="fs-l"><span class="fs-n">III</span>Flag</legend>${flagDesigner(d.flag,'d')}</fieldset>
         <fieldset class="fs"><legend class="fs-l"><span class="fs-n">IV</span>Founding principles</legend>
-          <p class="muted" style="margin-bottom:12px">Your answers set your starting freedoms. Issues will move them from there.</p>
+          <p class="muted" style="margin-bottom:12px">Your answers set your starting freedoms. Edicts will move them from there.</p>
           <div class="qs">${QUESTIONS.map((q,i)=>`<div class="q"><p>${q.q}</p><div class="seg" role="radiogroup" aria-label="${esc(q.q)}">${['Disagree','Unsure','Agree'].map((l,j)=>`<button type="button" id="q${i}-${j}" role="radio" aria-checked="${d.answers[i]===j}" class="seg-b${d.answers[i]===j?' on':''}" data-act="answer-q" data-i="${i}" data-j="${j}">${l}</button>`).join('')}</div></div>`).join('')}</div>
           <p class="q-result">Your nation would be classed as: <b>${esc(cat)}</b>.</p>
         </fieldset>
@@ -32590,7 +32590,7 @@ function foundView(){
           <p class="loc-status" id="found-loc">${foundLocHTML()}</p>
           <button type="button" class="btn ghost" data-act="found-suggest" style="margin-top:10px">Pick a spot for me</button>
         </fieldset>
-        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"><span>Found <span id="found-name">${esc(fullName({pretitle:d.pretitle,name:d.name.trim()||'your nation'}).replace(/^The /,'the '))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two issues will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of issue you get.</p></div>
+        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"><span>Found <span id="found-name">${esc(fullName({pretitle:d.pretitle,name:d.name.trim()||'your nation'}).replace(/^The /,'the '))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two edicts will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of edict you get.</p></div>
       </form>
       <aside class="found-preview" id="found-preview">${previewCard(d)}</aside>
     </div>
@@ -32605,7 +32605,7 @@ function settingsView(){
   const mc=safeColor(st.mapc,'')||mapColor(st.flag);
   const theme=themePref();
   const topicRows=ISSUE_TOPICS.map(([k,l])=>{const cur=st.topics[k]||0,cnt=ISSUES.filter(i=>i.c===k).length;
-    return `<div class="topic-row"><span class="topic-n" id="tp-${k}">${l}<span class="topic-c">${cnt} issues</span></span><div class="seg" role="group" aria-labelledby="tp-${k}">${[[-1,'Fewer'],[0,'Normal'],[1,'More']].map(([v,t])=>`<button type="button" class="seg-b${cur===v?' on':''}" data-act="topic" data-k="${k}" data-v="${v}" aria-pressed="${cur===v}">${t}</button>`).join('')}</div></div>`;}).join('');
+    return `<div class="topic-row"><span class="topic-n" id="tp-${k}">${l}<span class="topic-c">${cnt} edicts</span></span><div class="seg" role="group" aria-labelledby="tp-${k}">${[[-1,'Fewer'],[0,'Normal'],[1,'More']].map(([v,t])=>`<button type="button" class="seg-b${cur===v?' on':''}" data-act="topic" data-k="${k}" data-v="${v}" aria-pressed="${cur===v}">${t}</button>`).join('')}</div></div>`;}).join('');
   return `<header class="vh"><p class="eyebrow">Office of the ${esc(n.leader)}</p><h1>Settings</h1><p>The name ${esc(n.name)} is permanent. You can change everything else here. Other players see your particulars, culture, flag and map colour.</p></header>
   <form id="settings-form" novalidate>
     <fieldset class="fs"><legend class="fs-l">Particulars</legend>
@@ -32616,7 +32616,7 @@ function settingsView(){
       ${particulars(st,'s',true)}
     </fieldset>
     <fieldset class="fs"><legend class="fs-l">Culture</legend>
-      <p class="hint fs-hint">All optional. Your choices show on your nation page, and some issues mention your national sport, dish and language.</p>
+      <p class="hint fs-hint">All optional. Your choices show on your nation page, and some edicts mention your national sport, dish and language.</p>
       <div class="fields">
         ${f('lang','National language',30,'e.g. '+n.demonym)}
         ${f('faith','Main religion',50,'e.g. the Church of the Sacred Otter')}
@@ -32633,10 +32633,10 @@ function settingsView(){
       <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
       <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}</div>
     </fieldset>
-    <fieldset class="fs"><legend class="fs-l">Issues</legend>
-      <div class="fields"><div class="field"><label for="s-freq">How often new issues arrive</label><select class="input" id="s-freq" data-bind="s.freq">${FREQS.map(([m,l])=>`<option value="${m}"${String(m)===st.freq?' selected':''}>${l}</option>`).join('')}</select></div></div>
+    <fieldset class="fs"><legend class="fs-l">Edicts</legend>
+      <div class="fields"><div class="field"><label for="s-freq">How often new edicts arrive</label><select class="input" id="s-freq" data-bind="s.freq">${FREQS.map(([m,l])=>`<option value="${m}"${String(m)===st.freq?' selected':''}>${l}</option>`).join('')}</select></div></div>
       <h3 class="sub-h">Topics</h3>
-      <p class="hint fs-hint">Choose which kinds of issue reach your desk more or less often. Issues you already have are not affected.</p>
+      <p class="hint fs-hint">Choose which kinds of edict reach your desk more or less often. Edicts you already have are not affected.</p>
       <div class="topic-list">${topicRows}</div>
     </fieldset>
     <div class="save-bar${settingsDirty()?' is-dirty':''}"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="reset-settings">Discard changes</button><span class="hint" id="s-dirty">${settingsDirty()?'You have unsaved changes.':''}</span></div>
@@ -32687,8 +32687,10 @@ function toast(msg){
   TOASTQ.q.push(msg);if(TOASTQ.q.length>5)TOASTQ.q.splice(0,TOASTQ.q.length-5);
   toastNext();
 }
+/* the address shows a page's player-facing name where it differs from its internal one (#edicts, not #issues) */
+const VIEW_HASH={issues:'edicts'},HASH_VIEW={edicts:'issues'};
 function go(v){
-  try{if(!S.noPush&&(location.hash||'').slice(1)!==v)history.pushState(null,'','#'+v);}catch(e){}S.noPush=false;
+  try{const hv=VIEW_HASH[v]||v;if(!S.noPush&&(location.hash||'').slice(1)!==hv)history.pushState(null,'','#'+hv);}catch(e){}S.noPush=false;
   S.view=v;S.atlasPlay=false;if(v!=='explore')S.siteEdit=null;S.openIssue=null;S.result=null;S.confirmDissolve=false;S.mapMsg='';S.warMsg='';S.confirmWar=null;S.mapTarget=null;S.confirmLeave=false;S.alMsg='';S.tradeMsg='';S.cityMsg='';S.confirmDemo=null;S.cabPick=null;S.cabMsg='';S.gamesMsg='';S.mapClaim=null;S.msgErr='';if(v==='stats'&&!S.statsKeep){S.statsFor=null;S.statsTab='overview';}S.statsKeep=false;S.loreEdit=false;
   if(v==='settings'&&(!S.settings||!settingsDirty()))S.settings=settingsFrom(S.nation);
   render();window.scrollTo(0,0);
@@ -32747,7 +32749,7 @@ function dismiss(id){
   if(n.inbox.length>=CAP)n.issueClock=now;
   n.inbox=n.inbox.filter(x=>x.id!==id);
   n.answered.push({id,o:-1,t:now,fx:''});n.answered=n.answered.slice(-80);
-  commit(n);S.openIssue=null;render();window.scrollTo(0,0);toast('Issue dismissed.');
+  commit(n);S.openIssue=null;render();window.scrollTo(0,0);toast('Edict dismissed.');
 }
 function saveSettings(){
   const st=S.settings,now=Date.now();
@@ -33229,13 +33231,13 @@ function start(data){
     S.censusKey=data.censusKey||'happy';S.settings=data.settings||null;
     S.mapViews=data.mapViews||{};S.mapSel=data.mapSel==null?null:data.mapSel;S.mapPick=data.mapPick==null?null:data.mapPick;
   }else{
-    const h=(location.hash||'').slice(1);
+    const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;
     if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help'].concat(EXT_PAGES).includes(h))S.view=h;
   }
   render();
   connect();
   setInterval(tick,10000);
-  window.addEventListener('popstate',()=>{const h=(location.hash||'').slice(1);if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
+  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
 }
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}

@@ -50,6 +50,12 @@ const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].ma
 check('a second post within 20 seconds waits, and the player is told', await until(async () => /every 20 seconds/.test(await toasts(A)), 40000) && (await A.inputValue('#rmb-text')) === 'Too soon');
 await A.fill('#rmb-text', '');
 
+// the decisions page is called Edicts, at #edicts; an old #issues link still opens it
+await nav(A, 'issues');
+check('the Edicts page is at #edicts', /#edicts$/.test(A.url()) && (await text(A, 'main h1, .vh h1')) === 'Edicts' && /Edict No\./.test(await text(A, '.issue-list')));
+await A.goto(BASE + '/#issues'); await ready(A);
+check('an old #issues link opens it too', await until(async () => (await text(A, '.vh h1')) === 'Edicts'));
+
 /* ── 2b. other regions are not downloaded, but are counted and listed ──── */
 const R = await player('R');
 await open(R);
