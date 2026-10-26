@@ -16,6 +16,8 @@
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
                             rewritten only when that data changes (or every SPACE_BEAT while playing).
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
+     support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
+                            paces them.
    A nation save writes nations, summaries and (when needed) space in one batch; the rules check that
    they agree. */
 (function () {
@@ -32,6 +34,9 @@
   var SPACE_MIN = 12000;                 // and a changed one at most this often (the rules allow one per 10 s)
   var RETRY_MS = 1500;                   // wait before trying a refused nation write once more
   var BOOT_AT = Date.now();
+  var SUPPORT_KEEP = 90 * 86400000;      // a closed support ticket is deleted this long after (Firestore TTL)
+  var LS_SUP = 'edictum.support';        // set while this browser has sent a ticket that may get an answer
+  var LS_SUP_SEEN = 'edictum.support.seen'; // the time of the last answer the player was told about
   var ERR = {
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
@@ -212,6 +217,32 @@
     return b.commit().then(function () { return ref.id; }, function (e) { throw mapError(e); });
   }
   function collectionGroupApi(name) { return Object.freeze(queryApi(A.fs.collectionGroup(String(name)))); }
+  /* ───────── support tickets ───────── */
+  function ticketOf(s) {
+    var d = s.data({ serverTimestamps: 'estimate' }) || {};
+    return { id: s.id, by: str(d.by, 128), topic: str(d.topic, 20), x: str(d.x, 2000), t: millis(d.t), st: d.st === 'closed' ? 'closed' : 'open',
+      name: str(d.name, 160), reg: str(d.reg, 40), email: str(d.email, 200), reply: str(d.reply, 2000), ct: millis(d.ct) };
+  }
+  /* the player has seen these: remember the latest answer, and stop looking once nothing is open */
+  function supportSeen(list) {
+    var last = num(Number(L.get(LS_SUP_SEEN))), open = false;
+    list.forEach(function (t) { if (t.st === 'closed') last = Math.max(last, t.ct); else open = true; });
+    L.set(LS_SUP_SEEN, last || null);
+    if (!open) L.set(LS_SUP, null);
+  }
+  /* a while after the page loads, tell a player who is waiting for an answer that it has come */
+  function supportCheck() {
+    var u = A.auth && A.auth.currentUser;
+    if (!L.get(LS_SUP) || !u || A.leaving) return;
+    var seen = num(Number(L.get(LS_SUP_SEEN)));
+    A.fs.collection('support').where('by', '==', u.uid).limit(50).get().then(function (qs) {
+      var list = qs.docs.map(ticketOf), fresh = list.filter(function (t) { return t.st === 'closed' && t.ct > seen; });
+      if (fresh.length) toast(fresh.length > 1 ? 'The Edictum team has answered ' + fresh.length + ' of your support tickets. The answers are on the Help page.'
+        : 'The Edictum team has answered your support ticket. The answer is on the Help page.');
+      supportSeen(list);
+    }, function () {});
+  }
+
   var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post });
   var userApi = Object.freeze({
     id: function () { var u = A.auth && A.auth.currentUser; return Promise.resolve(u ? u.uid : null); },
@@ -226,11 +257,37 @@
   });
   /* the game opens the report dialog: open({kind:'post'|'nation', target:<uid>, post, reg, name, x}) */
   var reportApi = Object.freeze({ open: function (info) { if (isObj(info)) open('report', info); } });
+  /* support tickets (see firestore.rules): the player opens one with open({name, reg, onSent}) and reads
+     their own with mine(); admins list, answer and delete them */
+  var supportApi = Object.freeze({
+    open: function (info) { open('support', isObj(info) ? info : {}); },
+    mine: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u) return Promise.resolve([]);
+      return A.fs.collection('support').where('by', '==', u.uid).limit(50).get().then(function (qs) {
+        var list = qs.docs.map(ticketOf).sort(function (a, b) { return b.t - a.t; });
+        supportSeen(list);
+        return list;
+      }, function (e) { throw mapError(e); });
+    },
+    list: function () {
+      var c = A.fs.collection('support');
+      return Promise.all([c.where('st', '==', 'open').limit(300).get(), c.orderBy('ct', 'desc').limit(30).get()]).then(function (r) {
+        return { open: r[0].docs.map(ticketOf).sort(function (a, b) { return a.t - b.t; }), closed: r[1].docs.map(ticketOf) };
+      }, function (e) { throw mapError(e); });
+    },
+    answer: function (id, reply) {
+      var u = A.auth && A.auth.currentUser, d = { st: 'closed', ct: serverTime(), rby: u ? u.uid : '', exp: A.fb.firestore.Timestamp.fromMillis(Date.now() + SUPPORT_KEEP) };
+      if (typeof reply === 'string' && reply.trim()) d.reply = reply.trim().slice(0, 2000);
+      return A.fs.doc('support/' + str(id, 128)).update(d).then(function () {}, function (e) { throw mapError(e); });
+    },
+    remove: function (id) { return A.fs.doc('support/' + str(id, 128)).delete().then(function () {}, function (e) { throw mapError(e); }); }
+  });
   function apiFor(online) {
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : null;
+        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : null;
       }
     });
   }
@@ -305,10 +362,11 @@
       paint();
     });
     mount();
+    setTimeout(supportCheck, 6000);
   }
 
   /* ───────── the account control and its dialog ───────── */
-  var ui = { box: null, btn: null, dlg: null, inn: null, msg: null, view: 'main', busy: '', report: null };
+  var ui = { box: null, btn: null, dlg: null, inn: null, msg: null, view: 'main', busy: '', report: null, support: null };
   var ICON = '<svg class="ed-acct-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="8.2" r="2.9" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.6 15.7c1.3-2.2 3.1-3.3 5.4-3.3s4.1 1.1 5.4 3.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
   var XICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -373,7 +431,7 @@
       if (b && !b.disabled) act(b.getAttribute('data-ed'));
     });
     d.addEventListener('cancel', function (e) { if (ui.busy) e.preventDefault(); });
-    d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; setMsg(''); });
+    d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; ui.support = null; setMsg(''); });
     /* while the dialog is open, keys belong to it, not to the game's shortcuts behind it */
     window.addEventListener('keydown', function (e) { if (d.open) e.stopPropagation(); }, true);
     return d;
@@ -382,6 +440,7 @@
     var d = ensureDialog();
     ui.view = view || 'main';
     ui.report = view === 'report' ? report : null;
+    ui.support = view === 'support' ? report : null;
     setMsg('');
     draw();
     if (!d.open) { try { d.showModal(); } catch (e) { d.setAttribute('open', ''); } }
@@ -414,6 +473,15 @@
         '<label class="ed-lbl2" for="ed-note">Anything else the moderators should know? (optional)</label><textarea class="input" id="ed-note" rows="3" maxlength="300"></textarea>' +
         '<p class="ed-fine">Reports go to the game\'s moderators, not to the player. You can send one every 30 seconds.</p>' +
         row('<button type="button" class="btn" data-ed="report-yes">Send report</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
+    } else if (ui.view === 'support' && ui.support) {
+      h = '<p class="eyebrow">Support</p><h2 class="ed-h" id="ed-dlg-h">Create a support ticket</h2>' +
+        '<fieldset class="ed-reasons"><legend>What is it about?</legend>' + TOPICS.map(function (x, i) {
+          return '<label><input type="radio" name="ed-topic" value="' + x[0] + '"' + (i ? '' : ' checked data-autofocus') + '> ' + esc(x[1]) + '</label>';
+        }).join('') + '</fieldset>' +
+        '<label class="ed-lbl2" for="ed-sup-x">What happened, or what would you like to know?</label><textarea class="input" id="ed-sup-x" rows="6" maxlength="2000"></textarea>' +
+        '<label class="ed-lbl2" for="ed-sup-mail">Email address (optional, if you would like the answer by email too)</label><input class="input" id="ed-sup-mail" type="email" maxlength="200" autocomplete="email">' +
+        '<p class="ed-fine">The answer appears on the Help page. The ticket includes your player ID and your nation\'s name, and only you and the game\'s team can read it. You can send one ticket a minute. <a href="/privacy" target="_blank" rel="noopener">Privacy</a></p>' +
+        row('<button type="button" class="btn" data-ed="support-yes">Send ticket</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
     } else if (ui.view === 'delete') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Delete your nation and account?</h2>' +
         '<p>This deletes ' + (n ? nm + ', with its land, cities and history,' : 'your nation') + ' every post you wrote on the region boards, and your account' + (w.kind === 'google' ? ' (its link to your Google account; your Google account itself stays)' : '') + '. Other players will no longer see any of it.</p>' +
@@ -456,6 +524,7 @@
     if (a === 'delete') { ui.view = 'delete'; setMsg(''); draw(); return; }
     if (a === 'delete-yes') { doDelete(); return; }
     if (a === 'report-yes') { sendReport(); return; }
+    if (a === 'support-yes') { sendTicket(); return; }
   }
 
   /* ───────── reports ───────── */
@@ -482,6 +551,33 @@
     });
   }
 
+  var TOPICS = [['bug', 'Something is broken'], ['account', 'My account or signing in'], ['play', 'A question about playing'], ['other', 'Something else']];
+  function sendTicket() {
+    var s = ui.support, u = A.auth && A.auth.currentUser;
+    if (!s || !u || ui.busy) return;
+    var pick = ui.dlg.querySelector('input[name="ed-topic"]:checked'), x = ui.dlg.querySelector('#ed-sup-x'), m = ui.dlg.querySelector('#ed-sup-mail');
+    var text = x ? x.value.trim() : '', mail = m ? m.value.trim() : '', n = localNation();
+    if (!text) { setMsg('Write a few words about what you need help with.', true); if (x) x.focus(); return; }
+    if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { setMsg('That email address does not look right. Correct it, or leave it empty.', true); m.focus(); return; }
+    var doc = { by: u.uid, topic: pick ? pick.value : 'other', x: text.slice(0, 2000), t: serverTime(), st: 'open' };
+    var name = str(s.name, 160) || (n ? str(n.name, 160) : '');
+    if (name) doc.name = name;
+    if (s.reg) doc.reg = str(s.reg, 40);
+    if (mail) doc.email = mail.slice(0, 200);
+    setBusy('Sending…');
+    var b = A.fs.batch();
+    b.set(A.fs.collection('support').doc(), doc);
+    b.set(A.fs.doc('slimits/' + u.uid), { s: serverTime() });
+    b.commit().then(function () {
+      L.set(LS_SUP, '1');
+      setBusy(''); ui.dlg.close(); toast('Your ticket is with the Edictum team. The answer will appear on the Help page.');
+      if (typeof s.onSent === 'function') { try { s.onSent(); } catch (e) { /* the game's own trouble */ } }
+    }, function (e) {
+      setBusy('');
+      setMsg(e && e.code === 'permission-denied' ? 'You can send one ticket a minute. Try again in a moment.' : 'The ticket could not be sent. Try again in a moment.', true);
+    });
+  }
+
   /* ───────── deleting a nation and account ───────── */
   async function doDelete() {
     var u = A.auth && A.auth.currentUser;
@@ -499,8 +595,14 @@
         qs.docs.slice(i, i + 400).forEach(function (d) { bp.delete(d.ref); });
         await bp.commit();
       }
+      var qt = await within(A.fs.collection('support').where('by', '==', u.uid).get(), 15000);
+      for (var j = 0; j < qt.docs.length; j += 400) {
+        var bt = A.fs.batch();
+        qt.docs.slice(j, j + 400).forEach(function (d) { bt.delete(d.ref); });
+        await bt.commit();
+      }
       var b = A.fs.batch();
-      ['nations/', 'summaries/', 'space/', 'limits/', 'rlimits/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
+      ['nations/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
       await within(b.commit(), 15000);
     } catch (e) {
       A.frozen = false; A.leaving = false; setBusy('');
@@ -509,6 +611,7 @@
     }
     /* the data is gone; now the account. A guest's sign-in may be too old for that: it then simply
        ends, and the empty guest account holds nothing */
+    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null);
     try { await u.delete(); } catch (e) { try { await A.auth.signOut(); } catch (e2) {} }
     leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');
   }
