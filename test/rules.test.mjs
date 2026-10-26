@@ -114,7 +114,7 @@ test("a player cannot write another player's documents", async () => {
   await assertFails(db.doc('nations/bob').delete());
   await assertFails(db.doc('summaries/bob').delete());
   await assertFails(db.doc('space/bob').delete());
-  await assertFails(as('mod', { admin: true }).doc('nations/bob').delete());
+  // (an admin may delete it: see the test on removing nations and banning)
 });
 
 test('a nation must have the stored shape', async () => {
@@ -191,4 +191,85 @@ test('everything else is closed', async () => {
   await assertFails(as('bob').doc('rmb/bob').set({ posts: [] }));
   await assertFails(as('alice').doc('nations/alice/sub/x').set({ a: 1 }));
   await assertFails(anon().doc('nations/bob/sub/x').get());
+});
+
+const report = (db, uid, extra = {}, { rlimits = true } = {}) => {
+  const b = db.batch();
+  b.set(db.collection('reports').doc(), { by: uid, kind: 'post', target: 'bob', post: 'p1', reg: 'meridian', reason: 'content', t: NOW(), x: 'Hello from Bobland', ...extra });
+  if (rlimits) b.set(db.doc('rlimits/' + uid), { r: NOW() });
+  return b.commit();
+};
+
+test('a player reports another player, at most every 30 seconds; only admins read reports', async () => {
+  const db = as('carol');
+  await assertFails(report(as('alice'), 'alice'));                                        // no nation, no reports
+  await assertFails(report(db, 'carol', {}, { rlimits: false }));                         // rlimits/ must come along
+  await assertFails(report(db, 'carol', { by: 'alice' }));                                // reporting as someone else
+  await assertFails(report(db, 'carol', { target: 'carol' }));                            // reporting yourself
+  await assertFails(report(db, 'carol', { reason: 'boredom' }));
+  await assertFails(report(db, 'carol', { kind: 'flag' }));
+  await assertFails(report(db, 'carol', { note: 'x'.repeat(301) }));
+  await assertFails(report(db, 'carol', { extra: 1 }));
+  await assertFails(report(anon(), 'carol'));
+  await assertSucceeds(report(db, 'carol', { note: 'Rude' }));
+  await assertFails(report(db, 'carol', { kind: 'nation', reason: 'name' }));            // too soon
+  await assertFails(db.doc('rlimits/carol').delete());                                    // and the pace cannot be reset
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('rlimits/carol').set({ r: AGO(31000) }));
+  await assertSucceeds(report(db, 'carol', { kind: 'nation', reason: 'name' }));
+  await assertFails(db.collection('reports').get());                                     // players cannot read reports
+  await assertFails(as('bob').collection('reports').get());
+  const mod = as('mod', { admin: true }), list = await assertSucceeds(mod.collection('reports').get());
+  await assertSucceeds(mod.doc('reports/' + list.docs[0].id).delete());
+  await assertFails(db.doc('reports/' + list.docs[1].id).delete());
+});
+
+test('only admins hide nations; everyone reads who is hidden', async () => {
+  const m = { hidden: true, note: 'Offensive name', name: 'Bobland', t: Date.now() };
+  await assertFails(as('alice').doc('mod/bob').set({ ...m, by: 'alice' }));
+  await assertFails(as('bob').doc('mod/bob').delete());
+  const mod = as('mod', { admin: true });
+  await assertFails(mod.doc('mod/bob').set({ ...m, by: 'someone-else' }));
+  await assertFails(mod.doc('mod/bob').set({ ...m, by: 'mod', extra: 1 }));
+  await assertSucceeds(mod.doc('mod/bob').set({ ...m, by: 'mod' }));
+  await assertSucceeds(anon().collection('mod').get());
+  await assertSucceeds(mod.doc('mod/bob').delete());
+});
+
+test('a player deleting their account finds and removes their own posts and limits', async () => {
+  const db = as('bob');
+  const mine = await assertSucceeds(db.collectionGroup('posts').where('a', '==', 'bob').get());
+  if (mine.size !== 1) throw new Error('expected Bob’s one post, found ' + mine.size);
+  await assertSucceeds(db.doc(mine.docs[0].ref.path).delete());
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('limits/bob').set({ p: AGO(1000) }));
+  await assertFails(db.doc('limits/bob').delete());                                       // not while the nation exists
+  await assertFails(as('alice').doc('limits/bob').delete());
+  const b = db.batch();                                                                    // as the account deletion does it
+  for (const c of ['nations', 'summaries', 'space', 'limits', 'rlimits']) b.delete(db.doc(c + '/bob'));
+  await assertSucceeds(b.commit());
+});
+
+test('admins remove nations and ban accounts; a banned account saves, posts and reports nothing', async () => {
+  const mod = as('mod', { admin: true }), ban = { note: 'Spam', name: 'Bobland', t: Date.now(), by: 'mod' };
+  await assertFails(as('alice').doc('bans/bob').set({ ...ban, by: 'alice' }));
+  await assertFails(mod.doc('bans/bob').set({ ...ban, by: 'someone-else' }));
+  await assertFails(mod.doc('bans/bob').set({ ...ban, extra: 1 }));
+  const b = mod.batch();                                                                   // remove Bob's nation, as the portal does
+  for (const c of ['nations', 'summaries', 'space']) b.delete(mod.doc(c + '/bob'));
+  await assertSucceeds(b.commit());
+  await assertSucceeds(mod.doc('mod/bob').set({ hidden: false, removed: Date.now(), note: 'Spam', name: 'Bobland', t: Date.now(), by: 'mod' }));
+  await assertSucceeds(mod.doc('bans/bob').set(ban));
+  await assertSucceeds(as('bob').doc('bans/bob').get());                                   // Bob may read why
+  await assertFails(as('alice').doc('bans/bob').get());                                    // nobody else
+  await assertFails(anon().collection('bans').get());
+  await assertFails(save(as('bob'), 'bob', nation('Bobland Again')));                      // no new nation
+  await assertFails(as('alice').doc('nations/carol').delete());                            // players still cannot remove others
+  await assertSucceeds(mod.doc('bans/bob').delete());                                      // unban
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland Again')));
+});
+
+test('a banned player cannot post or report', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('bans/carol').set({ note: 'x', t: Date.now(), by: 'mod' }));
+  const c = nation('Carolia', { reg: 'frostmarch' });
+  await assertFails(post(as('carol'), 'carol', 'frostmarch', 'Still here'));
+  await assertFails(report(as('carol'), 'carol'));
 });

@@ -211,7 +211,8 @@
     b.set(A.fs.doc('limits/' + u.uid), { p: serverTime() });
     return b.commit().then(function () { return ref.id; }, function (e) { throw mapError(e); });
   }
-  var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, count: count, post: post });
+  function collectionGroupApi(name) { return Object.freeze(queryApi(A.fs.collectionGroup(String(name)))); }
+  var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post });
   var userApi = Object.freeze({
     id: function () { var u = A.auth && A.auth.currentUser; return Promise.resolve(u ? u.uid : null); },
     /* asked once per page load; a fresh token carries an admin claim granted since the last one */
@@ -223,11 +224,13 @@
     },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
+  /* the game opens the report dialog: open({kind:'post'|'nation', target:<uid>, post, reg, name, x}) */
+  var reportApi = Object.freeze({ open: function (info) { if (isObj(info)) open('report', info); } });
   function apiFor(online) {
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'db' ? dbApi : n === 'user' ? userApi : null;
+        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : null;
       }
     });
   }
@@ -305,7 +308,7 @@
   }
 
   /* ───────── the account control and its dialog ───────── */
-  var ui = { box: null, btn: null, dlg: null, inn: null, msg: null, view: 'main', busy: '' };
+  var ui = { box: null, btn: null, dlg: null, inn: null, msg: null, view: 'main', busy: '', report: null };
   var ICON = '<svg class="ed-acct-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="8.2" r="2.9" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.6 15.7c1.3-2.2 3.1-3.3 5.4-3.3s4.1 1.1 5.4 3.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
   var XICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -370,14 +373,15 @@
       if (b && !b.disabled) act(b.getAttribute('data-ed'));
     });
     d.addEventListener('cancel', function (e) { if (ui.busy) e.preventDefault(); });
-    d.addEventListener('close', function () { ui.view = 'main'; setMsg(''); });
+    d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; setMsg(''); });
     /* while the dialog is open, keys belong to it, not to the game's shortcuts behind it */
     window.addEventListener('keydown', function (e) { if (d.open) e.stopPropagation(); }, true);
     return d;
   }
-  function open(view) {
+  function open(view, report) {
     var d = ensureDialog();
     ui.view = view || 'main';
+    ui.report = view === 'report' ? report : null;
     setMsg('');
     draw();
     if (!d.open) { try { d.showModal(); } catch (e) { d.setAttribute('open', ''); } }
@@ -400,6 +404,22 @@
         (n ? '<p>That Google account already plays Edictum. If it has a nation, that nation loads here and the guest nation ' + nm + ' is dissolved, because only this guest sign-in can play it. If it has no nation yet, ' + nm + ' moves into it.</p>'
            : '<p>That Google account already plays Edictum. Switch to it to carry on with its nation here.</p>') +
         row('<button type="button" class="btn" data-ed="switch" data-autofocus>Switch account</button><button type="button" class="btn ghost" data-ed="back">Cancel</button>');
+    } else if (ui.view === 'report' && ui.report) {
+      var r = ui.report, post = r.kind === 'post', reasons = REASONS.filter(function (x) { return post ? x[0] !== 'name' && x[0] !== 'cheating' : true; });
+      h = '<p class="eyebrow">Report</p><h2 class="ed-h" id="ed-dlg-h">' + (post ? 'Report this post?' : 'Report ' + quoted(r.name) + '?') + '</h2>' +
+        (post ? '<blockquote class="ed-quote">' + esc(str(r.x, 400)) + '</blockquote>' : '') +
+        '<fieldset class="ed-reasons"><legend>What is wrong?</legend>' + reasons.map(function (x, i) {
+          return '<label><input type="radio" name="ed-reason" value="' + x[0] + '"' + (i ? '' : ' checked data-autofocus') + '> ' + esc(post && x[0] === 'content' ? 'An offensive post' : x[1]) + '</label>';
+        }).join('') + '</fieldset>' +
+        '<label class="ed-lbl2" for="ed-note">Anything else the moderators should know? (optional)</label><textarea class="input" id="ed-note" rows="3" maxlength="300"></textarea>' +
+        '<p class="ed-fine">Reports go to the game\'s moderators, not to the player. You can send one every 30 seconds.</p>' +
+        row('<button type="button" class="btn" data-ed="report-yes">Send report</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
+    } else if (ui.view === 'delete') {
+      h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Delete your nation and account?</h2>' +
+        '<p>This deletes ' + (n ? nm + ', with its land, cities and history,' : 'your nation') + ' every post you wrote on the region boards, and your account' + (w.kind === 'google' ? ' (its link to your Google account; your Google account itself stays)' : '') + '. Other players will no longer see any of it.</p>' +
+        '<p><b>It cannot be undone.</b> Copies in the game\'s backups are gone within 14 days.</p>' +
+        (w.kind === 'google' ? '<p class="ed-fine">Google may ask you to confirm it is you first.</p>' : '') +
+        row('<button type="button" class="btn danger" data-ed="delete-yes">Delete everything</button><button type="button" class="btn ghost" data-ed="back" data-autofocus>Keep my nation</button>');
     } else if (ui.view === 'signout') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Sign out?</h2><p>' + (n ? nm + ' stays' : 'Your nation stays') + ' with your Google account. This browser starts again as a new guest, and you can sign back in at any time.</p>' +
         row('<button type="button" class="btn" data-ed="signout-yes" data-autofocus>Sign out</button><button type="button" class="btn ghost" data-ed="back">Cancel</button>');
@@ -419,6 +439,8 @@
         h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Playing offline</h2><p>Sign-in is not available right now, so ' + (n ? nm + ' is' : 'your nation is') + ' saved in this browser only. Reload the page when you are back online, and it joins the region again.</p>';
       }
       if (w.uid) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
+      if (w.kind !== 'local') h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
+      h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
     }
     ui.inn.innerHTML = h;
     if (ui.busy) setBusy(ui.busy);
@@ -431,6 +453,64 @@
     if (a === 'switch') { doSwitch(); return; }
     if (a === 'signout') { ui.view = 'signout'; setMsg(''); draw(); return; }
     if (a === 'signout-yes') { doSignOut(); return; }
+    if (a === 'delete') { ui.view = 'delete'; setMsg(''); draw(); return; }
+    if (a === 'delete-yes') { doDelete(); return; }
+    if (a === 'report-yes') { sendReport(); return; }
+  }
+
+  /* ───────── reports ───────── */
+  var REASONS = [['name', 'An offensive nation name, motto or flag'], ['content', 'An offensive description'], ['harassment', 'Harassment or bullying'],
+    ['spam', 'Spam or advertising'], ['cheating', 'Cheating'], ['other', 'Something else']];
+  function sendReport() {
+    var r = ui.report, u = A.auth && A.auth.currentUser;
+    if (!r || !u || ui.busy) return;
+    var pick = ui.dlg.querySelector('input[name="ed-reason"]:checked'), note = ui.dlg.querySelector('#ed-note');
+    var doc = { by: u.uid, kind: r.kind === 'post' ? 'post' : 'nation', target: str(r.target, 128), reg: str(r.reg, 40), reason: pick ? pick.value : 'other', t: serverTime() };
+    if (r.kind === 'post' && r.post) doc.post = str(r.post, 64);
+    if (note && note.value.trim()) doc.note = note.value.trim().slice(0, 300);
+    if (r.name) doc.name = str(r.name, 160);
+    if (r.x) doc.x = str(r.x, 600);
+    setBusy('Sending…');
+    var b = A.fs.batch();
+    b.set(A.fs.collection('reports').doc(), doc);
+    b.set(A.fs.doc('rlimits/' + u.uid), { r: serverTime() });
+    b.commit().then(function () {
+      setBusy(''); ui.dlg.close(); toast('Thank you. The report is with the moderators.');
+    }, function (e) {
+      setBusy('');
+      setMsg(e && e.code === 'permission-denied' ? 'You can send one report every 30 seconds. Try again in a moment.' : 'The report could not be sent. Try again in a moment.', true);
+    });
+  }
+
+  /* ───────── deleting a nation and account ───────── */
+  async function doDelete() {
+    var u = A.auth && A.auth.currentUser;
+    if (!u || ui.busy) return;
+    var google = !u.isAnonymous, last = Date.parse((u.metadata && u.metadata.lastSignInTime) || '') || 0;
+    setBusy('Deleting…');
+    try {
+      /* Google asks for a recent sign-in before an account is deleted: confirm first, while the click
+         still counts as the player's (a pop-up opened later would be blocked) */
+      if (google && Date.now() - last > 4 * 60000) await u.reauthenticateWithPopup(provider());
+      A.frozen = true; A.leaving = true;
+      var qs = await within(A.fs.collectionGroup('posts').where('a', '==', u.uid).get(), 15000);
+      for (var i = 0; i < qs.docs.length; i += 400) {
+        var bp = A.fs.batch();
+        qs.docs.slice(i, i + 400).forEach(function (d) { bp.delete(d.ref); });
+        await bp.commit();
+      }
+      var b = A.fs.batch();
+      ['nations/', 'summaries/', 'space/', 'limits/', 'rlimits/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
+      await within(b.commit(), 15000);
+    } catch (e) {
+      A.frozen = false; A.leaving = false; setBusy('');
+      setMsg(String((e && e.code) || '').indexOf('auth/') === 0 ? authMessage(e) : 'Nothing was deleted: the game could not reach the database. Try again in a moment.', true);
+      return;
+    }
+    /* the data is gone; now the account. A guest's sign-in may be too old for that: it then simply
+       ends, and the empty guest account holds nothing */
+    try { await u.delete(); } catch (e) { try { await A.auth.signOut(); } catch (e2) {} }
+    leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');
   }
 
   /* ───────── Google ───────── */
