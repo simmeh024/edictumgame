@@ -3,11 +3,9 @@
 //   npx firebase emulators:exec --project demo-edictum --only auth,firestore,hosting "node test/e2e.mjs"
 // Covers: two players sharing a region and its message board, a player in another region (not
 // downloaded, but counted and listed on the World page), reloads, the security rules as the game
-// meets them, admin moderation, region steering when a region is full, browser-only mode when Firebase is blocked, export
-// and import, and Google sign-in (linking, switching, signing out) with the Auth emulator's
-// stand-in for Google. Set EDICTUM_FIXTURE=/path/to/a/nation.json to also import a real
-// record exported from the claude.ai version.
-import fs from 'node:fs';
+// meets them, admin moderation, region steering when a region is full, browser-only mode when Firebase is blocked,
+// keeping a founding draft across a region switch, and Google sign-in (linking, switching, signing out) with the
+// Auth emulator's stand-in for Google.
 import path from 'node:path';
 import {
   BASE, OUT, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
@@ -120,7 +118,10 @@ const uidC = await open(C);
 check('with Firebase blocked, use() resolves null', uidC === null);
 await found(C, 'Cornmarsh');
 check('the game plays in this browser only', /Offline/.test(await text(C, '.side-foot .mode')));
-check('the account control offers export and import', /Saved in this browser/.test(await text(C, '.ed-acct-b')));
+check('the account control says the game is offline', /Playing offline/.test(await text(C, '.ed-acct-b')));
+await openAccount(C);
+check('and offers no nation files any more', !(await C.$('[data-ed="export"], [data-ed="import"], .ed-file')));
+await C.keyboard.press('Escape');
 await C.reload(); await ready(C);
 check('the local nation survives a reload', (await sideName(C)) === 'Cornmarsh');
 
@@ -129,44 +130,7 @@ const D0 = await player('D0', { inject: false });
 check('the Hosting emulator’s init.json plus a demo project id reach the emulators', typeof (await open(D0)) === 'string');
 await D0.ctx.close();
 
-/* ── 8. export and import ───────────────────────────────────────────────── */
-await openAccount(A);
-const [dl] = await Promise.all([A.waitForEvent('download'), A.click('[data-ed="export"]')]);
-const file = path.join(OUT, dl.suggestedFilename());
-await dl.saveAs(file);
-const exported = JSON.parse(fs.readFileSync(file, 'utf8'));
-check('Export my nation downloads the nation as JSON', exported.name === 'Aldoria' && /^aldoria-\d{4}-\d\d-\d\d\.edictum\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
-await A.keyboard.press('Escape');
-
-const D = await player('D');
-const uidD = await open(D);
-await openAccount(D);
-const bad = path.join(OUT, 'not-a-nation.json');
-fs.writeFileSync(bad, JSON.stringify({ hello: 'world' }));
-await D.setInputFiles('dialog.ed-dlg .ed-file', bad);
-check('a file with no nation in it is refused before anything changes', await until(async () => /holds no nation/.test(await text(D, '.ed-msg'))));
-const fixture = process.env.EDICTUM_FIXTURE;
-const importFile = fixture && fs.existsSync(fixture) ? fixture : file;
-const importName = JSON.parse(fs.readFileSync(importFile, 'utf8')).name;
-await D.setInputFiles('dialog.ed-dlg .ed-file', importFile);
-await D.waitForSelector('[data-ed="import-yes"]');
-check('the import asks first', (await text(D, '#ed-dlg-h')).includes(importName));
-await Promise.all([D.waitForNavigation(), D.click('[data-ed="import-yes"]')]);
-await ready(D);
-check('after the reload the imported nation is played', await until(async () => (await sideName(D)) === importName));
-check('a message confirms the import', /Imported/.test(await text(D, '.ed-toast')));
-const docD = await until(async () => { const d = await nationDoc(uidD); return d && d.name === importName ? d : null; }, 10000);
-check('the imported nation is saved to the importer’s own nations/<uid>' + (fixture ? ' (real claude.ai record, nested arrays and all)' : ''), !!docD);
-// the game's normaliser refusing a record: what was there before comes back
-const before = await D.evaluate(() => localStorage.getItem('statehood.nation.v1'));
-await D.evaluate(prev => {
-  sessionStorage.setItem('edictum.import', JSON.stringify({ name: 'Nowhere', t: Date.now(), prev, prevBackup: null }));
-  localStorage.setItem('statehood.nation.v1', JSON.stringify({ name: '   ', s: {} }));
-}, before);
-await D.reload(); // the shim sees the founding screen, puts the old record back and reloads once more
-check('a record the game refuses is rolled back, and the player is told', await until(async () => /could not be read/.test(await text(D, '.ed-toast')), 15000) && await until(async () => (await sideName(D)) === importName));
-
-/* ── 9. Google sign-in (Auth emulator) ──────────────────────────────────── */
+/* ── 8. Google sign-in (Auth emulator) ──────────────────────────────────── */
 // a. A guest with a nation links Google: same uid
 await openAccount(A);
 await googlePopup(A, '[data-ed="google"]', 'alice@example.com');
@@ -197,9 +161,6 @@ check('switching asks first', /Switch to that Google account/.test(await text(F,
 await Promise.all([F.waitForNavigation({ timeout: 15000 }), F.click('[data-ed="switch"]')]);
 check('after switching, F plays A’s nation', (await ready(F)) === uidA && await until(async () => (await sideName(F)) === 'Aldoria'));
 check('the guest nation left the region, summary and all', (await restGet('nations/' + uidF0)).status === 404 && (await restGet('summaries/' + uidF0)).status === 404);
-await openAccount(F);
-check('this browser keeps a copy of the guest nation to download', /Fenwick/.test(await text(F, '.ed-sec')));
-await F.keyboard.press('Escape');
 
 // d. a guest with a nation switches to an account without one: the nation moves into it
 const G = await player('G');
@@ -230,7 +191,7 @@ check('after signing out, the browser is a new guest', uidE2 && uidE2 !== uidA);
 check('on the founding screen, with no nation in this browser', !!(await E.$('#d-name')) && !(await localNation(E)));
 check('the account’s nation is still in the region', ((await nationDoc(uidA)) || {}).name === 'Aldoria');
 
-/* ── 10. a full region sends newcomers on ───────────────────────────────── */
+/* ── 9. a full region sends newcomers on ───────────────────────────────── */
 // with room for one active nation per region, Meridian (Aldoria, Borvia...) and the Frostmarch (Frostia)
 // are full: a newcomer who has not chosen goes to the fullest region with room, here the next in the list
 const Z = await player('Z', { cap: 1 });
@@ -246,7 +207,7 @@ await Z.fill('#d-name', 'Latecomer'); await Z.click('[data-act="found-suggest"]'
 check('founding in a full region is refused, with the reason', await until(async () => /Meridian Reach is full/.test(await text(Z, 'form .err'))) && !(await Z.$('.layout')));
 await Z.ctx.close();
 
-/* ── 11. switching region while founding keeps what was filled in ─────── */
+/* ── 10. switching region while founding keeps what was filled in ─────── */
 const K = await player('K');
 const uidK = await open(K);
 await K.fill('#d-name', 'Keepsake');
@@ -272,7 +233,7 @@ check('the nation is founded in the chosen region, with its motto', await until(
 check('and the draft is cleared once founded', (await K.evaluate(() => sessionStorage.getItem('statehood.draft'))) === null);
 await K.ctx.close();
 
-/* ── 12. how it looks ───────────────────────────────────────────────────── */
+/* ── 11. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {
   const S = await player('S' + vp.width, { vp, dark });
   await open(S);

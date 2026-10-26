@@ -1,8 +1,4 @@
 <title>Edictum</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:ital,wght@0,400..700;1,400&display=swap">
 <style>
 /* Layout: a state dossier. A ministry sidebar sits beside one column of official papers; guilloche security engraving marks the nation's seal, violet rubber-stamp ink marks decisions. */
 :root{
@@ -3590,7 +3586,7 @@ const NORM_HOOKS=[];
    landmass names and its own computer-run nations. A nation lives in one region at a time (n.reg); the
    page builds the map of that region as it loads, so moving region saves the record and reloads.
    Meridian Reach keeps its original map, unchanged, in the north-west of a larger sea, with new lands to the east and south. */
-const MAP_COLS=226,MAP_ROWS=142,LEG={ox:0,oy:0,oc:160,or:100},MOVE_CD=14*864e5;
+const LEG={ox:0,oy:0,oc:160,or:100},MOVE_CD=14*864e5;
 const REGIONS_EXTRA=[].concat([
  {
   id:'frostmarch',
@@ -5726,6 +5722,13 @@ const REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('statehood.
   if(d&&typeof d==='object'&&d.name){if(typeof d.reg==='string'&&REG_BY_ID[d.reg])id=d.reg;}
   else{const r=localStorage.getItem('statehood.region');if(r&&REG_BY_ID[r])id=r;}}catch(e){}return REG_BY_ID[id];})();
 const REG_MER=REG.id==='meridian';
+/* Each region's grid is sized so that its land (geo.land of the grid) comes to about REGION_LAND hexes:
+   room for REGION_CAP (250) player nations of some 120 hexes each beside the computer nations. Grids keep
+   the original 226 × 142 proportions and are never smaller; Meridian's charted heart stays in the
+   north-west corner. More players than that are met by adding regions, not by growing these. */
+const REGION_LAND=30000,MAP_ASPECT=226/142;
+const [MAP_COLS,MAP_ROWS]=(()=>{const land=Math.max(0.2,Number(REG.geo&&REG.geo.land)||0.4),c=Math.round(Math.sqrt(Math.max(226*142,REGION_LAND/land)*MAP_ASPECT));
+  return [Math.max(226,c),Math.max(142,Math.round(c/MAP_ASPECT))];})();
 /* biome noise offsets and thresholds: Meridian keeps the original ones exactly */
 const BIO=(()=>{if(REG_MER)return {ox:LEG.ox,oy:LEG.oy,s:'',wc:0.62,wa:0.8,dt:18,dd:0.45,fo:0.55,fh:0.56};
   const g=REG.geo;return {ox:0,oy:0,s:':'+REG.id,wc:0.62-0.12*g.wet,wa:0.8-0.15*g.wet,dt:18+6*g.wet,dd:0.45+0.15*g.wet,fo:0.70-0.3*g.forest,fh:0.71-0.3*g.forest};})();
@@ -13053,7 +13056,7 @@ function drawAllGuill(){document.querySelectorAll('canvas.guill').forEach(drawGu
 /* One fixed, generated world shared by every player. Territory is derived, not stored:
    each nation claims land hexes outward from its capital, cheapest path first, until it holds
    as many hexes as its population supports. Claimed land blocks other nations. */
-const HEX_R=10,SQ3=Math.sqrt(3),HEX_W=SQ3*HEX_R,AREA_PER_HEX=12500,MIN_CAP_DIST=5,MAP_VER=3,NEAR_Z=6.4,MAX_Z=20;
+const HEX_R=10,SQ3=Math.sqrt(3),HEX_W=SQ3*HEX_R,AREA_PER_HEX=12500,MIN_CAP_DIST=5,MAP_VER=4,NEAR_Z=6.4,MAX_Z=20;
 const HCX=[],HCY=[];for(let k=0;k<6;k++){const a=(60*k-30)*Math.PI/180;HCX.push(Math.cos(a));HCY.push(Math.sin(a));}
 const TERRAIN=['Ocean','Shallow sea','Lowland','Hills','Mountains'];
 const TERRAIN_IN=['','','in the lowlands of','in the hills of','in the mountains of'];
@@ -20115,7 +20118,7 @@ function regClimate(R){const [a,b]=R.geo.lat,t=lt=>{const v=26-(lt-22)*0.42;retu
 /* Players per region. This region's come from the live records. Other regions' are counted, and for the
    region open on the World page listed, from summaries/ on demand, at most every five minutes. Dormant
    nations are left out, as dormSift leaves them out of the live records. */
-const RSTAT={n:{},at:0,busy:false,names:{},nat:{}},REGION_CAP=Math.max(1,Number(window.EDICTUM_REGION_CAP)||150);
+const RSTAT={n:{},at:0,busy:false,names:{},nat:{}},REGION_CAP=Math.max(1,Number(window.EDICTUM_REGION_CAP)||250);
 function regStatsSoon(maxAge){
   if(S.mode==='local'||!S.db||typeof S.db.count!=='function'||RSTAT.busy||Date.now()-RSTAT.at<(maxAge||3e5))return;
   RSTAT.busy=true;const since=Date.now()-DORM_MS;
@@ -31706,7 +31709,8 @@ function hexPath(g,i,rad){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x+HCX[0]*rad,y+
 function hexFill(g,i,rad){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x+HCX[0]*rad,y+HCY[0]*rad);for(let k=1;k<6;k++)g.lineTo(x+HCX[k]*rad,y+HCY[k]*rad);}
 function edgeList(g,cells,test){for(const i of cells){const x=MAP.cx[i],y=MAP.cy[i];for(let d=0;d<6;d++){if(!test(i,MAP.nbr[i*6+d]))continue;const k=(d+1)%6;g.moveTo(x+HCX[d]*HEX_R,y+HCY[d]*HEX_R);g.lineTo(x+HCX[k]*HEX_R,y+HCY[k]*HEX_R);}}}
 function drawPin(g,x,y,col){g.beginPath();g.arc(x,y-12,7.5,Math.PI*0.8,Math.PI*0.2,false);g.lineTo(x,y);g.closePath();g.fillStyle=col.stamp;g.fill();g.lineWidth=1.6;g.strokeStyle=col.sheet;g.stroke();g.beginPath();g.arc(x,y-12,2.8,0,Math.PI*2);g.fillStyle=col.sheet;g.fill();}
-const TBMP_SCALE=0.8;let tbmp=null,tbmpKey='';
+/* the zoomed-out terrain picture: at most about 5.4 million pixels, whatever the region's size (phones cap canvases) */
+const TBMP_SCALE=Math.min(0.8,Math.sqrt(5.4e6/(MAP.W*MAP.H)));let tbmp=null,tbmpKey='';
 function terrainBitmap(col){
   const key=[col.sea,col.sea2,col.land,col.hill,col.mount,col.coast,col.forest,col.marsh,col.arid,col.polder,RECL.sig].join('|');
   if(tbmp&&tbmpKey===key)return tbmp;

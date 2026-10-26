@@ -17,9 +17,9 @@ like), and **Firestore** holds the shared world.
 | --- | --- |
 | `game/edictum.html` | The game. It grew out of the claude.ai version (Version 26) and is now developed here; the build never edits it. |
 | `src/stub.js` | A few lines put at the top of the page: `window.claude.use()`, which the game calls, waits until Firebase is ready. |
-| `src/shim.js`, `src/shim.css` | The Firebase layer behind `window.claude.use('db' / 'user')`: documents, queries, counts, batched nation saves and board posts (see Data). Also the account control and the nation file import and export. |
+| `src/shim.js`, `src/shim.css` | The Firebase layer behind `window.claude.use('db' / 'user')`: documents, queries, counts, batched nation saves and board posts (see Data). Also the account control. |
 | `src/favicon.svg`, `src/og.png`, `src/apple-touch-icon.png` | The seal icon and the picture shown when a link is shared (`src/og.html` is its source; `tools/make-images.mjs` redraws the PNGs). |
-| `build.py` | Wraps the game in a full page with the stub, the Firebase SDK, the shim and the meta tags, and writes `public/`. |
+| `build.py` | Builds `public/`: a small page (stub, Firebase SDK, shim, meta tags) plus the game's script and styles minified into `/assets/game.<hash>.js` and `/assets/app.<hash>.css`, and the fonts in `/assets/fonts/`. Their names change with their content, so browsers keep them for a year. |
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
 | `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project. |
@@ -50,10 +50,17 @@ listed by name from `summaries/` only when the World page asks. The game sends i
 at most every 15 seconds (at once when the tab is hidden or closed; the browser's own copy is saved
 straight away), so the other players in the region read each nation less often.
 
-**Regions fill up.** A region takes no new nations once 150 active nations live there (dormant ones,
+**Regions fill up.** A region takes no new nations once 250 active nations live there (dormant ones,
 unsaved for 250 days, do not count). A newcomer who has not chosen a region and lands in a full one
 is sent to the fullest region that still has room, so players gather rather than spread thin. The
-cap is `REGION_CAP` in the game.
+cap is `REGION_CAP` in the game. Each region's map is sized for that: its grid gives about 30,000
+land hexes (`REGION_LAND`; some 120 per player besides the computer nations), so a watery region has
+a larger grid than a continental one. Founding switches region by reloading the page; what the player
+filled in is kept (in the tab's session storage) until the nation is founded.
+
+**Adding a region.** When the regions fill, add more rather than enlarging these: a new entry in
+`REGIONS_EXTRA` in the game (name, description, `geo`, lands, computer nations, alliances) and its id
+in the `region()` list in `firestore.rules`. The map, its size and the player counts follow from that.
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers
@@ -64,17 +71,19 @@ out starts a new guest.
 **Without Firebase.** If the Firebase scripts or the configuration cannot be loaded, the game
 plays in the browser only, as it always could, and says so.
 
-**Fonts.** The game loads its three typefaces (Bodoni Moda, Public Sans, IBM Plex Mono) from
-Google Fonts. That is kept as it was; it means each visitor's browser contacts Google's font
-servers. The fonts are under the SIL Open Font License, so they could be copied into `public/`
-later if you would rather not.
+**Fonts.** The game's three typefaces (Bodoni Moda, Public Sans, IBM Plex Mono; SIL Open Font
+License) are served from the site itself, Latin and Latin Extended only, from the pinned Fontsource
+packages: no visitor's browser contacts Google for them.
+
+**Nation files.** There is no import or export: every nation lives in Firestore, kept with the
+player's account. (The retired claude.ai version's nations are not carried over.)
 
 ## Local development
 
 You need Node.js 20 or later, Python 3, and Java 21 or later (for the Firestore emulator).
 
 ```sh
-npm ci                     # the pinned Firebase SDK and tools
+npm ci                     # the pinned Firebase SDK, tools, esbuild, fonts and Playwright
 python3 build.py           # writes public/
 npx firebase-tools emulators:start --project demo-edictum
 ```
@@ -92,12 +101,12 @@ run `python3 build.py` again and reload.
 
 ```sh
 npm run test:rules         # the security rules (Firestore emulator only)
-npm install --no-save playwright && npx playwright install chromium
-npm run test:e2e           # two players, the board, other regions, reloads, rules, admin, offline, import and export, Google sign-in, full regions
+npx playwright install chromium   # once, for the browser tests
+npm run test:e2e           # two players, the board, other regions, reloads, rules, admin, offline, Google sign-in, full regions, founding drafts
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
 ```
 
-Screenshots and downloaded files from the browser tests go to `test/out/`.
+Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
 
 ## Owner setup
 
@@ -222,9 +231,9 @@ free allowance each day and charges only beyond it). Check <https://firebase.goo
 for current figures; at the time of writing:
 
 - **Hosting.** Spark allows about 360 MB of downloads a day. A first visit downloads about 1.9 MB
-  (the game page is 4.9 MB, about 1.7 MB compressed, plus 0.2 MB of Firebase), so Spark covers
-  roughly 150 to 200 first visits a day. Returning visitors download almost nothing until you
-  deploy a new version.
+  (the game's script is 4 MB, about 1.5 MB compressed, plus styles, fonts and 0.2 MB of Firebase),
+  so Spark covers roughly 150 to 200 first visits a day. Returning visitors download only the 21 KB
+  page until you deploy a new version.
 - **Firestore reads.** Spark allows 50,000 reads and 20,000 writes a day. Each copy of the game
   that is open listens to its own region's nations, its board and the space records: opening the
   game reads one document for each of those, and each time a nation in the region is saved (at
@@ -237,29 +246,9 @@ for current figures; at the time of writing:
 - On Blaze, set a **budget alert** (Google Cloud console → Billing → Budgets and alerts) so
   surprises reach your inbox.
 
-## Moving nations from the claude.ai version
-
-A nation on the claude.ai version lives in that artifact's database and in the player's browser.
-On this site, the account menu has **Import a nation file** (choose a file, or paste its text),
-which replaces the nation you play here with the one in the file. The game's own loading code
-checks the record as the page reloads; if it refuses the record, the previous nation is put back
-and the player is told. **Export my nation** downloads the current nation as a file, so a nation
-can also move the other way, or be kept safe.
-
-The retired claude.ai version has no export button. There are two ways to get a nation file out of
-it:
-
-- **The owner exports everyone's.** Ask Claude, in a conversation with access to the artifact, to
-  save each document of the artifact's `nations` collection to its own `.json` file, and send each
-  player their own. A file holding the bare nation record, or `{"data": {...}}`, imports as it is.
-- **A player copies their own.** In a desktop browser on claude.ai, open the game, open the
-  developer tools console, choose the game's frame in the console's context menu (it is the
-  sandboxed frame, not the top page), run `copy(localStorage.getItem('statehood.nation.v1'))`,
-  then paste the result into **Or paste the text of a nation file** on this site.
-
 ## Scaling
 
-Reads grow with the size of a region (at most 150 active nations), not with the whole world: see
+Reads grow with the size of a region (at most 250 active nations), not with the whole world: see
 Data above. What is left for later, as numbers grow:
 
 - **Space records** are read by everyone. They change only when a nation's Moon, Mars or belt data

@@ -1,8 +1,8 @@
 // Shared helpers for the browser tests (test/e2e.mjs, test/smoke.mjs). They drive the built
 // site in public/ as served by the Hosting emulator, against the Auth and Firestore emulators.
 //
-// Playwright is not a dependency of the site. Install it for a test run with
-//   npm install --no-save playwright && npx playwright install chromium
+// Playwright is a pinned dev dependency (npm ci); its browser is installed once with
+//   npx playwright install chromium
 // or point at an existing install: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs CHROMIUM_PATH=/path/to/chromium
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import fs from 'node:fs';
