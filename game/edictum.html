@@ -597,6 +597,14 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .terr-txt p{font-size:15.5px;line-height:1.65;max-width:52ch}
 .map-mini{aspect-ratio:1.5;min-height:0;max-height:none}
 .map-mini .map-cv{cursor:pointer;touch-action:auto}
+.map-fs-mini{position:absolute;top:8px;right:8px;font-size:13px;font-weight:600}
+.map-wrap.is-full{position:fixed;inset:0;z-index:3000;width:auto;height:auto;max-height:none;min-height:0;aspect-ratio:auto;border:0;border-radius:0}
+.map-wrap.is-full .map-ctrl{top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right))}
+.map-wrap.is-full .map-hint{bottom:calc(10px + env(safe-area-inset-bottom))}
+.map-fs-bar{position:absolute;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));right:64px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;max-width:640px;padding:8px 12px;border:1px solid var(--rule-2);border-radius:4px;background:color-mix(in srgb,var(--sheet) 94%,transparent);box-shadow:var(--shadow)}
+.map-fs-t{margin:0;flex:1 1 auto;min-width:0;font:600 16px/1.25 var(--f-display);color:var(--ink)}
+.map-fs-loc{margin:0;flex:1 1 100%;font-size:13px;color:var(--ink-2)}
+html.map-full-open,html.map-full-open body{overflow:hidden}
 .loc-status{margin-top:12px;font-size:14px;color:var(--ink-2);max-width:72ch}
 @media (max-width:1100px){.map-layout{grid-template-columns:1fr;grid-template-areas:'map' 'side' 'legend'}.map-layout>.map-panel{margin-top:14px}}
 @media (max-width:760px){.terr{grid-template-columns:1fr}}
@@ -31910,7 +31918,7 @@ function mapClick(cv,cell,ev){
 function centerMain(cell,z){if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};}
 function openMapAt(id){const T=territory(),i=T.byId[id];if(i!==undefined){centerMain(T.list[i].cap,NEAR_Z);S.mapSel=T.list[i].me?null:id;}go('map');}
 function updateMapPanel(){const p=document.getElementById('map-panel');if(p)p.innerHTML=mapPanel();}
-function updateFoundLoc(){const p=document.getElementById('found-loc');if(p)p.innerHTML=foundLocHTML();}
+function updateFoundLoc(){for(const k of ['found-loc','found-loc-fs']){const p=document.getElementById(k);if(p)p.innerHTML=foundLocHTML();}}
 function settle(){
   const cell=S.mapPick;if(cell==null||!S.nation)return;
   const prob=pickProblem(cell,territory());
@@ -31923,9 +31931,11 @@ function settle(){
 
 /* map markup */
 function mapBox(kind,cls,id){
+  const full=mapFsOn(kind,id),fsb=`<button type="button" class="mc-b" data-act="map-fs" data-k="${kind}"${id?` data-id="${esc(id)}"`:''} aria-label="${full?'Leave full screen':'Full screen'}" title="${full?'Leave full screen':'Full screen'}">${full?'✕':'⛶'}</button>`;
   const coarse=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
-  const ctrl=kind==='mini'?'':`<div class="map-ctrl"><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="1" aria-label="Zoom in">+</button><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="-1" aria-label="Zoom out">−</button><button type="button" class="mc-b" data-act="map-fit" data-k="${kind}" aria-label="Show the whole map">Fit</button>${kind==='main'?mfxTiltBtn():''}</div><div class="map-tip" hidden></div><p class="map-hint">${coarse?'Drag to move · pinch to zoom':'Drag to move · Ctrl + scroll to zoom'}</p>`;
-  return `<div class="map-wrap map-${kind}${cls||''}${kind==='main'&&mfxTilt?' tilted':''}"><canvas class="map-cv" data-map="${kind}"${id?` data-id="${esc(id)}"`:''} data-hover="-1" role="img" aria-label="Map of ${REGION}${kind==='mini'?'. Select to open the world map.':''}"></canvas>${ctrl}</div>`;
+  const ctrl=kind==='mini'?'':`<div class="map-ctrl"><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="1" aria-label="Zoom in">+</button><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="-1" aria-label="Zoom out">−</button><button type="button" class="mc-b" data-act="map-fit" data-k="${kind}" aria-label="Show the whole map">Fit</button>${kind==='main'?mfxTiltBtn():''}${kind==='found'||kind==='visit'?fsb:''}</div><div class="map-tip" hidden></div><p class="map-hint">${coarse?'Drag to move · pinch to zoom':'Drag to move · Ctrl + scroll to zoom'}</p>`;
+  const mini=kind==='mini'?`<button type="button" class="mc-b map-fs-mini" data-act="map-fs" data-k="visit" data-id="${esc(id)}">⛶ Full screen</button>`:'';
+  return `<div class="map-wrap map-${kind}${cls||''}${kind==='main'&&mfxTilt?' tilted':''}${full?' is-full':''}"${full?` role="dialog" aria-modal="true" aria-label="${kind==='found'?'Founding map':'Map'}, full screen"`:''}><canvas class="map-cv" data-map="${kind}"${id?` data-id="${esc(id)}"`:''} data-hover="-1" role="img" aria-label="Map of ${REGION}${kind==='mini'?'. Select to open the world map.':''}"></canvas>${ctrl}${mini}${full?mapFsBar(kind,id):''}</div>`;
 }
 function mapLegend(){
   return `<div class="map-legend">${mfxToggles()}${runHtml(MAP_CONTROLS)}${terrLegend()}<span class="lg"><i class="lg-cap"></i>Capital</span><span class="lg"><i class="lg-city"></i>City</span><span class="lg"><i class="lg-claim"></i>Claimable with land credits</span><span class="lg"><i class="lg-you"></i>Your borders</span><span class="lg"><i class="lg-front"></i>Hexes you can attack</span><span class="lg"><i class="lg-occ"></i>Taken in war</span><span class="lg"><i class="lg-ally"></i>Allies</span><span class="lg"><i class="lg-spy"></i>Surveyed by your spies</span><span class="lg"><i class="lg-oil"></i>Oil, when zoomed in</span><span class="lg"><i class="lg-site"></i>Rumoured discovery</span><span class="lg"><i class="lg-found"></i>Named discovery</span>${runHtml(MAP_LEGEND)}</div>`;
@@ -31985,7 +31995,7 @@ function territorySection(id,n){
     return `<section class="section"><h2 class="h2">Territory</h2><div class="empty"><p class="empty-h">Not on the map yet</p><p>Choose where ${esc(n.name)} lies. It starts with the land round its capital, and as its population grows it earns land credits to claim more.</p><div style="margin-top:14px"><button class="btn" data-act="go" data-v="map">Choose a location</button></div></div></section>`;
   }
   const x=T.list[i],cnt=T.count[i],nb=bordersOf(T,i).map(j=>esc(T.list[j].n.name));
-  return `<section class="section"><h2 class="h2">Territory</h2><div class="terr">${mapBox('mini','',id)}<div class="terr-txt">
+  return `<section class="section"><h2 class="h2">Territory</h2><div class="terr">${mapFsOn('visit',id)?mapBox('visit','',id):mapBox('mini','',id)}<div class="terr-txt">
     <p>${esc(n.name)} covers <b>${fmtArea(cnt)}</b> ${placePhrase(x.cap)}${nb.length?`, bordering ${list(nb)}`:', with no neighbours on its borders yet'}.</p>
     <dl class="mp-dl"><div><dt>Hexes held</dt><dd>${cnt}</dd></div><div><dt>Capital</dt><dd>${esc(n.capital)}</dd></div></dl>
     <div style="margin-top:16px"><button class="btn ghost" data-act="map-open" data-id="${esc(id)}">Open on the world map</button></div>
@@ -33044,6 +33054,36 @@ document.addEventListener('click',e=>{
     return;
   }
 });
+
+/* ───────── full-screen maps ─────────
+   The founding map, and a nation's territory (as an interactive 'visit' map centred on it), can fill
+   the screen. The state lives in S.mapFs, so the game's redraws keep it; the browser's own full-screen
+   mode is asked for the whole page (where it is offered), so a redraw cannot drop it either. Close,
+   Esc, leaving the browser's full screen or going to another page ends it. */
+function mapFsOn(kind,id){const f=S.mapFs;return !!f&&f.kind===kind&&(kind!=='visit'||f.id===id);}
+function mapFsBar(kind,id){
+  if(kind==='found')return `<div class="map-fs-bar"><p class="map-fs-t">Choose where your capital will stand</p><p class="map-fs-loc" id="found-loc-fs">${foundLocHTML()}</p><button type="button" class="btn small" data-act="map-fs-close">Done</button></div>`;
+  const x=findNation(id),nm=x?fullName(x.n):'This nation';
+  return `<div class="map-fs-bar"><p class="map-fs-t">${esc(nm)}</p><button type="button" class="btn ghost small" data-act="map-fs-world" data-id="${esc(id)}">Open in the world map</button><button type="button" class="btn small" data-act="map-fs-close">Close</button></div>`;
+}
+function mapFsExit(){try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}catch(e){}}
+function mapFsOpen(kind,id){
+  if(kind==='visit'){const T=territory(),i=T.byId[id],c=i===undefined?-1:T.list[i].cap;if(!S.mapViews)S.mapViews={};S.mapViews.visit={z:5,cx:c>=0?MAP.cx[c]:MAP.W/2,cy:c>=0?MAP.cy[c]:MAP.H/2};}
+  S.mapFs={kind,id:id||null};
+  try{const de=document.documentElement;if(de.requestFullscreen&&!document.fullscreenElement)de.requestFullscreen().catch(()=>{});}catch(e){}
+  render();
+}
+function mapFsClose(){if(!S.mapFs)return;S.mapFs=null;mapFsExit();render();}
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&S.mapFs){S.mapFs=null;render();}else redrawMaps();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.mapFs){e.preventDefault();e.stopPropagation();mapFsClose();}},true);
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='map-fs'){e.stopPropagation();if(mapFsOn(el.dataset.k,el.dataset.id||null))mapFsClose();else mapFsOpen(el.dataset.k,el.dataset.id||null);return;}
+  if(a==='map-fs-close'){mapFsClose();return;}
+  if(a==='map-fs-world'){S.mapFs=null;mapFsExit();openMapAt(el.dataset.id);return;}
+});
+render=(f=>function(){const r=f.apply(this,arguments);document.documentElement.classList.toggle('map-full-open',!!S.mapFs);return r;})(render);
+go=(f=>function(v){if(S.mapFs){S.mapFs=null;mapFsExit();}return f.apply(this,arguments);})(go);
 
 /* ───────── boot ───────── */
 function start(data){
