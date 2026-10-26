@@ -52,7 +52,7 @@ await A.fill('#rmb-text', '');
 
 // the decisions page is called Edicts, at #edicts; an old #issues link still opens it
 await nav(A, 'issues');
-check('the Edicts page is at #edicts', /#edicts$/.test(A.url()) && (await text(A, 'main h1, .vh h1')) === 'Edicts' && /Edict No\./.test(await text(A, '.issue-list')));
+check('the Edicts page is at #edicts', /#edicts$/.test(A.url()) && (await text(A, 'main h1, .vh h1')) === 'Edicts' && /Edictum [MDCLXVI]+ · arrived/.test(await text(A, '.issue-list')));
 await A.goto(BASE + '/#issues'); await ready(A);
 check('an old #issues link opens it too', await until(async () => (await text(A, '.vh h1')) === 'Edicts'));
 
@@ -315,6 +315,57 @@ check('the home page’s own HTML says what Edictum is and links to the privacy 
 check('the game replaces that loading screen when it starts', !(await A.$('.boot')) && !(await Q.$('.boot')));
 check('the side bar and the founding page link to both', !!(await A.$('.side-legal a[href="/privacy"]')) && !!(await A.$('.side-legal a[href="/terms"]')) && !!(await Q.$('.found-legal a[href="/terms"]')));
 await M.ctx.close(); await N.ctx.close(); await Q.ctx.close();
+
+/* ── 5e. edicts before the Senate (or the Crown), and the passport ───────── */
+await nav(A, 'issues');
+await until(() => A.$('.issue-card')); await A.click('.issue-card');
+await A.waitForSelector('.edict .opt');
+check('in a republic an edict goes before the Senate, its motions in Roman numerals', /Curia of Aldoria · Anno I/.test(await text(A, '.edict .form-code')) && /Speeches before the Senate/.test(await text(A, '.edict')) && /^Vote for motion I$/.test(await text(A, '.edict [data-act="answer"]')) && /^Veto$/.test(await text(A, '.edict [data-act="dismiss"]')));
+await A.click('[data-act="close-issue"]');
+const KG = await player('KG');
+await open(KG);
+await KG.waitForSelector('#d-name');
+await KG.fill('#d-name', 'Kingsmoor'); await KG.click('[data-act="found-suggest"]');
+await KG.selectOption('#d-pretitle', 'Kingdom'); await KG.click('#found-btn'); await KG.waitForSelector('.layout', { timeout: 10000 });
+await nav(KG, 'issues');
+await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.waitForSelector('.edict .opt');
+check('in a kingdom it goes before the Privy Council', /Privy Council of Kingsmoor/.test(await text(KG, '.edict .form-code')) && /^Assent to motion I$/.test(await text(KG, '.edict [data-act="answer"]')));
+await KG.click('.edict [data-act="answer"]'); await KG.waitForSelector('.result');
+check('and comes back a royal decree under a REX or REGINA seal', /^By royal decree of the \S+ of Kingsmoor, /.test(await text(KG, '.result-fx')) && /REX|REGINA/.test(await text(KG, '.result .stamp')), await text(KG, '.result-fx'));
+await KG.ctx.close();
+// the passport: A opens B's page and collects its entry stamp
+await nav(A, 'region');
+await until(() => A.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`);
+check('opening a nation’s page stamps its entry stamp into your passport', await until(async () => { const r = await nationDoc(uidA); return !!(r && r.rec.pp && r.rec.pp.v[uidB] && r.rec.pp.p[0].includes(uidB)); }, 15000));
+check('its page shows the stamp and where it went', await until(async () => /In your passport since .* on page I\./.test(await text(A, '.pp-visit'))));
+check('the first stamp earns First Stamp', await until(async () => !!(((await nationDoc(uidA)) || { rec: {} }).rec.ach || {})['pass-1'], 15000));
+// B opens A's passport from A's page
+await nav(B, 'region');
+await until(() => B.$(`.tbl [data-act="visit"][data-id="${uidA}"]`)); await B.click(`.tbl [data-act="visit"][data-id="${uidA}"]`);
+await until(() => B.$('.visit-acts [data-act="pp-view"]')); await B.click('.visit-acts [data-act="pp-view"]');
+check('every nation’s page has View passport, which opens on the cover', !!(await until(() => B.$('#pp-view[aria-modal="true"] .pp-cover'))) && /Aldoria/.test(await text(B, '#pp-view-h')));
+await B.keyboard.press('ArrowRight');                                        // the identity page and page I, side by side
+check('its pages turn with the arrow keys, and carry the stamps', !!(await until(() => B.$(`#pp-view .pp-st[data-id="${uidB}"]`))));
+await B.click(`#pp-view .pp-st[data-id="${uidB}"]`);
+check('a stamp says where it came from', await until(async () => /Borvia/.test(await text(B, '#pp-view .pp-info'))));
+await B.keyboard.press('Escape');
+check('Esc closes it', await until(async () => !(await B.$('#pp-view'))));
+// A designs the passport and moves a stamp
+await nav(A, 'passport');
+await A.click('[data-act="pp-tab"][data-v="design"]');
+await until(() => A.$('[data-act="pp-set"][data-f="c.col"][data-v="pc-green"]')); await A.click('[data-act="pp-set"][data-f="c.col"][data-v="pc-green"]');
+await A.click('[data-act="pp-set"][data-f="c.col"][data-v="pc-purple"]');
+check('a locked choice is marked, says how to earn it, and is not applied', !!(await A.$('.pp-tile.locked[data-v="pc-purple"]')) && await until(async () => /Locked\. Earn/.test(await toasts(A)), 40000) && (await localNation(A)).pp.c.col === 'pc-green');
+await A.click('[data-act="pp-dtab"][data-v="s"]');
+await until(() => A.$('[data-act="pp-set"][data-f="s.sh"][data-v="ps-ticket"]')); await A.click('[data-act="pp-set"][data-f="s.sh"][data-v="ps-ticket"]');
+await A.fill('#pp-t2', 'Salve amice'); await A.press('#pp-t2', 'Tab');
+check('the design is saved with the nation', await until(async () => { const r = await nationDoc(uidA); const p = r && r.rec.pp; return !!p && p.c.col === 'pc-green' && p.s.sh === 'ps-ticket' && p.s.t2 === 'SALVE AMICE' && (p.ds & 5) === 5; }, 15000));
+await A.click('[data-act="pp-tab"][data-v="arrange"]');
+await until(() => A.$(`.pp-arr .pp-st[data-id="${uidB}"]`)); await A.click(`.pp-arr .pp-st[data-id="${uidB}"]`);
+await A.selectOption('#pp-move', '4');
+check('the editor moves a stamp to another page', await until(async () => { const p = (await localNation(A)).pp.p; return p[4].includes(uidB) && !p[0].includes(uidB); }));
+await A.fill('.pp-arr-t[data-pp-title="4"]', 'Old friends'); await A.press('.pp-arr-t[data-pp-title="4"]', 'Tab');
+check('and titles pages', await until(async () => (await localNation(A)).pp.l[4] === 'Old friends'));
 
 /* ── 6. Firebase blocked: browser-only mode ─────────────────────────────── */
 const C = await player('C', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });

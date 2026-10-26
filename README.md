@@ -84,6 +84,21 @@ report), or simply close the ticket. Hidden nations and banned players are liste
 with Unhide and Unban. A banned guest can come back by clearing their browser; a Google account
 cannot.
 
+**Edicts.** Edicts go before the nation's government, which follows its type of state: the Senate of
+a republic ("By decree of the Senate and People of …"), a monarch's Privy Council (royal decrees), an
+emperor's council (imperial edicts), a sultan's Divan (firmans), a Holy Synod, a People's Congress, a
+governor's council or a borough council. Numbers and years are Roman (Edictum MCCLI, Anno IV, counted
+from the founding); the decision stamp defaults to a purple wax seal of state whose inscription
+follows the government (SPQ, REX, IMP and so on). The other stamps stay on the Customise page.
+
+**Passport.** Every nation has a passport: a cover, an identity page and 20 pages of ten entry stamps.
+Opening another nation's page stamps its entry stamp into yours (at most 200), keeping that nation's
+stamp design as it was that day. The Passport page turns the pages, designs the cover (colour,
+material, foil, ornament, emblem, wording, layout), the pages (tint, print, watermark, numerals) and
+the entry stamp others collect, and arranges which page and place each stamp has. Richer options
+unlock with the Passport & travel achievements and the Passport Office set in the museum. Every
+nation's page has **View passport**. Stored on the nation as `n.pp` (see the comment in the game).
+
 **Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
 a message and, if the player wants, an email address. Their tickets and the team's answers are listed
 below it, and a player waiting for an answer is told when it comes. Admins answer on the portal's

@@ -44,6 +44,7 @@ FONTS = [
     ('@fontsource-variable/bodoni-moda', ['opsz.css', 'opsz-italic.css'], 'Bodoni Moda'),
     ('@fontsource-variable/public-sans', ['wght.css', 'wght-italic.css'], 'Public Sans'),
     ('@fontsource/ibm-plex-mono', ['400.css', '500.css', '600.css'], 'IBM Plex Mono'),
+    ('@fontsource-variable/cinzel', ['wght.css'], 'Cinzel'),  # Roman capitals: edicts, decrees, passports
 ]
 PRELOAD = ['bodoni-moda-latin-opsz-normal', 'public-sans-latin-wght-normal']  # used on the first screen
 
