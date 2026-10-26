@@ -12,6 +12,7 @@
   --f-display:"Bodoni Moda","Bodoni 72","Didot",Georgia,serif;
   --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --f-roman:"Cinzel","Trajan Pro",Georgia,serif;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --paper:#0c1615; --sheet:#12201f; --sheet-2:#172927; --ink:#e1ebe7; --ink-2:#a0b6b1; --ink-3:#879d95;
@@ -200,6 +201,25 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .empty{border:1px dashed var(--rule-2);border-radius:4px;padding:26px;color:var(--ink-2)}
 .empty-h{font-family:var(--f-display);font-weight:600;font-size:22px;color:var(--ink);margin-bottom:6px}
 .issue-meta{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:18px;color:var(--ink-2);font-size:14px}
+
+/* edicts: the Senate's papers */
+.edict{--col:color-mix(in srgb,var(--ink) 12%,transparent);background:
+  linear-gradient(118deg,transparent 0 31%,color-mix(in srgb,var(--ink) 3.5%,transparent) 31.4%,transparent 32.6% 58%,color-mix(in srgb,var(--ink) 2.5%,transparent) 58.3%,transparent 59.4% 83%,color-mix(in srgb,var(--ink) 3%,transparent) 83.3%,transparent 84%),
+  linear-gradient(62deg,transparent 0 47%,color-mix(in srgb,var(--ink) 2.5%,transparent) 47.3%,transparent 48.6%),var(--sheet);border:3px double var(--rule-2)}
+.edict .form-code{font-family:var(--f-roman);font-weight:600;letter-spacing:.12em}
+.edict .h1{font-family:var(--f-roman);font-weight:600;letter-spacing:.03em;font-variation-settings:normal}
+.edict .lbl-h{font-family:var(--f-roman);font-weight:700;letter-spacing:.16em}
+.edict .opt-n{font-family:var(--f-roman);font-weight:600;font-size:28px;line-height:1.1;color:var(--stamp)}
+.edict .opt{grid-template-columns:54px minmax(0,1fr)}
+.laurel{color:var(--stamp);margin:6px 0 22px;opacity:.85}
+.laurel svg{display:block;width:min(220px,60%);height:auto;margin:0 auto}
+.issue-card .form-code{font-family:var(--f-roman);font-weight:600;letter-spacing:.1em}
+@media (min-width:900px){
+  .edict{padding-inline:calc(clamp(20px,4vw,40px) + 26px)}
+  .edict::before,.edict::after{content:"";position:absolute;top:18px;bottom:18px;width:18px;pointer-events:none;
+    background:repeating-linear-gradient(90deg,var(--col) 0 1.5px,transparent 1.5px 4.5px);border-block:7px solid var(--col);border-radius:2px;opacity:.9}
+  .edict::before{left:14px}.edict::after{right:14px}
+}
 
 /* result */
 .stamp{position:absolute;top:26px;right:26px;font:700 15px/1 var(--f-mono);letter-spacing:.24em;text-transform:uppercase;color:var(--stamp);border:4px double var(--stamp);border-radius:3px;padding:10px 12px 9px 15px;transform:rotate(-8deg);opacity:.92;animation:stamp .55s cubic-bezier(.2,1.5,.35,1) both}
@@ -1196,8 +1216,9 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 /* stamps */
 .cz-stamp{border:0;padding:0;letter-spacing:0;text-transform:none;line-height:0;opacity:1}
 .cz-stamp svg{display:block;height:auto}
-.cz-s-gold svg{width:104px}.cz-s-wax svg{width:96px}.cz-s-royal svg{width:168px}
-.stamp.cz-s-gold,.stamp.cz-s-wax{top:16px;right:22px}
+.cz-s-gold svg{width:104px}.cz-s-wax svg{width:96px}.cz-s-royal svg{width:168px}.cz-s-senate svg{width:104px}
+.stamp.cz-s-gold,.stamp.cz-s-wax,.stamp.cz-s-senate{top:16px;right:22px}
+.cz-st-roman{font-family:var(--f-roman);font-weight:700;letter-spacing:.06em}
 .result:has(.cz-s-royal) .h1{padding-right:190px}
 .cz-ink-red{color:#a3221d}
 .cz-st-ring,.cz-st-mono{font-family:var(--f-mono);font-weight:600}
@@ -1713,13 +1734,13 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 
 /* motion (Round 5, C): page transitions, the decision moment, micro-interactions */
 .paper.result .stamp{animation:none;--fx-ink:var(--stamp)}
-.stamp.cz-s-royal{--fx-ink:#a3221d}.stamp.cz-s-gold{--fx-ink:#c4952c}.stamp.cz-s-wax{--fx-ink:#a81e18}
+.stamp.cz-s-royal{--fx-ink:#a3221d}.stamp.cz-s-gold{--fx-ink:#c4952c}.stamp.cz-s-wax{--fx-ink:#a81e18}.stamp.cz-s-senate{--fx-ink:#5e2585}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .stamp.cz-s-royal{--fx-ink:#ff8f80}}
 :root[data-theme="dark"] .stamp.cz-s-royal{--fx-ink:#ff8f80}
 .stamp .fx-ring,.stamp .fx-blot{position:absolute;pointer-events:none;opacity:0}
 .stamp .fx-ring{inset:-7px;border:2px solid var(--fx-ink);border-radius:6px}
 .stamp .fx-blot{inset:-34%;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,var(--fx-ink),transparent)}
-.stamp.cz-s-gold .fx-ring,.stamp.cz-s-wax .fx-ring{border-radius:50%;inset:-2px -2px 10%}
+.stamp.cz-s-gold .fx-ring,.stamp.cz-s-wax .fx-ring,.stamp.cz-s-senate .fx-ring{border-radius:50%;inset:-2px -2px 10%}
 @media (max-width:600px){.paper.result .stamp{position:relative}}
 .deltas li{position:relative}
 .d-bar{position:absolute;left:0;right:0;bottom:-1px;height:2px;pointer-events:none;color:var(--ink-3)}
@@ -3642,6 +3663,92 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .post-rep{color:var(--ink-3)}
 @media (max-width:720px){.adm{padding:18px 16px 48px}.adm-head .btn{margin-left:0}}
 
+/* the passport */
+.pp-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 22px}
+.pp-tab,.pp-opt{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border:1px solid var(--rule-2);border-radius:999px;background:var(--sheet);color:var(--ink-2);font:600 14px/1 var(--f-body);cursor:pointer}
+.pp-tab:hover,.pp-opt:hover{border-color:var(--accent);color:var(--ink)}
+.pp-tab.on,.pp-opt.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.pp-opts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.pp-book{display:grid;justify-items:center;gap:12px}
+.pp-stage{display:flex;justify-content:center;width:100%;perspective:1800px;touch-action:pan-y}
+.pp-leaf{width:min(100%,380px);aspect-ratio:300/420;overflow:hidden;border-radius:4px;background:#f6f0df;box-shadow:0 1px 2px rgba(0,0,0,.18),0 10px 28px rgba(0,0,0,.16)}
+.pp-book.two .pp-leaf{width:min(50%,380px)}
+.pp-book.two .pp-leaf:first-child{border-radius:6px 0 0 6px;box-shadow:inset -14px 0 18px -14px rgba(0,0,0,.35),0 10px 28px rgba(0,0,0,.16)}
+.pp-book.two .pp-leaf:last-child{border-radius:0 6px 6px 0;box-shadow:inset 14px 0 18px -14px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.16)}
+.pp-leaf.is-cover,.pp-leaf.is-back{background:transparent;border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.3)}
+.pp-leaf svg{display:block;width:100%;height:100%}
+.pp-stage.turn-n .pp-leaf{animation:ppTurnN .4s cubic-bezier(.2,.7,.2,1) both;transform-origin:left center}
+.pp-stage.turn-p .pp-leaf{animation:ppTurnP .4s cubic-bezier(.2,.7,.2,1) both;transform-origin:right center}
+@keyframes ppTurnN{from{transform:rotateY(-24deg) translateX(16px);opacity:.35}to{transform:none;opacity:1}}
+@keyframes ppTurnP{from{transform:rotateY(24deg) translateX(-16px);opacity:.35}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.pp-stage .pp-leaf{animation:none!important}}
+.pp-st{cursor:pointer;outline:none}
+.pp-st:hover,.pp-st:focus-visible{filter:drop-shadow(0 0 2.5px var(--accent))}
+.pp-st.on{filter:drop-shadow(0 0 3px var(--stamp)) drop-shadow(0 0 1px var(--stamp))}
+.pp-nav{display:flex;align-items:center;gap:8px}
+.pp-jump{min-width:200px}
+.pp-count{margin:0}
+.pp-info{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:12px;align-items:center;width:min(100%,560px);padding:10px 14px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet)}
+.pp-info-st svg{display:block;width:96px;height:auto}
+.pp-info-n{margin:0;font:600 17px/1.2 var(--f-display);color:var(--ink)}
+.pp-info .hint{margin:2px 0 0}
+.pp-modal{position:fixed;inset:0;z-index:2600;display:grid;place-items:center;padding:12px}
+.pp-scrim{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(8,12,12,.66)}
+.pp-sheet{position:relative;width:min(980px,100%);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;padding:18px 20px 22px;border-radius:8px;background:var(--paper);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.pp-sheet-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 14px}
+.pp-sheet-h .h2{margin:2px 0 0}
+html.pp-lock,html.pp-lock body{overflow:hidden}
+.pp-des{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:30px;align-items:start}
+.pp-prev{position:sticky;top:20px;display:grid;justify-items:center;gap:14px}
+.pp-prev .pp-leaf{width:min(100%,280px)}
+.pp-stamp-big{width:min(100%,280px);padding:24px 10px;border-radius:6px;background:#f6f0df}
+.pp-stamp-big svg{display:block;width:100%;height:auto}
+.pp-grp{margin:0 0 24px}
+.pp-grp-h{margin:0 0 10px;font:700 12px/1 var(--f-roman);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+.pp-sub{margin:12px 0 8px;font-size:13px;color:var(--ink-2)}
+.pp-lbl{display:block;margin:10px 0 4px;font-size:13px;color:var(--ink-2)}
+.pp-ctl .input{width:100%;max-width:360px;box-sizing:border-box}
+.pp-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.pp-tiles-sw{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+.pp-tile{position:relative;overflow:hidden;display:grid;align-content:start;justify-items:center;gap:6px;padding:9px 6px 8px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet);color:var(--ink);font:500 12.5px/1.25 var(--f-body);text-align:center;cursor:pointer}
+.pp-tile:hover{border-color:var(--accent)}
+.pp-tile.on{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.pp-tile.locked{opacity:.62}
+.pp-tile.locked .pp-mini,.pp-tile.locked .pp-sw{filter:grayscale(1)}
+.pp-tile-n{display:inline-flex;align-items:center;gap:4px}
+.pp-tile .cz-how{font-size:11px;line-height:1.3;color:var(--ink-3)}
+.pp-mini{display:block;width:62px;height:62px}
+.pp-mini.tall{width:46px;height:64px}
+.pp-mini.wide{width:84px;height:46px}
+.pp-mini{overflow:hidden;border-radius:4px}
+.pp-mini svg{display:block;width:100%;height:100%;overflow:hidden}
+.pp-sw{display:block;width:40px;height:40px;border-radius:50%;border:1px solid rgba(0,0,0,.25)}
+.pp-sw.sq{border-radius:6px;border-width:3px}
+.pp-bar{position:sticky;top:0;z-index:5;margin:0 0 16px;padding:12px 14px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet);box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.pp-bar p{margin:0 0 8px}
+.pp-bar .row{align-items:center;gap:8px;flex-wrap:wrap}
+.pp-bar .pp-lbl{display:inline;margin:0}
+.pp-bar select.input{width:auto;min-width:150px}
+.pp-arr{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+.pp-arr-p{display:grid;gap:6px}
+.pp-arr-h{display:flex;align-items:center;gap:8px}
+.pp-arr-no{min-width:30px;font:700 15px/1 var(--f-roman);color:var(--stamp)}
+.pp-arr-t{flex:1;min-width:0;padding:5px 8px!important;font-size:13px!important}
+.pp-arr-p .pp-page{width:100%;height:auto;border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.18),0 6px 16px rgba(0,0,0,.12)}
+.pp-slot{fill:rgba(0,0,0,.02);stroke:rgba(0,0,0,.22);stroke-width:1;stroke-dasharray:4 3;cursor:pointer;outline:none}
+.pp-page.dark .pp-slot{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.28)}
+.pp-slot:hover,.pp-slot:focus-visible{stroke:var(--accent);stroke-width:2}
+.pp-slot.on{stroke:var(--stamp);stroke-width:2.4;stroke-dasharray:none}
+.pp-sec-in{display:grid;grid-template-columns:110px minmax(0,1fr);gap:20px;align-items:center}
+.pp-sec-cv{padding:0;border:0;background:none;cursor:pointer}
+.pp-sec-cv svg{display:block;width:110px;height:auto;filter:drop-shadow(0 6px 12px rgba(0,0,0,.25));transition:transform .2s}
+.pp-sec-cv:hover svg{transform:rotate(-3deg) translateY(-2px)}
+.pp-visit{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:16px;align-items:center;margin:0 0 22px;padding:12px 16px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.pp-visit-st svg{display:block;width:120px;height:auto}
+.pp-visit-n{margin:2px 0 0;font:600 18px/1.25 var(--f-display);color:var(--ink)}
+.pp-visit .hint{margin:4px 0 0}
+@media (max-width:959px){.pp-des{grid-template-columns:1fr}.pp-prev{position:static;order:-1}}
+@media (max-width:640px){.pp-visit{grid-template-columns:96px minmax(0,1fr)}.pp-visit .row{grid-column:1/-1}.pp-visit-st svg{width:96px}.pp-sheet{padding:14px 12px 18px}.pp-info{grid-template-columns:72px minmax(0,1fr)}.pp-info-st svg{width:72px}.pp-info .btn{grid-column:1/-1}}
 </style>
 
 <div id="app"></div>
@@ -16917,7 +17024,7 @@ function helpBody(n){
     start:`<p>You lead a nation in ${REGION}. Edicts land on your desk, and every decision moves your nation’s census figures: its freedoms, economy, health, happiness and dozens more. As your people multiply you claim land, found cities, trade, make friends and, if you must, go to war.</p>
       <p>The game runs in real time and keeps going while you are away. Other players see your nation, and ${num(NPC_NATIONS.length)} computer-run nations share the region with you.</p>
       <ol class="help-ol"><li>Answer the edicts waiting on your desk.</li><li>Settle on the map, if you skipped it when founding.</li><li>Spend land credits as they arrive, to grow your borders.</li><li>Put up buildings in your capital and found more cities.</li><li>Trade spare resources, write to your neighbours and send explorers.</li></ol>`,
-    issues:`<p>Each edict sets out a problem and several positions. Accepting one changes your census figures, and some also enact or repeal a policy, shift the budget, move a minister’s loyalty or change how a neighbour sees you. The result page shows every change. Dismissing an edict leaves your nation as it was.</p>
+    issues:`<p>Each edict sets out a matter before your government (a Senate in a republic, the Crown’s council in a kingdom, and so on), and its speakers argue for several motions. Choosing one changes your census figures, and some also enact or repeal a policy, shift the budget, move a minister’s loyalty or change how a neighbour sees you. The result page shows every change. A veto dismisses the edict and leaves your nation as it was.</p>
       ${issHelp()}
       <p>A new edict arrives ${pace}${n?'':' by default'}. You can change the pace in Settings, from ${FREQS[0][1].toLowerCase()} to ${FREQS[FREQS.length-1][1].toLowerCase()}. Up to ${CAP} edicts wait on your desk; while it is full, no new ones arrive.</p>
       <p>Some stories continue: a follow-up can arrive some hours after your decision. Edicts often draw on your land, your coast and your neighbours, and players next door can raise a matter with you that lands on your desk. In Settings you can ask for more or fewer edicts on each topic.</p>${G(go('issues','Open edicts'))}`,
@@ -17189,7 +17296,7 @@ const COMMIT_HOOKS=[],NOTIF_SOURCES=[],HAP_SOURCES=[],NATION_SECTIONS=[],VISIT_S
      {t: ms, sec: 'front'|'politics'|'world'|'business'|'crime'|'society'|'sport'|'culture',
       h: 'headline, plain text', b: 'one or two sentences, plain text', who: [nation ids], w: importance 1..10, k: 'unique key'}
    HELP_EXT: [{k, t, body: n => HTML}]   extra sections in How to play */
-const EXT_PAGES=['dispatch','assembly','intel'],DISPATCH_SOURCES=[],HELP_EXT=[];
+const EXT_PAGES=['dispatch','assembly','intel','passport'],DISPATCH_SOURCES=[],HELP_EXT=[];
 /* Round 10 map hooks
    MAP_LAYERS: [{stage, kinds?, draw: M => void}] drawn inside drawMap, each between g.save() and g.restore():
      'terrain' after the land is painted, before national colours; 'land' after national colours, relief and glyphs, before
@@ -17256,7 +17363,7 @@ const UNLOCKS={
   'a-teal':{k:'accent',n:'Teal',src:'free'},'a-crimson':{k:'accent',n:'Crimson',src:'free'},'a-cobalt':{k:'accent',n:'Cobalt',src:'free'},'a-forest':{k:'accent',n:'Forest',src:'free'},'a-slate':{k:'accent',n:'Slate',src:'free'},
   'a-amber':{k:'accent',n:'Amber',src:'ach'},'a-violet':{k:'accent',n:'Violet',src:'ach'},'a-rose':{k:'accent',n:'Rose',src:'set'},'a-gold':{k:'accent',n:'Gold',src:'prestige'},
   /* the stamp on enacted decisions */
-  's-enacted':{k:'stamp',n:'Enacted',src:'free'},'s-gold':{k:'stamp',n:'Gold seal',src:'ach'},'s-royal':{k:'stamp',n:'Royal assent',src:'ach'},'s-wax':{k:'stamp',n:'Wax seal',src:'set'}
+  's-senate':{k:'stamp',n:'Seal of state',src:'free'},'s-enacted':{k:'stamp',n:'Enacted',src:'free'},'s-gold':{k:'stamp',n:'Gold seal',src:'ach'},'s-royal':{k:'stamp',n:'Royal assent',src:'ach'},'s-wax':{k:'stamp',n:'Wax seal',src:'set'}
 };
 const UNLOCK_SOURCES=[];
 function unlocksOf(n){
@@ -17386,7 +17493,7 @@ const COL_SETS=[
   ['le-bottle','A Message in a Bottle','bottle','#2A9D8F','r','Washed up on your coast, addressed to nobody in particular. It says ‘wish you were here’, which is unsettling.','The sea sometimes answers those who write often.',colDraw('bottle','dm',1/12,40)],
   ['le-fence','A Note over the Fence','card','#8DB33A','c','A neighbour’s complaint about something your nation did, written on the back of their complaint about something else.','Make five decisions that involve your neighbours.',colT('iss:nb',5)],
   ['le-file','The Follow-Up File','book','#46606E','u','Where unfinished stories go to become finished stories. The file is thicker than the story.','See a story through to its sequel.',colT('iss:chain',3)],
-  ['le-due','The Postage Due Notice','ticket','#D1495B','c','Stamped on every edict sent back unanswered. The fee is waived, but the look is not.','Dismiss three edicts.',colT('dismiss',3)],
+  ['le-due','The Postage Due Notice','ticket','#D1495B','c','Stamped on every edict sent back unanswered. The fee is waived, but the look is not.','Veto three edicts.',colT('dismiss',3)],
   ['le-carbon','The Carbon Copy','card','#3A8FD1','c','A faint blue copy of your first trade offer, made so the original could go off and be accepted.','Propose a trade deal.',colT('deal',1)]]},
  {id:'spies',n:'Spy Gadgets',d:'Equipment of the intelligence service, declassified once it stopped working, or once it worked a little too well.',u:['c-moon'],fx:{safety:1},items:[
   ['sp-moustache','The False Moustache','moustache','#3B3530','c','Issued to every new agent. The adhesive is strong enough for one mission and one sneeze.','Send a spy abroad.',colT('spy',1)],
@@ -17945,8 +18052,8 @@ achDef('law','law-every','g','Encyclopaedic','Decide at least twenty edicts in e
   .forEach(([id,t,n,g,d])=>achDef('law',id,t,n,d,g,x=>aT(x,'iss:chain')));
 achDef('law','law-nb1','b','Over the Fence','Decide an edict involving one of your neighbours.',1,x=>aT(x,'iss:nb'));
 achDef('law','law-nb10','s','Good Neighbour','Decide 10 edicts involving your neighbours.',10,x=>aT(x,'iss:nb'));
-achDef('law','law-dismiss','b','Not My Department','Dismiss an edict without deciding it.',1,x=>aT(x,'dismiss'));
-achDef('law','law-dismiss25','s','In-Tray, Out-Tray','Dismiss 25 edicts.',25,x=>aT(x,'dismiss'),{sec:'Some problems solve themselves, if ignored with enough conviction.'});
+achDef('law','law-dismiss','b','Not My Department','Veto an edict without a vote.',1,x=>aT(x,'dismiss'));
+achDef('law','law-dismiss25','s','In-Tray, Out-Tray','Veto 25 edicts.',25,x=>aT(x,'dismiss'),{sec:'Some problems solve themselves, if ignored with enough conviction.'});
 achDef('law','law-busy','s','Midnight Oil','Make 20 decisions within 24 hours. Sleep is for the opposition.',20,aBusy);
 achDef('law','law-night','b','Night Shift','Make a decision between two and five in the morning.',1,x=>achYes((x.n.answered||[]).some(a=>{if(a.o<0||!a.t)return false;const h=new Date(a.t).getHours();return h>=2&&h<5;})),{fm:'bool',sec:'The ministry never sleeps. Neither, it seems, do you.'});
 
@@ -18274,7 +18381,7 @@ function achCard(q,ctx){
   else if(!hide&&a.fm==='bool')meta.push('Not yet');
   if(ctx.players>1){const h=ctx.rar[a.id]||0;meta.push(h?`Held by ${h} of ${ctx.players} player nations`:`No player nation holds it yet`);}
   if(a.mp&&!on&&!hide)meta.push('Needs another player nation');
-  const rw=a.u&&!hide&&UNLOCKS[a.u]?`<p class="ach-rw">${on?'Reward':'Unlocks'}: ${esc(achUnlockWords(a.u))}${ctx.me?` <button class="linkish small" data-act="go" data-v="customise">${on?'Use it on the Customise page':'See it on the Customise page'}</button>`:''}</p>`:'';
+  const rw=a.u&&!hide&&UNLOCKS[a.u]?`<p class="ach-rw">${on?'Reward':'Unlocks'}: ${esc(achUnlockWords(a.u))}${ctx.me?` <button class="linkish small" data-act="go" data-v="${/^pp/.test(UNLOCKS[a.u].k)?'passport':'customise'}">${(/^pp/.test(UNLOCKS[a.u].k)?['Use it on the Passport page','See it on the Passport page']:['Use it on the Customise page','See it on the Customise page'])[on?0:1]}</button>`:''}</p>`:'';
   return `<article class="ach-card at-${a.t}${on?' on':''}${hide||hideMine?' sec':''}" aria-label="${esc(nm)}${on?', earned':''}">
     <div class="ach-badge ai-${hide||hideMine?'lock':a.c}" aria-hidden="true"></div>
     <div class="ach-main"><div class="ach-top"><h3 class="ach-n">${esc(nm)}</h3><span class="ach-tier">${achMedal(a.t)}${ACH_TIER[a.t].n} · ${ACH_TIER[a.t].p}</span></div>
@@ -18375,7 +18482,7 @@ const CZ_ORD={chief:'a chief',fessb:'a fess',paleb:'a pale',bendb:'a bend',cross
 const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent'};
 const CZ_SYM=[['hol','National holiday',40,'Founding Day'],['flower','National flower',30,'Edelweiss'],['tree','National tree',30,'Silver birch'],['bird','National bird',30,'Kingfisher'],['inst','National instrument',30,'Hurdy-gurdy'],['col','National colours',40,'Green and gold'],['nick','Capital nickname',40,'The Old Lady']];
 const CZ_MON=['January','February','March','April','May','June','July','August','September','October','November','December'],CZ_MDAYS=[31,29,31,30,31,30,31,31,30,31,30,31];
-const CZ_KIND={t:'title',f:'frame',p:'pattern',st:'stamp'},CZ_DEF={t:'',f:'f-plain',p:'p-guilloche',st:'s-enacted'};
+const CZ_KIND={t:'title',f:'frame',p:'pattern',st:'stamp'},CZ_DEF={t:'',f:'f-plain',p:'p-guilloche',st:'s-senate'};
 const CZ_EMBS=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k==='emblem');
 /* the unlockable emblems join the flag designer; the base set already has a crown, a tree and an anchor, so these get names of their own */
 for(const id of CZ_EMBS){const nm={'e-crown':'Royal crown','e-eagle':'Eagle','e-gear':'Gear wheel','e-anchor':'Fouled anchor','e-tree':'Oak','e-wave':'Waves'}[id]||UNLOCKS[id].n;EMBLEMS[id]=nm;UNLOCKS[id].n=nm;}
@@ -18435,7 +18542,7 @@ function czHolds(n,id,raw){
 }
 /* the customisation of any nation, validated, with defaults, and with anything it doesn't hold left out */
 function cz(n){
-  if(!n||typeof n!=='object')return {t:'',f:'f-plain',p:'p-guilloche',st:'s-enacted',a:null,sy:{}};
+  if(!n||typeof n!=='object')return {t:'',f:'f-plain',p:'p-guilloche',st:'s-senate',a:null,sy:{}};
   const key=UNLOCK_SOURCES.length+':'+(n===S.nation?czMine().size:'x'),m=CZ_MEMO.get(n);if(m&&m.k===key)return m.v;
   const raw=n.cz&&typeof n.cz==='object'?n.cz:{},v={};
   for(const f of ['t','f','p','st']){const id=raw[f];v[f]=czU(id)&&UNLOCKS[id].k===CZ_KIND[f]&&czHolds(n,id,raw)?id:CZ_DEF[f];}
@@ -18664,6 +18771,13 @@ function czStampArt(s,n){
     const ini=esc((nm.trim()[0]||'S').toUpperCase());
     return `<svg viewBox="0 0 120 120" aria-hidden="true"><defs><radialGradient id="${id}" cx=".4" cy=".35" r=".72"><stop offset="0" stop-color="#d9473c"/><stop offset=".6" stop-color="#a81e18"/><stop offset="1" stop-color="#6c0f0b"/></radialGradient></defs><path d="${d}Z" fill="url(#${id})"/><circle cx="60" cy="60" r="37" fill="#8f1712" fill-opacity=".45" stroke="#5e0b08" stroke-width="3.4"/><circle cx="59.2" cy="59.2" r="37" fill="none" stroke="#ec7a6d" stroke-opacity=".45" stroke-width="1"/>
 <text x="59" y="75" text-anchor="middle" class="cz-st-big" font-size="42" fill="#e9786b" fill-opacity=".45">${ini}</text><text x="60" y="76" text-anchor="middle" class="cz-st-big" font-size="42" fill="#5c0a07">${ini}</text><path d="${czEll(43,33,15,6.5,-32)}" fill="#fff" fill-opacity=".16"/></svg>`;}
+  if(s==='s-senate'){const r=rng(hash(nm+':senate')),pts=[];for(let i=0;i<28;i++){const a=i*Math.PI/14,rr=54+(r()-.5)*7;pts.push([62+rr*Math.cos(a),62+rr*Math.sin(a)]);}
+    const mid=(a,b)=>((a[0]+b[0])/2).toFixed(2)+','+((a[1]+b[1])/2).toFixed(2);let d='M'+mid(pts[27],pts[0]);for(let i=0;i<28;i++)d+='Q'+pts[i][0].toFixed(2)+','+pts[i][1].toFixed(2)+' '+mid(pts[i],pts[(i+1)%28]);
+    const wp=[];for(let i=0;i<8;i++){const th=(102+i*18)*Math.PI/180;wp.push([62+33*Math.cos(th),62+33*Math.sin(th),Math.atan2(Math.cos(th),-Math.sin(th))*180/Math.PI]);}
+    const lv=laurelLeaves(wp,9.5,2.5),wreath=`<g fill="#e7c8f2" fill-opacity=".55">${lv}<g transform="matrix(-1 0 0 1 124 0)">${lv}</g></g>`;
+    const ini=esc((nm.trim()[0]||'S').toUpperCase());
+    return `<svg viewBox="0 0 124 124" aria-hidden="true"><defs><radialGradient id="${id}" cx=".4" cy=".34" r=".74"><stop offset="0" stop-color="#9a5bc0"/><stop offset=".6" stop-color="#5e2585"/><stop offset="1" stop-color="#341048"/></radialGradient></defs><path d="${d}Z" fill="url(#${id})"/><circle cx="62" cy="62" r="41" fill="#3c1356" fill-opacity=".5" stroke="#2a0b3c" stroke-width="3.2"/><circle cx="61.2" cy="61.2" r="41" fill="none" stroke="#c99be0" stroke-opacity=".45" stroke-width="1"/>${wreath}
+${(t=>`<text x="62" y="55" text-anchor="middle" class="cz-st-roman" font-size="${Math.min(11.5,60/(Math.max(3,t.length)*.82)).toFixed(1)}" fill="#f1dcfa" fill-opacity=".85">${esc(t)}</text>`)((c=>c==='SPQ'?c+(nm.trim()[0]||'S').toUpperCase():c)((n?chamberOf(n):CH_SENATE).seal))}<text x="62" y="78" text-anchor="middle" class="cz-st-roman" font-size="21" fill="#f1dcfa" fill-opacity=".9">${ini}</text><path d="M44,61H80" stroke="#f1dcfa" stroke-opacity=".55" stroke-width=".9"/><path d="${czEll(45,35,15,6.5,-32)}" fill="#fff" fill-opacity=".14"/></svg>`;}
   return '<span class="cz-enx">Enacted</span>';
 }
 function czStamp(n){const s=cz(n).st;return s==='s-enacted'?'<div aria-hidden="true" class="stamp">Enacted</div>':`<div class="stamp cz-stamp cz-${s}" aria-hidden="true">${czStampArt(s,n)}</div>`;}
@@ -18890,7 +19004,7 @@ function idFoil(n){
   const c=cz(n),a=c.a&&c.a.on?c.a:null,hv=!ID.still&&ID.src&&ID.hv?ID.hv:null;
   return `<div class="id-foil${a?' id-wa':''}" aria-hidden="true"${hv?` style="--id-x:${hv[0]};--id-y:${hv[1]};--id-o:${hv[2]}"`:''}><span class="id-fs"><i class="id-fh"></i><i class="id-fl"></i><i class="id-fg"></i></span><span class="id-seal"><i class="id-sc"></i>${a?czArmsSVG(a,{cls:'id-arms'}):idSealSVG(n)}<i class="id-sg"></i></span></div>${idTiltNeed()&&!ID.still?'<button type="button" class="id-tilt" data-act="id-tilt" aria-label="Tilt your phone to light the foil">Tilt</button>':''}`;
 }
-function idActs(n){return n===S.nation&&S.view==='nation'?'<div class="id-acts"><button type="button" class="btn ghost id-pbtn" data-act="id-passport">Passport card</button></div>':'';}
+function idActs(n){return n===S.nation&&S.view==='nation'?'<div class="id-acts"><button type="button" class="btn ghost" data-act="go" data-v="passport">Passport</button><button type="button" class="btn ghost id-pbtn" data-act="id-passport">Identity card</button></div>':'';}
 
 /* ── the guilloche: drawn once per size, theme and flag, then copied from a small cache ── */
 function idGuill(cv){
@@ -19057,7 +19171,7 @@ async function idCard(n,x){
     mt(36,13,0,W-72);mt(W-13,36,Math.PI/2,H-72);mt(W-36,H-13,Math.PI,W-72);mt(13,H-36,-Math.PI/2,H-72);
     /* header */
     g.textBaseline='alphabetic';g.fillStyle=P.ink2;g.font=`600 12.5px ${FM}`;try{g.letterSpacing='2.6px';}catch(e){}
-    g.fillText((REGION+' · Passport card').toUpperCase(),56,66);
+    g.fillText((REGION+' · Identity card').toUpperCase(),56,66);
     g.fillStyle=P.red;g.font=`600 17px ${FM}`;g.textAlign='right';g.fillText(ser,850,68);g.textAlign='left';try{g.letterSpacing='0px';}catch(e){}
     g.strokeStyle=P.rule;g.lineWidth=1;g.beginPath();g.moveTo(56,86.5);g.lineTo(850,86.5);g.stroke();
     /* the flag, with the arms (or a stamp) pinned to its corner */
@@ -19136,12 +19250,12 @@ function idPassOpen(){
   if(!S.nation)return;idPassClose();
   const n=S.nation,tok={};ID.pp=tok;
   const m=document.createElement('div');m.id='id-pp';m.className='id-modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-labelledby','id-pp-h');
-  m.innerHTML=`<button type="button" class="id-scrim" data-act="id-pp-close" aria-label="Close the passport card" tabindex="-1"></button><div class="id-sheet"><div class="id-sheet-h"><div><p class="eyebrow">${esc(REGION)} · ${esc(idSerial(n))}</p><h2 class="h2" id="id-pp-h">Passport card</h2></div><button type="button" class="btn ghost id-ppx" data-act="id-pp-close">Close</button></div><div class="id-pp-box"><div class="id-pp-wait" role="status">Printing the card…</div></div><p class="hint">Right-click or long-press to save the image.</p></div>`;
+  m.innerHTML=`<button type="button" class="id-scrim" data-act="id-pp-close" aria-label="Close the identity card" tabindex="-1"></button><div class="id-sheet"><div class="id-sheet-h"><div><p class="eyebrow">${esc(REGION)} · ${esc(idSerial(n))}</p><h2 class="h2" id="id-pp-h">Identity card</h2></div><button type="button" class="btn ghost id-ppx" data-act="id-pp-close">Close</button></div><div class="id-pp-box"><div class="id-pp-wait" role="status">Printing the card…</div></div><p class="hint">Right-click or long-press to save the image.</p></div>`;
   document.body.appendChild(m);const x=m.querySelector('.id-ppx');if(x)try{x.focus({preventScroll:true});}catch(e){}
   idCard(n,{id:myId(),n,me:true}).then(url=>{
     if(ID.pp!==tok)return;const box=m.querySelector('.id-pp-box');if(!box)return;
     if(!url){box.innerHTML='<div class="id-pp-wait" role="status">This browser could not print the card.</div>';return;}
-    const im=new Image();im.className='id-pp';im.width=1000;im.height=630;im.alt=`Passport card of ${theName(n)}: ${czTitle(n)?czTitle(n)+', ':''}capital ${n.capital}, serial ${idSerial(n)}`;im.src=url;box.innerHTML='';box.appendChild(im);
+    const im=new Image();im.className='id-pp';im.width=1000;im.height=630;im.alt=`Identity card of ${theName(n)}: ${czTitle(n)?czTitle(n)+', ':''}capital ${n.capital}, serial ${idSerial(n)}`;im.src=url;box.innerHTML='';box.appendChild(im);
   });
 }
 document.addEventListener('click',e=>{
@@ -21784,7 +21898,7 @@ function cvIssueTag(x){
   let e=null;try{e=cvAgainst(S.nation,4).find(e=>e.op.k==='s'&&e.op.is===x.id&&e.ok);}catch(err){}
   return ' · Scandal'+(e?(e.ex?' planted by '+esc(e.bn):' · source unknown'):'');
 }
-function cvDismissHint(id){return CV_SCN_SET.has(id)?`Dismissing a scandal is reported as “No comment”: happiness falls by ${CV_DISMISS}.`:'Dismissing an edict leaves your nation unchanged.';}
+function cvDismissHint(id){return CV_SCN_SET.has(id)?`A veto on a scandal is reported as “No comment”: happiness falls by ${CV_DISMISS}.`:'A veto leaves your nation unchanged.';}
 
 /* ── bell, happenings, nation pages, the Dispatch ── */
 NOTIF_SOURCES.push((n,now)=>{
@@ -29748,7 +29862,7 @@ const NAV_GROUPS=[
   {k:'land',l:'Land and space',v:['map','space']},
   {k:'abroad',l:'Abroad',v:['region','diplomacy','trade','intel','assembly','games','world']},
   {k:'news',l:'News and people',v:['dispatch','messages','flock']},
-  {k:'coll',l:'Collection',v:['museum','achievements']},
+  {k:'coll',l:'Collection',v:['museum','achievements','passport']},
   {k:'other',l:'Other pages',v:[]},
   {k:'opts',l:'Options',v:['customise','settings','help']}];
 const NAV_LABELS={},NAV_PARENT={visit:'region',explore:'map',atlas:'map'},NAV_TABS=['nation','issues','map','region'];
@@ -29756,7 +29870,7 @@ const NAV_WORDS={nation:'overview home flag factbook',issues:'issues decisions d
   cities:'buildings towns blocks works',stats:'statistics figures economy bureau',census:'rankings scales',map:'land territory claims credits expeditions atlas',
   space:'moon mars asteroid belt colony starport',region:'nations neighbours visit',diplomacy:'alliances allies wars peace',trade:'resources deals goods food timber iron oil',
   intel:'spies covert operations missions',assembly:'votes resolutions delegate',games:'sport events medals',world:'regions move',
-  dispatch:'newspaper news daily paper',messages:'letters mail',museum:'artefacts halls',achievements:'honours records',
+  dispatch:'newspaper news daily paper',messages:'letters mail',museum:'artefacts halls',achievements:'honours records',passport:'stamps visas travel cover collect',
   customise:'arms flag banner colours accent epithet',settings:'theme dark light pace dissolve',help:'how to play tutorial guide rules'};
 const NAV_SVG=(p,w)=>`<svg viewBox="0 0 24 24" width="${w||22}" height="${w||22}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${p}</svg>`;
 const NAV_ICONS={
@@ -32234,7 +32348,7 @@ function allNations(){
 function findNation(id){return allNations().find(x=>x.id===id);}
 
 /* ───────── views ───────── */
-const NAV=[['nation','Nation'],['issues','Edicts'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
+const NAV=[['nation','Nation'],['issues','Edicts'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['passport','Passport'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
 
 function modeChip(){
   if(S.mode==='world')return `<p class="mode world"><i></i><span>Connected to ${REGION}. Your nation is visible to other players.</span></p>`;
@@ -32331,7 +32445,7 @@ function legislation(n){
 }
 function nationView(v,now){
   const n=S.nation,cnt=v.inbox.length;
-  return `${cnt?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">Cabinet office</span><span>${cnt===1?'One edict is':cnt+' edicts are'} waiting for your decision.</span><span class="notice-go">Open edicts →</span></button>`:''}
+  return `${cnt?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">${esc(chamberOf(n).house)}</span><span>${cnt===1?'One edict awaits':cnt+' edicts await'} ${esc(chamberOf(n).notice)}.</span><span class="notice-go">Open edicts →</span></button>`:''}
   ${landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}
   ${firstStepsCard(n)}${hero(n)}
   ${freedoms(n.s)}
@@ -32344,15 +32458,52 @@ function nationView(v,now){
   ${growthSection(n)}
   ${legislation(n)}${runHooks(NATION_SECTIONS,{id:S.uid||'me',n,me:true},now).join('')}`;
 }
+/* ───────── the Senate's forms: Roman numerals, years and the laurel ───────── */
+/* Roman numerals for edicts and motions (1 to 3999; anything else stays in Arabic figures) */
+function roman(v){v=Math.floor(+v);if(!(v>0&&v<4000))return String(v);let o='';for(const [k,r] of [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']])while(v>=k){o+=r;v-=k;}return o;}
+/* the nation's year, counted from its founding as Rome counted from the city's: the first year is Anno I */
+function annoOf(n,t){const f=(n&&n.founded)||t||Date.now();return 'Anno '+roman(Math.max(0,Math.floor(((t||Date.now())-f)/YEAR_MS))+1);}
+/* laurel leaves along a path: pts are [x,y,direction in degrees] at the leaf bases; each leaf points along
+   the branch, splayed to alternate sides, and shrinks towards the tip */
+function laurelLeaves(pts,len,w,alt){let o='';pts.forEach(([x,y,a],i)=>{const k=1-.45*i/Math.max(1,pts.length-1),L=len*k,W=w*k;
+  for(const sd of alt?[i%2?1:-1]:[-1,1])o+=`<path d="M0,0C${(L*.3).toFixed(1)},${(-W).toFixed(1)} ${(L*.75).toFixed(1)},${(-W).toFixed(1)} ${L.toFixed(1)},0C${(L*.75).toFixed(1)},${W.toFixed(1)} ${(L*.3).toFixed(1)},${W.toFixed(1)} 0,0Z" transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${(a+sd*32).toFixed(1)})"/>`;});return o;}
+const LAUREL=(()=>{const P=[[97,13],[62,17],[12,7]],pts=[];
+  for(let i=0;i<13;i++){const t=.04+i*.072,u=1-t,x=u*u*P[0][0]+2*u*t*P[1][0]+t*t*P[2][0],y=u*u*P[0][1]+2*u*t*P[1][1]+t*t*P[2][1],dx=2*u*(P[1][0]-P[0][0])+2*t*(P[2][0]-P[1][0]),dy=2*u*(P[1][1]-P[0][1])+2*t*(P[2][1]-P[1][1]);pts.push([x,y,Math.atan2(dy,dx)*180/Math.PI]);}
+  const half=`<path d="M97,13Q62,17 10,6.5" fill="none" stroke="currentColor" stroke-width="1"/><g fill="currentColor">${laurelLeaves(pts,12.5,3.1,1)}</g>`;
+  return `<div class="laurel" aria-hidden="true"><svg viewBox="0 0 200 24">${half}<g transform="matrix(-1 0 0 1 200 0)">${half}</g><circle cx="100" cy="13" r="2.4" fill="currentColor"/></svg></div>`;})();
+/* Who decides an edict follows the type of state: a republic's Senate, a monarch's council, an emperor,
+   a sultan's divan, a synod, a people's congress, a governor or a borough council. The leader's own title
+   is used where it is a monarch's. */
+const CH_SENATE={house:'Curia',matter:'The matter before the Senate',speeches:'Speeches before the Senate',vote:'Vote for motion',form:'Senatus consultum',notice:'the Senate’s vote',seal:'SPQ',
+  decree:nm=>`By decree of the Senate and People of ${nm}`,owner:nm=>`the Senate and People of ${nm}`};
+function chamberOf(n){
+  const pt=String((n&&n.pretitle)||''),L=String((n&&n.leader)||'').trim(),crown=MONARCH_LEADER.test(L)?L:'';
+  const C=o=>Object.assign({},CH_SENATE,o);
+  if(['Empire','Holy Empire','Tsardom'].includes(pt))return C({house:'Imperial Council',matter:'The matter before the throne',speeches:'Counsel before the throne',vote:'Decree motion',form:'Imperial edict',notice:'an imperial edict',seal:'IMP',
+    decree:nm=>`By imperial edict of the ${crown||(pt==='Tsardom'?'Tsar':'Emperor')} of ${nm}`,owner:nm=>`the Imperial Crown of ${nm}`});
+  if(['Sultanate','Emirate'].includes(pt))return C({house:'Divan',matter:'The matter before the Divan',speeches:'Counsel in the Divan',vote:'Seal motion',form:'Firman',notice:'the Divan’s seal',seal:'DIVAN',
+    decree:nm=>`By firman of the ${crown||(pt==='Emirate'?'Emir':'Sultan')} of ${nm}`,owner:nm=>`the ${crown||(pt==='Emirate'?'Emir':'Sultan')} of ${nm}`});
+  if(MONARCH_PRE.includes(pt)||crown)return C({house:'Privy Council',matter:'The matter before the Crown',speeches:'Counsel before the throne',vote:'Assent to motion',form:'Royal decree',notice:'royal assent',seal:/queen|princess|duchess|empress|tsarina|sultana/i.test(L)||pt==='Queendom'?'REGINA':'REX',
+    decree:nm=>`By royal decree of the ${crown||'Crown'} of ${nm}`,owner:nm=>`the Crown of ${nm}`});
+  if(pt==='Theocracy')return C({house:'Holy Synod',matter:'The matter before the Synod',speeches:'Sermons before the Synod',vote:'Bless motion',form:'Holy decree',notice:'the Synod’s blessing',seal:'SANCT',
+    decree:nm=>`By holy decree of the Synod of ${nm}`,owner:nm=>`the Holy Synod of ${nm}`});
+  if(pt==='People’s Republic')return C({house:'Great Hall of the People',matter:'The matter before the Congress',speeches:'Speeches before the People’s Congress',vote:'Adopt motion',form:'Resolution of the Congress',notice:'the Congress’s vote',seal:'POPVLVS',
+    decree:nm=>`By resolution of the People’s Congress of ${nm}`,owner:nm=>`the People of ${nm}`});
+  if(['Protectorate','Colony','Dominion'].includes(pt))return C({house:'Governor’s Council',matter:'The matter before the Governor',speeches:'Advice to the Governor',vote:'Approve motion',form:'Order in council',notice:'the Governor’s signature',seal:'GVB',
+    decree:nm=>`By order in council of the Governor of ${nm}`,owner:nm=>`the Governor of ${nm}`});
+  if(pt==='Borough')return C({house:'Town Hall',matter:'The matter before the Council',speeches:'Speeches in the council chamber',vote:'Carry motion',form:'Council resolution',notice:'the Council’s vote',seal:'MVNICIP',
+    decree:nm=>`By resolution of the Borough Council of ${nm}`,owner:nm=>`the Borough of ${nm}`});
+  return C({});
+}
 function issuesView(v,now){
   const n=S.nation,f=n.freq*60000,full=v.inbox.length>=CAP;
   const freqL=(FREQS.find(x=>x[0]===n.freq)||FREQS[1])[1].toLowerCase();
   const made=decisions(n);
   const next=full?'':`The next edict arrives in <b data-live="next">${fmtDur(v.issueClock+f-now)}</b>.`;
-  return `<header class="vh"><p class="eyebrow">Cabinet office</p><h1>Edicts</h1>
-    <p>${full?'Your desk is full. Answer or dismiss an edict to receive new ones.':next} New edicts arrive ${freqL}, and up to ${CAP} can wait on your desk. You can change the pace in Settings.</p></header>
+  return `<header class="vh"><p class="eyebrow">${esc(chamberOf(n).house)} of ${esc(n.name)}</p><h1>Edicts</h1>
+    <p>${full?'Your desk is full. Vote on or veto an edict to receive new ones.':next} New edicts arrive ${freqL}, and up to ${CAP} can wait on your desk. You can change the pace in Settings.</p></header>
   <div class="issue-meta"><span>${made} decision${made===1?'':'s'} made</span><span>${v.inbox.length} of ${CAP} on your desk</span></div>
-  ${v.inbox.length?`<ul class="issue-list">${v.inbox.map(x=>{const is=ISSUE_BY_ID[x.id];return `<li><button class="issue-card" data-act="open" data-id="${x.id}"><span class="form-code">Edict No. ${pad(is.no)} · arrived ${rel(x.at)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</span><span class="issue-title">${esc(fill(is.t,n,x))}</span><span class="issue-lede">${esc(firstSentence(fill(is.q,n,x)))}</span><span class="issue-go">Read the edict →</span></button></li>`;}).join('')}</ul>`
+  ${v.inbox.length?`<ul class="issue-list">${v.inbox.map(x=>{const is=ISSUE_BY_ID[x.id];return `<li><button class="issue-card" data-act="open" data-id="${x.id}"><span class="form-code">Edictum ${roman(is.no)} · arrived ${rel(x.at)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</span><span class="issue-title">${esc(fill(is.t,n,x))}</span><span class="issue-lede">${esc(firstSentence(fill(is.q,n,x)))}</span><span class="issue-go">Read the edict →</span></button></li>`;}).join('')}</ul>`
   :`<div class="empty"><p class="empty-h">Your desk is clear</p><p>Meanwhile, see how your nation compares with its neighbours.</p><div style="margin-top:14px"><button class="btn ghost" data-act="go" data-v="census">Open the Census</button></div></div>`}`;
 }
 function issueView(v){
@@ -32360,14 +32511,15 @@ function issueView(v){
   if(!v.inbox.some(x=>x.id===id)){S.openIssue=null;return issuesView(v,Date.now());}
   const is=ISSUE_BY_ID[id],x=v.inbox.find(e=>e.id===id);
   return `<button class="back" data-act="close-issue">← All edicts</button>
-  <article class="paper">
-    <p class="form-code">Edict No. ${pad(is.no)} · Cabinet Office of ${esc(n.name)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</p>
+  <article class="paper edict">
+    <p class="form-code">Edictum ${roman(is.no)} · ${esc(chamberOf(n).house)} of ${esc(n.name)} · ${annoOf(n)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</p>
     <h1 class="h1">${esc(fill(is.t,n,x))}</h1>
-    <h2 class="lbl-h">The edict</h2>
+    <h2 class="lbl-h">${esc(chamberOf(n).matter)}</h2>
     <p class="issue-q">${esc(fill(is.q,n,x))}</p>
-    <h2 class="lbl-h">The debate</h2>
-    <ol class="opts">${is.o.map((o,i)=>`<li class="opt"><span class="opt-n" aria-hidden="true">${i+1}</span><div class="opt-b"><p>${esc(fill(o.t,n,x))}</p><button class="btn" data-act="answer" data-id="${id}" data-o="${i}">Accept position ${i+1}</button></div></li>`).join('')}</ol>
-    <div class="issue-foot"><button class="btn ghost" data-act="dismiss" data-id="${id}">Dismiss edict</button><span class="hint">${cvDismissHint(id)}</span></div>
+    ${LAUREL}
+    <h2 class="lbl-h">${esc(chamberOf(n).speeches)}</h2>
+    <ol class="opts">${is.o.map((o,i)=>`<li class="opt"><span class="opt-n" aria-hidden="true">${roman(i+1)}</span><div class="opt-b"><p>${esc(fill(o.t,n,x))}</p><button class="btn" data-act="answer" data-id="${id}" data-o="${i}">${esc(chamberOf(n).vote)} ${roman(i+1)}</button></div></li>`).join('')}</ol>
+    <div class="issue-foot"><button class="btn ghost" data-act="dismiss" data-id="${id}" aria-label="Veto: dismiss this edict without a vote">Veto</button><span class="hint">${cvDismissHint(id)}</span></div>
   </article>`;
 }
 function resultView(){
@@ -32375,11 +32527,12 @@ function resultView(){
   const deltas=STAT_KEYS.map(k=>({k,a:r.before[k],b:r.after[k],d:r.after[k]-r.before[k]})).filter(x=>Math.abs(x.d)>=0.05).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
   const v=syncInbox(n,Date.now());
   const fmt=(k,x)=>k==='tax'?x.toFixed(1)+'%':x.toFixed(1);
-  return `<article class="paper result">
+  return `<article class="paper result edict">
     ${czStamp(n)}
-    <p class="form-code">Edict No. ${pad(is.no)} · Decision recorded at ${fmtTime(r.t)}</p>
+    <p class="form-code">Edictum ${roman(is.no)} · ${esc(chamberOf(n).form)} · ${annoOf(n,r.t)}, ${fmtTime(r.t)}</p>
     <h1 class="h1">${esc(fill(is.t,n,r.ctx))}</h1>
-    <p class="result-fx">Following new legislation in ${esc(n.name)}, ${esc(r.fx)}.</p>
+    ${LAUREL}
+    <p class="result-fx">${esc(chamberOf(n).decree(n.name))}, ${esc(r.fx)}.</p>
     ${r.catBefore!==r.catAfter?`<p class="reclass">${esc(n.name)} has been reclassified from <b>${esc(r.catBefore)}</b> to <b>${esc(r.catAfter)}</b>.</p>`:''}
     ${r.pre?`<p class="reclass">Your nation is now known as <b>${esc(theName(n))}</b>.</p>`:''}
     ${r.cab&&r.cab.length?`<div class="polchg">${r.cab.map(t=>`<span><b>Cabinet</b> · ${esc(t)}</span>`).join('')}</div>`:''}
@@ -32443,7 +32596,7 @@ function regionView(now){
   haps.sort((a,b)=>b.t-a.t);
   const hapText=(l,x)=>{if(l.k==='_ext')return l.html;const nm=nationLink(x.id,x.n.name,x.me);
     if(l.k==='found')return `${nm} was founded in ${REGION}.`;
-    if(l.k==='issue')return `Following new legislation in ${nm}, ${esc(l.fx)}.`;
+    if(l.k==='issue')return `${x.npc?`Following new legislation in ${nm}`:esc(chamberOf(x.n).decree('')).replace(/ of $/,'')+' of '+nm}, ${esc(l.fx)}.`;
     if(l.k==='cat')return `${nm} was reclassified from ${esc(l.a)} to ${esc(l.b)}.`;
     if(l.k==='flag')return `${nm} adopted a new national flag.`;
     if(l.k==='disc')return `${nm} discovered ${esc(siteName(+l.a))}.`;
@@ -32514,7 +32667,7 @@ function visitView(now){
   const n=x.n;
   return `<button class="back" data-act="go" data-v="region">← ${REGION}</button>
   ${hero(n,{player:!x.npc})}
-  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button><button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>
+  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button><button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>
   ${relationCard(x)}${runHooks(VISIT_SECTIONS,x,now).join('')}
   ${freedoms(n.s)}
   <div class="nation-grid">
@@ -32749,7 +32902,7 @@ function dismiss(id){
   if(n.inbox.length>=CAP)n.issueClock=now;
   n.inbox=n.inbox.filter(x=>x.id!==id);
   n.answered.push({id,o:-1,t:now,fx:''});n.answered=n.answered.slice(-80);
-  commit(n);S.openIssue=null;render();window.scrollTo(0,0);toast('Edict dismissed.');
+  commit(n);S.openIssue=null;render();window.scrollTo(0,0);toast('Vetoed. The edict is struck from the record.');
 }
 function saveSettings(){
   const st=S.settings,now=Date.now();
@@ -33189,6 +33342,562 @@ document.addEventListener('click',e=>{
   if(a==='admh-ask-no'){ADMH.ask=null;render();return;}
   if(/^admh-(answer|close|del|del-yes)$/.test(a)){if(S.isOwner)admhAct(a,el.dataset.id);return;}
 });
+
+/* ───────── the passport ─────────
+   Every nation carries a passport: a cover, an identity page and twenty visa pages of ten entry stamps.
+   Opening another nation's page stamps that nation's entry stamp into yours, up to 200 (a full book).
+   The owner designs the cover (colour, material, foil, ornament, emblem, wording, layout), the pages
+   (tint, security print, watermark, numerals) and the entry stamp other nations collect (shape, border,
+   ink, device, wording). The richer choices unlock with the passport achievements and the Passport
+   Office set in the museum, through UNLOCKS like the rest of Customise. An editor sets which page and
+   place each stamp has, and titles the pages.
+   Stored on the nation as n.pp = {c, g, s, ds, v:{<nation id>:[name, region, time, shape, border, ink,
+   device, top text, bottom text]}, p:[20 × 10 ids or 0], l:[20 page titles]}; ds marks which parts were
+   designed (1 cover, 2 pages, 4 stamp). A stamp keeps the other nation's design as it was when stamped,
+   so a passport reads the same wherever it is opened. Computer nations carry the stamps of their
+   region's other computer nations. Other regions cannot be visited, so a book fills with the stamps of
+   the region a nation lives in, and of the regions it moved through. */
+const PP_PAGES=20,PP_SLOTS=10,PP_MAX=PP_PAGES*PP_SLOTS,PP_SEQ=PP_PAGES+3;
+Object.assign(UNLOCKS,{
+  /* cover colours */
+  'pc-burgundy':{k:'ppcol',n:'Burgundy',src:'free',v:'#6b1d2a'},'pc-navy':{k:'ppcol',n:'Navy',src:'free',v:'#1b2a4a'},'pc-green':{k:'ppcol',n:'Bottle green',src:'free',v:'#1f4d3a'},
+  'pc-black':{k:'ppcol',n:'Black',src:'free',v:'#1c1c1e'},'pc-tan':{k:'ppcol',n:'Tan',src:'free',v:'#8a5a2b'},'pc-blue':{k:'ppcol',n:'Royal blue',src:'free',v:'#25478a'},
+  'pc-crimson':{k:'ppcol',n:'Crimson',src:'ach',v:'#9b1b22'},'pc-purple':{k:'ppcol',n:'Tyrian purple',src:'ach',v:'#4b1c5e'},'pc-ivory':{k:'ppcol',n:'Ivory',src:'set',v:'#e3d8bd'},'pc-teal':{k:'ppcol',n:'Deep teal',src:'set',v:'#0f5557'},
+  /* cover materials */
+  'px-plain':{k:'pptex',n:'Smooth',src:'free'},'px-leather':{k:'pptex',n:'Leather grain',src:'free'},'px-linen':{k:'pptex',n:'Linen',src:'free'},
+  'px-pebble':{k:'pptex',n:'Pebbled',src:'ach'},'px-marble':{k:'pptex',n:'Marble',src:'ach'},'px-velvet':{k:'pptex',n:'Velvet',src:'set'},
+  /* foils */
+  'pf-gold':{k:'ppfoil',n:'Gold',src:'free'},'pf-silver':{k:'ppfoil',n:'Silver',src:'free'},'pf-blind':{k:'ppfoil',n:'Blind embossed',src:'free'},
+  'pf-copper':{k:'ppfoil',n:'Copper',src:'ach'},'pf-rose':{k:'ppfoil',n:'Rose gold',src:'ach'},'pf-holo':{k:'ppfoil',n:'Holographic',src:'ach'},
+  /* cover ornaments */
+  'po-none':{k:'pporn',n:'None',src:'free'},'po-rule':{k:'pporn',n:'Double rule',src:'free'},'po-corners':{k:'pporn',n:'Corners',src:'free'},
+  'po-guilloche':{k:'pporn',n:'Guilloche band',src:'ach'},'po-greek':{k:'pporn',n:'Greek key',src:'ach'},'po-laurel':{k:'pporn',n:'Laurel garland',src:'ach'},'po-deco':{k:'pporn',n:'Art deco',src:'set'},
+  /* cover emblems (the charges of the arms serve too) */
+  'pe-arms':{k:'ppemb',n:'Coat of arms',src:'free'},'pe-flag':{k:'ppemb',n:'Flag',src:'free'},'pe-laurel':{k:'ppemb',n:'Initial in laurel',src:'free'},
+  'pe-rosette':{k:'ppemb',n:'Guilloche rosette',src:'free'},'pe-temple':{k:'ppemb',n:'Temple front',src:'ach'},
+  /* page tints */
+  'pt-cream':{k:'pptint',n:'Cream',src:'free'},'pt-mint':{k:'pptint',n:'Mint',src:'free'},'pt-sky':{k:'pptint',n:'Sky',src:'free'},'pt-rose':{k:'pptint',n:'Rose',src:'free'},
+  'pt-lilac':{k:'pptint',n:'Lilac',src:'ach'},'pt-sand':{k:'pptint',n:'Sand',src:'ach'},'pt-night':{k:'pptint',n:'Night',src:'set'},
+  /* page security prints */
+  'pg-guilloche':{k:'pppat',n:'Guilloche',src:'free'},'pg-waves':{k:'pppat',n:'Waves',src:'free'},'pg-grid':{k:'pppat',n:'Grid',src:'free'},
+  'pg-map':{k:'pppat',n:'Contour map',src:'ach'},'pg-columns':{k:'pppat',n:'Colonnade',src:'ach'},'pg-rosette':{k:'pppat',n:'Rosette',src:'set'},'pg-stars':{k:'pppat',n:'Starfield',src:'set'},
+  /* entry stamps: shapes, borders and inks */
+  'ps-circle':{k:'ppshape',n:'Circle',src:'free'},'ps-oval':{k:'ppshape',n:'Oval',src:'free'},'ps-rect':{k:'ppshape',n:'Rectangle',src:'free'},'ps-ticket':{k:'ppshape',n:'Ticket',src:'free'},
+  'ps-hex':{k:'ppshape',n:'Hexagon',src:'ach'},'ps-diamond':{k:'ppshape',n:'Diamond',src:'ach'},'ps-oct':{k:'ppshape',n:'Octagon',src:'set'},'ps-shield':{k:'ppshape',n:'Shield',src:'set'},
+  'pb-single':{k:'ppbord',n:'Single line',src:'free'},'pb-double':{k:'ppbord',n:'Double line',src:'free'},'pb-dashed':{k:'ppbord',n:'Dashed',src:'free'},'pb-thick':{k:'ppbord',n:'Heavy',src:'free'},
+  'pb-dots':{k:'ppbord',n:'Dotted',src:'ach'},'pb-twin':{k:'ppbord',n:'Twin line',src:'ach'},
+  'pi-violet':{k:'ppink',n:'Violet',src:'free'},'pi-red':{k:'ppink',n:'Red',src:'free'},'pi-blue':{k:'ppink',n:'Blue',src:'free'},'pi-green':{k:'ppink',n:'Green',src:'free'},'pi-black':{k:'ppink',n:'Black',src:'free'},
+  'pi-teal':{k:'ppink',n:'Teal',src:'ach'},'pi-orange':{k:'ppink',n:'Orange',src:'ach'},'pi-gold':{k:'ppink',n:'Gold',src:'ach'},'pi-brown':{k:'ppink',n:'Sepia',src:'set'},'pi-magenta':{k:'ppink',n:'Magenta',src:'set'}
+});
+const PP_KIND={col:'ppcol',tex:'pptex',foil:'ppfoil',orn:'pporn',tint:'pptint',pat:'pppat',sh:'ppshape',bd:'ppbord',ink:'ppink'};
+const PP_LAYS={classic:'Classic',low:'Emblem above',framed:'Cartouche'},PP_WM={emblem:'Emblem',initial:'Initial',none:'None'},PP_NUM={roman:'Roman',arabic:'Arabic'};
+const PP_WORDS=['PASSPORT','PASSEPORT','PASAPORTE','REISEPASS','PASSAPORTO','PASPOORT','LAISSEZ-PASSER','DIPLOMATIC PASSPORT'];
+const PP_T2=['ADMITTED','ENTRY','ARRIVAL','WELCOME','SALVE','BIENVENUE','VISITED','FRIEND OF THE STATE'];
+const PP={tried:new Set(),tab:'book',dtab:'c',at:0,sel:null,info:null,ask:null,turn:0};
+const PPV={id:null,at:0,info:null,opener:null,turn:0};
+function ppU(id,k){const u=czU(id);return !!u&&u.k===k;}
+function ppIcon(id){return typeof id==='string'&&!!czU(id)&&UNLOCKS[id].k==='charge';}
+function ppEmb(id){return typeof id==='string'&&!!czU(id)&&(UNLOCKS[id].k==='ppemb'||UNLOCKS[id].k==='charge');}
+
+/* ── drawing: the passport. Covers and pages are 300 × 420; a stamp is 120 × 84. ── */
+let ppSeq=0;
+const PP_Q=v=>(+v).toFixed(1);
+/* foil on the cover: [defs, paint] */
+function ppFoil(f,id){
+  const G=(stops,x2,y2)=>`<linearGradient id="${id}" x1="0" y1="0" x2="${x2||1}" y2="${y2||1}">${stops.map((c,i)=>`<stop offset="${(i/(stops.length-1)).toFixed(2)}" stop-color="${c}"/>`).join('')}</linearGradient>`;
+  switch(f){
+    case 'pf-silver':return [G(['#f7f9fb','#a9b2ba','#eef2f5','#8e979f','#e3e8ec']),`url(#${id})`];
+    case 'pf-copper':return [G(['#f8cfb0','#b1633a','#f1b48b','#8f4a27','#e4a07a']),`url(#${id})`];
+    case 'pf-rose':return [G(['#ffe1e7','#cf7f8b','#f8c3cc','#b1606d','#f2b3bd']),`url(#${id})`];
+    case 'pf-holo':return [G(['#f5d6ff','#bfefff','#fff5b5','#ffc6dd','#c6ffd9','#d9d0ff'],1,.6),`url(#${id})`];
+    case 'pf-blind':return ['','rgba(0,0,0,.3)'];
+    default:return [G(['#fff1bd','#c99a2e','#f8df8f','#9d7219','#ecc86a']),`url(#${id})`];
+  }
+}
+/* the cover's material: [defs, layers over the base colour] */
+function ppTexture(x,id,col){
+  const T=(freq,oct,alpha,seed)=>`<filter id="${id}t" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${oct}" seed="${seed||3}"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${alpha} 0"/></filter>`;
+  switch(x){
+    case 'px-leather':return [T('.9',3,'.55'),`<rect width="300" height="420" filter="url(#${id}t)" opacity=".5"/>`];
+    case 'px-pebble':return [T('.22',2,'.9',8),`<rect width="300" height="420" filter="url(#${id}t)" opacity=".42"/>`];
+    case 'px-linen':return [`<pattern id="${id}l" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M0,1H4M1,0V4" stroke="#000" stroke-opacity=".16" stroke-width=".8"/></pattern>`,`<rect width="300" height="420" fill="url(#${id}l)"/>`];
+    case 'px-marble':return [`<filter id="${id}m" x="0" y="0" width="100%" height="100%"><feTurbulence type="turbulence" baseFrequency=".008 .03" numOctaves="4" seed="11"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.6 1.25"/></filter>`,`<rect width="300" height="420" filter="url(#${id}m)" opacity=".38"/>`];
+    case 'px-velvet':return [`<radialGradient id="${id}v" cx=".35" cy=".25" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient>`+T('1.4',1,'.35',5),`<rect width="300" height="420" fill="url(#${id}v)"/><rect width="300" height="420" filter="url(#${id}t)" opacity=".35"/>`];
+    default:return [`<linearGradient id="${id}p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></linearGradient>`,`<rect width="300" height="420" fill="url(#${id}p)"/>`];
+  }
+}
+/* a sine-wave band round a rectangle, the way banknotes and passports frame their pages */
+function ppWaveFrame(x,y,w,h,amp,per,ph){
+  let d='';const P=2*(w+h),n=Math.round(P/2);
+  for(let i=0;i<=n;i++){let s=i*P/n,px,py,nx,ny;
+    if(s<w){px=x+s;py=y;nx=0;ny=-1;}else if(s<w+h){px=x+w;py=y+s-w;nx=1;ny=0;}else if(s<2*w+h){px=x+w-(s-w-h);py=y+h;nx=0;ny=1;}else{px=x;py=y+h-(s-2*w-h);nx=-1;ny=0;}
+    const o=amp*Math.sin(s/per*2*Math.PI+ph);d+=(i?'L':'M')+PP_Q(px+nx*o)+','+PP_Q(py+ny*o);}
+  return d+'Z';
+}
+function ppOrnament(o,paint){
+  const S=(d,w)=>`<path d="${d}" fill="none" stroke="${paint}" stroke-width="${w||1.2}"/>`;
+  switch(o){
+    case 'po-rule':return S('M14,14H286V406H14Z',1.6)+S('M19,19H281V401H19Z',.7);
+    case 'po-corners':{const c='M14,48V14H48M22,40V22H40';return [0,1,2,3].map(i=>`<g transform="${['','matrix(-1 0 0 1 300 0)','matrix(1 0 0 -1 0 420)','matrix(-1 0 0 -1 300 420)'][i]}">${S(c,1.6)}</g>`).join('');}
+    case 'po-guilloche':return S(ppWaveFrame(18,18,264,384,3.2,9,0),.6)+S(ppWaveFrame(18,18,264,384,3.2,9,Math.PI),.6)+S(ppWaveFrame(18,18,264,384,1.6,13,1),.5);
+    case 'po-greek':{let d='';for(let x=20;x<276;x+=16)d+=`M${x},30V20H${x+12}V28H${x+5}V24`;return S(d,1.1)+`<g transform="matrix(1 0 0 -1 0 420)">${S(d,1.1)}</g>`+S('M16,16H284M16,34H284',.8)+`<g transform="matrix(1 0 0 -1 0 420)">${S('M16,16H284M16,34H284',.8)}</g>`;}
+    case 'po-laurel':{const pts=[];for(let i=0;i<14;i++){const th=(98+i*12)*Math.PI/180;pts.push([150+128*Math.cos(th),236+150*Math.sin(th),Math.atan2(150*Math.cos(th),-128*Math.sin(th))*180/Math.PI]);}
+      const l=`<g fill="${paint}">${laurelLeaves(pts,17,4.2,1)}</g>`;return l+`<g transform="matrix(-1 0 0 1 300 0)">${l}</g>`;}
+    case 'po-deco':{const fan=(cx,cy,dir)=>{let s='';for(let i=0;i<9;i++){const a=Math.PI+i*Math.PI/8;s+=`M${cx},${cy}L${PP_Q(cx+24*Math.cos(a))},${PP_Q(cy+dir*24*Math.sin(a))}`;}return s;};
+      return S('M12,12H288V408H12Z',1.4)+S('M20,20H280V400H20Z',.7)+S(fan(150,22,1)+fan(150,398,-1),.9)+S('M20,60H70M230,60H280M20,360H70M230,360H280',.9);}
+  }
+  return '';
+}
+/* emblems: the arms or flag in colour, or a device struck in the foil */
+function ppEmblem(e,n,paint,cx,cy,sz){
+  const ini=esc(String((n&&n.name)||'E').trim().charAt(0).toUpperCase()||'E');
+  const nest=inner=>`<svg x="${PP_Q(cx-sz/2)}" y="${PP_Q(cy-sz/2)}" width="${sz}" height="${sz}" viewBox="0 0 100 100">${inner}</svg>`;
+  if(e==='pe-flag'&&n)return `<svg x="${PP_Q(cx-sz*.55)}" y="${PP_Q(cy-sz*.37)}" width="${PP_Q(sz*1.1)}" height="${PP_Q(sz*.73)}" viewBox="0 0 300 200" preserveAspectRatio="none">${flagSVG(n.flag).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</svg><rect x="${PP_Q(cx-sz*.55)}" y="${PP_Q(cy-sz*.37)}" width="${PP_Q(sz*1.1)}" height="${PP_Q(sz*.73)}" fill="none" stroke="${paint}" stroke-width="1.6"/>`;
+  if(e==='pe-arms'&&n){const a=cz(n).a||czDefaultArms(n,1);return `<g transform="translate(${PP_Q(cx-sz*.45)},${PP_Q(cy-sz*.52)}) scale(${(sz*.9/106).toFixed(3)})">${czArmsSVG(a,{}).replace(/^<svg[^>]*>/,'<svg viewBox="-3 -3 106 126" width="106" height="126">')}</g>`;}
+  if(e==='pe-rosette'){let g='';for(let i=0;i<24;i++)g+=`<ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(${i*7.5} 50 50)"/>`;return nest(`<g fill="none" stroke="${paint}" stroke-width=".7">${g}<circle cx="50" cy="50" r="12"/></g>`);}
+  if(e==='pe-temple')return nest(`<g fill="${paint}"><path d="M8,32L50,8L92,32Z"/><rect x="10" y="35" width="80" height="6"/>${[16,32,48,64,80].map(x=>`<rect x="${x-3.5}" y="44" width="7" height="38"/>`).join('')}<rect x="6" y="85" width="88" height="5"/><rect x="2" y="92" width="96" height="5"/></g><circle cx="50" cy="24" r="4" fill="rgba(0,0,0,.25)"/>`);
+  if(e==='pe-laurel'){const pts=[];for(let i=0;i<9;i++){const th=(100+i*19)*Math.PI/180;pts.push([50+40*Math.cos(th),50+40*Math.sin(th),Math.atan2(Math.cos(th),-Math.sin(th))*180/Math.PI]);}
+    const l=`<g fill="${paint}">${laurelLeaves(pts,13,3.4,1)}</g>`;
+    return nest(`${l}<g transform="matrix(-1 0 0 1 100 0)">${l}</g><text x="50" y="63" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="38" fill="${paint}">${ini}</text>`);}
+  if(/^c-/.test(e))return nest(czCharge(e.slice(2),paint,'rgba(0,0,0,.28)',true));
+  return nest(`<text x="50" y="66" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="52" fill="${paint}">${ini}</text>`);
+}
+/* the e-passport chip mark */
+function ppChip(paint,cx,cy){return `<g fill="none" stroke="${paint}" stroke-width="1.5" transform="translate(${cx-14},${cy-9})"><rect x="0" y="0" width="28" height="18" rx="2"/><circle cx="14" cy="9" r="4.2"/><path d="M0,9H9.8M18.2,9H28"/></g>`;}
+function ppNameLines(n){const pre=n&&n.pretitle?('The '+n.pretitle+' of').toUpperCase():'',nm=String((n&&n.name)||'').toUpperCase();return [pre,nm];}
+/* the cover: d is a cleaned cover design (ppDesign) */
+function ppCoverSVG(n,d,o){
+  o=o||{};const id='ppc'+(++ppSeq),col=(UNLOCKS[d.col]||{}).v||'#6b1d2a',[fd,paint]=ppFoil(d.foil,id+'f'),[td,tex]=ppTexture(d.tex,id,col);
+  const [pre,nm]=ppNameLines(n),fsN=Math.max(15,Math.min(34,250/(Math.max(4,nm.length)*.78))),fsP=Math.max(8,Math.min(13,250/(Math.max(6,pre.length)*.7)));
+  const word=esc(d.word||'PASSPORT'),T=(y,fs,t,ls)=>`<text x="150" y="${y}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="${PP_Q(fs)}" letter-spacing="${ls||1.5}" fill="${paint}">${esc(t)}</text>`;
+  let body='';
+  if(d.lay==='low')body=ppEmblem(d.emb,n,paint,150,150,118)+(pre?T(262,fsP,pre,2.2):'')+T(298,fsN,nm)+T(352,15,word,5)+(d.chip?ppChip(paint,150,382):'');
+  else if(d.lay==='framed'){const pid=id+'a';body=`<defs><path id="${pid}" d="M72,212A78,89 0 1,1 228,212"/></defs><ellipse cx="150" cy="212" rx="98" ry="108" fill="none" stroke="${paint}" stroke-width="1.4"/><ellipse cx="150" cy="212" rx="92" ry="102" fill="none" stroke="${paint}" stroke-width=".6"/>
+<text font-family="Cinzel,Georgia,serif" font-weight="700" font-size="${PP_Q(Math.min(14,fsN*.55))}" letter-spacing="2" fill="${paint}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(nm)}</textPath></text>`+ppEmblem(d.emb,n,paint,150,222,104)+(pre?T(68,fsP,pre,2.2):'')+T(362,15,word,5)+(d.chip?ppChip(paint,150,392):'');}
+  else body=(pre?T(64,fsP,pre,2.2):'')+T(64+(pre?fsN+8:fsN*.6),fsN,nm)+ppEmblem(d.emb,n,paint,150,214,122)+T(330,15,word,5)+(d.chip?ppChip(paint,150,368):'');
+  return `<svg class="pp-cover${o.cls?' '+o.cls:''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${fd}${td}</defs><rect width="300" height="420" rx="10" fill="${col}"/>${tex}${ppOrnament(d.orn,paint)}${body}<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>`;
+}
+/* the security print behind a page */
+function ppPagePattern(g,ink){
+  const S=d=>`<path d="${d}" fill="none" stroke="${ink}" stroke-width=".55"/>`;let o='';
+  switch(g){
+    case 'pg-waves':for(let y=10;y<420;y+=14){let d='M0,'+y;for(let x=0;x<=300;x+=6)d+=`L${x},${PP_Q(y+4*Math.sin(x/18+y/40))}`;o+=S(d);}return o;
+    case 'pg-grid':for(let x=0;x<=300;x+=15)o+=S(`M${x},0V420`);for(let y=0;y<=420;y+=15)o+=S(`M0,${y}H300`);return `<g opacity=".7">${o}</g>`;
+    case 'pg-rosette':for(let i=0;i<36;i++)o+=`<ellipse cx="150" cy="210" rx="150" ry="52" transform="rotate(${i*5} 150 210)"/>`;return `<g fill="none" stroke="${ink}" stroke-width=".5">${o}</g>`;
+    case 'pg-map':{const r=rng(77);for(const [cx,cy,n0] of [[70,90,9],[230,300,11],[220,70,6]]){const ph=[r()*6,r()*6];for(let k=0;k<n0;k++){const R=12+k*13,pts=[];for(let i=0;i<60;i++){const a=i*Math.PI/30,rr=R*(1+.08*Math.sin(3*a+ph[0])+.05*Math.sin(5*a+ph[1]));pts.push(PP_Q(cx+rr*Math.cos(a))+','+PP_Q(cy+rr*Math.sin(a)*.8));}o+=S('M'+pts.join('L')+'Z');}}return o;}
+    case 'pg-columns':for(let x=24;x<300;x+=63)o+=`<g fill="none" stroke="${ink}" stroke-width=".6"><rect x="${x-11}" y="30" width="22" height="7"/><rect x="${x-11}" y="383" width="22" height="7"/>${[-6,-2,2,6].map(dx=>`<path d="M${x+dx},38V382"/>`).join('')}</g>`;return o+S('M0,20H300M0,400H300');
+    case 'pg-stars':{const r=rng(31);for(let i=0;i<70;i++){const x=r()*300,y=r()*420,s=1.5+r()*3.5;o+=`<path d="${czStarPts(x,y,5,s,s*.42)}" fill="${ink}" stroke="none"/>`;}return o;}
+    default:for(let i=0;i<30;i++){let d='';for(let x=0;x<=300;x+=5){const y=210+(160-i*5)*Math.sin(x/47+i*.21)*Math.cos(x/91);d+=(x?'L':'M')+x+','+PP_Q(y);}o+=S(d);}return `<g opacity=".8">${o}</g>`;
+  }
+}
+const PP_TINT={'pt-cream':['#f6f0df','#c9b98a'],'pt-mint':['#e6f2ea','#94bfa3'],'pt-sky':['#e5eef7','#93afd0'],'pt-rose':['#f8e8ea','#d29aa3'],'pt-lilac':['#efe7f6','#ab93c9'],'pt-sand':['#f3e6d3','#c9a274'],'pt-night':['#1d2433','#55617d']};
+/* where the ten stamps of a page sit: two columns of five, nudged and turned a little, the same way every time */
+function ppSlots(seed){const r=rng(seed),o=[];for(let i=0;i<PP_SLOTS;i++){const c=i%2,rw=Math.floor(i/2);o.push({x:22+c*134+(r()-.5)*12,y:52+rw*68+(r()-.5)*8,a:(r()-.5)*24});}return o;}
+/* a visa page: k is 0–19, ids the ten slots (nation ids or 0), v the collection */
+function ppPageSVG(n,d,k,ids,v,o){
+  o=o||{};const g=d.g,[bg,ink]=PP_TINT[g.tint]||PP_TINT['pt-cream'],dark=g.tint==='pt-night',txt=dark?'#d6dbea':'#4d4a40';
+  const num=g.num==='arabic'?String(k+1):roman(k+1),seed=hash(String((n&&(n.id||n.name))||'')+':pp:'+k),sl=ppSlots(seed),label=d.l&&d.l[k]?d.l[k]:'';
+  const ini=esc(String((n&&n.name)||'E').trim().charAt(0).toUpperCase()||'E');
+  const wm=g.wm==='none'?'':g.wm==='initial'?`<text x="150" y="268" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="190" fill="${ink}" opacity=".13">${ini}</text>`:`<g opacity=".12">${ppEmblem(d.c.emb==='pe-flag'||d.c.emb==='pe-arms'?'pe-laurel':d.c.emb,n,ink,150,215,170)}</g>`;
+  const act=o.edit?'pp-slot':'pp-st',ctx=o.ctx?` data-ctx="${o.ctx}"`:'';
+  let st='';(ids||[]).forEach((id,i)=>{if(!id||!v[id])return;const s=sl[i],on=o.sel&&o.sel.k===k&&o.sel.i===i;
+    st+=`<g class="pp-st${on?' on':''}" data-act="${act}"${ctx} data-id="${esc(id)}" data-k="${k}" data-i="${i}" transform="translate(${PP_Q(s.x)},${PP_Q(s.y)}) rotate(${PP_Q(s.a)} 61 33)"${o.tab?' tabindex="0" role="button"':''} aria-label="${esc(v[id][0])}${o.edit?`, place ${i+1}`:''}">${ppStampBody(ppSnap(v[id]),v[id][2],'pps'+(++ppSeq),dark)}</g>`;});
+  const slots=o.edit?sl.map((s,i)=>(ids&&ids[i]&&v[ids[i]])?'':`<rect class="pp-slot${o.sel&&o.sel.k===k&&o.sel.i===i?' on':''}" data-act="pp-slot" data-k="${k}" data-i="${i}" tabindex="0" role="button" aria-label="Empty place ${i+1} on page ${k+1}" x="${PP_Q(s.x-2)}" y="${PP_Q(s.y-2)}" width="126" height="70" rx="6" transform="rotate(${PP_Q(s.a)} ${PP_Q(s.x+61)} ${PP_Q(s.y+33)})"/>`).join(''):'';
+  return `<svg class="pp-page${dark?' dark':''}${o.cls?' '+o.cls:''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><rect width="300" height="420" fill="${bg}"/><g opacity=".55">${ppPagePattern(g.pat,ink)}</g>${wm}
+<text x="150" y="30" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="600" font-size="9.5" letter-spacing="3" fill="${txt}">${label?esc(label.toUpperCase()):'VISAS · ENTRIES'}</text><path d="M30,38H270" stroke="${txt}" stroke-opacity=".35" stroke-width=".6"/>
+${slots}${st}<text x="150" y="410" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="600" font-size="11" fill="${txt}">${num}</text></svg>`;
+}
+/* a collected stamp: v entry [name, region, time, shape, border, ink, icon, top text, bottom text] */
+function ppSnap(e){return {sh:e[3],bd:e[4],ink:e[5],ic:e[6],t1:e[7],t2:e[8],nm:e[0]};}
+const PP_INK={'pi-violet':'#5b2a86','pi-red':'#b0262b','pi-blue':'#1f4fa0','pi-green':'#1f6b3a','pi-black':'#262626','pi-teal':'#0f6c6a','pi-orange':'#c2571a','pi-brown':'#6b4423','pi-magenta':'#a3176f','pi-gold':'#a7801f'};
+function ppStampDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();}catch(e){return '';}}
+/* a stamp's drawing on a page (122 × 66 box); t is when it was stamped */
+function ppStampBody(s,t,id,dark){
+  const ink=(dark&&s.ink==='pi-black')?'#e6e6e6':PP_INK[s.ink]||PP_INK['pi-violet'],cx=61,cy=33;
+  let outline='',inner='',arc=false;
+  switch(s.sh){
+    case 'ps-oval':outline=czEll(cx,cy,56,31,0);inner=czEll(cx,cy,49,24.5,0);arc=true;break;
+    case 'ps-rect':outline='M5,3H117V63H5Z';inner='M10,8H112V58H10Z';break;
+    case 'ps-ticket':{const c=(x0,y0,x1,y1)=>`M${x0+7},${y0}H${x1-7}A7,7 0 0,0 ${x1},${y0+7}V${y1-7}A7,7 0 0,0 ${x1-7},${y1}H${x0+7}A7,7 0 0,0 ${x0},${y1-7}V${y0+7}A7,7 0 0,0 ${x0+7},${y0}Z`;outline=c(4,3,118,63);inner=c(10,8,112,58);break;}
+    case 'ps-hex':outline='M20,3H102L119,33L102,63H20L3,33Z';inner='M24,9H98L112,33L98,57H24L10,33Z';break;
+    case 'ps-oct':outline='M22,3H100L118,18V48L100,63H22L4,48V18Z';inner='M25,9H97L112,21V45L97,57H25L10,45V21Z';break;
+    case 'ps-shield':outline='M18,3H104V30Q104,54 61,64Q18,54 18,30Z';inner='M24,9H98V30Q98,49 61,58Q24,49 24,30Z';break;
+    case 'ps-diamond':outline='M61,1L119,33L61,65L3,33Z';inner='M61,9L106,33L61,57L16,33Z';break;
+    default:outline=czCirc(cx,cy,31);inner=czCirc(cx,cy,25.5);arc=true;
+  }
+  const W={'pb-thick':3.4,'pb-double':1.6,'pb-dashed':2,'pb-dots':2.6}[s.bd]||2,
+    dash=s.bd==='pb-dashed'?' stroke-dasharray="5 2.6"':s.bd==='pb-dots'?' stroke-dasharray=".1 4.2" stroke-linecap="round"':'';
+  let g=`<path d="${outline}" fill="none" stroke-width="${W}"${dash}/>`;
+  if(s.bd==='pb-double'||s.bd==='pb-twin')g+=`<path d="${inner}" fill="none" stroke-width="${s.bd==='pb-twin'?.8:1.2}"/>`;
+  const t1=esc(String(s.t1||s.nm||'').toUpperCase().slice(0,24)),t2=esc(String(s.t2||'ADMITTED').toUpperCase().slice(0,16)),date=esc(ppStampDate(t));
+  const icon=s.ic&&/^c-/.test(s.ic)?`<g transform="translate(${arc?49:12},${arc?14:20}) scale(${arc?.24:.26})">${czCharge(s.ic.slice(2),ink,'none',true)}</g>`:'';
+  if(arc){const rx=s.sh==='ps-oval'?43:22,ry=s.sh==='ps-oval'?19:22,fs=Math.max(4.6,Math.min(7.4,(s.sh==='ps-oval'?118:62)/(t1.length*.62+1)));
+    g+=`<path id="${id}a" d="M${cx-rx},${cy}A${rx},${ry} 0 0,1 ${cx+rx},${cy}" fill="none" stroke="none"/><path id="${id}b" d="M${cx-rx-3},${cy+2}A${rx+3},${ry+3} 0 0,0 ${cx+rx+3},${cy+2}" fill="none" stroke="none"/>`+
+      `<text font-size="${PP_Q(fs)}" font-weight="700" letter-spacing=".6" stroke="none" text-anchor="middle"><textPath href="#${id}a" startOffset="50%">${t1}</textPath></text>`+
+      `<text font-size="6" font-weight="700" letter-spacing="1.2" stroke="none" text-anchor="middle"><textPath href="#${id}b" startOffset="50%">${t2}</textPath></text>`+
+      icon.replace('translate(49,14)',`translate(${cx-12},${cy-23})`)+`<text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="7.2" font-weight="700" stroke="none">${date}</text><path d="M${cx-17},${cy-3}H${cx+17}M${cx-17},${cy+8}H${cx+17}" stroke-width=".7"/>`;}
+  else{const fs=Math.max(5,Math.min(8.2,96/(t1.length*.64+1)));
+    g+=`<text x="${cx+(icon?8:0)}" y="${s.sh==='ps-diamond'?24:21}" text-anchor="middle" font-size="${PP_Q(fs)}" font-weight="700" letter-spacing=".5" stroke="none">${t1}</text><text x="${cx+(icon?8:0)}" y="${cy+5}" text-anchor="middle" font-size="7.6" font-weight="700" stroke="none">${date}</text><text x="${cx}" y="${s.sh==='ps-diamond'?49:52}" text-anchor="middle" font-size="6" font-weight="700" letter-spacing="1.3" stroke="none">${t2}</text>`+icon;}
+  return `<defs><filter id="${id}f" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="${hash(id)%97}" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.4 2.15" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in"/></filter></defs><g filter="url(#${id}f)" fill="${ink}" stroke="${ink}" font-family="'IBM Plex Mono',ui-monospace,monospace" opacity=".88">${g}</g>`;
+}
+/* one stamp on its own (the designer's preview, the visit page) */
+function ppStampSVG(s,t,o){o=o||{};return `<svg class="pp-stamp${o.cls?' '+o.cls:''}" viewBox="0 0 122 66" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}>${ppStampBody(s,t,'pps'+(++ppSeq),false)}</svg>`;}
+/* the identity page: the nation's data page, with a machine-readable zone */
+function ppCode(n){const w=String((n&&n.name)||'XXX').toUpperCase().replace(/[^A-Z]/g,'');return (w+'XXX').slice(0,3);}
+function ppNo(n){return String(hash(String((n&&(n.id||n.name))||'')+':pp')%1e9).padStart(9,'0');}
+function ppMrz(n){
+  const nm=String((n&&n.name)||'').toUpperCase().replace(/[^A-Z]+/g,'<'),pre=String((n&&n.pretitle)||'').toUpperCase().replace(/[^A-Z]+/g,'<');
+  const f=new Date((n&&n.founded)||Date.now()),ymd=String(f.getUTCFullYear()%100).padStart(2,'0')+String(f.getUTCMonth()+1).padStart(2,'0')+String(f.getUTCDate()).padStart(2,'0');
+  const cd=s=>{const w=[7,3,1];let t=0;for(let i=0;i<s.length;i++){const c=s[i],v=c==='<'?0:/\d/.test(c)?+c:c.charCodeAt(0)-55;t+=v*w[i%3];}return String(t%10);};
+  const l1=('P<'+ppCode(n)+nm+'<<'+pre).padEnd(44,'<').slice(0,44),no=ppNo(n),l2=(no+cd(no)+ppCode(n)+ymd+cd(ymd)+'<<<<<<<<<<<<<<<<<<').padEnd(43,'<').slice(0,43);
+  return [l1,l2+cd(l2)];
+}
+function ppBioSVG(n,d,o){
+  o=o||{};const [bg,ink]=PP_TINT[d.g.tint]||PP_TINT['pt-cream'],dark=d.g.tint==='pt-night',txt=dark?'#e3e7f2':'#2b2a25',lab=dark?'#9aa4bd':'#6d685a';
+  const F=(x,y,l,v,w)=>`<text x="${x}" y="${y}" font-family="'IBM Plex Mono',monospace" font-size="6" letter-spacing=".6" fill="${lab}">${esc(l)}</text><text x="${x}" y="${y+10}" font-family="'Public Sans',sans-serif" font-weight="600" font-size="${w||9}" fill="${txt}">${esc(v)}</text>`;
+  const cap=n&&typeof n.capital==='string'?n.capital:'',[l1,l2]=ppMrz(n);
+  const flag=n?`<svg x="20" y="66" width="96" height="64" viewBox="0 0 300 200" preserveAspectRatio="none">${flagSVG(n.flag).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</svg><rect x="20" y="66" width="96" height="64" fill="none" stroke="${lab}" stroke-width=".8"/>`:'';
+  return `<svg class="pp-page pp-bio${dark?' dark':''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><rect width="300" height="420" fill="${bg}"/><g opacity=".5">${ppPagePattern(d.g.pat,ink)}</g>
+<text x="150" y="30" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="11" letter-spacing="2.5" fill="${txt}">${esc(String((n&&fullName(n))||'').toUpperCase().slice(0,40))}</text><text x="150" y="46" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="8" letter-spacing="3" fill="${lab}">${esc(d.c.word||'PASSPORT')}</text>
+${flag}${F(130,74,'TYPE / CODE','P · '+ppCode(n))}${F(130,100,'PASSPORT NO.',ppNo(n))}${F(130,126,'REGION',n?regName(n.reg||(typeof REG!=='undefined'?REG.id:'')):'')}
+${F(20,154,'NATION',n?n.name:'',11)}${F(20,180,'FORM OF STATE',n?n.pretitle:'')}${F(150,180,'CAPITAL',cap||'—')}${F(20,206,'FOUNDED',n&&n.founded?fmtDate(n.founded)+' · '+annoOf(n,n.founded):'—')}${F(150,206,'ISSUED',annoOf(n))}
+${F(20,232,'MOTTO',n&&n.motto?String(n.motto).slice(0,46):'—',8.5)}
+<g transform="translate(166,246) rotate(-6 61 33)">${ppStampBody({sh:d.s.sh,bd:d.s.bd,ink:d.s.ink,ic:d.s.ic,t1:d.s.t1||(n&&n.name),t2:d.s.t2},n&&n.founded,'ppb'+(++ppSeq),dark).replace('opacity=".88"','opacity=".7"')}</g>
+<text x="20" y="300" font-family="'IBM Plex Mono',monospace" font-size="6" fill="${lab}">HOLDER’S SIGNATURE</text><path d="M20,330C40,312 52,336 70,318S98,326 112,316" fill="none" stroke="${txt}" stroke-width="1.1" stroke-linecap="round"/>
+<rect x="0" y="352" width="300" height="68" fill="${dark?'#141a26':'#fff'}" fill-opacity=".55"/><text x="12" y="376" font-family="'IBM Plex Mono',monospace" font-size="9.4" letter-spacing=".25" fill="${txt}">${esc(l1)}</text><text x="12" y="398" font-family="'IBM Plex Mono',monospace" font-size="9.4" letter-spacing=".25" fill="${txt}">${esc(l2)}</text></svg>`;
+}
+
+function ppBackSVG(n,d){
+  const id='ppk'+(++ppSeq),col=(UNLOCKS[d.c.col]||{}).v||'#6b1d2a',[fd,paint]=ppFoil(d.c.foil,id+'f'),[td,tex]=ppTexture(d.c.tex,id,col);
+  const t=`This passport remains the property of ${chamberOf(n||{}).owner(String((n&&n.name)||'').slice(0,40))}`;
+  return `<svg class="pp-cover pp-back" viewBox="0 0 300 420" aria-hidden="true"><defs>${fd}${td}</defs><rect width="300" height="420" rx="10" fill="${col}"/>${tex}
+<text x="150" y="372" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="7.5" letter-spacing="1" fill="${paint}">${esc(t.toUpperCase().slice(0,62))}</text>${ppChip(paint,150,392)}<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>`;
+}
+
+/* ── reading and checking: other players' records are untrusted ── */
+function ppClean(d){
+  if(!d||typeof d!=='object'||Array.isArray(d))return null;
+  const K=(id,k)=>ppU(id,k)?id:'',o={};
+  if(d.c&&typeof d.c==='object'){const c=d.c;o.c={col:K(c.col,'ppcol'),tex:K(c.tex,'pptex'),foil:K(c.foil,'ppfoil'),orn:K(c.orn,'pporn'),emb:ppEmb(c.emb)?c.emb:'',word:czText(c.word,20),lay:czHas(PP_LAYS,c.lay)?c.lay:'',chip:c.chip===0?0:1};}
+  if(d.g&&typeof d.g==='object'){const g=d.g;o.g={tint:K(g.tint,'pptint'),pat:K(g.pat,'pppat'),wm:czHas(PP_WM,g.wm)?g.wm:'',num:czHas(PP_NUM,g.num)?g.num:''};}
+  if(d.s&&typeof d.s==='object'){const s=d.s;o.s={sh:K(s.sh,'ppshape'),bd:K(s.bd,'ppbord'),ink:K(s.ink,'ppink'),ic:s.ic==='none'||ppIcon(s.ic)?s.ic:'',t1:czText(s.t1,24),t2:czText(s.t2,20)};}
+  o.ds=Number.isInteger(d.ds)?d.ds&7:0;
+  const v={};let k=0;
+  if(d.v&&typeof d.v==='object'&&!Array.isArray(d.v))for(const id of Object.keys(d.v)){
+    if(k>=PP_MAX)break;const e=d.v[id];if(!/^[\w:.-]{1,80}$/.test(id)||!Array.isArray(e))continue;
+    v[id]=[czText(e[0],60)||'?',typeof e[1]==='string'&&REG_BY_ID[e[1]]?e[1]:'',typeof e[2]==='number'&&isFinite(e[2])?e[2]:0,K(e[3],'ppshape')||'ps-circle',K(e[4],'ppbord')||'pb-single',K(e[5],'ppink')||'pi-violet',e[6]==='none'||ppIcon(e[6])?e[6]:'',czText(e[7],24),czText(e[8],20)];k++;}
+  o.v=v;
+  const seen=new Set(),p=[];
+  for(let i=0;i<PP_PAGES;i++){const row=Array.isArray(d.p)&&Array.isArray(d.p[i])?d.p[i]:[],r=[];for(let j=0;j<PP_SLOTS;j++){const id=row[j];if(typeof id==='string'&&v[id]&&!seen.has(id)){seen.add(id);r.push(id);}else r.push(0);}p.push(r);}
+  for(const id of Object.keys(v))if(!seen.has(id)){const at=ppFree(p);if(at){p[at[0]][at[1]]=id;seen.add(id);}else delete v[id];}
+  o.p=p;
+  o.l=Array.from({length:PP_PAGES},(_,i)=>Array.isArray(d.l)?czText(d.l[i],30):'');
+  return o;
+}
+function ppFree(p,from){for(let k=from||0;k<PP_PAGES;k++)for(let i=0;i<PP_SLOTS;i++)if(!p[k][i])return [k,i];return null;}
+NORM_HOOKS.push((n,d)=>{const c=ppClean(d&&d.pp);if(c)n.pp=c;else delete n.pp;});
+/* a passport's design shows only what its owner holds: keep the list of holdings with the record, as Customise does */
+COMMIT_HOOKS.push(n=>{
+  if(!n||n.npc||!n.pp)return;
+  if(!n.cz||typeof n.cz!=='object')n.cz={};
+  n.cz.u=[...unlocksOf(n)].filter(id=>czU(id)&&UNLOCKS[id].src!=='free').sort();
+});
+/* a nation that never opened the designer still has a passport of its own: picked from its name */
+function ppDefault(n){
+  const r=rng(hash(String((n&&n.name)||'x')+':passport')),pk=a=>a[Math.floor(r()*a.length)],free=k=>Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k===k&&UNLOCKS[id].src==='free');
+  const a=n?cz(n).a:null;
+  return {c:{col:pk(free('ppcol')),tex:'px-leather',foil:pk(['pf-gold','pf-gold','pf-silver']),orn:pk(['po-rule','po-corners','po-none']),emb:'pe-arms',word:'PASSPORT',lay:'classic',chip:1},
+    g:{tint:pk(['pt-cream','pt-mint','pt-sky','pt-rose']),pat:pk(free('pppat')),wm:'emblem',num:'roman'},
+    s:{sh:pk(['ps-circle','ps-oval','ps-rect','ps-ticket']),bd:pk(['pb-single','pb-double']),ink:pk(free('ppink')),ic:a&&a.c&&ppIcon(a.c)?a.c:'c-star',t1:'',t2:'ADMITTED'}};
+}
+const PP_MEMO=new WeakMap();
+/* any nation's design, checked, with defaults, and with anything it does not hold left out */
+function ppDesign(n){
+  const key=UNLOCK_SOURCES.length+':'+(n===S.nation?czMine().size:'x'),m=n&&typeof n==='object'?PP_MEMO.get(n):null;if(m&&m.k===key)return m.v;
+  const D=ppDefault(n),raw=(n&&n.pp)||{},cr=n&&n.cz,H=id=>czHolds(n,id,cr);
+  const pick=(o,f,k)=>{const v=o&&o[f];return v&&(k?ppU(v,k):true)&&H(v)?v:null;};
+  const rc=raw.c||{},rg=raw.g||{},rs=raw.s||{};
+  const v={c:{col:pick(rc,'col','ppcol')||D.c.col,tex:pick(rc,'tex','pptex')||D.c.tex,foil:pick(rc,'foil','ppfoil')||D.c.foil,orn:pick(rc,'orn','pporn')||D.c.orn,
+      emb:(rc.emb&&ppEmb(rc.emb)&&H(rc.emb))?rc.emb:D.c.emb,word:rc.word||D.c.word,lay:rc.lay||D.c.lay,chip:rc.chip===0?0:1},
+    g:{tint:pick(rg,'tint','pptint')||D.g.tint,pat:pick(rg,'pat','pppat')||D.g.pat,wm:rg.wm||D.g.wm,num:rg.num||D.g.num},
+    s:{sh:pick(rs,'sh','ppshape')||D.s.sh,bd:pick(rs,'bd','ppbord')||D.s.bd,ink:pick(rs,'ink','ppink')||D.s.ink,ic:rs.ic==='none'?'none':(rs.ic&&ppIcon(rs.ic)&&H(rs.ic))?rs.ic:D.s.ic,t1:rs.t1||'',t2:rs.t2||D.s.t2},
+    l:Array.isArray(raw.l)?raw.l:[]};
+  if(n&&typeof n==='object')PP_MEMO.set(n,{k:key,v});
+  return v;
+}
+/* the stamps a nation carries: its own collection, or for a computer nation those of its region's others */
+function ppBook(x){
+  const n=x&&x.n;if(!n)return {v:{},p:Array.from({length:PP_PAGES},()=>Array(PP_SLOTS).fill(0))};
+  if(!n.npc){const pp=n.pp||{};return {v:pp.v||{},p:Array.isArray(pp.p)&&pp.p.length===PP_PAGES?pp.p:Array.from({length:PP_PAGES},()=>Array(PP_SLOTS).fill(0))};}
+  const r=rng(hash(String(x.id)+':npcpp')),others=NPC_NATIONS.filter(o=>o.id!==x.id).map(o=>[r(),o]).sort((a,b)=>a[0]-b[0]).map(e=>e[1]);
+  const take=others.slice(0,Math.min(others.length,4+Math.floor(r()*9))),v={},p=Array.from({length:PP_PAGES},()=>Array(PP_SLOTS).fill(0)),base=Date.UTC(2026,0,1);
+  take.forEach((o,i)=>{const s=ppDesign(o).s;v[o.id]=[o.name,REG.id,base+Math.floor(r()*280)*DAY,s.sh,s.bd,s.ink,s.ic,s.t1,s.t2];p[Math.floor(i/PP_SLOTS)][i%PP_SLOTS]=o.id;});
+  return {v,p};
+}
+function ppCount(n){return n&&n.pp&&n.pp.v?Object.keys(n.pp.v).length:0;}
+/* figures for achievements and the museum, memoised per record */
+const PP_STATS=new WeakMap();
+function ppStats(n,id){
+  if(!n||typeof n!=='object')return {n:0,full:0,pl:0,reg:0,here:0,titles:0,ds:0,day:0};
+  const m=PP_STATS.get(n);if(m&&m.pp===n.pp)return m.v;
+  const pp=n.pp||{},v=pp.v||{},ids=Object.keys(v),days={};let day=0;
+  for(const k of ids){const d=Math.floor((v[k][2]||0)/DAY);days[d]=(days[d]||0)+1;if(days[d]>day)day=days[d];}
+  const out={n:ids.length,full:(pp.p||[]).filter(r=>Array.isArray(r)&&r.filter(Boolean).length===PP_SLOTS).length,pl:ids.filter(k=>!/^npc-/.test(k)).length,
+    reg:new Set(ids.map(k=>v[k][1]).filter(Boolean)).size,here:NPC_NATIONS.filter(o=>v[o.id]).length,titles:(pp.l||[]).filter(Boolean).length,ds:pp.ds||0,day};
+  PP_STATS.set(n,{pp:n.pp,v:out});return out;
+}
+/* how many nations of this region carry this one's stamp (players only: computer nations' books are drawn) */
+function ppCarried(id){let k=0;if(S.mode==='local'||!S.world)return 0;for(const w of Object.keys(S.world)){const r=S.world[w];if(w!==id&&r&&r.pp&&r.pp.v&&r.pp.v[id])k++;}return k;}
+
+/* ── collecting: opening another nation's page stamps its entry stamp into your passport ── */
+function ppCollect(id){
+  const me=S.nation;if(!me||!id||S.mode==='readonly'||PP.tried.has(id))return;
+  PP.tried.add(id);
+  if(id===myId())return;const x=findNation(id);if(!x||x.me||!x.n||!x.n.name)return;
+  if(me.pp&&me.pp.v&&me.pp.v[id])return;
+  if(ppCount(me)>=PP_MAX){toast(`Your passport is full. Make room under Passport, Arrange, to collect the stamp of ${x.n.name}.`);return;}
+  const m=clone(me);m.pp=ppClean(m.pp)||ppClean({});
+  const s=ppDesign(x.n).s,at=ppFree(m.pp.p);if(!at)return;
+  m.pp.v[id]=[czText(x.n.name,60),REG_BY_ID[x.n.reg]?x.n.reg:REG.id,Date.now(),s.sh,s.bd,s.ink,s.ic,s.t1,s.t2];m.pp.p[at[0]][at[1]]=id;
+  commit(m);render();
+  toast(`Stamped: the entry stamp of ${x.n.name} is on page ${roman(at[0]+1)} of your passport.`);
+}
+render=(f=>function(){const r=f.apply(this,arguments);if(S.view==='visit'&&S.visit&&S.nation&&!PP.tried.has(S.visit)){const id=S.visit;setTimeout(()=>{if(S.view==='visit'&&S.visit===id)ppCollect(id);},500);}return r;})(render);
+
+/* ── achievements and the museum ── */
+ACH_CATS.splice(ACH_CATS.length-1,0,['pass','Passport & travel']);ACH_CAT.pass='Passport & travel';
+{const P=(id,t,n,d,g,f,u,o)=>achDef('pass',id,t,n,d,g,f,Object.assign({u},o||{}));
+  const N=x=>ppStats(x.n).n;
+  P('pass-1','b','First Stamp','Collect the entry stamp of another nation by opening its page.',1,N,'pi-teal');
+  P('pass-5','b','Day Tripper','Collect 5 entry stamps.',5,N,'pc-crimson');
+  P('pass-10','b','Frequent Traveller','Collect 10 entry stamps.',10,N,'px-pebble');
+  P('pass-25','s','Grand Tour','Collect 25 entry stamps.',25,N,'ps-hex');
+  P('pass-50','s','Diplomatic Courier','Collect 50 entry stamps.',50,N,'pf-copper');
+  P('pass-75','s','Seasoned Envoy','Collect 75 entry stamps.',75,N,'po-guilloche');
+  P('pass-100','g','Ambassador at Large','Collect 100 entry stamps.',100,N,'px-marble');
+  P('pass-150','g','Well Thumbed','Collect 150 entry stamps.',150,N,'pc-purple');
+  P('pass-200','p','Not a Page to Spare','Fill your passport: 200 entry stamps.',200,N,'pf-holo');
+  P('pass-page','b','A Full Page','Fill one page of your passport with ten stamps.',1,x=>ppStats(x.n).full,'po-greek');
+  P('pass-page5','s','Five Full Pages','Fill five pages of your passport.',5,x=>ppStats(x.n).full,'pt-lilac');
+  P('pass-pl10','s','Among Equals','Collect the stamps of 10 nations run by players.',10,x=>ppStats(x.n).pl,'pe-temple');
+  P('pass-pl50','g','The Senate Floor','Collect the stamps of 50 nations run by players.',50,x=>ppStats(x.n).pl,'po-laurel');
+  P('pass-npc','s','Know the Neighbourhood','Collect the stamp of every computer nation in your region.',x=>NPC_NATIONS.length,x=>ppStats(x.n).here,'pg-columns');
+  P('pass-reg2','s','Border Crossings','Carry stamps from two regions.',2,x=>ppStats(x.n).reg,'pg-map');
+  P('pass-reg5','g','Cosmopolitan','Carry stamps from five regions.',5,x=>ppStats(x.n).reg,'pf-rose');
+  P('pass-day','b','Whistle-stop Tour','Collect five stamps in one day.',5,x=>ppStats(x.n).day,'pb-twin');
+  P('pass-own','b','Bespoke','Design the entry stamp other nations collect from you.',1,x=>ppStats(x.n).ds&4?1:0,'pb-dots');
+  P('pass-design','s','Couturier','Design your passport’s cover, its pages and its entry stamp.',1,x=>ppStats(x.n).ds===7?1:0,'pi-orange');
+  P('pass-titles','b','Curator of Travels','Give three pages of your passport a title.',3,x=>ppStats(x.n).titles,'pt-sand');
+  P('pass-carried','s','Famous Seal','Have your stamp carried by 10 nations of your region.',10,x=>x.me?ppCarried(x.id):0,'ps-diamond',{mp:1});
+  P('pass-carried50','g','Household Name','Have your stamp carried by 50 nations of your region.',50,x=>x.me?ppCarried(x.id):0,'pi-gold',{mp:1});
+}
+achUnlockWords=(f=>u=>{const U=UNLOCKS[u];if(!U)return '';const w={ppcol:`the ${U.n} passport cover`,pptex:`the ${U.n} cover material`,ppfoil:`${U.n} foil for the passport`,pporn:`the ${U.n} cover ornament`,ppemb:`the ${U.n} cover emblem`,
+  pptint:`${U.n} passport pages`,pppat:`the ${U.n} page print`,ppshape:`the ${U.n} entry stamp shape`,ppbord:`the ${U.n} stamp border`,ppink:`${U.n} stamp ink`}[U.k];return w||f(u);})(achUnlockWords);
+{const rule=(k,v)=>({f:n=>ppStats(n)[k]>=v,p:n=>[Math.min(v,ppStats(n)[k]),v]});
+  const s={id:'passport',n:'The Passport Office',d:'Ink pads, ledgers and luggage from the nation’s travels, kept by the passport office.',u:['pc-ivory','pc-teal','px-velvet','po-deco','pt-night','pg-rosette','pg-stars','ps-oct','ps-shield','pi-brown','pi-magenta'],fx:{tour:1},items:[
+    ['pp-inkpad','The First Ink Pad','stamp','#5B2A86','c','The passport office’s first ink pad, still damp, and slightly purple to the elbow.','Collect your first entry stamp.',rule('n',1)],
+    ['pp-chop','The Customs Chop','seal','#9C2B2B','u','The stamp the nation presses into every visitor’s passport, carved by hand.','Design your own entry stamp.',{f:n=>(ppStats(n).ds&4)>0}],
+    ['pp-visa','A Full Visa Page','ticket','#2F6F9F','c','Ten stamps, not one of them straight.','Fill a page of your passport.',rule('full',1)],
+    ['pp-trunk','A Steamer Trunk','case','#7A5230','u','Labels from twenty-five nations, and one sock.','Collect 25 entry stamps.',rule('n',25)],
+    ['pp-compass','The Envoy’s Compass','compass','#335C4A','r','It points to the next embassy, whichever way you hold it.','Carry stamps from three regions.',rule('reg',3)],
+    ['pp-ledger','The Consular Ledger','book','#6B4B1F','r','Every crossing, entered in a clerk’s best hand.','Collect 100 entry stamps.',rule('n',100)],
+    ['pp-book','The Full Passport','crown','#A7801F','l','Two hundred stamps, and a polite request for a new book.','Fill all twenty pages.',rule('n',200)]]};
+  COL_SETS.push(s);COL_SET_BY_ID[s.id]=s;s.items=s.items.map(([id,n,g,c,r,l,h,q])=>{const a={id,set:s.id,n,g,c,r,l,h,q};COL_ITEMS.push(a);COL_BY_ID[id]=a;return a;});}
+
+/* ── the book: shared by the Passport page and the viewer opened from a nation's page ── */
+function ppWide(){try{return window.matchMedia('(min-width:760px)').matches;}catch(e){return true;}}
+function ppSpread(at,wide){if(!wide)return [at];if(at<=0)return [0];const l=at%2?at:at-1;return [l,l+1].filter(i=>i<PP_SEQ);}
+function ppStep(at,dir,wide){if(!wide)return clamp(at+dir,0,PP_SEQ-1);const l=at<=0?0:at%2?at:at-1;return dir>0?(l===0?1:Math.min(PP_SEQ-2,l+2)):(l<=1?0:l-2);}
+function ppLabel(i){return i===0?'Cover':i===1?'Identity page':i===PP_SEQ-1?'Back cover':'Page '+roman(i-1);}
+function ppLeaf(x,d,bk,i,ctx){
+  const n=x.n;
+  if(i===0)return ppCoverSVG(n,d.c,{label:`Cover of the passport of ${fullName(n)}`});
+  if(i===1)return ppBioSVG(n,d,{label:`Identity page of ${fullName(n)}`});
+  if(i===PP_SEQ-1)return ppBackSVG(n,d);
+  const k=i-2,ids=bk.p[k]||[];return ppPageSVG(n,d,k,ids,bk.v,{tab:1,ctx,label:`Page ${k+1}: ${ids.filter(Boolean).length} stamps`});
+}
+function ppBookHTML(x,st,ctx){
+  const d=ppDesign(x.n),bk=ppBook(x),wide=ppWide(),sp=ppSpread(st.at,wide),cnt=Object.keys(bk.v).length;
+  const turn=st.turn>0?' turn-n':st.turn<0?' turn-p':'';st.turn=0;
+  const opts=Array.from({length:PP_SEQ},(_,i)=>{const s=i>=2&&i<PP_SEQ-1?(bk.p[i-2]||[]).filter(Boolean).length:-1;return `<option value="${i}"${sp[0]===i?' selected':''}>${ppLabel(i)}${s>=0?` · ${s} ${s===1?'stamp':'stamps'}`:''}</option>`;}).join('');
+  const e=st.info&&bk.v[st.info],f=e&&findNation(st.info);
+  const info=e?`<div class="pp-info" role="status"><span class="pp-info-st">${ppStampSVG(ppSnap(e),e[2])}</span><div><p class="pp-info-n">${esc(e[0])}</p><p class="hint">${e[1]?esc(regName(e[1]))+' · ':''}stamped ${esc(fmtDate(e[2]))}</p></div>${f&&!f.me?`<button type="button" class="btn ghost small" data-act="pp-visit" data-id="${esc(st.info)}">Visit</button>`:''}</div>`:'';
+  return `<div class="pp-book${sp.length>1?' two':''}" data-ctx="${ctx}">
+    <div class="pp-stage${turn}" data-ctx="${ctx}">${sp.map(i=>`<div class="pp-leaf${i===0?' is-cover':''}${i===PP_SEQ-1?' is-back':''}">${ppLeaf(x,d,bk,i,ctx)}</div>`).join('')}</div>
+    <div class="pp-nav"><button type="button" class="btn ghost small" data-act="pp-turn" data-ctx="${ctx}" data-d="-1"${sp[0]<=0?' disabled':''} aria-label="Previous page">←</button><select class="input pp-jump" data-pp-jump="${ctx}" aria-label="Go to a page">${opts}</select><button type="button" class="btn ghost small" data-act="pp-turn" data-ctx="${ctx}" data-d="1"${sp[sp.length-1]>=PP_SEQ-1?' disabled':''} aria-label="Next page">→</button></div>
+    <p class="hint pp-count">${cnt} of ${PP_MAX} stamps${cnt?' · choose a stamp to see where it came from':''}</p>${info}</div>`;
+}
+function ppState(ctx){return ctx==='m'?PPV:PP;}
+function ppFindX(id){if(!id||id===myId())return S.nation?{id:myId(),n:S.nation,me:true}:null;return findNation(id);}
+
+/* the viewer for any nation's passport */
+function ppViewDraw(){
+  const m=document.getElementById('pp-view');if(!m)return;const x=ppFindX(PPV.id);if(!x){ppViewClose();return;}
+  m.querySelector('.pp-body').innerHTML=ppBookHTML(x,PPV,'m');
+}
+function ppViewOpen(id,opener){
+  const x=ppFindX(id);if(!x)return;ppViewClose(true);
+  Object.assign(PPV,{id:x.id,at:0,info:null,opener:opener||document.activeElement,turn:0});
+  const m=document.createElement('div');m.id='pp-view';m.className='pp-modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-labelledby','pp-view-h');
+  m.innerHTML=`<button type="button" class="pp-scrim" data-act="pp-close" aria-label="Close the passport" tabindex="-1"></button><div class="pp-sheet"><div class="pp-sheet-h"><div><p class="eyebrow">Passport</p><h2 class="h2" id="pp-view-h">${esc(fullName(x.n))}</h2></div><button type="button" class="btn ghost small pp-x" data-act="pp-close" aria-label="Close the passport">✕</button></div><div class="pp-body"></div></div>`;
+  document.body.appendChild(m);document.documentElement.classList.add('pp-lock');ppViewDraw();
+  const b=m.querySelector('.pp-x');if(b)try{b.focus({preventScroll:true});}catch(e){}
+}
+function ppViewClose(quiet){
+  const m=document.getElementById('pp-view');if(!m)return;m.remove();document.documentElement.classList.remove('pp-lock');
+  const o=PPV.opener;PPV.id=null;PPV.opener=null;if(!quiet&&o&&o.isConnected)try{o.focus({preventScroll:true});}catch(e){}
+}
+
+/* ── the Passport page: the book, the designer and the editor ── */
+function ppSave(fn,part){
+  if(!S.nation)return;const m=clone(S.nation),d=ppDesign(S.nation);
+  m.pp=ppClean(m.pp)||ppClean({});
+  m.pp.c=Object.assign({},d.c,m.pp.c&&Object.fromEntries(Object.entries(m.pp.c).filter(([,v])=>v!==''&&v!=null)));
+  m.pp.g=Object.assign({},d.g,m.pp.g&&Object.fromEntries(Object.entries(m.pp.g).filter(([,v])=>v!==''&&v!=null)));
+  m.pp.s=Object.assign({},d.s,m.pp.s&&Object.fromEntries(Object.entries(m.pp.s).filter(([,v])=>v!==''&&v!=null)));
+  fn(m.pp);if(part)m.pp.ds=(m.pp.ds||0)|part;
+  commit(m);render();
+}
+const PP_PART={c:1,g:2,s:4};
+function ppSet(path,val){
+  const [p,f]=path.split('.');if(!PP_PART[p])return;
+  const k=PP_KIND[f];if(k&&!ppU(val,k))return;
+  if(f==='emb'&&!ppEmb(val))return;if(f==='ic'&&val!=='none'&&!ppIcon(val))return;
+  if(typeof val==='string'&&czU(val)&&czLocked(val)){toast('Locked. '+unlockHow(val));return;}
+  ppSave(pp=>{pp[p][f]=val;},PP_PART[p]);
+}
+function ppTile(path,id,cur,prev,name){
+  const u=czU(id),lock=!!u&&czLocked(id),on=cur===id;
+  return `<button type="button" class="pp-tile${on?' on':''}${lock?' locked':''}" data-act="pp-set" data-f="${path}" data-v="${esc(id)}" aria-pressed="${on}">${prev}<span class="pp-tile-n">${esc(name||(u?u.n:id))}${lock?CZ_LOCK:''}</span>${lock?`<span class="cz-how">${esc(unlockHow(id))}</span>`:''}</button>`;
+}
+function ppOpt(path,val,cur,name){return `<button type="button" class="pp-opt${cur===val?' on':''}" data-act="pp-set" data-f="${path}" data-v="${esc(val)}" aria-pressed="${cur===val}">${esc(name)}</button>`;}
+function ppKinds(k){const all=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k===k),has=id=>!czLocked(id);return all.filter(has).concat(all.filter(id=>!has(id)));}
+function ppMini(svg,cls){return `<span class="pp-mini${cls?' '+cls:''}">${svg}</span>`;}
+function ppDesignHTML(n){
+  const d=ppDesign(n),t=PP.dtab,grp=(h,body,hint)=>`<div class="pp-grp"><h3 class="pp-grp-h">${h}</h3>${hint?`<p class="hint">${hint}</p>`:''}${body}</div>`;
+  const covers=(over)=>ppCoverSVG(n,Object.assign({},d.c,over));
+  let ctl='',prev='';
+  if(t==='c'){
+    const charges=ppKinds('charge');
+    ctl=grp('Colour',`<div class="pp-tiles pp-tiles-sw">${ppKinds('ppcol').map(id=>ppTile('c.col',id,d.c.col,`<span class="pp-sw" style="background:${UNLOCKS[id].v}"></span>`)).join('')}</div>`)
+      +grp('Material',`<div class="pp-tiles">${ppKinds('pptex').map(id=>{const sid='ppx'+(++ppSeq),[td,tx]=ppTexture(id,sid);return ppTile('c.tex',id,d.c.tex,ppMini(`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice"><defs>${td}</defs><rect width="300" height="420" fill="${UNLOCKS[d.c.col].v}"/>${tx}</svg>`));}).join('')}</div>`)
+      +grp('Foil',`<div class="pp-tiles pp-tiles-sw">${ppKinds('ppfoil').map(id=>{const sid='ppf'+(++ppSeq),[fd,pt]=ppFoil(id,sid);return ppTile('c.foil',id,d.c.foil,ppMini(`<svg viewBox="0 0 60 60"><defs>${fd}</defs><rect width="60" height="60" rx="6" fill="${UNLOCKS[d.c.col].v}"/><text x="30" y="41" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="30" fill="${pt}">P</text></svg>`));}).join('')}</div>`)
+      +grp('Ornament',`<div class="pp-tiles">${ppKinds('pporn').map(id=>ppTile('c.orn',id,d.c.orn,ppMini(`<svg viewBox="0 0 300 420"><rect width="300" height="420" rx="10" fill="${UNLOCKS[d.c.col].v}"/>${ppOrnament(id,'#e8c766')}</svg>`,'tall'))).join('')}</div>`)
+      +grp('Emblem',`<div class="pp-tiles">${ppKinds('ppemb').map(id=>ppTile('c.emb',id,d.c.emb,ppMini(`<svg viewBox="0 0 120 120"><rect width="120" height="120" rx="8" fill="${UNLOCKS[d.c.col].v}"/>${ppEmblem(id,n,'#e8c766',60,60,96)}</svg>`))).join('')}</div>`
+        +`<p class="pp-sub">Or a charge from the coat of arms, struck in the foil:</p><div class="pp-tiles">${charges.map(id=>ppTile('c.emb',id,d.c.emb,ppMini(`<svg viewBox="0 0 100 100"><rect width="100" height="100" rx="8" fill="${UNLOCKS[d.c.col].v}"/><g transform="translate(14,14) scale(.72)">${czCharge(id.slice(2),'#e8c766','rgba(0,0,0,.28)',true)}</g></svg>`))).join('')}</div>`)
+      +grp('Wording',`<div class="pp-opts">${PP_WORDS.map(w=>ppOpt('c.word',w,d.c.word,w)).join('')}</div><label class="pp-lbl" for="pp-word">Or your own (up to 20 letters)</label><input class="input" id="pp-word" data-pp-text="c.word" maxlength="20" value="${esc(PP_WORDS.includes(d.c.word)?'':d.c.word)}" placeholder="For example: DOCUMENTO DI VIAGGIO">`)
+      +grp('Layout',`<div class="pp-opts">${Object.entries(PP_LAYS).map(([k,l])=>ppOpt('c.lay',k,d.c.lay,l)).join('')}</div><div class="pp-opts">${ppOpt('c.chip',1,d.c.chip,'Chip mark')}${ppOpt('c.chip',0,d.c.chip,'No chip mark')}</div>`);
+    prev=`<div class="pp-leaf is-cover">${covers({})}</div>`;
+  }else if(t==='g'){
+    const sample={v:{},p:[[],[]]};NPC_NATIONS.slice(0,6).forEach((o,i)=>{const s=ppDesign(o).s;sample.v[o.id]=[o.name,REG.id,Date.now()-i*DAY*3,s.sh,s.bd,s.ink,s.ic,s.t1,s.t2];sample.p[0][i]=o.id;});
+    ctl=grp('Tint',`<div class="pp-tiles pp-tiles-sw">${ppKinds('pptint').map(id=>ppTile('g.tint',id,d.g.tint,`<span class="pp-sw sq" style="background:${PP_TINT[id][0]};border-color:${PP_TINT[id][1]}"></span>`)).join('')}</div>`)
+      +grp('Security print',`<div class="pp-tiles">${ppKinds('pppat').map(id=>{const [bg,ink]=PP_TINT[d.g.tint];return ppTile('g.pat',id,d.g.pat,ppMini(`<svg viewBox="0 0 300 420"><rect width="300" height="420" fill="${bg}"/><g opacity=".8">${ppPagePattern(id,ink)}</g></svg>`,'tall'));}).join('')}</div>`)
+      +grp('Watermark',`<div class="pp-opts">${Object.entries(PP_WM).map(([k,l])=>ppOpt('g.wm',k,d.g.wm,l)).join('')}</div>`)
+      +grp('Page numbers',`<div class="pp-opts">${Object.entries(PP_NUM).map(([k,l])=>ppOpt('g.num',k,d.g.num,l+(k==='roman'?' (I, II, III)':' (1, 2, 3)'))).join('')}</div>`);
+    prev=`<div class="pp-leaf">${ppPageSVG(n,d,0,sample.p[0],sample.v,{})}</div><div class="pp-leaf">${ppBioSVG(n,d,{})}</div>`;
+  }else{
+    const st=Object.assign({},d.s,{nm:n.name}),charges=ppKinds('charge');
+    ctl=grp('Shape',`<div class="pp-tiles">${ppKinds('ppshape').map(id=>ppTile('s.sh',id,d.s.sh,ppMini(ppStampSVG(Object.assign({},st,{sh:id}),Date.now()),'wide'))).join('')}</div>`)
+      +grp('Border',`<div class="pp-tiles">${ppKinds('ppbord').map(id=>ppTile('s.bd',id,d.s.bd,ppMini(ppStampSVG(Object.assign({},st,{bd:id}),Date.now()),'wide'))).join('')}</div>`)
+      +grp('Ink',`<div class="pp-tiles pp-tiles-sw">${ppKinds('ppink').map(id=>ppTile('s.ink',id,d.s.ink,`<span class="pp-sw" style="background:${PP_INK[id]}"></span>`)).join('')}</div>`)
+      +grp('Device',`<div class="pp-tiles">${ppTile('s.ic','none',d.s.ic,ppMini('<svg viewBox="0 0 100 100"><path d="M30,30L70,70M70,30L30,70" stroke="currentColor" stroke-width="5"/></svg>'),'None')}${charges.map(id=>ppTile('s.ic',id,d.s.ic,ppMini(`<svg viewBox="0 0 100 100">${czCharge(id.slice(2),PP_INK[d.s.ink],'none',true)}</svg>`))).join('')}</div>`,'The charges you hold for your coat of arms.')
+      +grp('Wording',`<label class="pp-lbl" for="pp-t1">Top line (empty: your nation’s name)</label><input class="input" id="pp-t1" data-pp-text="s.t1" maxlength="24" value="${esc(d.s.t1)}" placeholder="${esc(String(n.name).toUpperCase())}">
+        <p class="pp-sub">Bottom line:</p><div class="pp-opts">${PP_T2.map(w=>ppOpt('s.t2',w,d.s.t2,w)).join('')}</div><label class="pp-lbl" for="pp-t2">Or your own (up to 20 letters)</label><input class="input" id="pp-t2" data-pp-text="s.t2" maxlength="20" value="${esc(PP_T2.includes(d.s.t2)?'':d.s.t2)}">`);
+    prev=`<div class="pp-stamp-big">${ppStampSVG(st,Date.now(),{label:'Your entry stamp'})}</div><p class="hint">This is the stamp other nations collect when they open your page. They keep it as it was on the day they came.</p>`;
+  }
+  const tabs=[['c','Cover'],['g','Pages'],['s','Entry stamp']].map(([k,l])=>`<button type="button" class="pp-opt${t===k?' on':''}" data-act="pp-dtab" data-v="${k}" aria-pressed="${t===k}">${l}</button>`).join('');
+  return `<div class="pp-opts pp-dtabs">${tabs}</div><div class="pp-des"><div class="pp-ctl">${ctl}</div><div class="pp-prev">${prev}</div></div>`;
+}
+function ppArrangeHTML(n){
+  const pp=n.pp||{},v=pp.v||{},p=pp.p||Array.from({length:PP_PAGES},()=>Array(PP_SLOTS).fill(0)),d=ppDesign(n),sel=PP.sel,cnt=Object.keys(v).length;
+  const sv=sel&&p[sel.k]&&p[sel.k][sel.i],se=sv&&v[sv];
+  const bar=se?`<div class="pp-bar" role="status"><p><b>${esc(se[0])}</b> · page ${roman(sel.k+1)}, place ${sel.i+1}. Choose another place to move it there; a stamp already there swaps with it.</p>
+      <div class="row"><label class="pp-lbl" for="pp-move">Move to page</label><select class="input" id="pp-move" data-pp-move="1">${Array.from({length:PP_PAGES},(_,k)=>`<option value="${k}"${k===sel.k?' selected':''}>${roman(k+1)} · ${p[k].filter(Boolean).length}/10</option>`).join('')}</select>
+      <button type="button" class="btn ghost small adm-danger" data-act="pp-rm">Remove</button><button type="button" class="btn ghost small" data-act="pp-unsel">Done</button></div>
+      ${PP.ask===sv?`<div class="adm-ask"><p>Take the stamp of <b>${esc(se[0])}</b> out of your passport? Opening its page again stamps it anew, with today’s date.</p><div class="row"><button type="button" class="btn danger small" data-act="pp-rm-yes">Yes, remove</button><button type="button" class="btn ghost small" data-act="pp-rm-no">Keep it</button></div></div>`:''}</div>`
+    :`<div class="pp-bar"><p class="hint">${cnt?'Choose a stamp, then the place where it should go. Give pages a title to group them.':'No stamps yet. Open another nation’s page to collect its entry stamp.'}</p>${cnt?`<div class="row"><span class="pp-lbl">Arrange all</span><button type="button" class="btn ghost small" data-act="pp-sort" data-v="reg">By region</button><button type="button" class="btn ghost small" data-act="pp-sort" data-v="t">By date</button><button type="button" class="btn ghost small" data-act="pp-sort" data-v="nm">By name</button><button type="button" class="btn ghost small" data-act="pp-sort" data-v="gap">Close the gaps</button></div>`:''}</div>`;
+  return `${bar}<div class="pp-arr">${Array.from({length:PP_PAGES},(_,k)=>`<div class="pp-arr-p"><div class="pp-arr-h"><span class="pp-arr-no">${roman(k+1)}</span><input class="input pp-arr-t" data-pp-title="${k}" maxlength="30" value="${esc((pp.l||[])[k]||'')}" placeholder="Page title" aria-label="Title of page ${k+1}"><span class="hint">${p[k].filter(Boolean).length}/10</span></div>${ppPageSVG(n,d,k,p[k],v,{edit:1,sel,label:`Page ${k+1}`})}</div>`).join('')}</div>`;
+}
+function ppSlotClick(k,i){
+  const n=S.nation;if(!n)return;const p=(n.pp&&n.pp.p)||[];const here=p[k]&&p[k][i];
+  if(!PP.sel){if(here){PP.sel={k,i};PP.ask=null;render();}return;}
+  if(PP.sel.k===k&&PP.sel.i===i){PP.sel=null;PP.ask=null;render();return;}
+  const a=PP.sel;PP.sel=null;PP.ask=null;
+  ppSave(pp=>{const t=pp.p[k][i];pp.p[k][i]=pp.p[a.k][a.i];pp.p[a.k][a.i]=t||0;});
+}
+function ppSort(how){
+  ppSave(pp=>{
+    const ids=[];for(const r of pp.p)for(const id of r)if(id)ids.push(id);
+    const v=pp.v,nm=id=>String(v[id][0]).toLowerCase();
+    if(how==='reg')ids.sort((a,b)=>(v[a][1]||'').localeCompare(v[b][1]||'')||nm(a).localeCompare(nm(b)));
+    else if(how==='t')ids.sort((a,b)=>v[a][2]-v[b][2]);
+    else if(how==='nm')ids.sort((a,b)=>nm(a).localeCompare(nm(b)));
+    pp.p=Array.from({length:PP_PAGES},(_,k)=>Array.from({length:PP_SLOTS},(_,i)=>ids[k*PP_SLOTS+i]||0));
+  });
+}
+VIEWS_EXT.passport=now=>{
+  const n=S.nation;if(!n)return '';const st=ppStats(n),me={id:myId(),n,me:true},t=PP.tab;
+  const tabs=[['book','Book'],['design','Design'],['arrange','Arrange']].map(([k,l])=>`<button type="button" class="pp-tab${t===k?' on':''}" data-act="pp-tab" data-v="${k}" aria-pressed="${t===k}">${l}</button>`).join('');
+  return `<header class="vh"><p class="eyebrow">Passport office of ${esc(n.name)}</p><h1>Your passport</h1>
+    <p>${st.n} of ${PP_MAX} stamps${st.full?` · ${st.full} full ${st.full===1?'page':'pages'}`:''}. Open another nation’s page to collect its entry stamp: it goes in the first free place, and you choose where it stays. Richer covers, inks and prints unlock with the Passport achievements and the Passport Office in the museum.</p></header>
+    <div class="pp-tabs">${tabs}</div>
+    ${t==='design'?ppDesignHTML(n):t==='arrange'?ppArrangeHTML(n):ppBookHTML(me,PP,'p')}`;
+};
+NATION_SECTIONS.push((x,now)=>{
+  const n=x&&x.n;if(!n||n!==S.nation)return '';const d=ppDesign(n),st=ppStats(n);
+  return `<section class="section pp-sec"><div class="pp-sec-in"><button type="button" class="pp-sec-cv" data-act="go" data-v="passport" aria-label="Open your passport">${ppCoverSVG(n,d.c)}</button><div><h2 class="h2">Passport</h2>
+    <p class="hint">${st.n?`${st.n} of ${PP_MAX} stamps, from ${st.reg===1?'one region':st.reg+' regions'}.`:'No stamps yet. Open another nation’s page to collect its entry stamp.'} Design its cover and pages, and the stamp other nations collect from you.</p>
+    <div class="row"><button type="button" class="btn ghost" data-act="go" data-v="passport">Open your passport</button><button type="button" class="btn ghost" data-act="pp-design">Design it</button></div></div></div></section>`;
+});
+VISIT_SECTIONS.push((x,now)=>{
+  const n=x&&x.n;if(!n||x.me)return '';const d=ppDesign(n),mine=S.nation&&S.nation.pp&&S.nation.pp.v&&S.nation.pp.v[x.id],bk=ppBook(x),k=Object.keys(bk.v).length;
+  let where='';if(mine){const p=S.nation.pp.p||[];for(let i=0;i<p.length;i++)if(p[i].includes(x.id))where=` on page ${roman(i+1)}`;}
+  return `<section class="pp-visit"><span class="pp-visit-st">${ppStampSVG(Object.assign({},mine?ppSnap(mine):d.s,{nm:n.name}),mine?mine[2]:now,{label:`Entry stamp of ${n.name}`})}</span>
+    <div><p class="eyebrow">Passport</p><p class="pp-visit-n">Entry stamp of ${esc(n.name)}</p><p class="hint">${mine?`In your passport since ${esc(fmtDate(mine[2]))}${where}.`:!S.nation?'':ppCount(S.nation)>=PP_MAX?'Your passport is full: make room to collect it.':'Stamping your passport…'} Their passport holds ${k} ${k===1?'stamp':'stamps'}.</p></div>
+    <div class="row"><button type="button" class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button></div></section>`;
+});
+HELP_EXT.push({k:'passport',t:'The passport',body:()=>`<p>Every nation has a passport: a cover, an identity page and twenty pages for entry stamps, ten to a page. Opening another nation’s page stamps that nation’s entry stamp into yours, with the date, up to ${PP_MAX} stamps. Other regions cannot be visited, so a passport fills with the nations of your region, and of the regions you move through.</p>
+  <p>On the Passport page you can turn the pages, design the cover, the pages and the entry stamp other nations collect from you, and choose which page and place each stamp has. Richer colours, materials, foils, prints, shapes and inks unlock with the Passport & travel achievements and the Passport Office set in the museum. Every nation’s page has <b>View passport</b>.</p>${`<p><button class="btn ghost" data-act="go" data-v="passport">Open your passport</button></p>`}`});
+
+/* ── input ── */
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;if(!/^pp-/.test(a))return;
+  if(a==='pp-view'){ppViewOpen(el.dataset.id,el);return;}
+  if(a==='pp-close'){ppViewClose();return;}
+  if(a==='pp-design'){PP.tab='design';go('passport');return;}
+  if(a==='pp-tab'){PP.tab=el.dataset.v;PP.sel=null;PP.ask=null;render();return;}
+  if(a==='pp-dtab'){PP.dtab=el.dataset.v;render();return;}
+  if(a==='pp-turn'){const st=ppState(el.dataset.ctx),d=+el.dataset.d;st.at=ppStep(st.at,d,ppWide());st.turn=d;st.info=null;if(el.dataset.ctx==='m')ppViewDraw();else render();return;}
+  if(a==='pp-st'){const st=ppState(el.dataset.ctx);st.info=st.info===el.dataset.id?null:el.dataset.id;if(el.dataset.ctx==='m')ppViewDraw();else render();return;}
+  if(a==='pp-visit'){const id=el.dataset.id;ppViewClose(true);PP.info=null;S.visit=id;S.view='visit';S.relMsg=null;S.confirmWar=null;render();window.scrollTo(0,0);return;}
+  if(a==='pp-set'){const f=el.dataset.f,v=el.dataset.v;ppSet(f,f==='c.chip'?+v:v);return;}
+  if(a==='pp-slot'){ppSlotClick(+el.dataset.k,+el.dataset.i);return;}
+  if(a==='pp-unsel'){PP.sel=null;PP.ask=null;render();return;}
+  if(a==='pp-rm'){const p=S.nation&&S.nation.pp&&S.nation.pp.p,s=PP.sel;if(p&&s)PP.ask=p[s.k][s.i];render();return;}
+  if(a==='pp-rm-no'){PP.ask=null;render();return;}
+  if(a==='pp-rm-yes'){const s=PP.sel,id=PP.ask;PP.sel=null;PP.ask=null;if(!s||!id)return;PP.tried.delete(id);ppSave(pp=>{for(const r of pp.p)for(let i=0;i<r.length;i++)if(r[i]===id)r[i]=0;delete pp.v[id];});toast('The stamp was removed from your passport.');return;}
+  if(a==='pp-sort'){ppSort(el.dataset.v);return;}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t||!t.dataset)return;
+  if(t.dataset.ppJump){const st=ppState(t.dataset.ppJump),to=+t.value;st.turn=to>st.at?1:-1;st.at=to;st.info=null;if(t.dataset.ppJump==='m')ppViewDraw();else render();return;}
+  if(t.dataset.ppText){const [p,f]=t.dataset.ppText.split('.'),max=f==='t1'?24:20,v=czText(t.value,max).toUpperCase();ppSave(pp=>{pp[p][f]=v||(f==='t2'?'ADMITTED':f==='word'?'PASSPORT':'');},PP_PART[p]);return;}
+  if(t.dataset.ppTitle!==undefined&&t.dataset.ppTitle!==''){const k=+t.dataset.ppTitle;ppSave(pp=>{pp.l[k]=czText(t.value,30);});return;}
+  if(t.dataset.ppMove){const s=PP.sel,k=+t.value;if(!s||!S.nation||k===s.k)return;const p=S.nation.pp.p,at=p[k].findIndex(x=>!x);
+    if(at<0){toast(`Page ${roman(k+1)} is full: choose a stamp there to swap with.`);return;}PP.sel=null;PP.ask=null;ppSave(pp=>{pp.p[k][at]=pp.p[s.k][s.i];pp.p[s.k][s.i]=0;});return;}
+});
+document.addEventListener('keydown',e=>{
+  const m=document.getElementById('pp-view');
+  if(m){if(e.key==='Escape'){e.stopPropagation();e.preventDefault();ppViewClose();return;}
+    if(e.key==='Tab'){navTrap(e,m.querySelector('.pp-sheet'));return;}
+    if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&!(e.target&&/SELECT|INPUT|TEXTAREA/.test(e.target.tagName))){e.preventDefault();e.stopPropagation();const d=e.key==='ArrowRight'?1:-1;PPV.at=ppStep(PPV.at,d,ppWide());PPV.turn=d;PPV.info=null;ppViewDraw();return;}}
+  const t=e.target;if((e.key==='Enter'||e.key===' ')&&t&&t.getAttribute&&/^pp-(st|slot)$/.test(t.getAttribute('data-act')||'')){e.preventDefault();t.dispatchEvent(new MouseEvent('click',{bubbles:true}));}
+},true);
+/* turning by swiping across the pages */
+{let sx=null,sy=0;document.addEventListener('pointerdown',e=>{const s=e.target.closest&&e.target.closest('.pp-stage');sx=s?e.clientX:null;sy=e.clientY;},true);
+  document.addEventListener('pointerup',e=>{if(sx==null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;const s=e.target.closest&&e.target.closest('.pp-stage');if(!s||Math.abs(dx)<50||Math.abs(dy)>Math.abs(dx))return;
+    const ctx=s.dataset.ctx,st=ppState(ctx),d=dx<0?1:-1;st.at=ppStep(st.at,d,ppWide());st.turn=d;st.info=null;if(ctx==='m')ppViewDraw();else render();},true);}
+go=(f=>function(v){if(v==='passport'&&S.view!=='passport'){PP.sel=null;PP.ask=null;PP.info=null;}ppViewClose(true);return f.apply(this,arguments);})(go);
 
 /* ───────── full-screen maps ─────────
    The founding map, and a nation's territory (as an interactive 'visit' map centred on it), can fill
