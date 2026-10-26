@@ -4,7 +4,7 @@
 // Playwright is not a dependency of the site. Install it for a test run with
 //   npm install --no-save playwright && npx playwright install chromium
 // or point at an existing install: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs CHROMIUM_PATH=/path/to/chromium
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -13,7 +13,7 @@ export const BASE = (process.env.BASE_URL || 'http://127.0.0.1:5000').replace(/\
 export const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum';
 export const FS_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 export const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
-export const OUT = process.env.TEST_OUT || path.join(path.dirname(new URL(import.meta.url).pathname), 'out');
+export const OUT = process.env.TEST_OUT || path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
 fs.mkdirSync(OUT, { recursive: true });
 export const CONFIG = { apiKey: 'fake-api-key', projectId: PROJECT, authDomain: PROJECT + '.firebaseapp.com' };
 export const EMULATORS = { firestore: FS_HOST, auth: 'http://' + AUTH_HOST };
