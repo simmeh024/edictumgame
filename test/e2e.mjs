@@ -346,8 +346,15 @@ await until(() => B.$('.visit-acts [data-act="pp-view"]')); await B.click('.visi
 check('every nation’s page has View passport, which opens on the cover', !!(await until(() => B.$('#pp-view[aria-modal="true"] .pp-cover'))) && /Aldoria/.test(await text(B, '#pp-view-h')));
 await B.keyboard.press('ArrowRight');                                        // the identity page and page I, side by side
 check('its pages turn with the arrow keys, and carry the stamps', !!(await until(() => B.$(`#pp-view .pp-st[data-id="${uidB}"]`))));
+check('turning the cover swings it open over the spine, and the page block shows at the edge', !!(await B.$('#pp-view .pp-flip, #pp-view .pp-spread')) && !!(await B.$('#pp-view .pp-edge')));
+await B.click('#pp-view [data-act="pp-uv"]');
+check('the UV lamp shows the fluorescent print', !!(await until(() => B.$('#pp-view .pp-book.uv .pp-uvl'))));
+await B.click('#pp-view [data-act="pp-uv"]');
+await until(() => B.$(`#pp-view .pp-st[data-id="${uidB}"]`));
 await B.click(`#pp-view .pp-st[data-id="${uidB}"]`);
 check('a stamp says where it came from', await until(async () => /Borvia/.test(await text(B, '#pp-view .pp-info'))));
+await B.selectOption('#pp-view .pp-jump', '22');
+check('the last page carries the observations, under the seal of state', await until(async () => /OBSERVATIONS/.test(await text(B, '#pp-view .pp-stage')) && /Curia of Aldoria/.test(await text(B, '#pp-view .pp-stage'))));
 await B.keyboard.press('Escape');
 check('Esc closes it', await until(async () => !(await B.$('#pp-view'))));
 // A designs the passport and moves a stamp
@@ -366,6 +373,7 @@ await A.selectOption('#pp-move', '4');
 check('the editor moves a stamp to another page', await until(async () => { const p = (await localNation(A)).pp.p; return p[4].includes(uidB) && !p[0].includes(uidB); }));
 await A.fill('.pp-arr-t[data-pp-title="4"]', 'Old friends'); await A.press('.pp-arr-t[data-pp-title="4"]', 'Tab');
 check('and titles pages', await until(async () => (await localNation(A)).pp.l[4] === 'Old friends'));
+check('the tutorial counts a first stamp and a passport design, a land credit each', await until(async () => { const t = ((await nationDoc(uidA)) || { rec: {} }).rec.tut || {}; return Array.isArray(t.lc) && t.lc.includes('stamp') && t.lc.includes('ppdes'); }, 15000));
 
 /* ── 6. Firebase blocked: browser-only mode ─────────────────────────────── */
 const C = await player('C', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });
@@ -379,6 +387,25 @@ check('and offers no nation files any more', !(await C.$('[data-ed="export"], [d
 await C.keyboard.press('Escape');
 await C.reload(); await ready(C);
 check('the local nation survives a reload', (await sideName(C)) === 'Cornmarsh');
+// every 20 stamps earn a land credit: give the book 19, then open a computer nation's page
+await C.evaluate(() => {
+  const k = 'statehood.nation.v1', n = JSON.parse(localStorage.getItem(k)), v = {}, p = Array.from({ length: 20 }, () => Array(10).fill(0));
+  for (let i = 0; i < 19; i++) { v['test-' + i] = ['Testland ' + i, 'meridian', Date.now() - i * 864e5, 'ps-circle', 'pb-single', 'pi-blue', 'c-star', '', 'ADMITTED']; p[Math.floor(i / 10)][i % 10] = 'test-' + i; }
+  n.pp = { v, p, l: [] }; localStorage.setItem(k, JSON.stringify(n));
+});
+await C.reload(); await ready(C);
+await nav(C, 'region');
+const npc1 = await until(() => C.$eval('.tbl [data-act="visit"][data-id^="npc-"]', e => e.dataset.id).catch(() => null));
+await C.click(`.tbl [data-act="visit"][data-id="${npc1}"]`);
+check('the 20th stamp earns a land credit', await until(async () => { const n = await localNation(C); return !!n.pp && Object.keys(n.pp.v).length === 20 && n.pp.cr === 1; }, 10000));
+check('and the player is told', await until(async () => /20 stamps in your passport: a land credit/.test(await toasts(C)), 40000));
+// the Diplomata: one per nation, and it unlocks more passport designs
+await nav(C, 'cities'); await until(() => C.$('[data-act="ct-open"]')); await C.click('[data-act="ct-open"]');
+check('a city can build a Diplomata, one per nation', await until(async () => { const t = await text(C, '#app'); return /Diplomata/.test(t) && /Immigration \+3%\. One per nation\./.test(t); }));
+await C.evaluate(() => { const k = 'statehood.nation.v1', n = JSON.parse(localStorage.getItem(k)); n.cities[0].b = (n.cities[0].b || []).concat([{ k: 'diplo', s: 1, d: 2, a: 1 }]); localStorage.setItem(k, JSON.stringify(n)); });
+await C.reload(); await ready(C);
+await nav(C, 'passport'); await C.click('[data-act="pp-tab"][data-v="design"]');
+check('a finished Diplomata unlocks its typefaces and devices', await until(async () => (await C.$$('.pp-tiles-font .pp-tile')).length === 7 && !(await C.$('.pp-tiles-font .pp-tile.locked')) && !(await C.$('[data-f="c.emb"][data-v="pk-globe"].locked'))));
 
 /* ── 7. no injected config: init.json and the local emulators are found on their own ── */
 const D0 = await player('D0', { inject: false });
