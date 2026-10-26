@@ -1,27 +1,37 @@
 #!/usr/bin/env python3
 """Build the site in public/ from the game in game/edictum.html.
 
-    npm ci              # once: installs the pinned Firebase SDK that gets vendored
+    npm ci              # once: installs the pinned Firebase SDK, esbuild and the fonts
     python3 build.py    # writes public/
 
-The game is one HTML fragment written for the claude.ai artifact runtime. This script wraps it
-in a full page and adds, without changing the game's own code:
+The game is one HTML fragment: head material (title and styles), then the app div and one script.
+This script turns it into a small page plus long-cached files, without changing the game's source:
+  - the game's script, minified, as /assets/game.<hash>.js, and its styles with src/shim.css and the
+    fonts' @font-face rules, minified, as /assets/app.<hash>.css. The names change whenever the
+    content does, so Hosting lets browsers keep them for a year (firebase.json) and a returning
+    player downloads only the small page until the next deploy;
+  - the game's three typefaces (Bodoni Moda, Public Sans, IBM Plex Mono; SIL Open Font License),
+    Latin and Latin Extended only, from the pinned Fontsource packages into /assets/fonts/, so no
+    visitor's browser contacts Google for them;
   - src/stub.js in <head>: defines window.claude.use() before the game's script runs;
   - the Firebase compat SDK (app, auth, firestore), copied from node_modules into
     public/vendor/firebase/<version>/ so the site needs no CDN;
-  - src/shim.js and src/shim.css after the game: the Firebase-backed window.claude and the
-    account control;
+  - src/shim.js after the game: the Firebase-backed window.claude and the account control;
   - description, theme colour, Open Graph tags and icons.
 
 Options: --site-url https://example.org (or SITE_URL) makes og:image, og:url and the
-canonical link absolute, as link previews need. Only the Python standard library is used.
+canonical link absolute, as link previews need. --no-minify keeps the code readable for
+debugging. Minifying runs esbuild through Node; everything else is the Python standard library.
 """
 import argparse
+import gzip
 import hashlib
 import html
 import json
 import os
+import re
 import shutil
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +39,13 @@ GAME = os.path.join(ROOT, 'game', 'edictum.html')
 SRC = os.path.join(ROOT, 'src')
 SDK = ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js']
 APP_MARK = '<div id="app"></div>'
+# (package, its CSS files, the family name the game's styles use)
+FONTS = [
+    ('@fontsource-variable/bodoni-moda', ['opsz.css', 'opsz-italic.css'], 'Bodoni Moda'),
+    ('@fontsource-variable/public-sans', ['wght.css', 'wght-italic.css'], 'Public Sans'),
+    ('@fontsource/ibm-plex-mono', ['400.css', '500.css', '600.css'], 'IBM Plex Mono'),
+]
+PRELOAD = ['bodoni-moda-latin-opsz-normal', 'public-sans-latin-wght-normal']  # used on the first screen
 
 TITLE = 'Edictum'
 DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, decide the issues on your desk, '
@@ -74,11 +91,62 @@ def split_game(src):
     return head.strip(), (APP_MARK + body).strip()
 
 
-def inline_js(path):
-    js = read(path)
+def inline_js(path, minify):
+    js = esbuild(read(path), 'js', minify)
     if '</script' in js.lower():
         fail(path + ' must not contain "</script"')
     return js.strip()
+
+
+ESBUILD = ("const s=[];process.stdin.on('data',d=>s.push(d)).on('end',()=>{"
+           "const r=require('esbuild').transformSync(Buffer.concat(s).toString('utf8'),"
+           "{loader:process.argv[1],minify:true,charset:'utf8',logLevel:'error'});process.stdout.write(r.code);});")
+
+
+def esbuild(text, loader, minify):
+    """Minify JavaScript or CSS with the pinned esbuild (through Node, the same on every system)."""
+    if not minify:
+        return text
+    if not os.path.isdir(os.path.join(ROOT, 'node_modules', 'esbuild')):
+        fail('node_modules/esbuild is missing. Run "npm ci" first.')
+    try:
+        r = subprocess.run(['node', '-e', ESBUILD, loader], input=text.encode('utf-8'), capture_output=True, cwd=ROOT)
+    except FileNotFoundError:
+        fail('Node.js is needed to minify (or pass --no-minify)')
+    if r.returncode:
+        fail('esbuild could not minify the %s:\n%s' % (loader, r.stderr.decode('utf-8', 'replace')[-2000:]))
+    return r.stdout.decode('utf-8')
+
+
+def hashed(out, name, ext, data):
+    """Write public/assets/<name>.<hash>.<ext> and return its address."""
+    raw = data if isinstance(data, bytes) else data.encode('utf-8')
+    fn = '%s.%s.%s' % (name, hashlib.sha256(raw).hexdigest()[:10], ext)
+    write(os.path.join(out, 'assets', fn), raw)
+    return '/assets/' + fn
+
+
+def fonts_css(out):
+    """The @font-face rules for the game's typefaces, Latin and Latin Extended, with each font file
+    copied to /assets/fonts/ under a name that carries its hash. Returns (css, preload addresses)."""
+    rules, preload = [], []
+    for pkg, files, family in FONTS:
+        base = os.path.join(ROOT, 'node_modules', *pkg.split('/'))
+        if not os.path.isdir(base):
+            fail('node_modules/%s is missing. Run "npm ci" first.' % pkg)
+        for f in files:
+            for name, body in re.findall(r'/\*\s*([a-z0-9-]+)\s*\*/\s*@font-face\s*\{([^}]*)\}', read(os.path.join(base, f))):
+                m = re.search(r'url\(\./files/([^)]+\.woff2)\)', body)
+                if not m or not re.search(r'-latin(-ext)?-', name):
+                    continue
+                url = hashed(out, 'fonts/' + m.group(1)[:-len('.woff2')], 'woff2', read(os.path.join(base, 'files', m.group(1)), 'rb'))
+                body = re.sub(r"font-family:\s*'[^']*'", "font-family: '%s'" % family, body)
+                rules.append('@font-face {%s}' % body.replace(m.group(0), 'url(%s)' % url).strip())
+                if name in PRELOAD:
+                    preload.append(url)
+    if len(preload) != len(PRELOAD):
+        fail('the fonts to preload were not found: %s' % ', '.join(PRELOAD))
+    return '\n'.join(rules), preload
 
 
 def main():
@@ -87,7 +155,9 @@ def main():
                     help='the live address, such as https://edictum.example (also read from SITE_URL)')
     ap.add_argument('--out', default=os.path.join(ROOT, 'public'), help='output folder (default: public)')
     ap.add_argument('--game', default=GAME, help='the game file (default: game/edictum.html)')
+    ap.add_argument('--no-minify', action='store_true', help='keep the code as written (for debugging)')
     args = ap.parse_args()
+    minify = not args.no_minify
     site = args.site_url.strip().rstrip('/')
     if site and not site.startswith(('https://', 'http://')):
         fail('--site-url must start with https://')
@@ -111,6 +181,16 @@ def main():
                 fail('node_modules/firebase/%s is missing' % f)
     for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png'):
         shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))
+
+    # the game's styles (with the shim's and the fonts') and its script become long-cached files
+    styles = re.findall(r'<style[^>]*>(.*?)</style>', game_head, re.S | re.I)
+    game_head = re.sub(r'\s*<style[^>]*>.*?</style>', '', game_head, flags=re.S | re.I).strip()
+    if re.search(r'<link[^>]+fonts\.(googleapis|gstatic)\.com', game_head, re.I):
+        fail('the game still loads Google Fonts; the build serves the fonts itself')
+    fonts, preload = fonts_css(out)
+    css_url = hashed(out, 'app', 'css', esbuild('\n'.join([fonts] + styles + [read(os.path.join(SRC, 'shim.css'))]), 'css', minify))
+    script = re.search(r'<script>(.*)</script>\s*$', game_body, re.S).group(1)
+    js_url = hashed(out, 'game', 'js', esbuild(script, 'js', minify))
 
     a = lambda path: (site + path) if site else path
     e = lambda s: html.escape(s, quote=True)
@@ -143,14 +223,16 @@ def main():
         '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
         '<!-- Edictum: built by build.py from game/edictum.html (sha256 %s) with Firebase %s -->' % (stamp, ver),
         '<style>body{margin:0;font:14px system-ui}[hidden]{display:none!important}</style>',
-        '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'stub.js')),
+        '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'stub.js'), minify),
     ] + ['<script defer src="%s%s"></script>' % (vendor, n) for n in SDK] + meta + [
         game_head,
-        '<style>\n%s\n</style>' % read(os.path.join(SRC, 'shim.css')).strip(),
+    ] + ['<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' % u for u in preload] + [
+        '<link rel="stylesheet" href="%s">' % css_url,
         '</head>',
         '<body>',
-        game_body,
-        '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js')),
+        APP_MARK,
+        '<script src="%s"></script>' % js_url,
+        '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
         '</body>',
         '</html>',
         '',
@@ -158,8 +240,10 @@ def main():
     write(os.path.join(out, 'index.html'), page)
     write(os.path.join(out, '404.html'), NOT_FOUND)
     size = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(out) for f in fs)
-    print('build.py: wrote %s (index.html %.1f MB, %d KB of Firebase %s, %.1f MB in all)%s' % (
-        os.path.relpath(out, ROOT), len(page.encode('utf-8')) / 1e6,
+    kb = lambda url: '%d KB, %d KB gzipped' % (os.path.getsize(os.path.join(out, url.lstrip('/'))) // 1024,
+                                              len(gzip.compress(read(os.path.join(out, url.lstrip('/')), 'rb'), 9)) // 1024)
+    print('build.py: wrote %s (page %d KB; game %s; styles %s; %d KB of Firebase %s; %.1f MB in all)%s' % (
+        os.path.relpath(out, ROOT), len(page.encode('utf-8')) // 1024, kb(js_url), kb(css_url),
         sum(os.path.getsize(os.path.join(out, 'vendor', 'firebase', ver, n)) for n in SDK) // 1024, ver, size / 1e6,
         '' if site else '; no --site-url, so Open Graph links are relative'))
 

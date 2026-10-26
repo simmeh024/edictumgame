@@ -26,9 +26,7 @@
 
   var LS_NATION = 'statehood.nation.v1'; // the game's own copy of the player's nation
   var LS_UID = 'edictum.uid';            // the account that copy belongs to ('-' once signed out)
-  var LS_BACKUP = 'edictum.backup';      // the last nation replaced or left behind in this browser
   var SS_FLASH = 'edictum.flash';        // a message to show after a reload
-  var SS_IMPORT = 'edictum.import';      // an import waiting for the game's verdict after a reload
   var MAX_JSON = 700000;                 // well under Firestore's 1 MiB document limit
   var SPACE_BEAT = 12 * 3600000;         // rewrite an unchanged space document this often while playing
   var SPACE_MIN = 12000;                 // and a changed one at most this often (the rules allow one per 10 s)
@@ -52,8 +50,6 @@
   function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
   function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
   function localNation() { var n = parse(L.get(LS_NATION)); return isObj(n) && typeof n.name === 'string' && n.name.trim() ? n : null; }
-  function backup() { var b = parse(L.get(LS_BACKUP)); return isObj(b) && isObj(b.nation) && typeof b.nation.name === 'string' ? b : null; }
-  function keepBackup(n) { if (isObj(n)) L.set(LS_BACKUP, JSON.stringify({ at: Date.now(), nation: n })); }
   function within(p, ms) {
     return new Promise(function (res, rej) {
       var t = setTimeout(function () { var e = new Error('timed out'); e.code = 'deadline-exceeded'; rej(e); }, ms);
@@ -225,27 +221,9 @@
     },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
-  /* the artifact runtime's 'downloads' capability, for a site that can simply download */
-  var downloadsApi = Object.freeze({
-    save: function (req) {
-      return new Promise(function (resolve, reject) {
-        var name = String((req && req.filename) || '').trim(), data = req && req.data;
-        if (!name || data == null || data === '') { reject({ code: 'bad_request', message: 'filename and data are required' }); return; }
-        try {
-          var blob = data instanceof Blob ? data : new Blob([data], { type: /\.json$/i.test(name) ? 'application/json' : 'application/octet-stream' });
-          var url = URL.createObjectURL(blob), a = document.createElement('a');
-          a.href = url; a.download = name; a.rel = 'noopener'; a.hidden = true;
-          document.body.appendChild(a); a.click();
-          setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
-          resolve({ status: 'saved' });
-        } catch (e) { reject({ code: 'unavailable', message: String((e && e.message) || e) }); }
-      });
-    }
-  });
   function apiFor(online) {
     return Object.freeze({
       use: function (n) {
-        if (n === 'downloads') return downloadsApi;
         if (!online) return null;
         return n === 'db' ? dbApi : n === 'user' ? userApi : null;
       }
@@ -281,8 +259,7 @@
       var has = true;
       try { has = (await within(A.fs.doc('nations/' + user.uid).get(), 8000)).exists; } catch (e) { has = true; }
       if (!has) return false; /* a lost guest sign-in: the nation carries on under this one */
-      keepBackup(mine);
-      leave({ nation: null, uid: user.uid }, 'The nation “' + mine.name + '” in this browser belonged to another sign-in, so it was set aside. You can download it from the account menu.');
+      leave({ nation: null, uid: user.uid }, 'The nation “' + mine.name + '” in this browser belongs to another sign-in. Sign in to that account to play it again.');
       return true;
     }
     leave({ nation: null, uid: user.uid });
@@ -324,22 +301,9 @@
     });
     mount();
   }
-  /* after an import, the game's own normaliser has just loaded the record (or refused it) */
-  function importVerdict() {
-    var p = parse(SS.get(SS_IMPORT));
-    if (!isObj(p)) return true;
-    SS.set(SS_IMPORT, null);
-    if (document.querySelector('#app .layout, #app .dorm')) {
-      SS.set(SS_FLASH, 'Imported “' + str(p.name, 80) + '”. It is now your nation.');
-      return true;
-    }
-    L.set(LS_BACKUP, typeof p.prevBackup === 'string' ? p.prevBackup : null);
-    leave({ nation: typeof p.prev === 'string' ? p.prev : null }, 'That file could not be read as a nation, so nothing was changed.');
-    return false;
-  }
 
   /* ───────── the account control and its dialog ───────── */
-  var ui = { box: null, btn: null, dlg: null, inn: null, msg: null, view: 'main', busy: '', pending: null };
+  var ui = { box: null, btn: null, dlg: null, inn: null, msg: null, view: 'main', busy: '' };
   var ICON = '<svg class="ed-acct-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="8.2" r="2.9" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.6 15.7c1.3-2.2 3.1-3.3 5.4-3.3s4.1 1.1 5.4 3.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
   var XICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -356,7 +320,7 @@
     var w = who(), head = ui.box.classList.contains('ed-head'), k, v;
     if (w.kind === 'google') { k = head ? 'Signed in' : 'Signed in with Google'; v = w.email || w.name || 'Your account'; }
     else if (w.kind === 'guest') { k = head ? 'Have a nation?' : 'Playing as a guest'; v = head ? 'Sign in' : 'Keep your nation on every device'; }
-    else { k = head ? 'Have a nation file?' : 'Saved in this browser'; v = head ? 'Import it' : 'Export or import your nation'; }
+    else { k = 'Playing offline'; v = head ? 'Sign-in unavailable' : 'Saved in this browser for now'; }
     ui.btn.innerHTML = ICON + '<span class="ed-acct-t"><span class="ed-acct-k">' + esc(k) + '</span> <span class="ed-acct-v">' + esc(v) + '</span></span>';
   }
   /* the game redraws #app on every change; keep the control in the side bar foot, or in the
@@ -395,7 +359,7 @@
     if (ui.dlg) return ui.dlg;
     var d = document.createElement('dialog');
     d.className = 'ed-dlg'; d.setAttribute('aria-labelledby', 'ed-dlg-h');
-    d.innerHTML = '<button type="button" class="ed-x" data-ed="close" aria-label="Close">' + XICON + '</button><div class="ed-in"></div><p class="ed-msg" role="status" aria-live="polite"></p><input type="file" class="ed-file" accept=".json,application/json,text/plain" hidden>';
+    d.innerHTML = '<button type="button" class="ed-x" data-ed="close" aria-label="Close">' + XICON + '</button><div class="ed-in"></div><p class="ed-msg" role="status" aria-live="polite"></p>';
     document.body.appendChild(d);
     ui.dlg = d; ui.inn = d.querySelector('.ed-in'); ui.msg = d.querySelector('.ed-msg');
     d.addEventListener('click', function (e) {
@@ -404,13 +368,7 @@
       if (b && !b.disabled) act(b.getAttribute('data-ed'));
     });
     d.addEventListener('cancel', function (e) { if (ui.busy) e.preventDefault(); });
-    d.addEventListener('close', function () { ui.view = 'main'; ui.pending = null; setMsg(''); });
-    d.querySelector('.ed-file').addEventListener('change', function (e) {
-      var f = e.target.files && e.target.files[0];
-      if (!f) return;
-      if (f.size > MAX_JSON * 2) { setMsg('That file is too large to be a nation file.', true); return; }
-      f.text().then(takeImport, function () { setMsg('That file could not be read.', true); });
-    });
+    d.addEventListener('close', function () { ui.view = 'main'; setMsg(''); });
     /* while the dialog is open, keys belong to it, not to the game's shortcuts behind it */
     window.addEventListener('keydown', function (e) { if (d.open) e.stopPropagation(); }, true);
     return d;
@@ -431,25 +389,18 @@
     setMsg(ui.busy);
     ui.dlg.querySelectorAll('button').forEach(function (b) { b.disabled = !!ui.busy; });
   }
-  function fmtDate(t) { try { return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return 'an earlier day'; } }
   function draw() {
     if (!ui.inn) return;
     var w = who(), n = localNation(), nm = n ? quoted(n.name) : '', h = '';
     var row = function (x) { return '<div class="ed-row">' + x + '</div>'; };
     if (ui.view === 'switch') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Switch to that Google account?</h2>' +
-        (n ? '<p>That Google account already plays Edictum. If it has a nation, that nation loads here and the guest nation ' + nm + ' is dissolved, because only this guest sign-in can play it. If it has no nation yet, ' + nm + ' moves into it.</p><p class="ed-fine">This browser keeps a copy of ' + nm + ' that you can download later.</p>'
+        (n ? '<p>That Google account already plays Edictum. If it has a nation, that nation loads here and the guest nation ' + nm + ' is dissolved, because only this guest sign-in can play it. If it has no nation yet, ' + nm + ' moves into it.</p>'
            : '<p>That Google account already plays Edictum. Switch to it to carry on with its nation here.</p>') +
-        row('<button type="button" class="btn" data-ed="switch" data-autofocus>Switch account</button>' + (n ? '<button type="button" class="btn ghost" data-ed="export">Export ' + nm + '</button>' : '') + '<button type="button" class="btn ghost" data-ed="back">Cancel</button>');
+        row('<button type="button" class="btn" data-ed="switch" data-autofocus>Switch account</button><button type="button" class="btn ghost" data-ed="back">Cancel</button>');
     } else if (ui.view === 'signout') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Sign out?</h2><p>' + (n ? nm + ' stays' : 'Your nation stays') + ' with your Google account. This browser starts again as a new guest, and you can sign back in at any time.</p>' +
         row('<button type="button" class="btn" data-ed="signout-yes" data-autofocus>Sign out</button><button type="button" class="btn ghost" data-ed="back">Cancel</button>');
-    } else if (ui.view === 'import' && ui.pending) {
-      var im = quoted(ui.pending.name), where = w.kind === 'local' ? ' in this browser' : ' in this browser and in the region';
-      h = '<p class="eyebrow">Nation file</p><h2 class="ed-h" id="ed-dlg-h">Import ' + im + '?</h2>' +
-        (n ? '<p>' + im + ' replaces ' + nm + where + '. This browser keeps a copy of ' + nm + ' that you can download later.</p>' : '<p>' + im + ' becomes your nation' + where + '.</p>') +
-        '<p class="ed-fine">The page reloads, and the game checks the nation as it loads it.</p>' +
-        row('<button type="button" class="btn" data-ed="import-yes" data-autofocus>Import ' + im + '</button>' + (n ? '<button type="button" class="btn ghost" data-ed="export">Export ' + nm + ' first</button>' : '') + '<button type="button" class="btn ghost" data-ed="back">Cancel</button>');
     } else {
       ui.view = 'main';
       if (w.kind === 'guest') {
@@ -463,16 +414,9 @@
           (n ? nm + ' is kept with this account, so you can sign in on any device and carry on.' : 'Found a nation and it is kept with this account.') + '</p>' +
           row('<button type="button" class="btn ghost" data-ed="signout" data-autofocus>Sign out</button>');
       } else {
-        h = '<p class="eyebrow">Nation file</p><h2 class="ed-h" id="ed-dlg-h">Saved in this browser</h2><p>Sign-in is not available right now, so ' + (n ? nm + ' is' : 'your nation is') + ' saved in this browser only. You can still export it, or import a nation file.</p>';
+        h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Playing offline</h2><p>Sign-in is not available right now, so ' + (n ? nm + ' is' : 'your nation is') + ' saved in this browser only. Reload the page when you are back online, and it joins the region again.</p>';
       }
-      var b = backup();
-      h += '<section class="ed-sec" aria-labelledby="ed-file-h"><h3 class="ed-h3" id="ed-file-h">Nation file</h3><p>' +
-        (n ? 'Download ' + nm + ' to keep a copy, or bring in' : 'Bring in') + ' a nation from another copy of Edictum, such as the original on claude.ai. Importing replaces the nation you play here.</p>' +
-        row((n ? '<button type="button" class="btn ghost" data-ed="export">Export my nation</button>' : '') + '<button type="button" class="btn ghost" data-ed="import">Import a nation file</button>') +
-        '<details class="ed-paste"><summary>Or paste the text of a nation file</summary><label class="ed-lbl" for="ed-paste-t">Nation file text</label><textarea class="input" id="ed-paste-t" rows="4" spellcheck="false" autocomplete="off"></textarea>' +
-        row('<button type="button" class="btn ghost" data-ed="paste">Import this text</button>') + '</details>' +
-        (b ? '<p class="ed-fine">This browser also keeps ' + quoted(b.nation.name) + ', a nation set aside on ' + esc(fmtDate(b.at)) + '. <button type="button" class="linkish" data-ed="export-backup">Download it</button></p>' : '') +
-        '</section>' + (w.uid ? '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>' : '');
+      if (w.uid) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
     }
     ui.inn.innerHTML = h;
     if (ui.busy) setBusy(ui.busy);
@@ -480,53 +424,11 @@
   }
   function act(a) {
     if (a === 'close') { if (!ui.busy) ui.dlg.close(); return; }
-    if (a === 'back') { ui.view = 'main'; ui.pending = null; setMsg(''); draw(); return; }
+    if (a === 'back') { ui.view = 'main'; setMsg(''); draw(); return; }
     if (a === 'google') { google(); return; }
     if (a === 'switch') { doSwitch(); return; }
     if (a === 'signout') { ui.view = 'signout'; setMsg(''); draw(); return; }
     if (a === 'signout-yes') { doSignOut(); return; }
-    if (a === 'export') { exportNation(localNation()); return; }
-    if (a === 'export-backup') { var b = backup(); exportNation(b && b.nation); return; }
-    if (a === 'import') { var f = ui.dlg.querySelector('.ed-file'); f.value = ''; f.click(); return; }
-    if (a === 'paste') { var t = ui.dlg.querySelector('#ed-paste-t'); takeImport(t ? t.value : ''); return; }
-    if (a === 'import-yes') { doImport(); return; }
-  }
-
-  /* ───────── nation files ───────── */
-  function exportNation(n) {
-    if (!isObj(n)) { setMsg('There is no nation to export yet.', true); return; }
-    var slug = String(n.name).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40) || 'nation';
-    downloadsApi.save({ filename: slug + '-' + new Date().toISOString().slice(0, 10) + '.edictum.json', data: JSON.stringify(n, null, 2) + '\n' })
-      .then(function () { setMsg('Downloaded ' + '“' + n.name + '”. Keep the file somewhere safe.'); }, function () { setMsg('The download did not start.', true); });
-  }
-  function readNationFile(text) {
-    text = String(text || '').trim();
-    if (!text) return { err: 'Choose a nation file, or paste its text.' };
-    if (text.length > MAX_JSON) return { err: 'That file is too large to be a nation file.' };
-    var d = parse(text);
-    if (d == null) return { err: 'That is not a nation file: Edictum saves nations as JSON text.' };
-    if (isObj(d) && isObj(d.nation)) d = d.nation;
-    else if (isObj(d) && isObj(d.data) && !('name' in d)) d = d.data;
-    if (!isObj(d) || typeof d.name !== 'string' || !d.name.trim() || !isObj(d.s)) return { err: 'That file holds no nation: it has no nation name or national statistics.' };
-    if (d.npc) return { err: 'That is a computer-run nation, which cannot be imported.' };
-    return { nation: d };
-  }
-  function takeImport(text) {
-    var r = readNationFile(text);
-    if (r.err) { setMsg(r.err, true); return; }
-    ui.pending = r.nation; ui.view = 'import'; setMsg(''); draw();
-  }
-  function doImport() {
-    var d = ui.pending;
-    if (!d) return;
-    var rec = JSON.parse(JSON.stringify(d)), prev = L.get(LS_NATION), prevBackup = L.get(LS_BACKUP);
-    rec.updatedAt = Date.now(); /* newer than any copy in the region, so the game saves it there */
-    var text = JSON.stringify(rec);
-    if (prev) keepBackup(parse(prev));
-    if (!L.set(LS_NATION, text)) { L.set(LS_BACKUP, prevBackup); setMsg('This browser would not store the nation: its storage may be full or blocked.', true); return; }
-    SS.set(SS_IMPORT, JSON.stringify({ name: str(rec.name, 80), t: rec.updatedAt, prev: prev, prevBackup: prevBackup }));
-    setBusy('Importing…');
-    leave({ nation: text });
   }
 
   /* ───────── Google ───────── */
@@ -584,7 +486,6 @@
     if (!nu) { leave({ nation: null, uid: '-' }); return; }
     try { var s = await within(A.fs.doc('nations/' + nu.uid).get(), 8000); has = s.exists; if (has) name = str((s.data() || {}).name, 80); } catch (e) { has = true; }
     if (has) {
-      if (guest) keepBackup(guest);
       leave({ nation: null, uid: '-' }, name ? 'Signed in with Google. Welcome back to “' + name + '”.' : 'Signed in with Google.');
     } else {
       leave({ uid: nu.uid }, guest ? 'Signed in with Google. “' + guest.name + '” now lives in your Google account.' : 'Signed in with Google. The nation you found here will be kept with your account.');
@@ -598,7 +499,6 @@
     });
   }
 
-  if (!importVerdict()) return;
   var started = new Promise(function (r) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', r, { once: true }); else r(); });
   started.then(boot).catch(function (e) { goOffline('start-up failed', e); });
 })();
