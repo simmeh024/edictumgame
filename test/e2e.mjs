@@ -369,6 +369,25 @@ check('the nation is founded in the chosen region, with its motto', await until(
 check('and the draft is cleared once founded', (await K.evaluate(() => sessionStorage.getItem('statehood.draft'))) === null);
 await K.ctx.close();
 
+/* ── 10b. full-screen maps ──────────────────────────────────────────────── */
+const FS = await player('FS');
+await open(FS);
+const fills = () => FS.evaluate(() => { const w = document.querySelector('.map-wrap.is-full'); if (!w) return false; const r = w.getBoundingClientRect(); return r.width >= innerWidth - 1 && r.height >= innerHeight - 1 && document.documentElement.classList.contains('map-full-open'); });
+await FS.click('.map-found [data-act="map-fs"]');
+check('the founding map’s Full screen button fills the window', await until(fills));
+check('its bar shows where the capital will stand', /No location chosen yet|will stand/.test(await text(FS, '#found-loc-fs')));
+await FS.keyboard.press('Escape');
+check('Esc leaves full screen', await until(async () => !(await FS.$('.map-wrap.is-full')) && !(await FS.evaluate(() => document.documentElement.classList.contains('map-full-open')))));
+await found(FS, 'Fullview');
+await FS.click('.map-fs-mini');
+check('a nation page’s territory map opens full screen, as a map you can move and zoom', await until(async () => !!(await FS.$('.map-wrap.is-full canvas[data-map="visit"]')) && !!(await FS.$('.map-wrap.is-full [data-act="map-zoom"]')) && await fills()));
+check('its bar names the nation', /Fullview/.test(await text(FS, '.map-fs-bar')));
+await FS.click('.map-wrap.is-full [data-act="map-zoom"][data-d="1"]');
+check('zooming in full screen keeps it open', await until(fills));
+await FS.click('.map-wrap.is-full [data-act="map-fs-world"]');
+check('Open in the world map goes there and leaves full screen', await until(async () => (await FS.evaluate(() => location.hash)) === '#map' && !(await FS.$('.map-wrap.is-full'))));
+await FS.ctx.close();
+
 /* ── 11. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {
   const S = await player('S' + vp.width, { vp, dark });
