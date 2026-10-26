@@ -151,7 +151,7 @@ await B.click('[data-ed="report-yes"]');
 check('a second report within 30 seconds is refused, with the reason', await until(async () => /every 30 seconds/.test(await text(B, '.ed-msg'))));
 await B.keyboard.press('Escape');
 const N = await player('N');
-await open(N);
+const uidN = await open(N);
 await found(N, 'Nettleton');
 await nav(N, 'region');
 await (await until(() => N.$(`.tbl [data-act="visit"][data-id="${uidM}"]`))).click();
@@ -218,10 +218,68 @@ check('Close ticket closes it and leaves the nation alone', await until(async ()
 await A.click('[data-act="admin-close"]');
 await O.ctx.close(); await P.ctx.close();
 
+/* ── 5b2. support tickets, and the admin's Help queries page ───────────── */
+await nav(N, 'help');
+await (await until(() => N.$('#sup-box [data-act="sup-new"]'))).click();
+await N.waitForSelector('dialog.ed-dlg[open] [data-ed="support-yes"]');
+check('the Help page opens a support ticket form', /Create a support ticket/.test(await text(N, '#ed-dlg-h')));
+await N.click('[data-ed="support-yes"]');
+check('an empty ticket is refused, with the reason', await until(async () => /Write a few words/.test(await text(N, '.ed-msg'))));
+await N.check('input[name="ed-topic"][value="account"]');
+await N.fill('#ed-sup-x', 'My nation shrank overnight. Is that a bug?');
+await N.fill('#ed-sup-mail', 'not-an-email');
+await N.click('[data-ed="support-yes"]');
+check('a malformed email address is refused', await until(async () => /does not look right/.test(await text(N, '.ed-msg'))));
+await N.fill('#ed-sup-mail', 'nettleton@example.com');
+await N.click('[data-ed="support-yes"]');
+check('the ticket is sent, and the player told where the answer will appear', await until(async () => /answer will appear on the Help page/.test(await toasts(N))));
+const tk = await until(async () => { const l = await restListAdmin('support'); return l.length ? l : null; });
+const tf = tk && tk[0].fields;
+check('the ticket keeps the player, nation, topic, text and email', !!tf && tf.by.stringValue === uidN && tf.name.stringValue === 'Nettleton' && tf.topic.stringValue === 'account' && /shrank overnight/.test(tf.x.stringValue) && tf.email.stringValue === 'nettleton@example.com' && tf.st.stringValue === 'open');
+check('strangers cannot read support tickets', (await restGet('support')).status === 403);
+check('the Help page lists it as open', await until(async () => { const t = await text(N, '#sup-box .sup-list'); return /Open/.test(t) && /shrank overnight/.test(t); }));
+await N.click('#sup-box [data-act="sup-new"]');
+await N.waitForSelector('dialog.ed-dlg[open] [data-ed="support-yes"]');
+await N.fill('#ed-sup-x', 'And another thing');
+await N.click('[data-ed="support-yes"]');
+check('a second ticket within a minute is refused, with the reason', await until(async () => /one ticket a minute/.test(await text(N, '.ed-msg'))));
+await N.keyboard.press('Escape');
+await A.click('.side-who .adm-pill');
+await (await until(() => A.$('.adm-nav [data-v="admin-help"]'))).click();
+const hq = await until(async () => { const t = await text(A, '.adm-reps'); return /shrank overnight/.test(t) ? t : ''; }, 15000);
+check('the admin portal has a Help queries page listing the ticket', !!hq && /#admin-help$/.test(A.url()) && /Nettleton/.test(hq) && /nettleton@example\.com/.test(hq), hq ? '' : (await text(A, '.adm')).slice(0, 400));
+check('its tab shows how many are open', /Help queries 1/.test(await text(A, '.adm-nav')));
+await A.click('[data-act="admh-answer"]');
+check('an empty answer is refused', await until(async () => /Write an answer first/.test(await text(A, '.adm'))));
+await A.fill('.admh-in', 'Nations shrink when their people leave. See Migration on the Help page.');
+await A.click('[data-act="admh-answer"]');
+check('Send answer closes the ticket, with the answer and an expiry', await until(async () => {
+  const f = ((await restListAdmin('support'))[0] || {}).fields;
+  return !!f && f.st.stringValue === 'closed' && /Migration/.test(f.reply.stringValue) && !!(f.exp && f.exp.timestampValue) && f.rby.stringValue === uidA;
+}));
+check('the page moves it to Recently closed', await until(async () => { const t = await text(A, '.adm'); return /No open help queries/.test(t) && /Answered: .*Migration/.test(t); }));
+await nav(N, 'nation');                                                      // on the Help page itself the answer simply shows
+await N.reload(); await ready(N);
+check('the player is told the answer has come', await until(async () => /answered your support ticket/.test(await toasts(N)), 15000));
+await nav(N, 'help');
+check('and reads it on the Help page', await until(async () => /Answered/.test(await text(N, '#sup-box .sup-list')) && /Migration/.test(await text(N, '#sup-box .sup-a'))));
+await A.click('[data-act="adm-tab"][data-v="admin"]');
+check('the Overview tab leads back, counting no open help queries', await until(async () => /open help queries/.test(await text(A, '.adm-kpis')) && !!(await A.$('.adm-nav [data-v="admin"][aria-current="page"]'))));
+await A.click('[data-act="admin-close"]');
+
 /* ── 5c. deleting a nation and account ─────────────────────────────────── */
 const Q = await player('Q');
 const uidQ = await open(Q);
+await Q.click('[data-act="found-help"]');
+check('the founding page’s help offers a support ticket too', !!(await until(() => Q.$('#sup-box [data-act="sup-new"]'))));
+await Q.click('[data-act="found-help-close"]');
 await found(Q, 'Fleeting');
+await nav(Q, 'help');
+await (await until(() => Q.$('#sup-box [data-act="sup-new"]'))).click();
+await Q.waitForSelector('dialog.ed-dlg[open] [data-ed="support-yes"]');
+await Q.fill('#ed-sup-x', 'How do I leave for good?');
+await Q.click('[data-ed="support-yes"]');
+await until(async () => (await restListAdmin('support')).some(t => t.fields.by.stringValue === uidQ));
 await nav(Q, 'region');
 await Q.fill('#rmb-text', 'Goodbye, region');
 await Q.click('#rmb-form button[type="submit"]');
@@ -235,6 +293,7 @@ check('the browser starts again as a new guest, on the founding page', !!uidQ2 &
 check('the player is told', await until(async () => /have been deleted/.test(await toasts(Q))));
 check('the nation, its summary and its posts are gone', (await restGet('nations/' + uidQ)).status === 404 && (await restGet('summaries/' + uidQ)).status === 404 && !(await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
 check('and so is the account', !(await accountExists(uidQ)));
+check('and the player’s support tickets', !(await restListAdmin('support')).some(t => t.fields.by.stringValue === uidQ) && !(await restListAdmin('slimits')).some(t => t.id === uidQ));
 
 /* ── 5d. the privacy notice and the terms ──────────────────────────────── */
 for (const [path, h] of [['/privacy', 'Privacy notice'], ['/privacidad', 'Aviso de privacidad'], ['/terms', 'Terms of use'], ['/terminos', 'Términos de uso']]) {
@@ -245,6 +304,9 @@ for (const [from, to] of [['/privacy', '/privacidad'], ['/privacidad', '/privacy
   const t = await (await fetch(BASE + from)).text();
   check(`${from} has a button to ${to}`, new RegExp('class="lang" href="' + to + '"').test(t));
 }
+const home = await (await fetch(BASE + '/')).text();
+check('the home page’s own HTML says what Edictum is and links to the privacy notice and terms', /multiplayer nation simulator/.test(home) && home.includes('href="/privacy"') && home.includes('href="/terms"'));
+check('the game replaces that loading screen when it starts', !(await A.$('.boot')) && !(await Q.$('.boot')));
 check('the side bar and the founding page link to both', !!(await A.$('.side-legal a[href="/privacy"]')) && !!(await A.$('.side-legal a[href="/terms"]')) && !!(await Q.$('.found-legal a[href="/terms"]')));
 await M.ctx.close(); await N.ctx.close(); await Q.ctx.close();
 

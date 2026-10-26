@@ -9,6 +9,9 @@ rules_version = '2';
 //   limits/{uid}             {p}: the time of the player's last post, which paces posting
 //   reports/{id}             a player's report of another player's post or nation (admins read them)
 //   rlimits/{uid}            {r}: the time of the player's last report, which paces reporting
+//   support/{id}             a player's support ticket, {by, topic, x, t, st, name?, reg?, email?}, and an
+//                            admin's answer when it is closed {reply?, ct, rby, exp}
+//   slimits/{uid}            {s}: the time of the player's last support ticket, which paces them
 //   mod/{uid}                {hidden, removed, note, name, t, by}: an admin hid or removed a nation
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
 // src/shim.js saves a nation, its summary and (when it changed) its space record in one batch. These
@@ -174,6 +177,39 @@ service cloud.firestore {
       allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['r']) && request.resource.data.r == request.time;
       allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['r']) && request.resource.data.r == request.time
         && request.time > resource.data.r + duration.value(30, 's');
+      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+    }
+
+    // A player asks the game's team for help: one ticket, which an admin answers and closes. The player
+    // reads and may delete their own tickets; admins read, answer and delete any. A closed ticket carries
+    // exp, and Firestore's time-to-live policy (firestore.indexes.json) deletes it once that has passed.
+    // Banned players may write too: a ticket is how they appeal.
+    function validTicket(d) {
+      return d.keys().hasAll(['by', 'topic', 'x', 't', 'st'])
+        && d.keys().hasOnly(['by', 'topic', 'x', 't', 'st', 'name', 'reg', 'email'])
+        && d.by == request.auth.uid && d.t == request.time && d.st == 'open'
+        && d.topic in ['bug', 'account', 'play', 'other']
+        && d.x is string && d.x.size() > 0 && d.x.size() <= 2000
+        && (!('name' in d) || (d.name is string && d.name.size() <= 160))
+        && (!('reg' in d) || region(d.reg))
+        && (!('email' in d) || (d.email is string && d.email.size() <= 200));
+    }
+    match /support/{sid} {
+      allow create: if signedIn() && validTicket(request.resource.data)
+        && getAfter(/databases/$(database)/documents/slimits/$(request.auth.uid)).data.s == request.time;
+      allow read, delete: if isAdmin() || (signedIn() && resource.data.by == request.auth.uid);
+      allow update: if isAdmin() && resource.data.st == 'open'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'reply', 'ct', 'rby', 'exp'])
+        && request.resource.data.st == 'closed' && request.resource.data.ct == request.time
+        && request.resource.data.rby == request.auth.uid
+        && request.resource.data.exp is timestamp && request.resource.data.exp > request.time
+        && (!('reply' in request.resource.data) || (request.resource.data.reply is string && request.resource.data.reply.size() <= 2000));
+    }
+    // paces support tickets: one a minute
+    match /slimits/{uid} {
+      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['s']) && request.resource.data.s == request.time;
+      allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['s']) && request.resource.data.s == request.time
+        && request.time > resource.data.s + duration.value(60, 's');
       allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
     }
 

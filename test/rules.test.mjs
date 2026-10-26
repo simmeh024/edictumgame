@@ -273,3 +273,66 @@ test('a banned player cannot post or report', async () => {
   await assertFails(post(as('carol'), 'carol', 'frostmarch', 'Still here'));
   await assertFails(report(as('carol'), 'carol'));
 });
+
+const ticket = (db, uid, extra = {}, { slimits = true } = {}) => {
+  const b = db.batch();
+  b.set(db.collection('support').doc(), { by: uid, topic: 'bug', x: 'The map will not load', t: NOW(), st: 'open', name: 'Davidia', reg: 'meridian', ...extra });
+  if (slimits) b.set(db.doc('slimits/' + uid), { s: NOW() });
+  return b.commit();
+};
+
+test('a player sends support tickets, at most one a minute, and reads only their own', async () => {
+  const db = as('dave');                                                                   // no nation needed
+  await assertFails(ticket(db, 'dave', {}, { slimits: false }));                          // slimits/ must come along
+  await assertFails(ticket(db, 'dave', { by: 'alice' }));
+  await assertFails(ticket(db, 'dave', { topic: 'boredom' }));
+  await assertFails(ticket(db, 'dave', { x: '' }));
+  await assertFails(ticket(db, 'dave', { x: 'x'.repeat(2001) }));
+  await assertFails(ticket(db, 'dave', { st: 'closed' }));
+  await assertFails(ticket(db, 'dave', { reply: 'Fixed it myself' }));
+  await assertFails(ticket(db, 'dave', { email: 'x'.repeat(201) }));
+  await assertFails(ticket(db, 'dave', { reg: 'atlantis' }));
+  await assertFails(ticket(anon(), 'dave'));
+  await assertSucceeds(ticket(db, 'dave', { email: 'dave@example.com' }));
+  await assertFails(ticket(db, 'dave'));                                                   // too soon
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('slimits/dave').set({ s: AGO(61000) }));
+  await assertSucceeds(ticket(db, 'dave', { topic: 'account' }));
+  const mine = await assertSucceeds(db.collection('support').where('by', '==', 'dave').get());
+  if (mine.size !== 2) throw new Error('expected Dave’s two tickets, found ' + mine.size);
+  await assertFails(as('alice').collection('support').where('by', '==', 'dave').get());   // nobody else reads them
+  await assertFails(as('alice').collection('support').get());
+  await assertFails(anon().doc(mine.docs[0].ref.path).get());
+  await assertFails(db.doc(mine.docs[0].ref.path).update({ st: 'closed' }));              // only admins close them
+});
+
+test('admins answer and close support tickets, with an expiry; players delete their own', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    for (const id of ['s1', 's2']) await db.doc('support/' + id).set({ by: 'dave', topic: 'bug', x: 'The map will not load', t: AGO(60000), st: 'open' });
+    await db.doc('slimits/dave').set({ s: AGO(60000) });
+  });
+  const mod = as('mod', { admin: true }), open = await assertSucceeds(mod.collection('support').where('st', '==', 'open').get());
+  if (open.size !== 2) throw new Error('expected two open tickets, found ' + open.size);
+  const ref = 'support/' + open.docs[0].id, exp = firebase.firestore.Timestamp.fromMillis(Date.now() + 90 * 86400000);
+  const close = (extra = {}) => mod.doc(ref).update({ st: 'closed', ct: NOW(), rby: 'mod', exp, reply: 'Fixed now', ...extra });
+  await assertFails(close({ rby: 'someone-else' }));
+  await assertFails(close({ exp: firebase.firestore.Timestamp.fromMillis(Date.now() - 1000) }));
+  await assertFails(close({ x: 'Rewritten' }));
+  await assertFails(close({ reply: 'x'.repeat(2001) }));
+  await assertFails(as('dave').doc(ref).update({ st: 'closed', ct: NOW(), rby: 'dave', exp }));
+  await assertSucceeds(close());
+  await assertFails(close({ reply: 'Again' }));                                            // closed stays closed
+  const answered = await assertSucceeds(as('dave').doc(ref).get());
+  if (answered.data().reply !== 'Fixed now') throw new Error('Dave does not see the answer');
+  await assertSucceeds(mod.collection('support').orderBy('ct', 'desc').limit(30).get());
+  await assertSucceeds(mod.doc('support/' + open.docs[1].id).delete());                   // spam
+  const db = as('dave'), left = await assertSucceeds(db.collection('support').where('by', '==', 'dave').get());
+  for (const d of left.docs) await assertSucceeds(db.doc(d.ref.path).delete());           // as the account deletion does it
+  await assertSucceeds(db.doc('slimits/dave').delete());                                   // Dave has no nation
+});
+
+test('a banned player can still send a support ticket, to appeal', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('bans/carol').set({ note: 'x', t: Date.now(), by: 'mod' }));
+  await assertSucceeds(ticket(as('carol'), 'carol', { topic: 'account', x: 'Why was I banned?' }));
+  await assertFails(as('carol').doc('slimits/carol').delete());                           // not while the nation exists
+});

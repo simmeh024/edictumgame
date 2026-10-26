@@ -42,6 +42,13 @@ p{margin:0}
 
 /* type roles */
 .wordmark{font-family:var(--f-display);font-style:italic;font-weight:600;font-size:27px;line-height:1;letter-spacing:-.01em;font-variation-settings:"opsz" 72}
+/* the page's own content until the game draws itself (build.py, BOOT) */
+.boot{min-height:100vh;min-height:100dvh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px 16px;text-align:center}
+.boot p{margin:0;max-width:56ch}
+.boot-mark{font:italic 600 44px/1 var(--f-display);color:var(--ink)}
+.boot-sub,.boot-load{color:var(--ink-2)}
+.boot-legal{margin-top:20px!important;font-size:13px;color:var(--ink-3)}
+.boot-legal a{color:inherit}
 .eyebrow,.lbl,.lbl-h,.form-code,.brand-sub{font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3)}
 .eyebrow{font-size:11.5px}
 .brand-sub{font-size:10.5px}
@@ -3608,6 +3615,27 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-danger{color:var(--down)}
 .adm-ask{margin-top:10px;padding:10px 12px;border:1px solid var(--down);border-radius:4px;background:var(--down-soft)}
 .adm-ask p{margin:0 0 8px;color:var(--ink)}
+.adm-nav{display:flex;flex-wrap:wrap;gap:6px}
+.adm-nav a{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border:1px solid var(--rule-2);border-radius:999px;color:var(--ink-2);font-size:14px;font-weight:600;text-decoration:none}
+.adm-nav a:hover{border-color:var(--accent);color:var(--ink)}
+.adm-nav a[aria-current="page"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.adm-nav .chip{margin:0}
+.adm-nav a[aria-current="page"] .chip{border-color:currentColor;color:inherit}
+.adm-rep a{color:var(--accent)}
+.admh-lbl{display:block;margin:10px 0 4px;font-size:13px;color:var(--ink-2)}
+.admh-in{display:block;width:100%;box-sizing:border-box;resize:vertical}
+.sup{max-width:74ch;margin:0 0 36px;padding:16px 18px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.sup>.h2{margin:0 0 6px;font-size:24px}
+.sup>p{max-width:68ch}
+.sup .row{margin-top:12px}
+.sup-list{list-style:none;margin:8px 0 10px;padding:0;display:grid;gap:10px}
+.sup-t{padding:10px 12px;border:1px solid var(--rule);border-radius:4px;background:var(--paper)}
+.sup-h{margin:0 0 6px;font-size:14px;color:var(--ink-2)}
+.sup-h b{color:var(--ink)}
+.sup-q{margin:0 0 8px;padding:6px 10px;border-left:3px solid var(--rule-2);color:var(--ink-2);font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.sup-a{padding:8px 10px;border-left:3px solid var(--accent);background:var(--sheet-2)}
+.sup-a .lbl-h{margin:0 0 4px}
+.sup-a p:last-child{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
 .side-legal a{color:inherit}
 .found-legal a{color:inherit}
@@ -16956,12 +16984,14 @@ function helpBody(n){
 }
 function helpView(){
   return `<header class="vh"><p class="eyebrow">Office of Public Information</p><h1>How to play</h1><p>Every part of ${REGION}, in plain words. The figures here are the ones the game uses.</p></header>
+  ${supportBox()}
   <div class="help">${helpBody(S.nation)}</div>`;
 }
 function foundHelpView(){
   return `<div class="found"><header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator · Region of ${REGION}</span></header>
     <button class="back" data-act="found-help-close">← Back to founding your nation</button>
     <header class="vh"><p class="eyebrow">Office of Public Information</p><h1>How to play</h1><p>Every part of ${REGION}, in plain words. You can come back here at any time from the Help page.</p></header>
+    ${supportBox()}
     <div class="help">${helpBody(null)}</div>
     <div class="row" style="margin-top:36px"><button class="btn" data-act="found-help-close">Found your nation</button></div></div>`;
 }
@@ -17069,7 +17099,7 @@ document.addEventListener('click',e=>{
   if(a==='steps-hide'){stepsHide(true);render();toast('The first steps are hidden. Settings can bring them back, and Help is always in the menu.');return;}
   if(a==='steps-show'){stepsHide(false);toast('The first steps are back on your Nation page.');render();return;}
   if(a==='help-to'){e.preventDefault();const t=document.getElementById(el.dataset.id);if(!t)return;const h=t.querySelector('h2[tabindex]')||t;t.scrollIntoView({block:'start',behavior:window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});try{h.focus({preventScroll:true});}catch(err){}return;}
-  if(a==='found-help'){S.foundHelp=true;render();window.scrollTo(0,0);return;}
+  if(a==='found-help'){S.foundHelp=true;supReset();render();window.scrollTo(0,0);return;}
   if(a==='found-help-close'){S.foundHelp=false;render();window.scrollTo(0,0);return;}
   if(a==='pol-repeal-ask'){S.repealAsk=el.dataset.k;S.govMsg='';render();const b=document.querySelector('.pol-conf .btn.danger');if(b)b.focus({preventScroll:true});return;}
   if(a==='pol-repeal-no'){const k=S.repealAsk;S.repealAsk=null;render();const b=document.querySelector(`[data-act="pol-repeal-ask"][data-k="${k}"]`);if(b)b.focus({preventScroll:true});return;}
@@ -32668,7 +32698,7 @@ function go(v){
 function found(){
   const d=S.draft,name=d.name.trim().replace(/\s+/g,' ');
   if(name.length<2){S.foundErr='Give your nation a name of at least two characters.';render();const el=document.getElementById('d-name');if(el)el.focus();return;}
-  if(S.banned){S.foundErr=`This account is banned from Edictum${S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, write to ${CONTACT}.`;render();return;}
+  if(S.banned){S.foundErr=`This account is banned from Edictum${S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`;render();return;}
   if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${REGION_CAP} active nations. Choose another region, at the top or under Location.`;render();return;}
   S.foundErr='';try{sessionStorage.removeItem(DRAFT_SS);}catch(e){}
   const now=Date.now(),{s,b}=foundStats(d.answers);
@@ -32926,16 +32956,16 @@ function modNotice(){
   const m=S.mod&&S.mod[S.uid];if(!m||!S.nation)return;
   if(m.removed&&(S.nation.founded||0)<m.removed){modRemoved(m);return;}
   if(!m.hidden||modTold)return;modTold=true;
-  toast(`A moderator has hidden ${S.nation.name} from other players${m.note?': '+m.note:''}. If you think this is a mistake, write to ${CONTACT}.`);
+  toast(`A moderator has hidden ${S.nation.name} from other players${m.note?': '+m.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`);
 }
 function modRemoved(m){
   const nm=S.nation?S.nation.name:'Your nation';
   S.nation=null;saveLocal(null);S.view='nation';S.draft=newDraft();
-  setTimeout(()=>toast(`A moderator removed ${nm}${m.note?': '+m.note:''}. ${S.banned?'This account is banned from Edictum.':'You can found a new nation.'} If you think this is a mistake, write to ${CONTACT}.`),0);
+  setTimeout(()=>toast(`A moderator removed ${nm}${m.note?': '+m.note:''}. ${S.banned?'This account is banned from Edictum.':'You can found a new nation.'} If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`),0);
   render();
 }
 let banTold=false;
-function banNotice(){if(banTold)return;banTold=true;setTimeout(()=>toast(`This account is banned from Edictum${S.banned&&S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, write to ${CONTACT}.`),0);}
+function banNotice(){if(banTold)return;banTold=true;setTimeout(()=>toast(`This account is banned from Edictum${S.banned&&S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`),0);}
 const CONTACT='p.slettenaar@gmail.com';
 function admLoad(force){
   if(!S.db||typeof S.db.count!=='function'||ADM.busy||(!force&&ADM.d&&Date.now()-ADM.at<6e4))return;
@@ -32946,9 +32976,10 @@ function admLoad(force){
     Promise.all(REGIONS.map(R=>Promise.all([c('summaries',[['reg','==',R.id],['t','>',now-DORM_MS]]),c('summaries',[['reg','==',R.id],['t','>',now-DAY]]),c('boards/'+R.id+'/posts')]))),
     S.db.collection('summaries').orderBy('pop','desc').limit(10).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null),
     S.db.collection('reports').orderBy('t','desc').limit(100).get().then(qs=>qs.docs.map(d=>{const x=d.data()||{};return Object.assign({},x,{id:d.id,t:x.t&&typeof x.t.toMillis==='function'?x.t.toMillis():Number(x.t)||0});}),()=>null),
-    S.db.collection('bans').orderBy('t','desc').limit(200).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null)
-  ]).then(([all,active,week,today,live,space,regs,top,reports,bans])=>{
-    ADM.d={all,active,week,today,live,space,top,reports,bans,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
+    S.db.collection('bans').orderBy('t','desc').limit(200).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null),
+    c('support',[['st','==','open']])
+  ]).then(([all,active,week,today,live,space,regs,top,reports,bans,help])=>{
+    ADM.d={all,active,week,today,live,space,top,reports,bans,help,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
     if(all==null&&active==null)ADM.err='The figures could not be loaded. Try again in a moment.';
     ADM.at=Date.now();ADM.busy=false;if(S.view==='admin')render();
   },()=>{ADM.busy=false;ADM.err='The figures could not be loaded. Try again in a moment.';if(S.view==='admin')render();});
@@ -32961,7 +32992,7 @@ function adminView(){
   const regs=d?d.regs.slice().sort((a,b)=>(b.active||0)-(a.active||0)||(a.R.name<b.R.name?-1:1)):[];
   const fill=r=>{const f=Math.min(1,(r.active||0)/REGION_CAP);return `<div class="adm-bar${f>=0.9?' hi':''}" role="img" aria-label="${Math.round(f*100)}% full"><i style="width:${(f*100).toFixed(1)}%"></i></div>`;};
   return `<div class="adm">
-    <header class="adm-head"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn" data-act="admin-close">Back to the game</button></header>
+    ${admHead('admin')}
     <p class="eyebrow">Admin portal</p><h1 class="display">The state of the world</h1>
     <p class="lede">Counted live from the database when this page opens.${when?` Last counted at ${when}.`:''} <button type="button" class="linkish" data-act="admin-refresh"${ADM.busy?' disabled':''}>${ADM.busy?'Counting…':'Count again'}</button></p>
     ${ADM.err?`<p class="err">${esc(ADM.err)}</p>`:''}
@@ -32973,7 +33004,8 @@ function adminView(){
       ${kpi(d.week,'active this week')}
       ${kpi(d.all,'nations in all, dormant ones included')}
       ${kpi(d.space,'nations in space (Moon, Mars or the belt)')}
-      ${kpi(d.reports?d.reports.length:null,'open tickets')}
+      ${kpi(d.reports?d.reports.length:null,'open reports')}
+      ${kpi(d.help,'open help queries')}
     </div>
     ${admReports(d.reports)}
     ${admHidden()}
@@ -32995,9 +33027,9 @@ function admReports(list){
   const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const ban=q.a==='adm-ban';
     return `<div class="adm-ask"><p>${ban?`Ban the player of <b>${esc(r.name||'this nation')}</b>? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a Google account cannot.`:`Remove <b>${esc(r.name||'this nation')}</b> for good? The nation and its posts are deleted; the player may found a new one.`}</p>
       <div class="row"><button class="btn danger small" data-act="${q.a}-yes" data-id="${esc(r.id)}">${ban?'Yes, ban':'Yes, remove'}</button><button class="btn ghost small" data-act="adm-ask-no">Cancel</button></div></div>`;};
-  return `<h2 class="h2">Ticket queue${n?` <span class="chip">${n}</span>`:''}</h2>
+  return `<h2 class="h2">Report queue${n?` <span class="chip">${n}</span>`:''}</h2>
     ${ADM.act?`<p class="hint">${esc(ADM.act)}</p>`:''}
-    ${list==null?'<p class="err">The tickets could not be loaded.</p>':!n?'<p class="hint">No open tickets. When a player reports a post or a nation, a ticket appears here.</p>':
+    ${list==null?'<p class="err">The reports could not be loaded.</p>':!n?'<p class="hint">No open reports. When a player reports a post or a nation, a ticket appears here. Support tickets are under Help queries.</p>':
     `<ul class="adm-reps">${list.map(r=>{const post=r.kind==='post',hid=!!(S.mod&&S.mod[r.target]&&S.mod[r.target].hidden);
       return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post?'Post':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
         ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,600))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
@@ -33037,11 +33069,18 @@ async function admAct(a,id){
   }catch(e){ADM.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
   admLoad(true);render();
 }
-shell=(f=>function(){if(S.view==='admin'&&S.isOwner)return adminView();return f.apply(this,arguments);})(shell);
-go=(f=>function(v){if(v==='admin'&&S.view!=='admin'){ADM.seen=0;ADM.act='';ADM.ask=null;}return f.apply(this,arguments);})(go);
+function admHead(v){
+  const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help,tab=(k,l)=>`<a href="#${k}" data-act="adm-tab" data-v="${k}"${v===k?' aria-current="page"':''}>${l}</a>`;
+  return `<header class="adm-head"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span>
+    <nav class="adm-nav" aria-label="Admin portal">${tab('admin','Overview')}${tab('admin-help','Help queries'+(n?` <span class="chip">${n}</span>`:''))}</nav>
+    <button type="button" class="btn" data-act="admin-close">Back to the game</button></header>`;
+}
+shell=(f=>function(){if(S.view==='admin'&&S.isOwner)return adminView();if(S.view==='admin-help'&&S.isOwner)return adminHelpView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){if(v==='admin'&&S.view!=='admin'){ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='admin-open'){e.preventDefault();go('admin');return;}
+  if(a==='adm-tab'){e.preventDefault();go(el.dataset.v);return;}
   if(a==='admin-close'){go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
   if(a==='adm-ask-no'){ADM.ask=null;render();return;}
@@ -33053,6 +33092,100 @@ document.addEventListener('click',e=>{
     Promise.resolve(window.claude&&window.claude.use('report')).then(r=>{if(r)r.open(info);else toast('Reporting needs a connection to the region.');});
     return;
   }
+});
+
+/* ───────── support tickets ─────────
+   The Help page (and the founding page's help) opens a support ticket: src/shim.js shows the form and
+   sends it. Below it the player sees their own tickets and the team's answers. Admins answer them on the
+   Help queries page of the admin portal; an answer closes the ticket, and Firestore deletes closed
+   tickets 90 days later. */
+const SUP={list:null,busy:false,err:''};
+const SUP_TOPIC={bug:'Something is broken',account:'Account or signing in',play:'A question about playing',other:'Something else'};
+function supApi(){return Promise.resolve(window.claude&&window.claude.use('support'));}
+function supReset(){SUP.list=null;SUP.err='';}
+function supLoad(){
+  if(SUP.busy)return;SUP.busy=true;SUP.err='';
+  supApi().then(a=>a?a.mine():[]).then(list=>{SUP.list=Array.isArray(list)?list:[];SUP.busy=false;supRedraw();},
+    ()=>{SUP.busy=false;SUP.err='Your tickets could not be loaded.';supRedraw();});
+}
+function supRedraw(){const el=document.getElementById('sup-box');if(el)el.outerHTML=supportBox();}
+function supportBox(){
+  const off=S.mode==='local',L=SUP.list||[];
+  if(!off&&!SUP.list&&!SUP.busy&&!SUP.err)setTimeout(supLoad,0);
+  const state=t=>t.st==='open'?'Open':t.reply?'Answered':'Closed';
+  const item=t=>`<li class="sup-t"><p class="sup-h"><span class="chip">${state(t)}</span> <b>${esc(SUP_TOPIC[t.topic]||'Support')}</b> · ${esc(rel(t.t))}</p>
+    <blockquote class="sup-q">${esc(t.x)}</blockquote>
+    ${t.reply?`<div class="sup-a"><p class="lbl-h">The Edictum team answered${t.ct?' '+esc(rel(t.ct)):''}</p><p>${esc(t.reply)}</p></div>`:t.st==='closed'?'<p class="hint">Closed without a written answer.</p>':'<p class="hint">Waiting for an answer. It will appear here, and you are told when it does.</p>'}</li>`;
+  return `<section class="sup" id="sup-box" aria-labelledby="sup-h"><h2 class="h2" id="sup-h">Support</h2>
+    <p>Stuck, found a bug, or have a question this guide does not answer? Create a support ticket and the game’s team will answer it here.</p>
+    ${off?`<p class="hint">Support tickets need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>`:`<div class="row"><button type="button" class="btn" data-act="sup-new">Create a support ticket</button></div>
+    ${SUP.err?`<p class="err">${esc(SUP.err)} <button type="button" class="linkish" data-act="sup-retry">Try again</button></p>`:!SUP.list?'<p class="hint">Loading your tickets…</p>':!L.length?'':`<h3 class="help-h3">Your tickets</h3><ul class="sup-list">${L.map(item).join('')}</ul><p class="hint">Closed tickets are deleted 90 days after they are closed.</p>`}`}
+  </section>`;
+}
+
+/* the admin portal's Help queries page: open tickets oldest first, each with a box for the answer
+   (kept in ADMH.dr while the page redraws), and the latest closed ones */
+const ADMH={busy:false,err:'',d:null,act:'',ask:null,dr:{},seen:0};
+function admhLoad(){
+  if(ADMH.busy)return;ADMH.busy=true;ADMH.err='';
+  supApi().then(a=>{if(!a)throw new Error('offline');return a.list();}).then(d=>{ADMH.d=d;ADMH.busy=false;if(ADM.d)ADM.d.help=d.open.length;if(S.view==='admin-help')render();},
+    ()=>{ADMH.busy=false;ADMH.err='The help queries could not be loaded. Try again in a moment.';if(S.view==='admin-help')render();});
+}
+function adminHelpView(){
+  const now0=Date.now();if(now0-ADMH.seen>1e4)admhLoad();ADMH.seen=now0;
+  const d=ADMH.d;
+  return `<div class="adm">
+    ${admHead('admin-help')}
+    <p class="eyebrow">Admin portal</p><h1 class="display">Help queries</h1>
+    <p class="lede">Support tickets from players, oldest first. An answer appears on the player’s Help page, and the game tells them it has come. <button type="button" class="linkish" data-act="admh-refresh"${ADMH.busy?' disabled':''}>${ADMH.busy?'Loading…':'Load again'}</button></p>
+    ${ADMH.err?`<p class="err">${esc(ADMH.err)}</p>`:''}
+    ${ADMH.act?`<p class="hint" role="status">${esc(ADMH.act)}</p>`:''}
+    ${!d?`<p class="hint">${ADMH.busy?'Loading the help queries…':''}</p>`:`
+    <h2 class="h2">Open${d.open.length?` <span class="chip">${d.open.length}</span>`:''}</h2>
+    ${!d.open.length?'<p class="hint">No open help queries. When a player creates a support ticket on the Help page, it appears here.</p>':`<ul class="adm-reps">${d.open.map(admhOpen).join('')}</ul>`}
+    <h2 class="h2">Recently closed</h2>
+    ${!d.closed.length?'<p class="hint">None yet.</p>':`<ul class="adm-reps">${d.closed.map(admhClosed).join('')}</ul><p class="hint">Closed tickets are deleted automatically 90 days after they were closed.</p>`}`}
+  </div>`;
+}
+function admhWho(t){return `<b>${esc(t.name||'No nation yet')}</b>${t.reg?` · ${esc(regName(t.reg))}`:''} · player ID <code>${esc(t.by)}</code>`;}
+function admhOpen(t){
+  const id=esc(t.id);
+  return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${esc(SUP_TOPIC[t.topic]||'Support')}</span> ${admhWho(t)} · ${esc(rel(t.t))}</p>
+    <blockquote class="adm-quote">${esc(t.x)}</blockquote>
+    ${t.email?`<p class="hint">Would like the answer by email too: <a href="mailto:${esc(t.email)}?subject=${encodeURIComponent('Your Edictum support ticket')}">${esc(t.email)}</a></p>`:''}
+    <label class="admh-lbl" for="admh-r-${id}">Your answer (the player reads it on their Help page)</label>
+    <textarea class="input admh-in" id="admh-r-${id}" data-id="${id}" rows="4" maxlength="2000">${esc(ADMH.dr[t.id]||'')}</textarea>
+    <div class="row"><button class="btn small" data-act="admh-answer" data-id="${id}">Send answer and close</button><button class="btn ghost small" data-act="admh-close" data-id="${id}">Close without answer</button><button class="btn ghost small adm-danger" data-act="admh-del" data-id="${id}">Delete</button></div>
+    ${ADMH.ask===t.id?`<div class="adm-ask"><p>Delete this ticket for good? The player no longer sees it either. Meant for spam.</p><div class="row"><button class="btn danger small" data-act="admh-del-yes" data-id="${id}">Yes, delete</button><button class="btn ghost small" data-act="admh-ask-no">Cancel</button></div></div>`:''}</li>`;
+}
+function admhClosed(t){
+  return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${esc(SUP_TOPIC[t.topic]||'Support')}</span> ${admhWho(t)} · asked ${esc(rel(t.t))}${t.ct?` · closed ${esc(rel(t.ct))}`:''}</p>
+    <blockquote class="adm-quote">${esc(t.x)}</blockquote>${t.reply?`<p class="hint">Answered: “${esc(t.reply)}”</p>`:'<p class="hint">Closed without an answer.</p>'}</li>`;
+}
+async function admhAct(a,id){
+  const api=await supApi();if(!api)return;
+  const box=document.getElementById('admh-r-'+id);if(box)ADMH.dr[id]=box.value;
+  ADMH.ask=null;
+  try{
+    if(a==='admh-answer'){const r=(ADMH.dr[id]||'').trim();if(!r){ADMH.act='Write an answer first, or close the ticket without one.';render();return;}await api.answer(id,r);delete ADMH.dr[id];ADMH.act='The answer was sent and the ticket closed.';}
+    else if(a==='admh-close'){await api.answer(id,'');delete ADMH.dr[id];ADMH.act='The ticket was closed without an answer.';}
+    else if(a==='admh-del'){ADMH.ask=id;ADMH.act='';render();return;}
+    else if(a==='admh-del-yes'){await api.remove(id);delete ADMH.dr[id];ADMH.act='The ticket was deleted.';}
+  }catch(e){ADMH.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
+  admhLoad();render();
+}
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('admh-in'))ADMH.dr[t.dataset.id]=t.value;});
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='sup-new'){
+    supApi().then(api=>{if(!api){toast('Support tickets need a connection to the game.');return;}
+      api.open({name:S.nation?S.nation.name:'',reg:S.nation?REG.id:'',onSent:()=>{supReset();supLoad();}});});
+    return;
+  }
+  if(a==='sup-retry'){supReset();supLoad();supRedraw();return;}
+  if(a==='admh-refresh'){admhLoad();render();return;}
+  if(a==='admh-ask-no'){ADMH.ask=null;render();return;}
+  if(/^admh-(answer|close|del|del-yes)$/.test(a)){if(S.isOwner)admhAct(a,el.dataset.id);return;}
 });
 
 /* ───────── full-screen maps ─────────
@@ -33097,12 +33230,12 @@ function start(data){
     S.mapViews=data.mapViews||{};S.mapSel=data.mapSel==null?null:data.mapSel;S.mapPick=data.mapPick==null?null:data.mapPick;
   }else{
     const h=(location.hash||'').slice(1);
-    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin'].concat(EXT_PAGES).includes(h))S.view=h;
+    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help'].concat(EXT_PAGES).includes(h))S.view=h;
   }
   render();
   connect();
   setInterval(tick,10000);
-  window.addEventListener('popstate',()=>{const h=(location.hash||'').slice(1);if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
+  window.addEventListener('popstate',()=>{const h=(location.hash||'').slice(1);if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
 }
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}

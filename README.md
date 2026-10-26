@@ -41,6 +41,13 @@ like), and **Firestore** holds the shared world.
 - `reports/<id>`: a player's report of another player's post or nation (a ticket in the admin
   portal), with a copy of what was reported; `rlimits/<uid>` `{r}` paces reporting. Only admins
   read them.
+- `support/<id>`: a player's support ticket (topic, text, nation, optional email) and, once an admin
+  closes it, the answer and an expiry `exp`. A Firestore time-to-live policy on `exp` deletes closed
+  tickets 90 days later. The policy is set once per project (Firebase console, Firestore,
+  Time-to-live: collection group `support`, timestamp field `exp`). It needs billing, so the staging
+  project goes without; `firestore.indexes.json` only takes `exp` out of indexing, and deploys leave
+  the policy alone. The player and admins read the tickets; `slimits/<uid>` `{s}` paces them to one
+  a minute.
 - `mod/<uid>`: a moderator hid a nation from the other players, or removed it (so its owner's
   browser drops its copy). Everyone reads these. `bans/<uid>`: a banned account; it may save no
   nation, post or report. The player and admins read it.
@@ -77,8 +84,14 @@ report), or simply close the ticket. Hidden nations and banned players are liste
 with Unhide and Unban. A banned guest can come back by clearing their browser; a Google account
 cannot.
 
+**Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
+a message and, if the player wants, an email address. Their tickets and the team's answers are listed
+below it, and a player waiting for an answer is told when it comes. Admins answer on the portal's
+**Help queries** page (`#admin-help`): an answer closes the ticket; a ticket can also be closed
+without one, or deleted as spam. Banned players can still send tickets, to appeal.
+
 **Deleting an account.** The account menu's **Delete my nation and account** removes the player's
-posts in every region, their nation, summary and space record, their pacing records and their
+posts in every region, their support tickets, their nation, summary and space record, their pacing records and their
 account (a Google account is asked to confirm the sign-in first). The daily backups lose it within
 14 days.
 
@@ -221,8 +234,9 @@ run on the separate staging project (step 10), so playing on a preview never tou
 Admins see **Remove** on everyone's posts on the region message board, and a purple **Admin** pill
 beside their nation's name. The pill opens the admin portal (`#admin`): players in all and per
 region (active in the last 250 days, today, this week, in the last 15 minutes), how full each
-region is, its board posts, nations in space and the largest nations, all counted live, and a
-button back to the game. For anyone else `#admin` simply shows the game.
+region is, its board posts, nations in space and the largest nations, all counted live, the report
+queue, and a button back to the game. Its **Help queries** tab (`#admin-help`) lists the players'
+support tickets. For anyone else `#admin` simply shows the game.
 
 1. Play on the site and link your nation to Google (**Keep your nation on every device**), so the
    right stays with an account you can sign in to anywhere.

@@ -51,6 +51,14 @@ TITLE = 'Edictum'
 DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, decide the issues on your desk, '
                'claim land on a shared map, and trade, ally or go to war with other players.')
 OG_ALT = 'The Edictum seal beside the words: Edictum, a nation simulator.'
+# What #app holds until the game draws itself: a loading screen, and for anything that does not run the
+# game's script (search engines, link previews, Google's review of the sign-in branding) what Edictum is
+# and where its privacy notice and terms are.
+BOOT = ('<div id="app"><main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%s</p>'
+        '<p class="boot-load" role="status">Loading the game…</p>'
+        '<noscript><p class="boot-load">Edictum needs JavaScript to run.</p></noscript>'
+        '<p class="boot-legal"><a href="/privacy">Privacy notice</a> · <a href="/terms">Terms of use</a> · '
+        '<a href="/privacidad" lang="es">Aviso de privacidad</a> · <a href="/terminos" lang="es">Términos de uso</a></p></main></div>')
 
 
 def fail(msg):
@@ -230,7 +238,7 @@ def main():
         '<link rel="stylesheet" href="%s">' % css_url,
         '</head>',
         '<body>',
-        APP_MARK,
+        BOOT % e(DESCRIPTION),
         '<script src="%s"></script>' % js_url,
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
         '</body>',
