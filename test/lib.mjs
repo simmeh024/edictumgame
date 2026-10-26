@@ -4,7 +4,7 @@
 // Playwright is not a dependency of the site. Install it for a test run with
 //   npm install --no-save playwright && npx playwright install chromium
 // or point at an existing install: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs CHROMIUM_PATH=/path/to/chromium
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -13,7 +13,7 @@ export const BASE = (process.env.BASE_URL || 'http://127.0.0.1:5000').replace(/\
 export const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum';
 export const FS_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 export const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
-export const OUT = process.env.TEST_OUT || path.join(path.dirname(new URL(import.meta.url).pathname), 'out');
+export const OUT = process.env.TEST_OUT || path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
 fs.mkdirSync(OUT, { recursive: true });
 export const CONFIG = { apiKey: 'fake-api-key', projectId: PROJECT, authDomain: PROJECT + '.firebaseapp.com' };
 export const EMULATORS = { firestore: FS_HOST, auth: 'http://' + AUTH_HOST };
@@ -42,11 +42,14 @@ export async function until(fn, ms = 8000, step = 150) {
 
 // A player is a browser profile of its own (own storage, so its own anonymous account).
 // opts: vp {width,height}, dark, inject (default true: config and emulators set by the test),
-//       block (a RegExp of requests to fail), tag (a name for error reports)
+//       block (a RegExp of requests to fail), tag (a name for error reports),
+//       cap (players per region before founding steers elsewhere; the game's default otherwise)
+// Saves reach Firestore after 1.5 s instead of the game's 15 s, so the tests need not wait.
 export async function player(tag, opts = {}) {
   const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
+  await ctx.addInitScript(cap => { window.EDICTUM_SAVE_GAP = 1500; if (cap) window.EDICTUM_REGION_CAP = cap; }, opts.cap || 0);
   if (opts.inject !== false) await ctx.addInitScript(([c, e]) => { window.EDICTUM_FIREBASE_CONFIG = c; window.EDICTUM_EMULATORS = e; }, [CONFIG, EMULATORS]);
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(tag + ' PAGEERROR ' + e.message));
@@ -86,6 +89,11 @@ export async function restGet(docPath) {
 export async function restPatch(docPath, fields) {
   const r = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${docPath}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fields }) });
   return r.status;
+}
+// the documents of a collection (one page is plenty here), as {id, fields}
+export async function restList(colPath) {
+  const r = await restGet(colPath + '?pageSize=300');
+  return r.status === 200 ? (r.body.documents || []).map(d => ({ id: d.name.split('/').pop(), fields: d.fields || {} })) : [];
 }
 export async function nationDoc(uid) {
   const r = await restGet('nations/' + uid);

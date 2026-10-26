@@ -6,35 +6,54 @@ form alliances, spy, go to war, vote in a regional assembly and, in the end, hea
 Mars. Every nation is run by a player or by the computer, and players in a region share one map
 and one message board.
 
-The game was first written as a claude.ai artifact. This repository runs the same game on its own
-site with Firebase: **Hosting** serves the page, **Authentication** gives every visitor an account
-(a guest account at once, linked to Google if they like), and **Firestore** holds the shared world.
+The game was first written as a claude.ai artifact. That version was retired in October 2026: the
+game now lives here, at <https://edictumgame.com>, with Firebase: **Hosting** serves the page,
+**Authentication** gives every visitor an account (a guest account at once, linked to Google if they
+like), and **Firestore** holds the shared world.
 
 ## How it fits together
 
 | Path | What it is |
 | --- | --- |
-| `game/edictum.html` | The game, exactly as it runs on claude.ai (Version 26). Never edited by the build. |
+| `game/edictum.html` | The game. It grew out of the claude.ai version (Version 26) and is now developed here; the build never edits it. |
 | `src/stub.js` | A few lines put at the top of the page: `window.claude.use()`, which the game calls, waits until Firebase is ready. |
-| `src/shim.js`, `src/shim.css` | The adapter: the claude.ai runtime calls the game makes (`db.doc().get/set/delete`, `db.collection().onSnapshot`, `user.id/isOwner/can`), backed by Firebase. Also the account control and the nation file import and export. |
+| `src/shim.js`, `src/shim.css` | The Firebase layer behind `window.claude.use('db' / 'user')`: documents, queries, counts, batched nation saves and board posts (see Data). Also the account control and the nation file import and export. |
 | `src/favicon.svg`, `src/og.png`, `src/apple-touch-icon.png` | The seal icon and the picture shown when a link is shared (`src/og.html` is its source; `tools/make-images.mjs` redraws the PNGs). |
 | `build.py` | Wraps the game in a full page with the stub, the Firebase SDK, the shim and the meta tags, and writes `public/`. |
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
-| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview for each pull request. |
+| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project. |
 | `test/` | Rules tests, end-to-end tests and a smoke test, all on the Firebase emulators. |
 | `tools/admin/` | A one-off script that makes a player an admin. |
 
-**Data.** Two collections, one document per player in each, named by the player's Firebase user id:
+**Data.** Documents are named by the player's Firebase user id:
 
-- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt}`. The nation
+- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt, ts}`. The nation
   record is stored as text because it contains lists of lists, which Firestore cannot store, and
   because the game expects its fields back exactly as it saved them. `reg`, `name` and `updatedAt`
-  are copies kept beside it for queries and for the Firebase console.
-- `rmb/<uid>`: `{posts: [...]}`, the player's posts on their region's message board, at most 40.
+  are copies kept beside it for queries; `ts` is the server's time of the save.
+- `summaries/<uid>`: `{reg, name, pop, t}`, the nation's headline, for the World page and the
+  player counts per region.
+- `space/<uid>`: `{reg, name, t, j, ts}`, the nation's Moon, Mars and asteroid belt data, only for
+  nations that have any. Those are shared by every region, so every player reads them.
+- `boards/<region>/posts/<id>`: `{a: <author uid>, t, x}`, one post on a region's message board;
+  `limits/<uid>` `{p}` paces each player's posting.
 
-Anyone may read both; each player writes only their own; admins may also edit anyone's `rmb`
-document to remove posts. See `firestore.rules`.
+A nation save writes the nation, its summary and (when it changed) its space record in one batch.
+Anyone may read the world; each player writes only their own documents; admins may also delete any
+post. The rules also check that a save's documents agree, and pace writes: a nation at most once a
+second, a space record once every 10 seconds, a post once every 20. See `firestore.rules`.
+
+**What each player downloads.** Only their own region: its nations in full, its board's latest 60
+posts, plus every region's space records. Other regions are counted (one cheap count per region) and
+listed by name from `summaries/` only when the World page asks. The game sends its saves to Firestore
+at most every 15 seconds (at once when the tab is hidden or closed; the browser's own copy is saved
+straight away), so the other players in the region read each nation less often.
+
+**Regions fill up.** A region takes no new nations once 150 active nations live there (dormant ones,
+unsaved for 250 days, do not count). A newcomer who has not chosen a region and lands in a full one
+is sent to the fullest region that still has room, so players gather rather than spread thin. The
+cap is `REGION_CAP` in the game.
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers
@@ -74,7 +93,7 @@ run `python3 build.py` again and reload.
 ```sh
 npm run test:rules         # the security rules (Firestore emulator only)
 npm install --no-save playwright && npx playwright install chromium
-npm run test:e2e           # two players, the message board, reloads, rules, admin, offline, import and export, Google sign-in
+npm run test:e2e           # two players, the board, other regions, reloads, rules, admin, offline, import and export, Google sign-in, full regions
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
 ```
 
@@ -144,7 +163,7 @@ fails with "The caller does not have permission", the message names the permissi
 that holds it to the service account (step 5.2).
 
 Pull requests get their own preview address, posted on the pull request, for seven days. Previews
-use the same database and accounts as the live site, so playing on a preview changes real nations.
+run on the separate staging project (step 10), so playing on a preview never touches real nations.
 
 ### 8. Your own domain
 
@@ -179,6 +198,23 @@ Admins see **Remove** on everyone's posts on the region message board.
 3. In the game, open the account menu, **Sign out**, and sign back in with Google. (The right
    otherwise arrives on its own within the hour, when the sign-in renews.)
 
+### 10. The staging project, for previews
+
+A second Firebase project, `edictum-staging` (alias `staging` in `.firebaserc`), has its own
+database, accounts and address (<https://edictum-staging.web.app>). Pull request previews deploy
+there, and you can deploy a branch to it by hand:
+
+```sh
+python3 build.py --site-url https://edictum-staging.web.app
+npx firebase deploy --only firestore:rules,firestore:indexes,hosting --project staging
+```
+
+It is set up like the live project (steps 1 to 5: web app, Firestore in `eur3`, Anonymous and Google
+sign-in, the three roles on its `firebase-adminsdk-…` service account). For the previews, GitHub
+needs the variable `FIREBASE_STAGING_PROJECT_ID` = `edictum-staging` and the secret
+`FIREBASE_SERVICE_ACCOUNT_STAGING` holding a key of the staging project's service account (step 5,
+in the staging project). Without them a pull request gets the rules test and a yellow note instead.
+
 ## Costs: Spark and Blaze
 
 Firebase has a free plan (**Spark**) and a pay-as-you-go plan (**Blaze**, which includes the same
@@ -190,11 +226,12 @@ for current figures; at the time of writing:
   roughly 150 to 200 first visits a day. Returning visitors download almost nothing until you
   deploy a new version.
 - **Firestore reads.** Spark allows 50,000 reads and 20,000 writes a day. Each copy of the game
-  that is open listens to every nation and every message board: opening the game reads one
-  document per nation and per board, and each time any player's nation changes (most actions
-  save it), every open copy reads that one document again. Twenty players with the game open for
-  an hour, each saving about once a minute, make about 20 × 20 × 60 = 24,000 reads. Fine for a
-  group of friends on Spark; for more, move to Blaze, where reads cost a few US cents per 100,000.
+  that is open listens to its own region's nations, its board and the space records: opening the
+  game reads one document for each of those, and each time a nation in the region is saved (at
+  most every 15 seconds while its player is active), every open copy in that region reads it again.
+  Twenty players in one region, active for an hour, make at most about 20 × 20 × 240 = 96,000 reads;
+  the same twenty spread over four regions make a quarter of that. Spark suits a group of friends;
+  for a public launch use Blaze, where reads cost a few US cents per 100,000.
 - When a Spark quota runs out, the game keeps working in each browser and tells players their
   changes are saved in the browser only, until the quota resets at midnight Pacific time.
 - On Blaze, set a **budget alert** (Google Cloud console → Billing → Budgets and alerts) so
@@ -209,8 +246,8 @@ checks the record as the page reloads; if it refuses the record, the previous na
 and the player is told. **Export my nation** downloads the current nation as a file, so a nation
 can also move the other way, or be kept safe.
 
-The claude.ai version has no export button yet (see `NOTES.md` for a short patch that adds one).
-Until it does, there are two ways to get a nation file out of it:
+The retired claude.ai version has no export button. There are two ways to get a nation file out of
+it:
 
 - **The owner exports everyone's.** Ask Claude, in a conversation with access to the artifact, to
   save each document of the artifact's `nations` collection to its own `.json` file, and send each
@@ -220,24 +257,22 @@ Until it does, there are two ways to get a nation file out of it:
   sandboxed frame, not the top page), run `copy(localStorage.getItem('statehood.nation.v1'))`,
   then paste the result into **Or paste the text of a nation file** on this site.
 
-## Scaling later
+## Scaling
 
-Today every copy of the game listens to the whole `nations` collection and decodes every record,
-which is fine for dozens of players. With hundreds or thousands it costs a lot of reads, because
-every save by anyone is read by everyone, and records are large (about 15 KB, growing as a nation ages). The follow-up,
-not built yet:
+Reads grow with the size of a region (at most 150 active nations), not with the whole world: see
+Data above. What is left for later, as numbers grow:
 
-- **Region-scoped queries.** Listen only to the player's own region,
-  `db.collection('nations').where('reg', '==', REG.id)`. The `reg` field is already stored beside
-  each record for this. It needs a small change in the game's `connect()` (and the shim's
-  collection adapter to pass `where` through).
-- **A small summary document per nation** (name, region, population, flag, last active), kept in a
-  `summaries` collection and written alongside the nation, for the World page and the other
-  places that only need a nation's headline figures from other regions.
+- **Space records** are read by everyone. They change only when a nation's Moon, Mars or belt data
+  does (and every 12 hours while it plays), but a very large late game would want them split by
+  body or summarised.
+- **Dormant nations** still arrive with their region's records (the game sets them aside). If
+  regions fill with abandoned nations, listen only to active ones and fetch the rest on demand.
+- **The game trusts each browser** with its own nation. Server-side checks (Cloud Functions) would
+  be the next step against cheating.
 
-## Updating the game
+## Changing the game
 
-Replace `game/edictum.html` with the new version and push. `build.py` checks that the file still
-has the shape it expects (one `<div id="app"></div>` followed by one inline script) and stops with
-a clear message if not. Nations saved by an older version load through the game's own
-normaliser, as they do on claude.ai.
+Edit `game/edictum.html` on a branch, run the tests, and open a pull request (its preview runs on
+staging); merging to `main` deploys. `build.py` checks that the file still has the shape it expects
+(one `<div id="app"></div>` followed by one inline script) and stops with a clear message if not.
+Nations saved by an older version load through the game's own normaliser.

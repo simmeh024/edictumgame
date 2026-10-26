@@ -7,9 +7,17 @@
    build.py inlines it after the game's own script; src/stub.js (in <head>) has already
    defined window.claude.use(), which waits until this file settles it.
 
-   Storage format: nations/<uid> holds {v:1, j:<the nation as JSON text>, reg, name, updatedAt}.
-   Nation records contain arrays of arrays, which Firestore cannot store, and their exact
-   key order is kept this way. rmb/<uid> is stored as the game writes it: {posts:[...]}. */
+   Storage format (see firestore.rules):
+     nations/<uid>          {v:1, j:<the nation as JSON text>, reg, name, updatedAt, ts}. Nation records
+                            contain arrays of arrays, which Firestore cannot store, and their exact key
+                            order is kept this way. Players listen only to their own region's nations.
+     summaries/<uid>        {reg, name, pop, t}: the headline for the World page and region counts.
+     space/<uid>            {reg, name, t, j:<JSON of sp, belt, mapc, flag, pretitle>}, only for nations
+                            with Moon, Mars or belt data. Every player listens to all of these, so it is
+                            rewritten only when that data changes (or every SPACE_BEAT while playing).
+     boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
+   A nation save writes nations, summaries and (when needed) space in one batch; the rules check that
+   they agree. */
 (function () {
   'use strict';
   var E = window.__edictum;
@@ -22,11 +30,15 @@
   var SS_FLASH = 'edictum.flash';        // a message to show after a reload
   var SS_IMPORT = 'edictum.import';      // an import waiting for the game's verdict after a reload
   var MAX_JSON = 700000;                 // well under Firestore's 1 MiB document limit
+  var SPACE_BEAT = 12 * 3600000;         // rewrite an unchanged space document this often while playing
+  var SPACE_MIN = 12000;                 // and a changed one at most this often (the rules allow one per 10 s)
+  var RETRY_MS = 1500;                   // wait before trying a refused nation write once more
+  var BOOT_AT = Date.now();
   var ERR = {
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
   };
-  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null };
+  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', spaceSent: {} };
 
   /* ───────── small helpers ───────── */
   function storeOf(name) { try { return window[name] || null; } catch (e) { return null; } }
@@ -67,53 +79,143 @@
     out.firebaseCode = raw;
     return out;
   }
+  function num(v) { return typeof v === 'number' && isFinite(v) ? v : 0; }
+  function serverTime() { return A.fb.firestore.FieldValue.serverTimestamp(); }
+  function millis(t) { return t && typeof t.toMillis === 'function' ? t.toMillis() : num(t); }
   function encode(col, data) {
     if (col !== 'nations') return JSON.parse(JSON.stringify(data == null ? {} : data));
     var j = JSON.stringify(data == null ? {} : data);
     if (j.length > MAX_JSON) throw mapError({ code: 'resource-exhausted', message: 'This nation is too large to save (' + j.length + ' characters).' });
     var d = isObj(data) ? data : {};
-    return { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: typeof d.updatedAt === 'number' && isFinite(d.updatedAt) ? d.updatedAt : 0 };
+    return { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: num(d.updatedAt), ts: serverTime() };
   }
-  function decode(col, d) {
-    if (col !== 'nations' || !d || typeof d.j !== 'string') return d;
-    return parse(d.j);
+  /* the part of a nation every region needs for Moon, Mars and the belt; null without any */
+  function spaceText(d) {
+    if (!isObj(d) || (!d.sp && !d.belt)) return null;
+    var c = d.flag && Array.isArray(d.flag.c) ? d.flag.c.slice(0, 3) : [];
+    return JSON.stringify({ sp: d.sp || null, belt: d.belt || null, mapc: str(d.mapc, 20), flag: { c: c }, pretitle: str(d.pretitle, 40) });
   }
-  function snapOf(col, s) {
-    return { id: s.id, exists: !!s.exists, data: function () { return s.exists ? decode(col, s.data()) : undefined; } };
+  function decode(path, d) {
+    if (!d) return d;
+    var p = String(path).split('/'), col = p[0];
+    if (col === 'nations') return typeof d.j === 'string' ? parse(d.j) : d;
+    if (col === 'space') { var s = typeof d.j === 'string' ? parse(d.j) : null; return isObj(s) ? Object.assign(s, { reg: d.reg, name: d.name, updatedAt: num(d.t) }) : null; }
+    if (col === 'boards') return { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
+    return d;
+  }
+  function snapOf(s) {
+    return { id: s.id, exists: !!s.exists, data: function () { return s.exists ? decode(s.ref.path, s.data({ serverTimestamps: 'estimate' })) : undefined; } };
+  }
+  /* The rules allow one nation write a second per player, and one space write every 10 seconds. A write
+     queued while offline, by the tab before a reload or by the same account on another device can land
+     just before this one, so a refusal is tried once more, without the space record (the next save
+     brings it). */
+  function retried(fn) {
+    return fn(false).catch(function (e) {
+      if (!e || e.code !== 'permission-denied') throw e;
+      return new Promise(function (r) { setTimeout(r, RETRY_MS); }).then(function () { return fn(true); });
+    });
+  }
+  /* a nation save: the record, its summary and, when its space data changed, its space document */
+  function saveNation(uid, data, noSpace) {
+    /* before the first space write of this page, count from the page load: a reload must not beat the pace */
+    var enc = encode('nations', data), now = Date.now(), sent = A.spaceSent[uid] || { j: undefined, at: BOOT_AT }, next = null;
+    var sj = spaceText(data), b = A.fs.batch();
+    b.set(A.fs.doc('nations/' + uid), enc);
+    b.set(A.fs.doc('summaries/' + uid), { reg: enc.reg, name: enc.name, pop: Math.max(0, num(isObj(data) ? data.pop : 0)), t: enc.updatedAt });
+    if (noSpace) { /* leave space/ as it is */ }
+    else if (sj) {
+      var changed = sent.j !== sj || sent.reg !== enc.reg || sent.name !== enc.name;
+      /* a change waits for the next save if the last space write was too recent */
+      if ((changed && now - sent.at >= SPACE_MIN) || now - sent.at > SPACE_BEAT) {
+        b.set(A.fs.doc('space/' + uid), { reg: enc.reg, name: enc.name, t: enc.updatedAt, j: sj, ts: serverTime() });
+        next = { j: sj, reg: enc.reg, name: enc.name, at: now };
+      }
+    } else if (sent.j) {
+      b.delete(A.fs.doc('space/' + uid));
+      next = { j: null, at: now };
+    }
+    return b.commit().then(function () { if (next) A.spaceSent[uid] = next; });
+  }
+  function dropNation(uid) {
+    var b = A.fs.batch();
+    ['nations/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
+    return b.commit().then(function () { A.spaceSent[uid] = { j: null, at: Date.now() }; });
   }
   function docApi(path) {
-    var p = String(path).split('/').filter(Boolean), col = p[0], ref = A.fs.doc(p.join('/'));
+    var p = String(path).split('/').filter(Boolean), col = p[0], ref = A.fs.doc(p.join('/')), nation = col === 'nations' && p.length === 2;
     return Object.freeze({
       id: ref.id,
       path: ref.path,
-      get: function () { return ref.get().then(function (s) { return snapOf(col, s); }, function (e) { throw mapError(e); }); },
+      get: function () { return ref.get().then(snapOf, function (e) { throw mapError(e); }); },
       set: function (data) {
         if (A.frozen) return hang();
-        var enc;
-        try { enc = encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
-        return ref.set(enc).then(function () {}, function (e) { throw mapError(e); });
+        if (nation) {
+          try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
+          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function () {}, function (e) { throw mapError(e); });
+        }
+        return ref.set(encode(col, data)).then(function () {}, function (e) { throw mapError(e); });
       },
       delete: function () {
         if (A.frozen) return hang();
-        return ref.delete().then(function () {}, function (e) { throw mapError(e); });
+        return (nation ? dropNation(p[1]) : ref.delete()).then(function () {}, function (e) { throw mapError(e); });
       },
       onSnapshot: function (next, error) {
-        return ref.onSnapshot(function (s) { next(snapOf(col, s)); }, function (e) { if (typeof error === 'function') error(mapError(e)); });
+        return ref.onSnapshot(function (s) { next(snapOf(s)); }, function (e) { if (typeof error === 'function') error(mapError(e)); });
       }
     });
+  }
+  function queryApi(q) {
+    function qsOf(qs) { return { size: qs.size, empty: qs.empty, docs: qs.docs.map(snapOf) }; }
+    return {
+      where: function (f, op, v) { return Object.freeze(queryApi(q.where(f, op, v))); },
+      orderBy: function (f, dir) { return Object.freeze(queryApi(q.orderBy(f, dir === 'desc' ? 'desc' : 'asc'))); },
+      limit: function (n) { return Object.freeze(queryApi(q.limit(n))); },
+      get: function () { return q.get().then(qsOf, function (e) { throw mapError(e); }); },
+      onSnapshot: function (next, error) {
+        return q.onSnapshot(function (qs) { next(qsOf(qs)); }, function (e) { if (typeof error === 'function') error(mapError(e)); });
+      }
+    };
   }
   function collectionApi(path) {
-    var name = String(path), col = name.split('/')[0], ref = A.fs.collection(name);
-    function qsOf(qs) { return { size: qs.size, empty: qs.empty, docs: qs.docs.map(function (s) { return snapOf(col, s); }) }; }
-    return Object.freeze({
-      doc: function (id) { return docApi(name + '/' + id); },
-      get: function () { return ref.get().then(qsOf, function (e) { throw mapError(e); }); },
-      onSnapshot: function (next, error) {
-        return ref.onSnapshot(function (qs) { next(qsOf(qs)); }, function (e) { if (typeof error === 'function') error(mapError(e)); });
-      }
-    });
+    var name = String(path);
+    return Object.freeze(Object.assign(queryApi(A.fs.collection(name)), { doc: function (id) { return docApi(name + '/' + id); } }));
   }
-  var dbApi = Object.freeze({ doc: docApi, collection: collectionApi });
+  /* COUNT over REST: the compat SDK has no aggregation queries. Costs one read per 1,000 matches. */
+  var OPS = { '==': 'EQUAL', '<': 'LESS_THAN', '<=': 'LESS_THAN_OR_EQUAL', '>': 'GREATER_THAN', '>=': 'GREATER_THAN_OR_EQUAL' };
+  function restValue(v) {
+    if (typeof v === 'string') return { stringValue: v };
+    if (typeof v === 'boolean') return { booleanValue: v };
+    return Number.isSafeInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  }
+  async function count(path, wheres) {
+    var segs = String(path).split('/').filter(Boolean), cid = segs.pop();
+    var parent = 'projects/' + A.projectId + '/databases/(default)/documents' + (segs.length ? '/' + segs.join('/') : '');
+    var filters = (wheres || []).map(function (w) { return { fieldFilter: { field: { fieldPath: w[0] }, op: OPS[w[1]], value: restValue(w[2]) } }; });
+    var query = { from: [{ collectionId: cid }] };
+    if (filters.length === 1) query.where = filters[0];
+    else if (filters.length) query.where = { compositeFilter: { op: 'AND', filters: filters } };
+    var headers = { 'content-type': 'application/json' }, u = A.auth.currentUser;
+    if (u) headers.authorization = 'Bearer ' + await u.getIdToken();
+    var r = await within(fetch(A.rest + '/' + parent + ':runAggregationQuery', {
+      method: 'POST', headers: headers,
+      body: JSON.stringify({ structuredAggregationQuery: { structuredQuery: query, aggregations: [{ alias: 'n', count: {} }] } })
+    }), 10000);
+    if (!r.ok) throw mapError({ code: r.status === 403 ? 'permission-denied' : r.status === 429 ? 'resource-exhausted' : 'unavailable', message: 'count failed: HTTP ' + r.status });
+    var out = await r.json(), f = out && out[0] && out[0].result && out[0].result.aggregateFields;
+    return f && f.n ? Number(f.n.integerValue || 0) : 0;
+  }
+  /* a post on a region's board, paced by limits/<uid> (see firestore.rules) */
+  function post(reg, text) {
+    if (A.frozen) return hang();
+    var u = A.auth.currentUser;
+    if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
+    var ref = A.fs.collection('boards/' + str(reg, 40) + '/posts').doc(), b = A.fs.batch();
+    b.set(ref, { a: u.uid, t: serverTime(), x: String(text || '').slice(0, 400) });
+    b.set(A.fs.doc('limits/' + u.uid), { p: serverTime() });
+    return b.commit().then(function () { return ref.id; }, function (e) { throw mapError(e); });
+  }
+  var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, count: count, post: post });
   var userApi = Object.freeze({
     id: function () { var u = A.auth && A.auth.currentUser; return Promise.resolve(u ? u.uid : null); },
     isOwner: function () {
@@ -202,7 +304,8 @@
       /* offline cache shared by every open tab; a browser without IndexedDB simply goes without */
       try { await within(fs.enablePersistence({ synchronizeTabs: true }), 5000); } catch (e) { /* no cache */ }
     }
-    A.fb = fb; A.auth = auth; A.fs = fs;
+    A.fb = fb; A.auth = auth; A.fs = fs; A.projectId = String(cfg.projectId);
+    A.rest = emu && emu.firestore ? 'http://' + String(emu.firestore) + '/v1' : 'https://firestore.googleapis.com/v1';
     var user = null;
     try {
       user = await within(firstUser(auth), 10000);
@@ -465,14 +568,14 @@
       if (cred) {
         if (guest && anon && anon.isAnonymous) {
           /* only this guest sign-in can remove the guest nation from the region, so do it now */
-          await within(Promise.all([A.fs.doc('nations/' + anon.uid).delete(), A.fs.doc('rmb/' + anon.uid).delete()]), 8000).then(function () { cleared = true; }, function () {});
+          await within(dropNation(anon.uid), 8000).then(function () { cleared = true; }, function () {});
         }
         res = await A.auth.signInWithCredential(cred);
       } else {
         res = await A.auth.signInWithPopup(provider());
       }
     } catch (e) {
-      if (cleared && guest && anon) { try { await within(A.fs.doc('nations/' + anon.uid).set(encode('nations', guest)), 8000); } catch (e2) {} }
+      if (cleared && guest && anon) { try { await within(saveNation(anon.uid, guest), 8000); } catch (e2) {} }
       A.frozen = false; A.leaving = false; A.cred = null; setBusy('');
       setMsg(authMessage(e), true);
       return;
