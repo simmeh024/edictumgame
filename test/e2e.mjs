@@ -1,8 +1,9 @@
 // End-to-end tests of the built site on the Firebase emulators:
 //   python3 build.py
 //   npx firebase emulators:exec --project demo-edictum --only auth,firestore,hosting "node test/e2e.mjs"
-// Covers: two players sharing a region and its message board, reloads, the security rules as
-// the game meets them, admin moderation, browser-only mode when Firebase is blocked, export
+// Covers: two players sharing a region and its message board, a player in another region (not
+// downloaded, but counted and listed on the World page), reloads, the security rules as the game
+// meets them, admin moderation, region steering when a region is full, browser-only mode when Firebase is blocked, export
 // and import, and Google sign-in (linking, switching, signing out) with the Auth emulator's
 // stand-in for Google. Set EDICTUM_FIXTURE=/path/to/a/nation.json to also import a real
 // record exported from the claude.ai version.
@@ -10,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   BASE, OUT, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
-  restGet, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors
+  restGet, restList, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors
 } from './lib.mjs';
 
 await clearEmulators();
@@ -22,7 +23,10 @@ const uidA = await open(A);
 check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.length > 10, uidA);
 await found(A, 'Aldoria');
 const docA = await until(() => nationDoc(uidA));
-check('A’s nation is saved to nations/<uid> in the stored shape', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'j,name,reg,updatedAt,v', docA && docA.keys.join());
+check('A’s nation is saved to nations/<uid> in the stored shape', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'j,name,reg,ts,updatedAt,v', docA && docA.keys.join());
+const sumA = await restGet('summaries/' + uidA);
+check('its summary is saved beside it', sumA.status === 200 && sumA.body.fields.name.stringValue === 'Aldoria' && sumA.body.fields.reg.stringValue === 'meridian');
+check('a nation with no Moon, Mars or belt data has no space record', (await restGet('space/' + uidA)).status === 404);
 check('the mode line says the region is connected', /Connected to/.test(await text(A, '.mode.world')));
 
 const B = await player('B');
@@ -39,8 +43,32 @@ check('B’s Region page lists both nations', !!regionB);
 await A.fill('#rmb-text', 'Greetings from Aldoria');
 await A.click('#rmb-form button[type="submit"]');
 check('B sees A’s post on the board', await until(async () => /Greetings from Aldoria/.test(await text(B, '.posts'))));
-const rmbA = await restGet('rmb/' + uidA);
-check('the post is stored in rmb/<uid>', rmbA.status === 200 && JSON.stringify(rmbA.body).includes('Greetings from Aldoria'));
+const postsM = await restList('boards/meridian/posts');
+check('the post is its own document in boards/meridian/posts', postsM.some(p => p.fields.a.stringValue === uidA && p.fields.x.stringValue === 'Greetings from Aldoria' && p.fields.t.timestampValue));
+await A.fill('#rmb-text', 'Too soon');
+await A.click('#rmb-form button[type="submit"]');
+const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
+// toasts show one at a time, and founding queued several: allow for the queue
+check('a second post within 20 seconds waits, and the player is told', await until(async () => /every 20 seconds/.test(await toasts(A)), 40000) && (await A.inputValue('#rmb-text')) === 'Too soon');
+await A.fill('#rmb-text', '');
+
+/* ── 2b. other regions are not downloaded, but are counted and listed ──── */
+const R = await player('R');
+await open(R);
+await R.evaluate(() => localStorage.setItem('statehood.region', 'frostmarch'));
+await R.reload(); const uidR = await ready(R);
+await found(R, 'Frostia');
+check('R founds in the Frostmarch', await until(async () => ((await nationDoc(uidR)) || {}).reg === 'frostmarch'));
+await nav(A, 'region');
+await sleep(1500);
+check('A’s region does not list a nation of another region', !/Frostia/.test(await text(A, '.tbl')) && /Borvia/.test(await text(A, '.tbl')));
+await nav(A, 'world');
+const frostCard = await until(async () => { const t = await text(A, '.wr-card:has([data-id="frostmarch"]) .wr-meta'); return /1 player/.test(t) ? t : ''; }, 10000);
+check('the World page counts the Frostmarch’s player', !!frostCard, frostCard);
+await A.click('[data-act="wr-sel"][data-id="frostmarch"]');
+check('and lists it when the region is opened', await until(async () => /Player nations: Frostia/.test(await text(A, '.wr-detail'))));
+await nav(R, 'region');
+check('R’s board is the Frostmarch’s, without Meridian’s posts', !/Greetings from Aldoria/.test(await text(R, '.posts')));
 
 /* ── 3. reloads ─────────────────────────────────────────────────────────── */
 await A.reload(); const uidA2 = await ready(A);
@@ -55,9 +83,15 @@ const tryWrite = (p, path, data) => p.evaluate(async ([path, data]) => {
   const db = await window.claude.use('db');
   try { await db.doc(path).set(data); return 'ok'; } catch (e) { return e.code; }
 }, [path, data]);
+const tryDo = (p, fn, arg) => p.evaluate(async ([fn, arg]) => {
+  const db = await window.claude.use('db');
+  try { await (new Function('db', 'arg', 'return (' + fn + ')(db, arg)'))(db, arg); return 'ok'; } catch (e) { return e.code; }
+}, [fn.toString(), arg]);
 check('A cannot write B’s nation (code not_granted)', (await tryWrite(A, 'nations/' + uidB, { name: 'Stolen', s: {} })) === 'not_granted');
-check('A cannot write B’s board (code not_granted)', (await tryWrite(A, 'rmb/' + uidB, { posts: [] })) === 'not_granted');
-check('a 41-post board is refused (code not_granted)', (await tryWrite(A, 'rmb/' + uidA, { posts: Array.from({ length: 41 }, (_, i) => ({ id: 'x' + i, t: i, x: 'x', r: 'meridian' })) })) === 'not_granted');
+check('A cannot post to another region’s board (code not_granted)', (await tryDo(A, (db, reg) => db.post(reg, 'Hello, Frostmarch'), 'frostmarch')) === 'not_granted');
+const pidA = (postsM.find(p => p.fields.a.stringValue === uidA) || {}).id;
+check('B cannot delete A’s post (code not_granted)', !!pidA && (await tryDo(B, (db, path) => db.doc(path).delete(), 'boards/meridian/posts/' + pidA)) === 'not_granted');
+check('the old board format is closed (code not_granted)', (await tryWrite(A, 'rmb/' + uidA, { posts: [] })) === 'not_granted');
 const anonRead = await restGet('nations/' + uidB);
 check('a visitor who is not signed in can read a nation', anonRead.status === 200);
 check('a visitor who is not signed in cannot write one', (await restPatch('nations/' + uidB, { name: { stringValue: 'x' } })) === 403);
@@ -76,7 +110,7 @@ await nav(A, 'region');
 const del = await until(() => A.$(`.posts [data-act="del-post"][data-a="${uidB}"]`));
 check('the admin sees Remove on B’s post', !!del);
 if (del) await del.click();
-check('the admin removed B’s post from rmb/<uidB>', await until(async () => !JSON.stringify((await restGet('rmb/' + uidB)).body).includes('rude remark')));
+check('the admin deleted B’s post document', await until(async () => !(await restList('boards/meridian/posts')).some(p => /rude remark/.test(p.fields.x.stringValue))));
 check('B no longer sees the removed post', await until(async () => !/rude remark/.test(await text(B, '.posts'))));
 check('B still sees A’s post', /Greetings from Aldoria/.test(await text(B, '.posts')));
 
@@ -162,7 +196,7 @@ await F.waitForSelector('[data-ed="switch"]');
 check('switching asks first', /Switch to that Google account/.test(await text(F, '#ed-dlg-h')));
 await Promise.all([F.waitForNavigation({ timeout: 15000 }), F.click('[data-ed="switch"]')]);
 check('after switching, F plays A’s nation', (await ready(F)) === uidA && await until(async () => (await sideName(F)) === 'Aldoria'));
-check('the guest nation left the region', (await restGet('nations/' + uidF0)).status === 404);
+check('the guest nation left the region, summary and all', (await restGet('nations/' + uidF0)).status === 404 && (await restGet('summaries/' + uidF0)).status === 404);
 await openAccount(F);
 check('this browser keeps a copy of the guest nation to download', /Fenwick/.test(await text(F, '.ed-sec')));
 await F.keyboard.press('Escape');
@@ -196,7 +230,23 @@ check('after signing out, the browser is a new guest', uidE2 && uidE2 !== uidA);
 check('on the founding screen, with no nation in this browser', !!(await E.$('#d-name')) && !(await localNation(E)));
 check('the account’s nation is still in the region', ((await nationDoc(uidA)) || {}).name === 'Aldoria');
 
-/* ── 10. how it looks ───────────────────────────────────────────────────── */
+/* ── 10. a full region sends newcomers on ───────────────────────────────── */
+// with room for one active nation per region, Meridian (Aldoria, Borvia...) and the Frostmarch (Frostia)
+// are full: a newcomer who has not chosen goes to the fullest region with room, here the next in the list
+const Z = await player('Z', { cap: 1 });
+await open(Z);
+const zRegion = await until(async () => { const t = await text(Z, '.fr-now'); return t && !/Meridian Reach/.test(t) ? t : ''; }, 15000);
+check('a newcomer facing a full region is moved to one with room', !!zRegion && !/Frostmarch/.test(zRegion), zRegion);
+await ready(Z);
+check('the full regions are marked in the region list', await until(async () => /Frostmarch Full/.test(await text(Z, '.fr-list'))));
+await Z.evaluate(() => localStorage.setItem('statehood.region', 'meridian'));
+await Z.reload(); await ready(Z);
+await until(async () => /is full/.test(await text(Z, '.fr-box')));
+await Z.fill('#d-name', 'Latecomer'); await Z.click('[data-act="found-suggest"]'); await Z.click('#found-btn');
+check('founding in a full region is refused, with the reason', await until(async () => /Meridian Reach is full/.test(await text(Z, 'form .err'))) && !(await Z.$('.layout')));
+await Z.ctx.close();
+
+/* ── 11. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {
   const S = await player('S' + vp.width, { vp, dark });
   await open(S);

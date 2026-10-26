@@ -1,8 +1,10 @@
-# Pull requests: test the Firestore rules on the emulator, and deploy the built site to a
-# temporary Firebase Hosting preview channel (its address is posted on the pull request).
+# Pull requests: test the Firestore rules on the emulator, deploy the rules and indexes to the
+# staging project, and the built site to a temporary Hosting preview channel there (its address
+# is posted on the pull request). Previews never touch the live site's database or accounts.
 #
-# A preview channel is a separate address, but it uses the same Firestore database and the
-# same sign-ins as the live site: playing on a preview changes real nations.
+# Needs, under Settings > Secrets and variables > Actions:
+#   secret   FIREBASE_SERVICE_ACCOUNT_STAGING  the staging project's service account key JSON
+#   variable FIREBASE_STAGING_PROJECT_ID       the staging project id (edictum-staging)
 # Pull requests from forks get no secrets, so they get the rules test but no preview.
 name: Preview
 
@@ -43,17 +45,16 @@ jobs:
       checks: write
       pull-requests: write
     env:
-      PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-      SITE_URL: ${{ vars.SITE_URL }}
-      HAS_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+      PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+      HAS_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING != '' }}
       FROM_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
     steps:
       - name: Check the repository settings
         id: settings
         run: |
           missing=""
-          [ "$HAS_SERVICE_ACCOUNT" = "true" ] || missing="$missing the secret FIREBASE_SERVICE_ACCOUNT and"
-          [ -n "$PROJECT_ID" ] || missing="$missing the variable FIREBASE_PROJECT_ID and"
+          [ "$HAS_SERVICE_ACCOUNT" = "true" ] || missing="$missing the secret FIREBASE_SERVICE_ACCOUNT_STAGING and"
+          [ -n "$PROJECT_ID" ] || missing="$missing the variable FIREBASE_STAGING_PROJECT_ID and"
           if [ "$FROM_FORK" = "true" ]; then
             msg="No preview: this pull request comes from a fork, and GitHub does not give forks the repository's secrets."
           elif [ -n "$missing" ]; then
@@ -84,14 +85,24 @@ jobs:
 
       - name: Build public/
         if: steps.settings.outputs.ready == 'true'
-        run: python3 build.py --site-url "${SITE_URL:-https://$PROJECT_ID.web.app}"
+        run: python3 build.py --site-url "https://$PROJECT_ID.web.app"
+
+      - name: Deploy the Firestore rules and indexes to staging
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only firestore:rules,firestore:indexes --project "$PROJECT_ID" --non-interactive
 
       - name: Deploy to a preview channel
         if: steps.settings.outputs.ready == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+          projectId: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
           expires: 7d
           firebaseToolsVersion: 15.33.0

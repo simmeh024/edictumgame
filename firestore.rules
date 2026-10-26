@@ -1,12 +1,17 @@
 rules_version = '2';
 
-// Edictum's world is public: anyone may read every nation and every region message board.
-// A signed-in player (anonymous guests included) writes only their own two documents:
-//   nations/{uid}  their whole nation, stored by src/shim.js as
-//                  {v: 1, j: <the nation record as JSON text>, reg, name, updatedAt}
-//   rmb/{uid}      their region message board posts, {posts: [...]}, at most 40
-// Admins (custom claim admin == true, see tools/admin) may also rewrite or clear anyone's
-// rmb document, to remove posts. Everything else is denied.
+// Edictum's world is public: anyone may read every nation, summary, space record and board post.
+// A signed-in player (anonymous guests included) writes only their own documents:
+//   nations/{uid}            the whole nation, {v: 1, j: <the record as JSON text>, reg, name, updatedAt, ts}
+//   summaries/{uid}          {reg, name, pop, t}: the headline the World page and region counts read
+//   space/{uid}              {reg, name, t, j, ts}: Moon, Mars and belt data, only for nations that have any
+//   boards/{reg}/posts/{id}  one post on a region's message board, {a: author uid, t: server time, x: text}
+//   limits/{uid}             {p}: the time of the player's last post, which paces posting
+// src/shim.js saves a nation, its summary and (when it changed) its space record in one batch. These
+// rules check that the three agree and arrive together, that a nation is saved at most once a second
+// and its space record at most once every 10 seconds (every player listens to space/), and that a player
+// posts at most once every 20 seconds, only to their own region's board. Admins (custom claim
+// admin == true, see tools/admin) may delete any post. Everything else is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -19,35 +24,109 @@ service cloud.firestore {
     function isAdmin() {
       return signedIn() && request.auth.token.admin == true;
     }
+    function region(r) {
+      return r in ['meridian', 'frostmarch', 'northernpale', 'driftlands', 'silentmoors', 'wildwood',
+        'saffron', 'hollow', 'ashen', 'ironsteppe', 'gilded', 'verdantbasin', 'coralreach', 'emberisles',
+        'lanterncoast', 'jadeterraces', 'highcrags', 'cloudspine', 'obsidianrim', 'ambershallows',
+        'sunkenkingdoms', 'mistral', 'stormwrack', 'longvalley', 'greywater', 'scatteredcrown'];
+    }
+    function label(s) {
+      return s is string && s.size() <= 80;
+    }
+    // at most once per `secs` seconds: the document's previous server time is far enough back
+    function paced(secs) {
+      return !('ts' in resource.data) || request.time > resource.data.ts + duration.value(secs, 's');
+    }
+    function nationAfter(uid) {
+      return getAfter(/databases/$(database)/documents/nations/$(uid)).data;
+    }
 
     // The nation's JSON text is capped well below Firestore's 1 MiB document limit;
     // src/shim.js refuses anything over 700,000 characters before it gets here.
     function validNation(d) {
-      return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt'])
-        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt'])
+      return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
+        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
         && d.v == 1
-        && d.j is string && d.j.size() > 2 && d.j.size() <= 900000
-        && d.reg is string && d.reg.size() <= 40
-        && d.name is string && d.name.size() <= 80
-        && d.updatedAt is number;
+        && d.j is string && d.j.size() > 2 && d.j.size() <= 750000
+        && region(d.reg) && label(d.name)
+        && d.updatedAt is number
+        && d.ts == request.time;
     }
-
-    function validRmb(d) {
-      return d.keys().hasOnly(['posts'])
-        && d.posts is list
-        && d.posts.size() <= 40;
+    // the summary written in the same batch says the same
+    function summarised(uid, d) {
+      let s = getAfter(/databases/$(database)/documents/summaries/$(uid)).data;
+      return s.reg == d.reg && s.name == d.name && s.t == d.updatedAt;
+    }
+    function validSummary(d) {
+      return d.keys().hasAll(['reg', 'name', 'pop', 't'])
+        && d.keys().hasOnly(['reg', 'name', 'pop', 't'])
+        && region(d.reg) && label(d.name)
+        && d.pop is number && d.pop >= 0
+        && d.t is number;
+    }
+    function validSpace(d) {
+      return d.keys().hasAll(['reg', 'name', 't', 'j', 'ts'])
+        && d.keys().hasOnly(['reg', 'name', 't', 'j', 'ts'])
+        && region(d.reg) && label(d.name)
+        && d.t is number
+        && d.j is string && d.j.size() <= 60000
+        && d.ts == request.time;
+    }
+    function validPost(d) {
+      return d.keys().hasAll(['a', 't', 'x'])
+        && d.keys().hasOnly(['a', 't', 'x'])
+        && d.a == request.auth.uid
+        && d.t == request.time
+        && d.x is string && d.x.size() > 0 && d.x.size() <= 400;
     }
 
     match /nations/{uid} {
       allow read: if true;
-      allow create, update: if isSelf(uid) && validNation(request.resource.data);
+      allow create: if isSelf(uid) && validNation(request.resource.data) && summarised(uid, request.resource.data);
+      allow update: if isSelf(uid) && validNation(request.resource.data) && summarised(uid, request.resource.data)
+        && paced(1);
       allow delete: if isSelf(uid);
     }
 
-    match /rmb/{uid} {
+    // written only together with the nation (whose ts is this request's time), and agreeing with it
+    match /summaries/{uid} {
       allow read: if true;
-      allow create, update: if (isSelf(uid) || isAdmin()) && validRmb(request.resource.data);
-      allow delete: if isSelf(uid) || isAdmin();
+      allow create, update: if isSelf(uid) && validSummary(request.resource.data)
+        && nationAfter(uid).ts == request.time
+        && nationAfter(uid).reg == request.resource.data.reg
+        && nationAfter(uid).name == request.resource.data.name
+        && nationAfter(uid).updatedAt == request.resource.data.t;
+      allow delete: if isSelf(uid);
+    }
+
+    match /space/{uid} {
+      allow read: if true;
+      allow create: if isSelf(uid) && validSpace(request.resource.data)
+        && nationAfter(uid).ts == request.time
+        && nationAfter(uid).reg == request.resource.data.reg
+        && nationAfter(uid).name == request.resource.data.name;
+      allow update: if isSelf(uid) && validSpace(request.resource.data)
+        && nationAfter(uid).ts == request.time
+        && nationAfter(uid).reg == request.resource.data.reg
+        && nationAfter(uid).name == request.resource.data.name
+        && paced(10);
+      allow delete: if isSelf(uid);
+    }
+
+    // a post goes to the board of the region the author's nation lives in, with limits/<uid> in the same batch
+    match /boards/{reg}/posts/{pid} {
+      allow read: if true;
+      allow create: if signedIn() && region(reg) && validPost(request.resource.data)
+        && getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)).data.p == request.time
+        && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg;
+      allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
+    }
+
+    match /limits/{uid} {
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['p']) && request.resource.data.p == request.time;
+      allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['p']) && request.resource.data.p == request.time
+        && request.time > resource.data.p + duration.value(20, 's');
     }
   }
 }

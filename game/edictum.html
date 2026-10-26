@@ -20093,7 +20093,7 @@ async function moveTo(rid){
   n.regs=[...new Set((n.regs||[]).concat(REG.id,rid))];n.mvFrom=REG.id;n.reg=rid;n.mvAt=now;n.mvN=(n.mvN||0)+1;
   n.log.unshift({t:now,k:'move',a:REG.id,b:rid,fx:R.name});n.log=n.log.slice(0,60);
   commit(n);S.moving=R.name;render();
-  try{if(S.mode==='world'&&S.db&&S.uid)await S.db.doc('nations/'+S.uid).set(clone(S.nation));}catch(e){}
+  try{await flushNow();}catch(e){}
   try{history.replaceState(null,'','#map');}catch(e){}
   setTimeout(()=>location.reload(),350);
 }
@@ -20108,12 +20108,53 @@ HAP_SOURCES.push((x,now)=>(x.n.log||[]).filter(l=>l.k==='move'&&l.b===REG.id).ma
 
 /* ───────── the World page ───────── */
 function regClimate(R){const [a,b]=R.geo.lat,t=lt=>{const v=26-(lt-22)*0.42;return v<3?'subarctic':v<8?'cold':v<15?'temperate':v<19?'warm':'subtropical';};const x=t(a),y=t(b);return x===y?cap1(x):cap1(x)+' to '+y;}
-function regPlayers(id){const out=[];const all=S.worldAll||{};for(const k of Object.keys(all))if(all[k].reg===id&&k!==S.uid)out.push(all[k]);if(S.nation&&(S.nation.reg||'meridian')===id)out.push({name:S.nation.name,me:1});return out;}
+/* Players per region. This region's come from the live records. Other regions' are counted, and for the
+   region open on the World page listed, from summaries/ on demand, at most every five minutes. Dormant
+   nations are left out, as dormSift leaves them out of the live records. */
+const RSTAT={n:{},at:0,busy:false,names:{},nat:{}},REGION_CAP=Math.max(1,Number(window.EDICTUM_REGION_CAP)||150);
+function regStatsSoon(maxAge){
+  if(S.mode==='local'||!S.db||typeof S.db.count!=='function'||RSTAT.busy||Date.now()-RSTAT.at<(maxAge||3e5))return;
+  RSTAT.busy=true;const since=Date.now()-DORM_MS;
+  Promise.all(REGIONS.map(R=>S.db.count('summaries',[['reg','==',R.id],['t','>',since]]).then(n=>[R.id,n],()=>[R.id,null]))).then(rs=>{
+    for(const [id,n] of rs)if(n!=null)RSTAT.n[id]=n;
+    RSTAT.at=Date.now();RSTAT.busy=false;
+    if(!S.nation&&foundAutoRegion())return;
+    if(S.view==='world'||!S.nation)render();
+  });
+}
+function regNamesSoon(id){
+  if(!id||id===REG.id||S.mode==='local'||!S.db||Date.now()-(RSTAT.nat[id]||0)<3e5)return;
+  RSTAT.nat[id]=Date.now();
+  S.db.collection('summaries').where('reg','==',id).where('t','>',Date.now()-DORM_MS).orderBy('t','desc').limit(100).get().then(qs=>{
+    RSTAT.names[id]=qs.docs.map(d=>d.data()).filter(x=>x&&x.name).sort((a,b)=>(Number(b.pop)||0)-(Number(a.pop)||0)).map(x=>({name:String(x.name).slice(0,40)}));
+    if(S.view==='world')render();
+  },()=>{RSTAT.nat[id]=0;});
+}
+function regPlayers(id){
+  const out=[];
+  if(id===REG.id){const all=S.worldAll||{};for(const k of Object.keys(all))if(all[k].reg===id&&k!==S.uid)out.push(all[k]);}
+  else out.push(...(RSTAT.names[id]||[]));
+  if(S.nation&&(S.nation.reg||'meridian')===id)out.push({name:S.nation.name,me:1});return out;
+}
+function regCount(id){return id!==REG.id&&RSTAT.n[id]!=null?RSTAT.n[id]:regPlayers(id).length;}
+/* a region takes no new nations once REGION_CAP active nations live there (moving in is still allowed) */
+function regFull(id){const n=Math.max(RSTAT.n[id]||0,id===REG.id?regPlayers(id).length:0);return n>=REGION_CAP;}
+/* a newcomer who has not chosen a region and finds this one full is sent to the fullest region with room,
+   so players gather rather than spread thin; once per tab, and never once they have changed the name the
+   form suggested (RSTAT.nm0, kept when the founding page first draws) */
+function foundAutoRegion(){
+  let chose=null;try{chose=localStorage.getItem('statehood.region');if(sessionStorage.getItem('statehood.autoreg'))return false;}catch(e){return false;}
+  if(chose||!regFull(REG.id)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
+  const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)).sort((a,b)=>(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
+  if(!open.length)return false;
+  try{localStorage.setItem('statehood.region',open[0].id);sessionStorage.setItem('statehood.autoreg','1');}catch(e){return false;}
+  location.reload();return true;
+}
 function worldCard(R,now){
-  const here=R.id===REG.id,pl=regPlayers(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,sel=S.wrSel===R.id;
+  const here=R.id===REG.id,pc=regCount(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,sel=S.wrSel===R.id;
   return `<article class="wr-card${here?' here':''}${sel?' sel':''}"><button class="wr-pick" data-act="wr-sel" data-id="${R.id}" aria-expanded="${sel}"><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
     <span class="wr-b"><span class="wr-n">${esc(R.name)}${here?' <span class="chip ok">You are here</span>':''}</span><span class="wr-s">${esc(R.short)}</span>
-    <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations · ${pl.length===1?'1 player':pl.length+' players'}</span></span></button></article>`;
+    <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations · ${pc===1?'1 player':pc+' players'}</span></span></button></article>`;
 }
 function worldDetail(R,now){
   const here=R.id===REG.id,npcs=R.id==='meridian'?NPCS_MER:R.npcs,pl=regPlayers(R.id),n=S.nation,wait=moveWait(n,now);
@@ -20141,6 +20182,8 @@ function worldDetail(R,now){
 }
 VIEWS_EXT.world=now=>{
   const n=S.nation,wait=moveWait(n,now),sel=REG_BY_ID[S.wrSel]||null;
+  /* a fresh visit to this page counts again if the counts are more than 15 seconds old */
+  const now0=Date.now();regStatsSoon(now0-(RSTAT.seen||0)>1e4?15e3:3e5);RSTAT.seen=now0;if(sel)regNamesSoon(sel.id);
   if(S.moving)return `<div class="empty wr-moving"><p class="empty-h">Packing up for ${esc(S.moving)}</p><p>The archives are crated, the anthem is folded, and the capital’s buildings are numbered brick by brick.</p></div>`;
   return `<header class="vh"><p class="eyebrow">Atlas of the known world</p><h1>The World</h1><p>${REGIONS.length} regions, each with its own lands and nations. ${esc(n.name)} lives in ${esc(REG.the)}. You can move to another region: your nation comes with you, but your land starts again, and after a move you must wait 14 days before the next.</p></header>
     <p class="wr-status">${wait>0?`Next move possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>, on ${fmtDate((n.mvAt||0)+MOVE_CD)}.`:'You are free to move.'}${n.mvN?` ${esc(n.name)} has moved ${n.mvN===1?'once':n.mvN+' times'}.`:''}</p>
@@ -20181,8 +20224,13 @@ document.addEventListener('click',e=>{
 });
 /* choosing a region on the founding page */
 function foundRegionBox(){
+  if(RSTAT.nm0==null&&S.draft)RSTAT.nm0=S.draft.name;
+  regStatsSoon();
+  const full=regFull(REG.id),known=Object.keys(RSTAT.n).length>0;
+  const pl=R=>{if(!known&&R.id!==REG.id)return '';const c=regCount(R.id);return ` · ${c===1?'1 player':c+' players'}`;};
   return `<div class="fr-box"><p class="eyebrow">Region</p><p class="fr-now"><b>${esc(REG.name)}</b> · ${esc(REG.short)}</p>
-    <details class="fr-more"><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${REGIONS.map(R=>`<li><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}><b>${esc(R.name)}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations</span></button></li>`).join('')}</ul></details></div>`;
+    ${full?`<p class="hint">${esc(REG.name)} is full: it has room for ${REGION_CAP} active nations. Choose another region to found your nation.</p>`:''}
+    <details class="fr-more"${full?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${REGIONS.map(R=>{const f=R.id!==REG.id&&regFull(R.id);return `<li><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
 }
 
 /* ───────── Round 9 (E): dormant nations ─────────
@@ -31939,7 +31987,11 @@ function normalizeBase(d){
 function loadLocal(){try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
 function saveLocal(n){try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
 
-let remoteBusy=false,remoteAgain=false;
+/* Saves reach the region at most once every SAVE_GAP (this browser's copy is saved at once): the first
+   after loading straight away, a pending one as soon as the tab is hidden or closed. Fewer writes, and
+   every other player in the region reads each nation less often. */
+const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||15000),SAVE_MIN=1500;
+let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=0;
 function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
@@ -31951,12 +32003,29 @@ function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.p
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;n.updatedAt=now;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);queueRemote();}
-async function queueRemote(){
+function queueRemote(){
   if(S.mode!=='world'||!S.db||!S.uid)return;
-  if(remoteBusy){remoteAgain=true;return;}
-  remoteBusy=true;
-  try{do{remoteAgain=false;await writeRemote();}while(remoteAgain&&S.mode==='world');}finally{remoteBusy=false;}
+  remoteDirty=true;
+  if(remoteBusy||remoteTimer)return;
+  remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_GAP-Date.now()));
 }
+async function flushRemote(){
+  clearTimeout(remoteTimer);remoteTimer=0;
+  if(remoteBusy||!remoteDirty||S.mode!=='world')return;
+  remoteBusy=true;remoteDirty=false;remoteLast=Date.now();
+  try{await writeRemote();}finally{remoteBusy=false;}
+  if(remoteDirty)queueRemote();
+}
+/* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
+async function flushNow(){
+  if(S.mode!=='world'||!S.db||!S.uid)return;
+  while(remoteBusy)await sleep(100);
+  if(!remoteDirty)return;
+  const w=remoteLast+SAVE_MIN-Date.now();if(w>0)await sleep(w);
+  await flushRemote();
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
+window.addEventListener('pagehide',()=>{flushNow();});
 async function writeRemote(){
   if(!S.nation)return;
   const ref=S.db.doc('nations/'+S.uid);
@@ -31992,24 +32061,37 @@ async function connect(){
     if(remote&&(!S.nation||remote.updatedAt>=S.nation.updatedAt)){S.nation=remote;saveLocal(remote);}
     else if(S.nation&&S.mode==='world')queueRemote();
   }catch(e){}
-  db.collection('nations').onSnapshot(qs=>{
-    const w={};
-    const all={};
-    for(const d of qs.docs){const raw=d.data()||{},rg=typeof raw.reg==='string'&&REG_BY_ID[raw.reg]?raw.reg:'meridian';
-      all[d.id]={reg:rg,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
-      if(d.id===S.uid&&rg!==REG.id&&S.nation&&(Number(raw.updatedAt)||0)>(S.nation.updatedAt||0)&&!S.moving){regionReload(raw);return;}
-      if(rg!==REG.id)continue;const n=normalize(raw);if(n)w[d.id]=n;}
+  /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
+     only nations that have any); this region's board. Nothing else of other regions is downloaded:
+     the World page counts and lists them on demand (RSTAT). */
+  let regQS=null,spQS=null,hadMine=false;
+  const shared=()=>{
+    if(!regQS||!spQS)return;
+    const w={},all={};
+    for(const d of spQS.docs){const raw=d.data();if(!raw||!REG_BY_ID[raw.reg])continue;
+      all[d.id]={reg:raw.reg,name:String(raw.name||'').slice(0,40),pop:0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);}
+    let mineHere=false;
+    for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;
+      all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
+      if(d.id===S.uid)mineHere=true;const n=normalize(raw);if(n)w[d.id]=n;}
+    /* this record left the region from another device: follow it there */
+    if(hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
+      if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&(Number(raw.updatedAt)||0)>(S.nation.updatedAt||0))regionReload(raw);},()=>{});
+    hadMine=mineHere;
     dormSift(w,all);
     S.worldAll=all;
     S.world=w;
     const mine=w[S.uid];
-    if(mine&&S.nation&&mine.updatedAt>S.nation.updatedAt&&!remoteBusy){S.nation=mine;saveLocal(mine);render();return;}
+    if(mine&&S.nation&&mine.updatedAt>S.nation.updatedAt&&!remoteBusy&&!remoteDirty){S.nation=mine;saveLocal(mine);render();return;}
     if(!S.nation||S.view==='map'){updateMapPanel();redrawMaps();}
     else if(['region','census','visit','nation','diplomacy','trade'].includes(S.view)&&!S.spyRolling)render();
-  },()=>{});
-  db.collection('rmb').onSnapshot(qs=>{
+  };
+  const none={docs:[]};
+  db.collection('nations').where('reg','==',REG.id).onSnapshot(qs=>{regQS=qs;shared();},()=>{regQS=regQS||none;shared();});
+  db.collection('space').onSnapshot(qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
+  db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60).onSnapshot(qs=>{
     const r={};
-    for(const d of qs.docs){const data=d.data()||{};const posts=Array.isArray(data.posts)?data.posts.filter(p=>p&&typeof p.x==='string').slice(-40).map(p=>({id:String(p.id||'').slice(0,20),t:Number(p.t)||0,x:p.x.slice(0,500),r:typeof p.r==='string'&&REG_BY_ID[p.r]?p.r:'meridian'})):[];r[d.id]={posts:posts.filter(p=>p.r===REG.id),all:posts};}
+    for(const d of qs.docs){const p=d.data();if(!p||!p.a||typeof p.x!=='string')continue;(r[p.a]||(r[p.a]={posts:[]})).posts.push({id:p.id,t:Number(p.t)||0,x:p.x.slice(0,400),r:REG.id});}
     S.rmb=r;
     if(S.view==='region')render();
   },()=>{});
@@ -32281,7 +32363,7 @@ function regionView(now){
   /* message board */
   let board='';
   if(S.mode==='local'){
-    board=`<div class="info">The message board needs a signed-in Claude account. Sign in and reopen this page to post to ${REGION} and to see other players’ nations.</div>`;
+    board=`<div class="info">The message board needs a connection to the region. Reload the page to try again: then you can post to ${REGION} and see other players’ nations.</div>`;
   }else{
     const posts=[];
     for(const aid of Object.keys(S.rmb))for(const p of S.rmb[aid].posts)posts.push({aid,p});
@@ -32487,6 +32569,7 @@ function go(v){
 function found(){
   const d=S.draft,name=d.name.trim().replace(/\s+/g,' ');
   if(name.length<2){S.foundErr='Give your nation a name of at least two characters.';render();const el=document.getElementById('d-name');if(el)el.focus();return;}
+  if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${REGION_CAP} active nations. Choose another region above.`;render();return;}
   S.foundErr='';
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
@@ -32554,25 +32637,28 @@ async function dissolve(){
   const uid=S.uid,db=S.db,world=S.mode==='world';
   S.nation=null;saveLocal(null);S.confirmDissolve=false;S.result=null;S.openIssue=null;S.view='nation';S.draft=newDraft();
   render();window.scrollTo(0,0);toast('Your nation has been dissolved. You can found a new one.');
-  if(world&&db&&uid){try{await db.doc('nations/'+uid).delete();}catch(e){}try{await db.doc('rmb/'+uid).delete();}catch(e){}}
+  if(world&&db&&uid){
+    clearTimeout(remoteTimer);remoteTimer=0;remoteDirty=false;while(remoteBusy)await sleep(100);
+    try{await db.doc('nations/'+uid).delete();}catch(e){}
+  }
 }
-let rmbBusy=false;
+/* one post per document in boards/<region>/posts; the rules take one post per nation every RMB_GAP */
+const RMB_GAP=20000;
+let rmbBusy=false,rmbLast=0;
 async function postRmb(){
   const text=S.rmbDraft.trim();
   if(!text||rmbBusy||S.mode!=='world'||!S.nation)return;
-  rmbBusy=true;
-  const posts=((S.rmb[S.uid]&&(S.rmb[S.uid].all||S.rmb[S.uid].posts))||[]).slice();
-  posts.push({id:Math.random().toString(36).slice(2,10),t:Date.now(),x:text.slice(0,400),r:REG.id});
-  S.rmbDraft='';
-  try{await S.db.doc('rmb/'+S.uid).set({posts:posts.slice(-40)});}
-  catch(e){S.rmbDraft=text;handleWriteError(e);}
+  const wait=rmbLast+RMB_GAP-Date.now();
+  if(wait>0){toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Post again in ${Math.ceil(wait/1000)} seconds.`);return;}
+  rmbBusy=true;S.rmbDraft='';
+  try{await S.db.post(REG.id,text.slice(0,400));rmbLast=Date.now();}
+  catch(e){S.rmbDraft=text;if(e&&e.code==='not_granted')toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Try again in a moment.`);else handleWriteError(e);}
   finally{rmbBusy=false;render();}
 }
 async function removePost(aid,pid){
-  if(!S.db||rmbBusy)return;
-  const cur=S.rmb[aid];if(!cur)return;
+  if(!S.db||rmbBusy||!pid)return;
   rmbBusy=true;
-  try{await S.db.doc('rmb/'+aid).set({posts:(cur.all||cur.posts).filter(p=>p.id!==pid)});toast('Message removed.');}
+  try{await S.db.doc('boards/'+REG.id+'/posts/'+pid).delete();toast('Message removed.');}
   catch(e){handleWriteError(e);}
   finally{rmbBusy=false;}
 }
