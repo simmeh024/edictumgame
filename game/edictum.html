@@ -1922,6 +1922,10 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .fr-list{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
 .fr-btn{display:flex;flex-direction:column;gap:3px;width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--rule-2);border-radius:3px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .fr-btn.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.fr-btn:disabled,.fr-grid .wr-pick:disabled{cursor:not-allowed;opacity:.55}
+.fr-loc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;margin:0 0 12px}
+.fr-loc p{margin:0}
+.fr-grid{margin:10px 0 18px}
 .fr-btn span{font-size:13px;line-height:1.35;color:var(--ink-2)}
 
 /* Round 9 (E): dormant nations */
@@ -20144,10 +20148,10 @@ function regFull(id){const n=Math.max(RSTAT.n[id]||0,id===REG.id?regPlayers(id).
    form suggested (RSTAT.nm0, kept when the founding page first draws) */
 function foundAutoRegion(){
   let chose=null;try{chose=localStorage.getItem('statehood.region');if(sessionStorage.getItem('statehood.autoreg'))return false;}catch(e){return false;}
-  if(chose||!regFull(REG.id)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
+  if(chose||S.draftKept||!regFull(REG.id)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
   const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)).sort((a,b)=>(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
   if(!open.length)return false;
-  try{localStorage.setItem('statehood.region',open[0].id);sessionStorage.setItem('statehood.autoreg','1');}catch(e){return false;}
+  draftKeep(open[0].id);try{localStorage.setItem('statehood.region',open[0].id);sessionStorage.setItem('statehood.autoreg','1');}catch(e){return false;}
   location.reload();return true;
 }
 function worldCard(R,now){
@@ -20220,8 +20224,42 @@ document.addEventListener('click',e=>{
   if(a==='wr-ask'){S.wrAsk=el.dataset.id;render();return;}
   if(a==='wr-cancel'){S.wrAsk=null;render();return;}
   if(a==='wr-go'){moveTo(el.dataset.id);return;}
-  if(a==='found-region'){try{localStorage.setItem('statehood.region',el.dataset.id);}catch(e){}location.reload();return;}
+  if(a==='found-region'){
+    const id=el.dataset.id;if(el.disabled||!REG_BY_ID[id])return;
+    if(id===REG.id){S.frBrowse=false;render();return;}
+    draftKeep(id);try{localStorage.setItem('statehood.region',id);}catch(e){}location.reload();return;
+  }
+  if(a==='found-browse'){S.frBrowse=!S.frBrowse;render();return;}
 });
+/* The founding draft survives a change of region (which reloads the page: every region has its own map)
+   and a reload: it waits in this tab's sessionStorage until the nation is founded. The capital's hex
+   belongs to one region's map, so it comes back only in the same region. */
+const DRAFT_SS='statehood.draft';
+function draftKeep(reg){if(S.nation||!S.draft)return;try{sessionStorage.setItem(DRAFT_SS,JSON.stringify({reg:reg||REG.id,at:Date.now(),d:S.draft}));}catch(e){}}
+function draftRestore(){
+  let p=null;try{p=JSON.parse(sessionStorage.getItem(DRAFT_SS)||'null');}catch(e){}
+  if(!p||typeof p!=='object'||!p.d||typeof p.d!=='object'||!(Date.now()-(Number(p.at)||0)<DAY))return null;
+  const base=newDraft(),d=p.d;
+  for(const k of Object.keys(base)){const v=d[k];if(v==null)continue;
+    if(k==='answers'){if(Array.isArray(v)&&v.length===base.answers.length&&v.every(x=>x===0||x===1||x===2))base.answers=v.slice();}
+    else if(k==='loc'){if(p.reg===REG.id&&typeof v==='object')base.loc=v;}
+    else if(k==='flag'){if(typeof v==='object'&&!Array.isArray(v))base.flag=v;}
+    else if(typeof v===typeof base[k])base[k]=typeof v==='string'?v.slice(0,80):v;}
+  S.draftKept=true;return base;
+}
+window.addEventListener('pagehide',()=>draftKeep());
+/* the region list at the top stays open across redraws (the counts arriving redraw the page) */
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('fr-more'))S.frMore=t.open;},true);
+/* section V's region browser: every region's map in miniature, with its players; choosing one keeps the draft */
+function foundRegionBrowser(){
+  regStatsSoon();
+  const known=Object.keys(RSTAT.n).length>0;
+  return `<p class="hint">Each region has its own map, computer nations and players. Everything you have filled in above comes with you when you switch.</p>
+    <div class="wr-grid fr-grid">${REGIONS.map(R=>{const here=R.id===REG.id,full=!here&&regFull(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,c=here||known?regCount(R.id):null;
+      return `<article class="wr-card${here?' here':''}"><button type="button" class="wr-pick" data-act="found-region" data-id="${R.id}"${here?' aria-current="true"':''}${full?' disabled':''}><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
+        <span class="wr-b"><span class="wr-n">${esc(R.name)}${here?' <span class="chip ok">Chosen</span>':''}${full?' <span class="chip">Full</span>':''}</span><span class="wr-s">${esc(R.short)}</span>
+        <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations${c==null?'':` · ${c===1?'1 player':c+' players'}`}</span></span></button></article>`;}).join('')}</div>`;
+}
 /* choosing a region on the founding page */
 function foundRegionBox(){
   if(RSTAT.nm0==null&&S.draft)RSTAT.nm0=S.draft.name;
@@ -20230,7 +20268,7 @@ function foundRegionBox(){
   const pl=R=>{if(!known&&R.id!==REG.id)return '';const c=regCount(R.id);return ` · ${c===1?'1 player':c+' players'}`;};
   return `<div class="fr-box"><p class="eyebrow">Region</p><p class="fr-now"><b>${esc(REG.name)}</b> · ${esc(REG.short)}</p>
     ${full?`<p class="hint">${esc(REG.name)} is full: it has room for ${REGION_CAP} active nations. Choose another region to found your nation.</p>`:''}
-    <details class="fr-more"${full?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${REGIONS.map(R=>{const f=R.id!==REG.id&&regFull(R.id);return `<li><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
+    <details class="fr-more"${full||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${REGIONS.map(R=>{const f=R.id!==REG.id&&regFull(R.id);return `<li><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
 }
 
 /* ───────── Round 9 (E): dormant nations ─────────
@@ -32456,6 +32494,8 @@ function foundView(){
           <p class="q-result">Your nation would be classed as: <b>${esc(cat)}</b>.</p>
         </fieldset>
         <fieldset class="fs"><legend class="fs-l"><span class="fs-n">V</span>Location</legend>
+          <div class="fr-loc"><p>Region: <b>${esc(REG.name)}</b> · ${esc(REG.short)}</p><button type="button" class="btn ghost" data-act="found-browse" aria-expanded="${!!S.frBrowse}">${S.frBrowse?'Close the region browser':'Browse regions'}</button></div>
+          ${S.frBrowse?foundRegionBrowser():''}
           <p class="muted" style="margin-bottom:14px">Pick the hex where your capital will stand. You start with the land round it and claim more with land credits as the population grows, so leave room from your neighbours. You can also skip this and choose later.</p>
           ${mapBox('found','')}
           <p class="loc-status" id="found-loc">${foundLocHTML()}</p>
@@ -32569,8 +32609,8 @@ function go(v){
 function found(){
   const d=S.draft,name=d.name.trim().replace(/\s+/g,' ');
   if(name.length<2){S.foundErr='Give your nation a name of at least two characters.';render();const el=document.getElementById('d-name');if(el)el.focus();return;}
-  if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${REGION_CAP} active nations. Choose another region above.`;render();return;}
-  S.foundErr='';
+  if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${REGION_CAP} active nations. Choose another region, at the top or under Location.`;render();return;}
+  S.foundErr='';try{sessionStorage.removeItem(DRAFT_SS);}catch(e){}
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:10,
@@ -32818,7 +32858,7 @@ function start(data){
   data=data||{};
   applyTheme(themePref());
   S.nation=loadLocal();
-  S.draft=data.draft||newDraft();
+  S.draft=data.draft||(!S.nation&&draftRestore())||newDraft();
   if(data.view){
     S.view=data.view;S.openIssue=data.openIssue||null;S.result=data.result||null;S.visit=data.visit||null;
     S.censusKey=data.censusKey||'happy';S.settings=data.settings||null;

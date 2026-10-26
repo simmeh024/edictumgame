@@ -246,7 +246,33 @@ await Z.fill('#d-name', 'Latecomer'); await Z.click('[data-act="found-suggest"]'
 check('founding in a full region is refused, with the reason', await until(async () => /Meridian Reach is full/.test(await text(Z, 'form .err'))) && !(await Z.$('.layout')));
 await Z.ctx.close();
 
-/* ── 11. how it looks ───────────────────────────────────────────────────── */
+/* ── 11. switching region while founding keeps what was filled in ─────── */
+const K = await player('K');
+const uidK = await open(K);
+await K.fill('#d-name', 'Keepsake');
+await K.fill('#d-motto', 'Nothing Lost');
+await K.click('#q0-2');
+await K.click('[data-act="found-suggest"]');
+await K.click('[data-act="found-browse"]');
+await K.waitForSelector('.fr-grid [data-act="found-region"][data-id="driftlands"]');
+check('section V has a region browser with every region', (await K.$$('.fr-grid .wr-card')).length === 26);
+await Promise.all([K.waitForNavigation(), K.click('.fr-grid [data-act="found-region"][data-id="driftlands"]')]);
+await ready(K);
+check('choosing a region in the browser switches to it', (await K.evaluate(() => localStorage.getItem('statehood.region'))) === 'driftlands' && !/Meridian Reach/.test(await text(K, '.fr-now')));
+check('the name, motto and answers come along', (await K.inputValue('#d-name')) === 'Keepsake' && (await K.inputValue('#d-motto')) === 'Nothing Lost' && (await K.getAttribute('#q0-2', 'aria-checked')) === 'true');
+check('the capital’s spot, which belonged to the old map, does not', /No location chosen yet/.test(await text(K, '#found-loc')));
+await K.reload(); await ready(K);
+check('a reload keeps the draft too', (await K.inputValue('#d-name')) === 'Keepsake');
+await K.click('.fr-more summary');
+await Promise.all([K.waitForNavigation(), K.click('.fr-list [data-act="found-region"][data-id="frostmarch"]')]);
+await ready(K);
+check('the region list at the top keeps it as well', (await K.inputValue('#d-name')) === 'Keepsake' && (await K.evaluate(() => localStorage.getItem('statehood.region'))) === 'frostmarch');
+await found(K, 'Keepsake');
+check('the nation is founded in the chosen region, with its motto', await until(async () => { const d = await nationDoc(uidK); return d && d.reg === 'frostmarch' && d.rec.motto === 'Nothing Lost'; }));
+check('and the draft is cleared once founded', (await K.evaluate(() => sessionStorage.getItem('statehood.draft'))) === null);
+await K.ctx.close();
+
+/* ── 12. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {
   const S = await player('S' + vp.width, { vp, dark });
   await open(S);
