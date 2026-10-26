@@ -48,7 +48,7 @@ FONTS = [
 PRELOAD = ['bodoni-moda-latin-opsz-normal', 'public-sans-latin-wght-normal']  # used on the first screen
 
 TITLE = 'Edictum'
-DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, decide the issues on your desk, '
+DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, rule on the edicts that reach your desk, '
                'claim land on a shared map, and trade, ally or go to war with other players.')
 OG_ALT = 'The Edictum seal beside the words: Edictum, a nation simulator.'
 # What #app holds until the game draws itself: a loading screen, and for anything that does not run the

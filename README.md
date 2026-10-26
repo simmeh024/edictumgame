@@ -1,7 +1,7 @@
 # Edictum
 
-Edictum is a multiplayer nation simulator in a single web page. Players found a nation, decide
-the issues that land on their desk, claim land on a hex map of their region, build cities, trade,
+Edictum is a multiplayer nation simulator in a single web page. Players found a nation, rule on
+the edicts that land on their desk, claim land on a hex map of their region, build cities, trade,
 form alliances, spy, go to war, vote in a regional assembly and, in the end, head for the Moon and
 Mars. Every nation is run by a player or by the computer, and players in a region share one map
 and one message board.
