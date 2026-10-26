@@ -38,6 +38,12 @@ like), and **Firestore** holds the shared world.
   nations that have any. Those are shared by every region, so every player reads them.
 - `boards/<region>/posts/<id>`: `{a: <author uid>, t, x}`, one post on a region's message board;
   `limits/<uid>` `{p}` paces each player's posting.
+- `reports/<id>`: a player's report of another player's post or nation (a ticket in the admin
+  portal), with a copy of what was reported; `rlimits/<uid>` `{r}` paces reporting. Only admins
+  read them.
+- `mod/<uid>`: a moderator hid a nation from the other players, or removed it (so its owner's
+  browser drops its copy). Everyone reads these. `bans/<uid>`: a banned account; it may save no
+  nation, post or report. The player and admins read it.
 
 A nation save writes the nation, its summary and (when it changed) its space record in one batch.
 Anyone may read the world; each player writes only their own documents; admins may also delete any
@@ -61,6 +67,26 @@ filled in is kept (in the tab's session storage) until the nation is founded.
 **Adding a region.** When the regions fill, add more rather than enlarging these: a new entry in
 `REGIONS_EXTRA` in the game (name, description, `geo`, lands, computer nations, alliances) and its id
 in the `region()` list in `firestore.rules`. The map, its size and the player counts follow from that.
+
+**Moderation.** Players report a nation (its page) or a post (the region board), choosing a reason
+and adding a note; one report every 30 seconds. Each report is a ticket in the admin portal's queue,
+where an admin can remove the post, hide the nation (it leaves everyone else's view; its owner is
+told why and can still play), remove the nation (it and its posts are deleted; the player may found
+a new one), ban the player (the nation is removed and the account can no longer save, post or
+report), or simply close the ticket. Hidden nations and banned players are listed in the portal
+with Unhide and Unban. A banned guest can come back by clearing their browser; a Google account
+cannot.
+
+**Deleting an account.** The account menu's **Delete my nation and account** removes the player's
+posts in every region, their nation, summary and space record, their pacing records and their
+account (a Google account is asked to confirm the sign-in first). The daily backups lose it within
+14 days.
+
+**Privacy and terms.** `src/privacy.html` and `src/terms.html`, with Spanish versions
+`src/privacidad.html` and `src/terminos.html`, are served as `/privacy`, `/terms`, `/privacidad`
+and `/terminos`, each with a button to the other language. The game links to them from the side
+bar's foot, the founding page and the account menu. The notice follows Mexico's LFPDPPP (ARCO
+rights) and keeps GDPR rights for players in the EU; the terms are under Mexican law.
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers

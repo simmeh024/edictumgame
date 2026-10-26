@@ -9,7 +9,7 @@
 import path from 'node:path';
 import {
   BASE, OUT, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
-  restGet, restList, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors
+  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors
 } from './lib.mjs';
 
 await clearEmulators();
@@ -122,6 +122,131 @@ check('B no longer sees the removed post', await until(async () => !/rude remark
 check('B still sees A’s post', /Greetings from Aldoria/.test(await text(B, '.posts')));
 await B.goto(BASE + '/#admin'); await ready(B);
 check('#admin shows a non-admin the game, not the portal', await until(async () => !!(await B.$('.layout')) && !(await B.$('.adm'))));
+
+/* ── 5b. reports, and hiding a nation ──────────────────────────────────── */
+const M = await player('M');
+const uidM = await open(M);
+await found(M, 'Spamland');
+await nav(M, 'region');
+await M.fill('#rmb-text', 'Buy cheap gold at spam.example');
+await M.click('#rmb-form button[type="submit"]');
+await nav(B, 'region');
+const repBtn = await until(() => B.$(`.posts [data-act="report-post"][data-a="${uidM}"]`));
+check('players see Report on other players’ posts, not on their own', !!repBtn && !(await B.$(`.posts [data-act="report-post"][data-a="${uidB}"]`)));
+await B.click(`.posts [data-act="report-post"][data-a="${uidM}"]`);
+await B.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
+check('the report dialog quotes the post', /Buy cheap gold/.test(await text(B, 'dialog.ed-dlg .ed-quote')));
+await B.check('input[name="ed-reason"][value="spam"]');
+await B.fill('#ed-note', 'Advertising');
+await B.click('[data-ed="report-yes"]');
+check('the report is sent, and the player thanked', await until(async () => /with the moderators/.test(await toasts(B))));
+const reps1 = await until(async () => { const l = await restListAdmin('reports'); return l.length ? l : null; });
+check('the report keeps what was reported, and why', !!reps1 && reps1[0].fields.kind.stringValue === 'post' && reps1[0].fields.target.stringValue === uidM && /Buy cheap gold/.test(reps1[0].fields.x.stringValue) && reps1[0].fields.reason.stringValue === 'spam' && reps1[0].fields.note.stringValue === 'Advertising');
+check('players cannot read reports', (await restGet('reports')).status === 403);
+await B.click(`.tbl [data-act="visit"][data-id="${uidM}"]`);
+await B.waitForSelector('[data-act="report-nation"]');
+await B.click('[data-act="report-nation"]');
+await B.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
+await B.click('[data-ed="report-yes"]');
+check('a second report within 30 seconds is refused, with the reason', await until(async () => /every 30 seconds/.test(await text(B, '.ed-msg'))));
+await B.keyboard.press('Escape');
+const N = await player('N');
+await open(N);
+await found(N, 'Nettleton');
+await nav(N, 'region');
+await (await until(() => N.$(`.tbl [data-act="visit"][data-id="${uidM}"]`))).click();
+await N.click('[data-act="report-nation"]');
+await N.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
+check('a nation report starts at the nation’s name', await N.isChecked('input[name="ed-reason"][value="name"]'));
+await N.click('[data-ed="report-yes"]');
+await until(async () => (await restListAdmin('reports')).length === 2);
+// the admin deals with the tickets from the portal, opened with the pill
+await A.click('.side-who .adm-pill');
+const repList = await until(async () => { const t = await text(A, '.adm-reps'); return /Spamland/.test(t) && /Buy cheap gold/.test(t) ? t : ''; }, 15000);
+check('the portal’s ticket queue lists both reports, with what was reported', !!repList, repList ? '' : (await text(A, '.adm')).replace(/\s+/g, ' ').slice(0, 600));
+await A.click('.adm-rep:has(.adm-quote) [data-act="adm-delpost"]');
+check('Remove the post deletes it and closes its ticket', await until(async () => !(await restList('boards/meridian/posts')).some(p => /cheap gold/.test(p.fields.x.stringValue)) && (await restListAdmin('reports')).length === 1));
+check('the other players no longer see the post', await until(async () => !/cheap gold/.test(await text(B, '.posts'))));
+await A.click('.adm-rep [data-act="adm-hide"]');
+check('Hide the nation records it in mod/<uid>, readable by all', await until(async () => (await restGet('mod/' + uidM)).status === 200));
+await nav(B, 'region');
+check('a hidden nation leaves the other players’ region', await until(async () => !/Spamland/.test(await text(B, '.tbl')) && /Aldoria/.test(await text(B, '.tbl'))));
+await M.reload(); await ready(M);
+check('its owner still plays it, and is told why', await until(async () => (await sideName(M)) === 'Spamland' && /moderator has hidden Spamland/.test(await toasts(M)), 15000));
+check('the portal lists it under Hidden nations', await until(async () => !!(await A.$('[data-act="adm-unhide"]'))));
+await A.click('[data-act="adm-unhide"]');
+check('Unhide brings it back', await until(async () => (await restGet('mod/' + uidM)).status === 404) && await until(async () => /Spamland/.test(await text(B, '.tbl'))));
+
+// a third report, and the admin bans the player behind Spamland
+const O = await player('O');
+await open(O);
+await found(O, 'Ostrava');
+await nav(O, 'region');
+await (await until(() => O.$(`.tbl [data-act="visit"][data-id="${uidM}"]`))).click();
+await O.click('[data-act="report-nation"]');
+await O.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
+await O.check('input[name="ed-reason"][value="cheating"]');
+await O.click('[data-ed="report-yes"]');
+await until(async () => (await restListAdmin('reports')).length === 1);
+await A.click('[data-act="admin-refresh"]');
+await (await until(() => A.$('.adm-rep [data-act="adm-ban"]'))).click();
+check('banning asks to confirm first, and says what happens', await until(async () => /can no longer play/.test(await text(A, '.adm-ask'))) && !(await restGet('bans/' + uidM).then(r => r.status === 200)));
+await A.click('[data-act="adm-ban-yes"]');
+check('Ban removes the nation and its records, and closes its tickets', await until(async () => (await restGet('nations/' + uidM)).status === 404 && (await restGet('summaries/' + uidM)).status === 404 && (await restListAdmin('reports')).length === 0, 15000));
+check('the ban is recorded in bans/<uid>, not readable by strangers', (await restListAdmin('bans')).some(b => b.id === uidM) && (await restGet('bans/' + uidM)).status === 403);
+check('the portal lists the banned player', await until(async () => !!(await A.$(`[data-act="adm-unban"][data-id="${uidM}"]`))));
+await M.reload(); await ready(M);
+check('the banned player’s browser drops the nation, and they are told', await until(async () => !!(await M.$('#d-name')) && /banned/.test(await toasts(M)), 15000));
+await M.fill('#d-name', 'Spamland Reborn'); await M.click('[data-act="found-suggest"]'); await M.click('#found-btn');
+check('and they cannot found a new nation', await until(async () => /This account is banned/.test(await text(M, 'form .err'))) && !(await M.$('.layout')));
+await A.click(`[data-act="adm-unban"][data-id="${uidM}"]`);
+check('Unban lifts it', await until(async () => !(await restListAdmin('bans')).some(b => b.id === uidM)));
+
+// a ticket the admin simply closes
+const P = await player('P');
+await open(P);
+await found(P, 'Pellmell');
+await nav(P, 'region');
+await (await until(() => P.$(`.tbl [data-act="visit"][data-id="${uidB}"]`))).click();
+await P.click('[data-act="report-nation"]');
+await P.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
+await P.click('[data-ed="report-yes"]');
+await until(async () => (await restListAdmin('reports')).length === 1);
+await A.click('[data-act="admin-refresh"]');
+await (await until(() => A.$('.adm-rep [data-act="adm-close"]'))).click();
+check('Close ticket closes it and leaves the nation alone', await until(async () => (await restListAdmin('reports')).length === 0) && (await restGet('nations/' + uidB)).status === 200);
+await A.click('[data-act="admin-close"]');
+await O.ctx.close(); await P.ctx.close();
+
+/* ── 5c. deleting a nation and account ─────────────────────────────────── */
+const Q = await player('Q');
+const uidQ = await open(Q);
+await found(Q, 'Fleeting');
+await nav(Q, 'region');
+await Q.fill('#rmb-text', 'Goodbye, region');
+await Q.click('#rmb-form button[type="submit"]');
+await until(async () => (await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
+await openAccount(Q);
+await Q.click('[data-ed="delete"]');
+check('deleting asks first, and says what goes', /Delete your nation and account/.test(await text(Q, '#ed-dlg-h')) && /cannot be undone/.test(await text(Q, 'dialog.ed-dlg')));
+await Promise.all([Q.waitForNavigation({ timeout: 20000 }), Q.click('[data-ed="delete-yes"]')]);
+const uidQ2 = await ready(Q);
+check('the browser starts again as a new guest, on the founding page', !!uidQ2 && uidQ2 !== uidQ && !!(await Q.$('#d-name')));
+check('the player is told', await until(async () => /have been deleted/.test(await toasts(Q))));
+check('the nation, its summary and its posts are gone', (await restGet('nations/' + uidQ)).status === 404 && (await restGet('summaries/' + uidQ)).status === 404 && !(await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
+check('and so is the account', !(await accountExists(uidQ)));
+
+/* ── 5d. the privacy notice and the terms ──────────────────────────────── */
+for (const [path, h] of [['/privacy', 'Privacy notice'], ['/privacidad', 'Aviso de privacidad'], ['/terms', 'Terms of use'], ['/terminos', 'Términos de uso']]) {
+  const r = await fetch(BASE + path), t = await r.text();
+  check(`${path} is served`, r.status === 200 && t.includes('<h1>' + h + '</h1>') && t.includes('p.slettenaar@gmail.com'));
+}
+for (const [from, to] of [['/privacy', '/privacidad'], ['/privacidad', '/privacy'], ['/terms', '/terminos'], ['/terminos', '/terms']]) {
+  const t = await (await fetch(BASE + from)).text();
+  check(`${from} has a button to ${to}`, new RegExp('class="lang" href="' + to + '"').test(t));
+}
+check('the side bar and the founding page link to both', !!(await A.$('.side-legal a[href="/privacy"]')) && !!(await A.$('.side-legal a[href="/terms"]')) && !!(await Q.$('.found-legal a[href="/terms"]')));
+await M.ctx.close(); await N.ctx.close(); await Q.ctx.close();
 
 /* ── 6. Firebase blocked: browser-only mode ─────────────────────────────── */
 const C = await player('C', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });

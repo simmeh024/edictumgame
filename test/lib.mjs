@@ -95,6 +95,20 @@ export async function restList(colPath) {
   const r = await restGet(colPath + '?pageSize=300');
   return r.status === 200 ? (r.body.documents || []).map(d => ({ id: d.name.split('/').pop(), fields: d.fields || {} })) : [];
 }
+// the same, past the rules (the Firestore emulator takes "Bearer owner" as an admin credential)
+export async function restListAdmin(colPath) {
+  const r = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${colPath}?pageSize=300`, { headers: { authorization: 'Bearer owner' } });
+  const b = await r.json().catch(() => ({}));
+  return r.status === 200 ? (b.documents || []).map(d => ({ id: d.name.split('/').pop(), fields: d.fields || {} })) : [];
+}
+// whether the Auth emulator still has an account
+export async function accountExists(uid) {
+  const r = await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:lookup`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ localId: [uid] })
+  });
+  const b = await r.json().catch(() => ({}));
+  return Array.isArray(b.users) && b.users.length > 0;
+}
 export async function nationDoc(uid) {
   const r = await restGet('nations/' + uid);
   if (r.status !== 200) return null;

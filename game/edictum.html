@@ -3590,6 +3590,20 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-bar i{display:block;height:100%;background:var(--accent)}
 .adm-bar.hi i{background:var(--stamp)}
 .adm td.num,.adm th.num{text-align:right;font-variant-numeric:tabular-nums}
+.adm-reps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.adm-rep{padding:12px 14px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
+.adm-rep-h{margin:0 0 6px;font-size:14px;color:var(--ink-2)}
+.adm-rep-h b{color:var(--ink)}
+.adm-quote{margin:0 0 8px;padding:8px 10px;border-left:3px solid var(--stamp);background:var(--sheet-2);font-size:14px;overflow-wrap:anywhere;white-space:pre-wrap}
+.adm-rep .row{gap:8px;margin-top:6px}
+.adm-rep code{font:12px var(--f-mono)}
+.adm-danger{color:var(--down)}
+.adm-ask{margin-top:10px;padding:10px 12px;border:1px solid var(--down);border-radius:4px;background:var(--down-soft)}
+.adm-ask p{margin:0 0 8px;color:var(--ink)}
+.side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
+.side-legal a{color:inherit}
+.found-legal a{color:inherit}
+.post-rep{color:var(--ink-3)}
 @media (max-width:720px){.adm{padding:18px 16px 48px}.adm-head .btn{margin-left:0}}
 
 </style>
@@ -29767,10 +29781,10 @@ function navSheet(b){
 }
 /* the shell's pieces: the side bar's own list (wide), the tab bar (narrow), the page foot (narrow) */
 function navSide(nar,nav){return nar?'':`<nav class="nav" aria-label="Pages">${nav}</nav>
-    <div class="side-foot">${modeChip()}<p class="side-kbd">Press <kbd>/</kbd> to go to any page</p></div>`;}
+    <div class="side-foot">${modeChip()}<p class="side-kbd">Press <kbd>/</kbd> to go to any page</p><p class="side-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p></div>`;}
 function navFoot(nar,nav,b){
   if(!nar)return '';
-  return `<footer class="side-index"><p class="side-index-h" id="side-index-h">All pages</p><nav class="nav" aria-labelledby="side-index-h">${nav}</nav><div class="side-foot">${modeChip()}</div></footer>${S.moreOpen&&S.moreFor===S.view?navSheet(b):''}`;
+  return `<footer class="side-index"><p class="side-index-h" id="side-index-h">All pages</p><nav class="nav" aria-labelledby="side-index-h">${nav}</nav><div class="side-foot">${modeChip()}<p class="side-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p></div></footer>${S.moreOpen&&S.moreFor===S.view?navSheet(b):''}`;
 }
 /* render(): keep the side bar's scroll, keep the current page in view, settle focus, title and page classes */
 function navBefore(){
@@ -32115,6 +32129,10 @@ async function connect(){
   S.isOwner=await user.isOwner();
   const can=await user.can('data.write');
   S.mode=can===false?'readonly':'world';
+  /* a moderator's word comes first: a banned account saves nothing, and a removed nation's copy in this
+     browser goes rather than being uploaded again */
+  try{const b=await db.doc('bans/'+uid).get();if(b.exists){S.banned=b.data()||{};S.mode='readonly';banNotice();}}catch(e){}
+  try{const m=await db.doc('mod/'+uid).get(),v=m.exists?m.data():null;if(v&&v.removed&&S.nation&&(S.nation.founded||0)<v.removed)modRemoved(v);}catch(e){}
   try{
     const snap=await db.doc('nations/'+uid).get();
     const rawMe=snap.exists?snap.data():null;
@@ -32126,14 +32144,15 @@ async function connect(){
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
      the World page counts and lists them on demand (RSTAT). */
-  let regQS=null,spQS=null,hadMine=false;
+  let regQS=null,spQS=null,hadMine=false;S.mod=S.mod||{};
+  const hidden=id=>!!(S.mod[id]&&S.mod[id].hidden)&&id!==S.uid;
   const shared=()=>{
     if(!regQS||!spQS)return;
     const w={},all={};
-    for(const d of spQS.docs){const raw=d.data();if(!raw||!REG_BY_ID[raw.reg])continue;
+    for(const d of spQS.docs){const raw=d.data();if(!raw||!REG_BY_ID[raw.reg]||hidden(d.id))continue;
       all[d.id]={reg:raw.reg,name:String(raw.name||'').slice(0,40),pop:0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);}
     let mineHere=false;
-    for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;
+    for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;if(hidden(d.id)){if(d.id===S.uid)mineHere=true;continue;}
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
       if(d.id===S.uid)mineHere=true;const n=normalize(raw);if(n)w[d.id]=n;}
     /* this record left the region from another device: follow it there */
@@ -32151,11 +32170,17 @@ async function connect(){
   const none={docs:[]};
   db.collection('nations').where('reg','==',REG.id).onSnapshot(qs=>{regQS=qs;shared();},()=>{regQS=regQS||none;shared();});
   db.collection('space').onSnapshot(qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
-  db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60).onSnapshot(qs=>{
+  let boardQS=none;
+  const board=()=>{
     const r={};
-    for(const d of qs.docs){const p=d.data();if(!p||!p.a||typeof p.x!=='string')continue;(r[p.a]||(r[p.a]={posts:[]})).posts.push({id:p.id,t:Number(p.t)||0,x:p.x.slice(0,400),r:REG.id});}
+    for(const d of boardQS.docs){const p=d.data();if(!p||!p.a||typeof p.x!=='string'||hidden(p.a))continue;(r[p.a]||(r[p.a]={posts:[]})).posts.push({id:p.id,t:Number(p.t)||0,x:p.x.slice(0,400),r:REG.id});}
     S.rmb=r;
     if(S.view==='region')render();
+  };
+  db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60).onSnapshot(qs=>{boardQS=qs;board();},()=>{});
+  db.collection('mod').onSnapshot(qs=>{
+    const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
+    S.mod=m;modNotice();shared();board();
   },()=>{});
   render();
 }
@@ -32432,7 +32457,7 @@ function regionView(now){
     posts.sort((a,b)=>b.p.t-a.p.t);
     const canPost=S.mode==='world'&&!!S.nation;
     board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">You have view-only access, so you can read the board but not post.</div>`}
-    ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const nat=aid===S.uid?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,aid===S.uid):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
+    ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const nat=aid===S.uid?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,aid===S.uid):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="c-cat">Category</th><th class="c-al">Alliance</th><th class="c-pop">Population</th><th class="c-pop">Land area</th></tr></thead><tbody>
@@ -32449,7 +32474,7 @@ function visitView(now){
   const n=x.n;
   return `<button class="back" data-act="go" data-v="region">← ${REGION}</button>
   ${hero(n,{player:!x.npc})}
-  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button><button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button></div>
+  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button><button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>
   ${relationCard(x)}${runHooks(VISIT_SECTIONS,x,now).join('')}
   ${freedoms(n.s)}
   <div class="nation-grid">
@@ -32525,7 +32550,7 @@ function foundView(){
           <p class="loc-status" id="found-loc">${foundLocHTML()}</p>
           <button type="button" class="btn ghost" data-act="found-suggest" style="margin-top:10px">Pick a spot for me</button>
         </fieldset>
-        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"><span>Found <span id="found-name">${esc(fullName({pretitle:d.pretitle,name:d.name.trim()||'your nation'}).replace(/^The /,'the '))}</span></span></button><p class="hint">Your first two issues will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of issue you get.</p></div>
+        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"><span>Found <span id="found-name">${esc(fullName({pretitle:d.pretitle,name:d.name.trim()||'your nation'}).replace(/^The /,'the '))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two issues will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of issue you get.</p></div>
       </form>
       <aside class="found-preview" id="found-preview">${previewCard(d)}</aside>
     </div>
@@ -32633,6 +32658,7 @@ function go(v){
 function found(){
   const d=S.draft,name=d.name.trim().replace(/\s+/g,' ');
   if(name.length<2){S.foundErr='Give your nation a name of at least two characters.';render();const el=document.getElementById('d-name');if(el)el.focus();return;}
+  if(S.banned){S.foundErr=`This account is banned from Edictum${S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, write to ${CONTACT}.`;render();return;}
   if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${REGION_CAP} active nations. Choose another region, at the top or under Location.`;render();return;}
   S.foundErr='';try{sessionStorage.removeItem(DRAFT_SS);}catch(e){}
   const now=Date.now(),{s,b}=foundStats(d.answers);
@@ -32881,7 +32907,26 @@ function tick(){
    For players with the admin claim (tools/admin/set-admin.mjs): live counts of players, per region and
    overall, the largest nations, and a way back to the game. Everything here is public data counted on
    demand (one cheap count per figure), loaded when the page opens and at most once a minute after. */
-const ADM={at:0,busy:false,err:'',d:null};
+const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
+const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
+/* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
+   stays theirs to play); a removed nation leaves this browser too */
+let modTold=false;
+function modNotice(){
+  const m=S.mod&&S.mod[S.uid];if(!m||!S.nation)return;
+  if(m.removed&&(S.nation.founded||0)<m.removed){modRemoved(m);return;}
+  if(!m.hidden||modTold)return;modTold=true;
+  toast(`A moderator has hidden ${S.nation.name} from other players${m.note?': '+m.note:''}. If you think this is a mistake, write to ${CONTACT}.`);
+}
+function modRemoved(m){
+  const nm=S.nation?S.nation.name:'Your nation';
+  S.nation=null;saveLocal(null);S.view='nation';S.draft=newDraft();
+  setTimeout(()=>toast(`A moderator removed ${nm}${m.note?': '+m.note:''}. ${S.banned?'This account is banned from Edictum.':'You can found a new nation.'} If you think this is a mistake, write to ${CONTACT}.`),0);
+  render();
+}
+let banTold=false;
+function banNotice(){if(banTold)return;banTold=true;setTimeout(()=>toast(`This account is banned from Edictum${S.banned&&S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, write to ${CONTACT}.`),0);}
+const CONTACT='p.slettenaar@gmail.com';
 function admLoad(force){
   if(!S.db||typeof S.db.count!=='function'||ADM.busy||(!force&&ADM.d&&Date.now()-ADM.at<6e4))return;
   ADM.busy=true;ADM.err='';
@@ -32889,15 +32934,18 @@ function admLoad(force){
   Promise.all([
     c('summaries'),c('summaries',since(DORM_MS)),c('summaries',since(7*DAY)),c('summaries',since(DAY)),c('summaries',since(15*60000)),c('space'),
     Promise.all(REGIONS.map(R=>Promise.all([c('summaries',[['reg','==',R.id],['t','>',now-DORM_MS]]),c('summaries',[['reg','==',R.id],['t','>',now-DAY]]),c('boards/'+R.id+'/posts')]))),
-    S.db.collection('summaries').orderBy('pop','desc').limit(10).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null)
-  ]).then(([all,active,week,today,live,space,regs,top])=>{
-    ADM.d={all,active,week,today,live,space,top,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
+    S.db.collection('summaries').orderBy('pop','desc').limit(10).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null),
+    S.db.collection('reports').orderBy('t','desc').limit(100).get().then(qs=>qs.docs.map(d=>{const x=d.data()||{};return Object.assign({},x,{id:d.id,t:x.t&&typeof x.t.toMillis==='function'?x.t.toMillis():Number(x.t)||0});}),()=>null),
+    S.db.collection('bans').orderBy('t','desc').limit(200).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null)
+  ]).then(([all,active,week,today,live,space,regs,top,reports,bans])=>{
+    ADM.d={all,active,week,today,live,space,top,reports,bans,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
     if(all==null&&active==null)ADM.err='The figures could not be loaded. Try again in a moment.';
     ADM.at=Date.now();ADM.busy=false;if(S.view==='admin')render();
   },()=>{ADM.busy=false;ADM.err='The figures could not be loaded. Try again in a moment.';if(S.view==='admin')render();});
 }
 function adminView(){
-  admLoad();
+  /* opening the page (not a redraw while it is open) always counts afresh */
+  const now0=Date.now();admLoad(now0-(ADM.seen||0)>1e4);ADM.seen=now0;
   const d=ADM.d,n=v=>v==null?'–':Number(v).toLocaleString('en-GB'),kpi=(v,l)=>`<div class="adm-kpi"><b>${n(v)}</b><span>${l}</span></div>`;
   const when=ADM.at?new Date(ADM.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'';
   const regs=d?d.regs.slice().sort((a,b)=>(b.active||0)-(a.active||0)||(a.R.name<b.R.name?-1:1)):[];
@@ -32915,7 +32963,11 @@ function adminView(){
       ${kpi(d.week,'active this week')}
       ${kpi(d.all,'nations in all, dormant ones included')}
       ${kpi(d.space,'nations in space (Moon, Mars or the belt)')}
+      ${kpi(d.reports?d.reports.length:null,'open tickets')}
     </div>
+    ${admReports(d.reports)}
+    ${admHidden()}
+    ${admBanned(d.bans)}
     <h2 class="h2">Regions</h2>
     <p class="hint">${REGIONS.length} regions, each with room for ${REGION_CAP} active nations. Newcomers go to the fullest region with room.</p>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Region</th><th class="num">Players</th><th class="num">Active today</th><th>Room</th><th class="num">Board posts</th></tr></thead><tbody>
@@ -32928,12 +32980,69 @@ function adminView(){
     <p class="hint" style="margin-top:22px">Not counted here: how many players are guests and how many signed in with Google. Only the server can see accounts (Firebase console, Authentication).</p>`}
   </div>`;
 }
+function admReports(list){
+  const n=list?list.length:0;
+  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const ban=q.a==='adm-ban';
+    return `<div class="adm-ask"><p>${ban?`Ban the player of <b>${esc(r.name||'this nation')}</b>? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a Google account cannot.`:`Remove <b>${esc(r.name||'this nation')}</b> for good? The nation and its posts are deleted; the player may found a new one.`}</p>
+      <div class="row"><button class="btn danger small" data-act="${q.a}-yes" data-id="${esc(r.id)}">${ban?'Yes, ban':'Yes, remove'}</button><button class="btn ghost small" data-act="adm-ask-no">Cancel</button></div></div>`;};
+  return `<h2 class="h2">Ticket queue${n?` <span class="chip">${n}</span>`:''}</h2>
+    ${ADM.act?`<p class="hint">${esc(ADM.act)}</p>`:''}
+    ${list==null?'<p class="err">The tickets could not be loaded.</p>':!n?'<p class="hint">No open tickets. When a player reports a post or a nation, a ticket appears here.</p>':
+    `<ul class="adm-reps">${list.map(r=>{const post=r.kind==='post',hid=!!(S.mod&&S.mod[r.target]&&S.mod[r.target].hidden);
+      return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post?'Post':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
+        ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,600))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
+        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">Remove the post</button>`:''}${hid?'<span class="hint">Hidden from other players.</span>':`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button><button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button></div>${ask(r)}</li>`;}).join('')}</ul>`}`;
+}
+function admHidden(){
+  const ids=Object.keys(S.mod||{}).filter(id=>S.mod[id].hidden);
+  return `<h2 class="h2">Hidden nations</h2>${!ids.length?'<p class="hint">None. A hidden nation disappears from other players’ maps, regions and boards; its owner can still play it and is told why.</p>':
+    `<ul class="adm-reps">${ids.map(id=>{const m=S.mod[id];return `<li class="adm-rep"><p class="adm-rep-h"><b>${esc(m.name||id)}</b>${m.t?` · hidden ${esc(rel(m.t))}`:''}</p>${m.note?`<p class="hint">${esc(m.note)}</p>`:''}<div class="row"><button class="btn ghost small" data-act="adm-unhide" data-id="${esc(id)}">Unhide</button></div></li>`;}).join('')}</ul>`}`;
+}
+function admBanned(list){
+  return `<h2 class="h2">Banned players</h2>${list==null?'<p class="err">The bans could not be loaded.</p>':!list.length?'<p class="hint">None. A banned account cannot save a nation, post or report; it is told why.</p>':
+    `<ul class="adm-reps">${list.map(b=>`<li class="adm-rep"><p class="adm-rep-h"><b>${esc(b.name||'A player')}</b> · player ID <code>${esc(b.id)}</code>${b.t?` · banned ${esc(rel(Number(b.t)))}`:''}</p>${b.note?`<p class="hint">${esc(b.note)}</p>`:''}<div class="row"><button class="btn ghost small" data-act="adm-unban" data-id="${esc(b.id)}">Unban</button></div></li>`).join('')}</ul>`}`;
+}
+/* removing a nation: its posts everywhere, its records, and word to its owner's browser (mod/<uid>.removed) */
+async function admRemove(uid,note,name,ban){
+  const qs=await S.db.collectionGroup('posts').where('a','==',uid).get();
+  for(const d of qs.docs){const p=d.data();if(p&&p.r)await S.db.doc('boards/'+p.r+'/posts/'+d.id).delete();}
+  await S.db.doc('nations/'+uid).delete();
+  const now=Date.now();
+  await S.db.doc('mod/'+uid).set({hidden:false,removed:now,note,name,t:now,by:S.uid});
+  if(ban)await S.db.doc('bans/'+uid).set({note,name,t:now,by:S.uid});
+}
+async function admAct(a,id){
+  const r=ADM.d&&ADM.d.reports&&ADM.d.reports.find(x=>x.id===id);
+  const why=r?(REPORT_WHY[r.reason]||'Reported')+(r.note?': '+r.note:'')+'.':'';
+  const closeAll=async uid=>{for(const x of (ADM.d.reports||[]))if(x.target===uid)await S.db.doc('reports/'+x.id).delete();};
+  ADM.ask=null;
+  try{
+    if(a==='adm-delpost'&&r){await S.db.doc('boards/'+r.reg+'/posts/'+r.post).delete();await S.db.doc('reports/'+id).delete();ADM.act='The post was removed and the ticket closed.';}
+    else if(a==='adm-hide'&&r){await S.db.doc('mod/'+r.target).set({hidden:true,note:why,t:Date.now(),by:S.uid,name:String(r.name||'').slice(0,80)});await S.db.doc('reports/'+id).delete();ADM.act=`${r.name||'The nation'} is hidden from other players and the ticket closed.`;}
+    else if((a==='adm-remove'||a==='adm-ban')&&r){ADM.ask={a,id};ADM.act='';render();return;}
+    else if((a==='adm-remove-yes'||a==='adm-ban-yes')&&r){const ban=a==='adm-ban-yes';await admRemove(r.target,why,String(r.name||'').slice(0,80),ban);await closeAll(r.target);ADM.act=ban?`The player of ${r.name||'that nation'} is banned, the nation removed and its tickets closed.`:`${r.name||'The nation'} was removed and its tickets closed.`;}
+    else if(a==='adm-close'&&r){await S.db.doc('reports/'+id).delete();ADM.act='The ticket was closed.';}
+    else if(a==='adm-unhide'){await S.db.doc('mod/'+id).delete();ADM.act='The nation is visible again.';}
+    else if(a==='adm-unban'){await S.db.doc('bans/'+id).delete();ADM.act='The player is no longer banned.';}
+  }catch(e){ADM.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
+  admLoad(true);render();
+}
 shell=(f=>function(){if(S.view==='admin'&&S.isOwner)return adminView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){if(v==='admin'&&S.view!=='admin'){ADM.seen=0;ADM.act='';ADM.ask=null;}return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='admin-open'){e.preventDefault();go('admin');return;}
   if(a==='admin-close'){go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
+  if(a==='adm-ask-no'){ADM.ask=null;render();return;}
+  if(/^adm-(delpost|hide|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner)admAct(a,el.dataset.id);return;}
+  if(a==='report-nation'||a==='report-post'){
+    const id=el.dataset.id||el.dataset.a,x=findNation(id);if(!x||x.npc)return;
+    let info={kind:'nation',target:id,reg:REG.id,name:fullName(x.n),x:[x.n.motto,x.n.about].filter(Boolean).join(' · ').slice(0,600)};
+    if(a==='report-post'){const p=((S.rmb[id]||{}).posts||[]).find(q=>q.id===el.dataset.p);if(!p)return;info={kind:'post',target:id,post:p.id,reg:REG.id,name:x.n.name,x:p.x};}
+    Promise.resolve(window.claude&&window.claude.use('report')).then(r=>{if(r)r.open(info);else toast('Reporting needs a connection to the region.');});
+    return;
+  }
 });
 
 /* ───────── boot ───────── */
