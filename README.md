@@ -192,9 +192,14 @@ run on the separate staging project (step 10), so playing on a preview never tou
 
 ### 9. Making yourself an admin
 
-Admins see **Remove** on everyone's posts on the region message board.
+Admins see **Remove** on everyone's posts on the region message board, and a purple **Admin** pill
+beside their nation's name. The pill opens the admin portal (`#admin`): players in all and per
+region (active in the last 250 days, today, this week, in the last 15 minutes), how full each
+region is, its board posts, nations in space and the largest nations, all counted live, and a
+button back to the game. For anyone else `#admin` simply shows the game.
 
-1. Play on the site and link your nation to Google (**Keep your nation on every device**).
+1. Play on the site and link your nation to Google (**Keep your nation on every device**), so the
+   right stays with an account you can sign in to anywhere.
 2. On your computer, in this repository:
 
    ```sh
@@ -204,8 +209,11 @@ Admins see **Remove** on everyone's posts on the region message board.
    ```
 
    It also accepts the **Player ID** shown in the account menu, and `--remove` takes the right away.
-3. In the game, open the account menu, **Sign out**, and sign back in with Google. (The right
-   otherwise arrives on its own within the hour, when the sign-in renews.)
+3. Reload the game. It asks for a fresh sign-in token on every load, so the right arrives at once;
+   there is no need to sign out (which, for a guest, would start a new guest).
+
+   On Windows PowerShell: `npm.cmd ci`, then
+   `$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\path\to\key.json"; node set-admin.mjs <email or player id>`.
 
 ### 10. The staging project, for previews
 
