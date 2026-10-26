@@ -1,0 +1,53 @@
+rules_version = '2';
+
+// Edictum's world is public: anyone may read every nation and every region message board.
+// A signed-in player (anonymous guests included) writes only their own two documents:
+//   nations/{uid}  their whole nation, stored by src/shim.js as
+//                  {v: 1, j: <the nation record as JSON text>, reg, name, updatedAt}
+//   rmb/{uid}      their region message board posts, {posts: [...]}, at most 40
+// Admins (custom claim admin == true, see tools/admin) may also rewrite or clear anyone's
+// rmb document, to remove posts. Everything else is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    // The nation's JSON text is capped well below Firestore's 1 MiB document limit;
+    // src/shim.js refuses anything over 700,000 characters before it gets here.
+    function validNation(d) {
+      return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt'])
+        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt'])
+        && d.v == 1
+        && d.j is string && d.j.size() > 2 && d.j.size() <= 900000
+        && d.reg is string && d.reg.size() <= 40
+        && d.name is string && d.name.size() <= 80
+        && d.updatedAt is number;
+    }
+
+    function validRmb(d) {
+      return d.keys().hasOnly(['posts'])
+        && d.posts is list
+        && d.posts.size() <= 40;
+    }
+
+    match /nations/{uid} {
+      allow read: if true;
+      allow create, update: if isSelf(uid) && validNation(request.resource.data);
+      allow delete: if isSelf(uid);
+    }
+
+    match /rmb/{uid} {
+      allow read: if true;
+      allow create, update: if (isSelf(uid) || isAdmin()) && validRmb(request.resource.data);
+      allow delete: if isSelf(uid) || isAdmin();
+    }
+  }
+}

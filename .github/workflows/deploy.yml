@@ -1,0 +1,84 @@
+# Every push to main builds the site and deploys it to Firebase: the Firestore rules and
+# indexes first, then Hosting (the live channel).
+#
+# Needs, under Settings > Secrets and variables > Actions:
+#   secret   FIREBASE_SERVICE_ACCOUNT  the service account key JSON (see README.md, Owner setup)
+#   variable FIREBASE_PROJECT_ID       the Firebase project id
+#   variable SITE_URL                  optional: the address people use, such as https://edictum.example
+# Without the first two, the workflow says so and skips the deploy, so the run stays green.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-live
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      SITE_URL: ${{ vars.SITE_URL }}
+      HAS_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - name: Check the repository settings
+        id: settings
+        run: |
+          missing=""
+          [ "$HAS_SERVICE_ACCOUNT" = "true" ] || missing="$missing the secret FIREBASE_SERVICE_ACCOUNT and"
+          [ -n "$PROJECT_ID" ] || missing="$missing the variable FIREBASE_PROJECT_ID and"
+          if [ -n "$missing" ]; then
+            msg="Nothing was deployed: the repository is missing${missing% and}. Add what is missing under Settings > Secrets and variables > Actions (README.md, Owner setup, explains how), then re-run this workflow."
+            echo "::warning title=Deploy skipped::$msg"
+            { echo "### Deploy skipped"; echo; echo "$msg"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the pinned packages
+        if: steps.settings.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Build public/
+        if: steps.settings.outputs.ready == 'true'
+        run: python3 build.py --site-url "${SITE_URL:-https://$PROJECT_ID.web.app}"
+
+      - name: Deploy the Firestore rules and indexes
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only firestore:rules,firestore:indexes --project "$PROJECT_ID" --non-interactive
+
+      - name: Deploy the site to Firebase Hosting
+        if: steps.settings.outputs.ready == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          channelId: live
+          firebaseToolsVersion: 15.33.0

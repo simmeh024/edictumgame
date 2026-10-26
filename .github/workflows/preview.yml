@@ -1,0 +1,97 @@
+# Pull requests: test the Firestore rules on the emulator, and deploy the built site to a
+# temporary Firebase Hosting preview channel (its address is posted on the pull request).
+#
+# A preview channel is a separate address, but it uses the same Firestore database and the
+# same sign-ins as the live site: playing on a preview changes real nations.
+# Pull requests from forks get no secrets, so they get the rules test but no preview.
+name: Preview
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  rules:
+    name: Test the Firestore rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run test:rules
+
+  preview:
+    name: Deploy a preview channel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    env:
+      PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      SITE_URL: ${{ vars.SITE_URL }}
+      HAS_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+      FROM_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    steps:
+      - name: Check the repository settings
+        id: settings
+        run: |
+          missing=""
+          [ "$HAS_SERVICE_ACCOUNT" = "true" ] || missing="$missing the secret FIREBASE_SERVICE_ACCOUNT and"
+          [ -n "$PROJECT_ID" ] || missing="$missing the variable FIREBASE_PROJECT_ID and"
+          if [ "$FROM_FORK" = "true" ]; then
+            msg="No preview: this pull request comes from a fork, and GitHub does not give forks the repository's secrets."
+          elif [ -n "$missing" ]; then
+            msg="No preview: the repository is missing${missing% and}. Add what is missing under Settings > Secrets and variables > Actions (README.md, Owner setup, explains how)."
+          fi
+          if [ -n "$msg" ]; then
+            echo "::warning title=Preview skipped::$msg"
+            { echo "### Preview skipped"; echo; echo "$msg"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the pinned packages
+        if: steps.settings.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Build public/
+        if: steps.settings.outputs.ready == 'true'
+        run: python3 build.py --site-url "${SITE_URL:-https://$PROJECT_ID.web.app}"
+
+      - name: Deploy to a preview channel
+        if: steps.settings.outputs.ready == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          expires: 7d
+          firebaseToolsVersion: 15.33.0
