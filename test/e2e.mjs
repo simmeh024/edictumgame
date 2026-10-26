@@ -100,10 +100,19 @@ await B.fill('#rmb-text', 'A rude remark from Borvia');
 await B.click('#rmb-form button[type="submit"]');
 await until(async () => /rude remark/.test(await text(A, '.posts')));
 check('before the claim, A has no Remove button on B’s post', !(await A.$(`.posts [data-act="del-post"][data-a="${uidB}"]`)));
+check('before the claim, no player has the Admin pill', !(await A.$('.adm-pill')) && !(await B.$('.adm-pill')));
 check('the admin claim is set (Auth emulator)', (await setClaims(uidA, { admin: true })) === 200);
-await A.evaluate(() => firebase.auth().currentUser.getIdToken(true)); // an admin signs out and in; a forced refresh does the same here
-await A.reload(); await ready(A);
+await A.reload(); await ready(A); // the game asks for a fresh token on load, so no sign-out is needed
 check('user.isOwner() is true with the claim', await A.evaluate(() => window.claude.use('user').then(u => u.isOwner())));
+check('the admin has a purple Admin pill beside the nation’s name', await until(async () => (await text(A, '.side-who .adm-pill')) === 'Admin'));
+check('other players still do not', !(await B.$('.adm-pill')));
+await A.click('.side-who .adm-pill');
+check('the pill opens the admin portal at #admin', await until(async () => !!(await A.$('.adm')) && (await A.evaluate(() => location.hash)) === '#admin'));
+const admText = await until(async () => { const t = await text(A, '.adm'); return /players \(active/.test(t) ? t : ''; }, 15000);
+check('it shows the player count, the regions and the largest nations', !!admText && /Meridian Reach/.test(admText) && /Aldoria/.test(admText) && /Borvia/.test(admText), (admText.match(/(\d+) players \(active/) || [])[0]);
+check('it counts the players in Meridian and the Frostmarch', await A.evaluate(() => { const row = n => [...document.querySelectorAll('.adm tbody tr')].find(r => r.cells[0].textContent === n); const a = row('Meridian Reach'), f = row('Frostmarch'); return !!a && Number(a.cells[1].textContent) >= 2 && !!f && Number(f.cells[1].textContent) >= 1; }));
+await A.click('[data-act="admin-close"]');
+check('Back to the game returns to the nation page', await until(async () => !!(await A.$('.layout')) && !(await A.$('.adm'))));
 await nav(A, 'region');
 const del = await until(() => A.$(`.posts [data-act="del-post"][data-a="${uidB}"]`));
 check('the admin sees Remove on B’s post', !!del);
@@ -111,6 +120,8 @@ if (del) await del.click();
 check('the admin deleted B’s post document', await until(async () => !(await restList('boards/meridian/posts')).some(p => /rude remark/.test(p.fields.x.stringValue))));
 check('B no longer sees the removed post', await until(async () => !/rude remark/.test(await text(B, '.posts'))));
 check('B still sees A’s post', /Greetings from Aldoria/.test(await text(B, '.posts')));
+await B.goto(BASE + '/#admin'); await ready(B);
+check('#admin shows a non-admin the game, not the portal', await until(async () => !!(await B.$('.layout')) && !(await B.$('.adm'))));
 
 /* ── 6. Firebase blocked: browser-only mode ─────────────────────────────── */
 const C = await player('C', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });

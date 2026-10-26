@@ -214,10 +214,12 @@
   var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, count: count, post: post });
   var userApi = Object.freeze({
     id: function () { var u = A.auth && A.auth.currentUser; return Promise.resolve(u ? u.uid : null); },
+    /* asked once per page load; a fresh token carries an admin claim granted since the last one */
     isOwner: function () {
       var u = A.auth && A.auth.currentUser;
       if (!u) return Promise.resolve(false);
-      return u.getIdTokenResult().then(function (r) { return !!(r && r.claims && r.claims.admin === true); }, function () { return false; });
+      return u.getIdTokenResult(true).catch(function () { return u.getIdTokenResult(); })
+        .then(function (r) { return !!(r && r.claims && r.claims.admin === true); }, function () { return false; });
     },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });

@@ -3572,6 +3572,26 @@ button.prv-rb{cursor:pointer}button.prv-rb:hover{border-color:var(--ink-3)}
 :root[data-size="large"] .mu-walk-n{font-size:19px}
 :root[data-size="large"] .col-tray .col-nm{font-size:15px}
 
+/* the admin portal (players with the admin claim) and the pill that opens it */
+.side-who{display:flex;align-items:flex-end;gap:8px}
+.side-who>.side-nation{flex:1;min-width:0}
+.adm-pill{display:inline-flex;align-items:center;flex:none;margin-bottom:3px;padding:3px 9px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
+a.adm-pill:hover{filter:brightness(1.12)}
+a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
+.adm{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
+.adm-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:0 0 24px}
+.adm-head .btn{margin-left:auto}
+.adm-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:18px 0 8px}
+.adm-kpi{padding:14px 16px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
+.adm-kpi b{display:block;font:600 28px/1.1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+.adm-kpi span{display:block;margin-top:4px;font-size:13px;line-height:1.35;color:var(--ink-2)}
+.adm .h2{margin:30px 0 10px}
+.adm-bar{width:110px;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
+.adm-bar i{display:block;height:100%;background:var(--accent)}
+.adm-bar.hi i{background:var(--stamp)}
+.adm td.num,.adm th.num{text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:720px){.adm{padding:18px 16px 48px}.adm-head .btn{margin-left:0}}
+
 </style>
 
 <div id="app"></div>
@@ -32164,10 +32184,10 @@ function shell(){
   <aside class="side">
     <div class="side-top">
       <div class="brand-row"><div class="brand"><span class="wordmark">Edictum</span><span class="brand-sub">Region of ${REGION}</span></div>${bellButton(now)}</div>
-      <button class="side-nation" data-act="go" data-v="nation" aria-label="Your nation: ${esc(fullName(n))}">
+      <div class="side-who"><button class="side-nation" data-act="go" data-v="nation" aria-label="Your nation: ${esc(fullName(n))}">
         <span class="side-flag">${flagSVG(n.flag,'Flag of '+n.name)}</span>
         <span class="side-name"><span class="side-pre">The ${esc(n.pretitle)} of</span><span class="side-nm">${esc(n.name)}</span>${czSide(n)}</span>
-      </button>
+      </button>${S.isOwner&&S.mode!=='local'?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>
     </div>
     ${navSide(nar,nav)}
   </aside>${nar?navTabs(nb):''}
@@ -32857,6 +32877,65 @@ function tick(){
   redrawMaps();
 }
 
+/* ───────── the admin portal ─────────
+   For players with the admin claim (tools/admin/set-admin.mjs): live counts of players, per region and
+   overall, the largest nations, and a way back to the game. Everything here is public data counted on
+   demand (one cheap count per figure), loaded when the page opens and at most once a minute after. */
+const ADM={at:0,busy:false,err:'',d:null};
+function admLoad(force){
+  if(!S.db||typeof S.db.count!=='function'||ADM.busy||(!force&&ADM.d&&Date.now()-ADM.at<6e4))return;
+  ADM.busy=true;ADM.err='';
+  const now=Date.now(),c=(p,w)=>S.db.count(p,w||[]).catch(()=>null),since=t=>[['t','>',now-t]];
+  Promise.all([
+    c('summaries'),c('summaries',since(DORM_MS)),c('summaries',since(7*DAY)),c('summaries',since(DAY)),c('summaries',since(15*60000)),c('space'),
+    Promise.all(REGIONS.map(R=>Promise.all([c('summaries',[['reg','==',R.id],['t','>',now-DORM_MS]]),c('summaries',[['reg','==',R.id],['t','>',now-DAY]]),c('boards/'+R.id+'/posts')]))),
+    S.db.collection('summaries').orderBy('pop','desc').limit(10).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null)
+  ]).then(([all,active,week,today,live,space,regs,top])=>{
+    ADM.d={all,active,week,today,live,space,top,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
+    if(all==null&&active==null)ADM.err='The figures could not be loaded. Try again in a moment.';
+    ADM.at=Date.now();ADM.busy=false;if(S.view==='admin')render();
+  },()=>{ADM.busy=false;ADM.err='The figures could not be loaded. Try again in a moment.';if(S.view==='admin')render();});
+}
+function adminView(){
+  admLoad();
+  const d=ADM.d,n=v=>v==null?'–':Number(v).toLocaleString('en-GB'),kpi=(v,l)=>`<div class="adm-kpi"><b>${n(v)}</b><span>${l}</span></div>`;
+  const when=ADM.at?new Date(ADM.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'';
+  const regs=d?d.regs.slice().sort((a,b)=>(b.active||0)-(a.active||0)||(a.R.name<b.R.name?-1:1)):[];
+  const fill=r=>{const f=Math.min(1,(r.active||0)/REGION_CAP);return `<div class="adm-bar${f>=0.9?' hi':''}" role="img" aria-label="${Math.round(f*100)}% full"><i style="width:${(f*100).toFixed(1)}%"></i></div>`;};
+  return `<div class="adm">
+    <header class="adm-head"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn" data-act="admin-close">Back to the game</button></header>
+    <p class="eyebrow">Admin portal</p><h1 class="display">The state of the world</h1>
+    <p class="lede">Counted live from the database when this page opens.${when?` Last counted at ${when}.`:''} <button type="button" class="linkish" data-act="admin-refresh"${ADM.busy?' disabled':''}>${ADM.busy?'Counting…':'Count again'}</button></p>
+    ${ADM.err?`<p class="err">${esc(ADM.err)}</p>`:''}
+    ${!d?`<p class="hint">${ADM.busy||!ADM.err?'Counting the players…':''}</p>`:`
+    <div class="adm-kpis">
+      ${kpi(d.active,'players (active in the last '+DORMANT_DAYS+' days)')}
+      ${kpi(d.live,'playing now (saved in the last 15 minutes)')}
+      ${kpi(d.today,'active today')}
+      ${kpi(d.week,'active this week')}
+      ${kpi(d.all,'nations in all, dormant ones included')}
+      ${kpi(d.space,'nations in space (Moon, Mars or the belt)')}
+    </div>
+    <h2 class="h2">Regions</h2>
+    <p class="hint">${REGIONS.length} regions, each with room for ${REGION_CAP} active nations. Newcomers go to the fullest region with room.</p>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Region</th><th class="num">Players</th><th class="num">Active today</th><th>Room</th><th class="num">Board posts</th></tr></thead><tbody>
+      ${regs.map(r=>`<tr><td>${esc(r.R.name)}</td><td class="num">${n(r.active)}</td><td class="num">${n(r.today)}</td><td>${fill(r)}</td><td class="num">${n(r.posts)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <h2 class="h2">Largest nations</h2>
+    ${d.top&&d.top.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="num">#</th><th>Nation</th><th>Region</th><th class="num">Population</th><th>Last active</th></tr></thead><tbody>
+      ${d.top.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${esc(String(x.name||'').slice(0,40))}</td><td>${esc(regName(x.reg))}</td><td class="num">${fmtPop(Number(x.pop)||0)}</td><td>${x.t?esc(rel(Number(x.t))):'–'}</td></tr>`).join('')}
+    </tbody></table></div>`:'<p class="hint">No nations yet.</p>'}
+    <p class="hint" style="margin-top:22px">Not counted here: how many players are guests and how many signed in with Google. Only the server can see accounts (Firebase console, Authentication).</p>`}
+  </div>`;
+}
+shell=(f=>function(){if(S.view==='admin'&&S.isOwner)return adminView();return f.apply(this,arguments);})(shell);
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='admin-open'){e.preventDefault();go('admin');return;}
+  if(a==='admin-close'){go('nation');return;}
+  if(a==='admin-refresh'){admLoad(true);render();return;}
+});
+
 /* ───────── boot ───────── */
 function start(data){
   data=data||{};
@@ -32869,12 +32948,12 @@ function start(data){
     S.mapViews=data.mapViews||{};S.mapSel=data.mapSel==null?null:data.mapSel;S.mapPick=data.mapPick==null?null:data.mapPick;
   }else{
     const h=(location.hash||'').slice(1);
-    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world'].concat(EXT_PAGES).includes(h))S.view=h;
+    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin'].concat(EXT_PAGES).includes(h))S.view=h;
   }
   render();
   connect();
   setInterval(tick,10000);
-  window.addEventListener('popstate',()=>{const h=(location.hash||'').slice(1);if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
+  window.addEventListener('popstate',()=>{const h=(location.hash||'').slice(1);if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
 }
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}

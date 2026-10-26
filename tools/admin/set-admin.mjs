@@ -5,9 +5,9 @@
 //   GOOGLE_APPLICATION_CREDENTIALS=... node set-admin.mjs <player id> --remove
 //
 // The player is found by the email of their linked Google account, or by the Player ID shown in
-// the game's account menu. Admins see "Remove" on everyone's region message board posts.
-// The claim reaches the game when the player's sign-in token renews: sign out and back in with
-// Google from the account menu (or wait up to an hour).
+// the game's account menu. Admins see "Remove" on everyone's region message board posts, and a
+// purple Admin pill beside their nation's name that opens the admin portal. The game asks for a
+// fresh sign-in token on every load, so the player only needs to reload the page.
 //
 // The service account key is the same JSON that goes in the FIREBASE_SERVICE_ACCOUNT secret.
 // Keep it out of the repository. With FIREBASE_AUTH_EMULATOR_HOST set, this talks to the Auth
@@ -35,7 +35,7 @@ try {
   if (remove) delete claims.admin; else claims.admin = true;
   await auth.setCustomUserClaims(user.uid, claims);
   console.log(`${user.email || user.uid} (player id ${user.uid}) is ${remove ? 'no longer an admin' : 'now an admin'}.`);
-  console.log('In the game: open the account menu, sign out, and sign back in with Google.');
+  console.log('In the game: reload the page (no need to sign out). The Admin pill appears beside the nation’s name.');
 } catch (e) {
   console.error('Could not set the claim: ' + (e.errorInfo ? e.errorInfo.message : e.message));
   process.exit(1);
