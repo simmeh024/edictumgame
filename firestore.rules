@@ -2,7 +2,9 @@ rules_version = '2';
 
 // Edictum's world is public: anyone may read every nation, summary, space record and board post.
 // A signed-in player (anonymous guests included) writes only their own documents:
-//   nations/{uid}            the nation's shared half, {v: 1, j: <the record as JSON text>, reg, name, updatedAt, ts}
+//   nations/{uid}            the nation's shared half, {v: 1, j: <the record as JSON text>, reg, name, updatedAt, ts,
+//                            pop, army, cl}: the last three are headline numbers the rules bound
+//   stamps/{reg}/{key}/{uid} {t}: the server's time a save first carried a claim (c<cell>) or a find (s<site>)
 //   nationx/{uid}            its private half, {j, t, ts}: what the region need not download at every save
 //   summaries/{uid}          {reg, name, pop, t}: the headline the World page and region counts read
 //   space/{uid}              {reg, name, t, j, ts}: Moon, Mars and belt data, only for nations that have any
@@ -61,17 +63,35 @@ service cloud.firestore {
     // src/shim.js refuses anything over 700,000 characters before it gets here.
     function validNation(d) {
       return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
+        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl'])
         && d.v == 1
         && d.j is string && d.j.size() > 2 && d.j.size() <= 750000
         && region(d.reg) && label(d.name)
         && d.updatedAt is number
         && d.ts == request.time;
     }
+    // The headline numbers beside the record, which every player's game holds the record to (the rules
+    // cannot read the JSON): population in millions, army strength, and land claimed. Army and land are
+    // bounded by the population, far above what the game produces.
+    function headline(d) {
+      return d.pop is number && d.pop >= 0 && d.pop <= 10000000
+        && d.army is number && d.army >= 0 && d.army <= 60 * math.sqrt(d.pop + 0.1) + 1
+        && d.cl is int && d.cl >= 0 && d.cl <= 200 + 6 * math.sqrt(d.pop) + d.pop / 100.0;
+    }
+    // ...and the population grows no faster than the game can make it since the last save: x1.35 a day
+    // (its fastest growth is about x1.1), plus 3 million a day of migrants. A record that had none yet (from
+    // before these numbers) may add them; once there they stay.
+    function grows(d) {
+      let days = (request.time.toMillis() - resource.data.ts.toMillis()) / 86400000.0;  // .0: an int division would round down to whole days
+      return !('pop' in resource.data) || d.pop <= resource.data.pop * math.pow(1.35, days) + 3 * days + 0.0001;
+    }
+    function headlineUpdate(d) {
+      return ('pop' in d) ? headline(d) && grows(d) : !('pop' in resource.data);
+    }
     // the summary written in the same batch says the same
     function summarised(uid, d) {
       let s = getAfter(/databases/$(database)/documents/summaries/$(uid)).data;
-      return s.reg == d.reg && s.name == d.name && s.t == d.updatedAt;
+      return s.reg == d.reg && s.name == d.name && s.t == d.updatedAt && (!('pop' in d) || s.pop == d.pop);
     }
     // e, when present: the time the nation counts as active until, with a holiday after its last save
     // (holiday mode); at most a month (32 days) past t, so nobody can stay awake on it for longer
@@ -108,10 +128,10 @@ service cloud.firestore {
 
     match /nations/{uid} {
       allow read: if true;
-      allow create: if isSelf(uid) && validNation(request.resource.data) && summarised(uid, request.resource.data)
-        && !banned(uid);
-      allow update: if isSelf(uid) && validNation(request.resource.data) && summarised(uid, request.resource.data)
-        && paced(1) && !banned(uid);
+      allow create: if isSelf(uid) && validNation(request.resource.data) && headline(request.resource.data)
+        && summarised(uid, request.resource.data) && !banned(uid);
+      allow update: if isSelf(uid) && validNation(request.resource.data) && headlineUpdate(request.resource.data)
+        && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();
     }
 
@@ -260,6 +280,16 @@ service cloud.firestore {
         && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 300))
         && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 160));
       allow delete: if isAdmin();
+    }
+
+    // stamps: when a save first carries a claim on a free hex (c<cell>) or a site found (s<site>), the same
+    // batch stamps it with the server's time, which settles races between nations (src/shim.js); nobody can
+    // backdate one, and moving it later only harms its owner
+    match /stamps/{reg}/{key}/{uid} {
+      allow read: if true;
+      allow create, update: if isSelf(uid) && region(reg) && key.matches('[cs][0-9]{1,6}')
+        && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t == request.time;
+      allow delete: if isSelf(uid) || isAdmin();
     }
 
     // staff: an admin's page marks its own player as staff, so every player can tell staff from players;
