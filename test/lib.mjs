@@ -109,11 +109,16 @@ export async function accountExists(uid) {
   const b = await r.json().catch(() => ({}));
   return Array.isArray(b.users) && b.users.length > 0;
 }
+// a nation's stored envelope: rec is the whole record (the shared half in nations/ joined with the private
+// half in nationx/, as src/shim.js joins them), shared the shared half alone
 export async function nationDoc(uid) {
-  const r = await restGet('nations/' + uid);
+  const [r, x] = await Promise.all([restGet('nations/' + uid), restGet('nationx/' + uid)]);
   if (r.status !== 200) return null;
-  const f = r.body.fields || {};
-  return { v: f.v && Number(f.v.integerValue), name: f.name && f.name.stringValue, reg: f.reg && f.reg.stringValue, rec: f.j ? JSON.parse(f.j.stringValue) : null, keys: Object.keys(f).sort() };
+  const f = r.body.fields || {}, shared = f.j ? JSON.parse(f.j.stringValue) : null;
+  const ext = x.status === 200 && x.body.fields && x.body.fields.j ? JSON.parse(x.body.fields.j.stringValue) : null;
+  let rec = shared;
+  if (shared && ext) { rec = Object.assign({}, ext, shared); if (ext.pp && shared.pp) rec.pp = Object.assign({}, ext.pp, shared.pp); }
+  return { v: f.v && Number(f.v.integerValue), name: f.name && f.name.stringValue, reg: f.reg && f.reg.stringValue, rec, shared, keys: Object.keys(f).sort() };
 }
 export async function clearEmulators() {
   await fetch(`http://${FS_HOST}/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' });

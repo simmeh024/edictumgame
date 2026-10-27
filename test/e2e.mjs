@@ -22,6 +22,10 @@ check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.le
 await found(A, 'Aldoria');
 const docA = await until(() => nationDoc(uidA));
 check('A’s nation is saved to nations/<uid> in the stored shape', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'j,name,reg,ts,updatedAt,v', docA && docA.keys.join());
+const xA = await until(async () => { const r = await restGet('nationx/' + uidA); return r.status === 200 ? r.body.fields : null; });
+const xrec = xA && xA.j ? JSON.parse(xA.j.stringValue) : {};
+check('its private half is saved to nationx/<uid>, and the shared half leaves it out', xA && Object.keys(xA).sort().join() === 'j,t,ts' && Array.isArray(xrec.inbox) && typeof xrec.issueClock === 'number'
+  && docA && docA.shared && !('inbox' in docA.shared) && !('issueClock' in docA.shared) && !('tly' in docA.shared), xA && Object.keys(xA).join());
 const sumA = await restGet('summaries/' + uidA);
 check('its summary is saved beside it', sumA.status === 200 && sumA.body.fields.name.stringValue === 'Aldoria' && sumA.body.fields.reg.stringValue === 'meridian');
 check('a nation with no Moon, Mars or belt data has no space record', (await restGet('space/' + uidA)).status === 404);
@@ -160,7 +164,7 @@ const N = await player('N');
 const uidN = await open(N);
 await found(N, 'Nettleton');
 await nav(N, 'region');
-await (await until(() => N.$(`.tbl [data-act="visit"][data-id="${uidM}"]`))).click();
+await until(() => N.$(`.tbl [data-act="visit"][data-id="${uidM}"]`)); await N.click(`.tbl [data-act="visit"][data-id="${uidM}"]`);
 await N.click('[data-act="report-nation"]');
 await N.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
 check('a nation report starts at the nation’s name', await N.isChecked('input[name="ed-reason"][value="name"]'));
@@ -188,7 +192,7 @@ const O = await player('O');
 await open(O);
 await found(O, 'Ostrava');
 await nav(O, 'region');
-await (await until(() => O.$(`.tbl [data-act="visit"][data-id="${uidM}"]`))).click();
+await until(() => O.$(`.tbl [data-act="visit"][data-id="${uidM}"]`)); await O.click(`.tbl [data-act="visit"][data-id="${uidM}"]`);
 await O.click('[data-act="report-nation"]');
 await O.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
 await O.check('input[name="ed-reason"][value="cheating"]');
@@ -198,7 +202,7 @@ await A.click('[data-act="admin-refresh"]');
 await (await until(() => A.$('.adm-rep [data-act="adm-ban"]'))).click();
 check('banning asks to confirm first, and says what happens', await until(async () => /can no longer play/.test(await text(A, '.adm-ask'))) && !(await restGet('bans/' + uidM).then(r => r.status === 200)));
 await A.click('[data-act="adm-ban-yes"]');
-check('Ban removes the nation and its records, and closes its tickets', await until(async () => (await restGet('nations/' + uidM)).status === 404 && (await restGet('summaries/' + uidM)).status === 404 && (await restListAdmin('reports')).length === 0, 15000));
+check('Ban removes the nation and its records, and closes its tickets', await until(async () => (await restGet('nations/' + uidM)).status === 404 && (await restGet('nationx/' + uidM)).status === 404 && (await restGet('summaries/' + uidM)).status === 404 && (await restListAdmin('reports')).length === 0, 15000));
 check('the ban is recorded in bans/<uid>, not readable by strangers', (await restListAdmin('bans')).some(b => b.id === uidM) && (await restGet('bans/' + uidM)).status === 403);
 check('the portal lists the banned player', await until(async () => !!(await A.$(`[data-act="adm-unban"][data-id="${uidM}"]`))));
 await M.reload(); await ready(M);
@@ -213,7 +217,7 @@ const P = await player('P');
 await open(P);
 await found(P, 'Pellmell');
 await nav(P, 'region');
-await (await until(() => P.$(`.tbl [data-act="visit"][data-id="${uidB}"]`))).click();
+await until(() => P.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await P.click(`.tbl [data-act="visit"][data-id="${uidB}"]`);
 await P.click('[data-act="report-nation"]');
 await P.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
 await P.click('[data-ed="report-yes"]');
@@ -297,7 +301,7 @@ await Promise.all([Q.waitForNavigation({ timeout: 20000 }), Q.click('[data-ed="d
 const uidQ2 = await ready(Q);
 check('the browser starts again as a new guest, on the founding page', !!uidQ2 && uidQ2 !== uidQ && !!(await Q.$('#d-name')));
 check('the player is told', await until(async () => /have been deleted/.test(await toasts(Q))));
-check('the nation, its summary and its posts are gone', (await restGet('nations/' + uidQ)).status === 404 && (await restGet('summaries/' + uidQ)).status === 404 && !(await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
+check('the nation, its summary and its posts are gone', (await restGet('nations/' + uidQ)).status === 404 && (await restGet('nationx/' + uidQ)).status === 404 && (await restGet('summaries/' + uidQ)).status === 404 && !(await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
 check('and so is the account', !(await accountExists(uidQ)));
 check('and the player’s support tickets', !(await restListAdmin('support')).some(t => t.fields.by.stringValue === uidQ) && !(await restListAdmin('slimits')).some(t => t.id === uidQ));
 
@@ -337,6 +341,7 @@ await KG.ctx.close();
 await nav(A, 'region');
 await until(() => A.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`);
 check('opening a nation’s page stamps its entry stamp into your passport', await until(async () => { const r = await nationDoc(uidA); return !!(r && r.rec.pp && r.rec.pp.v[uidB] && r.rec.pp.p[0].includes(uidB)); }, 15000));
+check('the stamps stay in the private half; the shared half counts them by hash', await until(async () => { const r = await nationDoc(uidA); return !!(r && !r.shared.pp.v && Array.isArray(r.shared.pph) && r.shared.pph.length === Object.keys(r.rec.pp.v).length); }, 15000));
 check('its page shows the stamp and where it went', await until(async () => /In your passport since .* on page I\./.test(await text(A, '.pp-visit'))));
 check('the first stamp earns First Stamp', await until(async () => !!(((await nationDoc(uidA)) || { rec: {} }).rec.ach || {})['pass-1'], 15000));
 // B opens A's passport from A's page
@@ -462,7 +467,7 @@ await F.waitForSelector('[data-ed="switch"]');
 check('switching asks first', /Switch to that Google account/.test(await text(F, '#ed-dlg-h')));
 await Promise.all([F.waitForNavigation({ timeout: 15000 }), F.click('[data-ed="switch"]')]);
 check('after switching, F plays A’s nation', (await ready(F)) === uidA && await until(async () => (await sideName(F)) === 'Aldoria'));
-check('the guest nation left the region, summary and all', (await restGet('nations/' + uidF0)).status === 404 && (await restGet('summaries/' + uidF0)).status === 404);
+check('the guest nation left the region, summary and all', (await restGet('nations/' + uidF0)).status === 404 && (await restGet('nationx/' + uidF0)).status === 404 && (await restGet('summaries/' + uidF0)).status === 404);
 
 // d. a guest with a nation switches to an account without one: the nation moves into it
 const G = await player('G');

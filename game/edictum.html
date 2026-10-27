@@ -29476,7 +29476,7 @@ document.addEventListener('submit',e=>{
   const ta=document.getElementById('flk-text'),x=String(ta?ta.value:'').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g,' ').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim().slice(0,FK_LEN),now=Date.now();
   if(!S.nation||!x){toast('Write something first.');return;}
   if(fkTodayCount(S.nation,now)>=FK_DAYMAX){toast('That is ten peeps in a day. Try again tomorrow.');return;}
-  const n=clone(S.nation);n.flk=(Array.isArray(n.flk)?n.flk:[]).concat({t:now,x}).slice(-FK_KEEP);commit(n);S.flkDraft='';S.flkN=FK_PAGE;S.flkTag=null;render();toast('Peeped. The nation is reading it.');
+  const n=clone(S.nation);n.flk=(Array.isArray(n.flk)?n.flk:[]).concat({t:now,x}).slice(-FK_KEEP);commit(n);saveSoon();S.flkDraft='';S.flkN=FK_PAGE;S.flkTag=null;render();toast('Peeped. The nation is reading it.');
 },true);
 document.addEventListener('input',e=>{const el=e.target;if(!el||el.id!=='flk-text')return;S.flkDraft=el.value;const c=document.getElementById('flk-cnt');if(c)c.textContent=el.value.length+' / '+FK_LEN;});
 /* new peeps arrive while the page is open: a pill offers them, nothing jumps */
@@ -32322,10 +32322,12 @@ function loadLocal(){try{const raw=localStorage.getItem(LS_KEY);return raw?norma
 function saveLocal(n){try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
 
 /* Saves reach the region at most once every SAVE_GAP (this browser's copy is saved at once): the first
-   after loading straight away, a pending one as soon as the tab is hidden or closed. Fewer writes, and
-   every other player in the region reads each nation less often. */
-const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||15000),SAVE_MIN=1500;
-let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=0;
+   after loading straight away, a pending one as soon as the tab is hidden or closed, and one within
+   SAVE_MIN when the player does something another player is waiting for (saveSoon: a message, an offer,
+   a declaration). Every save is read by every other player in the region, so the gap is what most of
+   the database bill depends on (docs/cost-test.md). */
+const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||60000),SAVE_MIN=1500;
+let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=0,remoteSoon=false,commitNo=0;
 function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
@@ -32336,7 +32338,7 @@ function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.p
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
-  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;n.updatedAt=now;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);queueRemote();}
+  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;n.updatedAt=now;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
 function queueRemote(){
   if(S.mode!=='world'||!S.db||!S.uid)return;
   remoteDirty=true;
@@ -32346,9 +32348,14 @@ function queueRemote(){
 async function flushRemote(){
   clearTimeout(remoteTimer);remoteTimer=0;
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
-  remoteBusy=true;remoteDirty=false;remoteLast=Date.now();
+  remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=Date.now();
   try{await writeRemote();}finally{remoteBusy=false;}
-  if(remoteDirty)queueRemote();
+  if(remoteDirty){if(remoteSoon)saveSoon();else queueRemote();}
+}
+/* something another player is waiting for: save within SAVE_MIN instead of at the next gap */
+function saveSoon(){
+  if(S.mode!=='world'||!S.db||!S.uid)return;remoteDirty=true;remoteSoon=true;if(remoteBusy)return;
+  clearTimeout(remoteTimer);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_MIN-Date.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
@@ -32402,7 +32409,7 @@ async function connect(){
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
      the World page counts and lists them on demand (RSTAT). */
-  let regQS=null,spQS=null,hadMine=false;S.mod=S.mod||{};
+  let regQS=null,spQS=null,hadMine=false,mineAt=0;S.mod=S.mod||{};
   const hidden=id=>!!(S.mod[id]&&S.mod[id].hidden)&&id!==S.uid;
   const shared=()=>{
     if(!regQS||!spQS)return;
@@ -32412,7 +32419,7 @@ async function connect(){
     let mineHere=false;
     for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;if(hidden(d.id)){if(d.id===S.uid)mineHere=true;continue;}
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
-      if(d.id===S.uid)mineHere=true;const n=normalize(raw);if(n)w[d.id]=n;}
+      if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n)w[d.id]=n;}
     /* this record left the region from another device: follow it there */
     if(hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
       if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&(Number(raw.updatedAt)||0)>(S.nation.updatedAt||0))regionReload(raw);},()=>{});
@@ -32420,11 +32427,14 @@ async function connect(){
     dormSift(w,all);
     S.worldAll=all;
     S.world=w;
-    const mine=w[S.uid];
-    if(mine&&S.nation&&mine.updatedAt>S.nation.updatedAt&&!remoteBusy&&!remoteDirty){S.nation=mine;saveLocal(mine);render();return;}
+    /* saved from another device: the region has only its shared half, so load it whole */
+    const mine=w[S.uid],newer=r=>r&&S.nation&&r.updatedAt>S.nation.updatedAt&&!remoteBusy&&!remoteDirty;
+    if(newer(mine)&&mineAt!==mine.updatedAt){mineAt=mine.updatedAt;
+      db.doc('nations/'+uid).get().then(s=>{const r=s.exists?normalize(s.data()):null;if(newer(r)){S.nation=r;saveLocal(r);render();}},()=>{});}
     if(!S.nation||S.view==='map'){updateMapPanel();redrawMaps();}
     else if(['region','census','visit','nation','diplomacy','trade'].includes(S.view)&&!S.spyRolling)render();
   };
+  reshare=shared;
   const none={docs:[]};
   db.collection('nations').where('reg','==',REG.id).onSnapshot(qs=>{regQS=qs;shared();},()=>{regQS=regQS||none;shared();});
   db.collection('space').onSnapshot(qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
@@ -33981,7 +33991,15 @@ function ppStats(n,id){
   PP_STATS.set(n,{pp:n.pp,v:out});return out;
 }
 /* how many nations of this region carry this one's stamp (players only: computer nations' books are drawn) */
-function ppCarried(id){let k=0;if(S.mode==='local'||!S.world)return 0;for(const w of Object.keys(S.world)){const r=S.world[w];if(w!==id&&r&&r.pp&&r.pp.v&&r.pp.v[id])k++;}return k;}
+function ppCarried(id){let k=0;if(S.mode==='local'||!S.world)return 0;const h=ppHash(id);
+  for(const w of Object.keys(S.world)){const r=S.world[w];if(w!==id&&r&&((r.pp&&r.pp.v&&r.pp.v[id])||(Array.isArray(r.pph)&&r.pph.includes(h))))k++;}return k;}
+/* The stamps stay in the private half of a record (src/shim.js), so the shared half keeps a short hash of
+   each nation whose stamp it carries: enough to count who carries whose. A record read without its
+   private half (no pp.v) keeps the hashes it was saved with. */
+function ppHash(id){return hash(String(id)+':pph').toString(36).slice(-5);}
+NORM_HOOKS.push((n,d)=>{const dv=d&&d.pp&&d.pp.v,a=dv&&typeof dv==='object'?Object.keys((n.pp&&n.pp.v)||{}).map(ppHash)
+  :Array.isArray(d&&d.pph)?d.pph.filter(h=>typeof h==='string'&&/^[0-9a-z]{1,5}$/.test(h)).slice(0,PP_MAX):[];if(a.length)n.pph=a;else delete n.pph;});
+COMMIT_HOOKS.push(n=>{if(!n||n.npc)return;const a=Object.keys((n.pp&&n.pp.v)||{}).map(ppHash);if(a.length)n.pph=a;else delete n.pph;});
 
 /* ── land: every 20 stamps earn a land credit, ten for a full book. pp.cr keeps the most ever paid, so a stamp
    taken out and collected again does not pay twice. They add to landEarned like the tutorial's credits. ── */
@@ -34316,6 +34334,42 @@ document.addEventListener('click',e=>{
 });
 render=(f=>function(){const r=f.apply(this,arguments);document.documentElement.classList.toggle('map-full-open',!!S.mapFs);return r;})(render);
 go=(f=>function(v){if(S.mapFs){S.mapFs=null;mapFsExit();}return f.apply(this,arguments);})(go);
+
+/* ───────── saving soon, and other nations' private halves ───────── */
+/* The actions another player waits for (a message, an offer, a declaration, a vote, a bid, a claim): what
+   they commit reaches the region within SAVE_MIN instead of at the next SAVE_GAP. */
+function soon(f){return function(){const c=commitNo,r=f.apply(this,arguments);
+  if(r&&typeof r.then==='function')r.then(()=>{if(commitNo!==c)saveSoon();},()=>{});else if(commitNo!==c)saveSoon();return r;};}
+sendDm=soon(sendDm);
+proposeDeal=soon(proposeDeal);acceptDeal=soon(acceptDeal);declineDeal=soon(declineDeal);cancelDeal=soon(cancelDeal);
+declareWar=soon(declareWar);attack=soon(attack);offerPeace=soon(offerPeace);withdrawPeace=soon(withdrawPeace);
+foundAlliance=soon(foundAlliance);inviteAllyBase=soon(inviteAllyBase);withdrawAlly=soon(withdrawAlly);joinAlliance=soon(joinAlliance);leaveAlliance=soon(leaveAlliance);
+sendSpy=soon(sendSpy);cvLaunch=soon(cvLaunch);
+asmEndorse=soon(asmEndorse);asmSupport=soon(asmSupport);asmVote=soon(asmVote);asmSubmit=soon(asmSubmit);asmWithdraw=soon(asmWithdraw);
+asmAgenda=soon(asmAgenda);asmSetMsg=soon(asmSetMsg);asmResign=soon(asmResign);asmRejoin=soon(asmRejoin);
+placeBid=soon(placeBid);c3Raise=soon(c3Raise);c3Withdraw=soon(c3Withdraw);flSend=soon(flSend);
+writeClaims=soon(writeClaims);releaseClaims=soon(releaseClaims);foundCity=soon(foundCity);settle=soon(settle);rvBuildBridge=soon(rvBuildBridge);dspPost=soon(dspPost);
+
+/* The region listens only to the shared half of each record (src/shim.js). The private half of another
+   nation (its tallies, lore, intelligence, the stamps in its passport) is read when one of its pages is on
+   screen: its page, museum, achievements, statistics or passport. Read again once it saved since, at
+   most every NX_FRESH. */
+const NX={},NX_FRESH=120000;let reshare=null;
+function nxJoin(raw,x){
+  if(!raw||typeof raw!=='object'||!x||typeof x!=='object')return raw;const o=Object.assign({},x,raw);
+  if(x.pp&&raw.pp&&typeof x.pp==='object'&&typeof raw.pp==='object')o.pp=Object.assign({},x.pp,raw.pp);return o;
+}
+function nxShown(){return [S.view==='visit'&&S.visit,S.view==='museum'&&S.museumFor,S.view==='achievements'&&S.achFor,S.view==='stats'&&S.statsFor,PPV.id].filter(Boolean);}
+function nxWant(id){
+  if(!id||S.mode==='local'||!S.db||id===S.uid||!S.world||!S.world[id])return;
+  const c=NX[id],t=S.world[id].updatedAt||0;if(c&&(c.busy||c.t>=t||Date.now()-c.at<NX_FRESH))return;
+  NX[id]=Object.assign(c||{},{busy:true});
+  S.db.doc('nationx/'+id).get().then(s=>{NX[id]={t,at:Date.now(),d:s.exists?s.data():null};if(reshare)reshare();
+    if(nxShown().includes(id)){render();if(PPV.id===id)ppViewDraw();}},
+    ()=>{NX[id]={t,at:Date.now(),d:c&&c.d||null};});
+}
+render=(f=>function(){const r=f.apply(this,arguments);for(const id of nxShown())nxWant(id);return r;})(render);
+ppViewOpen=(f=>function(id){const r=f.apply(this,arguments);nxWant(id);return r;})(ppViewOpen);
 
 /* ───────── boot ───────── */
 function start(data){
