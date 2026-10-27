@@ -89,8 +89,8 @@ function bot(db, uid, rec, gapMs, xPerSave, stop) {
   const save = async () => {
     const n = Object.assign({}, rec, { name: 'Bot ' + uid, updatedAt: Date.now() }), [pub, ext] = split(n), b = db.batch(), now = firebase.firestore.FieldValue.serverTimestamp();
     const x = first || Math.random() < xPerSave;
-    b.set(db.doc('nations/' + uid), { v: 1, j: JSON.stringify(pub), reg: 'meridian', name: n.name, updatedAt: n.updatedAt, ts: now });
-    b.set(db.doc('summaries/' + uid), { reg: 'meridian', name: n.name, pop: 1e6, t: n.updatedAt });
+    b.set(db.doc('nations/' + uid), { v: 1, j: JSON.stringify(pub), reg: 'meridian', name: n.name, updatedAt: n.updatedAt, ts: now, pop: 5, army: 1, cl: 0 });
+    b.set(db.doc('summaries/' + uid), { reg: 'meridian', name: n.name, pop: 5, t: n.updatedAt });
     if (x) b.set(db.doc('nationx/' + uid), { j: JSON.stringify(ext), t: n.updatedAt, ts: now });
     try { await b.commit(); S.writes += x ? 3 : 2; first = false; } catch (e) { /* paced: try at the next turn */ }
   };

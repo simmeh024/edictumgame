@@ -28,10 +28,13 @@ like), and **Firestore** holds the shared world.
 
 **Data.** Documents are named by the player's Firebase user id:
 
-- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt, ts}`, the shared
-  half of the nation record: what other players in the region see. It is stored as text because it
-  contains lists of lists, which Firestore cannot store. `reg`, `name` and `updatedAt` are copies
-  kept beside it for queries; `ts` is the server's time of the save.
+- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt, ts, pop, army, cl}`,
+  the shared half of the nation record: what other players in the region see. It is stored as text
+  because it contains lists of lists, which Firestore cannot store. `reg`, `name` and `updatedAt` are
+  copies kept beside it for queries; `ts` is the server's time of the save; `pop`, `army` and `cl`
+  (population, army strength, land claimed) are headline numbers the rules bound (see Fair play).
+- `stamps/<reg>/<c<cell>|s<site>>/<uid>`: `{t}`, the server's time a save first carried a claim on a
+  hex or a site found, which settles races between nations.
 - `nationx/<uid>`: `{j, t, ts}`, the private half: the edict engine, notices seen, tallies,
   intelligence, lore and the passport's stamps (the key list is `NX_KEYS` in `src/shim.js`). Nobody
   listens to it; the game reads it with the shared half for the player's own nation, and another
@@ -349,7 +352,8 @@ beside their nation's name; other players see their nation marked **Edictum staf
 region (active in the last 250 days, today, this week, in the last 15 minutes), how full each
 region is, its board posts, nations in space and the largest nations, all counted live, the report
 queue, and a button back to the game. Its **Help queries** tab (`#admin-help`) lists the players'
-support tickets. For anyone else `#admin` simply shows the game.
+support tickets, and its **Suspicious** tab (`#admin-sus`) the nations whose records the game caught
+out (see Fair play), with Hide and Ban. For anyone else `#admin` simply shows the game.
 
 1. Play on the site and link your nation to Google (**Keep your nation on every device**), so the
    right stays with an account you can sign in to anywhere.
@@ -417,8 +421,22 @@ Data above. What is left for later, as numbers grow:
   body or summarised.
 - **Dormant nations** still arrive with their region's records (the game sets them aside). If
   regions fill with abandoned nations, listen only to active ones and fetch the rest on demand.
-- **The game trusts each browser** with its own nation. Server-side checks (Cloud Functions) would
-  be the next step against cheating.
+- **Fair play.** Each browser still writes its own nation, so the defences are layered:
+  - *The rules* bound three headline numbers saved beside the record: population may grow no faster
+    than ×1.35 a day since the last save (plus 3 million a day of migrants), and army strength and land
+    claimed stay within what that population allows. A record that has them keeps them.
+  - *Every game checks the others* (`auditNation`): the record is held to those numbers (no more people,
+    army or claims), nothing may be dated after the save that carries it (the server's time, ten
+    minutes for clocks), and growth rate and stock stay within the game's limits. What a game sets aside
+    is the same on every screen, so a cheat shows only on the cheat's own. It also flags a population
+    beyond the nation's age and more conquests in a day than the replay counts.
+  - *Races go by the server's time*: when two nations claim the same free hex or find the same site,
+    the stamps decide, not the times the records give themselves.
+  - *Admins* see what was caught on the portal's Suspicious tab, for their own region and, on request,
+    the others (one read per nation).
+  What is left is anything the game itself allows, such as rolling an attack again by reloading
+  before it saves. A referee on the server (Cloud Functions rolling battles and settling trades)
+  would close that; it needs billing on the staging project too, so previews could run it.
 
 ## Changing the game
 
