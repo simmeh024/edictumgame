@@ -104,6 +104,13 @@ are Roman (Edictum MCCLI, Anno IV, counted from the founding); the decision stam
 wax seal of state whose inscription follows the government (SPQ, REX, IMP and so on). The other stamps
 are in the same section of the Customise page.
 
+**National symbols.** The Customise page's National symbols: the holiday and its date are open from the
+start; the flower opens at 5.5 million people, the tree at 6, the bird at 7, the instrument at 8, the
+colours at 10 and the capital's nickname at 20 million (`SYM_AT`). Each opens once, on the first save
+after the population reaches it, with a notice (a toast and the bell, from the College of Arms) and
+5 timber and 5 iron; `n.syu` keeps the ones given, so a nation that shrinks keeps them, and a symbol
+chosen before it had a threshold stays open.
+
 **Passport.** Every nation has a passport: a cover, an identity page and 20 pages of ten entry stamps.
 Opening another nation's page stamps its entry stamp into yours (at most 200), keeping that nation's
 stamp design as it was that day. The Passport page turns the pages, designs the cover (colour,

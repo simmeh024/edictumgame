@@ -657,6 +657,39 @@ await HQ.click('#found-now-bar');
 check('the bar’s button founds the nation from the top of the page', await until(async () => ((await localNation(HQ)) || {}).name === 'Barnstow'));
 await HQ.ctx.close();
 
+/* ── 10d. national symbols open as the population grows ─────────────────── */
+// browser-only, so the test can set the population in the browser's copy of the nation
+const SY = await player('SY', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });
+await open(SY);
+await found(SY, 'Symbolia');
+const toCz = async () => { await SY.evaluate(() => { location.hash = '#customise'; }); await SY.waitForSelector('#cz-sym-form'); };
+const setPop = async p => { await SY.evaluate(p => { const n = JSON.parse(localStorage.getItem('statehood.nation.v1')); n.pop = p; n.popAt = Date.now(); localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); }, p); await SY.reload(); await SY.waitForSelector('.layout'); };
+const saveSym = async () => { await SY.click('#cz-sym-form button[type="submit"]'); await sleep(300); };
+await toCz();
+check('at 5 million people the holiday is open and the flower waits for 5.5 million', await SY.isEnabled('#cz-s-hol') && await SY.isDisabled('#cz-s-flower') && /Unlocks at 5\.5 million people/.test(await SY.getAttribute('#cz-s-flower', 'placeholder') || '') && await SY.isDisabled('#cz-s-nick'));
+await SY.fill('#cz-s-hol', 'Founding Day'); await saveSym();
+const sy0 = await localNation(SY);
+check('saving the holiday unlocks nothing yet', ((sy0.cz || {}).sy || {}).hol === 'Founding Day' && !(sy0.syu || []).length && !!sy0.stock);
+await setPop(7.2); await toCz();
+check('at 7.2 million the flower, tree and bird are open, the instrument not yet', await SY.isEnabled('#cz-s-flower') && await SY.isEnabled('#cz-s-tree') && await SY.isEnabled('#cz-s-bird') && await SY.isDisabled('#cz-s-inst'));
+await SY.fill('#cz-s-flower', 'Edelweiss'); await saveSym();
+const sy1 = await until(async () => { const n = await localNation(SY); return n && (n.syu || []).length ? n : null; });
+const gain = (a, b, r) => b.stock[r] - a.stock[r];
+check('the next save grants the three, once, with 15 timber and 15 iron', !!sy1 && ['flower', 'tree', 'bird'].every(k => sy1.syu.includes(k)) && sy1.syu.length === 3 && Math.abs(gain(sy0, sy1, 'timber') - 15) < 0.5 && Math.abs(gain(sy0, sy1, 'iron') - 15) < 0.5 && ((sy1.cz || {}).sy || {}).flower === 'Edelweiss', JSON.stringify([sy0.stock, sy1 && sy1.stock, sy1 && sy1.syu]));
+check('and says so', await until(async () => /Symbolia can now choose its national flower, tree, and bird\. The College of Arms sends 15 timber and 15 iron\./.test(await toasts(SY)), 15000));
+await SY.click('.bell'); await SY.waitForSelector('.notif-pop');
+check('the bell keeps the notice, from the College of Arms', /College of Arms/.test(await text(SY, '.notif-pop')) && /can now choose its national flower, tree, and bird/.test(await text(SY, '.notif-pop')));
+await SY.click('.bell');
+await SY.fill('#cz-s-tree', 'Silver birch'); await saveSym();
+check('saving again gives nothing more', ((await localNation(SY)).syu || []).length === 3 && Math.abs(gain(sy1, await localNation(SY), 'timber')) < 0.5);
+await SY.locator('#cz-sec-y').screenshot({ path: path.join(OUT, 'symbols-unlocks.png') });
+await setPop(25); await toCz(); await saveSym();
+const sy2 = await until(async () => { const n = await localNation(SY); return n && (n.syu || []).length === 6 ? n : null; });
+check('at 25 million the instrument, colours and capital nickname follow', !!sy2 && Math.abs(gain(sy1, sy2, 'iron') - 15) < 0.5);
+await setPop(5.1); await toCz();
+check('and a nation that shrinks keeps what it opened', await SY.isEnabled('#cz-s-flower') && await SY.isEnabled('#cz-s-nick'));
+await SY.ctx.close();
+
 /* ── 11. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {
   const S = await player('S' + vp.width, { vp, dark });
