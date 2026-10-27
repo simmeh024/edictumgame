@@ -577,6 +577,18 @@ await FS.click('.map-wrap.is-full [data-act="map-zoom"][data-d="1"]');
 check('zooming in full screen keeps it open', await until(fills));
 await FS.click('.map-wrap.is-full [data-act="map-fs-world"]');
 check('Open in the world map goes there and leaves full screen', await until(async () => (await FS.evaluate(() => location.hash)) === '#map' && !(await FS.$('.map-wrap.is-full'))));
+// the world map itself, with its panel floating over it
+const fillsMain = () => FS.evaluate(() => { const w = document.querySelector('.map-wrap.is-full'); if (!w || !w.querySelector('canvas[data-map="main"]')) return false; const r = w.getBoundingClientRect(); return r.width >= innerWidth - 1 && r.height >= innerHeight - 1; });
+await FS.click('.map-main [data-act="map-fs"]');
+check('the world map’s Full screen button fills the window', await until(fillsMain));
+check('its bar names the region and the date', /^Map of \S/.test(await text(FS, '.map-fs-bar .map-fs-t')) && /\d/.test(await text(FS, '.map-fs-bar .map-fs-loc')));
+check('and the map’s panel floats over it, clear of the controls', await FS.evaluate(() => { const p = document.getElementById('map-panel'), c = document.querySelector('.map-wrap.is-full .map-ctrl'); if (!p || !c) return false; const a = p.getBoundingClientRect(), b = c.getBoundingClientRect(); return getComputedStyle(p).position === 'fixed' && a.width > 200 && a.right <= b.left; }));
+await FS.waitForTimeout(400);
+await FS.screenshot({ path: path.join(OUT, 'map-full-1280.png') });
+await FS.click('.map-wrap.is-full [data-act="map-zoom"][data-d="1"]');
+check('zooming the world map in full screen keeps it open', await until(fillsMain));
+await FS.click('.map-fs-bar [data-act="map-fs-close"]');
+check('Close leaves full screen, on the map page', await until(async () => !(await FS.$('.map-wrap.is-full')) && (await FS.evaluate(() => location.hash)) === '#map'));
 await FS.ctx.close();
 
 /* ── 10c. the front page ────────────────────────────────────────────────── */

@@ -693,6 +693,9 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .map-fs-t{margin:0;flex:1 1 auto;min-width:0;font:600 16px/1.25 var(--f-display);color:var(--ink)}
 .map-fs-loc{margin:0;flex:1 1 100%;font-size:13px;color:var(--ink-2)}
 html.map-full-open,html.map-full-open body{overflow:hidden}
+/* the world map in full screen keeps its panel, floating over the map beside the controls; at the foot on narrower screens */
+.map-layout.ml-full>.map-panel{position:fixed;z-index:3001;top:calc(10px + env(safe-area-inset-top));right:calc(64px + env(safe-area-inset-right));width:320px;max-height:calc(100dvh - 72px);margin:0;overflow:auto;box-shadow:var(--shadow)}
+@media (max-width:1100px){.map-layout.ml-full>.map-panel{top:auto;bottom:calc(10px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));right:calc(10px + env(safe-area-inset-right));width:auto;max-height:34dvh;padding:14px}}
 .loc-status{margin-top:12px;font-size:14px;color:var(--ink-2);max-width:72ch}
 @media (max-width:1100px){.map-layout{grid-template-columns:1fr;grid-template-areas:'map' 'side' 'legend'}.map-layout>.map-panel{margin-top:14px}}
 @media (max-width:760px){.terr{grid-template-columns:1fr}}
@@ -23441,9 +23444,9 @@ function seaRivers(M){
   if(Array.isArray(R.lakes)){g.fillStyle=g.strokeStyle;for(const L of R.lakes){if(!L||!L.path||!Array.isArray(L.cells)||!L.cells.length)continue;if(L.cells.filter(c=>seaFrozen(c,st)).length*2<L.cells.length)continue;g.globalAlpha=0.9;g.fill(L.path);g.globalAlpha=1;}}
 }
 function seaTemp(c,p){const B=seaBase();return B.tb[c]+seaShift(B.la[(c/MAP.COLS)|0],p==null?seaPhase():p);}
-/* the season and date, stamped in the corner of the main map */
+/* the season and date, stamped in the corner of the main map (in full screen its bar shows them instead) */
 MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
-  if(mfxTilted(M.cv)||M.w<260)return;const I=seaInfo(),g=M.g,col=M.col,txt=I.sub+' · '+I.day+' '+I.month.slice(0,3);
+  if(mfxTilted(M.cv)||M.w<260||(M.cv.dataset.map==='main'&&mapFsOn('main')))return;const I=seaInfo(),g=M.g,col=M.col,txt=I.sub+' · '+I.day+' '+I.month.slice(0,3);
   g.font='italic 600 12.5px '+MAP_FONT;const tw=g.measureText(txt).width,x=10,y=10,h=22,w=tw+34;
   g.globalAlpha=0.9;g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,3);else g.rect(x,y,w,h);g.fillStyle=col.sheet;g.fill();g.globalAlpha=0.35;g.lineWidth=1;g.strokeStyle=col.ink;g.stroke();g.globalAlpha=1;
   seaIcon(g,x+13,y+h/2,I.si,col,rlfDark(col));g.fillStyle=col.ink;g.textAlign='left';g.textBaseline='middle';g.fillText(txt,x+25,y+h/2+0.5);g.textBaseline='alphabetic';
@@ -32258,7 +32261,7 @@ function settle(){
 function mapBox(kind,cls,id){
   const full=mapFsOn(kind,id),fsb=`<button type="button" class="mc-b" data-act="map-fs" data-k="${kind}"${id?` data-id="${esc(id)}"`:''} aria-label="${full?'Leave full screen':'Full screen'}" title="${full?'Leave full screen':'Full screen'}">${full?'✕':'⛶'}</button>`;
   const coarse=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
-  const ctrl=kind==='mini'?'':`<div class="map-ctrl"><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="1" aria-label="Zoom in">+</button><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="-1" aria-label="Zoom out">−</button><button type="button" class="mc-b" data-act="map-fit" data-k="${kind}" aria-label="Show the whole map">Fit</button>${kind==='main'?mfxTiltBtn():''}${kind==='found'||kind==='visit'?fsb:''}</div><div class="map-tip" hidden></div><p class="map-hint">${coarse?'Drag to move · pinch to zoom':'Drag to move · Ctrl + scroll to zoom'}</p>`;
+  const ctrl=kind==='mini'?'':`<div class="map-ctrl"><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="1" aria-label="Zoom in">+</button><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="-1" aria-label="Zoom out">−</button><button type="button" class="mc-b" data-act="map-fit" data-k="${kind}" aria-label="Show the whole map">Fit</button>${kind==='main'?mfxTiltBtn():''}${kind==='found'||kind==='visit'||kind==='main'?fsb:''}</div><div class="map-tip" hidden></div><p class="map-hint">${coarse?'Drag to move · pinch to zoom':'Drag to move · Ctrl + scroll to zoom'}</p>`;
   const mini=kind==='mini'?`<button type="button" class="mc-b map-fs-mini" data-act="map-fs" data-k="visit" data-id="${esc(id)}">⛶ Full screen</button>`:'';
   return `<div class="map-wrap map-${kind}${cls||''}${kind==='main'&&mfxTilt?' tilted':''}${full?' is-full':''}"${full?` role="dialog" aria-modal="true" aria-label="${kind==='found'?'Founding map':'Map'}, full screen"`:''}><canvas class="map-cv" data-map="${kind}"${id?` data-id="${esc(id)}"`:''} data-hover="-1" role="img" aria-label="Map of ${REGION}${kind==='mini'?'. Select to open the world map.':''}"></canvas>${ctrl}${mini}${full?mapFsBar(kind,id):''}</div>`;
 }
@@ -32268,7 +32271,7 @@ function mapLegend(){
 function worldMapView(){
   const n=S.nation,placed=cellOf(n.loc)>=0;
   return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital.`}</p></header>${placed?mapTabs('map'):''}
-  <div class="map-layout">
+  <div class="map-layout${mapFsOn('main')?' ml-full':''}">
     <div class="ml-map">${mapBox('main',placed?'':' pick')}</div>
     <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
     <div class="ml-legend">${placed?migToggle():''}${mapLegend()}</div>
@@ -34438,12 +34441,13 @@ document.addEventListener('animationend',e=>{
 go=(f=>function(v){if(v==='passport'&&S.view!=='passport'){PP.sel=null;PP.ask=null;PP.info=null;try{PP.seenAt=+localStorage.getItem('edictum.pp.seen')||0;localStorage.setItem('edictum.pp.seen',String(Date.now()));}catch(e){PP.seenAt=0;}}ppViewClose(true);return f.apply(this,arguments);})(go);
 
 /* ───────── full-screen maps ─────────
-   The founding map, and a nation's territory (as an interactive 'visit' map centred on it), can fill
-   the screen. The state lives in S.mapFs, so the game's redraws keep it; the browser's own full-screen
+   The founding map, the world map (its panel floating beside it), and a nation's territory (as an
+   interactive 'visit' map centred on it) can fill the screen. The state lives in S.mapFs, so the game's redraws keep it; the browser's own full-screen
    mode is asked for the whole page (where it is offered), so a redraw cannot drop it either. Close,
    Esc, leaving the browser's full screen or going to another page ends it. */
 function mapFsOn(kind,id){const f=S.mapFs;return !!f&&f.kind===kind&&(kind!=='visit'||f.id===id);}
 function mapFsBar(kind,id){
+  if(kind==='main'){const I=seaInfo();return `<div class="map-fs-bar"><p class="map-fs-t">Map of ${esc(REGION)}</p><button type="button" class="btn small" data-act="map-fs-close">Close</button><p class="map-fs-loc">${esc(I.sub)} · ${I.day} ${esc(I.month)}</p></div>`;}
   if(kind==='found')return `<div class="map-fs-bar"><p class="map-fs-t">Choose where your capital will stand</p><p class="map-fs-loc" id="found-loc-fs">${foundLocHTML()}</p><button type="button" class="btn small" data-act="map-fs-close">Done</button></div>`;
   const x=findNation(id),nm=x?fullName(x.n):'This nation';
   return `<div class="map-fs-bar"><p class="map-fs-t">${esc(nm)}</p><button type="button" class="btn ghost small" data-act="map-fs-world" data-id="${esc(id)}">Open in the world map</button><button type="button" class="btn small" data-act="map-fs-close">Close</button></div>`;
