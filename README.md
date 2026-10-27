@@ -98,7 +98,9 @@ material, foil, ornament, emblem, wording, layout), the pages (tint, print, wate
 the entry stamp others collect, and arranges which page and place each stamp has. Richer options
 unlock with the Passport & travel achievements and the Passport Office set in the museum. Every
 nation's page has **View passport**. Stored on the nation as `n.pp` (see the comment in the game).
-The book opens and turns in 3D, its foil catches the pointer, stamps are inked, and a **UV lamp**
+Each passport is issued to a random citizen of the nation (a name in its naming tradition, date and
+place of birth, a drawn passport photo, a ghost image, a signature and a matching machine-readable
+zone); the owner can issue it to another citizen (`pp.hs`). The book opens and turns in 3D, its foil catches the pointer, stamps are inked, and a **UV lamp**
 shows the pages' fluorescent print. Every 20 stamps earn a land credit (10 for a full book; `pp.cr`
 keeps the most paid, so a stamp removed and collected again does not pay twice). Two steps of the
 tutorial's second checklist, a first stamp and a passport design, pay a land credit each.
