@@ -98,6 +98,15 @@ material, foil, ornament, emblem, wording, layout), the pages (tint, print, wate
 the entry stamp others collect, and arranges which page and place each stamp has. Richer options
 unlock with the Passport & travel achievements and the Passport Office set in the museum. Every
 nation's page has **View passport**. Stored on the nation as `n.pp` (see the comment in the game).
+The book opens and turns in 3D, its foil catches the pointer, stamps are inked, and a **UV lamp**
+shows the pages' fluorescent print. Every 20 stamps earn a land credit (10 for a full book; `pp.cr`
+keeps the most paid, so a stamp removed and collected again does not pay twice). Two steps of the
+tutorial's second checklist, a first stamp and a passport design, pay a land credit each.
+
+**Diplomata.** A one-per-nation Society building (a passport office) that unlocks the Diplomata
+passport designs (UNLOCKS source `bld`): five typefaces (Garamond, Fraktur, a copperplate script, a
+typewriter face, poster capitals; self-hosted, downloaded only when used), eight devices, five page
+prints and five watermarks. It also draws 3% more immigrants: arrivals and their cap in `migration()`.
 
 **Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
 a message and, if the player wants, an email address. Their tickets and the team's answers are listed

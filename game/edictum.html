@@ -3670,23 +3670,84 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .pp-tab.on,.pp-opt.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
 .pp-opts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
 .pp-book{display:grid;justify-items:center;gap:12px}
-.pp-stage{display:flex;justify-content:center;width:100%;perspective:1800px;touch-action:pan-y}
-.pp-leaf{width:min(100%,380px);aspect-ratio:300/420;overflow:hidden;border-radius:4px;background:#f6f0df;box-shadow:0 1px 2px rgba(0,0,0,.18),0 10px 28px rgba(0,0,0,.16)}
-.pp-book.two .pp-leaf{width:min(50%,380px)}
-.pp-book.two .pp-leaf:first-child{border-radius:6px 0 0 6px;box-shadow:inset -14px 0 18px -14px rgba(0,0,0,.35),0 10px 28px rgba(0,0,0,.16)}
-.pp-book.two .pp-leaf:last-child{border-radius:0 6px 6px 0;box-shadow:inset 14px 0 18px -14px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.16)}
-.pp-leaf.is-cover,.pp-leaf.is-back{background:transparent;border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.3)}
-.pp-leaf svg{display:block;width:100%;height:100%}
+/* the book: the cover's colour frames the pages like a hardcover; the page block shows at the sides */
+.pp-stage{position:relative;display:flex;align-items:stretch;justify-content:center;width:min(100%,800px);padding:10px;border-radius:12px;background:var(--pp-board,#6b1d2a);box-shadow:inset 0 0 0 1px rgba(0,0,0,.3),0 18px 40px rgba(0,0,0,.28);perspective:2400px;touch-action:pan-y}
+.pp-stage::before{content:"";position:absolute;inset:0;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,.2));pointer-events:none}
+.pp-stage.one{width:min(100%,420px)}
+.pp-stage.closed{width:min(100%,380px);padding:0;background:none;box-shadow:none;perspective:1100px}
+.pp-stage.closed::before{display:none}
+.pp-spread{position:relative;z-index:1;display:flex;flex:1;min-width:0;transform-style:preserve-3d}
+.pp-leaf{position:relative;flex:1 1 0;min-width:0;aspect-ratio:300/420;overflow:hidden;background:#f6f0df}
+.pp-leaf>svg{display:block;width:100%;height:100%}
+.pp-stage .pp-leaf::after{content:"";position:absolute;inset:0;pointer-events:none}
+.pp-book.two .pp-spread>.pp-leaf:first-child{border-radius:3px 0 0 3px}
+.pp-book.two .pp-spread>.pp-leaf:first-child::after{background:linear-gradient(90deg,rgba(0,0,0,.05),transparent 10%,transparent 80%,rgba(0,0,0,.14) 95%,rgba(0,0,0,.3))}
+.pp-book.two .pp-spread>.pp-leaf:nth-child(2){border-radius:0 3px 3px 0}
+.pp-book.two .pp-spread>.pp-leaf:nth-child(2)::after{background:linear-gradient(270deg,rgba(0,0,0,.05),transparent 10%,transparent 80%,rgba(0,0,0,.12) 95%,rgba(0,0,0,.26))}
+.pp-stage.one .pp-leaf{border-radius:2px 4px 4px 2px}
+.pp-stage.one .pp-leaf::after{background:linear-gradient(90deg,rgba(0,0,0,.24),rgba(0,0,0,.08) 5%,transparent 14%)}
+.pp-leaf.is-cover,.pp-leaf.is-back{background:transparent;overflow:visible}
+.pp-leaf.is-cover::after,.pp-leaf.is-back::after{display:none}
+.pp-leaf.is-cover>svg,.pp-leaf.is-back>svg{filter:drop-shadow(0 12px 22px rgba(0,0,0,.32))}
+.pp-stage.closed .pp-spread{transition:transform .25s ease-out}
+.pp-stage.closed.lit .pp-spread{transform:rotateY(calc(var(--gx,0)*7deg)) rotateX(calc(var(--gy,0)*-5deg))}
+.pp-inboard{background:color-mix(in srgb,var(--pp-board,#6b1d2a) 86%,#000);border-radius:3px 0 0 3px}
+.pp-edge{position:relative;z-index:1;flex:none;align-self:stretch;margin:3px 0;background:repeating-linear-gradient(90deg,#f8f2e1 0 .9px,#cfc4a6 .9px 1.7px);box-shadow:inset 0 0 2px rgba(0,0,0,.3)}
+.pp-edge.l{border-radius:3px 0 0 3px}.pp-edge.r{border-radius:0 3px 3px 0}
+.pp-edge.cl{z-index:0;margin:7px 0 7px -3px}
+/* turning a page: it lifts and swings around the spine, shaded on the way */
+.pp-flip{position:absolute;top:0;bottom:0;width:50%;z-index:3;transform-style:preserve-3d}
+.pp-flip.fwd{left:50%;transform-origin:left center;animation:ppFlipF .64s cubic-bezier(.45,.06,.25,1) forwards}
+.pp-flip.back{left:0;transform-origin:right center;animation:ppFlipB .64s cubic-bezier(.45,.06,.25,1) forwards}
+.pp-face{position:absolute;inset:0;display:flex;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.pp-face>.pp-leaf{flex:1;height:100%}
+.pp-face.back{transform:rotateY(180deg)}
+.pp-face::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;animation:ppShade .64s ease forwards}
+.pp-flip.fwd .pp-face.front::after,.pp-flip.back .pp-face.back::after{background:linear-gradient(90deg,rgba(0,0,0,.05),rgba(0,0,0,.38))}
+.pp-flip.fwd .pp-face.back::after,.pp-flip.back .pp-face.front::after{background:linear-gradient(270deg,rgba(0,0,0,.05),rgba(0,0,0,.38))}
+@keyframes ppFlipF{from{transform:rotateY(0)}to{transform:rotateY(-180deg)}}
+@keyframes ppFlipB{from{transform:rotateY(0)}to{transform:rotateY(180deg)}}
+@keyframes ppShade{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
+.pp-flip1{position:absolute;inset:0;z-index:3;display:flex;transform-origin:left center}
+.pp-flip1>.pp-leaf{flex:1}
+.pp-flip1.fwd{animation:ppFlip1F .5s cubic-bezier(.45,.06,.25,1) forwards}
+.pp-flip1.back{animation:ppFlip1B .5s cubic-bezier(.45,.06,.25,1) forwards}
+@keyframes ppFlip1F{from{transform:rotateY(0);opacity:1}to{transform:rotateY(-112deg);opacity:.15}}
+@keyframes ppFlip1B{from{transform:rotateY(-112deg);opacity:.15}to{transform:rotateY(0);opacity:1}}
 .pp-stage.turn-n .pp-leaf{animation:ppTurnN .4s cubic-bezier(.2,.7,.2,1) both;transform-origin:left center}
 .pp-stage.turn-p .pp-leaf{animation:ppTurnP .4s cubic-bezier(.2,.7,.2,1) both;transform-origin:right center}
 @keyframes ppTurnN{from{transform:rotateY(-24deg) translateX(16px);opacity:.35}to{transform:none;opacity:1}}
 @keyframes ppTurnP{from{transform:rotateY(24deg) translateX(-16px);opacity:.35}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.pp-stage .pp-leaf{animation:none!important}}
+/* light: a glint runs over the foil, and the identity page's laminate shifts colour, with the pointer */
+.pp-glint{transform:translateX(-170px);animation:ppGlint 7s ease-in-out infinite}
+.pp-stage.lit .pp-glint{animation:none;transform:translateX(calc(var(--gx,0)*170px + 75px));transition:transform .1s linear}
+@keyframes ppGlint{0%,58%{transform:translateX(-170px)}100%{transform:translateX(470px)}}
+.pp-holo{transform:translateX(-600px);animation:ppHolo 12s linear infinite alternate}
+.pp-stage.lit .pp-holo{animation:none;transform:translateX(calc(var(--gx,0)*-150px - 300px));transition:transform .1s linear}
+@keyframes ppHolo{from{transform:translateX(-600px)}to{transform:translateX(0)}}
+/* ink sinks into the paper; a fresh stamp glows once; on a nation's page a new stamp thumps down */
+.pp-page .pp-st{mix-blend-mode:multiply}
+.pp-page.dark .pp-st{mix-blend-mode:screen}
+.pp-st.fresh{animation:ppFresh 1.4s ease .4s 2}
+@keyframes ppFresh{0%,100%{filter:none}50%{filter:drop-shadow(0 0 4px #ffd166) drop-shadow(0 0 2px #ffd166)}}
+.pp-visit-st{position:relative}
+.pp-visit-st.thump svg{animation:ppThump .62s cubic-bezier(.2,1.4,.35,1) both}
+.pp-visit-st.thump::after{content:"";position:absolute;left:50%;top:50%;width:90%;aspect-ratio:1;border-radius:50%;border:2px solid var(--stamp);transform:translate(-50%,-50%) scale(.4);opacity:0;animation:ppRing .7s ease-out .22s}
+@keyframes ppThump{0%{transform:scale(1.9) rotate(-16deg);opacity:0}55%{transform:scale(.93) rotate(-3deg);opacity:1}100%{transform:scale(1) rotate(-4deg);opacity:1}}
+@keyframes ppRing{0%{transform:translate(-50%,-50%) scale(.4);opacity:.7}100%{transform:translate(-50%,-50%) scale(1.3);opacity:0}}
+/* the UV lamp: the pages go dark and what is printed in fluorescent ink shows */
+.pp-uvl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen}
+.pp-book.uv .pp-stage{background:#17142b;box-shadow:inset 0 0 0 1px rgba(150,120,255,.3),0 0 40px rgba(120,80,255,.35)}
+.pp-book.uv .pp-leaf:not(.is-cover):not(.is-back)>svg:first-child{filter:brightness(.3) saturate(.35) hue-rotate(200deg)}
+.pp-book.uv .pp-edge{filter:brightness(.4) hue-rotate(200deg)}
+.pp-uvb.on{border-color:#7b5cff;background:#2a1f5c;color:#e6dcff;box-shadow:0 0 12px rgba(123,92,255,.6)}
+@media (prefers-reduced-motion:reduce){.pp-stage .pp-leaf,.pp-glint,.pp-holo,.pp-st.fresh,.pp-visit-st.thump svg,.pp-visit-st.thump::after{animation:none!important}.pp-stage.closed.lit .pp-spread{transform:none}}
 .pp-st{cursor:pointer;outline:none}
 .pp-st:hover,.pp-st:focus-visible{filter:drop-shadow(0 0 2.5px var(--accent))}
 .pp-st.on{filter:drop-shadow(0 0 3px var(--stamp)) drop-shadow(0 0 1px var(--stamp))}
-.pp-nav{display:flex;align-items:center;gap:8px}
-.pp-jump{min-width:200px}
+.pp-nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;width:min(100%,560px)}
+.pp-nav .btn{flex:none;white-space:nowrap}
+.pp-jump{flex:1 1 160px;min-width:0;max-width:260px}
 .pp-count{margin:0}
 .pp-info{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:12px;align-items:center;width:min(100%,560px);padding:10px 14px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet)}
 .pp-info-st svg{display:block;width:96px;height:auto}
@@ -15941,13 +16002,14 @@ function migration(){
   const L=T.list.length,A=new Float64Array(L),pop=new Float64Array(L),war=new Uint8Array(L),now=Date.now();
   T.list.forEach((x,i)=>{pop[i]=popNow(x.n,now);A[i]=migAppeal(x,T,i);war[i]=enemiesOf(x.id)&&T.lost[i]>0?1:0;});
   const raw=[],rin=new Float64Array(L),rout=new Float64Array(L);
+  let mb=null;try{const cs=cityState(T);mb=T.list.map((x,i)=>{const a=cs.agg&&cs.agg[i];return a&&a.mig||0;});}catch(e){mb=null;}
   for(let i=0;i<L;i++){if(!T.count[i])continue;const pi=pol(T.list[i].n),exit=pi.exitTax?0.5:1;
     for(let j=0;j<L;j++){if(i===j||!T.count[j])continue;const d=hexDist(T.list[i].cap,T.list[j].cap);if(d>MIG_RANGE||((war[i]||war[j])&&pairWar(T.list[i].id,T.list[j].id).war))continue;
-      const gap=A[j]-A[i]-4;if(gap<=0&&!war[i])continue;const pj=pol(T.list[j].n),entry=Math.max(0.15,1+(pj.openBorders?0.8:0)-(pj.borderWall?0.45:0));
+      const gap=A[j]-A[i]-4;if(gap<=0&&!war[i])continue;const pj=pol(T.list[j].n),entry=Math.max(0.15,1+(pj.openBorders?0.8:0)-(pj.borderWall?0.45:0))*(1+(mb?mb[j]:0));
       let f=0.0004*pop[i]*Math.max(gap,0)*Math.exp(-d/35)*entry*exit;if(war[i]&&!war[j])f=f*2.5+0.0006*pop[i]*Math.exp(-d/35)*entry;
       if(f<=1e-6)continue;raw.push({a:i,b:j,f,ref:!!war[i]});rin[j]+=f;rout[i]+=f;}}
   const cap=i=>{const x=T.list[i];return x.npc?0.5*Math.max(npcRate(x.n,now),0.002*pop[i]):0.5*Math.max(growth(x.n),0.004*pop[i]);};
-  const fin=new Float64Array(L),fout=new Float64Array(L);for(let i=0;i<L;i++){fin[i]=rin[i]>0?Math.min(1,cap(i)/rin[i]):1;fout[i]=rout[i]>0?Math.min(1,cap(i)/rout[i]):1;}
+  const fin=new Float64Array(L),fout=new Float64Array(L);for(let i=0;i<L;i++){fin[i]=rin[i]>0?Math.min(1,cap(i)*(1+(mb?mb[i]:0))/rin[i]):1;fout[i]=rout[i]>0?Math.min(1,cap(i)/rout[i]):1;}
   const flows=[],per=T.list.map(x=>({id:x.id,i:0,o:0,r:0,si:0,so:0,from:new Map(),to:new Map(),A:0}));
   for(const e of raw){const f=e.f*Math.min(fout[e.a],fin[e.b]);if(f<1e-6)continue;
     const sk=clamp(T.list[e.a].n.s.edu/100,0.1,0.9)*(pol(T.list[e.b].n).skilledVisas?1.5:1),sf=Math.min(0.95,sk*0.35)*f;
@@ -17046,7 +17108,7 @@ function helpBody(n){
       <p>Your nation needs an amount of each that grows with its size. What is spare flows into your stockpile, up to ${STOCK_CAP} of each, and pays for cities, buildings, expeditions and Games bids. Shortages hurt: too little food slows growth, too little iron or oil weakens your army, and too little goods, timber or oil drags on the economy.</p>
       <p>A trade deal swaps a daily flow of one resource for a flow of another, for as long as both sides keep it. You can hold up to ${MAX_DEALS} deals and offers at once. A computer nation accepts at once if you can spare what you offer and it can spare what you ask, it is not already well supplied with your resource, and the price is fair; players answer when they next play. A war between two nations suspends their deals.${typeof C3_HOSTILE==='number'?` A computer nation that regards you as hostile (goodwill ${String(C3_HOSTILE).replace('-','−')} or lower) freezes its deals with you and refuses new ones.`:''}</p>${G(go('trade','Open trade'))}`,
     mig:`<p>People move towards nations that are richer, happier, freer, safer, healthier and better educated, within ${MIG_RANGE} hexes of each other’s capitals. Income tax above 45%, overcrowding, war and occupied land put them off, and a nation that is losing land in a war sends out refugees.</p>
-      <p>Arrivals and departures are each capped at half of natural growth, so migration bends your growth but never rules it. Open Borders, a Border Wall, Skilled Worker Visas and an Exit Tax all change the flows. The Migration tab in Statistics shows who comes and who goes.</p>`,
+      <p>Arrivals and departures are each capped at half of natural growth, so migration bends your growth but never rules it. Open Borders, a Border Wall, Skilled Worker Visas and an Exit Tax all change the flows, and a Diplomata draws 3% more arrivals. The Migration tab in Statistics shows who comes and who goes.</p>`,
     nb:`<p>Your neighbours are the nearest nations within ${NB_RANGE} hexes, up to three of them. Border disputes, trade quarrels and shared stories involve them, and the Diplomacy page lists them.</p>
       <p>Goodwill runs from −${GW_MAX} to +${GW_MAX}, from Hostile to Firm friends. It moves with the edicts you decide, and falls when you declare war on a nation (−15), take its land (−3 a hex), are caught spying on it (−5, or −10 if it is your ally) or send explorers across its land. Withdrawing your troops when you make peace earns +8. Players keep their own record of you, shown on their page.</p>
       <p>Computer nations count goodwill (up to 20 points either way) in their affinity with you, and a hawkish computer neighbour that dislikes you may go to war.</p>`,
@@ -24084,6 +24146,7 @@ function bldAgg(a,B,key,x){
   if(B.xp)a.xp=(a.xp||0)+B.xp;
   if(B.att)a.att=(a.att||0)+B.att;
   if(B.exp)a.exp=(a.exp||0)+B.exp;
+  if(B.mig)a.mig=(a.mig||0)+B.mig;
   if(B.spy){const s=a.spy||(a.spy=[0,0]);s[0]+=B.spy[0];s[1]+=B.spy[1];}
   return false;
 }
@@ -24112,6 +24175,7 @@ function bldEffectsX(a){
   if(a.xp)b.push('economy +'+Math.round(a.xp*100)+'% beyond the limit');
   if(a.fx){const f=a.fx;b.push(...fxWords({prosper:0,army:0,growth:0,aff:f.aff||0,def:f.def||0,build:1+(f.build||0),cost:1+(f.cost||0),games:f.games||0},true));}
   if(a.att)b.push('attacks +'+Math.round(a.att*100)+'%');
+  if(a.mig)b.push('immigration +'+Math.round(a.mig*100)+'%');
   if(a.exp)b.push('expeditions +'+a.exp);
   if(a.spy){if(a.spy[0])b.push('enemy agents '+Math.abs(a.spy[0])+' points less likely to succeed');if(a.spy[1])b.push('enemy agents '+a.spy[1]+' points more likely to be exposed');}
   if(a.dorm&&a.dorm.length)b.push(a.dorm.length===1?'one building dormant':a.dorm.length+' buildings dormant');
@@ -33357,7 +33421,7 @@ document.addEventListener('click',e=>{
    so a passport reads the same wherever it is opened. Computer nations carry the stamps of their
    region's other computer nations. Other regions cannot be visited, so a book fills with the stamps of
    the region a nation lives in, and of the regions it moved through. */
-const PP_PAGES=20,PP_SLOTS=10,PP_MAX=PP_PAGES*PP_SLOTS,PP_SEQ=PP_PAGES+3;
+const PP_PAGES=20,PP_SLOTS=10,PP_MAX=PP_PAGES*PP_SLOTS,PP_SEQ=PP_PAGES+4;
 Object.assign(UNLOCKS,{
   /* cover colours */
   'pc-burgundy':{k:'ppcol',n:'Burgundy',src:'free',v:'#6b1d2a'},'pc-navy':{k:'ppcol',n:'Navy',src:'free',v:'#1b2a4a'},'pc-green':{k:'ppcol',n:'Bottle green',src:'free',v:'#1f4d3a'},
@@ -33389,15 +33453,87 @@ Object.assign(UNLOCKS,{
   'pi-violet':{k:'ppink',n:'Violet',src:'free'},'pi-red':{k:'ppink',n:'Red',src:'free'},'pi-blue':{k:'ppink',n:'Blue',src:'free'},'pi-green':{k:'ppink',n:'Green',src:'free'},'pi-black':{k:'ppink',n:'Black',src:'free'},
   'pi-teal':{k:'ppink',n:'Teal',src:'ach'},'pi-orange':{k:'ppink',n:'Orange',src:'ach'},'pi-gold':{k:'ppink',n:'Gold',src:'ach'},'pi-brown':{k:'ppink',n:'Sepia',src:'set'},'pi-magenta':{k:'ppink',n:'Magenta',src:'set'}
 });
-const PP_KIND={col:'ppcol',tex:'pptex',foil:'ppfoil',orn:'pporn',tint:'pptint',pat:'pppat',sh:'ppshape',bd:'ppbord',ink:'ppink'};
+const PP_CREDIT_EVERY=20,PP_CREDITS=PP_MAX/PP_CREDIT_EVERY;
+const PP_KIND={col:'ppcol',tex:'pptex',foil:'ppfoil',orn:'pporn',tint:'pptint',pat:'pppat',sh:'ppshape',bd:'ppbord',ink:'ppink',fn:'ppfont'};
 const PP_LAYS={classic:'Classic',low:'Emblem above',framed:'Cartouche'},PP_WM={emblem:'Emblem',initial:'Initial',none:'None'},PP_NUM={roman:'Roman',arabic:'Arabic'};
 const PP_WORDS=['PASSPORT','PASSEPORT','PASAPORTE','REISEPASS','PASSAPORTO','PASPOORT','LAISSEZ-PASSER','DIPLOMATIC PASSPORT'];
 const PP_T2=['ADMITTED','ENTRY','ARRIVAL','WELCOME','SALVE','BIENVENUE','VISITED','FRIEND OF THE STATE'];
-const PP={tried:new Set(),tab:'book',dtab:'c',at:0,sel:null,info:null,ask:null,turn:0};
-const PPV={id:null,at:0,info:null,opener:null,turn:0};
+const PP={tried:new Set(),tab:'book',dtab:'c',at:0,sel:null,info:null,ask:null,turn:0,from:null,uv:false,seenAt:0,just:null};
+const PPV={id:null,at:0,info:null,opener:null,turn:0,from:null,uv:false};
 function ppU(id,k){const u=czU(id);return !!u&&u.k===k;}
-function ppIcon(id){return typeof id==='string'&&!!czU(id)&&UNLOCKS[id].k==='charge';}
-function ppEmb(id){return typeof id==='string'&&!!czU(id)&&(UNLOCKS[id].k==='ppemb'||UNLOCKS[id].k==='charge');}
+function ppIcon(id){return typeof id==='string'&&!!czU(id)&&(UNLOCKS[id].k==='charge'||UNLOCKS[id].k==='ppicon');}
+function ppWm(id){return czHas(PP_WM,id)||ppU(id,'ppwm');}
+function ppEmb(id){return typeof id==='string'&&!!czU(id)&&(UNLOCKS[id].k==='ppemb'||UNLOCKS[id].k==='charge'||UNLOCKS[id].k==='ppicon');}
+
+Object.assign(BUILDINGS,{
+  diplo:{n:'Diplomata',c:'soc',one:1,d:'A passport office. Unlocks the Diplomata passport designs: five typefaces, eight devices, five page prints and five watermarks. Immigration +3%. One per nation.',
+    q:'Issues passports in eleven languages, stamps them in seven inks, and serves the queue complimentary tea.',cost:{timber:20,iron:10,goods:30},h:6,mig:0.03,icon:'diplo'}
+});
+DC_GLYPH.diplo={w:5.2,h:5.4,f:(q,x)=>{q.box('face',x,1.5,2.4,{win:1});q.box('face',x+3.7,1.5,2.4,{win:1});q.rect('back',x+1.4,-3.2,2.4,3.2);q.rect('back',x+1.25,-0.38,2.7,0.38,{ol:1});
+  for(let i=0;i<3;i++)q.rect('face',x+1.55+i*0.8,-3.2,0.36,2.82,{ol:1});q.rect('face',x+1.3,-3.58,2.6,0.38,{ol:1});q.poly('roof',[[x+1.22,-3.58],[x+2.6,-4.4],[x+3.98,-3.58]],{ol:1});q.rect('flag',x+2.33,-4.12,0.54,0.38,{ol:1});dcFlag(q,x+2.6,-4.5,0);}};
+/* whether a nation has a working Diplomata in one of its own cities */
+function ppDiplomata(n){if(!n||n.npc)return false;const now=Date.now();try{return cityList(n).some(c=>(c.b||[]).some(b=>b&&b.k==='diplo'&&b.d<=now));}catch(e){return false;}}
+
+/* ── the Diplomata: a passport office in one of your cities. Built, it unlocks five typefaces, eight devices for
+   stamps and covers, five page prints and five watermarks (UNLOCKS src 'bld'), and makes the nation a little
+   more attractive to migrants. ── */
+Object.assign(UNLOCKS,{
+  'pfn-cinzel':{k:'ppfont',n:'Roman capitals',src:'free',f:"Cinzel,Georgia,serif",ls:1,sz:1,uc:1},'pfn-plex':{k:'ppfont',n:'Ledger mono',src:'free',f:"'IBM Plex Mono',ui-monospace,monospace",ls:1,sz:1,uc:1},
+  'pfn-garamond':{k:'ppfont',n:'Garamond',src:'bld',f:"'Cormorant Garamond',Georgia,serif",ls:1,sz:1.14,uc:1},'pfn-fraktur':{k:'ppfont',n:'Fraktur',src:'bld',f:"UnifrakturMaguntia,serif",ls:0,sz:1.08,uc:0},
+  'pfn-script':{k:'ppfont',n:'Copperplate',src:'bld',f:"'Great Vibes',cursive",ls:0,sz:1.35,uc:0},'pfn-typewriter':{k:'ppfont',n:'Typewriter',src:'bld',f:"'Courier Prime',monospace",ls:1,sz:1,uc:1},
+  'pfn-poster':{k:'ppfont',n:'Poster capitals',src:'bld',f:"'Bebas Neue',sans-serif",ls:1,sz:1.28,uc:1},
+  'pk-globe':{k:'ppicon',n:'Globe',src:'bld'},'pk-compass':{k:'ppicon',n:'Compass rose',src:'bld'},'pk-dove':{k:'ppicon',n:'Dove',src:'bld'},'pk-quill':{k:'ppicon',n:'Quill',src:'bld'},
+  'pk-scales':{k:'ppicon',n:'Scales',src:'bld'},'pk-wheel':{k:'ppicon',n:'Ship’s wheel',src:'bld'},'pk-plane':{k:'ppicon',n:'Aeroplane',src:'bld'},'pk-lyre':{k:'ppicon',n:'Lyre',src:'bld'},
+  'pg-lattice':{k:'pppat',n:'Banknote lattice',src:'bld'},'pg-mosaic':{k:'pppat',n:'Roman mosaic',src:'bld'},'pg-sunburst':{k:'pppat',n:'Sunburst',src:'bld'},'pg-meridians':{k:'pppat',n:'Meridians',src:'bld'},'pg-weave':{k:'pppat',n:'Weave',src:'bld'},
+  'pw-seal':{k:'ppwm',n:'Seal of state',src:'bld'},'pw-flag':{k:'ppwm',n:'Flag',src:'bld'},'pw-globe':{k:'ppwm',n:'Globe',src:'bld'},'pw-laurel':{k:'ppwm',n:'Laurel wreath',src:'bld'},'pw-compass':{k:'ppwm',n:'Compass rose',src:'bld'}
+});
+/* a typeface: its CSS family, whether it takes letter-spacing, how much larger it is set, and whether it is set in capitals
+   (scripts and blackletter are set in their own case, without spacing) */
+function ppFont(id,fb){const u=UNLOCKS[id];return u&&u.k==='ppfont'?u:UNLOCKS[fb];}
+/* the Diplomata's devices, drawn in one colour in a 100 × 100 box */
+function ppIconSVG(id,c){
+  const S=(d,w)=>`<path d="${d}" fill="none" stroke="${c}" stroke-width="${w||6}" stroke-linecap="round" stroke-linejoin="round"/>`,F=d=>`<path d="${d}" fill="${c}"/>`;
+  switch(id){
+    case 'pk-globe':return `<circle cx="50" cy="50" r="38" fill="none" stroke="${c}" stroke-width="6"/>`+S('M50,12C30,30 30,70 50,88C70,70 70,30 50,12M12,50H88M18,31H82M18,69H82',4.5);
+    case 'pk-compass':return F('M50,4L58,42L96,50L58,58L50,96L42,58L4,50L42,42Z')+F('M50,22L54,46L50,50L46,46ZM78,22L56,46L52,48ZM22,78L44,54L48,52Z')+`<circle cx="50" cy="50" r="30" fill="none" stroke="${c}" stroke-width="4"/>`;
+    case 'pk-dove':return F('M20,62C30,40 46,36 58,40C64,30 74,26 84,30C78,32 74,36 74,42C80,50 76,62 64,68C52,74 36,74 24,70L8,76L16,64Z')+F('M44,40C40,26 46,14 58,10C56,22 58,32 64,36Z')+S('M84,34L94,32M70,70Q76,80 86,82M80,78L88,74M76,82L80,90',3.5);
+    case 'pk-quill':return F('M80,6C56,10 36,30 28,58L24,72L36,64C60,56 80,34 88,10Z')+S('M86,10L22,82M22,82L14,94',4)+S('M40,48L56,46M34,60L48,58M48,36L64,32',2.5);
+    case 'pk-scales':return S('M50,12V86M30,88H70M16,28H84',6)+`<circle cx="50" cy="12" r="5" fill="${c}"/>`+S('M16,28L6,58M16,28L26,58M84,28L74,58M84,28L94,58',3)+F('M4,58H28Q16,72 4,58ZM72,58H96Q84,72 72,58Z');
+    case 'pk-wheel':{let sp='';for(let i=0;i<8;i++){const a=i*Math.PI/4,x1=50+12*Math.cos(a),y1=50+12*Math.sin(a),x2=50+46*Math.cos(a),y2=50+46*Math.sin(a);sp+=`M${x1.toFixed(1)},${y1.toFixed(1)}L${x2.toFixed(1)},${y2.toFixed(1)}`;}
+      return `<circle cx="50" cy="50" r="32" fill="none" stroke="${c}" stroke-width="6"/><circle cx="50" cy="50" r="10" fill="${c}"/>`+S(sp,5);}
+    case 'pk-plane':return F('M50,4C54,4 56,10 56,18V38L94,58V66L56,56V78L68,86V92L50,88L32,92V86L44,78V56L6,66V58L44,38V18C44,10 46,4 50,4Z');
+    case 'pk-lyre':return S('M28,16C14,36 20,62 34,74H66C80,62 86,36 72,16',6)+S('M24,26H76M40,30V72M50,30V72M60,30V72',3)+F('M30,74H70V86H30Z');
+  }
+  return '';
+}
+function ppDevice(id,c){return /^pk-/.test(id)?ppIconSVG(id,c):/^c-/.test(id)?czCharge(id.slice(2),c,'none',true):'';}
+/* the Diplomata's page prints */
+function ppPrintBld(g,ink){
+  const S=d=>`<path d="${d}" fill="none" stroke="${ink}" stroke-width=".55"/>`;let o='';
+  switch(g){
+    case 'pg-lattice':for(let y=-10;y<440;y+=24)for(let x=-10;x<320;x+=24)o+=`<circle cx="${x+(Math.round(y/24)%2?12:0)}" cy="${y}" r="17"/>`;return `<g fill="none" stroke="${ink}" stroke-width=".45">${o}</g>`;
+    case 'pg-mosaic':{const r=rng(5);for(let y=0;y<420;y+=10)for(let x=0;x<300;x+=10)if(r()<.5)o+=`<rect x="${x+1}" y="${y+1}" width="8" height="8" rx="1"/>`;let k='';for(let x=10;x<290;x+=20)k+=`M${x},62V52H${x+14}V58H${x+6}`;
+      return `<g fill="${ink}" opacity=".16">${o}</g>`+S(k)+`<g transform="matrix(1 0 0 -1 0 420)">${S(k)}</g>`;}
+    case 'pg-sunburst':for(let i=0;i<=36;i++){const a=Math.PI+i*Math.PI/36;o+=`M150,430L${(150+520*Math.cos(a)).toFixed(1)},${(430+520*Math.sin(a)).toFixed(1)}`;}for(let r=60;r<520;r+=60)o+=`M${150-r},430A${r},${r} 0 0,1 ${150+r},430`;return S(o);
+    case 'pg-meridians':for(let i=-6;i<=6;i++){const k=i/6;o+=`M150,10Q${(150+190*k).toFixed(1)},210 150,410`;}for(let y=30;y<420;y+=30)o+=`M0,${y}Q150,${y+(y-210)*.12} 300,${y}`;return S(o);
+    case 'pg-weave':for(let i=-420;i<300;i+=12)o+=`M${i},0L${i+420},420M${i+420},0L${i},420`;return `<g opacity=".7">${S(o)}</g>`;
+  }
+  return '';
+}
+/* the Diplomata's watermarks */
+function ppWmBld(w,n,ink){
+  const G=inner=>`<g opacity=".13">${inner}</g>`;
+  switch(w){
+    case 'pw-seal':return G(`<circle cx="150" cy="215" r="74" fill="none" stroke="${ink}" stroke-width="3"/><circle cx="150" cy="215" r="60" fill="none" stroke="${ink}" stroke-width="1.5"/><text x="150" y="238" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="60" fill="${ink}">${esc(((c=>c==='SPQ'?c+String((n&&n.name)||'S').charAt(0).toUpperCase():c)(chamberOf(n||{}).seal)).slice(0,6))}</text>`);
+    case 'pw-flag':return n?`<g opacity=".1"><svg x="40" y="140" width="220" height="146" viewBox="0 0 300 200" preserveAspectRatio="none">${flagSVG(n.flag).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</svg></g>`:'';
+    case 'pw-globe':return G(`<g transform="translate(70,135) scale(1.6)">${ppIconSVG('pk-globe',ink)}</g>`);
+    case 'pw-laurel':return G(`<g transform="translate(60,125) scale(1.8)">${ppEmblem('pe-laurel',n,ink,50,50,100)}</g>`);
+    case 'pw-compass':return G(`<g transform="translate(70,135) scale(1.6)">${ppIconSVG('pk-compass',ink)}</g>`);
+  }
+  return '';
+}
+/* a word in its own case, for the typefaces not set in capitals */
+const ppTitle=t=>String(t).toLowerCase().replace(/(^|[\s'’(-])([a-zà-ÿ])/g,(m,a,b)=>a+b.toUpperCase());
 
 /* ── drawing: the passport. Covers and pages are 300 × 420; a stamp is 120 × 84. ── */
 let ppSeq=0;
@@ -33448,37 +33584,72 @@ function ppOrnament(o,paint){
   }
   return '';
 }
-/* emblems: the arms or flag in colour, or a device struck in the foil */
-function ppEmblem(e,n,paint,cx,cy,sz){
+/* emblems: the arms or flag in colour, or a device struck in the foil. sil draws the arms and the flag as a
+   plain silhouette in paint, for the pressed shadow, the highlight and the glint's mask */
+function ppEmblem(e,n,paint,cx,cy,sz,sil){
   const ini=esc(String((n&&n.name)||'E').trim().charAt(0).toUpperCase()||'E');
-  const nest=inner=>`<svg x="${PP_Q(cx-sz/2)}" y="${PP_Q(cy-sz/2)}" width="${sz}" height="${sz}" viewBox="0 0 100 100">${inner}</svg>`;
-  if(e==='pe-flag'&&n)return `<svg x="${PP_Q(cx-sz*.55)}" y="${PP_Q(cy-sz*.37)}" width="${PP_Q(sz*1.1)}" height="${PP_Q(sz*.73)}" viewBox="0 0 300 200" preserveAspectRatio="none">${flagSVG(n.flag).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</svg><rect x="${PP_Q(cx-sz*.55)}" y="${PP_Q(cy-sz*.37)}" width="${PP_Q(sz*1.1)}" height="${PP_Q(sz*.73)}" fill="none" stroke="${paint}" stroke-width="1.6"/>`;
-  if(e==='pe-arms'&&n){const a=cz(n).a||czDefaultArms(n,1);return `<g transform="translate(${PP_Q(cx-sz*.45)},${PP_Q(cy-sz*.52)}) scale(${(sz*.9/106).toFixed(3)})">${czArmsSVG(a,{}).replace(/^<svg[^>]*>/,'<svg viewBox="-3 -3 106 126" width="106" height="126">')}</g>`;}
+  const nest=inner=>`<g transform="translate(${PP_Q(cx-sz/2)},${PP_Q(cy-sz/2)}) scale(${(sz/100).toFixed(3)})">${inner}</g>`;
+  if(e==='pe-flag'&&n){const x=PP_Q(cx-sz*.55),y=PP_Q(cy-sz*.37),w=PP_Q(sz*1.1),h=PP_Q(sz*.73);
+    return sil?`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${paint}"/>`:`<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="0 0 300 200" preserveAspectRatio="none">${flagSVG(n.flag).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</svg><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${paint}" stroke-width="1.6"/>`;}
+  if(e==='pe-arms'&&n){const a=cz(n).a||czDefaultArms(n,1),tr=`translate(${PP_Q(cx-sz*.45)},${PP_Q(cy-sz*.52)}) scale(${(sz*.9/106).toFixed(3)})`;
+    return sil?`<g transform="${tr}"><path d="${czShieldPath(a.s)}" fill="${paint}"/></g>`:`<g transform="${tr}">${czArmsSVG(a,{}).replace(/^<svg[^>]*>/,'<svg viewBox="-3 -3 106 126" width="106" height="126">')}</g>`;}
   if(e==='pe-rosette'){let g='';for(let i=0;i<24;i++)g+=`<ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(${i*7.5} 50 50)"/>`;return nest(`<g fill="none" stroke="${paint}" stroke-width=".7">${g}<circle cx="50" cy="50" r="12"/></g>`);}
-  if(e==='pe-temple')return nest(`<g fill="${paint}"><path d="M8,32L50,8L92,32Z"/><rect x="10" y="35" width="80" height="6"/>${[16,32,48,64,80].map(x=>`<rect x="${x-3.5}" y="44" width="7" height="38"/>`).join('')}<rect x="6" y="85" width="88" height="5"/><rect x="2" y="92" width="96" height="5"/></g><circle cx="50" cy="24" r="4" fill="rgba(0,0,0,.25)"/>`);
+  if(e==='pe-temple')return nest(`<g fill="${paint}"><path d="M8,32L50,8L92,32Z"/><rect x="10" y="35" width="80" height="6"/>${[16,32,48,64,80].map(x=>`<rect x="${x-3.5}" y="44" width="7" height="38"/>`).join('')}<rect x="6" y="85" width="88" height="5"/><rect x="2" y="92" width="96" height="5"/></g>`);
   if(e==='pe-laurel'){const pts=[];for(let i=0;i<9;i++){const th=(100+i*19)*Math.PI/180;pts.push([50+40*Math.cos(th),50+40*Math.sin(th),Math.atan2(Math.cos(th),-Math.sin(th))*180/Math.PI]);}
     const l=`<g fill="${paint}">${laurelLeaves(pts,13,3.4,1)}</g>`;
     return nest(`${l}<g transform="matrix(-1 0 0 1 100 0)">${l}</g><text x="50" y="63" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="38" fill="${paint}">${ini}</text>`);}
-  if(/^c-/.test(e))return nest(czCharge(e.slice(2),paint,'rgba(0,0,0,.28)',true));
+  if(/^c-/.test(e))return nest(czCharge(e.slice(2),paint,sil?paint:'rgba(0,0,0,.28)',true));
+  if(/^pk-/.test(e))return nest(ppIconSVG(e,paint));
   return nest(`<text x="50" y="66" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="52" fill="${paint}">${ini}</text>`);
 }
 /* the e-passport chip mark */
 function ppChip(paint,cx,cy){return `<g fill="none" stroke="${paint}" stroke-width="1.5" transform="translate(${cx-14},${cy-9})"><rect x="0" y="0" width="28" height="18" rx="2"/><circle cx="14" cy="9" r="4.2"/><path d="M0,9H9.8M18.2,9H28"/></g>`;}
 function ppNameLines(n){const pre=n&&n.pretitle?('The '+n.pretitle+' of').toUpperCase():'',nm=String((n&&n.name)||'').toUpperCase();return [pre,nm];}
-/* the cover: d is a cleaned cover design (ppDesign) */
+/* a colour between two (#rrggbb) */
+function ppMix(a,b,t){const p=h=>[1,3,5].map(i=>parseInt(String(h).slice(i,i+2),16)||0),A=p(a),B=p(b);return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join('');}
+/* the two most colourful colours of a nation's flag, for the rainbow print of its pages */
+function ppFlagCols(n){const c=[0,1,2].map(i=>safeColor(n&&n.flag&&n.flag.c&&n.flag.c[i],DEF_FLAG.c[i])),sat=h=>{const v=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));return Math.max(...v)-Math.min(...v);};return c.slice().sort((a,b)=>sat(b)-sat(a)).slice(0,2);}
+/* a line of microtext: from arm's length a rule, close up the nation's name over and over */
+function ppMicro(n,x,y,w,col){const t=(String((n&&n.name)||'').toUpperCase()+' · ').repeat(40).slice(0,Math.round(w/1.5));return `<text x="${x}" y="${y}" font-family="'IBM Plex Mono',monospace" font-size="2.4" fill="${col}" opacity=".75" textLength="${w}" lengthAdjust="spacingAndGlyphs">${esc(t)}</text>`;}
+/* the passport number punched through every page (the last four figures, in a 3 × 5 dot face) */
+const PP_DIG=['111101101101111','010110010010111','111001111100111','111001111001111','101101111001001','111100111001111','111100111101111','111001010010010','111101111101111','111101111001111'];
+function ppPerf(no,x,y,dark){let o='';String(no).slice(-4).split('').forEach((d,k)=>{const b=PP_DIG[+d]||PP_DIG[0];for(let i=0;i<15;i++)if(b[i]==='1')o+=`<circle cx="${PP_Q(x-2.3+(i%3)*2.3)}" cy="${PP_Q(y+k*15+Math.floor(i/3)*2.3)}" r=".85"/>`;});
+  return `<g fill="${dark?'rgba(0,0,0,.6)':'rgba(70,60,40,.42)'}" stroke="${dark?'rgba(255,255,255,.18)':'rgba(255,255,255,.7)'}" stroke-width=".3">${o}</g>`;}
+/* engraved scenes, one to a page like the visa pages of real passports (120 × 60, line art) */
+const PP_VIG=[
+  'M10,58H110M16,52H104M22,52V24M38,52V24M54,52V24M70,52V24M86,52V24M100,52V24M14,24H106L60,6Z',
+  'M52,56L56,18H64L68,56M54,40H66M54,30H66M56,18L60,10L64,18M60,10V6M40,14L52,16M80,14L68,16M10,56Q30,50 50,56T90,56T120,54M0,58H120',
+  'M0,56L22,30L34,40L52,16L66,34L78,24L100,50L120,40M46,24L52,16L58,24M0,58H120M8,58Q14,52 20,58M96,58Q102,52 108,58',
+  'M0,30H120M0,36H120M8,36Q24,58 40,36M40,36Q56,58 72,36M72,36Q88,58 104,36M104,36Q112,48 120,40M24,36V30M56,36V30M88,36V30M0,58Q30,54 60,58T120,58',
+  'M54,58L58,26H66L70,58M62,26V22M62,22L40,4M62,22L84,40M62,22L44,42M62,22L80,4M0,58H120M20,58Q24,50 30,58M90,58Q96,48 104,58',
+  'M20,44H100L90,54H30ZM60,44V8M60,10L84,40H60M60,14L40,40H60M0,58Q15,54 30,58T60,58T90,58T120,58',
+  'M0,58H120M6,58V40H16V58M16,58V30H26V58M28,58V20H38V58M33,20V12M40,58V36H52V58M54,58V26H66V58M60,26V16M68,58V44H80V58M82,58V32H94V58M96,58V38H108V58M110,58V46H118V58',
+  'M0,58Q30,44 60,52T120,50M60,52V36M60,40Q40,40 44,26Q42,12 58,12Q66,2 76,12Q90,14 86,28Q90,40 64,40',
+  'M14,58V14H106V58M14,14V8H106V14M46,58V36Q60,18 74,36V58M24,58V20M96,58V20M30,30H40M80,30H90M0,58H120',
+  'M0,20H120M0,26H120M6,58V26M30,58V26M54,58V26M78,58V26M102,58V26M6,40Q18,28 30,40M30,40Q42,28 54,40M54,40Q66,28 78,40M78,40Q90,28 102,40M102,40Q111,30 120,36M0,58H120'];
+/* the cover: d is a cover design. Its lettering, ornament and emblem are pressed in (a shadow below, a
+   highlight above), struck in foil, and a glint that follows the pointer runs over the foil */
 function ppCoverSVG(n,d,o){
-  o=o||{};const id='ppc'+(++ppSeq),col=(UNLOCKS[d.col]||{}).v||'#6b1d2a',[fd,paint]=ppFoil(d.foil,id+'f'),[td,tex]=ppTexture(d.tex,id,col);
-  const [pre,nm]=ppNameLines(n),fsN=Math.max(15,Math.min(34,250/(Math.max(4,nm.length)*.78))),fsP=Math.max(8,Math.min(13,250/(Math.max(6,pre.length)*.7)));
-  const word=esc(d.word||'PASSPORT'),T=(y,fs,t,ls)=>`<text x="150" y="${y}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="${PP_Q(fs)}" letter-spacing="${ls||1.5}" fill="${paint}">${esc(t)}</text>`;
-  let body='';
-  if(d.lay==='low')body=ppEmblem(d.emb,n,paint,150,150,118)+(pre?T(262,fsP,pre,2.2):'')+T(298,fsN,nm)+T(352,15,word,5)+(d.chip?ppChip(paint,150,382):'');
-  else if(d.lay==='framed'){const pid=id+'a';body=`<defs><path id="${pid}" d="M72,212A78,89 0 1,1 228,212"/></defs><ellipse cx="150" cy="212" rx="98" ry="108" fill="none" stroke="${paint}" stroke-width="1.4"/><ellipse cx="150" cy="212" rx="92" ry="102" fill="none" stroke="${paint}" stroke-width=".6"/>
-<text font-family="Cinzel,Georgia,serif" font-weight="700" font-size="${PP_Q(Math.min(14,fsN*.55))}" letter-spacing="2" fill="${paint}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(nm)}</textPath></text>`+ppEmblem(d.emb,n,paint,150,222,104)+(pre?T(68,fsP,pre,2.2):'')+T(362,15,word,5)+(d.chip?ppChip(paint,150,392):'');}
-  else body=(pre?T(64,fsP,pre,2.2):'')+T(64+(pre?fsN+8:fsN*.6),fsN,nm)+ppEmblem(d.emb,n,paint,150,214,122)+T(330,15,word,5)+(d.chip?ppChip(paint,150,368):'');
-  return `<svg class="pp-cover${o.cls?' '+o.cls:''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${fd}${td}</defs><rect width="300" height="420" rx="10" fill="${col}"/>${tex}${ppOrnament(d.orn,paint)}${body}<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>`;
+  o=o||{};const id='ppc'+(++ppSeq),col=(UNLOCKS[d.col]||{}).v||'#6b1d2a',[fd,paint]=ppFoil(d.foil,id+'f'),[td,tex]=ppTexture(d.tex,id,col),blind=d.foil==='pf-blind';
+  const fo=ppFont(d.fn,'pfn-cinzel'),z=fo.sz||1,[pre0,nm0]=ppNameLines(n),pre=fo.uc?pre0:ppTitle(pre0),nm=fo.uc?nm0:ppTitle(nm0),fsN=Math.max(15,Math.min(34,250/(Math.max(4,nm.length)*.78))),fsP=Math.max(8,Math.min(13,250/(Math.max(6,pre.length)*.7))),word=fo.uc?d.word||'PASSPORT':ppTitle(d.word||'PASSPORT');
+  let k=0;
+  const B=(p,sil)=>{const T=(y,fs,t,ls)=>`<text x="150" y="${y}" text-anchor="middle" font-family="${fo.f}" font-weight="700" font-size="${PP_Q(fs*z)}" letter-spacing="${fo.ls?ls||1.5:0}" fill="${p}">${esc(t)}</text>`;let body='';
+    if(d.lay==='low')body=ppEmblem(d.emb,n,p,150,150,118,sil)+(pre?T(262,fsP,pre,2.2):'')+T(298,fsN,nm)+T(352,15,word,5)+(d.chip?ppChip(p,150,382):'');
+    else if(d.lay==='framed'){const pid=id+'a'+(++k);body=`<defs><path id="${pid}" d="M72,212A78,89 0 1,1 228,212"/></defs><ellipse cx="150" cy="212" rx="98" ry="108" fill="none" stroke="${p}" stroke-width="1.4"/><ellipse cx="150" cy="212" rx="92" ry="102" fill="none" stroke="${p}" stroke-width=".6"/>
+<text font-family="${fo.f}" font-weight="700" font-size="${PP_Q(Math.min(14,fsN*.55)*z)}" letter-spacing="${fo.ls?2:0}" fill="${p}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(nm)}</textPath></text>`+ppEmblem(d.emb,n,p,150,222,104,sil)+(pre?T(68,fsP,pre,2.2):'')+T(362,15,word,5)+(d.chip?ppChip(p,150,392):'');}
+    else body=(pre?T(64,fsP,pre,2.2):'')+T(64+(pre?fsN+8:fsN*.6),fsN,nm)+ppEmblem(d.emb,n,p,150,214,122,sil)+T(330,15,word,5)+(d.chip?ppChip(p,150,368):'');
+    return ppOrnament(d.orn,p)+body;};
+  const glint=d.foil==='pf-holo'?`<linearGradient id="${id}g" x1="0" y1="0" x2="1" y2=".35"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".3" stop-color="#ffd1f5" stop-opacity=".7"/><stop offset=".5" stop-color="#c6f6ff" stop-opacity=".9"/><stop offset=".7" stop-color="#fff9c4" stop-opacity=".7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+    :`<linearGradient id="${id}g" x1="0" y1="0" x2="1" y2=".35"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`;
+  const hinge=`<linearGradient id="${id}h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".38"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>`;
+  return `<svg class="pp-cover${o.cls?' '+o.cls:''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${fd}${td}${glint}${hinge}${blind?'':`<mask id="${id}k" maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="420">${B('#fff',1)}</mask>`}</defs>
+<rect width="300" height="420" rx="10" fill="${col}"/>${tex}<rect width="24" height="420" fill="url(#${id}h)"/><path d="M19,8V412" stroke="rgba(0,0,0,.3)" stroke-width="1.2"/><path d="M20.5,8V412" stroke="rgba(255,255,255,.1)"/>
+<g transform="translate(.5,1.3)" opacity=".7">${B('rgba(0,0,0,.55)',1)}</g><g transform="translate(-.4,-.8)" opacity="${blind?.8:.55}">${B('rgba(255,255,255,.3)',1)}</g>${B(paint)}
+${blind?'':`<g mask="url(#${id}k)"><rect class="pp-glint" x="0" y="0" width="150" height="420" fill="url(#${id}g)"/></g>`}<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>`;
 }
 /* the security print behind a page */
 function ppPagePattern(g,ink){
+  if(UNLOCKS[g]&&UNLOCKS[g].src==='bld')return ppPrintBld(g,ink);
   const S=d=>`<path d="${d}" fill="none" stroke="${ink}" stroke-width=".55"/>`;let o='';
   switch(g){
     case 'pg-waves':for(let y=10;y<420;y+=14){let d='M0,'+y;for(let x=0;x<=300;x+=6)d+=`L${x},${PP_Q(y+4*Math.sin(x/18+y/40))}`;o+=S(d);}return o;
@@ -33493,27 +33664,32 @@ function ppPagePattern(g,ink){
 const PP_TINT={'pt-cream':['#f6f0df','#c9b98a'],'pt-mint':['#e6f2ea','#94bfa3'],'pt-sky':['#e5eef7','#93afd0'],'pt-rose':['#f8e8ea','#d29aa3'],'pt-lilac':['#efe7f6','#ab93c9'],'pt-sand':['#f3e6d3','#c9a274'],'pt-night':['#1d2433','#55617d']};
 /* where the ten stamps of a page sit: two columns of five, nudged and turned a little, the same way every time */
 function ppSlots(seed){const r=rng(seed),o=[];for(let i=0;i<PP_SLOTS;i++){const c=i%2,rw=Math.floor(i/2);o.push({x:22+c*134+(r()-.5)*12,y:52+rw*68+(r()-.5)*8,a:(r()-.5)*24});}return o;}
-/* a visa page: k is 0–19, ids the ten slots (nation ids or 0), v the collection */
+/* a visa page: k is 0–19, ids the ten slots (nation ids or 0), v the collection. Rainbow print in the
+   nation's own colours, microtext rules, an engraved scene, the perforated number, and the stamps */
 function ppPageSVG(n,d,k,ids,v,o){
   o=o||{};const g=d.g,[bg,ink]=PP_TINT[g.tint]||PP_TINT['pt-cream'],dark=g.tint==='pt-night',txt=dark?'#d6dbea':'#4d4a40';
   const num=g.num==='arabic'?String(k+1):roman(k+1),seed=hash(String((n&&(n.id||n.name))||'')+':pp:'+k),sl=ppSlots(seed),label=d.l&&d.l[k]?d.l[k]:'';
-  const ini=esc(String((n&&n.name)||'E').trim().charAt(0).toUpperCase()||'E');
-  const wm=g.wm==='none'?'':g.wm==='initial'?`<text x="150" y="268" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="190" fill="${ink}" opacity=".13">${ini}</text>`:`<g opacity=".12">${ppEmblem(d.c.emb==='pe-flag'||d.c.emb==='pe-arms'?'pe-laurel':d.c.emb,n,ink,150,215,170)}</g>`;
+  const ini=esc(String((n&&n.name)||'E').trim().charAt(0).toUpperCase()||'E'),id='ppg'+(++ppSeq),[f1,f2]=ppFlagCols(n),m=dark?.2:.12;
+  const rb=[bg,ppMix(bg,f1,m),bg,ppMix(bg,f2,m),bg];
+  const wm=/^pw-/.test(g.wm)?ppWmBld(g.wm,n,ink):g.wm==='none'?'':g.wm==='initial'?`<text x="150" y="268" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="190" fill="${ink}" opacity=".13">${ini}</text>`:`<g opacity=".12">${ppEmblem(d.c.emb==='pe-flag'||d.c.emb==='pe-arms'?'pe-laurel':d.c.emb,n,ink,150,215,170)}</g>`;
   const act=o.edit?'pp-slot':'pp-st',ctx=o.ctx?` data-ctx="${o.ctx}"`:'';
-  let st='';(ids||[]).forEach((id,i)=>{if(!id||!v[id])return;const s=sl[i],on=o.sel&&o.sel.k===k&&o.sel.i===i;
-    st+=`<g class="pp-st${on?' on':''}" data-act="${act}"${ctx} data-id="${esc(id)}" data-k="${k}" data-i="${i}" transform="translate(${PP_Q(s.x)},${PP_Q(s.y)}) rotate(${PP_Q(s.a)} 61 33)"${o.tab?' tabindex="0" role="button"':''} aria-label="${esc(v[id][0])}${o.edit?`, place ${i+1}`:''}">${ppStampBody(ppSnap(v[id]),v[id][2],'pps'+(++ppSeq),dark)}</g>`;});
+  let st='';(ids||[]).forEach((sid,i)=>{if(!sid||!v[sid])return;const s=sl[i],on=o.sel&&o.sel.k===k&&o.sel.i===i,fr=o.fresh&&v[sid][2]>o.fresh;
+    st+=`<g class="pp-st${on?' on':''}${fr?' fresh':''}" data-act="${act}"${ctx} data-id="${esc(sid)}" data-k="${k}" data-i="${i}" transform="translate(${PP_Q(s.x)},${PP_Q(s.y)}) rotate(${PP_Q(s.a)} 61 33)"${o.tab?' tabindex="0" role="button"':''} aria-label="${esc(v[sid][0])}${o.edit?`, place ${i+1}`:''}">${ppStampBody(ppSnap(v[sid]),v[sid][2],'pps'+(++ppSeq),dark)}</g>`;});
   const slots=o.edit?sl.map((s,i)=>(ids&&ids[i]&&v[ids[i]])?'':`<rect class="pp-slot${o.sel&&o.sel.k===k&&o.sel.i===i?' on':''}" data-act="pp-slot" data-k="${k}" data-i="${i}" tabindex="0" role="button" aria-label="Empty place ${i+1} on page ${k+1}" x="${PP_Q(s.x-2)}" y="${PP_Q(s.y-2)}" width="126" height="70" rx="6" transform="rotate(${PP_Q(s.a)} ${PP_Q(s.x+61)} ${PP_Q(s.y+33)})"/>`).join(''):'';
-  return `<svg class="pp-page${dark?' dark':''}${o.cls?' '+o.cls:''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><rect width="300" height="420" fill="${bg}"/><g opacity=".55">${ppPagePattern(g.pat,ink)}</g>${wm}
-<text x="150" y="30" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="600" font-size="9.5" letter-spacing="3" fill="${txt}">${label?esc(label.toUpperCase()):'VISAS · ENTRIES'}</text><path d="M30,38H270" stroke="${txt}" stroke-opacity=".35" stroke-width=".6"/>
-${slots}${st}<text x="150" y="410" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="600" font-size="11" fill="${txt}">${num}</text></svg>`;
+  return `<svg class="pp-page${dark?' dark':''}${o.cls?' '+o.cls:''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs><linearGradient id="${id}r" x1="0" y1="0" x2=".3" y2="1">${rb.map((c,i)=>`<stop offset="${i/4}" stop-color="${c}"/>`).join('')}</linearGradient></defs>
+<rect width="300" height="420" fill="url(#${id}r)"/><g opacity=".55">${ppPagePattern(g.pat,ink)}</g><g transform="translate(90,322)" fill="none" stroke="${ink}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="${dark?.5:.38}"><path d="${PP_VIG[k%PP_VIG.length]}"/></g>${wm}${ppPerf(ppNo(n),k%2?12:288,150,dark)}
+<text x="150" y="30" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="600" font-size="9.5" letter-spacing="3" fill="${txt}">${label?esc(label.toUpperCase()):'VISAS · ENTRIES'}</text>${ppMicro(n,30,39,240,txt)}${ppMicro(n,30,396,240,txt)}
+${slots}${st}<text x="150" y="411" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="600" font-size="11" fill="${txt}">${num}</text></svg>`;
 }
 /* a collected stamp: v entry [name, region, time, shape, border, ink, icon, top text, bottom text] */
-function ppSnap(e){return {sh:e[3],bd:e[4],ink:e[5],ic:e[6],t1:e[7],t2:e[8],nm:e[0]};}
+function ppSnap(e){return {sh:e[3],bd:e[4],ink:e[5],ic:e[6],t1:e[7],t2:e[8],nm:e[0],fn:e[9]||''};}
 const PP_INK={'pi-violet':'#5b2a86','pi-red':'#b0262b','pi-blue':'#1f4fa0','pi-green':'#1f6b3a','pi-black':'#262626','pi-teal':'#0f6c6a','pi-orange':'#c2571a','pi-brown':'#6b4423','pi-magenta':'#a3176f','pi-gold':'#a7801f'};
 function ppStampDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();}catch(e){return '';}}
-/* a stamp's drawing on a page (122 × 66 box); t is when it was stamped */
+/* a stamp's drawing on a page (122 × 66 box); t is when it was stamped. Ink bleeds a little, pressure is
+   uneven, and now and then the clerk struck twice; the same stamp always looks the same */
 function ppStampBody(s,t,id,dark){
   const ink=(dark&&s.ink==='pi-black')?'#e6e6e6':PP_INK[s.ink]||PP_INK['pi-violet'],cx=61,cy=33;
+  const r=rng(hash(String(s.nm||s.t1||'')+':'+Math.floor((t||0)/DAY))),ang=Math.floor(r()*360),lo=.38+r()*.3,ghost=r()<.16,gx=PP_Q((r()-.5)*3.4),gy=PP_Q((r()-.5)*2.4);
   let outline='',inner='',arc=false;
   switch(s.sh){
     case 'ps-oval':outline=czEll(cx,cy,56,31,0);inner=czEll(cx,cy,49,24.5,0);arc=true;break;
@@ -33529,16 +33705,21 @@ function ppStampBody(s,t,id,dark){
     dash=s.bd==='pb-dashed'?' stroke-dasharray="5 2.6"':s.bd==='pb-dots'?' stroke-dasharray=".1 4.2" stroke-linecap="round"':'';
   let g=`<path d="${outline}" fill="none" stroke-width="${W}"${dash}/>`;
   if(s.bd==='pb-double'||s.bd==='pb-twin')g+=`<path d="${inner}" fill="none" stroke-width="${s.bd==='pb-twin'?.8:1.2}"/>`;
-  const t1=esc(String(s.t1||s.nm||'').toUpperCase().slice(0,24)),t2=esc(String(s.t2||'ADMITTED').toUpperCase().slice(0,16)),date=esc(ppStampDate(t));
-  const icon=s.ic&&/^c-/.test(s.ic)?`<g transform="translate(${arc?49:12},${arc?14:20}) scale(${arc?.24:.26})">${czCharge(s.ic.slice(2),ink,'none',true)}</g>`:'';
+  const fo=ppFont(s.fn,'pfn-plex'),cs=v=>fo.uc?String(v).toUpperCase():ppTitle(v);
+  const t1=esc(cs(String(s.t1||s.nm||'')).slice(0,24)),t2=esc(cs(String(s.t2||'ADMITTED')).slice(0,20)),date=esc(ppStampDate(t));
+  const icon=s.ic&&/^(c|pk)-/.test(s.ic)?`<g transform="translate(${arc?cx-12:12},${arc?cy-23:20}) scale(${arc?.24:.26})">${ppDevice(s.ic,ink)}</g>`:'';
+  let defs='';
   if(arc){const rx=s.sh==='ps-oval'?43:22,ry=s.sh==='ps-oval'?19:22,fs=Math.max(4.6,Math.min(7.4,(s.sh==='ps-oval'?118:62)/(t1.length*.62+1)));
-    g+=`<path id="${id}a" d="M${cx-rx},${cy}A${rx},${ry} 0 0,1 ${cx+rx},${cy}" fill="none" stroke="none"/><path id="${id}b" d="M${cx-rx-3},${cy+2}A${rx+3},${ry+3} 0 0,0 ${cx+rx+3},${cy+2}" fill="none" stroke="none"/>`+
-      `<text font-size="${PP_Q(fs)}" font-weight="700" letter-spacing=".6" stroke="none" text-anchor="middle"><textPath href="#${id}a" startOffset="50%">${t1}</textPath></text>`+
+    defs=`<path id="${id}a" d="M${cx-rx},${cy}A${rx},${ry} 0 0,1 ${cx+rx},${cy}"/><path id="${id}b" d="M${cx-rx-3},${cy+2}A${rx+3},${ry+3} 0 0,0 ${cx+rx+3},${cy+2}"/>`;
+    g+=`<text font-size="${PP_Q(fs)}" font-weight="700" letter-spacing=".6" stroke="none" text-anchor="middle"><textPath href="#${id}a" startOffset="50%">${t1}</textPath></text>`+
       `<text font-size="6" font-weight="700" letter-spacing="1.2" stroke="none" text-anchor="middle"><textPath href="#${id}b" startOffset="50%">${t2}</textPath></text>`+
-      icon.replace('translate(49,14)',`translate(${cx-12},${cy-23})`)+`<text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="7.2" font-weight="700" stroke="none">${date}</text><path d="M${cx-17},${cy-3}H${cx+17}M${cx-17},${cy+8}H${cx+17}" stroke-width=".7"/>`;}
+      icon+`<text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="7.2" font-weight="700" stroke="none">${date}</text><path d="M${cx-17},${cy-3}H${cx+17}M${cx-17},${cy+8}H${cx+17}" stroke-width=".7"/>`;}
   else{const fs=Math.max(5,Math.min(8.2,96/(t1.length*.64+1)));
     g+=`<text x="${cx+(icon?8:0)}" y="${s.sh==='ps-diamond'?24:21}" text-anchor="middle" font-size="${PP_Q(fs)}" font-weight="700" letter-spacing=".5" stroke="none">${t1}</text><text x="${cx+(icon?8:0)}" y="${cy+5}" text-anchor="middle" font-size="7.6" font-weight="700" stroke="none">${date}</text><text x="${cx}" y="${s.sh==='ps-diamond'?49:52}" text-anchor="middle" font-size="6" font-weight="700" letter-spacing="1.3" stroke="none">${t2}</text>`+icon;}
-  return `<defs><filter id="${id}f" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="${hash(id)%97}" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.4 2.15" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in"/></filter></defs><g filter="url(#${id}f)" fill="${ink}" stroke="${ink}" font-family="'IBM Plex Mono',ui-monospace,monospace" opacity=".88">${g}</g>`;
+  if(fo.sz!==1||!fo.ls)g=g.replace(/font-size="([\d.]+)"/g,(m,v)=>`font-size="${PP_Q(v*fo.sz)}"`).replace(/letter-spacing="([\d.]+)"/g,(m,v)=>`letter-spacing="${fo.ls?v:0}"`);
+  return `<defs>${defs}<filter id="${id}f" x="-6%" y="-6%" width="112%" height="112%"><feGaussianBlur in="SourceGraphic" stdDeviation=".32" result="b"/><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="${ang%97}" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.4 2.15" result="m"/><feComposite in="b" in2="m" operator="in"/></filter>
+<linearGradient id="${id}p" gradientTransform="rotate(${ang} .5 .5)"><stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#fff" stop-opacity=".92"/><stop offset="1" stop-color="#fff" stop-opacity="${lo.toFixed(2)}"/></linearGradient><mask id="${id}q" maskUnits="userSpaceOnUse" x="-8" y="-8" width="138" height="82"><rect x="-8" y="-8" width="138" height="82" fill="url(#${id}p)"/></mask></defs>
+<g mask="url(#${id}q)"><g filter="url(#${id}f)" fill="${ink}" stroke="${ink}" font-family="${fo.f}" opacity=".92">${ghost?`<g transform="translate(${gx},${gy})" opacity=".26">${g}</g>`:''}${g}</g></g>`;
 }
 /* one stamp on its own (the designer's preview, the visit page) */
 function ppStampSVG(s,t,o){o=o||{};return `<svg class="pp-stamp${o.cls?' '+o.cls:''}" viewBox="0 0 122 66" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}>${ppStampBody(s,t,'pps'+(++ppSeq),false)}</svg>`;}
@@ -33553,39 +33734,64 @@ function ppMrz(n){
   return [l1,l2+cd(l2)];
 }
 function ppBioSVG(n,d,o){
-  o=o||{};const [bg,ink]=PP_TINT[d.g.tint]||PP_TINT['pt-cream'],dark=d.g.tint==='pt-night',txt=dark?'#e3e7f2':'#2b2a25',lab=dark?'#9aa4bd':'#6d685a';
+  o=o||{};const [bg,ink]=PP_TINT[d.g.tint]||PP_TINT['pt-cream'],dark=d.g.tint==='pt-night',txt=dark?'#e3e7f2':'#2b2a25',lab=dark?'#9aa4bd':'#6d685a',id='ppb'+(++ppSeq),[f1,f2]=ppFlagCols(n);
   const F=(x,y,l,v,w)=>`<text x="${x}" y="${y}" font-family="'IBM Plex Mono',monospace" font-size="6" letter-spacing=".6" fill="${lab}">${esc(l)}</text><text x="${x}" y="${y+10}" font-family="'Public Sans',sans-serif" font-weight="600" font-size="${w||9}" fill="${txt}">${esc(v)}</text>`;
   const cap=n&&typeof n.capital==='string'?n.capital:'',[l1,l2]=ppMrz(n);
   const flag=n?`<svg x="20" y="66" width="96" height="64" viewBox="0 0 300 200" preserveAspectRatio="none">${flagSVG(n.flag).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</svg><rect x="20" y="66" width="96" height="64" fill="none" stroke="${lab}" stroke-width=".8"/>`:'';
-  return `<svg class="pp-page pp-bio${dark?' dark':''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><rect width="300" height="420" fill="${bg}"/><g opacity=".5">${ppPagePattern(d.g.pat,ink)}</g>
-<text x="150" y="30" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="11" letter-spacing="2.5" fill="${txt}">${esc(String((n&&fullName(n))||'').toUpperCase().slice(0,40))}</text><text x="150" y="46" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="8" letter-spacing="3" fill="${lab}">${esc(d.c.word||'PASSPORT')}</text>
+  const holo=`<linearGradient id="${id}h" x1="0" y1="0" x2="1" y2=".2">${['#ff9ad5','#9ad8ff','#b5ffb0','#fff19a','#ffb39a','#c9a6ff','#ff9ad5','#9ad8ff','#b5ffb0'].map((c,i)=>`<stop offset="${(i/8).toFixed(3)}" stop-color="${c}"/>`).join('')}</linearGradient>
+<pattern id="${id}p" width="30" height="30" patternUnits="userSpaceOnUse"><circle cx="15" cy="15" r="11" fill="none" stroke="#fff" stroke-width=".6"/><circle cx="15" cy="15" r="6" fill="none" stroke="#fff" stroke-width=".5"/><path d="M0,15H30M15,0V30" stroke="#fff" stroke-width=".25"/></pattern>
+<mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="50" width="300" height="200"><rect x="0" y="50" width="300" height="200" fill="url(#${id}p)"/></mask>`;
+  return `<svg class="pp-page pp-bio${dark?' dark':''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${holo}<linearGradient id="${id}r" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="${bg}"/><stop offset=".35" stop-color="${ppMix(bg,f1,dark?.2:.1)}"/><stop offset=".7" stop-color="${ppMix(bg,f2,dark?.2:.1)}"/><stop offset="1" stop-color="${bg}"/></linearGradient></defs>
+<rect width="300" height="420" fill="url(#${id}r)"/><g opacity=".5">${ppPagePattern(d.g.pat,ink)}</g>
+<text x="150" y="30" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="11" letter-spacing="2.5" fill="${txt}">${esc(String((n&&fullName(n))||'').toUpperCase().slice(0,40))}</text><text x="150" y="46" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="8" letter-spacing="3" fill="${lab}">${esc(d.c.word||'PASSPORT')}</text>${ppMicro(n,20,54,260,lab)}
 ${flag}${F(130,74,'TYPE / CODE','P · '+ppCode(n))}${F(130,100,'PASSPORT NO.',ppNo(n))}${F(130,126,'REGION',n?regName(n.reg||(typeof REG!=='undefined'?REG.id:'')):'')}
 ${F(20,154,'NATION',n?n.name:'',11)}${F(20,180,'FORM OF STATE',n?n.pretitle:'')}${F(150,180,'CAPITAL',cap||'—')}${F(20,206,'FOUNDED',n&&n.founded?fmtDate(n.founded)+' · '+annoOf(n,n.founded):'—')}${F(150,206,'ISSUED',annoOf(n))}
 ${F(20,232,'MOTTO',n&&n.motto?String(n.motto).slice(0,46):'—',8.5)}
-<g transform="translate(166,246) rotate(-6 61 33)">${ppStampBody({sh:d.s.sh,bd:d.s.bd,ink:d.s.ink,ic:d.s.ic,t1:d.s.t1||(n&&n.name),t2:d.s.t2},n&&n.founded,'ppb'+(++ppSeq),dark).replace('opacity=".88"','opacity=".7"')}</g>
-<text x="20" y="300" font-family="'IBM Plex Mono',monospace" font-size="6" fill="${lab}">HOLDER’S SIGNATURE</text><path d="M20,330C40,312 52,336 70,318S98,326 112,316" fill="none" stroke="${txt}" stroke-width="1.1" stroke-linecap="round"/>
+<g mask="url(#${id}m)" opacity="${dark?.5:.42}" style="mix-blend-mode:${dark?'screen':'multiply'}"><rect class="pp-holo" x="0" y="50" width="900" height="200" fill="url(#${id}h)"/></g>
+<g transform="translate(166,246) rotate(-6 61 33)">${ppStampBody({sh:d.s.sh,bd:d.s.bd,ink:d.s.ink,ic:d.s.ic,t1:d.s.t1||(n&&n.name),t2:d.s.t2,nm:n&&n.name},n&&n.founded,'ppb'+(++ppSeq),dark).replace('opacity=".92"','opacity=".72"')}</g>
+<text x="20" y="300" font-family="'IBM Plex Mono',monospace" font-size="6" fill="${lab}">HOLDER’S SIGNATURE</text><path d="M20,330C40,312 52,336 70,318S98,326 112,316" fill="none" stroke="${txt}" stroke-width="1.1" stroke-linecap="round"/>${ppPerf(ppNo(n),12,150,dark)}
 <rect x="0" y="352" width="300" height="68" fill="${dark?'#141a26':'#fff'}" fill-opacity=".55"/><text x="12" y="376" font-family="'IBM Plex Mono',monospace" font-size="9.4" letter-spacing=".25" fill="${txt}">${esc(l1)}</text><text x="12" y="398" font-family="'IBM Plex Mono',monospace" font-size="9.4" letter-spacing=".25" fill="${txt}">${esc(l2)}</text></svg>`;
 }
-
+/* the last page: observations, and the issuing government's endorsement under the Seal of state */
+function ppObsSVG(n,d){
+  const [bg,ink]=PP_TINT[d.g.tint]||PP_TINT['pt-cream'],dark=d.g.tint==='pt-night',txt=dark?'#d6dbea':'#4d4a40',ch=chamberOf(n||{}),nm=String((n&&n.name)||'');
+  let lines='';for(let y=78;y<=300;y+=18)lines+=`<path d="M24,${y}H276" stroke="${txt}" stroke-opacity=".22" stroke-width=".6"/>`;
+  const seal=czStampArt('s-senate',n).replace(/^<svg viewBox="0 0 124 124"/,'<svg x="168" y="300" width="88" height="88" viewBox="0 0 124 124"');
+  return `<svg class="pp-page${dark?' dark':''}" viewBox="0 0 300 420" aria-hidden="true"><rect width="300" height="420" fill="${bg}"/><g opacity=".45">${ppPagePattern(d.g.pat,ink)}</g>
+<text x="150" y="30" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="600" font-size="9.5" letter-spacing="3" fill="${txt}">OBSERVATIONS</text>${ppMicro(n,30,39,240,txt)}${lines}
+<text x="26" y="74" font-family="'Public Sans',sans-serif" font-size="8.4" fill="${txt}">${esc(('The holder is a citizen of '+nm+'.').slice(0,58))}</text><text x="26" y="92" font-family="'Public Sans',sans-serif" font-size="8.4" fill="${txt}">This passport contains ${PP_PAGES} visa pages.</text>
+<text x="26" y="110" font-family="'Public Sans',sans-serif" font-size="8.4" fill="${txt}">${esc(('Issued by the '+ch.house+' of '+nm+', '+annoOf(n)+'.').slice(0,58))}</text>
+${seal}<path d="M30,360C48,344 58,366 76,350S104,356 120,346" fill="none" stroke="${txt}" stroke-width="1.1" stroke-linecap="round"/><text x="30" y="378" font-family="'IBM Plex Mono',monospace" font-size="6" fill="${txt}" opacity=".8">${esc(ch.form.toUpperCase())}</text>${ppMicro(n,30,396,240,txt)}</svg>`;
+}
+/* under the UV lamp: fibres, a rosette and the numeral that only show in ultraviolet */
+function ppUVSVG(n,i){
+  const id='ppu'+(++ppSeq),r=rng(hash(String((n&&n.name)||'')+':uv:'+i)),cols=['#7df9ff','#ff7de9','#f9ff7d','#8dff7d'];let f='';
+  for(let k=0;k<54;k++){const x=r()*300,y=r()*420,a=r()*6.28,l=5+r()*9;f+=`<path d="M${PP_Q(x)},${PP_Q(y)}q${PP_Q(Math.cos(a)*l/2+3*(r()-.5))},${PP_Q(Math.sin(a)*l/2+3*(r()-.5))} ${PP_Q(Math.cos(a)*l)},${PP_Q(Math.sin(a)*l)}" stroke="${cols[k%4]}"/>`;}
+  let ro='';for(let k=0;k<30;k++)ro+=`<ellipse cx="150" cy="${i===1?160:215}" rx="118" ry="40" transform="rotate(${k*6} 150 ${i===1?160:215})"/>`;
+  const ini=esc(String((n&&n.name)||'E').trim().charAt(0).toUpperCase()||'E');
+  const mark=i===1?`<text x="68" y="104" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="40" fill="none" stroke="#ff6ad5" stroke-width="1">${ini}</text><circle cx="68" cy="98" r="30" fill="none" stroke="#c6ff5c" stroke-width=".8" stroke-dasharray="2 2"/>`
+    :`<text x="150" y="268" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="150" fill="none" stroke="#ff6ad5" stroke-width="1.2">${ini}</text><text x="150" y="411" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="11" fill="#c6ff5c">${i===PP_SEQ-2?'·':roman(i-1)}</text>`;
+  return `<svg class="pp-uvl" viewBox="0 0 300 420" aria-hidden="true"><defs><filter id="${id}" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#${id})"><g fill="none" stroke-width=".8" stroke-linecap="round" opacity=".9">${f}</g><g fill="none" stroke="#59e0ff" stroke-width=".45" opacity=".42">${ro}</g>${mark}</g></svg>`;
+}
 function ppBackSVG(n,d){
   const id='ppk'+(++ppSeq),col=(UNLOCKS[d.c.col]||{}).v||'#6b1d2a',[fd,paint]=ppFoil(d.c.foil,id+'f'),[td,tex]=ppTexture(d.c.tex,id,col);
   const t=`This passport remains the property of ${chamberOf(n||{}).owner(String((n&&n.name)||'').slice(0,40))}`;
-  return `<svg class="pp-cover pp-back" viewBox="0 0 300 420" aria-hidden="true"><defs>${fd}${td}</defs><rect width="300" height="420" rx="10" fill="${col}"/>${tex}
-<text x="150" y="372" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="7.5" letter-spacing="1" fill="${paint}">${esc(t.toUpperCase().slice(0,62))}</text>${ppChip(paint,150,392)}<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>`;
+  return `<svg class="pp-cover pp-back" viewBox="0 0 300 420" aria-hidden="true"><defs>${fd}${td}<linearGradient id="${id}h" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".38"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient></defs><rect width="300" height="420" rx="10" fill="${col}"/>${tex}<rect x="276" width="24" height="420" fill="url(#${id}h)"/><path d="M281,8V412" stroke="rgba(0,0,0,.3)" stroke-width="1.2"/>
+<text x="150" y="373" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="7.5" letter-spacing="1" fill="rgba(0,0,0,.45)">${esc(t.toUpperCase().slice(0,62))}</text><text x="150" y="372" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="7.5" letter-spacing="1" fill="${paint}">${esc(t.toUpperCase().slice(0,62))}</text>${ppChip(paint,150,392)}<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>`;
 }
-
 /* ── reading and checking: other players' records are untrusted ── */
 function ppClean(d){
   if(!d||typeof d!=='object'||Array.isArray(d))return null;
   const K=(id,k)=>ppU(id,k)?id:'',o={};
-  if(d.c&&typeof d.c==='object'){const c=d.c;o.c={col:K(c.col,'ppcol'),tex:K(c.tex,'pptex'),foil:K(c.foil,'ppfoil'),orn:K(c.orn,'pporn'),emb:ppEmb(c.emb)?c.emb:'',word:czText(c.word,20),lay:czHas(PP_LAYS,c.lay)?c.lay:'',chip:c.chip===0?0:1};}
-  if(d.g&&typeof d.g==='object'){const g=d.g;o.g={tint:K(g.tint,'pptint'),pat:K(g.pat,'pppat'),wm:czHas(PP_WM,g.wm)?g.wm:'',num:czHas(PP_NUM,g.num)?g.num:''};}
-  if(d.s&&typeof d.s==='object'){const s=d.s;o.s={sh:K(s.sh,'ppshape'),bd:K(s.bd,'ppbord'),ink:K(s.ink,'ppink'),ic:s.ic==='none'||ppIcon(s.ic)?s.ic:'',t1:czText(s.t1,24),t2:czText(s.t2,20)};}
+  if(d.c&&typeof d.c==='object'){const c=d.c;o.c={col:K(c.col,'ppcol'),tex:K(c.tex,'pptex'),foil:K(c.foil,'ppfoil'),orn:K(c.orn,'pporn'),emb:ppEmb(c.emb)?c.emb:'',word:czText(c.word,20),lay:czHas(PP_LAYS,c.lay)?c.lay:'',chip:c.chip===0?0:1,fn:K(c.fn,'ppfont')};}
+  if(d.g&&typeof d.g==='object'){const g=d.g;o.g={tint:K(g.tint,'pptint'),pat:K(g.pat,'pppat'),wm:ppWm(g.wm)?g.wm:'',num:czHas(PP_NUM,g.num)?g.num:''};}
+  if(d.s&&typeof d.s==='object'){const s=d.s;o.s={sh:K(s.sh,'ppshape'),bd:K(s.bd,'ppbord'),ink:K(s.ink,'ppink'),ic:s.ic==='none'||ppIcon(s.ic)?s.ic:'',t1:czText(s.t1,24),t2:czText(s.t2,20),fn:K(s.fn,'ppfont')};}
   o.ds=Number.isInteger(d.ds)?d.ds&7:0;
+  o.cr=Number.isInteger(d.cr)?clamp(d.cr,0,PP_CREDITS):0;
   const v={};let k=0;
   if(d.v&&typeof d.v==='object'&&!Array.isArray(d.v))for(const id of Object.keys(d.v)){
     if(k>=PP_MAX)break;const e=d.v[id];if(!/^[\w:.-]{1,80}$/.test(id)||!Array.isArray(e))continue;
-    v[id]=[czText(e[0],60)||'?',typeof e[1]==='string'&&REG_BY_ID[e[1]]?e[1]:'',typeof e[2]==='number'&&isFinite(e[2])?e[2]:0,K(e[3],'ppshape')||'ps-circle',K(e[4],'ppbord')||'pb-single',K(e[5],'ppink')||'pi-violet',e[6]==='none'||ppIcon(e[6])?e[6]:'',czText(e[7],24),czText(e[8],20)];k++;}
+    v[id]=[czText(e[0],60)||'?',typeof e[1]==='string'&&REG_BY_ID[e[1]]?e[1]:'',typeof e[2]==='number'&&isFinite(e[2])?e[2]:0,K(e[3],'ppshape')||'ps-circle',K(e[4],'ppbord')||'pb-single',K(e[5],'ppink')||'pi-violet',e[6]==='none'||ppIcon(e[6])?e[6]:'',czText(e[7],24),czText(e[8],20),K(e[9],'ppfont')];k++;}
   o.v=v;
   const seen=new Set(),p=[];
   for(let i=0;i<PP_PAGES;i++){const row=Array.isArray(d.p)&&Array.isArray(d.p[i])?d.p[i]:[],r=[];for(let j=0;j<PP_SLOTS;j++){const id=row[j];if(typeof id==='string'&&v[id]&&!seen.has(id)){seen.add(id);r.push(id);}else r.push(0);}p.push(r);}
@@ -33606,9 +33812,9 @@ COMMIT_HOOKS.push(n=>{
 function ppDefault(n){
   const r=rng(hash(String((n&&n.name)||'x')+':passport')),pk=a=>a[Math.floor(r()*a.length)],free=k=>Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k===k&&UNLOCKS[id].src==='free');
   const a=n?cz(n).a:null;
-  return {c:{col:pk(free('ppcol')),tex:'px-leather',foil:pk(['pf-gold','pf-gold','pf-silver']),orn:pk(['po-rule','po-corners','po-none']),emb:'pe-arms',word:'PASSPORT',lay:'classic',chip:1},
+  return {c:{col:pk(free('ppcol')),tex:'px-leather',foil:pk(['pf-gold','pf-gold','pf-silver']),orn:pk(['po-rule','po-corners','po-none']),emb:'pe-arms',word:'PASSPORT',lay:'classic',chip:1,fn:'pfn-cinzel'},
     g:{tint:pk(['pt-cream','pt-mint','pt-sky','pt-rose']),pat:pk(free('pppat')),wm:'emblem',num:'roman'},
-    s:{sh:pk(['ps-circle','ps-oval','ps-rect','ps-ticket']),bd:pk(['pb-single','pb-double']),ink:pk(free('ppink')),ic:a&&a.c&&ppIcon(a.c)?a.c:'c-star',t1:'',t2:'ADMITTED'}};
+    s:{sh:pk(['ps-circle','ps-oval','ps-rect','ps-ticket']),bd:pk(['pb-single','pb-double']),ink:pk(free('ppink')),ic:a&&a.c&&ppIcon(a.c)?a.c:'c-star',t1:'',t2:'ADMITTED',fn:'pfn-plex'}};
 }
 const PP_MEMO=new WeakMap();
 /* any nation's design, checked, with defaults, and with anything it does not hold left out */
@@ -33618,9 +33824,9 @@ function ppDesign(n){
   const pick=(o,f,k)=>{const v=o&&o[f];return v&&(k?ppU(v,k):true)&&H(v)?v:null;};
   const rc=raw.c||{},rg=raw.g||{},rs=raw.s||{};
   const v={c:{col:pick(rc,'col','ppcol')||D.c.col,tex:pick(rc,'tex','pptex')||D.c.tex,foil:pick(rc,'foil','ppfoil')||D.c.foil,orn:pick(rc,'orn','pporn')||D.c.orn,
-      emb:(rc.emb&&ppEmb(rc.emb)&&H(rc.emb))?rc.emb:D.c.emb,word:rc.word||D.c.word,lay:rc.lay||D.c.lay,chip:rc.chip===0?0:1},
-    g:{tint:pick(rg,'tint','pptint')||D.g.tint,pat:pick(rg,'pat','pppat')||D.g.pat,wm:rg.wm||D.g.wm,num:rg.num||D.g.num},
-    s:{sh:pick(rs,'sh','ppshape')||D.s.sh,bd:pick(rs,'bd','ppbord')||D.s.bd,ink:pick(rs,'ink','ppink')||D.s.ink,ic:rs.ic==='none'?'none':(rs.ic&&ppIcon(rs.ic)&&H(rs.ic))?rs.ic:D.s.ic,t1:rs.t1||'',t2:rs.t2||D.s.t2},
+      emb:(rc.emb&&ppEmb(rc.emb)&&H(rc.emb))?rc.emb:D.c.emb,word:rc.word||D.c.word,lay:rc.lay||D.c.lay,chip:rc.chip===0?0:1,fn:pick(rc,'fn','ppfont')||D.c.fn},
+    g:{tint:pick(rg,'tint','pptint')||D.g.tint,pat:pick(rg,'pat','pppat')||D.g.pat,wm:rg.wm&&(czHas(PP_WM,rg.wm)||(ppU(rg.wm,'ppwm')&&H(rg.wm)))?rg.wm:D.g.wm,num:rg.num||D.g.num},
+    s:{sh:pick(rs,'sh','ppshape')||D.s.sh,bd:pick(rs,'bd','ppbord')||D.s.bd,ink:pick(rs,'ink','ppink')||D.s.ink,ic:rs.ic==='none'?'none':(rs.ic&&ppIcon(rs.ic)&&H(rs.ic))?rs.ic:D.s.ic,t1:rs.t1||'',t2:rs.t2||D.s.t2,fn:pick(rs,'fn','ppfont')||D.s.fn},
     l:Array.isArray(raw.l)?raw.l:[]};
   if(n&&typeof n==='object')PP_MEMO.set(n,{k:key,v});
   return v;
@@ -33631,7 +33837,7 @@ function ppBook(x){
   if(!n.npc){const pp=n.pp||{};return {v:pp.v||{},p:Array.isArray(pp.p)&&pp.p.length===PP_PAGES?pp.p:Array.from({length:PP_PAGES},()=>Array(PP_SLOTS).fill(0))};}
   const r=rng(hash(String(x.id)+':npcpp')),others=NPC_NATIONS.filter(o=>o.id!==x.id).map(o=>[r(),o]).sort((a,b)=>a[0]-b[0]).map(e=>e[1]);
   const take=others.slice(0,Math.min(others.length,4+Math.floor(r()*9))),v={},p=Array.from({length:PP_PAGES},()=>Array(PP_SLOTS).fill(0)),base=Date.UTC(2026,0,1);
-  take.forEach((o,i)=>{const s=ppDesign(o).s;v[o.id]=[o.name,REG.id,base+Math.floor(r()*280)*DAY,s.sh,s.bd,s.ink,s.ic,s.t1,s.t2];p[Math.floor(i/PP_SLOTS)][i%PP_SLOTS]=o.id;});
+  take.forEach((o,i)=>{const s=ppDesign(o).s;v[o.id]=[o.name,REG.id,base+Math.floor(r()*280)*DAY,s.sh,s.bd,s.ink,s.ic,s.t1,s.t2,s.fn];p[Math.floor(i/PP_SLOTS)][i%PP_SLOTS]=o.id;});
   return {v,p};
 }
 function ppCount(n){return n&&n.pp&&n.pp.v?Object.keys(n.pp.v).length:0;}
@@ -33649,6 +33855,16 @@ function ppStats(n,id){
 /* how many nations of this region carry this one's stamp (players only: computer nations' books are drawn) */
 function ppCarried(id){let k=0;if(S.mode==='local'||!S.world)return 0;for(const w of Object.keys(S.world)){const r=S.world[w];if(w!==id&&r&&r.pp&&r.pp.v&&r.pp.v[id])k++;}return k;}
 
+/* ── land: every 20 stamps earn a land credit, ten for a full book. pp.cr keeps the most ever paid, so a stamp
+   taken out and collected again does not pay twice. They add to landEarned like the tutorial's credits. ── */
+function ppCredits(n){return n&&n.pp&&Number.isInteger(n.pp.cr)?n.pp.cr:0;}
+landEarned=(f=>function(n){return f.apply(this,arguments)+ppCredits(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+ppCredits(n);})(earnedAt);
+COMMIT_HOOKS.push(n=>{
+  if(!n||n.npc||!n.pp)return;const had=ppCredits(n),due=Math.min(PP_CREDITS,Math.floor(ppCount(n)/PP_CREDIT_EVERY));if(due<=had)return;
+  n.pp.cr=due;const k=due-had;return [`${due*PP_CREDIT_EVERY} stamps in your passport: ${k===1?'a land credit':k+' land credits'} for the map.${due>=PP_CREDITS?' The book is full, and so is its reward.':''}`];
+});
+
 /* ── collecting: opening another nation's page stamps its entry stamp into your passport ── */
 function ppCollect(id){
   const me=S.nation;if(!me||!id||S.mode==='readonly'||PP.tried.has(id))return;
@@ -33658,8 +33874,8 @@ function ppCollect(id){
   if(ppCount(me)>=PP_MAX){toast(`Your passport is full. Make room under Passport, Arrange, to collect the stamp of ${x.n.name}.`);return;}
   const m=clone(me);m.pp=ppClean(m.pp)||ppClean({});
   const s=ppDesign(x.n).s,at=ppFree(m.pp.p);if(!at)return;
-  m.pp.v[id]=[czText(x.n.name,60),REG_BY_ID[x.n.reg]?x.n.reg:REG.id,Date.now(),s.sh,s.bd,s.ink,s.ic,s.t1,s.t2];m.pp.p[at[0]][at[1]]=id;
-  commit(m);render();
+  m.pp.v[id]=[czText(x.n.name,60),REG_BY_ID[x.n.reg]?x.n.reg:REG.id,Date.now(),s.sh,s.bd,s.ink,s.ic,s.t1,s.t2,s.fn];m.pp.p[at[0]][at[1]]=id;
+  PP.just=id;commit(m);render();
   toast(`Stamped: the entry stamp of ${x.n.name} is on page ${roman(at[0]+1)} of your passport.`);
 }
 render=(f=>function(){const r=f.apply(this,arguments);if(S.view==='visit'&&S.visit&&S.nation&&!PP.tried.has(S.visit)){const id=S.visit;setTimeout(()=>{if(S.view==='visit'&&S.visit===id)ppCollect(id);},500);}return r;})(render);
@@ -33691,7 +33907,8 @@ ACH_CATS.splice(ACH_CATS.length-1,0,['pass','Passport & travel']);ACH_CAT.pass='
   P('pass-carried','s','Famous Seal','Have your stamp carried by 10 nations of your region.',10,x=>x.me?ppCarried(x.id):0,'ps-diamond',{mp:1});
   P('pass-carried50','g','Household Name','Have your stamp carried by 50 nations of your region.',50,x=>x.me?ppCarried(x.id):0,'pi-gold',{mp:1});
 }
-achUnlockWords=(f=>u=>{const U=UNLOCKS[u];if(!U)return '';const w={ppcol:`the ${U.n} passport cover`,pptex:`the ${U.n} cover material`,ppfoil:`${U.n} foil for the passport`,pporn:`the ${U.n} cover ornament`,ppemb:`the ${U.n} cover emblem`,
+UNLOCK_SOURCES.push({earned:n=>ppDiplomata(n)?Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].src==='bld'):[],how:id=>UNLOCKS[id]&&UNLOCKS[id].src==='bld'?'Build a Diplomata in one of your cities.':''});
+achUnlockWords=(f=>u=>{const U=UNLOCKS[u];if(!U)return '';const w={ppfont:`the ${U.n} typeface for the passport`,ppicon:`the ${U.n} device for the passport`,ppwm:`the ${U.n} watermark`,ppcol:`the ${U.n} passport cover`,pptex:`the ${U.n} cover material`,ppfoil:`${U.n} foil for the passport`,pporn:`the ${U.n} cover ornament`,ppemb:`the ${U.n} cover emblem`,
   pptint:`${U.n} passport pages`,pppat:`the ${U.n} page print`,ppshape:`the ${U.n} entry stamp shape`,ppbord:`the ${U.n} stamp border`,ppink:`${U.n} stamp ink`}[U.k];return w||f(u);})(achUnlockWords);
 {const rule=(k,v)=>({f:n=>ppStats(n)[k]>=v,p:n=>[Math.min(v,ppStats(n)[k]),v]});
   const s={id:'passport',n:'The Passport Office',d:'Ink pads, ledgers and luggage from the nation’s travels, kept by the passport office.',u:['pc-ivory','pc-teal','px-velvet','po-deco','pt-night','pg-rosette','pg-stars','ps-oct','ps-shield','pi-brown','pi-magenta'],fx:{tour:1},items:[
@@ -33706,25 +33923,48 @@ achUnlockWords=(f=>u=>{const U=UNLOCKS[u];if(!U)return '';const w={ppcol:`the ${
 
 /* ── the book: shared by the Passport page and the viewer opened from a nation's page ── */
 function ppWide(){try{return window.matchMedia('(min-width:760px)').matches;}catch(e){return true;}}
-function ppSpread(at,wide){if(!wide)return [at];if(at<=0)return [0];const l=at%2?at:at-1;return [l,l+1].filter(i=>i<PP_SEQ);}
-function ppStep(at,dir,wide){if(!wide)return clamp(at+dir,0,PP_SEQ-1);const l=at<=0?0:at%2?at:at-1;return dir>0?(l===0?1:Math.min(PP_SEQ-2,l+2)):(l<=1?0:l-2);}
-function ppLabel(i){return i===0?'Cover':i===1?'Identity page':i===PP_SEQ-1?'Back cover':'Page '+roman(i-1);}
-function ppLeaf(x,d,bk,i,ctx){
+function ppSpread(at,wide){if(!wide)return [at];if(at<=0)return [0];if(at>=PP_SEQ-1)return [PP_SEQ-1];const l=at%2?at:at-1;return [l,l+1];}
+function ppStep(at,dir,wide){if(!wide)return clamp(at+dir,0,PP_SEQ-1);const l=ppSpread(at,true)[0];return dir>0?(l===0?1:l>=PP_SEQ-3?PP_SEQ-1:l+2):(l===PP_SEQ-1?PP_SEQ-3:l<=1?0:l-2);}
+function ppLabel(i){return i===0?'Cover':i===1?'Identity page':i===PP_SEQ-2?'Observations':i===PP_SEQ-1?'Back cover':'Page '+roman(i-1);}
+function ppLeaf(x,d,bk,i,ctx,fresh){
   const n=x.n;
   if(i===0)return ppCoverSVG(n,d.c,{label:`Cover of the passport of ${fullName(n)}`});
   if(i===1)return ppBioSVG(n,d,{label:`Identity page of ${fullName(n)}`});
+  if(i===PP_SEQ-2)return ppObsSVG(n,d);
   if(i===PP_SEQ-1)return ppBackSVG(n,d);
-  const k=i-2,ids=bk.p[k]||[];return ppPageSVG(n,d,k,ids,bk.v,{tab:1,ctx,label:`Page ${k+1}: ${ids.filter(Boolean).length} stamps`});
+  const k=i-2,ids=bk.p[k]||[];return ppPageSVG(n,d,k,ids,bk.v,{tab:1,ctx,fresh,label:`Page ${k+1}: ${ids.filter(Boolean).length} stamps`});
 }
+function ppReduced(){try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
+/* the spread to put in place once a page has finished turning, by book */
+const PP_FIN={};
+/* the book: the cover's colour frames the open pages like a hardcover, the page block shows on either
+   side (thicker where more pages are), and pages turn in 3D around the spine */
 function ppBookHTML(x,st,ctx){
-  const d=ppDesign(x.n),bk=ppBook(x),wide=ppWide(),sp=ppSpread(st.at,wide),cnt=Object.keys(bk.v).length;
-  const turn=st.turn>0?' turn-n':st.turn<0?' turn-p':'';st.turn=0;
-  const opts=Array.from({length:PP_SEQ},(_,i)=>{const s=i>=2&&i<PP_SEQ-1?(bk.p[i-2]||[]).filter(Boolean).length:-1;return `<option value="${i}"${sp[0]===i?' selected':''}>${ppLabel(i)}${s>=0?` · ${s} ${s===1?'stamp':'stamps'}`:''}</option>`;}).join('');
-  const e=st.info&&bk.v[st.info],f=e&&findNation(st.info);
-  const info=e?`<div class="pp-info" role="status"><span class="pp-info-st">${ppStampSVG(ppSnap(e),e[2])}</span><div><p class="pp-info-n">${esc(e[0])}</p><p class="hint">${e[1]?esc(regName(e[1]))+' · ':''}stamped ${esc(fmtDate(e[2]))}</p></div>${f&&!f.me?`<button type="button" class="btn ghost small" data-act="pp-visit" data-id="${esc(st.info)}">Visit</button>`:''}</div>`:'';
-  return `<div class="pp-book${sp.length>1?' two':''}" data-ctx="${ctx}">
-    <div class="pp-stage${turn}" data-ctx="${ctx}">${sp.map(i=>`<div class="pp-leaf${i===0?' is-cover':''}${i===PP_SEQ-1?' is-back':''}">${ppLeaf(x,d,bk,i,ctx)}</div>`).join('')}</div>
-    <div class="pp-nav"><button type="button" class="btn ghost small" data-act="pp-turn" data-ctx="${ctx}" data-d="-1"${sp[0]<=0?' disabled':''} aria-label="Previous page">←</button><select class="input pp-jump" data-pp-jump="${ctx}" aria-label="Go to a page">${opts}</select><button type="button" class="btn ghost small" data-act="pp-turn" data-ctx="${ctx}" data-d="1"${sp[sp.length-1]>=PP_SEQ-1?' disabled':''} aria-label="Next page">→</button></div>
+  const d=ppDesign(x.n),bk=ppBook(x),wide=ppWide(),sp=ppSpread(st.at,wide),cnt=Object.keys(bk.v).length,col=(UNLOCKS[d.c.col]||{}).v||'#6b1d2a';
+  const turn=st.turn,from=st.from;st.turn=0;st.from=null;
+  const fresh=ctx==='p'?PP.seenAt:0,uv=!!st.uv;
+  const L=i=>`<div class="pp-leaf${i===0?' is-cover':''}${i===PP_SEQ-1?' is-back':''}">${ppLeaf(x,d,bk,i,ctx,fresh)}${uv&&i>0&&i<PP_SEQ-1?ppUVSVG(x.n,i):''}</div>`;
+  const blank='<div class="pp-leaf pp-inboard" aria-hidden="true"></div>',face=(a,b)=>`<div class="pp-face front">${a}</div><div class="pp-face back">${b}</div>`;
+  const closed=sp.length===1&&(sp[0]===0||sp[0]===PP_SEQ-1),one=sp.length===1&&!closed;
+  let inner=sp.map(L).join(''),flip='',simple='';
+  if(turn&&from!=null&&!ppReduced()){
+    const old=ppSpread(from,wide);
+    if(wide&&old.length===2&&sp.length===2){
+      if(turn>0){inner=L(old[0])+L(sp[1]);flip=`<div class="pp-flip fwd">${face(L(old[1]),L(sp[0]))}</div>`;}
+      else{inner=L(sp[0])+L(old[1]);flip=`<div class="pp-flip back">${face(L(old[0]),L(sp[1]))}</div>`;}
+    }else if(wide&&old[0]===0&&sp.length===2){inner=blank+L(sp[1]);flip=`<div class="pp-flip fwd">${face(L(0),L(sp[0]))}</div>`;}
+    else if(!wide&&old.length===1&&old[0]!==sp[0]){
+      if(turn>0){inner=L(sp[0]);flip=`<div class="pp-flip1 fwd">${L(old[0])}</div>`;}else{inner=L(old[0]);flip=`<div class="pp-flip1 back">${L(sp[0])}</div>`;}
+    }else simple=turn>0?' turn-n':' turn-p';
+    if(flip)PP_FIN[ctx]=sp.map(L).join('');
+  }
+  const f=closed?0:clamp((sp[0]-1)/(PP_SEQ-3),0,1),eL=wide&&!closed?1+Math.round(7*f):0,eR=closed?(sp[0]===0?5:0):1+Math.round(7*(1-f));
+  const opts=Array.from({length:PP_SEQ},(_,i)=>{const s=i>=2&&i<PP_SEQ-2?(bk.p[i-2]||[]).filter(Boolean).length:-1;return `<option value="${i}"${sp[0]===i?' selected':''}>${ppLabel(i)}${s>=0?` · ${s} ${s===1?'stamp':'stamps'}`:''}</option>`;}).join('');
+  const e=st.info&&bk.v[st.info],fn=e&&findNation(st.info);
+  const info=e?`<div class="pp-info" role="status"><span class="pp-info-st">${ppStampSVG(ppSnap(e),e[2])}</span><div><p class="pp-info-n">${esc(e[0])}</p><p class="hint">${e[1]?esc(regName(e[1]))+' · ':''}stamped ${esc(fmtDate(e[2]))}</p></div>${fn&&!fn.me?`<button type="button" class="btn ghost small" data-act="pp-visit" data-id="${esc(st.info)}">Visit</button>`:''}</div>`:'';
+  return `<div class="pp-book${sp.length>1?' two':''}${uv?' uv':''}" data-ctx="${ctx}">
+    <div class="pp-stage${closed?' closed':''}${one?' one':''}${simple}" data-ctx="${ctx}" style="--pp-board:${col}">${eL?`<span class="pp-edge l" style="width:${eL}px"></span>`:''}<div class="pp-spread">${inner}${flip}</div>${eR?`<span class="pp-edge r${closed?' cl':''}" style="width:${eR}px"></span>`:''}</div>
+    <div class="pp-nav"><button type="button" class="btn ghost small" data-act="pp-turn" data-ctx="${ctx}" data-d="-1"${sp[0]<=0?' disabled':''} aria-label="Previous page">←</button><select class="input pp-jump" data-pp-jump="${ctx}" aria-label="Go to a page">${opts}</select><button type="button" class="btn ghost small" data-act="pp-turn" data-ctx="${ctx}" data-d="1"${sp[sp.length-1]>=PP_SEQ-1?' disabled':''} aria-label="Next page">→</button><button type="button" class="btn ghost small pp-uvb${uv?' on':''}" data-act="pp-uv" data-ctx="${ctx}" aria-pressed="${uv}" title="Shine an ultraviolet lamp on the pages">UV lamp</button></div>
     <p class="hint pp-count">${cnt} of ${PP_MAX} stamps${cnt?' · choose a stamp to see where it came from':''}</p>${info}</div>`;
 }
 function ppState(ctx){return ctx==='m'?PPV:PP;}
@@ -33737,7 +33977,7 @@ function ppViewDraw(){
 }
 function ppViewOpen(id,opener){
   const x=ppFindX(id);if(!x)return;ppViewClose(true);
-  Object.assign(PPV,{id:x.id,at:0,info:null,opener:opener||document.activeElement,turn:0});
+  Object.assign(PPV,{id:x.id,at:0,info:null,opener:opener||document.activeElement,turn:0,from:null,uv:false});
   const m=document.createElement('div');m.id='pp-view';m.className='pp-modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-labelledby','pp-view-h');
   m.innerHTML=`<button type="button" class="pp-scrim" data-act="pp-close" aria-label="Close the passport" tabindex="-1"></button><div class="pp-sheet"><div class="pp-sheet-h"><div><p class="eyebrow">Passport</p><h2 class="h2" id="pp-view-h">${esc(fullName(x.n))}</h2></div><button type="button" class="btn ghost small pp-x" data-act="pp-close" aria-label="Close the passport">✕</button></div><div class="pp-body"></div></div>`;
   document.body.appendChild(m);document.documentElement.classList.add('pp-lock');ppViewDraw();
@@ -33762,7 +34002,7 @@ const PP_PART={c:1,g:2,s:4};
 function ppSet(path,val){
   const [p,f]=path.split('.');if(!PP_PART[p])return;
   const k=PP_KIND[f];if(k&&!ppU(val,k))return;
-  if(f==='emb'&&!ppEmb(val))return;if(f==='ic'&&val!=='none'&&!ppIcon(val))return;
+  if(f==='emb'&&!ppEmb(val))return;if(f==='wm'&&!ppWm(val))return;if(f==='ic'&&val!=='none'&&!ppIcon(val))return;
   if(typeof val==='string'&&czU(val)&&czLocked(val)){toast('Locked. '+unlockHow(val));return;}
   ppSave(pp=>{pp[p][f]=val;},PP_PART[p]);
 }
@@ -33772,6 +34012,8 @@ function ppTile(path,id,cur,prev,name){
 }
 function ppOpt(path,val,cur,name){return `<button type="button" class="pp-opt${cur===val?' on':''}" data-act="pp-set" data-f="${path}" data-v="${esc(val)}" aria-pressed="${cur===val}">${esc(name)}</button>`;}
 function ppKinds(k){const all=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k===k),has=id=>!czLocked(id);return all.filter(has).concat(all.filter(id=>!has(id)));}
+/* typeface tiles: the nation's name set in each */
+function ppFontTiles(path,cur,name){return `<div class="pp-tiles pp-tiles-font">${ppKinds('ppfont').map(id=>{const u=UNLOCKS[id],t=String(name||'Edictum').slice(0,12);return ppTile(path,id,cur,`<span class="pp-font" style="font-family:${u.f.replace(/"/g,'')};${u.ls?'':'letter-spacing:0;'}font-size:${(17*(u.sz||1)).toFixed(1)}px">${esc(u.uc?t.toUpperCase():t)}</span>`);}).join('')}</div>`;}
 function ppMini(svg,cls){return `<span class="pp-mini${cls?' '+cls:''}">${svg}</span>`;}
 function ppDesignHTML(n){
   const d=ppDesign(n),t=PP.dtab,grp=(h,body,hint)=>`<div class="pp-grp"><h3 class="pp-grp-h">${h}</h3>${hint?`<p class="hint">${hint}</p>`:''}${body}</div>`;
@@ -33784,15 +34026,17 @@ function ppDesignHTML(n){
       +grp('Foil',`<div class="pp-tiles pp-tiles-sw">${ppKinds('ppfoil').map(id=>{const sid='ppf'+(++ppSeq),[fd,pt]=ppFoil(id,sid);return ppTile('c.foil',id,d.c.foil,ppMini(`<svg viewBox="0 0 60 60"><defs>${fd}</defs><rect width="60" height="60" rx="6" fill="${UNLOCKS[d.c.col].v}"/><text x="30" y="41" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="30" fill="${pt}">P</text></svg>`));}).join('')}</div>`)
       +grp('Ornament',`<div class="pp-tiles">${ppKinds('pporn').map(id=>ppTile('c.orn',id,d.c.orn,ppMini(`<svg viewBox="0 0 300 420"><rect width="300" height="420" rx="10" fill="${UNLOCKS[d.c.col].v}"/>${ppOrnament(id,'#e8c766')}</svg>`,'tall'))).join('')}</div>`)
       +grp('Emblem',`<div class="pp-tiles">${ppKinds('ppemb').map(id=>ppTile('c.emb',id,d.c.emb,ppMini(`<svg viewBox="0 0 120 120"><rect width="120" height="120" rx="8" fill="${UNLOCKS[d.c.col].v}"/>${ppEmblem(id,n,'#e8c766',60,60,96)}</svg>`))).join('')}</div>`
+        +`<p class="pp-sub">Or a device from the Diplomata:</p><div class="pp-tiles">${ppKinds('ppicon').map(id=>ppTile('c.emb',id,d.c.emb,ppMini(`<svg viewBox="0 0 100 100"><rect width="100" height="100" rx="8" fill="${UNLOCKS[d.c.col].v}"/><g transform="translate(14,14) scale(.72)">${ppIconSVG(id,'#e8c766')}</g></svg>`))).join('')}</div>`
         +`<p class="pp-sub">Or a charge from the coat of arms, struck in the foil:</p><div class="pp-tiles">${charges.map(id=>ppTile('c.emb',id,d.c.emb,ppMini(`<svg viewBox="0 0 100 100"><rect width="100" height="100" rx="8" fill="${UNLOCKS[d.c.col].v}"/><g transform="translate(14,14) scale(.72)">${czCharge(id.slice(2),'#e8c766','rgba(0,0,0,.28)',true)}</g></svg>`))).join('')}</div>`)
       +grp('Wording',`<div class="pp-opts">${PP_WORDS.map(w=>ppOpt('c.word',w,d.c.word,w)).join('')}</div><label class="pp-lbl" for="pp-word">Or your own (up to 20 letters)</label><input class="input" id="pp-word" data-pp-text="c.word" maxlength="20" value="${esc(PP_WORDS.includes(d.c.word)?'':d.c.word)}" placeholder="For example: DOCUMENTO DI VIAGGIO">`)
+      +grp('Lettering',ppFontTiles('c.fn',d.c.fn,n.name),'Five more typefaces come with a Diplomata.')
       +grp('Layout',`<div class="pp-opts">${Object.entries(PP_LAYS).map(([k,l])=>ppOpt('c.lay',k,d.c.lay,l)).join('')}</div><div class="pp-opts">${ppOpt('c.chip',1,d.c.chip,'Chip mark')}${ppOpt('c.chip',0,d.c.chip,'No chip mark')}</div>`);
     prev=`<div class="pp-leaf is-cover">${covers({})}</div>`;
   }else if(t==='g'){
-    const sample={v:{},p:[[],[]]};NPC_NATIONS.slice(0,6).forEach((o,i)=>{const s=ppDesign(o).s;sample.v[o.id]=[o.name,REG.id,Date.now()-i*DAY*3,s.sh,s.bd,s.ink,s.ic,s.t1,s.t2];sample.p[0][i]=o.id;});
+    const sample={v:{},p:[[],[]]};NPC_NATIONS.slice(0,6).forEach((o,i)=>{const s=ppDesign(o).s;sample.v[o.id]=[o.name,REG.id,Date.now()-i*DAY*3,s.sh,s.bd,s.ink,s.ic,s.t1,s.t2,s.fn];sample.p[0][i]=o.id;});
     ctl=grp('Tint',`<div class="pp-tiles pp-tiles-sw">${ppKinds('pptint').map(id=>ppTile('g.tint',id,d.g.tint,`<span class="pp-sw sq" style="background:${PP_TINT[id][0]};border-color:${PP_TINT[id][1]}"></span>`)).join('')}</div>`)
       +grp('Security print',`<div class="pp-tiles">${ppKinds('pppat').map(id=>{const [bg,ink]=PP_TINT[d.g.tint];return ppTile('g.pat',id,d.g.pat,ppMini(`<svg viewBox="0 0 300 420"><rect width="300" height="420" fill="${bg}"/><g opacity=".8">${ppPagePattern(id,ink)}</g></svg>`,'tall'));}).join('')}</div>`)
-      +grp('Watermark',`<div class="pp-opts">${Object.entries(PP_WM).map(([k,l])=>ppOpt('g.wm',k,d.g.wm,l)).join('')}</div>`)
+      +grp('Watermark',`<div class="pp-opts">${Object.entries(PP_WM).map(([k,l])=>ppOpt('g.wm',k,d.g.wm,l)).join('')}</div><div class="pp-tiles">${ppKinds('ppwm').map(id=>{const [bg,ink]=PP_TINT[d.g.tint];return ppTile('g.wm',id,d.g.wm,ppMini(`<svg viewBox="0 0 300 420"><rect width="300" height="420" fill="${bg}"/><g transform="translate(0,0)">${ppWmBld(id,n,ink).replace(/opacity="\.1[03]?"/,'opacity=".45"')}</g></svg>`,'tall'));}).join('')}</div>`,'The Diplomata adds five more.')
       +grp('Page numbers',`<div class="pp-opts">${Object.entries(PP_NUM).map(([k,l])=>ppOpt('g.num',k,d.g.num,l+(k==='roman'?' (I, II, III)':' (1, 2, 3)'))).join('')}</div>`);
     prev=`<div class="pp-leaf">${ppPageSVG(n,d,0,sample.p[0],sample.v,{})}</div><div class="pp-leaf">${ppBioSVG(n,d,{})}</div>`;
   }else{
@@ -33800,7 +34044,8 @@ function ppDesignHTML(n){
     ctl=grp('Shape',`<div class="pp-tiles">${ppKinds('ppshape').map(id=>ppTile('s.sh',id,d.s.sh,ppMini(ppStampSVG(Object.assign({},st,{sh:id}),Date.now()),'wide'))).join('')}</div>`)
       +grp('Border',`<div class="pp-tiles">${ppKinds('ppbord').map(id=>ppTile('s.bd',id,d.s.bd,ppMini(ppStampSVG(Object.assign({},st,{bd:id}),Date.now()),'wide'))).join('')}</div>`)
       +grp('Ink',`<div class="pp-tiles pp-tiles-sw">${ppKinds('ppink').map(id=>ppTile('s.ink',id,d.s.ink,`<span class="pp-sw" style="background:${PP_INK[id]}"></span>`)).join('')}</div>`)
-      +grp('Device',`<div class="pp-tiles">${ppTile('s.ic','none',d.s.ic,ppMini('<svg viewBox="0 0 100 100"><path d="M30,30L70,70M70,30L30,70" stroke="currentColor" stroke-width="5"/></svg>'),'None')}${charges.map(id=>ppTile('s.ic',id,d.s.ic,ppMini(`<svg viewBox="0 0 100 100">${czCharge(id.slice(2),PP_INK[d.s.ink],'none',true)}</svg>`))).join('')}</div>`,'The charges you hold for your coat of arms.')
+      +grp('Device',`<div class="pp-tiles">${ppTile('s.ic','none',d.s.ic,ppMini('<svg viewBox="0 0 100 100"><path d="M30,30L70,70M70,30L30,70" stroke="currentColor" stroke-width="5"/></svg>'),'None')}${ppKinds('ppicon').map(id=>ppTile('s.ic',id,d.s.ic,ppMini(`<svg viewBox="0 0 100 100">${ppIconSVG(id,PP_INK[d.s.ink])}</svg>`))).join('')}${charges.map(id=>ppTile('s.ic',id,d.s.ic,ppMini(`<svg viewBox="0 0 100 100">${czCharge(id.slice(2),PP_INK[d.s.ink],'none',true)}</svg>`))).join('')}</div>`,'The Diplomata’s devices, and the charges you hold for your coat of arms.')
+      +grp('Lettering',ppFontTiles('s.fn',d.s.fn,n.name))
       +grp('Wording',`<label class="pp-lbl" for="pp-t1">Top line (empty: your nation’s name)</label><input class="input" id="pp-t1" data-pp-text="s.t1" maxlength="24" value="${esc(d.s.t1)}" placeholder="${esc(String(n.name).toUpperCase())}">
         <p class="pp-sub">Bottom line:</p><div class="pp-opts">${PP_T2.map(w=>ppOpt('s.t2',w,d.s.t2,w)).join('')}</div><label class="pp-lbl" for="pp-t2">Or your own (up to 20 letters)</label><input class="input" id="pp-t2" data-pp-text="s.t2" maxlength="20" value="${esc(PP_T2.includes(d.s.t2)?'':d.s.t2)}">`);
     prev=`<div class="pp-stamp-big">${ppStampSVG(st,Date.now(),{label:'Your entry stamp'})}</div><p class="hint">This is the stamp other nations collect when they open your page. They keep it as it was on the day they came.</p>`;
@@ -33839,7 +34084,7 @@ VIEWS_EXT.passport=now=>{
   const n=S.nation;if(!n)return '';const st=ppStats(n),me={id:myId(),n,me:true},t=PP.tab;
   const tabs=[['book','Book'],['design','Design'],['arrange','Arrange']].map(([k,l])=>`<button type="button" class="pp-tab${t===k?' on':''}" data-act="pp-tab" data-v="${k}" aria-pressed="${t===k}">${l}</button>`).join('');
   return `<header class="vh"><p class="eyebrow">Passport office of ${esc(n.name)}</p><h1>Your passport</h1>
-    <p>${st.n} of ${PP_MAX} stamps${st.full?` · ${st.full} full ${st.full===1?'page':'pages'}`:''}. Open another nation’s page to collect its entry stamp: it goes in the first free place, and you choose where it stays. Richer covers, inks and prints unlock with the Passport achievements and the Passport Office in the museum.</p></header>
+    <p>${st.n} of ${PP_MAX} stamps${st.full?` · ${st.full} full ${st.full===1?'page':'pages'}`:''} · ${ppCredits(n)} of ${PP_CREDITS} land credits earned${ppCredits(n)<PP_CREDITS?` (the next at ${(ppCredits(n)+1)*PP_CREDIT_EVERY} stamps)`:''}. Open another nation’s page to collect its entry stamp: it goes in the first free place, and you choose where it stays. Richer covers, inks and prints unlock with the Passport achievements, the Passport Office in the museum and a Diplomata in one of your cities.</p></header>
     <div class="pp-tabs">${tabs}</div>
     ${t==='design'?ppDesignHTML(n):t==='arrange'?ppArrangeHTML(n):ppBookHTML(me,PP,'p')}`;
 };
@@ -33852,12 +34097,17 @@ NATION_SECTIONS.push((x,now)=>{
 VISIT_SECTIONS.push((x,now)=>{
   const n=x&&x.n;if(!n||x.me)return '';const d=ppDesign(n),mine=S.nation&&S.nation.pp&&S.nation.pp.v&&S.nation.pp.v[x.id],bk=ppBook(x),k=Object.keys(bk.v).length;
   let where='';if(mine){const p=S.nation.pp.p||[];for(let i=0;i<p.length;i++)if(p[i].includes(x.id))where=` on page ${roman(i+1)}`;}
-  return `<section class="pp-visit"><span class="pp-visit-st">${ppStampSVG(Object.assign({},mine?ppSnap(mine):d.s,{nm:n.name}),mine?mine[2]:now,{label:`Entry stamp of ${n.name}`})}</span>
+  const th=PP.just===x.id;if(th)PP.just=null;
+  return `<section class="pp-visit"><span class="pp-visit-st${th?' thump':''}">${ppStampSVG(Object.assign({},mine?ppSnap(mine):d.s,{nm:n.name}),mine?mine[2]:now,{label:`Entry stamp of ${n.name}`})}</span>
     <div><p class="eyebrow">Passport</p><p class="pp-visit-n">Entry stamp of ${esc(n.name)}</p><p class="hint">${mine?`In your passport since ${esc(fmtDate(mine[2]))}${where}.`:!S.nation?'':ppCount(S.nation)>=PP_MAX?'Your passport is full: make room to collect it.':'Stamping your passport…'} Their passport holds ${k} ${k===1?'stamp':'stamps'}.</p></div>
     <div class="row"><button type="button" class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button></div></section>`;
 });
-HELP_EXT.push({k:'passport',t:'The passport',body:()=>`<p>Every nation has a passport: a cover, an identity page and twenty pages for entry stamps, ten to a page. Opening another nation’s page stamps that nation’s entry stamp into yours, with the date, up to ${PP_MAX} stamps. Other regions cannot be visited, so a passport fills with the nations of your region, and of the regions you move through.</p>
-  <p>On the Passport page you can turn the pages, design the cover, the pages and the entry stamp other nations collect from you, and choose which page and place each stamp has. Richer colours, materials, foils, prints, shapes and inks unlock with the Passport & travel achievements and the Passport Office set in the museum. Every nation’s page has <b>View passport</b>.</p>${`<p><button class="btn ghost" data-act="go" data-v="passport">Open your passport</button></p>`}`});
+/* two steps of the second checklist (each pays a land credit, like every step): a first stamp, and a passport of
+   one's own design. They join Next steps rather than First steps, so no finished first checklist reopens. */
+NEXT_STEPS.push(['stamp',9,'Collect a passport stamp',()=>'Open the page of a nation in your region: its entry stamp goes into your passport, and every 20 stamps earn a land credit.','region','Open the region',n=>ppCount(n)>0],
+  ['ppdes',10,'Design your passport',()=>'Choose its cover, its pages, or the entry stamp other nations collect from you.','passport','Open your passport',n=>ppStats(n).ds>0]);
+HELP_EXT.push({k:'passport',t:'The passport',body:()=>`<p>Every nation has a passport: a cover, an identity page and twenty pages for entry stamps, ten to a page. Opening another nation’s page stamps that nation’s entry stamp into yours, with the date, up to ${PP_MAX} stamps. Every ${PP_CREDIT_EVERY} stamps earn a land credit for the map, ${PP_CREDITS} for a full book. Other regions cannot be visited, so a passport fills with the nations of your region, and of the regions you move through.</p>
+  <p>On the Passport page you can turn the pages, design the cover, the pages and the entry stamp other nations collect from you, and choose which page and place each stamp has. Richer colours, materials, foils, prints, shapes and inks unlock with the Passport & travel achievements and the Passport Office set in the museum, and a Diplomata in one of your cities adds five typefaces, eight devices, five page prints and five watermarks (and 3% more immigrants). Every nation’s page has <b>View passport</b>.</p>${`<p><button class="btn ghost" data-act="go" data-v="passport">Open your passport</button></p>`}`});
 
 /* ── input ── */
 document.addEventListener('click',e=>{
@@ -33867,7 +34117,8 @@ document.addEventListener('click',e=>{
   if(a==='pp-design'){PP.tab='design';go('passport');return;}
   if(a==='pp-tab'){PP.tab=el.dataset.v;PP.sel=null;PP.ask=null;render();return;}
   if(a==='pp-dtab'){PP.dtab=el.dataset.v;render();return;}
-  if(a==='pp-turn'){const st=ppState(el.dataset.ctx),d=+el.dataset.d;st.at=ppStep(st.at,d,ppWide());st.turn=d;st.info=null;if(el.dataset.ctx==='m')ppViewDraw();else render();return;}
+  if(a==='pp-turn'){const st=ppState(el.dataset.ctx),d=+el.dataset.d;st.from=st.at;st.at=ppStep(st.at,d,ppWide());st.turn=d;st.info=null;if(el.dataset.ctx==='m')ppViewDraw();else render();return;}
+  if(a==='pp-uv'){const st=ppState(el.dataset.ctx);st.uv=!st.uv;if(el.dataset.ctx==='m')ppViewDraw();else render();return;}
   if(a==='pp-st'){const st=ppState(el.dataset.ctx);st.info=st.info===el.dataset.id?null:el.dataset.id;if(el.dataset.ctx==='m')ppViewDraw();else render();return;}
   if(a==='pp-visit'){const id=el.dataset.id;ppViewClose(true);PP.info=null;S.visit=id;S.view='visit';S.relMsg=null;S.confirmWar=null;render();window.scrollTo(0,0);return;}
   if(a==='pp-set'){const f=el.dataset.f,v=el.dataset.v;ppSet(f,f==='c.chip'?+v:v);return;}
@@ -33880,7 +34131,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target;if(!t||!t.dataset)return;
-  if(t.dataset.ppJump){const st=ppState(t.dataset.ppJump),to=+t.value;st.turn=to>st.at?1:-1;st.at=to;st.info=null;if(t.dataset.ppJump==='m')ppViewDraw();else render();return;}
+  if(t.dataset.ppJump){const st=ppState(t.dataset.ppJump),to=+t.value;st.turn=to>st.at?1:-1;st.from=st.at;st.at=to;st.info=null;if(t.dataset.ppJump==='m')ppViewDraw();else render();return;}
   if(t.dataset.ppText){const [p,f]=t.dataset.ppText.split('.'),max=f==='t1'?24:20,v=czText(t.value,max).toUpperCase();ppSave(pp=>{pp[p][f]=v||(f==='t2'?'ADMITTED':f==='word'?'PASSPORT':'');},PP_PART[p]);return;}
   if(t.dataset.ppTitle!==undefined&&t.dataset.ppTitle!==''){const k=+t.dataset.ppTitle;ppSave(pp=>{pp.l[k]=czText(t.value,30);});return;}
   if(t.dataset.ppMove){const s=PP.sel,k=+t.value;if(!s||!S.nation||k===s.k)return;const p=S.nation.pp.p,at=p[k].findIndex(x=>!x);
@@ -33890,14 +34141,21 @@ document.addEventListener('keydown',e=>{
   const m=document.getElementById('pp-view');
   if(m){if(e.key==='Escape'){e.stopPropagation();e.preventDefault();ppViewClose();return;}
     if(e.key==='Tab'){navTrap(e,m.querySelector('.pp-sheet'));return;}
-    if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&!(e.target&&/SELECT|INPUT|TEXTAREA/.test(e.target.tagName))){e.preventDefault();e.stopPropagation();const d=e.key==='ArrowRight'?1:-1;PPV.at=ppStep(PPV.at,d,ppWide());PPV.turn=d;PPV.info=null;ppViewDraw();return;}}
+    if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&!(e.target&&/SELECT|INPUT|TEXTAREA/.test(e.target.tagName))){e.preventDefault();e.stopPropagation();const d=e.key==='ArrowRight'?1:-1;PPV.from=PPV.at;PPV.at=ppStep(PPV.at,d,ppWide());PPV.turn=d;PPV.info=null;ppViewDraw();return;}}
   const t=e.target;if((e.key==='Enter'||e.key===' ')&&t&&t.getAttribute&&/^pp-(st|slot)$/.test(t.getAttribute('data-act')||'')){e.preventDefault();t.dispatchEvent(new MouseEvent('click',{bubbles:true}));}
 },true);
+document.addEventListener('animationend',e=>{
+  if(!/^ppFlip/.test(e.animationName||''))return;const sp=e.target.closest&&e.target.closest('.pp-spread'),st=sp&&sp.closest('.pp-stage');if(!st)return;
+  const ctx=st.dataset.ctx,f=PP_FIN[ctx];if(f!=null){sp.innerHTML=f;delete PP_FIN[ctx];}
+});
+{let raf=0,cur=null,px=0,py=0;
+  document.addEventListener('pointermove',e=>{const s=e.target.closest&&e.target.closest('.pp-stage');if(cur&&cur!==s){cur.classList.remove('lit');cur=null;}if(!s)return;cur=s;px=e.clientX;py=e.clientY;
+    if(raf)return;raf=requestAnimationFrame(()=>{raf=0;if(!cur)return;const r=cur.getBoundingClientRect();cur.style.setProperty('--gx',(((px-r.left)/r.width)*2-1).toFixed(3));cur.style.setProperty('--gy',(((py-r.top)/r.height)*2-1).toFixed(3));cur.classList.add('lit');});},{passive:true});}
 /* turning by swiping across the pages */
 {let sx=null,sy=0;document.addEventListener('pointerdown',e=>{const s=e.target.closest&&e.target.closest('.pp-stage');sx=s?e.clientX:null;sy=e.clientY;},true);
   document.addEventListener('pointerup',e=>{if(sx==null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;const s=e.target.closest&&e.target.closest('.pp-stage');if(!s||Math.abs(dx)<50||Math.abs(dy)>Math.abs(dx))return;
-    const ctx=s.dataset.ctx,st=ppState(ctx),d=dx<0?1:-1;st.at=ppStep(st.at,d,ppWide());st.turn=d;st.info=null;if(ctx==='m')ppViewDraw();else render();},true);}
-go=(f=>function(v){if(v==='passport'&&S.view!=='passport'){PP.sel=null;PP.ask=null;PP.info=null;}ppViewClose(true);return f.apply(this,arguments);})(go);
+    const ctx=s.dataset.ctx,st=ppState(ctx),d=dx<0?1:-1;st.from=st.at;st.at=ppStep(st.at,d,ppWide());st.turn=d;st.info=null;if(ctx==='m')ppViewDraw();else render();},true);}
+go=(f=>function(v){if(v==='passport'&&S.view!=='passport'){PP.sel=null;PP.ask=null;PP.info=null;try{PP.seenAt=+localStorage.getItem('edictum.pp.seen')||0;localStorage.setItem('edictum.pp.seen',String(Date.now()));}catch(e){PP.seenAt=0;}}ppViewClose(true);return f.apply(this,arguments);})(go);
 
 /* ───────── full-screen maps ─────────
    The founding map, and a nation's territory (as an interactive 'visit' map centred on it), can fill

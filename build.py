@@ -45,6 +45,12 @@ FONTS = [
     ('@fontsource-variable/public-sans', ['wght.css', 'wght-italic.css'], 'Public Sans'),
     ('@fontsource/ibm-plex-mono', ['400.css', '500.css', '600.css'], 'IBM Plex Mono'),
     ('@fontsource-variable/cinzel', ['wght.css'], 'Cinzel'),  # Roman capitals: edicts, decrees, passports
+    # the Diplomata's typefaces for passports: a browser downloads one only when a passport on screen uses it
+    ('@fontsource/cormorant-garamond', ['600.css'], 'Cormorant Garamond'),
+    ('@fontsource/unifrakturmaguntia', ['400.css'], 'UnifrakturMaguntia'),
+    ('@fontsource/great-vibes', ['400.css'], 'Great Vibes'),
+    ('@fontsource/courier-prime', ['400.css', '700.css'], 'Courier Prime'),
+    ('@fontsource/bebas-neue', ['400.css'], 'Bebas Neue'),
 ]
 PRELOAD = ['bodoni-moda-latin-opsz-normal', 'public-sans-latin-wght-normal']  # used on the first screen
 
@@ -150,6 +156,7 @@ def fonts_css(out):
                     continue
                 url = hashed(out, 'fonts/' + m.group(1)[:-len('.woff2')], 'woff2', read(os.path.join(base, 'files', m.group(1)), 'rb'))
                 body = re.sub(r"font-family:\s*'[^']*'", "font-family: '%s'" % family, body)
+                body = re.sub(r",\s*url\(\./files/[^)]+\.woff\)\s*format\('woff'\)", '', body)  # the woff2 is enough
                 rules.append('@font-face {%s}' % body.replace(m.group(0), 'url(%s)' % url).strip())
                 if name in PRELOAD:
                     preload.append(url)
