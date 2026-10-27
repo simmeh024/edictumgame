@@ -78,7 +78,8 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only firestore:rules,firestore:indexes --project "$PROJECT_ID" --non-interactive
 
       # the service account needs Cloud Functions Admin, Service Account User and Artifact Registry Reader
-      # besides the roles above (README.md, Owner setup, step 5)
+      # besides the roles above (README.md, Owner setup, step 5). --force: a function taken out of functions/
+      # is deleted, and without the image clean-up policy (Owner setup, step 5.4) the deploy warns, not fails
       - name: Deploy the referee
         if: steps.settings.outputs.ready == 'true'
         env:
@@ -87,7 +88,7 @@ jobs:
           key="$RUNNER_TEMP/service-account.json"
           trap 'rm -f "$key"' EXIT
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
-          GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only functions --project "$PROJECT_ID" --non-interactive
+          GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only functions --project "$PROJECT_ID" --non-interactive --force
 
       - name: Deploy the site to Firebase Hosting
         if: steps.settings.outputs.ready == 'true'
