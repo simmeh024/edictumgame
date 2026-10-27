@@ -38,8 +38,12 @@ like), and **Firestore** holds the shared world.
   listens to it; the game reads it with the shared half for the player's own nation, and another
   player's when one of that nation's pages (its page, museum, achievements, statistics or passport)
   is open. It is rewritten only when it changed.
-- `summaries/<uid>`: `{reg, name, pop, t}`, the nation's headline, for the World page and the
-  player counts per region.
+- `summaries/<uid>`: `{reg, name, pop, t, e?}`, the nation's headline, for the World page and the
+  player counts per region. `e`, after a save with a holiday ahead, is the time the nation counts as
+  active until (at most 32 days past `t`); a region's active count is those saved within 250 days
+  plus those saved earlier whose `e` is still within them.
+- `staff/<uid>`: `{t}`, this player is Edictum staff (an admin). Only the admin can write their own,
+  and their page clears it once the right is gone.
 - `space/<uid>`: `{reg, name, t, j, ts}`, the nation's Moon, Mars and asteroid belt data, only for
   nations that have any. Those are shared by every region, so every player reads them.
 - `boards/<region>/posts/<id>`: `{a: <author uid>, t, x}`, one post on a region's message board;
@@ -124,11 +128,16 @@ pace no longer offered loads at 30 minutes). Holiday mode, also in Settings, sto
 date and time the player chooses, at most a calendar month ahead (`n.away`, `{a, b}`). The edict clock
 skips the holiday, so edicts carry on afterwards as if it had not happened rather than arriving all at
 once, and the time away does not count towards going dormant. It can be ended early. `n.away` is in the
-shared half, so every player works out the same dormancy.
+shared half, so every player works out the same dormancy, and the summary's `e` carries it into other
+regions' counts.
 
-**The banner's stamps.** A nation's banner carries ink stamps for its seat in the region's Assembly
-(every player nation unless it resigned, and every computer nation), the Delegate's chair, and its
-alliance, if it has one.
+**The banner's stamps.** A nation's banner carries ink stamps for its highest seat in the region's
+Assembly (the Delegate's chair, or else a member's seat: every player nation unless it resigned, and
+every computer nation) and its alliance, if it has one.
+
+**Edictum staff.** An admin's nation carries an **Edictum staff** pill on its banner, beside its board
+posts and in Messages, where its letters are marked as coming from the Edictum team. The mark comes
+from `staff/<uid>`, which only an admin can write for themself, so it cannot be faked.
 
 **Passport.** Every nation has a passport: a cover, an identity page and 20 pages of ten entry stamps.
 Opening another nation's page stamps its entry stamp into yours (at most 200), keeping that nation's
@@ -246,6 +255,8 @@ The account control (at the foot of the side bar, or at the top of the founding 
 loads anywhere. If that Google account already has a nation, the player can switch to it. A player
 signed in with Google also has **Sign out** under the control in the side bar (it asks first; a guest
 gets none, since a guest who signed out would lose the nation). Signing out starts a new guest.
+Linking is also the last of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
+once (`n.glk`).
 
 **Without Firebase.** If the Firebase scripts or the configuration cannot be loaded, the game
 plays in the browser only, as it always could, and says so.
@@ -400,7 +411,7 @@ run on the separate staging project (step 10), so playing on a preview never tou
 ### 9. Making yourself an admin
 
 Admins see **Remove** on everyone's posts on the region message board, and a purple **Admin** pill
-beside their nation's name. The pill opens the admin portal (`#admin`): players in all and per
+beside their nation's name; other players see their nation marked **Edictum staff**. The pill opens the admin portal (`#admin`): players in all and per
 region (active in the last 250 days, today, this week, in the last 15 minutes), how full each
 region is, its board posts, nations in space and the largest nations, all counted live, the report
 queue, and a button back to the game. Its **Help queries** tab (`#admin-help`) lists the players'

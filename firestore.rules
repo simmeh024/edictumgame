@@ -15,6 +15,8 @@ rules_version = '2';
 //   slimits/{uid}            {s}: the time of the player's last support ticket, which paces them
 //   mod/{uid}                {hidden, removed, note, name, t, by}: an admin hid or removed a nation
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
+//   staff/{uid}              {t}: this player is Edictum staff (an admin), so other players see it; only the
+//                            admin themself can write it, and anyone may clear their own
 //   fx/{reg}                 the region's currencies: value, Currency Prestige, rank and history summary
 //   fxh/{id}                 one currency's daily history of value and prestige
 //   fxs/{reg}                the currency job's own state (smoothing, volatility, a lease)
@@ -76,12 +78,15 @@ service cloud.firestore {
       let s = getAfter(/databases/$(database)/documents/summaries/$(uid)).data;
       return s.reg == d.reg && s.name == d.name && s.t == d.updatedAt;
     }
+    // e, when present: the time the nation counts as active until, with a holiday after its last save
+    // (holiday mode); at most a month (32 days) past t, so nobody can stay awake on it for longer
     function validSummary(d) {
       return d.keys().hasAll(['reg', 'name', 'pop', 't'])
-        && d.keys().hasOnly(['reg', 'name', 'pop', 't'])
+        && d.keys().hasOnly(['reg', 'name', 'pop', 't', 'e'])
         && region(d.reg) && label(d.name)
         && d.pop is number && d.pop >= 0
-        && d.t is number;
+        && d.t is number
+        && (!('e' in d) || (d.e is number && d.e > d.t && d.e <= d.t + 2764800000));
     }
     function validPrivate(d) {
       return d.keys().hasAll(['j', 't', 'ts'])
@@ -274,6 +279,15 @@ service cloud.firestore {
         && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 300))
         && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 160));
       allow delete: if isAdmin();
+    }
+
+    // staff: an admin's page marks its own player as staff, so every player can tell staff from players;
+    // a claim cannot be forged, so neither can the mark. Rights taken away, the page clears it.
+    match /staff/{uid} {
+      allow read: if true;
+      allow create, update: if isSelf(uid) && isAdmin()
+        && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t is number;
+      allow delete: if isSelf(uid) || isAdmin();
     }
   }
 }

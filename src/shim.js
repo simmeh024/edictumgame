@@ -15,7 +15,8 @@
      nationx/<uid>          {j:<JSON>, t, ts}: the private half (NX_KEYS), which only the nation's own player
                             needs, or another player opening that nation's pages. Nobody listens to it; it
                             is rewritten only when it changed. Loading nations/<uid> returns both, joined.
-     summaries/<uid>        {reg, name, pop, t}: the headline for the World page and region counts.
+     summaries/<uid>        {reg, name, pop, t, e?}: the headline for the World page and region counts; e, with
+                            a holiday after the save, is the time the nation counts as active until.
      space/<uid>            {reg, name, t, j:<JSON of sp, belt, mapc, flag, pretitle>}, only for nations
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
                             rewritten only when that data changes (or every SPACE_BEAT while playing).
@@ -149,6 +150,13 @@
       return new Promise(function (r) { setTimeout(r, RETRY_MS); }).then(function () { return fn(true); });
     });
   }
+  /* a holiday after the last save (holiday mode, d.away {a, b}) does not count towards going dormant: the
+     summary's e is t plus that part of it, so other regions' counts skip it too (the rules allow 32 days) */
+  function activeUntil(d, t) {
+    var w = isObj(d) && isObj(d.away) ? d.away : null, a = w ? num(w.a) : 0, b = w ? num(w.b) : 0;
+    if (!(b > a) || !(t > 0)) return t;
+    return t + Math.min(Math.max(0, b - Math.max(a, t)), 32 * 864e5 - 60000);
+  }
   /* a nation save: the shared half, its summary and, when they changed, the private half and the space document */
   function saveNation(uid, data, noSpace) {
     /* before the first space write of this page, count from the page load: a reload must not beat the pace */
@@ -157,7 +165,9 @@
     enc.j = JSON.stringify(halves[0]);
     b.set(A.fs.doc('nations/' + uid), enc);
     if (A.xSent[uid] !== xj) b.set(A.fs.doc('nationx/' + uid), { j: xj, t: enc.updatedAt, ts: serverTime() });
-    b.set(A.fs.doc('summaries/' + uid), { reg: enc.reg, name: enc.name, pop: Math.max(0, num(isObj(data) ? data.pop : 0)), t: enc.updatedAt });
+    var sum = { reg: enc.reg, name: enc.name, pop: Math.max(0, num(isObj(data) ? data.pop : 0)), t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
+    if (e > sum.t) sum.e = e;
+    b.set(A.fs.doc('summaries/' + uid), sum);
     if (noSpace) { /* leave space/ as it is */ }
     else if (sj) {
       var changed = sent.j !== sj || sent.reg !== enc.reg || sent.name !== enc.name;
@@ -294,6 +304,11 @@
       if (!u) return Promise.resolve(false);
       return u.getIdTokenResult(true).catch(function () { return u.getIdTokenResult(); })
         .then(function (r) { return !!(r && r.claims && r.claims.admin === true); }, function () { return false; });
+    },
+    /* linked to a Google account (the game's first steps reward it); the page hears 'edictum:linked' when it links */
+    google: function () {
+      var u = A.auth && A.auth.currentUser;
+      return Promise.resolve(!!(u && !u.isAnonymous && (u.providerData || []).some(function (p) { return p && p.providerId === 'google.com'; })));
     },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
@@ -656,7 +671,7 @@
         await bt.commit();
       }
       var b = A.fs.batch();
-      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
+      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'staff/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
       await within(b.commit(), 15000);
     } catch (e) {
       A.frozen = false; A.leaving = false; setBusy('');
@@ -690,6 +705,7 @@
       setBusy('');
       var w = who(), n = localNation();
       ui.view = 'main'; draw(); paint();
+      try { window.dispatchEvent(new Event('edictum:linked')); } catch (e) {}
       setMsg(n ? 'Linked. “' + n.name + '” is now kept with your Google account' + (w.email ? ', ' + w.email : '') + '.' : 'Linked to your Google account. The nation you found here will be kept with it.');
     }, function (e) {
       setBusy('');

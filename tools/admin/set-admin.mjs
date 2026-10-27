@@ -14,6 +14,7 @@
 // emulator instead and needs no key.
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const args = process.argv.slice(2);
 const who = args.find(a => !a.startsWith('--'));
@@ -34,8 +35,12 @@ try {
   const claims = { ...(user.customClaims || {}) };
   if (remove) delete claims.admin; else claims.admin = true;
   await auth.setCustomUserClaims(user.uid, claims);
+  /* staff/<uid> shows other players this nation is staff; the admin's own page writes it, and clears it
+     once the right is gone, but taking it away here does so at once */
+  if (remove) await getFirestore().doc('staff/' + user.uid).delete().catch(e => console.warn('Could not clear the staff mark: ' + e.message));
   console.log(`${user.email || user.uid} (player id ${user.uid}) is ${remove ? 'no longer an admin' : 'now an admin'}.`);
-  console.log('In the game: reload the page (no need to sign out). The Admin pill appears beside the nation’s name.');
+  console.log(remove ? 'Other players no longer see the nation marked as Edictum staff.'
+    : 'In the game: reload the page (no need to sign out). The Admin pill appears beside the nation’s name, and other players see it marked as Edictum staff.');
 } catch (e) {
   console.error('Could not set the claim: ' + (e.errorInfo ? e.errorInfo.message : e.message));
   process.exit(1);
