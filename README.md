@@ -19,7 +19,7 @@ like), and **Firestore** holds the shared world.
 | `src/stub.js` | A few lines put at the top of the page: `window.claude.use()`, which the game calls, waits until Firebase is ready. |
 | `src/shim.js`, `src/shim.css` | The Firebase layer behind `window.claude.use('db' / 'user')`: documents, queries, counts, batched nation saves and board posts (see Data). Also the account control. |
 | `src/favicon.svg`, `src/og.png`, `src/apple-touch-icon.png` | The seal icon and the picture shown when a link is shared (`src/og.html` is its source; `tools/make-images.mjs` redraws the PNGs). |
-| `build.py` | Builds `public/`: a small page (stub, Firebase SDK, shim, meta tags) plus the game's script and styles minified into `/assets/game.<hash>.js` and `/assets/app.<hash>.css`, and the fonts in `/assets/fonts/`. Their names change with their content, so browsers keep them for a year. |
+| `build.py` | Builds `public/`: a small page (stub, Firebase SDK, shim, meta tags, schema.org data, and the top of the front page as plain HTML) plus the game's script and styles minified into `/assets/game.<hash>.js` and `/assets/app.<hash>.css`, and the fonts in `/assets/fonts/`. Their names change with their content, so browsers keep them for a year. |
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
 | `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project. |
@@ -133,6 +133,18 @@ and `/terminos`, each with a button to the other language. The game links to the
 bar's foot, the founding page and the account menu. The notice follows Mexico's LFPDPPP (ARCO
 rights) and keeps GDPR rights for players in the EU; the terms are under Mexican law.
 
+**The front page.** A visitor without a nation lands on the founding page, which is also the front
+page. Besides the charter it says what Edictum is (`HOME_FEATS` in the game), offers a sample edict
+to try, worded for the nation being drafted (`HOME_TRY`; nothing chosen there counts), and shows the
+region's player nations: how many, how many were founded this week or were active in the last 15
+minutes, and their flags. These come from the records the founding map listens to anyway, so they
+cost no reads. Every field but the name has a default, so a Found button is always in reach: beside
+the preview on wide screens, and in a bar at the foot of the screen on phones, where the preview card
+gives way to the form. `build.py` writes the page's heading, lede and features (read from the game's
+`HOME_LEDE`, `HOME_FEATS` and `HOME_FREE`) into the page itself, so a newcomer sees them while the
+game's script downloads; a returning player (a nation saved in the browser, which `src/stub.js`
+checks) sees the plain loading screen instead.
+
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers
 **Keep your nation on every device**, which links the guest account to Google so the same nation
@@ -173,7 +185,7 @@ run `python3 build.py` again and reload.
 ```sh
 npm run test:rules         # the security rules (Firestore emulator only)
 npx playwright install chromium   # once, for the browser tests
-npm run test:e2e           # two players, the board, other regions, reloads, rules, admin, offline, Google sign-in, full regions, founding drafts
+npm run test:e2e           # two players, the board, other regions, reloads, rules, admin, offline, Google sign-in, full regions, founding drafts, the front page
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
 ```
 
