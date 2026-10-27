@@ -28,10 +28,15 @@ like), and **Firestore** holds the shared world.
 
 **Data.** Documents are named by the player's Firebase user id:
 
-- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt, ts}`. The nation
-  record is stored as text because it contains lists of lists, which Firestore cannot store, and
-  because the game expects its fields back exactly as it saved them. `reg`, `name` and `updatedAt`
-  are copies kept beside it for queries; `ts` is the server's time of the save.
+- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt, ts}`, the shared
+  half of the nation record: what other players in the region see. It is stored as text because it
+  contains lists of lists, which Firestore cannot store. `reg`, `name` and `updatedAt` are copies
+  kept beside it for queries; `ts` is the server's time of the save.
+- `nationx/<uid>`: `{j, t, ts}`, the private half: the edict engine, notices seen, tallies,
+  intelligence, lore and the passport's stamps (the key list is `NX_KEYS` in `src/shim.js`). Nobody
+  listens to it; the game reads it with the shared half for the player's own nation, and another
+  player's when one of that nation's pages (its page, museum, achievements, statistics or passport)
+  is open. It is rewritten only when it changed.
 - `summaries/<uid>`: `{reg, name, pop, t}`, the nation's headline, for the World page and the
   player counts per region.
 - `space/<uid>`: `{reg, name, t, j, ts}`, the nation's Moon, Mars and asteroid belt data, only for
@@ -52,16 +57,19 @@ like), and **Firestore** holds the shared world.
   browser drops its copy). Everyone reads these. `bans/<uid>`: a banned account; it may save no
   nation, post or report. The player and admins read it.
 
-A nation save writes the nation, its summary and (when it changed) its space record in one batch.
+A nation save writes the shared half, its summary and (when they changed) the private half and the
+space record in one batch.
 Anyone may read the world; each player writes only their own documents; admins may also delete any
 post. The rules also check that a save's documents agree, and pace writes: a nation at most once a
 second, a space record once every 10 seconds, a post once every 20. See `firestore.rules`.
 
-**What each player downloads.** Only their own region: its nations in full, its board's latest 60
-posts, plus every region's space records. Other regions are counted (one cheap count per region) and
-listed by name from `summaries/` only when the World page asks. The game sends its saves to Firestore
-at most every 15 seconds (at once when the tab is hidden or closed; the browser's own copy is saved
-straight away), so the other players in the region read each nation less often.
+**What each player downloads.** Only their own region: the shared halves of its nations, its
+board's latest 60 posts, plus every region's space records. Other regions are counted (one cheap count
+per region) and listed by name from `summaries/` only when the World page asks. The game sends its
+saves to Firestore at most once a minute (within two seconds for what another player waits for: a
+message, an offer, a declaration, a vote, a bid, a claim; at once when the tab is hidden or closed;
+the browser's own copy is saved straight away), because every save is read by every other player in
+the region.
 
 **Regions fill up.** A region takes no new nations once 250 active nations live there (dormant ones,
 unsaved for 250 days, do not count). A newcomer who has not chosen a region and lands in a full one
@@ -198,7 +206,8 @@ Every pull request runs the rules tests and the end-to-end and smoke tests on Gi
 clients (half idle, half playing) with every Firestore read and write counted inside the page, and
 Node clients that keep the game's listeners and save at the pace the real clients do. It writes
 `docs/cost-test.md`, the reads, writes and data per player and per region, and what a month of it
-costs at Firestore's eur3 prices:
+costs at Firestore's eur3 prices, beside the run before the shared/private split and the one-minute
+save gap (`test/cost-baseline.json`):
 
 ```sh
 python3 build.py
@@ -353,8 +362,8 @@ for current figures; at the time of writing:
 - **Firestore reads.** Spark allows 50,000 reads and 20,000 writes a day. Each copy of the game
   that is open listens to its own region's nations, its board and the space records: opening the
   game reads one document for each of those, and each time a nation in the region is saved (at
-  most every 15 seconds while its player is active), every open copy in that region reads it again.
-  Twenty players in one region, active for an hour, make at most about 20 × 20 × 240 = 96,000 reads;
+  most once a minute while its player is active), every open copy in that region reads it again.
+  Twenty players in one region, active for an hour, make at most about 20 × 20 × 60 = 24,000 reads;
   the same twenty spread over four regions make a quarter of that. Spark suits a group of friends;
   for a public launch use Blaze, where reads cost a few US cents per 100,000.
 - When a Spark quota runs out, the game keeps working in each browser and tells players their
