@@ -1,5 +1,5 @@
 // Shared helpers for the browser tests (test/e2e.mjs, test/smoke.mjs). They drive the built
-// site in public/ as served by the Hosting emulator, against the Auth and Firestore emulators.
+// site in public/ as served by the Hosting emulator, against the Auth, Firestore and Functions emulators.
 //
 // Playwright is a pinned dev dependency (npm ci); its browser is installed once with
 //   npx playwright install chromium
@@ -13,10 +13,11 @@ export const BASE = (process.env.BASE_URL || 'http://127.0.0.1:5000').replace(/\
 export const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum';
 export const FS_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 export const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
+export const FN_HOST = process.env.FUNCTIONS_EMULATOR_HOST || '127.0.0.1:5001';
 export const OUT = process.env.TEST_OUT || path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
 fs.mkdirSync(OUT, { recursive: true });
 export const CONFIG = { apiKey: 'fake-api-key', projectId: PROJECT, authDomain: PROJECT + '.firebaseapp.com' };
-export const EMULATORS = { firestore: FS_HOST, auth: 'http://' + AUTH_HOST };
+export const EMULATORS = { firestore: FS_HOST, auth: 'http://' + AUTH_HOST, functions: FN_HOST };
 
 export const browser = await pw.chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 export const errors = [];
@@ -44,12 +45,17 @@ export async function until(fn, ms = 8000, step = 150) {
 // opts: vp {width,height}, dark, inject (default true: config and emulators set by the test),
 //       block (a RegExp of requests to fail), tag (a name for error reports),
 //       cap (players per region before founding steers elsewhere; the game's default otherwise)
-// Saves reach Firestore after 1.5 s instead of the game's 15 s, so the tests need not wait.
+// Saves reach Firestore after 1.5 s instead of the game's 15 s, so the tests need not wait, and every
+// conquest needs the referee's seal (the game's REF_EPOCH is set back to 2026). window.G is the game's
+// probe: its state S and a few of its functions (EDICTUM_PROBE in game/edictum.html).
 export async function player(tag, opts = {}) {
   const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
-  await ctx.addInitScript(cap => { window.EDICTUM_SAVE_GAP = 1500; if (cap) window.EDICTUM_REGION_CAP = cap; }, opts.cap || 0);
+  await ctx.addInitScript(cap => {
+    window.EDICTUM_SAVE_GAP = 1500; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); if (cap) window.EDICTUM_REGION_CAP = cap;
+    window.EDICTUM_PROBE = g => { window.G = g; };
+  }, opts.cap || 0);
   if (opts.inject !== false) await ctx.addInitScript(([c, e]) => { window.EDICTUM_FIREBASE_CONFIG = c; window.EDICTUM_EMULATORS = e; }, [CONFIG, EMULATORS]);
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(tag + ' PAGEERROR ' + e.message));

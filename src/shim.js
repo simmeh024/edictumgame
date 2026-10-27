@@ -24,7 +24,8 @@
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
    A nation save writes nations, summaries and (when needed) nationx and space in one batch; the rules
-   check that they agree. */
+   check that they agree. Battles go to the referee, a Cloud Function (functions/index.js), through
+   window.claude.use('referee'). */
 (function () {
   'use strict';
   var E = window.__edictum;
@@ -41,6 +42,7 @@
   var BOOT_AT = Date.now();
   var SIGN_IN_HOSTS = ['edictumgame.com']; // domains whose own address handles Google sign-in
   var SUPPORT_KEEP = 90 * 86400000;      // a closed support ticket is deleted this long after (Firestore TTL)
+  var FN_REGION = 'europe-west1';        // where the referee runs (functions/index.js)
   var LS_SUP = 'edictum.support';        // set while this browser has sent a ticket that may get an answer
   var LS_SUP_SEEN = 'edictum.support.seen'; // the time of the last answer the player was told about
   var ERR = {
@@ -321,6 +323,25 @@
     }, function () {});
   }
 
+  /* ───────── the referee (functions/index.js) ───────── */
+  /* a callable function, by its protocol: POST {data} with the player's ID token; {result} or {error} back */
+  async function call(name, data) {
+    var u = A.auth && A.auth.currentUser;
+    if (!u) throw mapError({ code: 'unauthenticated' });
+    var r, b;
+    try {
+      r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), 20000);
+      b = await r.json().catch(function () { return null; });
+    } catch (e) { throw mapError({ code: 'unavailable', message: (e && e.message) || 'the referee could not be reached' }); }
+    if (r.ok && b && 'result' in b) return b.result;
+    var e = (b && b.error) || {};
+    throw mapError({ code: String(e.status || (r.status === 429 ? 'resource-exhausted' : 'unavailable')).toLowerCase().replace(/_/g, '-'), message: e.message || 'HTTP ' + r.status });
+  }
+  /* battles are rolled by the referee: battle({d, c, p, w, h}) → {ok, win, t, s?, p, r} or {ok: false, why, next?} */
+  var refereeApi = Object.freeze({
+    battle: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'battle' })); }
+  });
+
   var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post });
   var userApi = Object.freeze({
     id: function () { var u = A.auth && A.auth.currentUser; return Promise.resolve(u ? u.uid : null); },
@@ -370,7 +391,7 @@
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : null;
+        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'referee' ? refereeApi : null;
       }
     });
   }
@@ -391,7 +412,7 @@
   /* `firebase emulators:start --project demo-…` on this machine: talk to the local emulators */
   function autoEmulators(cfg) {
     if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) || !/^demo-/.test(String(cfg.projectId || ''))) return null;
-    return { firestore: '127.0.0.1:8080', auth: 'http://127.0.0.1:9099' };
+    return { firestore: '127.0.0.1:8080', auth: 'http://127.0.0.1:9099', functions: '127.0.0.1:5001' };
   }
   function firstUser(auth) {
     return new Promise(function (res) { var off = auth.onAuthStateChanged(function (u) { off(); res(u); }); });
@@ -432,6 +453,7 @@
     }
     A.fb = fb; A.auth = auth; A.fs = fs; A.projectId = String(cfg.projectId);
     A.rest = emu && emu.firestore ? 'http://' + String(emu.firestore) + '/v1' : 'https://firestore.googleapis.com/v1';
+    A.fn = emu && emu.functions ? 'http://' + String(emu.functions) + '/' + A.projectId + '/' + FN_REGION : 'https://' + FN_REGION + '-' + A.projectId + '.cloudfunctions.net';
     var user = null;
     try {
       user = await within(firstUser(auth), 10000);
@@ -699,6 +721,8 @@
       var b = A.fs.batch();
       ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'staff/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
       await within(b.commit(), 15000);
+      /* the referee's record of the army (readiness, battles), which only it may clear */
+      try { await call('referee', { op: 'forget' }); } catch (e) { /* it holds no more than that */ }
     } catch (e) {
       A.frozen = false; A.leaving = false; setBusy('');
       setMsg(String((e && e.code) || '').indexOf('auth/') === 0 ? authMessage(e) : 'Nothing was deleted: the game could not reach the database. Try again in a moment.', true);

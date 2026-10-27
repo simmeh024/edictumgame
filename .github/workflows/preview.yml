@@ -1,7 +1,8 @@
-# Pull requests: test the Firestore rules on the emulator, test the whole game end to end in a
-# browser on the emulators, deploy the rules and indexes to the
+# Pull requests: test the Firestore rules and the referee (functions/) on the emulators, test the whole
+# game end to end in a browser on the emulators, deploy the rules, indexes and the referee to the
 # staging project, and the built site to a temporary Hosting preview channel there (its address
-# is posted on the pull request). Previews never touch the live site's database or accounts.
+# is posted on the pull request). Previews never touch the live site's database or accounts. Every
+# preview shares staging's one referee.
 #
 # Needs, under Settings > Secrets and variables > Actions:
 #   secret   FIREBASE_SERVICE_ACCOUNT_STAGING  the staging project's service account key JSON
@@ -21,7 +22,7 @@ concurrency:
 
 jobs:
   rules:
-    name: Test the Firestore rules
+    name: Test the Firestore rules and the referee
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -30,12 +31,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
       - run: npm ci
+      - run: npm ci --prefix functions
       - run: npm run test:rules
+      - run: npm run test:referee
 
   # the whole game in a browser against the Auth, Firestore and Hosting emulators (test/e2e.mjs,
   # test/smoke.mjs); a failing run keeps its screenshots as an artifact
@@ -49,11 +55,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
       - run: npm ci
+      - run: npm ci --prefix functions
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests
@@ -111,10 +121,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
 
       - name: Install the pinned packages
         if: steps.settings.outputs.ready == 'true'
-        run: npm ci
+        run: npm ci && npm ci --prefix functions
 
       - name: Build public/
         if: steps.settings.outputs.ready == 'true'
@@ -129,6 +142,18 @@ jobs:
           trap 'rm -f "$key"' EXIT
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
           GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only firestore:rules,firestore:indexes --project "$PROJECT_ID" --non-interactive
+
+      # the service account needs Cloud Functions Admin, Service Account User and Artifact Registry Reader
+      # besides the roles above (README.md, Owner setup, step 5)
+      - name: Deploy the referee to staging
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only functions --project "$PROJECT_ID" --non-interactive
 
       - name: Deploy to a preview channel
         if: steps.settings.outputs.ready == 'true'

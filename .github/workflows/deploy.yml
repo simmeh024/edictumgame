@@ -1,5 +1,5 @@
 # Every push to main builds the site and deploys it to Firebase: the Firestore rules and
-# indexes first, then Hosting (the live channel).
+# indexes first, then the referee (functions/), then Hosting (the live channel).
 #
 # Needs, under Settings > Secrets and variables > Actions:
 #   secret   FIREBASE_SERVICE_ACCOUNT  the service account key JSON (see README.md, Owner setup)
@@ -55,10 +55,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
 
       - name: Install the pinned packages
         if: steps.settings.outputs.ready == 'true'
-        run: npm ci
+        run: npm ci && npm ci --prefix functions
 
       - name: Build public/
         if: steps.settings.outputs.ready == 'true'
@@ -73,6 +76,18 @@ jobs:
           trap 'rm -f "$key"' EXIT
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
           GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only firestore:rules,firestore:indexes --project "$PROJECT_ID" --non-interactive
+
+      # the service account needs Cloud Functions Admin, Service Account User and Artifact Registry Reader
+      # besides the roles above (README.md, Owner setup, step 5)
+      - name: Deploy the referee
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only functions --project "$PROJECT_ID" --non-interactive
 
       - name: Deploy the site to Firebase Hosting
         if: steps.settings.outputs.ready == 'true'

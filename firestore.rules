@@ -19,6 +19,8 @@ rules_version = '2';
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
 //   staff/{uid}              {t}: this player is Edictum staff (an admin), so other players see it; only the
 //                            admin themself can write it, and anyone may clear their own
+// The referee (functions/index.js) rolls battles on the server and alone writes referee/ (its signing key,
+// and the public half every game reads) and armies/{uid} (an army's readiness, and its battles in log/).
 // src/shim.js saves a nation, its summary and (when they changed) its private half and space record in one
 // batch. These rules check that they agree and arrive together, that a nation is saved at most once a second
 // and its space record at most once every 10 seconds (every player listens to space/), and that a player
@@ -299,6 +301,19 @@ service cloud.firestore {
       allow create, update: if isSelf(uid) && isAdmin()
         && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t is number;
       allow delete: if isSelf(uid) || isAdmin();
+    }
+
+    // the referee's: every game reads the public half of its signing key (it checks the seal on each
+    // conquest); a player reads their own army's readiness and battles, an admin anyone's. Only the
+    // referee writes them.
+    match /referee/{doc} {
+      allow read: if doc == 'pub';
+    }
+    match /armies/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      match /log/{id} {
+        allow read: if isSelf(uid) || isAdmin();
+      }
     }
   }
 }
