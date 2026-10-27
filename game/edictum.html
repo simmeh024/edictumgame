@@ -3724,6 +3724,10 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
 .side-legal a{color:inherit}
 .found-legal a{color:inherit}
+.cz-ds-ex{margin:12px 0 6px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.cz-ds-t{font-family:var(--f-display);font-style:italic;font-size:18px;line-height:1.4;color:var(--ink);overflow-wrap:anywhere}
+.cz-ds-h{margin:4px 0 0}
+#cz-sec-s .sub-h{margin-top:22px}
 .post-rep{color:var(--ink-3)}
 @media (max-width:720px){.adm{padding:18px 16px 48px}.adm-head .btn{margin-left:0}}
 
@@ -19550,6 +19554,7 @@ function czClean(r){
   for(const f of ['t','f','p','st'])if(ok(r[f],CZ_KIND[f])&&r[f]!==CZ_DEF[f])o[f]=r[f];
   const a=czCleanArms(r.a,u);if(a)o.a=a;
   const sy=czCleanSym(r.sy);if(sy)o.sy=sy;
+  if(r.ds==='t'||r.ds==='s')o.ds=r.ds;
   return o;
 }
 NORM_HOOKS.push((n,d)=>{
@@ -19575,13 +19580,14 @@ function czHolds(n,id,raw){
 }
 /* the customisation of any nation, validated, with defaults, and with anything it doesn't hold left out */
 function cz(n){
-  if(!n||typeof n!=='object')return {t:'',f:'f-plain',p:'p-guilloche',st:'s-senate',a:null,sy:{}};
+  if(!n||typeof n!=='object')return {t:'',f:'f-plain',p:'p-guilloche',st:'s-senate',a:null,sy:{},ds:'l'};
   const key=UNLOCK_SOURCES.length+':'+(n===S.nation?czMine().size:'x'),m=CZ_MEMO.get(n);if(m&&m.k===key)return m.v;
   const raw=n.cz&&typeof n.cz==='object'?n.cz:{},v={};
   for(const f of ['t','f','p','st']){const id=raw[f];v[f]=czU(id)&&UNLOCKS[id].k===CZ_KIND[f]&&czHolds(n,id,raw)?id:CZ_DEF[f];}
   v.a=czCleanArms(raw.a,null);if(v.a&&v.a.c&&!czHolds(n,v.a.c,raw))v.a.c='';
   if(!v.a&&n.npc)v.a=czDefaultArms(n,1);
   v.sy=czCleanSym(raw.sy)||{};
+  v.ds=dsMode(n);
   CZ_MEMO.set(n,{k:key,v});return v;
 }
 function czTitle(n){const t=cz(n).t;return t?UNLOCKS[t].n:'';}
@@ -19852,8 +19858,8 @@ czApplyDisplay(true);/* at load S is not declared yet: an earned accent waits fo
 
 /* ── saving ── */
 function czSave(fn){
-  const n=S.nation,c=cz(n),o={t:c.t,f:c.f,p:c.p,st:c.st,a:c.a?clone(c.a):null,sy:clone(c.sy||{})};fn(o);
-  const m=clone(n),s={};for(const f of ['t','f','p','st'])if(o[f]&&o[f]!==CZ_DEF[f])s[f]=o[f];if(o.a)s.a=o.a;if(o.sy&&Object.keys(o.sy).length)s.sy=o.sy;
+  const n=S.nation,c=cz(n),o={t:c.t,f:c.f,p:c.p,st:c.st,a:c.a?clone(c.a):null,sy:clone(c.sy||{}),ds:c.ds};fn(o);
+  const m=clone(n),s={};for(const f of ['t','f','p','st'])if(o[f]&&o[f]!==CZ_DEF[f])s[f]=o[f];if(o.a)s.a=o.a;if(o.sy&&Object.keys(o.sy).length)s.sy=o.sy;if(o.ds==='t'||o.ds==='s')s.ds=o.ds;
   m.cz=s;commit(m);render();
 }
 function czLocked(id){const u=czU(id);return !u||(u.src!=='free'&&!czMine().has(id));}
@@ -19893,6 +19899,7 @@ document.addEventListener('click',e=>{
   else if(a==='cz-emb')czEmb(el.dataset.id);
   else if(a==='cz-theme')setTheme(el.dataset.v);
   else if(a==='cz-disp')czDisp(el.dataset.f,el.dataset.v);
+  else if(a==='cz-ds')czSave(o=>{o.ds=el.dataset.v==='t'||el.dataset.v==='s'?el.dataset.v:'l';});
   else if(a==='cz-jump'){const t=document.getElementById(el.dataset.id);if(t)t.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
 });
 const czSymInput=e=>{const k=e.target.dataset&&e.target.dataset.czs;if(!k||!S.nation)return;if(!CZ.sd)CZ.sd=czSymDraft();CZ.sd[k]=e.target.value;
@@ -19906,6 +19913,12 @@ function czTile(k,id,cur,ok,isNew,inner,label,cls){
   const on=cur===id,lab=label?`<span>${esc(label)}</span>`:'';
   if(!ok)return `<div class="cz-tile locked${cls?' '+cls:''}"><span class="cz-tv" aria-hidden="true">${inner}</span>${lab?`<span class="cz-tn">${CZ_LOCK}${lab}</span><span class="cz-how">`:`<span class="cz-how">${CZ_LOCK}<span class="cz-sr">Locked. </span>`}${esc(unlockHow(id))}</span></div>`;
   return `<button type="button" id="cz-${k}-${id||'none'}" class="cz-tile${on?' on':''}${cls?' '+cls:''}" data-act="cz-pick" data-k="${k}" data-id="${esc(id)}" aria-pressed="${on}"><span class="cz-tv" aria-hidden="true">${inner}</span><span class="cz-tn">${lab}${isNew?'<span class="cz-new">New</span>':''}${on?CZ_TICK:''}</span></button>`;
+}
+/* who signs your decrees, with the opening of one as it now reads */
+function czDsBody(n){
+  const m=dsMode(n),nameless=!String(n.ruler||'').trim();
+  return `${czSeg('Decrees are signed by','cz-l-ds',DS_MODES,m,'cz-ds','')}<p class="cz-ds-ex"><span class="lbl">As it reads</span> <span class="cz-ds-t">${esc(chamberOf(n).decree(n.name))}, …</span></p>`
+    +(m==='l'&&nameless?`<p class="hint cz-ds-h">Your ${esc(n.leader||'leader')} has no name yet, so decrees give the title. <button type="button" class="linkish" data-act="go" data-v="settings">Name your leader in Settings</button></p>`:'');
 }
 function czSeg(label,id,opts,cur,act,f){
   return `<div class="cz-drow"><span class="cz-dl" id="${id}">${label}</span><div class="seg cz-seg" role="group" aria-labelledby="${id}">${opts.map(([v,l])=>`<button type="button" id="${id}-${v}" class="seg-b${cur===v?' on':''}" data-act="${act}"${f?` data-f="${f}"`:''} data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div></div>`;
@@ -19949,7 +19962,7 @@ VIEWS_EXT.customise=now=>{
   const accs=U('accent').map(id=>{const k=id.slice(2),ok=has(id),on=(dd.acc===id&&ok)||(id==='a-teal'&&(dd.acc==='a-teal'||!has(dd.acc)));
     return ok?`<button type="button" id="cz-acc-${k}" class="cz-acc${on?' on':''}" data-act="cz-disp" data-f="acc" data-v="${id}" aria-pressed="${on}"><span class="cz-asw" data-a="${k}" aria-hidden="true"></span><span>${esc(UNLOCKS[id].n)}</span>${fr.has(id)?'<span class="cz-new">New</span>':''}</button>`
       :`<div class="cz-acc locked"><span class="cz-asw" data-a="${k}" aria-hidden="true"></span><span class="cz-an">${CZ_LOCK}${esc(UNLOCKS[id].n)}</span><span class="cz-how">${esc(unlockHow(id))}</span></div>`;}).join('');
-  const jump=[['t','Epithet'],['b','Banner'],['a','Arms'],['e','Emblems'],['y','Symbols'],['s','Stamp'],['d','Display']].map(([k,l])=>`<button type="button" class="chip-btn" data-act="cz-jump" data-id="cz-sec-${k}">${l}</button>`).join('');
+  const jump=[['t','Epithet'],['b','Banner'],['a','Arms'],['e','Emblems'],['y','Symbols'],['s','Decrees'],['d','Display']].map(([k,l])=>`<button type="button" class="chip-btn" data-act="cz-jump" data-id="cz-sec-${k}">${l}</button>`).join('');
   const newN=fr.size;
   return `<header class="vh"><p class="eyebrow">College of Arms</p><h1>Customise</h1><p>How ${esc(theName(n))} presents itself to ${REGION}, and how this screen looks to you. Other players see your epithet, banner, arms, flag and symbols. Locked items are earned with achievements, collections and achievement points.</p></header>
   <div class="cz-prev">${hero(n)}</div>
@@ -19963,7 +19976,7 @@ VIEWS_EXT.customise=now=>{
   ${sec('e','IV','Flag emblems and patterns','Emblems and patterns you unlock join the flag designer in Settings. Choose an emblem here to put it on your flag straight away, or choose it again to take it off. Choose a pattern to fly it at once.',
     `<div class="cz-grid cz-g-e">${embs}${fgCzPats(n,has,fr)}</div><p class="cz-more"><button type="button" class="btn ghost" data-act="go" data-v="settings">Open the flag designer</button></p>`)}
   ${sec('y','V','National symbols','A holiday, flower, tree, bird, instrument, colours and a nickname for '+esc(n.capital)+'. All optional.',syBody)}
-  ${sec('s','VI','Decision stamp','The stamp on each decision you enact.',`<div class="cz-grid cz-g-s">${U('stamp').map(id=>tile('st',id,`<span class="cz-stv">${czStampArt(id,n)}</span>`,UNLOCKS[id].n)).join('')}</div>`)}
+  ${sec('s','VI','Decrees','How each decision you enact is signed and stamped.',czDsBody(n)+`<h3 class="sub-h">Stamp</h3><div class="cz-grid cz-g-s">${U('stamp').map(id=>tile('st',id,`<span class="cz-stv">${czStampArt(id,n)}</span>`,UNLOCKS[id].n)).join('')}</div>`)}
   ${sec('d','VII','Display','These apply on this device only, and other players don’t see them.',`<div class="cz-disp">
     ${czSeg('Theme','cz-l-th',[['auto','Automatic'],['light','Light'],['dark','Dark']],theme,'cz-theme','')}
     <div class="cz-drow cz-drow-acc"><span class="cz-dl" id="cz-l-acc">Accent colour</span><div class="cz-accs" role="group" aria-labelledby="cz-l-acc">${accs}</div></div>
@@ -33533,27 +33546,46 @@ const LAUREL=(()=>{const P=[[97,13],[62,17],[12,7]],pts=[];
   const half=`<path d="M97,13Q62,17 10,6.5" fill="none" stroke="currentColor" stroke-width="1"/><g fill="currentColor">${laurelLeaves(pts,12.5,3.1,1)}</g>`;
   return `<div class="laurel" aria-hidden="true"><svg viewBox="0 0 200 24">${half}<g transform="matrix(-1 0 0 1 200 0)">${half}</g><circle cx="100" cy="13" r="2.4" fill="currentColor"/></svg></div>`;})();
 /* Who decides an edict follows the type of state: a republic's Senate, a monarch's council, an emperor,
-   a sultan's divan, a synod, a people's congress, a governor or a borough council. The leader's own title
-   is used where it is a monarch's. */
+   a sultan's divan, a synod, a people's congress, a governor or a borough council. Decrees also name the
+   nation's own leader, as chosen on the Customise page (cz.ds): by title and name ('l', the default; the
+   title alone while the leader has no name), by title alone ('t'), or as the type of state has it ('s':
+   the Emperor, the Crown, the Senate alone, with the leader's title only where it is a monarch's). A ruler
+   signs alone ("By imperial edict of President Ada Brook of …"), an assembly with the leader ("By decree of
+   President Ada Brook, with the Senate and People of …"). Every decree ends "of <nation>": the nation's
+   history swaps the name for a link. */
 const CH_SENATE={house:'Curia',matter:'The matter before the Senate',speeches:'Speeches before the Senate',vote:'Vote for motion',form:'Senatus consultum',notice:'the Senate’s vote',seal:'SPQ',
   decree:nm=>`By decree of the Senate and People of ${nm}`,owner:nm=>`the Senate and People of ${nm}`};
+const DS_MODES=[['l','Your leader, by name'],['t','Your leader’s title'],['s','The type of state']];
+function dsMode(n){const v=n&&n.cz&&n.cz.ds;return v==='t'||v==='s'?v:'l';}
+/* the leader as a decree names them: “President Ada Brook”, or “the President” */
+function dsLead(n,mode){
+  const L=String((n&&n.leader)||'').trim().replace(/^the\s+/i,''),R=String((n&&n.ruler)||'').trim();
+  if(!L)return mode==='l'?R:'';
+  return mode==='l'&&R?L+' '+R:'the '+L;
+}
 function chamberOf(n){
   const pt=String((n&&n.pretitle)||''),L=String((n&&n.leader)||'').trim(),crown=MONARCH_LEADER.test(L)?L:'';
-  const C=o=>Object.assign({},CH_SENATE,o);
-  if(['Empire','Holy Empire','Tsardom'].includes(pt))return C({house:'Imperial Council',matter:'The matter before the throne',speeches:'Counsel before the throne',vote:'Decree motion',form:'Imperial edict',notice:'an imperial edict',seal:'IMP',
-    decree:nm=>`By imperial edict of the ${crown||(pt==='Tsardom'?'Tsar':'Emperor')} of ${nm}`,owner:nm=>`the Imperial Crown of ${nm}`});
-  if(['Sultanate','Emirate'].includes(pt))return C({house:'Divan',matter:'The matter before the Divan',speeches:'Counsel in the Divan',vote:'Seal motion',form:'Firman',notice:'the Divan’s seal',seal:'DIVAN',
-    decree:nm=>`By firman of the ${crown||(pt==='Emirate'?'Emir':'Sultan')} of ${nm}`,owner:nm=>`the ${crown||(pt==='Emirate'?'Emir':'Sultan')} of ${nm}`});
+  const ds=dsMode(n),lead=ds==='s'?'':dsLead(n,ds),lt=ds==='s'?'':L.replace(/^the\s+/i,'');
+  /* a ruler signs alone, an assembly with the leader; without a leader to name, the type of state's own wording */
+  const rules=(of,state)=>nm=>lead?`${of} ${lead} of ${nm}`:state(nm);
+  const sits=(of,body,state)=>nm=>lead?`${of} ${lead}, with ${body} of ${nm}`:state(nm);
+  const C=o=>Object.assign({},CH_SENATE,{decree:sits('By decree of','the Senate and People',CH_SENATE.decree)},o);
+  if(['Empire','Holy Empire','Tsardom'].includes(pt)){const ruler=crown||(pt==='Tsardom'?'Tsar':'Emperor');
+    return C({house:'Imperial Council',matter:'The matter before the throne',speeches:'Counsel before the throne',vote:'Decree motion',form:'Imperial edict',notice:lead?poss(lead)+' seal':`the ${ruler}’s seal`,seal:'IMP',
+    decree:rules('By imperial edict of',nm=>`By imperial edict of the ${ruler} of ${nm}`),owner:nm=>`the Imperial Crown of ${nm}`});}
+  if(['Sultanate','Emirate'].includes(pt)){const ruler=crown||(pt==='Emirate'?'Emir':'Sultan');
+    return C({house:'Divan',matter:'The matter before the Divan',speeches:'Counsel in the Divan',vote:'Seal motion',form:'Firman',notice:'the Divan’s seal',seal:'DIVAN',
+    decree:rules('By firman of',nm=>`By firman of the ${ruler} of ${nm}`),owner:nm=>`the ${lt||ruler} of ${nm}`});}
   if(MONARCH_PRE.includes(pt)||crown)return C({house:'Privy Council',matter:'The matter before the Crown',speeches:'Counsel before the throne',vote:'Assent to motion',form:'Royal decree',notice:'royal assent',seal:/queen|princess|duchess|empress|tsarina|sultana/i.test(L)||pt==='Queendom'?'REGINA':'REX',
-    decree:nm=>`By royal decree of the ${crown||'Crown'} of ${nm}`,owner:nm=>`the Crown of ${nm}`});
+    decree:rules('By royal decree of',nm=>`By royal decree of the ${crown||'Crown'} of ${nm}`),owner:nm=>`the Crown of ${nm}`});
   if(pt==='Theocracy')return C({house:'Holy Synod',matter:'The matter before the Synod',speeches:'Sermons before the Synod',vote:'Bless motion',form:'Holy decree',notice:'the Synod’s blessing',seal:'SANCT',
-    decree:nm=>`By holy decree of the Synod of ${nm}`,owner:nm=>`the Holy Synod of ${nm}`});
+    decree:sits('By holy decree of','the Synod',nm=>`By holy decree of the Synod of ${nm}`),owner:nm=>`the Holy Synod of ${nm}`});
   if(pt==='People’s Republic')return C({house:'Great Hall of the People',matter:'The matter before the Congress',speeches:'Speeches before the People’s Congress',vote:'Adopt motion',form:'Resolution of the Congress',notice:'the Congress’s vote',seal:'POPVLVS',
-    decree:nm=>`By resolution of the People’s Congress of ${nm}`,owner:nm=>`the People of ${nm}`});
-  if(['Protectorate','Colony','Dominion'].includes(pt))return C({house:'Governor’s Council',matter:'The matter before the Governor',speeches:'Advice to the Governor',vote:'Approve motion',form:'Order in council',notice:'the Governor’s signature',seal:'GVB',
-    decree:nm=>`By order in council of the Governor of ${nm}`,owner:nm=>`the Governor of ${nm}`});
+    decree:sits('By resolution of','the People’s Congress',nm=>`By resolution of the People’s Congress of ${nm}`),owner:nm=>`the People of ${nm}`});
+  if(['Protectorate','Colony','Dominion'].includes(pt))return C({house:'Governor’s Council',matter:'The matter before the Governor',speeches:'Advice to the Governor',vote:'Approve motion',form:'Order in council',notice:lead?poss(lead)+' signature':'the Governor’s signature',seal:'GVB',
+    decree:rules('By order in council of',nm=>`By order in council of the Governor of ${nm}`),owner:nm=>`the ${lt||'Governor'} of ${nm}`});
   if(pt==='Borough')return C({house:'Town Hall',matter:'The matter before the Council',speeches:'Speeches in the council chamber',vote:'Carry motion',form:'Council resolution',notice:'the Council’s vote',seal:'MVNICIP',
-    decree:nm=>`By resolution of the Borough Council of ${nm}`,owner:nm=>`the Borough of ${nm}`});
+    decree:sits('By resolution of','the Borough Council',nm=>`By resolution of the Borough Council of ${nm}`),owner:nm=>`the Borough of ${nm}`});
   return C({});
 }
 function issuesView(v,now){
