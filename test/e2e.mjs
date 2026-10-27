@@ -4,8 +4,9 @@
 // Covers: two players sharing a region and its message board, a player in another region (not
 // downloaded, but counted and listed on the World page), reloads, the security rules as the game
 // meets them, admin moderation, region steering when a region is full, browser-only mode when Firebase is blocked,
-// keeping a founding draft across a region switch, and Google sign-in (linking, switching, signing out) with the
-// Auth emulator's stand-in for Google.
+// keeping a founding draft across a region switch, the front page (its first paint, sample edict, region
+// counts and Found buttons), and Google sign-in (linking, switching, signing out) with the Auth emulator's
+// stand-in for Google.
 import path from 'node:path';
 import {
   BASE, OUT, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
@@ -558,6 +559,58 @@ check('zooming in full screen keeps it open', await until(fills));
 await FS.click('.map-wrap.is-full [data-act="map-fs-world"]');
 check('Open in the world map goes there and leaves full screen', await until(async () => (await FS.evaluate(() => location.hash)) === '#map' && !(await FS.$('.map-wrap.is-full'))));
 await FS.ctx.close();
+
+/* ── 10c. the front page ────────────────────────────────────────────────── */
+// The page itself (build.py) opens with the front page's heading copy, the same as the game then draws.
+const raw = await (await fetch(BASE + '/')).text();
+const plain = s => s.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const rawOf = re => { const m = raw.match(re); return m ? plain(m[1]) : null; };
+const HP = await player('HP');
+await open(HP);
+await HP.waitForSelector('#hm-try');
+const drawn = await HP.evaluate(() => ({
+  title: document.title, h1: document.querySelector('.found-intro h1').textContent, lede: document.querySelector('.found-intro .lede').textContent,
+  feats: [...document.querySelectorAll('.hm-feats li')].map(li => li.textContent), free: document.querySelector('.hm-free').textContent
+}));
+check('before the game’s script runs, the page shows the front page’s title, heading, lede and features as the game draws them',
+  rawOf(/<title>([^<]*)<\/title>/) === drawn.title && rawOf(/class="found home-static">[\s\S]*?<h1 class="display">([^<]*)<\/h1>/) === drawn.h1
+  && rawOf(/class="found home-static">[\s\S]*?<p class="lede">([^<]*)<\/p>/) === drawn.lede && rawOf(/<p class="hm-free">([^<]*)<\/p>/) === drawn.free
+  && JSON.stringify([...raw.matchAll(/<li><span class="hm-ic[^>]*><\/span>([^<]*)<\/li>/g)].map(m => plain(m[1]))) === JSON.stringify(drawn.feats) && drawn.feats.length >= 4,
+  JSON.stringify(drawn).slice(0, 200));
+check('it tells search engines what the game is', /"@type": "VideoGame"/.test(raw));
+// a sample edict, worded for the nation being drafted, that changes nothing
+await HP.fill('#d-name', 'Quillon'); await HP.fill('#d-currency', 'florin');
+check('the sample edict is worded for the nation being drafted', await until(async () => /Quillon/.test(await text(HP, '#hm-try .form-code')) && /counterfeit florin notes/.test(await text(HP, '#hm-try'))));
+await HP.click('#hm-try [data-act="hm-try"][data-o="2"]');
+check('answering it shows the decree and what it would change', await until(async () => /By decree of the Senate and People of Quillon, notes featuring a cat are accepted as legal tender/.test(await text(HP, '.hm-fx')) && /Weirdness/.test(await text(HP, '.hm-chg'))));
+const try1 = await text(HP, '.hm-try-t');
+await HP.click('[data-act="hm-next"]');
+check('Try another edict brings a different one, unanswered', await until(async () => (await text(HP, '.hm-try-t')) !== try1 && !!(await HP.$('#hm-try [data-act="hm-try"]'))));
+check('nothing chosen there founds or changes a nation', !(await localNation(HP)));
+check('the region box counts the player nations here and shows their flags', await until(async () => /\d+ player nations? and \d+ computer-run nations live here/.test(await text(HP, '#found-life')) && (await HP.$$('#found-life .fr-flags li')).length === 9));
+// the Found button beside the preview
+await HP.click('#found-now');
+check('the Found button beside the preview founds the nation', await until(async () => !!(await HP.$('.layout')) && ((await localNation(HP)) || {}).name === 'Quillon'));
+check('the title follows the game’s pages again', await until(async () => / · Edictum$/.test(await HP.title()) && (await HP.title()) !== drawn.title));
+await HP.route(/\/assets\/game\./, r => r.abort());
+await HP.reload();
+check('a returning player waits on the plain loading screen, not the front page', await HP.evaluate(() => document.documentElement.classList.contains('ed-back')) && await HP.isVisible('.boot') && !(await HP.isVisible('.home-static')));
+await HP.ctx.close();
+// on a phone: the preview makes way, and a bar at the foot keeps the Found button in reach
+const HQ = await player('HQ', { vp: { width: 390, height: 844 } });
+await open(HQ);
+await HQ.fill('#d-name', 'Barnstow'); await HQ.evaluate(() => document.activeElement.blur());
+check('on a phone a bar at the foot shows the nation and its Found button', await until(async () => /Barnstow/.test(await text(HQ, '#found-bar')) && await HQ.isVisible('#found-now-bar')));
+check('the preview card makes way for the form', !(await HQ.isVisible('.found-side')));
+await HQ.focus('#d-motto');
+check('the bar keeps out of the way while typing', await until(async () => !(await HQ.isVisible('#found-now-bar'))));
+await HQ.evaluate(() => { document.activeElement.blur(); window.scrollTo(0, document.body.scrollHeight); });
+check('and while the charter’s own Found button is on screen', await until(async () => !(await HQ.isVisible('#found-now-bar'))));
+await HQ.evaluate(() => window.scrollTo(0, 0));
+await until(() => HQ.isVisible('#found-now-bar'));
+await HQ.click('#found-now-bar');
+check('the bar’s button founds the nation from the top of the page', await until(async () => ((await localNation(HQ)) || {}).name === 'Barnstow'));
+await HQ.ctx.close();
 
 /* ── 11. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {

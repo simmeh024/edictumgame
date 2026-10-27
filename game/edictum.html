@@ -1,4 +1,4 @@
-<title>Edictum</title>
+<title>Edictum · A free multiplayer nation simulator</title>
 <style>
 /* Layout: a state dossier. A ministry sidebar sits beside one column of official papers; guilloche security engraving marks the nation's seal, violet rubber-stamp ink marks decisions. */
 :root{
@@ -577,7 +577,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .display{font-family:var(--f-display);font-weight:650;font-size:clamp(44px,7.4vw,76px);line-height:.96;letter-spacing:-.018em;margin:8px 0 16px;font-variation-settings:"opsz" 96}
 .lede{font-size:17px;line-height:1.6;color:var(--ink-2);max-width:60ch}
 .found-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:52px;align-items:start}
-.found-preview{position:sticky;top:calc(env(safe-area-inset-top,0px) + 20px)}
+.found-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 20px);display:grid;gap:18px}
 .pv{position:relative;overflow:hidden;background:var(--sheet);border:1px solid var(--rule);outline:1px solid var(--rule);outline-offset:-8px;border-radius:4px;padding:26px}
 .pv-in{position:relative;display:flex;flex-direction:column;gap:4px}
 .pv .flag-frame{margin-bottom:16px}
@@ -587,7 +587,68 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .pv-fr dt{color:var(--ink-2)}
 .pv-fr dd{margin:0;font-weight:650}
 .found-submit{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding-top:24px;border-top:1px solid var(--rule)}
-@media (max-width:920px){.found-grid{grid-template-columns:1fr;gap:32px}.found-preview{position:static;order:-1}}
+/* the front page (the founding page, see HOME_TRY): what Edictum is, a sample edict, the region's life,
+   and a Found button always in reach: beside the preview on wide screens, in a bar at the foot on phones */
+.hm-top{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:52px;align-items:start}
+.hm-top>.found-intro{max-width:none}
+.hm-feats{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:9px;max-width:60ch}
+.hm-feats li{display:flex;align-items:flex-start;gap:11px;font-size:15px;line-height:1.45;color:var(--ink)}
+.hm-ic{flex:none;width:20px;height:20px;margin-top:1px;background:var(--accent);-webkit-mask:var(--ai) center/contain no-repeat;mask:var(--ai) center/contain no-repeat}
+.hm-free{margin:16px 0 0;font-size:14px;line-height:1.5;color:var(--ink-2);max-width:60ch}
+.hm-try{position:relative;margin:40px 0 24px;padding:22px 22px 18px;border-radius:4px}
+.hm-try::before,.hm-try::after{content:none}
+.hm-try .eyebrow{margin:0 0 10px;color:var(--stamp)}
+.hm-try .form-code{margin:0 0 6px;color:var(--ink-2)}
+.hm-try-t{margin:0 0 8px;font:600 22px/1.2 var(--f-roman);letter-spacing:.03em;overflow-wrap:anywhere}
+.hm-try-q{margin:0 0 14px;font-size:14.5px;line-height:1.6;overflow-wrap:anywhere}
+.hm-opts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.hm-opt{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;width:100%;padding:10px 12px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);color:var(--ink);font:inherit;font-size:13.5px;line-height:1.5;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.hm-opt:hover{border-color:var(--stamp);background:var(--stamp-soft)}
+.hm-opt-n{font:600 17px/1.25 var(--f-roman);color:var(--stamp)}
+.hm-try-h{margin:12px 0 0}
+.hm-res:focus{outline:none}
+.hm-fx{margin:4px 0 14px;font-family:var(--f-display);font-style:italic;font-size:19px;line-height:1.4;overflow-wrap:anywhere}
+.hm-chg{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.hm-chg li{font-size:12.5px;padding:4px 9px;border:1px solid var(--rule-2);border-radius:3px;color:var(--ink-2)}
+.hm-chg b{font-weight:650;color:var(--ink)}.hm-chg .up b{color:var(--up)}.hm-chg .down b{color:var(--down)}
+.hm-res .hint{margin:0 0 12px}
+.fr-life{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:10px 0 2px}
+.fr-life p{margin:0;font-size:14px;line-height:1.45;color:var(--ink-2);max-width:72ch}
+.fr-life b{color:var(--ink);font-weight:650}
+.fr-flags{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.fr-flags .mflag{width:30px}
+.found-go{display:grid;gap:8px}
+.found-go .hint{margin:0}
+.fs-opt{margin-left:auto;align-self:center;font:500 10.5px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.found-bar{display:none}
+.found-bar .mflag{width:42px}
+.found-bar-t{display:flex;flex-direction:column;flex:1;min-width:0;line-height:1.25}
+.found-bar-n{font-family:var(--f-display);font-weight:650;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.found-bar-t>span{font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.found-bar .btn{flex:none}
+@media (min-width:921px) and (max-height:860px){.found-side .pv .flag-frame{max-width:200px}.found-side .hero-blurb{display:none}}
+@media (max-width:920px){
+  .hm-top{grid-template-columns:minmax(0,1fr);gap:0}
+  .hm-try{margin:0 0 26px}
+  .found-grid{grid-template-columns:1fr;gap:32px}
+  .found-side{display:none}
+  .found{padding-bottom:calc(128px + env(safe-area-inset-bottom,0px))}
+  .found-bar{position:fixed;z-index:40;left:0;right:0;bottom:0;display:flex;align-items:center;gap:10px;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:var(--sheet);border-top:1px solid var(--rule-2);box-shadow:0 -10px 24px -18px rgba(18,41,42,.45);transition:transform .2s ease}
+  .found-bar.off{transform:translateY(110%);visibility:hidden;transition:transform .2s ease,visibility 0s .2s}
+  .found:has(.input:focus) .found-bar{display:none}
+}
+.map-full-open .found-bar{display:none}
+@media (prefers-reduced-motion:reduce){.found-bar,.found-bar.off{transition:none}}
+:root[data-motion="reduce"] .found-bar,:root[data-motion="reduce"] .found-bar.off{transition:none}
+:root[data-size="large"] .hm-feats li{font-size:17px}
+:root[data-size="large"] .hm-free,:root[data-size="large"] .fr-life p{font-size:16px}
+:root[data-size="large"] .hm-try-q{font-size:16.5px}
+:root[data-size="large"] .hm-opt{font-size:15.5px}
+/* until the game's script runs, the page shows build.py's copy of the front page's top to newcomers and the
+   plain loading screen to returning players (src/stub.js marks them .ed-back) */
+.home-static .boot-load{margin:18px 0 0}
+.home-static .boot-legal{margin-top:28px!important}
+:root.ed-back .home-static,:root:not(.ed-back) .boot{display:none}
 .danger-zone{margin-top:56px;padding-top:24px;border-top:1px solid var(--rule)}
 .danger-zone p{color:var(--ink-2);margin-bottom:14px;max-width:62ch}
 .flag-preview-row{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;align-items:start}
@@ -20552,12 +20613,28 @@ function foundRegionBrowser(){
         <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations${c==null?'':` · ${c===1?'1 player':c+' players'}`}</span></span></button></article>`;}).join('')}</div>`;
 }
 /* choosing a region on the founding page */
+/* who lives in the region: its player nations from the live records (the founding map listens to them anyway,
+   so this costs no reads), how many were founded this week or were active lately, and a row of their flags,
+   topped up with the computer-run nations' */
+function foundLifeHTML(){
+  const now=Date.now(),npc=NPC_NATIONS.length,live=S.mode!=='local'&&!!S.worldAll;
+  const ps=live?Object.keys(S.world||{}).filter(id=>id!==S.uid).map(id=>S.world[id]).filter(n=>n&&n.name&&n.flag).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)):[];
+  const flags=ps.slice(0,9).concat(NPC_NATIONS.slice().sort((a,b)=>b.pop-a.pop).slice(0,Math.max(0,9-ps.length)));
+  const c=live?regCount(REG.id):0,wk=ps.filter(n=>now-(n.founded||0)<7*DAY).length,on=ps.filter(n=>now-(n.updatedAt||0)<15*6e4).length;
+  let t;
+  if(!live)t=`${npc} computer-run nations live here.`;
+  else if(!c)t=`${npc} computer-run nations live here, and no player has founded a nation yet: yours would be the first.`;
+  else t=`<b>${c===1?'1 player nation':c.toLocaleString('en-US')+' player nations'}</b> and ${npc} computer-run nations live here${wk?` · <b>${wk}</b> founded this week`:''}${on?` · <b>${on}</b> active in the last 15 minutes`:''}.`;
+  return `<ul class="fr-flags" aria-hidden="true">${flags.map(n=>`<li title="${esc(fullName(n))}${n.npc?' (computer-run)':''}"><span class="mflag">${flagSVG(n.flag,fullName(n))}</span></li>`).join('')}</ul><p>${t}</p>`;
+}
+function updateFoundLife(){const el=document.getElementById('found-life');if(el)el.innerHTML=foundLifeHTML();}
 function foundRegionBox(){
   if(RSTAT.nm0==null&&S.draft)RSTAT.nm0=S.draft.name;
   regStatsSoon();
   const full=regFull(REG.id),known=Object.keys(RSTAT.n).length>0;
   const pl=R=>{if(!known&&R.id!==REG.id)return '';const c=regCount(R.id);return ` · ${c===1?'1 player':c+' players'}`;};
   return `<div class="fr-box"><p class="eyebrow">Region</p><p class="fr-now"><b>${esc(REG.name)}</b> · ${esc(REG.short)}</p>
+    <div class="fr-life" id="found-life">${foundLifeHTML()}</div>
     ${full?`<p class="hint">${esc(REG.name)} is full: it has room for ${REGION_CAP} active nations. Choose another region to found your nation.</p>`:''}
     <details class="fr-more"${full||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${REGIONS.map(R=>{const f=R.id!==REG.id&&regFull(R.id);return `<li><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
 }
@@ -30062,7 +30139,7 @@ function navAfter(k){
   }
   if(k.sheet&&!sheet){const t=document.getElementById('tab-more');if(t)try{t.focus({preventScroll:true});}catch(e){}}
   const l=S.nation&&document.querySelector('.nav')?navLabel(cur):'';
-  try{document.title=l?l+' · Edictum':'Edictum';}catch(e){}
+  try{document.title=l?l+' · Edictum':S.nation?'Edictum':HOME_TITLE;}catch(e){}
 }
 function navMore(open){
   const ae=document.activeElement;
@@ -31269,7 +31346,7 @@ function fgDescribe(f){
 /* ── editing ── */
 const FG={open:{},k:{},hist:new WeakMap(),drag:''};
 const FLAG_SCOPES={
-  d:{get:()=>S.draft&&S.draft.flag,live:()=>{const pv=document.getElementById('found-preview');if(pv)pv.innerHTML=previewCard(S.draft);}},
+  d:{get:()=>S.draft&&S.draft.flag,live:()=>{const pv=document.getElementById('found-preview');if(pv)pv.innerHTML=previewCard(S.draft);foundBarPaint();}},
   s:{get:()=>S.settings&&S.settings.flag,live:f=>{const pv=document.getElementById('s-flag-prev');if(pv)pv.innerHTML=flagSVG(f,'Flag preview');markDirty();}}
 };
 function fgTarget(scope){const s=czHas(FLAG_SCOPES,scope)?FLAG_SCOPES[scope]:null;try{const f=s&&s.get();return f&&typeof f==='object'?f:null;}catch(e){return null;}}
@@ -32431,7 +32508,7 @@ async function connect(){
     const mine=w[S.uid],newer=r=>r&&S.nation&&r.updatedAt>S.nation.updatedAt&&!remoteBusy&&!remoteDirty;
     if(newer(mine)&&mineAt!==mine.updatedAt){mineAt=mine.updatedAt;
       db.doc('nations/'+uid).get().then(s=>{const r=s.exists?normalize(s.data()):null;if(newer(r)){S.nation=r;saveLocal(r);render();}},()=>{});}
-    if(!S.nation||S.view==='map'){updateMapPanel();redrawMaps();}
+    if(!S.nation||S.view==='map'){updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();}
     else if(['region','census','visit','nation','diplomacy','trade'].includes(S.view)&&!S.spyRolling)render();
   };
   reshare=shared;
@@ -32825,13 +32902,66 @@ function previewCard(d){
     <dl class="pv-fr"><div><dt>Civil Rights</dt><dd>${CR_DESC[descIdx(s.civil)]}</dd></div><div><dt>Economy</dt><dd>${EC_DESC[descIdx(ecoStrength(s))]}</dd></div><div><dt>Political Freedom</dt><dd>${PF_DESC[descIdx(s.pol)]}</dd></div></dl>
   </div></div>`;
 }
+/* ───────── the front page ─────────
+   The founding page is what a newcomer sees first, so besides the charter it says what Edictum is
+   (HOME_FEATS), lets the visitor rule on a sample edict worded for the nation they are drafting
+   (HOME_TRY: nothing chosen there counts), and shows who already lives in the region (foundLifeHTML).
+   build.py reads HOME_LEDE, HOME_FEATS and HOME_FREE from here and writes them into the page itself, so
+   they show before this script has loaded. HOME_TITLE is the <title> at the top of this file as well;
+   the end-to-end test checks that the page reads the same before and after the script runs. */
+const HOME_TITLE='Edictum · A free multiplayer nation simulator';
+const HOME_LEDE='Name your country, design its flag and set out its founding principles. Then edicts start arriving on your desk, and each decision you make reshapes your nation’s freedoms, economy and character.';
+const HOME_FEATS=[['law','Rule on over 1,500 edicts, each one written for your nation'],['land','Claim land and build cities on a shared hex map'],['dip','Trade, form alliances, spy or go to war with other players'],['gov','Vote in your region’s assembly and argue on its message board'],['exp','Send out expeditions, then head for the Moon and Mars']];
+const HOME_FREE='Free, in your browser, with nothing to install. You play as a guest straight away, and can keep your nation on every device with a Google account.';
+const HOME_TRY=['counterfeit','animal','trains','smoking','welfare'];
+function homeFeats(){return `<ul class="hm-feats">${HOME_FEATS.map(([k,t])=>`<li><span class="hm-ic ai-${k}" aria-hidden="true"></span>${esc(t)}</li>`).join('')}</ul><p class="hm-free">${esc(HOME_FREE)}</p>`;}
+/* the draft as a nation, with the defaults found() would use, for wording the sample edict */
+function homeNation(d){
+  const nm=d.name.trim()||'your nation';
+  return {npc:true,name:nm,pretitle:d.pretitle,leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',capital:d.capital.trim()||'Port Alder',demonym:d.demonym.trim()||demonymOf(nm)};
+}
+function homeTryHTML(){
+  const T=S.hmTry||(S.hmTry={i:0,o:null}),is=ISSUE_BY_ID[HOME_TRY[T.i%HOME_TRY.length]];if(!is)return '';
+  const n=homeNation(S.draft),ch=chamberOf(n),opt=T.o==null?null:is.o[T.o];
+  const head=`<p class="eyebrow">Try an edict</p><p class="form-code">Edictum ${roman(is.no)} · ${esc(ch.house)} of ${esc(n.name)}</p><h2 class="hm-try-t" id="hm-try-h">${esc(fill(is.t,n))}</h2><p class="hm-try-q">${esc(fill(is.q,n))}</p>`;
+  if(!opt)return head+`<ol class="hm-opts">${is.o.map((o,i)=>`<li><button type="button" class="hm-opt" data-act="hm-try" data-o="${i}"><span class="hm-opt-n" aria-hidden="true">${roman(i+1)}</span><span>${esc(fill(o.t,n))}</span></button></li>`).join('')}</ol><p class="hint hm-try-h">A sample to try: nothing you choose here counts.</p>`;
+  const e=opt.e||{},chg=Object.keys(e).filter(k=>STATS[k]&&typeof e[k]==='number'&&e[k]).sort((a,b)=>Math.abs(e[b])-Math.abs(e[a])).slice(0,4);
+  const pol=Object.keys(e.p||{}).filter(p=>e.p[p]&&POLICIES[p]);
+  return head+`<div class="hm-res" id="hm-res" tabindex="-1"><p class="hm-fx">${esc(ch.decree(n.name))}, ${esc(fill(opt.fx,n))}.</p>
+    ${chg.length||pol.length?`<ul class="hm-chg" aria-label="What would change">${chg.map(k=>{const g=STATS[k].g*Math.sign(e[k]);return `<li class="${g>0?'up':g<0?'down':''}">${STATS[k].n} <b aria-hidden="true">${e[k]>0?'▲':'▼'}</b><span class="tut-sr">${e[k]>0?'rises':'falls'}</span></li>`;}).join('')}${pol.map(p=>`<li><b>Enacted</b> · ${esc(POLICIES[p][0])}</li>`).join('')}</ul>`:''}
+    <p class="hint">That was only a sample. Once ${esc(foundNm(S.draft))} is founded, real edicts arrive on your desk, and every decision changes your nation.</p>
+    <button type="button" class="btn ghost small" data-act="hm-next">Try another edict</button></div>`;
+}
+function homeTryPaint(focus){
+  const el=document.getElementById('hm-try');if(!el)return;el.innerHTML=homeTryHTML();
+  if(focus){const f=document.getElementById('hm-res')||el.querySelector('.hm-opt');if(f)try{f.focus({preventScroll:true});}catch(e){}}
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='hm-try'){if(!S.hmTry)S.hmTry={i:0,o:null};S.hmTry.o=+el.dataset.o;homeTryPaint(true);return;}
+  if(a==='hm-next'){S.hmTry={i:((S.hmTry&&S.hmTry.i)||0)+1,o:null};homeTryPaint(true);return;}
+});
+function foundNm(d){return fullName({pretitle:d.pretitle,name:d.name.trim()||'your nation'}).replace(/^The /,'the ');}
+/* the Found button beside the preview, and the phone's bar at the foot of the screen: both submit the charter */
+function foundGo(d){return `<div class="found-go"><button class="btn big" type="submit" form="found-form" id="found-now"><span>Found <span class="found-nm">${esc(foundNm(d))}</span></span></button><p class="hint">Only the name is permanent. You can fill in or change everything else later.</p></div>`;}
+function foundBarHTML(d){
+  const {s}=foundStats(d.answers);
+  return `<span class="mflag">${flagSVG(d.flag,'Your flag')}</span><span class="found-bar-t"><b class="found-bar-n">${esc(d.name.trim()||'Unnamed')}</b><span>${esc(classify(s))}</span></span><button class="btn" type="submit" form="found-form" id="found-now-bar" aria-label="Found ${esc(foundNm(d))}">Found now</button>`;
+}
+function foundBarPaint(){const b=document.getElementById('found-bar');if(b)b.innerHTML=foundBarHTML(S.draft);}
+/* the bar steps aside once the charter's own Found button is on screen */
+function foundBarCheck(){const b=document.getElementById('found-bar');if(!b)return;const f=document.querySelector('.found-submit');b.classList.toggle('off',!!f&&f.getBoundingClientRect().top<innerHeight);}
+window.addEventListener('scroll',foundBarCheck,{passive:true});
+window.addEventListener('resize',foundBarCheck,{passive:true});
+render=(f=>function(){const r=f.apply(this,arguments);foundBarCheck();return r;})(render);
 function foundView(){
   if(S.foundHelp)return foundHelpView();
   const d=S.draft,{s}=foundStats(d.answers),cat=classify(s);
   return `<div class="found">
     <header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator · Region of ${REGION}</span></header>
-    <div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>
-      <p class="lede">Name your country, design its flag and set out its founding principles. Then edicts start arriving on your desk, and each decision you make reshapes your nation’s freedoms, economy and character.</p><p class="found-how">New to Edictum? <button type="button" class="linkish" data-act="found-help">Read how to play</button></p></div>
+    <div class="hm-top"><div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>
+      <p class="lede">${esc(HOME_LEDE)}</p>${homeFeats()}<p class="found-how">New to Edictum? <button type="button" class="linkish" data-act="found-help">Read how to play</button></p></div>
+      <section class="hm-try edict" id="hm-try" aria-labelledby="hm-try-h">${homeTryHTML()}</section></div>
     ${foundRegionBox()}<div class="found-grid">
       <form class="found-form" id="found-form" novalidate>
         <fieldset class="fs"><legend class="fs-l"><span class="fs-n">I</span>Name</legend>
@@ -32842,14 +32972,14 @@ function foundView(){
           ${S.foundErr?`<p class="err" style="margin-top:10px">${esc(S.foundErr)}</p>`:''}
           <p class="hint" style="margin-top:10px">Your nation’s name is permanent once founded. Everything else can be changed later.</p>
         </fieldset>
-        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">II</span>Particulars</legend>${particulars(d,'d')}</fieldset>
-        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">III</span>Flag</legend>${flagDesigner(d.flag,'d')}</fieldset>
-        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">IV</span>Founding principles</legend>
+        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">II</span>Particulars<span class="fs-opt">Optional</span></legend>${particulars(d,'d')}</fieldset>
+        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">III</span>Flag<span class="fs-opt">Optional</span></legend>${flagDesigner(d.flag,'d')}</fieldset>
+        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">IV</span>Founding principles<span class="fs-opt">Optional</span></legend>
           <p class="muted" style="margin-bottom:12px">Your answers set your starting freedoms. Edicts will move them from there.</p>
           <div class="qs">${QUESTIONS.map((q,i)=>`<div class="q"><p>${q.q}</p><div class="seg" role="radiogroup" aria-label="${esc(q.q)}">${['Disagree','Unsure','Agree'].map((l,j)=>`<button type="button" id="q${i}-${j}" role="radio" aria-checked="${d.answers[i]===j}" class="seg-b${d.answers[i]===j?' on':''}" data-act="answer-q" data-i="${i}" data-j="${j}">${l}</button>`).join('')}</div></div>`).join('')}</div>
           <p class="q-result">Your nation would be classed as: <b>${esc(cat)}</b>.</p>
         </fieldset>
-        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">V</span>Location</legend>
+        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">V</span>Location<span class="fs-opt">Optional</span></legend>
           <div class="fr-loc"><p>Region: <b>${esc(REG.name)}</b> · ${esc(REG.short)}</p><button type="button" class="btn ghost" data-act="found-browse" aria-expanded="${!!S.frBrowse}">${S.frBrowse?'Close the region browser':'Browse regions'}</button></div>
           ${S.frBrowse?foundRegionBrowser():''}
           <p class="muted" style="margin-bottom:14px">Pick the hex where your capital will stand. You start with the land round it and claim more with land credits as the population grows, so leave room from your neighbours. You can also skip this and choose later.</p>
@@ -32857,10 +32987,11 @@ function foundView(){
           <p class="loc-status" id="found-loc">${foundLocHTML()}</p>
           <button type="button" class="btn ghost" data-act="found-suggest" style="margin-top:10px">Pick a spot for me</button>
         </fieldset>
-        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"><span>Found <span id="found-name">${esc(fullName({pretitle:d.pretitle,name:d.name.trim()||'your nation'}).replace(/^The /,'the '))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two edicts will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of edict you get.</p></div>
+        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"><span>Found <span class="found-nm" id="found-name">${esc(foundNm(d))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two edicts will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of edict you get.</p></div>
       </form>
-      <aside class="found-preview" id="found-preview">${previewCard(d)}</aside>
+      <aside class="found-side" aria-label="Your nation"><div class="found-preview" id="found-preview">${previewCard(d)}</div>${foundGo(d)}</aside>
     </div>
+    <div class="found-bar" id="found-bar">${foundBarHTML(d)}</div>
   </div>`;
 }
 function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,currency:n.currency,animal:n.animal,demonym:n.demonym,flag:clone(n.flag),freq:String(n.freq),
@@ -32938,13 +33069,14 @@ function render(){if(fxRender())return;
 }
 let pvTimer=null;
 function updatePreviewSoon(){
-  const d=S.draft,nm=document.getElementById('found-name');if(nm)nm.textContent=fullName({pretitle:d.pretitle,name:d.name.trim()||'your nation'}).replace(/^The /,'the ');
-  const pn=document.querySelector('#found-preview .pv-name');if(pn)pn.textContent=d.name.trim()||'Unnamed';
+  const d=S.draft;for(const el of document.querySelectorAll('.found-nm'))el.textContent=foundNm(d);
+  for(const el of document.querySelectorAll('#found-preview .pv-name,.found-bar-n'))el.textContent=d.name.trim()||'Unnamed';
   clearTimeout(pvTimer);pvTimer=setTimeout(updatePreview,220);
 }
 function updatePreview(){clearTimeout(pvTimer);
   const pv=document.getElementById('found-preview');if(pv)pv.innerHTML=previewCard(S.draft);
-  const nm=document.getElementById('found-name');if(nm)nm.textContent=fullName({pretitle:S.draft.pretitle,name:S.draft.name.trim()||'your nation'}).replace(/^The /,'the ');
+  for(const el of document.querySelectorAll('.found-nm'))el.textContent=foundNm(S.draft);
+  foundBarPaint();homeTryPaint();
   updateFoundLoc();redrawMaps();
   drawAllGuill();
 }

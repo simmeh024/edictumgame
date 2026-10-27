@@ -17,7 +17,8 @@ This script turns it into a small page plus long-cached files, without changing 
   - the Firebase compat SDK (app, auth, firestore), copied from node_modules into
     public/vendor/firebase/<version>/ so the site needs no CDN;
   - src/shim.js after the game: the Firebase-backed window.claude and the account control;
-  - description, theme colour, Open Graph tags and icons.
+  - description, theme colour, Open Graph tags, icons and schema.org data for search engines;
+  - the top of the front page as plain HTML, shown while the game's script downloads (see BOOT).
 
 Options: --site-url https://example.org (or SITE_URL) makes og:image, og:url and the
 canonical link absolute, as link previews need. --no-minify keeps the code readable for
@@ -58,14 +59,22 @@ TITLE = 'Edictum'
 DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, rule on the edicts that reach your desk, '
                'claim land on a shared map, and trade, ally or go to war with other players.')
 OG_ALT = 'The Edictum seal beside the words: Edictum, a nation simulator.'
-# What #app holds until the game draws itself: a loading screen, and for anything that does not run the
-# game's script (search engines, link previews, Google's review of the sign-in branding) what Edictum is
-# and where its privacy notice and terms are.
-BOOT = ('<div id="app"><main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%s</p>'
-        '<p class="boot-load" role="status">Loading the game…</p>'
-        '<noscript><p class="boot-load">Edictum needs JavaScript to run.</p></noscript>'
-        '<p class="boot-legal"><a href="/privacy">Privacy notice</a> · <a href="/terms">Terms of use</a> · '
-        '<a href="/privacidad" lang="es">Aviso de privacidad</a> · <a href="/terminos" lang="es">Términos de uso</a></p></main></div>')
+# What #app holds until the game draws itself, which takes as long as its script takes to download. A
+# newcomer sees the top of the front page (the founding page) as the game will draw it, with its heading
+# copy read from the game's HOME_LEDE, HOME_FEATS and HOME_FREE; a returning player (src/stub.js marks
+# them) sees the plain loading screen instead. Anything that does not run the game's script (search
+# engines, link previews, Google's review of the sign-in branding) gets what Edictum is and where its
+# privacy notice and terms are.
+LEGAL = ('<p class="boot-legal"><a href="/privacy">Privacy notice</a> · <a href="/terms">Terms of use</a> · '
+         '<a href="/privacidad" lang="es">Aviso de privacidad</a> · <a href="/terminos" lang="es">Términos de uso</a></p>')
+LOADING = ('<p class="boot-load" role="status">Loading the game…</p>'
+           '<noscript><p class="boot-load">Edictum needs JavaScript to run.</p></noscript>')
+BOOT = ('<div id="app"><div class="found home-static">'
+        '<header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator</span></header>'
+        '<div class="hm-top"><div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>'
+        '<p class="lede">%(lede)s</p><ul class="hm-feats">%(feats)s</ul><p class="hm-free">%(free)s</p>' + LOADING + '</div></div>'
+        + LEGAL + '</div>'
+        '<main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%(desc)s</p>' + LOADING + LEGAL + '</main></div>')
 
 
 def fail(msg):
@@ -104,6 +113,29 @@ def split_game(src):
     if body.count('<script>') != 1 or body.count('</script>') != 1 or not body.rstrip().endswith('</script>'):
         fail('expected the game to end with exactly one inline <script>')
     return head.strip(), (APP_MARK + body).strip()
+
+
+def js_text(script, name):
+    """A constant of the game's that holds one string in single quotes, as text."""
+    m = re.search(r"\bconst %s='((?:[^'\\\n]|\\.)*)';" % name, script)
+    if not m:
+        fail('the game has no %s constant; build.py writes it into the page' % name)
+    return re.sub(r'\\(.)', r'\1', m.group(1))
+
+
+def home_copy(script):
+    """The front page's heading copy, from the game's own constants (see "the front page" in the game)."""
+    m = re.search(r"\bconst HOME_FEATS=\[(.*?)\];", script)
+    feats = re.findall(r"\['([a-z]+)','((?:[^'\\]|\\.)*)'\]", m.group(1)) if m else []
+    if not feats:
+        fail('the game has no HOME_FEATS list of [icon, text] pairs; build.py writes it into the page')
+    e = lambda s: html.escape(s, quote=False)
+    return {
+        'lede': e(js_text(script, 'HOME_LEDE')),
+        'feats': ''.join('<li><span class="hm-ic ai-%s" aria-hidden="true"></span>%s</li>' % (k, e(re.sub(r'\\(.)', r'\1', t)))
+                         for k, t in feats),
+        'free': e(js_text(script, 'HOME_FREE')),
+    }
 
 
 def inline_js(path, minify):
@@ -229,6 +261,14 @@ def main():
     ]
     if site:
         meta += ['<meta property="og:url" content="%s/">' % e(site), '<link rel="canonical" href="%s/">' % e(site)]
+    # what search engines read about the game (schema.org)
+    ld = {'@context': 'https://schema.org', '@type': 'VideoGame', 'name': TITLE, 'description': DESCRIPTION,
+          'genre': ['Nation simulation', 'Strategy'], 'gamePlatform': 'Web browser', 'operatingSystem': 'Any',
+          'applicationCategory': 'Game', 'playMode': 'MultiPlayer', 'inLanguage': 'en-GB', 'isAccessibleForFree': True,
+          'offers': {'@type': 'Offer', 'price': '0', 'priceCurrency': 'USD'}, 'image': a('/og.png')}
+    if site:
+        ld['url'] = site + '/'
+    meta.append('<script type="application/ld+json">%s</script>' % json.dumps(ld, ensure_ascii=False).replace('</', '<\\/'))
 
     stamp = hashlib.sha256(game.encode('utf-8')).hexdigest()[:12]
     page = '\n'.join([
@@ -246,7 +286,7 @@ def main():
         '<link rel="stylesheet" href="%s">' % css_url,
         '</head>',
         '<body>',
-        BOOT % e(DESCRIPTION),
+        BOOT % dict(home_copy(script), desc=e(DESCRIPTION)),
         '<script src="%s"></script>' % js_url,
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
         '</body>',

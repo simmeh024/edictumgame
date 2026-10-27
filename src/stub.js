@@ -20,6 +20,9 @@
       });
     }
   });
+  /* A returning player (a nation saved in this browser) waits on the plain loading screen rather than
+     the top of the front page that build.py puts there for newcomers. */
+  try { if (localStorage.getItem('statehood.nation.v1')) document.documentElement.classList.add('ed-back'); } catch (e) {}
   /* Safety nets: if the shim never ran, or start-up hangs, the game plays in this browser only. */
   window.addEventListener('load', function () { if (!window.__edictum.started) settle(null); });
   setTimeout(function () { settle(null); }, 30000);
