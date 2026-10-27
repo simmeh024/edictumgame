@@ -88,6 +88,17 @@ test('a day already done is skipped; two runs at once do it once', async () => {
   assert.deepEqual(await read('fx/meridian'), before, 'nothing rewritten');
 });
 
+test('a record is held to the population its save declared', async () => {
+  await run({ now: T0, regions: ['meridian'] });
+  const honest = (await pubOf('meridian')).n['uid-hidden'];
+  await env.clearFirestore();
+  await asAdmin(db => db.doc('nations/uid-hidden').set(Object.assign(nationDoc('Hidden', 'meridian', { pop: 50000 }), { pop: 12, army: 1, cl: 0 })));
+  await run({ now: T0, regions: ['meridian'] });
+  const inflated = (await pubOf('meridian')).n['uid-hidden'];
+  assert.deepEqual(inflated.g, honest.g, 'fifty billion people in the record count as the twelve million the save declared');
+  assert.equal(inflated.v, honest.v);
+});
+
 test('a lapsed lease from a run that died does not block the next day', async () => {
   await asAdmin(db => db.doc('fxs/meridian').set({ v: 1, day: '', t: 0, j: '{}', lock: { by: 'dead-run', until: T0 - 1000 } }));
   const out = await run({ now: T0, regions: ['meridian'] });

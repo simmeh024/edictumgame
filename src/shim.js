@@ -47,7 +47,7 @@
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
   };
-  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', spaceSent: {}, xSent: {} };
+  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', spaceSent: {}, xSent: {}, raceAt: {} };
 
   /* ───────── small helpers ───────── */
   function storeOf(name) { try { return window[name] || null; } catch (e) { return null; } }
@@ -94,7 +94,11 @@
     var j = JSON.stringify(data == null ? {} : data);
     if (j.length > MAX_JSON) throw mapError({ code: 'resource-exhausted', message: 'This nation is too large to save (' + j.length + ' characters).' });
     var d = isObj(data) ? data : {};
-    return { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: num(d.updatedAt), ts: serverTime() };
+    /* headline numbers beside the record, which the rules bound (growth since the last save, army and land for
+       the population) and every player's game holds the record to: population, army strength, land claimed */
+    return { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: num(d.updatedAt), ts: serverTime(),
+      pop: Math.round(Math.min(1e7, Math.max(0, num(d.pop))) * 1e4) / 1e4, army: Math.round(Math.max(0, num(d.apw)) * 1e3) / 1e3,
+      cl: Array.isArray(d.claims) ? d.claims.length : 0 };
   }
   /* the part of a nation every region needs for Moon, Mars and the belt; null without any */
   function spaceText(d) {
@@ -131,7 +135,14 @@
   function decode(path, d) {
     if (!d) return d;
     var p = String(path).split('/'), col = p[0];
-    if (col === 'nations') return typeof d.j === 'string' ? parse(d.j) : d;
+    if (col === 'nations') {
+      /* the record, with what the rules checked beside it: the server's time of the save and the headline
+         numbers (set after parsing, so the record cannot claim its own) */
+      var nd = typeof d.j === 'string' ? parse(d.j) : d;
+      if (isObj(nd) && typeof d.j === 'string') Object.assign(nd, { _ts: millis(d.ts), _pop: typeof d.pop === 'number' ? d.pop : undefined,
+        _army: typeof d.army === 'number' ? d.army : undefined, _cl: typeof d.cl === 'number' ? d.cl : undefined });
+      return nd;
+    }
     if (col === 'nationx') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
     if (col === 'space') { var s = typeof d.j === 'string' ? parse(d.j) : null; return isObj(s) ? Object.assign(s, { reg: d.reg, name: d.name, updatedAt: num(d.t) }) : null; }
     if (col === 'boards') return { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
@@ -165,9 +176,11 @@
     enc.j = JSON.stringify(halves[0]);
     b.set(A.fs.doc('nations/' + uid), enc);
     if (A.xSent[uid] !== xj) b.set(A.fs.doc('nationx/' + uid), { j: xj, t: enc.updatedAt, ts: serverTime() });
-    var sum = { reg: enc.reg, name: enc.name, pop: Math.max(0, num(isObj(data) ? data.pop : 0)), t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
+    var sum = { reg: enc.reg, name: enc.name, pop: enc.pop, t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
     if (e > sum.t) sum.e = e;
     b.set(A.fs.doc('summaries/' + uid), sum);
+    var raceFrom = A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT;
+    raceKeys(data, raceFrom).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
     if (noSpace) { /* leave space/ as it is */ }
     else if (sj) {
       var changed = sent.j !== sj || sent.reg !== enc.reg || sent.name !== enc.name;
@@ -180,7 +193,18 @@
       b.delete(A.fs.doc('space/' + uid));
       next = { j: null, at: now };
     }
-    return b.commit().then(function () { A.xSent[uid] = xj; if (next) A.spaceSent[uid] = next; });
+    return b.commit().then(function () { A.xSent[uid] = xj; if (next) A.spaceSent[uid] = next; A.raceAt[uid] = enc.updatedAt; });
+  }
+  /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
+     carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in
+     the same batch, and the rules accept no other time. New means made after the last save this page sent
+     (or, before one, after the record it loaded, or the page load). */
+  function raceKeys(d, since) {
+    var out = [];
+    if (!isObj(d)) return out;
+    (Array.isArray(d.claims) ? d.claims : []).forEach(function (e) { if (e && num(e.t) > since && Number.isInteger(e.c) && e.c >= 0) out.push('c' + e.c); });
+    (Array.isArray(d.disc) ? d.disc : []).forEach(function (e) { if (e && num(e.t) > since && (e.o === 'found' || e.o === 'great') && Number.isInteger(e.s) && e.s >= 0) out.push('s' + e.s); });
+    return out.filter(function (k, i, a) { return a.indexOf(k) === i && k.length <= 7; }).slice(0, 200);
   }
   function dropNation(uid) {
     var b = A.fs.batch();
@@ -191,6 +215,8 @@
   function getNation(uid) {
     return Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]).then(function (r) {
       var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null;
+      /* the player's own record, as saved: its claims and finds were stamped with that save */
+      if (uid === A.uid && A.raceAt[uid] == null && s.exists) { var own = s.data(); A.raceAt[uid] = isObj(own) ? num(own.updatedAt) : 0; }
       if (!s.exists || !x) return s;
       return { id: s.id, exists: true, data: function () { return joinNation(s.data(), decode('nationx', x)); } };
     });

@@ -19,9 +19,9 @@ let env;
 // the documents src/shim.js writes for one save
 const nation = (name, extra = {}) => {
   const rec = { name, reg: extra.reg || 'meridian', updatedAt: Date.now(), pop: 1200, dsp: { a: [[1, 2], [3, 4]] } };
-  return { v: 1, j: JSON.stringify(rec), reg: rec.reg, name, updatedAt: rec.updatedAt, ts: NOW(), ...extra };
+  return { v: 1, j: JSON.stringify(rec), reg: rec.reg, name, updatedAt: rec.updatedAt, ts: NOW(), pop: 1200, army: 40, cl: 3, ...extra };
 };
-const summaryOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, pop: 1200, t: n.updatedAt, ...extra });
+const summaryOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, pop: n.pop ?? 1200, t: n.updatedAt, ...extra });
 const privateOf = (n, extra = {}) => ({ j: JSON.stringify({ inbox: [], tly: { a: 1 } }), t: n.updatedAt, ts: NOW(), ...extra });
 const spaceOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, t: n.updatedAt, j: JSON.stringify({ sp: { moon: {} } }), ts: NOW(), ...extra });
 function save(db, uid, n, { summary = summaryOf(n), space = null, priv = null } = {}) {
@@ -380,6 +380,43 @@ test('a summary may count a holiday after the save (e), up to 32 days past it an
   await assertFails(tryE('h3', t => t + 33 * day));                                         // longer than any holiday
   await assertFails(tryE('h4', t => t - 1));                                                // before the save
   await assertFails(tryE('h5', 'soon'));
+});
+
+test('the headline numbers beside a nation are bounded, and grow no faster than the game allows', async () => {
+  const fresh = (uid, extra) => { const n = nation('Head ' + uid, extra); return save(as(uid), uid, n); };
+  await assertSucceeds(fresh('k1', {}));
+  await assertFails(fresh('k2', { army: 60 * Math.sqrt(1200) + 50 }));                        // an army no population raises
+  await assertFails(fresh('k3', { cl: 2000 }));                                                // more land than 1,200 million claim
+  await assertFails(fresh('k4', { pop: 2e7 }));
+  await assertFails(fresh('k5', { cl: 2.5 }));
+  const bare = nation('Head k6'); delete bare.pop; delete bare.army; delete bare.cl;
+  await assertFails(save(as('k6'), 'k6', bare, { summary: summaryOf(bare, { pop: 1200 }) }));  // a new record carries them
+  // Bob saved a minute ago at 1,200 million
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { pop: 1200.2 })));
+});
+
+test('a minute is not enough to grow a nation tenfold, nor to drop the numbers once they are there', async () => {
+  await assertFails(save(as('bob'), 'bob', nation('Bobland', { pop: 12000 })));
+  const bare = nation('Bobland'); delete bare.pop; delete bare.army; delete bare.cl;
+  await assertFails(save(as('bob'), 'bob', bare, { summary: summaryOf(bare, { pop: 1200 }) }));
+  await assertFails(save(as('bob'), 'bob', nation('Bobland'), { summary: summaryOf(nation('Bobland'), { pop: 999 }) })); // the summary agrees
+});
+
+test('a record from before the headline numbers may still save without them, or gain them', async () => {
+  await env.withSecurityRulesDisabled(async ctx => { const old = nation('Oldland', { ts: AGO(60000) }); delete old.pop; delete old.army; delete old.cl; await ctx.firestore().doc('nations/olga').set(old); });
+  const bare = nation('Oldland'); delete bare.pop; delete bare.army; delete bare.cl;
+  await assertSucceeds(save(as('olga'), 'olga', bare, { summary: summaryOf(bare, { pop: 1200 }) }));
+});
+
+test('a race is stamped with the server’s time, by the claimer, and anyone reads it', async () => {
+  const db = as('alice');
+  await assertSucceeds(db.doc('stamps/meridian/c1234/alice').set({ t: NOW() }));
+  await assertSucceeds(db.doc('stamps/meridian/s17/alice').set({ t: NOW() }));
+  await assertFails(db.doc('stamps/meridian/c1235/alice').set({ t: Date.now() - 864e5 }));   // a backdated claim
+  await assertFails(db.doc('stamps/meridian/c1236/bob').set({ t: NOW() }));                   // someone else's
+  await assertFails(db.doc('stamps/meridian/x9/alice').set({ t: NOW() }));
+  await assertFails(db.doc('stamps/atlantis/c1/alice').set({ t: NOW() }));
+  await assertSucceeds(anon().doc('stamps/meridian/c1234/alice').get());
 });
 
 test('currencies: everyone reads values, prestige and history; nobody sets them from the game, admins included', async () => {

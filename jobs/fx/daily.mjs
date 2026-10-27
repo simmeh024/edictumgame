@@ -42,6 +42,8 @@ async function regionRecords(db, reg, now) {
     if (!rec || typeof rec !== 'object' || Array.isArray(rec)) continue;
     const at = Number(raw.updatedAt) || Number(rec.updatedAt) || 0;
     if (now - at > DORMANT_DAYS * DAY) continue;
+    /* held to the population its save declared, which the rules bound, as every player's game holds it */
+    if (typeof raw.pop === 'number' && isFinite(raw.pop) && !(Number(rec.pop) <= raw.pop)) rec.pop = raw.pop;
     recs.set(d.id, rec);
   }
   return recs;

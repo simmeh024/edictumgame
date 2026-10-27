@@ -22,7 +22,7 @@ const uidA = await open(A);
 check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.length > 10, uidA);
 await found(A, 'Aldoria');
 const docA = await until(() => nationDoc(uidA));
-check('A’s nation is saved to nations/<uid> in the stored shape', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'j,name,reg,ts,updatedAt,v', docA && docA.keys.join());
+check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,pop,reg,ts,updatedAt,v', docA && docA.keys.join());
 const xA = await until(async () => { const r = await restGet('nationx/' + uidA); return r.status === 200 ? r.body.fields : null; });
 const xrec = xA && xA.j ? JSON.parse(xA.j.stringValue) : {};
 check('its private half is saved to nationx/<uid>, and the shared half leaves it out', xA && Object.keys(xA).sort().join() === 'j,t,ts' && Array.isArray(xrec.inbox) && typeof xrec.issueClock === 'number'
@@ -480,6 +480,28 @@ await until(() => B.$(`[data-act="dm-peer"][data-id="${uidA}"]`), 20000); await 
 check('a message from staff says it comes from the Edictum team', await until(async () => /Edictum team/.test(await text(B, '.staff-note')) && /Edictum staff/.test(await text(B, '.bub.staff .bub-staff')) && /Edictum staff/.test(await text(B, `[data-act="dm-peer"][data-id="${uidA}"]`))));
 await B.locator('.thread').screenshot({ path: path.join(OUT, 'staff-message.png') });
 
+/* ── 7c. fair play ──────────────────────────────────────────────────────── */
+// the rules refuse a save that grows a nation tenfold since its last
+const forged = await B.evaluate(async uid => { const db = await window.claude.use('db'); const r = (await db.doc('nations/' + uid).get()).data(); r.pop = r.pop * 10; r.updatedAt = Date.now();
+  try { await db.doc('nations/' + uid).set(r); return 'saved'; } catch (e) { return (e && e.code) || String(e); } }, uidB);
+check('a save that grows a nation tenfold since its last is refused', forged !== 'saved', forged);
+// a record written past the game: every game holds it to its save's figures, and the admin portal lists it
+const cheatRec = JSON.parse((await restGet('nations/' + uidB)).body.fields.j.stringValue);
+Object.assign(cheatRec, { name: 'Cheatonia', pop: 900, popAt: Date.now(), founded: Date.now() - 2 * 864e5, updatedAt: Date.now(), stock: { food: 60, timber: 9999, iron: 25, oil: 10, goods: 40 } });
+for (const k of ['loc', 'claims', 'conq', 'cities', 'alli', 'allyOf', 'wars', 'peace', 'asm', 'dm', 'pp']) delete cheatRec[k];
+const ownerDoc = (p, init) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${p}`, Object.assign({ headers: { 'content-type': 'application/json', authorization: 'Bearer owner' } }, init));
+await ownerDoc('nations/cheat-1', { method: 'PATCH', body: JSON.stringify({ fields: { v: { integerValue: '1' }, j: { stringValue: JSON.stringify(cheatRec) }, reg: { stringValue: 'meridian' }, name: { stringValue: 'Cheatonia' },
+  updatedAt: { integerValue: String(cheatRec.updatedAt) }, ts: { timestampValue: new Date().toISOString() }, pop: { doubleValue: 10 }, army: { doubleValue: 1 }, cl: { integerValue: '0' } } }) });
+await nav(A, 'region');
+check('every game holds a forged record to its save’s figures: 10 million people, not 900', await until(async () => A.$$eval('.tbl tr', rs => rs.some(r => /Cheatonia/.test(r.textContent) && /(^|[^\d.])10\.\d million/.test(r.textContent) && !/900 million/.test(r.textContent))), 15000));
+await A.evaluate(() => { location.hash = '#admin-sus'; });
+check('the admin portal lists it as suspicious, with the reasons', await until(async () => { const t = await text(A, '.sus-list'); return /Cheatonia/.test(t) && /claims 900 million people; its save declared 10\.0 million/.test(t); }, 15000));
+await A.locator('.adm').screenshot({ path: path.join(OUT, 'admin-suspicious.png') });
+await A.click('.sus-list [data-act="sus-hide"][data-id="cheat-1"]');
+check('and Hide hides it from the other players', await until(async () => { const r = await restGet('mod/cheat-1'); return r.status === 200 && r.body.fields.hidden.booleanValue === true; }));
+await ownerDoc('nations/cheat-1', { method: 'DELETE' }); await ownerDoc('mod/cheat-1', { method: 'DELETE' });
+await A.evaluate(() => { location.hash = '#nation'; }); await sleep(300);
+
 /* ── 8. Google sign-in (Auth emulator) ──────────────────────────────────── */
 // the first steps offer it, with what it pays; the button opens the account dialog
 await nav(B, 'nation');
@@ -777,6 +799,17 @@ await HM.ctx.close();
 const HW = await player('HW');
 const uidHW = await open(HW);
 await found(HW, 'Lakeshore');
+// a claim is stamped with the server's time in the save that first carries it
+const fv = v => Number(v && (v.integerValue ?? v.doubleValue));
+await nav(HW, 'issues'); await until(() => HW.$('.issue-card')); await HW.click('.issue-card');
+await HW.waitForSelector('.edict [data-act="answer"]'); await HW.click('.edict [data-act="answer"][data-o="0"]'); await HW.waitForSelector('.result');
+await nav(HW, 'map');
+const lcHW = await until(() => HW.$('[data-act="lc-auto"]'), 10000); if (lcHW) await HW.click('[data-act="lc-auto"]');
+const clHW = await until(async () => { const n = await localNation(HW); return n && Array.isArray(n.claims) && n.claims.length ? n.claims : null; }, 10000);
+const stHW = clHW && await until(async () => { const r = await restGet(`stamps/meridian/c${clHW[0].c}/${uidHW}`); return r.status === 200 ? r.body.fields : null; }, 15000);
+check('a claim is stamped with the server’s time in the save that carries it', !!stHW && Math.abs(new Date(stHW.t.timestampValue).getTime() - clHW[0].t) < 60e3, JSON.stringify({ lc: !!lcHW, cl: clHW && clHW.length, st: stHW }));
+const docHW = await until(async () => { const r = await restGet('nations/' + uidHW); const f = r.status === 200 && r.body.fields; return f && f.cl && fv(f.cl) >= 1 ? f : null; }, 15000);
+check('its save carries the headline numbers the rules bound', !!docHW && fv(docHW.pop) > 4 && fv(docHW.army) > 0 && fv(docHW.cl) === clHW.length, JSON.stringify(docHW && { pop: docHW.pop, army: docHW.army, cl: docHW.cl }));
 await HW.evaluate(() => { location.hash = '#settings'; }); await HW.waitForSelector('#away-to');
 const backHW = await HW.evaluate(() => { const d = new Date(Date.now() + 5 * 864e5), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; });
 await HW.fill('#away-to', backHW); await HW.click('[data-act="away-start"]');

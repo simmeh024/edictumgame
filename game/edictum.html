@@ -3724,6 +3724,8 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
 .side-legal a{color:inherit}
 .found-legal a{color:inherit}
+.sus-why{margin:4px 0 10px;padding-left:18px;font-size:14px;color:var(--ink-2)}
+.sus-why li{margin:2px 0}
 /* Edictum staff: a pill wherever a staff nation shows itself */
 .staff-pill{display:inline-flex;align-items:center;gap:5px;flex:none;padding:4px 10px 4px 8px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;vertical-align:middle}
 .staff-pill svg{width:11px;height:13px;flex:none}
@@ -14588,12 +14590,71 @@ const NPC_BLOCS=[{id:'bloc-iron',name:'The Iron Compact',members:['npc-vellmark'
 const WAR_POLICIES=['conscription','militaryAcademy','militaryCorruption','obsoleteEquipment','drones','mercenaries','lowMorale','fortifications','borderWall','nuclearArsenal','coastalBatteries','pacifistConstitution','navalFleet','mountainTroops','reservists','rapidMobilisation','spyAgency','counterIntel'];
 function myId(){return S.uid||'me';}
 function pol(n){return (n&&n.policies)||{};}
+/* ───────── fair play: every game checks the others ─────────
+   A nation's record is written by its own player's browser, so every game checks the other nations'
+   records the same way and sets aside what the game could not have produced; a cheat then shows only on
+   the cheat's own screen. What it set aside, and why, goes to AUDIT for the admin portal's list.
+   - The rules bound the headline numbers saved beside the record (population, army strength, land
+     claimed; see firestore.rules), and the record is held to them: no more people, army or claims.
+   - Nothing may be dated after the save that carries it (the server's time, ten minutes for clocks).
+   - Growth rate and stock stay within what the game allows; flagged too: a population beyond its age,
+     more conquests in a day than the territory replay counts, a save without the headline numbers.
+   Records saved before AC_EPOCH carry no headline numbers, and are not flagged for it. */
+const AC_EPOCH=Date.UTC(2026,9,28),RATE_MAX=0.3,AUDIT=new Map();
+function auditNation(n,raw,id,now,keep){
+  if(!n||n.npc||!raw||id===S.uid)return [];
+  const why=[],ts=Number(raw._ts)||0;if(ts)n._ts=ts;
+  if(typeof raw._pop==='number'){
+    if(n.pop>raw._pop*1.001+0.001)why.push(`Its record claims ${fmtPop(n.pop)} people; its save declared ${fmtPop(raw._pop)}.`);
+    n.pop=Math.min(n.pop,raw._pop);
+    if(typeof raw._army==='number')n._armyK=raw._army/Math.sqrt(Math.max(0.1,raw._pop));
+    if(typeof raw._cl==='number'&&Array.isArray(n.claims)&&n.claims.length>raw._cl){why.push(`It holds ${n.claims.length} land claims; its save declared ${raw._cl}.`);n.claims=n.claims.slice().sort((a,b)=>a.t-b.t).slice(0,raw._cl);}
+  }else if(ts>=AC_EPOCH)why.push('It was saved without the figures the rules check.');
+  if(n.pr&&n.pr>RATE_MAX){why.push('Its growth rate is beyond what the game allows.');n.pr=RATE_MAX;}
+  if(n.stock){let over=false;for(const r of RES)if(num0(n.stock[r])>STOCK_CAP){n.stock[r]=STOCK_CAP;over=true;}if(over)why.push(`Its stock is above the cap of ${STOCK_CAP}.`);}
+  if(ts){const lim=ts+10*60e3,late=a=>Array.isArray(a)&&a.some(e=>e&&e.t>lim);
+    if(late(n.claims)||late(n.conq)||late(n.disc)){why.push('It has land, conquests or discoveries dated after the save that carries them.');for(const k of ['claims','conq','disc'])if(Array.isArray(n[k]))n[k]=n[k].filter(e=>!(e&&e.t>lim));}}
+  const age=Math.max(0,((ts||now)-(n.founded||now))/DAY);
+  if(n.pop>5*Math.pow(1.35,age)+3*age+1)why.push(`${fmtPop(n.pop)} people is more than a nation ${Math.floor(age)} days old can have grown.`);
+  if(Array.isArray(n.conq)){const t=n.conq.filter(e=>!e.n).map(e=>e.t).sort((a,b)=>a-b);let j=0,most=0;for(let i=0;i<t.length;i++){while(t[i]-t[j]>DAY)j++;most=Math.max(most,i-j+1);}if(most>16)why.push(`It has ${most} conquests within a day; the game allows 16.`);}
+  if(keep!==false){if(why.length)AUDIT.set(id,{why,name:n.name});else AUDIT.delete(id);}
+  return why;
+}
+/* no army stronger than its save declared, for its population now */
+armyPower=(f=>function(n){const v=f.apply(this,arguments);return n&&n._armyK?Math.min(v,n._armyK*Math.sqrt(Math.max(0.1,popNow(n)))*1.02):v;})(armyPower);
+
+/* ── races: the server's time ──
+   When two nations claim the same free hex, or find the same site, they are put in order by the server's
+   time of the save that first carried each (stamps/<reg>/<key>/<uid>, written in that save's batch by
+   src/shim.js; the rules accept only the server's time). Stamps are read only for contested entries. An
+   entry made since stamps began that has none counts from its record's last save. */
+const RACE={t:new Map(),want:new Set(),busy:false,rev:0};
+function raceT(src,key,t,n){
+  if(!(t>=AC_EPOCH)||S.mode!=='world')return t;
+  const k=key+':'+src,v=RACE.t.get(k);
+  if(typeof v==='number')return v;
+  if(v===null)return Math.max(t,(n&&n._ts)||t);
+  if(v===undefined){RACE.want.add(k);raceSoon();}
+  return t;
+}
+function raceSoon(){if(!RACE.busy&&RACE.want.size&&S.db){RACE.busy=true;setTimeout(raceFetch,60);}}
+async function raceFetch(){
+  const ks=[...RACE.want].slice(0,40);for(const k of ks)RACE.want.delete(k);
+  await Promise.all(ks.map(k=>{const [key,src]=k.split(':');
+    return S.db.doc('stamps/'+REG.id+'/'+key+'/'+src).get().then(sn=>{const t=sn.exists?(sn.data()||{}).t:null;RACE.t.set(k,t==null?null:typeof t.toMillis==='function'?t.toMillis():Number(t));},()=>RACE.t.set(k,false));}));
+  RACE.busy=false;RACE.rev++;
+  try{redrawMaps();if(['nation','region','visit','explore','map'].includes(S.view))render();}catch(e){}
+  raceSoon();
+}
 function collectConquests(at){
   const out=[];
   const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)add(id,S.world[id]);
   if(at!=null){const keep=out.filter(e=>e.t<=at);out.length=0;out.push(...keep);}
+  /* a hex claimed by two nations: the server's times decide (raceT) */
+  const by=new Map();for(const e of out)if(e.claim){const z=by.get(e.c);if(z)z.add(e.src);else by.set(e.c,new Set([e.src]));}
+  for(const e of out)if(e.claim&&by.get(e.c).size>1)e.t=raceT(e.src,'c'+e.c,e.t,e.src===myId()?S.nation:S.world[e.src]);
   out.sort((a,b)=>a.t-b.t||(a.src<b.src?-1:a.src>b.src?1:0)||a.c-b.c);
   let h=out.length;for(const e of out)h=Math.imul(h^hash((e.claim?'k':'')+e.o+':'+e.c+':'+e.t),16777619);
   return {list:out,sig:out.length+'/'+(h>>>0)};
@@ -17014,10 +17075,11 @@ function siteDefault(si){const s=SITES[si];return SITE_KINDS[s.k].dn.replace('{X
 function siteTerr(si){const c=SITES[si].c;return isIslet(c)?'islet':BIOME_KEY[BIOME[c]]||'farmland';}
 let discMemo={k:'',v:null};
 function discoveries(){
-  const docs=tradeDocs(),k=docs.map(([id,d])=>id+':'+(d.updatedAt||0)+':'+((d.disc||[]).length)).join('|');
+  const docs=tradeDocs(),k=RACE.rev+'#'+docs.map(([id,d])=>id+':'+(d.updatedAt||0)+':'+((d.disc||[]).length)).join('|');
   if(discMemo.k===k&&discMemo.v)return discMemo.v;
-  const best=new Map();
-  for(const [id,d] of docs)for(const e of d.disc||[]){if(e.o!=='found'&&e.o!=='great')continue;const b=best.get(e.s);if(!b||e.t<b.t||(e.t===b.t&&id<b.id))best.set(e.s,{id,t:e.t,nm:e.nm||'',name:d.name});}
+  const best=new Map(),finds=new Map();
+  for(const [id,d] of docs)for(const e of d.disc||[])if(e.o==='found'||e.o==='great')finds.set(e.s,(finds.get(e.s)||0)+1);
+  for(const [id,d] of docs)for(const e of d.disc||[]){if(e.o!=='found'&&e.o!=='great')continue;const t=finds.get(e.s)>1?raceT(id,'s'+e.s,e.t,d):e.t,b=best.get(e.s);if(!b||t<b.t||(t===b.t&&id<b.id))best.set(e.s,{id,t,nm:e.nm||'',name:d.name});}
   discMemo={k,v:best};return best;
 }
 function siteName(si){const r=discoveries().get(si);return r&&r.nm?r.nm:siteDefault(si);}
@@ -33556,7 +33618,7 @@ function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.p
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
-  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;n.updatedAt=now;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
+  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
 function queueRemote(){
   if(S.mode!=='world'||!S.db||!S.uid)return;
   remoteDirty=true;
@@ -34246,7 +34308,7 @@ async function connect(){
     let mineHere=false;
     for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;if(hidden(d.id)){if(d.id===S.uid)mineHere=true;continue;}
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
-      if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n)w[d.id]=n;}
+      if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
     /* this record left the region from another device: follow it there */
     if(hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
       if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&(Number(raw.updatedAt)||0)>(S.nation.updatedAt||0))regionReload(raw);},()=>{});
@@ -35275,13 +35337,64 @@ async function admAct(a,id){
   }catch(e){ADM.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
   admLoad(true);render();
 }
+/* ── Suspicious nations: what every game sets aside, for this region as it is and for the others on request ── */
+const ADMS={scan:null,at:0,n:0,busy:false,err:'',act:'',ask:null};
+function susHere(){
+  const out=[];let T=null;try{T=territory();}catch(e){}
+  for(const id of Object.keys(S.world||{})){const n=S.world[id];if(!n||n.npc)continue;const a=AUDIT.get(id),why=a?a.why.slice():[];
+    try{const i=T&&T.byId[id];if(i!==undefined&&Array.isArray(n.claims)){const used=claimsUsed(n,T,i),earned=landEarned(n);if(used>earned+2)why.push(`It holds ${used} claimed hexes with ${earned} land credits earned.`);}}catch(e){}
+    if(why.length)out.push({id,reg:REG.id,name:n.name,why});}
+  return out;
+}
+async function susScan(){
+  if(ADMS.busy||!S.db)return;ADMS.busy=true;ADMS.err='';ADMS.act='';render();
+  const out=[],now=Date.now();let k=0;
+  try{for(const R of REGIONS){if(R.id===REG.id)continue;
+    const qs=await S.db.collection('nations').where('reg','==',R.id).get();
+    for(const d of qs.docs){k++;let raw=null,n=null;try{raw=d.data();n=normalize(raw);}catch(e){continue;}
+      const why=auditNation(n,raw,d.id,now,false);if(why.length)out.push({id:d.id,reg:R.id,name:(n&&n.name)||'A nation',why});}}
+    ADMS.scan=out;ADMS.at=now;ADMS.n=k;
+  }catch(e){ADMS.err='The other regions could not be checked: '+((e&&e.code)||'unknown error')+'.';}
+  ADMS.busy=false;if(S.view==='admin-sus')render();
+}
+function susRow(x){
+  const hid=S.mod&&S.mod[x.id]&&S.mod[x.id].hidden,ask=ADMS.ask===x.id;
+  return `<li class="adm-rep"><p class="adm-rep-h"><b>${esc(x.name)}</b> · ${esc((REG_BY_ID[x.reg]||{}).name||x.reg)} · player ID <code>${esc(x.id)}</code>${hid?' <span class="chip">Hidden</span>':''}</p>
+    <ul class="sus-why">${x.why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>
+    ${ask?`<div class="row"><span class="hint">Ban the player of ${esc(x.name)}? The nation and its posts are removed.</span><button class="btn danger small" data-act="sus-ban-yes" data-id="${esc(x.id)}">Ban</button><button class="btn ghost small" data-act="sus-no">Cancel</button></div>`
+    :`<div class="row">${x.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:''}${hid?'':`<button class="btn ghost small" data-act="sus-hide" data-id="${esc(x.id)}">Hide</button>`}<button class="btn ghost small" data-act="sus-ban" data-id="${esc(x.id)}">Ban…</button></div>`}</li>`;
+}
+function susRows(){return susHere().concat(ADMS.scan||[]);}
+function adminSusView(){
+  const rows=susRows();
+  return `<div class="adm">
+    ${admHead('admin-sus')}
+    <p class="eyebrow">Admin portal</p><h1 class="display">Suspicious nations</h1>
+    <p class="lede">Every player’s game checks the other nations’ records and sets aside what the game could not have produced, so a cheat shows only on the cheat’s own screen. These are the nations it caught, and why. ${esc(REGION)} is checked as it is; the other regions when you ask, at one read per nation.</p>
+    <div class="row"><button class="btn ghost" data-act="sus-scan"${ADMS.busy?' disabled':''}>${ADMS.busy?'Checking the other regions…':ADMS.scan?'Check the other regions again':'Check the other regions'}</button>${ADMS.scan?`<span class="hint">Checked ${esc(rel(ADMS.at))}: ${ADMS.n.toLocaleString('en-US')} nations in ${REGIONS.length-1} regions.</span>`:''}</div>
+    ${ADMS.err?`<p class="err">${esc(ADMS.err)}</p>`:''}${ADMS.act?`<p class="hint" role="status">${esc(ADMS.act)}</p>`:''}
+    ${rows.length?`<ul class="adm-reps sus-list">${rows.map(susRow).join('')}</ul>`:`<p class="hint">Nothing suspicious${ADMS.scan?'':' in '+esc(REGION)}.</p>`}
+  </div>`;
+}
+async function susAct(a,id){
+  const x=susRows().find(r=>r.id===id),note=x?('Suspected cheating: '+x.why.join(' ')).slice(0,300):'Suspected cheating.',name=x?String(x.name).slice(0,80):'';
+  try{
+    if(a==='sus-hide'){await S.db.doc('mod/'+id).set({hidden:true,note,t:Date.now(),by:S.uid,name});ADMS.act=`${name||'The nation'} is hidden from other players.`;}
+    else if(a==='sus-ban'){ADMS.ask=id;ADMS.act='';render();return;}
+    else if(a==='sus-ban-yes'){ADMS.ask=null;await admRemove(id,note,name,true);if(ADMS.scan)ADMS.scan=ADMS.scan.filter(r=>r.id!==id);ADMS.act=`The player of ${name||'that nation'} is banned and the nation removed.`;}
+  }catch(e){ADMS.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
+  render();
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='sus-scan'){susScan();return;}if(a==='sus-no'){ADMS.ask=null;render();return;}
+  if(a==='sus-hide'||a==='sus-ban'||a==='sus-ban-yes')susAct(a,el.dataset.id);});
 function admHead(v){
   const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help,tab=(k,l)=>`<a href="#${k}" data-act="adm-tab" data-v="${k}"${v===k?' aria-current="page"':''}>${l}</a>`;
   return `<header class="adm-head"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span>
-    <nav class="adm-nav" aria-label="Admin portal">${tab('admin','Overview')}${tab('admin-help','Help queries'+(n?` <span class="chip">${n}</span>`:''))}</nav>
+    <nav class="adm-nav" aria-label="Admin portal">${tab('admin','Overview')}${tab('admin-help','Help queries'+(n?` <span class="chip">${n}</span>`:''))}${tab('admin-sus','Suspicious'+(AUDIT.size?` <span class="chip">${AUDIT.size}</span>`:''))}</nav>
     <button type="button" class="btn" data-act="admin-close">Back to the game</button></header>`;
 }
-shell=(f=>function(){if(S.view==='admin'&&S.isOwner)return adminView();if(S.view==='admin-help'&&S.isOwner)return adminHelpView();return f.apply(this,arguments);})(shell);
+shell=(f=>function(){if(S.view==='admin'&&S.isOwner)return adminView();if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();return f.apply(this,arguments);})(shell);
 go=(f=>function(v){if(v==='admin'&&S.view!=='admin'){ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
@@ -36321,12 +36434,12 @@ function start(data){
     S.mapViews=data.mapViews||{};S.mapSel=data.mapSel==null?null:data.mapSel;S.mapPick=data.mapPick==null?null:data.mapPick;
   }else{
     const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;
-    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help'].concat(EXT_PAGES).includes(h))S.view=h;
+    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help','admin-sus'].concat(EXT_PAGES).includes(h))S.view=h;
   }
   render();
   connect();
   setInterval(tick,10000);
-  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
+  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help','admin-sus'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
 }
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
