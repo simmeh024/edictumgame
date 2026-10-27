@@ -360,7 +360,8 @@ check('the stamps stay in the private half; the shared half counts them by hash'
 check('its page shows the stamp and where it went', await until(async () => /In your passport since .* on page I\./.test(await text(A, '.pp-visit'))));
 check('the first stamp earns First Stamp', await until(async () => !!(((await nationDoc(uidA)) || { rec: {} }).rec.ach || {})['pass-1'], 15000));
 // the banner's stamps: a seat in the Assembly, the Delegate's chair, an alliance
-check('a player nation’s banner is stamped with its Assembly seat, and with no alliance it has none', await until(async () => /Meridian Reach Assembly\s*Member/.test(await text(A, '.hero .hero-stamps'))) && !(await A.$('.hero .hs-al')));
+// its seat shows as Member, or as Delegate when the computer nations happen to back it (only the highest stamp shows)
+check('a player nation’s banner is stamped with its Assembly seat, and with no alliance it has none', await until(async () => /Meridian Reach Assembly\s*Member|Assembly\s*Delegate\s*of Meridian Reach/.test(await text(A, '.hero .hero-stamps'))) && !(await A.$('.hero .hs-al')));
 if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
 await nav(A, 'region');
 await until(() => A.$('.tbl [data-act="visit"][data-id="npc-vellmark"]')); await A.click('.tbl [data-act="visit"][data-id="npc-vellmark"]');

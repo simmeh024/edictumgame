@@ -30818,21 +30818,21 @@ function tutNorm(d){
 }
 NORM_HOOKS.push((n,d)=>{const v=tutNorm(d&&d.tut);if(v)n.tut=v;else delete n.tut;});
 /* the steps that earn a land credit: the seven First steps, the Next steps and the social-page step */
-const tutLcIds=()=>FIRST_STEPS.map(s=>s[0]).filter(k=>k!=='google').concat(NEXT_STEPS.map(s=>s[0]),['soc']);
+const tutLcIds=()=>FIRST_STEPS.map(s=>s[0]).filter(k=>k!=='google').concat(NEXT_STEPS.map(s=>s[0]),['soc'],CU_STEPS.map(s=>s[0]));
 const tutLcOf=n=>n&&n.tut&&Array.isArray(n.tut.lc)?n.tut.lc:[];
 const tutSeen=(n,g)=>!!(n&&n.tut&&typeof n.tut.g==='string'&&n.tut.g.includes(g));
 const tutFresh=n=>!!n&&!(n.answered&&n.answered.length)&&Date.now()-(+n.founded||0)<30*60e3;
 function tutSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PAGE.id==='string'&&SOC_PAGE.id?SOC_PAGE:null;}catch(e){return null;}}
 function tutCall(f,d){try{const v=f();return v==null?d:v;}catch(e){return d;}}
 
-/* ── device marks: i a tile inspected, l a lens tried, w the World page visited ── */
+/* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited ── */
 function tutDevGet(){
   const n=S.nation,seed=n?String(n.seed):'';if(TUT.devSeed!==seed){TUT.devSeed=seed;TUT.dev='';}
   let k=TUT.dev;try{const o=JSON.parse(localStorage.getItem(TUT_DEV_KEY)||'null');if(o&&o.s===seed&&typeof o.k==='string')k+=o.k;}catch(e){}return k;
 }
 function tutMark(c){
   if(!S.nation)return;const k=tutDevGet();if(k.includes(c))return;TUT.dev+=c;
-  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilw]/g,'')}));}catch(e){}
+  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwx]/g,'')}));}catch(e){}
   tutLcSoon();
 }
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
@@ -30920,9 +30920,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
   if(!n.tut&&tutFresh(n))t.w=TUT_V;
   const had=tutLcOf(n),add=tutLcNow(n).filter(k=>!had.includes(k));if(add.length)t.lc=had.concat(add);
   const v=tutNorm(t);if(v)n.tut=v;else delete n.tut;
-  const got=tutLcOf(n).length-had.length;if(got<=0)return;
+  const one=add.filter(k=>!CU_STEPS.some(c=>c[0]===k)),got=one.length;if(got<=0)return;
   if(got>1)return [`Your tutorial steps earned ${got} land credits. Spend them on the map.`];
-  const s=FIRST_STEPS.find(x=>x[0]===add[0]),x=NEXT_STEPS.find(x=>x[0]===add[0]),soc=tutSoc(),nm=s?s[1]:x?x[2]:soc?`Hear what your people are saying on ${soc.name}`:'';
+  const s=FIRST_STEPS.find(x=>x[0]===one[0]),x=NEXT_STEPS.find(x=>x[0]===one[0]),soc=tutSoc(),nm=s?s[1]:x?x[2]:soc?`Hear what your people are saying on ${soc.name}`:'';
   return [`Step done${nm?': '+nm:''}. +1 land credit. Spend it on the map.`];
 });
 /* the credits: one a step, on top of growth, milestones and bonuses (landCredits, the badge, the inspector and the
@@ -33683,12 +33683,19 @@ const CU_SYM={dollar:'$',pound:'£',lira:'₤',mark:'₥',crown:'Cr',krona:'kr',
 const CU_SUB={pound:'penny',shilling:'penny',ruble:'kopek',rouble:'kopek',krona:'öre',krone:'øre',mark:'pfennig',lira:'centesimo',franc:'centime',peso:'centavo',real:'centavo',yen:'sen',dinar:'fils',rupee:'paisa'};
 const CU_NF={en:[',','.','1,234.56'],eu:['.',',','1.234,56'],ch:['’','.','1’234.56'],sp:['\u202f',',','1 234,56']};
 const CU_SNS=[1,10,100,1000],CU_DENOMS=[1,2,5,10,20,50,100,200,500,1000],CU_COINS=[1,2,5,10,20,50];
-const CU_PATS={guilloche:'Guilloche rosette',waves:'Engraved waves',lattice:'Lattice',laurel:'Laurel',sunburst:'Sunburst',banner:'Your banner’s pattern'};
+const CU_PATS={guilloche:'Guilloche rosette',waves:'Engraved waves',lattice:'Lattice',laurel:'Laurel',sunburst:'Sunburst',banner:'Your banner’s pattern',moire:'Moiré',basket:'Basketweave',mosaic:'Mosaic',stars:'Constellation',filigree:'Filigree'};
 const CU_EMBS={arms:'Coat of arms',flag:'Flag emblem',seal:'Seal of state',none:'None'};
 const CU_POR={leader:'The leader',capital:'The capital',animal:'The national animal',arms:'The arms'};
 const CU_FLS={l:'Left',r:'Right',n:'None'};
-const CU_METALS={gold:['Gold','#E3B341','#8A6410'],silver:['Silver','#D3DADC','#6F7B80'],copper:['Copper','#C9804F','#7A3F1D'],bi:['Bimetallic','#E3B341','#D3DADC']};
-const CU_SHAPES={round:'Round',hept:'Seven-sided',dodec:'Twelve-sided',scallop:'Scalloped',square:'Rounded square'};
+const CU_METALS={gold:['Gold','#E3B341','#8A6410'],silver:['Silver','#D3DADC','#6F7B80'],copper:['Copper','#C9804F','#7A3F1D'],bi:['Bimetallic','#E3B341','#D3DADC'],
+  rose:['Rose gold','#E2A98E','#7E4330'],platinum:['Platinum','#E7E8EA','#5D646B'],black:['Black nickel','#3E444A','#D8DDE2']};
+const CU_SHAPES={round:'Round',hept:'Seven-sided',dodec:'Twelve-sided',scallop:'Scalloped',square:'Rounded square',octo:'Eight-sided',holed:'Holed'};
+const CU_STRIPS={1:'Shown',0:'None',2:'Holographic',3:'Gold foil'};
+/* designs earned with the currency achievements and the National Mint set (UNLOCKS), by field and choice */
+const CU_LOCK={pat:{moire:'cn-moire',basket:'cn-basket',mosaic:'cn-mosaic',stars:'cn-stars',filigree:'cn-filigree'},met:{rose:'cm-rose',platinum:'cm-platinum',black:'cm-black'},
+  shape:{octo:'cs-octo',holed:'cs-holed'},strip:{2:'cx-holo',3:'cx-gold'}};
+/* whether nation n holds unlock id (set outside this block; everything is allowed without it) */
+let CU_HOLDS=null;
 const CU_CEMB={arms:'Coat of arms',flag:'Flag emblem',star:'Star of state',wreath:'Laurel wreath'};
 const cuHas=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 /* text a player typed: no control or layout characters, no markup, single spaces, at most max characters */
@@ -33702,7 +33709,7 @@ function cuNoteClean(r){
   if(!r||typeof r!=='object'||Array.isArray(r))return null;const o={};
   for(const k of ['c1','c2']){const c=cuHex(r[k]);if(c)o[k]=c;}
   if(cuHas(CU_PATS,r.pat))o.pat=r.pat;if(cuHas(CU_EMBS,r.emb))o.emb=r.emb;if(cuHas(CU_FLS,r.fl))o.fl=r.fl;if(cuHas(CU_POR,r.por))o.por=r.por;
-  if(CU_DENOMS.includes(r.den))o.den=r.den;if(r.strip===0||r.strip===1)o.strip=r.strip;
+  if(CU_DENOMS.includes(r.den))o.den=r.den;if([0,1,2,3].includes(r.strip))o.strip=r.strip;
   return Object.keys(o).length?o:null;
 }
 function cuCoinClean(r){
@@ -33745,6 +33752,8 @@ function cuOf(n){
   const d=cuDefault(n),c=cuClean(n&&n.cur)||{},o=Object.assign({},d,c,{note:Object.assign({},d.note,c.note),coin:Object.assign({},d.coin,c.coin)});
   if(!o.pl)o.pl=o.nm.replace(/(\S+)$/,w=>plural(w));
   if(o.sn===1)o.coin.dk='u';
+  /* an earned design the nation does not hold (any more) falls back to the suggestion */
+  if(CU_HOLDS)for(const [g,f,k] of [['note','pat','pat'],['coin','met','met'],['coin','shape','shape'],['note','strip','strip']]){const id=CU_LOCK[k][o[g][f]];if(id&&!CU_HOLDS(n,id))o[g][f]=d[g][f];}
   return o;
 }
 /* a number in a currency's own format; beyond a quadrillion in powers of ten */
@@ -33882,6 +33891,12 @@ function cuPattern(pat,id,ink,n){
     case 'waves':return P(24,8,`<path d="M0 4 Q6 0 12 4 T24 4" fill="none" stroke="${ink}" stroke-width=".5"/>`);
     case 'lattice':return P(12,12,`<path d="M0 6 6 0 12 6 6 12Z" fill="none" stroke="${ink}" stroke-width=".45"/>`);
     case 'laurel':return P(18,12,`<path d="M3 9 Q9 1 15 9 M6 7 q-2-3 1-4 M10 4.5 q0-3 3-2.5 M12 7 q2-3 3-1" fill="none" stroke="${ink}" stroke-width=".5"/>`);
+    case 'moire':{let b='';for(let i=1;i<=26;i++)b+=`<circle cx="120" cy="70" r="${i*7}" fill="none" stroke="${ink}" stroke-width=".35"/><circle cx="205" cy="92" r="${i*7}" fill="none" stroke="${ink}" stroke-width=".35"/>`;return `<g id="${id}">${b}</g>`;}
+    case 'basket':return P(16,16,`<path d="M1 4h6M1 6h6M9 12h6M9 14h6M4 9v6M6 9v6M12 1v6M14 1v6" stroke="${ink}" stroke-width=".55"/>`);
+    case 'mosaic':return P(14,14,`<path d="M1 1h5v5H1zM8 1h5v5H8zM1 8h5v5H1zM8 8h5v5H8z" fill="none" stroke="${ink}" stroke-width=".45" transform="rotate(8 7 7)"/>`);
+    case 'stars':{const r=rng(hash(String(n.name||'')+':cu-stars'));let b='';for(let i=0;i<70;i++){const x=(r()*320).toFixed(1),y=(r()*160).toFixed(1),k=(0.8+r()*1.8).toFixed(2);b+=`<path d="M${x} ${y}m0 -${k*2}l${k*.5} ${k*1.5} ${k*1.5} ${k*.5} -${k*1.5} ${k*.5} -${k*.5} ${k*1.5} -${k*.5} -${k*1.5} -${k*1.5} -${k*.5} ${k*1.5} -${k*.5}z" fill="${ink}"/>`;}
+      for(let i=0;i<12;i++)b+=`<line x1="${(r()*320).toFixed(1)}" y1="${(r()*160).toFixed(1)}" x2="${(r()*320).toFixed(1)}" y2="${(r()*160).toFixed(1)}" stroke="${ink}" stroke-width=".25" stroke-dasharray="1 2"/>`;return `<g id="${id}">${b}</g>`;}
+    case 'filigree':return P(28,20,`<path d="M2 10c4-8 10-8 12 0s8 8 12 0M14 10c-2-4 0-7 3-6M14 10c2 4 0 7-3 6M2 10c-1 3 1 5 3 4M26 10c1-3-1-5-3-4" fill="none" stroke="${ink}" stroke-width=".5"/>`);
     case 'sunburst':{let b='';for(let i=0;i<48;i++)b+=`<line x1="160" y1="80" x2="${(160+300*Math.cos(i*Math.PI/24)).toFixed(1)}" y2="${(80+300*Math.sin(i*Math.PI/24)).toFixed(1)}" stroke="${ink}" stroke-width=".4"/>`;return `<g id="${id}">${b}</g>`;}
     case 'banner':{try{const p=cz(n).p;if(p&&p!=='p-plain')return `<g id="${id}" transform="scale(.32 .5)" fill="none" stroke="${ink}" stroke-width="1.2">${czPatSVG(p,hash(n.name||'')%9973,1).replace(/<svg\b[^>]*>|<\/svg>/g,'')}</g>`;}catch(e){}}
     /* falls through: a banner with no pattern gets the rosette */
@@ -33906,11 +33921,13 @@ function cuNoteSVG(n,c,o){
   if(N.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),ex-11,ey-15,22,26);
   else if(N.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=`<circle cx="${ex}" cy="${ey-2}" r="12" fill="${c2}" opacity=".9"/>`+cuNest(flagSVG({p:'plain',c:[c2,c2,c2],e,ec:ink},''),ex-15,ey-12,30,20);}
   else if(N.emb==='seal')emb=`<circle cx="${ex}" cy="${ey-2}" r="12" fill="none" stroke="${ink}" stroke-width=".8"/><circle cx="${ex}" cy="${ey-2}" r="9.5" fill="none" stroke="${ink}" stroke-width=".4" stroke-dasharray="1 1.2"/><text x="${ex}" y="${ey}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5" fill="${ink}">${esc(code)}</text>`;
-  const sx=flR?190:96,strip=N.strip?`<g><rect x="${sx}" y="0" width="7" height="160" fill="${c2}" opacity=".6"/><rect x="${sx}" y="0" width="7" height="160" fill="url(#${id}s)"/></g>`:'';
+  const sx=flR?190:96,sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:c2,strip=N.strip?`<g><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="${sf}" opacity="${N.strip>1?.92:.6}"/><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="url(#${id}s)"/></g>`:'';
   const label=o.label||`A ${denS} ${c.nm} banknote of ${n.name}`;
   return `<svg class="cu-note${o.cls?' '+o.cls:''}" viewBox="0 0 320 160" role="img" aria-label="${esc(label)}"><defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${cuMix(c1,'#FFFFFF',dark?0.12:0.35)}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${cuMix(c1,'#000000',0.18)}"/></linearGradient>
 <radialGradient id="${id}w" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
 <pattern id="${id}s" width="7" height="8" patternUnits="userSpaceOnUse"><rect width="7" height="4" fill="${ink}" opacity=".25"/></pattern>
+<linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4a6c9"/><stop offset=".2" stop-color="#a6d8f4"/><stop offset=".4" stop-color="#b9f4c4"/><stop offset=".6" stop-color="#f4eda6"/><stop offset=".8" stop-color="#c9a6f4"/><stop offset="1" stop-color="#a6f0f4"/></linearGradient>
+<linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e3a1"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f2d27a"/></linearGradient>
 ${/^<pattern/.test(pat)?pat:''}<clipPath id="${id}c"><rect width="320" height="160" rx="7"/></clipPath></defs>
 <g clip-path="url(#${id}c)"><rect width="320" height="160" fill="url(#${id}g)"/>${/^<pattern/.test(pat)?'':`<defs>${pat}</defs>`}${patUse}
 <ellipse cx="${vx}" cy="80" rx="44" ry="54" fill="${vc}" opacity=".9"/><ellipse cx="${vx}" cy="80" rx="44" ry="54" fill="none" stroke="${c2}" stroke-width="1.4"/><ellipse cx="${vx}" cy="80" rx="40" ry="50" fill="none" stroke="${c2}" stroke-width=".5" stroke-dasharray="1 1.6"/>
@@ -33931,6 +33948,8 @@ ${emb}<text x="160" y="${N.emb==='none'?128:141}" text-anchor="middle" font-fami
 function cuShapePath(sh){
   const poly=(k,r,rot)=>Array.from({length:k},(_,i)=>{const a=rot+i*2*Math.PI/k;return (i?'L':'M')+(60+r*Math.cos(a)).toFixed(2)+' '+(60+r*Math.sin(a)).toFixed(2);}).join('')+'Z';
   if(sh==='hept')return poly(7,56,-Math.PI/2);
+  if(sh==='octo')return poly(8,56,-Math.PI/2+Math.PI/8);
+  if(sh==='holed')return 'M60 4a56 56 0 1 1 0 112a56 56 0 1 1 0-112ZM60 49a11 11 0 1 0 0 22a11 11 0 1 0 0-22Z';
   if(sh==='dodec')return poly(12,56,-Math.PI/2);
   if(sh==='square')return 'M26 6h68a20 20 0 0 1 20 20v68a20 20 0 0 1-20 20H26a20 20 0 0 1-20-20V26A20 20 0 0 1 26 6Z';
   if(sh==='scallop'){let d='';const k=16;for(let i=0;i<k;i++){const a0=i*2*Math.PI/k,a1=(i+1)*2*Math.PI/k,x0=60+52*Math.cos(a0),y0=60+52*Math.sin(a0),x1=60+52*Math.cos(a1),y1=60+52*Math.sin(a1);d+=(i?'':'M'+x0.toFixed(2)+' '+y0.toFixed(2))+'A10.4 10.4 0 0 1 '+x1.toFixed(2)+' '+y1.toFixed(2);}return d+'Z';}
@@ -33941,7 +33960,8 @@ function cuCoinSVG(n,c,o){
   const sub=K.dk==='s'&&c.sn>1,den=K.den||1,unit=sub?(den===1?c.su:plural(c.su)):(den===1?c.nm.split(' ').pop():c.pl.split(' ').pop());
   const ins=(K.ins||n.name||'').toUpperCase().slice(0,28),yr=K.yr&&c.year?String(c.year):'',arms=cuArmsOf(n);
   let emb='';
-  if(K.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),45,30,30,36);
+  if(K.shape==='holed')emb='';
+  else if(K.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),45,30,30,36);
   else if(K.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=cuNest(flagSVG({p:'plain',c:[inner,inner,inner],e,ec:deep},''),36,30,48,32);}
   else if(K.emb==='wreath')emb=`<g fill="none" stroke="${deep}" stroke-width="1.4" opacity=".8"><path d="M44 62c-6-12-2-24 8-30M76 62c6-12 2-24-8-30"/>${[0,1,2,3].map(i=>`<ellipse cx="${46-i*0.6}" cy="${56-i*7}" rx="2.4" ry="4.4" transform="rotate(${-30+i*12} ${46-i*0.6} ${56-i*7})"/><ellipse cx="${74+i*0.6}" cy="${56-i*7}" rx="2.4" ry="4.4" transform="rotate(${30-i*12} ${74+i*0.6} ${56-i*7})"/>`).join('')}</g>`;
   else emb=`<path d="M60 30l5.5 12.5 13.5.9-10.4 8.7 3.4 13.2L60 58.1l-12 7.2 3.4-13.2-10.4-8.7 13.5-.9z" fill="${deep}" opacity=".75"/>`;
@@ -33949,8 +33969,8 @@ function cuCoinSVG(n,c,o){
 <radialGradient id="${id}o" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="${cuMix(outer,'#FFFFFF',.45)}"/><stop offset=".6" stop-color="${outer}"/><stop offset="1" stop-color="${cuMix(outer,'#000000',.35)}"/></radialGradient>
 <radialGradient id="${id}i" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="${cuMix(inner,'#FFFFFF',.5)}"/><stop offset=".7" stop-color="${inner}"/><stop offset="1" stop-color="${cuMix(inner,'#000000',.25)}"/></radialGradient>
 <path id="${id}a" d="M24 60a36 36 0 0 1 72 0"/><path id="${id}b" d="M20 62a40 40 0 0 0 80 0"/></defs>
-<path d="${cuShapePath(K.shape)}" fill="url(#${id}o)" stroke="${cuMix(outer,'#000000',.45)}" stroke-width="1.2"/>
-${bi?`<circle cx="60" cy="60" r="38" fill="url(#${id}i)" stroke="${cuMix(inner,'#000000',.35)}" stroke-width=".8"/>`:`<circle cx="60" cy="60" r="47" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width=".7"/><circle cx="60" cy="60" r="44" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width="1.6" stroke-dasharray=".1 3.2" stroke-linecap="round"/>`}
+<path d="${cuShapePath(K.shape)}" fill="url(#${id}o)" fill-rule="evenodd" stroke="${cuMix(outer,'#000000',.45)}" stroke-width="1.2"/>
+${bi?`<path d="M60 22a38 38 0 1 1 0 76a38 38 0 1 1 0-76Z${K.shape==='holed'?'M60 49a11 11 0 1 0 0 22a11 11 0 1 0 0-22Z':''}" fill-rule="evenodd" fill="url(#${id}i)" stroke="${cuMix(inner,'#000000',.35)}" stroke-width=".8"/>`:`<circle cx="60" cy="60" r="47" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width=".7"/><circle cx="60" cy="60" r="44" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width="1.6" stroke-dasharray=".1 3.2" stroke-linecap="round"/>`}
 ${emb}<text font-family="Cinzel,Georgia,serif" font-size="${ins.length>16?6.2:7.4}" letter-spacing="1" fill="${deep}"><textPath href="#${id}a" startOffset="50%" text-anchor="middle">${esc(ins)}</textPath></text>
 <text x="60" y="82" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="17" fill="${deep}">${den}</text>
 <text x="60" y="91" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5.6" letter-spacing=".6" fill="${deep}">${esc(String(unit).toUpperCase().slice(0,16))}</text>
@@ -33968,7 +33988,7 @@ function cuSorted(rows){
     if(typeof x==='string')return d*(x<y?-1:x>y?1:0);return d*(x-y)||(a.c.nm<b.c.nm?-1:1);});
 }
 function cuView(now){
-  const n=S.nation;if(!n)return '';cuLoad();
+  const n=S.nation;if(!n)return '';cuLoad();tutMark('x');
   const P=CU.pub,me=myId(),mc=cuOf(n),me0=cuE(me),rows=cuList(),rated=rows.filter(r=>r.e),reg=REG.name;
   const head=`<header class="vh cu-head"><div class="cu-head-t"><p class="eyebrow">Ministry of Finance</p><h1>Foreign Exchange Bureau</h1><p>The official exchange rates of the currencies of ${esc(REGION)}, and the confidence each one commands. Every rate is quoted in the ${esc(cuUnit())}, the region’s common accounting unit, and published once a day from the nations’ own economies.</p>
     ${P?`<p class="hint">Rates of ${esc(fmtDate(Date.parse(P.day+'T12:00:00Z')))} · ${rated.length} currencies · the next publication follows midnight UTC</p>`:''}</div>${cuSeal()}</header>`;
@@ -34168,6 +34188,11 @@ function cuCzBody(n){
   if(!CU.d)CU.d=cuDraft(n);const d=CU.d,[,c]=cuDraftCur(n,d),N=d.note,K=d.coin;
   const f=(k,l,max,ph,hint)=>`<div class="field"><label for="cu-f-${k}">${l}</label><input class="input" id="cu-f-${k}" data-cu="${k}" value="${esc(d[k]==null?'':String(d[k]))}" maxlength="${max}" placeholder="${esc(ph)}" autocomplete="off"${hint?` aria-describedby="cu-f-${k}-h"`:''}>${hint?`<span class="hint" id="cu-f-${k}-h">${hint}</span>`:''}</div>`;
   const seg=(lab,id,opts,cur,grp,key)=>czSeg(lab,id,opts.map(([v,l])=>[String(v),l]),String(cur),'cu-set',grp+'.'+key);
+  /* the same, with the designs still to be earned shown locked, and how to earn them */
+  const mine=czMine(),lseg=(lab,id,opts,cur,grp,key,lk)=>`<div class="cz-drow"><span class="cz-dl" id="${id}">${lab}</span><div class="seg cz-seg" role="group" aria-labelledby="${id}">${opts.map(([v,l])=>{
+    const u=CU_LOCK[lk][v],on=String(cur)===String(v);
+    return !u||mine.has(u)?`<button type="button" id="${id}-${v}" class="seg-b${on?' on':''}" data-act="cu-set" data-f="${grp}.${key}" data-v="${v}" aria-pressed="${on}">${esc(l)}</button>`
+      :`<button type="button" id="${id}-${v}" class="seg-b cu-lk" data-act="cu-locked" data-u="${u}" aria-disabled="true" title="${esc(l+': '+unlockHow(u))}">${CZ_LOCK}${esc(l)}</button>`;}).join('')}</div></div>`;
   const flagC=(n.flag&&n.flag.c||[]).map(cuHex).filter(Boolean),sw=[...new Set(flagC.concat(Object.values(CZ_TINCT).map(t=>t[1].toUpperCase())).concat(['#1D6A5C','#6A3DB3','#7A2E2E','#2D3E6B']))].slice(0,12);
   const col=(k,l)=>`<div class="cz-drow"><span class="cz-dl" id="cu-l-${k}">${l}</span><div class="cu-sws" role="group" aria-labelledby="cu-l-${k}">${sw.map(h=>`<button type="button" class="cu-sw${N[k]===h?' on':''}" style="background:${h}" data-act="cu-set" data-f="note.${k}" data-v="${h}" aria-pressed="${N[k]===h}" aria-label="${esc(h)}${flagC.includes(h)?', from your flag':''}"></button>`).join('')}<label class="cu-sw-c"><span class="cz-sr">Another colour</span><input type="color" value="${esc((N[k]||'#1D6A5C').toLowerCase())}" data-cu="note.${k}"></label></div></div>`;
   return `<div class="cu-cz">
@@ -34182,15 +34207,15 @@ function cuCzBody(n){
     ${seg('Separators','cu-l-nf',Object.keys(CU_NF).map(k=>[k,CU_NF[k][2]]),d.nf,'cu','nf')}
     <h3 class="sub-h">Banknote</h3>
     ${col('c1','Main colour')}${col('c2','Second colour')}
-    ${seg('Engraving','cu-l-pat',Object.entries(CU_PATS),N.pat,'note','pat')}
+    ${lseg('Engraving','cu-l-pat',Object.entries(CU_PATS),N.pat,'note','pat','pat')}
     ${seg('Vignette','cu-l-por',Object.entries(CU_POR),N.por,'note','por')}
     ${seg('Emblem','cu-l-emb',Object.entries(CU_EMBS),N.emb,'note','emb')}
     ${seg('Flag','cu-l-fl',Object.entries(CU_FLS),N.fl,'note','fl')}
-    ${seg('Security strip','cu-l-st',[[1,'Shown'],[0,'None']],N.strip,'note','strip')}
+    ${lseg('Security strip','cu-l-st',Object.entries(CU_STRIPS),N.strip,'note','strip','strip')}
     ${seg('Denomination','cu-l-den',CU_DENOMS.map(v=>[v,v.toLocaleString('en-US')]),N.den,'note','den')}
     <h3 class="sub-h">Coin</h3>
-    ${seg('Metal','cu-l-met',Object.entries(CU_METALS).map(([k,v])=>[k,v[0]]),K.met,'coin','met')}
-    ${seg('Shape','cu-l-sh',Object.entries(CU_SHAPES),K.shape,'coin','shape')}
+    ${lseg('Metal','cu-l-met',Object.entries(CU_METALS).map(([k,v])=>[k,v[0]]),K.met,'coin','met','met')}
+    ${lseg('Shape','cu-l-sh',Object.entries(CU_SHAPES),K.shape,'coin','shape','shape')}
     ${seg('Device','cu-l-ce',Object.entries(CU_CEMB),K.emb,'coin','emb')}
     ${seg('Value','cu-l-cd',CU_COINS.map(v=>[v,String(v)]),K.den,'coin','den')}${+d.sn>1?seg('In','cu-l-dk',[['u',c.pl.split(' ').pop()],['s',plural(c.su)]],K.dk,'coin','dk'):''}
     <div class="fields">${f('coin.ins','Inscription',28,String(n.name||'').toUpperCase(),'Round the top of the coin.')}</div>
@@ -34236,6 +34261,7 @@ DISPATCH_SOURCES.push(ctx=>{
 });
 HELP_EXT.push({k:'currency',t:'Currencies and the Foreign Exchange Bureau',body:n=>`<p>Every nation has its own currency. Name it, choose its code and symbol, and design its banknote and coin on the <b>Customise</b> page; a suggestion is ready from the day the nation is founded.</p>
 <p>The <b>Foreign Exchange Bureau</b> (in the menu, under Abroad) publishes every currency’s exchange rate once a day, from each nation’s real economy: productivity, growth, stable government and prices, trade and development. Each currency also has a <b>Currency Prestige</b> rating from 0 to 100, from Fragile to Highly Trusted, which measures confidence, not value: a currency worth a hundred of another is not, for that, more trusted. Prestige is earned slowly, by staying stable, growing, trading and keeping inflation and debt in check, and a young currency needs 180 days to build a full track record.</p>
+<p>The <b>Currency &amp; finance</b> achievements and the <b>National Mint</b> set in the museum earn more designs: engravings, coin metals and shapes, and holographic and gold-foil security strips. Once the first and next steps are done, the <b>Treasury steps</b> on your Nation page pay ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil each for visiting the Bureau and designing your currency.</p>
 <p>Names and designs never change a currency’s value or prestige, and nothing can be bought that does. The figures are for information and national pride: trade deals and resources work exactly as before.</p>`});
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="cu-"]');if(!el||!S.nation)return;const a=el.dataset.act,u=CU.ui;
@@ -34247,6 +34273,9 @@ document.addEventListener('click',e=>{
   else if(a==='cu-open'){if(el.dataset.id){u.from=el.dataset.id;u.to=myId();}go('exchange');}
   else if(a==='cu-set'){if(!CU.d)CU.d=cuDraft(S.nation);cuSetDraft(el.dataset.f,el.dataset.v);render();}
   else if(a==='cu-reset'){CU.d=cuDraft(Object.assign({},S.nation,{cur:undefined}));render();}
+  else if(a==='cu-locked'){toast('Locked. '+unlockHow(el.dataset.u));}
+  else if(a==='cu-steps-hide'){cuStepsHide(true);render();}
+  else if(a==='cu-steps-show'){cuStepsHide(false);go('nation');}
 });
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-cu-jump]');if(el)setTimeout(()=>{const t=document.getElementById('cz-sec-c');if(t)t.scrollIntoView({block:'start'});},0);});
 const cuInput=e=>{
@@ -34268,6 +34297,90 @@ function cuTipAt(box,i){
 }
 document.addEventListener('pointermove',e=>{const b=e.target.closest&&e.target.closest('[data-cu-chart]');if(!b||!CU.chart)return;const r=b.getBoundingClientRect();cuTipAt(b,Math.round((e.clientX-r.left)/r.width*(CU.chart.pts.length-1)));});
 document.addEventListener('pointerout',e=>{const b=e.target.closest&&e.target.closest('[data-cu-chart]');if(!b||b.contains(e.relatedTarget))return;for(const s of b.querySelectorAll('.cu-x,.cu-tip'))s.hidden=true;});
+/* ── rewards: designs to earn, the Currency & finance achievements, the National Mint, and the Treasury steps ── */
+Object.assign(UNLOCKS,{
+  'cn-moire':{k:'cunote',n:'Moiré',src:'ach'},'cn-basket':{k:'cunote',n:'Basketweave',src:'ach'},'cn-mosaic':{k:'cunote',n:'Mosaic',src:'ach'},
+  'cn-stars':{k:'cunote',n:'Constellation',src:'ach'},'cn-filigree':{k:'cunote',n:'Filigree',src:'set'},
+  'cm-rose':{k:'cumetal',n:'Rose gold',src:'ach'},'cm-platinum':{k:'cumetal',n:'Platinum',src:'ach'},'cm-black':{k:'cumetal',n:'Black nickel',src:'ach'},
+  'cs-holed':{k:'cushape',n:'Holed',src:'ach'},'cs-octo':{k:'cushape',n:'Eight-sided',src:'set'},
+  'cx-holo':{k:'custrip',n:'Holographic',src:'ach'},'cx-gold':{k:'custrip',n:'Gold foil',src:'ach'},
+  't-treasurer':{k:'title',n:'the Treasurer',src:'set'}});
+/* other players' screens show an earned design only if the record lists it (n.cz.u, as for every cosmetic) */
+CU_HOLDS=(n,id)=>!!n&&!n.npc&&czHolds(n,id,n.cz);
+COMMIT_HOOKS.push(n=>{
+  if(!n||n.npc||!n.cur)return;const c=cuClean(n.cur)||{},N=c.note||{},K=c.coin||{};
+  if(![CU_LOCK.pat[N.pat],CU_LOCK.strip[N.strip],CU_LOCK.met[K.met],CU_LOCK.shape[K.shape]].some(Boolean))return;
+  if(!n.cz||typeof n.cz!=='object')n.cz={};n.cz.u=[...unlocksOf(n)].filter(id=>czU(id)&&UNLOCKS[id].src!=='free').sort();
+});
+achUnlockWords=(f=>u=>{const U=UNLOCKS[u];if(!U)return '';const w={cunote:`the ${U.n} banknote engraving`,cumetal:`${U.n} coins`,cushape:`the ${U.n.toLowerCase()} coin`,custrip:`the ${U.n.toLowerCase()} security strip`}[U.k];return w||f(u);})(achUnlockWords);
+/* milestones the Bureau recorded in the nation's history (k 'fxm'), and, on your own page, today's rating */
+const cuEv=(n,f)=>((n&&n.log)||[]).some(l=>{try{return l&&l.k==='fxm'&&f(l);}catch(e){return false;}});
+const cuLive=n=>n&&S.nation&&n.seed!=null&&n.seed===S.nation.seed?cuE(myId()):null; /* the record being saved is a copy of the player's own */
+const cuTop=(e,k)=>!!e&&CU.pub&&Object.keys(CU.pub.n).length>=(k===1?3:8)&&e.r<=k&&e.p>=40;
+const cuTrust=(n,t)=>cuEv(n,l=>l.a==='tu'&&+l.b>=t)||(()=>{const e=cuLive(n);return !!e&&cuTier(e.p)>=t;})();
+const cuTop5=n=>cuEv(n,l=>l.a==='t5'||l.a==='top')||cuTop(cuLive(n),5),cuTop1=n=>cuEv(n,l=>l.a==='top')||cuTop(cuLive(n),1);
+/* a visit is in n.tut.lc once a save has recorded it; the player's own game knows a moment sooner (achievements and finds are
+   checked before the tutorial records it in the same save) */
+const cuVisited=n=>tutLcOf(n).includes('fxv')||(!!n&&!!S.nation&&n.seed!=null&&n.seed===S.nation.seed&&tutDevGet().includes('x')),cuRenamed=n=>((n&&n.log)||[]).some(l=>l&&l.k==='cur');
+ACH_CATS.splice(ACH_CATS.length-1,0,['cur','Currency & finance']);ACH_CAT.cur='Currency & finance';
+{const C=(id,t,nm,d,f,u)=>achDef('cur',id,t,nm,d,1,x=>f(x.n)?1:0,{u});
+  C('cur-design','b','Legal Tender','Design your national currency on the Customise page.',n=>!!n.cur,'cn-moire');
+  C('cur-bureau','b','Bureau de Change','Visit the Foreign Exchange Bureau.',cuVisited,'cn-basket');
+  C('cur-rename','b','New Money','Rename your national currency.',cuRenamed,'cn-mosaic');
+  C('cur-full','s','Master of the Mint','Give your currency a name or code of your own, and design both its banknote and its coin.',n=>{const c=n.cur||{};return !!((c.nm||c.cd)&&c.note&&c.coin);},'cx-holo');
+  C('cur-high','b','Bull Market','See your currency reach its highest value in ninety days.',n=>cuEv(n,l=>l.a==='hi'),'cn-stars');
+  C('cur-low','b','Bear Market','See your currency fall to its lowest value in ninety days. It happens to the best of them.',n=>cuEv(n,l=>l.a==='lo'),'cm-black');
+  C('cur-trusted','s','In Good Standing','Have your currency classed as Trusted.',n=>cuTrust(n,3),'cs-holed');
+  C('cur-top5','s','Blue Chip','Have one of the five most trusted currencies in your region.',cuTop5,'cm-rose');
+  C('cur-hightrust','g','Sound Money','Have your currency classed as Highly Trusted.',n=>cuTrust(n,4),'cm-platinum');
+  C('cur-top','g','The Gold Standard','Have the most trusted currency in your region.',cuTop1,'cx-gold');
+}
+{const R=f=>({f:n=>{try{return !!f(n);}catch(e){return false;}}});
+  const s={id:'mint',n:'The National Mint',d:'Dies, proofs and ledgers from the nation’s money, kept by the Mint and shown to visitors on Tuesdays.',u:['t-treasurer','cs-octo','cn-filigree'],fx:{culture:1},items:[
+    ['mi-proof','The Proof Coin','coin','#C9961A','c','The first coin struck with the new design, polished until the Minister of Finance can straighten their tie in it.','Design your national currency.',R(n=>n.cur)],
+    ['mi-ledger','The Bureau’s First Ledger','book','#2E6B5C','c','Page one of the Foreign Exchange Bureau’s rates, ruled by hand. Someone asked for a better rate before the ink was dry.','Visit the Foreign Exchange Bureau.',R(cuVisited)],
+    ['mi-specimen','A Specimen Note','ticket','#6A3DB3','u','Overprinted SPECIMEN in red, so that nobody spends it. Somebody once tried, at a bakery, and very nearly managed.','Rename your currency.',R(cuRenamed)],
+    ['mi-ingot','The Reserve Ingot','ingot','#B8860B','u','Stamped with the national seal and locked in a vault for confidence. Nobody has seen it since, which is rather the point.','See your currency reach a ninety-day high.',R(n=>cuEv(n,l=>l.a==='hi'))],
+    ['mi-seal','The Seal of Confidence','seal','#1D6A5C','r','Pressed on the Bureau’s certificate the day the currency was declared Trusted. Bankers bow slightly as it passes.','Have your currency classed as Trusted.',R(n=>cuTrust(n,3))],
+    ['mi-purse','The Merchant’s Purse','purse','#7A3F1D','r','Coins from five neighbours, and a note asking which one to spend first.','Have one of the five most trusted currencies in your region.',R(cuTop5)],
+    ['mi-crown','The Gold Standard','crown','#E3B341','l','A crown of the national currency, cast in the metal it is supposed to be as good as. For once, it is.','Have your currency classed as Highly Trusted.',R(n=>cuTrust(n,4))]]};
+  COL_SETS.push(s);COL_SET_BY_ID[s.id]=s;s.items=s.items.map(([id,n,g,c,r,l,h,q])=>{const a={id,set:s.id,n,g,c,r,l,h,q};COL_ITEMS.push(a);COL_BY_ID[id]=a;return a;});}
+
+/* ── Treasury steps: the third checklist on the Nation page, once the Next steps are done or hidden. Each step pays
+   CU_STEP_CREDITS land credits and CU_STEP_GIFT, once (kept in n.tut.lc with the other steps, so never twice). ── */
+const CU_STEPS=[
+  ['fxv','Visit the Foreign Exchange Bureau','See what your currency is worth, how far it is trusted, and how it compares with your neighbours’.','exchange','Open the Bureau',(n,d)=>d.includes('x')],
+  ['fxd','Design your currency','Name it, choose its code and symbol, and design its banknote and coin.','customise','Design it',n=>!!n.cur||cuRenamed(n)]
+];
+const CU_STEP_CREDITS=2,CU_STEP_GIFT={oil:5},CU_STEPS_KEY='statehood.steps3.v1';
+function cuStepsState(n){const d=tutDevGet(),lc=tutLcOf(n);return CU_STEPS.map(([k,t,h,v,b,f])=>{let ok=lc.includes(k);if(!ok)try{ok=!!f(n,d);}catch(e){}return {k,t,h,v,b,ok};});}
+function cuStepsHidden(n){try{return localStorage.getItem(CU_STEPS_KEY)===String(n.seed);}catch(e){return false;}}
+function cuStepsHide(on){try{if(on)localStorage.setItem(CU_STEPS_KEY,String(S.nation.seed));else localStorage.removeItem(CU_STEPS_KEY);}catch(e){}}
+function cuNextDone(n){try{return tutFirstDone(n)&&(nextHidden(n)||nextState(n).every(s=>s.ok));}catch(e){return false;}}
+function cuStepsCard(n){
+  if(!n||n.npc||!cuNextDone(n)||cuStepsHidden(n))return '';
+  const st=cuStepsState(n),done=st.filter(s=>s.ok).length;if(done===st.length)return '';
+  const tag=`<span class="tut-lc" title="Earns ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil">+${CU_STEP_CREDITS} land · ${CU_STEP_GIFT.oil} oil</span>`;
+  return `<section class="stp stp-cu" aria-labelledby="cus-h"><div class="stp-h"><div><p class="eyebrow">Treasury steps</p><h2 class="stp-t" id="cus-h" tabindex="-1">Money of your own</h2></div><span class="stp-n">${done} of ${st.length} done<span class="tut-lch"> · ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil a step</span></span></div>
+    <span class="bar" role="img" aria-label="${done} of ${st.length} treasury steps done"><i style="width:${(done/st.length*100).toFixed(1)}%"></i></span>
+    <ol class="stp-l">${st.map(s=>`<li class="${s.ok?'done':''}" data-k="${s.k}"><span class="stp-i" aria-hidden="true">${s.ok?'✓':''}</span><span class="stp-x"><b>${esc(s.t)}${s.ok?'':tag}</b><span class="hint">${s.ok?'Done':esc(s.h)}</span></span>${s.ok?'':`<button class="btn ghost small-btn" data-act="go" data-v="${s.v}"${s.k==='fxd'?' data-cu-jump="1"':''}>${esc(s.b)}</button>`}</li>`).join('')}</ol>
+    <div class="stp-f"><button class="linkish small" data-act="go" data-v="help">How to play</button><button class="linkish small" data-act="cu-steps-hide">Hide this list</button></div></section>`;
+}
+firstStepsCard=(f=>function(n){let a='',b='';try{a=f.apply(this,arguments);}catch(e){}try{b=cuStepsCard(n);}catch(e){}return a+b;})(firstStepsCard);
+stepsReset=(f=>function(){let h='';try{h=f.apply(this,arguments);}catch(e){}const n=S.nation;
+  try{if(n&&!n.npc&&cuStepsHidden(n)&&cuNextDone(n)&&!cuStepsState(n).every(s=>s.ok))h+=`<div class="row" style="margin-top:14px"><button type="button" class="btn ghost small-btn" data-act="cu-steps-show">Show the treasury steps again</button><span class="hint">The third checklist returns to your Nation page.</span></div>`;}catch(e){}
+  return h;})(stepsReset);
+/* done steps go into n.tut.lc with the others; each is worth one credit there, and one more here */
+tutLcNow=(f=>function(n){const out=f.apply(this,arguments);try{for(const s of cuStepsState(n))if(s.ok&&!out.includes(s.k))out.push(s.k);}catch(e){}return out;})(tutLcNow);
+const cuStepsPaid=n=>tutLcOf(n).filter(k=>CU_STEPS.some(s=>s[0]===k)).length;
+landEarned=(f=>function(n){return f.apply(this,arguments)+cuStepsPaid(n)*(CU_STEP_CREDITS-1);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+cuStepsPaid(n)*(CU_STEP_CREDITS-1);})(earnedAt);
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc)return;const had=tutLcOf(old),got=CU_STEPS.filter(s=>tutLcOf(n).includes(s[0])&&!had.includes(s[0]));if(!got.length)return;
+  const st=stockNow(n,now);for(const [r,v] of Object.entries(CU_STEP_GIFT))st[r]=Math.min(STOCK_CAP,num0(st[r])+v*got.length);n.stock=roundStock(st);n.stockAt=now;
+  return [`${got.length>1?'Steps':'Step'} done: ${list(got.map(s=>s[1]))}. +${CU_STEP_CREDITS*got.length} land credits to spend on the map, and ${CU_STEP_GIFT.oil*got.length} oil.`];
+});
+
 /* a draft left on the Customise page is dropped on leaving it */
 go=(f=>function(v){if(v!=='customise')CU.d=null;return f.apply(this,arguments);})(go);
 

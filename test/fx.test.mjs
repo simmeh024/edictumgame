@@ -31,7 +31,7 @@ function currencyHelpers() {
   const a = GAME.indexOf('/* ── currency: pure helpers'), b = GAME.indexOf('/* ── currency: end of pure helpers ── */');
   assert.ok(a > 0 && b > a, 'the game marks its pure currency helpers');
   const G = gameSandbox(), ctx = vm.createContext({ clamp: G.clamp, plural: G.plural });
-  vm.runInContext(GAME.slice(a, b) + '\nthis.C={CU_TIERS,cuTier,cuClean,cuDefault,cuOf,cuNum,cuFig,cuAmt,cuParseAmt,cuRate,cuCodeOf,cuDec,CU_DENOMS};', ctx);
+  vm.runInContext(GAME.slice(a, b) + '\nthis.C={CU_TIERS,cuTier,cuClean,cuDefault,cuOf,cuNum,cuFig,cuAmt,cuParseAmt,cuRate,cuCodeOf,cuDec,CU_DENOMS,CU_LOCK,setHolds:f=>{CU_HOLDS=f;}};', ctx);
   return ctx.C;
 }
 const rnd = seed => { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
@@ -285,6 +285,20 @@ test('the game’s currency helpers: defaults for every nation, sanitising, form
   assert.equal(C.cuClean({ cd: 'ABCDEF' }), null);
   assert.equal(C.cuClean('nonsense'), null);
   assert.equal(C.cuClean({ nm: '123' }), null, 'a name starts with a letter');
+});
+
+test('earned designs: kept when held, the suggestion when not', () => {
+  const C = currencyHelpers();
+  const n = { name: 'Eternia', demonym: 'Eternian', currency: 'mark', cur: { note: { pat: 'moire', strip: 3 }, coin: { met: 'platinum', shape: 'holed' } } };
+  const c = C.cuClean(n.cur);
+  assert.deepEqual({ ...c.note }, { pat: 'moire', strip: 3 }); assert.deepEqual({ ...c.coin }, { met: 'platinum', shape: 'holed' });
+  assert.equal(C.cuOf(n).note.pat, 'moire', 'with no check (the job, or before the game sets one) everything shows');
+  C.setHolds((x, id) => id === 'cm-platinum');
+  const o = C.cuOf(n);
+  assert.equal(o.coin.met, 'platinum', 'a held design stays');
+  assert.equal(o.note.pat, 'guilloche'); assert.equal(o.note.strip, 1); assert.equal(o.coin.shape, 'round');
+  for (const [k, m] of Object.entries(C.CU_LOCK)) for (const id of Object.values(m)) assert.match(id, /^c[nmsx]-/, k);
+  C.setHolds(null);
 });
 
 test('amounts and rates: very large and very small, every number format, both symbol places', () => {
