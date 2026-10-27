@@ -353,6 +353,11 @@ await B.click('#pp-view [data-act="pp-uv"]');
 await until(() => B.$(`#pp-view .pp-st[data-id="${uidB}"]`));
 await B.click(`#pp-view .pp-st[data-id="${uidB}"]`);
 check('a stamp says where it came from', await until(async () => /Borvia/.test(await text(B, '#pp-view .pp-info'))));
+await B.selectOption('#pp-view .pp-jump', '1');
+check('the identity page shows the holder: a citizen with a photograph, a name and a matching machine-readable zone', await until(async () => {
+  const ts = await B.$$eval('#pp-view .pp-bio text', els => els.map(e => e.textContent)), sur = ts[ts.indexOf('SURNAME') + 1] || '';
+  return !!sur && ts.includes('DATE OF BIRTH') && ts.includes('PLACE OF BIRTH') && ts.some(t => t.startsWith('P<ALD' + sur.replace(/[^A-Z]+/g, '<') + '<<')) && (await B.$$('#pp-view .pp-bio svg[viewBox="0 0 80 100"]')).length === 2;
+}));
 await B.selectOption('#pp-view .pp-jump', '22');
 check('the last page carries the observations, under the seal of state', await until(async () => /OBSERVATIONS/.test(await text(B, '#pp-view .pp-stage')) && /Curia of Aldoria/.test(await text(B, '#pp-view .pp-stage'))));
 await B.keyboard.press('Escape');
@@ -373,6 +378,10 @@ await A.selectOption('#pp-move', '4');
 check('the editor moves a stamp to another page', await until(async () => { const p = (await localNation(A)).pp.p; return p[4].includes(uidB) && !p[0].includes(uidB); }));
 await A.fill('.pp-arr-t[data-pp-title="4"]', 'Old friends'); await A.press('.pp-arr-t[data-pp-title="4"]', 'Tab');
 check('and titles pages', await until(async () => (await localNation(A)).pp.l[4] === 'Old friends'));
+await A.click('[data-act="pp-tab"][data-v="design"]'); await A.click('[data-act="pp-dtab"][data-v="g"]');
+const holder1 = await until(() => A.$eval('.pp-grp .hint b', e => e.textContent).catch(() => ''));
+await A.click('[data-act="pp-holder"]');
+check('the owner can issue the passport to another citizen', await until(async () => { const h = await A.$eval('.pp-grp .hint b', e => e.textContent).catch(() => ''); return !!h && h !== holder1 && Number.isInteger((await localNation(A)).pp.hs); }));
 check('the tutorial counts a first stamp and a passport design, a land credit each', await until(async () => { const t = ((await nationDoc(uidA)) || { rec: {} }).rec.tut || {}; return Array.isArray(t.lc) && t.lc.includes('stamp') && t.lc.includes('ppdes'); }, 15000));
 
 /* ── 6. Firebase blocked: browser-only mode ─────────────────────────────── */
