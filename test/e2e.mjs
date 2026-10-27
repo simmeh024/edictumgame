@@ -302,7 +302,8 @@ await Promise.all([Q.waitForNavigation({ timeout: 20000 }), Q.click('[data-ed="d
 const uidQ2 = await ready(Q);
 check('the browser starts again as a new guest, on the founding page', !!uidQ2 && uidQ2 !== uidQ && !!(await Q.$('#d-name')));
 check('the player is told', await until(async () => /have been deleted/.test(await toasts(Q))));
-check('the nation, its summary and its posts are gone', (await restGet('nations/' + uidQ)).status === 404 && (await restGet('nationx/' + uidQ)).status === 404 && (await restGet('summaries/' + uidQ)).status === 404 && !(await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
+const leftQ = async () => [(await restGet('nations/' + uidQ)).status !== 404 && 'nation', (await restGet('nationx/' + uidQ)).status !== 404 && 'private half', (await restGet('summaries/' + uidQ)).status !== 404 && 'summary', (await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ) && 'posts'].filter(Boolean);
+check('the nation, its summary and its posts are gone', await until(async () => !(await leftQ()).length), 'still there: ' + (await leftQ()).join(', '));
 check('and so is the account', !(await accountExists(uidQ)));
 check('and the player’s support tickets', !(await restListAdmin('support')).some(t => t.fields.by.stringValue === uidQ) && !(await restListAdmin('slimits')).some(t => t.id === uidQ));
 
@@ -337,6 +338,19 @@ await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.
 check('in a kingdom it goes before the Privy Council', /Privy Council of Kingsmoor/.test(await text(KG, '.edict .form-code')) && /^Assent to motion I$/.test(await text(KG, '.edict [data-act="answer"]')));
 await KG.click('.edict [data-act="answer"]'); await KG.waitForSelector('.result');
 check('and comes back a royal decree under a REX or REGINA seal', /^By royal decree of the \S+ of Kingsmoor, /.test(await text(KG, '.result-fx')) && /REX|REGINA/.test(await text(KG, '.result .stamp')), await text(KG, '.result-fx'));
+check('signed by the nation’s own leader, by title while the leader has no name', /^By royal decree of the President of Kingsmoor, /.test(await text(KG, '.result-fx')), await text(KG, '.result-fx'));
+// who signs decrees is a choice on the Customise page
+await nav(KG, 'settings'); await KG.fill('#s-ruler', 'Ada Brook'); await KG.click('#settings-form button[type="submit"]');
+await until(async () => ((await localNation(KG)) || {}).ruler === 'Ada Brook');
+await nav(KG, 'customise');
+check('once the leader has a name, decrees give it', await until(async () => /By royal decree of President Ada Brook of Kingsmoor, …/.test(await text(KG, '.cz-ds-ex'))), await text(KG, '.cz-ds-ex'));
+await KG.click('#cz-l-ds-s');
+check('signed by the type of state, they read as they used to', await until(async () => /By royal decree of the Crown of Kingsmoor/.test(await text(KG, '.cz-ds-ex')) && ((await localNation(KG)).cz || {}).ds === 's'));
+await KG.click('#cz-l-ds-t');
+check('and by the leader’s title, without the name', await until(async () => /By royal decree of the President of Kingsmoor/.test(await text(KG, '.cz-ds-ex')) && ((await localNation(KG)).cz || {}).ds === 't'));
+await KG.click('#cz-l-ds-l');
+await until(async () => (await KG.getAttribute('#cz-l-ds-l', 'aria-pressed')) === 'true');
+await KG.locator('#cz-sec-s').screenshot({ path: path.join(OUT, 'customise-decrees.png') }); // a locator: choosing redraws the page
 await KG.ctx.close();
 // the passport: A opens B's page and collects its entry stamp
 await nav(A, 'region');
@@ -494,7 +508,7 @@ check('a Google account has a Sign out button under the account control', await 
 for (const scheme of ['light', 'dark']) {
   await E.emulateMedia({ colorScheme: scheme });
   await E.hover('.side-foot .ed-out');
-  await (await E.$('.side-foot')).screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });
+  await E.locator('.side-foot').screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });
 }
 await E.emulateMedia({ colorScheme: 'light' });
 check('a guest has none, since signing out would lose the nation', !!(await B.$('.side-foot .ed-acct')) && !(await B.isVisible('.ed-out')));
@@ -613,7 +627,7 @@ check('it tells search engines what the game is', /"@type": "VideoGame"/.test(ra
 await HP.fill('#d-name', 'Quillon'); await HP.fill('#d-currency', 'florin');
 check('the sample edict is worded for the nation being drafted', await until(async () => /Quillon/.test(await text(HP, '#hm-try .form-code')) && /counterfeit florin notes/.test(await text(HP, '#hm-try'))));
 await HP.click('#hm-try [data-act="hm-try"][data-o="2"]');
-check('answering it shows the decree and what it would change', await until(async () => /By decree of the Senate and People of Quillon, notes featuring a cat are accepted as legal tender/.test(await text(HP, '.hm-fx')) && /Weirdness/.test(await text(HP, '.hm-chg'))));
+check('answering it shows the decree and what it would change', await until(async () => /By decree of the President, with the Senate and People of Quillon, notes featuring a cat are accepted as legal tender/.test(await text(HP, '.hm-fx')) && /Weirdness/.test(await text(HP, '.hm-chg'))));
 const try1 = await text(HP, '.hm-try-t');
 await HP.click('[data-act="hm-next"]');
 check('Try another edict brings a different one, unanswered', await until(async () => (await text(HP, '.hm-try-t')) !== try1 && !!(await HP.$('#hm-try [data-act="hm-try"]'))));

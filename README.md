@@ -95,9 +95,14 @@ cannot.
 **Edicts.** Edicts go before the nation's government, which follows its type of state: the Senate of
 a republic ("By decree of the Senate and People of …"), a monarch's Privy Council (royal decrees), an
 emperor's council (imperial edicts), a sultan's Divan (firmans), a Holy Synod, a People's Congress, a
-governor's council or a borough council. Numbers and years are Roman (Edictum MCCLI, Anno IV, counted
-from the founding); the decision stamp defaults to a purple wax seal of state whose inscription
-follows the government (SPQ, REX, IMP and so on). The other stamps stay on the Customise page.
+governor's council or a borough council. Decrees also name the nation's own leader (Settings: the
+title, and the name if one is given): a ruler signs alone ("By imperial edict of President Ada Brook
+of …"), an assembly with the leader ("By decree of President Ada Brook, with the Senate and People of
+…"). The Customise page's Decrees section chooses the leader by name (the default), by title only, or
+the type of state's own wording ("the Emperor", "the Crown"); it is kept as `cz.ds`. Numbers and years
+are Roman (Edictum MCCLI, Anno IV, counted from the founding); the decision stamp defaults to a purple
+wax seal of state whose inscription follows the government (SPQ, REX, IMP and so on). The other stamps
+are in the same section of the Customise page.
 
 **Passport.** Every nation has a passport: a cover, an identity page and 20 pages of ten entry stamps.
 Opening another nation's page stamps its entry stamp into yours (at most 200), keeping that nation's
