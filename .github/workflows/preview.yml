@@ -1,5 +1,6 @@
-# Pull requests: test the Firestore rules and the referee (functions/) on the emulators, test the whole
-# game end to end in a browser on the emulators, deploy the rules, indexes and the referee to the
+# Pull requests: test the currency engine, the Firestore rules, the currency job and the referee (functions/)
+# on the emulators, test the whole game end to end in a browser on the emulators, deploy the rules,
+# indexes and the referee to the
 # staging project, and the built site to a temporary Hosting preview channel there (its address
 # is posted on the pull request). Previews never touch the live site's database or accounts. Every
 # preview shares staging's one referee.
@@ -40,10 +41,14 @@ jobs:
           java-version: 21
       - run: npm ci
       - run: npm ci --prefix functions
-      - run: npm run test:rules
-      - run: npm run test:referee
+      - name: The currency engine and the game's currency helpers
+        run: npm run test:fx
+      - name: The rules, and the daily currency job on the emulator
+        run: npm run test:rules
+      - name: The referee on the emulators
+        run: npm run test:referee
 
-  # the whole game in a browser against the Auth, Firestore and Hosting emulators (test/e2e.mjs,
+  # the whole game in a browser against the Auth, Firestore, Functions and Hosting emulators (test/e2e.mjs,
   # test/smoke.mjs); a failing run keeps its screenshots as an artifact
   e2e:
     name: Test the game end to end
@@ -70,6 +75,10 @@ jobs:
         run: npm run test:e2e
       - name: Smoke tests
         run: npm run test:smoke
+      - name: Install the currency job's packages
+        run: npm ci --prefix jobs/fx
+      - name: The currency and the Foreign Exchange Bureau in the game
+        run: npm run test:fx-e2e
       - name: Keep the screenshots of a failed run
         if: failure()
         uses: actions/upload-artifact@v7

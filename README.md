@@ -23,8 +23,9 @@ like), and **Firestore** holds the shared world.
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `functions/` | The referee: one Cloud Function (`referee`, in `europe-west1`) that rolls battles on the server, keeps each army's readiness and seals every victory (see Fair play). |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
-| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project. |
-| `test/` | Rules tests, end-to-end tests and a smoke test, all on the Firebase emulators. |
+| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job. |
+| `jobs/fx/` | The daily currency job: every currency's exchange value and Currency Prestige, from the nations' records (Firebase Admin SDK, its own `package.json`). See Currencies below. |
+| `test/` | Rules tests, end-to-end tests and a smoke test, all on the Firebase emulators, and the currency engine's tests. |
 | `tools/admin/` | A one-off script that makes a player an admin. |
 
 **Data.** Documents are named by the player's Firebase user id:
@@ -71,6 +72,12 @@ like), and **Firestore** holds the shared world.
 - `referee/pub`: `{k, at}`, the public half of the referee's signing key, which every game reads to
   check seals; `referee/key` holds the private half, which nobody but the referee reads. The referee
   makes the pair on its first battle in each project.
+- `fx/<region>`: `{v, day, t, j}`, the region's currencies as the Foreign Exchange Bureau published them
+  that day (JSON text: each currency's value in the region's standard unit, strength, prestige, tier,
+  rank, 1/7/30-day changes, factor scores, why it moved, recent milestones). `fxh/<nation id>`:
+  `{reg, t, d: {'YYYY-MM-DD': [value, prestige]}}`, one currency's whole daily history. `fxs/<region>`:
+  the currency job's own state (smoothing, volatility, 91 days of values, a lease); only admins read it.
+  Everyone reads the first two; nobody but the job writes any of them (see Currencies).
 
 A nation save writes the shared half, its summary and (when they changed) the private half and the
 space record in one batch.
@@ -168,6 +175,62 @@ passport designs (UNLOCKS source `bld`): five typefaces (Garamond, Fraktur, a co
 typewriter face, poster capitals; self-hosted, downloaded only when used), eight devices, five page
 prints and five watermarks. It also draws 3% more immigrants: arrivals and their cap in `migration()`.
 
+**Currencies and the Foreign Exchange Bureau.** Every nation has a currency. Its everyday name is
+`n.currency` (the word edicts and statistics use); the Customise page's **Currency** section adds an
+official name and plural, a 3-to-5-letter code, a symbol, a subunit and how many make a unit, where the
+symbol goes, the separators, a motto, and the banknote (colours, engraving, vignette, emblem, flag, security
+strip, denomination) and coin (metal, shape, device, value, inscription, mint year), drawn in SVG from the
+nation's own flag and arms. `n.cur` keeps only what the player changed from the suggestion `cuDefault()`
+makes (Eternia's mark: the Eternian Mark, ETM, ₥), so every nation, old, new or computer-run, has a currency
+without a migration. Renaming one is logged in the nation's history (`k: 'cur'`). Records are kept by the
+nation's id, never by the code, so two nations may choose the same code.
+
+What a currency is worth and how far it is trusted are worked out once a day by the **currency job**
+(`jobs/fx/`, run by `.github/workflows/currency.yml` shortly after midnight UTC), never in the browser:
+
+- **Value.** Strength (0 to 100) is a weighted score of the nation's real figures, the ones the game already
+  simulates: productivity, the output per person the Statistics page shows (the game's average income
+  times its prosperity multiplier from trade, buildings and cabinet; 30%), economic growth, mostly per
+  person, from the record's history snapshots (20%), government stability and confidence: approval, rule of
+  law, safety and stable prices, less for wars (20%), trade in live deals: partners and volume, open markets
+  (20%), and development: science, education and how evenly industries share the economy (10%). Population
+  and land count only through output and scale. The value is `denomination × 4^((strength − 50) / 50)`
+  standard units, where the denomination (0.05 to 20) is fixed from the nation's id, so rates such as 1:0.82
+  or 1:32.88 come out naturally and no name or design can move them. Strength moves 35% of the way to its
+  new level a day, never more than 3% of value. Exchange rates are derived, `V(A) / V(B)`, so inverse and
+  cross rates always agree, and pairs are never stored. Every region's standard unit has the same
+  definition, so a future interregional benchmark needs no rewrite.
+- **Currency Prestige** (0 to 100: Fragile, Vulnerable, Established, Trusted, Highly Trusted) never looks at
+  the value: economic stability and resilience (steady output, jobs, size, growth; 25%), stable government
+  and institutions (20%), the currency's own day-to-day steadiness, in percent (20%), trade participation
+  (15%), productivity and development (10%) and monetary credibility: inflation, public debt, the credit
+  rating, an independent central bank or a People's Bank, a sovereign fund (10%). It moves 10% of the way to
+  its target a day, at most 1.5 points up or 2 down (5 in a crisis: a new war, or government or economic
+  stability falling 15 points in a day), with a point of hysteresis at the tier lines, and a player's
+  currency is capped at 50 rising to 100 over its nation's first 180 days (computer-run nations are long
+  established). Nothing a player buys or designs changes it, and it has no effect on play yet: it is for
+  information, comparison and pride.
+
+The formulas the job copies from the game (income, approval, inflation, debt, credit rating, unemployment,
+rule of law, industries, the computer nations' budget) are named functions in the game, and
+`test/fx.test.mjs` checks the two agree. The job reads the regions and the computer-run nations from the
+game file itself, so a new region is valued the next day with no change to the job. It skips nations
+unsaved for 260 days and removed ones, marks hidden ones (only their owner sees them), and leaves the
+nation records alone: trade deals, resources and everything else in play are untouched. A nation that
+moves region carries its currency's history and smoothing with it.
+
+The **Foreign Exchange Bureau** (`#exchange`, under Abroad) shows the player's currency (value and prestige
+side by side, each with why, in words), a converter between any two currencies of the region with a swap
+button and both prestige ratings, the region's most trusted currencies, a sortable directory of every
+currency (rate against the player's, 24 hours, 7 days, strength, stability, prestige, rank), charts of the
+rate and of prestige over 7 days to all the history there is, the milestones the Bureau recorded, and how it
+all works. Nation pages show the currency, its rate against the viewer's and its prestige; the Statistics
+page's economy shows the real rate; the Census adds the Bureau's indicators below its scales (not as new
+scales); a currency's milestones (a new tier, the most trusted or a top-five currency, a ninety-day high or
+low, each at most so often) go into its nation's history once its player next opens the game, and into the
+Daily Dispatch's business pages. The game reads `fx/<region>` at most once a session (the browser keeps the
+copy until the next day's) and a currency's history only when a chart shows it, and listens to neither.
+
 **Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
 a message and, if the player wants, an email address. Their tickets and the team's answers are listed
 below it, and a player waiting for an answer is told when it comes. Admins answer on the portal's
@@ -176,8 +239,8 @@ without one, or deleted as spam. Banned players can still send tickets, to appea
 
 **Deleting an account.** The account menu's **Delete my nation and account** removes the player's
 posts in every region, their support tickets, their nation, summary and space record, their pacing records and their
-account (a Google account is asked to confirm the sign-in first). The daily backups lose it within
-14 days.
+account (a Google account is asked to confirm the sign-in first). The next day's currency job deletes the
+currency's history (`fxh/`). The daily backups lose it within 14 days.
 
 **Privacy and terms.** `src/privacy.html` and `src/terms.html`, with Spanish versions
 `src/privacidad.html` and `src/terminos.html`, are served as `/privacy`, `/terms`, `/privacidad`
@@ -239,11 +302,14 @@ run `python3 build.py` again and reload.
 ### Tests
 
 ```sh
-npm run test:rules         # the security rules (Firestore emulator only)
+npm run test:fx            # the currency engine and the game's currency helpers (no emulator)
+npm run test:rules         # the security rules, and the daily currency job (Firestore emulator only)
 npm run test:referee       # the referee: readiness, fair dice, the odds' bound, seals (Auth, Firestore and Functions emulators)
 npx playwright install chromium   # once, for the browser tests
 npm run test:e2e           # two players, the board, other regions, reloads, rules, battles and seals, admin, offline, Google sign-in, full regions, founding drafts, the front page
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
+npm ci --prefix jobs/fx    # once, for the next one: it runs the currency job as production does
+npm run test:fx-e2e        # the currency: the job publishing four days, the Bureau, the designer, a phone
 ```
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
@@ -393,6 +459,26 @@ out (see Fair play), with Hide and Ban. For anyone else `#admin` simply shows th
    On Windows PowerShell: `npm.cmd ci`, then
    `$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\path\to\key.json"; node set-admin.mjs <email or player id>`.
 
+### 9b. The daily currency job
+
+`.github/workflows/currency.yml` runs `jobs/fx/run.mjs` every day at 00:17 UTC (and again at 06:41 as a
+safety net; a day already done is skipped) with the same secret and variable as Deploy. The service account
+needs to read and write Firestore, which the **Firebase Admin** role of step 5 includes. It starts once the
+workflow is on `main`. To publish the first rates without waiting, open **Actions** → **Currency** → **Run
+workflow**; choose `staging` to run it against the staging project. To run it from a computer instead:
+
+```sh
+cd jobs/fx
+npm ci
+GOOGLE_APPLICATION_CREDENTIALS=/path/outside/the/repo/service-account.json node run.mjs --project <project id>
+```
+
+Until the first run, the Bureau says no rates have been published yet; nothing else in the game depends on
+it. If a day is missed (GitHub occasionally delays or drops a scheduled run), the next run carries on: the
+smoothing treats the gap as a quiet day and charts simply have no point for it. The job's core
+(`runCurrencyDay` in `jobs/fx/daily.mjs`) takes any Firestore instance, so moving it to a scheduled Cloud
+Function later is a few lines.
+
 ### 10. The staging project, for previews
 
 A second Firebase project, `edictum-staging` (alias `staging` in `.firebaserc`), has its own
@@ -436,6 +522,12 @@ for current figures; at the time of writing:
   two writes each, and Cloud Functions' free allowance (two million calls a month) covers far more
   battles than readiness allows. Building it on each deploy stores a container image in Artifact
   Registry; the clean-up policy (Owner setup, step 5) keeps that to a few cents a month.
+
+- **The currency job** reads each region's nation records once a day and writes one document per region
+  plus one history entry per currency: for 26 regions of 250 nations, about 6,600 reads and 6,600 writes a
+  day (well inside the free quota), and up to some 200 MB of records sent to GitHub's runner a day. Players
+  read `fx/<region>` (about 60 KB for a full region) at most once a session, and not at all once their
+  browser has the day's copy, plus one small history document per currency they chart.
 
 ## Scaling
 
