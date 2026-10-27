@@ -1,7 +1,7 @@
 # Edictum
 
-Edictum is a multiplayer nation simulator in a single web page. Players found a nation, decide
-the issues that land on their desk, claim land on a hex map of their region, build cities, trade,
+Edictum is a multiplayer nation simulator in a single web page. Players found a nation, rule on
+the edicts that land on their desk, claim land on a hex map of their region, build cities, trade,
 form alliances, spy, go to war, vote in a regional assembly and, in the end, head for the Moon and
 Mars. Every nation is run by a player or by the computer, and players in a region share one map
 and one message board.
@@ -38,6 +38,19 @@ like), and **Firestore** holds the shared world.
   nations that have any. Those are shared by every region, so every player reads them.
 - `boards/<region>/posts/<id>`: `{a: <author uid>, t, x}`, one post on a region's message board;
   `limits/<uid>` `{p}` paces each player's posting.
+- `reports/<id>`: a player's report of another player's post or nation (a ticket in the admin
+  portal), with a copy of what was reported; `rlimits/<uid>` `{r}` paces reporting. Only admins
+  read them.
+- `support/<id>`: a player's support ticket (topic, text, nation, optional email) and, once an admin
+  closes it, the answer and an expiry `exp`. A Firestore time-to-live policy on `exp` deletes closed
+  tickets 90 days later. The policy is set once per project (Firebase console, Firestore,
+  Time-to-live: collection group `support`, timestamp field `exp`). It needs billing, so the staging
+  project goes without; `firestore.indexes.json` only takes `exp` out of indexing, and deploys leave
+  the policy alone. The player and admins read the tickets; `slimits/<uid>` `{s}` paces them to one
+  a minute.
+- `mod/<uid>`: a moderator hid a nation from the other players, or removed it (so its owner's
+  browser drops its copy). Everyone reads these. `bans/<uid>`: a banned account; it may save no
+  nation, post or report. The player and admins read it.
 
 A nation save writes the nation, its summary and (when it changed) its space record in one batch.
 Anyone may read the world; each player writes only their own documents; admins may also delete any
@@ -61,6 +74,64 @@ filled in is kept (in the tab's session storage) until the nation is founded.
 **Adding a region.** When the regions fill, add more rather than enlarging these: a new entry in
 `REGIONS_EXTRA` in the game (name, description, `geo`, lands, computer nations, alliances) and its id
 in the `region()` list in `firestore.rules`. The map, its size and the player counts follow from that.
+
+**Moderation.** Players report a nation (its page) or a post (the region board), choosing a reason
+and adding a note; one report every 30 seconds. Each report is a ticket in the admin portal's queue,
+where an admin can remove the post, hide the nation (it leaves everyone else's view; its owner is
+told why and can still play), remove the nation (it and its posts are deleted; the player may found
+a new one), ban the player (the nation is removed and the account can no longer save, post or
+report), or simply close the ticket. Hidden nations and banned players are listed in the portal
+with Unhide and Unban. A banned guest can come back by clearing their browser; a Google account
+cannot.
+
+**Edicts.** Edicts go before the nation's government, which follows its type of state: the Senate of
+a republic ("By decree of the Senate and People of …"), a monarch's Privy Council (royal decrees), an
+emperor's council (imperial edicts), a sultan's Divan (firmans), a Holy Synod, a People's Congress, a
+governor's council or a borough council. Numbers and years are Roman (Edictum MCCLI, Anno IV, counted
+from the founding); the decision stamp defaults to a purple wax seal of state whose inscription
+follows the government (SPQ, REX, IMP and so on). The other stamps stay on the Customise page.
+
+**Passport.** Every nation has a passport: a cover, an identity page and 20 pages of ten entry stamps.
+Opening another nation's page stamps its entry stamp into yours (at most 200), keeping that nation's
+stamp design as it was that day. The Passport page turns the pages, designs the cover (colour,
+material, foil, ornament, emblem, wording, layout), the pages (tint, print, watermark, numerals) and
+the entry stamp others collect, and arranges which page and place each stamp has. Richer options
+unlock with the Passport & travel achievements and the Passport Office set in the museum. Every
+nation's page has **View passport**. Stored on the nation as `n.pp` (see the comment in the game).
+Each passport is issued to a random citizen of the nation (a name in its naming tradition, date and
+place of birth, a drawn passport photo, a ghost image, a signature and a matching machine-readable
+zone); the owner can issue it to another citizen (`pp.hs`). The book opens and turns in 3D, its foil catches the pointer, stamps are inked, and a **UV lamp**
+shows the pages' fluorescent print. Every 20 stamps earn a land credit (10 for a full book; `pp.cr`
+keeps the most paid, so a stamp removed and collected again does not pay twice). Two steps of the
+tutorial's second checklist, a first stamp and a passport design, pay a land credit each.
+
+**Passport edicts.** Ten edicts are about passports (visas, golden passports, pet passports, the queue
+at the Passport Office, the passport index…). Five of them come only to players who hold a stamp, and one
+answer to each unlocks a design that comes no other way (UNLOCKS source `edict`, kept in `n.ppx`):
+ultraviolet ink that glows under the UV lamp, a starburst stamp, a sea-chart page print, a lacquer cover
+and black-chrome foil.
+
+**Diplomata.** A one-per-nation Society building (a passport office) that unlocks the Diplomata
+passport designs (UNLOCKS source `bld`): five typefaces (Garamond, Fraktur, a copperplate script, a
+typewriter face, poster capitals; self-hosted, downloaded only when used), eight devices, five page
+prints and five watermarks. It also draws 3% more immigrants: arrivals and their cap in `migration()`.
+
+**Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
+a message and, if the player wants, an email address. Their tickets and the team's answers are listed
+below it, and a player waiting for an answer is told when it comes. Admins answer on the portal's
+**Help queries** page (`#admin-help`): an answer closes the ticket; a ticket can also be closed
+without one, or deleted as spam. Banned players can still send tickets, to appeal.
+
+**Deleting an account.** The account menu's **Delete my nation and account** removes the player's
+posts in every region, their support tickets, their nation, summary and space record, their pacing records and their
+account (a Google account is asked to confirm the sign-in first). The daily backups lose it within
+14 days.
+
+**Privacy and terms.** `src/privacy.html` and `src/terms.html`, with Spanish versions
+`src/privacidad.html` and `src/terminos.html`, are served as `/privacy`, `/terms`, `/privacidad`
+and `/terminos`, each with a button to the other language. The game links to them from the side
+bar's foot, the founding page and the account menu. The notice follows Mexico's LFPDPPP (ARCO
+rights) and keeps GDPR rights for players in the EU; the terms are under Mexican law.
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers
@@ -107,6 +178,20 @@ npm run test:smoke         # every page of the game at 1280 and 390 px wide, in 
 ```
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
+
+Every pull request runs the rules tests and the end-to-end and smoke tests on GitHub Actions
+(`.github/workflows/preview.yml`); a failed run keeps its screenshots as an artifact.
+
+**The cost test.** `test/load.mjs` puts 50 players in one region for five minutes: six real game
+clients (half idle, half playing) with every Firestore read and write counted inside the page, and
+Node clients that keep the game's listeners and save at the pace the real clients do. It writes
+`docs/cost-test.md`, the reads, writes and data per player and per region, and what a month of it
+costs at Firestore's eur3 prices:
+
+```sh
+python3 build.py
+npx firebase emulators:exec --project demo-edictum --only auth,firestore,hosting "node test/load.mjs"
+```
 
 ## Owner setup
 
@@ -192,18 +277,22 @@ run on the separate staging project (step 10), so playing on a preview never tou
 6. So that Google's sign-in window names your domain instead of `<project id>.firebaseapp.com`, the
    game sends sign-in through the domain itself (`SIGN_IN_HOSTS` in `src/shim.js`). Google must
    accept that address first: <https://console.cloud.google.com/apis/credentials> → your project →
-   **OAuth 2.0 Client IDs** → **Web client (auto created by Google Service)** → **Authorised
-   redirect URIs** → **Add URI** `https://edictum.example/__/auth/handler` → **Save**. Then, under
-   **Google Auth Platform** → **Branding**, set the **App name** (Edictum) that Google shows.
-   Add the URI before the change is deployed, or Google sign-in on the domain fails.
+   **OAuth 2.0 Client IDs** → **Web client (auto created by Google Service)**: add
+   `https://edictum.example` under **Authorised JavaScript origins** and
+   `https://edictum.example/__/auth/handler` under **Authorised redirect URIs** → **Save**. Then, under
+   **Google Auth Platform** → **Branding**, set the **App name** (Edictum) that Google shows, and
+   have it verified: Google checks that you own the domain (a DNS record from
+   [Search Console](https://search.google.com/search-console)) and that the homepage and privacy
+   notice are live. Add the URIs before the change is deployed, or Google sign-in on the domain fails.
 
 ### 9. Making yourself an admin
 
 Admins see **Remove** on everyone's posts on the region message board, and a purple **Admin** pill
 beside their nation's name. The pill opens the admin portal (`#admin`): players in all and per
 region (active in the last 250 days, today, this week, in the last 15 minutes), how full each
-region is, its board posts, nations in space and the largest nations, all counted live, and a
-button back to the game. For anyone else `#admin` simply shows the game.
+region is, its board posts, nations in space and the largest nations, all counted live, the report
+queue, and a button back to the game. Its **Help queries** tab (`#admin-help`) lists the players'
+support tickets. For anyone else `#admin` simply shows the game.
 
 1. Play on the site and link your nation to Google (**Keep your nation on every device**), so the
    right stays with an account you can sign in to anywhere.

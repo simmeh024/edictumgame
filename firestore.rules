@@ -7,11 +7,20 @@ rules_version = '2';
 //   space/{uid}              {reg, name, t, j, ts}: Moon, Mars and belt data, only for nations that have any
 //   boards/{reg}/posts/{id}  one post on a region's message board, {a: author uid, t: server time, x: text}
 //   limits/{uid}             {p}: the time of the player's last post, which paces posting
+//   reports/{id}             a player's report of another player's post or nation (admins read them)
+//   rlimits/{uid}            {r}: the time of the player's last report, which paces reporting
+//   support/{id}             a player's support ticket, {by, topic, x, t, st, name?, reg?, email?}, and an
+//                            admin's answer when it is closed {reply?, ct, rby, exp}
+//   slimits/{uid}            {s}: the time of the player's last support ticket, which paces them
+//   mod/{uid}                {hidden, removed, note, name, t, by}: an admin hid or removed a nation
+//   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
 // src/shim.js saves a nation, its summary and (when it changed) its space record in one batch. These
 // rules check that the three agree and arrive together, that a nation is saved at most once a second
 // and its space record at most once every 10 seconds (every player listens to space/), and that a player
 // posts at most once every 20 seconds, only to their own region's board. Admins (custom claim
-// admin == true, see tools/admin) may delete any post. Everything else is denied.
+// admin == true, see tools/admin) may delete any post, read and clear reports, hide or remove nations
+// and ban accounts.
+// A player deleting their account removes their own documents. Everything else is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -36,6 +45,10 @@ service cloud.firestore {
     // at most once per `secs` seconds: the document's previous server time is far enough back
     function paced(secs) {
       return !('ts' in resource.data) || request.time > resource.data.ts + duration.value(secs, 's');
+    }
+    // a moderator banned this account: it saves no nation, posts nothing and reports nothing
+    function banned(uid) {
+      return exists(/databases/$(database)/documents/bans/$(uid));
     }
     function nationAfter(uid) {
       return getAfter(/databases/$(database)/documents/nations/$(uid)).data;
@@ -82,10 +95,11 @@ service cloud.firestore {
 
     match /nations/{uid} {
       allow read: if true;
-      allow create: if isSelf(uid) && validNation(request.resource.data) && summarised(uid, request.resource.data);
+      allow create: if isSelf(uid) && validNation(request.resource.data) && summarised(uid, request.resource.data)
+        && !banned(uid);
       allow update: if isSelf(uid) && validNation(request.resource.data) && summarised(uid, request.resource.data)
-        && paced(1);
-      allow delete: if isSelf(uid);
+        && paced(1) && !banned(uid);
+      allow delete: if isSelf(uid) || isAdmin();
     }
 
     // written only together with the nation (whose ts is this request's time), and agreeing with it
@@ -96,7 +110,7 @@ service cloud.firestore {
         && nationAfter(uid).reg == request.resource.data.reg
         && nationAfter(uid).name == request.resource.data.name
         && nationAfter(uid).updatedAt == request.resource.data.t;
-      allow delete: if isSelf(uid);
+      allow delete: if isSelf(uid) || isAdmin();
     }
 
     match /space/{uid} {
@@ -110,7 +124,7 @@ service cloud.firestore {
         && nationAfter(uid).reg == request.resource.data.reg
         && nationAfter(uid).name == request.resource.data.name
         && paced(10);
-      allow delete: if isSelf(uid);
+      allow delete: if isSelf(uid) || isAdmin();
     }
 
     // a post goes to the board of the region the author's nation lives in, with limits/<uid> in the same batch
@@ -118,8 +132,14 @@ service cloud.firestore {
       allow read: if true;
       allow create: if signedIn() && region(reg) && validPost(request.resource.data)
         && getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)).data.p == request.time
-        && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg;
+        && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg
+        && !banned(request.auth.uid);
       allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
+    }
+
+    // every post, wherever it is, for a player deleting their account (posts where a == their uid)
+    match /{path=**}/posts/{pid} {
+      allow read: if true;
     }
 
     match /limits/{uid} {
@@ -127,6 +147,96 @@ service cloud.firestore {
       allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['p']) && request.resource.data.p == request.time;
       allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['p']) && request.resource.data.p == request.time
         && request.time > resource.data.p + duration.value(20, 's');
+      // only with the nation itself (deleting the account), or deleting it would undo the pacing
+      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+    }
+
+    // A player reports another player's post or nation; only admins read and clear the reports. The
+    // report keeps a copy of what was reported (name, x), in case it is changed or removed meanwhile.
+    function validReport(d) {
+      return d.keys().hasAll(['by', 'kind', 'target', 'reg', 'reason', 't'])
+        && d.keys().hasOnly(['by', 'kind', 'target', 'post', 'reg', 'reason', 'note', 't', 'name', 'x'])
+        && d.by == request.auth.uid && d.t == request.time
+        && d.kind in ['post', 'nation']
+        && d.target is string && d.target.size() > 0 && d.target.size() <= 128 && d.target != request.auth.uid
+        && region(d.reg)
+        && d.reason in ['name', 'content', 'harassment', 'spam', 'cheating', 'other']
+        && (!('post' in d) || (d.post is string && d.post.size() <= 64))
+        && (!('note' in d) || (d.note is string && d.note.size() <= 300))
+        && (!('name' in d) || (d.name is string && d.name.size() <= 160))
+        && (!('x' in d) || (d.x is string && d.x.size() <= 600));
+    }
+    match /reports/{rid} {
+      allow create: if signedIn() && validReport(request.resource.data)
+        && exists(/databases/$(database)/documents/nations/$(request.auth.uid)) && !banned(request.auth.uid)
+        && getAfter(/databases/$(database)/documents/rlimits/$(request.auth.uid)).data.r == request.time;
+      allow read, delete: if isAdmin();
+    }
+    // paces reporting: one report every 30 seconds (players with a nation report)
+    match /rlimits/{uid} {
+      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['r']) && request.resource.data.r == request.time;
+      allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['r']) && request.resource.data.r == request.time
+        && request.time > resource.data.r + duration.value(30, 's');
+      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+    }
+
+    // A player asks the game's team for help: one ticket, which an admin answers and closes. The player
+    // reads and may delete their own tickets; admins read, answer and delete any. A closed ticket carries
+    // exp, and Firestore's time-to-live policy (firestore.indexes.json) deletes it once that has passed.
+    // Banned players may write too: a ticket is how they appeal.
+    function validTicket(d) {
+      return d.keys().hasAll(['by', 'topic', 'x', 't', 'st'])
+        && d.keys().hasOnly(['by', 'topic', 'x', 't', 'st', 'name', 'reg', 'email'])
+        && d.by == request.auth.uid && d.t == request.time && d.st == 'open'
+        && d.topic in ['bug', 'account', 'play', 'other']
+        && d.x is string && d.x.size() > 0 && d.x.size() <= 2000
+        && (!('name' in d) || (d.name is string && d.name.size() <= 160))
+        && (!('reg' in d) || region(d.reg))
+        && (!('email' in d) || (d.email is string && d.email.size() <= 200));
+    }
+    match /support/{sid} {
+      allow create: if signedIn() && validTicket(request.resource.data)
+        && getAfter(/databases/$(database)/documents/slimits/$(request.auth.uid)).data.s == request.time;
+      allow read, delete: if isAdmin() || (signedIn() && resource.data.by == request.auth.uid);
+      allow update: if isAdmin() && resource.data.st == 'open'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'reply', 'ct', 'rby', 'exp'])
+        && request.resource.data.st == 'closed' && request.resource.data.ct == request.time
+        && request.resource.data.rby == request.auth.uid
+        && request.resource.data.exp is timestamp && request.resource.data.exp > request.time
+        && (!('reply' in request.resource.data) || (request.resource.data.reply is string && request.resource.data.reply.size() <= 2000));
+    }
+    // paces support tickets: one a minute
+    match /slimits/{uid} {
+      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['s']) && request.resource.data.s == request.time;
+      allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['s']) && request.resource.data.s == request.time
+        && request.time > resource.data.s + duration.value(60, 's');
+      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+    }
+
+    // moderation: an admin hides a nation from the other players, or records that it was removed so its
+    // owner's browser drops its copy (every client reads this)
+    function validMod(d) {
+      return d.keys().hasAll(['hidden', 't', 'by']) && d.keys().hasOnly(['hidden', 'removed', 'note', 'name', 't', 'by'])
+        && d.hidden is bool && d.t is number && d.by == request.auth.uid
+        && (!('removed' in d) || d.removed is number)
+        && (!('note' in d) || (d.note is string && d.note.size() <= 300))
+        && (!('name' in d) || (d.name is string && d.name.size() <= 80));
+    }
+    match /mod/{uid} {
+      allow read: if true;
+      allow create, update: if isAdmin() && validMod(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // bans: the banned player may read their own, so the game can tell them why
+    match /bans/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasAll(['t', 'by']) && request.resource.data.keys().hasOnly(['note', 'name', 't', 'by'])
+        && request.resource.data.t is number && request.resource.data.by == request.auth.uid
+        && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 300))
+        && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 160));
+      allow delete: if isAdmin();
     }
   }
 }

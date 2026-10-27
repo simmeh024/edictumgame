@@ -35,7 +35,7 @@ try {
   if (remove) delete claims.admin; else claims.admin = true;
   await auth.setCustomUserClaims(user.uid, claims);
   console.log(`${user.email || user.uid} (player id ${user.uid}) is ${remove ? 'no longer an admin' : 'now an admin'}.`);
-  console.log('In the game: reload the page (no need to sign out). The Admin pill appears beside the nation's name.');
+  console.log('In the game: reload the page (no need to sign out). The Admin pill appears beside the nation’s name.');
 } catch (e) {
   console.error('Could not set the claim: ' + (e.errorInfo ? e.errorInfo.message : e.message));
   process.exit(1);

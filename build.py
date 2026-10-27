@@ -44,13 +44,28 @@ FONTS = [
     ('@fontsource-variable/bodoni-moda', ['opsz.css', 'opsz-italic.css'], 'Bodoni Moda'),
     ('@fontsource-variable/public-sans', ['wght.css', 'wght-italic.css'], 'Public Sans'),
     ('@fontsource/ibm-plex-mono', ['400.css', '500.css', '600.css'], 'IBM Plex Mono'),
+    ('@fontsource-variable/cinzel', ['wght.css'], 'Cinzel'),  # Roman capitals: edicts, decrees, passports
+    # the Diplomata's typefaces for passports: a browser downloads one only when a passport on screen uses it
+    ('@fontsource/cormorant-garamond', ['600.css'], 'Cormorant Garamond'),
+    ('@fontsource/unifrakturmaguntia', ['400.css'], 'UnifrakturMaguntia'),
+    ('@fontsource/great-vibes', ['400.css'], 'Great Vibes'),
+    ('@fontsource/courier-prime', ['400.css', '700.css'], 'Courier Prime'),
+    ('@fontsource/bebas-neue', ['400.css'], 'Bebas Neue'),
 ]
 PRELOAD = ['bodoni-moda-latin-opsz-normal', 'public-sans-latin-wght-normal']  # used on the first screen
 
 TITLE = 'Edictum'
-DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, decide the issues on your desk, '
+DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, rule on the edicts that reach your desk, '
                'claim land on a shared map, and trade, ally or go to war with other players.')
 OG_ALT = 'The Edictum seal beside the words: Edictum, a nation simulator.'
+# What #app holds until the game draws itself: a loading screen, and for anything that does not run the
+# game's script (search engines, link previews, Google's review of the sign-in branding) what Edictum is
+# and where its privacy notice and terms are.
+BOOT = ('<div id="app"><main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%s</p>'
+        '<p class="boot-load" role="status">Loading the game…</p>'
+        '<noscript><p class="boot-load">Edictum needs JavaScript to run.</p></noscript>'
+        '<p class="boot-legal"><a href="/privacy">Privacy notice</a> · <a href="/terms">Terms of use</a> · '
+        '<a href="/privacidad" lang="es">Aviso de privacidad</a> · <a href="/terminos" lang="es">Términos de uso</a></p></main></div>')
 
 
 def fail(msg):
@@ -141,6 +156,7 @@ def fonts_css(out):
                     continue
                 url = hashed(out, 'fonts/' + m.group(1)[:-len('.woff2')], 'woff2', read(os.path.join(base, 'files', m.group(1)), 'rb'))
                 body = re.sub(r"font-family:\s*'[^']*'", "font-family: '%s'" % family, body)
+                body = re.sub(r",\s*url\(\./files/[^)]+\.woff\)\s*format\('woff'\)", '', body)  # the woff2 is enough
                 rules.append('@font-face {%s}' % body.replace(m.group(0), 'url(%s)' % url).strip())
                 if name in PRELOAD:
                     preload.append(url)
@@ -179,8 +195,8 @@ def main():
                 write(os.path.join(out, 'vendor', 'firebase', ver, f), read(p, 'rb'))
             elif f == name:
                 fail('node_modules/firebase/%s is missing' % f)
-    for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png'):
-        shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))
+    for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png', 'privacy.html', 'privacidad.html', 'terms.html', 'terminos.html'):
+        shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))  # the pages are served as /privacy, /privacidad, /terms, /terminos
 
     # the game's styles (with the shim's and the fonts') and its script become long-cached files
     styles = re.findall(r'<style[^>]*>(.*?)</style>', game_head, re.S | re.I)
@@ -230,7 +246,7 @@ def main():
         '<link rel="stylesheet" href="%s">' % css_url,
         '</head>',
         '<body>',
-        APP_MARK,
+        BOOT % e(DESCRIPTION),
         '<script src="%s"></script>' % js_url,
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
         '</body>',
