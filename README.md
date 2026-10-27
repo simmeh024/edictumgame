@@ -274,6 +274,16 @@ run on the separate staging project (step 10), so playing on a preview never tou
    fails, and the game tells the player the address is not authorised yet.
 5. In GitHub, add the variable `SITE_URL` with the value `https://edictum.example` and run the
    Deploy workflow again, so link previews point at your domain.
+6. So that Google's sign-in window names your domain instead of `<project id>.firebaseapp.com`, the
+   game sends sign-in through the domain itself (`SIGN_IN_HOSTS` in `src/shim.js`). Google must
+   accept that address first: <https://console.cloud.google.com/apis/credentials> → your project →
+   **OAuth 2.0 Client IDs** → **Web client (auto created by Google Service)**: add
+   `https://edictum.example` under **Authorised JavaScript origins** and
+   `https://edictum.example/__/auth/handler` under **Authorised redirect URIs** → **Save**. Then, under
+   **Google Auth Platform** → **Branding**, set the **App name** (Edictum) that Google shows, and
+   have it verified: Google checks that you own the domain (a DNS record from
+   [Search Console](https://search.google.com/search-console)) and that the homepage and privacy
+   notice are live. Add the URIs before the change is deployed, or Google sign-in on the domain fails.
 
 ### 9. Making yourself an admin
 

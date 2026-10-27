@@ -34,6 +34,7 @@
   var SPACE_MIN = 12000;                 // and a changed one at most this often (the rules allow one per 10 s)
   var RETRY_MS = 1500;                   // wait before trying a refused nation write once more
   var BOOT_AT = Date.now();
+  var SIGN_IN_HOSTS = ['edictumgame.com']; // domains whose own address handles Google sign-in
   var SUPPORT_KEEP = 90 * 86400000;      // a closed support ticket is deleted this long after (Firestore TTL)
   var LS_SUP = 'edictum.support';        // set while this browser has sent a ticket that may get an answer
   var LS_SUP_SEEN = 'edictum.support.seen'; // the time of the last answer the player was told about
@@ -332,6 +333,10 @@
     if (!fb || typeof fb.initializeApp !== 'function' || typeof fb.auth !== 'function' || typeof fb.firestore !== 'function') return goOffline('the Firebase scripts did not load');
     var cfg = window.EDICTUM_FIREBASE_CONFIG || await fetchConfig();
     if (!isObj(cfg) || !cfg.apiKey || !cfg.projectId) return goOffline('there is no Firebase configuration');
+    /* on our own domain, Google sign-in runs through it (Hosting serves /__/auth/ there too), so
+       Google's window names edictumgame.com, not <project>.firebaseapp.com. The address needs to be
+       an authorised redirect URI of the project's OAuth client (README, Owner setup, step 8). */
+    if (SIGN_IN_HOSTS.indexOf(location.hostname) >= 0) cfg = Object.assign({}, cfg, { authDomain: location.hostname });
     var emu = window.EDICTUM_EMULATORS || autoEmulators(cfg), auth, fs;
     try {
       var app = fb.apps && fb.apps.length ? fb.app() : fb.initializeApp(cfg);
