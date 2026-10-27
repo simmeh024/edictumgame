@@ -3724,6 +3724,9 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
 .side-legal a{color:inherit}
 .found-legal a{color:inherit}
+.cz-sym-lock label{display:flex;align-items:center;gap:6px;color:var(--ink-2)}
+.cz-sym-lock .input:disabled{cursor:not-allowed;background:var(--sheet-2);border-style:dashed}
+.cz-sym-lock .hint{display:block;margin-top:5px}
 .cz-ds-ex{margin:12px 0 6px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
 .cz-ds-t{font-family:var(--f-display);font-style:italic;font-size:18px;line-height:1.4;color:var(--ink);overflow-wrap:anywhere}
 .cz-ds-h{margin:4px 0 0}
@@ -16416,6 +16419,7 @@ function logLine(l,n,id){
     case 'rec':return l.a==='1'?`A hex of new land off ${l.fx} was reclaimed from the sea.`:`${l.a} hexes of new land off ${l.fx} were reclaimed from the sea.`;
     case 'disc':return `The nation’s explorers discovered ${siteName(+l.a)}.`;case 'incident':return `An expedition strayed onto ${poss(tg())} land.`;
     case 'cede':return `A border hex on ${l.fx} was ceded to ${tg()}.`;case 'take':return `A border hex on ${l.fx} was annexed from ${tg()}.`;case 'shared':return `${n.name} raised a matter with ${tg()}.`;
+    case 'sym':return `${n.name} can now choose ${symWhat(String(l.a||'').split(',').filter(k=>SYM_AT[k]),n)}.`;
     default:return '';
   }
 }
@@ -19518,6 +19522,26 @@ const CZ_DIVS={plain:'Plain',pale:'Per pale',fess:'Per fess',bend:'Per bend',ben
 const CZ_ORD={chief:'a chief',fessb:'a fess',paleb:'a pale',bendb:'a bend',cross:'a cross',saltire:'a saltire',chevron:'a chevron',bordure:'a bordure'};
 const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent'};
 const CZ_SYM=[['hol','National holiday',40,'Founding Day'],['flower','National flower',30,'Edelweiss'],['tree','National tree',30,'Silver birch'],['bird','National bird',30,'Kingfisher'],['inst','National instrument',30,'Hurdy-gurdy'],['col','National colours',40,'Green and gold'],['nick','Capital nickname',40,'The Old Lady']];
+/* National symbols open as the population grows (the holiday and its date from the start). Each opens once,
+   with a notice and a gift of timber and iron; n.syu keeps the ones given, so a nation that shrinks keeps
+   them. A symbol already chosen before it had a threshold stays open. Populations are in millions. */
+const SYM_AT={flower:5.5,tree:6,bird:7,inst:8,col:10,nick:20},SYM_GIFT={timber:5,iron:5};
+const SYM_LAB={flower:'flower',tree:'tree',bird:'bird',inst:'instrument',col:'colours'};
+function symOpen(n,k){const at=SYM_AT[k];if(!at||!n)return true;return (Array.isArray(n.syu)&&n.syu.includes(k))||popNow(n)>=at-1e-9||!!((cz(n).sy||{})[k]);}
+/* “its national flower, tree and bird”, “a nickname for Port Alder” */
+function symWhat(ks,n){const p=ks.filter(k=>SYM_LAB[k]).map((k,i)=>(i?'':'its national ')+SYM_LAB[k]);if(ks.includes('nick'))p.push('a nickname for '+((n&&n.capital)||'its capital'));return list(p);}
+function symText(ks,n){const k=ks.length;return `${n.name} can now choose ${symWhat(ks,n)}. The College of Arms sends ${SYM_GIFT.timber*k} timber and ${SYM_GIFT.iron*k} iron.`;}
+COMMIT_HOOKS.push((n,old,now)=>{
+  const have=Array.isArray(n.syu)?n.syu:[],fresh=Object.keys(SYM_AT).filter(k=>!have.includes(k)&&num0(n.pop)>=SYM_AT[k]-1e-9);
+  if(!fresh.length)return [];
+  n.syu=have.concat(fresh);
+  const st=stockNow(n,now);for(const [r,v] of Object.entries(SYM_GIFT))st[r]=Math.min(STOCK_CAP,num0(st[r])+v*fresh.length);
+  n.stock=roundStock(st);n.stockAt=now;
+  n.log.unshift({t:now,k:'sym',a:fresh.join(',')});n.log=n.log.slice(0,60);
+  return [symText(fresh,n)];
+});
+NOTIF_SOURCES.push((n,now)=>(n.log||[]).filter(l=>l.k==='sym').map(l=>({t:l.t,k:'sym',kl:'College of Arms',go:'customise',txt:symText(String(l.a||'').split(',').filter(k=>SYM_AT[k]),n)})));
+NORM_HOOKS.push((n,d)=>{const a=Array.isArray(d&&d.syu)?[...new Set(d.syu.filter(k=>typeof k==='string'&&SYM_AT[k]))]:[];if(a.length)n.syu=a;});
 const CZ_MON=['January','February','March','April','May','June','July','August','September','October','November','December'],CZ_MDAYS=[31,29,31,30,31,30,31,31,30,31,30,31];
 const CZ_KIND={t:'title',f:'frame',p:'pattern',st:'stamp'},CZ_DEF={t:'',f:'f-plain',p:'p-guilloche',st:'s-senate'};
 const CZ_EMBS=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k==='emblem');
@@ -19890,7 +19914,7 @@ function czDisp(f,v){
 function czSymSave(){
   const d=CZ.sd||{},hd=d.hdd&&d.hdm?String(d.hdm).padStart(2,'0')+'-'+String(d.hdd).padStart(2,'0'):'';
   if(hd&&!czCleanSym({hd})){toast('That date doesn’t exist. Choose another day for the holiday.');return false;}
-  const sy=czCleanSym({...d,hd})||{};czSave(o=>{o.sy=sy;});CZ.sd=null;render();toast(Object.keys(sy).length?'National symbols saved.':'National symbols cleared.');return true;
+  const sy=czCleanSym({...d,hd})||{};for(const k of Object.keys(SYM_AT))if(!symOpen(S.nation,k))delete sy[k];czSave(o=>{o.sy=sy;});CZ.sd=null;render();toast(Object.keys(sy).length?'National symbols saved.':'National symbols cleared.');return true;
 }
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="cz-"]');if(!el||!S.nation)return;const a=el.dataset.act;
@@ -19951,7 +19975,8 @@ VIEWS_EXT.customise=now=>{
     </div></div>`;
   const embs=CZ_EMBS.map(id=>{const inner=`<span class="cz-fl">${flagSVG({p:n.flag.p,c:n.flag.c,e:id,ec:n.flag.ec},'')}</span>`;if(!has(id))return czTile('e',id,'',false,false,inner,UNLOCKS[id].n);
     const on=n.flag.e===id;return `<button type="button" id="cz-e-${id}" class="cz-tile${on?' on':''}" data-act="cz-emb" data-id="${id}" aria-pressed="${on}"><span class="cz-tv" aria-hidden="true">${inner}</span><span class="cz-tn"><span>${esc(UNLOCKS[id].n)}</span>${fr.has(id)?'<span class="cz-new">New</span>':''}${on?CZ_TICK:''}</span></button>`;}).join('');
-  const sd=CZ.sd||czSymDraft(),fld=(k,l,max,ph)=>`<div class="field"><label for="cz-s-${k}">${l}</label><input class="input" id="cz-s-${k}" data-czs="${k}" value="${esc(sd[k]||'')}" maxlength="${max}" placeholder="${esc('e.g. '+ph)}" autocomplete="off"></div>`;
+  const sd=CZ.sd||czSymDraft(),fld=(k,l,max,ph)=>symOpen(n,k)?`<div class="field"><label for="cz-s-${k}">${l}</label><input class="input" id="cz-s-${k}" data-czs="${k}" value="${esc(sd[k]||'')}" maxlength="${max}" placeholder="${esc('e.g. '+ph)}" autocomplete="off"></div>`
+    :`<div class="field cz-sym-lock"><label for="cz-s-${k}">${CZ_LOCK}${l}</label><input class="input" id="cz-s-${k}" value="" disabled placeholder="Unlocks at ${esc(fmtPopShort(SYM_AT[k]))} people" aria-describedby="cz-s-${k}-h"><span class="hint" id="cz-s-${k}-h">${esc(fmtPop(popNow(n)))} now · brings ${SYM_GIFT.timber} timber and ${SYM_GIFT.iron} iron</span></div>`;
   const dayN=+sd.hdm?CZ_MDAYS[+sd.hdm-1]:31;
   const syBody=`<form id="cz-sym-form" novalidate><div class="fields">
     ${fld('hol','National holiday',40,'Founding Day')}
@@ -19975,7 +20000,7 @@ VIEWS_EXT.customise=now=>{
   ${sec('a','III','Coat of arms','Design arms in the old heraldic tinctures. They stand beside your flag and in your factbook. Shields, divisions and eight charges are free; more charges are earned.',armsBody)}
   ${sec('e','IV','Flag emblems and patterns','Emblems and patterns you unlock join the flag designer in Settings. Choose an emblem here to put it on your flag straight away, or choose it again to take it off. Choose a pattern to fly it at once.',
     `<div class="cz-grid cz-g-e">${embs}${fgCzPats(n,has,fr)}</div><p class="cz-more"><button type="button" class="btn ghost" data-act="go" data-v="settings">Open the flag designer</button></p>`)}
-  ${sec('y','V','National symbols','A holiday, flower, tree, bird, instrument, colours and a nickname for '+esc(n.capital)+'. All optional.',syBody)}
+  ${sec('y','V','National symbols','A holiday, flower, tree, bird, instrument, colours and a nickname for '+esc(n.capital)+'. All optional. The holiday is yours from the start; the others unlock as your population grows, each with a gift of '+SYM_GIFT.timber+' timber and '+SYM_GIFT.iron+' iron.',syBody)}
   ${sec('s','VI','Decrees','How each decision you enact is signed and stamped.',czDsBody(n)+`<h3 class="sub-h">Stamp</h3><div class="cz-grid cz-g-s">${U('stamp').map(id=>tile('st',id,`<span class="cz-stv">${czStampArt(id,n)}</span>`,UNLOCKS[id].n)).join('')}</div>`)}
   ${sec('d','VII','Display','These apply on this device only, and other players don’t see them.',`<div class="cz-disp">
     ${czSeg('Theme','cz-l-th',[['auto','Automatic'],['light','Light'],['dark','Dark']],theme,'cz-theme','')}
