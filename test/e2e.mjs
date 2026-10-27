@@ -200,7 +200,7 @@ await O.check('input[name="ed-reason"][value="cheating"]');
 await O.click('[data-ed="report-yes"]');
 await until(async () => (await restListAdmin('reports')).length === 1);
 await A.click('[data-act="admin-refresh"]');
-await (await until(() => A.$('.adm-rep [data-act="adm-ban"]'))).click();
+await A.locator('.adm-rep [data-act="adm-ban"]').first().click();
 check('banning asks to confirm first, and says what happens', await until(async () => /can no longer play/.test(await text(A, '.adm-ask'))) && !(await restGet('bans/' + uidM).then(r => r.status === 200)));
 await A.click('[data-act="adm-ban-yes"]');
 check('Ban removes the nation and its records, and closes its tickets', await until(async () => (await restGet('nations/' + uidM)).status === 404 && (await restGet('nationx/' + uidM)).status === 404 && (await restGet('summaries/' + uidM)).status === 404 && (await restListAdmin('reports')).length === 0, 15000));
@@ -224,14 +224,14 @@ await P.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
 await P.click('[data-ed="report-yes"]');
 await until(async () => (await restListAdmin('reports')).length === 1);
 await A.click('[data-act="admin-refresh"]');
-await (await until(() => A.$('.adm-rep [data-act="adm-close"]'))).click();
+await A.locator('.adm-rep [data-act="adm-close"]').first().click();
 check('Close ticket closes it and leaves the nation alone', await until(async () => (await restListAdmin('reports')).length === 0) && (await restGet('nations/' + uidB)).status === 200);
 await A.click('[data-act="admin-close"]');
 await O.ctx.close(); await P.ctx.close();
 
 /* ── 5b2. support tickets, and the admin's Help queries page ───────────── */
 await nav(N, 'help');
-await (await until(() => N.$('#sup-box [data-act="sup-new"]'))).click();
+await N.locator('#sup-box [data-act="sup-new"]').first().click();
 await N.waitForSelector('dialog.ed-dlg[open] [data-ed="support-yes"]');
 check('the Help page opens a support ticket form', /Create a support ticket/.test(await text(N, '#ed-dlg-h')));
 await N.click('[data-ed="support-yes"]');
@@ -256,7 +256,7 @@ await N.click('[data-ed="support-yes"]');
 check('a second ticket within a minute is refused, with the reason', await until(async () => /one ticket a minute/.test(await text(N, '.ed-msg'))));
 await N.keyboard.press('Escape');
 await A.click('.side-who .adm-pill');
-await (await until(() => A.$('.adm-nav [data-v="admin-help"]'))).click();
+await A.locator('.adm-nav [data-v="admin-help"]').first().click();
 const hq = await until(async () => { const t = await text(A, '.adm-reps'); return /shrank overnight/.test(t) ? t : ''; }, 15000);
 check('the admin portal has a Help queries page listing the ticket', !!hq && /#admin-help$/.test(A.url()) && /Nettleton/.test(hq) && /nettleton@example\.com/.test(hq), hq ? '' : (await text(A, '.adm')).slice(0, 400));
 check('its tab shows how many are open', /Help queries 1/.test(await text(A, '.adm-nav')));
@@ -286,7 +286,7 @@ check('the founding page’s help offers a support ticket too', !!(await until((
 await Q.click('[data-act="found-help-close"]');
 await found(Q, 'Fleeting');
 await nav(Q, 'help');
-await (await until(() => Q.$('#sup-box [data-act="sup-new"]'))).click();
+await Q.locator('#sup-box [data-act="sup-new"]').first().click(); // a locator, not a handle: the page may redraw in between
 await Q.waitForSelector('dialog.ed-dlg[open] [data-ed="support-yes"]');
 await Q.fill('#ed-sup-x', 'How do I leave for good?');
 await Q.click('[data-ed="support-yes"]');
