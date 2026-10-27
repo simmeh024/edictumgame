@@ -443,3 +443,20 @@ test('currencies: everyone reads values, prestige and history; nobody sets them 
     await assertFails(db.doc('fxs/meridian').set({ v: 1, day: '', t: 0, j: '{}' }));
   }
 });
+
+
+test('save revisions migrate legacy nations and reject stale, removed, or skipped revisions', async () => {
+  const db = as('bob');
+  await assertSucceeds(save(db, 'bob', nation('Bobland', { rev: 1 })));
+  await sleep(1100);
+  await assertFails(save(db, 'bob', nation('Stale', { rev: 1 })));
+  await assertFails(save(db, 'bob', nation('Old browser')));
+  await assertFails(save(db, 'bob', nation('Skipped', { rev: 3 })));
+  await assertSucceeds(save(db, 'bob', nation('Latest', { rev: 2 })));
+});
+
+test('revisioned nations start at one and only integer positive revisions are accepted', async () => {
+  const db = as('alice');
+  for (const rev of [0, -1, 1.5, 2, '1']) await assertFails(save(db, 'alice', nation('Aliceland', { rev })));
+  await assertSucceeds(save(db, 'alice', nation('Aliceland', { rev: 1 })));
+});

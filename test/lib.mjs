@@ -46,7 +46,7 @@ export async function until(fn, ms = 8000, step = 150) {
 //       cap (players per region before founding steers elsewhere; the game's default otherwise)
 // Saves reach Firestore after 1.5 s instead of the game's 15 s, so the tests need not wait.
 export async function player(tag, opts = {}) {
-  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true });
+  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
   await ctx.addInitScript(cap => { window.EDICTUM_SAVE_GAP = 1500; if (cap) window.EDICTUM_REGION_CAP = cap; }, opts.cap || 0);
