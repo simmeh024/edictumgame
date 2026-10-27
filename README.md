@@ -105,6 +105,12 @@ shows the pages' fluorescent print. Every 20 stamps earn a land credit (10 for a
 keeps the most paid, so a stamp removed and collected again does not pay twice). Two steps of the
 tutorial's second checklist, a first stamp and a passport design, pay a land credit each.
 
+**Passport edicts.** Ten edicts are about passports (visas, golden passports, pet passports, the queue
+at the Passport Office, the passport index…). Five of them come only to players who hold a stamp, and one
+answer to each unlocks a design that comes no other way (UNLOCKS source `edict`, kept in `n.ppx`):
+ultraviolet ink that glows under the UV lamp, a starburst stamp, a sea-chart page print, a lacquer cover
+and black-chrome foil.
+
 **Diplomata.** A one-per-nation Society building (a passport office) that unlocks the Diplomata
 passport designs (UNLOCKS source `bld`): five typefaces (Garamond, Fraktur, a copperplate script, a
 typewriter face, poster capitals; self-hosted, downloaded only when used), eight devices, five page
@@ -172,6 +178,20 @@ npm run test:smoke         # every page of the game at 1280 and 390 px wide, in 
 ```
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
+
+Every pull request runs the rules tests and the end-to-end and smoke tests on GitHub Actions
+(`.github/workflows/preview.yml`); a failed run keeps its screenshots as an artifact.
+
+**The cost test.** `test/load.mjs` puts 50 players in one region for five minutes: six real game
+clients (half idle, half playing) with every Firestore read and write counted inside the page, and
+Node clients that keep the game's listeners and save at the pace the real clients do. It writes
+`docs/cost-test.md`, the reads, writes and data per player and per region, and what a month of it
+costs at Firestore's eur3 prices:
+
+```sh
+python3 build.py
+npx firebase emulators:exec --project demo-edictum --only auth,firestore,hosting "node test/load.mjs"
+```
 
 ## Owner setup
 
