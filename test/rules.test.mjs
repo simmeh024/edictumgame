@@ -359,3 +359,25 @@ test('a banned player can still send a support ticket, to appeal', async () => {
   await assertSucceeds(ticket(as('carol'), 'carol', { topic: 'account', x: 'Why was I banned?' }));
   await assertFails(as('carol').doc('slimits/carol').delete());                           // not while the nation exists
 });
+
+test('only an admin marks themself as staff; everyone reads it, and anyone clears their own', async () => {
+  await assertFails(as('alice').doc('staff/alice').set({ t: Date.now() }));               // a player cannot claim it
+  await assertFails(as('alice', { admin: 'true' }).doc('staff/alice').set({ t: Date.now() }));
+  await assertFails(as('mod', { admin: true }).doc('staff/alice').set({ t: Date.now() })); // nor mark someone else
+  await assertFails(as('mod', { admin: true }).doc('staff/mod').set({ t: Date.now(), name: 'x' }));
+  await assertSucceeds(as('mod', { admin: true }).doc('staff/mod').set({ t: Date.now() }));
+  await assertSucceeds(anon().doc('staff/mod').get());
+  await assertSucceeds(as('bob').collection('staff').get());
+  await assertFails(as('bob').doc('staff/mod').delete());
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('staff/bob').set({ t: 1 }));
+  await assertSucceeds(as('bob').doc('staff/bob').delete());                               // rights taken away: the page clears it
+});
+
+test('a summary may count a holiday after the save (e), up to 32 days past it and never before', async () => {
+  const day = 864e5, tryE = (uid, e) => { const n = nation('Holiday ' + uid); return save(as(uid), uid, n, { summary: summaryOf(n, { e: typeof e === 'function' ? e(n.updatedAt) : e }) }); };
+  await assertSucceeds(tryE('h1', t => t + 20 * day));
+  await assertSucceeds(tryE('h2', t => t + 32 * day));
+  await assertFails(tryE('h3', t => t + 33 * day));                                         // longer than any holiday
+  await assertFails(tryE('h4', t => t - 1));                                                // before the save
+  await assertFails(tryE('h5', 'soon'));
+});
