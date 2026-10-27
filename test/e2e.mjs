@@ -490,9 +490,28 @@ check('Hollin moved into bob’s account', await until(async () => (await sideNa
 check('and left its guest account', (await restGet('nations/' + uidH0)).status === 404);
 
 // e. signing out: a fresh guest, the nation stays with the account
+check('a Google account has a Sign out button under the account control', await E.isVisible('.side-foot .ed-out'));
+for (const scheme of ['light', 'dark']) {
+  await E.emulateMedia({ colorScheme: scheme });
+  await E.hover('.side-foot .ed-out');
+  await (await E.$('.side-foot')).screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });
+}
+await E.emulateMedia({ colorScheme: 'light' });
+check('a guest has none, since signing out would lose the nation', !!(await B.$('.side-foot .ed-acct')) && !(await B.isVisible('.ed-out')));
 await openAccount(E);
 await E.click('[data-ed="signout"]');
-check('signing out asks first', /Sign out\?/.test(await text(E, '#ed-dlg-h')));
+check('signing out from the account dialog asks first', /Sign out\?/.test(await text(E, '#ed-dlg-h')));
+await E.click('[data-ed="back"]');
+check('and Cancel there goes back to the account', /Signed in with Google/.test(await text(E, '#ed-dlg-h')));
+await E.keyboard.press('Escape');
+await E.click('.side-foot .ed-out');
+await E.waitForSelector('dialog.ed-dlg[open]');
+check('the Sign out button asks first too', /Sign out\?/.test(await text(E, '#ed-dlg-h')));
+await E.click('[data-ed="close"]');
+check('and its Cancel simply closes the dialog', await until(async () => !(await E.$('dialog.ed-dlg[open]'))));
+await E.click('.side-foot .ed-out');
+await E.waitForSelector('[data-ed="signout-yes"]');
+await E.screenshot({ path: path.join(OUT, 'signout-dialog-1280.png') });
 await Promise.all([E.waitForNavigation({ timeout: 15000 }), E.click('[data-ed="signout-yes"]')]);
 const uidE2 = await ready(E);
 check('after signing out, the browser is a new guest', uidE2 && uidE2 !== uidA);

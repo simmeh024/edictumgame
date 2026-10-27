@@ -156,8 +156,9 @@ checks) sees the plain loading screen instead.
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers
 **Keep your nation on every device**, which links the guest account to Google so the same nation
-loads anywhere. If that Google account already has a nation, the player can switch to it. Signing
-out starts a new guest.
+loads anywhere. If that Google account already has a nation, the player can switch to it. A player
+signed in with Google also has **Sign out** under the control in the side bar (it asks first; a guest
+gets none, since a guest who signed out would lose the nation). Signing out starts a new guest.
 
 **Without Firebase.** If the Firebase scripts or the configuration cannot be loaded, the game
 plays in the browser only, as it always could, and says so.

@@ -412,9 +412,10 @@
   }
 
   /* ───────── the account control and its dialog ───────── */
-  var ui = { box: null, btn: null, dlg: null, inn: null, msg: null, view: 'main', busy: '', report: null, support: null };
+  var ui = { box: null, btn: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };
   var ICON = '<svg class="ed-acct-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="8.2" r="2.9" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.6 15.7c1.3-2.2 3.1-3.3 5.4-3.3s4.1 1.1 5.4 3.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
   var XICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  var OUTICON = '<svg class="ed-out-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M8.2 3.6H5.1c-.8 0-1.5.7-1.5 1.5v9.8c0 .8.7 1.5 1.5 1.5h3.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path class="ed-out-ar" d="M12.6 6.4 16.2 10l-3.6 3.6M16 10H8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function quoted(s) { return '“' + esc(s) + '”'; }
   function who() {
@@ -431,6 +432,8 @@
     else if (w.kind === 'guest') { k = head ? 'Have a nation?' : 'Playing as a guest'; v = head ? 'Sign in' : 'Keep your nation on every device'; }
     else { k = 'Playing offline'; v = head ? 'Sign-in unavailable' : 'Saved in this browser for now'; }
     ui.btn.innerHTML = ICON + '<span class="ed-acct-t"><span class="ed-acct-k">' + esc(k) + '</span> <span class="ed-acct-v">' + esc(v) + '</span></span>';
+    /* signing out is offered under the control only to a Google account: a guest who signed out would lose the nation */
+    if (ui.out) ui.out.hidden = !(w.kind === 'google' && !head);
   }
   /* the game redraws #app on every change; keep the control in the side bar foot, or in the
      header of the founding screen */
@@ -450,8 +453,12 @@
     box.className = 'ed-acct';
     btn.type = 'button'; btn.className = 'ed-acct-b'; btn.setAttribute('aria-haspopup', 'dialog');
     btn.addEventListener('click', function () { open('main'); });
-    box.appendChild(btn);
-    ui.box = box; ui.btn = btn;
+    var out = document.createElement('button');
+    out.type = 'button'; out.className = 'ed-out'; out.setAttribute('aria-haspopup', 'dialog'); out.hidden = true;
+    out.innerHTML = OUTICON + '<span>Sign out</span>';
+    out.addEventListener('click', function () { open('signout'); });
+    box.appendChild(btn); box.appendChild(out);
+    ui.box = box; ui.btn = btn; ui.out = out;
     var app = document.getElementById('app');
     if (app && window.MutationObserver) new MutationObserver(place).observe(app, { childList: true, subtree: true });
     place(); paint();
@@ -485,6 +492,7 @@
   function open(view, report) {
     var d = ensureDialog();
     ui.view = view || 'main';
+    ui.direct = view === 'signout'; /* opened by the Sign out button: Cancel closes, rather than going back to the account */
     ui.report = view === 'report' ? report : null;
     ui.support = view === 'support' ? report : null;
     setMsg('');
@@ -536,7 +544,7 @@
         row('<button type="button" class="btn danger" data-ed="delete-yes">Delete everything</button><button type="button" class="btn ghost" data-ed="back" data-autofocus>Keep my nation</button>');
     } else if (ui.view === 'signout') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Sign out?</h2><p>' + (n ? nm + ' stays' : 'Your nation stays') + ' with your Google account. This browser starts again as a new guest, and you can sign back in at any time.</p>' +
-        row('<button type="button" class="btn" data-ed="signout-yes" data-autofocus>Sign out</button><button type="button" class="btn ghost" data-ed="back">Cancel</button>');
+        row('<button type="button" class="btn" data-ed="signout-yes" data-autofocus>Sign out</button><button type="button" class="btn ghost" data-ed="' + (ui.direct ? 'close' : 'back') + '">Cancel</button>');
     } else {
       ui.view = 'main';
       if (w.kind === 'guest') {
