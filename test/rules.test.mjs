@@ -359,3 +359,28 @@ test('a banned player can still send a support ticket, to appeal', async () => {
   await assertSucceeds(ticket(as('carol'), 'carol', { topic: 'account', x: 'Why was I banned?' }));
   await assertFails(as('carol').doc('slimits/carol').delete());                           // not while the nation exists
 });
+
+test('currencies: everyone reads values, prestige and history; nobody sets them from the game, admins included', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('fx/meridian').set({ v: 1, day: '2026-10-27', t: 1, j: JSON.stringify({ u: 'Meridian Reach', n: { bob: { v: 2, p: 50, r: 1 } }, ev: [] }) });
+    await db.doc('fxh/bob').set({ reg: 'meridian', t: 1, d: { '2026-10-27': [2, 50] } });
+    await db.doc('fxs/meridian').set({ v: 1, day: '2026-10-27', t: 1, j: '{}' });
+  });
+  for (const db of [anon(), as('alice'), as('bob')]) {
+    await assertSucceeds(db.doc('fx/meridian').get());
+    await assertSucceeds(db.doc('fxh/bob').get());
+    await assertFails(db.doc('fxs/meridian').get());
+  }
+  await assertSucceeds(as('mod', { admin: true }).doc('fxs/meridian').get());
+  const pumped = { v: 1, day: '2026-10-28', t: 2, j: JSON.stringify({ u: 'Meridian Reach', n: { bob: { v: 9999, p: 100, r: 1 } }, ev: [] }) };
+  for (const db of [anon(), as('bob'), as('mod', { admin: true })]) {
+    await assertFails(db.doc('fx/meridian').set(pumped));
+    await assertFails(db.doc('fx/meridian').update({ day: 'x' }));
+    await assertFails(db.doc('fx/frostmarch').set(pumped));
+    await assertFails(db.doc('fx/meridian').delete());
+    await assertFails(db.doc('fxh/bob').set({ reg: 'meridian', t: 2, d: { '2026-10-28': [9999, 100] } }, { merge: true }));
+    await assertFails(db.doc('fxh/bob').delete());
+    await assertFails(db.doc('fxs/meridian').set({ v: 1, day: '', t: 0, j: '{}' }));
+  }
+});
