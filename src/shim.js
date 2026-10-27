@@ -8,9 +8,13 @@
    defined window.claude.use(), which waits until this file settles it.
 
    Storage format (see firestore.rules):
-     nations/<uid>          {v:1, j:<the nation as JSON text>, reg, name, updatedAt, ts}. Nation records
-                            contain arrays of arrays, which Firestore cannot store, and their exact key
-                            order is kept this way. Players listen only to their own region's nations.
+     nations/<uid>          {v:1, j:<the nation as JSON text>, reg, name, updatedAt, ts}: the shared half of
+                            the record. Nation records contain arrays of arrays, which Firestore cannot
+                            store, hence the JSON text. Players listen only to their own region's nations,
+                            and every save is downloaded by every one of them.
+     nationx/<uid>          {j:<JSON>, t, ts}: the private half (NX_KEYS), which only the nation's own player
+                            needs, or another player opening that nation's pages. Nobody listens to it; it
+                            is rewritten only when it changed. Loading nations/<uid> returns both, joined.
      summaries/<uid>        {reg, name, pop, t}: the headline for the World page and region counts.
      space/<uid>            {reg, name, t, j:<JSON of sp, belt, mapc, flag, pretitle>}, only for nations
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
@@ -18,8 +22,8 @@
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
-   A nation save writes nations, summaries and (when needed) space in one batch; the rules check that
-   they agree. */
+   A nation save writes nations, summaries and (when needed) nationx and space in one batch; the rules
+   check that they agree. */
 (function () {
   'use strict';
   var E = window.__edictum;
@@ -41,7 +45,7 @@
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
   };
-  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', spaceSent: {} };
+  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', spaceSent: {}, xSent: {} };
 
   /* ───────── small helpers ───────── */
   function storeOf(name) { try { return window[name] || null; } catch (e) { return null; } }
@@ -96,10 +100,37 @@
     var c = d.flag && Array.isArray(d.flag.c) ? d.flag.c.slice(0, 3) : [];
     return JSON.stringify({ sp: d.sp || null, belt: d.belt || null, mapc: str(d.mapc, 20), flag: { c: c }, pretitle: str(d.pretitle, 40) });
   }
+  /* The private half of a nation record: what only its own player reads (the edict engine, notices seen,
+     tallies, intelligence, lore, the passport's stamps), or another player on opening that nation's
+     museum, achievements, statistics or passport. Everything else stays in nations/, which the region
+     reads at every save. The passport's design stays shared: visitors collect its entry stamp. */
+  var NX_KEYS = {}, NX_PP = { v: 1, p: 1, l: 1 };
+  ['inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
+    'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
+    'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
+    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
+  function splitNation(d) {
+    var pub = {}, ext = {};
+    Object.keys(d).forEach(function (k) { (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
+    if (isObj(d.pp)) {
+      var pp = {}, xp = {};
+      Object.keys(d.pp).forEach(function (k) { (NX_PP[k] ? xp : pp)[k] = d.pp[k]; });
+      pub.pp = pp; ext.pp = xp;
+    }
+    return [pub, ext];
+  }
+  /* the halves joined; the shared half wins, so a record last saved whole (before the split) reads as it was */
+  function joinNation(pub, ext) {
+    if (!isObj(pub) || !isObj(ext)) return pub;
+    var out = Object.assign({}, ext, pub);
+    if (isObj(ext.pp) && isObj(pub.pp)) out.pp = Object.assign({}, ext.pp, pub.pp);
+    return out;
+  }
   function decode(path, d) {
     if (!d) return d;
     var p = String(path).split('/'), col = p[0];
     if (col === 'nations') return typeof d.j === 'string' ? parse(d.j) : d;
+    if (col === 'nationx') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
     if (col === 'space') { var s = typeof d.j === 'string' ? parse(d.j) : null; return isObj(s) ? Object.assign(s, { reg: d.reg, name: d.name, updatedAt: num(d.t) }) : null; }
     if (col === 'boards') return { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
     return d;
@@ -117,12 +148,14 @@
       return new Promise(function (r) { setTimeout(r, RETRY_MS); }).then(function () { return fn(true); });
     });
   }
-  /* a nation save: the record, its summary and, when its space data changed, its space document */
+  /* a nation save: the shared half, its summary and, when they changed, the private half and the space document */
   function saveNation(uid, data, noSpace) {
     /* before the first space write of this page, count from the page load: a reload must not beat the pace */
     var enc = encode('nations', data), now = Date.now(), sent = A.spaceSent[uid] || { j: undefined, at: BOOT_AT }, next = null;
-    var sj = spaceText(data), b = A.fs.batch();
+    var sj = spaceText(data), b = A.fs.batch(), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
+    enc.j = JSON.stringify(halves[0]);
     b.set(A.fs.doc('nations/' + uid), enc);
+    if (A.xSent[uid] !== xj) b.set(A.fs.doc('nationx/' + uid), { j: xj, t: enc.updatedAt, ts: serverTime() });
     b.set(A.fs.doc('summaries/' + uid), { reg: enc.reg, name: enc.name, pop: Math.max(0, num(isObj(data) ? data.pop : 0)), t: enc.updatedAt });
     if (noSpace) { /* leave space/ as it is */ }
     else if (sj) {
@@ -136,19 +169,27 @@
       b.delete(A.fs.doc('space/' + uid));
       next = { j: null, at: now };
     }
-    return b.commit().then(function () { if (next) A.spaceSent[uid] = next; });
+    return b.commit().then(function () { A.xSent[uid] = xj; if (next) A.spaceSent[uid] = next; });
   }
   function dropNation(uid) {
     var b = A.fs.batch();
-    ['nations/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
-    return b.commit().then(function () { A.spaceSent[uid] = { j: null, at: Date.now() }; });
+    ['nations/', 'nationx/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
+    return b.commit().then(function () { A.spaceSent[uid] = { j: null, at: Date.now() }; delete A.xSent[uid]; });
+  }
+  /* a nation with its private half joined in */
+  function getNation(uid) {
+    return Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]).then(function (r) {
+      var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null;
+      if (!s.exists || !x) return s;
+      return { id: s.id, exists: true, data: function () { return joinNation(s.data(), decode('nationx', x)); } };
+    });
   }
   function docApi(path) {
     var p = String(path).split('/').filter(Boolean), col = p[0], ref = A.fs.doc(p.join('/')), nation = col === 'nations' && p.length === 2;
     return Object.freeze({
       id: ref.id,
       path: ref.path,
-      get: function () { return ref.get().then(snapOf, function (e) { throw mapError(e); }); },
+      get: function () { return (nation ? getNation(p[1]) : ref.get().then(snapOf)).then(null, function (e) { throw mapError(e); }); },
       set: function (data) {
         if (A.frozen) return hang();
         if (nation) {
@@ -602,7 +643,7 @@
         await bt.commit();
       }
       var b = A.fs.batch();
-      ['nations/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
+      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
       await within(b.commit(), 15000);
     } catch (e) {
       A.frozen = false; A.leaving = false; setBusy('');

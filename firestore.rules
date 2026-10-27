@@ -2,7 +2,8 @@ rules_version = '2';
 
 // Edictum's world is public: anyone may read every nation, summary, space record and board post.
 // A signed-in player (anonymous guests included) writes only their own documents:
-//   nations/{uid}            the whole nation, {v: 1, j: <the record as JSON text>, reg, name, updatedAt, ts}
+//   nations/{uid}            the nation's shared half, {v: 1, j: <the record as JSON text>, reg, name, updatedAt, ts}
+//   nationx/{uid}            its private half, {j, t, ts}: what the region need not download at every save
 //   summaries/{uid}          {reg, name, pop, t}: the headline the World page and region counts read
 //   space/{uid}              {reg, name, t, j, ts}: Moon, Mars and belt data, only for nations that have any
 //   boards/{reg}/posts/{id}  one post on a region's message board, {a: author uid, t: server time, x: text}
@@ -14,8 +15,8 @@ rules_version = '2';
 //   slimits/{uid}            {s}: the time of the player's last support ticket, which paces them
 //   mod/{uid}                {hidden, removed, note, name, t, by}: an admin hid or removed a nation
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
-// src/shim.js saves a nation, its summary and (when it changed) its space record in one batch. These
-// rules check that the three agree and arrive together, that a nation is saved at most once a second
+// src/shim.js saves a nation, its summary and (when they changed) its private half and space record in one
+// batch. These rules check that they agree and arrive together, that a nation is saved at most once a second
 // and its space record at most once every 10 seconds (every player listens to space/), and that a player
 // posts at most once every 20 seconds, only to their own region's board. Admins (custom claim
 // admin == true, see tools/admin) may delete any post, read and clear reports, hide or remove nations
@@ -77,6 +78,13 @@ service cloud.firestore {
         && d.pop is number && d.pop >= 0
         && d.t is number;
     }
+    function validPrivate(d) {
+      return d.keys().hasAll(['j', 't', 'ts'])
+        && d.keys().hasOnly(['j', 't', 'ts'])
+        && d.j is string && d.j.size() >= 2 && d.j.size() <= 750000
+        && d.t is number
+        && d.ts == request.time;
+    }
     function validSpace(d) {
       return d.keys().hasAll(['reg', 'name', 't', 'j', 'ts'])
         && d.keys().hasOnly(['reg', 'name', 't', 'j', 'ts'])
@@ -109,6 +117,16 @@ service cloud.firestore {
         && nationAfter(uid).ts == request.time
         && nationAfter(uid).reg == request.resource.data.reg
         && nationAfter(uid).name == request.resource.data.name
+        && nationAfter(uid).updatedAt == request.resource.data.t;
+      allow delete: if isSelf(uid) || isAdmin();
+    }
+
+    // the private half, written only with the nation it belongs to (so paced and refused to a banned
+    // account with it)
+    match /nationx/{uid} {
+      allow read: if true;
+      allow create, update: if isSelf(uid) && validPrivate(request.resource.data)
+        && nationAfter(uid).ts == request.time
         && nationAfter(uid).updatedAt == request.resource.data.t;
       allow delete: if isSelf(uid) || isAdmin();
     }

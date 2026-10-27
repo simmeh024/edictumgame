@@ -22,11 +22,13 @@ const nation = (name, extra = {}) => {
   return { v: 1, j: JSON.stringify(rec), reg: rec.reg, name, updatedAt: rec.updatedAt, ts: NOW(), ...extra };
 };
 const summaryOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, pop: 1200, t: n.updatedAt, ...extra });
+const privateOf = (n, extra = {}) => ({ j: JSON.stringify({ inbox: [], tly: { a: 1 } }), t: n.updatedAt, ts: NOW(), ...extra });
 const spaceOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, t: n.updatedAt, j: JSON.stringify({ sp: { moon: {} } }), ts: NOW(), ...extra });
-function save(db, uid, n, { summary = summaryOf(n), space = null } = {}) {
+function save(db, uid, n, { summary = summaryOf(n), space = null, priv = null } = {}) {
   const b = db.batch();
   if (n) b.set(db.doc('nations/' + uid), n);
   if (summary) b.set(db.doc('summaries/' + uid), summary);
+  if (priv) b.set(db.doc('nationx/' + uid), priv);
   if (space) b.set(db.doc('space/' + uid), space);
   return b.commit();
 }
@@ -137,6 +139,27 @@ test('a nation must have the stored shape', async () => {
   await assertSucceeds(save(db, 'alice', nation('Aliceland', { j: 'x'.repeat(749000) })));
 });
 
+test('the private half travels with a save, agrees with it and has its shape', async () => {
+  const db = as('alice'), n = nation('Aliceland');
+  await assertFails(db.doc('nationx/alice').set(privateOf(n)));                          // alone
+  for (const bad of [privateOf(n, { t: n.updatedAt - 1 }), privateOf(n, { extra: 1 }), privateOf(n, { j: 'x'.repeat(750001) }),
+    privateOf(n, { j: { a: 1 } }), privateOf(n, { ts: AGO(5000) })])
+    await assertFails(save(db, 'alice', n, { priv: bad }));
+  await assertSucceeds(save(db, 'alice', n, { priv: privateOf(n) }));
+  await assertSucceeds(anon().doc('nationx/alice').get());                                 // read on opening the nation's pages
+  await assertFails(save(as('bob'), 'alice', nation('Aliceland'), { priv: privateOf(n) })); // nobody else's
+  await sleep(1100);
+  const n2 = nation('Aliceland', { updatedAt: Date.now() + 5 });
+  await assertFails(as('bob').doc('nationx/alice').delete());
+  await assertSucceeds(save(db, 'alice', n2, { priv: privateOf(n2) }));
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('bans/alice').set({ note: 'x', t: Date.now(), by: 'mod' }));
+  await sleep(1100);
+  const n3 = nation('Aliceland', { updatedAt: Date.now() + 9 });
+  await assertFails(save(db, 'alice', n3, { priv: privateOf(n3) }));                     // banned: refused with the nation
+  await assertSucceeds(as('mod', { admin: true }).doc('nationx/alice').delete());
+  await assertSucceeds(db.doc('nations/alice').delete());
+});
+
 test('space records travel with a save, agree with it and change at most every 10 seconds', async () => {
   const db = as('alice');
   let n = nation('Aliceland');
@@ -244,7 +267,7 @@ test('a player deleting their account finds and removes their own posts and limi
   await assertFails(db.doc('limits/bob').delete());                                       // not while the nation exists
   await assertFails(as('alice').doc('limits/bob').delete());
   const b = db.batch();                                                                    // as the account deletion does it
-  for (const c of ['nations', 'summaries', 'space', 'limits', 'rlimits']) b.delete(db.doc(c + '/bob'));
+  for (const c of ['nations', 'nationx', 'summaries', 'space', 'limits', 'rlimits']) b.delete(db.doc(c + '/bob'));
   await assertSucceeds(b.commit());
 });
 
@@ -254,7 +277,7 @@ test('admins remove nations and ban accounts; a banned account saves, posts and 
   await assertFails(mod.doc('bans/bob').set({ ...ban, by: 'someone-else' }));
   await assertFails(mod.doc('bans/bob').set({ ...ban, extra: 1 }));
   const b = mod.batch();                                                                   // remove Bob's nation, as the portal does
-  for (const c of ['nations', 'summaries', 'space']) b.delete(mod.doc(c + '/bob'));
+  for (const c of ['nations', 'nationx', 'summaries', 'space']) b.delete(mod.doc(c + '/bob'));
   await assertSucceeds(b.commit());
   await assertSucceeds(mod.doc('mod/bob').set({ hidden: false, removed: Date.now(), note: 'Spam', name: 'Bobland', t: Date.now(), by: 'mod' }));
   await assertSucceeds(mod.doc('bans/bob').set(ban));
