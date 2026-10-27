@@ -359,6 +359,20 @@ check('opening a nation’s page stamps its entry stamp into your passport', awa
 check('the stamps stay in the private half; the shared half counts them by hash', await until(async () => { const r = await nationDoc(uidA); return !!(r && !r.shared.pp.v && Array.isArray(r.shared.pph) && r.shared.pph.length === Object.keys(r.rec.pp.v).length); }, 15000));
 check('its page shows the stamp and where it went', await until(async () => /In your passport since .* on page I\./.test(await text(A, '.pp-visit'))));
 check('the first stamp earns First Stamp', await until(async () => !!(((await nationDoc(uidA)) || { rec: {} }).rec.ach || {})['pass-1'], 15000));
+// the banner's stamps: a seat in the Assembly, the Delegate's chair, an alliance
+check('a player nation’s banner is stamped with its Assembly seat, and with no alliance it has none', await until(async () => /Meridian Reach Assembly\s*Member/.test(await text(A, '.hero .hero-stamps'))) && !(await A.$('.hero .hs-al')));
+if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
+await nav(A, 'region');
+await until(() => A.$('.tbl [data-act="visit"][data-id="npc-vellmark"]')); await A.click('.tbl [data-act="visit"][data-id="npc-vellmark"]');
+check('a computer nation’s shows its seat and its alliance', await until(async () => /Member/.test(await text(A, '.hero .hs-asm')) && /The Iron Compact/.test(await text(A, '.hero .hs-al'))));
+await A.locator('.hero').screenshot({ path: path.join(OUT, 'banner-stamps.png') });
+await nav(A, 'assembly');
+const delName = await until(() => text(A, '.asm-del-n'));
+await nav(A, 'nation');
+const delA = !!(await A.$('.hero .hs-del'));
+await nav(A, 'region'); await until(() => A.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`); await A.waitForSelector('.hero');
+const delB = !!(await A.$('.hero .hs-del'));
+check('the Delegate’s stamp is on the nation the Assembly names, and on no other', !!delName && /Aldoria/.test(delName) === delA && /Borvia/.test(delName) === delB && !(delA && delB), JSON.stringify({ delName, delA, delB }));
 // B opens A's passport from A's page
 await nav(B, 'region');
 await until(() => B.$(`.tbl [data-act="visit"][data-id="${uidA}"]`)); await B.click(`.tbl [data-act="visit"][data-id="${uidA}"]`);
@@ -689,6 +703,51 @@ check('at 25 million the instrument, colours and capital nickname follow', !!sy2
 await setPop(5.1); await toCz();
 check('and a nation that shrinks keeps what it opened', await SY.isEnabled('#cz-s-flower') && await SY.isEnabled('#cz-s-nick'));
 await SY.ctx.close();
+
+/* ── 10e. the pace of edicts, and holiday mode ──────────────────────────── */
+// browser-only, so the test can move the clocks in the browser's copy of the nation
+const HM = await player('HM', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });
+await open(HM);
+await found(HM, 'Restford');
+const toSettings = async () => { await HM.evaluate(() => { location.hash = '#settings'; }); await HM.waitForSelector('#s-freq'); };
+const edit = async f => { await HM.evaluate(src => { const n = JSON.parse(localStorage.getItem('statehood.nation.v1')); (0, eval)(src)(n, Date.now()); localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); }, f.toString()); await HM.reload(); await HM.waitForSelector('.layout, #dorm-name'); };
+const cards = async () => { await HM.evaluate(() => { location.hash = '#edicts'; }); await sleep(400); return (await HM.$$('.issue-card')).length; };
+await toSettings();
+check('edicts come every 30 minutes, hour, 4, 8 or 12 hours, or once a day, 30 minutes for a new nation', JSON.stringify(await HM.$$eval('#s-freq option', o => o.map(x => x.textContent))) === JSON.stringify(['Every 30 minutes', 'Every hour', 'Every 4 hours', 'Every 8 hours', 'Every 12 hours', 'Once a day']) && (await HM.inputValue('#s-freq')) === '30');
+await edit((n) => { n.freq = 2; });
+await toSettings();
+check('a nation saved at the old two minutes loads at thirty', (await HM.inputValue('#s-freq')) === '30');
+// starting holiday mode from Settings, with a time and date
+const back = await HM.evaluate(() => { const d = new Date(Date.now() + 3 * 864e5), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; });
+await HM.locator('#away-box').screenshot({ path: path.join(OUT, 'holiday-off.png') });
+await HM.fill('#away-to', back); await HM.click('[data-act="away-start"]');
+const hm1 = await until(async () => { const n = await localNation(HM); return n && n.away ? n : null; });
+check('holiday mode starts, until the chosen time', !!hm1 && Math.abs(hm1.away.b - new Date(back).getTime()) < 60e3 && hm1.away.a <= Date.now());
+check('Settings says until when, with a way to end it', /On holiday until/.test(await text(HM, '#away-box')) && !!(await HM.$('[data-act="away-end"]')));
+await HM.locator('#away-box').screenshot({ path: path.join(OUT, 'holiday-on.png') });
+await HM.evaluate(() => { location.hash = '#nation'; }); await sleep(300);
+check('the nation page says so', /Holiday mode/.test(await HM.$$eval('.notice', ns => ns.map(x => x.textContent).join(' | '))));
+check('and the Edicts page', (await cards(), /Holiday mode: no new edicts until/.test(await text(HM, '.vh'))));
+// the edict clock: three hours away from an empty desk, ten minutes after the last edict
+await edit((n, now) => { n.inbox = []; n.issueClock = now - 190 * 6e4; n.away = { a: now - 180 * 6e4, b: now + 3 * 864e5 }; });
+check('while away no new edicts arrive', (await cards()) === 0);
+await edit((n, now) => { n.inbox = []; n.issueClock = now - 190 * 6e4; n.away = { a: now - 180 * 6e4, b: now - 60 * 6e4 }; });
+check('after a two-hour holiday only the edict time outside it counts: 70 minutes, two edicts', (await cards()) === 2);
+await edit((n, now) => { n.inbox = []; n.issueClock = now - 190 * 6e4; delete n.away; });
+check('without a holiday the same three hours fill the desk', (await cards()) === 5);
+// ending early, and the month limit
+await edit((n, now) => { n.away = { a: now - 60 * 6e4, b: now + 2 * 864e5 }; });
+await toSettings(); await HM.click('[data-act="away-end"]');
+check('holiday mode can end early', await until(async () => { const n = await localNation(HM); return n.away && Math.abs(n.away.b - Date.now()) < 60e3; }) && await until(async () => /Welcome back/.test(await toasts(HM)), 10000));
+const far = await HM.evaluate(() => { const d = new Date(Date.now() + 40 * 864e5), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; });
+await HM.fill('#away-to', far); await HM.click('[data-act="away-start"]');
+check('and lasts up to a month', await until(async () => /lasts up to a month/.test(await text(HM, '#away-box .err'))) && !((await localNation(HM)).away.b > Date.now() + 864e5));
+// the inactivity clock: 260 days since the last save is dormant, unless 27 of them were a holiday
+await edit((n, now) => { n.updatedAt = now - 260 * 864e5; delete n.away; });
+check('260 days without a save: the nation sleeps', !!(await HM.$('#dorm-name')));
+await edit((n, now) => { n.updatedAt = now - 260 * 864e5; n.away = { a: now - 255 * 864e5, b: now - 228 * 864e5 }; });
+check('but a 27-day holiday in that time keeps it awake', !(await HM.$('#dorm-name')) && !!(await HM.$('.layout')));
+await HM.ctx.close();
 
 /* ── 11. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {

@@ -3724,6 +3724,21 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
 .side-legal a{color:inherit}
 .found-legal a{color:inherit}
+/* the banner's stamps, inked a little unevenly, each at its own angle */
+.hero-stamps{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:16px 0 4px;padding:2px 0}
+.hs{--hs-ink:var(--stamp);display:inline-flex;flex-direction:column;align-items:center;gap:3px;max-width:230px;padding:7px 12px 6px;border:3px double var(--hs-ink);border-radius:4px;color:var(--hs-ink);text-align:center;line-height:1.05;transform:rotate(-3deg);opacity:.9;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.4 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") 0 0/140px 70px;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.4 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") 0 0/140px 70px}
+.hs:nth-child(2){transform:rotate(2.5deg)}.hs:nth-child(3){transform:rotate(-1.5deg)}
+.hs-k{font:600 9.5px/1.1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase}
+.hs-v{font:700 15px/1.1 var(--f-roman);letter-spacing:.08em;text-transform:uppercase;overflow-wrap:anywhere}
+.hs-s{font:500 9.5px/1.1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.hs-del{--hs-ink:var(--down);border-width:4px}
+.hs-al{--hs-ink:var(--accent)}
+:root[data-size="large"] .hs-v{font-size:17px}:root[data-size="large"] .hs-k,:root[data-size="large"] .hs-s{font-size:11px}
+.away-box{margin:22px 0 26px;padding:16px 18px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
+.away-box .sub-h{margin-top:0}
+.away-box.on{border-color:var(--accent);background:var(--accent-soft)}
+.away-now{margin:0 0 6px;font-size:15.5px}
+.away-box .fields{max-width:300px;grid-template-columns:minmax(0,1fr)}
 .cz-sym-lock label{display:flex;align-items:center;gap:6px;color:var(--ink-2)}
 .cz-sym-lock .input:disabled{cursor:not-allowed;background:var(--sheet-2);border-style:dashed}
 .cz-sym-lock .hint{display:block;margin-top:5px}
@@ -6474,7 +6489,10 @@ const QUESTIONS = [
   {q:'Newspapers should be free to criticise the government.',e:{pol:10,civil:6,culture:4}}
 ];
 const PRETITLES = ['Republic','Kingdom','Commonwealth','Federation','Free Land','Empire','Holy Empire','Democratic Republic','People’s Republic','Grand Duchy','Most Serene Republic','Dominion','Confederacy','United States','Principality','Sultanate','Protectorate','Queendom','Theocracy','Borough','Colony'];
-const FREQS = [[2,'Every 2 minutes'],[10,'Every 10 minutes'],[30,'Every 30 minutes'],[60,'Every hour'],[240,'Every 4 hours'],[720,'Every 12 hours']];
+/* how often a new edict arrives, in minutes. A nation saved with a pace no longer offered (2 or 10 minutes)
+   loads at the default. */
+const FREQS = [[30,'Every 30 minutes'],[60,'Every hour'],[240,'Every 4 hours'],[480,'Every 8 hours'],[720,'Every 12 hours'],[1440,'Once a day']],FREQ_DEF=30;
+function freqLabel(m){return (FREQS.find(x=>x[0]===m)||FREQS.find(x=>x[0]===FREQ_DEF))[1];}
 const NAME_IDEAS = ['Corvania','Halveth','Estmoor','Tirrasol','Quellan','Ardenvale','Mirozia','Sobrenna','Kestria','Varrowind','Belcaro','Ostravel','Lunmark','Dravenhal','Norvellia','Pallinor','Cassivane','Eldermoor'];
 
 const PATTERNS = {'tri-h':['Horizontal tricolour',3],'tri-v':['Vertical tricolour',3],'bi-h':['Horizontal bicolour',2],'bi-v':['Vertical bicolour',2],'cross':['Nordic cross',3],'canton':['Canton',3],'chevron':['Chevron',3],'diag':['Diagonal',2],'saltire':['Saltire',3],'border':['Bordure',2],'quarters':['Quarterly',2],'stripes':['Stripes',2],'pale':['Central band',2],'centre':['Centred cross',2],'band':['Diagonal band',3],'plain':['Plain field',1]};
@@ -14163,13 +14181,64 @@ function pickIssue(n){
   for(const i of pool){r-=wt(i);if(r<=0)return i.id;}
   return pool[pool.length-1].id;
 }
+/* ───────── holiday mode ─────────
+   A player going away sets n.away={a,b}: from a until b, at most a calendar month after a, no new edicts
+   arrive (nor matters raised by other players), and the time does not count towards going dormant.
+   The edict clock skips the window, so edicts carry on afterwards as if it had not happened, rather than
+   all arriving at once. Ending it early sets b to now; only the latest holiday is kept, so starting one
+   first brings the clock up to date. n.away is in the shared half, so every viewer counts dormancy alike. */
+const AWAY_MIN=10*60000;
+function awayMax(a){const d=new Date(a),day=d.getDate();d.setMonth(d.getMonth()+1);if(d.getDate()!==day)d.setDate(0);return d.getTime();}  /* 31 January: 28 February */
+function awayOf(n){const w=n&&n.away;return w&&typeof w.a==='number'&&typeof w.b==='number'&&w.b>w.a?w:null;}
+function awayOn(n,now){const w=awayOf(n);return !!w&&now>=w.a&&now<w.b;}
+/* how much of [t0,t1] falls in the holiday */
+function awayIn(n,t0,t1){const w=awayOf(n);return w&&t1>t0?Math.max(0,Math.min(t1,w.b)-Math.max(t0,w.a)):0;}
+/* the moment d of edict time after t, stepping over the holiday */
+function awayAdd(n,t,d){const w=awayOf(n);if(!w||t>=w.b)return t+d;if(t>=w.a)return w.b+d;return t+d<=w.a?t+d:w.b+(t+d-w.a);}
+function awayWhen(t){try{return new Date(t).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'long'})+', '+fmtTime(t);}catch(e){return fmtDate(t);}}
+/* a datetime-local value, in the viewer's own time */
+function awayInput(t){const d=new Date(t),p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+function awayStart(){
+  const n0=S.nation,now=Date.now();if(!n0||awayOn(n0,now))return;
+  const el=document.getElementById('away-to'),v=(el&&el.value)||S.awayTo||'',t=v?new Date(v).getTime():NaN;
+  const no=m=>{S.awayErr=m;render();};
+  if(!isFinite(t))return no('Choose the date and time you will be back.');
+  if(t<now+AWAY_MIN)return no('Choose a time at least ten minutes from now.');
+  if(t>awayMax(now))return no(`Holiday mode lasts up to a month: choose a time no later than ${awayWhen(awayMax(now))}.`);
+  /* edicts due before leaving arrive now; the clock keeps only the edict time already run, so an older holiday is not lost */
+  const n=clone(syncInbox(n0,now));n.issueClock=now-Math.max(0,now-n.issueClock-awayIn(n,n.issueClock,now));n.away={a:now,b:t};
+  S.awayErr='';S.awayTo='';commit(n);render();
+  toast(`Holiday mode until ${awayWhen(t)}. No new edicts arrive until then, and the time away does not count towards ${n.name} going dormant.`);
+}
+function awayEnd(){
+  const n0=S.nation,now=Date.now();if(!n0||!awayOn(n0,now))return;
+  const n=clone(syncInbox(n0,now));n.away={a:n.away.a,b:now};commit(n);render();
+  toast(`Welcome back. New edicts arrive again ${freqLabel(n.freq).toLowerCase()}.`);
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='away-start'){awayStart();return;}if(a==='away-end'){awayEnd();return;}});
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='away-to'){S.awayTo=e.target.value;S.awayErr='';}});
+NORM_HOOKS.push((n,d)=>{const w=d&&d.away;if(!w||typeof w!=='object')return;const a=Number(w.a),b=Number(w.b);if(isFinite(a)&&isFinite(b)&&a>0&&b>a&&b<=awayMax(a)+60000)n.away={a,b};});
+/* Settings: start a holiday, or end the one under way */
+function awayBox(n,now){
+  const w=awayOf(n);
+  if(awayOn(n,now))return `<div class="away-box on" id="away-box"><h3 class="sub-h">Holiday mode</h3><p class="away-now">On holiday until <b>${esc(awayWhen(w.b))}</b>.</p>
+    <p class="hint">No new edicts arrive until then, and the time away does not count towards ${esc(n.name)} going dormant. Everything else carries on: the population grows, and other players can still trade, write and visit.</p>
+    <div class="row"><button type="button" class="btn ghost" data-act="away-end">End holiday mode now</button></div></div>`;
+  return `<div class="away-box" id="away-box"><h3 class="sub-h">Holiday mode</h3>
+    <p class="hint fs-hint">Going away? Stop new edicts arriving until a date and time you choose, up to a month ahead. The time away does not count towards ${esc(n.name)} going dormant.</p>
+    <div class="fields"><div class="field"><label for="away-to">Back on</label><input class="input" type="datetime-local" id="away-to" value="${esc(S.awayTo||awayInput(Math.min(now+7*DAY,awayMax(now))))}" min="${awayInput(now+AWAY_MIN)}" max="${awayInput(awayMax(now))}"></div></div>
+    ${S.awayErr?`<p class="err" style="margin-top:10px">${esc(S.awayErr)}</p>`:''}
+    <div class="row" style="margin-top:12px"><button type="button" class="btn" data-act="away-start">Start holiday mode</button></div></div>`;
+}
+function awayNotice(n,now){const w=awayOf(n);return awayOn(n,now)?`<button class="notice" data-act="go" data-v="settings"><span class="notice-k">Holiday mode</span><span>No new edicts until ${esc(awayWhen(w.b))}.</span><span class="notice-go">Settings →</span></button>`:'';}
 /* Pure: what the inbox holds at `now`. Writes happen only when the player acts. */
 function syncInbox(n,now){
-  const f=n.freq*60000;
-  const k=Math.floor((now-n.issueClock)/f),inc=incomingShared(n);
+  const f=n.freq*60000,away=awayOn(n,now);
+  const k=Math.floor((now-n.issueClock-awayIn(n,n.issueClock,now))/f),inc=away?[]:incomingShared(n);
   if(k<=0&&!inc.length)return n;
-  const m=clone(n);sharedInto(m);let left=k;
-  while(left>0&&m.inbox.length<CAP){m.issueClock+=f;m.inbox.push(b1Draw(m));m.issueSeq++;left--;}
+  const m=clone(n);if(!away)sharedInto(m);let left=k;
+  while(left>0&&m.inbox.length<CAP){m.issueClock=awayAdd(m,m.issueClock,f);m.inbox.push(b1Draw(m));m.issueSeq++;left--;}
   if(left>0)m.issueClock=now;
   return m;
 }
@@ -18053,7 +18122,7 @@ const HELP_SECS=[['start','Getting started'],['issues','Edicts'],['time','Time']
 const INTEL_FX={caught:'Your agent is arrested. Happiness falls, the arrest costs goodwill, and the next agent takes an hour longer to train.',nothing:'Nothing happens.',dossier:'You see their army, readiness, defence spending, alliance and military policies.',survey:'Their weakest border hex is marked: your attacks on it are 25% stronger for 6 hours.',theft:'Science +2 and military +1, once a day for each nation you spy on.',sabotage:'Their defences against you are 25% weaker for 2 hours.',informant:'Your attacks on them are 15% stronger for 6 hours, and you see their army.',master:'Their defences are 25% weaker for 3 hours, their weakest hex is marked, you see their army, and you gain a readiness point.'};
 function helpBody(n){
   const fp=k=>fmtPopShort(featureAt(k)),hrs=ms=>{const h=ms/3600e3;return h===1?'an hour':h+' hours';},mins=ms=>Math.round(ms/60000)+' minutes';
-  const pace=n?(FREQS.find(x=>x[0]===n.freq)||FREQS[1])[1].toLowerCase():FREQS[1][1].toLowerCase();
+  const pace=freqLabel(n?n.freq:FREQ_DEF).toLowerCase();
   const yrDays=YEAR_MS/DAY,dcs=Object.values(SITE_DC),blocs=NPC_BLOCS.map(b=>b.name.replace(/^The /,'the '));
   const navy=ISSUES.filter(i=>!i.fo&&!/\{/.test(i.t)&&i.req&&/coast/.test(String(i.req))&&!/policies/.test(String(i.req))&&i.o.some(o=>o.e&&o.e.p&&o.e.p.navalFleet)).map(i=>'‘'+i.t+'’').slice(0,3);
   const lake=ISSUES.some(i=>i.req&&/landlocked/.test(String(i.req))&&i.o.some(o=>o.e&&o.e.p&&o.e.p.navalFleet));
@@ -21566,13 +21635,14 @@ const DORMANT_DAYS=250,DORM_MS=DORMANT_DAYS*DAY,DORM_KEEP=12,DORM_LS='statehood.
 const DORM={w:{},all:{},waking:false,boot:Date.now(),tries:null,msg:'',draft:'',help:false,rs:0,letters:0,offered:false};
 /* the last activity, or 0 when updatedAt is missing, malformed or in the future */
 function dormLast(n){const t=n&&n.updatedAt;return typeof t==='number'&&isFinite(t)&&t>0&&t<Date.now()+DAY?t:0;}
-function isDormant(n,now){if(!n||n.npc)return false;const t=dormLast(n);return t>0&&(now||Date.now())-t>DORM_MS;}
-function dozeAt(n){return dormLast(n)+DORM_MS;}
-/* the shared snapshot: sleepers leave this region's records and the World page's summary */
+function isDormant(n,now){if(!n||n.npc)return false;const t=dormLast(n),at=now||Date.now();return t>0&&at-t-awayIn(n,t,at)>DORM_MS;}
+function dozeAt(n){const t=dormLast(n);return t+DORM_MS+awayIn(n,t,Infinity);}
+/* the shared snapshot: sleepers leave this region's records and the World page's summary (an entry whose full
+   record is still awake stays, as a holiday does not count towards sleeping) */
 function dormSift(w,all,merge){
   const now=Date.now(),dw=merge?Object.assign({},DORM.w):{},da=merge?Object.assign({},DORM.all):{};let k=0;
   if(w)for(const id of Object.keys(w))if(isDormant(w[id],now)){dw[id]=w[id];delete w[id];k++;}
-  if(all)for(const id of Object.keys(all)){const a=all[id],t=a&&a.t;if(typeof t==='number'&&isFinite(t)&&t>0&&t<now+DAY&&now-t>DORM_MS){da[id]=a;delete all[id];k++;}}
+  if(all)for(const id of Object.keys(all)){const a=all[id],t=a&&a.t;if(typeof t==='number'&&isFinite(t)&&t>0&&t<now+DAY&&now-t>DORM_MS&&!(w&&w[id])){da[id]=a;delete all[id];k++;}}
   DORM.w=dw;DORM.all=da;return k;
 }
 /* a record can doze off between snapshots: look again once a minute */
@@ -33300,7 +33370,7 @@ function normalizeBase(d){
   return {v:1,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
-    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:10,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,STOCK_CAP)])),stockAt:num(d.stockAt,now),
+    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,STOCK_CAP)])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 function loadLocal(){try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
@@ -33496,9 +33566,27 @@ function mainView(v,now){
     default:return nationView(v,now);
   }
 }
+/* the banner's stamps: a seat in the region's Assembly (every player nation unless it resigned, and every
+   computer nation), the Delegate's chair, and the alliance, if any. The Delegate is worked out from the
+   region's records, so it is kept for a minute, a save or a new snapshot, whichever comes first. */
+let HS_DEL={w:undefined,c:-1,m:-1,v:null};
+function heroDelegate(now){
+  const m=Math.floor(now/6e4);
+  if(HS_DEL.w!==S.world||HS_DEL.c!==commitNo||HS_DEL.m!==m){let v=null;try{const D=asmDel(asmRecs(),now);v=D?D.id:null;}catch(e){}HS_DEL={w:S.world,c:commitNo,m,v};}
+  return HS_DEL.v;
+}
+function heroStamps(n,id){
+  const now=Date.now(),out=[],st=(cls,k,v,sub)=>`<span class="hs ${cls}"><span class="hs-k">${esc(k)}</span><span class="hs-v">${esc(v)}</span>${sub?`<span class="hs-s">${esc(sub)}</span>`:''}</span>`;
+  let mem=!!n.npc;try{if(!mem)mem=asmMember(n);}catch(e){}
+  if(mem)out.push(st('hs-asm',REG.name+' Assembly','Member',''));
+  if(id&&!n.npc&&heroDelegate(now)===id)out.push(st('hs-del','Assembly','Delegate','of '+REG.name));
+  let A=null;try{A=id?allianceOf(id):null;}catch(e){}
+  if(A)out.push(st('hs-al','Alliance',A.name,A.npc?'':(A.founder===id?'Founder':'')));
+  return out.length?`<div class="hero-stamps">${out.join('')}</div>`:'';
+}
 function hero(n,opt){
   opt=opt||{};
-  const cat=classify(n.s);
+  const cat=classify(n.s),id=opt.id||(n===S.nation?myId():'');
   return `<section class="hero id-sec${czHeroCls(n)}">
     ${idPattern(n)}
     <div class="hero-in">
@@ -33510,7 +33598,7 @@ function hero(n,opt){
         ${n.ruler?`<p class="hero-ruler">Led by ${esc(n.leader)} ${esc(n.ruler)}</p>`:''}
         <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
         <p class="hero-blurb">${esc(CAT_BLURB[cat])}</p>
-        ${n.about?`<p class="hero-about">${esc(n.about)}</p>`:''}${idActs(n)}
+        ${n.about?`<p class="hero-about">${esc(n.about)}</p>`:''}${heroStamps(n,id)}${idActs(n)}
       </div>
     </div>
   </section>`;
@@ -33545,7 +33633,7 @@ function legislation(n){
 function nationView(v,now){
   const n=S.nation,cnt=v.inbox.length;
   return `${cnt?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">${esc(chamberOf(n).house)}</span><span>${cnt===1?'One edict awaits':cnt+' edicts await'} ${esc(chamberOf(n).notice)}.</span><span class="notice-go">Open edicts →</span></button>`:''}
-  ${landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}
+  ${awayNotice(n,now)}${landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}
   ${firstStepsCard(n)}${hero(n)}
   ${freedoms(n.s)}
   <div class="nation-grid">
@@ -33615,9 +33703,9 @@ function chamberOf(n){
 }
 function issuesView(v,now){
   const n=S.nation,f=n.freq*60000,full=v.inbox.length>=CAP;
-  const freqL=(FREQS.find(x=>x[0]===n.freq)||FREQS[1])[1].toLowerCase();
+  const freqL=freqLabel(n.freq).toLowerCase();
   const made=decisions(n);
-  const next=full?'':`The next edict arrives in <b data-live="next">${fmtDur(v.issueClock+f-now)}</b>.`;
+  const next=full?'':awayOn(n,now)?`Holiday mode: no new edicts until ${esc(awayWhen(n.away.b))}.`:`The next edict arrives in <b data-live="next">${fmtDur(awayAdd(v,v.issueClock,f)-now)}</b>.`;
   return `<header class="vh"><p class="eyebrow">${esc(chamberOf(n).house)} of ${esc(n.name)}</p><h1>Edicts</h1>
     <p>${full?'Your desk is full. Vote on or veto an edict to receive new ones.':next} New edicts arrive ${freqL}, and up to ${CAP} can wait on your desk. You can change the pace in Settings.</p></header>
   <div class="issue-meta"><span>${made} decision${made===1?'':'s'} made</span><span>${v.inbox.length} of ${CAP} on your desk</span></div>
@@ -33784,7 +33872,7 @@ function visitView(now){
   if(!x)return `<button class="back" data-act="go" data-v="region">← ${REGION}</button><div class="empty"><p class="empty-h">This nation no longer exists</p><p>It may have been dissolved by its founder.</p></div>`;
   const n=x.n;
   return `<button class="back" data-act="go" data-v="region">← ${REGION}</button>
-  ${hero(n,{player:!x.npc})}
+  ${hero(n,{player:!x.npc,id:x.id})}
   <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button><button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>
   ${relationCard(x)}${runHooks(VISIT_SECTIONS,x,now).join('')}
   ${freedoms(n.s)}
@@ -33960,6 +34048,7 @@ function settingsView(){
     </fieldset>
     <fieldset class="fs"><legend class="fs-l">Edicts</legend>
       <div class="fields"><div class="field"><label for="s-freq">How often new edicts arrive</label><select class="input" id="s-freq" data-bind="s.freq">${FREQS.map(([m,l])=>`<option value="${m}"${String(m)===st.freq?' selected':''}>${l}</option>`).join('')}</select></div></div>
+      ${awayBox(n,Date.now())}
       <h3 class="sub-h">Topics</h3>
       <p class="hint fs-hint">Choose which kinds of edict reach your desk more or less often. Edicts you already have are not affected.</p>
       <div class="topic-list">${topicRows}</div>
@@ -34031,7 +34120,7 @@ function found(){
   S.foundErr='';try{sessionStorage.removeItem(DRAFT_SS);}catch(e){}
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
-    demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:10,
+    demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
     log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1};
   for(let i=0;i<2;i++){n.inbox.push({id:pickIssue(n),at:now});n.issueSeq++;}
   const cell=cellOf(d.loc),lost=cell>=0&&!!pickProblem(cell,territory());
@@ -34267,7 +34356,7 @@ function tick(){
   }
   document.querySelectorAll('[data-live="pop"]').forEach(el=>{el.textContent=fmtPop(popNow(S.nation,now));});
   const f=S.nation.freq*60000;
-  document.querySelectorAll('[data-live="next"]').forEach(el=>{el.textContent=fmtDur(v.issueClock+f-now);});
+  document.querySelectorAll('[data-live="next"]').forEach(el=>{el.textContent=fmtDur(awayAdd(v,v.issueClock,f)-now);});
   redrawMaps();
 }
 
