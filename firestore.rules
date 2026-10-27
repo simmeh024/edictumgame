@@ -19,6 +19,11 @@ rules_version = '2';
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
 //   staff/{uid}              {t}: this player is Edictum staff (an admin), so other players see it; only the
 //                            admin themself can write it, and anyone may clear their own
+//   fx/{reg}                 the region's currencies: value, Currency Prestige, rank and history summary
+//   fxh/{id}                 one currency's daily history of value and prestige
+//   fxs/{reg}                the currency job's own state (smoothing, volatility, a lease)
+// The currency documents are written only by the daily job (jobs/fx, with the Admin SDK, which these rules do
+// not bind): no player, admin included, can set a currency's value or prestige from the game.
 // src/shim.js saves a nation, its summary and (when they changed) its private half and space record in one
 // batch. These rules check that they agree and arrive together, that a nation is saved at most once a second
 // and its space record at most once every 10 seconds (every player listens to space/), and that a player
@@ -269,6 +274,20 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() && validMod(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    // currencies: everyone reads values, prestige and history; nobody writes them but the daily job
+    match /fx/{reg} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /fxh/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /fxs/{reg} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // bans: the banned player may read their own, so the game can tell them why
