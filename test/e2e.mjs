@@ -415,6 +415,17 @@ await C.evaluate(() => { const k = 'statehood.nation.v1', n = JSON.parse(localSt
 await C.reload(); await ready(C);
 await nav(C, 'passport'); await C.click('[data-act="pp-tab"][data-v="design"]');
 check('a finished Diplomata unlocks its typefaces and devices', await until(async () => (await C.$$('.pp-tiles-font .pp-tile')).length === 7 && !(await C.$('.pp-tiles-font .pp-tile.locked')) && !(await C.$('[data-f="c.emb"][data-v="pk-globe"].locked'))));
+// a passport edict: its first answer unlocks a design no other way can (here, ultraviolet ink)
+await C.click('[data-act="pp-dtab"][data-v="s"]');
+check('a design that comes with an edict says which one', await until(async () => /Ink You Cannot See/.test(await text(C, '[data-f="s.ink"][data-v="pi-uv"]')) && !!(await C.$('[data-f="s.ink"][data-v="pi-uv"].locked'))));
+await C.evaluate(() => { const k = 'statehood.nation.v1', n = JSON.parse(localStorage.getItem(k)); n.inbox = [{ id: 'pp-uv-ink', at: Date.now() }].concat(n.inbox || []).slice(0, 5); localStorage.setItem(k, JSON.stringify(n)); });
+await C.reload(); await ready(C);
+await nav(C, 'issues');
+await until(() => C.$('.issue-card[data-id="pp-uv-ink"]')); await C.click('.issue-card[data-id="pp-uv-ink"]');
+await C.waitForSelector('.edict [data-act="answer"]'); await C.click('.edict [data-act="answer"][data-o="0"]');
+check('answering it that way unlocks the design, and the result says so', await until(async () => /Passport office/.test(await text(C, '.result')) && /Ultraviolet ink/.test(await text(C, '.result')) && ((await localNation(C)).ppx || []).includes('pi-uv')));
+await nav(C, 'passport'); await C.click('[data-act="pp-tab"][data-v="design"]'); await C.click('[data-act="pp-dtab"][data-v="s"]');
+check('and the editor offers it', await until(async () => !!(await C.$('[data-f="s.ink"][data-v="pi-uv"]')) && !(await C.$('[data-f="s.ink"][data-v="pi-uv"].locked'))));
 
 /* ── 7. no injected config: init.json and the local emulators are found on their own ── */
 const D0 = await player('D0', { inject: false });
