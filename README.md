@@ -72,7 +72,7 @@ the browser's own copy is saved straight away), because every save is read by ev
 the region.
 
 **Regions fill up.** A region takes no new nations once 250 active nations live there (dormant ones,
-unsaved for 250 days, do not count). A newcomer who has not chosen a region and lands in a full one
+unsaved for 250 days, not counting a holiday, do not count). A newcomer who has not chosen a region and lands in a full one
 is sent to the fullest region that still has room, so players gather rather than spread thin. The
 cap is `REGION_CAP` in the game. Each region's map is sized for that: its grid gives about 30,000
 land hexes (`REGION_LAND`; some 120 per player besides the computer nations), so a watery region has
@@ -110,6 +110,18 @@ colours at 10 and the capital's nickname at 20 million (`SYM_AT`). Each opens on
 after the population reaches it, with a notice (a toast and the bell, from the College of Arms) and
 5 timber and 5 iron; `n.syu` keeps the ones given, so a nation that shrinks keeps them, and a symbol
 chosen before it had a threshold stays open.
+
+**The pace of edicts, and holiday mode.** In Settings a player chooses how often a new edict arrives:
+every 30 minutes (the default), hour, 4, 8 or 12 hours, or once a day (`FREQS`; a nation saved at a
+pace no longer offered loads at 30 minutes). Holiday mode, also in Settings, stops new edicts until a
+date and time the player chooses, at most a calendar month ahead (`n.away`, `{a, b}`). The edict clock
+skips the holiday, so edicts carry on afterwards as if it had not happened rather than arriving all at
+once, and the time away does not count towards going dormant. It can be ended early. `n.away` is in the
+shared half, so every player works out the same dormancy.
+
+**The banner's stamps.** A nation's banner carries ink stamps for its seat in the region's Assembly
+(every player nation unless it resigned, and every computer nation), the Delegate's chair, and its
+alliance, if it has one.
 
 **Passport.** Every nation has a passport: a cover, an identity page and 20 pages of ten entry stamps.
 Opening another nation's page stamps its entry stamp into yours (at most 200), keeping that nation's
