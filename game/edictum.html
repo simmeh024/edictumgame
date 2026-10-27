@@ -3724,6 +3724,13 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
 .side-legal a{color:inherit}
 .found-legal a{color:inherit}
+/* Edictum staff: a pill wherever a staff nation shows itself */
+.staff-pill{display:inline-flex;align-items:center;gap:5px;flex:none;padding:4px 10px 4px 8px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;vertical-align:middle}
+.staff-pill svg{width:11px;height:13px;flex:none}
+.post-h .staff-pill,.conv-t .staff-pill,.thread-h .staff-pill{margin-left:8px;padding:2px 8px 2px 6px;font-size:10px}
+.bub.staff{border-left:3px solid var(--stamp)}
+.bub-staff{display:block;margin-bottom:4px;font:600 10px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--stamp)}
+.staff-note{margin:0 0 10px;padding:8px 12px;border-left:3px solid var(--stamp);background:var(--stamp-soft);font-size:13.5px;color:var(--ink)}
 /* the banner's stamps, inked a little unevenly, each at its own angle */
 .hero-stamps{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:16px 0 4px;padding:2px 0}
 .hs{--hs-ink:var(--stamp);display:inline-flex;flex-direction:column;align-items:center;gap:3px;max-width:230px;padding:7px 12px 6px;border:3px double var(--hs-ink);border-radius:4px;color:var(--hs-ink);text-align:center;line-height:1.05;transform:rotate(-3deg);opacity:.9;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.4 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") 0 0/140px 70px;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.4 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") 0 0/140px 70px}
@@ -16189,14 +16196,15 @@ function messagesView(){
   const peer=S.msgPeer,px=peer?findNation(peer):null,thread=peer?(th.get(peer)||[]):[];
   const lastMine=[...thread].reverse().find(m=>m.mine),peerSeen=px&&!px.npc&&px.n.seenDm?(px.n.seenDm[me]||0):0;
   const conv=peers.map(id=>{const x=findNation(id),a=th.get(id),last=a[a.length-1],un=a.filter(m=>!m.mine&&m.t>(seen[id]||0)).length;
-    return `<li><button class="conv${id===peer?' on':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span class="conv-t"><b>${esc(x.n.name)}</b><span>${last.mine?'You: ':''}${esc(last.x.slice(0,60))}</span></span><span class="conv-m">${rel(last.t)}${un?`<span class="badge" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
-  const bubbles=thread.map(m=>`<li class="bub${m.mine?' mine':''}"><p>${esc(m.x)}</p><span class="bub-t">${rel(m.t)}${m===lastMine&&peerSeen>=m.t?' · Seen':''}</span></li>`).join('');
+    return `<li><button class="conv${id===peer?' on':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span class="conv-t"><b>${esc(x.n.name)}${isStaff(id)?STAFF_PILL:''}</b><span>${last.mine?'You: ':''}${esc(last.x.slice(0,60))}</span></span><span class="conv-m">${rel(last.t)}${un?`<span class="badge" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
+  const pst=!!px&&!px.npc&&isStaff(px.id);
+  const bubbles=thread.map(m=>`<li class="bub${m.mine?' mine':''}${!m.mine&&pst?' staff':''}">${!m.mine&&pst?'<span class="bub-staff">Edictum staff</span>':''}<p>${esc(m.x)}</p><span class="bub-t">${rel(m.t)}${m===lastMine&&peerSeen>=m.t?' · Seen':''}</span></li>`).join('');
   return `<header class="vh"><p class="eyebrow">Diplomatic bag</p><h1>Messages</h1><p>Write to any nation in ${REGION}. Computer-run nations answer within a minute or two; players see your letter the next time they play.</p></header>
   <div class="msg-layout${peer?' in-thread':''}">
-    <aside class="convs"><label class="lbl" for="dm-new">New message to</label><select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(x=>`<option value="${esc(x.id)}"${x.id===peer?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':''}</option>`).join('')}</select>
+    <aside class="convs"><label class="lbl" for="dm-new">New message to</label><select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(x=>`<option value="${esc(x.id)}"${x.id===peer?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':isStaff(x.id)?' (Edictum staff)':''}</option>`).join('')}</select>
       ${peers.length?`<ul class="conv-list">${conv}</ul>`:'<p class="hint" style="margin-top:14px">No conversations yet.</p>'}</aside>
-    <section class="thread">${px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
-      <ol class="bubs">${bubbles||'<li class="hint">No messages yet. Say hello.</li>'}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(px.n.name)} is drafting a reply…</p></li>`:''}</ol>
+    <section class="thread">${px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
+      ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs">${bubbles||'<li class="hint">No messages yet. Say hello.</li>'}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(px.n.name)} is drafting a reply…</p></li>`:''}</ol>
       <form id="dm-form" class="dm-form" novalidate><label class="lbl" for="dm-text">Message to ${esc(px.n.name)}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="500" rows="3" placeholder="Your Excellency…">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}<div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / 500</span></div></form>`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p></div>`}
       <p class="hint dm-note">Letters travel inside each nation’s public record. Other players’ games only show them to the nation they are addressed to, but they are not encrypted, so keep secrets out of them.</p></section>
   </div>`;
@@ -16223,7 +16231,7 @@ function notifItems(now){
   ev.push(...allianceEvents(n,me));
   ev.push(...runHooks(NOTIF_SOURCES,n,now));
   for(const c of n.cities||[])for(const b of c.b)if(b.d<=now&&now-b.d<14*DAY&&BUILDINGS[b.k])ev.push({t:b.d,k:'build',txt:`${BUILDINGS[b.k].w?'The ':''}${BUILDINGS[b.k].n} in ${cityLabel(n,c)} is complete.`,go:'cities'});
-  const sd=n.seenDm||{};for(const [peer,a] of dmThreads(now))for(const m of a)if(!m.mine)ev.push({t:m.t,k:'msg',txt:`${nameOf(peer)}: “${m.x.length>90?m.x.slice(0,88)+'…':m.x}”`,go:'messages',peer,read:m.t<=(sd[peer]||0)});
+  const sd=n.seenDm||{};for(const [peer,a] of dmThreads(now))for(const m of a)if(!m.mine)ev.push({t:m.t,k:'msg',txt:`${nameOf(peer)}${isStaff(peer)?' (Edictum staff)':''}: “${m.x.length>90?m.x.slice(0,88)+'…':m.x}”`,go:'messages',peer,read:m.t<=(sd[peer]||0)});
   ev.sort((a,b)=>b.t-a.t);
   return {pin,ev:ev.slice(0,40)};
 }
@@ -18091,7 +18099,8 @@ const FIRST_STEPS=[
   ['build','Start a building','Put up a farm, a sawmill or a market in a city.','cities','Open cities',n=>(n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0],
   ['trade','Propose a trade','Swap a resource you have spare for one you lack.','trade','Open trade',n=>(n.deals||[]).length>0||(n.log||[]).some(l=>l.k==='trade'||l.k==='tradeend')],
   ['exp','Send an expedition','Explore a rumoured site on the map.','explore','Expeditions',n=>!!n.exp||(n.disc||[]).length>0],
-  ['dm','Write to another nation','Computer-run nations reply within minutes.','messages','Messages',n=>(n.dm||[]).some(m=>!m.i)]
+  ['dm','Write to another nation','Computer-run nations reply within minutes.','messages','Messages',n=>(n.dm||[]).some(m=>!m.i)],
+  ['google','Keep your nation on every device','Link it to a Google account: it is kept safe and plays anywhere. Earns 5 land credits, and 5 iron, 5 timber and 5 goods.','account','Link to Google',n=>!!n.glk]
 ];
 const STEPS_KEY='statehood.steps.v1';
 function stepsHidden(n){try{return localStorage.getItem(STEPS_KEY)===String(n.seed);}catch(e){return false;}}
@@ -18109,7 +18118,7 @@ function firstStepsCard(n){
   if(done===st.length||stepsHidden(n))return '';
   return `<section class="stp" aria-labelledby="stp-h"><div class="stp-h"><div><p class="eyebrow">First steps</p><h2 class="stp-t" id="stp-h">Getting started in ${REGION}</h2></div><span class="stp-n">${done} of ${st.length} done${tutLcHead(n,0)}</span></div>
     <span class="bar" role="img" aria-label="${done} of ${st.length} steps done"><i style="width:${(done/st.length*100).toFixed(1)}%"></i></span>
-    <ol class="stp-l">${st.map(s=>`<li class="${s.ok?'done':''}"><span class="stp-i" aria-hidden="true">${s.ok?'✓':''}</span><span class="stp-x"><b>${s.t}${s.ok?'':tutLcTag()}</b>${s.ok?'<span class="hint">Done</span>':`<span class="hint">${esc(stepHint(n,s))}</span>`}</span>${s.ok?'':`<button class="btn ghost small-btn" data-act="go" data-v="${s.v}">${s.b}</button>`}</li>`).join('')}</ol>
+    <ol class="stp-l">${st.map(s=>`<li class="${s.ok?'done':''}"><span class="stp-i" aria-hidden="true">${s.ok?'✓':''}</span><span class="stp-x"><b>${s.t}${s.ok?'':s.k==='google'?GL_TAG:tutLcTag()}</b>${s.ok?'<span class="hint">Done</span>':`<span class="hint">${esc(stepHint(n,s))}</span>`}</span>${s.ok?'':`<button class="btn ghost small-btn" ${s.k==='google'?'data-act="acct-open"':`data-act="go" data-v="${s.v}"`}>${s.b}</button>`}</li>`).join('')}</ol>
     <div class="stp-f"><button class="linkish small" data-act="go" data-v="help">How to play</button><button class="linkish small" data-act="steps-hide">Hide this list</button></div></section>`;
 }
 function stepsReset(){
@@ -21445,10 +21454,17 @@ function regClimate(R){const [a,b]=R.geo.lat,t=lt=>{const v=26-(lt-22)*0.42;retu
    region open on the World page listed, from summaries/ on demand, at most every five minutes. Dormant
    nations are left out, as dormSift leaves them out of the live records. */
 const RSTAT={n:{},at:0,busy:false,names:{},nat:{}},REGION_CAP=Math.max(1,Number(window.EDICTUM_REGION_CAP)||250);
+/* a region's active players from summaries: saved since `since`, and saved before it but kept awake by a
+   holiday after that save (holiday mode: e is the time the nation counts as active until). null if the
+   count could not be had; the holiday part counts nothing if it fails */
+function sumActive(reg,since){
+  return Promise.all([S.db.count('summaries',[['reg','==',reg],['t','>',since]]),Promise.resolve().then(()=>S.db.count('summaries',[['reg','==',reg],['t','<=',since],['e','>',since]])).catch(()=>0)])
+    .then(([a,b])=>a==null?null:a+(Number(b)||0),()=>null);
+}
 function regStatsSoon(maxAge){
   if(S.mode==='local'||!S.db||typeof S.db.count!=='function'||RSTAT.busy||Date.now()-RSTAT.at<(maxAge||3e5))return;
   RSTAT.busy=true;const since=Date.now()-DORM_MS;
-  Promise.all(REGIONS.map(R=>S.db.count('summaries',[['reg','==',R.id],['t','>',since]]).then(n=>[R.id,n],()=>[R.id,null]))).then(rs=>{
+  Promise.all(REGIONS.map(R=>sumActive(R.id,since).then(n=>[R.id,n]))).then(rs=>{
     for(const [id,n] of rs)if(n!=null)RSTAT.n[id]=n;
     RSTAT.at=Date.now();RSTAT.busy=false;
     if(!S.nation&&foundAutoRegion())return;
@@ -21458,8 +21474,9 @@ function regStatsSoon(maxAge){
 function regNamesSoon(id){
   if(!id||id===REG.id||S.mode==='local'||!S.db||Date.now()-(RSTAT.nat[id]||0)<3e5)return;
   RSTAT.nat[id]=Date.now();
-  S.db.collection('summaries').where('reg','==',id).where('t','>',Date.now()-DORM_MS).orderBy('t','desc').limit(100).get().then(qs=>{
-    RSTAT.names[id]=qs.docs.map(d=>d.data()).filter(x=>x&&x.name).sort((a,b)=>(Number(b.pop)||0)-(Number(a.pop)||0)).map(x=>({name:String(x.name).slice(0,40)}));
+  const since=Date.now()-DORM_MS,Q=S.db.collection('summaries').where('reg','==',id);
+  Promise.all([Q.where('t','>',since).orderBy('t','desc').limit(100).get(),(()=>{try{return Q.where('t','<=',since).where('e','>',since).limit(20).get().catch(()=>({docs:[]}));}catch(e){return {docs:[]};}})()]).then(([qs,qh])=>{
+    RSTAT.names[id]=qs.docs.concat(qh.docs).map(d=>d.data()).filter(x=>x&&x.name).sort((a,b)=>(Number(b.pop)||0)-(Number(a.pop)||0)).map(x=>({name:String(x.name).slice(0,40)}));
     if(S.view==='world')render();
   },()=>{RSTAT.nat[id]=0;});
 }
@@ -30609,7 +30626,7 @@ function tutNorm(d){
 }
 NORM_HOOKS.push((n,d)=>{const v=tutNorm(d&&d.tut);if(v)n.tut=v;else delete n.tut;});
 /* the steps that earn a land credit: the seven First steps, the Next steps and the social-page step */
-const tutLcIds=()=>FIRST_STEPS.map(s=>s[0]).concat(NEXT_STEPS.map(s=>s[0]),['soc']);
+const tutLcIds=()=>FIRST_STEPS.map(s=>s[0]).filter(k=>k!=='google').concat(NEXT_STEPS.map(s=>s[0]),['soc']);
 const tutLcOf=n=>n&&n.tut&&Array.isArray(n.tut.lc)?n.tut.lc:[];
 const tutSeen=(n,g)=>!!(n&&n.tut&&typeof n.tut.g==='string'&&n.tut.g.includes(g));
 const tutFresh=n=>!!n&&!(n.answered&&n.answered.length)&&Date.now()-(+n.founded||0)<30*60e3;
@@ -30720,6 +30737,22 @@ COMMIT_HOOKS.push((n,old,now)=>{
    Land office notice all follow landEarned; nextCreditPop follows earnedAt) */
 landEarned=(f=>function(n){return f.apply(this,arguments)+tutLcOf(n).length;})(landEarned);
 earnedAt=(f=>function(n){return f.apply(this,arguments)+tutLcOf(n).length;})(earnedAt);
+/* ── the Google step: linking the account pays 5 land credits and 5 iron, 5 timber and 5 goods, once (n.glk).
+   The shim says whether the account is linked (user.google()), and tells the page when it links. ── */
+const GL_CREDITS=5,GL_GIFT={iron:5,timber:5,goods:5};
+const GL_TAG='<span class="tut-lc" title="Earns five land credits, and 5 iron, 5 timber and 5 goods">+5 land</span>';
+landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&n.glk?GL_CREDITS:0);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&n.glk?GL_CREDITS:0);})(earnedAt);
+NORM_HOOKS.push((n,d)=>{if(d&&d.glk===1)n.glk=1;});
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!S.google||n.glk||!n.name||n.npc)return [];
+  n.glk=1;const st=stockNow(n,now);for(const [r,v] of Object.entries(GL_GIFT))st[r]=Math.min(STOCK_CAP,num0(st[r])+v);n.stock=roundStock(st);n.stockAt=now;
+  return [`Step done: ${n.name} is kept with your Google account. +${GL_CREDITS} land credits to spend on the map, and ${GL_GIFT.iron} iron, ${GL_GIFT.timber} timber and ${GL_GIFT.goods} goods.`];
+});
+function glCheck(){const n=S.nation;if(S.google&&n&&!n.glk&&!n.npc&&n.name&&!dormHeld()){commit(clone(n));render();}}
+window.addEventListener('edictum:linked',()=>{S.google=true;glCheck();});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="acct-open"]');if(!el)return;
+  const b=document.querySelector('.ed-acct-b');if(b)b.click();else toast('Sign-in is not available right now. Reload the page when you are back online.');});
 /* a step ticked without a save (a lens tried, a tile inspected, the World or social page seen, a city grown):
    one ordinary save writes it into n.tut.lc. Each step is tried once a session, so nothing saves on every render. */
 function tutLcSoon(){if(!TUT.lcT)TUT.lcT=setTimeout(tutLcCheck,150);}
@@ -33447,6 +33480,7 @@ async function connect(){
   const uid=await user.id();if(!uid)return;
   S.db=db;S.uid=uid;
   S.isOwner=await user.isOwner();
+  try{S.google=typeof user.google==='function'?!!(await user.google()):false;}catch(e){S.google=false;}
   const can=await user.can('data.write');
   S.mode=can===false?'readonly':'world';
   /* a moderator's word comes first: a banned account saves nothing, and a removed nation's copy in this
@@ -33504,6 +33538,15 @@ async function connect(){
   db.collection('mod').onSnapshot(qs=>{
     const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
     S.mod=m;modNotice();shared();board();
+  },()=>{});
+  if(S.google)setTimeout(glCheck,3000);
+  /* Edictum staff: an admin's page marks its player in staff/ (the rules let only an admin write their own),
+     and clears the mark once the right is gone */
+  db.collection('staff').onSnapshot(qs=>{
+    const st=new Set(qs.docs.map(d=>d.id));S.staff=st;
+    if(S.isOwner&&!st.has(uid))db.doc('staff/'+uid).set({t:Date.now()}).catch(()=>{});
+    else if(!S.isOwner&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
+    if(['nation','visit','region','messages'].includes(S.view))render();
   },()=>{});
   render();
 }
@@ -33575,11 +33618,15 @@ function heroDelegate(now){
   if(HS_DEL.w!==S.world||HS_DEL.c!==commitNo||HS_DEL.m!==m){let v=null;try{const D=asmDel(asmRecs(),now);v=D?D.id:null;}catch(e){}HS_DEL={w:S.world,c:commitNo,m,v};}
   return HS_DEL.v;
 }
+/* staff are the game's admins; a player's own page knows its claim at once */
+function isStaff(id){return !!id&&((id===S.uid&&!!S.isOwner)||!!(S.staff&&S.staff.has(id)));}
+const STAFF_PILL='<span class="staff-pill" title="A member of the Edictum team"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="var(--stamp)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum staff</span>';
 function heroStamps(n,id){
   const now=Date.now(),out=[],st=(cls,k,v,sub)=>`<span class="hs ${cls}"><span class="hs-k">${esc(k)}</span><span class="hs-v">${esc(v)}</span>${sub?`<span class="hs-s">${esc(sub)}</span>`:''}</span>`;
   let mem=!!n.npc;try{if(!mem)mem=asmMember(n);}catch(e){}
-  if(mem)out.push(st('hs-asm',REG.name+' Assembly','Member',''));
+  /* the highest seat only: the Delegate's chair stands for a member's seat */
   if(id&&!n.npc&&heroDelegate(now)===id)out.push(st('hs-del','Assembly','Delegate','of '+REG.name));
+  else if(mem)out.push(st('hs-asm',REG.name+' Assembly','Member',''));
   let A=null;try{A=id?allianceOf(id):null;}catch(e){}
   if(A)out.push(st('hs-al','Alliance',A.name,A.npc?'':(A.founder===id?'Founder':'')));
   return out.length?`<div class="hero-stamps">${out.join('')}</div>`:'';
@@ -33596,7 +33643,7 @@ function hero(n,opt){
         <h1 class="hero-name" style="--lw:${Math.max(6,...String(n.name).split(/[\s-]+/).map(w=>w.length))}">${esc(n.name)}${czEpithet(n)}</h1>
         ${n.motto?`<p class="hero-motto">“${esc(n.motto)}”</p>`:''}
         ${n.ruler?`<p class="hero-ruler">Led by ${esc(n.leader)} ${esc(n.ruler)}</p>`:''}
-        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
+        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${isStaff(id)?STAFF_PILL:''}${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
         <p class="hero-blurb">${esc(CAT_BLURB[cat])}</p>
         ${n.about?`<p class="hero-about">${esc(n.about)}</p>`:''}${heroStamps(n,id)}${idActs(n)}
       </div>
@@ -33856,7 +33903,7 @@ function regionView(now){
     posts.sort((a,b)=>b.p.t-a.p.t);
     const canPost=S.mode==='world'&&!!S.nation;
     board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">You have view-only access, so you can read the board but not post.</div>`}
-    ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const nat=aid===S.uid?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,aid===S.uid):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
+    ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const nat=aid===S.uid?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,aid===S.uid):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="c-cat">Category</th><th class="c-al">Alliance</th><th class="c-pop">Population</th><th class="c-pop">Land area</th></tr></thead><tbody>
@@ -34390,12 +34437,14 @@ function admLoad(force){
   const now=Date.now(),c=(p,w)=>S.db.count(p,w||[]).catch(()=>null),since=t=>[['t','>',now-t]];
   Promise.all([
     c('summaries'),c('summaries',since(DORM_MS)),c('summaries',since(7*DAY)),c('summaries',since(DAY)),c('summaries',since(15*60000)),c('space'),
-    Promise.all(REGIONS.map(R=>Promise.all([c('summaries',[['reg','==',R.id],['t','>',now-DORM_MS]]),c('summaries',[['reg','==',R.id],['t','>',now-DAY]]),c('boards/'+R.id+'/posts')]))),
+    Promise.all(REGIONS.map(R=>Promise.all([sumActive(R.id,now-DORM_MS),c('summaries',[['reg','==',R.id],['t','>',now-DAY]]),c('boards/'+R.id+'/posts')]))),
     S.db.collection('summaries').orderBy('pop','desc').limit(10).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null),
     S.db.collection('reports').orderBy('t','desc').limit(100).get().then(qs=>qs.docs.map(d=>{const x=d.data()||{};return Object.assign({},x,{id:d.id,t:x.t&&typeof x.t.toMillis==='function'?x.t.toMillis():Number(x.t)||0});}),()=>null),
     S.db.collection('bans').orderBy('t','desc').limit(200).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null),
     c('support',[['st','==','open']])
   ]).then(([all,active,week,today,live,space,regs,top,reports,bans,help])=>{
+    /* active in 250 days: the regions' counts, which count a holiday as activity */
+    if(regs.every(r=>r[0]!=null))active=regs.reduce((t,r)=>t+r[0],0);
     ADM.d={all,active,week,today,live,space,top,reports,bans,help,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
     if(all==null&&active==null)ADM.err='The figures could not be loaded. Try again in a moment.';
     ADM.at=Date.now();ADM.busy=false;if(S.view==='admin')render();

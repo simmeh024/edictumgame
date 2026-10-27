@@ -10,7 +10,7 @@
 import path from 'node:path';
 import {
   BASE, OUT, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
-  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors
+  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT
 } from './lib.mjs';
 
 await clearEmulators();
@@ -369,13 +369,16 @@ await A.locator('.hero').screenshot({ path: path.join(OUT, 'banner-stamps.png') 
 await nav(A, 'assembly');
 const delName = await until(() => text(A, '.asm-del-n'));
 await nav(A, 'nation');
-const delA = !!(await A.$('.hero .hs-del'));
+const delA = !!(await A.$('.hero .hs-del')), memA = !!(await A.$('.hero .hs-asm'));
 await nav(A, 'region'); await until(() => A.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`); await A.waitForSelector('.hero');
-const delB = !!(await A.$('.hero .hs-del'));
+const delB = !!(await A.$('.hero .hs-del')), memB = !!(await A.$('.hero .hs-asm'));
 check('the Delegate’s stamp is on the nation the Assembly names, and on no other', !!delName && /Aldoria/.test(delName) === delA && /Borvia/.test(delName) === delB && !(delA && delB), JSON.stringify({ delName, delA, delB }));
+check('each member shows only its highest seat: the Delegate, or a member', delA !== memA && delB !== memB, JSON.stringify({ delA, memA, delB, memB }));
+check('an admin sees no staff pill on a player’s banner', !(await A.$('.hero .staff-pill')));
 // B opens A's passport from A's page
 await nav(B, 'region');
 await until(() => B.$(`.tbl [data-act="visit"][data-id="${uidA}"]`)); await B.click(`.tbl [data-act="visit"][data-id="${uidA}"]`);
+check('an admin’s nation is marked Edictum staff on its banner, for other players too', await until(async () => /Edictum staff/.test(await text(B, '.hero .hero-cat')), 15000));
 await until(() => B.$('.visit-acts [data-act="pp-view"]')); await B.click('.visit-acts [data-act="pp-view"]');
 check('every nation’s page has View passport, which opens on the cover', !!(await until(() => B.$('#pp-view[aria-modal="true"] .pp-cover'))) && /Aldoria/.test(await text(B, '#pp-view-h')));
 await B.keyboard.press('ArrowRight');                                        // the identity page and page I, side by side
@@ -466,14 +469,36 @@ const D0 = await player('D0', { inject: false });
 check('the Hosting emulator’s init.json plus a demo project id reach the emulators', typeof (await open(D0)) === 'string');
 await D0.ctx.close();
 
+/* ── 7b. Edictum staff, in posts and messages ───────────────────────────── */
+await nav(B, 'region');
+check('an admin’s board posts carry the staff pill', await until(async () => B.$$eval('.post', ps => ps.some(p => /Aldoria/.test((p.querySelector('.post-h') || {}).textContent || '') && !!p.querySelector('.staff-pill'))), 15000));
+await nav(A, 'messages');
+await A.selectOption('#dm-new', uidB); await A.waitForSelector('#dm-text');
+await A.fill('#dm-text', 'Hello from the Edictum team.'); await A.click('#dm-form button[type="submit"]');
+await nav(B, 'messages');
+await until(() => B.$(`[data-act="dm-peer"][data-id="${uidA}"]`), 20000); await B.click(`[data-act="dm-peer"][data-id="${uidA}"]`);
+check('a message from staff says it comes from the Edictum team', await until(async () => /Edictum team/.test(await text(B, '.staff-note')) && /Edictum staff/.test(await text(B, '.bub.staff .bub-staff')) && /Edictum staff/.test(await text(B, `[data-act="dm-peer"][data-id="${uidA}"]`))));
+await B.locator('.thread').screenshot({ path: path.join(OUT, 'staff-message.png') });
+
 /* ── 8. Google sign-in (Auth emulator) ──────────────────────────────────── */
+// the first steps offer it, with what it pays; the button opens the account dialog
+await nav(B, 'nation');
+check('a guest’s first steps offer linking to Google, for 5 land credits', /Keep your nation on every device\s*\+5 land/.test(await text(B, '.stp')));
+await B.click('.stp [data-act="acct-open"]');
+check('its button opens the account dialog', !!(await until(() => B.$('dialog.ed-dlg[open] [data-ed="google"]'))));
+await B.keyboard.press('Escape');
 // a. A guest with a nation links Google: same uid
+const glA0 = await localNation(A);
 await openAccount(A);
 await googlePopup(A, '[data-ed="google"]', 'alice@example.com');
 check('linking keeps the guest’s uid', await until(async () => (await ready(A)) === uidA));
 check('the control shows the Google account', await until(async () => /alice@example\.com/.test(await text(A, '.ed-acct-b'))));
 check('the dialog says the nation is kept with the account', /Linked/.test(await text(A, '.ed-msg')));
 await A.keyboard.press('Escape');
+const glA1 = await until(async () => { const n = await localNation(A); return n && n.glk === 1 ? n : null; }, 10000);
+const glGain = r => glA1.stock[r] - glA0.stock[r];
+check('linking completes the first step, once, with 5 iron, 5 timber and 5 goods', !!glA1 && ['iron', 'timber', 'goods'].every(r => glGain(r) > 4.9 && glGain(r) < 6), JSON.stringify(glA1 && [glA0.stock, glA1.stock]));
+check('and says so, with its 5 land credits', await until(async () => /kept with your Google account\. \+5 land credits/.test(await toasts(A)), 15000));
 
 // b. a new device signs in to that account from the founding screen
 const E = await player('E');
@@ -748,6 +773,22 @@ check('260 days without a save: the nation sleeps', !!(await HM.$('#dorm-name'))
 await edit((n, now) => { n.updatedAt = now - 260 * 864e5; n.away = { a: now - 255 * 864e5, b: now - 228 * 864e5 }; });
 check('but a 27-day holiday in that time keeps it awake', !(await HM.$('#dorm-name')) && !!(await HM.$('.layout')));
 await HM.ctx.close();
+// a nation on holiday: its summary counts the holiday (e), and the regions' counts follow it
+const HW = await player('HW');
+const uidHW = await open(HW);
+await found(HW, 'Lakeshore');
+await HW.evaluate(() => { location.hash = '#settings'; }); await HW.waitForSelector('#away-to');
+const backHW = await HW.evaluate(() => { const d = new Date(Date.now() + 5 * 864e5), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; });
+await HW.fill('#away-to', backHW); await HW.click('[data-act="away-start"]');
+const fnum = v => Number(v && (v.integerValue ?? v.doubleValue));
+const sumHW = await until(async () => { const r = await restGet('summaries/' + uidHW); const f = r.status === 200 && r.body.fields; return f && f.e ? f : null; }, 15000);
+check('a nation on holiday has a summary that counts the holiday', !!sumHW && Math.abs(fnum(sumHW.e) - new Date(backHW).getTime()) < 120e3, JSON.stringify(sumHW));
+await HW.ctx.close();
+// as if it were saved 260 days ago, 20 days before a holiday ended: asleep by its save, awake by the holiday
+const nowHW = Date.now(), sinceHW = nowHW - 250 * 864e5;
+await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/summaries/${uidHW}?updateMask.fieldPaths=t&updateMask.fieldPaths=e`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { t: { integerValue: String(nowHW - 260 * 864e5) }, e: { integerValue: String(nowHW - 240 * 864e5) } } }) });
+const cnt = w => B.evaluate(async w => (await window.claude.use('db')).count('summaries', w), w);
+check('other regions count it as awake: saved before the cut-off, kept awake by its holiday', (await cnt([['reg', '==', 'meridian'], ['t', '<=', sinceHW], ['e', '>', sinceHW]])) === 1);
 
 /* ── 11. how it looks ───────────────────────────────────────────────────── */
 for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, height: 844 }, true]]) {
