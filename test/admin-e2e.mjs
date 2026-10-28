@@ -1,4 +1,4 @@
-import { BASE, OUT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restListAdmin, clearEmulators } from './lib.mjs';
+import { BASE, OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restListAdmin, clearEmulators } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('player');
 const uidA = await open(A); await found(A, 'Adminland');
@@ -22,6 +22,16 @@ await page('admin-health');
 check('save health lists reporting sessions and actual server revisions', await until(async () => /Playerland/.test(await text(A, '.adm-main .tbl')) && /Server /.test(await text(A, '.adm-main .tbl')), 20000));
 check('save health explains stale/offline reporting limits', /offline cannot send a live report/.test(await text(A, '.adm-main')) && /unseen for five minutes/.test(await text(A, '.adm-main')));
 await A.screenshot({ path: OUT + '/admin-save-health.png', fullPage: true });
+
+// A moderation snapshot can arrive after the action's response and its summary recount. It must
+// update an already open portal without needing another navigation, timer or manual refresh.
+await page('admin-hidden');
+const modURL=`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/mod/${uidB}`;
+const hide=await fetch(modURL,{method:'PATCH',headers:{authorization:'Bearer owner','content-type':'application/json'},body:JSON.stringify({fields:{hidden:{booleanValue:true},name:{stringValue:'Playerland'},t:{integerValue:String(Date.now())}}})});
+if(!hide.ok)throw new Error('Could not create emulator moderation fixture');
+check('an external moderation snapshot updates Hidden nations without a refresh',await until(async()=>!!await A.$(`[data-act="adm-unhide"][data-id="${uidB}"]`)));
+await fetch(modURL,{method:'DELETE',headers:{authorization:'Bearer owner'}});
+check('restoring visibility also updates the open portal immediately',await until(async()=>!await A.$(`[data-act="adm-unhide"][data-id="${uidB}"]`)));
 
 await page('admin-regions');
 await A.waitForSelector('[data-act="region-ask"][data-id="meridian"]');

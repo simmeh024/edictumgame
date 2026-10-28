@@ -34735,6 +34735,7 @@ async function connect(){
   db.collection('mod').onSnapshot(qs=>{
     const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
     S.mod=m;modNotice();shared();board();
+    if(S.isOwner&&['admin','admin-hidden'].includes(S.view))render();
   },()=>{});
   if(S.google)setTimeout(glCheck,3000);
   /* Edictum staff: an admin's page marks its player in staff/ (the rules let only an admin write their own),
