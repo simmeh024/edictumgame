@@ -3678,9 +3678,13 @@ button.prv-rb{cursor:pointer}button.prv-rb:hover{border-color:var(--ink-3)}
 .adm-pill{display:inline-flex;align-items:center;flex:none;margin-bottom:3px;padding:3px 9px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 a.adm-pill:hover{filter:brightness(1.12)}
 a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
-.adm{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
-.adm-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:0 0 24px}
-.adm-head .btn{margin-left:auto}
+.adm{max-width:1440px;margin:0 auto;padding:28px 24px 64px;display:grid;grid-template-columns:224px minmax(0,1fr);gap:40px;align-items:start;min-height:100vh}
+.adm-main{min-width:0;outline:none}
+.adm-sidebar{position:sticky;inset:auto;top:24px;width:100%;max-width:none;max-height:calc(100dvh - 48px);margin:0;padding:22px 16px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);color:var(--ink);overflow-y:auto;box-sizing:border-box}
+.adm-brand{display:flex;align-items:center;gap:10px;margin:0 4px 28px}
+.adm-brand .adm-pill{margin:0}
+.adm-return{width:100%;margin-top:28px;white-space:normal;text-align:left}
+.adm-menu-toggle,.adm-menu-close{display:none}
 .adm-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:18px 0 8px}
 .adm-kpi{padding:14px 16px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
 .adm-kpi b{display:block;font:600 28px/1.1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
@@ -3700,12 +3704,24 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-danger{color:var(--down)}
 .adm-ask{margin-top:10px;padding:10px 12px;border:1px solid var(--down);border-radius:4px;background:var(--down-soft)}
 .adm-ask p{margin:0 0 8px;color:var(--ink)}
-.adm-nav{display:flex;flex-wrap:wrap;gap:6px}
-.adm-nav a{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border:1px solid var(--rule-2);border-radius:999px;color:var(--ink-2);font-size:14px;font-weight:600;text-decoration:none}
-.adm-nav a:hover{border-color:var(--accent);color:var(--ink)}
+.adm-nav{display:grid;gap:24px}
+.adm-nav-group{display:grid;gap:4px}
+.adm-nav-label{margin:0 12px 5px;color:var(--ink-2);font:600 10px/1.4 var(--f-mono);letter-spacing:.13em;text-transform:uppercase}
+.adm-nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:42px;padding:8px 12px;border:1px solid transparent;border-radius:4px;color:var(--ink-2);font-size:14px;font-weight:600;text-decoration:none;box-sizing:border-box}
+.adm-nav a:hover{border-color:var(--rule);background:var(--sheet-2);color:var(--ink)}
+.adm-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .adm-nav a[aria-current="page"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
 .adm-nav .chip{margin:0}
 .adm-nav a[aria-current="page"] .chip{border-color:currentColor;color:inherit}
+.adm-sidebar::backdrop{background:rgba(0,0,0,.42)}
+@media (max-width:900px){
+  .adm{display:block;padding:20px 20px 48px;min-height:100dvh}
+  .adm-menu-toggle{display:inline-flex;margin-bottom:24px;min-height:44px}
+  .adm-menu-close{display:inline-flex;margin-left:auto;min-height:44px}
+  .adm-sidebar{position:fixed;inset:0 auto 0 0;top:0;width:min(300px,90vw);height:100dvh;max-height:100dvh;margin:0;padding:24px 18px;border-radius:0;border-width:0 1px 0 0}
+  .adm-brand{flex-wrap:wrap;margin-bottom:24px}
+  .adm-nav a{min-height:44px}
+}
 .adm-rep a{color:var(--accent)}
 .admh-lbl{display:block;margin:10px 0 4px;font-size:13px;color:var(--ink-2)}
 .admh-in{display:block;width:100%;box-sizing:border-box;resize:vertical}
@@ -3756,7 +3772,7 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .cz-ds-h{margin:4px 0 0}
 #cz-sec-s .sub-h{margin-top:22px}
 .post-rep{color:var(--ink-3)}
-@media (max-width:720px){.adm{padding:18px 16px 48px}.adm-head .btn{margin-left:0}}
+@media (max-width:720px){.adm{padding:18px 16px 48px}}
 
 /* the passport */
 .pp-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 22px}
@@ -35463,6 +35479,8 @@ function tick(){
    overall, the largest nations, and a way back to the game. Everything here is public data counted on
    demand (one cheap count per figure), loaded when the page opens and at most once a minute after. */
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
+const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
+const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus');
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
    stays theirs to play); a removed nation leaves this browser too */
@@ -35498,23 +35516,23 @@ function admLoad(force){
     if(regs.every(r=>r[0]!=null))active=regs.reduce((t,r)=>t+r[0],0);
     ADM.d={all,active,week,today,live,space,top,reports,bans,help,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
     if(all==null&&active==null)ADM.err='The figures could not be loaded. Try again in a moment.';
-    ADM.at=Date.now();ADM.busy=false;if(S.view==='admin')render();
-  },()=>{ADM.busy=false;ADM.err='The figures could not be loaded. Try again in a moment.';if(S.view==='admin')render();});
+    ADM.at=Date.now();ADM.busy=false;if(ADM_PAGES.includes(S.view))render();
+  },()=>{ADM.busy=false;ADM.err='The figures could not be loaded. Try again in a moment.';if(ADM_PAGES.includes(S.view))render();});
 }
-function adminView(){
-  /* opening the page (not a redraw while it is open) always counts afresh */
-  const now0=Date.now();admLoad(now0-(ADM.seen||0)>1e4);ADM.seen=now0;
+function adminView(v='admin'){
+  /* Count afresh on entering the portal; category changes share the one-minute cache. */
+  admLoad(!ADM.seen);ADM.seen=Date.now();
   const d=ADM.d,n=v=>v==null?'–':Number(v).toLocaleString('en-GB'),kpi=(v,l)=>`<div class="adm-kpi"><b>${n(v)}</b><span>${l}</span></div>`;
   const when=ADM.at?new Date(ADM.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'';
   const regs=d?d.regs.slice().sort((a,b)=>(b.active||0)-(a.active||0)||(a.R.name<b.R.name?-1:1)):[];
   const fill=r=>{const f=Math.min(1,(r.active||0)/REGION_CAP);return `<div class="adm-bar${f>=0.9?' hi':''}" role="img" aria-label="${Math.round(f*100)}% full"><i style="width:${(f*100).toFixed(1)}%"></i></div>`;};
-  return `<div class="adm">
-    ${admHead('admin')}
-    <p class="eyebrow">Admin portal</p><h1 class="display">The state of the world</h1>
+  const title={'admin':'The state of the world','admin-regions':'Regions','admin-reports':'Reports','admin-hidden':'Hidden nations','admin-bans':'Banned players'}[v];
+  return admShell(v,`
+    <p class="eyebrow">Admin portal</p><h1 class="display">${title}</h1>
     <p class="lede">Counted live from the database when this page opens.${when?` Last counted at ${when}.`:''} <button type="button" class="linkish" data-act="admin-refresh"${ADM.busy?' disabled':''}>${ADM.busy?'Counting…':'Count again'}</button></p>
     ${ADM.err?`<p class="err">${esc(ADM.err)}</p>`:''}
     ${!d?`<p class="hint">${ADM.busy||!ADM.err?'Counting the players…':''}</p>`:`
-    <div class="adm-kpis">
+    ${v==='admin'?`<div class="adm-kpis">
       ${kpi(d.active,'players (active in the last '+DORMANT_DAYS+' days)')}
       ${kpi(d.live,'playing now (saved in the last 15 minutes)')}
       ${kpi(d.today,'active today')}
@@ -35523,21 +35541,21 @@ function adminView(){
       ${kpi(d.space,'nations in space (Moon, Mars or the belt)')}
       ${kpi(d.reports?d.reports.length:null,'open reports')}
       ${kpi(d.help,'open help queries')}
-    </div>
-    ${admReports(d.reports)}
-    ${admHidden()}
-    ${admBanned(d.bans)}
-    <h2 class="h2">Regions</h2>
+    </div>`:''}
+    ${v==='admin'||v==='admin-reports'?admReports(d.reports):''}
+    ${v==='admin'||v==='admin-hidden'?admHidden():''}
+    ${v==='admin'||v==='admin-bans'?admBanned(d.bans):''}
+    ${v==='admin'||v==='admin-regions'?`<h2 class="h2">${v==='admin-regions'?'Regional capacity':'Regions'}</h2>
     <p class="hint">${REGIONS.length} regions, each with room for ${REGION_CAP} active nations. Newcomers go to the fullest region with room.</p>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Region</th><th class="num">Players</th><th class="num">Active today</th><th>Room</th><th class="num">Board posts</th></tr></thead><tbody>
       ${regs.map(r=>`<tr><td>${esc(r.R.name)}</td><td class="num">${n(r.active)}</td><td class="num">${n(r.today)}</td><td>${fill(r)}</td><td class="num">${n(r.posts)}</td></tr>`).join('')}
-    </tbody></table></div>
-    <h2 class="h2">Largest nations</h2>
+    </tbody></table></div>`:''}
+    ${v==='admin'?`<h2 class="h2">Largest nations</h2>
     ${d.top&&d.top.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="num">#</th><th>Nation</th><th>Region</th><th class="num">Population</th><th>Last active</th></tr></thead><tbody>
       ${d.top.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${esc(String(x.name||'').slice(0,40))}</td><td>${esc(regName(x.reg))}</td><td class="num">${fmtPop(Number(x.pop)||0)}</td><td>${x.t?esc(rel(Number(x.t))):'–'}</td></tr>`).join('')}
     </tbody></table></div>`:'<p class="hint">No nations yet.</p>'}
-    <p class="hint" style="margin-top:22px">Not counted here: how many players are guests and how many signed in with Google. Only the server can see accounts (Firebase console, Authentication).</p>`}
-  </div>`;
+    <p class="hint" style="margin-top:22px">Not counted here: how many players are guests and how many signed in with Google. Only the server can see accounts (Firebase console, Authentication).</p>`:''}`}
+  `);
 }
 function admReports(list){
   const n=list?list.length:0;
@@ -35619,14 +35637,13 @@ function susRow(x){
 function susRows(){return susHere().concat(ADMS.scan||[]);}
 function adminSusView(){
   const rows=susRows();
-  return `<div class="adm">
-    ${admHead('admin-sus')}
+  return admShell('admin-sus',`
     <p class="eyebrow">Admin portal</p><h1 class="display">Suspicious nations</h1>
     <p class="lede">Every player’s game checks the other nations’ records and sets aside what the game could not have produced, so a cheat shows only on the cheat’s own screen. These are the nations it caught, and why. ${esc(REGION)} is checked as it is; the other regions when you ask, at one read per nation.</p>
     <div class="row"><button class="btn ghost" data-act="sus-scan"${ADMS.busy?' disabled':''}>${ADMS.busy?'Checking the other regions…':ADMS.scan?'Check the other regions again':'Check the other regions'}</button>${ADMS.scan?`<span class="hint">Checked ${esc(rel(ADMS.at))}: ${ADMS.n.toLocaleString('en-US')} nations in ${REGIONS.length-1} regions.</span>`:''}</div>
     ${ADMS.err?`<p class="err">${esc(ADMS.err)}</p>`:''}${ADMS.act?`<p class="hint" role="status">${esc(ADMS.act)}</p>`:''}
     ${rows.length?`<ul class="adm-reps sus-list">${rows.map(susRow).join('')}</ul>`:`<p class="hint">Nothing suspicious${ADMS.scan?'':' in '+esc(REGION)}.</p>`}
-  </div>`;
+  `);
 }
 async function susAct(a,id){
   const x=susRows().find(r=>r.id===id),note=x?('Suspected cheating: '+x.why.join(' ')).slice(0,300):'Suspected cheating.',name=x?String(x.name).slice(0,80):'';
@@ -35640,18 +35657,39 @@ async function susAct(a,id){
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
   if(a==='sus-scan'){susScan();return;}if(a==='sus-no'){ADMS.ask=null;render();return;}
   if(a==='sus-hide'||a==='sus-ban'||a==='sus-ban-yes')susAct(a,el.dataset.id);});
-function admHead(v){
-  const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help,tab=(k,l)=>`<a href="#${k}" data-act="adm-tab" data-v="${k}"${v===k?' aria-current="page"':''}>${l}</a>`;
-  return `<header class="adm-head"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span>
-    <nav class="adm-nav" aria-label="Admin portal">${tab('admin','Overview')}${tab('admin-help','Help queries'+(n?` <span class="chip">${n}</span>`:''))}${tab('admin-sus','Suspicious'+(AUDIT.size?` <span class="chip">${AUDIT.size}</span>`:''))}</nav>
-    <button type="button" class="btn" data-act="admin-close">Back to the game</button></header>`;
+const ADM_MOBILE=window.matchMedia('(max-width:900px)');
+let admMenuOpen=false;
+function admShowMenu(){
+  const m=document.getElementById('adm-menu');if(!m||m.open)return;
+  m.showModal();m.addEventListener('close',()=>{admMenuOpen=false;const b=document.querySelector('.adm-menu-toggle');if(b)b.focus({preventScroll:true});},{once:true});
 }
-shell=(f=>function(){if(S.view==='admin'&&S.isOwner)return adminView();if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();return f.apply(this,arguments);})(shell);
-go=(f=>function(v){if(v==='admin'&&S.view!=='admin'){ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
+function admShell(v,body){
+  const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help;
+  const tab=(k,l,count)=>`<a href="#${k}" data-act="adm-tab" data-v="${k}"${v===k?' aria-current="page"':''}><span>${l}</span>${count?` <span class="chip">${count}</span>`:''}</a>`;
+  const group=(label,links)=>`<section class="adm-nav-group" aria-label="${label}"><h2 class="adm-nav-label">${label}</h2>${links}</section>`;
+  return `<div class="adm">
+    <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
+      <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
+      <nav class="adm-nav" aria-label="Admin portal">
+        ${group('World',tab('admin','Overview')+tab('admin-regions','Regions'))}
+        ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
+        ${group('Support',tab('admin-help','Help queries',n))}
+      </nav>
+      <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
+    </dialog>
+    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${body}</main>
+  </div>`;
+}
+ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
+render=(f=>function(){const r=f.apply(this,arguments);if(admMenuOpen&&ADM_MOBILE.matches)admShowMenu();return r;})(render);
+shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){if(v!==S.view)admMenuOpen=false;if(ADM_PAGES.includes(v)&&S.view!==v){if(!ADM_VIEWS.includes(S.view))ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='admin-open'){e.preventDefault();go('admin');return;}
-  if(a==='adm-tab'){e.preventDefault();go(el.dataset.v);return;}
+  if(a==='adm-tab'){e.preventDefault();go(el.dataset.v);const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});return;}
+  if(a==='adm-menu-open'){admMenuOpen=true;admShowMenu();return;}
+  if(a==='adm-menu-close'){document.getElementById('adm-menu').close();return;}
   if(a==='admin-close'){go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
   if(a==='adm-ask-no'){ADM.ask=null;render();return;}
@@ -35705,8 +35743,7 @@ function admhLoad(){
 function adminHelpView(){
   const now0=Date.now();if(now0-ADMH.seen>1e4)admhLoad();ADMH.seen=now0;
   const d=ADMH.d;
-  return `<div class="adm">
-    ${admHead('admin-help')}
+  return admShell('admin-help',`
     <p class="eyebrow">Admin portal</p><h1 class="display">Help queries</h1>
     <p class="lede">Support tickets from players, oldest first. An answer appears on the player’s Help page, and the game tells them it has come. <button type="button" class="linkish" data-act="admh-refresh"${ADMH.busy?' disabled':''}>${ADMH.busy?'Loading…':'Load again'}</button></p>
     ${ADMH.err?`<p class="err">${esc(ADMH.err)}</p>`:''}
@@ -35716,7 +35753,7 @@ function adminHelpView(){
     ${!d.open.length?'<p class="hint">No open help queries. When a player creates a support ticket on the Help page, it appears here.</p>':`<ul class="adm-reps">${d.open.map(admhOpen).join('')}</ul>`}
     <h2 class="h2">Recently closed</h2>
     ${!d.closed.length?'<p class="hint">None yet.</p>':`<ul class="adm-reps">${d.closed.map(admhClosed).join('')}</ul><p class="hint">Closed tickets are deleted automatically 90 days after they were closed.</p>`}`}
-  </div>`;
+  `);
 }
 function admhWho(t){return `<b>${esc(t.name||'No nation yet')}</b>${t.reg?` · ${esc(regName(t.reg))}`:''} · player ID <code>${esc(t.by)}</code>`;}
 function admhOpen(t){
@@ -36686,12 +36723,12 @@ function start(data){
     S.mapViews=data.mapViews||{};S.mapSel=data.mapSel==null?null:data.mapSel;S.mapPick=data.mapPick==null?null:data.mapPick;
   }else{
     const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;
-    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help','admin-sus'].concat(EXT_PAGES).includes(h))S.view=h;
+    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_PAGES,EXT_PAGES).includes(h))S.view=h;
   }
   render();
   connect();
   setInterval(tick,10000);
-  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help','admin-sus'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
+  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_PAGES,EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
