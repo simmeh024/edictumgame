@@ -46,6 +46,8 @@ test('region switches preserve records, stop battles, and atomically log the aut
   const a = await user(true), p = await user(); await seed(p.uid); const before = (await get('nationx/' + p.uid)).fields.j;
   await call(a, { op: 'region', reg: 'meridian', enabled: false, reason: 'Storage maintenance', actor: 'forged' });
   assert.equal((await get('regionStatus/meridian')).fields.enabled.booleanValue, false);
+  assert.equal((await get('regionStatus/meridian')).fields.reason, undefined);
+  assert.equal((await get('regionStatus/meridian')).fields.by, undefined);
   assert.deepEqual((await get('nationx/' + p.uid)).fields.j, before);
   assert.equal((await get('nations/' + p.uid)).fields.rev.integerValue, '7');
   assert.deepEqual(await call(p, { op: 'battle', d: 'npc-vellmark', c: 100, p: 0.5 }, 'referee'), { ok: false, why: 'maintenance' });

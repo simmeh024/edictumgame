@@ -55,7 +55,8 @@ async function setRegion(db, actor, data) {
   const ref = db.doc('regionStatus/' + target), event = db.collection('adminAudit').doc();
   await db.runTransaction(async tx => {
     const previous = await tx.get(ref), before = previous.get('enabled') !== false;
-    tx.set(ref, { enabled: data.enabled, reason, by: actor, at: FieldValue.serverTimestamp() });
+    // Public availability contains no staff notes or actor identity; those belong to the private audit.
+    tx.set(ref, { enabled: data.enabled, at: FieldValue.serverTimestamp() });
     tx.create(event, { actor, action: data.enabled ? 'region_enabled' : 'region_disabled', target, reason, before, after: data.enabled, outcome: 'completed', at: FieldValue.serverTimestamp() });
   });
   return { ok: true };
