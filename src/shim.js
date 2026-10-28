@@ -23,7 +23,7 @@
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
-   A nation save writes nations, summaries and (when needed) nationx and space in one batch; the rules
+   A nation save writes nations, summaries and (when needed) nationx and space in one transaction; the rules
    check that they agree. */
 (function () {
   'use strict';
@@ -47,7 +47,7 @@
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
   };
-  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', spaceSent: {}, xSent: {}, raceAt: {} };
+  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', raceAt: {} };
 
   /* ───────── small helpers ───────── */
   function storeOf(name) { try { return window[name] || null; } catch (e) { return null; } }
@@ -100,6 +100,7 @@
       pop: Math.round(Math.min(1e7, Math.max(0, num(d.pop))) * 1e4) / 1e4, army: Math.round(Math.max(0, num(d.apw)) * 1e3) / 1e3,
       cl: Array.isArray(d.claims) ? d.claims.length : 0 };
   }
+  function revision(d) { return d && Number.isSafeInteger(d._rev) && d._rev >= 0 ? d._rev : 0; }
   /* the part of a nation every region needs for Moon, Mars and the belt; null without any */
   function spaceText(d) {
     if (!isObj(d) || (!d.sp && !d.belt)) return null;
@@ -117,7 +118,7 @@
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
   function splitNation(d) {
     var pub = {}, ext = {};
-    Object.keys(d).forEach(function (k) { (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
+    Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
     if (isObj(d.pp)) {
       var pp = {}, xp = {};
       Object.keys(d.pp).forEach(function (k) { (NX_PP[k] ? xp : pp)[k] = d.pp[k]; });
@@ -140,7 +141,8 @@
          numbers (set after parsing, so the record cannot claim its own) */
       var nd = typeof d.j === 'string' ? parse(d.j) : d;
       if (isObj(nd) && typeof d.j === 'string') Object.assign(nd, { _ts: millis(d.ts), _pop: typeof d.pop === 'number' ? d.pop : undefined,
-        _army: typeof d.army === 'number' ? d.army : undefined, _cl: typeof d.cl === 'number' ? d.cl : undefined });
+        _army: typeof d.army === 'number' ? d.army : undefined, _cl: typeof d.cl === 'number' ? d.cl : undefined,
+        _rev: Number.isSafeInteger(d.rev) && d.rev >= 0 ? d.rev : 0, _dirty: false });
       return nd;
     }
     if (col === 'nationx') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
@@ -170,30 +172,41 @@
   }
   /* a nation save: the shared half, its summary and, when they changed, the private half and the space document */
   function saveNation(uid, data, noSpace) {
-    /* before the first space write of this page, count from the page load: a reload must not beat the pace */
-    var enc = encode('nations', data), now = Date.now(), sent = A.spaceSent[uid] || { j: undefined, at: BOOT_AT }, next = null;
-    var sj = spaceText(data), b = A.fs.batch(), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
+    /* Space pacing and private-half changes are checked against the server, including saves made by
+       another device; a per-page cache cannot safely decide whether a write can be skipped. */
+    var enc = encode('nations', data), now = Date.now();
+    var sj = spaceText(data), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
+    var ref = A.fs.doc('nations/' + uid), expected = revision(data);
     enc.j = JSON.stringify(halves[0]);
-    b.set(A.fs.doc('nations/' + uid), enc);
-    if (A.xSent[uid] !== xj) b.set(A.fs.doc('nationx/' + uid), { j: xj, t: enc.updatedAt, ts: serverTime() });
-    var sum = { reg: enc.reg, name: enc.name, pop: enc.pop, t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
-    if (e > sum.t) sum.e = e;
-    b.set(A.fs.doc('summaries/' + uid), sum);
-    var raceFrom = A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT;
-    raceKeys(data, raceFrom).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
-    if (noSpace) { /* leave space/ as it is */ }
-    else if (sj) {
-      var changed = sent.j !== sj || sent.reg !== enc.reg || sent.name !== enc.name;
-      /* a change waits for the next save if the last space write was too recent */
-      if ((changed && now - sent.at >= SPACE_MIN) || now - sent.at > SPACE_BEAT) {
-        b.set(A.fs.doc('space/' + uid), { reg: enc.reg, name: enc.name, t: enc.updatedAt, j: sj, ts: serverTime() });
-        next = { j: sj, reg: enc.reg, name: enc.name, at: now };
+    enc.rev = expected + 1;
+    /* Read and compare in the same transaction as every part of the save. Firestore retries a raced
+       transaction against the new document; it must still match the state this action was based on. */
+    return A.fs.runTransaction(async function (b) {
+      var current = await b.get(ref), saved = current.exists ? current.data() : null;
+      if ((saved ? num(saved.rev) : 0) !== expected || (!saved && expected !== 0)) {
+        var conflict = new Error('Another device saved this nation.'); conflict.code = 'save_conflict'; throw conflict;
       }
-    } else if (sent.j) {
-      b.delete(A.fs.doc('space/' + uid));
-      next = { j: null, at: now };
-    }
-    return b.commit().then(function () { A.xSent[uid] = xj; if (next) A.spaceSent[uid] = next; A.raceAt[uid] = enc.updatedAt; });
+      var privateRef = A.fs.doc('nationx/' + uid), privateSnap = await b.get(privateRef);
+      var spaceRef = A.fs.doc('space/' + uid), spaceSnap = await b.get(spaceRef), space = spaceSnap.exists ? spaceSnap.data() : null;
+      b.set(A.fs.doc('nations/' + uid), enc);
+      if (!privateSnap.exists || privateSnap.data().j !== xj) b.set(privateRef, { j: xj, t: enc.updatedAt, ts: serverTime() });
+      var sum = { reg: enc.reg, name: enc.name, pop: enc.pop, t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
+      if (e > sum.t) sum.e = e;
+      b.set(A.fs.doc('summaries/' + uid), sum);
+      var raceFrom = A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT;
+      raceKeys(data, raceFrom).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
+      if (noSpace) { /* leave space/ as it is */ }
+      else if (sj) {
+        var changed = !space || space.j !== sj || space.reg !== enc.reg || space.name !== enc.name;
+        var elapsed = space ? now - millis(space.ts) : Infinity;
+        /* a change waits for the next save if the last space write was too recent */
+        if ((changed && elapsed >= SPACE_MIN) || elapsed > SPACE_BEAT) {
+          b.set(spaceRef, { reg: enc.reg, name: enc.name, t: enc.updatedAt, j: sj, ts: serverTime() });
+        }
+      } else if (space) {
+        b.delete(spaceRef);
+      }
+    }).then(function () { A.raceAt[uid] = enc.updatedAt; return { rev: enc.rev }; });
   }
   /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
      carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in
@@ -209,14 +222,19 @@
   function dropNation(uid) {
     var b = A.fs.batch();
     ['nations/', 'nationx/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
-    return b.commit().then(function () { A.spaceSent[uid] = { j: null, at: Date.now() }; delete A.xSent[uid]; });
+    return b.commit().then(function () { delete A.raceAt[uid]; });
   }
   /* a nation with its private half joined in */
   function getNation(uid) {
-    return Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]).then(function (r) {
+    /* Own saves must use a coherent, server-confirmed pair. Separate gets can combine the shared half
+       before another device's save with its private half afterwards (and cached reads can be stale). */
+    var read = uid === A.uid ? A.fs.runTransaction(async function (tx) {
+      return [await tx.get(A.fs.doc('nations/' + uid)), await tx.get(A.fs.doc('nationx/' + uid))];
+    }) : Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]);
+    return read.then(function (r) {
       var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null;
       /* the player's own record, as saved: its claims and finds were stamped with that save */
-      if (uid === A.uid && A.raceAt[uid] == null && s.exists) { var own = s.data(); A.raceAt[uid] = isObj(own) ? num(own.updatedAt) : 0; }
+      if (uid === A.uid && s.exists) { var own = s.data(); A.raceAt[uid] = isObj(own) ? num(own.updatedAt) : 0; }
       if (!s.exists || !x) return s;
       return { id: s.id, exists: true, data: function () { return joinNation(s.data(), decode('nationx', x)); } };
     });
@@ -230,8 +248,9 @@
       set: function (data) {
         if (A.frozen) return hang();
         if (nation) {
+          if (!A.auth.currentUser || A.auth.currentUser.uid !== p[1]) return Promise.reject(mapError({ code: 'permission-denied' }));
           try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
-          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function () {}, function (e) { throw mapError(e); });
+          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { return r; }, function (e) { throw mapError(e); });
         }
         return ref.set(encode(col, data)).then(function () {}, function (e) { throw mapError(e); });
       },
@@ -453,7 +472,7 @@
   }
 
   /* ───────── the account control and its dialog ───────── */
-  var ui = { box: null, btn: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };
+  var ui = { box: null, btn: null, sync: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };
   var ICON = '<svg class="ed-acct-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="8.2" r="2.9" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.6 15.7c1.3-2.2 3.1-3.3 5.4-3.3s4.1 1.1 5.4 3.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
   var XICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   var OUTICON = '<svg class="ed-out-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M8.2 3.6H5.1c-.8 0-1.5.7-1.5 1.5v9.8c0 .8.7 1.5 1.5 1.5h3.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path class="ed-out-ar" d="M12.6 6.4 16.2 10l-3.6 3.6M16 10H8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -466,6 +485,21 @@
     var g = (u.providerData || []).filter(function (x) { return x && x.providerId === 'google.com'; })[0] || {};
     return { kind: 'google', uid: u.uid, email: u.email || g.email || '', name: u.displayName || g.displayName || '' };
   }
+  function paintSync() {
+    if (!ui.sync) return;
+    ui.sync.hidden = ui.box.classList.contains('ed-head') || !localNation();
+    var state = !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
+    var labels = { synced: 'Synced', saving: 'Saving', offline: 'Offline' };
+    var tips = { synced: 'Your latest changes are saved online.', saving: 'Your latest changes are waiting for server confirmation.',
+      offline: 'Your nation is saved in this browser. Reconnect or reload to sync.' };
+    if (ui.sync.dataset.state === state) return;
+    ui.sync.dataset.state = state;
+    ui.sync.textContent = labels[state];
+    ui.sync.title = tips[state];
+  }
+  window.addEventListener('edictum:sync', paintSync);
+  window.addEventListener('online', paintSync);
+  window.addEventListener('offline', paintSync);
   function paint() {
     if (!ui.btn) return;
     var w = who(), head = ui.box.classList.contains('ed-head'), k, v;
@@ -475,6 +509,7 @@
     ui.btn.innerHTML = ICON + '<span class="ed-acct-t"><span class="ed-acct-k">' + esc(k) + '</span> <span class="ed-acct-v">' + esc(v) + '</span></span>';
     /* signing out is offered under the control only to a Google account: a guest who signed out would lose the nation */
     if (ui.out) ui.out.hidden = !(w.kind === 'google' && !head);
+    paintSync();
   }
   /* the game redraws #app on every change; keep the control in the side bar foot, or in the
      header of the founding screen */
@@ -487,6 +522,7 @@
     else if (head) head.appendChild(ui.box);
     else return;
     if (ui.box.classList.contains('ed-head') !== !!head) { ui.box.classList.toggle('ed-head', !!head); paint(); }
+    paintSync();
   }
   function mount() {
     if (ui.box) { paint(); return; }
@@ -494,12 +530,14 @@
     box.className = 'ed-acct';
     btn.type = 'button'; btn.className = 'ed-acct-b'; btn.setAttribute('aria-haspopup', 'dialog');
     btn.addEventListener('click', function () { open('main'); });
+    var sync = document.createElement('div');
+    sync.className = 'ed-sync'; sync.setAttribute('role', 'status'); sync.setAttribute('aria-live', 'polite'); sync.setAttribute('aria-atomic', 'true');
     var out = document.createElement('button');
     out.type = 'button'; out.className = 'ed-out'; out.setAttribute('aria-haspopup', 'dialog'); out.hidden = true;
     out.innerHTML = OUTICON + '<span>Sign out</span>';
     out.addEventListener('click', function () { open('signout'); });
-    box.appendChild(btn); box.appendChild(out);
-    ui.box = box; ui.btn = btn; ui.out = out;
+    box.appendChild(btn); box.appendChild(sync); box.appendChild(out);
+    ui.box = box; ui.btn = btn; ui.sync = sync; ui.out = out;
     var app = document.getElementById('app');
     if (app && window.MutationObserver) new MutationObserver(place).observe(app, { childList: true, subtree: true });
     place(); paint();
@@ -602,6 +640,7 @@
         h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Playing offline</h2><p>Sign-in is not available right now, so ' + (n ? nm + ' is' : 'your nation is') + ' saved in this browser only. Reload the page when you are back online, and it joins the region again.</p>';
       }
       if (w.uid) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
+      if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>') + '</div>';
       if (w.kind !== 'local') h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
       h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
     }
@@ -610,6 +649,12 @@
     focusFirst();
   }
   function act(a) {
+    if (a === 'unsaved') {
+      var u = A.auth && A.auth.currentUser, copy = u && L.get('edictum.unsaved.' + u.uid);
+      if (copy) { var url = URL.createObjectURL(new Blob([copy], { type: 'application/json' })), link = document.createElement('a');
+        link.href = url; link.download = 'edictum-unsaved.json'; link.click(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000); }
+      return;
+    }
     if (a === 'close') { if (!ui.busy) ui.dlg.close(); return; }
     if (a === 'back') { ui.view = 'main'; setMsg(''); draw(); return; }
     if (a === 'google') { google(); return; }
@@ -706,7 +751,7 @@
     }
     /* the data is gone; now the account. A guest's sign-in may be too old for that: it then simply
        ends, and the empty guest account holds nothing */
-    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null);
+    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set('edictum.unsaved.' + u.uid, null);
     try { await u.delete(); } catch (e) { try { await A.auth.signOut(); } catch (e2) {} }
     leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');
   }
@@ -758,7 +803,7 @@
         res = await A.auth.signInWithPopup(provider());
       }
     } catch (e) {
-      if (cleared && guest && anon) { try { await within(saveNation(anon.uid, guest), 8000); } catch (e2) {} }
+      if (cleared && guest && anon) { try { guest._rev = 0; await within(saveNation(anon.uid, guest), 8000); } catch (e2) {} }
       A.frozen = false; A.leaving = false; A.cred = null; setBusy('');
       setMsg(authMessage(e), true);
       return;
@@ -769,6 +814,7 @@
     if (has) {
       leave({ nation: null, uid: '-' }, name ? 'Signed in with Google. Welcome back to “' + name + '”.' : 'Signed in with Google.');
     } else {
+      if (guest) { guest._rev = 0; L.set(LS_NATION, JSON.stringify(guest)); }
       leave({ uid: nu.uid }, guest ? 'Signed in with Google. “' + guest.name + '” now lives in your Google account.' : 'Signed in with Google. The nation you found here will be kept with your account.');
     }
   }

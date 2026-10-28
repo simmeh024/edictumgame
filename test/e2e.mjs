@@ -22,7 +22,7 @@ const uidA = await open(A);
 check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.length > 10, uidA);
 await found(A, 'Aldoria');
 const docA = await until(() => nationDoc(uidA));
-check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,pop,reg,ts,updatedAt,v', docA && docA.keys.join());
+check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,pop,reg,rev,ts,updatedAt,v', docA && docA.keys.join());
 const xA = await until(async () => { const r = await restGet('nationx/' + uidA); return r.status === 200 ? r.body.fields : null; });
 const xrec = xA && xA.j ? JSON.parse(xA.j.stringValue) : {};
 check('its private half is saved to nationx/<uid>, and the shared half leaves it out', xA && Object.keys(xA).sort().join() === 'j,t,ts' && Array.isArray(xrec.inbox) && typeof xrec.issueClock === 'number'
@@ -429,6 +429,7 @@ check('with Firebase blocked, use() resolves null', uidC === null);
 await found(C, 'Cornmarsh');
 check('the game plays in this browser only', /Offline/.test(await text(C, '.side-foot .mode')));
 check('the account control says the game is offline', /Playing offline/.test(await text(C, '.ed-acct-b')));
+check('a nation in browser-only mode has an Offline sync indicator', await text(C, '.ed-sync') === 'Offline');
 await openAccount(C);
 check('and offers no nation files any more', !(await C.$('[data-ed="export"], [data-ed="import"], .ed-file')));
 await C.keyboard.press('Escape');
@@ -527,6 +528,7 @@ check('and says so, with its 5 land credits', await until(async () => /kept with
 const E = await player('E');
 const uidE0 = await open(E);
 check('the founding screen has a sign-in control', /Sign in/.test(await text(E, '.found-head .ed-acct-b')));
+check('the founding screen has no nation sync indicator', !(await E.isVisible('.ed-sync')));
 await openAccount(E);
 await Promise.all([E.waitForNavigation({ timeout: 15000 }), googlePopup(E, '[data-ed="google"]', 'alice@example.com')]);
 const uidE = await ready(E);
@@ -567,6 +569,7 @@ check('and left its guest account', (await restGet('nations/' + uidH0)).status =
 
 // e. signing out: a fresh guest, the nation stays with the account
 check('a Google account has a Sign out button under the account control', await E.isVisible('.side-foot .ed-out'));
+check('the sync indicator sits directly above Sign out', await E.locator('.ed-out').evaluate(el => el.previousElementSibling.classList.contains('ed-sync') && !el.previousElementSibling.hidden && el.previousElementSibling.getBoundingClientRect().bottom <= el.getBoundingClientRect().top));
 for (const scheme of ['light', 'dark']) {
   await E.emulateMedia({ colorScheme: scheme });
   await E.hover('.side-foot .ed-out');

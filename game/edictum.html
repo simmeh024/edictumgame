@@ -33592,7 +33592,7 @@ function normalizeBase(d){
   const deals=Array.isArray(d.deals)?d.deals.filter(x=>x&&typeof x.id==='string'&&typeof x.w==='string'&&Array.isArray(x.g)&&Array.isArray(x.r)&&RES.includes(x.g[0])&&RES.includes(x.r[0])).slice(0,12).map(x=>{const o={id:x.id.slice(0,16),w:x.w.slice(0,60),g:[x.g[0],clamp(Math.round(num(x.g[1],1)*2)/2,0.5,100)],r:[x.r[0],clamp(Math.round(num(x.r[1],1)*2)/2,0.5,100)],t:num(x.t,0)};if(x.a)o.a=1;return o;}):[];
   const topics={};if(d.topics&&typeof d.topics==='object')for(const [k] of ISSUE_TOPICS){const v=d.topics[k];if(v===1||v===-1)topics[k]=v;}
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
-  return {v:1,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
+  return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
     freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,STOCK_CAP)])),stockAt:num(d.stockAt,now),
@@ -33607,7 +33607,44 @@ function saveLocal(n){try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));el
    a declaration). Every save is read by every other player in the region, so the gap is what most of
    the database bill depends on (docs/cost-test.md). */
 const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||60000),SAVE_MIN=1500;
-let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=0,remoteSoon=false,commitNo=0;
+/* No save has been sent in this page yet. performance.now() starts near zero, so a zero last-save
+   time would incorrectly make the first write wait the entire background-save interval. */
+let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=-SAVE_GAP,remoteSoon=false,commitNo=0;
+let ownSyncBusy=false,ownLatest=null,conflictPending=false;
+let saveChecked=false,saveFailed=false;
+/* The account control lives in the Firebase adapter. Publish actual save state, including the queue,
+   so a connected browser never says Synced while its latest changes are still waiting to be sent. */
+function publishSync(){
+  const status=navigator.onLine===false||S.mode!=='world'||saveFailed?'offline'
+    :!saveChecked||remoteBusy||remoteDirty||conflictPending||!!(S.nation&&S.nation._dirty)?'saving':'synced';
+  if(window.__edictum)window.__edictum.syncStatus=status;
+  window.dispatchEvent(new CustomEvent('edictum:sync',{detail:status}));
+}
+const saveRev=n=>n&&Number.isSafeInteger(n._rev)?n._rev:0;
+const savedAfter=(a,b)=>!!a&&(!b||saveRev(a)>saveRev(b)||(saveRev(a)===0&&saveRev(b)===0&&a.updatedAt>b.updatedAt));
+function keepUnsaved(n){try{localStorage.setItem('edictum.unsaved.'+S.uid,JSON.stringify({at:Date.now(),nation:n}));return true;}catch(e){return false;}}
+function useSavedNation(n){
+  if(n.reg&&n.reg!==REG.id&&REG_BY_ID[n.reg]){regionReload(n);return;}
+  S.nation=n;S.openIssue=null;S.result=null;S.settings=null;saveLocal(n);render();publishSync();
+}
+/* Retry a snapshot missed while saving, and fetch a coherent full record rather than replacing the
+   nation's private half with defaults from the region's shared record. Revisions ignore device clocks. */
+async function syncOwnNation(force=false){
+  if(ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
+  if(!force&&!conflictPending&&!savedAfter(ownLatest,S.nation))return;
+  ownSyncBusy=true;const before=commitNo;
+  try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
+    saveChecked=true;saveFailed=false;
+    if(!n)return;ownLatest=n;
+    if(!conflictPending&&(remoteBusy||remoteDirty||before!==commitNo))return;
+    if(conflictPending||savedAfter(n,S.nation)){
+      if(conflictPending){const kept=keepUnsaved(S.nation);conflictPending=false;
+        toast('Another device saved your nation. The latest save has been loaded. Please repeat your unsaved changes.'+(kept?' A copy of them is available in your account menu.':''));}
+      useSavedNation(n);
+    }
+  }catch(e){saveFailed=true;/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
+  finally{ownSyncBusy=false;publishSync();}
+}
 function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
@@ -33618,42 +33655,62 @@ function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.p
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
-  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
+  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
 function queueRemote(){
-  if(S.mode!=='world'||!S.db||!S.uid)return;
+  if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
   remoteDirty=true;
+  publishSync();
   if(remoteBusy||remoteTimer)return;
-  remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_GAP-Date.now()));
+  remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_GAP-performance.now()));
 }
 async function flushRemote(){
   clearTimeout(remoteTimer);remoteTimer=0;
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
-  remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=Date.now();
-  try{await writeRemote();}finally{remoteBusy=false;}
+  if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
+  remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=performance.now();
+  publishSync();
+  try{await writeRemote();}finally{remoteBusy=false;publishSync();}
   if(remoteDirty){if(remoteSoon)saveSoon();else queueRemote();}
+  else syncOwnNation();
 }
 /* something another player is waiting for: save within SAVE_MIN instead of at the next gap */
 function saveSoon(){
-  if(S.mode!=='world'||!S.db||!S.uid)return;remoteDirty=true;remoteSoon=true;if(remoteBusy)return;
-  clearTimeout(remoteTimer);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_MIN-Date.now()));
+  if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}remoteDirty=true;remoteSoon=true;publishSync();if(remoteBusy)return;
+  clearTimeout(remoteTimer);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_MIN-performance.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
   if(S.mode!=='world'||!S.db||!S.uid)return;
   while(remoteBusy)await sleep(100);
   if(!remoteDirty)return;
-  const w=remoteLast+SAVE_MIN-Date.now();if(w>0)await sleep(w);
+  const w=remoteLast+SAVE_MIN-performance.now();if(w>0)await sleep(w);
   await flushRemote();
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
 window.addEventListener('pagehide',()=>{flushNow();});
+function resumeNation(e){
+  if(S.mode!=='world'){publishSync();return;}
+  if(e&&e.type==='online'){saveChecked=false;saveFailed=false;publishSync();}
+  if(remoteDirty){clearTimeout(remoteTimer);remoteTimer=0;flushRemote();}else syncOwnNation(true);
+}
+window.addEventListener('offline',publishSync);
+window.addEventListener('online',resumeNation);
+window.addEventListener('focus',resumeNation);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeNation();});
 async function writeRemote(){
   if(!S.nation)return;
-  const ref=S.db.doc('nations/'+S.uid);
-  try{await ref.set(clone(S.nation));}
+  const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation);
+  const send=async()=>{const result=await ref.set(sent);saveChecked=true;saveFailed=false;
+    /* Actions made while this write was in flight are based on it too. Advance their revision without
+       replacing those actions with the older object just sent. */
+    if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
+  try{await send();}
   catch(e){
-    if(e&&e.code==='unavailable'){await sleep(700+Math.random()*900);try{await ref.set(clone(S.nation));return;}catch(e2){e=e2;}}
-    handleWriteError(e);
+    saveFailed=true;publishSync();
+    if(e&&e.code==='unavailable'){await sleep(700+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
+    if(e&&e.code==='save_conflict'){saveFailed=false;keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
+    saveFailed=true;handleWriteError(e);
+    if(S.mode==='world')remoteDirty=true;
   }
 }
 function handleWriteError(e){
@@ -33661,6 +33718,7 @@ function handleWriteError(e){
   if(code==='invalid_argument'||code==='not_granted'||code==='revoked'){S.mode='readonly';toast('You have view-only access here, so your nation is saved in this browser and not shared with the region.');render();}
   else if(code==='quota_exceeded')toast('The region’s storage is full, so this change is saved in your browser only.');
   else toast('That change could not reach the region. It is saved in this browser.');
+  publishSync();
 }
 
 /* ───────── national currencies and the Foreign Exchange Bureau ───────── */
@@ -34396,22 +34454,27 @@ async function connect(){
   try{S.google=typeof user.google==='function'?!!(await user.google()):false;}catch(e){S.google=false;}
   const can=await user.can('data.write');
   S.mode=can===false?'readonly':'world';
+  publishSync();
   /* a moderator's word comes first: a banned account saves nothing, and a removed nation's copy in this
      browser goes rather than being uploaded again */
   try{const b=await db.doc('bans/'+uid).get();if(b.exists){S.banned=b.data()||{};S.mode='readonly';banNotice();}}catch(e){}
   try{const m=await db.doc('mod/'+uid).get(),v=m.exists?m.data():null;if(v&&v.removed&&S.nation&&(S.nation.founded||0)<v.removed)modRemoved(v);}catch(e){}
   try{
     const snap=await db.doc('nations/'+uid).get();
+    saveChecked=true;saveFailed=false;
     const rawMe=snap.exists?snap.data():null;
-    if(rawMe&&typeof rawMe.reg==='string'&&REG_BY_ID[rawMe.reg]&&rawMe.reg!==REG.id&&(!S.nation||(rawMe.updatedAt||0)>=(S.nation.updatedAt||0))){regionReload(rawMe);return;}
+    if(rawMe&&typeof rawMe.reg==='string'&&REG_BY_ID[rawMe.reg]&&rawMe.reg!==REG.id&&(!S.nation||saveRev(rawMe)>saveRev(S.nation)||(saveRev(rawMe)===saveRev(S.nation)&&(rawMe.updatedAt||0)>=(S.nation.updatedAt||0)))){if(S.nation)keepUnsaved(S.nation);regionReload(rawMe);return;}
     const remote=rawMe?normalize(rawMe):null;
-    if(remote&&(!S.nation||remote.updatedAt>=S.nation.updatedAt)){S.nation=remote;saveLocal(remote);}
+    if(remote&&(!S.nation||savedAfter(remote,S.nation)||saveRev(remote)===saveRev(S.nation)&&!S.nation._dirty&&remote.updatedAt>=S.nation.updatedAt)){
+      if(S.nation&&S.nation._dirty){keepUnsaved(S.nation);toast('Another device saved your nation while you were away. The latest save has been loaded. Your unsaved copy is in your account menu.');}
+      S.nation=remote;saveLocal(remote);}
     else if(S.nation&&S.mode==='world')queueRemote();
-  }catch(e){}
+  }catch(e){saveFailed=true;}
+  publishSync();
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
      the World page counts and lists them on demand (RSTAT). */
-  let regQS=null,spQS=null,hadMine=false,mineAt=0;S.mod=S.mod||{};
+  let regQS=null,spQS=null,hadMine=false;S.mod=S.mod||{};
   const hidden=id=>!!(S.mod[id]&&S.mod[id].hidden)&&id!==S.uid;
   const shared=()=>{
     if(!regQS||!spQS)return;
@@ -34424,15 +34487,13 @@ async function connect(){
       if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
     /* this record left the region from another device: follow it there */
     if(hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
-      if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&(Number(raw.updatedAt)||0)>(S.nation.updatedAt||0))regionReload(raw);},()=>{});
+      if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&savedAfter(raw,S.nation)){ownLatest=raw;syncOwnNation();}},()=>{});
     hadMine=mineHere;
     dormSift(w,all);
     S.worldAll=all;
     S.world=w;
     /* saved from another device: the region has only its shared half, so load it whole */
-    const mine=w[S.uid],newer=r=>r&&S.nation&&r.updatedAt>S.nation.updatedAt&&!remoteBusy&&!remoteDirty;
-    if(newer(mine)&&mineAt!==mine.updatedAt){mineAt=mine.updatedAt;
-      db.doc('nations/'+uid).get().then(s=>{const r=s.exists?normalize(s.data()):null;if(newer(r)){S.nation=r;saveLocal(r);render();}},()=>{});}
+    ownLatest=w[S.uid]||ownLatest;syncOwnNation();
     if(!S.nation||S.view==='map'){updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();}
     else if((['region','census','visit','nation','diplomacy','trade'].includes(S.view)||S.view==='exchange'&&cuWorldMoved())&&!S.spyRolling)render();
   };
