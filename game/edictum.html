@@ -33609,12 +33609,21 @@ function saveLocal(n){try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));el
 const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||60000),SAVE_MIN=1500;
 let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=0,remoteSoon=false,commitNo=0;
 let ownSyncBusy=false,ownLatest=null,conflictPending=false;
+let saveChecked=false,saveFailed=false;
+/* The account control lives in the Firebase adapter. Publish actual save state, including the queue,
+   so a connected browser never says Synced while its latest changes are still waiting to be sent. */
+function publishSync(){
+  const status=navigator.onLine===false||S.mode!=='world'||saveFailed?'offline'
+    :!saveChecked||remoteBusy||remoteDirty||conflictPending||!!(S.nation&&S.nation._dirty)?'saving':'synced';
+  if(window.__edictum)window.__edictum.syncStatus=status;
+  window.dispatchEvent(new CustomEvent('edictum:sync',{detail:status}));
+}
 const saveRev=n=>n&&Number.isSafeInteger(n._rev)?n._rev:0;
 const savedAfter=(a,b)=>!!a&&(!b||saveRev(a)>saveRev(b)||(saveRev(a)===0&&saveRev(b)===0&&a.updatedAt>b.updatedAt));
 function keepUnsaved(n){try{localStorage.setItem('edictum.unsaved.'+S.uid,JSON.stringify({at:Date.now(),nation:n}));return true;}catch(e){return false;}}
 function useSavedNation(n){
   if(n.reg&&n.reg!==REG.id&&REG_BY_ID[n.reg]){regionReload(n);return;}
-  S.nation=n;S.openIssue=null;S.result=null;S.settings=null;saveLocal(n);render();
+  S.nation=n;S.openIssue=null;S.result=null;S.settings=null;saveLocal(n);render();publishSync();
 }
 /* Retry a snapshot missed while saving, and fetch a coherent full record rather than replacing the
    nation's private half with defaults from the region's shared record. Revisions ignore device clocks. */
@@ -33623,6 +33632,7 @@ async function syncOwnNation(force=false){
   if(!force&&!conflictPending&&!savedAfter(ownLatest,S.nation))return;
   ownSyncBusy=true;const before=commitNo;
   try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
+    saveChecked=true;saveFailed=false;
     if(!n)return;ownLatest=n;
     if(!conflictPending&&(remoteBusy||remoteDirty||before!==commitNo))return;
     if(conflictPending||savedAfter(n,S.nation)){
@@ -33630,8 +33640,8 @@ async function syncOwnNation(force=false){
         toast('Another device saved your nation. The latest save has been loaded. Please repeat your unsaved changes.'+(kept?' A copy of them is available in your account menu.':''));}
       useSavedNation(n);
     }
-  }catch(e){/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
-  finally{ownSyncBusy=false;}
+  }catch(e){saveFailed=true;/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
+  finally{ownSyncBusy=false;publishSync();}
 }
 function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
@@ -33645,8 +33655,9 @@ function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.p
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
 function queueRemote(){
-  if(S.mode!=='world'||!S.db||!S.uid)return;
+  if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
   remoteDirty=true;
+  publishSync();
   if(remoteBusy||remoteTimer)return;
   remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_GAP-performance.now()));
 }
@@ -33655,13 +33666,14 @@ async function flushRemote(){
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
   remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=performance.now();
-  try{await writeRemote();}finally{remoteBusy=false;}
+  publishSync();
+  try{await writeRemote();}finally{remoteBusy=false;publishSync();}
   if(remoteDirty){if(remoteSoon)saveSoon();else queueRemote();}
   else syncOwnNation();
 }
 /* something another player is waiting for: save within SAVE_MIN instead of at the next gap */
 function saveSoon(){
-  if(S.mode!=='world'||!S.db||!S.uid)return;remoteDirty=true;remoteSoon=true;if(remoteBusy)return;
+  if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}remoteDirty=true;remoteSoon=true;publishSync();if(remoteBusy)return;
   clearTimeout(remoteTimer);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_MIN-performance.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
@@ -33674,22 +33686,28 @@ async function flushNow(){
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
 window.addEventListener('pagehide',()=>{flushNow();});
-function resumeNation(){if(S.mode!=='world')return;if(remoteDirty){clearTimeout(remoteTimer);remoteTimer=0;flushRemote();}else syncOwnNation(true);}
+function resumeNation(e){
+  if(S.mode!=='world'){publishSync();return;}
+  if(e&&e.type==='online'){saveChecked=false;saveFailed=false;publishSync();}
+  if(remoteDirty){clearTimeout(remoteTimer);remoteTimer=0;flushRemote();}else syncOwnNation(true);
+}
+window.addEventListener('offline',publishSync);
 window.addEventListener('online',resumeNation);
 window.addEventListener('focus',resumeNation);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeNation();});
 async function writeRemote(){
   if(!S.nation)return;
   const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation);
-  const send=async()=>{const result=await ref.set(sent);
+  const send=async()=>{const result=await ref.set(sent);saveChecked=true;saveFailed=false;
     /* Actions made while this write was in flight are based on it too. Advance their revision without
        replacing those actions with the older object just sent. */
     if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
   try{await send();}
   catch(e){
+    saveFailed=true;publishSync();
     if(e&&e.code==='unavailable'){await sleep(700+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
-    if(e&&e.code==='save_conflict'){keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
-    handleWriteError(e);
+    if(e&&e.code==='save_conflict'){saveFailed=false;keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
+    saveFailed=true;handleWriteError(e);
     if(S.mode==='world')remoteDirty=true;
   }
 }
@@ -33698,6 +33716,7 @@ function handleWriteError(e){
   if(code==='invalid_argument'||code==='not_granted'||code==='revoked'){S.mode='readonly';toast('You have view-only access here, so your nation is saved in this browser and not shared with the region.');render();}
   else if(code==='quota_exceeded')toast('The region’s storage is full, so this change is saved in your browser only.');
   else toast('That change could not reach the region. It is saved in this browser.');
+  publishSync();
 }
 
 /* ───────── national currencies and the Foreign Exchange Bureau ───────── */
@@ -34320,12 +34339,14 @@ async function connect(){
   try{S.google=typeof user.google==='function'?!!(await user.google()):false;}catch(e){S.google=false;}
   const can=await user.can('data.write');
   S.mode=can===false?'readonly':'world';
+  publishSync();
   /* a moderator's word comes first: a banned account saves nothing, and a removed nation's copy in this
      browser goes rather than being uploaded again */
   try{const b=await db.doc('bans/'+uid).get();if(b.exists){S.banned=b.data()||{};S.mode='readonly';banNotice();}}catch(e){}
   try{const m=await db.doc('mod/'+uid).get(),v=m.exists?m.data():null;if(v&&v.removed&&S.nation&&(S.nation.founded||0)<v.removed)modRemoved(v);}catch(e){}
   try{
     const snap=await db.doc('nations/'+uid).get();
+    saveChecked=true;saveFailed=false;
     const rawMe=snap.exists?snap.data():null;
     if(rawMe&&typeof rawMe.reg==='string'&&REG_BY_ID[rawMe.reg]&&rawMe.reg!==REG.id&&(!S.nation||saveRev(rawMe)>saveRev(S.nation)||(saveRev(rawMe)===saveRev(S.nation)&&(rawMe.updatedAt||0)>=(S.nation.updatedAt||0)))){if(S.nation)keepUnsaved(S.nation);regionReload(rawMe);return;}
     const remote=rawMe?normalize(rawMe):null;
@@ -34333,7 +34354,8 @@ async function connect(){
       if(S.nation&&S.nation._dirty){keepUnsaved(S.nation);toast('Another device saved your nation while you were away. The latest save has been loaded. Your unsaved copy is in your account menu.');}
       S.nation=remote;saveLocal(remote);}
     else if(S.nation&&S.mode==='world')queueRemote();
-  }catch(e){}
+  }catch(e){saveFailed=true;}
+  publishSync();
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
      the World page counts and lists them on demand (RSTAT). */
