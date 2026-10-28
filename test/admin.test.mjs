@@ -54,8 +54,19 @@ test('region switches preserve records, stop battles, and atomically log the aut
   assert.equal(await get('armies/' + p.uid), null);
   const log = await call(a, { op: 'audit', target: 'meridian' });
   assert.ok(log.events.some(e => e.action === 'region_disabled' && e.actor === a.uid && e.reason === 'Storage maintenance' && e.before === true && e.after === false && e.at > 0));
+  assert.equal((await get('regionStatus/meridian')).fields.mode.stringValue, 'maintenance');
+  await call(a, { op: 'region', reg: 'meridian', enabled: false, mode: 'coming_soon', reason: 'Preparing to launch' });
+  const coming = await get('regionStatus/meridian');
+  assert.equal(coming.fields.enabled.booleanValue, false);
+  assert.equal(coming.fields.mode.stringValue, 'coming_soon');
+  assert.deepEqual(await call(p, { op: 'battle', d: 'npc-vellmark', c: 100, p: 0.5 }, 'referee'), { ok: false, why: 'coming_soon' });
+  assert.equal((await get('nations/' + p.uid)).fields.rev.integerValue, '7');
+  assert.ok((await call(a, { op: 'audit', target: 'meridian' })).events.some(e => e.beforeMode === 'maintenance' && e.mode === 'coming_soon' && e.before === false && e.after === false));
+  await assert.rejects(call(a, { op: 'region', reg: 'meridian', enabled: false, mode: 'invalid', reason: 'bad' }), e => e.status === 'INVALID_ARGUMENT');
+  assert.equal((await get('regionStatus/meridian')).fields.mode.stringValue, 'coming_soon');
   await call(a, { op: 'region', reg: 'meridian', enabled: true, reason: 'Maintenance completed' });
   assert.equal((await get('regionStatus/meridian')).fields.enabled.booleanValue, true);
+  assert.equal((await get('regionStatus/meridian')).fields.mode.stringValue, 'enabled');
   await assert.rejects(call(a, { op: 'region', reg: 'unknown', enabled: false, reason: 'bad' }), e => e.status === 'INVALID_ARGUMENT');
 });
 test('save health reports client diagnostics alongside independently confirmed server saves', async () => {

@@ -52,12 +52,15 @@ async function audit(db, data) {
 async function setRegion(db, actor, data) {
   const target = id(data.reg), reason = text(data.reason, 300);
   if (!REGIONS.has(target) || typeof data.enabled !== 'boolean' || !reason) throw new HttpsError('invalid-argument', 'Choose a region, availability and a reason.');
+  const mode = data.enabled ? 'enabled' : data.mode ?? 'maintenance';
+  if (!['enabled', 'maintenance', 'coming_soon'].includes(mode) || (!data.enabled && mode === 'enabled')) throw new HttpsError('invalid-argument', 'Choose Maintenance or Coming soon.');
   const ref = db.doc('regionStatus/' + target), event = db.collection('adminAudit').doc();
   await db.runTransaction(async tx => {
     const previous = await tx.get(ref), before = previous.get('enabled') !== false;
+    const beforeMode = before ? 'enabled' : previous.get('mode') === 'coming_soon' ? 'coming_soon' : 'maintenance';
     // Public availability contains no staff notes or actor identity; those belong to the private audit.
-    tx.set(ref, { enabled: data.enabled, at: FieldValue.serverTimestamp() });
-    tx.create(event, { actor, action: data.enabled ? 'region_enabled' : 'region_disabled', target, reason, before, after: data.enabled, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    tx.set(ref, { enabled: data.enabled, mode, at: FieldValue.serverTimestamp() });
+    tx.create(event, { actor, action: data.enabled ? 'region_enabled' : 'region_disabled', target, reason, before, after: data.enabled, beforeMode, mode, outcome: 'completed', at: FieldValue.serverTimestamp() });
   });
   return { ok: true };
 }

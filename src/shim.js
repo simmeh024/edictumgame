@@ -188,7 +188,7 @@
       for (var region of new Set([enc.reg, saved && saved.reg].filter(Boolean))) {
         var availability = await b.get(A.fs.doc('regionStatus/' + region));
         if (!A.admin && availability.exists && availability.data().enabled === false) {
-          var maintenance = new Error('Current region is disabled and undergoing maintainance, check back soon.'); maintenance.code = 'region_disabled'; throw maintenance;
+          var maintenance = new Error(availability.data().mode === 'coming_soon' ? 'This region is coming soon. Please check back later.' : 'Current region is disabled and undergoing maintainance, check back soon.'); maintenance.code = 'region_disabled'; throw maintenance;
         }
       }
       if ((saved ? num(saved.rev) : 0) !== expected || (!saved && expected !== 0)) {
