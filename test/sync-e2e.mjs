@@ -130,10 +130,15 @@ check('another account is refused as unauthorized rather than a save conflict', 
 const D = await player('desktop production timing', { saveGap: 60000 }); await open(D);
 const uidD = await ready(D);
 await found(D, 'Desktopland');
-check('the first desktop save does not wait the production background interval', await until(async () => {
+// Use the same settling bound as the restored-session check below: Auth, the region gate and a
+// paced Firestore retry can exceed eight seconds on CI. Fifteen still detects the old 60s delay.
+const firstDesktop = await until(async () => {
   const n = await localNation(D);
   return n && n._rev > 0 && !n._dirty && await status(D) === 'Synced' && !!await nationDoc(uidD);
-}, 8000));
+}, 15000);
+check('the first desktop save does not wait the production background interval', firstDesktop, firstDesktop ? '' : JSON.stringify({
+  status: await status(D), local: await localNation(D), cloud: await nationDoc(uidD)
+}));
 
 // Reopening a browser with unsent local changes must send its first pending save promptly too.
 await D.ctx.setOffline(true);

@@ -655,6 +655,15 @@ await Promise.all([E.waitForNavigation({ timeout: 15000 }), googlePopup(E, '[dat
 const uidE = await ready(E);
 check('the second device is now A’s account', uidE === uidA && uidE0 !== uidA);
 check('and plays A’s nation', await until(async () => (await sideName(E)) === 'Aldoria'));
+// On another device, a completed Google step must not re-enter the ordinary tutorial reward loop.
+await E.evaluate(() => {
+  window.googleStepToasts=[];
+  new MutationObserver(()=>{for(const el of document.querySelectorAll('.toast'))if(/Step done: Keep your nation on every device/.test(el.textContent))window.googleStepToasts.push(el.textContent);}).observe(document.body,{childList:true,subtree:true,characterData:true});
+  for(let i=0;i<3;i++)window.G.commit(window.G.clone(window.G.S.nation));
+});
+await sleep(7500);
+check('the second device keeps the paid Google reward after repeated saves', (await localNation(E)).glk === 1);
+check('repeated saves do not show the ordinary Google step toast again', await E.evaluate(() => window.googleStepToasts.length === 0));
 
 // c. a guest with a nation switches to an account that has one: the guest nation is dissolved
 const F = await player('F');
