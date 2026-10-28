@@ -21,6 +21,7 @@ like), and **Firestore** holds the shared world.
 | `src/favicon.svg`, `src/og.png`, `src/apple-touch-icon.png` | The seal icon and the picture shown when a link is shared (`src/og.html` is its source; `tools/make-images.mjs` redraws the PNGs). |
 | `build.py` | Builds `public/`: a small page (stub, Firebase SDK, shim, meta tags, schema.org data, and the top of the front page as plain HTML) plus the game's script and styles minified into `/assets/game.<hash>.js` and `/assets/app.<hash>.css`, and the fonts in `/assets/fonts/`. Their names change with their content, so browsers keep them for a year. |
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
+| `functions/` | The referee: one Cloud Function (`referee`, in `europe-west1`) that rolls battles on the server, keeps each army's readiness and seals every victory (see Fair play). |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
 | `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job. |
 | `jobs/fx/` | The daily currency job: every currency's exchange value and Currency Prestige, from the nations' records (Firebase Admin SDK, its own `package.json`). See Currencies below. |
@@ -64,6 +65,13 @@ like), and **Firestore** holds the shared world.
 - `mod/<uid>`: a moderator hid a nation from the other players, or removed it (so its owner's
   browser drops its copy). Everyone reads these. `bans/<uid>`: a banned account; it may save no
   nation, post or report. The player and admins read it.
+- `armies/<uid>`: `{r, at, n, w, last}`, the referee's count of an army's readiness, and its battles
+  fought and won; `armies/<uid>/log/<id>` `{d, c, p, pe, cap, roll, win, t}` keeps each battle (the
+  nation attacked, the hex, the odds the attacker's game gave and the odds used, the roll). Only the
+  referee writes them; the player and admins read them. Deleting an account clears them.
+- `referee/pub`: `{k, at}`, the public half of the referee's signing key, which every game reads to
+  check seals; `referee/key` holds the private half, which nobody but the referee reads. The referee
+  makes the pair on its first battle in each project.
 - `fx/<region>`: `{v, day, t, j}`, the region's currencies as the Foreign Exchange Bureau published them
   that day (JSON text: each currency's value in the region's standard unit, strength, prestige, tier,
   rank, 1/7/30-day changes, factor scores, why it moved, recent milestones). `fxh/<nation id>`:
@@ -296,16 +304,17 @@ player's account. (The retired claude.ai version's nations are not carried over.
 
 ## Local development
 
-You need Node.js 20 or later, Python 3, and Java 21 or later (for the Firestore emulator).
+You need Node.js 22 or later, Python 3, and Java 21 or later (for the Firestore emulator).
 
 ```sh
 npm ci                     # the pinned Firebase SDK, tools, esbuild, fonts and Playwright
+npm ci --prefix functions  # the referee's packages, for the Functions emulator
 python3 build.py           # writes public/
 npx firebase-tools emulators:start --project demo-edictum
 ```
 
 Then open <http://127.0.0.1:5000>. The `demo-` project id means everything runs on your machine:
-the page finds the local Auth and Firestore emulators by itself, and nothing touches a real
+the page finds the local Auth, Firestore and Functions emulators by itself, and nothing touches a real
 Firebase project. The emulator console at <http://127.0.0.1:4000> shows the accounts and
 documents; in the Auth emulator, "Continue with Google" opens a stand-in sign-in window where you
 can make up accounts.
@@ -318,8 +327,9 @@ run `python3 build.py` again and reload.
 ```sh
 npm run test:fx            # the currency engine and the game's currency helpers (no emulator)
 npm run test:rules         # the security rules, and the daily currency job (Firestore emulator only)
+npm run test:referee       # the referee: readiness, fair dice, the odds' bound, seals (Auth, Firestore and Functions emulators)
 npx playwright install chromium   # once, for the browser tests
-npm run test:e2e           # two players, the board, other regions, reloads, rules, admin, offline, Google sign-in, full regions, founding drafts, the front page
+npm run test:e2e           # two players, the board, other regions, reloads, rules, battles and seals, admin, offline, Google sign-in, full regions, founding drafts, the front page
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
 npm run test:sync          # one account on desktop and phone: updates, conflicts, clocks, reconnects
 npm ci --prefix jobs/fx    # once, for the next one: it runs the currency job as production does
@@ -328,7 +338,7 @@ npm run test:fx-e2e        # the currency: the job publishing four days, the Bur
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
 
-Every pull request runs the rules tests and the end-to-end and smoke tests on GitHub Actions
+Every pull request runs the rules and referee tests and the end-to-end and smoke tests on GitHub Actions
 (`.github/workflows/preview.yml`); a failed run keeps its screenshots as an artifact.
 
 **The cost test.** `test/load.mjs` puts 50 players in one region for five minutes: six real game
@@ -345,8 +355,8 @@ npx firebase emulators:exec --project demo-edictum --only auth,firestore,hosting
 
 ## Owner setup
 
-Do these once, in your browser. Nothing here needs a credit card unless you choose the Blaze
-plan (see Costs).
+Do these once, in your browser. The referee (a Cloud Function) needs the Blaze plan, so each
+project needs a billing account (see Costs).
 
 ### 1. Create the Firebase project
 
@@ -387,7 +397,18 @@ the commands it shows; GitHub does the deploying. Your site's first address is
 2. Give that service account the rights to deploy. Open
    <https://console.cloud.google.com/iam-admin/iam>, pick your project, find the account named
    `firebase-adminsdk-…@<project id>.iam.gserviceaccount.com`, choose **Edit** (the pencil) and add
-   these roles: **Firebase Admin**, **API Keys Viewer** and **Service Usage Consumer**. Save.
+   these roles: **Firebase Admin**, **API Keys Viewer** and **Service Usage Consumer**, and for the
+   referee **Cloud Functions Admin**, **Service Account User** and **Artifact Registry
+   Reader**. Save.
+4. The referee runs on Cloud Functions, which needs the **Blaze** plan (**Usage and billing** →
+   **Modify plan**) and, once, a deploy from your own computer, which switches on the Google Cloud
+   services it uses and keeps only the latest build of it:
+
+   ```sh
+   npm ci --prefix functions
+   npx firebase deploy --only functions --project <project id>
+   npx firebase functions:artifacts:setpolicy --project <project id> --location europe-west1 --days 1 --force
+   ```
 3. In your GitHub repository: **Settings** → **Secrets and variables** → **Actions** → **Secrets**
    → **New repository secret**. Name: `FIREBASE_SERVICE_ACCOUNT`. Value: the whole content of the
    JSON file. **Add secret**. Then delete the downloaded file, or keep it somewhere safe outside
@@ -401,7 +422,7 @@ your project id. **Add variable**.
 ### 7. Deploy
 
 Push to `main` (or open **Actions** → **Deploy** → **Run workflow**). The workflow installs the
-pinned packages, runs `build.py`, deploys the Firestore rules and indexes, then the site. If the
+pinned packages, runs `build.py`, deploys the Firestore rules and indexes, the referee, then the site. If the
 secret or the variable is missing it says so in a yellow warning and deploys nothing. If a deploy
 fails with "The caller does not have permission", the message names the permission; add the role
 that holds it to the service account (step 5.2).
@@ -490,11 +511,12 @@ there, and you can deploy a branch to it by hand:
 
 ```sh
 python3 build.py --site-url https://edictum-staging.web.app
-npx firebase deploy --only firestore:rules,firestore:indexes,hosting --project staging
+npx firebase deploy --only firestore:rules,firestore:indexes,functions,hosting --project staging
 ```
 
 It is set up like the live project (steps 1 to 5: web app, Firestore in `eur3`, Anonymous and Google
-sign-in, the three roles on its `firebase-adminsdk-…` service account). For the previews, GitHub
+sign-in, the roles on its `firebase-adminsdk-…` service account, Blaze with a 100 MXN budget alert,
+the referee's first deploy). For the previews, GitHub
 needs the variable `FIREBASE_STAGING_PROJECT_ID` = `edictum-staging` and the secret
 `FIREBASE_SERVICE_ACCOUNT_STAGING` holding a key of the staging project's service account (step 5,
 in the staging project). Without them a pull request gets the rules test and a yellow note instead.
@@ -520,6 +542,10 @@ for current figures; at the time of writing:
   changes are saved in the browser only, until the quota resets at midnight Pacific time.
 - On Blaze, set a **budget alert** (Google Cloud console → Billing → Budgets and alerts) so
   surprises reach your inbox.
+- **The referee** (Cloud Functions, Blaze only) runs once per attack: about five document reads and
+  two writes each, and Cloud Functions' free allowance (two million calls a month) covers far more
+  battles than readiness allows. Building it on each deploy stores a container image in Artifact
+  Registry; the clean-up policy (Owner setup, step 5) keeps that to a few cents a month.
 
 - **The currency job** reads each region's nation records once a day and writes one document per region
   plus one history entry per currency: for 26 regions of 250 nations, about 6,600 reads and 6,600 writes a
@@ -548,11 +574,23 @@ Data above. What is left for later, as numbers grow:
     beyond the nation's age and more conquests in a day than the replay counts.
   - *Races go by the server's time*: when two nations claim the same free hex or find the same site,
     the stamps decide, not the times the records give themselves.
+  - *The referee rolls the battles* (`functions/index.js`). An attack asks the server, which keeps the
+    army's readiness (6 points, 8 with an Army Reserve, one back every 15 minutes or 10 with Rapid
+    Mobilisation, plus one for a master spy's gift), rolls the dice and signs each victory: a seal over
+    the attacker, the hex, the server's time and the ally whose war it was. Every game checks the seal
+    (`sealed()`) before a conquest counts, so a lost battle cannot be rolled again by reloading the
+    page, and a conquest typed into a record counts nowhere. The odds are the attacker's game's own,
+    cut to what the two armies saved beside the records allow (20 to 1 for the attacker's army and
+    half its allies', which covers borders, distance, terrain, spies and buildings); the attacker is
+    told when they were cut. Conquests from before the referee (`REF_EPOCH`, 29 October 2026) need
+    no seal.
+  - *Deals with computer nations* are held to terms the computer nation could have accepted: the
+    player gives at least 0.12 of what they get, the least that any prices allow.
   - *Admins* see what was caught on the portal's Suspicious tab, for their own region and, on request,
-    the others (one read per nation).
-  What is left is anything the game itself allows, such as rolling an attack again by reloading
-  before it saves. A referee on the server (Cloud Functions rolling battles and settling trades)
-  would close that; it needs billing on the staging project too, so previews could run it.
+    the others (one read per nation), and each army's battles in `armies/<uid>/log`.
+  What is left is what the referee cannot see: the odds it is given within that bound, spy missions
+  and computer nations' counterattacks (still rolled in the browser; a counterattack only harms the
+  player who rolls it), and anything a deal between two players both agree to.
 
 ## Changing the game
 

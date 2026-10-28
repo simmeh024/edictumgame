@@ -419,6 +419,29 @@ test('a race is stamped with the server’s time, by the claimer, and anyone rea
   await assertSucceeds(anon().doc('stamps/meridian/c1234/alice').get());
 });
 
+test('the referee’s records: anyone reads its public key, a player their own army, and nobody writes them', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('referee/pub').set({ k: 'MFkw', at: 1 });
+    await db.doc('referee/key').set({ priv: 'secret', pub: 'MFkw', at: 1 });
+    await db.doc('armies/bob').set({ r: 3, at: 1, n: 4, w: 2, last: 1 });
+    await db.doc('armies/bob/log/b1').set({ d: 'npc-vellmark', c: 12, p: 0.6, pe: 0.6, cap: 0.95, roll: 0.3, win: true, t: 1 });
+  });
+  await assertSucceeds(anon().doc('referee/pub').get());
+  await assertFails(anon().doc('referee/key').get());
+  await assertFails(as('bob').doc('referee/key').get());
+  await assertFails(as('bob', { admin: true }).doc('referee/key').get());
+  await assertSucceeds(as('bob').doc('armies/bob').get());
+  await assertSucceeds(as('bob').doc('armies/bob/log/b1').get());
+  await assertFails(as('alice').doc('armies/bob').get());
+  await assertFails(as('alice').doc('armies/bob/log/b1').get());
+  await assertSucceeds(as('alice', { admin: true }).doc('armies/bob/log/b1').get());
+  await assertFails(as('bob').doc('armies/bob').set({ r: 8, at: Date.now() }));             // a refilled army
+  await assertFails(as('bob').doc('armies/bob').delete());
+  await assertFails(as('bob').doc('armies/bob/log/b2').set({ win: true }));
+  await assertFails(as('bob', { admin: true }).doc('referee/pub').set({ k: 'forged' }));
+});
+
 test('currencies: everyone reads values, prestige and history; nobody sets them from the game, admins included', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();

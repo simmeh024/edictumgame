@@ -14599,6 +14599,7 @@ function pol(n){return (n&&n.policies)||{};}
    - Nothing may be dated after the save that carries it (the server's time, ten minutes for clocks).
    - Growth rate and stock stay within what the game allows; flagged too: a population beyond its age,
      more conquests in a day than the territory replay counts, a save without the headline numbers.
+   - A conquest since the referee began (REF_EPOCH) needs its seal; see the referee below.
    Records saved before AC_EPOCH carry no headline numbers, and are not flagged for it. */
 const AC_EPOCH=Date.UTC(2026,9,28),RATE_MAX=0.3,AUDIT=new Map();
 function auditNation(n,raw,id,now,keep){
@@ -14612,10 +14613,18 @@ function auditNation(n,raw,id,now,keep){
   }else if(ts>=AC_EPOCH)why.push('It was saved without the figures the rules check.');
   if(n.pr&&n.pr>RATE_MAX){why.push('Its growth rate is beyond what the game allows.');n.pr=RATE_MAX;}
   if(n.stock){let over=false;for(const r of RES)if(num0(n.stock[r])>STOCK_CAP){n.stock[r]=STOCK_CAP;over=true;}if(over)why.push(`Its stock is above the cap of ${STOCK_CAP}.`);}
+  /* a computer nation asks at least 0.9 of the price ratio, and prices stay between 0.4 and 3 (npcVerdict()) */
+  if(Array.isArray(n.deals)){const bad=n.deals.filter(x=>x&&!x.a&&NPC_SET.has(x.w)&&Array.isArray(x.g)&&Array.isArray(x.r)&&!(num0(x.g[1])>=0.12*num0(x.r[1])-1e-9));
+    if(bad.length){why.push(`${bad.length===1?'It has a deal':`It has ${bad.length} deals`} with a computer nation on terms it would never accept.`);n.deals=n.deals.filter(x=>!bad.includes(x));}}
   if(ts){const lim=ts+10*60e3,late=a=>Array.isArray(a)&&a.some(e=>e&&e.t>lim);
     if(late(n.claims)||late(n.conq)||late(n.disc)){why.push('It has land, conquests or discoveries dated after the save that carries them.');for(const k of ['claims','conq','disc'])if(Array.isArray(n[k]))n[k]=n[k].filter(e=>!(e&&e.t>lim));}}
   const age=Math.max(0,((ts||now)-(n.founded||now))/DAY);
   if(n.pop>5*Math.pow(1.35,age)+3*age+1)why.push(`${fmtPop(n.pop)} people is more than a nation ${Math.floor(age)} days old can have grown.`);
+  if(Array.isArray(n.conq)&&S.db){
+    const un=n.conq.filter(e=>e&&!e.n&&e.t>=REF_EPOCH&&typeof e.s!=='string'),fk=n.conq.filter(e=>e&&!e.n&&typeof e.s==='string'&&REF.ok.get(refK(id,e))===false);
+    if(un.length){why.push(refWhy(un.length,false));n.conq=n.conq.filter(e=>!un.includes(e));}
+    if(fk.length)why.push(refWhy(fk.length,true));
+  }
   if(Array.isArray(n.conq)){const t=n.conq.filter(e=>!e.n).map(e=>e.t).sort((a,b)=>a-b);let j=0,most=0;for(let i=0;i<t.length;i++){while(t[i]-t[j]>DAY)j++;most=Math.max(most,i-j+1);}if(most>16)why.push(`It has ${most} conquests within a day; the game allows 16.`);}
   if(keep!==false){if(why.length)AUDIT.set(id,{why,name:n.name});else AUDIT.delete(id);}
   return why;
@@ -14646,9 +14655,57 @@ async function raceFetch(){
   try{redrawMaps();if(['nation','region','visit','explore','map'].includes(S.view))render();}catch(e){}
   raceSoon();
 }
+/* ── battles: the referee ──
+   In the shared world a battle is rolled by the referee on the server (functions/index.js), which keeps each
+   army's readiness and seals every victory: a signature over the attacker, the hex, the server's time and the
+   ally whose war it was. A conquest made since REF_EPOCH counts only with a seal that checks out against the
+   referee's public key (referee/pub), so a battle cannot be rolled again by reloading the page, nor a
+   conquest typed into a record. Seals are checked once each, in the background; a conquest with a seal
+   counts until its check fails, one without never does. A computer nation's counterattack (e.n) is
+   recorded by the nation it hit and needs none. */
+const REF_EPOCH=Number(window.EDICTUM_REF_EPOCH)||Date.UTC(2026,9,29),REF={key:undefined,keyAt:0,ok:new Map(),want:new Map(),busy:false};
+const refText=(src,e)=>['edictum-battle-1',src,e.c,e.t,e.w||''].join('|');
+const refK=(src,e)=>refText(src,e)+'|'+e.s;
+function sealed(src,e){
+  if(!S.db||!(e.t>=REF_EPOCH))return true;
+  if(typeof e.s!=='string')return false;
+  const k=refK(src,e),v=REF.ok.get(k);
+  if(v===undefined&&!REF.want.has(k)){REF.want.set(k,{src,e});refSoon();}
+  return v!==false;
+}
+function refSoon(){if(!REF.busy&&REF.want.size&&S.db){REF.busy=true;setTimeout(refCheck,30);}}
+const unb64=s=>Uint8Array.from(atob(String(s).replace(/-/g,'+').replace(/_/g,'/')),ch=>ch.charCodeAt(0));
+/* the referee's public key; null while it has none (no battle fought yet), asked again a minute later */
+async function refKey(){
+  if(REF.key||(REF.key===null&&Date.now()-REF.keyAt<60000))return REF.key;
+  REF.keyAt=Date.now();
+  try{const s=await S.db.doc('referee/pub').get(),k=s.exists?(s.data()||{}).k:null;REF.key=typeof k==='string'?await crypto.subtle.importKey('spki',unb64(k),{name:'ECDSA',namedCurve:'P-256'},false,['verify']):null;}catch(e){REF.key=undefined;}
+  return REF.key;
+}
+async function refVerify(key,src,e){try{return !!(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,unb64(e.s),new TextEncoder().encode(refText(src,e))));}catch(err){return false;}}
+async function refCheck(){
+  const items=[...REF.want].slice(0,200),bad=new Set();let later=false;
+  for(const [k] of items)REF.want.delete(k);
+  if(!(window.crypto&&crypto.subtle))for(const [k] of items)REF.ok.set(k,true);
+  else{
+    const key=await refKey();
+    if(!key){later=true;for(const [k,v] of items)REF.want.set(k,v);}
+    else await Promise.all(items.map(async([k,{src,e}])=>{const ok=await refVerify(key,src,e);REF.ok.set(k,ok);if(!ok)bad.add(src);}));
+  }
+  REF.busy=false;
+  if(bad.size){for(const id of bad)refFlag(id);try{redrawMaps();if(['nation','region','visit','explore','map','admin-sus'].includes(S.view))render();}catch(e){}}
+  if(later)setTimeout(refSoon,REF.key===null?60000:15000);else refSoon();
+}
+const refWhy=(k,forged)=>`${k===1?'One of its conquests carries':k+' of its conquests carry'} ${forged?'a seal the referee did not make':'no seal from the referee'}.`;
+/* a record's forged seals, once checked, go on the admins' list (sealed() already sets them aside) */
+function refFlag(id){
+  const x=S.world[id];if(id===S.uid||!x||!Array.isArray(x.conq))return;
+  const bad=x.conq.filter(e=>e&&typeof e.s==='string'&&REF.ok.get(refK(id,e))===false);if(!bad.length)return;
+  const a=AUDIT.get(id)||{why:[],name:x.name};a.why=a.why.filter(w=>!/a seal the referee did not make/.test(w)).concat(refWhy(bad.length,true));AUDIT.set(id,a);
+}
 function collectConquests(at){
   const out=[];
-  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
+  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)add(id,S.world[id]);
   if(at!=null){const keep=out.filter(e=>e.t<=at);out.length=0;out.push(...keep);}
@@ -14889,20 +14946,38 @@ function npcCounter(T,ni){
   return best;
 }
 function dedupeConq(arr){const m=new Map();for(const e of arr){m.delete(e.c);m.set(e.c,e);}return [...m.values()].sort((a,b)=>a.t-b.t).slice(-400);}
-function attack(){
-  const cell=S.mapTarget;if(cell==null||!S.nation)return;
+/* In the shared world the referee rolls the dice (see the referee above): the attack waits for its answer,
+   and a victory's conquest carries the server's time and the seal. In this browser alone it rolls here. */
+async function attack(){
+  const cell=S.mapTarget;if(cell==null||!S.nation||S.attacking)return;
   const T=territory(),fr=frontier(T),mi=T.byId[myId()];
   if(mi===undefined||!fr.has(cell)){S.mapTarget=null;S.warMsg='That hex can no longer be attacked.';updateMapPanel();redrawMaps();return;}
-  const now=Date.now(),n=clone(S.nation);
-  if(readiness(n,now).r<1)return;
-  {const cq=conqCap(n,now);if(cq){S.warMsg=cq;S.mapTarget=null;updateMapPanel();redrawMaps();return;}}
-  const bi=T.owner[cell],en=T.list[bi],od=battle(T,cell,mi,bi,fr.get(cell));
+  let now=Date.now();
+  if(readiness(S.nation,now).r<1)return;
+  {const cq=conqCap(S.nation,now);if(cq){S.warMsg=cq;S.mapTarget=null;updateMapPanel();redrawMaps();return;}}
+  const bi=T.owner[cell],en=T.list[bi],od=battle(T,cell,mi,bi,fr.get(cell)),aw=atWar(myId(),en.id);
+  let win,t=now,seal=null,pe=od.p,w=aw&&!aw.direct&&aw.defending?aw.defending:'';
+  if(S.db){
+    S.attacking=true;S.warMsg='The referee is rolling the dice…';updateMapPanel();
+    let res;
+    try{const api=await window.claude.use('referee');res=api?await api.battle({d:en.id,c:cell,p:od.p,w,h:od.attHelp.map(h=>h.id)}):{ok:false,why:'none'};}catch(e){res={ok:false,why:(e&&e.code)||'unavailable'};}
+    S.attacking=false;
+    if(!S.nation)return;
+    if(!res||!res.ok){
+      const why=res&&res.why;
+      if(why==='ready'){const n=clone(S.nation),ms=readyMs(n);n.ready=0;n.readyAt=Date.now()+clamp(Number(res.next)||ms,0,ms)-ms;commit(n);}
+      S.warMsg=why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':'The battle was not fought: the referee could not be reached. Try again in a moment.';
+      S.mapTarget=null;updateMapPanel();redrawMaps();return;
+    }
+    win=!!res.win;t=Number(res.t)||Date.now();seal=typeof res.s==='string'?res.s:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
+  }else win=Math.random()<od.p;
+  const n=clone(S.nation),msgs=[];
   spendReady(n,now);
-  const win=Math.random()<od.p,msgs=[];
   applyEffects(n,{wealth:-0.3,happy:-0.4,mil:win?0.3:-0.2});
   n.conq=(n.conq||[]).slice();
-  if(win){const aw=atWar(myId(),en.id);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(aw&&!aw.direct&&aw.defending?{c:cell,t:now,w:aw.defending}:{c:cell,t:now});n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell)});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
+  if(win){const e=w?{c:cell,t,w}:{c:cell,t};if(seal){e.s=seal;REF.ok.set(refK(myId(),e),true);}n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell)});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
   else msgs.push(`${en.n.name} held the line. Your attack was repelled.`);
+  if(pe<od.p-0.005)msgs.push(`The referee put your chance at ${Math.round(pe*100)}%, not ${Math.round(od.p*100)}%: it goes by both armies as last saved.`);
   const counters=[bi];for(const id of alliesOf(en.id)){const j=T.byId[id];if(j!==undefined&&T.list[j].npc&&atWar(id,myId()))counters.push(j);}
   let struck=0;
   for(const ci of counters){
@@ -15015,7 +15090,7 @@ function targetPanel(T,cell,reach){
   return `<p class="eyebrow">Attack target</p><h2 class="mp-h">${terrName(cell)} on ${esc(landName(cell))}</h2><p class="muted">Held by ${esc(x.n.name)}${T.occ[cell]?', who took it in battle':''}.</p>
     <dl class="mp-dl"><div><dt>Your attacking force</dt><dd>${Math.round(od.att*10)}</dd></div><div><dt>Their defence</dt><dd>${Math.round(od.def*10)}</dd></div><div><dt>Chance of success</dt><dd>${Math.round(od.p*100)}%</dd></div></dl>
     <p class="mp-note">${esc(notes.join(' '))}</p>
-    <div class="row" style="margin-top:14px"><button class="btn danger solid" data-act="attack"${rd.r<1||conqCap(S.nation)?' disabled':''}>Attack</button><button class="btn ghost" data-act="map-untarget">Cancel</button></div>
+    <div class="row" style="margin-top:14px"><button class="btn danger solid" data-act="attack"${rd.r<1||conqCap(S.nation)||S.attacking?' disabled':''}>Attack</button><button class="btn ghost" data-act="map-untarget">Cancel</button></div>
     <p class="hint" style="margin-top:10px">${conqCap(S.nation)?esc(conqCap(S.nation)):rd.r<1?`Your army is not ready. The next readiness point arrives in ${fmtDur(rd.next)}.`:`Uses 1 readiness point. You have ${rd.r} of ${rd.max}.`}</p>`;
 }
 
@@ -33585,7 +33660,7 @@ function normalizeBase(d){
   const name=str(d.name,40).trim();
   const wars={};if(d.wars&&typeof d.wars==='object')for(const k of Object.keys(d.wars).slice(0,40)){const t=num(d.wars[k]&&d.wars[k].t,0);if(t&&k.length<=60)wars[k]=d.wars[k].by===1&&NPC_SET.has(k)?{t,by:1}:{t};}
   const peace={};if(d.peace&&typeof d.peace==='object')for(const k of Object.keys(d.peace).slice(0,40)){const t=num(d.peace[k],0);if(t&&k.length<=60)peace[k]=t;}
-  const conq=d.cv===MAP_VER&&Array.isArray(d.conq)?d.conq.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-400).map(e=>typeof e.n==='string'&&NPC_SET.has(e.n)?{c:e.c,t:e.t,n:e.n}:(typeof e.w==='string'&&e.w.length<=60?{c:e.c,t:e.t,w:e.w}:{c:e.c,t:e.t})):[];
+  const conq=d.cv===MAP_VER&&Array.isArray(d.conq)?d.conq.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-400).map(e=>{if(typeof e.n==='string'&&NPC_SET.has(e.n))return {c:e.c,t:e.t,n:e.n};const o=typeof e.w==='string'&&e.w.length<=60?{c:e.c,t:e.t,w:e.w}:{c:e.c,t:e.t};if(typeof e.s==='string'&&e.s.length<=100)o.s=e.s;return o;}):[];
   const alli=d.alli&&typeof d.alli==='object'&&typeof d.alli.name==='string'&&d.alli.name.trim()?{name:d.alli.name.trim().slice(0,40),t:num(d.alli.t,0),inv:Array.isArray(d.alli.inv)?d.alli.inv.filter(e=>e&&typeof e.id==='string'&&e.id.length<=60).slice(-30).map(e=>({id:e.id,t:num(e.t,0)})):[]}:null;
   const spy=d.spy&&Number.isInteger(d.spy.n)?{n:clamp(d.spy.n,0,4),at:num(d.spy.at,now)}:null;
   const intel=Array.isArray(d.intel)?d.intel.filter(r=>r&&typeof r.tg==='string'&&INTEL[r.k]).slice(0,12).map(r=>{const o={t:num(r.t,0),tg:r.tg.slice(0,60),tn:str(r.tn,40),r:clamp(Math.round(num(r.r,1)),1,20),m:clamp(Math.round(num(r.m,0)),-9,9),k:r.k};if(typeof r.u==='number'&&isFinite(r.u))o.u=r.u;if(Number.isInteger(r.c)&&r.c>=-1&&r.c<MAP.N)o.c=r.c;if(r.dim===1)o.dim=1;if(typeof r.gw==='number'&&isFinite(r.gw))o.gw=clamp(Math.round(r.gw),-20,0);if(r.d&&typeof r.d==='object')o.d={b:num(r.d.b,0),rd:typeof r.d.rd==='number'?r.d.rd:null,mx:num(r.d.mx,6),dp:num(r.d.dp,0),al:str(r.d.al,40),wp:Array.isArray(r.d.wp)?r.d.wp.filter(x=>typeof x==='string').slice(0,20).map(x=>x.slice(0,40)):[],w:num(r.d.w,0)};return o;}):[];
@@ -35523,10 +35598,13 @@ function susHere(){
 async function susScan(){
   if(ADMS.busy||!S.db)return;ADMS.busy=true;ADMS.err='';ADMS.act='';render();
   const out=[],now=Date.now();let k=0;
-  try{for(const R of REGIONS){if(R.id===REG.id)continue;
+  try{const key=window.crypto&&crypto.subtle?await refKey():null;
+    for(const R of REGIONS){if(R.id===REG.id)continue;
     const qs=await S.db.collection('nations').where('reg','==',R.id).get();
     for(const d of qs.docs){k++;let raw=null,n=null;try{raw=d.data();n=normalize(raw);}catch(e){continue;}
-      const why=auditNation(n,raw,d.id,now,false);if(why.length)out.push({id:d.id,reg:R.id,name:(n&&n.name)||'A nation',why});}}
+      let why=auditNation(n,raw,d.id,now,false);
+      if(key&&Array.isArray(n.conq)){let f=0;for(const e of n.conq)if(e&&!e.n&&typeof e.s==='string'&&!(await refVerify(key,d.id,e)))f++;if(f)why=why.concat(refWhy(f,true));}
+      if(why.length)out.push({id:d.id,reg:R.id,name:(n&&n.name)||'A nation',why});}}
     ADMS.scan=out;ADMS.at=now;ADMS.n=k;
   }catch(e){ADMS.err='The other regions could not be checked: '+((e&&e.code)||'unknown error')+'.';}
   ADMS.busy=false;if(S.view==='admin-sus')render();
@@ -36615,6 +36693,9 @@ function start(data){
   setInterval(tick,10000);
   window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin','admin-help','admin-sus'].concat(EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
 }
+/* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
+   player's own browser can reach all of this anyway) */
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

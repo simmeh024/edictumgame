@@ -1,9 +1,10 @@
 // End-to-end tests of the built site on the Firebase emulators:
 //   python3 build.py
-//   npx firebase emulators:exec --project demo-edictum --only auth,firestore,hosting "node test/e2e.mjs"
+//   npx firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/e2e.mjs"
 // Covers: two players sharing a region and its message board, a player in another region (not
 // downloaded, but counted and listed on the World page), reloads, the security rules as the game
-// meets them, admin moderation, region steering when a region is full, browser-only mode when Firebase is blocked,
+// meets them, battles rolled by the referee (functions/index.js) and its seals checked by other players,
+// admin moderation, region steering when a region is full, browser-only mode when Firebase is blocked,
 // keeping a founding draft across a region switch, the front page (its first paint, sample edict, region
 // counts and Found buttons), and Google sign-in (linking, switching, signing out) with the Auth emulator's
 // stand-in for Google.
@@ -482,7 +483,80 @@ await until(() => B.$(`[data-act="dm-peer"][data-id="${uidA}"]`), 20000); await 
 check('a message from staff says it comes from the Edictum team', await until(async () => /Edictum team/.test(await text(B, '.staff-note')) && /Edictum staff/.test(await text(B, '.bub.staff .bub-staff')) && /Edictum staff/.test(await text(B, `[data-act="dm-peer"][data-id="${uidA}"]`))));
 await B.locator('.thread').screenshot({ path: path.join(OUT, 'staff-message.png') });
 
-/* ── 7c. fair play ──────────────────────────────────────────────────────── */
+/* ── 7c. battles, rolled by the referee ─────────────────────────────────── */
+const ownerDoc = (p, init) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${p}`, Object.assign({ headers: { 'content-type': 'application/json', authorization: 'Bearer owner' } }, init));
+const ownerFields = async p => ((await (await ownerDoc(p)).json()) || {}).fields || {};
+// The battle fixture must start from a confirmed revision, as a real client now does.
+await until(async () => { const n = await localNation(A); return n && !n._dirty && await text(A, '.ed-sync') === 'Synced'; }, 15000);
+// A has grown past the 10 million war needs, with an army that can win, its capital beside a computer
+// nation's border, and is at war with it (its record written past the rules, as a long game would have it)
+const war = await A.evaluate(() => {
+  const keep = G.S.nation, now = Date.now(), M = G.MAP;
+  try {
+    // free land a few hexes from a computer nation's, nearest first
+    const T0 = G.territory(), dist = new Int16Array(M.N).fill(-1), q = [];
+    for (let c = 0; c < M.N; c++) { const o = T0.owner[c]; if (o >= 0 && T0.list[o].npc) { dist[c] = 0; q.push(c); } }
+    for (let i = 0; i < q.length; i++) for (let d = 0; d < 6; d++) { const nb = M.nbr[q[i] * 6 + d]; if (nb >= 0 && dist[nb] < 0) { dist[nb] = dist[q[i]] + 1; q.push(nb); } }
+    const spots = [];
+    for (let c = 0; c < M.N; c++) if (M.T[c] >= 2 && T0.owner[c] < 0 && dist[c] >= 3 && dist[c] <= 5) spots.push(c);
+    spots.sort((a, b) => dist[a] - dist[b]);
+    for (const pop of [12, 50, 200]) for (const spot of spots.slice(0, 24)) {
+      const n = G.clone(keep); Object.assign(n, { pop, popAt: now, updatedAt: now, loc: G.locOf(spot), claims: [], wars: {} }); n.s = { ...n.s, mil: 100 };
+      for (const x of G.allNations()) if (x.npc) n.wars[x.id] = { t: now - 60000 };
+      G.S.nation = n;
+      const T = G.territory(), mi = T.byId[G.myId()];let best = null;
+      if (mi === undefined) continue;
+      for (const [cell, reach] of G.frontier(T)) { const bi = T.owner[cell], o = T.list[bi]; if (!o || !o.npc) continue; const p = G.battle(T, cell, mi, bi, reach).p; if (!best || p > best.p) best = { cell, p, npc: o.id }; }
+      if (best && best.p >= 0.7) { n.wars = { [best.npc]: { t: now - 60000 } }; n.apw = Math.round(G.armyPower(n) * 1000) / 1000; return { n, keep: G.clone(keep), ...best }; }
+    }
+    return null;
+  } finally { G.S.nation = keep; }
+});
+check('A can reach a computer nation’s land, with good odds', !!war, war ? `${Math.round(war.p * 100)}% against ${war.npc}` : 'no target');
+const putA = rec => ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { v: { integerValue: '1' }, j: { stringValue: JSON.stringify(rec) }, reg: { stringValue: rec.reg },
+  name: { stringValue: rec.name }, updatedAt: { integerValue: String(rec.updatedAt) }, ts: { timestampValue: new Date().toISOString() }, pop: { doubleValue: Math.round(rec.pop * 1e4) / 1e4 },
+  army: { doubleValue: rec.apw || 0 }, cl: { integerValue: String((rec.claims || []).length) }, rev: { integerValue: String(rec._rev) } } }) });
+await putA(war.n);
+await A.evaluate(n => { G.S.nation = n; G.saveLocal(n); G.render(); }, war.n);
+await nav(A, 'map');
+const pick = () => A.evaluate(npc => { const T = G.territory(), mi = T.byId[G.myId()];let best = null;
+  for (const [cell, reach] of G.frontier(T)) { const bi = T.owner[cell], o = T.list[bi]; if (!o || o.id !== npc) continue; const p = G.battle(T, cell, mi, bi, reach).p; if (!best || p > best.p) best = { cell, p }; }
+  return best; }, war.npc);
+const fight = async cell => {
+  await A.evaluate(c => { G.S.mapTarget = c; G.S.warMsg = ''; G.updateMapPanel(); }, cell);
+  await A.click('#map-panel [data-act="attack"]');
+  return until(() => A.evaluate(() => /Victory|held the line|not ready|could not be reached/.test(G.S.warMsg || '') ? G.S.warMsg : ''), 20000);
+};
+let fights = 0, won = null, msg = '';
+while (fights < 4 && won == null) { const tg = await pick(); if (!tg) break; fights++; msg = await fight(tg.cell); if (/^Victory/.test(msg || '')) won = tg.cell; }
+check('an attack from the war map is rolled by the referee, and a victory takes the hex', won != null, msg);
+const army = await ownerFields('armies/' + uidA);
+check('the referee keeps the battles and the army’s readiness', army.n && Number(army.n.integerValue) === fights && Number(army.r.integerValue) === 7 - fights, JSON.stringify(army));
+const own = await A.evaluate(c => { const e = (G.S.nation.conq || []).find(x => x.c === c); return e ? { e, ok: G.REF.ok.get(G.refK(G.myId(), e)), ready: G.readiness(G.S.nation, Date.now()).r } : null; }, won);
+check('the conquest carries the server’s time and the referee’s seal', own && typeof own.e.s === 'string' && own.e.s.length > 80 && own.ok === true && own.ready === 6 - fights, JSON.stringify(own));
+check('and another player’s game counts it, having checked the seal', await until(() => B.evaluate(([c, a]) => { const T = G.territory(); return T.owner[c] === T.byId[a]; }, [won, uidA]), 20000));
+await A.screenshot({ path: path.join(OUT, 'referee-victory.png') });
+// conquests typed into A's record past the game: one without a seal, one with the seal of another hex
+await sleep(2500);
+const spare = await A.evaluate(npc => { const T = G.territory(), out = []; for (const [cell] of G.frontier(T)) { const o = T.list[T.owner[cell]]; if (o && o.id === npc) out.push(cell); } return out.slice(0, 2); }, war.npc);
+const fA = await ownerFields('nations/' + uidA), recA = JSON.parse(fA.j.stringValue), at = Date.now();
+recA.conq = recA.conq.concat({ c: spare[0], t: at - 2000 }, { c: spare[1], t: at - 1000, s: own.e.s }); recA.updatedAt = at;
+await ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { ...fA, j: { stringValue: JSON.stringify(recA) }, updatedAt: { integerValue: String(at) }, ts: { timestampValue: new Date().toISOString() } } }) });
+check('another player’s game counts neither, and says why', spare.length === 2 && await until(() => B.evaluate(([a, at, cs]) => {
+  const x = G.S.world[a]; if (!x || x.updatedAt !== at) return false;
+  const T = G.territory(), why = (G.AUDIT.get(a) || {}).why || [];
+  return cs.every(c => T.owner[c] !== T.byId[a]) && why.some(w => /no seal from the referee/.test(w)) && why.some(w => /a seal the referee did not make/.test(w)); }, [uidA, at, spare]), 20000), JSON.stringify(spare));
+// the referee's count of readiness is the one that holds: spent elsewhere, the page's next attack is refused
+const drained = await A.evaluate(async npc => { const api = await window.claude.use('referee'); for (let i = 0; i < 9; i++) { const r = await api.battle({ d: npc, c: 0, p: 0.05 }); if (!r.ok) return r.why; } return 'never'; }, war.npc);
+const tg = await pick();
+msg = tg ? await fight(tg.cell) : '';
+check('with the referee’s readiness spent, an attack is refused and the page shows none left', drained === 'ready' && /not ready/.test(msg || '') && await A.evaluate(() => G.readiness(G.S.nation, Date.now()).r === 0), `${drained}: ${msg}`);
+// A goes back to the nation it was, for what follows
+await until(async () => { const n = await localNation(A); return n && !n._dirty && await text(A, '.ed-sync') === 'Synced'; }, 15000);
+await A.evaluate(n => { n._rev = G.S.nation._rev; n.updatedAt = Date.now(); G.S.nation = n; G.saveLocal(n); G.S.warMsg = ''; G.S.mapTarget = null; G.commit(G.clone(n)); }, war.keep);
+await nav(A, 'nation');
+
+/* ── 7d. fair play ──────────────────────────────────────────────────────── */
 // the rules refuse a save that grows a nation tenfold since its last
 const forged = await B.evaluate(async uid => { const db = await window.claude.use('db'); const r = (await db.doc('nations/' + uid).get()).data(); r.pop = r.pop * 10; r.updatedAt = Date.now();
   try { await db.doc('nations/' + uid).set(r); return 'saved'; } catch (e) { return (e && e.code) || String(e); } }, uidB);
@@ -491,13 +565,14 @@ check('a save that grows a nation tenfold since its last is refused', forged !==
 const cheatRec = JSON.parse((await restGet('nations/' + uidB)).body.fields.j.stringValue);
 Object.assign(cheatRec, { name: 'Cheatonia', pop: 900, popAt: Date.now(), founded: Date.now() - 2 * 864e5, updatedAt: Date.now(), stock: { food: 60, timber: 9999, iron: 25, oil: 10, goods: 40 } });
 for (const k of ['loc', 'claims', 'conq', 'cities', 'alli', 'allyOf', 'wars', 'peace', 'asm', 'dm', 'pp']) delete cheatRec[k];
-const ownerDoc = (p, init) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${p}`, Object.assign({ headers: { 'content-type': 'application/json', authorization: 'Bearer owner' } }, init));
+cheatRec.conq = [{ c: 5, t: Date.now() - 60000 }, { c: 6, t: Date.now() - 30000, s: own.e.s }];  // no seal, and another's
 await ownerDoc('nations/cheat-1', { method: 'PATCH', body: JSON.stringify({ fields: { v: { integerValue: '1' }, j: { stringValue: JSON.stringify(cheatRec) }, reg: { stringValue: 'meridian' }, name: { stringValue: 'Cheatonia' },
   updatedAt: { integerValue: String(cheatRec.updatedAt) }, ts: { timestampValue: new Date().toISOString() }, pop: { doubleValue: 10 }, army: { doubleValue: 1 }, cl: { integerValue: '0' } } }) });
 await nav(A, 'region');
 check('every game holds a forged record to its save’s figures: 10 million people, not 900', await until(async () => A.$$eval('.tbl tr', rs => rs.some(r => /Cheatonia/.test(r.textContent) && /(^|[^\d.])10\.\d million/.test(r.textContent) && !/900 million/.test(r.textContent))), 15000));
 await A.evaluate(() => { location.hash = '#admin-sus'; });
-check('the admin portal lists it as suspicious, with the reasons', await until(async () => { const t = await text(A, '.sus-list'); return /Cheatonia/.test(t) && /claims 900 million people; its save declared 10\.0 million/.test(t); }, 15000));
+check('the admin portal lists it as suspicious, with the reasons', await until(async () => { const t = await text(A, '.sus-list'); return /Cheatonia/.test(t) && /claims 900 million people; its save declared 10\.0 million/.test(t)
+  && /One of its conquests carries no seal from the referee/.test(t) && /One of its conquests carries a seal the referee did not make/.test(t); }, 15000), await text(A, '.sus-list'));
 await A.locator('.adm').screenshot({ path: path.join(OUT, 'admin-suspicious.png') });
 await A.click('.sus-list [data-act="sus-hide"][data-id="cheat-1"]');
 check('and Hide hides it from the other players', await until(async () => { const r = await restGet('mod/cheat-1'); return r.status === 200 && r.body.fields.hidden.booleanValue === true; }));
@@ -522,7 +597,7 @@ await A.keyboard.press('Escape');
 const glA1 = await until(async () => { const n = await localNation(A); return n && n.glk === 1 ? n : null; }, 10000);
 const glGain = r => glA1.stock[r] - glA0.stock[r];
 check('linking completes the first step, once, with 5 iron, 5 timber and 5 goods', !!glA1 && ['iron', 'timber', 'goods'].every(r => glGain(r) > 4.9 && glGain(r) < 6), JSON.stringify(glA1 && [glA0.stock, glA1.stock]));
-check('and says so, with its 5 land credits', await until(async () => /kept with your Google account\. \+5 land credits/.test(await toasts(A)), 15000));
+check('and says so, with its 5 land credits', await until(async () => /kept with your Google account\. \+5 land credits/.test(await toasts(A)), 40000)); // behind the battles' toasts
 
 // b. a new device signs in to that account from the founding screen
 const E = await player('E');
