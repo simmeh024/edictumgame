@@ -486,6 +486,8 @@ await B.locator('.thread').screenshot({ path: path.join(OUT, 'staff-message.png'
 /* ── 7c. battles, rolled by the referee ─────────────────────────────────── */
 const ownerDoc = (p, init) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${p}`, Object.assign({ headers: { 'content-type': 'application/json', authorization: 'Bearer owner' } }, init));
 const ownerFields = async p => ((await (await ownerDoc(p)).json()) || {}).fields || {};
+// The battle fixture must start from a confirmed revision, as a real client now does.
+await until(async () => { const n = await localNation(A); return n && !n._dirty && await text(A, '.ed-sync') === 'Synced'; }, 15000);
 // A has grown past the 10 million war needs, with an army that can win, its capital beside a computer
 // nation's border, and is at war with it (its record written past the rules, as a long game would have it)
 const war = await A.evaluate(() => {
@@ -513,7 +515,7 @@ const war = await A.evaluate(() => {
 check('A can reach a computer nation’s land, with good odds', !!war, war ? `${Math.round(war.p * 100)}% against ${war.npc}` : 'no target');
 const putA = rec => ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { v: { integerValue: '1' }, j: { stringValue: JSON.stringify(rec) }, reg: { stringValue: rec.reg },
   name: { stringValue: rec.name }, updatedAt: { integerValue: String(rec.updatedAt) }, ts: { timestampValue: new Date().toISOString() }, pop: { doubleValue: Math.round(rec.pop * 1e4) / 1e4 },
-  army: { doubleValue: rec.apw || 0 }, cl: { integerValue: String((rec.claims || []).length) } } }) });
+  army: { doubleValue: rec.apw || 0 }, cl: { integerValue: String((rec.claims || []).length) }, rev: { integerValue: String(rec._rev) } } }) });
 await putA(war.n);
 await A.evaluate(n => { G.S.nation = n; G.saveLocal(n); G.render(); }, war.n);
 await nav(A, 'map');
@@ -550,7 +552,8 @@ const tg = await pick();
 msg = tg ? await fight(tg.cell) : '';
 check('with the referee’s readiness spent, an attack is refused and the page shows none left', drained === 'ready' && /not ready/.test(msg || '') && await A.evaluate(() => G.readiness(G.S.nation, Date.now()).r === 0), `${drained}: ${msg}`);
 // A goes back to the nation it was, for what follows
-await A.evaluate(n => { n.updatedAt = Date.now(); G.S.nation = n; G.saveLocal(n); G.S.warMsg = ''; G.S.mapTarget = null; G.commit(G.clone(n)); }, war.keep);
+await until(async () => { const n = await localNation(A); return n && !n._dirty && await text(A, '.ed-sync') === 'Synced'; }, 15000);
+await A.evaluate(n => { n._rev = G.S.nation._rev; n.updatedAt = Date.now(); G.S.nation = n; G.saveLocal(n); G.S.warMsg = ''; G.S.mapTarget = null; G.commit(G.clone(n)); }, war.keep);
 await nav(A, 'nation');
 
 /* ── 7d. fair play ──────────────────────────────────────────────────────── */
