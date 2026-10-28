@@ -619,7 +619,7 @@ check('every game holds a forged record to its save’s figures: 10 million peop
 await A.evaluate(() => { location.hash = '#admin-sus'; });
 check('the admin portal lists it as suspicious, with the reasons', await until(async () => { const t = await text(A, '.sus-list'); return /Cheatonia/.test(t) && /claims 900 million people; its save declared 10\.0 million/.test(t)
   && /One of its conquests carries no seal from the referee/.test(t) && /One of its conquests carries a seal the referee did not make/.test(t); }, 15000), await text(A, '.sus-list'));
-await A.locator('.adm').screenshot({ path: path.join(OUT, 'admin-suspicious.png') });
+await A.screenshot({ path: path.join(OUT, 'admin-suspicious.png'), fullPage: true });
 await A.click('.sus-list [data-act="sus-hide"][data-id="cheat-1"]');
 check('and Hide hides it from the other players', await until(async () => { const r = await restGet('mod/cheat-1'); return r.status === 200 && r.body.fields.hidden.booleanValue === true; }));
 await ownerDoc('nations/cheat-1', { method: 'DELETE' }); await ownerDoc('mod/cheat-1', { method: 'DELETE' });

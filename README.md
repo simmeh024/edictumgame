@@ -484,8 +484,12 @@ the player deletes their account. Diagnostics never block a nation save.
 Region control uses the staff-only `adminConsole` Cloud Function. Missing `regionStatus/<id>`
 documents mean enabled. Disabling greys out the region on the founding page, blocks founding,
 moves and saves in the rules/adapter, and blocks battles in the referee. Connected and returning
-players see the maintenance message; existing nation data is kept. Re-enabling restores access.
+players see the matching unavailable-region message; existing nation data is kept. Re-enabling restores access.
 Admins retain console access when their own region is disabled. No region is disabled by deployment.
+Disabled regions have two player-facing statuses: **Maintenance** and **Coming soon**. Choose the
+status when disabling a region, or use **Change status** on an already disabled region. Both remain
+greyed out and block access, but use different badges and messages. Older disabled settings without
+a status remain Maintenance. Status changes are included in the private audit history.
 
 Console moderation, board removal, support actions and region changes are recorded by the server
 in `adminAudit/`, using the authenticated admin and server time. Clients cannot create, edit or
