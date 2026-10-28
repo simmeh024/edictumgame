@@ -22,7 +22,7 @@
 //
 // It speaks only the part of the Firestore API that the Admin SDK and the client SDK share (doc, collection,
 // where, get, batch, runTransaction), so the tests run it against the emulator with either.
-import { DAY, VERSION, indicators, stepRegion, seedState, tradeOf, warsOf, TIERS } from './engine.mjs';
+import { DAY, VERSION, indicators, stepRegion, seedState, tradeOf, warsOf, counterfeitsOf, TIERS } from './engine.mjs';
 import { loadWorld } from './world.mjs';
 
 export const DORMANT_DAYS = 260; // a nation unsaved this long (250 days' dormancy and a month's holiday) is left out
@@ -98,9 +98,10 @@ export async function runRegion(db, region, { now, day, world, mod, runId }) {
   const recs = await regionRecords(db, region.id, now);
   for (const id of [...recs.keys()]) if (mod.get(id) && mod.get(id).removed) recs.delete(id);
   const npcIds = new Set(region.npcs.map(x => x.id)), trade = tradeOf(recs, npcIds), wars = warsOf(recs, npcIds);
+  const forged = counterfeitsOf(new Map([...region.npcs.map(x => [x.id, x]), ...recs]), now, region.id);
   const nations = [];
-  for (const x of region.npcs) nations.push({ id: x.id, I: indicators(x.id, x, now, { npc: true, npcPop: world.npcPop, npcEpoch: world.npcEpoch, trade: trade.get(x.id), wars: wars.get(x.id) }) });
-  for (const [id, rec] of recs) nations.push({ id, I: indicators(id, rec, now, { trade: trade.get(id), wars: wars.get(id) }) });
+  for (const x of region.npcs) nations.push({ id: x.id, I: indicators(x.id, x, now, { npc: true, npcPop: world.npcPop, npcEpoch: world.npcEpoch, trade: trade.get(x.id), wars: wars.get(x.id), counterfeit: forged.get(x.id) }) });
+  for (const [id, rec] of recs) nations.push({ id, I: indicators(id, rec, now, { trade: trade.get(id), wars: wars.get(id), counterfeit: forged.get(id) }) });
   const prior = Object.assign(await seeded(db, [...recs.keys()].filter(id => !prevState[id]), day), prevState);
   const { state, pub, events } = stepRegion(nations, prior, day);
   /* milestones: kept on each currency (its last few) and for the region (the last thirty) */
