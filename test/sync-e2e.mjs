@@ -141,9 +141,14 @@ await edit(D, 'Recovered desktop progress');
 const desktopStorage = await D.ctx.storageState({ indexedDB: true });
 await D.ctx.close();
 const R = await player('returning desktop', { saveGap: 60000, storageState: desktopStorage }); await open(R);
-check('returning desktop progress syncs without a minute on Saving', await until(async () => {
+// A restored IndexedDB session and a paced transaction retry can outlast eight seconds on CI.
+// Use the existing save-settling bound, still far below the old sixty-second scheduling bug.
+const returned = await until(async () => {
   const n = await localNation(R), cloud = await nationDoc(uidD);
   return n && !n._dirty && await status(R) === 'Synced' && cloud && cloud.rec.motto === 'Recovered desktop progress';
-}, 8000));
+}, 15000);
+check('returning desktop progress syncs without a minute on Saving', returned, returned ? '' : JSON.stringify({
+  status: await status(R), local: await localNation(R), cloud: await nationDoc(uidD)
+}));
 
 await finish();
