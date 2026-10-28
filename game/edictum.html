@@ -35689,9 +35689,17 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   if(a==='sus-hide'||a==='sus-ban'||a==='sus-ban-yes')susAct(a,el.dataset.id);});
 const ADM_MOBILE=window.matchMedia('(max-width:900px)');
 let admMenuOpen=false;
+function admHideMenu(){
+  admMenuOpen=false;const m=document.getElementById('adm-menu');if(m&&m.open)m.close();
+  const b=document.getElementById('adm-menu-toggle');if(b)b.focus({preventScroll:true});
+}
 function admShowMenu(){
   const m=document.getElementById('adm-menu');if(!m||m.open)return;
-  m.showModal();m.addEventListener('close',()=>{admMenuOpen=false;const b=document.querySelector('.adm-menu-toggle');if(b)b.focus({preventScroll:true});},{once:true});
+  m.showModal();
+  // Native cancel/close events can straddle a background redraw. Clear state and restore focus
+  // synchronously so a redraw cannot reopen a drawer the player just dismissed.
+  m.addEventListener('cancel',e=>{e.preventDefault();admHideMenu();},{once:true});
+  m.addEventListener('close',()=>{if(m.isConnected&&!m.open&&ADM_MOBILE.matches)admHideMenu();},{once:true});
 }
 function admShell(v,body){
   const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help;
@@ -35708,7 +35716,7 @@ function admShell(v,body){
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
     </dialog>
-    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${body}</main>
+    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${body}</main>
   </div>`;
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
@@ -35720,7 +35728,7 @@ document.addEventListener('click',e=>{
   if(a==='admin-open'){e.preventDefault();go('admin');return;}
   if(a==='adm-tab'){e.preventDefault();go(el.dataset.v);const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});return;}
   if(a==='adm-menu-open'){admMenuOpen=true;admShowMenu();return;}
-  if(a==='adm-menu-close'){document.getElementById('adm-menu').close();return;}
+  if(a==='adm-menu-close'){admHideMenu();return;}
   if(a==='admin-close'){go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
   if(a==='adm-ask-no'){ADM.ask=null;render();return;}
