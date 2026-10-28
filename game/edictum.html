@@ -3714,6 +3714,18 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-nav .chip{margin:0}
 .adm-nav a[aria-current="page"] .chip{border-color:currentColor;color:inherit}
 .adm-sidebar::backdrop{background:rgba(0,0,0,.42)}
+.adm-search{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:20px 0}
+.adm-search .field{flex:1 1 220px;margin:0}
+.adm-search .btn{min-height:44px}
+.adm-detail{margin:22px 0;padding:20px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.adm-detail code,.adm td code{overflow-wrap:anywhere;white-space:normal;font:12px var(--f-mono)}
+.adm-detail dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:10px;margin:16px 0}
+.adm-detail dd{margin:0;overflow-wrap:anywhere}
+.adm-region-reason{min-width:180px;max-width:260px}
+.region-disabled{filter:grayscale(1);opacity:.6}
+.region-disabled button{cursor:not-allowed}
+.maintenance{max-width:850px;min-height:100dvh}
+.maintenance-account{max-width:320px;margin-top:28px}
 @media (max-width:900px){
   .adm{display:block;padding:20px 20px 48px;min-height:100dvh}
   .adm-menu-toggle{display:inline-flex;margin-bottom:24px;min-height:44px}
@@ -14982,7 +14994,7 @@ async function attack(){
     if(!res||!res.ok){
       const why=res&&res.why;
       if(why==='ready'){const n=clone(S.nation),ms=readyMs(n);n.ready=0;n.readyAt=Date.now()+clamp(Number(res.next)||ms,0,ms)-ms;commit(n);}
-      S.warMsg=why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':'The battle was not fought: the referee could not be reached. Try again in a moment.';
+      S.warMsg=why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':'The battle was not fought: the referee could not be reached. Try again in a moment.';
       S.mapTarget=null;updateMapPanel();redrawMaps();return;
     }
     win=!!res.win;t=Number(res.t)||Date.now();seal=typeof res.s==='string'?res.s:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
@@ -21701,6 +21713,7 @@ function movePlan(n){
 let moveBusy=false;
 async function moveTo(rid){
   const R=REG_BY_ID[rid],n0=S.nation;if(!R||!n0||rid===REG.id||moveBusy)return;
+  if(regDisabled(rid)||regBlocked()||S.mode==='world'&&!RCTRL.ready){toast(MAINTENANCE);return;}
   const now=Date.now();if(moveWait(n0,now)>0){toast('You moved too recently. The next move is possible in '+fmtWait(moveWait(n0,now))+'.');return;}
   moveBusy=true;const P=movePlan(n0),n=clone(n0);
   const st=stockNow(n0,now);for(const r of RES)st[r]=Math.min(STOCK_CAP,(st[r]||0)+(P.back[r]||0));n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
@@ -21737,6 +21750,17 @@ function regClimate(R){const [a,b]=R.geo.lat,t=lt=>{const v=26-(lt-22)*0.42;retu
    region open on the World page listed, from summaries/ on demand, at most every five minutes. Dormant
    nations are left out, as dormSift leaves them out of the live records. */
 const RSTAT={n:{},at:0,busy:false,names:{},nat:{}},REGION_CAP=Math.max(1,Number(window.EDICTUM_REGION_CAP)||250);
+const MAINTENANCE='Current region is disabled and undergoing maintainance, check back soon.';
+const RCTRL={ready:false,states:{},err:'',off:null};
+function regDisabled(id){return RCTRL.states[id]&&RCTRL.states[id].enabled===false;}
+function regBlocked(){return !S.isOwner&&!!regDisabled(S.nation&&S.nation.reg||REG.id);}
+async function regionControls(){
+  if(!S.db)return;
+  const apply=qs=>{RCTRL.states=Object.fromEntries(qs.docs.map(d=>[d.id,d.data()]));RCTRL.ready=true;RCTRL.err='';render();publishSync();if(!regBlocked())resumeNation();};
+  try{const q=S.db.collection('regionStatus');apply(await q.get());if(!RCTRL.off)RCTRL.off=q.onSnapshot(apply,()=>{RCTRL.err='Region availability could not be refreshed.';});}
+  catch(e){RCTRL.err='Region availability could not be checked. Please reconnect.';render();}
+}
+function maintenanceView(){return `<div class="found maintenance"><header class="found-head"><span class="wordmark">Edictum</span></header><p class="eyebrow">${esc(REG.name)}</p><h1 class="display">Region maintenance</h1><p class="lede" role="status">${MAINTENANCE}</p><p>Your nation and its saved progress are kept. This page will reopen when the region is enabled.</p><div class="row"><button class="btn" data-act="region-recheck">Check again</button><button class="btn ghost" data-act="sup-new">Contact support</button></div><div class="side-foot maintenance-account"></div>${RCTRL.err?`<p class="err">${esc(RCTRL.err)}</p>`:''}</div>`;}
 /* a region's active players from summaries: saved since `since`, and saved before it but kept awake by a
    holiday after that save (holiday mode: e is the time the nation counts as active until). null if the
    count could not be had; the holiday part counts nothing if it fails */
@@ -21778,14 +21802,14 @@ function regFull(id){const n=Math.max(RSTAT.n[id]||0,id===REG.id?regPlayers(id).
 function foundAutoRegion(){
   let chose=null;try{chose=localStorage.getItem('statehood.region');if(sessionStorage.getItem('statehood.autoreg'))return false;}catch(e){return false;}
   if(chose||S.draftKept||!regFull(REG.id)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
-  const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)).sort((a,b)=>(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
+  const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)&&!regDisabled(R.id)).sort((a,b)=>(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
   if(!open.length)return false;
   draftKeep(open[0].id);try{localStorage.setItem('statehood.region',open[0].id);sessionStorage.setItem('statehood.autoreg','1');}catch(e){return false;}
   location.reload();return true;
 }
 function worldCard(R,now){
-  const here=R.id===REG.id,pc=regCount(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,sel=S.wrSel===R.id;
-  return `<article class="wr-card${here?' here':''}${sel?' sel':''}"><button class="wr-pick" data-act="wr-sel" data-id="${R.id}" aria-expanded="${sel}"><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
+  const here=R.id===REG.id,disabled=regDisabled(R.id),pc=regCount(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,sel=S.wrSel===R.id;
+  return `<article class="wr-card${here?' here':''}${sel?' sel':''}${disabled?' region-disabled':''}"><button class="wr-pick" data-act="wr-sel" data-id="${R.id}" aria-expanded="${sel}"${disabled?' disabled':''}><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
     <span class="wr-b"><span class="wr-n">${esc(R.name)}${here?' <span class="chip ok">You are here</span>':''}</span><span class="wr-s">${esc(R.short)}</span>
     <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations · ${pc===1?'1 player':pc+' players'}</span></span></button></article>`;
 }
@@ -21794,7 +21818,8 @@ function worldDetail(R,now){
   const nat=npcs.slice().sort((a,b)=>b.pop-a.pop).map(x=>`<li class="mem"><span class="mflag">${flagSVG(x.flag,'Flag of '+x.name)}</span><span class="mem-n"><b>${esc(x.name)}</b><span class="mem-s">The ${esc(x.pretitle)} of ${esc(x.name)} · “${esc(x.motto)}”</span></span><span class="mem-v">${fmtPop(here&&NPC_BY_ID[x.id]?popNow(NPC_BY_ID[x.id]):x.pop*NPC_POP)}</span></li>`).join('');
   const blocs=(R.id==='meridian'?[{name:'The Iron Compact'},{name:'The Meridian League'}]:R.blocs||[]).map(b=>esc(b.name));
   let act='';
-  if(here)act=`<p class="hint">${esc(n.name)} lives here${n.mvAt?`, since ${fmtDate(n.mvAt)}`:''}.</p>`;
+  if(regDisabled(R.id))act=`<p class="err">${MAINTENANCE}</p>`;
+  else if(here)act=`<p class="hint">${esc(n.name)} lives here${n.mvAt?`, since ${fmtDate(n.mvAt)}`:''}.</p>`;
   else if(wait>0)act=`<p class="hint">You moved on ${fmtDate(n.mvAt)}. The next move is possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>.</p>`;
   else if(S.wrAsk===R.id){const P=movePlan(n),bk=RES.filter(r=>P.back[r]).map(r=>`${P.back[r]} ${resName(r)}`);
     act=`<div class="war-box wr-ask"><p class="war-k">Move ${esc(n.name)} to ${esc(R.name)}?</p>
@@ -21854,7 +21879,7 @@ document.addEventListener('click',e=>{
   if(a==='wr-cancel'){S.wrAsk=null;render();return;}
   if(a==='wr-go'){moveTo(el.dataset.id);return;}
   if(a==='found-region'){
-    const id=el.dataset.id;if(el.disabled||!REG_BY_ID[id])return;
+    const id=el.dataset.id;if(el.disabled||!REG_BY_ID[id]||regDisabled(id))return;
     if(id===REG.id){S.frBrowse=false;render();return;}
     draftKeep(id);try{localStorage.setItem('statehood.region',id);}catch(e){}location.reload();return;
   }
@@ -21884,9 +21909,9 @@ function foundRegionBrowser(){
   regStatsSoon();
   const known=Object.keys(RSTAT.n).length>0;
   return `<p class="hint">Each region has its own map, computer nations and players. Everything you have filled in above comes with you when you switch.</p>
-    <div class="wr-grid fr-grid">${REGIONS.map(R=>{const here=R.id===REG.id,full=!here&&regFull(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,c=here||known?regCount(R.id):null;
-      return `<article class="wr-card${here?' here':''}"><button type="button" class="wr-pick" data-act="found-region" data-id="${R.id}"${here?' aria-current="true"':''}${full?' disabled':''}><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
-        <span class="wr-b"><span class="wr-n">${esc(R.name)}${here?' <span class="chip ok">Chosen</span>':''}${full?' <span class="chip">Full</span>':''}</span><span class="wr-s">${esc(R.short)}</span>
+    <div class="wr-grid fr-grid">${REGIONS.map(R=>{const here=R.id===REG.id,full=!here&&regFull(R.id),disabled=regDisabled(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,c=here||known?regCount(R.id):null;
+      return `<article class="wr-card${here?' here':''}${disabled?' region-disabled':''}"><button type="button" class="wr-pick" data-act="found-region" data-id="${R.id}"${here?' aria-current="true"':''}${full||disabled?' disabled':''}><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
+        <span class="wr-b"><span class="wr-n">${esc(R.name)}${here?' <span class="chip ok">Chosen</span>':''}${full?' <span class="chip">Full</span>':''}${disabled?' <span class="chip">Maintenance</span>':''}</span><span class="wr-s">${esc(R.short)}</span>
         <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations${c==null?'':` · ${c===1?'1 player':c+' players'}`}</span></span></button></article>`;}).join('')}</div>`;
 }
 /* choosing a region on the founding page */
@@ -21912,8 +21937,9 @@ function foundRegionBox(){
   const pl=R=>{if(!known&&R.id!==REG.id)return '';const c=regCount(R.id);return ` · ${c===1?'1 player':c+' players'}`;};
   return `<div class="fr-box"><p class="eyebrow">Region</p><p class="fr-now"><b>${esc(REG.name)}</b> · ${esc(REG.short)}</p>
     <div class="fr-life" id="found-life">${foundLifeHTML()}</div>
+    ${regDisabled(REG.id)?`<p class="err" role="status">${MAINTENANCE}</p>`:''}
     ${full?`<p class="hint">${esc(REG.name)} is full: it has room for ${REGION_CAP} active nations. Choose another region to found your nation.</p>`:''}
-    <details class="fr-more"${full||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${REGIONS.map(R=>{const f=R.id!==REG.id&&regFull(R.id);return `<li><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
+    <details class="fr-more"${full||regDisabled(REG.id)||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${REGIONS.map(R=>{const f=R.id!==REG.id&&regFull(R.id),disabled=regDisabled(R.id);return `<li class="${disabled?'region-disabled':''}"><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f||disabled?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}${disabled?' <span class="chip">Maintenance</span>':''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
 }
 
 /* ───────── Round 9 (E): dormant nations ─────────
@@ -33702,13 +33728,13 @@ const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||60000),SAVE_MIN=15
    time would incorrectly make the first write wait the entire background-save interval. */
 let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=-SAVE_GAP,remoteSoon=false,commitNo=0;
 let ownSyncBusy=false,ownLatest=null,conflictPending=false;
-let saveChecked=false,saveFailed=false;
+let saveChecked=false,saveFailed=false,saveError='',saveConflicts=0;
 /* The account control lives in the Firebase adapter. Publish actual save state, including the queue,
    so a connected browser never says Synced while its latest changes are still waiting to be sent. */
 function publishSync(){
-  const status=navigator.onLine===false||S.mode!=='world'||saveFailed?'offline'
+  const status=navigator.onLine===false||S.mode!=='world'||saveFailed||regBlocked()?'offline'
     :!saveChecked||remoteBusy||remoteDirty||conflictPending||!!(S.nation&&S.nation._dirty)?'saving':'synced';
-  if(window.__edictum)window.__edictum.syncStatus=status;
+  if(window.__edictum){window.__edictum.syncStatus=status;window.__edictum.saveHealth={error:saveError,conflicts:saveConflicts};}
   window.dispatchEvent(new CustomEvent('edictum:sync',{detail:status}));
 }
 const saveRev=n=>n&&Number.isSafeInteger(n._rev)?n._rev:0;
@@ -33736,7 +33762,7 @@ async function syncOwnNation(force=false){
   }catch(e){saveFailed=true;/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
   finally{ownSyncBusy=false;publishSync();}
 }
-function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
+function commit(n){if(regBlocked())return;const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
   ensureCities(n);syncBuildings(n,now);
@@ -33748,6 +33774,7 @@ function commit(n){const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.p
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
 function queueRemote(){
+  if(regBlocked()||S.db&&!RCTRL.ready){remoteDirty=true;publishSync();return;}
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
   remoteDirty=true;
   publishSync();
@@ -33756,6 +33783,7 @@ function queueRemote(){
 }
 async function flushRemote(){
   clearTimeout(remoteTimer);remoteTimer=0;
+  if(regBlocked()||!RCTRL.ready){publishSync();return;}
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
   remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=performance.now();
@@ -33771,6 +33799,7 @@ function saveSoon(){
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
+  if(regBlocked()||!RCTRL.ready)return;
   if(S.mode!=='world'||!S.db||!S.uid)return;
   while(remoteBusy)await sleep(100);
   if(!remoteDirty)return;
@@ -33791,21 +33820,23 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 async function writeRemote(){
   if(!S.nation)return;
   const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation);
-  const send=async()=>{const result=await ref.set(sent);saveChecked=true;saveFailed=false;
+  const send=async()=>{const result=await ref.set(sent);saveChecked=true;saveFailed=false;saveError='';
     /* Actions made while this write was in flight are based on it too. Advance their revision without
        replacing those actions with the older object just sent. */
     if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
   try{await send();}
   catch(e){
-    saveFailed=true;publishSync();
+    saveFailed=true;saveError=String(e&&e.code||'unknown').slice(0,64);publishSync();
+    if(e&&e.code==='region_disabled'){remoteDirty=true;regionControls();return;}
     if(e&&e.code==='unavailable'){await sleep(700+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
-    if(e&&e.code==='save_conflict'){saveFailed=false;keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
+    if(e&&e.code==='save_conflict'){saveConflicts++;saveFailed=false;keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
     saveFailed=true;handleWriteError(e);
     if(S.mode==='world')remoteDirty=true;
   }
 }
 function handleWriteError(e){
   const code=e&&e.code;
+  if(code==='region_disabled'){saveFailed=true;regionControls();publishSync();return;}
   if(code==='invalid_argument'||code==='not_granted'||code==='revoked'){S.mode='readonly';toast('You have view-only access here, so your nation is saved in this browser and not shared with the region.');render();}
   else if(code==='quota_exceeded')toast('The region’s storage is full, so this change is saved in your browser only.');
   else toast('That change could not reach the region. It is saved in this browser.');
@@ -34542,6 +34573,7 @@ async function connect(){
   const uid=await user.id();if(!uid)return;
   S.db=db;S.uid=uid;
   S.isOwner=await user.isOwner();
+  await regionControls();
   try{S.google=typeof user.google==='function'?!!(await user.google()):false;}catch(e){S.google=false;}
   const can=await user.can('data.write');
   S.mode=can===false?'readonly':'world';
@@ -35116,7 +35148,7 @@ function foundView(){
           <p class="loc-status" id="found-loc">${foundLocHTML()}</p>
           <button type="button" class="btn ghost" data-act="found-suggest" style="margin-top:10px">Pick a spot for me</button>
         </fieldset>
-        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"><span>Found <span class="found-nm" id="found-name">${esc(foundNm(d))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two edicts will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of edict you get.</p></div>
+        <div class="found-submit"><button class="btn big" type="submit" id="found-btn"${regDisabled(REG.id)?' disabled':''}><span>Found <span class="found-nm" id="found-name">${esc(foundNm(d))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two edicts will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of edict you get.</p></div>
       </form>
       <aside class="found-side" aria-label="Your nation"><div class="found-preview" id="found-preview">${previewCard(d)}</div>${foundGo(d)}</aside>
     </div>
@@ -35227,6 +35259,8 @@ function go(v){
 
 /* ───────── actions ───────── */
 function found(){
+  if(regDisabled(REG.id)){S.foundErr=MAINTENANCE;render();return;}
+  if(S.mode==='world'&&!RCTRL.ready){S.foundErr='Checking region availability. Please try again.';render();return;}
   const d=S.draft,name=d.name.trim().replace(/\s+/g,' ');
   if(name.length<2){S.foundErr='Give your nation a name of at least two characters.';render();const el=document.getElementById('d-name');if(el)el.focus();return;}
   if(S.banned){S.foundErr=`This account is banned from Edictum${S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`;render();return;}
@@ -35448,6 +35482,7 @@ new MutationObserver(()=>{drawAllGuill();redrawMaps();}).observe(document.docume
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawAllGuill();redrawMaps();});
 
 function tick(){
+  if(regBlocked())return;
   if(!S.nation)return;
   const now=Date.now(),v=syncInbox(S.nation,now);
   if(v.inbox.length!==S.lastCount){render();return;}
@@ -35480,7 +35515,8 @@ function tick(){
    demand (one cheap count per figure), loaded when the page opens and at most once a minute after. */
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
 const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
-const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus');
+const ADM_EXTRA=['admin-players','admin-health','admin-audit'];
+const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus',ADM_EXTRA);
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
    stays theirs to play); a removed nation leaves this browser too */
@@ -35547,8 +35583,8 @@ function adminView(v='admin'){
     ${v==='admin'||v==='admin-bans'?admBanned(d.bans):''}
     ${v==='admin'||v==='admin-regions'?`<h2 class="h2">${v==='admin-regions'?'Regional capacity':'Regions'}</h2>
     <p class="hint">${REGIONS.length} regions, each with room for ${REGION_CAP} active nations. Newcomers go to the fullest region with room.</p>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Region</th><th class="num">Players</th><th class="num">Active today</th><th>Room</th><th class="num">Board posts</th></tr></thead><tbody>
-      ${regs.map(r=>`<tr><td>${esc(r.R.name)}</td><td class="num">${n(r.active)}</td><td class="num">${n(r.today)}</td><td>${fill(r)}</td><td class="num">${n(r.posts)}</td></tr>`).join('')}
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Region</th><th class="num">Players</th><th class="num">Active today</th><th>Room</th><th class="num">Board posts</th><th>Availability</th><th>Region control</th></tr></thead><tbody>
+      ${regs.map(r=>`<tr><td>${esc(r.R.name)}</td><td class="num">${n(r.active)}</td><td class="num">${n(r.today)}</td><td>${fill(r)}</td><td class="num">${n(r.posts)}</td><td><span class="chip">${regDisabled(r.R.id)?'Disabled':'Enabled'}</span></td><td>${adminRegionControl(r.R.id)}</td></tr>`).join('')}
     </tbody></table></div>`:''}
     ${v==='admin'?`<h2 class="h2">Largest nations</h2>
     ${d.top&&d.top.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="num">#</th><th>Nation</th><th>Region</th><th class="num">Population</th><th>Last active</th></tr></thead><tbody>
@@ -35581,26 +35617,20 @@ function admBanned(list){
 }
 /* removing a nation: its posts everywhere, its records, and word to its owner's browser (mod/<uid>.removed) */
 async function admRemove(uid,note,name,ban){
-  const qs=await S.db.collectionGroup('posts').where('a','==',uid).get();
-  for(const d of qs.docs){const p=d.data();if(p&&p.r)await S.db.doc('boards/'+p.r+'/posts/'+d.id).delete();}
-  await S.db.doc('nations/'+uid).delete();
-  const now=Date.now();
-  await S.db.doc('mod/'+uid).set({hidden:false,removed:now,note,name,t:now,by:S.uid});
-  if(ban)await S.db.doc('bans/'+uid).set({note,name,t:now,by:S.uid});
+  await adminRequest({op:'moderate',action:ban?'ban':'remove',target:uid,reason:note,name});
 }
 async function admAct(a,id){
   const r=ADM.d&&ADM.d.reports&&ADM.d.reports.find(x=>x.id===id);
   const why=r?(REPORT_WHY[r.reason]||'Reported')+(r.note?': '+r.note:'')+'.':'';
-  const closeAll=async uid=>{for(const x of (ADM.d.reports||[]))if(x.target===uid)await S.db.doc('reports/'+x.id).delete();};
   ADM.ask=null;
   try{
-    if(a==='adm-delpost'&&r){await S.db.doc('boards/'+r.reg+'/posts/'+r.post).delete();await S.db.doc('reports/'+id).delete();ADM.act='The post was removed and the ticket closed.';}
-    else if(a==='adm-hide'&&r){await S.db.doc('mod/'+r.target).set({hidden:true,note:why,t:Date.now(),by:S.uid,name:String(r.name||'').slice(0,80)});await S.db.doc('reports/'+id).delete();ADM.act=`${r.name||'The nation'} is hidden from other players and the ticket closed.`;}
+    if(a==='adm-delpost'&&r){await adminRequest({op:'moderate',action:'delete_post',target:r.post,reg:r.reg,report:id,reason:why});ADM.act='The post was removed and the ticket closed.';}
+    else if(a==='adm-hide'&&r){await adminRequest({op:'moderate',action:'hide',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden from other players and the ticket closed.`;}
     else if((a==='adm-remove'||a==='adm-ban')&&r){ADM.ask={a,id};ADM.act='';render();return;}
-    else if((a==='adm-remove-yes'||a==='adm-ban-yes')&&r){const ban=a==='adm-ban-yes';await admRemove(r.target,why,String(r.name||'').slice(0,80),ban);await closeAll(r.target);ADM.act=ban?`The player of ${r.name||'that nation'} is banned, the nation removed and its tickets closed.`:`${r.name||'The nation'} was removed and its tickets closed.`;}
-    else if(a==='adm-close'&&r){await S.db.doc('reports/'+id).delete();ADM.act='The ticket was closed.';}
-    else if(a==='adm-unhide'){await S.db.doc('mod/'+id).delete();ADM.act='The nation is visible again.';}
-    else if(a==='adm-unban'){await S.db.doc('bans/'+id).delete();ADM.act='The player is no longer banned.';}
+    else if((a==='adm-remove-yes'||a==='adm-ban-yes')&&r){const ban=a==='adm-ban-yes';await admRemove(r.target,why,String(r.name||'').slice(0,80),ban);ADM.act=ban?`The player of ${r.name||'that nation'} is banned, the nation removed and its tickets closed.`:`${r.name||'The nation'} was removed and its tickets closed.`;}
+    else if(a==='adm-close'&&r){await adminRequest({op:'moderate',action:'close_report',target:id,reason:'Closed moderation report'});ADM.act='The ticket was closed.';}
+    else if(a==='adm-unhide'){await adminRequest({op:'moderate',action:'unhide',target:id,reason:'Restored nation visibility'});ADM.act='The nation is visible again.';}
+    else if(a==='adm-unban'){await adminRequest({op:'moderate',action:'unban',target:id,reason:'Lifted account ban'});ADM.act='The player is no longer banned.';}
   }catch(e){ADM.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
   admLoad(true);render();
 }
@@ -35648,7 +35678,7 @@ function adminSusView(){
 async function susAct(a,id){
   const x=susRows().find(r=>r.id===id),note=x?('Suspected cheating: '+x.why.join(' ')).slice(0,300):'Suspected cheating.',name=x?String(x.name).slice(0,80):'';
   try{
-    if(a==='sus-hide'){await S.db.doc('mod/'+id).set({hidden:true,note,t:Date.now(),by:S.uid,name});ADMS.act=`${name||'The nation'} is hidden from other players.`;}
+    if(a==='sus-hide'){await adminRequest({op:'moderate',action:'hide',target:id,reason:note,name});ADMS.act=`${name||'The nation'} is hidden from other players.`;}
     else if(a==='sus-ban'){ADMS.ask=id;ADMS.act='';render();return;}
     else if(a==='sus-ban-yes'){ADMS.ask=null;await admRemove(id,note,name,true);if(ADMS.scan)ADMS.scan=ADMS.scan.filter(r=>r.id!==id);ADMS.act=`The player of ${name||'that nation'} is banned and the nation removed.`;}
   }catch(e){ADMS.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
@@ -35671,9 +35701,10 @@ function admShell(v,body){
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
-        ${group('World',tab('admin','Overview')+tab('admin-regions','Regions'))}
+        ${group('World',tab('admin','Overview')+tab('admin-players','Player search')+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n))}
+        ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
     </dialog>
@@ -35682,8 +35713,8 @@ function admShell(v,body){
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
 render=(f=>function(){const r=f.apply(this,arguments);if(admMenuOpen&&ADM_MOBILE.matches)admShowMenu();return r;})(render);
-shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();return f.apply(this,arguments);})(shell);
-go=(f=>function(v){if(v!==S.view)admMenuOpen=false;if(ADM_PAGES.includes(v)&&S.view!==v){if(!ADM_VIEWS.includes(S.view))ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
+shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){if(v!==S.view){admMenuOpen=false;if(ADM_EXTRA.includes(v))ADMX.loaded[v]=false;}if(ADM_PAGES.includes(v)&&S.view!==v){if(!ADM_VIEWS.includes(S.view))ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='admin-open'){e.preventDefault();go('admin');return;}
@@ -35700,6 +35731,83 @@ document.addEventListener('click',e=>{
     if(a==='report-post'){const p=((S.rmb[id]||{}).posts||[]).find(q=>q.id===el.dataset.p);if(!p)return;info={kind:'post',target:id,post:p.id,reg:REG.id,name:x.n.name,x:p.x};}
     Promise.resolve(window.claude&&window.claude.use('report')).then(r=>{if(r)r.open(info);else toast('Reporting needs a connection to the region.');});
     return;
+  }
+});
+
+/* ───────── staff operations ───────── */
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},regionBusy:'',message:''};
+async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
+const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
+async function adminExtraLoad(v,more=false,refresh=false){
+  if(ADMX.busy)return;ADMX.busy=true;ADMX.err='';ADMX.loaded[v]=true;render();
+  try{
+    if(v==='admin-players'){
+      if(!more)ADMX.query={q:ADMX.q,reg:ADMX.reg};
+      const d=await adminRequest({op:'search',...ADMX.query,offset:more&&ADMX.search?ADMX.search.next:0,refresh});
+      if(more&&ADMX.search)d.players=ADMX.search.players.concat(d.players);ADMX.search=d;
+    }
+    if(v==='admin-health')ADMX.health=await adminRequest({op:'health'});
+    if(v==='admin-audit'){
+      const d=await adminRequest({op:'audit',target:ADMX.target,after:more&&ADMX.audit?ADMX.audit.next:''});
+      if(more&&ADMX.audit)d.events=ADMX.audit.events.concat(d.events);ADMX.audit=d;
+    }
+  }catch(e){ADMX.err=e.message||'The admin service could not be reached.';}
+  finally{ADMX.busy=false;if(ADM_EXTRA.includes(S.view))render();}
+}
+function adminRegionControl(id){
+  const disabled=regDisabled(id),busy=ADMX.regionBusy===id;
+  if(ADMX.ask!==id)return `<button class="btn ghost small" data-act="region-${disabled?'enable':'ask'}" data-id="${id}"${ADMX.regionBusy?' disabled':''}>${busy?'Updating…':disabled?'Enable region':'Disable region…'}</button>`;
+  return `<div class="adm-ask"><label class="admh-lbl" for="region-reason-${id}">Reason for disabling</label><input class="input adm-region-reason" id="region-reason-${id}" data-region-reason="${id}" maxlength="300" value="${esc(ADMX.reasons[id]||'Scheduled maintenance')}"><p>Players in this region will see the maintenance message. Their nation records are kept.</p><div class="row"><button class="btn danger small" data-act="region-disable" data-id="${id}"${busy?' disabled':''}>${busy?'Disabling…':'Confirm disable'}</button><button class="btn ghost small" data-act="region-cancel">Cancel</button></div></div>`;
+}
+async function adminSetRegion(id,enabled){
+  if(ADMX.regionBusy)return;ADMX.regionBusy=id;ADMX.message='';ADM.err='';render();
+  try{await adminRequest({op:'region',reg:id,enabled,reason:enabled?'Maintenance completed':ADMX.reasons[id]||'Scheduled maintenance'});ADMX.ask=null;ADMX.message=`${regName(id)} is now ${enabled?'enabled':'disabled'}.`;await regionControls();}
+  catch(e){ADM.err=e.message||'The region could not be updated.';}
+  finally{ADMX.regionBusy='';render();if(ADMX.message)toast(ADMX.message);}
+}
+function adminPlayerDetail(p){
+  if(!p)return '';
+  return `<section class="adm-detail" aria-label="Player details"><h2 class="h2" style="margin-top:0">${esc(p.name)}</h2><dl><dt>Player ID</dt><dd><code>${esc(p.uid)}</code></dd><dt>Region</dt><dd>${esc(regName(p.reg)||'No nation')}</dd><dt>Last confirmed save</dt><dd>${esc(adminTime(p.savedAt))}</dd><dt>Server revision</dt><dd>${p.revision}</dd><dt>Moderation</dt><dd>${p.banned?'Banned':p.hidden?'Hidden':'No restrictions'}${p.note?': '+esc(p.note):''}</dd><dt>Reporting sessions</dt><dd>${p.sessions.length}</dd></dl><div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:''}</div></section>`;
+}
+function adminExtraView(v){
+  if(!ADMX.loaded[v]&&!ADMX.busy)setTimeout(()=>adminExtraLoad(v),0);
+  const title={'admin-players':'Player search','admin-health':'Save health','admin-audit':'Admin audit log'}[v];
+  let body='';
+  if(v==='admin-players'){
+    const d=ADMX.search;
+    body=`<p class="lede">Find a nation by name or player ID across every region. Inspect its latest confirmed save and moderation status.</p>
+      <form class="adm-search" id="admin-search"><div class="field"><label for="admin-q">Nation name or player ID</label><input class="input" id="admin-q" maxlength="128" value="${esc(ADMX.q)}" placeholder="Search players"></div><div class="field"><label for="admin-reg">Region</label><select class="input" id="admin-reg"><option value="">All regions</option>${REGIONS.map(r=>`<option value="${r.id}"${ADMX.reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div><button class="btn"${ADMX.busy?' disabled':''}>Search</button><button type="button" class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh directory</button></form>
+      ${adminPlayerDetail(ADMX.player)}${d?`<p class="hint">${d.total} ${d.total===1?'match':'matches'} · directory refreshed ${esc(adminTime(d.at))}</p>${d.players.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th>Region</th><th>Last activity</th><th>Player</th></tr></thead><tbody>${d.players.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(regName(p.reg))}</td><td>${esc(adminTime(p.t))}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect player</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No matching players.</p>'}${d.next!=null?'<button class="btn ghost" data-act="admin-extra-more">Load more players</button>':''}`:''}`;
+  }
+  if(v==='admin-health'){
+    const d=ADMX.health,rows=d?d.sessions:[],stale=s=>Date.now()-s.t>5*60000;
+    const label=s=>regDisabled(s.reg)?'Region maintenance':stale(s)?'Not recently seen':s.status==='offline'?'Reported error':s.pending||s.status==='saving'?'Saving':s.revision<s.serverRevision?'Behind server':'Synced';
+    const count=l=>rows.filter(s=>label(s)===l).length;
+    body=`<p class="lede">Recent session reports alongside the actual server-confirmed save. A browser that is offline cannot send a live report; sessions unseen for five minutes are marked accordingly.</p><button class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh save health</button>
+      ${d?`<div class="adm-kpis">${['Synced','Saving','Reported error','Not recently seen'].map(l=>`<div class="adm-kpi"><b>${count(l)}</b><span>${l}</span></div>`).join('')}</div><p class="hint">${rows.length} reporting sessions seen in the last 24 hours${d.limited?' · showing the latest 250':''}. Older game versions may not report session diagnostics.</p>${rows.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation / device</th><th>Region</th><th>Session status</th><th>Last confirmed save</th><th>Revisions</th><th>Diagnostics</th></tr></thead><tbody>${rows.map(s=>`<tr><td><button class="linkish" data-act="admin-inspect" data-id="${esc(s.uid)}">${esc(s.name)}</button><br><span class="hint">${esc(s.device)} · seen ${esc(adminTime(s.t))}</span></td><td>${esc(regName(s.reg))}</td><td>${label(s)}</td><td>${esc(adminTime(s.savedAt))}</td><td>Session ${s.revision}<br>Server ${s.serverRevision}</td><td>${s.error?`<code>${esc(s.error)}</code><br>`:''}${s.conflicts} conflicts reported</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No session diagnostics have arrived yet. Confirmed nation saves are available through Player search.</p>'}`:''}`;
+  }
+  if(v==='admin-audit'){
+    const d=ADMX.audit;
+    body=`<p class="lede">Server-recorded changes made through the admin console. Each event keeps the acting admin, target, reason and outcome. Records cannot be edited or deleted from the game. Logging begins with this release.</p><form class="adm-search" id="admin-audit-filter"><div class="field"><label for="admin-audit-target">Target player or region ID (optional)</label><input class="input" id="admin-audit-target" maxlength="128" value="${esc(ADMX.target)}"></div><button class="btn"${ADMX.busy?' disabled':''}>Filter log</button><button type="button" class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh log</button></form>
+      ${d?(d.events.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Time / action</th><th>Admin</th><th>Target</th><th>Reason</th><th>Outcome</th></tr></thead><tbody>${d.events.map(e=>`<tr><td>${esc(adminTime(e.at))}<br>${esc(e.action.replace(/_/g,' '))}</td><td><code>${esc(e.actor)}</code></td><td>${esc(e.name||e.target)}<br><code>${esc(e.target)}</code></td><td>${esc(e.reason)}</td><td>${esc(e.outcome)}${e.error?'<br>'+esc(e.error):''}</td></tr>`).join('')}</tbody></table></div>${d.next?'<button class="btn ghost" data-act="admin-extra-more">Load older events</button>':''}`:'<p class="hint">No audit events match this filter yet.</p>'):''}`;
+  }
+  return admShell(v,`<p class="eyebrow">Admin portal</p><h1 class="display">${title}</h1>${body}${ADMX.busy?'<p class="hint" role="status">Loading…</p>':''}${ADMX.err?`<p class="err" role="alert">${esc(ADMX.err)}</p>`:''}`);
+}
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
+document.addEventListener('change',e=>{if(e.target.id==='admin-reg')ADMX.reg=e.target.value;});
+document.addEventListener('submit',e=>{if(e.target.id==='admin-search'||e.target.id==='admin-audit-filter'){e.preventDefault();if(S.isOwner)adminExtraLoad(S.view);}});
+document.addEventListener('click',async e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act,id=el.dataset.id;
+  if(a==='region-recheck'){regionControls();return;}
+  if(!S.isOwner)return;
+  if(a==='region-ask'){ADMX.ask=id;render();return;}
+  if(a==='region-cancel'){ADMX.ask=null;render();return;}
+  if(a==='region-enable'||a==='region-disable'){adminSetRegion(id,a==='region-enable');return;}
+  if(a==='admin-extra-refresh'||a==='admin-extra-more'){adminExtraLoad(S.view,a==='admin-extra-more',a==='admin-extra-refresh');return;}
+  if(a==='admin-history'){ADMX.target=id;ADMX.loaded['admin-audit']=false;ADMX.audit=null;go('admin-audit');return;}
+  if(a==='admin-inspect'){
+    ADMX.err='';try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
+    catch(err){ADMX.err=err.message;render();}
   }
 });
 
@@ -36723,12 +36831,12 @@ function start(data){
     S.mapViews=data.mapViews||{};S.mapSel=data.mapSel==null?null:data.mapSel;S.mapPick=data.mapPick==null?null:data.mapPick;
   }else{
     const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;
-    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_PAGES,EXT_PAGES).includes(h))S.view=h;
+    if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h))S.view=h;
   }
   render();
   connect();
   setInterval(tick,10000);
-  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_PAGES,EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
+  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */

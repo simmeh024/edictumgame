@@ -123,7 +123,7 @@ check('the pill opens the admin portal at #admin', await until(async () => !!(aw
 const admText = await until(async () => { const t = await text(A, '.adm'); return /players \(active/.test(t) ? t : ''; }, 15000);
 check('it shows the player count, the regions and the largest nations', !!admText && /Meridian Reach/.test(admText) && /Aldoria/.test(admText) && /Borvia/.test(admText), (admText.match(/(\d+) players \(active/) || [])[0]);
 check('it counts the players in Meridian and the Frostmarch', await A.evaluate(() => { const row = n => [...document.querySelectorAll('.adm tbody tr')].find(r => r.cells[0].textContent === n); const a = row('Meridian Reach'), f = row('Frostmarch'); return !!a && Number(a.cells[1].textContent) >= 2 && !!f && Number(f.cells[1].textContent) >= 1; }));
-check('admin navigation is grouped into World, Moderation and Support', (await A.locator('.adm-nav-label').allTextContents()).join('|') === 'World|Moderation|Support');
+check('admin navigation is grouped into World, Moderation, Support and Operations', (await A.locator('.adm-nav-label').allTextContents()).join('|') === 'World|Moderation|Support|Operations');
 check('the desktop admin menu sits to the left of its content', await A.evaluate(() => {
   const s = document.querySelector('.adm-sidebar').getBoundingClientRect(), m = document.querySelector('.adm-main').getBoundingClientRect();
   return s.width >= 200 && s.right < m.left && Math.abs(s.top - m.top) < 10;

@@ -62,6 +62,43 @@ beforeEach(async () => {
 const anon = () => env.unauthenticatedContext().firestore();
 const as = (uid, claims) => env.authenticatedContext(uid, claims).firestore();
 
+test('disabled regions reject founding, saves, moves out and posts without deleting existing records', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ enabled: false }));
+  await assertFails(save(as('alice'), 'alice', nation('Aliceland')));
+  await assertFails(save(as('bob'), 'bob', nation('Bobland')));
+  await assertFails(save(as('bob'), 'bob', nation('Bobland', { reg: 'frostmarch' })));
+  await assertFails(post(as('bob'), 'bob', 'meridian', 'Still playing'));
+  await assertSucceeds(anon().doc('nations/bob').get());
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ enabled: true }));
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland')));
+});
+test('region availability is public, while region changes and audit events require the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('regionStatus/meridian').set({ enabled: false });
+    await ctx.firestore().doc('adminAudit/event').set({ actor: 'mod', target: 'meridian', at: AGO(1000) });
+  });
+  await assertSucceeds(anon().collection('regionStatus').get());
+  for (const db of [anon(), as('alice'), as('mod', { admin: true })]) {
+    await assertFails(db.doc('regionStatus/meridian').set({ enabled: true }));
+    await assertFails(db.doc('adminAudit/fake').set({ actor: 'mod' }));
+    await assertFails(db.doc('adminAudit/event').delete());
+  }
+  await assertFails(as('alice').collection('adminAudit').get());
+  await assertSucceeds(as('mod', { admin: true }).collection('adminAudit').get());
+});
+test('session diagnostics are private, paced and limited to the reporting player', async () => {
+  const db = as('alice'), report = { uid: 'alice', reg: 'meridian', device: 'Desktop', status: 'synced', revision: 3, pending: false, error: '', conflicts: 0, t: NOW(), expiresAt: firebase.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000) };
+  await assertSucceeds(db.doc('saveHealth/alice-session').set(report));
+  await assertSucceeds(db.collection('saveHealth').where('uid', '==', 'alice').get());
+  await assertFails(as('bob').doc('saveHealth/alice-session').get());
+  await assertFails(as('bob').doc('saveHealth/alice-session').set({ ...report, uid: 'bob' }));
+  await assertFails(db.doc('saveHealth/forged').set({ ...report, uid: 'bob' }));
+  await assertFails(db.doc('saveHealth/oversized').set({ ...report, error: 'x'.repeat(65) }));
+  await assertFails(db.doc('saveHealth/alice-session').set(report));
+  await assertSucceeds(as('mod', { admin: true }).collection('saveHealth').get());
+  await assertSucceeds(db.doc('saveHealth/alice-session').delete());
+});
+
 test('anyone, signed in or not, reads the world', async () => {
   for (const db of [anon(), as('alice')]) {
     await assertSucceeds(db.doc('nations/bob').get());

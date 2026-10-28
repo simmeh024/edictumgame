@@ -466,6 +466,37 @@ queue, and a button back to the game. Its **Help queries** tab (`#admin-help`) l
 support tickets, and its **Suspicious** tab (`#admin-sus`) the nations whose records the game caught
 out (see Fair play), with Hide and Ban. For anyone else `#admin` simply shows the game.
 
+The categorized left sidebar also includes **Player search**, **Save health**, **Admin audit log**,
+and **Region control**. Search covers existing public nation summaries without a migration, matches
+names without regard to capitalization or accents, supports player IDs and region filters, and
+shows server-confirmed save times and revisions when a player is inspected. The summary directory
+is cached for a minute; Refresh directory reloads it.
+
+Save health combines `saveHealth/` session reports with actual `nations/` server timestamps and
+revisions. Reports contain only player ID, region, a Desktop/Mobile label, status, pending flag,
+revision, error code and conflict count. Status changes are coalesced to at most one write every
+15 seconds, with a heartbeat once a minute for visible sessions. An offline browser cannot report
+live status: the console marks sessions unseen for five minutes as not recently seen. It shows up
+to 250 reporting sessions from the last day, not a guarantee that every player has reported.
+Reports expire after seven days via the `saveHealth.expiresAt` TTL policy and are removed when
+the player deletes their account. Diagnostics never block a nation save.
+
+Region control uses the staff-only `adminConsole` Cloud Function. Missing `regionStatus/<id>`
+documents mean enabled. Disabling greys out the region on the founding page, blocks founding,
+moves and saves in the rules/adapter, and blocks battles in the referee. Connected and returning
+players see the maintenance message; existing nation data is kept. Re-enabling restores access.
+Admins retain console access when their own region is disabled. No region is disabled by deployment.
+
+Console moderation, board removal, support actions and region changes are recorded by the server
+in `adminAudit/`, using the authenticated admin and server time. Clients cannot create, edit or
+delete audit events. Multi-document moderation cleanup records intent and then completion or
+failure; an unfinished operation remains visible. Existing direct Firestore admin privileges remain
+compatible with older clients; changes made outside the updated console are not reconstructed.
+Audit history starts with this release and remains after player account deletion.
+
+Validation: `npm run test:admin` tests backend permissions, search, maintenance, diagnostics and
+audit outcomes. `npm run test:admin-e2e` tests the console and the player/home maintenance flows.
+
 1. Play on the site and link your nation to Google (**Keep your nation on every device**), so the
    right stays with an account you can sign in to anywhere.
 2. On your computer, in this repository:

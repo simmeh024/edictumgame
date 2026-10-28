@@ -43,7 +43,7 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn() && request.auth.token.get('admin', false) == true;
     }
     function region(r) {
       return r in ['meridian', 'frostmarch', 'northernpale', 'driftlands', 'silentmoors', 'wildwood',
@@ -53,6 +53,10 @@ service cloud.firestore {
     }
     function label(s) {
       return s is string && s.size() <= 80;
+    }
+    function regionEnabled(r) {
+      return isAdmin() || !exists(/databases/$(database)/documents/regionStatus/$(r))
+        || get(/databases/$(database)/documents/regionStatus/$(r)).data.enabled != false;
     }
     // at most once per `secs` seconds: the document's previous server time is far enough back
     function paced(secs) {
@@ -143,9 +147,11 @@ service cloud.firestore {
     match /nations/{uid} {
       allow read: if true;
       allow create: if isSelf(uid) && validNation(request.resource.data) && headline(request.resource.data)
+        && regionEnabled(request.resource.data.reg)
         && (!('rev' in request.resource.data) || request.resource.data.rev == 1)
         && summarised(uid, request.resource.data) && !banned(uid);
       allow update: if isSelf(uid) && validNation(request.resource.data) && headlineUpdate(request.resource.data)
+        && regionEnabled(request.resource.data.reg) && regionEnabled(resource.data.reg)
         && nextRevision(request.resource.data)
         && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();
@@ -190,6 +196,7 @@ service cloud.firestore {
     match /boards/{reg}/posts/{pid} {
       allow read: if true;
       allow create: if signedIn() && region(reg) && validPost(request.resource.data)
+        && regionEnabled(reg)
         && getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)).data.p == request.time
         && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg
         && !banned(request.auth.uid);
@@ -329,6 +336,35 @@ service cloud.firestore {
       allow create, update: if isSelf(uid) && isAdmin()
         && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t is number;
       allow delete: if isSelf(uid) || isAdmin();
+    }
+
+    // Availability defaults to enabled. Only the audited staff Cloud Function changes it.
+    match /regionStatus/{reg} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // Client-reported session diagnostics, separate from the actual server-confirmed nation save.
+    match /saveHealth/{sid} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create, update: if signedIn() && request.resource.data.uid == request.auth.uid
+        && (!exists(/databases/$(database)/documents/saveHealth/$(sid))
+          || (resource.data.uid == request.auth.uid && request.time > resource.data.t + duration.value(10, 's')))
+        && request.resource.data.keys().hasOnly(['uid', 'reg', 'device', 'status', 'revision', 'pending', 'error', 'conflicts', 't', 'expiresAt'])
+        && region(request.resource.data.reg)
+        && request.resource.data.device in ['Desktop', 'Mobile']
+        && request.resource.data.status in ['synced', 'saving', 'offline']
+        && request.resource.data.revision is int && request.resource.data.revision >= 0
+        && request.resource.data.pending is bool
+        && request.resource.data.conflicts is int && request.resource.data.conflicts >= 0 && request.resource.data.conflicts <= 1000000
+        && request.resource.data.error is string && request.resource.data.error.size() <= 64
+        && request.resource.data.t == request.time
+        && request.resource.data.expiresAt is timestamp && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt < request.time + duration.value(8, 'd');
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /adminAudit/{event} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // the referee's: every game reads the public half of its signing key (it checks the seal on each
