@@ -31049,8 +31049,9 @@ function tutNewDismiss(){
 firstStepsCard=(f=>function(n){let a='',b='',c='';try{a=tutNewCard(n);}catch(e){}try{b=f.apply(this,arguments);}catch(e){}try{c=tutNextCard(n);}catch(e){}return a+b+c;})(firstStepsCard);
 
 /* ── the record: Next steps done (sticky), and no What’s new for a nation founded in this version ── */
-/* every step done now, First steps and Next steps (those already rewarded included) */
-function tutLcNow(n){const out=[];try{for(const s of stepsState(n))if(s.ok)out.push(s.k);}catch(e){}try{for(const s of nextState(n))if(s.ok)out.push(s.k);}catch(e){}return out;}
+/* Only persisted tutorial steps can earn ordinary credits. Google linking has its own five-credit
+   reward, recorded in n.glk; it is deliberately absent from tutLcIds() and must not be claimed here. */
+function tutLcNow(n){const out=[],ids=tutLcIds();try{for(const s of stepsState(n))if(s.ok)out.push(s.k);}catch(e){}try{for(const s of nextState(n))if(s.ok)out.push(s.k);}catch(e){}return out.filter(k=>ids.includes(k));}
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc)return;const t=Object.assign({},n.tut||{});
   if(!n.tut&&tutFresh(n))t.w=TUT_V;
