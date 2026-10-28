@@ -22,7 +22,7 @@ const uidA = await open(A);
 check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.length > 10, uidA);
 await found(A, 'Aldoria');
 const docA = await until(() => nationDoc(uidA));
-check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,pop,reg,ts,updatedAt,v', docA && docA.keys.join());
+check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,pop,reg,rev,ts,updatedAt,v', docA && docA.keys.join());
 const xA = await until(async () => { const r = await restGet('nationx/' + uidA); return r.status === 200 ? r.body.fields : null; });
 const xrec = xA && xA.j ? JSON.parse(xA.j.stringValue) : {};
 check('its private half is saved to nationx/<uid>, and the shared half leaves it out', xA && Object.keys(xA).sort().join() === 'j,t,ts' && Array.isArray(xrec.inbox) && typeof xrec.issueClock === 'number'

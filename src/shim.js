@@ -23,7 +23,7 @@
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
-   A nation save writes nations, summaries and (when needed) nationx and space in one batch; the rules
+   A nation save writes nations, summaries and (when needed) nationx and space in one transaction; the rules
    check that they agree. */
 (function () {
   'use strict';
@@ -47,7 +47,7 @@
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
   };
-  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', spaceSent: {}, xSent: {}, raceAt: {} };
+  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', raceAt: {} };
 
   /* ───────── small helpers ───────── */
   function storeOf(name) { try { return window[name] || null; } catch (e) { return null; } }
@@ -100,6 +100,7 @@
       pop: Math.round(Math.min(1e7, Math.max(0, num(d.pop))) * 1e4) / 1e4, army: Math.round(Math.max(0, num(d.apw)) * 1e3) / 1e3,
       cl: Array.isArray(d.claims) ? d.claims.length : 0 };
   }
+  function revision(d) { return d && Number.isSafeInteger(d._rev) && d._rev >= 0 ? d._rev : 0; }
   /* the part of a nation every region needs for Moon, Mars and the belt; null without any */
   function spaceText(d) {
     if (!isObj(d) || (!d.sp && !d.belt)) return null;
@@ -117,7 +118,7 @@
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
   function splitNation(d) {
     var pub = {}, ext = {};
-    Object.keys(d).forEach(function (k) { (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
+    Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
     if (isObj(d.pp)) {
       var pp = {}, xp = {};
       Object.keys(d.pp).forEach(function (k) { (NX_PP[k] ? xp : pp)[k] = d.pp[k]; });
@@ -140,7 +141,8 @@
          numbers (set after parsing, so the record cannot claim its own) */
       var nd = typeof d.j === 'string' ? parse(d.j) : d;
       if (isObj(nd) && typeof d.j === 'string') Object.assign(nd, { _ts: millis(d.ts), _pop: typeof d.pop === 'number' ? d.pop : undefined,
-        _army: typeof d.army === 'number' ? d.army : undefined, _cl: typeof d.cl === 'number' ? d.cl : undefined });
+        _army: typeof d.army === 'number' ? d.army : undefined, _cl: typeof d.cl === 'number' ? d.cl : undefined,
+        _rev: Number.isSafeInteger(d.rev) && d.rev >= 0 ? d.rev : 0, _dirty: false });
       return nd;
     }
     if (col === 'nationx') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
@@ -170,30 +172,41 @@
   }
   /* a nation save: the shared half, its summary and, when they changed, the private half and the space document */
   function saveNation(uid, data, noSpace) {
-    /* before the first space write of this page, count from the page load: a reload must not beat the pace */
-    var enc = encode('nations', data), now = Date.now(), sent = A.spaceSent[uid] || { j: undefined, at: BOOT_AT }, next = null;
-    var sj = spaceText(data), b = A.fs.batch(), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
+    /* Space pacing and private-half changes are checked against the server, including saves made by
+       another device; a per-page cache cannot safely decide whether a write can be skipped. */
+    var enc = encode('nations', data), now = Date.now();
+    var sj = spaceText(data), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
+    var ref = A.fs.doc('nations/' + uid), expected = revision(data);
     enc.j = JSON.stringify(halves[0]);
-    b.set(A.fs.doc('nations/' + uid), enc);
-    if (A.xSent[uid] !== xj) b.set(A.fs.doc('nationx/' + uid), { j: xj, t: enc.updatedAt, ts: serverTime() });
-    var sum = { reg: enc.reg, name: enc.name, pop: enc.pop, t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
-    if (e > sum.t) sum.e = e;
-    b.set(A.fs.doc('summaries/' + uid), sum);
-    var raceFrom = A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT;
-    raceKeys(data, raceFrom).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
-    if (noSpace) { /* leave space/ as it is */ }
-    else if (sj) {
-      var changed = sent.j !== sj || sent.reg !== enc.reg || sent.name !== enc.name;
-      /* a change waits for the next save if the last space write was too recent */
-      if ((changed && now - sent.at >= SPACE_MIN) || now - sent.at > SPACE_BEAT) {
-        b.set(A.fs.doc('space/' + uid), { reg: enc.reg, name: enc.name, t: enc.updatedAt, j: sj, ts: serverTime() });
-        next = { j: sj, reg: enc.reg, name: enc.name, at: now };
+    enc.rev = expected + 1;
+    /* Read and compare in the same transaction as every part of the save. Firestore retries a raced
+       transaction against the new document; it must still match the state this action was based on. */
+    return A.fs.runTransaction(async function (b) {
+      var current = await b.get(ref), saved = current.exists ? current.data() : null;
+      if ((saved ? num(saved.rev) : 0) !== expected || (!saved && expected !== 0)) {
+        var conflict = new Error('Another device saved this nation.'); conflict.code = 'save_conflict'; throw conflict;
       }
-    } else if (sent.j) {
-      b.delete(A.fs.doc('space/' + uid));
-      next = { j: null, at: now };
-    }
-    return b.commit().then(function () { A.xSent[uid] = xj; if (next) A.spaceSent[uid] = next; A.raceAt[uid] = enc.updatedAt; });
+      var privateRef = A.fs.doc('nationx/' + uid), privateSnap = await b.get(privateRef);
+      var spaceRef = A.fs.doc('space/' + uid), spaceSnap = await b.get(spaceRef), space = spaceSnap.exists ? spaceSnap.data() : null;
+      b.set(A.fs.doc('nations/' + uid), enc);
+      if (!privateSnap.exists || privateSnap.data().j !== xj) b.set(privateRef, { j: xj, t: enc.updatedAt, ts: serverTime() });
+      var sum = { reg: enc.reg, name: enc.name, pop: enc.pop, t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
+      if (e > sum.t) sum.e = e;
+      b.set(A.fs.doc('summaries/' + uid), sum);
+      var raceFrom = A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT;
+      raceKeys(data, raceFrom).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
+      if (noSpace) { /* leave space/ as it is */ }
+      else if (sj) {
+        var changed = !space || space.j !== sj || space.reg !== enc.reg || space.name !== enc.name;
+        var elapsed = space ? now - millis(space.ts) : Infinity;
+        /* a change waits for the next save if the last space write was too recent */
+        if ((changed && elapsed >= SPACE_MIN) || elapsed > SPACE_BEAT) {
+          b.set(spaceRef, { reg: enc.reg, name: enc.name, t: enc.updatedAt, j: sj, ts: serverTime() });
+        }
+      } else if (space) {
+        b.delete(spaceRef);
+      }
+    }).then(function () { A.raceAt[uid] = enc.updatedAt; return { rev: enc.rev }; });
   }
   /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
      carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in
@@ -209,14 +222,19 @@
   function dropNation(uid) {
     var b = A.fs.batch();
     ['nations/', 'nationx/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
-    return b.commit().then(function () { A.spaceSent[uid] = { j: null, at: Date.now() }; delete A.xSent[uid]; });
+    return b.commit().then(function () { delete A.raceAt[uid]; });
   }
   /* a nation with its private half joined in */
   function getNation(uid) {
-    return Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]).then(function (r) {
+    /* Own saves must use a coherent, server-confirmed pair. Separate gets can combine the shared half
+       before another device's save with its private half afterwards (and cached reads can be stale). */
+    var read = uid === A.uid ? A.fs.runTransaction(async function (tx) {
+      return [await tx.get(A.fs.doc('nations/' + uid)), await tx.get(A.fs.doc('nationx/' + uid))];
+    }) : Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]);
+    return read.then(function (r) {
       var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null;
       /* the player's own record, as saved: its claims and finds were stamped with that save */
-      if (uid === A.uid && A.raceAt[uid] == null && s.exists) { var own = s.data(); A.raceAt[uid] = isObj(own) ? num(own.updatedAt) : 0; }
+      if (uid === A.uid && s.exists) { var own = s.data(); A.raceAt[uid] = isObj(own) ? num(own.updatedAt) : 0; }
       if (!s.exists || !x) return s;
       return { id: s.id, exists: true, data: function () { return joinNation(s.data(), decode('nationx', x)); } };
     });
@@ -230,8 +248,9 @@
       set: function (data) {
         if (A.frozen) return hang();
         if (nation) {
+          if (!A.auth.currentUser || A.auth.currentUser.uid !== p[1]) return Promise.reject(mapError({ code: 'permission-denied' }));
           try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
-          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function () {}, function (e) { throw mapError(e); });
+          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { return r; }, function (e) { throw mapError(e); });
         }
         return ref.set(encode(col, data)).then(function () {}, function (e) { throw mapError(e); });
       },
@@ -602,6 +621,7 @@
         h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Playing offline</h2><p>Sign-in is not available right now, so ' + (n ? nm + ' is' : 'your nation is') + ' saved in this browser only. Reload the page when you are back online, and it joins the region again.</p>';
       }
       if (w.uid) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
+      if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>') + '</div>';
       if (w.kind !== 'local') h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
       h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
     }
@@ -610,6 +630,12 @@
     focusFirst();
   }
   function act(a) {
+    if (a === 'unsaved') {
+      var u = A.auth && A.auth.currentUser, copy = u && L.get('edictum.unsaved.' + u.uid);
+      if (copy) { var url = URL.createObjectURL(new Blob([copy], { type: 'application/json' })), link = document.createElement('a');
+        link.href = url; link.download = 'edictum-unsaved.json'; link.click(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000); }
+      return;
+    }
     if (a === 'close') { if (!ui.busy) ui.dlg.close(); return; }
     if (a === 'back') { ui.view = 'main'; setMsg(''); draw(); return; }
     if (a === 'google') { google(); return; }
@@ -706,7 +732,7 @@
     }
     /* the data is gone; now the account. A guest's sign-in may be too old for that: it then simply
        ends, and the empty guest account holds nothing */
-    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null);
+    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set('edictum.unsaved.' + u.uid, null);
     try { await u.delete(); } catch (e) { try { await A.auth.signOut(); } catch (e2) {} }
     leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');
   }
@@ -758,7 +784,7 @@
         res = await A.auth.signInWithPopup(provider());
       }
     } catch (e) {
-      if (cleared && guest && anon) { try { await within(saveNation(anon.uid, guest), 8000); } catch (e2) {} }
+      if (cleared && guest && anon) { try { guest._rev = 0; await within(saveNation(anon.uid, guest), 8000); } catch (e2) {} }
       A.frozen = false; A.leaving = false; A.cred = null; setBusy('');
       setMsg(authMessage(e), true);
       return;
@@ -769,6 +795,7 @@
     if (has) {
       leave({ nation: null, uid: '-' }, name ? 'Signed in with Google. Welcome back to “' + name + '”.' : 'Signed in with Google.');
     } else {
+      if (guest) { guest._rev = 0; L.set(LS_NATION, JSON.stringify(guest)); }
       leave({ uid: nu.uid }, guest ? 'Signed in with Google. “' + guest.name + '” now lives in your Google account.' : 'Signed in with Google. The nation you found here will be kept with your account.');
     }
   }
