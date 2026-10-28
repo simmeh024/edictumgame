@@ -49,7 +49,7 @@
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
   };
-  var A = { fb: null, auth: null, fs: null, uid: null, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', raceAt: {} };
+  var A = { fb: null, auth: null, fs: null, uid: null, admin: false, online: false, why: '', frozen: false, leaving: false, cred: null, rest: '', projectId: '', raceAt: {} };
 
   /* ───────── small helpers ───────── */
   function storeOf(name) { try { return window[name] || null; } catch (e) { return null; } }
@@ -185,6 +185,12 @@
        transaction against the new document; it must still match the state this action was based on. */
     return A.fs.runTransaction(async function (b) {
       var current = await b.get(ref), saved = current.exists ? current.data() : null;
+      for (var region of new Set([enc.reg, saved && saved.reg].filter(Boolean))) {
+        var availability = await b.get(A.fs.doc('regionStatus/' + region));
+        if (!A.admin && availability.exists && availability.data().enabled === false) {
+          var maintenance = new Error('Current region is disabled and undergoing maintainance, check back soon.'); maintenance.code = 'region_disabled'; throw maintenance;
+        }
+      }
       if ((saved ? num(saved.rev) : 0) !== expected || (!saved && expected !== 0)) {
         var conflict = new Error('Another device saved this nation.'); conflict.code = 'save_conflict'; throw conflict;
       }
@@ -258,6 +264,7 @@
       },
       delete: function () {
         if (A.frozen) return hang();
+        if (A.admin && col === 'boards' && p.length === 4) return adminApi.request({ op: 'moderate', action: 'delete_post', target: p[3], reg: p[1], reason: 'Removed from the region board' });
         return (nation ? dropNation(p[1]) : ref.delete()).then(function () {}, function (e) { throw mapError(e); });
       },
       onSnapshot: function (next, error) {
@@ -349,7 +356,7 @@
     if (!u) throw mapError({ code: 'unauthenticated' });
     var r, b;
     try {
-      r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), 20000);
+      r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);
       b = await r.json().catch(function () { return null; });
     } catch (e) { throw mapError({ code: 'unavailable', message: (e && e.message) || 'the referee could not be reached' }); }
     if (r.ok && b && 'result' in b) return b.result;
@@ -360,6 +367,7 @@
   var refereeApi = Object.freeze({
     battle: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'battle' })); }
   });
+  var adminApi = Object.freeze({ request: function (data) { return call('adminConsole', data); } });
 
   var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post });
   var userApi = Object.freeze({
@@ -369,7 +377,7 @@
       var u = A.auth && A.auth.currentUser;
       if (!u) return Promise.resolve(false);
       return u.getIdTokenResult(true).catch(function () { return u.getIdTokenResult(); })
-        .then(function (r) { return !!(r && r.claims && r.claims.admin === true); }, function () { return false; });
+        .then(function (r) { A.admin = !!(r && r.claims && r.claims.admin === true); return A.admin; }, function () { A.admin = false; return false; });
     },
     /* linked to a Google account (the game's first steps reward it); the page hears 'edictum:linked' when it links */
     google: function () {
@@ -400,17 +408,15 @@
       }, function (e) { throw mapError(e); });
     },
     answer: function (id, reply) {
-      var u = A.auth && A.auth.currentUser, d = { st: 'closed', ct: serverTime(), rby: u ? u.uid : '', exp: A.fb.firestore.Timestamp.fromMillis(Date.now() + SUPPORT_KEEP) };
-      if (typeof reply === 'string' && reply.trim()) d.reply = reply.trim().slice(0, 2000);
-      return A.fs.doc('support/' + str(id, 128)).update(d).then(function () {}, function (e) { throw mapError(e); });
+      return adminApi.request({ op: 'moderate', action: reply && reply.trim() ? 'support_answer' : 'support_close', target: id, reply: reply || '', reason: reply && reply.trim() ? 'Answered support ticket' : 'Closed support ticket without an answer' });
     },
-    remove: function (id) { return A.fs.doc('support/' + str(id, 128)).delete().then(function () {}, function (e) { throw mapError(e); }); }
+    remove: function (id) { return adminApi.request({ op: 'moderate', action: 'support_delete', target: id, reason: 'Deleted support spam' }); }
   });
   function apiFor(online) {
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'referee' ? refereeApi : null;
+        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }
@@ -520,6 +526,27 @@
     ui.sync.title = tips[state];
   }
   window.addEventListener('edictum:sync', paintSync);
+  // Coalesce status changes; heartbeat only visible sessions. Offline browsers cannot report a live status.
+  var healthTimer = 0, healthLast = -15000;
+  var healthSession = SS.get('edictum.health.session') || (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+  SS.set('edictum.health.session', healthSession);
+  function healthSoon() {
+    if (healthTimer || !A.online || A.frozen || A.leaving || !A.auth.currentUser || !localNation()) return;
+    healthTimer = setTimeout(function () {
+      healthTimer = 0;
+      if (!navigator.onLine || A.frozen || A.leaving) return;
+      var n = localNation(), h = E.saveHealth;
+      if (!n || !h) return;
+      healthLast = performance.now();
+      A.fs.doc('saveHealth/' + A.uid + '_' + healthSession).set({ uid: A.uid, reg: str(n.reg, 40) || 'meridian',
+        device: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop', status: E.syncStatus || 'saving',
+        revision: revision(n), pending: !!n._dirty, error: str(h.error, 64), conflicts: Math.min(1000000, num(h.conflicts)),
+        t: serverTime(), expiresAt: A.fb.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000)
+      }).catch(function () { /* diagnostics must never interfere with saving the nation */ });
+    }, Math.max(250, healthLast + 15000 - performance.now()));
+  }
+  window.addEventListener('edictum:sync', healthSoon);
+  setInterval(function () { if (!document.hidden) healthSoon(); }, 60000);
   window.addEventListener('online', paintSync);
   window.addEventListener('offline', paintSync);
   function paint() {
@@ -758,10 +785,14 @@
         await bp.commit();
       }
       var qt = await within(A.fs.collection('support').where('by', '==', u.uid).get(), 15000);
+      var health = await within(A.fs.collection('saveHealth').where('uid', '==', u.uid).get(), 15000);
       for (var j = 0; j < qt.docs.length; j += 400) {
         var bt = A.fs.batch();
         qt.docs.slice(j, j + 400).forEach(function (d) { bt.delete(d.ref); });
         await bt.commit();
+      }
+      for (var k = 0; k < health.docs.length; k += 400) {
+        var bh = A.fs.batch(); health.docs.slice(k, k + 400).forEach(function (d) { bh.delete(d.ref); }); await bh.commit();
       }
       var b = A.fs.batch();
       ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'staff/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });

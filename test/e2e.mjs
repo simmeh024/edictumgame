@@ -123,6 +123,48 @@ check('the pill opens the admin portal at #admin', await until(async () => !!(aw
 const admText = await until(async () => { const t = await text(A, '.adm'); return /players \(active/.test(t) ? t : ''; }, 15000);
 check('it shows the player count, the regions and the largest nations', !!admText && /Meridian Reach/.test(admText) && /Aldoria/.test(admText) && /Borvia/.test(admText), (admText.match(/(\d+) players \(active/) || [])[0]);
 check('it counts the players in Meridian and the Frostmarch', await A.evaluate(() => { const row = n => [...document.querySelectorAll('.adm tbody tr')].find(r => r.cells[0].textContent === n); const a = row('Meridian Reach'), f = row('Frostmarch'); return !!a && Number(a.cells[1].textContent) >= 2 && !!f && Number(f.cells[1].textContent) >= 1; }));
+check('admin navigation is grouped into World, Moderation, Support and Operations', (await A.locator('.adm-nav-label').allTextContents()).join('|') === 'World|Moderation|Support|Operations');
+check('the desktop admin menu sits to the left of its content', await A.evaluate(() => {
+  const s = document.querySelector('.adm-sidebar').getBoundingClientRect(), m = document.querySelector('.adm-main').getBoundingClientRect();
+  return s.width >= 200 && s.right < m.left && Math.abs(s.top - m.top) < 10;
+}));
+for (const [view, title] of [['admin-regions','Regions'],['admin-reports','Reports'],['admin-hidden','Hidden nations'],['admin-bans','Banned players'],['admin-sus','Suspicious nations'],['admin-help','Help queries']]) {
+  await A.click(`.adm-nav [data-v="${view}"]`);
+  check('the sidebar opens ' + title, await until(async () => await text(A, '.adm-main h1') === title && !!await A.$(`.adm-nav [data-v="${view}"][aria-current="page"]`) && new URL(A.url()).hash === '#' + view));
+}
+await A.click('.adm-nav [data-v="admin-reports"]');
+await A.reload(); await ready(A);
+check('a direct admin page survives reloading', await until(async () => await text(A, '.adm-main h1') === 'Reports'));
+await A.click('.adm-nav [data-v="admin-regions"]');
+await A.goBack();
+check('browser Back restores the previous admin page', await until(async () => await text(A, '.adm-main h1') === 'Reports'));
+await A.goForward();
+check('browser Forward restores the next admin page', await until(async () => await text(A, '.adm-main h1') === 'Regions'));
+await A.waitForSelector('.adm-main .tbl tbody tr');
+await A.screenshot({ path: OUT + '/admin-sidebar-desktop.png', fullPage: true });
+await A.setViewportSize({ width: 390, height: 844 });
+check('on a phone the content fits and the drawer starts closed', await until(async () => await A.evaluate(() => !document.querySelector('#adm-menu').open && document.documentElement.scrollWidth <= innerWidth)));
+await A.click('[data-act="adm-menu-open"]');
+check('the phone menu opens as a modal drawer on the left', await A.evaluate(() => {
+  const d = document.querySelector('#adm-menu'), r = d.getBoundingClientRect();
+  return d.matches(':modal') && r.left === 0 && r.width <= innerWidth && d.getAttribute('role') === 'dialog';
+}));
+await A.screenshot({ path: OUT + '/admin-sidebar-phone.png' });
+await A.evaluate(() => G.render());
+check('a background redraw keeps the phone menu open', await A.evaluate(() => document.querySelector('#adm-menu').matches(':modal')));
+await A.keyboard.press('Escape');
+check('Escape closes the drawer and restores focus to its button', await until(async () => await A.evaluate(() => !document.querySelector('#adm-menu').open && document.activeElement.dataset.act === 'adm-menu-open')));
+await A.evaluate(() => G.render());
+check('a redraw after dismissal keeps the drawer closed and focus on its button', await A.evaluate(() => !document.querySelector('#adm-menu').open && document.activeElement.dataset.act === 'adm-menu-open'));
+await A.click('[data-act="adm-menu-open"]');
+await A.click('.adm-nav [data-v="admin-help"]');
+check('choosing a phone menu item opens its page and closes the drawer', await until(async () => await text(A, '.adm-main h1') === 'Help queries' && !await A.evaluate(() => document.querySelector('#adm-menu').open)));
+await A.click('[data-act="adm-menu-open"]');
+await A.click('[data-act="adm-menu-close"]');
+check('the close button dismisses the phone menu', !await A.evaluate(() => document.querySelector('#adm-menu').open));
+await A.click('[data-act="adm-menu-open"]');
+await A.setViewportSize({ width: 1280, height: 900 });
+check('resizing to desktop restores the sidebar without a modal overlay', await until(async () => await A.evaluate(() => { const m = document.querySelector('#adm-menu'); return m.open && !m.matches(':modal') && m.getAttribute('role') === 'complementary'; })));
 await A.click('[data-act="admin-close"]');
 check('Back to the game returns to the nation page', await until(async () => !!(await A.$('.layout')) && !(await A.$('.adm'))));
 await nav(A, 'region');
@@ -134,6 +176,10 @@ check('B no longer sees the removed post', await until(async () => !/rude remark
 check('B still sees A’s post', /Greetings from Aldoria/.test(await text(B, '.posts')));
 await B.goto(BASE + '/#admin'); await ready(B);
 check('#admin shows a non-admin the game, not the portal', await until(async () => !!(await B.$('.layout')) && !(await B.$('.adm'))));
+for (const view of ['admin-regions','admin-reports','admin-hidden','admin-bans']) {
+  await B.goto(BASE + '/#' + view); await ready(B);
+  check('a non-admin cannot open #' + view, await until(async () => !!await B.$('.layout') && !await B.$('.adm')));
+}
 
 /* ── 5b. reports, and hiding a nation ──────────────────────────────────── */
 const M = await player('M');
