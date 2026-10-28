@@ -3944,6 +3944,7 @@ html.pp-lock,html.pp-lock body{overflow:hidden}
 .cu-sub{margin:-6px 0 14px;max-width:70ch}
 .cu-note{display:block;width:100%;height:auto;border-radius:7px;box-shadow:0 1px 0 rgba(0,0,0,.08),0 14px 28px -16px rgba(18,41,42,.55)}
 .cu-coin{display:block;height:auto;filter:drop-shadow(0 6px 10px rgba(18,41,42,.35))}
+.cu-connections{padding:24px;overflow-wrap:anywhere}.cu-connections p{margin:12px 0}.cu-connections li{margin:6px 0}.cu-connections .btn{margin:4px 8px 4px 0}
 .cu-yours{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
 .cu-yours-art{display:grid;gap:10px;justify-items:start}
 .cu-yours .h2{margin-bottom:12px;overflow-wrap:anywhere}
@@ -14433,8 +14434,8 @@ function describe(n){
   const leg=recentFx(n,3);
   const cult=[];if(n.lang)cult.push('the national language is '+esc(n.lang));if(n.faith)cult.push('most people follow '+esc(n.faith));if(n.sport)cult.push('the national sport is '+esc(n.sport));if(n.dish)cult.push('the national dish is '+esc(n.dish));
   const cs=(cult.length?' '+list(cult).replace(/^./,c=>c.toUpperCase())+'.':'')+(n.anthem?` Its national anthem is “${esc(n.anthem)}”.`:'');
-  const p3=`${crime}${s.crime<35&&lawPct>11?', thanks to a well-funded police force':''}. ${leg.length?(n.npc&&!(n.laws&&n.laws.length)?'Long-standing laws mean that ':'Recent government decisions mean that ')+list(leg.map(esc))+'.':'The government has yet to pass any memorable legislation.'} ${esc(poss(n.name))} national animal is the ${esc(n.animal)}, ${animal}, and its currency is the ${esc(n.currency)}.${cs}`;
-  return [p1,p2,p3];
+  const p3=`${crime}${s.crime<35&&lawPct>11?', thanks to a well-funded police force':''}. ${leg.length?(n.npc&&!(n.laws&&n.laws.length)?'Long-standing laws mean that ':'Recent government decisions mean that ')+list(leg.map(esc))+'.':'The government has yet to pass any memorable legislation.'} ${esc(poss(n.name))} national animal is the ${esc(n.animal)}, ${animal}.${cs}`;
+  return [p1,p2,p3,cuOverview(n)];
 }
 function fmtVal(k,n,now){
   if(k==='pop')return fmtPop(popNow(n,now));
@@ -15408,7 +15409,7 @@ function npcVerdict(id,g,r){
   const spare=E.sup[r[0]][j]-E.dem[r[0]][j];
   if(spare<r[1]-1e-9)return {ok:false,why:spare<0.05?`${nm} has no ${resName(r[0])} to spare.`:`${nm} can spare only ${fmtAmt(spare)} ${resName(r[0])} a day.`};
   if(E.ratio[g[0]][j]>1.3)return {ok:false,why:`${nm} already has more ${resName(g[0])} than it needs.`};
-  const want=Math.ceil(r[1]*E.price[r[0]]*0.9/E.price[g[0]]*2)/2;
+  const want=Math.ceil(r[1]*E.price[r[0]]*0.9/E.price[g[0]]*cuTradeQuote(myId(),id).factor*2)/2;
   if(g[1]<want-1e-9)return {ok:false,why:`${nm} wants at least ${fmtAmt(want)} ${resName(g[0])} a day for that.`};
   return {ok:true,why:`${nm} would accept this deal.`};
 }
@@ -15455,8 +15456,9 @@ function fillDeal(w,rr,ra,quiet){
   S.trade.w=w;S.trade.rr=rr;
   if(i!==undefined){
     const opt=RES.filter(r=>r!==rr).map(r=>({r,spare:E.sup[r][i]-E.dem[r][i]})).sort((a,b)=>b.spare-a.spare)[0],pg=E.price[opt.r],pr=E.price[rr];
-    let ga=Math.ceil(ra*pr/pg*2)/2;
-    if(opt.spare>=0.5&&ga>opt.spare){ga=Math.floor(opt.spare*2)/2;ra=Math.max(0.5,Math.floor(ga*pg/(pr*0.9)*2)/2);}
+    const fx=cuTradeQuote(myId(),w).factor;
+    let ga=Math.ceil(ra*pr/pg*fx*2)/2;
+    if(opt.spare>=0.5&&ga>opt.spare){ga=Math.floor(opt.spare*2)/2;ra=Math.max(0.5,Math.floor(ga*pg/(pr*fx)*2)/2);}
     S.trade.gr=opt.r;S.trade.ga=String(Math.max(0.5,ga));
   }
   S.trade.ra=String(ra);S.trade.touched=true;if(quiet)return;S.tradeMsg='';render();
@@ -15480,6 +15482,7 @@ function dealPreview(){
     const after=(E.sup[g[0]][i]-g[1])/E.dem[g[0]][i];if(after<0.9)bits.push(`Sending it leaves you with ${Math.max(0,Math.round(after*100))}% of the ${resName(g[0])} you need.`);
   }
   if(j!==undefined){const sp=Math.max(0,E.sup[r[0]][j]-E.dem[r[0]][j]);bits.push(sp<0.05?`${x.n.name} has no ${resName(r[0])} to spare${!x.npc?', so they may not be able to deliver it':''}.`:`${x.n.name} has ${fmtAmt(sp)} ${resName(r[0])} a day to spare${!x.npc&&sp<r[1]?', so they may only be able to deliver part of it':''}.`);}
+  bits.push(cuTradeText(x.id));
   bits.push(`At world prices, ${fmtAmt(r[1])} ${resName(r[0])} is worth about ${fmtAmt(r[1]*E.price[r[0]]/E.price[g[0]])} ${resName(g[0])}.`);
   let verdict;
   if(warWith(x.id).war)verdict=`<p class="err">You are at war with ${esc(x.n.name)}.</p>`;
@@ -15504,6 +15507,7 @@ function resPolicyNote(n){
   return `<p class="hint res-pol">${act.length?'Policies in force: '+esc(list(act))+'.':'None of your policies change your output yet. Edicts about farms, forests, mines, oil and industry can.'}</p>`;
 }
 function tradeView(){
+  cuLoad();
   const n=S.nation,E=economy(),me=myId(),i=E.T.byId[me];
   const head=`<header class="vh"><p class="eyebrow">Board of Trade</p><h1>Trade</h1><p>Your land yields food, timber, iron and oil, and your industry makes goods. Swap what you have spare for what you lack. Shortages slow growth, weaken your army and cost your economy, and land taken in war adds to what you produce.</p></header>`;
   if(i===undefined)return head+`<div class="empty"><p class="empty-h">Nothing to trade yet</p><p>Settle ${esc(n.name)} on the map and its land will start producing resources.</p><div style="margin-top:14px"><button class="btn" data-act="go" data-v="map">Choose a location</button></div></div>`;
@@ -15529,7 +15533,7 @@ function tradeView(){
   offers.sort((a,b)=>a.need-b.need||b.spare-a.spare);
   if(!S.trade.touched&&offers.length){const o=offers[0];S.trade.touched=true;fillDeal(o.x.id,o.r,clamp(Math.floor(Math.min(o.spare,8)*2)/2,0.5,8),true);}
   return `${head}${msg}${c3Strip(n,Date.now())}
-  <section><h2 class="h2">Resources</h2><div class="res-card">${rows}</div>${effects}${resPolicyNote(n)}${cityTradeNote()}</section>
+  <section><h2 class="h2">Resources</h2><div class="res-card">${rows}</div>${effects}${resPolicyNote(n)}${cityTradeNote()}<p class="hint">New quotes include currency strength, up to 8% either way. Stronger currencies buy imports with fewer exports; weaker currencies make exports cheaper to foreign buyers. Signed daily quantities stay fixed. <button class="linkish small" data-act="go" data-v="exchange">Open the Exchange Bureau</button></p></section>
   <div class="trade-grid">
     <section>
       <h2 class="h2">Agreements</h2>
@@ -22991,14 +22995,15 @@ HELP_EXT.push({k:'assembly',t:'The Regional Assembly',body:n=>`<p>Every region h
    viewer agrees. The target's own page finds operations aimed at it in other players' records and
    applies their effects once (n.cvIn holds short keys of those already applied): a scandal issue on
    the desk, a minister's loyalty, a lost shipment. Kinds: s scandal, b blueprints, d sabotage, m bribe.
-   Computer-run nations can be targets, but only the attacker's gains and the newspapers apply. */
+   Computer-run nations can be targets; currency counterfeiting also affects their new quotes and daily credibility. */
 const CV_KINDS={
   s:{n:'Plant a scandal',d:'An awkward scandal lands on their desk as an edict, and every answer costs them something.',v:'planting a scandal on',base:60,xb:0,cost:{goods:16,timber:6},cw:'printing, photographers and a long lunch'},
   b:{n:'Steal blueprints',d:'Science +1.5, and the plans for one of their buildings you have not unlocked: build it once within 7 days.',v:'stealing blueprints from',base:50,xb:-5,cost:{goods:12,iron:6},cw:'a camera hidden in a sandwich'},
   d:{n:'Sabotage a trade deal',d:'One of their deals delivers nothing for 12 hours, and a few crates find their way to you.',v:'sabotaging the trade of',base:50,xb:5,cost:{goods:10,oil:8},cw:'fuel for the getaway lorry'},
+  c:{n:'Counterfeit currency',d:'Flood their markets with forged notes for 24 hours. New import quotes carry a 4% verification premium (2% with Counter-Intelligence). Incidents do not stack; signed deals and stockpiles stay intact. The next daily rating also reflects the temporary loss of monetary credibility.',v:'counterfeiting the currency of',base:45,xb:10,cost:{goods:22,timber:10},cw:'engraving plates and a suspicious printing press'},
   m:{n:'Bribe a minister',d:'One of their ministers loses 12 loyalty, and you get cabinet gossip and a look at their stockpile.',v:'bribing a minister of',base:55,xb:0,cost:{goods:20,food:10},cw:'the fruit basket'}
 };
-const CV_KEYS=['s','b','d','m'];
+const CV_KEYS=['s','b','d','m','c'];
 const CV_GAP=8*3600e3,CV_SAME=DAY,CV_NEW=3*DAY,CV_LIVE=72*3600e3,CV_RV=48*3600e3,CV_BP=7*DAY,CV_KEEP=16,CV_MAX=20,CV_LOY=12,CV_DISMISS=2;
 const CV_SCN=['scn-nap','scn-chat','scn-portrait','scn-double','scn-moat','scn-karaoke','scn-memoir','scn-shed','scn-diploma','scn-speech','scn-wedding','scn-homework'];
 const CV_SCN_SET=new Set(CV_SCN);
@@ -23038,9 +23043,11 @@ const CV_HEAD={
   s:['{D} agent caught planting gossip in the {TN} press','{D} spies caught feeding a scandal to {TN} newspapers','Scandal in {TN} “made in {N}”, investigators say'],
   b:['{D} agent caught photocopying {TN} blueprints','Spy with a camera in a sandwich arrested in {TCAP}','{D} agent found in {TN} archive with a torch and the plans'],
   d:['{D} saboteurs caught diverting {TN} {R} shipments','Missing {R} lorry traced to {D} agents','{TN} customs stop {D} agents “borrowing” a cargo of {R}'],
+  c:['{D} counterfeiters caught printing the currency of {TN}','Forged banknotes in {TCAP} traced to {D} agents','{TN} mint identifies {D} forgery ring'],
   m:['{D} agent caught bribing a {TN} minister with a fruit basket','{TN} minister handed a fruit basket by a {D} spy, keeps the pears','{D} envoy’s hamper “contained more than biscuits”, says {TN}']
 };
 const CV_RUMOUR={
+  c:['Forged notes circulate in {TN}', 'Currency dealers in {TCAP} introduce temporary checks on banknotes.'],
   m:['Who sent the fruit basket? {TN} minister seen leaving with pears','A large hamper was delivered to a ministry in {TCAP}. Nobody will say who from.'],
   d:['{R} shipments to {TN} vanish overnight','Lorries left on time and arrived empty. Officials are “looking into it”.'],
   b:['Plans missing from {TN} ministry; officials blame the photocopier','The photocopier has declined to comment.']
@@ -23053,8 +23060,8 @@ function cvAn(w){return /^[aeiou]/i.test(String(w||''))?'an':'a';}
 function cvSub(t,o){return cap1(String(t).replace(/\b([Aa]) \{D\}/g,(m,a)=>{const w=cvAn(o.D);return (a==='A'?cap1(w):w)+' {D}';}).replace(/\{(TN|TCAP|N|D|R)\}/g,(m,k)=>o[k]==null?'':o[k]));}
 function cvVerb(k){return (CV_KINDS[k]||CV_KINDS.s).v;}
 /* “caught bribing one of your ministers” when the target is the reader */
-function cvVerbYou(k){return {s:'planting a scandal on you',b:'stealing blueprints from you',d:'sabotaging your trade',m:'bribing one of your ministers'}[k]||'spying on you';}
-function cvCost(k,rv){const c=(CV_KINDS[k]||CV_KINDS.s).cost,o={};for(const r of RES)if(c[r])o[r]=rv?Math.ceil(c[r]/2):c[r];return o;}
+function cvVerbYou(k){return {s:'planting a scandal on you',b:'stealing blueprints from you',d:'sabotaging your trade',m:'bribing one of your ministers',c:'counterfeiting your currency'}[k]||'spying on you';}
+function cvOpCost(k,rv){const c=(CV_KINDS[k]||CV_KINDS.s).cost,o={};for(const r of RES)if(c[r])o[r]=rv?Math.ceil(c[r]/2):c[r];return o;}
 
 /* every operation in this region, from every record we can read, memoised by the records' save times */
 let cvMemo={k:'',v:null};
@@ -23104,7 +23111,7 @@ function cvBlock(n,x,k,now){
     if(same)return `You targeted ${x.n.name} in the last 24 hours. The same nation can be targeted again in ${fmtDur(same.t+CV_SAME-now)}.`;
   }
   const ag=agents(n,now);if(ag.r<1)return `No agent is ready. The next one finishes training in ${fmtDur(ag.next)}.`;
-  const miss=lacking(cvCost(k,!!rv),stockNow(n,now));if(miss.length)return `You need ${list(miss)} more.`;
+  const miss=lacking(cvOpCost(k,!!rv),stockNow(n,now));if(miss.length)return `You need ${list(miss)} more.`;
   return '';
 }
 function cvOdds(me,x,k,rv){
@@ -23180,7 +23187,7 @@ function cvBump(n,k,now){if(!n.tly||typeof n.tly!=='object')return;n.tlf=n.tlf||
 function cvLaunch(){
   const now=Date.now(),n0=S.nation,k=CV_KINDS[S.cvK]?S.cvK:'s',x=S.cvTg?findNation(S.cvTg):null;
   const why=cvBlock(n0,x,k,now);if(why){S.cvMsg=why;render();return;}
-  const rv=cvRetal(x.id,n0,now),od=cvOdds(n0,x,k,!!rv),n=clone(n0),cost=cvCost(k,!!rv),st=stockNow(n0,now);
+  const rv=cvRetal(x.id,n0,now),od=cvOdds(n0,x,k,!!rv),n=clone(n0),cost=cvOpCost(k,!!rv),st=stockNow(n0,now);
   for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   const id=(now.toString(36)+(hash((n.seed||'1')+':cv:'+now)%1296).toString(36)).slice(0,14),seed=id+':'+x.id;
   const op={id,k,tg:x.id,tn:String(x.n.name||'').slice(0,40),t:now,rg:REG.id,p:od.p/100,x:od.x/100};
@@ -23227,6 +23234,8 @@ function cvApply(n,old,now){
     }else if(op.k==='m'&&PF[op.m]){
       n.cab=n.cab||clone(cabOf(n));const m=n.cab[op.m];
       if(m){const b=m.lo;setLoyalty(m,m.lo-CV_LOY);out.push(`${who?`${cap1(cvAn(e.bd))} ${e.bd} agent`:'Someone'} has been sending fruit baskets to ${PF[op.m][2]} ${m.nm}. Their loyalty fell from ${b} to ${m.lo}.`);}
+    }else if(op.k==='c'){
+      if(now-op.t<DAY)out.push(`${who?`Counterfeiters from ${who}`:'Unknown counterfeiters'} circulated forged notes. New import quotes carry a ${n.policies.counterIntel?2:4}% verification premium until ${awayWhen(op.t+DAY)}. Counter-Intelligence halves the effect; incidents do not stack.`);
     }else if(op.k==='d'&&RES.includes(op.r)&&n.stock){
       const have=num0(n.stock[op.r]),lose=Math.min(have,clamp(num0(op.a),0,30));
       n.stock={...n.stock,[op.r]:Math.round((have-lose)*100)/100};n.stockAt=now;
@@ -23298,6 +23307,8 @@ function cvReport(op,mine){
   else if(op.k==='d'){const rn=resName(op.r||'goods');
     body=r.ok?(npc?`<p>Your agents diverted a cargo of ${rn} bound for ${tn}. ${op.gn||0} ${rn} ended up in your warehouses.</p>`:`<p>Your agents diverted ${tn}’s ${rn} shipments${op.pn?` from ${esc(op.pn)}`:''} for 12 hours: they lose ${fmtAmt(op.a||0)} ${rn}, and ${op.gn||0} ${rn} ended up in your warehouses.</p>`)
       :`<p>The lorry your agents tried to divert turned out to be full of customs officers.</p>`;}
+  else if(op.k==='c'){const active=x&&cuCounterfeit(x.id,x.n,Date.now());
+    body=r.ok?`<p>Your agents circulated forged ${esc(x?cuOf(x.n).pl:'banknotes')} in ${tn}. Until ${esc(awayWhen(op.t+DAY))}, new import quotes carry a verification premium of ${active?Math.round(active.risk*100):x&&x.n.policies.counterIntel?2:4}%. Counter-Intelligence halves the premium, and daily monetary credibility loses at most 8 points (4 with that defence) while the incident is active. Other incidents cannot increase the penalty. Signed deals and stockpiles are unaffected.${Date.now()>=op.t+DAY?' This incident has expired.':''}</p>`:`<p>Your agents printed the wrong watermark. The forged notes never entered circulation.</p>`;}
   else{const cab=PF[op.m];
     body=r.ok?`<p>${esc(op.mn||'A minister')}, ${esc(cab?cab[2]:'a minister')} of ${tn}, accepted a fruit basket and talked.${npc?'':` Their loyalty has fallen by ${CV_LOY}.`}</p>${op.gs?`<p class="cv-gossip">“${esc(op.gs)}”</p>`:''}${op.st?`<p class="lbl" style="margin-top:12px">${op.sd?'Their spare output, a day':'Their stockpile'}, on ${fmtDate(op.t)}</p><dl class="mp-dl">${RES.map((q,i)=>`<div><dt>${RES_INFO[q][0]}</dt><dd>${op.st[i]}</dd></div>`).join('')}</dl>`:''}`
       :`<p>${esc(op.mn||'The minister')} returned the fruit basket with a polite note and a pear missing.</p>`;}
@@ -23309,6 +23320,7 @@ function cvIncidentText(e){
   const op=e.op,who=e.ex?e.bn:'',rn=resName(op.r||'goods');
   if(op.k==='s'){const is=ISSUE_BY_ID[op.is],tt=is?is.t:'a scandal';return e.ok?(who?`Agents of ${who} planted a scandal, “${tt}”, on your desk.`:`An anonymous source leaked a scandal, “${tt}”, to your press.`):`Agents of ${who} tried to plant a scandal in your press and were caught.`;}
   if(op.k==='b')return e.ok?(who?`${who} stole the plans for your ${BUILDINGS[op.b]?BUILDINGS[op.b].n:'newest buildings'}.`:`Someone photographed the plans in your archive.`):`Agents of ${who} were caught in your archive with a camera.`;
+  if(op.k==='c')return e.ok?`${who?`Counterfeiters from ${who}`:'Unknown counterfeiters'} circulated forged notes. Import verification checks last until ${awayWhen(op.t+DAY)}; Counter-Intelligence halves their effect.`:`Agents of ${who} were caught with counterfeit printing plates.`;
   if(op.k==='d')return e.ok?(who?`Saboteurs from ${who} diverted your ${rn} shipments for 12 hours.`:`Your ${rn} shipments went missing for 12 hours.`):`Saboteurs from ${who} were caught trying to divert your ${rn} shipments.`;
   return e.ok?(who?`${cap1(cvAn(e.bd))} ${e.bd} agent bribed ${PF[op.m]?PF[op.m][2]:'a minister'} ${op.mn||''} with a fruit basket.`:`Someone sent ${PF[op.m]?PF[op.m][2]:'a minister'} ${op.mn||''} a fruit basket, and they talked.`):`${cap1(cvAn(e.bd))} ${e.bd} agent was caught offering ${PF[op.m]?PF[op.m][2]:'a minister'} ${op.mn||''} a fruit basket.`;
 }
@@ -23330,10 +23342,10 @@ function cvOpsSection(now){
   if(sel)S.cvTg=sel.id;
   const last=cvLastOp(n),wait=Math.max(0,last+CV_GAP-now),young=(n.founded||0)>now-CV_NEW;
   const rvs=ts.map(x=>({x,e:cvRetal(x.id,n,now)})).filter(o=>o.e);
-  const rv=sel?cvRetal(sel.id,n,now):null,od=sel?cvOdds(n,sel,k,!!rv):null,cost=cvCost(k,!!rv),why=sel?cvBlock(n,sel,k,now):cvBlock(n,null,k,now);
+  const rv=sel?cvRetal(sel.id,n,now):null,od=sel?cvOdds(n,sel,k,!!rv):null,cost=cvOpCost(k,!!rv),why=sel?cvBlock(n,sel,k,now):cvBlock(n,null,k,now);
   const parts=a=>a.length?a.map(([l,v])=>`${v>0?'+':'−'}${Math.abs(v)} ${l}`).join(', '):'no modifiers';
   const shown=(n.cov||[]).find(o=>o.id===S.cvShow);
-  const fx=sel&&sel.npc?`${CV_KINDS[k].d} Against a computer-run nation only your own gains and the newspaper story apply.`:CV_KINDS[k].d;
+  const fx=sel&&sel.npc&&k!=='c'?`${CV_KINDS[k].d} Against a computer-run nation only your own gains and the newspaper story apply.`:CV_KINDS[k].d;
   return `<section class="dip-sec"><h2 class="h2">Covert operations</h2>
     <div class="spy-card cv-card">
       <div class="cv-top"><div><p class="eyebrow">Agents</p>${pips(ag.r,ag.max)}<p class="hint" style="margin-top:6px">${ag.r<ag.max?`Next agent ready in ${fmtDur(ag.next)}.`:'All agents are ready.'} Shared with military intelligence.</p></div>
@@ -23341,7 +23353,7 @@ function cvOpsSection(now){
       ${rvs.map(o=>`<div class="cv-rv"><p><b>Retaliation:</b> ${esc(o.x.n.name)} was caught ${esc(cvVerbYou(o.e.op.k))}. Until ${fmtTime(o.e.op.t+CV_RV)}${new Date(o.e.op.t+CV_RV).toDateString()!==new Date(now).toDateString()?' tomorrow':''}, your first operation against them costs half, is 15 points likelier to succeed and 10 less likely to be exposed, and ignores the waiting times.</p>${S.cvTg===o.x.id?'':`<button class="btn ghost" data-act="cv-rv" data-id="${esc(o.x.id)}">Target ${esc(o.x.n.name)}</button>`}</div>`).join('')}
       ${ts.length?`<div class="field cv-field"><label class="lbl-h" for="cv-tg">Target</label><select class="input" id="cv-tg">${ts.map(x=>{const pr=cvProtected(x,now);return `<option value="${esc(x.id)}"${sel&&x.id===sel.id?' selected':''}${pr?' disabled':''}>${esc(x.n.name)}${x.npc?' (computer)':' (player)'}${pr?', protected while new':''}${cvRetal(x.id,n,now)?', retaliation':''}</option>`;}).join('')}</select></div>`:'<p class="muted">There is nobody else in the region to spy on.</p>'}
       <p class="lbl-h" id="cv-k-l" style="margin-top:16px">Operation</p>
-      <div class="cv-kinds" role="group" aria-labelledby="cv-k-l">${CV_KEYS.map(q=>`<button type="button" class="cv-k" data-act="cv-k" data-k="${q}" aria-pressed="${q===k}"><b>${esc(CV_KINDS[q].n)}</b><span>${esc(costText(cvCost(q,sel?!!cvRetal(sel.id,n,now):false)))}</span></button>`).join('')}</div>
+      <div class="cv-kinds" role="group" aria-labelledby="cv-k-l">${CV_KEYS.map(q=>`<button type="button" class="cv-k" data-act="cv-k" data-k="${q}" aria-pressed="${q===k}"><b>${esc(CV_KINDS[q].n)}</b><span>${esc(costText(cvOpCost(q,sel?!!cvRetal(sel.id,n,now):false)))}</span></button>`).join('')}</div>
       <p class="cv-fx">${esc(fx)}</p>
       ${od?`<dl class="mp-dl cv-odds"><div><dt>Chance of success</dt><dd>${od.p}%</dd></div><div><dt>Chance of being exposed</dt><dd>${od.x}%</dd></div><div><dt>Cost</dt><dd>${esc(costText(cost))}, and an agent</dd></div></dl>
       <p class="hint cv-parts">Success: ${esc(CV_KINDS[k].base+'% base, '+parts(od.ps))}. Exposure: ${esc((30+CV_KINDS[k].xb)+'% base, '+parts(od.px))}. Exposure is rolled separately: an operation can succeed and still be exposed.</p>`:''}
@@ -23376,7 +23388,7 @@ function cvView(now){
   const n=S.nation;now=now||Date.now();
   if(!n)return `<header class="vh"><p class="eyebrow">Bureau of Intelligence</p><h1>Intelligence</h1><p>Found a nation first.</p></header>`;
   const bp=cvBlueprints(n,now);
-  return `<header class="vh"><p class="eyebrow">Bureau of Intelligence</p><h1>Intelligence</h1><p>Military missions read a rival’s army. Covert operations make trouble: a scandal on their desk, their blueprints, their shipments, their ministers. Every operation can succeed or fail, and can be exposed either way.</p></header>
+  return `<header class="vh"><p class="eyebrow">Bureau of Intelligence</p><h1>Intelligence</h1><p>Military missions read a rival’s army. Covert operations make trouble: a scandal on their desk, their blueprints, their shipments, their ministers, their currency. Every operation can succeed or fail, and can be exposed either way.</p></header>
   ${bp.length?`<div class="info cv-bp" style="margin-bottom:22px">Stolen plans: you may build ${list(bp.map(o=>'one '+esc(BUILDINGS[o.b].n)+' until '+fmtDate(o.t+CV_BP)))}, even though ${bp.length===1?'it is':'they are'} still locked. <button class="linkish small" data-act="go" data-v="cities">Open Cities</button></div>`:''}
   <div class="dip-grid cv-grid"><div class="dip-col">${cvOpsSection(now)}${cvMineSection(now)}</div><div class="dip-col">${cvIncidentsSection(now)}${cvMilSection(now)}${cvRegionSection(now)}</div></div>`;
 }
@@ -23420,7 +23432,7 @@ DISPATCH_SOURCES.push(ctx=>{
     const v={TN:tn,TCAP:tcap,N:e.bn,D:e.bd,R:resName(op.r||'goods')};
     if(e.ex){
       const hs=CV_HEAD[op.k],hd=cvSub(hs[h%hs.length],v);
-      const res=e.ok?{s:'The story ran anyway.',b:'The plans were already on their way home.',d:'The shipments were lost all the same.',m:'The minister, it emerges, had already talked.'}[op.k]:'The operation failed.';
+      const res=e.ok?{s:'The story ran anyway.',b:'The plans were already on their way home.',d:'The shipments were lost all the same.',m:'The minister, it emerges, had already talked.',c:'Forged notes had already reached the markets; temporary verification checks are in place.'}[op.k]:'The operation failed.';
       out.push({t:op.t,sec:op.k==='s'||op.k==='m'?'politics':'crime',h:hd,b:`${e.bn} has been caught ${cvVerb(op.k)} ${tn}. ${res} ${tn} is said to be considering its response.`,who:[e.by,op.tg],w:e.ok?7:6,k:'cov:'+e.key});
     }else if(e.ok){
       if(op.k==='s'&&CV_SCN_NEWS[op.is]){const sn=CV_SCN_NEWS[op.is];out.push({t:op.t,sec:'politics',h:cvSub(sn[0],v),b:cvSub(sn[1],v)+` The source of the story is unknown.`,who:[op.tg],w:5,k:'cov:'+e.key});}
@@ -23429,10 +23441,10 @@ DISPATCH_SOURCES.push(ctx=>{
   }
   return out;
 });
-HELP_EXT.push({k:'covert',t:'Covert operations',body:n=>`<p>The Intelligence page runs covert operations against any nation in ${REGION}, player or computer. There are four: <b>plant a scandal</b> (an awkward edict lands on their desk, with no cheap answer), <b>steal blueprints</b> (science +1.5 and the plans for one of their buildings you have not unlocked, which you may build once within 7 days), <b>sabotage a trade deal</b> (one of their deals delivers nothing for 12 hours and you keep a few crates) and <b>bribe a minister</b> (the minister loses ${CV_LOY} loyalty and you get cabinet gossip and a look at their stockpile).</p>
+HELP_EXT.push({k:'covert',t:'Covert operations',body:n=>`<p>The Intelligence page runs covert operations against any nation in ${REGION}, player or computer. There are five: <b>counterfeit currency</b> (new import quotes carry a 4% verification premium for 24 hours, halved by Counter-Intelligence; the next daily monetary credibility factor loses 8 points, or 4 with that defence, while active; incidents do not stack), <b>plant a scandal</b> (an awkward edict lands on their desk, with no cheap answer), <b>steal blueprints</b> (science +1.5 and the plans for one of their buildings you have not unlocked, which you may build once within 7 days), <b>sabotage a trade deal</b> (one of their deals delivers nothing for 12 hours and you keep a few crates) and <b>bribe a minister</b> (the minister loses ${CV_LOY} loyalty and you get cabinet gossip and a look at their stockpile).</p>
   <p>Each costs goods and one other resource, and uses one of your agents, the same agents as military missions. You can run one operation every 8 hours, and target the same nation once a day. Nations founded in the last 3 days can neither run nor suffer them.</p>
-  <p>Success starts at 50 to 60% and rises with a Foreign Intelligence Service (+12), your science and the target’s corruption, and falls with their Counter-Intelligence Bureau (−15), mass surveillance and safety. Exposure is rolled separately, starting at 30%. When an operation is exposed, the target learns who did it, the region hears of it, you lose 8 goodwill with the target (12 with an ally) and 1 with everyone else, and for 48 hours the target’s first operation against you costs half, is 15 points likelier to succeed and ignores the waiting times. Unexposed, the target only sees what happened.</p>
-  <p>Against a computer-run nation only your own gains and the newspaper story apply. A scandal dismissed without an answer is reported as “No comment” and costs ${CV_DISMISS} happiness. Effects reach an absent player when they next log in, if they are less than 72 hours old.</p>`});
+  <p>Success starts at 45 to 60% and rises with a Foreign Intelligence Service (+12), your science and the target’s corruption, and falls with their Counter-Intelligence Bureau (−15), mass surveillance and safety. Exposure is rolled separately, starting at 30%. When an operation is exposed, the target learns who did it, the region hears of it, you lose 8 goodwill with the target (12 with an ally) and 1 with everyone else, and for 48 hours the target’s first operation against you costs half, is 15 points likelier to succeed and ignores the waiting times. Unexposed, the target only sees what happened.</p>
+  <p>Counterfeiting affects computer-run nations’ currency quotes and daily credibility too. Other operations against them apply only your own gains and the newspaper story. A scandal dismissed without an answer is reported as “No comment” and costs ${CV_DISMISS} happiness. Effects reach an absent player when they next log in, if they are less than 72 hours old.</p>`});
 achDef('spy','cov-1','b','Dirty Tricks','Carry out a covert operation.',1,x=>aT(x,'cov'));
 achDef('spy','cov-clean','s','Plausible Deniability','Pull off 5 covert operations without being exposed.',5,x=>aT(x,'cov:clean'));
 achDef('spy','cov-burned','b','The Fruit Basket Affair','Have a covert operation exposed.',1,x=>aT(x,'cov:ex'),{sec:'Somebody, somewhere, has kept the receipt.'});
@@ -33993,7 +34005,7 @@ function cuLoad(){
   Promise.resolve(S.db.doc('fx/'+REG.id).get()).then(s=>{
     const d=s&&s.exists?s.data():null;CU.at=Date.now();
     if(d&&typeof d.j==='string'){const p=cuParse({reg:REG.id,day:d.day,t:d.t,j:d.j});if(p){CU.pub=p;try{localStorage.setItem(CU_LS,JSON.stringify({reg:REG.id,day:d.day,t:d.t,j:d.j,at:CU.at}));}catch(e){}}}
-  },()=>{}).then(()=>{CU.busy=false;cuMilestones();if(['exchange','nation','visit','stats','census','customise'].includes(S.view))render();});
+  },()=>{}).then(()=>{CU.busy=false;cuMilestones();if(['exchange','trade','nation','visit','stats','census','customise'].includes(S.view))render();});
 }
 const cuE=id=>CU.pub&&CU.pub.n[id]||null;
 /* the Bureau redraws when nations arrive in or leave the region, not at every save */
@@ -34181,13 +34193,13 @@ function cuView(now){
     ${P?`<p class="hint">Rates of ${esc(fmtDate(Date.parse(P.day+'T12:00:00Z')))} · ${rated.length} currencies · the next publication follows midnight UTC</p>`:''}</div>${cuSeal()}</header>`;
   if(!P){
     const off=S.mode==='local'||!S.db;
-    return head+`<div class="paper cu-empty"><p class="cu-empty-h">${off?'The Bureau needs a connection to the region':CU.busy||Date.now()-CU.tried<4000?'Fetching today’s rates…':'No rates have been published yet'}</p><p>${off?'Exchange rates are published by the region, once a day. They appear here when the game is connected.':'The Bureau publishes the region’s rates once a day, shortly after midnight UTC. Your currency is already registered; its first rate and prestige rating arrive with the next publication.'}</p>
+    return head+cuConnections(n,null,now)+`<div class="paper cu-empty"><p class="cu-empty-h">${off?'The Bureau needs a connection to the region':CU.busy||Date.now()-CU.tried<4000?'Fetching today’s rates…':'No rates have been published yet'}</p><p>${off?'Exchange rates are published by the region, once a day. They appear here when the game is connected.':'The Bureau publishes the region’s rates once a day, shortly after midnight UTC. Your currency is already registered; its first rate and prestige rating arrive with the next publication.'}</p>
       <p><button class="btn ghost" data-act="go" data-v="customise">Design your currency</button></p></div>`;
   }
   const u=CU.ui,top=rated.slice().sort((a,b)=>a.e.r-b.e.r).map(r=>r.x.me?me:r.x.id);
   if(!u.from||!rows.some(r=>(r.x.me?me:r.x.id)===u.from))u.from=me0?me:top[0]||me;
   if(!u.to||u.to===u.from||!rows.some(r=>(r.x.me?me:r.x.id)===u.to)){const t=rated.filter(r=>(r.x.me?me:r.x.id)!==u.from).sort((a,b)=>a.e.r-b.e.r)[0];u.to=t?(t.x.me?me:t.x.id):'';}
-  return head+cuYours(n,mc,me0)+cuConverter(rows)+cuRanking(rated)+cuDirectory(rows,mc,me0)+cuHistory(rows)+cuMiles()+cuHow();
+  return head+cuYours(n,mc,me0)+cuConnections(n,me0,now)+cuConverter(rows)+cuRanking(rated)+cuDirectory(rows,mc,me0)+cuHistory(rows)+cuMiles()+cuHow();
 }
 function cuYours(n,c,e){
   const sd=e&&e.sd!=null?e.sd:null;
@@ -34309,8 +34321,89 @@ function cuHow(){
   return `<section class="section"><details class="cu-how paper"><summary><span class="h2">How the Bureau sets rates and prestige</span></summary>
   <p><b>Exchange value.</b> Each day the Bureau works out a currency’s economic strength from its nation’s real figures: productivity, the output per person the Statistics page shows (${CU_VW.prod}%), economic growth (${CU_VW.gro}%), government stability and confidence, which includes stable prices and peace (${CU_VW.stab}%), trade in live deals (${CU_VW.trade}%) and development and diversification (${CU_VW.dev}%). Strength sets how far the currency stands above or below its nominal denomination, which the Bureau fixed when the currency was registered. One unit of A buys V(A) ÷ V(B) units of B, so every rate, inverse and cross rate agrees. Strength moves a little each day, and a value never moves more than 3% in a day.</p>
   <p><b>Currency Prestige</b> is separate: how stable and credible the currency is, from economic stability and resilience (${CU_PW.econ}%), stable government and institutions (${CU_PW.gov}%), the currency’s own day-to-day steadiness (${CU_PW.vol}%), trade participation (${CU_PW.trade}%), productivity and development (${CU_PW.prod}%) and monetary and fiscal credibility: inflation, public debt, the credit rating and the central bank’s independence (${CU_PW.mon}%). It never looks at the exchange value. It moves at most 1.5 points up or 2 down a day (more in a real crisis, such as a new war), and a young currency is trusted only so far until its nation is 180 days old.</p>
-  <p>Names, symbols and designs change nothing; nor does any purchase. The Bureau’s figures are for information and national pride: they do not change trade deals, resources or anything else in the game.</p>
+  <p>Names, symbols and designs change nothing; nor does any purchase. New resource quotes use relative economic strength, with an adjustment of up to 8%: a stronger currency buys imports with fewer exports, while a weaker currency makes its exports cheaper to foreign buyers. The Board of Trade suggests these terms to players and computer-run nations use them when deciding whether to accept. Signed quantities stay fixed. Counterfeit notes add a temporary 4% verification premium to new import quotes (2% with Counter-Intelligence); incidents never stack. While active, they also reduce the monetary credibility factor by 8 points (4 with that defence) at the daily publication. Changing the design never improves security or the rate.</p>
   <div class="tbl-wrap"><table class="tbl cu-tiers"><thead><tr><th>Score</th><th>Classification</th><th>Meaning</th></tr></thead><tbody>${tr}</tbody></table></div></details></section>`;
+}
+
+/* ── currencies in trade, policy and national identity ── */
+/* Quotations use economic strength, never the arbitrary size of a currency unit. Both sides use the
+   same ratio; the signed resource quantities remain the contract. Missing daily ratings are neutral. */
+function cuQuoteFactor(a,b,ar=0,br=0){
+  const strength=e=>e&&Number.isFinite(e.s)?clamp(e.s,0,100):50;
+  return Math.exp(clamp((strength(b)-strength(a))*0.001,-Math.log(1.08),Math.log(1.08)))*(1+ar)/(1+br);
+}
+function cuCounterfeit(id,n,now){
+  if(!n)return null;
+  const hits=cvIndex().all.filter(e=>e.by!==id&&e.ok&&e.op.k==='c'&&e.op.tg===id&&e.op.t<=now&&now-e.op.t<DAY&&e.op.t>(n.founded||0)&&e.op.t>=(n.mvAt||0));
+  if(!hits.length)return null;
+  return {until:Math.max(...hits.map(e=>e.op.t+DAY)),risk:n.policies.counterIntel?0.02:0.04,penalty:n.policies.counterIntel?4:8};
+}
+function cuTradeQuote(a,b,now=Date.now()){
+  const A=findNation(a),B=findNation(b),ca=cuCounterfeit(a,A&&A.n,now),cb=cuCounterfeit(b,B&&B.n,now);
+  return {factor:cuQuoteFactor(cuE(a),cuE(b),ca?ca.risk:0,cb?cb.risk:0),ca,cb,rated:!!(cuE(a)&&cuE(b))};
+}
+function cuTradeText(id){
+  const q=cuTradeQuote(myId(),id),pct=(q.factor-1)*100;
+  return `Currency-adjusted reference: ${Math.abs(pct)<0.05?'world-price terms':Math.abs(pct).toFixed(1)+'% '+(pct<0?'fewer':'more')+' exports for the same imports'}.${q.rated?'':' Unrated currencies use neutral strength until publication.'}${q.ca?' Your currency is undergoing temporary counterfeit checks.':''}${q.cb?' Your partner’s currency is undergoing temporary counterfeit checks.':''} These terms are fixed when signed; player nations may negotiate.`;
+}
+/* The same monetary factor as the daily job. Keep parity covered in test/fx.test.mjs. This is a
+   policy signal, not a prediction of the full prestige score (age, trade and history also matter). */
+function cuPolicySignal(n){
+  const s=n.s,p=n.policies||{},infl=inflOf(s,p),debt=debtOf(n,s,p),credit=creditOf(debt,s),scores={AAA:100,AA:85,A:70,BBB:55,BB:38,B:20,CCC:0};
+  const mon=clamp(0.35*clamp(100-(infl-2)*8,0,100)+0.30*clamp(100-(debt-30)*0.6,0,100)+0.35*scores[credit]+(p.centralBankIndependence?12:0)-(p.peoplesBank?8:0)+(p.oilFund?5:0),0,100);
+  return {infl,debt,credit,mon,income:income(s),jobs:unempOf(s,p)};
+}
+function cuPolicyChange(old,n){
+  const a=cuPolicySignal(old),b=cuPolicySignal(n),parts=[];
+  const delta=(label,v,unit)=>{if(Math.abs(v)>=0.05)parts.push(label+' '+(v>0?'+':'−')+Math.abs(v).toFixed(1)+unit);};
+  const op=old.policies||{},np=n.policies||{};
+  for(const k of ['centralBankIndependence','peoplesBank','oilFund','importTariffs','priceCaps','cashless'])if(!!op[k]!==!!np[k])parts.push(POLICIES[k][0]+(np[k]?' enacted':' repealed'));
+  delta('monetary credibility',b.mon-a.mon,' points');delta('inflation',b.infl-a.infl,' percentage points');delta('debt/GDP',b.debt-a.debt,' percentage points');
+  if(a.credit!==b.credit)parts.push('credit rating '+a.credit+' → '+b.credit);
+  delta('income per person',(b.income/a.income-1)*100,'%');delta('unemployment',b.jobs-a.jobs,' percentage points');
+  return parts.length?cap1(parts.join('; '))+'.':'';
+}
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!old||!n||n.npc||old.reg!==n.reg)return [];
+  const prev=(old.answered||[]).slice(-1)[0],last=(n.answered||[]).slice(-1)[0],edict=last&&last.o>=0&&(!prev||last.t!==prev.t||last.id!==prev.id);
+  const policy=JSON.stringify(old.policies)!==JSON.stringify(n.policies),budget=JSON.stringify(old.budget)!==JSON.stringify(n.budget);
+  if(!edict&&!policy&&!budget)return [];
+  const text=cuPolicyChange(old,n);if(!text)return [];
+  const title=edict&&ISSUE_BY_ID[last.id]?fill(ISSUE_BY_ID[last.id].t,n):budget?'Budget decision':'Government policy';
+  n.cuJournal=(old.cuJournal||[]).concat({t:edict?last.t:now,title:String(title).slice(0,180),text}).slice(-8);
+  return [];
+});
+NORM_HOOKS.push((n,d)=>{
+  if(Array.isArray(d.cuJournal))n.cuJournal=d.cuJournal.filter(x=>x&&Number.isFinite(x.t)&&typeof x.title==='string'&&typeof x.text==='string').slice(-8).map(x=>({t:x.t,title:x.title.slice(0,180),text:x.text.slice(0,1200)}));
+});
+function cuConnections(n,e,now){
+  const a=cuPolicySignal(n),c=cuOf(n),cf=cuCounterfeit(myId(),n,now),mon=clamp(a.mon-(cf?cf.penalty:0),0,100);
+  const laws=[['centralBankIndependence','An independent central bank adds 12 to monetary credibility.'],['peoplesBank','The People’s Bank subtracts 8 from monetary credibility.'],['oilFund','The oil fund reduces debt/GDP by 15 percentage points and adds 5 to monetary credibility.'],['priceCaps','Price caps reduce modelled inflation by 0.6 percentage points.'],['cashless','Cashless payments reduce modelled inflation by 0.3 percentage points.'],['importTariffs','Import tariffs subtract 8 from the trade strength factor and reduce usable imports by 20%.']].filter(([k])=>n.policies[k]);
+  const reports=(n.cuJournal||[]).slice().reverse();
+  return `<section class="section cu-connections paper"><h2 class="h2">The ${esc(c.nm)} at work</h2>
+    <p>Today’s published economic strength: <b>${e?Math.round(e.s)+'/100':'awaiting its first rating'}</b>. New resource quotes use the difference between your strength and your partner’s, up to 8% either way. A stronger currency buys imports with fewer exports; a weaker one makes exports cheaper for foreign buyers. Signed daily quantities stay fixed.</p>
+    <p><button class="btn ghost" data-act="go" data-v="trade">Negotiate resource trade</button> <button class="btn ghost" data-act="go" data-v="intel">Open Intelligence</button></p>
+    ${cf?`<p class="war-msg"><b>Counterfeit alert.</b> Verification adds ${Math.round(cf.risk*100)}% to new import quotes until ${esc(awayWhen(cf.until))}. Monetary credibility is temporarily reduced by ${cf.penalty} points. ${n.policies.counterIntel?'Counter-Intelligence is halving both effects.':'Counter-Intelligence halves both effects and makes agents easier to expose.'} Multiple incidents cannot increase the penalty.</p>`:''}
+    <h3 class="lbl-h" style="margin-top:20px">Policy and confidence</h3>
+    <p>Current policy signal: <b>${mon.toFixed(1)}/100 monetary credibility</b>${cf?' after counterfeit checks':''}. Inflation ${a.infl.toFixed(1)}%; public debt ${a.debt.toFixed(1)}% of GDP; credit rating ${esc(a.credit)}. This factor contributes 10% of the prestige target. The daily publication also weighs institutions, growth, trade and your track record, and changes gradually.</p>
+    <p class="hint">Welfare spending enters the debt calculation; tax, prosperity and corruption affect debt and credit. Edicts change these figures and the laws below. Note artwork and currency names give no economic or security bonus.</p>
+    ${laws.length?`<ul>${laws.map(([,t])=>`<li>${esc(t)}</li>`).join('')}</ul>`:'<p class="hint">No special monetary laws are in force.</p>'}
+    <h3 class="lbl-h" style="margin-top:20px">Recent policy signals</h3>
+    ${reports.length?`<ul class="cu-miles">${reports.map(r=>`<li><span class="tl-y">${esc(fmtDate(r.t))}</span><span><b>${esc(r.title)}</b><br>${esc(r.text)}</span></li>`).join('')}</ul>`:'<p class="hint">Decisions that change monetary credibility, prices, debt, income or employment will appear here.</p>'}
+  </section>`;
+}
+/* Stable prose selected from the nation's identity, then grounded in its actual policy, industry,
+   note design and published rating. No invented history, and no new random choice on each redraw. */
+function cuOverview(n){
+  const c=cuOf(n),p=n.policies||{},signal=cuPolicySignal(n),seed=hash(String(n.seed||n.name)+'|currency-story'),pick=(xs,shift=0)=>xs[(seed>>>shift)%xs.length];
+  const division=c.sn===1?`The ${c.nm} has no smaller subunit.`:`One ${c.nm} is divided into ${c.sn} ${plural(c.su)}.`;
+  const opening=pick([`${n.name} conducts its daily business in ${c.pl}. ${division}`,`${c.pl} change hands in the markets of ${n.capital}. ${division}`, `The ${c.nm} (${c.cd}) is ${n.name}’s unit of account, from shop counters to ministerial budgets.`]);
+  const institution=p.centralBankIndependence?`An independent central bank lends the ${c.nm} institutional weight.`:p.peoplesBank?`The People’s Bank puts public lending ahead of the monetary orthodoxy favoured by foreign currency dealers.`:p.oilFund?`The oil fund gives the Treasury a cushion against debt, tying confidence in the ${c.nm} to prudent stewardship of its reserves.`:signal.debt>65?`Public debt of ${signal.debt.toFixed(1)}% of GDP keeps the Treasury’s promises under scrutiny.`:n.s.corrupt>60?`Corruption makes confidence in the ${c.nm} harder to earn than its official stationery suggests.`:`The fortunes of the ${c.nm} are closely tied to ${n.name}’s ${industry(n).toLowerCase()} economy.`;
+  const portrait={leader:`the national leader`,capital:`${n.capital}`,animal:`the ${n.animal}`,arms:`the national arms`}[c.note.por];
+  const detail=c.mo?`Its banknotes carry the motto “${c.mo}”.`:`Its banknotes feature ${portrait}, ${pick(['giving the currency a recognisably national face','a small statement of what the nation chooses to celebrate','carrying a piece of national identity into everyday transactions'],8)}.`;
+  const x=allNations().find(x=>x.n===n||x.n.name===n.name&&x.n.seed===n.seed),e=x&&cuE(x.me?myId():x.id);
+  const outlook=e?(e.s>=60?`At the Exchange Bureau, its economic strength gives importers more purchasing power.`:e.s<40?`Its modest economic strength makes exports cheaper to foreign buyers, while imports demand more in return.`:`Its middling economic strength leaves resource traders negotiating close to world-price terms.`):`The Exchange Bureau will judge its strength and credibility from the nation’s economic record.`;
+  return [opening,institution,detail,outlook].map(esc).join(' ');
 }
 
 /* ── the nation page, the Statistics page and the Census ── */
@@ -34449,7 +34542,7 @@ DISPATCH_SOURCES.push(ctx=>{
 HELP_EXT.push({k:'currency',t:'Currencies and the Foreign Exchange Bureau',body:n=>`<p>Every nation has its own currency. Name it, choose its code and symbol, and design its banknote and coin on the <b>Customise</b> page; a suggestion is ready from the day the nation is founded.</p>
 <p>The <b>Foreign Exchange Bureau</b> (in the menu, under Abroad) publishes every currency’s exchange rate once a day, from each nation’s real economy: productivity, growth, stable government and prices, trade and development. Each currency also has a <b>Currency Prestige</b> rating from 0 to 100, from Fragile to Highly Trusted, which measures confidence, not value: a currency worth a hundred of another is not, for that, more trusted. Prestige is earned slowly, by staying stable, growing, trading and keeping inflation and debt in check, and a young currency needs 180 days to build a full track record.</p>
 <p>The <b>Currency &amp; finance</b> achievements and the <b>National Mint</b> set in the museum earn more designs: engravings, coin metals and shapes, and holographic and gold-foil security strips. Once the first and next steps are done, the <b>Treasury steps</b> on your Nation page pay ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil each for visiting the Bureau and designing your currency.</p>
-<p>Names and designs never change a currency’s value or prestige, and nothing can be bought that does. The figures are for information and national pride: trade deals and resources work exactly as before.</p>`});
+<p>Names and designs never change a currency’s value or prestige, and nothing can be bought that does. New resource quotes use relative economic strength, up to 8% either way. A stronger currency buys imports with fewer exports; a weaker currency makes its exports cheaper to foreign buyers. Signed deals retain their daily quantities. The Bureau explains policy effects on confidence, and records decisions that change monetary credibility, debt, prices, income or employment. Counterfeit currency operations add temporary verification costs to new quotes, halved by Counter-Intelligence.</p>`});
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="cu-"]');if(!el||!S.nation)return;const a=el.dataset.act,u=CU.ui;
   if(a==='cu-swap'){[u.from,u.to]=[u.to,u.from];render();}
@@ -34642,6 +34735,7 @@ async function connect(){
   db.collection('mod').onSnapshot(qs=>{
     const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
     S.mod=m;modNotice();shared();board();
+    if(S.isOwner&&['admin','admin-hidden'].includes(S.view))render();
   },()=>{});
   if(S.google)setTimeout(glCheck,3000);
   /* Edictum staff: an admin's page marks its player in staff/ (the rules let only an admin write their own),
@@ -34898,6 +34992,7 @@ function resultView(){
     <h2 class="lbl-h">Census changes</h2>
     ${deltas.length?`<ul class="deltas">${deltas.map(x=>{const g=STATS[x.k].g*Math.sign(x.d);return `<li class="${g>0?'d-up':g<0?'d-down':''}"><span class="d-name">${STATS[x.k].n}</span><span class="d-vals">${fmt(x.k,x.a)} → <span data-count-from="${x.a}" data-count-to="${x.b}" data-count-fmt="${x.k==='tax'?'1%':'1'}">${fmt(x.k,x.b)}</span></span><span class="d-chg ${g>0?'up':g<0?'down':''}">${x.d>0?'▲':'▼'} <span data-count-to="${Math.abs(x.d)}" data-count-fmt="1">${Math.abs(x.d).toFixed(1)}</span></span>${fxBar(x.a,x.b)}</li>`;}).join('')}</ul>`:'<p class="muted" style="margin-bottom:24px">No census figures moved.</p>'}
     ${r.bud&&r.bud.length?`<h2 class="lbl-h">Budget changes</h2><ul class="deltas">${r.bud.map(x=>`<li><span class="d-name">${x.name}</span><span class="d-vals">${x.a.toFixed(1)}% → <span data-count-from="${x.a}" data-count-to="${x.b}" data-count-fmt="1%">${x.b.toFixed(1)}%</span></span><span class="d-chg">${x.b>x.a?'▲':'▼'} <span data-count-to="${Math.abs(x.b-x.a)}" data-count-fmt="1">${Math.abs(x.b-x.a).toFixed(1)}</span></span>${fxBar(x.a,x.b)}</li>`).join('')}</ul>`:''}
+    ${(n.cuJournal||[]).some(x=>x.t===r.t)?`<p class="cu-policy-result"><b>Currency outlook</b> · ${esc(n.cuJournal.find(x=>x.t===r.t).text)} <button class="linkish small" data-act="go" data-v="exchange">View the policy signal</button></p>`:''}
     <div class="row">${v.inbox.length?`<button class="btn" data-act="open" data-id="${v.inbox[0].id}">Next edict</button>`:''}<button class="btn ghost" data-act="go" data-v="issues">All edicts</button><button class="btn ghost" data-act="go" data-v="nation">View nation</button></div>
   </article>`;
 }

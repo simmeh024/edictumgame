@@ -9,7 +9,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { setLogLevel } from 'firebase/firestore';
 import { runCurrencyDay, isoDay, dayNum } from '../jobs/fx/daily.mjs';
 import { loadWorld } from '../jobs/fx/world.mjs';
-import { STAT_KEYS, DAY } from '../jobs/fx/engine.mjs';
+import { STAT_KEYS, DAY, counterfeitsOf, indicators, prestigeFactors } from '../jobs/fx/engine.mjs';
 
 setLogLevel('error');
 const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
@@ -46,6 +46,27 @@ beforeEach(async () => {
     b.set(db.doc('mod/uid-removed'), { hidden: false, removed: T0, t: T0, by: 'admin' });
     await b.commit();
   });
+});
+
+test('counterfeiting reaches an absent nation’s daily rating, respects defence and expires without changing its save', async () => {
+  const attacker=JSON.parse((await read('nations/uid-eternia')).j),target=JSON.parse((await read('nations/uid-vale')).j);
+  target.policies.counterIntel=true;
+  const op={id:'forged',k:'c',tg:'uid-vale',t:T0-60000,rg:'meridian',p:0.9,x:0.3};
+  while(!counterfeitsOf(new Map([['uid-eternia',{...attacker,cov:[op]}],['uid-vale',target]]),T0,'meridian').has('uid-vale'))op.id+='a';
+  await asAdmin(async db=>{
+    await db.doc('nations/uid-eternia').update({j:JSON.stringify({...attacker,cov:[op,{...op,id:op.id+'b'}]})});
+    await db.doc('nations/uid-vale').update({j:JSON.stringify(target)});
+  });
+  const saved=(await read('nations/uid-vale')).j;
+  await run({now:T0,regions:['meridian']});
+  const pub=await pubOf('meridian');
+  const I=indicators('uid-vale',target,T0,{}),normal=prestigeFactors(I,null).mon;
+  assert.equal(pub.n['uid-vale'].g[5],Math.round(Math.max(0,normal-4)*10)/10);
+  assert.equal((await read('nations/uid-vale')).j,saved);
+  await run({now:T0+DAY,regions:['meridian']});
+  const next=await pubOf('meridian');
+  assert.equal(next.n['uid-vale'].g[5],Math.round(normal*10)/10);
+  assert.equal((await read('nations/uid-vale')).j,saved);
 });
 
 test('a day values every currency of the region, players’ and computer-run, and ranks them by prestige', async () => {

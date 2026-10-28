@@ -322,3 +322,107 @@ test('amounts and rates: very large and very small, every number format, both sy
   assert.ok(Number.isNaN(C.cuParseAmt('abc'))); assert.ok(Number.isNaN(C.cuParseAmt('')));
   assert.equal(C.cuRate(3, 0), null); assert.equal(C.cuRate(-1, 2), null); assert.equal(C.cuRate(3, 1.5), 2);
 });
+
+function gameplayHelpers(extra = {}) {
+  const ctx = vm.createContext({ ...gameSandbox(), ...currencyHelpers(), hash: E.hash, DAY,
+    cap1:s=>s.charAt(0).toUpperCase()+s.slice(1), POLICIES:Object.fromEntries(['centralBankIndependence','peoplesBank','oilFund','importTariffs','priceCaps','cashless'].map(k=>[k,[k]])), ...extra });
+  vm.runInContext(['cuQuoteFactor', 'cuCounterfeit', 'cuPolicySignal', 'cuPolicyChange', 'cuOverview', 'cvRoll', 'rng'].map(gameFn).join('\n') +
+    '\nthis.H={cuQuoteFactor,cuCounterfeit,cuPolicySignal,cuPolicyChange,cuOverview,cvRoll};', ctx);
+  return ctx.H;
+}
+
+test('resource quotes reward economic strength, with bounded reciprocal terms and no denomination advantage', () => {
+  const H = gameplayHelpers(), q = H.cuQuoteFactor;
+  assert.ok(q({s:80,v:0.01},{s:20,v:900}) < 1);
+  assert.equal(q({s:80,v:0.01},{s:20,v:900}), q({s:80,v:900},{s:20,v:0.01}));
+  assert.ok(Math.abs(q({s:100},{s:0}) - 1 / 1.08) < 1e-12);
+  assert.ok(Math.abs(q({s:0},{s:100}) - 1.08) < 1e-12);
+  assert.equal(q(null,null), 1);
+  assert.equal(q({s:NaN},{s:50}), 1);
+  assert.equal(q(null,null,0.04,0), 1.04);
+  assert.equal(q(null,null,0.02,0), 1.02);
+  assert.equal(q(null,null,0.04,0.04), 1);
+  for (let a = 0; a <= 100; a += 5) for (let b = 0; b <= 100; b += 5)
+    assert.ok(Math.abs(q({s:a},{s:b},0.04,0.02)*q({s:b},{s:a},0.02,0.04)-1) < 1e-12);
+});
+
+test('live policy signals agree with the published monetary credibility formula across policies and budgets', () => {
+  const H = gameplayHelpers(), r = rnd(83);
+  for (let i = 0; i < 200; i++) {
+    const n = player({s:stats(r),policies:Object.fromEntries(['centralBankIndependence','peoplesBank','oilFund','cashless','priceCaps','counterIntel'].map(k=>[k,r()<0.5]))});
+    n.budget = E.npcBudget(stats(r));
+    const I = ind('a', n), signal = H.cuPolicySignal(n);
+    assert.equal(signal.mon, E.prestigeFactors(I,null).mon);
+    assert.equal(signal.infl, I.infl); assert.equal(signal.debt, I.debt); assert.equal(signal.credit,I.credit);
+  }
+  const a=player({s:{corrupt:80}}),b=structuredClone(a);
+  b.policies.centralBankIndependence=true;b.s.wealth-=10;
+  const text=H.cuPolicyChange(a,b);
+  assert.match(text,/enacted/);assert.match(text,/monetary credibility \+/);assert.match(text,/income per person −/);
+});
+
+test('computer nations apply the currency reference to actual resource acceptance, leaving scarcity and supply checks intact', () => {
+  const H=gameplayHelpers(),ctx=vm.createContext({factor:1,C3_HOSTILE:-50,S:{nation:{}},
+    economy:()=>({T:{byId:{a:0,b:1}},price:{food:1,iron:1},sup:{iron:[100,100]},dem:{iron:[1,1]},ratio:{food:[1,1]}}),
+    myId:()=> 'a',nameOf:()=> 'Partner',warWith:()=>({war:false}),gwOf:()=>0,spareOf:()=>100,
+    resName:x=>x,fmtAmt:String});
+  vm.runInContext('const cuTradeQuote=()=>({factor});'+gameFn('npcVerdict')+';this.verdict=npcVerdict;',ctx);
+  ctx.factor=H.cuQuoteFactor({s:100},{s:0});
+  assert.equal(ctx.verdict('b',['food',8.5],['iron',10]).ok,true);
+  ctx.factor=H.cuQuoteFactor({s:0},{s:100});
+  assert.equal(ctx.verdict('b',['food',8.5],['iron',10]).ok,false);
+  assert.equal(ctx.verdict('b',['food',10],['iron',10]).ok,true);
+  assert.equal(ctx.verdict('missing',['food',10],['iron',10]).ok,false);
+  assert.equal(ctx.verdict('b',['food',10],['iron',101]).ok,false);
+});
+
+test('covert operation costs are resource objects, remain distinct from cabinet dismissal copy, and halve for retaliation', () => {
+  const a=GAME.indexOf('const CV_KINDS='),b=GAME.indexOf('const CV_KEYS=',a),ctx=vm.createContext({RES:['food','timber','iron','oil','goods']});
+  vm.runInContext(GAME.slice(a,b)+gameFn('cvOpCost')+';this.cost=cvOpCost;',ctx);
+  assert.deepEqual({...ctx.cost('c',false)},{timber:10,goods:22});
+  assert.deepEqual({...ctx.cost('c',true)},{timber:5,goods:11});
+  assert.deepEqual({...ctx.cost('s',false)},{timber:6,goods:16});
+  assert.equal([...GAME.matchAll(/function cvOpCost\(/g)].length,1);
+  assert.equal([...GAME.matchAll(/function cvCost\(/g)].length,1);
+});
+
+test('counterfeiting uses the same success roll in the browser and daily job; expiry, failure, defence and stacking are bounded', () => {
+  const target=player(), attacker=player(), op={id:'forgery',k:'c',tg:'b',t:T0-3600e3,rg:'meridian',p:0.9,x:0.3};
+  const H=gameplayHelpers();
+  while(!H.cvRoll(op).ok)op.id+='a';
+  const cases=[op,{...op,id:'other'}, {...op,t:T0-DAY}, {...op,t:T0+1}, {...op,rg:'wildwood'}, {...op,p:NaN}, {...op,tg:'a'}];
+  const expected=cases.filter(o=>o.tg==='b'&&o.rg==='meridian'&&o.t<=T0&&T0-o.t<DAY&&Number.isFinite(o.p)&&H.cvRoll(o).ok);
+  attacker.cov=cases;
+  const recs=new Map([['a',attacker],['b',target]]),until=E.counterfeitsOf(recs,T0,'meridian').get('b');
+  assert.equal(until,Math.max(...expected.map(o=>o.t+DAY)));
+  const browser=gameplayHelpers({cvIndex:()=>({all:cases.filter(o=>o.rg==='meridian'&&Number.isFinite(o.p)).map(o=>({by:'a',op:o,ok:H.cvRoll(o).ok}))})});
+  assert.equal(browser.cuCounterfeit('b',target,T0).risk,0.04);
+  assert.equal(browser.cuCounterfeit('b',target,T0).until,until);
+  target.policies.counterIntel=true;
+  assert.equal(browser.cuCounterfeit('b',target,T0).risk,0.02);
+  assert.equal(ind('b',target,T0,{counterfeit:until}).counterfeit,4);
+  const I=ind('b',target,T0,{counterfeit:until});
+  assert.equal(E.prestigeFactors(I,null).mon,E.clamp(H.cuPolicySignal(target).mon-4,0,100));
+  attacker.cov=expected;
+  assert.equal(E.counterfeitsOf(recs,until,'meridian').size,0);
+  assert.equal(ind('b',target,until,{counterfeit:until}).counterfeit,0);
+  target.mvAt=T0;
+  assert.equal(E.counterfeitsOf(recs,T0,'meridian').size,0);
+  assert.equal(browser.cuCounterfeit('b',target,T0),null);
+  // A failed operation cannot trigger a hold even though it has all the correct saved fields.
+  const failed={...op,id:'failed',p:0.1};while(H.cvRoll(failed).ok)failed.id+='a';
+  attacker.cov=[failed];delete target.mvAt;
+  assert.equal(E.counterfeitsOf(recs,T0,'meridian').size,0);
+});
+
+test('national currency prose is stable, grounded in each nation, and escapes player-authored text', () => {
+  const escape=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const H=gameplayHelpers({industry:()=> 'Information Technology',allNations:()=>[],esc:escape});
+  const a=player({name:'Eternia',demonym:'Eternian',capital:'Eternal City',currency:'Mark',seed:'1',policies:{centralBankIndependence:true}});
+  const b=player({name:'Woodland',demonym:'Woodlander',capital:'Oak',currency:'Leaf',seed:'2',policies:{peoplesBank:true},cur:{mo:'<script>unsafe</script>'}});
+  const pa=H.cuOverview(a),pb=H.cuOverview(b);
+  assert.equal(pa,H.cuOverview(a));assert.notEqual(pa,pb);
+  assert.match(pa,/independent central bank/);assert.match(pa,/Eternian Mark/);
+  assert.match(pb,/People’s Bank/);assert.doesNotMatch(pb,/<script>/);
+  assert.match(GAME,/return \[p1,p2,p3,cuOverview\(n\)\]/);
+});

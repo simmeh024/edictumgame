@@ -122,6 +122,24 @@ export function warsOf(recs, npcIds) {
   return out;
 }
 
+/* Successful counterfeit operations use the game's deterministic roll. Only one verification hold
+   applies per currency; additional attackers can neither deepen it nor make it permanent. Read the
+   regional operations directly, so a target need not log in for the daily rating to reflect it. */
+export function counterfeitsOf(recs, now, region) {
+  const out = new Map();
+  for (const [by, n] of recs) for (const o of Array.isArray(n.cov) ? n.cov.slice(0, 20) : []) {
+    const target = isObj(o) && recs.get(o.tg);
+    if (!target || o.k !== 'c' || by === o.tg || o.rg !== region || typeof o.id !== 'string' || !/^[a-z0-9]{1,16}$/.test(o.id)
+      || !Number.isFinite(o.t) || o.t > now || now - o.t >= DAY || o.t <= num(target.founded, 0) || o.t < num(target.mvAt, 0)
+      || o.t < num(n.mvAt, 0) || !Number.isFinite(o.p) || o.p < 0.1 || o.p > 0.9) continue;
+    let a = (hash('cov|' + o.id + '|' + o.t + '|' + o.tg + '|' + o.k) + 0x6D2B79F5) | 0;
+    let r = Math.imul(a ^ a >>> 15, 1 | a); r = r + Math.imul(r ^ r >>> 7, 61 | r) ^ r;
+    if (((r ^ r >>> 14) >>> 0) / 4294967296 >= o.p) continue;
+    out.set(o.tg, Math.max(out.get(o.tg) || 0, o.t + DAY));
+  }
+  return out;
+}
+
 /* ── indicators: one nation's real figures, read from its record ───────── */
 /* rec is a player's shared record or, with npc set, a computer-run nation's definition. Every figure comes
    from what the game simulates; nothing here is invented to fill a formula. */
@@ -164,6 +182,7 @@ export function indicators(id, rec, now, ctx) {
     approval: govApproval(s), law: lawOf(s), safety: s.safety, corrupt: s.corrupt, sci: s.sci, edu: s.edu, econ: s.econ, div: clamp(div, 0, 1),
     infl: inflOf(s, p), debt, credit: creditOf(debt, s), unemp: unempOf(s, p),
     cbi: !!p.centralBankIndependence, pbank: !!p.peoplesBank, oilFund: !!p.oilFund, tariffs: !!p.importTariffs,
+    counterfeit: ctx.counterfeit > now ? (p.counterIntel ? 4 : 8) : 0,
     wars: clamp(num(ctx.wars, 0), 0, 20), partners: tr.partners.size, volume: clamp(tr.volume, 0, 10000),
     days: npc ? Infinity : Math.max(0, (now - num(rec.founded, now)) / DAY)
   };
@@ -227,7 +246,7 @@ export function prestigeFactors(I, volSd) {
     prod: clamp(0.6 * clamp((Math.log(Math.max(1, I.gpc)) - GPC_LO) / (GPC_HI - GPC_LO) * 100, 0, 100) + 0.4 * (I.sci + I.edu) / 2, 0, 100),
     /* monetary and fiscal credibility: inflation, public debt, credit rating and the laws that bear on them */
     mon: clamp(0.35 * priceStab(I.infl) + 0.30 * clamp(100 - (I.debt - 30) * 0.6, 0, 100) + 0.35 * CREDIT_SCORE[I.credit]
-      + (I.cbi ? 12 : 0) - (I.pbank ? 8 : 0) + (I.oilFund ? 5 : 0), 0, 100)
+      + (I.cbi ? 12 : 0) - (I.pbank ? 8 : 0) + (I.oilFund ? 5 : 0) - clamp(I.counterfeit || 0, 0, 8), 0, 100)
   };
 }
 export const prestigeRaw = g => P_KEYS.reduce((a, k) => a + P_W[k] * g[k], 0);
