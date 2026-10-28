@@ -44,18 +44,19 @@ export async function until(fn, ms = 8000, step = 150) {
 // A player is a browser profile of its own (own storage, so its own anonymous account).
 // opts: vp {width,height}, dark, inject (default true: config and emulators set by the test),
 //       block (a RegExp of requests to fail), tag (a name for error reports),
-//       cap (players per region before founding steers elsewhere; the game's default otherwise)
-// Saves reach Firestore after 1.5 s instead of the game's 15 s, so the tests need not wait, and every
-// conquest needs the referee's seal (the game's REF_EPOCH is set back to 2026). window.G is the game's
-// probe: its state S and a few of its functions (EDICTUM_PROBE in game/edictum.html).
+//       cap (players per region before founding steers elsewhere; the game's default otherwise),
+//       saveGap (defaults to 1500; use 60000 to exercise the normal production interval)
+// Most tests shorten the background save interval; timing regressions use the production value.
+// Every conquest needs the referee's seal (REF_EPOCH is set back to January 2026). window.G is the
+// game's probe: its state S and a few of its functions (EDICTUM_PROBE in game/edictum.html).
 export async function player(tag, opts = {}) {
-  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true });
+  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
-  await ctx.addInitScript(cap => {
-    window.EDICTUM_SAVE_GAP = 1500; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); if (cap) window.EDICTUM_REGION_CAP = cap;
+  await ctx.addInitScript(([cap, gap]) => {
+    window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); if (cap) window.EDICTUM_REGION_CAP = cap;
     window.EDICTUM_PROBE = g => { window.G = g; };
-  }, opts.cap || 0);
+  }, [opts.cap || 0, opts.saveGap ?? 1500]);
   if (opts.inject !== false) await ctx.addInitScript(([c, e]) => { window.EDICTUM_FIREBASE_CONFIG = c; window.EDICTUM_EMULATORS = e; }, [CONFIG, EMULATORS]);
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(tag + ' PAGEERROR ' + e.message));

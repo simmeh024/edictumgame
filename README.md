@@ -30,7 +30,7 @@ like), and **Firestore** holds the shared world.
 
 **Data.** Documents are named by the player's Firebase user id:
 
-- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt, ts, pop, army, cl}`,
+- `nations/<uid>`: `{v: 1, j: "<the nation as JSON text>", reg, name, updatedAt, ts, pop, army, cl, rev}`,
   the shared half of the nation record: what other players in the region see. It is stored as text
   because it contains lists of lists, which Firestore cannot store. `reg`, `name` and `updatedAt` are
   copies kept beside it for queries; `ts` is the server's time of the save; `pop`, `army` and `cl`
@@ -80,7 +80,14 @@ like), and **Firestore** holds the shared world.
   Everyone reads the first two; nobody but the job writes any of them (see Currencies).
 
 A nation save writes the shared half, its summary and (when they changed) the private half and the
-space record in one batch.
+space record in one transaction. Each save advances a server-checked `rev`; the client keeps its base
+as `_rev` in its local copy. A stale device cannot overwrite a newer revision, even when its clock is
+ahead. Full own-nation reads join the shared and private halves in a server transaction. Returning to
+the tab or reconnecting refreshes the nation or retries a pending save. Conflicts load the latest save
+and explain that unsaved changes must be repeated; a copy of those changes is kept locally and can be
+downloaded from the account menu. Existing unrevisioned nations migrate on their first new-client save;
+a browser running the old game must reload once the nation has a revision. Transactions require a
+connection: offline changes stay in the local copy until they can be checked against the server.
 Anyone may read the world; each player writes only their own documents; admins may also delete any
 post. The rules also check that a save's documents agree, and pace writes: a nation at most once a
 second, a space record once every 10 seconds, a post once every 20. See `firestore.rules`.
@@ -231,6 +238,19 @@ low, each at most so often) go into its nation's history once its player next op
 Daily Dispatch's business pages. The game reads `fx/<region>` at most once a session (the browser keeps the
 copy until the next day's) and a currency's history only when a chart shows it, and listens to neither.
 
+**Currency rewards.** Ten **Currency & finance** achievements (designing, renaming and fully designing
+the currency, visiting the Bureau, a ninety-day high or low, Trusted and Highly Trusted, a top-five and the
+most trusted currency) each unlock a design the Customise page shows locked until then: the Moiré,
+Basketweave, Mosaic and Constellation engravings, rose-gold, platinum and black-nickel coins, a holed coin, and
+holographic and gold-foil security strips (UNLOCKS kinds `cunote`, `cumetal`, `cushape`, `custrip`). The
+museum's seven-artefact **National Mint** set (`mint`) adds the Filigree engraving, an eight-sided coin and
+the epithet *the Treasurer*. Prestige milestones count from the nation's history (`k: 'fxm'`), and on the
+player's own screen from the day's rating too. As with every cosmetic, other players see an earned design
+only when the record lists it (`n.cz.u`); otherwise it shows the suggestion (`CU_HOLDS`). Once the Next steps
+are done or hidden, a third checklist, **Treasury steps: Money of your own**, offers visiting the Bureau and
+designing the currency, each worth `CU_STEP_CREDITS` (2) land credits and `CU_STEP_GIFT` (5 oil), paid once:
+the steps join `n.tut.lc` with the others.
+
 **Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
 a message and, if the player wants, an email address. Their tickets and the team's answers are listed
 below it, and a player waiting for an answer is told when it comes. Admins answer on the portal's
@@ -266,6 +286,9 @@ The account control (at the foot of the side bar, or at the top of the founding 
 loads anywhere. If that Google account already has a nation, the player can switch to it. A player
 signed in with Google also has **Sign out** under the control in the side bar (it asks first; a guest
 gets none, since a guest who signed out would lose the nation). Signing out starts a new guest.
+Above Sign out, a small status shows **Synced** after server confirmation, **Saving** while changes
+are queued or in flight, and **Offline** when synchronization is unavailable. Guests with a nation
+see the same status. Its text is announced to screen readers when it changes.
 Linking is also the last of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
 once (`n.glk`).
 
@@ -308,6 +331,7 @@ npm run test:referee       # the referee: readiness, fair dice, the odds' bound,
 npx playwright install chromium   # once, for the browser tests
 npm run test:e2e           # two players, the board, other regions, reloads, rules, battles and seals, admin, offline, Google sign-in, full regions, founding drafts, the front page
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
+npm run test:sync          # one account on desktop and phone: updates, conflicts, clocks, reconnects
 npm ci --prefix jobs/fx    # once, for the next one: it runs the currency job as production does
 npm run test:fx-e2e        # the currency: the job publishing four days, the Bureau, the designer, a phone
 ```

@@ -70,7 +70,8 @@ service cloud.firestore {
     // src/shim.js refuses anything over 700,000 characters before it gets here.
     function validNation(d) {
       return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl'])
+        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev'])
+        && (!('rev' in d) || (d.rev is int && d.rev > 0))
         && d.v == 1
         && d.j is string && d.j.size() > 2 && d.j.size() <= 750000
         && region(d.reg) && label(d.name)
@@ -94,6 +95,12 @@ service cloud.firestore {
     }
     function headlineUpdate(d) {
       return ('pop' in d) ? headline(d) && grows(d) : !('pop' in resource.data);
+    }
+    // Old nations migrate on their first new-client save. Once revisioned, an old or stale browser
+    // cannot remove the revision, replay one, or skip one, even outside the adapter's transaction.
+    function nextRevision(d) {
+      return ('rev' in resource.data) ? ('rev' in d && d.rev == resource.data.rev + 1)
+        : (!('rev' in d) || d.rev == 1);
     }
     // the summary written in the same batch says the same
     function summarised(uid, d) {
@@ -136,8 +143,10 @@ service cloud.firestore {
     match /nations/{uid} {
       allow read: if true;
       allow create: if isSelf(uid) && validNation(request.resource.data) && headline(request.resource.data)
+        && (!('rev' in request.resource.data) || request.resource.data.rev == 1)
         && summarised(uid, request.resource.data) && !banned(uid);
       allow update: if isSelf(uid) && validNation(request.resource.data) && headlineUpdate(request.resource.data)
+        && nextRevision(request.resource.data)
         && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();
     }
