@@ -67,6 +67,9 @@ check('switching back restores Maintenance without reopening the region', await 
 await A.click('[data-act="region-enable"][data-id="meridian"]');
 check('reenabling restores the existing player automatically', await until(async () => !!await B.$('.layout') && (await localNation(B))?.name === 'Playerland', 15000));
 check('reenabling makes the home region available again', await until(async () => !await C.$('.fr-list [data-id="meridian"][disabled]')));
+await C.evaluate(()=>{G.S.frMore=false;G.render();document.addEventListener('click',e=>{if(e.target.closest('.fr-more>summary'))queueMicrotask(()=>G.render());},{once:true});});
+await C.click('.fr-more summary');
+check('the home region picker stays open through a background redraw', await until(async()=>await C.$eval('.fr-more',d=>d.open)));
 
 await page('admin-audit'); await A.fill('#admin-audit-target', 'meridian'); await A.click('#admin-audit-filter button:not([type])');
 check('the audit log records region changes, authenticated admin and reason', await until(async () => { const t = await text(A, '.adm-main .tbl'); return t.includes(uidA) && /region disabled/.test(t) && /region enabled/.test(t) && /Database maintenance test/.test(t) && /completed/.test(t); }));

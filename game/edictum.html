@@ -21877,6 +21877,8 @@ function wrDrawSoon(){if(wrQ)return;wrQ=true;requestAnimationFrame(function step
 try{new MutationObserver(()=>{if(document.querySelector('canvas.wr-map:not([data-done])'))wrDrawSoon();}).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}
 setInterval(()=>{for(const el of document.querySelectorAll('[data-mvcd]')){const v=+el.dataset.mvcd-Date.now();el.textContent=v>0?fmtWait(v):'now';}},15000);
 document.addEventListener('click',e=>{
+  const regionSummary=e.target.closest('.fr-more>summary');
+  if(regionSummary){S.frMore=!regionSummary.parentElement.open;return;}
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='wr-sel'){S.wrSel=S.wrSel===el.dataset.id?null:el.dataset.id;S.wrAsk=null;render();if(S.wrSel){const d=document.querySelector('.wr-detail');if(d)d.scrollIntoView({block:'nearest'});}return;}
   if(a==='wr-ask'){S.wrAsk=el.dataset.id;render();return;}
@@ -21906,7 +21908,8 @@ function draftRestore(){
   S.draftKept=true;return base;
 }
 window.addEventListener('pagehide',()=>draftKeep());
-/* the region list at the top stays open across redraws (the counts arriving redraw the page) */
+/* Track summary clicks synchronously above: a redraw can precede the native toggle event.
+   Keep the toggle listener for other changes to the details element. */
 document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('fr-more'))S.frMore=t.open;},true);
 /* section V's region browser: every region's map in miniature, with its players; choosing one keeps the draft */
 function foundRegionBrowser(){
