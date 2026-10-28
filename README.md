@@ -230,6 +230,19 @@ low, each at most so often) go into its nation's history once its player next op
 Daily Dispatch's business pages. The game reads `fx/<region>` at most once a session (the browser keeps the
 copy until the next day's) and a currency's history only when a chart shows it, and listens to neither.
 
+**Currency rewards.** Ten **Currency & finance** achievements (designing, renaming and fully designing
+the currency, visiting the Bureau, a ninety-day high or low, Trusted and Highly Trusted, a top-five and the
+most trusted currency) each unlock a design the Customise page shows locked until then: the Moiré,
+Basketweave, Mosaic and Constellation engravings, rose-gold, platinum and black-nickel coins, a holed coin, and
+holographic and gold-foil security strips (UNLOCKS kinds `cunote`, `cumetal`, `cushape`, `custrip`). The
+museum's seven-artefact **National Mint** set (`mint`) adds the Filigree engraving, an eight-sided coin and
+the epithet *the Treasurer*. Prestige milestones count from the nation's history (`k: 'fxm'`), and on the
+player's own screen from the day's rating too. As with every cosmetic, other players see an earned design
+only when the record lists it (`n.cz.u`); otherwise it shows the suggestion (`CU_HOLDS`). Once the Next steps
+are done or hidden, a third checklist, **Treasury steps: Money of your own**, offers visiting the Bureau and
+designing the currency, each worth `CU_STEP_CREDITS` (2) land credits and `CU_STEP_GIFT` (5 oil), paid once:
+the steps join `n.tut.lc` with the others.
+
 **Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
 a message and, if the player wants, an email address. Their tickets and the team's answers are listed
 below it, and a player waiting for an answer is told when it comes. Admins answer on the portal's
