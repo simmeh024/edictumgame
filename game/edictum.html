@@ -33607,7 +33607,9 @@ function saveLocal(n){try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));el
    a declaration). Every save is read by every other player in the region, so the gap is what most of
    the database bill depends on (docs/cost-test.md). */
 const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||60000),SAVE_MIN=1500;
-let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=0,remoteSoon=false,commitNo=0;
+/* No save has been sent in this page yet. performance.now() starts near zero, so a zero last-save
+   time would incorrectly make the first write wait the entire background-save interval. */
+let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=-SAVE_GAP,remoteSoon=false,commitNo=0;
 let ownSyncBusy=false,ownLatest=null,conflictPending=false;
 let saveChecked=false,saveFailed=false;
 /* The account control lives in the Firebase adapter. Publish actual save state, including the queue,

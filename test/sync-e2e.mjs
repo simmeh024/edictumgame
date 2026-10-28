@@ -125,4 +125,25 @@ const foreign = await C.evaluate(async ([uid, n]) => {
 }, [uid, base]);
 check('another account is refused as unauthorized rather than a save conflict', foreign === 'not_granted');
 
+// Keep a desktop tab active at the real save interval. Accelerated test intervals hid the first
+// save waiting a full minute: switching away on a phone flushes the same queue much sooner.
+const D = await player('desktop production timing', { saveGap: 60000 }); await open(D);
+const uidD = await ready(D);
+await found(D, 'Desktopland');
+check('the first desktop save does not wait the production background interval', await until(async () => {
+  const n = await localNation(D);
+  return n && n._rev > 0 && !n._dirty && await status(D) === 'Synced' && !!await nationDoc(uidD);
+}, 8000));
+
+// Reopening a browser with unsent local changes must send its first pending save promptly too.
+await D.ctx.setOffline(true);
+await edit(D, 'Recovered desktop progress');
+const desktopStorage = await D.ctx.storageState({ indexedDB: true });
+await D.ctx.close();
+const R = await player('returning desktop', { saveGap: 60000, storageState: desktopStorage }); await open(R);
+check('returning desktop progress syncs without a minute on Saving', await until(async () => {
+  const n = await localNation(R), cloud = await nationDoc(uidD);
+  return n && !n._dirty && await status(R) === 'Synced' && cloud && cloud.rec.motto === 'Recovered desktop progress';
+}, 8000));
+
 await finish();
