@@ -1,7 +1,7 @@
 // Two independent browser profiles sharing one account, against the local emulators.
 import {
   check, finish, sleep, until, player, open, ready, found, nav, localNation,
-  nationDoc, restGet, clearEmulators, openAccount, errors
+  nationDoc, restGet, clearEmulators, openAccount, errors, OUT
 } from './lib.mjs';
 
 await clearEmulators();
@@ -28,8 +28,25 @@ const saved = async p => {
   if (!n) throw new Error('Save did not settle: ' + JSON.stringify({ nation: await localNation(p), errors }));
   return n;
 };
+const status = p => p.locator('.side-foot .ed-sync').textContent();
+check('a confirmed nation shows Synced on both devices', await until(async () => await status(A) === 'Synced' && await status(B) === 'Synced'));
+check('the indicator politely announces status changes', await A.locator('.ed-sync').getAttribute('role') === 'status' && await A.locator('.ed-sync').getAttribute('aria-live') === 'polite');
+await A.locator('.ed-acct').screenshot({ path: OUT + '/sync-synced-desktop.png' });
 
-await edit(A, 'Saved on desktop'); await saved(A);
+// Hold a real commit in flight: connectivity alone must never produce a Synced label.
+let releaseSave, commitWaiting = false;
+const saveGate = new Promise(resolve => { releaseSave = resolve; });
+const holdCommit = async route => {
+  if (!(route.request().postData() || '').includes('"update"')) return route.continue();
+  commitWaiting = true; await saveGate; await route.continue();
+};
+await A.ctx.route(/\/documents:commit/, holdCommit);
+await edit(A, 'Saved on desktop');
+check('an unacknowledged save shows Saving', await until(() => commitWaiting) && await status(A) === 'Saving');
+await A.locator('.ed-acct').screenshot({ path: OUT + '/sync-saving-desktop.png' });
+releaseSave(); await saved(A);
+await A.ctx.unroute(/\/documents:commit/, holdCommit);
+check('Saving becomes Synced only after the commit succeeds', await until(async () => await status(A) === 'Synced'));
 check('an idle phone receives a desktop save without reloading', await until(async () => (await localNation(B)).motto === 'Saved on desktop', 15000));
 await edit(B, 'Saved on phone'); await saved(B);
 check('updates flow back from phone to desktop', await until(async () => (await localNation(A)).motto === 'Saved on phone', 15000));
@@ -47,7 +64,10 @@ check('a higher revision wins even with an earlier device timestamp', await unti
 
 // Hold one device offline while it edits; let the other commit before it reconnects.
 await B.ctx.setOffline(true);
+check('a connection drop immediately shows Offline even without pending changes', await until(async () => await status(B) === 'Offline'));
 await edit(B, 'Unsaved phone edit');
+check('editing offline never claims the change is synced', await status(B) === 'Offline');
+await B.locator('.ed-acct').screenshot({ path: OUT + '/sync-offline-phone.png' });
 await sleep(2500);
 await edit(A, 'Desktop wins the race'); await saved(A);
 const winningRevision = await rev();
@@ -55,6 +75,7 @@ await B.ctx.setOffline(false);
 await B.evaluate(() => window.dispatchEvent(new Event('online')));
 check('an offline stale device loads the winning save', await until(async () => (await localNation(B)).motto === 'Desktop wins the race', 20000));
 check('the stale edit never overwrites the cloud', await motto() === 'Desktop wins the race' && await rev() === winningRevision);
+check('conflict recovery shows Synced after loading the server save', await until(async () => await status(B) === 'Synced'));
 const copy = await B.evaluate(uid => JSON.parse(localStorage.getItem('edictum.unsaved.' + uid)), uid);
 check('the rejected changes are preserved on their original device', copy && copy.nation.motto === 'Unsaved phone edit');
 await openAccount(B);
@@ -71,6 +92,7 @@ await B.ctx.setOffline(false);
 await B.evaluate(() => window.dispatchEvent(new Event('online')));
 check('a failed save is retried on reconnect', await until(async () => await motto() === 'Retry after reconnect', 20000));
 await saved(B);
+check('reconnecting shows Synced after retrying the pending change', await until(async () => await status(B) === 'Synced'));
 
 // The read of the latest record must not overwrite actions made while that read was in flight.
 const snapshot = await B.evaluate(async uid => (await (await window.claude.use('db')).doc('nations/' + uid).get()).data(), uid);

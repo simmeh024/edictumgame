@@ -265,6 +265,9 @@ The account control (at the foot of the side bar, or at the top of the founding 
 loads anywhere. If that Google account already has a nation, the player can switch to it. A player
 signed in with Google also has **Sign out** under the control in the side bar (it asks first; a guest
 gets none, since a guest who signed out would lose the nation). Signing out starts a new guest.
+Above Sign out, a small status shows **Synced** after server confirmation, **Saving** while changes
+are queued or in flight, and **Offline** when synchronization is unavailable. Guests with a nation
+see the same status. Its text is announced to screen readers when it changes.
 Linking is also the last of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
 once (`n.glk`).
 
