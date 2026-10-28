@@ -834,7 +834,7 @@ check('the Found button beside the preview founds the nation', await until(async
 check('the title follows the game’s pages again', await until(async () => / · Edictum$/.test(await HP.title()) && (await HP.title()) !== drawn.title));
 await HP.route(/\/assets\/game\./, r => r.abort());
 await HP.reload();
-check('a returning player waits on the plain loading screen, not the front page', await HP.evaluate(() => document.documentElement.classList.contains('ed-back')) && await HP.isVisible('.boot') && !(await HP.isVisible('.home-static')));
+check('a returning player gets a loading screen for a failed download, not the front page', await HP.evaluate(() => document.documentElement.classList.contains('ed-back')) && await until(() => HP.isVisible('.boot')) && !(await HP.isVisible('.home-static')));
 await HP.ctx.close();
 // on a phone: the preview makes way, and a bar at the foot keeps the Found button in reach
 const HQ = await player('HQ', { vp: { width: 390, height: 844 } });

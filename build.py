@@ -6,7 +6,9 @@
 
 The game is one HTML fragment: head material (title and styles), then the app div and one script.
 This script turns it into a small page plus long-cached files, without changing the game's source:
-  - the game's script, minified, as /assets/game.<hash>.js, and its styles with src/shim.css and the
+  - the game's code as /assets/game.<hash>.js, with static fiction cached separately in
+    /assets/content.<hash>.js so code-only updates do not download all the stories again;
+    and its styles with src/shim.css and the
     fonts' @font-face rules, minified, as /assets/app.<hash>.css. The names change whenever the
     content does, so Hosting lets browsers keep them for a year (firebase.json) and a returning
     player downloads only the small page until the next deploy;
@@ -173,6 +175,18 @@ def hashed(out, name, ext, data):
     return '/assets/' + fn
 
 
+def split_content(script):
+    """Acorn extracts only literal text in static catalogs, leaving their closures in the game."""
+    try:
+        r = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'split-content.mjs')],
+                           input=script.encode('utf-8'), capture_output=True, cwd=ROOT)
+    except FileNotFoundError:
+        fail('Node.js is needed to split the game content. Run npm ci first.')
+    if r.returncode:
+        fail('could not split the game content (run npm ci first):\n' + r.stderr.decode('utf-8', 'replace')[-2000:])
+    return json.loads(r.stdout)
+
+
 def fonts_css(out):
     """The @font-face rules for the game's typefaces, Latin and Latin Extended, with each font file
     copied to /assets/fonts/ under a name that carries its hash. Returns (css, preload addresses)."""
@@ -238,7 +252,14 @@ def main():
     fonts, preload = fonts_css(out)
     css_url = hashed(out, 'app', 'css', esbuild('\n'.join([fonts] + styles + [read(os.path.join(SRC, 'shim.css'))]), 'css', minify))
     script = re.search(r'<script>(.*)</script>\s*$', game_body, re.S).group(1)
-    js_url = hashed(out, 'game', 'js', esbuild(script, 'js', minify))
+    content_url = None
+    if minify:
+        parts = split_content(script)
+        content_url = hashed(out, 'content', 'js', esbuild(parts['content'], 'js', True))
+        js_url = hashed(out, 'game', 'js', esbuild(parts['code'], 'js', True))
+    else:
+        # A debug build keeps the original, unsplit source easy to inspect.
+        js_url = hashed(out, 'game', 'js', script)
 
     a = lambda path: (site + path) if site else path
     e = lambda s: html.escape(s, quote=True)
@@ -278,16 +299,23 @@ def main():
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
         '<!-- Edictum: built by build.py from game/edictum.html (sha256 %s) with Firebase %s -->' % (stamp, ver),
-        '<style>body{margin:0;font:14px system-ui}[hidden]{display:none!important}</style>',
+        '<style>html{background:#e8eeeb;color-scheme:light}body{margin:0;background:inherit;font:14px system-ui}'
+        'html[data-theme="dark"]{background:#0c1615;color-scheme:dark}'
+        '@media(prefers-color-scheme:dark){html:not([data-theme="light"]){background:#0c1615;color-scheme:dark}}'
+        '[hidden]{display:none!important}'
+        '.ed-boot-pending .boot,.ed-boot-pending .home-static .boot-load{visibility:hidden}</style>',
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'stub.js'), minify),
-    ] + ['<script defer src="%s%s"></script>' % (vendor, n) for n in SDK] + meta + [
+    ] + ['<link rel="preload" href="%s" as="script" fetchpriority="high">' % u
+         for u in [content_url, js_url] if u] + [
+        '<script defer src="%s%s" fetchpriority="low"></script>' % (vendor, n) for n in SDK] + meta + [
         game_head,
     ] + ['<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' % u for u in preload] + [
         '<link rel="stylesheet" href="%s">' % css_url,
         '</head>',
         '<body>',
         BOOT % dict(home_copy(script), desc=e(DESCRIPTION)),
-        '<script src="%s"></script>' % js_url,
+    ] + (['<script src="%s" onerror="window.__edictum.bootError()"></script>' % content_url] if content_url else []) + [
+        '<script src="%s" onerror="window.__edictum.bootError()"></script>' % js_url,
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
         '</body>',
         '</html>',
@@ -302,6 +330,8 @@ def main():
         os.path.relpath(out, ROOT), len(page.encode('utf-8')) // 1024, kb(js_url), kb(css_url),
         sum(os.path.getsize(os.path.join(out, 'vendor', 'firebase', ver, n)) for n in SDK) // 1024, ver, size / 1e6,
         '' if site else '; no --site-url, so Open Graph links are relative'))
+    if content_url:
+        print('build.py: independently cached story text: %s (%s); code-only updates reuse it' % (content_url, kb(content_url)))
 
 
 NOT_FOUND = '''<!doctype html>

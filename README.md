@@ -19,7 +19,8 @@ like), and **Firestore** holds the shared world.
 | `src/stub.js` | A few lines put at the top of the page: `window.claude.use()`, which the game calls, waits until Firebase is ready. |
 | `src/shim.js`, `src/shim.css` | The Firebase layer behind `window.claude.use('db' / 'user')`: documents, queries, counts, batched nation saves and board posts (see Data). Also the account control. |
 | `src/favicon.svg`, `src/og.png`, `src/apple-touch-icon.png` | The seal icon and the picture shown when a link is shared (`src/og.html` is its source; `tools/make-images.mjs` redraws the PNGs). |
-| `build.py` | Builds `public/`: a small page (stub, Firebase SDK, shim, meta tags, schema.org data, and the top of the front page as plain HTML) plus the game's script and styles minified into `/assets/game.<hash>.js` and `/assets/app.<hash>.css`, and the fonts in `/assets/fonts/`. Their names change with their content, so browsers keep them for a year. |
+| `build.py` | Builds `public/`: a small page, `/assets/game.<hash>.js`, independently cached story text in `/assets/content.<hash>.js`, styles in `/assets/app.<hash>.css`, and fonts in `/assets/fonts/`. Their names change with their content, so code-only updates reuse the story download. `--no-minify` keeps an unsplit game for debugging. |
+| `scripts/split-content.mjs` | Uses the pinned Acorn parser to extract literal text from story and region catalogs. Predicate functions keep their original lexical scope; no `eval()` or source-regex rewriting is used. |
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `functions/` | The referee: one Cloud Function (`referee`, in `europe-west1`) that rolls battles on the server, keeps each army's readiness and seals every victory (see Fair play). |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
@@ -278,7 +279,10 @@ the preview on wide screens, and in a bar at the foot of the screen on phones, w
 gives way to the form. `build.py` writes the page's heading, lede and features (read from the game's
 `HOME_LEDE`, `HOME_FEATS` and `HOME_FREE`) into the page itself, so a newcomer sees them while the
 game's script downloads; a returning player (a nation saved in the browser, which `src/stub.js`
-checks) sees the plain loading screen instead.
+checks) gets a loading screen only if startup lasts more than 350 milliseconds. The saved theme is
+applied in the page head, preventing a light/dark flash. Content and code are preloaded ahead of
+the Firebase SDK; slow or failed downloads retain visible feedback. `npm run test:startup` checks
+the real browser cache across a simulated code update, saved themes, phones and failure handling.
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers

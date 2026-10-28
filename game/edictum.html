@@ -35315,7 +35315,7 @@ function settingsView(){
 }
 function settingsDirty(){const st=S.settings;if(!st||!S.nation)return false;const a=settingsFrom(S.nation);return Object.keys(a).some(k=>JSON.stringify(a[k])!==JSON.stringify(st[k]));}
 function markDirty(){const d=settingsDirty(),el=document.getElementById('s-dirty');if(el)el.textContent=d?'You have unsaved changes.':'';const b=document.querySelector('.save-bar');if(b)b.classList.toggle('is-dirty',d);}
-const HOST_THEME=document.documentElement.getAttribute('data-theme');
+const HOST_THEME=window.__edictum&&'hostTheme' in window.__edictum?window.__edictum.hostTheme:document.documentElement.getAttribute('data-theme');
 function themePref(){try{const t=localStorage.getItem('statehood.theme');return t==='light'||t==='dark'?t:'auto';}catch(e){return 'auto';}}
 function applyTheme(t){const r=document.documentElement;if(t==='light'||t==='dark')r.setAttribute('data-theme',t);else if(HOST_THEME)r.setAttribute('data-theme',HOST_THEME);else r.removeAttribute('data-theme');}
 function setTheme(t){try{if(t==='auto')localStorage.removeItem('statehood.theme');else localStorage.setItem('statehood.theme',t);}catch(e){}applyTheme(t);render();}
@@ -36946,6 +36946,7 @@ function start(data){
     if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h))S.view=h;
   }
   render();
+  if(window.__edictum&&typeof window.__edictum.painted==='function')window.__edictum.painted();
   connect();
   setInterval(tick,10000);
   window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});

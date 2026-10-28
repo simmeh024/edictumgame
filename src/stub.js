@@ -12,7 +12,20 @@
     resolveApi(api || null);
     return true;
   }
-  window.__edictum = { settle: settle, ready: ready, started: false };
+  var root = document.documentElement, hostTheme = root.getAttribute('data-theme');
+  // Paint the saved theme before the stylesheet/game arrives, rather than flashing the system theme.
+  try { var theme = localStorage.getItem('statehood.theme'); if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme); } catch (e) {}
+  root.classList.add('ed-boot-pending');
+  var bootTimer = setTimeout(function () { root.classList.remove('ed-boot-pending'); }, 350);
+  function painted() { clearTimeout(bootTimer); root.classList.remove('ed-boot-pending'); }
+  var bootFailed = false;
+  function bootError() {
+    if (bootFailed) return;
+    bootFailed = true;
+    painted();
+    document.querySelectorAll('.boot-load').forEach(function (p) { p.textContent = 'The game files could not be downloaded. Reload the page to try again.'; p.setAttribute('role', 'alert'); });
+  }
+  window.__edictum = { settle: settle, ready: ready, started: false, hostTheme: hostTheme, painted: painted, bootError: bootError };
   window.claude = Object.freeze({
     use: function (name) {
       return ready.then(function (api) {
