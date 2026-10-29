@@ -98,9 +98,12 @@
     var d = isObj(data) ? data : {};
     /* headline numbers beside the record, which the rules bound (growth since the last save, army and land for
        the population) and every player's game holds the record to: population, army strength, land claimed */
-    return { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: num(d.updatedAt), ts: serverTime(),
+    var out = { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: num(d.updatedAt), ts: serverTime(),
       pop: Math.round(Math.min(1e7, Math.max(0, num(d.pop))) * 1e4) / 1e4, army: Math.round(Math.max(0, num(d.apw)) * 1e3) / 1e3,
       cl: Array.isArray(d.claims) ? d.claims.length : 0 };
+    // Once expanded storage is used, older clients must not save their 400-unit interpretation over it.
+    if (d.whv === 1) out.storageV = 1;
+    return out;
   }
   function revision(d) { return d && Number.isSafeInteger(d._rev) && d._rev >= 0 ? d._rev : 0; }
   /* the part of a nation every region needs for Moon, Mars and the belt; null without any */
@@ -115,7 +118,7 @@
      reads at every save. The passport's design stays shared: visitors collect its entry stamp. */
   var NX_KEYS = {}, NX_PP = { v: 1, p: 1, l: 1 };
   ['mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
-    'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
+    'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
   function splitNation(d) {
@@ -145,6 +148,7 @@
       if (isObj(nd) && typeof d.j === 'string') Object.assign(nd, { _ts: millis(d.ts), _pop: typeof d.pop === 'number' ? d.pop : undefined,
         _army: typeof d.army === 'number' ? d.army : undefined, _cl: typeof d.cl === 'number' ? d.cl : undefined,
         _rev: Number.isSafeInteger(d.rev) && d.rev >= 0 ? d.rev : 0, _dirty: false });
+      if (isObj(nd) && d.storageV === 1) nd.whv = 1;
       return nd;
     }
     if (col === 'nationx') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
@@ -194,6 +198,8 @@
       if ((saved ? num(saved.rev) : 0) !== expected || (!saved && expected !== 0)) {
         var conflict = new Error('Another device saved this nation.'); conflict.code = 'save_conflict'; throw conflict;
       }
+      // Supported clients preserve the guard even when restoring a backup from before warehouses.
+      if (saved && saved.storageV === 1) enc.storageV = 1;
       var privateRef = A.fs.doc('nationx/' + uid), privateSnap = await b.get(privateRef);
       var spaceRef = A.fs.doc('space/' + uid), spaceSnap = await b.get(spaceRef), space = spaceSnap.exists ? spaceSnap.data() : null;
       b.set(A.fs.doc('nations/' + uid), enc);
