@@ -50,12 +50,66 @@ jobs:
       - name: Admin operations and region controls
         run: npm run test:admin
 
-  # the whole game in a browser against the Auth, Firestore, Functions and Hosting emulators (test/e2e.mjs,
-  # test/smoke.mjs); a failing run keeps its screenshots as an artifact
-  e2e:
-    name: Test the game end to end
+  # Each suite gets a separate runner, build, browser and emulator database. Suites reset their data,
+  # so running them concurrently against one shared emulator would erase each other's fixtures.
+  browser:
+    name: Browser · ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            name: Core game
+            script: test:e2e
+            functions: true
+            fx: false
+          - suite: admin
+            name: Admin and region access
+            script: test:admin-e2e
+            functions: true
+            fx: false
+          - suite: smoke
+            name: Desktop and mobile pages
+            script: test:smoke
+            functions: true
+            fx: false
+          - suite: sync
+            name: Saving and reconnecting
+            script: test:sync
+            functions: false
+            fx: false
+          - suite: startup
+            name: Startup and cached updates
+            script: test:startup
+            functions: false
+            fx: false
+          - suite: edict-inbox
+            name: Edict inbox and follow-ups
+            script: test:edict-inbox
+            functions: false
+            fx: false
+          - suite: unlock-links
+            name: Achievement and museum links
+            script: test:unlock-links
+            functions: false
+            fx: false
+          - suite: map-development
+            name: City production and map development
+            script: test:map-development
+            functions: false
+            fx: false
+          - suite: fx
+            name: Foreign Exchange Bureau
+            script: test:fx-e2e
+            functions: false
+            fx: true
+          - suite: currency-gameplay
+            name: Currency trade and counterfeiting
+            script: test:currency-gameplay
+            functions: false
+            fx: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -65,44 +119,50 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             functions/package-lock.json
+            jobs/fx/package-lock.json
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
       - run: npm ci
-      - run: npm ci --prefix functions
+      - name: Install the referee's packages
+        if: matrix.functions
+        run: npm ci --prefix functions
+      - name: Install the currency job's packages
+        if: matrix.fx
+        run: npm ci --prefix jobs/fx
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
-      - name: End-to-end tests
-        run: npm run test:e2e
-      - name: Admin console and maintenance access
-        run: npm run test:admin-e2e
-      - name: Smoke tests
-        run: npm run test:smoke
-      - name: Saving across devices and reconnecting
-        run: npm run test:sync
-      - name: Startup, cached updates and saved themes
-        run: npm run test:startup
-      - name: Edict topics, synced inbox states and follow-up recaps
-        run: npm run test:edict-inbox
-      - name: Achievement and museum unlock notification links
-        run: npm run test:unlock-links
-      - name: City production areas, transport networks and island expansion
-        run: npm run test:map-development
-      - name: Install the currency job's packages
-        run: npm ci --prefix jobs/fx
-      - name: The currency and the Foreign Exchange Bureau in the game
-        run: npm run test:fx-e2e
-      - name: Currency trade, policy signals and counterfeiting
-        run: npm run test:currency-gameplay
+      - name: Run ${{ matrix.name }}
+        env:
+          TEST_SCRIPT: ${{ matrix.script }}
+        run: npm run "$TEST_SCRIPT"
       - name: Keep the screenshots of a failed run
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-screenshots
+          name: browser-${{ matrix.suite }}-screenshots
           path: test/out/*.png
           if-no-files-found: ignore
           retention-days: 7
+
+  # Preserve the existing required check name. A failed, cancelled or skipped suite must fail this
+  # gate instead of making a skipped dependency look green to branch protection.
+  e2e:
+    name: Test the game end to end
+    needs: browser
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every browser suite to pass
+        env:
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          if [ "$BROWSER_RESULT" != "success" ]; then
+            echo "::error::Browser suites did not all pass ($BROWSER_RESULT)."
+            exit 1
+          fi
 
   preview:
     name: Deploy a preview channel
