@@ -185,6 +185,15 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .vh p{color:var(--ink-2);max-width:64ch}
 
 /* issues */
+.edict-tools{margin:0 0 20px;padding:16px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:4px}
+.edict-filter-top{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.edict-filter-top label{display:grid;gap:5px;flex:1;min-width:180px;font-size:12px;font-weight:650;color:var(--ink-2)}.edict-filter-top select{width:100%;min-height:44px}.edict-filter-top .btn{min-height:44px}
+.edict-filters{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}.edict-filters .chip-btn{min-height:40px}.edict-filters [aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}.edict-filters span{margin-left:4px;font-variant-numeric:tabular-nums}
+.edict-filter-count{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px;color:var(--ink-2)}
+.issue-item{position:relative;list-style:none}.issue-item .issue-card{padding-right:68px}.issue-item.is-unread .issue-card{border-left:3px solid var(--accent)}.issue-item.is-pinned .issue-card{box-shadow:inset 0 2px var(--stamp)}
+.edict-tags{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin-bottom:4px}.edict-topic{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;color:var(--ink-2);overflow-wrap:anywhere}.edict-topic .hm-ic{width:16px;height:16px;margin:0}.edict-state,.edict-pinned,.edict-followup{font:500 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--sheet-2);color:var(--ink-2)}.is-unread .edict-state{color:var(--accent);background:var(--accent-soft)}.edict-pinned{color:var(--stamp);background:var(--stamp-soft)}
+.edict-pin{position:absolute;right:10px;top:12px;width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);color:var(--ink-2);cursor:pointer}.edict-pin[aria-pressed="true"]{color:var(--stamp);border-color:var(--stamp);background:var(--stamp-soft)}.edict-pin:hover{border-color:var(--accent)}.edict-pin .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.issue-recap{display:grid;gap:5px;margin-top:8px;padding:10px 12px;border-left:2px solid var(--accent);background:var(--accent-soft);color:var(--ink);font-size:13px;line-height:1.6;overflow-wrap:anywhere}.issue-recap-from{font-weight:650;font-size:12px}.edict>.issue-recap{margin:12px 0 24px}.edict-reading-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0}.edict-pin-detail{display:inline-flex;align-items:center;gap:6px;min-height:44px}
+@media(max-width:520px){.edict-tools{padding:12px}.edict-filter-top label{min-width:0;width:100%;flex-basis:100%}.edict-filter-top .btn{width:100%}.edict-filters .chip-btn{min-height:44px;flex:1 0 calc(50% - 7px)}.issue-item .issue-card{padding:16px 58px 16px 16px}.edict-pin{right:8px;top:12px}.edict-topic{font-size:11.5px}.edict-filter-count{align-items:start}}
 .issue-list{list-style:none;padding:0;margin:0;display:grid;gap:12px}
 .issue-card{display:flex;flex-direction:column;gap:6px;width:100%;padding:18px 20px;text-align:left;cursor:pointer;background:var(--sheet);border:1px solid var(--rule);border-radius:4px}
 .issue-card:hover{border-color:var(--accent)}
@@ -1407,6 +1416,7 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 :root[data-density="compact"] .tbl td{padding-top:6px;padding-bottom:6px}
 :root[data-density="compact"] .tbl th{padding-top:9px;padding-bottom:9px}
 :root[data-density="compact"] .issue-card{padding:12px 16px}
+:root[data-density="compact"] .issue-item .issue-card{padding-right:68px}
 :root[data-density="compact"] .opt{padding:13px 0}
 :root[data-density="compact"] .deltas li{padding:6px 0}
 :root[data-density="compact"] .paper{padding:clamp(16px,3vw,28px)}
@@ -17004,7 +17014,7 @@ function nextEntry(m){
   for(const c of due){
     m.chain=m.chain.filter(x=>x!==c);
     const is=ISSUE_BY_ID[c.id];if(!is||m.inbox.some(x=>x.id===c.id)||!safeReq(is,m))continue;
-    const e={id:c.id,at,ch:1};if(c.nb){e.nb=c.nb;e.nbn=c.nbn||'';}if(c.si!=null)e.si=c.si;return e;
+    const e={id:c.id,at,ch:1};if(c.nb){e.nb=c.nb;e.nbn=c.nbn||'';}if(c.si!=null)e.si=c.si;const prior=edictPriorNorm(c.prior);if(prior)e.prior=prior;return e;
   }
   const id=pickIssue(m),e={id,at},is=ISSUE_BY_ID[id];
   if(is&&is.mx){const id=m.mig&&(is.mx==='in'?m.mig.src:m.mig.dst),x=id&&findNation(id);if(x){e.nb=id;e.nbn=x.n.name;}}
@@ -17055,7 +17065,7 @@ function borderHex(T,from,to,salt){
 }
 
 /* the parts of an answer that reach beyond the nation's own stats */
-function geoAfter(n,opt,ent,now){
+function geoAfter(n,opt,ent,now,prior){
   const e=opt.e||{},notes=[],nb=ent&&ent.nb,nx=nb?findNation(nb):null,nbName=nx?nx.n.name:(ent&&ent.nbn)||'the neighbours',npc=!!(nx&&nx.npc);
   const T=territory(),i=T.byId[myId()];
   if(e.rec&&i!==undefined){
@@ -17077,7 +17087,7 @@ function geoAfter(n,opt,ent,now){
     else{addBonusCredits(n,1);notes.push(['Arbitration',`The Meridian Court of Arbitration left ${nbName}’s land alone and awarded ${n.name} a land credit instead.`]);}
   }
   if(opt.nx&&ISSUE_BY_ID[opt.nx]){
-    n.chain=(n.chain||[]).filter(c=>c.id!==opt.nx);const h=opt.nxh||4,c={id:opt.nx,at:now+h*3600e3};if(nb){c.nb=nb;c.nbn=nbName;}if(ent&&ent.si!=null)c.si=ent.si;n.chain.push(c);
+    n.chain=(n.chain||[]).filter(c=>c.id!==opt.nx);const h=opt.nxh||4,c={id:opt.nx,at:now+h*3600e3};if(nb){c.nb=nb;c.nbn=nbName;}if(ent&&ent.si!=null)c.si=ent.si;const prev=edictPriorNorm(prior);if(prev)c.prior=prev;n.chain.push(c);
     notes.push(['To be continued','This story is not over. Expect developments in '+(h<=1?'about an hour':'about '+h+' hours')+'.']);
   }
   if(opt.nr&&nb&&nx&&!npc&&ISSUE_BY_ID[opt.nr]){
@@ -17094,8 +17104,8 @@ function normalizeGeo(d){
   const n=normalizeBase(d);if(!n)return n;
   const now=Date.now(),num=(v,f)=>typeof v==='number'&&isFinite(v)?v:f,str=(v,m)=>typeof v==='string'?v.slice(0,m):'',idOk=v=>typeof v==='string'&&v.length>0&&v.length<=60;
   const sameMap=d.cv===undefined||d.cv===MAP_VER,cellOk=c=>Number.isInteger(c)&&c>=0&&c<MAP.N;
-  n.inbox=Array.isArray(d.inbox)?d.inbox.filter(x=>x&&ISSUE_BY_ID[x.id]).slice(0,CAP).map(x=>{const o={id:x.id,at:num(x.at,now)};if(idOk(x.nb)){o.nb=x.nb;o.nbn=str(x.nbn,40);}if(x.ch)o.ch=1;if(typeof x.sh==='string'&&x.sh.length<=80)o.sh=x.sh;return o;}):[];
-  n.chain=Array.isArray(d.chain)?d.chain.filter(c=>c&&ISSUE_BY_ID[c.id]).slice(-12).map(c=>{const o={id:c.id,at:num(c.at,now)};if(idOk(c.nb)){o.nb=c.nb;o.nbn=str(c.nbn,40);}return o;}):[];
+  n.inbox=Array.isArray(d.inbox)?d.inbox.filter(x=>x&&ISSUE_BY_ID[x.id]).slice(0,CAP).map(x=>{const o={id:x.id,at:num(x.at,now)};if(idOk(x.nb)){o.nb=x.nb;o.nbn=str(x.nbn,40);}if(x.read===1)o.read=1;if(x.pin===1)o.pin=1;if(x.ch){o.ch=1;const prior=edictPriorNorm(x.prior);if(prior)o.prior=prior;}if(typeof x.sh==='string'&&x.sh.length<=80)o.sh=x.sh;return o;}):[];
+  n.chain=Array.isArray(d.chain)?d.chain.filter(c=>c&&ISSUE_BY_ID[c.id]).slice(-12).map(c=>{const o={id:c.id,at:num(c.at,now)};if(idOk(c.nb)){o.nb=c.nb;o.nbn=str(c.nbn,40);}const prior=edictPriorNorm(c.prior);if(prior)o.prior=prior;return o;}):[];
   const g=d.geo;
   if(g&&typeof g==='object'&&Array.isArray(g.b)&&Array.isArray(g.nb))n.geo={h:clamp(Math.round(num(g.h,0)),0,MAP.N),b:BIOME_KEY.slice(1).map((k,j)=>clamp(Math.round(num(g.b[j],0)),0,MAP.N)),co:clamp(Math.round(num(g.co,0)),0,MAP.N),is:g.is?1:0,nb:g.nb.filter(idOk).slice(0,6)};
   n.gw={};if(d.gw&&typeof d.gw==='object')for(const k of Object.keys(d.gw).slice(0,40))if(idOk(k))n.gw[k]=clamp(Math.round(num(d.gw[k],0)),-GW_MAX,GW_MAX);
@@ -33675,7 +33685,7 @@ function foundLocHTML(){
 
 /* ───────── state & storage ───────── */
 const LS_KEY='statehood.nation.v1';
-const S={statsTab:'overview',statsFor:null,statsKeep:false,loreEdit:false,loreDraft:null,notifOpen:false,notifPrev:0,msgPeer:null,msgDraft:'',msgErr:'',mapClaim:null,cabPick:null,cabMsg:'',gamesMsg:'',cityMsg:'',cityOpen:null,cityName:'',citySite:null,confirmDemo:null,mapCell:null,nation:null,view:'nation',openIssue:null,result:null,visit:null,censusKey:'happy',draft:null,settings:null,confirmDissolve:false,rmbDraft:'',foundErr:'',
+const S={edictTopic:'all',edictState:'all',statsTab:'overview',statsFor:null,statsKeep:false,loreEdit:false,loreDraft:null,notifOpen:false,notifPrev:0,msgPeer:null,msgDraft:'',msgErr:'',mapClaim:null,cabPick:null,cabMsg:'',gamesMsg:'',cityMsg:'',cityOpen:null,cityName:'',citySite:null,confirmDemo:null,mapCell:null,nation:null,view:'nation',openIssue:null,result:null,visit:null,censusKey:'happy',draft:null,settings:null,confirmDissolve:false,rmbDraft:'',foundErr:'',
   db:null,uid:null,isOwner:false,mode:'local',world:{},rmb:{},lastCount:-1,mapViews:{},mapSel:null,mapPick:null,mapMsg:'',mapTarget:null,confirmWar:null,warMsg:'',spyTarget:null,spyShow:null,spyRolling:false,alName:'',alMsg:'',confirmLeave:false,tradeMsg:'',trade:{w:'',gr:'food',ga:'5',rr:'iron',ra:'4'}};
 
 function newDraft(){
@@ -34947,17 +34957,64 @@ function chamberOf(n){
     decree:sits('By resolution of','the Borough Council',nm=>`By resolution of the Borough Council of ${nm}`),owner:nm=>`the Borough of ${nm}`});
   return C({});
 }
+/* Each inbox occurrence owns its read/pin flags. Follow-ups carry a snapshot of the actual earlier
+   ruling, so recaps survive the rolling decision history without inventing a past outcome. */
+function edictPriorNorm(p){
+  if(!p||typeof p!=='object'||!ISSUE_BY_ID[p.id]||!Number.isFinite(p.t)||p.t<=0||typeof p.fx!=='string')return null;
+  const clean=(v,max)=>typeof v==='string'?v.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,max):'',fx=clean(p.fx,600);
+  if(!fx)return null;return {id:p.id,t:p.t,title:clean(p.title,180),fx};
+}
+function edictPrior(n,x){
+  if(!x.ch)return null;const saved=edictPriorNorm(x.prior);if(saved)return saved;
+  const a=(n.answered||[]).filter(a=>a.o>=0&&a.t<=x.at&&a.fx&&ISSUE_BY_ID[a.id]?.o[a.o]?.nx===x.id).sort((a,b)=>b.t-a.t)[0];
+  return a?edictPriorNorm({id:a.id,t:a.t,title:fill(ISSUE_BY_ID[a.id].t,n,x),fx:a.fx}):null;
+}
+const EDICT_ICONS={econ:'eco',society:'soc',rights:'law',gov:'gov',welfare:'soc',nature:'land',tech:'bld',culture:'mus',world:'dip',weird:'odd'};
+function edictTopic(is){return ISSUE_TOPICS.find(t=>t[0]===is.c)||['other','Other matters'];}
+function edictTopicBadge(is){const [key,label]=edictTopic(is);return `<span class="edict-topic"><span class="hm-ic ai-${EDICT_ICONS[key]||'law'}" aria-hidden="true"></span>${esc(label)}</span>`;}
+function edictVisible(entries,topic,state){
+  return entries.filter(x=>(topic==='all'||edictTopic(ISSUE_BY_ID[x.id])[0]===topic)&&(state==='all'||state==='unread'&&!x.read||state==='opened'&&!!x.read||state==='pinned'&&!!x.pin)).slice().sort((a,b)=>(Number(!!b.pin)-Number(!!a.pin))||a.at-b.at);
+}
+function edictRecap(n,x,full=false){
+  if(!x.ch)return '';const p=edictPrior(n,x);
+  if(!p)return '<span class="issue-recap"><span class="lbl">Follow-up</span><span>This continues an earlier decision. Its original ruling is no longer in the recent record.</span></span>';
+  const fx=!full&&p.fx.length>240?p.fx.slice(0,237).trimEnd()+'…':p.fx;
+  return `<span class="issue-recap" role="note"><span class="issue-recap-from">${p.title?'Follow-up to “'+esc(p.title)+'”':'Earlier decision'}</span><span>Earlier ruling: ${esc(cap1(fx))}${/[.!?…]$/.test(fx)?'':'.'}</span></span>`;
+}
+function edictPinButton(x,n,detail=false){
+  const label=(x.pin?'Unpin ':'Pin ')+fill(ISSUE_BY_ID[x.id].t,n,x);
+  return `<button type="button" class="${detail?'btn ghost small-btn edict-pin-detail':'edict-pin'}" data-act="edict-pin" data-id="${esc(x.id)}" data-at="${x.at}" aria-label="${esc(label)}" aria-pressed="${!!x.pin}" title="${x.pin?'Unpin':'Pin for later'}"><svg viewBox="0 0 24 24" width="20" height="20" fill="${x.pin?'currentColor':'none'}" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="m8 3 8 0-1 6 4 4v2h-6v6l-1 2-1-2v-6H5v-2l4-4z"/></svg>${detail?(x.pin?'Pinned · unpin':'Pin for later'):'<span class="sr-only">'+(x.pin?'Pinned':'Pin for later')+'</span>'}</button>`;
+}
+function edictChange(id,at,kind){
+  if(!S.nation)return false;
+  const n=clone(syncInbox(S.nation,Date.now())),x=n.inbox.find(x=>x.id===id&&(at==null||at===''||String(x.at)===String(at)));
+  if(!x)return false;
+  if(kind==='read'){if(x.read)return true;x.read=1;}else if(kind==='pin'){if(x.pin)delete x.pin;else x.pin=1;}else return false;
+  commit(n);saveSoon();return true;
+}
+function edictOpen(id,at){
+  if(!edictChange(id,at,'read')){render();return;}
+  S.view='issues';S.openIssue=id;S.result=null;render();window.scrollTo(0,0);
+  const h=document.querySelector('.edict .h1');if(h){h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}
+}
+function edictPin(id,at){
+  if(!edictChange(id,at,'pin')){render();return;}render();
+  const b=[...document.querySelectorAll('[data-act="edict-pin"]')].find(b=>b.dataset.id===id&&b.dataset.at===String(at));
+  (b||document.querySelector('[data-act="edict-filter"][aria-pressed="true"]'))?.focus({preventScroll:true});
+}
 function issuesView(v,now){
   const n=S.nation,f=n.freq*60000,full=v.inbox.length>=CAP;
-  const freqL=freqLabel(n.freq).toLowerCase();
-  const made=decisions(n);
+  const freqL=freqLabel(n.freq).toLowerCase(),made=decisions(n),topic=S.edictTopic||'all',state=S.edictState||'all';
   const next=full?'':awayOn(n,now)?`Holiday mode: no new edicts until ${esc(awayWhen(n.away.b))}.`:`The next edict arrives in <b data-live="next">${fmtDur(awayAdd(v,v.issueClock,f)-now)}</b>.`;
-  return `<header class="vh"><p class="eyebrow">${esc(chamberOf(n).house)} of ${esc(n.name)}</p><h1>Edicts</h1>
-    <p>${full?'Your desk is full. Vote on or veto an edict to receive new ones.':next} New edicts arrive ${freqL}, and up to ${CAP} can wait on your desk. You can change the pace in Settings.</p></header>
-  <div class="issue-meta"><span>${made} decision${made===1?'':'s'} made</span><span>${v.inbox.length} of ${CAP} on your desk</span></div>
-  ${v.inbox.length?`<ul class="issue-list">${v.inbox.map(x=>{const is=ISSUE_BY_ID[x.id];return `<li><button class="issue-card" data-act="open" data-id="${x.id}"><span class="form-code">Edictum ${roman(is.no)} · arrived ${rel(x.at)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</span><span class="issue-title">${esc(fill(is.t,n,x))}</span><span class="issue-lede">${esc(firstSentence(fill(is.q,n,x)))}</span><span class="issue-go">Read the edict →</span></button></li>`;}).join('')}</ul>`
-  :`<div class="empty"><p class="empty-h">Your desk is clear</p><p>Meanwhile, see how your nation compares with its neighbours.</p><div style="margin-top:14px"><button class="btn ghost" data-act="go" data-v="census">Open the Census</button></div></div>`}`;
+  const shown=edictVisible(v.inbox,topic,state),unread=shown.find(x=>!x.read),count=k=>v.inbox.filter(x=>k==='all'||k==='unread'&&!x.read||k==='opened'&&x.read||k==='pinned'&&x.pin).length;
+  const tools=v.inbox.length?`<section class="edict-tools" aria-label="Filter waiting edicts"><div class="edict-filter-top"><label for="edict-topic">Topic<select class="input" id="edict-topic"><option value="all">All topics (${v.inbox.length})</option>${ISSUE_TOPICS.map(([k,label])=>`<option value="${k}"${topic===k?' selected':''}>${esc(label)} (${v.inbox.filter(x=>ISSUE_BY_ID[x.id].c===k).length})</option>`).join('')}</select></label>${unread?`<button class="btn" data-act="open" data-id="${esc(unread.id)}" data-at="${unread.at}">Open next unread</button>`:''}</div><div class="edict-filters" role="group" aria-label="Edict status">${[['all','All'],['unread','Unread'],['opened','Opened'],['pinned','Pinned']].map(([k,label])=>`<button type="button" class="chip-btn" data-act="edict-filter" data-v="${k}" aria-pressed="${state===k}">${label} <span>${count(k)}</span></button>`).join('')}</div><div class="edict-filter-count"><span role="status" aria-live="polite">Showing ${shown.length} of ${v.inbox.length} waiting edicts</span>${topic!=='all'||state!=='all'?'<button class="linkish small" data-act="edict-clear">Clear filters</button>':''}</div></section>`:'';
+  const cards=shown.map(x=>{const is=ISSUE_BY_ID[x.id];return `<li class="issue-item${x.read?' is-opened':' is-unread'}${x.pin?' is-pinned':''}"><button class="issue-card" data-act="open" data-id="${esc(x.id)}" data-at="${x.at}"><span class="edict-tags">${edictTopicBadge(is)}<span class="edict-state">${x.read?'Opened':'Unread'}</span>${x.pin?'<span class="edict-pinned">Pinned</span>':''}${x.ch?'<span class="edict-followup">Follow-up</span>':''}</span><span class="form-code">Edictum ${roman(is.no)} · arrived ${rel(x.at)}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</span><span class="issue-title">${esc(fill(is.t,n,x))}</span><span class="issue-lede">${esc(firstSentence(fill(is.q,n,x)))}</span>${edictRecap(n,x)}<span class="issue-go">${x.read?'Continue reading':'Read the edict'} →</span></button>${edictPinButton(x,n)}</li>`;}).join('');
+  return `<header class="vh"><p class="eyebrow">${esc(chamberOf(n).house)} of ${esc(n.name)}</p><h1>Edicts</h1><p>${full?'Your desk is full. Vote on or veto an edict to receive new ones.':next} New edicts arrive ${freqL}, and up to ${CAP} can wait on your desk. You can change the pace in Settings.</p></header>
+  <div class="issue-meta"><span>${made} decision${made===1?'':'s'} made</span><span>${v.inbox.length} of ${CAP} on your desk</span><span>${count('unread')} unread</span></div>${tools}
+  ${v.inbox.length?(shown.length?`<ul class="issue-list">${cards}</ul>`:'<div class="empty"><p class="empty-h">No edicts match these filters</p><p>Your other waiting edicts are still on your desk.</p><button class="btn ghost" data-act="edict-clear">Show all edicts</button></div>'):`<div class="empty"><p class="empty-h">Your desk is clear</p><p>Meanwhile, see how your nation compares with its neighbours.</p><div class="empty-act"><button class="btn ghost" data-act="go" data-v="census">Open the Census</button></div></div>`}`;
 }
+document.addEventListener('change',e=>{if(e.target.id==='edict-topic'){S.edictTopic=e.target.value;render();document.getElementById('edict-topic')?.focus({preventScroll:true});}});
+
 function issueView(v){
   const id=S.openIssue,n=S.nation;
   if(!v.inbox.some(x=>x.id===id)){S.openIssue=null;return issuesView(v,Date.now());}
@@ -34965,7 +35022,9 @@ function issueView(v){
   return `<button class="back" data-act="close-issue">← All edicts</button>
   <article class="paper edict">
     <p class="form-code">Edictum ${roman(is.no)} · ${esc(chamberOf(n).house)} of ${esc(n.name)} · ${annoOf(n)}${x.ch?' · Follow-up':''}${x.sh?' · Raised by '+esc(nbFill('NB',x)):''}${cvIssueTag(x)}</p>
+    <div class="edict-reading-tools">${edictTopicBadge(is)}${edictPinButton(x,n,true)}</div>
     <h1 class="h1">${esc(fill(is.t,n,x))}</h1>
+    ${edictRecap(n,x,true)}
     <h2 class="lbl-h">${esc(chamberOf(n).matter)}</h2>
     <p class="issue-q">${esc(fill(is.q,n,x))}</p>
     ${LAUREL}
@@ -35389,9 +35448,9 @@ function answer(id,o){
   const wasFull=n.inbox.length>=CAP;
   n.pop=popNow(n,now);n.popAt=now;
   const before={...n.s},budBefore=budgetSorted(n),leaderBefore=n.leader,polBefore={...n.policies},preBefore=n.pretitle,catBefore=classify(n.s),cabBefore=clone(cabOf(n)),rulerBefore=n.ruler;
-  const fx=fill(opt.fx,n,ent);
+  const fx=fill(opt.fx,n,ent),prior={id,t:now,title:fill(is.t,n,ent),fx};
   applyEffects(n,opt.e);
-  const geoNotes=geoAfter(n,opt,ent,now);
+  const geoNotes=geoAfter(n,opt,ent,now,prior);
   const cabNotes=[];if(n.leader!==leaderBefore)cabNotes.push(`your head of government is now styled ${n.leader}`);if(n.ruler!==rulerBefore)cabNotes.push(`${n.leader} ${n.ruler} now leads ${n.name}`);
   const loy=[];for(const pf of PF_KEYS){const a=cabBefore[pf],b=cabOf(n)[pf];if(a&&b&&a.nm!==b.nm)cabNotes.push(`${b.nm} is the new ${PF[pf][2]}`);else if(a&&b&&Math.abs(a.lo-b.lo)>=1)loy.push([pf,a.lo,b.lo]);}
   if(loy.length>=3){const avg=Math.round(loy.reduce((t,[,x,y])=>t+y-x,0)/loy.length);cabNotes.push(`loyalty ${avg>0?'rose':'fell'} across the cabinet (${avg>0?'+':'−'}${Math.abs(avg)} on average)`);}
@@ -35467,7 +35526,10 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act;
   if(a==='go'){go(el.dataset.v);return;}
-  if(a==='open'){S.view='issues';S.openIssue=el.dataset.id;S.result=null;render();window.scrollTo(0,0);return;}
+  if(a==='open'){edictOpen(el.dataset.id,el.dataset.at);return;}
+  if(a==='edict-pin'){edictPin(el.dataset.id,el.dataset.at);return;}
+  if(a==='edict-filter'){S.edictState=el.dataset.v;render();document.querySelector(`[data-act="edict-filter"][data-v="${S.edictState}"]`)?.focus({preventScroll:true});return;}
+  if(a==='edict-clear'){S.edictTopic='all';S.edictState='all';render();document.getElementById('edict-topic')?.focus({preventScroll:true});return;}
   if(a==='close-issue'){S.openIssue=null;render();return;}
   if(a==='answer'){answer(el.dataset.id,+el.dataset.o);return;}
   if(a==='dismiss'){dismiss(el.dataset.id);return;}
