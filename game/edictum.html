@@ -37567,7 +37567,10 @@ function uxVisit(id){if(id===myId()){go('nation');return;}uxCapture();S.visit=id
 function uxJump(target){
   const el=typeof target==='string'?document.querySelector(target):target;if(!el)return false;let nativeChanged=false;
   for(let p=el;p&&p!==document.body;p=p.parentElement){if(p.tagName==='DETAILS'){p.open=true;UXP.data.folds[uxDetailKey(p)]=false;nativeChanged=true;}if(p.classList?.contains('ux-folded'))uxFold(p,false);}if(nativeChanged)uxPersist();
-  const offset=navNarrow()?145:75,y=el.getBoundingClientRect().top+window.scrollY-offset;window.scrollTo({top:Math.max(0,y),behavior:'instant'});
+  /* Entrance animations translate the column and its cards. Scroll to their layout position so
+     the target stays below the sticky navigation after those cosmetic translations finish. */
+  let top=0;for(let node=el;node;node=node.offsetParent)top+=node.offsetTop+(node.offsetParent?.clientTop||0);
+  const offset=navNarrow()?145:75,y=Number.isFinite(top)?top-offset:el.getBoundingClientRect().top+window.scrollY-offset;window.scrollTo({top:Math.max(0,y),behavior:'instant'});
   if(!/^(INPUT|SELECT|BUTTON|A)$/.test(el.tagName))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});return true;
 }
 const UX_SETTINGS=[
@@ -37765,7 +37768,7 @@ document.addEventListener('click',e=>{
   const button=e.target.closest&&e.target.closest('[data-act]');if(!button)return;
   if(button.dataset.act==='account-hint-hide'&&S.nation){const key=accountHintKey(S.nation);accountHintHidden.add(key);try{localStorage.setItem(key,'1');}catch(err){}render();}
   if(button.dataset.act==='account-compare'){
-    e.preventDefault();if(S.nation)uxOpen('help',null,'#help-account-types');
+    e.preventDefault();if(S.nation)uxOpen('help',null,'#hh-account-types');
     else{S.foundHelp=true;supReset();render();requestAnimationFrame(()=>{const section=document.getElementById('help-account-types');if(section){section.scrollIntoView({block:'start'});section.querySelector('h2').focus({preventScroll:true});}});}
   }
 });
