@@ -732,7 +732,7 @@
     if (a === 'recover') { ui.view = 'recover'; draw(); return; }
     if (a === 'recover-yes') { recoverNation(); return; }
     if (a === 'guest-session') { resumeGuest(); return; }
-    if (a === 'recovery-saved') { L.set('edictum.recovery.pending.' + A.uid, null); ui.view = 'main'; ui.dlg.close(); return; }
+    if (a === 'recovery-saved') { L.set('edictum.recovery.pending.' + A.uid, null); recoveryChecked = A.uid; ui.view = 'main'; ui.dlg.close(); return; }
     if (a === 'recovery-copy' || a === 'recovery-download') {
       var code = L.get('edictum.recovery.pending.' + A.uid); if (!code) return;
       if (a === 'recovery-copy') { navigator.clipboard.writeText(code).then(function(){setMsg('Copied. Store it somewhere private.');},function(){setMsg('Select and copy the code above.',true);}); }
@@ -776,7 +776,7 @@
       }
       if (pending) {
         await call('accounts', { op: 'issue', code: pending });
-        if (!ui.dlg || !ui.dlg.open) open('recovery-code');
+        if (A.uid === u.uid && L.get(key) === pending && !linkedUser(A.auth.currentUser) && !A.leaving && (!ui.dlg || !ui.dlg.open)) open('recovery-code');
       }
       recoveryChecked = u.uid;
     } catch(e) {

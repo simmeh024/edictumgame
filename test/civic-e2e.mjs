@@ -16,7 +16,19 @@ check('the one-time warning is explicit',/cannot be recovered or replaced/.test(
 await A.screenshot({path:path.join(OUT,'guest-recovery-code.png')});
 await A.reload();await ready(A);await A.waitForSelector('#ed-recovery-code',{timeout:20000});
 check('reload before acknowledgement retains the same code',await A.locator('#ed-recovery-code').textContent()===secret);
+let heldRecovery;
+await A.route('**/europe-west1/accounts',async route=>{
+ if(route.request().postDataJSON()?.data?.op==='status'&&!heldRecovery){const response=await route.fetch();heldRecovery={route,response};}
+ else await route.continue();
+});
+await A.evaluate(()=>{G.commit(G.clone(G.S.nation));G.PG.saveSoon();});
+if(!await until(()=>heldRecovery,15000))throw Error('Background recovery check did not start.');
 await A.click('[data-ed="recovery-saved"]');
+const issuedAgain=A.waitForResponse(r=>r.url().endsWith('/accounts')&&r.request().postDataJSON()?.data?.op==='issue');
+await heldRecovery.route.fulfill({response:heldRecovery.response});await issuedAgain;
+await A.waitForTimeout(150);
+check('acknowledgement wins over an in-flight background recovery check',!await A.isVisible('#ed-recovery-code'));
+await A.unroute('**/europe-west1/accounts');
 await openAccount(A);
 check('the account panel identifies a Guest Nation and shows its Player ID',/Guest Nation/.test(await text(A,'.ed-dlg'))&&/Player ID/.test(await text(A,'.ed-dlg'))&&await A.isVisible('[data-ed="delete"]'));
 await A.keyboard.press('Escape');
