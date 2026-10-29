@@ -899,6 +899,7 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .exp-odds-h{margin-top:18px}.exp-odds{margin-top:8px;grid-template-columns:1fr}.exp-odds li b{min-width:11.5em;font-family:var(--f-body)}
 /* round 3 (d): toasts let taps through; first steps; help; repeals; long text wraps */
 .toast{pointer-events:none;text-wrap:pretty;overflow-wrap:anywhere}
+.reward-links{display:flex;flex-direction:column;gap:4px;margin-top:8px}.reward-links a{display:block;padding:8px 0;min-height:44px;color:inherit;font-weight:650;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}.nts>li>.reward-links{margin:0;padding:0 16px 12px;font-size:13px}.toast:has(.reward-links){pointer-events:auto;max-height:min(55vh,440px);overflow:auto}.toast .reward-links{max-height:28vh;overflow:auto;overscroll-behavior:contain}.toast .reward-links a:focus-visible{outline:2px solid currentColor;outline-offset:-2px}.ach-card[id]{scroll-margin-block:90px}.ach-card:focus,.col-set:focus{outline:2px solid var(--accent);outline-offset:4px}
 .toast.more{box-shadow:var(--shadow),4px 4px 0 -1px var(--ink-3)}
 .stp{margin:0 0 22px;padding:18px 20px 14px;background:var(--sheet);border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:4px}
 .stp-h{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:flex-end;justify-content:space-between;margin-bottom:10px}
@@ -16510,6 +16511,46 @@ function messagesView(){
   </div>`;
 }
 
+/* Unlock notifications carry catalogue references, never saved HTML or arbitrary URLs. */
+function rewardRefs(kind,items){return items.map(x=>({kind,id:x.id}));}
+function rewardInfo(kind,id){
+  if(kind==='achievement'){const a=Object.hasOwn(ACH_BY_ID,id)&&ACH_BY_ID[id];return a?{kind,id,label:a.n,page:'achievements',href:'#achievements/'+id}:null;}
+  if(kind==='artefact'){const a=Object.hasOwn(COL_BY_ID,id)&&COL_BY_ID[id];return a?{kind,id,label:colName(a,S.nation||{}),page:'museum',href:'#museum/artefact/'+id}:null;}
+  if(kind==='set'){const a=Object.hasOwn(COL_SET_BY_ID,id)&&COL_SET_BY_ID[id];return a?{kind,id,label:a.n,page:'museum',href:'#museum/set/'+id}:null;}
+  return null;
+}
+function rewardLinksHTML(refs){
+  if(!Array.isArray(refs))return '';
+  const links=refs.map(r=>r&&rewardInfo(r.kind,r.id)).filter(Boolean);
+  return links.length?`<span class="reward-links" aria-label="View unlocks">${links.map(r=>`<a href="${esc(r.href)}" data-act="reward-open" data-kind="${r.kind}" data-id="${esc(r.id)}">View ${esc(r.label)} →</a>`).join('')}</span>`:'';
+}
+function rewardRoute(hash){
+  const m=/^#?(achievements)\/([a-z0-9-]+)$/.exec(hash);
+  if(m)return rewardInfo('achievement',m[2]);
+  const c=/^#?museum\/(artefact|set)\/([a-z0-9-]+)$/.exec(hash);
+  return c?rewardInfo(c[1],c[2]):null;
+}
+function rewardPrepare(r){
+  const n=S.nation;if(!r||!n)return false;
+  if(r.kind==='achievement'){
+    if(!n.ach?.[r.id])return false;
+    S.achFor=null;S.achCat=ACH_BY_ID[r.id].c;S.achF='earned';
+  }else{
+    if(r.kind==='artefact'?!colOwned(n)[r.id]:!n.colS?.[r.id]||!colSetDone(n,COL_SET_BY_ID[r.id]))return false;
+    S.museumFor=null;S.muHall='collection';S.muRen=false;
+    S.colF={own:'all',rar:'',set:r.kind==='set'?r.id:COL_BY_ID[r.id].set};S.colDetail=r.kind==='artefact'?r.id:null;
+  }
+  S.view=r.page;S.openIssue=null;S.result=null;S.notifOpen=false;return true;
+}
+function rewardFocus(r){
+  const el=r.kind==='achievement'?document.getElementById('ach-'+r.id):r.kind==='set'?document.getElementById('col-'+r.id):document.querySelector('.col-sheet .col-x');
+  if(el){if(r.kind!=='artefact')el.setAttribute('tabindex','-1');el.scrollIntoView({block:'center',behavior:'auto'});el.focus({preventScroll:true});}
+}
+function rewardOpen(kind,id,push=true){
+  const r=rewardInfo(kind,id);if(!rewardPrepare(r))return false;
+  S.rewardFocus=r;S.noPush=!push;go(r.page);history.replaceState(null,'',r.href);S.rewardHash=r.href;rewardFocus(r);return true;
+}
+
 /* ───────── notifications ───────── */
 function notifItems(now){
   const n=S.nation,me=myId(),pin=[],ev=[];if(!n)return {pin,ev};
@@ -16542,7 +16583,7 @@ function bellButton(now){const c=notifCount(now);return `<button class="bell${S.
 function notifPanel(now){
   if(!S.notifOpen)return '';
   const {pin,ev}=notifItems(now),prev=S.notifPrev||0;
-  const row=(x,pinned)=>`<li><button class="nt${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button></li>`;
+  const row=(x,pinned)=>`<li><button class="nt${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
   return `<div class="notif-pop" role="dialog" aria-label="Notifications"><div class="np-h"><b>Notifications</b><button class="linkish small" data-act="notif">Close</button></div>
     ${pin.length?`<ul class="nts">${pin.map(x=>row(x,true)).join('')}</ul>`:''}
     ${ev.length?`<ul class="nts">${ev.map(x=>row(x,false)).join('')}</ul>`:(pin.length?'':'<p class="hint np-empty">Nothing yet. Wars, trade, messages, milestones and finished buildings will appear here.</p>')}
@@ -18536,11 +18577,11 @@ const TOASTQ={q:[],cur:null,t:null};
 function toastEl(){let el=document.getElementById('toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';el.setAttribute('role','status');el.setAttribute('aria-live','polite');el.hidden=true;document.body.appendChild(el);}return el;}
 function toastNext(){
   clearTimeout(TOASTQ.t);const el=toastEl(),now=Date.now(),c=TOASTQ.cur;
-  if(c){const end=c.at+(TOASTQ.q.length?c.min:c.full);if(now<end){TOASTQ.t=setTimeout(toastNext,end-now);return;}TOASTQ.cur=null;}
+  if(c){if(el.matches(':hover,:focus-within')){TOASTQ.t=setTimeout(toastNext,250);return;}const end=c.at+(TOASTQ.q.length?c.min:c.full);if(now<end){TOASTQ.t=setTimeout(toastNext,end-now);return;}TOASTQ.cur=null;}
   if(!TOASTQ.q.length){el.hidden=true;el.classList.remove('more');return;}
-  const m=TOASTQ.q.shift(),w=m.split(/\s+/).length;
-  TOASTQ.cur={m,at:now,min:clamp(1200+w*300,2500,8000),full:clamp(2000+w*330,4000,12000)};
-  el.textContent=m;el.classList.toggle('more',TOASTQ.q.length>0);el.hidden=false;
+  const item=TOASTQ.q.shift(),m=item.m,w=m.split(/\s+/).length;
+  TOASTQ.cur={m,links:item.links,at:now,min:clamp(1200+w*300,2500,8000),full:clamp(2000+w*330,4000,12000)};
+  el.innerHTML='<span>'+esc(m)+'</span>'+rewardLinksHTML(item.links);el.classList.toggle('more',TOASTQ.q.length>0);el.hidden=false;
   TOASTQ.t=setTimeout(toastNext,TOASTQ.q.length?TOASTQ.cur.min:TOASTQ.cur.full);
 }
 
@@ -18710,8 +18751,8 @@ NORM_HOOKS.push((n,d)=>{
 });
 
 /* ───────── hooks for the museum, achievements and customisation ───────── */
-/* COMMIT_HOOKS: (n, old, now) => [toast text]   run in commit() after the tally, before saving
-   NOTIF_SOURCES: (n, now) => [{t,k,kl,txt,go}]   extra bell entries (kl: label when k is not in NOTIF_K)
+/* COMMIT_HOOKS: (n, old, now) => [toast text or {m,links}]   run after the tally, before saving
+   NOTIF_SOURCES: (n, now) => [{t,k,kl,txt,go,links?}]   extra bell entries (kl: label when k is not in NOTIF_K)
    HAP_SOURCES: (x, now) => [{t,txt}]             extra Region happenings for a player nation x (txt is HTML)
    NATION_SECTIONS / VISIT_SECTIONS: (x, now) => HTML, on your own Nation page / on another nation's page
    VIEWS_EXT: {view: now => HTML}                 pages of their own (museum, achievements, customise) */
@@ -19188,14 +19229,14 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const out=[],k=fresh.length,newNation=now-(n.founded||0)<120000;
   if(back&&!newNation){
     out.push(`The Museum of Progress has opened its doors. Its curators combed the records of ${n.name} and put ${k===1?'one artefact':k+' artefacts'} on display${done.length?`, completing ${done.length===1?'a set':done.length+' sets'}`:''}. Visit it from the Museum page.`);
-    return out;
+    return out.map(m=>({m,links:rewardRefs('artefact',fresh).concat(rewardRefs('set',done))}));
   }
   if(k){const best=fresh.slice().sort((a,b)=>COL_RAR[b.r][1]-COL_RAR[a.r][1]);
     if(k===1)out.push(`New in the Museum of Progress: ${colIn(fresh[0],n)} (${COL_SET_BY_ID[fresh[0].set].n}).${fresh[0].r==='l'?' A legendary find.':''}`);
     else{const nm=best.slice(0,3).map(a=>colIn(a,n));out.push(`${k} new artefacts for the Museum of Progress: ${k<=3?list(nm):nm.join(', ')+' and '+(k-3)+' more'}.`);}}
   if(done.length){const ttl=COL_TITLES.filter(([,need])=>had<need&&had+done.length>=need).map(([t])=>UNLOCKS[t]?UNLOCKS[t].n:t);
     out.push(`${done.length===1?'Set complete':'Sets complete'}: ${list(done.map(s=>s.n))}. ${done.length===1?'Reward':'Rewards'}: ${list(done.map(colRewardWords))}.${ttl.length?` With ${had+done.length} sets complete, you may now style the nation ‘${ttl[ttl.length-1]}’.`:''}`);}
-  return out;
+  return out.map(m=>({m,links:rewardRefs('artefact',fresh).concat(rewardRefs('set',done))}));
 });
 /* a nation from before the museum opened gets its collection the first time it is shown */
 let colBackQ=0;
@@ -19223,11 +19264,11 @@ NOTIF_SOURCES.push((n,now)=>{
   if(!n||!n.coll)return [];
   const out=[],since=now-14*DAY;
   for(const [t,a] of colRecent(n,since)){
-    if(n.colB&&t===n.colB){out.push({t,k:'museum',kl:'Museum',txt:`The Museum of Progress has opened, with ${a.length===1?'one artefact':a.length+' artefacts'} from the nation’s past on display.`,go:'museum'});continue;}
+    if(n.colB&&t===n.colB){const sets=COL_SETS.filter(s=>n.colS?.[s.id]===t&&colSetDone(n,s));out.push({t,k:'museum',kl:'Museum',txt:`The Museum of Progress has opened, with ${a.length===1?'one artefact':a.length+' artefacts'} from the nation’s past on display.`,go:'museum',links:rewardRefs('artefact',a).concat(rewardRefs('set',sets))});continue;}
     const best=a.slice().sort((x,y)=>COL_RAR[y.r][1]-COL_RAR[x.r][1])[0];
-    out.push({t,k:'museum',kl:'Museum',txt:a.length===1?`New in the museum: ${colName(best,n)} (${COL_SET_BY_ID[best.set].n}).`:`${a.length} new artefacts in the museum, among them ${colIn(best,n)}.`,go:'museum'});
+    out.push({t,k:'museum',kl:'Museum',txt:a.length===1?`New in the museum: ${colName(best,n)} (${COL_SET_BY_ID[best.set].n}).`:`${a.length} new artefacts in the museum, among them ${colIn(best,n)}.`,go:'museum',links:rewardRefs('artefact',a)});
   }
-  for(const id of Object.keys(n.colS||{})){const s=COL_SET_BY_ID[id],t=n.colS[id];if(!s||t<since||t===n.colB||!colSetDone(n,s))continue;out.push({t:t+1,k:'museum',kl:'Museum',txt:`You completed ${colSetThe(s)} collection. Reward: ${colRewardWords(s)}.`,go:'museum'});}
+  for(const id of Object.keys(n.colS||{})){const s=COL_SET_BY_ID[id],t=n.colS[id];if(!s||t<since||t===n.colB||!colSetDone(n,s))continue;out.push({t:t+1,k:'museum',kl:'Museum',txt:`You completed ${colSetThe(s)} collection. Reward: ${colRewardWords(s)}.`,go:'museum',links:rewardRefs('set',[s])});}
   return out.slice(0,12);
 });
 /* Region happenings: legendary finds, completed sets, and a museum opening */
@@ -19712,13 +19753,13 @@ COMMIT_HOOKS.push((n,old,now)=>{
   for(const a of got)n.ach[a.id]=now;
   if(!got.length)return [];
   const pts=got.reduce((s,a)=>s+ACH_TIER[a.t].p,0),after=before+pts,r0=achRank(before),r1=achRank(after);
-  if(quiet)return [`The honours office has caught up with your record: ${got.length} ${got.length===1?'achievement':'achievements'} already earned, worth ${fmt0(pts)} prestige. See the Achievements page.`];
+  if(quiet)return [{links:rewardRefs('achievement',got),m:`The honours office has caught up with your record: ${got.length} ${got.length===1?'achievement':'achievements'} already earned, worth ${fmt0(pts)} prestige. See the Achievements page.`}];
   const ul=got.filter(a=>a.u).map(a=>achUnlockWords(a.u)).concat(Object.entries(ACH_PRESTIGE).filter(([,t])=>before<t&&after>=t).map(([u])=>achUnlockWords(u))).filter(Boolean);
   const best=got.slice().sort((a,b)=>ACH_TIER[b.t].p-ACH_TIER[a.t].p);
   let txt=got.length===1?`Achievement earned: ${achQ(got[0].n)} (${achTierWord(got[0].t)}, ${pts} prestige).`:got.length<=3?`${got.length} achievements earned: ${list(got.map(a=>achQ(a.n)))} (+${pts} prestige).`:`${got.length} achievements earned, among them ${list(best.slice(0,2).map(a=>achQ(a.n)))} (+${fmt0(pts)} prestige).`;
   if(ul.length)txt+=` Unlocked: ${ul.length<=3?list(ul):ul.slice(0,2).join(', ')+' and '+(ul.length-2)+' more'}.`;
   if(r1.i>r0.i)txt+=` Your rank is now ${r1.name}.`;
-  return [txt];
+  return [{m:txt,links:rewardRefs('achievement',got)}];
 });
 NORM_HOOKS.push((n,d)=>{
   const a=d&&d.ach;if(!a||typeof a!=='object'||Array.isArray(a))return;
@@ -19740,7 +19781,7 @@ NOTIF_SOURCES.push((n,now)=>{
     const nm=a=>a.sec?'a secret achievement':achQ(a.n);
     let txt=g.as.length===1?`Achievement earned: ${nm(g.as[0])} (${achTierWord(g.as[0].t)}, ${pts} prestige).`:g.as.length<=3?`Achievements earned: ${list(g.as.map(nm))} (+${pts} prestige).`:`${g.as.length} achievements recorded, worth ${fmt0(pts)} prestige, among them ${nm(g.as[0])}.`;
     if(r1.i>r0.i)txt+=` Your rank rose to ${r1.name}.`;
-    out.push({t:g.t,k:'ach',kl:'Honours',txt,go:'achievements'});}
+    out.push({t:g.t,k:'ach',kl:'Honours',txt,go:'achievements',links:rewardRefs('achievement',g.as)});}
   return out;
 });
 HAP_SOURCES.push((x,now)=>{
@@ -19809,7 +19850,7 @@ function achCard(q,ctx){
   if(ctx.players>1){const h=ctx.rar[a.id]||0;meta.push(h?`Held by ${h} of ${ctx.players} player nations`:`No player nation holds it yet`);}
   if(a.mp&&!on&&!hide)meta.push('Needs another player nation');
   const rw=a.u&&!hide&&UNLOCKS[a.u]?`<p class="ach-rw">${on?'Reward':'Unlocks'}: ${esc(achUnlockWords(a.u))}${ctx.me?` <button class="linkish small" data-act="go" data-v="${/^pp/.test(UNLOCKS[a.u].k)?'passport':'customise'}">${(/^pp/.test(UNLOCKS[a.u].k)?['Use it on the Passport page','See it on the Passport page']:['Use it on the Customise page','See it on the Customise page'])[on?0:1]}</button>`:''}</p>`:'';
-  return `<article class="ach-card at-${a.t}${on?' on':''}${hide||hideMine?' sec':''}" aria-label="${esc(nm)}${on?', earned':''}">
+  return `<article id="ach-${a.id}" tabindex="-1" class="ach-card at-${a.t}${on?' on':''}${hide||hideMine?' sec':''}" aria-label="${esc(nm)}${on?', earned':''}">
     <div class="ach-badge ai-${hide||hideMine?'lock':a.c}" aria-hidden="true"></div>
     <div class="ach-main"><div class="ach-top"><h3 class="ach-n">${esc(nm)}</h3><span class="ach-tier">${achMedal(a.t)}${ACH_TIER[a.t].n} · ${ACH_TIER[a.t].p}</span></div>
     ${ds}${prog}${meta.length?`<p class="ach-meta">${meta.join(' · ')}</p>`:''}${rw}</div></article>`;
@@ -35381,6 +35422,8 @@ function setTheme(t){try{if(t==='auto')localStorage.removeItem('statehood.theme'
 
 /* ───────── render ───────── */
 function render(){if(fxRender())return;
+  let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
+  if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
   const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null;
   let sel=null;try{if(fidFocus&&typeof ae.selectionStart==='number')sel=[ae.selectionStart,ae.selectionEnd];}catch(e){}
   const navK=navBefore();
@@ -35390,6 +35433,7 @@ function render(){if(fxRender())return;
   drawAllGuill();
   initMaps();
   const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
+  if(rewardJump)rewardFocus(rewardJump);
 }
 let pvTimer=null;
 function updatePreviewSoon(){
@@ -35405,14 +35449,17 @@ function updatePreview(){clearTimeout(pvTimer);
   drawAllGuill();
 }
 function toast(msg){
-  msg=String(msg==null?'':msg).trim();if(!msg)return;
-  if((TOASTQ.cur&&TOASTQ.cur.m===msg)||TOASTQ.q.includes(msg))return;
-  TOASTQ.q.push(msg);if(TOASTQ.q.length>5)TOASTQ.q.splice(0,TOASTQ.q.length-5);
+  const item={m:String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links:msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[]};
+  if(!item.m)return;
+  const same=x=>x&&x.m===item.m&&JSON.stringify(x.links)===JSON.stringify(item.links);
+  if(same(TOASTQ.cur)||TOASTQ.q.some(same))return;
+  TOASTQ.q.push(item);if(TOASTQ.q.length>5)TOASTQ.q.splice(0,TOASTQ.q.length-5);
   toastNext();
 }
 /* the address shows a page's player-facing name where it differs from its internal one (#edicts, not #issues) */
 const VIEW_HASH={issues:'edicts'},HASH_VIEW={edicts:'issues'};
 function go(v){
+  S.rewardHash=location.hash;
   try{const hv=VIEW_HASH[v]||v;if(!S.noPush&&(location.hash||'').slice(1)!==hv)history.pushState(null,'','#'+hv);}catch(e){}S.noPush=false;
   S.view=v;S.atlasPlay=false;if(v!=='explore')S.siteEdit=null;S.openIssue=null;S.result=null;S.confirmDissolve=false;S.mapMsg='';S.warMsg='';S.confirmWar=null;S.mapTarget=null;S.confirmLeave=false;S.alMsg='';S.tradeMsg='';S.cityMsg='';S.confirmDemo=null;S.cabPick=null;S.cabMsg='';S.gamesMsg='';S.mapClaim=null;S.msgErr='';if(v==='stats'&&!S.statsKeep){S.statsFor=null;S.statsTab='overview';}S.statsKeep=false;S.loreEdit=false;
   if(v==='settings'&&(!S.settings||!settingsDirty()))S.settings=settingsFrom(S.nation);
@@ -35525,6 +35572,7 @@ document.addEventListener('click',e=>{
   if(S.notifOpen&&!e.target.closest('.notif-pop')&&!e.target.closest('.bell')){S.notifOpen=false;render();}
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act;
+  if(a==='reward-open'){if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();rewardOpen(el.dataset.kind,el.dataset.id);return;}
   if(a==='go'){go(el.dataset.v);return;}
   if(a==='open'){edictOpen(el.dataset.id,el.dataset.at);return;}
   if(a==='edict-pin'){edictPin(el.dataset.id,el.dataset.at);return;}
@@ -37011,7 +37059,7 @@ function start(data){
   if(window.__edictum&&typeof window.__edictum.painted==='function')window.__edictum.painted();
   connect();
   setInterval(tick,10000);
-  window.addEventListener('popstate',()=>{const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h)&&h!==S.view){S.noPush=true;go(h);}});
+  window.addEventListener('popstate',()=>{const r=rewardRoute(location.hash);if(r){rewardOpen(r.kind,r.id,false);return;}S.colDetail=null;const h0=(location.hash||'').slice(1),h=HASH_VIEW[h0]||h0;if(['nation','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h)){S.noPush=true;go(h);}});
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
