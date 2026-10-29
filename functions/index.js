@@ -92,13 +92,13 @@ async function battle(uid, data) {
     if (ban.exists) return { ok: false, why: 'banned' };
     if (!me.exists) return { ok: false, why: 'nation' };
     const foe = npc ? null : rest.shift(), mine = record(me), now = Date.now();
-    await eligibility(tx, who, { linked: false });
-    if (!npc && !who.registered && !(foe?.exists && record(foe).wars?.[uid]))
-      refuse('registration_required', 'A Registered Nation is required for offensive wars against players.');
     const regions = [...new Set([me.get('reg'), foe?.get('reg')].filter(Boolean))];
     const availability = regions.length ? await tx.getAll(...regions.map(r => db.doc('regionStatus/' + r))) : [];
     const unavailable = availability.find(r => r.get('enabled') === false);
     if (unavailable) return { ok: false, why: unavailable.get('mode') === 'coming_soon' ? 'coming_soon' : 'maintenance' };
+    await eligibility(tx, who, { linked: false });
+    if (!npc && !who.registered && !(foe?.exists && record(foe).wars?.[uid]))
+      refuse('registration_required', 'A Registered Nation is required for offensive wars against players.');
     const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now);
     if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now };
     /* the odds: the attacker's own, within the game's bounds, and no better than its army, with its allies'

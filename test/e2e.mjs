@@ -418,7 +418,7 @@ if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) await A.click(`[data-a
 await nav(A, 'region');
 await until(() => A.$('.tbl [data-act="visit"][data-id="npc-vellmark"]')); await A.click('.tbl [data-act="visit"][data-id="npc-vellmark"]');
 check('a computer nation’s shows its seat and its alliance', await until(async () => /Member/.test(await text(A, '.hero .hs-asm')) && /The Iron Compact/.test(await text(A, '.hero .hs-al'))));
-await A.locator('.hero').screenshot({ path: path.join(OUT, 'banner-stamps.png') });
+await until(async()=>{await A.locator('.hero').screenshot({ path: path.join(OUT, 'banner-stamps.png') });return true;});
 await nav(A, 'assembly');
 const delName = await until(() => text(A, '.asm-del-n'));
 await nav(A, 'nation');

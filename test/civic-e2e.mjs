@@ -6,7 +6,7 @@ await openAccount(A);
 check('sign-in offers Google, active guest session and recovery',await A.isVisible('[data-ed="google"]')&&await A.isVisible('[data-ed="guest-session"]')&&await A.isVisible('[data-ed="recover"]'));
 check('sign-in hides deletion and Player ID',!await A.locator('[data-ed="delete"]').count()&&!/Player ID/.test(await text(A,'.ed-body, .ed-dlg')));
 await A.click('[data-ed="guest-session"]');
-check('missing guest session leads to recovery',await A.isVisible('#ed-recovery-input')&&/No active guest nation/.test(await text(A,'.ed-msg')));
+check('missing guest session leads to recovery',await until(async()=>await A.isVisible('#ed-recovery-input')&&/No active guest nation/.test(await text(A,'.ed-msg')),15000));
 await A.keyboard.press('Escape');
 await found(A,'Codehaven',{newPlayer:true});
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});

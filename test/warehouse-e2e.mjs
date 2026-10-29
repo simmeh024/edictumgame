@@ -70,5 +70,5 @@ for(const [id,expected] of [['warehouse-racking',8000],['warehouse-archives',780
 }
 C=await player('warehouse phone final',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});await open(C);await C.waitForSelector('.layout');await nav(C,'cities');await C.evaluate(()=>{document.querySelector('#toast')?.style.setProperty('visibility','hidden');document.querySelector('.wh-summary').scrollIntoView();window.scrollBy(0,-165);});await C.screenshot({path:OUT+'/warehouses-390.png'});
 check('the warehouse interface fits a phone',await C.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));
-await nav(A,'cities');await A.locator('.wh-upgrade').first().scrollIntoViewIfNeeded();await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.screenshot({path:OUT+'/warehouses-1280.png'});
+await nav(A,'cities');await until(async()=>{await A.locator('.wh-upgrade').first().scrollIntoViewIfNeeded();return true;});await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.screenshot({path:OUT+'/warehouses-1280.png'});
 check('no page errors',errors.length===0,errors.join('; '));await finish();
