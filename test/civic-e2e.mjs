@@ -37,7 +37,7 @@ check('a recovered guest can link Google without changing its UID',await ready(B
 check('linked account is labelled Registered Nation',/Registered Nation/.test(await text(B,'.ed-dlg')));
 await B.keyboard.press('Escape');
 await nav(B,'assembly');
-check('a young Registered Nation sees the 24-hour explanation',/24 hours/.test(await text(B,'main')));
+check('a young Registered Nation sees the 24-hour explanation',/24 hours/.test(await text(B,'main'))&&!await B.locator('[data-act="asm-rejoin"]').count());
 await B.screenshot({path:path.join(OUT,'registered-young-assembly-mobile.png')});
 const C=await player('Former code');await open(C);await openAccount(C);await C.click('[data-ed="recover"]');await C.fill('#ed-recovery-input',secret);await C.click('[data-ed="recover-yes"]');
 check('the former Guest code cannot sign into a Registered Nation',await until(async()=>/invalid or no longer available/.test(await text(C,'.ed-msg'))));

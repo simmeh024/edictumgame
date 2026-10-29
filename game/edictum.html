@@ -22833,6 +22833,7 @@ function asmDelBanner(st,now){
       ${msg?`<blockquote class="asm-msg">“${esc(msg)}”</blockquote>`:''}${form}</div></section>`;
 }
 function asmSeat(st,now){
+  if(!S.civic||S.civic.reg!==REG.id||!S.civic.account.eligible)return '';
   const n=S.nation,a=asmA(n)||{},mem=asmMemberAt(n,now);
   if(!mem){const left=a.o?a.o+ASM_REJOIN-now:0;
     return `<section class="asm-seat out"><p><b>${esc(n.name)} has no seat.</b> It resigned on ${esc(fmtDate(a.o||now))}${a.ox?` with the words “${esc(a.ox)}”`:''}. It has no say here, and no resolution binds it.</p>${left>0?`<p class="hint">You can rejoin in <span data-live="asmclose" data-t="${a.o+ASM_REJOIN}">${esc(fmtWait(left))}</span>.</p>`:`<button class="btn" data-act="asm-rejoin">Take your seat again</button>`}</section>`;}
