@@ -117,13 +117,18 @@
      museum, achievements, statistics or passport. Everything else stays in nations/, which the region
      reads at every save. The passport's design stays shared: visitors collect its entry stamp. */
   var NX_KEYS = {}, NX_PP = { v: 1, p: 1, l: 1 };
-  ['onb', 'mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
+  ['asmLocal', 'onb', 'mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
   function splitNation(d) {
     var pub = {}, ext = {};
     Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
+    if (isObj(d.asm)) {
+      ext.asmLocal = {};
+      ['h','d','st','cur'].forEach(function(k) { if (k in d.asm) ext.asmLocal[k] = d.asm[k]; });
+      delete pub.asm;
+    }
     if (isObj(d.pp)) {
       var pp = {}, xp = {};
       Object.keys(d.pp).forEach(function (k) { (NX_PP[k] ? xp : pp)[k] = d.pp[k]; });
@@ -135,6 +140,7 @@
   function joinNation(pub, ext) {
     if (!isObj(pub) || !isObj(ext)) return pub;
     var out = Object.assign({}, ext, pub);
+    if (isObj(ext.asmLocal)) out.asm = Object.assign({}, ext.asmLocal, pub.asm || {});
     if (isObj(ext.pp) && isObj(pub.pp)) out.pp = Object.assign({}, ext.pp, pub.pp);
     return out;
   }
@@ -177,13 +183,15 @@
     return t + Math.min(Math.max(0, b - Math.max(a, t)), 32 * 864e5 - 60000);
   }
   /* a nation save: the shared half, its summary and, when they changed, the private half and the space document */
-  function saveNation(uid, data, noSpace) {
+  async function saveNation(uid, data, noSpace) {
     /* Space pacing and private-half changes are checked against the server, including saves made by
        another device; a per-page cache cannot safely decide whether a write can be skipped. */
     var enc = encode('nations', data), now = Date.now();
     var sj = spaceText(data), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
     var ref = A.fs.doc('nations/' + uid), expected = revision(data);
     enc.j = JSON.stringify(halves[0]);
+    var approved = await call('civic', { op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected });
+    enc.j = approved.j; enc.permit = approved.permit;
     enc.rev = expected + 1;
     /* Read and compare in the same transaction as every part of the save. Firestore retries a raced
        transaction against the new document; it must still match the state this action was based on. */
@@ -220,7 +228,7 @@
       } else if (space) {
         b.delete(spaceRef);
       }
-    }).then(function () { A.raceAt[uid] = enc.updatedAt; return { rev: enc.rev }; });
+    }).then(function () { A.raceAt[uid] = enc.updatedAt; setTimeout(recoveryCheck, 0); window.dispatchEvent(new Event('edictum:saved')); return { rev: enc.rev }; });
   }
   /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
      carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in
@@ -323,10 +331,7 @@
     if (A.frozen) return hang();
     var u = A.auth.currentUser;
     if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
-    var ref = A.fs.collection('boards/' + str(reg, 40) + '/posts').doc(), b = A.fs.batch();
-    b.set(ref, { a: u.uid, t: serverTime(), x: String(text || '').slice(0, 400) });
-    b.set(A.fs.doc('limits/' + u.uid), { p: serverTime() });
-    return b.commit().then(function () { return ref.id; }, function (e) { throw mapError(e); });
+    return call('civic', { op: 'topic', reg: str(reg,40), text: String(text || '') }).then(function(r) { return r.id; });
   }
   function collectionGroupApi(name) { return Object.freeze(queryApi(A.fs.collectionGroup(String(name)))); }
   /* ───────── support tickets ───────── */
@@ -367,12 +372,13 @@
     } catch (e) { throw mapError({ code: 'unavailable', message: (e && e.message) || 'the referee could not be reached' }); }
     if (r.ok && b && 'result' in b) return b.result;
     var e = (b && b.error) || {};
-    throw mapError({ code: String(e.status || (r.status === 429 ? 'resource-exhausted' : 'unavailable')).toLowerCase().replace(/_/g, '-'), message: e.message || 'HTTP ' + r.status });
+    throw mapError({ code: (e.details && e.details.code) || String(e.status || (r.status === 429 ? 'resource-exhausted' : 'unavailable')).toLowerCase().replace(/_/g, '-'), message: e.message || 'HTTP ' + r.status });
   }
   /* battles are rolled by the referee: battle({d, c, p, w, h}) → {ok, win, t, s?, p, r} or {ok: false, why, next?} */
   var refereeApi = Object.freeze({
     battle: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'battle' })); }
   });
+  var civicApi = Object.freeze({ request: function(data) { return call('civic', data); } });
   var adminApi = Object.freeze({ request: function (data) { return call('adminConsole', data); } });
 
   var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post });
@@ -422,7 +428,7 @@
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
+        return n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }
@@ -503,6 +509,7 @@
     });
     mount();
     setTimeout(supportCheck, 6000);
+    setTimeout(recoveryCheck, 1800);
   }
 
   /* ───────── the account control and its dialog ───────── */
@@ -512,12 +519,15 @@
   var OUTICON = '<svg class="ed-out-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M8.2 3.6H5.1c-.8 0-1.5.7-1.5 1.5v9.8c0 .8.7 1.5 1.5 1.5h3.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path class="ed-out-ar" d="M12.6 6.4 16.2 10l-3.6 3.6M16 10H8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function quoted(s) { return '“' + esc(s) + '”'; }
+  var LINK_OPTIONS = [{ provider: 'google.com', label: 'Continue with Google', action: 'google' }];
+  function linkingButtons(u) { return LINK_OPTIONS.filter(function(option){return !(u && u.providerData || []).some(function(p){return p.providerId===option.provider;});}).map(function(option){return '<button type="button" class="btn" data-ed="'+option.action+'">'+esc(option.label)+'</button>';}).join(''); }
+  function linkedUser(u) { return !!(u && (u.providerData || []).some(function(p) { return p.providerId !== 'password' || u.emailVerified; })); }
   function who() {
     var u = A.online && A.auth && A.auth.currentUser;
     if (!u) return { kind: 'local' };
-    if (u.isAnonymous) return { kind: 'guest', uid: u.uid };
+    if (!linkedUser(u)) return { kind: 'guest', uid: u.uid };
     var g = (u.providerData || []).filter(function (x) { return x && x.providerId === 'google.com'; })[0] || {};
-    return { kind: 'google', uid: u.uid, email: u.email || g.email || '', name: u.displayName || g.displayName || '' };
+    return { kind: 'google', uid: u.uid, email: g.email || u.email || '', name: u.displayName || g.displayName || '' };
   }
   function paintSync() {
     if (!ui.sync) return;
@@ -558,8 +568,8 @@
   function paint() {
     if (!ui.btn) return;
     var w = who(), head = ui.box.classList.contains('ed-head'), k, v;
-    if (w.kind === 'google') { k = head ? 'Signed in' : 'Signed in with Google'; v = w.email || w.name || 'Your account'; }
-    else if (w.kind === 'guest') { k = head ? 'Have a nation?' : 'Playing as a guest'; v = head ? 'Sign in' : 'Keep your nation on every device'; }
+    if (w.kind === 'google') { k = head ? 'Signed in' : 'Registered Nation'; v = w.email || w.name || 'Your account'; }
+    else if (w.kind === 'guest') { k = head ? 'Have a nation?' : 'Guest Nation'; v = head ? 'Sign in' : 'Keep your nation on every device'; }
     else { k = 'Playing offline'; v = head ? 'Sign-in unavailable' : 'Saved in this browser for now'; }
     ui.btn.innerHTML = ICON + '<span class="ed-acct-t"><span class="ed-acct-k">' + esc(k) + '</span> <span class="ed-acct-v">' + esc(v) + '</span></span>';
     /* signing out is offered under the control only to a Google account: a guest who signed out would lose the nation */
@@ -646,9 +656,23 @@
     if (!ui.inn) return;
     var w = who(), n = localNation(), nm = n ? quoted(n.name) : '', h = '';
     var row = function (x) { return '<div class="ed-row">' + x + '</div>'; };
-    if (ui.view === 'switch') {
+    if (ui.view === 'recovery-code') {
+      var pending = w.uid && L.get('edictum.recovery.pending.' + w.uid);
+      h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Save your recovery code</h2>' +
+        '<p>This code restores your nation on another browser or device. It is created once. Keep it somewhere private, outside this browser.</p>' +
+        '<p class="ed-quote" style="overflow-wrap:anywhere"><code id="ed-recovery-code">' + esc(pending || '') + '</code></p>' +
+        '<p><b>If this code is lost, it cannot be recovered or replaced.</b> If you also lose your guest session, you will lose access to your nation. Anyone with the code can access your nation.</p>' +
+        row('<button type="button" class="btn ghost" data-ed="recovery-copy">Copy code</button><button type="button" class="btn ghost" data-ed="recovery-download">Download code</button>') +
+        row('<button type="button" class="btn" data-ed="recovery-saved" data-autofocus>I saved my recovery code</button>');
+    } else if (ui.view === 'recover') {
+      h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Recover your nation</h2>' +
+        '<p>Enter the recovery code you saved when your nation was created. Your existing progress will load on this device.</p>' +
+        '<label class="ed-lbl2" for="ed-recovery-input">Recovery code</label><input class="input" id="ed-recovery-input" autocomplete="off" spellcheck="false" maxlength="80" data-autofocus>' +
+        '<p class="ed-fine">Lost the code? It cannot be recovered or replaced. Try a browser where your guest session is still active. Registered Nations use their linked sign-in instead.</p>' +
+        row('<button type="button" class="btn" data-ed="recover-yes">Recover nation</button><button type="button" class="btn ghost" data-ed="back">Back</button>');
+    } else if (ui.view === 'switch') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Switch to that Google account?</h2>' +
-        (n ? '<p>That Google account already plays Edictum. If it has a nation, that nation loads here and the guest nation ' + nm + ' is dissolved, because only this guest sign-in can play it. If it has no nation yet, ' + nm + ' moves into it.</p>'
+        (n ? '<p>That Google account already plays Edictum. If it has a nation, that nation loads here and the guest nation ' + nm + ' is dissolved, and its recovery code will no longer restore it. If it has no nation yet, ' + nm + ' moves into it.</p>'
            : '<p>That Google account already plays Edictum. Switch to it to carry on with its nation here.</p>') +
         row('<button type="button" class="btn" data-ed="switch" data-autofocus>Switch account</button><button type="button" class="btn ghost" data-ed="back">Cancel</button>');
     } else if (ui.view === 'report' && ui.report) {
@@ -682,21 +706,22 @@
     } else {
       ui.view = 'main';
       if (w.kind === 'guest') {
-        h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">' + (n ? 'Keep your nation on every device' : 'Sign in to your nation') + '</h2>' +
-          (n ? '<p>You are playing as a guest, so only this browser can play ' + nm + '. Link it to a Google account to keep it safe and play it on any device.</p>'
+        h = '<p class="eyebrow">' + (n ? 'Guest Nation' : 'Your account') + '</p><h2 class="ed-h" id="ed-dlg-h">' + (n ? 'Keep your nation on every device' : 'Sign in to your nation') + '</h2>' +
+          (n ? '<p>' + nm + ' is a Guest Nation. Keep your recovery code safe, or link a sign-in account to become a Registered Nation. Registration unlocks community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>'
              : '<p>If your nation is linked to a Google account, sign in to carry on with it here. New to Edictum? Found a nation on this page, and link it to Google whenever you like.</p>') +
-          row('<button type="button" class="btn" data-ed="google" data-autofocus>Continue with Google</button>') +
-          (n ? '<p class="ed-fine">If that Google account already has a nation, you can switch to it instead.</p>' : '');
+          row(linkingButtons(A.auth.currentUser)) +
+          (n ? '<p class="ed-fine">Guest recovery codes are issued once and cannot be displayed again. After linking, use your linked sign-in to recover this nation.</p>' :
+            row('<button type="button" class="btn ghost" data-ed="guest-session">Login with active guest session</button>') + row('<button type="button" class="linkish" data-ed="recover">Recover with a code</button>'));
       } else if (w.kind === 'google') {
-        h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Signed in with Google</h2><p>' + (w.email ? 'You are signed in as <b>' + esc(w.email) + '</b>. ' : '') +
+        h = '<p class="eyebrow">Registered Nation</p><h2 class="ed-h" id="ed-dlg-h">Your linked account</h2><p>' + (w.email ? 'You are signed in as <b>' + esc(w.email) + '</b>. ' : '') +
           (n ? nm + ' is kept with this account, so you can sign in on any device and carry on.' : 'Found a nation and it is kept with this account.') + '</p>' +
-          row('<button type="button" class="btn ghost" data-ed="signout" data-autofocus>Sign out</button>');
+          row(linkingButtons(A.auth.currentUser)) + row('<button type="button" class="btn ghost" data-ed="signout" data-autofocus>Sign out</button>');
       } else {
         h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Playing offline</h2><p>Sign-in is not available right now, so ' + (n ? nm + ' is' : 'your nation is') + ' saved in this browser only. Reload the page when you are back online, and it joins the region again.</p>';
       }
-      if (w.uid) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
+      if (w.uid && n) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
       if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>') + '</div>';
-      if (w.kind !== 'local') h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
+      if (w.kind !== 'local' && n) h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
       h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
     }
     ui.inn.innerHTML = h;
@@ -704,6 +729,17 @@
     focusFirst();
   }
   function act(a) {
+    if (a === 'recover') { ui.view = 'recover'; draw(); return; }
+    if (a === 'recover-yes') { recoverNation(); return; }
+    if (a === 'guest-session') { resumeGuest(); return; }
+    if (a === 'recovery-saved') { L.set('edictum.recovery.pending.' + A.uid, null); ui.view = 'main'; ui.dlg.close(); return; }
+    if (a === 'recovery-copy' || a === 'recovery-download') {
+      var code = L.get('edictum.recovery.pending.' + A.uid); if (!code) return;
+      if (a === 'recovery-copy') { navigator.clipboard.writeText(code).then(function(){setMsg('Copied. Store it somewhere private.');},function(){setMsg('Select and copy the code above.',true);}); }
+      else { var url = URL.createObjectURL(new Blob(['Edictum Guest Nation recovery code\n\n' + code + '\n\nKeep this private. A lost code cannot be recovered or replaced.\n'],{type:'text/plain'}));
+        var link=document.createElement('a');link.href=url;link.download='edictum-recovery-code.txt';link.click();setTimeout(function(){URL.revokeObjectURL(url);},1000); }
+      return;
+    }
     if (a === 'unsaved') {
       var u = A.auth && A.auth.currentUser, copy = u && L.get('edictum.unsaved.' + u.uid);
       if (copy) { var url = URL.createObjectURL(new Blob([copy], { type: 'application/json' })), link = document.createElement('a');
@@ -720,6 +756,56 @@
     if (a === 'delete-yes') { doDelete(); return; }
     if (a === 'report-yes') { sendReport(); return; }
     if (a === 'support-yes') { sendTicket(); return; }
+  }
+
+  var checkingRecovery = false, recoveryChecked = '';
+  async function recoveryCheck() {
+    var u = A.auth && A.auth.currentUser;
+    if (!u || !A.online || A.frozen || !localNation() || linkedUser(u) || checkingRecovery) return;
+    var key = 'edictum.recovery.pending.' + u.uid, pending = L.get(key);
+    if (recoveryChecked === u.uid && !pending) return;
+    checkingRecovery = true;
+    try {
+      var status = await call('accounts', { op: 'status' });
+      if (!status.hasNation || status.kind !== 'guest') return;
+      if (!status.recoveryIssued && !pending) {
+        var bytes = new Uint8Array(20); crypto.getRandomValues(bytes);
+        var raw = Array.from(bytes).map(function(v){return v.toString(16).padStart(2,'0');}).join('').toUpperCase();
+        pending = 'EDC-' + raw.match(/.{1,8}/g).join('-');
+        if (!L.set(key, pending)) return; // persist before issuance so an interrupted response can be retried
+      }
+      if (pending) {
+        await call('accounts', { op: 'issue', code: pending });
+        if (!ui.dlg || !ui.dlg.open) open('recovery-code');
+      }
+      recoveryChecked = u.uid;
+    } catch(e) {
+      if (e.code === 'already_issued') { L.set(key,null); recoveryChecked=u.uid; }
+      // An offline issuance retries after the next confirmed save, retaining the same pending code.
+    } finally { checkingRecovery = false; }
+  }
+  async function resumeGuest() {
+    setBusy('Looking for your guest session…');
+    try {
+      var status = await call('accounts', { op: 'status' });
+      if (status.kind !== 'guest' || !status.hasNation) {
+        setBusy(''); ui.view='recover';draw();setMsg('No active guest nation was found in this browser. Use your recovery code or linked sign-in.');return;
+      }
+      var snap = await getNation(A.uid);
+      if (!snap.exists) throw new Error('No active guest nation was found.');
+      leave({ nation: JSON.stringify(snap.data()), uid: A.uid });
+    } catch(e) { setBusy('');setMsg(e.message,true); }
+  }
+  async function recoverNation() {
+    if (localNation()) { setMsg('Open recovery from the sign-in screen on a browser without an active nation.',true);return; }
+    var input = ui.dlg.querySelector('#ed-recovery-input');
+    setBusy('Recovering your nation…');
+    try {
+      var result = await call('accounts',{op:'recover',code:input ? input.value : ''});
+      A.leaving=true;A.frozen=true;
+      var session=await A.auth.signInWithCustomToken(result.token);
+      leave({nation:null,uid:session.user.uid},'Your guest nation has been recovered.');
+    } catch(e) { A.leaving=false;A.frozen=false;setBusy('');setMsg(e.message,true); }
   }
 
   /* ───────── reports ───────── */
@@ -777,7 +863,7 @@
   async function doDelete() {
     var u = A.auth && A.auth.currentUser;
     if (!u || ui.busy) return;
-    var google = !u.isAnonymous, last = Date.parse((u.metadata && u.metadata.lastSignInTime) || '') || 0;
+    var google = (u.providerData || []).some(function(p){return p.providerId === 'google.com';}), last = Date.parse((u.metadata && u.metadata.lastSignInTime) || '') || 0;
     setBusy('Deleting…');
     try {
       /* Google asks for a recent sign-in before an account is deleted: confirm first, while the click
@@ -812,7 +898,7 @@
     }
     /* the data is gone; now the account. A guest's sign-in may be too old for that: it then simply
        ends, and the empty guest account holds nothing */
-    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set('edictum.unsaved.' + u.uid, null);
+    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set('edictum.unsaved.' + u.uid, null); L.set('edictum.recovery.pending.' + u.uid, null);
     try { await u.delete(); } catch (e) { try { await A.auth.signOut(); } catch (e2) {} }
     leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');
   }
@@ -831,7 +917,7 @@
   }
   function google() {
     var u = A.auth && A.auth.currentUser;
-    if (!u || !u.isAnonymous) return;
+    if (!u || (u.providerData || []).some(function(p){return p.providerId === 'google.com';})) return;
     setBusy('Waiting for Google…');
     u.linkWithPopup(provider()).then(function () {
       setBusy('');
@@ -855,7 +941,7 @@
     A.frozen = true; A.leaving = true; /* the game's own saves wait from here: the page reloads */
     try {
       if (cred) {
-        if (guest && anon && anon.isAnonymous) {
+        if (guest && anon && !linkedUser(anon)) {
           /* only this guest sign-in can remove the guest nation from the region, so do it now */
           await within(dropNation(anon.uid), 8000).then(function () { cleared = true; }, function () {});
         }

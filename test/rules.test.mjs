@@ -24,7 +24,14 @@ const nation = (name, extra = {}) => {
 const summaryOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, pop: n.pop ?? 1200, t: n.updatedAt, ...extra });
 const privateOf = (n, extra = {}) => ({ j: JSON.stringify({ inbox: [], tly: { a: 1 } }), t: n.updatedAt, ts: NOW(), ...extra });
 const spaceOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, t: n.updatedAt, j: JSON.stringify({ sp: { moon: {} } }), ts: NOW(), ...extra });
-function save(db, uid, n, { summary = summaryOf(n), space = null, priv = null } = {}) {
+async function save(db, uid, n, { summary = summaryOf(n), space = null, priv = null, approved = true } = {}) {
+  if(n&&approved)await env.withSecurityRulesDisabled(async ctx=>{
+    const admin=ctx.firestore(),current=await admin.doc('nations/'+uid).get();
+    if(n.rev===undefined)n.rev=(current.exists&&current.data().rev||0)+1;
+    n.permit=crypto.randomUUID();
+    const fields=Object.fromEntries(['j','reg','name','pop','army','cl','updatedAt','rev'].filter(k=>n[k]!==undefined).map(k=>[k,n[k]]));
+    await admin.doc('nationPermits/'+uid+'/requests/'+n.permit).set({...fields,exp:firebase.firestore.Timestamp.fromMillis(Date.now()+120000)});
+  });
   const b = db.batch();
   if (n) b.set(db.doc('nations/' + uid), n);
   if (summary) b.set(db.doc('summaries/' + uid), summary);
@@ -234,7 +241,7 @@ test('space records travel with a save, agree with it and change at most every 1
   await assertSucceeds(save(db, 'alice', n, { space: spaceOf(n) }));
 });
 
-test('a player posts on their own region’s board, at most every 20 seconds', async () => {
+test('all direct community-topic writes are closed, including well-formed and paced writes', async () => {
   const db = as('bob');
   await assertFails(post(db, 'bob', 'meridian', 'Hi', { limits: false }));                // limits/ must come along
   await assertFails(post(db, 'bob', 'frostmarch', 'Hi'));                                 // not Bob's region
@@ -243,10 +250,10 @@ test('a player posts on their own region’s board, at most every 20 seconds', a
   await assertFails(post(db, 'bob', 'meridian', 'x'.repeat(401)));
   await assertFails(post(db, 'bob', 'meridian', 'Hi', { extra: { a: 'carol' } }));       // posting as someone else
   await assertFails(post(db, 'bob', 'meridian', 'Hi', { extra: { pinned: true } }));
-  await assertSucceeds(post(db, 'bob', 'meridian', 'x'.repeat(400)));
+  await assertFails(post(db, 'bob', 'meridian', 'x'.repeat(400))); // even well-formed posts require civic()
   await assertFails(post(db, 'bob', 'meridian', 'Again'));                                // too soon
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('limits/bob').set({ p: AGO(21000) }));
-  await assertSucceeds(post(db, 'bob', 'meridian', 'Again'));
+  await assertFails(post(db, 'bob', 'meridian', 'Again')); // no direct client posting
   await assertFails(as('alice').doc('limits/bob').get());                                 // pacing is private
   await assertFails(db.doc('limits/bob').delete());                                       // and cannot be reset
   await assertFails(post(as('nobody'), 'nobody', 'meridian', 'Hi'));                      // no nation, no post
@@ -459,10 +466,10 @@ test('a minute is not enough to grow a nation tenfold, nor to drop the numbers o
   await assertFails(save(as('bob'), 'bob', nation('Bobland'), { summary: summaryOf(nation('Bobland'), { pop: 999 }) })); // the summary agrees
 });
 
-test('a record from before the headline numbers may still save without them, or gain them', async () => {
+test('legacy records must gain headline numbers when adopting protected saves', async () => {
   await env.withSecurityRulesDisabled(async ctx => { const old = nation('Oldland', { ts: AGO(60000) }); delete old.pop; delete old.army; delete old.cl; await ctx.firestore().doc('nations/olga').set(old); });
   const bare = nation('Oldland'); delete bare.pop; delete bare.army; delete bare.cl;
-  await assertSucceeds(save(as('olga'), 'olga', bare, { summary: summaryOf(bare, { pop: 1200 }) }));
+  await assertFails(save(as('olga'), 'olga', bare, { summary: summaryOf(bare, { pop: 1200 }) }));
 });
 
 test('a race is stamped with the server’s time, by the claimer, and anyone reads it', async () => {
@@ -530,7 +537,7 @@ test('save revisions migrate legacy nations and reject stale, removed, or skippe
   await assertSucceeds(save(db, 'bob', nation('Bobland', { rev: 1 })));
   await sleep(1100);
   await assertFails(save(db, 'bob', nation('Stale', { rev: 1 })));
-  await assertFails(save(db, 'bob', nation('Old browser')));
+  await assertFails(save(db, 'bob', nation('Old browser'), {approved:false}));
   await assertFails(save(db, 'bob', nation('Skipped', { rev: 3 })));
   await assertSucceeds(save(db, 'bob', nation('Latest', { rev: 2 })));
 });
@@ -539,4 +546,24 @@ test('revisioned nations start at one and only integer positive revisions are ac
   const db = as('alice');
   for (const rev of [0, -1, 1.5, 2, '1']) await assertFails(save(db, 'alice', nation('Aliceland', { rev })));
   await assertSucceeds(save(db, 'alice', nation('Aliceland', { rev: 1 })));
+});
+
+
+test('political records, recovery secrets and save permits reject every direct client write',async()=>{
+  for(const db of [anon(),as('alice'),as('mod',{admin:true})]){
+    for(const path of ['accountIdentity/alice','guestRecovery/hash','recoveryLimits/u_alice','nationPermits/alice/requests/fake','assemblyRegions/meridian/actors/alice','assemblyRegions/meridian/cycles/1/votes/alice','assemblyRegions/meridian/proposals/fake','assemblyRegions/meridian/leadership/current']){
+      await assertFails(db.doc(path).set({uid:'alice',v:1}));
+      await assertFails(db.doc(path).get());
+    }
+  }
+});
+test('an approved save cannot be changed into a forged political payload or replayed after expiry',async()=>{
+  const n=nation('Aliceland',{rev:1,permit:'approved'});
+  await env.withSecurityRulesDisabled(ctx=>ctx.firestore().doc('nationPermits/alice/requests/approved').set({...Object.fromEntries(['j','reg','name','pop','army','cl','updatedAt','rev'].map(k=>[k,n[k]])),exp:firebase.firestore.Timestamp.fromMillis(Date.now()+120000)}));
+  const forged={...n,j:JSON.stringify({name:'Aliceland',asm:{v:[{v:1,w:9999}]}})};
+  await assertFails(save(as('alice'),'alice',forged,{approved:false}));
+  await assertSucceeds(save(as('alice'),'alice',n,{approved:false}));
+  const expired=nation('Danaland',{rev:1,permit:'expired'});
+  await env.withSecurityRulesDisabled(ctx=>ctx.firestore().doc('nationPermits/dana/requests/expired').set({...Object.fromEntries(['j','reg','name','pop','army','cl','updatedAt','rev'].map(k=>[k,expired[k]])),exp:AGO(1000)}));
+  await assertFails(save(as('dana'),'dana',expired,{approved:false}));
 });

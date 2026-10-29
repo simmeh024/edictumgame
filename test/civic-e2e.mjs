@@ -1,0 +1,53 @@
+import path from 'node:path';
+import {BASE,OUT,FS_HOST,PROJECT,check,finish,until,player,open,ready,found,openAccount,text,nav,googlePopup,nationDoc,clearEmulators} from './lib.mjs';
+await clearEmulators();
+const A=await player('Guest recovery',{recovery:true}), uid=await open(A);
+await openAccount(A);
+check('sign-in offers Google, active guest session and recovery',await A.isVisible('[data-ed="google"]')&&await A.isVisible('[data-ed="guest-session"]')&&await A.isVisible('[data-ed="recover"]'));
+check('sign-in hides deletion and Player ID',!await A.locator('[data-ed="delete"]').count()&&!/Player ID/.test(await text(A,'.ed-body, .ed-dlg')));
+await A.click('[data-ed="guest-session"]');
+check('missing guest session leads to recovery',await A.isVisible('#ed-recovery-input')&&/No active guest nation/.test(await text(A,'.ed-msg')));
+await A.keyboard.press('Escape');
+await found(A,'Codehaven',{newPlayer:true});
+await A.waitForSelector('#ed-recovery-code',{timeout:25000});
+const secret=await A.locator('#ed-recovery-code').textContent();
+check('a newly saved guest nation gets a random recovery code',/^EDC-(?:[A-F0-9]{8}-){4}[A-F0-9]{8}$/.test(secret));
+check('the one-time warning is explicit',/cannot be recovered or replaced/.test(await text(A,'.ed-dlg'))&&/Anyone with the code/.test(await text(A,'.ed-dlg')));
+await A.screenshot({path:path.join(OUT,'guest-recovery-code.png')});
+await A.reload();await ready(A);await A.waitForSelector('#ed-recovery-code',{timeout:20000});
+check('reload before acknowledgement retains the same code',await A.locator('#ed-recovery-code').textContent()===secret);
+await A.click('[data-ed="recovery-saved"]');
+await openAccount(A);
+check('the account panel identifies a Guest Nation and shows its Player ID',/Guest Nation/.test(await text(A,'.ed-dlg'))&&/Player ID/.test(await text(A,'.ed-dlg'))&&await A.isVisible('[data-ed="delete"]'));
+await A.keyboard.press('Escape');
+await A.reload();await ready(A);
+await A.waitForSelector('.layout');
+check('an acknowledged code is not displayed again',!await A.locator('#ed-recovery-code').count());
+await until(()=>nationDoc(uid));
+
+const B=await player('Mobile recovery',{vp:{width:390,height:844},recovery:true});await open(B);await openAccount(B);await B.click('[data-ed="recover"]');
+await B.fill('#ed-recovery-input',secret);
+await Promise.all([B.waitForNavigation({timeout:20000}),B.click('[data-ed="recover-yes"]')]);
+check('recovery restores the original UID on a different device',await ready(B)===uid);
+check('recovery restores the nation and its private progress',await until(()=>B.evaluate(()=>G.S.nation?.name==='Codehaven'&&!!G.S.nation.onb)));
+await openAccount(B);
+check('custom-token recovery remains a Guest Nation',/Guest Nation/.test(await text(B,'.ed-dlg'))&&!await B.locator('#ed-recovery-code').count());
+await googlePopup(B,'[data-ed="google"]','recovered@example.com');
+check('a recovered guest can link Google without changing its UID',await ready(B)===uid&&await until(()=>B.evaluate(()=>G.S.civic?.account.kind==='registered')));
+check('linked account is labelled Registered Nation',/Registered Nation/.test(await text(B,'.ed-dlg')));
+await B.keyboard.press('Escape');
+await nav(B,'assembly');
+check('a young Registered Nation sees the 24-hour explanation',/24 hours/.test(await text(B,'main')));
+await B.screenshot({path:path.join(OUT,'registered-young-assembly-mobile.png')});
+const C=await player('Former code');await open(C);await openAccount(C);await C.click('[data-ed="recover"]');await C.fill('#ed-recovery-input',secret);await C.click('[data-ed="recover-yes"]');
+check('the former Guest code cannot sign into a Registered Nation',await until(async()=>/invalid or no longer available/.test(await text(C,'.ed-msg'))));
+
+// Advance only the protected server fixture, never client JSON.founded.
+const doc=await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/nations/${uid}`),raw=await doc.json();
+await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/accountIdentity/${uid}?updateMask.fieldPaths=nationAt&updateMask.fieldPaths=nationGeneration`,{method:'PATCH',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({fields:{nationAt:{integerValue:String(Date.now()-2*86400000)},nationGeneration:{doubleValue:Date.parse(raw.createTime)}}})});
+await B.evaluate(()=>window.dispatchEvent(new Event('edictum:linked')));
+check('server age unlocks Assembly participation',await until(()=>B.evaluate(()=>G.S.civic?.account.eligible)));
+const vote=B.locator('[data-act="asm-vote"][data-v="1"]');
+check('an eligible player can vote using the existing Assembly screen',await vote.count()>0);
+if(await vote.count()){await vote.click();check('the vote is confirmed from protected records',await until(()=>B.evaluate(()=>G.S.civic?.own.v.some(v=>v.v===1))));}
+await finish();

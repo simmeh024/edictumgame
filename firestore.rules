@@ -74,7 +74,7 @@ service cloud.firestore {
     // src/shim.js refuses anything over 700,000 characters before it gets here.
     function validNation(d) {
       return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV'])
+        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit'])
         && (!('storageV' in d) || (d.storageV is int && d.storageV == 1))
         && (!('rev' in d) || (d.rev is int && d.rev > 0))
         && d.v == 1
@@ -147,17 +147,36 @@ service cloud.firestore {
 
     match /nations/{uid} {
       allow read: if true;
-      allow create: if isSelf(uid) && validNation(request.resource.data) && headline(request.resource.data)
+      allow create: if isSelf(uid) && permitted(uid, request.resource.data) && validNation(request.resource.data) && headline(request.resource.data)
         && regionEnabled(request.resource.data.reg)
         && (!('rev' in request.resource.data) || request.resource.data.rev == 1)
         && summarised(uid, request.resource.data) && !banned(uid);
-      allow update: if isSelf(uid) && validNation(request.resource.data) && headlineUpdate(request.resource.data)
+      allow update: if isSelf(uid) && permitted(uid, request.resource.data) && validNation(request.resource.data) && headlineUpdate(request.resource.data)
         && regionEnabled(request.resource.data.reg) && regionEnabled(resource.data.reg)
         && (!('storageV' in resource.data) || ('storageV' in request.resource.data && request.resource.data.storageV == resource.data.storageV))
         && nextRevision(request.resource.data)
         && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();
     }
+
+    // Opaque JSON needs server approval: rules compare the exact approved payload and revision.
+    function permitted(uid, d) {
+      let p = get(/databases/$(database)/documents/nationPermits/$(uid)/requests/$(d.permit)).data;
+      return d.permit is string && p.exp > request.time && p.j == d.j && p.reg == d.reg
+        && p.name == d.name && p.pop == d.pop && p.army == d.army && p.cl == d.cl
+        && p.updatedAt == d.updatedAt && p.rev == d.rev
+        && (!p.get('sensitive', false) || unmoderated(uid, p.nationGeneration));
+    }
+    function unmoderated(uid, generation) {
+      return !exists(/databases/$(database)/documents/mod/$(uid))
+        || (get(/databases/$(database)/documents/mod/$(uid)).data.get('hidden', false) == false
+          && get(/databases/$(database)/documents/mod/$(uid)).data.get('removed', 0) < generation);
+    }
+    match /nationPermits/{uid}/requests/{id} { allow read, write: if false; }
+    match /accountIdentity/{uid} { allow read, write: if false; }
+    match /guestRecovery/{id} { allow read, write: if false; }
+    match /recoveryLimits/{id} { allow read, write: if false; }
+    match /assemblyRegions/{region}/{document=**} { allow read, write: if false; }
 
     // written only together with the nation (whose ts is this request's time), and agreeing with it
     match /summaries/{uid} {
@@ -197,11 +216,8 @@ service cloud.firestore {
     // a post goes to the board of the region the author's nation lives in, with limits/<uid> in the same batch
     match /boards/{reg}/posts/{pid} {
       allow read: if true;
-      allow create: if signedIn() && region(reg) && validPost(request.resource.data)
-        && regionEnabled(reg)
-        && getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)).data.p == request.time
-        && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg
-        && !banned(request.auth.uid);
+      // New community topics use civic(), including shared eligibility and pacing checks.
+      allow create: if false;
       allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
     }
 

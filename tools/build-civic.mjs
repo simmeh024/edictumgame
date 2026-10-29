@@ -1,0 +1,17 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { loadWorld } from '../jobs/fx/world.mjs';
+const save=(path,content)=>{if(process.argv.includes('--check')){if(readFileSync(path,'utf8')!==content)throw new Error(path+' is stale; run node tools/build-civic.mjs');}else writeFileSync(path,content);};
+const src=readFileSync('game/edictum.html','utf8');
+let code=src.slice(src.indexOf('const ASM_EPOCH='), src.indexOf('/* proposals waiting for the next vote'));
+code=code.replace(/for\(const k of Object.keys\(ASM_CATS\)\)[^\n]*\n/,'');
+code=code.replace('if(!n||n.npc||T<asmArr(n))return false;', 'if(!n||n.npc||!n.civicAt||T<n.civicAt)return false;');
+const a=code.indexOf('function asmLocks('), b=code.indexOf('function asmPickFor(',a);
+code=code.slice(0,a)+'function asmLocks(){return new Map(protectedLocks.map(x=>[x.c,x]));}\n'+code.slice(b);
+const f=code.indexOf('function asmFinal('), end=code.indexOf('/* everything the pages need',f);
+code=code.slice(0,f)+`function asmFinal(c){return protectedLocks.find(x=>x.c===c&&x.f)||null;}\n`+code.slice(end);
+const helpers=src.match(/function hash\(str\)[^\n]+/)[0]+'\n'+src.match(/function rng\(seed\)[^\n]+/)[0];
+const pre=`// Generated from the trusted Assembly engine in game/edictum.html; regenerate with tools/build-civic.mjs.\nimport DATA from './civic-data.json' with {type:'json'};\n${helpers}\nexport function assemblyEngine(region,records,protectedLocks=[]){\nconst DAY=86400000,GAMES_EPOCH=Date.UTC(2026,0,5),REG={id:region},NPC_NATIONS=DATA.regions.find(r=>r.id===region)?.npcs.map(x=>({...x,npc:true,policies:Object.fromEntries(x.pol.map(p=>[p,1]))}))||[],NPC_BASE=Object.fromEntries(NPC_NATIONS.map(x=>[x.id,x])),npcAt=id=>NPC_NATIONS.find(x=>x.id===id),npcRev=0;\nconst S={mode:'server',uid:'',nation:null,world:Object.fromEntries(records.map(r=>[r.id,r.n]))},myId=()=>'',clone=x=>structuredClone(x),conflictsOf=k=>DATA.conflicts.flatMap(([a,b])=>a===k?[b]:b===k?[a]:[]);\nconst affinity=(a,b)=>Math.round(Math.max(0,Math.min(100,100-(['civil','econ','pol'].reduce((v,k)=>v+Math.abs((a.s[k]??50)-(b.s[k]??50)),0)/3)+(b.civicAffinity||0)+Math.max(-20,Math.min(20,Number(b.gw?.[a.id])||0)))));\n`;
+save('functions/assembly-engine.js',pre+code+'\nreturn {state:now=>asmState(now),pick:(c,exclude)=>asmPickRaw(c,records,exclude),tally:asmTally,delegate:asmDelegateAt,key:asmPKey,cycle:asmCyc,t0:asmT0,cats:ASM_CATS};\n}\n');
+const conflicts=vm.runInNewContext(src.match(/const POLICY_CONFLICTS=(\[.*\])\.filter\(/)[1]);
+save('functions/civic-data.json',JSON.stringify({...loadWorld(),conflicts}));
