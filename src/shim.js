@@ -572,8 +572,8 @@
     else if (w.kind === 'guest') { k = head ? 'Have a nation?' : 'Guest Nation'; v = head ? 'Sign in' : 'Keep your nation on every device'; }
     else { k = 'Playing offline'; v = head ? 'Sign-in unavailable' : 'Saved in this browser for now'; }
     ui.btn.innerHTML = ICON + '<span class="ed-acct-t"><span class="ed-acct-k">' + esc(k) + '</span> <span class="ed-acct-v">' + esc(v) + '</span></span>';
-    /* signing out is offered under the control only to a Google account: a guest who signed out would lose the nation */
-    if (ui.out) ui.out.hidden = !(w.kind === 'google' && !head);
+    /* Guest sign-out uses the recovery-code confirmation; both account types can end this browser session. */
+    if (ui.out) ui.out.hidden = !(!head && (w.kind === 'google' || w.kind === 'guest' && localNation()));
     paintSync();
   }
   /* the game redraws #app on every change; keep the control in the side bar foot, or in the
@@ -627,6 +627,7 @@
       var b = e.target.closest ? e.target.closest('[data-ed]') : null;
       if (b && !b.disabled) act(b.getAttribute('data-ed'));
     });
+    d.addEventListener('change', function(e) { if (e.target.id === 'ed-guest-code-saved') syncSignoutButton(); });
     d.addEventListener('cancel', function (e) { if (ui.busy) e.preventDefault(); });
     d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; ui.support = null; setMsg(''); });
     /* while the dialog is open, keys belong to it, not to the game's shortcuts behind it */
@@ -651,6 +652,7 @@
     if (!ui.dlg) return;
     setMsg(ui.busy);
     ui.dlg.querySelectorAll('button').forEach(function (b) { b.disabled = !!ui.busy; });
+    syncSignoutButton();
   }
   function draw() {
     if (!ui.inn) return;
@@ -701,8 +703,13 @@
         (w.kind === 'google' ? '<p class="ed-fine">Google may ask you to confirm it is you first.</p>' : '') +
         row('<button type="button" class="btn danger" data-ed="delete-yes">Delete everything</button><button type="button" class="btn ghost" data-ed="back" data-autofocus>Keep my nation</button>');
     } else if (ui.view === 'signout') {
-      h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Sign out?</h2><p>' + (n ? nm + ' stays' : 'Your nation stays') + ' with your Google account. This browser starts again as a new guest, and you can sign back in at any time.</p>' +
-        row('<button type="button" class="btn" data-ed="signout-yes" data-autofocus>Sign out</button><button type="button" class="btn ghost" data-ed="' + (ui.direct ? 'close' : 'back') + '">Cancel</button>');
+      var guestOut = w.kind === 'guest' && !!n, pendingCode = guestOut && L.get('edictum.recovery.pending.' + w.uid);
+      h = '<p class="eyebrow">' + (guestOut ? 'Guest Nation' : 'Your account') + '</p><h2 class="ed-h" id="ed-dlg-h">Sign out?</h2>' +
+        (guestOut ? '<p>This ends the guest session on this browser. Your nation stays online. To sign back in, you will need the recovery code you saved.</p><p><b>A lost recovery code cannot be recovered or replaced.</b> Save it outside this browser before signing out.</p>' +
+          (pendingCode ? row('<button type="button" class="btn ghost" data-ed="recovery-review">Save my recovery code first</button>') : '') +
+          '<label class="ed-lbl2"><input type="checkbox" id="ed-guest-code-saved" data-autofocus> I have saved my recovery code.</label>' :
+          '<p>' + (n ? nm + ' stays' : 'Your nation stays') + ' with your linked account. This browser starts again as a new guest, and you can sign back in at any time.</p>') +
+        row('<button type="button" class="btn" data-ed="signout-yes"' + (guestOut ? ' disabled' : ' data-autofocus') + '>Sign out</button><button type="button" class="btn ghost" data-ed="' + (ui.direct ? 'close' : 'back') + '">Cancel</button>');
     } else {
       ui.view = 'main';
       if (w.kind === 'guest') {
@@ -710,7 +717,7 @@
           (n ? '<p>' + nm + ' is a Guest Nation. Keep your recovery code safe, or link a sign-in account to become a Registered Nation. Registration unlocks community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>'
              : '<p>If your nation is linked to a Google account, sign in to carry on with it here. New to Edictum? Found a nation on this page, and link it to Google whenever you like.</p>') +
           row(linkingButtons(A.auth.currentUser)) +
-          (n ? '<p class="ed-fine">Guest recovery codes are issued once and cannot be displayed again. After linking, use your linked sign-in to recover this nation.</p>' :
+          (n ? row('<button type="button" class="btn ghost" data-ed="signout">Sign out</button>') + '<p class="ed-fine">Guest recovery codes are issued once and cannot be displayed again. After linking, use your linked sign-in to recover this nation.</p>' :
             row('<button type="button" class="btn ghost" data-ed="guest-session">Login with active guest session</button>') + row('<button type="button" class="linkish" data-ed="recover">Recover with a code</button>'));
       } else if (w.kind === 'google') {
         h = '<p class="eyebrow">Registered Nation</p><h2 class="ed-h" id="ed-dlg-h">Your linked account</h2><p>' + (w.email ? 'You are signed in as <b>' + esc(w.email) + '</b>. ' : '') +
@@ -729,6 +736,7 @@
     focusFirst();
   }
   function act(a) {
+    if (a === 'recovery-review') { reviewRecoveryCode(); return; }
     if (a === 'recover') { ui.view = 'recover'; draw(); return; }
     if (a === 'recover-yes') { recoverNation(); return; }
     if (a === 'guest-session') { resumeGuest(); return; }
@@ -965,12 +973,27 @@
       leave({ uid: nu.uid }, guest ? 'Signed in with Google. “' + guest.name + '” now lives in your Google account.' : 'Signed in with Google. The nation you found here will be kept with your account.');
     }
   }
-  function doSignOut() {
-    setBusy('Signing out…');
-    A.leaving = true; A.frozen = true;
-    A.auth.signOut().catch(function () {}).then(function () {
-      leave({ nation: null, uid: '-' }, 'Signed out. This browser is now a new guest, and your nation is safe with your Google account.');
-    });
+  function syncSignoutButton() {
+    var check = ui.inn && ui.inn.querySelector('#ed-guest-code-saved'), button = ui.inn && ui.inn.querySelector('[data-ed="signout-yes"]');
+    if (check && button) button.disabled = !!ui.busy || !check.checked;
+  }
+  async function reviewRecoveryCode() {
+    var code = L.get('edictum.recovery.pending.' + A.uid); if (!code || ui.busy) return;
+    setBusy('Checking your recovery code…');
+    try { await call('accounts', { op: 'issue', code: code }); setBusy(''); open('recovery-code'); }
+    catch(e) { setBusy(''); setMsg(e.message, true); }
+  }
+  async function doSignOut() {
+    var guest = who().kind === 'guest', n = localNation(), uid = A.uid, check = ui.inn && ui.inn.querySelector('#ed-guest-code-saved');
+    if (guest && n && (!check || !check.checked)) return;
+    setBusy('Saving before signing out…');
+    try {
+      if (n && typeof E.beforeSignOut === 'function') await within(E.beforeSignOut(), 25000);
+      A.leaving = true; A.frozen = true;
+      await A.auth.signOut();
+      if (guest) L.set('edictum.recovery.pending.' + uid, null);
+      leave({ nation: null, uid: '-' }, guest ? 'Signed out. Use your recovery code to sign back in to your Guest Nation.' : 'Signed out. Sign in with your linked account to continue your nation.');
+    } catch(e) { A.leaving = false; A.frozen = false; setBusy(''); setMsg(e.message || 'Sign-out could not finish. Try again.', true); }
   }
 
   var started = new Promise(function (r) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', r, { once: true }); else r(); });

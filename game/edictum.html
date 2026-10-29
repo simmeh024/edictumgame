@@ -4108,6 +4108,18 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .ux-requirements{display:flex;flex-wrap:wrap;gap:8px 16px;list-style:none;margin:4px 0;padding:0;font-size:12px;width:100%}.ux-requirements li{display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.5}.ux-requirements b{font-variant-numeric:tabular-nums}.ux-req-mark{font-weight:700}.ux-requirements .met .ux-req-mark{color:var(--accent)}.ux-requirements .missing .ux-req-mark{color:var(--stamp)}.ux-requirements .linkish{min-height:36px;font-size:11px}
 .ux-resource-notice{padding:14px 16px;border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:3px;margin:0 0 20px}.ux-resource-notice p{margin:5px 0;font-size:13px}
 @media(max-width:959px){.ux-search-button{width:34px;height:34px}.ux-sections{top:55px}.ux-section-links{display:none}.ux-section-select{display:flex}.ux-has-sections .fgd:not(.fgd-d) .fgd-top{top:calc(env(safe-area-inset-top,0px) + 55px + var(--ux-index-height))}.ux-requirements .linkish,.ux-unlock-link{min-height:40px}}
+
+.account-link-card{margin:16px 0;padding:18px 20px}
+.account-link-card .h2{margin:0 0 8px;font-size:22px}
+.account-link-card p{margin:0 0 10px}
+.account-access{margin:10px 0;line-height:1.55}
+.account-access p{margin:0 0 6px}
+.account-access .linkish,.account-link-card .linkish{white-space:normal;text-align:start}
+.account-types-table{width:100%;min-width:0;table-layout:fixed}
+.account-types-table caption{text-align:left;font-weight:600;padding:0 0 10px}
+.account-types-table th,.account-types-table td{white-space:normal;overflow-wrap:anywhere;vertical-align:top;padding:10px 8px}
+.account-types-table th:first-child{width:44%}
+.account-types-table tbody th{font-weight:400}
 </style>
 
 <div id="app"></div>
@@ -15159,6 +15171,7 @@ function warControls(x){
     }
     return `<div class="war-box"><p class="war-k">${ws.direct?'At war':'Alliance war'} since ${fmtDate(ws.since)}</p>${body}</div>`;
   }
+  if(!x.npc&&!civicRegistered())return `<div class="war-box calm"><button class="btn danger" disabled aria-describedby="account-war-requirement">Declare war</button>${accountActionHint('war')}<p class="hint">War also requires ${fmtPopShort(featureAt('war'))} people and the normal treaty and protection requirements.</p></div>`;
   if(pol(S.nation).pacifistConstitution)return `<div class="war-box calm"><p>Your pacifist constitution forbids declaring war. An edict may give you the chance to change it.</p></div>`;
   if(ws.truceUntil&&ws.truceUntil>now)return `<div class="war-box calm"><p>A truce holds until ${fmtTime(ws.truceUntil)}${new Date(ws.truceUntil).toDateString()!==new Date(now).toDateString()?' tomorrow':''}.</p></div>`;
   if(!canFeature(S.nation,'war'))return `<div class="war-box calm"><p>Declaring war unlocks at ${fmtPopShort(featureAt('war'))} people. Until then, grow, trade and make friends.</p></div>`;
@@ -15353,7 +15366,7 @@ function allianceSection(){
     const open=[...P.al.values()].filter(x=>!x.npc&&x!==req&&!invites.includes(x));
     body=`${req?`<div class="info" style="margin-bottom:14px">You asked to join <b>${esc(req.name)}</b>. You join when ${esc(nameOf(req.founder))} approves. <button class="linkish small" data-act="al-leave">Cancel request</button></div>`:''}
       ${invites.map(x=>`<div class="al-inv"><p><b>${esc(x.name)}</b> has invited you to join. Its members: ${esc(list(x.members.map(nameOf)))}.</p><button class="btn" data-act="al-join" data-id="${esc(x.id)}">Join ${esc(x.name)}</button></div>`).join('')}
-      <form id="al-form" class="al-form" novalidate><label class="lbl-h" for="al-name">Found an alliance${canFeature(S.nation,'alli')?'':' · unlocks at '+fmtPopShort(featureAt('alli'))+' people'}</label><div class="name-row"><input class="input" id="al-name" data-bind="alname" maxlength="40" placeholder="The Northern Concord" value="${esc(S.alName||'')}" autocomplete="off"><button class="btn" type="submit">Found</button></div><p class="hint">You become its founder and decide who joins. Computer-run nations with similar values can be invited too.</p></form>
+      <form id="al-form" class="al-form" novalidate><label class="lbl-h" for="al-name">Found an alliance${canFeature(S.nation,'alli')?'':' · unlocks at '+fmtPopShort(featureAt('alli'))+' people'}</label><div class="name-row"><input class="input" id="al-name" data-bind="alname" maxlength="40" placeholder="The Northern Concord" value="${esc(S.alName||'')}" autocomplete="off"><button class="btn" type="submit"${civicRegistered()?'':' disabled aria-describedby="account-alliance-requirement"'}>Found</button></div>${accountActionHint('alliance')}<p class="hint">You become its founder and decide who joins. Computer-run nations with similar values can be invited too.</p></form>
       ${open.length?`<h3 class="lbl-h" style="margin-top:20px">Player alliances</h3><ul class="mems">${open.map(x=>`<li class="mem"><span class="mem-n"><b>${esc(x.name)}</b> · ${x.members.length} ${x.members.length===1?'member':'members'}</span>${req?'':`<button class="btn ghost" data-act="al-join" data-id="${esc(x.id)}">Ask to join</button>`}</li>`).join('')}</ul>`:''}`;
   }
   const blocs=NPC_BLOCS.map(b=>`<li><b>${esc(b.name)}</b>: ${esc(list(b.members.map(nameOf)))}</li>`).join('');
@@ -17954,7 +17967,7 @@ function warPicker(){
   const n=S.nation;if(!n||cellOf(n.loc)<0||pol(n).pacifistConstitution||!canFeature(n,'war'))return '';
   const now=Date.now(),c=allNations().filter(x=>{if(x.me||sameAlliance(myId(),x.id))return false;const w=warWith(x.id);if(w.war||(w.truceUntil||0)>now)return false;return x.npc||canFeature(x.n,'war');});
   if(!c.length)return '';
-  return `<div class="field" style="margin-top:20px"><label class="lbl-h" for="war-pick">Declare war</label><div class="name-row"><select class="input" id="war-pick">${c.map(x=>`<option value="${esc(x.id)}">${esc(x.n.name)}${x.npc?' (computer)':''}</option>`).join('')}</select><button class="btn danger" data-act="war-pick">Review…</button></div><p class="hint">Opens the nation on the map, where you see its army and allies before you confirm.</p></div>`;
+  return `<div class="field" style="margin-top:20px"><label class="lbl-h" for="war-pick">Declare war</label><div class="name-row"><select class="input" id="war-pick">${c.map(x=>`<option value="${esc(x.id)}">${esc(x.n.name)}${x.npc?' (computer)':''}</option>`).join('')}</select><button class="btn danger" data-act="war-pick">Review…</button></div><p class="hint">Opens the nation on the map, where you see its army and allies before you confirm.</p>${accountActionHint('war')}</div>`;
 }
 
 /* ───────── notifications from other players' records ───────── */
@@ -22857,7 +22870,7 @@ function asmVoteCard(st,now){
     <div class="asm-tally"><div class="asm-tn"><span class="asm-y"><b class="num">${asmW(V.y)}</b> for</span><span class="asm-n"><b class="num">${asmW(V.n)}</b> against</span><span class="asm-left">Closes in <b data-live="asmclose" data-t="${st.t1}">${esc(fmtWait(st.t1-now))}</b></span></div>
       <div class="asm-bar" role="img" aria-label="${asmW(V.y)} for, ${asmW(V.n)} against">${tot?`<i class="y" style="width:${py.toFixed(1)}%"></i><i class="n" style="width:${(100-py).toFixed(1)}%"></i>`:''}</div>
       <p class="hint">${tot?(V.ok?'Passing as things stand.':V.y===V.n?'Tied: a tie fails.':'Failing as things stand.'):'No votes yet.'} The count closes at ${esc(fmtTime(st.t1))} on ${esc(fmtDate(st.t1))}.</p></div>
-    <div class="asm-my"><span class="lbl">${mem?'Your vote':'Members only'}</span><div class="seg" role="group" aria-label="Your vote">${vb(1,'For')}${vb(-1,'Against')}${vb(0,'Abstain')}</div>${mine&&mine.del?`<span class="hint">As Delegate your vote counts ${mine.w} times.</span>`:''}</div>
+    <div class="asm-my"><span class="lbl">${mem?'Your vote':'Members only'}</span><div class="seg" role="group" aria-label="Your vote">${vb(1,'For')}${vb(-1,'Against')}${vb(0,'Abstain')}</div>${mine&&mine.del?`<span class="hint">As Delegate your vote counts ${mine.w} times.</span>`:''}</div>${accountActionHint('vote',true)}
     <div class="asm-voters"><div><p class="lbl-h">Players</p><ul class="asm-vl">${pl.map(r=>`<li>${asmFlag(r.n)}<span class="asm-vn">${r.me?'<b>'+esc(r.n.name)+'</b>':nationLink(r.id,r.n.name,false)}${r.del?' <span class="chip">Delegate</span>':''}</span>${vw(r)}<span class="asm-vw num">×${asmW(r.w)}</span></li>`).join('')||'<li class="hint">No player members.</li>'}</ul></div>
       <div><p class="lbl-h">Computer nations</p><ul class="asm-vl">${np.map(r=>`<li>${asmFlag(r.n)}<span class="asm-vn">${nationLink(r.id,r.n.name,false)}</span>${vw(r)}<span class="asm-vw num">×⅓</span></li>`).join('')}</ul><p class="hint">Each votes by its character at a time of its own during the three days.</p></div></div>
   </section>`;
@@ -22877,7 +22890,7 @@ function asmQueueSec(st,now){
   else if(m&&(m.status==='lapsed'||m.status==='done'))own=`<p class="info">${m.status==='lapsed'?`Your proposal “${esc(m.p.ti)}” waited three cycles without reaching the vote, and has lapsed.`:`Your proposal “${esc(m.p.ti)}” has been voted on.`} You can table a new one. <button class="linkish small" data-act="asm-withdraw">Clear it away</button></p>`;
   const canDraft=mem&&(!m||!['queue','vote'].includes(m.status)||S.asmEdit);
   return `<section class="section asm-qs"><h2 class="h2">Proposals</h2><p class="muted">${lead} A proposal waits for at most three cycles.</p>
-    ${Q.q.length?`<ul class="asm-q">${Q.q.map(row).join('')}</ul>`:''}${own}${canDraft?asmDraftForm(a,now):!mem?'<p class="hint" style="margin-top:12px">Only members can table and support proposals.</p>':''}</section>`;
+    ${Q.q.length?`<ul class="asm-q">${Q.q.map(row).join('')}</ul>`:''}${own}${canDraft?asmDraftForm(a,now):!mem?(accountActionHint('proposal',true)||'<p class="hint" style="margin-top:12px">Rejoin the Assembly to table and support proposals.</p>'):''}</section>`;
 }
 function asmDraftForm(a,now){
   const d=asmDraftNow(),ed=!!S.asmEdit,wait=!ed&&a.pw&&now-a.pw<ASM_REDRAFT?a.pw+ASM_REDRAFT-now:0;
@@ -22899,7 +22912,7 @@ function asmEndSec(st,now){
     return `<li class="mem${x.me?' me':''}">${asmFlag(x.n)}<span class="mem-n">${nationLink(x.id,x.n.name,x.me)}${x.me?'<span class="chip you">You</span>':''}${isD?'<span class="chip ok">Delegate</span>':''}<span class="mem-s">${by.length?'Endorsed by '+esc(list(by)):'No endorsements yet'}</span></span><span class="mem-v">${o.k}</span><span class="mem-b">${!x.me&&mem?(on?`<button class="btn small-btn" data-act="asm-unend" data-id="${esc(x.id)}" aria-pressed="true">Endorsed · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-end" data-id="${esc(x.id)}" aria-pressed="false">Endorse</button>`):''}</span></li>`;}).join('');
   const npc=st.DD.npc.map(b=>`<li>${asmFlag(b.x)}<span>${nationLink(b.x.id,b.x.name,false)} ${b.r?`backs <b>${esc(b.r.n.name)}</b> <span class="hint">(affinity ${b.a})</span>`:`<span class="hint">backs nobody${b.best?`: closest is ${esc(b.best.n.name)}, at ${b.a}`:''}</span>`}</span></li>`).join('');
   const out=st.recs.filter(r=>!asmMemberAt(r.n,now)&&now>=asmArr(r.n));
-  return `<section class="section asm-es"><h2 class="h2">Endorsements</h2><p class="muted">Endorse as many members as you like. The player member with the most endorsements is Delegate; a tie goes to whoever reached that count first.</p>
+  return `<section class="section asm-es"><h2 class="h2">Endorsements</h2>${accountActionHint('leadership',true)}<p class="muted">Endorse as many members as you like. The player member with the most endorsements is Delegate; a tie goes to whoever reached that count first.</p>
     <ul class="mems asm-ends">${rows||'<li class="mem hint">No player members.</li>'}</ul>
     ${out.length?`<p class="hint" style="margin-top:10px">Outside the Assembly: ${esc(list(out.map(r=>r.n.name)))}.</p>`:''}
     <h3 class="lbl-h" style="margin-top:22px">Computer nations</h3><ul class="asm-npcb">${npc}</ul><p class="hint">Each backs the player member it likes best, once its affinity reaches ${ASM_AFF}. Shared values, a friendly cabinet and goodwill all raise it.</p></section>`;
@@ -22943,7 +22956,7 @@ async function civicRefresh(){
   if(!S.uid||!S.nation||S.mode==='local')return;
   if(civicLoading||civicBusy){civicAgain=true;return;}
   civicLoading=true;const epoch=civicEpoch;
-  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'';const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}civicInstall(next);if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&['assembly','region','visit'].includes(S.view))render();}}
+  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}civicInstall(next);if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||(['nation','customise','help','diplomacy'].includes(S.view)&&beforeAccount!==JSON.stringify(accountInfo()))))render();}}
   catch(e){if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
   finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
@@ -34037,6 +34050,7 @@ async function flushNow(){
   const w=remoteLast+SAVE_MIN-performance.now();if(w>0)await sleep(w);
   await flushRemote();
 }
+if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){keepUnsaved(S.nation);throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
 window.addEventListener('pagehide',()=>{flushNow();});
 function resumeNation(e){
@@ -35366,7 +35380,7 @@ function regionView(now){
     for(const aid of Object.keys(S.rmb))for(const p of S.rmb[aid].posts)posts.push({aid,p});
     posts.sort((a,b)=>b.p.t-a.p.t);
     const canPost=S.mode==='world'&&!!S.nation&&civicRegistered();
-    board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?'Guest Nations can read community topics. Link a sign-in account to become a Registered Nation and post. <button class="linkish" data-act="acct-open">Link your account</button>':'You have view-only access, so you can read the board but not post.'}</div>`}
+    board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?`Guest Nations can read community topics.${accountActionHint('topic')}`:'You have view-only access, so you can read the board but not post.'}</div>`}
     ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const nat=aid===S.uid?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,aid===S.uid):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
@@ -37593,7 +37607,7 @@ function uxFold(host,closed,persist=true){
 function uxSections(){
   document.documentElement.classList.remove('ux-has-sections');
   const root=document.querySelector('#main>.wrap');if(!root||!['nation','government','stats','customise','settings','cities','trade','passport','help','museum'].includes(S.view))return;
-  const candidates=[...root.querySelectorAll('h2,fieldset>legend')].filter(h=>!h.closest('dialog,[role="dialog"],.ux-sections,.pg-charter,.pg-first')&&h.getClientRects().length),rows=[],seen=new Set();
+  const candidates=[...root.querySelectorAll('h2,fieldset>legend')].filter(h=>!h.closest('dialog,[role="dialog"],.ux-sections,.pg-charter,.pg-first,.account-link-card')&&h.getClientRects().length),rows=[],seen=new Set();
   for(const h of candidates){const copy=h.cloneNode(true);copy.querySelectorAll('.fs-n,.ux-fold-toggle').forEach(e=>e.remove());const title=copy.textContent.trim();if(!title||title.length>100)continue;const host=h.parentElement;
     if(host===root||host.closest('.city,.bld,.opts,.mu-tiles')||seen.has(host))continue;seen.add(host);rows.push({h,host,title});if(rows.length>=24)break;}
   if(rows.length<3)return;
@@ -37714,6 +37728,47 @@ const pgWhSummaryBase=whSummary;
 whSummary=function(n,now){return pgAvailable(n,'warehouse')?pgWhSummaryBase(n,now):'';};
 document.addEventListener('click',e=>{if(e.target.closest('[data-act="pg-charter"]'))pgFinishCharter();});
 HELP_EXT.push({k:'early-game',t:'Your first days',body:()=>'<p>New nations begin with a short charter and three suggested actions at a time. Finish charter reveals Customise and flag layers. An active city and three claimed hexes reveal expansion planning and transport tools. When any resource reaches 280 of the base 400 storage, Warehouses appear in the building catalogue. Currency Prestige and counterfeiting appear after a signed trade or seven days; the normal three-day intelligence rules still apply. Reveals are remembered across devices. Nations founded before this introduction keep their existing tools.</p>'});
+
+
+/* Account guidance: optional linking after the charter, explanations at locked actions, one Help comparison. */
+function accountInfo(){return S.civic&&S.civic.reg===REG.id?S.civic.account:null;}
+function accountCompareButton(){return '<button type="button" class="linkish small" data-act="account-compare">Compare account types</button>';}
+function accountActionHint(key,assembly=false){
+  const labels={vote:'Assembly voting',proposal:'Submitting Assembly proposals',leadership:'Assembly leadership and endorsements',topic:'Creating community topics',alliance:'Founding an alliance',war:'Offensive wars against players'},a=accountInfo();
+  if(!S.banned&&S.mode==='world'&&a&&a.kind==='registered'&&!a.reason&&(!assembly||a.eligible))return '';
+  let reason='',link=false;
+  if(S.banned)reason='Multiplayer actions are unavailable while this account is banned. Contact support for help.';
+  else if(S.mode==='local')reason='Reconnect to use '+labels[key].toLowerCase()+'.';
+  else if(a&&a.reason==='moderated')reason='Multiplayer actions are unavailable while this nation is under moderation.';
+  else if(!a)reason='Checking account eligibility…';
+  else if(a.kind==='guest'){reason=labels[key]+' requires a Registered Nation.'+(assembly?' Your nation must also be at least 24 hours old.':'');link=true;}
+  else reason=labels[key]+' opens when your nation is 24 hours old.'+(a.readyAt>Date.now()?' '+fmtWait(a.readyAt-Date.now())+' remaining.':'');
+  return `<div class="hint account-access" id="account-${key}-requirement" data-account-action="${key}"><p>${esc(reason)}</p><div class="row">${link?'<button type="button" class="linkish small" data-act="acct-open">Link Google</button>':''}${accountCompareButton()}</div></div>`;
+}
+const accountHintHidden=new Set();
+const accountHintKey=n=>'edictum.link-hint.'+String(n.seed);
+function accountLinkCard(n){
+  const a=accountInfo();if(!n||!pgNew(n)||!pgAvailable(n,'charter')||stepsHidden(n)||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
+  try{if(localStorage.getItem(accountHintKey(n)))return '';}catch(e){}
+  return `<section class="paper account-link-card" aria-labelledby="account-link-heading"><p class="eyebrow">Your charter is complete</p><h2 class="h2" id="account-link-heading">Keep your nation on every device</h2><p>Link Google to become a Registered Nation and sign in on another browser or device. Registration opens community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>${!n.glk?`<p class="hint">First Google link: +${GL_CREDITS} land credits, +${GL_GIFT.iron} iron, +${GL_GIFT.timber} timber and +${GL_GIFT.goods} goods.</p>`:''}<div class="row"><button type="button" class="btn" data-act="acct-open">Link Google</button>${accountCompareButton()}<button type="button" class="linkish small" data-act="account-hint-hide">Not now</button></div></section>`;
+}
+function accountTypesHelp(){
+  const rows=[['Found and grow a nation','Yes','Yes'],['Edicts, economy and construction','Yes','Yes'],['Hex claims and discoveries','Yes','Yes'],['Customisation and achievements','Yes','Yes'],['Read Assembly debates','Yes','Yes'],['Assembly voting','Unavailable','After 24 hours'],['Submit Assembly proposals','Unavailable','After 24 hours'],['Hold Assembly leadership','Unavailable','After 24 hours'],['Create community topics','Unavailable','Yes'],['Found an alliance','Unavailable','Yes*'],['Declare offensive wars on players','Unavailable','Yes*'],['Reports and support','Yes','Yes'],['Recover on another device','Recovery code only','Linked sign-in']];
+  return `<p>You can start and grow a Guest Nation without linking an account. Link Google whenever you are ready to become a Registered Nation.</p><div class="tbl-wrap"><table class="tbl account-types-table"><caption>What each account type can do</caption><thead><tr><th scope="col">Feature</th><th scope="col">Guest Nation</th><th scope="col">Registered Nation</th></tr></thead><tbody>${rows.map(([feature,guest,registered])=>`<tr><th scope="row">${feature}</th><td>${guest}</td><td>${registered}</td></tr>`).join('')}</tbody></table></div><p class="hint">* Population milestones, cooldowns, treaties and moderation restrictions still apply. Guest Nations can fight computer nations and defend themselves under the normal rules.</p><h3 class="help-h3">The Assembly’s 24-hour wait</h3><p>The 24 hours are counted from founding your nation. Linking Google does not restart that wait. Voting, proposals, endorsements and leadership all require registration and a nation at least 24 hours old.</p><h3 class="help-h3">Keeping access to your nation</h3><p>A Guest Nation uses its one-time recovery code to recover on another device. Save it outside this browser: a lost code cannot be recovered or replaced. After signing out of a Guest Nation, enter its recovery code to sign back in. After linking, use your linked sign-in to recover your Registered Nation; the former guest code stops working.</p><h3 class="help-h3">First-link bonus</h3><p>Your first Google link awards ${GL_CREDITS} land credits, ${GL_GIFT.iron} iron, ${GL_GIFT.timber} timber and ${GL_GIFT.goods} goods, once per nation.</p>`;
+}
+HELP_EXT.push({k:'account-types',t:'Account types',top:true,body:accountTypesHelp});
+const accountStepsBase=firstStepsCard;
+firstStepsCard=n=>accountStepsBase(n)+accountLinkCard(n);
+const accountCustomiseBase=VIEWS_EXT.customise;
+VIEWS_EXT.customise=now=>{const body=accountCustomiseBase(now),card=accountLinkCard(S.nation);return card?body.replace('</header>','</header>'+card):body;};
+document.addEventListener('click',e=>{
+  const button=e.target.closest&&e.target.closest('[data-act]');if(!button)return;
+  if(button.dataset.act==='account-hint-hide'&&S.nation){const key=accountHintKey(S.nation);accountHintHidden.add(key);try{localStorage.setItem(key,'1');}catch(err){}render();}
+  if(button.dataset.act==='account-compare'){
+    e.preventDefault();if(S.nation)uxOpen('help',null,'#help-account-types');
+    else{S.foundHelp=true;supReset();render();requestAnimationFrame(()=>{const section=document.getElementById('help-account-types');if(section){section.scrollIntoView({block:'start'});section.querySelector('h2').focus({preventScroll:true});}});}
+  }
+});
 
 
 /* ───────── boot ───────── */

@@ -718,7 +718,7 @@ for (const scheme of ['light', 'dark']) {
   await E.locator('.side-foot').screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });
 }
 await E.emulateMedia({ colorScheme: 'light' });
-check('a guest has none, since signing out would lose the nation', !!(await B.$('.side-foot .ed-acct')) && !(await B.isVisible('.ed-out')));
+check('a Guest Nation also has a Sign out button', !!(await B.$('.side-foot .ed-acct')) && await B.isVisible('.ed-out'));
 await openAccount(E);
 await E.click('[data-ed="signout"]');
 check('signing out from the account dialog asks first', /Sign out\?/.test(await text(E, '#ed-dlg-h')));
