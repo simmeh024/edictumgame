@@ -114,7 +114,7 @@
      museum, achievements, statistics or passport. Everything else stays in nations/, which the region
      reads at every save. The passport's design stays shared: visitors collect its entry stamp. */
   var NX_KEYS = {}, NX_PP = { v: 1, p: 1, l: 1 };
-  ['inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
+  ['mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
