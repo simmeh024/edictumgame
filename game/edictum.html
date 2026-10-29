@@ -15794,7 +15794,7 @@ function slotsOf(ct){return blkOf(ct).n;}
 function maxCities(T,i){return mileOf(S.nation).cities;}
 function nationHas(n,key){return cityList(n).some(c=>(c.b||[]).some(b=>b.k===key));}
 function buildProblem(n,ct,key,st){
-  const B=BUILDINGS[key];if(whBusy(ct))return {k:'busy',t:'Finish or cancel this city’s Warehouse upgrade before starting other construction.'};
+  const B=BUILDINGS[key];if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return {k:'intro',t:'Warehouse plans appear when any resource reaches 280 storage.'};if(whBusy(ct))return {k:'busy',t:'Finish or cancel this city’s Warehouse upgrade before starting other construction.'};
   {const T=territory();if(ct.hi>=0&&T.list[ct.hi]&&T.list[ct.hi].id!==myId())return {k:'occ',t:'The city is occupied.'};}
   if(!bldUnlocked(n,key))return {k:'lock',t:'Unlocks at '+fmtPopShort(bldUnlockAt(key))+' people.'};{const q=bldProblemX(n,ct,key);if(q)return q;}
   if(ct.done.includes(key)||ct.prog.some(b=>b.k===key))return {k:'have',t:ct.done.includes(key)?'Already built here.':'Already under way or queued here.'};
@@ -16354,7 +16354,7 @@ function mileOf(n){
   return {pop,reached:r,next,bonus:r.reduce((s,m,i)=>s+mileCredit(n,i),0),cities:Math.min(MAX_CITIES,1+r.reduce((s,m)=>s+(m.city||0),0)),title:([...r].reverse().find(m=>m.t)||MILESTONES[0]).t};
 }
 function bldUnlockAt(key){const m=MILESTONES.find(m=>(m.b||[]).includes(key));return m?m.p:5;}
-function bldUnlocked(n,key){return popNow(n)>=bldUnlockAt(key)-1e-9||cvBlueOk(n,key);}
+function bldUnlocked(n,key){if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return false;return popNow(n)>=bldUnlockAt(key)-1e-9||cvBlueOk(n,key);}
 function featureAt(f){return (MILESTONES.find(m=>m[f])||MILESTONES[0]).p;}
 function canFeature(n,f){return !!n&&popNow(n)>=featureAt(f)-1e-9;}
 function mileUnlocks(m,n){
@@ -23210,6 +23210,7 @@ function cvRetal(id,n,now){
 function cvProtected(x,now){return !x.npc&&(x.n.founded||0)>now-CV_NEW;}
 function cvBlock(n,x,k,now){
   if(!n||!n.name)return 'Found your nation first.';
+  if(k==='c'&&!pgAvailable(n,'finance',now))return 'Counterfeiting opens after your first signed trade or seven days.';
   if((n.founded||0)>now-CV_NEW)return `Your intelligence service is still being set up. Covert operations open 3 days after founding, on ${fmtDate((n.founded||0)+CV_NEW)}.`;
   if(!x||x.me)return 'Choose a target.';
   if(cvProtected(x,now))return `${x.n.name} was founded less than 3 days ago and is protected from covert operations until ${fmtDate((x.n.founded||0)+CV_NEW)}.`;
@@ -23446,7 +23447,7 @@ function cvTargetsOf(now){
   return xs.filter(x=>!x.npc).sort((a,b)=>String(a.n.name).localeCompare(String(b.n.name))).concat(xs.filter(x=>x.npc));
 }
 function cvOpsSection(now){
-  const n=S.nation,ag=agents(n,now),ts=cvTargetsOf(now),k=CV_KINDS[S.cvK]?S.cvK:'s';
+  const n=S.nation,ag=agents(n,now),ts=cvTargetsOf(now),k=CV_KINDS[S.cvK]&&(S.cvK!=='c'||pgAvailable(n,'finance',now))?S.cvK:'s';
   const sel=ts.find(x=>x.id===S.cvTg&&!cvProtected(x,now))||ts.find(x=>cvRetal(x.id,n,now))||ts.find(x=>!cvProtected(x,now))||null;
   if(sel)S.cvTg=sel.id;
   const last=cvLastOp(n),wait=Math.max(0,last+CV_GAP-now),young=(n.founded||0)>now-CV_NEW;
@@ -23462,7 +23463,7 @@ function cvOpsSection(now){
       ${rvs.map(o=>`<div class="cv-rv"><p><b>Retaliation:</b> ${esc(o.x.n.name)} was caught ${esc(cvVerbYou(o.e.op.k))}. Until ${fmtTime(o.e.op.t+CV_RV)}${new Date(o.e.op.t+CV_RV).toDateString()!==new Date(now).toDateString()?' tomorrow':''}, your first operation against them costs half, is 15 points likelier to succeed and 10 less likely to be exposed, and ignores the waiting times.</p>${S.cvTg===o.x.id?'':`<button class="btn ghost" data-act="cv-rv" data-id="${esc(o.x.id)}">Target ${esc(o.x.n.name)}</button>`}</div>`).join('')}
       ${ts.length?`<div class="field cv-field"><label class="lbl-h" for="cv-tg">Target</label><select class="input" id="cv-tg">${ts.map(x=>{const pr=cvProtected(x,now);return `<option value="${esc(x.id)}"${sel&&x.id===sel.id?' selected':''}${pr?' disabled':''}>${esc(x.n.name)}${x.npc?' (computer)':' (player)'}${pr?', protected while new':''}${cvRetal(x.id,n,now)?', retaliation':''}</option>`;}).join('')}</select></div>`:'<p class="muted">There is nobody else in the region to spy on.</p>'}
       <p class="lbl-h" id="cv-k-l" style="margin-top:16px">Operation</p>
-      <div class="cv-kinds" role="group" aria-labelledby="cv-k-l">${CV_KEYS.map(q=>`<button type="button" class="cv-k" data-act="cv-k" data-k="${q}" aria-pressed="${q===k}"><b>${esc(CV_KINDS[q].n)}</b><span>${esc(costText(cvOpCost(q,sel?!!cvRetal(sel.id,n,now):false)))}</span></button>`).join('')}</div>
+      <div class="cv-kinds" role="group" aria-labelledby="cv-k-l">${CV_KEYS.filter(q=>q!=='c'||pgAvailable(n,'finance',now)).map(q=>`<button type="button" class="cv-k" data-act="cv-k" data-k="${q}" aria-pressed="${q===k}"><b>${esc(CV_KINDS[q].n)}</b><span>${esc(costText(cvOpCost(q,sel?!!cvRetal(sel.id,n,now):false)))}</span></button>`).join('')}</div>
       <p class="cv-fx">${esc(fx)}</p>
       ${od?`<dl class="mp-dl cv-odds"><div><dt>Chance of success</dt><dd>${od.p}%</dd></div><div><dt>Chance of being exposed</dt><dd>${od.x}%</dd></div><div><dt>Cost</dt><dd>${esc(costText(cost))}, and an agent</dd></div></dl>
       <p class="hint cv-parts">Success: ${esc(CV_KINDS[k].base+'% base, '+parts(od.ps))}. Exposure: ${esc((30+CV_KINDS[k].xb)+'% base, '+parts(od.px))}. Exposure is rolled separately: an operation can succeed and still be exposed.</p>`:''}
@@ -25748,7 +25749,7 @@ const bldStealable=k=>!BUILDINGS[k].lead&&!BUILDINGS[k].late;
 /* ── the catalogue ── */
 function bldCatKeys(cat,n,ct){
   const near=k=>!BUILDINGS[k].late||popNow(n)*10>=bldUnlockAt(k)||ct.done.includes(k)||ct.prog.some(b=>b.k===k);
-  const ks=Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].c===cat&&near(k));if(cat!=='lead')return ks;
+  const ks=Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].c===cat&&near(k)&&(k!=='warehouse'||pgAvailable(n,'warehouse')));if(cat!=='lead')return ks;
   const g=ldrOf(n),own=k=>g.includes(BUILDINGS[k].lead)||ct.done.includes(k)||ct.prog.some(b=>b.k===k);
   return ks.filter(own).concat(S.ldrAll?ks.filter(k=>!own(k)):[]);
 }
@@ -32347,7 +32348,7 @@ function prvCzSec(){
   </section>`;
 }
 function prvCzInject(h){
-  if(!S.nation||S.nation.npc)return h;
+  if(!S.nation||S.nation.npc||!pgAvailable(S.nation,'charter'))return h;
   h=h.replace(/(<nav class="cz-jump"[^>]*>[\s\S]*?)<\/nav>/,'$1<button type="button" class="chip-btn" data-act="cz-jump" data-id="cz-sec-v">Provinces</button></nav>');
   return h+prvCzSec();
 }
@@ -32901,7 +32902,7 @@ function flagDesignerHTML(f0,scope,o){
     ${fgGroup(scope,'col','Colours',list([...new Set(f.c.slice(0,uses).map(fgColName))]),`${[0,1,2].map(colRow).join('')}<div class="sw-row${c4on?'':' off'}"><span class="sw-l">Colour 4: fimbriation, and the emblem’s outline, ring or disc${c4on?'':' (not used by this design)'}</span>${fgSw(scope,'c4',c4,'Colour 4')}</div>`)}
     ${fgGroup(scope,'emb','Emblem',nmE,`<div class="tiles">${embT}</div><div class="sw-row${noE?' off':''}"><span class="sw-l">Emblem colour</span>${fgSw(scope,'ec',f.ec,'Emblem colour')}</div>`)}
     ${fgGroup(scope,'arr','Arrangement',noE?'':[{s:'Small',l:'Large'}[f.es]||'',pos?{c:'Centre',k:'Canton',h:'Hoist',f:'Fly'}[pos]:'',f.eo?['','Outline','Ring','Disc'][f.eo]:''].filter(Boolean).join(', ')||'As drawn',arr)}
-    ${fgGroup(scope,'layers','Layers',`${(f.layers||[]).length} / ${FGL_MAX}`,fglEditor(f,scope))}
+    ${pgAvailable(S.nation,'charter')?fgGroup(scope,'layers','Layers',`${(f.layers||[]).length} / ${FGL_MAX}`,fglEditor(f,scope)):''}
   </div>`;
 }
 function flagDesigner(f,scope){return flagDesignerHTML(f,scope);}
@@ -32955,6 +32956,7 @@ function fglEditor(f,sc){
 function fglPaint(sc){const f=fgTarget(sc);if(!f)return;const cv=document.querySelector(`[data-fgl-canvas="${sc}"]`);if(cv)cv.innerHTML=fglCanvas(f,sc);const pv=document.getElementById(sc+'-fgd-pv');if(pv)pv.innerHTML=flagSVG(f,'');const undo=document.getElementById(sc+'-fg-undo');if(undo&&FG.hist.get(f)?.length){undo.disabled=false;undo.removeAttribute('aria-disabled');}const chip=document.querySelector(`#${sc}-fgl-layer-${fglSelected(f,sc)} .fgl-chip`);if(chip&&f.layers?.length)chip.style.setProperty('--layer-col',f.layers[FGL.sel[sc]].c);FLAG_SCOPES[sc]?.live?.(f);}
 function fglDone(sc,focus,write=true){FGL.input=null;FG.open[sc+':layers']=true;if(write)fgDone(sc);else render();if(focus){const el=document.getElementById(focus);(el&&!el.disabled?el:document.getElementById(sc+'-fgl-canvas'))?.focus({preventScroll:true});}}
 function fglEdit(sc,act,value){
+  if(!pgAvailable(S.nation,'charter'))return;
   const f=fgTarget(sc);if(!f)return false;fgCanon(f);const before=JSON.stringify(f),a=f.layers||[];let i=fglSelected(f,sc),l=a[i];
   if(act==='add'){
     if(a.length>=FGL_MAX||!Object.hasOwn(FGL_KINDS,value))return false;
@@ -34399,12 +34401,13 @@ function cuView(now){
     ${P?`<p class="hint">Rates of ${esc(fmtDate(Date.parse(P.day+'T12:00:00Z')))} · ${rated.length} currencies · the next publication follows midnight UTC</p>`:''}</div>${cuSeal()}</header>`;
   if(!P){
     const off=S.mode==='local'||!S.db;
-    return head+cuConnections(n,null,now)+`<div class="paper cu-empty"><p class="cu-empty-h">${off?'The Bureau needs a connection to the region':CU.busy||Date.now()-CU.tried<4000?'Fetching today’s rates…':'No rates have been published yet'}</p><p>${off?'Exchange rates are published by the region, once a day. They appear here when the game is connected.':'The Bureau publishes the region’s rates once a day, shortly after midnight UTC. Your currency is already registered; its first rate and prestige rating arrive with the next publication.'}</p>
+    return head+cuConnections(n,null,now)+`<div class="paper cu-empty"><p class="cu-empty-h">${off?'The Bureau needs a connection to the region':CU.busy||Date.now()-CU.tried<4000?'Fetching today’s rates…':'No rates have been published yet'}</p><p>${off?'Exchange rates are published by the region, once a day. They appear here when the game is connected.':'The Bureau publishes the region’s rates once a day, shortly after midnight UTC. Your currency is already registered; its first rate arrives with the next publication.'}</p>
       <p><button class="btn ghost" data-act="go" data-v="customise">Design your currency</button></p></div>`;
   }
   const u=CU.ui,top=rated.slice().sort((a,b)=>a.e.r-b.e.r).map(r=>r.x.me?me:r.x.id);
   if(!u.from||!rows.some(r=>(r.x.me?me:r.x.id)===u.from))u.from=me0?me:top[0]||me;
   if(!u.to||u.to===u.from||!rows.some(r=>(r.x.me?me:r.x.id)===u.to)){const t=rated.filter(r=>(r.x.me?me:r.x.id)!==u.from).sort((a,b)=>a.e.r-b.e.r)[0];u.to=t?(t.x.me?me:t.x.id):'';}
+  if(!pgAvailable(n,'finance',now))return head+pgBasicCurrency(n,mc,me0)+cuConverter(rows);
   return head+cuYours(n,mc,me0)+cuConnections(n,me0,now)+cuConverter(rows)+cuRanking(rated)+cuDirectory(rows,mc,me0)+cuHistory(rows)+cuMiles()+cuHow();
 }
 function cuYours(n,c,e){
@@ -34618,10 +34621,10 @@ function cuSection(x,mine){
   const id=x.me?myId():x.id,c=cuOf(n),e=cuE(id),mc=cuMine(),m0=cuE(myId());
   let rt='',vsTop='';
   if(e&&!x.me&&m0&&mc)rt=`1 ${esc(c.cd)} = ${esc(cuFig(cuRate(e.v,m0.v),mc.nf))} ${esc(mc.cd)}`;
-  else if(e&&x.me){const t=cuList().filter(r=>r.e&&!r.x.me).sort((a,b)=>a.e.r-b.e.r)[0];if(t){rt=`1 ${esc(c.cd)} = ${esc(cuFig(cuRate(e.v,t.e.v),c.nf))} ${esc(t.c.cd)}`;vsTop=` <span class="hint">against the ${esc(t.c.nm)}, the region’s most trusted</span>`;}}
+  else if(e&&x.me){const t=cuList().filter(r=>r.e&&!r.x.me).sort((a,b)=>a.e.r-b.e.r)[0];if(t){rt=`1 ${esc(c.cd)} = ${esc(cuFig(cuRate(e.v,t.e.v),c.nf))} ${esc(t.c.cd)}`;vsTop=` <span class="hint">against the ${esc(t.c.nm)}, ${pgAvailable(S.nation,'finance')?'the region’s most trusted':'another regional currency'}</span>`;}}
   return `<section class="${mine?'section ':''}cu-nsec${mine?'':' cu-nsec-v'}"><div class="cu-nsec-in"><div class="cu-nsec-art">${cuNoteSVG(n,c,{cls:'cu-note-sm'})}</div>
   <div><p class="eyebrow">National currency</p><p class="cu-nsec-nm">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></p>
-  <dl class="cu-kv">${rt?`<dt>Exchange rate</dt><dd>${rt}${vsTop}</dd>`:''}${e?`<dt>Currency prestige</dt><dd>${cuBadge(e.p)} <span class="hint">${esc(cuOrd(e.r))} in ${esc(REG.name)}</span></dd>`:`<dt>Currency prestige</dt><dd class="hint">Rated from the Bureau’s next publication</dd>`}
+  <dl class="cu-kv">${rt?`<dt>Exchange rate</dt><dd>${rt}${vsTop}</dd>`:''}${pgAvailable(S.nation,'finance')?(e?`<dt>Currency prestige</dt><dd>${cuBadge(e.p)} <span class="hint">${esc(cuOrd(e.r))} in ${esc(REG.name)}</span></dd>`:`<dt>Currency prestige</dt><dd class="hint">Rated from the Bureau’s next publication</dd>`):''}
   <dt>Subunit</dt><dd>1 ${esc(c.nm)} = ${c.sn===1?'no smaller coin':c.sn+' '+esc(plural(c.su))}</dd></dl>
   <button class="btn ghost" data-act="cu-open" data-id="${esc(x.me?'':x.id)}">Foreign Exchange Bureau</button></div></div></section>`;
 }
@@ -35083,8 +35086,8 @@ function legislation(n){
 }
 function nationView(v,now){
   const n=S.nation,cnt=v.inbox.length;
-  return `${cnt?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">${esc(chamberOf(n).house)}</span><span>${cnt===1?'One edict awaits':cnt+' edicts await'} ${esc(chamberOf(n).notice)}.</span><span class="notice-go">Open edicts →</span></button>`:''}
-  ${awayNotice(n,now)}${landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}
+  return `${cnt&&!pgGuided(n)?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">${esc(chamberOf(n).house)}</span><span>${cnt===1?'One edict awaits':cnt+' edicts await'} ${esc(chamberOf(n).notice)}.</span><span class="notice-go">Open edicts →</span></button>`:''}
+  ${awayNotice(n,now)}${pgGuided(n)?'':landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}
   ${firstStepsCard(n)}${hero(n)}
   ${freedoms(n.s)}
   <div class="nation-grid">
@@ -35635,7 +35638,7 @@ function found(){
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
-    log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1};
+    log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1,onb:{v:1,u:[]}};
   for(let i=0;i<2;i++){n.inbox.push({id:pickIssue(n),at:now});n.issueSeq++;}
   const cell=cellOf(d.loc),lost=cell>=0&&!!pickProblem(cell,territory());
   if(cell>=0&&!lost){n.loc=locOf(cell);n.log.unshift({t:now,k:'settle',a:landName(cell)});centerMain(cell,NEAR_Z);}
@@ -35855,6 +35858,7 @@ function tick(){
   if(regBlocked())return;
   if(!S.nation)return;
   const now=Date.now(),v=syncInbox(S.nation,now);
+  if(pgPulse(now))return;
   if(v.inbox.length!==S.lastCount){render();return;}
   if(gamesPending(S.nation,now)){commit(clone(S.nation));render();return;}
   if(cellOf(S.nation.loc)>=0&&!Array.isArray(S.nation.claims)){commit(clone(S.nation));render();return;}
@@ -37301,15 +37305,15 @@ NORM_HOOKS.push((n,d)=>{
   const p=d.mapPlan;if(p&&p.reg===n.reg&&REG_BY_ID[p.reg]&&Array.isArray(p.cells)){n.mapPlan={reg:p.reg,cells:[...new Set(p.cells.filter(mpCell))].slice(0,MP_PLAN_MAX)};}
 });
 function mpDraft(){if(!S.mpDraft||S.mpDraftReg!==REG.id){S.mpDraftReg=REG.id;S.mpDraft=S.nation?.mapPlan?.reg===REG.id?S.nation.mapPlan.cells.slice():[];}return S.mpDraft;}
-function mpPlanClick(c){
+function mpPlanClick(c){if(!pgAvailable(S.nation,'map'))return;
   const a=mpDraft(),i=a.indexOf(c);S.mpMsg='';if(i>=0){a.splice(i,1);return;}
   if(a.length>=MP_PLAN_MAX){S.mpMsg='A plan can contain up to 48 hexes.';return;}
   const p=mpClaimSequence(territory(),a.concat(c));if(p.blocked.length){S.mpMsg=p.blocked.at(-1).why;return;}if(!p.cells.includes(c)){S.mpMsg='You already hold that hex.';return;}a.push(c);
 }
-function mpSavePlan(){const n=clone(S.nation);n.mapPlan={reg:REG.id,cells:mpDraft().slice()};commit(n);saveSoon();S.mpMsg='Plan saved. It will follow your nation across devices.';render();}
-function mpApplyPlan(){const p=mpClaimSequence(territory(),mpDraft());if(p.blocked.length||!p.cost||p.cost>landCredits(S.nation)){S.mpMsg=p.blocked[0]?.why||'You need enough land credits to claim the whole remaining plan.';render();return;}
+function mpSavePlan(){if(!pgAvailable(S.nation,'map'))return;const n=clone(S.nation);n.mapPlan={reg:REG.id,cells:mpDraft().slice()};commit(n);saveSoon();S.mpMsg='Plan saved. It will follow your nation across devices.';render();}
+function mpApplyPlan(){if(!pgAvailable(S.nation,'map'))return;const p=mpClaimSequence(territory(),mpDraft());if(p.blocked.length||!p.cost||p.cost>landCredits(S.nation)){S.mpMsg=p.blocked[0]?.why||'You need enough land credits to claim the whole remaining plan.';render();return;}
   if(writeClaims(p.cells,`${S.nation.name} claimed ${p.cost} planned ${p.cost===1?'hex':'hexes'}.`,false,true)){S.mpDraft=[];S.mpMsg='Expansion complete.';render();}}
-function mpBuildRoute(){
+function mpBuildRoute(){if(!pgAvailable(S.nation,'map'))return;
   const n=S.nation,T=territory(),k=S.mpKind||'road',p=mpRoutePreview(T,k,S.mpFrom,S.mpTo),now=Date.now();S.mpMsg='';
   if(p.why){S.mpMsg=p.why;render();return;}if((n.infra||[]).length>=MP_NET_MAX){S.mpMsg='You can keep up to 24 connections. Remove an old one first.';render();return;}
   const stock=stockNow(n,now),short=lacking(p.cost,stock);if(short.length){S.mpMsg='You need '+list(short)+'.';render();return;}
@@ -37318,7 +37322,7 @@ function mpBuildRoute(){
   commit(next);saveSoon();S.mpFrom=null;S.mpTo=null;S.mpMsg=p.type.n+' construction started.';render();
 }
 function mpRemoveRoute(id){const n=clone(S.nation);n.infra=(n.infra||[]).filter(r=>r.id!==id);if(!n.infra.length)delete n.infra;commit(n);saveSoon();S.mpMsg='Connection removed. Spent construction materials are not refunded.';render();}
-function mpMapToolbar(){return `<div class="mp-map-toolbar row" aria-label="Map tools"><button class="btn${S.mpMode==='plan'?'':' ghost'}" data-act="mp-mode" data-v="plan" aria-pressed="${S.mpMode==='plan'}">Plan expansion</button><button class="btn${S.mpMode==='transport'?'':' ghost'}" data-act="mp-mode" data-v="transport" aria-pressed="${S.mpMode==='transport'}">Transport networks</button>${S.mpMode?'<button class="btn ghost" data-act="mp-mode" data-v="">Return to normal map</button>':''}</div>`;}
+function mpMapToolbar(){if(!pgAvailable(S.nation,'map'))return '';return `<div class="mp-map-toolbar row" aria-label="Map tools"><button class="btn${S.mpMode==='plan'?'':' ghost'}" data-act="mp-mode" data-v="plan" aria-pressed="${S.mpMode==='plan'}">Plan expansion</button><button class="btn${S.mpMode==='transport'?'':' ghost'}" data-act="mp-mode" data-v="transport" aria-pressed="${S.mpMode==='transport'}">Transport networks</button>${S.mpMode?'<button class="btn ghost" data-act="mp-mode" data-v="">Return to normal map</button>':''}</div>`;}
 function mpPlanHTML(T){
   const draft=mpDraft(),p=mpClaimSequence(T,draft),cr=landCredits(S.nation),facts=blockFacts(p.cells),owned=draft.length-p.cells.length-p.blocked.length;
   return `<section class="mp-tool"><h2 class="mp-h">Plan your expansion</h2><p>Select connected free hexes on the map in the order you want to claim them. Select a planned hex again to remove it. Saving a plan spends no credits. Automatic land spending on this device pauses while you plan.</p><dl class="mp-dl"><div><dt>Remaining cost</dt><dd>${p.cost} land ${p.cost===1?'credit':'credits'}</dd></div><div><dt>Available</dt><dd>${cr} land ${cr===1?'credit':'credits'}</dd></div><div><dt>Base yield per day</dt><dd>${esc(list(facts.y))||'None yet'}</dd></div>${owned?`<div><dt>Already yours</dt><dd>${owned} hexes, no extra cost</dd></div>`:''}</dl>${p.blocked.length?`<p class="err">${esc(p.blocked[0].why)} Remove blocked steps or adjust the plan.</p>`:''}${p.cost>cr?'<p class="hint">Save this plan for later, or remove steps until it fits your credits.</p>':''}<ol class="mp-steps">${draft.map((c,i)=>`<li><span>${i+1}. ${esc(terrName(c))} · ${esc(landName(c))}${p.blocked.some(b=>b.c===c)?' · blocked':''}</span><button class="linkish small" data-act="mp-drop" data-c="${c}" aria-label="Remove step ${i+1}">Remove</button></li>`).join('')}</ol><div class="row"><button class="btn" data-act="mp-apply"${!p.cost||p.blocked.length||p.cost>cr?' disabled':''}>Claim plan (${p.cost} ${p.cost===1?'credit':'credits'})</button><button class="btn ghost" data-act="mp-save">Save for later</button><button class="linkish" data-act="mp-clear">Clear draft</button><button class="linkish" data-act="mp-load">Load saved plan</button></div><p class="hint">Island shores can start a plan when a completed coastal harbour reaches them across at most four hexes of water route. Each claimed hex still costs one land credit. Production bonuses apply only once land is claimed.</p></section>`;
@@ -37347,8 +37351,8 @@ MAP_CLICK.unshift(ctx=>{
     if(S.mpFrom==null){if(!ct||!ct.active||ct.hi!==hi){S.mpMsg='Select one of your cities as the origin.';return true;}S.mpFrom=ctx.cell;}else S.mpTo=ctx.cell;return true;}
   return false;
 });
-MAP_CONTROLS.push(()=>`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="landscape"${mapOpt('mp-landscape',true)?' checked':''}> Policy landscapes</label><label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="networks"${mapOpt('mp-networks',true)?' checked':''}> Transport networks</label><label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="influence"${mapOpt('mp-influence',false)?' checked':''}> City production areas</label>`);
-MAP_LEGEND.push(()=>'<span class="lg mp-key">Dotted island shores: harbour annexation · Numbered hexes: expansion plan · Solid lines: roads · Double lines: rail · Dotted lines: shipping · Dashed lines: construction · Red lines: cut connection</span>');
+MAP_CONTROLS.push(()=>`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="landscape"${mapOpt('mp-landscape',true)?' checked':''}> Policy landscapes</label>${pgAvailable(S.nation,'map')?`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="networks"${mapOpt('mp-networks',true)?' checked':''}> Transport networks</label>`:''}<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="influence"${mapOpt('mp-influence',false)?' checked':''}> City production areas</label>`);
+MAP_LEGEND.push(()=>pgAvailable(S.nation,'map')?'<span class="lg mp-key">Dotted island shores: harbour annexation · Numbered hexes: expansion plan · Solid lines: roads · Double lines: rail · Dotted lines: shipping · Dashed lines: construction · Red lines: cut connection</span>':'');
 function mpForestGlyphVisible(n,c){return !n.policies?.clearFelling||hash('fell:'+c)%4===0;}
 function mpLandscape(n,c,industrial=false){
   const p=n.policies||{},out=[];if(BIOME[c]===2||PAINT_COL[paintOf(c)]==='forest'){
@@ -37385,7 +37389,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='mp-net-from'){S.mpFrom=e.target.value===''?null:+e.target.value;S.mpTo=null;S.mpMsg='';updateMapPanel();redrawMaps();}
 });
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
-  if(a==='mp-mode'){S.mpMode=S.mpMode===el.dataset.v?'':el.dataset.v;S.mpMsg='';S.mapClaim=null;S.mapTarget=null;S.trSel=null;S.nwsOpen=null;S.mpFrom=null;S.mpTo=null;render();}
+  if(a==='mp-mode'){if(!pgAvailable(S.nation,'map'))return;S.mpMode=S.mpMode===el.dataset.v?'':el.dataset.v;S.mpMsg='';S.mapClaim=null;S.mapTarget=null;S.trSel=null;S.nwsOpen=null;S.mpFrom=null;S.mpTo=null;render();}
   if(a==='mp-drop'){S.mpDraft=mpDraft().filter(c=>c!==+el.dataset.c);S.mpMsg='';updateMapPanel();redrawMaps();}
   if(a==='mp-clear'){S.mpDraft=[];S.mpMsg='Draft cleared. Save to replace the saved plan.';updateMapPanel();redrawMaps();}
   if(a==='mp-load'){S.mpDraft=S.nation.mapPlan?.reg===REG.id?S.nation.mapPlan.cells.slice():[];S.mpMsg='Saved plan loaded.';updateMapPanel();redrawMaps();}
@@ -37584,7 +37588,7 @@ function uxFold(host,closed,persist=true){
 function uxSections(){
   document.documentElement.classList.remove('ux-has-sections');
   const root=document.querySelector('#main>.wrap');if(!root||!['nation','government','stats','customise','settings','cities','trade','passport','help','museum'].includes(S.view))return;
-  const candidates=[...root.querySelectorAll('h2,fieldset>legend')].filter(h=>!h.closest('dialog,[role="dialog"],.ux-sections')&&h.getClientRects().length),rows=[],seen=new Set();
+  const candidates=[...root.querySelectorAll('h2,fieldset>legend')].filter(h=>!h.closest('dialog,[role="dialog"],.ux-sections,.pg-charter,.pg-first')&&h.getClientRects().length),rows=[],seen=new Set();
   for(const h of candidates){const copy=h.cloneNode(true);copy.querySelectorAll('.fs-n,.ux-fold-toggle').forEach(e=>e.remove());const title=copy.textContent.trim();if(!title||title.length>100)continue;const host=h.parentElement;
     if(host===root||host.closest('.city,.bld,.opts,.mu-tiles')||seen.has(host))continue;seen.add(host);rows.push({h,host,title});if(rows.length>=24)break;}
   if(rows.length<3)return;
@@ -37650,6 +37654,63 @@ try{history.scrollRestoration='manual';}catch(e){}
 HELP_EXT.push({k:'navigation-polish',t:'Search, page memory and requirements',body:()=>'<p>Use Search game, Ctrl/Cmd + K or / to find a page, a known nation, a city, or a specific designer. Searching currency, flag or passport offers direct links to the relevant editor. City results open your own city plans or show other cities on the map.</p><p>Page position, selected filters and tabs, and map zoom are remembered on this device and in the browser’s Back/Forward history. Jump to section helps with long pages; you can collapse major sections and your choice is remembered for this account and region. Direct links to achievements and artefacts still open their exact targets.</p><p>Material checklists show available stock against the amount needed. A missing resource offers a shortcut to Trade, and locked designs link to the achievement, collection or building that unlocks them. Navigation and search do not buy, build or spend resources.</p>'});
 
 
+/* ── progressive feature reveals for newly founded nations ── */
+const PG_KEYS=['charter','map','warehouse','finance'];
+function pgNorm(raw){if(!raw||raw.v!==1)return null;return {v:1,u:PG_KEYS.filter(k=>Array.isArray(raw.u)&&raw.u.includes(k))};}
+function pgNew(n){return !!n&&!n.npc&&!!pgNorm(n.onb);}
+function pgEligible(n,k,now=Date.now()){
+  if(!n)return false;
+  if(k==='map')return ((n.cities||[]).length>0&&new Set((n.claims||[]).filter(c=>Number.isInteger(c.c)).map(c=>c.c)).size>=3)||!!n.mapPlan||(n.infra||[]).length>0;
+  if(k==='warehouse')return RES.some(r=>num0(n.stock?.[r])>=280)||(n.cities||[]).some(c=>(c.b||[]).some(b=>b.k==='warehouse'));
+  if(k==='finance')return (Number.isFinite(n.founded)&&now-n.founded>=7*DAY)||(n.log||[]).some(l=>l.k==='trade'||l.k==='tradeend')||(n.deals||[]).some(d=>d.a===1||String(d.w||'').startsWith('npc-'))||(n.cov||[]).some(o=>o.k==='c');
+  return false;
+}
+function pgAvailable(n,k,now=Date.now()){return !!n&&(!pgNew(n)||pgNorm(n.onb).u.includes(k)||pgEligible(n,k,now));}
+function pgMerge(n,old,now){
+  if(!pgNew(n))return [];const before=pgNorm(old?.onb)?.u||[],earned=pgNorm(n.onb).u;
+  n.onb={v:1,u:PG_KEYS.filter(k=>before.includes(k)||earned.includes(k)||pgEligible(n,k,now)||pgNew(old)&&pgEligible(old,k,now))};return n.onb.u.filter(k=>!before.includes(k));
+}
+NORM_HOOKS.push((n,d)=>{const p=pgNorm(d.onb);if(p)n.onb=p;});
+COMMIT_HOOKS.push((n,old,now)=>{const fresh=pgMerge(n,old,now).filter(k=>k!=='charter');if(!pgNew(old)||!fresh.length)return;const names={map:'expansion planning and transport on the Map',warehouse:'Warehouse plans in Cities',finance:'Currency Prestige in the Exchange Bureau and counterfeiting in Intelligence'};return ['New tools available: '+fresh.map(k=>names[k]).join('; ')+'.'];});
+function pgPulse(now){
+  const n=S.nation;if(!pgNew(n))return false;const u=pgNorm(n.onb).u,add=PG_KEYS.filter(k=>!u.includes(k)&&pgEligible(n,k,now));let st=null;
+  if(!u.includes('warehouse')&&!add.includes('warehouse')){st=stockNow(n,now);if(RES.some(r=>st[r]>=280))add.push('warehouse');}
+  if(!u.includes('finance')&&!add.includes('finance'))try{if(collectDeals().active.some(d=>d.a===myId()||d.b===myId()))add.push('finance');}catch(e){}
+  if(!add.length)return false;const next=clone(n);next.onb.u=PG_KEYS.filter(k=>u.includes(k)||add.includes(k));if(st){next.stock=roundStock(st);next.stockAt=now;next._stockSet=true;}
+  commit(next);saveSoon();render();return true;
+}
+function pgGuided(n){return pgNew(n)&&(!pgAvailable(n,'charter')||!stepsHidden(n)&&stepsState(n).some(s=>!s.ok));}
+function pgCharterCard(page=false){return `${page?'<header class="vh"><p class="eyebrow">A nation of your own</p><h1>Finish your charter</h1></header>':''}<section class="stp pg-charter" aria-labelledby="pg-charter-h"><p class="eyebrow">First things first</p><h2 class="stp-t" id="pg-charter-h">Your nation starts here</h2><p>Your name, flag and founding principles are saved. Start with an edict, or finish your charter when you are ready to explore the full design tools.</p><div class="row"><button class="btn" data-act="pg-charter">Finish charter</button><button class="btn ghost" data-act="go" data-v="issues">Open edicts</button></div><p class="hint">You can change your particulars in Settings at any time.</p></section>`;}
+function pgFinishCharter(){
+  if(!pgNew(S.nation)||pgAvailable(S.nation,'charter'))return;const n=clone(S.nation);n.onb.u.push('charter');commit(n);saveSoon();render();toast('Charter complete. Customise and flag layers are now available.');
+}
+const pgFirstStepsBase=firstStepsCard;
+firstStepsCard=function(n){
+  if(!pgNew(n))return pgFirstStepsBase(n);if(!pgAvailable(n,'charter'))return pgCharterCard();
+  if(stepsHidden(n))return '';const st=stepsState(n),todo=st.filter(s=>!s.ok).slice(0,3),done=st.filter(s=>s.ok).length;if(!todo.length)return pgFirstStepsBase(n);
+  return `<section class="stp pg-first" aria-labelledby="pg-first-h"><div class="stp-h"><div><p class="eyebrow">One step at a time</p><h2 class="stp-t" id="pg-first-h">Start with these</h2></div><span class="stp-n">${done} of ${st.length} first steps done</span></div><ol class="stp-l">${todo.map(s=>`<li><span class="stp-i" aria-hidden="true"></span><span class="stp-x"><b>${esc(s.t)}${s.k==='google'?GL_TAG:tutLcTag()}</b><span class="hint">${esc(stepHint(n,s))}</span></span><button class="btn ghost small-btn" ${s.k==='google'?'data-act="acct-open"':`data-act="go" data-v="${s.v}"`}>${esc(s.b)}</button></li>`).join('')}</ol><div class="stp-f"><button class="linkish small" data-act="go" data-v="help">How to play</button><button class="linkish small" data-act="steps-hide">Hide this list</button></div></section>`;
+};
+const pgCustomiseBase=VIEWS_EXT.customise;
+VIEWS_EXT.customise=function(now){return pgAvailable(S.nation,'charter')?pgCustomiseBase(now):pgCharterCard(true);};
+const pgNavGroupsBase=navGroups;
+navGroups=function(){return pgNavGroupsBase().map(g=>({...g,items:g.items.filter(([v])=>v!=='customise'||pgAvailable(S.nation,'charter'))})).filter(g=>g.items.length);};
+const pgSearchBase=navQjItems;
+navQjItems=function(q){return pgSearchBase(q).filter(x=>pgAvailable(S.nation,'charter')||!['customise','focus:currency','focus:appearance'].includes(x.v)).map(x=>x.v==='focus:flag'&&!pgAvailable(S.nation,'charter')?{...x,l:'Flag design'}:x);};
+const pgSearchGoBase=navQjGo;
+navQjGo=function(v){if(v==='focus:flag'&&!pgAvailable(S.nation,'charter')){navQjClose(false);uxOpen('settings',null,'#s-fgd');return;}return pgSearchGoBase(v);};
+function pgBasicCurrency(n,c,e){return `<section class="cu-yours paper"><div class="cu-yours-art">${cuNoteSVG(n,c,{cls:'cu-note-md'})}</div><div class="cu-yours-b"><p class="eyebrow">Your currency</p><h2 class="h2">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></h2>${e?`<p class="cu-big">1 ${esc(c.cd)} = ${esc(cuFig(e.v,c.nf))} <span class="cu-unit">${esc(cuUnit())}s</span></p>`:'<p>Your first official exchange rate arrives with the next daily publication.</p>'}<p>Trade turns your surplus resources into what your nation needs. Compare exchange rates here, then arrange a deal on Trade.</p><button class="btn ghost" data-act="go" data-v="trade">Open Trade</button></div></section>`;}
+const pgBadgeBase=cuBadge,pgVersusBase=cuVersus,pgStatBase=cuStatRows,pgCensusBase=cuCensus,pgConnectionBase=cuConnections;
+cuBadge=function(){return pgAvailable(S.nation,'finance')?pgBadgeBase.apply(this,arguments):'';};
+cuVersus=function(){return pgAvailable(S.nation,'finance')?pgVersusBase.apply(this,arguments):'';};
+cuStatRows=function(A){return pgStatBase(A).filter(r=>pgAvailable(S.nation,'finance')||r[0]!=='Currency prestige');};
+cuCensus=function(me){return pgAvailable(S.nation,'finance')?pgCensusBase(me):'';};
+cuConnections=function(){return pgAvailable(S.nation,'finance')?pgConnectionBase.apply(this,arguments):'';};
+const pgWhSummaryBase=whSummary;
+whSummary=function(n,now){return pgAvailable(n,'warehouse')?pgWhSummaryBase(n,now):'';};
+document.addEventListener('click',e=>{if(e.target.closest('[data-act="pg-charter"]'))pgFinishCharter();});
+HELP_EXT.push({k:'early-game',t:'Your first days',body:()=>'<p>New nations begin with a short charter and three suggested actions at a time. Finish charter reveals Customise and flag layers. An active city and three claimed hexes reveal expansion planning and transport tools. When any resource reaches 280 of the base 400 storage, Warehouses appear in the building catalogue. Currency Prestige and counterfeiting appear after a signed trade or seven days; the normal three-day intelligence rules still apply. Reveals are remembered across devices. Nations founded before this introduction keep their existing tools.</p>'});
+
+
 /* ───────── boot ───────── */
 function start(data){
   data=data||{};
@@ -37672,7 +37733,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

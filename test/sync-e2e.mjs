@@ -129,7 +129,7 @@ check('another account is refused as unauthorized rather than a save conflict', 
 // save waiting a full minute: switching away on a phone flushes the same queue much sooner.
 const D = await player('desktop production timing', { saveGap: 60000 }); await open(D);
 const uidD = await ready(D);
-await found(D, 'Desktopland');
+await found(D, 'Desktopland', {newPlayer:true});
 // Use the same settling bound as the restored-session check below: Auth, the region gate and a
 // paced Firestore retry can exceed eight seconds on CI. Fifteen still detects the old 60s delay.
 const firstDesktop = await until(async () => {
