@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import DATA from '../functions/civic-data.json' with {type:'json'};
 import {assemblyEngine} from '../functions/assembly-engine.js';
 import {cabinetAffinity} from '../functions/affinity.js';
 const now=Date.now(),DAY=86400000;
@@ -23,4 +24,13 @@ test('each eligible actor contributes one vote, with Delegate weight derived fro
 test('cabinet affinity retains skill, traits, loyalty and completed Palace effects',()=>{
  const n={name:'Crownland',pretitle:'Kingdom',cab:{for:{sk:5,tr:['genius','dove'],lo:80}},cities:[{b:[{k:'palace',d:now-1}]}]};
  assert.equal(cabinetAffinity(n),19);n.cab.for.lo=10;assert.equal(cabinetAffinity(n),15);n.pretitle='Republic';assert.equal(cabinetAffinity(n),7);n.cab.for.tr=['hawk','gaffe'];assert.equal(cabinetAffinity(n),-3);
+});
+
+
+test('computer nations keep their named statistics and endorse matching political values',()=>{
+ const npc=DATA.regions.find(r=>r.id==='meridian').npcs.find(n=>n.id==='npc-karvesk');
+ assert.equal(Array.isArray(npc.s),false);assert.equal(npc.s.civil,20);assert.equal(npc.s.econ,12);
+ const matching=record('matching',{s:{...npc.s}}),opposite=record('opposite',{s:{civil:100,econ:100,pol:100}});
+ const backing=assemblyEngine('meridian',[matching,opposite]).state(now).DD.npc.find(b=>b.x.id===npc.id);
+ assert.equal(backing.r.id,'matching');assert.equal(backing.a,100);
 });
