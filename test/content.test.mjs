@@ -4,6 +4,9 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {parse} from 'acorn';
 import {splitContent} from '../scripts/split-content.mjs';
+import {spawn} from 'node:child_process';
+import {setTimeout as delay} from 'node:timers/promises';
+import {fileURLToPath} from 'node:url';
 const LONG='A long story with accents: naïve, forêt, € and 🦁. '.repeat(4);
 const run=(source,content)=>{
   const ctx=vm.createContext({});ctx.window=ctx;ctx.__edictum={bootError:()=>{ctx.failed=true;}};
@@ -20,6 +23,18 @@ test('code-only updates retain the exact cached content file; story-only updates
   const a=splitContent(src),b=splitContent(src.replace('result=1','result=2')),c=splitContent(src.replace('naïve','clever'));
   assert.equal(a.content,b.content);assert.notEqual(a.code,b.code);
   assert.notEqual(a.content,c.content);assert.equal(a.code,c.code);
+});
+
+test('the build CLI preserves Unicode when a multibyte character crosses input buffers',async()=>{
+  const story=LONG.repeat(4),source=`const ISSUES=[{q:${JSON.stringify(story)}}];`,input=Buffer.from(source),cut=input.indexOf(Buffer.from('ï'))+1;
+  assert.ok(cut>0);
+  const child=spawn(process.execPath,[fileURLToPath(new URL('../scripts/split-content.mjs',import.meta.url))],{stdio:['pipe','pipe','pipe']});
+  const output=[],stderr=[];child.stdout.on('data',b=>output.push(b));child.stderr.on('data',b=>stderr.push(b));
+  const exited=new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});
+  await delay(250);child.stdin.write(input.subarray(0,cut));await delay(100);child.stdin.end(input.subarray(cut));
+  assert.equal(await exited,0,Buffer.concat(stderr).toString());
+  const result=JSON.parse(Buffer.concat(output).toString());
+  assert.equal(result.content,splitContent(source).content);
 });
 test('text in predicates, computed templates and ordinary UI code is left in its original scope',()=>{
   const src=`(()=>{const helper=()=>${JSON.stringify(LONG)};const ISSUES=[{req:n=>helper()+${JSON.stringify(LONG)},q:\`value \${helper()}\`,raw:String.raw\`${LONG}\\n\`}];window.result=ISSUES[0].req(1)+ISSUES[0].q+ISSUES[0].raw;})();`;

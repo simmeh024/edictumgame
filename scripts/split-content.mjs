@@ -31,6 +31,7 @@ export function splitContent(source){
   return {code,content:'window.__edictum.texts=Object.freeze('+JSON.stringify(texts)+');',count:texts.length};
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){
+  process.stdin.setEncoding('utf8'); // Keep Unicode characters intact across input-buffer boundaries.
   let source='';for await(const chunk of process.stdin)source+=chunk;
   process.stdout.write(JSON.stringify(splitContent(source)));
 }
