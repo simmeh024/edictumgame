@@ -74,7 +74,8 @@ service cloud.firestore {
     // src/shim.js refuses anything over 700,000 characters before it gets here.
     function validNation(d) {
       return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev'])
+        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV'])
+        && (!('storageV' in d) || (d.storageV is int && d.storageV == 1))
         && (!('rev' in d) || (d.rev is int && d.rev > 0))
         && d.v == 1
         && d.j is string && d.j.size() > 2 && d.j.size() <= 750000
@@ -152,6 +153,7 @@ service cloud.firestore {
         && summarised(uid, request.resource.data) && !banned(uid);
       allow update: if isSelf(uid) && validNation(request.resource.data) && headlineUpdate(request.resource.data)
         && regionEnabled(request.resource.data.reg) && regionEnabled(resource.data.reg)
+        && (!('storageV' in resource.data) || ('storageV' in request.resource.data && request.resource.data.storageV == resource.data.storageV))
         && nextRevision(request.resource.data)
         && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();

@@ -18,8 +18,8 @@ function rewards(){
   assert.ok(first>0&&collect>0&&google>0);
   const ctx=vm.createContext({S:{google:true},COMMIT_HOOKS:[],NEXT_STEPS:[],CU_STEPS:[],TUT_GS:'mrba',TUT_V:24,
     decisions:n=>n.dec||0,cellOf:v=>Number.isInteger(v)?v:-1,nextState:()=>[],tutFresh:()=>false,tutSoc:()=>null,
-    stockNow:n=>({...n.stock}),roundStock:s=>({...s}),num0:v=>+v||0,STOCK_CAP:400,GL_CREDITS:5,GL_GIFT:{iron:5,timber:5,goods:5}});
-  vm.runInContext(source.slice(first,end)+'\n'+fn('stepsState')+'\n'+fn('tutNorm')+'\n'+
+    stockNow:n=>({...n.stock}),roundStock:s=>({...s}),num0:v=>+v||0,stockCap:()=>400,STOCK_CAP:400,GL_CREDITS:5,GL_GIFT:{iron:5,timber:5,goods:5}});
+  vm.runInContext(fn('stockLimit')+'\n'+source.slice(first,end)+'\n'+fn('stepsState')+'\n'+fn('tutNorm')+'\n'+
     source.match(/const tutLcIds=.*;/)[0]+'\n'+source.match(/const tutLcOf=.*;/)[0]+'\n'+
     source.slice(collect,colEnd)+'\n'+source.slice(google,glEnd)+'\nthis.normalize=tutNorm;',ctx);
   return {

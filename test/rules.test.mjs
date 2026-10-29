@@ -62,6 +62,26 @@ beforeEach(async () => {
 const anon = () => env.unauthenticatedContext().firestore();
 const as = (uid, claims) => env.authenticatedContext(uid, claims).firestore();
 
+test('expanded storage allows supported saves and refuses older clients dropping its version guard', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const n = nation('Bobland', { storageV: 1, ts: AGO(60000) });
+    await ctx.firestore().doc('nations/bob').set(n);
+    await ctx.firestore().doc('summaries/bob').set(summaryOf(n));
+  });
+  await assertFails(save(as('bob'), 'bob', nation('Bobland')));
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { storageV: 1 })));
+});
+
+test('legacy nations may adopt expanded storage without invalidating other legacy saves', async () => {
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { storageV: 1 })));
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland')));
+  await assertSucceeds(save(as('dana'), 'dana', nation('Danaland', { storageV: 1 })));
+});
+
+test('expanded storage version rejects invalid or downgraded values', async () => {
+  for (const storageV of [0, 2, '1', null]) await assertFails(save(as('alice'), 'alice', nation('Aliceland', { storageV })));
+});
+
 test('disabled regions reject founding, saves, moves out and posts without deleting existing records', async () => {
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ enabled: false }));
   await assertFails(save(as('alice'), 'alice', nation('Aliceland')));
