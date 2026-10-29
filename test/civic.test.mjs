@@ -136,3 +136,14 @@ test('Concurrent vote requests still produce one protected vote per voter',async
   await Promise.all([-1,1].map(vote=>civic(p,{op:'vote',vote,cycle:s.c,key:s.cur.k})));
   const votes=await db.collection(`assemblyRegions/meridian/cycles/${s.c}/votes`).where('uid','==',p.uid).get();assert.equal(votes.size,1);assert.ok([-1,1].includes(votes.docs[0].get('value')));
 });
+
+
+test('maintenance allows an administrator to save without granting political privileges',async()=>{
+  const p=await player();await auth.setCustomUserClaims(p.uid,{admin:true});await db.doc('regionStatus/meridian').set({enabled:false});
+  try{
+    const now=Date.now(),record={reg:'meridian',name:p.uid,pop:10,army:1,cl:0,updatedAt:now,j:JSON.stringify({reg:'meridian',name:p.uid,pop:10})};
+    assert.ok((await civic(p,{op:'authorizeSave',rev:1,record})).permit);
+    await rejects(civic(p,proposal),'region_disabled');
+  }finally{await db.doc('regionStatus/meridian').delete();}
+  await rejects(civic(p,proposal),'registration_required');
+});

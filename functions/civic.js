@@ -24,10 +24,10 @@ async function permit(db, who, d) {
   if (!n || Array.isArray(n) || typeof n !== 'object' || n.reg !== p.reg || n.name !== p.name || own(n, 'asm'))
     throw new HttpsError('invalid-argument', 'Political records must be changed through the protected Assembly service.');
   return db.runTransaction(async tx => {
-    const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false });
+    const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true });
     if ((e.saved.get('rev') || 0) !== d.rev) refuse('save_conflict', 'Another device saved this nation.');
     const control = await tx.get(db.doc('regionStatus/' + p.reg));
-    if (control.exists && control.get('enabled') === false) refuse('region_disabled', regionMessage(control));
+    if (control.exists && control.get('enabled') === false && !who.admin) refuse('region_disabled', regionMessage(control));
     const actor = await tx.get(db.doc('assemblyRegions/' + p.reg + '/actors/' + who.uid));
     const before = e.n;
     // Validate changes, not the continued presence of old data. Guests can leave existing alliances.

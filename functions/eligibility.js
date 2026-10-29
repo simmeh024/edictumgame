@@ -10,11 +10,11 @@ export function refuse(code, message) { throw new HttpsError('failed-preconditio
 export async function identity(uid) {
   const u = await getAuth().getUser(uid);
   if (u.disabled) refuse('account_disabled', 'This account is disabled. Contact support.');
-  return { uid, registered: registered(u), generation: u.metadata.creationTime };
+  return { uid, admin: u.customClaims?.admin === true, registered: registered(u), generation: u.metadata.creationTime };
 }
 // All sensitive systems use this check. Birth is Firestore's document creation time, never JSON.founded.
 // Call inside the same transaction as the protected action so moderation and region changes race safely.
-export async function eligibility(tx, who, { linked = true, age = 0, hidden = false, nation = true } = {}) {
+export async function eligibility(tx, who, { linked = true, age = 0, hidden = false, nation = true, allowClosedRegion = false } = {}) {
   const db = getFirestore(), uid = who.uid;
   const refs = ['nations/', 'bans/', 'mod/', 'accountIdentity/'].map(p => db.doc(p + uid));
   const [saved, ban, mod, account] = await tx.getAll(...refs);
@@ -28,7 +28,7 @@ export async function eligibility(tx, who, { linked = true, age = 0, hidden = fa
   const n = nationJSON(saved), region = n.reg || saved.get('reg');
   if (region) {
     const control = await tx.get(db.doc('regionStatus/' + region));
-    if (control.exists && control.get('enabled') === false) refuse('region_disabled', regionMessage(control));
+    if (control.exists && control.get('enabled') === false && !(allowClosedRegion && who.admin)) refuse('region_disabled', regionMessage(control));
   }
   if (linked && !who.registered) refuse('registration_required', 'A Registered Nation is required. Link a sign-in account in your account settings.');
   const readyAt = born + age;
