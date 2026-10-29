@@ -67,6 +67,7 @@ export async function player(tag, opts = {}) {
     errors.push(tag + ' console: ' + t.slice(0, 300));
   });
   p.ctx = ctx; p.tag = tag;
+  if(!opts.recovery)await p.addLocatorHandler(p.locator('[data-ed="recovery-saved"]'),async locator=>{await locator.click();});
   return p;
 }
 export async function open(p, url = BASE + '/') {
@@ -158,3 +159,13 @@ export async function googlePopup(p, clickSelector, email) {
   await pop.waitForEvent('close', { timeout: 10000 }).catch(() => {});
 }
 export const openAccount = async p => { await p.click('.ed-acct-b'); await p.waitForSelector('dialog.ed-dlg[open]'); };
+
+// Explicit Registered fixtures for community/political tests, without the Google-specific tutorial gift.
+export async function register(p,{old=false}={}){
+  const uid=await ready(p),email=uid+'@registered.example.test',password='test-only-password';
+  await p.evaluate(async({email,password})=>{await firebase.auth().currentUser.linkWithCredential(firebase.auth.EmailAuthProvider.credential(email,password));},{email,password});
+  await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:update`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({localId:uid,emailVerified:true})});
+  if(old){const n=await restGet('nations/'+uid);await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/accountIdentity/${uid}?updateMask.fieldPaths=nationAt&updateMask.fieldPaths=nationGeneration`,{method:'PATCH',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({fields:{nationAt:{integerValue:String(Date.now()-2*86400000)},nationGeneration:{doubleValue:Date.parse(n.body.createTime)}}})});}
+  await p.evaluate(async()=>{await firebase.auth().currentUser.reload();await firebase.auth().currentUser.getIdToken(true);window.dispatchEvent(new Event('edictum:linked'));});
+  await until(()=>p.evaluate(()=>G.S.civic?.account.kind==='registered'));
+}

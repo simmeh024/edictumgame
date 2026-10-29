@@ -117,7 +117,7 @@ test('the dice are fair: about half of the battles at 50% are won', async () => 
 test('the odds stay within the game’s bounds, and no better than the two armies as saved allow', async () => {
   const g = await guest(), foe = await guest(), friend = await guest(), stranger = await guest();
   await nation(g.uid, { alli: { name: 'The Pact', t: 1 } }, 1);
-  await nation(foe.uid, {}, 1000);
+  await nation(foe.uid, {wars:{[g.uid]:{t:Date.now()}}}, 1000); // Guest defensive battles stay available
   await nation(friend.uid, { allyOf: g.uid }, 100);
   await nation(stranger.uid, {}, 100000);
   assert.equal((await battle(g, { p: 3 })).p, 0.95, 'a computer nation: the game’s bounds only');

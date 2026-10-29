@@ -15079,6 +15079,7 @@ async function attack(){
   S.warMsg=msgs.join(' ');S.mapTarget=null;S.mapSel=en.id;updateMapPanel();redrawMaps();toast(msgs[0]);
 }
 function declareWar(id){
+  if(!String(id).startsWith('npc-')&&!civicRegistered()){toast('A Registered Nation is required for offensive wars against players. Link a sign-in account in your account menu.');return;}
   const x=findNation(id);if(!x||x.me||!S.nation)return;
   if(pol(S.nation).pacifistConstitution){toast('Your pacifist constitution forbids declaring war.');return;}
   if(!canFeature(S.nation,'war')){toast('Declaring war unlocks at '+fmtPopShort(featureAt('war'))+' people.');return;}
@@ -15185,6 +15186,7 @@ function targetPanel(T,cell,reach){
 
 /* alliance actions */
 function foundAlliance(){
+  if(!civicRegistered()){toast('A Registered Nation is required to found an alliance. Link a sign-in account in your account menu.');return;}
   const name=String(S.alName||'').trim().replace(/\s+/g,' ').slice(0,40);
   if(!canFeature(S.nation,'alli')){S.alMsg='Founding an alliance unlocks at '+fmtPopShort(featureAt('alli'))+' people. You can still join one when invited.';render();return;}
   if(name.length<3){S.alMsg='Give the alliance a name of at least three characters.';render();return;}
@@ -15196,6 +15198,7 @@ function foundAlliance(){
 }
 function inviteAlly(id){S.alMsg='';inviteAllyBase(id);if(S.alMsg)S.relMsg={id,txt:S.alMsg};if(S.view==='visit')render();}
 function inviteAllyBase(id){
+  if(!civicRegistered()){toast('A Registered Nation is required to manage an alliance.');return;}
   const x=findNation(id),n0=S.nation;if(!x||!n0.alli)return;
   if(x.npc){const pw=pairWar(myId(),id);if(pw.peaceAt&&Date.now()-pw.peaceAt<3*DAY){S.alMsg=`${x.n.name} made peace with you on ${fmtDate(pw.peaceAt)} and will not join an alliance with you before ${fmtDate(pw.peaceAt+3*DAY)}.`;render();return;}}
   if(warWith(id).war){S.alMsg=`You are at war with ${x.n.name}. Make peace before inviting them.`;render();return;}
@@ -15207,6 +15210,7 @@ function inviteAllyBase(id){
   commit(n);S.alMsg=joined?`${x.n.name} has joined ${n.alli.name}.`:`Invitation sent to ${x.n.name}. They join when they accept.`;render();
 }
 function withdrawAlly(id){
+  if(!civicRegistered()){toast('A Registered Nation is required to manage an alliance.');return;}
   const n=clone(S.nation);if(!n.alli)return;
   const A=allianceOf(myId());if(A&&A.members.includes(id)){n.log.unshift({t:Date.now(),k:'alremove',a:id,b:nameOf(id),fx:n.alli.name});n.log=n.log.slice(0,60);}
   n.alli.inv=n.alli.inv.filter(e=>e.id!==id);commit(n);S.alMsg='';render();
@@ -22482,7 +22486,7 @@ const asmClean=(v,max)=>String(v==null?'':v).replace(/[\u0000-\u001f\u007f<>]/g,
 const asmKeyOk=k=>typeof k==='string'&&k.length>=3&&k.length<=100&&!/[\s<>"'&]/.test(k);
 const asmIdOk=v=>typeof v==='string'&&v.length>0&&v.length<=60;
 const asmCmp=(a,b)=>a<b?-1:a>b?1:0;
-const asmPKey=(id,p)=>hash(String(id)).toString(36)+'~'+Math.round(p.t).toString(36);
+const asmPKey=(id,p)=>String(id)+'~'+Math.round(p.t).toString(36);
 const asmA=n=>n&&n.asm&&n.asm.r===REG.id?n.asm:null;
 const asmArr=n=>Math.max((n&&n.founded)||0,(n&&n.mvAt)||0);
 const asmW=v=>{const r=Math.round(v*10)/10;return Number.isInteger(r)?String(r):r.toFixed(1);};
@@ -22755,39 +22759,9 @@ NORM_HOOKS.push((n,d)=>{
 function asmNote(t){S.asmMsg=t;}
 function asmMine(){const n=clone(S.nation);return {n,a:asmOwn(n),now:Date.now()};}
 function asmRefocus(sel){try{const el=document.querySelector(sel);if(el)el.focus({preventScroll:true});}catch(e){}}
-function asmEndorse(id,on){
-  const n0=S.nation,now=Date.now();if(!n0)return;
-  if(!asmMemberAt(n0,now)){asmNote('Only members of the Assembly may endorse. Rejoin to take part.');render();return;}
-  const x=asmRecs().find(r=>r.id===id);if(!x||x.me){render();return;}
-  const {n,a}=asmMine(),act=a.e.find(e=>e.i===id&&!e.w);
-  if(on){
-    if(act)return;
-    if(!asmMemberAt(x.n,now)){asmNote(`${x.n.name} has resigned from the Assembly and cannot be endorsed.`);render();return;}
-    const last=a.e.filter(e=>e.i===id&&e.w).pop();
-    if(last&&now-last.w<ASM_REEND){asmNote(`You withdrew your endorsement of ${x.n.name} recently. You can endorse it again in ${fmtWait(last.w+ASM_REEND-now)}.`);render();return;}
-    a.e.push({i:id,t:now});asmNote('');commit(n);render();toast(`${n.name} endorses ${x.n.name} for Delegate.`);
-  }else{
-    if(!act)return;act.w=now;asmNote('');commit(n);render();toast(`${n.name} has withdrawn its endorsement of ${x.n.name}.`);
-  }
-  asmRefocus(`[data-act="${on?'asm-unend':'asm-end'}"][data-id="${CSS.escape(id)}"]`);
-}
-function asmSupport(k,on){
-  const now=Date.now();if(!S.nation||!asmMemberAt(S.nation,now))return;
-  const st=asmState(now),Q=asmQueue(st),x=Q.q.find(p=>p.k===k);if(on&&(!x||x.r.me))return;
-  const {n,a}=asmMine(),act=a.s.find(s=>s.k===k&&!s.w);
-  if(on){if(act)return;a.s.push({k,t:now});}else{if(!act)return;act.w=now;}
-  asmNote('');commit(n);render();toast(on?`You support “${x.p.ti}”.`:'Support withdrawn.');
-  asmRefocus(`[data-act="${on?'asm-unsup':'asm-sup'}"][data-k="${CSS.escape(k)}"]`);
-}
-function asmVote(v){
-  const now=Date.now();if(!S.nation)return;
-  if(!asmMemberAt(S.nation,now)){asmNote('Only members of the Assembly may vote.');render();return;}
-  const st=asmState(now);if(!st.cur)return;
-  const {n,a}=asmMine();a.v=a.v.filter(x=>x.c!==st.c);if(v)a.v.push({c:st.c,k:st.cur.k,v,t:now});
-  if(!a.cur||a.cur.c!==st.c)a.cur=asmLockOf(st.cur,now);
-  asmNote('');commit(n);render();toast(v>0?`${n.name} votes for “${st.cur.ti}”.`:v<0?`${n.name} votes against “${st.cur.ti}”.`:`${n.name} abstains on “${st.cur.ti}”.`);
-  asmRefocus(`[data-act="asm-vote"][data-v="${v}"]`);
-}
+function asmEndorse(id,on){return civicAction({op:'endorse',target:id,on});}
+function asmSupport(k,on){return civicAction({op:'support',key:k,on});}
+function asmVote(v){const st=asmState();return civicAction({op:'vote',vote:v,cycle:st.c,key:st.cur&&st.cur.k});}
 function asmDraftProblem(d){
   if(!ASM_CATS[d.cat])return 'Choose a category.';
   const ti=asmClean(d.ti,ASM_TI),tx=asmClean(d.tx,ASM_TX);
@@ -22796,53 +22770,15 @@ function asmDraftProblem(d){
   return '';
 }
 function asmSubmit(){
-  const now=Date.now(),d=S.asmDraft||{};if(!S.nation)return;
-  if(!asmMemberAt(S.nation,now)){asmNote('Only members of the Assembly may draft proposals.');render();return;}
-  const pr=asmDraftProblem(d);if(pr){S.asmErr=pr;render();return;}
-  const st=asmState(now),Q=asmQueue(st),mine=Q.mine,{n,a}=asmMine();
-  if(S.asmEdit){
-    if(!mine||mine.status!=='queue'){S.asmEdit=false;asmNote('That proposal can no longer be edited.');render();return;}
-    a.p.ti=asmClean(d.ti,ASM_TI);a.p.tx=asmClean(d.tx,ASM_TX);a.p.ed=now;
-    S.asmEdit=false;S.asmErr='';S.asmDraft=null;asmNote('');commit(n);render();toast(`“${a.p.ti}” has been revised.`);return;
-  }
-  if(mine&&(mine.status==='queue'||mine.status==='vote')){S.asmErr='You already have a proposal before the Assembly.';render();return;}
-  if(a.pw&&now-a.pw<ASM_REDRAFT){S.asmErr=`You withdrew a proposal recently. You can table a new one in ${fmtWait(a.pw+ASM_REDRAFT-now)}.`;render();return;}
-  a.p={t:now,c:d.cat,g:d.g?1:0,ti:asmClean(d.ti,ASM_TI),tx:asmClean(d.tx,ASM_TX)};
-  S.asmDraft=null;S.asmErr='';asmNote('');commit(n);render();
-  toast(`“${a.p.ti}” has been tabled. It can go to the vote from Resolution No. ${asmNo(st.c+1)} if the Delegate picks it or it gathers the most support.`);
+  const d=S.asmDraft||{},problem=asmDraftProblem(d);if(problem){S.asmErr=problem;render();return;}
+  return civicAction({op:'propose',title:d.ti,body:d.tx,category:d.cat,strength:d.g?1:0,edit:!!S.asmEdit}).then(ok=>{if(ok){S.asmDraft=null;S.asmEdit=false;S.asmErr='';render();}});
 }
-function asmWithdraw(){
-  const now=Date.now(),st=asmState(now),Q=asmQueue(st),mine=Q.mine;if(!mine)return;
-  if(mine.status==='vote'){asmNote('A proposal at the vote can no longer be withdrawn.');render();return;}
-  const {n,a}=asmMine(),was=a.p;delete a.p;if(mine.status==='queue')a.pw=now;S.asmEdit=false;
-  asmNote('');commit(n);render();toast(mine.status==='queue'?`“${was.ti}” has been withdrawn.`:'The old proposal has been cleared away.');
-}
-function asmAgenda(k){
-  const now=Date.now(),st=asmState(now);if(!st.D||st.D.id!==myId())return;
-  const Q=asmQueue(st);if(!Q.q.some(x=>x.k===k))return;
-  const {n,a}=asmMine();if(a.a&&a.a.c===st.c+1&&a.a.k===k)delete a.a;else a.a={c:st.c+1,k,t:now};
-  asmNote('');commit(n);render();
-  const p=Q.q.find(x=>x.k===k);toast(a.a?`As Delegate you have put “${p.p.ti}” first in line for the next vote.`:'The next vote goes back to the most-supported proposal.');
-}
-function asmSetMsg(x){
-  const now=Date.now(),st=asmState(now);if(!st.D||st.D.id!==myId())return;
-  const {n,a}=asmMine();x=asmClean(x,ASM_MSG);
-  if(x&&a.m&&now-a.m.t<ASM_MSG_GAP&&a.m.x!==x){asmNote(`You can change your message once an hour. Next change in ${fmtDur(a.m.t+ASM_MSG_GAP-now)}.`);render();return;}
-  if(x)a.m={x,t:now};else delete a.m;
-  S.asmMsgDraft=null;asmNote('');commit(n);render();toast(x?'Your message to the region is up.':'Your message has been taken down.');
-}
-function asmResign(){
-  const now=Date.now();if(!S.nation||!asmMemberAt(S.nation,now))return;
-  const el=document.getElementById('asm-ox'),ox=asmClean(el?el.value:S.asmOx,ASM_OX);
-  const {n,a}=asmMine();a.o=now;if(ox)a.ox=ox;else delete a.ox;delete a.a;
-  S.asmAsk=null;S.asmOx='';asmNote('');commit(n);render();
-  toast(`${n.name} has resigned from the ${REGION} Assembly. No resolution binds it now, and it has no say. It can rejoin in ${fmtWait(ASM_REJOIN)}.`);
-}
-function asmRejoin(){
-  const now=Date.now(),a0=asmA(S.nation);if(!a0||!a0.o||asmMemberAt(S.nation,now))return;
-  if(now-a0.o<ASM_REJOIN){asmNote(`You can rejoin in ${fmtWait(a0.o+ASM_REJOIN-now)}.`);render();return;}
-  const {n,a}=asmMine();a.j=now;asmNote('');commit(n);render();toast(`${n.name} has taken its seat in the ${REGION} Assembly again.`);
-}
+function asmWithdraw(){return civicAction({op:'withdraw'});}
+function asmAgenda(k){return civicAction({op:'agenda',key:k});}
+function asmSetMsg(x){return civicAction({op:'message',message:x});}
+function asmResign(){const el=document.getElementById('asm-ox');return civicAction({op:'resign',reason:el?el.value:S.asmOx});}
+function asmRejoin(){return civicAction({op:'rejoin'});}
+
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const act=el.dataset.act;if(!act||act.slice(0,4)!=='asm-')return;
   if(act==='asm-end'){asmEndorse(el.dataset.id,true);return;}
@@ -22897,6 +22833,7 @@ function asmDelBanner(st,now){
       ${msg?`<blockquote class="asm-msg">“${esc(msg)}”</blockquote>`:''}${form}</div></section>`;
 }
 function asmSeat(st,now){
+  if(!S.civic||S.civic.reg!==REG.id||!S.civic.account.eligible)return '';
   const n=S.nation,a=asmA(n)||{},mem=asmMemberAt(n,now);
   if(!mem){const left=a.o?a.o+ASM_REJOIN-now:0;
     return `<section class="asm-seat out"><p><b>${esc(n.name)} has no seat.</b> It resigned on ${esc(fmtDate(a.o||now))}${a.ox?` with the words “${esc(a.ox)}”`:''}. It has no say here, and no resolution binds it.</p>${left>0?`<p class="hint">You can rejoin in <span data-live="asmclose" data-t="${a.o+ASM_REJOIN}">${esc(fmtWait(left))}</span>.</p>`:`<button class="btn" data-act="asm-rejoin">Take your seat again</button>`}</section>`;}
@@ -22991,6 +22928,73 @@ function asmView(now){
   ${asmHistSec(st)}${asmRules()}`;
 }
 VIEWS_EXT.assembly=now=>asmView(now);
+
+/* Authoritative political records. Public nation JSON is never a source of votes or results. */
+let civicApi=null,civicLoading=false,civicAgain=false,civicEpoch=0,civicAt=0,civicBusy=false;
+const civicSignature=a=>JSON.stringify([a.reg,a.c,a.cur,a.locks,a.D,a.V,a.info,a.npc,a.recs,a.account]);
+const civicLocal=a=>Object.fromEntries(['h','d','st','cur'].filter(k=>a&&k in a).map(k=>[k,a[k]]));
+function civicInstall(value){
+  if(!value||value.reg!==REG.id)return;
+  S.civic=value;civicAt=Date.now();
+  if(S.nation){S.nation.asm=Object.assign(civicLocal(S.nation.asm),value.own);saveLocal(S.nation);}
+  asmMemo={k:'',v:null};
+}
+async function civicRefresh(){
+  if(!S.uid||!S.nation||S.mode==='local')return;
+  if(civicLoading||civicBusy){civicAgain=true;return;}
+  civicLoading=true;const epoch=civicEpoch;
+  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'';const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}civicInstall(next);if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&['assembly','region','visit'].includes(S.view))render();}}
+  catch(e){if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
+  finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
+}
+async function civicAction(data){
+  if(civicBusy)return false;
+  civicBusy=true;civicEpoch++;
+  try{
+    if(!civicApi)await civicRefresh();
+    if(!civicApi)throw new Error('Reconnect to take political actions.');
+    await flushNow();
+    civicInstall(await civicApi.request(data));S.asmMsg='';S.asmErr='';S.asmAsk=null;S.asmMsgDraft=null;
+    commit(clone(S.nation));saveSoon();render();return true;
+  }catch(e){asmNote(e.message||'The Assembly could not be reached.');render();return false;}
+  finally{civicBusy=false;if(civicAgain&&!civicLoading){civicAgain=false;setTimeout(civicRefresh,0);}}
+}
+function civicRegistered(){return !!(S.civic&&S.civic.reg===REG.id&&S.civic.account.kind==='registered');}
+const asmLegacyMemberAt=asmMemberAt;
+asmMemberAt=function(n,T){
+  const data=S.civic;if(!n||!data||data.reg!==REG.id)return false;
+  const id=n._civicId||(n===S.nation||n.name===S.nation?.name?S.uid:Object.keys(S.world||{}).find(k=>S.world[k]===n));
+  const r=data.recs.find(r=>r.id===id);return !!(r&&r.n.civicAt&&T>=r.n.civicAt&&asmLegacyMemberAt(Object.assign({},n,{founded:r.n.founded,asm:r.n.asm}),T));
+};
+asmRecs=function(){
+  if(!S.civic||S.civic.reg!==REG.id)return [];
+  return S.civic.recs.map(r=>({id:r.id,me:r.id===S.uid,n:Object.assign({},r.id===S.uid?S.nation:S.world&&S.world[r.id]||{},r.n,{_civicId:r.id})}));
+};
+asmLocks=function(){return new Map((S.civic&&S.civic.reg===REG.id?S.civic.locks:[]).map(L=>[L.c,L]));};
+asmPickFor=function(c,recs,L){return L.get(c)||null;};
+asmFinal=function(c,recs,L){const O=L.get(c);return O&&O.f?O:null;};
+asmReady=function(){return !!(S.civic&&S.civic.reg===REG.id);};
+asmState=function(now){
+  now=now||Date.now();const a=S.civic&&S.civic.reg===REG.id?S.civic:null,recs=asmRecs(),L=asmLocks(),c=a?a.c:asmCyc(now);
+  const find=id=>recs.find(r=>r.id===id),D=a&&a.D?Object.assign({},a.D,{r:find(a.D.id)}):null;
+  const info=new Map((a?a.info:[]).map(([id,v])=>[id,Object.assign({},v,{r:find(id)})]));
+  const npc=(a?a.npc:[]).map(b=>({x:NPC_NATIONS.find(n=>n.id===b.id),r:find(b.player)||null,a:b.a})).filter(b=>b.x);
+  const V=a&&a.V?Object.assign({},a.V,{rows:a.V.rows.map(row=>Object.assign({},row,{n:row.npc?NPC_NATIONS.find(n=>n.id===row.id):find(row.id)?.n,me:row.id===S.uid}))}):null;
+  return {c,t0:a?a.t0:asmT0(c),t1:a?a.t1:asmT0(c+1),now,recs,L,cur:a?a.cur:null,locked:!!a,D,DD:{D,info,npc},V,sig:a?String(hash(civicSignature(a))):'connecting'};
+};
+asmHistory=function(st,max){return [...st.L.values()].filter(L=>L.f&&L.c<st.c).sort((a,b)=>b.c-a.c).slice(0,max|0);};
+asmDue=function(n,now){if(!asmReady())return false;const st=asmState(now),a=asmA(n);return !!(st.cur&&a?.cur?.k!==st.cur.k)||[...st.L.values()].some(L=>L.f&&!(a?.h||[]).some(h=>h.r===REG.id&&h.c===L.c));};
+const civicAssemblyView=VIEWS_EXT.assembly;
+VIEWS_EXT.assembly=now=>{
+  const a=S.civic&&S.civic.reg===REG.id?S.civic.account:null;
+  const reason=!a?'Connecting to the Assembly…':a.kind==='guest'?'Guest Nations may read debates. Link a sign-in account to become a Registered Nation and take political actions.':a.reason==='moderated'?'This nation cannot take political actions while under moderation.':!a.eligible?'Assembly voting, proposals and leadership unlock 24 hours after your nation was founded.':'';
+  return (reason?`<p class="war-msg" role="status">${esc(reason)}</p>`:'')+civicAssemblyView(now);
+};
+window.addEventListener('edictum:linked',()=>{civicAt=0;civicEpoch++;civicRefresh();});
+window.addEventListener('edictum:saved',()=>{if(!S.civic||Date.now()-civicAt>30000)civicRefresh();});
+window.addEventListener('focus',()=>{if(Date.now()-civicAt>15000)civicRefresh();});
+setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-civicAt>(S.view==='assembly'?30000:90000))civicRefresh();},15000);
+
 
 /* ── elsewhere: the Region page, the nation pages (first among the extra sections), the bell, happenings, the Dispatch, help ── */
 function asmRegionBox(now){
@@ -31189,7 +31193,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
   return [`Step done: ${n.name} is kept with your Google account. +${GL_CREDITS} land credits to spend on the map, and ${GL_GIFT.iron} iron, ${GL_GIFT.timber} timber and ${GL_GIFT.goods} goods.`];
 });
 function glCheck(){const n=S.nation;if(S.google&&n&&!n.glk&&!n.npc&&n.name&&!dormHeld()){commit(clone(n));render();}}
-window.addEventListener('edictum:linked',()=>{S.google=true;glCheck();});
+window.addEventListener('edictum:linked',async()=>{try{const u=await window.claude.use('user');S.google=!!(u&&typeof u.google==='function'&&await u.google());glCheck();render();}catch(e){}});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="acct-open"]');if(!el)return;
   const b=document.querySelector('.ed-acct-b');if(b)b.click();else toast('Sign-in is not available right now. Reload the page when you are back online.');});
 /* a step ticked without a save (a lens tried, a tile inspected, the World or social page seen, a city grown):
@@ -34903,6 +34907,7 @@ async function connect(){
     else if(S.nation&&S.mode==='world')queueRemote();
   }catch(e){saveFailed=true;}
   publishSync();
+  civicRefresh();
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
      the World page counts and lists them on demand (RSTAT). */
@@ -35360,8 +35365,8 @@ function regionView(now){
     const posts=[];
     for(const aid of Object.keys(S.rmb))for(const p of S.rmb[aid].posts)posts.push({aid,p});
     posts.sort((a,b)=>b.p.t-a.p.t);
-    const canPost=S.mode==='world'&&!!S.nation;
-    board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">You have view-only access, so you can read the board but not post.</div>`}
+    const canPost=S.mode==='world'&&!!S.nation&&civicRegistered();
+    board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?'Guest Nations can read community topics. Link a sign-in account to become a Registered Nation and post. <button class="linkish" data-act="acct-open">Link your account</button>':'You have view-only access, so you can read the board but not post.'}</div>`}
     ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const nat=aid===S.uid?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,aid===S.uid):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
@@ -35716,7 +35721,7 @@ async function postRmb(){
   if(wait>0){toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Post again in ${Math.ceil(wait/1000)} seconds.`);return;}
   rmbBusy=true;S.rmbDraft='';
   try{await S.db.post(REG.id,text.slice(0,400));rmbLast=Date.now();}
-  catch(e){S.rmbDraft=text;if(e&&e.code==='not_granted')toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Try again in a moment.`);else handleWriteError(e);}
+  catch(e){S.rmbDraft=text;if(e&&['registration_required','moderated','banned','region_disabled'].includes(e.code))toast(e.message);else if(e&&['quota_exceeded','not_granted'].includes(e.code))toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Try again in a moment.`);else handleWriteError(e);}
   finally{rmbBusy=false;render();}
 }
 async function removePost(aid,pid){

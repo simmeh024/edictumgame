@@ -10,7 +10,7 @@
 // stand-in for Google.
 import path from 'node:path';
 import {
-  BASE, OUT, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
+  BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
   restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT
 } from './lib.mjs';
 
@@ -22,8 +22,9 @@ const A = await player('A');
 const uidA = await open(A);
 check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.length > 10, uidA);
 await found(A, 'Aldoria');
+await until(()=>nationDoc(uidA));await register(A,{old:true});
 const docA = await until(() => nationDoc(uidA));
-check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,pop,reg,rev,ts,updatedAt,v', docA && docA.keys.join());
+check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,permit,pop,reg,rev,ts,updatedAt,v', docA && docA.keys.join());
 const xA = await until(async () => { const r = await restGet('nationx/' + uidA); return r.status === 200 ? r.body.fields : null; });
 const xrec = xA && xA.j ? JSON.parse(xA.j.stringValue) : {};
 check('its private half is saved to nationx/<uid>, and the shared half leaves it out', xA && Object.keys(xA).sort().join() === 'j,t,ts' && Array.isArray(xrec.inbox) && typeof xrec.issueClock === 'number'
@@ -36,6 +37,7 @@ check('the mode line says the region is connected', /Connected to/.test(await te
 const B = await player('B');
 const uidB = await open(B);
 await found(B, 'Borvia');
+await until(()=>nationDoc(uidB));await register(B,{old:true});
 check('B is a different player', uidB && uidB !== uidA);
 await nav(A, 'region'); await nav(B, 'region');
 const regionA = await until(async () => { const t = await text(A, '.tbl'); return /Aldoria/.test(t) && /Borvia/.test(t) ? t : ''; });
@@ -82,7 +84,7 @@ check('R’s board is the Frostmarch’s, without Meridian’s posts', !/Greetin
 
 /* ── 3. reloads ─────────────────────────────────────────────────────────── */
 await A.reload(); const uidA2 = await ready(A);
-check('a reload keeps the same anonymous account', uidA2 === uidA);
+check('a reload keeps the same account', uidA2 === uidA);
 check('a reload keeps the nation', await until(async () => (await sideName(A)) === 'Aldoria'));
 await A.evaluate(() => localStorage.removeItem('statehood.nation.v1'));
 await A.reload(); await ready(A);
@@ -186,6 +188,7 @@ const M = await player('M');
 const uidM = await open(M);
 await found(M, 'Spamland');
 await nav(M, 'region');
+await register(M);
 await M.fill('#rmb-text', 'Buy cheap gold at spam.example');
 await M.click('#rmb-form button[type="submit"]');
 await nav(B, 'region');
@@ -339,6 +342,7 @@ await Q.fill('#ed-sup-x', 'How do I leave for good?');
 await Q.click('[data-ed="support-yes"]');
 await until(async () => (await restListAdmin('support')).some(t => t.fields.by.stringValue === uidQ));
 await nav(Q, 'region');
+await register(Q);
 await Q.fill('#rmb-text', 'Goodbye, region');
 await Q.click('#rmb-form button[type="submit"]');
 await until(async () => (await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
@@ -410,11 +414,14 @@ check('the first stamp earns First Stamp', await until(async () => !!(((await na
 // the banner's stamps: a seat in the Assembly, the Delegate's chair, an alliance
 // its seat shows as Member, or as Delegate when the computer nations happen to back it (only the highest stamp shows)
 check('a player nation’s banner is stamped with its Assembly seat, and with no alliance it has none', await until(async () => /Meridian Reach Assembly\s*Member|Assembly\s*Delegate\s*of Meridian Reach/.test(await text(A, '.hero .hero-stamps'))) && !(await A.$('.hero .hs-al')));
-if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
+if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) {
+  await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
+  if(!await until(()=>A.evaluate(id=>G.S.civic?.own.e.some(e=>e.i===id&&!e.w),uidB),15000))throw Error('The endorsement was not confirmed by the Assembly.');
+}
 await nav(A, 'region');
 await until(() => A.$('.tbl [data-act="visit"][data-id="npc-vellmark"]')); await A.click('.tbl [data-act="visit"][data-id="npc-vellmark"]');
 check('a computer nation’s shows its seat and its alliance', await until(async () => /Member/.test(await text(A, '.hero .hs-asm')) && /The Iron Compact/.test(await text(A, '.hero .hs-al'))));
-await A.locator('.hero').screenshot({ path: path.join(OUT, 'banner-stamps.png') });
+await until(async()=>{await A.locator('.hero').screenshot({ path: path.join(OUT, 'banner-stamps.png') });return true;});
 await nav(A, 'assembly');
 const delName = await until(() => text(A, '.asm-del-n'));
 await nav(A, 'nation');
@@ -583,6 +590,8 @@ const own = await A.evaluate(c => { const e = (G.S.nation.conq || []).find(x => 
 check('the conquest carries the server’s time and the referee’s seal', own && typeof own.e.s === 'string' && own.e.s.length > 80 && own.ok === true && own.ready === 6 - fights, JSON.stringify(own));
 check('and another player’s game counts it, having checked the seal', await until(() => B.evaluate(([c, a]) => { const T = G.territory(); return T.owner[c] === T.byId[a]; }, [won, uidA]), 20000));
 await A.screenshot({ path: path.join(OUT, 'referee-victory.png') });
+// Keep the sender from overwriting the administrator's tamper fixture during the observer assertion.
+await A.evaluate(()=>{G.S.mode='readonly';G.render();});
 // conquests typed into A's record past the game: one without a seal, one with the seal of another hex
 await sleep(2500);
 const spare = await A.evaluate(npc => { const T = G.territory(), out = []; for (const [cell] of G.frontier(T)) { const o = T.list[T.owner[cell]]; if (o && o.id === npc) out.push(cell); } return out.slice(0, 2); }, war.npc);
@@ -593,6 +602,7 @@ check('another player’s game counts neither, and says why', spare.length === 2
   const x = G.S.world[a]; if (!x || x.updatedAt !== at) return false;
   const T = G.territory(), why = (G.AUDIT.get(a) || {}).why || [];
   return cs.every(c => T.owner[c] !== T.byId[a]) && why.some(w => /no seal from the referee/.test(w)) && why.some(w => /a seal the referee did not make/.test(w)); }, [uidA, at, spare]), 20000), JSON.stringify(spare));
+await A.evaluate(()=>{G.S.mode='world';G.render();});
 // the referee's count of readiness is the one that holds: spent elsewhere, the page's next attack is refused
 const drained = await A.evaluate(async npc => { const api = await window.claude.use('referee'); for (let i = 0; i < 9; i++) { const r = await api.battle({ d: npc, c: 0, p: 0.05 }); if (!r.ok) return r.why; } return 'never'; }, war.npc);
 const tg = await pick();
@@ -626,6 +636,7 @@ check('and Hide hides it from the other players', await until(async () => { cons
 await ownerDoc('nations/cheat-1', { method: 'DELETE' }); await ownerDoc('mod/cheat-1', { method: 'DELETE' });
 await A.evaluate(() => { location.hash = '#nation'; }); await sleep(300);
 
+await B.evaluate(async()=>{await firebase.auth().currentUser.unlink('password');await firebase.auth().currentUser.reload();window.dispatchEvent(new Event('edictum:linked'));});
 /* ── 8. Google sign-in (Auth emulator) ──────────────────────────────────── */
 // the first steps offer it, with what it pays; the button opens the account dialog
 await nav(B, 'nation');
@@ -712,7 +723,7 @@ await openAccount(E);
 await E.click('[data-ed="signout"]');
 check('signing out from the account dialog asks first', /Sign out\?/.test(await text(E, '#ed-dlg-h')));
 await E.click('[data-ed="back"]');
-check('and Cancel there goes back to the account', /Signed in with Google/.test(await text(E, '#ed-dlg-h')));
+check('and Cancel there goes back to the account', /Your linked account/.test(await text(E, '#ed-dlg-h')));
 await E.keyboard.press('Escape');
 await E.click('.side-foot .ed-out');
 await E.waitForSelector('dialog.ed-dlg[open]');

@@ -27,6 +27,10 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
 export { adminConsole } from './admin.js';
+export { accounts } from './accounts.js';
+export { civic } from './civic.js';
+import { identity, eligibility, refuse } from './eligibility.js';
+import DATA from './civic-data.json' with { type: 'json' };
 
 initializeApp();
 const db = getFirestore();
@@ -72,10 +76,11 @@ function readiness(state, pol, now) {
 }
 
 async function battle(uid, data) {
+  const who = await identity(uid);
   const c = data.c, d = data.d, w = isId(data.w) ? data.w : '';
   if (!Number.isInteger(c) || c < 0 || c > 1e6 || !isId(d) || d === uid || typeof data.p !== 'number' || !isFinite(data.p))
     throw new HttpsError('invalid-argument', 'A battle needs a hex, a nation and the odds.');
-  const npc = d.startsWith('npc-');
+  const npc = DATA.regions.some(r => r.npcs.some(n => n.id === d));
   const help = [...new Set(Array.isArray(data.h) ? data.h.filter(isId) : [])].filter(id => id !== uid && id !== d && !id.startsWith('npc-')).slice(0, 8);
   const meRef = db.doc('nations/' + uid), armyRef = db.doc('armies/' + uid), logRef = armyRef.collection('log').doc();
   const key = await signingKey();
@@ -91,6 +96,9 @@ async function battle(uid, data) {
     const availability = regions.length ? await tx.getAll(...regions.map(r => db.doc('regionStatus/' + r))) : [];
     const unavailable = availability.find(r => r.get('enabled') === false);
     if (unavailable) return { ok: false, why: unavailable.get('mode') === 'coming_soon' ? 'coming_soon' : 'maintenance' };
+    await eligibility(tx, who, { linked: false });
+    if (!npc && !who.registered && !(foe?.exists && record(foe).wars?.[uid]))
+      refuse('registration_required', 'A Registered Nation is required for offensive wars against players.');
     const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now);
     if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now };
     /* the odds: the attacker's own, within the game's bounds, and no better than its army, with its allies'
@@ -114,6 +122,15 @@ async function forget(uid) {
   if ((await db.doc('nations/' + uid).get()).exists) return { ok: false, why: 'nation' };
   const ref = db.doc('armies/' + uid);
   await db.recursiveDelete(ref);
+  const account = await db.doc('accountIdentity/' + uid).get();
+  if (account.get('recoveryHash')) await db.doc('guestRecovery/' + account.get('recoveryHash')).delete();
+  if (account.exists) await account.ref.set({ generation: account.get('generation') || '', recoveryIssued: !!(account.get('recoveryIssued') || account.get('recoveryHash')) });
+  await db.recursiveDelete(db.doc('nationPermits/' + uid));
+  const [proposals, votes] = await Promise.all(['proposals','votes'].map(c => db.collectionGroup(c).where('uid','==',uid).get()));
+  const writer = db.bulkWriter();
+  DATA.regions.forEach(r => writer.delete(db.doc('assemblyRegions/' + r.id + '/actors/' + uid)));
+  proposals.docs.concat(votes.docs).forEach(s => writer.delete(s.ref));
+  await writer.close();
   return { ok: true };
 }
 

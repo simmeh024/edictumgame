@@ -299,6 +299,35 @@ see the same status. Its text is announced to screen readers when it changes.
 Linking is also the last of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
 once (`n.glk`).
 
+**Guest and Registered Nations.** Registration is determined from live Firebase Auth linked providers;
+recovering a Guest Nation with a custom token does not register it. The first saved guest nation receives
+one 160-bit recovery code, shown until the player acknowledges saving it. Only its SHA-256 hash is stored
+on the server. A lost code cannot be read back or replaced. Registered Nations recover through linked
+sign-in, and a former Guest code stops working after linking. `LINK_OPTIONS` in `src/shim.js` is the
+account panel's provider list; Google is currently the supported interactive provider.
+
+`functions/eligibility.js` checks linked identity, a trusted nation creation timestamp, bans, moderation
+and region availability. Assembly participation requires 24 hours of nation age. Community topics,
+alliance founding/management and offensive wars against players require registration. Guests retain
+ordinary gameplay, NPC battles, defence, reading debates, reports and support.
+
+Assembly actions use the `civic` callable and protected `assemblyRegions/` records for actors, proposals,
+per-cycle votes, locked resolutions, results and leadership. Legacy national history stays in the private
+save; legacy JSON votes and proposals never become authoritative automatically. Nation saves first get a
+two-minute server permit for their exact public JSON and revision, then use the existing atomic save.
+The server injects the canonical Assembly projection and checks sensitive multiplayer changes. This
+also means browsers left open on an older release must reload before they can save again.
+
+The generated Assembly engine reuses the game's election, proposal selection and NPC voting algorithms.
+Regenerate its trusted catalog and source with `node tools/build-civic.mjs` after editing those algorithms.
+
+**Recovery runtime setup (once per project).** As a project owner, run
+`node tools/setup-recovery-runtime.cjs --project <project-id>` to inspect, then add `--apply` to enable
+`iamcredentials.googleapis.com` and grant the existing runtime **Service Account Token Creator on itself**.
+This is required by Firebase Admin custom-token signing; it grants no role on other service accounts.
+Run for staging and production before releasing recovery. The command preserves existing IAM bindings
+and their etag. See [Firebase custom tokens](https://firebase.google.com/docs/auth/admin/create-custom-tokens).
+
 **Without Firebase.** If the Firebase scripts or the configuration cannot be loaded, the game
 plays in the browser only, as it always could, and says so.
 
@@ -447,7 +476,7 @@ your project id. **Add variable**.
 ### 7. Deploy
 
 Push to `main` (or open **Actions** → **Deploy** → **Run workflow**). The workflow installs the
-pinned packages, runs `build.py`, deploys the Firestore rules and indexes, the referee, then the site. If the
+pinned packages, runs `build.py`, deploys the functions, the Firestore rules and indexes, then the site. If the
 secret or the variable is missing it says so in a yellow warning and deploys nothing. If a deploy
 fails with "The caller does not have permission", the message names the permission; add the role
 that holds it to the service account (step 5.2).
