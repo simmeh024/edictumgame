@@ -341,6 +341,7 @@ npm run test:admin-e2e     # admin console, region access and maintenance messag
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
+npm run test:flag-layers   # flag layers, touch and keyboard editing, Undo and shared designs
 npm ci --prefix jobs/fx    # once, for the next two: they run the currency job as production does
 npm run test:fx-e2e        # the currency: the job publishing four days, the Bureau, the designer, a phone
 npm run test:currency-gameplay # trade, policy confidence, currency prose and counterfeiting
@@ -348,7 +349,7 @@ npm run test:currency-gameplay # trade, policy confidence, currency prose and co
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
 
-Every pull request runs all ten browser suites as independent parallel jobs on GitHub Actions
+Every pull request runs all eleven browser suites as independent parallel jobs on GitHub Actions
 (`.github/workflows/preview.yml`), alongside the backend checks and staging preview. Each browser job
 has its own runner and fresh emulators; suites cannot share an emulator because they reset its data.
 The core game's scenarios keep their existing order within their suite. Run an individual command
@@ -357,7 +358,7 @@ use the same emulator ports, so run them one at a time unless you give each a se
 
 One failing suite leaves the other suites running, and each failed job keeps its own screenshot artifact.
 The existing **Test the game end to end** check now aggregates the browser jobs and passes only when
-all ten succeed. It also fails if a suite is cancelled or skipped, keeping the release gate intact.
+all eleven succeed. It also fails if a suite is cancelled or skipped, keeping the release gate intact.
 
 **The cost test.** `test/load.mjs` puts 50 players in one region for five minutes: six real game
 clients (half idle, half playing) with every Firestore read and write counted inside the page, and
