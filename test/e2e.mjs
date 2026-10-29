@@ -380,6 +380,7 @@ await open(KG);
 await KG.waitForSelector('#d-name');
 await KG.fill('#d-name', 'Kingsmoor'); await KG.click('[data-act="found-suggest"]');
 await KG.selectOption('#d-pretitle', 'Kingdom'); await KG.click('#found-btn'); await KG.waitForSelector('.layout', { timeout: 10000 });
+await KG.click('[data-act="pg-charter"]');
 await nav(KG, 'issues');
 await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.waitForSelector('.edict .opt');
 check('in a kingdom it goes before the Privy Council', /Privy Council of Kingsmoor/.test(await text(KG, '.edict .form-code')) && /^Assent to motion I$/.test(await text(KG, '.edict [data-act="answer"]')));

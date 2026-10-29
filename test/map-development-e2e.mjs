@@ -1,5 +1,5 @@
 // Real UI and private/shared saves on desktop and phone. All fixture writes target local emulators.
-import {BASE,OUT,PROJECT,FS_HOST,check,finish,until,player,open,nav,text,localNation,nationDoc,restGet,clearEmulators,errors} from './lib.mjs';
+import {BASE,OUT,PROJECT,FS_HOST,check,finish,until,player,open,nav,text,localNation,nationDoc,restGet,establish,clearEmulators,errors} from './lib.mjs';
 if(!PROJECT.startsWith('demo-'))throw Error('This suite requires a demo emulator project');
 await clearEmulators();
 const settle=p=>p.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
@@ -18,7 +18,7 @@ const coast=await A.evaluate(()=>{
  }return null;
 });
 if(!coast)throw Error('No suitable free coastal fixture found');
-await A.click('#found-btn');await A.waitForSelector('.layout');
+await A.click('#found-btn');await A.waitForSelector('.layout');await establish(A);
 const saved=async(p=A)=>{if(!await until(async()=>{const n=await localNation(p);return n?._rev>0&&!n._dirty;},15000))throw Error('Save did not settle: '+JSON.stringify(errors));};
 await saved();
 async function patchDoc(doc,change){

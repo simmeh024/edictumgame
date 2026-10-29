@@ -9,11 +9,10 @@ const draft=(p,sc='s')=>p.evaluate(sc=>JSON.parse(JSON.stringify((sc==='s'?G.S.s
 const save=async p=>{await p.click('#settings-form button[type="submit"]');if(!await until(async()=>{const n=await localNation(p),d=n&&await nationDoc(n.id||await p.evaluate(()=>G.myId()));return n&&!n._dirty&&d?.rec.flag&&JSON.stringify(d.rec.flag)===JSON.stringify(n.flag);},15000))throw Error('Flag save did not settle');};
 const undo=(p,sc='s')=>p.click(`#${sc}-fg-undo`);
 const A=await player('flag layers desktop'),uid=await open(A);await A.waitForSelector('#d-name');
-await expand(A,'d');const original=await draft(A,'d');await add(A,'d','stripe');await add(A,'d','emblem');
-check('founding offers independent layers without changing the original flag',JSON.stringify(Object.fromEntries(Object.entries(await draft(A,'d')).filter(([k])=>k!=='layers')))===JSON.stringify(original));
-await A.fill('#d-name','Layerland');await A.click('[data-act="found-suggest"]');await A.click('#found-btn');await A.waitForSelector('.layout');
-check('a flag designed during founding saves both layers',await until(async()=>((await nationDoc(uid))?.shared.flag?.layers?.length===2)));
-await nav(A,'settings');await expand(A,'s');
+check('founding keeps the base flag designer and defers layers',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
+await A.fill('#d-name','Layerland');await A.click('[data-act="found-suggest"]');await A.click('#found-btn');await A.waitForSelector('.layout');await A.click('[data-act="pg-charter"]');
+await nav(A,'settings');await expand(A,'s');const original=await draft(A);await add(A,'s','stripe');await add(A,'s','emblem');
+check('finishing the charter reveals independent layers without changing the base flag',JSON.stringify(Object.fromEntries(Object.entries(await draft(A)).filter(([k])=>k!=='layers')))===JSON.stringify(original));
 check('earned symbols remain locked in the layer picker',await A.locator('#s-fgl-e option[value="e-eye"]').count()===0);
 await val(A,'s','x',37.5);await val(A,'s','r',30);
 check('precise values and rotation update the flag',((await draft(A)).layers[1].x===37.5)&&((await draft(A)).layers[1].r===30));

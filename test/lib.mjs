@@ -75,14 +75,17 @@ export async function open(p, url = BASE + '/') {
 }
 // wait until the runtime has settled; returns the uid, or null in browser-only mode
 export function ready(p) { return p.evaluate(() => window.claude.use('user').then(u => u ? u.id() : null)); }
-export async function found(p, name) {
+export async function found(p, name, {newPlayer=false} = {}) {
   await p.waitForSelector('#d-name');
   await p.fill('#d-name', name);
   await p.click('[data-act="found-suggest"]');
   await p.click('#found-btn');
   await p.waitForSelector('.layout', { timeout: 10000 });
   await sleep(400);
+  if(!newPlayer)await establish(p);
 }
+// Existing suites exercise established nations; the onboarding suite keeps the new-player record.
+export async function establish(p){await p.evaluate(()=>{if(!G.S.nation?.onb)return;const n=G.clone(G.S.nation);delete n.onb;G.commit(n);G.PG.saveSoon();G.render();});}
 export const nav = async (p, v) => { await p.evaluate(v => document.querySelector(`.nav [data-v="${v}"]`).click(), v); await sleep(250); };
 export const text = (p, sel) => p.$eval(sel, el => el.textContent.replace(/\s+/g, ' ').trim()).catch(() => '');
 export const sideName = p => text(p, '.side-nm');

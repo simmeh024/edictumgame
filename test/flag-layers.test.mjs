@@ -7,7 +7,7 @@ const plain=()=>({p:'plain',c:['#112233','#FFFFFF','#445566'],e:'star',ec:'#F2C2
 const layer=(extra={})=>({k:'emblem',e:'star',x:50,y:50,w:24,h:36,r:0,c:'#F2C230',...extra});
 const json=v=>JSON.parse(JSON.stringify(v));
 function fixture(){
- const f=plain(),FG={hist:new WeakMap()},ctx=vm.createContext({FG,FID:0,FG_C4D:'#FFFFFF',FG_EP:['c','k','h','f'],PATTERNS:{plain:['Plain',1]},DEF_FLAG:plain(),EMBLEMS:{none:'None',star:'Star','e-eye':'Eye'},FG_PU:{},
+ const f=plain(),FG={hist:new WeakMap()},ctx=vm.createContext({S:{nation:{}},pgAvailable:()=>true,FG,FID:0,FG_C4D:'#FFFFFF',FG_EP:['c','k','h','f'],PATTERNS:{plain:['Plain',1]},DEF_FLAG:plain(),EMBLEMS:{none:'None',star:'Star','e-eye':'Eye'},FG_PU:{},
   document:{addEventListener(){}},clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),clone:json,czHas:(o,k)=>Object.hasOwn(o,k),safeColor:(v,d)=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:d,
   czU:e=>e==='e-eye'?{src:'set'}:null,czHolds:(n,e)=>n?.cz?.u?.includes(e),fgHeld:()=>false,fgSay:()=>{},fgDescribe:()=>'',fgTarget:()=>f,emblemSVG:(e,x,y,r,c)=>`<path data-emblem="${e}" fill="${c}"/>`});
  vm.runInContext(src.slice(src.indexOf('function fgOpt('),src.indexOf('NORM_HOOKS.push((n,d)=>{',src.indexOf('function fgOpt('))),ctx);

@@ -1,0 +1,20 @@
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+const source=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8');
+const start=source.indexOf('const PG_KEYS='),end=source.indexOf('NORM_HOOKS.push',start),DAY=864e5,NOW=1800000000000;
+const c=vm.createContext({RES:['food','timber','iron','oil','goods'],DAY,num0:v=>Number.isFinite(v)?v:0});vm.runInContext(source.slice(start,end),c);
+const nation=more=>({name:'Starterland',founded:NOW,onb:{v:1,u:[]},stock:{food:60},claims:[],cities:[{c:1,b:[]}],deals:[],log:[],...more});
+test('existing nations and computer nations retain every tool',()=>{for(const n of [{name:'Oldland'},{npc:true,onb:{v:1,u:[]}}])for(const k of ['charter','map','warehouse','finance'])assert.equal(c.pgAvailable(n,k,NOW),true);});
+test('automatic cloud saves do not finish the charter',()=>{const n=nation({_rev:20,_dirty:false});assert.equal(c.pgAvailable(n,'charter',NOW),false);n.onb.u.push('charter');assert.equal(c.pgAvailable(n,'charter',NOW),true);});
+test('transport requires a city and three distinct claimed hexes',()=>{const n=nation({claims:[{c:2},{c:3}]});assert(!c.pgAvailable(n,'map',NOW));n.claims.push({c:3});assert(!c.pgAvailable(n,'map',NOW));n.claims.push({c:4});assert(c.pgAvailable(n,'map',NOW));n.cities=[];assert(!c.pgAvailable(n,'map',NOW));});
+test('Warehouse reveals at 280 of any resource, never before',()=>{for(const r of ['food','timber','iron','oil','goods']){const n=nation({stock:{[r]:279.99}});assert(!c.pgAvailable(n,'warehouse',NOW));n.stock[r]=280;assert(c.pgAvailable(n,'warehouse',NOW));}});
+test('pending player offers do not reveal finance, while a signed trade does',()=>{const n=nation({deals:[{w:'player-two',id:'offer'}]});assert(!c.pgAvailable(n,'finance',NOW));n.log.push({k:'trade'});assert(c.pgAvailable(n,'finance',NOW));});
+test('accepted incoming and computer trades reveal finance',()=>{for(const deals of [[{w:'player',a:1}],[{w:'npc-vellmark'}]])assert(c.pgAvailable(nation({deals}),'finance',NOW));});
+test('finance reveals exactly seven days after founding',()=>{const n=nation({founded:NOW-7*DAY});assert(!c.pgAvailable(n,'finance',NOW-1));assert(c.pgAvailable(n,'finance',NOW));});
+test('reveals remain sticky after stock is spent, land lost and trade ends',()=>{const old=nation({onb:{v:1,u:['charter','map','warehouse','finance']}}),n=nation({cities:[]});c.pgMerge(n,old,NOW);for(const k of old.onb.u)assert(c.pgAvailable(n,k,NOW));assert.deepEqual(JSON.parse(JSON.stringify(c.pgNorm(JSON.parse(JSON.stringify(n.onb))))),old.onb);});
+test('existing plans, routes and Warehouses preserve access on migration',()=>{assert(c.pgAvailable(nation({mapPlan:{cells:[1]}}),'map',NOW));assert(c.pgAvailable(nation({infra:[{}]}),'map',NOW));assert(c.pgAvailable(nation({cities:[{b:[{k:'warehouse'}]}]}),'warehouse',NOW));});
+test('reveal records discard unknown flags and deduplicate their bounded state',()=>{assert.deepEqual(JSON.parse(JSON.stringify(c.pgNorm({v:1,u:['warehouse','bad','warehouse',{},'charter']}))),{v:1,u:['charter','warehouse']});assert.equal(c.pgNorm({v:99,u:[]}),null);});
+
+test('a threshold observed before the next save cannot be lost by spending it',()=>{const old=nation({stock:{goods:280}}),next=nation({stock:{goods:20}});c.pgMerge(next,old,NOW);assert(c.pgAvailable(next,'warehouse',NOW));});
