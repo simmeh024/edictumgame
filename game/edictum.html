@@ -22929,7 +22929,7 @@ function asmView(now){
 VIEWS_EXT.assembly=now=>asmView(now);
 
 /* Authoritative political records. Public nation JSON is never a source of votes or results. */
-let civicApi=null,civicLoading=false,civicAgain=false,civicAt=0,civicBusy=false;
+let civicApi=null,civicLoading=false,civicAgain=false,civicEpoch=0,civicAt=0,civicBusy=false;
 const civicSignature=a=>JSON.stringify([a.reg,a.c,a.cur,a.locks,a.D,a.V,a.info,a.npc,a.recs,a.account]);
 const civicLocal=a=>Object.fromEntries(['h','d','st','cur'].filter(k=>a&&k in a).map(k=>[k,a[k]]));
 function civicInstall(value){
@@ -22940,15 +22940,15 @@ function civicInstall(value){
 }
 async function civicRefresh(){
   if(!S.uid||!S.nation||S.mode==='local')return;
-  if(civicLoading){civicAgain=true;return;}
-  civicLoading=true;
-  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'';civicInstall(await civicApi.request({op:'state'}));if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&['assembly','region','visit'].includes(S.view))render();}}
+  if(civicLoading||civicBusy){civicAgain=true;return;}
+  civicLoading=true;const epoch=civicEpoch;
+  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'';const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}civicInstall(next);if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&['assembly','region','visit'].includes(S.view))render();}}
   catch(e){if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
-  finally{civicLoading=false;if(civicAgain){civicAgain=false;setTimeout(civicRefresh,0);}}
+  finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
 async function civicAction(data){
   if(civicBusy)return false;
-  civicBusy=true;
+  civicBusy=true;civicEpoch++;
   try{
     if(!civicApi)await civicRefresh();
     if(!civicApi)throw new Error('Reconnect to take political actions.');
@@ -22956,7 +22956,7 @@ async function civicAction(data){
     civicInstall(await civicApi.request(data));S.asmMsg='';S.asmErr='';S.asmAsk=null;S.asmMsgDraft=null;
     commit(clone(S.nation));saveSoon();render();return true;
   }catch(e){asmNote(e.message||'The Assembly could not be reached.');render();return false;}
-  finally{civicBusy=false;}
+  finally{civicBusy=false;if(civicAgain&&!civicLoading){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
 function civicRegistered(){return !!(S.civic&&S.civic.reg===REG.id&&S.civic.account.kind==='registered');}
 const asmLegacyMemberAt=asmMemberAt;
@@ -22989,7 +22989,7 @@ VIEWS_EXT.assembly=now=>{
   const reason=!a?'Connecting to the Assembly…':a.kind==='guest'?'Guest Nations may read debates. Link a sign-in account to become a Registered Nation and take political actions.':!a.eligible?'Assembly voting, proposals and leadership unlock 24 hours after your nation was founded.':'';
   return (reason?`<p class="war-msg" role="status">${esc(reason)}</p>`:'')+civicAssemblyView(now);
 };
-window.addEventListener('edictum:linked',()=>{civicAt=0;civicRefresh();});
+window.addEventListener('edictum:linked',()=>{civicAt=0;civicEpoch++;civicRefresh();});
 window.addEventListener('edictum:saved',()=>{if(!S.civic||Date.now()-civicAt>30000)civicRefresh();});
 window.addEventListener('focus',()=>{if(Date.now()-civicAt>15000)civicRefresh();});
 setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-civicAt>(S.view==='assembly'?30000:90000))civicRefresh();},15000);

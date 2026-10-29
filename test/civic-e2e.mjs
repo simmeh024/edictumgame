@@ -49,5 +49,19 @@ await B.evaluate(()=>window.dispatchEvent(new Event('edictum:linked')));
 check('server age unlocks Assembly participation',await until(()=>B.evaluate(()=>G.S.civic?.account.eligible)));
 const vote=B.locator('[data-act="asm-vote"][data-v="1"]');
 check('an eligible player can vote using the existing Assembly screen',await vote.count()>0);
-if(await vote.count()){await vote.click();check('the vote is confirmed from protected records',await until(()=>B.evaluate(()=>G.S.civic?.own.v.some(v=>v.v===1))));}
+if(await vote.count()){
+ let held;
+ await B.route('**/europe-west1/civic',async route=>{
+  if(route.request().postDataJSON()?.data?.op==='state'&&!held){const response=await route.fetch();held={route,response};}
+  else await route.continue();
+ });
+ await B.evaluate(()=>window.dispatchEvent(new Event('edictum:linked')));
+ await until(()=>held,15000);
+ await B.evaluate(()=>{let current=G.S.civic;window.staleCivicAccepted=false;Object.defineProperty(G.S,'civic',{configurable:true,get:()=>current,set:value=>{if(current?.own.v.some(v=>v.v===1)&&!value?.own.v.some(v=>v.v===1))window.staleCivicAccepted=true;current=value;}});});
+ await vote.click();check('the vote is confirmed from protected records',await until(()=>B.evaluate(()=>G.S.civic?.own.v.some(v=>v.v===1))));
+ if(held)await held.route.fulfill({response:held.response});
+ await B.waitForTimeout(350);
+ check('an older in-flight snapshot cannot roll back a confirmed vote',await B.evaluate(()=>!window.staleCivicAccepted&&G.S.civic.own.v.some(v=>v.v===1)));
+ await B.unroute('**/europe-west1/civic');
+}
 await finish();
