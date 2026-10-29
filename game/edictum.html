@@ -423,10 +423,11 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .np-h{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--sheet);border-bottom:1px solid var(--rule);font-size:15px}
 .nts{list-style:none;margin:0;padding:0}
 .nts+.nts{border-top:6px solid var(--sheet-2)}
-.nt{display:flex;flex-direction:column;gap:3px;width:100%;padding:11px 16px;border:0;border-bottom:1px solid var(--rule);background:transparent;color:var(--ink);text-align:left;cursor:pointer;font-size:14px;line-height:1.4}
-.nt:hover{background:var(--sheet-2)}
-.nt.pin{border-left:3px solid var(--accent);background:var(--accent-soft)}
-.nt.new{border-left:3px solid var(--stamp)}
+.nt-item{border-bottom:1px solid var(--rule)}
+.nt{display:flex;flex-direction:column;gap:3px;width:100%;padding:11px 16px;border:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer;font-size:14px;line-height:1.4}
+.nt-item:hover,.nt-item:focus-within{background:var(--sheet-2)}
+.nt-item.pin{border-left:3px solid var(--accent);background:var(--accent-soft)}
+.nt-item.new{border-left:3px solid var(--stamp)}
 .nt-k{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .np-empty{padding:18px 16px}
 .badge.land{background:var(--accent);color:var(--accent-ink)}
@@ -901,7 +902,7 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .exp-odds-h{margin-top:18px}.exp-odds{margin-top:8px;grid-template-columns:1fr}.exp-odds li b{min-width:11.5em;font-family:var(--f-body)}
 /* round 3 (d): toasts let taps through; first steps; help; repeals; long text wraps */
 .toast{pointer-events:none;text-wrap:pretty;overflow-wrap:anywhere}
-.reward-links{display:flex;flex-direction:column;gap:4px;margin-top:8px}.reward-links a{display:block;padding:8px 0;min-height:44px;color:inherit;font-weight:650;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}.nts>li>.reward-links{margin:0;padding:0 16px 12px;font-size:13px}.toast:has(.reward-links){pointer-events:auto;max-height:min(55vh,440px);overflow:auto}.toast .reward-links{max-height:28vh;overflow:auto;overscroll-behavior:contain}.toast .reward-links a:focus-visible{outline:2px solid currentColor;outline-offset:-2px}.ach-card[id]{scroll-margin-block:90px}.ach-card:focus,.col-set:focus{outline:2px solid var(--accent);outline-offset:4px}
+.reward-links{display:flex;flex-direction:column;gap:4px;margin-top:8px}.reward-links a{display:block;padding:8px 0;min-height:44px;color:inherit;font-weight:650;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}.nt-item:has(>.reward-links)>.nt{padding-bottom:0}.nt-item>.reward-links{margin:0;padding:0 16px 12px;font-size:13px}.toast:has(.reward-links){pointer-events:auto;max-height:min(55vh,440px);overflow:auto}.toast .reward-links{max-height:28vh;overflow:auto;overscroll-behavior:contain}.toast .reward-links a:focus-visible{outline:2px solid currentColor;outline-offset:-2px}.ach-card[id]{scroll-margin-block:90px}.ach-card:focus,.col-set:focus{outline:2px solid var(--accent);outline-offset:4px}
 .toast.more{box-shadow:var(--shadow),4px 4px 0 -1px var(--ink-3)}
 .stp{margin:0 0 22px;padding:18px 20px 14px;background:var(--sheet);border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:4px}
 .stp-h{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:flex-end;justify-content:space-between;margin-bottom:10px}
@@ -16640,7 +16641,7 @@ function bellButton(now){const c=notifCount(now);return `<button class="bell${S.
 function notifPanel(now){
   if(!S.notifOpen)return '';
   const {pin,ev}=notifItems(now),prev=S.notifPrev||0;
-  const row=(x,pinned)=>`<li><button class="nt${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
+  const row=(x,pinned)=>`<li class="nt-item${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}"><button class="nt" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
   return `<div class="notif-pop" role="dialog" aria-label="Notifications"><div class="np-h"><b>Notifications</b><button class="linkish small" data-act="notif">Close</button></div>
     ${pin.length?`<ul class="nts">${pin.map(x=>row(x,true)).join('')}</ul>`:''}
     ${ev.length?`<ul class="nts">${ev.map(x=>row(x,false)).join('')}</ul>`:(pin.length?'':'<p class="hint np-empty">Nothing yet. Wars, trade, messages, milestones and finished buildings will appear here.</p>')}
@@ -22712,7 +22713,7 @@ let asmAutoAt=0;
 function asmTick(){
   try{
     const n=S.nation;if(!n||S.moving||(n.reg||REG.id)!==REG.id)return;const now=Date.now();
-    if(asmReady()&&now-asmAutoAt>30000&&asmDue(n,now)){asmAutoAt=now;commit(clone(S.nation));if(['assembly','nation','region','visit'].includes(S.view))render();return;}
+    if(asmReady()&&now-asmAutoAt>30000&&asmDue(n,now)){asmAutoAt=now;commit(clone(S.nation));saveSoon();if(['assembly','nation','region','visit'].includes(S.view))render();return;}
     if(S.view==='assembly'){const st=asmState(now);if(st.sig!==asmDrawn){render();return;}}
     document.querySelectorAll('[data-live="asmclose"]').forEach(el=>{el.textContent=fmtWait(Math.max(0,+el.dataset.t-now));});
   }catch(e){}
