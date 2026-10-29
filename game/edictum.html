@@ -3205,6 +3205,30 @@ button.prv-rb{cursor:pointer}button.prv-rb:hover{border-color:var(--ink-3)}
 
 /* ── Round 12 (F): the flag designer, in groups ── */
 .fgd{gap:10px}
+.fgl-editor{display:grid;gap:14px;min-width:0}
+.fgl-editor p,.fgl-editor .sub-h{margin:0}
+.fgl-stage{width:100%;max-width:480px;justify-self:start}
+.fgl-canvas{display:block;width:100%;aspect-ratio:3/2;border:1px solid var(--rule-2);background:#fff;touch-action:none;cursor:grab;user-select:none;overflow:hidden}
+.fgl-canvas:active{cursor:grabbing}
+.fgl-canvas:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.fgl-stage .hint{margin-top:5px;font-size:12px}
+.fgl-add .btn,.fgl-controls .btn{min-height:44px;padding:9px 12px}
+.fgl-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.fgl-row{display:flex;align-items:center;gap:10px;min-height:48px;text-align:left;padding:8px 10px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);border-radius:3px;font:inherit;cursor:pointer}
+.fgl-row.on{border-color:var(--accent);box-shadow:inset 3px 0 var(--accent)}
+.fgl-row small{display:block;font-size:11px;color:var(--ink-3)}
+.fgl-chip{width:18px;height:18px;flex:none;border:1px solid var(--rule-2);background:var(--layer-col)}
+.fgl-controls{display:grid;gap:12px;min-width:0}
+.fgl-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fgl-field{display:grid;gap:5px;min-width:0;font-size:13px;color:var(--ink-2)}
+.fgl-field input,.fgl-field select{width:100%;min-width:0;min-height:44px}
+.fgl-field input[type=color]{border:1px solid var(--rule-2);border-radius:3px;padding:3px;background:var(--sheet);cursor:pointer}
+.fgl-align{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.fgl-nudge .btn{min-width:44px;font-size:18px}
+.fgl-snap{display:flex;align-items:center;gap:8px;min-height:44px}
+.fgl-snap input{width:20px;height:20px}
+.fgl-row:focus-visible,.fgl-editor button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:380px){.fgl-align .btn{padding:8px 4px;font-size:12px}.fgl-list{grid-template-columns:1fr}}
 .fgd-top{display:flex;align-items:center;gap:14px;min-width:0}
 .fgd-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;flex:1}
 .fgd-bar .btn{min-height:40px}
@@ -32660,7 +32684,7 @@ function flagSVG(f,label,opt){
   }
   if(opt&&opt.emb)sc=opt.emb;
   const em=e!=='none'&&!(opt&&opt.emb)&&(f.es||f.ep||f.en||f.eo)?fgEmbs(f,p,e,ex,ey,sc,ec):emblemSVG(e,ex,ey,42*sc,ec);
-  return `<svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(label||'Flag')}">${body}${em}</svg>`;
+  return `<svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(label||'Flag')}">${body}${em}${fglArt(f.layers)}</svg>`;
 }
 function emblemSVG(e,x,y,r,col){
   const d=FG_EMB[e];if(d===undefined)return emblemSVG0(e,x,y,r,col);
@@ -32694,6 +32718,7 @@ function fgOpt(fl){
   if(FG_EP.includes(fl.ep))o.ep=fl.ep;
   if(fl.en===3||fl.en===5||(Number.isInteger(fl.en)&&fl.en>=7&&fl.en<=12))o.en=fl.en;
   if(fl.eo===1||fl.eo===2||fl.eo===3)o.eo=fl.eo;
+  const layers=fglNorm(fl.layers);if(layers.length)o.layers=layers;
   return o;
 }
 /* in place, in a fixed key order, defaults left out: two equal flags stringify the same (a k key, as
@@ -32706,17 +32731,19 @@ function fgCanon(f){
 function flagNorm(f,n){
   const o=fgCanon(Object.assign({},f&&typeof f==='object'&&!Array.isArray(f)?f:{}));
   if(n&&FG_PU[o.p]&&!czHolds(n,FG_PU[o.p],n.cz))o.p=FG_PFB[o.p];
+  if(o.layers){o.layers=fglNorm(o.layers,n);if(!o.layers.length)delete o.layers;}
   return o;
 }
 NORM_HOOKS.push((n,d)=>{
   const f=n.flag;if(!f||typeof f!=='object')return;
   if(!czHas(PATTERNS,f.p))f.p=DEF_FLAG.p;if(!czHas(EMBLEMS,f.e))f.e='none';
   Object.assign(f,fgOpt(d&&d.flag));
+  if(f.layers){f.layers=fglNorm(f.layers,n);if(!f.layers.length)delete f.layers;}
   const u=FG_PU[f.p];if(u&&!(n.cz&&Array.isArray(n.cz.u)&&n.cz.u.includes(u)))f.p=FG_PFB[f.p];
 });
 /* a flag flying an earned pattern records what its owner holds, as emblems do */
 COMMIT_HOOKS.push(n=>{
-  if(!n||n.npc||!n.flag||!FG_PU[n.flag.p])return;
+  if(!n||n.npc||!n.flag||(!FG_PU[n.flag.p]&&!fglNorm(n.flag.layers).some(l=>l.k==='emblem'&&czU(l.e))))return;
   if(!n.cz||typeof n.cz!=='object')n.cz={};
   n.cz.u=[...unlocksOf(n)].filter(id=>czU(id)&&UNLOCKS[id].src!=='free').sort();
 });
@@ -32742,7 +32769,7 @@ const FG_PNOUN={stripes:'striped flag',quarters:'quartered flag',plain:'plain fl
   'saltire-b':'saltire with a bordure','hoist-s':'striped flag with a hoist triangle','disc-band':'band with a disc',serrated:'flag with a serrated hoist',wavy:'flag with a wavy fess',chief:'flag with a chief'};
 function fgDescribe(f){
   const P=PATTERNS[f.p]||PATTERNS['tri-v'],cols=[...new Set(f.c.slice(0,P[1]).map(fgColName))],nm=FG_PNOUN[f.p]||P[0].toLowerCase(),em=fgEmbWords(f);
-  return `${/^[aeiou]/.test(nm)?'An':'A'} ${nm} in ${list(cols)}${em?', bearing '+em:''}.`;
+  const layers=fglNorm(f.layers);return `${/^[aeiou]/.test(nm)?'An':'A'} ${nm} in ${list(cols)}${em?', bearing '+em:''}${layers.length?', with '+layers.length+' additional design '+(layers.length===1?'layer':'layers'):''}.`;
 }
 
 /* ── editing ── */
@@ -32851,6 +32878,7 @@ function flagDesignerHTML(f0,scope,o){
     ${fgGroup(scope,'col','Colours',list([...new Set(f.c.slice(0,uses).map(fgColName))]),`${[0,1,2].map(colRow).join('')}<div class="sw-row${c4on?'':' off'}"><span class="sw-l">Colour 4: fimbriation, and the emblem’s outline, ring or disc${c4on?'':' (not used by this design)'}</span>${fgSw(scope,'c4',c4,'Colour 4')}</div>`)}
     ${fgGroup(scope,'emb','Emblem',nmE,`<div class="tiles">${embT}</div><div class="sw-row${noE?' off':''}"><span class="sw-l">Emblem colour</span>${fgSw(scope,'ec',f.ec,'Emblem colour')}</div>`)}
     ${fgGroup(scope,'arr','Arrangement',noE?'':[{s:'Small',l:'Large'}[f.es]||'',pos?{c:'Centre',k:'Canton',h:'Hoist',f:'Fly'}[pos]:'',f.eo?['','Outline','Ring','Disc'][f.eo]:''].filter(Boolean).join(', ')||'As drawn',arr)}
+    ${fgGroup(scope,'layers','Layers',`${(f.layers||[]).length} / ${FGL_MAX}`,fglEditor(f,scope))}
   </div>`;
 }
 function flagDesigner(f,scope){return flagDesignerHTML(f,scope);}
@@ -32868,6 +32896,97 @@ document.addEventListener('input',e=>{
 function fgChange(el){const sc=el.dataset.scope,tgt=fgTarget(sc);FG.drag='';if(tgt)fgCanon(tgt);fgDone(sc);}
 /* open groups stay open across redraws */
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.fgg)FG.open[d.dataset.fgg]=d.open;},true);
+
+/* ── independent flag layers: bounded vector shapes, shared by all flag scopes ── */
+const FGL_MAX=8,FGL_KINDS={emblem:'Emblem',stripe:'Stripe',border:'Border',disc:'Disc'};
+const FGL={sel:Object.create(null),snap:Object.create(null),input:null,drag:null};
+const fglNum=(v,min,max,def)=>typeof v==='number'&&Number.isFinite(v)?Math.round(clamp(v,min,max)*10)/10:def;
+function fglNorm(raw,n){
+  if(!Array.isArray(raw))return [];const out=[];
+  for(const l of raw.slice(0,FGL_MAX)){
+    if(!l||typeof l!=='object'||!Object.hasOwn(FGL_KINDS,l.k))continue;
+    if(l.k==='emblem'&&(!czHas(EMBLEMS,l.e)||l.e==='none'||(n&&czU(l.e)&&!czHolds(n,l.e,n.cz))))continue;
+    out.push({k:l.k,...(l.k==='emblem'?{e:l.e}:{}),x:fglNum(l.x,0,100,50),y:fglNum(l.y,0,100,50),w:fglNum(l.w,2,150,30),h:fglNum(l.h,2,150,30),r:fglNum(l.r,-180,180,0),c:safeColor(l.c,'#F2C230'),...(l.k==='border'?{b:fglNum(l.b,1,12,3)}:{})});
+  }return out;
+}
+const fglTransform=l=>`translate(${l.x*3} ${l.y*2}) rotate(${l.r})`;
+function fglArt(raw){
+  const layers=fglNorm(raw);if(!layers.length)return '';
+  return `<svg x="0" y="0" width="300" height="200" viewBox="0 0 300 200" overflow="hidden" aria-hidden="true">${layers.map((l,i)=>{
+    const w=l.w*3,h=l.h*2,shape=l.k==='emblem'?`<g transform="scale(${w/100} ${h/100})">${emblemSVG(l.e,0,0,50,l.c)}</g>`:l.k==='disc'?`<ellipse rx="${w/2}" ry="${h/2}" fill="${l.c}"/>`:`<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" fill="${l.k==='border'?'none':l.c}"${l.k==='border'?` stroke="${l.c}" stroke-width="${l.b}"`:''}/>`;
+    return `<g data-fgl-layer="${i}" transform="${fglTransform(l)}">${shape}</g>`;
+  }).join('')}</svg>`;
+}
+const fglName=l=>l.k==='emblem'?(EMBLEMS[l.e]||'Emblem'):FGL_KINDS[l.k];
+function fglSelected(f,sc){const a=f.layers||[];FGL.sel[sc]=clamp(Number.isInteger(FGL.sel[sc])?FGL.sel[sc]:a.length-1,0,Math.max(0,a.length-1));return FGL.sel[sc];}
+function fglCanvas(f,sc){
+  const i=fglSelected(f,sc),l=f.layers?.[i];let guides='';
+  if(l){const path='M150 0V200M0 100H300';guides=`<g pointer-events="none"><path d="${path}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/><path d="${path}" fill="none" stroke="#182d30" stroke-dasharray="4 4" stroke-width=".6"/><g transform="${fglTransform(l)}"><rect x="${-l.w*1.5}" y="${-l.h}" width="${l.w*3}" height="${l.h*2}" fill="none" stroke="#fff" stroke-width="2"/><rect x="${-l.w*1.5}" y="${-l.h}" width="${l.w*3}" height="${l.h*2}" fill="none" stroke="#182d30" stroke-width=".8" stroke-dasharray="4 3"/><circle r="2.5" fill="#fff" stroke="#182d30" stroke-width="1"/></g></g>`;}
+  return flagSVG(f,'').replace(/^<svg[^>]*>|<\/svg>$/g,'')+guides;
+}
+function fglEditor(f,sc){
+  const a=f.layers||[],i=fglSelected(f,sc),l=a[i],button=(act,label,disabled=false)=>`<button type="button" class="btn ghost" id="${sc}-fgl-${act}" data-act="fgl-${act}" data-scope="${sc}"${disabled?' disabled':''}>${label}</button>`;
+  const field=(key,label,min,max,step=1)=>`<label class="fgl-field" for="${sc}-fgl-${key}"><span>${label}</span><input class="input" id="${sc}-fgl-${key}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${l[key]}" data-fgl-field="${key}" data-scope="${sc}"></label>`;
+  return `<div class="fgl-editor" data-fgl-editor="${sc}"><p class="hint">Add up to eight layers over your existing flag. The list runs from front to back. Select a layer, then drag it or use the precise controls. Undo restores your last edit.</p><div class="fgl-stage"><svg class="fgl-canvas" id="${sc}-fgl-canvas" data-fgl-canvas="${sc}" viewBox="0 0 300 200" tabindex="0" role="group" aria-label="Flag layer canvas. Arrow keys move the selected layer; hold Shift for larger steps.">${fglCanvas(f,sc)}</svg><p class="hint">Dashed frame: selected layer · Crosshair: flag centre</p></div><div class="row fgl-add">${Object.entries(FGL_KINDS).map(([k,v])=>`<button type="button" class="btn ghost" id="${sc}-fgl-add-${k}" data-act="fgl-add" data-scope="${sc}" data-kind="${k}"${a.length>=FGL_MAX?' disabled':''}>Add ${v.toLowerCase()}</button>`).join('')}</div>${a.length?`<div class="fgl-list" role="group" aria-label="Flag layers, front to back">${a.map((v,j)=>`<button type="button" id="${sc}-fgl-layer-${j}" class="fgl-row${j===i?' on':''}" data-act="fgl-select" data-scope="${sc}" data-index="${j}" aria-pressed="${j===i}"><span class="fgl-chip" style="--layer-col:${v.c}"></span><span>${esc(fglName(v))} <small>Layer ${j+1}${j===a.length-1?' · front':j===0?' · back':''}</small></span></button>`).reverse().join('')}</div>`:'<p class="hint">Your pattern and original emblem stay beneath these layers.</p>'}${l?`<div class="fgl-controls"><h3 class="sub-h">${esc(fglName(l))} · Layer ${i+1}</h3><div class="row">${button('forward','Bring forward',i===a.length-1)}${button('back','Send backward',i===0)}${button('duplicate','Duplicate',a.length>=FGL_MAX)}${button('remove','Remove')}</div>${l.k==='emblem'?`<label class="fgl-field" for="${sc}-fgl-e"><span>Symbol</span><select class="input" id="${sc}-fgl-e" data-fgl-field="e" data-scope="${sc}">${fgEmbKeys({e:l.e}).filter(e=>e!=='none').map(e=>`<option value="${e}"${e===l.e?' selected':''}>${esc(EMBLEMS[e])}</option>`).join('')}</select></label>`:''}<div class="fgl-fields">${field('x','Horizontal (%)',0,100,.1)}${field('y','Vertical (%)',0,100,.1)}${field('w','Width (%)',2,150,.1)}${field('h','Height (%)',2,150,.1)}${field('r','Rotation (°)',-180,180)}${l.k==='border'?field('b','Border thickness',1,12,.1):''}<label class="fgl-field" for="${sc}-fgl-c"><span>Layer colour</span><input id="${sc}-fgl-c" type="color" value="${l.c}" data-fgl-field="c" data-scope="${sc}"></label></div><div class="fgl-align" role="group" aria-label="Align selected layer">${['left','centre-x','right','top','centre-y','bottom'].map(k=>`<button type="button" class="btn ghost" id="${sc}-fgl-align-${k}" data-act="fgl-align" data-scope="${sc}" data-align="${k}">${{'centre-x':'Centre X','centre-y':'Centre Y'}[k]||cap1(k)}</button>`).join('')}</div><div class="row fgl-nudge" role="group" aria-label="Move selected layer one percent">${[['left','←'],['up','↑'],['down','↓'],['right','→']].map(([dir,icon])=>`<button type="button" class="btn ghost" id="${sc}-fgl-nudge-${dir}" aria-label="Move layer ${dir}" data-act="fgl-nudge" data-scope="${sc}" data-dir="${dir}">${icon}</button>`).join('')}<span class="hint">1% per step</span></div><label class="hint fgl-snap"><input type="checkbox" data-fgl-snap="${sc}"${FGL.snap[sc]!==false?' checked':''}> Snap dragging to a 5% grid</label></div>`:''}</div>`;
+}
+function fglPaint(sc){const f=fgTarget(sc);if(!f)return;const cv=document.querySelector(`[data-fgl-canvas="${sc}"]`);if(cv)cv.innerHTML=fglCanvas(f,sc);const pv=document.getElementById(sc+'-fgd-pv');if(pv)pv.innerHTML=flagSVG(f,'');const undo=document.getElementById(sc+'-fg-undo');if(undo&&FG.hist.get(f)?.length){undo.disabled=false;undo.removeAttribute('aria-disabled');}const chip=document.querySelector(`#${sc}-fgl-layer-${fglSelected(f,sc)} .fgl-chip`);if(chip&&f.layers?.length)chip.style.setProperty('--layer-col',f.layers[FGL.sel[sc]].c);FLAG_SCOPES[sc]?.live?.(f);}
+function fglDone(sc,focus,write=true){FGL.input=null;FG.open[sc+':layers']=true;if(write)fgDone(sc);else render();if(focus){const el=document.getElementById(focus);(el&&!el.disabled?el:document.getElementById(sc+'-fgl-canvas'))?.focus({preventScroll:true});}}
+function fglEdit(sc,act,value){
+  const f=fgTarget(sc);if(!f)return false;fgCanon(f);const before=JSON.stringify(f),a=f.layers||[];let i=fglSelected(f,sc),l=a[i];
+  if(act==='add'){
+    if(a.length>=FGL_MAX||!Object.hasOwn(FGL_KINDS,value))return false;
+    l={k:value,...(value==='emblem'?{e:'star'}:{}),x:50,y:50,w:value==='stripe'?100:value==='border'?92:24,h:value==='stripe'?15:value==='border'?88:36,r:0,c:safeColor(f.ec,'#F2C230'),...(value==='border'?{b:3}:{})};a.push(l);FGL.sel[sc]=a.length-1;
+  }else if(!l)return false;
+  else if(act==='set'){
+    const {key,v}=value;if(key==='e'){if(!czHas(EMBLEMS,v)||v==='none'||(czU(v)&&!fgHeld(v)))return false;l.e=v;}
+    else if(['x','y','w','h','r','b','c'].includes(key))l[key]=v;else return false;
+  }else if(act==='duplicate'){if(a.length>=FGL_MAX)return false;a.splice(i+1,0,clone(l));FGL.sel[sc]=i+1;}
+  else if(act==='remove'){a.splice(i,1);FGL.sel[sc]=Math.max(0,i-1);}
+  else if(act==='forward'||act==='back'){const j=i+(act==='forward'?1:-1);if(j<0||j>=a.length)return false;[a[i],a[j]]=[a[j],a[i]];FGL.sel[sc]=j;}
+  else if(act==='nudge'){const [x,y]=value;l.x=clamp(l.x+x,0,100);l.y=clamp(l.y+y,0,100);}
+  else if(act==='align'){
+    const t=l.r*Math.PI/180,pad=l.k==='border'?l.b:0,w=Math.abs(Math.cos(t))*(l.w*3+pad)+Math.abs(Math.sin(t))*(l.h*2+pad),h=Math.abs(Math.sin(t))*(l.w*3+pad)+Math.abs(Math.cos(t))*(l.h*2+pad);
+    if(value==='left')l.x=w/6;if(value==='right')l.x=100-w/6;if(value==='centre-x')l.x=50;
+    if(value==='top')l.y=h/4;if(value==='bottom')l.y=100-h/4;if(value==='centre-y')l.y=50;
+  }else return false;
+  f.layers=a;fgCanon(f);if(JSON.stringify(f)===before)return false;fgPush(f,before);return true;
+}
+const fglDir=(dir,n=1)=>({left:[-n,0],right:[n,0],up:[0,-n],down:[0,n]})[dir];
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act^="fgl-"]');if(!el||el.disabled)return;const sc=el.dataset.scope,act=el.dataset.act.slice(4),f=fgTarget(sc);if(!f)return;
+  if(act==='select'){FGL.sel[sc]=+el.dataset.index;fglDone(sc,el.id,false);return;}
+  const value=act==='add'?el.dataset.kind:act==='align'?el.dataset.align:act==='nudge'?fglDir(el.dataset.dir):null;
+  if(fglEdit(sc,act,value))fglDone(sc,el.id);
+});
+document.addEventListener('input',e=>{
+  const el=e.target,key=el.dataset?.fglField;if(!key||key==='e')return;const sc=el.dataset.scope,f=fgTarget(sc),l=f?.layers?.[fglSelected(f,sc)];if(!l)return;
+  const v=key==='c'?safeColor(el.value,''):el.value===''?NaN:el.valueAsNumber;if(key==='c'?!v:!Number.isFinite(v))return;
+  if(FGL.input!==el){fgPush(f);FGL.input=el;}l[key]=v;fgCanon(f);fglPaint(sc);
+});
+document.addEventListener('change',e=>{
+  const el=e.target;if(el.dataset?.fglSnap){FGL.snap[el.dataset.fglSnap]=el.checked;return;}
+  if(!el.dataset?.fglField)return;const sc=el.dataset.scope,key=el.dataset.fglField;
+  if(key==='e'){if(fglEdit(sc,'set',{key:'e',v:el.value}))fglDone(sc,el.id);return;}
+  const f=fgTarget(sc),l=f?.layers?.[fglSelected(f,sc)],changed=FGL.input===el;FGL.input=null;if(l)el.value=l[key];
+  if(changed&&FLAG_SCOPES[sc]?.done)fglDone(sc);else fglPaint(sc);
+});
+document.addEventListener('keydown',e=>{
+  const cv=e.target.closest?.('[data-fgl-canvas]');if(!cv)return;const dir={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}[e.key];if(!dir)return;
+  e.preventDefault();if(fglEdit(cv.dataset.fglCanvas,'nudge',fglDir(dir,e.shiftKey?5:1)))fglDone(cv.dataset.fglCanvas,cv.dataset.fglCanvas+'-fgl-canvas');
+});
+function fglPoint(cv,e){const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(cv.getScreenCTM().inverse());return [p.x/3,p.y/2];}
+document.addEventListener('pointerdown',e=>{
+  if(e.button!==0||!e.isPrimary)return;const cv=e.target.closest?.('[data-fgl-canvas]'),hit=e.target.closest?.('[data-fgl-layer]');if(!cv||!hit)return;
+  const sc=cv.dataset.fglCanvas,f=fgTarget(sc),i=+hit.dataset.fglLayer;if(!f?.layers?.[i])return;e.preventDefault();FGL.sel[sc]=i;
+  FGL.drag={cv,sc,f,i,p:fglPoint(cv,e),x:f.layers[i].x,y:f.layers[i].y,before:JSON.stringify(f),id:e.pointerId};cv.setPointerCapture(e.pointerId);fglPaint(sc);
+});
+document.addEventListener('pointermove',e=>{
+  const d=FGL.drag;if(!d||d.id!==e.pointerId)return;e.preventDefault();const p=fglPoint(d.cv,e),l=d.f.layers[d.i],snap=v=>FGL.snap[d.sc]===false?v:Math.round(v/5)*5;
+  l.x=fglNum(snap(d.x+p[0]-d.p[0]),0,100,d.x);l.y=fglNum(snap(d.y+p[1]-d.p[1]),0,100,d.y);fglPaint(d.sc);
+});
+function fglEnd(e,cancel=false){const d=FGL.drag;if(!d||d.id!==e.pointerId)return;FGL.drag=null;if(cancel)fgSet(d.f,JSON.parse(d.before));else if(JSON.stringify(d.f)!==d.before)fgPush(d.f,d.before);fglDone(d.sc,d.sc+'-fgl-canvas',!cancel&&JSON.stringify(d.f)!==d.before);}
+document.addEventListener('pointerup',e=>fglEnd(e));document.addEventListener('pointercancel',e=>fglEnd(e,true));
+
 
 /* ── the Customise page: earned patterns, chosen in one click ── */
 function fgCzPats(n,has,fr){
@@ -37248,6 +37367,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
 });
 HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most four hexes to a separate island. You claim individual free hexes at one land credit each, then may expand over connected island land. Other nations' territory, protected capital areas and the 45-hex capital limit remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most four steps. Land routes have at most 64 steps; a nation keeps at most 24 routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
 
+HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the flag designer in Settings (or while founding your nation) and expand <b>Layers</b>. Add up to eight independent emblems, stripes, borders and discs over your original design. Each has its own colour, position, size and rotation. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
+
 /* ───────── boot ───────── */
 function start(data){
   data=data||{};
@@ -37270,7 +37391,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,FD:{flagNorm,prvFlagNorm,flagSVG},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
