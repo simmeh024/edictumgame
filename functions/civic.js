@@ -70,7 +70,7 @@ async function regionState(tx, db, reg, now) {
     const actor = byId.get(saved.id), a = actor?.get('generation') === generation ? actor.get('record') : { r: reg, e: [], s: [], v: [] };
     const n = nationJSON(saved);
     // Never import political decisions from a legacy, player-writable JSON record.
-    records.push({ id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, asm: a }, generation });
+    records.push({ id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, asm: a }, generation, hidden: !!mod.get('hidden') });
   }
   const locks = cycles.docs.map(s => s.data()), engine = assemblyEngine(reg, records, locks), c = engine.cycle(now);
   const pending = [];
@@ -96,10 +96,10 @@ function output(ctx, uid, now, e) {
   const st = ctx.engine.state(now);
   const simpleD = D => D ? { id: D.id, k: D.k, by: D.by, np: D.np } : null;
   return { c: st.c, t0: st.t0, t1: st.t1, now, reg: e.n.reg, cur: st.cur, D: simpleD(st.D),
-    recs: ctx.records, locks: ctx.locks, V: st.V ? { ...st.V, rows: st.V.rows.map(({ n, ...row }) => row) } : null,
+    recs: ctx.records.filter(r=>!r.hidden||r.id===uid), locks: ctx.locks, V: st.V ? { ...st.V, rows: st.V.rows.map(({ n, ...row }) => row) } : null,
     info: [...st.DD.info].map(([id, v]) => [id, { k: v.k, by: v.by, np: v.np, reach: v.reach }]),
     npc: st.DD.npc.map(b => ({ id: b.x.id, player: b.r?.id || '', a: b.a })),
-    account: { kind: e.kind, readyAt: e.readyAt, eligible: e.kind === 'registered' && now >= e.readyAt },
+    account: { kind: e.kind, readyAt: e.readyAt, eligible: e.kind === 'registered' && now >= e.readyAt && !e.moderated, reason: e.moderated ? 'moderated' : '' },
     own: ctx.records.find(r => r.id === uid)?.n.asm || { r: e.n.reg, e: [], s: [], v: [] } };
 }
 

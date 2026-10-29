@@ -22,7 +22,8 @@ export async function eligibility(tx, who, { linked = true, age = 0, hidden = fa
   if (nation && !saved.exists) refuse('nation_required', 'Found and save a nation first.');
   const generation = saved.exists ? saved.createTime.toMillis() : 0;
   const born = account.exists && account.get('nationGeneration') === generation ? account.get('nationAt') : generation;
-  if (!hidden && mod.exists && (mod.get('hidden') || (mod.get('removed') && generation <= mod.get('removed'))))
+  const moderated = !!(mod.exists && (mod.get('hidden') || (mod.get('removed') && generation <= mod.get('removed'))));
+  if (!hidden && moderated)
     refuse('moderated', 'This nation cannot take multiplayer actions while under moderation.');
   const n = nationJSON(saved), region = n.reg || saved.get('reg');
   if (region) {
@@ -32,5 +33,5 @@ export async function eligibility(tx, who, { linked = true, age = 0, hidden = fa
   if (linked && !who.registered) refuse('registration_required', 'A Registered Nation is required. Link a sign-in account in your account settings.');
   const readyAt = born + age;
   if (age && Date.now() < readyAt) throw new HttpsError('failed-precondition', 'Assembly participation unlocks 24 hours after your nation was founded.', { code: 'nation_too_young', readyAt });
-  return { saved, n, born, generation, account, kind: who.registered ? 'registered' : 'guest', readyAt: born + DAY };
+  return { saved, n, born, generation, account, moderated, kind: who.registered ? 'registered' : 'guest', readyAt: born + DAY };
 }

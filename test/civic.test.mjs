@@ -64,7 +64,7 @@ test('Proposals, endorsements and Delegate privileges use the same protected ide
 
 test('Bans, moderation and disabled regions block sensitive actions at the backend',async()=>{
   const r=await player(true,true);
-  await db.doc('mod/'+r.uid).set({hidden:true});await rejects(civic(r,proposal),'moderated');
+  await db.doc('mod/'+r.uid).set({hidden:true});const observer=await player();assert.ok(!(await civic(observer,{op:'state'})).recs.some(x=>x.id===r.uid));assert.equal((await civic(r,{op:'state'})).account.eligible,false);await rejects(civic(r,proposal),'moderated');
   await db.doc('mod/'+r.uid).delete();await db.doc('bans/'+r.uid).set({t:Date.now()});await rejects(civic(r,{op:'topic',text:'Bypass attempt'}),'banned');
   await db.doc('bans/'+r.uid).delete();await db.doc('regionStatus/meridian').set({enabled:false});
   try{await rejects(civic(r,proposal),'region_disabled');}finally{await db.doc('regionStatus/meridian').delete();}
