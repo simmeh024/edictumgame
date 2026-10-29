@@ -414,7 +414,10 @@ check('the first stamp earns First Stamp', await until(async () => !!(((await na
 // the banner's stamps: a seat in the Assembly, the Delegate's chair, an alliance
 // its seat shows as Member, or as Delegate when the computer nations happen to back it (only the highest stamp shows)
 check('a player nation’s banner is stamped with its Assembly seat, and with no alliance it has none', await until(async () => /Meridian Reach Assembly\s*Member|Assembly\s*Delegate\s*of Meridian Reach/.test(await text(A, '.hero .hero-stamps'))) && !(await A.$('.hero .hs-al')));
-if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
+if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) {
+  await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
+  if(!await until(()=>A.evaluate(id=>G.S.civic?.own.e.some(e=>e.i===id&&!e.w),uidB),15000))throw Error('The endorsement was not confirmed by the Assembly.');
+}
 await nav(A, 'region');
 await until(() => A.$('.tbl [data-act="visit"][data-id="npc-vellmark"]')); await A.click('.tbl [data-act="visit"][data-id="npc-vellmark"]');
 check('a computer nation’s shows its seat and its alliance', await until(async () => /Member/.test(await text(A, '.hero .hs-asm')) && /The Iron Compact/.test(await text(A, '.hero .hs-al'))));
