@@ -22929,7 +22929,7 @@ function asmView(now){
 VIEWS_EXT.assembly=now=>asmView(now);
 
 /* Authoritative political records. Public nation JSON is never a source of votes or results. */
-let civicApi=null,civicLoading=false,civicAt=0,civicBusy=false;
+let civicApi=null,civicLoading=false,civicAgain=false,civicAt=0,civicBusy=false;
 const civicSignature=a=>JSON.stringify([a.reg,a.c,a.cur,a.locks,a.D,a.V,a.info,a.npc,a.recs,a.account]);
 const civicLocal=a=>Object.fromEntries(['h','d','st','cur'].filter(k=>a&&k in a).map(k=>[k,a[k]]));
 function civicInstall(value){
@@ -22939,11 +22939,12 @@ function civicInstall(value){
   asmMemo={k:'',v:null};
 }
 async function civicRefresh(){
-  if(civicLoading||!S.uid||!S.nation||S.mode==='local')return;
+  if(!S.uid||!S.nation||S.mode==='local')return;
+  if(civicLoading){civicAgain=true;return;}
   civicLoading=true;
   try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'';civicInstall(await civicApi.request({op:'state'}));if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&['assembly','region','visit'].includes(S.view))render();}}
   catch(e){if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
-  finally{civicLoading=false;}
+  finally{civicLoading=false;if(civicAgain){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
 async function civicAction(data){
   if(civicBusy)return false;
