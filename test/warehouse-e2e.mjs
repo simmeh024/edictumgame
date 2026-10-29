@@ -47,12 +47,13 @@ check('another device restores the upgraded Warehouse and expanded stock',await 
 // Population jumps are emulator-admin fixtures; ordinary saves must continue obeying growth limits.
 await saved();await C.ctx.close();await A.goto('about:blank');
 const pub=(await restGet('nations/'+uid)).body.fields,ext=(await restGet('nationx/'+uid)).body.fields,now=Date.now(),pn=JSON.parse(pub.j.stringValue),xn=JSON.parse(ext.j.stringValue);
-pn.pop=30;pn.popAt=now;pn.updatedAt=now;xn.lcb=30+(xn.whLc||0);
+// Stay above the 30-million gate while the ordinary population simulation advances during loading.
+pn.pop=32;pn.popAt=now;pn.updatedAt=now;xn.lcb=30+(xn.whLc||0);
 const patch=async(path,fields)=>{const mask=Object.keys(fields).map(k=>'updateMask.fieldPaths='+k).join('&'),r=await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}?${mask}`,{method:'PATCH',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({fields})});if(!r.ok)throw Error('Fixture patch failed: '+r.status);};
 await patch('nationx/'+uid,{j:{stringValue:JSON.stringify(xn)}});
-await patch('nations/'+uid,{j:{stringValue:JSON.stringify(pn)},pop:{doubleValue:30},updatedAt:{doubleValue:now},rev:{integerValue:String(Number(pub.rev.integerValue)+1)}});
+await patch('nations/'+uid,{j:{stringValue:JSON.stringify(pn)},pop:{doubleValue:32},updatedAt:{doubleValue:now},rev:{integerValue:String(Number(pub.rev.integerValue)+1)}});
 await open(A);await A.waitForSelector('.layout');
-if(!await until(()=>A.evaluate(()=>G.S.nation.pop>=30&&G.S.nation.lcb>=30),15000))throw Error('Second-city population fixture did not load');
+if(!await until(()=>A.evaluate(()=>G.S.nation.pop>=30&&G.S.nation.lcb>=30),15000))throw Error('Second-city population fixture did not load: '+JSON.stringify(await A.evaluate(()=>({pop:G.S.nation.pop,credits:G.S.nation.lcb,revision:G.S.nation._rev,dirty:G.S.nation._dirty}))));
 const second=await A.evaluate(()=>{for(let j=0;j<20;j++){const T=G.territory(),mi=T.byId[G.myId()];for(let c=0;c<G.MAP.N;c++)if(T.owner[c]===mi&&!G.WH.cityProblem(c,T)){G.WH.foundCity(c,'Depotford');return G.S.nation.cities.at(-1).id;}G.WH.claimAuto(true);}return null;});
 if(!second)throw Error('No legal second-city site');await nav(A,'cities');
 await A.click(`[data-act="ct-build"][data-id="${second}"][data-k="warehouse"]`);await completeBase(second);
