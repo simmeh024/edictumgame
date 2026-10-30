@@ -1,6 +1,8 @@
 // Staff-only operations. Audit events use authenticated identities and server time; clients cannot edit them.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+import { registered } from './eligibility.js';
 
 const REGIONS = new Set('meridian frostmarch northernpale driftlands silentmoors wildwood saffron hollow ashen ironsteppe gilded verdantbasin coralreach emberisles lanterncoast jadeterraces highcrags cloudspine obsidianrim ambershallows sunkenkingdoms mistral stormwrack longvalley greywater scatteredcrown'.split(' '));
 export const MAINTENANCE = 'Current region is disabled and undergoing maintainance, check back soon.';
@@ -26,10 +28,22 @@ async function players(db, data) {
   const offset = Number.isSafeInteger(data.offset) && data.offset >= 0 ? data.offset : 0;
   return { players: matches.slice(offset, offset + 50), total: matches.length, next: offset + 50 < matches.length ? offset + 50 : null, at: directoryAt };
 }
+// Who is behind a nation, from Firebase Authentication itself, never from the nation's shared record.
+// Email link sign-in is Firebase's 'password' provider; Discord is a custom claim (functions/discord.js).
+const SIGN_INS = { 'google.com': 'google', password: 'email' };
+// Firebase keeps no IP address: the last one is recorded by functions/accounts.js ('seen') and expires on its own.
+async function account(db, uid) {
+  const [u, s] = await Promise.all([getAuth().getUser(uid).catch(e => { if (e.code === 'auth/user-not-found') return null; throw e; }), db.doc('accountSeen/' + uid).get()]);
+  if (!u) return null;
+  const at = t => Date.parse(t || '') || 0, claims = u.customClaims || {};
+  const linked = u.providerData.map(p => p.providerId === 'password' && !u.emailVerified ? 'email_unverified' : SIGN_INS[p.providerId] || p.providerId);
+  if (claims.dc) linked.push('discord');
+  return { kind: registered(u) ? 'registered' : 'guest', linked, admin: claims.admin === true, disabled: u.disabled, created: at(u.metadata.creationTime), lastSignIn: at(u.metadata.lastSignInTime), lastRefresh: at(u.metadata.lastRefreshTime), ip: s.get('ip') || '', ipAt: s.get('at') || 0 };
+}
 async function player(db, uid) {
-  const [n, ban, mod, sessions] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get()]);
+  const [n, ban, mod, sessions, acct] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid)]);
   const d = n.data() || {};
-  return { uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, note: ban.get('note') || mod.get('note') || '', sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  return { uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
 }
 async function health(db) {
   const qs = await db.collection('saveHealth').where('t', '>', Timestamp.fromMillis(Date.now() - 86400000)).orderBy('t', 'desc').limit(250).get();
@@ -88,7 +102,10 @@ async function mutate(db, actor, data) {
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);
       const writer = db.bulkWriter(), writes = posts.docs.concat(reports.docs).map(d => writer.delete(d.ref)); await Promise.all([Promise.all(writes), writer.close()]);
     }
-    if (action === 'delete_post') { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
+    // a reported comment on development news is news:<post>:<comment>; anything else is a region board post
+    const news = action === 'delete_post' && /^news:([A-Za-z0-9]{20}):([A-Za-z0-9]{20})$/.exec(target);
+    if (news) await db.doc('devnews/' + news[1] + '/posts/' + news[2]).delete();
+    else if (action === 'delete_post') { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
     if (action === 'close_report') await db.doc('reports/' + target).delete();
     if (action.startsWith('support_')) {
       const ref = db.doc('support/' + target);

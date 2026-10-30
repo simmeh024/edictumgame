@@ -22,6 +22,12 @@ rules_version = '2';
 //   fx/{reg}                 the region's currencies: value, Currency Prestige, rank and history summary
 //   fxh/{id}                 one currency's daily history of value and prestige
 //   fxs/{reg}                the currency job's own state (smoothing, volatility, a lease)
+//   devnews/{id}             a development news post an admin wrote, {ti, h: its HTML, ex, as, by, nm, ...};
+//                            players read the published ones (pub == true), admins also the drafts
+//   devnews/{id}/posts/{id}  a comment on it, {a, t, x, nm, rg, fl?, st?}: written only by civic() (functions/),
+//                            like the region boards, so the same checks and pacing apply
+//   devnewsImg/{id}          an image in a post, {d: base64, m, w, h, by, t}, resized in the admin's browser
+//   devnewsMeta/latest       {p: [{i, t}]}: the latest published posts, which every game listens to for its count
 // The currency documents are written only by the daily job (jobs/fx, with the Admin SDK, which these rules do
 // not bind): no player, admin included, can set a currency's value or prestige from the game.
 // The referee (functions/index.js) rolls battles on the server and alone writes referee/ (its signing key,
@@ -176,6 +182,8 @@ service cloud.firestore {
     match /accountIdentity/{uid} { allow read, write: if false; }
     match /guestRecovery/{id} { allow read, write: if false; }
     match /recoveryLimits/{id} { allow read, write: if false; }
+    // the address a player last played from, for the admin console only (functions/accounts.js, 'seen')
+    match /accountSeen/{uid} { allow read, write: if false; }
     // Discord sign-in (functions/discord.js): the application's secret, and which account holds each Discord account
     match /authConfig/{id} { allow read, write: if false; }
     match /discordLinks/{id} { allow read, write: if false; }
@@ -227,6 +235,51 @@ service cloud.firestore {
     // every post, wherever it is, for a player deleting their account (posts where a == their uid)
     match /{path=**}/posts/{pid} {
       allow read: if true;
+    }
+
+    // Development news: only admins write posts, their images and the index. The HTML is cleaned in the
+    // admin's browser and again in every reader's before it is shown.
+    function validNews(d) {
+      return d.keys().hasAll(['ti', 'h', 'ex', 'as', 'by', 'nm', 'pub', 't'])
+        && d.keys().hasOnly(['ti', 'h', 'ex', 'as', 'by', 'nm', 'rl', 'fl', 'rg', 'pub', 't', 'ed', 'lk', 'im'])
+        && d.ti is string && d.ti.size() > 0 && d.ti.size() <= 140
+        && d.h is string && d.h.size() <= 100000
+        && d.ex is string && d.ex.size() <= 300
+        && d.as in ['staff', 'nation'] && d.by == request.auth.uid
+        && label(d.nm) && d.nm.size() > 0
+        && (!('rl' in d) || (d.rl is string && d.rl.size() <= 60))
+        && (!('fl' in d) || (d.fl is string && d.fl.size() <= 4000))
+        && (!('rg' in d) || region(d.rg))
+        && d.pub is bool && d.t is number
+        && (!('ed' in d) || d.ed is number)
+        && (!('lk' in d) || d.lk is bool)
+        && (!('im' in d) || (d.im is list && d.im.size() <= 40));
+    }
+    match /devnews/{pid} {
+      allow read: if resource.data.pub == true || isAdmin();
+      allow create, update: if isAdmin() && validNews(request.resource.data);
+      allow delete: if isAdmin();
+      // comments: posted and moderated through civic(); their author may delete one (deleting their account too)
+      match /posts/{cid} {
+        allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
+      }
+    }
+    match /devnewsImg/{id} {
+      allow read: if true;
+      allow create: if isAdmin() && id.matches('[A-Za-z0-9]{20}')
+        && request.resource.data.keys().hasOnly(['d', 'm', 'w', 'h', 'by', 't'])
+        && request.resource.data.d is string && request.resource.data.d.size() > 0 && request.resource.data.d.size() <= 960000
+        && request.resource.data.m in ['image/webp', 'image/jpeg', 'image/png', 'image/gif']
+        && request.resource.data.w is int && request.resource.data.w > 0 && request.resource.data.w <= 4096
+        && request.resource.data.h is int && request.resource.data.h > 0 && request.resource.data.h <= 4096
+        && request.resource.data.by == request.auth.uid && request.resource.data.t is number;
+      allow delete: if isAdmin();
+    }
+    match /devnewsMeta/{doc} {
+      allow read: if true;
+      allow write: if isAdmin() && doc == 'latest'
+        && request.resource.data.keys().hasOnly(['p'])
+        && request.resource.data.p is list && request.resource.data.p.size() <= 30;
     }
 
     match /limits/{uid} {

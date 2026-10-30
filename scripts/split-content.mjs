@@ -24,8 +24,11 @@ export function splitContent(source){
     children(node,visit);
   }
   visit(tree);
-  let code=source;
-  for(const edit of edits.sort((a,b)=>b.start-a.start))code=code.slice(0,edit.start)+edit.text+code.slice(edit.end);
+  // Join the pieces once: splicing each edit into the whole script copied it 13,000 times (about a minute).
+  const parts=[];let at=0;
+  for(const edit of edits.sort((a,b)=>a.start-b.start)){parts.push(source.slice(at,edit.start),edit.text);at=edit.end;}
+  parts.push(source.slice(at));
+  let code=parts.join('');
   code='(()=>{const __edictumTexts=window.__edictum&&window.__edictum.texts;'+
     'if(!Array.isArray(__edictumTexts)){if(window.__edictum&&window.__edictum.bootError)window.__edictum.bootError();return;}\n'+code+'\n})();';
   return {code,content:'window.__edictum.texts=Object.freeze('+JSON.stringify(texts)+');',count:texts.length};

@@ -21,6 +21,9 @@
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
                             rewritten only when that data changes (or every SPACE_BEAT while playing).
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
+     devnews/<id>           a development news post (admins write it in the portal), devnews/<id>/posts/<id>
+                            its comments (through civic()), devnewsImg/<id> its images, and devnewsMeta/latest
+                            the latest published posts, which the game's unread count listens to.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
    A nation save writes nations, summaries and (when needed) nationx and space in one transaction; the rules
@@ -124,7 +127,7 @@
   ['asmLocal', 'onb', 'mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
-    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
+    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws'].forEach(function (k) { NX_KEYS[k] = 1; });
   function splitNation(d) {
     var pub = {}, ext = {};
     Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
@@ -402,6 +405,12 @@
       var u = A.auth && A.auth.currentUser;
       return Promise.resolve(!!(u && (hasProvider(u, 'google.com') || discordOf(u) || hasProvider(u, 'password') && u.emailVerified && L.get('edictum.emailLinked.' + u.uid))));
     },
+    /* a moderator (custom claim mod, tools/admin/set-admin.mjs --mod) removes development news comments;
+       read from the token isOwner() fetched */
+    isMod: function () {
+      var u = A.auth && A.auth.currentUser;
+      return Promise.resolve(!!(u && A.claimsUid === u.uid && A.claims && A.claims.mod === true));
+    },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
   /* the game opens the report dialog: open({kind:'post'|'nation', target:<uid>, post, reg, name, x}) */
@@ -606,7 +615,11 @@
     if (emailLink) finishEmailLink(emailLink);
     setTimeout(supportCheck, 6000);
     setTimeout(recoveryCheck, 1800);
+    setTimeout(seenCheck, 4000);
   }
+  /* the address this browser plays from, which the admins see when they inspect the nation and which expires
+     90 days after it was last seen (functions/accounts.js, 'seen'; the privacy notice says so): once a page load */
+  function seenCheck() { if (A.auth && A.auth.currentUser && !A.leaving && !A.frozen) call('accounts', { op: 'seen' }).catch(function () {}); }
 
   /* ───────── the account control and its dialog ───────── */
   var ui = { box: null, btn: null, sync: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };

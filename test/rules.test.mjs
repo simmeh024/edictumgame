@@ -551,7 +551,7 @@ test('revisioned nations start at one and only integer positive revisions are ac
 
 test('political records, recovery secrets and save permits reject every direct client write',async()=>{
   for(const db of [anon(),as('alice'),as('mod',{admin:true})]){
-    for(const path of ['accountIdentity/alice','guestRecovery/hash','recoveryLimits/u_alice','nationPermits/alice/requests/fake','assemblyRegions/meridian/actors/alice','assemblyRegions/meridian/cycles/1/votes/alice','assemblyRegions/meridian/proposals/fake','assemblyRegions/meridian/leadership/current']){
+    for(const path of ['accountIdentity/alice','accountSeen/alice','guestRecovery/hash','recoveryLimits/u_alice','nationPermits/alice/requests/fake','assemblyRegions/meridian/actors/alice','assemblyRegions/meridian/cycles/1/votes/alice','assemblyRegions/meridian/proposals/fake','assemblyRegions/meridian/leadership/current']){
       await assertFails(db.doc(path).set({uid:'alice',v:1}));
       await assertFails(db.doc(path).get());
     }
@@ -566,4 +566,59 @@ test('an approved save cannot be changed into a forged political payload or repl
   const expired=nation('Danaland',{rev:1,permit:'expired'});
   await env.withSecurityRulesDisabled(ctx=>ctx.firestore().doc('nationPermits/dana/requests/expired').set({...Object.fromEntries(['j','reg','name','pop','army','cl','updatedAt','rev'].map(k=>[k,expired[k]])),exp:AGO(1000)}));
   await assertFails(save(as('dana'),'dana',expired,{approved:false}));
+});
+
+// development news: admins write posts, images and the index; players read what is published and comment through civic()
+const NEWS_ID = 'N0tAReal1dButTwenty0', IMG_ID = 'Img0000000000000000A';
+const newsPost = (by, extra = {}) => ({ ti: 'What is new', h: '<p>Hello</p>', ex: 'Hello', as: 'staff', by, nm: 'Pascal', rl: 'Founder & Developer', pub: true, t: Date.now(), ...extra });
+test('admins write development news; players read only what is published', async () => {
+  const admin = as('mod', { admin: true });
+  await assertSucceeds(admin.doc('devnews/' + NEWS_ID).set(newsPost('mod')));
+  await assertSucceeds(admin.doc('devnews/draft0000000000000ab').set(newsPost('mod', { pub: false })));
+  await assertFails(as('alice').doc('devnews/x0000000000000000000').set(newsPost('alice')));
+  await assertFails(as('alice', { mod: true }).doc('devnews/x0000000000000000000').set(newsPost('alice')));
+  await assertFails(admin.doc('devnews/x0000000000000000000').set(newsPost('someone-else')));   // signed by the writer
+  await assertFails(admin.doc('devnews/x0000000000000000000').set(newsPost('mod', { js: '<script>' })));
+  await assertFails(admin.doc('devnews/x0000000000000000000').set(newsPost('mod', { as: 'robot' })));
+  await assertFails(admin.doc('devnews/x0000000000000000000').set(newsPost('mod', { h: 'x'.repeat(100001) })));
+  await assertSucceeds(admin.doc('devnews/x0000000000000000000').set(newsPost('mod', { as: 'nation', nm: 'Eternia', fl: '{}', rg: 'meridian', lk: true, ed: Date.now(), im: [IMG_ID] })));
+  await assertFails(admin.doc('devnews/y0000000000000000000').set(newsPost('mod', { rg: 'atlantis' })));
+  await assertSucceeds(anon().doc('devnews/' + NEWS_ID).get());
+  await assertSucceeds(as('alice').collection('devnews').where('pub', '==', true).get());
+  await assertFails(as('alice').doc('devnews/draft0000000000000ab').get());
+  await assertFails(as('alice').collection('devnews').get());                                    // drafts are only for admins
+  await assertSucceeds(admin.collection('devnews').get());
+  await assertFails(as('alice').doc('devnews/' + NEWS_ID).delete());
+  await assertSucceeds(admin.doc('devnews/draft0000000000000ab').delete());
+});
+test('news comments come only from civic(); their author or an admin deletes one', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('devnews/' + NEWS_ID).set(newsPost('mod'));
+    await ctx.firestore().doc('devnews/' + NEWS_ID + '/posts/c1').set({ a: 'bob', t: AGO(1000), x: 'Nice', nm: 'Bobland', rg: 'meridian' });
+    await ctx.firestore().doc('devnews/' + NEWS_ID + '/posts/c2').set({ a: 'bob', t: AGO(1000), x: 'Again', nm: 'Bobland', rg: 'meridian' });
+  });
+  await assertSucceeds(anon().doc('devnews/' + NEWS_ID + '/posts/c1').get());
+  await assertFails(as('alice').doc('devnews/' + NEWS_ID + '/posts/c3').set({ a: 'alice', t: NOW(), x: 'Hi', nm: 'Aliceland', rg: 'meridian' }));
+  await assertFails(as('bob').doc('devnews/' + NEWS_ID + '/posts/c1').update({ x: 'edited' }));
+  await assertFails(as('alice').doc('devnews/' + NEWS_ID + '/posts/c1').delete());
+  await assertFails(as('alice', { mod: true }).doc('devnews/' + NEWS_ID + '/posts/c1').delete());   // moderators go through civic(), for the audit log
+  await assertSucceeds(as('bob').doc('devnews/' + NEWS_ID + '/posts/c1').delete());
+  await assertSucceeds(as('mod', { admin: true }).doc('devnews/' + NEWS_ID + '/posts/c2').delete());
+});
+test('news images and the index are written only by admins, and read by everyone', async () => {
+  const img = (by, extra = {}) => ({ d: 'AAAA', m: 'image/webp', w: 800, h: 600, by, t: Date.now(), ...extra });
+  const admin = as('mod', { admin: true });
+  await assertSucceeds(admin.doc('devnewsImg/' + IMG_ID).set(img('mod')));
+  await assertFails(as('alice').doc('devnewsImg/Img0000000000000000B').set(img('alice')));
+  await assertFails(admin.doc('devnewsImg/short').set(img('mod')));
+  await assertFails(admin.doc('devnewsImg/Img0000000000000000C').set(img('mod', { m: 'text/html' })));
+  await assertFails(admin.doc('devnewsImg/Img0000000000000000C').set(img('mod', { d: 'A'.repeat(960001) })));
+  await assertFails(admin.doc('devnewsImg/' + IMG_ID).update({ m: 'image/png' }));               // never changed, only replaced
+  await assertSucceeds(anon().doc('devnewsImg/' + IMG_ID).get());
+  await assertSucceeds(admin.doc('devnewsMeta/latest').set({ p: [{ i: NEWS_ID, t: Date.now() }] }));
+  await assertFails(admin.doc('devnewsMeta/other').set({ p: [] }));
+  await assertFails(admin.doc('devnewsMeta/latest').set({ p: [], x: 1 }));
+  await assertFails(as('alice').doc('devnewsMeta/latest').set({ p: [] }));
+  await assertSucceeds(anon().doc('devnewsMeta/latest').get());
+  await assertSucceeds(admin.doc('devnewsImg/' + IMG_ID).delete());
 });
