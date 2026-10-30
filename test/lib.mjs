@@ -164,6 +164,9 @@ export const openAccount = async p => { await p.click('.ed-acct-b'); await p.wai
 // Explicit Registered fixtures for community/political tests, without the Google-specific tutorial gift.
 export async function register(p,{old=false}={}){
   const uid=await ready(p),email=uid+'@registered.example.test',password='test-only-password';
+  // A guest's first save issues its recovery code, which writes accountIdentity, nationAt among it. Let that finish
+  // first: landing after the backdating below, it made the nation young again (not yet an Assembly member).
+  if((await restGet('nations/'+uid)).status===200)await until(async()=>{const r=await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/accountIdentity/${uid}`,{headers:{authorization:'Bearer owner'}});return r.status===200&&(await r.json()).fields?.recoveryIssued?.booleanValue===true;},15000);
   await p.evaluate(async({email,password})=>{await firebase.auth().currentUser.linkWithCredential(firebase.auth.EmailAuthProvider.credential(email,password));},{email,password});
   await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:update`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({localId:uid,emailVerified:true})});
   if(old){const n=await restGet('nations/'+uid);await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/accountIdentity/${uid}?updateMask.fieldPaths=nationAt&updateMask.fieldPaths=nationGeneration`,{method:'PATCH',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({fields:{nationAt:{integerValue:String(Date.now()-2*86400000)},nationGeneration:{doubleValue:Date.parse(n.body.createTime)}}})});}
