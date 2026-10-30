@@ -90,7 +90,7 @@ test('Ordinary saves cannot inject politics, found Guest alliances or declare Gu
   await rejects(civic(r,{op:'authorizeSave',record:{...record,name:r.uid,j:JSON.stringify({...n,name:r.uid})},rev:0}),'save_conflict');
 });
 
-test('A one-time hashed code recovers the original Guest UID, never registration',async()=>{
+test('An initially issued hashed code recovers the original Guest UID, never registration',async()=>{
   const g=await player(), visitor=await player(), secret=code();
   assert.equal((await account(g,{op:'status'})).recoveryIssued,false);
   await account(g,{op:'issue',code:secret});await account(g,{op:'issue',code:secret});
@@ -109,6 +109,46 @@ test('A linked or deleted nation cannot be recovered by a former Guest code',asy
   const h=await player(), next=code();await account(h,{op:'issue',code:next});await db.doc('nations/'+h.uid).delete();await rejects(account(visitor,{op:'recover',code:next}),'invalid_recovery');
 });
 
+test('Guest regeneration revokes old keys, preserves identity and age, and safely retries or races',async()=>{
+  const g=await player(false,true),visitor=await player(),first=code(),next=code();
+  await account(g,{op:'issue',code:first});const before=await db.doc('accountIdentity/'+g.uid).get();
+  const state=await account(g,{op:'status'});assert.equal(state.recoveryVersion,0);
+  const rotate={op:'regenerate',code:next,version:state.recoveryVersion};
+  await account(g,rotate);await account(g,rotate);
+  const after=await db.doc('accountIdentity/'+g.uid).get();assert.equal(after.get('recoveryVersion'),1);
+  assert.equal(after.get('nationAt'),before.get('nationAt'));assert.equal(after.get('nationGeneration'),before.get('nationGeneration'));
+  assert.equal(after.get('generation'),before.get('generation'));assert.notEqual(after.get('recoveryHash'),before.get('recoveryHash'));
+  assert.deepEqual((await db.doc('guestRecovery/'+before.get('recoveryHash')).get()).data(),{revoked:true});
+  await rejects(account(visitor,{op:'recover',code:first}),'invalid_recovery');
+  const restored=await sign('signInWithCustomToken',{token:(await account(visitor,{op:'recover',code:next})).token});assert.equal(restored.uid,g.uid);
+  assert.equal((await account(restored,{op:'status'})).kind,'guest');
+  await rejects(account(g,{op:'regenerate',code:next,version:1}),'same_recovery');
+  await assert.rejects(account(g,{op:'regenerate',code:code(),version:1}),e=>e.status==='RESOURCE_EXHAUSTED');
+  await db.doc('accountIdentity/'+g.uid).update({recoveryRotatedAt:Date.now()-61000});
+  await rejects(account(g,{op:'regenerate',code:first,version:1}),'code_used');
+  const candidates=[code(),code()],results=await Promise.allSettled(candidates.map(code=>account(g,{op:'regenerate',code,version:1})));
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(results.find(r=>r.status==='rejected').reason.code,'recovery_changed');
+  assert.equal((await db.doc('accountIdentity/'+g.uid).get()).get('recoveryVersion'),2);
+  const winner=candidates[results.findIndex(r=>r.status==='fulfilled')];
+  assert.equal((await sign('signInWithCustomToken',{token:(await account(visitor,{op:'recover',code:winner})).token})).uid,g.uid);
+  await rejects(account(visitor,{op:'recover',code:next}),'invalid_recovery');
+});
+
+test('Regeneration requires the current Guest identity, a saved nation and valid eligibility',async()=>{
+  const owner=await player(),caller=await player(),linked=await player(true),first=code(),replacement=code();
+  await account(owner,{op:'issue',code:first});
+  await rejects(account(caller,{op:'regenerate',code:first,version:0}),'code_used');
+  await account(caller,{op:'regenerate',code:replacement,version:0,uid:owner.uid});
+  assert.equal((await account(owner,{op:'status'})).recoveryVersion,0);
+  assert.equal((await sign('signInWithCustomToken',{token:(await account(caller,{op:'recover',code:first})).token})).uid,owner.uid);
+  await rejects(account(linked,{op:'regenerate',code:code(),version:0}),'already_registered');
+  const empty=await player();await db.doc('nations/'+empty.uid).delete();await rejects(account(empty,{op:'regenerate',code:code(),version:0}),'nation_required');
+  await db.doc('bans/'+owner.uid).set({t:Date.now()});await rejects(account(owner,{op:'regenerate',code:code(),version:0}),'banned');
+  const denied=await fetch(`http://${FN}/${PROJECT}/europe-west1/accounts`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({data:{op:'regenerate',code:code(),version:0}})});
+  assert.equal((await denied.json()).error.status,'UNAUTHENTICATED');
+});
+
 test('Recovery rate limits apply even to well-formed unknown codes',async()=>{
   const g=await player();let limited=false;
   for(let i=0;i<12;i++){try{await account(g,{op:'recover',code:code()});}catch(e){if(e.status==='RESOURCE_EXHAUSTED'){limited=true;break;}}}
@@ -116,7 +156,7 @@ test('Recovery rate limits apply even to well-formed unknown codes',async()=>{
 });
 
 
-test('deleting and refounding cannot turn a lost code into a replacement for the same account',async()=>{
+test('Refounding does not silently issue a replacement recovery key',async()=>{
   const p=await player(),secret=code();await account(p,{op:'issue',code:secret});
   await db.doc('nations/'+p.uid).delete();await call(p,'referee',{op:'forget'});
   await db.doc('nations/'+p.uid).set({j:JSON.stringify({name:p.uid,reg:'meridian'}),name:p.uid,reg:'meridian'});
