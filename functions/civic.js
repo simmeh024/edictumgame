@@ -182,10 +182,52 @@ async function assembly(db, who, d) {
   });
 }
 
+/* Development news comments: devnews/<post>/posts/<id>, written here so the board's checks apply (a linked
+   account, no ban or moderation, one post every 20 seconds across boards and news). The comment keeps the
+   nation's name, region and flag as they were, since readers in other regions do not load that nation. */
+const newsId = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
+const commentText = x => typeof x === 'string' ? x.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 1000) : '';
+async function newsComment(db, who, d) {
+  const post = newsId(d.post), x = commentText(d.text);
+  if (!post) throw new HttpsError('invalid-argument', 'Choose a news post.');
+  if (!x) throw new HttpsError('invalid-argument', 'Write a comment first.');
+  return db.runTransaction(async tx => {
+    const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid);
+    const [s, p] = await Promise.all([tx.get(limit), tx.get(db.doc('devnews/' + post))]);
+    if (!p.exists || p.get('pub') !== true) refuse('news_missing', 'This post is no longer published.');
+    if (p.get('lk') === true) refuse('news_locked', 'Comments on this post are closed.');
+    if (s.exists && Date.now() - s.get('p').toMillis() < 20000) throw new HttpsError('resource-exhausted', 'Wait 20 seconds between community posts.');
+    const flag = e.n.flag && typeof e.n.flag === 'object' ? JSON.stringify(e.n.flag) : '';
+    const ref = db.collection('devnews/' + post + '/posts').doc();
+    tx.create(ref, { a: who.uid, t: FieldValue.serverTimestamp(), x, nm: text(e.saved.get('name'), 80) || 'A nation', rg: e.n.reg || e.saved.get('reg'),
+      ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}) });
+    tx.set(limit, { p: FieldValue.serverTimestamp() });
+    return { id: ref.id };
+  });
+}
+/* an admin or moderator removes a comment; the audit log keeps what it said */
+async function newsModerate(db, who, d) {
+  if (!who.admin && !who.mod) throw new HttpsError('permission-denied', 'Only Edictum moderators can remove comments.');
+  const post = newsId(d.post), id = newsId(d.comment), reason = text(d.reason, 300) || 'Removed from development news';
+  if (!post || !id) throw new HttpsError('invalid-argument', 'Choose a comment.');
+  const ref = db.doc('devnews/' + post + '/posts/' + id), c = await ref.get();
+  if (!c.exists) return { ok: true };
+  const report = typeof d.report === 'string' && /^[\w-]{1,128}$/.test(d.report) ? d.report : '';
+  const b = db.batch();
+  b.delete(ref);
+  if (report) b.delete(db.doc('reports/' + report));
+  b.create(db.collection('adminAudit').doc(), { actor: who.uid, action: 'news_comment_remove', target: text(c.get('a'), 128), name: text(c.get('nm'), 80), post, comment: id,
+    x: text(c.get('x'), 1000), reason, outcome: 'completed', at: FieldValue.serverTimestamp() });
+  await b.commit();
+  return { ok: true };
+}
+
 export const civic = onCall({ region: 'europe-west1', maxInstances: 10, memory: '256MiB', timeoutSeconds: 60 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore(), who = await identity(req.auth.uid), d = req.data || {};
   if (d.op === 'authorizeSave') return permit(db, who, d);
+  if (d.op === 'newsComment') return newsComment(db, who, d);
+  if (d.op === 'newsModerate') return newsModerate(db, who, d);
   if (d.op === 'topic') return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
     if (d.reg && d.reg !== e.n.reg) throw new HttpsError('permission-denied', 'Post to your own region.');

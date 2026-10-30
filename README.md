@@ -412,6 +412,7 @@ npm run test:smoke         # every page of the game at 1280 and 390 px wide, in 
 npm run test:sync          # one account on desktop and phone: updates, conflicts, clocks, reconnects
 npm run test:startup       # first load, cached updates, loading feedback and saved themes
 npm run test:admin-e2e     # admin console, region access and maintenance messages
+npm run test:devnews       # development news: the editor, images, the menu's count, comments and moderation
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
@@ -659,6 +660,18 @@ audit outcomes. `npm run test:admin-e2e` tests the console and the player/home m
 
    On Windows PowerShell: `npm.cmd ci`, then
    `$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\path\to\key.json"; node set-admin.mjs <email or player id>`.
+
+**Moderators.** `node set-admin.mjs <email or player id> --mod` makes a player a moderator (`--mod --remove`
+undoes it). A moderator gets no admin portal: they see **Remove** on every comment under the development
+news, and each removal is kept in `adminAudit/` with the comment's text. Like Assembly actions and board
+posts, commenting needs a linked sign-in, so link the moderator's nation first.
+
+**Development news.** Admins write posts in the portal under **Game content › Development news**: a title,
+formatted text with images (pasted, dropped or chosen; made at most 1600 pixels wide in the browser and kept
+in Firestore, `devnewsImg/`), signed with a name and role or as their nation. Players read them on the
+**Development news** page under **Other** in the menu, which shows a count of new posts until they open it.
+On the page, admins can edit, delete or close the comments of a post, and remove a comment, hide its nation
+or ban its player; reported comments arrive in the Reports queue as *News comment*.
 
 ### 9b. The daily currency job
 

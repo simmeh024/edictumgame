@@ -1,12 +1,14 @@
-// Make a player an admin of Edictum (or stop them being one).
+// Make a player an admin of Edictum (or stop them being one), or a moderator with --mod.
 //
 //   cd tools/admin && npm ci
 //   GOOGLE_APPLICATION_CREDENTIALS=/path/outside/the/repo/service-account.json node set-admin.mjs you@gmail.com
 //   GOOGLE_APPLICATION_CREDENTIALS=... node set-admin.mjs <player id> --remove
+//   GOOGLE_APPLICATION_CREDENTIALS=... node set-admin.mjs <player id> --mod [--remove]
 //
 // The player is found by the email of their linked Google account, or by the Player ID shown in
 // the game's account menu. Admins see "Remove" on everyone's region message board posts, and a
-// purple Admin pill beside their nation's name that opens the admin portal. The game asks for a
+// purple Admin pill beside their nation's name that opens the admin portal. Moderators get no
+// portal: they see "Remove" on every comment under the development news. The game asks for a
 // fresh sign-in token on every load, so the player only needs to reload the page.
 //
 // The service account key is the same JSON that goes in the FIREBASE_SERVICE_ACCOUNT secret.
@@ -19,8 +21,9 @@ import { getFirestore } from 'firebase-admin/firestore';
 const args = process.argv.slice(2);
 const who = args.find(a => !a.startsWith('--'));
 const remove = args.includes('--remove');
+const mod = args.includes('--mod');
 if (!who) {
-  console.error('Usage: node set-admin.mjs <email or player id> [--remove]');
+  console.error('Usage: node set-admin.mjs <email or player id> [--mod] [--remove]');
   process.exit(2);
 }
 const emulator = !!process.env.FIREBASE_AUTH_EMULATOR_HOST;
@@ -32,14 +35,16 @@ initializeApp(emulator ? { projectId: process.env.GCLOUD_PROJECT || 'demo-edictu
 const auth = getAuth();
 try {
   const user = who.includes('@') ? await auth.getUserByEmail(who) : await auth.getUser(who);
-  const claims = { ...(user.customClaims || {}) };
-  if (remove) delete claims.admin; else claims.admin = true;
+  const claims = { ...(user.customClaims || {}) }, claim = mod ? 'mod' : 'admin', role = mod ? 'a moderator' : 'an admin';
+  if (remove) delete claims[claim]; else claims[claim] = true;
   await auth.setCustomUserClaims(user.uid, claims);
   /* staff/<uid> shows other players this nation is staff; the admin's own page writes it, and clears it
      once the right is gone, but taking it away here does so at once */
-  if (remove) await getFirestore().doc('staff/' + user.uid).delete().catch(e => console.warn('Could not clear the staff mark: ' + e.message));
-  console.log(`${user.email || user.uid} (player id ${user.uid}) is ${remove ? 'no longer an admin' : 'now an admin'}.`);
-  console.log(remove ? 'Other players no longer see the nation marked as Edictum staff.'
+  if (remove && !mod) await getFirestore().doc('staff/' + user.uid).delete().catch(e => console.warn('Could not clear the staff mark: ' + e.message));
+  console.log(`${user.email || user.uid} (player id ${user.uid}) is ${remove ? 'no longer ' + role : 'now ' + role}.`);
+  if (mod) console.log(remove ? 'In the game: the Remove buttons under the development news go at the next reload.'
+    : 'In the game: reload the page (no need to sign out). Every comment under the development news gets a Remove button.');
+  else console.log(remove ? 'Other players no longer see the nation marked as Edictum staff.'
     : 'In the game: reload the page (no need to sign out). The Admin pill appears beside the nation’s name, and other players see it marked as Edictum staff.');
 } catch (e) {
   console.error('Could not set the claim: ' + (e.errorInfo ? e.errorInfo.message : e.message));

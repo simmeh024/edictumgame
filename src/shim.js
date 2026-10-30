@@ -21,6 +21,9 @@
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
                             rewritten only when that data changes (or every SPACE_BEAT while playing).
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
+     devnews/<id>           a development news post (admins write it in the portal), devnews/<id>/posts/<id>
+                            its comments (through civic()), devnewsImg/<id> its images, and devnewsMeta/latest
+                            the latest published posts, which the game's unread count listens to.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
    A nation save writes nations, summaries and (when needed) nationx and space in one transaction; the rules
@@ -124,7 +127,7 @@
   ['asmLocal', 'onb', 'mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
-    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
+    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws'].forEach(function (k) { NX_KEYS[k] = 1; });
   function splitNation(d) {
     var pub = {}, ext = {};
     Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
@@ -401,6 +404,12 @@
     google: function () {
       var u = A.auth && A.auth.currentUser;
       return Promise.resolve(!!(u && (hasProvider(u, 'google.com') || discordOf(u) || hasProvider(u, 'password') && u.emailVerified && L.get('edictum.emailLinked.' + u.uid))));
+    },
+    /* a moderator (custom claim mod, tools/admin/set-admin.mjs --mod) removes development news comments;
+       read from the token isOwner() fetched */
+    isMod: function () {
+      var u = A.auth && A.auth.currentUser;
+      return Promise.resolve(!!(u && A.claimsUid === u.uid && A.claims && A.claims.mod === true));
     },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
