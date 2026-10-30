@@ -17,7 +17,7 @@ const plain=v=>v===undefined?v:JSON.parse(JSON.stringify(v)),eq=(a,b,m)=>assert.
 function desk(over={}){
   const start=source.indexOf('const DD_GIFT='),end=source.indexOf('/* ── the desk on the edicts page ── */',start);
   assert.ok(start>0&&end>start);
-  const ctx=vm.createContext({NORM_HOOKS:[],COMMIT_HOOKS:[],UNLOCK_SOURCES:[],MP_NET_MAX:24,FREQ_DEF:30,
+  const ctx=vm.createContext({window:{},NORM_HOOKS:[],COMMIT_HOOKS:[],UNLOCK_SOURCES:[],MP_NET_MAX:24,FREQ_DEF:30,
     allNations:()=>[{me:true},{me:false}],cellOf:v=>Number.isInteger(v)?v:-1,asmState:()=>null,asmMemberAt:()=>true,pgAvailable:()=>false,
     cityList:n=>n.cities||[],landCredits:()=>0,landEarned:()=>BASE,earnedAt:()=>BASE,stockNow:n=>({...n.stock}),stockLimit:(n,r,v)=>Math.min(400,v),
     num0:v=>Number.isFinite(v)?v:0,roundStock:s=>({...s}),resName:r=>r,czHas:(o,k)=>Object.hasOwn(o,k),
@@ -100,6 +100,12 @@ test('the quick first building brings its first cart once, if it still stands',(
   n=nation({ffb:{k:'market',c:'cap',s:NOW,d:NOW+FFB()},cities:[{id:'cap',c:5,b:[{k:'market',s:NOW,d:NOW+FFB()}]}]});[m,old]=next(n,()=>{});D.save(m,old);
   assert.equal(m.ffb.p,undefined);assert.equal(m.stock.goods,20);
   function FFB(){return 3*60000;}
+});
+
+test('the browser tests can turn the desk off, leaving presence and the first building',()=>{
+  const D=desk({window:{EDICTUM_NO_DESK:true}});let n=nation();
+  const [m,old]=next(n,x=>{x.tly.iss=9;x.tly.dm=4;});const notes=D.save(m,old);
+  eq(m.dd,undefined);assert.equal(m.stock.timber,20);assert.equal(m.stk.n,1);assert.ok(notes.every(t=>!/Desk task/.test(t)));
 });
 
 test('saved records keep only well-formed desks, counts and builds',()=>{

@@ -5,7 +5,7 @@ import {OUT,PROJECT,FS_HOST,BASE,check,finish,sleep,until,player,open,found,nav,
 const comparisonReady=async p=>{await p.waitForFunction(()=>{const el=document.querySelector('#hh-account-types'),r=el?.getBoundingClientRect(),bar=document.querySelector('.ux-sections')?.getBoundingClientRect();return r&&r.top>=(bar?.bottom||0)&&r.top<innerHeight/2&&document.activeElement===el&&!document.getAnimations().some(a=>a.playState==='running'&&a.effect?.target?.closest?.('.main'));});await p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));};
 if(!PROJECT.startsWith('demo-'))throw Error('Onboarding tests require demo emulators');
 await clearEmulators();
-const A=await player('new player desktop',{recovery:true}),uid=await open(A);await A.waitForSelector('#d-name');
+const A=await player('new player desktop',{recovery:true,desk:true}),uid=await open(A);await A.waitForSelector('#d-name');
 check('founding offers a basic flag without the layer workshop',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
 await found(A,'Beginnings',{newPlayer:true});
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');

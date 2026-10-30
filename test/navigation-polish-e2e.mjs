@@ -6,7 +6,9 @@ const view=async(p,v)=>{await p.waitForFunction(v=>window.G?.S.view===v&&G.UX?.U
 const move=async(p,v)=>{await nav(p,v);await view(p,v);};
 const search=async(p,q,mobile=false)=>{if(mobile)await p.click('.brand-actions .ux-search-button');else await p.keyboard.press('Control+k');await p.waitForSelector('#qj-in');await p.fill('#qj-in',q);};
 const result=(p,v)=>p.locator(`.qj-o[data-v="${v}"]`);
-const A=await player('navigation desktop'),uid=await open(A);await found(A,'FindersUnion');await view(A,'nation');
+/* the guest recovery dialog takes focus when it opens, so it is acknowledged before any focus is checked */
+const A=await player('navigation desktop',{recovery:true}),uid=await open(A);await found(A,'FindersUnion');
+await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');await view(A,'nation');
 check('desktop search is one labelled icon beside the notification bell',await A.locator('.brand-actions .bell + .ux-search-button').isVisible()&&await A.locator('.ux-search-button').count()===1&&(await A.locator('.ux-search-button').textContent()).trim()===''&&await A.locator('.ux-search-button').getAttribute('aria-label')==='Search game');
 check('nation section links contain only the five main destinations',JSON.stringify(await A.locator('.ux-section-links button').allTextContents())===JSON.stringify(['Overview','Factbook','Territory','Cities','Recent legislation']));
 check('desktop section links need no horizontal scrollbar',await A.locator('.ux-section-links').evaluate(e=>e.scrollWidth<=e.clientWidth+1));

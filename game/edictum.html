@@ -38675,6 +38675,9 @@ writeClaims=(f=>function(cells,msg,auto,plan){
 const DD_GIFT=3,DD_RES=['timber','oil','iron','goods'],DD_KEY_RX=/^\d{4}-\d{2}-\d{2}$/,STK_UNLOCKS=['s-indigo','m-cartouche','pn-pennant'],STK_MAX=1e5;
 const FFB_MS=3*60000,FFB_GIFT=12,FFB_KEYS=['farm','sawmill','market'],FFB_OUT={farm:'food',sawmill:'timber',market:'goods'};
 const ddOthers=()=>{try{return allNations().some(x=>!x.me);}catch(e){return false;}};
+/* the browser tests turn the desk off (test/lib.mjs) unless a suite asks for it, so its gifts never move the stock
+   a test is counting on whatever three tasks the date happens to draw */
+const ddOn=()=>!window.EDICTUM_NO_DESK;
 /* key: {t: title for a target, go: [view, button], r: [lowest, highest target], ok: whether the nation can do it today} */
 const DD_TASKS={
   iss:{t:k=>k===1?'Answer an edict':`Answer ${k} edicts`,go:null,r:[3,5],ok:()=>true},
@@ -38722,14 +38725,14 @@ COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc||!n.name)return;const mark=n._ddm;delete n._ddm;const out=[],day=ddDay(now);
   /* the same nation's last record, with its tallies: only then are the differences real */
   const base=old&&old.name===n.name&&old.tly&&typeof old.tly==='object'?old:null;
-  if(!n.dd||n.dd.d!==day)n.dd=ddFresh(n,day);
-  const D=n.dd,gift=(r,v)=>{const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
-  D.q.forEach(([k,goal,ra,rb],i)=>{
+  const gift=(r,v)=>{const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
+  if(ddOn()){if(!n.dd||n.dd.d!==day)n.dd=ddFresh(n,day);
+  const D=n.dd;D.q.forEach(([k,goal,ra,rb],i)=>{
     if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
     if(D.c[i]>=goal){D.p[i]=1;gift(ra,DD_GIFT);gift(rb,DD_GIFT);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${DD_GIFT} ${resName(ra)} and +${DD_GIFT} ${resName(rb)}.`);}
   });
-  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
+  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;out.push('Today’s desk is clear: +1 land credit to spend on the map.');}}
   if(base&&(!n.stk||n.stk.d!==day)&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
     const k=Math.min(STK_MAX,stkDays(n)+1);n.stk={n:k,d:day};if(k<=STK_NOTES.length)out.push(`Day ${k} of your presence: ${STK_NOTES[k-1]}.`);}
   /* the quick first building: its first cart, once, if it still stands */
@@ -38752,12 +38755,12 @@ NORM_HOOKS.push((n,d)=>{
 
 /* ── the desk on the edicts page ── */
 function ddMark(k){
-  const n=S.nation;if(!n||n.npc||regBlocked()||S.mode==='readonly')return;
+  const n=S.nation;if(!n||n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;
   const day=ddDay(Date.now()),D=n.dd&&n.dd.d===day?n.dd:null,i=(D?D.q:ddRoll(n,day)).findIndex(q=>q[0]===k);
   if(i<0||D&&D.p[i])return;const m=clone(n);m._ddm=k;commit(m);saveSoon();
 }
 function ddCard(now){
-  const n=S.nation;if(!n||n.npc)return '';
+  const n=S.nation;if(!n||n.npc||!ddOn())return '';
   const day=ddDay(now),D=n.dd&&n.dd.d===day?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&n.stk.d===day),nx=STK_UNLOCKS[sk];
   const rows=D.q.map(([k,goal,ra,rb],i)=>{const T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0);
     return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${DD_GIFT} ${esc(resName(ra))}, +${DD_GIFT} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
