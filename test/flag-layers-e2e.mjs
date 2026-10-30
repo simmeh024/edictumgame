@@ -8,9 +8,11 @@ const val=async(p,sc,k,v)=>{const el=p.locator(`#${sc}-fgl-${k}`);await el.fill(
 const draft=(p,sc='c')=>p.evaluate(sc=>JSON.parse(JSON.stringify(sc==='c'?G.S.czFlag:G.S.draft.flag)),sc);
 const save=async p=>{await p.click('#c-flag-save');if(!await until(async()=>{const n=await localNation(p),d=n&&await nationDoc(n.id||await p.evaluate(()=>G.myId()));return n&&!n._dirty&&d?.rec.flag&&JSON.stringify(d.rec.flag)===JSON.stringify(n.flag);},15000))throw Error('Flag save did not settle');};
 const undo=(p,sc='c')=>p.click(`#${sc}-fg-undo`);
-const A=await player('flag layers desktop'),uid=await open(A);await A.waitForSelector('#d-name');
+/* the guest recovery dialog takes focus when it opens, so it is acknowledged before any focus is checked */
+const A=await player('flag layers desktop',{recovery:true}),uid=await open(A);await A.waitForSelector('#d-name');
 check('founding keeps the base flag designer and defers layers',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
-await A.fill('#d-name','Layerland');await A.click('[data-act="found-suggest"]');await A.click('#found-btn');await A.waitForSelector('.layout');await nav(A,'nation');await A.click('[data-act="pg-charter"]');
+await A.fill('#d-name','Layerland');await A.click('[data-act="found-suggest"]');await A.click('#found-btn');await A.waitForSelector('.layout');
+await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');await nav(A,'nation');await A.click('[data-act="pg-charter"]');
 await nav(A,'customise');await expand(A,'c');const original=await draft(A);await add(A,'c','stripe');await add(A,'c','emblem');
 check('finishing the charter reveals independent layers without changing the base flag',JSON.stringify(Object.fromEntries(Object.entries(await draft(A)).filter(([k])=>k!=='layers')))===JSON.stringify(original));
 check('earned symbols remain locked in the layer picker',await A.locator('#c-fgl-e option[value="e-eye"]').count()===0);
@@ -23,7 +25,7 @@ await A.mouse.move(b.x+b.width*l.x/100,b.y+b.height*l.y/100);await A.mouse.down(
 check('dragging snaps the layer to the chosen grid',(await draft(A)).layers[1].x===60&&(await draft(A)).layers[1].y===65);
 await undo(A);check('the entire drag is one Undo step',(await draft(A)).layers[1].x===37.5&&(await draft(A)).layers[1].y===50);
 await A.locator('#c-fgl-canvas').focus();await A.keyboard.press('ArrowRight');await A.keyboard.press('Shift+ArrowUp');
-check('keyboard movement is precise and retains canvas focus',(await draft(A)).layers[1].x===38.5&&(await draft(A)).layers[1].y===45&&await A.evaluate(()=>document.activeElement?.id==='c-fgl-canvas'));
+check('keyboard movement is precise and retains canvas focus',(await draft(A)).layers[1].x===38.5&&(await draft(A)).layers[1].y===45&&await A.evaluate(()=>document.activeElement?.id==='c-fgl-canvas'),JSON.stringify({layer:(await draft(A)).layers[1],focus:await A.evaluate(()=>document.activeElement?.id||document.activeElement?.className)}));
 await A.click('[data-act="fgl-align"][data-scope="c"][data-align="centre-x"]');await A.click('[data-act="fgl-align"][data-scope="c"][data-align="centre-y"]');
 check('alignment centres the selected layer',(await draft(A)).layers[1].x===50&&(await draft(A)).layers[1].y===50);
 await act(A,'c','back');check('stack order can move an emblem behind a stripe',(await draft(A)).layers[0].k==='emblem');
@@ -42,7 +44,7 @@ const touch=(dx,dy)=>[{x:b.x+b.width*(l.x+dx)/100,y:b.y+b.height*(l.y+dy)/100,id
 await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:touch(0,0)});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:touch(10,10)});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 check('touch dragging works on a phone',(await draft(C)).layers[1].x===60&&(await draft(C)).layers[1].y===60);
 await add(C,'c','border');await val(C,'c','b',5);await add(C,'c','disc');await C.click('#c-fgl-nudge-left');
-check('button edits retain keyboard focus',await C.evaluate(()=>document.activeElement?.id==='c-fgl-nudge-left'));
+check('button edits retain keyboard focus',await C.evaluate(()=>document.activeElement?.id==='c-fgl-nudge-left'),await C.evaluate(()=>document.activeElement?.id||document.activeElement?.className));
 await C.locator('#c-fgl-c').evaluate(el=>{el.value='#1C4D9E';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});
 check('each layer has an independent colour',(await draft(C)).layers[3].c==='#1C4D9E'&&(await draft(C)).layers[2].c!=='#1C4D9E');
 check('borders and discs have independent geometry',(await draft(C)).layers[2].b===5&&(await draft(C)).layers[3].k==='disc');
