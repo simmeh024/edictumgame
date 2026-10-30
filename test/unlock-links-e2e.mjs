@@ -4,12 +4,16 @@ const settle=p=>p.evaluate(async()=>{await Promise.all(document.getAnimations().
 const A=await player('unlock desktop');await open(A);await found(A,'Honourland');
 const saved=async()=>{if(!await until(async()=>{const n=await localNation(A);return n?._rev>0&&!n._dirty;},15000))throw Error('Save did not settle');};
 await saved();
-check('new achievement toast includes its exact unlock link',await until(()=>A.isVisible('#toast a[href="#achievements/found-year0"]'),25000));
+/* founding and settling earn several achievements, each announced in a toast; which one is showing when the
+   nation is ready depends on timing, so the first achievement link seen is the one followed. Hovering holds it. */
+const achLink=()=>A.$('#toast a[href^="#achievements/"]');
+check('new achievement toast includes its exact unlock link',!!await until(achLink,25000));
+const achHref=await (await achLink()).getAttribute('href'),achId=achHref.split('/')[1];await A.hover(`#toast a[href="${achHref}"]`);
 await settle(A);await A.locator('#toast').screenshot({path:OUT+'/unlock-toast-1280.png'});
-await A.click('#toast a[href="#achievements/found-year0"]');
-check('toast link opens and focuses the earned achievement',await until(()=>A.locator('#ach-found-year0.on').count())&&await A.evaluate(()=>document.activeElement?.id==='ach-found-year0')&&A.url().endsWith('#achievements/found-year0'));
-await A.mouse.move(0,0);await A.reload();await A.waitForSelector('#ach-found-year0.on');
-check('achievement deep link survives refresh',await A.evaluate(()=>document.activeElement?.id==='ach-found-year0'));
+await A.click(`#toast a[href="${achHref}"]`);
+check('toast link opens and focuses the earned achievement',await until(()=>A.locator(`#ach-${achId}.on`).count())&&await A.evaluate(id=>document.activeElement?.id==='ach-'+id,achId)&&A.url().endsWith(achHref),achHref);
+await A.mouse.move(0,0);await A.reload();await A.waitForSelector(`#ach-${achId}.on`);
+check('achievement deep link survives refresh',await A.evaluate(id=>document.activeElement?.id==='ach-'+id,achId));
 await nav(A,'museum');await A.click('[data-act="mu-hall"][data-h="collection"]');
 const ids=await A.locator('#col-stamps [data-act="col-open"]').evaluateAll(bs=>bs.map(b=>b.dataset.id));
 await A.evaluate(ids=>{const n=G.clone(G.S.nation),t=Date.now()-60000;n.coll={...n.coll};for(const id of ids)n.coll[id]=t;delete n.coll['st-econ'];n.colS={...n.colS};delete n.colS.stamps;n.tly={...n.tly,'iss:econ':5,'log:flag':10};delete n.ach['odd-flag'];delete n.ach['odd-flag10'];G.commit(n);G.S.colF={own:'miss',rar:'l',set:'wild'};G.render();},ids);
