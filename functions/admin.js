@@ -88,7 +88,10 @@ async function mutate(db, actor, data) {
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);
       const writer = db.bulkWriter(), writes = posts.docs.concat(reports.docs).map(d => writer.delete(d.ref)); await Promise.all([Promise.all(writes), writer.close()]);
     }
-    if (action === 'delete_post') { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
+    // a reported comment on development news is news:<post>:<comment>; anything else is a region board post
+    const news = action === 'delete_post' && /^news:([A-Za-z0-9]{20}):([A-Za-z0-9]{20})$/.exec(target);
+    if (news) await db.doc('devnews/' + news[1] + '/posts/' + news[2]).delete();
+    else if (action === 'delete_post') { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
     if (action === 'close_report') await db.doc('reports/' + target).delete();
     if (action.startsWith('support_')) {
       const ref = db.doc('support/' + target);
