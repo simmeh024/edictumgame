@@ -659,18 +659,22 @@
     var w = who(), n = localNation(), nm = n ? quoted(n.name) : '', h = '';
     var row = function (x) { return '<div class="ed-row">' + x + '</div>'; };
     if (ui.view === 'recovery-code') {
-      var pending = w.uid && L.get('edictum.recovery.pending.' + w.uid);
+      var pending = pendingRecoveryCode();
       h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Save your recovery code</h2>' +
-        '<p>This code restores your nation on another browser or device. It is created once. Keep it somewhere private, outside this browser.</p>' +
+        '<p>This code restores your nation on another browser or device. Keep it somewhere private, outside this browser.</p>' +
         '<p class="ed-quote" style="overflow-wrap:anywhere"><code id="ed-recovery-code">' + esc(pending || '') + '</code></p>' +
-        '<p><b>If this code is lost, it cannot be recovered or replaced.</b> If you also lose your guest session, you will lose access to your nation. Anyone with the code can access your nation.</p>' +
+        '<p><b>A lost code cannot be retrieved.</b> You can regenerate a key while this Guest session is active. Without an active session or a working code, access cannot be recovered. Anyone with the code can access your nation.</p>' +
         row('<button type="button" class="btn ghost" data-ed="recovery-copy">Copy code</button><button type="button" class="btn ghost" data-ed="recovery-download">Download code</button>') +
         row('<button type="button" class="btn" data-ed="recovery-saved" data-autofocus>I saved my recovery code</button>');
+    } else if (ui.view === 'regenerate') {
+      h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Regenerate recovery key?</h2>' +
+        '<p>Generate a new recovery key for ' + nm + '.</p><p><b>Your previous key stops working immediately.</b> Devices already signed in stay signed in, and your nation keeps its progress.</p><p>Save the new key outside this browser before signing out. The old key cannot be retrieved.</p>' +
+        row('<button type="button" class="btn" data-ed="recovery-regenerate-yes">Regenerate key</button><button type="button" class="btn ghost" data-ed="recovery-regenerate-cancel" data-autofocus>Cancel</button>');
     } else if (ui.view === 'recover') {
       h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Recover your nation</h2>' +
-        '<p>Enter the recovery code you saved when your nation was created. Your existing progress will load on this device.</p>' +
+        '<p>Enter your most recently saved recovery code. Your existing progress will load on this device.</p>' +
         '<label class="ed-lbl2" for="ed-recovery-input">Recovery code</label><input class="input" id="ed-recovery-input" autocomplete="off" spellcheck="false" maxlength="80" data-autofocus>' +
-        '<p class="ed-fine">Lost the code? It cannot be recovered or replaced. Try a browser where your guest session is still active. Registered Nations use their linked sign-in instead.</p>' +
+        '<p class="ed-fine">Lost the code? Try a browser where your Guest session is still active and choose Regenerate recovery key in your account panel. Without an active session or a working code, access cannot be recovered. Registered Nations use their linked sign-in instead.</p>' +
         row('<button type="button" class="btn" data-ed="recover-yes">Recover nation</button><button type="button" class="btn ghost" data-ed="back">Back</button>');
     } else if (ui.view === 'switch') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Switch to that Google account?</h2>' +
@@ -703,10 +707,11 @@
         (w.kind === 'google' ? '<p class="ed-fine">Google may ask you to confirm it is you first.</p>' : '') +
         row('<button type="button" class="btn danger" data-ed="delete-yes">Delete everything</button><button type="button" class="btn ghost" data-ed="back" data-autofocus>Keep my nation</button>');
     } else if (ui.view === 'signout') {
-      var guestOut = w.kind === 'guest' && !!n, pendingCode = guestOut && L.get('edictum.recovery.pending.' + w.uid);
+      var guestOut = w.kind === 'guest' && !!n, pendingCode = guestOut && pendingRecoveryCode();
       h = '<p class="eyebrow">' + (guestOut ? 'Guest Nation' : 'Your account') + '</p><h2 class="ed-h" id="ed-dlg-h">Sign out?</h2>' +
-        (guestOut ? '<p>This ends the guest session on this browser. Your nation stays online. To sign back in, you will need the recovery code you saved.</p><p><b>A lost recovery code cannot be recovered or replaced.</b> Save it outside this browser before signing out.</p>' +
+        (guestOut ? '<p>This ends the guest session on this browser. Your nation stays online. To sign back in, you will need your most recently saved recovery code.</p><p><b>Without an active Guest session or a working code, access cannot be recovered.</b> Save your code outside this browser before signing out.</p>' +
           (pendingCode ? row('<button type="button" class="btn ghost" data-ed="recovery-review">Save my recovery code first</button>') : '') +
+          row('<button type="button" class="linkish" data-ed="recovery-regenerate">Regenerate recovery key</button>') +
           '<label class="ed-lbl2"><input type="checkbox" id="ed-guest-code-saved" data-autofocus> I have saved my recovery code.</label>' :
           '<p>' + (n ? nm + ' stays' : 'Your nation stays') + ' with your linked account. This browser starts again as a new guest, and you can sign back in at any time.</p>') +
         row('<button type="button" class="btn" data-ed="signout-yes"' + (guestOut ? ' disabled' : ' data-autofocus') + '>Sign out</button><button type="button" class="btn ghost" data-ed="' + (ui.direct ? 'close' : 'back') + '">Cancel</button>');
@@ -717,7 +722,7 @@
           (n ? '<p>' + nm + ' is a Guest Nation. Keep your recovery code safe, or link a sign-in account to become a Registered Nation. Registration unlocks community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>'
              : '<p>If your nation is linked to a Google account, sign in to carry on with it here. New to Edictum? Found a nation on this page, and link it to Google whenever you like.</p>') +
           row(linkingButtons(A.auth.currentUser)) +
-          (n ? row('<button type="button" class="btn ghost" data-ed="signout">Sign out</button>') + '<p class="ed-fine">Guest recovery codes are issued once and cannot be displayed again. After linking, use your linked sign-in to recover this nation.</p>' :
+          (n ? row('<button type="button" class="btn ghost" data-ed="recovery-regenerate">Regenerate recovery key</button><button type="button" class="btn ghost" data-ed="signout">Sign out</button>') + '<p class="ed-fine">A saved code cannot be displayed again. Regenerating replaces it and stops the previous key from working. After linking, use your linked sign-in to recover this nation.</p>' :
             row('<button type="button" class="btn ghost" data-ed="guest-session">Login with active guest session</button>') + row('<button type="button" class="linkish" data-ed="recover">Recover with a code</button>'));
       } else if (w.kind === 'google') {
         h = '<p class="eyebrow">Registered Nation</p><h2 class="ed-h" id="ed-dlg-h">Your linked account</h2><p>' + (w.email ? 'You are signed in as <b>' + esc(w.email) + '</b>. ' : '') +
@@ -736,15 +741,18 @@
     focusFirst();
   }
   function act(a) {
+    if (a === 'recovery-regenerate') { if (who().kind !== 'guest' || !localNation() || ui.busy) return;ui.recoveryBack=ui.view;ui.view='regenerate';setMsg('');draw();return; }
+    if (a === 'recovery-regenerate-cancel') { ui.view=ui.recoveryBack||'main';setMsg('');draw();return; }
+    if (a === 'recovery-regenerate-yes') { regenerateRecovery();return; }
     if (a === 'recovery-review') { reviewRecoveryCode(); return; }
     if (a === 'recover') { ui.view = 'recover'; draw(); return; }
     if (a === 'recover-yes') { recoverNation(); return; }
     if (a === 'guest-session') { resumeGuest(); return; }
-    if (a === 'recovery-saved') { L.set('edictum.recovery.pending.' + A.uid, null); recoveryChecked = A.uid; ui.view = 'main'; ui.dlg.close(); return; }
+    if (a === 'recovery-saved') { var rotation=recoveryRotation(A.uid);if(rotation&&ui.recoveryCode!==rotation.code){setMsg('Finish regenerating and save your new recovery key first.',true);return;}clearRecovery(A.uid); recoveryChecked = A.uid; ui.view = 'main'; ui.dlg.close(); return; }
     if (a === 'recovery-copy' || a === 'recovery-download') {
-      var code = L.get('edictum.recovery.pending.' + A.uid); if (!code) return;
+      var code = pendingRecoveryCode(); if (!code) return;
       if (a === 'recovery-copy') { navigator.clipboard.writeText(code).then(function(){setMsg('Copied. Store it somewhere private.');},function(){setMsg('Select and copy the code above.',true);}); }
-      else { var url = URL.createObjectURL(new Blob(['Edictum Guest Nation recovery code\n\n' + code + '\n\nKeep this private. A lost code cannot be recovered or replaced.\n'],{type:'text/plain'}));
+      else { var url = URL.createObjectURL(new Blob(['Edictum Guest Nation recovery code\n\n' + code + '\n\nKeep this private. A regenerated key replaces the previous key. A lost code cannot be retrieved; regenerate only from an active Guest session. Without an active session or a working code, access cannot be recovered.\n'],{type:'text/plain'}));
         var link=document.createElement('a');link.href=url;link.download='edictum-recovery-code.txt';link.click();setTimeout(function(){URL.revokeObjectURL(url);},1000); }
       return;
     }
@@ -766,29 +774,64 @@
     if (a === 'support-yes') { sendTicket(); return; }
   }
 
-  var checkingRecovery = false, recoveryChecked = '';
+  var checkingRecovery = false, recoveryChecked = '', recoveryEpoch = 0;
+  function newRecoveryCode() {
+    var bytes=new Uint8Array(20);crypto.getRandomValues(bytes);
+    return 'EDC-'+Array.from(bytes).map(function(v){return v.toString(16).padStart(2,'0');}).join('').toUpperCase().match(/.{1,8}/g).join('-');
+  }
+  function recoveryRotation(uid) {
+    try { var value=JSON.parse(L.get('edictum.recovery.rotation.'+uid)||'null');return value&&/^EDC-(?:[A-F0-9]{8}-){4}[A-F0-9]{8}$/.test(value.code)&&Number.isSafeInteger(value.version)&&value.version>=0?value:null; }catch(e){return null;}
+  }
+  function pendingRecoveryCode() { return ui.recoveryCode||L.get('edictum.recovery.pending.'+A.uid)||''; }
+  function clearRecovery(uid) { recoveryEpoch++;L.set('edictum.recovery.pending.'+uid,null);L.set('edictum.recovery.rotation.'+uid,null);if(uid===A.uid)ui.recoveryCode=''; }
+  async function finishRecoveryRotation(uid, intent, epoch) {
+    await call('accounts',{op:'regenerate',code:intent.code,version:intent.version});
+    if(epoch!==recoveryEpoch||A.uid!==uid||linkedUser(A.auth.currentUser)||A.leaving)return false;
+    ui.recoveryCode=intent.code;
+    if(L.set('edictum.recovery.pending.'+uid,intent.code))L.set('edictum.recovery.rotation.'+uid,null);
+    recoveryChecked=uid;return true;
+  }
+  async function regenerateRecovery() {
+    if(ui.busy||who().kind!=='guest'||!localNation())return;
+    var uid=A.uid,epoch=++recoveryEpoch,intent=recoveryRotation(uid);setBusy('Generating your new recovery key…');
+    try {
+      if(!intent){
+        var status=await call('accounts',{op:'status'});
+        if(status.kind!=='guest'||!status.hasNation)throw new Error('An active Guest Nation is required.');
+        intent={code:newRecoveryCode(),version:status.recoveryVersion};
+        if(!L.set('edictum.recovery.rotation.'+uid,JSON.stringify(intent)))throw new Error('Allow browser storage before generating a new recovery key.');
+      }
+      if(await finishRecoveryRotation(uid,intent,epoch)){setBusy('');open('recovery-code');setMsg('New key ready. Your previous key no longer works.');}
+      else setBusy('');
+    } catch(e) {
+      var code=String(e.code||'').replace(/-/g,'_'),uncertain=!code||['unavailable','deadline_exceeded','internal','unknown'].includes(code);
+      if(['recovery_changed','code_used','same_recovery','invalid_argument','already_registered','resource_exhausted'].includes(code)&&recoveryRotation(uid)?.code===intent?.code){L.set('edictum.recovery.rotation.'+uid,null);if(code==='recovery_changed'){L.set('edictum.recovery.pending.'+uid,null);ui.recoveryCode='';}}
+      setBusy('');setMsg(uncertain&&recoveryRotation(uid)?'Your replacement is pending. Stay signed in and retry Regenerate recovery key to finish saving the new key.':e.message,true);
+    }
+  }
   async function recoveryCheck() {
     var u = A.auth && A.auth.currentUser;
-    if (!u || !A.online || A.frozen || !localNation() || linkedUser(u) || checkingRecovery) return;
-    var key = 'edictum.recovery.pending.' + u.uid, pending = L.get(key);
-    if (recoveryChecked === u.uid && !pending) return;
+    if (!u || !A.online || A.frozen || ui.busy || !localNation() || linkedUser(u) || checkingRecovery) return;
+    var key = 'edictum.recovery.pending.' + u.uid, pending = L.get(key),intent=recoveryRotation(u.uid),epoch=recoveryEpoch;
+    if (recoveryChecked === u.uid && !pending && !intent) return;
     checkingRecovery = true;
     try {
+      if(intent){if(await finishRecoveryRotation(u.uid,intent,epoch))open('recovery-code');return;}
       var status = await call('accounts', { op: 'status' });
+      if(epoch!==recoveryEpoch||A.uid!==u.uid||linkedUser(A.auth.currentUser)||A.leaving)return;
       if (!status.hasNation || status.kind !== 'guest') return;
       if (!status.recoveryIssued && !pending) {
-        var bytes = new Uint8Array(20); crypto.getRandomValues(bytes);
-        var raw = Array.from(bytes).map(function(v){return v.toString(16).padStart(2,'0');}).join('').toUpperCase();
-        pending = 'EDC-' + raw.match(/.{1,8}/g).join('-');
+        pending = newRecoveryCode();
         if (!L.set(key, pending)) return; // persist before issuance so an interrupted response can be retried
       }
       if (pending) {
         await call('accounts', { op: 'issue', code: pending });
-        if (A.uid === u.uid && L.get(key) === pending && !linkedUser(A.auth.currentUser) && !A.leaving && (!ui.dlg || !ui.dlg.open)) open('recovery-code');
+        if (epoch===recoveryEpoch && A.uid === u.uid && L.get(key) === pending && !linkedUser(A.auth.currentUser) && !A.leaving && (!ui.dlg || !ui.dlg.open)) open('recovery-code');
       }
       recoveryChecked = u.uid;
     } catch(e) {
-      if (e.code === 'already_issued') { L.set(key,null); recoveryChecked=u.uid; }
+      if (epoch===recoveryEpoch&&e.code === 'already_issued'&&L.get(key)===pending) { L.set(key,null); recoveryChecked=u.uid; }
+      if(epoch===recoveryEpoch&&intent&&e.code==='recovery_changed'&&recoveryRotation(u.uid)?.code===intent.code){L.set('edictum.recovery.rotation.'+u.uid,null);L.set(key,null);ui.recoveryCode='';recoveryChecked=u.uid;toast(e.message);}
       // An offline issuance retries after the next confirmed save, retaining the same pending code.
     } finally { checkingRecovery = false; }
   }
@@ -906,7 +949,7 @@
     }
     /* the data is gone; now the account. A guest's sign-in may be too old for that: it then simply
        ends, and the empty guest account holds nothing */
-    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set('edictum.unsaved.' + u.uid, null); L.set('edictum.recovery.pending.' + u.uid, null);
+    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set('edictum.unsaved.' + u.uid, null); clearRecovery(u.uid);
     try { await u.delete(); } catch (e) { try { await A.auth.signOut(); } catch (e2) {} }
     leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');
   }
@@ -928,6 +971,7 @@
     if (!u || (u.providerData || []).some(function(p){return p.providerId === 'google.com';})) return;
     setBusy('Waiting for Google…');
     u.linkWithPopup(provider()).then(function () {
+      clearRecovery(u.uid);
       setBusy('');
       var w = who(), n = localNation();
       ui.view = 'main'; draw(); paint();
@@ -978,7 +1022,8 @@
     if (check && button) button.disabled = !!ui.busy || !check.checked;
   }
   async function reviewRecoveryCode() {
-    var code = L.get('edictum.recovery.pending.' + A.uid); if (!code || ui.busy) return;
+    var code = pendingRecoveryCode(); if (!code || ui.busy) return;
+    if(recoveryRotation(A.uid)){ui.recoveryBack='signout';ui.view='regenerate';draw();return;}
     setBusy('Checking your recovery code…');
     try { await call('accounts', { op: 'issue', code: code }); setBusy(''); open('recovery-code'); }
     catch(e) { setBusy(''); setMsg(e.message, true); }
@@ -988,10 +1033,11 @@
     if (guest && n && (!check || !check.checked)) return;
     setBusy('Saving before signing out…');
     try {
+      if(guest&&recoveryRotation(uid))throw new Error('Finish regenerating and save your new recovery key before signing out.');
       if (n && typeof E.beforeSignOut === 'function') await within(E.beforeSignOut(), 25000);
       A.leaving = true; A.frozen = true;
       await A.auth.signOut();
-      if (guest) L.set('edictum.recovery.pending.' + uid, null);
+      if (guest) clearRecovery(uid);
       leave({ nation: null, uid: '-' }, guest ? 'Signed out. Use your recovery code to sign back in to your Guest Nation.' : 'Signed out. Sign in with your linked account to continue your nation.');
     } catch(e) { A.leaving = false; A.frozen = false; setBusy(''); setMsg(e.message || 'Sign-out could not finish. Try again.', true); }
   }

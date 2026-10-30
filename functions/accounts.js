@@ -33,20 +33,31 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   const who = await identity(uid);
   if (d.op === 'status') {
     const [a, n] = await Promise.all([db.doc('accountIdentity/' + uid).get(), db.doc('nations/' + uid).get()]);
-    return { kind: who.registered ? 'registered' : 'guest', hasNation: n.exists, recoveryIssued: a.get('generation') === who.generation && !!(a.get('recoveryIssued') || a.get('recoveryHash')) };
+    return { kind: who.registered ? 'registered' : 'guest', hasNation: n.exists, recoveryIssued: a.get('generation') === who.generation && !!(a.get('recoveryIssued') || a.get('recoveryHash')), recoveryVersion: a.get('generation') === who.generation ? a.get('recoveryVersion') || 0 : 0 };
   }
-  if (d.op === 'issue') {
+  if (d.op === 'issue' || d.op === 'regenerate') {
+    const replace = d.op === 'regenerate';
+    if (replace && (!Number.isSafeInteger(d.version) || d.version < 0)) throw new HttpsError('invalid-argument', 'Read the current recovery status first.');
     const code = clean(d.code);
     if (!/^EDC[A-F0-9]{40}$/.test(code)) throw new HttpsError('invalid-argument', 'A recovery code needs 160 random bits.');
     const hash = digest(code);
     return db.runTransaction(async tx => {
       const e = await eligibility(tx, who, { linked: false, hidden: true });
       if (who.registered) refuse('already_registered', 'Registered Nations recover through their linked sign-in.');
-      if (e.account.get('generation') === who.generation && (e.account.get('recoveryIssued') || e.account.get('recoveryHash')) && e.account.get('recoveryHash') !== hash) refuse('already_issued', 'Your recovery code was already created. It cannot be displayed again or replaced.');
+      const sameIdentity = e.account.get('generation') === who.generation, previous = sameIdentity ? e.account.get('recoveryHash') : '', version = sameIdentity ? e.account.get('recoveryVersion') || 0 : 0, now = Date.now();
+      if (replace) {
+        // A lost response retries the same replacement, without revoking a newer key from another tab.
+        if (previous === hash && version === d.version + 1) return { ok: true };
+        if (version !== d.version) refuse('recovery_changed', 'Your recovery key changed on another device. Start again to generate a new key.');
+        if (previous === hash) refuse('same_recovery', 'Generate a different recovery key.');
+        if (now - (e.account.get('recoveryRotatedAt') || 0) < 60000) throw new HttpsError('resource-exhausted', 'Wait a minute before regenerating your recovery key again.');
+      } else if (sameIdentity && (e.account.get('recoveryIssued') || previous) && previous !== hash) refuse('already_issued', 'Your recovery code was already created. Use Regenerate recovery key from an active Guest session to replace it.');
       const ref = db.doc('guestRecovery/' + hash), existing = await tx.get(ref);
-      if (existing.exists && existing.get('uid') !== uid) refuse('code_used', 'Generate another recovery code.');
-      tx.set(db.doc('accountIdentity/' + uid), { recoveryHash: hash, recoveryIssued: true, generation: who.generation, nationGeneration: e.generation, nationAt: e.born }, { merge: true });
-      tx.set(ref, { uid, generation: who.generation, issuedAt: Date.now() });
+      if (existing.exists && (existing.get('uid') !== uid || existing.get('generation') !== who.generation || replace)) refuse('code_used', 'Generate another recovery code.');
+      tx.set(db.doc('accountIdentity/' + uid), { recoveryHash: hash, recoveryIssued: true, generation: who.generation, nationGeneration: e.generation, nationAt: e.born, recoveryVersion: replace ? version + 1 : version, ...(replace ? { recoveryRotatedAt: now } : {}) }, { merge: true });
+      // A non-identifying tombstone prevents an old key from ever being reused.
+      if (replace && previous) tx.set(db.doc('guestRecovery/' + previous), { revoked: true });
+      tx.set(ref, { uid, generation: who.generation, issuedAt: now });
       return { ok: true };
     });
   }
