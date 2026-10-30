@@ -19271,7 +19271,7 @@ document.addEventListener('input',e=>{if(e.target&&e.target.id==='c3-ren'){S.c3R
 document.addEventListener('submit',e=>{if(e.target.id==='c3-ren-form'){e.preventDefault();const i=document.getElementById('c3-ren');c3Rename(e.target.dataset.id,i?i.value:S.c3RenVal);}});
 /* keep the strip current, and redraw Cities when a queued building starts */
 setInterval(()=>{
-  if(!S.nation)return;const now=Date.now(),els=document.querySelectorAll('[data-live="stk3"]');
+  if(!S.nation||document.hidden)return;const now=Date.now(),els=document.querySelectorAll('[data-live="stk3"]');
   if(els.length){const st=stockNow(S.nation,now);els.forEach(el=>{el.textContent=fmtStock(st[el.dataset.r]);});}
   if(S.view==='cities'&&[...document.querySelectorAll('[data-c3q]')].some(el=>+el.dataset.c3q<=now))render();
 },10000);
@@ -23524,7 +23524,7 @@ function asmTick(){
     document.querySelectorAll('[data-live="asmclose"]').forEach(el=>{el.textContent=fmtWait(Math.max(0,+el.dataset.t-now));});
   }catch(e){}
 }
-setInterval(asmTick,5000);
+setInterval(()=>{if(!document.hidden)asmTick();},5000);/* not in a background tab (quiet tabs) */
 
 /* ── what a record keeps, checked: other players' records are not to be trusted ── */
 NORM_HOOKS.push((n,d)=>{
@@ -24377,8 +24377,9 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='cv-tg'){S.cvTg=e.target.value;S.cvMsg='';S.cvShow=null;render();const s=document.getElementById('cv-tg');if(s)s.focus();}});
 /* incoming operations land within a few seconds, and the page follows other players' saves */
 let cvSig='';
+/* a convoy home is saved by the clock, so it waits while the tab is in the background (quiet tabs) */
 setInterval(()=>{try{
-  if(!S.nation||!S.nation.name||S.moving||S.mode==='local')return;
+  if(!S.nation||!S.nation.name||S.moving||S.mode==='local'||document.hidden)return;
   const now=Date.now();
   if(cvPending(S.nation,now).length){commit(clone(S.nation));if(['issues','intel'].includes(S.view)&&!S.spyRolling)render();return;}
   if(S.view==='intel'&&!S.spyRolling){const k=cvIndex().k;if(cvSig&&k!==cvSig&&!(document.activeElement&&document.activeElement.id==='cv-tg')){cvSig=k;render();}else cvSig=k;}
@@ -28526,7 +28527,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
       o.k=parts.join('.');out.push(`Another colony claimed ${C.lost.length===1?'a tile':C.lost.length+' tiles'} on ${B.nm} a moment before you. The ${C.lost.length===1?'point is':'points are'} returned.`);}
     const col=spColony(B,o,n.sp.tf);if(!col)continue;let eb=0;try{eb=C&&C.ok&&C.o&&C.o.t===o.t?spNbBonus(B,C):0;}catch(e){}const r=spRun(col,now,eb);
     o.ml=SP_MILES.map((x,i)=>(o.ml&&o.ml[i])||(r.P>=x?spCross(col,x,col.pa,now)||now:0));
-    o.p=Math.round(r.P*1e6)/1e6;o.e=Math.round(r.E*1000)/1000;o.pa=now;
+    /* people to a millionth of a person: other regions carry the colony forward from an older save (their copy of
+       the space record is not rewritten for this), and rounding to whole people at every save would drift apart */
+    o.p=Math.round(r.P*1e12)/1e12;o.e=Math.round(r.E*1000)/1000;o.pa=now;
     /* one-off effects at home, once per nation */
     for(const b of col.blds){const D=SP_BLDS[id][b.k];if(!D.once||b.d>now)continue;const key='sp:'+id+':'+b.k;n.bonce=n.bonce||[];if(n.bonce.includes(key))continue;applyEffects(n,D.once);n.bonce=n.bonce.concat(key).slice(-200);out.push(`The ${D.n} on ${B.nm} is open: Science and Culture rise at home.`);}
   }
@@ -35670,6 +35673,45 @@ COMMIT_HOOKS.push((n,old,now)=>{
 /* a draft left on the Customise page is dropped on leaving it */
 go=(f=>function(v){if(v!=='customise')CU.d=null;return f.apply(this,arguments);})(go);
 
+/* ───────── quiet tabs ─────────
+   Every save in the region reaches every listening tab, and Firestore bills each one. A tab in the background
+   for QUIET_HIDDEN, or one nobody has touched (no key, click, touch, scroll or mouse move) for QUIET_IDLE, lets
+   go of connect()'s live listeners: the region's records, space, the board, moderation and staff. They are
+   taken up again the moment the player is back, and Firestore then sends only what changed meanwhile (a
+   listener taken up again skips the snapshot from this browser's own cache: it is what the page still shows).
+   While the tab is in the background the clock (tick) and the snapshots do not redraw the page, and saves that
+   only the clock would make wait too: on the player's return one tick and, if a snapshot asked for one, one
+   drawing catch up. The player's own changes still save on leaving (flushNow), and the tab's title still
+   counts what arrives (tabTitle). */
+const QUIET={subs:[],off:false,hiddenAt:0,last:Date.now(),owe:false,renders:0};
+const quietMs=(k,d)=>Math.max(1000,Number(window[k])||d);/* EDICTUM_QUIET_HIDDEN and EDICTUM_QUIET_IDLE: the tests' shorter waits */
+function quietListen(q,next,err){const s={q,next,err,off:null,back:false};QUIET.subs.push(s);if(!QUIET.off)quietOn(s);}
+function quietOn(s){s.off=s.q.onSnapshot(qs=>{if(s.back&&qs&&qs.fromCache)return;s.back=false;s.next(qs);},e=>{s.back=false;if(s.err)s.err(e);});}
+function quietSleep(){if(QUIET.off||!QUIET.subs.length)return;QUIET.off=true;for(const s of QUIET.subs){try{if(s.off)s.off();}catch(e){}s.off=null;}}
+function quietWake(){if(!QUIET.off)return;QUIET.off=false;for(const s of QUIET.subs){s.back=true;quietOn(s);}}
+/* a redraw a snapshot asks for, kept for the player's return while the tab is in the background */
+function quietRender(f){if(document.hidden){QUIET.owe=true;return;}(f||render)();}
+function quietPaint(){if(!S.nation||S.view==='map'){updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();}else if(!S.spyRolling)render();}
+function quietCheck(){
+  const now=Date.now();
+  if(document.hidden){if(!QUIET.hiddenAt)QUIET.hiddenAt=now;if(now-QUIET.hiddenAt>=quietMs('EDICTUM_QUIET_HIDDEN',180000))quietSleep();}
+  else if(now-QUIET.last>=quietMs('EDICTUM_QUIET_IDLE',600000))quietSleep();
+}
+/* back in front: the listeners again, the clock's missed work, then the drawing owed (unless the clock, or the
+   first snapshot after the listeners came back, has drawn the page already) */
+function quietBack(){
+  QUIET.hiddenAt=0;QUIET.last=Date.now();const woke=QUIET.off;quietWake();
+  const n0=QUIET.renders;try{tick();}catch(e){}
+  if(!QUIET.owe)return;
+  const paint=()=>{if(!QUIET.owe||document.hidden)return;QUIET.owe=false;if(QUIET.renders===n0)quietPaint();};
+  if(woke)setTimeout(paint,1500);else paint();
+}
+render=(f=>function(){QUIET.renders++;return f.apply(this,arguments);})(render);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)QUIET.hiddenAt=Date.now();else quietBack();});
+for(const t of ['pointerdown','pointermove','keydown','wheel','touchstart','scroll'])
+  window.addEventListener(t,()=>{QUIET.last=Date.now();if(QUIET.off&&!document.hidden)quietWake();},{capture:true,passive:true});
+setInterval(quietCheck,20000);
+
 /* ───────── shared region ───────── */
 async function connect(){
   if(!window.claude||typeof window.claude.use!=='function')return;
@@ -35703,7 +35745,8 @@ async function connect(){
   civicRefresh();
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
-     the World page counts and lists them on demand (RSTAT). */
+     the World page counts and lists them on demand (RSTAT). With moderation and staff they go quiet in a
+     tab in the background or left alone (quietListen); their redraws wait for the player (quietRender). */
   let regQS=null,spQS=null,hadMine=false;S.mod=S.mod||{};
   const hidden=id=>!!(S.mod[id]&&S.mod[id].hidden)&&id!==S.uid;
   const shared=()=>{
@@ -35724,34 +35767,34 @@ async function connect(){
     S.world=w;
     /* saved from another device: the region has only its shared half, so load it whole */
     ownLatest=w[S.uid]||ownLatest;syncOwnNation();
-    if(!S.nation||S.view==='map'){updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();}
-    else if((['region','census','visit','nation','diplomacy','trade'].includes(S.view)||S.view==='exchange'&&cuWorldMoved())&&!S.spyRolling)render();
+    if(!S.nation||S.view==='map')quietRender(()=>{updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();});
+    else if((['region','census','visit','nation','diplomacy','trade'].includes(S.view)||S.view==='exchange'&&cuWorldMoved())&&!S.spyRolling)quietRender();
   };
   reshare=shared;
   const none={docs:[]};
-  db.collection('nations').where('reg','==',REG.id).onSnapshot(qs=>{regQS=qs;shared();},()=>{regQS=regQS||none;shared();});
-  db.collection('space').onSnapshot(qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
+  quietListen(db.collection('nations').where('reg','==',REG.id),qs=>{regQS=qs;shared();},()=>{regQS=regQS||none;shared();});
+  quietListen(db.collection('space'),qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
   let boardQS=none;
   const board=()=>{
     const r={};
     for(const d of boardQS.docs){const p=d.data();if(!p||!p.a||typeof p.x!=='string'||hidden(p.a))continue;(r[p.a]||(r[p.a]={posts:[]})).posts.push({id:p.id,t:Number(p.t)||0,x:p.x.slice(0,400),r:REG.id});}
     S.rmb=r;
-    if(S.view==='region')render();
+    if(S.view==='region')quietRender();
   };
-  db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60).onSnapshot(qs=>{boardQS=qs;board();},()=>{});
-  db.collection('mod').onSnapshot(qs=>{
+  quietListen(db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60),qs=>{boardQS=qs;board();},()=>{});
+  quietListen(db.collection('mod'),qs=>{
     const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
     S.mod=m;modNotice();shared();board();
-    if(S.isOwner&&['admin','admin-hidden'].includes(S.view))render();
+    if(S.isOwner&&['admin','admin-hidden'].includes(S.view))quietRender();
   },()=>{});
   if(S.google)setTimeout(glCheck,3000);
   /* Edictum staff: an admin's page marks its player in staff/ (the rules let only an admin write their own),
      and clears the mark once the right is gone */
-  db.collection('staff').onSnapshot(qs=>{
+  quietListen(db.collection('staff'),qs=>{
     const st=new Set(qs.docs.map(d=>d.id));S.staff=st;
     if(S.isOwner&&!st.has(uid))db.doc('staff/'+uid).set({t:Date.now()}).catch(()=>{});
     else if(!S.isOwner&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
-    if(['nation','visit','region','messages'].includes(S.view))render();
+    if(['nation','visit','region','messages'].includes(S.view))quietRender();
   },()=>{});
   render();
 }
@@ -39612,8 +39655,8 @@ document.addEventListener('click',e=>{
    The tab's title counts what waits for the player, as "(3) Edicts · Edictum": unread edicts, unread letters,
    land credits to spend (one item however many) and an expedition that is back; its icon gets a red dot. While
    the tab is in the background, the title says what arrived since the player last looked, as "(3) New edict ·
-   Edictum". The title follows every render, and the game renders when any of these changes, in the background
-   too (tick()). */
+   Edictum". The title follows every render, and the game renders when any of these changes (tick()); in the
+   background, where the clock does not redraw the page (quiet tabs), it updates the title alone. */
 const TAB={base:'',seen:null,why:'',dot:false,href:'',svg:'',busy:false,failed:false};
 const TAB_KEYS=['iss','dm','exp','lc'],TAB_WHY={iss:['New edict','New edicts'],dm:['New letter','New letters'],exp:['Expedition back','Expedition back'],lc:['Land to claim','Land to claim']};
 function tabWaiting(n,now){
@@ -39661,7 +39704,9 @@ function start(data){
   render();
   if(window.__edictum&&typeof window.__edictum.painted==='function')window.__edictum.painted();
   connect();
-  setInterval(tick,10000);
+  /* in a background tab only the title keeps count; the clock's work, and the saves it makes, wait for the
+     player's return (quietBack) */
+  setInterval(()=>{if(document.hidden)tabTitle();else tick();},10000);
   window.addEventListener('popstate',()=>{const r=rewardRoute(location.hash);if(r){rewardOpen(r.kind,r.id,false);return;}S.colDetail=null;const h0=(location.hash||'').slice(1),h=uxHashView(h0);if(['nation','visit','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h)){S.noPush=true;go(h);}});
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a

@@ -743,7 +743,9 @@ for current figures; at the time of writing:
 - **Firestore reads.** Spark allows 50,000 reads and 20,000 writes a day. Each copy of the game
   that is open listens to its own region's nations, its board and the space records: opening the
   game reads one document for each of those, and each time a nation in the region is saved (at
-  most once a minute while its player is active), every open copy in that region reads it again.
+  most once a minute while its player is active), every open copy in that region reads it again. A copy
+  in a background tab for three minutes, or left untouched for ten, stops listening until its player is
+  back, and then reads only what changed meanwhile.
   Twenty players in one region, active for an hour, make at most about 20 × 20 × 60 = 24,000 reads;
   the same twenty spread over four regions make a quarter of that. Spark suits a group of friends;
   for a public launch use Blaze, where reads cost a few US cents per 100,000.
@@ -767,9 +769,10 @@ for current figures; at the time of writing:
 Reads grow with the size of a region (at most 250 active nations), not with the whole world: see
 Data above. What is left for later, as numbers grow:
 
-- **Space records** are read by everyone. They change only when a nation's Moon, Mars or belt data
-  does (and every 12 hours while it plays), but a very large late game would want them split by
-  body or summarised.
+- **Space records** are read by everyone. They change only when what other regions read does (a new
+  tile, building, milestone, terraforming level, name or belt mission; not the colony's people, which
+  every viewer carries forward from the last record) and every 12 hours while the nation plays, but a
+  very large late game would want them split by body or summarised.
 - **Dormant nations** still arrive with their region's records (the game sets them aside). If
   regions fill with abandoned nations, listen only to active ones and fetch the rest on demand.
 - **Fair play.** Each browser still writes its own nation, so the defences are layered:
