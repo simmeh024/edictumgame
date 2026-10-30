@@ -453,7 +453,9 @@
   function statsView() {
     if (!GA.on || statsPage() === GA.page) return;
     GA.page = statsPage();
-    var at = { page_location: location.origin + GA.page, page_title: document.title };
+    /* the game puts a count of what is waiting before the page's name in the tab ("(3) Edicts · Edictum");
+       statistics use the page's name alone, so a page is one page however much waits */
+    var at = { page_location: location.origin + GA.page, page_title: document.title.replace(/^\(\d+\) /, '') };
     gtag('set', at); /* for Google's own events too (scrolls, outbound links, engagement) */
     gtag('event', 'page_view', at);
   }
