@@ -45,6 +45,7 @@
   var FN_REGION = 'europe-west1';        // where the referee runs (functions/index.js)
   var LS_SUP = 'edictum.support';        // set while this browser has sent a ticket that may get an answer
   var LS_SUP_SEEN = 'edictum.support.seen'; // the time of the last answer the player was told about
+  var LS_STATS = 'edictum.analytics';    // 'y' or 'n': the visitor's answer to the visit statistics card
   var ERR = {
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
     'invalid-argument': 'invalid_argument', 'resource-exhausted': 'quota_exceeded', unavailable: 'unavailable'
@@ -433,6 +434,87 @@
     });
   }
 
+  /* ───────── visit statistics: Google Analytics, only once the visitor allows it ─────────
+     The measurement ID is the one Firebase serves with the configuration (the project's linked
+     Google Analytics property). Nothing is loaded from Google until the visitor chooses Allow on the
+     card; LS_STATS keeps the answer, which the account menu and the privacy notice can change. Pages
+     count by their name alone (#visit/<id> is /visit), never with a player ID or a nation, and
+     Google's advertising features stay off. This is the gtag snippet itself rather than the Firebase
+     SDK's analytics, whose compat build cannot turn off the automatic page views or ad signals. */
+  var GA = { id: '', on: false, page: '', card: null };
+  function localHost() { return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname); }
+  function statsId(cfg) {
+    var id = String(window.EDICTUM_ANALYTICS_ID || (!localHost() && !/^demo-/.test(String(cfg.projectId)) && cfg.measurementId) || '');
+    return /^G-[A-Z0-9]{4,20}$/.test(id) ? id : '';
+  }
+  function statsChoice() { var v = L.get(LS_STATS); return v === 'y' || v === 'n' ? v : ''; }
+  function gtag() { window.dataLayer.push(arguments); }
+  function statsPage() { return '/' + (location.hash || '').slice(1).split('/')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40); }
+  function statsView() {
+    if (!GA.on || statsPage() === GA.page) return;
+    GA.page = statsPage();
+    var at = { page_location: location.origin + GA.page, page_title: document.title };
+    gtag('set', at); /* for Google's own events too (scrolls, outbound links, engagement) */
+    gtag('event', 'page_view', at);
+  }
+  function statsStart() {
+    if (GA.on || !GA.id) return;
+    GA.on = true; GA.page = '';
+    window['ga-disable-' + GA.id] = false;
+    if (window.dataLayer) gtag('consent', 'update', { analytics_storage: 'granted' });
+    else {
+      window.dataLayer = [];
+      gtag('consent', 'default', { ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', analytics_storage: 'granted' });
+      gtag('js', new Date());
+      gtag('config', GA.id, { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false });
+      var s = document.createElement('script');
+      s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA.id);
+      document.head.appendChild(s);
+    }
+    statsView();
+  }
+  function statsStop() {
+    if (GA.id) window['ga-disable-' + GA.id] = true;
+    if (GA.on) gtag('consent', 'update', { analytics_storage: 'denied' });
+    GA.on = false;
+    /* Google's cookies (_ga, _ga_<stream>) sit on the widest domain the browser allows */
+    document.cookie.split(';').forEach(function (c) {
+      var k = c.split('=')[0].trim(), d = location.hostname.split('.');
+      if (!/^_ga/.test(k)) return;
+      for (var i = 0; i < d.length - 1; i++) document.cookie = k + '=; Max-Age=0; path=/; domain=.' + d.slice(i).join('.');
+      document.cookie = k + '=; Max-Age=0; path=/';
+    });
+  }
+  function statsApply(v) {
+    v = v || statsChoice();
+    if (v && GA.card) { GA.card.remove(); GA.card = null; }
+    if (v === 'y') statsStart(); else if (v === 'n') statsStop();
+  }
+  function statsSet(v) { L.set(LS_STATS, v); statsApply(v); }
+  /* answered in another tab, or on the privacy notice */
+  window.addEventListener('storage', function (e) { if (e.key === LS_STATS && GA.id) statsApply(); });
+  function statsAsk() {
+    if (!GA.id || statsChoice() || GA.card) return;
+    var c = document.createElement('section');
+    c.className = 'ed-stats'; c.setAttribute('aria-label', 'Visit statistics');
+    c.innerHTML = '<p><b>Help us see how Edictum is played?</b> With your permission, Google Analytics counts visits: the pages you open, your type of device and browser, and roughly where you are. It sets cookies. Nothing about your nation or your messages is sent. <a href="/privacy#analytics" target="_blank" rel="noopener">Privacy</a></p>' +
+      '<div class="ed-row"><button type="button" class="btn" data-ed="stats-y">Allow</button><button type="button" class="btn ghost" data-ed="stats-n">No thanks</button></div>';
+    c.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-ed]') : null;
+      if (b) statsSet(b.getAttribute('data-ed') === 'stats-y' ? 'y' : 'n');
+    });
+    document.body.appendChild(c);
+    GA.card = c;
+    statsLift();
+  }
+  /* above the phone tab bar and the founding page's Found bar, which are fixed at the bottom too */
+  function statsLift() {
+    if (!GA.card) return;
+    var bar = document.querySelector('.tabbar, .found-bar'), r = bar && bar.getBoundingClientRect();
+    GA.card.style.bottom = r && r.height && r.top < innerHeight ? Math.round(innerHeight - r.top + 12) + 'px' : '';
+  }
+  window.addEventListener('resize', statsLift);
+
   /* ───────── start-up ───────── */
   function goOffline(why, err) {
     if (A.online) return;
@@ -448,7 +530,7 @@
   }
   /* `firebase emulators:start --project demo-…` on this machine: talk to the local emulators */
   function autoEmulators(cfg) {
-    if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) || !/^demo-/.test(String(cfg.projectId || ''))) return null;
+    if (!localHost() || !/^demo-/.test(String(cfg.projectId || ''))) return null;
     return { firestore: '127.0.0.1:8080', auth: 'http://127.0.0.1:9099', functions: '127.0.0.1:5001' };
   }
   function firstUser(auth) {
@@ -473,6 +555,8 @@
     if (!fb || typeof fb.initializeApp !== 'function' || typeof fb.auth !== 'function' || typeof fb.firestore !== 'function') return goOffline('the Firebase scripts did not load');
     var cfg = window.EDICTUM_FIREBASE_CONFIG || await fetchConfig();
     if (!isObj(cfg) || !cfg.apiKey || !cfg.projectId) return goOffline('there is no Firebase configuration');
+    GA.id = statsId(cfg);
+    statsApply(); statsAsk();
     /* on our own domain, Google sign-in runs through it (Hosting serves /__/auth/ there too), so
        Google's window names edictumgame.com, not <project>.firebaseapp.com. The address needs to be
        an authorised redirect URI of the project's OAuth client (README, Owner setup, step 8). */
@@ -604,7 +688,7 @@
     box.appendChild(btn); box.appendChild(sync); box.appendChild(out);
     ui.box = box; ui.btn = btn; ui.sync = sync; ui.out = out;
     var app = document.getElementById('app');
-    if (app && window.MutationObserver) new MutationObserver(place).observe(app, { childList: true, subtree: true });
+    if (app && window.MutationObserver) new MutationObserver(function () { place(); statsView(); statsLift(); }).observe(app, { childList: true, subtree: true });
     place(); paint();
     var f = SS.get(SS_FLASH);
     if (f) { SS.set(SS_FLASH, null); toast(f); }
@@ -734,6 +818,7 @@
       if (w.uid && n) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
       if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>') + '</div>';
       if (w.kind !== 'local' && n) h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
+      if (GA.id) h += '<p class="ed-fine ed-stats-set">Visit statistics (Google Analytics): ' + (statsChoice() === 'y' ? 'allowed. <button type="button" class="linkish" data-ed="stats-n">Turn off</button>' : 'off. <button type="button" class="linkish" data-ed="stats-y">Allow</button>') + '</p>';
       h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
     }
     ui.inn.innerHTML = h;
@@ -741,6 +826,7 @@
     focusFirst();
   }
   function act(a) {
+    if (a === 'stats-y' || a === 'stats-n') { statsSet(a === 'stats-y' ? 'y' : 'n'); draw(); return; }
     if (a === 'recovery-regenerate') { if (who().kind !== 'guest' || !localNation() || ui.busy) return;ui.recoveryBack=ui.view;ui.view='regenerate';setMsg('');draw();return; }
     if (a === 'recovery-regenerate-cancel') { ui.view=ui.recoveryBack||'main';setMsg('');draw();return; }
     if (a === 'recovery-regenerate-yes') { regenerateRecovery();return; }
