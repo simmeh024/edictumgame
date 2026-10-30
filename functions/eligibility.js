@@ -34,5 +34,5 @@ export async function eligibility(tx, who, { linked = true, age = 0, hidden = fa
   if (linked && !who.registered) refuse('registration_required', 'A Registered Nation is required. Link a sign-in account in your account settings.');
   const readyAt = born + age;
   if (age && Date.now() < readyAt) throw new HttpsError('failed-precondition', 'Assembly participation unlocks 24 hours after your nation was founded.', { code: 'nation_too_young', readyAt });
-  return { saved, n, born, generation, account, moderated, kind: who.registered ? 'registered' : 'guest', readyAt: born + DAY };
+  return { saved, n, born, generation, account, mod, moderated, kind: who.registered ? 'registered' : 'guest', readyAt: born + DAY };
 }
