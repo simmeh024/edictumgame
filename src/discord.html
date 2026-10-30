@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Discord sign-in · Edictum</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root{--paper:#e8eeeb;--ink:#12292a;--ink-2:#45605c}
+  @media (prefers-color-scheme: dark){:root{--paper:#0c1615;--ink:#e1ebe7;--ink-2:#a0b6b1}}
+  body{margin:0;background:var(--paper);color:var(--ink-2);font:400 16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:420px;margin:18vh auto 0;padding:0 16px;text-align:center}
+  h1{margin:0 0 8px;color:var(--ink);font:italic 600 26px/1.2 Georgia,"Times New Roman",serif}
+</style>
+</head>
+<body>
+<main>
+  <h1>Edictum</h1>
+  <p id="m">Opening Discord…</p>
+</main>
+<script>
+/* Sign-in with Discord (src/shim.js, "Discord"; functions/discord.js). The game opens this window here and
+   sends it on to Discord, and Discord sends it back here with a one-time code (or an error) and the game's
+   state. The game's page waits for that answer in localStorage; then this window closes. */
+(function () {
+  var q = new URLSearchParams(location.search), state = q.get('state');
+  if (!state) return;
+  var a = { state: state, code: q.get('code') || '', error: q.get('error') || '' };
+  try { localStorage.setItem('edictum.discord', JSON.stringify(a)); } catch (e) {}
+  history.replaceState(null, '', location.pathname);
+  document.getElementById('m').textContent = a.code ? 'Back to Edictum… You can close this window.' : 'Discord sign-in was cancelled. You can close this window.';
+  setTimeout(function () { window.close(); }, 200);
+})();
+</script>
+</body>
+</html>

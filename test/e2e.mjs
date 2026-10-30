@@ -657,7 +657,7 @@ await A.keyboard.press('Escape');
 const glA1 = await until(async () => { const n = await localNation(A); return n && n.glk === 1 ? n : null; }, 10000);
 const glGain = r => glA1.stock[r] - glA0.stock[r];
 check('linking completes the first step, once, with 5 iron, 5 timber and 5 goods', !!glA1 && ['iron', 'timber', 'goods'].every(r => glGain(r) > 4.9 && glGain(r) < 6), JSON.stringify(glA1 && [glA0.stock, glA1.stock]));
-check('and says so, with its 5 land credits', await until(async () => /kept with your Google account\. \+5 land credits/.test(await toasts(A)), 40000)); // behind the battles' toasts
+check('and says so, with its 5 land credits', await until(async () => /kept with your linked sign-in\. \+5 land credits/.test(await toasts(A)), 40000)); // behind the battles' toasts
 
 // b. a new device signs in to that account from the founding screen
 const E = await player('E');

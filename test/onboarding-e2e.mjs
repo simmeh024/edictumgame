@@ -27,6 +27,8 @@ check('the result leads to the map, with the best block beside the border picked
 check('the land card counts the founding credits and offers one claim button',/You have \d+ land credits to spend/.test(await A.locator('#lc-coach').textContent())&&await A.locator('#lc-coach [data-act="lc-block"]').count()===1&&await A.evaluate(()=>G.S.nation.fdc===1));
 const terr0=await held(A);
 check('the map shows a territory counter',(await A.locator('.map-terr').textContent()).includes(`Territory: ${terr0} hexes`));
+const waiting=await A.evaluate(()=>G.S.nation.inbox.filter(x=>!x.read).length+1);
+check('the tab counts what waits, with a dot on its icon',await A.title()===`(${waiting}) Map · Edictum`&&await until(async()=>(await A.locator('link[rel="icon"]').getAttribute('href')).startsWith('data:image/svg+xml')),await A.title());
 await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.screenshot({path:OUT+'/first-land-1280.png'});await A.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
 await nav(A,'nation');
 const saved=async()=>{if(!await until(async()=>{const n=await localNation(A),d=await nationDoc(uid);return n&&!n._dirty&&d?.rec.onb&&JSON.stringify(d.rec.onb)===JSON.stringify(n.onb);},15000))throw Error('Intro save did not settle');};

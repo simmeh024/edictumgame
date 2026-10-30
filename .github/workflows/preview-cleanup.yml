@@ -1,0 +1,48 @@
+# When a pull request closes, delete its Hosting preview channel on the staging project. The preview
+# workflow (preview.yml) gives every pull request a channel that otherwise lives for its full 7 days,
+# and the staging site has room for 50: a busy week of pull requests filled it, and later previews
+# failed with "channel quota reached".
+#
+# Needs the same secret and variable as preview.yml. Pull requests from forks get no secrets and never
+# had a preview, so they are skipped.
+name: Preview clean-up
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  channel:
+    name: Delete the preview channel
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+      # channel ids are "pr<number>-<branch>"; the dash keeps pr5- from matching pr50-
+      PREFIX: pr${{ github.event.pull_request.number }}-
+    steps:
+      - name: Delete this pull request's channel
+        run: |
+          if [ -z "$PROJECT_ID" ] || [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "No staging project is set up, so there is no preview channel to delete."
+            exit 0
+          fi
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          export GOOGLE_APPLICATION_CREDENTIALS="$key"
+          tools="npx --yes firebase-tools@15.33.0"
+          ids=$($tools hosting:channel:list --project "$PROJECT_ID" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=(JSON.parse(s).result||{}).channels||[];console.log(c.map(x=>x.name.split("/").pop()).filter(id=>id.startsWith(process.env.PREFIX)).join(" "));})')
+          if [ -z "$ids" ]; then
+            echo "This pull request has no preview channel."
+            exit 0
+          fi
+          for id in $ids; do
+            $tools hosting:channel:delete "$id" --project "$PROJECT_ID" --force
+            echo "Deleted the preview channel $id."
+          done
