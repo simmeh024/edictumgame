@@ -86,7 +86,8 @@ export async function found(p, name, {newPlayer=false} = {}) {
   if(!newPlayer)await establish(p);
 }
 // Existing suites exercise established nations; the onboarding suite keeps the new-player record.
-export async function establish(p){await p.evaluate(()=>{if(!G.S.nation?.onb)return;const n=G.clone(G.S.nation);delete n.onb;G.commit(n);G.PG.saveSoon();G.render();});}
+// Founding opens the map to claim the first land; these suites start from the Nation page, as before.
+export async function establish(p){await p.evaluate(()=>{if(!G.S.nation?.onb)return;const n=G.clone(G.S.nation);delete n.onb;G.commit(n);G.PG.saveSoon();G.render();});if(await p.evaluate(()=>G.S.view==='map'))await nav(p,'nation');}
 export const nav = async (p, v) => { await p.evaluate(v => document.querySelector(`.nav [data-v="${v}"]`).click(), v); await sleep(250); };
 export const text = (p, sel) => p.$eval(sel, el => el.textContent.replace(/\s+/g, ' ').trim()).catch(() => '');
 export const sideName = p => text(p, '.side-nm');

@@ -384,6 +384,7 @@ await open(KG);
 await KG.waitForSelector('#d-name');
 await KG.fill('#d-name', 'Kingsmoor'); await KG.click('[data-act="found-suggest"]');
 await KG.selectOption('#d-pretitle', 'Kingdom'); await KG.click('#found-btn'); await KG.waitForSelector('.layout', { timeout: 10000 });
+await nav(KG, 'nation'); // founding opens the map to claim the first land
 await KG.click('[data-act="pg-charter"]');
 await nav(KG, 'issues');
 await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.waitForSelector('.edict .opt');
@@ -952,8 +953,8 @@ await found(HW, 'Lakeshore');
 const fv = v => Number(v && (v.integerValue ?? v.doubleValue));
 await nav(HW, 'issues'); await until(() => HW.$('.issue-card')); await HW.click('.issue-card');
 await HW.waitForSelector('.edict [data-act="answer"]'); await HW.click('.edict [data-act="answer"][data-o="0"]'); await HW.waitForSelector('.result');
-await nav(HW, 'map');
-const lcHW = await until(() => HW.$('[data-act="lc-auto"]'), 10000); if (lcHW) await HW.click('[data-act="lc-auto"]');
+await nav(HW, 'map'); // with its first hexes unclaimed, the map opens on the land card's picked block
+const lcHW = await until(() => HW.$('#lc-coach [data-act="lc-block"]'), 10000); if (lcHW) await HW.click('#lc-coach [data-act="lc-block"]');
 const clHW = await until(async () => { const n = await localNation(HW); return n && Array.isArray(n.claims) && n.claims.length ? n.claims : null; }, 10000);
 const stHW = clHW && await until(async () => { const r = await restGet(`stamps/meridian/c${clHW[0].c}/${uidHW}`); return r.status === 200 ? r.body.fields : null; }, 15000);
 check('a claim is stamped with the server’s time in the save that carries it', !!stHW && Math.abs(new Date(stHW.t.timestampValue).getTime() - clHW[0].t) < 60e3, JSON.stringify({ lc: !!lcHW, cl: clHW && clHW.length, st: stHW }));
