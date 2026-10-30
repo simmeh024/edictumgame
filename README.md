@@ -302,7 +302,12 @@ once (`n.glk`).
 **Guest and Registered Nations.** Registration is determined from live Firebase Auth linked providers;
 recovering a Guest Nation with a custom token does not register it. The first saved guest nation receives
 one 160-bit recovery code, shown until the player acknowledges saving it. Only its SHA-256 hash is stored
-on the server. A lost code cannot be read back or replaced. Registered Nations recover through linked
+on the server. A lost code cannot be read back. An authenticated Guest can explicitly regenerate it;
+replacement atomically revokes the old key without changing the UID, nation age or active sessions.
+Version checks prevent simultaneous replacements from revoking a newer key, retries are idempotent,
+and replacements are limited to one per minute. Revoked hashes retain only a non-identifying tombstone
+to prevent reuse. The browser persists an unfinished replacement so interrupted responses can be retried.
+Without an active session or a working code, access cannot be recovered. Registered Nations recover through linked
 sign-in, and a former Guest code stops working after linking. `LINK_OPTIONS` in `src/shim.js` is the
 account panel's provider list; Google is currently the supported interactive provider.
 
