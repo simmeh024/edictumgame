@@ -606,7 +606,11 @@
     if (emailLink) finishEmailLink(emailLink);
     setTimeout(supportCheck, 6000);
     setTimeout(recoveryCheck, 1800);
+    setTimeout(seenCheck, 4000);
   }
+  /* the address this browser plays from, which the admins see when they inspect the nation and which expires
+     90 days after it was last seen (functions/accounts.js, 'seen'; the privacy notice says so): once a page load */
+  function seenCheck() { if (A.auth && A.auth.currentUser && !A.leaving && !A.frozen) call('accounts', { op: 'seen' }).catch(function () {}); }
 
   /* ───────── the account control and its dialog ───────── */
   var ui = { box: null, btn: null, sync: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };

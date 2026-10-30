@@ -1,6 +1,9 @@
-import { BASE, OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restListAdmin, clearEmulators } from './lib.mjs';
+import { BASE, OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators } from './lib.mjs';
+const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
 await clearEmulators();
 const A = await player('admin'), B = await player('player');
+// Live, Google's front end adds the address a request came from; the emulators have none, so this stands in for it.
+await B.route('**/europe-west1/accounts', route => route.continue({ headers: { ...route.request().headers(), 'x-forwarded-for': '203.0.113.20' } }));
 const uidA = await open(A); await found(A, 'Adminland');
 const uidB = await open(B); await found(B, 'Playerland');
 await until(async () => { const n = await localNation(B); return n?._rev > 0 && !n._dirty; }, 15000);
@@ -12,6 +15,19 @@ await page('admin-players'); await A.fill('#admin-q', 'PLAYERLAND'); await A.cli
 check('search finds a nation regardless of capitalization', await until(async () => !await A.$('.adm-main [role="status"]') && /Playerland/.test(await text(A, '.adm-main .tbl')) && !/Adminland/.test(await text(A, '.adm-main .tbl'))));
 await A.click(`[data-act="admin-inspect"][data-id="${uidB}"]`);
 check('player details show the UID and independently confirmed save revision', await until(async () => { const d = await text(A, '.adm-detail'); return d.includes(uidB) && /Last confirmed save/.test(d) && /Server revision/.test(d) && !/No confirmed save/.test(d); }));
+const detail = () => text(A, '.adm-detail');
+check('player details show the account behind the nation: a guest, no linked sign-ins, and its last sign-in', /Account type\s*Guest/.test(await detail()) && /Linked sign-ins\s*None/.test(await detail()) && /Last sign-in\s*\d/.test(await detail()) && /Last token refresh/.test(await detail()));
+check('and the IP address it last played from, recorded by the server', /IP address\s*203\.0\.113\.20 last seen .*kept 90 days/.test(await detail()), (await detail()).slice(-200));// Moderating a nation straight from its details, with no report: Hide asks for the reason its player is told.
+await A.click(`[data-act="admin-mod"][data-a="hide"][data-id="${uidB}"]`);
+check('hiding from the details asks for the reason first', await until(async () => /Hide Playerland from other players/.test(await text(A, '#admin-mod-ask'))) && await A.evaluate(() => document.activeElement?.id === 'admin-mod-reason'));
+await A.click('[data-act="admin-mod-yes"]');
+check('a moderation reason is required', await until(async () => /Write a reason first/.test(await detail())) && (await restGet('mod/' + uidB)).status === 404);
+await A.fill('#admin-mod-reason', 'Offensive motto'); await A.click('[data-act="admin-mod-yes"]');
+check('any nation can be hidden from its details', await until(async () => (await restGet('mod/' + uidB)).status === 200 && /Hidden: Offensive motto/.test(await detail()), 15000));
+// Toasts take turns, and a new nation's achievements may be queued first.
+check('its player is told why', await until(async () => /moderator has hidden Playerland from other players: Offensive motto/.test(await toasts(B)), 45000));
+await A.click(`[data-act="admin-mod"][data-a="unhide"][data-id="${uidB}"]`);
+check('Unhide in the details makes it visible again', await until(async () => (await restGet('mod/' + uidB)).status === 404 && !!await A.$(`[data-act="admin-mod"][data-a="hide"][data-id="${uidB}"]`), 15000));
 await A.fill('#admin-q', uidB); await A.click('#admin-search button:not([type])');
 check('an exact player ID can be searched', await until(async () => !await A.$('.adm-main [role="status"]') && /Playerland/.test(await text(A, '.adm-main .tbl'))));
 await A.fill('#admin-q', 'no-such-player-zzzz'); await A.click('#admin-search button:not([type])');
@@ -122,5 +138,38 @@ await A.click('[data-act="adm-menu-open"]');
 await A.click('.adm-nav [data-v="admin-players"]');
 check('player search fits a phone', await until(async () => await A.evaluate(() => document.documentElement.scrollWidth <= innerWidth)));
 await A.screenshot({ path: OUT + '/admin-player-search-phone.png' });
-await C.ctx.close();
+
+// Deleting and banning any nation from its details: each is confirmed first, needs no report, and is audited.
+await A.setViewportSize({ width: 1280, height: 900 });
+const D = await player('deleted'); const uidD = await open(D); await found(D, 'Deleteland');
+await until(async () => (await nationDoc(uidD))?.name === 'Deleteland', 15000);
+const inspect = async uid => { await A.fill('#admin-q', uid); await A.click('#admin-search button:not([type])'); await until(async () => !!await A.$(`.tbl [data-act="admin-inspect"][data-id="${uid}"]`)); await A.click(`.tbl [data-act="admin-inspect"][data-id="${uid}"]`); await until(async () => (await detail()).includes(uid)); };
+await inspect(uidD);
+await A.click(`[data-act="admin-mod"][data-a="remove"][data-id="${uidD}"]`);
+check('deleting a nation asks to confirm first, and says what happens', await until(async () => /Delete Deleteland for good\? The nation and its posts are deleted/.test(await text(A, '#admin-mod-ask'))) && !!await nationDoc(uidD));
+await A.click('[data-act="admin-mod-no"]');
+check('cancelling leaves the nation as it was', !await A.$('#admin-mod-ask') && !!await nationDoc(uidD));
+await A.click(`[data-act="admin-mod"][data-a="remove"][data-id="${uidD}"]`);
+await A.fill('#admin-mod-reason', 'Impersonating staff'); await A.click('[data-act="admin-mod-yes"]');
+check('Delete removes any nation and its records', await until(async () => !await nationDoc(uidD) && (await restGet('summaries/' + uidD)).status === 404 && /Nation deleted by a moderator: Impersonating staff/.test(await detail()), 15000));
+check('the deleted nation leaves the search results', !await A.$(`.tbl [data-act="admin-inspect"][data-id="${uidD}"]`));
+check('its player is told, and may found a new nation', await until(async () => !!await D.$('#d-name') && /moderator removed Deleteland: Impersonating staff/.test(await toasts(D)), 45000), await toasts(D));
+await inspect(uidB);
+await A.click(`[data-act="admin-mod"][data-a="ban"][data-id="${uidB}"]`);
+check('banning asks to confirm first, and says what happens', await until(async () => /Ban the player of Playerland\?.*can no longer play/.test(await text(A, '#admin-mod-ask'))) && !(await restListAdmin('bans')).length);
+await A.fill('#admin-mod-reason', 'Ban evasion'); await A.click('[data-act="admin-mod-yes"]');
+check('Ban deletes any nation and bans its account', await until(async () => !await nationDoc(uidB) && (await restListAdmin('bans')).some(b => b.id === uidB) && /Banned: Ban evasion/.test(await detail()), 15000));
+check('the banned player’s browser drops the nation, and they are told', await until(async () => !!await B.$('#d-name') && /moderator removed Playerland: Ban evasion/.test(await toasts(B)), 15000));
+await page('admin-bans');
+await A.click(`.adm-rep [data-act="admin-inspect"][data-id="${uidB}"]`);
+check('Banned players opens a player’s details', await until(async () => await A.evaluate(() => G.S.view) === 'admin-players' && (await detail()).includes(uidB) && /Account type\s*Guest/.test(await detail())));
+await A.click(`[data-act="admin-mod"][data-a="unban"][data-id="${uidB}"]`);
+check('Unban in the details lifts the ban', await until(async () => !(await restListAdmin('bans')).some(b => b.id === uidB) && !!await A.$(`[data-act="admin-mod"][data-a="ban"][data-id="${uidB}"]`), 15000));
+await A.screenshot({ path: OUT + '/admin-player-moderation.png', fullPage: true });
+await page('admin-audit'); await A.fill('#admin-audit-target', uidD); await A.click('#admin-audit-filter button:not([type])');
+check('the audit log records the deletion, the admin and the reason', await until(async () => { const t = await text(A, '.adm-main .tbl'); return t.includes(uidA) && /remove/.test(t) && /Impersonating staff/.test(t) && /completed/.test(t); }));
+await A.fill('#admin-audit-target', uidB); await A.click('#admin-audit-filter button:not([type])');
+const auditRows = () => A.$eval('.adm-main .tbl', el => el.innerText).catch(() => '');
+check('and the ban, the unban and the hiding', await until(async () => { const t = await auditRows(); return /^ban\s/m.test(t) && /Ban evasion/.test(t) && /^unban\s/m.test(t) && /^hide\s/m.test(t) && /Offensive motto/.test(t); }), (await auditRows()).slice(0, 300));
+await C.ctx.close(); await D.ctx.close();
 await finish();
