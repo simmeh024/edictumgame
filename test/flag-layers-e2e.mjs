@@ -11,7 +11,7 @@ const undo=(p,sc='c')=>p.click(`#${sc}-fg-undo`);
 /* the guest recovery dialog takes focus when it opens, so it is acknowledged before any focus is checked */
 const A=await player('flag layers desktop',{recovery:true}),uid=await open(A);await A.waitForSelector('#d-name');
 check('founding keeps the base flag designer and defers layers',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
-await A.fill('#d-name','Layerland');await A.click('[data-act="found-suggest"]');await A.click('#found-btn');await A.waitForSelector('.layout');
+await A.fill('#d-name','Layerland');await A.click('#found-btn');await A.waitForSelector('.layout');
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');await nav(A,'nation');await A.click('[data-act="pg-charter"]');
 await nav(A,'customise');await expand(A,'c');const original=await draft(A);await add(A,'c','stripe');await add(A,'c','emblem');
 check('finishing the charter reveals independent layers without changing the base flag',JSON.stringify(Object.fromEntries(Object.entries(await draft(A)).filter(([k])=>k!=='layers')))===JSON.stringify(original));

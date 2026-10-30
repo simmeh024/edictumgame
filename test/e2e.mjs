@@ -10,7 +10,7 @@
 // stand-in for Google.
 import path from 'node:path';
 import {
-  BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, nav, text, sideName, localNation,
+  BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, establish, nav, text, sideName, localNation,
   restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT
 } from './lib.mjs';
 
@@ -258,7 +258,7 @@ check('the ban is recorded in bans/<uid>, not readable by strangers', (await res
 check('the portal lists the banned player', await until(async () => !!(await A.$(`[data-act="adm-unban"][data-id="${uidM}"]`))));
 await M.reload(); await ready(M);
 check('the banned player’s browser drops the nation, and they are told', await until(async () => !!(await M.$('#d-name')) && /banned/.test(await toasts(M)), 15000));
-await M.fill('#d-name', 'Spamland Reborn'); await M.click('[data-act="found-suggest"]'); await M.click('#found-btn');
+await M.fill('#d-name', 'Spamland Reborn'); await M.click('#found-btn');
 check('and they cannot found a new nation', await until(async () => /This account is banned/.test(await text(M, 'form .err'))) && !(await M.$('.layout')));
 await A.click(`[data-act="adm-unban"][data-id="${uidM}"]`);
 check('Unban lifts it', await until(async () => !(await restListAdmin('bans')).some(b => b.id === uidM)));
@@ -382,9 +382,9 @@ await A.click('[data-act="close-issue"]');
 const KG = await player('KG');
 await open(KG);
 await KG.waitForSelector('#d-name');
-await KG.fill('#d-name', 'Kingsmoor'); await KG.click('[data-act="found-suggest"]');
+await KG.fill('#d-name', 'Kingsmoor');
 await KG.selectOption('#d-pretitle', 'Kingdom'); await KG.click('#found-btn'); await KG.waitForSelector('.layout', { timeout: 10000 });
-await nav(KG, 'nation'); // founding opens the map to claim the first land
+await nav(KG, 'nation'); // founding opens the first edict, where the capital is placed
 await KG.click('[data-act="pg-charter"]');
 await nav(KG, 'issues');
 await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.waitForSelector('.edict .opt');
@@ -755,7 +755,7 @@ check('the full regions are marked in the region list', await until(async () => 
 await Z.evaluate(() => localStorage.setItem('statehood.region', 'meridian'));
 await Z.reload(); await ready(Z);
 await until(async () => /is full/.test(await text(Z, '.fr-box')));
-await Z.fill('#d-name', 'Latecomer'); await Z.click('[data-act="found-suggest"]'); await Z.click('#found-btn');
+await Z.fill('#d-name', 'Latecomer'); await Z.click('#found-btn');
 check('founding in a full region is refused, with the reason', await until(async () => /Meridian Reach is full/.test(await text(Z, 'form .err'))) && !(await Z.$('.layout')));
 await Z.ctx.close();
 
@@ -765,7 +765,6 @@ const uidK = await open(K);
 await K.fill('#d-name', 'Keepsake');
 await K.fill('#d-motto', 'Nothing Lost');
 await K.click('#q0-2');
-await K.click('[data-act="found-suggest"]');
 await K.click('[data-act="found-browse"]');
 await K.waitForSelector('.fr-grid [data-act="found-region"][data-id="driftlands"]');
 check('section V has a region browser with every region', (await K.$$('.fr-grid .wr-card')).length === 26);
@@ -773,7 +772,6 @@ await Promise.all([K.waitForNavigation(), K.click('.fr-grid [data-act="found-reg
 await ready(K);
 check('choosing a region in the browser switches to it', (await K.evaluate(() => localStorage.getItem('statehood.region'))) === 'driftlands' && !/Meridian Reach/.test(await text(K, '.fr-now')));
 check('the name, motto and answers come along', (await K.inputValue('#d-name')) === 'Keepsake' && (await K.inputValue('#d-motto')) === 'Nothing Lost' && (await K.getAttribute('#q0-2', 'aria-checked')) === 'true');
-check('the capital’s spot, which belonged to the old map, does not', /No location chosen yet/.test(await text(K, '#found-loc')));
 await K.reload(); await ready(K);
 check('a reload keeps the draft too', (await K.inputValue('#d-name')) === 'Keepsake');
 await K.click('.fr-more summary');
@@ -786,15 +784,17 @@ check('and the draft is cleared once founded', (await K.evaluate(() => sessionSt
 await K.ctx.close();
 
 /* ── 10b. full-screen maps ──────────────────────────────────────────────── */
-const FS = await player('FS');
+const FS = await player('FS', { recovery: true }); // its recovery dialog would take the Escape key below
 await open(FS);
 const fills = () => FS.evaluate(() => { const w = document.querySelector('.map-wrap.is-full'); if (!w) return false; const r = w.getBoundingClientRect(); return r.width >= innerWidth - 1 && r.height >= innerHeight - 1 && document.documentElement.classList.contains('map-full-open'); });
-await FS.click('.map-found [data-act="map-fs"]');
-check('the founding map’s Full screen button fills the window', await until(fills));
-check('its bar shows where the capital will stand', /No location chosen yet|will stand/.test(await text(FS, '#found-loc-fs')));
+await found(FS, 'Fullview', { newPlayer: true });
+await FS.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await FS.click('[data-ed="recovery-saved"]');
+await FS.click('.fd-map [data-act="map-fs"]');
+check('the first edict’s map has a Full screen button that fills the window', await until(fills));
+check('its bar names the three places for the capital', /Three places for/.test(await text(FS, '.map-fs-bar')));
 await FS.keyboard.press('Escape');
 check('Esc leaves full screen', await until(async () => !(await FS.$('.map-wrap.is-full')) && !(await FS.evaluate(() => document.documentElement.classList.contains('map-full-open')))));
-await found(FS, 'Fullview');
+await FS.click('[data-act="answer"][data-id="fd-settle"][data-o="0"]'); await FS.waitForSelector('.result'); await establish(FS); await nav(FS, 'nation');
 await FS.click('.map-fs-mini');
 check('a nation page’s territory map opens full screen, as a map you can move and zoom', await until(async () => !!(await FS.$('.map-wrap.is-full canvas[data-map="visit"]')) && !!(await FS.$('.map-wrap.is-full [data-act="map-zoom"]')) && await fills()));
 check('its bar names the nation', /Fullview/.test(await text(FS, '.map-fs-bar')));
