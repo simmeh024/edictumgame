@@ -38453,14 +38453,17 @@ function lcBestBlock(T){
     if(!best||k>best.k||k===best.k&&d<best.d)best={b,c:plan[0],k,d};}
   return best;
 }
-function lcPick(force){
+/* pick the block; the view moves to it only when asked (founding, settling, a claim, "Show me"), so a map the
+   player has panned or zoomed is kept as it was when they come back to it */
+function lcPick(force,move){
   if(!lcCeremony()||!force&&(S.mapClaim||S.mapSel!=null||S.mapTarget!=null))return false;
   const x=lcBestBlock(territory());if(!x)return false;
   S.mapClaim={b:x.b,c:x.c};S.mapSel=null;S.mapCell=null;S.mapTarget=null;S.mapSite=null;S.mapInspect=null;
-  /* close enough that a hex is easy to tap, with the whole starting core still in view */
-  const v=S.mapViews&&S.mapViews.main;if(v){v.cx=MAP.cx[x.c];v.cy=MAP.cy[x.c];v.z=Math.max(v.z,LC_Z);}else centerMain(x.c,LC_Z);
+  if(move||!(S.mapViews&&S.mapViews.main))lcFocus(x.c);
   return true;
 }
+/* close enough that a hex is easy to tap, with the whole starting core still in view */
+function lcFocus(c){const v=S.mapViews&&S.mapViews.main;if(v){v.cx=MAP.cx[c];v.cy=MAP.cy[c];v.z=Math.max(v.z,LC_Z);}else centerMain(c,LC_Z);}
 function lcCoachHTML(){
   const n=S.nation;LC.on=lcCeremony(n);if(!LC.on)return '';
   const T=territory(),cr=landCredits(n),held=lcHeld(n),cl=S.mapClaim,k=cl?blockPlan(T,cl.b).slice(0,cr).length:0;
@@ -38476,10 +38479,10 @@ updateMapPanel=(f=>function(){const r=f.apply(this,arguments),el=document.getEle
   if(el){const h=lcCoachHTML(),had=document.activeElement&&el.contains(document.activeElement);if(!h)el.remove();else{el.outerHTML=h;if(had){const b=document.querySelector('#lc-coach .lc-coach-go');if(b)b.focus({preventScroll:true});}}}
   return r;})(updateMapPanel);
 go=(f=>function(v){const r=f.apply(this,arguments);if(v==='map'&&lcPick()){updateMapPanel();redrawMaps();}return r;})(go);
-found=(f=>function(){const had=S.nation,r=f.apply(this,arguments);if(S.nation&&S.nation!==had&&lcCeremony())go('map');return r;})(found);
-settle=(f=>function(){const r=f.apply(this,arguments);if(S.view==='map'&&lcPick())render();return r;})(settle);
+found=(f=>function(){const had=S.nation,r=f.apply(this,arguments);if(S.nation&&S.nation!==had&&lcCeremony()){go('map');if(S.mapClaim){lcFocus(S.mapClaim.c);redrawMaps();}}return r;})(found);
+settle=(f=>function(){const r=f.apply(this,arguments);if(S.view==='map'&&lcPick(false,true))render();return r;})(settle);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
-  if(a==='lc-coach-pick'){lcPick(true);updateMapPanel();redrawMaps();return;}
+  if(a==='lc-coach-pick'){lcPick(true,true);updateMapPanel();redrawMaps();return;}
   if(a==='lc-coach-x'){const sd=String(S.nation.seed);LC.gone=sd;try{localStorage.setItem(LC_COACH_KEY,JSON.stringify({s:sd}));}catch(err){}render();toast('The land card is put away. Claimable land stays highlighted on the map.');}
 });
 /* the claimable hexes breathe while the card is up */
@@ -38515,7 +38518,7 @@ writeClaims=(f=>function(cells,msg,auto,plan){
   const n0=S.nation,a=lcHeld(n0),r=f.call(this,cells,'',auto,plan);if(!r)return r;
   const cheer=!auto&&S.nation&&S.nation!==n0?lcCheer(S.nation,a,lcHeld(S.nation)):'';
   if(cheer)toast({m:(msg?msg+' ':'')+cheer,cf:1});else if(msg)toast(msg);
-  if(S.view==='map'&&lcPick()){updateMapPanel();redrawMaps();}
+  if(S.view==='map'&&lcPick(false,true)){updateMapPanel();redrawMaps();}
   return r;
 })(writeClaims);
 
