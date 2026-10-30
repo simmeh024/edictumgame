@@ -5,7 +5,10 @@ import {OUT,PROJECT,FS_HOST,BASE,check,finish,sleep,until,player,open,found,nav,
 const comparisonReady=async p=>{await p.waitForFunction(()=>{const el=document.querySelector('#hh-account-types'),r=el?.getBoundingClientRect(),bar=document.querySelector('.ux-sections')?.getBoundingClientRect();return r&&r.top>=(bar?.bottom||0)&&r.top<innerHeight/2&&document.activeElement===el&&!document.getAnimations().some(a=>a.playState==='running'&&a.effect?.target?.closest?.('.main'));});await p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));};
 if(!PROJECT.startsWith('demo-'))throw Error('Onboarding tests require demo emulators');
 await clearEmulators();
-const A=await player('new player desktop',{recovery:true,desk:true}),uid=await open(A);await A.waitForSelector('#d-name');
+// Toasts let clicks through, but an achievement's "View …" link does not, and founding queues several. This suite
+// never needs a toast seen (it reads their text), so one in the way of a click is hidden instead of taking it.
+const quiet=p=>p.addLocatorHandler(p.locator('#toast .reward-links a').first(),()=>p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden')));
+const A=await player('new player desktop',{recovery:true,desk:true}),uid=await open(A);await quiet(A);await A.waitForSelector('#d-name');
 check('founding offers a basic flag without the layer workshop',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
 await found(A,'Beginnings',{newPlayer:true});
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');
@@ -92,9 +95,9 @@ await nav(A,'exchange');check('the Bureau reveals prestige after the first signe
 await nav(A,'intel');check('counterfeiting appears while normal intelligence rules remain',await A.locator('[data-act="cv-k"][data-k="c"]').count()===1&&await A.locator('[data-act="cv-launch"]').isDisabled());
 await saved();await A.reload();await A.waitForSelector('.layout');
 check('all revealed features survive reload',await A.evaluate(()=>G.PG.keys.every(k=>G.S.nation.onb.u.includes(k))));
-const C=await player('returning new player phone',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});await open(C);await C.waitForSelector('.layout');
+const C=await player('returning new player phone',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});await quiet(C);await open(C);await C.waitForSelector('.layout');
 check('the same reveals follow the account to another device',await C.evaluate(()=>G.PG.keys.every(k=>G.S.nation.onb.u.includes(k))));
-const B=await player('new player phone',{vp:{width:390,height:844},recovery:true});await open(B);await B.waitForSelector('#d-pretitle');await B.selectOption('#d-pretitle','Kingdom');await found(B,'Smallsteps',{newPlayer:true});
+const B=await player('new player phone',{vp:{width:390,height:844},recovery:true});await quiet(B);await open(B);await B.waitForSelector('#d-pretitle');await B.selectOption('#d-pretitle','Kingdom');await found(B,'Smallsteps',{newPlayer:true});
 await B.waitForSelector('#ed-recovery-code',{timeout:25000});await B.click('[data-ed="recovery-saved"]');
 check('a kingdom’s first edict reads as a kingdom’s, and fits a phone',(await B.locator('.edict .h1').textContent())==='Where Shall the Throne Be Set Down?'&&/Privy Council/.test(await B.locator('.edict .form-code').textContent())&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
 await hideToast(B);await B.screenshot({path:OUT+'/founding-edict-390.png'});await showToast(B);

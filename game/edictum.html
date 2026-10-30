@@ -38949,10 +38949,12 @@ function fdSites(n,T){
     cand.push({i,sp:Math.min(d,14),coast:isCoastal(i),food,hill,iron,j:r()*4});
   }
   const SC=[x=>x.coast?x.food*0.6+x.sp+x.j:-1e9,x=>x.food*1.2+x.sp+x.j,x=>x.hill>=3?x.hill*3+x.iron*2+x.sp+x.j:-1e9];
-  const cells=[];
+  /* other places: a re-draw keeps clear of the places already offered (the jitter alone can draw the same
+     three again), unless nothing else will do */
+  const cells=[],seen=S.fdRoll?(S.fdSeen||[]):[],near=i=>seen.some(c=>hexDist(c,i)<4);
   for(const [s,score] of SC.entries()){
     const ok=(x,far)=>!cells.some(c=>hexDist(c,x.i)<6)&&(!cells.length||hexDist(cells[0],x.i)<=far),sorted=cand.slice().sort((a,b)=>score(b)-score(a));
-    let got=-1;for(const far of [22,40,1e9]){for(const x of sorted){if(score(x)<=-1e9&&far<1e9)break;if(ok(x,far)&&!pickProblem(x.i,T)){got=x.i;break;}}if(got>=0)break;}
+    let got=-1;for(const avoid of seen.length?[true,false]:[false]){for(const far of [22,40,1e9]){for(const x of sorted){if(score(x)<=-1e9&&far<1e9)break;if(ok(x,far)&&!(avoid&&near(x.i))&&!pickProblem(x.i,T)){got=x.i;break;}}if(got>=0)break;}if(got>=0)break;}
     cells[s]=got;
   }
   S.fdSites={key,cells};
@@ -38988,7 +38990,7 @@ answer=(f=>function(id,o){
 })(answer);
 resultView=(f=>function(){const h=f.apply(this,arguments);return S.result&&S.result.id===FD_ID&&S.nation?h.replace('<div class="row">',`<div class="row"><button class="btn" data-act="go" data-v="map">See ${esc(S.nation.name)} on the map</button>`).replace('<button class="btn" data-act="open"','<button class="btn ghost" data-act="open"'):h;})(resultView);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
-  if(a==='fd-reroll'){S.fdRoll=(S.fdRoll||0)+1;S.fdSites=null;render();return;}
+  if(a==='fd-reroll'){S.fdSeen=(S.fdSeen||[]).concat(((S.fdSites&&S.fdSites.cells)||[]).filter(c=>c>=0));S.fdRoll=(S.fdRoll||0)+1;S.fdSites=null;render();return;}
   if(a==='fd-own'){go('map');return;}
 });
 /* founding puts the edict at the top of the desk and opens it; settling some other way takes it off */
