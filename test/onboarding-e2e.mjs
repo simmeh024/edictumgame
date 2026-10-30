@@ -5,7 +5,7 @@ import {OUT,PROJECT,FS_HOST,BASE,check,finish,sleep,until,player,open,found,nav,
 const comparisonReady=async p=>{await p.waitForFunction(()=>{const el=document.querySelector('#hh-account-types'),r=el?.getBoundingClientRect(),bar=document.querySelector('.ux-sections')?.getBoundingClientRect();return r&&r.top>=(bar?.bottom||0)&&r.top<innerHeight/2&&document.activeElement===el&&!document.getAnimations().some(a=>a.playState==='running'&&a.effect?.target?.closest?.('.main'));});await p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));};
 if(!PROJECT.startsWith('demo-'))throw Error('Onboarding tests require demo emulators');
 await clearEmulators();
-const A=await player('new player desktop',{recovery:true}),uid=await open(A);await A.waitForSelector('#d-name');
+const A=await player('new player desktop',{recovery:true,desk:true}),uid=await open(A);await A.waitForSelector('#d-name');
 check('founding offers a basic flag without the layer workshop',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
 await found(A,'Beginnings',{newPlayer:true});
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');
@@ -37,7 +37,7 @@ await A.screenshot({path:OUT+'/account-types-1280.png'});
 await nav(A,'nation');check('new players see at most three next actions',await A.locator('.pg-first .stp-l>li').count()===3);
 await A.click('[data-act="account-hint-hide"]');await A.reload();await A.waitForSelector('.layout');
 check('Not now keeps the linking suggestion dismissed after reload',await A.locator('.account-link-card').count()===0);
-await nav(A,'settings');check('flag layers become available after Finish charter',await A.locator('[data-fgg="s:layers"]').count()===1);
+await nav(A,'customise');check('flag layers become available after Finish charter',await A.locator('[data-fgg="c:layers"]').count()===1);
 await nav(A,'map');check('map planning and transport start out hidden',await A.locator('.mp-map-toolbar').count()===0&&await A.locator('[data-mp-opt="networks"]').count()===0);
 check('returning to the map picks a block again while the first land is unclaimed',await A.evaluate(()=>!!G.S.mapClaim)&&await A.locator('#lc-coach [data-act="lc-block"]').count()===1);
 for(let i=0;i<3&&await A.locator('#lc-coach [data-act="lc-block"]').count();i++){await A.click('#lc-coach [data-act="lc-block"]');await sleep(300);}
@@ -45,6 +45,18 @@ check('the land card claims the highlighted block, then stands down',await A.eva
 check('the territory counter grows with the claim',await held(A)>terr0&&(await A.locator('.map-terr').textContent()).includes(`Territory: ${await held(A)} hexes`));
 check('the first three hexes are celebrated',await until(async()=>/Your first three hexes!/.test(await toastText(A)),20000));
 check('a city and three real claims reveal transport and expansion planning',await A.locator('.mp-map-toolbar').count()===1);
+check('the first claim starts presence',await A.evaluate(()=>G.S.nation.stk?.n===1));
+await nav(A,'issues');check('the edicts page sets three tasks for today, with presence below them',await A.locator('.dd .dd-t').count()===3&&/day 1/.test(await A.locator('.dd-stk').textContent()));
+await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.locator('.dd').screenshot({path:OUT+'/daily-desk-1280.png'});await A.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
+await nav(A,'customise');check('the first day of presence unlocks the indigo stamp in Customise',await A.locator('#cz-st-s-indigo').count()===1);
+check('the flag designer lives in Customise',await A.locator('#cz-sec-e #c-fgd').count()===1&&await A.locator('#c-flag-save').count()===1);
+await nav(A,'map');check('after the first claims, a quick first building is offered',await A.locator('.ffb .ffb-go').isVisible());
+const ffbK=await A.locator('.ffb .ffb-go').getAttribute('data-k');await A.click('.ffb .ffb-go');
+check('the quick first building takes three minutes',await A.evaluate(()=>{const f=G.S.nation.ffb;return !!f&&f.d-f.s===180000;})&&await A.locator('.ffb.is-on [data-live="ffb"]').isVisible());
+const ffbR={farm:'food',sawmill:'timber',market:'goods'}[ffbK],ffbBefore=await A.evaluate(r=>G.S.nation.stock[r],ffbR);
+await A.evaluate(()=>{const n=G.clone(G.S.nation),t=Date.now()-1000;n.ffb.d=t;for(const c of n.cities)for(const b of c.b)if(b.k===n.ffb.k)b.d=t;G.commit(n);G.render();});
+check('on completion its first cart arrives',await until(()=>A.locator('.ffb.is-done .ffb-n').isVisible())&&await A.evaluate(([r,b])=>G.S.nation.stock[r]>=b+11.9,[ffbR,ffbBefore]));
+await sleep(3000);check('and the stock counts up to the new total',await A.locator('.ffb-n').textContent()===await A.locator('.ffb-n').getAttribute('data-ffb-to'));
 await nav(A,'cities');const cid=await A.evaluate(()=>G.S.nation.cities[0].id);await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
 check('the early building catalogue does not advertise Warehouses',await A.locator('[data-act="ct-build"][data-k="warehouse"]').count()===0);
 await A.evaluate(()=>{const n=G.clone(G.S.nation);n.stock.food=279;n.stockAt=Date.now();n._stockSet=true;G.commit(n);G.render();});

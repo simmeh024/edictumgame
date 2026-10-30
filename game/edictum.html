@@ -4166,6 +4166,41 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .toast-cf i{position:absolute;left:-3px;top:-4px;width:6px;height:9px;border-radius:1px;background:var(--c);opacity:0}
 @media (prefers-reduced-motion:no-preference){.toast-cf i{animation:toast-cf 1.3s cubic-bezier(.15,.6,.35,1) var(--d) both}}
 @keyframes toast-cf{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.6)}55%{opacity:1;transform:translate(var(--x),var(--y)) rotate(calc(var(--r)*.6)) scale(1)}100%{opacity:0;transform:translate(calc(var(--x)*1.15),calc(var(--y) + 70px)) rotate(var(--r)) scale(1)}}
+/* the daily desk, the quick first building, the flag's save bar and the presence cosmetics */
+.dd{margin:0 0 22px;padding:18px 20px 14px;background:var(--sheet);border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:4px}
+.dd-h{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:flex-end;justify-content:space-between;margin-bottom:10px}
+.dd-l{list-style:none;margin:0;padding:0}
+.dd-t{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule)}
+.dd-i{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--rule-2)}
+.dd-t.done .dd-i{background:var(--up);border-color:var(--up);box-shadow:inset 0 0 0 4px var(--sheet)}
+.dd-x{display:flex;flex-direction:column;min-width:0}
+.dd-x b{font-weight:650;font-size:14.5px;line-height:1.3}
+.dd-t.done .dd-x b{color:var(--ink-2);font-weight:550}
+.dd-x .hint{font-size:12.5px;line-height:1.4}
+.dd-f{margin:10px 0 4px;font-size:14px}
+.dd-stk{margin:6px 0 0}
+.ffb{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;margin:0 0 14px;padding:14px 16px;border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:4px;background:var(--sheet)}
+.ffb .eyebrow{color:var(--accent);margin:0 0 4px}
+.ffb-b{flex:1 1 320px;min-width:0}
+.ffb-b p{margin:6px 0 0}
+.ffb-t{font-family:var(--f-display);font-weight:600;font-size:20px;line-height:1.2;margin:0}
+.ffb-a{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap}
+.ffb-go{min-height:48px;padding-inline:20px}
+.ffb-bar{display:block;margin-top:10px}
+.ffb-stock{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ffb-n{font:700 30px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.ffb-plus{font:700 14px/1 var(--f-mono);color:var(--up)}
+.ffb.is-done{border-left-color:var(--up)}
+@media (max-width:600px){.ffb-a{width:100%}.ffb-go{flex:1}}
+.cz-flagbar{margin-top:16px;gap:10px 14px;align-items:center}
+.cz-flagbar.is-dirty #c-flag-dirty{color:var(--accent);font-weight:600}
+.cz-enx.cz-enx-ind{color:#4b55c4;border-color:#4b55c4}
+:root[data-theme="dark"] .cz-enx.cz-enx-ind{color:#9aa2ff;border-color:#9aa2ff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cz-enx.cz-enx-ind{color:#9aa2ff;border-color:#9aa2ff}}
+.hero-motto.mf-cartouche,.cz-mf.mf-cartouche{display:inline-block;padding:6px 20px;border:1.5px solid var(--accent);border-radius:999px;box-shadow:inset 0 0 0 3px var(--paper),inset 0 0 0 4px var(--accent)}
+.cz-g-m,.cz-g-pn{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.cz-mf{display:inline-block;max-width:100%;font-family:var(--f-display);font-style:italic;font-size:14px;line-height:1.3;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cz-pn{width:80px;height:60px;color:var(--ink)}
 </style>
 
 <div id="app"></div>
@@ -19527,7 +19562,8 @@ function extView(v,now){const f=VIEWS_EXT[v];if(f)try{return f(now);}catch(e){re
 
 /* ───────── unlocks: cosmetics earned through achievements, collections and prestige ───────── */
 /* src: 'free' (everyone has it), 'ach' (the reward of exactly one achievement), 'set' (the reward for
-   completing exactly one collection set), 'prestige' (reached at an achievement-points threshold).
+   completing exactly one collection set), 'prestige' (reached at an achievement-points threshold),
+   'streak' (a day of presence: see the daily desk).
    UNLOCK_SOURCES entries: {earned: n => [ids], how: id => text or null} */
 const UNLOCKS={
   /* epithets, shown after the nation's name */
@@ -19559,7 +19595,10 @@ const UNLOCKS={
   'a-teal':{k:'accent',n:'Teal',src:'free'},'a-crimson':{k:'accent',n:'Crimson',src:'free'},'a-cobalt':{k:'accent',n:'Cobalt',src:'free'},'a-forest':{k:'accent',n:'Forest',src:'free'},'a-slate':{k:'accent',n:'Slate',src:'free'},
   'a-amber':{k:'accent',n:'Amber',src:'ach'},'a-violet':{k:'accent',n:'Violet',src:'ach'},'a-rose':{k:'accent',n:'Rose',src:'set'},'a-gold':{k:'accent',n:'Gold',src:'prestige'},
   /* the stamp on enacted decisions */
-  's-senate':{k:'stamp',n:'Seal of state',src:'free'},'s-enacted':{k:'stamp',n:'Enacted',src:'free'},'s-gold':{k:'stamp',n:'Gold seal',src:'ach'},'s-royal':{k:'stamp',n:'Royal assent',src:'ach'},'s-wax':{k:'stamp',n:'Wax seal',src:'set'}
+  's-senate':{k:'stamp',n:'Seal of state',src:'free'},'s-enacted':{k:'stamp',n:'Enacted',src:'free'},'s-gold':{k:'stamp',n:'Gold seal',src:'ach'},'s-royal':{k:'stamp',n:'Royal assent',src:'ach'},'s-wax':{k:'stamp',n:'Wax seal',src:'set'},
+  's-indigo':{k:'stamp',n:'Enacted, in indigo',src:'streak'},
+  /* a frame round the motto on the nation page, and the capital's marker on the world map */
+  'm-cartouche':{k:'motto',n:'Cartouche',src:'streak'},'pn-pennant':{k:'pin',n:'Pennant',src:'streak'}
 };
 const UNLOCK_SOURCES=[];
 function unlocksOf(n){
@@ -20698,7 +20737,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
 NOTIF_SOURCES.push((n,now)=>(n.log||[]).filter(l=>l.k==='sym').map(l=>({t:l.t,k:'sym',kl:'College of Arms',go:'customise',txt:symText(String(l.a||'').split(',').filter(k=>SYM_AT[k]),n)})));
 NORM_HOOKS.push((n,d)=>{const a=Array.isArray(d&&d.syu)?[...new Set(d.syu.filter(k=>typeof k==='string'&&SYM_AT[k]))]:[];if(a.length)n.syu=a;});
 const CZ_MON=['January','February','March','April','May','June','July','August','September','October','November','December'],CZ_MDAYS=[31,29,31,30,31,30,31,31,30,31,30,31];
-const CZ_KIND={t:'title',f:'frame',p:'pattern',st:'stamp'},CZ_DEF={t:'',f:'f-plain',p:'p-guilloche',st:'s-senate'};
+const CZ_KIND={t:'title',f:'frame',p:'pattern',st:'stamp',m:'motto',pn:'pin'},CZ_DEF={t:'',f:'f-plain',p:'p-guilloche',st:'s-senate',m:'',pn:''};
 const CZ_EMBS=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k==='emblem');
 /* the unlockable emblems join the flag designer; the base set already has a crown, a tree and an anchor, so these get names of their own */
 for(const id of CZ_EMBS){const nm={'e-crown':'Royal crown','e-eagle':'Eagle','e-gear':'Gear wheel','e-anchor':'Fouled anchor','e-tree':'Oak','e-wave':'Waves'}[id]||UNLOCKS[id].n;EMBLEMS[id]=nm;UNLOCKS[id].n=nm;}
@@ -20730,7 +20769,7 @@ function czClean(r){
   const u=Array.isArray(r.u)?[...new Set(r.u.filter(id=>czU(id)&&UNLOCKS[id].src!=='free'))].slice(0,Object.keys(UNLOCKS).length):[];
   const ok=(id,k)=>!!czU(id)&&UNLOCKS[id].k===k&&(UNLOCKS[id].src==='free'||u.includes(id));
   const o={u};
-  for(const f of ['t','f','p','st'])if(ok(r[f],CZ_KIND[f])&&r[f]!==CZ_DEF[f])o[f]=r[f];
+  for(const f of Object.keys(CZ_KIND))if(ok(r[f],CZ_KIND[f])&&r[f]!==CZ_DEF[f])o[f]=r[f];
   const a=czCleanArms(r.a,u);if(a)o.a=a;
   const sy=czCleanSym(r.sy);if(sy)o.sy=sy;
   if(r.ds==='t'||r.ds==='s')o.ds=r.ds;
@@ -20759,10 +20798,10 @@ function czHolds(n,id,raw){
 }
 /* the customisation of any nation, validated, with defaults, and with anything it doesn't hold left out */
 function cz(n){
-  if(!n||typeof n!=='object')return {t:'',f:'f-plain',p:'p-guilloche',st:'s-senate',a:null,sy:{},ds:'l'};
+  if(!n||typeof n!=='object')return {...CZ_DEF,a:null,sy:{},ds:'l'};
   const key=UNLOCK_SOURCES.length+':'+(n===S.nation?czMine().size:'x'),m=CZ_MEMO.get(n);if(m&&m.k===key)return m.v;
   const raw=n.cz&&typeof n.cz==='object'?n.cz:{},v={};
-  for(const f of ['t','f','p','st']){const id=raw[f];v[f]=czU(id)&&UNLOCKS[id].k===CZ_KIND[f]&&czHolds(n,id,raw)?id:CZ_DEF[f];}
+  for(const f of Object.keys(CZ_KIND)){const id=raw[f];v[f]=czU(id)&&UNLOCKS[id].k===CZ_KIND[f]&&czHolds(n,id,raw)?id:CZ_DEF[f];}
   v.a=czCleanArms(raw.a,null);if(v.a&&v.a.c&&!czHolds(n,v.a.c,raw))v.a.c='';
   if(!v.a&&n.npc)v.a=czDefaultArms(n,1);
   v.sy=czCleanSym(raw.sy)||{};
@@ -21037,14 +21076,14 @@ czApplyDisplay(true);/* at load S is not declared yet: an earned accent waits fo
 
 /* ── saving ── */
 function czSave(fn){
-  const n=S.nation,c=cz(n),o={t:c.t,f:c.f,p:c.p,st:c.st,a:c.a?clone(c.a):null,sy:clone(c.sy||{}),ds:c.ds};fn(o);
-  const m=clone(n),s={};for(const f of ['t','f','p','st'])if(o[f]&&o[f]!==CZ_DEF[f])s[f]=o[f];if(o.a)s.a=o.a;if(o.sy&&Object.keys(o.sy).length)s.sy=o.sy;if(o.ds==='t'||o.ds==='s')s.ds=o.ds;
+  const n=S.nation,c=cz(n),o={a:c.a?clone(c.a):null,sy:clone(c.sy||{}),ds:c.ds};for(const f of Object.keys(CZ_KIND))o[f]=c[f];fn(o);
+  const m=clone(n),s={};for(const f of Object.keys(CZ_KIND))if(o[f]&&o[f]!==CZ_DEF[f])s[f]=o[f];if(o.a)s.a=o.a;if(o.sy&&Object.keys(o.sy).length)s.sy=o.sy;if(o.ds==='t'||o.ds==='s')s.ds=o.ds;
   m.cz=s;commit(m);render();
 }
 function czLocked(id){const u=czU(id);return !u||(u.src!=='free'&&!czMine().has(id));}
 function czPick(k,id){
   const kind=CZ_KIND[k];if(!kind||!S.nation)return false;
-  if(id){const u=czU(id);if(!u||u.k!==kind)return false;if(czLocked(id)){toast('Locked. '+unlockHow(id));return false;}}else if(k!=='t')return false;
+  if(id){const u=czU(id);if(!u||u.k!==kind)return false;if(czLocked(id)){toast('Locked. '+unlockHow(id));return false;}}else if(CZ_DEF[k]!=='')return false;
   czSave(o=>{o[k]=id||'';});return true;
 }
 function czArm(f,v){
@@ -21055,10 +21094,20 @@ function czArm(f,v){
   if(f!=='on')a.on=1;
   czSave(o=>{o.a=a;});return true;
 }
-function czEmb(id){
-  const u=czU(id);if(!u||u.k!=='emblem'||!S.nation)return false;if(czLocked(id)){toast('Locked. '+unlockHow(id));return false;}
-  const dirty=settingsDirty(),m=clone(S.nation),off=m.flag.e===id,now=Date.now();m.flag.e=off?'none':id;m.log.unshift({t:now,k:'flag'});m.log=m.log.slice(0,60);
-  commit(m);if(!dirty)S.settings=null;render();toast(off?'The emblem has been taken off your flag.':`Your flag now bears the ${UNLOCKS[id].n.toLowerCase()}.`);return true;
+/* the flag designer lives here: it edits a draft (S.czFlag, flag scope 'c'), and Save flies it */
+const czFlagDirty=()=>!!(S.nation&&S.czFlag&&JSON.stringify(S.czFlag)!==JSON.stringify(S.nation.flag));
+function czFlagBody(n){
+  /* an untouched draft follows the saved flag, which another device may have changed */
+  const saved=JSON.stringify(n.flag);if(!S.czFlag||JSON.stringify(S.czFlag)===S.czFlagBase&&S.czFlagBase!==saved){S.czFlag=clone(n.flag);S.czFlagBase=saved;}
+  const dirty=czFlagDirty();
+  return `<div class="flag-preview-row"><div class="flag-frame" id="c-flag-prev">${flagSVG(S.czFlag,'Flag preview')}</div>${flagDesigner(S.czFlag,'c')}</div>
+    <div class="row cz-flagbar${dirty?' is-dirty':''}"><button type="button" class="btn" id="c-flag-save" data-act="cz-flag-save">Save flag</button><button type="button" class="btn ghost" data-act="cz-flag-reset">Discard changes</button><span class="hint" id="c-flag-dirty">${dirty?'Your flag has unsaved changes.':''}</span></div>`;
+}
+function czFlagMark(){const d=czFlagDirty(),el=document.getElementById('c-flag-dirty');if(el)el.textContent=d?'Your flag has unsaved changes.':'';const b=document.querySelector('.cz-flagbar');if(b)b.classList.toggle('is-dirty',d);}
+function czFlagSave(){
+  const n0=S.nation;if(!n0||!S.czFlag)return false;if(!czFlagDirty()){toast('Your flag is already flying as it is.');return false;}
+  const m=clone(n0),now=Date.now();m.flag=clone(S.czFlag);m.log.unshift({t:now,k:'flag'});m.log=m.log.slice(0,60);
+  commit(m);S.czFlag=null;render();toast('Your new flag is flying.');return true;
 }
 function czDisp(f,v){
   const d=CZ.disp;
@@ -21075,7 +21124,8 @@ document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="cz-"]');if(!el||!S.nation)return;const a=el.dataset.act;
   if(a==='cz-pick')czPick(el.dataset.k,el.dataset.id);
   else if(a==='cz-arm')czArm(el.dataset.f,el.dataset.v);
-  else if(a==='cz-emb')czEmb(el.dataset.id);
+  else if(a==='cz-flag-save')czFlagSave();
+  else if(a==='cz-flag-reset'){S.czFlag=null;render();}
   else if(a==='cz-theme')setTheme(el.dataset.v);
   else if(a==='cz-disp')czDisp(el.dataset.f,el.dataset.v);
   else if(a==='cz-ds')czSave(o=>{o.ds=el.dataset.v==='t'||el.dataset.v==='s'?el.dataset.v:'l';});
@@ -21128,8 +21178,6 @@ VIEWS_EXT.customise=now=>{
       ${czSeg('Motto scroll','cz-l-m',[['0','None'],['1','Show the motto']],String(a.m),'cz-arm','m')}${n.motto?'':'<p class="hint">Your nation has no motto yet. Add one in Settings and it appears on the scroll.</p>'}
       ${rot?'<p class="hint cz-rule">Heraldry’s rule of tincture puts metal (or, argent) on colour and colour on metal, so the charge stands out.</p>':''}
     </div></div>`;
-  const embs=CZ_EMBS.map(id=>{const inner=`<span class="cz-fl">${flagSVG({p:n.flag.p,c:n.flag.c,e:id,ec:n.flag.ec},'')}</span>`;if(!has(id))return czTile('e',id,'',false,false,inner,UNLOCKS[id].n);
-    const on=n.flag.e===id;return `<button type="button" id="cz-e-${id}" class="cz-tile${on?' on':''}" data-act="cz-emb" data-id="${id}" aria-pressed="${on}"><span class="cz-tv" aria-hidden="true">${inner}</span><span class="cz-tn"><span>${esc(UNLOCKS[id].n)}</span>${fr.has(id)?'<span class="cz-new">New</span>':''}${on?CZ_TICK:''}</span></button>`;}).join('');
   const sd=CZ.sd||czSymDraft(),fld=(k,l,max,ph)=>symOpen(n,k)?`<div class="field"><label for="cz-s-${k}">${l}</label><input class="input" id="cz-s-${k}" data-czs="${k}" value="${esc(sd[k]||'')}" maxlength="${max}" placeholder="${esc('e.g. '+ph)}" autocomplete="off"></div>`
     :`<div class="field cz-sym-lock"><label for="cz-s-${k}">${CZ_LOCK}${l}</label><input class="input" id="cz-s-${k}" value="" disabled placeholder="Unlocks at ${esc(fmtPopShort(SYM_AT[k]))} people" aria-describedby="cz-s-${k}-h"><span class="hint" id="cz-s-${k}-h">${esc(fmtPop(popNow(n)))} now · brings ${SYM_GIFT.timber} timber and ${SYM_GIFT.iron} iron</span></div>`;
   const dayN=+sd.hdm?CZ_MDAYS[+sd.hdm-1]:31;
@@ -21142,19 +21190,20 @@ VIEWS_EXT.customise=now=>{
   const accs=U('accent').map(id=>{const k=id.slice(2),ok=has(id),on=(dd.acc===id&&ok)||(id==='a-teal'&&(dd.acc==='a-teal'||!has(dd.acc)));
     return ok?`<button type="button" id="cz-acc-${k}" class="cz-acc${on?' on':''}" data-act="cz-disp" data-f="acc" data-v="${id}" aria-pressed="${on}"><span class="cz-asw" data-a="${k}" aria-hidden="true"></span><span>${esc(UNLOCKS[id].n)}</span>${fr.has(id)?'<span class="cz-new">New</span>':''}</button>`
       :`<div data-ux-unlock="${esc(id)}" class="cz-acc locked"><span class="cz-asw" data-a="${k}" aria-hidden="true"></span><span class="cz-an">${CZ_LOCK}${esc(UNLOCKS[id].n)}</span><span class="cz-how">${esc(unlockHow(id))}</span></div>`;}).join('');
-  const jump=[['t','Epithet'],['b','Banner'],['a','Arms'],['e','Emblems'],['y','Symbols'],['s','Decrees'],['c','Currency'],['d','Display']].map(([k,l])=>`<button type="button" class="chip-btn" data-act="cz-jump" data-id="cz-sec-${k}">${l}</button>`).join('');
+  const jump=[['t','Epithet'],['b','Banner'],['a','Arms'],['e','Flag'],['y','Symbols'],['s','Decrees'],['c','Currency'],['d','Display']].map(([k,l])=>`<button type="button" class="chip-btn" data-act="cz-jump" data-id="cz-sec-${k}">${l}</button>`).join('');
   const newN=fr.size;
   return `<header class="vh"><p class="eyebrow">College of Arms</p><h1>Customise</h1><p>How ${esc(theName(n))} presents itself to ${REGION}, and how this screen looks to you. Other players see your epithet, banner, arms, flag and symbols. Locked items are earned with achievements, collections and achievement points.</p></header>
   <div class="cz-prev">${hero(n)}</div>
   <div class="cz-sum"><div class="cz-count"><span class="lbl">Cosmetics held</span><span class="cz-cn"><b>${got}</b> of ${all.length}</span><span class="bar" aria-hidden="true"><i style="width:${(got/all.length*100).toFixed(1)}%"></i></span>${newN?`<span class="hint">${newN===1?'One is':newN+' are'} new since your last visit.</span>`:''}</div><nav class="cz-jump" aria-label="Customise sections">${jump}</nav></div>
   ${sec('t','I','Epithet','An epithet follows your nation’s name on your nation page, in the sidebar and in the Region table. Each one is earned.',
     `<div class="cz-grid cz-g-t">${tile('t','',`<span class="cz-tt">${esc(n.name)}</span>`,'No epithet')}${U('title').map(id=>tile('t',id,`<span class="cz-tt">${esc(n.name)} <i>${esc(UNLOCKS[id].n)}</i></span>`,'')).join('')}</div>`)}
-  ${sec('b','II','Banner','The frame round your flag and the pattern behind it, at the top of your nation page.',
+  ${sec('b','II','Banner','The frame round your flag and the pattern behind it, at the top of your nation page, a frame for your motto, and how your capital is marked on the world map.',
     `<h3 class="sub-h">Frame</h3><div class="cz-grid cz-g-f">${U('frame').map(id=>tile('f',id,czFramed(id,flagSVG(n.flag,'')),UNLOCKS[id].n)).join('')}</div>
-    <h3 class="sub-h">Pattern</h3><div class="cz-grid cz-g-p">${U('pattern').map(id=>tile('p',id,`<span class="cz-pt">${id==='p-plain'?'':czPatSVG(id,seed,1)}</span>`,UNLOCKS[id].n)).join('')}</div>`)}
+    <h3 class="sub-h">Pattern</h3><div class="cz-grid cz-g-p">${U('pattern').map(id=>tile('p',id,`<span class="cz-pt">${id==='p-plain'?'':czPatSVG(id,seed,1)}</span>`,UNLOCKS[id].n)).join('')}</div>
+    <h3 class="sub-h">Motto frame</h3><div class="cz-grid cz-g-m">${tile('m','',`<span class="cz-mf">${esc(n.motto||'Your motto')}</span>`,'No frame')}${U('motto').map(id=>tile('m',id,`<span class="cz-mf mf-${id.slice(2)}">${esc(n.motto||'Your motto')}</span>`,UNLOCKS[id].n)).join('')}</div>
+    <h3 class="sub-h">Capital on the map</h3><div class="cz-grid cz-g-pn">${tile('pn','',pnSVG('',n),'Standard')}${U('pin').map(id=>tile('pn',id,pnSVG(id,n),UNLOCKS[id].n)).join('')}</div>`)}
   ${sec('a','III','Coat of arms','Design arms in the old heraldic tinctures. They stand beside your flag and in your factbook. Shields, divisions and eight charges are free; more charges are earned.',armsBody)}
-  ${sec('e','IV','Flag emblems and patterns','Emblems and patterns you unlock join the flag designer in Settings. Choose an emblem here to put it on your flag straight away, or choose it again to take it off. Choose a pattern to fly it at once.',
-    `<div class="cz-grid cz-g-e">${embs}${fgCzPats(n,has,fr)}</div><p class="cz-more"><button type="button" class="btn ghost" data-act="go" data-v="settings">Open the flag designer</button></p>`)}
+  ${sec('e','IV','Flag','Its pattern, colours, emblem and layers. Emblems and patterns you earn join the designer; locked ones say how to earn them. Other players see the flag once you save it.',czFlagBody(n))}
   ${sec('y','V','National symbols','A holiday, flower, tree, bird, instrument, colours and a nickname for '+esc(n.capital)+'. All optional. The holiday is yours from the start; the others unlock as your population grows, each with a gift of '+SYM_GIFT.timber+' timber and '+SYM_GIFT.iron+' iron.',syBody)}
   ${sec('s','VI','Decrees','How each decision you enact is signed and stamped.',czDsBody(n)+`<h3 class="sub-h">Stamp</h3><div class="cz-grid cz-g-s">${U('stamp').map(id=>tile('st',id,`<span class="cz-stv">${czStampArt(id,n)}</span>`,UNLOCKS[id].n)).join('')}</div>`)}
   ${sec('c','VII','Currency','The national currency: its names, code and symbol, how amounts are written, and its banknote and coin. Other players see them on your nation page and in the Foreign Exchange Bureau.',cuCzBody(n))}
@@ -33475,7 +33524,7 @@ function fgDescribe(f){
 const FG={open:{},k:{},hist:new WeakMap(),drag:''};
 const FLAG_SCOPES={
   d:{get:()=>S.draft&&S.draft.flag,live:()=>{const pv=document.getElementById('found-preview');if(pv)pv.innerHTML=previewCard(S.draft);foundBarPaint();}},
-  s:{get:()=>S.settings&&S.settings.flag,live:f=>{const pv=document.getElementById('s-flag-prev');if(pv)pv.innerHTML=flagSVG(f,'Flag preview');markDirty();}}
+  c:{get:()=>S.czFlag,live:f=>{const pv=document.getElementById('c-flag-prev');if(pv)pv.innerHTML=flagSVG(f,'Flag preview');czFlagMark();}}
 };
 function fgTarget(scope){const s=czHas(FLAG_SCOPES,scope)?FLAG_SCOPES[scope]:null;try{const f=s&&s.get();return f&&typeof f==='object'?f:null;}catch(e){return null;}}
 function fgPush(f,before){let h=FG.hist.get(f);if(!h)FG.hist.set(f,h=[]);h.push(before||JSON.stringify(f));if(h.length>30)h.shift();}
@@ -33688,19 +33737,6 @@ function fglEnd(e,cancel=false){const d=FGL.drag;if(!d||d.id!==e.pointerId)retur
 document.addEventListener('pointerup',e=>fglEnd(e));document.addEventListener('pointercancel',e=>fglEnd(e,true));
 
 
-/* ── the Customise page: earned patterns, chosen in one click ── */
-function fgCzPats(n,has,fr){
-  return Object.keys(FG_PU).map(p=>{const id=FG_PU[p],inner=`<span class="cz-fl">${flagSVG({...n.flag,p},'')}</span>`;
-    if(!has(id))return czTile('fp',id,'',false,false,inner,UNLOCKS[id].n);
-    const on=n.flag.p===p;return `<button type="button" id="cz-fp-${p}" class="cz-tile${on?' on':''}" data-act="cz-fpat" data-id="${p}" aria-pressed="${on}"><span class="cz-tv" aria-hidden="true">${inner}</span><span class="cz-tn"><span>${esc(UNLOCKS[id].n)}</span>${fr.has(id)?'<span class="cz-new">New</span>':''}${on?CZ_TICK:''}</span></button>`;}).join('');
-}
-function fgCzPat(p){
-  const id=FG_PU[p];if(!id||!S.nation)return false;if(czLocked(id)){toast('Locked. '+unlockHow(id));return false;}
-  if(S.nation.flag.p===p){toast(`Your flag already uses the ${UNLOCKS[id].n.toLowerCase()} pattern. Change it in the flag designer in Settings.`);return false;}
-  const dirty=settingsDirty(),m=clone(S.nation),now=Date.now();m.flag.p=p;m.log.unshift({t:now,k:'flag'});m.log=m.log.slice(0,60);
-  commit(m);if(!dirty)S.settings=null;render();toast(`Your flag now uses the ${UNLOCKS[id].n.toLowerCase()} pattern.`);return true;
-}
-document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="cz-fpat"]');if(el)fgCzPat(el.dataset.id);});
 
 /* ───────── Round 13, RD: the map's calendar follows the real date ─────────
    seaPhase, seaInfo and flSeason (in the seasons and fleeting-finds modules) now read the real date in UTC.
@@ -36195,13 +36231,13 @@ function foundView(){
     <div class="found-bar" id="found-bar">${foundBarHTML(d)}</div>
   </div>`;
 }
-function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,currency:n.currency,animal:n.animal,demonym:n.demonym,flag:clone(n.flag),freq:String(n.freq),
+function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,currency:n.currency,animal:n.animal,demonym:n.demonym,freq:String(n.freq),
   ruler:n.ruler||'',lang:n.lang||'',faith:n.faith||'',sport:n.sport||'',dish:n.dish||'',anthem:n.anthem||'',about:n.about||'',mapc:n.mapc||'',topics:clone(n.topics||{})};}
 function settingsView(){
   const n=S.nation,st=S.settings||(S.settings=settingsFrom(n));
   const f=(id,label,max,ph,hint)=>`<div class="field"><label for="s-${id}">${label}</label><input class="input" id="s-${id}" data-bind="s.${id}" value="${esc(st[id]||'')}" maxlength="${max}" placeholder="${esc(ph)}" autocomplete="off">${hint?`<span class="hint">${hint}</span>`:''}</div>`;
   const ptSel=`<select class="input" id="s-ptsel" data-bind="s.ptsel">${PRETITLES.map(p=>`<option${!st.ptCustom&&p===st.pretitle?' selected':''}>${esc(p)}</option>`).join('')}<option value="__custom"${st.ptCustom?' selected':''}>Your own…</option></select>`;
-  const mc=safeColor(st.mapc,'')||mapColor(st.flag);
+  const mc=safeColor(st.mapc,'')||mapColor(n.flag);
   const theme=themePref();
   const topicRows=ISSUE_TOPICS.map(([k,l])=>{const cur=st.topics[k]||0,cnt=ISSUES.filter(i=>i.c===k).length;
     return `<div class="topic-row"><span class="topic-n" id="tp-${k}">${l}<span class="topic-c">${cnt} edicts</span></span><div class="seg" role="group" aria-labelledby="tp-${k}">${[[-1,'Fewer'],[0,'Normal'],[1,'More']].map(([v,t])=>`<button type="button" class="seg-b${cur===v?' on':''}" data-act="topic" data-k="${k}" data-v="${v}" aria-pressed="${cur===v}">${t}</button>`).join('')}</div></div>`;}).join('');
@@ -36226,7 +36262,7 @@ function settingsView(){
       <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
     </fieldset>
     <fieldset class="fs"><legend class="fs-l">Flag</legend>
-      <div class="flag-preview-row"><div class="flag-frame" id="s-flag-prev">${flagSVG(st.flag,'Flag preview')}</div>${flagDesigner(st.flag,'s')}</div>
+      <div class="flag-preview-row"><div class="flag-frame">${flagSVG(n.flag,'Your flag')}</div><p class="hint">Your flag is designed in Customise, with its emblems, patterns and layers. <button type="button" class="linkish" data-act="go" data-v="customise">Open the flag designer</button></p></div>
     </fieldset>
     <fieldset class="fs"><legend class="fs-l">Map colour</legend>
       <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
@@ -36366,15 +36402,13 @@ function dismiss(id){
 function saveSettings(){
   const st=S.settings,now=Date.now();
   let n=clone(syncInbox(S.nation,now));
-  const flagChanged=JSON.stringify(st.flag)!==JSON.stringify(n.flag);
   const t=(v,max,def)=>String(v||'').trim().slice(0,max)||def;
   const pt=String(st.pretitle||'').trim();if(st.ptCustom&&pt.length<2){toast('Give your type of state a name of at least two letters.');const el=document.getElementById('s-pretitle');if(el)el.focus();return;}
   n.pretitle=t(st.pretitle,40,n.pretitle);n.motto=String(st.motto||'').trim().slice(0,80);n.capital=t(st.capital,40,n.capital);n.leader=t(st.leader,40,n.leader);
-  n.currency=t(st.currency,30,n.currency);n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);n.flag=clone(st.flag);
+  n.currency=t(st.currency,30,n.currency);n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);
   for(const [k,max] of [['ruler',40],['lang',30],['faith',50],['sport',30],['dish',40],['anthem',60],['about',280]])n[k]=String(st[k]||'').trim().slice(0,max);
   n.mapc=safeColor(st.mapc,'');n.topics={};for(const [k] of ISSUE_TOPICS)if(st.topics[k]===1||st.topics[k]===-1)n.topics[k]=st.topics[k];
   const f=parseInt(st.freq,10);if(FREQS.some(x=>x[0]===f))n.freq=f;
-  if(flagChanged){n.log.unshift({t:now,k:'flag'});n.log=n.log.slice(0,60);}
   commit(n);S.settings=settingsFrom(n);render();toast('Changes saved.');
 }
 async function dissolve(){
@@ -38155,7 +38189,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
 });
 HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most four hexes to a separate island. You claim individual free hexes at one land credit each, then may expand over connected island land. Other nations' territory, protected capital areas and the 45-hex capital limit remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most four steps. Land routes have at most 64 steps; a nation keeps at most 24 routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
 
-HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the flag designer in Settings (or while founding your nation) and expand <b>Layers</b>. Add up to eight independent emblems, stripes, borders and discs over your original design. Each has its own colour, position, size and rotation. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
+HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the flag designer in Customise, under Flag, and expand <b>Layers</b>. (Layers come once your charter is finished; the founding page has the basic designer.) Add up to eight independent emblems, stripes, borders and discs over your original design. Each has its own colour, position, size and rotation. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
 
 /* ── warehouse capacity and timed city upgrades ── */
 const WH_BONUS=[400,1200,2400,4400,7400],WH_HOURS=[4,8,16,24,36],WH_RECORD_MAX=10000000;
@@ -38314,7 +38348,7 @@ function uxJump(target){
 }
 const UX_SETTINGS=[
   {v:'focus:currency',l:'Currency designer',g:'Design',words:'money banknote coin notes currency symbol code',view:'customise',target:'#cz-sec-c'},
-  {v:'focus:flag',l:'Flag layers and design',g:'Design',words:'flag emblem stripes border layers rotate',view:'settings',target:'[data-fgg="s:layers"]',setup:()=>{FG.open['s:layers']=true;}},
+  {v:'focus:flag',l:'Flag layers and design',g:'Design',words:'flag emblem stripes border layers rotate',view:'customise',target:'[data-fgg="c:layers"]',setup:()=>{FG.open['c:layers']=true;}},
   {v:'focus:passport',l:'Passport designer',g:'Design',words:'passport cover pages stamp visas',view:'passport',target:'.pp-tabs',setup:()=>{PP.tab='design';}},
   {v:'focus:appearance',l:'Game appearance',g:'Settings',words:'theme accent colour color density font text size motion',view:'customise',target:'#cz-sec-d'},
   {v:'focus:edicts',l:'Edict delivery and topics',g:'Settings',words:'frequency waiting edicts topics pace',view:'settings',target:'#s-freq'}
@@ -38338,7 +38372,7 @@ navQjGo=function(v){
 };
 function uxSearchButton(){return `<button type="button" class="ux-search-button" data-act="nav-qj-open" aria-label="Search game" title="Search game (Ctrl/Cmd + K)">${NAV_SVG('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',19)}</button>`;}
 function uxPrimarySections(rows,view){
-  const important={nation:['Overview','Factbook','Territory','Cities','Recent legislation'],customise:['Banner','Coat of arms','National symbols','Currency','Display'],settings:['Particulars','Culture','Flag','Edicts','Appearance']};
+  const important={nation:['Overview','Factbook','Territory','Cities','Recent legislation'],customise:['Banner','Coat of arms','Flag','National symbols','Currency','Display'],settings:['Particulars','Culture','Map colour','Edicts','Appearance']};
   if(important[view])return important[view].map(title=>rows.find(row=>row.title===title)).filter(Boolean);
   return rows.filter(({host})=>!host.parentElement?.closest('section,fieldset,article,aside')).slice(0,5);
 }
@@ -38458,7 +38492,7 @@ navGroups=function(){return pgNavGroupsBase().map(g=>({...g,items:g.items.filter
 const pgSearchBase=navQjItems;
 navQjItems=function(q){return pgSearchBase(q).filter(x=>pgAvailable(S.nation,'charter')||!['customise','focus:currency','focus:appearance'].includes(x.v)).map(x=>x.v==='focus:flag'&&!pgAvailable(S.nation,'charter')?{...x,l:'Flag design'}:x);};
 const pgSearchGoBase=navQjGo;
-navQjGo=function(v){if(v==='focus:flag'&&!pgAvailable(S.nation,'charter')){navQjClose(false);uxOpen('settings',null,'#s-fgd');return;}return pgSearchGoBase(v);};
+navQjGo=function(v){if(v==='focus:flag'&&!pgAvailable(S.nation,'charter')){navQjClose(false);uxOpen('customise',null,'.pg-charter');return;}return pgSearchGoBase(v);};
 function pgBasicCurrency(n,c,e){return `<section class="cu-yours paper"><div class="cu-yours-art">${cuNoteSVG(n,c,{cls:'cu-note-md'})}</div><div class="cu-yours-b"><p class="eyebrow">Your currency</p><h2 class="h2">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></h2>${e?`<p class="cu-big">1 ${esc(c.cd)} = ${esc(cuFig(e.v,c.nf))} <span class="cu-unit">${esc(cuUnit())}s</span></p>`:'<p>Your first official exchange rate arrives with the next daily publication.</p>'}<p>Trade turns your surplus resources into what your nation needs. Compare exchange rates here, then arrange a deal on Trade.</p><button class="btn ghost" data-act="go" data-v="trade">Open Trade</button></div></section>`;}
 const pgBadgeBase=cuBadge,pgVersusBase=cuVersus,pgStatBase=cuStatRows,pgCensusBase=cuCensus,pgConnectionBase=cuConnections;
 cuBadge=function(){return pgAvailable(S.nation,'finance')?pgBadgeBase.apply(this,arguments):'';};
@@ -38622,6 +38656,203 @@ writeClaims=(f=>function(cells,msg,auto,plan){
   if(S.view==='map'&&lcPick(false,true)){updateMapPanel();redrawMaps();}
   return r;
 })(writeClaims);
+
+/* ───────── the daily desk, the presence streak, and a quick first building ─────────
+   Every day (the player's own calendar day) the edicts page sets three tasks, drawn from the ones the nation
+   can do: answer edicts, visit another nation, send expeditions, vote in the Assembly, build roads, claim
+   hexes, write a letter, propose a trade or start a building. The draw comes from the nation's seed and the
+   date, and is written into the record at the first save of the day (n.dd), so every device shows the same
+   three. Each done task brings DD_GIFT of two resources; clearing all three brings a land credit (n.ddc counts
+   them, and they add to landEarned like the tutorial's). Progress is counted save by save from the tallies
+   (tallyScan runs first) and from what the save adds; a visit or a vote leaves no trace in the record, so
+   it marks itself (n._ddm, read and dropped at once).
+   Presence (n.stk): a day counts when an edict is answered or a hex claimed. The first three such days unlock
+   a stamp in indigo ink, a cartouche for the motto and a pennant over the capital; a missed day only pauses
+   the count.
+   A quick first building (n.ffb): once a nation has claimed land and built nothing, it is offered a Farm,
+   Sawmill or Market Hall in its capital that takes FFB_MS instead of hours. On completion its first cart
+   (FFB_GIFT of what it makes) arrives, and the card counts the stock up while the player watches. */
+const DD_GIFT=3,DD_RES=['timber','oil','iron','goods'],DD_KEY_RX=/^\d{4}-\d{2}-\d{2}$/,STK_UNLOCKS=['s-indigo','m-cartouche','pn-pennant'],STK_MAX=1e5;
+const FFB_MS=3*60000,FFB_GIFT=12,FFB_KEYS=['farm','sawmill','market'],FFB_OUT={farm:'food',sawmill:'timber',market:'goods'};
+const ddOthers=()=>{try{return allNations().some(x=>!x.me);}catch(e){return false;}};
+/* the browser tests turn the desk off (test/lib.mjs) unless a suite asks for it, so its gifts never move the stock
+   a test is counting on whatever three tasks the date happens to draw */
+const ddOn=()=>!window.EDICTUM_NO_DESK;
+/* key: {t: title for a target, go: [view, button], r: [lowest, highest target], ok: whether the nation can do it today} */
+const DD_TASKS={
+  iss:{t:k=>k===1?'Answer an edict':`Answer ${k} edicts`,go:null,r:[3,5],ok:()=>true},
+  visit:{t:()=>'Visit another nation’s page',go:['region','Open the Region'],r:[1,1],ok:ddOthers},
+  exp:{t:k=>k===1?'Send an expedition':`Send ${k} expeditions`,go:['explore','Open expeditions'],r:[1,2],ok:n=>cellOf(n.loc)>=0},
+  vote:{t:()=>'Vote in the Assembly',go:['assembly','Open the Assembly'],r:[1,1],ok:n=>ddCanVote(n)},
+  road:{t:k=>k===1?'Build a road':`Build ${k} roads`,go:['map','Open Transport'],r:[1,2],ok:n=>pgAvailable(n,'map')&&cityList(n).length>=2&&(n.infra||[]).length<=MP_NET_MAX-2},
+  claim:{t:k=>k===1?'Claim a hex':`Claim ${k} hexes`,go:['map','Open the map'],r:[1,2],ok:n=>landCredits(n)>=2},
+  dm:{t:()=>'Write to another nation',go:['messages','Open Messages'],r:[1,1],ok:ddOthers},
+  deal:{t:()=>'Propose a trade',go:['trade','Open Trade'],r:[1,1],ok:n=>cellOf(n.loc)>=0},
+  build:{t:()=>'Start a building',go:['cities','Open Cities'],r:[1,1],ok:n=>cellOf(n.loc)>=0}
+};
+function ddCanVote(n){
+  try{const now=Date.now(),st=asmState(now);if(!st||!st.cur||!asmMemberAt(n,now))return false;const mine=st.V&&st.V.rows.find(r=>r.me);return !(mine&&(mine.v>0||mine.v<0));}catch(e){return false;}
+}
+function ddDay(t){const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function ddNextDay(t){const d=new Date(t);d.setHours(24,0,0,0);return d.getTime();}
+/* the day's three tasks: [key, target, resource, resource] */
+function ddRoll(n,day){
+  const r=rng(hash(String(n.seed)+':desk:'+day)),pick=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+  const pool=pick(Object.keys(DD_TASKS)).filter(k=>{try{return !!DD_TASKS[k].ok(n);}catch(e){return false;}});
+  return pool.slice(0,3).map(k=>{const [lo,hi]=DD_TASKS[k].r;let v=lo+Math.floor(r()*(hi-lo+1));
+    if(k==='iss')v=Math.min(v,Math.max(1,Math.floor(1440/(n.freq||FREQ_DEF))));const [a,b]=pick(DD_RES);return [k,v,a,b];});
+}
+const ddFresh=(n,day)=>({d:day,q:ddRoll(n,day),c:[0,0,0],p:[0,0,0]});
+/* how far one save moved a task on */
+function ddDelta(n,old,k){
+  const tl=key=>tallyOf(n,key)-tallyOf(old,key);
+  if(k==='iss'||k==='claim'||k==='dm')return tl(k);
+  if(k==='deal')return tl('deal')+tl('dealok');
+  if(k==='exp')return n.exp&&n.exp.t0&&!(old.exp&&old.exp.t0===n.exp.t0)?1:0;
+  if(k==='road'){const had=new Set((old.infra||[]).map(r=>r&&r.id));return (n.infra||[]).filter(r=>r&&r.k==='road'&&!had.has(r.id)).length;}
+  if(k==='build'){const had=new Set();for(const c of old.cities||[])for(const b of c.b||[])had.add(c.id+'|'+b.k);let m=0;for(const c of n.cities||[])for(const b of c.b||[])if(!had.has(c.id+'|'+b.k))m++;return m;}
+  return 0;
+}
+const stkDays=n=>n&&n.stk&&Number.isInteger(n.stk.n)?n.stk.n:0;
+landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0);})(earnedAt);
+UNLOCK_SOURCES.push({earned:n=>STK_UNLOCKS.slice(0,Math.min(STK_UNLOCKS.length,stkDays(n))),
+  how:id=>{const i=STK_UNLOCKS.indexOf(id);return i<0?null:`Day ${i+1} of presence: answer an edict or claim a hex on ${i?i+1+' different days':'any day'}.`;}});
+const STK_NOTES=['the Enacted stamp in indigo ink is yours, under Decrees in Customise','a cartouche for your motto is yours, under Banner in Customise','a pennant over your capital on the map is yours, under Banner in Customise'],
+  STK_NEXT=['the indigo stamp','a cartouche for your motto','a pennant over your capital'];
+const FFB={anim:null};
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||!n.name)return;const mark=n._ddm;delete n._ddm;const out=[],day=ddDay(now);
+  /* the same nation's last record, with its tallies: only then are the differences real */
+  const base=old&&old.name===n.name&&old.tly&&typeof old.tly==='object'?old:null;
+  const gift=(r,v)=>{const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
+  if(ddOn()){if(!n.dd||n.dd.d!==day)n.dd=ddFresh(n,day);
+  const D=n.dd;D.q.forEach(([k,goal,ra,rb],i)=>{
+    if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
+    if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
+    if(D.c[i]>=goal){D.p[i]=1;gift(ra,DD_GIFT);gift(rb,DD_GIFT);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${DD_GIFT} ${resName(ra)} and +${DD_GIFT} ${resName(rb)}.`);}
+  });
+  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;out.push('Today’s desk is clear: +1 land credit to spend on the map.');}}
+  if(base&&(!n.stk||n.stk.d!==day)&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
+    const k=Math.min(STK_MAX,stkDays(n)+1);n.stk={n:k,d:day};if(k<=STK_NOTES.length)out.push(`Day ${k} of your presence: ${STK_NOTES[k-1]}.`);}
+  /* the quick first building: its first cart, once, if it still stands */
+  const F=n.ffb;
+  if(F&&!F.p&&now>=F.d){F.p=1;
+    if((n.cities||[]).some(c=>c.id===F.c&&(c.b||[]).some(b=>b.k===F.k&&b.d<=now))){const r=FFB_OUT[F.k],from=num0(stockNow(n,now)[r]);gift(r,FFB_GIFT);
+      FFB.anim={k:F.k,r,from:Math.floor(from),to:Math.floor(num0(n.stock[r])),t:0};out.push(`The ${BUILDINGS[F.k].n} ${F.k==='farm'?'are':'is'} working: the first cart brings ${FFB_GIFT} ${resName(r)}.`);}}
+  return out;
+});
+NORM_HOOKS.push((n,d)=>{
+  const D=d&&d.dd,okQ=q=>Array.isArray(q)&&czHas(DD_TASKS,q[0])&&Number.isInteger(q[1])&&q[1]>=1&&q[1]<=10&&DD_RES.includes(q[2])&&DD_RES.includes(q[3])&&q[2]!==q[3];
+  if(D&&typeof D.d==='string'&&DD_KEY_RX.test(D.d)&&Array.isArray(D.q)&&D.q.length>=1&&D.q.length<=3&&D.q.every(okQ)){
+    const L=D.q.length,ar=(a,f)=>Array.from({length:L},(x,i)=>f(Array.isArray(a)?a[i]:0));
+    n.dd={d:D.d,q:D.q.map(q=>q.slice(0,4)),c:ar(D.c,v=>Number.isInteger(v)&&v>0?Math.min(v,10):0),p:ar(D.p,v=>v===1?1:0)};if(D.w===1)n.dd.w=1;}
+  else delete n.dd;
+  if(d&&Number.isInteger(d.ddc)&&d.ddc>0&&d.ddc<=STK_MAX)n.ddc=d.ddc;else delete n.ddc;
+  const K=d&&d.stk;if(K&&Number.isInteger(K.n)&&K.n>0&&K.n<=STK_MAX&&typeof K.d==='string'&&DD_KEY_RX.test(K.d))n.stk={n:K.n,d:K.d};else delete n.stk;
+  const F=d&&d.ffb;if(F&&FFB_KEYS.includes(F.k)&&typeof F.c==='string'&&F.c.length>0&&F.c.length<=40&&Number.isFinite(F.s)&&Number.isFinite(F.d)&&F.d>=F.s){n.ffb={k:F.k,c:F.c,s:F.s,d:F.d};if(F.p===1)n.ffb.p=1;}else delete n.ffb;
+});
+
+/* ── the desk on the edicts page ── */
+function ddMark(k){
+  const n=S.nation;if(!n||n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;
+  const day=ddDay(Date.now()),D=n.dd&&n.dd.d===day?n.dd:null,i=(D?D.q:ddRoll(n,day)).findIndex(q=>q[0]===k);
+  if(i<0||D&&D.p[i])return;const m=clone(n);m._ddm=k;commit(m);saveSoon();
+}
+function ddCard(now){
+  const n=S.nation;if(!n||n.npc||!ddOn())return '';
+  const day=ddDay(now),D=n.dd&&n.dd.d===day?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&n.stk.d===day),nx=STK_UNLOCKS[sk];
+  const rows=D.q.map(([k,goal,ra,rb],i)=>{const T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0);
+    return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${DD_GIFT} ${esc(resName(ra))}, +${DD_GIFT} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
+  const dots=`<span class="lc-dots" aria-hidden="true">${STK_UNLOCKS.map((x,i)=>`<i${i<sk?' class="on"':''}></i>`).join('')}</span>`;
+  return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextDay(now)}">${esc(fmtWait(ddNextDay(now)-now))}</b></span></div>
+    <ol class="dd-l">${rows}</ol>
+    <p class="dd-f">${D.w?'Your desk is clear: today’s land credit is yours.':'Clear all three for <b>+1 land credit</b>.'}</p>
+    <p class="hint dd-stk">${dots}Presence: ${sk?`day ${sk}`:'not started'}${nx?` · next: ${STK_NEXT[sk]}`:' · all three rewards earned'}. ${today?'Today counts.':'Answer an edict or claim a hex today to count it.'} A missed day only pauses it.</p></section>`;
+}
+issuesView=(f=>function(v,now){const h=f.apply(this,arguments),c=ddCard(now||Date.now());return c?h.replace('</header>','</header>'+c):h;})(issuesView);
+asmVote=(f=>function(){const r=f.apply(this,arguments);Promise.resolve(r).then(ok=>{if(ok)ddMark('vote');},()=>{});return r;})(asmVote);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
+  if(a==='dd-go'){const T=DD_TASKS[el.dataset.k];if(!T||!T.go)return;go(T.go[0]);if(el.dataset.k==='road'&&pgAvailable(S.nation,'map')){S.mpMode='transport';render();}return;}
+  if(a==='ffb-start'){ffbStart(el.dataset.k);return;}
+  if(a==='ffb-x'){FFB.anim=null;render();return;}
+});
+
+/* ── presence rewards: the indigo stamp, the motto cartouche and the pennant over the capital ── */
+uxUnlockInfo=(f=>function(id){return UNLOCKS[id]&&UNLOCKS[id].src==='streak'?{label:'View your presence',view:'issues',target:'.dd'}:f.apply(this,arguments);})(uxUnlockInfo);
+czStampArt=(f=>function(s){return s==='s-indigo'?'<span class="cz-enx cz-enx-ind">Enacted</span>':f.apply(this,arguments);})(czStampArt);
+hero=(f=>function(n){const h=f.apply(this,arguments);let m='';try{m=cz(n).m;}catch(e){}return m?h.replace('<p class="hero-motto">',`<p class="hero-motto mf-${m.slice(2)}">`):h;})(hero);
+function pnSVG(id,n){
+  const col=safeColor(n&&n.mapc,'')||mapColor(n&&n.flag),pen=id==='pn-pennant'?`<path d="M45,46V16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M45,16L66,22L45,28Z" fill="${col}" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="45" cy="16" r="2" fill="currentColor"/>`:'';
+  return `<svg class="cz-pn" viewBox="0 0 80 60" aria-hidden="true"><path d="M14,40L28,32L44,36L62,30L70,42L54,52L30,54Z" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="1.5"/><circle cx="40" cy="46" r="6" fill="var(--sheet)"/><circle cx="40" cy="46" r="4.2" fill="currentColor"/>${pen}</svg>`;
+}
+/* on top of the city drawings, lower right of the capital, and moved down clear of any name label */
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+  const g=M.g,T=M.T,u=clamp(0.85+0.1*M.s,0.9,1.5),boxes=M.boxes||[];g.lineCap='round';g.lineJoin='round';
+  T.list.forEach((x,i)=>{if(!T.count[i]||x.npc)return;let pin='';try{pin=cz(x.n).pn;}catch(e){}if(pin!=='pn-pennant')return;
+    const [px,py]=M.scr(x.cap);if(M.off(px,py))return;const bx=px+12*u;let by=py+9*u,top=by-18*u;
+    for(let k=0;k<4&&boxes.some(q=>q.x<bx+16*u&&bx-3<q.x+q.w&&q.y<by&&top-3<q.y+q.h);k++){by+=6;top+=6;}
+    const pole=new Path2D(),flag=new Path2D();pole.moveTo(bx,by);pole.lineTo(bx,top);flag.moveTo(bx,top);flag.lineTo(bx+17*u,top+5*u);flag.lineTo(bx,top+10*u);flag.closePath();
+    /* a paper halo first, so the pennant reads on land of its own colour */
+    g.strokeStyle=M.col.sheet;g.lineWidth=4.5;g.stroke(pole);g.stroke(flag);
+    g.strokeStyle=M.col.ink;g.lineWidth=1.7;g.stroke(pole);g.fillStyle=x.col;g.fill(flag);g.lineWidth=1.2;g.stroke(flag);
+    g.beginPath();g.arc(bx,top,1.9*u,0,Math.PI*2);g.fillStyle=M.col.ink;g.fill();});
+}});
+
+/* ── the quick first building ── */
+function ffbOffer(n){
+  if(!n||n.npc||n.ffb||cellOf(n.loc)<0||lcHeld(n)<1||tallyOf(n,'build')>0||(n.cities||[]).some(c=>(c.b||[]).length))return null;
+  let ct=null;try{const cap=cellOf(n.loc);ct=myCityStates().mine.find(c=>c.c===cap);}catch(e){}if(!ct)return null;
+  const st=stockNow(n,Date.now()),opts=FFB_KEYS.map(k=>({k,r:FFB_OUT[k],why:(buildProblem(n,ct,k,st)||{}).t||''}));
+  /* what can be built first, a farm or sawmill before the Market Hall (its stock is what the player watches grow),
+     then whatever the nation has least of */
+  opts.sort((a,b)=>(!!a.why-!!b.why)||((a.k==='market')-(b.k==='market'))||(num0(st[a.r])-num0(st[b.r])));
+  return opts.some(x=>!x.why)?{ct,opts}:null;
+}
+function ffbStart(key){
+  const n0=S.nation,o=ffbOffer(n0),opt=o&&o.opts.find(x=>x.k===key);
+  if(!opt||opt.why){toast(opt&&opt.why?opt.why:'The quick first building is no longer on offer.');render();return;}
+  const now=Date.now(),st=stockNow(n0,now),m=ensureCities(clone(n0)),c=m.cities.find(x=>x.id===o.ct.id);if(!c)return;
+  const cost=bCost(n0,key);for(const r of RES)st[r]-=cost[r]||0;m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;
+  c.b.push({k:key,s:now,d:now+FFB_MS});m.ffb={k:key,c:c.id,s:now,d:now+FFB_MS};
+  commit(m);saveSoon();render();toast(`Builders are on site: the ${BUILDINGS[key].n} in ${cityLabel(m,c)} will be ready in ${fmtDur(FFB_MS)}.`);
+}
+function ffbCard(){
+  const n=S.nation;if(!n||n.npc)return '';const now=Date.now(),F=n.ffb,city=id=>{const c=(n.cities||[]).find(x=>x.id===id);return c?cityLabel(n,c):n.capital;};
+  if(F&&!F.p&&F.d>now){const B=BUILDINGS[F.k];
+    return `<section class="ffb is-on" aria-labelledby="ffb-h"><div class="ffb-b"><p class="eyebrow">Your first building</p><h2 class="ffb-t" id="ffb-h">The ${esc(B.n)} going up in ${esc(city(F.c))}</h2>
+      <span class="bar ffb-bar" aria-hidden="true"><i data-live="ffbbar" data-s="${F.s}" data-d="${F.d}" style="width:${clamp((now-F.s)/(F.d-F.s)*100,0,100).toFixed(1)}%"></i></span>
+      <p class="hint">Ready in <b data-live="ffb" data-d="${F.d}">${esc(fmtDur(F.d-now))}</b>. Its first cart brings ${FFB_GIFT} ${esc(resName(FFB_OUT[F.k]))}.</p></div></section>`;}
+  const A=FFB.anim;
+  if(A&&F&&F.p&&A.k===F.k){const B=BUILDINGS[A.k];
+    return `<section class="ffb is-done" aria-labelledby="ffb-h"><div class="ffb-b"><p class="eyebrow">Your first building</p><h2 class="ffb-t" id="ffb-h">The ${esc(B.n)} ${A.k==='farm'?'are':'is'} working</h2>
+      <p class="ffb-stock"><span class="lbl">${esc(cap1(resName(A.r)))} in store</span> <b class="ffb-n" data-ffb-to="${A.to}">${A.t?A.to:A.from}</b> <span class="ffb-plus">+${A.to-A.from}</span></p></div><button type="button" class="linkish small" data-act="ffb-x">Close</button></section>`;}
+  const o=ffbOffer(n);if(!o)return '';const best=o.opts[0],B=BUILDINGS[best.k],alt=o.opts.slice(1).filter(x=>!x.why);
+  return `<section class="ffb" aria-labelledby="ffb-h"><div class="ffb-b"><p class="eyebrow">Your first building</p><h2 class="ffb-t" id="ffb-h">A quick start in ${esc(n.capital)}</h2>
+    <p>Builders can put up your first building in <b>${esc(fmtDur(FFB_MS))}</b> instead of hours. <b>${esc(B.n)}</b>: ${esc(B.d)} It costs ${esc(costText(bCost(n,best.k)))}.</p></div>
+    <div class="ffb-a"><button type="button" class="btn ffb-go" data-act="ffb-start" data-k="${best.k}">Build the ${esc(B.n)} · ${esc(fmtDur(FFB_MS))}</button>${alt.length?`<span class="hint">Or ${alt.map(x=>`<button type="button" class="linkish small" data-act="ffb-start" data-k="${x.k}">the ${esc(BUILDINGS[x.k].n)}</button>`).join(' or ')}</span>`:''}</div></section>`;
+}
+worldMapView=(f=>function(){const h=f.apply(this,arguments),c=ffbCard();return c?h.replace('<div class="map-layout',c+'<div class="map-layout'):h;})(worldMapView);
+citiesView=(f=>function(){const h=f.apply(this,arguments),c=ffbCard();return c?h.replace('</header>','</header>'+c):h;})(citiesView);
+/* the stock counts up while the player watches; the finished card goes when they leave the page */
+function ffbCount(){
+  const A=FFB.anim,el=document.querySelector('.ffb-n');if(!A||!el||A.t)return;A.t=performance.now();
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){el.textContent=A.to;return;}
+  const step=t=>{if(!el.isConnected)return;const u=Math.min(1,(t-A.t)/2600),e=1-Math.pow(1-u,3);el.textContent=Math.round(A.from+(A.to-A.from)*e);if(u<1)requestAnimationFrame(step);};
+  requestAnimationFrame(step);
+}
+go=(f=>function(v){if(FFB.anim&&FFB.anim.t)FFB.anim=null;return f.apply(this,arguments);})(go);
+render=(f=>function(){const r=f.apply(this,arguments);try{if(S.view==='visit'&&S.visit&&S.visit!==myId())ddMark('visit');ffbCount();}catch(e){}return r;})(render);
+/* a second-by-second clock for the build and the desk. A finished build saves at once; a new day's tasks are
+   saved when the desk is on screen (any other save draws them too), so the three shown are the three kept */
+setInterval(()=>{
+  const n=S.nation;if(!n||document.hidden)return;const now=Date.now();
+  document.querySelectorAll('[data-live="ffb"]').forEach(el=>{el.textContent=fmtDur(Math.max(0,+el.dataset.d-now));});
+  document.querySelectorAll('[data-live="ffbbar"]').forEach(el=>{const a=+el.dataset.s,b=+el.dataset.d;el.style.width=clamp((now-a)/(b-a)*100,0,100).toFixed(1)+'%';});
+  document.querySelectorAll('[data-live="ddnext"]').forEach(el=>{el.textContent=fmtWait(Math.max(0,+el.dataset.t-now));});
+  if(n.npc||regBlocked()||S.mode==='readonly')return;
+  if(n.ffb&&!n.ffb.p&&now>=n.ffb.d||n.name&&S.view==='issues'&&document.querySelector('.dd')&&(!n.dd||n.dd.d!==ddDay(now))){commit(clone(n));render();}
+},1000);
 
 
 /* ───────── boot ───────── */
