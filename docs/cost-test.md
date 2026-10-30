@@ -92,3 +92,11 @@ first rows, not the square.
    or population and stock, which other players work out from the last save anyway. Writing the private half alone
    then (with a save of the shared half at least every 15 minutes, so the nation does not look dormant) would cut the
    reads further.
+6. **Done (after this run): quiet tabs.** A tab in the background for three minutes, or untouched for ten, lets go of
+   its listeners until the player is back, and then reads only what changed meanwhile. The idle clients above (1,788
+   reads an hour each) read nothing from them in that state, and saves only their clock would make wait for the
+   player's return.
+7. **Done (after this run): space records only when they change for other regions.** Every save used to rewrite a
+   colony owner's space record (its people and their time move at every save), and every player in every region read
+   each rewrite. Now a record is written for a new tile, building, milestone, terraforming level, name or belt
+   mission, or every 12 hours, and viewers carry the people forward from it.

@@ -51,6 +51,22 @@ check('an idle phone receives a desktop save without reloading', await until(asy
 await edit(B, 'Saved on phone'); await saved(B);
 check('updates flow back from phone to desktop', await until(async () => (await localNation(A)).motto === 'Saved on phone', 15000));
 
+// A tab in the background lets go of the region's listeners (quiet tabs) and catches up on its return.
+const showing = (p, on) => p.evaluate(on => {
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => !on });
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => on ? 'visible' : 'hidden' });
+  document.dispatchEvent(new Event('visibilitychange'));
+}, on);
+await B.evaluate(() => { window.EDICTUM_QUIET_HIDDEN = 1000; });
+await showing(B, false); await sleep(22000); // the quiet check runs every 20 seconds
+await edit(A, 'Saved while the phone sleeps'); await saved(A); await sleep(5000);
+check('a phone in the background no longer follows the region', (await localNation(B)).motto === 'Saved on phone');
+await showing(B, true);
+check('back in front, the phone catches up with the latest save', await until(async () => (await localNation(B)).motto === 'Saved while the phone sleeps', 15000));
+await edit(A, 'Saved on desktop again'); await saved(A);
+check('and follows the region again', await until(async () => (await localNation(B)).motto === 'Saved on desktop again', 15000));
+await B.evaluate(() => { delete window.EDICTUM_QUIET_HIDDEN; });
+
 // A session behind a fast device clock must still accept a greater server revision.
 await A.evaluate(async uid => {
   const db = await window.claude.use('db'), n = (await db.doc('nations/' + uid).get()).data();
