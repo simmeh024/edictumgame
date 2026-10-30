@@ -17,13 +17,25 @@ async function user(admin = false) {
   }
   return { uid: u.localId, token: u.idToken };
 }
-async function call(u, data, name = 'adminConsole') {
-  const r = await fetch(functions + name, { method: 'POST', headers: { 'content-type': 'application/json', ...(u ? { authorization: 'Bearer ' + u.token } : {}) }, body: JSON.stringify({ data }) });
+async function call(u, data, name = 'adminConsole', extra = {}) {
+  const r = await fetch(functions + name, { method: 'POST', headers: { 'content-type': 'application/json', ...(u ? { authorization: 'Bearer ' + u.token } : {}), ...extra }, body: JSON.stringify({ data }) });
   const b = await r.json(); if (b.error) throw Object.assign(new Error(b.error.message), { status: b.error.status }); return b.result;
 }
 const value = v => typeof v === 'string' ? { stringValue: v } : typeof v === 'boolean' ? { booleanValue: v } : v instanceof Date ? { timestampValue: v.toISOString() } : { integerValue: String(v) };
 async function put(path, data) { const r = await fetch(docs + '/' + path, { method: 'PATCH', headers, body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k,v]) => [k,value(v)])) }) }); assert.equal(r.status, 200); }
 async function get(path) { const r = await fetch(docs + '/' + path, { headers }); return r.status === 200 ? r.json() : null; }
+// Links a sign-in the way the game does: Google through the emulator's stand-in identity provider, an email
+// address as Firebase's password provider (email link sign-in is the same provider), Discord as custom claims.
+async function link(u, { google = false, email = false, verified = true, discord = false } = {}) {
+  const jwt = o => [{ alg: 'none', typ: 'JWT' }, o].map(x => Buffer.from(JSON.stringify(x)).toString('base64url')).join('.') + '.';
+  const post = (path, body, h = { 'content-type': 'application/json' }) => fetch(auth + '/identitytoolkit.googleapis.com/v1/' + path, { method: 'POST', headers: h, body: JSON.stringify(body) });
+  if (google) assert.equal((await post('accounts:signInWithIdp?key=fake', { idToken: u.token, requestUri: 'http://localhost', returnSecureToken: true, postBody: 'providerId=google.com&id_token=' + jwt({ sub: 'g' + u.uid, email: 'g' + u.uid.toLowerCase() + '@example.test', email_verified: true }) })).status, 200);
+  if (email) {
+    assert.equal((await post('accounts:update?key=fake', { idToken: u.token, email: u.uid.toLowerCase() + '@example.test', password: 'test-only-password', returnSecureToken: true })).status, 200);
+    assert.equal((await post(`projects/${project}/accounts:update`, { localId: u.uid, emailVerified: verified }, headers)).status, 200);
+  }
+  if (discord) assert.equal((await post(`projects/${project}/accounts:update`, { localId: u.uid, customAttributes: '{"dc":"4242","dcn":"Ruler"}' }, headers)).status, 200);
+}
 async function seed(uid, name = 'Old Émber Republic') {
   await put('nations/' + uid, { name, reg: 'meridian', pop: 5, army: 2, rev: 7, ts: new Date(), j: JSON.stringify({ name, reg: 'meridian', pop: 5 }) });
   await put('summaries/' + uid, { name, reg: 'meridian', pop: 5, t: Date.now() });
@@ -41,6 +53,65 @@ test('search includes legacy summaries, case-insensitive names and exact player 
   assert.equal((await call(a, { op: 'search', q: p.uid })).players[0].uid, p.uid);
   assert.equal((await call(a, { op: 'search', q: p.uid, reg: 'frostmarch' })).players.length, 0);
   const detail = await call(a, { op: 'player', uid: p.uid }); assert.equal(detail.revision, 7); assert.ok(detail.savedAt > 0); assert.equal(detail.name, 'Old Émber Republic');
+});
+test('inspecting a player shows the account behind the nation, as Firebase Authentication knows it', async () => {
+  const a = await user(true), g = await user(), r = await user(), e = await user(), u = await user();
+  // The shared record is the player's own to write; it must not decide what the console shows.
+  await put('nations/' + g.uid, { name: 'Guestland', reg: 'meridian', rev: 1, ts: new Date(), j: JSON.stringify({ name: 'Guestland', kind: 'registered', linked: ['google'] }) });
+  await link(r, { google: true, discord: true }); await link(e, { email: true }); await link(u, { email: true, verified: false });
+  const guest = (await call(a, { op: 'player', uid: g.uid })).account;
+  assert.equal(guest.kind, 'guest'); assert.deepEqual(guest.linked, []); assert.equal(guest.admin, false); assert.equal(guest.disabled, false);
+  assert.ok(guest.created > 0 && guest.lastSignIn >= guest.created);
+  const linked = (await call(a, { op: 'player', uid: r.uid })).account;
+  assert.equal(linked.kind, 'registered'); assert.deepEqual(linked.linked.sort(), ['discord', 'google']);
+  const mail = (await call(a, { op: 'player', uid: e.uid })).account;
+  assert.equal(mail.kind, 'registered'); assert.deepEqual(mail.linked, ['email']);
+  const unverified = (await call(a, { op: 'player', uid: u.uid })).account;
+  assert.equal(unverified.kind, 'guest'); assert.deepEqual(unverified.linked, ['email_unverified']);
+  const self = (await call(a, { op: 'player', uid: a.uid })).account;
+  assert.equal(self.admin, true); assert.ok(self.lastRefresh > 0);
+  assert.equal((await call(a, { op: 'player', uid: 'no-such-account' })).account, null);
+});
+test('the last address a player played from is kept for the admins alone, for 90 days, and goes with the account', async () => {
+  const a = await user(true), p = await user(), seen = xff => call(p, { op: 'seen' }, 'accounts', xff ? { 'x-forwarded-for': xff } : {});
+  assert.equal((await call(a, { op: 'player', uid: p.uid })).account.ip, '');
+  // Google's front end adds the address it saw after anything the browser sent itself: the last entry counts.
+  await seen('198.51.100.7, 203.0.113.9');
+  const first = await get('accountSeen/' + p.uid), acct = (await call(a, { op: 'player', uid: p.uid })).account;
+  assert.equal(acct.ip, '203.0.113.9'); assert.equal(acct.ipAt, Number(first.fields.at.integerValue));
+  assert.equal(Date.parse(first.fields.exp.timestampValue) - acct.ipAt, 90 * 86400000);
+  await seen('203.0.113.9');
+  assert.equal((await get('accountSeen/' + p.uid)).updateTime, first.updateTime, 'the same address within the hour writes nothing');
+  await seen('2001:db8::5');
+  assert.equal((await call(a, { op: 'player', uid: p.uid })).account.ip, '2001:db8::5', 'a new address replaces the old one');
+  await seen('<script>');
+  assert.equal((await call(a, { op: 'player', uid: p.uid })).account.ip, '2001:db8::5', 'what is not an address is not kept');
+  await assert.rejects(call(p, { op: 'player', uid: p.uid }), e => e.status === 'PERMISSION_DENIED');
+  await call(p, { op: 'close' }, 'accounts');
+  assert.equal(await get('accountSeen/' + p.uid), null);
+});
+test('any nation can be hidden, deleted or banned without a report, and every step is audited', async () => {
+  const a = await user(true), p = await user(), q = await user(); await seed(p.uid, 'Quietland'); await seed(q.uid, 'Otherland');
+  for (const action of ['hide', 'remove', 'ban']) await assert.rejects(call(a, { op: 'moderate', action, target: a.uid, reason: 'Self' }), e => e.status === 'FAILED_PRECONDITION');
+  await call(a, { op: 'moderate', action: 'hide', target: p.uid, reason: 'Offensive flag' });
+  let d = await call(a, { op: 'player', uid: p.uid }); assert.equal(d.hidden, true); assert.equal(d.note, 'Offensive flag');
+  await put('boards/meridian/posts/quiet-post', { a: p.uid, x: 'Hello' });
+  await call(a, { op: 'moderate', action: 'remove', target: p.uid, reason: 'Offensive flag, again', name: 'Forged name' });
+  for (const path of ['nations/', 'nationx/', 'summaries/']) assert.equal(await get(path + p.uid), null);
+  assert.equal(await get('boards/meridian/posts/quiet-post'), null);
+  assert.equal(await get('bans/' + p.uid), null);
+  d = await call(a, { op: 'player', uid: p.uid });
+  assert.equal(d.exists, false); assert.ok(d.removed > 0); assert.equal(d.hidden, false); assert.equal(d.banned, false); assert.equal(d.name, 'Quietland'); assert.equal(d.account.kind, 'guest');
+  await call(a, { op: 'moderate', action: 'ban', target: q.uid, reason: 'Ban evasion' });
+  d = await call(a, { op: 'player', uid: q.uid }); assert.equal(d.banned, true); assert.equal(d.exists, false); assert.equal(d.note, 'Ban evasion');
+  await call(a, { op: 'moderate', action: 'unban', target: q.uid, reason: 'Appeal accepted' });
+  assert.equal(await get('bans/' + q.uid), null);
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  for (const action of ['hide', 'remove']) assert.ok(log.some(e => e.action === action && e.outcome === 'started' && e.actor === a.uid) && log.some(e => e.action === action && e.outcome === 'completed' && e.actor === a.uid));
+  assert.ok(log.some(e => e.action === 'remove' && e.outcome === 'completed' && e.reason === 'Offensive flag, again' && e.name === 'Quietland'));
+  const banLog = (await call(a, { op: 'audit', target: q.uid })).events;
+  assert.ok(banLog.some(e => e.action === 'ban' && e.reason === 'Ban evasion' && e.outcome === 'completed'));
+  assert.ok(banLog.some(e => e.action === 'unban' && e.outcome === 'completed'));
 });
 test('region switches preserve records, stop battles, and atomically log the authenticated actor', async () => {
   const a = await user(true), p = await user(); await seed(p.uid); const before = (await get('nationx/' + p.uid)).fields.j;

@@ -600,6 +600,20 @@ names without regard to capitalization or accents, supports player IDs and regio
 shows server-confirmed save times and revisions when a player is inspected. The summary directory
 is cached for a minute; Refresh directory reloads it.
 
+Inspecting a player also shows the account behind the nation, read by `adminConsole` from Firebase
+Authentication, never from the nation's own record: Guest or Registered (and Admin or Disabled),
+the linked sign-ins (Google, Email link, Discord; Discord is the `dc` custom claim), the last
+sign-in, the last token refresh, and the IP address the player last played from. Firebase keeps no
+IP address, so the game records it: once a page load the shim calls `accounts({op: 'seen'})`, which
+keeps only the latest address in `accountSeen/<uid>` `{ip, at, exp}` (the last `X-Forwarded-For`
+entry, the one Google's front end adds; at most one write an hour from the same address). The
+`accountSeen.exp` TTL policy deletes it 90 days after it was last seen (`SEEN_DAYS` in
+`functions/accounts.js`, stated in both privacy notices), and closing the account deletes it at once.
+No client can read or write it. From the same panel an admin can hide, delete or ban any nation,
+with or without a report, and unhide or unban it: each needs a reason (which the player is told),
+deleting and banning are confirmed first, and all of them run the reports' moderation path, with
+its audit events. Reports, Hidden nations, Banned players and Suspicious link to the panel.
+
 Save health combines `saveHealth/` session reports with actual `nations/` server timestamps and
 revisions. Reports contain only player ID, region, a Desktop/Mobile label, status, pending flag,
 revision, error code and conflict count. Status changes are coalesced to at most one write every
