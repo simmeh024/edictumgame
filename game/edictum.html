@@ -34649,6 +34649,9 @@ async function flushNow(){
   if(!remoteDirty)return;
   const w=remoteLast+SAVE_MIN-performance.now();if(w>0)await sleep(w);
   await flushRemote();
+  /* the queued save can start during that wait, and flushRemote then leaves it alone: let it finish, so callers
+     such as sign-out see its outcome instead of a save still in flight */
+  while(remoteBusy)await sleep(100);
 }
 if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){keepUnsaved(S.nation);throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
