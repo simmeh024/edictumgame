@@ -12,6 +12,8 @@ This script turns it into a small page plus long-cached files, without changing 
     fonts' @font-face rules, minified, as /assets/app.<hash>.css. The names change whenever the
     content does, so Hosting lets browsers keep them for a year (firebase.json) and a returning
     player downloads only the small page until the next deploy;
+  - every region's map, made at build time by the game's own generators and checked against them
+    (scripts/bake-maps.mjs), as /assets/maps.<hash>.js, so a page decodes its map instead of generating it;
   - the game's three typefaces (Bodoni Moda, Public Sans, IBM Plex Mono; SIL Open Font License),
     Latin and Latin Extended only, from the pinned Fontsource packages into /assets/fonts/, so no
     visitor's browser contacts Google for them;
@@ -24,7 +26,8 @@ This script turns it into a small page plus long-cached files, without changing 
 
 Options: --site-url https://example.org (or SITE_URL) makes og:image, og:url and the
 canonical link absolute, as link previews need. --no-minify keeps the code readable for
-debugging. Minifying runs esbuild through Node; everything else is the Python standard library.
+debugging. Minifying (esbuild) and baking the maps run through Node; everything else is the Python
+standard library.
 """
 import argparse
 import gzip
@@ -187,6 +190,19 @@ def split_content(script):
     return json.loads(r.stdout)
 
 
+def bake_maps(script):
+    """Every region's map, made by the game's own generators and checked hex for hex against them
+    (scripts/bake-maps.mjs), as a script that sets window.__edictum.maps before the game runs."""
+    try:
+        r = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'bake-maps.mjs')],
+                           input=script.encode('utf-8'), capture_output=True, cwd=ROOT)
+    except FileNotFoundError:
+        fail('Node.js is needed to bake the maps')
+    if r.returncode:
+        fail('could not bake the maps:\n' + r.stderr.decode('utf-8', 'replace')[-2000:])
+    return r.stdout.decode('utf-8')
+
+
 def fonts_css(out):
     """The @font-face rules for the game's typefaces, Latin and Latin Extended, with each font file
     copied to /assets/fonts/ under a name that carries its hash. Returns (css, preload addresses)."""
@@ -260,6 +276,8 @@ def main():
     else:
         # A debug build keeps the original, unsplit source easy to inspect.
         js_url = hashed(out, 'game', 'js', script)
+    # every region's map, long-cached on its own: it changes only when the generators or the regions do
+    maps_url = hashed(out, 'maps', 'js', bake_maps(script))
 
     a = lambda path: (site + path) if site else path
     e = lambda s: html.escape(s, quote=True)
@@ -306,7 +324,7 @@ def main():
         '.ed-boot-pending .boot,.ed-boot-pending .home-static .boot-load{visibility:hidden}</style>',
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'stub.js'), minify),
     ] + ['<link rel="preload" href="%s" as="script" fetchpriority="high">' % u
-         for u in [content_url, js_url] if u] + [
+         for u in [maps_url, content_url, js_url] if u] + [
         '<script defer src="%s%s" fetchpriority="low"></script>' % (vendor, n) for n in SDK] + meta + [
         game_head,
     ] + ['<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' % u for u in preload] + [
@@ -314,6 +332,8 @@ def main():
         '</head>',
         '<body>',
         BOOT % dict(home_copy(script), desc=e(DESCRIPTION)),
+        # without the maps (a failed download) the game generates its map, as it can
+        '<script src="%s"></script>' % maps_url,
     ] + (['<script src="%s" onerror="window.__edictum.bootError()"></script>' % content_url] if content_url else []) + [
         '<script src="%s" onerror="window.__edictum.bootError()"></script>' % js_url,
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
@@ -332,6 +352,7 @@ def main():
         '' if site else '; no --site-url, so Open Graph links are relative'))
     if content_url:
         print('build.py: independently cached story text: %s (%s); code-only updates reuse it' % (content_url, kb(content_url)))
+    print('build.py: baked maps of every region: %s (%s)' % (maps_url, kb(maps_url)))
 
 
 NOT_FOUND = '''<!doctype html>
