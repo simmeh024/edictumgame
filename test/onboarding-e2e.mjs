@@ -9,6 +9,14 @@ const A=await player('new player desktop',{recovery:true}),uid=await open(A);awa
 check('founding offers a basic flag without the layer workshop',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
 await found(A,'Beginnings',{newPlayer:true});
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');
+const toastText=p=>p.evaluate(()=>document.querySelector('#toast')?.textContent||'');
+const held=p=>p.evaluate(()=>{const T=G.territory();return T.count[T.byId[G.myId()]];});
+check('founding opens the map with the best block beside the border picked',await A.evaluate(()=>G.S.view==='map'&&!!G.S.mapClaim)&&await A.locator('#lc-coach').isVisible());
+check('the land card counts the founding credits and offers one claim button',/You have \d+ land credits to spend/.test(await A.locator('#lc-coach').textContent())&&await A.locator('#lc-coach [data-act="lc-block"]').count()===1&&await A.evaluate(()=>G.S.nation.fdc===1));
+const terr0=await held(A);
+check('the map shows a territory counter',(await A.locator('.map-terr').textContent()).includes(`Territory: ${terr0} hexes`));
+await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.screenshot({path:OUT+'/first-land-1280.png'});await A.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
+await nav(A,'nation');
 const saved=async()=>{if(!await until(async()=>{const n=await localNation(A),d=await nationDoc(uid);return n&&!n._dirty&&d?.rec.onb&&JSON.stringify(d.rec.onb)===JSON.stringify(n.onb);},15000))throw Error('Intro save did not settle');};
 await saved();
 check('a confirmed cloud save does not finish the charter',await A.locator('.pg-charter').count()===1&&await A.locator('.nav [data-v="customise"]').count()===0);
@@ -31,8 +39,12 @@ await A.click('[data-act="account-hint-hide"]');await A.reload();await A.waitFor
 check('Not now keeps the linking suggestion dismissed after reload',await A.locator('.account-link-card').count()===0);
 await nav(A,'settings');check('flag layers become available after Finish charter',await A.locator('[data-fgg="s:layers"]').count()===1);
 await nav(A,'map');check('map planning and transport start out hidden',await A.locator('.mp-map-toolbar').count()===0&&await A.locator('[data-mp-opt="networks"]').count()===0);
-await A.evaluate(()=>{const n=G.clone(G.S.nation);n.lcb=3;G.commit(n);G.WH.claimAuto(true);});await nav(A,'map');
-check('a city and three real claims reveal transport and expansion planning',await A.evaluate(()=>G.S.nation.claims.length>=3)&&await A.locator('.mp-map-toolbar').count()===1);
+check('returning to the map picks a block again while the first land is unclaimed',await A.evaluate(()=>!!G.S.mapClaim)&&await A.locator('#lc-coach [data-act="lc-block"]').count()===1);
+for(let i=0;i<3&&await A.locator('#lc-coach [data-act="lc-block"]').count();i++){await A.click('#lc-coach [data-act="lc-block"]');await sleep(300);}
+check('the land card claims the highlighted block, then stands down',await A.evaluate(()=>new Set(G.S.nation.claims.map(e=>e.c)).size>=3)&&await A.locator('#lc-coach').count()===0);
+check('the territory counter grows with the claim',await held(A)>terr0&&(await A.locator('.map-terr').textContent()).includes(`Territory: ${await held(A)} hexes`));
+check('the first three hexes are celebrated',await until(async()=>/Your first three hexes!/.test(await toastText(A)),20000));
+check('a city and three real claims reveal transport and expansion planning',await A.locator('.mp-map-toolbar').count()===1);
 await nav(A,'cities');const cid=await A.evaluate(()=>G.S.nation.cities[0].id);await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
 check('the early building catalogue does not advertise Warehouses',await A.locator('[data-act="ct-build"][data-k="warehouse"]').count()===0);
 await A.evaluate(()=>{const n=G.clone(G.S.nation);n.stock.food=279;n.stockAt=Date.now();n._stockSet=true;G.commit(n);G.render();});
@@ -58,6 +70,13 @@ const C=await player('returning new player phone',{vp:{width:390,height:844},sto
 check('the same reveals follow the account to another device',await C.evaluate(()=>G.PG.keys.every(k=>G.S.nation.onb.u.includes(k))));
 const B=await player('new player phone',{vp:{width:390,height:844},recovery:true});await open(B);await found(B,'Smallsteps',{newPlayer:true});
 await B.waitForSelector('#ed-recovery-code',{timeout:25000});await B.click('[data-ed="recovery-saved"]');
+check('on a phone the land card fits the screen',await B.locator('#lc-coach').isVisible()&&/(Tap|Click) any hex/.test(await B.locator('#lc-coach').textContent())&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+await B.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await B.screenshot({path:OUT+'/first-land-390.png'});await B.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
+await B.click('#lc-coach [data-act="lc-coach-x"]');
+check('Not now puts the land card away',await B.locator('#lc-coach').count()===0);
+await nav(B,'nation');await nav(B,'map');
+check('and it stays away on later visits, leaving the land unpicked',await B.locator('#lc-coach').count()===0&&await B.evaluate(()=>!G.S.mapClaim));
+await nav(B,'nation');
 check('a new phone player sees the compact charter, not advanced tools',await B.locator('.pg-charter').count()===1&&await B.locator('.nav [data-v="customise"]').count()===0);
 await B.screenshot({path:OUT+'/onboarding-charter-390.png'});
 await B.evaluate(()=>{const n=G.clone(G.S.nation);n.founded=Date.now()-7*864e5;G.commit(n);G.PG.saveSoon();G.render();});

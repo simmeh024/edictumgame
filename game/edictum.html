@@ -4120,6 +4120,29 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .account-types-table th,.account-types-table td{white-space:normal;overflow-wrap:anywhere;vertical-align:top;padding:10px 8px}
 .account-types-table th:first-child{width:44%}
 .account-types-table tbody th{font-weight:400}
+/* the first land: the claim card above the map, the territory counter on it, and a toast's confetti */
+.lc-coach{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;margin:0 0 14px;padding:14px 16px;border:1px solid var(--accent);border-left-width:4px;border-radius:4px;background:var(--accent-soft)}
+.lc-coach .eyebrow{color:var(--accent);margin:0 0 4px}
+.lc-coach-b{flex:1 1 300px;min-width:0}
+.lc-coach-t{margin:0;font-size:15.5px;line-height:1.45}
+.lc-coach .hint{margin:6px 0 0}
+.lc-coach-a{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.lc-coach-go{min-height:48px;padding-inline:22px;font-size:15px}
+.lc-dots{display:inline-flex;gap:5px;margin-right:8px;vertical-align:-1px}
+.lc-dots i{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--accent)}
+.lc-dots i.on{background:var(--accent)}
+@media (max-width:600px){.lc-coach-a{width:100%}.lc-coach-go{flex:1}}
+.map-terr{position:absolute;top:10px;left:10px;z-index:2;margin:0;padding:4px 9px;border:1px solid var(--rule);border-radius:3px;background:var(--sheet);color:var(--ink-2);font:500 12px/1.3 var(--f-mono);pointer-events:none}
+.map-terr b{color:var(--ink);font-weight:700}
+.map-terr-d{margin-left:6px;color:var(--accent);font-weight:700}
+.map-wrap.is-full .map-terr{display:none}
+@media (prefers-reduced-motion:no-preference){.map-terr.up{animation:map-terr-up .9s cubic-bezier(.2,.7,.2,1)}.map-terr.up .map-terr-d{animation:map-terr-d 1.8s ease-out both}}
+@keyframes map-terr-up{0%{scale:1}25%{scale:1.18;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 30%,transparent)}100%{scale:1}}
+@keyframes map-terr-d{0%{opacity:0;translate:0 4px}20%{opacity:1;translate:0 0}75%{opacity:1}100%{opacity:0}}
+.toast-cf{position:absolute;left:50%;top:0;width:0;height:0;pointer-events:none}
+.toast-cf i{position:absolute;left:-3px;top:-4px;width:6px;height:9px;border-radius:1px;background:var(--c);opacity:0}
+@media (prefers-reduced-motion:no-preference){.toast-cf i{animation:toast-cf 1.3s cubic-bezier(.15,.6,.35,1) var(--d) both}}
+@keyframes toast-cf{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.6)}55%{opacity:1;transform:translate(var(--x),var(--y)) rotate(calc(var(--r)*.6)) scale(1)}100%{opacity:0;transform:translate(calc(var(--x)*1.15),calc(var(--y) + 70px)) rotate(var(--r)) scale(1)}}
 </style>
 
 <div id="app"></div>
@@ -15975,7 +15998,7 @@ function foundCityForm(T,st){
   if(!S.cityName)S.cityName=cityNameIdea(S.citySite);
   const miss=lacking(CITY_COST,st);
   return `<form class="found-city" id="city-form" novalidate>
-    <p class="muted">You can found ${lim-have} more ${lim-have===1?'city':'cities'}. Each costs ${costText(CITY_COST)}. Pick one of the best sites below, or select any hex of your land on the map.</p>
+    <p class="muted">You can found ${lim-have} more ${lim-have===1?'city':'cities'}. Each costs ${costText(CITY_COST)} and earns ${CITY_CREDITS} land credits. Pick one of the best sites below, or select any hex of your land on the map.</p>
     <div class="sites" role="radiogroup" aria-label="City site">${sites.map(c=>`<button type="button" class="site${c===S.citySite?' on':''}" role="radio" aria-checked="${c===S.citySite}" data-act="ct-site" data-c="${c}"><b>${esc(cap1(placePhrase(c).replace(/^in the |^on /,'')))}</b><span>${esc(siteCard(c,T,mi))}</span></button>`).join('')}</div>
     <div class="field" style="margin-top:14px"><label for="city-name">Name of the new city</label><div class="name-row"><input class="input" id="city-name" data-bind="ctname" value="${esc(S.cityName)}" maxlength="30" autocomplete="off"><button class="btn" type="submit"${miss.length?' disabled':''}>Found city</button></div>${miss.length?`<p class="hint" style="margin-top:6px">You need ${esc(list(miss))} more. Surplus collects in your stockpile every day.</p>`:''}</div>
   </form>`;
@@ -16349,7 +16372,7 @@ function gamesView(){
 const MILESTONES=[
   {p:5,t:'Township',c:0},
   {p:6,t:'Small State',c:2,b:['mine','harbour']},
-  {p:7,c:2,b:['hospital','barracks']},
+  {p:7,c:2,b:['hospital','barracks'],city:1},
   {p:8.5,t:'Nation',c:3,b:['university','factory'],city:1},
   {p:10,c:3,b:['oilwell','fortress'],war:1,alli:1},
   {p:12.5,c:4,city:1},
@@ -18245,7 +18268,7 @@ function releaseClaims(cells){
 function landHelp(n){
   const coast=geo(n,'coast'),navy=!!pol(n).navalFleet,rc=(n.rec||[]).length;
   return `<details class="lc-list lc-help" data-keep="lhOpen"${S.lhOpen?' open':''}><summary>More land, reclaimed land and a navy</summary>
-    <p><b>Land credits.</b> Your population earns them as it grows, and each milestone adds a few. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or an island shore reached by a completed coastal Harbour within four hexes.</p>
+    <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or an island shore reached by a completed coastal Harbour within four hexes.</p>
     <p><b>Reclaimed land</b> comes from decisions, not from a button or a building. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
     <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, and your troops cross the sea without losing strength. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
   </details>`;
@@ -18577,7 +18600,7 @@ function helpBody(n){
       <p>At set populations you reach milestones. They unlock buildings, more cities and bonus land credits, declaring war (at ${fp('war')}), founding alliances (at ${fp('alli')}) and bidding to host the Games (at ${fp('host')}). The Growth section of your Nation page lists them all.</p>`,
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
-    land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. You earn credits as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
+    land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} and every city you found earns ${CITY_CREDITS}. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
       <p>On the map, select a highlighted block next to your border or a marked island shore within harbour reach. A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 45 hexes of your capital and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
@@ -18649,6 +18672,13 @@ function foundHelpView(){
 /* Toasts queue up and let taps through. Each stays long enough to read (about 200 words a minute);
    when others are waiting it moves on once it has been read. */
 const TOASTQ={q:[],cur:null,t:null};
+/* a light burst of confetti for a toast worth celebrating, toast({m, cf:1}); none under reduced motion */
+function toastConfetti(){
+  const C=['var(--accent)','var(--stamp)','#e2b23a','#4f9d69','#d0644a','#5b7fc7'];let h='';
+  for(let i=0;i<18;i++){const a=i/18*Math.PI*2+0.3*Math.sin(i*7.1),r=50+(i*37)%50;
+    h+=`<i style="--x:${Math.round(Math.cos(a)*r*1.7)}px;--y:${Math.round(-Math.abs(Math.sin(a))*r-24)}px;--r:${(i*83)%360}deg;--d:${(i%6)*35}ms;--c:${C[i%C.length]}"></i>`;}
+  return '<span class="toast-cf" aria-hidden="true">'+h+'</span>';
+}
 function toastEl(){let el=document.getElementById('toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';el.setAttribute('role','status');el.setAttribute('aria-live','polite');el.hidden=true;document.body.appendChild(el);}return el;}
 function toastNext(){
   clearTimeout(TOASTQ.t);const el=toastEl(),now=Date.now(),c=TOASTQ.cur;
@@ -18656,7 +18686,7 @@ function toastNext(){
   if(!TOASTQ.q.length){el.hidden=true;el.classList.remove('more');return;}
   const item=TOASTQ.q.shift(),m=item.m,w=m.split(/\s+/).length;
   TOASTQ.cur={m,links:item.links,at:now,min:clamp(1200+w*300,2500,8000),full:clamp(2000+w*330,4000,12000)};
-  el.innerHTML='<span>'+esc(m)+'</span>'+rewardLinksHTML(item.links);el.classList.toggle('more',TOASTQ.q.length>0);el.hidden=false;
+  el.innerHTML='<span>'+esc(m)+'</span>'+rewardLinksHTML(item.links)+(item.cf?toastConfetti():'');el.classList.toggle('more',TOASTQ.q.length>0);el.hidden=false;
   TOASTQ.t=setTimeout(toastNext,TOASTQ.q.length?TOASTQ.cur.min:TOASTQ.cur.full);
 }
 
@@ -21092,6 +21122,10 @@ function mfxClaimGeo(ev,T,o){
     for(;;){const [x,y]=pts[pts.length-1],kk=key(x,y),nx=(at.get(kk)||[]).find(m=>!used[m]);if(nx===undefined)break;used[nx]=1;const q=segs[nx];pts.push(key(q[0],q[1])===kk?[q[2],q[3]]:[q[0],q[1]]);}
     let L=0;for(let j=1;j<pts.length;j++)L+=Math.hypot(pts[j][0]-pts[j-1][0],pts[j][1]-pts[j-1][1]);chains.push({pts,L});}
   ev.chains=chains;
+  /* your own claim: once the chain is drawn, the whole border pulses */
+  if(o!==undefined&&T.list[o].me&&typeof Path2D==='function'){const rim=new Path2D();
+    for(let i=0;i<MAP.N;i++){if(T.owner[i]!==o)continue;const x=MAP.cx[i],y=MAP.cy[i];for(let d=0;d<6;d++){const j=MAP.nbr[i*6+d];if(j>=0&&T.owner[j]===o)continue;const k=(d+1)%6;rim.moveTo(x+HCX[d]*HEX_R,y+HCY[d]*HEX_R);rim.lineTo(x+HCX[k]*HEX_R,y+HCY[k]*HEX_R);}}
+    ev.rim=rim;}
 }
 function mfxEvents(f,g,now,rm){
   g.setTransform(f.dpr*f.s,0,0,f.dpr*f.s,f.dpr*f.ox,f.dpr*f.oy);const s=f.s,col=f.col;g.lineJoin='round';g.lineCap='round';
@@ -21099,7 +21133,8 @@ function mfxEvents(f,g,now,rm){
     const u=(now-ev.t0)/1000;if(u<0)return true;
     if(rm){if(u>1.2)return false;g.globalAlpha=0.5*(1-u/1.2);g.beginPath();for(const c of ev.cells)hexFill(g,c,HEX_R);g.fillStyle=ev.col;g.fill();g.globalAlpha=1;return true;}
     if(ev.k==='claim'){
-      if(u>2.3)return false;
+      if(u>(ev.rim?2.6:2.3))return false;
+      if(ev.rim){const v=(u-1.3)/1.25;if(v>0&&v<1){const a=Math.sin(Math.PI*v);g.globalAlpha=0.8*a;g.strokeStyle=col.accent;g.lineWidth=(2+4.5*a)/s;g.stroke(ev.rim);g.globalAlpha=1;}}
       ev.cells.forEach((c,k)=>{const x=(u-0.6*ev.dist[k]/ev.md)/1.05;if(x<=0||x>=1)return;const a=x<0.14?mfxSm(0,0.14,x):1-mfxSm(0.3,1,x);g.beginPath();hexPath(g,c,HEX_R+0.4);g.globalAlpha=0.72*a;g.fillStyle=ev.col;g.fill();
         if(x<0.4){g.globalAlpha=0.55*(1-x/0.4);g.fillStyle=col.sheet;g.fill();}});
       const p=mfxSm(0,1,(u-0.1)/1.25),fa=u<1.55?1:Math.max(0,1-(u-1.55)/0.7);
@@ -35626,7 +35661,7 @@ function updatePreview(){clearTimeout(pvTimer);
   drawAllGuill();
 }
 function toast(msg){
-  const item={m:String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links:msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[]};
+  const item={m:String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links:msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[],cf:!!(msg&&typeof msg==='object'&&msg.cf)};
   if(!item.m)return;
   const same=x=>x&&x.m===item.m&&JSON.stringify(x.links)===JSON.stringify(item.links);
   if(same(TOASTQ.cur)||TOASTQ.q.some(same))return;
@@ -37772,6 +37807,114 @@ document.addEventListener('click',e=>{
     else{S.foundHelp=true;supReset();render();requestAnimationFrame(()=>{const section=document.getElementById('help-account-types');if(section){section.scrollIntoView({block:'start'});section.querySelector('h2').focus({preventScroll:true});}});}
   }
 });
+
+/* ───────── the first land: founding and city credits, the claim ceremony, and claims you can feel ─────────
+   A nation is founded with FOUND_CREDITS land credits (n.fdc: nations founded before them get theirs at their
+   next save, with a note), and every city it founds beyond the capital earns CITY_CREDITS more. n.ctc keeps the
+   most cities ever paid for, so a city abandoned and founded again, or left behind in a move, does not pay
+   twice. Both add to landEarned like the tutorial's credits.
+   Until a nation holds LC_FIRST claimed hexes, the map opens in claim mode: right after founding or settling,
+   and on each visit, the best block beside its border is picked, the claimable hexes pulse, and a card above
+   the map counts the credits waiting, with one button to claim. "Not now" puts the card away on this device.
+   Each claim of your own pulses the whole border, a counter on the map shows the territory, and in the first
+   hours after founding every third claimed hex earns a toast with a little confetti. */
+const FOUND_CREDITS=3,CITY_CREDITS=2,LC_FIRST=3,LC_SESSION=3*3600e3,LC_Z=10,LC_COACH_KEY='edictum.lccoach.v1';
+const LC={on:false,gone:'',seed:'',seen:-1,upAt:0,upBy:0};
+const lcFoundCredits=n=>n&&n.fdc===1?FOUND_CREDITS:0;
+const lcCityCredits=n=>n&&Number.isInteger(n.ctc)?n.ctc*CITY_CREDITS:0;
+landEarned=(f=>function(n){return f.apply(this,arguments)+lcFoundCredits(n)+lcCityCredits(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+lcFoundCredits(n)+lcCityCredits(n);})(earnedAt);
+NORM_HOOKS.push((n,d)=>{if(d&&d.fdc===1)n.fdc=1;if(d&&Number.isInteger(d.ctc)&&d.ctc>0&&d.ctc<MAX_CITIES)n.ctc=d.ctc;});
+const lcCities=n=>{const cap=cellOf(n&&n.loc);return n&&Array.isArray(n.cities)?n.cities.filter(c=>c&&c.c!==cap).length:0;};
+COMMIT_HOOKS.push((n,old)=>{
+  if(!n||n.npc||!n.name)return;const out=[];
+  if(n.fdc!==1){n.fdc=1;if(old&&old.name)out.push(`Every nation is now founded with ${FOUND_CREDITS} land credits, and ${n.name} has its ${FOUND_CREDITS}: spend them on the map.`);}
+  const had=Number.isInteger(n.ctc)?n.ctc:0,due=Math.min(MAX_CITIES-1,lcCities(n));
+  if(due>had){n.ctc=due;const k=due-had,c=n.cities[n.cities.length-1];
+    out.push(old&&old.name&&lcCities(old)>=due?`Every city founded now earns ${CITY_CREDITS} land credits: +${k*CITY_CREDITS} for the ${k===1?'city':k+' cities'} ${n.name} has founded. Spend them on the map.`
+      :`Founding ${c&&c.nm?c.nm:'a city'} earned ${k*CITY_CREDITS} land credits. Spend them on the map.`);}
+  return out;
+});
+
+/* ── the ceremony ── */
+const lcHeld=n=>new Set((n&&Array.isArray(n.claims)?n.claims:[]).filter(e=>e&&Number.isInteger(e.c)).map(e=>e.c)).size;
+function lcCoachGone(n){const sd=String(n.seed);if(LC.gone===sd)return true;try{const o=JSON.parse(localStorage.getItem(LC_COACH_KEY)||'null');return !!o&&o.s===sd;}catch(e){return false;}}
+function lcCeremony(n){
+  n=n||S.nation;if(!n||n.npc||S.mode==='readonly'||regBlocked()||cellOf(n.loc)<0||S.mpMode||lcHeld(n)>=LC_FIRST||lcCoachGone(n))return false;
+  return landCredits(n)>0;
+}
+/* the block that takes the most credits, nearest the capital */
+function lcBestBlock(T){
+  const mi=T.byId[myId()];if(mi===undefined)return null;const cap=T.list[mi].cap,cr=landCredits(S.nation);let best=null;
+  for(const b of claimableBlocks(T)){const plan=blockPlan(T,b);if(!plan.length)continue;const k=Math.min(plan.length,cr),d=hexDist(cap,plan[0]);
+    if(!best||k>best.k||k===best.k&&d<best.d)best={b,c:plan[0],k,d};}
+  return best;
+}
+function lcPick(force){
+  if(!lcCeremony()||!force&&(S.mapClaim||S.mapSel!=null||S.mapTarget!=null))return false;
+  const x=lcBestBlock(territory());if(!x)return false;
+  S.mapClaim={b:x.b,c:x.c};S.mapSel=null;S.mapCell=null;S.mapTarget=null;S.mapSite=null;S.mapInspect=null;
+  /* close enough that a hex is easy to tap, with the whole starting core still in view */
+  const v=S.mapViews&&S.mapViews.main;if(v){v.cx=MAP.cx[x.c];v.cy=MAP.cy[x.c];v.z=Math.max(v.z,LC_Z);}else centerMain(x.c,LC_Z);
+  return true;
+}
+function lcCoachHTML(){
+  const n=S.nation;LC.on=lcCeremony(n);if(!LC.on)return '';
+  const T=territory(),cr=landCredits(n),held=lcHeld(n),cl=S.mapClaim,k=cl?blockPlan(T,cl.b).slice(0,cr).length:0;
+  const tap=window.matchMedia&&matchMedia('(pointer: coarse)').matches?'Tap':'Click',unlock=pgNew(n)&&!pgAvailable(n,'map');
+  const dots=`<span class="lc-dots" aria-hidden="true">${Array.from({length:LC_FIRST},(x,i)=>`<i${i<held?' class="on"':''}></i>`).join('')}</span>`;
+  return `<section class="lc-coach" id="lc-coach" aria-labelledby="lc-coach-t"><div class="lc-coach-b"><p class="eyebrow">Land office</p>
+    <p class="lc-coach-t" id="lc-coach-t">You have <b>${cr}</b> land ${cr===1?'credit':'credits'} to spend. ${tap} any hex inside the dashed border to claim it.</p>
+    <p class="hint">${dots}${held} of ${LC_FIRST} hexes claimed.${unlock?' Three unlock expansion planning and transport on the map.':''}</p></div>
+    <div class="lc-coach-a">${k?`<button type="button" class="btn lc-coach-go" data-act="lc-block">Claim the ${k===1?'highlighted hex':k+' highlighted hexes'}</button>`:`<button type="button" class="btn lc-coach-go" data-act="lc-coach-pick">Show me the best land</button>`}<button type="button" class="linkish small" data-act="lc-coach-x">Not now</button></div></section>`;
+}
+worldMapView=(f=>function(){const h=f.apply(this,arguments),c=lcCoachHTML();return c?h.replace('<div class="map-layout',c+'<div class="map-layout'):h;})(worldMapView);
+updateMapPanel=(f=>function(){const r=f.apply(this,arguments),el=document.getElementById('lc-coach');
+  if(el){const h=lcCoachHTML(),had=document.activeElement&&el.contains(document.activeElement);if(!h)el.remove();else{el.outerHTML=h;if(had){const b=document.querySelector('#lc-coach .lc-coach-go');if(b)b.focus({preventScroll:true});}}}
+  return r;})(updateMapPanel);
+go=(f=>function(v){const r=f.apply(this,arguments);if(v==='map'&&lcPick()){updateMapPanel();redrawMaps();}return r;})(go);
+found=(f=>function(){const had=S.nation,r=f.apply(this,arguments);if(S.nation&&S.nation!==had&&lcCeremony())go('map');return r;})(found);
+settle=(f=>function(){const r=f.apply(this,arguments);if(S.view==='map'&&lcPick())render();return r;})(settle);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
+  if(a==='lc-coach-pick'){lcPick(true);updateMapPanel();redrawMaps();return;}
+  if(a==='lc-coach-x'){const sd=String(S.nation.seed);LC.gone=sd;try{localStorage.setItem(LC_COACH_KEY,JSON.stringify({s:sd}));}catch(err){}render();toast('The land card is put away. Claimable land stays highlighted on the map.');}
+});
+/* the claimable hexes breathe while the card is up */
+MAP_LAYERS.push({stage:'over',kinds:['main'],draw:M=>{M.cv._lcP=null;if(!LC.on||S.view!=='map'||typeof Path2D!=='function')return;
+  const P=new Path2D();let any=false;for(const b of claimableBlocks(M.T))for(const c of blockPlan(M.T,b))if(freeCell(M.T,c)){hexPath(P,c,HEX_R-0.6);any=true;}
+  if(any)M.cv._lcP=P;}});
+MFX_LAYERS.push({
+  busy:(f,rm)=>!rm&&f.kind==='main'&&LC.on&&S.view==='map'&&!!f.cv._lcP,
+  draw:(f,g,t,rm)=>{const P=f.cv._lcP;if(rm||f.kind!=='main'||!LC.on||S.view!=='map'||!P)return;
+    g.setTransform(f.dpr*f.s,0,0,f.dpr*f.s,f.dpr*f.ox,f.dpr*f.oy);g.globalAlpha=0.06+0.14*(0.5+0.5*Math.sin(t*2.8));g.fillStyle=f.col.accent;g.fill(P);}
+});
+
+/* ── the territory counter on the world map: it swells, with the hexes gained, when the land grows ── */
+function lcTerrChip(){
+  const n=S.nation;if(!n||cellOf(n.loc)<0)return '';const T=territory(),mi=T.byId[myId()];if(mi===undefined)return '';
+  const k=T.count[mi],sd=String(n.seed),now=performance.now();
+  if(LC.seed!==sd){LC.seed=sd;LC.seen=k;LC.upAt=0;}else if(k>LC.seen){LC.upBy=k-LC.seen;LC.upAt=now;LC.seen=k;}else if(k<LC.seen)LC.seen=k;
+  const up=now-LC.upAt<700;
+  return `<p class="map-terr${up?' up':''}">Territory: <b>${k}</b> ${k===1?'hex':'hexes'}${up?`<span class="map-terr-d">+${LC.upBy}</span>`:''}</p>`;
+}
+mapBox=(f=>function(kind){const h=f.apply(this,arguments);if(kind!=='main')return h;const c=lcTerrChip();return c?h.replace(/<\/div>$/,c+'</div>'):h;})(mapBox);
+
+/* ── every third hex in the first hours: a toast with a little confetti ── */
+const LC_CHEERS=[n=>`Your first three hexes! The surveyors of ${n.name} have framed the map.`,()=>'Six hexes claimed. The cartographers have asked for a bigger sheet of paper.',
+  ()=>'Nine hexes claimed. There is already a folk song about the far field.',()=>'Twelve hexes claimed. Boundary stones are now ordered by the cartload.',
+  ()=>'Fifteen hexes claimed. The Land office has run out of little flags and sent out for more.'];
+function lcCheer(n,a,b){
+  const k=Math.floor(b/LC_FIRST)*LC_FIRST;if(k<LC_FIRST||k<=a)return '';
+  if(a>=LC_FIRST&&!(Date.now()-(+n.founded||0)<LC_SESSION))return '';
+  const L=LC_CHEERS[k/LC_FIRST-1];return L?L(n):`${k} hexes claimed, and the map of ${n.name} keeps growing.`;
+}
+writeClaims=(f=>function(cells,msg,auto,plan){
+  const n0=S.nation,a=lcHeld(n0),r=f.call(this,cells,'',auto,plan);if(!r)return r;
+  const cheer=!auto&&S.nation&&S.nation!==n0?lcCheer(S.nation,a,lcHeld(S.nation)):'';
+  if(cheer)toast({m:(msg?msg+' ':'')+cheer,cf:1});else if(msg)toast(msg);
+  if(S.view==='map'&&lcPick()){updateMapPanel();redrawMaps();}
+  return r;
+})(writeClaims);
 
 
 /* ───────── boot ───────── */

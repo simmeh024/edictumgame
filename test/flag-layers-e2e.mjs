@@ -10,7 +10,7 @@ const save=async p=>{await p.click('#settings-form button[type="submit"]');if(!a
 const undo=(p,sc='s')=>p.click(`#${sc}-fg-undo`);
 const A=await player('flag layers desktop'),uid=await open(A);await A.waitForSelector('#d-name');
 check('founding keeps the base flag designer and defers layers',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
-await A.fill('#d-name','Layerland');await A.click('[data-act="found-suggest"]');await A.click('#found-btn');await A.waitForSelector('.layout');await A.click('[data-act="pg-charter"]');
+await A.fill('#d-name','Layerland');await A.click('[data-act="found-suggest"]');await A.click('#found-btn');await A.waitForSelector('.layout');await nav(A,'nation');await A.click('[data-act="pg-charter"]');
 await nav(A,'settings');await expand(A,'s');const original=await draft(A);await add(A,'s','stripe');await add(A,'s','emblem');
 check('finishing the charter reveals independent layers without changing the base flag',JSON.stringify(Object.fromEntries(Object.entries(await draft(A)).filter(([k])=>k!=='layers')))===JSON.stringify(original));
 check('earned symbols remain locked in the layer picker',await A.locator('#s-fgl-e option[value="e-eye"]').count()===0);
