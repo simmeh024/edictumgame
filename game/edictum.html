@@ -4201,6 +4201,12 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cz-g-m,.cz-g-pn{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .cz-mf{display:inline-block;max-width:100%;font-family:var(--f-display);font-style:italic;font-size:14px;line-height:1.3;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cz-pn{width:80px;height:60px;color:var(--ink)}
+/* the founding edict's map of three pins */
+.fd-map{margin:18px 0 6px}
+.fd-map .map-wrap{max-height:56vh}
+.fd-key{display:flex;flex-wrap:wrap;gap:4px 18px;margin:8px 0 0}
+.fd-key b{font-family:var(--f-display);color:var(--accent)}
+.fd-foot{flex-wrap:wrap;gap:10px}
 </style>
 
 <div id="app"></div>
@@ -36216,13 +36222,10 @@ function foundView(){
           <div class="qs">${QUESTIONS.map((q,i)=>`<div class="q"><p>${q.q}</p><div class="seg" role="radiogroup" aria-label="${esc(q.q)}">${['Disagree','Unsure','Agree'].map((l,j)=>`<button type="button" id="q${i}-${j}" role="radio" aria-checked="${d.answers[i]===j}" class="seg-b${d.answers[i]===j?' on':''}" data-act="answer-q" data-i="${i}" data-j="${j}">${l}</button>`).join('')}</div></div>`).join('')}</div>
           <p class="q-result">Your nation would be classed as: <b>${esc(cat)}</b>.</p>
         </fieldset>
-        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">V</span>Location<span class="fs-opt">Optional</span></legend>
+        <fieldset class="fs"><legend class="fs-l"><span class="fs-n">V</span>Region</legend>
           <div class="fr-loc"><p>Region: <b>${esc(REG.name)}</b> · ${esc(REG.short)}</p><button type="button" class="btn ghost" data-act="found-browse" aria-expanded="${!!S.frBrowse}">${S.frBrowse?'Close the region browser':'Browse regions'}</button></div>
           ${S.frBrowse?foundRegionBrowser():''}
-          <p class="muted" style="margin-bottom:14px">Pick the hex where your capital will stand. You start with the land round it and claim more with land credits as the population grows, so leave room from your neighbours. You can also skip this and choose later.</p>
-          ${mapBox('found','')}
-          <p class="loc-status" id="found-loc">${foundLocHTML()}</p>
-          <button type="button" class="btn ghost" data-act="found-suggest" style="margin-top:10px">Pick a spot for me</button>
+          <p class="muted">Where in ${esc(REG.name)} your capital stands is your first edict: three advisors, three pins on the map, one choice.</p>
         </fieldset>
         <div class="found-submit"><button class="btn big" type="submit" id="found-btn"${regDisabled(REG.id)?' disabled':''}><span>Found <span class="found-nm" id="found-name">${esc(foundNm(d))}</span></span></button><p class="hint found-legal">By founding a nation you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>. The <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> says what the game keeps about you.</p><p class="hint">Your first two edicts will be waiting on your desk. Later, in Settings, you can add your leader’s name, a national language, religion, sport, dish and anthem, choose your map colour, and pick which kinds of edict you get.</p></div>
       </form>
@@ -38853,6 +38856,139 @@ setInterval(()=>{
   if(n.npc||regBlocked()||S.mode==='readonly')return;
   if(n.ffb&&!n.ffb.p&&now>=n.ffb.d||n.name&&S.view==='issues'&&document.querySelector('.dd')&&(!n.dd||n.dd.d!==ddDay(now))){commit(clone(n));render();}
 },1000);
+
+/* ───────── the founding edict: where the capital will stand ─────────
+   The founding page asks only for the region. A new nation's first edict (FD_ID, at the top of its desk) is
+   where to put the capital: three advisors each stick a numbered pin in the map, by the sea, on farmland and in
+   the hills, and each answer settles the capital at its pin and moves the census like any other edict, so the
+   first decision also shows how edicts work. The wording follows the type of state (fdFam): a kingdom's
+   courtiers, a people's republic's committees and a borough's councillors argue the same three cases in their
+   own voices. "Three other places" draws three more pins; "Choose a spot yourself" opens the map. If the nation
+   settles some other way, the edict leaves the desk unanswered. It is appended to ISSUES here, after the
+   catalogue is numbered, so no other edict's number moves. */
+const FD_ID='fd-settle',FD_KIND=['By the sea','On farmland','In the hills'];
+const FD_FX=['{CAP} rises by the sea, and its first harbour fine has already gone to a seagull','{CAP} rises among the fields, and its first harvest festival is already in the calendar','{CAP} rises in the hills, and every map of {N} now has very serious contour lines'];
+const FD_TEXT={
+  rep:{t:'The Provisional Committee on Where to Stand',
+    q:'{N} has a constitution, a flag and a filing cabinet, but nowhere to put any of them. The Provisional Committee has spread a map across a borrowed ping-pong table and stuck three pins in it. Nobody may leave until a site for {CAP} is chosen, and the sandwiches are running out.',
+    o:['“The sea is free trade with waves,” says shipping clerk Ottoline Marsh, tapping pin I on the coast of {P1}. “Put {CAP} by the water. Ships will come, money will follow, and the seagulls can be taxed later.”',
+      '“You can’t eat a constitution,” says farmer Bertram Oakes, leaning on pin II in the good soil of {P2}. “Build {CAP} where the wheat grows tall. A fed republic is a happy republic.”',
+      '“High ground wins arguments,” says retired colonel Agnes Strake, pressing pin III into the hills of {P3}. “Put {CAP} on a hill. Nobody invades uphill. Not twice.”']},
+  crn:{t:'Where Shall the Throne Be Set Down?',
+    q:'The throne of {N} has been carried about on a cart for three days, and the porters have filed a complaint. The Lord Chamberlain has unrolled the royal map, three courtiers have each stuck a pin in it, and the Crown must choose where the palace will stand.',
+    o:['“A palace by the sea, Your Majesty,” purrs Admiral Lord Fennimore, pointing to pin I on the coast of {P1}. “Royal yachts, royal oysters, royal trade. And the view from the balcony is simply majestic.”',
+      '“Your loyal subjects grow the finest turnips on the plains of {P2},” says the Master of the Royal Larder, beside pin II. “Set the throne among the fields and the banquets will never run short.”',
+      '“A castle belongs on a hill,” insists Sir Gideon of the Battlements, planting pin III in the hills of {P3} and already drawing moats in the margin. “Walls, towers, and a very long staircase for the enemy.”']},
+  imp:{t:'The Seat of the Eternal Empire, Wherever That Is',
+    q:'The Empire of {N} is eternal, glorious and, as of this morning, homeless. The imperial map has been unrolled across three tables, and three generals have planted three gilded pins, each certain that history will agree with them.',
+    o:['“An empire is built on sea lanes,” declares Grand Admiral Octavia Vane, saluting pin I on the coast of {P1}. “Raise the imperial capital at the water’s edge and the world will sail to us, bearing tribute.”',
+      '“Armies march on their stomachs,” says Quartermaster-General Pell, nudging pin II onto the granaries of {P2}. “Raise {CAP} among the fields and no legion of ours will ever go hungry.”',
+      '“The capital must look down on everything,” says Marshal Drago Kessel, driving pin III into the hills of {P3} with unnecessary force. “Especially on our enemies. And on the admirals.”']},
+  sul:{t:'The Divan Considers a Spot for the Palace',
+    q:'The Divan of {N} has met in a tent for three days, and the tent is complaining. The Grand Vizier has laid out a silk map with three jewelled pins, and the throne must decide where the palace, the bazaar and the very large fountain will go.',
+    o:['“The sea brings the caravans of the waves,” says the Master of the Bazaar, stroking pin I on the coast of {P1}. “Build by the harbour and every merchant in the world will haggle at our gates.”',
+      '“Gardens, Majesty,” sighs the Keeper of the Royal Orchards, pointing to pin II on the fertile plains of {P2}. “Pomegranates, roses and fountains. A palace should smell of fruit, not of fish.”',
+      '“A fortress on the heights,” says the Agha of the Guard, his hand on pin III in the hills of {P3}. “From the walls we will see an enemy three days before he sees us, and fire the cannon twice for luck.”']},
+  the:{t:'Where the Holy Pigeons Landed',
+    q:'The Holy Synod of {N} prayed for a sign of where to build the holy city. Three signs arrived at once. Three priests now stand before a map, each holding a pin and a pigeon, and each insisting that theirs is the true one.',
+    o:['“The fish came to me in a dream,” says Brother Anselm, placing pin I on the coast of {P1}. “Build {CAP} by the sea, where the faithful may fish on fast days and the sinners may be ferried away.”',
+      '“Blessed are the fields,” intones Mother Hildegard, setting pin II in the farmland of {P2}. “Harvest festivals, bread for the poor and wine for the sacrament. Mostly for the sacrament.”',
+      '“The mountain is closer to heaven,” whispers Father Basil, pointing to pin III in the hills of {P3}. “The climb is long and the pilgrims will complain, but complaining is good for the soul.”']},
+  peo:{t:'The Five-Minute Plan for a Capital',
+    q:'The People’s Congress of {N} has adopted a Five-Year Plan, but it needs somewhere to keep it. Three committees have each produced a report, a pin and a slogan. A site for {CAP} must be chosen before the next tea break, as decreed.',
+    o:['“Workers of the docks, unite!” cries Comrade Ivo Brandt, pinning I to the coast of {P1}. “A port city exports the revolution, imports bananas and keeps the shipyards busy fulfilling the quota.”',
+      '“Grain is the people’s gold,” says Comrade Lida Vosk of the Agricultural Collective, pinning II to the plains of {P2}. “Build {CAP} among the collective farms, and the bread queues will be short and cheerful.”',
+      '“Iron for the people!” declares Comrade Engineer Petrov, pinning III to the hills of {P3}. “Build {CAP} beside the ore, and every citizen will have a shovel by spring.”']},
+  col:{t:'The Governor’s Survey',
+    q:'The Governor of {N} has arrived with a pith helmet, a rolled map and very little idea where anything is. Three surveyors have each placed a pin on the map, and each has sent a strongly worded memorandum.',
+    o:['“The coast, Governor,” says Harbourmaster Quint, tapping pin I on the shore of {P1}. “Ships from home can unload the tea, the post and the next Governor without anyone having to wade.”',
+      '“The plains of {P2} are uncommonly fertile,” writes the Colonial Agronomist beside pin II, enclosing a soil sample with the memorandum. “Build {CAP} there and the colony will feed itself, and possibly the Governor.”',
+      '“The hills of {P3} are cooler,” says Surveyor Fitch at pin III, mopping his brow. “Better air, better defences and fewer mosquitoes. The Governor’s complexion will thank us.”']},
+  bor:{t:'Where to Put the Town Hall',
+    q:'The Borough Council of {N} has a mayor, a chain of office and a very nice ribbon, but nowhere to cut it. Three councillors have each stuck a pin in the map, and the meeting has overrun by four hours.',
+    o:['“A seaside borough!” says Councillor Mabel Prout, pinning I to the seafront of {P1}. “A pier, a bandstand and ice cream. The tourists will pay for the bins.”',
+      '“Allotments,” says Councillor Derek Hume firmly, pinning II to the fields of {P2}. “Every resident gets a vegetable patch. We will win the regional marrow competition by spring.”',
+      '“The hill has the best view,” says Councillor Ruth Ames, pinning III to the high ground of {P3}. “And nobody can ever build a car park above us.”']}
+};
+ISSUES.push({id:FD_ID,c:'gov',fo:1,t:'{FDT}',q:'{FDQ}',o:[{t:'{FD1}',e:{econ:3,tour:3,wealth:1},fx:'{FDX1}'},{t:'{FD2}',e:{health:2,happy:3,env:2},fx:'{FDX2}'},{t:'{FD3}',e:{safety:3,mil:3,cons:1},fx:'{FDX3}'}]});
+{const is=ISSUES[ISSUES.length-1];is.no=ISSUES.length;ISSUE_BY_ID[FD_ID]=is;}
+/* the type of state, in the families chamberOf() speaks in */
+function fdFam(n){
+  const pt=String((n&&n.pretitle)||''),L=String((n&&n.leader)||'').trim();
+  if(['Empire','Holy Empire','Tsardom'].includes(pt))return 'imp';if(['Sultanate','Emirate'].includes(pt))return 'sul';
+  if(pt==='Theocracy')return 'the';if(pt==='People’s Republic')return 'peo';if(['Protectorate','Colony','Dominion'].includes(pt))return 'col';
+  if(pt==='Borough')return 'bor';if(MONARCH_PRE.includes(pt)||MONARCH_LEADER.test(L))return 'crn';return 'rep';
+}
+fill=(f=>function(t,n,x){
+  if(typeof t==='string'&&n&&t.indexOf('{FD')>=0){const T=FD_TEXT[fdFam(n)],s=(S.fdSites&&S.fdSites.cells)||[];
+    t=t.replace(/\{FD(T|Q|[123]|X[123])\}/g,(m,k)=>k==='T'?T.t:k==='Q'?T.q:k[0]==='X'?FD_FX[+k[1]-1]:T.o[+k-1]).replace(/\{P([123])\}/g,(m,k)=>{const c=s[+k-1];return c>=0?landName(c):'the map';});}
+  return f.call(this,t,n,x);})(fill);
+/* three free sites near one another: a coast, the best farmland and hills, each clear of other capitals */
+function fdRing(i){const out=[i],seen=new Set(out);for(let r=0;r<2;r++)for(const a of out.slice()){for(let d=0;d<6;d++){const b=MAP.nbr[a*6+d];if(b>=0&&!seen.has(b)){seen.add(b);out.push(b);}}}return out;}
+function fdSites(n,T){
+  const key=String(n.seed)+':'+(S.fdRoll||0),old=S.fdSites;
+  if(old&&old.key===key&&old.cells.every(c=>c>=0&&!pickProblem(c,T)))return old.cells;
+  const r=rng(hash(key+':fd')),caps=T.list.filter(x=>!x.me&&x.id!=='draft').map(x=>x.cap),cand=[];
+  for(let i=0;i<MAP.N;i++){
+    if(MAP.T[i]<2||MAP.T[i]===4||T.owner[i]>=0)continue;const k=MAP.comp[i];if(k<0||MAP.comps[k].size<40)continue;
+    let d=1e9;for(const q of caps){const h=hexDist(i,q);if(h<d)d=h;}if(d<MIN_CAP_DIST+3)continue;
+    let food=0,hill=0,iron=0;for(const c of fdRing(i)){if(MAP.T[c]<2)continue;food+=CELL_RES.food[c];iron+=CELL_RES.iron[c];if(MAP.T[c]>=3)hill++;}
+    cand.push({i,sp:Math.min(d,14),coast:isCoastal(i),food,hill,iron,j:r()*4});
+  }
+  const SC=[x=>x.coast?x.food*0.6+x.sp+x.j:-1e9,x=>x.food*1.2+x.sp+x.j,x=>x.hill>=3?x.hill*3+x.iron*2+x.sp+x.j:-1e9];
+  const cells=[];
+  for(const [s,score] of SC.entries()){
+    const ok=(x,far)=>!cells.some(c=>hexDist(c,x.i)<6)&&(!cells.length||hexDist(cells[0],x.i)<=far),sorted=cand.slice().sort((a,b)=>score(b)-score(a));
+    let got=-1;for(const far of [22,40,1e9]){for(const x of sorted){if(score(x)<=-1e9&&far<1e9)break;if(ok(x,far)&&!pickProblem(x.i,T)){got=x.i;break;}}if(got>=0)break;}
+    cells[s]=got;
+  }
+  S.fdSites={key,cells};
+  const on=cells.filter(c=>c>=0);
+  if(on.length){const xs=on.map(c=>MAP.cx[c]),ys=on.map(c=>MAP.cy[c]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+    if(!S.mapViews)S.mapViews={};S.mapViews.found={z:clamp(0.8*Math.min(MAP.W/(x1-x0+14*HEX_W),MAP.H/(y1-y0+14*HEX_R)),2,7),cx:(x0+x1)/2,cy:(y0+y1)/2};}
+  return cells;
+}
+/* the edict, with its map between the matter and the speeches, and its own way out instead of a veto */
+issueView=(f=>function(v){
+  const n=S.nation;if(S.openIssue!==FD_ID||!n||cellOf(n.loc)>=0)return f.apply(this,arguments);
+  const cells=fdSites(n,territory()),key=FD_KIND.map((l,i)=>`<span><b>${roman(i+1)}</b> ${esc(l)}${cells[i]>=0?' · '+esc(landName(cells[i])):''}</span>`).join('');
+  return f.apply(this,arguments)
+    .replace(/(<p class="issue-q">[\s\S]*?<\/p>)/,`$1<div class="fd-map">${mapBox('found','')}<p class="hint fd-key">${key}</p></div>`)
+    .replace(/<div class="issue-foot">[\s\S]*?<\/div>/,`<div class="issue-foot fd-foot"><button type="button" class="btn ghost" data-act="fd-reroll">Three other places</button><button type="button" class="btn ghost" data-act="fd-own">Choose a spot yourself</button><span class="hint">The capital’s place is permanent. The land around it grows with land credits.</span></div>`);
+})(issueView);
+MAP_LAYERS.push({stage:'top',kinds:['found'],draw:M=>{
+  if(!S.nation||S.openIssue!==FD_ID||!S.fdSites)return;const g=M.g;g.textAlign='center';g.textBaseline='alphabetic';
+  S.fdSites.cells.forEach((c,k)=>{if(c<0)return;const [x,y]=M.scr(c);if(M.off(x,y))return;drawPin(g,x,y,M.col);g.font='700 14px '+MAP_FONT;mfxLabel(g,roman(k+1),x,y-24,M.col,3);});
+}});
+MAP_CLICK.push(ctx=>{
+  if(ctx.kind!=='found'||!S.nation)return false;const k=((S.fdSites&&S.fdSites.cells)||[]).findIndex(c=>c>=0&&ctx.cell>=0&&hexDist(c,ctx.cell)<=1);
+  if(k>=0){const b=document.querySelector(`[data-act="answer"][data-id="${FD_ID}"][data-o="${k}"]`);if(b){b.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});b.focus({preventScroll:true});}}
+  return true;
+});
+mapFsBar=(f=>function(kind){return kind==='found'&&S.nation?`<div class="map-fs-bar"><p class="map-fs-t">Three places for ${esc(S.nation.capital)}</p><button type="button" class="btn small" data-act="map-fs-close">Done</button></div>`:f.apply(this,arguments);})(mapFsBar);
+/* an answer settles the capital at its pin, if the pin is still free */
+answer=(f=>function(id,o){
+  const n0=S.nation;if(id!==FD_ID||!n0||cellOf(n0.loc)>=0)return f.apply(this,arguments);
+  const T=territory(),c=fdSites(n0,T)[o];
+  if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled near that pin. The advisors have moved their pins: choose again.');return;}
+  const r=f.apply(this,arguments);S.mapPick=c;settle();return r;
+})(answer);
+resultView=(f=>function(){const h=f.apply(this,arguments);return S.result&&S.result.id===FD_ID&&S.nation?h.replace('<div class="row">',`<div class="row"><button class="btn" data-act="go" data-v="map">See ${esc(S.nation.name)} on the map</button>`).replace('<button class="btn" data-act="open"','<button class="btn ghost" data-act="open"'):h;})(resultView);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
+  if(a==='fd-reroll'){S.fdRoll=(S.fdRoll||0)+1;S.fdSites=null;render();return;}
+  if(a==='fd-own'){go('map');return;}
+});
+/* founding puts the edict at the top of the desk and opens it; settling some other way takes it off */
+COMMIT_HOOKS.push((n,old)=>{
+  if(!n||n.npc||!Array.isArray(n.inbox))return;const has=n.inbox.some(x=>x.id===FD_ID),placed=cellOf(n.loc)>=0;
+  if(!old&&!has&&!placed&&!(n.answered||[]).length)n.inbox=[{id:FD_ID,at:(+n.founded||Date.now())-1}].concat(n.inbox).slice(0,CAP);
+  else if(has&&placed)n.inbox=n.inbox.filter(x=>x.id!==FD_ID);
+});
+found=(f=>function(){
+  const had=S.nation,r=f.apply(this,arguments),n=S.nation;
+  if(n&&n!==had&&cellOf(n.loc)<0){const x=n.inbox.find(e=>e.id===FD_ID);if(x){go('issues');edictOpen(FD_ID,x.at);}}
+  return r;
+})(found);
 
 
 /* ───────── boot ───────── */

@@ -80,12 +80,14 @@ export function ready(p) { return p.evaluate(() => window.claude.use('user').the
 export async function found(p, name, {newPlayer=false} = {}) {
   await p.waitForSelector('#d-name');
   await p.fill('#d-name', name);
-  await p.click('[data-act="found-suggest"]');
   await p.click('#found-btn');
   await p.waitForSelector('.layout', { timeout: 10000 });
   await sleep(400);
-  if(!newPlayer)await establish(p);
+  if(!newPlayer){await settle(p);await establish(p);}
 }
+// Founding leaves the capital's place to the first edict; the established-nation suites settle at once on the map
+// instead (which takes that edict off the desk unanswered), so their nations start as they always have.
+export async function settle(p){await nav(p,'map');await p.click('[data-act="map-suggest"]');await p.click('[data-act="settle"]');await p.waitForFunction(()=>!G.S.nation.inbox.some(x=>x.id==='fd-settle'));}
 // Existing suites exercise established nations; the onboarding suite keeps the new-player record.
 // Founding opens the map to claim the first land; these suites start from the Nation page, as before.
 export async function establish(p){await p.evaluate(()=>{if(!G.S.nation?.onb)return;const n=G.clone(G.S.nation);delete n.onb;G.commit(n);G.PG.saveSoon();G.render();});if(await p.evaluate(()=>G.S.view==='map'))await nav(p,'nation');}

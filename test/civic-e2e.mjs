@@ -1,5 +1,5 @@
 import path from 'node:path';
-import {BASE,OUT,FS_HOST,PROJECT,check,finish,until,player,open,ready,found,openAccount,text,nav,googlePopup,nationDoc,clearEmulators} from './lib.mjs';
+import {BASE,OUT,FS_HOST,PROJECT,check,finish,until,player,open,ready,found,openAccount,text,nav,googlePopup,nationDoc,clearEmulators,settle} from './lib.mjs';
 await clearEmulators();
 const A=await player('Guest recovery',{recovery:true}), uid=await open(A);
 await openAccount(A);
@@ -71,6 +71,7 @@ await nav(A,'region');
 check('community topics explain the registration requirement at the action',await until(async()=>/Registered Nation/.test(await text(A,'[data-account-action="topic"]'))));
 await nav(A,'diplomacy');
 check('alliance founding explains the separate registration requirement',await A.locator('#al-form button[type="submit"]').isDisabled()&&/Registered Nation/.test(await text(A,'[data-account-action="alliance"]')));
+await settle(A); // war needs a capital; founding left its place to the first edict
 const D=await player('Guest neighbour');const other=await open(D);await found(D,'Nearhaven');
 await until(()=>A.evaluate(id=>G.allNations().some(x=>x.id===id),other));
 await A.evaluate(id=>{G.S.visit=id;G.S.view='visit';G.render();},other);
