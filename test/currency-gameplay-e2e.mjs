@@ -63,8 +63,11 @@ const attackAt=Date.now()-60000, forged={id:'counterfeit',k:'c',tg:uidD,tn:'Note
 const victim=await localNation(D),attacker=await localNation(C);
 while(!counterfeitsOf(new Map([[uidC,{...attacker,cov:[forged]}],[uidD,victim]]),Date.now(),'meridian').has(uidD))forged.id+='a';
 await C.evaluate(op=>{const n=G.clone(G.S.nation);n.cov=[op,{...op,id:op.id+'b'}];G.commit(n);G.render();},forged);
-await nav(D,'exchange');
-check('the victim sees a bounded 4% verification premium when the operation reaches the region',await until(async()=>/Verification adds 4%/.test(await text(D,'.cu-connections'))));
+// The victim learns of it from the attacker's next save, which a busy runner can delay past the default wait,
+// and the Bureau shows it on its next draw: wait for the save, then revisit the page as it arrives.
+check('the victim sees a bounded 4% verification premium when the operation reaches the region',
+  await until(async()=>(await nationDoc(uidC))?.rec.cov?.some(o=>o.id===forged.id),20000)
+  &&await until(async()=>{await nav(D,'exchange');return /Verification adds 4%/.test(await text(D,'.cu-connections'));},20000));
 await nav(D,'trade');await D.selectOption('#tr-w',uidC);
 check('currency trouble affects new trade quotes visibly',/counterfeit checks/.test(await text(D,'#deal-preview')));
 check('existing resource contract quantities survive the incident',(await localNation(D)).deals.some(x=>x.w===uidC&&x.g[1]===1&&x.r[1]===2));
