@@ -36301,12 +36301,13 @@ function render(){if(fxRender())return;
   let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
   if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
   const uxPlan=uxPrepare(rewardJump);
-  const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null;
+  /* a heading focused by a jump (tabindex -1) keeps its focus when the page is drawn again */
+  const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null,fidTab=fidFocus&&ae.getAttribute('tabindex')==='-1';
   let sel=null;try{if(fidFocus&&typeof ae.selectionStart==='number')sel=[ae.selectionStart,ae.selectionEnd];}catch(e){}
   const navK=navBefore();
   document.getElementById('app').innerHTML=S.nation?shell():foundView();
   navAfter(navK);
-  if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
+  if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
   drawAllGuill();
   initMaps();
   const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
@@ -38274,7 +38275,7 @@ HELP_EXT.push({k:'warehouses',t:'Warehouses and resource storage',body:()=>'<p>Y
 
 
 /* ── navigation memory, search, long-page sections and actionable requirements ── */
-const UXP={scope:'',route:'',entry:'',data:{pages:{},entries:{},folds:{}},snapshot:null,pop:false,pending:null,generation:0,restoring:false,saveTimer:null,resource:null};
+const UXP={scope:'',route:'',entry:'',data:{pages:{},entries:{},folds:{}},snapshot:null,pop:false,pending:null,generation:0,restoring:false,saveTimer:null,resource:null,hold:0};
 const UX_FIELDS={issues:['edictTopic','edictState'],stats:['statsTab','statsFor'],census:['censusKey'],cities:['cityOpen','citySite'],map:['mapViews','mapCell','mapSel'],museum:['muHall','colF','museumFor','colDetail'],achievements:['achCat','achF','achFor'],region:['regSort','rSort'],provinces:['prvSort']};
 function uxScope(){if(!S.nation)return '';let uid=S.uid;try{if(!uid)uid=localStorage.getItem('edictum.uid');}catch(e){}return String(uid&&uid!=='-'?uid:'local')+':'+S.nation.seed+':'+S.nation.founded+':'+REG.id;}
 function uxKey(){return S.view+(S.view==='visit'?':'+(S.visit||''):S.view==='issues'?':'+(S.result?'result':S.openIssue||'list'):'');}
@@ -38345,9 +38346,21 @@ function uxJump(target){
   for(let p=el;p&&p!==document.body;p=p.parentElement){if(p.tagName==='DETAILS'){p.open=true;UXP.data.folds[uxDetailKey(p)]=false;nativeChanged=true;}if(p.classList?.contains('ux-folded'))uxFold(p,false);}if(nativeChanged)uxPersist();
   /* Entrance animations translate the column and its cards. Scroll to their layout position so
      the target stays below the sticky navigation after those cosmetic translations finish. */
-  let top=0;for(let node=el;node;node=node.offsetParent)top+=node.offsetTop+(node.offsetParent?.clientTop||0);
-  const offset=navNarrow()?145:75,y=Number.isFinite(top)?top-offset:el.getBoundingClientRect().top+window.scrollY-offset;window.scrollTo({top:Math.max(0,y),behavior:'instant'});
-  if(!/^(INPUT|SELECT|BUTTON|A)$/.test(el.tagName))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});return true;
+  const y=uxJumpY(el);window.scrollTo({top:y,left:0,behavior:'instant'});
+  if(!/^(INPUT|SELECT|BUTTON|A)$/.test(el.tagName))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});uxHold(el,typeof target==='string'?target:'');return true;
+}
+function uxJumpY(el){let top=0;for(let node=el;node;node=node.offsetParent)top+=node.offsetTop+(node.offsetParent?.clientTop||0);
+  const offset=navNarrow()?145:75;return Math.max(0,Number.isFinite(top)?top-offset:el.getBoundingClientRect().top+window.scrollY-offset);}
+/* The page can still move under a jump for a moment: a save draws it again, a section gains its fold control, a
+   font arrives. Until the reader scrolls, keep the target where the jump put it, and focused. */
+function uxHold(el,sel){
+  const gen=++UXP.hold,id=el.id;let y=window.scrollY;
+  for(const t of [60,160,360,700,1200])setTimeout(()=>{
+    if(gen!==UXP.hold||Math.abs(window.scrollY-y)>1)return;
+    const cur=el.isConnected?el:(id&&document.getElementById(id))||(sel&&document.querySelector(sel));if(!cur)return;
+    const want=uxJumpY(cur);if(Math.abs(want-window.scrollY)>1){window.scrollTo({top:want,left:0,behavior:'instant'});y=window.scrollY;}
+    if(cur!==document.activeElement&&(!document.activeElement||document.activeElement===document.body)){if(!/^(INPUT|SELECT|BUTTON|A)$/.test(cur.tagName))cur.setAttribute('tabindex','-1');cur.focus({preventScroll:true});}
+  },t);
 }
 const UX_SETTINGS=[
   {v:'focus:currency',l:'Currency designer',g:'Design',words:'money banknote coin notes currency symbol code',view:'customise',target:'#cz-sec-c'},
