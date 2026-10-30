@@ -4,7 +4,8 @@ import { HttpsError } from 'firebase-functions/v2/https';
 
 export const DAY = 86400000;
 export const regionMessage = control => control.get('mode') === 'coming_soon' ? 'This region is coming soon. Please check back later.' : 'Current region is disabled and undergoing maintainance, check back soon.';
-export const registered = user => user.providerData.some(p => p.providerId !== 'password' || user.emailVerified);
+// A linked Discord account is a custom claim (functions/discord.js), not a provider Firebase knows.
+export const registered = user => !!user.customClaims?.dc || user.providerData.some(p => p.providerId !== 'password' || user.emailVerified);
 export const nationJSON = snap => { try { return snap.exists ? JSON.parse(snap.get('j')) : {}; } catch { return {}; } };
 export function refuse(code, message) { throw new HttpsError('failed-precondition', message, { code }); }
 export async function identity(uid) {
