@@ -36377,12 +36377,13 @@ function render(){if(fxRender())return;
   let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
   if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
   const uxPlan=uxPrepare(rewardJump);
-  const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null;
+  /* a heading focused by a jump (tabindex -1) keeps its focus when the page is drawn again */
+  const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null,fidTab=fidFocus&&ae.getAttribute('tabindex')==='-1';
   let sel=null;try{if(fidFocus&&typeof ae.selectionStart==='number')sel=[ae.selectionStart,ae.selectionEnd];}catch(e){}
   const navK=navBefore();
   document.getElementById('app').innerHTML=S.nation?shell():foundView();
   navAfter(navK);
-  if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
+  if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
   drawAllGuill();
   initMaps();
   const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
@@ -38350,7 +38351,7 @@ HELP_EXT.push({k:'warehouses',t:'Warehouses and resource storage',body:()=>'<p>Y
 
 
 /* ── navigation memory, search, long-page sections and actionable requirements ── */
-const UXP={scope:'',route:'',entry:'',data:{pages:{},entries:{},folds:{}},snapshot:null,pop:false,pending:null,generation:0,restoring:false,saveTimer:null,resource:null};
+const UXP={scope:'',route:'',entry:'',data:{pages:{},entries:{},folds:{}},snapshot:null,pop:false,pending:null,generation:0,restoring:false,saveTimer:null,resource:null,hold:0};
 const UX_FIELDS={issues:['edictTopic','edictState'],stats:['statsTab','statsFor'],census:['censusKey'],cities:['cityOpen','citySite'],map:['mapViews','mapCell','mapSel'],museum:['muHall','colF','museumFor','colDetail'],achievements:['achCat','achF','achFor'],region:['regSort','rSort'],provinces:['prvSort']};
 function uxScope(){if(!S.nation)return '';let uid=S.uid;try{if(!uid)uid=localStorage.getItem('edictum.uid');}catch(e){}return String(uid&&uid!=='-'?uid:'local')+':'+S.nation.seed+':'+S.nation.founded+':'+REG.id;}
 function uxKey(){return S.view+(S.view==='visit'?':'+(S.visit||''):S.view==='issues'?':'+(S.result?'result':S.openIssue||'list'):'');}
@@ -38421,9 +38422,21 @@ function uxJump(target){
   for(let p=el;p&&p!==document.body;p=p.parentElement){if(p.tagName==='DETAILS'){p.open=true;UXP.data.folds[uxDetailKey(p)]=false;nativeChanged=true;}if(p.classList?.contains('ux-folded'))uxFold(p,false);}if(nativeChanged)uxPersist();
   /* Entrance animations translate the column and its cards. Scroll to their layout position so
      the target stays below the sticky navigation after those cosmetic translations finish. */
-  let top=0;for(let node=el;node;node=node.offsetParent)top+=node.offsetTop+(node.offsetParent?.clientTop||0);
-  const offset=navNarrow()?145:75,y=Number.isFinite(top)?top-offset:el.getBoundingClientRect().top+window.scrollY-offset;window.scrollTo({top:Math.max(0,y),behavior:'instant'});
-  if(!/^(INPUT|SELECT|BUTTON|A)$/.test(el.tagName))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});return true;
+  const y=uxJumpY(el);window.scrollTo({top:y,left:0,behavior:'instant'});
+  if(!/^(INPUT|SELECT|BUTTON|A)$/.test(el.tagName))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});uxHold(el,typeof target==='string'?target:'');return true;
+}
+function uxJumpY(el){let top=0;for(let node=el;node;node=node.offsetParent)top+=node.offsetTop+(node.offsetParent?.clientTop||0);
+  const offset=navNarrow()?145:75;return Math.max(0,Number.isFinite(top)?top-offset:el.getBoundingClientRect().top+window.scrollY-offset);}
+/* The page can still move under a jump for a moment: a save draws it again, a section gains its fold control, a
+   font arrives. Until the reader scrolls, keep the target where the jump put it, and focused. */
+function uxHold(el,sel){
+  const gen=++UXP.hold,id=el.id;let y=window.scrollY;
+  for(const t of [60,160,360,700,1200])setTimeout(()=>{
+    if(gen!==UXP.hold||Math.abs(window.scrollY-y)>1)return;
+    const cur=el.isConnected?el:(id&&document.getElementById(id))||(sel&&document.querySelector(sel));if(!cur)return;
+    const want=uxJumpY(cur);if(Math.abs(want-window.scrollY)>1){window.scrollTo({top:want,left:0,behavior:'instant'});y=window.scrollY;}
+    if(cur!==document.activeElement&&(!document.activeElement||document.activeElement===document.body)){if(!/^(INPUT|SELECT|BUTTON|A)$/.test(cur.tagName))cur.setAttribute('tabindex','-1');cur.focus({preventScroll:true});}
+  },t);
 }
 const UX_SETTINGS=[
   {v:'focus:currency',l:'Currency designer',g:'Design',words:'money banknote coin notes currency symbol code',view:'customise',target:'#cz-sec-c'},
@@ -39012,10 +39025,12 @@ function fdSites(n,T){
     cand.push({i,sp:Math.min(d,14),coast:isCoastal(i),food,hill,iron,j:r()*4});
   }
   const SC=[x=>x.coast?x.food*0.6+x.sp+x.j:-1e9,x=>x.food*1.2+x.sp+x.j,x=>x.hill>=3?x.hill*3+x.iron*2+x.sp+x.j:-1e9];
-  const cells=[];
+  /* other places: a re-draw keeps clear of the places already offered (the jitter alone can draw the same
+     three again), unless nothing else will do */
+  const cells=[],seen=S.fdRoll?(S.fdSeen||[]):[],near=i=>seen.some(c=>hexDist(c,i)<4);
   for(const [s,score] of SC.entries()){
     const ok=(x,far)=>!cells.some(c=>hexDist(c,x.i)<6)&&(!cells.length||hexDist(cells[0],x.i)<=far),sorted=cand.slice().sort((a,b)=>score(b)-score(a));
-    let got=-1;for(const far of [22,40,1e9]){for(const x of sorted){if(score(x)<=-1e9&&far<1e9)break;if(ok(x,far)&&!pickProblem(x.i,T)){got=x.i;break;}}if(got>=0)break;}
+    let got=-1;for(const avoid of seen.length?[true,false]:[false]){for(const far of [22,40,1e9]){for(const x of sorted){if(score(x)<=-1e9&&far<1e9)break;if(ok(x,far)&&!(avoid&&near(x.i))&&!pickProblem(x.i,T)){got=x.i;break;}}if(got>=0)break;}if(got>=0)break;}
     cells[s]=got;
   }
   S.fdSites={key,cells};
@@ -39051,7 +39066,7 @@ answer=(f=>function(id,o){
 })(answer);
 resultView=(f=>function(){const h=f.apply(this,arguments);return S.result&&S.result.id===FD_ID&&S.nation?h.replace('<div class="row">',`<div class="row"><button class="btn" data-act="go" data-v="map">See ${esc(S.nation.name)} on the map</button>`).replace('<button class="btn" data-act="open"','<button class="btn ghost" data-act="open"'):h;})(resultView);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
-  if(a==='fd-reroll'){S.fdRoll=(S.fdRoll||0)+1;S.fdSites=null;render();return;}
+  if(a==='fd-reroll'){S.fdSeen=(S.fdSeen||[]).concat(((S.fdSites&&S.fdSites.cells)||[]).filter(c=>c>=0));S.fdRoll=(S.fdRoll||0)+1;S.fdSites=null;render();return;}
   if(a==='fd-own'){go('map');return;}
 });
 /* founding puts the edict at the top of the desk and opens it; settling some other way takes it off */

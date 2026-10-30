@@ -26,6 +26,10 @@ jobs:
       # channel ids are "pr<number>-<branch>"; the dash keeps pr5- from matching pr50-
       PREFIX: pr${{ github.event.pull_request.number }}-
     steps:
+      # the Firebase CLI lists and deletes channels only beside a firebase.json
+      - name: Check out
+        uses: actions/checkout@v7
+
       - name: Delete this pull request's channel
         run: |
           if [ -z "$PROJECT_ID" ] || [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
@@ -37,7 +41,8 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
           export GOOGLE_APPLICATION_CREDENTIALS="$key"
           tools="npx --yes firebase-tools@15.33.0"
-          ids=$($tools hosting:channel:list --project "$PROJECT_ID" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=(JSON.parse(s).result||{}).channels||[];console.log(c.map(x=>x.name.split("/").pop()).filter(id=>id.startsWith(process.env.PREFIX)).join(" "));})')
+          # a listing that fails stops the job, rather than passing for a pull request without a channel
+          ids=$($tools hosting:channel:list --project "$PROJECT_ID" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(j.status!=="success"){console.error("Listing the channels failed: "+(j.error||s));process.exit(1);}const c=j.result.channels||[];console.log(c.map(x=>x.name.split("/").pop()).filter(id=>id.startsWith(process.env.PREFIX)).join(" "));})')
           if [ -z "$ids" ]; then
             echo "This pull request has no preview channel."
             exit 0
