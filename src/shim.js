@@ -1182,12 +1182,12 @@
     setBusy('Waiting for Discord…');
     try {
       /* window.EDICTUM_DISCORD_EMU: the tests' stand-in Discord account, honoured by the emulators only */
-      var start = await call('discord', { op: 'start', origin: location.origin, state: state, emu: window.EDICTUM_DISCORD_EMU || null });
+      var start = await call('accounts', { op: 'discord', step: 'start', origin: location.origin, state: state, emu: window.EDICTUM_DISCORD_EMU || null });
       if (pop.closed) { var shut = new Error('closed'); shut.code = 'auth/popup-closed-by-user'; throw shut; }
       pop.location.href = start.url;
       var code = await discordAnswer(pop, state);
       setBusy('Linking your Discord account…');
-      r = await call('discord', { op: 'link', origin: location.origin, code: code });
+      r = await call('accounts', { op: 'discord', step: 'link', origin: location.origin, code: code });
     } catch (e) {
       try { pop.close(); } catch (e2) {}
       setBusy('');

@@ -325,7 +325,8 @@ once (`n.glk`).
   custom token for that player id. The window goes `/discord` → Discord → `/discord` (`src/discord.html`),
   which leaves Discord's answer in localStorage for the game's page. Firebase's own OpenID Connect
   providers would do the same but are billed from the 50th monthly user; custom tokens are free up
-  to 50,000.
+  to 50,000. It runs in the `accounts` callable (op `discord`), not a function of its own: a new
+  public function needs its Cloud Run invoker set, which the deploy's service account may not do.
 
 Deleting a nation and account ends the account on the server (`accounts` op `close`), so it works
 however long ago the player signed in, and frees a linked Discord account.
@@ -487,7 +488,7 @@ project needs a billing account (see Costs).
 ### 3b. Discord sign-in
 
 Discord does not go through Firebase's provider list (no OpenID Connect provider is needed; see
-**Sign-in** above), but through the `discord` Cloud Function and a Discord application of your own:
+**Sign-in** above), but through the `accounts` Cloud Function and a Discord application of your own:
 
 1. <https://discord.com/developers/applications> → **New Application** → name it Edictum. Under
    **General Information**, add the app icon, and the privacy notice and terms addresses

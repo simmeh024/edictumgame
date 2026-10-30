@@ -8,9 +8,13 @@
    Discord account later signs in to that player id with a custom token. Only the identify scope is asked:
    no email address, no servers, no messages.
 
-   discord({op: 'start', origin, state}) → {url}: Discord's consent page, which returns to <origin>/discord
-   discord({op: 'link', origin, code}) → {ok: true, name} once the caller's account holds that Discord account,
-     or {taken: true, name, token} when another account already does: the token signs this browser in to it
+   It runs inside the accounts callable (functions/accounts.js), not as a function of its own: a new public
+   function needs its invoker set on Cloud Run, which the deploy's service account may not do.
+   accounts({op: 'discord', step: 'start', origin, state}) → {url}: Discord's consent page, which returns to
+     <origin>/discord
+   accounts({op: 'discord', step: 'link', origin, code}) → {ok: true, name} once the caller's account holds that
+     Discord account, or {taken: true, name, token} when another account already does: the token signs this
+     browser in to it
 
    Storage (only this code reads or writes it; see firestore.rules):
      authConfig/discord   {clientId, secret, origins?}: the Discord application (tools/admin/set-discord.mjs);
@@ -19,7 +23,7 @@
 
    In the emulators (FUNCTIONS_EMULATOR) the start can carry emu: {id, name}, and the window then comes
    straight back with a code that stands for that Discord account, so the tests need no Discord. */
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { HttpsError } from 'firebase-functions/v2/https';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { refuse } from './eligibility.js';
@@ -81,10 +85,10 @@ export async function forgetDiscord(uid) {
   await getAuth().setCustomUserClaims(uid, c);
 }
 
-export const discord = onCall({ region: 'europe-west1', maxInstances: 10, memory: '256MiB', timeoutSeconds: 30 }, async req => {
-  if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
-  if (d.op === 'start') {
+/* accounts({op: 'discord', step, …}) for a signed-in caller */
+export async function discordStep(uid, d) {
+  const db = getFirestore();
+  if (d.step === 'start') {
     const cfg = await settings(), uri = returnTo(cfg, d.origin);
     if (typeof d.state !== 'string' || !/^[a-f0-9]{32}$/.test(d.state)) throw new HttpsError('invalid-argument', 'Start the Discord sign-in again.');
     if (EMULATOR && d.emu && d.emu.id) {
@@ -94,7 +98,7 @@ export const discord = onCall({ region: 'europe-west1', maxInstances: 10, memory
     /* prompt=none: a player who has allowed Edictum before goes straight back */
     return { url: 'https://discord.com/oauth2/authorize?' + new URLSearchParams({ client_id: cfg.clientId, response_type: 'code', redirect_uri: uri, scope: 'identify', state: d.state, prompt: 'none' }) };
   }
-  if (d.op === 'link') {
+  if (d.step === 'link') {
     const cfg = await settings(), who = await discordUser(cfg, d.code, returnTo(cfg, d.origin));
     const me = await getAuth().getUser(uid), mine = me.customClaims?.dc;
     if (me.disabled) refuse('account_disabled', 'This account is disabled. Contact support.');
@@ -112,5 +116,5 @@ export const discord = onCall({ region: 'europe-west1', maxInstances: 10, memory
     if (held !== uid) return { taken: true, name: who.name, token: await getAuth().createCustomToken(held) };
     return { ok: true, name: who.name };
   }
-  throw new HttpsError('invalid-argument', 'Unknown Discord operation.');
-});
+  throw new HttpsError('invalid-argument', 'Unknown Discord step.');
+}
