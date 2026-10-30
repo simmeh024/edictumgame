@@ -49,6 +49,7 @@ await A.evaluate(()=>{location.hash='#visit/'+G.myId();});
 await until(async()=>(await views(A)).some(v=>v.page_location===BASE+'/visit'));
 const seen=await views(A),uid=await A.evaluate(()=>G.myId());
 check('each page is counted once by its name',['/map','/nation','/visit'].every(x=>seen.filter(v=>v.page_location===BASE+x).length>=1)&&seen.every((v,i)=>!i||v.page_location!==seen[i-1].page_location),JSON.stringify(seen.map(v=>v.page_location)));
+check('page titles name the page without the tab’s waiting count',seen.every(v=>v.page_title&&!/^\(\d+\)/.test(v.page_title))&&/^\(\d+\) /.test(await A.title()),JSON.stringify(seen.map(v=>v.page_title)));
 check('no player ID or nation name is queued for Google',!JSON.stringify(await queued(A)).includes(uid)&&!JSON.stringify(await queued(A)).includes('Statland'));
 
 // Turn off stops sending and deletes Google's cookies
