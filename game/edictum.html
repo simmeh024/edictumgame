@@ -15670,6 +15670,10 @@ function grow(list,over){
   }
   return {owner,grown,held};
 }
+/* when a nation's capital took its place: its founding, or its settling since (n.capAt), which since the founding
+   edict can come hours later. A claim made before then stays, even within 2 hexes of the capital; the later of the
+   two counts, so a record cannot date its capital back before its founding. */
+const capSince=n=>Math.max(n.founded||0,n.capAt||0);
 const terrCache=new Map();
 function territory(extra){
   syncReclaims();
@@ -15695,7 +15699,7 @@ function territory(extra){
     if(!e.claim)continue;const oi=byId[e.o];if(oi===undefined||!list[oi].cm)continue;
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||MAP.T[e.c]<2)continue;
     if(cityOver.has(e.c)){if(cityOver.get(e.c)===oi&&!how.has(e.c)){used[oi]++;how.set(e.c,1);nat.set(e.c,oi);}continue;}
-    if(hexDist(e.c,list[oi].cap)>45||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>(y.n.founded||0)))continue;
+    if(hexDist(e.c,list[oi].cap)>45||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
     cityOver.set(e.c,oi);how.set(e.c,1);nat.set(e.c,oi);used[oi]++;
   }
   const base=grow(list,cityOver.size?cityOver:null),over=new Map(cityOver),lostPre=new Int32Array(L),rate=new Map();let moved=false;
@@ -34488,12 +34492,20 @@ function suggestSpot(T){
   for(let t=0;t<12&&c.length;t++){const pick=c[Math.floor(Math.random()*Math.min(10,c.length))][0];if(!pickProblem(pick,T))return pick;}
   return -1;
 }
+/* No claim may lie within 2 hexes of another nation's capital (claimBan), so a capital may not be placed within 2
+   hexes of another nation's claimed land either: the nation whose claims they are, if any, within that distance. */
+function claimNear(cell,T){
+  if(!T._clm){const m=new Int16Array(MAP.N).fill(-1);T.list.forEach((x,i)=>{if(!x.me&&!x.npc&&Array.isArray(x.n.claims))for(const e of x.n.claims)if(T.owner[e.c]===i)m[e.c]=i;});T._clm=m;}
+  for(const [c] of ringCells(cell,2)){const i=T._clm[c];if(i>=0)return T.list[i];}
+  return null;
+}
 function pickProblem(cell,T){
   if(cell<0)return 'Choose a spot inside the map.';
   if(MAP.T[cell]<2)return 'That is open water. Choose a hex of land.';
   {const isl=isletProblem(cell,T);if(isl)return isl;}
   const o=T.owner[cell];
   if(o!==-1&&!T.list[o].me)return 'That land already belongs to '+T.list[o].n.name+'.';
+  {const x=claimNear(cell,T);if(x)return 'That is too close to land claimed by '+x.n.name+'. Settle at least 3 hexes from another nation’s claims.';}
   for(const x of T.list){if(x.me)continue;if(hexDist(cell,x.cap)<MIN_CAP_DIST)return 'That is too close to the capital of '+x.n.name+'. Settle at least '+MIN_CAP_DIST+' hexes away.';}
   return '';
 }
@@ -34695,6 +34707,8 @@ function settle(){
   commit(n);S.mapPick=null;S.mapMsg='';S.mapSel=null;centerMain(cell,NEAR_Z);render();
   toast(fullName(n)+' has settled '+placePhrase(cell)+'.');
 }
+/* the time the capital took its place, whichever way it got there (founding, settling, moving, waking): see capSince */
+COMMIT_HOOKS.push((n,old,now)=>{const c=cellOf(n.loc);if(c>=0&&(!old||old.founded!==n.founded||cellOf(old.loc)!==c))n.capAt=now;});
 
 /* map markup */
 function mapBox(kind,cls,id){
@@ -34709,7 +34723,7 @@ function mapLegend(){
 }
 function worldMapView(){
   const n=S.nation,placed=cellOf(n.loc)>=0;
-  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders or island shores within four hexes of a completed coastal Harbour to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
+  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders or island shores within four hexes of a completed coastal Harbour to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital and 3 from another nation’s claims.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
   <div class="map-layout${mapFsOn('main')?' ml-full':''}">
     <div class="ml-map">${mapBox('main',placed?'':' pick')}</div>
     <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
@@ -34833,7 +34847,7 @@ function normalizeBase(d){
   const topics={};if(d.topics&&typeof d.topics==='object')for(const [k] of ISSUE_TOPICS){const v=d.topics[k];if(v===1||v===-1)topics[k]=v;}
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
-    currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),
+    currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
     freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
@@ -39251,7 +39265,7 @@ mapFsBar=(f=>function(kind){return kind==='found'&&S.nation?`<div class="map-fs-
 answer=(f=>function(id,o){
   const n0=S.nation;if(id!==FD_ID||!n0||cellOf(n0.loc)>=0)return f.apply(this,arguments);
   const T=territory(),c=fdSites(n0,T)[o];
-  if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled near that pin. The advisors have moved their pins: choose again.');return;}
+  if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that pin. The advisors have moved their pins: choose again.');return;}
   const r=f.apply(this,arguments);S.mapPick=c;settle();return r;
 })(answer);
 resultView=(f=>function(){const h=f.apply(this,arguments);return S.result&&S.result.id===FD_ID&&S.nation?h.replace('<div class="row">',`<div class="row"><button class="btn" data-act="go" data-v="map">See ${esc(S.nation.name)} on the map</button>`).replace('<button class="btn" data-act="open"','<button class="btn ghost" data-act="open"'):h;})(resultView);
