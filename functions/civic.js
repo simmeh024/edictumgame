@@ -51,28 +51,48 @@ async function permit(db, who, d) {
   });
 }
 
-async function regionState(tx, db, reg, now) {
+/* one nation's Assembly record. valid: a Registered Nation that is not banned, hidden or removed */
+function civicRecord(reg, saved, account, actor, valid, hidden) {
+  const generation = saved.createTime.toMillis(), born = account.get('nationGeneration') === generation ? account.get('nationAt') : generation;
+  const a = actor?.get('generation') === generation ? actor.get('record') : { r: reg, e: [], s: [], v: [] };
+  const n = nationJSON(saved);
+  // Never import political decisions from a legacy, player-writable JSON record.
+  return { id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, asm: a }, generation, hidden };
+}
+
+/* the region's records as stored: every nation in it (dormant ones too: their endorsements and the computer
+   nations' backing still count) with its ban, moderation, account and sign-in, and the Assembly's actors and
+   last twelve cycles. tx: an action's transaction, or a read-only one (regionBase) */
+async function regionRecords(tx, db, reg) {
   const root = db.doc('assemblyRegions/' + reg);
   const [meta, nations, actors, cycles] = await Promise.all([
     tx.get(root), tx.get(db.collection('nations').where('reg', '==', reg)),
     tx.get(root.collection('actors')), tx.get(root.collection('cycles').orderBy('c', 'desc').limit(12))
   ]);
-  // Fresh provider data prevents an unlinked/disabled identity retaining political power through a cache.
+  // Fresh provider data prevents an unlinked/disabled identity retaining political power through a cache: actions
+  // and the closing of a cycle read it here, in their transaction; only the read-only view (regionBase) is kept.
   const users = [];
   for (let i = 0; i < nations.docs.length; i += 100) users.push(...(await getAuth().getUsers(nations.docs.slice(i, i + 100).map(s => ({ uid: s.id })))).users);
   const auth = new Map(users.map(u => [u.uid, u]));
   const records = [], byId = new Map(actors.docs.map(s => [s.id, s]));
   const checks = nations.empty ? [] : await tx.getAll(...nations.docs.flatMap(s => ['bans/','mod/','accountIdentity/'].map(p => db.doc(p+s.id))));
   for (const [index,saved] of nations.docs.entries()) {
-    const [ban, mod, account] = checks.slice(index*3,index*3+3);
-    const generation = saved.createTime.toMillis(), born = account.get('nationGeneration') === generation ? account.get('nationAt') : generation;
+    const [ban, mod, account] = checks.slice(index*3,index*3+3), generation = saved.createTime.toMillis();
     const u = auth.get(saved.id), valid = !!(u && !u.disabled && registered(u) && !ban.exists && !mod.get('hidden') && !(mod.get('removed') >= generation));
-    const actor = byId.get(saved.id), a = actor?.get('generation') === generation ? actor.get('record') : { r: reg, e: [], s: [], v: [] };
-    const n = nationJSON(saved);
-    // Never import political decisions from a legacy, player-writable JSON record.
-    records.push({ id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, asm: a }, generation, hidden: !!mod.get('hidden') });
+    records.push(civicRecord(reg, saved, account, byId.get(saved.id), valid, !!mod.get('hidden')));
   }
-  const locks = cycles.docs.map(s => s.data()), engine = assemblyEngine(reg, records, locks), c = engine.cycle(now);
+  return { root, meta, records, actors: byId, locks: cycles.docs.map(s => s.data()) };
+}
+
+async function regionState(tx, db, reg, now) {
+  const base = await regionRecords(tx, db, reg);
+  return { ...base, ...regionDue(reg, base.root, base.records, base.locks, now) };
+}
+
+/* what the Assembly owes at `now`: cycles past their close to finalise and cycles to lock, as writes (pending),
+   also added to locks */
+function regionDue(reg, root, records, locks, now) {
+  const engine = assemblyEngine(reg, records, locks), c = engine.cycle(now);
   const pending = [];
   // Cut over at the current cycle; only protected cycles can become binding results.
   for (const L of locks) if (L.c < c && !L.f) {
@@ -89,7 +109,7 @@ async function regionState(tx, db, reg, now) {
       locks.push(L);pending.push([root.collection('cycles').doc(String(next)),L]);
     }
   }
-  return { root, meta, records, actors: byId, locks, pending, c, engine: assemblyEngine(reg, records, locks) };
+  return { pending, c, engine: assemblyEngine(reg, records, locks) };
 }
 
 function output(ctx, uid, now, e) {
@@ -103,9 +123,58 @@ function output(ctx, uid, now, e) {
     own: ctx.records.find(r => r.id === uid)?.n.asm || { r: e.n.reg, e: [], s: [], v: [] } };
 }
 
+/* Every player's game asks for the Assembly ('state') while it is open, so the region-wide part is kept here,
+   per region, for a minute (REGION_TTL), and read again at once when the region's root document changes:
+   every action and every cycle closed or locked writes it in the same transaction. Other nations' saves,
+   registrations and moderation reach the view within that minute; the caller's own record and account are
+   read on every call. Nothing binding uses it: actions and the closing of a cycle run in a transaction on
+   fresh records, as before. Shared by concurrent requests, so nothing here changes a cached record. */
+const REGION_TTL = 60000, regionCache = new Map(), closing = new Map();
+const rootKey = meta => meta.exists ? String(meta.updateTime.valueOf()) : '';
+function regionBase(db, reg, key) {
+  const hit = regionCache.get(reg);
+  if (hit && hit.key === key && Date.now() - hit.at < REGION_TTL) return hit.p;
+  const entry = { key, at: Date.now() };
+  // read-only: one consistent snapshot of the region, without the locks a transaction holds against saves
+  entry.p = db.runTransaction(tx => regionRecords(tx, db, reg), { readOnly: true });
+  entry.p.then(base => { entry.key = rootKey(base.meta); }, () => { if (regionCache.get(reg) === entry) regionCache.delete(reg); });
+  regionCache.set(reg, entry);
+  return entry.p;
+}
+
+/* op 'state' from the kept region; null when the transactional path must answer instead */
+async function regionView(db, who, waited) {
+  const now = Date.now();
+  const { e, meta } = await db.runTransaction(async tx => {
+    const e = await eligibility(tx, who, { linked: false, hidden: true });
+    return { e, meta: regions.has(e.n.reg) ? await tx.get(db.doc('assemblyRegions/' + e.n.reg)) : null };
+  }, { readOnly: true });
+  const reg = e.n.reg, uid = who.uid;
+  // the region's query would not find this nation: the transactional path answers, as it always has
+  if (!meta || e.saved.get('reg') !== reg) return null;
+  const base = await regionBase(db, reg, rootKey(meta));
+  const mine = civicRecord(reg, e.saved, e.account, base.actors.get(uid), who.registered && !e.moderated, !!e.mod.get('hidden'));
+  const records = base.records.filter(r => r.id !== uid), at = records.findIndex(r => r.id > uid);
+  records.splice(at < 0 ? records.length : at, 0, mine);  // in the query's order, by document id
+  const locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now);
+  if (!due.pending.length) return output({ records, locks, engine: due.engine }, uid, now, e);
+  // a cycle to close or lock: one transaction per region at a time here, and the rest read what it wrote
+  const busy = closing.get(reg);
+  if (busy && !waited) { await busy.catch(() => {}); return regionView(db, who, true); }
+  const run = assemblyTx(db, who, { op: 'state' });
+  closing.set(reg, run);
+  try { return await run; } finally { if (closing.get(reg) === run) closing.delete(reg); }
+}
+
 async function assembly(db, who, d) {
+  if (d.op === 'state') return await regionView(db, who) || assemblyTx(db, who, d);
+  return assemblyTx(db, who, d);
+}
+
+async function assemblyTx(db, who, d) {
   const action = d.op !== 'state';
-  return db.runTransaction(async tx => {
+  let written = '';
+  const out = await db.runTransaction(async tx => {
     const now = Date.now();
     const e = await eligibility(tx, who, { linked: action, age: action ? DAY : 0, hidden: !action });
     const reg = e.n.reg, ctx = await regionState(tx, db, reg, now), mine = ctx.records.find(r => r.id === who.uid);
@@ -178,8 +247,12 @@ async function assembly(db, who, d) {
     }
     if (op === 'vote' && Date.now() >= st.t1) refuse('vote_closed', 'This vote has closed. Refresh the Assembly.');
     if (action || ctx.pending.length) tx.set(ctx.root, { rev: (ctx.meta.get('rev') || 0) + 1, startCycle: ctx.meta.get('startCycle') ?? ctx.c, at: now }, { merge: true });
+    written = action || ctx.pending.length ? reg : '';
     return output(ctx, who.uid, now, e);
   });
+  // other instances see the root document change; this one need not wait for the read
+  if (written) regionCache.delete(written);
+  return out;
 }
 
 /* Development news comments: devnews/<post>/posts/<id>, written here so the board's checks apply (a linked
@@ -222,7 +295,9 @@ async function newsModerate(db, who, d) {
   return { ok: true };
 }
 
-export const civic = onCall({ region: 'europe-west1', maxInstances: 10, memory: '256MiB', timeoutSeconds: 60 }, async req => {
+/* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
+   save asks here for its permit. maxInstances still caps the bill. */
+export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 60 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore(), who = await identity(req.auth.uid), d = req.data || {};
   if (d.op === 'authorizeSave') return permit(db, who, d);

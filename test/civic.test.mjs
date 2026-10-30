@@ -171,6 +171,20 @@ test('Guest players can defend but cannot invoke offensive PvP battles directly'
   assert.equal((await call(g,'referee',{op:'battle',d:foe.uid,c:12,p:.5})).ok,true);
 });
 
+test('The kept Assembly view follows every action at once, writes nothing, and always reads the caller fresh',async()=>{
+  const a=await player(true,true,'wildwood'),b=await player(true,true,'wildwood');
+  await civic(a,{op:'state'});await civic(b,{op:'endorse',target:a.uid,on:true});
+  const seen=await civic(a,{op:'state'}),root=await db.doc('assemblyRegions/wildwood').get();
+  assert.ok(seen.info.find(([id])=>id===a.uid)?.[1].by.includes(b.uid),'an endorsement shows in the next view');
+  assert.ok((await civic(b,{op:'state'})).own.e.some(e=>e.i===a.uid&&!e.w));
+  assert.ok((await db.doc('assemblyRegions/wildwood').get()).updateTime.isEqual(root.updateTime),'a view with nothing due writes nothing');
+  // a Guest that links and comes of age sees its own seat at once, though the region's kept records are a minute old
+  const c=await player(false,false,'wildwood');assert.equal((await civic(c,{op:'state'})).account.kind,'guest');
+  await auth.updateUser(c.uid,{email:`late-${crypto.randomUUID()}@example.test`,emailVerified:true,password:'test-only-password'});await age(c,2*DAY);
+  const own=await civic(c,{op:'state'});
+  assert.equal(own.account.eligible,true);assert.ok(own.recs.find(r=>r.id===c.uid).n.civicAt>0);
+});
+
 test('Concurrent vote requests still produce one protected vote per voter',async()=>{
   const p=await player(true,true),s=await civic(p,{op:'state'});
   await Promise.all([-1,1].map(vote=>civic(p,{op:'vote',vote,cycle:s.c,key:s.cur.k})));
