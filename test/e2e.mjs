@@ -637,10 +637,11 @@ await ownerDoc('nations/cheat-1', { method: 'DELETE' }); await ownerDoc('mod/che
 await A.evaluate(() => { location.hash = '#nation'; }); await sleep(300);
 
 await B.evaluate(async()=>{await firebase.auth().currentUser.unlink('password');await firebase.auth().currentUser.reload();window.dispatchEvent(new Event('edictum:linked'));});
+check('the unlinked fixture returns to Guest eligibility',await until(()=>B.evaluate(()=>G.S.civic?.account.kind==='guest')));
 /* ── 8. Google sign-in (Auth emulator) ──────────────────────────────────── */
 // the first steps offer it, with what it pays; the button opens the account dialog
 await nav(B, 'nation');
-check('a guest’s first steps offer linking to Google, for 5 land credits', /Keep your nation on every device\s*\+5 land/.test(await text(B, '.stp')));
+check('a guest’s first steps offer linking to Google, for 5 land credits', /Keep your nation on every device\s*\+5 land/.test(await text(B, '.stp')),JSON.stringify(await B.evaluate(()=>({name:G.S.nation?.name,onb:G.S.nation?.onb,glk:G.S.nation?.glk,google:G.S.google,account:G.S.civic?.account,view:G.S.view,steps:[...document.querySelectorAll('.stp')].map(e=>e.textContent.trim().slice(0,160))}))));
 await B.click('.stp [data-act="acct-open"]');
 check('its button opens the account dialog', !!(await until(() => B.$('dialog.ed-dlg[open] [data-ed="google"]'))));
 await B.keyboard.press('Escape');
