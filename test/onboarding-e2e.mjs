@@ -13,14 +13,16 @@ const toastText=p=>p.evaluate(()=>document.querySelector('#toast')?.textContent|
 const held=p=>p.evaluate(()=>{const T=G.territory();return T.count[T.byId[G.myId()]];});
 const placed=p=>p.evaluate(()=>G.territory().byId[G.myId()]!==undefined);
 const hideToast=p=>p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden')),showToast=p=>p.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
+// The founding edict's buttons sit where a toast can land (an achievement earned at founding): click past it.
+const tap=async(p,sel)=>{await hideToast(p);await p.click(sel);await showToast(p);};
 check('founding opens the first edict, on where the capital will stand',await A.evaluate(()=>G.S.view==='issues'&&G.S.openIssue==='fd-settle')&&!await placed(A)&&(await A.locator('.edict .h1').textContent())==='The Provisional Committee on Where to Stand');
 check('its map shows three numbered places, and three advisors argue for them',await A.evaluate(()=>G.S.fdSites?.cells.length===3&&G.S.fdSites.cells.every(c=>c>=0)&&new Set(G.S.fdSites.cells).size===3)&&await A.locator('.fd-map canvas[data-map="found"]').isVisible()&&await A.locator('.edict [data-act="answer"][data-id="fd-settle"]').count()===3&&!/\{/.test(await A.locator('.edict').textContent()));
 check('it offers other places and the open map instead of a veto',await A.locator('[data-act="fd-reroll"]').count()===1&&await A.locator('[data-act="fd-own"]').count()===1&&await A.locator('.edict [data-act="dismiss"]').count()===0);
-const sites0=await A.evaluate(()=>[...G.S.fdSites.cells]);await A.click('[data-act="fd-reroll"]');
+const sites0=await A.evaluate(()=>[...G.S.fdSites.cells]);await tap(A,'[data-act="fd-reroll"]');
 check('three other places can be drawn',await A.evaluate(s=>G.S.fdSites.cells.every(c=>c>=0)&&JSON.stringify(G.S.fdSites.cells)!==JSON.stringify(s),sites0));
 await hideToast(A);await A.screenshot({path:OUT+'/founding-edict-1280.png'});await showToast(A);
 const census0=await A.evaluate(()=>({...G.S.nation.s})),site=await A.evaluate(()=>G.S.fdSites.cells[0]);
-await A.click('[data-act="answer"][data-id="fd-settle"][data-o="0"]');await A.waitForSelector('.result');
+await tap(A,'[data-act="answer"][data-id="fd-settle"][data-o="0"]');await A.waitForSelector('.result');
 check('answering settles the capital at its pin, and moves the census like any edict',await until(()=>placed(A))&&await A.evaluate(c=>G.territory().list[G.territory().byId[G.myId()]].cap===c,site)&&await A.evaluate(b=>G.S.nation.s.econ>b.econ&&G.S.nation.s.tour>b.tour,census0)&&!await A.evaluate(()=>G.S.nation.inbox.some(x=>x.id==='fd-settle')));
 await A.click('.result [data-act="go"][data-v="map"]');
 check('the result leads to the map, with the best block beside the border picked',await A.evaluate(()=>G.S.view==='map'&&!!G.S.mapClaim)&&await A.locator('#lc-coach').isVisible());
@@ -98,7 +100,7 @@ const B=await player('new player phone',{vp:{width:390,height:844},recovery:true
 await B.waitForSelector('#ed-recovery-code',{timeout:25000});await B.click('[data-ed="recovery-saved"]');
 check('a kingdom’s first edict reads as a kingdom’s, and fits a phone',(await B.locator('.edict .h1').textContent())==='Where Shall the Throne Be Set Down?'&&/Privy Council/.test(await B.locator('.edict .form-code').textContent())&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
 await hideToast(B);await B.screenshot({path:OUT+'/founding-edict-390.png'});await showToast(B);
-await B.click('[data-act="answer"][data-id="fd-settle"][data-o="2"]');await B.waitForSelector('.result');await until(()=>placed(B));await B.click('.result [data-act="go"][data-v="map"]');
+await tap(B,'[data-act="answer"][data-id="fd-settle"][data-o="2"]');await B.waitForSelector('.result');await until(()=>placed(B));await B.click('.result [data-act="go"][data-v="map"]');
 check('on a phone the land card fits the screen',await B.locator('#lc-coach').isVisible()&&/(Tap|Click) any hex/.test(await B.locator('#lc-coach').textContent())&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
 await B.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await B.screenshot({path:OUT+'/first-land-390.png'});await B.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
 await B.click('#lc-coach [data-act="lc-coach-x"]');
