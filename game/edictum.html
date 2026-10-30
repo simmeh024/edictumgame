@@ -38854,6 +38854,41 @@ setInterval(()=>{
   if(n.ffb&&!n.ffb.p&&now>=n.ffb.d||n.name&&S.view==='issues'&&document.querySelector('.dd')&&(!n.dd||n.dd.d!==ddDay(now))){commit(clone(n));render();}
 },1000);
 
+/* ───────── the browser tab: what is waiting, at a glance ─────────
+   The tab's title counts what waits for the player, as "(3) Edicts · Edictum": unread edicts, unread letters,
+   land credits to spend (one item however many) and an expedition that is back; its icon gets a red dot. While
+   the tab is in the background, the title says what arrived since the player last looked, as "(3) New edict ·
+   Edictum". The title follows every render, and the game renders when any of these changes, in the background
+   too (tick()). */
+const TAB={base:'',seen:null,why:'',dot:false,href:'',svg:'',busy:false,failed:false};
+const TAB_KEYS=['iss','dm','exp','lc'],TAB_WHY={iss:['New edict','New edicts'],dm:['New letter','New letters'],exp:['Expedition back','Expedition back'],lc:['Land to claim','Land to claim']};
+function tabWaiting(n,now){
+  if(!n||n.npc)return null;let v;try{v=syncInbox(n,now);}catch(e){return null;}
+  const w={iss:(v.inbox||[]).filter(x=>!x.read).length,dm:dmUnread(now),exp:expBack(n,now)?1:0,lc:landCredits(n)>0?1:0};
+  w.n=TAB_KEYS.reduce((s,k)=>s+w[k],0);return w;
+}
+function tabTitle(){
+  const w=S.nation&&document.querySelector('.nav')?tabWaiting(S.nation,Date.now()):null;
+  if(!document.hidden){TAB.seen=w;TAB.why='';}
+  else if(w&&TAB.seen){const k=TAB_KEYS.find(k=>w[k]>TAB.seen[k]);if(k)TAB.why=TAB_WHY[k][w[k]-TAB.seen[k]>1?1:0];}
+  const base=TAB.base||document.title;
+  try{document.title=w&&w.n?`(${w.n}) `+(TAB.why?TAB.why+' · Edictum':base):base;}catch(e){}
+  tabIcon(!!(w&&w.n));
+}
+/* the site's own icon, with a red dot drawn into a copy of it */
+function tabIcon(on){
+  const l=document.querySelector('link[rel="icon"]');if(!l||on===TAB.dot&&(!on||TAB.svg))return;TAB.dot=on;
+  if(!TAB.href)TAB.href=l.getAttribute('href')||'';
+  if(!on){l.setAttribute('href',TAB.href);return;}
+  if(TAB.svg){l.setAttribute('href',TAB.svg);return;}
+  if(TAB.busy||TAB.failed||!/\.svg$/.test(TAB.href))return;TAB.busy=true;
+  fetch(TAB.href).then(r=>r.ok?r.text():Promise.reject()).then(t=>{if(!/<\/svg>\s*$/.test(t))return;
+    TAB.svg='data:image/svg+xml,'+encodeURIComponent(t.replace(/<\/svg>\s*$/,'<circle cx="50" cy="14" r="12.5" fill="#D1342F" stroke="#FFFFFF" stroke-width="3"/></svg>'));
+    if(TAB.dot)l.setAttribute('href',TAB.svg);}).catch(()=>{TAB.failed=true;}).finally(()=>{TAB.busy=false;});
+}
+navAfter=(f=>function(){const r=f.apply(this,arguments);TAB.base=document.title;tabTitle();return r;})(navAfter);
+document.addEventListener('visibilitychange',tabTitle);
+
 
 /* ───────── boot ───────── */
 function start(data){
