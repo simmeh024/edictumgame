@@ -22956,7 +22956,7 @@ async function civicRefresh(){
   if(!S.uid||!S.nation||S.mode==='local')return;
   if(civicLoading||civicBusy){civicAgain=true;return;}
   civicLoading=true;const epoch=civicEpoch;
-  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}civicInstall(next);if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||(['nation','customise','help','diplomacy'].includes(S.view)&&beforeAccount!==JSON.stringify(accountInfo()))))render();}}
+  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';civicInstall(next);if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||S.view==='diplomacy'&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
   catch(e){if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
   finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
 }

@@ -716,7 +716,9 @@ check('the sync indicator sits directly above Sign out', await E.locator('.ed-ou
 for (const scheme of ['light', 'dark']) {
   await E.emulateMedia({ colorScheme: scheme });
   await E.hover('.side-foot .ed-out');
-  await E.locator('.side-foot').screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });
+  for(let attempt=0;;attempt++)try{
+    await E.locator('.side-foot').screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });break;
+  }catch(e){if(attempt>=2||!/not attached|detached/i.test(e.message))throw e;await sleep(100);}
 }
 await E.emulateMedia({ colorScheme: 'light' });
 check('a Guest Nation also has a Sign out button', !!(await B.$('.side-foot .ed-acct')) && await B.isVisible('.ed-out'));
