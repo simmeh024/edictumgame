@@ -272,6 +272,19 @@ and `/terminos`, each with a button to the other language. The game links to the
 bar's foot, the founding page and the account menu. The notice follows Mexico's LFPDPPP (ARCO
 rights) and keeps GDPR rights for players in the EU; the terms are under Mexican law.
 
+**Visit statistics.** Google Analytics, only with the visitor's consent (`src/shim.js`, "visit
+statistics"). The measurement ID is the `measurementId` Firebase serves in `/__/firebase/init.json`
+once the project is linked to Google Analytics (Owner setup, step 9c); without one, or on `localhost`
+or a `demo-` project, nothing happens. Otherwise a card at the bottom of the screen asks once: **Allow**
+loads Google's `gtag.js` (the same tag Firebase's analytics SDK wraps; the compat SDK cannot switch off
+its automatic page views or ad signals) and **No thanks** loads nothing. The answer is kept in
+`localStorage` (`edictum.analytics`: `y` or `n`) and can be changed in the account menu or on the privacy
+notice, which share it with an open game tab; turning it off withdraws consent and deletes the `_ga`
+cookies. Pages count by the first part of the address alone (`#visit/<id>` is `/visit`) with the page's
+title, never with a player ID or a nation; advertising storage, Google signals and ad personalisation are
+off. `test/analytics-e2e.mjs` checks all this with a stand-in for `gtag.js` (`window.EDICTUM_ANALYTICS_ID`
+supplies a measurement ID on the emulators).
+
 **The front page.** A visitor without a nation lands on the founding page, which is also the front
 page. Besides the charter it says what Edictum is (`HOME_FEATS` in the game), offers a sample edict
 to try, worded for the nation being drafted (`HOME_TRY`; nothing chosen there counts), and shows the
@@ -443,7 +456,7 @@ project needs a billing account (see Costs).
 ### 1. Create the Firebase project
 
 1. Go to <https://console.firebase.google.com> and choose **Create a project**. Pick a name; note
-   the **project id** it shows (for example `edictum-4f2a1`). Google Analytics is not needed.
+   the **project id** it shows (for example `edictum-4f2a1`). Google Analytics is optional (step 9c).
 2. In the project, open **Project settings** (the gear) → **General** → **Your apps** → **Add
    app** → **Web** (`</>`). Call it Edictum, tick **Also set up Firebase Hosting for this app**, and
    choose **Register app**. You can skip the code it shows: the site reads its configuration from
@@ -651,6 +664,25 @@ it. If a day is missed (GitHub occasionally delays or drops a scheduled run), th
 smoothing treats the gap as a quiet day and charts simply have no point for it. The job's core
 (`runCurrencyDay` in `jobs/fx/daily.mjs`) takes any Firestore instance, so moving it to a scheduled Cloud
 Function later is a few lines.
+
+### 9c. Google Analytics (visit statistics)
+
+Optional: without it the site never asks (see Visit statistics). `edictum-b30de` is linked already
+(measurement ID `G-NYEX5KTEYJ`).
+
+1. Firebase console → **Project settings** → **Integrations** → **Google Analytics** → **Enable**, and
+   choose or create a Google Analytics account. The web app's configuration then has a `measurementId`,
+   which Hosting serves at `/__/firebase/init.json`; the site picks it up on the next page load, with no
+   deploy.
+2. In Google Analytics (<https://analytics.google.com>) → **Admin**, so that the privacy notice holds:
+   - **Account details**: accept the **data processing terms** (Google is then a processor), and turn
+     the **data sharing settings** off.
+   - **Data collection**: leave **Google signals** off (the site also tells the tag so).
+   - **Data retention**: 2 months (the default) or 14 months; the notice promises at most 14.
+3. The web stream's **Enhanced measurement** can stay as it is. The site switches off the tag's
+   automatic page views (`send_page_view: false`), which also stops the history-based ones, and sends
+   its own with the cleaned address, which it also sets (`gtag('set')`) for the tag's other events
+   (scrolls, outbound links, downloads).
 
 ### 10. The staging project, for previews
 

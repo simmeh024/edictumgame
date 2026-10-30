@@ -45,7 +45,8 @@ export async function until(fn, ms = 8000, step = 150) {
 // opts: vp {width,height}, dark, inject (default true: config and emulators set by the test),
 //       block (a RegExp of requests to fail), tag (a name for error reports),
 //       cap (players per region before founding steers elsewhere; the game's default otherwise),
-//       saveGap (defaults to 1500; use 60000 to exercise the normal production interval)
+//       saveGap (defaults to 1500; use 60000 to exercise the normal production interval),
+//       desk (true keeps the daily desk; it is off otherwise, so its gifts never move a stock a test counts)
 // Most tests shorten the background save interval; timing regressions use the production value.
 // Every conquest needs the referee's seal (REF_EPOCH is set back to January 2026). window.G is the
 // game's probe: its state S and a few of its functions (EDICTUM_PROBE in game/edictum.html).
@@ -53,10 +54,10 @@ export async function player(tag, opts = {}) {
   const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
-  await ctx.addInitScript(([cap, gap]) => {
-    window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); if (cap) window.EDICTUM_REGION_CAP = cap;
+  await ctx.addInitScript(([cap, gap, desk]) => {
+    window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true;
     window.EDICTUM_PROBE = g => { window.G = g; };
-  }, [opts.cap || 0, opts.saveGap ?? 1500]);
+  }, [opts.cap || 0, opts.saveGap ?? 1500, !!opts.desk]);
   if (opts.inject !== false) await ctx.addInitScript(([c, e]) => { window.EDICTUM_FIREBASE_CONFIG = c; window.EDICTUM_EMULATORS = e; }, [CONFIG, EMULATORS]);
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(tag + ' PAGEERROR ' + e.message));
@@ -164,6 +165,9 @@ export const openAccount = async p => { await p.click('.ed-acct-b'); await p.wai
 // Explicit Registered fixtures for community/political tests, without the Google-specific tutorial gift.
 export async function register(p,{old=false}={}){
   const uid=await ready(p),email=uid+'@registered.example.test',password='test-only-password';
+  // A guest's first save issues its recovery code, which writes accountIdentity, nationAt among it. Let that finish
+  // first: landing after the backdating below, it made the nation young again (not yet an Assembly member).
+  if((await restGet('nations/'+uid)).status===200)await until(async()=>{const r=await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/accountIdentity/${uid}`,{headers:{authorization:'Bearer owner'}});return r.status===200&&(await r.json()).fields?.recoveryIssued?.booleanValue===true;},15000);
   await p.evaluate(async({email,password})=>{await firebase.auth().currentUser.linkWithCredential(firebase.auth.EmailAuthProvider.credential(email,password));},{email,password});
   await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:update`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({localId:uid,emailVerified:true})});
   if(old){const n=await restGet('nations/'+uid);await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/accountIdentity/${uid}?updateMask.fieldPaths=nationAt&updateMask.fieldPaths=nationGeneration`,{method:'PATCH',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({fields:{nationAt:{integerValue:String(Date.now()-2*86400000)},nationGeneration:{doubleValue:Date.parse(n.body.createTime)}}})});}

@@ -6,7 +6,9 @@ const view=async(p,v)=>{await p.waitForFunction(v=>window.G?.S.view===v&&G.UX?.U
 const move=async(p,v)=>{await nav(p,v);await view(p,v);};
 const search=async(p,q,mobile=false)=>{if(mobile)await p.click('.brand-actions .ux-search-button');else await p.keyboard.press('Control+k');await p.waitForSelector('#qj-in');await p.fill('#qj-in',q);};
 const result=(p,v)=>p.locator(`.qj-o[data-v="${v}"]`);
-const A=await player('navigation desktop'),uid=await open(A);await found(A,'FindersUnion');await view(A,'nation');
+/* the guest recovery dialog takes focus when it opens, so it is acknowledged before any focus is checked */
+const A=await player('navigation desktop',{recovery:true}),uid=await open(A);await found(A,'FindersUnion');
+await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');await view(A,'nation');
 check('desktop search is one labelled icon beside the notification bell',await A.locator('.brand-actions .bell + .ux-search-button').isVisible()&&await A.locator('.ux-search-button').count()===1&&(await A.locator('.ux-search-button').textContent()).trim()===''&&await A.locator('.ux-search-button').getAttribute('aria-label')==='Search game');
 check('nation section links contain only the five main destinations',JSON.stringify(await A.locator('.ux-section-links button').allTextContents())===JSON.stringify(['Overview','Factbook','Territory','Cities','Recent legislation']));
 check('desktop section links need no horizontal scrollbar',await A.locator('.ux-section-links').evaluate(e=>e.scrollWidth<=e.clientWidth+1));
@@ -49,13 +51,13 @@ check('locked designs link to the exact unearned achievement',await A.locator(un
 check('viewing a requirement does not apply the locked design',JSON.stringify((await localNation(A)).flag)===flagBefore&&await A.locator('button button').count()===0);
 await search(A,'<img onerror=bad>');check('search treats unknown input as text',await A.locator('.qj-none').count()===1&&await A.locator('.qj-none img').count()===0);await A.keyboard.press('Escape');
 const C=await player('navigation phone',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});await open(C);await C.waitForSelector('.layout');await view(C,'nation');
-check('phone search remains beside the notification bell',await C.locator('.brand-actions .bell + .ux-search-button').isVisible()&&await C.locator('.ux-search-button').count()===1);await C.screenshot({path:OUT+'/navigation-compact-390.png'});await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'settings');
-check('phone search opens the requested flag layer editor',await C.locator('[data-fgg="s:layers"]').evaluate(e=>e.open));
-await C.locator('[data-fgg="s:layers"]>summary').click();await sleep(150);await move(C,'map');await C.goBack();await view(C,'settings');
-check('native designer sections keep their collapsed state',!await C.locator('[data-fgg="s:layers"]').evaluate(e=>e.open));
-await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'settings');
-check('an explicit search opens a previously collapsed target',await C.locator('[data-fgg="s:layers"]').evaluate(e=>e.open));
-const culture=C.locator('fieldset').filter({has:C.locator('legend').filter({hasText:'Culture'})}).first();await culture.locator('.ux-fold-toggle').click();const cultureId=await culture.locator('legend').getAttribute('id');await C.selectOption('#ux-section-select',cultureId);
+check('phone search remains beside the notification bell',await C.locator('.brand-actions .bell + .ux-search-button').isVisible()&&await C.locator('.ux-search-button').count()===1);await C.screenshot({path:OUT+'/navigation-compact-390.png'});await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
+check('phone search opens the requested flag layer editor',await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
+await C.locator('[data-fgg="c:layers"]>summary').click();await sleep(150);await move(C,'map');await C.goBack();await view(C,'customise');
+check('native designer sections keep their collapsed state',!await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
+await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
+check('an explicit search opens a previously collapsed target',await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
+await move(C,'settings');const culture=C.locator('fieldset').filter({has:C.locator('legend').filter({hasText:'Culture'})}).first();await culture.locator('.ux-fold-toggle').click();const cultureId=await culture.locator('legend').getAttribute('id');await C.selectOption('#ux-section-select',cultureId);
 check('the phone section menu reveals and focuses its destination',!await culture.evaluate(e=>e.classList.contains('ux-folded'))&&await C.locator('#s-lang').isVisible());
 await C.fill('#s-lang','Finderlish');await C.keyboard.press('Control+k');await C.waitForSelector('#qj-in');await C.keyboard.press('Escape');
 check('search can open from an editor and return without losing its draft',await C.inputValue('#s-lang')==='Finderlish'&&await C.evaluate(()=>document.activeElement?.id==='s-lang')&&!(await localNation(C)).lang);
