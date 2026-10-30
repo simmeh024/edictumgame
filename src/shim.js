@@ -19,8 +19,12 @@
                             a holiday after the save, is the time the nation counts as active until.
      space/<uid>            {reg, name, t, j:<JSON of sp, belt, mapc, flag, pretitle>}, only for nations
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
-                            rewritten only when that data changes (or every SPACE_BEAT while playing).
+                            rewritten only when what other regions read from it changes (spaceLayout: not the
+                            running figures re-stamped at every save), or every SPACE_BEAT while playing.
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
+     devnews/<id>           a development news post (admins write it in the portal), devnews/<id>/posts/<id>
+                            its comments (through civic()), devnewsImg/<id> its images, and devnewsMeta/latest
+                            the latest published posts, which the game's unread count listens to.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
    A nation save writes nations, summaries and (when needed) nationx and space in one transaction; the rules
@@ -116,6 +120,28 @@
     var c = d.flag && Array.isArray(d.flag.c) ? d.flag.c.slice(0, 3) : [];
     return JSON.stringify({ sp: d.sp || null, belt: d.belt || null, mapc: str(d.mapc, 20), flag: { c: c }, pretitle: str(d.pretitle, 40) });
   }
+  /* A space record as other regions read it: without the running figures its owner re-stamps at every save. A
+     colony's people and expansion points as of a time (p, e, pa) are a starting point that every viewer carries
+     forward to the present (the game's spRun), and they arrive at the same people from an older starting point
+     (the game keeps p to a millionth of a person for that; other players never read e); the belt's haul mark
+     and research points (hw, rp, ra) only the owner reads. Milestones (ml) and the
+     terraforming level (tf) cannot be worked out that way, so they stay. Keys are sorted, so a record read back
+     from storage in another order compares equal. '' for a record that cannot be read. */
+  var SPACE_RUN = { sp: ['p', 'pa', 'e'], belt: ['hw', 'rp', 'ra'] };
+  function sorted(v) {
+    if (Array.isArray(v)) return v.map(sorted);
+    if (!isObj(v)) return v;
+    var o = {};
+    Object.keys(v).sort().forEach(function (k) { o[k] = sorted(v[k]); });
+    return o;
+  }
+  function spaceLayout(j) {
+    var s = typeof j === 'string' ? parse(j) : null;
+    if (!isObj(s)) return '';
+    if (isObj(s.sp)) ['moon', 'mars'].forEach(function (b) { if (isObj(s.sp[b])) SPACE_RUN.sp.forEach(function (k) { delete s.sp[b][k]; }); });
+    if (isObj(s.belt)) SPACE_RUN.belt.forEach(function (k) { delete s.belt[k]; });
+    return JSON.stringify(sorted(s));
+  }
   /* The private half of a nation record: what only its own player reads (the edict engine, notices seen,
      tallies, intelligence, lore, the passport's stamps), or another player on opening that nation's
      museum, achievements, statistics or passport. Everything else stays in nations/, which the region
@@ -124,7 +150,7 @@
   ['asmLocal', 'onb', 'mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
-    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx'].forEach(function (k) { NX_KEYS[k] = 1; });
+    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws'].forEach(function (k) { NX_KEYS[k] = 1; });
   function splitNation(d) {
     var pub = {}, ext = {};
     Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
@@ -223,7 +249,7 @@
       raceKeys(data, raceFrom).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
       if (noSpace) { /* leave space/ as it is */ }
       else if (sj) {
-        var changed = !space || space.j !== sj || space.reg !== enc.reg || space.name !== enc.name;
+        var changed = !space || space.reg !== enc.reg || space.name !== enc.name || spaceLayout(space.j) !== spaceLayout(sj);
         var elapsed = space ? now - millis(space.ts) : Infinity;
         /* a change waits for the next save if the last space write was too recent */
         if ((changed && elapsed >= SPACE_MIN) || elapsed > SPACE_BEAT) {
@@ -291,7 +317,8 @@
     });
   }
   function queryApi(q) {
-    function qsOf(qs) { return { size: qs.size, empty: qs.empty, docs: qs.docs.map(snapOf) }; }
+    /* fromCache: the snapshot came from this browser's copy, before the server confirmed it */
+    function qsOf(qs) { return { size: qs.size, empty: qs.empty, docs: qs.docs.map(snapOf), fromCache: !!(qs.metadata && qs.metadata.fromCache) }; }
     return {
       where: function (f, op, v) { return Object.freeze(queryApi(q.where(f, op, v))); },
       orderBy: function (f, dir) { return Object.freeze(queryApi(q.orderBy(f, dir === 'desc' ? 'desc' : 'asc'))); },
@@ -401,6 +428,12 @@
     google: function () {
       var u = A.auth && A.auth.currentUser;
       return Promise.resolve(!!(u && (hasProvider(u, 'google.com') || discordOf(u) || hasProvider(u, 'password') && u.emailVerified && L.get('edictum.emailLinked.' + u.uid))));
+    },
+    /* a moderator (custom claim mod, tools/admin/set-admin.mjs --mod) removes development news comments;
+       read from the token isOwner() fetched */
+    isMod: function () {
+      var u = A.auth && A.auth.currentUser;
+      return Promise.resolve(!!(u && A.claimsUid === u.uid && A.claims && A.claims.mod === true));
     },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
@@ -606,7 +639,11 @@
     if (emailLink) finishEmailLink(emailLink);
     setTimeout(supportCheck, 6000);
     setTimeout(recoveryCheck, 1800);
+    setTimeout(seenCheck, 4000);
   }
+  /* the address this browser plays from, which the admins see when they inspect the nation and which expires
+     90 days after it was last seen (functions/accounts.js, 'seen'; the privacy notice says so): once a page load */
+  function seenCheck() { if (A.auth && A.auth.currentUser && !A.leaving && !A.frozen) call('accounts', { op: 'seen' }).catch(function () {}); }
 
   /* ───────── the account control and its dialog ───────── */
   var ui = { box: null, btn: null, sync: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };

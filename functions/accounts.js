@@ -7,6 +7,16 @@ import { forgetDiscord, discordStep } from './discord.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
+/* The address a player last played from, for the admins' Inspect (functions/admin.js). Only the latest is kept,
+   in accountSeen/{uid} {ip, at, exp}, and Firestore deletes it SEEN_DAYS after it was last seen (TTL on exp,
+   firestore.indexes.json; the privacy notices say so). Google's front end adds the address a request came from
+   to the end of X-Forwarded-For, after anything the browser sent itself, so the last entry is the one to trust. */
+const SEEN_DAYS = 90;
+function address(raw) {
+  const hops = String(raw.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean);
+  const ip = String(hops.at(-1) || raw.ip || '').replace(/^::ffff:/, '');
+  return /^[\da-f.:]{2,45}$/i.test(ip) ? ip : '';
+}
 export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memory: '256MiB' }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
@@ -32,10 +42,17 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     return { token: await getAuth().createCustomToken(u.uid, { guestRecovery: true }) };
   }
   if (d.op === 'discord') return discordStep(uid, d);
+  if (d.op === 'seen') {
+    // Once a page load (src/shim.js, seenCheck); the same address writes at most once an hour, moving the expiry with it.
+    const ip = address(req.rawRequest), ref = db.doc('accountSeen/' + uid), now = Date.now(), last = await ref.get();
+    if (ip && !(last.get('ip') === ip && now - last.get('at') < 3600000)) await ref.set({ ip, at: now, exp: Timestamp.fromMillis(now + SEEN_DAYS * 86400000) });
+    return { ok: true };
+  }
   if (d.op === 'close') {
     // The player's browser has deleted the nation, posts and tickets (src/shim.js, doDelete); this ends the
     // account itself, which a browser may only do just after signing in, and frees a linked Discord account.
     if ((await db.doc('nations/' + uid).get()).exists) refuse('nation_exists', 'Delete the nation first.');
+    await db.doc('accountSeen/' + uid).delete();
     await forgetDiscord(uid);
     await getAuth().deleteUser(uid);
     return { ok: true };
