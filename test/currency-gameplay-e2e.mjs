@@ -12,6 +12,7 @@ const C = await player('FX-C'), D = await player('FX-D', {vp:{width:390,height:8
 const uidC=await open(C);await found(C,'Coinland');
 const uidD=await open(D);await found(D,'Noteland');
 for(const p of [C,D])await p.evaluate(()=>{const n=G.clone(G.S.nation);n.founded=Date.now()-10*864e5;delete n.policies.counterIntel;G.commit(n);G.render();});
+for(const [p,id] of [[C,uidC],[D,uidD]])if(!await until(async()=>{const d=await nationDoc(id),n=await localNation(p);return d?.rec.founded<Date.now()-9*DAY&&!n?._dirty;},20000))throw Error('Currency fixture age did not finish saving before reload');
 await until(async()=>!!(await nationDoc(uidD))?.rec);
 await until(()=>C.evaluate(id=>!!G.S.world[id],uidD));
 

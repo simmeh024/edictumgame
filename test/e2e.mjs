@@ -637,10 +637,11 @@ await ownerDoc('nations/cheat-1', { method: 'DELETE' }); await ownerDoc('mod/che
 await A.evaluate(() => { location.hash = '#nation'; }); await sleep(300);
 
 await B.evaluate(async()=>{await firebase.auth().currentUser.unlink('password');await firebase.auth().currentUser.reload();window.dispatchEvent(new Event('edictum:linked'));});
+check('the unlinked fixture returns to Guest eligibility',await until(()=>B.evaluate(()=>G.S.civic?.account.kind==='guest')));
 /* ── 8. Google sign-in (Auth emulator) ──────────────────────────────────── */
 // the first steps offer it, with what it pays; the button opens the account dialog
 await nav(B, 'nation');
-check('a guest’s first steps offer linking to Google, for 5 land credits', /Keep your nation on every device\s*\+5 land/.test(await text(B, '.stp')));
+check('a guest’s first steps offer linking to Google, for 5 land credits', /Keep your nation on every device\s*\+5 land/.test(await text(B, '.stp')),JSON.stringify(await B.evaluate(()=>({name:G.S.nation?.name,onb:G.S.nation?.onb,glk:G.S.nation?.glk,google:G.S.google,account:G.S.civic?.account,view:G.S.view,steps:[...document.querySelectorAll('.stp')].map(e=>e.textContent.trim().slice(0,160))}))));
 await B.click('.stp [data-act="acct-open"]');
 check('its button opens the account dialog', !!(await until(() => B.$('dialog.ed-dlg[open] [data-ed="google"]'))));
 await B.keyboard.press('Escape');
@@ -715,10 +716,12 @@ check('the sync indicator sits directly above Sign out', await E.locator('.ed-ou
 for (const scheme of ['light', 'dark']) {
   await E.emulateMedia({ colorScheme: scheme });
   await E.hover('.side-foot .ed-out');
-  await E.locator('.side-foot').screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });
+  for(let attempt=0;;attempt++)try{
+    await E.locator('.side-foot').screenshot({ path: path.join(OUT, `signout-button-${scheme}.png`) });break;
+  }catch(e){if(attempt>=2||!/not attached|detached/i.test(e.message))throw e;await sleep(100);}
 }
 await E.emulateMedia({ colorScheme: 'light' });
-check('a guest has none, since signing out would lose the nation', !!(await B.$('.side-foot .ed-acct')) && !(await B.isVisible('.ed-out')));
+check('a Guest Nation also has a Sign out button', !!(await B.$('.side-foot .ed-acct')) && await B.isVisible('.ed-out'));
 await openAccount(E);
 await E.click('[data-ed="signout"]');
 check('signing out from the account dialog asks first', /Sign out\?/.test(await text(E, '#ed-dlg-h')));
