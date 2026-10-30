@@ -12,7 +12,7 @@ function fixture(){
   czU:e=>e==='e-eye'?{src:'set'}:null,czHolds:(n,e)=>n?.cz?.u?.includes(e),fgHeld:()=>false,fgSay:()=>{},fgDescribe:()=>'',fgTarget:()=>f,emblemSVG:(e,x,y,r,c)=>`<path data-emblem="${e}" fill="${c}"/>`});
  vm.runInContext(src.slice(src.indexOf('function fgOpt('),src.indexOf('NORM_HOOKS.push((n,d)=>{',src.indexOf('function fgOpt('))),ctx);
  vm.runInContext(src.slice(src.indexOf('function fgPush('),src.indexOf('function fgDone(')),ctx);
- vm.runInContext(src.slice(src.indexOf('const FGL_MAX='),src.indexOf('/* ── the Customise page: earned patterns',src.indexOf('const FGL_MAX='))),ctx);
+ vm.runInContext(src.slice(src.indexOf('const FGL_MAX='),src.indexOf('/* ───────── Round 13, RD: the map',src.indexOf('const FGL_MAX='))),ctx);
  return {f,ctx};
 }
 function env(){const {f,ctx}=fixture();ctx.f=f;vm.runInContext('this.select=i=>FGL.sel.s=i;this.norm=fglNorm;this.art=fglArt;this.canon=fgCanon;this.edit=(a,v)=>fglEdit("s",a,v);this.undo=()=>flagEdit("s","undo");this.history=()=>FG.hist.get(f)||[];',ctx);return {f,c:ctx};}
