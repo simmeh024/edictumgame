@@ -3759,6 +3759,29 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-detail code,.adm td code{overflow-wrap:anywhere;white-space:normal;font:12px var(--f-mono)}
 .adm-detail dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:10px;margin:16px 0}
 .adm-detail dd{margin:0;overflow-wrap:anywhere}
+.adme-cats{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 4px}
+.adme-cats .btn{min-height:40px}
+.adme-cats .btn[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.adme-cats .btn[aria-pressed="true"] .chip{border-color:currentColor;color:inherit}
+.adme-fill{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:var(--ink-2)}
+.adme-cat{margin-bottom:8px}
+.adme-row{margin:0 0 6px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
+.adme-row>summary{padding:10px 14px;cursor:pointer;line-height:1.5}
+.adme-row>summary .chip{margin-left:4px}
+.adme-row[open]>summary{border-bottom:1px solid var(--rule-2)}
+.adme-no{margin-right:4px;font:12px var(--f-mono);color:var(--ink-2)}
+.adme-body{padding:2px 16px 14px}
+.adme-q{margin:12px 0}
+.adme-opts{display:grid;gap:12px;margin:0 0 14px;padding-left:22px}
+.adme-opts p{margin:0}
+.adme-opts .adme-fx{margin-top:4px;color:var(--ink-2);font-style:italic}
+.adme-opts .adme-eff{margin-top:4px;font:12.5px/1.5 var(--f-mono);color:var(--ink-2);overflow-wrap:anywhere}
+.adme-meta{display:grid;grid-template-columns:minmax(90px,max-content) minmax(0,1fr);gap:6px 14px;margin:0;font-size:14px}
+.adme-meta dt{color:var(--ink-2)}
+.adme-meta dd{margin:0;overflow-wrap:anywhere}
+.adme-meta code{font:12px var(--f-mono);white-space:normal;overflow-wrap:anywhere}
+.adme-ph{font:12px var(--f-mono);color:var(--accent)}
+@media (max-width:600px){.adme-cats{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px}.adme-cats .btn{flex:none}}
 .adm-region-reason{min-width:180px;max-width:260px}
 .region-disabled{filter:grayscale(1);opacity:.6}
 .region-disabled button{cursor:not-allowed}
@@ -36514,7 +36537,7 @@ function tick(){
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
 const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
 const ADM_EXTRA=['admin-players','admin-health','admin-audit'];
-const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus',ADM_EXTRA);
+const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus','admin-edicts',ADM_EXTRA);
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
    stays theirs to play); a removed nation leaves this browser too */
@@ -36685,6 +36708,83 @@ async function susAct(a,id){
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
   if(a==='sus-scan'){susScan();return;}if(a==='sus-no'){ADMS.ask=null;render();return;}
   if(a==='sus-hide'||a==='sus-ban'||a==='sus-ban-yes')susAct(a,el.dataset.id);});
+
+/* ── All edicts: the whole catalog by category, read straight from ISSUES, so it needs no server. A row's
+   question and options are drawn only when it is opened; the search hides rows without redrawing. ── */
+const ADME={cat:'all',raw:'',q:'',fill:false,open:new Set()};
+let ADME_IX=null;
+function admeIndex(){
+  if(ADME_IX)return ADME_IX;
+  const from={},add=(to,id)=>{(from[to]=from[to]||new Set()).add(id);};
+  for(const is of ISSUES)for(const o of is.o){if(o.nx)add(o.nx,is.id);if(o.nr)add(o.nr,is.id);}
+  const text=new Map(ISSUES.map(is=>[is.id,[is.id,is.t,is.q,...is.o.flatMap(o=>[o.t,o.fx])].join(' ').toLowerCase()]));
+  return ADME_IX={from,text};
+}
+function admeText(s){
+  if(ADME.fill&&S.nation){try{return esc(fill(s,S.nation,{}));}catch(e){}}
+  return esc(s).replace(/\{(\w+(?::\w+)?)\}/g,'<span class="adme-ph">{$1}</span>');
+}
+const ADME_EXTRA={nb:'Goodwill with the neighbour',rec:'Land reclaimed from the sea',land:'Bonus land credits',cede:'A border hex goes to the neighbour',take:'A border hex taken from the neighbour',blk:'City blocks',prov:'Provinces',cab:'Cabinet',lead:'Leader',ppu:'Passport design'};
+function admeEffects(o){
+  const e=o.e||{},out=[],sign=v=>(v>0?'+':'−')+Math.abs(v);
+  for(const [k,v] of Object.entries(e))if(STATS[k]&&typeof v==='number')out.push(`${STATS[k].n} ${sign(v)}`);
+  if(e.b)for(const [k,v] of Object.entries(e.b)){const b=BUDGET.find(x=>x[0]===k);out.push(`Budget for ${b?b[2]:k} ${sign(v)}`);}
+  if(e.p)for(const [k,v] of Object.entries(e.p))out.push(`${POLICIES[k]?POLICIES[k][0]:k}: ${v?'enacted':'repealed'}`);
+  for(const [k,l] of Object.entries(ADME_EXTRA)){const v=e[k];if(v==null)continue;
+    out.push(typeof v==='number'&&k!=='cede'&&k!=='take'?`${l} ${sign(v)}`:typeof v==='object'?`${l}: ${JSON.stringify(v)}`:v===1||v===true?l:`${l}: ${v}`);}
+  return out;
+}
+const admeLink=id=>{const is=ISSUE_BY_ID[id];return is?`<a href="#admin-edicts" data-act="adme-go" data-id="${esc(id)}">${admeText(is.t)}</a>`:`<code>${esc(id)}</code>`;};
+function admeBody(is){
+  const from=[...(admeIndex().from[is.id]||[])];
+  return `<p class="adme-q">${admeText(is.q)}</p>
+    <ol class="adme-opts">${is.o.map(o=>`<li><p>${admeText(o.t)}</p><p class="adme-fx">${admeText(o.fx)}</p>
+      <p class="adme-eff">${admeEffects(o).map(esc).join(' · ')||'No effect on the statistics'}${o.nx?` · Follow-up after ${o.nxh||4} hours: ${admeLink(o.nx)}`:''}${o.nr?` · Sent to the neighbour: ${admeLink(o.nr)}`:''}</p></li>`).join('')}</ol>
+    <dl class="adme-meta"><dt>ID</dt><dd><code>${esc(is.id)}</code></dd><dt>Drawn</dt><dd>${is.fo?'Only as a follow-up':'At random'+(is.w!=null?`, weight ${esc(is.w)}`:'')}</dd>
+      ${is.req?`<dt>Only when</dt><dd><code>${esc(String(is.req).replace(/^n\s*=>\s*/,''))}</code></dd>`:''}${from.length?`<dt>Arrives after</dt><dd>${from.map(admeLink).join(', ')}</dd>`:''}</dl>`;
+}
+function admeRow(is){
+  const open=ADME.open.has(is.id),q=ADME.q,hidden=q&&!admeIndex().text.get(is.id).includes(q);
+  const chips=[is.fo&&'Follow-up',is.req&&'Condition',is.o.some(o=>o.nx)&&'Leads on',is.nbx&&'Neighbour'].filter(Boolean).map(c=>`<span class="chip">${c}</span>`).join('');
+  return `<details class="adme-row" data-id="${esc(is.id)}"${open?' open':''}${hidden?' hidden':''}><summary><span class="adme-no">No. ${is.no}</span> <b>${admeText(is.t)}</b> ${chips}</summary><div class="adme-body">${open?admeBody(is):''}</div></details>`;
+}
+function adminEdictsView(){
+  const by=c=>ISSUES.filter(is=>is.c===c),cats=ISSUE_TOPICS.filter(([k])=>by(k).length);
+  const shown=ADME.cat==='all'?cats:cats.filter(([k])=>k===ADME.cat);
+  const n=a=>a.length.toLocaleString('en-US');
+  const btn=(k,l,c)=>`<button type="button" class="btn ghost small" data-act="adme-cat" data-v="${k}" aria-pressed="${ADME.cat===k}">${esc(l)} <span class="chip">${n(c)}</span></button>`;
+  const summary=a=>`${n(a)} ${a.length===1?'edict':'edicts'}: ${n(a.filter(is=>!is.fo))} drawn at random, ${n(a.filter(is=>is.fo))} only as follow-ups, ${n(a.filter(is=>is.req))} with a condition`;
+  return admShell('admin-edicts',`
+    <p class="eyebrow">Admin portal</p><h1 class="display">All edicts</h1>
+    <p class="lede">Every edict in the game, by category. Open one to read its question, its options with their effects, and how it connects to other edicts. Follow-ups arrive only after a ruling in an earlier edict; the rest are drawn at random, some only while their condition holds.</p>
+    <div class="adm-kpis"><div class="adm-kpi"><b>${n(ISSUES)}</b><span>Edicts</span></div><div class="adm-kpi"><b>${n(ISSUES.filter(is=>!is.fo))}</b><span>Drawn at random</span></div><div class="adm-kpi"><b>${n(ISSUES.filter(is=>is.fo))}</b><span>Only as follow-ups</span></div><div class="adm-kpi"><b>${n(ISSUES.filter(is=>is.req))}</b><span>With a condition</span></div></div>
+    <div class="adme-cats" role="group" aria-label="Category">${btn('all','All',ISSUES)}${cats.map(([k,l])=>btn(k,l,by(k))).join('')}</div>
+    <div class="adm-search"><div class="field"><label for="adme-q">Search titles and text</label><input class="input" id="adme-q" type="search" maxlength="80" value="${esc(ADME.raw)}" placeholder="Word, phrase or edict ID"></div>
+      ${S.nation?`<label class="adme-fill"><input type="checkbox" id="adme-fill"${ADME.fill?' checked':''}> Fill in names as ${esc(S.nation.name)} would see them</label>`:''}</div>
+    <p class="hint" id="adme-count" aria-live="polite"></p>
+    ${shown.map(([k,l])=>{const a=by(k);return `<section class="adme-cat" data-cat="${k}"><h2 class="h2">${esc(l)}</h2><p class="hint">${summary(a)}.</p>${a.map(admeRow).join('')}</section>`;}).join('')}
+  `);
+}
+/* hide rows that do not match the search, and the categories left empty, without redrawing the page */
+function admeFilter(){
+  const t=admeIndex().text,q=ADME.q;let shown=0,all=0;
+  document.querySelectorAll('.adme-cat').forEach(sec=>{let k=0;
+    sec.querySelectorAll('.adme-row').forEach(r=>{const hit=!q||t.get(r.dataset.id).includes(q);r.hidden=!hit;all++;if(hit){k++;shown++;}});
+    sec.hidden=!k;});
+  const c=document.getElementById('adme-count');
+  if(c)c.textContent=q?`${shown.toLocaleString('en-US')} of ${all.toLocaleString('en-US')} edicts match “${ADME.raw.trim()}”.`:'';
+}
+render=(f=>function(){const r=f.apply(this,arguments);if(S.view==='admin-edicts'&&S.isOwner)admeFilter();return r;})(render);
+document.addEventListener('input',e=>{if(e.target.id!=='adme-q')return;ADME.raw=e.target.value;ADME.q=ADME.raw.trim().toLowerCase();admeFilter();});
+document.addEventListener('change',e=>{if(e.target.id!=='adme-fill')return;ADME.fill=e.target.checked;render();});
+document.addEventListener('toggle',e=>{const d=e.target;if(!d.classList||!d.classList.contains('adme-row'))return;const id=d.dataset.id;
+  if(!d.open){ADME.open.delete(id);return;}
+  ADME.open.add(id);const b=d.querySelector('.adme-body');if(b&&!b.childElementCount&&ISSUE_BY_ID[id])b.innerHTML=admeBody(ISSUE_BY_ID[id]);},true);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='adme-cat'){ADME.cat=el.dataset.v;render();return;}
+  if(a==='adme-go'){e.preventDefault();const is=ISSUE_BY_ID[el.dataset.id];if(!is)return;
+    if(ADME.cat!=='all')ADME.cat=is.c;ADME.raw=ADME.q='';ADME.open.add(is.id);render();
+    const row=document.querySelector(`.adme-row[data-id="${CSS.escape(is.id)}"]`);if(row){row.scrollIntoView({block:'start'});row.querySelector('summary').focus({preventScroll:true});}}});
 const ADM_MOBILE=window.matchMedia('(max-width:900px)');
 let admMenuOpen=false;
 function admHideMenu(){
@@ -36710,6 +36810,7 @@ function admShell(v,body){
         ${group('World',tab('admin','Overview')+tab('admin-players','Player search')+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n))}
+        ${group('Game content',tab('admin-edicts','All edicts'))}
         ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
@@ -36719,7 +36820,7 @@ function admShell(v,body){
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
 render=(f=>function(){const r=f.apply(this,arguments);if(admMenuOpen&&ADM_MOBILE.matches)admShowMenu();return r;})(render);
-shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
+shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(S.view==='admin-edicts'&&S.isOwner)return adminEdictsView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
 go=(f=>function(v){if(v!==S.view){admMenuOpen=false;if(ADM_EXTRA.includes(v))ADMX.loaded[v]=false;}if(ADM_PAGES.includes(v)&&S.view!==v){if(!ADM_VIEWS.includes(S.view))ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
