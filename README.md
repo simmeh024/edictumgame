@@ -8,8 +8,8 @@ and one message board.
 
 The game was first written as a claude.ai artifact. That version was retired in October 2026: the
 game now lives here, at <https://edictumgame.com>, with Firebase: **Hosting** serves the page,
-**Authentication** gives every visitor an account (a guest account at once, linked to Google if they
-like), and **Firestore** holds the shared world.
+**Authentication** gives every visitor an account (a guest account at once, linked to Google, Discord
+or an email address if they like), and **Firestore** holds the shared world.
 
 ## How it fits together
 
@@ -122,7 +122,7 @@ where an admin can remove the post, hide the nation (it leaves everyone else's v
 told why and can still play), remove the nation (it and its posts are deleted; the player may found
 a new one), ban the player (the nation is removed and the account can no longer save, post or
 report), or simply close the ticket. Hidden nations and banned players are listed in the portal
-with Unhide and Unban. A banned guest can come back by clearing their browser; a Google account
+with Unhide and Unban. A banned guest can come back by clearing their browser; a linked account
 cannot.
 
 **Edicts.** Edicts go before the nation's government, which follows its type of state: the Senate of
@@ -302,17 +302,36 @@ the real browser cache across a simulated code update, saved themes, phones and 
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
 The account control (at the foot of the side bar, or at the top of the founding screen) offers
-**Keep your nation on every device**, which links the guest account to Google so the same nation
-loads anywhere. If that Google account already has a nation, the player can switch to it. A player
-signed in with Google also has **Sign out** under the control in the side bar (it asks first; a guest
-gets none, since a guest who signed out would lose the nation). Signing out starts a new guest.
+**Keep your nation on every device**, which links the guest account to Google, Discord or an email
+address so the same nation loads anywhere; a Registered Nation can add the others. If that sign-in
+already has a nation, a guest can switch to it (asked first while it has a nation of its own). A
+linked player also has **Sign out** under the control in the side bar (it asks first; a guest gets
+none, since a guest who signed out would lose the nation). Signing out starts a new guest.
+
 Above Sign out, a small status shows **Synced** after server confirmation, **Saving** while changes
 are queued or in flight, and **Offline** when synchronization is unavailable. Guests with a nation
 see the same status. Its text is announced to screen readers when it changes.
 Linking is also the last of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
 once (`n.glk`).
 
-**Guest and Registered Nations.** Registration is determined from live Firebase Auth linked providers;
+- **Google** is Firebase's own provider (`linkWithPopup`).
+- **Email** sends a one-time sign-in link (Firebase's email-link sign-in, a `password` provider without
+  a password). Opened in the same browser it finishes at once; in another browser the page asks which
+  address the link went to. Firebase counts a failed attempt to link an address that already has an
+  account as the link's one use, so switching then sends a fresh link, which switches when opened.
+- **Discord** is not a Firebase provider: `functions/discord.js` exchanges Discord's one-time code
+  (scope `identify` only) for the Discord account's id, keeps `discordLinks/<id>` → player id, and puts
+  the id on the account as a custom claim (`dc`, with the name in `dcn`); signing in elsewhere uses a
+  custom token for that player id. The window goes `/discord` → Discord → `/discord` (`src/discord.html`),
+  which leaves Discord's answer in localStorage for the game's page. Firebase's own OpenID Connect
+  providers would do the same but are billed from the 50th monthly user; custom tokens are free up
+  to 50,000. It runs in the `accounts` callable (op `discord`), not a function of its own: a new
+  public function needs its Cloud Run invoker set, which the deploy's service account may not do.
+
+Deleting a nation and account ends the account on the server (`accounts` op `close`), so it works
+however long ago the player signed in, and frees a linked Discord account.
+
+**Guest and Registered Nations.** Registration is determined from live Firebase Auth linked providers (and the `dc` claim of a linked Discord account);
 recovering a Guest Nation with a custom token does not register it. The first saved guest nation receives
 one 160-bit recovery code, shown until the player acknowledges saving it. Only its SHA-256 hash is stored
 on the server. A lost code cannot be read back. An authenticated Guest can explicitly regenerate it;
@@ -322,7 +341,7 @@ and replacements are limited to one per minute. Revoked hashes retain only a non
 to prevent reuse. The browser persists an unfinished replacement so interrupted responses can be retried.
 Without an active session or a working code, access cannot be recovered. Registered Nations recover through linked
 sign-in, and a former Guest code stops working after linking. `LINK_OPTIONS` in `src/shim.js` is the
-account panel's provider list; Google is currently the supported interactive provider.
+account panel's provider list (Google, Discord, email); a Discord link counts through its `dc` claim.
 
 `functions/eligibility.js` checks linked identity, a trusted nation creation timestamp, bans, moderation
 and region availability. Assembly participation requires 24 hours of nation age. Community topics,
@@ -342,7 +361,8 @@ Regenerate its trusted catalog and source with `node tools/build-civic.mjs` afte
 **Recovery runtime setup (once per project).** As a project owner, run
 `node tools/setup-recovery-runtime.cjs --project <project-id>` to inspect, then add `--apply` to enable
 `iamcredentials.googleapis.com` and grant the existing runtime **Service Account Token Creator on itself**.
-This is required by Firebase Admin custom-token signing; it grants no role on other service accounts.
+This is required by Firebase Admin custom-token signing (guest recovery and Discord sign-in); it grants no
+role on other service accounts.
 Run for staging and production before releasing recovery. The command preserves existing IAM bindings
 and their etag. See [Firebase custom tokens](https://firebase.google.com/docs/auth/admin/create-custom-tokens).
 
@@ -371,7 +391,10 @@ Then open <http://127.0.0.1:5000>. The `demo-` project id means everything runs 
 the page finds the local Auth, Firestore and Functions emulators by itself, and nothing touches a real
 Firebase project. The emulator console at <http://127.0.0.1:4000> shows the accounts and
 documents; in the Auth emulator, "Continue with Google" opens a stand-in sign-in window where you
-can make up accounts.
+can make up accounts, and "Continue with email" puts the link in the emulator's outbox (the Auth tab of
+the emulator console, or `/emulator/v1/projects/demo-edictum/oobCodes`). Discord needs the real
+Discord, unless the page sets `window.EDICTUM_DISCORD_EMU = {id, name}` first (the emulators then
+stand in for it, as `test/signin-e2e.mjs` does).
 
 `npm run emulators` does the build and the start in one go. After changing `src/` or the game,
 run `python3 build.py` again and reload.
@@ -384,6 +407,7 @@ npm run test:rules         # the security rules, and the daily currency job (Fir
 npm run test:referee       # the referee: readiness, fair dice, the odds' bound, seals (Auth, Firestore and Functions emulators)
 npx playwright install chromium   # once, for the browser tests
 npm run test:e2e           # two players, the board, other regions, reloads, rules, battles and seals, admin, offline, Google sign-in, full regions, founding drafts, the front page
+npm run test:signin        # email-link and Discord sign-in: linking, another browser, switching, deleting
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
 npm run test:sync          # one account on desktop and phone: updates, conflicts, clocks, reconnects
 npm run test:startup       # first load, cached updates, loading feedback and saved themes
@@ -453,8 +477,40 @@ project needs a billing account (see Costs).
 2. **Sign-in method** → **Anonymous** → enable → **Save**.
 3. **Sign-in method** → **Add new provider** → **Google** → enable, choose a **support email**,
    **Save**.
-4. **Settings** → **Authorised domains** already lists `localhost`, `<project id>.web.app` and
+4. **Sign-in method** → **Add new provider** → **Email/Password** → switch on **Email/Password** and
+   then **Email link (passwordless sign-in)** → **Save**. The game offers no passwords; a password
+   account counts as registered only with a verified address. Under **Settings** → **User actions**, keep **Email enumeration protection** on. Under
+   **Templates**, the sign-in email names the project's **public-facing name** (**Project settings** →
+   **General**): set it to Edictum. Firebase sends up to 25,000 sign-in emails a day on Blaze (5 on Spark).
+5. **Settings** → **Authorised domains** already lists `localhost`, `<project id>.web.app` and
    `<project id>.firebaseapp.com`. Your own domain is added in step 8.
+
+### 3b. Discord sign-in
+
+Discord does not go through Firebase's provider list (no OpenID Connect provider is needed; see
+**Sign-in** above), but through the `accounts` Cloud Function and a Discord application of your own:
+
+1. <https://discord.com/developers/applications> → **New Application** → name it Edictum. Under
+   **General Information**, add the app icon, and the privacy notice and terms addresses
+   (`https://edictumgame.com/privacy`, `https://edictumgame.com/terms`).
+2. **OAuth2** → **Redirects** → add `https://edictumgame.com/discord` (and
+   `https://<project id>.web.app/discord` if players use that address). Each address must match
+   exactly; preview channels cannot sign in with Discord. Note the **Client ID**, and **Reset Secret**
+   to see the **Client Secret** once.
+3. On your computer, in this repository, with the same service account key as for making an admin
+   (step 9):
+   ```sh
+   cd tools/admin && npm ci
+   GOOGLE_APPLICATION_CREDENTIALS=/path/outside/the/repo/service-account.json node set-discord.mjs <client id>
+   ```
+   It asks for the client secret and keeps both in Firestore (`authConfig/discord`, which only the
+   functions can read). Add `--origins https://edictumgame.com,https://<project id>.web.app` to change
+   the addresses allowed to sign in (by default edictumgame.com, `<project id>.web.app` and
+   `<project id>.firebaseapp.com`); `--off` switches Discord sign-in off.
+4. The function signs players in with custom tokens, so the runtime needs **Service Account Token
+   Creator** on itself (**Recovery runtime setup**, above), as guest recovery does.
+
+Until then, "Continue with Discord" says that Discord sign-in is not set up yet.
 
 ### 4. Hosting
 

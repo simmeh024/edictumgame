@@ -3,6 +3,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { identity, eligibility, refuse, registered } from './eligibility.js';
+import { forgetDiscord, discordStep } from './discord.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -29,6 +30,15 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     if (!a.exists || a.get('recoveryHash') !== hash || !n.exists || a.get('nationGeneration') !== n.createTime.toMillis()) fail();
     // A code proves access to the existing guest identity, never registration or political eligibility.
     return { token: await getAuth().createCustomToken(u.uid, { guestRecovery: true }) };
+  }
+  if (d.op === 'discord') return discordStep(uid, d);
+  if (d.op === 'close') {
+    // The player's browser has deleted the nation, posts and tickets (src/shim.js, doDelete); this ends the
+    // account itself, which a browser may only do just after signing in, and frees a linked Discord account.
+    if ((await db.doc('nations/' + uid).get()).exists) refuse('nation_exists', 'Delete the nation first.');
+    await forgetDiscord(uid);
+    await getAuth().deleteUser(uid);
+    return { ok: true };
   }
   const who = await identity(uid);
   if (d.op === 'status') {

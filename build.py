@@ -241,8 +241,8 @@ def main():
                 write(os.path.join(out, 'vendor', 'firebase', ver, f), read(p, 'rb'))
             elif f == name:
                 fail('node_modules/firebase/%s is missing' % f)
-    for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png', 'privacy.html', 'privacidad.html', 'terms.html', 'terminos.html'):
-        shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))  # the pages are served as /privacy, /privacidad, /terms, /terminos
+    for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png', 'privacy.html', 'privacidad.html', 'terms.html', 'terminos.html', 'discord.html'):
+        shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))  # the pages are served as /privacy, /privacidad, /terms, /terminos, /discord
 
     # the game's styles (with the shim's and the fonts') and its script become long-cached files
     styles = re.findall(r'<style[^>]*>(.*?)</style>', game_head, re.S | re.I)

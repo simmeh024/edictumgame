@@ -43,7 +43,7 @@ test('an already linked nation never repeats the ordinary one-credit Google tuto
 test('linking still pays its dedicated reward once and remains paid after reloading',()=>{
   const r=rewards();let n=nation({glk:undefined});
   const first=r.save(n);
-  assert.equal(first.length,1);assert.match(first[0],/Google account\. \+5 land credits/);
+  assert.equal(first.length,1);assert.match(first[0],/linked sign-in\. \+5 land credits/);
   assert.equal(n.glk,1);
   assert.deepEqual(n.stock,{food:60,timber:50,iron:30,oil:10,goods:45});
   for(let i=0;i<5;i++){n=r.reload(n);assert.deepEqual(r.save(n),[]);}
