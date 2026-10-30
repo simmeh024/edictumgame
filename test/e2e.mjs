@@ -784,10 +784,11 @@ check('and the draft is cleared once founded', (await K.evaluate(() => sessionSt
 await K.ctx.close();
 
 /* ── 10b. full-screen maps ──────────────────────────────────────────────── */
-const FS = await player('FS');
+const FS = await player('FS', { recovery: true }); // its recovery dialog would take the Escape key below
 await open(FS);
 const fills = () => FS.evaluate(() => { const w = document.querySelector('.map-wrap.is-full'); if (!w) return false; const r = w.getBoundingClientRect(); return r.width >= innerWidth - 1 && r.height >= innerHeight - 1 && document.documentElement.classList.contains('map-full-open'); });
 await found(FS, 'Fullview', { newPlayer: true });
+await FS.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await FS.click('[data-ed="recovery-saved"]');
 await FS.click('.fd-map [data-act="map-fs"]');
 check('the first edict’s map has a Full screen button that fills the window', await until(fills));
 check('its bar names the three places for the capital', /Three places for/.test(await text(FS, '.map-fs-bar')));
