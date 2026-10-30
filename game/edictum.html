@@ -23662,7 +23662,9 @@ const civicLocal=a=>Object.fromEntries(['h','d','st','cur'].filter(k=>a&&k in a)
 /* How often the game asks again (civicDue): every 30 seconds on the Assembly page and every 10 minutes elsewhere
    (a banner's seat and the Delegate's stamp, the bell's notes and what an account may do change seldom, and
    linking an account asks at once), and soon after the vote closes or this nation's seat unlocks; only while the
-   page is in view. A failure waits 30 seconds before asking again, then twice as long each time, up to 10 minutes. */
+   page is in view. A failure waits 5 seconds before asking again, then twice as long each time, up to 10 minutes
+   (the first asks of a page or a nation just founded can fail before its sign-in or first save has settled); until
+   the Assembly has answered once, each save of the nation asks again at once. */
 const CIVIC_PAGE=30000,CIVIC_AWAY=600000,CIVIC_JIT=5000+Math.random()*55000;
 let civicFails=0,civicRetry=0;
 function civicDue(now){
@@ -23671,7 +23673,7 @@ function civicDue(now){
   const a=S.civic.account||{},close=S.civic.t1+CIVIC_JIT,seat=a.kind==='registered'&&!a.eligible&&!a.reason&&a.readyAt?a.readyAt+5000:0;
   return now-civicAt>(S.view==='assembly'?CIVIC_PAGE:CIVIC_AWAY)||civicAt<close&&now>=close||!!seat&&civicAt<seat&&now>=seat;
 }
-function civicMissed(){civicRetry=Date.now()+Math.min(CIVIC_AWAY,30000*2**civicFails);civicFails++;}
+function civicMissed(){civicRetry=Date.now()+Math.min(CIVIC_AWAY,5000*2**civicFails);civicFails++;}
 function civicInstall(value){
   if(!value||value.reg!==REG.id)return false;
   S.civic=value;civicAt=Date.now();civicFails=0;civicRetry=0;
@@ -23731,7 +23733,7 @@ VIEWS_EXT.assembly=now=>{
   return (reason?`<p class="war-msg" role="status">${esc(reason)}</p>`:'')+civicAssemblyView(now);
 };
 window.addEventListener('edictum:linked',()=>{civicAt=0;civicFails=0;civicRetry=0;civicEpoch++;civicRefresh();});
-window.addEventListener('edictum:saved',()=>{if(civicDue(Date.now()))civicRefresh();});
+window.addEventListener('edictum:saved',()=>{if(!S.civic)civicRetry=0;if(civicDue(Date.now()))civicRefresh();});
 window.addEventListener('focus',()=>{if(civicDue(Date.now()))civicRefresh();});
 setInterval(()=>{if(civicDue(Date.now()))civicRefresh();},5000);
 
