@@ -64,6 +64,9 @@ or an email address if they like), and **Firestore** holds the shared world.
   project goes without; `firestore.indexes.json` only takes `exp` out of indexing, and deploys leave
   the policy alone. The player and admins read the tickets; `slimits/<uid>` `{s}` paces them to one
   a minute.
+- `bugs/<id>`: a player's bug report (title, text, where, how often, technical details, nation) and an
+  admin's verdict (state, note); `bugImg/<id>` its screenshot, sent in the same batch. The player and
+  admins read them; only admins change the state; `blimits/<uid>` `{b}` paces them to one a minute.
 - `mod/<uid>`: a moderator hid a nation from the other players, or removed it (so its owner's
   browser drops its copy). Everyone reads these. `bans/<uid>`: a banned account; it may save no
   nation, post or report. The player and admins read it.
@@ -414,6 +417,7 @@ npm run test:startup       # first load, cached updates, loading feedback and sa
 npm run test:admin-e2e     # admin console, region access and maintenance messages
 npm run test:devnews       # development news: the editor, images, the menu's count, comments and moderation
 npm run test:buildings     # the later buildings: plans, completion, city effects, edict boosts, the Central Bank
+npm run test:bugs          # Report a bug: the form, screenshots, pacing, the admin page, notes, deleting
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
@@ -673,6 +677,15 @@ in Firestore, `devnewsImg/`), signed with a name and role or as their nation. Pl
 **Development news** page under **Other** in the menu, which shows a count of new posts until they open it.
 On the page, admins can edit, delete or close the comments of a post, and remove a comment, hide its nation
 or ban its player; reported comments arrive in the Reports queue as *News comment*.
+
+**Report a bug.** Players report bugs on the **Report a bug** page under **Other**: a title, what happened,
+where in the game, how often, and a screenshot if they like (chosen or pasted; made at most 1600 pixels wide
+in the browser, `bugImg/`). The game adds technical details (the game's version, browser, screen, language,
+connection, the nation's size and the last errors the page hit) and shows them before sending, one report a
+minute (`bugs/`, `blimits/`). Admins read them in the portal under **Support › Bug reports**, which counts the
+new ones: they look at the screenshot, mark a report *Confirmed*, *Fixed* or *Closed* with a note, or delete it.
+The player sees the state and note under *Your reports*, and is told on their next visit when it changes.
+Reports stay until the player or an admin deletes them, or the player deletes their account.
 
 **Later buildings.** The Central Bank, Courthouse, Public Baths, Recycling Works, Nature Reserve, Observatory
 and Hanging Gardens (section *seven more buildings* in `game/edictum.html`) have twenty edicts of their own,
