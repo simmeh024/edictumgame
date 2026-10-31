@@ -122,7 +122,8 @@ in the `region()` list in `firestore.rules`. The map, its size and the player co
 **Moderation.** Players report a nation (its page) or a post (the region board), choosing a reason
 and adding a note; one report every 30 seconds. Each report is a ticket in the admin portal's queue,
 where an admin can remove the post, hide the nation (it leaves everyone else's view; its owner is
-told why and can still play), remove the nation (it and its posts are deleted; the player may found
+told why and can still play), ask for a new name (the nation is hidden the same way until its
+player saves it under another name), remove the nation (it and its posts are deleted; the player may found
 a new one), ban the player (the nation is removed and the account can no longer save, post or
 report), or simply close the ticket. Hidden nations and banned players are listed in the portal
 with Unhide and Unban. A banned guest can come back by clearing their browser; a linked account
@@ -616,9 +617,22 @@ entry, the one Google's front end adds; at most one write an hour from the same 
 `accountSeen.exp` TTL policy deletes it 90 days after it was last seen (`SEEN_DAYS` in
 `functions/accounts.js`, stated in both privacy notices), and closing the account deletes it at once.
 No client can read or write it. From the same panel an admin can hide, delete or ban any nation,
-with or without a report, and unhide or unban it: each needs a reason (which the player is told),
-deleting and banning are confirmed first, and all of them run the reports' moderation path, with
+with or without a report, force a rename, and unhide or unban it: each needs a reason (which the
+player is told), every one is confirmed first, and all of them run the reports' moderation path, with
 its audit events. Reports, Hidden nations, Banned players and Suspicious link to the panel.
+
+A forced rename (`moderate` action `rename`) sets `mod/<uid>` `{hidden: true, rename: true, name}`,
+so the nation leaves everyone else's view as a hidden one does. Its player sees a card at the top of
+every page asking for a new name; the name is saved like any other change, and then the game calls
+`civic({op: 'renamed'})`, which unhides the nation only if the saved name differs from `name` (ignoring
+case, accents and spacing) and records a `renamed` audit event. A name saved but never confirmed is
+confirmed on the player's next visit. Unhide cancels the rename.
+
+The panel also keeps **staff notes** on each player: one private text (up to 4,000 characters) in
+`staffNotes/<uid>` `{text, at, by}`, read and written only through `adminConsole` (`op: 'note'`); no
+client, admin or not, can reach it directly, and the player never sees it. Each save is an audit
+event (`note_saved` or `note_cleared`) that records who changed it but not the text, so saving an
+empty note deletes it for good, and closing the account deletes it too.
 
 Save health combines `saveHealth/` session reports with actual `nations/` server timestamps and
 revisions. Reports contain only player ID, region, a Desktop/Mobile label, status, pending flag,

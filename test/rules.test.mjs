@@ -319,6 +319,11 @@ test('only admins hide nations; everyone reads who is hidden', async () => {
   await assertFails(mod.doc('mod/bob').set({ ...m, by: 'mod', extra: 1 }));
   await assertSucceeds(mod.doc('mod/bob').set({ ...m, by: 'mod' }));
   await assertSucceeds(anon().collection('mod').get());
+  // a forced rename (functions/admin.js) is the same record with rename: the player cannot lift it themselves
+  await assertFails(mod.doc('mod/bob').set({ ...m, rename: 'yes', by: 'mod' }));
+  await assertSucceeds(mod.doc('mod/bob').set({ ...m, rename: true, by: 'mod' }));
+  await assertFails(as('bob').doc('mod/bob').set({ ...m, rename: false, by: 'bob' }));
+  await assertFails(as('bob').doc('mod/bob').delete());
   await assertSucceeds(mod.doc('mod/bob').delete());
 });
 
@@ -633,7 +638,7 @@ test('revisioned nations start at one and only integer positive revisions are ac
 
 test('political records, recovery secrets and save permits reject every direct client write',async()=>{
   for(const db of [anon(),as('alice'),as('mod',{admin:true})]){
-    for(const path of ['accountIdentity/alice','accountSeen/alice','guestRecovery/hash','recoveryLimits/u_alice','nationPermits/alice/requests/fake','assemblyRegions/meridian/actors/alice','assemblyRegions/meridian/cycles/1/votes/alice','assemblyRegions/meridian/proposals/fake','assemblyRegions/meridian/leadership/current']){
+    for(const path of ['accountIdentity/alice','accountSeen/alice','staffNotes/alice','guestRecovery/hash','recoveryLimits/u_alice','nationPermits/alice/requests/fake','assemblyRegions/meridian/actors/alice','assemblyRegions/meridian/cycles/1/votes/alice','assemblyRegions/meridian/proposals/fake','assemblyRegions/meridian/leadership/current']){
       await assertFails(db.doc(path).set({uid:'alice',v:1}));
       await assertFails(db.doc(path).get());
     }
