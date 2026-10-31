@@ -144,6 +144,39 @@ await A.setViewportSize({ width: 1280, height: 900 });
 const D = await player('deleted'); const uidD = await open(D); await found(D, 'Deleteland');
 await until(async () => (await nationDoc(uidD))?.name === 'Deleteland', 15000);
 const inspect = async uid => { await A.fill('#admin-q', uid); await A.click('#admin-search button:not([type])'); await until(async () => !!await A.$(`.tbl [data-act="admin-inspect"][data-id="${uid}"]`)); await A.click(`.tbl [data-act="admin-inspect"][data-id="${uid}"]`); await until(async () => (await detail()).includes(uid)); };
+
+// A forced rename hides the nation until its player saves another name; staff notes stay with the admins.
+const R = await player('renamed'); const uidR = await open(R); await found(R, 'Rudeland');
+await until(async () => (await nationDoc(uidR))?.name === 'Rudeland', 15000);
+await B.mouse.move(40, 40);/* a player who has been idle a while listens again (quiet tabs) */
+check('before a forced rename other players see the nation', await until(async () => await B.evaluate(uid => G.S.world[uid]?.name, uidR) === 'Rudeland', 30000));
+await inspect(uidR);
+await A.click(`[data-act="admin-mod"][data-a="rename"][data-id="${uidR}"]`);
+check('forcing a rename is confirmed first, and says the nation is hidden until then', await until(async () => /Ask the player of Rudeland for a new name\? Until they save one, the nation is hidden/.test(await text(A, '#admin-mod-ask'))));
+await A.fill('#admin-mod-reason', 'Offensive name'); await A.click('[data-act="admin-mod-yes"]');
+check('a forced rename hides the nation', await until(async () => (await restGet('mod/' + uidR)).body?.fields?.rename?.booleanValue === true && /Hidden until the player chooses a new name: Offensive name/.test(await detail()), 15000));
+check('the console offers to undo it rather than to rename again', !await A.$(`[data-act="admin-mod"][data-a="rename"][data-id="${uidR}"]`) && /Unhide without a new name/.test(await detail()));
+check('other players no longer see it', await until(async () => !await B.evaluate(uid => !!G.S.world[uid], uidR), 30000));
+check('its player is asked for a new name, and told why', await until(async () => /Choose a new name for your nation/.test(await text(R, '.ren-due')) && /Offensive name/.test(await text(R, '.ren-due')), 45000));
+await R.click('[data-act="go"][data-v="issues"]').catch(() => {});
+check('the request stays at the top of every page', await until(async () => !!await R.$('.main .ren-due')));
+await R.fill('#ren-name', ' rudéland '); await R.click('#ren-form button');
+check('the same name in other capitals or accents is refused', await until(async () => /Choose a name other than the one the moderator asked you to change/.test(await text(R, '.ren-due'))) && await R.evaluate(() => document.activeElement?.id === 'ren-name') && (await restGet('mod/' + uidR)).status === 200);
+check('and the reason ends its sentence', /rename Rudeland: Offensive name\. Until you do/.test(await text(R, '.ren-due')));
+await R.screenshot({ path: OUT + '/player-forced-rename.png' });
+await R.fill('#ren-name', 'Kindland'); await R.click('#ren-form button');
+check('saving a new name shows the nation again', await until(async () => (await restGet('mod/' + uidR)).status === 404 && (await nationDoc(uidR))?.name === 'Kindland' && !await R.$('.ren-due'), 30000));
+check('its player is told, and other players see the new name', await until(async () => /now called Kindland, and other players can see it again/.test(await toasts(R)) && await B.evaluate(uid => G.S.world[uid]?.name, uidR) === 'Kindland', 45000), await toasts(R));
+await inspect(uidR);
+check('the console shows the new name and no restriction', await until(async () => /Kindland/.test(await detail()) && /Moderation\s*No restrictions/.test(await detail())));
+await A.fill('#admin-note', 'Warned on 31 October about the name.\nBan if it happens again.');
+await A.click(`[data-act="admin-note-save"][data-id="${uidR}"]`);
+check('staff notes are saved', await until(async () => /Notes saved/.test(await detail()) && (await restListAdmin('staffNotes')).some(n => n.id === uidR && /Ban if it happens again/.test(n.fields.text.stringValue))));
+await inspect(uidB); await inspect(uidR);
+check('and shown again on inspecting the player, with who saved them', await until(async () => await A.inputValue('#admin-note') === 'Warned on 31 October about the name.\nBan if it happens again.' && /Last saved .* by you/.test(await detail())));
+check('the player cannot read them', await R.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
+check('nor can an admin’s browser outside the console', await A.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
+await A.screenshot({ path: OUT + '/admin-player-notes.png', fullPage: true });
 await inspect(uidD);
 await A.click(`[data-act="admin-mod"][data-a="remove"][data-id="${uidD}"]`);
 check('deleting a nation asks to confirm first, and says what happens', await until(async () => /Delete Deleteland for good\? The nation and its posts are deleted/.test(await text(A, '#admin-mod-ask'))) && !!await nationDoc(uidD));
@@ -171,5 +204,7 @@ check('the audit log records the deletion, the admin and the reason', await unti
 await A.fill('#admin-audit-target', uidB); await A.click('#admin-audit-filter button:not([type])');
 const auditRows = () => A.$eval('.adm-main .tbl', el => el.innerText).catch(() => '');
 check('and the ban, the unban and the hiding', await until(async () => { const t = await auditRows(); return /^ban\s/m.test(t) && /Ban evasion/.test(t) && /^unban\s/m.test(t) && /^hide\s/m.test(t) && /Offensive motto/.test(t); }), (await auditRows()).slice(0, 300));
-await C.ctx.close(); await D.ctx.close();
+await A.fill('#admin-audit-target', uidR); await A.click('#admin-audit-filter button:not([type])');
+check('and the forced rename, the player’s new name and the notes, without their text', await until(async () => { const t = await auditRows(); return /^rename\s/m.test(t) && /Offensive name/.test(t) && /^renamed\s/m.test(t) && /Kindland/.test(t) && /it was Rudeland/.test(t) && /^note saved\s/m.test(t) && !/Warned on 31 October/.test(t); }), (await auditRows()).slice(0, 400));
+await C.ctx.close(); await D.ctx.close(); await R.ctx.close();
 await finish();

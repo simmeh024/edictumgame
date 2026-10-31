@@ -97,6 +97,14 @@ await A.click('[data-act="cu-set"][data-f="note.pat"][data-v="waves"]'); await s
 await A.click('[data-act="cu-set"][data-f="coin.met"][data-v="gold"]'); await sleep(150);
 await A.click('[data-act="cu-set"][data-f="note.den"][data-v="500"]'); await sleep(150);
 check('the designer shows the whole series, a note for every value', (await A.$$('#cu-prev .cu-fan-b')).length === 10 && !!(await A.$('#cu-prev .cu-fan-b.on[data-v="500"]')));
+/* a choice draws the page again, and the page stays where the player had it: it used to jump down by the height the
+   unlock links add above, or, near the foot of the page, be clamped while the page was drawn shorter */
+const stays = async sel => {
+  const id = await A.evaluate(s => { const e = document.querySelector(s); e.scrollIntoView({ block: 'center' }); return e.id; }, sel); await sleep(200);
+  const y0 = await A.evaluate(() => window.scrollY); await A.click('#' + id); await sleep(400);
+  return Math.abs(await A.evaluate(() => window.scrollY) - y0) <= 1;
+};
+check('choosing a design keeps the page where it was', await stays('[data-act="cu-set"][data-f="note.emb"]:not(.on)') && await stays('[data-act="cu-set"][data-f="coin.den"]:not(.on)'));
 await A.click('#cu-prev [data-act="cu-flip"]'); await sleep(300);
 check('turning the note over draws its back, with the land of the nation', !!(await A.$('#cu-prev .cu-flip.on .cu-back svg.cu-note-b')) && /territory/i.test(await A.getAttribute('#cu-prev .cu-back svg', 'aria-label') || ''));
 await A.click('#cu-prev [data-act="cu-flip"]'); await sleep(150);

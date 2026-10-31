@@ -717,6 +717,13 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .lg i.lg-occ{background:repeating-linear-gradient(135deg,var(--land) 0 3px,var(--ink-3) 3px 4px)}
 .notice.war{background:var(--down-soft);border-color:var(--down)}
 .notice.war .notice-k,.notice.war .notice-go{color:var(--down)}
+.ren-due{margin-bottom:16px;padding:14px 16px;background:var(--down-soft);border:1px solid var(--down);border-radius:4px}
+.ren-due .notice-k{color:var(--down)}
+.ren-due h2{margin:8px 0 6px;font-size:19px}
+.ren-due p{margin:0 0 10px;max-width:70ch}
+.ren-due .field{max-width:520px;margin:0 0 10px}
+.ren-due .btn{min-height:44px}
+.ren-due .err{margin:8px 0 0}
 .war-msg{padding:10px 12px;margin-bottom:14px;border-radius:3px;background:var(--stamp-soft);font-size:14px;line-height:1.45}
 .war-box{margin-top:16px;padding:12px 14px;border:1px solid var(--down);border-radius:3px;background:var(--down-soft);font-size:14px;line-height:1.5}
 .war-box.calm{border-color:var(--rule);background:var(--sheet-2)}
@@ -35115,7 +35122,9 @@ async function syncOwnNation(force=false){
   ownSyncBusy=true;const before=commitNo;
   try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
     saveChecked=true;saveFailed=false;
-    if(!n)return;ownLatest=n;
+    /* refused as another device's save, yet this account holds no nation: a copy of another account's (src/shim.js, strayCopy) */
+    if(!n){if(conflictPending&&window.__edictum&&typeof window.__edictum.strayCopy==='function')window.__edictum.strayCopy();return;}
+    ownLatest=n;
     if(!conflictPending&&(remoteBusy||remoteDirty||before!==commitNo))return;
     if(conflictPending||savedAfter(n,S.nation)){
       if(conflictPending){const kept=keepUnsaved(S.nation);conflictPending=false;
@@ -36381,7 +36390,7 @@ async function connect(){
   };
   quietListen(db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60),qs=>{boardQS=qs;board();},()=>{});
   quietListen(db.collection('mod'),qs=>{
-    const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
+    const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,rename:!!v.rename,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
     S.mod=m;modNotice();shared();board();
     if(S.isOwner&&['admin','admin-hidden'].includes(S.view))quietRender();
   },()=>{});
@@ -36429,7 +36438,7 @@ function shell(){
     ${navSide(nar,nav)}
   </aside>${nar?navTabs(nb):''}
   ${notifPanel(now)}
-  <main class="main" id="main"><div class="wrap">${mainView(v,now)}</div></main>${navFoot(nar,nav,nb)}
+  <main class="main" id="main"><div class="wrap">${renCard()}${mainView(v,now)}</div></main>${navFoot(nar,nav,nb)}
   </div>`;
 }
 function mainView(v,now){
@@ -37018,6 +37027,11 @@ function render(){if(fxRender())return;
   let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
   if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
   const uxPlan=uxPrepare(rewardJump);
+  /* a page drawn again in place stays where the reader had it. It is shorter for a moment (unlock links and section
+     controls are added after it is drawn), which clamped the scroll near the bottom or let scroll anchoring push the
+     page down by the height those additions gave every section above (reading scrollHeight at the end lays the page
+     out, anchoring included, before the scroll is compared) */
+  const y0=uxPlan||rewardJump?null:window.scrollY;
   /* a heading focused by a jump (tabindex -1) keeps its focus when the page is drawn again */
   const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null,fidTab=fidFocus&&ae.getAttribute('tabindex')==='-1';
   let sel=null;try{if(fidFocus&&typeof ae.selectionStart==='number')sel=[ae.selectionStart,ae.selectionEnd];}catch(e){}
@@ -37029,6 +37043,7 @@ function render(){if(fxRender())return;
   initMaps();
   const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
   if(rewardJump)rewardFocus(rewardJump);uxAfter(uxPlan,rewardJump,{id:fidFocus,tab:ae?.getAttribute?.('tabindex')});
+  if(y0!=null&&document.documentElement.scrollHeight&&Math.abs(window.scrollY-y0)>1)window.scrollTo({top:y0,left:0,behavior:'instant'});
 }
 let pvTimer=null;
 function updatePreviewSoon(){
@@ -37333,8 +37348,10 @@ const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive conten
    stays theirs to play); a removed nation leaves this browser too */
 let modTold=false;
 function modNotice(){
+  const due=!!renDue();if(due!==REN.on){REN.on=due;quietRender();}
   const m=S.mod&&S.mod[S.uid];if(!m||!S.nation)return;
   if(m.removed&&(S.nation.founded||0)<m.removed){modRemoved(m);return;}
+  if(due){renNotice(m);return;}
   if(!m.hidden||modTold)return;modTold=true;
   toast(`A moderator has hidden ${S.nation.name} from other players${m.note?': '+m.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`);
 }
@@ -37347,6 +37364,46 @@ function modRemoved(m){
 let banTold=false;
 function banNotice(){if(banTold)return;banTold=true;setTimeout(()=>toast(`This account is banned from Edictum${S.banned&&S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`),0);}
 const CONTACT='p.slettenaar@gmail.com';
+/* A moderator's forced rename (functions/admin.js, 'rename'): the nation is hidden from the other players until it
+   is saved under a new name. A card at the top of every page asks for one; once the save is in, functions/civic.js
+   ('renamed') checks the saved name and shows the nation again. A new name saved but not yet confirmed (the tab
+   closed, the connection dropped) is confirmed on the next visit. */
+const REN={on:false,val:'',err:'',busy:false,told:0,asked:0};
+const nameFold=s=>String(s||'').normalize('NFKD').replace(/\p{M}/gu,'').replace(/\s+/g,' ').trim().toLowerCase();
+function renDue(){const m=S.mod&&S.uid?S.mod[S.uid]:null;return m&&m.hidden&&m.rename&&S.nation&&S.db&&S.mode==='world'?m:null;}
+function renNotice(m){
+  if(REN.told!==m.t){REN.told=m.t;toast(`A moderator asked you to rename ${S.nation.name}. It is hidden from other players until you choose a new name.`);}
+  if(nameFold(S.nation.name)!==nameFold(m.name)&&REN.asked!==m.t){REN.asked=m.t;renFinish();}
+}
+function renCard(){
+  const m=renDue();if(!m||ADM_VIEWS.includes(S.view))return '';
+  return `<section class="ren-due" aria-labelledby="ren-h"><p class="notice-k">Moderation</p><h2 id="ren-h">Choose a new name for your nation</h2>
+    <p>A moderator asked you to rename ${esc(S.nation.name)}${m.note?`: <i>${esc(m.note)}</i>${/[.!?]$/.test(m.note)?'':'.'}`:'.'} Until you do, your nation is hidden from other players: it is missing from their maps, regions and boards. You can keep playing meanwhile.</p>
+    <form id="ren-form" novalidate><div class="field"><label for="ren-name">New name</label><div class="name-row"><input class="input" id="ren-name" maxlength="40" value="${esc(REN.val)}" autocomplete="off"${REN.busy?' disabled':''}><button class="btn" type="submit"${REN.busy?' disabled':''}>${REN.busy?'Saving…':'Rename'}</button></div></div>${REN.err?`<p class="err" role="alert">${esc(REN.err)}</p>`:''}</form>
+    <p class="hint">If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.</p></section>`;
+}
+function renSubmit(raw){
+  const m=renDue();if(!m||REN.busy)return;
+  const v=String(raw||'').replace(/\s+/g,' ').trim().slice(0,40),fail=t=>{REN.err=t;render();const i=document.getElementById('ren-name');if(i)i.focus();};
+  REN.val=v;
+  if(v.length<2)return fail('Give your nation a name of at least two characters.');
+  if(nameFold(v)===nameFold(m.name))return fail('Choose a name other than the one the moderator asked you to change.');
+  if(v!==S.nation.name){const n=clone(S.nation);n.name=v;commit(n);}
+  renFinish();
+}
+async function renFinish(){
+  if(REN.busy)return;REN.busy=true;REN.err='';render();
+  let ok=false;
+  for(let i=0;i<3&&!ok;i++){
+    try{if(i)await sleep(1500);await flushNow();const api=await window.claude.use('civic'),r=api&&await api.request({op:'renamed'});ok=!!(r&&r.ok);}catch(e){}
+  }
+  REN.busy=false;
+  if(ok){REN.val='';if(S.mod)delete S.mod[S.uid];REN.on=false;toast(`Your nation is now called ${S.nation.name}, and other players can see it again.`);}
+  else REN.err='Your new name is saved in this browser, but the region has not confirmed it yet. Check your connection and press Rename again.';
+  render();
+}
+document.addEventListener('submit',e=>{if(e.target.id!=='ren-form')return;e.preventDefault();const i=document.getElementById('ren-name');renSubmit(i?i.value:REN.val);});
+document.addEventListener('input',e=>{if(e.target.id==='ren-name')REN.val=e.target.value;});
 function admLoad(force){
   if(!S.db||typeof S.db.count!=='function'||ADM.busy||(!force&&ADM.d&&Date.now()-ADM.at<6e4))return;
   ADM.busy=true;ADM.err='';
@@ -37416,12 +37473,12 @@ function admReports(list){
     `<ul class="adm-reps">${list.map(r=>{const post=r.kind==='post',hid=!!(S.mod&&S.mod[r.target]&&S.mod[r.target].hidden);
       return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post&&/^news:/.test(r.post||'')?'News comment':post?'Post':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
         ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,600))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
-        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">Remove the post</button>`:''}${hid?'<span class="hint">Hidden from other players.</span>':`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button><button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button></div>${ask(r)}</li>`;}).join('')}</ul>`}`;
+        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">Remove the post</button>`:''}${hid?`<span class="hint">${S.mod[r.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>${post?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(r.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button><button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button></div>${ask(r)}</li>`;}).join('')}</ul>`}`;
 }
 function admHidden(){
   const ids=Object.keys(S.mod||{}).filter(id=>S.mod[id].hidden);
   return `<h2 class="h2">Hidden nations</h2>${!ids.length?'<p class="hint">None. A hidden nation disappears from other players’ maps, regions and boards; its owner can still play it and is told why.</p>':
-    `<ul class="adm-reps">${ids.map(id=>{const m=S.mod[id];return `<li class="adm-rep"><p class="adm-rep-h"><b>${esc(m.name||id)}</b>${m.t?` · hidden ${esc(rel(m.t))}`:''}</p>${m.note?`<p class="hint">${esc(m.note)}</p>`:''}<div class="row"><button class="btn ghost small" data-act="adm-unhide" data-id="${esc(id)}">Unhide</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(id)}">Inspect player</button></div></li>`;}).join('')}</ul>`}`;
+    `<ul class="adm-reps">${ids.map(id=>{const m=S.mod[id];return `<li class="adm-rep"><p class="adm-rep-h"><b>${esc(m.name||id)}</b>${m.t?` · hidden ${esc(rel(m.t))}`:''}${m.rename?' · until its player chooses a new name':''}</p>${m.note?`<p class="hint">${esc(m.note)}</p>`:''}<div class="row"><button class="btn ghost small" data-act="adm-unhide" data-id="${esc(id)}">Unhide</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(id)}">Inspect player</button></div></li>`;}).join('')}</ul>`}`;
 }
 function admBanned(list){
   return `<h2 class="h2">Banned players</h2>${list==null?'<p class="err">The bans could not be loaded.</p>':!list.length?'<p class="hint">None. A banned account cannot save a nation, post or report; it is told why.</p>':
@@ -37438,6 +37495,7 @@ async function admAct(a,id){
   try{
     if(a==='adm-delpost'&&r){await adminRequest({op:'moderate',action:'delete_post',target:r.post,reg:r.reg,report:id,reason:why});ADM.act='The post was removed and the ticket closed.';}
     else if(a==='adm-hide'&&r){await adminRequest({op:'moderate',action:'hide',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden from other players and the ticket closed.`;}
+    else if(a==='adm-rename'&&r){await adminRequest({op:'moderate',action:'rename',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden until its player chooses a new name, and the ticket closed.`;}
     else if((a==='adm-remove'||a==='adm-ban')&&r){ADM.ask={a,id};ADM.act='';render();return;}
     else if((a==='adm-remove-yes'||a==='adm-ban-yes')&&r){const ban=a==='adm-ban-yes';await admRemove(r.target,why,String(r.name||'').slice(0,80),ban);ADM.act=ban?`The player of ${r.name||'that nation'} is banned, the nation removed and its tickets closed.`:`${r.name||'The nation'} was removed and its tickets closed.`;}
     else if(a==='adm-close'&&r){await adminRequest({op:'moderate',action:'close_report',target:id,reason:'Closed moderation report'});ADM.act='The ticket was closed.';}
@@ -37622,7 +37680,7 @@ document.addEventListener('click',e=>{
   if(a==='admin-close'){go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
   if(a==='adm-ask-no'){ADM.ask=null;render();return;}
-  if(/^adm-(delpost|hide|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner)admAct(a,el.dataset.id);return;}
+  if(/^adm-(delpost|hide|rename|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner)admAct(a,el.dataset.id);return;}
   if(a==='report-nation'||a==='report-post'){
     const id=el.dataset.id||el.dataset.a,x=findNation(id);if(!x||x.npc)return;
     let info={kind:'nation',target:id,reg:REG.id,name:fullName(x.n),x:[x.n.motto,x.n.about].filter(Boolean).join(' · ').slice(0,600)};
@@ -37633,7 +37691,7 @@ document.addEventListener('click',e=>{
 });
 
 /* ───────── staff operations ───────── */
-const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:''};
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
@@ -37671,18 +37729,19 @@ function adminAccount(a){
   const when=t=>t?`${esc(new Date(t).toLocaleString())} <span class="hint">(${esc(rel(t))})</span>`:'Not recorded';
   return `<dl><dt>Account type</dt><dd>${a.kind==='registered'?'Registered':'Guest'}${a.admin?' <span class="chip">Admin</span>':''}${a.disabled?' <span class="chip">Disabled</span>':''}</dd><dt>Linked sign-ins</dt><dd>${a.linked.length?a.linked.map(k=>esc(ADM_SIGN_IN[k]||k)).join(', '):'None'}</dd><dt>Last sign-in</dt><dd>${when(a.lastSignIn)}</dd><dt>Last token refresh</dt><dd>${when(a.lastRefresh)}</dd><dt>Account created</dt><dd>${when(a.created)}</dd><dt>IP address</dt><dd>${a.ip?`<code>${esc(a.ip)}</code> <span class="hint">last seen ${esc(rel(a.ipAt))}; kept 90 days</span>`:'Not recorded in the last 90 days'}</dd></dl>`;
 }
-/* hiding, deleting and banning any nation from its details; deleting and banning are confirmed first, and
-   every action goes through the moderation path (and the audit log) that reports use */
+/* hiding, renaming, deleting and banning any nation from its details: each asks for a reason and is confirmed
+   first, and every action goes through the moderation path (and the audit log) that reports use */
 const ADM_MOD_ASK={hide:['Hide <b>%</b> from other players? It disappears from their maps, regions and boards; its owner can still play it and is told why.','Yes, hide'],
+  rename:['Ask the player of <b>%</b> for a new name? Until they save one, the nation is hidden from other players; they can keep playing and are told why.','Yes, ask for a new name'],
   remove:['Delete <b>%</b> for good? The nation and its posts are deleted and its reports closed; the player may found a new one.','Yes, delete'],
   ban:['Ban the player of <b>%</b>? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a linked account cannot.','Yes, ban']};
 function adminModActions(p){
   if(p.uid===S.uid)return '<p class="hint">This is your own account. Moderation actions are for other players.</p>';
   const busy=ADMX.modBusy?' disabled':'',b=(a,l,c='')=>`<button class="btn ghost small${c}" data-act="admin-mod" data-a="${a}" data-id="${esc(p.uid)}"${busy}>${l}</button>`;
   const ask=ADMX.mod&&ADMX.mod.uid===p.uid&&ADM_MOD_ASK[ADMX.mod.a],a=ask&&ADMX.mod.a;
-  return `<div class="row">${p.hidden?b('unhide','Unhide'):p.exists?b('hide','Hide the nation…'):''}${p.exists?b('remove','Delete the nation…'):''}${p.banned?b('unban','Unban'):b('ban','Ban the player…',' adm-danger')}</div>
+  return `<div class="row">${p.hidden?b('unhide',p.rename?'Unhide without a new name':'Unhide'):p.exists?b('hide','Hide the nation…'):''}${p.exists&&!p.rename?b('rename','Force a rename…'):''}${p.exists?b('remove','Delete the nation…'):''}${p.banned?b('unban','Unban'):b('ban','Ban the player…',' adm-danger')}</div>
     ${ask?`<div class="adm-ask" id="admin-mod-ask"><p>${ask[0].replace('%',()=>esc(p.name))}</p><label class="admh-lbl" for="admin-mod-reason">Reason (the player is told this, and it is kept in the audit log)</label><input class="input" id="admin-mod-reason" maxlength="300" value="${esc(ADMX.modReason)}">
-      <div class="row"><button class="btn ${a==='hide'?'':'danger '}small" data-act="admin-mod-yes" data-a="${a}" data-id="${esc(p.uid)}"${busy}>${ADMX.modBusy?'Working…':ask[1]}</button><button class="btn ghost small" data-act="admin-mod-no">Cancel</button></div></div>`:''}
+      <div class="row"><button class="btn ${a==='hide'||a==='rename'?'':'danger '}small" data-act="admin-mod-yes" data-a="${a}" data-id="${esc(p.uid)}"${busy}>${ADMX.modBusy?'Working…':ask[1]}</button><button class="btn ghost small" data-act="admin-mod-no">Cancel</button></div></div>`:''}
     ${ADMX.modMsg?`<p class="hint" aria-live="polite">${esc(ADMX.modMsg)}</p>`:''}`;
 }
 async function adminModerate(a,uid){
@@ -37693,7 +37752,7 @@ async function adminModerate(a,uid){
   try{
     await adminRequest({op:'moderate',action:a,target:uid,reason:reason||(a==='unban'?'Lifted account ban':'Restored nation visibility'),name});
     ADMX.mod=null;ADMX.modReason='';
-    ADMX.modMsg={hide:`${name} is hidden from other players.`,unhide:`${name} is visible to other players again.`,remove:`${name} was deleted.`,ban:`The player of ${name} is banned and the nation deleted.`,unban:'The player is no longer banned.'}[a];
+    ADMX.modMsg={hide:`${name} is hidden from other players.`,rename:`${name} is hidden until its player chooses a new name.`,unhide:`${name} is visible to other players again.`,remove:`${name} was deleted.`,ban:`The player of ${name} is banned and the nation deleted.`,unban:'The player is no longer banned.'}[a];
     if((a==='remove'||a==='ban')&&ADMX.search){const before=ADMX.search.players.length;ADMX.search.players=ADMX.search.players.filter(x=>x.uid!==uid);ADMX.search.total-=before-ADMX.search.players.length;}
   }catch(e){ADMX.modMsg='That did not work: '+(e.message||e.code||'unknown error');}
   try{ADMX.player=await adminRequest({op:'player',uid});}catch(e){}
@@ -37701,11 +37760,27 @@ async function adminModerate(a,uid){
 }
 function adminPlayerDetail(p){
   if(!p)return '';
-  const mod=p.banned?'Banned':p.hidden?'Hidden':!p.exists&&p.removed?'Nation deleted by a moderator':'No restrictions';
+  const mod=p.banned?'Banned':p.rename?'Hidden until the player chooses a new name':p.hidden?'Hidden':!p.exists&&p.removed?'Nation deleted by a moderator':'No restrictions';
   return `<section class="adm-detail" aria-label="Player details"><h2 class="h2" style="margin-top:0">${esc(p.name)}</h2><dl><dt>Player ID</dt><dd><code>${esc(p.uid)}</code></dd><dt>Region</dt><dd>${p.reg?esc(regName(p.reg)):'No nation'}</dd><dt>Last confirmed save</dt><dd>${esc(adminTime(p.savedAt))}</dd><dt>Server revision</dt><dd>${p.revision}</dd><dt>Moderation</dt><dd>${mod}${p.note?': '+esc(p.note):''}</dd><dt>Reporting sessions</dt><dd>${p.sessions.length}</dd></dl>
     <h3 class="help-h3">Account</h3>${adminAccount(p.account)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:''}</div>
+    <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
+}
+/* the staff's private notes on a player (functions/admin.js, note()): one text, which the player never sees */
+function adminNotes(p){
+  const n=p.staffNote||{text:'',at:0,by:''},val=ADMX.noteFor===p.uid?ADMX.note:n.text;
+  return `<div class="field"><label for="admin-note">Notes on this player</label><textarea class="input" id="admin-note" data-id="${esc(p.uid)}" maxlength="4000" rows="5" aria-describedby="admin-note-h">${esc(val)}</textarea>
+    <span class="hint" id="admin-note-h">Only admins see these; the player never does. ${n.at?`Last saved ${esc(rel(n.at))} by ${n.by===S.uid?'you':`<code>${esc(n.by)}</code>`}.`:'No notes yet.'} Saving an empty field deletes them, and so does deleting the account.</span></div>
+    <div class="row"><button class="btn ghost small" data-act="admin-note-save" data-id="${esc(p.uid)}"${ADMX.noteBusy?' disabled':''}>${ADMX.noteBusy?'Saving…':'Save notes'}</button></div>${ADMX.noteMsg?`<p class="hint" aria-live="polite">${esc(ADMX.noteMsg)}</p>`:''}`;
+}
+async function adminNoteSave(uid){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.noteBusy)return;
+  const text=ADMX.noteFor===uid?ADMX.note:(p.staffNote||{}).text||'';
+  ADMX.noteBusy=true;ADMX.noteMsg='';render();
+  try{const r=await adminRequest({op:'note',uid,text});p.staffNote=r.staffNote;ADMX.note=r.staffNote.text;ADMX.noteFor=uid;ADMX.noteMsg=r.staffNote.text?'Notes saved.':'Notes deleted.';}
+  catch(e){ADMX.noteMsg='The notes were not saved: '+(e.message||e.code||'unknown error');}
+  ADMX.noteBusy=false;render();
 }
 function adminExtraView(v){
   if(!ADMX.loaded[v]&&!ADMX.busy)setTimeout(()=>adminExtraLoad(v),0);
@@ -37713,7 +37788,7 @@ function adminExtraView(v){
   let body='';
   if(v==='admin-players'){
     const d=ADMX.search;
-    body=`<p class="lede">Find a nation by name or player ID across every region. Inspect its latest confirmed save, the account behind it and its moderation status, and hide, delete or ban it.</p>
+    body=`<p class="lede">Find a nation by name or player ID across every region. Inspect its latest confirmed save, the account behind it and its moderation status, keep private notes on it, and ask it for a new name, hide, delete or ban it.</p>
       <form class="adm-search" id="admin-search"><div class="field"><label for="admin-q">Nation name or player ID</label><input class="input" id="admin-q" maxlength="128" value="${esc(ADMX.q)}" placeholder="Search players"></div><div class="field"><label for="admin-reg">Region</label><select class="input" id="admin-reg"><option value="">All regions</option>${REGIONS.map(r=>`<option value="${r.id}"${ADMX.reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div><button class="btn"${ADMX.busy?' disabled':''}>Search</button><button type="button" class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh directory</button></form>
       ${adminPlayerDetail(ADMX.player)}${d?`<p class="hint">${d.total} ${d.total===1?'match':'matches'} · directory refreshed ${esc(adminTime(d.at))}</p>${d.players.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th>Region</th><th>Last activity</th><th>Player</th></tr></thead><tbody>${d.players.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(regName(p.reg))}</td><td>${esc(adminTime(p.t))}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect player</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No matching players.</p>'}${d.next!=null?'<button class="btn ghost" data-act="admin-extra-more">Load more players</button>':''}`:''}`;
   }
@@ -37731,7 +37806,7 @@ function adminExtraView(v){
   }
   return admShell(v,`<p class="eyebrow">Admin portal</p><h1 class="display">${title}</h1>${body}${ADMX.busy?'<p class="hint" role="status">Loading…</p>':''}${ADMX.err?`<p class="err" role="alert">${esc(ADMX.err)}</p>`:''}`);
 }
-document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
 document.addEventListener('change',e=>{if(e.target.id==='admin-reg')ADMX.reg=e.target.value;if(e.target.dataset.regionMode){ADMX.modes[e.target.dataset.regionMode]=e.target.value;render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='admin-search'||e.target.id==='admin-audit-filter'){e.preventDefault();if(S.isOwner)adminExtraLoad(S.view);}});
 document.addEventListener('click',async e=>{
@@ -37750,8 +37825,9 @@ document.addEventListener('click',async e=>{
   }
   if(a==='admin-mod-yes'){adminModerate(el.dataset.a,id);return;}
   if(a==='admin-mod-no'){ADMX.mod=null;ADMX.modMsg='';render();return;}
+  if(a==='admin-note-save'){adminNoteSave(id);return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';
+    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }

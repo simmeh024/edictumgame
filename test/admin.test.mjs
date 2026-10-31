@@ -24,6 +24,7 @@ async function call(u, data, name = 'adminConsole', extra = {}) {
 const value = v => typeof v === 'string' ? { stringValue: v } : typeof v === 'boolean' ? { booleanValue: v } : v instanceof Date ? { timestampValue: v.toISOString() } : { integerValue: String(v) };
 async function put(path, data) { const r = await fetch(docs + '/' + path, { method: 'PATCH', headers, body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k,v]) => [k,value(v)])) }) }); assert.equal(r.status, 200); }
 async function get(path) { const r = await fetch(docs + '/' + path, { headers }); return r.status === 200 ? r.json() : null; }
+async function del(path) { assert.equal((await fetch(docs + '/' + path, { method: 'DELETE', headers })).status, 200); }
 // Links a sign-in the way the game does: Google through the emulator's stand-in identity provider, an email
 // address as Firebase's password provider (email link sign-in is the same provider), Discord as custom claims.
 async function link(u, { google = false, email = false, verified = true, discord = false } = {}) {
@@ -45,7 +46,7 @@ async function seed(uid, name = 'Old Émber Republic') {
 test('staff endpoints reject visitors and ordinary players', async () => {
   const g = await user();
   await assert.rejects(call(null, { op: 'search' }), e => e.status === 'UNAUTHENTICATED');
-  for (const op of ['search', 'player', 'health', 'audit', 'region', 'moderate']) await assert.rejects(call(g, { op }), e => e.status === 'PERMISSION_DENIED');
+  for (const op of ['search', 'player', 'health', 'audit', 'region', 'moderate', 'note']) await assert.rejects(call(g, { op }), e => e.status === 'PERMISSION_DENIED');
 });
 test('search includes legacy summaries, case-insensitive names and exact player IDs', async () => {
   const a = await user(true), p = await user(); await seed(p.uid);
@@ -112,6 +113,53 @@ test('any nation can be hidden, deleted or banned without a report, and every st
   const banLog = (await call(a, { op: 'audit', target: q.uid })).events;
   assert.ok(banLog.some(e => e.action === 'ban' && e.reason === 'Ban evasion' && e.outcome === 'completed'));
   assert.ok(banLog.some(e => e.action === 'unban' && e.outcome === 'completed'));
+});
+test('a forced rename hides the nation until its player saves it under another name', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Rudeland');
+  await assert.rejects(call(a, { op: 'moderate', action: 'rename', target: a.uid, reason: 'Self' }), e => e.status === 'FAILED_PRECONDITION');
+  await assert.rejects(call(a, { op: 'moderate', action: 'rename', target: 'no-such-nation', reason: 'Gone' }), e => e.status === 'FAILED_PRECONDITION');
+  assert.deepEqual(await call(p, { op: 'renamed' }, 'civic'), { ok: true }, 'nothing to confirm without a forced rename');
+  await call(a, { op: 'moderate', action: 'rename', target: p.uid, reason: 'Offensive name', name: 'Forged name' });
+  const m = (await get('mod/' + p.uid)).fields;
+  assert.equal(m.hidden.booleanValue, true); assert.equal(m.rename.booleanValue, true); assert.equal(m.name.stringValue, 'Rudeland'); assert.equal(m.note.stringValue, 'Offensive name');
+  let d = await call(a, { op: 'player', uid: p.uid }); assert.equal(d.rename, true); assert.equal(d.hidden, true);
+  // The same name in other capitals, accents or spacing is not a new name.
+  assert.deepEqual(await call(p, { op: 'renamed' }, 'civic'), { ok: false, why: 'unchanged' });
+  await seed(p.uid, '  RUDÉLAND ');
+  assert.deepEqual(await call(p, { op: 'renamed' }, 'civic'), { ok: false, why: 'unchanged' });
+  assert.equal((await get('mod/' + p.uid)).fields.rename.booleanValue, true);
+  await seed(p.uid, 'Kindland');
+  assert.deepEqual(await call(p, { op: 'renamed' }, 'civic'), { ok: true });
+  assert.equal(await get('mod/' + p.uid), null);
+  d = await call(a, { op: 'player', uid: p.uid }); assert.equal(d.rename, false); assert.equal(d.hidden, false); assert.equal(d.name, 'Kindland');
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  assert.ok(log.some(e => e.action === 'rename' && e.outcome === 'completed' && e.actor === a.uid && e.reason === 'Offensive name' && e.name === 'Rudeland'));
+  assert.ok(log.some(e => e.action === 'renamed' && e.outcome === 'completed' && e.actor === p.uid && e.name === 'Kindland' && e.reason.endsWith('it was Rudeland')));
+  // A plain hide is not lifted by a new name.
+  await call(a, { op: 'moderate', action: 'hide', target: p.uid, reason: 'Offensive flag' });
+  await seed(p.uid, 'Kinderland');
+  assert.deepEqual(await call(p, { op: 'renamed' }, 'civic'), { ok: true });
+  assert.equal((await get('mod/' + p.uid)).fields.hidden.booleanValue, true);
+});
+test('staff notes are the admins’ alone, audited without their text, and go with the account', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Notedland');
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).staffNote, { text: '', at: 0, by: '' });
+  await assert.rejects(call(p, { op: 'note', uid: p.uid, text: 'Mine now' }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(a, { op: 'note', uid: p.uid }), e => e.status === 'INVALID_ARGUMENT');
+  const saved = (await call(a, { op: 'note', uid: p.uid, text: '  Warned about spam on 1 November.\r\nBan next time.  ' })).staffNote;
+  assert.equal(saved.text, 'Warned about spam on 1 November.\nBan next time.'); assert.equal(saved.by, a.uid); assert.ok(saved.at > 0);
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).staffNote, saved);
+  assert.equal((await call(a, { op: 'note', uid: p.uid, text: 'x'.repeat(5000) })).staffNote.text.length, 4000);
+  const log = (await call(a, { op: 'audit', target: p.uid })).events.filter(e => e.action === 'note_saved');
+  assert.equal(log.length, 2);
+  assert.ok(log.every(e => e.actor === a.uid && e.name === 'Notedland' && e.outcome === 'completed' && !JSON.stringify(e).includes('spam')));
+  await call(a, { op: 'note', uid: p.uid, text: '   ' });
+  assert.equal(await get('staffNotes/' + p.uid), null);
+  assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'note_cleared'));
+  await call(a, { op: 'note', uid: p.uid, text: 'Kept until the account goes' });
+  for (const path of ['nations/', 'nationx/', 'summaries/']) await del(path + p.uid);
+  await call(p, { op: 'close' }, 'accounts');
+  assert.equal(await get('staffNotes/' + p.uid), null);
 });
 test('region switches preserve records, stop battles, and atomically log the authenticated actor', async () => {
   const a = await user(true), p = await user(); await seed(p.uid); const before = (await get('nationx/' + p.uid)).fields.j;

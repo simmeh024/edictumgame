@@ -4,7 +4,7 @@
 // outbox; Discord is functions/discord.js's emulator stand-in (window.EDICTUM_DISCORD_EMU).
 import path from 'node:path';
 import { BASE, OUT, AUTH_HOST, PROJECT, check, finish, until, player, open, ready, found, openAccount, text, sideName, localNation, nationDoc, restGet,
-  restListAdmin, accountExists, clearEmulators } from './lib.mjs';
+  restList, restListAdmin, accountExists, clearEmulators } from './lib.mjs';
 
 await clearEmulators();
 const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
@@ -156,5 +156,53 @@ await G2.keyboard.press('Escape').catch(() => {});
 await openAccount(G2);
 await discordPopup(G2, DC, 'Dana');
 check('so another nation can link it', await until(async () => /Dana/.test(await text(G2, '.ed-acct-b')), 15000) && (await ready(G2)) === uidG);
+
+/* ── 8. a browser loses its sign-in but keeps a Registered Nation ──────────── */
+// The browser's storage without Firebase's sign-in (IndexedDB, which storageState leaves out): what a browser
+// keeps when its site data is partly cleared. It starts as a new guest.
+const ORIGIN = new URL(BASE).origin;
+async function withoutSignIn(p, edit) {
+  await until(() => p.evaluate(() => window.__edictum.syncStatus === 'synced'), 15000);
+  const state = await p.ctx.storageState();
+  await p.ctx.close();
+  const o = state.origins.find(x => x.origin === ORIGIN);
+  o.localStorage = o.localStorage.filter(e => !e.name.startsWith('firebase:'));
+  edit(o.localStorage);
+  return state;
+}
+const harrowgates = async () => (await restList('nations')).filter(d => d.fields.name?.stringValue === 'Harrowgate').length;
+const settled = async p => { for (let i = 0; i < 40; i++) { const uid = await ready(p).catch(() => null); if (uid) return uid; await new Promise(r => setTimeout(r, 250)); } return null; };
+const H = await player('H');
+const uidH = await open(H);
+await founded(H, 'Harrowgate');
+await H.goto(await sendLink(H, 'hal@example.com'));
+check('H links an email address', await until(async () => /hal@example\.com/.test(await text(H, '.ed-acct-b')), 15000) && await registered(H));
+const lost = await withoutSignIn(H, ls => {
+  /* a change the game made just before the sign-in went, not yet saved */
+  const e = ls.find(x => x.name === 'statehood.nation.v1'), n = JSON.parse(e.value);
+  n.motto = 'Kept by this browser'; n._dirty = true; e.value = JSON.stringify(n);
+});
+const H2 = await player('H2', { storageState: lost });
+await H2.goto(BASE + '/');
+const uidH2 = await settled(H2);
+check('the browser starts again as a new guest', !!uidH2 && uidH2 !== uidH);
+check('without playing the nation as a second one', await until(() => H2.isVisible('#d-name'), 15000) && !(await localNation(H2)) && (await restGet('nations/' + uidH2)).status === 404 && await harrowgates() === 1);
+check('and says why', await until(async () => /signed out of the account that holds “Harrowgate”/.test(await toasts(H2))));
+check('the copy is kept for its account', await H2.evaluate(() => JSON.parse(localStorage.getItem('edictum.parked') || 'null')?.uid) === uidH);
+await H2.goto(await sendLink(H2, 'hal@example.com'));
+check('signing in again plays the nation', await until(async () => (await ready(H2).catch(() => null)) === uidH, 20000) && await until(async () => (await sideName(H2)) === 'Harrowgate', 15000));
+check('with the change the browser kept', (await localNation(H2))?.motto === 'Kept by this browser' && await until(async () => (await nationDoc(uidH))?.rec?.motto === 'Kept by this browser', 15000));
+check('and the region still has one Harrowgate', await harrowgates() === 1 && !(await H2.evaluate(() => localStorage.getItem('edictum.parked'))));
+
+/* ── 9. a browser already playing such a copy as a guest (the game before this fix) ── */
+// Without the account it belonged to, the copy carries on under the new guest, as it did then; its first save
+// is refused, and the browser then finds the account by the nation's name and founding.
+const stuck = await withoutSignIn(H2, ls => { const i = ls.findIndex(x => x.name === 'edictum.uid'); if (i >= 0) ls.splice(i, 1); });
+const H3 = await player('H3', { storageState: stuck });
+await H3.goto(BASE + '/');
+const uidH3 = await settled(H3);
+check('a stray copy is noticed and kept for its account', await until(async () => await H3.evaluate(() => JSON.parse(localStorage.getItem('edictum.parked') || 'null')?.uid).catch(() => null) === uidH, 20000));
+check('the browser starts again as a guest, and says why', await until(() => H3.isVisible('#d-name'), 15000) && await until(async () => /signed out of the account that holds “Harrowgate”/.test(await toasts(H3))));
+check('nothing was saved for the guest', !!uidH3 && uidH3 !== uidH && (await restGet('nations/' + uidH3)).status === 404 && await harrowgates() === 1);
 
 await finish();
