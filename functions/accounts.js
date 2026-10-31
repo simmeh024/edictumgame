@@ -51,8 +51,9 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (d.op === 'close') {
     // The player's browser has deleted the nation, posts and tickets (src/shim.js, doDelete); this ends the
     // account itself, which a browser may only do just after signing in, and frees a linked Discord account.
+    // The address it last played from and the staff's notes on it (functions/admin.js) go with it.
     if ((await db.doc('nations/' + uid).get()).exists) refuse('nation_exists', 'Delete the nation first.');
-    await db.doc('accountSeen/' + uid).delete();
+    await Promise.all(['accountSeen/', 'staffNotes/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await getAuth().deleteUser(uid);
     return { ok: true };
