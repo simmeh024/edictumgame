@@ -96,12 +96,23 @@ check('the preview follows as you type', /Aldorian Thaler/.test(await text(A, '#
 await A.click('[data-act="cu-set"][data-f="note.pat"][data-v="waves"]'); await sleep(150);
 await A.click('[data-act="cu-set"][data-f="coin.met"][data-v="gold"]'); await sleep(150);
 await A.click('[data-act="cu-set"][data-f="note.den"][data-v="500"]'); await sleep(150);
+check('the designer shows the whole series, a note for every value', (await A.$$('#cu-prev .cu-fan-b')).length === 10 && !!(await A.$('#cu-prev .cu-fan-b.on[data-v="500"]')));
+await A.click('#cu-prev [data-act="cu-flip"]'); await sleep(300);
+check('turning the note over draws its back, with the land of the nation', !!(await A.$('#cu-prev .cu-flip.on .cu-back svg.cu-note-b')) && /territory/i.test(await A.getAttribute('#cu-prev .cu-back svg', 'aria-label') || ''));
+await A.click('#cu-prev [data-act="cu-flip"]'); await sleep(150);
 await A.click('#cu-form button[type="submit"]'); await sleep(400);
 const na = await localNation(A);
 check('saving keeps only what changed, cleaned', na.cur && na.cur.nm === 'Aldorian Thaler' && na.cur.cd === 'ALD' && na.cur.sy === '₮' && na.cur.note.pat === 'waves' && na.cur.note.den === 500 && na.cur.coin.met === 'gold' && !('su' in na.cur), JSON.stringify(na.cur));
 check('and the rename goes into the nation’s history', na.log.some(l => l.k === 'cur' && l.a === 'Aldorian Crown' && l.b === 'Aldorian Thaler'));
 check('it reaches Firestore with the nation', await until(async () => { const d = await nationDoc(uidA); return d && d.shared && d.shared.cur && d.shared.cur.cd === 'ALD'; }, 10000));
 await A.screenshot({ path: path.join(OUT, 'customise-currency-1280.png'), fullPage: false });
+/* the Face Value edict decides the 50, and a new leader starts a new series of notes */
+await A.evaluate(() => { const n = G.clone(G.S.nation); n.answered = (n.answered || []).concat({ id: 'banknote-face', o: 2, t: Date.now(), fx: '' }); G.commit(n); });
+check('the Face Value edict’s answer is kept for the 50', ((await localNation(A)).cuF || {}).o === 2);
+check('and the 50 shows the national animal', await A.evaluate(() => { const n = G.S.nation, c = G.CU.cuOf(n); return /showing The /.test(G.CU.noteSVG(n, c, { den: 50 })) && !/showing The /.test(G.CU.noteSVG(n, c, { den: 100 })); }));
+await A.evaluate(() => { const n = G.clone(G.S.nation); n.ruler = 'Testa Successor'; n.lt = Date.now(); G.commit(n); });
+const ser = (await localNation(A)).cuS || [];
+check('a new leader begins a new series and keeps the last for the museum', ser.length === 1 && ser[0].b > 0 && await A.evaluate(() => /SERIES II/.test(G.CU.noteSVG(G.S.nation, G.CU.cuOf(G.S.nation), {}))));
 await nav(A, 'nation');
 check('the nation page shows the currency, its rate and prestige', /Aldorian Thaler/.test(await text(A, '.cu-nsec')) && /ALD/.test(await text(A, '.cu-nsec')) && /Currency prestige/.test(await text(A, '.cu-nsec')) && /1 ALD = /.test(await text(A, '.cu-nsec')));
 const before = (await fxDoc()).n[uidA];
