@@ -27,6 +27,8 @@
                             the latest published posts, which the game's unread count listens to.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
+     bugs/<id>              a player's bug report and the team's verdict, bugImg/<id> its screenshot;
+                            blimits/<uid> {b} paces them.
    A nation save writes nations, summaries and (when needed) nationx and space in one transaction; the rules
    check that they agree. Battles go to the referee, a Cloud Function (functions/index.js), through
    window.claude.use('referee'). */
@@ -49,6 +51,8 @@
   var FN_REGION = 'europe-west1';        // where the referee runs (functions/index.js)
   var LS_SUP = 'edictum.support';        // set while this browser has sent a ticket that may get an answer
   var LS_SUP_SEEN = 'edictum.support.seen'; // the time of the last answer the player was told about
+  var LS_BUG = 'edictum.bugs';           // set while this browser has sent a bug report the team may still look at
+  var LS_BUG_SEEN = 'edictum.bugs.seen'; // the time of the last change to them the player was told about
   var LS_STATS = 'edictum.analytics';    // 'y' or 'n': the visitor's answer to the visit statistics card
   var ERR = {
     'permission-denied': 'not_granted', unauthenticated: 'not_granted',
@@ -390,6 +394,32 @@
       supportSeen(list);
     }, function () {});
   }
+  /* ───────── bug reports ───────── */
+  var BUG_ST = { seen: 'Confirmed', fixed: 'Fixed', closed: 'Closed', 'new': 'New' };
+  function bugOf(s) {
+    var d = s.data({ serverTimestamps: 'estimate' }) || {};
+    return { id: s.id, by: str(d.by, 128), ti: str(d.ti, 120), x: str(d.x, 3000), where: str(d.where, 40), often: str(d.often, 20), env: str(d.env, 3000),
+      t: millis(d.t), st: BUG_ST[d.st] ? d.st : 'new', name: str(d.name, 160), reg: str(d.reg, 40), img: d.img === true, note: str(d.note, 1000), ut: millis(d.ut) };
+  }
+  /* the player has seen these: remember the latest change the team made, and stop looking once none is open */
+  function bugsSeen(list) {
+    var last = num(Number(L.get(LS_BUG_SEEN))), open = false;
+    list.forEach(function (b) { last = Math.max(last, b.ut); if (b.st === 'new' || b.st === 'seen') open = true; });
+    L.set(LS_BUG_SEEN, last || null);
+    if (!open) L.set(LS_BUG, null);
+  }
+  /* a while after the page loads, tell a player whose report the team has looked at what became of it */
+  function bugsCheck() {
+    var u = A.auth && A.auth.currentUser;
+    if (!L.get(LS_BUG) || !u || A.leaving) return;
+    var seen = num(Number(L.get(LS_BUG_SEEN)));
+    A.fs.collection('bugs').where('by', '==', u.uid).limit(50).get().then(function (qs) {
+      var list = qs.docs.map(bugOf), fresh = list.filter(function (b) { return b.ut > seen; });
+      if (fresh.length) toast(fresh.length > 1 ? 'The Edictum team has looked at ' + fresh.length + ' of your bug reports. See Report a bug, under Other in the menu.'
+        : 'Your bug report “' + fresh[0].ti + '” is now marked ' + BUG_ST[fresh[0].st] + '. See Report a bug, under Other in the menu.');
+      bugsSeen(list);
+    }, function () {});
+  }
 
   /* ───────── the referee (functions/index.js) ───────── */
   /* a callable function, by its protocol: POST {data} with the player's ID token; {result} or {error} back */
@@ -463,11 +493,63 @@
     },
     remove: function (id) { return adminApi.request({ op: 'moderate', action: 'support_delete', target: id, reason: 'Deleted support spam' }); }
   });
+  /* bug reports (see firestore.rules): the game's Report a bug page sends one with send(report, screenshot?)
+     and reads the player's own with mine(); admins list them, set(id, state, note) and remove them */
+  var bugsApi = Object.freeze({
+    send: function (r, img) {
+      var u = A.auth && A.auth.currentUser;
+      if (A.frozen) return hang();
+      if (!u || !isObj(r)) return Promise.reject(mapError({ code: 'unauthenticated' }));
+      var ref = A.fs.collection('bugs').doc(), b = A.fs.batch();
+      var doc = { by: u.uid, ti: str(r.ti, 120), x: str(r.x, 3000), where: str(r.where, 40), often: ['always', 'sometimes', 'once'].indexOf(r.often) >= 0 ? r.often : 'once',
+        env: str(r.env, 3000), t: serverTime(), st: 'new' };
+      if (str(r.name, 80)) doc.name = str(r.name, 80);
+      if (str(r.reg, 40)) doc.reg = str(r.reg, 40);
+      if (isObj(img) && typeof img.d === 'string') {
+        doc.img = true;
+        b.set(A.fs.doc('bugImg/' + ref.id), { d: img.d, m: str(img.m, 20), w: Math.round(num(img.w)), h: Math.round(num(img.h)), by: u.uid });
+      }
+      b.set(ref, doc);
+      b.set(A.fs.doc('blimits/' + u.uid), { b: serverTime() });
+      return b.commit().then(function () { L.set(LS_BUG, '1'); return ref.id; }, function (e) { throw mapError(e); });
+    },
+    mine: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u) return Promise.resolve([]);
+      return A.fs.collection('bugs').where('by', '==', u.uid).limit(50).get().then(function (qs) {
+        var list = qs.docs.map(bugOf).sort(function (a, b) { return b.t - a.t; });
+        bugsSeen(list);
+        return list;
+      }, function (e) { throw mapError(e); });
+    },
+    list: function () {
+      return A.fs.collection('bugs').orderBy('t', 'desc').limit(300).get().then(function (qs) { return qs.docs.map(bugOf); }, function (e) { throw mapError(e); });
+    },
+    image: function (id) {
+      return A.fs.doc('bugImg/' + str(id, 40)).get().then(function (s) {
+        var d = s.exists ? s.data() : null;
+        return d && typeof d.d === 'string' ? { d: d.d, m: str(d.m, 20), w: num(d.w), h: num(d.h) } : null;
+      }, function (e) { throw mapError(e); });
+    },
+    set: function (id, st, note) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
+      return A.fs.doc('bugs/' + str(id, 40)).update({ st: BUG_ST[st] ? st : 'new', note: str(note, 1000), ut: serverTime(), uby: u.uid })
+        .then(function () {}, function (e) { throw mapError(e); });
+    },
+    /* with its screenshot, when it has one (a player may not delete a screenshot that is not there) */
+    remove: function (id, img) {
+      var b = A.fs.batch();
+      b.delete(A.fs.doc('bugs/' + str(id, 40)));
+      if (img) b.delete(A.fs.doc('bugImg/' + str(id, 40)));
+      return b.commit().then(function () {}, function (e) { throw mapError(e); });
+    }
+  });
   function apiFor(online) {
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
+        return n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }
@@ -638,6 +720,7 @@
     mount();
     if (emailLink) finishEmailLink(emailLink);
     setTimeout(supportCheck, 6000);
+    setTimeout(bugsCheck, 7000);
     setTimeout(recoveryCheck, 1800);
     setTimeout(seenCheck, 4000);
   }
@@ -1128,8 +1211,15 @@
       for (var k = 0; k < health.docs.length; k += 400) {
         var bh = A.fs.batch(); health.docs.slice(k, k + 400).forEach(function (d) { bh.delete(d.ref); }); await bh.commit();
       }
+      /* bug reports, with their screenshots: a batch holds 200 of them */
+      var bugs = await within(A.fs.collection('bugs').where('by', '==', u.uid).get(), 15000);
+      for (var m = 0; m < bugs.docs.length; m += 200) {
+        var bb = A.fs.batch();
+        bugs.docs.slice(m, m + 200).forEach(function (d) { bb.delete(d.ref); if (d.get('img') === true) bb.delete(A.fs.doc('bugImg/' + d.id)); });
+        await bb.commit();
+      }
       var b = A.fs.batch();
-      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'staff/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
+      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'staff/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
       await within(b.commit(), 15000);
       /* the referee's record of the army (readiness, battles), which only it may clear */
       try { await call('referee', { op: 'forget' }); } catch (e) { /* it holds no more than that */ }
@@ -1141,7 +1231,7 @@
     /* the data is gone; now the account, with its links. The server ends it (a browser may only just after a
        sign-in); failing that the browser tries, and failing that the sign-in simply ends, and the empty
        account holds nothing of the game's */
-    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set('edictum.unsaved.' + u.uid, null); L.set('edictum.emailLinked.' + u.uid, null); clearRecovery(u.uid);
+    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set(LS_BUG, null); L.set(LS_BUG_SEEN, null); L.set('edictum.unsaved.' + u.uid, null); L.set('edictum.emailLinked.' + u.uid, null); clearRecovery(u.uid);
     try { await call('accounts', { op: 'close' }); await A.auth.signOut(); }
     catch (e) { try { await u.delete(); } catch (e2) { try { await A.auth.signOut(); } catch (e3) {} } }
     leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');
