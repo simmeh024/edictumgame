@@ -2,7 +2,7 @@
 // source with a regex: escaped text stays identical, and predicates keep their original lexical scope.
 import {parse} from 'acorn';
 import {fileURLToPath} from 'node:url';
-const CATALOGS=new Set(['ISSUES','REGIONS_EXTRA','NPCS_MER','NPC_VOICE','NPC_CULTURE','NPC_CITY_DEF']);
+const CATALOGS=new Set(['ISSUES','NB_ISSUES','EV_ISSUES','REGIONS_EXTRA','NPCS_MER','NPC_VOICE','NPC_CULTURE','NPC_CITY_DEF']);
 const FUNCTIONS=new Set(['FunctionExpression','FunctionDeclaration','ArrowFunctionExpression']);
 export function splitContent(source){
   const tree=parse(source,{ecmaVersion:'latest'}),texts=[],index=new Map(),edits=[];

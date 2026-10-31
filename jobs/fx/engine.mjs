@@ -140,6 +140,14 @@ export function counterfeitsOf(recs, now, region) {
   return out;
 }
 
+/* whether a player's record shows a finished Central Bank (cities[].b[] {k, d}); it steadies the currency */
+export function hasCentralBank(rec, now) {
+  return Array.isArray(rec && rec.cities) && rec.cities.some(c => isObj(c) && Array.isArray(c.b)
+    && c.b.some(b => isObj(b) && b.k === 'cbank' && Number.isFinite(b.d) && b.d <= now));
+}
+/* how much of a forgery's damage gets through: a Central Bank halves it, holographic banknotes take a further quarter */
+export const forgeryMult = I => (I.bank ? (I.holo ? 0.375 : 0.5) : 1);
+
 /* ── indicators: one nation's real figures, read from its record ───────── */
 /* rec is a player's shared record or, with npc set, a computer-run nation's definition. Every figure comes
    from what the game simulates; nothing here is invented to fill a formula. */
@@ -176,13 +184,13 @@ export function indicators(id, rec, now, ctx) {
   const debt = debtOf(n, s, p), ind = industries(n).slice(0, 5), tot = ind.reduce((a, c) => a + Math.max(0, c[1]), 0) || 1;
   /* diversification: how evenly the five largest industries share the economy (1 = evenly) */
   const div = -ind.reduce((a, c) => { const q = Math.max(0, c[1]) / tot; return a + (q > 0 ? q * Math.log(q) : 0); }, 0) / Math.log(5);
-  const tr = ctx.trade || { partners: new Set(), volume: 0 };
+  const tr = ctx.trade || { partners: new Set(), volume: 0 }, bank = !npc && hasCentralBank(rec, now), holo = !!p.bankHolograms;
   return {
     npc, gpc, out, pop, prosper, gOut: clamp(num(gOut, 0), -50, 50), gPc: clamp(num(gPc, 0), -50, 50), span, outVol: clamp(num(outVol, 0), 0, 100),
     approval: govApproval(s), law: lawOf(s), safety: s.safety, corrupt: s.corrupt, sci: s.sci, edu: s.edu, econ: s.econ, div: clamp(div, 0, 1),
     infl: inflOf(s, p), debt, credit: creditOf(debt, s), unemp: unempOf(s, p),
     cbi: !!p.centralBankIndependence, pbank: !!p.peoplesBank, oilFund: !!p.oilFund, tariffs: !!p.importTariffs,
-    counterfeit: ctx.counterfeit > now ? (p.counterIntel ? 4 : 8) : 0,
+    bank, holo, counterfeit: ctx.counterfeit > now ? (p.counterIntel ? 4 : 8) * forgeryMult({ bank, holo }) : 0,
     wars: clamp(num(ctx.wars, 0), 0, 20), partners: tr.partners.size, volume: clamp(tr.volume, 0, 10000),
     days: npc ? Infinity : Math.max(0, (now - num(rec.founded, now)) / DAY)
   };
@@ -266,7 +274,8 @@ export function tierStep(p, prev) {
 }
 
 /* ── one day for one nation ────────────────────────────────────────────── */
-/* smoothing: strength moves 35% of the way to its new level each day, at most enough to move the value 3%;
+/* smoothing: strength moves 35% of the way to its new level each day, at most enough to move the value 3%
+   (a Central Bank halves both, so its currency moves half as far);
    prestige moves 10% of the way to its target, at most 1.5 points up or 2 down a day (5 down in a crisis:
    a new war, or government or economic stability falling 15 points in a day) */
 export const S_ALPHA = 0.35, V_MAX = 0.03, S_MAX = 50 * Math.log(1 + V_MAX) / Math.log(4);
@@ -287,7 +296,8 @@ export function stepNation(id, prev, I, day) {
   if (!prev) {
     S = Sraw; P = T; vv = 0; n = 1; hv = []; hp = [];
   } else {
-    S = prev.S + clamp(S_ALPHA * (Sraw - prev.S), -S_MAX, S_MAX);
+    const st = I.bank ? 0.5 : 1;
+    S = prev.S + clamp(st * S_ALPHA * (Sraw - prev.S), -st * S_MAX, st * S_MAX);
     crisis = I.wars > (prev.w || 0) || (prev.g && (prev.g.gov - g.gov >= 15 || prev.g.econ - g.econ >= 15));
     P = prev.P + clamp(P_ALPHA * (T - prev.P), -(crisis ? P_CRISIS : P_DOWN), P_UP);
     const dv = Math.log(valueOf(id, S) / valueOf(id, prev.S)) * 100;

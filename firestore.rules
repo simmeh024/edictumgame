@@ -15,6 +15,9 @@ rules_version = '2';
 //   support/{id}             a player's support ticket, {by, topic, x, t, st, name?, reg?, email?}, and an
 //                            admin's answer when it is closed {reply?, ct, rby, exp}
 //   slimits/{uid}            {s}: the time of the player's last support ticket, which paces them
+//   bugs/{id}                a player's bug report, {by, ti, x, where, often, env, t, st, name?, reg?, img?}, and
+//                            an admin's verdict {st, note, ut, uby}; bugImg/{id} its screenshot, blimits/{uid} {b}
+//                            the time of the player's last report, which paces them
 //   mod/{uid}                {hidden, removed, note, name, t, by}: an admin hid or removed a nation
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
 //   staff/{uid}              {t}: this player is Edictum staff (an admin), so other players see it; only the
@@ -282,6 +285,53 @@ service cloud.firestore {
       allow write: if isAdmin() && doc == 'latest'
         && request.resource.data.keys().hasOnly(['p'])
         && request.resource.data.p is list && request.resource.data.p.size() <= 30;
+    }
+
+    // A player reports a bug on the Report a bug page, with the game's technical details (env) and perhaps a
+    // screenshot, sent in the same batch as bugImg/<the same id>. The player reads and may delete their own
+    // reports; admins read all of them, set each one's state with a note the player reads, and delete them.
+    function validBug(d) {
+      return d.keys().hasAll(['by', 'ti', 'x', 'where', 'often', 'env', 't', 'st'])
+        && d.keys().hasOnly(['by', 'ti', 'x', 'where', 'often', 'env', 't', 'st', 'name', 'reg', 'img'])
+        && d.by == request.auth.uid && d.t == request.time && d.st == 'new'
+        && d.ti is string && d.ti.size() > 0 && d.ti.size() <= 120
+        && d.x is string && d.x.size() > 0 && d.x.size() <= 3000
+        && d.where is string && d.where.size() <= 40
+        && d.often in ['always', 'sometimes', 'once']
+        && d.env is string && d.env.size() <= 3000
+        && (!('name' in d) || label(d.name))
+        && (!('reg' in d) || region(d.reg))
+        && (!('img' in d) || d.img == true);
+    }
+    match /bugs/{bid} {
+      allow create: if signedIn() && validBug(request.resource.data) && !banned(request.auth.uid)
+        && getAfter(/databases/$(database)/documents/blimits/$(request.auth.uid)).data.b == request.time;
+      allow read, delete: if isAdmin() || (signedIn() && resource.data.by == request.auth.uid);
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'note', 'ut', 'uby'])
+        && request.resource.data.st in ['new', 'seen', 'fixed', 'closed']
+        && request.resource.data.ut == request.time && request.resource.data.uby == request.auth.uid
+        && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 1000));
+    }
+    // a report's screenshot, made smaller in the player's browser: only together with a new report of theirs
+    match /bugImg/{bid} {
+      allow create: if signedIn() && request.resource.data.keys().hasOnly(['d', 'm', 'w', 'h', 'by'])
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.d is string && request.resource.data.d.size() > 0 && request.resource.data.d.size() <= 700000
+        && request.resource.data.m in ['image/webp', 'image/jpeg', 'image/png', 'image/gif']
+        && request.resource.data.w is int && request.resource.data.w > 0 && request.resource.data.w <= 4096
+        && request.resource.data.h is int && request.resource.data.h > 0 && request.resource.data.h <= 4096
+        && !exists(/databases/$(database)/documents/bugs/$(bid))
+        && getAfter(/databases/$(database)/documents/bugs/$(bid)).data.by == request.auth.uid
+        && getAfter(/databases/$(database)/documents/bugs/$(bid)).data.get('img', false) == true;
+      allow read, delete: if isAdmin() || (signedIn() && resource.data.by == request.auth.uid);
+    }
+    // paces bug reports: one a minute
+    match /blimits/{uid} {
+      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['b']) && request.resource.data.b == request.time;
+      allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['b']) && request.resource.data.b == request.time
+        && request.time > resource.data.b + duration.value(60, 's');
+      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
     }
 
     match /limits/{uid} {
