@@ -36815,6 +36815,11 @@ function render(){if(fxRender())return;
   let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
   if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
   const uxPlan=uxPrepare(rewardJump);
+  /* a page drawn again in place stays where the reader had it. It is shorter for a moment (unlock links and section
+     controls are added after it is drawn), which clamped the scroll near the bottom or let scroll anchoring push the
+     page down by the height those additions gave every section above (reading scrollHeight at the end lays the page
+     out, anchoring included, before the scroll is compared) */
+  const y0=uxPlan||rewardJump?null:window.scrollY;
   /* a heading focused by a jump (tabindex -1) keeps its focus when the page is drawn again */
   const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null,fidTab=fidFocus&&ae.getAttribute('tabindex')==='-1';
   let sel=null;try{if(fidFocus&&typeof ae.selectionStart==='number')sel=[ae.selectionStart,ae.selectionEnd];}catch(e){}
@@ -36826,6 +36831,7 @@ function render(){if(fxRender())return;
   initMaps();
   const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
   if(rewardJump)rewardFocus(rewardJump);uxAfter(uxPlan,rewardJump,{id:fidFocus,tab:ae?.getAttribute?.('tabindex')});
+  if(y0!=null&&document.documentElement.scrollHeight&&Math.abs(window.scrollY-y0)>1)window.scrollTo({top:y0,left:0,behavior:'instant'});
 }
 let pvTimer=null;
 function updatePreviewSoon(){
