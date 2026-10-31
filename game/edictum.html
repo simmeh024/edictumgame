@@ -34952,7 +34952,9 @@ async function syncOwnNation(force=false){
   ownSyncBusy=true;const before=commitNo;
   try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
     saveChecked=true;saveFailed=false;
-    if(!n)return;ownLatest=n;
+    /* refused as another device's save, yet this account holds no nation: a copy of another account's (src/shim.js, strayCopy) */
+    if(!n){if(conflictPending&&window.__edictum&&typeof window.__edictum.strayCopy==='function')window.__edictum.strayCopy();return;}
+    ownLatest=n;
     if(!conflictPending&&(remoteBusy||remoteDirty||before!==commitNo))return;
     if(conflictPending||savedAfter(n,S.nation)){
       if(conflictPending){const kept=keepUnsaved(S.nation);conflictPending=false;
