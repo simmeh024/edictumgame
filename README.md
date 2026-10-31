@@ -157,6 +157,60 @@ once, and the time away does not count towards going dormant. It can be ended ea
 shared half, so every player works out the same dormancy, and the summary's `e` carries it into other
 regions' counts.
 
+**Letters from Willow Street.** A citizen storyline told through eight letters from Mara Bell, of number
+fourteen, Willow Street, in the capital: a broken streetlight, then the bakery she tries to open, the fight
+over the street, her daughter Ada's question, and at last what goes into the record. Each letter is an edict
+(`ws-1` … `ws-8`) that never enters the random pool.
+
+- *Milestones.* Letter I is earned at 5 enacted edicts, then 10, 25, 50, 100, 250, 500 and 1,000
+  (`WS_AT`). "Enacted" means a choice made on any other edict, the founding edict included: vetoes do not
+  count, and neither do answers to the letters themselves. The count (`n.ws.e`) is kept apart from the
+  decision history, which only holds the last 80, so it is a lifetime count.
+- *Delivery.* An earned letter takes an ordinary arrival slot of the edict clock, so it follows the pace in
+  Settings, waits through holiday mode, never pushes another edict off a full desk (it stays earned until a
+  slot comes), and lets a follow-up that is due go first. Only one letter waits at a time: a nation that
+  earned several gets them one per slot after each is resolved, in order, each exactly once. Opening or
+  drawing a page never resolves anything; a letter is resolved only by an answer or a veto.
+- *A veto* files the letter unanswered: the story carries on, Mara's trust falls, and later letters say
+  so without pretending the offered answers happened. Once all eight are resolved the story is complete
+  (`n.ws.d`), and the Edicts page keeps the whole correspondence.
+- *Government.* The family of states that receives a letter (`fdFam`, the same eight as the founding
+  edict: Senate, Crown, Empire, Divan, Synod, People's Congress, Governor's Council, Borough Council) tells
+  it in its own voice: 64 written versions. The civil, economic and political freedom bands that
+  `classify()` uses add one sentence each (27 combinations, composed rather than written separately), and
+  a few laws in force add one where they matter (`WS_POL`). Facts from earlier answers (`WS_FACTS`: the
+  lamp, the bakery and who runs it, Tomas, any contract or debt, hearings, how criticism was treated, the
+  street, Ada) change what later letters say, so a bakery that never opened is never described as trading
+  and a debt is mentioned only if a contract was actually made. A new government after the last letter
+  gets a short transition line; the facts carry on unchanged.
+- *Frozen letters.* A letter's context (family, bands, laws, facts, earlier answers) is fixed when it
+  arrives and stored in its inbox entry, so a change of government or freedoms, a reload or another device
+  never rewrites a letter already on the desk. The chosen answer goes through the ordinary decision
+  process with that version's effects.
+- *Rewards.* Each answered letter brings 5 land credits and a keepsake for Customise: the epithet "the
+  Well-Lit", the "Received, with thanks" stamp, a loaf emblem for the flag, the Crust accent colour,
+  quotation marks round the motto, a cobblestone banner pattern, a crayon flag frame and a street lamp over
+  the capital on the map (`WS_KEEP`). A vetoed letter brings neither.
+- *Storage.* `n.ws` is in the private half (`NX_KEYS`): `{v: 1, e, c: [{o, f, b, t, x, n}], x, d?, m?}`, the
+  resolved letters in order (answer 0–2, or -1 filed unanswered; family and bands it arrived under; time;
+  the ruling as recorded; title). `n.wsl`, the land the letters brought, is in the shared half so every
+  player counts the land the same way. The normaliser bounds every field, drops unknown facts, keeps the
+  resolved letters up to the first unreadable one, and takes a waiting letter whose context cannot be read
+  off the desk (it comes back at the next slot). Saves use the ordinary revision check: a stale device's
+  answer is refused, never merged.
+- *Older nations.* A nation saved before the letters starts at letter I. Its count starts from the best
+  lifetime record it has, the larger of `n.dec` (decisions made) and its tally of enacted edicts
+  (`tly.iss`); both began, for the oldest nations, from the recent history of at most 80 decisions, so
+  the count can be lower than the true total but never higher, and the letters it has already earned
+  then arrive one per slot. A record saved by an older copy of the game, which drops `ws`, recovers which
+  letters were resolved from the seen-edict list and the recent decisions, so none is sent twice.
+- *Text.* `WS_STORY` is a catalogue in `scripts/split-content.mjs`, so its text is cached with the
+  edicts. Conditions inside the text (`[[bk:open|…|…]]`) are read by a small parser in the same section
+  (`wsCond`); there is no `eval`. `test/willow-street.test.mjs` (in `test:fx`) checks every version,
+  every band combination and random playthroughs; `npm run test:willow` plays the story in the real game.
+  New edicts go after the letters (their numbers follow every other edict's), so nothing is inserted
+  before them.
+
 **The banner's stamps.** A nation's banner carries ink stamps for its highest seat in the region's
 Assembly (the Delegate's chair, or else a member's seat: every player nation unless it resigned, and
 every computer nation) and its alliance, if it has one.
@@ -420,6 +474,7 @@ npm run test:devnews       # development news: the editor, images, the menu's co
 npm run test:buildings     # the later buildings: plans, completion, city effects, edict boosts, the Central Bank
 npm run test:bugs          # Report a bug: the form, screenshots, pacing, the admin page, notes, deleting
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
+npm run test:willow        # Letters from Willow Street: a milestone, a change of government, reloads, a second device
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
 npm run test:flag-layers   # flag layers, touch and keyboard editing, Undo and shared designs
@@ -433,7 +488,7 @@ npm run test:currency-gameplay # trade, policy confidence, currency prose and co
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
 
-Every pull request runs all fourteen browser suites as independent parallel jobs on GitHub Actions
+Every pull request runs all twenty-one browser suites as independent parallel jobs on GitHub Actions
 (`.github/workflows/preview.yml`), alongside the backend checks and staging preview. Each browser job
 has its own runner and fresh emulators; suites cannot share an emulator because they reset its data.
 The core game's scenarios keep their existing order within their suite. Run an individual command
@@ -442,7 +497,7 @@ use the same emulator ports, so run them one at a time unless you give each a se
 
 One failing suite leaves the other suites running, and each failed job keeps its own screenshot artifact.
 The existing **Test the game end to end** check now aggregates the browser jobs and passes only when
-all fourteen succeed. It also fails if a suite is cancelled or skipped, keeping the release gate intact.
+all twenty-one succeed. It also fails if a suite is cancelled or skipped, keeping the release gate intact.
 
 **The cost test.** `test/load.mjs` puts 50 players in one region for five minutes: six real game
 clients (half idle, half playing) with every Firestore read and write counted inside the page, and
