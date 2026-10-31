@@ -40235,6 +40235,251 @@ document.addEventListener('click',e=>{
   if(a==='nwe-leave-no'){NWE.ask='';render();return;}
 });
 
+/* ───────── Report a bug ─────────
+   A page under Other, after Development news, where a player tells the team about something broken: what
+   went wrong in a few words, what happened, where in the game and how often, and a screenshot if they like
+   (chosen, or pasted). The game adds the technical details the team needs to find it (the game's version,
+   the browser, the screen, the nation and the last errors this page hit) and shows them before sending.
+   src/shim.js sends it as bugs/<id> {by, ti, x, where, often, env, t, st, name?, reg?, img?}, with the
+   screenshot as bugImg/<id>, one report a minute (blimits/<uid>; see firestore.rules). Below the form the
+   player sees their own reports and what became of them, and the game tells them when one changes. Admins
+   read them in the portal (Support › Bug reports): they mark each one confirmed, fixed or closed with a note
+   the player reads, look at the screenshot, and delete them. */
+const BG={f:null,busy:false,err:'',sent:'',shot:null,shotBusy:false,list:null,lbusy:false,lerr:'',ask:'',from:''};
+const BG_OFTEN={always:'Every time',sometimes:'Sometimes',once:'Once so far'};
+const BG_ST={new:'New',seen:'Confirmed',fixed:'Fixed',closed:'Closed'};
+const BG_STW={new:'Waiting for the team to look at it.',seen:'The team has found the problem and is working on it.',fixed:'Fixed. Thank you for reporting it.',closed:'Closed by the team.'};
+const BG_IMG_MAX=480000,BG_IMG_SIDE=1600,BG_ERRS=[];
+/* the last errors this page hit, which go with a report */
+function bgErr(m,at){
+  m=String(m||'').replace(/\s+/g,' ').trim().slice(0,200);if(!m)return;
+  const s=m+(at?' ('+at+')':'');if(BG_ERRS[BG_ERRS.length-1]===s)return;
+  BG_ERRS.push(s);if(BG_ERRS.length>5)BG_ERRS.shift();
+}
+window.addEventListener('error',e=>{const f=String(e.filename||'').split('/').pop();bgErr(e.message||(e.error&&e.error.message),f?f+':'+(e.lineno||0)+':'+(e.colno||0):'');});
+window.addEventListener('unhandledrejection',e=>{const r=e.reason;bgErr('Unhandled: '+((r&&r.message)||r),'');});
+function bgApi(){return Promise.resolve(window.claude&&window.claude.use('bugs'));}
+function bgVersion(){const s=[...document.scripts].map(x=>x.src||'').find(x=>/\/assets\/game\.[0-9a-f]+\.js/.test(x));return s?s.match(/game\.([0-9a-f]+)\.js/)[1]:'a development copy';}
+/* the technical details sent with a report, as [label, value] rows; the form shows them before sending */
+function bgEnv(){
+  const n=S.nation,sc=window.screen||{},k=n&&(n.cities||[]).length;
+  const rows=[['Game version',bgVersion()],['Browser',navigator.userAgent||'unknown'],
+    ['Screen',`${innerWidth}×${innerHeight} window, ${sc.width||0}×${sc.height||0} screen, scale ${Math.round((devicePixelRatio||1)*100)/100}${matchMedia('(pointer:coarse)').matches?', touch':''}`],
+    ['Language',navigator.language||'unknown'],
+    ['Connection',S.mode==='local'?'Offline':navigator.onLine===false?'Online, but the browser reports no network':'Online']];
+  if(n)rows.push(['Nation',`${fmtPop(n.pop||0)} people, ${k} ${k===1?'city':'cities'}, founded ${fmtDate(n.founded||Date.now())}`]);
+  rows.push(['Recent errors',BG_ERRS.length?BG_ERRS.join(' · '):'None']);
+  return rows.map(([a,b])=>[a,String(b).replace(/\s+/g,' ').slice(0,600)]);
+}
+const bgEnvText=rows=>rows.map(r=>r[0]+': '+r[1]).join('\n').slice(0,3000);
+const bgEnvRows=t=>String(t||'').split('\n').map(l=>{const i=l.indexOf(': ');return i>0?[l.slice(0,i),l.slice(i+2)]:['',l];}).filter(r=>r[1]);
+const bgWhereLabel=k=>k?(navLabel(k)||k):'Not given';
+function bgWhereOpts(cur){
+  const groups=navGroups().map(g=>{const it=g.items.filter(([k])=>k!=='bugs');
+    return it.length?`<optgroup label="${esc(g.l)}">${it.map(([k,l])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(l)}</option>`).join('')}</optgroup>`:'';}).join('');
+  return `<option value=""${cur?'':' selected'}>Not sure, or somewhere else</option>${groups}`;
+}
+function bgForm(){if(!BG.f)BG.f={ti:'',x:'',where:BG.from,often:'always',wset:false};return BG.f;}
+function bgLoad(){
+  if(BG.lbusy)return;BG.lbusy=true;BG.lerr='';
+  bgApi().then(a=>a?a.mine():[]).then(list=>{BG.list=Array.isArray(list)?list:[];BG.lbusy=false;if(S.view==='bugs')render();},
+    ()=>{BG.lbusy=false;BG.lerr='Your reports could not be loaded.';if(S.view==='bugs')render();});
+}
+function bgView(){
+  const head=`<header class="vh"><p class="eyebrow">Help the team</p><h1>Report a bug</h1><p>Something broken, wrong or strange? Tell the team what happened. Every report is read, and below the form you see what became of yours.</p></header>`;
+  if(!S.db||S.mode==='local')return head+`<div class="info">Bug reports need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</div>`;
+  if(S.banned)return head+'<div class="info">Bug reports are unavailable while this account is banned. To appeal, create a support ticket on the Help page.</div>';
+  if(!BG.list&&!BG.lbusy&&!BG.lerr)setTimeout(bgLoad,0);
+  const f=bgForm(),sh=BG.shot,L=BG.list||[];
+  const mine=b=>`<li class="sup-t"><p class="sup-h"><span class="chip bg-${b.st}">${BG_ST[b.st]}</span> <b>${esc(b.ti)}</b></p>
+    <p class="hint">Sent ${esc(rel(b.t))} · ${esc(bgWhereLabel(b.where))} · ${esc(BG_OFTEN[b.often]||'')}${b.img?' · with a screenshot':''}</p>
+    <details><summary>What you wrote</summary><blockquote class="sup-q">${esc(b.x)}</blockquote></details>
+    ${b.note?`<div class="sup-a"><p class="lbl-h">The Edictum team${b.ut?' · '+esc(rel(b.ut)):''}</p><p>${esc(b.note)}</p></div>`:`<p class="hint">${BG_STW[b.st]}</p>`}
+    ${BG.ask===b.id?`<div class="adm-ask"><p>Delete this report? The team no longer sees it either.</p><div class="row"><button type="button" class="btn danger small" data-act="bg-del-yes" data-id="${esc(b.id)}">Yes, delete</button><button type="button" class="btn ghost small" data-act="bg-del-no">Keep it</button></div></div>`:`<p class="bg-del"><button type="button" class="linkish" data-act="bg-del" data-id="${esc(b.id)}">Delete this report</button></p>`}</li>`;
+  return head+`<form class="bg-form" id="bg-form" novalidate>
+    ${BG.sent?`<div class="bg-sent" role="status"><p><b>Thank you.</b> Your report “${esc(BG.sent)}” is with the team. You can follow it under Your reports.</p></div>`:''}
+    <div class="field"><label class="lbl" for="bg-ti">What went wrong, in a few words</label>
+      <input class="input" id="bg-ti" maxlength="120" autocomplete="off" value="${esc(f.ti)}" placeholder="For example: the map stays blank after I claim land"></div>
+    <div class="field"><label class="lbl" for="bg-x">What happened?</label>
+      <p class="hint" id="bg-x-h">What you did, what you expected, and what happened instead. Steps that make it happen again help the most.</p>
+      <textarea class="input" id="bg-x" rows="7" maxlength="3000" aria-describedby="bg-x-h bg-cc">${esc(f.x)}</textarea>
+      <p class="hint bg-cc" id="bg-cc">${f.x.length} / 3000</p></div>
+    <div class="bg-two">
+      <div class="field"><label class="lbl" for="bg-where">Where in the game?</label><select class="input" id="bg-where">${bgWhereOpts(f.where)}</select></div>
+      <fieldset class="bg-often"><legend class="lbl">How often does it happen?</legend><div class="row">${Object.entries(BG_OFTEN).map(([k,l])=>`<label><input type="radio" name="bg-often" value="${k}"${f.often===k?' checked':''}> ${l}</label>`).join('')}</div></fieldset>
+    </div>
+    <div class="field"><span class="lbl" id="bg-shot-l">A screenshot (optional)</span>
+      <div class="bg-shot" role="group" aria-labelledby="bg-shot-l">${sh?`<figure><img src="${esc(sh.url)}" alt="Your screenshot"><figcaption class="hint">${sh.w} × ${sh.h} pixels · <button type="button" class="linkish" data-act="bg-shot-rm">Remove</button></figcaption></figure>`
+        :`<button type="button" class="btn ghost small" data-act="bg-shot-add"${BG.shotBusy?' disabled':''}>${BG.shotBusy?'Preparing the screenshot…':'Add a screenshot'}</button><span class="hint">or paste one on this page (Ctrl+V)</span>`}
+      <input type="file" id="bg-file" accept="image/*" class="u-sr" tabindex="-1" aria-hidden="true"></div></div>
+    <details class="bg-env"><summary>Sent with your report: technical details</summary><dl>${bgEnv().map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+      <p class="hint">With them go your player ID and ${S.nation?esc(S.nation.name)+'’s':'your nation’s'} name and region. Only you and the game’s team can read the report. <a href="/privacy" target="_blank" rel="noopener">Privacy</a></p></details>
+    ${BG.err?`<p class="err" role="alert">${esc(BG.err)}</p>`:''}
+    <div class="row"><button type="submit" class="btn"${BG.busy?' disabled':''}>${BG.busy?'Sending…':'Send report'}</button></div>
+  </form>
+  <section class="bg-mine" aria-labelledby="bg-mine-h"><h2 class="h2" id="bg-mine-h">Your reports</h2>
+    ${BG.lerr?`<p class="err">${esc(BG.lerr)} <button type="button" class="linkish" data-act="bg-retry">Try again</button></p>`:!BG.list?'<p class="hint">Loading your reports…</p>'
+      :!L.length?'<p class="hint">You have not reported a bug yet. Reports you send appear here, with what the team made of them.</p>':`<ul class="sup-list">${L.map(mine).join('')}</ul>`}
+  </section>`;
+}
+/* a screenshot, made smaller in the browser (at most BG_IMG_SIDE pixels on the long side) before it goes */
+async function bgShot(file){
+  if(!file||BG.shotBusy)return;BG.shotBusy=true;BG.err='';render();
+  try{
+    const x=await nwImgPrep(file,BG_IMG_MAX,BG_IMG_SIDE),d=await nwB64(x.blob);
+    if(BG.shot)URL.revokeObjectURL(BG.shot.url);
+    BG.shot={d,m:x.m,w:x.w,h:x.h,url:URL.createObjectURL(x.blob)};
+  }catch(e){BG.err=(e&&e.message)||'That screenshot could not be read.';}
+  BG.shotBusy=false;if(S.view==='bugs')render();
+}
+async function bgSend(){
+  const f=bgForm();if(BG.busy)return;
+  const ti=f.ti.trim(),x=f.x.trim();BG.err='';BG.sent='';
+  if(!ti)BG.err='Give the report a title: what went wrong, in a few words.';
+  else if(!x)BG.err='Describe what happened, so the team can find it.';
+  else if(BG.shotBusy)BG.err='Wait until the screenshot is ready.';
+  if(BG.err){render();const el=document.getElementById(!ti?'bg-ti':'bg-x');if(el&&!BG.shotBusy)el.focus();return;}
+  BG.busy=true;render();
+  try{
+    const api=await bgApi();if(!api)throw Object.assign(new Error('offline'),{code:'unavailable'});
+    const n=S.nation,sh=BG.shot;
+    await api.send({ti,x,where:f.where||'',often:f.often,env:bgEnvText(bgEnv()),name:n?n.name:'',reg:n?REG.id:''},sh?{d:sh.d,m:sh.m,w:sh.w,h:sh.h}:null);
+    BG.sent=ti;if(sh)URL.revokeObjectURL(sh.url);BG.shot=null;BG.f=null;BG.list=null;bgLoad();
+  }catch(e){BG.err=e&&e.code==='not_granted'?'You can send one report a minute. Try again in a moment.':'The report could not be sent. Check your connection and try again.';}
+  BG.busy=false;render();
+  const ok=document.querySelector('.bg-sent');if(ok&&ok.scrollIntoView)ok.scrollIntoView({block:'nearest'});
+}
+async function bgDelete(id){
+  const b=(BG.list||[]).find(x=>x.id===id);BG.ask='';
+  try{const api=await bgApi();if(!api)throw new Error('offline');await api.remove(id,!!(b&&b.img));BG.list=(BG.list||[]).filter(x=>x.id!==id);toast('The report was deleted.');}
+  catch(e){toast('The report could not be deleted. Try again in a moment.');}
+  render();
+}
+
+/* the admin portal's Bug reports page: newest first, open ones (new and confirmed) unless another filter is
+   chosen; each with its details, its screenshot on request, and a note (kept in BGA.dr while the page redraws) */
+const BGA={busy:false,err:'',list:null,f:'open',act:'',ask:'',dr:{},img:{},seen:0,n:null};
+const BGA_F={open:'Open',fixed:'Fixed',closed:'Closed',all:'All'};
+const bgaMatch=(b,f)=>f==='all'||(f==='open'?b.st==='new'||b.st==='seen':b.st===f);
+function bgaLoad(){
+  if(BGA.busy)return;BGA.busy=true;BGA.err='';
+  bgApi().then(a=>{if(!a)throw new Error('offline');return a.list();}).then(list=>{BGA.list=list;BGA.busy=false;if(list.length<300)BGA.n=list.filter(b=>b.st==='new').length;if(ADM_VIEWS.includes(S.view))render();},
+    ()=>{BGA.busy=false;BGA.err='The bug reports could not be loaded. Try again in a moment.';if(S.view==='admin-bugs')render();});
+}
+/* the count of new reports beside the page in the portal's menu and on its overview, counted with the rest */
+function bgaCount(){
+  if(!S.db||typeof S.db.count!=='function')return;
+  S.db.count('bugs',[['st','==','new']]).then(k=>{if(k!=null&&BGA.n!==k){BGA.n=k;if(ADM_VIEWS.includes(S.view))render();}},()=>{});
+}
+function bgaView(){
+  const now0=Date.now();if(now0-BGA.seen>1e4)bgaLoad();BGA.seen=now0;
+  const L=BGA.list,cnt=k=>L?L.filter(b=>bgaMatch(b,k)).length:0,show=L?L.filter(b=>bgaMatch(b,BGA.f)):[];
+  return admShell('admin-bugs',`
+    <p class="eyebrow">Admin portal</p><h1 class="display">Bug reports</h1>
+    <p class="lede">Reports from the Report a bug page, newest first. The state you set and your note show on the player’s page, and the game tells them when either changes. <button type="button" class="linkish" data-act="bga-refresh"${BGA.busy?' disabled':''}>${BGA.busy?'Loading…':'Load again'}</button></p>
+    ${BGA.err?`<p class="err">${esc(BGA.err)}</p>`:''}
+    ${BGA.act?`<p class="hint" role="status">${esc(BGA.act)}</p>`:''}
+    ${!L?`<p class="hint">${BGA.busy?'Loading the bug reports…':''}</p>`:`
+    <div class="adme-cats" role="group" aria-label="Show">${Object.entries(BGA_F).map(([k,l])=>`<button type="button" class="btn ghost small" data-act="bga-f" data-f="${k}" aria-pressed="${BGA.f===k}">${l} <span class="chip">${cnt(k)}</span></button>`).join('')}</div>
+    ${!show.length?`<p class="hint">${L.length?'No reports here.':'No bug reports yet. When a player sends one from the Report a bug page, it appears here.'}</p>`:`<ul class="adm-reps">${show.map(bgaItem).join('')}</ul>`}
+    ${L.length>=300?'<p class="hint">Showing the latest 300 reports. Delete old ones to see further back.</p>':''}`}
+  `);
+}
+function bgaItem(b){
+  const id=esc(b.id),note=b.id in BGA.dr?BGA.dr[b.id]:b.note,img=BGA.img[b.id];
+  const to=(st,l)=>`<button type="button" class="btn ghost small" data-act="bga-st" data-st="${st}" data-id="${id}">${l}</button>`;
+  return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip bg-${b.st}">${BG_ST[b.st]}</span> ${esc(bgWhereLabel(b.where))} · ${esc(BG_OFTEN[b.often]||'')} · ${esc(rel(b.t))}${b.ut?` · changed ${esc(rel(b.ut))}`:''}</p>
+    <b class="bga-ti">${esc(b.ti)}</b>
+    <p class="hint">${admhWho(b)} · <button type="button" class="linkish" data-act="admin-inspect" data-id="${esc(b.by)}">Inspect</button></p>
+    <blockquote class="adm-quote">${esc(b.x)}</blockquote>
+    <details class="bga-env"><summary>Technical details</summary><dl>${bgEnvRows(b.env).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details>
+    ${b.img?`<div class="bga-shot">${typeof img==='string'?`<a href="${esc(img)}" target="_blank" rel="noopener"><img src="${esc(img)}" alt="The player’s screenshot"></a>`
+      :img===0?`<p class="hint">The screenshot could not be loaded. <button type="button" class="linkish" data-act="bga-shot" data-id="${id}">Try again</button></p>`
+      :`<button type="button" class="btn ghost small" data-act="bga-shot" data-id="${id}"${img===1?' disabled':''}>${img===1?'Loading the screenshot…':'Show the screenshot'}</button>`}</div>`:''}
+    <label class="admh-lbl" for="bga-n-${id}">A note to the player (optional: they read it on their Report a bug page)</label>
+    <textarea class="input admh-in bga-in" id="bga-n-${id}" data-id="${id}" rows="2" maxlength="1000">${esc(note)}</textarea>
+    <div class="row">${b.st==='new'?to('seen','Confirm'):''}${b.st!=='fixed'?to('fixed','Mark fixed'):''}${b.st!=='closed'?to('closed','Close'):''}${b.st!=='new'?to('new','Reopen as new'):''}${to(b.st,'Save the note')}<button type="button" class="btn ghost small adm-danger" data-act="bga-del" data-id="${id}">Delete</button></div>
+    ${BGA.ask===b.id?`<div class="adm-ask"><p>Delete this report for good, with its screenshot? The player no longer sees it either.</p><div class="row"><button type="button" class="btn danger small" data-act="bga-del-yes" data-id="${id}">Yes, delete</button><button type="button" class="btn ghost small" data-act="bga-del-no">Cancel</button></div></div>`:''}</li>`;
+}
+async function bgaAct(a,id,st){
+  const api=await bgApi(),b=(BGA.list||[]).find(x=>x.id===id);if(!api||!b)return;
+  const box=document.getElementById('bga-n-'+id);if(box)BGA.dr[id]=box.value;
+  BGA.ask='';
+  try{
+    if(a==='bga-st'){
+      const note=String(id in BGA.dr?BGA.dr[id]:b.note).trim().slice(0,1000);
+      if(!BG_ST[st])return;
+      if(st===b.st&&note===b.note){BGA.act='Nothing to save: the state and the note are as they were.';render();return;}
+      await api.set(id,st,note);
+      BGA.act=st===b.st?`The note on “${b.ti}” was saved.`:`“${b.ti}” is now marked ${BG_ST[st]}${note?', with your note':''}.`;
+      Object.assign(b,{st,note,ut:Date.now()});delete BGA.dr[id];
+    }
+    else if(a==='bga-del'){BGA.ask=id;BGA.act='';render();return;}
+    else if(a==='bga-del-yes'){await api.remove(id,b.img);BGA.list=BGA.list.filter(x=>x.id!==id);delete BGA.dr[id];BGA.act=`“${b.ti}” was deleted.`;}
+  }catch(e){BGA.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
+  if(BGA.list.length<300)BGA.n=BGA.list.filter(x=>x.st==='new').length;
+  render();
+}
+function bgaShot(id){
+  if(typeof BGA.img[id]==='string'||BGA.img[id]===1)return;
+  BGA.img[id]=1;render();
+  bgApi().then(a=>a.image(id)).then(x=>{if(!x)throw new Error('missing');
+    const bin=atob(x.d),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+    BGA.img[id]=URL.createObjectURL(new Blob([u],{type:x.m||'image/webp'}));},()=>{BGA.img[id]=0;}).then(()=>{if(S.view==='admin-bugs')render();});
+}
+
+/* ── hooks ── */
+EXT_PAGES.push('bugs');NAV_LABELS.bugs='Report a bug';
+(()=>{const g=NAV_GROUPS.find(x=>x.k==='other');if(g&&!g.v.includes('bugs'))g.v.push('bugs');})();
+NAV_WORDS.bugs='bug report problem broken error glitch crash wrong screenshot feedback';
+VIEWS_EXT.bugs=()=>bgView();
+ADM_VIEWS.push('admin-bugs');
+shell=(f=>function(){if(S.view==='admin-bugs'&&S.isOwner)return bgaView();return f.apply(this,arguments);})(shell);
+admLoad=(f=>function(){const was=ADM.busy,r=f.apply(this,arguments);if(!was&&ADM.busy)bgaCount();return r;})(admLoad);
+go=(f=>function(v){
+  /* the form starts at the page the player came from */
+  if(v==='bugs'&&S.view!=='bugs'){if(!/^admin/.test(S.view))BG.from=NAV_PARENT[S.view]||S.view;const fm=bgForm();if(!fm.wset&&!fm.ti&&!fm.x)fm.where=BG.from;BG.sent='';BG.ask='';BG.lerr='';BG.list=null;}
+  if(v==='admin-bugs'&&S.view!=='admin-bugs'){BGA.act='';BGA.ask='';BGA.seen=0;}
+  return f.apply(this,arguments);})(go);
+document.addEventListener('input',e=>{
+  const t=e.target,id=t&&t.id||'';
+  if(id==='bg-ti'){bgForm().ti=t.value.slice(0,120);return;}
+  if(id==='bg-x'){const f=bgForm();f.x=t.value.slice(0,3000);const c=document.getElementById('bg-cc');if(c)c.textContent=f.x.length+' / 3000';return;}
+  if(t&&t.classList&&t.classList.contains('bga-in'))BGA.dr[t.dataset.id]=t.value;
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t)return;
+  if(t.id==='bg-where'){const f=bgForm();f.where=t.value;f.wset=true;return;}
+  if(t.name==='bg-often'){bgForm().often=t.value in BG_OFTEN?t.value:'always';return;}
+  if(t.id==='bg-file'){const f=t.files&&t.files[0];t.value='';if(f)bgShot(f);}
+});
+document.addEventListener('submit',e=>{if(e.target&&e.target.id==='bg-form'){e.preventDefault();bgSend();}});
+/* a screenshot pasted anywhere on the page, unless it comes with text pasted into a field */
+document.addEventListener('paste',e=>{
+  if(S.view!=='bugs'||!e.clipboardData)return;
+  const items=[...(e.clipboardData.items||[])],img=items.find(i=>i.kind==='file'&&/^image\//.test(i.type));if(!img)return;
+  const t=e.target;if(t&&(t.tagName==='TEXTAREA'||t.tagName==='INPUT')&&items.some(i=>i.type==='text/plain'))return;
+  e.preventDefault();bgShot(img.getAsFile());
+});
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a.slice(0,3)==='bg-'){
+    if(a==='bg-shot-add'){const f=document.getElementById('bg-file');if(f)f.click();return;}
+    if(a==='bg-shot-rm'){if(BG.shot)URL.revokeObjectURL(BG.shot.url);BG.shot=null;render();const b=document.querySelector('[data-act="bg-shot-add"]');if(b)b.focus();return;}
+    if(a==='bg-retry'){BG.lerr='';BG.list=null;bgLoad();render();return;}
+    if(a==='bg-del'){BG.ask=el.dataset.id;render();return;}
+    if(a==='bg-del-no'){BG.ask='';render();return;}
+    if(a==='bg-del-yes')bgDelete(el.dataset.id);
+    return;
+  }
+  if(a.slice(0,4)!=='bga-'||!S.isOwner)return;
+  if(a==='bga-refresh'){bgaLoad();render();return;}
+  if(a==='bga-f'){BGA.f=el.dataset.f in BGA_F?el.dataset.f:'open';render();return;}
+  if(a==='bga-shot'){bgaShot(el.dataset.id);return;}
+  if(a==='bga-del-no'){BGA.ask='';render();return;}
+  if(/^bga-(st|del|del-yes)$/.test(a))bgaAct(a,el.dataset.id,el.dataset.st);
+});
+
 /* ───────── a hundred edicts for the newer systems and the environment ─────────
    Edicts about the currency and the Foreign Exchange Bureau, trade routes, cities and claims, warehouses, the
    production buildings, space, the Regional Assembly, the seasons, rivers and the wider environment. Most arrive
@@ -40685,251 +40930,6 @@ for(const is of EV_ISSUES){
   if(is.req&&/geo\(/.test(String(is.req)))is.w=3;else if(is.o.some(o=>o.nx))is.w=2.5;
   ISSUES_RANDOM.push(is);
 }
-
-/* ───────── Report a bug ─────────
-   A page under Other, after Development news, where a player tells the team about something broken: what
-   went wrong in a few words, what happened, where in the game and how often, and a screenshot if they like
-   (chosen, or pasted). The game adds the technical details the team needs to find it (the game's version,
-   the browser, the screen, the nation and the last errors this page hit) and shows them before sending.
-   src/shim.js sends it as bugs/<id> {by, ti, x, where, often, env, t, st, name?, reg?, img?}, with the
-   screenshot as bugImg/<id>, one report a minute (blimits/<uid>; see firestore.rules). Below the form the
-   player sees their own reports and what became of them, and the game tells them when one changes. Admins
-   read them in the portal (Support › Bug reports): they mark each one confirmed, fixed or closed with a note
-   the player reads, look at the screenshot, and delete them. */
-const BG={f:null,busy:false,err:'',sent:'',shot:null,shotBusy:false,list:null,lbusy:false,lerr:'',ask:'',from:''};
-const BG_OFTEN={always:'Every time',sometimes:'Sometimes',once:'Once so far'};
-const BG_ST={new:'New',seen:'Confirmed',fixed:'Fixed',closed:'Closed'};
-const BG_STW={new:'Waiting for the team to look at it.',seen:'The team has found the problem and is working on it.',fixed:'Fixed. Thank you for reporting it.',closed:'Closed by the team.'};
-const BG_IMG_MAX=480000,BG_IMG_SIDE=1600,BG_ERRS=[];
-/* the last errors this page hit, which go with a report */
-function bgErr(m,at){
-  m=String(m||'').replace(/\s+/g,' ').trim().slice(0,200);if(!m)return;
-  const s=m+(at?' ('+at+')':'');if(BG_ERRS[BG_ERRS.length-1]===s)return;
-  BG_ERRS.push(s);if(BG_ERRS.length>5)BG_ERRS.shift();
-}
-window.addEventListener('error',e=>{const f=String(e.filename||'').split('/').pop();bgErr(e.message||(e.error&&e.error.message),f?f+':'+(e.lineno||0)+':'+(e.colno||0):'');});
-window.addEventListener('unhandledrejection',e=>{const r=e.reason;bgErr('Unhandled: '+((r&&r.message)||r),'');});
-function bgApi(){return Promise.resolve(window.claude&&window.claude.use('bugs'));}
-function bgVersion(){const s=[...document.scripts].map(x=>x.src||'').find(x=>/\/assets\/game\.[0-9a-f]+\.js/.test(x));return s?s.match(/game\.([0-9a-f]+)\.js/)[1]:'a development copy';}
-/* the technical details sent with a report, as [label, value] rows; the form shows them before sending */
-function bgEnv(){
-  const n=S.nation,sc=window.screen||{},k=n&&(n.cities||[]).length;
-  const rows=[['Game version',bgVersion()],['Browser',navigator.userAgent||'unknown'],
-    ['Screen',`${innerWidth}×${innerHeight} window, ${sc.width||0}×${sc.height||0} screen, scale ${Math.round((devicePixelRatio||1)*100)/100}${matchMedia('(pointer:coarse)').matches?', touch':''}`],
-    ['Language',navigator.language||'unknown'],
-    ['Connection',S.mode==='local'?'Offline':navigator.onLine===false?'Online, but the browser reports no network':'Online']];
-  if(n)rows.push(['Nation',`${fmtPop(n.pop||0)} people, ${k} ${k===1?'city':'cities'}, founded ${fmtDate(n.founded||Date.now())}`]);
-  rows.push(['Recent errors',BG_ERRS.length?BG_ERRS.join(' · '):'None']);
-  return rows.map(([a,b])=>[a,String(b).replace(/\s+/g,' ').slice(0,600)]);
-}
-const bgEnvText=rows=>rows.map(r=>r[0]+': '+r[1]).join('\n').slice(0,3000);
-const bgEnvRows=t=>String(t||'').split('\n').map(l=>{const i=l.indexOf(': ');return i>0?[l.slice(0,i),l.slice(i+2)]:['',l];}).filter(r=>r[1]);
-const bgWhereLabel=k=>k?(navLabel(k)||k):'Not given';
-function bgWhereOpts(cur){
-  const groups=navGroups().map(g=>{const it=g.items.filter(([k])=>k!=='bugs');
-    return it.length?`<optgroup label="${esc(g.l)}">${it.map(([k,l])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(l)}</option>`).join('')}</optgroup>`:'';}).join('');
-  return `<option value=""${cur?'':' selected'}>Not sure, or somewhere else</option>${groups}`;
-}
-function bgForm(){if(!BG.f)BG.f={ti:'',x:'',where:BG.from,often:'always',wset:false};return BG.f;}
-function bgLoad(){
-  if(BG.lbusy)return;BG.lbusy=true;BG.lerr='';
-  bgApi().then(a=>a?a.mine():[]).then(list=>{BG.list=Array.isArray(list)?list:[];BG.lbusy=false;if(S.view==='bugs')render();},
-    ()=>{BG.lbusy=false;BG.lerr='Your reports could not be loaded.';if(S.view==='bugs')render();});
-}
-function bgView(){
-  const head=`<header class="vh"><p class="eyebrow">Help the team</p><h1>Report a bug</h1><p>Something broken, wrong or strange? Tell the team what happened. Every report is read, and below the form you see what became of yours.</p></header>`;
-  if(!S.db||S.mode==='local')return head+`<div class="info">Bug reports need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</div>`;
-  if(S.banned)return head+'<div class="info">Bug reports are unavailable while this account is banned. To appeal, create a support ticket on the Help page.</div>';
-  if(!BG.list&&!BG.lbusy&&!BG.lerr)setTimeout(bgLoad,0);
-  const f=bgForm(),sh=BG.shot,L=BG.list||[];
-  const mine=b=>`<li class="sup-t"><p class="sup-h"><span class="chip bg-${b.st}">${BG_ST[b.st]}</span> <b>${esc(b.ti)}</b></p>
-    <p class="hint">Sent ${esc(rel(b.t))} · ${esc(bgWhereLabel(b.where))} · ${esc(BG_OFTEN[b.often]||'')}${b.img?' · with a screenshot':''}</p>
-    <details><summary>What you wrote</summary><blockquote class="sup-q">${esc(b.x)}</blockquote></details>
-    ${b.note?`<div class="sup-a"><p class="lbl-h">The Edictum team${b.ut?' · '+esc(rel(b.ut)):''}</p><p>${esc(b.note)}</p></div>`:`<p class="hint">${BG_STW[b.st]}</p>`}
-    ${BG.ask===b.id?`<div class="adm-ask"><p>Delete this report? The team no longer sees it either.</p><div class="row"><button type="button" class="btn danger small" data-act="bg-del-yes" data-id="${esc(b.id)}">Yes, delete</button><button type="button" class="btn ghost small" data-act="bg-del-no">Keep it</button></div></div>`:`<p class="bg-del"><button type="button" class="linkish" data-act="bg-del" data-id="${esc(b.id)}">Delete this report</button></p>`}</li>`;
-  return head+`<form class="bg-form" id="bg-form" novalidate>
-    ${BG.sent?`<div class="bg-sent" role="status"><p><b>Thank you.</b> Your report “${esc(BG.sent)}” is with the team. You can follow it under Your reports.</p></div>`:''}
-    <div class="field"><label class="lbl" for="bg-ti">What went wrong, in a few words</label>
-      <input class="input" id="bg-ti" maxlength="120" autocomplete="off" value="${esc(f.ti)}" placeholder="For example: the map stays blank after I claim land"></div>
-    <div class="field"><label class="lbl" for="bg-x">What happened?</label>
-      <p class="hint" id="bg-x-h">What you did, what you expected, and what happened instead. Steps that make it happen again help the most.</p>
-      <textarea class="input" id="bg-x" rows="7" maxlength="3000" aria-describedby="bg-x-h bg-cc">${esc(f.x)}</textarea>
-      <p class="hint bg-cc" id="bg-cc">${f.x.length} / 3000</p></div>
-    <div class="bg-two">
-      <div class="field"><label class="lbl" for="bg-where">Where in the game?</label><select class="input" id="bg-where">${bgWhereOpts(f.where)}</select></div>
-      <fieldset class="bg-often"><legend class="lbl">How often does it happen?</legend><div class="row">${Object.entries(BG_OFTEN).map(([k,l])=>`<label><input type="radio" name="bg-often" value="${k}"${f.often===k?' checked':''}> ${l}</label>`).join('')}</div></fieldset>
-    </div>
-    <div class="field"><span class="lbl" id="bg-shot-l">A screenshot (optional)</span>
-      <div class="bg-shot" role="group" aria-labelledby="bg-shot-l">${sh?`<figure><img src="${esc(sh.url)}" alt="Your screenshot"><figcaption class="hint">${sh.w} × ${sh.h} pixels · <button type="button" class="linkish" data-act="bg-shot-rm">Remove</button></figcaption></figure>`
-        :`<button type="button" class="btn ghost small" data-act="bg-shot-add"${BG.shotBusy?' disabled':''}>${BG.shotBusy?'Preparing the screenshot…':'Add a screenshot'}</button><span class="hint">or paste one on this page (Ctrl+V)</span>`}
-      <input type="file" id="bg-file" accept="image/*" class="u-sr" tabindex="-1" aria-hidden="true"></div></div>
-    <details class="bg-env"><summary>Sent with your report: technical details</summary><dl>${bgEnv().map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-      <p class="hint">With them go your player ID and ${S.nation?esc(S.nation.name)+'’s':'your nation’s'} name and region. Only you and the game’s team can read the report. <a href="/privacy" target="_blank" rel="noopener">Privacy</a></p></details>
-    ${BG.err?`<p class="err" role="alert">${esc(BG.err)}</p>`:''}
-    <div class="row"><button type="submit" class="btn"${BG.busy?' disabled':''}>${BG.busy?'Sending…':'Send report'}</button></div>
-  </form>
-  <section class="bg-mine" aria-labelledby="bg-mine-h"><h2 class="h2" id="bg-mine-h">Your reports</h2>
-    ${BG.lerr?`<p class="err">${esc(BG.lerr)} <button type="button" class="linkish" data-act="bg-retry">Try again</button></p>`:!BG.list?'<p class="hint">Loading your reports…</p>'
-      :!L.length?'<p class="hint">You have not reported a bug yet. Reports you send appear here, with what the team made of them.</p>':`<ul class="sup-list">${L.map(mine).join('')}</ul>`}
-  </section>`;
-}
-/* a screenshot, made smaller in the browser (at most BG_IMG_SIDE pixels on the long side) before it goes */
-async function bgShot(file){
-  if(!file||BG.shotBusy)return;BG.shotBusy=true;BG.err='';render();
-  try{
-    const x=await nwImgPrep(file,BG_IMG_MAX,BG_IMG_SIDE),d=await nwB64(x.blob);
-    if(BG.shot)URL.revokeObjectURL(BG.shot.url);
-    BG.shot={d,m:x.m,w:x.w,h:x.h,url:URL.createObjectURL(x.blob)};
-  }catch(e){BG.err=(e&&e.message)||'That screenshot could not be read.';}
-  BG.shotBusy=false;if(S.view==='bugs')render();
-}
-async function bgSend(){
-  const f=bgForm();if(BG.busy)return;
-  const ti=f.ti.trim(),x=f.x.trim();BG.err='';BG.sent='';
-  if(!ti)BG.err='Give the report a title: what went wrong, in a few words.';
-  else if(!x)BG.err='Describe what happened, so the team can find it.';
-  else if(BG.shotBusy)BG.err='Wait until the screenshot is ready.';
-  if(BG.err){render();const el=document.getElementById(!ti?'bg-ti':'bg-x');if(el&&!BG.shotBusy)el.focus();return;}
-  BG.busy=true;render();
-  try{
-    const api=await bgApi();if(!api)throw Object.assign(new Error('offline'),{code:'unavailable'});
-    const n=S.nation,sh=BG.shot;
-    await api.send({ti,x,where:f.where||'',often:f.often,env:bgEnvText(bgEnv()),name:n?n.name:'',reg:n?REG.id:''},sh?{d:sh.d,m:sh.m,w:sh.w,h:sh.h}:null);
-    BG.sent=ti;if(sh)URL.revokeObjectURL(sh.url);BG.shot=null;BG.f=null;BG.list=null;bgLoad();
-  }catch(e){BG.err=e&&e.code==='not_granted'?'You can send one report a minute. Try again in a moment.':'The report could not be sent. Check your connection and try again.';}
-  BG.busy=false;render();
-  const ok=document.querySelector('.bg-sent');if(ok&&ok.scrollIntoView)ok.scrollIntoView({block:'nearest'});
-}
-async function bgDelete(id){
-  const b=(BG.list||[]).find(x=>x.id===id);BG.ask='';
-  try{const api=await bgApi();if(!api)throw new Error('offline');await api.remove(id,!!(b&&b.img));BG.list=(BG.list||[]).filter(x=>x.id!==id);toast('The report was deleted.');}
-  catch(e){toast('The report could not be deleted. Try again in a moment.');}
-  render();
-}
-
-/* the admin portal's Bug reports page: newest first, open ones (new and confirmed) unless another filter is
-   chosen; each with its details, its screenshot on request, and a note (kept in BGA.dr while the page redraws) */
-const BGA={busy:false,err:'',list:null,f:'open',act:'',ask:'',dr:{},img:{},seen:0,n:null};
-const BGA_F={open:'Open',fixed:'Fixed',closed:'Closed',all:'All'};
-const bgaMatch=(b,f)=>f==='all'||(f==='open'?b.st==='new'||b.st==='seen':b.st===f);
-function bgaLoad(){
-  if(BGA.busy)return;BGA.busy=true;BGA.err='';
-  bgApi().then(a=>{if(!a)throw new Error('offline');return a.list();}).then(list=>{BGA.list=list;BGA.busy=false;if(list.length<300)BGA.n=list.filter(b=>b.st==='new').length;if(ADM_VIEWS.includes(S.view))render();},
-    ()=>{BGA.busy=false;BGA.err='The bug reports could not be loaded. Try again in a moment.';if(S.view==='admin-bugs')render();});
-}
-/* the count of new reports beside the page in the portal's menu and on its overview, counted with the rest */
-function bgaCount(){
-  if(!S.db||typeof S.db.count!=='function')return;
-  S.db.count('bugs',[['st','==','new']]).then(k=>{if(k!=null&&BGA.n!==k){BGA.n=k;if(ADM_VIEWS.includes(S.view))render();}},()=>{});
-}
-function bgaView(){
-  const now0=Date.now();if(now0-BGA.seen>1e4)bgaLoad();BGA.seen=now0;
-  const L=BGA.list,cnt=k=>L?L.filter(b=>bgaMatch(b,k)).length:0,show=L?L.filter(b=>bgaMatch(b,BGA.f)):[];
-  return admShell('admin-bugs',`
-    <p class="eyebrow">Admin portal</p><h1 class="display">Bug reports</h1>
-    <p class="lede">Reports from the Report a bug page, newest first. The state you set and your note show on the player’s page, and the game tells them when either changes. <button type="button" class="linkish" data-act="bga-refresh"${BGA.busy?' disabled':''}>${BGA.busy?'Loading…':'Load again'}</button></p>
-    ${BGA.err?`<p class="err">${esc(BGA.err)}</p>`:''}
-    ${BGA.act?`<p class="hint" role="status">${esc(BGA.act)}</p>`:''}
-    ${!L?`<p class="hint">${BGA.busy?'Loading the bug reports…':''}</p>`:`
-    <div class="adme-cats" role="group" aria-label="Show">${Object.entries(BGA_F).map(([k,l])=>`<button type="button" class="btn ghost small" data-act="bga-f" data-f="${k}" aria-pressed="${BGA.f===k}">${l} <span class="chip">${cnt(k)}</span></button>`).join('')}</div>
-    ${!show.length?`<p class="hint">${L.length?'No reports here.':'No bug reports yet. When a player sends one from the Report a bug page, it appears here.'}</p>`:`<ul class="adm-reps">${show.map(bgaItem).join('')}</ul>`}
-    ${L.length>=300?'<p class="hint">Showing the latest 300 reports. Delete old ones to see further back.</p>':''}`}
-  `);
-}
-function bgaItem(b){
-  const id=esc(b.id),note=b.id in BGA.dr?BGA.dr[b.id]:b.note,img=BGA.img[b.id];
-  const to=(st,l)=>`<button type="button" class="btn ghost small" data-act="bga-st" data-st="${st}" data-id="${id}">${l}</button>`;
-  return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip bg-${b.st}">${BG_ST[b.st]}</span> ${esc(bgWhereLabel(b.where))} · ${esc(BG_OFTEN[b.often]||'')} · ${esc(rel(b.t))}${b.ut?` · changed ${esc(rel(b.ut))}`:''}</p>
-    <b class="bga-ti">${esc(b.ti)}</b>
-    <p class="hint">${admhWho(b)} · <button type="button" class="linkish" data-act="admin-inspect" data-id="${esc(b.by)}">Inspect</button></p>
-    <blockquote class="adm-quote">${esc(b.x)}</blockquote>
-    <details class="bga-env"><summary>Technical details</summary><dl>${bgEnvRows(b.env).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details>
-    ${b.img?`<div class="bga-shot">${typeof img==='string'?`<a href="${esc(img)}" target="_blank" rel="noopener"><img src="${esc(img)}" alt="The player’s screenshot"></a>`
-      :img===0?`<p class="hint">The screenshot could not be loaded. <button type="button" class="linkish" data-act="bga-shot" data-id="${id}">Try again</button></p>`
-      :`<button type="button" class="btn ghost small" data-act="bga-shot" data-id="${id}"${img===1?' disabled':''}>${img===1?'Loading the screenshot…':'Show the screenshot'}</button>`}</div>`:''}
-    <label class="admh-lbl" for="bga-n-${id}">A note to the player (optional: they read it on their Report a bug page)</label>
-    <textarea class="input admh-in bga-in" id="bga-n-${id}" data-id="${id}" rows="2" maxlength="1000">${esc(note)}</textarea>
-    <div class="row">${b.st==='new'?to('seen','Confirm'):''}${b.st!=='fixed'?to('fixed','Mark fixed'):''}${b.st!=='closed'?to('closed','Close'):''}${b.st!=='new'?to('new','Reopen as new'):''}${to(b.st,'Save the note')}<button type="button" class="btn ghost small adm-danger" data-act="bga-del" data-id="${id}">Delete</button></div>
-    ${BGA.ask===b.id?`<div class="adm-ask"><p>Delete this report for good, with its screenshot? The player no longer sees it either.</p><div class="row"><button type="button" class="btn danger small" data-act="bga-del-yes" data-id="${id}">Yes, delete</button><button type="button" class="btn ghost small" data-act="bga-del-no">Cancel</button></div></div>`:''}</li>`;
-}
-async function bgaAct(a,id,st){
-  const api=await bgApi(),b=(BGA.list||[]).find(x=>x.id===id);if(!api||!b)return;
-  const box=document.getElementById('bga-n-'+id);if(box)BGA.dr[id]=box.value;
-  BGA.ask='';
-  try{
-    if(a==='bga-st'){
-      const note=String(id in BGA.dr?BGA.dr[id]:b.note).trim().slice(0,1000);
-      if(!BG_ST[st])return;
-      if(st===b.st&&note===b.note){BGA.act='Nothing to save: the state and the note are as they were.';render();return;}
-      await api.set(id,st,note);
-      BGA.act=st===b.st?`The note on “${b.ti}” was saved.`:`“${b.ti}” is now marked ${BG_ST[st]}${note?', with your note':''}.`;
-      Object.assign(b,{st,note,ut:Date.now()});delete BGA.dr[id];
-    }
-    else if(a==='bga-del'){BGA.ask=id;BGA.act='';render();return;}
-    else if(a==='bga-del-yes'){await api.remove(id,b.img);BGA.list=BGA.list.filter(x=>x.id!==id);delete BGA.dr[id];BGA.act=`“${b.ti}” was deleted.`;}
-  }catch(e){BGA.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
-  if(BGA.list.length<300)BGA.n=BGA.list.filter(x=>x.st==='new').length;
-  render();
-}
-function bgaShot(id){
-  if(typeof BGA.img[id]==='string'||BGA.img[id]===1)return;
-  BGA.img[id]=1;render();
-  bgApi().then(a=>a.image(id)).then(x=>{if(!x)throw new Error('missing');
-    const bin=atob(x.d),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
-    BGA.img[id]=URL.createObjectURL(new Blob([u],{type:x.m||'image/webp'}));},()=>{BGA.img[id]=0;}).then(()=>{if(S.view==='admin-bugs')render();});
-}
-
-/* ── hooks ── */
-EXT_PAGES.push('bugs');NAV_LABELS.bugs='Report a bug';
-(()=>{const g=NAV_GROUPS.find(x=>x.k==='other');if(g&&!g.v.includes('bugs'))g.v.push('bugs');})();
-NAV_WORDS.bugs='bug report problem broken error glitch crash wrong screenshot feedback';
-VIEWS_EXT.bugs=()=>bgView();
-ADM_VIEWS.push('admin-bugs');
-shell=(f=>function(){if(S.view==='admin-bugs'&&S.isOwner)return bgaView();return f.apply(this,arguments);})(shell);
-admLoad=(f=>function(){const was=ADM.busy,r=f.apply(this,arguments);if(!was&&ADM.busy)bgaCount();return r;})(admLoad);
-go=(f=>function(v){
-  /* the form starts at the page the player came from */
-  if(v==='bugs'&&S.view!=='bugs'){if(!/^admin/.test(S.view))BG.from=NAV_PARENT[S.view]||S.view;const fm=bgForm();if(!fm.wset&&!fm.ti&&!fm.x)fm.where=BG.from;BG.sent='';BG.ask='';BG.lerr='';BG.list=null;}
-  if(v==='admin-bugs'&&S.view!=='admin-bugs'){BGA.act='';BGA.ask='';BGA.seen=0;}
-  return f.apply(this,arguments);})(go);
-document.addEventListener('input',e=>{
-  const t=e.target,id=t&&t.id||'';
-  if(id==='bg-ti'){bgForm().ti=t.value.slice(0,120);return;}
-  if(id==='bg-x'){const f=bgForm();f.x=t.value.slice(0,3000);const c=document.getElementById('bg-cc');if(c)c.textContent=f.x.length+' / 3000';return;}
-  if(t&&t.classList&&t.classList.contains('bga-in'))BGA.dr[t.dataset.id]=t.value;
-});
-document.addEventListener('change',e=>{
-  const t=e.target;if(!t)return;
-  if(t.id==='bg-where'){const f=bgForm();f.where=t.value;f.wset=true;return;}
-  if(t.name==='bg-often'){bgForm().often=t.value in BG_OFTEN?t.value:'always';return;}
-  if(t.id==='bg-file'){const f=t.files&&t.files[0];t.value='';if(f)bgShot(f);}
-});
-document.addEventListener('submit',e=>{if(e.target&&e.target.id==='bg-form'){e.preventDefault();bgSend();}});
-/* a screenshot pasted anywhere on the page, unless it comes with text pasted into a field */
-document.addEventListener('paste',e=>{
-  if(S.view!=='bugs'||!e.clipboardData)return;
-  const items=[...(e.clipboardData.items||[])],img=items.find(i=>i.kind==='file'&&/^image\//.test(i.type));if(!img)return;
-  const t=e.target;if(t&&(t.tagName==='TEXTAREA'||t.tagName==='INPUT')&&items.some(i=>i.type==='text/plain'))return;
-  e.preventDefault();bgShot(img.getAsFile());
-});
-document.addEventListener('click',e=>{
-  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
-  if(a.slice(0,3)==='bg-'){
-    if(a==='bg-shot-add'){const f=document.getElementById('bg-file');if(f)f.click();return;}
-    if(a==='bg-shot-rm'){if(BG.shot)URL.revokeObjectURL(BG.shot.url);BG.shot=null;render();const b=document.querySelector('[data-act="bg-shot-add"]');if(b)b.focus();return;}
-    if(a==='bg-retry'){BG.lerr='';BG.list=null;bgLoad();render();return;}
-    if(a==='bg-del'){BG.ask=el.dataset.id;render();return;}
-    if(a==='bg-del-no'){BG.ask='';render();return;}
-    if(a==='bg-del-yes')bgDelete(el.dataset.id);
-    return;
-  }
-  if(a.slice(0,4)!=='bga-'||!S.isOwner)return;
-  if(a==='bga-refresh'){bgaLoad();render();return;}
-  if(a==='bga-f'){BGA.f=el.dataset.f in BGA_F?el.dataset.f:'open';render();return;}
-  if(a==='bga-shot'){bgaShot(el.dataset.id);return;}
-  if(a==='bga-del-no'){BGA.ask='';render();return;}
-  if(/^bga-(st|del|del-yes)$/.test(a))bgaAct(a,el.dataset.id,el.dataset.st);
-});
 
 /* ───────── the browser tab: what is waiting, at a glance ─────────
    The tab's title counts what waits for the player, as "(3) Edicts · Edictum": unread edicts, unread letters,
