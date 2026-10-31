@@ -40,6 +40,7 @@
 
   var LS_NATION = 'statehood.nation.v1'; // the game's own copy of the player's nation
   var LS_UID = 'edictum.uid';            // the account that copy belongs to ('-' once signed out)
+  var LS_PARK = 'edictum.parked';        // {uid, at, nation}: the copy of an account this browser was signed out of
   var SS_FLASH = 'edictum.flash';        // a message to show after a reload
   var MAX_JSON = 700000;                 // well under Firestore's 1 MiB document limit
   var SPACE_BEAT = 12 * 3600000;         // rewrite an unchanged space document this often while playing
@@ -658,20 +659,75 @@
   function firstUser(auth) {
     return new Promise(function (res) { var off = auth.onAuthStateChanged(function (u) { off(); res(u); }); });
   }
-  /* the nation in this browser may belong to another sign-in: never let it overwrite this account's */
+  /* the nation in this browser may belong to another sign-in: never let it overwrite this account's, and never
+     carry a saved nation over to a new sign-in. A browser can lose its sign-in and keep its nation (site data
+     partly cleared, a session ended elsewhere), and then starts as a new guest: under that guest the copy would
+     be a second nation of the same name, which the server never saves (its revisions are the other account's) */
   async function guard(user) {
     var prev = L.get(LS_UID), mine = localNation();
     if (!mine || !prev || prev === user.uid) return false;
     if (prev !== '-') {
-      var has = true;
-      try { has = (await within(A.fs.doc('nations/' + user.uid).get(), 8000)).exists; } catch (e) { has = true; }
-      if (!has) return false; /* a lost guest sign-in: the nation carries on under this one */
-      leave({ nation: null, uid: user.uid }, 'The nation “' + mine.name + '” in this browser belongs to another sign-in. Sign in to that account to play it again.');
+      var has = true, kept = true;
+      try {
+        var both = await within(Promise.all([A.fs.doc('nations/' + user.uid).get(), A.fs.doc('nations/' + prev).get()]), 8000);
+        has = both[0].exists; kept = both[1].exists;
+      } catch (e) { /* unknown: as if both were there */ }
+      /* neither account holds a nation (founded here and never saved, or its record is gone): it carries on */
+      if (!has && !kept) return false;
+      park(prev);
+      leave({ nation: null, uid: user.uid }, has ? 'The nation “' + mine.name + '” in this browser belongs to another sign-in. Sign in to that account to play it again.' : signedOut(mine.name));
       return true;
     }
     leave({ nation: null, uid: user.uid });
     return true;
   }
+  function signedOut(name) {
+    return 'This browser was signed out of the account that holds “' + name + '”. Sign in to it again to carry on (a Guest Nation uses its recovery code): its latest changes are kept here until then.';
+  }
+  /* This browser's copy of an account's nation, kept aside (LS_PARK) while another sign-in plays here: one at a
+     time. The copy leaves LS_NATION first, so the browser's storage holds it only once. */
+  function park(uid) {
+    var n = parse(L.get(LS_NATION));
+    if (!isObj(n)) return;
+    L.set(LS_NATION, null);
+    L.set(LS_PARK, JSON.stringify({ uid: uid, at: Date.now(), nation: n }));
+  }
+  /* signed in to that account again (by any way in): its copy goes back, and the game then weighs it against the
+     account's saved record by revision, as after any time offline (a newer save elsewhere wins, and this copy is
+     offered in the account menu) */
+  function unpark(user) {
+    var p = parse(L.get(LS_PARK));
+    if (!isObj(p) || p.uid !== user.uid) return false;
+    L.set(LS_PARK, null);
+    if (localNation() || !isObj(p.nation)) return false;
+    leave({ nation: JSON.stringify(p.nation), uid: user.uid });
+    return true;
+  }
+  /* The game's save was refused as another device's, yet this account holds no nation (game/edictum.html,
+     syncOwnNation): the copy here carries another account's revisions. Before guard() kept them apart, a lost
+     sign-in left such copies under a new guest, where they never save and show as a second nation. The account
+     they belong to holds the nation of the same name and founding; the copy is kept for it, as guard() does now. */
+  var strayAt = 0; /* every refused save asks: look at most every 5 minutes */
+  E.strayCopy = async function () {
+    var u = A.auth && A.auth.currentUser, n = localNation();
+    if (Date.now() - strayAt < 300000 || A.leaving || !u || u.uid !== A.uid || !n || !revision(n) || !num(n.founded)) return;
+    strayAt = Date.now();
+    try {
+      if ((await within(A.fs.doc('nations/' + u.uid).get(), 8000)).exists) return;
+      var qs = await within(A.fs.collection('nations').where('name', '==', str(n.name, 80)).get(), 15000), own = null;
+      qs.docs.forEach(function (d) {
+        var x = d.id !== u.uid ? decode(d.ref.path, d.data()) : null;
+        if (!own && isObj(x) && x.founded === n.founded) own = { id: d.id, rec: x };
+      });
+      if (!own || A.leaving) return;
+      /* the same revision, saved later than this copy's last change: then the account's record wins, and this
+         copy is offered in the account menu instead */
+      if (revision(own.rec) === revision(n) && num(own.rec.updatedAt) > num(n.updatedAt)) { n._rev = 0; L.set(LS_NATION, JSON.stringify(n)); }
+      L.set('edictum.unsaved.' + u.uid, null); /* the refused saves' copies of it, older than the one kept */
+      park(own.id);
+      leave({ nation: null, uid: u.uid }, signedOut(n.name));
+    } catch (e) { /* asked again by a later refused save */ }
+  };
   async function boot() {
     var fb = window.firebase;
     if (!fb || typeof fb.initializeApp !== 'function' || typeof fb.auth !== 'function' || typeof fb.firestore !== 'function') return goOffline('the Firebase scripts did not load');
@@ -706,7 +762,7 @@
       if (!user) user = (await within(auth.signInAnonymously(), 15000)).user;
     } catch (e) { return goOffline('anonymous sign-in failed', e); }
     if (!user) return goOffline('anonymous sign-in failed');
-    if (await guard(user)) return;
+    if (await guard(user) || unpark(user)) return;
     L.set(LS_UID, user.uid);
     A.uid = user.uid;
     try { await within(readClaims(user), 5000); } catch (e) { /* read again when the token changes */ }
