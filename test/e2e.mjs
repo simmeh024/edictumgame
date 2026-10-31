@@ -888,18 +888,22 @@ await setPop(7.2); await toCz();
 check('at 7.2 million the flower, tree and bird are open, the instrument not yet', await SY.isEnabled('#cz-s-flower') && await SY.isEnabled('#cz-s-tree') && await SY.isEnabled('#cz-s-bird') && await SY.isDisabled('#cz-s-inst'));
 await SY.fill('#cz-s-flower', 'Edelweiss'); await saveSym();
 const sy1 = await until(async () => { const n = await localNation(SY); return n && (n.syu || []).length ? n : null; });
-const gain = (a, b, r) => b.stock[r] - a.stock[r];
-check('the next save grants the three, once, with 15 timber and 15 iron', !!sy1 && ['flower', 'tree', 'bird'].every(k => sy1.syu.includes(k)) && sy1.syu.length === 3 && Math.abs(gain(sy0, sy1, 'timber') - 15) < 0.5 && Math.abs(gain(sy0, sy1, 'iron') - 15) < 0.5 && ((sy1.cz || {}).sy || {}).flower === 'Edelweiss', JSON.stringify([sy0.stock, sy1 && sy1.stock, sy1 && sy1.syu]));
+// the population jump can also finish a tutorial task in the same save (a city grown past its first blocks): its gift is not the College's
+const tutGift = (a, b, r) => SY.evaluate(([a, b, r]) => { const t = x => (x && x.tut) || {}, was = new Set(t(a).lc || []), now = t(b).lc || [], ch = t(a).ch || '';
+  return G.TUTL.lists.reduce((sum, L) => sum + L.tasks.filter(s => !was.has(s.k) && now.includes(s.k)).reduce((x, s) => x + ((s.gift || {})[r] || 0), 0)
+    + (!ch.includes(L.c) && (t(b).ch || '').includes(L.c) ? (L.bonus.gift[r] || 0) : 0), 0); }, [a, b, r]);
+const gain = async (a, b, r) => b.stock[r] - a.stock[r] - await tutGift(a, b, r);
+check('the next save grants the three, once, with 15 timber and 15 iron', !!sy1 && ['flower', 'tree', 'bird'].every(k => sy1.syu.includes(k)) && sy1.syu.length === 3 && Math.abs(await gain(sy0, sy1, 'timber') - 15) < 0.5 && Math.abs(await gain(sy0, sy1, 'iron') - 15) < 0.5 && ((sy1.cz || {}).sy || {}).flower === 'Edelweiss', JSON.stringify([sy0.stock, sy1 && sy1.stock, sy1 && sy1.syu]));
 check('and says so', await until(async () => /Symbolia can now choose its national flower, tree, and bird\. The College of Arms sends 15 timber and 15 iron\./.test(await toasts(SY)), 15000));
 await SY.click('.bell'); await SY.waitForSelector('.notif-pop');
 check('the bell keeps the notice, from the College of Arms', /College of Arms/.test(await text(SY, '.notif-pop')) && /can now choose its national flower, tree, and bird/.test(await text(SY, '.notif-pop')));
 await SY.click('.bell');
 await SY.fill('#cz-s-tree', 'Silver birch'); await saveSym();
-check('saving again gives nothing more', ((await localNation(SY)).syu || []).length === 3 && Math.abs(gain(sy1, await localNation(SY), 'timber')) < 0.5);
+check('saving again gives nothing more', ((await localNation(SY)).syu || []).length === 3 && Math.abs(await gain(sy1, await localNation(SY), 'timber')) < 0.5);
 await SY.locator('#cz-sec-y').screenshot({ path: path.join(OUT, 'symbols-unlocks.png') });
 await setPop(25); await toCz(); await saveSym();
 const sy2 = await until(async () => { const n = await localNation(SY); return n && (n.syu || []).length === 6 ? n : null; });
-check('at 25 million the instrument, colours and capital nickname follow', !!sy2 && Math.abs(gain(sy1, sy2, 'iron') - 15) < 0.5);
+check('at 25 million the instrument, colours and capital nickname follow', !!sy2 && Math.abs(await gain(sy1, sy2, 'iron') - 15) < 0.5);
 await setPop(5.1); await toCz();
 check('and a nation that shrinks keeps what it opened', await SY.isEnabled('#cz-s-flower') && await SY.isEnabled('#cz-s-nick'));
 await SY.ctx.close();
