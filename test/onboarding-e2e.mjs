@@ -82,6 +82,17 @@ await A.evaluate(()=>{const n=G.clone(G.S.nation);n.stock.food=280;n.stockAt=Dat
 check('reaching 280 reveals the Warehouse',await A.locator('[data-act="ct-build"][data-k="warehouse"]').count()===1);
 await A.evaluate(()=>{const n=G.clone(G.S.nation);n.stock.food=20;n.stockAt=Date.now();n._stockSet=true;G.commit(n);G.render();});
 check('spending resources never hides a revealed Warehouse',await A.locator('[data-act="ct-build"][data-k="warehouse"]').count()===1);
+// the tutorial's four lists, late in the suite: the rename's toasts and the capital left open on Cities would
+// otherwise stand in the way of the checks above
+await nav(A,'nation');
+check('the charter is the first of four tutorial lists, with Name your first city among its next tasks',/list 1 of 4/.test(await A.locator('.tut-l-charter').textContent())&&await A.locator('.tut-l-charter li[data-k="city"] [data-act="tut-city"]').count()===1&&await A.locator('.tut-l-charter li[data-k="charter"]').count()===0);
+const goods0=await A.evaluate(()=>G.S.nation.stock.goods),credits0=await A.evaluate(()=>G.TUTL.credits(G.S.nation));
+await A.click('.tut-l-charter [data-act="tut-city"]');
+check('its button opens the capital’s rename form on the Cities page',await until(()=>A.evaluate(()=>G.S.view==='cities'&&document.activeElement?.id==='c3-ren')));
+await A.fill('#c3-ren','Firstharbour');await A.press('#c3-ren','Enter');
+check('naming the capital pays 3 land credits and 5 goods, and says so',await until(()=>A.evaluate(()=>G.S.nation.capital==='Firstharbour'&&(G.S.nation.tut?.lc||[]).includes('city')))
+  &&await A.evaluate(([g,c])=>G.TUTL.credits(G.S.nation)===c+3&&G.S.nation.stock.goods>=g+4.9,[goods0,credits0])&&await until(async()=>/Name your first city\. \+3 land credits and 5 goods/.test(await toastText(A)),40000));
+await nav(A,'help');check('How to play shows all four lists, with every task',await A.locator('#help-tut .tut-hl-l').count()===4&&await A.locator('#help-tut .tut-hl-l li[data-k="res"]').count()===1);
 await saved();
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..');execFileSync(process.execPath,[path.join(ROOT,'jobs/fx/run.mjs'),'--project',PROJECT,'--region','meridian'],{env:{...process.env,FIRESTORE_EMULATOR_HOST:FS_HOST},encoding:'utf8'});
 await A.evaluate(()=>localStorage.removeItem('edictum.fx.v1'));await open(A);await nav(A,'exchange');await A.waitForSelector('.cu-conv');
