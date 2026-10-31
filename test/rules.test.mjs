@@ -424,6 +424,88 @@ test('a banned player can still send a support ticket, to appeal', async () => {
   await assertFails(as('carol').doc('slimits/carol').delete());                           // not while the nation exists
 });
 
+// a bug report as src/shim.js sends it, with its pacing document and perhaps a screenshot under the same id
+const bug = (db, uid, extra = {}, { blimits = true, img = null, flag = !!img } = {}) => {
+  const b = db.batch(), ref = db.collection('bugs').doc();
+  b.set(ref, { by: uid, ti: 'The map stays blank', x: 'I claimed a hex and the map went white.', where: 'map', often: 'always', env: 'Game version: abc\nBrowser: test', t: NOW(), st: 'new', name: 'Davidia', reg: 'meridian', ...(flag ? { img: true } : {}), ...extra });
+  if (img) b.set(db.doc('bugImg/' + ref.id), { d: 'AAAA', m: 'image/webp', w: 640, h: 360, by: uid, ...img });
+  if (blimits) b.set(db.doc('blimits/' + uid), { b: NOW() });
+  return b.commit();
+};
+
+test('a player reports bugs, at most one a minute, with a screenshot, and reads only their own', async () => {
+  const db = as('dave');                                                                   // no nation needed
+  await assertFails(bug(db, 'dave', {}, { blimits: false }));                             // blimits/ must come along
+  await assertFails(bug(db, 'dave', { by: 'alice' }));
+  await assertFails(bug(db, 'dave', { ti: '' }));
+  await assertFails(bug(db, 'dave', { ti: 'x'.repeat(121) }));
+  await assertFails(bug(db, 'dave', { x: '' }));
+  await assertFails(bug(db, 'dave', { x: 'x'.repeat(3001) }));
+  await assertFails(bug(db, 'dave', { often: 'daily' }));
+  await assertFails(bug(db, 'dave', { env: 'x'.repeat(3001) }));
+  await assertFails(bug(db, 'dave', { st: 'fixed' }));                                    // a report starts new
+  await assertFails(bug(db, 'dave', { note: 'Fixed it myself' }));
+  await assertFails(bug(db, 'dave', { reg: 'atlantis' }));
+  await assertFails(bug(db, 'dave', { img: false }));
+  await assertFails(bug(anon(), 'dave'));
+  await assertFails(bug(db, 'dave', {}, { img: { d: 'x'.repeat(700001) } }));              // the screenshot is bounded
+  await assertFails(bug(db, 'dave', {}, { img: { m: 'text/html' } }));
+  await assertFails(bug(db, 'dave', {}, { img: { by: 'alice' } }));
+  await assertFails(bug(db, 'dave', {}, { img: {}, flag: false }));                       // a screenshot needs img: true
+  await assertSucceeds(bug(db, 'dave', {}, { img: {} }));
+  await assertFails(bug(db, 'dave'));                                                      // too soon
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('blimits/dave').set({ b: AGO(61000) }));
+  await assertSucceeds(bug(db, 'dave', { where: '', often: 'once' }));
+  const mine = await assertSucceeds(db.collection('bugs').where('by', '==', 'dave').get());
+  if (mine.size !== 2) throw new Error('expected Dave’s two reports, found ' + mine.size);
+  const shot = mine.docs.find(d => d.data().img === true), plain = mine.docs.find(d => !d.data().img);
+  await assertSucceeds(db.doc('bugImg/' + shot.id).get());
+  await assertFails(as('alice').doc('bugImg/' + shot.id).get());                          // nobody else sees it
+  await assertFails(as('alice').collection('bugs').where('by', '==', 'dave').get());
+  await assertFails(as('alice').collection('bugs').get());
+  await assertFails(anon().doc(plain.ref.path).get());
+  await assertFails(db.doc(plain.ref.path).update({ st: 'fixed', ut: NOW(), uby: 'dave' })); // only admins judge them
+  // a screenshot cannot be added to a report afterwards
+  await assertFails(db.doc('bugImg/' + plain.id).set({ d: 'AAAA', m: 'image/webp', w: 1, h: 1, by: 'dave' }));
+});
+
+test('admins read every bug report, set its state with a note, and delete it; players delete their own', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore(), base = { by: 'dave', ti: 'Blank map', x: 'It went white', where: 'map', often: 'always', env: '', t: AGO(60000), st: 'new' };
+    await db.doc('bugs/b1').set({ ...base, img: true });
+    await db.doc('bugImg/b1').set({ d: 'AAAA', m: 'image/webp', w: 1, h: 1, by: 'dave' });
+    await db.doc('bugs/b2').set(base);
+    await db.doc('blimits/dave').set({ b: AGO(60000) });
+  });
+  const mod = as('mod', { admin: true });
+  const all = await assertSucceeds(mod.collection('bugs').orderBy('t', 'desc').limit(300).get());
+  if (all.size !== 2) throw new Error('expected two reports, found ' + all.size);
+  await assertSucceeds(mod.doc('bugImg/b1').get());
+  const judge = (extra = {}) => mod.doc('bugs/b1').update({ st: 'fixed', note: 'Fixed in today’s update.', ut: NOW(), uby: 'mod', ...extra });
+  await assertFails(judge({ st: 'wontfix' }));
+  await assertFails(judge({ uby: 'someone-else' }));
+  await assertFails(judge({ note: 'x'.repeat(1001) }));
+  await assertFails(judge({ x: 'Rewritten' }));
+  await assertFails(as('alice').doc('bugs/b1').update({ st: 'fixed', note: '', ut: NOW(), uby: 'alice' }));
+  await assertSucceeds(judge());
+  await assertSucceeds(judge({ st: 'new', note: '' }));                                    // reopened
+  await assertSucceeds(mod.doc('bugs/b2').update({ st: 'closed', note: 'A duplicate.', ut: NOW(), uby: 'mod' }));
+  const seen = await assertSucceeds(as('dave').doc('bugs/b2').get());
+  if (seen.data().note !== 'A duplicate.') throw new Error('Dave does not see the note');
+  await assertFails(as('alice').doc('bugs/b2').delete());
+  await assertSucceeds(mod.doc('bugs/b2').delete());
+  const db = as('dave'), b = db.batch();                                                   // as the account deletion does it
+  b.delete(db.doc('bugs/b1')); b.delete(db.doc('bugImg/b1'));
+  await assertSucceeds(b.commit());
+  await assertSucceeds(db.doc('blimits/dave').delete());                                   // Dave has no nation
+});
+
+test('a banned player cannot report bugs', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('bans/carol').set({ note: 'x', t: Date.now(), by: 'mod' }));
+  await assertFails(bug(as('carol'), 'carol'));
+  await assertFails(as('carol').doc('blimits/carol').delete());                           // not while the nation exists
+});
+
 test('only an admin marks themself as staff; everyone reads it, and anyone clears their own', async () => {
   await assertFails(as('alice').doc('staff/alice').set({ t: Date.now() }));               // a player cannot claim it
   await assertFails(as('alice', { admin: 'true' }).doc('staff/alice').set({ t: Date.now() }));
