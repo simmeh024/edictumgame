@@ -21868,8 +21868,9 @@ function mfxCaps(g,T,scr,off,col){
 
 /* The overlay. A canvas over each large map draws what moves: glints on the open sea, surf on the
    coasts, migrants, newly claimed and conquered land, the night and the hover. The map beneath is only
-   redrawn when the view changes. One loop serves every overlay at about 30 frames a second, and runs
-   only while a map is on screen, the tab is visible and motion is allowed. Reduced motion leaves still
+   redrawn when the view changes. One loop serves every overlay at about 30 frames a second (fewer once
+   nobody has touched the page for a while, see mfxStep), and runs only while a map is on screen, the tab
+   is visible and motion is allowed; it holds still while the map moves (mfxHold). Reduced motion leaves still
    frames and simple fades. The night follows game time: a year is two real days, so a day is
    YEAR_MS/365, about 7.9 minutes. */
 const MFX=new Set(),MFXQ=[],MFX_DAY=YEAR_MS/365,MFX_STEP=1000/30;
@@ -21909,6 +21910,7 @@ function mfxAfter(cv,kind,T,s,ox,oy,w,h,dpr,col){
   let f=cv._mfx;if(!f||f.ov!==ov){f={cv,ov,kind,vis:true,gl:[],sf:null,mig:null,lights:[],hov:-1,hovA:1,prev:-1,prevA:0,last:0,lt:0};cv._mfx=f;MFX.add(f);mfxObserve(f);}
   if(ov.width!==cv.width||ov.height!==cv.height){ov.width=cv.width;ov.height=cv.height;}
   Object.assign(f,{s,ox,oy,w,h,dpr,col,dk:rlfDark(col)});
+  if(f.held&&!mapMoving(cv))f.held=false;
   if(mfxTilted(cv))mfxPersp(cv.parentElement);
   mfxBuild(f,T);
   if(kind==='main'){mfxWatch();mfxTake(f,T);}
@@ -21922,13 +21924,27 @@ function mfxObserve(f){
 function mfxDrop(f){MFX.delete(f);const wrap=f.cv.parentElement;if(mfxIO&&wrap)mfxIO.unobserve(wrap);f.cv._mfx=null;}
 function mfxBusy(f,rm){return MFX_LAYERS.some(L=>{try{return !!(L.busy&&L.busy(f,rm));}catch(e){return false;}})||(f.kind==='main'&&mfxEv.length>0)||(f.hov>=0&&f.hovA<1)||f.prevA>0||(!rm&&(f.gl.length>0||!!f.sf||!!(f.mig&&f.mig.length)));}
 function mfxKick(){if(!mfxRaf&&!document.hidden&&MFX.size)mfxRaf=requestAnimationFrame(mfxTick);}
+/* 30 frames a second while someone is using the page; 12 after 20 seconds without a touch, key or pointer
+   movement, and 4 after two minutes, until the next input */
+function mfxStep(){let last=0;try{last=QUIET.last;}catch(e){}const idle=Date.now()-last;return idle>120000?250:idle>20000?1000/12:MFX_STEP;}
 function mfxTick(ts){
-  mfxRaf=0;if(document.hidden||mfxFreeze)return;const rm=mfxRM();let again=false;
-  for(const f of MFX){if(!f.cv.isConnected){mfxDrop(f);continue;}if(!f.vis||!mfxBusy(f,rm))continue;again=true;if(ts-f.last>=MFX_STEP-4){f.last=ts;mfxFrame(f,ts);}}
+  mfxRaf=0;if(document.hidden||mfxFreeze)return;const rm=mfxRM(),step=mfxStep();let again=false;
+  for(const f of MFX){if(!f.cv.isConnected){mfxDrop(f);continue;}if(!f.vis||f.held||!mfxBusy(f,rm))continue;again=true;
+    /* claims, conquests and hover fades keep the full rate */
+    const st=(f.kind==='main'&&mfxEv.length)||f.prevA>0||(f.hov>=0&&f.hovA<1)?MFX_STEP:step;if(ts-f.last>=st-4){f.last=ts;mfxFrame(f,ts);}}
   if(again)mfxRaf=requestAnimationFrame(mfxTick);
 }
 /* hover moves to the overlay: a quick fade in and out instead of a full redraw */
-function mfxHover(cv){const f=cv&&cv._mfx;if(!f||!f.ov.isConnected)return false;if(mfxRM()||!f.vis)mfxFrame(f,performance.now());mfxKick();return true;}
+function mfxHover(cv){const f=cv&&cv._mfx;if(!f||!f.ov.isConnected)return false;if(f.held)return true;if(mfxRM()||!f.vis)mfxFrame(f,performance.now());mfxKick();return true;}
+/* while the map moves the overlay's sea, coasts, migrants and hover pause and leave it; only the night
+   shade is drawn again for each frame, at the moving view, so the shade has no edge; drawMap lets go when
+   the map settles */
+function mfxHold(cv,on){const f=cv&&cv._mfx;if(!f)return;f.held=on;if(on)f.stale=true;}
+function mfxFollow(cv,s,ox,oy){
+  const f=cv._mfx;if(!f||!f.held)return;const g=f.ov.getContext('2d');if(!g)return;
+  if(f.stale||f.nightOn||mfxNightOn){g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,f.ov.width,f.ov.height);f.stale=false;f.nightOn=false;}
+  if(mfxNightOn){g.setTransform(f.dpr,0,0,f.dpr,0,0);g.globalAlpha=1;mfxNight({...f,s,ox,oy,lights:[]},g);f.nightOn=true;}
+}
 
 /* what the current view needs: open-sea glints, surf rings along the coasts, migrant routes, lights */
 function mfxBuild(f,T){
@@ -21976,8 +21992,9 @@ function mfxSea(f,g,t){
 function mfxNight(f,g){
   const {s,ox,w,h,dk}=f,Wp=2.5*MAP.W,ph=mfxPhase(),xs=MAP.W*0.5-Wp*ph,K=24,na=dk?0.26:0.12,da=dk?0.05:0.08,nc=dk?[2,6,18]:[16,26,74],dc=[255,150,64];
   const nAt=x=>{const c=Math.cos(2*Math.PI*((x-ox)/s-xs)/Wp);return [mfxSm(0.2,-0.34,c),Math.max(0,1-Math.abs(c+0.06)/0.26)];};
+  /* a shade too faint to see (under about 1% anywhere on screen) is not drawn: it would cost a full-canvas fill every frame */
   const gr=g.createLinearGradient(0,0,w,0);let any=false;
-  for(let k=0;k<=K;k++){const [n,d]=nAt(w*k/K),an=na*n,ad=da*d*(1-n),a=an+ad;if(a>0.004)any=true;const m=a>0?ad/a:0;
+  for(let k=0;k<=K;k++){const [n,d]=nAt(w*k/K),an=na*n,ad=da*d*(1-n),a=an+ad;if(a>0.012)any=true;const m=a>0?ad/a:0;
     gr.addColorStop(k/K,`rgba(${Math.round(nc[0]+(dc[0]-nc[0])*m)},${Math.round(nc[1]+(dc[1]-nc[1])*m)},${Math.round(nc[2]+(dc[2]-nc[2])*m)},${a.toFixed(3)})`);}
   if(!any)return;g.fillStyle=gr;g.fillRect(0,0,w,h);
   const L=f.lights;if(!L.length)return;
@@ -25407,27 +25424,41 @@ function rvLabel(r){
   return r.cls>=2?(p?'a tributary of '+p.name:'an unnamed river'):(p?'a stream that feeds '+p.name:'a stream');
 }
 
-/* drawing: one Path2D per class and width step, in map units, built once and reused at every view */
+/* drawing: Path2Ds per class, width step and square tile of the map, in map units, built once and reused at
+   every view. Only the tiles on screen are stroked; they are joined back into one path per class and width
+   first, so overlapping ends blend as they did when each class and width was a single path. */
 let rvGeo=null,rvColK='',rvColV=null;
+const RV_TILE=480;
 function rvCurve(r){
   const P=r.pts.slice(),W=r.w.slice();if(r.tail){P.push(r.tail);W.push(W[W.length-1]*1.25);}
   return {P,W};
 }
 function rvGeom(){
   if(rvGeo||!rvReady())return rvGeo;
-  const bins=new Map(),get=(c,b)=>{const k=c*100+b;let p=bins.get(k);if(!p)bins.set(k,p={c,b,p:new Path2D()});return p.p;};
+  const TC=Math.ceil(MAP.W/RV_TILE)+1,bins=new Map(),get=(c,b,t)=>{const k=(c*100+b)*1e5+t;let p=bins.get(k);if(!p)bins.set(k,p={c,b,t,p:new Path2D(),bb:[1e9,1e9,-1e9,-1e9]});return p;};
+  const grow=(B,a,b)=>{const q=B.bb;if(a<q[0])q[0]=a;if(b<q[1])q[1]=b;if(a>q[2])q[2]=a;if(b>q[3])q[3]=b;};
   for(const r of RV.list){const {P,W}=rvCurve(r),E=P.length-1;if(E<1)continue;
     const cum=[0];let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let k=0;k<=E;k++){const [a,b]=P[k];if(a<x0)x0=a;if(a>x1)x1=a;if(b<y0)y0=b;if(b>y1)y1=b;if(k)cum.push(cum[k-1]+Math.hypot(a-P[k-1][0],b-P[k-1][1]));}
     r._g={P,cum,L:cum[E],bb:[x0-6,y0-6,x1+6,y1+6]};
     const m=k=>[(P[k][0]+P[k+1][0])/2,(P[k][1]+P[k+1][1])/2];
-    let cur=null,cb=-1,x=P[0][0],y=P[0][1];
-    const piece=(b,f)=>{if(b!==cb){cur=get(r.cls,b);cb=b;cur.moveTo(x,y);}f(cur);};
+    let cur=null,ck=-1,x=P[0][0],y=P[0][1];
+    /* a piece starts a new subpath when its width step or the tile it starts in changes */
+    const piece=(b,f,cx,cy)=>{const t=Math.floor(y/RV_TILE)*TC+Math.floor(x/RV_TILE),k=b*1e5+t;if(k!==ck){cur=get(r.cls,b,t);ck=k;cur.p.moveTo(x,y);grow(cur,x,y);}if(cx!==undefined)grow(cur,cx,cy);f(cur.p);grow(cur,x,y);};
     piece(Math.round(W[0]*4),p=>{const q=m(0);p.lineTo(q[0],q[1]);x=q[0];y=q[1];});
-    for(let k=1;k<E;k++){const q=m(k);piece(Math.round(W[k]*4),p=>{p.quadraticCurveTo(P[k][0],P[k][1],q[0],q[1]);x=q[0];y=q[1];});}
-    piece(Math.round(W[E-1]*4),p=>{p.lineTo(P[E][0],P[E][1]);});
+    for(let k=1;k<E;k++){const q=m(k);piece(Math.round(W[k]*4),p=>{p.quadraticCurveTo(P[k][0],P[k][1],q[0],q[1]);x=q[0];y=q[1];},P[k][0],P[k][1]);}
+    piece(Math.round(W[E-1]*4),p=>{p.lineTo(P[E][0],P[E][1]);x=P[E][0];y=P[E][1];});
   }
-  const lakes=RV.lakes.map(L=>({L,p:rvLoopPath(L.loop,1,L.x,L.y),i1:rvLoopPath(L.loop,0.68,L.x,L.y),i2:rvLoopPath(L.loop,0.38,L.x,L.y)}));
-  rvGeo={bins:[...bins.values()].sort((a,b)=>a.c-b.c||a.b-b.b),lakes};return rvGeo;
+  const lakes=RV.lakes.map(L=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let k=0;k<L.loop.length;k+=2){const a=L.loop[k],b=L.loop[k+1];if(a<x0)x0=a;if(a>x1)x1=a;if(b<y0)y0=b;if(b>y1)y1=b;}
+    return {L,p:rvLoopPath(L.loop,1,L.x,L.y),i1:rvLoopPath(L.loop,0.68,L.x,L.y),i2:rvLoopPath(L.loop,0.38,L.x,L.y),bb:[x0,y0,x1,y1]};});
+  rvGeo={bins:[...bins.values()].sort((a,b)=>a.c-b.c||a.b-b.b||a.t-b.t),lakes,join:typeof Path2D.prototype.addPath==='function'};return rvGeo;
+}
+/* the class-and-width paths that reach into the view (x0..y1 in map units, pad: the widest stroke drawn) */
+function rvVisible(G,tier,x0,y0,x1,y1,pad){
+  const out=[];let last=null;
+  for(const B of G.bins){if(B.c<tier||B.bb[2]+pad<x0||B.bb[0]-pad>x1||B.bb[3]+pad<y0||B.bb[1]-pad>y1)continue;
+    if(G.join&&last&&last.c===B.c&&last.b===B.b){if(!last.own){const p=new Path2D();p.addPath(last.p);last={c:last.c,b:last.b,p,own:true};out[out.length-1]=last;}last.p.addPath(B.p);continue;}
+    last={c:B.c,b:B.b,p:B.p,own:false};out.push(last);}
+  return out;
 }
 function rvCols(col){
   const k=col.sea+'|'+col.land+'|'+col.ink;if(rvColV&&rvColK===k)return rvColV;
@@ -25439,12 +25470,15 @@ function rvTier(s){const hx=s*HEX_W;return hx<9?3:hx<20?2:1;}
 function rvDraw(M){
   const G=rvGeom();if(!G)return;const {g,s,kind}=M,hx=s*HEX_W,C=rvCols(M.col),tier=window.__rvTier||(kind==='mini'?2:rvTier(s));
   const min=[0,0.7,0.8,hx<9?1.25:1.1];g.lineCap='round';g.lineJoin='round';
-  const vis=G.bins.filter(B=>B.c>=tier);
-  if(hx>=12){g.strokeStyle=C.b;for(const B of vis){g.lineWidth=Math.max(B.b/4,min[B.c]/s)+Math.min(1.6,1.1/s+0.35);g.stroke(B.p);}}
+  const pad=Math.max(5.3,min[3]/s)+Math.min(1.6,1.1/s+0.35)+2,v=M.x1!==undefined?M:{x0:-1e9,y0:-1e9,x1:1e9,y1:1e9};
+  const vis=rvVisible(G,tier,v.x0,v.y0,v.x1,v.y1,pad);
+  /* while the map moves (draft): the water only, no banks, highlights or rings in the lakes */
+  const dr=!!M.draft;
+  if(hx>=12&&!dr){g.strokeStyle=C.b;for(const B of vis){g.lineWidth=Math.max(B.b/4,min[B.c]/s)+Math.min(1.6,1.1/s+0.35);g.stroke(B.p);}}
   g.strokeStyle=hx>=12?C.w:C.f;for(const B of vis){g.lineWidth=Math.max(B.b/4,min[B.c]/s);g.stroke(B.p);}
-  if(hx>=26){g.strokeStyle=C.hi;g.globalAlpha=0.5;for(const B of vis){if(B.b<10)continue;g.lineWidth=B.b/4*0.28;g.stroke(B.p);}g.globalAlpha=1;}
-  for(const q of G.lakes){g.fillStyle=C.w;g.fill(q.p);g.lineWidth=Math.max(0.6,1/s);g.strokeStyle=C.b;g.stroke(q.p);
-    if(hx>=18){g.globalAlpha=0.35;g.lineWidth=0.8/s;g.strokeStyle=C.dk?C.i:C.b;g.stroke(q.i1);if(hx>=34)g.stroke(q.i2);g.globalAlpha=1;}}
+  if(hx>=26&&!dr){g.strokeStyle=C.hi;g.globalAlpha=0.5;for(const B of vis){if(B.b<10)continue;g.lineWidth=B.b/4*0.28;g.stroke(B.p);}g.globalAlpha=1;}
+  for(const q of G.lakes){if(q.bb[2]+pad<v.x0||q.bb[0]-pad>v.x1||q.bb[3]+pad<v.y0||q.bb[1]-pad>v.y1)continue;g.fillStyle=C.w;g.fill(q.p);g.lineWidth=Math.max(0.6,1/s);g.strokeStyle=C.b;g.stroke(q.p);
+    if(hx>=18&&!dr){g.globalAlpha=0.35;g.lineWidth=0.8/s;g.strokeStyle=C.dk?C.i:C.b;g.stroke(q.i1);if(hx>=34)g.stroke(q.i2);g.globalAlpha=1;}}
 }
 MAP_LAYERS.push({stage:'land',draw:M=>{rvDraw(M);if(M.kind!=='mini'&&M.kind!=='atlas')rvDrawBridges(M);}});
 MAP_LAYERS.push({stage:'top',kinds:['main','visit','found'],draw:rvNames});
@@ -25802,7 +25836,7 @@ function seaCracks(g,st,dk,s,cells){
 /* zoomed in, above the national colours: crisp caps on the mountain marks, snow on the hill marks, the season's
    tree crowns, frozen rivers */
 MAP_LAYERS.push({stage:'land',kinds:['main','found','visit'],draw:M=>{
-  if(M.s*HEX_W<19)return;const t0=performance.now(),st=seaState(),dk=rlfDark(M.col),g=M.g,s=M.s,B=st.B,sw=dk?'rgb(222,232,240)':'#ffffff';
+  if(M.s*HEX_W<19||M.draft)return;const t0=performance.now(),st=seaState(),dk=rlfDark(M.col),g=M.g,s=M.s,B=st.B,sw=dk?'rgb(222,232,240)':'#ffffff';
   const caps=new Path2D(),edge=new Path2D(),hc=new Path2D();let nc=0,nh=0;
   if(st.nCap)for(const i of M.byT[4]){const b=st.snow[i];if(!b)continue;nc++;const x=MAP.cx[i],y=MAP.cy[i],k=[0,0.42,0.66,0.9][b],yb=y-3.2+5.8*0.62*k,w=4.2*(yb-(y-3.2))/5.8;
     caps.moveTo(x,y-3.2);caps.lineTo(x+w,yb);caps.lineTo(x+w*0.48,yb-0.9*k);caps.lineTo(x+w*0.08,yb+0.5*k);caps.lineTo(x-w*0.42,yb-0.85*k);caps.lineTo(x-w,yb);
@@ -25846,9 +25880,9 @@ function seaRivers(M){
 }
 function seaTemp(c,p){const B=seaBase();return B.tb[c]+seaShift(B.la[(c/MAP.COLS)|0],p==null?seaPhase():p);}
 /* the season and date, stamped in the corner of the main map (in full screen its bar shows them instead) */
-MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],fixed:true,draw:M=>{
   if(mfxTilted(M.cv)||M.w<260||(M.cv.dataset.map==='main'&&mapFsOn('main')))return;const I=seaInfo(),g=M.g,col=M.col,txt=I.sub+' · '+I.day+' '+I.month.slice(0,3);
-  g.font='italic 600 12.5px '+MAP_FONT;const tw=g.measureText(txt).width,x=10,y=10,h=22,w=tw+34;
+  g.font='italic 600 12.5px '+MAP_FONT;const tw=g.measureText(txt).width,x=10,y=10,h=22,w=tw+34;if(M.fixed)M.fixed.push([x-2,y-2,w+4,h+4]);
   g.globalAlpha=0.9;g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,3);else g.rect(x,y,w,h);g.fillStyle=col.sheet;g.fill();g.globalAlpha=0.35;g.lineWidth=1;g.strokeStyle=col.ink;g.stroke();g.globalAlpha=1;
   seaIcon(g,x+13,y+h/2,I.si,col,rlfDark(col));g.fillStyle=col.ink;g.textAlign='left';g.textBaseline='middle';g.fillText(txt,x+25,y+h/2+0.5);g.textBaseline='alphabetic';
 }});
@@ -34606,37 +34640,87 @@ function terrainBitmap(col){
   g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1.3/TBMP_SCALE;g.stroke();
   rlfFacets(g,byP[4],col);tbmp=c;tbmpKey=key;return c;
 }
-function drawMap(cv){
-  const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;
-  const dpr=mfxDpr(cv),PW=Math.round(w*dpr),PH=Math.round(h*dpr);
-  if(cv.width!==PW||cv.height!==PH){cv.width=PW;cv.height=PH;}
-  const g=cv.getContext('2d');if(!g)return;
+/* Between that picture and the zoom where hexes are drawn one by one, a sharper picture in square tiles
+   (0.8 pixels per map unit), made as the view first needs them and kept up to a pixel budget, oldest
+   first out; a tile not made yet shows the zoomed-out picture until a later frame makes it. */
+const TT_SCALE=0.8,TT_PX=512,TT_U=TT_PX/TT_SCALE,TT_MAX=1.1,TT_BUDGET=16e6,TT_PER_FRAME=6;
+let ttKey='',ttPx=0;const ttCache=new Map();
+function terrainTile(col,tx,ty){
+  const c=document.createElement('canvas');c.width=TT_PX;c.height=TT_PX;const g=c.getContext('2d');if(!g)return null;
+  const X0=tx*TT_U,Y0=ty*TT_U,RR=1.5*HEX_R;g.setTransform(TT_SCALE,0,0,TT_SCALE,-X0*TT_SCALE,-Y0*TT_SCALE);
+  g.fillStyle=col.sea;g.fillRect(X0,Y0,TT_U,TT_U);
+  const byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]);
+  const c0=Math.max(0,Math.floor(X0/HEX_W)-2),c1=Math.min(MAP.COLS-1,Math.ceil((X0+TT_U)/HEX_W)+1),r0=Math.max(0,Math.floor((Y0-HEX_R)/RR)-2),r1=Math.min(MAP.ROWS-1,Math.ceil((Y0+TT_U-HEX_R)/RR)+2);
+  for(let r=r0;r<=r1;r++)for(let q=c0,i=r*MAP.COLS+c0;q<=c1;q++,i++){byT[MAP.T[i]].push(i);byP[paintOf(i)].push(i);}
+  byP.forEach((cells,p)=>{if(!p||!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=col[PAINT_COL[p]];g.fill();});
+  g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1.3/TT_SCALE;g.stroke();
+  rlfFacets(g,byP[4],col);return c;
+}
+/* the tiles under the view, drawn in device pixels at whole-pixel edges so no seams show; false when the
+   view needs more tiles than the budget holds (the caller draws hexes instead) */
+function terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,cv){
+  const key=[col.sea,col.land,col.hill,col.mount,col.coast,col.forest,col.marsh,col.arid,col.polder,RECL.sig].join('|');
+  if(key!==ttKey){ttCache.clear();ttPx=0;ttKey=key;}
+  const tx0=Math.max(0,Math.floor(Math.max(0,x0)/TT_U)),tx1=Math.floor(Math.min(MAP.W,x1)/TT_U),ty0=Math.max(0,Math.floor(Math.max(0,y0)/TT_U)),ty1=Math.floor(Math.min(MAP.H,y1)/TT_U);
+  const n=(tx1-tx0+1)*(ty1-ty0+1);if(n*TT_PX*TT_PX>TT_BUDGET)return false;
+  const k=s*dpr,X=t=>Math.round(ox*dpr+t*TT_U*k),Y=t=>Math.round(oy*dpr+t*TT_U*k);
+  let made=0,lowRes=false;const tb=terrainBitmap(col);
+  g.save();g.setTransform(1,0,0,1,0,0);g.imageSmoothingEnabled=true;
+  for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){
+    const id=ty*1000+tx;let c=ttCache.get(id);
+    if(c){ttCache.delete(id);ttCache.set(id,c);}
+    else if(made<TT_PER_FRAME){c=terrainTile(col,tx,ty);made++;if(c){ttCache.set(id,c);ttPx+=TT_PX*TT_PX;}}
+    const dx=X(tx),dy=Y(ty),dw=X(tx+1)-dx,dh=Y(ty+1)-dy;
+    if(c)g.drawImage(c,dx,dy,dw,dh);
+    else{lowRes=true;g.drawImage(tb,tx*TT_U*TBMP_SCALE,ty*TT_U*TBMP_SCALE,TT_U*TBMP_SCALE,TT_U*TBMP_SCALE,dx,dy,dw,dh);}
+  }
+  g.restore();
+  while(ttPx>TT_BUDGET&&ttCache.size>n){const k0=ttCache.keys().next().value;ttCache.delete(k0);ttPx-=TT_PX*TT_PX;}
+  if(lowRes&&cv)setTimeout(()=>schedule(cv),0);
+  return true;
+}
+/* Draft detail, for the frames drawn while the map moves (see map motion below): no mountain facets, glyphs,
+   river banks and highlights, tree crowns or shadows, and the relief only as its baked picture (one image,
+   where close up it is drawn as bevels): left out, its light and shade would show the plate's edge against
+   the full picture in its middle. Everything comes back when the map settles. */
+let mapDraftOn=false;
+/* The whole picture, onto the canvas; or, given a plate {c, m, dpr}, onto that canvas with a margin of m CSS
+   pixels round the view, at that pixel density (the frames while the map moves are cut from it). */
+function drawMap(cv,P){
+  const cw=cv.clientWidth,ch=cv.clientHeight;if(!cw||!ch)return;
+  const m=P?P.m:0,w=cw+2*m,h=ch+2*m,tc=P?P.c:cv;
+  const dpr=P?P.dpr:mfxDpr(cv),PW=Math.round(w*dpr),PH=Math.round(h*dpr);
+  if(tc.width!==PW||tc.height!==PH){tc.width=PW;tc.height=PH;}
+  const g=tc.getContext('2d');if(!g)return;
   const kind=cv.dataset.map,v=viewOf(kind,cv);clampView(cv,v);
-  const s=mapScale(cv,v),ox=w/2-v.cx*s,oy=h/2-v.cy*s;
+  const s=mapScale(cv,v),ox=w/2-v.cx*s,oy=h/2-v.cy*s,draft=mapDraftOn;
   const cs=getComputedStyle(document.documentElement),C=k=>cs.getPropertyValue(k).trim();
   const col={sea:C('--sea'),sea2:C('--sea-2'),land:C('--land'),hill:C('--hill'),mount:C('--mount'),forest:C('--forest'),marsh:C('--marsh'),arid:C('--arid'),polder:C('--polder'),coast:C('--coast'),ink:C('--ink'),sheet:C('--sheet'),stamp:C('--stamp'),down:C('--down'),accent:C('--accent')};
   g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=col.sea;g.fillRect(0,0,w,h);
   g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);
   const x0=-ox/s-HEX_W,x1=(w-ox)/s+HEX_W,y0=-oy/s-2*HEX_R,y1=(h-oy)/s+2*HEX_R;
   const T=mapTerr(kind),byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]),byO=new Map();
-  for(let i=0;i<MAP.N;i++){
+  /* only the rows and columns on screen, not all of the region's hexes */
+  const c0=Math.max(0,Math.floor(x0/HEX_W)-1),c1=Math.min(MAP.COLS-1,Math.ceil(x1/HEX_W)),r0=Math.max(0,Math.floor((y0-HEX_R)/(1.5*HEX_R))),r1=Math.min(MAP.ROWS-1,Math.ceil((y1-HEX_R)/(1.5*HEX_R)));
+  for(let r=r0;r<=r1;r++)for(let c=c0,i=r*MAP.COLS+c0;c<=c1;c++,i++){
     const x=MAP.cx[i],y=MAP.cy[i];if(x<x0||x>x1||y<y0||y>y1)continue;
     byT[MAP.T[i]].push(i);byP[kind==='atlas'&&RECL.time.size&&(RECL.time.get(i)||0)>atlasCut()?1:paintOf(i)].push(i);
     const o=T.owner[i];if(o>=0){let a=byO.get(o);if(!a)byO.set(o,a=[]);a.push(i);}
   }
   const fillCells=(cells,style)=>{if(!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=style;g.fill();};
-  const useBmp=s*dpr<=TBMP_SCALE*1.05;
+  const useBmp=s*dpr<=TBMP_SCALE*1.05,useTiles=!useBmp&&s*dpr<=TT_MAX&&terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,P?null:cv),baked=useBmp||useTiles;
   if(useBmp){g.setTransform(dpr,0,0,dpr,0,0);g.imageSmoothingEnabled=true;g.drawImage(terrainBitmap(col),ox,oy,MAP.W*s,MAP.H*s);g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);}
-  else{byP.forEach((cells,p)=>{if(p)fillCells(cells,col[PAINT_COL[p]]);});rlfFacets(g,byP[4],col);}
-  if(useBmp&&kind==='atlas'&&RECL.time.size){const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
-  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind)))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
+  else if(!useTiles){byP.forEach((cells,p)=>{if(p)fillCells(cells,col[PAINT_COL[p]]);});if(!draft)rlfFacets(g,byP[4],col);}
+  if(baked&&kind==='atlas'&&RECL.time.size){const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
+  /* layers marked fixed sit at one place on the screen (the season badge): never on a plate, which moves */
+  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp:baked,draft,fixed:[]},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||(P&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
   ML('terrain');
   g.globalAlpha=parseFloat(C('--terr-a'))||0.5;
   for(const [o,cells] of byO)fillCells(cells,mapTerrCol(T,o,kind));
-  g.globalAlpha=1;g.lineJoin='round';g.lineCap='round';rlfShade(g,col,s,byP);
-  if(s*HEX_W>=13){g.beginPath();for(const t of [2,3])for(const i of byT[t]){if(!CELL_RES.oil[i])continue;const x=MAP.cx[i]+3.2,y=MAP.cy[i]+2.6;g.moveTo(x,y-4.4);g.quadraticCurveTo(x+3.4,y+0.4,x,y+3.2);g.quadraticCurveTo(x-3.4,y+0.4,x,y-4.4);}g.globalAlpha=0.6;g.fillStyle=col.ink;g.fill();g.globalAlpha=1;}
-  if(s*HEX_W>=13){g.beginPath();for(const i of byT[4]){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x-4.2,y+2.6);g.lineTo(x,y-3.2);g.lineTo(x+4.2,y+2.6);}g.strokeStyle=col.coast;g.lineWidth=1.1/s;g.stroke();biomeGlyphs(g,byP,col,s,T,kind);hillGlyphs(g,byP[3],col,s);}
-  if(!useBmp){g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1/s;g.stroke();}
+  g.globalAlpha=1;g.lineJoin='round';g.lineCap='round';rlfShade(g,col,s,draft?null:byP);
+  if(s*HEX_W>=13&&!draft){g.beginPath();for(const t of [2,3])for(const i of byT[t]){if(!CELL_RES.oil[i])continue;const x=MAP.cx[i]+3.2,y=MAP.cy[i]+2.6;g.moveTo(x,y-4.4);g.quadraticCurveTo(x+3.4,y+0.4,x,y+3.2);g.quadraticCurveTo(x-3.4,y+0.4,x,y-4.4);}g.globalAlpha=0.6;g.fillStyle=col.ink;g.fill();g.globalAlpha=1;}
+  if(s*HEX_W>=13&&!draft){g.beginPath();for(const i of byT[4]){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x-4.2,y+2.6);g.lineTo(x,y-3.2);g.lineTo(x+4.2,y+2.6);}g.strokeStyle=col.coast;g.lineWidth=1.1/s;g.stroke();biomeGlyphs(g,byP,col,s,T,kind);hillGlyphs(g,byP[3],col,s);}
+  if(!baked){g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1/s;g.stroke();}
   ML('land');
   for(const [o,cells] of byO){g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=lensEdge(T,o,kind);g.lineWidth=1.4/s;g.stroke();}
   const outline=(o,style,lw)=>{const cells=byO.get(o);if(!cells)return;g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=style;g.lineWidth=lw/s;g.stroke();};
@@ -34683,10 +34767,75 @@ function drawMap(cv){
   drawSites(g,scr,off,col,s,boxes,kind);
   mfxCaps(g,T,scr,off,col);
   M.boxes=boxes;ML('top');
+  if(P){P.v={s,ox,oy,w,h};return;}
+  cv._mmf=draft?null:{cx:v.cx,cy:v.cy,s,fixed:M.fixed};cv._mmcol=col;
   mfxAfter(cv,kind,T,s,ox,oy,w,h,dpr,col);
+  if(!draft)mapPrewarm(cv);
 }
 const pendingDraw=new Set();
-function schedule(cv){if(pendingDraw.has(cv))return;pendingDraw.add(cv);requestAnimationFrame(()=>{pendingDraw.delete(cv);if(cv.isConnected)drawMap(cv);});}
+function schedule(cv){if(pendingDraw.has(cv))return;pendingDraw.add(cv);requestAnimationFrame(()=>{pendingDraw.delete(cv);if(!cv.isConnected)return;if(mapMoving(cv))mapMotionFrame(cv);else drawMap(cv);});}
+
+/* ── map motion ──
+   While the map is dragged, pinched, wheeled or animated, frames are cut from a plate: the view drawn once
+   with a margin round it, in draft detail, and at 1x pixel density in full screen or on very large canvases.
+   Moving within the margin, or zooming in or out by up to about 70%, only moves or stretches that plate. When the view
+   leaves the margin or the zoom drifts further, a new plate is drawn. A plate made as a drag begins keeps the
+   full picture that was on screen in its middle, and one is made ahead in an idle moment after each full
+   picture, so the first frame of a drag or zoom is ready. 150 ms after the last movement the map is drawn
+   in full again; the overlay holds still meanwhile and follows the plate with a CSS transform. */
+const MAP_SETTLE=150;
+function mapMoving(cv){const mm=cv._mm;return !!(mm&&mm.on);}
+/* call on every movement: starts the motion, or keeps it going for another MAP_SETTLE ms */
+function mapMoveStart(cv){
+  let mm=cv._mm;if(!mm)mm=cv._mm={on:false,plate:null,t:0};
+  if(!mm.on){mm.on=true;mfxHold(cv,true);}
+  clearTimeout(mm.t);mm.t=setTimeout(()=>mapMoveEnd(cv),MAP_SETTLE);
+}
+function mapMoveEnd(cv){const mm=cv._mm;if(!mm)return;clearTimeout(mm.t);if(!mm.on)return;mm.on=false;if(cv.isConnected)schedule(cv);else{mm.plate=null;mfxHold(cv,false);}}
+function mapPlateDpr(cv){const d=mfxDpr(cv);if(d<=1)return d;const wrap=cv.parentElement,full=!!(wrap&&wrap.classList.contains('is-full'));return full||cv.clientWidth*cv.clientHeight*d*d>3.5e6?1:d;}
+function mapPlate(cv){
+  const mm=cv._mm,cw=cv.clientWidth,ch=cv.clientHeight;
+  let P=mm.plate;if(!P){P=mm.plate={c:document.createElement('canvas'),m:0,dpr:1,v:null};
+    /* no shadows on a draft plate: one switch here instead of one in every place that casts them */
+    const q=P.c.getContext('2d');if(q){try{Object.defineProperty(q,'shadowColor',{configurable:true,get(){return 'rgba(0, 0, 0, 0)';},set(){}});}catch(e){}}}
+  P.m=Math.round(clamp(0.4*Math.max(cw,ch),128,400));P.dpr=mapPlateDpr(cv);P.v=null;
+  mapDraftOn=true;try{drawMap(cv,P);}finally{mapDraftOn=false;}
+  /* the full picture still on the canvas, at the same scale: laid over the middle of the plate */
+  const f=cv._mmf,V=P.v;
+  if(f&&V&&Math.abs(f.s-V.s)<1e-9){const q=P.c.getContext('2d'),x=(f.cx-cw/2/f.s)*V.s+V.ox,y=(f.cy-ch/2/f.s)*V.s+V.oy,d=P.dpr;
+    q.save();q.setTransform(1,0,0,1,0,0);q.imageSmoothingEnabled=true;
+    /* the fixed items on the canvas stay behind: cut out of what is laid over the plate */
+    if(f.fixed&&f.fixed.length){q.beginPath();q.rect(x*d,y*d,cw*d,ch*d);for(const r of f.fixed)q.rect((x+r[0])*d,(y+r[1])*d,r[2]*d,r[3]*d);q.clip('evenodd');}
+    q.drawImage(cv,x*d,y*d,cw*d,ch*d);q.restore();}
+}
+/* a frame cut from the plate; false when the plate does not cover the view at a close enough scale */
+function mapCompose(cv){
+  const mm=cv._mm,P=mm&&mm.plate,V=P&&P.v;if(!V)return false;
+  const cw=cv.clientWidth,ch=cv.clientHeight;if(!cw||!ch)return false;
+  const v=viewOf(cv.dataset.map,cv);clampView(cv,v);
+  const s=mapScale(cv,v),k=s/V.s;if(k<0.6||k>1.75)return false;
+  const px=(v.cx-cw/2/s)*V.s+V.ox,py=(v.cy-ch/2/s)*V.s+V.oy,pw=cw/k,ph=ch/k,e=0.5;
+  if(px<-e||py<-e||px+pw>V.w+e||py+ph>V.h+e)return false;
+  const dpr=mfxDpr(cv),PW=Math.round(cw*dpr),PH=Math.round(ch*dpr);
+  if(cv.width!==PW||cv.height!==PH){cv.width=PW;cv.height=PH;}
+  const g=cv.getContext('2d');if(!g)return false;
+  const d=P.dpr,sx=clamp(px*d,0,P.c.width),sy=clamp(py*d,0,P.c.height);g.setTransform(1,0,0,1,0,0);g.imageSmoothingEnabled=true;
+  g.drawImage(P.c,sx,sy,Math.min(pw*d,P.c.width-sx),Math.min(ph*d,P.c.height-sy),0,0,PW,PH);
+  cv._mmf=null;mfxFollow(cv,s,cw/2-v.cx*s,ch/2-v.cy*s);
+  const kind=cv.dataset.map,col=cv._mmcol;
+  if(col)for(const L of MAP_LAYERS){if(!L.fixed||(L.kinds&&!L.kinds.includes(kind)))continue;g.save();g.setTransform(dpr,0,0,dpr,0,0);try{L.draw({cv,g,kind,s,w:cw,h:ch,dpr,col});}catch(e){}g.restore();}
+  return true;
+}
+function mapPrewarm(cv){
+  if(cv.dataset.map==='mini'||cv._mmw)return;
+  const go=()=>{cv._mmw=0;if(!cv.isConnected||mapMoving(cv)||!cv._mmf)return;let mm=cv._mm;if(!mm)mm=cv._mm={on:false,plate:null,t:0};mapPlate(cv);};
+  cv._mmw=window.requestIdleCallback?requestIdleCallback(go,{timeout:2000}):setTimeout(go,300);
+}
+function mapMotionFrame(cv){
+  if(mapCompose(cv))return;
+  mapPlate(cv);if(mapCompose(cv))return;
+  mapDraftOn=true;try{drawMap(cv);}finally{mapDraftOn=false;}
+}
 function redrawMaps(){document.querySelectorAll('canvas.map-cv').forEach(schedule);}
 let mapRO=null;
 function initMaps(){
@@ -34696,11 +34845,29 @@ function initMaps(){
   cvs.forEach(cv=>{bindMap(cv);if(mapRO)mapRO.observe(cv);drawMap(cv);});
 }
 function zoomAt(cv,sx,sy,f){
+  mapGlideStop(cv.dataset.map);
   const v=viewOf(cv.dataset.map,cv),s=mapScale(cv,v),w=cv.clientWidth,h=cv.clientHeight;
   const wx=v.cx+(sx-w/2)/s,wy=v.cy+(sy-h/2)/s;
   v.z=clamp(v.z*f,1,MAX_Z);
   const s2=mapScale(cv,v);v.cx=wx-(sx-w/2)/s2;v.cy=wy-(sy-h/2)/s2;
-  schedule(cv);
+  mapMoveStart(cv);schedule(cv);
+}
+/* the zoom buttons and Fit glide to their view in about a fifth of a second (at once with reduced motion);
+   a drag, a pinch or the wheel stops the glide where it is */
+const MAP_GLIDES={};
+function mapGlideStop(kind){const G=MAP_GLIDES[kind];if(G){cancelAnimationFrame(G.raf);delete MAP_GLIDES[kind];}}
+function mapGlide(cv,to,ms){
+  const kind=cv.dataset.map,id=cv.dataset.id,v=viewOf(kind,cv);clampView(cv,v);mapGlideStop(kind);
+  if(mfxRM()){Object.assign(v,to);schedule(cv);return;}
+  const a={z:v.z,cx:v.cx,cy:v.cy},t0=performance.now(),D=ms||220,G=MAP_GLIDES[kind]={raf:0};
+  /* the page may redraw its markup mid-glide, so each frame finds the map's canvas afresh */
+  const step=now=>{if(MAP_GLIDES[kind]!==G)return;
+    if(!cv.isConnected)cv=document.querySelector('canvas.map-cv[data-map="'+kind+'"]'+(id?'[data-id="'+CSS.escape(id)+'"]':''));
+    if(!cv){delete MAP_GLIDES[kind];return;}
+    const u=clamp((now-t0)/D,0,1),e=1-Math.pow(1-u,3),w=viewOf(kind,cv);
+    w.z=a.z*Math.pow(to.z/a.z,e);w.cx=a.cx+(to.cx-a.cx)*e;w.cy=a.cy+(to.cy-a.cy)*e;
+    mapMoveStart(cv);schedule(cv);if(u<1)G.raf=requestAnimationFrame(step);else delete MAP_GLIDES[kind];};
+  G.raf=requestAnimationFrame(step);
 }
 function bindMap(cv){
   const kind=cv.dataset.map;
@@ -34714,13 +34881,16 @@ function bindMap(cv){
     const p=pts.get(e.pointerId);
     if(!p){hoverAt(cv,cellFrom(e),e,tip);return;}
     const v=viewOf(kind,cv);
-    if(pts.size===1){const s=mapScale(cv,v),[dx,dy]=mapDelta(cv,e,p);moved+=Math.abs(dx)+Math.abs(dy);v.cx-=dx/s;v.cy-=dy/s;p.x=e.clientX;p.y=e.clientY;if(tip&&moved>4)tip.hidden=true;schedule(cv);}
+    if(pts.size===1){const s=mapScale(cv,v),[dx,dy]=mapDelta(cv,e,p);moved+=Math.abs(dx)+Math.abs(dy);v.cx-=dx/s;v.cy-=dy/s;p.x=e.clientX;p.y=e.clientY;if(tip&&moved>4)tip.hidden=true;
+      /* a few pixels of jitter in a click move the view without a redraw; a real drag moves the plate */
+      if(moved>3){mapGlideStop(kind);mapMoveStart(cv);schedule(cv);}}
     else if(pts.size===2){p.x=e.clientX;p.y=e.clientY;const d=spread(),a=[...pts.values()];if(pinchD>0){const [mx,my]=mapPos(cv,{clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2});zoomAt(cv,mx,my,d/pinchD);}pinchD=d;moved+=10;}
   });
-  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6)mapClick(cv,cellFrom(e),e);};
+  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}};
   cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
   cv.addEventListener('pointerleave',()=>{if(pts.size)return;cv.dataset.hover='-1';if(tip)tip.hidden=true;mfxHover(cv)||schedule(cv);});
-  cv.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();const [sx,sy]=pos(e);zoomAt(cv,sx,sy,Math.exp(-e.deltaY*0.005));},{passive:false});
+  /* Ctrl (or Cmd) and the wheel zoom; in full screen, where the page cannot scroll, the wheel alone does. Lines and pages of wheel are counted as pixels. */
+  cv.addEventListener('wheel',e=>{const wrap=cv.parentElement;if(!(e.ctrlKey||e.metaKey)&&!(wrap&&wrap.classList.contains('is-full')))return;e.preventDefault();const [sx,sy]=pos(e),dy=e.deltaY*(e.deltaMode===1?33:e.deltaMode===2?400:1);zoomAt(cv,sx,sy,Math.exp(-clamp(dy,-300,300)*0.005));},{passive:false});
 }
 function hoverAt(cv,cell,e,tip){
   if(parseInt(cv.dataset.hover,10)!==cell){cv.dataset.hover=String(cell);mfxHover(cv)||schedule(cv);}
@@ -34777,7 +34947,7 @@ COMMIT_HOOKS.push((n,old,now)=>{const c=cellOf(n.loc);if(c>=0&&(!old||old.founde
 function mapBox(kind,cls,id){
   const full=mapFsOn(kind,id),fsb=`<button type="button" class="mc-b" data-act="map-fs" data-k="${kind}"${id?` data-id="${esc(id)}"`:''} aria-label="${full?'Leave full screen':'Full screen'}" title="${full?'Leave full screen':'Full screen'}">${full?'✕':'⛶'}</button>`;
   const coarse=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
-  const ctrl=kind==='mini'?'':`<div class="map-ctrl"><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="1" aria-label="Zoom in">+</button><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="-1" aria-label="Zoom out">−</button><button type="button" class="mc-b" data-act="map-fit" data-k="${kind}" aria-label="Show the whole map">Fit</button>${kind==='main'?mfxTiltBtn():''}${kind==='found'||kind==='visit'||kind==='main'?fsb:''}</div><div class="map-tip" hidden></div><p class="map-hint">${coarse?'Drag to move · pinch to zoom':'Drag to move · Ctrl + scroll to zoom'}</p>`;
+  const ctrl=kind==='mini'?'':`<div class="map-ctrl"><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="1" aria-label="Zoom in">+</button><button type="button" class="mc-b" data-act="map-zoom" data-k="${kind}" data-d="-1" aria-label="Zoom out">−</button><button type="button" class="mc-b" data-act="map-fit" data-k="${kind}" aria-label="Show the whole map">Fit</button>${kind==='main'?mfxTiltBtn():''}${kind==='found'||kind==='visit'||kind==='main'?fsb:''}</div><div class="map-tip" hidden></div><p class="map-hint">${coarse?'Drag to move · pinch to zoom':full?'Drag to move · scroll to zoom':'Drag to move · Ctrl + scroll to zoom'}</p>`;
   const mini=kind==='mini'?`<button type="button" class="mc-b map-fs-mini" data-act="map-fs" data-k="visit" data-id="${esc(id)}">⛶ Full screen</button>`:'';
   return `<div class="map-wrap map-${kind}${cls||''}${kind==='main'&&mfxTilt?' tilted':''}${full?' is-full':''}"${full?` role="dialog" aria-modal="true" aria-label="${kind==='found'?'Founding map':'Map'}, full screen"`:''}><canvas class="map-cv" data-map="${kind}"${id?` data-id="${esc(id)}"`:''} data-hover="-1" role="img" aria-label="Map of ${REGION}${kind==='mini'?'. Select to open the world map.':''}"></canvas>${ctrl}${mini}${full?mapFsBar(kind,id):''}</div>`;
 }
@@ -37035,7 +37205,7 @@ document.addEventListener('click',e=>{
   if(a==='dissolve-cancel'){S.confirmDissolve=false;render();return;}
   if(a==='dissolve-confirm'){dissolve();return;}
   if(a==='del-post'){removePost(el.dataset.a,el.dataset.p);return;}
-  if(a==='map-zoom'||a==='map-fit'){const cv=document.querySelector('canvas.map-cv[data-map="'+el.dataset.k+'"]');if(!cv)return;if(a==='map-fit'){const v=viewOf(el.dataset.k,cv);v.z=1;v.cx=MAP.W/2;v.cy=MAP.H/2;schedule(cv);}else zoomAt(cv,cv.clientWidth/2,cv.clientHeight/2,el.dataset.d==='1'?1.6:1/1.6);return;}
+  if(a==='map-zoom'||a==='map-fit'){const cv=document.querySelector('canvas.map-cv[data-map="'+el.dataset.k+'"]');if(!cv)return;const v=viewOf(el.dataset.k,cv);if(a==='map-fit')mapGlide(cv,{z:1,cx:MAP.W/2,cy:MAP.H/2});else mapGlide(cv,{z:clamp(v.z*(el.dataset.d==='1'?1.6:1/1.6),1,MAX_Z),cx:v.cx,cy:v.cy});return;}
   if(a==='map-me'){const T=territory(),i=T.byId[S.uid||'me'];if(i!==undefined){centerMain(T.list[i].cap,NEAR_Z);S.mapSel=null;S.mapCell=null;updateMapPanel();redrawMaps();}return;}
   if(a==='map-select'){const T=territory(),i=T.byId[el.dataset.id];if(i!==undefined){S.mapCell=null;S.mapSel=T.list[i].me?null:el.dataset.id;S.mapTarget=null;S.warMsg='';S.confirmWar=null;const v=S.mapViews.main;if(v){v.cx=MAP.cx[T.list[i].cap];v.cy=MAP.cy[T.list[i].cap];v.z=Math.max(v.z,6.4);}updateMapPanel();redrawMaps();}return;}
   if(a==='map-desel'){S.mapCell=null;S.mapSel=null;S.mapTarget=null;S.warMsg='';S.confirmWar=null;updateMapPanel();redrawMaps();return;}
