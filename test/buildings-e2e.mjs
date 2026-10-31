@@ -17,7 +17,7 @@ const bathsRow=A.locator('li.opt',{has:A.locator(`[data-act="ct-build"][data-k="
 check('the Public Baths wait for 6 million people',/Unlocks at 6 million people/.test(await bathsRow.innerText())&&await A.locator(`[data-act="ct-build"][data-k="baths"]`).isDisabled());
 check('the Hanging Gardens are listed with the wonders',/Hanging Gardens/.test(await A.locator('.cat-wrap').innerText()));
 check('none of the twenty edicts can arrive before the buildings work',await A.evaluate(()=>G.NB.issues.length===20&&G.NB.issues.every(is=>!is.req(G.S.nation))));
-check('the new edicts come after every older one, so no number shifts',await A.evaluate(()=>G.NB.ISSUE_BY_ID[G.NB.FD_ID].no===1892&&G.NB.issues.every((is,i)=>is.no===1893+i&&G.NB.ISSUE_BY_ID[is.id]===is)&&G.NB.ISSUES.length===1912));
+check('the new edicts come after every older one, so no number shifts',await A.evaluate(()=>G.NB.ISSUE_BY_ID[G.NB.FD_ID].no===1892&&G.NB.issues.every((is,i)=>is.no===1893+i&&G.NB.ISSUE_BY_ID[is.id]===is)&&G.NB.ISSUES[1911]===G.NB.issues[19]));
 const lunar0=await A.evaluate(()=>G.NB.hours(G.S.nation,'lunar'));
 
 /* finished buildings: a Factory and Power Station next to the Recycling Works, and all seven in the capital */
