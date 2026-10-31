@@ -2872,10 +2872,18 @@ button.fk-rs:hover,.fk-rs.on{color:var(--fk-rs)}
 }
 
 /* Round 11, L: Next steps, What’s new, the space checklists and the space guides */
-.stp-nx{border-left-color:var(--stamp)}
-.stp-nx .stp-l li{align-items:start}
-.stp-nx .stp-l li>.btn{align-self:center}
-.stp-nx .stp-t:focus{outline:none}
+.tut-l .stp-l li{align-items:start}
+.tut-l .stp-l li>.btn{align-self:center}
+.tut-l .stp-t:focus{outline:none}
+.tut-l-mark{border-left-color:var(--stamp)}
+.tut-l-destiny{border-left-color:var(--mu-gold)}
+.tut-lede{margin:2px 0 4px;font-size:13.5px;line-height:1.45;color:var(--ink-2);max-width:72ch}
+.tut-bn{margin:10px 0 0;font-size:12.5px}
+.stp-l li.later .stp-i{border-style:dashed}
+.stp-l li.later .stp-x b{color:var(--ink-2)}
+.tut-hl-l{margin:6px 0 4px}
+.tut-hl-l li{align-items:start}
+.tut-hl-l li>.btn{align-self:center}
 .tut-new{margin:0 0 22px;padding:16px 20px 12px;background:var(--sheet);border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:4px}
 .tut-new-h{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:flex-end;justify-content:space-between;margin-bottom:6px}
 .tut-new-h .stp-t:focus{outline:none}
@@ -2900,8 +2908,6 @@ button.fk-rs:hover,.fk-rs.on{color:var(--fk-rs)}
 .tut-bd-l li.done .stp-i{background:var(--up);border-color:var(--up);color:var(--sheet)}
 .tut-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 /* How to play */
-.tut-hl{list-style:none;margin:12px 0 10px;padding:0}
-.tut-hl li{padding:5px 0;border-bottom:1px solid var(--rule)}
 .tut-hb{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .tut-hb .btn{display:inline-flex;align-items:center;gap:8px}
 /* the guide */
@@ -19425,41 +19431,6 @@ setInterval(()=>{
 },10000);
 
 /* ───────── round 3 (d): first steps, help, toasts, the bell, repeals, loyalty, names ───────── */
-/* First steps: a checklist on the Nation page, ticked from the nation's own record. A viewer can
-   hide it on this device (localStorage, keyed by the nation's seed); it goes for good once all is done. */
-const FIRST_STEPS=[
-  ['issue','Answer an edict','Rule on an edict waiting on your desk.','issues','Open edicts',n=>decisions(n)>0],
-  ['settle','Settle on the map','Choose the hex where your capital stands.','map','Open the map',n=>cellOf(n.loc)>=0],
-  ['land','Spend a land credit','Claim free land next to your border.','map','Open the map',n=>Array.isArray(n.claims)&&n.claims.length>0],
-  ['build','Start a building','Put up a farm, a sawmill or a market in a city.','cities','Open cities',n=>(n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0],
-  ['trade','Propose a trade','Swap a resource you have spare for one you lack.','trade','Open trade',n=>(n.deals||[]).length>0||(n.log||[]).some(l=>l.k==='trade'||l.k==='tradeend')],
-  ['exp','Send an expedition','Explore a rumoured site on the map.','explore','Expeditions',n=>!!n.exp||(n.disc||[]).length>0],
-  ['dm','Write to another nation','Computer-run nations reply within minutes.','messages','Messages',n=>(n.dm||[]).some(m=>!m.i)],
-  ['google','Keep your nation on every device','Link it to Google, Discord or an email address: it is kept safe and plays anywhere. Earns 5 land credits, and 5 iron, 5 timber and 5 goods.','account','Link a sign-in',n=>!!n.glk]
-];
-const STEPS_KEY='statehood.steps.v1';
-function stepsHidden(n){try{return localStorage.getItem(STEPS_KEY)===String(n.seed);}catch(e){return false;}}
-function stepsHide(on){try{if(on)localStorage.setItem(STEPS_KEY,String(S.nation.seed));else localStorage.removeItem(STEPS_KEY);}catch(e){}}
-function stepsState(n){return FIRST_STEPS.map(([k,t,h,v,b,f])=>{let ok=false;try{ok=!!f(n);}catch(e){}return {k,t,h,v,b,ok};});}
-function stepHint(n,s){
-  if(s.ok)return '';
-  if(s.k==='land'){if(cellOf(n.loc)<0)return 'Settle first. Then credits arrive as your population grows.';const cr=landCredits(n);if(cr)return `You have ${cr} to spend.`;const np=nextCreditPop(n);return np?`Your first credit arrives at ${fmtPop(np)} people.`:s.h;}
-  if((s.k==='build'||s.k==='exp')&&cellOf(n.loc)<0)return 'Settle on the map first.';
-  return s.h;
-}
-function firstStepsCard(n){
-  if(!n||n.npc)return '';
-  const st=stepsState(n),done=st.filter(s=>s.ok).length;
-  if(done===st.length||stepsHidden(n))return '';
-  return `<section class="stp" aria-labelledby="stp-h"><div class="stp-h"><div><p class="eyebrow">First steps</p><h2 class="stp-t" id="stp-h">Getting started in ${REGION}</h2></div><span class="stp-n">${done} of ${st.length} done${tutLcHead(n,0)}</span></div>
-    <span class="bar" role="img" aria-label="${done} of ${st.length} steps done"><i style="width:${(done/st.length*100).toFixed(1)}%"></i></span>
-    <ol class="stp-l">${st.map(s=>`<li class="${s.ok?'done':''}"><span class="stp-i" aria-hidden="true">${s.ok?'✓':''}</span><span class="stp-x"><b>${s.t}${s.ok?'':s.k==='google'?GL_TAG:tutLcTag()}</b>${s.ok?'<span class="hint">Done</span>':`<span class="hint">${esc(stepHint(n,s))}</span>`}</span>${s.ok?'':`<button class="btn ghost small-btn" ${s.k==='google'?'data-act="acct-open"':`data-act="go" data-v="${s.v}"`}>${s.b}</button>`}</li>`).join('')}</ol>
-    <div class="stp-f"><button class="linkish small" data-act="go" data-v="help">How to play</button><button class="linkish small" data-act="steps-hide">Hide this list</button></div></section>`;
-}
-function stepsReset(){
-  const n=S.nation;if(!n||!stepsHidden(n)||stepsState(n).every(s=>s.ok))return '';
-  return `<div class="row" style="margin-top:14px"><button type="button" class="btn ghost small-btn" data-act="steps-show">Show the first steps again</button><span class="hint">The checklist returns to your Nation page.</span></div>`;
-}
 
 /* Help: every system in plain words, with the game's own numbers */
 const HELP_SECS=[['start','Getting started'],['issues','Edicts'],['time','Time'],['pop','Population and growth'],['land','Land'],['cities','Cities and buildings'],['trade','Resources and trade'],['mig','Migration'],['nb','Neighbours and goodwill'],['war','War'],['alli','Alliances'],['spies','Spies'],['exp','Expeditions'],['games','The Meridian Games'],['navy','The navy'],['cab','Cabinet and succession'],['npc','Computer nations'],['world','Regions and moving'],['track','Keeping track']];
@@ -19664,8 +19635,6 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act;
   if(a==='go'||a==='nt-go'||a==='visit'){S.repealAsk=null;S.govMsg='';return;}
-  if(a==='steps-hide'){stepsHide(true);render();toast('The first steps are hidden. Settings can bring them back, and Help is always in the menu.');return;}
-  if(a==='steps-show'){stepsHide(false);toast('The first steps are back on your Nation page.');render();return;}
   if(a==='help-to'){e.preventDefault();const t=document.getElementById(el.dataset.id);if(!t)return;const h=t.querySelector('h2[tabindex]')||t;t.scrollIntoView({block:'start',behavior:window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});try{h.focus({preventScroll:true});}catch(err){}return;}
   if(a==='found-help'){S.foundHelp=true;supReset();render();window.scrollTo(0,0);return;}
   if(a==='found-help-close'){S.foundHelp=false;render();window.scrollTo(0,0);return;}
@@ -32054,28 +32023,38 @@ HELP_EXT.push({k:'flock',t:'Flock',body:n=>`<p><b>Flock</b> is the platform most
 /* test hook */
 function fkDebug(o){o=o||{};if('t' in o)fkClock=o.t;if(o.clear){fkNat.clear();fkFeeds.clear();fkCastMemo.clear();}return {clock:fkClock,ms:fkLastMs,builds:fkBuilds,first:fkFirst};}
 
-/* ───────── Round 11, L: the tutorial. First steps refreshed, Next steps, What’s new, and guides that open
+/* ───────── Round 11, L: the tutorial (four lists since Version 25), What’s new, and guides that open
    the first time the Moon, Mars and the asteroid belt open to a nation ───────── */
-/* Saved: n.tut = {g, lc, w} (own record, normalised by tutNorm):
+/* The Nation page shows one list at a time, each once the one before is done or hidden:
+     The charter     Your nation starts here: the capital, its name, the leader, the culture, the charter and the flag
+     First steps     Welcome to Edictum: edicts, land, buildings, the map, the cabinet, trade, letters, a linked sign-in
+     Next steps      Make your mark in the region: its paper, passports, Assembly and Games, finds, spies, money
+     Advanced steps  Take control of your destiny: resolutions, alliances, cities, roads, provinces, decrees, the Games
+   A task ticks itself off from what the nation has actually done and pays once: land credits and, for most, a gift
+   of resources. A list done in full pays a bonus and an epithet for Customise, once.
+   Saved: n.tut = {g, lc, ch, v, p, w} (own record, normalised by tutNorm), and n.tlc the land credits it has paid (shared):
      g  the space guides already shown: 'm' the Moon, 'r' Mars, 'b' the belt (before the voyage), 'a' the belt on arrival;
-     lc the First steps and Next steps already rewarded, by id: each earns one land credit the first time it is done,
-        never twice and never taken back, and a step in lc stays ticked (one done on another device counts here too);
+     lc the tasks already rewarded, by key: never twice and never taken back, and a task in lc stays ticked
+        (one done on another device counts here too);
+     ch the lists done in full and rewarded, by letter (TUT_LISTS[i].c);
+     v  the version that first saw the four lists; p 1 if the nation had by then finished the First steps of earlier
+        versions, so the charter and Welcome to Edictum stand aside for it (their tasks still pay when done);
      w  the version whose What’s new card was dismissed (a nation founded in this version never sees it).
-   Per device (localStorage, keyed by the nation’s seed): the Next steps list hidden, a lens tried, a tile inspected,
-   the World page visited. A step ticked that way is written into n.tut.lc by one ordinary save. */
-const TUT_V=24,TUT_GS='mrba',TUT_NEXT_KEY='statehood.steps2.v1',TUT_DEV_KEY='statehood.tut.v1';
+   Per device (localStorage, keyed by the nation’s seed): a list hidden, a lens tried, a tile inspected, the World
+   page and the Exchange Bureau visited. A task ticked that way is written into n.tut.lc by one ordinary save. */
+const TUT_V=25,TUT_GS='mrba',TUT_DEV_KEY='statehood.tut.v1';
 const TUT={g:null,chk:0,shown:new Set(),dev:'',devSeed:'',newGone:'',raf:0,mv:0,lcT:0,lcTry:new Set()};
 function tutNorm(d){
   if(!d||typeof d!=='object'||Array.isArray(d))return null;const o={};
   if(typeof d.g==='string'){const g=[...TUT_GS].filter(c=>d.g.includes(c)).join('');if(g)o.g=g;}
   if(Array.isArray(d.lc)){const ids=tutLcIds(),a=[...new Set(d.lc.filter(k=>typeof k==='string'&&ids.includes(k)))].slice(0,ids.length);if(a.length)o.lc=a;}
+  if(typeof d.ch==='string'){const c=TUT_LISTS.map(L=>L.c).filter(c=>d.ch.includes(c)).join('');if(c)o.ch=c;}
+  if(Number.isInteger(d.v)&&d.v>0&&d.v<1000)o.v=d.v;
+  if(d.p===1)o.p=1;
   if(Number.isInteger(d.w)&&d.w>0&&d.w<1000)o.w=d.w;
   return Object.keys(o).length?o:null;
 }
-NORM_HOOKS.push((n,d)=>{const v=tutNorm(d&&d.tut);if(v)n.tut=v;else delete n.tut;});
-/* the steps that earn a land credit: the seven First steps, the Next steps and the social-page step */
-const tutLcIds=()=>FIRST_STEPS.map(s=>s[0]).filter(k=>k!=='google').concat(NEXT_STEPS.map(s=>s[0]),['soc'],CU_STEPS.map(s=>s[0]));
-const tutLcOf=n=>n&&n.tut&&Array.isArray(n.tut.lc)?n.tut.lc:[];
+NORM_HOOKS.push((n,d)=>{const v=tutNorm(d&&d.tut);if(v)n.tut=v;else delete n.tut;const c=Math.round(+(d&&d.tlc)||0);if(c>0)n.tlc=c;else delete n.tlc;});
 const tutSeen=(n,g)=>!!(n&&n.tut&&typeof n.tut.g==='string'&&n.tut.g.includes(g));
 const tutFresh=n=>!!n&&!(n.answered&&n.answered.length)&&Date.now()-(+n.founded||0)<30*60e3;
 function tutSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PAGE.id==='string'&&SOC_PAGE.id?SOC_PAGE:null;}catch(e){return null;}}
@@ -32094,98 +32073,207 @@ function tutMark(c){
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
 setMapOpt=(f=>function(k,v){if(k==='lens'&&v&&v!=='pol')tutMark('l');return f.apply(this,arguments);})(setMapOpt);
 
-/* ── First steps: the same seven, with hints that know the game has moved on ── */
-{const H={settle:'Choose the hex where your capital stands. Coasts, rivers and farmland feed a city best.',
-  land:'Click a free hex beside your border: the tile inspector shows what it yields and claims it for a credit.',
-  build:'Each city has building blocks. Put a farm, a sawmill or a market on one.',
-  trade:'Swap a resource you have spare for one you lack. Your deals show on the map as trade routes.',
-  exp:'Explore a rumoured site on the map. The first nation to discover it names it.'};
- for(const s of FIRST_STEPS)if(H[s[0]])s[2]=H[s[0]];}
-stepsState=(f=>function(n){const st=f.apply(this,arguments),lc=tutLcOf(n);for(const s of st)if(!s.ok&&lc.includes(s.k))s.ok=true;return st;})(stepsState);
-const tutLcTag=()=>'<span class="tut-lc" title="Earns one land credit">+1 land</span>';
-function tutLcHead(n,next){const ids=next?NEXT_STEPS.map(s=>s[0]).concat(['soc']):FIRST_STEPS.map(s=>s[0]),k=tutLcOf(n).filter(x=>ids.includes(x)).length;
-  return `<span class="tut-lch"> · ${k?`${k} land ${k===1?'credit':'credits'} earned`:'+1 land credit a step'}</span>`;}
-stepHint=(f=>function(n,s){const h=f.apply(this,arguments);return s&&s.k==='land'&&/^You have /.test(h)?h.replace(/\.$/,': click a free hex beside your border to claim one.'):h;})(stepHint);
-
-/* ── Next steps: the second chapter, once the first steps are done or hidden ── */
-/* [key, bit, title, why (one sentence), page, button, done(n, device marks)] */
-const NEXT_STEPS=[
-  ['asm',0,'Have your say in the Assembly',()=>'Vote on the resolution or endorse a neighbour: passed resolutions change every member, and endorsements choose the Delegate.','assembly','Open the Assembly',n=>{const a=n.asm;return !!a&&(!!(a.v&&a.v.length)||!!(a.e&&a.e.length)||!!(a.s&&a.s.length)||!!a.p);}],
-  ['dsp',1,'Read today’s Dispatch',()=>'The region’s paper reports what every player decided, and your own decisions can make the front page.','dispatch','Read the Dispatch',n=>!!(n.dsp&&n.dsp.s>0)],
-  ['insp',2,'Inspect a tile on the map',()=>'Click any hex to see its land, yields, rivers, weather and owner, and claim it if it borders yours.','map','Open the map',(n,d)=>d.includes('i')],
-  ['lens',3,'Try a map lens',()=>`Lenses colour every nation by ${list(Object.values(LENS_INFO).map(x=>x.n.toLowerCase()))}.`,'map','Open the map',(n,d)=>d.includes('l')||mapOpt('lens','pol')!=='pol'],
-  ['fleet',4,'Send a party to a fleeting find',()=>'Shipwrecks, whales and fairs last only hours, and only the first five parties to arrive share the spoils.','explore','Expeditions',n=>Array.isArray(n.fl)&&n.fl.length>0],
-  ['blk',5,'Fill a city’s building blocks',()=>'Each block holds one building: fill every block in a city, or let one grow until it earns another.','cities','Open cities',(n,d,cheap)=>!cheap&&tutBlocks()],
-  ['cv',6,'Try a covert operation',()=>'Plant a scandal, steal blueprints, sabotage a deal or bribe a minister, if your agent is not caught.','intel','Intelligence',n=>Array.isArray(n.cov)&&n.cov.length>0],
-  ['world',7,'Look round the known world',()=>`${REGIONS.length} regions, each with its own lands, climate and nations, and you may move to any of them.`,'world','Open the World page',(n,d)=>d.includes('w')||(n.log||[]).some(l=>l&&l.k==='move')]
+/* ── tutorial: the lists ── */
+/* a task: k its key, t title, h why (one sentence), v the page its button opens and b the button (or act, a data-act of
+   its own; to, an element to bring into view; cu, the currency designer), f(n, device marks, cheap) done, lc the land
+   credits it pays (1 unless said), gift resources it pays, lock(n) why it cannot be done yet ('' once it can), when()
+   whether it is in the game at all, own 1 when it pays a reward of its own (the Google step, n.glk). t, h, v and b may
+   be functions of the nation. Keys are kept for ever in n.tut.lc: never reuse one for a different task. */
+const TUT_OLD_FIRST=['issue','settle','land','build','trade','exp','dm'],TUT_CAP0='Port Alder',TUT_CULT=['lang','faith','sport','dish','anthem'];
+const tutTxt=(v,n)=>typeof v==='function'?v(n):v;
+const tutAge=n=>Date.now()-(+n.founded||0);
+const tutReg=()=>{try{if(civicRegistered())return true;}catch(e){}return !!S.google;};
+const tutAsmLock=n=>!tutReg()?'Only Registered Nations act in the Assembly: link a sign-in to your nation first.':tutAge(n)<DAY?'Opens when your nation is a day old.':'';
+const tutPopLock=(f,what)=>n=>canFeature(n,f)?'':`${what} at ${fmtPopShort(featureAt(f))} people.`;
+const tutCharterLock=n=>pgAvailable(n,'charter')?'':'Finish your charter first: it opens Customise.';
+const tutSettleLock=n=>cellOf(n.loc)<0?'Settle on the map first: your first edict asks where.':'';
+const tutCapCity=n=>{try{const c=cellOf(n.loc);return c<0?null:cityList(n).find(x=>x.c===c)||null;}catch(e){return null;}};
+const tutPrvT2=()=>{try{return prvT2(S.nation);}catch(e){return 'Provinces';}},tutPrvOn=()=>{try{return prvOnRec(S.nation);}catch(e){return false;}};
+function tutLandHint(n){
+  if(cellOf(n.loc)<0)return 'Settle first. Then credits arrive as your population grows.';
+  const cr=landCredits(n);if(cr)return `You have ${cr} to spend: click a free hex beside your border to claim one.`;
+  const np=nextCreditPop(n);return np?`Your next credit arrives at ${fmtPop(np)} people.`:'Click a free hex beside your border: the tile inspector shows what it yields and claims it for a credit.';
+}
+const TUT_LISTS=[
+  {k:'charter',c:'c',eb:'The charter',t:()=>'Your nation starts here',hk:'statehood.steps0.v1',
+   lede:'Your name, flag and founding principles are saved. A few particulars more, and your charter is complete.',
+   bonus:{gift:{food:10,timber:10},u:'t-founder'},tasks:[
+    {k:'settle',t:'Choose where your capital stands',h:'Your first edict asks where to build it: by the sea, on farmland or in the hills.',v:'issues',b:'Open edicts',f:n=>cellOf(n.loc)>=0},
+    {k:'city',t:'Name your first city',h:n=>n.capital===TUT_CAP0?`${TUT_CAP0} is only a placeholder. Give your capital a name of your own: every player in ${REGION} sees it.`:`Every player in ${REGION} sees the name of your capital.`,
+     act:'tut-city',b:'Name it',lc:3,gift:{goods:5},f:n=>(!!n.capital&&n.capital!==TUT_CAP0)||tallyOf(n,'log:cityren')>0,lock:n=>tutCapCity(n)?'':'Settle your capital first, then name it.'},
+    {k:'charter',t:'Finish your charter',h:'It opens Customise: flag layers, a coat of arms, epithets and the design of your money.',act:'pg-charter',b:'Finish charter',f:n=>pgAvailable(n,'charter')},
+    {k:'ruler',t:'Name your leader',h:n=>`Your ${String(n.leader||'Leader').toLowerCase()} heads the cabinet and signs every banknote. Settings gives them a name.`,v:'settings',to:'s-ruler',b:'Open Settings',f:n=>typeof n.ruler==='string'&&!!n.ruler.trim()},
+    {k:'culture',t:'Describe your culture',h:'A national language, religion, sport, dish or anthem: edicts mention them, and your nation page shows them.',v:'settings',to:'s-lang',b:'Open Settings',
+     f:n=>TUT_CULT.some(k=>typeof n[k]==='string'&&!!n[k].trim())},
+    {k:'flag',t:'Design your flag',h:'Stripes, emblems and colours in layers. Your flag flies on the map, on your banknotes and on every page.',v:'customise',to:'cz-sec-e',b:'Design it',f:n=>tallyOf(n,'log:flag')>0,lock:tutCharterLock}]},
+  {k:'first',c:'f',eb:'First steps',t:()=>'Welcome to Edictum',hk:'statehood.steps.v1',
+   lede:'The daily round of a nation: edicts, land and buildings, the map, your cabinet and your neighbours.',
+   bonus:{lc:2,gift:{goods:10},u:'t-steward'},tasks:[
+    {k:'issue',t:'Answer three edicts',h:'Every decision moves your census: freedoms, economy, health, happiness and dozens more.',v:'issues',b:'Open edicts',f:n=>decisions(n)>=3},
+    {k:'land',t:'Spend a land credit',h:tutLandHint,v:'map',b:'Open the map',f:n=>(Array.isArray(n.claims)&&n.claims.length>0)||tallyOf(n,'claim')>0},
+    {k:'build',t:'Start a building',h:'Each city has building blocks. Put a farm, a sawmill or a market on one.',v:'cities',b:'Open cities',lock:tutSettleLock,
+     f:n=>(n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0},
+    {k:'insp',t:'Inspect a tile on the map',h:'Click any hex to see its land, yields, rivers, weather and owner, and claim it if it borders yours.',v:'map',b:'Open the map',f:(n,d)=>d.includes('i')},
+    {k:'lens',t:'Try a map lens',h:()=>`Lenses colour every nation by ${list(Object.values(LENS_INFO).map(x=>x.n.toLowerCase()))}.`,v:'map',b:'Open the map',f:(n,d)=>d.includes('l')||mapOpt('lens','pol')!=='pol'},
+    {k:'cab',t:'Appoint a minister',h:'Your cabinet governs between edicts. A new minister pleases some colleagues and unsettles the rest.',v:'government',b:'Open the cabinet',f:n=>(+n.cabAt||0)>0},
+    {k:'trade',t:'Propose a trade',h:'Swap a resource you have spare for one you lack. Your deals show on the map as trade routes.',v:'trade',b:'Open trade',
+     f:n=>(n.deals||[]).length>0||(n.log||[]).some(l=>l.k==='trade'||l.k==='tradeend')||tallyOf(n,'deal')+tallyOf(n,'dealok')>0},
+    {k:'exp',t:'Send an expedition',h:'Explore a rumoured site on the map. The first nation to discover it names it.',v:'explore',b:'Expeditions',lock:tutSettleLock,
+     f:n=>!!n.exp||(n.disc||[]).length>0||tallyOf(n,'exp')>0},
+    {k:'dm',t:'Write to another nation',h:'Computer-run nations reply within minutes.',v:'messages',b:'Messages',f:n=>(n.dm||[]).some(m=>!m.i)||tallyOf(n,'dm')>0},
+    {k:'google',own:1,t:'Keep your nation on every device',h:'Link it to Google, Discord or an email address: it is kept safe and plays anywhere. Earns 5 land credits, and 5 iron, 5 timber and 5 goods.',
+     act:'acct-open',b:'Link a sign-in',f:n=>!!n.glk}]},
+  {k:'mark',c:'m',eb:'Next steps',t:()=>`Make your mark in ${REGION}`,hk:'statehood.steps2.v1',
+   lede:'Your region: its paper, its Assembly and Games, the nations next door, and money of your own.',
+   bonus:{lc:3,gift:{iron:10},u:'t-renowned'},tasks:[
+    {k:'dsp',t:'Read today’s Dispatch',h:'The region’s paper reports what every player decided, and your own decisions can make the front page.',v:'dispatch',b:'Read the Dispatch',gift:{goods:5},f:n=>!!(n.dsp&&n.dsp.s>0)},
+    {k:'stamp',t:'Collect a passport stamp',h:'Open the page of a nation in your region: its entry stamp goes into your passport, and every 20 stamps earn a land credit.',v:'region',b:'Open the region',gift:{goods:5},f:n=>ppCount(n)>0},
+    {k:'ppdes',t:'Design your passport',h:'Choose its cover, its pages, or the entry stamp other nations collect from you.',v:'passport',b:'Open your passport',gift:{goods:5},f:n=>ppStats(n).ds>0},
+    {k:'asm',t:'Have your say in the Assembly',h:'Vote on the resolution or endorse a neighbour: passed resolutions change every member, and endorsements choose the Delegate.',v:'assembly',b:'Open the Assembly',gift:{food:5},lock:tutAsmLock,
+     f:n=>{const a=n.asm;return !!a&&(!!(a.v&&a.v.length)||!!(a.e&&a.e.length)||!!(a.s&&a.s.length)||!!a.p);}},
+    {k:'soc',when:()=>!!tutSoc(),t:()=>`Hear what your people are saying on ${tutSoc().name}`,h:'Your citizens talk about everything you decide: see what is trending at home and across the region.',
+     v:()=>tutSoc().id,b:()=>'Open '+tutSoc().name,gift:{goods:5},f:()=>{const s=tutSoc();return !!s&&!!s.seen();}},
+    {k:'games',t:'Choose your event at the Meridian Games',h:'Your athletes train hardest for the event you pick, and score higher in it.',v:'games',b:'Open the Games',gift:{food:5},f:n=>((n.games&&n.games.en)||[]).some(e=>e&&e.f)},
+    {k:'fleet',t:'Send a party to a fleeting find',h:'Shipwrecks, whales and fairs last only hours, and only the first five parties to arrive share the spoils.',v:'explore',b:'Expeditions',gift:{timber:5},f:n=>Array.isArray(n.fl)&&n.fl.length>0},
+    {k:'cv',t:'Try a covert operation',h:'Plant a scandal, steal blueprints, sabotage a deal or bribe a minister, if your agent is not caught.',v:'intel',b:'Intelligence',gift:{iron:5},
+     lock:n=>tutAge(n)<CV_NEW?'Opens three days after founding.':'',f:n=>Array.isArray(n.cov)&&n.cov.length>0},
+    {k:'desk',t:'Clear your daily desk',h:'Three small tasks wait on your Edicts page each day. Clear all three for a land credit of their own.',v:'issues',b:'Open the desk',gift:{timber:5},f:n=>(+n.ddc||0)>0},
+    {k:'fxv',t:'Visit the Foreign Exchange Bureau',h:'See what your currency is worth, how far it is trusted, and how it compares with your neighbours’.',v:'exchange',b:'Open the Bureau',lc:2,gift:{oil:5},f:(n,d)=>d.includes('x')},
+    {k:'fxd',t:'Design your currency',h:'Name it, choose its code and symbol, and design its banknotes and coin.',v:'customise',cu:1,b:'Design it',lc:2,gift:{oil:5},lock:tutCharterLock,
+     f:n=>!!n.cur||cuRenamed(n)||tallyOf(n,'log:cur')>0}]},
+  {k:'destiny',c:'d',eb:'Advanced steps',t:()=>'Take control of your destiny',hk:'statehood.steps4.v1',
+   lede:'The long game: laws for the whole region, alliances, new cities and roads, provinces, decrees and the Games at home.',
+   bonus:{lc:5,gift:{goods:20},u:'t-sovereign'},tasks:[
+    {k:'res',t:'Put a resolution to the Assembly',h:'Write a proposal for every member to vote on. A resolution that passes changes the whole region.',v:'assembly',b:'Open the Assembly',lc:2,gift:{goods:10},lock:tutAsmLock,
+     f:n=>!!(n.asm&&(n.asm.p||n.asm.pw))},
+    {k:'ally',t:'Found or join an alliance',h:'Allies stand together when one of them is attacked, and the founder chooses who joins.',v:'diplomacy',b:'Open diplomacy',lc:2,gift:{iron:10},
+     lock:n=>canFeature(n,'alli')?'':`You may found one at ${fmtPopShort(featureAt('alli'))} people, or join sooner if an alliance invites you.`,
+     f:n=>!!n.alli||!!n.alJoin||tallyOf(n,'log:alfound')+tallyOf(n,'log:aljoin')>0},
+    {k:'city2',t:'Found a second city',h:'New cities open as your people multiply. Each has building blocks of its own and brings two land credits.',v:'cities',b:'Open cities',lc:2,gift:{food:10},
+     lock:tutPopLock('city','Your second city opens'),f:n=>(n.cities||[]).length>=2||tallyOf(n,'cities')>=2||tallyOf(n,'log:city')>0},
+    {k:'blk',t:'Fill a city’s building blocks',h:'Each block holds one building: fill every block in a city, or let one grow until it earns another.',v:'cities',b:'Open cities',lc:2,gift:{timber:10},f:(n,d,cheap)=>!cheap&&tutBlocks()},
+    {k:'road',t:'Link two cities by road',h:'Roads, railways and shipping lanes carry trade between your cities.',v:'map',b:'Open the map',lc:2,gift:{timber:10},
+     lock:n=>(n.cities||[]).length<2?'Needs a second city.':pgAvailable(n,'map')?'':'Opens once your nation holds three claimed hexes.',f:n=>(n.infra||[]).length>0},
+    {k:'prov',t:()=>'Divide your nation into '+prvLow(tutPrvT2()),h:'Give each a governor, a flag of its own and a share of the people. Switch them on in Customise first.',
+     v:()=>tutPrvOn()?'provinces':'customise',b:()=>tutPrvOn()?'Open '+tutPrvT2():'Open Customise',lc:2,gift:{goods:10},f:n=>prvOnRec(n)&&n.prov.l.length>=2},
+    {k:'repeal',t:'Repeal a policy by decree',h:'Once a day you may strike out a policy without waiting for an edict, at a small cost in happiness and political freedom.',v:'government',b:'Open the government',lc:2,gift:{goods:10},
+     lock:n=>Object.keys(n.policies||{}).length?'':'Needs a policy first: some edict answers bring one in.',f:n=>(+n.rpAt||0)>0||tallyOf(n,'log:repeal')>0},
+    {k:'bid',t:'Bid to host the Meridian Games',h:'The host welcomes the region’s athletes and their crowds.',v:'games',b:'Open the Games',lc:2,gift:{iron:10},lock:tutPopLock('host','Bids open'),f:n=>tallyOf(n,'log:bid')>0},
+    {k:'lore',t:'Write your nation’s history',h:'The factbook tells other players where your nation came from, one chapter at a time.',v:'stats',b:'Open the factbook',lc:2,gift:{goods:10},f:n=>!!n.lore&&Object.keys(n.lore).length>0},
+    {k:'world',t:'Look round the known world',h:()=>`${REGIONS.length} regions, each with its own lands, climate and nations, and you may move to any of them.`,v:'world',b:'Open the World page',lc:2,gift:{oil:10},
+     f:(n,d)=>d.includes('w')||(n.log||[]).some(l=>l&&l.k==='move')}]}
 ];
-/* a city of yours with every block built on, or grown past its first blocks */
+const TUT_ALL=TUT_LISTS.flatMap(L=>L.tasks),TUT_BY=Object.fromEntries(TUT_ALL.map(s=>[s.k,s]));
+const tutLcIds=()=>TUT_ALL.filter(s=>!s.own).map(s=>s.k);
+const tutLcOf=n=>n&&n.tut&&Array.isArray(n.tut.lc)?n.tut.lc:[];
+const tutChOf=n=>n&&n.tut&&typeof n.tut.ch==='string'?n.tut.ch:'';
+const tutTaskLc=k=>{const s=TUT_BY[k];return s?(s.lc||1):1;};
+const tutTasks=L=>L.tasks.filter(s=>{if(!s.when)return true;try{return !!s.when();}catch(e){return false;}});
+/* each task of a list: done (paid, or done now), and why not yet if it cannot be done yet */
+function tutState(n,L,cheap){
+  const d=tutDevGet(),lc=tutLcOf(n);
+  return tutTasks(L).map(s=>{let ok=!s.own&&lc.includes(s.k);if(!ok)try{ok=!!s.f(n,d,cheap);}catch(e){}let lock='';if(!ok&&s.lock)try{lock=s.lock(n)||'';}catch(e){}return {s,k:s.k,ok,lock};});
+}
+/* a list done in full, with lc the keys paid (or about to be) */
+const tutAllOk=(n,L,lc)=>tutTasks(L).every(s=>{if(!s.own)return lc.includes(s.k);try{return !!s.f(n,'',true);}catch(e){return false;}});
+/* the land credits the tutorial has paid: each task’s, and each finished list’s bonus */
+const TUT_MAXC=TUT_ALL.reduce((a,s)=>a+(s.own?0:s.lc||1),0)+TUT_LISTS.reduce((a,L)=>a+(L.bonus.lc||0),0);
+function tutCredits(n){
+  if(!n)return 0;if(!n.tut)return clamp(Math.round(+n.tlc||0),0,TUT_MAXC); /* another player's record: only the total is shared */
+  let c=0;for(const k of tutLcOf(n))c+=tutTaskLc(k);for(const L of TUT_LISTS)if(tutChOf(n).includes(L.c))c+=L.bonus.lc||0;return c;
+}
+const tutGiftText=g=>list(Object.entries(g||{}).filter(([r,v])=>v>0).map(([r,v])=>v+' '+r));
+function tutRwText(lc,g){const p=[];if(lc)p.push(`+${lc} land credit${lc===1?'':'s'}`);const t=tutGiftText(g);if(t)p.push(t);return p.join(' and ');}
+const tutTag=s=>s.own?GL_TAG:`<span class="tut-lc" title="Earns ${esc(tutRwText(s.lc||1,s.gift).slice(1))}">+${s.lc||1} land${Object.entries(s.gift||{}).map(([r,v])=>` · ${v} ${r}`).join('')}</span>`;
+/* ── tutorial: end of the lists ── */
+
+/* ── which list the Nation page shows: the first one not done, hidden on this device, or stood aside ── */
+const tutHid=(n,L)=>{try{return !!n&&localStorage.getItem(L.hk)===String(n.seed);}catch(e){return false;}};
+function tutHide(L,on){try{if(on)localStorage.setItem(L.hk,String(S.nation.seed));else localStorage.removeItem(L.hk);}catch(e){}}
+const tutAside=(n,L)=>!!(n&&n.tut&&n.tut.p===1)&&(L.k==='charter'||L.k==='first');
+const tutDone=(n,L)=>tutState(n,L).every(x=>x.ok);
+function tutCur(n){if(!n||n.npc)return null;for(const L of TUT_LISTS)if(!tutHid(n,L)&&!tutAside(n,L)&&!tutDone(n,L))return L;return null;}
+/* Settings: the lists hidden on this device and not yet done, brought back in one go */
+function stepsReset(){
+  const n=S.nation;if(!n||n.npc)return '';const hid=TUT_LISTS.filter(L=>tutHid(n,L)&&!tutDone(n,L));if(!hid.length)return '';
+  return `<div class="row" style="margin-top:14px"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show the tutorial again</button><span class="hint">${esc(list(hid.map(L=>'“'+L.t()+'”')))} ${hid.length===1?'returns':'return'} to your Nation page.</span></div>`;
+}
 function tutBlocks(){
   if(typeof blkOf!=='function')return false;const T=territory(),i=T.list.findIndex(x=>x.me);if(i<0)return false;
   return cityState(T).all.some(ct=>{if(!ct.active||ct.hi!==i)return false;const b=blkOf(ct,T);return ct.done.length>=b.n||b.n>(ct.cap?BLK_CAP0:BLK_CITY0);});
 }
-function nextState(n,cheap){
-  const d=tutDevGet(),lc=tutLcOf(n),out=[];
-  for(const [k,bit,t,h,v,b,f] of NEXT_STEPS){let ok=lc.includes(k);if(!ok)try{ok=!!f(n,d,cheap);}catch(e){}out.push({k,bit,t,h,v,b,ok});}
-  const soc=tutSoc();
-  if(soc){let ok=lc.includes('soc');if(!ok)try{ok=!!soc.seen();}catch(e){}out.push({k:'soc',bit:8,t:`Hear what your people are saying on ${soc.name}`,h:()=>'Your citizens talk about everything you decide: see what is trending at home and across the region.',v:soc.id,b:'Open '+soc.name,ok});}
-  return out;
+function tutBtn(n,s,cls){
+  const b=esc(tutTxt(s.b,n)),c=`btn ghost small-btn${cls?' '+cls:''}`;if(s.act)return `<button type="button" class="${c}" data-act="${s.act}">${b}</button>`;
+  return `<button type="button" class="${c}" data-act="${s.to?'tut-go':'go'}" data-v="${esc(tutTxt(s.v,n))}"${s.to?` data-to="${s.to}"`:''}${s.cu?' data-cu-jump="1"':''}>${b}</button>`;
 }
-function nextHidden(n){try{return localStorage.getItem(TUT_NEXT_KEY)===String(n.seed);}catch(e){return false;}}
-function nextHide(on){try{if(on)localStorage.setItem(TUT_NEXT_KEY,String(S.nation.seed));else localStorage.removeItem(TUT_NEXT_KEY);}catch(e){}}
-function tutFirstDone(n){try{return stepsHidden(n)||stepsState(n).every(s=>s.ok);}catch(e){return false;}}
-function tutNextCard(n){
-  if(!n||n.npc||!tutFirstDone(n)||nextHidden(n))return '';
-  const st=nextState(n),done=st.filter(s=>s.ok).length;if(done===st.length)return '';
-  return `<section class="stp stp-nx" aria-labelledby="nxt-h"><div class="stp-h"><div><p class="eyebrow">Next steps</p><h2 class="stp-t" id="nxt-h" tabindex="-1">Making your mark in ${esc(REGION)}</h2></div><span class="stp-n">${done} of ${st.length} done${tutLcHead(n,1)}</span></div>
-    <span class="bar" role="img" aria-label="${done} of ${st.length} next steps done"><i style="width:${(done/st.length*100).toFixed(1)}%"></i></span>
-    <ol class="stp-l">${st.map(s=>`<li class="${s.ok?'done':''}" data-k="${s.k}"><span class="stp-i" aria-hidden="true">${s.ok?'✓':''}</span><span class="stp-x"><b>${esc(s.t)}${s.ok?'':tutLcTag()}</b><span class="hint">${s.ok?'Done':esc(tutCall(s.h,''))}</span></span>${s.ok?'':`<button class="btn ghost small-btn" data-act="go" data-v="${esc(s.v)}">${esc(s.b)}</button>`}</li>`).join('')}</ol>
-    <div class="stp-f"><button class="linkish small" data-act="tut-go" data-v="help" data-to="help-tut">How to play</button><button class="linkish small" data-act="tut-next-hide">Hide this list</button></div></section>`;
+function tutRow(n,x,me){
+  const s=x.s;
+  return `<li class="${x.ok?'done':x.lock?'later':''}" data-k="${s.k}"><span class="stp-i" aria-hidden="true">${x.ok?'✓':''}</span><span class="stp-x"><b>${esc(tutTxt(s.t,n))}${x.ok?'':tutTag(s)}</b><span class="hint">${x.ok?'Done':esc(x.lock||tutTxt(s.h,n)||'')}</span></span>${x.ok||!me?'':tutBtn(n,s)}</li>`;
 }
-function tutNextReset(){
-  const n=S.nation;if(!n||n.npc||!nextHidden(n)||!tutFirstDone(n)||nextState(n).every(s=>s.ok))return '';
-  return `<div class="row" style="margin-top:14px"><button type="button" class="btn ghost small-btn" data-act="tut-next-show">Show the next steps again</button><span class="hint">The second checklist returns to your Nation page.</span></div>`;
+const tutBonusLine=(n,L)=>{const u=UNLOCKS[L.bonus.u],paid=tutChOf(n).includes(L.c);
+  return `<p class="hint tut-bn">${paid?'List complete: its bonus is paid.':`Finish the list: ${tutRwText(L.bonus.lc||0,L.bonus.gift)}, and the epithet “${esc(u?u.n:'')}” for your nation.`}</p>`;};
+/* a nation founded with the progressive reveals sees at most three tasks of its first two lists at a time */
+function tutCard(n){
+  const L=tutCur(n);if(!L)return '';const i=TUT_LISTS.indexOf(L),st=tutState(n,L),done=st.filter(x=>x.ok).length,all=st.length,compact=pgNew(n)&&i<2;
+  const rows=compact?st.filter(x=>!x.ok).slice(0,3):st,earned=tutLcOf(n).filter(k=>tutTasks(L).some(s=>s.k===k)).reduce((a,k)=>a+tutTaskLc(k),0);
+  return `<section class="stp tut-l tut-l-${L.k}${compact?' pg-first':''}${L.k==='charter'&&!pgAvailable(n,'charter')?' pg-charter':''}" data-l="${L.k}" aria-labelledby="tut-h-${L.k}"><div class="stp-h"><div><p class="eyebrow">${esc(L.eb)} · list ${i+1} of ${TUT_LISTS.length}</p><h2 class="stp-t" id="tut-h-${L.k}" tabindex="-1">${esc(L.t())}</h2></div><span class="stp-n">${done} of ${all} done<span class="tut-lch"> · ${earned?`${earned} land ${earned===1?'credit':'credits'} earned`:'rewards for every task'}</span></span></div>
+    <span class="bar" role="img" aria-label="${done} of ${all} tasks done"><i style="width:${(done/all*100).toFixed(1)}%"></i></span>
+    <p class="tut-lede">${esc(L.lede)}</p>
+    <ol class="stp-l">${rows.map(x=>tutRow(n,x,true)).join('')}</ol>${tutBonusLine(n,L)}
+    <div class="stp-f"><button type="button" class="linkish small" data-act="tut-go" data-v="help" data-to="help-tut">${compact&&done+rows.length<all?`All ${all} tasks, and the next lists`:'The tutorial in How to play'}</button><button type="button" class="linkish small" data-act="tut-hide" data-l="${L.k}">Hide this list</button></div></section>`;
 }
-stepsReset=(f=>function(){let h='';try{h=f.apply(this,arguments);}catch(e){}return h+tutNextReset();})(stepsReset);
 
 /* ── What’s new: once, for a nation that played an earlier version ── */
 function tutNewCard(n){
   if(!n||n.npc||TUT.newGone===String(n.seed)||((n.tut&&n.tut.w)||0)>=TUT_V||tutFresh(n))return '';
-  const bt=tutCall(()=>btReady(n),false),it=[[bt?'space':'help',bt?'belt':'',bt?'':'help-belt','The asteroid belt','A five-month voyage from Mars, then mining, claims and platinum rushes.'],
-    ['explore','','','Fleeting finds','Shipwrecks, whales and fairs that last a few hours; the first five parties share them.'],
-    ['cities','','','Cities with their own people','Every city has a population, and building blocks that grow with it.'],
-    ['issues','','','More than 250 new edicts','On government, rights, energy, the seasons, space, trade, the press, faith and stranger things.'],
-    ['help','','help-tut','Next steps and space guides','A land credit for every tutorial step, a second checklist on this page, and guides that open on the Moon, Mars and in the belt.']];
-  const soc=tutSoc();if(soc)it.push([soc.id,'','',soc.name,'Hear what your people are saying.']);
+  const L=tutCur(n),it=[['nation','','','The tutorial in four lists',`The charter, Welcome to Edictum, Make your mark and Take control of your destiny: ${TUT_ALL.length} tasks with land credits, resources and four new epithets. What you have done already is ticked, and pays.`],
+    ['help','','help-tut','A task for every part of the game','Name your first city and your leader, appoint a minister, pick your event at the Games, put a resolution to the Assembly, found an alliance, and more.'],
+    ['customise','','','Banknotes with a face','Your leader’s portrait engraved on every note, signatures, a series of ten values and the back of each note.']];
   return `<section class="tut-new" aria-labelledby="tut-new-h"><div class="tut-new-h"><div><p class="eyebrow">What’s new in Version ${TUT_V}</p><h2 class="stp-t" id="tut-new-h" tabindex="-1">Since you last played</h2></div><button class="linkish small" data-act="tut-new-x" aria-label="Dismiss what’s new">Dismiss</button></div>
-    <ul class="tut-new-l">${it.map(([v,b,to,t,d])=>`<li><button class="linkish" data-act="tut-go" data-v="${esc(v)}"${b?` data-b="${b}"`:''}${to?` data-to="${to}"`:''}>${esc(t)}</button><span class="hint">${esc(d)}</span></li>`).join('')}</ul>
-    <p class="hint tut-new-f">From Version 23, in case you missed it: rivers, trade routes, seasons and weather, growing cities, news pins, lenses and the tile inspector on the map, and the Space page. <button class="linkish small" data-act="go" data-v="map">See the map</button></p></section>`;
+    <ul class="tut-new-l">${it.map(([v,b,to,t,d])=>`<li><button class="linkish" data-act="tut-go" data-v="${esc(v)}"${b?` data-b="${b}"`:''}${to||L&&v==='nation'?` data-to="${to||'tut-h-'+L.k}"`:''}>${esc(t)}</button><span class="hint">${esc(d)}</span></li>`).join('')}</ul>
+    <p class="hint tut-new-f">From Version 24, in case you missed it: the asteroid belt, fleeting finds, cities with people of their own, and more than 250 new edicts. <button class="linkish small" data-act="tut-go" data-v="help" data-to="help-tut">How to play</button></p></section>`;
 }
 function tutNewDismiss(){
   const n0=S.nation;if(!n0)return;TUT.newGone=String(n0.seed);const n=clone(n0);n.tut=tutNorm(Object.assign({},n.tut||{},{w:TUT_V}));commit(n);render();
-  const h=document.getElementById('nxt-h')||document.getElementById('stp-h')||document.querySelector('.main h1,.hero h1');
+  const L=tutCur(S.nation),h=(L&&document.getElementById('tut-h-'+L.k))||document.querySelector('.main h1,.hero h1');
   if(h){try{if(!h.hasAttribute('tabindex'))h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}catch(e){}}
 }
-firstStepsCard=(f=>function(n){let a='',b='',c='';try{a=tutNewCard(n);}catch(e){}try{b=f.apply(this,arguments);}catch(e){}try{c=tutNextCard(n);}catch(e){}return a+b+c;})(firstStepsCard);
+function firstStepsCard(n){if(!n||n.npc)return '';let a='',b='';try{a=tutNewCard(n);}catch(e){}try{b=tutCard(n);}catch(e){}return a+b;}
 
-/* ── the record: Next steps done (sticky), and no What’s new for a nation founded in this version ── */
-/* Only persisted tutorial steps can earn ordinary credits. Google linking has its own five-credit
-   reward, recorded in n.glk; it is deliberately absent from tutLcIds() and must not be claimed here. */
-function tutLcNow(n){const out=[],ids=tutLcIds();try{for(const s of stepsState(n))if(s.ok)out.push(s.k);}catch(e){}try{for(const s of nextState(n))if(s.ok)out.push(s.k);}catch(e){}return out.filter(k=>ids.includes(k));}
+/* ── tutorial: rewards ── */
+/* Each task pays once, the first time it is done, and a list done in full pays its bonus once. The Google step pays
+   its own five credits (n.glk, below) and is deliberately absent from tutLcIds(): it must not be claimed here. */
+function tutLcNow(n){const out=[],ids=tutLcIds();for(const L of TUT_LISTS)try{for(const x of tutState(n,L))if(x.ok&&!x.s.own)out.push(x.k);}catch(e){}return out.filter(k=>ids.includes(k));}
+function tutPend(n){const had=tutLcOf(n),add=tutLcNow(n).filter(k=>!had.includes(k)),lc=had.concat(add),ch=tutChOf(n);return {add,lc,chAdd:TUT_LISTS.filter(L=>!ch.includes(L.c)&&tutAllOk(n,L,lc))};}
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc)return;const t=Object.assign({},n.tut||{});
   if(!n.tut&&tutFresh(n))t.w=TUT_V;
-  const had=tutLcOf(n),add=tutLcNow(n).filter(k=>!had.includes(k));if(add.length)t.lc=had.concat(add);
+  if(!t.v){t.v=TUT_V;if(TUT_OLD_FIRST.every(k=>tutLcOf(n).includes(k)))t.p=1;}
+  const {add,lc,chAdd}=tutPend(n);if(add.length)t.lc=lc;if(chAdd.length)t.ch=tutChOf(n)+chAdd.map(L=>L.c).join('');
   const v=tutNorm(t);if(v)n.tut=v;else delete n.tut;
-  const one=add.filter(k=>!CU_STEPS.some(c=>c[0]===k)),got=one.length;if(got<=0)return;
-  if(got>1)return [`Your tutorial steps earned ${got} land credits. Spend them on the map.`];
-  const s=FIRST_STEPS.find(x=>x[0]===one[0]),x=NEXT_STEPS.find(x=>x[0]===one[0]),soc=tutSoc(),nm=s?s[1]:x?x[2]:soc?`Hear what your people are saying on ${soc.name}`:'';
-  return [`Step done${nm?': '+nm:''}. +1 land credit. Spend it on the map.`];
+  /* n.tut stays private; its credits are shared as one number (n.tlc), so other players’ games, and the admin’s list of
+     suspicious nations, can count the land a nation has earned */
+  const tc=tutCredits(n);if(tc)n.tlc=tc;else delete n.tlc;
+  if(!add.length&&!chAdd.length)return;
+  const gift={},more=g=>{for(const [r,x] of Object.entries(g||{}))gift[r]=(gift[r]||0)+x;},one=add.length===1?TUT_BY[add[0]]:null;
+  for(const k of add)more(TUT_BY[k].gift);const stepGift=Object.assign({},gift);for(const L of chAdd)more(L.bonus.gift);
+  if(Object.keys(gift).length){const st=stockNow(n,now);for(const [r,x] of Object.entries(gift))st[r]=stockLimit(n,r,num0(st[r])+x,st[r]);n.stock=roundStock(st);n.stockAt=now;}
+  const out=[],lcs=add.reduce((a,k)=>a+tutTaskLc(k),0),spend=c=>c?` Spend ${c===1?'it':'them'} on the map.`:'';
+  if(one)out.push(`Step done: ${tutTxt(one.t,n)}. ${tutRwText(lcs,stepGift)}.${spend(lcs)}`);
+  else if(add.length)out.push(`Your tutorial steps earned ${lcs} land credits${tutGiftText(stepGift)?', and '+tutGiftText(stepGift):''}.${spend(lcs)}`);
+  for(const L of chAdd){const u=UNLOCKS[L.bonus.u];out.push(`List complete: ${L.t()}. ${tutRwText(L.bonus.lc||0,L.bonus.gift)}${u?`, and the epithet “${u.n}”, under Epithet in Customise`:''}.`);}
+  return out;
 });
-/* the credits: one a step, on top of growth, milestones and bonuses (landCredits, the badge, the inspector and the
+/* the credits: the tutorial’s on top of growth, milestones and bonuses (landCredits, the badge, the inspector and the
    Land office notice all follow landEarned; nextCreditPop follows earnedAt) */
-landEarned=(f=>function(n){return f.apply(this,arguments)+tutLcOf(n).length;})(landEarned);
-earnedAt=(f=>function(n){return f.apply(this,arguments)+tutLcOf(n).length;})(earnedAt);
+landEarned=(f=>function(n){return f.apply(this,arguments)+tutCredits(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+tutCredits(n);})(earnedAt);
+/* the epithets a finished list earns */
+Object.assign(UNLOCKS,{'t-founder':{k:'title',n:'the Founder',src:'tut'},'t-steward':{k:'title',n:'the Steward',src:'tut'},
+  't-renowned':{k:'title',n:'the Renowned',src:'tut'},'t-sovereign':{k:'title',n:'the Sovereign',src:'tut'}});
+UNLOCK_SOURCES.push({earned:n=>TUT_LISTS.filter(L=>tutChOf(n).includes(L.c)).map(L=>L.bonus.u),
+  how:id=>{const L=TUT_LISTS.find(L=>L.bonus.u===id);return L?`Finish the tutorial list “${L.t()}” on your Nation page.`:null;}});
+/* ── tutorial: end of rewards ── */
 /* ── the Google step: linking the account pays 5 land credits and 5 iron, 5 timber and 5 goods, once (n.glk).
    The shim says whether the account is linked (user.google()), and tells the page when it links. ── */
 const GL_CREDITS=5,GL_GIFT={iron:5,timber:5,goods:5};
@@ -32202,12 +32290,13 @@ function glCheck(){const n=S.nation;if(S.google&&n&&!n.glk&&!n.npc&&n.name&&!dor
 window.addEventListener('edictum:linked',async()=>{try{const u=await window.claude.use('user');S.google=!!(u&&typeof u.google==='function'&&await u.google());glCheck();render();}catch(e){}});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="acct-open"]');if(!el)return;
   const b=document.querySelector('.ed-acct-b');if(b)b.click();else toast('Sign-in is not available right now. Reload the page when you are back online.');});
-/* a step ticked without a save (a lens tried, a tile inspected, the World or social page seen, a city grown):
-   one ordinary save writes it into n.tut.lc. Each step is tried once a session, so nothing saves on every render. */
+/* a task ticked without a save (a lens tried, a tile inspected, the World or social page seen, a city grown, the
+   Assembly’s answer arriving), or a list finished by a reward paid after the tutorial’s hook (the Google step): one
+   ordinary save writes it into n.tut. Each is tried once a session, so nothing saves on every render. */
 function tutLcSoon(){if(!TUT.lcT)TUT.lcT=setTimeout(tutLcCheck,150);}
 function tutLcCheck(){
-  TUT.lcT=0;const n=S.nation;if(!n||n.npc||!n.name)return;const seed=String(n.seed),had=tutLcOf(n);
-  const pend=tutLcNow(n).filter(k=>!had.includes(k)&&!TUT.lcTry.has(seed+':'+k));if(!pend.length)return;
+  TUT.lcT=0;const n=S.nation;if(!n||n.npc||!n.name)return;const seed=String(n.seed),p=tutPend(n);
+  const pend=p.add.concat(p.chAdd.map(L=>'ch:'+L.c)).filter(k=>!TUT.lcTry.has(seed+':'+k));if(!pend.length)return;
   pend.forEach(k=>TUT.lcTry.add(seed+':'+k));commit(clone(n));
   const a=document.activeElement,typing=a&&(a.tagName==='TEXTAREA'||a.isContentEditable||(a.tagName==='INPUT'&&!/^(checkbox|radio|button|submit|range)$/i.test(a.type||'')));
   if(!typing&&!TUT.g)render();
@@ -32449,27 +32538,37 @@ function tutSpaceHtml(h,now){
 let tutWrapped=false;
 start=(f=>function(){if(!tutWrapped&&VIEWS_EXT.space){tutWrapped=true;VIEWS_EXT['space']=(g=>now=>{let h=g(now);try{h=tutSpaceHtml(h,now);}catch(e){}return h;})(VIEWS_EXT.space);}return f.apply(this,arguments);})(start);
 
-/* ── How to play: a Tutorial section at the top ── */
+/* ── How to play: a Tutorial section at the top, with all four lists as far as this nation has gone ── */
 function tutHelp(n){
-  const me=n&&!n.npc,low=s=>s.replace(/^./,c=>c.toLowerCase());let st='';
-  if(me){const f=stepsState(n),fd=f.filter(s=>s.ok).length,x=nextState(n),xd=x.filter(s=>s.ok).length,first=tutFirstDone(n);
-    const row=(nm,d,all,hid,l,extra)=>`<li><b>${nm}</b> <span class="hint">${d===all?`all ${all} done`:`${d} of ${all} done`}${hid&&d<all?', hidden on this device':''}${extra||''}</span>${d<all&&!extra?` <button class="linkish small" data-act="tut-show" data-l="${l}">${hid?'Show them again':'See them'}</button>`:''}</li>`;
-    st=`<ul class="tut-hl">${row('First steps',fd,f.length,stepsHidden(n),'first')}${row('Next steps',xd,x.length,nextHidden(n),'next',first?'':', once the first steps are done or hidden')}</ul>
-      <div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show the checklists again</button></div>`;}
-  const nx=NEXT_STEPS.map(s=>low(s[2])),soc=tutSoc();if(soc)nx.push(`hear what your people are saying on ${soc.name}`);
-  return `<p>Two checklists on your Nation page see you started. <b>First steps</b> covers the basics: ${esc(list(FIRST_STEPS.map(s=>low(s[1]))))}. <b>Next steps</b> follows once those are done or hidden: ${esc(list(nx))}. Each ticks itself off from what your nation has actually done, and each can be hidden on this device.</p>
-    <p>Every step earns <b>one land credit</b> the first time it is done, ${tutLcIds().length-(soc?0:1)} in all: spend them on the map like any other credit. A step earns its credit once, and keeps it even if it later comes undone.</p>${st}
+  const me=!!n&&!n.npc,m=n||{},cur=me?tutCur(n):null,hid=me?TUT_LISTS.filter(L=>tutHid(n,L)&&!tutDone(n,L)):[];
+  const lists=TUT_LISTS.map((L,i)=>{
+    const st=me?tutState(n,L):tutTasks(L).map(s=>({s,k:s.k,ok:false,lock:''})),done=st.filter(x=>x.ok).length,all=st.length;
+    const where=!me?'':done===all?`all ${all} done`:`${done} of ${all} done${tutHid(n,L)?', hidden on this device':tutAside(n,L)?', set aside: your nation finished the earlier First steps':cur===L?', on your Nation page now':''}`;
+    return `<h3 class="help-h3" id="tut-hl-${L.k}">${i+1}. ${esc(L.eb)}: ${esc(L.t())}</h3><p>${esc(L.lede)}${where?` <span class="hint">${where}.</span>`:''}</p>
+      <ol class="stp-l tut-hl-l">${st.map(x=>tutRow(m,x,me)).join('')}</ol>${tutBonusLine(m,L)}
+      ${me&&tutHid(n,L)&&done<all?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-show" data-l="${L.k}">Show it again</button></div>`:''}`;}).join('');
+  return `<p>Four lists on your Nation page see you from founding to the long game, one at a time: each appears once the one before is done or hidden. Every task ticks itself off from what your nation has actually done, and pays the first time it is done: land credits to spend on the map and, for most, a gift of resources. A task keeps its reward even if it later comes undone. A list done in full pays a bonus, and an epithet for your nation under Epithet in Customise.</p>
+    <p>Some tasks wait on your nation: a second city opens at ${fmtPopShort(featureAt('city'))} people, alliances at ${fmtPopShort(featureAt('alli'))}, bids for the Games at ${fmtPopShort(featureAt('host'))}, and the Assembly to Registered Nations a day old. Until then the task says when.</p>
+    ${hid.length>1?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show every hidden list again</button></div>`:''}${lists}
     <h3 class="help-h3">Space guides</h3>
     <p>Space has guides of its own. The first time the Moon opens to you, then Mars, then the asteroid belt, and again when your ship reaches the belt, a short guide walks through what is new, pointing at the Space page as it goes. Each appears once for your nation, on whichever device you play, and never while you are in the middle of something. Each body’s tab also keeps a checklist of its first five tasks, with a “?” that reopens its guide.</p>
     ${me?`<div class="tut-hb">${[...TUT_GS].map(g=>`<button type="button" class="btn ghost small-btn" data-act="tut-guide" data-g="${g}"><span class="tut-qi" aria-hidden="true">?</span>${esc(TUT_GUIDES[g].bt)}</button>`).join('')}</div>`:''}`;
 }
 HELP_EXT.push({k:'tut',t:'Tutorial',top:true,body:n=>tutHelp(n)});
+uxUnlockInfo=(f=>function(id){return UNLOCKS[id]&&UNLOCKS[id].src==='tut'?{label:'View the tutorial',view:'help',target:'#help-tut'}:f.apply(this,arguments);})(uxUnlockInfo);
 
 /* ── actions ── */
 function tutGo(v,b,to){
   if(b){S.spBody=b;if(b==='belt')S.btTab='map';}go(v);if(!to)return;let k=0;
   const f=()=>{const t=document.getElementById(to);if(!t){if(++k<12)setTimeout(f,50);return;}t.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});
-    const h=t.matches('h1,h2,h3')?t:t.querySelector('h2[tabindex]')||t;try{if(!h.hasAttribute('tabindex'))h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}catch(e){}};
+    const h=t.matches('h1,h2,h3,input,select,textarea')?t:t.querySelector('h2[tabindex]')||t;try{if(!h.hasAttribute('tabindex')&&!h.matches('input,select,textarea'))h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}catch(e){}};
+  setTimeout(f,30);
+}
+/* Name your first city: the Cities page, with the capital open and its rename form ready */
+function tutCityGo(){
+  const n=S.nation,c=n&&tutCapCity(n);if(!c){go('issues');return;}
+  go('cities');S.cityOpen=c.id;S.c3Ren=c.id;S.c3RenVal='';S.c3RenErr='';render();
+  let k=0;const f=()=>{const i=document.getElementById('c3-ren');if(!i){if(++k<12)setTimeout(f,50);return;}i.scrollIntoView({block:'center',behavior:mfxRM()?'auto':'smooth'});try{i.focus({preventScroll:true});i.select();}catch(e){}};
   setTimeout(f,30);
 }
 document.addEventListener('click',e=>{
@@ -32479,10 +32578,12 @@ document.addEventListener('click',e=>{
   if(a==='tut-g-next'){tutStep(1,true);return;}
   if(a==='tut-g-back'){tutStep(-1,true);return;}
   if(a==='tut-g-there'){tutThere();return;}
-  if(a==='tut-next-hide'){nextHide(true);render();toast('The next steps are hidden. Settings, or the Tutorial in How to play, can bring them back.');return;}
-  if(a==='tut-next-show'){nextHide(false);toast('The next steps are back on your Nation page.');render();return;}
-  if(a==='tut-restore'){stepsHide(false);nextHide(false);tutGo('nation','',tutFirstDone(S.nation)?'nxt-h':'stp-h');toast('The checklists are back on your Nation page.');return;}
-  if(a==='tut-show'){const l=el.dataset.l;if(l==='first')stepsHide(false);else nextHide(false);tutGo('nation','',l==='first'?'stp-h':'nxt-h');return;}
+  const L=TUT_LISTS.find(x=>x.k===el.dataset.l);
+  if(a==='tut-hide'&&L){tutHide(L,true);render();toast(`“${L.t()}” is hidden. The Tutorial in How to play can bring it back.`);
+    const N=tutCur(S.nation),h=N&&document.getElementById('tut-h-'+N.k);if(h)try{h.focus({preventScroll:true});}catch(e){}return;}
+  if(a==='tut-show'&&L){tutHide(L,false);const N=tutCur(S.nation);if(N===L)tutGo('nation','','tut-h-'+L.k);else{render();toast(`“${L.t()}” returns to your Nation page once the lists before it are done or hidden.`);}return;}
+  if(a==='tut-restore'){for(const x of TUT_LISTS)tutHide(x,false);const N=tutCur(S.nation);tutGo('nation','',N?'tut-h-'+N.k:'');toast('The tutorial lists are back on your Nation page.');return;}
+  if(a==='tut-city'){tutCityGo();return;}
   if(a==='tut-new-x'){tutNewDismiss();return;}
   if(a==='tut-go'){tutGo(el.dataset.v,el.dataset.b||'',el.dataset.to||'');return;}
 });
@@ -33546,13 +33647,6 @@ NOTIF_SOURCES.push((n,now)=>{
   return out.slice(0,3);
 });
 
-/* ── the tutorial: a Next step, and How to play ── */
-{const st=['prov',9,'',()=>`Give each a governor, a flag of its own and a share of the people. Switch them on in Customise first.`,'','',n=>prvOnRec(n)&&n.prov.l.length>=2];
- const T2=()=>{try{return prvT2(S.nation);}catch(e){return 'Provinces';}},on=()=>{try{return prvOnRec(S.nation);}catch(e){return false;}};
- Object.defineProperty(st,2,{get:()=>'Divide your nation into '+prvLow(T2()),enumerable:true});
- Object.defineProperty(st,4,{get:()=>on()?'provinces':'customise',enumerable:true});
- Object.defineProperty(st,5,{get:()=>on()?'Open '+T2():'Open Customise',enumerable:true});
- NEXT_STEPS.push(st);}
 HELP_EXT.push({k:'provinces',t:'Provinces and states',body:n=>{const T2=n?prvT2(n):'Provinces',t1=prvLow(n?prvT1(n):'Province'),t2=prvLow(T2);
   return `<p>Any player nation may divide itself into provinces, or states, counties, cantons, prefectures, departments, oblasts, shires, duchies or lands. It is off until you switch it on in <button type="button" class="linkish" data-act="prv-cz">Customise</button>, where you also choose the word. Switched on, ${esc(prvLow(n&&n.prov?T2:'they'))} get a page of their own in the menu, under Your nation. Switching off hides them and keeps everything.</p>
   <p><b>Borders.</b> Every hex you hold belongs to the ${esc(t1)} whose seat is nearest through your own land, unless you move it by hand. A capital ${esc(t1)} is made round your capital, and a second round your second city if you have one. You may have one for every ${PRV_PER} hexes you hold (up to ${PRV_MAXL}), each with at least ${PRV_MIN} hexes, and each must stay in one piece: a move that would cut one in two is refused. New land joins the nearest; lost land leaves; a seat lost in war moves to the nearest hex still held.</p>
@@ -36150,7 +36244,7 @@ DISPATCH_SOURCES.push(ctx=>{
 HELP_EXT.push({k:'currency',t:'Currencies and the Foreign Exchange Bureau',body:n=>`<p>Every nation has its own currency. Name it, choose its code and symbol, and design its banknote and coin on the <b>Customise</b> page; a suggestion is ready from the day the nation is founded.</p>
 <p>Banknotes are engraved: the leader in profile (the face from the cabinet), the capital, the national animal or the arms, signed by the leader and the Finance Minister. Every value of the series has its own colour and size, and its back carries a map of your territory: turn the note over to see it. Answer the <b>Face Value</b> edict and its choice appears on the 50. When a new leader takes office, the notes begin a new series, and the old ones go to the leaders’ hall of the museum.</p>
 <p>The <b>Foreign Exchange Bureau</b> (in the menu, under Abroad) publishes every currency’s exchange rate once a day, from each nation’s real economy: productivity, growth, stable government and prices, trade and development. Each currency also has a <b>Currency Prestige</b> rating from 0 to 100, from Fragile to Highly Trusted, which measures confidence, not value: a currency worth a hundred of another is not, for that, more trusted. Prestige is earned slowly, by staying stable, growing, trading and keeping inflation and debt in check, and a young currency needs 180 days to build a full track record.</p>
-<p>The <b>Currency &amp; finance</b> achievements and the <b>National Mint</b> set in the museum earn more designs: engravings, coin metals and shapes, and holographic and gold-foil security strips. Once the first and next steps are done, the <b>Treasury steps</b> on your Nation page pay ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil each for visiting the Bureau and designing your currency.</p>
+<p>The <b>Currency &amp; finance</b> achievements and the <b>National Mint</b> set in the museum earn more designs: engravings, coin metals and shapes, and holographic and gold-foil security strips. In the tutorial, the <b>Next steps</b> on your Nation page pay ${TUT_BY.fxv.lc} land credits and ${TUT_BY.fxv.gift.oil} oil each for visiting the Bureau and designing your currency.</p>
 <p>Names and designs never change a currency’s value or prestige, and nothing can be bought that does. New resource quotes use relative economic strength, up to 8% either way. A stronger currency buys imports with fewer exports; a weaker currency makes its exports cheaper to foreign buyers. Signed deals retain their daily quantities. The Bureau explains policy effects on confidence, and records decisions that change monetary credibility, debt, prices, income or employment. Counterfeit currency operations add temporary verification costs to new quotes, halved by Counter-Intelligence.</p>`});
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="cu-"]');if(!el||!S.nation)return;const a=el.dataset.act,u=CU.ui;
@@ -36170,8 +36264,6 @@ document.addEventListener('click',e=>{
     box.classList.toggle('on',on);if(front)front.setAttribute('aria-hidden',String(on));if(back)back.setAttribute('aria-hidden',String(!on));
     el.setAttribute('aria-pressed',String(on));el.textContent=on?'Show the front':'Turn the note over';
   }
-  else if(a==='cu-steps-hide'){cuStepsHide(true);render();}
-  else if(a==='cu-steps-show'){cuStepsHide(false);go('nation');}
 });
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-cu-jump]');if(el)setTimeout(()=>{const t=document.getElementById('cz-sec-c');if(t)t.scrollIntoView({block:'start'});},0);});
 const cuInput=e=>{
@@ -36242,40 +36334,6 @@ ACH_CATS.splice(ACH_CATS.length-1,0,['cur','Currency & finance']);ACH_CAT.cur='C
     ['mi-crown','The Gold Standard','crown','#E3B341','l','A crown of the national currency, cast in the metal it is supposed to be as good as. For once, it is.','Have your currency classed as Highly Trusted.',R(n=>cuTrust(n,4))]]};
   COL_SETS.push(s);COL_SET_BY_ID[s.id]=s;s.items=s.items.map(([id,n,g,c,r,l,h,q])=>{const a={id,set:s.id,n,g,c,r,l,h,q};COL_ITEMS.push(a);COL_BY_ID[id]=a;return a;});}
 
-/* ── Treasury steps: the third checklist on the Nation page, once the Next steps are done or hidden. Each step pays
-   CU_STEP_CREDITS land credits and CU_STEP_GIFT, once (kept in n.tut.lc with the other steps, so never twice). ── */
-const CU_STEPS=[
-  ['fxv','Visit the Foreign Exchange Bureau','See what your currency is worth, how far it is trusted, and how it compares with your neighbours’.','exchange','Open the Bureau',(n,d)=>d.includes('x')],
-  ['fxd','Design your currency','Name it, choose its code and symbol, and design its banknote and coin.','customise','Design it',n=>!!n.cur||cuRenamed(n)]
-];
-const CU_STEP_CREDITS=2,CU_STEP_GIFT={oil:5},CU_STEPS_KEY='statehood.steps3.v1';
-function cuStepsState(n){const d=tutDevGet(),lc=tutLcOf(n);return CU_STEPS.map(([k,t,h,v,b,f])=>{let ok=lc.includes(k);if(!ok)try{ok=!!f(n,d);}catch(e){}return {k,t,h,v,b,ok};});}
-function cuStepsHidden(n){try{return localStorage.getItem(CU_STEPS_KEY)===String(n.seed);}catch(e){return false;}}
-function cuStepsHide(on){try{if(on)localStorage.setItem(CU_STEPS_KEY,String(S.nation.seed));else localStorage.removeItem(CU_STEPS_KEY);}catch(e){}}
-function cuNextDone(n){try{return tutFirstDone(n)&&(nextHidden(n)||nextState(n).every(s=>s.ok));}catch(e){return false;}}
-function cuStepsCard(n){
-  if(!n||n.npc||!cuNextDone(n)||cuStepsHidden(n))return '';
-  const st=cuStepsState(n),done=st.filter(s=>s.ok).length;if(done===st.length)return '';
-  const tag=`<span class="tut-lc" title="Earns ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil">+${CU_STEP_CREDITS} land · ${CU_STEP_GIFT.oil} oil</span>`;
-  return `<section class="stp stp-cu" aria-labelledby="cus-h"><div class="stp-h"><div><p class="eyebrow">Treasury steps</p><h2 class="stp-t" id="cus-h" tabindex="-1">Money of your own</h2></div><span class="stp-n">${done} of ${st.length} done<span class="tut-lch"> · ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil a step</span></span></div>
-    <span class="bar" role="img" aria-label="${done} of ${st.length} treasury steps done"><i style="width:${(done/st.length*100).toFixed(1)}%"></i></span>
-    <ol class="stp-l">${st.map(s=>`<li class="${s.ok?'done':''}" data-k="${s.k}"><span class="stp-i" aria-hidden="true">${s.ok?'✓':''}</span><span class="stp-x"><b>${esc(s.t)}${s.ok?'':tag}</b><span class="hint">${s.ok?'Done':esc(s.h)}</span></span>${s.ok?'':`<button class="btn ghost small-btn" data-act="go" data-v="${s.v}"${s.k==='fxd'?' data-cu-jump="1"':''}>${esc(s.b)}</button>`}</li>`).join('')}</ol>
-    <div class="stp-f"><button class="linkish small" data-act="go" data-v="help">How to play</button><button class="linkish small" data-act="cu-steps-hide">Hide this list</button></div></section>`;
-}
-firstStepsCard=(f=>function(n){let a='',b='';try{a=f.apply(this,arguments);}catch(e){}try{b=cuStepsCard(n);}catch(e){}return a+b;})(firstStepsCard);
-stepsReset=(f=>function(){let h='';try{h=f.apply(this,arguments);}catch(e){}const n=S.nation;
-  try{if(n&&!n.npc&&cuStepsHidden(n)&&cuNextDone(n)&&!cuStepsState(n).every(s=>s.ok))h+=`<div class="row" style="margin-top:14px"><button type="button" class="btn ghost small-btn" data-act="cu-steps-show">Show the treasury steps again</button><span class="hint">The third checklist returns to your Nation page.</span></div>`;}catch(e){}
-  return h;})(stepsReset);
-/* done steps go into n.tut.lc with the others; each is worth one credit there, and one more here */
-tutLcNow=(f=>function(n){const out=f.apply(this,arguments);try{for(const s of cuStepsState(n))if(s.ok&&!out.includes(s.k))out.push(s.k);}catch(e){}return out;})(tutLcNow);
-const cuStepsPaid=n=>tutLcOf(n).filter(k=>CU_STEPS.some(s=>s[0]===k)).length;
-landEarned=(f=>function(n){return f.apply(this,arguments)+cuStepsPaid(n)*(CU_STEP_CREDITS-1);})(landEarned);
-earnedAt=(f=>function(n){return f.apply(this,arguments)+cuStepsPaid(n)*(CU_STEP_CREDITS-1);})(earnedAt);
-COMMIT_HOOKS.push((n,old,now)=>{
-  if(!n||n.npc)return;const had=tutLcOf(old),got=CU_STEPS.filter(s=>tutLcOf(n).includes(s[0])&&!had.includes(s[0]));if(!got.length)return;
-  const st=stockNow(n,now);for(const [r,v] of Object.entries(CU_STEP_GIFT))st[r]=stockLimit(n,r,num0(st[r])+v*got.length,st[r]);n.stock=roundStock(st);n.stockAt=now;
-  return [`${got.length>1?'Steps':'Step'} done: ${list(got.map(s=>s[1]))}. +${CU_STEP_CREDITS*got.length} land credits to spend on the map, and ${CU_STEP_GIFT.oil*got.length} oil.`];
-});
 
 /* a draft left on the Customise page is dropped on leaving it */
 go=(f=>function(v){if(v!=='customise')CU.d=null;return f.apply(this,arguments);})(go);
@@ -38718,10 +38776,6 @@ VISIT_SECTIONS.push((x,now)=>{
     <div><p class="eyebrow">Passport</p><p class="pp-visit-n">Entry stamp of ${esc(n.name)}</p><p class="hint">${mine?`In your passport since ${esc(fmtDate(mine[2]))}${where}.`:!S.nation?'':ppCount(S.nation)>=PP_MAX?'Your passport is full: make room to collect it.':'Stamping your passport…'} Their passport holds ${k} ${k===1?'stamp':'stamps'}.</p></div>
     <div class="row"><button type="button" class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button></div></section>`;
 });
-/* two steps of the second checklist (each pays a land credit, like every step): a first stamp, and a passport of
-   one's own design. They join Next steps rather than First steps, so no finished first checklist reopens. */
-NEXT_STEPS.push(['stamp',9,'Collect a passport stamp',()=>'Open the page of a nation in your region: its entry stamp goes into your passport, and every 20 stamps earn a land credit.','region','Open the region',n=>ppCount(n)>0],
-  ['ppdes',10,'Design your passport',()=>'Choose its cover, its pages, or the entry stamp other nations collect from you.','passport','Open your passport',n=>ppStats(n).ds>0]);
 HELP_EXT.push({k:'passport',t:'The passport',body:()=>`<p>Every nation has a passport: a cover, an identity page and twenty pages for entry stamps, ten to a page. Opening another nation’s page stamps that nation’s entry stamp into yours, with the date, up to ${PP_MAX} stamps. Every ${PP_CREDIT_EVERY} stamps earn a land credit for the map, ${PP_CREDITS} for a full book. Other regions cannot be visited, so a passport fills with the nations of your region, and of the regions you move through.</p>
   <p>On the Passport page you can turn the pages, design the cover, the pages and the entry stamp other nations collect from you, and choose which page and place each stamp has. Richer colours, materials, foils, prints, shapes and inks unlock with the Passport & travel achievements and the Passport Office set in the museum, and a Diplomata in one of your cities adds five typefaces, eight devices, five page prints and five watermarks (and 3% more immigrants). Every nation’s page has <b>View passport</b>.</p>${`<p><button class="btn ghost" data-act="go" data-v="passport">Open your passport</button></p>`}`});
 
@@ -39331,17 +39385,11 @@ function pgPulse(now){
   if(!add.length)return false;const next=clone(n);next.onb.u=PG_KEYS.filter(k=>u.includes(k)||add.includes(k));if(st){next.stock=roundStock(st);next.stockAt=now;next._stockSet=true;}
   commit(next);saveSoon();render();return true;
 }
-function pgGuided(n){return pgNew(n)&&(!pgAvailable(n,'charter')||!stepsHidden(n)&&stepsState(n).some(s=>!s.ok));}
+function pgGuided(n){if(!pgNew(n))return false;const L=tutCur(n);return !!L&&(L.k==='charter'||L.k==='first');}
 function pgCharterCard(page=false){return `${page?'<header class="vh"><p class="eyebrow">A nation of your own</p><h1>Finish your charter</h1></header>':''}<section class="stp pg-charter" aria-labelledby="pg-charter-h"><p class="eyebrow">First things first</p><h2 class="stp-t" id="pg-charter-h">Your nation starts here</h2><p>Your name, flag and founding principles are saved. Start with an edict, or finish your charter when you are ready to explore the full design tools.</p><div class="row"><button class="btn" data-act="pg-charter">Finish charter</button><button class="btn ghost" data-act="go" data-v="issues">Open edicts</button></div><p class="hint">You can change your particulars in Settings at any time.</p></section>`;}
 function pgFinishCharter(){
   if(!pgNew(S.nation)||pgAvailable(S.nation,'charter'))return;const n=clone(S.nation);n.onb.u.push('charter');commit(n);saveSoon();render();toast('Charter complete. Customise and flag layers are now available.');
 }
-const pgFirstStepsBase=firstStepsCard;
-firstStepsCard=function(n){
-  if(!pgNew(n))return pgFirstStepsBase(n);if(!pgAvailable(n,'charter'))return pgCharterCard();
-  if(stepsHidden(n))return '';const st=stepsState(n),todo=st.filter(s=>!s.ok).slice(0,3),done=st.filter(s=>s.ok).length;if(!todo.length)return pgFirstStepsBase(n);
-  return `<section class="stp pg-first" aria-labelledby="pg-first-h"><div class="stp-h"><div><p class="eyebrow">One step at a time</p><h2 class="stp-t" id="pg-first-h">Start with these</h2></div><span class="stp-n">${done} of ${st.length} first steps done</span></div><ol class="stp-l">${todo.map(s=>`<li><span class="stp-i" aria-hidden="true"></span><span class="stp-x"><b>${esc(s.t)}${s.k==='google'?GL_TAG:tutLcTag()}</b><span class="hint">${esc(stepHint(n,s))}</span></span><button class="btn ghost small-btn" ${s.k==='google'?'data-act="acct-open"':`data-act="go" data-v="${s.v}"`}>${esc(s.b)}</button></li>`).join('')}</ol><div class="stp-f"><button class="linkish small" data-act="go" data-v="help">How to play</button><button class="linkish small" data-act="steps-hide">Hide this list</button></div></section>`;
-};
 const pgCustomiseBase=VIEWS_EXT.customise;
 VIEWS_EXT.customise=function(now){return pgAvailable(S.nation,'charter')?pgCustomiseBase(now):pgCharterCard(true);};
 const pgNavGroupsBase=navGroups;
@@ -39381,7 +39429,7 @@ function accountActionHint(key,assembly=false){
 const accountHintHidden=new Set();
 const accountHintKey=n=>'edictum.link-hint.'+String(n.seed);
 function accountLinkCard(n){
-  const a=accountInfo();if(!n||!pgNew(n)||!pgAvailable(n,'charter')||stepsHidden(n)||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
+  const a=accountInfo();if(!n||!pgNew(n)||!pgAvailable(n,'charter')||tutHid(n,TUT_LISTS[1])||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
   try{if(localStorage.getItem(accountHintKey(n)))return '';}catch(e){}
   return `<section class="paper account-link-card" aria-labelledby="account-link-heading"><p class="eyebrow">Your charter is complete</p><h2 class="h2" id="account-link-heading">Keep your nation on every device</h2><p>Link Google, Discord or an email address to become a Registered Nation and sign in on another browser or device. Registration opens community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>${!n.glk?`<p class="hint">First sign-in link: +${GL_CREDITS} land credits, +${GL_GIFT.iron} iron, +${GL_GIFT.timber} timber and +${GL_GIFT.goods} goods.</p>`:''}<div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${accountCompareButton()}<button type="button" class="linkish small" data-act="account-hint-hide">Not now</button></div></section>`;
 }
@@ -41237,7 +41285,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,NEWS:{nwClean,nwUnread,NW,NWE},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,NEWS:{nwClean,nwUnread,NW,NWE},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
