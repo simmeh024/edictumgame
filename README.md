@@ -413,6 +413,7 @@ npm run test:sync          # one account on desktop and phone: updates, conflict
 npm run test:startup       # first load, cached updates, loading feedback and saved themes
 npm run test:admin-e2e     # admin console, region access and maintenance messages
 npm run test:devnews       # development news: the editor, images, the menu's count, comments and moderation
+npm run test:buildings     # the later buildings: plans, completion, city effects, edict boosts, the Central Bank
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
@@ -672,6 +673,13 @@ in Firestore, `devnewsImg/`), signed with a name and role or as their nation. Pl
 **Development news** page under **Other** in the menu, which shows a count of new posts until they open it.
 On the page, admins can edit, delete or close the comments of a post, and remove a comment, hide its nation
 or ban its player; reported comments arrive in the Reports queue as *News comment*.
+
+**Later buildings.** The Central Bank, Courthouse, Public Baths, Recycling Works, Nature Reserve, Observatory
+and Hanging Gardens (section *seven more buildings* in `game/edictum.html`) have twenty edicts of their own,
+which arrive only while the building works. Eight of their answers grant a small boost as a law (for example
+*Court Fees*: Courthouses use no goods), which does nothing without the building. The Central Bank also
+reaches the daily currency job: `jobs/fx/engine.mjs` halves how far a currency with a finished bank moves in
+a day, and halves the damage of forged notes (a quarter more with *Holographic Banknotes*).
 
 ### 9b. The daily currency job
 
