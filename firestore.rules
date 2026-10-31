@@ -184,6 +184,8 @@ service cloud.firestore {
     match /recoveryLimits/{id} { allow read, write: if false; }
     // the address a player last played from, for the admin console only (functions/accounts.js, 'seen')
     match /accountSeen/{uid} { allow read, write: if false; }
+    // the staff's private notes on a player, read and written only through the admin console (functions/admin.js)
+    match /staffNotes/{uid} { allow read, write: if false; }
     // Discord sign-in (functions/discord.js): the application's secret, and which account holds each Discord account
     match /authConfig/{id} { allow read, write: if false; }
     match /discordLinks/{id} { allow read, write: if false; }
@@ -353,11 +355,12 @@ service cloud.firestore {
       allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
     }
 
-    // moderation: an admin hides a nation from the other players, or records that it was removed so its
-    // owner's browser drops its copy (every client reads this)
+    // moderation: an admin hides a nation from the other players (until it is renamed, with rename), or records
+    // that it was removed so its owner's browser drops its copy (every client reads this)
     function validMod(d) {
-      return d.keys().hasAll(['hidden', 't', 'by']) && d.keys().hasOnly(['hidden', 'removed', 'note', 'name', 't', 'by'])
+      return d.keys().hasAll(['hidden', 't', 'by']) && d.keys().hasOnly(['hidden', 'rename', 'removed', 'note', 'name', 't', 'by'])
         && d.hidden is bool && d.t is number && d.by == request.auth.uid
+        && (!('rename' in d) || d.rename is bool)
         && (!('removed' in d) || d.removed is number)
         && (!('note' in d) || (d.note is string && d.note.size() <= 300))
         && (!('name' in d) || (d.name is string && d.name.size() <= 80));

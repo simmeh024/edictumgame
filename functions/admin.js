@@ -41,9 +41,25 @@ async function account(db, uid) {
   return { kind: registered(u) ? 'registered' : 'guest', linked, admin: claims.admin === true, disabled: u.disabled, created: at(u.metadata.creationTime), lastSignIn: at(u.metadata.lastSignInTime), lastRefresh: at(u.metadata.lastRefreshTime), ip: s.get('ip') || '', ipAt: s.get('at') || 0 };
 }
 async function player(db, uid) {
-  const [n, ban, mod, sessions, acct] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid)]);
+  const [n, ban, mod, sessions, acct, notes] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get()]);
   const d = n.data() || {};
-  return { uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  return { uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+}
+/* The staff's private notes on a player: one text per player in staffNotes/{uid} {text, at, by}, read and written
+   only here (the rules refuse every client) and never shown to the player. The audit log records each change, not
+   the text, so a note is gone for good when it is cleared or the player deletes their account (functions/accounts.js). */
+const NOTE_MAX = 4000;
+const staffNote = s => s.exists ? { text: s.get('text') || '', at: s.get('at') || 0, by: s.get('by') || '' } : { text: '', at: 0, by: '' };
+async function note(db, actor, data) {
+  const target = id(data.uid), body = typeof data.text === 'string' ? data.text.replace(/\r\n?/g, '\n').trim().slice(0, NOTE_MAX) : null;
+  if (body === null) throw new HttpsError('invalid-argument', 'Write a note, or leave it empty to clear it.');
+  const ref = db.doc('staffNotes/' + target), event = db.collection('adminAudit').doc(), now = Date.now();
+  const name = text((await db.doc('nations/' + target).get()).get('name'), 80);
+  await db.runTransaction(async tx => {
+    if (body) tx.set(ref, { text: body, at: now, by: actor }); else tx.delete(ref);
+    tx.create(event, { actor, action: body ? 'note_saved' : 'note_cleared', target, reason: body ? body.length + ' characters' : 'Note cleared', ...(name ? { name } : {}), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+  });
+  return { staffNote: body ? { text: body, at: now, by: actor } : { text: '', at: 0, by: '' } };
 }
 async function health(db) {
   const qs = await db.collection('saveHealth').where('t', '>', Timestamp.fromMillis(Date.now() - 86400000)).orderBy('t', 'desc').limit(250).get();
@@ -80,9 +96,9 @@ async function setRegion(db, actor, data) {
 }
 async function mutate(db, actor, data) {
   const action = text(data.action, 40), target = id(data.target), reason = text(data.reason, 300) || 'Admin console action';
-  const allowed = ['hide', 'unhide', 'remove', 'ban', 'unban', 'delete_post', 'close_report', 'support_answer', 'support_close', 'support_delete'];
+  const allowed = ['hide', 'rename', 'unhide', 'remove', 'ban', 'unban', 'delete_post', 'close_report', 'support_answer', 'support_close', 'support_delete'];
   if (!allowed.includes(action)) throw new HttpsError('invalid-argument', 'Unknown admin action.');
-  if (['hide', 'remove', 'ban'].includes(action) && target === actor) throw new HttpsError('failed-precondition', 'You cannot moderate your own account.');
+  if (['hide', 'rename', 'remove', 'ban'].includes(action) && target === actor) throw new HttpsError('failed-precondition', 'You cannot moderate your own account.');
   const event = db.collection('adminAudit').doc(), common = { actor, action, target, reason, operation: event.id };
   // Record intent before a multi-document cleanup, and its outcome separately, so a partial failure is visible.
   await event.create({ ...common, outcome: 'started', at: FieldValue.serverTimestamp() });
@@ -90,6 +106,12 @@ async function mutate(db, actor, data) {
     const nation = await db.doc('nations/' + target).get(), name = text(nation.get('name'), 80) || text(data.name, 80);
     const now = Date.now();
     if (action === 'hide') await db.doc('mod/' + target).set({ hidden: true, note: reason, name, t: now, by: actor });
+    // A forced rename hides the nation until its player saves it under a name other than this one; the game asks
+    // functions/civic.js ('renamed') to check that and show the nation again.
+    if (action === 'rename') {
+      if (!nation.exists) throw new HttpsError('failed-precondition', 'This player has no nation to rename.');
+      await db.doc('mod/' + target).set({ hidden: true, rename: true, note: reason, name, t: now, by: actor });
+    }
     if (action === 'unhide') await db.doc('mod/' + target).delete();
     if (action === 'unban') await db.doc('bans/' + target).delete();
     if (action === 'remove' || action === 'ban') {
@@ -137,5 +159,6 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'audit') return audit(db, d);
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);
+  if (d.op === 'note') return note(db, actor, d);
   throw new HttpsError('invalid-argument', 'Unknown console request.');
 });

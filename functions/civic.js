@@ -51,6 +51,23 @@ async function permit(db, who, d) {
   });
 }
 
+/* A moderator's forced rename (functions/admin.js, 'rename') hides the nation until its player saves it under a new
+   name. The game asks here once that save is in: a saved name other than the one the moderator objected to (ignoring
+   case, accents and spacing) shows the nation again, and the audit log records it. */
+const fold = s => String(s || '').normalize('NFKD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').trim().toLowerCase();
+async function renamed(db, who) {
+  const ref = db.doc('mod/' + who.uid), event = db.collection('adminAudit').doc();
+  return db.runTransaction(async tx => {
+    const [m, n] = await Promise.all([tx.get(ref), tx.get(db.doc('nations/' + who.uid))]);
+    if (m.get('rename') !== true) return { ok: true };
+    const name = text(n.get('name'), 80), before = String(m.get('name') || '');
+    if (!n.exists || name.length < 2 || fold(name) === fold(before)) return { ok: false, why: 'unchanged' };
+    tx.delete(ref);
+    tx.create(event, { actor: who.uid, action: 'renamed', target: who.uid, name, reason: 'New name chosen after a forced rename; it was ' + text(before, 80), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    return { ok: true };
+  });
+}
+
 /* one nation's Assembly record. valid: a Registered Nation that is not banned, hidden or removed */
 function civicRecord(reg, saved, account, actor, valid, hidden) {
   const generation = saved.createTime.toMillis(), born = account.get('nationGeneration') === generation ? account.get('nationAt') : generation;
@@ -303,6 +320,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'authorizeSave') return permit(db, who, d);
   if (d.op === 'newsComment') return newsComment(db, who, d);
   if (d.op === 'newsModerate') return newsModerate(db, who, d);
+  if (d.op === 'renamed') return renamed(db, who);
   if (d.op === 'topic') return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
     if (d.reg && d.reg !== e.n.reg) throw new HttpsError('permission-denied', 'Post to your own region.');
