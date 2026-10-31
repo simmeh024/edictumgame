@@ -127,36 +127,36 @@ await A.click('.cu-nsec-v [data-act="cu-open"]'); await sleep(300);
 check('and opens the Bureau with the pair chosen', (await A.$eval('#cu-from', s => s.value)) === 'npc-vellmark');
 await A.ctx.close();
 
-/* ── rewards: the Treasury steps, achievements, the National Mint and earned designs ── */
+/* ── rewards: the money tasks of Next steps, achievements, the National Mint and earned designs ── */
 const T = await player('FX-T');
 await open(T); await found(T, 'Treasuria');
 const credits = async () => { const t = await text(T, '.nav [data-v="map"] .badge.land'); return t ? +t.replace(/\D/g, '') : 0; };
 const oil = async () => { const n = await localNation(T); return (n.stock && n.stock.oil) || 0; };
 const toastsT = () => T.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
 await nav(T, 'nation');
-check('the Treasury steps wait until the first and next steps are done or hidden', !(await T.$('.stp-cu')));
-await T.evaluate(() => { const s = String(JSON.parse(localStorage.getItem('statehood.nation.v1')).seed); localStorage.setItem('statehood.steps.v1', s); localStorage.setItem('statehood.steps2.v1', s); });
+check('the money tasks wait in Next steps until the first two lists are done or hidden', !(await T.$('.tut-l-mark')));
+await T.evaluate(() => { const s = String(JSON.parse(localStorage.getItem('statehood.nation.v1')).seed); localStorage.setItem('statehood.steps0.v1', s); localStorage.setItem('statehood.steps.v1', s); });
 await nav(T, 'census'); await nav(T, 'nation');
-check('then a third checklist, Money of your own, offers two steps at 2 land credits and 5 oil each',
-  /Money of your own/.test(await text(T, '.stp-cu')) && (await T.$$('.stp-cu .stp-l li')).length === 2 && /\+2 land · 5 oil/.test(await text(T, '.stp-cu')));
+check('then Make your mark offers the Bureau and the currency’s design at 2 land credits and 5 oil each',
+  /Make your mark/.test(await text(T, '.tut-l-mark')) && /\+2 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')) && /\+2 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxd"]')));
 check('the designs still to be earned are locked', await (async () => { await nav(T, 'customise'); return !!(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-met-platinum.cu-lk')) && !!(await T.$('#cu-l-st-3.cu-lk')); })());
 const c0 = await credits(), o0 = await oil();
 await nav(T, 'exchange');
 check('visiting the Bureau pays the first step: 2 land credits and 5 oil', await until(async () => (await localNation(T)).tut && (await localNation(T)).tut.lc.includes('fxv'))
-  && await until(async () => /Visit the Foreign Exchange Bureau\. \+2 land credits to spend on the map, and 5 oil/.test(await toastsT()), 30000)
+  && await until(async () => /Visit the Foreign Exchange Bureau\. \+2 land credits and 5 oil/.test(await toastsT()), 30000)
   && await until(async () => (await credits()) === c0 + 2) && Math.abs((await oil()) - o0 - 5) < 0.01, `credits ${c0} → ${await credits()}, oil ${o0} → ${await oil()}`);
 check('and earns Bureau de Change and the Bureau’s First Ledger', await until(async () => { const n = await localNation(T); return n.ach && n.ach['cur-bureau'] && n.coll && n.coll['mi-ledger']; }));
 await nav(T, 'exchange'); await nav(T, 'nation');
 check('a second visit pays nothing more', (await credits()) === c0 + 2 && Math.abs((await oil()) - o0 - 5) < 0.01);
-check('the checklist ticks the step', /Done/.test(await text(T, '.stp-cu li[data-k="fxv"]')));
-await T.click('.stp-cu li[data-k="fxd"] [data-act="go"]'); await sleep(300);
+check('the checklist ticks the task', /Done/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')));
+await T.click('.tut-l-mark li[data-k="fxd"] [data-act="go"]'); await sleep(300);
 check('its other step opens the currency designer', /#customise$/.test(T.url()) && !!(await T.$('#cz-sec-c')));
 await T.fill('#cu-f-cd', 'TRS'); await T.click('#cu-form button[type="submit"]'); await sleep(400);
 check('designing the currency pays the second: 2 more land credits and 5 more oil', await until(async () => (await credits()) === c0 + 4) && Math.abs((await oil()) - o0 - 10) < 0.01, `credits ${await credits()}, oil ${await oil()}`);
 const tn = await localNation(T);
 check('and earns Legal Tender and the Proof Coin', tn.ach['cur-design'] && tn.coll['mi-proof'] && tn.tut.lc.includes('fxd'));
 await nav(T, 'nation');
-check('with both steps done the checklist goes', !(await T.$('.stp-cu')));
+check('with both done, both are ticked', /Done/.test(await text(T, '.tut-l-mark li[data-k="fxd"]')) && /Done/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')));
 await nav(T, 'customise');
 check('Legal Tender unlocks the Moiré engraving; the rest stay locked', !(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-pat-moire')) && !!(await T.$('#cu-l-met-platinum.cu-lk')));
 await T.$eval('#cu-l-met-platinum', b => b.click()); await sleep(200); // aria-disabled: Playwright will not click it, a player can
