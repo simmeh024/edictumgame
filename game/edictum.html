@@ -4005,6 +4005,28 @@ html.pp-lock,html.pp-lock body{overflow:hidden}
 .cu-sub{margin:-6px 0 14px;max-width:70ch}
 .cu-note{display:block;width:100%;height:auto;border-radius:7px;box-shadow:0 1px 0 rgba(0,0,0,.08),0 14px 28px -16px rgba(18,41,42,.55)}
 .cu-coin{display:block;height:auto;filter:drop-shadow(0 6px 10px rgba(18,41,42,.35))}
+/* a note that turns over, the series fanned out like a wallet, and the museum's past series */
+.cu-flip{display:grid;gap:6px;justify-items:start;width:100%;min-width:0}
+.cu-flip-in{display:grid;width:100%;perspective:1400px}
+.cu-face{grid-area:1/1;min-width:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:transform .7s cubic-bezier(.3,.1,.2,1)}
+.cu-back{transform:rotateY(180deg)}
+.cu-flip.on .cu-face{transform:rotateY(-180deg)}
+.cu-flip.on .cu-back{transform:rotateY(0deg)}
+.cu-turn{min-height:32px}
+.cu-fan{display:flex;align-items:flex-end;padding:12px 4px 4px}
+/* each note overlaps the one before by a quarter, so the middle of every note stays in view to click */
+.cu-fan-b{flex:0 0 auto;width:calc(12.4% * var(--s,1));margin-left:-2.7%;padding:0;border:0;background:none;cursor:pointer;border-radius:4px;transform:rotate(var(--r,0deg));transform-origin:50% 140%;transition:transform .18s ease}
+.cu-fan-b:first-child{margin-left:0}
+.cu-fan-b:hover,.cu-fan-b:focus-visible{transform:rotate(var(--r,0deg)) translateY(-6px);z-index:2}
+.cu-fan-b.on{transform:rotate(var(--r,0deg)) translateY(-10px);z-index:3}
+.cu-fan-b .cu-note{border-radius:4px;box-shadow:0 6px 14px -8px rgba(18,41,42,.6)}
+.cu-fan-b.on .cu-note{box-shadow:0 0 0 2px var(--ink),0 10px 18px -10px rgba(18,41,42,.55)}
+.cu-fv{margin:0}
+@media (max-width:640px){.cu-fan{flex-wrap:wrap;row-gap:10px}.cu-fan-b{width:calc(21% * var(--s,1));margin-left:-1.6%}.cu-fan-b:nth-child(5n+1){margin-left:0}}
+.cu-past{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+.cu-past-f{margin:0;display:grid;gap:8px;align-content:start}
+.cu-past-f figcaption{font-size:13px;line-height:1.45;color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){.cu-face,.cu-fan-b{transition:none}}
 .cu-connections{padding:24px;overflow-wrap:anywhere}.cu-connections p{margin:12px 0}.cu-connections li{margin:6px 0}.cu-connections .btn{margin:4px 8px 4px 0}
 .cu-yours{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
 .cu-yours-art{display:grid;gap:10px;justify-items:start}
@@ -34435,7 +34457,7 @@ function muLeaders(x,now,vis){
   const cab=cabOf(n),gone=(n.log||[]).filter(l=>l.k==='sack'||l.k==='resign'||(l.k==='retire'&&MU_PF_TITLES.has(l.a)));
   const GT={sack:l=>`${esc(l.b)} was sacked as ${esc(l.a)}.`,resign:l=>`${esc(l.b)} resigned as ${esc(l.a)}, and ${esc(l.fx)} took over.`,retire:l=>`${esc(l.b)} retired as ${esc(l.a)}, and ${esc(l.fx)} took over.`};
   const C=[['Ministers sacked',tallyOf(n,'log:sack')],['Resignations',tallyOf(n,'log:resign')],['Retirements',tallyOf(n,'log:retire')],['New leaders',tallyOf(n,'log:leader')]];
-  return `${head}
+  return `${head}${cuPastHTML(x)}
   <section class="section"><h2 class="h2">The cabinet</h2><div class="mu-gallery">${PF_KEYS.map(pf=>{const m=cab[pf];
     if(!m)return `<article class="mu-sitter vacant" style="--pc:var(--cv-${pf})">${muSitter({vac:1,pf,size:72})}<div><p class="lbl">${esc(PF[pf][2])}</p><p class="mu-sitter-n">Vacant</p><p class="mu-sitter-m">The post is waiting for a minister.</p></div></article>`;
     const sk=Math.max(1,Math.min(5,m.sk|0)),ag=typeof cvMinAge==='function'?cvMinAge(m,now):0;
@@ -35105,6 +35127,17 @@ function cuParseAmt(s){
   const v=Number(s);return s&&isFinite(v)?v:NaN;
 }
 const cuRate=(vA,vB)=>vA>0&&vB>0&&isFinite(vA/vB)?vA/vB:null;
+/* a denomination's own colour: each note of the series turns round the colour wheel from the one designed (base),
+   36° a step along the denominations, keeping its saturation and lightness, so greys stay grey */
+function cuDenInk(hex,den,base){
+  const h=cuHex(hex);if(!h)return '';const i=CU_DENOMS.indexOf(den),j=CU_DENOMS.indexOf(base);if(i<0||j<0||i===j)return h;
+  const [r,g,b]=[1,3,5].map(k=>parseInt(h.slice(k,k+2),16)/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn;if(!d)return h;
+  const s=d/(1-Math.abs(2*l-1));let hu=60*(mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4);hu=((hu+(i-j)*36)%360+360)%360;
+  const C=(1-Math.abs(2*l-1))*s,X=C*(1-Math.abs((hu/60)%2-1)),m=l-C/2,q=[[C,X,0],[X,C,0],[0,C,X],[0,X,C],[X,0,C],[C,0,X]][Math.floor(hu/60)%6];
+  return '#'+q.map(v=>Math.round(clamp((v+m)*255,0,255)).toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+/* how wide a denomination prints, from the smallest note (0.86 of the largest) up */
+const cuDenScale=den=>{const i=CU_DENOMS.indexOf(den);return i<0?1:0.86+0.14*i/(CU_DENOMS.length-1);};
 /* ── currency: end of pure helpers ── */
 
 const CU={pub:null,at:0,busy:false,tried:0,hist:new Map(),hbusy:new Set(),d:null,saved:'',
@@ -35224,45 +35257,251 @@ function cuPattern(pat,id,ink,n){
     default:{let b='';for(let i=0;i<30;i++)b+=`<ellipse cx="160" cy="80" rx="118" ry="38" transform="rotate(${i*6} 160 80)" fill="none" stroke="${ink}" stroke-width=".35"/>`;for(let i=0;i<24;i++)b+=`<ellipse cx="160" cy="80" rx="54" ry="20" transform="rotate(${i*7.5} 160 80)" fill="none" stroke="${ink}" stroke-width=".35"/>`;return `<g id="${id}">${b}</g>`;}
   }
 }
-/* the front of a banknote: 320 × 160 */
+/* ── the engraver ──
+   A note's pictures are printed as engravings: fine lines in one dark ink over a pale ground, thinning out toward
+   the light, so a portrait, an animal, a skyline or a map all print alike and in the note's own colours. */
+const cuR2=v=>Math.round(v*100)/100;
+/* parallel lines at an angle: gap and weight in the units of the space they fill */
+function cuHatch(id,ink,ang,gap,w){return `<pattern id="${id}" width="${gap}" height="${gap}" patternUnits="userSpaceOnUse" patternTransform="rotate(${ang})"><rect width="${gap}" height="${cuR2(w)}" fill="${ink}"/></pattern>`;}
+/* white shapes (mask) printed as an engraving in the box b: a tint, then lines that fade toward the lit side
+   (o.lit 'l' or 'r'); o.cross lays a second set across them, for hair and deep shadow */
+function cuEngrave(id,mask,ink,b,o){
+  o=o||{};const R=`x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}"`,ang=o.ang==null?-32:o.ang,gap=o.gap||1.1,w=o.w||.4,l=o.lit==='l';
+  return `<defs><mask id="${id}m" maskUnits="userSpaceOnUse" ${R}>${mask}</mask>${cuHatch(id+'a',ink,ang,gap,w)}${o.cross?cuHatch(id+'b',ink,ang+74,gap,w*.8):''}<linearGradient id="${id}l" x1="${l?1:0}" y1="0" x2="${l?0:1}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="${o.fade==null?.3:o.fade}"/></linearGradient><mask id="${id}f" maskUnits="userSpaceOnUse" ${R}><rect ${R} fill="url(#${id}l)"/></mask></defs>`
+    +`<g mask="url(#${id}m)"><rect ${R} fill="${ink}" opacity="${o.tint==null?.14:o.tint}"/><g mask="url(#${id}f)"><rect ${R} fill="url(#${id}a)"/>${o.cross?`<rect ${R} fill="url(#${id}b)" opacity=".75"/>`:''}</g></g>`;
+}
+/* a person in profile, engraved: the Government page's medallion bust for the same seed, so the leader on the
+   note is the one in the cabinet. (cx, top) is where the crown of the head goes; m -1 turns it to face left */
+function cuBustArt(id,seed,ink,cx,top,s,m,old){
+  const b=cvBust(seed),x=b.x.replace(/class="l"/g,`fill="none" stroke="${ink}" stroke-linecap="round"`).replace(/class="f"/g,`fill="${ink}" fill-opacity=".45"`);
+  return `<g transform="translate(${cuR2(cx)} ${cuR2(top)}) scale(${cuR2(m*s)} ${cuR2(s)}) translate(-48 -21)">`
+    +cuEngrave(id+'b',`<path d="${b.d}" fill="#fff"/>`,ink,[0,0,100,104],{ang:-28,gap:1.2,w:.46,lit:'r',fade:.22,tint:.12})
+    +cuEngrave(id+'h',`<path d="${b.h}" fill="#fff"/>`,ink,[0,0,100,104],old?{ang:58,gap:1.8,w:.34,tint:.04,lit:'r',fade:.5}:{ang:58,gap:1,w:.5,tint:.3,cross:1,lit:'r',fade:.55})
+    +`<path d="${b.d}" fill="none" stroke="${ink}" stroke-width=".7" stroke-opacity=".9" stroke-linejoin="round"/>${x}</g>`;
+}
+/* animals the arms have no charge for, as outlines in a 100 box facing right (cvSmooth rounds them off);
+   x: details drawn in ink, e: the eye */
+const CU_BEASTS={
+  bird:{p:[[87,37],[78,33],[72,27],[64,27],[56,33],[46,42],[30,53],[14,62],[11,68],[17,69],[31,64],[42,65],[55,67],[67,60],[74,50],[78,41]],x:'M47 66l-3 8M56 67l1 7M12 75Q50 71 92 73',e:[73,33,1.3]},
+  swan:{p:[[85,26],[77,20],[71,22],[69,30],[66,42],[61,52],[47,51],[31,53],[14,50],[20,61],[34,71],[62,71],[72,63],[71,53],[73,41],[76,31],[79,28]],x:'M8 76Q30 72 52 76T96 76M14 81Q38 78 60 81',e:[76,23,1.1]},
+  otter:{p:[[93,57],[91,53],[86,50],[82,46.5],[79,48],[73,48],[62,45],[48,44],[36,46],[28,50],[20,54],[10,58],[2,63],[8,65],[20,62],[27,62],[29,68],[37,68],[38,62],[52,63],[62,63],[64,69],[72,69],[71,62],[78,61],[86,61],[91,60]],x:'M90 57.5l6-2M90 58.5l6 1M2 71H98',e:[85.5,52.5,1]},
+  wolf:{p:[[93,41],[81,33],[77,22],[72,30],[64,36],[46,38],[28,40],[17,48],[7,60],[15,60],[25,51],[27,64],[28,82],[34,82],[37,63],[52,59],[61,61],[63,82],[69,82],[71,58],[75,50],[81,45]],x:'M4 85H96',e:[80,37,1.2]},
+  bear:{p:[[91,49],[84,41],[78,34],[72,38],[60,30],[40,31],[22,38],[15,52],[17,76],[30,78],[33,63],[50,65],[59,63],[60,78],[74,78],[75,60],[80,56],[86,54]],x:'M4 81H96',e:[80,44,1.3]},
+  horse:{p:[[95,33],[93,28],[87,20],[84.5,12],[81,18],[78,18],[73,22],[67,30],[61,36],[50,38],[38,38],[29,38],[24,40],[18,44],[13,54],[11,66],[15,67],[19,56],[23,48],[24,56],[27,66],[29,76],[27,87],[33,87],[34,76],[35,64],[42,60],[52,60],[59,60],[61,70],[60,87],[66,87],[66,72],[68,60],[70,52],[73,44],[77,38],[83,36],[89,38],[94,38]],x:'M78 21q-6 6-9 13M74 24q-5 6-8 11M2 89H98',e:[85,26,1]},
+  lizard:{p:[[93,52],[85,47],[77,49],[60,47],[40,49],[22,53],[3,62],[22,60],[33,58],[31,68],[41,67],[44,58],[60,58],[64,68],[74,67],[73,57],[80,56],[87,56]],x:'M4 72H96',e:[86,50,1]},
+  bull:{p:[[94,46],[91,38],[86,34],[80,33],[74,30],[66,27],[50,30],[34,31],[24,34],[20,38],[17,50],[15,62],[19,62],[21,50],[22,44],[23,58],[25,80],[32,80],[34,62],[48,64],[60,63],[62,80],[69,80],[70,62],[76,58],[82,54],[88,52],[93,50]],x:'M85 34.5q3-9 10-9.5M81 33q-5-7-1-13M2 83H98',e:[87,40,1.1]},
+  whale:{p:[[92,51],[86,42],[72,37],[52,38],[36,44],[22,50],[11,38],[9,44],[15,52],[7,62],[13,63],[23,56],[42,63],[66,64],[83,61],[91,57]],x:'M60 60q2 9-8 13M4 70Q28 66 52 70T96 70',e:[80,50,1]}};
+/* which picture a national animal gets: a charge of the arms (lion, eagle, owl, stag, fish, bee), one of the
+   outlines above, or else its initial in a wreath */
+const CU_BEAST_OF=[['owl','owl'],['eagle|hawk|falcon|kite|buzzard|condor|vulture|osprey|harrier|kestrel|griffon|merlin','eagle'],
+  ['swan|duck|goose|geese|eider|teal|grebe|pelican|loon|merganser|shelduck|mallard','swan'],
+  ['\\w*bird|robin|sparrow|finch|thrush|wren|swallow|martin|lark|dove|pigeon|crow|raven|rook|magpie|jay|parrot|macaw|kingfisher|woodpecker|turnstone|grouse|partridge|pheasant|quail|nightingale|starling|warbler|\\w*gull|tern|puffin|heron|egret|stork|crane|ibis|spoonbill|flamingo|peacock|ostrich|emu|kiwi|penguin|cuckoo|hoopoe|bustard|curlew|plover|sandpiper|oriole|canary|toucan|hornbill|sandgrouse','bird'],
+  ['lion|lioness|tiger|leopard|lynx|panther|jaguar|cheetah|puma|cougar|cat|ocelot|caracal|serval|wildcat','lion'],['wolf|wolves|dog|fox|jackal|coyote|\\w*hound|hyena|dingo|husky|terrier','wolf'],
+  ['bear|panda','bear'],['horse|pony|donkey|zebra|mule|stallion|mare|camel|llama|alpaca','horse'],['whale|dolphin|porpoise|orca|narwhal|manatee|dugong','whale'],
+  ['\\w*fish|salmon|trout|carp|pike|cod|herring|eel|perch|sturgeon|tuna|marlin|shark|ray|seahorse|koi|mackerel|haddock|sardine','fish'],
+  ['otter|weasel|stoat|ermine|mink|marten|sable|ferret|badger|wolverine|polecat|mongoose|meerkat|beaver|seal|walrus|hyrax|squirrel|hare|rabbit|hedgehog|mole|vole|mouse|mice|rat|hamster|marmot|lemming|raccoon|skunk|chipmunk','otter'],
+  ['lizard|gecko|iguana|chameleon|crocodile|alligator|caiman|monitor|komodo|newt|salamander|frog|toad|tortoise|turtle|snake|serpent|viper|adder|python|cobra|skink','lizard'],
+  ['bull|cow|cattle|ox|oxen|yak|bison|buffalo|goat|ibex|sheep|ram|chamois|aurochs|zebu','bull'],['stag|deer|elk|moose|reindeer|caribou|antelope|gazelle|oryx|impala|kudu|springbok|saiga','stag'],
+  ['\\w*bee|wasp|beetle|butterfly|moth|dragonfly|cricket|grasshopper|ladybird|ladybug|ant','bee']].map(([w,k])=>[new RegExp('^(?:'+w+')(?:e?s)?$'),k]);
+/* whole words only, the last first: a tiger shark is a shark and a woolly mammoth no moth */
+function cuBeastKey(a){const ws=String(a||'').toLowerCase().split(/[^a-z]+/).filter(Boolean).reverse();for(const w of ws)for(const [re,k] of CU_BEAST_OF)if(re.test(w))return k;return 'beast';}
+/* the national animal, engraved, its middle at (cx, cy) and sz across */
+function cuBeastArt(id,animal,ink,paper,cx,cy,sz,m,flat){
+  const k=cuBeastKey(animal),B=CU_BEASTS[k];let mask,det;
+  if(B){const d=cvSmooth(B.p);mask=`<path d="${d}" fill="#fff"/>`;det=`<path d="${d}" fill="none" stroke="${ink}" stroke-width=".9" stroke-opacity=".85" stroke-linejoin="round"/><path d="${B.x}" fill="none" stroke="${ink}" stroke-width="1.1" stroke-linecap="round" opacity=".8"/><circle cx="${B.e[0]}" cy="${B.e[1]}" r="${B.e[2]}" fill="${ink}"/>`;}
+  /* an animal with no picture here: its initial, engraved, in a laurel wreath */
+  else if(k==='beast'){const L=(String(animal||'').replace(/^the\s+/i,'').trim().charAt(0)||'A').toUpperCase();
+    mask=`<text x="50" y="66" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-weight="700" font-size="48" fill="#fff">${esc(L)}</text>`;det=cuWreath(ink);}
+  else{mask=czCharge(k,'#fff','#fff',1);det=czCharge(k,'none',ink,1);}
+  const s=sz/100,T=`<g transform="translate(${cuR2(cx)} ${cuR2(cy)}) scale(${cuR2(m*s)} ${cuR2(s)}) translate(-50 -50)">`;
+  if(flat)return T+mask.replace(/#fff/g,ink)+(k==='beast'?det:'')+'</g>';
+  return `${T}${cuEngrave(id,mask,ink,[0,0,100,100],{ang:-30,gap:1.7,w:.6,lit:'r',fade:.3,tint:.2})}${det}</g>`;
+}
+/* the capital's skyline, the same for the same name: houses and towers round one landmark, a dome or a spire,
+   in a 100 × 80 box standing on y 78; w, the windows, are cut out of the engraving */
+function cuSkyline(name){
+  const r=rng(hash('cusky:'+name)),f=cuR2,mid=34+r()*28,dome=r()<.5;let x=3,d='',w='',lm=false;
+  const win=(x0,y0,bw)=>{for(let y=y0+3;y<74;y+=5)for(let k=x0+1.6;k<x0+bw-2.2;k+=3.2)w+=`M${f(k)} ${f(y)}h1.3v2.2h-1.3Z`;};
+  while(x<95){
+    if(!lm&&x+12>mid){lm=true;const bw=15,t=30-r()*6;d+=`M${f(x)} 78V${f(t)}H${f(x+bw)}V78Z`;
+      d+=dome?`M${f(x+1)} ${f(t)}A${f(bw/2-1)} ${f(bw/2-1)} 0 0 1 ${f(x+bw-1)} ${f(t)}ZM${f(x+bw/2-.7)} ${f(t-bw/2+1.5)}v-7h1.4v7Z`:`M${f(x+1)} ${f(t)}L${f(x+bw/2)} ${f(t-22)}L${f(x+bw-1)} ${f(t)}Z`;
+      win(x,t,bw);x+=bw+1;continue;}
+    const bw=Math.min(97-x,5+r()*8),top=78-(10+r()*20),k=r();
+    d+=`M${f(x)} 78V${f(top)}H${f(x+bw)}V78Z`;
+    if(k<.35)d+=`M${f(x-.4)} ${f(top)}L${f(x+bw/2)} ${f(top-bw*.5)}L${f(x+bw+.4)} ${f(top)}Z`;
+    else if(k<.5)d+=`M${f(x+bw*.3)} ${f(top)}V${f(top-6)}H${f(x+bw*.7)}V${f(top)}Z`;
+    win(x,top,bw);x+=bw+(r()<.3?1.2:.2);
+  }
+  return {d,w};
+}
+/* what the vignette shows on a note of value den: the Face Value edict decides the 50 once it has been answered
+   (n.cuF), else the design's own choice; o.who is a past series' leader */
+function cuSubject(n,c,den,o){
+  if(o.who)return {k:'bust',seed:o.who.r?'ruler:'+o.who.r:'leader:'+(n.seed||n.name),cap:[o.who.l||n.leader,o.who.r].filter(Boolean).join(' ')};
+  const f=den===50&&n.cuF?n.cuF.o:-1,por=c.note.por;
+  const lead=()=>{let old=false;try{old=!n.npc&&leaderAge(n)>=62;}catch(e){}return {k:'bust',seed:n.ruler?'ruler:'+n.ruler:'leader:'+(n.seed||n.name),old,cap:(n.leader||'Leader')+(n.ruler?' '+n.ruler:'')};};
+  if(f===0)return lead();
+  if(f===1)return {k:'bust',seed:'face:Marta Kovač',cap:'Dr Marta Kovač'};
+  if(f===3)return {k:'bust',seed:'face:voice:'+(n.sport||n.name),cap:'The Voice of 1994'};
+  if(f===2||f<0&&por==='animal')return {k:'beast',cap:'The '+(n.animal||'otter')};
+  if(por==='capital')return {k:'city',cap:n.capital||''};
+  if(por==='arms'&&cuArmsOf(n))return {k:'arms',cap:'The arms of '+(n.name||'')};
+  return lead();
+}
+/* text that would run wider than max is squeezed to fit (k: the typeface's width per point and letter) */
+const cuFit=(s,size,k,max)=>[...String(s)].length*size*k>max?` textLength="${max}" lengthAdjust="spacingAndGlyphs"`:'';
+/* the leader's signature and the Finance Minister's, as on any note worth having */
+function cuSigs(n,o,cx,y,ink){
+  const who=o.who,lead=who?(who.r||who.l||n.leader):(n.ruler||n.leader||'Leader'),title=(who?who.l:n.leader)||'Leader';
+  let fin='';if(!who&&!n.npc)try{const m=cabOf(n).fin;if(m&&m.nm)fin=m.nm;}catch(e){}
+  const one=(nm,t,x)=>{const s=String(nm).slice(0,30),T=String(t).toUpperCase().slice(0,32);
+    return `<text x="${x}" y="${y}" text-anchor="middle" font-family="Great Vibes,cursive" font-size="9.5" fill="${ink}" transform="rotate(-5 ${x} ${y})"${cuFit(s,9.5,.4,40)}>${esc(s)}</text><path d="M${x-19} ${y+2.6}h38" stroke="${ink}" stroke-width=".3" opacity=".6"/><text x="${x}" y="${y+6.8}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="3.1" letter-spacing=".35" fill="${ink}" opacity=".85"${cuFit(T,3.1,.82,40)}>${esc(T)}</text>`;};
+  return fin?one(lead,title,cx-23)+one(fin,'Minister of Finance',cx+23):one(lead,title,cx);
+}
+/* the serial number: two letters in red, then digits that grow, as on notes that are hard to copy */
+function cuSerial(n,den,x,y,anchor,ink,red){
+  const L=String.fromCharCode(65+hash(n.name+':s1')%26)+String.fromCharCode(65+hash(n.name+':s2:'+den)%26),D=String(1000000+hash(n.name+':'+den)%8999999);
+  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="IBM Plex Mono,monospace" font-weight="500" fill="${ink}"><tspan fill="${red}" font-size="5.6">${L} </tspan>${[...D].map((ch,i)=>`<tspan font-size="${cuR2(4.4+i*.5)}">${ch}</tspan>`).join('')}</text>`;
+}
+/* the inner border, written in microtext: the bank's name, over and over, too small to copy */
+function cuMicro(id,txt,ink){
+  const s=Array(Math.ceil(900/(txt.length*1.7+4))).fill(txt).join(' · ');
+  return `<path id="${id}" d="M14 11H306A3 3 0 0 1 309 14V146A3 3 0 0 1 306 149H14A3 3 0 0 1 11 146V14A3 3 0 0 1 14 11Z" fill="none"/><text font-family="Cinzel,Georgia,serif" font-size="2.2" letter-spacing=".15" fill="${ink}" opacity=".7" dy=".75"><textPath href="#${id}">${esc(s)}</textPath></text>`;
+}
+/* a guilloche rosette, the medallion that carries the emblem */
+function cuRosette(cx,cy,r,ink,k){
+  let b='';for(let i=0;i<k;i++)b+=`<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${cuR2(r*.4)}" transform="rotate(${cuR2(i*180/k)} ${cx} ${cy})"/>`;
+  return `<g fill="none" stroke="${ink}" stroke-width=".26" opacity=".7">${b}<circle cx="${cx}" cy="${cy}" r="${r+1.6}" stroke-width=".5"/><circle cx="${cx}" cy="${cy}" r="${r+2.8}" stroke-dasharray=".6 .9"/></g>`;
+}
+/* the flag, printed in the note's inks (a duotone: dark for dark parts, paper for pale ones) on a foil patch */
+function cuFlagPatch(id,n,x,y,w,h,dk,lt,edge){
+  const ch=(hx,i)=>(parseInt(hx.slice(1+i*2,3+i*2),16)/255).toFixed(3),fn=i=>`tableValues="${ch(dk,i)} ${ch(lt,i)}"`;
+  return `<defs><filter id="${id}d" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values=".2126 .7152 .0722 0 0 .2126 .7152 .0722 0 0 .2126 .7152 .0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" ${fn(0)}/><feFuncG type="table" ${fn(1)}/><feFuncB type="table" ${fn(2)}/></feComponentTransfer></filter><clipPath id="${id}c"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.4"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="1"><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".48" stop-color="#fff" stop-opacity=".4"/><stop offset=".62" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`
+    +`<g clip-path="url(#${id}c)"><g filter="url(#${id}d)">${cuNest(flagSVG(n.flag,''),x,y,w,h)}</g><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${id}s)"/></g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.4" fill="none" stroke="${edge}" stroke-width=".9"/>`;
+}
+/* the front of a banknote: 320 × 160. o: cls and label; den, another note of the series (in its own colours);
+   who, a past series' leader ({r name, l title, a and b its years}) with series, its number; lite, a small copy
+   without the finest work (microtext, signatures, half the rosette); mini, a thumbnail (the designer's series),
+   with plain silhouettes and no engraving, pattern or watermark, a fifth of the markup */
 function cuNoteSVG(n,c,o){
-  o=o||{};const id='cun'+(++cuSeq),N=c.note,c1=cuHex(N.c1)||'#1D6A5C',c2=cuHex(N.c2)||'#6A3DB3',dark=cuLum(c1)<0.3,ink=dark?'#F6F1E2':'#16201E',soft=dark?'rgba(246,241,226,.55)':'rgba(22,32,30,.5)';
-  const den=N.den||100,denS=den.toLocaleString('en-US'),flL=N.fl==='l',flR=N.fl==='r',vx=flR?84:236,fx=flR?206:20,name=String(n.name||'').toUpperCase(),code=c.cd;
-  const motto=c.mo||n.motto||'',serial=String.fromCharCode(65+hash(n.name+':s1')%26)+String.fromCharCode(65+hash(n.name+':s2:'+den)%26)+' '+String(1000000+hash(n.name+':'+den)%8999999);
-  const pat=cuPattern(N.pat,id+'p',soft,n),patUse=/^<pattern/.test(pat)?`<rect width="320" height="160" fill="url(#${id}p)" opacity=".55"/>`:`<use href="#${id}p" opacity=".6"/>`;
-  const arms=cuArmsOf(n);
-  let vig='';
-  const vc=cuMix(c1,'#FFFFFF',dark?0.82:0.6),vs=cuMix(c2,'#000000',0.2);
-  if(N.por==='arms'&&arms)vig=cuNest(czArmsSVG(arms),vx-26,46,52,62);
-  else if(N.por==='capital')vig=`<g fill="${vs}" opacity=".85"><path d="M${vx-30} 96h60v5h-60zM${vx-27} 92h54v4h-54zM${vx-28} 68h56l-28-14z"/>${[0,1,2,3,4,5].map(i=>`<rect x="${vx-24+i*9.2}" y="70" width="4.6" height="22"/>`).join('')}</g><text x="${vx}" y="114" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="6.5" fill="${vs}">${esc(String(n.capital||'').toUpperCase().slice(0,22))}</text>`;
-  else if(N.por==='animal')vig=`<g fill="none" stroke="${vs}" stroke-width="1.1"><circle cx="${vx}" cy="76" r="22"/><circle cx="${vx}" cy="76" r="18" stroke-dasharray="1.5 2"/></g><path d="M${vx} 62l4 10 11 .5-8.6 6.8 3 10.7-9.4-6.1-9.4 6.1 3-10.7-8.6-6.8 11-.5z" fill="${vs}" opacity=".8"/><text x="${vx}" y="114" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="6.5" fill="${vs}">${esc(('The '+(n.animal||'otter')).toUpperCase().slice(0,24))}</text>`;
-  else vig=`<g fill="${vs}" opacity=".88"><circle cx="${vx}" cy="66" r="13"/><path d="M${vx-30} 112c2-20 14-29 30-29s28 9 30 29z"/></g><text x="${vx}" y="122" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5.6" fill="${vs}">${esc(String(n.leader||'Leader').toUpperCase().slice(0,26))}</text>`;
-  const flag=flL||flR?`<g><rect x="${fx-1}" y="55" width="${68}" height="${46}" fill="${ink}" opacity=".35"/>${cuNest(flagSVG(n.flag,''),fx,56,66,44)}</g>`:'';
-  let emb='';const ex=160,ey=118;
-  if(N.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),ex-11,ey-15,22,26);
-  else if(N.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=`<circle cx="${ex}" cy="${ey-2}" r="12" fill="${c2}" opacity=".9"/>`+cuNest(flagSVG({p:'plain',c:[c2,c2,c2],e,ec:ink},''),ex-15,ey-12,30,20);}
-  else if(N.emb==='seal')emb=`<circle cx="${ex}" cy="${ey-2}" r="12" fill="none" stroke="${ink}" stroke-width=".8"/><circle cx="${ex}" cy="${ey-2}" r="9.5" fill="none" stroke="${ink}" stroke-width=".4" stroke-dasharray="1 1.2"/><text x="${ex}" y="${ey}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5" fill="${ink}">${esc(code)}</text>`;
-  const sx=flR?190:96,sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:c2,strip=N.strip?`<g><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="${sf}" opacity="${N.strip>1?.92:.6}"/><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="url(#${id}s)"/></g>`:'';
-  const label=o.label||`A ${denS} ${c.nm} banknote of ${n.name}`;
-  return `<svg class="cu-note${o.cls?' '+o.cls:''}" viewBox="0 0 320 160" role="img" aria-label="${esc(label)}"><defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${cuMix(c1,'#FFFFFF',dark?0.12:0.35)}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${cuMix(c1,'#000000',0.18)}"/></linearGradient>
-<radialGradient id="${id}w" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  o=o||{};const id='cun'+(++cuSeq),N=c.note,base=CU_DENOMS.includes(N.den)?N.den:100,den=CU_DENOMS.includes(o.den)?o.den:base,mini=!!o.mini,lite=mini||!!o.lite;
+  const c1=cuDenInk(cuHex(N.c1)||'#1D6A5C',den,base),c2=cuDenInk(cuHex(N.c2)||'#6A3DB3',den,base);
+  const dark=cuLum(c1)<0.3,ink=dark?'#F6F1E2':'#16201E',soft=dark?'rgba(246,241,226,.55)':'rgba(22,32,30,.5)';
+  const flR=N.fl==='r',M=x=>flR?320-x:x,MW=(x,w)=>flR?320-x-w:x,S=a=>flR?(a==='start'?'end':'start'):a;
+  const denS=den.toLocaleString('en-US'),name=String(n.name||''),code=c.cd,motto=c.mo||n.motto||'';
+  const vc=cuMix(c1,'#FFFFFF',.82),pin=cuMix(c1,'#0B1312',dark?.42:.64),rule=dark?cuMix(c2,'#FFFFFF',.2):cuMix(c2,'#000000',.15);
+  const pat=mini?'':cuPattern(N.pat,id+'p',soft,n),patUse=/^<pattern/.test(pat)?`<rect width="320" height="160" fill="url(#${id}p)" opacity=".55"/>`:mini?'':`<use href="#${id}p" opacity=".6"/>`;
+  /* the vignette, facing into the note, and its ghost in the watermark window */
+  const sub=cuSubject(n,c,den,o),px=M(251),py=72,rx=33,ry=41,m=flR?1:-1,wx=M(46),wy=113;
+  let art='',ghost='';
+  if(mini){const sil=sub.k==='bust'?`<g transform="translate(${px} ${py-32}) scale(${.9*m} .9) translate(-48 -21)"><path d="${cvBust(sub.seed).d}" fill="${pin}" opacity=".85"/></g>`
+      :sub.k==='beast'?cuBeastArt(id+'v',n.animal,pin,vc,px,py-4,62,m,1):sub.k==='city'?`<g transform="translate(${px-33} ${py-30}) scale(.66)"><path d="${cuSkyline(n.capital||name).d}" fill="${pin}" opacity=".85"/></g>`:'';
+    art=sil||cuNest(czArmsSVG(cuArmsOf(n)),px-21,py-27,42,50);}
+  else if(sub.k==='bust'){art=cuBustArt(id+'v',sub.seed,pin,px,py-32,.9,m,sub.old);ghost=`<g transform="translate(${wx} ${wy-17}) scale(${.48*m} .48) translate(-48 -21)"><path d="${cvBust(sub.seed).d}" fill="${pin}"/></g>`;}
+  else if(sub.k==='beast'){art=cuBeastArt(id+'v',n.animal,pin,vc,px,py-4,62,m);ghost=`<g opacity=".9">${cuBeastArt(id+'w',n.animal,pin,vc,wx,wy,36,m)}</g>`;}
+  else if(sub.k==='city'){const sk=cuSkyline(n.capital||name);
+    art=`<g transform="translate(${px-33} ${py-30}) scale(.66)">${cuEngrave(id+'v',`<path d="${sk.d}" fill="#fff"/>`,pin,[0,0,100,80],{ang:-35,gap:1.6,w:.55,lit:flR?'l':'r',tint:.22})}<path d="${sk.d}" fill="none" stroke="${pin}" stroke-width=".7"/><path d="${sk.w}" fill="${vc}" opacity=".85"/><path d="M0 78.4H100" stroke="${pin}" stroke-width="1.1"/></g>`;
+    ghost=`<g transform="translate(${wx-18} ${wy-17}) scale(.36)"><path d="${sk.d}" fill="${pin}"/></g>`;}
+  else{const A=czArmsSVG(cuArmsOf(n));art=cuNest(A,px-21,py-27,42,50);ghost=cuNest(A,wx-11,wy-13,22,26);}
+  const cap=String(sub.cap||'').toUpperCase().slice(0,40);
+  const vig=`<defs><clipPath id="${id}o"><ellipse cx="${px}" cy="${py}" rx="${rx}" ry="${ry}"/></clipPath>${cuHatch(id+'g',pin,0,1.5,.22)}</defs>
+<ellipse cx="${px}" cy="${py}" rx="${rx}" ry="${ry}" fill="${vc}" opacity=".94"/><g clip-path="url(#${id}o)">${mini?'':`<rect x="${px-rx}" y="${py-ry}" width="${2*rx}" height="${2*ry}" fill="url(#${id}g)" opacity=".28"/>`}${art}</g>
+<ellipse cx="${px}" cy="${py}" rx="${rx}" ry="${ry}" fill="none" stroke="${rule}" stroke-width="1.4"/><ellipse cx="${px}" cy="${py}" rx="${rx-2.4}" ry="${ry-2.4}" fill="none" stroke="${pin}" stroke-width=".35" stroke-dasharray=".7 1.1" opacity=".75"/>
+<path d="M${px-40} 106H${px+40}L${px+36} 111.5L${px+40} 117H${px-40}L${px-36} 111.5Z" fill="${vc}" stroke="${rule}" stroke-width=".6"/><text x="${px}" y="113" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="4.2" letter-spacing=".5" fill="${pin}"${cuFit(cap,4.2,.82,66)}>${esc(cap)}</text>`;
+  /* the middle: the bank, the currency, the motto; the rosette and its emblem; signatures; the value in words */
+  const X=M(159),ey=78,arms=cuArmsOf(n),bank=('Bank of '+name).toUpperCase().slice(0,34),words=(CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).toUpperCase().slice(0,44);
+  let emb='';
+  if(N.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),X-8.5,ey-10.5,17,21);
+  else if(N.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=`<circle cx="${X}" cy="${ey}" r="9" fill="${c2}"/>`+cuNest(flagSVG({p:'plain',c:[c2,c2,c2],e,ec:ink},''),X-11,ey-7.5,22,15);}
+  else if(N.emb==='seal')emb=`<circle cx="${X}" cy="${ey}" r="9" fill="none" stroke="${ink}" stroke-width=".7"/><circle cx="${X}" cy="${ey}" r="7" fill="none" stroke="${ink}" stroke-width=".35" stroke-dasharray=".8 .9"/><text x="${X}" y="${ey+1.8}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5" fill="${ink}">${esc(code)}</text>`;
+  else emb=`<text x="${X}" y="${ey+5.5}" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?10:den>=100?13:16}" fill="none" stroke="${ink}" stroke-width=".5">${denS}</text>`;
+  const sNo=o.who?o.series:((Array.isArray(n.cuS)?n.cuS.length:0)+1),sAt=o.who?o.who.a:(typeof n.lt==='number'?n.lt:n.founded),series=`SERIES ${roman(sNo||1)}${sAt>0?' · '+new Date(sAt).getUTCFullYear():''}`;
+  const sx=MW(98,N.strip>1?9:7),sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:c2,strip=N.strip?`<g><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="${sf}" opacity="${N.strip>1?.92:.6}"/><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="url(#${id}s)"/></g>`:'';
+  const foil=N.strip===3?'#C9961A':N.strip===2?'#A6D8F4':rule;
+  const flag=!(N.fl==='l'||flR)?'':mini?`<rect x="${MW(20,52)}" y="46" width="52" height="34" rx="2.4" fill="${vc}" opacity=".75" stroke="${foil}" stroke-width=".9"/>`:cuFlagPatch(id+'f',n,MW(20,52),46,52,34,cuMix(c1,'#0B1312',.55),cuMix(c1,'#FFFFFF',.86),foil);
+  const wm=mini?'':`<defs><radialGradient id="${id}w"><stop offset=".55" stop-color="${vc}" stop-opacity=".38"/><stop offset="1" stop-color="${vc}" stop-opacity="0"/></radialGradient></defs><ellipse cx="${wx}" cy="${wy}" rx="23" ry="26" fill="url(#${id}w)"/><g opacity=".16">${ghost}</g>`;
+  const label=o.label||`A ${denS} ${c.nm} banknote of ${name}${sub.cap?', showing '+sub.cap:''}`;
+  return `<svg class="cu-note${o.cls?' '+o.cls:''}" viewBox="0 0 320 160" role="img" aria-label="${esc(label)}"><defs><linearGradient id="${id}g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${cuMix(c1,'#FFFFFF',dark?0.12:0.35)}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${cuMix(c1,'#000000',0.18)}"/></linearGradient>
 <pattern id="${id}s" width="7" height="8" patternUnits="userSpaceOnUse"><rect width="7" height="4" fill="${ink}" opacity=".25"/></pattern>
 <linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4a6c9"/><stop offset=".2" stop-color="#a6d8f4"/><stop offset=".4" stop-color="#b9f4c4"/><stop offset=".6" stop-color="#f4eda6"/><stop offset=".8" stop-color="#c9a6f4"/><stop offset="1" stop-color="#a6f0f4"/></linearGradient>
 <linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e3a1"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f2d27a"/></linearGradient>
 ${/^<pattern/.test(pat)?pat:''}<clipPath id="${id}c"><rect width="320" height="160" rx="7"/></clipPath></defs>
-<g clip-path="url(#${id}c)"><rect width="320" height="160" fill="url(#${id}g)"/>${/^<pattern/.test(pat)?'':`<defs>${pat}</defs>`}${patUse}
-<ellipse cx="${vx}" cy="80" rx="44" ry="54" fill="${vc}" opacity=".9"/><ellipse cx="${vx}" cy="80" rx="44" ry="54" fill="none" stroke="${c2}" stroke-width="1.4"/><ellipse cx="${vx}" cy="80" rx="40" ry="50" fill="none" stroke="${c2}" stroke-width=".5" stroke-dasharray="1 1.6"/>
-<text x="160" y="96" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="34" fill="none" stroke="${ink}" stroke-width=".6" opacity=".45">${denS}</text>
-${vig}<circle cx="${flR?250:70}" cy="128" r="20" fill="url(#${id}w)"/>${strip}${flag}
-<rect x="7" y="7" width="306" height="146" rx="4" fill="none" stroke="${c2}" stroke-width="1.6"/><rect x="11" y="11" width="298" height="138" rx="3" fill="none" stroke="${ink}" stroke-width=".5" stroke-dasharray="1 1.4" opacity=".7"/>
-<text x="160" y="27" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="8.5" letter-spacing="1.6" fill="${ink}">${esc(('Bank of '+n.name).toUpperCase().slice(0,34))}</text>
-<text x="160" y="43" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-size="13" fill="${ink}">${esc(c.nm)}</text>
-${motto?`<text x="160" y="56" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-size="6.5" fill="${ink}" opacity=".85">“${esc(motto.slice(0,48))}”</text>`:''}
-<text x="22" y="34" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=100?19:22}" fill="${ink}">${denS}</text>
-<text x="300" y="146" text-anchor="end" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?20:den>=100?24:28}" fill="${ink}">${denS}</text>
-<text x="300" y="26" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="6.5" fill="${ink}" opacity=".85">${esc(serial)}</text>
-<text x="22" y="146" font-family="IBM Plex Mono,monospace" font-size="6.5" fill="${ink}" opacity=".85">${esc(code)} ${denS}</text>
-${emb}<text x="160" y="${N.emb==='none'?128:141}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="6" letter-spacing=".8" fill="${ink}">${esc((CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).toUpperCase().slice(0,44))}</text>
+<g clip-path="url(#${id}c)"><rect width="320" height="160" fill="url(#${id}g0)"/>${/^<pattern/.test(pat)?'':`<defs>${pat}</defs>`}${patUse}
+${wm}${strip}${flag}${vig}
+<circle cx="${X}" cy="${ey}" r="13" fill="${c1}" opacity=".8"/>${cuRosette(X,ey,18,ink,mini?6:lite?10:20)}${emb}
+<rect x="7" y="7" width="306" height="146" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${lite?`<rect x="11" y="11" width="298" height="138" rx="3" fill="none" stroke="${ink}" stroke-width=".5" stroke-dasharray="1 1.4" opacity=".6"/>`:cuMicro(id+'m',bank,ink)}
+<text x="${X}" y="26" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="7.4" letter-spacing="1.2" fill="${ink}"${cuFit(bank,7.4,.9,90)}>${esc(bank)}</text>
+<text x="${X}" y="40" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-size="12" fill="${ink}"${cuFit(c.nm,12,.5,92)}>${esc(c.nm)}</text>
+${motto?`<text x="${X}" y="49.5" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-size="5.4" fill="${ink}" opacity=".85"${cuFit('“'+motto+'”',5.4,.45,92)}>“${esc(motto.slice(0,48))}”</text>`:''}
+<text x="${M(20)}" y="36" text-anchor="${S('start')}" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?16:den>=100?19:23}" fill="${ink}">${denS}</text>
+<text x="${M(304)}" y="147" text-anchor="${S('end')}" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?18:den>=100?22:26}" fill="${ink}">${denS}</text>
+${cuSerial(n,den,M(304),24,S('end'),ink,dark?'#FF9C8F':'#B3261E')}
+<text x="${M(20)}" y="146" text-anchor="${S('start')}" font-family="IBM Plex Mono,monospace" font-size="5.6" fill="${ink}" opacity=".85">${esc(code)} ${denS}</text>
+${lite?'':cuSigs(n,o,X,106,ink)}
+<text x="${X}" y="128" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5" letter-spacing=".6" fill="${ink}"${cuFit(words,5,.8,92)}>${esc(words)}</text>
+<text x="${X}" y="136" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="3.2" letter-spacing=".5" fill="${ink}" opacity=".8">${esc(series)}</text>
+</g></svg>`;
+}
+/* the outline of a nation's land on the map, for the back of its notes: the edges its hexes share with no other
+   hex of its own, joined into rings (map units), with its capital and cities */
+const cuLandMemo=new WeakMap();
+function cuLand(n){
+  let T;try{T=territory();}catch(e){return null;}
+  if(!T||!T.list||!T.owner)return null;
+  const i=T.list.findIndex(x=>x.n===n||!!n&&!!x.n&&!x.npc&&x.n.seed!=null&&x.n.seed===n.seed&&x.n.name===n.name);if(i<0)return null;
+  let memo=cuLandMemo.get(T);if(!memo)cuLandMemo.set(T,memo=new Map());if(memo.has(i))return memo.get(i);
+  const own=T.owner,R=HEX_R,seg=new Map(),K=(x,y)=>Math.round(x*4)+','+Math.round(y*4);let cells=0,x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(let c=0;c<MAP.N;c++){if(own[c]!==i)continue;cells++;const cx=MAP.cx[c],cy=MAP.cy[c];
+    x0=Math.min(x0,cx-R);y0=Math.min(y0,cy-R);x1=Math.max(x1,cx+R);y1=Math.max(y1,cy+R);
+    for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j>=0&&own[j]===i)continue;const e=(d+1)%6,a=[cx+HCX[d]*R,cy+HCY[d]*R,cx+HCX[e]*R,cy+HCY[e]*R],k=K(a[0],a[1]);(seg.get(k)||seg.set(k,[]).get(k)).push(a);}}
+  let out=null;
+  if(cells){const rings=[];
+    for(const list of seg.values())while(list.length){const s=list.pop(),ring=[[s[0],s[1]]],k0=K(s[0],s[1]);let cur=s;
+      for(let g=0;g<200000;g++){ring.push([cur[2],cur[3]]);const k=K(cur[2],cur[3]);if(k===k0)break;const nx=seg.get(k);if(!nx||!nx.length)break;cur=nx.pop();}
+      rings.push(ring);}
+    const at=c=>c>=0&&c<MAP.N?[MAP.cx[c],MAP.cy[c]]:null,cap=at(cellOf(n.loc));
+    out={rings,cells,x0,y0,w:x1-x0,h:y1-y0,cap,cities:(Array.isArray(n.cities)?n.cities:[]).map(t=>t&&at(t.c)).filter(Boolean)};}
+  memo.set(i,out);return out;
+}
+/* the back of a banknote: the nation's land as an engraved map, the value, the bank and the national symbols. It
+   mirrors the front: the strip and the watermark window are where they show through */
+function cuNoteBackSVG(n,c,o){
+  o=o||{};const id='cub'+(++cuSeq),N=c.note,base=CU_DENOMS.includes(N.den)?N.den:100,den=CU_DENOMS.includes(o.den)?o.den:base;
+  const c1=cuDenInk(cuHex(N.c1)||'#1D6A5C',den,base),c2=cuDenInk(cuHex(N.c2)||'#6A3DB3',den,base);
+  const dark=cuLum(c1)<0.3,ink=dark?'#F6F1E2':'#16201E',soft=dark?'rgba(246,241,226,.45)':'rgba(22,32,30,.4)';
+  const flR=N.fl==='r',M=x=>flR?320-x:x,MW=(x,w)=>flR?320-x-w:x,S=a=>flR?(a==='start'?'end':'start'):a;
+  const denS=den.toLocaleString('en-US'),name=String(n.name||''),vc=cuMix(c1,'#FFFFFF',.82),pin=cuMix(c1,'#0B1312',dark?.42:.64),rule=dark?cuMix(c2,'#FFFFFF',.2):cuMix(c2,'#000000',.15);
+  const pat=cuPattern('waves',id+'p',soft,n),bank=('Bank of '+name).toUpperCase().slice(0,34),words=(CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).toUpperCase().slice(0,44);
+  /* the map: the land engraved on a pale sea of fine lines, the capital a star, the cities dots */
+  const fx=MW(20,184),fy=20,fw=184,fh=118,L=cuLand(n);let map='';
+  if(L){const bw=fw-20,bh=fh-34,s=Math.min(bw/L.w,bh/L.h),ox=fx+10+(bw-L.w*s)/2,oy=fy+16+(bh-L.h*s)/2,P=([x,y])=>`${cuR2(ox+(x-L.x0)*s)} ${cuR2(oy+(y-L.y0)*s)}`;
+    const d=L.rings.map(r=>'M'+r.map(P).join('L')+'Z').join('');
+    map=cuEngrave(id+'l',`<path d="${d}" fill="#fff" fill-rule="evenodd"/>`,pin,[fx,fy,fw,fh],{ang:-38,gap:1.15,w:.42,tint:.24,lit:'r',fade:.4})
+      +`<path d="${d}" fill="none" stroke="${pin}" stroke-width=".7" stroke-linejoin="round"/>`
+      +L.cities.map(p=>{const [x,y]=P(p).split(' ').map(Number);return `<circle cx="${x}" cy="${y}" r="1.3" fill="${vc}" stroke="${pin}" stroke-width=".5"/>`;}).join('')
+      +(L.cap?(([x,y])=>`<path d="${czStarPts(x,y,5,4.4,1.9,-90)}" fill="${pin}" stroke="${vc}" stroke-width=".5"/>`)(P(L.cap).split(' ').map(Number)):'');}
+  else{const sk=cuSkyline(n.capital||name),s=1.3,ox=fx+fw/2-50*s,oy=fy+fh-14-78*s;map=`<g transform="translate(${cuR2(ox)} ${cuR2(oy)}) scale(${s})">${cuEngrave(id+'v',`<path d="${sk.d}" fill="#fff"/>`,pin,[0,0,100,80],{ang:-35,gap:1.4,w:.5,tint:.22})}<path d="${sk.d}" fill="none" stroke="${pin}" stroke-width=".6"/><path d="${sk.w}" fill="${vc}" opacity=".85"/><path d="M0 78.4H100" stroke="${pin}"/></g>`;}
+  const ttl=(L?'The territory of '+name:n.capital||name).toUpperCase().slice(0,40),area=L?fmtArea(L.cells):'';
+  /* the national symbols the nation has named, under its capital */
+  const facts=[['Capital',n.capital]].concat(n.founded>0?[['Founded',String(new Date(n.founded).getUTCFullYear())]]:[]);try{const y=cz(n).sy||{};for(const [k,l] of [['bird','National bird'],['flower','National flower'],['tree','National tree']])if(y[k]&&symOpen(n,k))facts.push([l,y[k]]);}catch(e){}
+  const rx=M(304),wx=M(274),wy=118;
+  const sx=MW(215,N.strip>1?9:7),sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:c2,strip=N.strip?`<rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="${sf}" opacity="${N.strip>1?.92:.6}"/>`:'';
+  return `<svg class="cu-note cu-note-b${o.cls?' '+o.cls:''}" viewBox="0 0 320 160" role="img" aria-label="${esc(o.label||`The back of a ${denS} ${c.nm} banknote of ${name}: ${L?'a map of its territory':'its capital'}`)}"><defs><linearGradient id="${id}g0" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cuMix(c1,'#FFFFFF',dark?0.12:0.35)}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${cuMix(c1,'#000000',0.18)}"/></linearGradient>
+<linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a6f0f4"/><stop offset=".25" stop-color="#c9a6f4"/><stop offset=".5" stop-color="#f4eda6"/><stop offset=".75" stop-color="#a6d8f4"/><stop offset="1" stop-color="#f4a6c9"/></linearGradient>
+<linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2d27a"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f7e3a1"/></linearGradient>
+${pat}${cuHatch(id+'q',pin,0,1.6,.2)}<radialGradient id="${id}w"><stop offset=".55" stop-color="${vc}" stop-opacity=".38"/><stop offset="1" stop-color="${vc}" stop-opacity="0"/></radialGradient><clipPath id="${id}c"><rect width="320" height="160" rx="7"/></clipPath></defs>
+<g clip-path="url(#${id}c)"><rect width="320" height="160" fill="url(#${id}g0)"/><rect width="320" height="160" fill="url(#${id}p)" opacity=".5"/>${strip}<ellipse cx="${wx}" cy="${wy}" rx="23" ry="26" fill="url(#${id}w)"/>
+<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="${vc}" opacity=".92"/><rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="url(#${id}q)" opacity=".3"/>${map}
+<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="none" stroke="${rule}" stroke-width="1.2"/><rect x="${fx+2.2}" y="${fy+2.2}" width="${fw-4.4}" height="${fh-4.4}" rx="2" fill="none" stroke="${pin}" stroke-width=".3" stroke-dasharray=".7 1" opacity=".7"/>
+<text x="${fx+fw/2}" y="${fy+11}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="4.6" letter-spacing=".8" fill="${pin}"${cuFit(ttl,4.6,.85,fw-24)}>${esc(ttl)}</text>
+${area?`<text x="${fx+fw-6}" y="${fy+fh-5}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="4" fill="${pin}" opacity=".85">${esc(area)}</text>`:''}
+<rect x="7" y="7" width="306" height="146" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${o.lite?'':cuMicro(id+'m',bank,ink)}
+<text x="${rx}" y="30" text-anchor="${S('end')}" font-family="Cinzel,Georgia,serif" font-size="4.8" letter-spacing=".8" fill="${ink}"${cuFit(bank,4.8,.9,74)}>${esc(bank)}</text>
+<text x="${rx}" y="66" text-anchor="${S('end')}" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?26:den>=100?32:38}" fill="${ink}">${denS}</text>
+<text x="${rx}" y="76" text-anchor="${S('end')}" font-family="Cinzel,Georgia,serif" font-size="3.8" letter-spacing=".5" fill="${ink}"${cuFit(words,3.8,.8,74)}>${esc(words)}</text>
+${facts.slice(0,4).map(([l,v],i)=>`<text x="${rx}" y="${86+i*6.4}" text-anchor="${S('end')}" font-family="Cinzel,Georgia,serif" font-size="3.3" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(l+' · '+v,3.3,.82,74)}>${esc((l+' · '+v).toUpperCase().slice(0,44))}</text>`).join('')}
+<text x="${fx+fw/2}" y="145" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="3.4" letter-spacing=".6" fill="${ink}" opacity=".85">${esc(('Legal tender in '+name).toUpperCase().slice(0,48))}</text>
+<text x="${rx}" y="146" text-anchor="${S('end')}" font-family="IBM Plex Mono,monospace" font-size="5.6" fill="${ink}" opacity=".85">${esc(c.cd)} ${denS}</text>
 </g></svg>`;
 }
 /* the face of a coin: 120 × 120 */
@@ -35530,13 +35769,27 @@ function cuOverview(n){
 }
 
 /* ── the nation page, the Statistics page and the Census ── */
+/* a note that turns over (cu-flip): the front, and the back, drawn the first time it is turned. key says whose
+   note it is ('me', 'prev' for the designer's draft, or a nation's id) and keeps it turned through redraws */
+function cuFlipHTML(n,c,cls,key){
+  const on=!!(CU.ui.flip&&CU.ui.flip[key]);
+  return `<div class="cu-flip${on?' on':''}"><div class="cu-flip-in"><div class="cu-face"${on?' aria-hidden="true"':''}>${cuNoteSVG(n,c,{cls})}</div><div class="cu-face cu-back" data-cls="${esc(cls)}"${on?'':' aria-hidden="true"'}>${on?cuNoteBackSVG(n,c,{cls}):''}</div></div><button type="button" class="linkish small cu-turn" data-act="cu-flip" data-k="${esc(key)}" aria-pressed="${on}">${on?'Show the front':'Turn the note over'}</button></div>`;
+}
+/* the leaders' hall of the museum: the notes of every series, this one first, each with its leader (n.cuS) */
+function cuPastHTML(x){
+  const n=x&&x.n,past=n&&Array.isArray(n.cuS)?n.cuS:[];if(!n||n.npc||!past.length)return '';
+  const c=cuOf(n),yr=t=>t>0?new Date(t).getUTCFullYear():'',fig=(o,cap)=>`<figure class="cu-past-f">${cuNoteSVG(n,c,Object.assign({lite:1,cls:'cu-note-sm'},o))}<figcaption>${cap}</figcaption></figure>`;
+  const now=fig({},`<b>Series ${roman(past.length+1)}</b>, in circulation since ${yr(typeof n.lt==='number'?n.lt:n.founded)}: ${esc(n.leader+(n.ruler?' '+n.ruler:''))}`);
+  return `<section class="section"><h2 class="h2">Banknotes of every series</h2><p class="hint">Each new leader gives the ${esc(c.nm)} a new series of notes. The old ones are kept here.</p><div class="cu-past">${now}${past.map((p,i)=>({p,i})).reverse().map(({p,i})=>fig({who:p,series:i+1},`<b>Series ${roman(i+1)}</b>, ${yr(p.a)}–${yr(p.b)}: ${esc([p.l,p.r].filter(Boolean).join(' ')||'a leader whose name is not on record')}`)).join('')}</div></section>`;
+}
+function cuFlipNC(k){if(k==='prev')return S.nation&&CU.d?cuDraftCur(S.nation,CU.d):null;const x=k==='me'?{n:S.nation}:findNation(k);return x&&x.n?[x.n,cuOf(x.n)]:null;}
 function cuSection(x,mine){
   const n=x&&x.n;if(!n)return '';cuLoad();
   const id=x.me?myId():x.id,c=cuOf(n),e=cuE(id),mc=cuMine(),m0=cuE(myId());
   let rt='',vsTop='';
   if(e&&!x.me&&m0&&mc)rt=`1 ${esc(c.cd)} = ${esc(cuFig(cuRate(e.v,m0.v),mc.nf))} ${esc(mc.cd)}`;
   else if(e&&x.me){const t=cuList().filter(r=>r.e&&!r.x.me).sort((a,b)=>a.e.r-b.e.r)[0];if(t){rt=`1 ${esc(c.cd)} = ${esc(cuFig(cuRate(e.v,t.e.v),c.nf))} ${esc(t.c.cd)}`;vsTop=` <span class="hint">against the ${esc(t.c.nm)}, ${pgAvailable(S.nation,'finance')?'the region’s most trusted':'another regional currency'}</span>`;}}
-  return `<section class="${mine?'section ':''}cu-nsec${mine?'':' cu-nsec-v'}"><div class="cu-nsec-in"><div class="cu-nsec-art">${cuNoteSVG(n,c,{cls:'cu-note-sm'})}</div>
+  return `<section class="${mine?'section ':''}cu-nsec${mine?'':' cu-nsec-v'}"><div class="cu-nsec-in"><div class="cu-nsec-art">${cuFlipHTML(n,c,'cu-note-sm',x.me?'me':x.id)}</div>
   <div><p class="eyebrow">National currency</p><p class="cu-nsec-nm">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></p>
   <dl class="cu-kv">${rt?`<dt>Exchange rate</dt><dd>${rt}${vsTop}</dd>`:''}${pgAvailable(S.nation,'finance')?(e?`<dt>Currency prestige</dt><dd>${cuBadge(e.p)} <span class="hint">${esc(cuOrd(e.r))} in ${esc(REG.name)}</span></dd>`:`<dt>Currency prestige</dt><dd class="hint">Rated from the Bureau’s next publication</dd>`):''}
   <dt>Subunit</dt><dd>1 ${esc(c.nm)} = ${c.sn===1?'no smaller coin':c.sn+' '+esc(plural(c.su))}</dd></dl>
@@ -35582,8 +35835,11 @@ function cuDraftCur(n,d){
   const o=Object.assign({},dd,c,{note:Object.assign({},dd.note,c.note),coin:Object.assign({},dd.coin,c.coin)});if(!o.pl)o.pl=o.nm.replace(/(\S+)$/,w=>plural(w));return [t,o];
 }
 function cuPrevHTML(n,d){
-  const [t,c]=cuDraftCur(n,d);
-  return `<figure class="cu-prev-f">${cuNoteSVG(t,c,{cls:'cu-note-lg'})}<div class="cu-prev-row">${cuCoinSVG(t,c,{cls:'cu-coin-lg'})}<figcaption>
+  const [t,c]=cuDraftCur(n,d),den=c.note.den;
+  /* the whole series, smallest to largest, each in its own colour: pick one to design it */
+  const fan=`<div class="cu-fan" role="group" aria-label="The series: choose a note to see and design">${CU_DENOMS.map((v,i)=>`<button type="button" class="cu-fan-b${v===den?' on':''}" data-act="cu-set" data-f="note.den" data-v="${v}" aria-pressed="${v===den}" style="--s:${cuDenScale(v).toFixed(3)};--r:${((i-4.5)*1.4).toFixed(1)}deg">${cuNoteSVG(t,c,{den:v,mini:1,cls:'cu-note-xs',label:`The ${v.toLocaleString('en-US')} note`})}</button>`).join('')}</div>`;
+  const fv=n.cuF?`<p class="hint cu-fv">The 50 shows ${esc(['the leader’s profile','Dr Marta Kovač, inventor of the non-drip teapot',`the ${n.animal||'national animal'}`,'the commentator famous for one shout in 1994'][n.cuF.o]||'')}, as the Face Value edict decided.</p>`:'';
+  return `<figure class="cu-prev-f">${cuFlipHTML(t,c,'cu-note-lg','prev')}${fan}${fv}<div class="cu-prev-row">${cuCoinSVG(t,c,{cls:'cu-coin-lg'})}<figcaption>
     <p class="cu-prev-nm">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></p>
     <p>${esc(cuAmt(1234567.89,c))} · ${esc(cuAmt(0.5,c))}</p><p class="hint">1 ${esc(c.nm)} = ${c.sn===1?'no smaller unit':c.sn+' '+esc(plural(c.su))}. Plural: ${esc(c.pl)}.</p></figcaption></div></figure>`;
 }
@@ -35639,7 +35895,10 @@ function cuSave(){
 }
 function cuSetDraft(path,v){
   const d=CU.d;if(!d)return;const [g,k]=path.split('.');
-  const num=['sn','den','strip','yr'].includes(k);if(g==='cu')d[k]=v;else if(k){d[g]=d[g]||{};d[g][k]=num?+v:v;}else d[g]=num?+v:v;
+  const num=['sn','den','strip','yr'].includes(k);
+  /* another note of the series: its colours come with it, so each value keeps the colour the series gives it */
+  if(g==='note'&&k==='den'&&d.note&&CU_DENOMS.includes(+v)&&CU_DENOMS.includes(+d.note.den)&&+v!==+d.note.den)for(const ck of ['c1','c2'])if(cuHex(d.note[ck]))d.note[ck]=cuDenInk(d.note[ck],+v,+d.note.den);
+  if(g==='cu')d[k]=v;else if(k){d[g]=d[g]||{};d[g][k]=num?+v:v;}else d[g]=num?+v:v;
 }
 function cuPrevPaint(){const p=document.getElementById('cu-prev');if(p&&S.nation&&CU.d)p.innerHTML=cuPrevHTML(S.nation,CU.d);}
 
@@ -35650,7 +35909,20 @@ NAV_WORDS.exchange='currency money rates foreign exchange prestige bank finance 
 VIEWS_EXT.exchange=now=>cuView(now);
 NATION_SECTIONS.push((x,now)=>cuSection(x,true));
 VISIT_SECTIONS.push((x,now)=>cuSection(x,false));
-NORM_HOOKS.push((n,d)=>{const c=cuClean(d&&d.cur);if(c)n.cur=c;else delete n.cur;const e=Number(d&&d.cuEv);if(Number.isInteger(e)&&e>0&&e<1e6)n.cuEv=e;});
+NORM_HOOKS.push((n,d)=>{const c=cuClean(d&&d.cur);if(c)n.cur=c;else delete n.cur;const e=Number(d&&d.cuEv);if(Number.isInteger(e)&&e>0&&e<1e6)n.cuEv=e;
+  /* n.cuF: the Face Value edict's answer ({o, t}); n.cuS: the past series of notes, one per leader before this one */
+  const f=d&&d.cuF;if(f&&typeof f==='object'&&[0,1,2,3].includes(f.o)&&Number.isFinite(+f.t))n.cuF={o:f.o,t:+f.t};else delete n.cuF;
+  const s=Array.isArray(d&&d.cuS)?d.cuS.filter(x=>x&&typeof x==='object').slice(-12).map(x=>({r:cuStr(x.r,40),l:cuStr(x.l,40),a:Math.max(0,+x.a||0),b:Math.max(0,+x.b||0)})):[];if(s.length)n.cuS=s;else delete n.cuS;});
+/* the Face Value edict's answer is kept (n.answered holds only the last eighty), and when a new leader takes office
+   the notes of the last one become a past series, kept for the museum */
+COMMIT_HOOKS.push((n,old)=>{
+  if(!old||n.npc)return;
+  const a=(Array.isArray(n.answered)?n.answered:[]).filter(x=>x&&x.id==='banknote-face'&&x.o>=0&&x.o<4).pop();if(a&&(!n.cuF||a.t>n.cuF.t))n.cuF={o:a.o,t:a.t};
+  if((old.ruler||'')!==(n.ruler||'')&&typeof n.lt==='number'&&n.lt!==old.lt){
+    n.cuS=(Array.isArray(n.cuS)?n.cuS:[]).concat({r:old.ruler||'',l:old.leader||'',a:typeof old.lt==='number'?old.lt:(old.founded||0),b:n.lt}).slice(-12);
+    if(cuOf(n).note.por==='leader')return `The Central Bank begins Series ${roman(n.cuS.length+1)} of the ${cuOf(n).nm}, with a new portrait.`;
+  }
+});
 DISPATCH_SOURCES.push(ctx=>{
   if(!ctx||(ctx.reg&&ctx.reg!==REG.id)||!CU.pub)return [];
   const out=[],me=myId();
@@ -35663,6 +35935,7 @@ DISPATCH_SOURCES.push(ctx=>{
   return out;
 });
 HELP_EXT.push({k:'currency',t:'Currencies and the Foreign Exchange Bureau',body:n=>`<p>Every nation has its own currency. Name it, choose its code and symbol, and design its banknote and coin on the <b>Customise</b> page; a suggestion is ready from the day the nation is founded.</p>
+<p>Banknotes are engraved: the leader in profile (the face from the cabinet), the capital, the national animal or the arms, signed by the leader and the Finance Minister. Every value of the series has its own colour and size, and its back carries a map of your territory: turn the note over to see it. Answer the <b>Face Value</b> edict and its choice appears on the 50. When a new leader takes office, the notes begin a new series, and the old ones go to the leaders’ hall of the museum.</p>
 <p>The <b>Foreign Exchange Bureau</b> (in the menu, under Abroad) publishes every currency’s exchange rate once a day, from each nation’s real economy: productivity, growth, stable government and prices, trade and development. Each currency also has a <b>Currency Prestige</b> rating from 0 to 100, from Fragile to Highly Trusted, which measures confidence, not value: a currency worth a hundred of another is not, for that, more trusted. Prestige is earned slowly, by staying stable, growing, trading and keeping inflation and debt in check, and a young currency needs 180 days to build a full track record.</p>
 <p>The <b>Currency &amp; finance</b> achievements and the <b>National Mint</b> set in the museum earn more designs: engravings, coin metals and shapes, and holographic and gold-foil security strips. Once the first and next steps are done, the <b>Treasury steps</b> on your Nation page pay ${CU_STEP_CREDITS} land credits and ${CU_STEP_GIFT.oil} oil each for visiting the Bureau and designing your currency.</p>
 <p>Names and designs never change a currency’s value or prestige, and nothing can be bought that does. New resource quotes use relative economic strength, up to 8% either way. A stronger currency buys imports with fewer exports; a weaker currency makes its exports cheaper to foreign buyers. Signed deals retain their daily quantities. The Bureau explains policy effects on confidence, and records decisions that change monetary credibility, debt, prices, income or employment. Counterfeit currency operations add temporary verification costs to new quotes, halved by Counter-Intelligence.</p>`});
@@ -35677,6 +35950,13 @@ document.addEventListener('click',e=>{
   else if(a==='cu-set'){if(!CU.d)CU.d=cuDraft(S.nation);cuSetDraft(el.dataset.f,el.dataset.v);render();}
   else if(a==='cu-reset'){CU.d=cuDraft(Object.assign({},S.nation,{cur:undefined}));render();}
   else if(a==='cu-locked'){toast('Locked. '+unlockHow(el.dataset.u));}
+  else if(a==='cu-flip'){
+    const box=el.closest('.cu-flip'),k=el.dataset.k;if(!box)return;const on=!box.classList.contains('on'),front=box.querySelector('.cu-face:not(.cu-back)'),back=box.querySelector('.cu-back');
+    (u.flip||(u.flip={}))[k]=on;
+    if(on&&back&&!back.firstChild){const nc=cuFlipNC(k);if(nc)back.innerHTML=cuNoteBackSVG(nc[0],nc[1],{cls:back.dataset.cls});}
+    box.classList.toggle('on',on);if(front)front.setAttribute('aria-hidden',String(on));if(back)back.setAttribute('aria-hidden',String(!on));
+    el.setAttribute('aria-pressed',String(on));el.textContent=on?'Show the front':'Turn the note over';
+  }
   else if(a==='cu-steps-hide'){cuStepsHide(true);render();}
   else if(a==='cu-steps-show'){cuStepsHide(false);go('nation');}
 });
@@ -39825,7 +40105,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,NEWS:{nwClean,nwUnread,NW,NWE},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,locOf,clone,territory,NEWS:{nwClean,nwUnread,NW,NWE},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban}});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

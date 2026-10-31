@@ -31,7 +31,7 @@ function currencyHelpers() {
   const a = GAME.indexOf('/* ── currency: pure helpers'), b = GAME.indexOf('/* ── currency: end of pure helpers ── */');
   assert.ok(a > 0 && b > a, 'the game marks its pure currency helpers');
   const G = gameSandbox(), ctx = vm.createContext({ clamp: G.clamp, plural: G.plural });
-  vm.runInContext(GAME.slice(a, b) + '\nthis.C={CU_TIERS,cuTier,cuClean,cuDefault,cuOf,cuNum,cuFig,cuAmt,cuParseAmt,cuRate,cuCodeOf,cuDec,CU_DENOMS,CU_LOCK,setHolds:f=>{CU_HOLDS=f;}};', ctx);
+  vm.runInContext(GAME.slice(a, b) + '\nthis.C={CU_TIERS,cuTier,cuClean,cuDefault,cuOf,cuNum,cuFig,cuAmt,cuParseAmt,cuRate,cuCodeOf,cuDec,CU_DENOMS,CU_LOCK,cuDenInk,cuDenScale,setHolds:f=>{CU_HOLDS=f;}};', ctx);
   return ctx.C;
 }
 const rnd = seed => { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
@@ -287,6 +287,20 @@ test('the game’s currency helpers: defaults for every nation, sanitising, form
   assert.equal(C.cuClean({ nm: '123' }), null, 'a name starts with a letter');
 });
 
+test('the banknote series: each value its own colour round the wheel, the designed note its own, greys grey', () => {
+  const C = currencyHelpers(), D = C.CU_DENOMS;
+  assert.equal(C.cuDenInk('#1D6A5C', 100, 100), '#1D6A5C', 'the note designed keeps its colour');
+  const all = D.map(d => C.cuDenInk('#1D6A5C', d, 100));
+  assert.equal(new Set(all).size, D.length, 'every value has a colour of its own');
+  for (const h of all) assert.match(h, /^#[0-9A-F]{6}$/);
+  /* turning from one note to another and back lands where it started, near enough to look the same */
+  const back = C.cuDenInk(C.cuDenInk('#7A2E2E', 500, 20), 20, 500), ch = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  ch(back).forEach((v, i) => assert.ok(Math.abs(v - ch('#7A2E2E')[i]) <= 2, back));
+  assert.equal(C.cuDenInk('#808080', 1000, 1), '#808080', 'a grey note stays grey');
+  assert.equal(C.cuDenInk('nonsense', 50, 100), '');
+  assert.equal(C.cuDenScale(1), 0.86); assert.equal(C.cuDenScale(1000), 1);
+  assert.ok(D.every((d, i) => !i || C.cuDenScale(d) > C.cuDenScale(D[i - 1])), 'larger values print larger');
+});
 test('earned designs: kept when held, the suggestion when not', () => {
   const C = currencyHelpers();
   const n = { name: 'Eternia', demonym: 'Eternian', currency: 'mark', cur: { note: { pat: 'moire', strip: 3 }, coin: { met: 'platinum', shape: 'holed' } } };
