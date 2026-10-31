@@ -51,7 +51,7 @@ async function signingKey() {
   if (!s.exists) {
     const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
     const priv = privateKey.export({ type: 'pkcs8', format: 'pem' }), pub = publicKey.export({ type: 'spki', format: 'der' }).toString('base64'), at = Date.now();
-    /* create() fails if another instance made the key first; then theirs stands */
+    /* create() fails if another instance (or a request beside this one) made the key first; then theirs stands */
     try { await db.batch().create(ref, { priv, pub, at }).set(db.doc('referee/pub'), { k: pub, at }).commit(); } catch (e) { /* made meanwhile */ }
     s = await ref.get();
   }
@@ -134,7 +134,9 @@ async function forget(uid) {
   return { ok: true };
 }
 
-export const referee = onCall({ region: REGION, maxInstances: 20, memory: '256MiB', timeoutSeconds: 20 }, async req => {
+/* one vCPU serves up to 80 battles at once (a smaller share of one serves a single request); KEY, the only state
+   kept between requests, is the same key for all of them */
+export const referee = onCall({ region: REGION, maxInstances: 20, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 20 }, async req => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const data = req.data && typeof req.data === 'object' ? req.data : {};

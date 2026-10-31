@@ -6554,6 +6554,57 @@ function embedLegacy(old){
   const npcLoc={};for(const id of Object.keys(old.npcLoc)){const li=old.npcLoc[id];npcLoc[id]=(Math.floor(li/LEG.oc)+LEG.oy)*COLS+(li%LEG.oc)+LEG.ox;}
   return {...G,T,...C,npcLoc,leg};
 }
+/* ── the baked maps ──
+   Generating a region's map takes a tenth of a second on a fast computer and most of a second on a phone, on
+   every page load. So build.py runs the generators above for every region (scripts/bake-maps.mjs) and serves
+   what they made as a long-cached file that sets window.__edictum.maps before this script runs; the page
+   rebuilds its map from that in a few milliseconds. A region's entry: its c × r grid, t its land levels
+   (mapLevels, in base64), x the hexes that differ from the shallows worked out from the land ([hex, terrain]
+   pairs), h the terrain's checksum, n its landmass names in order of size and p its computer nations'
+   capitals. The build decodes every entry with bakedMap and checks it against the generated map hex for hex;
+   without an entry, or with a damaged one or one for another grid, the page generates the map as before. */
+/* land levels (0 sea, 1 lowland, 2 hills, 3 mountains) hex by hex, each foretold from nine hexes before it:
+   bit(k,b) codes the answer b to one yes/no question in context k (the build) or decodes it (the page) */
+function mapLevels(L,nbr,bit){
+  const q=new Int32Array(9),v=new Uint8Array(9),nb=(i,d)=>i<0?-1:nbr[i*6+d];
+  for(let i=0;i<L.length;i++){
+    q[0]=nb(i,3);q[1]=nb(i,4);q[2]=nb(i,5);q[3]=nb(q[0],3);q[4]=nb(q[1],3);q[5]=nb(q[1],5);q[6]=nb(q[2],0);q[7]=nb(q[1],4);q[8]=nb(q[2],5);
+    let k=0;for(let j=0;j<9;j++){v[j]=q[j]<0?0:L[q[j]];k=k*2+(v[j]>0?1:0);}
+    if(!bit(k,L[i]>0)){L[i]=0;continue;}
+    k=0;for(let j=0;j<7;j++)k=k*3+Math.min(2,v[j]);
+    if(!bit(512+k,L[i]>1)){L[i]=1;continue;}
+    k=v[0]>=2?1:0;for(let j=0;j<7;j++)k=k*2+(v[j]>=3?1:0);
+    L[i]=bit(2699+k,L[i]>2)?3:2;
+  }
+}
+/* a baked entry's terrain: the levels through a binary range decoder, then the shallows as genTerrain makes them */
+function mapUnpack(b,G){
+  const {N,nbr}=G,s=atob(b.t),buf=new Uint8Array(s.length);for(let i=0;i<s.length;i++)buf[i]=s.charCodeAt(i);
+  const P=new Uint16Array(4096).fill(1024),L=new Uint8Array(N);let pos=1,code=0,range=0xFFFFFFFF;
+  for(let i=0;i<4;i++)code=(code*256+(buf[pos++]|0))>>>0;
+  mapLevels(L,nbr,k=>{const p=P[k],bound=(range>>>11)*p;let v=0;if(code<bound){range=bound;P[k]=p+((2048-p)>>3);}else{code-=bound;range-=bound;P[k]=p-(p>>3);v=1;}
+    while(range<16777216){range=range*256>>>0;code=(code*256+(buf[pos++]|0))>>>0;}return v;});
+  const T=new Uint8Array(N);for(let i=0;i<N;i++)T[i]=L[i]?L[i]+1:0;
+  let front=[];const dw=new Int8Array(N).fill(-1);
+  for(let i=0;i<N;i++)if(T[i]>=2){dw[i]=0;front.push(i);}
+  for(let step=1;step<=2;step++){const nx=[];for(const i of front)for(let d=0;d<6;d++){const j=nbr[i*6+d];if(j>=0&&dw[j]<0){dw[j]=step;T[j]=1;nx.push(j);}}front=nx;}
+  for(let k=0;k+1<b.x.length;k+=2)T[b.x[k]]=b.x[k+1];
+  return T;
+}
+/* a checksum of a terrain (h in a baked entry): a damaged entry is generated instead */
+function mapSum(T){let h=2166136261;for(let i=0;i<T.length;i++)h=Math.imul(h^T[i],16777619);return h>>>0;}
+/* this region's map from its baked entry, the same object the generators make; null to generate it */
+function bakedMap(){
+  try{
+    const B=window.__edictum&&window.__edictum.maps,b=B&&B.v===1&&B.r&&Object.prototype.hasOwnProperty.call(B.r,REG.id)?B.r[REG.id]:null;
+    if(!b||b.c!==MAP_COLS||b.r!==MAP_ROWS)return null;
+    const G=genGeom(b.c,b.r),T=mapUnpack(b,G);if(mapSum(T)!==b.h)return null;
+    const C=genComps(G,T,comps=>{b.n.forEach((nm,k)=>{if(comps[k])comps[k].name=nm;});});
+    let leg=null;
+    if(REG_MER){leg=new Int32Array(G.N).fill(-1);for(let r=LEG.oy;r<Math.min(G.ROWS,LEG.oy+LEG.or);r++)for(let c=LEG.ox;c<Math.min(G.COLS,LEG.ox+LEG.oc);c++)leg[r*G.COLS+c]=(r-LEG.oy)*LEG.oc+(c-LEG.ox);}
+    return {...G,T,...C,npcLoc:Object.assign({},b.p),leg};
+  }catch(e){return null;}
+}
 /* older Meridian records (map version 2) are moved into the larger map hex for hex */
 function remapLegacy(d){
   if(!d||typeof d!=='object')return d;
@@ -15301,14 +15352,23 @@ function emblemSVG0(e,x,y,r,col){
 }
 
 /* ───────── guilloche (security engraving) ───────── */
+const GUILL=new Map();
 function drawGuill(cv){
   if(cv.dataset.id){idGuill(cv);return;}
   const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;
-  const dpr=Math.min(2,window.devicePixelRatio||1);
-  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+  const dpr=Math.min(2,window.devicePixelRatio||1),W=Math.round(w*dpr),H=Math.round(h*dpr);
+  const col=getComputedStyle(document.documentElement).getPropertyValue('--guill').trim()||'#1d6a5c';
+  /* drawn once per size, ink and seed: a canvas already drawn is left alone, and a page drawn again gets back
+     the canvas it had (as idGuill does) */
+  const d=cv.dataset,key=[w,h,dpr,col,d.alpha,d.cx,d.cy,d.seed].join('|');
+  if(cv._gk===key&&cv.width===W&&cv.height===H)return;
+  const old=GUILL.get(key);
+  if(old&&old!==cv&&!old.isConnected&&old.width===W&&old.height===H&&old.className===cv.className){cv.replaceWith(old);GUILL.delete(key);GUILL.set(key,old);return;}
+  if(cv._gk&&GUILL.get(cv._gk)===cv)GUILL.delete(cv._gk);
+  cv.width=W;cv.height=H;
   const g=cv.getContext('2d');if(!g)return;
   g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
-  const col=getComputedStyle(document.documentElement).getPropertyValue('--guill').trim()||'#1d6a5c';
+  cv._gk=key;GUILL.set(key,cv);while(GUILL.size>4)GUILL.delete(GUILL.keys().next().value);
   const alpha=+(cv.dataset.alpha||0.3),cx=w*+(cv.dataset.cx||0.86),cy=h*+(cv.dataset.cy||0.5);
   const R=clamp(Math.max(w,h)*0.34,130,300),r=rng(+(cv.dataset.seed||1));
   g.strokeStyle=col;g.lineWidth=0.7;
@@ -15407,7 +15467,7 @@ function legacyMap(){return (function(){
   }
   return {COLS,ROWS,N,W,H,cx,cy,nbr,T,comp,comps,coast,npcLoc};
 })();}
-const MAP=REG_MER?embedLegacy(legacyMap()):genRegionMap(REG);
+const MAP=bakedMap()||(REG_MER?embedLegacy(legacyMap()):genRegionMap(REG));
 NPC_NATIONS.forEach(n=>{n.loc=locOf(MAP.npcLoc[n.id]);});
 
 const budgetOf=p=>p>1000?Math.floor(4+5.5*Math.sqrt(1000)+10*Math.log(p/1000)):Math.floor(4+5.5*Math.sqrt(Math.max(0,p)));
@@ -15567,7 +15627,19 @@ function refFlag(id){
   const bad=x.conq.filter(e=>e&&typeof e.s==='string'&&REF.ok.get(refK(id,e))===false);if(!bad.length)return;
   const a=AUDIT.get(id)||{why:[],name:x.name};a.why=a.why.filter(w=>!/a seal the referee did not make/.test(w)).concat(refWhy(bad.length,true));AUDIT.set(id,a);
 }
+/* What the land entries are read from: the records (replaced when they change, never edited; commit() also
+   counts its saves in recRev), the server's race times and the referee's verdicts (both only ever grow, and
+   RACE.rev counts each batch). While none of these has changed, the last reading of them still holds, so
+   territory() no longer gathers, sorts and hashes every claim in the region each time it is asked. */
+let recRev=0;
+const recStamp=at=>[S.nation,S.world,recRev,S.mode,S.uid,!!S.db,REF.ok.size,RACE.rev,RACE.t.size,at];
+const sameStamp=(a,b)=>!!a&&a.length===b.length&&a.every((v,i)=>v===b[i]);
+const ccMemo=[null,null];
 function collectConquests(at){
+  const slot=at==null?0:1,st=recStamp(at),m=ccMemo[slot];if(m&&sameStamp(m.st,st))return m.v;
+  const v=readConquests(at);ccMemo[slot]={st,v};return v;
+}
+function readConquests(at){
   const out=[];
   const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
   if(S.nation)add(myId(),S.nation);
@@ -15598,6 +15670,10 @@ function grow(list,over){
   }
   return {owner,grown,held};
 }
+/* when a nation's capital took its place: its founding, or its settling since (n.capAt), which since the founding
+   edict can come hours later. A claim made before then stays, even within 2 hexes of the capital; the later of the
+   two counts, so a record cannot date its capital back before its founding. */
+const capSince=n=>Math.max(n.founded||0,n.capAt||0);
 const terrCache=new Map();
 function territory(extra){
   syncReclaims();
@@ -15623,7 +15699,7 @@ function territory(extra){
     if(!e.claim)continue;const oi=byId[e.o];if(oi===undefined||!list[oi].cm)continue;
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||MAP.T[e.c]<2)continue;
     if(cityOver.has(e.c)){if(cityOver.get(e.c)===oi&&!how.has(e.c)){used[oi]++;how.set(e.c,1);nat.set(e.c,oi);}continue;}
-    if(hexDist(e.c,list[oi].cap)>45||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>(y.n.founded||0)))continue;
+    if(hexDist(e.c,list[oi].cap)>45||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
     cityOver.set(e.c,oi);how.set(e.c,1);nat.set(e.c,oi);used[oi]++;
   }
   const base=grow(list,cityOver.size?cityOver:null),over=new Map(cityOver),lostPre=new Int32Array(L),rate=new Map();let moved=false;
@@ -16230,10 +16306,14 @@ function economy(){
   const price={};
   for(const r of RES){let P=0,D=0;for(let i=0;i<L;i++){sup[r][i]=prod[r][i]-exp[r][i]+imp[r][i]*(tariff[i]?0.8:1);ratio[r][i]=dem[r][i]>0?sup[r][i]/dem[r][i]:1;P+=prod[r][i];D+=dem[r][i];}price[r]=clamp(P>0?D/P:3,0.4,3);}
   const q=(r,i)=>{const v=Math.min(ratio[r][i],1.5);return reserve[i]&&v<1?v+(1-v)/2:v;};
-  const eff=T.list.map((x,i)=>{const a=CSt.agg[i],cf=cabFx(x.n);return {
+  /* cabFx asks for each nation's city aggregate (bldAggOf): hand it the ones in hand rather than have it find
+     the territory and the nation again for every one */
+  BFX_HAND={v:CSt,m:new Map(T.list.map((x,i)=>[x.n,CSt.agg[i]||null]))};let eff;
+  try{eff=T.list.map((x,i)=>{const a=CSt.agg[i],cf=cabFx(x.n);return {
     army:(0.8+0.13*q('iron',i)+0.07*q('oil',i))*(1+a.army)*(1+(a.transportArmy||0))*(1+cf.army),
     prosper:(0.82+0.1*q('goods',i)+0.04*q('timber',i)+0.04*q('oil',i))*(1+a.prosper)*(1+cf.prosper),
-    growth:clamp(clamp(0.5+0.5*q('food',i),0.5,1.25)*(1+a.growth)*(1+cf.growth),0.5,1.6)};});
+    growth:clamp(clamp(0.5+0.5*q('food',i),0.5,1.25)*(1+a.growth)*(1+cf.growth),0.5,1.6)};});}
+  finally{BFX_HAND=null;}
   const v={T,prod,dem,exp,imp,sup,ratio,price,eff,active,pending:dl.pending,byDoc:new Map(T.list.map((x,i)=>[x.n,i]))};
   econMemo={T,k,at:now,ref:S.nation,w:S.world,v};
   return v;
@@ -17807,7 +17887,12 @@ function biomeGlyphs(g,byP,col,s,T,kind){
 let RECL={sig:'',owner:new Map(),time:new Map()};
 function reclaimCell(c){MAP.T[c]=2;BIOME[c]=7;CELL_RES.food[c]=3.4;CELL_RES.timber[c]=0.6;MAP.coast[c]=0;let k=-1;for(let d=0;d<6&&k<0;d++){const j=MAP.nbr[c*6+d];if(j>=0&&MAP.comp[j]>=0)k=MAP.comp[j];}MAP.comp[c]=k;}
 function unreclaimCell(c){MAP.T[c]=MAP_T0[c];BIOME[c]=0;CELL_RES.food[c]=0;CELL_RES.timber[c]=0;MAP.coast[c]=-1;MAP.comp[c]=-1;}
+let reclSt=null;
 function syncReclaims(){
+  if(sameStamp(reclSt,recStamp(RECL)))return RECL;
+  const r=readReclaims();reclSt=recStamp(r);return r;
+}
+function readReclaims(){
   const ev=[],add=(id,n)=>{if(n&&Array.isArray(n.rec))for(const e of n.rec)ev.push({c:e.c,t:e.t,id});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world||{}))if(id!==S.uid)add(id,S.world[id]);
@@ -23736,18 +23821,34 @@ VIEWS_EXT.assembly=now=>asmView(now);
 let civicApi=null,civicLoading=false,civicAgain=false,civicEpoch=0,civicAt=0,civicBusy=false;
 const civicSignature=a=>JSON.stringify([a.reg,a.c,a.cur,a.locks,a.D,a.V,a.info,a.npc,a.recs,a.account]);
 const civicLocal=a=>Object.fromEntries(['h','d','st','cur'].filter(k=>a&&k in a).map(k=>[k,a[k]]));
+/* How often the game asks again (civicDue): every 30 seconds on the Assembly page and every 10 minutes elsewhere
+   (a banner's seat and the Delegate's stamp, the bell's notes and what an account may do change seldom, and
+   linking an account asks at once), and soon after the vote closes or this nation's seat unlocks; only while the
+   page is in view. A failure waits 5 seconds before asking again, then twice as long each time, up to 10 minutes
+   (the first asks of a page or a nation just founded can fail before its sign-in or first save has settled); until
+   the Assembly has answered once, each save of the nation asks again at once. */
+const CIVIC_PAGE=30000,CIVIC_AWAY=600000,CIVIC_JIT=5000+Math.random()*55000;
+let civicFails=0,civicRetry=0;
+function civicDue(now){
+  if(document.visibilityState!=='visible'||now<civicRetry)return false;
+  if(!S.civic||S.civic.reg!==REG.id)return true;
+  const a=S.civic.account||{},close=S.civic.t1+CIVIC_JIT,seat=a.kind==='registered'&&!a.eligible&&!a.reason&&a.readyAt?a.readyAt+5000:0;
+  return now-civicAt>(S.view==='assembly'?CIVIC_PAGE:CIVIC_AWAY)||civicAt<close&&now>=close||!!seat&&civicAt<seat&&now>=seat;
+}
+function civicMissed(){civicRetry=Date.now()+Math.min(CIVIC_AWAY,5000*2**civicFails);civicFails++;}
 function civicInstall(value){
-  if(!value||value.reg!==REG.id)return;
-  S.civic=value;civicAt=Date.now();
+  if(!value||value.reg!==REG.id)return false;
+  S.civic=value;civicAt=Date.now();civicFails=0;civicRetry=0;
   if(S.nation){S.nation.asm=Object.assign(civicLocal(S.nation.asm),value.own);saveLocal(S.nation);}
   asmMemo={k:'',v:null};
+  return true;
 }
 async function civicRefresh(){
   if(!S.uid||!S.nation||S.mode==='local')return;
   if(civicLoading||civicBusy){civicAgain=true;return;}
   civicLoading=true;const epoch=civicEpoch;
-  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';civicInstall(next);if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||S.view==='diplomacy'&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
-  catch(e){if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
+  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';if(!civicInstall(next))civicMissed();if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||S.view==='diplomacy'&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
+  catch(e){civicMissed();if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
   finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
 async function civicAction(data){
@@ -23793,10 +23894,10 @@ VIEWS_EXT.assembly=now=>{
   const reason=!a?'Connecting to the Assembly…':a.kind==='guest'?'Guest Nations may read debates. Link a sign-in account to become a Registered Nation and take political actions.':a.reason==='moderated'?'This nation cannot take political actions while under moderation.':!a.eligible?'Assembly voting, proposals and leadership unlock 24 hours after your nation was founded.':'';
   return (reason?`<p class="war-msg" role="status">${esc(reason)}</p>`:'')+civicAssemblyView(now);
 };
-window.addEventListener('edictum:linked',()=>{civicAt=0;civicEpoch++;civicRefresh();});
-window.addEventListener('edictum:saved',()=>{if(!S.civic||Date.now()-civicAt>30000)civicRefresh();});
-window.addEventListener('focus',()=>{if(Date.now()-civicAt>15000)civicRefresh();});
-setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-civicAt>(S.view==='assembly'?30000:90000))civicRefresh();},15000);
+window.addEventListener('edictum:linked',()=>{civicAt=0;civicFails=0;civicRetry=0;civicEpoch++;civicRefresh();});
+window.addEventListener('edictum:saved',()=>{if(!S.civic)civicRetry=0;if(civicDue(Date.now()))civicRefresh();});
+window.addEventListener('focus',()=>{if(civicDue(Date.now()))civicRefresh();});
+setInterval(()=>{if(civicDue(Date.now()))civicRefresh();},5000);
 
 
 /* ── elsewhere: the Region page, the nation pages (first among the extra sections), the bell, happenings, the Dispatch, help ── */
@@ -26510,11 +26611,14 @@ function bldAgg(a,B,key,x){
 }
 /* extra capacity units from a city: room from working buildings, and dormant ones stop counting */
 function bldRoom(ct,T){const x=T.list[ct.hi],g=x?ldrOf(x.n):[];let r=0;for(const k of ct.done){const B=BUILDINGS[k];if(!B)continue;if(B.lead&&!g.includes(B.lead))r-=1;else if(B.room)r+=B.room;}return r;}
-let bfxBusy=false;const BFX_MEMO=new WeakMap();
-/* a nation's city aggregate, reused while cityState has not been recomputed (and for a second at most) */
+let bfxBusy=false,BFX_HAND=null;const BFX_MEMO=new WeakMap();
+/* a nation's city aggregate, reused while cityState has not been recomputed (and for a second at most);
+   economy() hands over the ones it has (BFX_HAND, with the cityState they came from) */
 function bldAggOf(n){
   if(!n||n.npc||bfxBusy)return null;
-  const now=performance.now(),m=BFX_MEMO.get(n);if(m&&cityMemo.v&&m.v===cityMemo.v&&now-m.t<1000)return m.a;
+  const now=performance.now();
+  if(BFX_HAND&&BFX_HAND.m.has(n)){const a=BFX_HAND.m.get(n);BFX_MEMO.set(n,{v:BFX_HAND.v,t:now,a});return a;}
+  const m=BFX_MEMO.get(n);if(m&&cityMemo.v&&m.v===cityMemo.v&&now-m.t<1000)return m.a;
   bfxBusy=true;
   try{const T=territory();let i=T.list.findIndex(x=>x.n===n);if(i<0&&S.nation&&n.seed===S.nation.seed&&n.founded===S.nation.founded)i=T.byId[myId()];const a=i===undefined||i<0?null:cityState(T).agg[i]||null;BFX_MEMO.set(n,{v:cityMemo.v,t:now,a});return a;}
   catch(e){return null;}finally{bfxBusy=false;}
@@ -34389,12 +34493,20 @@ function suggestSpot(T){
   for(let t=0;t<12&&c.length;t++){const pick=c[Math.floor(Math.random()*Math.min(10,c.length))][0];if(!pickProblem(pick,T))return pick;}
   return -1;
 }
+/* No claim may lie within 2 hexes of another nation's capital (claimBan), so a capital may not be placed within 2
+   hexes of another nation's claimed land either: the nation whose claims they are, if any, within that distance. */
+function claimNear(cell,T){
+  if(!T._clm){const m=new Int16Array(MAP.N).fill(-1);T.list.forEach((x,i)=>{if(!x.me&&!x.npc&&Array.isArray(x.n.claims))for(const e of x.n.claims)if(T.owner[e.c]===i)m[e.c]=i;});T._clm=m;}
+  for(const [c] of ringCells(cell,2)){const i=T._clm[c];if(i>=0)return T.list[i];}
+  return null;
+}
 function pickProblem(cell,T){
   if(cell<0)return 'Choose a spot inside the map.';
   if(MAP.T[cell]<2)return 'That is open water. Choose a hex of land.';
   {const isl=isletProblem(cell,T);if(isl)return isl;}
   const o=T.owner[cell];
   if(o!==-1&&!T.list[o].me)return 'That land already belongs to '+T.list[o].n.name+'.';
+  {const x=claimNear(cell,T);if(x)return 'That is too close to land claimed by '+x.n.name+'. Settle at least 3 hexes from another nation’s claims.';}
   for(const x of T.list){if(x.me)continue;if(hexDist(cell,x.cap)<MIN_CAP_DIST)return 'That is too close to the capital of '+x.n.name+'. Settle at least '+MIN_CAP_DIST+' hexes away.';}
   return '';
 }
@@ -34596,6 +34708,8 @@ function settle(){
   commit(n);S.mapPick=null;S.mapMsg='';S.mapSel=null;centerMain(cell,NEAR_Z);render();
   toast(fullName(n)+' has settled '+placePhrase(cell)+'.');
 }
+/* the time the capital took its place, whichever way it got there (founding, settling, moving, waking): see capSince */
+COMMIT_HOOKS.push((n,old,now)=>{const c=cellOf(n.loc);if(c>=0&&(!old||old.founded!==n.founded||cellOf(old.loc)!==c))n.capAt=now;});
 
 /* map markup */
 function mapBox(kind,cls,id){
@@ -34610,7 +34724,7 @@ function mapLegend(){
 }
 function worldMapView(){
   const n=S.nation,placed=cellOf(n.loc)>=0;
-  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders or island shores within four hexes of a completed coastal Harbour to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
+  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders or island shores within four hexes of a completed coastal Harbour to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital and 3 from another nation’s claims.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
   <div class="map-layout${mapFsOn('main')?' ml-full':''}">
     <div class="ml-map">${mapBox('main',placed?'':' pick')}</div>
     <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
@@ -34734,7 +34848,7 @@ function normalizeBase(d){
   const topics={};if(d.topics&&typeof d.topics==='object')for(const [k] of ISSUE_TOPICS){const v=d.topics[k];if(v===1||v===-1)topics[k]=v;}
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
-    currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),
+    currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
     freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
@@ -34796,7 +34910,7 @@ function commit(n){if(regBlocked())return;const now=Date.now();migAccrue(n,now);
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
-  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;queueRemote();}
+  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote();}
 function queueRemote(){
   if(regBlocked()||S.db&&!RCTRL.ready){remoteDirty=true;publishSync();return;}
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
@@ -39152,7 +39266,7 @@ mapFsBar=(f=>function(kind){return kind==='found'&&S.nation?`<div class="map-fs-
 answer=(f=>function(id,o){
   const n0=S.nation;if(id!==FD_ID||!n0||cellOf(n0.loc)>=0)return f.apply(this,arguments);
   const T=territory(),c=fdSites(n0,T)[o];
-  if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled near that pin. The advisors have moved their pins: choose again.');return;}
+  if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that pin. The advisors have moved their pins: choose again.');return;}
   const r=f.apply(this,arguments);S.mapPick=c;settle();return r;
 })(answer);
 resultView=(f=>function(){const h=f.apply(this,arguments);return S.result&&S.result.id===FD_ID&&S.nation?h.replace('<div class="row">',`<div class="row"><button class="btn" data-act="go" data-v="map">See ${esc(S.nation.name)} on the map</button>`).replace('<button class="btn" data-act="open"','<button class="btn ghost" data-act="open"'):h;})(resultView);

@@ -413,7 +413,9 @@ check('the stamps stay in the private half; the shared half counts them by hash'
 check('its page shows the stamp and where it went', await until(async () => /In your passport since .* on page I\./.test(await text(A, '.pp-visit'))));
 check('the first stamp earns First Stamp', await until(async () => !!(((await nationDoc(uidA)) || { rec: {} }).rec.ach || {})['pass-1'], 15000));
 // the banner's stamps: a seat in the Assembly, the Delegate's chair, an alliance
-// its seat shows as Member, or as Delegate when the computer nations happen to back it (only the highest stamp shows)
+// its seat shows as Member, or as Delegate when the computer nations happen to back it (only the highest stamp shows).
+// Away from the Assembly page a game asks for the Assembly every 10 minutes, and B registered after A last asked: ask now.
+await A.evaluate(() => window.dispatchEvent(new Event('edictum:linked')));
 check('a player nation’s banner is stamped with its Assembly seat, and with no alliance it has none', await until(async () => /Meridian Reach Assembly\s*Member|Assembly\s*Delegate\s*of Meridian Reach/.test(await text(A, '.hero .hero-stamps'))) && !(await A.$('.hero .hs-al')));
 if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) {
   await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
@@ -949,6 +951,10 @@ await HM.ctx.close();
 const HW = await player('HW');
 const uidHW = await open(HW);
 await found(HW, 'Lakeshore');
+// a nation founded now that leaves its capital to the founding edict, settling beside Lakeshore's claims later
+const NS = await player('NS');
+const uidNS = await open(NS);
+await found(NS, 'Latecomer', { newPlayer: true });
 // a claim is stamped with the server's time in the save that first carries it
 const fv = v => Number(v && (v.integerValue ?? v.doubleValue));
 await nav(HW, 'issues'); await until(() => HW.$('.issue-card')); await HW.click('.issue-card');
@@ -960,6 +966,22 @@ const stHW = clHW && await until(async () => { const r = await restGet(`stamps/m
 check('a claim is stamped with the server’s time in the save that carries it', !!stHW && Math.abs(new Date(stHW.t.timestampValue).getTime() - clHW[0].t) < 60e3, JSON.stringify({ lc: !!lcHW, cl: clHW && clHW.length, st: stHW }));
 const docHW = await until(async () => { const r = await restGet('nations/' + uidHW); const f = r.status === 200 && r.body.fields; return f && f.cl && fv(f.cl) >= 1 ? f : null; }, 15000);
 check('its save carries the headline numbers the rules bound', !!docHW && fv(docHW.pop) > 4 && fv(docHW.army) > 0 && fv(docHW.cl) === clHW.length, JSON.stringify(docHW && { pop: docHW.pop, army: docHW.army, cl: docHW.cl }));
+// a capital keeps 3 hexes from another nation's claims; one placed there all the same (a browser that had not yet
+// seen them) leaves them be, for every player: they were made before it, though after its nation's founding
+const cellsHW = clHW.map(e => e.c);
+const nearHW = await until(() => NS.evaluate(([id, cs]) => {
+  const T = G.territory(), i = T.byId[id]; if (i === undefined || !cs.every(c => T.owner[c] === i)) return null;
+  for (const c of cs) for (const [y] of G.MD.ringCells(c, 2)) if (T.owner[y] === -1 && /land claimed by Lakeshore/.test(G.MD.pickProblem(y, T))) return y;
+  return null;
+}, [uidHW, cellsHW]), 15000);
+check('a capital may not be placed within 2 hexes of another nation’s claims', nearHW != null);
+if (nearHW != null) await NS.evaluate(c => { const n = G.clone(G.S.nation); n.loc = G.locOf(c); G.commit(n); G.PG.saveSoon(); G.render(); }, nearHW);
+const heldBy = (p, n) => until(() => p.evaluate(([id, ns, cs]) => {
+  const w = ns === G.S.uid ? G.S.nation : G.S.world[ns]; if (!w || !w.loc) return null;
+  const T = G.territory(), i = T.byId[id]; return { held: cs.filter(c => T.owner[c] === i).length, capAt: w.capAt || 0 };
+}, [uidHW, uidNS, cellsHW]), 15000).then(r => check(`${n}: claims made before a capital beside them stay their claimer’s`, r && r.held === cellsHW.length && r.capAt > Math.max(...clHW.map(e => e.t)), JSON.stringify(r)));
+await heldBy(HW, 'for the claimer'); await heldBy(NS, 'for the late settler');
+await NS.ctx.close();
 await HW.evaluate(() => { location.hash = '#settings'; }); await HW.waitForSelector('#away-to');
 const backHW = await HW.evaluate(() => { const d = new Date(Date.now() + 5 * 864e5), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; });
 await HW.fill('#away-to', backHW); await HW.click('[data-act="away-start"]');
