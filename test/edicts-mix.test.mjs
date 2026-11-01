@@ -23,6 +23,7 @@ function load(){
   const on=new Set(),ctx={on,ISSUES:new Array(OLDER).fill(null).map((x,i)=>({id:'old'+i})),ISSUE_BY_ID:{},ISSUES_RANDOM:[],NB_RE:/\{NB(D|L|CAP)?\}/,
     geo:(n,t)=>on.has(t),hasNb:()=>on.has('nb'),leader:(n,g)=>on.has(g)};
   vm.createContext(ctx);
+  vm.runInContext(source.match(/function reqText\(is\)\{.*\}/)[0],ctx); // the game's own reader of a condition's text
   const a=source.indexOf(START),b=source.indexOf(END,a+START.length);
   assert(a>0&&b>a,'the section is where the tests expect it');
   vm.runInContext(source.slice(a,b)+'\nthis.MIX_ISSUES=MIX_ISSUES;',ctx);
