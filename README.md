@@ -95,6 +95,18 @@ a browser running the old game must reload once the nation has a revision. Wareh
 monotonic `storageV: 1` envelope marker: clients must preserve it, preventing older open games from
 removing Warehouse data or truncating expanded stockpiles. Transactions require a
 connection: offline changes stay in the local copy until they can be checked against the server.
+
+Another device's save normally arrives through the region's listener. A phone's listener can go quiet
+without an error after the phone has slept, and the SDK's own reads share its connection, so while the
+player is on the page and the listener has brought nothing from the server for a minute, the game asks
+for the nation's `rev` alone over REST (a field mask: a few bytes, one read) at most once a minute and
+on changing page, and loads a save it missed. An open tab keeps the build it loaded, and an older
+build drops what it does not know of a newer one's records when it saves them, so `build.py` stamps
+every page with its build (a hash of the page, in `meta name="edictum-build"` and `/version.json`).
+Coming back to a tab after 30 seconds or more away, at most every five minutes, the shim asks whether
+the build has changed; if it has, it sends the latest changes and reloads, unless the player is writing
+something there (a field they typed in, or a message, resolution, notice, post or history in progress),
+who is told instead. A tab that stays in front checks every half hour and only tells.
 Anyone may read the world; each player writes only their own documents; admins may also delete any
 post. The rules also check that a save's documents agree, and pace writes: a nation at most once a
 second, a space record once every 10 seconds, a post once every 20. See `firestore.rules`.
@@ -467,7 +479,7 @@ npx playwright install chromium   # once, for the browser tests
 npm run test:e2e           # two players, the board, other regions, reloads, rules, battles and seals, admin, offline, Google sign-in, full regions, founding drafts, the front page
 npm run test:signin        # email-link and Discord sign-in: linking, another browser, switching, deleting
 npm run test:smoke         # every page of the game at 1280 and 390 px wide, in two regions
-npm run test:sync          # one account on desktop and phone: updates, conflicts, clocks, reconnects
+npm run test:sync          # one account on desktop and phone: updates, conflicts, clocks, reconnects, a dead listener, a new build
 npm run test:startup       # first load, cached updates, loading feedback and saved themes
 npm run test:admin-e2e     # admin console, region access and maintenance messages
 npm run test:devnews       # development news: the editor, images, the menu's count, comments and moderation

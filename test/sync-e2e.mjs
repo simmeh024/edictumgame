@@ -1,4 +1,7 @@
 // Two independent browser profiles sharing one account, against the local emulators.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   check, finish, sleep, until, player, open, ready, found, nav, localNation,
   nationDoc, restGet, clearEmulators, openAccount, errors, OUT
@@ -171,5 +174,55 @@ const returned = await until(async () => {
 check('returning desktop progress syncs without a minute on Saving', returned, returned ? '' : JSON.stringify({
   status: await status(R), local: await localNation(R), cloud: await nationDoc(uidD)
 }));
+
+// A phone's listener can go quiet without an error (a connection that died while it slept), and the SDK's own
+// reads share that connection. The page asks the server for its revision alone now and then, and loads what it missed.
+await B.addInitScript(() => { window.EDICTUM_OWN_CHECK = Number(sessionStorage.getItem('test.ownCheck')) || 2000; window.EDICTUM_VERSION_AWAY = 0; window.EDICTUM_VERSION_MIN = 0; });
+const stall = route => route.abort();
+let revisionAsks = 0;
+const countRevision = route => { revisionAsks++; return route.continue(); };
+await B.ctx.route(/\/Listen\/channel/, stall);
+await B.ctx.route(/mask\.fieldPaths=rev/, countRevision);
+await B.reload(); await B.waitForSelector('.layout'); await saved(B);
+await edit(A, 'Heard without a listener'); await saved(A);
+check('a phone whose listener is down still loads a save from the desktop', await until(async () => (await localNation(B)).motto === 'Heard without a listener', 20000));
+check('it asked the server for its revision alone', revisionAsks > 0, String(revisionAsks));
+// with the listener working, its news stands in for the question (asked at most every 15 seconds here)
+await B.ctx.unroute(/\/Listen\/channel/, stall);
+// the SDK's warning about the connection this test cut on purpose
+for (let i = errors.length - 1; i >= 0; i--) if (/^phone console: .*Could not reach Cloud Firestore backend/s.test(errors[i])) errors.splice(i, 1);
+await B.evaluate(() => sessionStorage.setItem('test.ownCheck', '15000'));
+await B.reload(); await B.waitForSelector('.layout'); await saved(B);
+const asked = revisionAsks;
+await edit(A, 'Heard by the listener'); await saved(A);
+const heard = await until(async () => (await localNation(B)).motto === 'Heard by the listener', 10000);
+check('with the listener bringing news, the phone does not ask as well', heard && revisionAsks === asked, `${asked} → ${revisionAsks}`);
+await B.ctx.unroute(/mask\.fieldPaths=rev/, countRevision);
+await B.evaluate(() => sessionStorage.removeItem('test.ownCheck'));
+
+// An open tab keeps the build it loaded. Coming back to it after a newer deploy, it saves and loads the new build,
+// unless the player is writing something there.
+const VERSION = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'version.json');
+const built = fs.readFileSync(VERSION, 'utf8');
+check('the page and /version.json carry the same build', await B.evaluate(async () => {
+  const v = await (await fetch('/version.json', { cache: 'no-store' })).json();
+  return /^[0-9a-f]{12}$/.test(v.b) && document.querySelector('meta[name="edictum-build"]').content === v.b;
+}));
+try {
+  fs.writeFileSync(VERSION, JSON.stringify({ b: '0123456789ab' }) + '\n');
+  await B.evaluate(() => { window.__sameLoad = true; });
+  await nav(B, 'settings'); await B.fill('#s-motto', 'Half written on the phone');
+  await showing(B, false); await sleep(300); await showing(B, true); await sleep(4000);
+  check('a page with something half written is not reloaded', await B.evaluate(() => window.__sameLoad === true));
+  check('it is told a new version is out instead', /new version of Edictum is out/.test((await B.locator('.ed-toast').allTextContents()).join(' ')));
+  await nav(B, 'nation');
+  await B.evaluate(() => { const n = G.clone(G.S.nation); n.motto = 'Sent before the reload'; G.commit(n); });
+  const loaded = B.waitForEvent('load', { timeout: 30000 }).then(() => true, () => false);
+  await showing(B, false); await sleep(300); await showing(B, true);
+  check('coming back to an out-of-date page loads the new build', await loaded);
+  await B.waitForSelector('.layout');
+  check('the change waiting to be saved was sent first', await motto() === 'Sent before the reload');
+  check('and the reloaded page says why', await until(async () => /updated while you were away/.test((await B.locator('.ed-toast').allTextContents()).join(' ')), 8000));
+} finally { fs.writeFileSync(VERSION, built); }
 
 await finish();

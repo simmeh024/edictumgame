@@ -318,8 +318,23 @@
       },
       onSnapshot: function (next, error) {
         return ref.onSnapshot(function (s) { next(snapOf(s)); }, function (e) { if (typeof error === 'function') error(mapError(e)); });
-      }
+      },
+      /* a nation's revision and save time alone, {rev, updatedAt} or null (see revisionOf) */
+      revision: function () { return nation ? revisionOf(p[1]) : Promise.reject(mapError({ code: 'invalid-argument' })); }
     });
+  }
+  /* Straight from the server over REST, past the SDK: its reads share the listeners' connection, which on a phone
+     can go quiet without an error after sleep, and this is how the game checks it has not missed a save from
+     another device meanwhile. A field mask keeps it to a few bytes; it costs one read. */
+  async function revisionOf(uid) {
+    var headers = {}, u = A.auth.currentUser;
+    if (u) headers.authorization = 'Bearer ' + await u.getIdToken();
+    var url = A.rest + '/projects/' + A.projectId + '/databases/(default)/documents/nations/' + encodeURIComponent(uid) + '?mask.fieldPaths=rev&mask.fieldPaths=updatedAt';
+    var r = await within(fetch(url, { headers: headers, cache: 'no-store' }), 10000);
+    if (r.status === 404) return null;
+    if (!r.ok) throw mapError({ code: r.status === 403 ? 'permission-denied' : r.status === 429 ? 'resource-exhausted' : 'unavailable', message: 'revision: HTTP ' + r.status });
+    var f = ((await r.json()) || {}).fields || {}, val = function (x) { return x ? Number(x.integerValue != null ? x.integerValue : x.doubleValue) || 0 : 0; };
+    return { rev: val(f.rev), updatedAt: val(f.updatedAt) };
   }
   function queryApi(q) {
     /* fromCache: the snapshot came from this browser's copy, before the server confirmed it */
@@ -779,10 +794,69 @@
     setTimeout(bugsCheck, 7000);
     setTimeout(recoveryCheck, 1800);
     setTimeout(seenCheck, 4000);
+    versionWatch();
   }
   /* the address this browser plays from, which the admins see when they inspect the nation and which expires
      90 days after it was last seen (functions/accounts.js, 'seen'; the privacy notice says so): once a page load */
   function seenCheck() { if (A.auth && A.auth.currentUser && !A.leaving && !A.frozen) call('accounts', { op: 'seen' }).catch(function () {}); }
+
+  /* ───────── a newer build ───────── */
+  /* An open tab keeps the build it loaded, for days on a phone, and an older build drops what it does not know
+     of a newer one's records when it saves them (the tutorial's paid lists, say). build.py stamps the page with
+     its build (meta edictum-build) and writes /version.json beside it. When the page comes back to the front
+     after a while away, at most every VERSION_MIN, it asks whether that has changed; if so it sends the latest
+     changes and reloads, unless the player is writing something, who is told instead and gets the new build
+     the next time they come back. A page that stays in front asks every VERSION_EVERY and only tells. */
+  var VERSION_URL = '/version.json';
+  function msOr(v, def) { v = Number(v); return v >= 0 ? v : def; } /* the tests shorten these */
+  var VERSION_AWAY = msOr(window.EDICTUM_VERSION_AWAY, 30000);
+  var VERSION_MIN = msOr(window.EDICTUM_VERSION_MIN, 5 * 60000);
+  var VERSION_EVERY = 30 * 60000;
+  var V = { build: '', at: 0, hiddenAt: 0, busy: false, next: '', told: '' };
+  /* a field the player has typed into since the page drew it, or is typing in now */
+  function typing() {
+    var plain = /^(button|submit|reset|image|checkbox|radio|range|color|file|hidden)$/;
+    var a = document.activeElement;
+    if (a && (a.isContentEditable || a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !plain.test(a.type)))) return true;
+    return Array.prototype.some.call(document.querySelectorAll('textarea, input'), function (el) { return !plain.test(el.type) && el.value !== el.defaultValue; });
+  }
+  function versionTell() {
+    if (V.told === V.next) return;
+    V.told = V.next;
+    toast('A new version of Edictum is out. It loads the next time you come back to this tab, or reload the page now.');
+  }
+  async function versionCheck(back) {
+    if (!V.build || V.busy || A.leaving || A.frozen || navigator.onLine === false) return;
+    if (!V.next) {
+      if (Date.now() - V.at < VERSION_MIN) return;
+      V.busy = true; V.at = Date.now();
+      try {
+        var r = await within(fetch(VERSION_URL, { cache: 'no-store' }), 10000), v = r.ok ? await r.json() : null;
+        if (v && typeof v.b === 'string' && /^[0-9a-f]{6,64}$/.test(v.b) && v.b !== V.build) V.next = v.b;
+      } catch (e) { /* asked again next time */ } finally { V.busy = false; }
+      if (!V.next) return;
+    }
+    if (!back) { versionTell(); return; }
+    /* the game's drafts (a message, a resolution, a history) live only in the page */
+    var keep = function () { return document.hidden || typing() || ui.busy || (ui.dlg && ui.dlg.open) || (typeof E.keepPage === 'function' && E.keepPage()); };
+    if (keep()) { versionTell(); return; }
+    V.busy = true;
+    try { if (typeof E.flushSaves === 'function') await within(E.flushSaves(), 15000); } catch (e) {} finally { V.busy = false; }
+    if (A.leaving || keep() || E.syncStatus === 'saving') { versionTell(); return; }
+    leave({}, 'Edictum was updated while you were away, so the page has loaded the new version. Your nation is as you left it.');
+  }
+  function versionWatch() {
+    var m = document.querySelector('meta[name="edictum-build"]'), b = m ? m.getAttribute('content') || '' : '';
+    if (!/^[0-9a-f]{6,64}$/.test(b)) return; /* not a page build.py made */
+    V.build = b; V.at = Date.now();
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { V.hiddenAt = Date.now(); return; }
+      var away = V.hiddenAt ? Date.now() - V.hiddenAt : 0;
+      V.hiddenAt = 0;
+      if (away >= VERSION_AWAY) versionCheck(true);
+    });
+    setInterval(function () { if (!document.hidden) versionCheck(false); }, VERSION_EVERY);
+  }
 
   /* ───────── the account control and its dialog ───────── */
   var ui = { box: null, btn: null, sync: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };
