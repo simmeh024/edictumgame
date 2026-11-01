@@ -42,7 +42,7 @@ export async function until(fn, ms = 8000, step = 150) {
 }
 
 // A player is a browser profile of its own (own storage, so its own anonymous account).
-// opts: vp {width,height}, dark, inject (default true: config and emulators set by the test),
+// opts: vp {width,height}, dpr (device pixel ratio, for sharper screenshots), dark, inject (default true: config and emulators set by the test),
 //       block (a RegExp of requests to fail), tag (a name for error reports),
 //       cap (players per region before founding steers elsewhere; the game's default otherwise),
 //       saveGap (defaults to 1500; use 60000 to exercise the normal production interval),
@@ -51,7 +51,7 @@ export async function until(fn, ms = 8000, step = 150) {
 // Every conquest needs the referee's seal (REF_EPOCH is set back to January 2026). window.G is the
 // game's probe: its state S and a few of its functions (EDICTUM_PROBE in game/edictum.html).
 export async function player(tag, opts = {}) {
-  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState });
+  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, deviceScaleFactor: opts.dpr || 1, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
   await ctx.addInitScript(([cap, gap, desk]) => {

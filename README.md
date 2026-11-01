@@ -490,6 +490,7 @@ npm run test:willow        # Letters from Willow Street: a milestone, a change o
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
 npm run test:flag-layers   # flag layers, touch and keyboard editing, Undo and shared designs
+npm run test:rank-borders  # every rank of prestige and the border it puts round the nation card
 npm run test:warehouse     # timed storage upgrades, rewards, persistence and warehouse edicts
 npm run test:ux-polish     # search, Back/Forward, remembered sections and requirements links
 npm run test:onboarding    # charter, gradual feature reveals and saved progress
@@ -500,7 +501,7 @@ npm run test:currency-gameplay # trade, policy confidence, currency prose and co
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
 
-Every pull request runs all twenty-one browser suites as independent parallel jobs on GitHub Actions
+Every pull request runs all twenty-two browser suites as independent parallel jobs on GitHub Actions
 (`.github/workflows/preview.yml`), alongside the backend checks and staging preview. Each browser job
 has its own runner and fresh emulators; suites cannot share an emulator because they reset its data.
 The core game's scenarios keep their existing order within their suite. Run an individual command
@@ -509,7 +510,7 @@ use the same emulator ports, so run them one at a time unless you give each a se
 
 One failing suite leaves the other suites running, and each failed job keeps its own screenshot artifact.
 The existing **Test the game end to end** check now aggregates the browser jobs and passes only when
-all twenty-one succeed. It also fails if a suite is cancelled or skipped, keeping the release gate intact.
+all twenty-two succeed. It also fails if a suite is cancelled or skipped, keeping the release gate intact.
 
 **The cost test.** `test/load.mjs` puts 50 players in one region for five minutes: six real game
 clients (half idle, half playing) with every Firestore read and write counted inside the page, and
