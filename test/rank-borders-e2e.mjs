@@ -11,6 +11,9 @@ const info=await A.evaluate(()=>({ranks:G.RK.ACH_RANKS.length,borders:G.RK.ID_BD
 check('every rank has a border',info.ranks===info.borders,JSON.stringify(info));
 check('the top rank can be reached with the achievements there are',info.max>=await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[0]),String(info.max));
 
+/* the page re-renders when a save lands, which can swap the card out from under a screenshot: try again */
+const shot=async(sel,file)=>{for(let k=0;;k++){try{return await A.locator(sel).screenshot({path:path.join(OUT,file)});}catch(e){if(k>=3)throw e;await sleep(300);}}};
+
 /* record achievements until the nation's prestige sits inside rank i (never past the next one) */
 const reach=i=>A.evaluate(i=>{
   const n=G.clone(G.S.nation),R=G.RK,lo=R.ACH_RANKS[i][0],hi=R.ACH_RANKS[i+1]?R.ACH_RANKS[i+1][0]:Infinity,ach=Object.assign({},n.ach||{});
@@ -30,19 +33,25 @@ for(let i=0;i<info.ranks;i++){
   const c=await card(),[id,name,look,corner,plate]=await A.evaluate(i=>G.RK.ID_BD[i],i),rk=await A.evaluate(i=>G.RK.ACH_RANKS[i][1],i);
   const ok=c.rank===i&&(i===0?!c.bd&&!/id-rk/.test(c.cls):c.cls.includes('id-rk-'+looks[i])&&c.bd.includes('id-bd-'+looks[i])&&c.corners===(corner?4:0)&&(plate?c.plate===rk:!c.plate));
   if(ok)walked++;else check(`rank ${i} (${rk}, ${pts} prestige) wears the ${name} border`,false,JSON.stringify(c));
-  await A.locator('.hero.id-sec').screenshot({path:path.join(OUT,`rank-${String(i).padStart(2,'0')}-${id.slice(2)}.png`)});
+  await shot('.hero.id-sec',`rank-${String(i).padStart(2,'0')}-${id.slice(2)}.png`);
 }
 check('each rank, from Footnote to Eternal, puts its own border and nameplate on the card',walked===info.ranks,`${walked} of ${info.ranks}`);
 
 /* the ranks list shows every border, and the borders not yet reached are dimmed */
 await nav(A,'achievements');await A.locator('.ach-ladder summary').click();
 check('the ranks list shows a border beside every rank',await A.locator('.ach-ladder li .id-bdsw').count()===info.ranks);
-await A.locator('.ach-ladder').screenshot({path:path.join(OUT,'rank-ladder.png')});
+await shot('.ach-ladder','rank-ladder.png');
+
+/* the Census page's Hall of Honours lists the region's player nations by prestige, each in its border */
+await nav(A,'census');
+const hon=await A.evaluate(()=>{const r=document.querySelector('.id-hon-r.me');return {rows:document.querySelectorAll('.id-hon-r').length,sw:r?r.querySelector('.id-bdsw-c').className:'',rank:r?r.querySelector('.id-hon-k').textContent:''};});
+check('the Census page’s Hall of Honours shows the nation in its border and rank',hon.rows>=1&&hon.sw.includes('id-rk-prism')&&hon.rank===await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[1]),JSON.stringify(hon));
+await shot('.id-hon','rank-census.png');
 
 /* Customise: an earlier border can be chosen; the card keeps it, and Follow my rank brings the rank's back */
 await nav(A,'customise');
 check('Customise offers every border, the rank’s own first',await A.locator('.cz-g-bd .cz-tile').count()===info.borders+1);
-await A.locator('.cz-g-bd').screenshot({path:path.join(OUT,'rank-customise.png')});
+await shot('.cz-g-bd','rank-customise.png');
 await A.click('#cz-bd-b-silver');
 await until(()=>A.evaluate(()=>document.querySelector('.cz-prev .hero')?.className.includes('id-rk-silver')));
 await nav(A,'nation');
@@ -58,9 +67,9 @@ check('computer nations keep the plain card',await A.evaluate(()=>G.RK.idBdIndex
 /* the identity card is printed with the rank's border too */
 await A.click('[data-act="id-passport"]');
 check('the identity card prints with the border',!!await until(()=>A.evaluate(()=>!!document.querySelector('#id-pp img.id-pp')),15000));
-await A.locator('#id-pp img.id-pp').screenshot({path:path.join(OUT,'rank-idcard.png')});await A.click('.id-ppx');
+await shot('#id-pp img.id-pp','rank-idcard.png');await A.click('.id-ppx');
 
 /* light theme, desktop width: the top border once more */
 await A.setViewportSize({width:1280,height:900});await A.emulateMedia({colorScheme:'light'});await nav(A,'nation');await A.evaluate(()=>scrollTo(0,0));await sleep(200);
-await A.locator('.hero.id-sec').screenshot({path:path.join(OUT,'rank-top-desktop-light.png')});
+await shot('.hero.id-sec','rank-top-desktop-light.png');
 await finish();
