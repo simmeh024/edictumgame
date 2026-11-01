@@ -24,6 +24,7 @@ function load(){
     explored:()=>on.has('explored')?1:0,season:()=>ctx.ssn,onRiver:()=>on.has('river'),geo:(n,t)=>on.has('geo:'+t),provinces:()=>on.has('provinces')?3:0,
     cabTrait:(n,t)=>on.has('trait:'+t),leader:(n,g)=>on.has('leader:'+g),mig:(n,t)=>on.has('mig:'+t)};
   vm.createContext(ctx);
+  vm.runInContext(source.match(/function reqText\(is\)\{.*\}/)[0],ctx); // the game's own reader of a condition's text
   const a=source.indexOf(START),b=source.indexOf(END,a);
   assert(a>0&&b>a,'the section is where the tests expect it');
   vm.runInContext(source.slice(a,b)+'\nthis.EV_ISSUES=EV_ISSUES;this.EV_BOOST=EV_BOOST;this.EV_RES=EV_RES;this.evCity=evCity;',ctx);

@@ -18174,13 +18174,16 @@ function geo(n,tag){
   }
 }
 function hasNb(n){return !!(n&&n.geo&&Array.isArray(n.geo.nb)&&n.geo.nb.length);}
+/* an edict's condition as written, for the checks below that read which helpers it calls: the build keeps this text
+   (reqSrc, see scripts/split-content.mjs), since minifying renames geo, hasNb and the rest inside the function itself */
+function reqText(is){return is.reqSrc||(is.req?String(is.req):'');}
 
 /* issues that need a neighbour, and the follow-ups that only arrive through a chain */
 const NB_RE=/\{NB(D|L|CAP)?\}/;
-ISSUES.forEach(is=>{is.nbx=!is.mx&&!!(is.req&&/hasNb\(/.test(String(is.req)))||NB_RE.test(is.q+is.t)||is.o.some(o=>NB_RE.test(o.t+o.fx)||o.nr||(o.e&&('nb' in o.e||'cede' in o.e||'take' in o.e)));});
+ISSUES.forEach(is=>{is.nbx=!is.mx&&!!(is.req&&/hasNb\(/.test(reqText(is)))||NB_RE.test(is.q+is.t)||is.o.some(o=>NB_RE.test(o.t+o.fx)||o.nr||(o.e&&('nb' in o.e||'cede' in o.e||'take' in o.e)));});
 /* issues about the nation's own land or neighbours, and the openers of chains, come up more often
    than the general pool so that a nation's geography is felt */
-ISSUES.forEach(is=>{if(is.w!=null||is.fo)return;if(is.req&&/geo\(|hasNb\(/.test(String(is.req)))is.w=3;else if(is.o.some(o=>o.nx))is.w=2.5;});
+ISSUES.forEach(is=>{if(is.w!=null||is.fo)return;if(is.req&&/geo\(|hasNb\(/.test(reqText(is)))is.w=3;else if(is.o.some(o=>o.nx))is.w=2.5;});
 const ISSUES_RANDOM=ISSUES.filter(i=>!i.fo);
 function pickNb(m){
   const ids=((m.geo&&m.geo.nb)||[]).filter(id=>findNation(id));
@@ -18805,7 +18808,7 @@ const NPC_FX_RX=/\{(NB|NBD|NBL|NBCAP|SITE|LAND|FIN|DEF|FOR|INT|WRK|HEA|CUL|TN?:)
 let npcPool=null,npcRev=0,npcNext=0,npcBusy=false;
 function npcPoolGet(){
   if(!npcPool){const who=new RegExp('\\b('+NPC_NATIONS.flatMap(x=>[x.name,x.demonym,x.capital]).map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','i');
-  npcPool=ISSUES_RANDOM.filter(i=>regionIssueOk(i)&&!i.nb&&!i.mx&&!i.site&&!i.nr&&!who.test(i.q||'')&&i.o.every(o=>!NPC_FX_RX.test(o.fx||'')&&!who.test(o.fx||''))&&!(i.req&&NPC_SKIP_RX.test(String(i.req)))&&i.o.some(o=>o.e&&Object.keys(o.e).length));}
+  npcPool=ISSUES_RANDOM.filter(i=>regionIssueOk(i)&&!i.nb&&!i.mx&&!i.site&&!i.nr&&!who.test(i.q||'')&&i.o.every(o=>!NPC_FX_RX.test(o.fx||'')&&!who.test(o.fx||''))&&!(i.req&&NPC_SKIP_RX.test(reqText(i)))&&i.o.some(o=>o.e&&Object.keys(o.e).length));}
   return npcPool;
 }
 function npcLawAt(id,d){return NPC_EPOCH+d*DAY+(2+hash(id+':lawh:'+d)%20)*3600e3+hash(id+':lawm:'+d)%3600e3;}
@@ -18973,7 +18976,7 @@ function autoLog(n,cells,now){
   n.log=n.log.slice(0,60);
 }
 /* succession issues come up more often the older the leader gets */
-const SUCC_IDS=new Set(ISSUES.filter(i=>i.req&&/leaderAge/.test(String(i.req))).map(i=>i.id));
+const SUCC_IDS=new Set(ISSUES.filter(i=>i.req&&/leaderAge/.test(reqText(i))).map(i=>i.id));
 function succW(n){const a=leaderAge(n);return a>=SUCCESSION_AGE?4+(a-SUCCESSION_AGE):1;}
 
 /* ───────── peace ───────── */
@@ -19586,8 +19589,8 @@ function helpBody(n){
   const fp=k=>fmtPopShort(featureAt(k)),hrs=ms=>{const h=ms/3600e3;return h===1?'an hour':h+' hours';},mins=ms=>Math.round(ms/60000)+' minutes';
   const pace=freqLabel(n?n.freq:FREQ_DEF).toLowerCase();
   const yrDays=YEAR_MS/DAY,dcs=Object.values(SITE_DC),blocs=NPC_BLOCS.map(b=>b.name.replace(/^The /,'the '));
-  const navy=ISSUES.filter(i=>!i.fo&&!/\{/.test(i.t)&&i.req&&/coast/.test(String(i.req))&&!/policies/.test(String(i.req))&&i.o.some(o=>o.e&&o.e.p&&o.e.p.navalFleet)).map(i=>'‘'+i.t+'’').slice(0,3);
-  const lake=ISSUES.some(i=>i.req&&/landlocked/.test(String(i.req))&&i.o.some(o=>o.e&&o.e.p&&o.e.p.navalFleet));
+  const navy=ISSUES.filter(i=>!i.fo&&!/\{/.test(i.t)&&i.req&&/coast/.test(reqText(i))&&!/policies/.test(reqText(i))&&i.o.some(o=>o.e&&o.e.p&&o.e.p.navalFleet)).map(i=>'‘'+i.t+'’').slice(0,3);
+  const lake=ISSUES.some(i=>i.req&&/landlocked/.test(reqText(i))&&i.o.some(o=>o.e&&o.e.p&&o.e.p.navalFleet));
   const recN=i=>i.o.filter(o=>o.e&&o.e.rec).length,rec=ISSUES.filter(i=>!i.fo&&!/\{/.test(i.t)&&recN(i)).sort((a,b)=>recN(b)-recN(a)).map(i=>'‘'+i.t+'’').slice(0,3);
   const num=k=>k<=12?['no','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'][k]:String(k),Num=k=>cap1(num(k)),cost=c=>list(costText(c).split(', '));
   const go=(v,l)=>`<p class="help-go"><button class="linkish small" data-act="go" data-v="${v}">${l} →</button></p>`,G=v=>n?v:'';
@@ -37975,7 +37978,7 @@ function admeBody(is){
     <ol class="adme-opts">${is.o.map(o=>`<li><p>${admeText(o.t)}</p><p class="adme-fx">${admeText(o.fx)}</p>
       <p class="adme-eff">${admeEffects(o).map(esc).join(' · ')||'No effect on the statistics'}${o.nx?` · Follow-up after ${o.nxh||4} hours: ${admeLink(o.nx)}`:''}${o.nr?` · Sent to the neighbour: ${admeLink(o.nr)}`:''}</p></li>`).join('')}</ol>
     <dl class="adme-meta"><dt>ID</dt><dd><code>${esc(is.id)}</code></dd><dt>Drawn</dt><dd>${is.fo?'Only as a follow-up':'At random'+(is.w!=null?`, weight ${esc(is.w)}`:'')}</dd>
-      ${is.req?`<dt>Only when</dt><dd><code>${esc(String(is.req).replace(/^n\s*=>\s*/,''))}</code></dd>`:''}${from.length?`<dt>Arrives after</dt><dd>${from.map(admeLink).join(', ')}</dd>`:''}</dl>`;
+      ${is.req?`<dt>Only when</dt><dd><code>${esc(reqText(is).replace(/^n\s*=>\s*/,''))}</code></dd>`:''}${from.length?`<dt>Arrives after</dt><dd>${from.map(admeLink).join(', ')}</dd>`:''}</dl>`;
 }
 function admeRow(is){
   const open=ADME.open.has(is.id),q=ADME.q,hidden=q&&!admeIndex().text.get(is.id).includes(q);
@@ -41560,7 +41563,7 @@ const EV_ISSUES=[
 for(const is of EV_ISSUES){
   ISSUES.push(is);is.no=ISSUES.length;is.nbx=false;ISSUE_BY_ID[is.id]=is;if(is.fo)continue;
   /* as for the older edicts: those about the nation's own land, and the openers of chains, come up more often */
-  if(is.req&&/geo\(/.test(String(is.req)))is.w=3;else if(is.o.some(o=>o.nx))is.w=2.5;
+  if(is.req&&/geo\(/.test(reqText(is)))is.w=3;else if(is.o.some(o=>o.nx))is.w=2.5;
   ISSUES_RANDOM.push(is);
 }
 
