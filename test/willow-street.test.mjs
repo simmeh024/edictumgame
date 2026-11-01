@@ -23,9 +23,9 @@ const FAMS=['rep','crn','imp','sul','the','peo','col','bor'],OLD=40,MIN=60000;
 function game(){
   const ctx=vm.createContext({console});
   vm.runInContext(`
-    const CAP=5,DAY=864e5,STAT_KEYS=${JSON.stringify(STAT_KEYS)};const MONARCH_PRE=${literal('MONARCH_PRE')};const MONARCH_LEADER=${literal('MONARCH_LEADER')};
+    const CAP_BASE=5,CAP_VIP=10,EDICT_KEEP=CAP_VIP,DAY=864e5,STAT_KEYS=${JSON.stringify(STAT_KEYS)};const MONARCH_PRE=${literal('MONARCH_PRE')};const MONARCH_LEADER=${literal('MONARCH_LEADER')};
     const LVL=v=>v<36?0:v>64?2:1,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),clone=o=>JSON.parse(JSON.stringify(o));
-    ${fn('hash')}${fn('rng')}
+    let VIP_RUNS=[];${src.match(/function edictCapAt\(t\) \{[^\n]*\}/)[0]}${fn('hash')}${fn('rng')}
     const ISSUES=Array.from({length:${OLD}},(x,i)=>({id:'old'+i,c:'econ',t:'Old '+i,q:'q',o:[{t:'a',e:{econ:1},fx:'one'},{t:'b',e:{econ:-1},fx:'two'},{t:'c',e:{happy:1},fx:'three',nx:'chain-b'}]}));
     ISSUES.push({id:'chain-b',fo:1,c:'econ',t:'Follow-up',q:'q',o:[{t:'a',e:{econ:1},fx:'f'},{t:'b',e:{econ:1},fx:'g'},{t:'c',e:{econ:1},fx:'h'}]});
     ISSUES.forEach((x,i)=>{x.no=i+1;});const ISSUE_BY_ID=Object.fromEntries(ISSUES.map(x=>[x.id,x]));
@@ -43,7 +43,7 @@ function game(){
     function fill(t,n,x){return String(t).replace(/\\{N\\}/g,n.name).replace(/\\{CAP\\}/g,n.capital).replace(/\\{L\\}/g,n.leader).replace(/\\{D\\}/g,n.demonym).replace(/\\{(Cs|C|A|As|FIN|DEF|FOR|INT|WRK|HEA|CUL)\\}/g,'x');}
     function geoAfter(n,opt,ent,now){return [];}
     function answer(id,o){const now=Date.now(),n=clone(syncInbox(S.nation,now)),ent=n.inbox.find(x=>x.id===id);if(!ent)return;
-      const is=ISSUE_BY_ID[id],opt=is&&is.o[o];if(!opt)return;const wasFull=n.inbox.length>=CAP,fx=fill(opt.fx,n,ent);
+      const is=ISSUE_BY_ID[id],opt=is&&is.o[o];if(!opt)return;const wasFull=n.inbox.length>=edictCapAt(now),fx=fill(opt.fx,n,ent);
       for(const k of Object.keys(opt.e||{}))if(k in n.s)n.s[k]=clamp(n.s[k]+opt.e[k],0,100);const geo=geoAfter(n,opt,ent,now);
       if(opt.nx)n.chain=(n.chain||[]).concat({id:opt.nx,at:now+3600e3});
       n.answered.push({id,o,t:now,fx});n.answered=n.answered.slice(-80);n.inbox=n.inbox.filter(x=>x.id!==id);if(wasFull)n.issueClock=now;
@@ -58,7 +58,7 @@ function game(){
     ${fn('fdFam')}
     ${SECTION}
     this.G={S,ISSUES,ISSUE_BY_ID,NORM_HOOKS,COMMIT_HOOKS,UNLOCK_SOURCES,toasts,syncInbox,answer,dismiss,commit,fill,awayStart:null,
-      WS_STORY,WS_AT,WS_IDS,WS_FACTS,WS_FAMS,WS_POL,WS_KEEP,wsCond,wsDsl,wsApply,wsVariant,wsLetter,wsOutcome,wsCtx,wsNorm,wsDue,wsLand,wsCtxNorm,wsOf,fdFam};`,ctx);
+      WS_STORY,WS_AT,WS_IDS,WS_FACTS,WS_FAMS,WS_POL,WS_KEEP,wsCond,wsDsl,wsApply,wsVariant,wsLetter,wsOutcome,wsCtx,wsNorm,wsDue,wsLand,wsCtxNorm,wsOf,fdFam,setRuns:r=>{VIP_RUNS=r;}};`,ctx);
   return ctx.G;
 }
 const G0=game();
@@ -179,6 +179,19 @@ test('enacted edicts count once each; vetoes, letters and re-saves do not; the c
   G.answer('ws-1',0);assert.equal(G.S.nation.ws.e,5,'answering a letter does not advance the letters');assert.equal(G.S.nation.ws.c.length,1);
   for(let i=0;i<120;i++)enact(G,i%2);
   assert.equal(G.S.nation.answered.length,80,'the decision history is capped');assert.equal(G.S.nation.ws.e,125,'the story count is not');
+});
+
+test('a Chancery Club desk: a letter takes a slot of the ten while paid, waits when the membership ends with a full desk, and is never evicted',()=>{
+  const G=game(),now=Date.now(),old=['old1','old2','old3','old4','old5','old6','old7'].map((id,i)=>({id,at:now-1e6+i}));
+  G.setRuns([[now-30*DAY(),now+30*DAY()]]);
+  let n=nation(G);n.ws.e=10;n.inbox=old.slice();
+  let v=after(G,n,1);assert.equal(v.inbox.length,8,'room on a member’s desk');assert.deepEqual(wsOn(v).map(x=>x.id),['ws-1'],'the letter comes with the slot');
+  /* the membership ended an hour and a half ago: seven waiting, no room, the letter waits and nothing is lost */
+  G.setRuns([[now-30*DAY(),now-1.5*60*MIN]]);
+  n=nation(G);n.ws.e=10;n.inbox=old.slice();n.issueClock=now-3*60*MIN-1000;
+  v=G.syncInbox(n,now);assert.equal(wsOn(v).length,1,'the slot before the end still had room');assert.equal(v.inbox.length,8);
+  n.issueClock=now-1*60*MIN-1000;v=G.syncInbox(n,now);assert.equal(wsOn(v).length,0,'after the end: no room for it');assert.deepEqual(ids(v.inbox),ids(old),'every waiting edict kept');
+  G.setRuns([]);
 });
 
 test('one letter at a time: a backlog follows slot by slot, a full desk or a holiday waits, a follow-up goes first',()=>{

@@ -271,6 +271,11 @@ def main():
     fonts, preload = fonts_css(out)
     css_url = hashed(out, 'app', 'css', esbuild('\n'.join([fonts] + styles + [read(os.path.join(SRC, 'shim.css'))]), 'css', minify))
     script = re.search(r'<script>(.*)</script>\s*$', game_body, re.S).group(1)
+    # the shop's catalogue: the very file the server sells from (functions/shop-catalogue.json)
+    if '/*SHOP_CATALOGUE*/null' not in script:
+        fail('the game no longer marks where the shop catalogue goes (/*SHOP_CATALOGUE*/null)')
+    catalogue = json.loads(read(os.path.join(ROOT, 'functions', 'shop-catalogue.json')))
+    script = script.replace('/*SHOP_CATALOGUE*/null', json.dumps(catalogue, ensure_ascii=False, separators=(',', ':')))
     content_url = None
     if minify:
         parts = split_content(script)
