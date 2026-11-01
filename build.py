@@ -21,6 +21,8 @@ This script turns it into a small page plus long-cached files, without changing 
   - the Firebase compat SDK (app, auth, firestore), copied from node_modules into
     public/vendor/firebase/<version>/ so the site needs no CDN;
   - src/shim.js after the game: the Firebase-backed window.claude and the account control;
+  - the build, a hash of the page, in its meta edictum-build and in /version.json, by which an open tab
+    learns that a newer one has been deployed (src/shim.js reloads it);
   - description, theme colour, Open Graph tags, icons and schema.org data for search engines;
   - the top of the front page as plain HTML, shown while the game's script downloads (see BOOT).
 
@@ -45,6 +47,7 @@ GAME = os.path.join(ROOT, 'game', 'edictum.html')
 SRC = os.path.join(ROOT, 'src')
 SDK = ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js']
 APP_MARK = '<div id="app"></div>'
+BUILD_MARK = '__EDICTUM_BUILD__'  # the page's own build, filled in once the page is complete
 # (package, its CSS files, the family name the game's styles use)
 FONTS = [
     ('@fontsource-variable/bodoni-moda', ['opsz.css', 'opsz-italic.css'], 'Bodoni Moda'),
@@ -317,6 +320,7 @@ def main():
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
         '<!-- Edictum: built by build.py from game/edictum.html (sha256 %s) with Firebase %s -->' % (stamp, ver),
+        '<meta name="edictum-build" content="%s">' % BUILD_MARK,
         '<style>html{background:#e8eeeb;color-scheme:light}body{margin:0;background:inherit;font:14px system-ui}'
         'html[data-theme="dark"]{background:#0c1615;color-scheme:dark}'
         '@media(prefers-color-scheme:dark){html:not([data-theme="light"]){background:#0c1615;color-scheme:dark}}'
@@ -341,7 +345,12 @@ def main():
         '</html>',
         '',
     ])
+    # The build: a hash of the page, which names every asset and carries the shim, so any change to what a
+    # player runs changes it. An open tab compares its own with /version.json to learn of a newer deploy (shim.js).
+    build = hashlib.sha256(page.encode('utf-8')).hexdigest()[:12]
+    page = page.replace(BUILD_MARK, build)
     write(os.path.join(out, 'index.html'), page)
+    write(os.path.join(out, 'version.json'), json.dumps({'b': build}) + '\n')
     write(os.path.join(out, '404.html'), NOT_FOUND)
     size = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(out) for f in fs)
     kb = lambda url: '%d KB, %d KB gzipped' % (os.path.getsize(os.path.join(out, url.lstrip('/'))) // 1024,

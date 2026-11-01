@@ -35325,6 +35325,9 @@ async function flushNow(){
   while(remoteBusy)await sleep(100);
 }
 if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){keepUnsaved(S.nation);throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
+/* a reload for a newer build (src/shim.js, versionCheck) first sends the latest changes, and leaves alone a page that
+   holds something the player is writing that lives only here: a message, a resolution, a notice, a post, a history */
+if(window.__edictum){window.__edictum.flushSaves=flushNow;window.__edictum.keepPage=()=>!S.nation||!!(S.msgDraft||S.asmDraft||S.asmMsgDraft||S.dspDraft||S.flkDraft||S.rmbDraft||S.loreEdit);}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
 window.addEventListener('pagehide',()=>{flushNow();});
 function resumeNation(e){
@@ -36486,7 +36489,7 @@ async function connect(){
   };
   reshare=shared;
   const none={docs:[]};
-  quietListen(db.collection('nations').where('reg','==',REG.id),qs=>{regQS=qs;shared();},()=>{regQS=regQS||none;shared();});
+  quietListen(db.collection('nations').where('reg','==',REG.id),qs=>{regQS=qs;if(!qs.fromCache)regionHeardAt=Date.now();shared();},()=>{regQS=regQS||none;shared();});
   quietListen(db.collection('space'),qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
   let boardQS=none;
   const board=()=>{
@@ -36512,6 +36515,21 @@ async function connect(){
   },()=>{});
   render();
 }
+/* The region's listener is how this page hears of a save from another device, and on a phone it can go quiet
+   without an error (a connection that died while the phone slept). So while the player is here, unless that
+   listener has brought news from the server in the last OWN_CHECK, the page asks the server for its nation's
+   revision alone (src/shim.js, revision) at most every OWN_CHECK and on changing page, and loads a save it missed. */
+const OWN_CHECK=Math.max(1000,Number(window.EDICTUM_OWN_CHECK)||60000);let ownCheckAt=0,regionHeardAt=0;
+async function ownCheck(){
+  if(S.mode!=='world'||!S.db||!S.uid||!S.nation||document.hidden||QUIET.off||ownSyncBusy||remoteBusy||remoteDirty||conflictPending)return;
+  const now=Date.now();if(now-ownCheckAt<OWN_CHECK||now-regionHeardAt<OWN_CHECK)return;
+  const ref=S.db.doc('nations/'+S.uid);if(typeof ref.revision!=='function')return;
+  ownCheckAt=now;
+  try{const r=await ref.revision();if(r&&r.rev>saveRev(S.nation))syncOwnNation(true);}catch(e){/* asked again next time */}
+}
+setInterval(ownCheck,5000);
+go=(f=>function(){const r=f.apply(this,arguments);ownCheck();return r;})(go);
+
 function allNations(){
   npcLive();
   const out=NPC_NATIONS.map(n=>({id:n.id,n,npc:true}));
