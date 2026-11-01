@@ -497,6 +497,9 @@ npm run test:onboarding    # charter, gradual feature reveals and saved progress
 npm ci --prefix jobs/fx    # once, for the next two: they run the currency job as production does
 npm run test:fx-e2e        # the currency: the job publishing four days, the Bureau, the designer, a phone
 npm run test:currency-gameplay # trade, policy confidence, currency prose and counterfeiting
+npm run test:shop           # the shop's rules alone: signatures, the Founder's deadline, refunds, the Chancery Club, the desk
+npm run test:shop-backend   # the shop's server against a stand-in for Paddle (Auth, Firestore and Functions emulators)
+npm run test:shop-e2e       # buying, wearing and verifying shop cosmetics, the Chancery Club and its desk of ten
 ```
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
@@ -826,6 +829,15 @@ Optional: without it the site never asks (see Visit statistics). `edictum-b30de`
    automatic page views (`send_page_view: false`), which also stops the history-based ones, and sends
    its own with the cleaned address, which it also sets (`gtag('set')`) for the tag's other events
    (scrolls, outbound links, downloads).
+
+### 9d. The shop (Paddle)
+
+The Bureau of National Finery sells cosmetics and the Chancery Club membership through Paddle, the merchant of
+record. Until it is set up, the Shop page says it is not open yet. [docs/shop.md](docs/shop.md) has the whole
+procedure: a Paddle account and its checks, the three products and prices, the API key, client-side token and
+notification destination, deploying the new public `paddle` function once by hand (as with any new public
+function), storing the keys with `tools/admin/set-paddle.mjs`, validating on staging with Paddle's sandbox, and
+going live. It also explains how purchases are verified and what stays client-side.
 
 ### 10. The staging project, for previews
 

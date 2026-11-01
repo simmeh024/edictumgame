@@ -29,6 +29,7 @@ import crypto from 'node:crypto';
 export { adminConsole } from './admin.js';
 export { accounts } from './accounts.js';
 export { civic } from './civic.js';
+export { paddle } from './shop.js';
 import { identity, eligibility, refuse } from './eligibility.js';
 import DATA from './civic-data.json' with { type: 'json' };
 

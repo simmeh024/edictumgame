@@ -31,6 +31,14 @@ rules_version = '2';
 //                            like the region boards, so the same checks and pacing apply
 //   devnewsImg/{id}          an image in a post, {d: base64, m, w, h, by, t}, resized in the admin's browser
 //   devnewsMeta/latest       {p: [{i, t}]}: the latest published posts, which every game listens to for its count
+//   shop/{uid}               what the player owns from the Bureau of National Finery (the shop): written only by
+//                            functions/shop.js from Paddle's verified reports, and read only by the player
+//   finery/{uid}             {c: [cosmetic ids], reg}: the shop cosmetics a player owns, which every game checks
+//                            before it shows one on another player's nation (written only by functions/shop.js)
+//   presets/{uid}            {p: {1..5: {n, cz, fj?, t}}}: saved designs (fj: the flag, as JSON text), made while a member of the Chancery Club
+//                            and kept (and loadable) after; only the player reads them
+//   chron/{uid}/m/{month}    {d: {id: decision}, s: {day: snapshot}}: the Expanded National Chronicle, written while a
+//                            member and read-only after; only the player reads it
 // The currency documents are written only by the daily job (jobs/fx, with the Admin SDK, which these rules do
 // not bind): no player, admin included, can set a currency's value or prestige from the game.
 // The referee (functions/index.js) rolls battles on the server and alone writes referee/ (its signing key,
@@ -83,8 +91,9 @@ service cloud.firestore {
     // src/shim.js refuses anything over 700,000 characters before it gets here.
     function validNation(d) {
       return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit'])
+        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit', 'iq'])
         && (!('storageV' in d) || (d.storageV is int && d.storageV == 1))
+        && (!('iq' in d) || (d.iq is int && d.iq == 1))
         && (!('rev' in d) || (d.rev is int && d.rev > 0))
         && d.v == 1
         && d.j is string && d.j.size() > 2 && d.j.size() <= 750000
@@ -163,6 +172,9 @@ service cloud.firestore {
       allow update: if isSelf(uid) && permitted(uid, request.resource.data) && validNation(request.resource.data) && headlineUpdate(request.resource.data)
         && regionEnabled(request.resource.data.reg) && regionEnabled(resource.data.reg)
         && (!('storageV' in resource.data) || ('storageV' in request.resource.data && request.resource.data.storageV == resource.data.storageV))
+        // iq: the nation has held more than five waiting edicts (the Chancery Club's desk); from then on a build that
+        // would cut the queue back to five may not save it
+        && (!('iq' in resource.data) || request.resource.data.get('iq', 0) == resource.data.iq)
         && nextRevision(request.resource.data)
         && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();
@@ -488,6 +500,58 @@ service cloud.firestore {
         && request.resource.data.expiresAt is timestamp && request.resource.data.expiresAt > request.time
         && request.resource.data.expiresAt < request.time + duration.value(8, 'd');
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+    // The shop (functions/shop.js). What a player owns is written only there, from Paddle's verified reports; the
+    // player reads their own, and every game reads the public projection of shop cosmetics.
+    match /shop/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+    match /finery/{uid} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /shopCheckouts/{id} { allow read, write: if false; }
+    match /shopTx/{id} { allow read, write: if false; }
+    match /shopSubs/{id} { allow read, write: if false; }
+    match /shopAdj/{id} { allow read, write: if false; }
+    match /shopAcct/{uid} { allow read, write: if false; }
+    match /shopCustomers/{id} { allow read, write: if false; }
+    match /shopEvents/{id} { allow read, write: if false; }
+    match /shopLimits/{uid} { allow read, write: if false; }
+    // a member of the Chancery Club, by the paid-through time functions/shop.js keeps
+    function member(uid) {
+      let s = get(/databases/$(database)/documents/shop/$(uid));
+      return s != null && s.data.get('vip', {}).get('until', 0) > request.time.toMillis();
+    }
+    function validPreset(x) {
+      return x is map && x.keys().hasAll(['n', 'cz', 't']) && x.keys().hasOnly(['n', 'cz', 'fj', 't'])
+        && x.n is string && x.n.size() <= 40 && x.cz is map && x.cz.size() <= 20 && x.t is number
+        && (!('fj' in x) || (x.fj is string && x.fj.size() <= 20000));
+    }
+    function validPresets(d) {
+      return d.keys().hasOnly(['p']) && d.p is map && d.p.keys().hasOnly(['1', '2', '3', '4', '5'])
+        && (!('1' in d.p) || validPreset(d.p['1'])) && (!('2' in d.p) || validPreset(d.p['2']))
+        && (!('3' in d.p) || validPreset(d.p['3'])) && (!('4' in d.p) || validPreset(d.p['4']))
+        && (!('5' in d.p) || validPreset(d.p['5']));
+    }
+    // design presets: made and overwritten only by a member; kept, loadable and removable after
+    match /presets/{uid} {
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid) && validPresets(request.resource.data) && member(uid);
+      allow update: if isSelf(uid) && validPresets(request.resource.data)
+        && (member(uid) || (request.resource.data.p.diff(resource.data.p).addedKeys().size() == 0
+          && request.resource.data.p.diff(resource.data.p).changedKeys().size() == 0));
+      allow delete: if isSelf(uid);
+    }
+    // the Expanded National Chronicle: private, kept by the player's game while a member, read-only after
+    match /chron/{uid}/m/{month} {
+      allow read: if isSelf(uid);
+      allow create, update: if isSelf(uid) && member(uid) && month.matches('^[0-9]{4}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['d', 's'])
+        && (!('d' in request.resource.data) || request.resource.data.d is map)
+        && (!('s' in request.resource.data) || request.resource.data.s is map);
+      allow delete: if isSelf(uid);
     }
     match /adminAudit/{event} {
       allow read: if isAdmin();

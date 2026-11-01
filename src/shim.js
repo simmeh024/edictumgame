@@ -116,6 +116,8 @@
       cl: Array.isArray(d.claims) ? d.claims.length : 0 };
     // Once expanded storage is used, older clients must not save their 400-unit interpretation over it.
     if (d.whv === 1) out.storageV = 1;
+    // Once the desk has held more than five edicts (the Chancery Club's ten), no build that cuts it back may save.
+    if (d.iqv === 1) out.iq = 1;
     return out;
   }
   function revision(d) { return d && Number.isSafeInteger(d._rev) && d._rev >= 0 ? d._rev : 0; }
@@ -243,6 +245,7 @@
       }
       // Supported clients preserve the guard even when restoring a backup from before warehouses.
       if (saved && saved.storageV === 1) enc.storageV = 1;
+      if (saved && saved.iq === 1) enc.iq = 1;
       var privateRef = A.fs.doc('nationx/' + uid), privateSnap = await b.get(privateRef);
       var spaceRef = A.fs.doc('space/' + uid), spaceSnap = await b.get(spaceRef), space = spaceSnap.exists ? spaceSnap.data() : null;
       b.set(A.fs.doc('nations/' + uid), enc);
@@ -310,6 +313,12 @@
           return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { return r; }, function (e) { throw mapError(e); });
         }
         return ref.set(encode(col, data)).then(function () {}, function (e) { throw mapError(e); });
+      },
+      /* fields merged into what is there, maps and all (the shop's National Chronicle adds entries this way) */
+      merge: function (data) {
+        if (A.frozen) return hang();
+        if (nation) return Promise.reject(mapError({ code: 'invalid-argument' }));
+        return ref.set(encode(col, data), { merge: true }).then(function () {}, function (e) { throw mapError(e); });
       },
       delete: function () {
         if (A.frozen) return hang();
@@ -456,6 +465,44 @@
     battle: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'battle' })); }
   });
   var civicApi = Object.freeze({ request: function(data) { return call('civic', data); } });
+  /* the shop (functions/shop.js, through the accounts callable): request({step, …}); checkout({txn, env, token, theme,
+     onEvent}) opens Paddle's checkout over the page for a transaction the server made. Paddle.js is loaded from
+     Paddle's own address only when a checkout opens. In the emulators the server may answer env 'fake': no Paddle,
+     and the tests drive window.__edictumCheckout instead. */
+  var PADDLE = { p: null, token: '', on: null };
+  function paddleJs() {
+    if (PADDLE.p) return PADDLE.p;
+    PADDLE.p = new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js'; s.async = true;
+      s.onload = function () { if (window.Paddle) res(window.Paddle); else { PADDLE.p = null; rej(mapError({ code: 'unavailable', message: 'Paddle.js did not start' })); } };
+      s.onerror = function () { PADDLE.p = null; rej(mapError({ code: 'unavailable', message: 'Paddle.js could not be loaded' })); };
+      document.head.appendChild(s);
+    });
+    return PADDLE.p;
+  }
+  var shopApi = Object.freeze({
+    request: function (data) { return A.frozen ? hang() : call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'shop' })); },
+    checkout: function (o) {
+      if (!isObj(o) || typeof o.txn !== 'string' || !/^txn_[a-z0-9]{8,64}$/.test(o.txn)) return Promise.reject(mapError({ code: 'invalid-argument' }));
+      PADDLE.on = function (e) { if (typeof o.onEvent === 'function') try { o.onEvent({ name: str(e && e.name, 60), txn: str(e && e.data && e.data.transaction_id, 80) }); } catch (x) {} };
+      if (o.env === 'fake') {
+        window.__edictumCheckout = { txn: o.txn, event: function (name) { PADDLE.on({ name: name, data: { transaction_id: o.txn } }); } };
+        return Promise.resolve({ opened: true });
+      }
+      return paddleJs().then(function (P) {
+        if (PADDLE.token !== o.token) {
+          if (PADDLE.token) throw mapError({ code: 'unavailable', message: 'The checkout changed; reload the page' });
+          if (o.env === 'sandbox') P.Environment.set('sandbox');
+          P.Initialize({ token: str(o.token, 200), eventCallback: function (e) { if (PADDLE.on) PADDLE.on(e); } });
+          PADDLE.token = o.token;
+        }
+        P.Checkout.open({ transactionId: o.txn, settings: { displayMode: 'overlay', variant: 'one-page', theme: o.theme === 'dark' ? 'dark' : 'light', showAddDiscounts: false } });
+        return { opened: true };
+      });
+    },
+    close: function () { try { if (window.Paddle && PADDLE.token) window.Paddle.Checkout.close(); } catch (e) {} if (window.__edictumCheckout) window.__edictumCheckout.closed = true; }
+  });
   var adminApi = Object.freeze({ request: function (data) { return call('adminConsole', data); } });
 
   var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post });
@@ -565,7 +612,7 @@
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
+        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }
@@ -1324,6 +1371,8 @@
       /* Google asks for a recent sign-in before an account is deleted: confirm first, while the click
          still counts as the player's (a pop-up opened later would be blocked) */
       if (google && Date.now() - last > 4 * 60000) await u.reauthenticateWithPopup(provider());
+      /* a Chancery Club membership is cancelled before anything is deleted, so none goes on billing a lost account */
+      await call('accounts', { op: 'shop', step: 'closing' });
       A.frozen = true; A.leaving = true;
       var qs = await within(A.fs.collectionGroup('posts').where('a', '==', u.uid).get(), 15000);
       for (var i = 0; i < qs.docs.length; i += 400) {
