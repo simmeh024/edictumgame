@@ -1,5 +1,6 @@
 // Quiet tabs and quiet space records: what a background or untouched tab keeps listening to, and when a nation's
-// space record (which every player in every region listens to) is written again.
+// space record (which every player in every region listens to) is written again. And a still page: what keeps it
+// drawing while nobody moves (the tilt light, the passport glint); test/idle.mjs measures that in Chrome.
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {parse} from 'acorn';
@@ -143,4 +144,39 @@ test('on return the drawing owed waits for the listeners to report, and is skipp
   q.cb({fromCache:false});T.pass(2000);assert.deepEqual(T.log,['tick','render'],'one drawing, from the fresh snapshot');
   T.log.length=0;T.show(true);q.cb({v:2});T.pass(200000);T.show(false);T.pass(2000);
   assert.deepEqual(T.log,['tick','render'],'nothing new from the server: the drawing owed is made');
+});
+
+/* ── a still page: the identity foil's tilt light and the passport cover's glint keep the page busy only while
+   something moves ── */
+function tilt(){
+  const fn=name=>{const i=game.indexOf('function '+name+'(');assert.ok(i>0,name);let k=game.indexOf('{',i),d=0;for(;k<game.length;k++){if(game[k]==='{')d++;else if(game[k]==='}'&&!--d)break;}return game.slice(i,k+1);};
+  let now=0;const heard=new Set(),kicks=[];
+  const ctx=vm.createContext({Math,performance:{now:()=>now},clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),idTiltFree:()=>true,idKick:()=>kicks.push(now),
+    window:{addEventListener:(t,f)=>heard.add(f),removeEventListener:(t,f)=>heard.delete(f)},
+    ID:{src:'',tx:.5,ty:.5,b0:null,fb:0,fg:0,om:0,ot:0,zz:false,ori:false,still:false,tiltOK:true,vis:new Set([{}])}});
+  vm.runInContext(['idOrient','idOriSync','idOriSleep','idOriWake'].map(fn).join('\n'),ctx);
+  ctx.idOriSync();
+  /* the sensor at 60 Hz for ms, the tilt given as a function of the time */
+  const feed=(ms,f)=>{for(const end=now+ms;now<end;now+=1000/60){const [beta,gamma]=f(now);for(const h of heard)h({beta,gamma});}};
+  return {ctx,ID:ctx.ID,heard,kicks,feed};
+}
+test('a phone held still: its tremble does not move the light, and after ten seconds the page stops listening',()=>{
+  const T=tilt();T.feed(2000,()=>[40,0]);const k=T.kicks.length;
+  T.feed(5000,t=>[40+.8*Math.sin(t/37),.8*Math.cos(t/29)]);
+  assert.equal(T.kicks.length,k,'a degree of tremble is under the dead band');
+  T.feed(6000,()=>[40,0]);
+  assert.equal(T.heard.size,0,'ten seconds without a real move');assert.equal(T.ID.ori,false);
+  T.ctx.idOriWake();assert.equal(T.heard.size,1,'a touch or a scroll listens again');
+});
+test('a phone turned on purpose moves the light, at most thirty times a second',()=>{
+  const T=tilt();T.feed(1000,()=>[40,0]);const k=T.kicks.length;
+  T.feed(1000,t=>[40,(t-1000)/1000*45-20]);
+  const moves=T.kicks.length-k;assert.ok(moves>=20&&moves<=31,moves+' moves in a second');
+  assert.ok(T.ID.tx>.85,'the light follows the turn: '+T.ID.tx);
+});
+test('the passport glint runs a few passes while its cover is on screen, never for as long as the page is open',()=>{
+  const css=game.slice(0,game.indexOf('</style>'));
+  assert.doesNotMatch(css,/animation:ppGlint[^;}]*infinite/);
+  assert.match(css,/\.pp-gl\.run \.pp-glint\{animation:ppGlint 7s ease-in-out 3\}/);
+  assert.match(game,/<svg class="pp-gl" viewBox="0 0 300 420" aria-hidden="true"><g mask="url\(#\$\{id\}k\)"><rect class="pp-glint"/);
 });
