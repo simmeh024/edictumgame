@@ -160,6 +160,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 
 /* notice */
 .notice{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;width:100%;margin-bottom:16px;padding:13px 16px;text-align:left;cursor:pointer;color:var(--ink);background:var(--stamp-soft);border:1px solid var(--stamp);border-radius:4px}
+.nv-notes{display:contents}
 .notice-k{font:600 11px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--stamp)}
 .notice-go{margin-left:auto;font-weight:650;color:var(--stamp);white-space:nowrap}
 
@@ -3885,7 +3886,7 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .pp-stage.one .pp-leaf::after{background:linear-gradient(90deg,rgba(0,0,0,.24),rgba(0,0,0,.08) 5%,transparent 14%)}
 .pp-leaf.is-cover,.pp-leaf.is-back{background:transparent;overflow:visible}
 .pp-leaf.is-cover::after,.pp-leaf.is-back::after{display:none}
-.pp-leaf.is-cover>svg,.pp-leaf.is-back>svg{filter:drop-shadow(0 12px 22px rgba(0,0,0,.32))}
+.pp-leaf.is-cover>.pp-cover,.pp-leaf.is-back>svg{filter:drop-shadow(0 12px 22px rgba(0,0,0,.32))}
 .pp-stage.closed .pp-spread{transition:transform .25s ease-out}
 .pp-stage.closed.lit .pp-spread{transform:rotateY(calc(var(--gx,0)*7deg)) rotateX(calc(var(--gy,0)*-5deg))}
 .pp-inboard{background:color-mix(in srgb,var(--pp-board,#6b1d2a) 86%,#000);border-radius:3px 0 0 3px}
@@ -3915,10 +3916,18 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .pp-stage.turn-p .pp-leaf{animation:ppTurnP .4s cubic-bezier(.2,.7,.2,1) both;transform-origin:right center}
 @keyframes ppTurnN{from{transform:rotateY(-24deg) translateX(16px);opacity:.35}to{transform:none;opacity:1}}
 @keyframes ppTurnP{from{transform:rotateY(24deg) translateX(-16px);opacity:.35}to{transform:none;opacity:1}}
-/* light: a glint runs over the foil, and the identity page's laminate shifts colour, with the pointer */
-.pp-glint{transform:translateX(-170px);animation:ppGlint 7s ease-in-out infinite}
-.pp-stage.lit .pp-glint{animation:none;transform:translateX(calc(var(--gx,0)*170px + 75px));transition:transform .1s linear}
+/* light: a glint runs over the foil, and the identity page's laminate shifts colour, with the pointer.
+   The glint is a layer of its own over the cover (.pp-gl, using the cover's mask), so a pass draws that small layer
+   again and not the cover with its textures and shadow; and it runs three passes while the cover is on screen
+   (ppGlWatch adds .run), or one when the pointer comes to the cover, not for as long as the page is open: a frame
+   with the glint running cost a slow phone 3 ms more, on screen or not */
+.pp-gl{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
+.pp-glint{transform:translateX(-170px)}
+.pp-gl.run .pp-glint{animation:ppGlint 7s ease-in-out 3}
+.pp-sec-cv:hover .pp-gl .pp-glint{animation:ppGlintGo 1.4s ease-in-out}
+.pp-stage.lit .pp-gl .pp-glint{animation:none;transform:translateX(calc(var(--gx,0)*170px + 75px));transition:transform .1s linear}
 @keyframes ppGlint{0%,58%{transform:translateX(-170px)}100%{transform:translateX(470px)}}
+@keyframes ppGlintGo{from{transform:translateX(-170px)}to{transform:translateX(470px)}}
 .pp-holo{transform:translateX(-600px);animation:ppHolo 12s linear infinite alternate}
 .pp-stage.lit .pp-holo{animation:none;transform:translateX(calc(var(--gx,0)*-150px - 300px));transition:transform .1s linear}
 @keyframes ppHolo{from{transform:translateX(-600px)}to{transform:translateX(0)}}
@@ -3998,8 +4007,9 @@ html.pp-lock,html.pp-lock body{overflow:hidden}
 .pp-slot:hover,.pp-slot:focus-visible{stroke:var(--accent);stroke-width:2}
 .pp-slot.on{stroke:var(--stamp);stroke-width:2.4;stroke-dasharray:none}
 .pp-sec-in{display:grid;grid-template-columns:110px minmax(0,1fr);gap:20px;align-items:center}
-.pp-sec-cv{padding:0;border:0;background:none;cursor:pointer}
-.pp-sec-cv svg{display:block;width:110px;height:auto;filter:drop-shadow(0 6px 12px rgba(0,0,0,.25));transition:transform .2s}
+.pp-sec-cv{position:relative;padding:0;border:0;background:none;cursor:pointer}
+.pp-sec-cv svg{display:block;width:110px;height:auto;transition:transform .2s}
+.pp-sec-cv .pp-cover{filter:drop-shadow(0 6px 12px rgba(0,0,0,.25))}
 .pp-sec-cv:hover svg{transform:rotate(-3deg) translateY(-2px)}
 .pp-visit{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:16px;align-items:center;margin:0 0 22px;padding:12px 16px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
 .pp-visit-st svg{display:block;width:120px;height:auto}
@@ -17631,9 +17641,10 @@ function openNotifs(){
   render();
 }
 function refreshBell(now){
-  const b=document.querySelector('.bell-n');if(!b)return;const c=notifCount(now);
-  b.textContent=c>99?'99+':String(c);b.hidden=!c;
-  const bt=b.closest('.bell');if(bt)bt.setAttribute('aria-label','Notifications'+(c?', '+c+' new':''));
+  const b=document.querySelector('.bell-n');if(!b)return;const c=notifCount(now),t=c>99?'99+':String(c),l='Notifications'+(c?', '+c+' new':'');
+  /* written only when it changed: an unchanged write still replaces the text and wakes the page's observers every tick */
+  if(b.textContent!==t)b.textContent=t;if(b.hidden!==!c)b.hidden=!c;
+  const bt=b.closest('.bell');if(bt&&bt.getAttribute('aria-label')!==l)bt.setAttribute('aria-label',l);
 }
 
 function nextCityAt(n){const p=popNow(n),m=MILESTONES.find(m=>m.city&&p<m.p-1e-9);return m?m.p:null;}
@@ -21470,7 +21481,7 @@ VIEWS_EXT.customise=now=>{
    catches the light from the pointer or the phone's tilt. One rAF-throttled handler drives every
    foil on screen (the banner, gold and platinum honours, legendary and rare artefacts) through three
    CSS custom properties; it does nothing while none is visible, and never with reduced motion. */
-const ID={src:'',px:-1,py:-1,tx:.5,ty:.5,b0:null,raf:0,obs:new Set(),vis:new Set(),io:null,cache:new Map(),ori:false,tiltOK:false,still:false,hv:null,pp:null,mq:null};
+const ID={src:'',px:-1,py:-1,tx:.5,ty:.5,b0:null,fb:0,fg:0,om:0,ot:0,zz:false,raf:0,obs:new Set(),vis:new Set(),io:null,cache:new Map(),ori:false,tiltOK:false,still:false,hv:null,pp:null,mq:null};
 const ID_SEL='.id-foil,.ach-card.on.at-g,.ach-card.on.at-p,.ach-mini.on.at-g,.ach-mini.on.at-p,.col-case.own.r-l,.col-case.own.r-r,.col-sheet.own.r-l,.col-sheet.own.r-r';
 try{ID.mq=window.matchMedia('(prefers-reduced-motion: reduce)');}catch(e){}
 
@@ -21603,21 +21614,39 @@ function idApply(list){
     if(ID.src==='t'){u=ID.tx;v=ID.ty;o=.45;}
     else{u=(ID.px-r.left)/r.width;v=(ID.py-r.top)/r.height;const dx=Math.max(0,Math.abs(ID.px-r.left-r.width/2)-r.width/2),dy=Math.max(0,Math.abs(ID.py-r.top-r.height/2)-r.height/2);o=clamp(1-Math.hypot(dx,dy)/180,0,1);}
     u=+clamp(u,-.2,1.2).toFixed(2);v=+clamp(v,-.2,1.2).toFixed(2);o=+o.toFixed(2);
-    const t=el._idt||el,p=t._idv||(t._idv=[NaN,NaN,NaN]),s=t.style;
-    if(p[0]!==u){s.setProperty('--id-x',u);p[0]=u;}if(p[1]!==v){s.setProperty('--id-y',v);p[1]=v;}if(p[2]!==o){s.setProperty('--id-o',o);p[2]=o;}
+    const t=el._idt||el,p=t._idv||(t._idv=[NaN,NaN,NaN]);
+    for(const L of idLayers(t)){const s=L.style;if(p[0]!==u)s.setProperty('--id-x',u);if(p[1]!==v)s.setProperty('--id-y',v);if(p[2]!==o)s.setProperty('--id-o',o);}
+    p[0]=u;p[1]=v;p[2]=o;
     if(el.classList.contains('id-foil'))ID.hv=[u,v,o];
   }
 }
+/* the light is set on the layers that read it, not on the foil: custom properties are inherited, so a change on the
+   foil restyled everything inside it and painted the foil again, while the layers move by transform alone (on a
+   slow phone a move cost 29 ms with the paint, 14 without) */
+function idLayers(t){return t._idL||(t._idL=t.classList.contains('id-sh')?[...t.children]:[...t.querySelectorAll('.id-fs>i,.id-seal>i')]);}
 function idKick(){if(!ID.raf&&ID.vis.size&&ID.src&&!ID.still&&!document.hidden)ID.raf=requestAnimationFrame(()=>{ID.raf=0;idApply(ID.vis);});}
 function idTouchOnly(){try{return window.matchMedia('(hover: none) and (pointer: coarse)').matches;}catch(e){return false;}}
 function idTiltNeed(){try{return !ID.tiltOK&&typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'&&idTouchOnly();}catch(e){return false;}}
 function idTiltFree(){try{return typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission!=='function'&&idTouchOnly();}catch(e){return false;}}
+/* a phone held in the hand trembles by a degree or so, and the sensor reports it sixty times a second: the light
+   follows the tilt smoothed on both axes, moves for a change of 0.02 or more, at most thirty times a second, and
+   stops listening after ten seconds without such a change (a touch, a scroll, a new page or coming back to the
+   tab listens again) */
 function idOrient(e){
   if(e.beta==null||e.gamma==null)return;
-  if(ID.b0==null)ID.b0=e.beta;ID.b0+=(e.beta-ID.b0)*.02;
-  ID.tx=.5+clamp(e.gamma/32,-1,1)*.62;ID.ty=.5+clamp((e.beta-ID.b0)/28,-1,1)*.62;ID.src='t';idKick();
+  const now=performance.now();
+  if(ID.b0==null){ID.b0=ID.fb=e.beta;ID.fg=e.gamma;ID.om=now;}
+  ID.b0+=(e.beta-ID.b0)*.02;ID.fb+=(e.beta-ID.fb)*.25;ID.fg+=(e.gamma-ID.fg)*.25;
+  const tx=.5+clamp(ID.fg/32,-1,1)*.62,ty=.5+clamp((ID.fb-ID.b0)/28,-1,1)*.62;
+  if(ID.src==='t'){
+    if(Math.abs(tx-ID.tx)<.02&&Math.abs(ty-ID.ty)<.02){if(now-ID.om>10000)idOriSleep();return;}
+    if(now-ID.ot<33)return;
+  }
+  ID.tx=tx;ID.ty=ty;ID.src='t';ID.om=ID.ot=now;idKick();
 }
-function idOriSync(){const on=!ID.still&&ID.vis.size>0&&(ID.tiltOK||idTiltFree());if(on===ID.ori)return;ID.ori=on;try{if(on)window.addEventListener('deviceorientation',idOrient,{passive:true});else{window.removeEventListener('deviceorientation',idOrient);ID.b0=null;}}catch(e){}}
+function idOriSync(){const on=!ID.still&&!ID.zz&&ID.vis.size>0&&(ID.tiltOK||idTiltFree());if(on===ID.ori)return;ID.ori=on;try{if(on)window.addEventListener('deviceorientation',idOrient,{passive:true});else{window.removeEventListener('deviceorientation',idOrient);ID.b0=null;}}catch(e){}}
+function idOriSleep(){ID.zz=true;idOriSync();}
+function idOriWake(){if(!ID.zz)return;ID.zz=false;idOriSync();}
 function idTiltAsk(){
   try{DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted'){ID.tiltOK=true;idOriSync();document.querySelectorAll('.id-tilt').forEach(b=>b.remove());}else toast('Tilt is switched off for this page. Touch the foil to catch the light instead.');}).catch(()=>toast('This browser would not share the tilt of your phone.'));}catch(e){}
 }
@@ -21629,12 +21658,12 @@ function idWatch(){
   const fresh=[];
   for(const el of document.querySelectorAll(ID_SEL)){if(ID.obs.has(el))continue;el._idt=idSheen(el);ID.obs.add(el);ID.io.observe(el);fresh.push(el);}
   if(fresh.length&&ID.src==='p'&&!ID.still)idApply(fresh);
-  idOriSync();
+  ID.zz=false;idOriSync();
 }
 document.addEventListener('pointermove',e=>{if(!e.isPrimary)return;ID.px=e.clientX;ID.py=e.clientY;if(ID.src!=='t')ID.src='p';idKick();},{passive:true});
-document.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'||!e.isPrimary)return;ID.px=e.clientX;ID.py=e.clientY;if(ID.src!=='t')ID.src='p';idKick();},{passive:true});
-window.addEventListener('scroll',()=>{if(ID.src==='p')idKick();},{passive:true,capture:true});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&ID.raf){cancelAnimationFrame(ID.raf);ID.raf=0;}});
+document.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'||!e.isPrimary)return;idOriWake();ID.px=e.clientX;ID.py=e.clientY;if(ID.src!=='t')ID.src='p';idKick();},{passive:true});
+window.addEventListener('scroll',()=>{idOriWake();if(ID.src==='p')idKick();},{passive:true,capture:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&ID.raf){cancelAnimationFrame(ID.raf);ID.raf=0;}if(!document.hidden)idOriWake();});
 try{if(ID.mq&&ID.mq.addEventListener)ID.mq.addEventListener('change',()=>{idStillNow();idOriSync();});}catch(e){}
 (()=>{const app=document.getElementById('app');if(app&&typeof MutationObserver==='function')new MutationObserver(idWatch).observe(app,{childList:true});})();
 
@@ -32702,6 +32731,25 @@ function navBadges(cnt,lcr,dmu){
   if(dmu)add('messages',`<span class="badge" aria-hidden="true">${dmu}</span>`,dmu+' unread');
   return b;
 }
+/* what the nav shows besides the edicts waiting: tick() draws the nav again when it changes. The page sets it as it
+   draws the nav, so a page just drawn is not drawn again by the next tick */
+function navSigOf(n,now,lcr=landCredits(n),dmu=dmUnread(now)){return (expBack(n,now)?'x':'')+lcr+':'+dmu+':'+((n.dm||[]).filter(m=>m.i&&m.t<=now).length);}
+/* a timer's change to what the nav counts (an edict, land to claim, a letter, an expedition back) draws the nav, the
+   bell and the Nation page's notices again, not the whole page, which takes a slow phone half a second. Other pages
+   show these figures in their own places, so they are still drawn again whole */
+function navSoft(v,now){
+  if(S.view!=='nation'||S.notifOpen||S.moreOpen)return false;
+  const notes=document.querySelector('.nv-notes'),tb=document.querySelector('.tabbar'),navs=document.querySelectorAll('nav.nav');
+  if(!notes||!navs.length||navNarrow()!==!!tb)return false;
+  const n=S.nation,cnt=v.inbox.length,lcr=landCredits(n),dmu=dmUnread(now),nb=navBadges(cnt,lcr,dmu),nav=navHTML(nb);
+  S.lastCount=cnt;S.navSig=navSigOf(n,now,lcr,dmu);
+  const ae=document.activeElement,fid=ae&&ae.id&&ae.closest&&ae.closest('nav.nav,.tabbar,.nv-notes')?ae.id:null,k=navBefore();
+  navs.forEach(el=>{el.innerHTML=nav;});if(tb)tb.outerHTML=navTabs(nb);notes.innerHTML=nationNotes(n,cnt,now);
+  navAfter(k);refreshBell(now);
+  if(fid){const el=document.getElementById(fid);if(el)try{el.focus({preventScroll:true});}catch(e){}}
+  try{tutAfter();}catch(e){}
+  return true;
+}
 const navSr=t=>`<span class="u-sr">, ${esc(t)}</span>`;
 const navBadgeWords=(b,items)=>items.filter(([v])=>b[v]).map(([v,l])=>l+': '+b[v].map(x=>x.t).join(', '));
 function navBtn(v,l,b,cur,cls,idp){const on=cur===v;return `<button class="${cls}${on?' on':''}" data-act="go" data-v="${v}" id="${idp}${v}"${on?' aria-current="page"':''}><span>${esc(l)}</span>${b[v]?b[v].map(x=>x.h+navSr(x.t)).join(''):''}</button>`;}
@@ -36531,7 +36579,7 @@ function modeChip(){
 }
 function shell(){
   const n=S.nation,now=Date.now(),v=syncInbox(n,now),cnt=v.inbox.length;
-  S.lastCount=cnt;const lcr=landCredits(n),dmu=dmUnread(now);
+  S.lastCount=cnt;const lcr=landCredits(n),dmu=dmUnread(now);S.navSig=navSigOf(n,now,lcr,dmu);
   const nb=navBadges(cnt,lcr,dmu),nar=navNarrow(),nav=navHTML(nb);
   return `<div class="layout"><button type="button" class="skip-link" data-act="nav-skip">Skip to content</button>
   <aside class="side">
@@ -36641,8 +36689,7 @@ function legislation(n){
 }
 function nationView(v,now){
   const n=S.nation,cnt=v.inbox.length;
-  return `${cnt&&!pgGuided(n)?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">${esc(chamberOf(n).house)}</span><span>${cnt===1?'One edict awaits':cnt+' edicts await'} ${esc(chamberOf(n).notice)}.</span><span class="notice-go">Open edicts →</span></button>`:''}
-  ${awayNotice(n,now)}${pgGuided(n)?'':landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}
+  return `<div class="nv-notes">${nationNotes(n,cnt,now)}</div>
   ${firstStepsCard(n)}${hero(n)}
   ${freedoms(n.s)}
   <div class="nation-grid">
@@ -36653,6 +36700,12 @@ function nationView(v,now){
   ${citiesSection(S.uid||'me',n)}
   ${growthSection(n)}
   ${legislation(n)}${runHooks(NATION_SECTIONS,{id:S.uid||'me',n,me:true},now).join('')}`;
+}
+/* the notices at the top of the Nation page: what waits, holiday mode, land to claim, war, alliances, trade
+   (navSoft draws them again on their own when a timer changes what they count) */
+function nationNotes(n,cnt,now){
+  return `${cnt&&!pgGuided(n)?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">${esc(chamberOf(n).house)}</span><span>${cnt===1?'One edict awaits':cnt+' edicts await'} ${esc(chamberOf(n).notice)}.</span><span class="notice-go">Open edicts →</span></button>`:''}
+  ${awayNotice(n,now)}${pgGuided(n)?'':landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}`;
 }
 /* ───────── the Senate's forms: Roman numerals, years and the laurel ───────── */
 /* Roman numerals for edicts and motions (1 to 3999; anything else stays in Arabic figures) */
@@ -37416,13 +37469,13 @@ function tick(){
   if(!S.nation)return;
   const now=Date.now(),v=syncInbox(S.nation,now);
   if(pgPulse(now))return;
-  if(v.inbox.length!==S.lastCount){render();return;}
+  if(v.inbox.length!==S.lastCount){if(!navSoft(v,now))render();return;}
   if(gamesPending(S.nation,now)){commit(clone(S.nation));render();return;}
   if(cellOf(S.nation.loc)>=0&&!Array.isArray(S.nation.claims)){commit(clone(S.nation));render();return;}
   if(milesReached(popNow(S.nation,now)).length>(S.nation.mileAck||0)){commit(clone(S.nation));render();return;}
   if(S.nation.autoLand&&(S.view!=='map'||S.mpMode!=='plan')&&landCredits(S.nation)>0){claimAuto(true);return;}
-  const navSig=(expBack(S.nation,now)?'x':'')+landCredits(S.nation)+':'+dmUnread(now)+':'+((S.nation.dm||[]).filter(m=>m.i&&m.t<=now).length);
-  if(navSig!==S.navSig){S.navSig=navSig;if(S.view==='messages'&&S.msgPeer)markThreadRead(S.msgPeer);render();return;}
+  const navSig=navSigOf(S.nation,now);
+  if(navSig!==S.navSig){S.navSig=navSig;if(S.view==='messages'&&S.msgPeer)markThreadRead(S.msgPeer);if(!navSoft(v,now))render();return;}
   refreshBell(now);expTick(now);
   document.querySelectorAll('[data-live="gclose"]').forEach(el=>{el.textContent=fmtWait(+el.dataset.t-now);});
   if(whPending(S.nation,now).length){commit(clone(S.nation));render();return;}
@@ -38273,7 +38326,7 @@ function ppCoverSVG(n,d,o){
   return `<svg class="pp-cover${o.cls?' '+o.cls:''}" viewBox="0 0 300 420" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${fd}${td}${glint}${hinge}${blind?'':`<mask id="${id}k" maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="420">${B('#fff',1)}</mask>`}</defs>
 <rect width="300" height="420" rx="10" fill="${col}"/>${tex}<rect width="24" height="420" fill="url(#${id}h)"/><path d="M19,8V412" stroke="rgba(0,0,0,.3)" stroke-width="1.2"/><path d="M20.5,8V412" stroke="rgba(255,255,255,.1)"/>
 <g transform="translate(.5,1.3)" opacity=".7">${B('rgba(0,0,0,.55)',1)}</g><g transform="translate(-.4,-.8)" opacity="${blind?.8:.55}">${B('rgba(255,255,255,.3)',1)}</g>${B(paint)}
-${blind?'':`<g mask="url(#${id}k)"><rect class="pp-glint" x="0" y="0" width="150" height="420" fill="url(#${id}g)"/></g>`}<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>`;
+<rect x=".75" y=".75" width="298.5" height="418.5" rx="9.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></svg>${blind?'':`<svg class="pp-gl" viewBox="0 0 300 420" aria-hidden="true"><g mask="url(#${id}k)"><rect class="pp-glint" x="0" y="0" width="150" height="420" fill="url(#${id}g)"/></g></svg>`}`;
 }
 /* the security print behind a page */
 function ppPagePattern(g,ink){
@@ -38871,6 +38924,18 @@ document.addEventListener('animationend',e=>{
 {let raf=0,cur=null,px=0,py=0;
   document.addEventListener('pointermove',e=>{const s=e.target.closest&&e.target.closest('.pp-stage');if(cur&&cur!==s){cur.classList.remove('lit');cur=null;}if(!s)return;cur=s;px=e.clientX;py=e.clientY;
     if(raf)return;raf=requestAnimationFrame(()=>{raf=0;if(!cur)return;const r=cur.getBoundingClientRect();cur.style.setProperty('--gx',(((px-r.left)/r.width)*2-1).toFixed(3));cur.style.setProperty('--gy',(((py-r.top)/r.height)*2-1).toFixed(3));cur.classList.add('lit');});},{passive:true});}
+/* the cover's glint runs while the cover is on screen (see .pp-gl): watched once drawn, by the page, the passport
+   viewer, and a page turn's last spread */
+const PPG={io:null,obs:new Set()};
+function ppGlWatch(){
+  if(typeof IntersectionObserver!=='function')return;
+  if(!PPG.io)PPG.io=new IntersectionObserver(es=>{for(const e of es)e.target.classList.toggle('run',e.isIntersecting);});
+  for(const el of PPG.obs)if(!el.isConnected){PPG.io.unobserve(el);PPG.obs.delete(el);}
+  for(const el of document.querySelectorAll('svg.pp-gl'))if(!PPG.obs.has(el)){PPG.obs.add(el);PPG.io.observe(el);}
+}
+render=(f=>function(){const r=f.apply(this,arguments);ppGlWatch();return r;})(render);
+ppViewDraw=(f=>function(){const r=f.apply(this,arguments);ppGlWatch();return r;})(ppViewDraw);
+document.addEventListener('animationend',e=>{if(/^ppFlip/.test(e.animationName||''))ppGlWatch();});
 /* turning by swiping across the pages */
 {let sx=null,sy=0;document.addEventListener('pointerdown',e=>{const s=e.target.closest&&e.target.closest('.pp-stage');sx=s?e.clientX:null;sy=e.clientY;},true);
   document.addEventListener('pointerup',e=>{if(sx==null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;const s=e.target.closest&&e.target.closest('.pp-stage');if(!s||Math.abs(dx)<50||Math.abs(dy)>Math.abs(dx))return;

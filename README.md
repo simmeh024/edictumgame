@@ -511,6 +511,18 @@ python3 build.py
 npx firebase emulators:exec --project demo-edictum --only auth,firestore,hosting "node test/load.mjs"
 ```
 
+**The idle test.** `test/idle.mjs` opens the Nation page in Chrome and reads what the main thread does
+while nobody touches it, while it scrolls and while a pointer crosses the banner: its busy time, and from
+Chrome's own trace the frames the page asked for and what each cost. It counts frames from the trace, never
+with a `requestAnimationFrame` loop of its own, which would keep Chrome drawing and charge every frame to
+the page. It serves `public/` itself (the game's local mode, no emulators); `IDLE_PROFILE=phone` is a
+390 px phone at a quarter of the CPU, and `IDLE_PUBLIC` points it at another build to compare:
+
+```sh
+npm run test:idle                                   # Playwright's Chromium (software drawing)
+IDLE_CHANNEL=chrome IDLE_PROFILE=phone node test/idle.mjs   # the installed Chrome, on the GPU
+```
+
 ## Owner setup
 
 Do these once, in your browser. The referee (a Cloud Function) needs the Blaze plan, so each
