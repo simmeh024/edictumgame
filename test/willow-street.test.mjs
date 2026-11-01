@@ -11,7 +11,8 @@ const html=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8'),
 const cut=(a,b)=>{const i=src.indexOf(a),j=src.indexOf(b,i+a.length);assert.ok(i>=0&&j>i,'section '+a);return src.slice(i,j);};
 const fn=name=>{const i=src.indexOf('function '+name+'('),j=src.indexOf('\n}\n',i);assert.ok(i>=0&&j>i,name);return src.slice(i,j+2);};
 const literal=name=>{const m=src.match(new RegExp('const '+name+'\\s*=\\s*([^;]+);'));assert.ok(m,name);return m[1];};
-const SECTION=cut('/* ───────── Letters from Willow Street: one citizen','/* ───────── the browser tab');
+/* up to the next section, wherever later edicts or other sections are added after it */
+const SECTION=cut('/* ───────── Letters from Willow Street: one citizen','\n/* ───────── ');
 const STAT_KEYS=JSON.parse(literal('STAT_KEYS').replace(/'/g,'"'));
 const BUDGET_KEYS=[...src.slice(src.indexOf('const BUDGET = ['),src.indexOf('];',src.indexOf('const BUDGET = ['))).matchAll(/\['([a-z]+)','/g)].map(m=>m[1]);
 const POLICY_KEYS=new Set([...src.slice(src.indexOf('const POLICIES = {'),src.indexOf('const CATS = [')).matchAll(/^\s*([a-zA-Z]+):\[/gm)].map(m=>m[1]));
