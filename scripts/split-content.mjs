@@ -7,8 +7,16 @@ const FUNCTIONS=new Set(['FunctionExpression','FunctionDeclaration','ArrowFuncti
 export function splitContent(source){
   const tree=parse(source,{ecmaVersion:'latest'}),texts=[],index=new Map(),edits=[];
   const children=(node,visit)=>{for(const value of Object.values(node))if(Array.isArray(value)){for(const x of value)if(x&&typeof x.type==='string')visit(x,node);}else if(value&&typeof value.type==='string')visit(value,node);};
+  /* An edict's condition keeps its text as written beside it (reqSrc): the game reads which helpers a condition
+     calls (geo, hasNb, leaderAge…), and minifying renames them. */
+  const key=p=>p.type==='Property'&&!p.computed&&(p.key.name||p.key.value);
+  function keepReqText(node){
+    const req=node.properties.find(p=>key(p)==='req'&&FUNCTIONS.has(p.value.type));
+    if(req&&!node.properties.some(p=>key(p)==='reqSrc'))edits.push({start:req.end,end:req.end,text:',reqSrc:'+JSON.stringify(source.slice(req.value.start,req.value.end))});
+  }
   function collect(node,parent){
     if(FUNCTIONS.has(node.type))return; // req() functions and other closures remain in the game.
+    if(node.type==='ObjectExpression')keepReqText(node);
     if(node.type==='TemplateLiteral'&&(node.expressions.length||parent?.type==='TaggedTemplateExpression'))return;
     const value=node.type==='Literal'&&typeof node.value==='string'?node.value:
       node.type==='TemplateLiteral'&&node.expressions.length===0?node.quasis[0].value.cooked:null;
