@@ -510,9 +510,18 @@
       return paddleReady(o).then(function (P) {
         return P.PricePreview({ items: items.map(function (id) { return { priceId: id, quantity: 1 }; }) });
       }).then(function (r) {
-        var d = r && r.data, lines = d && d.details && Array.isArray(d.details.lineItems) ? d.details.lineItems : [], prices = {};
-        lines.forEach(function (l) { if (l && l.price && l.formattedTotals) prices[l.price.id] = l.formattedTotals.total; });
-        return tidy({ cur: d && d.currencyCode, prices: prices });
+        var d = r && r.data, cur = d && typeof d.currencyCode === 'string' ? d.currencyCode : '', prices = {};
+        var lines = d && d.details && Array.isArray(d.details.lineItems) ? d.details.lineItems : [];
+        /* Paddle writes pesos as "$209.39", which reads as dollars: written again from the amount (in the currency's
+           smallest unit) with the currency named, "MX$209.39"; Paddle's own text if that fails */
+        var named = function (amount) {
+          try {
+            var f = new Intl.NumberFormat('en-IE', { style: 'currency', currency: cur }), n = Number(amount);
+            return isFinite(n) && amount !== '' && amount != null ? f.format(n / Math.pow(10, f.resolvedOptions().maximumFractionDigits)) : '';
+          } catch (e) { return ''; }
+        };
+        lines.forEach(function (l) { if (l && l.price && l.formattedTotals) prices[l.price.id] = named(l.totals && l.totals.total) || l.formattedTotals.total; });
+        return tidy({ cur: cur, prices: prices });
       }).catch(function () { return null; });
     },
     checkout: function (o) {
