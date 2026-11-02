@@ -3,6 +3,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { registered } from './eligibility.js';
+import { gather, summarize } from './stats.js';
 
 const REGIONS = new Set('meridian frostmarch northernpale driftlands silentmoors wildwood saffron hollow ashen ironsteppe gilded verdantbasin coralreach emberisles lanterncoast jadeterraces highcrags cloudspine obsidianrim ambershallows sunkenkingdoms mistral stormwrack longvalley greywater scatteredcrown'.split(' '));
 export const MAINTENANCE = 'Current region is disabled and undergoing maintainance, check back soon.';
@@ -79,6 +80,18 @@ async function audit(db, data) {
   const qs = await q.get();
   return { events: qs.docs.map(d => ({ id: d.id, ...d.data(), at: ms(d.get('at')) })), next: qs.size === 50 ? qs.docs.at(-1).id : null };
 }
+/* The Statistics page (functions/stats.js): every nation and account is read once and kept for ten minutes per
+   instance, so moving between regions costs nothing; 'refresh' counts again. Two requests at once share one count. */
+let counted = null, counting = null;
+async function stats(db, data) {
+  const reg = text(data.reg, 40);
+  if (reg && !REGIONS.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
+  if (!counted || data.refresh === true || Date.now() - counted.at > 600000) {
+    counting = counting || gather(db, (max, token) => getAuth().listUsers(max, token), { regions: [...REGIONS] }).then(g => { counted = g; return g; }).finally(() => { counting = null; });
+    await counting;
+  }
+  return summarize(counted, reg);
+}
 async function setRegion(db, actor, data) {
   const target = id(data.reg), reason = text(data.reason, 300);
   if (!REGIONS.has(target) || typeof data.enabled !== 'boolean' || !reason) throw new HttpsError('invalid-argument', 'Choose a region, availability and a reason.');
@@ -149,13 +162,14 @@ async function mutate(db, actor, data) {
     throw e;
   }
 }
-export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, memory: '256MiB', timeoutSeconds: 120 }, async req => {
+export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, memory: '512MiB', timeoutSeconds: 300 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   if (req.auth.token.admin !== true) throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
   const d = req.data || {}, db = getFirestore(), actor = req.auth.uid;
   if (d.op === 'search') return players(db, d);
   if (d.op === 'player') return player(db, id(d.uid));
   if (d.op === 'health') return health(db);
+  if (d.op === 'stats') return stats(db, d);
   if (d.op === 'audit') return audit(db, d);
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);

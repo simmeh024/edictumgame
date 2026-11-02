@@ -24,8 +24,9 @@ or an email address if they like), and **Firestore** holds the shared world.
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `functions/` | The referee: one Cloud Function (`referee`, in `europe-west1`) that rolls battles on the server, keeps each army's readiness and seals every victory (see Fair play). |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
-| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job. |
+| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job; `stats.yml` records the day's player statistics. |
 | `jobs/fx/` | The daily currency job: every currency's exchange value and Currency Prestige, from the nations' records (Firebase Admin SDK, its own `package.json`). See Currencies below. |
+| `jobs/stats/` | The nightly record of player statistics for the admin portal's Statistics page (`functions/stats.js` does the counting). See 9c2 below. |
 | `test/` | Rules tests, end-to-end tests and a smoke test, all on the Firebase emulators, and the currency engine's tests. |
 | `tools/admin/` | A one-off script that makes a player an admin. |
 
@@ -829,6 +830,30 @@ Optional: without it the site never asks (see Visit statistics). `edictum-b30de`
    automatic page views (`send_page_view: false`), which also stops the history-based ones, and sends
    its own with the cleaned address, which it also sets (`gtag('set')`) for the tag's other events
    (scrolls, outbound links, downloads).
+
+### 9c2. The Statistics page and its nightly record
+
+The admin portal's **Statistics** tab (`#admin-stats`, under World) shows how players use the game, for all
+regions or any one region: who is active (now, today, this week, this month), nations founded and new visitors
+day by day, how many keep playing after a day, a week or a month (also per founding week), when edicts are
+decided (weekday by hour, in the admin's own time zone), edict pace and full desks, the most decided edicts and
+their favourite answers, every tutorial step, which features active nations use, guests against linked
+sign-ins, desktop against phone, and a table of the regions. Choosing a region lists its nations (public data:
+name, population, founding, last activity, edicts decided) with **Inspect player** beside each.
+
+`adminConsole({op: 'stats', reg})` counts it on the server (`functions/stats.js`): it reads every nation and
+its private half once, lists every Firebase Authentication account, and keeps the result ten minutes per
+instance (**Count again** counts afresh). That is two document reads per nation, plus one per 1,000 accounts,
+each time it counts. Only counts leave the server, apart from one region's nation list.
+
+How many played on a given day cannot be worked out later (a nation keeps only the time of its last save), so
+`.github/workflows/stats.yml` runs `jobs/stats/run.mjs` every night at 00:07 UTC (and 03:53 as a safety net; a
+recorded day is left alone) and keeps the day's headline figures in `statsDays/<date>`, which the page draws
+as *Players active each day*. It uses the same secret and variable as Deploy; the service account also needs
+to list Authentication users, which the **Firebase Admin** role of step 5 includes. The chart starts on the
+first night after the workflow reaches `main`; **Actions** → **Statistics** → **Run workflow** records the
+last 24 hours at once, as that day's point (the night's run then leaves that day alone). The rules refuse
+`statsDays/` to every client.
 
 ### 9d. The shop (Paddle)
 

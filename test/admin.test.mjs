@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 const project = process.env.GCLOUD_PROJECT || 'demo-edictum';
 const auth = 'http://' + (process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099');
 const docs = `http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}/v1/projects/${project}/databases/(default)/documents`;
@@ -46,7 +49,7 @@ async function seed(uid, name = 'Old Émber Republic') {
 test('staff endpoints reject visitors and ordinary players', async () => {
   const g = await user();
   await assert.rejects(call(null, { op: 'search' }), e => e.status === 'UNAUTHENTICATED');
-  for (const op of ['search', 'player', 'health', 'audit', 'region', 'moderate', 'note']) await assert.rejects(call(g, { op }), e => e.status === 'PERMISSION_DENIED');
+  for (const op of ['search', 'player', 'health', 'stats', 'audit', 'region', 'moderate', 'note']) await assert.rejects(call(g, { op }), e => e.status === 'PERMISSION_DENIED');
 });
 test('search includes legacy summaries, case-insensitive names and exact player IDs', async () => {
   const a = await user(true), p = await user(); await seed(p.uid);
@@ -209,4 +212,27 @@ test('moderation and support actions have immutable server outcomes, including f
   assert.equal(await get('boards/meridian/posts/admin-test'), null);
   assert.equal((await get('bans/' + p.uid)).fields.by.stringValue, a.uid);
   assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'ban' && e.outcome === 'completed' && e.actor === a.uid));
+});
+test('statistics count every nation and account, for the world or one region, and the nightly job records them', async () => {
+  const a = await user(true), p = await user(), q = await user(); await user();
+  const now = Date.now(), rec = (name, reg, extra) => JSON.stringify({ name, reg, pop: 5, founded: now - 3 * 86400000, updatedAt: now, ...extra });
+  await put('nations/' + p.uid, { name: 'Statland', reg: 'meridian', pop: 6, updatedAt: now, j: rec('Statland', 'meridian', { answered: [{ id: 'tax', o: 1, t: now - 60000 }] }) });
+  await put('nationx/' + p.uid, { j: JSON.stringify({ freq: 60, tut: { lc: ['settle'] } }) });
+  await put('nations/' + q.uid, { name: 'Frostland', reg: 'frostmarch', pop: 5, updatedAt: now - 2 * 86400000, j: rec('Frostland', 'frostmarch') });
+  await assert.rejects(call(a, { op: 'stats', reg: 'atlantis' }), e => e.status === 'INVALID_ARGUMENT');
+  const w = await call(a, { op: 'stats', refresh: true });
+  assert.ok(w.nations >= 2 && w.a1 >= 1 && w.dec1 >= 1, JSON.stringify({ nations: w.nations, a1: w.a1, dec1: w.dec1 }));
+  assert.equal(w.list, null, 'no nation list for the whole world');
+  assert.ok(w.accounts.total >= 4 && w.accounts.withNation >= 2 && w.tut.settle >= 1 && w.pace[60] >= 1);
+  assert.ok(w.regions.some(r => r.reg === 'frostmarch' && r.nations >= 1) && w.regions.some(r => r.reg === 'saffron'), 'every region, with or without nations');
+  const f = await call(a, { op: 'stats', reg: 'frostmarch' });
+  assert.ok(f.list.some(x => x.id === q.uid && x.name === 'Frostland') && !f.list.some(x => x.id === p.uid));
+  // the nightly record: once a day, and the page draws it
+  const job = () => promisify(execFile)(process.execPath, [fileURLToPath(new URL('../jobs/stats/run.mjs', import.meta.url)), '--project', project, '--now', String(Date.parse('2030-01-02T00:07:00Z'))], { env: process.env }).then(r => JSON.parse(r.stdout));
+  const first = await job(), again = await job();
+  assert.equal(first.day, '2030-01-01'); assert.equal(first.recorded, true); assert.equal(again.recorded, false);
+  assert.ok(first.nations >= 2 && first.accounts >= 4);
+  assert.ok((await get('statsDays/2030-01-01')).fields.all.mapValue.fields.nations);
+  const h = await call(a, { op: 'stats', refresh: true });
+  assert.equal(h.history.at(-1).d, '2030-01-01'); assert.ok(h.history.at(-1).nations >= 2);
 });
