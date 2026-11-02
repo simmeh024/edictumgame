@@ -4,6 +4,7 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { identity, eligibility, refuse, registered } from './eligibility.js';
 import { forgetDiscord, discordStep } from './discord.js';
+import { shopStep, forgetShop } from './shop.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -42,6 +43,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     return { token: await getAuth().createCustomToken(u.uid, { guestRecovery: true }) };
   }
   if (d.op === 'discord') return discordStep(uid, d);
+  if (d.op === 'shop') return shopStep(uid, d);
   if (d.op === 'seen') {
     // Once a page load (src/shim.js, seenCheck); the same address writes at most once an hour, moving the expiry with it.
     const ip = address(req.rawRequest), ref = db.doc('accountSeen/' + uid), now = Date.now(), last = await ref.get();
@@ -51,8 +53,10 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (d.op === 'close') {
     // The player's browser has deleted the nation, posts and tickets (src/shim.js, doDelete); this ends the
     // account itself, which a browser may only do just after signing in, and frees a linked Discord account.
-    // The address it last played from and the staff's notes on it (functions/admin.js) go with it.
+    // The address it last played from, the staff's notes on it (functions/admin.js) and what it owns from the
+    // shop (functions/shop.js, which first ends any subscription) go with it.
     if ((await db.doc('nations/' + uid).get()).exists) refuse('nation_exists', 'Delete the nation first.');
+    await forgetShop(uid);
     await Promise.all(['accountSeen/', 'staffNotes/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await getAuth().deleteUser(uid);
