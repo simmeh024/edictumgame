@@ -241,6 +241,18 @@ test('reconciliation: a payment whose notification never came is found when the 
   await rejects(call(p, { step: 'refresh' }), 'resource-exhausted'.toUpperCase().replace(/-/g, '_'));
 });
 
+test('a checkout closed without paying stops being awaited when the player checks; one Paddle has taken money for does not', async () => {
+  const p = await player();
+  await call(p, { step: 'checkout', product: 'idpack' });
+  assert.ok((await shop(p.uid)).pend.idpack);
+  await call(p, { step: 'refresh' });
+  assert.deepEqual((await shop(p.uid)).pend || {}, {}, 'closed unpaid: nothing awaited');
+  const q = await player(), d = await call(q, { step: 'checkout', product: 'founder' });
+  P.tx.get(d.txn).status = 'paid';
+  await call(q, { step: 'refresh' });
+  assert.ok((await shop(q.uid)).pend.founder, 'paid, not yet completed: still awaited');
+});
+
 test('a purchase this game never opened is refunded; a closing account has its membership cancelled first', async () => {
   const orphan = { id: rid('txn'), status: 'completed', items: [{ price: { id: PRICES.idpack }, quantity: 1 }], customer_id: 'ctm_' + crypto.randomBytes(8).toString('hex'), custom_data: { uid: 'someone-else' }, payments: [{ captured_at: new Date().toISOString() }] };
   P.tx.set(orphan.id, orphan);

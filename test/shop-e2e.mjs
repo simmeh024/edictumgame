@@ -96,6 +96,13 @@ for (const v of ['banner', 'stamp', 'passport', 'land']) { await click(A, `[data
 check('the passport preview carries the inscription', /FOUNDING SUPPORTER · FIRST EDITION/.test(await A.evaluate(() => { const b = document.querySelector('[data-act="shop-pv"][data-v="passport"]'); b.click(); return new Promise(r => setTimeout(() => r(document.querySelector('.shop-pv-pp')?.textContent || ''), 300)); })));
 await click(A, '[data-act="shop-pv"][data-v="banner"]');
 await A.evaluate(() => scrollTo(0, 0));await A.screenshot({ path: path.join(OUT, 'shop-desktop.png'), fullPage: true });
+/* a checkout closed without paying: no "checkout was opened" notice, here or (once the server has looked at Paddle) anywhere */
+await click(A, '[data-act="shop-buy"][data-p="founder"]');
+await until(() => A.evaluate(() => window.__edictumCheckout && window.__edictumCheckout.txn), 10000);
+check('an opened checkout is awaited on every device', !!(await until(async () => ((await db.doc('shop/' + aUid).get()).get('pend') || {}).founder, 5000)));
+await A.evaluate(() => { window.__edictumCheckout.done = true; window.__edictumCheckout.event('checkout.closed'); });await sleep(400);
+check('closing it unpaid leaves no “checkout was opened” notice and the buy button back', !/A checkout was opened/.test(await txt(A, '.shop-note')) && /Buy the Founder/.test(await txt(A, '[data-act="shop-buy"][data-p="founder"]')));
+check('and the server stops awaiting it on every device', !!(await until(async () => !((await db.doc('shop/' + aUid).get()).get('pend') || {}).founder, 10000)));
 await click(A, '[data-act="shop-buy"][data-p="founder"]');
 const fTxn = await payFor(A);
 check('the checkout was opened for a transaction the server made', !!fTxn && P.tx.get(fTxn).custom_data.uid === aUid && P.tx.get(fTxn).items[0].price.id === PRICES.founder);

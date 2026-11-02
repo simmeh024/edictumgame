@@ -253,11 +253,12 @@ async function refresh(cfg, uid) {
   await pace(uid, 'r', 15000);
   const [cks, subs, done] = await Promise.all([
     db.collection('shopCheckouts').where('uid', '==', uid).get(), db.collection('shopSubs').where('uid', '==', uid).get(), db.collection('shopTx').where('uid', '==', uid).get()]);
-  const have = new Set(done.docs.map(s => s.id)), now = clock(cfg);
+  const have = new Set(done.docs.map(s => s.id)), now = clock(cfg), taken = new Set();
   await asked(async () => {
     for (const s of cks.docs) if (!have.has(s.id) && s.get('env') === cfg.env && now - s.get('at') < 7 * DAY) {
       const t = await api(cfg, 'GET', '/transactions/' + s.id);
       if (t && t.status === 'completed') { await ingestTx(cfg, t); have.add(s.id); }
+      else if (t && ['paid', 'billed', 'past_due'].includes(t.status)) taken.add(s.get('product'));
     }
     for (const s of subs.docs) {
       const sub = await api(cfg, 'GET', '/subscriptions/' + s.id);
@@ -269,6 +270,10 @@ async function refresh(cfg, uid) {
       for (const a of await api(cfg, 'GET', '/adjustments?transaction_id=' + ids.slice(i, i + 25).join(',') + '&per_page=50') || [])
         await ingestAdj(cfg, a, Date.parse(a.updated_at) || 0);
   });
+  /* a checkout closed without paying waits no longer, on any device: only a payment Paddle has taken and not yet
+     completed keeps "a checkout was opened" up (a completed one becomes owned, which settle clears it for) */
+  const ref = db.doc('shop/' + uid), drop = Object.keys((await ref.get()).get('pend') || {}).filter(p => !taken.has(p));
+  if (drop.length) await ref.set({ pend: Object.fromEntries(drop.map(p => [p, FieldValue.delete()])) }, { merge: true });
   if (have.size || subs.size) await asked(() => settle(cfg, uid));
   return { ok: true };
 }

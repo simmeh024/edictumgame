@@ -43184,7 +43184,7 @@ for(const is of MIX_ISSUES){
    cosmetics stay out of Customise (they are not enumerable in UNLOCKS); the Shop shows them instead. */
 const SHOP_CAT=/*SHOP_CATALOGUE*/null;
 const SHOP_KEY='edictum.shop.',SHOP_UNTIL=Date.UTC(2027,1,2);
-const SHOP={doc:null,sig:'{}',cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finSig:'[]',finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0,local:null,localAsked:false};
+const SHOP={doc:null,sig:'{}',cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finSig:'[]',finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0,local:null,localAsked:false,shut:{}};
 const SHOP_NONE=new Set();
 {
   const add=(id,k,n,src)=>Object.defineProperty(UNLOCKS,id,{value:{k,n,src},enumerable:false,configurable:true,writable:true});
@@ -43322,7 +43322,8 @@ const SHOP_PRODUCTS=['founder','idpack','vip'];
 function shopEvent(p,e){
   if(!e)return;
   if(e.name==='checkout.completed'){SHOP.wait={p,t:Date.now()};SHOP.open=null;render();for(const ms of [5000,20000,60000])setTimeout(()=>{if(SHOP.wait&&SHOP.wait.p===p)shopCheck(true);},ms);}
-  else if(e.name==='checkout.closed'){SHOP.open=null;render();}
+  /* closed without paying: no "checkout was opened" for it on this device, and the server is asked to drop it everywhere */
+  else if(e.name==='checkout.closed'){SHOP.open=null;if(!(SHOP.wait&&SHOP.wait.p===p)){SHOP.shut[p]=shopNow();shopCheck(true);}render();}
   else if(e.name==='checkout.error'){SHOP.err='The checkout reported a problem. Nothing is charged unless Paddle sends you a receipt. Try again.';render();}
 }
 /* the checkout cannot run past the end of the sale: it closes at the cutoff (a payment already made in time counts) */
@@ -43569,7 +43570,7 @@ function shopNotice(n){
   if(SHOP.err)out.push(`<div class="notice shop-note shop-err" role="alert"><p>${SHOP.err==='link'?'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.':esc(SHOP.err)}</p><div class="row">${SHOP.err==='link'?'<button type="button" class="btn" data-act="acct-open">Link a sign-in</button>':''}<button type="button" class="linkish small" data-act="shop-dismiss">Dismiss</button></div></div>`);
   if(SHOP.wait){const p=SHOP.wait.p,nm=p==='founder'?'the Founder’s Package':p==='idpack'?'the Nation Identity Card Pack':'your Chancery Club membership';
     out.push(`<div class="notice shop-note shop-wait" role="status"><p><b>Payment received by Paddle.</b> Waiting for confirmation of ${nm}; it usually takes a few seconds. You can leave this page: it arrives on every device once confirmed.</p><div class="row"><button type="button" class="btn ghost" data-act="shop-check"${SHOP.checking?' disabled':''}>${SHOP.checking?'Checking…':'Check again'}</button></div></div>`);}
-  else{const pend=SHOP.doc&&SHOP.doc.pend||{},open=Object.keys(pend).filter(p=>!shopSettled(p)&&!(SHOP.open&&SHOP.open.p===p));
+  else{const pend=SHOP.doc&&SHOP.doc.pend||{},open=Object.keys(pend).filter(p=>!shopSettled(p)&&!(SHOP.open&&SHOP.open.p===p)&&!(SHOP.shut[p]>=pend[p]));
     if(open.length&&S.mode==='world')out.push(`<div class="notice shop-note" role="status"><p>A checkout was opened in the last two hours. If you paid, it appears here once Paddle confirms it.</p><div class="row"><button type="button" class="btn ghost" data-act="shop-check"${SHOP.checking?' disabled':''}>${SHOP.checking?'Checking…':'Check for a payment'}</button></div></div>`);}
   const notes=(SHOP.doc&&Array.isArray(SHOP.doc.notes)?SHOP.doc.notes:[]).filter(x=>x&&x.k==='late');
   if(notes.length)out.push('<p class="notice shop-note">A Founder’s Package payment completed after the sale had ended, so it is being refunded in full. If the refund cannot be made, the package is delivered instead.</p>');
