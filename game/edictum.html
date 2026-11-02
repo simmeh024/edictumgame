@@ -43183,7 +43183,7 @@ for(const is of MIX_ISSUES){
    cosmetics stay out of Customise (they are not enumerable in UNLOCKS); the Shop shows them instead. */
 const SHOP_CAT=/*SHOP_CATALOGUE*/null;
 const SHOP_KEY='edictum.shop.',SHOP_UNTIL=Date.UTC(2027,1,2);
-const SHOP={doc:null,cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0};
+const SHOP={doc:null,sig:'{}',cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finSig:'[]',finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0};
 const SHOP_NONE=new Set();
 {
   const add=(id,k,n,src)=>Object.defineProperty(UNLOCKS,id,{value:{k,n,src},enumerable:false,configurable:true,writable:true});
@@ -43241,12 +43241,14 @@ function shopBump(){czVer++;shopEnum();if(!document.hidden&&S.nation)render();}
 
 /* ── listening: shop/<uid> (the player's own) and finery/ (this region's), both written only by the server ── */
 function shopTake(d,cached){
-  SHOP.doc=d&&typeof d==='object'?d:{};SHOP.cached=!!cached;
+  const was=SHOP.cached;SHOP.doc=d&&typeof d==='object'?d:{};SHOP.cached=!!cached;
   const v=SHOP.doc.vip;VIP_RUNS=v&&Array.isArray(v.runs)?v.runs.filter(r=>r&&typeof r.s==='number'&&typeof r.e==='number').map(r=>[r.s,r.e]):[];
   if(!cached){try{localStorage.setItem(SHOP_KEY+SHOP.uid,JSON.stringify(SHOP.doc));}catch(e){}
     /* a nation founded in another region since: the server moves the public list with it */
     if(SHOP.doc.reg&&S.nation&&SHOP.doc.reg!==S.nation.reg)shopStatus(true);}
-  if(SHOP.wait&&shopSettled(SHOP.wait.p))SHOP.wait=null;
+  const w=SHOP.wait;if(w&&shopSettled(w.p))SHOP.wait=null;
+  /* the cached copy, then the server's (mostly the same): redraw only for a change, or a map being drawn loses its canvas */
+  const sig=JSON.stringify(SHOP.doc);if(sig===SHOP.sig&&w===SHOP.wait){if(was&&!cached&&S.view==='shop'&&!document.hidden)render();return;}SHOP.sig=sig;
   shopBump();
 }
 function shopConnect(){
@@ -43254,12 +43256,12 @@ function shopConnect(){
   if(SHOP.uid===S.uid)return;
   if(SHOP.unsub)try{SHOP.unsub();}catch(e){}
   if(SHOP.finUnsub)try{SHOP.finUnsub();}catch(e){}
-  Object.assign(SHOP,{uid:S.uid,doc:null,unsub:null,finUnsub:null,cfg:null});VIP_RUNS=[];
+  Object.assign(SHOP,{uid:S.uid,doc:null,sig:'{}',unsub:null,finUnsub:null,cfg:null});VIP_RUNS=[];czVer++;shopEnum();
   try{const c=JSON.parse(localStorage.getItem(SHOP_KEY+S.uid)||'null');if(c&&typeof c==='object')shopTake(c,true);}catch(e){}
   try{SHOP.unsub=S.db.doc('shop/'+S.uid).onSnapshot(s=>shopTake(s.exists?s.data():{},false),()=>{});}catch(e){}
   try{SHOP.finUnsub=S.db.collection('finery').where('reg','==',REG.id).onSnapshot(qs=>{
     const m=new Map();for(const d of qs.docs){const c=(d.data()||{}).c;if(Array.isArray(c))m.set(d.id,new Set(c.filter(id=>typeof id==='string'&&shopIs(id))));}
-    SHOP.fin=m;shopBump();},()=>{});}catch(e){}
+    const sig=JSON.stringify([...m].map(([k,v])=>[k,[...v].sort()]));SHOP.fin=m;if(sig===SHOP.finSig)return;SHOP.finSig=sig;shopBump();},()=>{});}catch(e){}
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{shopConnect();}catch(e){}return r;})(connect);
 async function shopApiP(){try{return await Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('shop'):null);}catch(e){return null;}}
