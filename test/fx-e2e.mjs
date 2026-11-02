@@ -88,7 +88,7 @@ check('nor a currency’s history', (await tryWrite(A, 'fxh/' + uidA, { d: { '20
 
 /* ── designing the currency ── */
 await nav(A, 'customise');
-await A.click('[data-act="cz-jump"][data-id="cz-sec-c"]');
+await A.click('#cz-tab-money');
 check('Customise has a Currency section with a live banknote and coin', !!(await A.$('#cz-sec-c .cu-note')) && !!(await A.$('#cz-sec-c .cu-coin')));
 await A.fill('#cu-f-nm', 'Aldorian Thaler'); await A.fill('#cu-f-cd', 'ald'); await A.fill('#cu-f-sy', '₮');
 await sleep(150);
@@ -167,6 +167,7 @@ await nav(T, 'nation');
 check('with both done, both are ticked', /Done/.test(await text(T, '.tut-l-mark li[data-k="fxd"]')) && /Done/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')));
 await nav(T, 'customise');
 check('Legal Tender unlocks the Moiré engraving; the rest stay locked', !(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-pat-moire')) && !!(await T.$('#cu-l-met-platinum.cu-lk')));
+await T.mouse.move(1, 1); // a toast waits while the pointer rests on it
 await T.$eval('#cu-l-met-platinum', b => b.click()); await sleep(200); // aria-disabled: Playwright will not click it, a player can
 check('a locked design says how to earn it', await until(async () => /Locked\. Earn the gold achievement ‘Sound Money’/.test(await toastsT()), 30000));
 await T.click('#cu-l-pat-moire'); await sleep(200); await T.click('#cu-form button[type="submit"]'); await sleep(400);
@@ -196,7 +197,7 @@ check('its controls are large enough to touch', !tgt.length, JSON.stringify(tgt.
 check('the chart, controls and prestige badges carry text, not only colour', (await B.$$('.cu-pb .cu-pb-t')).length >= 9 && !!(await B.$('[aria-label="Swap the two currencies"]')));
 await B.screenshot({ path: path.join(OUT, 'exchange-390.png'), fullPage: true });
 await nav(B, 'customise');
-await B.click('[data-act="cz-jump"][data-id="cz-sec-c"]'); await sleep(200);
+await B.click('#cz-tab-money'); await sleep(200);
 check('so does the currency designer', (await noScroll(B)) <= 0);
 await B.screenshot({ path: path.join(OUT, 'customise-currency-390.png') });
 await B.ctx.close();

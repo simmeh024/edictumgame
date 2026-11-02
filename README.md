@@ -154,6 +154,17 @@ are Roman (Edictum MCCLI, Anno IV, counted from the founding); the decision stam
 wax seal of state whose inscription follows the government (SPQ, REX, IMP and so on). The other stamps
 are in the same section of the Customise page.
 
+**The Customise page.** Three tabs: Identity (epithet, flag, arms, symbols, provinces), Presentation
+(banner, card border, decrees, finery) and Money (currency). Every section is drawn and CSS hides the
+other tabs' (`.cz-dock[data-tab]`), so a jump from anywhere only switches the tab. A dock at the top keeps a
+preview in view, as the nation card, sidebar, Region row, map marker, banknote or decree. Pointing at a
+tile shows it there, and a click on a locked one tries it on; neither is saved. A search and Owned / Locked /
+New filters list matching cosmetics from every tab. The page also shows what is new since the last visit and
+the three cosmetics closest to being earned, how many of each section are held, an Undo for this visit's
+changes and a Back to default per section. It warns before an unsaved currency is left behind. Theme, accent,
+text size, density and motion are device settings and live in Settings, under Appearance. The coat of arms
+has 24 charges, 10 of them free; the symbols save as each box is left.
+
 **National symbols.** The Customise page's National symbols: the holiday and its date are open from the
 start; the flower opens at 5.5 million people, the tree at 6, the bird at 7, the instrument at 8, the
 colours at 10 and the capital's nickname at 20 million (`SYM_AT`). Each opens once, on the first save

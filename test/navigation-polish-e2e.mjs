@@ -15,12 +15,11 @@ check('desktop section links need no horizontal scrollbar',await A.locator('.ux-
 await A.evaluate(()=>document.documentElement.setAttribute('data-theme','dark'));await A.screenshot({path:OUT+'/navigation-compact-1280.png'});await A.evaluate(()=>document.documentElement.removeAttribute('data-theme'));
 await search(A,'money');check('player words find the currency designer',await result(A,'focus:currency').count()===1);await result(A,'focus:currency').click();await view(A,'customise');
 check('a specific search result opens and focuses its designer',await A.evaluate(()=>document.activeElement?.id==='cz-sec-c')&&!await A.locator('#cz-sec-c').evaluate(e=>e.classList.contains('ux-folded')),await A.evaluate(()=>JSON.stringify({focus:document.activeElement?.id,route:G.UX.UXP.route,y:window.scrollY,top:document.getElementById('cz-sec-c').getBoundingClientRect().top})));
-check('long pages have a section index',await A.locator('.ux-sections').isVisible());
-await A.locator('#cz-sec-b .ux-fold-toggle').click();check('major sections can be collapsed',await A.locator('#cz-sec-b').evaluate(e=>e.classList.contains('ux-folded')));
-await move(A,'nation');await move(A,'customise');check('collapsed sections are remembered when returning',await A.locator('#cz-sec-b').evaluate(e=>e.classList.contains('ux-folded')));
-await A.reload();await A.waitForSelector('.layout');await view(A,'customise');check('section choices survive a refresh',await A.locator('#cz-sec-b').evaluate(e=>e.classList.contains('ux-folded')),await A.evaluate(()=>JSON.stringify({scope:G.UX.UXP.scope,folds:G.UX.UXP.data.folds,stored:Object.keys(sessionStorage).filter(k=>k.startsWith('edictum.ux:'))})));
-await A.locator('#cz-sec-c .ux-fold-toggle').click();const currencyId=await A.locator('#cz-sec-c>.ux-section-heading').getAttribute('id');
-await A.click(`[data-act="ux-section-jump"][data-id="${currencyId}"]`);check('jumping to a section reveals its collapsed contents',!await A.locator('#cz-sec-c').evaluate(e=>e.classList.contains('ux-folded')));
+check('Customise is in tabs, the search result’s own open',await A.locator('#cz-tab-money').getAttribute('aria-selected')==='true'&&!await A.locator('#cz-sec-b').isVisible());
+await A.click('#cz-tab-look');check('a tab shows its own sections',await A.locator('#cz-sec-b').isVisible()&&!await A.locator('#cz-sec-c').isVisible());
+await move(A,'nation');await move(A,'customise');check('the tab is remembered when returning',await A.locator('#cz-sec-b').isVisible());
+await A.reload();await A.waitForSelector('.layout');await view(A,'customise');check('and after a refresh',await A.locator('#cz-sec-b').isVisible());
+await A.fill('#cz-q','money');await A.click('[data-act="cz-open"][data-id="cz-sec-c"]');await sleep(200);check('a section found by searching Customise opens in its tab',await A.locator('#cz-sec-c').isVisible()&&!await A.locator('#cz-sec-b').isVisible());
 await A.evaluate(()=>window.scrollTo(0,800));await sleep(250);const position=await A.evaluate(()=>window.scrollY);
 await move(A,'map');await A.evaluate(()=>{Object.assign(G.S.mapViews.main,{z:6,cx:G.MAP.W*.55,cy:G.MAP.H*.45});G.render();});await settle(A);
 const mapBefore=await A.evaluate(()=>({...G.S.mapViews.main}));await A.goBack();await view(A,'customise');
@@ -45,7 +44,7 @@ const tradeLink=warehouse.locator('[data-act="ux-resource"][data-r="iron"]'),nee
 check('a missing material opens a contextual trade shortcut',(await A.locator('.ux-resource-notice').textContent()).includes('iron')&&(await A.locator('.ux-resource-notice').textContent()).includes(need));
 await A.click('[data-act="ux-material-back"]');await view(A,'cities');
 check('returning from requirements keeps the selected city and spends nothing',await A.locator(`#city-${city.id} .cat-wrap`).isVisible()&&(await localNation(A)).cities[0].b.length===0);
-await move(A,'customise');const locked=A.locator('.cz-sec:not(.ux-folded) .ux-unlock-link[aria-label^="View achievement"]').first(),unlockId=await locked.getAttribute('data-id');
+await move(A,'customise');await A.click('#cz-tab-id');const locked=A.locator('#cz-sec-t .ux-unlock-link[aria-label^="View achievement"]').first(),unlockId=await locked.getAttribute('data-id');
 const unlockTarget=await A.evaluate(id=>G.UX.uxUnlockInfo(id).target,unlockId),flagBefore=JSON.stringify((await localNation(A)).flag);await locked.click();await view(A,'achievements');
 check('locked designs link to the exact unearned achievement',await A.locator(unlockTarget).isVisible()&&await A.evaluate(()=>G.S.achF==='all'));
 check('viewing a requirement does not apply the locked design',JSON.stringify((await localNation(A)).flag)===flagBefore&&await A.locator('button button').count()===0);

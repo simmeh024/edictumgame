@@ -149,14 +149,15 @@ check('nor to its own player’s game', await C.evaluate(() => { const c = G.SHO
 
 /* ── trying finery on in Customise: the neighbour tries the Engraver's frame on, and nothing is saved ── */
 await go(B, 'customise');
+await B.click('#cz-tab-look');
 await B.waitForSelector('[data-act="cz-try"][data-id="f-engraver"]', { timeout: 15000 });
 check('the Shop’s pieces are in Customise, to try on', /Try it on/.test(await txt(B, '[data-act="cz-try"][data-id="f-engraver"]')));
 await click(B, '[data-act="cz-try"][data-id="f-engraver"]');
-check('tried on, it shows on the nation in Customise', await B.evaluate(() => G.SHOP.cz(G.S.nation).f === 'f-engraver') && /Trying on/.test(await txt(B, '.cz-tryon')));
+check('tried on, it shows on the nation in Customise', await B.evaluate(() => G.SHOP.cz(G.S.nation).f === 'f-engraver') && /Trying on/.test(await txt(B, '.cz-lv-try')));
 check('and nothing is saved', await B.evaluate(() => !(G.S.nation.cz && G.S.nation.cz.f === 'f-engraver')));
-await shot(B, '.cz-tryon', 'shop-tryon.png');
+await shot(B, '.cz-live', 'shop-tryon.png');
 await click(B, '[data-act="cz-try-off"]');
-check('taken off with one click', await B.evaluate(() => G.SHOP.cz(G.S.nation).f !== 'f-engraver' && !document.querySelector('.cz-tryon')));
+check('taken off with one click', await B.evaluate(() => G.SHOP.cz(G.S.nation).f !== 'f-engraver' && !document.querySelector('.cz-lv-try')));
 await click(B, '[data-act="cz-try"][data-id="f-engraver"]');
 await go(B, 'nation');
 check('leaving Customise takes it off', await B.evaluate(() => G.SHOP.cz(G.S.nation).f !== 'f-engraver' && !G.SHOP.SHOP.tryOn));
@@ -202,7 +203,7 @@ await go(A, 'shop');await click(A, '[data-act="shop-pick"][data-id="p-moire"]');
 check('the monthly pick is kept on the public list', !!(await until(async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('p-moire'); }, 8000)));
 await shot(A, '.shop-vip', 'shop-vip-member.png');
 /* presets */
-await go(A, 'customise');
+await go(A, 'customise');await click(A, '#cz-tab-look');
 await click(A, '[data-act="pre-save"][data-k="1"]');
 check('a preset saved while a member', !!(await until(() => A.evaluate(() => !!(G.SHOP.PRE.doc && G.SHOP.PRE.doc[1])), 6000)));
 await A.evaluate(() => document.getElementById('cz-p-p-guilloche').click());await sleep(500);
