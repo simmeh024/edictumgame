@@ -64,6 +64,7 @@ const click = async (p, sel) => { await p.waitForSelector(sel, { timeout: 8000 }
 const G = await player('shop guest', { cap: 500 });await open(G);await found(G, 'Guestovia');
 await go(G, 'shop');
 check('the Shop is under its own heading', /Bureau of National Finery/.test(await txt(G, 'h1')));
+check('the Shop sits in the menu under Other, not Options', await G.evaluate(() => !!document.querySelector('.side .nav-grp[data-g="other"] [data-v="shop"]') && !document.querySelector('.side .nav-grp[data-g="opts"] [data-v="shop"]')));
 check('a guest is told purchases need a linked sign-in', /Purchases belong to your account/.test(await txt(G, '.shop-link')));
 await click(G, '[data-act="shop-buy"][data-p="founder"]');
 check('buying as a guest asks for a link instead', /link a sign-in first/i.test(await txt(G, '.shop-err')) && !(await G.evaluate(() => window.__edictumCheckout)));
@@ -123,9 +124,10 @@ await B.evaluate(id => { location.hash = 'visit/' + id; }, aUid);await sleep(900
 check('the badge beside the name on the visit page', await B.evaluate(() => !!document.querySelector('.hero .founder-pill')));
 const C = await player('shop forger', { cap: 500 });const cUid = await open(C);await found(C, 'Forgeria');
 /* a tampered client: the record saved as it stands, past the game's own commit (which would rewrite cz.u) */
+/* the game's own first save may land in between ("Another device saved this nation"): forge again from the fresh copy */
 await sleep(1500);
-await C.evaluate(async () => { const n = G.clone(G.S.nation); n.cz = Object.assign({}, n.cz, { te: 'te-gilt', bg: 'bg-founder', p: 'p-firsted', u: ['te-gilt', 'bg-founder', 'p-firsted'] }); n.updatedAt = Date.now();
-  await (await window.claude.use('db')).doc('nations/' + G.S.uid).set(n); G.S.nation = n; });
+await C.evaluate(async () => { for (let k = 0; ; k++) { const n = G.clone(G.S.nation); n.cz = Object.assign({}, n.cz, { te: 'te-gilt', bg: 'bg-founder', p: 'p-firsted', u: ['te-gilt', 'bg-founder', 'p-firsted'] }); n.updatedAt = Date.now();
+  try { await (await window.claude.use('db')).doc('nations/' + G.S.uid).set(n); G.S.nation = n; return; } catch (e) { if (k >= 4 || !/Another device/.test(e.message)) throw e; await new Promise(r => setTimeout(r, 1000)); } } });
 const forged = await until(() => B.evaluate(id => { const n = G.S.world && G.S.world[id]; return n && n.cz && n.cz.te === 'te-gilt' ? G.SHOP.cz(n) : null; }, cUid), 15000);
 check('finery written into a nation’s own record is not shown to others', !!forged && forged.te === '' && forged.bg === '' && forged.p !== 'p-firsted', JSON.stringify(forged));
 check('nor to its own player’s game', await C.evaluate(() => { const c = G.SHOP.cz(G.S.nation); return c.te === '' && c.bg === ''; }));
@@ -137,7 +139,8 @@ await click(A, '[data-act="shop-buy"][data-p="vip"]');
 const vSub = rid('sub'), t0 = Date.now() - 13 * H;  // paid since before the hours the desk catches up on
 const vTxn = await payFor(A, { sub: vSub, period: { s: t0, e: t0 + 30 * DAY } });
 check('a member once the payment is confirmed', !!(await until(() => A.evaluate(() => G.SHOP.cap(Date.now()) === 10), 10000)));
-check('paid-until and renewal shown, with Manage subscription', /Paid until/.test(await txt(A, '.shop-vip')) && /Renews on/.test(await txt(A, '.shop-vip')) && !!(await A.$('[data-act="shop-portal"]')));
+/* the renewal date comes with Paddle's subscription report, a moment after the payment's */
+check('paid-until and renewal shown, with Manage subscription', !!(await until(async () => { const v = await txt(A, '.shop-vip'); return /Paid until/.test(v) && /Renews on/.test(v) && !!(await A.$('[data-act="shop-portal"]')); }, 8000)), (await txt(A, '.shop-vip')).slice(0, 160));
 await A.evaluate(() => { const n = G.clone(G.S.nation); n.freq = 60; n.issueClock = Date.now() - 12 * 36e5 - 60000; const v = G.syncInbox(n, Date.now()); G.commit(v); G.PG.saveSoon(); G.render(); });
 check('ten edicts wait on a member’s desk', (await A.evaluate(() => G.S.nation.inbox.length)) === 10);
 await until(async () => { const r = await restGet('nations/' + aUid); return r.status === 200 && r.body.fields.iq && r.body.fields.iq.integerValue === '1'; }, 10000);
