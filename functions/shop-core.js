@@ -79,9 +79,14 @@ export function subFacts(d) {
     ctm: typeof d.customer_id === 'string' ? d.customer_id : ''
   };
 }
+/* whole or not: a refund made in Paddle's dashboard comes as type 'partial' even when it gives back every item in full
+   (a live €2.99 refund did), so an adjustment whose items are each refunded in full is the whole transaction (the
+   shop's transactions have one item: txFacts) */
 export function adjFacts(d) {
+  const items = Array.isArray(d.items) ? d.items : [];
+  const whole = d.type !== 'partial' || (items.length > 0 && items.every(i => i && i.type === 'full'));
   return { id: String(d.id || ''), txn: String(d.transaction_id || ''), sub: typeof d.subscription_id === 'string' ? d.subscription_id : '',
-    action: String(d.action || ''), type: d.type === 'partial' ? 'partial' : 'full', status: String(d.status || '') };
+    action: String(d.action || ''), type: whole ? 'full' : 'partial', status: String(d.status || '') };
 }
 
 /* a refund of the whole transaction, as it stands: '' (none), 'pending', 'approved', 'rejected' */

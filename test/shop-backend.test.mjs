@@ -164,6 +164,25 @@ test('refunds, chargebacks and their reversal follow the money; reports out of o
   assert.ok(!(await shop(p.uid)).owns?.idpack, 'refunded'); assert.equal(await finery(p.uid), undefined);
 });
 
+test('a refund made in Paddle’s dashboard takes the item back while it awaits approval, though Paddle calls it partial', async () => {
+  const p = await player();
+  const c = await call(p, { step: 'checkout', product: 'idpack' });
+  await hook('transaction.completed', pay(c.txn));
+  assert.ok((await shop(p.uid)).owns.idpack);
+  /* shaped as the live one came: type partial, its one item refunded in full */
+  const a = { id: rid('adj'), action: 'refund', type: 'partial', status: 'pending_approval', transaction_id: c.txn, subscription_id: null, reason: 'Accidental purchase',
+    items: [{ id: rid('adjitm'), type: 'full', amount: '299', item_id: rid('txnitm'), proration: null }], totals: { total: '299', currency_code: 'EUR' } };
+  await hook('adjustment.created', a);
+  assert.ok(!(await shop(p.uid)).owns?.idpack, 'taken back on the request'); assert.equal(await finery(p.uid), undefined);
+  await hook('adjustment.updated', { ...a, status: 'approved' });
+  assert.ok(!(await shop(p.uid)).owns?.idpack, 'and once approved');
+  /* part of the price given back keeps the item */
+  const q = await player(), d = await call(q, { step: 'checkout', product: 'idpack' });
+  await hook('transaction.completed', pay(d.txn));
+  await hook('adjustment.created', { ...a, id: rid('adj'), transaction_id: d.txn, status: 'approved', items: [{ ...a.items[0], type: 'partial', amount: '100' }], totals: { total: '100', currency_code: 'EUR' } });
+  assert.ok((await shop(q.uid)).owns.idpack, 'a partial refund keeps it');
+});
+
 test('the Chancery Club: months paid, cancellation kept to the end of the month, renewal, failed renewal, refund, portal and resume', async () => {
   const p = await player(), t0 = Date.now() - H, m1 = t0 + 30 * DAY, m2 = m1 + 30 * DAY, sub = rid('sub');
   const c = await call(p, { step: 'checkout', product: 'vip' });

@@ -36,6 +36,12 @@ test("Paddle's entities become facts: the product only from a known price, one i
   const s = subFacts({ id: 'sub_1', status: 'active', scheduled_change: { action: 'cancel', effective_at: '2026-12-02T10:00:00Z' }, transaction_id: 'txn_1' });
   assert.equal(s.cancelAt, Date.parse('2026-12-02T10:00:00Z')); assert.equal(s.firstTxn, 'txn_1');
   assert.deepEqual(adjFacts({ id: 'adj_1', transaction_id: 'txn_1', action: 'refund', type: 'partial', status: 'approved' }).type, 'partial');
+  /* a refund from Paddle's dashboard: 'partial', with its one item refunded in full (as a live one came) */
+  const dash = { id: 'adj_2', transaction_id: 'txn_1', action: 'refund', type: 'partial', status: 'pending_approval',
+    items: [{ id: 'adjitm_1', type: 'full', amount: '299', item_id: 'txnitm_1' }], totals: { total: '299', currency_code: 'EUR' } };
+  assert.equal(adjFacts(dash).type, 'full', 'every item refunded in full is the whole transaction');
+  assert.equal(adjFacts({ ...dash, items: [{ id: 'adjitm_1', type: 'partial', amount: '100', item_id: 'txnitm_1' }] }).type, 'partial', 'part of an item');
+  assert.equal(adjFacts({ ...dash, items: [] }).type, 'partial');
 });
 
 test('the Founder’s Package: delivered for a checkout opened before the cutoff and paid within the grace, refunded after it', () => {
