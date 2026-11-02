@@ -14,7 +14,7 @@ const { getAuth } = require('firebase-admin/auth');
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum', AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099', FN = process.env.FUNCTIONS_EMULATOR_HOST || '127.0.0.1:5001';
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), auth = getAuth(), DAY = 864e5, H = 36e5, SECRET = 'pdl_ntfset_test_secret';
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── the stand-in for Paddle ── */
@@ -239,6 +239,55 @@ test('reconciliation: a payment whose notification never came is found when the 
   await call(p, { step: 'refresh' });
   assert.ok((await shop(p.uid)).owns.idpack);
   await rejects(call(p, { step: 'refresh' }), 'resource-exhausted'.toUpperCase().replace(/-/g, '_'));
+});
+
+test('gifts: to a player’s nation a week old, theirs once paid, the giver named, the payer’s billing kept apart', async () => {
+  const a = await player(), b = await player();
+  await rejects(call(a, { step: 'checkout', product: 'idpack', to: b.uid }), 'gift_new');
+  /* the record keeps its founding inside its JSON (src/shim.js encode) */
+  await db.doc('nations/' + b.uid).update({ j: JSON.stringify({ reg: 'meridian', name: 'N' + b.uid.slice(0, 6), founded: Date.now() - 8 * DAY }) });
+  await rejects(call(a, { step: 'checkout', product: 'idpack', to: a.uid }), 'gift_self');
+  await rejects(call(a, { step: 'checkout', product: 'idpack', to: 'nosuchnation0000000000' }), 'gift_unknown');
+  await assert.rejects(call(a, { step: 'checkout', product: 'vip', to: b.uid }), e => e.status === 'INVALID_ARGUMENT', 'a subscription is not given');
+  await assert.rejects(call(a, { step: 'checkout', product: 'giftvip' }), e => e.status === 'INVALID_ARGUMENT', 'a gifted month needs a nation');
+  const c = await call(a, { step: 'checkout', product: 'idpack', to: b.uid });
+  assert.equal(c.gift, true);
+  assert.equal(P.calls.find(x => x.m === 'POST' && x.p === '/transactions' && x.b.custom_data.to === b.uid).b.custom_data.uid, a.uid);
+  assert.deepEqual((await shop(a.uid)).pend || {}, {}, 'a gift is not awaited by the giver');
+  assert.equal((await hook('transaction.completed', pay(c.txn, { ctm: 'ctm_giver000000001' }))).status, 200);
+  const s = await shop(b.uid);
+  assert.ok(s.owns.idpack); assert.equal(s.gifts[0].p, 'idpack'); assert.equal(s.gifts[0].name, 'N' + a.uid.slice(0, 6));
+  assert.ok(!(await shop(a.uid)).owns?.idpack, 'the giver does not own it');
+  assert.equal((await db.doc('shopAcct/' + a.uid).get()).get('ctm'), 'ctm_giver000000001', 'the Paddle customer stays the payer’s');
+  assert.ok(!(await db.doc('shopAcct/' + b.uid).get()).exists, 'the recipient gets no access to the payer’s billing');
+  await rejects(call(a, { step: 'checkout', product: 'idpack', to: b.uid }), 'gift_owned');
+  /* a month of the Club, given */
+  const g = await call(a, { step: 'checkout', product: 'giftvip', to: b.uid });
+  await hook('transaction.completed', pay(g.txn, { ctm: 'ctm_giver000000001' }));
+  const v = (await shop(b.uid)).vip;
+  assert.equal(v.plan, 'gift'); assert.ok(v.until > Date.now() + 27 * DAY); assert.equal(v.renews, 0);
+  /* the card pack refunded to the giver: the recipient no longer owns it */
+  await hook('adjustment.created', { id: rid('adj'), action: 'refund', type: 'full', status: 'approved', transaction_id: c.txn });
+  assert.ok(!(await shop(b.uid)).owns?.idpack);
+});
+
+test('the Chancery Club yearly, and the optional products offered only once their price is set', async () => {
+  const p = await player();
+  await config({ prices: { founder: PRICES.founder, idpack: PRICES.idpack, vip: PRICES.vip } });
+  const st = await call(p, { step: 'status' });
+  assert.equal(st.on, true, 'the shop opens without the optional prices'); assert.ok(!('vipyear' in st.prices) && !('giftvip' in st.prices));
+  await rejects(call(p, { step: 'checkout', product: 'vipyear' }), 'not_on_sale');
+  await config();
+  const c = await call(p, { step: 'checkout', product: 'vipyear' });
+  assert.deepEqual(P.calls.find(x => x.m === 'POST' && x.p === '/transactions' && x.b.custom_data.uid === p.uid && x.b.custom_data.product === 'vipyear').b.items, [{ price_id: PRICES.vipyear, quantity: 1 }]);
+  const sub = rid('sub'), t0 = Date.now() - H, y1 = t0 + 365 * DAY;
+  await hook('transaction.completed', pay(c.txn, { sub, period: { s: t0, e: y1 } }));
+  await hook('subscription.created', P.subs.get(sub));
+  const v = (await shop(p.uid)).vip;
+  assert.equal(v.plan, 'year'); assert.equal(v.until, y1); assert.ok(v.per.length >= 12, 'the year, month by month'); assert.ok(v.per[0].e - v.per[0].s < 32 * DAY);
+  await rejects(call(p, { step: 'checkout', product: 'vip' }), 'vip_active');
+  await call(p, { step: 'pick', key: 'p-moire' });
+  assert.deepEqual(Object.values((await shop(p.uid)).picks), ['p-moire'], 'the first month’s pick');
 });
 
 test('a checkout closed without paying stops being awaited when the player checks; one Paddle has taken money for does not', async () => {

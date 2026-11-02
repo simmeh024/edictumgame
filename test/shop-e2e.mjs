@@ -16,7 +16,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), SECRET = 'pdl_ntfset_e2e', H = 36e5, DAY = 864e5;
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── Paddle, played by this test ── */
@@ -131,7 +131,7 @@ await A.evaluate(() => { const t = document.querySelector('.toast'); if (t) t.re
 await A.evaluate(() => G.PG.saveSoon());await sleep(2500);
 
 /* ── a neighbour sees it; a forger's own record does not count ── */
-const B = await player('shop neighbour', { cap: 500 });await open(B);await found(B, 'Plainholm');
+const B = await player('shop neighbour', { cap: 500 });const bUid = await open(B);await found(B, 'Plainholm');
 const seen = await until(() => B.evaluate(id => { const n = G.S.world && G.S.world[id]; if (!n) return null; const c = G.SHOP.cz(n); return c.te === 'te-gilt' && c.bg === 'bg-founder' && c.p === 'p-firsted' ? c : null; }, aUid), 15000);
 const diag = seen ? '' : JSON.stringify(await B.evaluate(id => { const n = G.S.world && G.S.world[id]; return { reg: G.S.nation && G.S.nation.reg, inWorld: !!n, worldN: Object.keys(G.S.world || {}).length, rawCz: n && n.cz, fin: [...(G.SHOP.fin(id) || [])], finN: G.SHOP.SHOP.fin.size, uid: G.S.uid }; }, aUid)) + ' A=' + JSON.stringify(await A.evaluate(() => ({ reg: G.S.nation.reg, cz: G.S.nation.cz }))) + ' finery=' + JSON.stringify((await restGet('finery/' + aUid)).body);
 check('another player sees the founder finery, vouched for by the server', !!seen, JSON.stringify(seen) + diag);
@@ -147,9 +147,44 @@ const forged = await until(() => B.evaluate(id => { const n = G.S.world && G.S.w
 check('finery written into a nation’s own record is not shown to others', !!forged && forged.te === '' && forged.bg === '' && forged.p !== 'p-firsted', JSON.stringify(forged));
 check('nor to its own player’s game', await C.evaluate(() => { const c = G.SHOP.cz(G.S.nation); return c.te === '' && c.bg === ''; }));
 
+/* ── trying finery on in Customise: the neighbour tries the Engraver's frame on, and nothing is saved ── */
+await go(B, 'customise');
+await B.waitForSelector('[data-act="cz-try"][data-id="f-engraver"]', { timeout: 15000 });
+check('the Shop’s pieces are in Customise, to try on', /Try it on/.test(await txt(B, '[data-act="cz-try"][data-id="f-engraver"]')));
+await click(B, '[data-act="cz-try"][data-id="f-engraver"]');
+check('tried on, it shows on the nation in Customise', await B.evaluate(() => G.SHOP.cz(G.S.nation).f === 'f-engraver') && /Trying on/.test(await txt(B, '.cz-tryon')));
+check('and nothing is saved', await B.evaluate(() => !(G.S.nation.cz && G.S.nation.cz.f === 'f-engraver')));
+await shot(B, '.cz-tryon', 'shop-tryon.png');
+await click(B, '[data-act="cz-try-off"]');
+check('taken off with one click', await B.evaluate(() => G.SHOP.cz(G.S.nation).f !== 'f-engraver' && !document.querySelector('.cz-tryon')));
+await click(B, '[data-act="cz-try"][data-id="f-engraver"]');
+await go(B, 'nation');
+check('leaving Customise takes it off', await B.evaluate(() => G.SHOP.cz(G.S.nation).f !== 'f-engraver' && !G.SHOP.SHOP.tryOn));
+
+/* ── a gift: the card pack, from Gildmark to Plainholm (a week old by the server's clock) ── */
+await db.doc('authConfig/paddle').update({ skew: 8 * DAY });
+await until(() => A.evaluate(id => !!(G.S.world && G.S.world[id]), bUid), 15000);
+await go(A, 'shop');
+await click(A, '[data-act="shop-gift-open"][data-p="idpack"]');
+await A.selectOption('#shop-gift-to', bUid);
+await shot(A, '.shop-gift', 'shop-gift.png');
+await click(A, '[data-act="shop-gift-buy"][data-p="idpack"]');
+const gTxn = await payFor(A);
+check('the gift’s checkout names the nation it is for', !!gTxn && P.tx.get(gTxn).custom_data.to === bUid && P.tx.get(gTxn).custom_data.uid === aUid);
+check('the giver is told it is on its way, not kept waiting', /Gift paid/.test(await txt(A, '.shop-sent')) && !(await A.$('.shop-wait')));
+check('the neighbour owns it', !!(await until(() => B.evaluate(() => G.SHOP.SHOP.doc && G.SHOP.SHOP.doc.owns && G.SHOP.SHOP.doc.owns.idpack), 10000)));
+await go(B, 'shop');
+check('with the giver named in the Shop', /A gift from Gildmark/.test(await txt(B, '.shop-idpack')));
+await db.doc('authConfig/paddle').update({ skew: 0 });
+
 /* ── the Chancery Club ── */
 await go(A, 'shop');
 check('a desk of five before joining', (await A.evaluate(() => G.SHOP.cap(Date.now()))) === 5);
+check('the Club can be paid yearly, two months free', !!(await A.$('[data-act="shop-plan"][data-v="year"]')) && /two months free/.test(await txt(A, '.shop-plan')));
+await click(A, '[data-act="shop-plan"][data-v="year"]');
+await shot(A, '.shop-vip', 'shop-vip-yearly.png');
+check('and the button then asks for the year', /€49\.99 a year/.test(await txt(A, '[data-act="shop-buy"][data-p="vipyear"]')) && /a year/.test(await txt(A, '#shop-vip-price')));
+await click(A, '[data-act="shop-plan"][data-v="month"]');
 await click(A, '[data-act="shop-buy"][data-p="vip"]');
 const vSub = rid('sub'), t0 = Date.now() - 13 * H;  // paid since before the hours the desk catches up on
 const vTxn = await payFor(A, { sub: vSub, period: { s: t0, e: t0 + 30 * DAY } });

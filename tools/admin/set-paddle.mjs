@@ -12,7 +12,9 @@
 // and a notification destination sends the events the shop needs to the paddle function. --env live switches to
 // Paddle's live API (keys pdl_live_…, tokens live_…); sandbox is the default. --off removes the set-up: the Shop then
 // says it is not open, and what players own stays theirs. Prices may be given as --prices founder=pri_…,idpack=pri_…,
-// vip=pri_…; a product may keep older prices after the first (vip=pri_new+pri_old) so renewals at an old price count.
+// vip=pri_…[,vipyear=pri_…,giftvip=pri_…]; a product may keep older prices after the first (vip=pri_new+pri_old) so
+// renewals at an old price count. vipyear (the Club, yearly) and giftvip (a month of it, as a gift) are optional: the
+// shop opens without them and offers each once its price is set.
 // With FIRESTORE_EMULATOR_HOST set, this talks to the Firestore emulator instead and needs no key.
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -42,13 +44,14 @@ async function check(cfg) {
   console.log(`Checking with Paddle (${cfg.env}):`);
   for (const p of PRODUCTS) {
     const want = CAT.products[p], [id] = priceList(cfg.prices[p]);
+    if (!id && want.optional) { console.log(`  -     ${p}: not offered (no price set; optional)`); continue; }
     let pr;
     try { pr = await get('/prices/' + id); } catch (e) { say(false, `${p}: ${e.message}`); continue; }
     say(pr.status === 'active', `${p}: price ${id} is ${pr.status}`);
     say(pr.unit_price?.currency_code === CAT.currency, `${p}: in ${pr.unit_price?.currency_code} (want ${CAT.currency})`);
     say(String(pr.unit_price?.amount) === String(want.amount), `${p}: ${pr.unit_price?.amount} cents (the catalogue says ${want.amount})`);
-    const monthly = pr.billing_cycle && pr.billing_cycle.interval === 'month' && pr.billing_cycle.frequency === 1;
-    say(want.kind === 'monthly' ? monthly : !pr.billing_cycle, `${p}: ${pr.billing_cycle ? 'every ' + pr.billing_cycle.frequency + ' ' + pr.billing_cycle.interval : 'one payment'} (want ${want.kind === 'monthly' ? 'monthly' : 'one payment'})`);
+    const every = { monthly: 'month', yearly: 'year' }[want.kind], bc = pr.billing_cycle;
+    say(every ? !!bc && bc.interval === every && bc.frequency === 1 : !bc, `${p}: ${bc ? 'every ' + bc.frequency + ' ' + bc.interval : 'one payment'} (want ${every ? 'every 1 ' + every : 'one payment'})`);
     say(pr.tax_mode !== 'external', `${p}: tax mode ${pr.tax_mode} (the shop shows prices with tax included: account setting or internal)`);
   }
   try {
@@ -81,8 +84,11 @@ try {
   if (!new RegExp(`^${live ? 'live' : 'test'}_[A-Za-z0-9]{10,}$`).test(clientToken)) { rl.close(); console.error(`That is not a ${env} client-side token.`); process.exit(2); }
   const prices = {};
   const given = Object.fromEntries((arg('--prices') || '').split(',').filter(Boolean).map(s => s.split('=')).map(([k, v]) => [k.trim(), String(v || '').split('+').map(x => x.trim())]));
+  /* an optional product (the yearly Club, a gifted month) is left out with an empty answer: the shop opens without it */
   for (const p of PRODUCTS) {
-    const v = given[p] || [await ask(`Price ID for ${CAT.products[p].name} (${(CAT.products[p].amount / 100).toFixed(2)} ${CAT.currency}${CAT.products[p].kind === 'monthly' ? ' a month' : ''}): `, false)];
+    const w = CAT.products[p], per = { monthly: ' a month', yearly: ' a year' }[w.kind] || '';
+    const v = given[p] || [await ask(`Price ID for ${w.name} (${(w.amount / 100).toFixed(2)} ${CAT.currency}${per})${w.optional ? ', optional: Enter to leave it out' : ''}: `, false)].filter(Boolean);
+    if (!v.length && w.optional) continue;
     if (!v.length || !v.every(priceOk)) { rl.close(); console.error(`${p}: price IDs look like pri_…`); process.exit(2); }
     prices[p] = v.length === 1 ? v[0] : v;
   }
