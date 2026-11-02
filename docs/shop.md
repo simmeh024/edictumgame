@@ -95,7 +95,10 @@ tax on top. Copy each **price ID**
 ### 3. Checkout, keys and notifications
 
 1. **Checkout → Checkout settings → Default payment link**: `https://edictumgame.com/` (sandbox: your staging
-   address). Paddle asks you to approve the domain (**Checkout → Website approval**).
+   address). Paddle asks you to approve the domain (**Checkout → Website approval**). A checkout opens only on an
+   approved domain, and each subdomain counts separately: in the sandbox add `<staging project>.web.app` and the
+   preview address of each pull request you test on (`<staging project>--pr<n>-<branch>-<hash>.web.app`, from the
+   PR's preview comment); the sandbox approves them at once.
 2. **Developer tools → Authentication → Client-side tokens**: create one (`live_…`, or `test_…` in the sandbox).
    It is public by design: the page uses it to open the checkout.
 3. **Developer tools → Authentication → API keys**: create a key (`pdl_live_apikey_…` / `pdl_sdbx_apikey_…`) with
