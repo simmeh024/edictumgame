@@ -71,14 +71,30 @@ try {
   let muted = false;
   const out = new Writable({ write(chunk, enc, done) { if (!muted) process.stdout.write(chunk); done(); } });
   const rl = createInterface({ input: process.stdin, output: out, terminal: !!process.stdin.isTTY }), lines = rl[Symbol.asyncIterator]();
-  const ask = async (q, hide) => { process.stdout.write(q); muted = hide; const { value } = await lines.next(); muted = false; if (hide) process.stdout.write('\n'); return String(value || '').trim(); };
-  const live = env === 'live';
-  const apiKey = (process.env.PADDLE_API_KEY || await ask(`Paddle API key (pdl_${live ? 'live' : 'sdbx'}_apikey_…, not shown): `, true)).trim();
-  if (!new RegExp(`^pdl_${live ? 'live' : 'sdbx'}_apikey_[A-Za-z0-9_]{10,}$`).test(apiKey)) { rl.close(); console.error(`That is not a ${env} API key.`); process.exit(2); }
-  const webhookSecret = (process.env.PADDLE_WEBHOOK_SECRET || await ask('Notification destination secret key (pdl_ntfset_…, not shown): ', true)).trim();
-  if (!/^pdl_ntfset_[A-Za-z0-9_]{10,}$/.test(webhookSecret)) { rl.close(); console.error('That is not a notification secret key.'); process.exit(2); }
-  const clientToken = (process.env.PADDLE_CLIENT_TOKEN || await ask(`Client-side token (${live ? 'live' : 'test'}_…): `, false)).trim();
-  if (!new RegExp(`^${live ? 'live' : 'test'}_[A-Za-z0-9]{10,}$`).test(clientToken)) { rl.close(); console.error(`That is not a ${env} client-side token.`); process.exit(2); }
+  /* a key pasted into a terminal can bring invisible company (spaces, line breaks, zero-width marks, a Ctrl+V the
+     console did not turn into a paste): none of it belongs in a key, so it goes; what is left is checked and, when
+     wrong, described without being shown */
+  const clean = v => String(v || '').replace(/[\s\u0000-\u001f\u007f\u200b-\u200d\u2060\ufeff]/g, '');
+  const ask = async (q, hide) => { process.stdout.write(q); muted = hide; const { value } = await lines.next(); muted = false; if (hide) process.stdout.write('\n'); return clean(value); };
+  const refuse = (v, prefix, what, chars) => {
+    const odd = [...new Set([...v].filter(c => !new RegExp(chars).test(c)))].map(c => 'U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
+    rl.close();
+    console.error(`That is not ${what}. ` + (!v ? 'Nothing arrived: in this window, paste with a right-click (Ctrl+V may not paste here), then press Enter once.'
+      : twice(v, prefix) ? `Its start, ${prefix}, appears more than once: it was probably pasted twice. Paste it once, then press Enter.`
+      : `It ${v.startsWith(prefix) ? 'starts' : 'does not start'} with ${prefix} and has ${v.length} characters` + (odd.length ? `, among them characters a key never has (${odd.join(', ')})` : '') + '.'));
+    process.exit(2);
+  };
+  const twice = (v, prefix) => v.indexOf(prefix, 1) > 0;
+  /* Paddle's secrets are letters, digits and _ with base64's + / = (a live notification secret had a /) */
+  const SECRET = '[A-Za-z0-9_+/=-]', TOKEN = '[A-Za-z0-9]';
+  const fits = (v, prefix, chars) => !twice(v, prefix) && new RegExp(`^${prefix}${chars}{10,}$`).test(v);
+  const live = env === 'live', akp = `pdl_${live ? 'live' : 'sdbx'}_apikey_`, ctp = `${live ? 'live' : 'test'}_`;
+  const apiKey = clean(process.env.PADDLE_API_KEY) || await ask(`Paddle API key (${akp}…, not shown): `, true);
+  if (!fits(apiKey, akp, SECRET)) refuse(apiKey, akp, `a ${env} API key`, SECRET);
+  const webhookSecret = clean(process.env.PADDLE_WEBHOOK_SECRET) || await ask('Notification destination secret key (pdl_ntfset_…, not shown): ', true);
+  if (!fits(webhookSecret, 'pdl_ntfset_', SECRET)) refuse(webhookSecret, 'pdl_ntfset_', 'a notification secret key', SECRET);
+  const clientToken = clean(process.env.PADDLE_CLIENT_TOKEN) || await ask(`Client-side token (${ctp}…): `, false);
+  if (!fits(clientToken, ctp, TOKEN)) refuse(clientToken, ctp, `a ${env} client-side token`, TOKEN);
   const prices = {};
   const given = Object.fromEntries((arg('--prices') || '').split(',').filter(Boolean).map(s => s.split('=')).map(([k, v]) => [k.trim(), String(v || '').split('+').map(x => x.trim())]));
   for (const p of PRODUCTS) {
