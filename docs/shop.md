@@ -147,6 +147,9 @@ things stay owned). Until it is set up, the Shop says the Bureau is not open yet
 On the staging project, with the sandbox set-up and Paddle's test card `4242 4242 4242 4242` (any future date, any
 CVC), check each of these before going live:
 
+0. **Developer tools → Simulations** (or the API's `/simulations`): send a simulated `transaction.completed` to the
+   destination. It should show *success* and the answer `simulated`: the signature matched the saved secret, and
+   the function ignores simulated sample data (event IDs `ntfsimevt_…`) on purpose, so nothing is stored or refunded.
 1. A guest is asked to link a sign-in; a Registered Nation buys the Founder's Package; it shows as owned within
    seconds, on a second device signed in to the same account too; the founder pieces appear in Customise; another
    player sees the badge and the gilt.

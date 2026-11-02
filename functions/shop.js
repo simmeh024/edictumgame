@@ -355,6 +355,8 @@ export const paddle = onRequest({ region: 'europe-west1', maxInstances: 5, memor
   if (!cfg || !cfg.secret || !verifySignature(req.rawBody, req.get('paddle-signature'), cfg.secret)) { res.status(401).send(''); return; }
   let ev;
   try { ev = JSON.parse(req.rawBody.toString('utf8')); } catch { res.status(400).send(''); return; }
+  /* Paddle's notification simulator signs its sample data like the real thing: say it arrived, act on none of it */
+  if (ev && /^ntfsimevt_[a-z0-9]{8,64}$/.test(String(ev.event_id))) { res.status(200).send('simulated'); return; }
   if (!ev || !/^evt_[a-z0-9]{8,64}$/.test(String(ev.event_id))) { res.status(400).send(''); return; }
   const seen = getFirestore().doc('shopEvents/' + ev.event_id);
   if ((await seen.get()).exists) { res.status(200).send('ok'); return; }

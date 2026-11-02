@@ -116,6 +116,9 @@ test('the Founder’s Package: the server’s price, a signed report, ownership 
   assert.deepEqual((await finery(p.uid)).c.sort(), [...CATALOGUE.products.founder.grants].sort());
   /* the same notification again (Paddle retries): handled once */
   const adj = P.adj.length;assert.equal((await hook('transaction.completed', t, { id: ev.id })).status, 200);assert.equal(P.adj.length, adj);
+  /* the notification simulator's signed sample: acknowledged, nothing stored, nothing refunded */
+  const sim = await hook('transaction.completed', { ...t, id: rid('txn'), custom_data: null }, { id: rid('ntfsimevt') });
+  assert.equal(sim.status, 200); assert.ok(!(await db.doc('shopEvents/' + sim.id).get()).exists); assert.equal(P.adj.length, adj);
   await rejects(call(p, { step: 'checkout', product: 'founder' }), 'owned');
   /* another device: the same account reads the same ownership */
   const again = await sign('signInWithPassword', { email: (await auth.getUser(p.uid)).email, password: 'test-only-password' });
