@@ -165,6 +165,21 @@ changes and a Back to default per section. It warns before an unsaved currency i
 text size, density and motion are device settings and live in Settings, under Appearance. The coat of arms
 has 24 charges, 10 of them free; the symbols save as each box is left.
 
+**The Great Statue.** Each region's player nations build a statue together, in ten phases (`WND_PH`), on the
+Great Statue page and on the land nearest the middle of the map. Nothing is stored centrally: a nation's gifts
+sit in its own record (`n.wnd`, region, amounts, highest phase seen complete), and the statue is their sum.
+Computer nations take no part, and a finished phase stays finished. Six edicts (`WND_ISSUES`) arrive as it rises,
+and contributors to a finished statue earn the epithet "the Patron".
+
+**Field digs.** The Museum's Field digs hall sends diggers to six sites (`DIG_SITES`, 8 to 24 hours) for two
+collections about the region's past: the Fords and the Drowned Harbours. Half of a collection brings 2 land
+credits and all of it 7 more, counted from what is held. One dig at a time, or two with an Institute of Field
+Archaeology (one per nation, +2 on the roll).
+
+**Diplomatic gifts.** A postcard, a banknote or the national dish, sent from any nation's page with a set phrase
+(no free text). The sender keeps `n.gft` and the recipient `n.gfr`, and computer nations answer on their own. Gifts
+raise goodwill, but not past Warm (15). Three a day, one a day to the same nation.
+
 **National symbols.** The Customise page's National symbols: the holiday and its date are open from the
 start; the flower opens at 5.5 million people, the tree at 6, the bird at 7, the instrument at 8, the
 colours at 10 and the capital's nickname at 20 million (`SYM_AT`). Each opens once, on the first save
