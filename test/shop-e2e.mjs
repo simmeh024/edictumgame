@@ -4,7 +4,7 @@
 // the same finery on a nation that only wrote it into its own record; the Chancery Club gives a desk of ten, a pick,
 // presets and a Chronicle, and when it ends the ten edicts stay. Screenshots land in test/out (shop-*.png).
 //   npm run test:shop-e2e
-import { OUT, PROJECT, FN_HOST, check, finish, until, player, open, found, nav, sleep, register, restGet } from './lib.mjs';
+import { BASE, OUT, PROJECT, FN_HOST, check, finish, until, player, open, found, nav, sleep, register, restGet } from './lib.mjs';
 import { signature } from '../functions/shop-core.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -61,11 +61,19 @@ const shot = async (p, sel, file) => { for (let k = 0; ; k++) { try { return awa
 const click = async (p, sel) => { await p.waitForSelector(sel, { timeout: 8000 }); await p.click(sel); await sleep(350); };
 
 /* ── a guest: the Shop says what linking is for, and nothing is bought ── */
+/* the public pages Paddle's site review asks for: prices and a refund policy, linked from the home page */
+{ const get = async u => { const r = await fetch(BASE + u); return r.ok ? r.text() : ''; };
+  const [pricing, precios, refunds, reembolsos, home] = await Promise.all(['/pricing', '/precios', '/refunds', '/reembolsos', '/'].map(get));
+  check('a public prices page lists the three purchases at the catalogue’s prices', /€9\.99/.test(pricing) && /€2\.99/.test(pricing) && /€4\.99/.test(pricing) && /Merchant of Record/.test(pricing) && /€9\.99/.test(precios));
+  check('a public refund policy, in English and Spanish', /Refund policy/.test(refunds) && /14 days/.test(refunds) && /Política de reembolsos/.test(reembolsos));
+  check('the home page links to both', home.includes('href="/pricing"') && home.includes('href="/refunds"')); }
 const G = await player('shop guest', { cap: 500 });await open(G);await found(G, 'Guestovia');
 await go(G, 'shop');
 check('the Shop is under its own heading', /Bureau of National Finery/.test(await txt(G, 'h1')));
 check('the Shop sits in the menu under Other, not Options', await G.evaluate(() => !!document.querySelector('.side .nav-grp[data-g="other"] [data-v="shop"]') && !document.querySelector('.side .nav-grp[data-g="opts"] [data-v="shop"]')));
 check('a guest is told purchases need a linked sign-in', /Purchases belong to your account/.test(await txt(G, '.shop-link')));
+/* the buy buttons come with the server's status, whose first call can be slow on a cold functions emulator */
+await G.waitForSelector('[data-act="shop-buy"][data-p="founder"]', { timeout: 20000 });
 await click(G, '[data-act="shop-buy"][data-p="founder"]');
 check('buying as a guest asks for a link instead', /link a sign-in first/i.test(await txt(G, '.shop-err')) && !(await G.evaluate(() => window.__edictumCheckout)));
 check('without an answer from Paddle the prices stay in euros alone', !(await G.evaluate(() => document.querySelector('.shop-local'))) && /€9\.99/.test(await txt(G, '[data-act="shop-buy"][data-p="founder"]')));

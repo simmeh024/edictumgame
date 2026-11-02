@@ -74,6 +74,7 @@ OG_ALT = 'The Edictum seal beside the words: Edictum, a nation simulator.'
 # engines, link previews, Google's review of the sign-in branding) gets what Edictum is and where its
 # privacy notice and terms are.
 LEGAL = ('<p class="boot-legal"><a href="/privacy">Privacy notice</a> · <a href="/terms">Terms of use</a> · '
+         '<a href="/pricing">Prices</a> · <a href="/refunds">Refund policy</a> · '
          '<a href="/privacidad" lang="es">Aviso de privacidad</a> · <a href="/terminos" lang="es">Términos de uso</a></p>')
 LOADING = ('<p class="boot-load" role="status">Loading the game…</p>'
            '<noscript><p class="boot-load">Edictum needs JavaScript to run.</p></noscript>')
@@ -260,8 +261,9 @@ def main():
                 write(os.path.join(out, 'vendor', 'firebase', ver, f), read(p, 'rb'))
             elif f == name:
                 fail('node_modules/firebase/%s is missing' % f)
-    for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png', 'privacy.html', 'privacidad.html', 'terms.html', 'terminos.html', 'discord.html'):
-        shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))  # the pages are served as /privacy, /privacidad, /terms, /terminos, /discord
+    for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png', 'privacy.html', 'privacidad.html', 'terms.html', 'terminos.html', 'discord.html',
+              'pricing.html', 'precios.html', 'refunds.html', 'reembolsos.html'):
+        shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))  # served as /privacy, /privacidad, /terms, /terminos, /discord, /pricing, /precios, /refunds, /reembolsos
 
     # the game's styles (with the shim's and the fonts') and its script become long-cached files
     styles = re.findall(r'<style[^>]*>(.*?)</style>', game_head, re.S | re.I)
