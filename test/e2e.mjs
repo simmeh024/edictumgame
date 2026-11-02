@@ -901,7 +901,7 @@ await SY.click('.bell');
 await SY.fill('#cz-s-tree', 'Silver birch'); await saveSym();
 check('saving again gives nothing more', ((await localNation(SY)).syu || []).length === 3 && Math.abs(await gain(sy1, await localNation(SY), 'timber')) < 0.5);
 await SY.locator('#cz-sec-y').screenshot({ path: path.join(OUT, 'symbols-unlocks.png') });
-await setPop(25); await toCz(); await saveSym();
+await setPop(25); await toCz(); await SY.fill('#cz-s-inst', 'Hurdy-gurdy'); await saveSym(); // symbols save when a box changes
 const sy2 = await until(async () => { const n = await localNation(SY); return n && (n.syu || []).length === 6 ? n : null; });
 check('at 25 million the instrument, colours and capital nickname follow', !!sy2 && Math.abs(await gain(sy1, sy2, 'iron') - 15) < 0.5);
 await setPop(5.1); await toCz();
