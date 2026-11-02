@@ -10,6 +10,23 @@ adds prestige, rank, resources or strength.
 | Founder's Package | `founder` | €9.99 | one payment, sold until 1 February 2027 23:59:59 UTC | Founding Supporter badge, First Edition banner, Engraver's flag frame, First Edition decision stamp, Founder's capital marker, Founder's Gilt (land), passport inscription, a certificate in the museum |
 | Nation Identity Card Pack | `idpack` | €2.99 | one payment | Diplomatic Ledger, Atlas Edition and Civic Modern card designs |
 | The Chancery Club | `vip` | €4.99 a month | subscription | ten waiting edicts instead of five, one cosmetic each paid month from its collection (kept), five design presets, the Expanded National Chronicle |
+| The Chancery Club, yearly | `vipyear` | €49.99 a year | subscription, optional | the same membership, paid for a year (two months free); one cosmetic pick each calendar month of the paid year |
+| A month of the Club, as a gift | `giftvip` | €4.99 | one payment, gift only, optional | a month of membership for another nation, from when it is paid or from where its paid membership ends |
+
+**Optional products.** The shop opens with the first three. `vipyear` and `giftvip` are offered only once their Paddle price is
+set (`set-paddle.mjs` asks for them and accepts an empty answer), so adding them never closes the shop.
+
+**Gifts.** The Founder's Package, the card pack and a month of the Club can be given to another player's nation: the
+checkout names it (`to`), and what is paid for belongs to that nation (`shopTx.uid`), while the buyer stays the payer
+(`shopTx.payer`, and the Paddle customer and portal stay with the buyer's account). The recipient must be a player nation
+founded at least seven days ago (by the server's clock), must not already own a one-off item, and must not be paying for the
+Club when given a month of it. Two gifts of the same item: the second is refunded to whoever paid it. A refund or chargeback
+takes the gift back from the recipient. The recipient's `shop/<uid>.gifts` lists what came from which nation (by name); the
+game says so once on each device and in the Shop. Gifts are not awaited on the giver's devices (no `pend`).
+
+**Trying finery on.** In Customise every Shop piece appears among the locked ones; a click shows it on the player's own
+nation, on that page only. Nothing is saved: Customise's own save and preset save take the piece off before reading the
+look, and leaving the page takes it off. Other players never see it (their games only show what `finery/` lists).
 
 The catalogue is one file, `functions/shop-catalogue.json`: the server sells from it and `build.py` puts the same
 file into the game. Prices shown in the game come from it; what is charged comes from the Paddle prices the owner
@@ -85,6 +102,8 @@ The game itself is played in the player's browser, as before, so:
 | Founder's Package | 9.99 EUR | one-time |
 | Nation Identity Card Pack | 2.99 EUR | one-time |
 | The Chancery Club | 4.99 EUR | recurring, every 1 month, no trial |
+| The Chancery Club, yearly (optional) | 49.99 EUR | recurring, every 1 year, no trial |
+| A month of the Chancery Club, as a gift (optional) | 4.99 EUR | one-time |
 
 Make every price include tax (the price's own tax setting, or the account's sales tax setting that prices follow by
 default), so a player in Europe pays €9.99 and not €9.99 plus VAT; `set-paddle.mjs` warns about a price that adds

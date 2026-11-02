@@ -4550,6 +4550,14 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .shop-head .h2{margin:0}
 .shop-price{margin:0;font:650 30px/1 var(--f-display);white-space:nowrap;text-align:right}
 .shop-price span{display:block;margin-top:4px;font:500 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted,inherit);opacity:.75;text-align:inherit}
+.shop-plan{margin:12px 0 4px;flex-wrap:wrap}
+.shop-plan .shop-save{margin-left:6px;font-size:12px;opacity:.8}
+.shop-gift{margin:10px 0 0;padding:12px 14px;border:1px dashed var(--rule,rgba(127,127,127,.45));border-radius:6px}
+.shop-gift p{margin:0 0 8px}
+.shop-gift-f select{max-width:100%}
+.cz-try{cursor:pointer}
+.cz-try.on{outline:2px solid var(--accent);outline-offset:1px}
+.cz-tryon{margin:0 0 16px}
 .shop-price .shop-local{margin-top:6px;font:500 13px/1.3 var(--f-body);letter-spacing:0;text-transform:none;opacity:.9;white-space:normal}
 .shop-deadline{font-size:14px}
 .shop-list{margin:10px 0 16px;padding-left:1.1em;display:grid;gap:6px}
@@ -43332,7 +43340,7 @@ for(const is of MIX_ISSUES){
    cosmetics stay out of Customise (they are not enumerable in UNLOCKS); the Shop shows them instead. */
 const SHOP_CAT=/*SHOP_CATALOGUE*/null;
 const SHOP_KEY='edictum.shop.',SHOP_UNTIL=Date.UTC(2027,1,2);
-const SHOP={doc:null,sig:'{}',cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finSig:'[]',finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0,local:null,localAsked:false,shut:{}};
+const SHOP={doc:null,sig:'{}',cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finSig:'[]',finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0,local:null,localAsked:false,shut:{},gift:null,sent:null,plan:'month',tryOn:null};
 const SHOP_NONE=new Set();
 {
   const add=(id,k,n,src)=>Object.defineProperty(UNLOCKS,id,{value:{k,n,src},enumerable:false,configurable:true,writable:true});
@@ -43397,7 +43405,7 @@ czHolds=(f=>function(n,id,raw){
   return f.apply(this,arguments);
 })(czHolds);
 /* what is held joins Customise; what is not stays in the Shop */
-function shopEnum(){const held=new Set(S.nation?shopHeld(S.nation):[]);for(const ids of Object.values(SHOP_IDS))for(const id of ids)Object.defineProperty(UNLOCKS,id,{enumerable:held.has(id)});}
+function shopEnum(all){const held=new Set(S.nation?shopHeld(S.nation):[]);for(const ids of Object.values(SHOP_IDS))for(const id of ids)Object.defineProperty(UNLOCKS,id,{enumerable:!!all||held.has(id)});}
 function shopBump(){czVer++;shopEnum();if(!document.hidden&&S.nation)render();}
 
 /* ── listening: shop/<uid> (the player's own) and finery/ (this region's), both written only by the server ── */
@@ -43407,11 +43415,21 @@ function shopTake(d,cached){
   if(!cached){try{localStorage.setItem(SHOP_KEY+SHOP.uid,JSON.stringify(SHOP.doc));}catch(e){}
     /* a nation founded in another region since: the server moves the public list with it */
     if(SHOP.doc.reg&&S.nation&&SHOP.doc.reg!==S.nation.reg)shopStatus(true);}
+  if(!cached)shopGiftsArrived();
   const w=SHOP.wait;if(w&&shopSettled(w.p))SHOP.wait=null;
   /* the cached copy, then the server's (mostly the same): redraw only for a change, or a map being drawn loses its canvas */
   const sig=JSON.stringify(SHOP.doc);if(sig===SHOP.sig&&w===SHOP.wait){if(was&&!cached&&S.view==='shop'&&!document.hidden)render();return;}SHOP.sig=sig;
   shopBump();
 }
+/* a gift that has just come: said once on each device that sees it */
+function shopGiftsArrived(){
+  const g=SHOP.doc&&Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[];if(!g.length||!SHOP.uid)return;
+  const key='edictum.giftsSeen.'+SHOP.uid;let seen=[];try{seen=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}if(!Array.isArray(seen))seen=[];
+  const fresh=g.filter(x=>x&&x.txn&&!seen.includes(x.txn));if(!fresh.length)return;
+  try{localStorage.setItem(key,JSON.stringify(seen.concat(fresh.map(x=>x.txn)).slice(-30)));}catch(e){}
+  for(const x of fresh.slice(-2))toast(`A gift from ${x.name||'another nation'}: ${SHOP_WHAT[x.p]||'something from the Shop'}. It is yours.`);
+}
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='shop-gift-to'&&SHOP.gift)SHOP.gift.to=e.target.value;});
 function shopConnect(){
   if(!S.db||!S.uid)return;
   if(SHOP.uid===S.uid)return;
@@ -43437,7 +43455,7 @@ function shopStatus(force){
 }
 
 /* ── buying ── */
-function shopSettled(p){return p==='vip'?shopMember():shopOwns(p);}
+function shopSettled(p){return shopClub(p)?shopMember():shopOwns(p);}
 /* a linked sign-in: the game's own word, or the server's (a Registered Nation) */
 function shopLinked(){let a=null;try{a=accountInfo();}catch(e){}return !!S.google||!!(a&&a.kind==='registered');}
 function shopDark(){const t=document.documentElement.getAttribute('data-theme');return t?t==='dark':!!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);}
@@ -43450,25 +43468,36 @@ function shopErr(e){
     banned:'This account is banned, so it cannot buy anything.',not_granted:'Sign in again, then try once more. Nothing was charged.'};
   return T[c]||m||'Something went wrong. Nothing was charged. Try again.';
 }
-async function shopBuy(p){
+async function shopBuy(p,to){
   if(SHOP.busy||!SHOP_PRODUCTS.includes(p))return;
   SHOP.err='';
   if(S.mode!=='world'){SHOP.err='Reconnect to buy. Nothing was charged.';render();return;}
   if(!shopLinked()){SHOP.err='link';render();return;}
   SHOP.busy=p;render();
   try{
-    const r=await shopReq({step:'checkout',product:p});
-    if(r&&r.done){toast('That purchase had already gone through. It is yours.');return;}
+    const r=await shopReq({step:'checkout',product:p,...(to?{to}:{})});
+    if(r&&r.done){toast(to?'That gift was already paid for. It is on its way.':'That purchase had already gone through. It is yours.');return;}
     const api=await shopApiP();if(!api)throw Object.assign(new Error(''),{code:'unavailable'});
-    SHOP.open={p,txn:r.txn};
-    await api.checkout({txn:r.txn,env:r.env,token:r.token,theme:shopDark()?'dark':'light',onEvent:e=>shopEvent(p,e)});
+    SHOP.open={p,txn:r.txn,to:to||''};
+    await api.checkout({txn:r.txn,env:r.env,token:r.token,theme:shopDark()?'dark':'light',onEvent:e=>shopEvent(p,e,to)});
     if(p==='founder')shopCutoffTimer();
   }catch(e){SHOP.open=null;SHOP.err=shopErr(e);}
   finally{SHOP.busy='';render();}
 }
-const SHOP_PRODUCTS=['founder','idpack','vip'];
-function shopEvent(p,e){
+const SHOP_PRODUCTS=['founder','idpack','vip','vipyear','giftvip'];
+/* an optional product (the Club yearly, a month of it as a gift) is offered once the server has its price */
+function shopSells(p){const c=SHOP.cfg;return !!(c&&c.on&&c.prices&&c.prices[p]);}
+const shopClub=p=>p==='vip'||p==='vipyear';
+const SHOP_WHAT={founder:'the Founder’s Package',idpack:'the Nation Identity Card Pack',giftvip:'a month of The Chancery Club'};
+/* the nation a purchase came from as a gift, if it did */
+function shopGiftFrom(p){const g=(SHOP.doc&&Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[]).filter(x=>x&&x.p===p);return g.length?g[g.length-1].name||'another nation':'';}
+function shopEvent(p,e,to){
   if(!e)return;
+  /* a gift: nothing is awaited here, the server hands it to the other nation once Paddle confirms it */
+  if(to){if(e.name==='checkout.completed'){SHOP.open=null;SHOP.gift=null;SHOP.sent={p,name:nameOf(to)};render();setTimeout(()=>shopCheck(true),6000);}
+    else if(e.name==='checkout.closed'){SHOP.open=null;render();}
+    else if(e.name==='checkout.error'){SHOP.err='The checkout reported a problem. Nothing is charged unless Paddle sends you a receipt. Try again.';render();}
+    return;}
   if(e.name==='checkout.completed'){SHOP.wait={p,t:Date.now()};SHOP.open=null;render();for(const ms of [5000,20000,60000])setTimeout(()=>{if(SHOP.wait&&SHOP.wait.p===p)shopCheck(true);},ms);}
   /* closed without paying: no "checkout was opened" for it on this device, and the server is asked to drop it everywhere */
   else if(e.name==='checkout.closed'){SHOP.open=null;if(!(SHOP.wait&&SHOP.wait.p===p)){SHOP.shut[p]=shopNow();shopCheck(true);}render();}
@@ -43503,6 +43532,10 @@ async function shopPick(id){
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="shop-"]');if(!el)return;const a=el.dataset.act;
   if(a==='shop-buy')shopBuy(el.dataset.p);
+  else if(a==='shop-gift-open'){SHOP.gift=SHOP.gift&&SHOP.gift.p===el.dataset.p?null:{p:el.dataset.p,to:''};SHOP.sent=null;render();}
+  else if(a==='shop-gift-buy'){const to=SHOP.gift&&SHOP.gift.to;if(!to){SHOP.err='Choose the nation the gift is for.';render();}else shopBuy(el.dataset.p,to);}
+  else if(a==='shop-plan'){SHOP.plan=el.dataset.v==='year'?'year':'month';render();}
+  else if(a==='shop-sent-ok'){SHOP.sent=null;render();}
   else if(a==='shop-check')shopCheck(false);
   else if(a==='shop-portal')shopPortal();
   else if(a==='shop-resume')shopResume();
@@ -43716,6 +43749,7 @@ function shopNotice(n){
   if(cfg&&cfg.on&&cfg.env!=='live')out.push(`<p class="notice shop-note shop-test"><b>Test mode.</b> Payments go to Paddle’s sandbox: use Paddle’s test cards, and no real money changes hands.</p>`);
   if(S.mode==='world'&&!shopLinked())out.push(`<div class="notice shop-note shop-link"><p><b>Purchases belong to your account</b>, so they need a linked sign-in: Google, Discord or an email address. Then they follow you to every device, and to any nation you found later.</p><div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${typeof accountCompareButton==='function'?accountCompareButton():''}</div></div>`);
   if(SHOP.err)out.push(`<div class="notice shop-note shop-err" role="alert"><p>${SHOP.err==='link'?'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.':esc(SHOP.err)}</p><div class="row">${SHOP.err==='link'?'<button type="button" class="btn" data-act="acct-open">Link a sign-in</button>':''}<button type="button" class="linkish small" data-act="shop-dismiss">Dismiss</button></div></div>`);
+  if(SHOP.sent)out.push(`<div class="notice shop-note shop-sent" role="status"><p><b>Gift paid.</b> ${esc(cap1(SHOP_WHAT[SHOP.sent.p]||'your gift'))} goes to ${esc(SHOP.sent.name)} once Paddle confirms the payment, usually within seconds. They see your nation’s name with it.</p><div class="row"><button type="button" class="linkish small" data-act="shop-sent-ok">Done</button></div></div>`);
   if(SHOP.wait){const p=SHOP.wait.p,nm=p==='founder'?'the Founder’s Package':p==='idpack'?'the Nation Identity Card Pack':'your Chancery Club membership';
     out.push(`<div class="notice shop-note shop-wait" role="status"><p><b>Payment received by Paddle.</b> Waiting for confirmation of ${nm}; it usually takes a few seconds. You can leave this page: it arrives on every device once confirmed.</p><div class="row"><button type="button" class="btn ghost" data-act="shop-check"${SHOP.checking?' disabled':''}>${SHOP.checking?'Checking…':'Check again'}</button></div></div>`);}
   else{const pend=SHOP.doc&&SHOP.doc.pend||{},open=Object.keys(pend).filter(p=>!shopSettled(p)&&!(SHOP.open&&SHOP.open.p===p)&&!(SHOP.shut[p]>=pend[p]));
@@ -43725,14 +43759,14 @@ function shopNotice(n){
   return out.join('');
 }
 function shopCta(p,label){
-  const cfg=SHOP.cfg,on=!!(cfg&&cfg.on),busy=SHOP.busy===p,wait=SHOP.wait&&SHOP.wait.p===p,opened=SHOP.open&&SHOP.open.p===p;
+  const cfg=SHOP.cfg,on=!!(cfg&&cfg.on),busy=SHOP.busy===p,wait=SHOP.wait&&SHOP.wait.p===p,opened=SHOP.open&&SHOP.open.p===p&&!SHOP.open.to;
   if(wait)return `<span class="shop-state">Awaiting confirmation…</span>`;
   if(!on||S.mode!=='world')return `<button type="button" class="btn" disabled>${esc(label)}</button>${cfg&&!cfg.on?'<span class="hint">Not on sale yet.</span>':''}`;
   return `<button type="button" class="btn shop-buy" data-act="shop-buy" data-p="${p}"${busy||SHOP.busy?' disabled':''} aria-describedby="shop-${p}-price">${busy?'Opening the checkout…':opened?'Checkout open: reopen it':esc(label)}</button>`;
 }
 function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
   return p==='idpack'?(on.length?` You are using the ${esc(UNLOCKS[on[0]].n)} card.`:' Not in use: you have the classic card.'):on.length?` You are wearing ${on.length===SHOP_IDS[p].length?'all '+on.length:on.length+' of '+SHOP_IDS[p].length} pieces.`:' None of it is in use yet.';}
-function shopOwned(p,extra){const at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns[p];return `<p class="shop-owned"><span class="chip ok">Owned</span> since ${esc(shopDate(at))}.${shopWorn(p)}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p><div class="row shop-row">${extra||''}<button type="button" class="btn ghost" data-act="go" data-v="customise">Equip in Customise</button></div>`;}
+function shopOwned(p,extra){const at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns[p];return `<p class="shop-owned"><span class="chip ok">Owned</span> since ${esc(shopDate(at))}.${shopGiftFrom(p)?' A gift from '+esc(shopGiftFrom(p))+'.':''}${shopWorn(p)}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p><div class="row shop-row">${extra||''}<button type="button" class="btn ghost" data-act="go" data-v="customise">Equip in Customise</button></div>`;}
 function shopFounder(n,t){
   const until=shopUntil(),open=t<until,own=shopOwns('founder');
   if(!own&&!open)return `<section class="shop-item shop-ended" aria-labelledby="shop-f-h"><p class="eyebrow">Sale ended</p><h2 class="h2" id="shop-f-h">The Founder’s Package</h2><p>The sale ended on 1 February 2027 at 23:59:59 UTC. Thank you to everyone who helped write the world of Edictum. The founder cosmetics stay with those who have them, and are not sold again.</p></section>`;
@@ -43758,7 +43792,7 @@ function shopFounder(n,t){
     <ul class="shop-list">${items.map(([a,b])=>`<li><b>${esc(a)}</b> ${esc(b)}</li>`).join('')}</ul>
     <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview the Founder’s Package on your nation">${pvs.map(([k,l])=>`<button type="button" class="seg-b${SHOP.pv===k?' on':''}" data-act="shop-pv" data-v="${k}" aria-pressed="${SHOP.pv===k}">${l}</button>`).join('')}</div>
       <div class="shop-pv-box" aria-live="polite"><p class="shop-pv-l">Preview: ${esc(n.name)}${SHOP.pv==='banner'?', with the badge, banner and frame':SHOP.pv==='land'?', on the world map':''}</p>${pv}</div></div>
-    ${own?shopOwned('founder','<button type="button" class="btn ghost" data-act="shop-cert">See your certificate</button>'):`<div class="row shop-row">${open?shopCta('founder','Buy the Founder’s Package · '+shopPay('founder')):''}</div>`}
+    ${own?shopOwned('founder','<button type="button" class="btn ghost" data-act="shop-cert">See your certificate</button>'):`<div class="row shop-row">${open?shopCta('founder','Buy the Founder’s Package · '+shopPay('founder')):''}</div>`}${open?shopGiftHTML('founder'):''}
   </section>`;
 }
 function shopIdPack(n){
@@ -43770,32 +43804,45 @@ function shopIdPack(n){
     <p>Three designs for your nation card. Switch between them, or back to the classic card, in Customise whenever you like. Your rank’s border stays exactly as it is.</p>
     <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview a card design">${cds.map(id=>`<button type="button" class="seg-b${cur===id?' on':''}" data-act="shop-cd" data-v="${id}" aria-pressed="${cur===id}">${esc(UNLOCKS[id].n)}</button>`).join('')}</div>
       <div class="shop-pv-box" aria-live="polite"><p class="shop-pv-l">${esc(UNLOCKS[cur].n)}: ${esc(blurb[cur]||'')}</p>${pv}</div></div>
-    ${own?shopOwned('idpack'):`<div class="row shop-row">${shopCta('idpack','Buy the card pack · '+shopPay('idpack'))}</div>`}
+    ${own?shopOwned('idpack'):`<div class="row shop-row">${shopCta('idpack','Buy the card pack · '+shopPay('idpack'))}</div>`}${shopGiftHTML('idpack')}
   </section>`;
+}
+/* a gift for another player's nation: theirs once paid, and they see which nation gave it */
+function shopGiftHTML(p){
+  if(!shopSells(p))return '';
+  const label=p==='giftvip'?'Give a month of the Club as a gift':'Give it as a gift';
+  if(!(SHOP.gift&&SHOP.gift.p===p))return `<div class="row shop-row"><button type="button" class="linkish" data-act="shop-gift-open" data-p="${p}">${label}${p==='giftvip'?' · '+esc(shopPay('giftvip')):''}</button></div>`;
+  const opts=allNations().filter(x=>!x.me&&!x.npc&&x.n&&x.n.name).sort((a,b)=>String(a.n.name).localeCompare(String(b.n.name)));
+  return `<div class="shop-gift" role="group" aria-label="${esc(label)}"><p><b>${esc(label)}.</b> ${p==='giftvip'?'The month begins when it is paid, or where their own paid membership ends. ':''}It goes to the nation you choose, which sees your nation’s name with it. Gifts go to player nations founded at least a week ago that do not already have it.</p>
+    ${opts.length?`<label class="field shop-gift-f"><span class="lbl">For</span><select id="shop-gift-to"><option value="">Choose a nation in your region…</option>${opts.map(x=>`<option value="${esc(x.id)}"${SHOP.gift.to===x.id?' selected':''}>${esc(x.n.name)}</option>`).join('')}</select></label>`:'<p class="hint">There are no other player nations in your region yet.</p>'}
+    <div class="row shop-row">${opts.length?`<button type="button" class="btn" data-act="shop-gift-buy" data-p="${p}"${SHOP.busy?' disabled':''}>${SHOP.busy===p?'Opening the checkout…':'Pay for the gift · '+esc(shopPay(p))}</button>`:''}<button type="button" class="btn ghost" data-act="shop-gift-open" data-p="${p}">Cancel</button></div></div>`;
 }
 function shopVipSec(n,t){
   const v=shopVip(),member=shopMember(),cfg=SHOP.cfg,on=!!(cfg&&cfg.on),st=v&&v.status;
+  /* monthly or, when it is on sale, yearly (two months free) */
+  const yr=shopSells('vipyear')&&SHOP.plan==='year',cp=yr?'vipyear':'vip',cper=yr?' a year':' a month',gift=!!(v&&v.plan==='gift');
+  const planSeg=!member&&shopSells('vipyear')?`<div class="seg shop-plan" role="group" aria-label="Billing"><button type="button" class="seg-b${yr?'':' on'}" data-act="shop-plan" data-v="month" aria-pressed="${!yr}">Monthly · ${esc(shopPay('vip'))}</button><button type="button" class="seg-b${yr?' on':''}" data-act="shop-plan" data-v="year" aria-pressed="${yr}">Yearly · ${esc(shopPay('vipyear'))} <span class="shop-save">two months free</span></button></div>`:'';
   let state='';
   if(member){
-    state=`<p class="shop-owned"><span class="chip ok">Member</span> Paid until ${esc(shopDate(v.until))}.${v.cancelAt?` Your membership ends then: you cancelled it.`:v.renews?` Renews on ${esc(shopDate(v.renews))} at ${esc(shopPay('vip'))}.`:''}${st==='past_due'?' <b>Your last payment did not go through.</b> Update the payment method to carry on.':''}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p>
-      <div class="row shop-row"><button type="button" class="btn ghost" data-act="shop-portal"${!on||S.mode!=='world'?' disabled':''}>Manage subscription</button>${v.cancelAt&&on?`<button type="button" class="btn ghost" data-act="shop-resume"${SHOP.busy?' disabled':''}>Keep my membership</button>`:''}</div>`;
+    state=`<p class="shop-owned"><span class="chip ok">Member</span> Paid until ${esc(shopDate(v.until))}.${gift?` A gift${shopGiftFrom('giftvip')?' from '+esc(shopGiftFrom('giftvip')):''}: it does not renew, and you can join yourself once it ends.`:v.cancelAt?` Your membership ends then: you cancelled it.`:v.renews?` Renews on ${esc(shopDate(v.renews))} at ${esc(shopPay(v.plan==='year'?'vipyear':'vip'))}${v.plan==='year'?' a year':''}.`:''}${st==='past_due'?' <b>Your last payment did not go through.</b> Update the payment method to carry on.':''}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p>
+      <div class="row shop-row">${gift?'':`<button type="button" class="btn ghost" data-act="shop-portal"${!on||S.mode!=='world'?' disabled':''}>Manage subscription</button>`}${v.cancelAt&&on?`<button type="button" class="btn ghost" data-act="shop-resume"${SHOP.busy?' disabled':''}>Keep my membership</button>`:''}</div>`;
   }else if(v){
     state=`<p class="shop-owned"><span class="chip">Ended</span> Your membership ended on ${esc(shopDate(v.until))}. Your monthly picks are yours to keep, saved presets still load, and your Chronicle stays, read-only.${st==='past_due'?' Your last payment did not go through: update the payment method to rejoin without a gap.':''}</p>
-      <div class="row shop-row">${st==='past_due'?`<button type="button" class="btn" data-act="shop-portal"${!on?' disabled':''}>Update payment method</button>`:shopCta('vip','Join again · '+shopPay('vip')+' a month')}</div>`;
-  }else state=`<div class="row shop-row">${shopCta('vip','Join the Chancery Club · '+shopPay('vip')+' a month')}</div>`;
+      <div class="row shop-row">${st==='past_due'?`<button type="button" class="btn" data-act="shop-portal"${!on?' disabled':''}>Update payment method</button>`:shopCta(cp,'Join again · '+shopPay(cp)+cper)}</div>`;
+  }else state=`<div class="row shop-row">${shopCta(cp,'Join the Chancery Club · '+shopPay(cp)+cper)}</div>`;
   const picks=SHOP.doc&&SHOP.doc.picks||{},held=new Set(Object.values(picks)),per=member&&v&&Array.isArray(v.per)?v.per.find(p=>p.s<=t&&t<p.e):null,used=per&&picks[per.s];
   const pickHTML=SHOP_IDS.vip.map(id=>{const h=held.has(id),u=UNLOCKS[id];
     return `<li class="shop-pk${h?' held':''}"><span class="shop-pk-v" aria-hidden="true">${shopArt(id,n)}</span><span class="shop-pk-n">${esc(cap1(u.n))}<span class="hint">${esc({title:'Epithet',accent:'Accent colour',stamp:'Decision stamp',pattern:'Banner pattern',frame:'Flag frame',pin:'Capital marker'}[u.k]||'')}</span></span>${h?'<span class="chip ok">Yours</span>':per&&!used&&on?`<button type="button" class="btn ghost sm" data-act="shop-pick" data-id="${id}"${SHOP.busy?' disabled':''}>Choose</button>`:''}</li>`;}).join('');
   const pickNote=!member?'Members choose one each paid month, and keep it for good.':used?`This month’s choice: ${esc(cap1(UNLOCKS[used].n))}. The next comes with your next paid month${v.renews?' ('+esc(shopDate(v.renews))+')':''}.`:per?'Choose one for this month. It stays yours, membership or not.':'Your choice for this month opens once the payment is confirmed.';
   return `<section class="shop-item shop-vip" aria-labelledby="shop-v-h">
-    <div class="shop-head"><div><p class="eyebrow">Recurring · billed monthly until you cancel</p><h2 class="h2" id="shop-v-h">The Chancery Club</h2></div><p class="shop-price" id="shop-vip-price">${esc(shopPrice('vip'))}<span>a month</span>${shopLocalTag('vip','a month')}</p></div>
+    <div class="shop-head"><div><p class="eyebrow">Recurring · billed ${yr?'yearly':'monthly'} until you cancel</p><h2 class="h2" id="shop-v-h">The Chancery Club</h2></div><p class="shop-price" id="shop-vip-price">${esc(shopPrice(cp))}<span>${yr?'a year':'a month'}</span>${shopLocalTag(cp,yr?'a year':'a month')}</p></div>
     <p>A little convenience for those who govern often. Edicts arrive at the same pace for everyone; members simply have room for more of them.</p>
     <ul class="shop-list">
       <li><b>Ten waiting edicts instead of five.</b> The same pace of arrival: your desk just holds more while you are away.</li>
       <li><b>One cosmetic each paid month</b> from the Club’s collection, yours to keep for good.</li>
       <li><b>Five design presets</b> in Customise: save whole looks and switch between them. Presets only hold cosmetics you own.</li>
       <li><b>The Expanded National Chronicle:</b> twelve months of your decisions and a daily snapshot of your nation, private to you, to read, export or print.</li></ul>
-    ${state}
+    ${planSeg}${state}${shopGiftHTML('giftvip')}
     <h3 class="sub-h">The Club’s collection</h3><p class="hint">${pickNote}</p><ul class="shop-picks">${pickHTML}</ul>
     <div class="row shop-row"><button type="button" class="linkish" data-act="go" data-v="customise">Design presets in Customise</button><button type="button" class="linkish" data-act="go" data-v="chronicle">The National Chronicle</button></div>
   </section>`;
@@ -43885,14 +43932,43 @@ function shopFineryHTML(n){
   const c=cz(n),mine=czMine(),rows=[['bg','badge','Badge','Shown beside your nation’s name: on its page, the region board and in the Assembly.'],['cd','card','Card design','The look of your nation card. Your rank’s border stays.'],
     ['ins','inscription','Passport inscription','On the last page of your passport.'],['te','territory','Land','How your land looks on the world map to every player in the region.']];
   let body='';
-  for(const [k,kind,title,hint] of rows){const ids=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k===kind&&mine.has(id));if(!ids.length)continue;
+  const anyHeld=Object.values(SHOP_IDS).flat().some(id=>mine.has(id));
+  for(const [k,kind,title,hint] of rows){const ids=Object.values(SHOP_IDS).flat().filter(id=>UNLOCKS[id].k===kind);if(!ids.length)continue;
     const none=k==='cd'?shopCardMini(n,''):k==='te'?shopLandSVG(n,1,1):'<span class="cz-none">None</span>';
-    body+=`<h3 class="sub-h">${title}</h3><p class="hint">${hint}</p><div class="cz-grid cz-g-${k}">${czTile(k,'',c[k],true,false,none,k==='cd'?'Classic':'None')}${ids.map(id=>czTile(k,id,c[k],true,false,shopArt(id,n),UNLOCKS[id].n)).join('')}</div>`;}
+    body+=`<h3 class="sub-h">${title}</h3><p class="hint">${hint}</p><div class="cz-grid cz-g-${k}">${czTile(k,'',c[k],true,false,none,k==='cd'?'Classic':'None')}${ids.map(id=>czTile(k,id,c[k],mine.has(id),false,shopArt(id,n),UNLOCKS[id].n)).join('')}</div>`;}
   const pre=preHTML(n);
-  return `<section class="cz-sec" id="cz-sec-z"><h2 class="fs-l"><span class="fs-n">IX</span>Finery</h2><p class="hint fs-hint">${body?'Finery from the Bureau of National Finery, yours to wear or not.':'Badges, card designs, a gilt edge for your land and more are in the Shop. None of it adds prestige or power.'} <button type="button" class="linkish small" data-act="go" data-v="shop">Visit the Shop</button></p>${body}${pre}</section>`;
+  return `<section class="cz-sec" id="cz-sec-z"><h2 class="fs-l"><span class="fs-n">IX</span>Finery</h2><p class="hint fs-hint">${anyHeld?'Finery from the Bureau of National Finery, yours to wear or not. Try on the rest: only you see it, and nothing is saved.':'Badges, card designs, a gilt edge for your land and more are in the Shop. Try any of them on here: only you see it, and nothing is saved. None of it adds prestige or power.'} <button type="button" class="linkish small" data-act="go" data-v="shop">Visit the Shop</button></p>${body}${pre}</section>`;
 }
-{const base=VIEWS_EXT.customise;VIEWS_EXT.customise=now=>{shopEnum();const h=base(now);if(!S.nation||!/id="cz-sec-d"/.test(h))return h;
+{const base=VIEWS_EXT.customise;VIEWS_EXT.customise=now=>{shopEnum(true);let h;try{h=base(now);}finally{shopEnum();}if(!S.nation||!/id="cz-sec-d"/.test(h))return h;
+  const bar=shopTryBar();if(bar)h=h.replace('</header>','</header>'+bar);
   return h.replace(/(<nav class="cz-jump"[^>]*>)([\s\S]*?)(<\/nav>)/,(m,a,b,c)=>a+b+'<button type="button" class="chip-btn" data-act="cz-jump" data-id="cz-sec-z">Finery</button>'+c)+shopFineryHTML(S.nation);};}
+
+/* ── trying finery on in Customise: the Shop's pieces appear among the locked ones, and a click shows one on the
+   player's own nation, on this page only and saved nowhere, until it is taken off or the page is left ── */
+const SHOP_FROM={founder:'the Founder’s Package',idpack:'the Nation Identity Card Pack',vip:'The Chancery Club’s collection'};
+czTile=(f=>function(k,id,cur,ok,isNew,inner,label,cls){
+  if(ok||!shopIs(id)||!CZ_KIND[k])return f.apply(this,arguments);
+  const on=!!(SHOP.tryOn&&SHOP.tryOn.id===id);
+  return `<button type="button" data-ux-unlock="${esc(id)}" class="cz-tile locked cz-try${on?' on':''}${cls?' '+cls:''}" data-act="cz-try" data-k="${k}" data-id="${esc(id)}" aria-pressed="${on}"><span class="cz-tv" aria-hidden="true">${inner}</span><span class="cz-tn">${CZ_LOCK}${label?`<span>${esc(label)}</span>`:''}</span><span class="cz-how">${on?'Trying it on':'Try it on'} · from ${esc(SHOP_FROM[UNLOCKS[id].src]||'the Shop')}</span></button>`;
+})(czTile);
+/* the piece being tried on shows on the player's own nation while Customise is open, and nowhere else */
+cz=(f=>function(n){
+  const v=f(n),t=SHOP.tryOn;if(!t)return v;
+  if(S.view!=='customise'){SHOP.tryOn=null;return v;}
+  return n===S.nation?{...v,[t.k]:t.id}:v;
+})(cz);
+/* saving reads the look as cz() gives it: it takes the piece being tried on off first, so it is never saved */
+czSave=(f=>function(fn){if(SHOP.tryOn){SHOP.tryOn=null;czVer++;}return f.apply(this,arguments);})(czSave);
+preSave=(f=>function(k){if(SHOP.tryOn){SHOP.tryOn=null;czVer++;}return f.apply(this,arguments);})(preSave);
+uxUnlockInfo=(f=>function(id){return shopIs(id)?{label:'See it in the Shop',view:'shop',target:'.shop-vh',setup:()=>{}}:f(id);})(uxUnlockInfo);
+function shopTryBar(){const t=SHOP.tryOn,u=t&&UNLOCKS[t.id];if(!u)return '';
+  return `<div class="notice shop-note cz-tryon" role="status"><p><b>Trying on: ${esc(cap1(u.n))}.</b> Only you see it, and only on this page: nothing is saved. It comes with ${esc(SHOP_FROM[u.src]||'the Shop')}.</p><div class="row"><button type="button" class="btn" data-act="go" data-v="shop">See it in the Shop</button><button type="button" class="btn ghost" data-act="cz-try-off">Take it off</button></div></div>`;}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act="cz-try"],[data-act="cz-try-off"]');if(!el)return;
+  if(el.dataset.act==='cz-try-off')SHOP.tryOn=null;
+  else{const id=el.dataset.id,k=el.dataset.k;if(!shopIs(id)||!CZ_KIND[k]||UNLOCKS[id].k!==CZ_KIND[k])return;SHOP.tryOn=SHOP.tryOn&&SHOP.tryOn.id===id?null:{k,id};}
+  czVer++;render();
+});
 
 /* ── the Expanded National Chronicle ──
    chron/<uid>/m/<YYYY-MM> {d: {<time>_<edict>: {i, t, o, ti, fx}}, s: {<YYYY-MM-DD>: {p, c, s}}}: a decision under a

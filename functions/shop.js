@@ -41,7 +41,7 @@
 import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
-import { CATALOGUE, PRODUCTS, FOUNDER_CUTOFF, VIP_COLLECTION, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
+import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, VIP_COLLECTION, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 const LIVE_API = 'https://api.paddle.com', SANDBOX_API = 'https://sandbox-api.paddle.com';
@@ -56,8 +56,12 @@ async function settings(need = true) {
   const s = await getFirestore().doc('authConfig/paddle').get(), d = s.exists ? s.data() : {};
   const env = d.env === 'live' ? 'live' : d.env === 'fake' && EMULATOR ? 'fake' : 'sandbox';
   const prices = d.prices && typeof d.prices === 'object' ? d.prices : {};
-  /* a product's price, or a list whose first is sold now and whose others are older prices that renewals may still carry */
-  const on = !!(d.apiKey && d.webhookSecret && d.clientToken && PRODUCTS.every(p => [].concat(prices[p] || []).length && [].concat(prices[p]).every(v => /^pri_[a-z0-9]{8,64}$/.test(v))));
+  /* a product's price, or a list whose first is sold now and whose others are older prices that renewals may still carry;
+     the shop opens with the products it cannot do without, and offers an optional one (the yearly Club, a gifted month)
+     once its price is set too */
+  const priced = p => [].concat(prices[p] || []).length > 0 && [].concat(prices[p]).every(v => /^pri_[a-z0-9]{8,64}$/.test(v));
+  const on = !!(d.apiKey && d.webhookSecret && d.clientToken && REQUIRED.every(priced));
+  for (const p of PRODUCTS) if (!priced(p)) delete prices[p];
   if (need && !on) refuse('shop_off', 'The Bureau of National Finery is not open yet.');
   return { on, env, apiKey: d.apiKey || '', secret: d.webhookSecret || '', token: d.clientToken || '', prices,
     api: EMULATOR && typeof d.api === 'string' ? d.api : env === 'live' ? LIVE_API : SANDBOX_API,
@@ -96,13 +100,15 @@ async function ingestTx(cfg, d) {
   const f = txFacts(d, cfg.prices);
   if (f.status !== 'completed') return '';
   const [ck, prev] = await db.getAll(db.doc('shopCheckouts/' + f.id), db.doc('shopTx/' + f.id));
-  let uid = ck.exists ? ck.get('uid') : '';
+  /* a gift belongs to the nation it was given to; the Paddle customer stays the payer's */
+  let uid = ck.exists ? ck.get('to') || ck.get('uid') : '';
+  const payer = ck.exists ? ck.get('uid') : '', gift = !!(ck.exists && ck.get('to'));
   if (ck.exists && ck.get('product') !== f.product) f.ok = false;
   if (!uid && isId(f.sub, 'sub')) uid = (await db.doc('shopSubs/' + f.sub).get()).get('uid') || '';
   if (!uid && prev.exists) uid = prev.get('uid') || '';
-  await prev.ref.set({ uid, product: f.product, ok: f.ok, ck: ck.exists, created: ck.exists ? ck.get('at') : 0, paid: f.paid, period: f.period,
+  await prev.ref.set({ uid, payer: payer || uid, gift, product: f.product, ok: f.ok, ck: ck.exists, created: ck.exists ? ck.get('at') : 0, paid: f.paid, period: f.period,
     sub: f.sub, ctm: f.ctm, origin: f.origin, cur: f.cur, total: f.total, price: f.price, status: 'completed', env: cfg.env }, { merge: true });
-  if (uid) await bindCustomer(uid, f.ctm);
+  if (uid) await bindCustomer(payer || uid, f.ctm);
   if (uid && ck.exists && isId(f.sub, 'sub')) await db.doc('shopSubs/' + f.sub).set({ uid, firstTxn: f.id }, { merge: true });
   /* a one-off purchase this server never opened (Paddle's checkout opened by hand with the price): nobody to deliver to */
   if (!uid && !f.sub && !prev.get('refundAsked')) {
@@ -173,11 +179,14 @@ async function settle(cfg, uid) {
   const shopRef = db.doc('shop/' + uid), finRef = db.doc('finery/' + uid);
   const e = await db.runTransaction(async tx => {
     const [shop, nation] = await tx.getAll(shopRef, db.doc('nations/' + uid));
-    const picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks }), now = clock(cfg);
+    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now });
+    /* who gave what: the giving nation's name, as it is now */
+    const from = [...new Set(e.gifts.map(g => g.from))], names = from.length ? Object.fromEntries((await tx.getAll(...from.map(u => db.doc('nations/' + u)))).map(s => [s.id, String(s.get('name') || '').slice(0, 60)])) : {};
     const reg = (nation.exists && nation.get('reg')) || shop.get('reg') || '';
     /* a checkout opened in the last two hours and not yet paid: "awaiting confirmation" on every device */
-    const pend = Object.fromEntries(Object.entries(shop.get('pend') || {}).filter(([p, t]) => now - t < 2 * 3600000 && !(p === 'vip' ? e.vip && e.vip.until > now : e.owns[p])));
+    const pend = Object.fromEntries(Object.entries(shop.get('pend') || {}).filter(([p, t]) => now - t < 2 * 3600000 && !(CLUB.includes(p) ? e.vip && e.vip.until > now : e.owns[p])));
     const doc = { v: 1, owns: e.owns, picks, pend, notes: e.notes.slice(-10), reg, at: now };
+    if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
     tx.set(shopRef, doc);
     if (e.cosmetics.length) tx.set(finRef, { c: e.cosmetics, reg }); else tx.delete(finRef);
@@ -215,37 +224,61 @@ async function pace(uid, field, gap, max) {
 }
 function liveSub(vip) { return vip && ['active', 'past_due', 'trialing', 'paused'].includes(vip.status); }
 
+/* a gift: to another player's nation, a week old at least, that does not own it already (a gifted month of the Club:
+   not while the nation pays for the Club itself) */
+async function giftCheck(uid, to, product, now) {
+  if (!/^[A-Za-z0-9]{10,64}$/.test(to)) throw new HttpsError('invalid-argument', 'Choose a nation to give it to.');
+  if (to === uid) refuse('gift_self', 'A gift goes to another nation. To buy it for yourself, use the button above.');
+  const db = getFirestore(), [nation, shop] = await db.getAll(db.doc('nations/' + to), db.doc('shop/' + to));
+  if (!nation.exists) refuse('gift_unknown', 'That nation cannot receive gifts.');
+  /* the record itself is kept as JSON beside a few headline fields (src/shim.js encode) */
+  let rec = {};
+  try { rec = JSON.parse(nation.get('j') || '{}') || {}; } catch { rec = {}; }
+  const founded = Number(rec.founded) || 0;
+  if (!founded || now - founded < 7 * DAY) refuse('gift_new', 'Gifts go to nations founded at least a week ago.');
+  if (CATALOGUE.products[product].kind === 'once' && (shop.get('owns') || {})[product]) refuse('gift_owned', 'That nation already owns it.');
+  if (CATALOGUE.products[product].kind === 'giftmonth' && liveSub(shop.get('vip'))) refuse('gift_member', 'That nation already pays for The Chancery Club, so a gifted month would add nothing yet.');
+}
+
 async function checkout(cfg, who, d) {
   const db = getFirestore(), uid = who.uid, product = d.product;
   if (!PRODUCTS.includes(product)) throw new HttpsError('invalid-argument', 'Unknown product.');
+  if (!cfg.prices[product]) refuse('not_on_sale', 'That is not on sale yet.');
+  const P = CATALOGUE.products[product], to = typeof d.to === 'string' ? d.to : '', club = CLUB.includes(product);
+  if (P.giftOnly && !to) throw new HttpsError('invalid-argument', 'Choose a nation to give it to.');
+  if (to && !GIFTABLE.includes(product)) throw new HttpsError('invalid-argument', 'That cannot be given as a gift.');
   if (product === 'founder' && clock(cfg) >= FOUNDER_CUTOFF) refuse('sale_ended', 'The Founder’s Package is no longer on sale. The sale ended on 1 February 2027 at 23:59:59 UTC.');
   await db.runTransaction(tx => eligibility(tx, who));
+  if (to) await giftCheck(uid, to, product, clock(cfg));
   const [shop, acct, open] = await Promise.all([db.doc('shop/' + uid).get(), db.doc('shopAcct/' + uid).get(), db.collection('shopCheckouts').where('uid', '==', uid).get()]);
   const owns = shop.get('owns') || {}, vip = shop.get('vip'), now = clock(cfg);
-  if (product !== 'vip' && owns[product]) refuse('owned', 'You already own this.');
-  if (product === 'vip' && liveSub(vip)) vip.status === 'past_due'
-    ? refuse('vip_past_due', 'Your last membership payment did not go through. Update the payment method under Manage subscription to carry on.')
-    : refuse('vip_active', 'You are already a member of The Chancery Club. Manage your membership from the Shop.');
-  if (product === 'vip' && vip && vip.until > now) refuse('vip_paid', 'Your membership is paid until ' + new Date(vip.until).toUTCString() + '. You can join again once it ends.');
-  /* the same checkout again, while Paddle still holds it open */
-  const mine = open.docs.filter(s => s.get('product') === product && s.get('env') === cfg.env && now - s.get('at') < 20 * 3600000).sort((a, b) => b.get('at') - a.get('at'))[0];
+  if (!to) {
+    if (!club && owns[product]) refuse('owned', 'You already own this.');
+    if (club && liveSub(vip)) vip.status === 'past_due'
+      ? refuse('vip_past_due', 'Your last membership payment did not go through. Update the payment method under Manage subscription to carry on.')
+      : refuse('vip_active', 'You are already a member of The Chancery Club. Manage your membership from the Shop.');
+    if (club && vip && vip.until > now) refuse('vip_paid', 'Your membership is paid until ' + new Date(vip.until).toUTCString() + '. You can join again once it ends.');
+  }
+  /* the same checkout again (for the same nation), while Paddle still holds it open */
+  const mine = open.docs.filter(s => s.get('product') === product && (s.get('to') || '') === to && s.get('env') === cfg.env && now - s.get('at') < 20 * 3600000).sort((a, b) => b.get('at') - a.get('at'))[0];
   if (mine) {
     const t = await asked(() => api(cfg, 'GET', '/transactions/' + mine.id));
     if (t && (t.status === 'draft' || t.status === 'ready')) {
-      await db.doc('shop/' + uid).set({ pend: { [product]: now } }, { merge: true });
-      return { txn: mine.id, env: cfg.env, token: cfg.token };
+      if (!to) await db.doc('shop/' + uid).set({ pend: { [product]: now } }, { merge: true });
+      return { txn: mine.id, env: cfg.env, token: cfg.token, gift: !!to };
     }
-    if (t && t.status === 'completed') { const owner = await ingestTx(cfg, t); if (owner) await settle(cfg, owner); return { done: true }; }
+    if (t && t.status === 'completed') { const owner = await ingestTx(cfg, t); if (owner) await settle(cfg, owner); return { done: true, gift: !!to }; }
   }
   await pace(uid, 'n', 0, 12);
   const price = [].concat(cfg.prices[product])[0];
-  const body = { items: [{ price_id: price, quantity: 1 }], custom_data: { uid, product }, collection_mode: 'automatic' };
+  const body = { items: [{ price_id: price, quantity: 1 }], custom_data: to ? { uid, product, to } : { uid, product }, collection_mode: 'automatic' };
   if (isId(acct.get('ctm'), 'ctm')) body.customer_id = acct.get('ctm');
   const t = await asked(() => api(cfg, 'POST', '/transactions', body));
   if (!t || !isId(t.id, 'txn')) refuse('shop_unavailable', 'The payment service did not answer. Nothing was charged. Try again in a minute.');
-  await db.doc('shopCheckouts/' + t.id).set({ uid, product, at: now, env: cfg.env, price });
-  await db.doc('shop/' + uid).set({ pend: { [product]: now } }, { merge: true });
-  return { txn: t.id, env: cfg.env, token: cfg.token };
+  await db.doc('shopCheckouts/' + t.id).set({ uid, product, at: now, env: cfg.env, price, ...(to ? { to } : {}) });
+  /* "a checkout was opened" is for the buyer's own purchases; a gift shows as sent once paid */
+  if (!to) await db.doc('shop/' + uid).set({ pend: { [product]: now } }, { merge: true });
+  return { txn: t.id, env: cfg.env, token: cfg.token, gift: !!to };
 }
 
 async function refresh(cfg, uid) {
@@ -253,11 +286,11 @@ async function refresh(cfg, uid) {
   await pace(uid, 'r', 15000);
   const [cks, subs, done] = await Promise.all([
     db.collection('shopCheckouts').where('uid', '==', uid).get(), db.collection('shopSubs').where('uid', '==', uid).get(), db.collection('shopTx').where('uid', '==', uid).get()]);
-  const have = new Set(done.docs.map(s => s.id)), now = clock(cfg), taken = new Set();
+  const have = new Set(done.docs.map(s => s.id)), now = clock(cfg), taken = new Set(), others = new Set();
   await asked(async () => {
     for (const s of cks.docs) if (!have.has(s.id) && s.get('env') === cfg.env && now - s.get('at') < 7 * DAY) {
       const t = await api(cfg, 'GET', '/transactions/' + s.id);
-      if (t && t.status === 'completed') { await ingestTx(cfg, t); have.add(s.id); }
+      if (t && t.status === 'completed') { const o = await ingestTx(cfg, t); have.add(s.id); if (o && o !== uid) others.add(o); }
       else if (t && ['paid', 'billed', 'past_due'].includes(t.status)) taken.add(s.get('product'));
     }
     for (const s of subs.docs) {
@@ -275,6 +308,7 @@ async function refresh(cfg, uid) {
   const ref = db.doc('shop/' + uid), drop = Object.keys((await ref.get()).get('pend') || {}).filter(p => !taken.has(p));
   if (drop.length) await ref.set({ pend: Object.fromEntries(drop.map(p => [p, FieldValue.delete()])) }, { merge: true });
   if (have.size || subs.size) await asked(() => settle(cfg, uid));
+  for (const o of others) await asked(() => settle(cfg, o));
   return { ok: true };
 }
 
@@ -339,7 +373,7 @@ export async function shopStep(uid, d) {
     /* a nation founded in another region since: the projection follows it */
     if (cfg.on && shop.exists && nation.exists && shop.get('reg') !== nation.get('reg')) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
     /* the prices on sale now (public: the page asks Paddle what they come to in the player's own currency) */
-    const prices = cfg.on ? Object.fromEntries(PRODUCTS.map(p => [p, [].concat(cfg.prices[p])[0]])) : {};
+    const prices = cfg.on ? Object.fromEntries(PRODUCTS.filter(p => cfg.prices[p]).map(p => [p, [].concat(cfg.prices[p])[0]])) : {};
     return { on: cfg.on, env: cfg.on ? cfg.env : '', token: cfg.on ? cfg.token : '', prices, now: clock(cfg), until: FOUNDER_CUTOFF, catalogue: CATALOGUE };
   }
   const cfg = await settings(d.step !== 'closing');

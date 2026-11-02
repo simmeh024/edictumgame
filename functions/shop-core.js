@@ -15,6 +15,12 @@ import CAT from './shop-catalogue.json' with { type: 'json' };
 export const CATALOGUE = CAT;
 export const PRODUCTS = Object.keys(CAT.products);
 export const ONCE = PRODUCTS.filter(p => CAT.products[p].kind === 'once');
+/* the Chancery Club, monthly or yearly; a month of it given as a gift; what can be given; what must be on sale for
+   the shop to open (an optional product is offered only once its price is set) */
+export const CLUB = PRODUCTS.filter(p => CAT.products[p].club);
+export const GIFT_MONTH = PRODUCTS.filter(p => CAT.products[p].kind === 'giftmonth');
+export const GIFTABLE = PRODUCTS.filter(p => CAT.products[p].giftable);
+export const REQUIRED = PRODUCTS.filter(p => !CAT.products[p].optional);
 export const FOUNDER_CUTOFF = Date.parse(CAT.products.founder.until);
 export const FOUNDER_GRACE = CAT.products.founder.graceMinutes * 60000;
 export const VIP_COLLECTION = CAT.products.vip.collection;
@@ -98,16 +104,25 @@ export function addMonth(t) {
   return Date.UTC(y, m, Math.min(d.getUTCDate(), last), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
 }
 
+/* a paid period cut into calendar months, for the monthly pick (a year gives twelve) */
+export function months(p) {
+  const out = [];
+  for (let a = p.s; a < p.e - 3600000;) { const b = Math.min(addMonth(a), p.e); out.push({ ...p, s: a, e: b }); a = b; }
+  return out;
+}
+
 /* What an account owns, from its records:
-     txs   [{id, product, ok, ck, created, paid, period, sub, status}]: its completed transactions (created: when this
-           server opened the checkout; ck: it did)
+     txs   [{id, product, ok, ck, created, paid, period, sub, status, payer, gift}]: its completed transactions (created:
+           when this server opened the checkout; ck: it did; payer: who paid, when another account gave it as a gift)
      adjs  [{txn, action, type, status}]: adjustments to them
      subs  {id: {status, period, cancelAt, next, firstTxn, dup}}: its subscriptions
      picks {periodStart: cosmetic}: the Chancery Club's monthly picks
-   → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, cancelAt, renews, n},
-      refunds: [{txn, why}], cancels: [{sub, why}], notes: [{k, txn, t}], cosmetics: [ids shown to other players]} */
-export function entitlement({ txs = [], adjs = [], subs = {}, picks = {} }) {
-  const out = { owns: {}, vip: null, refunds: [], cancels: [], notes: [], cosmetics: [] };
+     now   the server's time: which paid months to keep for picking (without it, the last three)
+   → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n},
+      gifts: [{p, from, t, txn}], refunds: [{txn, why}], cancels: [{sub, why}], notes: [{k, txn, t}], cosmetics: [ids shown to other players]}
+   A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends. */
+export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now }) {
+  const out = { owns: {}, vip: null, gifts: [], refunds: [], cancels: [], notes: [], cosmetics: [] };
   /* a checkout this server opened, or a renewal of a subscription one of those started */
   const valid = txs.filter(t => t.status === 'completed' && t.ok && (t.ck || t.sub && subs[t.sub]));
   const refund = (t, why) => { const st = refundState(t.id, adjs); if (!st) out.refunds.push({ txn: t.id, why }); out.notes.push({ k: why, txn: t.id, t: t.paid, st: st || 'asked' }); };
@@ -125,12 +140,13 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {} }) {
   }
   /* the Chancery Club: every paid month that still counts. A second subscription whose first payment fell inside a
      month another live subscription had already paid for (two checkouts paid side by side) is cancelled and refunded */
-  const vt = valid.filter(t => t.product === 'vip' && t.sub && !voided(t.id, adjs));
+  const vt = valid.filter(t => CLUB.includes(t.product) && t.sub && !voided(t.id, adjs));
   const bySub = new Map();
   for (const t of vt) {
-    const s = subs[t.sub] || {}, period = t.period || (s.firstTxn === t.id && s.period) || { s: t.paid, e: addMonth(t.paid) };
+    const yearly = CAT.products[t.product].kind === 'yearly', s = subs[t.sub] || {};
+    const period = t.period || (s.firstTxn === t.id && s.period) || { s: t.paid, e: yearly ? Array.from({ length: 12 }).reduce(addMonth, t.paid) : addMonth(t.paid) };
     if (!bySub.has(t.sub)) bySub.set(t.sub, []);
-    bySub.get(t.sub).push({ ...period, sub: t.sub, txn: t });
+    bySub.get(t.sub).push({ ...period, sub: t.sub, txn: t, plan: yearly ? 'year' : 'month' });
   }
   const order = [...bySub.entries()].map(([sub, ps]) => ({ sub, ps, first: Math.min(...ps.map(p => p.txn.paid)) })).sort((a, b) => a.first - b.first);
   const kept = [];
@@ -144,14 +160,28 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {} }) {
     }
     kept.push(...o.ps);
   }
-  if (kept.length) {
-    const per = kept.map(p => ({ s: p.s, e: p.e, sub: p.sub })).sort((a, b) => a.s - b.s), runs = [];
-    for (const p of per) { const r = runs[runs.length - 1]; if (r && p.s <= r[1] + RUN_GAP) r[1] = Math.max(r[1], p.e); else runs.push([p.s, p.e]); }
-    const last = per.reduce((a, b) => b.e > a.e ? b : a), s = subs[last.sub] || {}, status = s.status || 'active', until = runs[runs.length - 1][1];
-    /* maps, not pairs: Firestore stores no arrays inside arrays */
-    out.vip = { until, from: runs[runs.length - 1][0], runs: runs.slice(-4).map(r => ({ s: r[0], e: r[1] })), per: per.slice(-3).map(p => ({ s: p.s, e: p.e })),
-      status, cancelAt: s.cancelAt || 0, renews: status === 'active' && !s.cancelAt ? s.next || 0 : 0, n: per.length };
+  /* months given as gifts, one after another from where the paid membership ends */
+  const cover = kept.map(p => ({ s: p.s, e: p.e }));
+  for (const t of valid.filter(t => GIFT_MONTH.includes(t.product) && t.ck && !voided(t.id, adjs)).sort((a, b) => a.paid - b.paid)) {
+    if (refundState(t.id, adjs) === 'pending') { out.notes.push({ k: 'refund', txn: t.id, t: t.paid, st: 'pending' }); continue; }
+    let s = t.paid, c;
+    while ((c = cover.find(p => p.s <= s && s < p.e))) s = c.e;
+    const g = { s, e: addMonth(s), sub: '', txn: t, plan: 'gift' };
+    cover.push(g); kept.push(g);
   }
+  if (kept.length) {
+    /* a paid year in calendar months; a paid month stays as Paddle billed it (its end need not be a calendar month on) */
+    const per = kept.flatMap(p => { const q = { s: p.s, e: p.e, sub: p.sub, plan: p.plan }; return p.plan === 'year' ? months(q) : [q]; }).sort((a, b) => a.s - b.s), runs = [];
+    for (const p of per) { const r = runs[runs.length - 1]; if (r && p.s <= r[1] + RUN_GAP) r[1] = Math.max(r[1], p.e); else runs.push([p.s, p.e]); }
+    const last = per.reduce((a, b) => b.e > a.e ? b : a), s = subs[last.sub] || {}, gift = last.plan === 'gift';
+    const status = gift ? 'gift' : s.status || 'active', until = runs[runs.length - 1][1];
+    /* the months still to come (a paid year is picked from month by month without another word from Paddle), or the last three */
+    const keep = now ? per.filter(p => p.e > now - 35 * 86400000) : [];
+    /* maps, not pairs: Firestore stores no arrays inside arrays */
+    out.vip = { until, from: runs[runs.length - 1][0], runs: runs.slice(-4).map(r => ({ s: r[0], e: r[1] })), per: (keep.length ? keep.slice(0, 14) : per.slice(-3)).map(p => ({ s: p.s, e: p.e })),
+      status, plan: last.plan, cancelAt: gift ? 0 : s.cancelAt || 0, renews: !gift && status === 'active' && !s.cancelAt ? s.next || 0 : 0, n: per.length };
+  }
+  out.gifts = valid.filter(t => t.gift && t.payer && !voided(t.id, adjs)).sort((a, b) => a.paid - b.paid).slice(-10).map(t => ({ p: t.product, from: t.payer, t: t.paid, txn: t.id }));
   const grant = p => out.owns[p] ? CAT.products[p].grants : [];
   out.cosmetics = [...new Set([...grant('founder'), ...grant('idpack'), ...Object.values(picks || {}).filter(k => VIP_COLLECTION.includes(k))])];
   return out;

@@ -142,7 +142,44 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
     assert.ok(block.includes(src2));
   }
   assert.equal(CATALOGUE.products.founder.amount, 999); assert.equal(CATALOGUE.products.idpack.amount, 299); assert.equal(CATALOGUE.products.vip.amount, 499);
+  assert.equal(CATALOGUE.products.vipyear.amount, 4999); assert.equal(CATALOGUE.products.giftvip.amount, 499);
+  assert.ok(CATALOGUE.products.vipyear.optional && CATALOGUE.products.giftvip.optional, 'the shop opens without them');
   assert.equal(CATALOGUE.currency, 'EUR');
+});
+
+test('the Chancery Club yearly: a paid year, picked from month by month without another word from Paddle', () => {
+  const t0 = Date.UTC(2026, 10, 3), y1 = Array.from({ length: 12 }).reduce(addMonth, t0);
+  const subs = { sub_y: { status: 'active', next: y1, period: { s: t0, e: y1 }, firstTxn: 'txn_y' } };
+  const year = tx('txn_y', 'vipyear', { sub: 'sub_y', paid: t0, period: { s: t0, e: y1 } });
+  const e = entitlement({ txs: [year], subs, now: t0 + DAY });
+  assert.equal(e.vip.until, y1); assert.equal(e.vip.plan, 'year'); assert.equal(e.vip.n, 12); assert.equal(e.vip.renews, y1);
+  assert.equal(e.vip.per.length, 12, 'every month of the year is kept for picking');
+  const m6 = Array.from({ length: 6 }).reduce(addMonth, t0);
+  assert.deepEqual(pickPeriod(e.vip, m6 + DAY), { s: m6, e: addMonth(m6) }, 'the seventh month is a pick of its own');
+  /* a monthly subscription paid inside the year is a second subscription: cancelled and refunded */
+  const month = tx('txn_m', 'vip', { sub: 'sub_m', paid: t0 + 40 * DAY, period: { s: t0 + 40 * DAY, e: addMonth(t0 + 40 * DAY) } });
+  const e2 = entitlement({ txs: [year, month], subs: { ...subs, sub_m: { status: 'active', firstTxn: 'txn_m' } }, now: t0 + 41 * DAY });
+  assert.deepEqual(e2.cancels, [{ sub: 'sub_m', why: 'duplicate' }]); assert.ok(e2.refunds.some(r => r.txn === 'txn_m'));
+});
+
+test('gifts: what was given belongs to the nation it went to; a gifted month starts where the paid membership ends', () => {
+  const t0 = Date.UTC(2026, 10, 3), m1 = addMonth(t0);
+  let e = entitlement({ txs: [tx('txn_g', 'idpack', { gift: true, payer: 'giver', paid: t0 })] });
+  assert.ok(e.owns.idpack); assert.deepEqual(e.gifts, [{ p: 'idpack', from: 'giver', t: t0, txn: 'txn_g' }]);
+  /* given twice (two friends at once): the second is refunded to whoever paid it */
+  e = entitlement({ txs: [tx('txn_g', 'idpack', { gift: true, payer: 'a', paid: t0 }), tx('txn_h', 'idpack', { gift: true, payer: 'b', paid: t0 + H })] });
+  assert.deepEqual(e.refunds, [{ txn: 'txn_h', why: 'duplicate' }]);
+  /* two gifted months: one after the other, a pick each, and nothing renews */
+  e = entitlement({ txs: [tx('txn_1', 'giftvip', { gift: true, payer: 'a', paid: t0 }), tx('txn_2', 'giftvip', { gift: true, payer: 'b', paid: t0 + DAY })], now: t0 + 2 * DAY });
+  assert.equal(e.vip.until, addMonth(m1)); assert.equal(e.vip.plan, 'gift'); assert.equal(e.vip.status, 'gift'); assert.equal(e.vip.renews, 0); assert.equal(e.vip.n, 2);
+  assert.equal(pickPeriod(e.vip, t0 + DAY).s, t0);
+  /* a month given during a paid one waits for it to end */
+  e = entitlement({ txs: [tx('txn_m', 'vip', { sub: 'sub_m', paid: t0, period: { s: t0, e: m1 } }), tx('txn_g', 'giftvip', { gift: true, payer: 'a', paid: t0 + DAY })],
+    subs: { sub_m: { status: 'canceled', firstTxn: 'txn_m' } }, now: t0 + 2 * DAY });
+  assert.equal(e.vip.until, addMonth(m1)); assert.deepEqual(e.vip.runs, [{ s: t0, e: addMonth(m1) }]);
+  /* refunded: the month no longer counts, and the gift is no longer listed */
+  e = entitlement({ txs: [tx('txn_1', 'giftvip', { gift: true, payer: 'a', paid: t0 })], adjs: [adj('txn_1', 'refund', 'approved')], now: t0 + DAY });
+  assert.equal(e.vip, null); assert.deepEqual(e.gifts, []);
 });
 
 /* ── the desk: the game's own syncInbox, holidays and all ── */
