@@ -44,7 +44,7 @@ check('new-player reveal state is private',(await nationDoc(uid)).rec.onb.v===1&
 await A.screenshot({path:OUT+'/onboarding-charter-1280.png'});
 await A.goto(BASE+'/#customise');await A.waitForSelector('.pg-charter');
 check('direct Customise links respect the unfinished charter',await A.locator('#cz-sec-c').count()===0);
-await A.click('[data-act="pg-charter"]');await A.waitForSelector('#cz-sec-c');
+await A.click('[data-act="pg-charter"]');await A.waitForSelector('#cz-sec-c',{state:'attached'});
 check('Finish charter reveals full Customise and its menu entry',await A.locator('.nav [data-v="customise"]').count()===1);
 check('finishing the charter offers optional linking with the existing reward',await until(()=>A.locator('.account-link-card').isVisible())&&/5 land credits/.test(await A.locator('.account-link-card').textContent()));
 await A.locator('.account-link-card [data-act="account-compare"]').click();await A.waitForSelector('#help-account-types');

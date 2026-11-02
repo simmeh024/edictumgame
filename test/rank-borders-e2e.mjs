@@ -53,7 +53,7 @@ check('the Census page’s Hall of Honours shows the nation in its border and ra
 await shot('.id-hon','rank-census.png');
 
 /* Customise: an earlier border can be chosen; the card keeps it, and Follow my rank brings the rank's back */
-await nav(A,'customise');
+await nav(A,'customise');await A.click('#cz-tab-look');
 check('Customise offers every border, the rank’s own first',await A.locator('.cz-g-bd .cz-tile').count()===info.borders+1);
 await shot('.cz-g-bd','rank-customise.png');
 await A.click('#cz-bd-b-silver');
