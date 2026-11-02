@@ -206,5 +206,18 @@ const auditRows = () => A.$eval('.adm-main .tbl', el => el.innerText).catch(() =
 check('and the ban, the unban and the hiding', await until(async () => { const t = await auditRows(); return /^ban\s/m.test(t) && /Ban evasion/.test(t) && /^unban\s/m.test(t) && /^hide\s/m.test(t) && /Offensive motto/.test(t); }), (await auditRows()).slice(0, 300));
 await A.fill('#admin-audit-target', uidR); await A.click('#admin-audit-filter button:not([type])');
 check('and the forced rename, the player’s new name and the notes, without their text', await until(async () => { const t = await auditRows(); return /^rename\s/m.test(t) && /Offensive name/.test(t) && /^renamed\s/m.test(t) && /Kindland/.test(t) && /it was Rudeland/.test(t) && /^note saved\s/m.test(t) && !/Warned on 31 October/.test(t); }), (await auditRows()).slice(0, 400));
+// Statistics: how players use the game, for the whole world and then for one region, whose nations it lists
+await page('admin-stats');
+const stText = () => text(A, '.adm-main');
+check('Statistics counts the players, their edicts, the tutorial and every region', await until(async () => { const t = await stText(); return /active today/.test(t) && /Coming back/.test(t) && /Getting started/.test(t) && /Choose where your capital stands/.test(t) && /Meridian Reach/.test(t) && /Sign-ins/.test(t); }, 30000), (await stText()).slice(0, 400));
+check('a chart names the day and its count under the pointer', await (async () => { await A.hover('.adst-cols .adst-c:last-child'); return await until(async () => /^\d+ \w+: \d+ nations$/.test(await A.evaluate(() => { const t = document.getElementById('vtip'); return t && !t.hidden ? t.textContent : ''; }))); })());
+await A.screenshot({ path: OUT + '/admin-stats.png', fullPage: true });
+await A.selectOption('#st-reg', 'meridian');
+check('choosing a region lists its nations', await until(async () => { const t = await stText(); return /Nations in Meridian Reach/.test(t) && /Adminland/.test(t) && !/Choose a region to see/.test(t); }, 30000));
+const wide = A.viewportSize(); await A.setViewportSize({ width: 390, height: 844 });
+check('the page fits a phone without scrolling sideways', await until(async () => await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)));
+await A.screenshot({ path: OUT + '/admin-stats-phone.png', fullPage: true }); await A.setViewportSize(wide);
+await A.click(`.adst-sec [data-act="admin-inspect"][data-id="${uidA}"]`);
+check('and a nation’s player is a click away', await until(async () => await A.evaluate(() => G.S.view) === 'admin-players' && (await detail()).includes(uidA)));
 await C.ctx.close(); await D.ctx.close(); await R.ctx.close();
 await finish();
