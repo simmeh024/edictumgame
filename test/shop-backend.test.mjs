@@ -89,6 +89,7 @@ test('not set up, a guest, an unknown product: refused, and nothing reaches Padd
   const st = await call(r, { step: 'status' });
   assert.equal(st.on, true); assert.equal(st.env, 'sandbox'); assert.equal(st.token, 'test_clienttoken'); assert.equal(st.until, FOUNDER_CUTOFF); assert.deepEqual(st.catalogue, CATALOGUE);
   assert.ok(!('apiKey' in st) && !JSON.stringify(st).includes('pdl_'), 'no secret leaves the server');
+  assert.deepEqual(st.prices, PRICES, 'the prices on sale, for the local-currency preview');
   const n = P.calls.length;
   await rejects(call(g, { step: 'checkout', product: 'founder' }), 'registration_required');
   await assert.rejects(call(r, { step: 'checkout', product: 'gold-bars' }), e => e.status === 'INVALID_ARGUMENT');

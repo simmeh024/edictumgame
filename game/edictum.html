@@ -4514,6 +4514,7 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .shop-head .h2{margin:0}
 .shop-price{margin:0;font:650 30px/1 var(--f-display);white-space:nowrap;text-align:right}
 .shop-price span{display:block;margin-top:4px;font:500 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted,inherit);opacity:.75;text-align:inherit}
+.shop-price .shop-local{margin-top:6px;font:500 13px/1.3 var(--f-body);letter-spacing:0;text-transform:none;opacity:.9;white-space:normal}
 .shop-deadline{font-size:14px}
 .shop-list{margin:10px 0 16px;padding-left:1.1em;display:grid;gap:6px}
 .shop-list b{font-weight:650}
@@ -43183,7 +43184,7 @@ for(const is of MIX_ISSUES){
    cosmetics stay out of Customise (they are not enumerable in UNLOCKS); the Shop shows them instead. */
 const SHOP_CAT=/*SHOP_CATALOGUE*/null;
 const SHOP_KEY='edictum.shop.',SHOP_UNTIL=Date.UTC(2027,1,2);
-const SHOP={doc:null,sig:'{}',cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finSig:'[]',finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0};
+const SHOP={doc:null,sig:'{}',cached:false,uid:'',cfg:null,statusP:null,statusAt:0,fin:new Map(),finSig:'[]',finUnsub:null,unsub:null,busy:'',err:'',wait:null,open:null,checking:false,pv:'banner',cd:'cd-ledger',pvSet:new WeakSet(),skew:0,closeT:0,local:null,localAsked:false};
 const SHOP_NONE=new Set();
 {
   const add=(id,k,n,src)=>Object.defineProperty(UNLOCKS,id,{value:{k,n,src},enumerable:false,configurable:true,writable:true});
@@ -43206,6 +43207,18 @@ function shopCat(){return SHOP_CAT||(SHOP.cfg&&SHOP.cfg.catalogue)||null;}
 function shopUntil(){const c=shopCat(),t=c?Date.parse(c.products.founder.until):NaN;return isFinite(t)?t:SHOP_UNTIL;}
 function shopNow(){return Date.now()+SHOP.skew;}
 function shopPrice(p){const c=shopCat(),a=c&&c.products[p]&&c.products[p].amount;if(!a)return '';try{return new Intl.NumberFormat('en-IE',{style:'currency',currency:c.currency||'EUR'}).format(a/100);}catch(e){return '€'+(a/100).toFixed(2);}}
+/* Paddle charges in the player's own currency where it can: once Paddle has said what that comes to (tax included,
+   e.g. MX$209.39), the buttons show it and each euro price carries it underneath */
+function shopPay(p){return SHOP.local&&SHOP.local.p[p]||shopPrice(p);}
+function shopLocalTag(p,per){const v=SHOP.local&&SHOP.local.p[p];return v?`<span class="shop-local">${esc(v)}${per?' '+per:''} in your currency</span>`:'';}
+function shopLocalPrices(){
+  const c=SHOP.cfg;if(SHOP.localAsked||!c||!c.on||!c.prices)return;SHOP.localAsked=true;
+  const ids=SHOP_PRODUCTS.map(p=>c.prices[p]).filter(Boolean);
+  shopApiP().then(api=>api&&typeof api.local==='function'?api.local({env:c.env,token:c.token,items:ids}):null).then(r=>{
+    if(!r||!r.cur||r.cur===((shopCat()||{}).currency||'EUR'))return;
+    const m={};for(const p of SHOP_PRODUCTS){const v=r.prices[c.prices[p]];if(v)m[p]=v;}
+    if(!Object.keys(m).length)return;SHOP.local={cur:r.cur,p:m};if(S.view==='shop'&&!document.hidden)render();}).catch(()=>{});
+}
 function shopLocal(t){try{return new Date(t).toLocaleString('en-GB',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'});}catch(e){return new Date(t).toString();}}
 function shopDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});}catch(e){return fmtDate(t);}}
 
@@ -43590,13 +43603,13 @@ function shopFounder(n,t){
     ['Founder’s capital marker','A brass medallion beside your capital on the world map.'],['Founder’s Gilt','A brass edge, fine hatching and a quiet shimmer on your land, seen by every player in your region. Your map colour stays your own.'],
     ['Passport inscription','“Founding Supporter · First Edition” in brass lettering on your passport.'],['A personal certificate','With your nation’s name and the date, in your museum, to print or download.']];
   return `<section class="shop-item shop-founder" aria-labelledby="shop-f-h">
-    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment · not sold after 1 February 2027</p><h2 class="h2" id="shop-f-h">The Founder’s Package</h2></div><p class="shop-price" id="shop-founder-price">${esc(shopPrice('founder'))}<span>once</span></p></div>
+    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment · not sold after 1 February 2027</p><h2 class="h2" id="shop-f-h">The Founder’s Package</h2></div><p class="shop-price" id="shop-founder-price">${esc(shopPrice('founder'))}<span>once</span>${shopLocalTag('founder')}</p></div>
     <p>For those who were here at the start. Seven pieces of founder finery and a certificate, each yours to wear or to leave in the drawer. They bring no prestige and no rank: only the satisfaction of having been early.</p>
     ${when}
     <ul class="shop-list">${items.map(([a,b])=>`<li><b>${esc(a)}</b> ${esc(b)}</li>`).join('')}</ul>
     <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview the Founder’s Package on your nation">${pvs.map(([k,l])=>`<button type="button" class="seg-b${SHOP.pv===k?' on':''}" data-act="shop-pv" data-v="${k}" aria-pressed="${SHOP.pv===k}">${l}</button>`).join('')}</div>
       <div class="shop-pv-box" aria-live="polite"><p class="shop-pv-l">Preview: ${esc(n.name)}${SHOP.pv==='banner'?', with the badge, banner and frame':SHOP.pv==='land'?', on the world map':''}</p>${pv}</div></div>
-    ${own?shopOwned('founder','<button type="button" class="btn ghost" data-act="shop-cert">See your certificate</button>'):`<div class="row shop-row">${open?shopCta('founder','Buy the Founder’s Package · '+shopPrice('founder')):''}</div>`}
+    ${own?shopOwned('founder','<button type="button" class="btn ghost" data-act="shop-cert">See your certificate</button>'):`<div class="row shop-row">${open?shopCta('founder','Buy the Founder’s Package · '+shopPay('founder')):''}</div>`}
   </section>`;
 }
 function shopIdPack(n){
@@ -43604,29 +43617,29 @@ function shopIdPack(n){
   const blurb={'cd-ledger':'Cream ledger paper, ruled in faint blue with a red margin, typed like a consular register.','cd-atlas':'Map paper: a graticule, contour lines and a compass rose, in sepia and sea green.','cd-civic':'A clean modern card: a band of your nation’s colour, bold type and plenty of air.'};
   let pv='';try{pv=`<div class="shop-pv-hero" inert>${hero(shopPv(n,{cd:cur}))}</div>`;}catch(e){pv='';}
   return `<section class="shop-item shop-idpack" aria-labelledby="shop-i-h">
-    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment</p><h2 class="h2" id="shop-i-h">Nation Identity Card Pack</h2></div><p class="shop-price" id="shop-idpack-price">${esc(shopPrice('idpack'))}<span>once</span></p></div>
+    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment</p><h2 class="h2" id="shop-i-h">Nation Identity Card Pack</h2></div><p class="shop-price" id="shop-idpack-price">${esc(shopPrice('idpack'))}<span>once</span>${shopLocalTag('idpack')}</p></div>
     <p>Three designs for your nation card. Switch between them, or back to the classic card, in Customise whenever you like. Your rank’s border stays exactly as it is.</p>
     <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview a card design">${cds.map(id=>`<button type="button" class="seg-b${cur===id?' on':''}" data-act="shop-cd" data-v="${id}" aria-pressed="${cur===id}">${esc(UNLOCKS[id].n)}</button>`).join('')}</div>
       <div class="shop-pv-box" aria-live="polite"><p class="shop-pv-l">${esc(UNLOCKS[cur].n)}: ${esc(blurb[cur]||'')}</p>${pv}</div></div>
-    ${own?shopOwned('idpack'):`<div class="row shop-row">${shopCta('idpack','Buy the card pack · '+shopPrice('idpack'))}</div>`}
+    ${own?shopOwned('idpack'):`<div class="row shop-row">${shopCta('idpack','Buy the card pack · '+shopPay('idpack'))}</div>`}
   </section>`;
 }
 function shopVipSec(n,t){
   const v=shopVip(),member=shopMember(),cfg=SHOP.cfg,on=!!(cfg&&cfg.on),st=v&&v.status;
   let state='';
   if(member){
-    state=`<p class="shop-owned"><span class="chip ok">Member</span> Paid until ${esc(shopDate(v.until))}.${v.cancelAt?` Your membership ends then: you cancelled it.`:v.renews?` Renews on ${esc(shopDate(v.renews))} at ${esc(shopPrice('vip'))}.`:''}${st==='past_due'?' <b>Your last payment did not go through.</b> Update the payment method to carry on.':''}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p>
+    state=`<p class="shop-owned"><span class="chip ok">Member</span> Paid until ${esc(shopDate(v.until))}.${v.cancelAt?` Your membership ends then: you cancelled it.`:v.renews?` Renews on ${esc(shopDate(v.renews))} at ${esc(shopPay('vip'))}.`:''}${st==='past_due'?' <b>Your last payment did not go through.</b> Update the payment method to carry on.':''}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p>
       <div class="row shop-row"><button type="button" class="btn ghost" data-act="shop-portal"${!on||S.mode!=='world'?' disabled':''}>Manage subscription</button>${v.cancelAt&&on?`<button type="button" class="btn ghost" data-act="shop-resume"${SHOP.busy?' disabled':''}>Keep my membership</button>`:''}</div>`;
   }else if(v){
     state=`<p class="shop-owned"><span class="chip">Ended</span> Your membership ended on ${esc(shopDate(v.until))}. Your monthly picks are yours to keep, saved presets still load, and your Chronicle stays, read-only.${st==='past_due'?' Your last payment did not go through: update the payment method to rejoin without a gap.':''}</p>
-      <div class="row shop-row">${st==='past_due'?`<button type="button" class="btn" data-act="shop-portal"${!on?' disabled':''}>Update payment method</button>`:shopCta('vip','Join again · '+shopPrice('vip')+' a month')}</div>`;
-  }else state=`<div class="row shop-row">${shopCta('vip','Join the Chancery Club · '+shopPrice('vip')+' a month')}</div>`;
+      <div class="row shop-row">${st==='past_due'?`<button type="button" class="btn" data-act="shop-portal"${!on?' disabled':''}>Update payment method</button>`:shopCta('vip','Join again · '+shopPay('vip')+' a month')}</div>`;
+  }else state=`<div class="row shop-row">${shopCta('vip','Join the Chancery Club · '+shopPay('vip')+' a month')}</div>`;
   const picks=SHOP.doc&&SHOP.doc.picks||{},held=new Set(Object.values(picks)),per=member&&v&&Array.isArray(v.per)?v.per.find(p=>p.s<=t&&t<p.e):null,used=per&&picks[per.s];
   const pickHTML=SHOP_IDS.vip.map(id=>{const h=held.has(id),u=UNLOCKS[id];
     return `<li class="shop-pk${h?' held':''}"><span class="shop-pk-v" aria-hidden="true">${shopArt(id,n)}</span><span class="shop-pk-n">${esc(cap1(u.n))}<span class="hint">${esc({title:'Epithet',accent:'Accent colour',stamp:'Decision stamp',pattern:'Banner pattern',frame:'Flag frame',pin:'Capital marker'}[u.k]||'')}</span></span>${h?'<span class="chip ok">Yours</span>':per&&!used&&on?`<button type="button" class="btn ghost sm" data-act="shop-pick" data-id="${id}"${SHOP.busy?' disabled':''}>Choose</button>`:''}</li>`;}).join('');
   const pickNote=!member?'Members choose one each paid month, and keep it for good.':used?`This month’s choice: ${esc(cap1(UNLOCKS[used].n))}. The next comes with your next paid month${v.renews?' ('+esc(shopDate(v.renews))+')':''}.`:per?'Choose one for this month. It stays yours, membership or not.':'Your choice for this month opens once the payment is confirmed.';
   return `<section class="shop-item shop-vip" aria-labelledby="shop-v-h">
-    <div class="shop-head"><div><p class="eyebrow">Recurring · billed monthly until you cancel</p><h2 class="h2" id="shop-v-h">The Chancery Club</h2></div><p class="shop-price" id="shop-vip-price">${esc(shopPrice('vip'))}<span>a month</span></p></div>
+    <div class="shop-head"><div><p class="eyebrow">Recurring · billed monthly until you cancel</p><h2 class="h2" id="shop-v-h">The Chancery Club</h2></div><p class="shop-price" id="shop-vip-price">${esc(shopPrice('vip'))}<span>a month</span>${shopLocalTag('vip','a month')}</p></div>
     <p>A little convenience for those who govern often. Edicts arrive at the same pace for everyone; members simply have room for more of them.</p>
     <ul class="shop-list">
       <li><b>Ten waiting edicts instead of five.</b> The same pace of arrival: your desk just holds more while you are away.</li>
@@ -43640,7 +43653,7 @@ function shopVipSec(n,t){
 }
 function shopSmall(){
   return `<section class="shop-small" aria-label="The small print"><h2 class="lbl-h">The small print</h2><ul>
-    <li>Prices are in euros and include VAT or sales tax where it applies. Paddle.com, our reseller and merchant of record, takes the payment, sends the receipt and answers billing questions.</li>
+    <li>Prices are set in euros and include VAT or sales tax where it applies. Paddle charges in your own currency where it can, at its exchange rate of the day: the Shop shows that amount once Paddle has worked out your country from your connection, and the checkout shows the exact amount before you pay. Paddle.com, our reseller and merchant of record, takes the payment, sends the receipt and answers billing questions.</li>
     <li>Purchases belong to your account (a linked sign-in), not to this device: they follow you to every device and to any nation you found later.</li>
     <li>The Founder’s Package is sold until 1 February 2027, 23:59:59 UTC, by the server’s clock. A checkout opened before then and paid within two hours of the end counts; a payment made later than that is refunded in full, and if the refund cannot be made the package is delivered. Nobody is charged without receiving it.</li>
     <li>The Chancery Club renews every month until you cancel. Cancel any time under Manage subscription: you keep the benefits until the end of the month you paid for. When a membership ends, every waiting edict stays on your desk and new ones arrive once fewer than five are waiting; your picks stay yours, presets still load, and the Chronicle becomes read-only.</li>
@@ -43648,7 +43661,7 @@ function shopSmall(){
 }
 function shopView(now){
   const n=S.nation;if(!n)return '';
-  if(!SHOP.cfg)shopStatus();
+  if(!SHOP.cfg)shopStatus();else shopLocalPrices();
   const t=shopNow();
   return `<header class="vh shop-vh"><p class="eyebrow">Cosmetics and convenience</p><h1>Bureau of National Finery</h1><p>Finery for ${esc(theName(n))}. Everything here is cosmetic or a small convenience: none of it adds prestige, rank, resources or power. Your citizens will remain unimpressed.</p></header>
   ${shopNotice(n)}${shopFounder(n,t)}${shopIdPack(n)}${shopVipSec(n,t)}${shopSmall()}`;

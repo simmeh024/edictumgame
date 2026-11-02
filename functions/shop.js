@@ -333,7 +333,9 @@ export async function shopStep(uid, d) {
     const cfg = await settings(false), [shop, nation] = await db.getAll(db.doc('shop/' + uid), db.doc('nations/' + uid));
     /* a nation founded in another region since: the projection follows it */
     if (cfg.on && shop.exists && nation.exists && shop.get('reg') !== nation.get('reg')) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
-    return { on: cfg.on, env: cfg.on ? cfg.env : '', token: cfg.on ? cfg.token : '', now: clock(cfg), until: FOUNDER_CUTOFF, catalogue: CATALOGUE };
+    /* the prices on sale now (public: the page asks Paddle what they come to in the player's own currency) */
+    const prices = cfg.on ? Object.fromEntries(PRODUCTS.map(p => [p, [].concat(cfg.prices[p])[0]])) : {};
+    return { on: cfg.on, env: cfg.on ? cfg.env : '', token: cfg.on ? cfg.token : '', prices, now: clock(cfg), until: FOUNDER_CUTOFF, catalogue: CATALOGUE };
   }
   const cfg = await settings(d.step !== 'closing');
   if (!cfg.on) return { ok: true };

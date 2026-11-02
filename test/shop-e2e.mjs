@@ -67,12 +67,19 @@ check('the Shop is under its own heading', /Bureau of National Finery/.test(awai
 check('a guest is told purchases need a linked sign-in', /Purchases belong to your account/.test(await txt(G, '.shop-link')));
 await click(G, '[data-act="shop-buy"][data-p="founder"]');
 check('buying as a guest asks for a link instead', /link a sign-in first/i.test(await txt(G, '.shop-err')) && !(await G.evaluate(() => window.__edictumCheckout)));
+check('without an answer from Paddle the prices stay in euros alone', !(await G.evaluate(() => document.querySelector('.shop-local'))) && /€9\.99/.test(await txt(G, '[data-act="shop-buy"][data-p="founder"]')));
 
 /* ── a Registered Nation buys the Founder's Package ── */
 const A = await player('shop founder', { vp: { width: 1280, height: 1000 }, cap: 500 });const aUid = await open(A);await found(A, 'Gildmark');await register(A);
+/* Paddle answers in the player's own currency (here Mexican pesos), as it does for a player in Mexico */
+await A.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66' }; window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])) }); }, PRICES);
 await go(A, 'shop');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package comes first, priced in euros', /€9\.99/.test(page) && (await A.evaluate(() => document.querySelector('.shop-item').classList.contains('shop-founder'))), page.slice(0, 120));
+const local = await until(() => A.evaluate(() => { const f = document.querySelector('#shop-founder-price .shop-local'), v = document.querySelector('#shop-vip-price .shop-local'); return f && v ? [f.textContent, v.textContent] : null; }), 8000);
+check('each euro price carries what it comes to in the player’s currency', !!local && local[0] === 'MX$209.39 in your currency' && local[1] === 'MX$104.66 a month in your currency', JSON.stringify(local));
+check('the buttons ask for the amount Paddle will charge', /MX\$209\.39/.test(await txt(A, '[data-act="shop-buy"][data-p="founder"]')) && /MX\$104\.66 a month/.test(await txt(A, '[data-act="shop-buy"][data-p="vip"]')));
+check('the small print says Paddle charges in the player’s own currency', /charges in your own currency/.test(await txt(A, '.shop-small')));
 check('the deadline is given in UTC and in the player’s own time', /1 February 2027, 23:59:59 UTC/.test(page) && /where you are/.test(page));
 check('permanent and recurring are told apart', /Permanent/.test(await txt(A, '.shop-founder .eyebrow')) && /Recurring/.test(await txt(A, '.shop-vip .eyebrow')));
 check('the humour survives', /Your citizens will remain unimpressed/.test(await txt(A, '.shop-vh')));

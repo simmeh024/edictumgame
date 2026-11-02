@@ -467,7 +467,7 @@
   var civicApi = Object.freeze({ request: function(data) { return call('civic', data); } });
   /* the shop (functions/shop.js, through the accounts callable): request({step, …}); checkout({txn, env, token, theme,
      onEvent}) opens Paddle's checkout over the page for a transaction the server made. Paddle.js is loaded from
-     Paddle's own address only when a checkout opens. In the emulators the server may answer env 'fake': no Paddle,
+     Paddle's own address only when the Shop asks for local prices or a checkout opens. In the emulators the server may answer env 'fake': no Paddle,
      and the tests drive window.__edictumCheckout instead. */
   var PADDLE = { p: null, token: '', on: null };
   function paddleJs() {
@@ -481,8 +481,40 @@
     });
     return PADDLE.p;
   }
+  function paddleReady(o) {
+    return paddleJs().then(function (P) {
+      if (PADDLE.token !== o.token) {
+        if (PADDLE.token) throw mapError({ code: 'unavailable', message: 'The checkout changed; reload the page' });
+        if (o.env === 'sandbox') P.Environment.set('sandbox');
+        P.Initialize({ token: str(o.token, 200), eventCallback: function (e) { if (PADDLE.on) PADDLE.on(e); } });
+        PADDLE.token = o.token;
+      }
+      return P;
+    });
+  }
   var shopApi = Object.freeze({
     request: function (data) { return A.frozen ? hang() : call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'shop' })); },
+    /* local({env, token, items: [pri_…]}) → {cur, prices: {pri_…: 'MX$209.39'}}: what Paddle charges where the player
+       is (it works the country out from their IP address), tax included, or null. In the emulators the tests answer
+       through window.__edictumPrices(items). */
+    local: function (o) {
+      var items = isObj(o) && Array.isArray(o.items) ? o.items.filter(function (v) { return typeof v === 'string' && /^pri_[a-z0-9]{8,64}$/.test(v); }).slice(0, 10) : [];
+      if (!items.length) return Promise.resolve(null);
+      var tidy = function (r) {
+        if (!isObj(r) || typeof r.cur !== 'string' || !isObj(r.prices)) return null;
+        var out = {};
+        items.forEach(function (id) { if (typeof r.prices[id] === 'string') out[id] = str(r.prices[id], 40); });
+        return { cur: str(r.cur, 3).toUpperCase(), prices: out };
+      };
+      if (o.env === 'fake') return Promise.resolve(typeof window.__edictumPrices === 'function' ? tidy(window.__edictumPrices(items)) : null);
+      return paddleReady(o).then(function (P) {
+        return P.PricePreview({ items: items.map(function (id) { return { priceId: id, quantity: 1 }; }) });
+      }).then(function (r) {
+        var d = r && r.data, lines = d && d.details && Array.isArray(d.details.lineItems) ? d.details.lineItems : [], prices = {};
+        lines.forEach(function (l) { if (l && l.price && l.formattedTotals) prices[l.price.id] = l.formattedTotals.total; });
+        return tidy({ cur: d && d.currencyCode, prices: prices });
+      }).catch(function () { return null; });
+    },
     checkout: function (o) {
       if (!isObj(o) || typeof o.txn !== 'string' || !/^txn_[a-z0-9]{8,64}$/.test(o.txn)) return Promise.reject(mapError({ code: 'invalid-argument' }));
       PADDLE.on = function (e) { if (typeof o.onEvent === 'function') try { o.onEvent({ name: str(e && e.name, 60), txn: str(e && e.data && e.data.transaction_id, 80) }); } catch (x) {} };
@@ -490,13 +522,7 @@
         window.__edictumCheckout = { txn: o.txn, event: function (name) { PADDLE.on({ name: name, data: { transaction_id: o.txn } }); } };
         return Promise.resolve({ opened: true });
       }
-      return paddleJs().then(function (P) {
-        if (PADDLE.token !== o.token) {
-          if (PADDLE.token) throw mapError({ code: 'unavailable', message: 'The checkout changed; reload the page' });
-          if (o.env === 'sandbox') P.Environment.set('sandbox');
-          P.Initialize({ token: str(o.token, 200), eventCallback: function (e) { if (PADDLE.on) PADDLE.on(e); } });
-          PADDLE.token = o.token;
-        }
+      return paddleReady(o).then(function (P) {
         P.Checkout.open({ transactionId: o.txn, settings: { displayMode: 'overlay', variant: 'one-page', theme: o.theme === 'dark' ? 'dark' : 'light', showAddDiscounts: false } });
         return { opened: true };
       });
