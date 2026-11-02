@@ -72,6 +72,13 @@
   }
   var L = { get: function (k) { return sget('localStorage', k); }, set: function (k, v) { return sset('localStorage', k, v); } };
   var SS = { get: function (k) { return sget('sessionStorage', k); }, set: function (k, v) { return sset('sessionStorage', k, v); } };
+  /* An admin observing another region (game/edictum.html, OBS) sees it read-only. While this tab's key is set, the
+     adapter refuses what would act for the player there or touch their nation: saving or deleting any document but
+     the admin's own staff mark and development news, a board post, the referee, the Assembly and the shop. The game
+     sends none of these while observing; this holds should a page path be missed. */
+  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta'];
+  function observing() { return !!SS.get(SS_OBSERVE); }
+  function readOnly() { return mapError({ code: 'read_only', message: 'Nothing is saved while observing a region.' }); }
   function parse(s) { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } }
   function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
   function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
@@ -301,12 +308,14 @@
   }
   function docApi(path) {
     var p = String(path).split('/').filter(Boolean), col = p[0], ref = A.fs.doc(p.join('/')), nation = col === 'nations' && p.length === 2;
+    var shut = function () { return observing() && OBS_WRITE.indexOf(col) < 0; };
     return Object.freeze({
       id: ref.id,
       path: ref.path,
       get: function () { return (nation ? getNation(p[1]) : ref.get().then(snapOf)).then(null, function (e) { throw mapError(e); }); },
       set: function (data) {
         if (A.frozen) return hang();
+        if (shut()) return Promise.reject(readOnly());
         if (nation) {
           if (!A.auth.currentUser || A.auth.currentUser.uid !== p[1]) return Promise.reject(mapError({ code: 'permission-denied' }));
           try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
@@ -317,11 +326,13 @@
       /* fields merged into what is there, maps and all (the shop's National Chronicle adds entries this way) */
       merge: function (data) {
         if (A.frozen) return hang();
+        if (shut()) return Promise.reject(readOnly());
         if (nation) return Promise.reject(mapError({ code: 'invalid-argument' }));
         return ref.set(encode(col, data), { merge: true }).then(function () {}, function (e) { throw mapError(e); });
       },
       delete: function () {
         if (A.frozen) return hang();
+        if (shut()) return Promise.reject(readOnly());
         if (A.admin && col === 'boards' && p.length === 4) return adminApi.request({ op: 'moderate', action: 'delete_post', target: p[3], reg: p[1], reason: 'Removed from the region board' });
         return (nation ? dropNation(p[1]) : ref.delete()).then(function () {}, function (e) { throw mapError(e); });
       },
@@ -389,6 +400,7 @@
   /* a post on a region's board, paced by limits/<uid> (see firestore.rules) */
   function post(reg, text) {
     if (A.frozen) return hang();
+    if (observing()) return Promise.reject(readOnly());
     var u = A.auth.currentUser;
     if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
     return call('civic', { op: 'topic', reg: str(reg,40), text: String(text || '') }).then(function(r) { return r.id; });
@@ -451,6 +463,8 @@
   async function call(name, data) {
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
+    var op = isObj(data) ? data.op : '';
+    if (observing() && (name === 'referee' || name === 'civic' && !/^news/.test(op) || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);
@@ -987,10 +1001,10 @@
   function paintSync() {
     if (!ui.sync) return;
     ui.sync.hidden = ui.box.classList.contains('ed-head') || !localNation();
-    var state = !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
-    var labels = { synced: 'Synced', saving: 'Saving', offline: 'Offline' };
+    var state = observing() ? 'observing' : !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
+    var labels = { synced: 'Synced', saving: 'Saving', offline: 'Offline', observing: 'Read-only' };
     var tips = { synced: 'Your latest changes are saved online.', saving: 'Your latest changes are waiting for server confirmation.',
-      offline: 'Your nation is saved in this browser. Reconnect or reload to sync.' };
+      offline: 'Your nation is saved in this browser. Reconnect or reload to sync.', observing: 'You are observing a region: nothing is saved in this tab.' };
     if (ui.sync.dataset.state === state) return;
     ui.sync.dataset.state = state;
     ui.sync.textContent = labels[state];
@@ -1002,7 +1016,8 @@
   var healthSession = SS.get('edictum.health.session') || (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
   SS.set('edictum.health.session', healthSession);
   function healthSoon() {
-    if (healthTimer || !A.online || A.frozen || A.leaving || !A.auth.currentUser || !localNation()) return;
+    /* an observing tab saves nothing, so it has no save health to report */
+    if (healthTimer || !A.online || A.frozen || A.leaving || observing() || !A.auth.currentUser || !localNation()) return;
     healthTimer = setTimeout(function () {
       healthTimer = 0;
       if (!navigator.onLine || A.frozen || A.leaving) return;

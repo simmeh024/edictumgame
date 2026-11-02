@@ -855,6 +855,22 @@ first night after the workflow reaches `main`; **Actions** â†’ **Statistics** â†
 last 24 hours at once, as that day's point (the night's run then leaves that day alone). The rules refuse
 `statsDays/` to every client.
 
+### 9c3. Observing another region
+
+An admin can open any other region as its players see it, read-only: **Observe <region>** on Region control and
+on a region's Statistics, and **View nation in <region>** beside a nation of another region (Statistics, Player
+search, Suspicious). The tab reloads into that region's world map, Region page and board, Census, World page
+and nation pages, with a bar on every page (admin portal included) and **Return to my nation**. It needs no
+rules change: everything shown is public.
+
+The admin's own nation stays out of that tab. The tab's `sessionStorage` key `edictum.observe` names the region,
+and while it is set the page uses a stand-in nation without land: the admin's nation is never loaded from this
+browser's copy, normalised against the other region's map, committed, saved or uploaded, and `src/shim.js`
+refuses every save but the staff mark and development news (code `read_only`), board posts, the referee, the
+Assembly and the shop. An account without the admin claim that has the key set goes back to its own nation;
+the admin's own region is never observed (it is theirs to play). `test/observe-e2e.mjs` checks the admin's copy
+in this browser and both halves of their record on the server are unchanged by a visit.
+
 ### 9d. The shop (Paddle)
 
 The Bureau of National Finery sells cosmetics and the Chancery Club membership through Paddle, the merchant of
