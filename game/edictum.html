@@ -1540,15 +1540,19 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .wd-svg{display:block;width:100%;height:auto}
 .wd-fig figcaption{display:flex;flex-direction:column;gap:2px}
 .wd-fig figcaption b{font-family:var(--f-display);font-size:20px;line-height:1.2}
-.wd-p path{stroke-width:1.4;stroke-linejoin:round}
-.wd-off path{stroke-dasharray:3 3;opacity:.35}
-.wd-off g{display:none}
-.wd-ln{stroke-width:1;opacity:.7}
-.wd-sash{stroke:#c9a227;stroke-width:3;opacity:.9}
-.wd-scaf{fill:none;stroke:#a07a45;stroke-width:1.2;opacity:.75}
-.wd-fw path{stroke:#e2b13c;stroke-width:1.6;stroke-linecap:round}
+.wd-p path{stroke-width:1.2;stroke-linejoin:round}
+.wd-ln{fill:none;stroke-width:.8;opacity:.75;stroke-linecap:round}
+.wd-ghost{fill:#5f8a74;fill-opacity:.07;stroke:#5f8a74;stroke-opacity:.45;stroke-width:.9;stroke-dasharray:2.5 2.5}
+.wd-scaf{opacity:.6}.wd-scaf path{fill:none;stroke:#8a6a40;stroke-width:.9;stroke-linecap:round}
+.wd-scaf .wd-br{stroke-width:.7;opacity:.7}
+.wd-crane{opacity:.85}.wd-crane path{fill:none;stroke:#c8902a;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.wd-crane rect{fill:#c8902a}
+.wd-ppl{fill:#4a4f55;opacity:.8}
+.wd-rays path{stroke:#f2c94c;stroke-width:5;opacity:.18}
+.wd-fw path{stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+.wd-fw circle{fill:currentColor}
 .wd-fw{animation:wdFw 2.4s ease-in-out infinite;animation-delay:var(--d,0s);transform-box:fill-box;transform-origin:center}
-@keyframes wdFw{0%,100%{opacity:.2}50%{opacity:1}}
+@keyframes wdFw{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1.15)}}
 @media (prefers-reduced-motion:reduce){.wd-fw{animation:none}}
 :root[data-motion="reduce"] .wd-fw{animation:none}
 .wd-side{display:flex;flex-direction:column;gap:18px;min-width:0}
@@ -43647,37 +43651,59 @@ UNLOCK_SOURCES.push({earned:n=>{try{return wndMine(n)&&RES.some(r=>num0(n.wnd.c[
 
 /* ── drawing: the statue, phase by phase (in a 240 × 320 box). A finished part is solid; the one being built rises
    from the bottom as its phase fills, behind scaffolding; later ones are a faint outline. ── */
+/* the parts, bottom to top, one for each of the first eight phases: y is the band a part rises through while it is
+   built, m its material (stone, or metal: bronze, gold once gilded), d the solid shape and x its carved detail */
 const WND_PARTS=[
-  {y:[282,300],d:'M46,300V284H194V300Z',x:'<path d="M60,300V286M84,300V286M108,300V286M132,300V286M156,300V286M180,300V286" class="wd-ln"/>'},
-  {y:[228,284],d:'M68,284L76,238H164L172,284ZM72,238V229H168V238Z',x:'<path d="M90,256H150M98,266H142" class="wd-ln"/>'},
-  {y:[216,229],d:'M96,229Q97,217 110,217L116,229ZM124,229L130,217Q143,217 144,229Z'},
-  {y:[168,224],d:'M98,224L142,224L136,168H104Z',x:'<path d="M110,222L113,172M120,223V170M130,222L127,172" class="wd-ln"/>'},
-  {y:[122,170],d:'M104,170L136,170L133,128Q120,121 107,128Z',x:'<path d="M107,132L133,160" class="wd-ln wd-sash"/>'},
-  {y:[80,178],d:'M107,131Q95,150 99,178L106,178Q105,154 114,138ZM133,131Q148,108 149,82L141,80Q139,104 126,126Z'},
-  {y:[96,126],d:'M115,126V119H125V126ZM120,96A11.5,12 0 1 1 119.9,96Z',x:'<path d="M114,108Q120,112 126,108" class="wd-ln"/>'},
-  {y:[38,86],d:'M136,86V48H158V86Z',x:'<ellipse cx="147" cy="48" rx="13" ry="4"/><ellipse cx="147" cy="86" rx="13" ry="4"/><path d="M140,58H154M140,64H154M140,70H151M140,76H154" class="wd-ln"/>'}];
+  {y:[276,300],m:'s',d:'M26,300V288H214V300ZM40,288V278H200V288Z',x:'M26,294H214M58,288V300M92,288V300M126,288V300M160,288V300M194,288V300M70,278V288M110,278V288M150,278V288M184,278V288'},
+  {y:[204,278],m:'s',d:'M62,278V271H178V278ZM70,271V214H170V271ZM64,214V206H176V214Z',x:'M82,224H158V262H82ZM92,236H148M98,244H142M104,252H136'},
+  {y:[194,208],m:'b',d:'M97,207C96,200 101,196 108,196L117,198L118,207ZM124,207L125,198L134,196C141,196 146,200 145,207Z',x:'M104,201H110M132,201H138'},
+  {y:[146,206],m:'b',d:'M93,205C95,186 99,166 105,148H137C143,166 147,186 149,205C134,209 108,209 93,205Z',x:'M107,152C104,170 102,188 101,204M115,151C114,170 113,190 113,206M125,151C126,170 127,190 128,206M134,152C137,170 140,188 142,204M96,196C112,201 130,201 146,196'},
+  {y:[104,152],m:'b',d:'M105,150C103,134 104,118 109,110C116,105 126,105 133,110C138,118 139,134 137,150Z',x:'M110,112C120,126 128,138 136,150M108,120C116,130 124,140 131,150M114,110C120,113 124,113 128,110'},
+  {y:[54,170],m:'b',d:'M109,112C99,124 96,144 98,168L105,169C105,149 107,132 114,121ZM130,112C140,98 145,82 146,64L155,63C155,84 149,104 137,120Z',x:'M99,158H106M150,62C152,58 156,58 157,62'},
+  {y:[72,112],m:'b',d:'M115,111V100H127V111ZM121,74C128,74 132,80 132,88C132,97 127,102 121,102C115,102 110,97 110,88C110,80 114,74 121,74Z',x:'M111,84C114,78 128,78 131,84M110,86L107,83M132,86L135,83M114,80L111,77M128,80L131,77M117,93C119,95 123,95 125,93'},
+  {y:[18,64],m:'b',d:'M138,58V26H170V58Z',x:'M136,26C136,21 172,21 172,26C172,31 136,31 136,26ZM136,58C136,53 172,53 172,58C172,63 136,63 136,58ZM143,36H165M143,41H165M143,46H160M143,51H163'}];
 function wndSVG(done,frac,o){
-  o=o||{};const id='wd'+(++czSeq),gold=done>=9,col=gold?`url(#${id}g)`:'#5f7f6e',edge=gold?'#8a6410':'#2f4a3e';
-  let body='';
+  o=o||{};const id='wd'+(++czSeq),fin=done>=WND_N,gilt=done>=9,gilding=done===8;
+  const M={s:[`url(#${id}s)`,'#7d715a'],b:[`url(#${id}b)`,'#2e4a3f'],g:[`url(#${id}g)`,'#7d5a0c']};
+  const mat=(p,gold)=>p.m==='s'?M.s:gold?M.g:M.b;
+  const shape=(p,m,cls)=>`<g class="wd-p ${cls}"><path d="${p.d}" fill="${m[0]}" stroke="${m[1]}"/>${p.x?`<path d="${p.x}" class="wd-ln" stroke="${m[1]}"/>`:''}</g>`;
+  let body='',gold='';
   WND_PARTS.forEach((p,i)=>{
-    const st=i<done?'on':i===done?'go':'off',h=p.y[1]-p.y[0],cut=p.y[1]-h*frac;
-    const fill=i<2?(i<done?'#b9ad94':'#cfc5ae'):col;
-    const part=`<g class="wd-p wd-${st}"><path d="${p.d}" fill="${st==='off'?'none':fill}" stroke="${i<2?'#7d715a':edge}"/>${p.x&&st!=='off'?`<g fill="none" stroke="${i<2?'#7d715a':edge}">${p.x}</g>`:''}</g>`;
-    if(st==='go')body+=`<g class="wd-p wd-off"><path d="${p.d}" fill="none" stroke="${edge}"/></g><clipPath id="${id}c${i}"><rect x="0" y="${cut.toFixed(1)}" width="240" height="${(p.y[1]-cut+1).toFixed(1)}"/></clipPath><g clip-path="url(#${id}c${i})">${part}</g>`;
-    else body+=part;
+    if(i<done)body+=shape(p,mat(p,gilt),'wd-on');
+    else if(i===done){const cut=p.y[1]-(p.y[1]-p.y[0])*frac;
+      body+=`<path d="${p.d}" class="wd-ghost"/><clipPath id="${id}c${i}"><rect x="0" y="${cut.toFixed(1)}" width="240" height="320"/></clipPath><g clip-path="url(#${id}c${i})">${shape(p,mat(p,false),'wd-on')}</g>`;}
+    else body+=`<path d="${p.d}" class="wd-ghost"/>`;
+    if(gilding&&p.m==='b')gold+=shape(p,M.g,'wd-on');
   });
-  /* scaffolding round the part being built, the gilding's ladders, and the unveiling's bunting and fireworks */
-  if(done<WND_N){const p=WND_PARTS[Math.min(done,WND_PARTS.length-1)],y0=done>=8?40:p.y[0]-6,y1=done>=8?286:p.y[1];
-    let sc='';for(let x=60;x<=180;x+=24)sc+=`M${x},${y1}V${y0}`;for(let y=y1;y>y0;y-=14)sc+=`M60,${y}H180`;
-    body+=`<path d="${sc}" class="wd-scaf"/>`;}
-  if(done>=WND_N||done===9&&frac>0){const k=done>=WND_N?1:frac;let fl='';
-    for(let i=0;i<9;i++){if(i/9>k)break;const x=50+i*17.5,y=232+Math.sin(i/8*Math.PI)*16;fl+=`<path d="M${x},${y}l6,12l6,-12z" fill="${['#c0282d','#e2b13c','#2457a6'][i%3]}"/>`;}
-    body+=`<path d="M46,232Q120,${done>=WND_N?264:250} 194,232" fill="none" stroke="#6b5a3a" stroke-width="1"/>${fl}`;
-    if(done>=WND_N)body+=[[40,60],[200,70],[30,150],[210,140],[60,24],[186,30]].map(([x,y],i)=>`<g class="wd-fw" style="--d:${i*0.4}s" transform="translate(${x},${y})">${[0,45,90,135].map(a=>`<path d="M0,-9V9" transform="rotate(${a})"/>`).join('')}</g>`).join('');}
-  return `<svg class="wd-svg${o.cls?' '+o.cls:''}" viewBox="0 0 240 320" role="img" aria-label="${esc(o.label||`${wndName()}: ${done>=WND_N?'finished':`phase ${done+1} of ${WND_N}, ${Math.floor(frac*100)}% built`}`)}"><defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d77a"/><stop offset=".5" stop-color="#d4a52a"/><stop offset="1" stop-color="#9a6a08"/></linearGradient></defs>
-    <rect x="0" y="300" width="240" height="20" fill="#9fb48a" opacity=".5"/>${body}</svg>`;
+  /* the gilding climbs the figure as its phase fills */
+  if(gilding&&frac>0){const top=206-(206-18)*frac;body+=`<clipPath id="${id}gc"><rect x="0" y="${top.toFixed(1)}" width="240" height="320"/></clipPath><g clip-path="url(#${id}gc)">${gold}</g>`;}
+  /* scaffolding round what is being built, with planks, braces and, once there is height to lift to, a crane */
+  let scaf='';
+  if(!fin&&done<9){const p=WND_PARTS[Math.min(done,7)],y0=Math.max(14,(done>=8?18:p.y[0])-8),y1=done<2?300:278,x0=done<2?20:84,x1=done<2?220:164;let s='';
+    for(let x=x0;x<=x1+0.1;x+=(x1-x0)/3)s+=`M${x.toFixed(1)},${y1}V${y0}`;
+    for(let y=y1-14;y>y0;y-=24)s+=`M${x0-4},${y}H${x1+4}`;
+    let br='';for(let y=y1;y-24>y0;y-=48)br+=`M${x0},${y}L${(x0+x1)/2},${y-24}L${x1},${y}`;
+    scaf=`<g class="wd-scaf"><path d="${s}"/><path d="${br}" class="wd-br"/></g>`;
+    if(done>=2){const hook=Math.max(y0+6,p.y[0]+6);scaf+=`<g class="wd-crane"><path d="M206,300V22M200,300H212M206,26H118M206,26L188,44M198,26L206,40M124,26V${hook}"/><rect x="120" y="${hook}" width="8" height="6"/><rect x="200" y="30" width="12" height="9"/></g>`;}}
+  /* the unveiling: a crowd gathers as its phase fills; finished, bunting, light and fireworks */
+  let crowd='';const ppl=fin?24:done===9?Math.round(24*frac):0;
+  for(let i=0;i<ppl;i++){const x=8+(i*37%224),h=7+(i*13%5);crowd+=`<g class="wd-ppl" transform="translate(${x},${312-h})"><circle cx="0" cy="0" r="2.4"/><path d="M-3,${h}C-3,3 3,3 3,${h}Z"/></g>`;}
+  let party='';
+  if(fin||done===9&&frac>0){const k=fin?1:frac;let fl='';for(let i=0;i<10;i++){if(i/10>k)break;const t=i/9,x=40+t*160,y=236+Math.sin(t*Math.PI)*18;fl+=`<path d="M${(x-5).toFixed(1)},${y.toFixed(1)}l5,10l5,-10z" fill="${['#c0282d','#e2b13c','#2457a6','#23804a'][i%4]}"/>`;}
+    party=`<path d="M36,234Q120,${fin?274:262} 204,234" fill="none" stroke="#6b5a3a" stroke-width=".8"/>${fl}`;}
+  let rays='';if(fin){rays=`<g class="wd-rays">${Array.from({length:12},(_,i)=>`<path d="M121,90L${(121+150*Math.cos(i*Math.PI/6)).toFixed(1)},${(90+150*Math.sin(i*Math.PI/6)).toFixed(1)}"/>`).join('')}</g>`;
+    party+=[[38,52,'#e2b13c'],[200,64,'#c0282d'],[28,140,'#2457a6'],[212,150,'#e2b13c'],[62,20,'#23804a'],[186,18,'#e2b13c']].map(([x,y,c],i)=>`<g class="wd-fw" style="--d:${i*0.45}s;color:${c}" transform="translate(${x},${y})">${Array.from({length:8},(_,k)=>`<path d="M0,-4V-11" transform="rotate(${k*45})"/>`).join('')}<circle r="1.6"/></g>`).join('');}
+  const lab=o.label||`${wndName()}: ${fin?'finished':`phase ${done+1} of ${WND_N}, ${Math.floor(frac*100)}% built`}`;
+  return `<svg class="wd-svg${o.cls?' '+o.cls:''}" viewBox="0 0 240 320" role="img" aria-label="${esc(lab)}"><defs>
+    <linearGradient id="${id}sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${fin?'#f6e3b4':'#dbe8ef'}"/><stop offset="1" stop-color="${fin?'#fbf3df':'#f3f1ea'}"/></linearGradient>
+    <linearGradient id="${id}b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8fb8a3"/><stop offset=".45" stop-color="#5f8a74"/><stop offset="1" stop-color="#36584a"/></linearGradient>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2=".3"><stop offset="0" stop-color="#fbe7a1"/><stop offset=".4" stop-color="#e0b443"/><stop offset=".75" stop-color="#b8861c"/><stop offset="1" stop-color="#8a6410"/></linearGradient>
+    <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e3dac4"/><stop offset="1" stop-color="#b9ad94"/></linearGradient></defs>
+    <rect width="240" height="320" fill="url(#${id}sky)"/>
+    <path d="M0,262C40,246 70,252 104,242C140,232 176,248 240,236V300H0Z" fill="#c9d5bf" opacity=".7"/>
+    <rect y="300" width="240" height="20" fill="#a9b994"/><ellipse cx="120" cy="301" rx="104" ry="4" fill="#000" opacity=".12"/>
+    ${rays}${body}${scaf}${party}${crowd}</svg>`;
 }
-
 /* ── the page ── */
 function wndView(now){
   const n=S.nation;if(!n)return '';const W=wndState(),fin=W.done>=WND_N,st=stockNow(n,now),mine=W.who.find(x=>x.me);
