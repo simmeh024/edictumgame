@@ -3816,6 +3816,10 @@ button.prv-rb{cursor:pointer}button.prv-rb:hover{border-color:var(--ink-3)}
 
 /* the admin portal (players with the admin claim) and the pill that opens it */
 .side-who{display:flex;align-items:flex-end;gap:8px}
+.obs-who .side-name{flex:1}
+.obs-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 16px;padding:9px max(16px,env(safe-area-inset-right,0px)) 9px max(16px,env(safe-area-inset-left,0px));background:var(--stamp);color:var(--stamp-ink);font-size:14px;line-height:1.35;text-align:center}
+.obs-bar p{margin:0}
+.obs-bar .btn{padding:6px 12px;background:var(--stamp-ink);color:var(--stamp);border-color:var(--stamp-ink)}
 .side-who>.side-nation{flex:1;min-width:0}
 .adm-pill{display:inline-flex;align-items:center;flex:none;margin-bottom:3px;padding:3px 9px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 a.adm-pill:hover{filter:brightness(1.12)}
@@ -6786,9 +6790,18 @@ const REGION_MER={id:'meridian',name:'Meridian Reach',the:'the Meridian Reach',s
   outer:['Farhaven','the Brine Marches','Corvel','Sundermark','the Wending Isles','Halloway','Estmere','Greyhallow','the Ninefold Isles','Kestrel Point','Morrow Land','Ashby Reach','Tallowmere','the Outer Shoals','Pellam','Dunraven','Ostermoor','Wyke','the Gannet Rocks','Saltmarrow','Fennick Major','the Lees of Aire']};
 const REGIONS=[REGION_MER].concat(REGIONS_EXTRA);
 const REG_BY_ID=Object.fromEntries(REGIONS.map(r=>[r.id,r]));
-const REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('statehood.nation.v1'),d=raw&&JSON.parse(raw);
+/* the region this browser's nation lives in (only its reg is read here), or the one chosen for founding */
+const HOME_REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('statehood.nation.v1'),d=raw&&JSON.parse(raw);
   if(d&&typeof d==='object'&&d.name){if(typeof d.reg==='string'&&REG_BY_ID[d.reg])id=d.reg;}
   else{const r=localStorage.getItem('statehood.region');if(r&&REG_BY_ID[r])id=r;}}catch(e){}return REG_BY_ID[id];})();
+/* Observer mode (admins only): this tab shows the region OBS names, read-only, as if the admin lived there. The
+   key lives in this tab's sessionStorage (set by obsEnter, cleared by obsExit). While it is set the admin's own
+   nation is never read, normalised, committed or saved here: S.nation is a stand-in with no land (obsNation),
+   and every save path returns early. connect() sends anyone who is not an admin back to their own nation. The
+   admin's own region is never observed: the game there is theirs to play. */
+const OBS_KEY='edictum.observe';
+const OBS=(()=>{try{const r=sessionStorage.getItem(OBS_KEY);if(r&&REG_BY_ID[r]&&r!==HOME_REG.id)return r;if(r)sessionStorage.removeItem(OBS_KEY);}catch(e){}return '';})();
+const REG=OBS?REG_BY_ID[OBS]:HOME_REG;
 const REG_MER=REG.id==='meridian';
 /* Each region's grid is sized so that its land (geo.land of the grid) comes to about REGION_LAND hexes:
    room for REGION_CAP (250) player nations of some 120 hexes each beside the computer nations. Grids keep
@@ -19172,7 +19185,7 @@ function warFront(){
 
 /* ───────── relations, on another nation's page ───────── */
 function relationCard(x){
-  if(!S.nation||x.me)return '';
+  if(OBS||!S.nation||x.me)return '';
   const me=myId(),n=S.nation,ws=warWith(x.id),now=Date.now(),nm=esc(x.n.name),chips=[],rows=[];
   if(ws.war)chips.push(`<span class="chip war">${ws.direct?'At war with you':'Alliance war'}</span>`);
   else if(sameAlliance(me,x.id))chips.push('<span class="chip ok">Your ally</span>');
@@ -22867,7 +22880,7 @@ function fpSection(x,mine){
   return `<section class="section fp-sec" aria-labelledby="fp-sec-h-${esc(x.id)}"><div class="fp-sec-in"><div class="fp-sec-g">${fingerprintSVG(n,{size:176,id:'sec:'+x.id,from})}</div>
     <div class="fp-sec-t"><p class="eyebrow">National fingerprint</p><h2 class="h2" id="fp-sec-h-${esc(x.id)}">${mine?'Your nation at a glance':esc(n.name)+' at a glance'}</h2><p class="fp-read">${esc(fpReading(n,2))}</p>
     <p class="hint">Twenty census scores as petals, from 0 at the centre to 100 at the rim. The faint ring marks 50. Hover over or tap a petal for its score.</p>${fpKeys(false)}
-    <div class="row fp-sec-a"><button class="btn ghost" data-act="fp-replay" data-id="${esc(x.id)}">${x.npc?'Fingerprint and map':'Replay its history'}</button>${mine?`<button class="btn ghost" data-act="go" data-v="census">Compare in the Census</button>`:S.nation?`<button class="btn ghost" data-act="fp-cmp" data-id="${esc(x.id)}">Compare with yours</button>`:''}</div></div></div></section>`;
+    <div class="row fp-sec-a"><button class="btn ghost" data-act="fp-replay" data-id="${esc(x.id)}">${x.npc?'Fingerprint and map':'Replay its history'}</button>${mine?`<button class="btn ghost" data-act="go" data-v="census">Compare in the Census</button>`:S.nation&&!OBS?`<button class="btn ghost" data-act="fp-cmp" data-id="${esc(x.id)}">Compare with yours</button>`:''}</div></div></div></section>`;
 }
 NATION_SECTIONS.push((x,now)=>fpSection(x,true));
 VISIT_SECTIONS.push((x,now)=>fpSection(x,false));
@@ -23217,7 +23230,7 @@ function movePlan(n){
 }
 let moveBusy=false;
 async function moveTo(rid){
-  const R=REG_BY_ID[rid],n0=S.nation;if(!R||!n0||rid===REG.id||moveBusy)return;
+  const R=REG_BY_ID[rid],n0=S.nation;if(OBS||!R||!n0||rid===REG.id||moveBusy)return;
   if(regDisabled(rid)||regBlocked()||S.mode==='world'&&!RCTRL.ready){toast(regionMessage(regDisabled(rid)?rid:REG.id));return;}
   const now=Date.now();if(moveWait(n0,now)>0){toast('You moved too recently. The next move is possible in '+fmtWait(moveWait(n0,now))+'.');return;}
   moveBusy=true;const P=movePlan(n0),n=clone(n0);
@@ -23242,6 +23255,7 @@ async function moveTo(rid){
 }
 /* this device is behind: the record lives in another region now */
 function regionReload(raw){
+  if(OBS)return;
   try{const k='statehood.rr',v=JSON.parse(sessionStorage.getItem(k)||'[]').filter(t=>Date.now()-t<15000);if(v.length>=2)return;v.push(Date.now());sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}
   try{localStorage.setItem(LS_KEY,JSON.stringify(raw));}catch(e){}
   location.reload();
@@ -23300,7 +23314,7 @@ function regPlayers(id){
   const out=[];
   if(id===REG.id){const all=S.worldAll||{};for(const k of Object.keys(all))if(all[k].reg===id&&k!==S.uid)out.push(all[k]);}
   else out.push(...(RSTAT.names[id]||[]));
-  if(S.nation&&(S.nation.reg||'meridian')===id)out.push({name:S.nation.name,me:1});return out;
+  if(S.nation&&!OBS&&(S.nation.reg||'meridian')===id)out.push({name:S.nation.name,me:1});return out;
 }
 function regCount(id){return id!==REG.id&&RSTAT.n[id]!=null?RSTAT.n[id]:regPlayers(id).length;}
 /* a region takes no new nations once REGION_CAP active nations live there (moving in is still allowed) */
@@ -23327,7 +23341,8 @@ function worldDetail(R,now){
   const nat=npcs.slice().sort((a,b)=>b.pop-a.pop).map(x=>`<li class="mem"><span class="mflag">${flagSVG(x.flag,'Flag of '+x.name)}</span><span class="mem-n"><b>${esc(x.name)}</b><span class="mem-s">The ${esc(x.pretitle)} of ${esc(x.name)} · “${esc(x.motto)}”</span></span><span class="mem-v">${fmtPop(here&&NPC_BY_ID[x.id]?popNow(NPC_BY_ID[x.id]):x.pop*NPC_POP)}</span></li>`).join('');
   const blocs=(R.id==='meridian'?[{name:'The Iron Compact'},{name:'The Meridian League'}]:R.blocs||[]).map(b=>esc(b.name));
   let act='';
-  if(regDisabled(R.id))act=`<p class="err">${regionMessage(R.id)}</p>`;
+  if(OBS)act=here?'<p class="hint">You are observing this region.</p>':`<div class="row">${obsRegionBtn(R.id,'btn')}</div>`;
+  else if(regDisabled(R.id))act=`<p class="err">${regionMessage(R.id)}</p>`;
   else if(here)act=`<p class="hint">${esc(n.name)} lives here${n.mvAt?`, since ${fmtDate(n.mvAt)}`:''}.</p>`;
   else if(wait>0)act=`<p class="hint">You moved on ${fmtDate(n.mvAt)}. The next move is possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>.</p>`;
   else if(S.wrAsk===R.id){const P=movePlan(n),bk=RES.filter(r=>P.back[r]).map(r=>`${P.back[r]} ${resName(r)}`);
@@ -23352,8 +23367,8 @@ VIEWS_EXT.world=now=>{
   /* a fresh visit to this page counts again if the counts are more than 15 seconds old */
   const now0=Date.now();regStatsSoon(now0-(RSTAT.seen||0)>1e4?15e3:3e5);RSTAT.seen=now0;if(sel)regNamesSoon(sel.id);
   if(S.moving)return `<div class="empty wr-moving"><p class="empty-h">Packing up for ${esc(S.moving)}</p><p>The archives are crated, the anthem is folded, and the capital’s buildings are numbered brick by brick.</p></div>`;
-  return `<header class="vh"><p class="eyebrow">Atlas of the known world</p><h1>The World</h1><p>${REGIONS.length} regions, each with its own lands and nations. ${esc(n.name)} lives in ${esc(REG.the)}. You can move to another region: your nation comes with you, but your land starts again, and after a move you must wait 14 days before the next.</p></header>
-    <p class="wr-status">${wait>0?`Next move possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>, on ${fmtDate((n.mvAt||0)+MOVE_CD)}.`:'You are free to move.'}${n.mvN?` ${esc(n.name)} has moved ${n.mvN===1?'once':n.mvN+' times'}.`:''}</p>
+  return `<header class="vh"><p class="eyebrow">Atlas of the known world</p><h1>The World</h1><p>${REGIONS.length} regions, each with its own lands and nations. ${OBS?`You are observing ${esc(REG.the)}. Choose another region to observe it.</p></header>`:`${esc(n.name)} lives in ${esc(REG.the)}. You can move to another region: your nation comes with you, but your land starts again, and after a move you must wait 14 days before the next.</p></header>
+    <p class="wr-status">${wait>0?`Next move possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>, on ${fmtDate((n.mvAt||0)+MOVE_CD)}.`:'You are free to move.'}${n.mvN?` ${esc(n.name)} has moved ${n.mvN===1?'once':n.mvN+' times'}.`:''}</p>`}
     ${sel?worldDetail(sel,now):''}
     <div class="wr-grid">${REGIONS.map(R=>worldCard(R,now)).join('')}</div>`;
 };
@@ -24344,7 +24359,7 @@ function civicInstall(value){
   return true;
 }
 async function civicRefresh(){
-  if(!S.uid||!S.nation||S.mode==='local')return;
+  if(OBS||!S.uid||!S.nation||S.mode==='local')return;
   if(civicLoading||civicBusy){civicAgain=true;return;}
   civicLoading=true;const epoch=civicEpoch;
   try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';if(!civicInstall(next))civicMissed();if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||S.view==='diplomacy'&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
@@ -24352,7 +24367,7 @@ async function civicRefresh(){
   finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
 async function civicAction(data){
-  if(civicBusy)return false;
+  if(OBS||civicBusy)return false;
   civicBusy=true;civicEpoch++;
   try{
     if(!civicApi)await civicRefresh();
@@ -35482,6 +35497,8 @@ function mapShowTip(cv,e,tip,head,sub){
 }
 function mapClick(cv,cell,ev){
   const kind=cv.dataset.map,tip=cv.parentElement&&cv.parentElement.querySelector('.map-tip');if(tip)tip.hidden=true;
+  /* observing (OBS), a click on the main map only selects the nation that holds the hex */
+  if(OBS&&kind==='main'){const T=territory(),o=cell>=0?T.owner[cell]:-1;S.mapSite=null;S.mapSel=o>=0?T.list[o].id:null;updateMapPanel();schedule(cv);return;}
   if(MAP_CLICK.length){const xy=ev?mapPos(cv,ev):[NaN,NaN];for(const h of MAP_CLICK){let took=false;try{took=!!h({cv,kind,cell,x:xy[0],y:xy[1]});}catch(_){}if(took){updateMapPanel();schedule(cv);return;}}}
   if(kind==='found'){const p=pickProblem(cell,territory());if(p)S.mapMsg=p;else{S.draft.loc=locOf(cell);S.mapMsg='';}updateFoundLoc();schedule(cv);return;}
   if(kind!=='main')return;
@@ -35652,8 +35669,9 @@ function normalizeBase(d){
     freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
-function loadLocal(){try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
-function saveLocal(n){try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
+/* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
+function loadLocal(){if(OBS)return null;try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
+function saveLocal(n){if(OBS)return;try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
 
 /* Saves reach the region at most once every SAVE_GAP (this browser's copy is saved at once): the first
    after loading straight away, a pending one as soon as the tab is hidden or closed, and one within
@@ -35676,15 +35694,16 @@ function publishSync(){
 }
 const saveRev=n=>n&&Number.isSafeInteger(n._rev)?n._rev:0;
 const savedAfter=(a,b)=>!!a&&(!b||saveRev(a)>saveRev(b)||(saveRev(a)===0&&saveRev(b)===0&&a.updatedAt>b.updatedAt));
-function keepUnsaved(n){try{localStorage.setItem('edictum.unsaved.'+S.uid,JSON.stringify({at:Date.now(),nation:n}));return true;}catch(e){return false;}}
+function keepUnsaved(n){if(OBS)return false;try{localStorage.setItem('edictum.unsaved.'+S.uid,JSON.stringify({at:Date.now(),nation:n}));return true;}catch(e){return false;}}
 function useSavedNation(n){
+  if(OBS)return;
   if(n.reg&&n.reg!==REG.id&&REG_BY_ID[n.reg]){regionReload(n);return;}
   S.nation=n;S.openIssue=null;S.result=null;S.settings=null;saveLocal(n);render();publishSync();
 }
 /* Retry a snapshot missed while saving, and fetch a coherent full record rather than replacing the
    nation's private half with defaults from the region's shared record. Revisions ignore device clocks. */
 async function syncOwnNation(force=false){
-  if(ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
+  if(OBS||ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
   if(!force&&!conflictPending&&!savedAfter(ownLatest,S.nation))return;
   ownSyncBusy=true;const before=commitNo;
   try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
@@ -35701,7 +35720,7 @@ async function syncOwnNation(force=false){
   }catch(e){saveFailed=true;/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
   finally{ownSyncBusy=false;publishSync();}
 }
-function commit(n){if(regBlocked())return;const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
+function commit(n){if(OBS||regBlocked())return;const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
   ensureCities(n);syncBuildings(n,now);const warehouseNotes=whSync(n,now);if(warehouseNotes.length)setTimeout(()=>warehouseNotes.forEach(t=>toast(t)),0);
@@ -35713,6 +35732,7 @@ function commit(n){if(regBlocked())return;const now=Date.now();migAccrue(n,now);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote();}
 function queueRemote(){
+  if(OBS)return;
   if(regBlocked()||S.db&&!RCTRL.ready){remoteDirty=true;publishSync();return;}
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
   remoteDirty=true;
@@ -35722,6 +35742,7 @@ function queueRemote(){
 }
 async function flushRemote(){
   clearTimeout(remoteTimer);remoteTimer=0;
+  if(OBS)return;
   if(regBlocked()||!RCTRL.ready){publishSync();return;}
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
@@ -35733,11 +35754,13 @@ async function flushRemote(){
 }
 /* something another player is waiting for: save within SAVE_MIN instead of at the next gap */
 function saveSoon(){
+  if(OBS)return;
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}remoteDirty=true;remoteSoon=true;publishSync();if(remoteBusy)return;
   clearTimeout(remoteTimer);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_MIN-performance.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
+  if(OBS)return;
   if(regBlocked()||!RCTRL.ready)return;
   if(S.mode!=='world'||!S.db||!S.uid)return;
   while(remoteBusy)await sleep(100);
@@ -35764,7 +35787,7 @@ window.addEventListener('online',resumeNation);
 window.addEventListener('focus',resumeNation);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeNation();});
 async function writeRemote(){
-  if(!S.nation)return;
+  if(OBS||!S.nation)return;
   const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation);
   const send=async()=>{const result=await ref.set(sent);saveChecked=true;saveFailed=false;saveError='';
     /* Actions made while this write was in flight are based on it too. Advance their revision without
@@ -36855,23 +36878,28 @@ setInterval(quietCheck,20000);
 
 /* ───────── shared region ───────── */
 async function connect(){
-  if(!window.claude||typeof window.claude.use!=='function')return;
+  /* observing needs the region's data and an admin's account: without either, this tab goes back to its own nation */
+  const quit=()=>{if(OBS)obsExit();};
+  if(!window.claude||typeof window.claude.use!=='function')return quit();
   let db,user;
-  try{[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);}catch(e){return;}
-  if(!db||!user)return;
-  const uid=await user.id();if(!uid)return;
+  try{[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);}catch(e){return quit();}
+  if(!db||!user)return quit();
+  const uid=await user.id();if(!uid)return quit();
   S.db=db;S.uid=uid;
   S.isOwner=await user.isOwner();
+  if(OBS&&!S.isOwner)return quit();
   await regionControls();
   try{S.google=typeof user.google==='function'?!!(await user.google()):false;}catch(e){S.google=false;}
   const can=await user.can('data.write');
-  S.mode=can===false?'readonly':'world';
+  S.mode=OBS||can===false?'readonly':'world';
   publishSync();
+  if(OBS){obsConnected();render();}
   /* a moderator's word comes first: a banned account saves nothing, and a removed nation's copy in this
      browser goes rather than being uploaded again */
   try{const b=await db.doc('bans/'+uid).get();if(b.exists){S.banned=b.data()||{};S.mode='readonly';banNotice();}}catch(e){}
-  try{const m=await db.doc('mod/'+uid).get(),v=m.exists?m.data():null;if(v&&v.removed&&S.nation&&(S.nation.founded||0)<v.removed)modRemoved(v);}catch(e){}
-  try{
+  /* observing, the account's own nation is left alone: it is neither fetched, merged nor followed to its region */
+  if(!OBS)try{const m=await db.doc('mod/'+uid).get(),v=m.exists?m.data():null;if(v&&v.removed&&S.nation&&(S.nation.founded||0)<v.removed)modRemoved(v);}catch(e){}
+  if(!OBS)try{
     const snap=await db.doc('nations/'+uid).get();
     saveChecked=true;saveFailed=false;
     const rawMe=snap.exists?snap.data():null;
@@ -36900,7 +36928,7 @@ async function connect(){
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
       if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
     /* this record left the region from another device: follow it there */
-    if(hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
+    if(!OBS&&hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
       if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&savedAfter(raw,S.nation)){ownLatest=raw;syncOwnNation();}},()=>{});
     hadMine=mineHere;
     dormSift(w,all);
@@ -36958,7 +36986,8 @@ function allNations(){
   npcLive();
   const out=NPC_NATIONS.map(n=>({id:n.id,n,npc:true}));
   if(S.mode!=='local')for(const id of Object.keys(S.world)){if(id!==S.uid)out.push({id,n:S.world[id]});}
-  if(S.nation)out.push({id:S.uid||'me',n:S.nation,me:true});
+  /* observing, the stand-in is nobody's nation */
+  if(S.nation&&!OBS)out.push({id:S.uid||'me',n:S.nation,me:true});
   return out;
 }
 function findNation(id){return allNations().find(x=>x.id===id);}
@@ -36967,6 +36996,7 @@ function findNation(id){return allNations().find(x=>x.id===id);}
 const NAV=[['nation','Nation'],['issues','Edicts'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['passport','Passport'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
 
 function modeChip(){
+  if(OBS)return `<p class="mode world"><i></i><span>Observing ${REGION}, read-only. Nothing is saved in this tab.</span></p>`;
   if(S.mode==='world')return `<p class="mode world"><i></i><span>Connected to ${REGION}. Your nation is visible to other players.</span></p>`;
   if(S.mode==='readonly')return `<p class="mode"><i></i><span>View-only access. Your nation is saved in this browser.</span></p>`;
   return `<p class="mode"><i></i><span>Offline. Your nation is saved in this browser.</span></p>`;
@@ -36978,11 +37008,11 @@ function shell(){
   return `<div class="layout"><button type="button" class="skip-link" data-act="nav-skip">Skip to content</button>
   <aside class="side">
     <div class="side-top">
-      <div class="brand-row"><div class="brand"><span class="wordmark">Edictum</span><span class="brand-sub">Region of ${REGION}</span></div><div class="brand-actions">${bellButton(now)}${uxSearchButton()}</div></div>
-      <div class="side-who"><button class="side-nation" data-act="go" data-v="nation" aria-label="Your nation: ${esc(fullName(n))}">
+      <div class="brand-row"><div class="brand"><span class="wordmark">Edictum</span><span class="brand-sub">Region of ${REGION}</span></div><div class="brand-actions">${OBS?'':bellButton(now)}${uxSearchButton()}</div></div>
+      ${OBS?obsWho():`<div class="side-who"><button class="side-nation" data-act="go" data-v="nation" aria-label="Your nation: ${esc(fullName(n))}">
         <span class="side-flag">${flagSVG(n.flag,'Flag of '+n.name)}</span>
         <span class="side-name"><span class="side-pre">The ${esc(n.pretitle)} of</span><span class="side-nm">${esc(n.name)}</span>${czSide(n)}</span>
-      </button>${S.isOwner&&S.mode!=='local'?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>
+      </button>${S.isOwner&&S.mode!=='local'?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>`}
     </div>
     ${navSide(nar,nav)}
   </aside>${nar?navTabs(nb):''}
@@ -37279,13 +37309,15 @@ function statVal(k,x,now){return k==='dev'?devOf(x.id):k==='army'?armyPower(x.n)
 function statFmt(k,x,now){if(k==='wealth')return fmt0(avgIncome(x.n,x.id));if(k==='dev'&&!areaOf(x.id))return 'Not yet settled';if(k==='army')return brig(x.n);if(k==='dev'){const v=devOf(x.id);return v+(v===1?' building':' buildings');}if(k==='area'){const a=areaOf(x.id);return a?a.toLocaleString('en-US')+' km²':'Not yet settled';}return fmtVal(k,x.n,now);}
 function censusView(now){
   const all=allNations(),sel=S.censusKey,me=all.find(x=>x.me),N=all.length;
-  const rankOf=(k,y)=>cenRankOf(k,y,all,now),rank=k=>cenRankText(k,me,all,now);
+  /* observing a region (OBS) nobody is "me": each scale shows the nation at its top instead */
+  const ref=k=>me||all.filter(x=>cenHas(k,x)).reduce((b,x)=>!b||statVal(k,x,now)>statVal(k,b,now)?x:b,null)||all[0];
+  const rankOf=(k,y)=>cenRankOf(k,y,all,now),rank=k=>me?cenRankText(k,me,all,now):'Led by '+esc(ref(k).n.name);
   const maxOf=k=>Math.max(1e-9,...all.map(x=>statVal(k,x,now)));
-  const barW=k=>k==='pop'||k==='area'||k==='army'||k==='dev'||k==='wealth'?statVal(k,me,now)/maxOf(k)*100:me.n.s[k];
-  const groups=CENSUS_GROUPS.map(([g,keys])=>`<div class="cen-group"><h2 class="lbl-h">${g}</h2>${keys.map(k=>`<button class="cen-row${k===sel?' on':''}" id="cen-${k}" data-act="census" data-k="${k}" aria-pressed="${k===sel}"><span class="cen-n">${cenName(k)}</span><span class="bar"><i style="width:${barW(k).toFixed(1)}%"></i></span><span class="cen-v">${statFmt(k,me,now)}</span><span class="cen-r">${rank(k)}</span></button>`).join('')}</div>`).join('');
+  const barW=k=>k==='pop'||k==='area'||k==='army'||k==='dev'||k==='wealth'?statVal(k,ref(k),now)/maxOf(k)*100:ref(k).n.s[k];
+  const groups=CENSUS_GROUPS.map(([g,keys])=>`<div class="cen-group"><h2 class="lbl-h">${g}</h2>${keys.map(k=>`<button class="cen-row${k===sel?' on':''}" id="cen-${k}" data-act="census" data-k="${k}" aria-pressed="${k===sel}"><span class="cen-n">${cenName(k)}</span><span class="bar"><i style="width:${barW(k).toFixed(1)}%"></i></span><span class="cen-v">${statFmt(k,ref(k),now)}</span><span class="cen-r">${rank(k)}</span></button>`).join('')}</div>`).join('');
   const sorted=all.slice().sort((a,b)=>statVal(sel,b,now)-statVal(sel,a,now));
   const unit=sel==='wealth'?'Average annual income per person, in each nation’s own currency. It follows the prosperity score, trade, buildings and the cabinet.':sel==='pop'?'Current population.':sel==='army'?'Brigades, from population, the military score, defence spending and technology.':sel==='area'?`Land held, in square kilometres. Each hex of the map is ${AREA_PER_HEX.toLocaleString('en-US')} km².`:sel==='dev'?'Completed buildings in the cities each nation holds, wonders included.':sel==='tax'?'Average income tax rate.':'Index from 0 to 100.';
-  return `<header class="vh"><p class="eyebrow">Office of Statistics</p><h1>Census</h1><p>How ${esc(me.n.name)} measures up across ${STAT_KEYS.length+4} scales, ranked against the ${N} nations of ${REGION}. Select a scale to see the regional ranking.</p></header>
+  return `<header class="vh"><p class="eyebrow">Office of Statistics</p><h1>Census</h1><p>${me?`How ${esc(me.n.name)} measures up across ${STAT_KEYS.length+4} scales, ranked against the ${N} nations of ${REGION}.`:`How the ${N} nations of ${REGION} measure up across ${STAT_KEYS.length+4} scales, with the nation at the top of each.`} Select a scale to see the regional ranking.</p></header>
   <div class="census">
     <div>${groups}</div>
     <aside class="board" id="board" aria-live="polite">
@@ -37366,7 +37398,7 @@ function regionView(now){
     posts.sort((a,b)=>b.p.t-a.p.t);
     const canPost=S.mode==='world'&&!!S.nation&&civicRegistered();
     board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?`Guest Nations can read community topics.${accountActionHint('topic')}`:'You have view-only access, so you can read the board but not post.'}</div>`}
-    ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const nat=aid===S.uid?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,aid===S.uid):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
+    ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const mine=aid===S.uid&&!OBS,nat=mine?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,mine):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="c-cat">Category</th><th class="c-al">Alliance</th><th class="c-pop">Population</th><th class="c-pop">Land area</th></tr></thead><tbody>
@@ -37383,7 +37415,7 @@ function visitView(now){
   const n=x.n;
   return `<button class="back" data-act="go" data-v="region">← ${REGION}</button>
   ${hero(n,{player:!x.npc,id:x.id})}
-  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button><button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>
+  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button>${OBS?`<button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button>${x.npc?'':`<button class="btn ghost" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>`}</div>`:`<button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>`}
   ${relationCard(x)}${runHooks(VISIT_SECTIONS,x,now).join('')}
   ${freedoms(n.s)}
   <div class="nation-grid">
@@ -37592,7 +37624,7 @@ function render(){if(fxRender())return;
   const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null,fidTab=fidFocus&&ae.getAttribute('tabindex')==='-1';
   let sel=null;try{if(fidFocus&&typeof ae.selectionStart==='number')sel=[ae.selectionStart,ae.selectionEnd];}catch(e){}
   const navK=navBefore();
-  document.getElementById('app').innerHTML=S.nation?shell():foundView();
+  document.getElementById('app').innerHTML=(OBS?obsBar():'')+(S.nation?shell():foundView());
   navAfter(navK);
   if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
   drawAllGuill();
@@ -37863,6 +37895,8 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawAllGu
 function tick(){
   if(regBlocked())return;
   if(!S.nation)return;
+  /* the stand-in of an observing tab has no clock of its own: only the region's maps move on */
+  if(OBS){redrawMaps();return;}
   const now=Date.now(),v=syncInbox(S.nation,now);
   if(pgPulse(now))return;
   if(v.inbox.length!==S.lastCount){if(!navSoft(v,now))render();return;}
@@ -37905,7 +37939,7 @@ const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive conten
 let modTold=false;
 function modNotice(){
   const due=!!renDue();if(due!==REN.on){REN.on=due;quietRender();}
-  const m=S.mod&&S.mod[S.uid];if(!m||!S.nation)return;
+  const m=S.mod&&S.mod[S.uid];if(OBS||!m||!S.nation)return;
   if(m.removed&&(S.nation.founded||0)<m.removed){modRemoved(m);return;}
   if(due){renNotice(m);return;}
   if(!m.hidden||modTold)return;modTold=true;
@@ -38009,7 +38043,7 @@ function adminView(v='admin'){
     ${v==='admin'||v==='admin-regions'?`<h2 class="h2">${v==='admin-regions'?'Regional capacity':'Regions'}</h2>
     <p class="hint">${REGIONS.length} regions, each with room for ${REGION_CAP} active nations. Newcomers go to the fullest region with room.</p>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Region</th><th class="num">Players</th><th class="num">Active today</th><th>Room</th><th class="num">Board posts</th><th>Availability</th><th>Region control</th></tr></thead><tbody>
-      ${regs.map(r=>`<tr><td>${esc(r.R.name)}</td><td class="num">${n(r.active)}</td><td class="num">${n(r.today)}</td><td>${fill(r)}</td><td class="num">${n(r.posts)}</td><td><span class="chip">${regLabel(r.R.id)}</span></td><td>${adminRegionControl(r.R.id)}</td></tr>`).join('')}
+      ${regs.map(r=>`<tr><td>${esc(r.R.name)}</td><td class="num">${n(r.active)}</td><td class="num">${n(r.today)}</td><td>${fill(r)}</td><td class="num">${n(r.posts)}</td><td><span class="chip">${regLabel(r.R.id)}</span></td><td>${adminRegionControl(r.R.id)}${obsRegionBtn(r.R.id)}</td></tr>`).join('')}
     </tbody></table></div>`:''}
     ${v==='admin'?`<h2 class="h2">Largest nations</h2>
     ${d.top&&d.top.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="num">#</th><th>Nation</th><th>Region</th><th class="num">Population</th><th>Last active</th></tr></thead><tbody>
@@ -38088,7 +38122,7 @@ function susRow(x){
   return `<li class="adm-rep"><p class="adm-rep-h"><b>${esc(x.name)}</b> · ${esc((REG_BY_ID[x.reg]||{}).name||x.reg)} · player ID <code>${esc(x.id)}</code>${hid?' <span class="chip">Hidden</span>':''}</p>
     <ul class="sus-why">${x.why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>
     ${ask?`<div class="row"><span class="hint">Ban the player of ${esc(x.name)}? The nation and its posts are removed.</span><button class="btn danger small" data-act="sus-ban-yes" data-id="${esc(x.id)}">Ban</button><button class="btn ghost small" data-act="sus-no">Cancel</button></div>`
-    :`<div class="row">${x.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:''}${hid?'':`<button class="btn ghost small" data-act="sus-hide" data-id="${esc(x.id)}">Hide</button>`}<button class="btn ghost small" data-act="sus-ban" data-id="${esc(x.id)}">Ban…</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button></div>`}</li>`;
+    :`<div class="row">${x.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(x.reg,x.id)}${hid?'':`<button class="btn ghost small" data-act="sus-hide" data-id="${esc(x.id)}">Hide</button>`}<button class="btn ghost small" data-act="sus-ban" data-id="${esc(x.id)}">Ban…</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button></div>`}</li>`;
 }
 function susRows(){return susHere().concat(ADMS.scan||[]);}
 function adminSusView(){
@@ -38319,7 +38353,7 @@ function adminPlayerDetail(p){
   const mod=p.banned?'Banned':p.rename?'Hidden until the player chooses a new name':p.hidden?'Hidden':!p.exists&&p.removed?'Nation deleted by a moderator':'No restrictions';
   return `<section class="adm-detail" aria-label="Player details"><h2 class="h2" style="margin-top:0">${esc(p.name)}</h2><dl><dt>Player ID</dt><dd><code>${esc(p.uid)}</code></dd><dt>Region</dt><dd>${p.reg?esc(regName(p.reg)):'No nation'}</dd><dt>Last confirmed save</dt><dd>${esc(adminTime(p.savedAt))}</dd><dt>Server revision</dt><dd>${p.revision}</dd><dt>Moderation</dt><dd>${mod}${p.note?': '+esc(p.note):''}</dd><dt>Reporting sessions</dt><dd>${p.sessions.length}</dd></dl>
     <h3 class="help-h3">Account</h3>${adminAccount(p.account)}
-    <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:''}</div>
+    <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
 }
@@ -38447,7 +38481,7 @@ function stNations(d){
   const L=d.list||[];if(!L.length)return '<p class="hint">No nations live here yet.</p>';
   return `<p class="hint">${L.length<d.nationCount?`The ${stN(L.length)} most recently active of ${stN(d.nationCount)}`:`All ${stN(L.length)}`}, the most recently active first.</p>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="num">Population</th><th>Founded</th><th>Last active</th><th class="num">Edicts decided</th><th class="num">Today</th><th class="num">Cities</th><th class="num">Hexes claimed</th><th class="num">Tutorial steps</th><th>Player</th></tr></thead><tbody>
-    ${L.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${fmtPop(Number(x.pop)||0)}</td><td>${x.founded?esc(fmtDate(x.founded)):'–'}</td><td>${x.t?esc(rel(x.t)):'–'}</td><td class="num">${stN(x.dec)}</td><td class="num">${stN(x.ruled1)}</td><td class="num">${stN(x.cities)}</td><td class="num">${stN(x.claims)}</td><td class="num">${stN(x.tut)}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button></td></tr>`).join('')}</tbody></table></div>`;
+    ${L.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${fmtPop(Number(x.pop)||0)}</td><td>${x.founded?esc(fmtDate(x.founded)):'–'}</td><td>${x.t?esc(rel(x.t)):'–'}</td><td class="num">${stN(x.dec)}</td><td class="num">${stN(x.ruled1)}</td><td class="num">${stN(x.cities)}</td><td class="num">${stN(x.claims)}</td><td class="num">${stN(x.tut)}</td><td><div class="row"><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>${ADMST.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(ADMST.reg,x.id)}</div></td></tr>`).join('')}</tbody></table></div>`;
 }
 function adminStatsView(){
   const reg=ADMST.reg,d=ADMST.d[reg],all=!reg,where=all?'every region':regName(reg);
@@ -38491,7 +38525,7 @@ function adminStatsView(){
   }
   return admShell('admin-stats',`<p class="eyebrow">Admin portal</p><h1 class="display">Statistics</h1>
     <p class="lede">How players use Edictum in ${esc(where)}: counted on the server from every nation’s save and every sign-in account, and kept for ten minutes.${d?` Counted ${esc(rel(d.at))}.`:''} <button type="button" class="linkish" data-act="st-refresh"${ADMST.busy?' disabled':''}>${ADMST.busy?'Counting…':'Count again'}</button></p>
-    <div class="adst-pick"><div class="field"><label for="st-reg">Region</label><select class="input" id="st-reg"><option value="">All regions</option>${REGIONS.slice().sort((a,b)=>a.name<b.name?-1:1).map(r=>`<option value="${r.id}"${reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>${reg?`<button type="button" class="btn ghost" data-act="st-reg" data-v="">Back to all regions</button>`:''}</div>
+    <div class="adst-pick"><div class="field"><label for="st-reg">Region</label><select class="input" id="st-reg"><option value="">All regions</option>${REGIONS.slice().sort((a,b)=>a.name<b.name?-1:1).map(r=>`<option value="${r.id}"${reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>${reg?`<button type="button" class="btn ghost" data-act="st-reg" data-v="">Back to all regions</button>${obsRegionBtn(reg,'btn')}`:''}</div>
     ${ADMST.busy?`<p class="hint" role="status">Counting every nation${all?'':' in '+esc(regName(reg))}…</p>`:''}${ADMST.err?`<p class="err" role="alert">${esc(ADMST.err)} <button type="button" class="linkish" data-act="st-retry">Try again</button></p>`:''}${body}`);
 }
 function stPick(reg){ADMST.reg=REG_BY_ID[reg]?reg:'';ADMST.err='';if(!ADMST.d[ADMST.reg])stLoad(false);else render();const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});window.scrollTo(0,0);}
@@ -39383,7 +39417,7 @@ VISIT_SECTIONS.push((x,now)=>{
   let where='';if(mine){const p=S.nation.pp.p||[];for(let i=0;i<p.length;i++)if(p[i].includes(x.id))where=` on page ${roman(i+1)}`;}
   const th=PP.just===x.id;if(th)PP.just=null;
   return `<section class="pp-visit"><span class="pp-visit-st${th?' thump':''}">${ppStampSVG(Object.assign({},mine?ppSnap(mine):d.s,{nm:n.name}),mine?mine[2]:now,{label:`Entry stamp of ${n.name}`})}</span>
-    <div><p class="eyebrow">Passport</p><p class="pp-visit-n">Entry stamp of ${esc(n.name)}</p><p class="hint">${mine?`In your passport since ${esc(fmtDate(mine[2]))}${where}.`:!S.nation?'':ppCount(S.nation)>=PP_MAX?'Your passport is full: make room to collect it.':'Stamping your passport…'} Their passport holds ${k} ${k===1?'stamp':'stamps'}.</p></div>
+    <div><p class="eyebrow">Passport</p><p class="pp-visit-n">Entry stamp of ${esc(n.name)}</p><p class="hint">${mine?`In your passport since ${esc(fmtDate(mine[2]))}${where}.`:!S.nation||OBS?'':ppCount(S.nation)>=PP_MAX?'Your passport is full: make room to collect it.':'Stamping your passport…'} Their passport holds ${k} ${k===1?'stamp':'stamps'}.</p></div>
     <div class="row"><button type="button" class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button></div></section>`;
 });
 HELP_EXT.push({k:'passport',t:'The passport',body:()=>`<p>Every nation has a passport: a cover, an identity page and twenty pages for entry stamps, ten to a page. Opening another nation’s page stamps that nation’s entry stamp into yours, with the date, up to ${PP_MAX} stamps. Every ${PP_CREDIT_EVERY} stamps earn a land credit for the map, ${PP_CREDITS} for a full book. Other regions cannot be visited, so a passport fills with the nations of your region, and of the regions you move through.</p>
@@ -43978,6 +44012,73 @@ function chrView(now){
 }
 VIEWS_EXT.chronicle=now=>chrView(now);
 
+/* ───────── observer mode ─────────
+   An admin opens any region read-only (OBS, by REG): its world map, Region page and board, Census, the World page and
+   its nations' pages, as a player there sees them, with a bar on every page that leads back. The tab reloads into
+   the region and out of it, so the map, the region's listeners and everything worked out from them are the
+   observed region's, and nothing of the admin's own nation is in the page. Defined last: these wrap the views. */
+const OBS_NAV=['map','region','census','world'],OBS_VIEWS=OBS_NAV.concat('visit','stats');
+let obsGoing=false;
+/* the observing tab's S.nation: a nation with no land, no clock and no record, which nothing saves */
+function obsNation(){const now=Date.now();return normalize({name:'Observer',pretitle:'Observer',leader:'Observer',reg:REG.id,founded:now,popAt:now,issueClock:now,updatedAt:now,claims:[],inbox:[],log:[]});}
+/* into a region (and to one of its nations), or back to the admin's own when it is theirs */
+async function obsEnter(id,visit){
+  if(!S.isOwner||!REG_BY_ID[id]||obsGoing)return;obsGoing=true;
+  try{await flushNow();}catch(e){}
+  try{if(id===HOME_REG.id)sessionStorage.removeItem(OBS_KEY);else sessionStorage.setItem(OBS_KEY,id);}
+  catch(e){obsGoing=false;toast('This browser keeps no session storage, which observing a region needs.');return;}
+  try{history.replaceState(null,'','#'+(visit?'visit/'+encodeURIComponent(visit):id===HOME_REG.id?'nation':'map'));}catch(e){}
+  location.reload();
+}
+function obsExit(){
+  try{sessionStorage.removeItem(OBS_KEY);}catch(e){return;}
+  try{history.replaceState(null,'','#nation');}catch(e){}
+  location.reload();
+}
+/* connect() has confirmed the admin: the region's pages may be drawn */
+function obsConnected(){S.obsOn=true;}
+function obsBar(){return `<div class="obs-bar" role="region" aria-label="Observer mode"><p><b>Observing ${esc(REG.name)}</b> — read-only</p><button type="button" class="btn small" data-act="obs-exit">Return to my nation</button></div>`;}
+function obsWho(){return `<div class="side-who obs-who"><span class="side-name"><span class="side-pre">Observing, read-only</span><span class="side-nm">${esc(REG.name)}</span></span>${S.isOwner?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>`;}
+/* the admin portal's ways in: a region, and a nation of another region */
+function obsRegionBtn(id,cls='btn ghost small'){
+  if(!S.isOwner||S.mode==='local'||!REG_BY_ID[id]||id===REG.id)return '';
+  return OBS&&id===HOME_REG.id?`<button type="button" class="${cls}" data-act="obs-exit">Return to my nation</button>`:`<button type="button" class="${cls}" data-act="obs-go" data-id="${esc(id)}">Observe ${esc(regName(id))}</button>`;
+}
+function obsVisitBtn(reg,id){return S.isOwner&&S.mode!=='local'&&REG_BY_ID[reg]?`<button type="button" class="btn ghost small" data-act="obs-go" data-id="${esc(reg)}" data-visit="${esc(id)}">View nation in ${esc(regName(reg))}</button>`:'';}
+function obsView(v){return ADM_VIEWS.includes(v)||OBS_VIEWS.includes(v)&&(v!=='stats'||!!S.statsFor&&S.statsFor!==myId())?v:'map';}
+/* the map without a nation of one's own: a click selects the nation there */
+function obsMapPanel(){
+  const T=territory(),i=S.mapSel!=null?T.byId[S.mapSel]:undefined;
+  if(i===undefined){const pl=allNations().filter(x=>!x.npc).length;
+    return `<p class="eyebrow">Observing</p><h2 class="mp-h">${esc(REG.name)}</h2><p class="muted">${pl===1?'One nation is':pl+' nations are'} run by players here. Select a nation on the map to see it.</p>`;}
+  const x=T.list[i];
+  return `<p class="eyebrow">${x.npc?'Computer-run nation':'Player nation'}</p><div class="mp-nat"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><h2 class="mp-h">${esc(x.n.name)}</h2></div>
+    <p class="muted">${esc(fullName(x.n))} · ${esc(classify(x.n.s))}</p>
+    <dl class="mp-dl"><div><dt>Population</dt><dd>${fmtPop(popNow(x.n))}</dd></div><div><dt>Land area</dt><dd>${fmtArea(T.count[i])}</dd></div><div><dt>Army</dt><dd>${brig(x.n)}</dd></div><div><dt>Alliance</dt><dd>${esc(allianceName(x.id))}</dd></div></dl>
+    <div class="row" style="margin-top:16px"><button class="btn ghost" data-act="visit" data-id="${esc(x.id)}">View nation</button></div>`;
+}
+go=(f=>function(v){return f.call(this,OBS?obsView(v):v);})(go);
+shell=(f=>function(){if(OBS)S.view=obsView(S.view);return f.apply(this,arguments);})(shell);
+mainView=(f=>function(){
+  if(!OBS)return f.apply(this,arguments);
+  if(!S.obsOn)return `<p class="hint" role="status">Opening ${esc(REG.name)}…</p>`;
+  try{return f.apply(this,arguments);}catch(e){return `<div class="empty"><p class="empty-h">This page could not be drawn while observing</p><p>${esc(e.message)}</p></div>`;}
+})(mainView);
+navGroups=(f=>function(){const g=f.apply(this,arguments);return OBS?g.map(x=>({...x,items:x.items.filter(([v])=>OBS_NAV.includes(v))})).filter(x=>x.items.length):g;})(navGroups);
+mapPanel=(f=>function(){return OBS?obsMapPanel():f.apply(this,arguments);})(mapPanel);
+worldMapView=(f=>function(){
+  if(!OBS)return f.apply(this,arguments);
+  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${REGION} as its players see it. Select a nation on the map to see it.</p></header>
+  <div class="map-layout${mapFsOn('main')?' ml-full':''}">
+    <div class="ml-map">${mapBox('main','')}</div>
+    <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
+    <div class="ml-legend">${mapLegend()}</div>
+  </div>`;
+})(worldMapView);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='obs-go'){e.preventDefault();obsEnter(el.dataset.id,el.dataset.visit||'');return;}
+  if(a==='obs-exit'){e.preventDefault();obsExit();}});
+
 /* ───────── the browser tab: what is waiting, at a glance ─────────
    The tab's title counts what waits for the player, as "(3) Edicts · Edictum": unread edicts, unread letters,
    land credits to spend (one item however many) and an expedition that is back; its icon gets a red dot. While
@@ -44018,7 +44119,7 @@ document.addEventListener('visibilitychange',tabTitle);
 function start(data){
   data=data||{};
   applyTheme(themePref());
-  S.nation=loadLocal();
+  S.nation=OBS?obsNation():loadLocal();
   S.draft=data.draft||(!S.nation&&draftRestore())||newDraft();
   if(data.view){
     S.view=data.view;S.openIssue=data.openIssue||null;S.result=data.result||null;S.visit=data.visit||null;
