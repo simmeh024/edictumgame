@@ -5,6 +5,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { registered } from './eligibility.js';
 import { gather, summarize } from './stats.js';
 import { cbDelete } from './board.js';
+import { shopSummary } from './shop-stats.js';
 
 const REGIONS = new Set('meridian frostmarch northernpale driftlands silentmoors wildwood saffron hollow ashen ironsteppe gilded verdantbasin coralreach emberisles lanterncoast jadeterraces highcrags cloudspine obsidianrim ambershallows sunkenkingdoms mistral stormwrack longvalley greywater scatteredcrown'.split(' '));
 export const MAINTENANCE = 'Current region is disabled and undergoing maintainance, check back soon.';
@@ -93,6 +94,19 @@ async function stats(db, data) {
   }
   return summarize(counted, reg);
 }
+/* The Shop statistics page (functions/shop-stats.js): the shop's billing records are few, so they are read whole
+   each time; the latest sales name their nations. */
+async function shopStats(db) {
+  const [cfg, tx, sub, adj, ck] = await Promise.all([db.doc('authConfig/paddle').get(), db.collection('shopTx').get(), db.collection('shopSubs').get(),
+    db.collection('shopAdj').get(), db.collection('shopCheckouts').get()]);
+  const all = q => q.docs.map(d => ({ id: d.id, ...d.data() }));
+  const env = cfg.exists ? (cfg.get('env') === 'live' ? 'live' : cfg.get('env') || 'sandbox') : '';
+  const out = shopSummary({ txs: all(tx), subs: all(sub), adjs: all(adj), cks: all(ck) }, Date.now(), env);
+  const uids = [...new Set(out.recent.flatMap(r => [r.uid, r.payer]).filter(Boolean))];
+  const names = {};
+  if (uids.length) for (const n of await db.getAll(...uids.map(u => db.doc('nations/' + u)))) if (n.exists) names[n.id] = text(n.get('name'), 80);
+  return { ...out, on: cfg.exists, names };
+}
 async function setRegion(db, actor, data) {
   const target = id(data.reg), reason = text(data.reason, 300);
   if (!REGIONS.has(target) || typeof data.enabled !== 'boolean' || !reason) throw new HttpsError('invalid-argument', 'Choose a region, availability and a reason.');
@@ -174,6 +188,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'player') return player(db, id(d.uid));
   if (d.op === 'health') return health(db);
   if (d.op === 'stats') return stats(db, d);
+  if (d.op === 'shopStats') return shopStats(db);
   if (d.op === 'audit') return audit(db, d);
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);

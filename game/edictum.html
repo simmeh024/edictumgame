@@ -38507,7 +38507,7 @@ function tick(){
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
 const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
 const ADM_EXTRA=['admin-players','admin-health','admin-audit'];
-const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus','admin-edicts','admin-stats',ADM_EXTRA);
+const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus','admin-edicts','admin-stats','admin-shop',ADM_EXTRA);
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
    stays theirs to play); a removed nation leaves this browser too */
@@ -38828,7 +38828,7 @@ function admShell(v,body){
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
-        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-players','Player search')+tab('admin-regions','Region control'))}
+        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-players','Player search')+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news'))}
@@ -38841,7 +38841,7 @@ function admShell(v,body){
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
 render=(f=>function(){const r=f.apply(this,arguments);if(admMenuOpen&&ADM_MOBILE.matches)admShowMenu();return r;})(render);
-shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(S.view==='admin-edicts'&&S.isOwner)return adminEdictsView();if(S.view==='admin-stats'&&S.isOwner)return adminStatsView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
+shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(S.view==='admin-edicts'&&S.isOwner)return adminEdictsView();if(S.view==='admin-stats'&&S.isOwner)return adminStatsView();if(S.view==='admin-shop'&&S.isOwner)return adminShopView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
 go=(f=>function(v){if(v!==S.view){admMenuOpen=false;if(ADM_EXTRA.includes(v))ADMX.loaded[v]=false;}if(ADM_PAGES.includes(v)&&S.view!==v){if(!ADM_VIEWS.includes(S.view))ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
@@ -39116,6 +39116,60 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   if(a==='st-reg'){stPick(el.dataset.v);return;}
   if(a==='st-refresh'){stLoad(true);return;}
   if(a==='st-retry'){ADMST.err='';stLoad(false);}});
+
+/* ───────── shop statistics ─────────
+   What the Shop sells: functions/shop-stats.js counts the billing records functions/shop.js keeps from Paddle's
+   notifications (sales, refunds, chargebacks, subscriptions, checkouts). Takings stay in the currency each buyer paid
+   in; "at list price" adds the catalogue's euro prices for one sum that compares. */
+const ADSH={d:null,busy:false,err:''};
+async function shLoad(){
+  if(ADSH.busy)return;ADSH.busy=true;ADSH.err='';render();
+  try{ADSH.d=await adminRequest({op:'shopStats'});}
+  catch(e){ADSH.err=e.message||'The shop’s figures could not be counted.';}
+  finally{ADSH.busy=false;if(S.view==='admin-shop')render();}
+}
+/* an amount in a currency's smallest unit (cents; yen have none) */
+function shMoney(v,cur){
+  try{const f=new Intl.NumberFormat('en-IE',{style:'currency',currency:cur||'EUR'}),dp=f.resolvedOptions().maximumFractionDigits;return f.format((Number(v)||0)/Math.pow(10,dp));}
+  catch(e){return stN((Number(v)||0)/100)+' '+(cur||'');}
+}
+const shSums=(o,none)=>{const e=Object.entries(o||{}).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);return e.length?e.map(([c,v])=>shMoney(v,c)).join(' · '):(none||'–');};
+const SH_STATUS={active:'Active',trialing:'On trial',past_due:'Payment overdue',paused:'Paused',canceled:'Ended'};
+function adminShopView(){
+  const d=ADSH.d;
+  if(!d&&!ADSH.busy&&!ADSH.err)setTimeout(shLoad,0);
+  const kpi=(v,l)=>`<div class="adm-kpi"><b>${typeof v==='string'?v:stN(v)}</b><span>${l}</span></div>`;
+  const sec=(t,hint,b)=>`<section class="adst-sec"><h2 class="h2">${t}</h2>${hint?`<p class="hint">${hint}</p>`:''}${b}</section>`;
+  const nm=u=>u?(d.names[u]?esc(d.names[u]):`<code>${esc(u.slice(0,8))}…</code>`):'–';
+  let body='';
+  if(d){
+    const C=d.club,days=d.days,cur=d.currency,subsAll=Object.values(C.status).reduce((a,b)=>a+b,0);
+    body=`${d.on||d.sold?'':'<p class="err" role="status">The shop is not set up in this project (no authConfig/paddle), so there is nothing to count.</p>'}
+    <div class="adm-kpis">
+      ${kpi(shMoney(d.listKept,cur),'taken at list price, refunds left out')}${kpi(shMoney(d.list30,cur),'of it in the last 30 days')}
+      ${kpi(d.kept,`purchases kept, of ${stN(d.sold)} paid`)}${kpi(d.buyers,'players who have paid')}
+      ${kpi(C.members,'Chancery Club members now')}${kpi(shMoney(C.monthlyList,cur),'a month from live subscriptions, at list price')}
+      ${kpi(d.refunded,`refunded or charged back${d.pendingRefunds?` (${stN(d.pendingRefunds)} waiting for Paddle)`:''}`)}${kpi(d.checkouts.opened30?stPc(d.checkouts.paid30,d.checkouts.opened30):'–',`of ${stN(d.checkouts.opened30)} checkouts opened in 30 days were paid`)}
+    </div>
+    ${sec('Takings','What buyers paid, in the currency Paddle charged them (Paddle localises the price by country), before Paddle’s fee and the sales tax it pays.',`<div class="adst-rows">
+      <div class="adst-row"><span class="adst-l">Kept</span><span class="adst-v">${shSums(d.money)}</span></div>
+      <div class="adst-row"><span class="adst-l">Given back</span><span class="adst-v">${shSums(d.refundedMoney,'none')}</span></div></div>
+      <p class="hint">${stN(d.sold1)} sold in the last 24 hours, ${stN(d.sold7)} this week, ${stN(d.sold30)} in 30 days to ${stN(d.buyers30)} ${d.buyers30===1?'player':'players'}. ${stN(d.gifts)} ${d.gifts===1?'was a gift':'were gifts'}; ${stN(d.chargebacks)} ${d.chargebacks===1?'chargeback':'chargebacks'}.</p>`)}
+    ${sec('Day by day','',`<div class="adst-grid">
+      ${stCols('Purchases each day','Every payment of the last 60 days, renewals and refunded ones included, by the day it was paid (UTC).',days.map(x=>[stDay(x.d),x.n]),'purchases')}
+      ${stCols('Taken each day at list price','Euros at catalogue price, refunded payments left out.',days.map(x=>[stDay(x.d),x.list/100]),'euros')}</div>`)}
+    ${sec('By product','',`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th class="num">List price</th><th class="num">Paid</th><th class="num">Kept</th><th class="num">Refunded</th><th class="num">Gifts</th><th class="num">At list price</th><th>Takings</th><th class="num">Checkouts, 30 days</th><th class="num">Sold, 30 days</th></tr></thead><tbody>
+      ${d.products.map(p=>`<tr><td>${esc(p.name)}</td><td class="num">${shMoney(p.amount,cur)}</td><td class="num">${stN(p.sold)}</td><td class="num">${stN(p.kept)}</td><td class="num">${stN(p.refunded)}</td><td class="num">${stN(p.gifts)}</td><td class="num">${shMoney(p.list,cur)}</td><td>${shSums(p.money)}</td><td class="num">${stN(p.opened30)}</td><td class="num">${stN(p.paid30)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="hint">A Club subscription counts once per paid month or year: renewals are purchases too.</p>`)}
+    ${sec('The Chancery Club',`${stN(C.members)} ${C.members===1?'member':'members'} with a live subscription; ${stN(C.canceling)} of them cancelled, ending with the paid period.`,subsAll?`<div class="adst-rows">${Object.entries(C.status).sort((a,b)=>b[1]-a[1]).map(([k,v])=>stBar(esc(SH_STATUS[k]||k),v,subsAll)).join('')}</div>`:'<p class="hint">No subscriptions yet.</p>')}
+    ${sec('Latest purchases','The 30 most recent payments.',d.recent.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Product</th><th>Nation</th><th>Paid</th><th>State</th><th>Player</th></tr></thead><tbody>
+      ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc((d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
+  }
+  return admShell('admin-shop',`<p class="eyebrow">Admin portal</p><h1 class="display">Shop statistics</h1>
+    <p class="lede">What the Bureau of National Finery has sold${d&&d.env?` (Paddle ${esc(d.env)})`:''}: counted from the payments, refunds and subscriptions Paddle reported.${d?` Counted ${esc(rel(d.at))}.`:''} <button type="button" class="linkish" data-act="sh-refresh"${ADSH.busy?' disabled':''}>${ADSH.busy?'Counting…':'Count again'}</button></p>
+    ${ADSH.busy?'<p class="hint" role="status">Counting the shop’s records…</p>':''}${ADSH.err?`<p class="err" role="alert">${esc(ADSH.err)} <button type="button" class="linkish" data-act="sh-refresh">Try again</button></p>`:''}${body}`);
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="sh-refresh"]');if(el&&S.isOwner)shLoad();});
 
 /* ───────── support tickets ─────────
    The Help page (and the founding page's help) opens a support ticket: src/shim.js shows the form and
