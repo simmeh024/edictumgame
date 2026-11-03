@@ -253,6 +253,30 @@ service cloud.firestore {
       allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
     }
 
+    // The Community Board (functions/board.js): every region's board, read by everyone and written only by civic().
+    // A topic is cb/{reg}/posts/{tid}, a reply cb/{reg}/posts/{tid}/posts/{rid}; their author may delete them
+    // directly only so that deleting an account (which deletes every post where a == uid) still works.
+    match /cb/{reg} {
+      allow read: if true;
+      match /posts/{tid} {
+        allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
+        match /posts/{rid} {
+          allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
+        }
+      }
+    }
+    // what a hidden board post said, kept for the admins who may show it again
+    match /cbHidden/{id} {
+      allow read: if isAdmin();
+    }
+    // presence/{uid} {t}: the player's game is open, refreshed every few minutes while it is, so the board can show
+    // who is online; only the player writes it, always with the server's time
+    match /presence/{uid} {
+      allow read: if true;
+      allow create, update: if isSelf(uid) && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t == request.time;
+      allow delete: if isSelf(uid) || isAdmin();
+    }
+
     // every post, wherever it is, for a player deleting their account (posts where a == their uid)
     match /{path=**}/posts/{pid} {
       allow read: if true;

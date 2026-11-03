@@ -5,6 +5,7 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
+import { cbTopic, cbReply, cbEdit, cbDelete, cbMod } from './board.js';
 
 const regions = new Set(DATA.regions.map(r => r.id));
 const statKeys = Object.keys(DATA.regions[0].npcs[0].s);
@@ -359,6 +360,11 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'newsReact') return newsTally(db, who, d, 'e');
   if (d.op === 'newsVote') return newsTally(db, who, d, 'v');
   if (d.op === 'renamed') return renamed(db, who);
+  if (d.op === 'cbTopic') return cbTopic(db, who, d, regions);
+  if (d.op === 'cbReply') return cbReply(db, who, d, regions);
+  if (d.op === 'cbEdit') return cbEdit(db, who, d, regions);
+  if (d.op === 'cbDelete') return cbDelete(db, who, d, regions);
+  if (d.op === 'cbMod') return cbMod(db, who, d, regions);
   if (d.op === 'topic') return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
     if (d.reg && d.reg !== e.n.reg) throw new HttpsError('permission-denied', 'Post to your own region.');
