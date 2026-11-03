@@ -1578,6 +1578,19 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .wd-ph .bar i{display:block;height:100%;background:var(--accent)}
 .wd-pn{margin-top:12px;padding-top:10px;border-top:1px solid var(--rule)}
 @media (max-width:760px){.wd-grid{grid-template-columns:1fr}.wd-fig{position:static;max-width:340px;margin-inline:auto;width:100%}}
+.wd-ph-r{font-size:12.5px;color:var(--ink-3)}
+.wd-ph-r b{color:var(--ink-2);font-weight:600}
+/* the statue's keepsakes: a bronze stamp, drapery round the motto and a verdigris accent */
+.cz-enx.cz-enx-cast{color:#3f6b58;border:2px solid #3f6b58;border-radius:1px;letter-spacing:.24em;transform:none;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #3f6b58}
+:root[data-theme="dark"] .cz-enx.cz-enx-cast{color:#8fc3a9;border-color:#8fc3a9;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #8fc3a9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cz-enx.cz-enx-cast{color:#8fc3a9;border-color:#8fc3a9;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #8fc3a9}}
+.hero-motto.mf-drape,.cz-mf.mf-drape{display:inline-block;padding:4px 20px;border-left:3px double var(--accent);border-right:3px double var(--accent);border-radius:10px}
+:root[data-accent="verdigris"]{--accent:#2f7a68;--accent-hi:#256454;--accent-ink:#f2fbf8;--accent-soft:#dcefe9;--guill:#2f7a68}
+@media (prefers-color-scheme: dark){:root[data-accent="verdigris"]:not([data-theme="light"]){--accent:#7cc7b2;--accent-hi:#97d4c3;--accent-ink:#08231c;--accent-soft:#17332c;--guill:#7cc7b2}}
+:root[data-accent="verdigris"][data-theme="dark"]{--accent:#7cc7b2;--accent-hi:#97d4c3;--accent-ink:#08231c;--accent-soft:#17332c;--guill:#7cc7b2}
+.cz-asw[data-a="verdigris"]{background:#2f7a68}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cz-asw[data-a="verdigris"]{background:#7cc7b2}}
+:root[data-theme="dark"] .cz-asw[data-a="verdigris"]{background:#7cc7b2}
 /* field digs */
 .dig-top{margin-bottom:18px}
 .dig-runs{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:8px}
@@ -16557,7 +16570,7 @@ function warWith(id){
   const d=pairWar(me,id);return {war:false,truceUntil:d.truceUntil};
 }
 function enemies(){const out=[];if(!S.nation)return out;for(const x of allNations()){if(!x.me&&warWith(x.id).war)out.push(x);}return out;}
-function nameOf(id){const x=findNation(id);return x?x.n.name:'a former nation';}
+function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(id);return x?x.n.name:'a former nation';}
 
 /* Enemy hexes this nation can attack: next to its own or its allies' land, or up to three hexes
    beyond across unclaimed land or shallow sea. Allied land is open; other nations' land blocks. */
@@ -18117,10 +18130,16 @@ function npcReply(id,text,now){
   if(!body.length)body.push(pick(V.lines));
   return `${V.open} ${body.join(' ')} ${V.sign}`;
 }
+/* letters from the region's offices: written by no nation and stored nowhere, but worked out in every game from what
+   is public (the Great Statue's call for help, for one). OFFICES[id] = {name, seal: an SVG for the flag's place,
+   go: [page, button label]}; a source in DM_SOURCES gives [{peer: an office id, t, x}]. Offices take no replies. */
+const OFFICES={},DM_SOURCES=[];
+const isOffice=id=>typeof id==='string'&&Object.hasOwn(OFFICES,id);
 function dmThreads(now){
   const me=myId(),n=S.nation,th=new Map(),add=(peer,m)=>{let a=th.get(peer);if(!a)th.set(peer,a=[]);a.push(m);};
   for(const m of (n&&n.dm)||[]){if(m.i){if(m.t<=now)add(m.w,{from:m.w,t:m.t,x:m.x,mine:false});}else add(m.w,{from:me,t:m.t,x:m.x,mine:true});}
   for(const x of allNations()){if(x.npc||x.me)continue;for(const m of x.n.dm||[])if(m.w===me&&!m.i)add(x.id,{from:x.id,t:m.t,x:m.x,mine:false});}
+  if(n)for(const src of DM_SOURCES){let a=[];try{a=src(n,now)||[];}catch(e){}for(const m of a)if(isOffice(m.peer)&&m.t<=now)add(m.peer,{from:m.peer,t:m.t,x:m.x,mine:false});}
   for(const a of th.values())a.sort((p,q)=>p.t-q.t);
   return th;
 }
@@ -18144,23 +18163,27 @@ function sendDm(){
 }
 function messagesView(){
   const n=S.nation,now=Date.now(),th=dmThreads(now),seen=n.seenDm||{},me=myId();
-  if(S.msgPeer&&!findNation(S.msgPeer))S.msgPeer=null;
-  const peers=[...th.keys()].filter(id=>findNation(id)).sort((a,b)=>th.get(b).slice(-1)[0].t-th.get(a).slice(-1)[0].t);
+  if(S.msgPeer&&!findNation(S.msgPeer)&&!isOffice(S.msgPeer))S.msgPeer=null;
+  const peers=[...th.keys()].filter(id=>findNation(id)||isOffice(id)).sort((a,b)=>th.get(b).slice(-1)[0].t-th.get(a).slice(-1)[0].t);
   const others=allNations().filter(x=>!x.me).sort((a,b)=>(a.npc?1:0)-(b.npc?1:0)||a.n.name.localeCompare(b.n.name));
-  const peer=S.msgPeer,px=peer?findNation(peer):null,thread=peer?(th.get(peer)||[]):[];
+  const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,px=peer&&!po?findNation(peer):null,thread=peer?(th.get(peer)||[]):[];
+  const face=id=>isOffice(id)?OFFICES[id].seal:flagSVG(findNation(id).n.flag,'Flag of '+nameOf(id));
   const lastMine=[...thread].reverse().find(m=>m.mine),peerSeen=px&&!px.npc&&px.n.seenDm?(px.n.seenDm[me]||0):0;
-  const conv=peers.map(id=>{const x=findNation(id),a=th.get(id),last=a[a.length-1],un=a.filter(m=>!m.mine&&m.t>(seen[id]||0)).length;
-    return `<li><button class="conv${id===peer?' on':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span class="conv-t"><b>${esc(x.n.name)}${isStaff(id)?STAFF_PILL:''}</b><span>${last.mine?'You: ':''}${esc(last.x.slice(0,60))}</span></span><span class="conv-m">${rel(last.t)}${un?`<span class="badge" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
+  const conv=peers.map(id=>{const a=th.get(id),last=a[a.length-1],un=a.filter(m=>!m.mine&&m.t>(seen[id]||0)).length;
+    return `<li><button class="conv${id===peer?' on':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${face(id)}</span><span class="conv-t"><b>${esc(nameOf(id))}${isStaff(id)?STAFF_PILL:''}</b><span>${last.mine?'You: ':''}${esc(last.x.slice(0,60))}</span></span><span class="conv-m">${rel(last.t)}${un?`<span class="badge" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
   const pst=!!px&&!px.npc&&isStaff(px.id);
   const bubbles=thread.map(m=>`<li class="bub${m.mine?' mine':''}${!m.mine&&pst?' staff':''}">${!m.mine&&pst?'<span class="bub-staff">Edictum staff</span>':''}<p>${esc(m.x)}</p><span class="bub-t">${rel(m.t)}${m===lastMine&&peerSeen>=m.t?' · Seen':''}</span></li>`).join('');
+  /* an office's letters: read, not answered */
+  const office=po?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${po.seal}</span><b>${esc(po.name)}</b><span class="chip">Office of ${esc(REG.the)}</span>${po.go?`<button class="linkish small" data-act="go" data-v="${po.go[0]}">${esc(po.go[1])}</button>`:''}</div>
+      <ol class="bubs">${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters.</p>`:'';
   return `<header class="vh"><p class="eyebrow">Diplomatic bag</p><h1>Messages</h1><p>Write to any nation in ${REGION}. Computer-run nations answer within a minute or two; players see your letter the next time they play.</p></header>
   <div class="msg-layout${peer?' in-thread':''}">
     <aside class="convs"><label class="lbl" for="dm-new">New message to</label><select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(x=>`<option value="${esc(x.id)}"${x.id===peer?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':isStaff(x.id)?' (Edictum staff)':''}</option>`).join('')}</select>
       ${peers.length?`<ul class="conv-list">${conv}</ul>`:'<p class="hint" style="margin-top:14px">No conversations yet.</p>'}</aside>
-    <section class="thread">${px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
+    <section class="thread">${office||(px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
       ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs">${bubbles||'<li class="hint">No messages yet. Say hello.</li>'}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(px.n.name)} is drafting a reply…</p></li>`:''}</ol>
-      <form id="dm-form" class="dm-form" novalidate><label class="lbl" for="dm-text">Message to ${esc(px.n.name)}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="500" rows="3" placeholder="Your Excellency…">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}<div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / 500</span></div></form>`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p></div>`}
-      <p class="hint dm-note">Letters travel inside each nation’s public record. Other players’ games only show them to the nation they are addressed to, but they are not encrypted, so keep secrets out of them.</p></section>
+      <form id="dm-form" class="dm-form" novalidate><label class="lbl" for="dm-text">Message to ${esc(px.n.name)}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="500" rows="3" placeholder="Your Excellency…">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}<div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / 500</span></div></form>`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p></div>`)}
+      ${po?'':'<p class="hint dm-note">Letters travel inside each nation’s public record. Other players’ games only show them to the nation they are addressed to, but they are not encrypted, so keep secrets out of them.</p>'}</section>
   </div>`;
 }
 
@@ -43732,7 +43755,7 @@ for(const is of MIX_ISSUES){
 
 /* ───────── the Great Statue: a wonder the region's player nations build together ─────────
    Nothing is stored centrally. Each player nation keeps its own gifts to the statue in its record, n.wnd =
-   {r: region id, c: {resource: amount}, ph: phases it has seen complete, t: last gift}, and the statue is the sum of
+   {r: region id, c: {resource: amount}, ph: phases it has seen complete, t: last gift, t0: first gift}, and the statue is the sum of
    them: computer nations take no part. A phase once complete stays complete (the highest ph any contributor holds),
    so a nation that leaves the region later never takes a finished phase down with it. Ten phases, from the
    foundations to the unveiling; contributors to a finished statue may style their nation "the Patron". */
@@ -43755,15 +43778,16 @@ let wndMemo={k:'',v:null};
 function wndState(){
   const L=allNations().filter(x=>!x.npc&&x.n&&x.n.wnd&&x.n.wnd.r===REG.id);
   const key=REG.id+'|'+L.map(x=>x.id+':'+x.n.wnd.t+':'+(x.n.wnd.ph||0)).join(',');if(wndMemo.k===key)return wndMemo.v;
-  const tot=Object.fromEntries(RES.map(r=>[r,0])),who=[];let floor=0;
-  for(const x of L){const c=x.n.wnd.c||{};let sum=0;for(const r of RES){const v=num0(c[r]);tot[r]+=v;sum+=v;}floor=Math.max(floor,x.n.wnd.ph||0);if(sum>0)who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c});}
+  const tot=Object.fromEntries(RES.map(r=>[r,0])),who=[];let floor=0,start=0;
+  for(const x of L){const c=x.n.wnd.c||{};let sum=0;for(const r of RES){const v=num0(c[r]);tot[r]+=v;sum+=v;}floor=Math.max(floor,x.n.wnd.ph||0);
+    if(sum>0){who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c});const t0=x.n.wnd.t0||x.n.wnd.t;if(t0>0&&(!start||t0<start))start=t0;}}
   let done=0;while(done<WND_N&&RES.every(r=>tot[r]+1e-6>=(WND_CUM[done][r]||0)))done++;
   done=Math.max(done,Math.min(WND_N,floor));
   /* the phase in progress: what it still needs, measured past what the earlier phases took */
   const need={},cur=done<WND_N?WND_PH[done][2]:{};let want=0,have=0;
   for(const r of RES){const q=cur[r]||0;if(!q)continue;const prev=done?(WND_CUM[done-1][r]||0):0,got=clamp(tot[r]-prev,0,q);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
   who.sort((a,b)=>b.sum-a.sum||(a.name<b.name?-1:1));
-  wndMemo={k:key,v:{tot,done,need,frac:want?have/want:1,who}};return wndMemo.v;
+  wndMemo={k:key,v:{tot,done,need,frac:want?have/want:1,who,start}};return wndMemo.v;
 }
 const wndPhase=()=>{try{return wndState().done;}catch(e){return 0;}};
 /* give to the phase in progress, never more than it still needs */
@@ -43772,25 +43796,114 @@ function wndGive(r,amt){
   const W=wndState();if(W.done>=WND_N){toast('The statue is finished.');return;}
   const left=W.need[r]||0;if(left<=0){toast(`This phase needs no more ${resName(r)}.`);return;}
   const now=Date.now(),st=stockNow(n0,now),give=Math.floor(Math.min(amt,left,st[r]));if(give<1){toast(`You have no ${resName(r)} to spare.`);return;}
-  const n=clone(n0),w=wndMine(n)?clone(n.wnd):{r:REG.id,c:{},ph:0,t:0};
+  const n=clone(n0);
+  /* the first gift to another region's statue: what was earned at the old one is kept (n.wnx) */
+  if(n.wnd&&!wndMine(n)){const got=wndRewarded(n),x=n.wnx||{u:[],l:0};n.wnx={u:[...new Set(x.u.concat(got))].sort((a,b)=>a-b),l:(x.l||0)+WND_LAND*got.length};}
+  const w=wndMine(n)?clone(n.wnd):{r:REG.id,c:{},ph:0,t:0,g:[]};
   st[r]-=give;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  w.c[r]=Math.round((num0(w.c[r])+give)*10)/10;w.t=now;n.wnd=w;
+  w.c[r]=Math.round((num0(w.c[r])+give)*10)/10;if(!w.t0)w.t0=w.t||now;w.t=now;
+  w.g=[...new Set((w.g||[]).concat(W.done))].sort((a,b)=>a-b);n.wnd=w;
   commit(n);const after=wndState();
-  if(after.done>W.done){const m=clone(S.nation);m.wnd.ph=Math.max(m.wnd.ph||0,after.done);commit(m);
-    toast(after.done>=WND_N?`${wndName()} is finished, and ${n.name} helped build it. Your nation may now style itself “the Patron”, in Customise.`:`Phase ${after.done} of ${WND_N} is complete: ${WND_PH[after.done-1][0].toLowerCase()}. Next: ${WND_PH[after.done][0].toLowerCase()}.`);}
+  if(after.done>W.done){const m=clone(S.nation),got=wndRaise(m,after.done,now);commit(m);
+    toast((after.done>=WND_N?`${wndName()} is finished, and ${n.name} helped build it. Your nation may now style itself “the Patron”, in Customise.`:`Phase ${after.done} of ${WND_N} is complete: ${WND_PH[after.done-1][0].toLowerCase()}. Next: ${WND_PH[after.done][0].toLowerCase()}.`)+(got.length?' '+got.map(wndPart).join(' '):''));}
   else toast(`${n.name} gave ${give} ${resName(r)} to ${wndName().replace(/^The /,'the ')}.`);
   render();
 }
 /* a contributor's record keeps the highest phase it has seen finished, so finished phases stay finished */
-COMMIT_HOOKS.push(n=>{if(!wndMine(n)||n.npc)return [];try{const d=wndState().done;if(d>(n.wnd.ph||0))n.wnd.ph=d;}catch(e){}return [];});
+COMMIT_HOOKS.push((n,prev,now)=>{if(!wndMine(n)||n.npc)return [];try{return wndRaise(n,wndState().done,now).map(wndRewardText);}catch(e){return [];}});
 NORM_HOOKS.push((n,d)=>{
   const w=d&&d.wnd;if(!w||typeof w!=='object'||typeof w.r!=='string'||w.r.length>40)return;
   const c={};for(const r of RES){const v=Number(w.c&&w.c[r]);if(Number.isFinite(v)&&v>0)c[r]=Math.min(v,50000);}
   n.wnd={r:w.r,c,ph:Number.isInteger(w.ph)?clamp(w.ph,0,WND_N):0,t:typeof w.t==='number'&&isFinite(w.t)?w.t:0};
+  if(typeof w.t0==='number'&&isFinite(w.t0)&&w.t0>0)n.wnd.t0=w.t0;
+  /* the phases given to; a record from before they were kept gave to the phase it had reached */
+  n.wnd.g=Array.isArray(w.g)?[...new Set(w.g.filter(i=>Number.isInteger(i)&&i>=0&&i<WND_N))].sort((a,b)=>a-b):Object.keys(c).length?[Math.min(n.wnd.ph,WND_N-1)]:[];
+});
+NORM_HOOKS.push((n,d)=>{
+  const x=d&&d.wnx;if(!x||typeof x!=='object')return;
+  n.wnx={u:Array.isArray(x.u)?[...new Set(x.u.filter(i=>Number.isInteger(i)&&i>=0&&i<WND_N))].sort((a,b)=>a-b):[],l:Number.isInteger(x.l)?clamp(x.l,0,999):0};
 });
 UNLOCKS['t-patron']={k:'title',n:'the Patron',src:'wonder'};
 UNLOCK_SOURCES.push({earned:n=>{try{return wndMine(n)&&RES.some(r=>num0(n.wnd.c[r])>0)&&wndState().done>=WND_N?['t-patron']:[];}catch(e){return [];}},
   how:id=>id==='t-patron'?'Help build the Great Statue of your region, and see it finished.':null});
+
+/* ── the phases' rewards ──
+   Every nation that gave to a phase gets, once that phase is finished, WND_LAND land credits and a keepsake for
+   Customise made for that phase (WND_KEEP, earned no other way, so a nation that never gave has none of them).
+   n.wnd.g lists the phases the nation gave to, and a phase counts once the record's own ph has passed it, so the
+   reward is read from the nation's own record like every other land credit, and other games and the admins' checks
+   see the same. A nation that moves and then gives to another region's statue keeps what it had earned (n.wnx). */
+const WND_LAND=2,WND_KEEP=['p-hoarding','f-stone','s-cast','m-drape','a-verdigris','e-arm','t-monumental','c-scroll','p-leaf','pn-statue'];
+Object.assign(UNLOCKS,{'p-hoarding':{k:'pattern',n:'Site hoarding',src:'wonder'},'f-stone':{k:'frame',n:'Dressed stone',src:'wonder'},
+  's-cast':{k:'stamp',n:'Cast in bronze',src:'wonder'},'m-drape':{k:'motto',n:'Drapery',src:'wonder'},'a-verdigris':{k:'accent',n:'Verdigris',src:'wonder'},
+  'e-arm':{k:'emblem',n:'Raised arm',src:'wonder'},'t-monumental':{k:'title',n:'the Monumental',src:'wonder'},'c-scroll':{k:'charge',n:'Scroll',src:'wonder'},
+  'p-leaf':{k:'pattern',n:'Gold leaf',src:'wonder'},'pn-statue':{k:'pin',n:'Little statue',src:'wonder'}});
+CZ_EMBS.push('e-arm');CZ_CHB.scroll='a scroll';
+const wndRewarded=n=>n&&!n.npc&&n.wnd?(n.wnd.g||[]).filter(i=>i<(n.wnd.ph||0)):[];
+const wndLand=n=>n&&!n.npc?WND_LAND*wndRewarded(n).length+(n.wnx&&Number.isInteger(n.wnx.l)?n.wnx.l:0):0;
+/* the record sees phases finish (ph rises): the phases it gave to among them are its rewards, noted in its log */
+function wndRaise(n,d,now){
+  const was=n.wnd.ph||0;if(!(d>was))return [];
+  const got=(n.wnd.g||[]).filter(i=>i>=was&&i<d);n.wnd.ph=d;
+  if(got.length){n.log=n.log||[];for(const i of got)n.log.unshift({t:now||Date.now(),k:'wndr',a:String(i)});n.log=n.log.slice(0,60);}
+  return got;
+}
+const wndPart=i=>`For your part: ${WND_LAND} land credits, and new in Customise: ${achUnlockWords(WND_KEEP[i])}.`;
+const wndRewardText=i=>`Phase ${i+1} of ${WND_N} of ${wndName().replace(/^The /,'the ')} is finished. ${wndPart(i)}`;
+landEarned=(f=>function(n){return f.apply(this,arguments)+wndLand(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+wndLand(n);})(earnedAt);
+UNLOCK_SOURCES.push({earned:n=>n&&!n.npc?[...new Set(wndRewarded(n).concat((n.wnx&&n.wnx.u)||[]))].map(i=>WND_KEEP[i]):[],
+  how:id=>{const i=WND_KEEP.indexOf(id);return i<0?null:`Give to phase ${i+1} of your region’s Great Statue (${WND_PH[i][0].toLowerCase()}), and see that phase finished.`;}});
+uxUnlockInfo=(f=>function(id){return UNLOCKS[id]&&UNLOCKS[id].src==='wonder'?{label:'Visit the statue',view:'wonder',target:'.wd-phs'}:f.apply(this,arguments);})(uxUnlockInfo);
+NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>l.k==='wndr'&&WND_KEEP[+l.a]).map(l=>({t:l.t,k:'wndr',kl:'The Great Statue',txt:wndRewardText(+l.a),go:'wonder'})));
+
+/* the keepsakes' art: hoarding planks, dressed stone, a bronze stamp, a raised arm, a scroll, gold leaf and a
+   little statue over the capital (drapery and verdigris are in the styles) */
+czStampArt=(f=>function(s){return s==='s-cast'?'<span class="cz-enx cz-enx-cast">Cast in bronze</span>':f.apply(this,arguments);})(czStampArt);
+czCharge=(f=>function(k,c,d,flat){
+  const L=(p,w)=>`<path d="${p}" fill="none" stroke="${d}" stroke-width="${w||1.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if(k==='scroll')return czSil([['M30,20H70V82H30Z',0],['M30,13H70A7,7 0 0 1 70,27H30A7,7 0 0 1 30,13Z',0],['M30,75H70A7,7 0 0 1 70,89H30A7,7 0 0 1 30,75Z',0]],c,d,flat)
+    +L('M37,37H63M37,45H63M37,53H63M37,61H55',1.7)+L('M30,20A7,7 0 0 0 30,13M70,82A7,7 0 0 1 70,89',1.1);
+  /* flag emblem only: the statue's raised arm (a cubit arm erect), its fist round the rolled edict */
+  if(k==='arm')return czSil([['M47,95L50,52',18],['M33,84L66,86L64,97L31,95Z',0],[czEll(51,40,14,12,0),0],['M20,33H82V45H20Z',0],[czCirc(20,39,7.5),0],[czCirc(82,39,7.5),0]],c,d,flat)
+    +L('M44,30V50M51,29V51M58,30V50',1.3)+L('M39,46Q44,51 52,49',1.4)+L('M20,35A4,4 0 1 1 20,43M82,35A4,4 0 1 0 82,43',1.1)+L('M34,89L64,91',1.2);
+  return f.apply(this,arguments);
+})(czCharge);
+czEmblemSVG=(f=>function(e,x,y,r,col){if(e!=='e-arm')return f.apply(this,arguments);const s=r/40;return `<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(4)})">${czCharge('arm',col,'rgba(0,0,0,.28)',1)}</g>`;})(czEmblemSVG);
+czPatSVG=(f=>function(p,seed,mini){
+  if(p!=='p-hoarding'&&p!=='p-leaf')return f.apply(this,arguments);
+  const id='czp'+(++czSeq),q=v=>(+v).toFixed(1),dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="1.3" fill="currentColor" stroke="none"/>`;let b='';
+  if(p==='p-hoarding')b=`<defs><pattern id="${id}" width="26" height="320" patternUnits="userSpaceOnUse"><path d="M.5,0V320M0,64H26M0,256H26"/>${dot(5,59)+dot(21,59)+dot(5,261)+dot(21,261)}</pattern></defs><rect width="1000" height="320" fill="url(#${id})" stroke="none"/>`;
+  else{const r=rng(seed||7);for(let i=0;i<80;i++){const x=1000-Math.pow(r(),1.4)*900,y=r()*320,s=4+r()*9,a=r()*90;b+=`<rect x="${q(x-s/2)}" y="${q(y-s/2)}" width="${q(s)}" height="${q(s)}" transform="rotate(${q(a)} ${q(x)} ${q(y)})"${r()<.4?' fill="currentColor" fill-opacity=".25"':''}/>`;}}
+  return `<svg class="czp${mini?' mini':''}" viewBox="0 0 1000 320" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1">${b}</g></svg>`;
+})(czPatSVG);
+CZ_FR['f-stone']=[18,18,264];
+czFrameArt=(f=>function(fr,H,id){
+  if(fr!=='f-stone')return f.apply(this,arguments);
+  /* courses of dressed stone: joints along the top and bottom, staggered, and down the sides */
+  const q=v=>(+v).toFixed(2);let j='';
+  for(let x=0;x<300;x+=37.5)j+=`M${q(x+18.75)},0V18M${q(x)},${q(H-18)}V${q(H)}`;
+  for(let y=46;y<H-18;y+=28)j+=`M0,${q(y)}H18M282,${q(y)}H300`;
+  return [`<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e4dcc7"/><stop offset=".55" stop-color="#cfc4aa"/><stop offset="1" stop-color="#b8ac90"/></linearGradient></defs><rect width="300" height="${H}" fill="url(#${id})"/><path d="${j}" stroke="#8f8468" stroke-width="1" fill="none"/><rect x="1" y="1" width="298" height="${q(H-2)}" fill="none" stroke="#fffaf0" stroke-opacity=".6" stroke-width="1.2"/><rect x="17" y="17" width="266" height="${q(H-34)}" fill="none" stroke="#7d725a" stroke-width="1.4"/>`,''];
+})(czFrameArt);
+const WND_PIN='<path d="M49,46H63V41H49Z" fill="#d8cfb9" stroke="currentColor" stroke-width="1"/><path d="M52,41L53.5,27H58.5L60,41Z" fill="#5f8a74" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/><circle cx="56" cy="23.5" r="3" fill="#5f8a74" stroke="currentColor" stroke-width="1"/><path d="M58,29L63,16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="61.5" y="11" width="4" height="5" fill="#e2b13c" stroke="currentColor" stroke-width=".8"/>';
+pnSVG=(f=>function(id,n){const h=f.apply(this,arguments);return id==='pn-statue'?h.replace('</svg>',()=>WND_PIN+'</svg>'):h;})(pnSVG);
+/* lower right of the capital, like the other pins, moved down clear of any name label */
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+  const g=M.g,T=M.T,u=clamp(0.85+0.1*M.s,0.9,1.5),boxes=M.boxes||[];g.lineCap='round';g.lineJoin='round';
+  T.list.forEach((x,i)=>{if(!T.count[i]||x.npc)return;let pin='';try{pin=cz(x.n).pn;}catch(e){}if(pin!=='pn-statue')return;
+    const [px,py]=M.scr(x.cap);if(M.off(px,py))return;const bx=px+12*u;let by=py+9*u,top=by-25*u;
+    for(let k=0;k<4&&boxes.some(q=>q.x<bx+16*u&&bx-3<q.x+q.w&&q.y<by&&top-3<q.y+q.h);k++){by+=6;top+=6;}
+    const base=new Path2D(),body=new Path2D(),arm=new Path2D();
+    base.rect(bx-1*u,by-5*u,12*u,5*u);
+    body.moveTo(bx+2*u,by-5*u);body.lineTo(bx+3.2*u,by-15*u);body.lineTo(bx+6.8*u,by-15*u);body.lineTo(bx+8*u,by-5*u);body.closePath();
+    body.moveTo(bx+7.4*u,by-17.5*u);body.arc(bx+5*u,by-17.5*u,2.4*u,0,Math.PI*2);
+    arm.moveTo(bx+6.5*u,by-13.5*u);arm.lineTo(bx+10*u,by-22*u);
+    g.strokeStyle=M.col.sheet;g.lineWidth=4.5;g.stroke(base);g.stroke(body);g.stroke(arm);
+    g.fillStyle=M.col.sheet;g.fill(base);g.strokeStyle=M.col.ink;g.lineWidth=1.1;g.stroke(base);
+    g.fillStyle='#5f8a74';g.fill(body);g.stroke(body);g.lineWidth=1.7;g.stroke(arm);
+    g.fillStyle='#e2b13c';g.fillRect(bx+8.8*u,by-25*u,3*u,3.2*u);g.lineWidth=.8;g.strokeRect(bx+8.8*u,by-25*u,3*u,3.2*u);});
+}});
 
 /* ── drawing: the statue, phase by phase (in a 240 × 320 box). A finished part is solid; the one being built rises
    from the bottom as its phase fills, behind scaffolding; later ones are a faint outline. ── */
@@ -43850,8 +43963,10 @@ function wndSVG(done,frac,o){
 /* ── the page ── */
 function wndView(now){
   const n=S.nation;if(!n)return '';const W=wndState(),fin=W.done>=WND_N,st=stockNow(n,now),mine=W.who.find(x=>x.me);
+  const gave=wndMine(n)?n.wnd.g||[]:[];
   const ph=WND_PH.map(([t,d,c],i)=>{const s=i<W.done?'done':i===W.done?'now':'later';
-    return `<li class="wd-ph ${s}"><span class="wd-ph-n num" aria-hidden="true">${i<W.done?'✓':i+1}</span><span class="wd-ph-b"><b>${esc(t)}</b><span class="hint">${esc(d)}</span><span class="wd-ph-c">${esc(costText(c))}</span>${s==='now'?`<span class="bar" role="img" aria-label="${Math.floor(W.frac*100)}% built"><i style="width:${(W.frac*100).toFixed(1)}%"></i></span>`:''}</span></li>`;}).join('');
+    const rw=`<span class="wd-ph-r">For every nation that gives to it: ${WND_LAND} land credits and ${esc(achUnlockWords(WND_KEEP[i]))}${gave.includes(i)?i<W.done?' · <b>Yours</b>':' · <b>Yours once it is finished</b>':''}</span>`;
+    return `<li class="wd-ph ${s}"><span class="wd-ph-n num" aria-hidden="true">${i<W.done?'✓':i+1}</span><span class="wd-ph-b"><b>${esc(t)}</b><span class="hint">${esc(d)}</span><span class="wd-ph-c">${esc(costText(c))}</span>${rw}${s==='now'?`<span class="bar" role="img" aria-label="${Math.floor(W.frac*100)}% built"><i style="width:${(W.frac*100).toFixed(1)}%"></i></span>`:''}</span></li>`;}).join('');
   const give=fin?'':RES.filter(r=>(W.need[r]||0)>0).map(r=>{const left=W.need[r],have=Math.floor(st[r]),b=(k,l)=>{const v=Math.min(k,left,have);return `<button type="button" class="btn ${k===Infinity?'':'ghost '}sm" data-act="wd-give" data-r="${r}" data-v="${k===Infinity?'max':k}"${v<1?' disabled':''}>${l}</button>`;};
     return `<div class="wd-give"><span class="wd-gr"><b>${esc(cap1(resName(r)))}</b><span class="hint">${fmtAmt(left)} still needed · you have ${have}</span></span><span class="wd-gb">${b(10,'Give 10')}${b(50,'Give 50')}${b(Infinity,'Give what I can')}</span></div>`;}).join('');
   const plaque=W.who.length?`<ol class="wd-who">${W.who.slice(0,12).map(x=>`<li class="${x.me?'me':''}"><span>${nationLink(x.id,x.name,x.me)}</span><span class="hint">${esc(costText(Object.fromEntries(RES.filter(r=>x.c[r]>0).map(r=>[r,Math.round(x.c[r])]))))}</span></li>`).join('')}</ol>${W.who.length>12?`<p class="hint">And ${W.who.length-12} more.</p>`:''}`
@@ -43897,7 +44012,28 @@ MAP_PANEL.push(ctx=>{if(ctx.cell==null||ctx.cell!==wndCell())return '';const W=w
   return `<div class="wd-pn"><p class="eyebrow">A wonder of the region</p><p><b>${esc(wndName())}</b>: ${W.done>=WND_N?'finished.':`phase ${W.done+1} of ${WND_N}, ${Math.floor(W.frac*100)}% built.`}</p><div class="row"><button type="button" class="btn ghost" data-act="go" data-v="wonder">Visit the statue</button></div></div>`;});
 MAP_LEGEND.push(()=>`<span class="lg"><svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><rect x="2" y="12" width="10" height="3" fill="var(--sheet)" stroke="currentColor"/><path d="M5 12h4l-1-8H6Z" fill="#5f7f6e" stroke="currentColor" stroke-width=".8"/></svg>The Great Statue</span>`);
 NOTIF_SOURCES.push(n=>{if(!wndMine(n))return [];const W=wndState();return W.done>(n.wnd.ph||0)?[{t:Date.now(),k:'wnd',kl:'The Great Statue',txt:W.done>=WND_N?`${wndName()} is finished.`:`Phase ${W.done} of ${WND_N} of ${wndName().replace(/^The /,'the ')} is complete.`,go:'wonder'}]:[];});
-HELP_EXT.push({k:'wonder',t:'The Great Statue',body:()=>`<p>At the heart of every region stands, eventually, its Great Statue. Its player nations build it together, in ten phases from the foundations to the unveiling; each phase needs timber, iron, oil, goods or food, and any player nation may give from its stock on the <button type="button" class="linkish" data-act="go" data-v="wonder">Great Statue</button> page. A gift counts only towards what the phase still needs. Finished phases stay finished. Every nation that gave something may style itself “the Patron” once the statue is unveiled, and a few edicts reach the desk as the statue rises.</p>`});
+/* the call for help: once any nation has given, the Office of Monuments writes to every player nation of the region, dated
+   from the first gift (the starter stays anonymous). A finished statue needs no help, so then only nations that had
+   opened the letter keep it. */
+OFFICES['office-monuments']={name:'The Office of Monuments and Public Works',go:['wonder','Visit the statue'],
+  seal:'<svg viewBox="0 0 36 24" role="img" aria-label="Seal of the Office of Monuments"><rect width="36" height="24" fill="#ebe3cd"/><g transform="translate(6 0)" fill="none" stroke="#2e4a3f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6M8 21l1-4h6l1 4"/><path d="M10.5 17v-5.5l-1.5-3h6l-1.5 3V17"/><circle cx="12" cy="6" r="2"/><path d="M14.5 8.5 17 3.5"/></g></svg>'};
+DM_SOURCES.push(n=>{
+  const W=wndState();if(!W.who.length||!W.start)return [];
+  if(W.done>=WND_N&&!(n.seenDm||{})['office-monuments'])return [];
+  const the=REG.the,st=wndName().replace(/^The /,'the ');
+  return [{peer:'office-monuments',t:W.start,x:`To every nation of ${the},
+
+A nation of this region has driven the first pile into the central plain and declared, with some confidence, that ${st} has begun.
+
+A statue of this size cannot be built by one nation, however enthusiastic. All help is requested. Timber and iron are wanted first, for the foundations; oil, goods and food will be needed higher up.
+
+Give what your stores can spare on the Great Statue page, under Abroad. Every nation that gives to a phase receives ${WND_LAND} land credits and a keepsake for Customise when that phase is finished, and every nation that has given something by the time the cloth comes off may style itself “the Patron”.
+
+The wording of the inscription is still undecided. This office does not answer letters, so arguments about it are best kept to the region’s board.
+
+The Office of Monuments and Public Works, ${REG.name}`}];
+});
+HELP_EXT.push({k:'wonder',t:'The Great Statue',body:()=>`<p>At the heart of every region stands, eventually, its Great Statue. Its player nations build it together, in ten phases from the foundations to the unveiling; each phase needs timber, iron, oil, goods or food, and any player nation may give from its stock on the <button type="button" class="linkish" data-act="go" data-v="wonder">Great Statue</button> page. A gift counts only towards what the phase still needs. Once the first gift is made, the Office of Monuments and Public Works writes to every nation of the region, in Messages, to ask for help. Finished phases stay finished. When a phase is finished, every nation that gave to it receives ${WND_LAND} land credits and a keepsake for Customise made for that phase, which no other way of playing gives. Every nation that gave something may style itself “the Patron” once the statue is unveiled, and a few edicts reach the desk as the statue rises.</p>`});
 
 /* the statue's own edicts: they reach the desk as it rises, and tell its story. Numbered after the twenty-five, so no
    older number moves; each waits for its phase (wndPhase counts the phases finished). */
@@ -45544,7 +45680,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,NW,NWE},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,NW,NWE},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
