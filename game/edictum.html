@@ -4537,6 +4537,10 @@ html.pp-lock,html.pp-lock body{overflow:hidden}
 .cu-dn .hint{font-size:12px}
 .cu-th{border:0;background:none;padding:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer;min-height:24px}
 .cu-th:hover{color:var(--ink)}
+.tbl th.c-pop .cu-th{text-align:right}
+.more-row{margin:12px 0 0}
+.nwe-lf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:8px 0;max-width:780px}.nwe-lf[hidden]{display:none}.nwe-lf .field{flex:1 1 260px;margin:0}.nwe-lf .err{flex-basis:100%;margin:0}
+@media (max-width:1100px){body:has(#map-panel.sheet-open) .toast{top:calc(64px + env(safe-area-inset-top,0px));bottom:auto}}
 .cu-hist-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
 .cu-hist-h .h2{margin:0}
 .cu-chart-t{margin:14px 0 8px;font:600 15px/1.3 var(--f-body);color:var(--ink)}
@@ -16096,6 +16100,10 @@ function fmtPop(p){if(p>=999500)return (p/1e6).toLocaleString('en-US',{minimumFr
 function fmtBig(x){if(x>=999.95e12)return (x/1e15).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' quadrillion';if(x>=999.95e9)return (x/1e12).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' trillion';if(x>=999.95e6)return (x/1e9).toFixed(1)+' billion';if(x>=1e6)return (x/1e6).toFixed(1)+' million';return Math.round(x).toLocaleString('en-US');}
 function fmtDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
 function fmtTime(t){try{return new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){return '';}}
+/* " (3 days ago)", for a date shown in full */
+function relDays(t){const d=Math.floor((Date.now()-t)/DAY);return d<1?' (today)':d===1?' (yesterday)':` (${d} days ago)`;}
+/* a wait of hours or days, for "in …" */
+function fmtWait(ms){if(ms<DAY)return fmtDur(ms);const d=Math.floor(ms/DAY),h=Math.round((ms-d*DAY)/3600e3);return d+(d===1?' day':' days')+(h?' '+h+' h':'');}
 function rel(t){const d=Date.now()-t;if(d<45e3)return 'just now';if(d<3600e3)return Math.max(1,Math.round(d/60e3))+' min ago';if(d<DAY)return Math.round(d/3600e3)+' h ago';return fmtDate(t);}
 function fmtDur(ms){if(ms<=15e3)return 'a moment';if(ms<60e3)return 'under a minute';const m=Math.ceil(ms/60e3);if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return h+' h'+(r?' '+r+' min':'');}
 function firstSentence(t){const m=String(t).match(/^.*?[.!?](\s|$)/);return m?m[0].trim():t;}
@@ -16927,7 +16935,7 @@ function warControls(x){
       else body=`<p>${ws.byMe?'You declared this war.':`${nm} declared war on you.`} ${held}${reachableFrom(T,x.id)?'Select one of their hexes outlined in red to plan an attack.':esc(OUT_OF_REACH)}${x.npc?(mine?` ${nm} will not make peace while you hold its land, unless you withdraw or the war drags on.`:''):' They can strike back whenever they play.'}</p>`;
       body+=`<div class="row">${peaceButtons(x,ws,false)}</div>`;
     }
-    return `<div class="war-box"><p class="war-k">${ws.direct?'At war':'Alliance war'} since ${fmtDate(ws.since)}</p>${body}</div>`;
+    return `<div class="war-box"><p class="war-k">${ws.direct?'At war':'Alliance war'} since ${fmtDate(ws.since)}${relDays(ws.since)}</p>${body}</div>`;
   }
   if(!x.npc&&!civicRegistered())return `<div class="war-box calm"><button class="btn danger" disabled aria-describedby="account-war-requirement">Declare war</button>${accountActionHint('war')}<p class="hint">War also requires ${fmtPopShort(featureAt('war'))} people and the normal treaty and protection requirements.</p></div>`;
   if(pol(S.nation).pacifistConstitution)return `<div class="war-box calm"><p>Your pacifist constitution forbids declaring war. An edict may give you the chance to change it.</p></div>`;
@@ -16971,7 +16979,7 @@ function inviteAlly(id){S.alMsg='';inviteAllyBase(id);if(S.alMsg)S.relMsg={id,tx
 function inviteAllyBase(id){
   if(!civicRegistered()){toast('A Registered Nation is required to manage an alliance.');return;}
   const x=findNation(id),n0=S.nation;if(!x||!n0.alli)return;
-  if(x.npc){const pw=pairWar(myId(),id);if(pw.peaceAt&&Date.now()-pw.peaceAt<3*DAY){S.alMsg=`${x.n.name} made peace with you on ${fmtDate(pw.peaceAt)} and will not join an alliance with you before ${fmtDate(pw.peaceAt+3*DAY)}.`;render();return;}}
+  if(x.npc){const pw=pairWar(myId(),id);if(pw.peaceAt&&Date.now()-pw.peaceAt<3*DAY){S.alMsg=`${x.n.name} made peace with you on ${fmtDate(pw.peaceAt)} and will not join an alliance with you before ${fmtDate(pw.peaceAt+3*DAY)}, in ${fmtWait(pw.peaceAt+3*DAY-Date.now())}.`;render();return;}}
   if(warWith(id).war){S.alMsg=`You are at war with ${x.n.name}. Make peace before inviting them.`;render();return;}
   if(x.npc){const a=affinity(x.n,n0);if(a<ALLY_MIN){S.alMsg=`${x.n.name} declined. Your values are too far apart: affinity ${a} of the ${ALLY_MIN} needed.`;render();return;}}
   const n=clone(n0),now=Date.now();
@@ -17134,7 +17142,7 @@ function warsSection(){
   const me=myId(),en=enemies(),now=Date.now();
   const rows=en.map(x=>{const w=warWith(x.id);let st,btn='';
     if(!w.direct)st=w.attacker===me?`Alliance war: you attacked their ally ${esc(nameOf(w.defending))}`:`Alliance war: ${esc(nameOf(w.attacker))} attacked your ally ${esc(nameOf(w.defending))}`;
-    else{st=w.byMe?`You declared war on ${fmtDate(w.since)}`:`Declared war on you on ${fmtDate(w.since)}`;
+    else{st=w.byMe?`You declared war on ${fmtDate(w.since)}${relDays(w.since)}`:`Declared war on you on ${fmtDate(w.since)}${relDays(w.since)}`;
       if(w.theyOffered&&!w.iOffered)st+='. They offer peace';else if(w.iOffered)st+='. You offered peace';
       btn=peaceButtons(x,w,true);}
     return `<li class="mem"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span class="mem-n">${nationLink(x.id,x.n.name,false)}<span class="mem-s">${st}.</span></span><span class="mem-b"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Map</button>${btn}</span></li>`;}).join('');
@@ -18350,7 +18358,7 @@ function messagesView(){
       <ol class="bubs">${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters.</p>`:'';
   return `<header class="vh"><p class="eyebrow">Diplomatic bag</p><h1>Messages</h1><p>Write to any nation in ${REGION}. Computer-run nations answer within a minute or two; players see your letter the next time they play.</p></header>
   <div class="msg-layout${peer?' in-thread':''}">
-    <aside class="convs"><label class="lbl" for="dm-new">New message to</label><select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(x=>`<option value="${esc(x.id)}"${x.id===peer?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':isStaff(x.id)?' (Edictum staff)':''}</option>`).join('')}</select>
+    <aside class="convs"><label class="lbl" for="dm-new">New message to</label>${others.length>3?`<input type="search" class="input dm-q" id="dm-q" placeholder="Type to find a nation…" aria-label="Find a nation to write to" autocomplete="off" style="margin-bottom:6px" value="${esc(S.dmQ||'')}">`:''}<select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(x=>{const off=!!S.dmQ&&!x.n.name.toLowerCase().includes(S.dmQ.trim().toLowerCase());return `<option value="${esc(x.id)}"${x.id===peer?' selected':''}${off?' hidden disabled':''}>${esc(x.n.name)}${x.npc?' (computer)':isStaff(x.id)?' (Edictum staff)':''}</option>`;}).join('')}</select>
       ${peers.length?`<ul class="conv-list">${conv}</ul>`:'<p class="hint" style="margin-top:14px">No conversations yet.</p>'}</aside>
     <section class="thread">${office||(px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
       ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs">${bubbles||'<li class="hint">No messages yet. Say hello.</li>'}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(px.n.name)} is drafting a reply…</p></li>`:''}</ol>
@@ -32885,12 +32893,16 @@ function fkCard(p,now,o){
   return `<article class="${cls}" id="fk-${hid}" data-id="${esc(p.id)}">${fkAv(a,o.reply?32:42)}<div class="fk-b">${head}${o.reply&&p.to?`<p class="fk-to">Replying to <span class="fk-at">@${esc(p.to)}</span></p>`:''}${p.kind==='guide'?'<p class="fk-tipk">Tip from a citizen</p>':''}<p class="fk-x">${fkText(p.x)}</p>${q}${go}${M.vir&&!o.reply?'<p class="fk-virk">Trending</p>':''}${acts}${th}</div></article>`;
 }
 /* the leader's composer */
+/* bring the top of the feed into view, under the sticky bar, when it is above the screen */
+function fkToFeed(){const f=document.getElementById('flk-new');if(!f)return;const top=f.getBoundingClientRect().top+window.scrollY-80;if(window.scrollY>top)window.scrollTo(0,Math.max(0,top));}
+/* when the oldest of the last day's peeps turns a day old */
+function fkNextPeep(n,now){const t=(n&&Array.isArray(n.flk)?n.flk:[]).filter(q=>q&&now-q.t<DAY).map(q=>q.t);return t.length?Math.min(...t)+DAY:now;}
 function fkTodayCount(n,now){return (n&&Array.isArray(n.flk)?n.flk:[]).filter(q=>q&&now-q.t<DAY).length;}
 function fkCompose(now){
   const n=S.nation;if(!n||!n.name)return '';const left=FK_DAYMAX-fkTodayCount(n,now),d=S.flkDraft||'',L=fkLeaderAcc({id:myId(),n});L.pal=n.flag&&n.flag.c;
   return `<form class="fk-compose" id="flk-form" novalidate>${fkAv(Object.assign({},L,{flag:n.flag}),42)}<div class="fk-cb"><label class="fk-sr" for="flk-text">Peep as ${esc(L.nm)}</label>
     <textarea class="fk-ta" id="flk-text" maxlength="${FK_LEN}" rows="2" placeholder="What is happening in ${esc(n.name)}?"${left<=0?' disabled':''}>${esc(d)}</textarea>
-    <div class="fk-cf"><span class="hint">Posting as <b>${esc(L.nm)}</b>. ${left>0?`${left} of ${FK_DAYMAX} peeps left today.`:'That is ten peeps today: the press office has taken your phone.'}</span><span class="fk-cnt hint" id="flk-cnt">${d.length} / ${FK_LEN}</span><button class="btn fk-pbtn" type="submit"${left<=0?' disabled':''}>Peep</button></div></div></form>`;
+    <div class="fk-cf"><span class="hint">Posting as <b>${esc(L.nm)}</b>. ${left>0?`${left} of ${FK_DAYMAX} peeps left today.`:`That is ten peeps today: the press office has taken your phone. You can peep again in ${fmtDur(fkNextPeep(n,now)-now)}.`}</span><span class="fk-cnt hint" id="flk-cnt">${d.length} / ${FK_LEN}</span><button class="btn fk-pbtn" type="submit"${left<=0?' disabled':''}>Peep</button></div></div></form>`;
 }
 const FK_SCOPES=[['nation','Nation'],['region','Region'],['all','All']];
 function fkSeg(sc,cls){return `<div class="fk-seg ${cls||''}" role="radiogroup" aria-label="Whose peeps to show">${FK_SCOPES.map(([k,l])=>`<button role="radio" aria-checked="${sc===k}" class="${sc===k?'on':''}" data-act="flk-scope" data-k="${k}">${l}</button>`).join('')}</div>`;}
@@ -32977,16 +32989,21 @@ function fkWtf(now){
   const d=Object.assign(fkDspAcc(),{fol:30000+allNations().length*3500});if(!F['R|D'])out.splice(1,0,d);
   return out.slice(0,3);
 }
+/* the message list's finder narrows the nations in the "New message to" list as the player types */
+document.addEventListener('input',e=>{if(e.target.id!=='dm-q')return;S.dmQ=e.target.value;const q=e.target.value.trim().toLowerCase(),sel=document.getElementById('dm-new');if(!sel)return;let first=null,n=0;
+  for(const o of sel.options){if(!o.value)continue;const hit=!q||o.textContent.toLowerCase().includes(q);o.hidden=!hit;o.disabled=!hit;if(hit){n++;if(!first)first=o;}}
+  sel.options[0].textContent=q?(n?`${n} ${n===1?'nation':'nations'} found: choose one…`:'No nation has that name'):'Choose a nation…';});
+document.addEventListener('keydown',e=>{if(e.target.id!=='dm-q'||e.key!=='Enter')return;e.preventDefault();const sel=document.getElementById('dm-new');const o=sel&&[...sel.options].find(o=>o.value&&!o.hidden);if(o){sel.value=o.value;sel.dispatchEvent(new Event('input',{bubbles:true}));}});
 /* ── clicks and typing ── */
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="flk-"]');if(!el)return;const a=el.dataset.act;
   if(a==='flk-tab'){S.flkTab=el.dataset.k;S.flkN=FK_PAGE;render();window.scrollTo(0,0);return;}
   if(a==='flk-scope'){const k=el.dataset.k;S.flkScope=k;try{localStorage.setItem(FK_SCOPE,k);}catch(err){}S.flkN=FK_PAGE;S.flkTag=null;render();return;}
-  if(a==='flk-trend'){S.flkTag=el.dataset.k;S.flkTab='home';S.flkN=FK_PAGE;if(S.view!=='flock')S.view='flock';render();window.scrollTo(0,0);return;}
+  if(a==='flk-trend'){const away=S.view!=='flock';S.flkTag=el.dataset.k;S.flkTab='home';S.flkN=FK_PAGE;if(away)S.view='flock';render();if(away)window.scrollTo(0,0);else fkToFeed();return;}
   if(a==='flk-clear'){S.flkTag=null;S.flkN=FK_PAGE;render();return;}
   if(a==='flk-more'){S.flkN=(S.flkN||FK_PAGE)+FK_PAGE;render();return;}
   if(a==='flk-older'){S.flkDays=Math.min(7,(S.flkDays||2)+1);S.flkN=(S.flkN||FK_PAGE)+FK_PAGE;render();return;}
-  if(a==='flk-new'){S.flkN=FK_PAGE;render();window.scrollTo(0,0);return;}
+  if(a==='flk-new'){S.flkN=FK_PAGE;render();fkToFeed();return;}
   if(a==='flk-th'){S.flkOpen=S.flkOpen===el.dataset.id?null:el.dataset.id;render();return;}
   if(a==='flk-who'){S.flkWho=el.dataset.k;S.flkTab='who';S.flkN=FK_PAGE;if(S.view!=='flock')S.view='flock';render();window.scrollTo(0,0);return;}
   if(a==='flk-compose'){if(S.flkTab!=='home'&&S.flkTab!=='me'){S.flkTab='home';render();}const t=document.getElementById('flk-text');if(t){t.focus();t.scrollIntoView({block:'center'});}return;}
@@ -37795,6 +37812,7 @@ function edictChange(id,at,kind){
 }
 function edictOpen(id,at){
   if(!edictChange(id,at,'read')){render();return;}
+  if(S.view==='issues'&&!S.openIssue&&!S.result)S.issueY=window.scrollY;else S.issueY=0;
   S.view='issues';S.openIssue=id;S.result=null;render();window.scrollTo(0,0);
   const h=document.querySelector('.edict .h1');if(h){h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}
 }
@@ -37903,6 +37921,13 @@ function censusView(now){
 function nationLink(id,name,me){
   return me?`<button class="linkish" data-act="go" data-v="nation">${esc(name)}</button>`:`<button class="linkish" data-act="visit" data-id="${esc(id)}">${esc(name)}</button>`;
 }
+/* the region's nation table, sorted by the column the player chose (population, largest first, by default) */
+function regSorted(all,now){
+  const k=S.regSort||'pop',d=S.regDir||-1,area=x=>areaOf(x.id)||0;
+  const key={name:x=>x.n.name.toLowerCase(),cat:x=>classify(x.n.s),al:x=>allianceOf(x.id)?allianceName(x.id).toLowerCase():'\uffff',pop:x=>popNow(x.n,now),area}[k]||(x=>popNow(x.n,now));
+  return all.slice().sort((a,b)=>{const p=key(a),q=key(b);return (p<q?-1:p>q?1:0)*d||popNow(b.n,now)-popNow(a.n,now);});
+}
+const regTh=(k,l,cls)=>{const on=(S.regSort||'pop')===k,d=S.regDir||-1;return `<th class="${cls}" aria-sort="${on?(d>0?'ascending':'descending'):'none'}"><button type="button" class="cu-th" data-act="reg-sort" data-k="${k}">${l}${on?(d>0?' ▲':' ▼'):''}</button></th>`;};
 function regionView(now){
   const all=allNations().sort((a,b)=>popNow(b.n,now)-popNow(a.n,now));
   const players=all.filter(x=>!x.npc).length,npcs=all.length-players;
@@ -37969,14 +37994,14 @@ function regionView(now){
     posts.sort((a,b)=>b.p.t-a.p.t);
     const canPost=S.mode==='world'&&!!S.nation&&civicRegistered();
     board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?`Guest Nations can read community topics.${accountActionHint('topic')}`:'You have view-only access, so you can read the board but not post.'}</div>`}
-    ${posts.length?`<ul class="posts">${posts.slice(0,50).map(({aid,p})=>{const mine=aid===S.uid&&!OBS,nat=mine?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,mine):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
+    ${posts.length?`<ul class="posts">${posts.slice(0,S.rmbN||50).map(({aid,p})=>{const mine=aid===S.uid&&!OBS,nat=mine?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,mine):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>${posts.length>(S.rmbN||50)?`<p class="more-row"><button type="button" class="btn ghost small" data-act="rmb-more">Show older posts</button> <span class="hint">${Math.min(S.rmbN||50,posts.length)} of ${posts.length}</span></p>`:''}`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="c-cat">Category</th><th class="c-al">Alliance</th><th class="c-pop">Population</th><th class="c-pop">Land area</th></tr></thead><tbody>
-  ${all.map(x=>`<tr class="${x.me?'me':''}"><td><div class="nm"><span class="nm-main"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>${nationLink(x.id,x.n.name,x.me)}</span>${czEpiRow(x.n)}${x.me?'<span class="chip you">You</span>':x.npc?'<span class="chip">Computer</span>':''}${!x.me&&S.nation&&warWith(x.id).war?'<span class="chip war">At war with you</span>':''}</div></td><td class="c-cat">${fpRowGlyph(x)}${esc(classify(x.n.s))}</td><td class="c-cat">${esc(allianceOf(x.id)?allianceName(x.id):'—')}</td><td class="c-pop">${fmtPop(popNow(x.n,now))}</td><td class="c-pop">${areaOf(x.id)?areaOf(x.id).toLocaleString('en-US')+' km²':'Not yet settled'}</td></tr>`).join('')}
+  <div class="tbl-wrap"><table class="tbl"><thead><tr>${regTh('name','Nation','')}${regTh('cat','Category','c-cat')}${regTh('al','Alliance','c-al')}${regTh('pop','Population','c-pop')}${regTh('area','Land area','c-pop')}</tr></thead><tbody>
+  ${regSorted(all,now).map(x=>`<tr class="${x.me?'me':''}"><td><div class="nm"><span class="nm-main"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>${nationLink(x.id,x.n.name,x.me)}</span>${czEpiRow(x.n)}${x.me?'<span class="chip you">You</span>':x.npc?'<span class="chip">Computer</span>':''}${!x.me&&S.nation&&warWith(x.id).war?'<span class="chip war">At war with you</span>':''}</div></td><td class="c-cat">${fpRowGlyph(x)}${esc(classify(x.n.s))}</td><td class="c-cat">${esc(allianceOf(x.id)?allianceName(x.id):'—')}</td><td class="c-pop">${fmtPop(popNow(x.n,now))}</td><td class="c-pop">${areaOf(x.id)?areaOf(x.id).toLocaleString('en-US')+' km²':'Not yet settled'}</td></tr>`).join('')}
   </tbody></table></div>
   <div class="region-cols">
-    <section><h2 class="h2">Happenings</h2>${(()=>{for(const h of haps)h.txt=hapText(h.l,h.x);return '';})()}${haps.some(h=>h.txt)?`<ul class="haps">${haps.filter(h=>h.txt).slice(0,30).map(h=>`<li><span class="hap-t">${rel(h.t)}</span><span>${h.txt}</span></li>`).join('')}</ul>`:`<div class="empty"><p>Nothing has happened yet.</p></div>`}</section>
+    <section><h2 class="h2">Happenings</h2>${(()=>{for(const h of haps)h.txt=hapText(h.l,h.x);return '';})()}${haps.some(h=>h.txt)?`<ul class="haps">${haps.filter(h=>h.txt).slice(0,S.hapN||30).map(h=>`<li><span class="hap-t">${rel(h.t)}</span><span>${h.txt}</span></li>`).join('')}</ul>${haps.filter(h=>h.txt).length>(S.hapN||30)?'<p class="more-row"><button type="button" class="btn ghost small" data-act="hap-more">Show older happenings</button></p>':''}`:`<div class="empty"><p>Nothing has happened yet.</p></div>`}</section>
     <section><h2 class="h2">Message board</h2>${board}</section>
   </div>`;
 }
@@ -37986,7 +38011,7 @@ function visitView(now){
   const n=x.n;
   return `<button class="back" data-act="go" data-v="region">← ${REGION}</button>
   ${hero(n,{player:!x.npc,id:x.id})}
-  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button>${OBS?`<button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button>${x.npc?'':`<button class="btn ghost" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>`}</div>`:`<button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>`}
+  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button>${OBS?'':`<button class="btn ghost" data-act="visit-link" data-id="${esc(x.id)}">Copy link</button>`}${OBS?`<button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button>${x.npc?'':`<button class="btn ghost" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>`}</div>`:`<button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button><button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>`}
   ${relationCard(x)}${runHooks(VISIT_SECTIONS,x,now).join('')}
   ${freedoms(n.s)}
   <div class="nation-grid">
@@ -38351,7 +38376,7 @@ document.addEventListener('click',e=>{
   if(a==='edict-pin'){edictPin(el.dataset.id,el.dataset.at);return;}
   if(a==='edict-filter'){S.edictState=el.dataset.v;render();document.querySelector(`[data-act="edict-filter"][data-v="${S.edictState}"]`)?.focus({preventScroll:true});return;}
   if(a==='edict-clear'){S.edictTopic='all';S.edictState='all';render();document.getElementById('edict-topic')?.focus({preventScroll:true});return;}
-  if(a==='close-issue'){S.openIssue=null;render();return;}
+  if(a==='close-issue'){const id=S.openIssue;S.openIssue=null;render();window.scrollTo(0,S.issueY||0);const c=document.querySelector(`.issue-card[data-id="${CSS.escape(String(id))}"]`);if(c)c.focus({preventScroll:true});S.issueY=0;return;}
   if(a==='answer'){answer(el.dataset.id,+el.dataset.o);return;}
   if(a==='dismiss'){dismiss(el.dataset.id);return;}
   if(a==='census'){S.censusKey=el.dataset.k;render();if(window.innerWidth<=900){const b=document.getElementById('board');if(b&&b.getBoundingClientRect().top>window.innerHeight*0.6)b.scrollIntoView({block:'start',behavior:'smooth'});}return;}
@@ -38368,6 +38393,11 @@ document.addEventListener('click',e=>{
   if(a==='dissolve-cancel'){S.confirmDissolve=false;render();return;}
   if(a==='dissolve-confirm'){dissolve();return;}
   if(a==='del-post'){removePost(el.dataset.a,el.dataset.p);return;}
+  if(a==='visit-link'){const u=location.origin+location.pathname+'#visit/'+el.dataset.id;
+    Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(u)).then(()=>toast(`The link is copied. Players of ${REGION} who open it see this nation.`),()=>toast('Copy this link: '+u));return;}
+  if(a==='reg-sort'){const k=el.dataset.k;S.regDir=(S.regSort||'pop')===k?-(S.regDir||-1):(k==='name'||k==='cat'||k==='al'?1:-1);S.regSort=k;render();const b=document.querySelector(`[data-act="reg-sort"][data-k="${k}"]`);if(b)b.focus({preventScroll:true});return;}
+  if(a==='rmb-more'){S.rmbN=(S.rmbN||50)+50;render();return;}
+  if(a==='hap-more'){S.hapN=(S.hapN||30)+30;render();return;}
   if(a==='map-zoom'||a==='map-fit'){const cv=document.querySelector('canvas.map-cv[data-map="'+el.dataset.k+'"]');if(!cv)return;const v=viewOf(el.dataset.k,cv);if(a==='map-fit')mapGlide(cv,{z:1,cx:MAP.W/2,cy:MAP.H/2});else mapGlide(cv,{z:clamp(v.z*(el.dataset.d==='1'?1.6:1/1.6),1,MAX_Z),cx:v.cx,cy:v.cy});return;}
   if(a==='map-me'){const T=territory(),i=T.byId[S.uid||'me'];if(i!==undefined){centerMain(T.list[i].cap,NEAR_Z);S.mapSel=null;S.mapCell=null;updateMapPanel();redrawMaps();}return;}
   if(a==='map-select'){const T=territory(),i=T.byId[el.dataset.id];if(i!==undefined){S.mapCell=null;S.mapSel=T.list[i].me?null:el.dataset.id;S.mapTarget=null;S.warMsg='';S.confirmWar=null;const v=S.mapViews.main;if(v){v.cx=MAP.cx[T.list[i].cap];v.cy=MAP.cy[T.list[i].cap];v.z=Math.max(v.z,6.4);}updateMapPanel();redrawMaps();}return;}
@@ -41765,6 +41795,23 @@ let nweKeepT=0;
 function nweKeep(){clearTimeout(nweKeepT);nweKeepT=setTimeout(()=>{if(!NWE.node||NWE.id)return;try{localStorage.setItem(LS_NWE_DRAFT,JSON.stringify({ti:NWE.ti,h:nwClean(NWE.node.innerHTML),at:Date.now()}));}catch(e){}},700);}
 function nweDrop(){clearTimeout(nweKeepT);try{localStorage.removeItem(LS_NWE_DRAFT);}catch(e){}}
 function nweClose(){nweDrop();NWE.node=null;NWE.list=null;render();}
+/* "3 answers", or what is wrong with them */
+function nwePollCount(v){const n=String(v||'').split('\n').map(x=>x.trim()).filter(Boolean).length;return !n?'No answers yet.':n<2?'1 answer: a poll needs at least two.':n>6?`<b>${n} answers: a poll takes six at most.</b>`:`${n} answers.`;}
+/* the selection as character positions in the editor's text, which outlive a redraw of its markup */
+function nweOffs(){const ed=NWE.node,s=getSelection();if(!ed||!s.rangeCount||!ed.contains(s.anchorNode))return null;const r=s.getRangeAt(0),pre=document.createRange();pre.selectNodeContents(ed);pre.setEnd(r.startContainer,r.startOffset);const a=pre.toString().length;return [a,a+r.toString().length];}
+function nweOffsAt(o){const ed=NWE.node;if(!ed||!o)return null;const w=document.createTreeWalker(ed,NodeFilter.SHOW_TEXT);let k=0,c=[],t;
+  while((t=w.nextNode())){const L=t.length;if(c.length<2&&o[0]<=k+L){c=[t,o[0]-k];}if(c.length===2&&o[1]<=k+L){return [c[0],c[1],t,o[1]-k];}k+=L;}return null;}
+/* the toolbar's Link opens a field under it, remembering what was selected */
+function nweLinkAsk(){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;NWE.lk0=nweOffs();NWE.lf=true;f.hidden=false;nweLinkErr('');if(!i.value)i.value=NWE.lfv='https://';i.focus();i.select();}
+function nweLinkErr(m){const e=document.getElementById('nwe-lerr');if(e){e.textContent=m;e.hidden=!m;}}
+function nweLinkDone(ok){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;const u=i.value.trim();
+  if(ok&&u&&u!=='https://'&&!/^(https?:\/\/|mailto:)[^\s<>"]+$/i.test(u)){nweLinkErr('A link needs an address starting with https:// or mailto:.');i.focus();return;}
+  NWE.lf=false;NWE.lfv='';f.hidden=true;i.value='';nweLinkErr('');const c=NWE.lk0;NWE.lk0=null;
+  const at=nweOffsAt(c);
+  if(ok&&u&&u!=='https://'){NWE.lc=at||[NWE.node,NWE.node.childNodes.length,NWE.node,NWE.node.childNodes.length];NWE.lu=u;nweCmd('link');}else if(NWE.node){NWE.node.focus();nweAt(at);}}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nwe-link-ok"],[data-act="nwe-link-x"]');if(el)nweLinkDone(el.dataset.act==='nwe-link-ok');});
+document.addEventListener('input',e=>{if(e.target.id==='nwe-url')NWE.lfv=e.target.value;});
+document.addEventListener('keydown',e=>{if(e.target.id!=='nwe-url')return;if(e.key==='Enter'){e.preventDefault();nweLinkDone(true);}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();nweLinkDone(false);}});
 /* run a toolbar command where the caret is */
 function nweCmd(c){
   const ed=NWE.node;if(!ed)return;
@@ -41774,10 +41821,10 @@ function nweCmd(c){
   try{document.execCommand('styleWithCSS',false,false);document.execCommand('defaultParagraphSeparator',false,'p');}catch(e){}
   if(['h2','h3','p','blockquote','pre'].includes(c)){const cur=String(document.queryCommandValue('formatBlock')||'').toLowerCase().replace(/[<>]/g,'');document.execCommand('formatBlock',false,'<'+(cur===c&&c!=='p'?'p':c)+'>');}
   else if(c==='link'){
-    const c=nweCaret();
-    const u=(prompt('Link to which address? (https://…)','https://')||'').trim();
+    const c=NWE.lc;NWE.lc=null;
+    const u=String(NWE.lu||'').trim();NWE.lu='';
+    if(!c)return nweLinkAsk();
     if(!u||u==='https://')return;
-    if(!/^(https?:\/\/|mailto:)[^\s<>"]+$/i.test(u)){toast('A link needs an address starting with https:// or mailto:.');return;}
     ed.focus();nweAt(c);
     if(c&&(c[0]!==c[2]||c[1]!==c[3]))document.execCommand('createLink',false,u);else document.execCommand('insertHTML',false,`<a href="${esc(u)}">${esc(u)}</a>`);
   }
@@ -41886,12 +41933,13 @@ function nweView(){
       <label class="nwe-chk"><input type="checkbox" id="nwe-pn"${NWE.pn?' checked':''}> Pin to the top of the page <span class="hint">(unpins any other)</span></label></div>
     <p class="lbl" id="nwe-body-l">Text <button type="button" class="linkish small nwe-cl" data-act="nwe-cl"${NWE.cl?' disabled':''}>${NWE.cl?'Reading GitHub…':'Draft patch notes from merged pull requests'}</button></p>
     <div class="nwe-tools" role="toolbar" aria-label="Formatting" aria-controls="nwe-body">${tools}</div>
+    <div class="nwe-lf" id="nwe-lf"${NWE.lf?'':' hidden'}><div class="field"><label for="nwe-url">Link to which address?</label><input class="input" id="nwe-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(NWE.lfv||'')}"></div><button type="button" class="btn small" data-act="nwe-link-ok">Add link</button><button type="button" class="btn ghost small" data-act="nwe-link-x">Cancel</button><p class="err" id="nwe-lerr" role="alert" hidden></p></div>
     <div id="nwe-host" class="nwe-host"></div>
     <input type="file" id="nwe-file" accept="image/*" multiple hidden>
     <p class="hint">${NWE.up?`<b>Uploading ${NWE.up} ${NWE.up===1?'image':'images'}…</b> `:''}Paste or drop images into the text, or use Image. They are made smaller (at most ${NW_IMG_SIDE} pixels wide) before they upload. Links open in a new tab.</p>
     <details class="nwe-poll"${NWE.pq||NWE.po?' open':''}><summary>Add a poll</summary>
       <div class="field"><label for="nwe-pq">Question</label><input class="input" id="nwe-pq" maxlength="200" value="${esc(NWE.pq)}" placeholder="Which region should open next?" autocomplete="off"></div>
-      <div class="field"><label for="nwe-po">Answers, one on each line (two to six)</label><textarea class="input" id="nwe-po" rows="4">${esc(NWE.po)}</textarea></div>
+      <div class="field"><label for="nwe-po">Answers, one on each line (two to six)</label><textarea class="input" id="nwe-po" rows="4" aria-describedby="nwe-pon">${esc(NWE.po)}</textarea><p class="hint" id="nwe-pon">${nwePollCount(NWE.po)}</p></div>
       <div class="field"><label for="nwe-pend">Closes after (optional)</label><input class="input" id="nwe-pend" type="date" value="${esc(NWE.pend)}"></div>
       <p class="hint">One vote per nation, for Registered Nations. Players see the results once they vote; you see them always.${NWE.pub?' Changing the answers of a running poll mixes up its votes.':''}</p></details>
     <label class="nwe-chk"><input type="checkbox" id="nwe-lk"${NWE.lk?' checked':''}> Close the comments on this post</label>
@@ -41950,7 +41998,7 @@ document.addEventListener('input',e=>{
   if(id.startsWith('nw-ct-')){const p=t.dataset.p;NW.draft[p]=t.value.slice(0,1000);nwDraftKeep();const c=document.getElementById('nw-cc-'+p);if(c)c.textContent=NW.draft[p].length+' / 1000';return;}
   /* the search runs as the player types, keeping the box and its caret */
   if(id==='nw-q'){NW.q=t.value.slice(0,80);const at=t.selectionStart;render();const q=document.getElementById('nw-q');if(q){q.focus({preventScroll:true});try{q.setSelectionRange(at,at);}catch(e){}}return;}
-  if(id==='nwe-pq'||id==='nwe-po'){NWE[id.slice(4)]=t.value;NWE.dirty=true;return;}
+  if(id==='nwe-pq'||id==='nwe-po'){NWE[id.slice(4)]=t.value;NWE.dirty=true;if(id==='nwe-po'){const c=document.getElementById('nwe-pon');if(c)c.innerHTML=nwePollCount(t.value);}return;}
   if(id==='nwe-ti'){NWE.ti=t.value.slice(0,140);NWE.dirty=true;nweKeep();return;}
   if(id==='nwe-nm'||id==='nwe-rl'){NWE[id.slice(4)]=t.value;NWE.dirty=true;const o=document.querySelector('.nwe-opt input[value="staff"]+span b');if(o&&id==='nwe-nm')o.textContent=t.value||'Pascal';}
 });
