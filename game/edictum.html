@@ -34771,7 +34771,7 @@ document.addEventListener('submit',e=>{const f=e.target;if(!f||f.id!=='prv-ren-f
 const FG_C4D='#FFFFFF',FG_RING=new Set(['star','disc','diamond','heart','flower','snowflake','compass']);
 const FG_SIZE={s:.7,l:1.3},FG_EP=['c','k','h','f'],FG_POS={c:[150,100,1],k:[72,50,.62],h:[52,100,.78],f:[228,100,.86]};
 /* where a pattern's own anchor already is a canton, a hoist or a fly, choosing that position keeps it */
-const FG_OWN={canton:'k','bord-canton':'k','str-canton':'k','quart-cross':'k',chevron:'h',hoist:'h','hoist-s':'h',pall:'h',serrated:'f'};
+const FG_OWN={chev3:'f',canton:'k','bord-canton':'k','str-canton':'k','quart-cross':'k',chevron:'h',hoist:'h','hoist-s':'h',pall:'h',serrated:'f'};
 const fgF=v=>v.toFixed(1);
 /* geometry worked out once */
 const FG_G=(()=>{
@@ -34780,7 +34780,9 @@ const FG_G=(()=>{
   let chk='';for(let j=0;j<4;j++)for(let i=0;i<6;i++)if((i+j)%2)chk+=`M${i*50},${j*50}h50v50h-50Z`;
   const st=()=>{let s='';for(let k=1;k<7;k+=2)s+=`M0,${q(k*200/7)}H300V${q((k+1)*200/7)}H0Z`;return s;};
   return {sun,chk,str7:st(),wave:'M0,84Q25,72 50,84T100,84T150,84T200,84T250,84T300,84V120Q275,132 250,120T200,120T150,120T100,120T50,120T0,120Z',
-    saw:'0,0 80,0 106,20 80,40 106,60 80,80 106,100 80,120 106,140 80,160 106,180 80,200 0,200'};
+    saw:'0,0 80,0 106,20 80,40 106,60 80,80 106,100 80,120 106,140 80,160 106,180 80,200 0,200',
+    gyr:'M150,100L150,0H300ZM150,100L300,100V200ZM150,100L150,200H0ZM150,100L0,100V0Z',
+    wave2:'M0,58Q25,46 50,58T100,58T150,58T200,58T250,58T300,58V82Q275,94 250,82T200,82T150,82T100,82T50,82T0,82Z M0,118Q25,106 50,118T100,118T150,118T200,118T250,118T300,118V142Q275,154 250,142T200,142T150,142T100,142T50,142T0,142Z'};
 })();
 /* the new patterns: (a,b,c,fourth colour,rect) => [body, emblem x, y, scale] */
 const FG_PAT=Object.assign(Object.create(null),{
@@ -34801,16 +34803,22 @@ const FG_PAT=Object.assign(Object.create(null),{
   'saltire-b':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="M-10,-7L310,207M310,-7L-10,207" stroke="${b}" stroke-width="34"/><path d="M0,0H300V200H0ZM16,16V184H284V16Z" fill-rule="evenodd" fill="${c}"/>`,150,100,.55],
   'disc-band':(a,b,c,d,R)=>[R(0,0,300,200,a)+R(0,70,300,60,b)+`<circle cx="150" cy="100" r="54" fill="${c}"/>`,150,100,.95],
   'str-canton':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G.str7}" fill="${b}"/>`+R(0,0,130,114.3,c),65,57,.8],
-  'per-saltire':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="M0,0L150,100L0,200ZM300,0L150,100L300,200Z" fill="${b}"/>`,150,100,.9]
+  'per-saltire':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="M0,0L150,100L0,200ZM300,0L150,100L300,200Z" fill="${b}"/>`,150,100,.9],
+  'gyronny':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G.gyr}" fill="${b}"/>`,150,100,.7],
+  'lozenge':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<polygon points="150,18 282,100 150,182 18,100" fill="${b}"/><circle cx="150" cy="100" r="44" fill="${c}"/>`,150,100,.8],
+  'pile':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<polygon points="70,0 230,0 150,170" fill="${b}"/>`,150,62,.7],
+  'wave2':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G.wave2}" fill="${b}"/>`+R(0,170,300,30,c),150,100,.45],
+  'chev3':(a,b,c,d,R)=>[R(0,0,300,200,a)+[[-40,b],[20,c],[80,b]].map(([x,k])=>`<path d="M${x},-12L${x+165},100L${x},212" fill="none" stroke="${k}" stroke-width="26"/>`).join(''),262,100,.5]
 });
 Object.assign(PATTERNS,{'tri-w':['Wide-centre triband',3],'pall':['Pall',3],'hoist':['Hoist triangle',2],'hoist-s':['Triangle over stripes',3],'str7':['Seven stripes',2],
   'str5t':['Five bands',3],'checky':['Checky',2],'sunburst':['Sunburst',3],'wavy':['Wavy fess',3],'serrated':['Serrated hoist',2],'bord-canton':['Bordure and canton',3],
   'quart-cross':['Quartered cross',3],'diag3':['Diagonal tricolour',3],'chief':['Chief',2],'saltire-b':['Saltire and bordure',3],'disc-band':['Disc on a band',3],
-  'str-canton':['Stripes and canton',3],'per-saltire':['Per saltire',2]});
+  'str-canton':['Stripes and canton',3],'per-saltire':['Per saltire',2],
+  'gyronny':['Gyronny',2],'lozenge':['Lozenge',3],'pile':['Pile',2],'wave2':['Twin waves',3],'chev3':['Triple chevron',3]});
 const FG_C4P=new Set(['pall','quart-cross']);
 /* the colour under the emblem (index into c, -1 where two meet), for Surprise me */
 const FG_UNDER={'tri-h':1,'tri-v':1,'bi-h':-1,'bi-v':-1,cross:2,canton:2,chevron:2,diag:-1,saltire:2,border:0,quarters:-1,stripes:0,pale:1,centre:1,band:1,plain:0,
-  'tri-w':1,pall:0,hoist:1,'hoist-s':2,str7:1,str5t:2,checky:-1,sunburst:2,wavy:0,serrated:1,'bord-canton':2,'quart-cross':0,diag3:1,chief:0,'saltire-b':1,'disc-band':2,'str-canton':2,'per-saltire':-1};
+  'tri-w':1,pall:0,hoist:1,'hoist-s':2,str7:1,str5t:2,checky:-1,sunburst:2,wavy:0,serrated:1,'bord-canton':2,'quart-cross':0,diag3:1,chief:0,'saltire-b':1,'disc-band':2,'str-canton':2,'per-saltire':-1,gyronny:-1,lozenge:2,pile:1,wave2:0,chev3:0};
 /* the new emblems, drawn in a 100 × 100 box round the origin */
 const FG_EMB=Object.create(null);
 (()=>{
@@ -34846,10 +34854,20 @@ Object.assign(EMBLEMS,{bird:'Bird',lion:'Lion',fish:'Fish',sheaf:'Wheat sheaf',b
 const FG_PLURAL={'Wheat sheaf':'wheat sheaves',Fish:'fish',Waves:'waves',Lozenge:'lozenges',Oak:'oaks'};
 /* unlocks: three patterns and three emblems, each tied to something the nation already does */
 Object.assign(UNLOCKS,{'fp-sunburst':{k:'fpat',n:'Sunburst',src:'ach'},'fp-checky':{k:'fpat',n:'Checky',src:'ach'},'fp-wavy':{k:'fpat',n:'Wavy fess',src:'ach'},
+  'fp-gyronny':{k:'fpat',n:'Gyronny',src:'ach'},'fp-lozenge':{k:'fpat',n:'Lozenge',src:'ach'},
   'e-eye':{k:'emblem',n:'Eye',src:'set'},'e-bolt':{k:'emblem',n:'Lightning bolt',src:'set'},'e-wreath':{k:'emblem',n:'Laurel wreath',src:'ach'}});
-const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy'},FG_PFB={sunburst:'plain',checky:'quarters',wavy:'tri-h'};
+const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy',gyronny:'fp-gyronny',lozenge:'fp-lozenge'},FG_PFB={sunburst:'plain',checky:'quarters',wavy:'tri-h',gyronny:'quarters',lozenge:'centre'};
+/* the Community Board's achievements: a visit, then visits on five different days (tally cbvisit; cbday is the last day counted) */
+achDef('dip','dip-board','b','Town Crier','Visit the Community Board, where every region talks.',1,x=>aT(x,'cbvisit'),{u:'fp-gyronny'});
+achDef('dip','dip-board5','s','Regular at the Board','Visit the Community Board on five different days.',5,x=>aT(x,'cbvisit'),{u:'fp-lozenge'});
+function cbVisited(){
+  const n=S.nation;if(!n||n.npc||!n.name||OBS||S.mode==='readonly')return;const day=Math.floor(Date.now()/DAY);
+  if(tallyOf(n,'cbday')===day)return;
+  const m=clone(n);if(!m.tly||typeof m.tly!=='object')return;m.tlf=m.tlf||{};m.tly.cbday=day;m.tly.cbvisit=(m.tly.cbvisit||0)+1;if(!m.tlf.cbvisit)m.tlf.cbvisit=Date.now();
+  commit(m);saveSoon();
+}
 CZ_EMBS.push('e-eye','e-bolt','e-wreath');
-for(const [a,u] of [['odd-flag','fp-sunburst'],['odd-flag10','fp-checky'],['land-isles','fp-wavy'],['games-g1','e-wreath']]){const A=ACH_BY_ID[a];if(A&&!A.u){A.u=u;ACH_BY_U[u]=A;}}
+for(const [a,u] of [['dip-board','fp-gyronny'],['dip-board5','fp-lozenge'],['odd-flag','fp-sunburst'],['odd-flag10','fp-checky'],['land-isles','fp-wavy'],['games-g1','e-wreath']]){const A=ACH_BY_ID[a];if(A&&!A.u){A.u=u;ACH_BY_U[u]=A;}}
 for(const [s,u] of [['spies','e-eye'],['engines','e-bolt']]){const T=COL_SET_BY_ID[s];if(T&&Array.isArray(T.u)&&!T.u.includes(u))T.u.push(u);}
 
 /* ── drawing ── */
@@ -42261,7 +42279,7 @@ async function cbModAct(a,reg,t,r){
 EXT_PAGES.push('community');NAV_LABELS.community='Community Board';
 (()=>{const g=NAV_GROUPS.find(x=>x.k==='other');if(g&&!g.v.includes('community'))g.v.splice(g.v.indexOf('devnews')+1,0,'community');})();
 NAV_WORDS.community='community board forum topics discussion talk regions players chat posts replies';
-VIEWS_EXT.community=()=>cbView();
+VIEWS_EXT.community=()=>{setTimeout(cbVisited,0);return cbView();};
 uxHashView=(f=>function(hash){const m=/^community\/([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(hash);if(m){if(!CB.topic||CB.topic.id!==m[2])CB.pend=[m[1],m[2]];return 'community';}return f.apply(this,arguments);})(uxHashView);
 connect=(f=>async function(){const r=await f.apply(this,arguments);cbBeat();return r;})(connect);
 tick=(f=>function(){cbBeat();return f.apply(this,arguments);})(tick);
