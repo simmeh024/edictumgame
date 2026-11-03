@@ -57,6 +57,8 @@ export async function player(tag, opts = {}) {
   await ctx.addInitScript(([cap, gap, desk]) => {
     window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true;
     window.EDICTUM_PROBE = g => { window.G = g; };
+    // reward pop-ups as they always were; the quiet first hour has tests of its own
+    try { if (!localStorage.getItem('statehood.notif')) localStorage.setItem('statehood.notif', JSON.stringify({ rw: 'on' })); } catch (e) {}
   }, [opts.cap || 0, opts.saveGap ?? 1500, !!opts.desk]);
   if (opts.inject !== false) await ctx.addInitScript(([c, e]) => { window.EDICTUM_FIREBASE_CONFIG = c; window.EDICTUM_EMULATORS = e; }, [CONFIG, EMULATORS]);
   const p = await ctx.newPage();

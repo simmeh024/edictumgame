@@ -1614,6 +1614,45 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .gf-ans{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
 .gf-kinds.sm{margin:0;gap:0}
 .gf-am{max-width:300px}
+/* quieter notices */
+.toast{max-width:min(92vw,420px);padding:10px 14px;font-size:13.5px;line-height:1.45}
+.toast .reward-links{flex-direction:row;flex-wrap:wrap;gap:2px 14px;margin-top:6px}
+.toast .reward-links a{padding:6px 0;min-height:36px;font-size:13px}
+@media (min-width:960px){.toast{left:auto;right:24px;transform:none}}
+.bell-n.dot{min-width:10px;width:10px;height:10px;padding:0;border-radius:50%}
+.ntf-mute{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 16px}
+.nx-card{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.nx-card>.notice{margin:0}
+.nx-more{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0;font-size:13px}
+.nx-more .chip-btn{min-height:36px}
+/* the World page's region maps, until each is drawn */
+canvas.wr-map:not([data-done]){background:linear-gradient(100deg,var(--sea) 30%,var(--sea-2) 50%,var(--sea) 70%);background-size:300% 100%;animation:wrWait 1.4s linear infinite}
+@keyframes wrWait{from{background-position:100% 0}to{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){canvas.wr-map:not([data-done]){animation:none}}
+/* units stay with their figures */
+.tbl td{font-variant-numeric:tabular-nums}.tbl td.c-pop{white-space:nowrap}
+/* Statistics tabs: one row that scrolls on a phone */
+@media (max-width:640px){.st-tabs{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}.st-tabs .stab{flex:none;scroll-snap-align:start}}
+/* room for a finger */
+@media (pointer:coarse),(max-width:640px){
+  .fk-act,.fk-go,.fk-nm{min-height:40px;min-width:40px;display:inline-flex;align-items:center;justify-content:center}
+  .dsp-ed{min-height:40px;padding-inline:12px}
+  .mapc-row .sw{width:40px;height:40px}
+  .btn.sm{min-height:40px;padding-inline:14px}
+}
+/* map layers */
+.ml-sheet{border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
+.ml-sheet>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;min-height:44px;padding:10px 14px;cursor:pointer;list-style:none}
+.ml-sheet>summary::-webkit-details-marker{display:none}
+.ml-sheet>summary::after{content:'';margin-left:auto;align-self:center;width:8px;height:8px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(45deg)}
+.ml-sheet[open]>summary::after{transform:rotate(-135deg)}
+.ml-sh-t{font-weight:650}
+.ml-grp{padding:0 14px 10px}
+.ml-togs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:2px 16px;margin-top:6px}
+.ml-togs .mfx-tog{flex-basis:auto;margin:0;min-height:36px;display:flex;align-items:center}
+.ml-key{border-top:1px solid var(--rule);padding:0 14px}
+.ml-key>summary{min-height:40px;display:flex;align-items:center;cursor:pointer;font-weight:600;font-size:13.5px}
+.ml-keys{margin:0 0 12px}
 /* display: compact */
 :root[data-density="compact"] body{line-height:1.5}
 :root[data-density="compact"] .main{padding-top:18px;padding-bottom:44px}
@@ -16171,7 +16210,7 @@ const budgetOf=p=>p>1000?Math.floor(4+5.5*Math.sqrt(1000)+10*Math.log(p/1000)):M
 const npcLand=p=>Math.max(7,Math.round(budgetOf(p/NPC_POP)/2)),npcWeight=p=>weightOf(p/NPC_POP);
 const weightOf=p=>1+0.25*Math.log2(Math.max(0,p)/5+1);
 const popForHexes=k=>k>4+5.5*Math.sqrt(1000)?1000*Math.exp((k-4-5.5*Math.sqrt(1000)+1e-9)/10):Math.pow(Math.max(0,k-4)/5.5,2);
-const fmtArea=cnt=>(cnt*AREA_PER_HEX).toLocaleString('en-US')+' km²';
+const fmtArea=cnt=>(cnt*AREA_PER_HEX).toLocaleString('en-US')+' km²';
 function locOf(i){return {c:i%MAP.COLS,r:Math.floor(i/MAP.COLS),m:MAP_VER};}
 function validLoc(l){return l&&typeof l==='object'&&l.m===MAP_VER&&Number.isInteger(l.c)&&Number.isInteger(l.r)&&l.c>=0&&l.r>=0&&l.c<MAP.COLS&&l.r<MAP.ROWS?{c:l.c,r:l.r,m:MAP_VER}:null;}
 function cellOf(loc){const l=validLoc(loc);if(!l)return -1;const i=l.r*MAP.COLS+l.c;return MAP.T[i]>=2?i:-1;}
@@ -18316,7 +18355,7 @@ function statRows(A){
   return {
     people:[
       ['Population',fmtPop(A.pop),'pop'],...vitalRows(A),
-      ['Land area',A.area?A.area.toLocaleString('en-US')+' km²':'Not yet settled','area'],['Population density',A.area?fmt1(people/A.area)+' per km²':'—','density'],
+      ['Land area',A.area?A.area.toLocaleString('en-US')+' km²':'Not yet settled','area'],['Population density',A.area?fmt1(people/A.area)+' per km²':'—','density'],
       ['Living in towns and cities',pctS(A.urban),'urban'],['Median age',fmt1(A.medAge)+' years','medage'],
       ['Life expectancy',fmt1(A.life)+' years','life'],
      ['Average household',fmt1(clamp(1.9+s.relig*0.012+s.cons*0.01+(100-s.wealth)*0.008,1.8,5.2))+' people'],
@@ -18467,7 +18506,7 @@ function loreDraft(n,k,A){
   const D=n.demonym,cl=A.cl,place=A.hexes?placePhrase(territory().list[territory().byId[A.x.id]].cap):'somewhere in the Meridian Reach';
   const T={
     history:`${n.name} was founded ${n.npc?'long ago':'on '+fmtDate(n.founded)}, ${place}. Its people still argue about who arrived first and who brought the sandwiches.`,
-    geography:`${n.name} covers ${A.area?A.area.toLocaleString('en-US')+' km²':'a modest stretch of land'} ${place}.${cl?` The climate is ${cl.kind.toLowerCase()}, averaging ${fmt1(cl.temp)} °C, with ${fmt0(cl.rain)} mm of rain a year.`:''} The capital, ${n.capital}, is home to about ${fmtCount(A.people*A.capShare)} people.`,
+    geography:`${n.name} covers ${A.area?A.area.toLocaleString('en-US')+' km²':'a modest stretch of land'} ${place}.${cl?` The climate is ${cl.kind.toLowerCase()}, averaging ${fmt1(cl.temp)} °C, with ${fmt0(cl.rain)} mm of rain a year.`:''} The capital, ${n.capital}, is home to about ${fmtCount(A.people*A.capShare)} people.`,
     people:`Most ${plural(D)} speak ${n.lang||D}${n.faith?` and follow ${n.faith}`:''}. Life expectancy is ${fmt1(A.life)} years, the national dish is ${n.dish||'fish stew'} and the national sport is ${n.sport||'football'}.`,
     government:`${fullName(n)}, which the Bureau classifies as ${classify(n.s)}, is led by its ${n.leader}${n.ruler?' '+n.ruler:''}. The government enjoys ${fmt0(A.approval)}% approval, and the largest party is ${/^the /i.test(A.parties[0].nm)?'':'the '}${A.parties[0].nm}.`,
     military:`The armed forces field ${brig(n)} and ${fmtCount(A.pers)} active personnel${A.p.conscription?', filled by conscription':''}.`,
@@ -35867,8 +35906,13 @@ function mapBox(kind,cls,id){
   const mini=kind==='mini'?`<button type="button" class="mc-b map-fs-mini" data-act="map-fs" data-k="visit" data-id="${esc(id)}">⛶ Full screen</button>`:'';
   return `<div class="map-wrap map-${kind}${cls||''}${kind==='main'&&mfxTilt?' tilted':''}${full?' is-full':''}"${full?` role="dialog" aria-modal="true" aria-label="${kind==='found'?'Founding map':'Map'}, full screen"`:''}><canvas class="map-cv" data-map="${kind}"${id?` data-id="${esc(id)}"`:''} data-hover="-1" role="img" aria-label="Map of ${REGION}${kind==='mini'?'. Select to open the world map.':''}"></canvas>${ctrl}${mini}${full?mapFsBar(kind,id):''}</div>`;
 }
-function mapLegend(){
-  return `<div class="map-legend">${mfxToggles()}${runHtml(MAP_CONTROLS)}${terrLegend()}<span class="lg"><i class="lg-cap"></i>Capital</span><span class="lg"><i class="lg-city"></i>City</span><span class="lg"><i class="lg-claim"></i>Claimable with land credits</span><span class="lg"><i class="lg-you"></i>Your borders</span><span class="lg"><i class="lg-front"></i>Hexes you can attack</span><span class="lg"><i class="lg-occ"></i>Taken in war</span><span class="lg"><i class="lg-ally"></i>Allies</span><span class="lg"><i class="lg-spy"></i>Surveyed by your spies</span><span class="lg"><i class="lg-oil"></i>Oil, when zoomed in</span><span class="lg"><i class="lg-site"></i>Rumoured discovery</span><span class="lg"><i class="lg-found"></i>Named discovery</span>${runHtml(MAP_LEGEND)}</div>`;
+/* the map's layers and its key, folded into one panel: open beside the map on a desktop, closed under it on a phone
+   (its open state is remembered, as every panel's is) */
+function mapLegend(pre){
+  const open=!navNarrow();
+  return `<details class="ml-sheet" id="ml-sheet"${open?' open':''}><summary><span class="ml-sh-t">Map layers</span><span class="hint">What the map shows, and its key</span></summary>
+    <div class="ml-grp"><p class="lbl">Show on the map</p><div class="map-legend ml-togs">${pre||''}${mfxToggles()}${runHtml(MAP_CONTROLS)}</div></div>
+    <details class="ml-key" id="ml-key"><summary>Map key</summary><div class="map-legend ml-keys">${terrLegend()}<span class="lg"><i class="lg-cap"></i>Capital</span><span class="lg"><i class="lg-city"></i>City</span><span class="lg"><i class="lg-claim"></i>Claimable with land credits</span><span class="lg"><i class="lg-you"></i>Your borders</span><span class="lg"><i class="lg-front"></i>Hexes you can attack</span><span class="lg"><i class="lg-occ"></i>Taken in war</span><span class="lg"><i class="lg-ally"></i>Allies</span><span class="lg"><i class="lg-spy"></i>Surveyed by your spies</span><span class="lg"><i class="lg-oil"></i>Oil, when zoomed in</span><span class="lg"><i class="lg-site"></i>Rumoured discovery</span><span class="lg"><i class="lg-found"></i>Named discovery</span>${runHtml(MAP_LEGEND)}</div></details></details>`;
 }
 function worldMapView(){
   const n=S.nation,placed=cellOf(n.loc)>=0;
@@ -35876,7 +35920,7 @@ function worldMapView(){
   <div class="map-layout${mapFsOn('main')?' ml-full':''}">
     <div class="ml-map">${mapBox('main',placed?'':' pick')}</div>
     <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
-    <div class="ml-legend">${placed?migToggle():''}${mapLegend()}</div>
+    <div class="ml-legend">${mapLegend(placed?migToggle():'')}</div>
   </div>`;
 }
 function mapPanel(){
@@ -37638,7 +37682,7 @@ function govView(now){
   </section>`;
 }
 function statVal(k,x,now){return k==='dev'?devOf(x.id):k==='army'?armyPower(x.n)*10:k==='area'?areaOf(x.id):k==='pop'?popNow(x.n,now):k==='wealth'?avgIncome(x.n,x.id):x.n.s[k];}
-function statFmt(k,x,now){if(k==='wealth')return fmt0(avgIncome(x.n,x.id));if(k==='dev'&&!areaOf(x.id))return 'Not yet settled';if(k==='army')return brig(x.n);if(k==='dev'){const v=devOf(x.id);return v+(v===1?' building':' buildings');}if(k==='area'){const a=areaOf(x.id);return a?a.toLocaleString('en-US')+' km²':'Not yet settled';}return fmtVal(k,x.n,now);}
+function statFmt(k,x,now){if(k==='wealth')return fmt0(avgIncome(x.n,x.id));if(k==='dev'&&!areaOf(x.id))return 'Not yet settled';if(k==='army')return brig(x.n);if(k==='dev'){const v=devOf(x.id);return v+(v===1?' building':' buildings');}if(k==='area'){const a=areaOf(x.id);return a?a.toLocaleString('en-US')+' km²':'Not yet settled';}return fmtVal(k,x.n,now);}
 function censusView(now){
   const all=allNations(),sel=S.censusKey,me=all.find(x=>x.me),N=all.length;
   /* observing a region (OBS) nobody is "me": each scale shows the nation at its top instead */
@@ -37734,7 +37778,7 @@ function regionView(now){
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="c-cat">Category</th><th class="c-al">Alliance</th><th class="c-pop">Population</th><th class="c-pop">Land area</th></tr></thead><tbody>
-  ${all.map(x=>`<tr class="${x.me?'me':''}"><td><div class="nm"><span class="nm-main"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>${nationLink(x.id,x.n.name,x.me)}</span>${czEpiRow(x.n)}${x.me?'<span class="chip you">You</span>':x.npc?'<span class="chip">Computer</span>':''}${!x.me&&S.nation&&warWith(x.id).war?'<span class="chip war">At war with you</span>':''}</div></td><td class="c-cat">${fpRowGlyph(x)}${esc(classify(x.n.s))}</td><td class="c-cat">${esc(allianceOf(x.id)?allianceName(x.id):'—')}</td><td class="c-pop">${fmtPop(popNow(x.n,now))}</td><td class="c-pop">${areaOf(x.id)?areaOf(x.id).toLocaleString('en-US')+' km²':'Not yet settled'}</td></tr>`).join('')}
+  ${all.map(x=>`<tr class="${x.me?'me':''}"><td><div class="nm"><span class="nm-main"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>${nationLink(x.id,x.n.name,x.me)}</span>${czEpiRow(x.n)}${x.me?'<span class="chip you">You</span>':x.npc?'<span class="chip">Computer</span>':''}${!x.me&&S.nation&&warWith(x.id).war?'<span class="chip war">At war with you</span>':''}</div></td><td class="c-cat">${fpRowGlyph(x)}${esc(classify(x.n.s))}</td><td class="c-cat">${esc(allianceOf(x.id)?allianceName(x.id):'—')}</td><td class="c-pop">${fmtPop(popNow(x.n,now))}</td><td class="c-pop">${areaOf(x.id)?areaOf(x.id).toLocaleString('en-US')+' km²':'Not yet settled'}</td></tr>`).join('')}
   </tbody></table></div>
   <div class="region-cols">
     <section><h2 class="h2">Happenings</h2>${(()=>{for(const h of haps)h.txt=hapText(h.l,h.x);return '';})()}${haps.some(h=>h.txt)?`<ul class="haps">${haps.filter(h=>h.txt).slice(0,30).map(h=>`<li><span class="hap-t">${rel(h.t)}</span><span>${h.txt}</span></li>`).join('')}</ul>`:`<div class="empty"><p>Nothing has happened yet.</p></div>`}</section>
@@ -45296,6 +45340,82 @@ function chrView(now){
   <section class="section"><h2 class="h2">Daily snapshots</h2><div class="tbl-wrap"><table class="tbl chr-tbl"><caption class="sr">Snapshots for ${esc(mk)}</caption><thead><tr><th scope="col">Day</th><th scope="col">Population</th><th scope="col">Category</th><th scope="col">Economy</th><th scope="col">Happiness</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`;
 }
 VIEWS_EXT.chronicle=now=>chrView(now);
+
+/* ───────── quieter notices: compact toasts, a bell that counts what needs you, and the player's own say ─────────
+   A toast is a reward (an achievement, an artefact, a set: it carries links), a tutorial step, or plain feedback.
+   Rewards are always in the bell, so their toasts may wait there: in a nation's first hour, or always, as the
+   player chooses in Settings (NTF, kept on this device). Several rewards queued at once become one toast. The bell's
+   number counts only what needs the player (BELL_ACT); anything else new shows as a dot, and whole kinds of notice
+   can be left out of the bell altogether. */
+const NTF_KEY='statehood.notif';
+const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum finds and digs',['museum','dig']],['build','Finished buildings',['build']],['mile','Population milestones',['mile','mile0']],
+  ['games','The Games',['games','host','hostwin']],['news','The Dispatch and Flock',['dispatch','flock']],['space','Space and the belt',['space','belt']],['gift','Gifts',['gift']],
+  ['wnd','The Great Statue',['wnd']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']]];
+const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
+const NTF=(()=>{let d={};try{d=JSON.parse(localStorage.getItem(NTF_KEY)||'{}')||{};}catch(e){d={};}
+  return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
+function ntfSave(){try{localStorage.setItem(NTF_KEY,JSON.stringify(NTF));}catch(e){}}
+const ntfMuted=k=>NTF.mute.some(g=>(NTF_GROUPS.find(x=>x[0]===g)||[,,[]])[2].includes(k));
+const ntfFirstHour=()=>!!(S.nation&&Date.now()-(S.nation.founded||0)<3600e3);
+const TOAST_RW=/^(Achievements? earned|Achievements recorded|\d+ achievements|New in the Museum|\d+ new artefacts|Sets? complete|Half of |.* collection is complete|The Museum of Progress has opened)/;
+function toastKind(item){if(item.links&&item.links.length||TOAST_RW.test(item.m))return 'rw';if(/^(Step done|List complete)/.test(item.m))return 'tut';return '';}
+toast=(f=>function(msg){
+  const m=String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links=msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[],k=toastKind({m,links});
+  if(k==='rw'&&(NTF.rw==='off'||NTF.rw==='auto'&&ntfFirstHour()))return;
+  if(k==='tut'&&!NTF.tut)return;
+  return f.apply(this,arguments);
+})(toast);
+/* rewards waiting together are told once: the first, and how many more the bell holds */
+toastNext=(f=>function(){
+  const c=TOASTQ.cur,q=TOASTQ.q;
+  if(!c&&q.length>1&&toastKind(q[0])==='rw'){const more=q.slice(1).filter(x=>toastKind(x)==='rw');
+    if(more.length){TOASTQ.q=[{...q[0],m:q[0].m+` And ${more.length===1?'one more reward':more.length+' more rewards'}: open the bell to see ${more.length===1?'it':'them'}.`,links:(q[0].links||[]).slice(0,2)}].concat(q.slice(1).filter(x=>toastKind(x)!=='rw'));}}
+  return f.apply(this,arguments);
+})(toastNext);
+/* the bell: muted kinds are left out, and the number is what needs you */
+notifItems=(f=>function(now){const r=f.apply(this,arguments);if(NTF.mute.length)r.ev=r.ev.filter(x=>!ntfMuted(x.k));return r;})(notifItems);
+function notifFresh(now){const n=S.nation;if(!n)return {act:0,info:0};const {pin,ev}=notifItems(now),seen=n.seen||0,nw=ev.filter(x=>x.t>seen&&!x.read);
+  const act=pinNew(n,pin).length+nw.filter(x=>NTF.badge==='all'||BELL_ACT.has(x.k)).length;return {act,info:nw.length+pinNew(n,pin).length-act};}
+notifCount=function(now){return notifFresh(now).act;};
+bellButton=function(now){const {act,info}=notifFresh(now),c=act,dot=!c&&info>0;
+  return `<button class="bell${S.notifOpen?' on':''}" data-act="notif" aria-expanded="${!!S.notifOpen}" aria-label="Notifications${c?', '+c+' new':dot?', something new':''}">${BELL_SVG}<span class="bell-n${dot?' dot':''}"${c||dot?'':' hidden'}>${c?(c>99?'99+':c):''}</span></button>`;};
+refreshBell=function(now){
+  const b=document.querySelector('.bell-n');if(!b)return;const {act,info}=notifFresh(now),dot=!act&&info>0,t=act?(act>99?'99+':String(act)):'',l='Notifications'+(act?', '+act+' new':dot?', something new':'');
+  if(b.textContent!==t)b.textContent=t;if(b.hidden!==!(act||dot))b.hidden=!(act||dot);b.classList.toggle('dot',dot);
+  const bt=b.closest('.bell');if(bt&&bt.getAttribute('aria-label')!==l)bt.setAttribute('aria-label',l);
+};
+/* Settings: Notifications */
+function ntfSection(){
+  const seg=(lab,id,opts,cur,f)=>`<div class="cz-drow"><span class="cz-dl" id="${id}">${lab}</span><div class="seg cz-seg" role="group" aria-labelledby="${id}">${opts.map(([v,l])=>`<button type="button" id="${id}-${v}" class="seg-b${String(cur)===String(v)?' on':''}" data-act="ntf" data-f="${f}" data-v="${v}" aria-pressed="${String(cur)===String(v)}">${l}</button>`).join('')}</div></div>`;
+  return `<section class="fs" id="set-notif"><h2 class="fs-l">Notifications</h2>
+    <p class="hint fs-hint">On this device. Everything still goes in the bell; these choose what pops up, and what the bell counts.</p>
+    <div class="cz-disp">
+      ${seg('Pop-ups for achievements and finds','ntf-rw',[['auto','Quiet for the first hour'],['on','Always'],['off','Never, bell only']],NTF.rw,'rw')}
+      ${seg('Pop-ups for tutorial steps','ntf-tut',[[1,'Show'],[0,'Hide']],NTF.tut,'tut')}
+      ${seg('The bell’s number counts','ntf-badge',[['act','What needs me'],['all','Everything new']],NTF.badge,'badge')}
+      <div class="cz-drow"><span class="cz-dl" id="ntf-mute-l">Show in the bell</span><div class="ntf-mute" role="group" aria-labelledby="ntf-mute-l">${NTF_GROUPS.map(([k,l])=>`<label class="tog"><input type="checkbox" data-ntf-mute="${k}"${NTF.mute.includes(k)?'':' checked'}> ${esc(l)}</label>`).join('')}</div></div>
+    </div><p class="hint">Messages, wars, trade offers, land credits and alliance invitations always show, and always count.</p></section>`;
+}
+settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<section class="fs" id="set-appearance">');return i<0?h+ntfSection():h.slice(0,i)+ntfSection()+h.slice(i);})(settingsView);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="ntf"]');if(!el)return;const f=el.dataset.f,v=el.dataset.v;
+  if(f==='rw'&&['auto','on','off'].includes(v))NTF.rw=v;else if(f==='tut')NTF.tut=v==='1'?1:0;else if(f==='badge')NTF.badge=v==='all'?'all':'act';else return;ntfSave();render();});
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.ntfMute;if(!k)return;NTF.mute=NTF.mute.filter(x=>x!==k);if(!e.target.checked)NTF.mute.push(k);ntfSave();refreshBell(Date.now());});
+
+/* ── the Nation page: one card for what waits, instead of a banner for each ── */
+nationNotes=(f=>function(n,cnt,now){
+  if(pgGuided(n))return f.apply(this,arguments);
+  const cr=landCredits(n),items=[];
+  if(cnt)items.push({v:'issues',k:chamberOf(n).house,t:`${cnt===1?'One edict awaits':cnt+' edicts await'} ${chamberOf(n).notice}.`,b:'Open edicts',s:`${cnt} ${cnt===1?'edict':'edicts'} to decide`});
+  if(cr)items.push({v:'map',k:'Land office',t:`You have ${cr} land ${cr===1?'credit':'credits'} to spend. Choose where ${n.name} grows next.`,b:'Open the map',s:`${cr} land ${cr===1?'credit':'credits'} to spend`});
+  /* the other notices (holiday, war, alliances, trade) are rare and urgent, and keep their own banners */
+  const rest=`${awayNotice(n,now)}${warNotice()}${allianceNotice()}${tradeNotice()}`;
+  if(!items.length)return rest;const [a,...more]=items;
+  return `<section class="nx-card" aria-label="Waiting for you"><button class="notice nx-main" data-act="go" data-v="${a.v}"><span class="notice-k">${esc(a.k)}</span><span>${esc(a.t)}</span><span class="notice-go">${esc(a.b)} →</span></button>${more.length?`<p class="nx-more"><span class="lbl">Also waiting</span>${more.map(x=>`<button type="button" class="chip-btn" data-act="go" data-v="${x.v}">${esc(x.s)}</button>`).join('')}</p>`:''}</section>${rest}`;
+})(nationNotes);
+
+/* ── the World page's region maps: the ones on screen first, a soft placeholder until each is drawn ── */
+wrDrawSoon=function(){if(wrQ)return;wrQ=true;requestAnimationFrame(function step(){const all=[...document.querySelectorAll('canvas.wr-map:not([data-done])')];if(!all.length){wrQ=false;return;}
+  const c=all.find(x=>{const r=x.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight;})||all[0];try{drawRegionPreview(c);}catch(e){}c.dataset.done=c.dataset.done||'x';requestAnimationFrame(step);});};
 
 /* ───────── observer mode ─────────
    An admin opens any region read-only (OBS, by REG): its world map, Region page and board, Census, the World page and
