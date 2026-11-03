@@ -147,7 +147,7 @@ test('the job never writes a nation, its summary or its trade; only fx, fxs and 
   assert.deepEqual(await snap(), before);
   const cols = await asAdmin(async db => Promise.all(['fx', 'fxs', 'fxh', 'summaries'].map(async c => [c, (await db.collection(c).get()).size])));
   const m = Object.fromEntries(cols);
-  assert.equal(m.fx, 26); assert.equal(m.fxs, 26); assert.equal(m.summaries, 0);
+  assert.equal(m.fx, 27); assert.equal(m.fxs, 27); assert.equal(m.summaries, 0);
 });
 
 test('a full run deletes the history of a nation that no longer exists', async () => {

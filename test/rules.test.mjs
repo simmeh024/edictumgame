@@ -99,6 +99,12 @@ test('disabled regions reject founding, saves, moves out and posts without delet
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ enabled: true }));
   await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland')));
 });
+test('a region marked soon (Terra) is closed until its status opens it', async () => {
+  await assertFails(save(as('alice'), 'alice', nation('Aliceland', { reg: 'terra' })));
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/terra').set({ enabled: true, mode: 'enabled' }));
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland', { reg: 'terra' })));
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/terra').delete());
+});
 test('region availability is public, while region changes and audit events require the server', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     await ctx.firestore().doc('regionStatus/meridian').set({ enabled: false });

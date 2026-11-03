@@ -66,14 +66,16 @@ service cloud.firestore {
       return r in ['meridian', 'frostmarch', 'northernpale', 'driftlands', 'silentmoors', 'wildwood',
         'saffron', 'hollow', 'ashen', 'ironsteppe', 'gilded', 'verdantbasin', 'coralreach', 'emberisles',
         'lanterncoast', 'jadeterraces', 'highcrags', 'cloudspine', 'obsidianrim', 'ambershallows',
-        'sunkenkingdoms', 'mistral', 'stormwrack', 'longvalley', 'greywater', 'scatteredcrown'];
+        'sunkenkingdoms', 'mistral', 'stormwrack', 'longvalley', 'greywater', 'scatteredcrown', 'terra'];
     }
     function label(s) {
       return s is string && s.size() <= 80;
     }
+    // A region marked soon in the game (Terra) is closed until an admin opens it: with no status document it
+    // reads as closed (functions/eligibility.js keeps the same list, from the game).
     function regionEnabled(r) {
-      return isAdmin() || !exists(/databases/$(database)/documents/regionStatus/$(r))
-        || get(/databases/$(database)/documents/regionStatus/$(r)).data.enabled != false;
+      return isAdmin() || (!exists(/databases/$(database)/documents/regionStatus/$(r)) ? !(r in ['terra'])
+        : get(/databases/$(database)/documents/regionStatus/$(r)).data.enabled != false);
     }
     // at most once per `secs` seconds: the document's previous server time is far enough back
     function paced(secs) {

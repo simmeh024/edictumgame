@@ -33,6 +33,6 @@ export function loadWorld(src = readFileSync(GAME, 'utf8')) {
   const npc = d => ({ id: d.id, name: d.name, s: d.s, pol: d.pol || [], pop: d.pop, room: d.room || room[d.id] || 1.5 });
   const meridianName = (/const REGION_MER=\{id:'meridian',name:'([^']+)'/.exec(src) || [])[1] || 'Meridian Reach';
   const regions = [{ id: 'meridian', name: meridianName, npcs: mer.map(npc) }]
-    .concat(extra.map(r => ({ id: r.id, name: r.name, npcs: (r.npcs || []).map(npc) })));
+    .concat(extra.map(r => ({ id: r.id, name: r.name, ...(r.soon ? { soon: true } : {}), npcs: (r.npcs || []).map(npc) })));
   return { regions, npcPop, npcEpoch: Date.UTC(+ep[1], +ep[2], +ep[3]) };
 }

@@ -770,7 +770,7 @@ await K.fill('#d-motto', 'Nothing Lost');
 await K.click('#q0-2');
 await K.click('[data-act="found-browse"]');
 await K.waitForSelector('.fr-grid [data-act="found-region"][data-id="driftlands"]');
-check('section V has a region browser with every region', (await K.$$('.fr-grid .wr-card')).length === 26);
+check('section V has a region browser with every region', (await K.$$('.fr-grid .wr-card')).length === 27);
 await Promise.all([K.waitForNavigation(), K.click('.fr-grid [data-act="found-region"][data-id="driftlands"]')]);
 await ready(K);
 check('choosing a region in the browser switches to it', (await K.evaluate(() => localStorage.getItem('statehood.region'))) === 'driftlands' && !/Meridian Reach/.test(await text(K, '.fr-now')));

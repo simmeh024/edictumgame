@@ -30,7 +30,7 @@ export { adminConsole } from './admin.js';
 export { accounts } from './accounts.js';
 export { civic } from './civic.js';
 export { paddle } from './shop.js';
-import { identity, eligibility, refuse } from './eligibility.js';
+import { identity, eligibility, refuse, regionClosed } from './eligibility.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 initializeApp();
@@ -95,8 +95,8 @@ async function battle(uid, data) {
     const foe = npc ? null : rest.shift(), mine = record(me), now = Date.now();
     const regions = [...new Set([me.get('reg'), foe?.get('reg')].filter(Boolean))];
     const availability = regions.length ? await tx.getAll(...regions.map(r => db.doc('regionStatus/' + r))) : [];
-    const unavailable = availability.find(r => r.get('enabled') === false);
-    if (unavailable) return { ok: false, why: unavailable.get('mode') === 'coming_soon' ? 'coming_soon' : 'maintenance' };
+    const unavailable = availability.find(r => regionClosed(r, r.id));
+    if (unavailable) return { ok: false, why: !unavailable.exists || unavailable.get('mode') === 'coming_soon' ? 'coming_soon' : 'maintenance' };
     await eligibility(tx, who, { linked: false });
     if (!npc && !who.registered && !(foe?.exists && record(foe).wars?.[uid]))
       refuse('registration_required', 'A Registered Nation is required for offensive wars against players.');

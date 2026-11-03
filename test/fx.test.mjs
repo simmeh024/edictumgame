@@ -70,9 +70,9 @@ test('the engine uses the game’s own formulas (income, approval, inflation, de
 
 test('every region of the game and its computer-run nations are read from the game itself', () => {
   const W = loadWorld();
-  assert.equal(W.regions.length, 26);
+  assert.equal(W.regions.length, 27);
   assert.equal(W.regions[0].id, 'meridian');
-  assert.ok(W.regions.every(r => r.npcs.length >= 5 && r.npcs.every(n => n.id.startsWith('npc-') && Array.isArray(n.s) && n.s.length === 20 && n.pop > 0 && n.room > 1)));
+  assert.ok(W.regions.every(r => r.npcs.length >= 4 && r.npcs.every(n => n.id.startsWith('npc-') && Array.isArray(n.s) && n.s.length === 20 && n.pop > 0 && n.room > 1)));
   assert.equal(W.npcPop, 0.5);
   assert.equal(W.npcEpoch, Date.UTC(2026, 9, 25));
   const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
