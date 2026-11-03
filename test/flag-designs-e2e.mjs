@@ -27,8 +27,6 @@ await A.evaluate(() => { const n = G.clone(G.S.nation); n.tly.cbvisit = 4; n.tly
 check('visits on five days earn Regular at the Board', await until(async () => (await localNation(A)).tly.cbvisit === 5, 10000));
 await openFlag();
 check('and Lozenge can be chosen', !!await A.$('#c-p-lozenge'));
-await A.click('#c-p-lozenge');
-await A.locator('[data-fgg^="c:"]').first().screenshot({ path: OUT + '/flag-designs.png' }).catch(() => {});
 // a sheet of the five, for the pull request (the page is replaced: this is the end of the suite)
 await A.evaluate(() => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); const svgs = ['gyronny', 'lozenge', 'pile', 'wave2', 'chev3'].map(p => document.querySelector('#c-p-' + p + ' svg').outerHTML);
   document.body.innerHTML = '<div id="fd-all" style="display:inline-grid;grid-template-columns:repeat(5,150px);gap:10px;padding:10px;background:#eee">' + svgs.map(v => `<div style="width:150px;height:100px">${v}</div>`).join('') + '</div>'; });
