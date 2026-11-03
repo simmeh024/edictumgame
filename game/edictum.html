@@ -38102,6 +38102,7 @@ function found(){
   if(S.mode==='world'&&!RCTRL.ready){S.foundErr='Checking region availability. Please try again.';render();return;}
   const d=S.draft,name=d.name.trim().replace(/\s+/g,' ');
   if(name.length<2){S.foundErr='Give your nation a name of at least two characters.';render();const el=document.getElementById('d-name');if(el)el.focus();return;}
+  if(nameTaken(name,REG.id)){S.foundErr=`${REG.name} already has a nation called ${name}. Choose another name.`;render();const el=document.getElementById('d-name');if(el)el.focus();return;}
   if(S.banned){S.foundErr=`This account is banned from Edictum${S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`;render();return;}
   if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${regCap(REG.id)} active nations. Choose another region, at the top or under Location.`;render();return;}
   S.foundErr='';try{sessionStorage.removeItem(DRAFT_SS);}catch(e){}
@@ -38390,6 +38391,12 @@ const CONTACT='p.slettenaar@gmail.com';
    closed, the connection dropped) is confirmed on the next visit. */
 const REN={on:false,val:'',err:'',busy:false,told:0,asked:0};
 const nameFold=s=>String(s||'').normalize('NFKD').replace(/\p{M}/gu,'').replace(/\s+/g,' ').trim().toLowerCase();
+/* a name already used by another nation in the region, sleepers included (folded, so case and accents do not matter) */
+function nameTaken(v,reg){
+  const f=nameFold(v),own=k=>k!==S.uid;
+  for(const src of [S.worldAll,DORM.all,S.world,DORM.w])if(src)for(const k of Object.keys(src)){const x=src[k];if(x&&own(k)&&(x.reg||reg)===reg&&nameFold(x.name)===f)return true;}
+  return false;
+}
 function renDue(){const m=S.mod&&S.uid?S.mod[S.uid]:null;return m&&m.hidden&&m.rename&&S.nation&&S.db&&S.mode==='world'?m:null;}
 function renNotice(m){
   if(REN.told!==m.t){REN.told=m.t;toast(`A moderator asked you to rename ${S.nation.name}. It is hidden from other players until you choose a new name.`);}
@@ -38408,6 +38415,7 @@ function renSubmit(raw){
   REN.val=v;
   if(v.length<2)return fail('Give your nation a name of at least two characters.');
   if(nameFold(v)===nameFold(m.name))return fail('Choose a name other than the one the moderator asked you to change.');
+  if(nameTaken(v,S.nation.reg||'meridian'))return fail('Another nation in your region already has this name. Choose another.');
   if(v!==S.nation.name){const n=clone(S.nation);n.name=v;commit(n);}
   renFinish();
 }
