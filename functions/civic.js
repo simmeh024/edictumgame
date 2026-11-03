@@ -278,19 +278,21 @@ async function assemblyTx(db, who, d) {
 const newsId = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const commentText = x => typeof x === 'string' ? x.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 1000) : '';
 async function newsComment(db, who, d) {
-  const post = newsId(d.post), x = commentText(d.text);
+  const post = newsId(d.post), x = commentText(d.text), re = newsId(d.re);
   if (!post) throw new HttpsError('invalid-argument', 'Choose a news post.');
   if (!x) throw new HttpsError('invalid-argument', 'Write a comment first.');
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid);
-    const [s, p] = await Promise.all([tx.get(limit), tx.get(db.doc('devnews/' + post))]);
+    const [s, p, parent] = await Promise.all([tx.get(limit), tx.get(db.doc('devnews/' + post)), re ? tx.get(db.doc('devnews/' + post + '/posts/' + re)) : null]);
     if (!p.exists || p.get('pub') !== true) refuse('news_missing', 'This post is no longer published.');
+    // a reply answers a comment, not another reply: the thread stays one level deep
+    if (re && (!parent.exists || parent.get('re'))) refuse('news_reply_missing', 'That comment is no longer there to reply to.');
     if (p.get('lk') === true) refuse('news_locked', 'Comments on this post are closed.');
     if (s.exists && Date.now() - s.get('p').toMillis() < 20000) throw new HttpsError('resource-exhausted', 'Wait 20 seconds between community posts.');
     const flag = e.n.flag && typeof e.n.flag === 'object' ? JSON.stringify(e.n.flag) : '';
     const ref = db.collection('devnews/' + post + '/posts').doc();
     tx.create(ref, { a: who.uid, t: FieldValue.serverTimestamp(), x, nm: text(e.saved.get('name'), 80) || 'A nation', rg: e.n.reg || e.saved.get('reg'),
-      ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}) });
+      ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(re ? { re } : {}) });
     tx.set(limit, { p: FieldValue.serverTimestamp() });
     return { id: ref.id };
   });
@@ -312,6 +314,40 @@ async function newsModerate(db, who, d) {
   return { ok: true };
 }
 
+/* Reactions and poll votes on a post: the player's own choice is devnews/<post>/me/<uid> {e?, v?}, which only
+   they read, and the totals are devnewsStat/<post> {r: {kind: n}, v: [n, ...]}, which everyone reads. Both are
+   written here, in one transaction, so a total always matches the choices behind it. */
+const NEWS_REACT = ['up', 'heart', 'party', 'think'];
+async function newsTally(db, who, d, kind) {
+  const post = newsId(d.post);
+  if (!post) throw new HttpsError('invalid-argument', 'Choose a news post.');
+  return db.runTransaction(async tx => {
+    // anyone with a nation reacts; a vote, like a comment, needs a linked sign-in
+    await eligibility(tx, who, { linked: kind === 'v' });
+    const me = db.doc('devnews/' + post + '/me/' + who.uid), st = db.doc('devnewsStat/' + post);
+    const [p, m, s] = await Promise.all([tx.get(db.doc('devnews/' + post)), tx.get(me), tx.get(st)]);
+    if (!p.exists || p.get('pub') !== true) refuse('news_missing', 'This post is no longer published.');
+    const mine = m.exists ? m.data() : {}, tot = s.exists ? s.data() : {}, r = { ...(tot.r || {}) }, v = Array.isArray(tot.v) ? tot.v.slice() : [];
+    if (kind === 'e') {
+      const pick = NEWS_REACT.includes(d.e) && d.e !== mine.e ? d.e : '';
+      if (mine.e) r[mine.e] = Math.max(0, (r[mine.e] || 0) - 1);
+      if (pick) r[pick] = (r[pick] || 0) + 1;
+      mine.e = pick; if (!pick) delete mine.e;
+    } else {
+      const pl = p.get('pl'), n = pl && Array.isArray(pl.o) ? pl.o.length : 0, o = Number(d.o);
+      if (!n) refuse('poll_missing', 'This post has no poll.');
+      if (pl.end && Date.now() > pl.end) refuse('poll_closed', 'This poll has closed.');
+      if (!Number.isInteger(o) || o < 0 || o >= n) throw new HttpsError('invalid-argument', 'Choose one of the answers.');
+      if (Number.isInteger(mine.v)) refuse('poll_voted', 'Your nation has already voted in this poll.');
+      while (v.length < n) v.push(0);
+      v[o]++; mine.v = o;
+    }
+    tx.set(st, { r, v });
+    if (Object.keys(mine).length) tx.set(me, mine); else tx.delete(me);
+    return { r, v, e: mine.e || '', o: Number.isInteger(mine.v) ? mine.v : -1 };
+  });
+}
+
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
 export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 60 }, async req => {
@@ -320,6 +356,8 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'authorizeSave') return permit(db, who, d);
   if (d.op === 'newsComment') return newsComment(db, who, d);
   if (d.op === 'newsModerate') return newsModerate(db, who, d);
+  if (d.op === 'newsReact') return newsTally(db, who, d, 'e');
+  if (d.op === 'newsVote') return newsTally(db, who, d, 'v');
   if (d.op === 'renamed') return renamed(db, who);
   if (d.op === 'topic') return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
