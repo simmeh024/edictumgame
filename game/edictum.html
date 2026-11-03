@@ -5123,6 +5123,7 @@ span.nw-tag{cursor:default}
 .cx-qend{margin-top:10px}
 .cx-gobuild{margin-top:12px}
 .cx-foot{margin-top:18px}
+.cx-have summary{cursor:pointer;color:var(--ink-2);padding:6px 0;min-height:32px;font-size:14px}
 .cx-sec{margin:0 0 20px}
 .cx-sec .lbl-h{margin:0 0 8px}
 .cx-mood-v{margin:0 0 6px;font-size:14px}.cx-mood-v b{font-family:var(--f-display);font-size:26px}
@@ -46977,11 +46978,12 @@ function cityCard(ct,T,n,st,now){
   const slots=slotsOf(ct),used=ct.done.length+ct.prog.length,band=ct.mood!=null&&ct.active?cxBand(ct.mood):null,my=ct.rec&&cxCityExtras(ct.rec).my,ev=ok&&cxEvDue(ct,now);
   const tabBtn=([k,l])=>k==='build'?`<button class="stab${tab===k?' on':''}" role="tab" aria-selected="${tab===k}" data-act="ct-open" data-id="${esc(ct.id)}" aria-expanded="${open}">Build</button>`:`<button class="stab${tab===k?' on':''}" role="tab" aria-selected="${tab===k}" data-act="cx-tab" data-k="${k}">${l}${k==='ppl'&&ev?' <span class="cx-dot" aria-label="A matter waits">!</span>':''}</button>`;
   let body;
-  if(tab==='build')body=catalog(ct,n,st);
+  const rowsOf=()=>ct.done.map(k=>bldRow(ct,k,ok,now)).join('')+ct.prog.map(b=>bldRow(ct,b,ok,now)).join('')+(ct.active?blkFreeRow(slots-used):'');
+  if(tab==='build')body=`<details class="cx-have"${ct.done.length+ct.prog.length?' open':''}><summary>In ${esc(ct.nm)} now: ${used} of ${slots} blocks in use</summary><ul class="blds">${rowsOf()}</ul></details>${catalog(ct,n,st)}`;
   else if(tab==='ppl')body=cxPeople(ct,T,n,st,now,ok);
   else if(tab==='def')body=cxDefence(ct,T,n,st,now,ok);
   else{
-    const rows=ct.done.map(k=>bldRow(ct,k,ok,now)).join('')+ct.prog.map(b=>bldRow(ct,b,ok,now)).join('')+(ct.active?blkFreeRow(slots-used):'');
+    const rows=rowsOf();
     const end=ct.prog.reduce((m,b)=>Math.max(m,b.d),0);
     body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${end>now?`<p class="hint cx-qend">The builders are busy until ${c3When(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
   }
