@@ -40,8 +40,9 @@ check('Copy link puts the nation’s address on the clipboard', await until(asyn
 await A.evaluate(() => { G.S.view = 'messages'; G.render(); });
 await A.waitForSelector('#dm-q');
 const target = await A.$$eval('#dm-new option', o => o.filter(x => x.value).at(-1).textContent.replace(/ \(.*\)$/, ''));
-await A.fill('#dm-q', target.slice(0, 5));
-check('typing narrows the list of nations', await A.$$eval('#dm-new option', o => o.filter(x => x.value && !x.hidden).length) < await A.$$eval('#dm-new option', o => o.filter(x => x.value).length));
+await A.fill('#dm-q', target);
+const shownOpts = () => A.$$eval('#dm-new option', o => [o.filter(x => x.value && !x.hidden).length, o.filter(x => x.value).length]);
+check('typing narrows the list of nations', await until(async () => { const [v, all] = await shownOpts(); return v >= 1 && v < all; }), JSON.stringify(await shownOpts()));
 await A.press('#dm-q', 'Enter');
 check('and Enter opens the first one found', await until(async () => /Message to/.test(await text(A, '#dm-form'))));
 
