@@ -56,8 +56,10 @@ sets up (`set-paddle.mjs --check` compares the two).
   cancelled at once and refunded. "Manage subscription" opens Paddle's customer portal (payment method, invoices,
   cancellation); a scheduled cancellation can be taken back from the Shop.
 - **Refunds and chargebacks.** A full refund or a chargeback takes back what the payment paid for (a won chargeback
-  gives it back). Partial refunds leave it. A second payment for something already owned is refunded. A purchase
-  this server never opened (a checkout started outside the game) is refunded, since there is no one to deliver it to.
+  gives it back). A full refund does so from when it is asked for, while Paddle has still to approve it; a refund
+  Paddle turns down gives it back. A refund made in Paddle's dashboard arrives as type `partial` even when it gives
+  back the whole item, so one whose items are each refunded in full counts as full (`adjFacts`). Partial refunds
+  leave it. A second payment for something already owned is refunded. A purchase this server never opened (a checkout started outside the game) is refunded, since there is no one to deliver it to.
 - **The desk.** `edictCapAt(t)` in the game: 5, or 10 at any time inside a paid month. It decides only whether a new
   edict arrives; loading and saving keep up to 10 (`EDICT_KEEP`), so a queue is never cut, whatever a device knows.
   When a membership ends, every waiting edict stays and new ones arrive once fewer than five wait, at the usual
@@ -180,8 +182,8 @@ CVC), check each of these before going live:
    subscription's `next_billed_at`), or wait a month: the paid-until date moves on. A failed renewal (switch the
    subscription to one of [Paddle's declining test cards](https://developer.paddle.com/concepts/payment-methods/credit-debit-card)
    first): the membership shows the failed payment and ends with the paid month.
-5. Refund the card pack from the dashboard: it leaves Customise once Paddle approves the refund (the sandbox approves
-   refunds about every ten minutes).
+5. Refund the card pack from the dashboard (the whole item): it leaves Customise as soon as the refund is asked for,
+   while Paddle still has to approve it (the sandbox approves refunds about every ten minutes).
 6. In **Notifications**, the destination's log shows every notification delivered with status 200.
 
 ### 7. Go live
