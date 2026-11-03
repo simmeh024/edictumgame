@@ -219,5 +219,18 @@ check('the page fits a phone without scrolling sideways', await until(async () =
 await A.screenshot({ path: OUT + '/admin-stats-phone.png', fullPage: true }); await A.setViewportSize(wide);
 await A.click(`.adst-sec [data-act="admin-inspect"][data-id="${uidA}"]`);
 check('and a nation’s player is a click away', await until(async () => await A.evaluate(() => G.S.view) === 'admin-players' && (await detail()).includes(uidA)));
+// Shop statistics: a purchase and a refund that Paddle reported, counted and named
+const seed = (path, f) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: f }) });
+const I = v => ({ integerValue: String(v) }), T = v => ({ stringValue: v });
+await seed('shopTx/txn_e2ea', { uid: T(uidA), payer: T(uidA), product: T('founder'), status: T('completed'), ck: { booleanValue: true }, paid: I(Date.now() - 60000), cur: T('MXN'), total: I(20939) });
+await seed('shopTx/txn_e2eb', { uid: T(uidA), payer: T(uidA), product: T('idpack'), status: T('completed'), ck: { booleanValue: true }, paid: I(Date.now() - 120000), cur: T('EUR'), total: I(299) });
+await seed('shopAdj/adj_e2ea', { txn: T('txn_e2eb'), action: T('refund'), type: T('full'), status: T('approved') });
+await page('admin-shop');
+const shText = () => text(A, '.adm-main');
+check('Shop statistics counts the sales, the refund and the takings per currency', await until(async () => { const t = await shText(); return /purchases kept, of 2 paid/.test(t) && /MX\$209\.39|MXN\s?209\.39/.test(t) && /€2\.99/.test(t) && /Adminland/.test(t) && /Refunded/.test(t); }, 30000), (await shText()).slice(0, 600));
+await A.screenshot({ path: OUT + '/admin-shop.png', fullPage: true });
+await A.setViewportSize({ width: 390, height: 844 });
+check('and fits a phone without scrolling sideways', await until(async () => await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)));
+await A.screenshot({ path: OUT + '/admin-shop-phone.png', fullPage: true }); await A.setViewportSize(wide);
 await C.ctx.close(); await D.ctx.close(); await R.ctx.close();
 await finish();
