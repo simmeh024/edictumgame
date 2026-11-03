@@ -6,6 +6,8 @@ const A = await player('wonder A'), uidA = await open(A); await found(A, 'Statua
 const B = await player('wonder B'), uidB = await open(B); await found(B, 'Bronzeholm');
 await until(() => A.evaluate(id => G.allNations().some(x => x.id === id), uidB), 20000);
 await until(() => B.evaluate(id => G.allNations().some(x => x.id === id), uidA), 20000);
+const C = await player('wonder C'), uidC = await open(C); await found(C, 'Idlemark');
+await until(() => C.evaluate(ids => ids.every(id => G.allNations().some(x => x.id === id)), [uidA, uidB]), 20000);
 const rich = p => p.evaluate(() => { const n = G.clone(G.S.nation); n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 }; n.stockAt = Date.now(); n._stockSet = true; G.commit(n); G.render(); });
 const give = async (p, r, v) => { await nav(p, 'wonder'); await p.click(`[data-act="wd-give"][data-r="${r}"][data-v="${v}"]`); await sleep(300); };
 
@@ -28,6 +30,36 @@ await give(B, 'timber', 'max'); await give(B, 'iron', 'max');
 check('together they finish the first phase', await until(() => A.evaluate(() => { G.render(); return /Phase 2 of 10/.test(document.querySelector('.wd-fig figcaption')?.textContent || ''); }), 20000));
 check('both are on the plaque, the bigger giver first', await A.evaluate(() => [...document.querySelectorAll('.wd-who li')].map(li => li.textContent).join('|')).then(t => /Bronzeholm.*Statuaria/.test(t)));
 await A.screenshot({ path: OUT + '/wonder-two.png' });
+
+/* the first phase's rewards: 2 land credits and its keepsake for each nation that gave to it, and nothing for the rest */
+const reward = p => p.evaluate(() => { G.commit(G.clone(G.S.nation)); const n = G.S.nation, u = G.WND.unlocks(n);
+  return { land: G.WND.land(n), keep: u.includes(G.WND.KEEP[0]), next: u.includes(G.WND.KEEP[1]), log: (n.log || []).some(l => l.k === 'wndr' && l.a === '0') }; });
+const rA = await until(async () => { const r = await reward(A); return r.keep && r; }, 20000), rB = await reward(B);
+check('each nation that gave to the finished phase gets 2 land credits', rA.land === 2 && rB.land === 2);
+check('and the phase’s keepsake, with a notice in its log', rA.keep && rB.keep && rA.log && rB.log);
+check('the next phase’s keepsake waits for that phase', !rA.next && !rB.next);
+await until(() => C.evaluate(() => G.allNations().filter(x => x.n && x.n.wnd).length >= 2), 20000);
+const rC = await reward(C);
+check('a nation that gave nothing gets neither', rC.land === 0 && !rC.keep && !rC.log);
+check('the statue page marks the reward as the giver’s', await A.evaluate(() => { G.render(); return /Yours/.test(document.querySelector('.wd-ph .wd-ph-r')?.textContent || ''); }));
+await A.locator('.wd-phs').screenshot({ path: OUT + '/wonder-rewards.png' });
+
+/* the ten keepsakes, drawn side by side (looked at, not checked) */
+await A.evaluate(() => { const W = G.WND.art, n = G.S.nation, box = (t, h) => `<figure style="margin:0;display:flex;flex-direction:column;gap:6px;align-items:center;font:12px sans-serif">${h}<figcaption>${t}</figcaption></figure>`;
+  const d = document.createElement('div'); d.id = 'wnd-art'; d.setAttribute('style', 'position:fixed;inset:0;z-index:9999;background:#f3f1ea;padding:20px;display:grid;grid-template-columns:repeat(5,1fr);gap:18px;align-items:center;color:#24302b');
+  d.innerHTML = box('Site hoarding', `<div style="position:relative;overflow:hidden;width:220px;height:70px;border:1px solid #ccc;color:#2e4a3f">${W.pat('p-hoarding')}</div>`)
+    + box('Dressed stone', `<div style="width:200px">${W.framed('f-stone', G.FD.flagSVG(n.flag, 'flag'))}</div>`)
+    + box('Cast in bronze', `<div style="padding:12px;background:#fff">${W.stamp('s-cast', n)}</div>`)
+    + box('Raised arm', `<svg viewBox="0 0 100 100" width="90" style="background:#2457a6">${W.emblem('e-arm', 50, 50, 40, '#f2f1ea')}</svg>`)
+    + box('Scroll', `<div style="width:90px">${W.arms(Object.assign({}, W.arms0(n), { c: 'c-scroll', ct: 'or', t: ['azure', 'gules'], d: 'plain' }))}</div>`)
+    + box('Gold leaf', `<div style="position:relative;overflow:hidden;width:220px;height:70px;border:1px solid #ccc;color:#b8861c">${W.pat('p-leaf')}</div>`)
+    + box('Little statue', `<div style="width:120px;color:#24302b">${W.pin('pn-statue', n)}</div>`)
+    + box('Drapery', '<span class="cz-mf mf-drape" style="font:italic 15px serif">Ever upward</span>')
+    + box('Verdigris', '<span class="cz-asw" data-a="verdigris" style="display:inline-block;width:40px;height:40px;border-radius:50%"></span>')
+    + box('the Monumental', `<b style="font:600 15px serif">${n.name} the Monumental</b>`);
+  document.body.appendChild(d); });
+await A.locator('#wnd-art').screenshot({ path: OUT + '/wonder-keepsakes.png' });
+await A.evaluate(() => document.getElementById('wnd-art').remove());
 
 /* gifts between players */
 await A.evaluate(id => { location.hash = '#visit/' + id; }, uidB); await sleep(600);
