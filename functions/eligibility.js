@@ -1,9 +1,14 @@
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
+import DATA from './civic-data.json' with { type: 'json' };
 
 export const DAY = 86400000;
-export const regionMessage = control => control.get('mode') === 'coming_soon' ? 'This region is coming soon. Please check back later.' : 'Current region is disabled and undergoing maintainance, check back soon.';
+/* A region marked soon in the game (Terra) is closed until an admin opens it: with no status document it reads as
+   coming soon. firestore.rules (regionEnabled) keeps the same list. */
+const SOON = new Set(DATA.regions.filter(r => r.soon).map(r => r.id));
+export const regionClosed = (control, region) => control.exists ? control.get('enabled') === false : SOON.has(region);
+export const regionMessage = control => !control.exists || control.get('mode') === 'coming_soon' ? 'This region is coming soon. Please check back later.' : 'Current region is disabled and undergoing maintainance, check back soon.';
 // A linked Discord account is a custom claim (functions/discord.js), not a provider Firebase knows.
 export const registered = user => !!user.customClaims?.dc || user.providerData.some(p => p.providerId !== 'password' || user.emailVerified);
 export const nationJSON = snap => { try { return snap.exists ? JSON.parse(snap.get('j')) : {}; } catch { return {}; } };
@@ -29,7 +34,7 @@ export async function eligibility(tx, who, { linked = true, age = 0, hidden = fa
   const n = nationJSON(saved), region = n.reg || saved.get('reg');
   if (region) {
     const control = await tx.get(db.doc('regionStatus/' + region));
-    if (control.exists && control.get('enabled') === false && !(allowClosedRegion && who.admin)) refuse('region_disabled', regionMessage(control));
+    if (regionClosed(control, region) && !(allowClosedRegion && who.admin)) refuse('region_disabled', regionMessage(control));
   }
   if (linked && !who.registered) refuse('registration_required', 'A Registered Nation is required. Link a sign-in account in your account settings.');
   const readyAt = born + age;

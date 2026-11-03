@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { identity, eligibility, nationJSON, refuse, registered, regionMessage, DAY } from './eligibility.js';
+import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, DAY } from './eligibility.js';
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
@@ -27,7 +27,7 @@ async function permit(db, who, d) {
     const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true });
     if ((e.saved.get('rev') || 0) !== d.rev) refuse('save_conflict', 'Another device saved this nation.');
     const control = await tx.get(db.doc('regionStatus/' + p.reg));
-    if (control.exists && control.get('enabled') === false && !who.admin) refuse('region_disabled', regionMessage(control));
+    if (regionClosed(control, p.reg) && !who.admin) refuse('region_disabled', regionMessage(control));
     const actor = await tx.get(db.doc('assemblyRegions/' + p.reg + '/actors/' + who.uid));
     const before = e.n;
     // Validate changes, not the continued presence of old data. Guests can leave existing alliances.
