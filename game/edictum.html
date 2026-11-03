@@ -1694,6 +1694,28 @@ canvas.wr-map:not([data-done]){background:linear-gradient(100deg,var(--sea) 30%,
 .sb-cta{padding:18px 20px;border:1px solid var(--accent);border-radius:6px;background:var(--sheet)}
 @media (max-width:640px){.sb-wk{grid-template-columns:1fr}.sb-rk-b{width:auto;min-width:110px}.sb-flow{font-size:12.5px}}
 @media print{.sb-report{border:0}}
+/* the map, easier */
+.map-how{margin:6px 0 0;font-size:14px;max-width:70ch}.map-how>summary{cursor:pointer;color:var(--ink-2);min-height:32px;display:inline-flex;align-items:center}
+.map-wrap.map-main{aspect-ratio:auto;height:clamp(420px,calc(100vh - 190px),880px);max-height:none}
+.map-cv:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+.mapx-hint{position:absolute;left:50%;top:50%;z-index:5;transform:translate(-50%,-50%);padding:10px 14px;border-radius:6px;background:rgba(20,28,27,.84);color:#fff;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}.mapx-hint.on{opacity:1}
+.lc-coach{padding:10px 14px}.lc-coach-t{font-size:14.5px}
+.mp-grab{display:none}
+@media (max-width:1100px){
+  .map-wrap.map-main{height:clamp(320px,64vh,720px)}
+  .map-layout:not(.ml-full){padding-bottom:64px}
+  .map-layout:not(.ml-full)>.map-panel{position:fixed;z-index:35;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));max-height:56dvh;overflow:auto;overscroll-behavior:contain;margin:0;padding:0 14px 14px;border-radius:14px 14px 8px 8px;box-shadow:0 -10px 30px -12px rgba(0,0,0,.4);transform:translateY(calc(100% - 50px));transition:transform .25s ease}
+  .u-tabs .map-layout:not(.ml-full)>.map-panel{bottom:calc(var(--u-tab) + 8px + env(safe-area-inset-bottom,0px))}
+  .map-layout:not(.ml-full)>.map-panel.sheet-open{transform:none}
+  .mp-grab{position:sticky;top:0;z-index:2;display:flex;flex-direction:column;align-items:center;gap:4px;width:calc(100% + 28px);margin:0 -14px 10px;padding:8px 14px 8px;border:0;border-bottom:1px solid var(--rule);background:var(--sheet);color:var(--ink-2);font:600 13px var(--f-body);cursor:pointer;min-height:50px}
+  .mp-grab-bar{width:40px;height:5px;border-radius:3px;background:var(--rule-2)}
+}
+@media (prefers-reduced-motion:reduce){.map-layout>.map-panel{transition:none}}
+:root[data-motion="reduce"] .map-layout>.map-panel{transition:none}
+.map-tabs .mp-in-tabs{display:flex;gap:6px;margin-left:auto;align-self:center;padding-left:12px}.map-tabs .mp-in-tabs .btn{min-height:36px;padding:6px 12px;font-size:13.5px}
+.lc-coach{padding:8px 14px;gap:6px 16px;margin-bottom:10px}.lc-coach .eyebrow{margin:0 0 2px}.lc-coach .hint{margin:2px 0 0}
+.vh:has(.map-how){margin-bottom:12px}.vh .map-how{margin-top:2px}
+@media (max-width:640px){.vh:has(.map-how)>.eyebrow,.vh:has(.map-how)>p:not(.eyebrow){display:none}.vh:has(.map-how) h1{margin-bottom:0}.lc-coach .hint{display:none}.lc-coach-t{font-size:14px}.mp-map-toolbar .btn{min-height:38px;padding:6px 12px;font-size:13.5px}}
 /* display: compact */
 :root[data-density="compact"] body{line-height:1.5}
 :root[data-density="compact"] .main{padding-top:18px;padding-bottom:44px}
@@ -45789,6 +45811,68 @@ document.addEventListener('click',e=>{
   else if(a==='sb-x')sbExport(v);else if(a==='sb-print')sbPrint();else if(a==='sb-png')sbPng();
 });
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.sb;if(!k)return;const v=e.target.value;if(k==='k1'&&SB_KEYS.includes(v))SB.k1=v;else if(k==='k2')SB.k2=SB_KEYS.includes(v)?v:'';render();});
+
+/* ───────── the map, easier: the map first, a sheet for details on a phone, and more ways to move ─────────
+   The World map page leads with the map: one line of introduction (the rest folds away), the map as tall as the
+   screen allows, and the tools once (above the map, not again in the panel). On a phone the panel is a sheet over
+   the bottom of the screen, opened by a tap on the map and folded by its handle, so a tap is answered where the
+   player is looking. Double-click (double-tap) zooms in there, with Shift out; arrows pan and + − 0 zoom when the
+   map has focus; a home button glides back to the capital; the wheel without Ctrl says how to zoom. */
+const MAPX={sheet:false,hintAt:0,tap:null};
+const mapxNarrow=()=>window.innerWidth<=1100;
+/* the sheet stays open while it holds the page's task: choosing where to begin, or the planning and transport tools */
+const mapxOpen=()=>MAPX.sheet||!!(S.nation&&(cellOf(S.nation.loc)<0||S.mpMode));
+worldMapView=(f=>function(){
+  let h=f.apply(this,arguments);const n=S.nation,placed=n&&cellOf(n.loc)>=0;
+  h=h.replace(/(<header class="vh"><p class="eyebrow">Cartographer’s office<\/p><h1>World map<\/h1>)<p>([\s\S]*?)<\/p>/,(m,a,p)=>`${a}<p>${placed?'Spend land credits on the highlighted land next to your borders, and watch the region move.':'Choose where your nation begins.'}</p><details class="map-how" id="map-how"><summary>How land works</summary><p>${p}</p></details>`);
+  /* on a wide screen the tools sit at the end of the tabs' row, not on a row of their own */
+  const tb=placed&&!mapxNarrow()?mpMapToolbar():'';
+  if(tb&&h.includes(tb)){const i=h.indexOf('<div class="stabs map-tabs"'),j=i<0?-1:h.indexOf('</div>',i);if(j>0){h=h.replace(tb,'');const k=h.indexOf('</div>',h.indexOf('<div class="stabs map-tabs"'));h=h.slice(0,k)+tb.replace('mp-map-toolbar row','mp-map-toolbar mp-in-tabs')+h.slice(k);}}
+return h.replace('<aside class="map-panel" id="map-panel"',`<aside class="map-panel${mapxOpen()?' sheet-open':''}" id="map-panel"`);
+})(worldMapView);
+/* the panel's tools live above the map; the panel no longer repeats them */
+{const i=MAP_PANEL_TOP.findIndex(f=>/mp-tools/.test(String(f)));if(i>=0){const f=MAP_PANEL_TOP[i];
+  /* the panel keeps the tool that is open (the plan, the transport network) and its Finish link, without the two buttons again */
+  MAP_PANEL_TOP[i]=ctx=>{if(!S.mpMode&&!S.mpMsg)return '';return String(f(ctx)||'').replace(/<p class="eyebrow">Cartographer's tools<\/p><div class="row">[\s\S]*?(<button class="linkish" data-act="mp-mode" data-v="">Finish planning<\/button>)?<\/div>/,(m,fin)=>fin?`<div class="row mp-finish">${fin}</div>`:'');};}}
+/* a handle for the sheet, and a title for it while it is folded */
+mapPanel=(f=>function(){const h=f.apply(this,arguments);const o=mapxOpen();return `<button type="button" class="mp-grab" data-act="mp-sheet" aria-expanded="${o}"><span class="mp-grab-bar" aria-hidden="true"></span><span class="mp-grab-t">${o?'Hide details':'Details · tap the map'}</span></button>`+h;})(mapPanel);
+function mapxSheet(open){MAPX.sheet=!!open;if(!open&&S.mpMode)S.mpMode='';const p=document.getElementById('map-panel');if(!p)return;const o=mapxOpen();p.classList.toggle('sheet-open',o);const g=p.querySelector('.mp-grab');if(g){g.setAttribute('aria-expanded',o);const t=g.querySelector('.mp-grab-t');if(t)t.textContent=o?'Hide details':'Details · tap the map';}if(o)p.scrollTop=0;}
+/* a tap on the main map opens the sheet first, so the panel is already in view (no page scroll) */
+mapClick=(f=>function(cv,cell,ev){
+  if(!(cv&&cv.dataset.map==='main'&&mapxNarrow()&&!cv.parentElement.classList.contains('is-full')))return f.apply(this,arguments);
+  /* the sheet opens a moment later, so a second tap of a double tap still lands on the map; and the old scroll
+     towards the panel is not wanted while the sheet is there (it measured the sheet mid-slide and moved the page) */
+  clearTimeout(MAPX.st);if(cell>=0)MAPX.st=setTimeout(()=>{if(performance.now()-(MAPX.tz||0)>400)mapxSheet(true);},280);else mapxSheet(false);
+  const sb=window.scrollBy;window.scrollBy=()=>{};try{return f.apply(this,arguments);}finally{window.scrollBy=sb;}
+})(mapClick);
+/* the home button, and focus for the keyboard */
+mapBox=(f=>function(kind,cls,id){let h=f.apply(this,arguments);if(kind!=='main')return h;
+  h=h.replace('aria-label="Show the whole map">Fit</button>','aria-label="Show the whole map">Fit</button><button type="button" class="mc-b mc-home" data-act="map-home" aria-label="Back to your nation" title="Back to your nation"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5V13H9.5V9.5h-3V13h-4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>');
+  return h.replace('<canvas class="map-cv" data-map="main"','<canvas class="map-cv" data-map="main" tabindex="0" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0"')+'';})(mapBox);
+/* zoom by k about a point of the canvas (CSS pixels), gliding */
+function mapxZoomAt(cv,sx,sy,k){
+  const v=viewOf(cv.dataset.map,cv),s=mapScale(cv,v),wx=v.cx+(sx-cv.clientWidth/2)/s,wy=v.cy+(sy-cv.clientHeight/2)/s,z=clamp(v.z*k,1,MAX_Z),s2=mapScale(cv,{...v,z});
+  mapGlide(cv,{z,cx:wx-(sx-cv.clientWidth/2)/s2,cy:wy-(sy-cv.clientHeight/2)/s2});
+}
+document.addEventListener('dblclick',e=>{const cv=e.target.closest&&e.target.closest('canvas.map-cv');if(!cv||cv.dataset.map==='mini'||S.mpMode||performance.now()-(MAPX.tz||0)<500)return;e.preventDefault();const [sx,sy]=mapPos(cv,e);mapxZoomAt(cv,sx,sy,e.shiftKey?1/2:2);});
+/* a double tap on a touch screen (a dblclick does not always come) */
+document.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')return;const cv=e.target.closest&&e.target.closest('canvas.map-cv');if(!cv||cv.dataset.map==='mini'||S.mpMode)return;const now=performance.now(),t=MAPX.tap;
+  if(t&&t.cv===cv&&now-t.at<320&&Math.hypot(t.x-e.clientX,t.y-e.clientY)<28){MAPX.tap=null;MAPX.tz=now;clearTimeout(MAPX.st);const [sx,sy]=mapPos(cv,e);mapxZoomAt(cv,sx,sy,2);return;}MAPX.tap={cv,at:now,x:e.clientX,y:e.clientY};});
+document.addEventListener('keydown',e=>{
+  const cv=e.target;if(!cv||!cv.classList||!cv.classList.contains('map-cv')||e.altKey||e.ctrlKey||e.metaKey)return;
+  const v=viewOf(cv.dataset.map,cv),s=mapScale(cv,v),dx=cv.clientWidth*0.18/s,dy=cv.clientHeight*0.18/s,go=to=>{e.preventDefault();mapGlide(cv,{z:v.z,cx:v.cx,cy:v.cy,...to},160);};
+  if(e.key==='ArrowLeft')go({cx:v.cx-dx});else if(e.key==='ArrowRight')go({cx:v.cx+dx});else if(e.key==='ArrowUp')go({cy:v.cy-dy});else if(e.key==='ArrowDown')go({cy:v.cy+dy});
+  else if(e.key==='+'||e.key==='=')go({z:clamp(v.z*1.6,1,MAX_Z)});else if(e.key==='-'||e.key==='_')go({z:clamp(v.z/1.6,1,MAX_Z)});else if(e.key==='0')go({z:1,cx:MAP.W/2,cy:MAP.H/2});
+});
+/* the wheel without Ctrl scrolls the page, as it should; say once in a while how to zoom instead */
+document.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey)return;const cv=e.target.closest&&e.target.closest('canvas.map-cv');if(!cv||cv.dataset.map==='mini'||cv.parentElement.classList.contains('is-full'))return;
+  const now=Date.now();if(now-MAPX.hintAt<6000)return;MAPX.hintAt=now;const w=cv.parentElement;let h=w.querySelector('.mapx-hint');if(!h){h=document.createElement('div');h.className='mapx-hint';h.setAttribute('role','status');w.appendChild(h);}
+  h.textContent=`Hold ${/Mac|iPhone|iPad/.test(navigator.platform)?'⌘':'Ctrl'} and scroll to zoom, or double-click`;h.classList.add('on');setTimeout(()=>h.classList.remove('on'),1800);},{passive:true});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="map-home"],[data-act="mp-sheet"]');if(!el||!S.nation)return;
+  if(el.dataset.act==='mp-sheet'){const o=mapxOpen();mapxSheet(!o);if(o&&cellOf(S.nation.loc)<0)toast('Choose where your nation begins first: tap the map.');return;}
+  const cv=document.querySelector('canvas.map-cv[data-map="main"]'),T=territory(),i=T.byId[S.uid||'me'];if(!cv||i===undefined){toast('Settle on the map first.');return;}const c=T.list[i].cap;mapGlide(cv,{z:Math.max(viewOf('main',cv).z,NEAR_Z),cx:MAP.cx[c],cy:MAP.cy[c]},320);});
+/* leaving the page folds the sheet */
+go=(f=>function(v){if(v!=='map')MAPX.sheet=false;return f.apply(this,arguments);})(go);
 
 /* ───────── observer mode ─────────
    An admin opens any region read-only (OBS, by REG): its world map, Region page and board, Census, the World page and

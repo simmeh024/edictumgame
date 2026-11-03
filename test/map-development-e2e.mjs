@@ -111,4 +111,16 @@ await A.check('[data-mp-opt="influence"]');await A.evaluate(c=>{G.MD.centerMain(
 await A.locator('canvas[data-map="main"]').screenshot({path:OUT+'/map-network-detail.png'});
 check('map options retain the policy and infrastructure visual layers',await A.locator('[data-mp-opt="landscape"]:checked').count()===1&&await A.locator('[data-mp-opt="networks"]:checked').count()===1);
 await nav(A,'nation');await nav(A,'map');check('leaving the map ends tool mode without changing saved preferences',await A.evaluate(()=>!G.S.mpMode)&&await A.locator('[data-mp-opt="influence"]:checked').count()===1);
+/* the map, easier: double-click zoom, the keyboard, the home button, and on a phone the details sheet */
+{const cv=A.locator('canvas[data-map="main"]');await A.evaluate(()=>{G.S.mapViews.main.z=2;G.render();});const bb=await cv.boundingBox();
+const z0=await A.evaluate(()=>G.S.mapViews.main.z);await A.mouse.dblclick(bb.x+bb.width*0.4,bb.y+bb.height*0.4);
+check('a double-click on the map zooms in there',await until(()=>A.evaluate(z=>G.S.mapViews.main.z>z*1.5,z0)));
+await A.locator('canvas[data-map="main"]').focus();await A.keyboard.press('0');check('0 on the focused map shows all of it',await until(()=>A.evaluate(()=>G.S.mapViews.main.z===1)));
+await A.click('[data-act="map-home"]');check('the home button returns to the capital',await until(()=>A.evaluate(()=>G.S.mapViews.main.z>=6)));
+check('the tools appear once, above the map',await A.locator('#map-panel [data-act="mp-mode"][data-v="plan"]').count()===0&&await A.locator('.mp-map-toolbar').count()===1);}
+await A.setViewportSize({width:390,height:844});await nav(A,'nation');await nav(A,'map');
+{const cv=A.locator('canvas[data-map="main"]'),bb=await cv.boundingBox();
+check('on a phone the details start folded',await A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open')));
+await A.mouse.click(bb.x+bb.width/2,bb.y+60);check('a tap opens the details sheet',await until(()=>A.evaluate(()=>document.getElementById('map-panel').classList.contains('sheet-open'))));
+await A.screenshot({path:OUT+'/map-sheet-390.png'});await A.click('.mp-grab');check('its handle folds it',await until(()=>A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open'))));}
 await A.ctx.close();check('no page errors',!errors.length,errors.join(' | '));await finish();
