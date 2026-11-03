@@ -12,8 +12,8 @@ const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].ma
 const bugs = async () => (await restListAdmin('bugs')).filter(d => d.fields.by.stringValue === uidB);
 const owner = (path, fields) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields }) });
 
-// the menu: in Other, after Development news; the form starts at the page the player came from
-check('Report a bug sits in Other, after Development news', /Development news\s*Report a bug/.test(await text(B, '.side .nav-grp[data-g="other"] .nav-g')));
+// the menu: in Other, after Development news and the Community Board; the form starts at the page the player came from
+check('Report a bug sits in Other, after Development news and the Community Board', /Development news\s*Community Board\s*Report a bug/.test(await text(B, '.side .nav-grp[data-g="other"] .nav-g')));
 await nav(B, 'map');
 // an error the page hit (dispatched, so the test itself does not count it as one)
 await B.evaluate(() => window.dispatchEvent(new ErrorEvent('error', { message: 'Test explosion', filename: location.origin + '/assets/game.abc.js', lineno: 12, colno: 3 })));
