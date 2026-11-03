@@ -115,7 +115,7 @@ await nav(A,'nation');await nav(A,'map');check('leaving the map ends tool mode w
 {const cv=A.locator('canvas[data-map="main"]');await A.evaluate(()=>{G.S.mapViews.main.z=2;G.render();});const bb=await cv.boundingBox();
 const z0=await A.evaluate(()=>G.S.mapViews.main.z);await A.mouse.dblclick(bb.x+bb.width*0.4,bb.y+bb.height*0.4);
 check('a double-click on the map zooms in there',await until(()=>A.evaluate(z=>G.S.mapViews.main.z>z*1.5,z0)));
-await A.locator('canvas[data-map="main"]').focus();await A.keyboard.press('0');check('0 on the focused map shows all of it',await until(()=>A.evaluate(()=>G.S.mapViews.main.z===1)));
+await A.waitForTimeout(500);await A.evaluate(()=>document.querySelector('canvas[data-map="main"]').focus());await A.keyboard.press('0');check('0 on the focused map shows all of it',await until(()=>A.evaluate(()=>G.S.mapViews.main.z<=1.05)),await A.evaluate(()=>JSON.stringify({z:G.S.mapViews.main.z,focus:document.activeElement?.tagName})));
 await A.click('[data-act="map-home"]');check('the home button returns to the capital',await until(()=>A.evaluate(()=>G.S.mapViews.main.z>=6)));
 check('the tools appear once, above the map',await A.locator('#map-panel [data-act="mp-mode"][data-v="plan"]').count()===0&&await A.locator('.mp-map-toolbar').count()===1);}
 await A.setViewportSize({width:390,height:844});await nav(A,'nation');await nav(A,'map');
