@@ -4,6 +4,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { registered } from './eligibility.js';
 import { gather, summarize } from './stats.js';
+import { cbDelete } from './board.js';
 
 const REGIONS = new Set('meridian frostmarch northernpale driftlands silentmoors wildwood saffron hollow ashen ironsteppe gilded verdantbasin coralreach emberisles lanterncoast jadeterraces highcrags cloudspine obsidianrim ambershallows sunkenkingdoms mistral stormwrack longvalley greywater scatteredcrown'.split(' '));
 export const MAINTENANCE = 'Current region is disabled and undergoing maintainance, check back soon.';
@@ -140,7 +141,10 @@ async function mutate(db, actor, data) {
     // a reported comment on development news is news:<post>:<comment>; anything else is a region board post
     const news = action === 'delete_post' && /^news:([A-Za-z0-9]{20}):([A-Za-z0-9]{20})$/.exec(target);
     if (news) await db.doc('devnews/' + news[1] + '/posts/' + news[2]).delete();
-    else if (action === 'delete_post') { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
+    // and a Community Board post is cb:<region>:<topic>[:<reply>] (functions/board.js keeps the counts right)
+    const cb = action === 'delete_post' && /^cb:([a-z]{2,40}):([A-Za-z0-9]{20})(?::([A-Za-z0-9]{20}))?$/.exec(target);
+    if (cb) await cbDelete(db, { uid: actor, admin: true }, { reg: cb[1], topic: cb[2], ...(cb[3] ? { reply: cb[3] } : {}), reason }, new Set([cb[1]]));
+    else if (action === 'delete_post' && !news) { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
     if (action === 'close_report') await db.doc('reports/' + target).delete();
     if (action.startsWith('support_')) {
       const ref = db.doc('support/' + target);

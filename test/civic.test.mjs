@@ -201,3 +201,45 @@ test('maintenance allows an administrator to save without granting political pri
   }finally{await db.doc('regionStatus/meridian').delete();}
   await rejects(civic(p,proposal),'registration_required');
 });
+
+test('Community Board: any Registered Nation posts in any region; the server writes the author and the counts',async()=>{
+  const g=await player(),r=await player(true),far=await player(true,false,'frostmarch');
+  await rejects(civic(g,{op:'cbTopic',reg:'meridian',ti:'Guest topic',x:'Hello'}),'registration_required');
+  await db.doc('shop/'+r.uid).set({owns:{founder:Date.now()}});
+  const t=await civic(r,{op:'cbTopic',reg:'frostmarch',ti:'  Grain for steel  ',x:'Anyone <b>selling</b> steel?',tg:'trade',a:'forged',fd:false,st:'admin',rc:99});
+  const topic=(await db.doc('cb/frostmarch/posts/'+t.id).get()).data();
+  assert.equal(topic.a,r.uid);assert.equal(topic.rg,'meridian');assert.equal(topic.ti,'Grain for steel');assert.equal(topic.tg,'trade');assert.equal(topic.fd,true);assert.equal(topic.st,undefined);assert.equal(topic.rc,0);
+  const rep=await civic(far,{op:'cbReply',reg:'frostmarch',topic:t.id,x:'I have steel.'});
+  await civic(r,{op:'cbReply',reg:'frostmarch',topic:t.id,x:'Deal.'});
+  assert.equal((await db.doc('cb/frostmarch/posts/'+t.id).get()).get('rc'),2);
+  const meta=(await db.doc('cb/frostmarch').get()).data();assert.equal(meta.n,1);assert.equal(meta.r,2);assert.equal(meta.dn,3);
+  await assert.rejects(civic(r,{op:'cbEdit',reg:'frostmarch',topic:t.id,reply:rep.id,x:'Not mine'}),e=>e.status==='PERMISSION_DENIED');
+  await civic(far,{op:'cbEdit',reg:'frostmarch',topic:t.id,reply:rep.id,x:'I have iron.'});
+  assert.equal((await db.doc('cb/frostmarch/posts/'+t.id+'/posts/'+rep.id).get()).get('x'),'I have iron.');
+  await assert.rejects(civic(r,{op:'cbMod',act:'lock',reg:'frostmarch',topic:t.id}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(r,{op:'cbTopic',reg:'atlantis',ti:'Nowhere',x:'x'}),e=>e.status==='INVALID_ARGUMENT');
+  await db.doc('bans/'+far.uid).set({t:Date.now()});await rejects(civic(far,{op:'cbReply',reg:'frostmarch',topic:t.id,x:'Banned'}),'banned');
+});
+
+test('Community Board: staff pin, lock, hide, move and delete from inside the board, with an audit trail',async()=>{
+  const r=await player(true),o=await player(true),staff=await player(true);await auth.setCustomUserClaims(staff.uid,{admin:true});
+  const t=await civic(r,{op:'cbTopic',reg:'meridian',ti:'A rude topic',x:'Rude words'});
+  const rep=await civic(o,{op:'cbReply',reg:'meridian',topic:t.id,x:'A reply'});
+  const ref=db.doc('cb/meridian/posts/'+t.id);
+  await civic(staff,{op:'cbMod',act:'pin',reg:'meridian',topic:t.id});assert.equal((await ref.get()).get('pn'),true);
+  await civic(staff,{op:'cbMod',act:'lock',reg:'meridian',topic:t.id});
+  await rejects(civic(o,{op:'cbReply',reg:'meridian',topic:t.id,x:'Locked out'}),'cb_locked');
+  await civic(staff,{op:'cbReply',reg:'meridian',topic:t.id,x:'Staff may still answer'});
+  await civic(staff,{op:'cbMod',act:'hide',reg:'meridian',topic:t.id,reason:'Rude'});
+  let d=(await ref.get()).data();assert.equal(d.hd,true);assert.equal(d.x,'');assert.equal(d.ti,'');
+  assert.equal((await db.doc('cbHidden/'+t.id).get()).get('x'),'Rude words');
+  await civic(staff,{op:'cbMod',act:'unhide',reg:'meridian',topic:t.id});d=(await ref.get()).data();assert.equal(d.hd,undefined);assert.equal(d.ti,'A rude topic');
+  const moved=await civic(staff,{op:'cbMod',act:'move',reg:'meridian',topic:t.id,to:'wildwood'});assert.equal(moved.reg,'wildwood');
+  assert.equal((await ref.get()).exists,false);
+  const there=db.doc('cb/wildwood/posts/'+t.id);assert.equal((await there.get()).get('rc'),2);assert.equal((await there.collection('posts').doc(rep.id).get()).get('x'),'A reply');
+  await civic(staff,{op:'cbDelete',reg:'wildwood',topic:t.id});
+  assert.equal((await there.get()).exists,false);assert.equal((await there.collection('posts').get()).size,0);
+  const w=(await db.doc('cb/wildwood').get()).data();assert.equal(w.n,0);assert.equal(w.r,0);
+  const log=await db.collection('adminAudit').where('topic','==',t.id).get();
+  assert.deepEqual(new Set(log.docs.map(x=>x.get('action'))),new Set(['board_pin','board_lock','board_hide','board_unhide','board_move','board_delete']));
+});

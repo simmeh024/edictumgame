@@ -112,6 +112,8 @@
   function serverTime() { return A.fb.firestore.FieldValue.serverTimestamp(); }
   function millis(t) { return t && typeof t.toMillis === 'function' ? t.toMillis() : num(t); }
   function encode(col, data) {
+    /* presence/<uid> {t}: always the server's time (the rules insist), whatever the game passes */
+    if (col === 'presence') return { t: serverTime() };
     if (col !== 'nations') return JSON.parse(JSON.stringify(data == null ? {} : data));
     var j = JSON.stringify(data == null ? {} : data);
     if (j.length > MAX_JSON) throw mapError({ code: 'resource-exhausted', message: 'This nation is too large to save (' + j.length + ' characters).' });
@@ -203,6 +205,7 @@
     }
     if (col === 'nationx') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
     if (col === 'space') { var s = typeof d.j === 'string' ? parse(d.j) : null; return isObj(s) ? Object.assign(s, { reg: d.reg, name: d.name, updatedAt: num(d.t) }) : null; }
+    if (col === 'presence') return { t: millis(d.t) || 0 };
     if (col === 'boards') return { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
     return d;
   }
@@ -464,7 +467,7 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
-    if (observing() && (name === 'referee' || name === 'civic' && !/^news/.test(op) || name === 'accounts' && op === 'shop')) throw readOnly();
+    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);
@@ -1448,7 +1451,7 @@
         await bb.commit();
       }
       var b = A.fs.batch();
-      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'staff/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
+      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'staff/', 'presence/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
       await within(b.commit(), 15000);
       /* the referee's record of the army (readiness, battles), which only it may clear */
       try { await call('referee', { op: 'forget' }); } catch (e) { /* it holds no more than that */ }

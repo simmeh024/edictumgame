@@ -715,3 +715,24 @@ test('news images and the index are written only by admins, and read by everyone
   await assertSucceeds(anon().doc('devnewsMeta/latest').get());
   await assertSucceeds(admin.doc('devnewsImg/' + IMG_ID).delete());
 });
+
+test('the Community Board is read by everyone and written only by civic(); presence is the player\'s own', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('cb/meridian').set({ n: 1, r: 0 });
+    await ctx.firestore().doc('cb/meridian/posts/t1').set({ a: 'bob', nm: 'Bobland', ti: 'Hi', x: 'Hello', t: 1, la: 1, rc: 0 });
+    await ctx.firestore().doc('cbHidden/t1').set({ x: 'secret' });
+  });
+  await assertSucceeds(anon().doc('cb/meridian').get());
+  await assertSucceeds(anon().collection('cb/meridian/posts').orderBy('la', 'desc').limit(30).get());
+  await assertFails(as('alice').doc('cb/meridian/posts/t2').set({ a: 'alice', ti: 'Mine', x: 'Forged', t: 1, la: 1, rc: 0 }));
+  await assertFails(as('bob').doc('cb/meridian/posts/t1').update({ x: 'edited' }));
+  await assertFails(as('alice').doc('cb/meridian').set({ n: 0 }));
+  await assertFails(as('alice').doc('cb/meridian/posts/t1').delete());
+  await assertFails(as('alice').doc('cbHidden/t1').get());
+  await assertSucceeds(as('mod', { admin: true }).doc('cbHidden/t1').get());
+  await assertSucceeds(as('alice').doc('presence/alice').set({ t: NOW() }));
+  await assertFails(as('alice').doc('presence/alice').set({ t: 1 }));
+  await assertFails(as('alice').doc('presence/bob').set({ t: NOW() }));
+  await assertSucceeds(anon().doc('presence/alice').get());
+  await assertSucceeds(as('bob').doc('cb/meridian/posts/t1').delete());
+});
