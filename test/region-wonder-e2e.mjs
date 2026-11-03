@@ -15,6 +15,15 @@ await give(A, 'timber', '50');
 check('a gift to the statue is kept in the giver’s own record', ((await localNation(A)).wnd || {}).c?.timber === 50);
 await nav(B, 'wonder');
 check('the other nation sees it in the pooled total', await until(() => B.evaluate(() => { G.render(); return /70 still needed/.test(document.querySelector('.wd-give')?.textContent || ''); }), 20000));
+
+/* the call for help: the Office of Monuments writes to the region's nations, and takes no reply */
+check('the first gift is dated in the giver’s record', typeof (await localNation(A)).wnd?.t0 === 'number');
+await nav(B, 'messages');
+check('the other nation gets the office’s letter in Messages', await until(() => B.evaluate(() => { G.render(); return /Office of Monuments/.test(document.querySelector('.conv-list')?.textContent || ''); }), 20000));
+await B.click('[data-act="dm-peer"][data-id="office-monuments"]'); await sleep(300);
+check('the letter says the statue has begun and asks for help, without a reply box', await B.evaluate(() => /Great Statue of .+ has begun[\s\S]*All help is requested/.test(document.querySelector('.bubs')?.textContent || '') && !document.getElementById('dm-text')));
+check('opening it marks it read', await until(async () => ((await localNation(B)).seenDm || {})['office-monuments'] > 0, 10000));
+await B.locator('.msg-layout').screenshot({ path: OUT + '/statue-letter.png' });
 await give(B, 'timber', 'max'); await give(B, 'iron', 'max');
 check('together they finish the first phase', await until(() => A.evaluate(() => { G.render(); return /Phase 2 of 10/.test(document.querySelector('.wd-fig figcaption')?.textContent || ''); }), 20000));
 check('both are on the plaque, the bigger giver first', await A.evaluate(() => [...document.querySelectorAll('.wd-who li')].map(li => li.textContent).join('|')).then(t => /Bronzeholm.*Statuaria/.test(t)));

@@ -16557,7 +16557,7 @@ function warWith(id){
   const d=pairWar(me,id);return {war:false,truceUntil:d.truceUntil};
 }
 function enemies(){const out=[];if(!S.nation)return out;for(const x of allNations()){if(!x.me&&warWith(x.id).war)out.push(x);}return out;}
-function nameOf(id){const x=findNation(id);return x?x.n.name:'a former nation';}
+function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(id);return x?x.n.name:'a former nation';}
 
 /* Enemy hexes this nation can attack: next to its own or its allies' land, or up to three hexes
    beyond across unclaimed land or shallow sea. Allied land is open; other nations' land blocks. */
@@ -18117,10 +18117,16 @@ function npcReply(id,text,now){
   if(!body.length)body.push(pick(V.lines));
   return `${V.open} ${body.join(' ')} ${V.sign}`;
 }
+/* letters from the region's offices: written by no nation and stored nowhere, but worked out in every game from what
+   is public (the Great Statue's call for help, for one). OFFICES[id] = {name, seal: an SVG for the flag's place,
+   go: [page, button label]}; a source in DM_SOURCES gives [{peer: an office id, t, x}]. Offices take no replies. */
+const OFFICES={},DM_SOURCES=[];
+const isOffice=id=>typeof id==='string'&&Object.hasOwn(OFFICES,id);
 function dmThreads(now){
   const me=myId(),n=S.nation,th=new Map(),add=(peer,m)=>{let a=th.get(peer);if(!a)th.set(peer,a=[]);a.push(m);};
   for(const m of (n&&n.dm)||[]){if(m.i){if(m.t<=now)add(m.w,{from:m.w,t:m.t,x:m.x,mine:false});}else add(m.w,{from:me,t:m.t,x:m.x,mine:true});}
   for(const x of allNations()){if(x.npc||x.me)continue;for(const m of x.n.dm||[])if(m.w===me&&!m.i)add(x.id,{from:x.id,t:m.t,x:m.x,mine:false});}
+  if(n)for(const src of DM_SOURCES){let a=[];try{a=src(n,now)||[];}catch(e){}for(const m of a)if(isOffice(m.peer)&&m.t<=now)add(m.peer,{from:m.peer,t:m.t,x:m.x,mine:false});}
   for(const a of th.values())a.sort((p,q)=>p.t-q.t);
   return th;
 }
@@ -18144,23 +18150,27 @@ function sendDm(){
 }
 function messagesView(){
   const n=S.nation,now=Date.now(),th=dmThreads(now),seen=n.seenDm||{},me=myId();
-  if(S.msgPeer&&!findNation(S.msgPeer))S.msgPeer=null;
-  const peers=[...th.keys()].filter(id=>findNation(id)).sort((a,b)=>th.get(b).slice(-1)[0].t-th.get(a).slice(-1)[0].t);
+  if(S.msgPeer&&!findNation(S.msgPeer)&&!isOffice(S.msgPeer))S.msgPeer=null;
+  const peers=[...th.keys()].filter(id=>findNation(id)||isOffice(id)).sort((a,b)=>th.get(b).slice(-1)[0].t-th.get(a).slice(-1)[0].t);
   const others=allNations().filter(x=>!x.me).sort((a,b)=>(a.npc?1:0)-(b.npc?1:0)||a.n.name.localeCompare(b.n.name));
-  const peer=S.msgPeer,px=peer?findNation(peer):null,thread=peer?(th.get(peer)||[]):[];
+  const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,px=peer&&!po?findNation(peer):null,thread=peer?(th.get(peer)||[]):[];
+  const face=id=>isOffice(id)?OFFICES[id].seal:flagSVG(findNation(id).n.flag,'Flag of '+nameOf(id));
   const lastMine=[...thread].reverse().find(m=>m.mine),peerSeen=px&&!px.npc&&px.n.seenDm?(px.n.seenDm[me]||0):0;
-  const conv=peers.map(id=>{const x=findNation(id),a=th.get(id),last=a[a.length-1],un=a.filter(m=>!m.mine&&m.t>(seen[id]||0)).length;
-    return `<li><button class="conv${id===peer?' on':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span class="conv-t"><b>${esc(x.n.name)}${isStaff(id)?STAFF_PILL:''}</b><span>${last.mine?'You: ':''}${esc(last.x.slice(0,60))}</span></span><span class="conv-m">${rel(last.t)}${un?`<span class="badge" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
+  const conv=peers.map(id=>{const a=th.get(id),last=a[a.length-1],un=a.filter(m=>!m.mine&&m.t>(seen[id]||0)).length;
+    return `<li><button class="conv${id===peer?' on':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${face(id)}</span><span class="conv-t"><b>${esc(nameOf(id))}${isStaff(id)?STAFF_PILL:''}</b><span>${last.mine?'You: ':''}${esc(last.x.slice(0,60))}</span></span><span class="conv-m">${rel(last.t)}${un?`<span class="badge" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
   const pst=!!px&&!px.npc&&isStaff(px.id);
   const bubbles=thread.map(m=>`<li class="bub${m.mine?' mine':''}${!m.mine&&pst?' staff':''}">${!m.mine&&pst?'<span class="bub-staff">Edictum staff</span>':''}<p>${esc(m.x)}</p><span class="bub-t">${rel(m.t)}${m===lastMine&&peerSeen>=m.t?' · Seen':''}</span></li>`).join('');
+  /* an office's letters: read, not answered */
+  const office=po?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${po.seal}</span><b>${esc(po.name)}</b><span class="chip">Office of ${esc(REG.the)}</span>${po.go?`<button class="linkish small" data-act="go" data-v="${po.go[0]}">${esc(po.go[1])}</button>`:''}</div>
+      <ol class="bubs">${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters.</p>`:'';
   return `<header class="vh"><p class="eyebrow">Diplomatic bag</p><h1>Messages</h1><p>Write to any nation in ${REGION}. Computer-run nations answer within a minute or two; players see your letter the next time they play.</p></header>
   <div class="msg-layout${peer?' in-thread':''}">
     <aside class="convs"><label class="lbl" for="dm-new">New message to</label><select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(x=>`<option value="${esc(x.id)}"${x.id===peer?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':isStaff(x.id)?' (Edictum staff)':''}</option>`).join('')}</select>
       ${peers.length?`<ul class="conv-list">${conv}</ul>`:'<p class="hint" style="margin-top:14px">No conversations yet.</p>'}</aside>
-    <section class="thread">${px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
+    <section class="thread">${office||(px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
       ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs">${bubbles||'<li class="hint">No messages yet. Say hello.</li>'}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(px.n.name)} is drafting a reply…</p></li>`:''}</ol>
-      <form id="dm-form" class="dm-form" novalidate><label class="lbl" for="dm-text">Message to ${esc(px.n.name)}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="500" rows="3" placeholder="Your Excellency…">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}<div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / 500</span></div></form>`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p></div>`}
-      <p class="hint dm-note">Letters travel inside each nation’s public record. Other players’ games only show them to the nation they are addressed to, but they are not encrypted, so keep secrets out of them.</p></section>
+      <form id="dm-form" class="dm-form" novalidate><label class="lbl" for="dm-text">Message to ${esc(px.n.name)}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="500" rows="3" placeholder="Your Excellency…">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}<div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / 500</span></div></form>`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p></div>`)}
+      ${po?'':'<p class="hint dm-note">Letters travel inside each nation’s public record. Other players’ games only show them to the nation they are addressed to, but they are not encrypted, so keep secrets out of them.</p>'}</section>
   </div>`;
 }
 
@@ -43732,7 +43742,7 @@ for(const is of MIX_ISSUES){
 
 /* ───────── the Great Statue: a wonder the region's player nations build together ─────────
    Nothing is stored centrally. Each player nation keeps its own gifts to the statue in its record, n.wnd =
-   {r: region id, c: {resource: amount}, ph: phases it has seen complete, t: last gift}, and the statue is the sum of
+   {r: region id, c: {resource: amount}, ph: phases it has seen complete, t: last gift, t0: first gift}, and the statue is the sum of
    them: computer nations take no part. A phase once complete stays complete (the highest ph any contributor holds),
    so a nation that leaves the region later never takes a finished phase down with it. Ten phases, from the
    foundations to the unveiling; contributors to a finished statue may style their nation "the Patron". */
@@ -43755,15 +43765,16 @@ let wndMemo={k:'',v:null};
 function wndState(){
   const L=allNations().filter(x=>!x.npc&&x.n&&x.n.wnd&&x.n.wnd.r===REG.id);
   const key=REG.id+'|'+L.map(x=>x.id+':'+x.n.wnd.t+':'+(x.n.wnd.ph||0)).join(',');if(wndMemo.k===key)return wndMemo.v;
-  const tot=Object.fromEntries(RES.map(r=>[r,0])),who=[];let floor=0;
-  for(const x of L){const c=x.n.wnd.c||{};let sum=0;for(const r of RES){const v=num0(c[r]);tot[r]+=v;sum+=v;}floor=Math.max(floor,x.n.wnd.ph||0);if(sum>0)who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c});}
+  const tot=Object.fromEntries(RES.map(r=>[r,0])),who=[];let floor=0,start=0;
+  for(const x of L){const c=x.n.wnd.c||{};let sum=0;for(const r of RES){const v=num0(c[r]);tot[r]+=v;sum+=v;}floor=Math.max(floor,x.n.wnd.ph||0);
+    if(sum>0){who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c});const t0=x.n.wnd.t0||x.n.wnd.t;if(t0>0&&(!start||t0<start))start=t0;}}
   let done=0;while(done<WND_N&&RES.every(r=>tot[r]+1e-6>=(WND_CUM[done][r]||0)))done++;
   done=Math.max(done,Math.min(WND_N,floor));
   /* the phase in progress: what it still needs, measured past what the earlier phases took */
   const need={},cur=done<WND_N?WND_PH[done][2]:{};let want=0,have=0;
   for(const r of RES){const q=cur[r]||0;if(!q)continue;const prev=done?(WND_CUM[done-1][r]||0):0,got=clamp(tot[r]-prev,0,q);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
   who.sort((a,b)=>b.sum-a.sum||(a.name<b.name?-1:1));
-  wndMemo={k:key,v:{tot,done,need,frac:want?have/want:1,who}};return wndMemo.v;
+  wndMemo={k:key,v:{tot,done,need,frac:want?have/want:1,who,start}};return wndMemo.v;
 }
 const wndPhase=()=>{try{return wndState().done;}catch(e){return 0;}};
 /* give to the phase in progress, never more than it still needs */
@@ -43774,7 +43785,7 @@ function wndGive(r,amt){
   const now=Date.now(),st=stockNow(n0,now),give=Math.floor(Math.min(amt,left,st[r]));if(give<1){toast(`You have no ${resName(r)} to spare.`);return;}
   const n=clone(n0),w=wndMine(n)?clone(n.wnd):{r:REG.id,c:{},ph:0,t:0};
   st[r]-=give;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  w.c[r]=Math.round((num0(w.c[r])+give)*10)/10;w.t=now;n.wnd=w;
+  w.c[r]=Math.round((num0(w.c[r])+give)*10)/10;if(!w.t0)w.t0=w.t||now;w.t=now;n.wnd=w;
   commit(n);const after=wndState();
   if(after.done>W.done){const m=clone(S.nation);m.wnd.ph=Math.max(m.wnd.ph||0,after.done);commit(m);
     toast(after.done>=WND_N?`${wndName()} is finished, and ${n.name} helped build it. Your nation may now style itself “the Patron”, in Customise.`:`Phase ${after.done} of ${WND_N} is complete: ${WND_PH[after.done-1][0].toLowerCase()}. Next: ${WND_PH[after.done][0].toLowerCase()}.`);}
@@ -43787,6 +43798,7 @@ NORM_HOOKS.push((n,d)=>{
   const w=d&&d.wnd;if(!w||typeof w!=='object'||typeof w.r!=='string'||w.r.length>40)return;
   const c={};for(const r of RES){const v=Number(w.c&&w.c[r]);if(Number.isFinite(v)&&v>0)c[r]=Math.min(v,50000);}
   n.wnd={r:w.r,c,ph:Number.isInteger(w.ph)?clamp(w.ph,0,WND_N):0,t:typeof w.t==='number'&&isFinite(w.t)?w.t:0};
+  if(typeof w.t0==='number'&&isFinite(w.t0)&&w.t0>0)n.wnd.t0=w.t0;
 });
 UNLOCKS['t-patron']={k:'title',n:'the Patron',src:'wonder'};
 UNLOCK_SOURCES.push({earned:n=>{try{return wndMine(n)&&RES.some(r=>num0(n.wnd.c[r])>0)&&wndState().done>=WND_N?['t-patron']:[];}catch(e){return [];}},
@@ -43897,7 +43909,28 @@ MAP_PANEL.push(ctx=>{if(ctx.cell==null||ctx.cell!==wndCell())return '';const W=w
   return `<div class="wd-pn"><p class="eyebrow">A wonder of the region</p><p><b>${esc(wndName())}</b>: ${W.done>=WND_N?'finished.':`phase ${W.done+1} of ${WND_N}, ${Math.floor(W.frac*100)}% built.`}</p><div class="row"><button type="button" class="btn ghost" data-act="go" data-v="wonder">Visit the statue</button></div></div>`;});
 MAP_LEGEND.push(()=>`<span class="lg"><svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><rect x="2" y="12" width="10" height="3" fill="var(--sheet)" stroke="currentColor"/><path d="M5 12h4l-1-8H6Z" fill="#5f7f6e" stroke="currentColor" stroke-width=".8"/></svg>The Great Statue</span>`);
 NOTIF_SOURCES.push(n=>{if(!wndMine(n))return [];const W=wndState();return W.done>(n.wnd.ph||0)?[{t:Date.now(),k:'wnd',kl:'The Great Statue',txt:W.done>=WND_N?`${wndName()} is finished.`:`Phase ${W.done} of ${WND_N} of ${wndName().replace(/^The /,'the ')} is complete.`,go:'wonder'}]:[];});
-HELP_EXT.push({k:'wonder',t:'The Great Statue',body:()=>`<p>At the heart of every region stands, eventually, its Great Statue. Its player nations build it together, in ten phases from the foundations to the unveiling; each phase needs timber, iron, oil, goods or food, and any player nation may give from its stock on the <button type="button" class="linkish" data-act="go" data-v="wonder">Great Statue</button> page. A gift counts only towards what the phase still needs. Finished phases stay finished. Every nation that gave something may style itself “the Patron” once the statue is unveiled, and a few edicts reach the desk as the statue rises.</p>`});
+/* the call for help: once any nation has given, the Office of Monuments writes to every player nation of the region, dated
+   from the first gift (the starter stays anonymous). A finished statue needs no help, so then only nations that had
+   opened the letter keep it. */
+OFFICES['office-monuments']={name:'The Office of Monuments and Public Works',go:['wonder','Visit the statue'],
+  seal:'<svg viewBox="0 0 36 24" role="img" aria-label="Seal of the Office of Monuments"><rect width="36" height="24" fill="#ebe3cd"/><g transform="translate(6 0)" fill="none" stroke="#2e4a3f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6M8 21l1-4h6l1 4"/><path d="M10.5 17v-5.5l-1.5-3h6l-1.5 3V17"/><circle cx="12" cy="6" r="2"/><path d="M14.5 8.5 17 3.5"/></g></svg>'};
+DM_SOURCES.push(n=>{
+  const W=wndState();if(!W.who.length||!W.start)return [];
+  if(W.done>=WND_N&&!(n.seenDm||{})['office-monuments'])return [];
+  const the=REG.the,st=wndName().replace(/^The /,'the ');
+  return [{peer:'office-monuments',t:W.start,x:`To every nation of ${the},
+
+A nation of this region has driven the first pile into the central plain and declared, with some confidence, that ${st} has begun.
+
+A statue of this size cannot be built by one nation, however enthusiastic. All help is requested. Timber and iron are wanted first, for the foundations; oil, goods and food will be needed higher up.
+
+Give what your stores can spare on the Great Statue page, under Abroad. Every nation that has given something by the time the cloth comes off may style itself “the Patron”.
+
+The wording of the inscription is still undecided. This office does not answer letters, so arguments about it are best kept to the region’s board.
+
+The Office of Monuments and Public Works, ${REG.name}`}];
+});
+HELP_EXT.push({k:'wonder',t:'The Great Statue',body:()=>`<p>At the heart of every region stands, eventually, its Great Statue. Its player nations build it together, in ten phases from the foundations to the unveiling; each phase needs timber, iron, oil, goods or food, and any player nation may give from its stock on the <button type="button" class="linkish" data-act="go" data-v="wonder">Great Statue</button> page. A gift counts only towards what the phase still needs. Once the first gift is made, the Office of Monuments and Public Works writes to every nation of the region, in Messages, to ask for help. Finished phases stay finished. Every nation that gave something may style itself “the Patron” once the statue is unveiled, and a few edicts reach the desk as the statue rises.</p>`});
 
 /* the statue's own edicts: they reach the desk as it rises, and tell its story. Numbered after the twenty-five, so no
    older number moves; each waits for its phase (wndPhase counts the phases finished). */
