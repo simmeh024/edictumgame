@@ -208,6 +208,22 @@ service cloud.firestore {
     // Discord sign-in (functions/discord.js): the application's secret, and which account holds each Discord account
     match /authConfig/{id} { allow read, write: if false; }
     match /discordLinks/{id} { allow read, write: if false; }
+    // Letters by post (functions/mail.js, jobs/mail): addresses, unsubscribe keys, code pacing, the emulators' outbox
+    match /mailAccounts/{uid} { allow read, write: if false; }
+    match /mailTokens/{id} { allow read, write: if false; }
+    match /mailAddr/{id} { allow read, write: if false; }
+    match /mailOutbox/{id} { allow read, write: if false; }
+    match /mailState/{id} { allow read, write: if false; }
+    // a ping: something a player did to another nation (src/shim.js, mail.ping), which jobs/mail may turn into a
+    // letter for that nation's player if they asked for it. Write-only; it carries no text of the player's own.
+    match /mailQ/{id} {
+      allow create: if signedIn() && request.resource.data.keys().hasOnly(['to', 'by', 'k', 'nm', 't'])
+        && request.resource.data.by == request.auth.uid && request.resource.data.t == request.time
+        && request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 128
+        && request.resource.data.to != request.auth.uid
+        && request.resource.data.k in ['msg', 'war', 'conq', 'peace', 'trade', 'shared', 'alremove', 'aladmit', 'cede']
+        && label(request.resource.data.nm) && request.resource.data.nm.size() > 0;
+    }
     match /assemblyRegions/{region}/{document=**} { allow read, write: if false; }
 
     // written only together with the nation (whose ts is this request's time), and agreeing with it

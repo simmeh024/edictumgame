@@ -47867,6 +47867,63 @@ function start(data){
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,achRankCredits,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+/* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
+   Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
+   asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
+   leave a ping (mail.ping) that the hourly mail job may turn into a letter for that player, if they asked for one. */
+const ML_KINDS=[['msg','Letters from other nations','Who wrote, never what'],['war','War','Wars declared on you, land seized, peace made'],['dip','Diplomacy','Trade deals, alliances, matters raised'],['news','Development news','When the Edictum team posts news'],['away','A reminder when I am away','Once, after 3 days without a visit']];
+const ML_PING={war:'war',conq:'conq',peace:'peace',trade:'trade',shared:'shared',alremove:'alremove',aladmit:'aladmit',cede:'cede'};
+const ML={st:null,busy:false,err:'',msg:'',email:'',code:'',edit:false,loading:false};
+function mlApi(){return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('mail'):null);}
+function mlLoad(force){if(ML.loading||ML.st&&!force)return;ML.loading=true;
+  mlApi().then(a=>a?a.request({step:'status'}):null).then(r=>{ML.st=r||{off:true};},()=>{ML.st={off:true,fail:true};}).finally(()=>{ML.loading=false;if(S.view==='settings')render();});}
+function mlDo(data,ok){if(ML.busy)return;ML.busy=true;ML.err='';ML.msg='';render();
+  mlApi().then(a=>{if(!a)throw new Error('Letters are not available here.');return a.request(data);})
+    .then(r=>{ML.busy=false;if(ok)ok(r);mlLoad(true);render();},e=>{ML.busy=false;ML.err=(e&&e.message)||'That did not work. Try again in a moment.';render();});}
+function mailSection(){
+  if(OBS)return '';mlLoad();const st=ML.st,dis=ML.busy?' disabled':'';
+  const note=`${ML.err?`<p class="hint" role="alert" style="color:var(--danger,#b0262c)">${esc(ML.err)}</p>`:''}${ML.msg?`<p class="hint" role="status">${esc(ML.msg)}</p>`:''}`;
+  let inner;
+  if(!st)inner='<p class="hint">Asking the Herald…</p>';
+  else if(st.off)inner=`<p class="hint">${st.fail?'The Herald could not be reached just now. Try again later.':'Letters by post are not available here.'}</p>`;
+  else if(st.ok&&!ML.edit)inner=`<p>Letters go to <b>${esc(st.email)}</b>. <button type="button" class="btn ghost" data-act="mail" data-f="edit"${dis}>Change address</button> <button type="button" class="btn ghost danger" data-act="mail" data-f="remove"${dis}>Forget my address</button></p>
+      <div class="ntf-mute" role="group" aria-label="Letters I want">${ML_KINDS.map(([k,l,h])=>`<label class="tog"><input type="checkbox" data-ml-pref="${k}"${st.p&&st.p[k]?' checked':''}${dis}> ${esc(l)} <span class="hint">${esc(h)}</span></label>`).join('')}</div>
+      <p class="hint">At most one letter about other nations every six hours, and never about what you have already seen in the game.</p>`;
+  else if(st.wait&&!ML.edit)inner=`<p>A six-figure seal is on its way to <b>${esc(st.email)}</b>. It expires in 30 minutes.</p>
+      <div class="field"><label for="ml-code">Confirmation code</label><input class="input" id="ml-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" value="${esc(ML.code)}" data-ml-in="code" style="max-width:10em"></div>
+      <p><button type="button" class="btn" data-act="mail" data-f="verify"${dis}>Confirm</button> <button type="button" class="btn ghost" data-act="mail" data-f="edit"${dis}>Use another address</button> <button type="button" class="btn ghost" data-act="mail" data-f="resend"${dis}>Send a new code</button></p>`;
+  else inner=`<p class="hint">Give the Herald an address and choose what you want to hear about: letters from other nations, wars, diplomacy, development news, a reminder when you are away. Nothing is sent until you confirm it, and every letter has a link to stop them.</p>
+      <div class="field"><label for="ml-email">Email address</label><input class="input" id="ml-email" type="email" autocomplete="email" maxlength="200" value="${esc(ML.email||(st.email||''))}" data-ml-in="email" placeholder="you@example.com"></div>
+      <p><button type="button" class="btn" data-act="mail" data-f="send"${dis}>Send me a code</button>${ML.edit?` <button type="button" class="btn ghost" data-act="mail" data-f="cancel"${dis}>Cancel</button>`:''}</p>`;
+  return `<section class="fs" id="set-mail"><h2 class="fs-l">Letters by post</h2>${inner}${note}</section>`;
+}
+settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<section class="fs" id="set-appearance">');return i<0?h+mailSection():h.slice(0,i)+mailSection()+h.slice(i);})(settingsView);
+document.addEventListener('input',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.mlIn;if(k)ML[k]=e.target.value;});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="mail"]');if(!el)return;const f=el.dataset.f;
+  if(f==='edit'){ML.edit=true;ML.err=ML.msg='';render();return;}
+  if(f==='cancel'){ML.edit=false;ML.err='';render();return;}
+  if(f==='send'||f==='resend'){const email=f==='resend'?ML.st.email:String(ML.email||'').trim();if(!email){ML.err='Write your email address first.';render();return;}
+    mlDo({step:'set',email},()=>{ML.edit=false;ML.code='';ML.msg='The Herald has sent a code to '+email+'. Check your inbox (and the spam folder).';});return;}
+  if(f==='verify'){const code=String(ML.code||'').replace(/\D/g,'');if(code.length!==6){ML.err='The code has six figures.';render();return;}
+    mlDo({step:'verify',code},()=>{ML.code='';ML.email='';ML.msg='Confirmed. A welcome letter is on its way.';});return;}
+  if(f==='remove')mlDo({step:'remove'},()=>{ML.email='';ML.msg='The Herald has forgotten your address.';});
+});
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.mlPref;if(!k||!ML.st||!ML.st.p)return;
+  const p={...ML.st.p,[k]:!!e.target.checked};ML.st.p=p;mlDo({step:'prefs',p});});
+/* pings: after each save, what this nation just did to another player's nation */
+const ML_SENT=new Map();
+function mlPings(prev,n){
+  if(OBS||!prev||!n||!n.name)return;const now=Date.now(),out=new Map();
+  const player=id=>typeof id==='string'&&!!id&&!id.startsWith('npc-')&&!NPC_SET.has(id)&&!isOffice(id)&&id!==myId();
+  const top=((prev.log||[])[0]||{}).t||0;
+  for(const l of n.log||[]){if(!(l.t>top))break;if(ML_PING[l.k]&&player(l.a)&&now-l.t<60000)out.set(l.a+'|'+l.k,[l.a,ML_PING[l.k]]);}
+  const dmTop=Math.max(0,...(prev.dm||[]).map(m=>m.t||0));
+  for(const m of n.dm||[])if(m.t>dmTop&&!m.i&&player(m.w)&&now-m.t<60000)out.set(m.w+'|msg',[m.w,'msg']);
+  if(!out.size)return;
+  mlApi().then(a=>{if(!a||typeof a.ping!=='function')return;for(const [key,[to,k]] of out){
+    if(k==='msg'&&now-(ML_SENT.get(key)||0)<600000)continue;ML_SENT.set(key,now);a.ping(to,k,n.name);}}).catch(()=>{});
+}
+commit=(f=>function(n){const prev=S.nation,r=f.apply(this,arguments);try{if(S.nation!==prev)mlPings(prev,n);}catch(e){}return r;})(commit);
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

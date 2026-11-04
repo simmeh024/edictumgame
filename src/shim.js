@@ -608,6 +608,17 @@
     },
     remove: function (id) { return adminApi.request({ op: 'moderate', action: 'support_delete', target: id, reason: 'Deleted support spam' }); }
   });
+  /* Letters by post (functions/mail.js): the game's Settings card reads and changes the player's address with
+     request({step, ...}); ping(to, k, nm) tells the mail job that this nation did k to nation `to` (firestore.rules,
+     mailQ). A ping carries no text; if that player asked for letters, the hourly job may write to them. */
+  var mailApi = Object.freeze({
+    request: function (data) { return A.frozen ? hang() : call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'mail' })); },
+    ping: function (to, k, nm) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || typeof to !== 'string' || !to || to === u.uid) return Promise.resolve(false);
+      return A.fs.collection('mailQ').add({ to: to.slice(0, 128), by: u.uid, k: String(k), nm: str(nm, 80) || 'A nation', t: serverTime() }).then(function () { return true; }, function () { return false; });
+    }
+  });
   /* bug reports (see firestore.rules): the game's Report a bug page sends one with send(report, screenshot?)
      and reads the player's own with mine(); admins list them, set(id, state, note) and remove them */
   var bugsApi = Object.freeze({
@@ -664,7 +675,7 @@
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
+        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'mail' ? mailApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }
