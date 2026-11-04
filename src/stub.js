@@ -37,6 +37,8 @@
      the top of the front page that build.py puts there for newcomers. */
   try { if (localStorage.getItem('statehood.nation.v1')) document.documentElement.classList.add('ed-back'); } catch (e) {}
   /* Safety nets: if the shim never ran, or start-up hangs, the game plays in this browser only. */
-  window.addEventListener('load', function () { if (!window.__edictum.started) settle(null); });
+  /* (build.py adds the game's scripts after the first frame, or at the latest on load, and marks them `loading`:
+     scripts added before load hold it back, so by then the shim has run; the check waits a moment for that) */
+  window.addEventListener('load', function () { setTimeout(function () { if (!window.__edictum.started && !window.__edictum.loading) settle(null); }, 0); });
   setTimeout(function () { settle(null); }, 30000);
 })();
