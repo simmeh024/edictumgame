@@ -37605,6 +37605,7 @@ for(const t of ['pointerdown','pointermove','keydown','wheel','touchstart','scro
 setInterval(quietCheck,20000);
 
 /* ───────── shared region ───────── */
+let connectEngaged=false;
 async function connect(){
   /* observing needs the region's data and an admin's account: without either, this tab goes back to its own nation */
   const quit=()=>{if(OBS)obsExit();};
@@ -37644,6 +37645,14 @@ async function connect(){
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
      the World page counts and lists them on demand (RSTAT). With moderation and staff they go quiet in a
      tab in the background or left alone (quietListen); their redraws wait for the player (quietRender). */
+  /* A visitor who has not founded yet, and has not touched the page, only looks at the front page: most never go
+     further. For them each feed is read once (get), and the live listeners start at their first tap, click or key
+     (when founding needs the latest region) or at once for a player with a nation, an admin observing, or a tab
+     already used. Saves every passing visitor's phone the region's live traffic, and Firestore its updates. */
+  const lazyFeeds=[];let engaged=!!S.nation||!!OBS||connectEngaged;
+  const listen=(q,next,err)=>{if(engaged)return quietListen(q,next,err);lazyFeeds.push([q,next,err]);q.get().then(qs=>{if(!engaged)next(qs);},e=>{if(!engaged&&err)err(e);});};
+  const engage=()=>{connectEngaged=true;if(engaged)return;engaged=true;for(const [q,nx,er] of lazyFeeds.splice(0))quietListen(q,nx,er);};
+  if(!engaged)for(const t of ['pointerdown','keydown','touchstart'])window.addEventListener(t,engage,{once:true,capture:true,passive:true});
   let regQS=null,spQS=null,hadMine=false;S.mod=S.mod||{};
   const hidden=id=>!!(S.mod[id]&&S.mod[id].hidden)&&id!==S.uid;
   /* Before founding, with no map on screen, the front page only shows the region's counts: every save in the
@@ -37651,6 +37660,7 @@ async function connect(){
      load on a phone left on the front page. There the rebuild waits and gathers: at most one per SHARED_FRONT. */
   const SHARED_FRONT=15000;let sharedT=0,sharedAt=0;
   const shared=()=>{
+    if(S.nation&&!engaged)setTimeout(engage,0);
     if(!regQS||!spQS)return;
     if(S.nation||S.view==='map'||OBS||!sharedAt){sharedAt=Date.now();if(sharedT){clearTimeout(sharedT);sharedT=0;}sharedNow();return;}
     if(!sharedT)sharedT=setTimeout(()=>{sharedT=0;sharedAt=Date.now();sharedNow();},Math.max(0,SHARED_FRONT-(Date.now()-sharedAt)));
@@ -37658,6 +37668,7 @@ async function connect(){
   /* anything the visitor does (a key, a tap) catches up at once, so founding and naming check the latest region */
   for(const t of ['pointerdown','keydown'])window.addEventListener(t,()=>{if(sharedT){clearTimeout(sharedT);sharedT=0;sharedAt=Date.now();sharedNow();}},{capture:true,passive:true});
   const sharedNow=()=>{
+    if(S.nation&&!engaged)setTimeout(engage,0);
     const w={},all={};
     for(const d of spQS.docs){const raw=d.data();if(!raw||!REG_BY_ID[raw.reg]||hidden(d.id))continue;
       all[d.id]={reg:raw.reg,name:String(raw.name||'').slice(0,40),pop:0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);}
@@ -37679,8 +37690,8 @@ async function connect(){
   };
   reshare=shared;
   const none={docs:[]};
-  quietListen(db.collection('nations').where('reg','==',REG.id),qs=>{regQS=qs;if(!qs.fromCache)regionHeardAt=Date.now();shared();},()=>{regQS=regQS||none;shared();});
-  quietListen(db.collection('space'),qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
+  listen(db.collection('nations').where('reg','==',REG.id),qs=>{regQS=qs;if(!qs.fromCache)regionHeardAt=Date.now();shared();},()=>{regQS=regQS||none;shared();});
+  listen(db.collection('space'),qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
   let boardQS=none;
   const board=()=>{
     const r={};
@@ -37688,8 +37699,8 @@ async function connect(){
     S.rmb=r;
     if(S.view==='region')quietRender();
   };
-  quietListen(db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60),qs=>{boardQS=qs;board();},()=>{});
-  quietListen(db.collection('mod'),qs=>{
+  listen(db.collection('boards/'+REG.id+'/posts').orderBy('t','desc').limit(60),qs=>{boardQS=qs;board();},()=>{});
+  listen(db.collection('mod'),qs=>{
     const m={};for(const d of qs.docs){const v=d.data();if(v&&(v.hidden||v.removed))m[d.id]={hidden:!!v.hidden,rename:!!v.rename,removed:Number(v.removed)||0,note:String(v.note||'').slice(0,300),name:String(v.name||'').slice(0,80),t:Number(v.t)||0};}
     S.mod=m;modNotice();shared();board();
     if(S.isOwner&&['admin','admin-hidden'].includes(S.view))quietRender();
@@ -37697,7 +37708,7 @@ async function connect(){
   if(S.google)setTimeout(glCheck,3000);
   /* Edictum staff: an admin's page marks its player in staff/ (the rules let only an admin write their own),
      and clears the mark once the right is gone */
-  quietListen(db.collection('staff'),qs=>{
+  listen(db.collection('staff'),qs=>{
     const st=new Set(qs.docs.map(d=>d.id));S.staff=st;
     if(S.isOwner&&!st.has(uid))db.doc('staff/'+uid).set({t:Date.now()}).catch(()=>{});
     else if(!S.isOwner&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
@@ -42235,7 +42246,8 @@ function nweOffsAt(o){const ed=NWE.node;if(!ed||!o)return null;const w=document.
   while((t=w.nextNode())){const L=t.length;if(c.length<2&&o[0]<=k+L){c=[t,o[0]-k];}if(c.length===2&&o[1]<=k+L){return [c[0],c[1],t,o[1]-k];}k+=L;}return null;}
 /* the toolbar's Link opens a field under it, remembering what was selected */
 function nweLinkAsk(){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;NWE.lk0=nweOffs();NWE.lf=true;f.hidden=false;nweLinkErr('');if(!i.value)i.value=NWE.lfv='https://';i.focus();i.select();}
-function nweLinkErr(m){const e=document.getElementById('nwe-lerr');if(e){e.textContent=m;e.hidden=!m;}}
+/* the message is kept (NWE.lerr), so a redraw of the page while it shows does not take it away */
+function nweLinkErr(m){NWE.lerr=m||'';const e=document.getElementById('nwe-lerr');if(e){e.textContent=m;e.hidden=!m;}}
 function nweLinkDone(ok){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;const u=i.value.trim();
   if(ok&&u&&u!=='https://'&&!/^(https?:\/\/|mailto:)[^\s<>"]+$/i.test(u)){nweLinkErr('A link needs an address starting with https:// or mailto:.');i.focus();return;}
   NWE.lf=false;NWE.lfv='';f.hidden=true;i.value='';nweLinkErr('');const c=NWE.lk0;NWE.lk0=null;
@@ -42365,7 +42377,7 @@ function nweView(){
       <label class="nwe-chk"><input type="checkbox" id="nwe-pn"${NWE.pn?' checked':''}> Pin to the top of the page <span class="hint">(unpins any other)</span></label></div>
     <p class="lbl" id="nwe-body-l">Text <button type="button" class="linkish small nwe-cl" data-act="nwe-cl"${NWE.cl?' disabled':''}>${NWE.cl?'Reading GitHub…':'Draft patch notes from merged pull requests'}</button></p>
     <div class="nwe-tools" role="toolbar" aria-label="Formatting" aria-controls="nwe-body">${tools}</div>
-    <div class="nwe-lf" id="nwe-lf"${NWE.lf?'':' hidden'}><div class="field"><label for="nwe-url">Link to which address?</label><input class="input" id="nwe-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(NWE.lfv||'')}"></div><button type="button" class="btn small" data-act="nwe-link-ok">Add link</button><button type="button" class="btn ghost small" data-act="nwe-link-x">Cancel</button><p class="err" id="nwe-lerr" role="alert" hidden></p></div>
+    <div class="nwe-lf" id="nwe-lf"${NWE.lf?'':' hidden'}><div class="field"><label for="nwe-url">Link to which address?</label><input class="input" id="nwe-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(NWE.lfv||'')}"></div><button type="button" class="btn small" data-act="nwe-link-ok">Add link</button><button type="button" class="btn ghost small" data-act="nwe-link-x">Cancel</button><p class="err" id="nwe-lerr" role="alert"${NWE.lerr?'':' hidden'}>${esc(NWE.lerr||'')}</p></div>
     <div id="nwe-host" class="nwe-host"></div>
     <input type="file" id="nwe-file" accept="image/*" multiple hidden>
     <p class="hint">${NWE.up?`<b>Uploading ${NWE.up} ${NWE.up===1?'image':'images'}…</b> `:''}Paste or drop images into the text, or use Image. They are made smaller (at most ${NW_IMG_SIDE} pixels wide) before they upload. Links open in a new tab.</p>
