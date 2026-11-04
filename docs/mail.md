@@ -31,9 +31,9 @@ codes expire after 30 minutes.
 ## Owner setup (once per project)
 
 1. Create a Resend account at https://resend.com and add the domain **edictumgame.com** (Domains › Add).
-2. At Namecheap (Advanced DNS) add the records Resend shows: the DKIM TXT record (`resend._domainkey`), and the
-   MX + SPF TXT records for the `send` subdomain. Also add a DMARC record if there is none:
-   TXT `_dmarc` → `v=DMARC1; p=none;`. Wait until Resend shows the domain as Verified.
+2. At Namecheap (Advanced DNS) add the records Resend shows. For edictumgame.com (done 2026-11-04) they were:
+   TXT `resend._domainkey` (DKIM), CNAME `send` → `send.forge.rmta.net.`, CNAME `rsend` →
+   `rsend-euw1.forge.rmta.net.`, and TXT `_dmarc` → `v=DMARC1; p=none;`. Wait until Resend shows Verified.
 3. Create an API key with **Sending access** only, for edictumgame.com.
 4. Save it in Firestore (it is never in the repo):
 
