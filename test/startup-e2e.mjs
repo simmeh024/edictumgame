@@ -7,8 +7,11 @@ import {BASE,OUT,browser,player,open,ready,found,nav,until,check,finish,localNat
 await clearEmulators();
 const root=path.join(path.dirname(fileURLToPath(import.meta.url)),'..','public');
 const html=readFileSync(path.join(root,'index.html'),'utf8');
-const core=html.match(/<script src="(\/assets\/game\.[^"]+)"/)[1],content=html.match(/\/assets\/content\.[a-f0-9]+\.js/)[0];
-check('critical content and code are preloaded before the Firebase SDK',html.indexOf('href="'+core+'"')<html.indexOf('firebase-app-compat.js')&&html.indexOf('href="'+content+'"')<html.indexOf('firebase-app-compat.js'));
+const core=html.match(/<script defer src="(\/assets\/game\.[^"]+)"/)[1],content=html.match(/\/assets\/content\.[a-f0-9]+\.js/)[0];
+/* the front page paints before the game's scripts run: maps, content, game and the adapter are deferred, in that order, after the front page */
+const at=re=>html.search(re);
+check('the game scripts are deferred, in order, after the front page',
+  [/<script defer src="\/assets\/maps\./,/<script defer src="\/assets\/content\./,/<script defer src="\/assets\/game\./,/<script defer src="\/assets\/shim\./].map(at).every((x,i,a)=>x>at(/<body>/)&&(!i||x>a[i-1]))&&!/<script>[^<]*__edictum\.started/.test(html.slice(at(/<body>/))));
 const A=await player('startup-desktop');await A.ctx.unrouteAll();
 await open(A);await found(A,'Quickland');
 await until(async()=>{const n=await localNation(A);return n?._rev>0&&!n._dirty;},15000);

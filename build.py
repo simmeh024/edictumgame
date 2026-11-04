@@ -86,6 +86,10 @@ BOOT = ('<div id="app"><div class="found home-static">'
         '<main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%(desc)s</p>' + LOADING + LEGAL + '</main></div>')
 
 
+# origins every visit talks to soon after load (sign-in, then Firestore): connecting early saves a round trip each
+PRECONNECT = ['https://identitytoolkit.googleapis.com', 'https://firestore.googleapis.com']
+
+
 def fail(msg):
     sys.exit('build.py: ' + msg)
 
@@ -288,6 +292,8 @@ def main():
         js_url = hashed(out, 'game', 'js', script)
     # every region's map, long-cached on its own: it changes only when the generators or the regions do
     maps_url = hashed(out, 'maps', 'js', bake_maps(script))
+    # the Firebase adapter runs after the game, so it is a deferred file of its own (an inline script cannot wait)
+    shim_url = hashed(out, 'shim', 'js', inline_js(os.path.join(SRC, 'shim.js'), minify))
 
     a = lambda path: (site + path) if site else path
     e = lambda s: html.escape(s, quote=True)
@@ -334,8 +340,7 @@ def main():
         '[hidden]{display:none!important}'
         '.ed-boot-pending .boot,.ed-boot-pending .home-static .boot-load{visibility:hidden}</style>',
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'stub.js'), minify),
-    ] + ['<link rel="preload" href="%s" as="script" fetchpriority="high">' % u
-         for u in [maps_url, content_url, js_url] if u] + [
+    ] + ['<link rel="preconnect" href="%s" crossorigin>' % u for u in PRECONNECT] + [
         '<script defer src="%s%s" fetchpriority="low"></script>' % (vendor, n) for n in SDK] + meta + [
         game_head,
     ] + ['<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' % u for u in preload] + [
@@ -343,11 +348,14 @@ def main():
         '</head>',
         '<body>',
         BOOT % dict(home_copy(script), desc=e(DESCRIPTION)),
+        # The game's scripts are deferred, so the front page above (BOOT) paints while they download (the
+        # stylesheet and fonts are no longer queued behind 1.7 MB of script); they run in this order once the
+        # page is parsed, after the Firebase SDK in <head>, and the adapter (shim) last, as before.
         # without the maps (a failed download) the game generates its map, as it can
-        '<script src="%s"></script>' % maps_url,
-    ] + (['<script src="%s" onerror="window.__edictum.bootError()"></script>' % content_url] if content_url else []) + [
-        '<script src="%s" onerror="window.__edictum.bootError()"></script>' % js_url,
-        '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
+        '<script defer src="%s"></script>' % maps_url,
+    ] + (['<script defer src="%s" onerror="window.__edictum.bootError()"></script>' % content_url] if content_url else []) + [
+        '<script defer src="%s" onerror="window.__edictum.bootError()"></script>' % js_url,
+        '<script defer src="%s"></script>' % shim_url,
         '</body>',
         '</html>',
         '',
