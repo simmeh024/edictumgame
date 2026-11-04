@@ -15,9 +15,9 @@ function between(a,b){const i=source.indexOf(a),j=source.indexOf(b,i);assert.ok(
 function rewards(){
   const google=source.indexOf('COMMIT_HOOKS.push((n,old,now)=>{\n  if(!S.google||n.glk'),glEnd=source.indexOf('function glCheck(',google);
   assert.ok(google>0);
-  const ctx=vm.createContext({S:{google:true},COMMIT_HOOKS:[],NORM_HOOKS:[],UNLOCKS:{},UNLOCK_SOURCES:[],DAY:864e5,CV_NEW:3*864e5,REGION:'Testland',REGIONS:[1,2],
+  let ctx;ctx=vm.createContext({S:{google:true},COMMIT_HOOKS:[],NORM_HOOKS:[],UNLOCKS:{},UNLOCK_SOURCES:[],DAY:864e5,CV_NEW:3*864e5,REGION:'Testland',REGIONS:[1,2],
     landEarned:n=>10,earnedAt:n=>10,decisions:n=>n.dec||0,cellOf:v=>Number.isInteger(v)?v:-1,tallyOf:(n,k)=>(n.tly&&n.tly[k])||0,
-    pgAvailable:(n,k)=>!n.onb||n.onb.u.includes(k),pgNew:n=>!!n.onb,tutSoc:()=>null,tutDevGet:()=>'',tutBlocks:()=>false,civicRegistered:()=>false,
+    pgAvailable:(n,k)=>!n.onb||n.onb.u.includes(k),pgNew:n=>!!n.onb,tutSoc:()=>null,tutDevGet:()=>ctx.DEVK||'',tutBlocks:()=>false,civicRegistered:()=>false,
     cityList:n=>n.cities||[],ppCount:n=>n.pp||0,ppStats:n=>({ds:0}),cuRenamed:()=>false,mapOpt:(k,d)=>d,LENS_INFO:{},canFeature:()=>false,featureAt:()=>7,fmtPopShort:p=>p+' million',
     stockNow:n=>({...n.stock}),roundStock:s=>({...s}),num0:v=>+v||0,stockCap:()=>400,clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),GL_CREDITS:5,GL_GIFT:{iron:5,timber:5,goods:5}});
   vm.runInContext(fn('list')+'\n'+fn('stockLimit')+'\nconst TUT_V=25,TUT_GS="mrba";const tutFresh=()=>false;\n'+fn('tutNorm')+'\n'+
@@ -90,7 +90,7 @@ test('naming the first city pays 3 land credits and 5 goods, once',()=>{
 });
 
 test('a list done in full pays its bonus and its epithet once, and gifts respect storage',()=>{
-  const r=rewards();let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},stock:{food:395,timber:45,iron:25,oil:10,goods:40}});
+  const r=rewards();r.ctx.DEVK='cu';let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},stock:{food:395,timber:45,iron:25,oil:10,goods:40}});
   const m=r.save(n);
   assert.ok(m.some(x=>/^Your tutorial steps earned 8 land credits, and 5 goods\./.test(x)),m.join(' | '));
   assert.ok(m.some(x=>/^List complete: Your nation starts here\. 10 food and 10 timber, and the epithet “the Founder”, under Epithet in Customise\.$/.test(x)),m.join(' | '));

@@ -105,7 +105,7 @@ check('recovery restores the nation and its private progress',await until(()=>B.
 await openAccount(B);
 check('custom-token recovery remains a Guest Nation',/Guest Nation/.test(await text(B,'.ed-dlg'))&&!await B.locator('#ed-recovery-code').count());
 check('mobile recovered Guests have regeneration and Sign out controls',await B.isVisible('[data-ed="recovery-regenerate"]')&&await B.isVisible('[data-ed="signout"]'));
-await B.keyboard.press('Escape');await B.click('[data-act="pg-charter"]');
+await B.keyboard.press('Escape');await B.evaluate(()=>G.PG.sign());
 check('the recovered Guest sees the charter linking suggestion',await until(()=>B.locator('.account-link-card').isVisible()));
 await openAccount(B);
 await googlePopup(B,'[data-ed="google"]','recovered@example.com');

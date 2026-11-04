@@ -4697,6 +4697,11 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .fd-key{display:flex;flex-wrap:wrap;gap:4px 18px;margin:8px 0 0}
 .fd-key b{font-family:var(--f-display);color:var(--accent)}
 .fd-foot{flex-wrap:wrap;gap:10px}
+.fd-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0 6px}
+.fd-qb{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:58px;padding:10px 14px;text-align:left;white-space:normal}
+.fd-qb b{font-size:15px}.fd-qb span{font-size:12.5px;font-weight:400;opacity:.85}
+.fd-or{margin:10px 0 0}
+.fd-card{margin:0 0 18px;padding:16px 18px;background:var(--sheet);border:2px solid var(--accent);border-radius:4px}
 /* the Community Board: every region's board, the player's own first; posts with the author on the left */
 .cb-start{margin:0 0 18px}
 .cb-regs{display:flex;flex-direction:column;gap:10px;max-width:900px}
@@ -24041,12 +24046,12 @@ document.addEventListener('click',e=>{
   if(a==='found-browse'){S.frBrowse=!S.frBrowse;render();return;}
 });
 /* The founding draft survives a change of region (which reloads the page: every region has its own map)
-   and a reload: it waits in this tab's sessionStorage until the nation is founded. The capital's hex
+   and a reload: it waits in localStorage (for a day) until the nation is founded, so closing the browser keeps it. The capital's hex
    belongs to one region's map, so it comes back only in the same region. */
 const DRAFT_SS='statehood.draft';
-function draftKeep(reg){if(S.nation||!S.draft)return;try{sessionStorage.setItem(DRAFT_SS,JSON.stringify({reg:reg||REG.id,at:Date.now(),d:S.draft}));}catch(e){}}
+function draftKeep(reg){if(S.nation||!S.draft)return;try{localStorage.setItem(DRAFT_SS,JSON.stringify({reg:reg||REG.id,at:Date.now(),d:S.draft}));}catch(e){}}
 function draftRestore(){
-  let p=null;try{p=JSON.parse(sessionStorage.getItem(DRAFT_SS)||'null');}catch(e){}
+  let p=null;try{p=JSON.parse(localStorage.getItem(DRAFT_SS)||'null');}catch(e){}
   if(!p||typeof p!=='object'||!p.d||typeof p.d!=='object'||!(Date.now()-(Number(p.at)||0)<DAY))return null;
   const base=newDraft(),d=p.d;
   for(const k of Object.keys(base)){const v=d[k];if(v==null)continue;
@@ -33167,14 +33172,15 @@ const tutFresh=n=>!!n&&!(n.answered&&n.answered.length)&&Date.now()-(+n.founded|
 function tutSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PAGE.id==='string'&&SOC_PAGE.id?SOC_PAGE:null;}catch(e){return null;}}
 function tutCall(f,d){try{const v=f();return v==null?d:v;}catch(e){return d;}}
 
-/* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited ── */
+/* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited,
+   u the Customise page visited, c the charter signed (each task pays once, and the payment is kept on the record) ── */
 function tutDevGet(){
   const n=S.nation,seed=n?String(n.seed):'';if(TUT.devSeed!==seed){TUT.devSeed=seed;TUT.dev='';}
   let k=TUT.dev;try{const o=JSON.parse(localStorage.getItem(TUT_DEV_KEY)||'null');if(o&&o.s===seed&&typeof o.k==='string')k+=o.k;}catch(e){}return k;
 }
 function tutMark(c){
   if(!S.nation)return;const k=tutDevGet();if(k.includes(c))return;TUT.dev+=c;
-  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwx]/g,'')}));}catch(e){}
+  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcu]/g,'')}));}catch(e){}
   tutLcSoon();
 }
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
@@ -33208,7 +33214,7 @@ const TUT_LISTS=[
     {k:'settle',t:'Choose where your capital stands',h:'Your first edict asks where to build it: by the sea, on farmland or in the hills.',v:'issues',b:'Open edicts',f:n=>cellOf(n.loc)>=0},
     {k:'city',t:'Name your first city',h:n=>n.capital===TUT_CAP0?`${TUT_CAP0} is only a placeholder. Give your capital a name of your own: every player in ${REGION} sees it.`:`Every player in ${REGION} sees the name of your capital.`,
      act:'tut-city',b:'Name it',lc:3,gift:{goods:5},f:n=>(!!n.capital&&n.capital!==TUT_CAP0)||tallyOf(n,'log:cityren')>0,lock:n=>tutCapCity(n)?'':'Settle your capital first, then name it.'},
-    {k:'charter',t:'Finish your charter',h:'It opens Customise: flag layers, a coat of arms, epithets and the design of your money.',act:'pg-charter',b:'Finish charter',f:n=>pgAvailable(n,'charter')},
+    {k:'charter',t:'Finish your charter',h:'Everything is in place. Sign the charter to collect the founder’s bonus and move on to the next list.',act:'pg-charter',b:'Finish charter',f:(n,d)=>String(d||'').includes('c')},
     {k:'ruler',t:'Name your leader',h:n=>`Your ${String(n.leader||'Leader').toLowerCase()} heads the cabinet and signs every banknote. Settings gives them a name.`,v:'settings',to:'s-ruler',b:'Open Settings',f:n=>typeof n.ruler==='string'&&!!n.ruler.trim()},
     {k:'culture',t:'Describe your culture',h:'A national language, religion, sport, dish or anthem: edicts mention them, and your nation page shows them.',v:'settings',to:'s-lang',b:'Open Settings',
      f:n=>TUT_CULT.some(k=>typeof n[k]==='string'&&!!n[k].trim())},
@@ -38346,7 +38352,7 @@ function found(){
   if(nameTaken(name,REG.id)){S.foundErr=`${REG.name} already has a nation called ${name}. Choose another name.`;render();const el=document.getElementById('d-name');if(el)el.focus();return;}
   if(S.banned){S.foundErr=`This account is banned from Edictum${S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`;render();return;}
   if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${regCap(REG.id)} active nations. Choose another region, at the top or under Location.`;render();return;}
-  S.foundErr='';try{sessionStorage.removeItem(DRAFT_SS);}catch(e){}
+  S.foundErr='';try{localStorage.removeItem(DRAFT_SS);sessionStorage.removeItem(DRAFT_SS);}catch(e){}
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
@@ -40866,7 +40872,7 @@ function pgPulse(now){
 function pgGuided(n){if(!pgNew(n))return false;const L=tutCur(n);return !!L&&(L.k==='charter'||L.k==='first');}
 function pgCharterCard(page=false){return `${page?'<header class="vh"><p class="eyebrow">A nation of your own</p><h1>Finish your charter</h1></header>':''}<section class="stp pg-charter" aria-labelledby="pg-charter-h"><p class="eyebrow">First things first</p><h2 class="stp-t" id="pg-charter-h">Your nation starts here</h2><p>Your name, flag and founding principles are saved. Start with an edict, or finish your charter when you are ready to explore the full design tools.</p><div class="row"><button class="btn" data-act="pg-charter">Finish charter</button><button class="btn ghost" data-act="go" data-v="issues">Open edicts</button></div><p class="hint">You can change your particulars in Settings at any time.</p></section>`;}
 function pgFinishCharter(){
-  if(!pgNew(S.nation)||pgAvailable(S.nation,'charter'))return;const n=clone(S.nation);n.onb.u.push('charter');commit(n);saveSoon();render();toast('Charter complete. Customise and flag layers are now available.');
+  if(!S.nation||tutDevGet().includes('c'))return;tutMark('c');commit(clone(S.nation));saveSoon();render();toast('Charter signed. On to the next list.');
 }
 const pgCustomiseBase=VIEWS_EXT.customise;
 VIEWS_EXT.customise=function(now){return pgAvailable(S.nation,'charter')?pgCustomiseBase(now):pgCharterCard(true);};
@@ -40907,7 +40913,7 @@ function accountActionHint(key,assembly=false){
 const accountHintHidden=new Set();
 const accountHintKey=n=>'edictum.link-hint.'+String(n.seed);
 function accountLinkCard(n){
-  const a=accountInfo();if(!n||!pgNew(n)||!pgAvailable(n,'charter')||tutHid(n,TUT_LISTS[1])||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
+  const a=accountInfo();if(!n||!pgNew(n)||!tutLcOf(n).includes('charter')||tutHid(n,TUT_LISTS[1])||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
   try{if(localStorage.getItem(accountHintKey(n)))return '';}catch(e){}
   return `<section class="paper account-link-card" aria-labelledby="account-link-heading"><p class="eyebrow">Your charter is complete</p><h2 class="h2" id="account-link-heading">Keep your nation on every device</h2><p>Link Google, Discord or an email address to become a Registered Nation and sign in on another browser or device. Registration opens community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>${!n.glk?`<p class="hint">First sign-in link: +${GL_CREDITS} land credits, +${GL_GIFT.iron} iron, +${GL_GIFT.timber} timber and +${GL_GIFT.goods} goods.</p>`:''}<div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${accountCompareButton()}<button type="button" class="linkish small" data-act="account-hint-hide">Not now</button></div></section>`;
 }
@@ -41371,6 +41377,97 @@ found=(f=>function(){
   if(n&&n!==had&&cellOf(n.loc)<0){const x=n.inbox.find(e=>e.id===FD_ID);if(x){go('issues');edictOpen(FD_ID,x.at);}}
   return r;
 })(found);
+
+/* ───────── settling first: three plain choices, a card that does not go away, and the founding funnel ─────────
+   Of the first nations founded, about one in four never placed its capital: the choice sat under three speeches
+   in an edict, and an edict that was closed (or a tutorial that was hidden) left nothing on screen to ask again.
+   Now the edict opens with three big buttons above the speeches, and every unsettled nation sees a "Place your
+   capital" card at the top of its Nation page and its desk, whatever became of the edict (a div, not a
+   section, so the Nation page's section folding cannot fold it away). A choice on the card
+   answers the edict when it is still waiting (so the census moves as usual) and settles at the pin otherwise;
+   either way the next stop is the map, where the land-credit claim and the first building are waiting.
+   fdEvent sends the steps of the first days to the visit statistics (only when the visitor allowed them, and
+   never with a player or nation): founded, settled, first claim, first building, back the next day. */
+const FD_GAIN=['trade and tourism','health and happiness','safety and defence'];
+function fdChoices(n,cls){
+  const cells=fdSites(n,territory());
+  return `<div class="fd-quick${cls||''}" role="group" aria-label="Where ${esc(n.capital)} will stand">${FD_KIND.map((l,k)=>cells[k]>=0?`<button type="button" class="btn fd-qb" data-act="fd-pick" data-o="${k}"><b>Settle ${esc(l.toLowerCase())}</b><span>${['Coast','Farmland','Hills'][k]} of ${esc(landName(cells[k]))} · ${FD_GAIN[k]}</span></button>`:'').join('')}<button type="button" class="btn ghost fd-qb" data-act="fd-own"><b>Choose on the map</b><span>Any free land</span></button></div>`;
+}
+function fdCard(n){
+  if(!n||n.npc||OBS||cellOf(n.loc)>=0)return '';
+  return `<div class="fd-card" role="region" aria-labelledby="fd-card-h"><p class="eyebrow">First things first</p><h2 class="h2" id="fd-card-h">Place your capital</h2><p class="muted">${esc(n.name)} is not on the map yet. Choose where ${esc(n.capital)} stands: your flag goes up, your borders form, and your first land credits are ready to spend.</p>${fdChoices(n)}</div>`;
+}
+issueView=(f=>function(v){
+  const n=S.nation,h=f.apply(this,arguments);if(S.openIssue!==FD_ID||!n||cellOf(n.loc)>=0)return h;
+  return h.replace(/(<p class="issue-q">)/,fdChoices(n,' fd-top')+'<p class="hint fd-or">Or hear the advisors out:</p>$1').replace('<button type="button" class="btn ghost" data-act="fd-own">Choose a spot yourself</button>','');
+})(issueView);
+nationView=(f=>function(v){return fdCard(S.nation)+f.apply(this,arguments);})(nationView);
+issuesView=(f=>function(v){return fdCard(S.nation)+f.apply(this,arguments);})(issuesView);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-pick"]');if(!el||!S.nation)return;
+  const n=S.nation,k=+el.dataset.o;if(cellOf(n.loc)>=0)return;
+  if((n.inbox||[]).some(x=>x.id===FD_ID)){answer(FD_ID,k);if(cellOf(S.nation.loc)>=0&&S.view!=='issues'){S.result=null;go('map');}return;}
+  const T=territory(),c=fdSites(n,T)[k];
+  if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that place. Choose again.');return;}
+  S.mapPick=c;settle();if(cellOf(S.nation.loc)>=0)go('map');
+});
+/* with the first building: name the capital. Port Alder is only a placeholder, so as soon as the quick first
+   building is started, a box under it points to the task on the Nation page's list ("Name your first city"),
+   where the tutorial pays for it as usual. */
+function fdNameCard(n){
+  if(!n||n.npc||OBS||!n.ffb||n.capital!==TUT_CAP0||!tutCapCity(n))return '';
+  const L=TUT_LISTS.find(L=>tutTasks(L).some(s=>s.k==='city'));
+  return `<section class="ffb fd-name" aria-labelledby="fd-name-h"><div class="ffb-b"><p class="eyebrow">While the builders work</p><h2 class="ffb-t" id="fd-name-h">Name your first city</h2>
+    <p>${TUT_CAP0} is only a placeholder. Choose a name every player in ${esc(REGION)} will see: it is the next task on your list.</p></div>
+    <div class="ffb-a"><button type="button" class="btn" data-act="tut-go" data-v="nation"${L?` data-to="tut-h-${L.k}"`:''}>Go to your tasks</button></div></section>`;
+}
+ffbCard=(f=>function(){return f.apply(this,arguments)+fdNameCard(S.nation);})(ffbCard);
+/* new tasks: the open tasks of the list on the Nation page that this device has not shown yet put a (!) on Nation
+   in the menu; opening the Nation page marks them seen (not every redraw of it: settling redraws it, and the
+   naming task it unlocks must still be news) */
+const fdSeenKey=n=>'edictum.tutSeen.'+(n&&n.seed);
+function fdOpenTasks(n){const L=tutCur(n);if(!L)return [];try{return tutState(n,L,true).filter(x=>!x.ok&&!x.lock).map(x=>x.k);}catch(e){return [];}}
+function fdNewTasks(n){if(!n||n.npc||OBS)return 0;let seen=[];try{seen=JSON.parse(localStorage.getItem(fdSeenKey(n))||'[]');}catch(e){}return fdOpenTasks(n).filter(k=>!seen.includes(k)).length;}
+navBadges=(f=>function(){const b=f.apply(this,arguments);if(S.view!=='nation'&&fdNewTasks(S.nation))(b.nation=b.nation||[]).push({h:'<span class="badge" aria-hidden="true">!</span>',t:'new tasks'});return b;})(navBadges);
+function fdSeeTasks(n){try{const k=fdOpenTasks(n);if(!k.length)return;let seen=[];try{seen=JSON.parse(localStorage.getItem(fdSeenKey(n))||'[]');}catch(e){}localStorage.setItem(fdSeenKey(n),JSON.stringify([...new Set(seen.concat(k))].slice(-80)));}catch(e){}}
+go=(f=>function(v){if(v==='nation')fdSeeTasks(S.nation);return f.apply(this,arguments);})(go);
+/* the page a visit opens on counts as opened too, once */
+let fdSeenFirst=false;nationView=(f=>function(){if(!fdSeenFirst){fdSeenFirst=true;fdSeeTasks(S.nation);}return f.apply(this,arguments);})(nationView);
+
+/* the map's tabs reach the nation's own land too: its cities, and its states (or provinces, counties: the
+   nation's own word), which can be switched on from here as well as from Customise */
+mapTabs=(f=>function(on){
+  const n=S.nation;if(!n||n.npc||OBS)return f.apply(this,arguments);let t2='States',pOn=false;try{t2=prvT2(n);pOn=prvOnRec(n);}catch(e){}
+  const extra=`<button role="tab" class="stab" aria-selected="false" data-act="go" data-v="cities">Cities</button>`+(pOn?`<button role="tab" class="stab" aria-selected="false" data-act="go" data-v="provinces">${esc(t2)}</button>`:`<button type="button" class="stab stab-add" data-act="fd-prv-on" title="Divide your nation into ${esc(prvLow(t2))}">+ ${esc(t2)}</button>`);
+  return f.apply(this,arguments).replace(/<\/div>$/,extra+'</div>');
+})(mapTabs);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-prv-on"]');if(!el||!S.nation)return;prvSwitch(true);try{if(prvOnRec(S.nation))go('provinces');}catch(e){}});
+
+/* Customise is open from the start, and "Finish your charter" is the last task of the first list: it shows only
+   once the list's other tasks are done, and signing it completes the list */
+pgEligible=(f=>function(n,k){return k==='charter'?!!n:f.apply(this,arguments);})(pgEligible);
+{const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter'),ch=L.tasks.splice(i,1)[0];
+  L.tasks.push({k:'cust',t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',f:(n,d)=>String(d||'').includes('u')},ch);}
+/* a visit to Customise ticks its task (after the page is drawn: the mark saves, which draws again) */
+VIEWS_EXT.customise=(f=>function(){if(S.nation&&!S.nation.npc&&!OBS&&!tutDevGet().includes('u'))setTimeout(()=>tutMark('u'),0);return f.apply(this,arguments);})(VIEWS_EXT.customise);
+tutRow=(f=>function(n,x){
+  if(x&&x.k==='charter'&&!x.ok){const L=TUT_LISTS.find(L=>L.k==='charter');let rest=true;try{rest=tutState(n,L).every(y=>y.k==='charter'||y.ok);}catch(e){}if(!rest)return '';}
+  return f.apply(this,arguments);})(tutRow);
+
+/* the founding funnel */
+function fdEvent(n,name,now){
+  const key='edictum.funnel.'+(+n.founded||0);let had='';try{had=localStorage.getItem(key)||'';}catch(e){}
+  if(had.split(',').includes(name))return;try{localStorage.setItem(key,had?had+','+name:name);}catch(e){}
+  try{if(typeof window.edictumStat==='function')window.edictumStat(name,{hours_since_founding:Math.round((now-(+n.founded||now))/3600000)});}catch(e){}
+}
+const fdBuilt=n=>!!n&&((n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0);
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||OBS||!(+n.founded)||now-n.founded>7*DAY)return;
+  if(!old||old.founded!==n.founded)fdEvent(n,'nation_founded',now);
+  if(cellOf(n.loc)>=0&&(!old||cellOf(old.loc)<0))fdEvent(n,'capital_settled',now);
+  if((n.claims||[]).length&&!(old&&(old.claims||[]).length))fdEvent(n,'first_claim',now);
+  if(fdBuilt(n)&&!fdBuilt(old))fdEvent(n,'first_building',now);
+  if(now-n.founded>=DAY&&now-n.founded<2*DAY)fdEvent(n,'returned_next_day',now);
+});
 
 /* ───────── seven more buildings: Central Bank, Courthouse, Public Baths, Recycling Works, Nature Reserve,
    Observatory and Hanging Gardens, and the edicts that touch them ─────────
@@ -47167,7 +47264,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
