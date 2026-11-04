@@ -42246,7 +42246,8 @@ function nweOffsAt(o){const ed=NWE.node;if(!ed||!o)return null;const w=document.
   while((t=w.nextNode())){const L=t.length;if(c.length<2&&o[0]<=k+L){c=[t,o[0]-k];}if(c.length===2&&o[1]<=k+L){return [c[0],c[1],t,o[1]-k];}k+=L;}return null;}
 /* the toolbar's Link opens a field under it, remembering what was selected */
 function nweLinkAsk(){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;NWE.lk0=nweOffs();NWE.lf=true;f.hidden=false;nweLinkErr('');if(!i.value)i.value=NWE.lfv='https://';i.focus();i.select();}
-function nweLinkErr(m){const e=document.getElementById('nwe-lerr');if(e){e.textContent=m;e.hidden=!m;}}
+/* the message is kept (NWE.lerr), so a redraw of the page while it shows does not take it away */
+function nweLinkErr(m){NWE.lerr=m||'';const e=document.getElementById('nwe-lerr');if(e){e.textContent=m;e.hidden=!m;}}
 function nweLinkDone(ok){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;const u=i.value.trim();
   if(ok&&u&&u!=='https://'&&!/^(https?:\/\/|mailto:)[^\s<>"]+$/i.test(u)){nweLinkErr('A link needs an address starting with https:// or mailto:.');i.focus();return;}
   NWE.lf=false;NWE.lfv='';f.hidden=true;i.value='';nweLinkErr('');const c=NWE.lk0;NWE.lk0=null;
@@ -42376,7 +42377,7 @@ function nweView(){
       <label class="nwe-chk"><input type="checkbox" id="nwe-pn"${NWE.pn?' checked':''}> Pin to the top of the page <span class="hint">(unpins any other)</span></label></div>
     <p class="lbl" id="nwe-body-l">Text <button type="button" class="linkish small nwe-cl" data-act="nwe-cl"${NWE.cl?' disabled':''}>${NWE.cl?'Reading GitHub…':'Draft patch notes from merged pull requests'}</button></p>
     <div class="nwe-tools" role="toolbar" aria-label="Formatting" aria-controls="nwe-body">${tools}</div>
-    <div class="nwe-lf" id="nwe-lf"${NWE.lf?'':' hidden'}><div class="field"><label for="nwe-url">Link to which address?</label><input class="input" id="nwe-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(NWE.lfv||'')}"></div><button type="button" class="btn small" data-act="nwe-link-ok">Add link</button><button type="button" class="btn ghost small" data-act="nwe-link-x">Cancel</button><p class="err" id="nwe-lerr" role="alert" hidden></p></div>
+    <div class="nwe-lf" id="nwe-lf"${NWE.lf?'':' hidden'}><div class="field"><label for="nwe-url">Link to which address?</label><input class="input" id="nwe-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(NWE.lfv||'')}"></div><button type="button" class="btn small" data-act="nwe-link-ok">Add link</button><button type="button" class="btn ghost small" data-act="nwe-link-x">Cancel</button><p class="err" id="nwe-lerr" role="alert"${NWE.lerr?'':' hidden'}>${esc(NWE.lerr||'')}</p></div>
     <div id="nwe-host" class="nwe-host"></div>
     <input type="file" id="nwe-file" accept="image/*" multiple hidden>
     <p class="hint">${NWE.up?`<b>Uploading ${NWE.up} ${NWE.up===1?'image':'images'}…</b> `:''}Paste or drop images into the text, or use Image. They are made smaller (at most ${NW_IMG_SIDE} pixels wide) before they upload. Links open in a new tab.</p>
