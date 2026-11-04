@@ -164,6 +164,22 @@ test('staff notes are the admins’ alone, audited without their text, and go wi
   await call(p, { op: 'close' }, 'accounts');
   assert.equal(await get('staffNotes/' + p.uid), null);
 });
+test('an admin turns a free Chancery Club membership on and off, audited, and the player’s shop follows', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Clubland');
+  assert.equal((await call(a, { op: 'player', uid: p.uid })).club.until, 0);
+  await assert.rejects(call(p, { op: 'club', uid: p.uid, days: 30, reason: 'Me' }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(a, { op: 'club', uid: p.uid, days: 30 }), e => e.status === 'INVALID_ARGUMENT');
+  await assert.rejects(call(a, { op: 'club', uid: p.uid, days: 12, reason: 'Odd' }), e => e.status === 'INVALID_ARGUMENT');
+  const on = (await call(a, { op: 'club', uid: p.uid, days: 30, reason: 'Contest prize' })).club;
+  assert.ok(on.until > Date.now() + 29 * 864e5); assert.equal(on.plan, 'comp'); assert.equal(on.comp.by, a.uid); assert.equal(on.comp.why, 'Contest prize');
+  assert.equal((await get('shop/' + p.uid)).fields.vip.mapValue.fields.plan.stringValue, 'comp');
+  const off = (await call(a, { op: 'club', uid: p.uid, days: 0, reason: 'Prize withdrawn' })).club;
+  assert.equal(off.comp, null); assert.equal(off.until, 0);
+  assert.equal(await get('shopComp/' + p.uid), null);
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  assert.ok(log.some(e => e.action === 'club_granted' && e.name === 'Clubland' && e.outcome === 'completed'));
+  assert.ok(log.some(e => e.action === 'club_revoked' && e.reason === 'Prize withdrawn'));
+});
 test('region switches preserve records, stop battles, and atomically log the authenticated actor', async () => {
   const a = await user(true), p = await user(); await seed(p.uid); const before = (await get('nationx/' + p.uid)).fields.j;
   await call(a, { op: 'region', reg: 'meridian', enabled: false, reason: 'Storage maintenance', actor: 'forged' });

@@ -4,6 +4,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { registered } from './eligibility.js';
 import { gather, summarize } from './stats.js';
+import { setComp } from './shop.js';
 import { cbDelete } from './board.js';
 import { shopSummary } from './shop-stats.js';
 
@@ -44,9 +45,31 @@ async function account(db, uid) {
   return { kind: registered(u) ? 'registered' : 'guest', linked, admin: claims.admin === true, disabled: u.disabled, created: at(u.metadata.creationTime), lastSignIn: at(u.metadata.lastSignInTime), lastRefresh: at(u.metadata.lastRefreshTime), ip: s.get('ip') || '', ipAt: s.get('at') || 0 };
 }
 async function player(db, uid) {
-  const [n, ban, mod, sessions, acct, notes] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get()]);
+  const [n, ban, mod, sessions, acct, notes, shop, comp] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get(), db.doc('shop/' + uid).get(), db.doc('shopComp/' + uid).get()]);
   const d = n.data() || {};
-  return { uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  return { uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+}
+/* The player's Chancery Club: what the shop worked out (shop/{uid}.vip) and any free membership an admin granted */
+const clubState = (shop, comp) => {
+  const v = shop.get('vip') || null;
+  return { until: v?.until || 0, status: v?.status || '', plan: v?.plan || '', renews: v?.renews || 0, comp: comp.exists ? { at: comp.get('at') || 0, until: comp.get('until') || 0, by: comp.get('by') || '', why: comp.get('why') || '' } : null };
+};
+const CLUB_DAYS = [7, 30, 90, 365, 3650];
+async function club(db, actor, data) {
+  const target = id(data.uid), days = data.days, reason = text(data.reason, 500);
+  if (days !== 0 && !CLUB_DAYS.includes(days)) throw new HttpsError('invalid-argument', 'Choose how long the membership lasts.');
+  if (!reason) throw new HttpsError('invalid-argument', 'A reason is required.');
+  const name = text((await db.doc('nations/' + target).get()).get('name'), 80), event = db.collection('adminAudit').doc();
+  const common = { actor, action: days ? 'club_granted' : 'club_revoked', target, reason: days ? days + ' days: ' + reason : reason, ...(name ? { name } : {}), operation: event.id };
+  try {
+    await setComp(target, days ? Date.now() + days * 86400000 : 0, actor, reason);
+    await event.create({ ...common, outcome: 'completed', at: FieldValue.serverTimestamp() });
+  } catch (e) {
+    await event.create({ ...common, outcome: 'failed', error: text(e.code || 'unknown', 64), at: FieldValue.serverTimestamp() });
+    throw e;
+  }
+  const [shop, comp] = await db.getAll(db.doc('shop/' + target), db.doc('shopComp/' + target));
+  return { club: clubState(shop, comp) };
 }
 /* The staff's private notes on a player: one text per player in staffNotes/{uid} {text, at, by}, read and written
    only here (the rules refuse every client) and never shown to the player. The audit log records each change, not
@@ -193,5 +216,6 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);
   if (d.op === 'note') return note(db, actor, d);
+  if (d.op === 'club') return club(db, actor, d);
   throw new HttpsError('invalid-argument', 'Unknown console request.');
 });

@@ -38959,7 +38959,7 @@ document.addEventListener('click',e=>{
 });
 
 /* ───────── staff operations ───────── */
-const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:''};
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
@@ -39032,8 +39032,28 @@ function adminPlayerDetail(p){
   return `<section class="adm-detail" aria-label="Player details"><h2 class="h2" style="margin-top:0">${esc(p.name)}</h2><dl><dt>Player ID</dt><dd><code>${esc(p.uid)}</code></dd><dt>Region</dt><dd>${p.reg?esc(regName(p.reg)):'No nation'}</dd><dt>Last confirmed save</dt><dd>${esc(adminTime(p.savedAt))}</dd><dt>Server revision</dt><dd>${p.revision}</dd><dt>Moderation</dt><dd>${mod}${p.note?': '+esc(p.note):''}</dd><dt>Reporting sessions</dt><dd>${p.sessions.length}</dd></dl>
     <h3 class="help-h3">Account</h3>${adminAccount(p.account)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
+    <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
+}
+/* the player's Chancery Club, and a free membership an admin turns on or off (functions/admin.js, club()) */
+const ADM_CLUB_DAYS=[[7,'A week'],[30,'30 days'],[90,'90 days'],[365,'A year'],[3650,'Ten years']];
+function adminClub(p){
+  const c=p.club||{},now=Date.now(),comp=c.comp&&c.comp.until>now?c.comp:null,on=c.until>now,busy=ADMX.clubBusy?' disabled':'';
+  const paid=on&&c.plan!=='comp'&&c.plan!=='gift'?` Paid membership${c.renews?`, renews ${esc(adminTime(c.renews))}`:''}${c.status&&c.status!=='active'?` (${esc(c.status.replace('_',' '))})`:''}.`:on&&c.plan==='gift'?' A gifted month.':'';
+  const state=on?`<span class="chip ok">Member</span> until ${esc(adminTime(c.until))}.${paid}`:'<span class="chip">Not a member</span>';
+  return `<p>${state}</p>${comp?`<p class="hint">Free membership granted by ${comp.by===S.uid?'you':`<code>${esc(comp.by)}</code>`} ${esc(rel(comp.at))}, until ${esc(adminTime(comp.until))}${comp.why?': '+esc(comp.why):''}.</p>`:''}
+    <div class="field"><label for="admin-club-why">Reason (kept in the audit log)</label><input class="input" id="admin-club-why" maxlength="500" value="${esc(ADMX.clubWhy)}" placeholder="e.g. Tester, contest prize, support goodwill"></div>
+    <div class="row"><select class="input" id="admin-club-days" aria-label="How long">${ADM_CLUB_DAYS.map(([d,l])=>`<option value="${d}"${ADMX.clubDays===d?' selected':''}>${l}</option>`).join('')}</select><button class="btn small" data-act="admin-club" data-v="on" data-id="${esc(p.uid)}"${busy}>${comp?'Change free membership':'Enable the Club'}</button>${comp?`<button class="btn ghost small adm-danger" data-act="admin-club" data-v="off" data-id="${esc(p.uid)}"${busy}>Disable the free membership</button>`:''}</div>
+    <p class="hint">A free membership starts now and runs for the chosen time, with every Club benefit and a monthly pick. It does not touch a paid membership: that is cancelled or refunded in Paddle.</p>${ADMX.clubMsg?`<p class="hint" aria-live="polite">${esc(ADMX.clubMsg)}</p>`:''}`;
+}
+async function adminClubSet(uid,on){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.clubBusy)return;
+  const reason=ADMX.clubWhy.trim();if(!reason){ADMX.clubMsg='Write a reason first.';render();document.getElementById('admin-club-why')?.focus();return;}
+  ADMX.clubBusy=true;ADMX.clubMsg='';render();
+  try{const r=await adminRequest({op:'club',uid,days:on?ADMX.clubDays:0,reason});p.club=r.club;ADMX.clubWhy='';ADMX.clubMsg=on?'The Club is enabled for this player.':'The free membership is switched off.';}
+  catch(e){ADMX.clubMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  ADMX.clubBusy=false;render();
 }
 /* the staff's private notes on a player (functions/admin.js, note()): one text, which the player never sees */
 function adminNotes(p){
@@ -39074,7 +39094,7 @@ function adminExtraView(v){
   }
   return admShell(v,`<p class="eyebrow">Admin portal</p><h1 class="display">${title}</h1>${body}${ADMX.busy?'<p class="hint" role="status">Loading…</p>':''}${ADMX.err?`<p class="err" role="alert">${esc(ADMX.err)}</p>`:''}`);
 }
-document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.id==='admin-club-why')ADMX.clubWhy=t.value;if(t.id==='admin-club-days')ADMX.clubDays=Number(t.value);if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
 document.addEventListener('change',e=>{if(e.target.id==='admin-reg')ADMX.reg=e.target.value;if(e.target.dataset.regionMode){ADMX.modes[e.target.dataset.regionMode]=e.target.value;render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='admin-search'||e.target.id==='admin-audit-filter'){e.preventDefault();if(S.isOwner)adminExtraLoad(S.view);}});
 document.addEventListener('click',async e=>{
@@ -39094,8 +39114,9 @@ document.addEventListener('click',async e=>{
   if(a==='admin-mod-yes'){adminModerate(el.dataset.a,id);return;}
   if(a==='admin-mod-no'){ADMX.mod=null;ADMX.modMsg='';render();return;}
   if(a==='admin-note-save'){adminNoteSave(id);return;}
+  if(a==='admin-club'){adminClubSet(id,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';
+    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }
@@ -45787,11 +45808,11 @@ function shopGiftHTML(p){
 function shopVipSec(n,t){
   const v=shopVip(),member=shopMember(),cfg=SHOP.cfg,on=!!(cfg&&cfg.on),st=v&&v.status;
   /* monthly or, when it is on sale, yearly (two months free) */
-  const yr=shopSells('vipyear')&&SHOP.plan==='year',cp=yr?'vipyear':'vip',cper=yr?' a year':' a month',gift=!!(v&&v.plan==='gift');
+  const yr=shopSells('vipyear')&&SHOP.plan==='year',cp=yr?'vipyear':'vip',cper=yr?' a year':' a month',gift=!!(v&&v.plan==='gift'),comp=!!(v&&v.plan==='comp');
   const planSeg=!member&&shopSells('vipyear')?`<div class="seg shop-plan" role="group" aria-label="Billing"><button type="button" class="seg-b${yr?'':' on'}" data-act="shop-plan" data-v="month" aria-pressed="${!yr}">Monthly · ${esc(shopPay('vip'))}</button><button type="button" class="seg-b${yr?' on':''}" data-act="shop-plan" data-v="year" aria-pressed="${yr}">Yearly · ${esc(shopPay('vipyear'))} <span class="shop-save">two months free</span></button></div>`:'';
   let state='';
   if(member){
-    state=`<p class="shop-owned"><span class="chip ok">Member</span> Paid until ${esc(shopDate(v.until))}.${gift?` A gift${shopGiftFrom('giftvip')?' from '+esc(shopGiftFrom('giftvip')):''}: it does not renew, and you can join yourself once it ends.`:v.cancelAt?` Your membership ends then: you cancelled it.`:v.renews?` Renews on ${esc(shopDate(v.renews))} at ${esc(shopPay(v.plan==='year'?'vipyear':'vip'))}${v.plan==='year'?' a year':''}.`:''}${st==='past_due'?' <b>Your last payment did not go through.</b> Update the payment method to carry on.':''}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p>
+    state=`<p class="shop-owned"><span class="chip ok">Member</span> ${comp?'Granted by the Edictum team until':'Paid until'} ${esc(shopDate(v.until))}.${comp?' It does not renew.':gift?` A gift${shopGiftFrom('giftvip')?' from '+esc(shopGiftFrom('giftvip')):''}: it does not renew, and you can join yourself once it ends.`:v.cancelAt?` Your membership ends then: you cancelled it.`:v.renews?` Renews on ${esc(shopDate(v.renews))} at ${esc(shopPay(v.plan==='year'?'vipyear':'vip'))}${v.plan==='year'?' a year':''}.`:''}${st==='past_due'?' <b>Your last payment did not go through.</b> Update the payment method to carry on.':''}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p>
       <div class="row shop-row">${gift?'':`<button type="button" class="btn ghost" data-act="shop-portal"${!on||S.mode!=='world'?' disabled':''}>Manage subscription</button>`}${v.cancelAt&&on?`<button type="button" class="btn ghost" data-act="shop-resume"${SHOP.busy?' disabled':''}>Keep my membership</button>`:''}</div>`;
   }else if(v){
     state=`<p class="shop-owned"><span class="chip">Ended</span> Your membership ended on ${esc(shopDate(v.until))}. Your monthly picks are yours to keep, saved presets still load, and your Chronicle stays, read-only.${st==='past_due'?' Your last payment did not go through: update the payment method to rejoin without a gap.':''}</p>

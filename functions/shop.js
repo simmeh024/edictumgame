@@ -34,6 +34,7 @@
      shopAcct/{uid}         {ctm}: the player's Paddle customer; shopCustomers/{ctm} {uids}: the reverse
      shopEvents/{evt}       notifications already handled (Firestore deletes them after 90 days: TTL on exp)
      shopLimits/{uid}       {n, at, r}: pacing of checkouts and refreshes
+     shopComp/{uid}         {at, until, by, why}: a Club membership an admin granted for free (functions/admin.js, setComp)
    Billing records stay when an account is deleted (accounting needs them); shop/ and finery/ go with it.
 
    In the emulators (FUNCTIONS_EMULATOR) authConfig/paddle may also carry api (a stand-in for Paddle's API that the
@@ -176,10 +177,11 @@ async function settle(cfg, uid) {
   for (let i = 0; i < ids.length; i += 30) adjs.push(...(await db.collection('shopAdj').where('txn', 'in', ids.slice(i, i + 30)).get()).docs.map(s => s.data()));
   const txs = [...txDocs.values()].map(s => ({ ...s.data(), id: s.id }));
   const subMap = Object.fromEntries(subs.map(s => [s.id, s.data()]));
+  const compDoc = await db.doc('shopComp/' + uid).get(), comp = compDoc.exists ? { at: compDoc.get('at'), until: compDoc.get('until') } : null;
   const shopRef = db.doc('shop/' + uid), finRef = db.doc('finery/' + uid);
   const e = await db.runTransaction(async tx => {
     const [shop, nation] = await tx.getAll(shopRef, db.doc('nations/' + uid));
-    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now });
+    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp });
     /* who gave what: the giving nation's name, as it is now */
     const from = [...new Set(e.gifts.map(g => g.from))], names = from.length ? Object.fromEntries((await tx.getAll(...from.map(u => db.doc('nations/' + u)))).map(s => [s.id, String(s.get('name') || '').slice(0, 60)])) : {};
     const reg = (nation.exists && nation.get('reg')) || shop.get('reg') || '';
@@ -362,8 +364,20 @@ export async function forgetShop(uid) {
   const db = getFirestore();
   if ((await db.collection('shopSubs').where('uid', '==', uid).get()).docs.some(s => s.get('status') !== 'canceled' && !s.get('closed')))
     { const cfg = await settings(false); if (cfg.on) await closing(cfg, uid); }
-  await Promise.all(['shop/', 'finery/', 'presets/'].map(c => db.doc(c + uid).delete()));
+  await Promise.all(['shop/', 'finery/', 'presets/', 'shopComp/'].map(c => db.doc(c + uid).delete()));
   await db.recursiveDelete(db.doc('chron/' + uid));
+}
+
+/* an admin turns a free Club membership on (until a time) or off (until 0), and the player's shop is worked out again.
+   A paid membership is Paddle's to end; switching the free one off leaves it alone. */
+export async function setComp(uid, until, by, why) {
+  const db = getFirestore(), cfg = await settings(false), now = clock(cfg), ref = db.doc('shopComp/' + uid);
+  if (until > now) {
+    const prev = await ref.get();
+    await ref.set({ at: prev.exists && prev.get('until') > now ? prev.get('at') : now, until, by, why });
+  } else await ref.delete();
+  const e = await settle(cfg, uid);
+  return { vip: e.vip, comp: until > now ? until : 0 };
 }
 
 export async function shopStep(uid, d) {

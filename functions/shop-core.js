@@ -123,10 +123,11 @@ export function months(p) {
      subs  {id: {status, period, cancelAt, next, firstTxn, dup}}: its subscriptions
      picks {periodStart: cosmetic}: the Chancery Club's monthly picks
      now   the server's time: which paid months to keep for picking (without it, the last three)
+     comp  {at, until}: a membership an admin granted for free (shopComp/{uid}), counted like a paid one
    → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n},
       gifts: [{p, from, t, txn}], refunds: [{txn, why}], cancels: [{sub, why}], notes: [{k, txn, t}], cosmetics: [ids shown to other players]}
    A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends. */
-export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now }) {
+export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null }) {
   const out = { owns: {}, vip: null, gifts: [], refunds: [], cancels: [], notes: [], cosmetics: [] };
   /* a checkout this server opened, or a renewal of a subscription one of those started */
   const valid = txs.filter(t => t.status === 'completed' && t.ok && (t.ck || t.sub && subs[t.sub]));
@@ -174,12 +175,14 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now })
     const g = { s, e: addMonth(s), sub: '', txn: t, plan: 'gift' };
     cover.push(g); kept.push(g);
   }
+  /* a membership granted by an admin: from when it was granted to when it ends, alongside whatever is paid */
+  if (comp && Number.isFinite(comp.at) && Number.isFinite(comp.until) && comp.until > comp.at) kept.push({ s: comp.at, e: comp.until, sub: '', plan: 'comp' });
   if (kept.length) {
     /* a paid year in calendar months; a paid month stays as Paddle billed it (its end need not be a calendar month on) */
-    const per = kept.flatMap(p => { const q = { s: p.s, e: p.e, sub: p.sub, plan: p.plan }; return p.plan === 'year' ? months(q) : [q]; }).sort((a, b) => a.s - b.s), runs = [];
+    const per = kept.flatMap(p => { const q = { s: p.s, e: p.e, sub: p.sub, plan: p.plan }; return p.plan === 'year' || p.plan === 'comp' ? months(q) : [q]; }).sort((a, b) => a.s - b.s), runs = [];
     for (const p of per) { const r = runs[runs.length - 1]; if (r && p.s <= r[1] + RUN_GAP) r[1] = Math.max(r[1], p.e); else runs.push([p.s, p.e]); }
-    const last = per.reduce((a, b) => b.e > a.e ? b : a), s = subs[last.sub] || {}, gift = last.plan === 'gift';
-    const status = gift ? 'gift' : s.status || 'active', until = runs[runs.length - 1][1];
+    const last = per.reduce((a, b) => b.e > a.e ? b : a), s = subs[last.sub] || {}, gift = last.plan === 'gift' || last.plan === 'comp';
+    const status = gift ? last.plan : s.status || 'active', until = runs[runs.length - 1][1];
     /* the months still to come (a paid year is picked from month by month without another word from Paddle), or the last three */
     const keep = now ? per.filter(p => p.e > now - 35 * 86400000) : [];
     /* maps, not pairs: Firestore stores no arrays inside arrays */
