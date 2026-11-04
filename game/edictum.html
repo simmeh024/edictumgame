@@ -16366,14 +16366,14 @@ function emblemSVG0(e,x,y,r,col){
 
 /* ───────── guilloche (security engraving) ───────── */
 const GUILL=new Map();
+function guillKey(cv,w,h,dpr){const d=cv.dataset,col=getComputedStyle(document.documentElement).getPropertyValue('--guill').trim()||'#1d6a5c';return [w,h,dpr,col,d.alpha,d.cx,d.cy,d.seed].join('|');}
 function drawGuill(cv){
   if(cv.dataset.id){idGuill(cv);return;}
   const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;
   const dpr=Math.min(2,window.devicePixelRatio||1),W=Math.round(w*dpr),H=Math.round(h*dpr);
-  const col=getComputedStyle(document.documentElement).getPropertyValue('--guill').trim()||'#1d6a5c';
   /* drawn once per size, ink and seed: a canvas already drawn is left alone, and a page drawn again gets back
      the canvas it had (as idGuill does) */
-  const d=cv.dataset,key=[w,h,dpr,col,d.alpha,d.cx,d.cy,d.seed].join('|');
+  const key=guillKey(cv,w,h,dpr),col=key.split('|')[3],d=cv.dataset;
   if(cv._gk===key&&cv.width===W&&cv.height===H)return;
   const old=GUILL.get(key);
   if(old&&old!==cv&&!old.isConnected&&old.width===W&&old.height===H&&old.className===cv.className){cv.replaceWith(old);GUILL.delete(key);GUILL.set(key,old);return;}
@@ -16403,7 +16403,18 @@ function drawGuill(cv){
   }
   g.globalAlpha=1;
 }
-function drawAllGuill(){document.querySelectorAll('canvas.guill').forEach(drawGuill);}
+/* A pattern drawn for the first time (some 50k line segments, a third of a second on a slow phone) waits for an
+   idle moment after the page is painted; a canvas the cache can give back is swapped in at once. */
+let guillQ=null;
+function drawAllGuill(){
+  const later=[];
+  /* with nothing drawn yet there is nothing to give back: no layout is read, and the page paints first */
+  document.querySelectorAll('canvas.guill').forEach(cv=>{if(!GUILL.size&&!cv.dataset.id){later.push(cv);return;}const w=cv.clientWidth,h=cv.clientHeight,old=w&&h&&!cv.dataset.id&&!cv._gk?GUILL.get(guillKey(cv,w,h,Math.min(2,window.devicePixelRatio||1))):null;
+    if(cv.dataset.id||cv._gk||old&&!old.isConnected)drawGuill(cv);else later.push(cv);});
+  if(!later.length)return;
+  const run=()=>{guillQ=null;document.querySelectorAll('canvas.guill').forEach(drawGuill);};
+  if(guillQ)return;guillQ=window.requestIdleCallback?requestIdleCallback(run,{timeout:400}):setTimeout(run,60);
+}
 
 /* ───────── world map ───────── */
 /* One fixed, generated world shared by every player. Territory is derived, not stored:
@@ -22878,11 +22889,25 @@ function rlfRun(){
   const J=rlfJob;if(!J)return;if(J.sig!==RECL.sig){rlfJob=null;rlfStart();return;}
   const t0=performance.now();J.slices++;
   while(performance.now()-t0<5){const y1=Math.min(J.H,J.y+24);RLF_STAGES[J.st](J,J.y,y1);J.y=y1;
-    if(J.y>=J.H){J.st++;J.y=0;if(J.st>=RLF_STAGES.length){J.work+=performance.now()-t0;rlfF={sig:J.sig,W:J.W,H:J.H,V:J.V,ms:J.work,slices:J.slices};rlfJob=null;rlfL=null;rlfLK='';redrawMaps();return;}}}
+    if(J.y>=J.H){J.st++;J.y=0;if(J.st>=RLF_STAGES.length){J.work+=performance.now()-t0;rlfF={sig:J.sig,W:J.W,H:J.H,V:J.V,ms:J.work,slices:J.slices};rlfJob=null;rlfL=null;rlfLK='';rlfStore(rlfF);redrawMaps();return;}}}
   J.work+=performance.now()-t0;setTimeout(rlfRun,0);
 }
-function rlfField(){if(!rlfF||rlfF.sig!==RECL.sig)rlfStart();return rlfF;}
-if(window.requestIdleCallback)requestIdleCallback(()=>rlfStart(),{timeout:2500});else setTimeout(rlfStart,600);
+function rlfField(){if(!rlfF||rlfF.sig!==RECL.sig){if(!rlfF&&!rlfLoad)rlfCached().then(hit=>{if(!hit)rlfStart();});else rlfStart();}return rlfF;}
+/* Prewarmed only for a player with a nation: a visitor on the front page sees no map, and the first map
+   drawn starts the job itself (rlfField). A finished field is kept in IndexedDB per region, land and
+   version (rlfStore, as 16-bit steps of 1/8192: finer than the layer's 8-bit alpha), so a returning player's page reads it back instead of working it out again. */
+const RLF_VER=1;
+const rlfKey=()=>[RLF_VER,REG.id,MAP.N,MAP.W,MAP.H,RECL.sig].join('|');
+function rlfDB(){return rlfDB.p||(rlfDB.p=new Promise((ok,no)=>{try{const q=indexedDB.open('edictum-cache',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error);}catch(e){no(e);}}));}
+function rlfStore(F){rlfDB().then(db=>{const t=db.transaction('kv','readwrite');const Q=new Int16Array(F.V.length);for(let i=0;i<Q.length;i++)Q[i]=Math.max(-32767,Math.min(32767,Math.round(F.V[i]*8192)));t.objectStore('kv').put({k:rlfKey(),W:F.W,H:F.H,Q},'rlf:'+REG.id);}).catch(()=>{});}
+let rlfLoad=null;
+function rlfCached(){
+  if(rlfLoad)return rlfLoad;const key=rlfKey();
+  return rlfLoad=rlfDB().then(db=>new Promise(ok=>{const q=db.transaction('kv').objectStore('kv').get('rlf:'+REG.id);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null);}))
+    .catch(()=>null).then(v=>{if(v&&v.k===key&&v.k===rlfKey()&&v.Q instanceof Int16Array&&v.Q.length===v.W*v.H&&!rlfF){const V=new Float32Array(v.Q.length);for(let i=0;i<V.length;i++)V[i]=v.Q[i]/8192;rlfF={sig:RECL.sig,W:v.W,H:v.H,V,ms:0,slices:0,cached:true};rlfJob=null;rlfL=null;rlfLK='';redrawMaps();return true;}return false;});
+}
+function rlfWarm(){if(!S.nation||rlfF)return;rlfCached().then(hit=>{if(!hit)rlfStart();});}
+if(window.requestIdleCallback)requestIdleCallback(rlfWarm,{timeout:2500});else setTimeout(rlfWarm,600);
 function rlfLayer(col){
   const F=rlfField();if(!F)return null;const dk=rlfDark(col),key=F.sig+'|'+dk;if(rlfL&&rlfLK===key)return rlfL;
   const c=document.createElement('canvas');c.width=F.W;c.height=F.H;const g=c.getContext('2d');if(!g)return null;
@@ -26484,7 +26509,8 @@ function rvFinish(A){
     crossing:(a,b)=>{const id=rvEdge(a,b);return id>=0&&RV.list[id].cls>=2?id:null;},
     stream:(a,b)=>{const id=rvEdge(a,b);return id>=0?id:null;}};
 }
-if(window.requestIdleCallback)requestIdleCallback(()=>{if(!rvQ)rvIdle();},{timeout:1500});else setTimeout(()=>{if(!rvQ)rvIdle();},400);
+/* prewarmed for a player with a nation only; a visitor's front page has no map (rvReady and rvData make it on demand) */
+if(window.requestIdleCallback)requestIdleCallback(()=>{if(!rvQ&&S.nation)rvIdle();},{timeout:1500});else setTimeout(()=>{if(!rvQ&&S.nation)rvIdle();},400);
 function rvEdge(a,b){if(!rvData()||a<0||b<0)return -1;for(let d=0;d<6;d++)if(MAP.nbr[a*6+d]===b)return RV.E6[a*6+d]-1;return -1;}
 /* RIVERS(): the network, or null for the moment after load while it is being made (the maps redraw when
    it is ready); RIVERS(true) makes it at once */
@@ -37587,8 +37613,18 @@ async function connect(){
      tab in the background or left alone (quietListen); their redraws wait for the player (quietRender). */
   let regQS=null,spQS=null,hadMine=false;S.mod=S.mod||{};
   const hidden=id=>!!(S.mod[id]&&S.mod[id].hidden)&&id!==S.uid;
+  /* Before founding, with no map on screen, the front page only shows the region's counts: every save in the
+     region used to rebuild the whole region (normalising every nation) and redraw the panel at once, a steady
+     load on a phone left on the front page. There the rebuild waits and gathers: at most one per SHARED_FRONT. */
+  const SHARED_FRONT=15000;let sharedT=0,sharedAt=0;
   const shared=()=>{
     if(!regQS||!spQS)return;
+    if(S.nation||S.view==='map'||OBS||!sharedAt){sharedAt=Date.now();if(sharedT){clearTimeout(sharedT);sharedT=0;}sharedNow();return;}
+    if(!sharedT)sharedT=setTimeout(()=>{sharedT=0;sharedAt=Date.now();sharedNow();},Math.max(0,SHARED_FRONT-(Date.now()-sharedAt)));
+  };
+  /* anything the visitor does (a key, a tap) catches up at once, so founding and naming check the latest region */
+  for(const t of ['pointerdown','keydown'])window.addEventListener(t,()=>{if(sharedT){clearTimeout(sharedT);sharedT=0;sharedAt=Date.now();sharedNow();}},{capture:true,passive:true});
+  const sharedNow=()=>{
     const w={},all={};
     for(const d of spQS.docs){const raw=d.data();if(!raw||!REG_BY_ID[raw.reg]||hidden(d.id))continue;
       all[d.id]={reg:raw.reg,name:String(raw.name||'').slice(0,40),pop:0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);}
