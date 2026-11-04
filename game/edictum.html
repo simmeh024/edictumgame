@@ -20727,7 +20727,8 @@ const ID_BD=[['b-plain','Plain rule','plain','',0],['b-double','Double rule','do
   ['b-gold','Gold leaf','gold','',1],['b-fleuron','Gold fleurons','gold','fleur',1],['b-laurel','Gold laurel','gold','laurel',1],['b-lapis','Lapis and gold','lapis','lap',1],
   ['b-enamel','Enamel and gold','gold','gem',1],['b-sapphire','Platinum and sapphire','plat','gem',1],['b-holo','Holographic foil','holo','gem',1],['b-obsidian','Obsidian and gold','obsidian','sun',1],
   ['b-violet','Starlit violet','violet','star',1],['b-aurora','Aurora','aurora','crystal',1],['b-stars','Constellation','stars','cstar',1],['b-nebula','Nebula','nebula','planet',1],
-  ['b-opal','Opal','opal','opal',1],['b-prism','Prismatic crown','prism','prism',2]];
+  ['b-opal','Opal','opal','opal',1],['b-prism','Prismatic crown','prism','prism',2],
+  ['b-halo','Haloed obsidian','obsidian','sun',2],['b-tempest','Tempest aurora','aurora','prism',2],['b-atlas','Starlit prism','prism','cstar',2]];
 /* from here up the border catches the same light as the foil strip */
 const ID_BD_LIT=ID_BD.findIndex(b=>b[0]==='b-rose');
 const UNLOCKS={
@@ -21401,7 +21402,9 @@ const ACH_RANKS=[[0,'Footnote','Mentioned, briefly, in other nations’ historie
   [2500,'Living Legend','Schoolchildren across the Reach are examined on you.'],[2875,'Monument','A square in four capitals bears your name, and a fountain in a fifth.'],
   [3250,'Byword','Your name is now an adjective in four languages.'],[3625,'Folk Hero','Sung about in taverns across the Reach, inaccurately and at length.'],
   [4000,'Immortal of the Reach','Statues of you outnumber the pigeons that sit on them.'],[4500,'Celestial','A constellation now bears your name, though nobody agrees which one.'],
-  [5000,'Founding Myth','Historians argue about whether you existed at all.'],[5500,'Eternal','Nothing is left to prove, though you will try anyway.']];
+  [5000,'Founding Myth','Historians argue about whether you existed at all.'],[5500,'Eternal','Nothing is left to prove, though you will try anyway.'],
+  [6000,'Patron Saint of the Reach','Invoked by travellers, sailors and people looking for their keys.'],[6750,'Weather System','Other nations plan around you, like the seasons.'],
+  [7500,'The Whole Atlas','Every map of the Reach is, in some sense, a map of you.']];
 const ACH_PRESTIGE={'a-gold':500,'f-stars':1000,'t-venerable':1500,'t-legendary':2500,'t-mythic':5000,'t-eternal':5500,...Object.fromEntries(ID_BD.slice(1).map(([id],i)=>[id,ACH_RANKS[i+1][0]]))};
 const ACH=[],ACH_BY_ID={},ACH_BY_U={};
 function achDef(c,id,t,n,d,g,f,o){const a=Object.assign({c,id,t,n,d,g,f},o||{});ACH.push(a);ACH_BY_ID[id]=a;if(a.u)ACH_BY_U[a.u]=a;return a;}
@@ -21536,9 +21539,9 @@ achDef('eco','eco-taxing','b','Taxing Times','Raise Income Tax to 80%.',80,x=>aH
 const aClaims=x=>Math.max(aT(x,'claim'),(x.n.claims||[]).length);
 [['land-claim1','b','Staking a Claim',1,'Spend a land credit on the map. Bring your own flag.'],['land-claim15','s','Manifest Paperwork',15,'Claim 15 hexes with land credits.'],['land-claim40','g','Surveyor General',40,'Claim 40 hexes with land credits.']]
   .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,aClaims));
-[['land-hex30','b','Elbow Room',30],['land-hex60','s','Broad Acres',60],['land-hex100','g','Cartographer’s Delight',100,'t-cartographer'],['land-hex150','p','Wall-to-Wall',150]]
+[['land-hex30','b','Elbow Room',30],['land-hex60','s','Broad Acres',60],['land-hex100','g','Cartographer’s Delight',100,'t-cartographer'],['land-hex150','p','Wall-to-Wall',150],['land-hex300','p','Continental',300],['land-hex800','p','Half the Atlas',800]]
   .forEach(([id,t,n,g,u])=>achDef('land',id,t,n,`Hold ${g} hexes of land at once (${fmtArea(g)}).`,g,aHexes,{u}));
-[['land-city2','b','Second City',2],['land-city4','s','Urban Sprawl',4],['land-city6','g','Conurbation',6],['land-city8','p','Metropolitan',8]]
+[['land-city2','b','Second City',2],['land-city4','s','Urban Sprawl',4],['land-city6','g','Conurbation',6],['land-city8','p','Metropolitan',8],['land-city12','g','Megalopolis',12],['land-city20','p','A Nation of Cities',20]]
   .forEach(([id,t,n,g])=>achDef('land',id,t,n,`Have ${g} cities, counting the capital.`,g,x=>(x.n.cities||[]).length));
 const aRec=x=>Math.max(aT(x,'rec'),(x.n.rec||[]).length);
 [['land-rec1','b','Land from the Sea',1,'Reclaim a hex from the sea.'],['land-rec5','s','Polder Geist',5,'Reclaim 5 hexes from the sea.'],['land-rec12','g','Neptune’s Landlord',12,'Reclaim 12 hexes from the sea.']]
@@ -21664,6 +21667,27 @@ achParts('odd','odd-eccentric','g','Full Eccentric','Have Decimal Time, National
 achParts('odd','odd-stars','g','Ad Astra','Complete the Space Port and keep a base on the Moon.',x=>[achP('Space Port completed',aBuilt(x,'spaceport')>0),achPP(x,'moonBase')],{u:'p-stars'});
 achDef('odd','odd-flag','b','Vexillologist','Redesign your national flag.',1,x=>aT(x,'log:flag'));
 achDef('odd','odd-flag10','s','Vexillomaniac','Redesign your flag 10 times. The flagmakers send their thanks.',10,x=>aT(x,'log:flag'));
+/* ── round two (2026-11-04): the newer parts of the game, longer careers and achievements about achievements ── */
+const aNum=v=>Number.isFinite(+v)?+v:0;
+function aCxLv(x,min){return achM(x,'cxlv'+min,()=>{let k=0;for(const c of x.n.cities||[])for(const b of c.b||[]){try{if(b.d<=x.now&&cxLevel(b,x.now)>=min)k++;}catch(e){}}return k;});}
+const aGifts=x=>achM(x,'wnd',()=>{const c=(x.n.wnd&&x.n.wnd.c)||{};return Object.values(c).reduce((s,v)=>s+Math.max(0,aNum(v)),0);});
+const aAchN=x=>Object.keys(x.n.ach||{}).filter(id=>ACH_BY_ID[id]).length;
+[['found-stk7','b','Creature of Habit',7,'Keep up a presence streak of 7 days.'],['found-stk30','s','Regular as Clockwork',30,'Keep up a presence streak of 30 days.'],['found-stk100','g','Part of the Furniture',100,'Keep up a presence streak of 100 days. The building staff have started saying good morning.']]
+  .forEach(([id,t,n,g,d])=>achDef('found',id,t,n,d,g,x=>stkDays(x.n)));
+[['found-desk1','b','In-Tray Zero',1,'Clear your daily desk.'],['found-desk25','s','Desk Jockey',25,'Clear your daily desk 25 times.'],['found-desk100','g','Permanent Secretary',100,'Clear your daily desk 100 times.']]
+  .forEach(([id,t,n,g,d])=>achDef('found',id,t,n,d,g,x=>aNum(x.n.ddc)));
+achDef('found','found-tut','g','Graduate of the Charter','Finish every one of the four tutorial lists.',1,x=>{try{return achYes(x.me&&tutChOf(x.n).length>=TUT_LISTS.length);}catch(e){return 0;}},{fm:'bool'});
+[['bld-statue1','b','Chip Off the Old Block',1,'Give resources towards your region’s Great Statue.'],['bld-statue250','s','Patron of the Plinth',250,'Give 250 resources towards the Great Statue.'],['bld-statue1000','g','Bronze Benefactor',1000,'Give 1,000 resources towards the Great Statue.']]
+  .forEach(([id,t,n,g,d])=>achDef('bld',id,t,n,d,g,aGifts));
+achDef('soc','soc-ws1','b','Dear Mara','Answer the first letter from Willow Street.',1,x=>Math.floor(aNum(x.n.wsl)/WS_LAND),{fm:'bool'});
+achDef('soc','soc-ws8','g','Willow Street Regular','Answer all eight letters from Willow Street.',8,x=>Math.floor(aNum(x.n.wsl)/WS_LAND));
+achDef('land','land-cxlv2','b','Extension Approved','Raise a building to level 2.',1,x=>aCxLv(x,2),{fm:'bool'});
+achDef('land','land-cxlv3','s','Top of the Range','Raise a building to level 3.',1,x=>aCxLv(x,3),{fm:'bool'});
+achDef('land','land-cxlv10','g','Planning Permission','Have 10 buildings at level 3.',10,x=>aCxLv(x,3));
+achDef('law','law-1500','p','Statute Book of Babel','Make 1,500 decisions. Nobody has read all of them, including you.',1500,aDec);
+achDef('law','law-dismiss100','g','Wastepaper Basket','Veto 100 edicts.',100,x=>aT(x,'dismiss'));
+[['odd-ach50','s','Decorated',50,'Earn 50 achievements.'],['odd-ach150','g','Medal Rack',150,'Earn 150 achievements. Your jacket now clinks.'],['odd-ach250','p','Full Dress Uniform',250,'Earn 250 achievements.']]
+  .forEach(([id,t,n,g,d])=>achDef('odd',id,t,n,d,g,aAchN));
 achParts('odd','odd-pets','b','Pet Project','Have a Cat Curfew and Dog Licences in force at once.',x=>[achPP(x,'catCurfew'),achPP(x,'dogLicence')]);
 achDef('odd','odd-wildlife','b','Protected Species','Protect your national animal by law.',1,x=>achYes(aPol(x,'wildlife')),{fm:'bool'});
 achParts('odd','odd-weather','s','Weather Permitting','Run Weather Control and a Planetary Defence Force at once, and keep an eye on the sky.',x=>[achPP(x,'weatherControl'),achPP(x,'planetaryDefence')]);
@@ -21814,7 +21838,7 @@ function achMiniCard(q,kind){
     ${kind==='next'?`<p class="ach-mini-d">${esc(a.d)}</p><div class="ach-prog"><span class="bar"><i style="width:${achPct(a,r).toFixed(1)}%"></i></span><span class="ach-nums">${r.parts?`${r.v} of ${r.g} conditions`:esc(achNum(a,r))}</span></div>`:`<p class="ach-mini-d">${esc(ACH_CAT[a.c])} · ${t?fmtDate(t):'at the next save'}</p>`}</li>`;
 }
 function achLadder(pts){
-  return `<details class="ach-ladder"><summary>All ranks and prestige rewards</summary><ol>${ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${i||u.length?`<span class="ach-rw">Reward: ${esc(list((i?[ACH_RANK_CREDITS+' land credits']:[]).concat(u)))}</span>`:''}</span>${idBdSwatch(i)}</li>`;}).join('')}</ol></details>`;
+  return `<details class="ach-ladder"><summary>All ranks and prestige rewards</summary><ol>${ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${i||u.length?`<span class="ach-rw">Reward: ${esc(list((i?[ACH_RANK_CREDITS+' land credits']:[]).concat(u)))}</span>`:''}</span>${idBdSwatch(Math.min(i,ID_BD.length-1))}</li>`;}).join('')}</ol></details>`;
 }
 function achLeaders(cur){
   const pl=allNations().filter(y=>!y.npc).map(y=>({y,p:achPoints(y.n),c:achEarnedIds(y.n).length})).sort((a,b)=>b.p-a.p||b.c-a.c||(a.y.n.name<b.y.n.name?-1:1));
@@ -40125,7 +40149,7 @@ ACH_CATS.splice(ACH_CATS.length-1,0,['pass','Passport & travel']);ACH_CAT.pass='
   P('pass-design','s','Couturier','Design your passport’s cover, its pages and its entry stamp.',1,x=>ppStats(x.n).ds===7?1:0,'pi-orange');
   P('pass-titles','b','Curator of Travels','Give three pages of your passport a title.',3,x=>ppStats(x.n).titles,'pt-sand');
   P('pass-carried','s','Famous Seal','Have your stamp carried by 10 nations of your region.',10,x=>x.me?ppCarried(x.id):0,'ps-diamond',{mp:1});
-  P('pass-carried50','g','Household Name','Have your stamp carried by 50 nations of your region.',50,x=>x.me?ppCarried(x.id):0,'pi-gold',{mp:1});
+  P('pass-carried50','g','Seal of Approval','Have your stamp carried by 50 nations of your region.',50,x=>x.me?ppCarried(x.id):0,'pi-gold',{mp:1});
 }
 UNLOCK_SOURCES.push({earned:n=>ppDiplomata(n)?Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].src==='bld'):[],how:id=>UNLOCKS[id]&&UNLOCKS[id].src==='bld'?'Build a Diplomata in one of your cities.':''});
 achUnlockWords=(f=>u=>{const U=UNLOCKS[u];if(!U)return '';const w={ppfont:`the ${U.n} typeface for the passport`,ppicon:`the ${U.n} device for the passport`,ppwm:`the ${U.n} watermark`,ppcol:`the ${U.n} passport cover`,pptex:`the ${U.n} cover material`,ppfoil:`${U.n} foil for the passport`,pporn:`the ${U.n} cover ornament`,ppemb:`the ${U.n} cover emblem`,
