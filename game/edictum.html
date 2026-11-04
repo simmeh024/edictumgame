@@ -41343,6 +41343,15 @@ go=(f=>function(v){if(v==='nation')fdSeeTasks(S.nation);return f.apply(this,argu
 /* the page a visit opens on counts as opened too, once */
 let fdSeenFirst=false;nationView=(f=>function(){if(!fdSeenFirst){fdSeenFirst=true;fdSeeTasks(S.nation);}return f.apply(this,arguments);})(nationView);
 
+/* the map's tabs reach the nation's own land too: its cities, and its states (or provinces, counties: the
+   nation's own word), which can be switched on from here as well as from Customise */
+mapTabs=(f=>function(on){
+  const n=S.nation;if(!n||n.npc||OBS)return f.apply(this,arguments);let t2='States',pOn=false;try{t2=prvT2(n);pOn=prvOnRec(n);}catch(e){}
+  const extra=`<button role="tab" class="stab" aria-selected="false" data-act="go" data-v="cities">Cities</button>`+(pOn?`<button role="tab" class="stab" aria-selected="false" data-act="go" data-v="provinces">${esc(t2)}</button>`:`<button type="button" class="stab stab-add" data-act="fd-prv-on" title="Divide your nation into ${esc(prvLow(t2))}">+ ${esc(t2)}</button>`);
+  return f.apply(this,arguments).replace(/<\/div>$/,extra+'</div>');
+})(mapTabs);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-prv-on"]');if(!el||!S.nation)return;prvSwitch(true);try{if(prvOnRec(S.nation))go('provinces');}catch(e){}});
+
 /* the founding funnel */
 function fdEvent(n,name,now){
   const key='edictum.funnel.'+(+n.founded||0);let had='';try{had=localStorage.getItem(key)||'';}catch(e){}

@@ -14,11 +14,11 @@ function section(store={}){
     localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v);}},
     window:{edictumStat:(name,p)=>sent.push([name,p])},document:{addEventListener(){}},
     esc:s=>String(s),cellOf:l=>l?l.c:-1,territory:()=>({}),fdSites:()=>[11,-1,33],landName:c=>'Isle '+c,
-    issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK',go:v=>{},
+    issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK',go:v=>{},mapTabs:()=>'<div class="stabs">TABS</div>',prvT2:()=>'States',prvLow:s=>s.toLowerCase(),prvOnRec:n=>!!n.prov,
     ffbCard:()=>'FFB',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
     TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
     tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:false,lock:'later'}]});
-  vm.runInContext(source.slice(start,end)+';this.T={go:v=>go(v),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
+  vm.runInContext(source.slice(start,end)+';this.T={go:v=>go(v),mapTabs:()=>mapTabs('map'),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
   return {T:ctx.T,S:ctx.S,sent,hooks,store};
 }
 const nation=o=>({name:'Testoria',capital:'Port Test',founded:1e12,inbox:[],...o});
@@ -76,4 +76,10 @@ test('new open tasks put a (!) on Nation until the Nation page is opened (a redr
   for(const k of Object.keys(store))delete store[k];
   T.nationView({});assert.equal(T.navBadges().nation.length,1,'a redraw of the page does not');
   T.go('nation');assert.equal(T.navBadges().nation,undefined,'opening the page does');
+});
+
+test('the map tabs reach the cities and the states, which can be switched on there',()=>{
+  const {T,S}=section();S.nation=nation({loc:{c:5}});
+  let h=T.mapTabs();assert.match(h,/data-v="cities">Cities</);assert.match(h,/data-act="fd-prv-on"[^>]*>\+ States</);
+  S.nation.prov={on:1};h=T.mapTabs();assert.match(h,/data-v="provinces">States</);assert.doesNotMatch(h,/fd-prv-on/);
 });
