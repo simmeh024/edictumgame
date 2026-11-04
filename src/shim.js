@@ -694,6 +694,14 @@
     gtag('set', at); /* for Google's own events too (scrolls, outbound links, engagement) */
     gtag('event', 'page_view', at);
   }
+  /* a named step of the game (the founding funnel: nation_founded, capital_settled, ...), with numbers only:
+     never a player ID, a nation or anything typed */
+  window.edictumStat = function (name, p) {
+    if (!GA.on || !/^[a-z_]{3,40}$/.test(String(name))) return;
+    var at = {};
+    Object.keys(p || {}).forEach(function (k) { if (/^[a-z_]{1,40}$/.test(k) && typeof p[k] === 'number' && isFinite(p[k])) at[k] = p[k]; });
+    gtag('event', name, at);
+  };
   function statsStart() {
     if (GA.on || !GA.id) return;
     GA.on = true; GA.page = '';

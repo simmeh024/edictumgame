@@ -4691,6 +4691,11 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .fd-key{display:flex;flex-wrap:wrap;gap:4px 18px;margin:8px 0 0}
 .fd-key b{font-family:var(--f-display);color:var(--accent)}
 .fd-foot{flex-wrap:wrap;gap:10px}
+.fd-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0 6px}
+.fd-qb{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:58px;padding:10px 14px;text-align:left;white-space:normal}
+.fd-qb b{font-size:15px}.fd-qb span{font-size:12.5px;font-weight:400;opacity:.85}
+.fd-or{margin:10px 0 0}
+.fd-card{margin:0 0 18px;padding:16px 18px;background:var(--sheet);border:2px solid var(--accent);border-radius:4px}
 /* the Community Board: every region's board, the player's own first; posts with the author on the left */
 .cb-start{margin:0 0 18px}
 .cb-regs{display:flex;flex-direction:column;gap:10px;max-width:900px}
@@ -24035,12 +24040,12 @@ document.addEventListener('click',e=>{
   if(a==='found-browse'){S.frBrowse=!S.frBrowse;render();return;}
 });
 /* The founding draft survives a change of region (which reloads the page: every region has its own map)
-   and a reload: it waits in this tab's sessionStorage until the nation is founded. The capital's hex
+   and a reload: it waits in localStorage (for a day) until the nation is founded, so closing the browser keeps it. The capital's hex
    belongs to one region's map, so it comes back only in the same region. */
 const DRAFT_SS='statehood.draft';
-function draftKeep(reg){if(S.nation||!S.draft)return;try{sessionStorage.setItem(DRAFT_SS,JSON.stringify({reg:reg||REG.id,at:Date.now(),d:S.draft}));}catch(e){}}
+function draftKeep(reg){if(S.nation||!S.draft)return;try{localStorage.setItem(DRAFT_SS,JSON.stringify({reg:reg||REG.id,at:Date.now(),d:S.draft}));}catch(e){}}
 function draftRestore(){
-  let p=null;try{p=JSON.parse(sessionStorage.getItem(DRAFT_SS)||'null');}catch(e){}
+  let p=null;try{p=JSON.parse(localStorage.getItem(DRAFT_SS)||'null');}catch(e){}
   if(!p||typeof p!=='object'||!p.d||typeof p.d!=='object'||!(Date.now()-(Number(p.at)||0)<DAY))return null;
   const base=newDraft(),d=p.d;
   for(const k of Object.keys(base)){const v=d[k];if(v==null)continue;
@@ -38340,7 +38345,7 @@ function found(){
   if(nameTaken(name,REG.id)){S.foundErr=`${REG.name} already has a nation called ${name}. Choose another name.`;render();const el=document.getElementById('d-name');if(el)el.focus();return;}
   if(S.banned){S.foundErr=`This account is banned from Edictum${S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`;render();return;}
   if(regFull(REG.id)){S.foundErr=`${REG.name} is full: it has room for ${regCap(REG.id)} active nations. Choose another region, at the top or under Location.`;render();return;}
-  S.foundErr='';try{sessionStorage.removeItem(DRAFT_SS);}catch(e){}
+  S.foundErr='';try{localStorage.removeItem(DRAFT_SS);sessionStorage.removeItem(DRAFT_SS);}catch(e){}
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
@@ -41282,6 +41287,54 @@ found=(f=>function(){
   if(n&&n!==had&&cellOf(n.loc)<0){const x=n.inbox.find(e=>e.id===FD_ID);if(x){go('issues');edictOpen(FD_ID,x.at);}}
   return r;
 })(found);
+
+/* ───────── settling first: three plain choices, a card that does not go away, and the founding funnel ─────────
+   Of the first nations founded, about one in four never placed its capital: the choice sat under three speeches
+   in an edict, and an edict that was closed (or a tutorial that was hidden) left nothing on screen to ask again.
+   Now the edict opens with three big buttons above the speeches, and every unsettled nation sees a "Place your
+   capital" card at the top of its Nation page and its desk, whatever became of the edict (a div, not a
+   section, so the Nation page's section folding cannot fold it away). A choice on the card
+   answers the edict when it is still waiting (so the census moves as usual) and settles at the pin otherwise;
+   either way the next stop is the map, where the land-credit claim and the first building are waiting.
+   fdEvent sends the steps of the first days to the visit statistics (only when the visitor allowed them, and
+   never with a player or nation): founded, settled, first claim, first building, back the next day. */
+const FD_GAIN=['trade and tourism','health and happiness','safety and defence'];
+function fdChoices(n,cls){
+  const cells=fdSites(n,territory());
+  return `<div class="fd-quick${cls||''}" role="group" aria-label="Where ${esc(n.capital)} will stand">${FD_KIND.map((l,k)=>cells[k]>=0?`<button type="button" class="btn fd-qb" data-act="fd-pick" data-o="${k}"><b>Settle ${esc(l.toLowerCase())}</b><span>${['Coast','Farmland','Hills'][k]} of ${esc(landName(cells[k]))} · ${FD_GAIN[k]}</span></button>`:'').join('')}<button type="button" class="btn ghost fd-qb" data-act="fd-own"><b>Choose on the map</b><span>Any free land</span></button></div>`;
+}
+function fdCard(n){
+  if(!n||n.npc||OBS||cellOf(n.loc)>=0)return '';
+  return `<div class="fd-card" role="region" aria-labelledby="fd-card-h"><p class="eyebrow">First things first</p><h2 class="h2" id="fd-card-h">Place your capital</h2><p class="muted">${esc(n.name)} is not on the map yet. Choose where ${esc(n.capital)} stands: your flag goes up, your borders form, and your first land credits are ready to spend.</p>${fdChoices(n)}</div>`;
+}
+issueView=(f=>function(v){
+  const n=S.nation,h=f.apply(this,arguments);if(S.openIssue!==FD_ID||!n||cellOf(n.loc)>=0)return h;
+  return h.replace(/(<p class="issue-q">)/,fdChoices(n,' fd-top')+'<p class="hint fd-or">Or hear the advisors out:</p>$1');
+})(issueView);
+nationView=(f=>function(v){return fdCard(S.nation)+f.apply(this,arguments);})(nationView);
+issuesView=(f=>function(v){return fdCard(S.nation)+f.apply(this,arguments);})(issuesView);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-pick"]');if(!el||!S.nation)return;
+  const n=S.nation,k=+el.dataset.o;if(cellOf(n.loc)>=0)return;
+  if((n.inbox||[]).some(x=>x.id===FD_ID)){answer(FD_ID,k);if(cellOf(S.nation.loc)>=0&&S.view!=='issues'){S.result=null;go('map');}return;}
+  const T=territory(),c=fdSites(n,T)[k];
+  if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that place. Choose again.');return;}
+  S.mapPick=c;settle();if(cellOf(S.nation.loc)>=0)go('map');
+});
+/* the founding funnel */
+function fdEvent(n,name,now){
+  const key='edictum.funnel.'+(+n.founded||0);let had='';try{had=localStorage.getItem(key)||'';}catch(e){}
+  if(had.split(',').includes(name))return;try{localStorage.setItem(key,had?had+','+name:name);}catch(e){}
+  try{if(typeof window.edictumStat==='function')window.edictumStat(name,{hours_since_founding:Math.round((now-(+n.founded||now))/3600000)});}catch(e){}
+}
+const fdBuilt=n=>!!n&&((n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0);
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||OBS||!(+n.founded)||now-n.founded>7*DAY)return;
+  if(!old||old.founded!==n.founded)fdEvent(n,'nation_founded',now);
+  if(cellOf(n.loc)>=0&&(!old||cellOf(old.loc)<0))fdEvent(n,'capital_settled',now);
+  if((n.claims||[]).length&&!(old&&(old.claims||[]).length))fdEvent(n,'first_claim',now);
+  if(fdBuilt(n)&&!fdBuilt(old))fdEvent(n,'first_building',now);
+  if(now-n.founded>=DAY&&now-n.founded<2*DAY)fdEvent(n,'returned_next_day',now);
+});
 
 /* ───────── seven more buildings: Central Bank, Courthouse, Public Baths, Recycling Works, Nature Reserve,
    Observatory and Hanging Gardens, and the edicts that touch them ─────────
