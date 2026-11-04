@@ -17510,7 +17510,7 @@ function tradeView(){
    surplus resources. A city's production area is held land within two hexes, or three at two million city residents. Buildings work for
    whoever holds the city hex: its founder, or whoever took it in battle. Computer nations have fixed
    cities generated from the map, so the world starts developed and conquest has prizes. */
-const CITY_DISTRICT=2,CITY_MIN_DIST=4,MAX_CITIES=14,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
+const CITY_DISTRICT=2,CITY_MIN_DIST=4,MILE_CITIES=14,MAX_CITIES=33,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
 const START_STOCK={food:60,timber:45,iron:25,oil:10,goods:40};
 const CITY_COST={food:30,timber:30,goods:20};
 const BLD_CATS=[['prod','Production'],['soc','Society'],['def','Defence'],['won','Wonders']];
@@ -17677,7 +17677,12 @@ function syncBuildings(n,now){
   }
 }
 function slotsOf(ct){return blkOf(ct).n;}
-function maxCities(T,i){return mileOf(S.nation).cities;}
+/* land area also brings cities: one at each million km² up to 9 million, then one at every 10 million up to 100 million */
+const AREA_CITY_AT=[1,2,3,4,5,6,7,8,9,10,20,30,40,50,60,70,80,90,100].map(m=>m*1e6);
+const areaCities=km2=>AREA_CITY_AT.filter(a=>km2>=a).length;
+const nextAreaCity=km2=>AREA_CITY_AT.find(a=>km2<a)||null;
+function myArea(T,i){try{return i===undefined||i<0?0:T.count[i]*AREA_PER_HEX;}catch(e){return 0;}}
+function maxCities(T,i){return Math.min(MAX_CITIES,mileOf(S.nation).cities+areaCities(myArea(T,i)));}
 function nationHas(n,key){return cityList(n).some(c=>(c.b||[]).some(b=>b.k===key));}
 function buildProblem(n,ct,key,st){
   const B=BUILDINGS[key];if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return {k:'intro',t:'Warehouse plans appear when any resource reaches 280 storage.'};if(whBusy(ct))return {k:'busy',t:'Finish or cancel this city’s Warehouse upgrade before starting other construction.'};
@@ -17701,7 +17706,7 @@ function cityProblem(cell,T){
   const CS=cityState(T);
   for(const ct of CS.all){if(!ct.active&&ct.fid!==myId())continue;if(hexDist(ct.c,cell)<CITY_MIN_DIST)return ct.c===cell?`${ct.nm} already stands here.`:`That is too close to ${ct.nm}. Cities must be at least ${CITY_MIN_DIST} hexes apart.`;}
   const lim=maxCities(T,mi),have=cityList(S.nation).length;
-  if(have>=lim)return have>=MAX_CITIES?`You have the most cities a nation can found (${MAX_CITIES}).`:`At its size, ${S.nation.name} can have ${lim} ${lim===1?'city':'cities'}. The next one unlocks at ${fmtPopShort(nextCityAt(S.nation))} people.`;
+  if(have>=lim)return have>=MAX_CITIES?`You have the most cities a nation can found (${MAX_CITIES}).`:`At its size, ${S.nation.name} can have ${lim} ${lim===1?'city':'cities'}. The next one unlocks at ${fmtPopShort(nextCityAt(S.nation))} people${nextAreaCity(myArea(T,mi))?` or ${(nextAreaCity(myArea(T,mi))/1e6)} million km² of land`:''}.`;
   return '';
 }
 function siteValue(cell,T){
@@ -17818,7 +17823,7 @@ function catalog(ct,n,st){
 function foundCityForm(T,st){
   const mi=T.byId[myId()],lim=maxCities(T,mi),have=cityList(S.nation).length;
   if(have>=lim){
-    return `<div class="empty"><p class="empty-h">${have>=MAX_CITIES?'Every city founded':'No room for another city yet'}</p><p>${have>=MAX_CITIES?`${esc(S.nation.name)} has ${MAX_CITIES} cities, the most a nation can found.`:`At ${fmtPop(popNow(S.nation))} people, ${esc(S.nation.name)} can have ${lim} ${lim===1?'city':'cities'}. The next one unlocks at ${fmtPopShort(nextCityAt(S.nation))} people.`}</p></div>`;
+    return `<div class="empty"><p class="empty-h">${have>=MAX_CITIES?'Every city founded':'No room for another city yet'}</p><p>${have>=MAX_CITIES?`${esc(S.nation.name)} has ${MAX_CITIES} cities, the most a nation can found.`:`At ${fmtPop(popNow(S.nation))} people, ${esc(S.nation.name)} can have ${lim} ${lim===1?'city':'cities'}. The next one unlocks at ${fmtPopShort(nextCityAt(S.nation))} people${nextAreaCity(myArea(T,mi))?` or ${nextAreaCity(myArea(T,mi))/1e6} million km² of land`:''}.`}</p></div>`;
   }
   const sites=citySites(T);
   if(S.citySite==null||cityProblem(S.citySite,T))S.citySite=sites.length?sites[0]:null;
@@ -18212,7 +18217,7 @@ const fmtPopShort=p=>p>=1e6?(p/1e6)+' trillion':p>=1000?(p/1000)+' billion':p+' 
 function milesReached(pop){return MILESTONES.filter(m=>pop>=m.p-1e-9);}
 function mileOf(n){
   const pop=n?popNow(n):5,r=milesReached(pop),next=MILESTONES.find(m=>pop<m.p-1e-9)||null;
-  return {pop,reached:r,next,bonus:r.reduce((s,m,i)=>s+mileCredit(n,i),0),cities:Math.min(MAX_CITIES,1+r.reduce((s,m)=>s+(m.city||0),0)),title:([...r].reverse().find(m=>m.t)||MILESTONES[0]).t};
+  return {pop,reached:r,next,bonus:r.reduce((s,m,i)=>s+mileCredit(n,i),0),cities:Math.min(MILE_CITIES,1+r.reduce((s,m)=>s+(m.city||0),0)),title:([...r].reverse().find(m=>m.t)||MILESTONES[0]).t};
 }
 function bldUnlockAt(key){const m=MILESTONES.find(m=>(m.b||[]).includes(key));return m?m.p:5;}
 function bldUnlocked(n,key){if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return false;return popNow(n)>=bldUnlockAt(key)-1e-9||cvBlueOk(n,key);}
@@ -20413,7 +20418,7 @@ function helpBody(n){
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>There is only one way to win land from the sea: some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
-    cities:`<p>Your capital is your first city. More cities unlock at milestones, up to ${MAX_CITIES}. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
+    cities:`<p>Your capital is your first city. More cities unlock at population milestones and as your land grows (one at every million km² up to 9 million, then one at every 10 million up to 100 million), up to ${MAX_CITIES}. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
       <p>Cities work the land within two hexes, expanding to three at two million city residents. Overlapping production areas count each hex once. ${blkHelp()} Each city builds one thing at a time${typeof C3_QMAX==='number'?`, with up to ${num(C3_QMAX)} more waiting in its queue`:''}; buildings are paid for from your stockpile and take hours to finish, wonders a day. Cancelling a project returns half the materials.</p>
       <p>Production buildings raise output; society buildings help growth, the economy and your census figures; defence buildings strengthen your army and borders; wonders do a little of everything. Some need hills, oil, a coast or high science, and more unlock at milestones. A city works for whoever holds its hex, so a captured city serves its conqueror.</p>${G(go('cities','Open cities'))}`,
     trade:`<p>There are five resources: ${list(RES.map(resName))}. Lowland yields food, hills timber and some iron, mountains iron, and coasts add food. Oil comes from scattered deposits, and goods from industry, which grows with your economy and science.</p>
