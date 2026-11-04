@@ -47863,9 +47863,12 @@ if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,achR
 const ML_KINDS=[['msg','Letters from other nations','Who wrote, never what'],['war','War','Wars declared on you, land seized, peace made'],['dip','Diplomacy','Trade deals, alliances, matters raised'],['news','Development news','When the Edictum team posts news'],['away','A reminder when I am away','Once, after 3 days without a visit']];
 const ML_PING={war:'war',conq:'conq',peace:'peace',trade:'trade',shared:'shared',alremove:'alremove',aladmit:'aladmit',cede:'cede'};
 const ML={st:null,busy:false,err:'',msg:'',email:'',code:'',edit:false,loading:false};
+/* the "Confirm in one click" button in the confirmation letter opens /?mailcode=<code>#settings: the code is taken
+   from the address at once, and confirmed as soon as the Herald says a code is waiting for this account */
+let ML_LINK=(()=>{try{const u=new URL(location.href),c=(u.searchParams.get('mailcode')||'').replace(/\D/g,'');if(!u.searchParams.has('mailcode'))return '';u.searchParams.delete('mailcode');history.replaceState(history.state,'',u.pathname+u.search+u.hash);return c.length===6?c:'';}catch(e){return '';}})();
 function mlApi(){return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('mail'):null);}
 function mlLoad(force){if(ML.loading||ML.st&&!force)return;ML.loading=true;
-  mlApi().then(a=>a?a.request({step:'status'}):null).then(r=>{ML.st=r||{off:true};},()=>{ML.st={off:true,fail:true};}).finally(()=>{ML.loading=false;if(S.view==='settings')render();});}
+  mlApi().then(a=>a?a.request({step:'status'}):null).then(r=>{ML.st=r||{off:true};if(ML_LINK){const c=ML_LINK;ML_LINK='';if(r&&r.wait){ML.code=c;setTimeout(()=>mlDo({step:'verify',code:c},()=>{ML.code='';ML.msg='Confirmed from your letter. A welcome letter is on its way.';}),0);}else if(r&&r.ok)ML.msg='This address is already confirmed.';else ML.err='Open the confirmation link on the device where you asked for the code, or enter the code here.';}},()=>{ML.st={off:true,fail:true};}).finally(()=>{ML.loading=false;if(S.view==='settings')render();});}
 function mlDo(data,ok){if(ML.busy)return;ML.busy=true;ML.err='';ML.msg='';render();
   mlApi().then(a=>{if(!a)throw new Error('Letters are not available here.');return a.request(data);})
     .then(r=>{ML.busy=false;if(ok)ok(r);mlLoad(true);render();},e=>{ML.busy=false;ML.err=(e&&e.message)||'That did not work. Try again in a moment.';render();});}
