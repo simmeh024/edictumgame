@@ -3,7 +3,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { registered } from './eligibility.js';
-import { gather, summarize } from './stats.js';
+import { gather, summarize, nationRow } from './stats.js';
+import { setComp } from './shop.js';
 import { cbDelete } from './board.js';
 import { shopSummary } from './shop-stats.js';
 
@@ -44,9 +45,61 @@ async function account(db, uid) {
   return { kind: registered(u) ? 'registered' : 'guest', linked, admin: claims.admin === true, disabled: u.disabled, created: at(u.metadata.creationTime), lastSignIn: at(u.metadata.lastSignInTime), lastRefresh: at(u.metadata.lastRefreshTime), ip: s.get('ip') || '', ipAt: s.get('at') || 0 };
 }
 async function player(db, uid) {
-  const [n, ban, mod, sessions, acct, notes] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get()]);
-  const d = n.data() || {};
-  return { uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  const [n, ban, mod, sessions, acct, notes, shop, comp] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get(), db.doc('shop/' + uid).get(), db.doc('shopComp/' + uid).get()]);
+  const d = n.data() || {}, more = await overview(db, uid, d, acct, shop);
+  return { ...more, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+}
+/* The rest of a player's page: their nation at a glance, what they bought, other accounts seen from their address,
+   reports and tickets by and about them, and the admin actions on them (the page builds its timeline from these) */
+const when = v => typeof v === 'number' ? v : ms(v);
+const few = (qs, map, n = 20) => qs.docs.map(map).sort((a, b) => b.t - a.t).slice(0, n);
+async function overview(db, uid, shared, acct, shop) {
+  const now = Date.now();
+  const [priv, txs, ctm, paddle, against, by, tickets, bugs, acts, seen] = await Promise.all([
+    db.doc('nationx/' + uid).get(), db.collection('shopTx').where('uid', '==', uid).limit(100).get(), db.doc('shopAcct/' + uid).get(), db.doc('authConfig/paddle').get(),
+    db.collection('reports').where('target', '==', uid).limit(50).get(), db.collection('reports').where('by', '==', uid).limit(50).get(),
+    db.collection('support').where('by', '==', uid).limit(50).get(), db.collection('bugs').where('by', '==', uid).limit(50).get(),
+    db.collection('adminAudit').where('target', '==', uid).orderBy('at', 'desc').limit(30).get(),
+    acct?.ip ? db.collection('accountSeen').where('ip', '==', acct.ip).limit(21).get() : null]);
+  const r = shared && Object.keys(shared).length ? nationRow(uid, shared, priv.data(), now) : null;
+  const nation = r && { name: r.name, pop: r.pop, founded: r.founded, t: r.t, dec: r.dec, cities: r.cities, claims: r.claims, tut: r.tut.length, lists: r.lists, features: r.f, inbox: r.inbox,
+    rulings: r.ans.sort((a, b) => b[0] - a[0]).slice(0, 8).map(([t, id, o]) => ({ t, id, o })) };
+  const txIds = txs.docs.map(t => t.id), adjs = [];
+  for (let i = 0; i < txIds.length; i += 30) adjs.push(...(await db.collection('shopAdj').where('txn', 'in', txIds.slice(i, i + 30)).get()).docs.map(a => a.data()));
+  const purchases = {
+    owns: shop.get('owns') || {}, ctm: ctm.get('ctm') || '', env: paddle.get('env') === 'live' ? 'live' : 'sandbox',
+    tx: few(txs, t => ({ id: t.id, product: t.get('product') || '', t: when(t.get('paid')) || when(t.get('created')), status: t.get('status') || '', ok: t.get('ok') === true, sub: t.get('sub') || '', gift: !!t.get('gift'), payer: t.get('payer') || '', refund: t.get('refundWhy') || '',
+      adj: adjs.filter(a => a.txn === t.id).map(a => ({ action: a.action || '', status: a.status || '' })) }), 100) };
+  const others = seen ? seen.docs.map(s => s.id).filter(id => id !== uid) : [];
+  const names = others.length ? await db.getAll(...others.map(id => db.doc('summaries/' + id)), { fieldMask: ['name', 'reg', 't'] }) : [];
+  const alts = names.map(s => ({ uid: s.id, name: s.get('name') || '', reg: s.get('reg') || '', t: s.get('t') || 0, at: (seen.docs.find(d => d.id === s.id)?.get('at')) || 0 }));
+  const rep = d => ({ id: d.id, t: when(d.get('t')), reason: text(d.get('reason'), 40), note: text(d.get('note'), 300), kind: d.get('kind') || '', name: text(d.get('name'), 80), by: d.get('by') || '', target: d.get('target') || '' });
+  return { nation, purchases, alts, reports: { against: few(against, rep), by: few(by, rep),
+    tickets: few(tickets, d => ({ id: d.id, t: when(d.get('t')), topic: d.get('topic') || '', x: text(d.get('x'), 300), st: d.get('st') || '' })),
+    bugs: few(bugs, d => ({ id: d.id, t: when(d.get('t')), ti: text(d.get('ti'), 120), st: d.get('st') || '' })) },
+    actions: acts.docs.map(e => ({ t: ms(e.get('at')), action: e.get('action') || '', reason: text(e.get('reason'), 200), actor: e.get('actor') || '', outcome: e.get('outcome') || '' })) };
+}
+/* The player's Chancery Club: what the shop worked out (shop/{uid}.vip) and any free membership an admin granted */
+const clubState = (shop, comp) => {
+  const v = shop.get('vip') || null;
+  return { until: v?.until || 0, status: v?.status || '', plan: v?.plan || '', renews: v?.renews || 0, comp: comp.exists ? { at: comp.get('at') || 0, until: comp.get('until') || 0, by: comp.get('by') || '', why: comp.get('why') || '' } : null };
+};
+const CLUB_DAYS = [7, 30, 90, 365, 3650];
+async function club(db, actor, data) {
+  const target = id(data.uid), days = data.days, reason = text(data.reason, 500);
+  if (days !== 0 && !CLUB_DAYS.includes(days)) throw new HttpsError('invalid-argument', 'Choose how long the membership lasts.');
+  if (!reason) throw new HttpsError('invalid-argument', 'A reason is required.');
+  const name = text((await db.doc('nations/' + target).get()).get('name'), 80), event = db.collection('adminAudit').doc();
+  const common = { actor, action: days ? 'club_granted' : 'club_revoked', target, reason: days ? days + ' days: ' + reason : reason, ...(name ? { name } : {}), operation: event.id };
+  try {
+    await setComp(target, days ? Date.now() + days * 86400000 : 0, actor, reason);
+    await event.create({ ...common, outcome: 'completed', at: FieldValue.serverTimestamp() });
+  } catch (e) {
+    await event.create({ ...common, outcome: 'failed', error: text(e.code || 'unknown', 64), at: FieldValue.serverTimestamp() });
+    throw e;
+  }
+  const [shop, comp] = await db.getAll(db.doc('shop/' + target), db.doc('shopComp/' + target));
+  return { club: clubState(shop, comp) };
 }
 /* The staff's private notes on a player: one text per player in staffNotes/{uid} {text, at, by}, read and written
    only here (the rules refuse every client) and never shown to the player. The audit log records each change, not
@@ -193,5 +246,6 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);
   if (d.op === 'note') return note(db, actor, d);
+  if (d.op === 'club') return club(db, actor, d);
   throw new HttpsError('invalid-argument', 'Unknown console request.');
 });

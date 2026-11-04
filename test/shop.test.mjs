@@ -254,3 +254,18 @@ test('loading, saving and the stale-device paths keep up to ten waiting edicts; 
   assert.ok(/splice\(i,1\);n\.inbox\.push/.test(cv), 'a planted scandal replaces one edict, never drops one without taking its place');
   assert.ok(src.includes("if (d.iqv === 1) out.iq = 1;") || fs.readFileSync(new URL('../src/shim.js', import.meta.url), 'utf8').includes('if (d.iqv === 1) out.iq = 1;'));
 });
+
+test('a free membership an admin grants counts as the Club, split into monthly picks, beside or without a paid one', () => {
+  const at = Date.UTC(2026, 10, 4), until = at + 90 * DAY;
+  const e = entitlement({ comp: { at, until }, now: at });
+  assert.equal(e.vip.until, until);
+  assert.equal(e.vip.plan, 'comp');
+  assert.equal(e.vip.status, 'comp');
+  assert.equal(e.vip.renews, 0);
+  assert.ok(e.vip.per.length >= 3, 'a month at a time for the monthly pick');
+  assert.ok(pickPeriod(e.vip, at + DAY));
+  assert.equal(entitlement({ comp: { at, until: at }, now: at }).vip, null, 'switched off');
+  const paid = entitlement({ txs: [tx('txn_a', 'vip', { sub: 'sub_a', paid: at, period: { s: at, e: addMonth(at) } })], subs: { sub_a: { status: 'active', next: addMonth(at) } }, comp: { at, until: at + 7 * DAY }, now: at });
+  assert.equal(paid.vip.plan, 'month', 'the paid month outlasts a week free');
+  assert.equal(paid.vip.until, addMonth(at));
+});
