@@ -33166,14 +33166,15 @@ const tutFresh=n=>!!n&&!(n.answered&&n.answered.length)&&Date.now()-(+n.founded|
 function tutSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PAGE.id==='string'&&SOC_PAGE.id?SOC_PAGE:null;}catch(e){return null;}}
 function tutCall(f,d){try{const v=f();return v==null?d:v;}catch(e){return d;}}
 
-/* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited ── */
+/* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited,
+   c the charter signed (its task pays once, and the payment is kept on the record) ── */
 function tutDevGet(){
   const n=S.nation,seed=n?String(n.seed):'';if(TUT.devSeed!==seed){TUT.devSeed=seed;TUT.dev='';}
   let k=TUT.dev;try{const o=JSON.parse(localStorage.getItem(TUT_DEV_KEY)||'null');if(o&&o.s===seed&&typeof o.k==='string')k+=o.k;}catch(e){}return k;
 }
 function tutMark(c){
   if(!S.nation)return;const k=tutDevGet();if(k.includes(c))return;TUT.dev+=c;
-  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwx]/g,'')}));}catch(e){}
+  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxc]/g,'')}));}catch(e){}
   tutLcSoon();
 }
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
@@ -33207,7 +33208,7 @@ const TUT_LISTS=[
     {k:'settle',t:'Choose where your capital stands',h:'Your first edict asks where to build it: by the sea, on farmland or in the hills.',v:'issues',b:'Open edicts',f:n=>cellOf(n.loc)>=0},
     {k:'city',t:'Name your first city',h:n=>n.capital===TUT_CAP0?`${TUT_CAP0} is only a placeholder. Give your capital a name of your own: every player in ${REGION} sees it.`:`Every player in ${REGION} sees the name of your capital.`,
      act:'tut-city',b:'Name it',lc:3,gift:{goods:5},f:n=>(!!n.capital&&n.capital!==TUT_CAP0)||tallyOf(n,'log:cityren')>0,lock:n=>tutCapCity(n)?'':'Settle your capital first, then name it.'},
-    {k:'charter',t:'Finish your charter',h:'It opens Customise: flag layers, a coat of arms, epithets and the design of your money.',act:'pg-charter',b:'Finish charter',f:n=>pgAvailable(n,'charter')},
+    {k:'charter',t:'Finish your charter',h:'Everything is in place. Sign the charter to collect the founder’s bonus and move on to the next list.',act:'pg-charter',b:'Finish charter',f:(n,d)=>String(d||'').includes('c')},
     {k:'ruler',t:'Name your leader',h:n=>`Your ${String(n.leader||'Leader').toLowerCase()} heads the cabinet and signs every banknote. Settings gives them a name.`,v:'settings',to:'s-ruler',b:'Open Settings',f:n=>typeof n.ruler==='string'&&!!n.ruler.trim()},
     {k:'culture',t:'Describe your culture',h:'A national language, religion, sport, dish or anthem: edicts mention them, and your nation page shows them.',v:'settings',to:'s-lang',b:'Open Settings',
      f:n=>TUT_CULT.some(k=>typeof n[k]==='string'&&!!n[k].trim())},
@@ -40782,7 +40783,7 @@ function pgPulse(now){
 function pgGuided(n){if(!pgNew(n))return false;const L=tutCur(n);return !!L&&(L.k==='charter'||L.k==='first');}
 function pgCharterCard(page=false){return `${page?'<header class="vh"><p class="eyebrow">A nation of your own</p><h1>Finish your charter</h1></header>':''}<section class="stp pg-charter" aria-labelledby="pg-charter-h"><p class="eyebrow">First things first</p><h2 class="stp-t" id="pg-charter-h">Your nation starts here</h2><p>Your name, flag and founding principles are saved. Start with an edict, or finish your charter when you are ready to explore the full design tools.</p><div class="row"><button class="btn" data-act="pg-charter">Finish charter</button><button class="btn ghost" data-act="go" data-v="issues">Open edicts</button></div><p class="hint">You can change your particulars in Settings at any time.</p></section>`;}
 function pgFinishCharter(){
-  if(!pgNew(S.nation)||pgAvailable(S.nation,'charter'))return;const n=clone(S.nation);n.onb.u.push('charter');commit(n);saveSoon();render();toast('Charter complete. Customise and flag layers are now available.');
+  if(!S.nation||tutDevGet().includes('c'))return;tutMark('c');commit(clone(S.nation));saveSoon();render();toast('Charter signed. On to the next list.');
 }
 const pgCustomiseBase=VIEWS_EXT.customise;
 VIEWS_EXT.customise=function(now){return pgAvailable(S.nation,'charter')?pgCustomiseBase(now):pgCharterCard(true);};
@@ -40823,7 +40824,7 @@ function accountActionHint(key,assembly=false){
 const accountHintHidden=new Set();
 const accountHintKey=n=>'edictum.link-hint.'+String(n.seed);
 function accountLinkCard(n){
-  const a=accountInfo();if(!n||!pgNew(n)||!pgAvailable(n,'charter')||tutHid(n,TUT_LISTS[1])||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
+  const a=accountInfo();if(!n||!pgNew(n)||!tutLcOf(n).includes('charter')||tutHid(n,TUT_LISTS[1])||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
   try{if(localStorage.getItem(accountHintKey(n)))return '';}catch(e){}
   return `<section class="paper account-link-card" aria-labelledby="account-link-heading"><p class="eyebrow">Your charter is complete</p><h2 class="h2" id="account-link-heading">Keep your nation on every device</h2><p>Link Google, Discord or an email address to become a Registered Nation and sign in on another browser or device. Registration opens community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>${!n.glk?`<p class="hint">First sign-in link: +${GL_CREDITS} land credits, +${GL_GIFT.iron} iron, +${GL_GIFT.timber} timber and +${GL_GIFT.goods} goods.</p>`:''}<div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${accountCompareButton()}<button type="button" class="linkish small" data-act="account-hint-hide">Not now</button></div></section>`;
 }
@@ -41351,6 +41352,14 @@ mapTabs=(f=>function(on){
   return f.apply(this,arguments).replace(/<\/div>$/,extra+'</div>');
 })(mapTabs);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-prv-on"]');if(!el||!S.nation)return;prvSwitch(true);try{if(prvOnRec(S.nation))go('provinces');}catch(e){}});
+
+/* Customise is open from the start, and "Finish your charter" is the last task of the first list: it shows only
+   once the list's other tasks are done, and signing it completes the list */
+pgEligible=(f=>function(n,k){return k==='charter'?!!n:f.apply(this,arguments);})(pgEligible);
+{const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter');L.tasks.push(L.tasks.splice(i,1)[0]);}
+tutRow=(f=>function(n,x){
+  if(x&&x.k==='charter'&&!x.ok){const L=TUT_LISTS.find(L=>L.k==='charter');let rest=true;try{rest=tutState(n,L).every(y=>y.k==='charter'||y.ok);}catch(e){}if(!rest)return '';}
+  return f.apply(this,arguments);})(tutRow);
 
 /* the founding funnel */
 function fdEvent(n,name,now){
@@ -47163,7 +47172,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

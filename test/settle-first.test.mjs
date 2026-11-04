@@ -15,10 +15,10 @@ function section(store={}){
     window:{edictumStat:(name,p)=>sent.push([name,p])},document:{addEventListener(){}},
     esc:s=>String(s),cellOf:l=>l?l.c:-1,territory:()=>({}),fdSites:()=>[11,-1,33],landName:c=>'Isle '+c,
     issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK',go:v=>{},mapTabs:()=>'<div class="stabs">TABS</div>',prvT2:()=>'States',prvLow:s=>s.toLowerCase(),prvOnRec:n=>!!n.prov,
-    ffbCard:()=>'FFB',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
-    TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
-    tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:false,lock:'later'}]});
-  vm.runInContext(source.slice(start,end)+';this.T={go:v=>go(v),mapTabs:()=>mapTabs("map"),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
+    ffbCard:()=>'FFB',pgEligible:()=>false,tutRow:()=>'ROW',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
+    TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]},{k:'charter',tasks:[{k:'charter'},{k:'flag'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
+    tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:true,lock:''}]});
+  vm.runInContext(source.slice(start,end)+';this.T={TL:TUT_LISTS,pgEligible:(...a)=>pgEligible(...a),tutRow:(...a)=>tutRow(...a),go:v=>go(v),mapTabs:()=>mapTabs("map"),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
   return {T:ctx.T,S:ctx.S,sent,hooks,store};
 }
 const nation=o=>({name:'Testoria',capital:'Port Test',founded:1e12,inbox:[],...o});
@@ -82,4 +82,13 @@ test('the map tabs reach the cities and the states, which can be switched on the
   const {T,S}=section();S.nation=nation({loc:{c:5}});
   let h=T.mapTabs();assert.match(h,/data-v="cities">Cities</);assert.match(h,/data-act="fd-prv-on"[^>]*>\+ States</);
   S.nation.prov={on:1};h=T.mapTabs();assert.match(h,/data-v="provinces">States</);assert.doesNotMatch(h,/fd-prv-on/);
+});
+
+test('Customise is open from the start, and Finish your charter waits at the end of the list for the others',()=>{
+  const {T,S}=section();
+  assert.equal(T.pgEligible({},'charter'),true);assert.equal(T.pgEligible({},'map'),false);
+  assert.deepEqual([...T.TL[1].tasks.map(s=>s.k)],['flag','charter'],'the charter task is last');
+  const n=nation({capital:'Port Alder'});
+  assert.equal(T.tutRow(n,{k:'charter',ok:false}),'','hidden while the naming task is open');
+  n.capital='Estport';assert.equal(T.tutRow(n,{k:'charter',ok:false}),'ROW','shown once the others are done');
 });
