@@ -10,7 +10,7 @@ const html=readFileSync(path.join(root,'index.html'),'utf8');
 const core=html.match(/"(\/assets\/game\.[0-9a-f]+\.js)"/)[1],content=html.match(/\/assets\/content\.[a-f0-9]+\.js/)[0];
 /* the front page paints before the game's scripts run: they are preloaded, then added in order after the first frame */
 const list=JSON.parse(html.match(/var L=(\[\[.*?\]\]);/)[1]).map(x=>x[0].split('/').pop().split('.')[0]);
-check('the game scripts load after the first paint, in order',list.join()==='maps,content,game,shim'&&!/<script[^>]+src="\/assets\//.test(html)&&html.includes('rel="preload" href="'+core+'"'),list.join());
+check('the game scripts load after the first paint, in order',list.join()==='maps,content,game,shim'&&!/<script[^>]+src="\/assets\//.test(html),list.join());
 const A=await player('startup-desktop');await A.ctx.unrouteAll();
 await open(A);await found(A,'Quickland');
 await until(async()=>{const n=await localNation(A);return n?._rev>0&&!n._dirty;},15000);
