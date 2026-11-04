@@ -37695,6 +37695,17 @@ async function ownCheck(){
 }
 setInterval(ownCheck,5000);
 go=(f=>function(){const r=f.apply(this,arguments);ownCheck();return r;})(go);
+/* A safety valve for a machine-translated page (see pageTranslated): the translator still keeps its own copy of
+   every piece of text it translated, so a long translated session grows by a few megabytes a page. After
+   TR_RELOAD pages drawn while translated, the next page the player opens is saved and the tab reloads itself
+   on it, which frees all of that (the browser translates the fresh page again). Never with a text field in use, an
+   unsaved news post, or anything the reload for a newer build also leaves alone (keepPage: drafts, no nation yet). */
+const TR_RELOAD=()=>Math.max(5,Number(window.EDICTUM_TR_RELOAD)||150);/* EDICTUM_TR_RELOAD: the tests' smaller number */
+go=(f=>function(){const r=f.apply(this,arguments);
+  if(RENDER_LAST.tr>=TR_RELOAD()&&pageTranslated()&&!trBusy()){RENDER_LAST.tr=0;
+    Promise.resolve().then(()=>flushNow()).catch(()=>{}).then(()=>location.reload());}
+  return r;})(go);
+function trBusy(){const a=document.activeElement;return (window.__edictum&&window.__edictum.keepPage&&window.__edictum.keepPage())||!!(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))||!!(NWE.dirty||NWE.busy)||OBS;}
 
 function allNations(){
   npcLive();
@@ -38336,6 +38347,15 @@ function applyTheme(t){const r=document.documentElement;if(t==='light'||t==='dar
 function setTheme(t){try{if(t==='auto')localStorage.removeItem('statehood.theme');else localStorage.setItem('statehood.theme',t);}catch(e){}applyTheme(t);render();}
 
 /* ───────── render ───────── */
+const RENDER_LAST={k:null,app:null,skips:0,tr:0};
+/* With the page machine-translated (Google Translate in Chrome, or its website widget), the translator keeps a
+   reference to every piece of text it translated, and through it the whole page that text sat in: every page drawn
+   and replaced stayed in memory (about 3,600 elements and their listeners a page, over a million after an hour of
+   play) until the tab came to a halt. Taking the old page apart before replacing it leaves the translator holding
+   only its loose pieces of text. Not needed, and not done, on a page that is not translated. */
+function pageTranslated(){const c=document.documentElement.classList;return c.contains('translated-ltr')||c.contains('translated-rtl');}
+function dismantle(root){const st=[root];while(st.length){const n=st.pop();let c=n.lastChild;while(c){const p=c.previousSibling;n.removeChild(c);if(c.firstChild)st.push(c);c=p;}}}
+const renderKey=h=>h.replace(/\b(crt|cu[bcn]|cz[afps]|fgo|cm|fp|id[fs]|pp[a-z]{1,2}|shl|wd)\d+/g,'$1');
 function render(){if(fxRender())return;
   let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
   if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
@@ -38348,8 +38368,16 @@ function render(){if(fxRender())return;
   /* a heading focused by a jump (tabindex -1) keeps its focus when the page is drawn again */
   const ae=document.activeElement,fidFocus=ae&&ae.id?ae.id:null,fidTab=fidFocus&&ae.getAttribute('tabindex')==='-1';
   let sel=null;try{if(fidFocus&&typeof ae.selectionStart==='number')sel=[ae.selectionStart,ae.selectionEnd];}catch(e){}
+  /* A page that would come out exactly as it is (the clock's redraw with nothing new, a snapshot that changed
+     nothing shown) is left alone: replacing it cost a full layout and, with the browser translating the page (Google
+     Translate), made the translator redo and keep track of the whole page each time, which wore a long session
+     down to a crawl. The serial numbers that make SVG ids unique differ from drawing to drawing, so they are
+     left out of the comparison. A jump or a reward to show always draws. */
+  const html=(OBS?obsBar():'')+(S.nation?shell():foundView()),app=document.getElementById('app'),same=renderKey(html);
+  if(same===RENDER_LAST.k&&!uxPlan&&!rewardJump&&app.firstChild&&RENDER_LAST.app===app.firstChild){RENDER_LAST.skips++;return;}
   const navK=navBefore();
-  document.getElementById('app').innerHTML=(OBS?obsBar():'')+(S.nation?shell():foundView());
+  if(pageTranslated()){dismantle(app);RENDER_LAST.tr++;}
+  app.innerHTML=html;RENDER_LAST.k=same;RENDER_LAST.app=app.firstChild;
   navAfter(navK);
   if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
   drawAllGuill();
