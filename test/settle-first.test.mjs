@@ -14,8 +14,11 @@ function section(store={}){
     localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v);}},
     window:{edictumStat:(name,p)=>sent.push([name,p])},document:{addEventListener(){}},
     esc:s=>String(s),cellOf:l=>l?l.c:-1,territory:()=>({}),fdSites:()=>[11,-1,33],landName:c=>'Isle '+c,
-    issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK'});
-  vm.runInContext(source.slice(start,end)+';this.T={fdCard,issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
+    issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK',go:v=>{},
+    ffbCard:()=>'FFB',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
+    TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
+    tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:false,lock:'later'}]});
+  vm.runInContext(source.slice(start,end)+';this.T={go:v=>go(v),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
   return {T:ctx.T,S:ctx.S,sent,hooks,store};
 }
 const nation=o=>({name:'Testoria',capital:'Port Test',founded:1e12,inbox:[],...o});
@@ -55,4 +58,22 @@ test('the statistics hook sends numbers only, and only when allowed',()=>{
   const shim=readFileSync(new URL('../src/shim.js',import.meta.url),'utf8');
   assert.match(shim,/window\.edictumStat = function \(name, p\) \{\n    if \(!GA\.on/);
   assert.match(shim,/typeof p\[k\] === 'number'/);
+});
+
+test('a started first building brings a box that points to the naming task, until the capital has a name',()=>{
+  const {T,S}=section();
+  S.nation=nation({loc:{c:5},cities:[{id:'c1'}],capital:'Port Alder'});
+  assert.equal(T.ffbCard(),'FFB','no box before the first building is started');
+  S.nation.ffb={k:'saw',s:1,d:2};
+  const h=T.ffbCard();assert.match(h,/Name your first city/);assert.match(h,/data-act="tut-go" data-v="nation" data-to="tut-h-welcome"/);
+  S.nation.capital='Estport';assert.equal(T.ffbCard(),'FFB');
+});
+
+test('new open tasks put a (!) on Nation until the Nation page is opened (a redraw does not count)',()=>{
+  const store={},{T,S}=section(store);S.nation=nation({seed:7,loc:{c:5},capital:'Port Alder'});S.view='map';
+  assert.equal(T.navBadges().nation.length,1,'the open, unlocked task is new');
+  T.nationView({});assert.equal(T.navBadges().nation,undefined,'the page a visit opens on counts');
+  for(const k of Object.keys(store))delete store[k];
+  T.nationView({});assert.equal(T.navBadges().nation.length,1,'a redraw of the page does not');
+  T.go('nation');assert.equal(T.navBadges().nation,undefined,'opening the page does');
 });
