@@ -18265,7 +18265,10 @@ const BLOCKS=(()=>{
   }
   return {of,cells};
 })();
-function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)-(n.mvl||0));}
+/* every achievement rank above the first is worth ACH_RANK_CREDITS land credits */
+const ACH_RANK_CREDITS=10;
+function achRankCredits(n){try{return n&&!n.npc&&n.ach?ACH_RANK_CREDITS*achRank(achPoints(n)).i:0;}catch(e){return 0;}}
+function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)+achRankCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
   const T=territory(),i=T.byId[myId()];if(i===undefined)return 0;
@@ -21467,6 +21470,7 @@ achDef('law','law-nb10','s','Good Neighbour','Decide 10 edicts involving your ne
 achDef('law','law-dismiss','b','Not My Department','Veto an edict without a vote.',1,x=>aT(x,'dismiss'));
 achDef('law','law-dismiss25','s','In-Tray, Out-Tray','Veto 25 edicts.',25,x=>aT(x,'dismiss'),{sec:'Some problems solve themselves, if ignored with enough conviction.'});
 achDef('law','law-busy','s','Midnight Oil','Make 20 decisions within 24 hours. Sleep is for the opposition.',20,aBusy);
+achDef('law','law-zones','s','Keeper of the Hours','Settle the time-zone question in ‘Dawn, Eventually’. Unlocks the time-zone map overlay.',1,x=>achYes((x.n.answered||[]).some(a=>a.id==='g4-time-zones'&&a.o>=0)),{fm:'bool'});
 achDef('law','law-night','b','Night Shift','Make a decision between two and five in the morning.',1,x=>achYes((x.n.answered||[]).some(a=>{if(a.o<0||!a.t)return false;const h=new Date(a.t).getHours();return h>=2&&h<5;})),{fm:'bool',sec:'The ministry never sleeps. Neither, it seems, do you.'});
 
 /* ── Society: the census at its extremes ── */
@@ -21702,7 +21706,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const best=got.slice().sort((a,b)=>ACH_TIER[b.t].p-ACH_TIER[a.t].p);
   let txt=got.length===1?`Achievement earned: ${achQ(got[0].n)} (${achTierWord(got[0].t)}, ${pts} prestige).`:got.length<=3?`${got.length} achievements earned: ${list(got.map(a=>achQ(a.n)))} (+${pts} prestige).`:`${got.length} achievements earned, among them ${list(best.slice(0,2).map(a=>achQ(a.n)))} (+${fmt0(pts)} prestige).`;
   if(ul.length)txt+=` Unlocked: ${ul.length<=3?list(ul):ul.slice(0,2).join(', ')+' and '+(ul.length-2)+' more'}.`;
-  if(r1.i>r0.i)txt+=` Your rank is now ${r1.name}.`;
+  if(r1.i>r0.i)txt+=` Your rank is now ${r1.name}, worth ${(r1.i-r0.i)*ACH_RANK_CREDITS} land credits.`;
   return [{m:txt,links:rewardRefs('achievement',got)}];
 });
 NORM_HOOKS.push((n,d)=>{
@@ -21805,7 +21809,7 @@ function achMiniCard(q,kind){
     ${kind==='next'?`<p class="ach-mini-d">${esc(a.d)}</p><div class="ach-prog"><span class="bar"><i style="width:${achPct(a,r).toFixed(1)}%"></i></span><span class="ach-nums">${r.parts?`${r.v} of ${r.g} conditions`:esc(achNum(a,r))}</span></div>`:`<p class="ach-mini-d">${esc(ACH_CAT[a.c])} · ${t?fmtDate(t):'at the next save'}</p>`}</li>`;
 }
 function achLadder(pts){
-  return `<details class="ach-ladder"><summary>All ranks and prestige rewards</summary><ol>${ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${u.length?`<span class="ach-rw">Reward: ${esc(list(u))}</span>`:''}</span>${idBdSwatch(i)}</li>`;}).join('')}</ol></details>`;
+  return `<details class="ach-ladder"><summary>All ranks and prestige rewards</summary><ol>${ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${i||u.length?`<span class="ach-rw">Reward: ${esc(list((i?[ACH_RANK_CREDITS+' land credits']:[]).concat(u)))}</span>`:''}</span>${idBdSwatch(i)}</li>`;}).join('')}</ol></details>`;
 }
 function achLeaders(cur){
   const pl=allNations().filter(y=>!y.npc).map(y=>({y,p:achPoints(y.n),c:achEarnedIds(y.n).length})).sort((a,b)=>b.p-a.p||b.c-a.c||(a.y.n.name<b.y.n.name?-1:1));
@@ -40629,6 +40633,19 @@ MAP_CLICK.unshift(ctx=>{
     if(S.mpFrom==null){if(!ct||!ct.active||ct.hi!==hi){S.mpMsg='Select one of your cities as the origin.';return true;}S.mpFrom=ctx.cell;}else S.mpTo=ctx.cell;return true;}
   return false;
 });
+/* ───────── time-zone overlay: earned with the Keeper of the Hours achievement ───────── */
+const tzHas=()=>!!(S.nation&&S.nation.ach&&S.nation.ach['law-zones']);
+const tzOn=()=>tzHas()&&mapOpt('mp-tz',true)!==false;
+MAP_CONTROLS.push(()=>tzHas()?`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="tz"${tzOn()?' checked':''}> Time zones</label>`:'');
+MAP_LAYERS.push({stage:'screen',kinds:['main','visit'],draw:M=>{
+  if(!tzOn())return;const {g,s,ox,w,h}=M,K=24,bw=MAP.W/K*s,dk=document.documentElement.dataset.theme==='dark'||(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);
+  const now=new Date(),utc=now.getUTCHours()*60+now.getUTCMinutes();g.font='600 11px system-ui,sans-serif';g.textAlign='center';g.textBaseline='top';
+  for(let k=0;k<K;k++){const x=ox+k*bw,z=k-K/2;if(x>w||x+bw<0)continue;
+    if(k%2){g.fillStyle=dk?'rgba(255,255,255,.05)':'rgba(20,40,90,.06)';g.fillRect(x,0,bw,h);}
+    g.strokeStyle=dk?'rgba(255,255,255,.22)':'rgba(20,40,90,.25)';g.setLineDash([4,4]);g.lineWidth=1;g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();g.setLineDash([]);
+    if(bw>34){const m=((utc+z*60)%1440+1440)%1440,lb=(z?`UTC${z>0?'+':'−'}${Math.abs(z)}`:'UTC')+(bw>70?` · ${String(m/60|0).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`:'');
+      g.fillStyle=dk?'rgba(230,236,255,.75)':'rgba(20,40,90,.7)';g.fillText(lb,x+bw/2,6);}}
+}});
 MAP_CONTROLS.push(()=>`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="landscape"${mapOpt('mp-landscape',true)?' checked':''}> Policy landscapes</label>${pgAvailable(S.nation,'map')?`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="networks"${mapOpt('mp-networks',true)?' checked':''}> Transport networks</label>`:''}<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="influence"${mapOpt('mp-influence',false)?' checked':''}> City production areas</label>`);
 MAP_LEGEND.push(()=>pgAvailable(S.nation,'map')?'<span class="lg mp-key">Dotted island shores: harbour annexation · Numbered hexes: expansion plan · Solid lines: roads · Double lines: rail · Dotted lines: shipping · Dashed lines: construction · Red lines: cut connection</span>':'');
 function mpForestGlyphVisible(n,c){return !n.policies?.clearFelling||hash('fell:'+c)%4===0;}
