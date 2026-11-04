@@ -4695,6 +4695,7 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .fd-qb{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:58px;padding:10px 14px;text-align:left;white-space:normal}
 .fd-qb b{font-size:15px}.fd-qb span{font-size:12.5px;font-weight:400;opacity:.85}
 .fd-or{margin:10px 0 0}
+.fd-name-f{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.fd-name-f .input{flex:1 1 200px;min-width:0}
 .fd-card{margin:0 0 18px;padding:16px 18px;background:var(--sheet);border:2px solid var(--accent);border-radius:4px}
 /* the Community Board: every region's board, the player's own first; posts with the author on the left */
 .cb-start{margin:0 0 18px}
@@ -41320,6 +41321,25 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
   if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that place. Choose again.');return;}
   S.mapPick=c;settle();if(cellOf(S.nation.loc)>=0)go('map');
 });
+/* with the first building: name the capital. Port Alder is only a placeholder, so as soon as the quick first
+   building is started, the same place on the map and the cities page asks for a name of the player's own,
+   right there (the tutorial's "Name your first city" task pays for it as usual). */
+function fdNameCard(n){
+  if(!n||n.npc||OBS||!n.ffb||n.capital!==TUT_CAP0)return '';const c=tutCapCity(n);if(!c)return '';
+  const err=S.fdNameErr?`<p class="err" role="alert">${esc(S.fdNameErr)}</p>`:'';
+  return `<section class="ffb fd-name" aria-labelledby="fd-name-h"><div class="ffb-b"><p class="eyebrow">While the builders work</p><h2 class="ffb-t" id="fd-name-h">Name your first city</h2>
+    <p>${TUT_CAP0} is only a placeholder. Every player in ${esc(REGION)} will see the name you choose.</p>
+    <form class="fd-name-f" data-fd-name="${esc(c.id)}"><label class="sr-only" for="fd-name-i">Name of your capital</label><input id="fd-name-i" class="input" maxlength="40" autocomplete="off" placeholder="e.g. New ${esc(String(n.name||'').split(' ')[0])}" value="${esc(S.fdNameVal||'')}"><button type="submit" class="btn">Name it</button></form>${err}</div></section>`;
+}
+ffbCard=(f=>function(){return f.apply(this,arguments)+fdNameCard(S.nation);})(ffbCard);
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='fd-name-i')S.fdNameVal=e.target.value;});
+document.addEventListener('submit',e=>{const fm=e.target.closest&&e.target.closest('[data-fd-name]');if(!fm||!S.nation)return;e.preventDefault();
+  const v=String((fm.querySelector('input')||{}).value||'').trim(),c=cityList(S.nation).find(x=>x.id===fm.dataset.fdName);if(!c)return;
+  const nm=c3CleanName(v,40),why=nm===TUT_CAP0?'Choose a name of your own.':c3NameProblem(S.nation,c,nm);
+  if(why){S.fdNameVal=v;S.fdNameErr=why;render();return;}
+  S.fdNameVal='';S.fdNameErr='';c3Rename(c.id,nm);if(S.nation.capital===nm)toast(`${nm} it is. The signwriters are already at work.`);
+});
+
 /* the founding funnel */
 function fdEvent(n,name,now){
   const key='edictum.funnel.'+(+n.founded||0);let had='';try{had=localStorage.getItem(key)||'';}catch(e){}
