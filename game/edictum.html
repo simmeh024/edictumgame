@@ -36412,6 +36412,95 @@ const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||60000),SAVE_MIN=15
 let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=-SAVE_GAP,remoteSoon=false,commitNo=0;
 let ownSyncBusy=false,ownLatest=null,conflictPending=false;
 let saveChecked=false,saveFailed=false,saveError='',saveConflicts=0;
+/* A save that has not finished within SAVE_LIMIT counts as failed (a stalled connection otherwise leaves every later
+   save waiting behind it). Failed saves are tried again after SAVE_RETRY steps rather than the next SAVE_GAP, and
+   the player hears about it only from the third failure in a row. A commit the player made (an action, read in
+   actRecord, within a few seconds of a tap or key) reaches the region within SAVE_ACT. */
+const SAVE_LIMIT=Math.max(2000,Number(window.EDICTUM_SAVE_LIMIT)||45000);
+const SAVE_RETRY=Array.isArray(window.EDICTUM_SAVE_RETRY)?window.EDICTUM_SAVE_RETRY:[5000,15000,30000,60000];
+const SAVE_ACT=Math.max(1500,Number(window.EDICTUM_SAVE_ACT)||8000);
+let saveStreak=0,remoteDue=0,lastInput=-1e9;
+for(const t of ['pointerdown','keydown'])window.addEventListener(t,()=>{lastInput=performance.now();},{capture:true,passive:true});
+const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Object.assign(new Error('The save took too long.'),{code:'unavailable'})),ms);p.then(v=>{clearTimeout(t);res(v);},e=>{clearTimeout(t);rej(e);});});
+/* Player changes since the last confirmed save. A save refused because another device saved first (save_conflict)
+   replays them onto that save (rebaseActs) instead of discarding them. Each entry is what one action changed, read at
+   the start of commit() before the background work: paths set or removed, arrays of objects matched by id, other
+   arrays as sets, and resources as what the action spent or gained beyond what accrued. Background work (growth,
+   buildings finishing, milestones) is not replayed: the other device's save already holds it. */
+const ACT_SKIP=new Set(['pop','popAt','stock','stockAt','updatedAt','gm','apw','_rev','_dirty','_stockSet']);
+let ownActs=[],ownActsBroken=0,sentLog=[];
+const actClone=v=>v===undefined?undefined:clone(v);
+const actKey=v=>JSON.stringify(v);
+const actPlain=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
+const actById=a=>a.length>0&&a.every(x=>actPlain(x)&&(typeof x.id==='string'||typeof x.id==='number'))&&new Set(a.map(x=>x.id)).size===a.length;
+function actDiff(a,b,path,out,depth){
+  if(out.length>400)return;
+  if(a===b||depth&&actKey(a)===actKey(b))return;
+  if(actPlain(a)&&actPlain(b)&&depth<7){
+    for(const k of new Set([...Object.keys(a),...Object.keys(b)])){
+      if(!depth&&ACT_SKIP.has(k))continue;
+      if(!(k in b))out.push({p:[...path,k],d:1,o:actClone(a[k])});else if(!(k in a))out.push({p:[...path,k],v:actClone(b[k])});else actDiff(a[k],b[k],[...path,k],out,depth+1);}
+    return;}
+  if(Array.isArray(a)&&Array.isArray(b)&&depth<7){
+    if((actById(a)||!a.length)&&(actById(b)||!b.length)){
+      const ia=new Map(a.map(x=>[x.id,x])),ib=new Map(b.map(x=>[x.id,x]));
+      for(const id of ia.keys())if(!ib.has(id))out.push({p:path,del:{id}});
+      for(const [id,x] of ib){if(!ia.has(id))out.push({p:path,add:actClone(x),id:1});else actDiff(ia.get(id),x,[...path,{id}],out,depth+1);}
+      return;}
+    const ka=new Set(a.map(actKey)),kb=new Set(b.map(actKey));
+    for(const x of b)if(!ka.has(actKey(x)))out.push({p:path,add:actClone(x)});
+    for(const k of ka)if(!kb.has(k))out.push({p:path,del:{k}});
+    return;}
+  out.push({p:path,v:actClone(b),o:actClone(a)});
+}
+function actAt(root,path){let o=root;for(const seg of path){if(o==null||typeof o!=='object')return undefined;o=actPlain(seg)?(Array.isArray(o)?o.find(x=>x&&x.id===seg.id):undefined):o[seg];}return o;}
+function actApply(n,op){
+  if(op.add!==undefined||op.del){
+    let arr=actAt(n,op.p);
+    if(!Array.isArray(arr)){
+      const last=op.p[op.p.length-1],par=actAt(n,op.p.slice(0,-1));
+      if(op.add===undefined||!actPlain(par)||actPlain(last)||arr!==undefined)return;
+      arr=par[last]=[];}
+    if(op.del){const i=op.del.id!==undefined?arr.findIndex(x=>x&&x.id===op.del.id):arr.findIndex(x=>actKey(x)===op.del.k);if(i>=0)arr.splice(i,1);}
+    else if(op.id?!arr.some(x=>x&&x.id===op.add.id):!arr.some(x=>actKey(x)===actKey(op.add)))arr.push(actClone(op.add));
+    return;}
+  const last=op.p[op.p.length-1],par=actAt(n,op.p.slice(0,-1));
+  if(par==null||typeof par!=='object')return true;
+  /* a value the other save changed as well keeps the other save's: a clash */
+  if(actKey(actAt(n,op.p))!==actKey(op.o))return false;
+  if(actPlain(last)){if(Array.isArray(par)){const i=par.findIndex(x=>x&&x.id===last.id);if(i>=0){if(op.d)par.splice(i,1);else par[i]=actClone(op.v);}}return true;}
+  if(op.d)delete par[last];else par[last]=actClone(op.v);
+  return true;
+}
+/* read at the start of commit(n): what this action changed. An action that edits S.nation in place cannot be
+   read, and until a save carries it no refused save is replayed. True when the action changed anything. */
+function actRecord(n){try{return actRead(n);}catch(e){console.warn('actRecord',e);ownActsBroken=commitNo+1;return true;}}
+function actRead(n){
+  if(OBS||!S.nation)return false;
+  if(n===S.nation){ownActsBroken=commitNo+1;return true;}
+  const ops=[];actDiff(S.nation,n,[],ops,0);
+  let ds=null;
+  if(n._stockSet&&n.stock){const acc=stockNow(S.nation,n.stockAt||Date.now());for(const r of RES){const d=num0(n.stock[r])-num0(acc[r]);if(Math.abs(d)>0.005)(ds=ds||{})[r]=d;}}
+  if(!ops.length&&!ds)return false;
+  if(ops.length>400||ownActs.length>=300){ownActsBroken=commitNo+1;return true;}
+  ownActs.push({c:commitNo+1,ops,ds});return true;
+}
+/* another device's save (remote) with this page's unsaved actions replayed onto it, or null when they cannot be:
+   an action that was not read, or resources this page spent that the other save no longer holds */
+function rebaseActs(remote){
+  const mine=sentLog.find(x=>x.t===remote.updatedAt);
+  if(mine){ownActs=ownActs.filter(a=>a.c>mine.c);if(ownActsBroken&&ownActsBroken<=mine.c)ownActsBroken=0;}
+  if(ownActsBroken)return null;
+  if(!ownActs.length)return {n:remote,acts:0,mine:!!mine};
+  const m=clone(remote),now=Date.now();let st=null,clash=0;
+  try{
+    for(const a of ownActs){for(const op of a.ops)if(actApply(m,op)===false)clash++;
+      if(a.ds){st=st||stockNow(remote,now);for(const r in a.ds)st[r]=num0(st[r])+a.ds[r];}}
+  }catch(e){return null;}
+  if(st){if(RES.some(r=>num0(st[r])<-0.01))return null;m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;}
+  else if(actKey(m)===actKey(remote))return clash?null:{n:remote,acts:0,mine:!!mine};
+  return {n:m,acts:ownActs.length,mine:!!mine,clash};
+}
 /* The account control lives in the Firebase adapter. Publish actual save state, including the queue,
    so a connected browser never says Synced while its latest changes are still waiting to be sent. */
 function publishSync(){
@@ -36426,7 +36515,7 @@ function keepUnsaved(n){if(OBS)return false;try{localStorage.setItem('edictum.un
 function useSavedNation(n){
   if(OBS)return;
   if(n.reg&&n.reg!==REG.id&&REG_BY_ID[n.reg]){regionReload(n);return;}
-  S.nation=n;S.openIssue=null;S.result=null;S.settings=null;saveLocal(n);render();publishSync();
+  ownActs=[];ownActsBroken=0;S.nation=n;S.openIssue=null;S.result=null;S.settings=null;saveLocal(n);render();publishSync();
 }
 /* Retry a snapshot missed while saving, and fetch a coherent full record rather than replacing the
    nation's private half with defaults from the region's shared record. Revisions ignore device clocks. */
@@ -36441,14 +36530,21 @@ async function syncOwnNation(force=false){
     ownLatest=n;
     if(!conflictPending&&(remoteBusy||remoteDirty||before!==commitNo))return;
     if(conflictPending||savedAfter(n,S.nation)){
-      if(conflictPending){const kept=keepUnsaved(S.nation);conflictPending=false;
+      if(conflictPending){conflictPending=false;
+        const r=n.reg&&n.reg!==REG.id?null:rebaseActs(n);
+        if(r){if(!r.clash)try{localStorage.removeItem('edictum.unsaved.'+S.uid);}catch(e){}
+          ownActs=[];ownActsBroken=0;S.nation=n;saveLocal(n);
+          if(r.acts){commit(r.n);saveSoon();if(!r.mine)toast('Your nation was also saved on another device. Your changes here were added to that save.'+(r.clash?' Where both devices changed the same thing, the other device’s choice was kept; a copy of this device’s version is in your account menu.':''));}
+          else render();
+          return;}
+        const kept=keepUnsaved(S.nation);
         toast('Another device saved your nation. The latest save has been loaded. Please repeat your unsaved changes.'+(kept?' A copy of them is available in your account menu.':''));}
       useSavedNation(n);
     }
   }catch(e){saveFailed=true;/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
   finally{ownSyncBusy=false;publishSync();}
 }
-function commit(n){if(OBS||regBlocked())return;const now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
+function commit(n){if(OBS||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
   ensureCities(n);syncBuildings(n,now);const warehouseNotes=whSync(n,now);if(warehouseNotes.length)setTimeout(()=>warehouseNotes.forEach(t=>toast(t)),0);
@@ -36458,15 +36554,17 @@ function commit(n){if(OBS||regBlocked())return;const now=Date.now();migAccrue(n,
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
-  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote();}
-function queueRemote(){
+  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote(act&&performance.now()-lastInput<5000);}
+function queueRemote(player){
   if(OBS)return;
   if(regBlocked()||S.db&&!RCTRL.ready){remoteDirty=true;publishSync();return;}
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
   remoteDirty=true;
   publishSync();
-  if(remoteBusy||remoteTimer)return;
-  remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_GAP-performance.now()));
+  if(remoteBusy)return;
+  const gap=saveStreak?SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1]:player?SAVE_ACT:SAVE_GAP,due=remoteLast+gap;
+  if(remoteTimer&&remoteDue<=due)return;
+  clearTimeout(remoteTimer);remoteDue=due;remoteTimer=setTimeout(flushRemote,Math.max(0,due-performance.now()));
 }
 async function flushRemote(){
   clearTimeout(remoteTimer);remoteTimer=0;
@@ -36477,14 +36575,14 @@ async function flushRemote(){
   remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=performance.now();
   publishSync();
   try{await writeRemote();}finally{remoteBusy=false;publishSync();}
-  if(remoteDirty){if(remoteSoon)saveSoon();else queueRemote();}
+  if(remoteDirty){if(remoteSoon)saveSoon();else queueRemote(performance.now()-lastInput<5000);}
   else syncOwnNation();
 }
 /* something another player is waiting for: save within SAVE_MIN instead of at the next gap */
 function saveSoon(){
   if(OBS)return;
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}remoteDirty=true;remoteSoon=true;publishSync();if(remoteBusy)return;
-  clearTimeout(remoteTimer);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteLast+SAVE_MIN-performance.now()));
+  clearTimeout(remoteTimer);remoteDue=remoteLast+SAVE_MIN;remoteTimer=setTimeout(flushRemote,Math.max(0,remoteDue-performance.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
@@ -36507,7 +36605,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 window.addEventListener('pagehide',()=>{flushNow();});
 function resumeNation(e){
   if(S.mode!=='world'){publishSync();return;}
-  if(e&&e.type==='online'){saveChecked=false;saveFailed=false;publishSync();}
+  if(e&&e.type==='online'){saveChecked=false;saveFailed=false;saveStreak=0;publishSync();}
   if(remoteDirty){clearTimeout(remoteTimer);remoteTimer=0;flushRemote();}else syncOwnNation(true);
 }
 window.addEventListener('offline',publishSync);
@@ -36516,8 +36614,14 @@ window.addEventListener('focus',resumeNation);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeNation();});
 async function writeRemote(){
   if(OBS||!S.nation)return;
-  const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation);
-  const send=async()=>{const result=await ref.set(sent);saveChecked=true;saveFailed=false;saveError='';
+  const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation),sentC=commitNo;
+  sentLog.push({t:sent.updatedAt,c:sentC});if(sentLog.length>20)sentLog.shift();
+  /* a save past SAVE_LIMIT is given up on here, yet may still land: its revision is then taken up as below, and a
+     later save it races is refused and replayed onto it (rebaseActs, sentLog) */
+  const landed=result=>{ownActs=ownActs.filter(a=>a.c>sentC);if(ownActsBroken&&ownActsBroken<=sentC)ownActsBroken=0;
+    if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
+  const send=async()=>{const p=ref.set(sent);p.then(landed,()=>{});
+    const result=await saveWithin(p,SAVE_LIMIT);saveChecked=true;saveFailed=false;saveError='';saveStreak=0;
     /* Actions made while this write was in flight are based on it too. Advance their revision without
        replacing those actions with the older object just sent. */
     if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
@@ -36527,7 +36631,10 @@ async function writeRemote(){
     if(e&&e.code==='region_disabled'){remoteDirty=true;regionControls();return;}
     if(e&&e.code==='unavailable'){await sleep(700+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
     if(e&&e.code==='save_conflict'){saveConflicts++;saveFailed=false;keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
-    saveFailed=true;handleWriteError(e);
+    saveFailed=true;
+    const code=e&&e.code;
+    if(code==='invalid_argument'||code==='not_granted'||code==='revoked'||code==='quota_exceeded')handleWriteError(e);
+    else{saveStreak++;if(saveStreak===3)handleWriteError(e);else publishSync();}
     if(S.mode==='world')remoteDirty=true;
   }
 }
