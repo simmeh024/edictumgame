@@ -18,7 +18,7 @@ function section(store={}){
     ffbCard:()=>'FFB',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
     TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
     tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:false,lock:'later'}]});
-  vm.runInContext(source.slice(start,end)+';this.T={go:v=>go(v),mapTabs:()=>mapTabs('map'),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
+  vm.runInContext(source.slice(start,end)+';this.T={go:v=>go(v),mapTabs:()=>mapTabs("map"),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
   return {T:ctx.T,S:ctx.S,sent,hooks,store};
 }
 const nation=o=>({name:'Testoria',capital:'Port Test',founded:1e12,inbox:[],...o});
