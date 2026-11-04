@@ -5,6 +5,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { identity, eligibility, refuse, registered } from './eligibility.js';
 import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
+import { mailStep, mailUnsub, forgetMail } from './mail.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -19,6 +20,8 @@ function address(raw) {
   return /^[\da-f.:]{2,45}$/i.test(ip) ? ip : '';
 }
 export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memory: '256MiB' }, async req => {
+  // the stop-these-letters link in every letter (src/mail.html) works without signing in
+  if (req.data && req.data.op === 'mail' && req.data.step === 'unsub') return mailUnsub(req.data);
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
   if (d.op === 'recover') {
@@ -44,6 +47,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   }
   if (d.op === 'discord') return discordStep(uid, d);
   if (d.op === 'shop') return shopStep(uid, d);
+  if (d.op === 'mail') return mailStep(uid, d);
   if (d.op === 'seen') {
     // Once a page load (src/shim.js, seenCheck); the same address writes at most once an hour, moving the expiry with it.
     const ip = address(req.rawRequest), ref = db.doc('accountSeen/' + uid), now = Date.now(), last = await ref.get();
@@ -59,6 +63,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await forgetShop(uid);
     await Promise.all(['accountSeen/', 'staffNotes/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
+    await forgetMail(uid);
     await getAuth().deleteUser(uid);
     return { ok: true };
   }

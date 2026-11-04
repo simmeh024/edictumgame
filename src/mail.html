@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Letters by post · Edictum</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root{--paper:#e8eeeb;--ink:#12292a;--ink-2:#45605c}
+  @media (prefers-color-scheme: dark){:root{--paper:#0c1615;--ink:#e1ebe7;--ink-2:#a0b6b1}}
+  body{margin:0;background:var(--paper);color:var(--ink-2);font:400 16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:420px;margin:18vh auto 0;padding:0 16px;text-align:center}
+  h1{margin:0 0 8px;color:var(--ink);font:italic 600 26px/1.2 Georgia,"Times New Roman",serif}
+  button{margin-top:12px;font:600 15px/1 system-ui,sans-serif;padding:12px 20px;border:0;border-radius:4px;background:#1d4a46;color:#f7f4ec;cursor:pointer}
+  a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+  <h1>Edictum</h1>
+  <p id="m">Stop all letters from the Herald of Edictum to this address?</p>
+  <button id="b" type="button">Stop the letters</button>
+  <p><a href="/">Back to the game</a>. To choose which letters you get, open Settings, under Letters by post.</p>
+</main>
+<script>
+/* The "Stop these letters" link in every letter (functions/mail-core.js) lands here with ?t=<key>. One press turns
+   every kind of letter off through the accounts callable (functions/mail.js, step unsub), which needs no sign-in. */
+(function () {
+  var t = new URLSearchParams(location.search).get('t'), m = document.getElementById('m'), b = document.getElementById('b');
+  if (!t) { m.textContent = 'This link is missing its key. Choose your letters in the game, in Settings.'; b.hidden = true; return; }
+  b.onclick = function () {
+    b.disabled = true; m.textContent = 'Telling the Herald…';
+    fetch('/__/firebase/init.json').then(function (r) { return r.json(); }).then(function (c) {
+      return fetch('https://europe-west1-' + c.projectId + '.cloudfunctions.net/accounts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: { op: 'mail', step: 'unsub', t: t } }) });
+    }).then(function (r) { return r.json(); }).then(function (r) {
+      if (r && r.result && r.result.ok) { m.textContent = 'Done. The Herald will write no more. You can switch letters back on in Settings.'; b.hidden = true; }
+      else { m.textContent = (r && r.error && r.error.message) || 'That did not work. Try again in a moment.'; b.disabled = false; }
+    }).catch(function () { m.textContent = 'The Herald could not be reached. Try again in a moment.'; b.disabled = false; });
+  };
+})();
+</script>
+</body>
+</html>
