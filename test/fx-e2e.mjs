@@ -138,7 +138,8 @@ await A.ctx.close();
 /* ── rewards: the money tasks of Next steps, achievements, the National Mint and earned designs ── */
 const T = await player('FX-T');
 await open(T); await found(T, 'Treasuria');
-const credits = async () => { const t = await text(T, '.nav [data-v="map"] .badge.land'); return t ? +t.replace(/\D/g, '') : 0; };
+/* land credits less the ones achievement ranks pay (10 a rank), which the Bureau's achievements can bring in the same moment */
+const credits = async () => { const t = await text(T, '.nav [data-v="map"] .badge.land'); return (t ? +t.replace(/\D/g, '') : 0) - await T.evaluate(() => G.achRankCredits(G.S.nation)); };
 const oil = async () => { const n = await localNation(T); return (n.stock && n.stock.oil) || 0; };
 const toastsT = () => T.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
 await nav(T, 'nation');
