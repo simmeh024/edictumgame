@@ -4172,6 +4172,12 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-detail code,.adm td code{overflow-wrap:anywhere;white-space:normal;font:12px var(--f-mono)}
 .adm-detail dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:10px;margin:16px 0}
 .adm-detail dd{margin:0;overflow-wrap:anywhere}
+.adm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:14px 0}
+.adm-card{padding:10px 12px;border:1px solid var(--rule);border-radius:4px;min-width:0}
+.adm-card span{display:block;font-size:12px;opacity:.75}.adm-card b{display:block;overflow-wrap:anywhere}
+.adm-card.warn{border-color:var(--bad,#b3261e)}
+.adm-tl{list-style:none;margin:10px 0;padding:0;max-height:420px;overflow:auto;border-left:2px solid var(--rule)}
+.adm-tl li{padding:4px 0 4px 12px;overflow-wrap:anywhere}.adm-tl time{font-size:12px;opacity:.75;margin-right:8px}
 .adst-pick{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:18px 0 6px}
 .adst-pick .field{flex:0 1 280px;margin:0}
 .adst-sec{margin-top:34px}
@@ -39030,11 +39036,73 @@ function adminPlayerDetail(p){
   if(!p)return '';
   const mod=p.banned?'Banned':p.rename?'Hidden until the player chooses a new name':p.hidden?'Hidden':!p.exists&&p.removed?'Nation deleted by a moderator':'No restrictions';
   return `<section class="adm-detail" aria-label="Player details"><h2 class="h2" style="margin-top:0">${esc(p.name)}</h2><dl><dt>Player ID</dt><dd><code>${esc(p.uid)}</code></dd><dt>Region</dt><dd>${p.reg?esc(regName(p.reg)):'No nation'}</dd><dt>Last confirmed save</dt><dd>${esc(adminTime(p.savedAt))}</dd><dt>Server revision</dt><dd>${p.revision}</dd><dt>Moderation</dt><dd>${mod}${p.note?': '+esc(p.note):''}</dd><dt>Reporting sessions</dt><dd>${p.sessions.length}</dd></dl>
+${adminCards(p)}
+    <h3 class="help-h3">Nation</h3>${adminNation(p)}
     <h3 class="help-h3">Account</h3>${adminAccount(p.account)}
+    <h3 class="help-h3">Same address</h3>${adminAlts(p)}
+    <h3 class="help-h3">Purchases</h3>${adminPurchases(p)}
+    <h3 class="help-h3">Reports and tickets</h3>${adminReports(p)}
+    <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
+}
+/* the player page at a glance, and its panels (functions/admin.js, overview()) */
+const ADM_PRODUCT={founder:'Founder’s Package',idpack:'Identity Card Pack',vip:'Chancery Club, monthly',vipyear:'Chancery Club, yearly',giftvip:'Gifted Club month'};
+const admEdict=id=>{try{return (ISSUE_BY_ID[id]||{}).t||id;}catch(e){return id;}};
+function adminCards(p){
+  const a=p.account,c=p.club||{},n=p.nation,now=Date.now(),R=p.reports||{},against=(R.against||[]).length,alts=(p.alts||[]).length;
+  const card=(l,v,warn)=>`<div class="adm-card${warn?' warn':''}"><span>${l}</span><b>${v}</b></div>`;
+  const mod=p.banned?'Banned':p.rename?'Rename asked':p.hidden?'Hidden':!p.exists&&p.removed?'Nation deleted':'Clear';
+  return `<div class="adm-cards">${[
+    card('Account',a?(a.disabled?'Disabled':a.kind==='registered'?'Registered':'Guest'):'No account',a&&a.disabled),
+    card('Chancery Club',c.until>now?(c.plan==='comp'?'Free':c.plan==='gift'?'Gifted':'Paying')+' · '+esc(adminTime(c.until)):'No'),
+    card('Moderation',mod,mod!=='Clear'),
+    card('Last seen',esc(adminTime(Math.max(p.savedAt||0,a&&a.lastRefresh||0,n&&n.t||0)))),
+    card('Region',p.reg?esc(regName(p.reg)):'No nation'),
+    card('Population',n?esc(fmtPop(Number(n.pop)||0)):'–'),
+    card('Reports against',against,against>0),
+    card('Same address',alts,alts>0)].join('')}</div>`;
+}
+function adminNation(p){
+  const n=p.nation;if(!n)return '<p class="hint">No nation saved.</p>';
+  return `<dl><dt>Founded</dt><dd>${n.founded?esc(adminTime(n.founded)):'–'}</dd><dt>Rulings</dt><dd>${n.dec}${n.inbox?` · ${n.inbox} waiting`:''}</dd><dt>Cities / claims</dt><dd>${n.cities} / ${n.claims}</dd><dt>Tutorial</dt><dd>${n.tut} tasks done${n.lists?` · lists ${esc(n.lists)}`:''}</dd>${n.features&&n.features.length?`<dt>Uses</dt><dd>${esc(n.features.join(', '))}</dd>`:''}</dl>
+    ${n.rulings&&n.rulings.length?`<p class="hint">Latest rulings</p><ul class="adm-tl">${n.rulings.map(r=>`<li><time>${esc(adminTime(r.t))}</time>${esc(admEdict(r.id))}${r.o<0?' · skipped':` · option ${r.o+1}`}</li>`).join('')}</ul>`:''}`;
+}
+function adminAlts(p){
+  const L=p.alts||[];if(!p.account||!p.account.ip)return '<p class="hint">No address on record (kept 90 days).</p>';
+  if(!L.length)return '<p class="hint">No other account was seen from this address in the last 90 days.</p>';
+  return `<p class="hint">Other accounts last seen from the same address. A shared household, school or mobile network can explain this.</p><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th>Region</th><th>Seen there</th><th></th></tr></thead><tbody>${L.map(x=>`<tr><td>${esc(x.name||'No nation')}<br><code>${esc(x.uid)}</code></td><td>${x.reg?esc(regName(x.reg)):'–'}</td><td>${esc(adminTime(x.at))}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.uid)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function adminPurchases(p){
+  const P=p.purchases;if(!P)return '';
+  const owns=Object.keys(P.owns||{}).map(k=>ADM_PRODUCT[k]||k);
+  const link=P.ctm?`<a href="https://${P.env==='live'?'':'sandbox-'}vendors.paddle.com/customers-v2/${encodeURIComponent(P.ctm)}" target="_blank" rel="noopener">Open customer in Paddle</a>`:'No Paddle customer yet';
+  return `<p>Owns: ${owns.length?esc(owns.join(', ')):'nothing'} · ${link}</p>${P.tx.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Paid</th><th>Product</th><th>Status</th><th>Transaction</th></tr></thead><tbody>${P.tx.map(t=>`<tr><td>${esc(adminTime(t.t))}</td><td>${esc(ADM_PRODUCT[t.product]||t.product)}${t.gift?'<br><span class="hint">gift'+(t.payer?' from <code>'+esc(t.payer)+'</code>':'')+'</span>':''}</td><td>${esc(t.status)}${t.ok?'':' · not delivered'}${t.refund?' · refund asked ('+esc(t.refund)+')':''}${t.adj.map(a=>'<br>'+esc(a.action+' '+a.status)).join('')}</td><td><code>${esc(t.id)}</code></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No transactions.</p>'}`;
+}
+function adminReports(p){
+  const R=p.reports||{},why=x=>`<time>${esc(adminTime(x.t))}</time>${esc(REPORT_WHY[x.reason]||x.reason)}${x.note?': '+esc(x.note):''}`;
+  const part=(h,L,f)=>`<p class="hint">${h} (${L.length})</p>${L.length?`<ul class="adm-tl">${L.map(x=>`<li>${f(x)}</li>`).join('')}</ul>`:''}`;
+  return part('Reports against this player',R.against||[],x=>`${why(x)} · by <button class="linkish" data-act="admin-inspect" data-id="${esc(x.by)}">${esc(x.by.slice(0,8))}…</button>`)
+    +part('Reports filed by this player',R.by||[],x=>`${why(x)} · about ${esc(x.name||x.target)}`)
+    +part('Support tickets',R.tickets||[],x=>`<time>${esc(adminTime(x.t))}</time>${esc(x.topic)} · ${esc(x.st)}${x.x?': '+esc(x.x):''}`)
+    +part('Bug reports',R.bugs||[],x=>`<time>${esc(adminTime(x.t))}</time>${esc(x.ti)} · ${esc(x.st)}`);
+}
+function adminTimeline(p){
+  const ev=[],a=p.account,add=(t,txt)=>{if(t)ev.push([t,txt]);};
+  if(a){add(a.created,'Account created');add(a.lastSignIn,'Last sign-in');}
+  if(p.nation){add(p.nation.founded,'Nation founded');for(const r of p.nation.rulings||[])add(r.t,'Ruled on '+esc(admEdict(r.id)));}
+  for(const s of p.sessions||[])add(s.t,`Session report · ${esc(s.device||'device')} · ${esc(s.status||'')}`);
+  for(const t of (p.purchases||{}).tx||[])add(t.t,'Bought '+esc(ADM_PRODUCT[t.product]||t.product)+(t.adj.length?' · '+esc(t.adj.map(x=>x.action).join(', ')):''));
+  const R=p.reports||{};
+  for(const x of R.against||[])add(x.t,'Reported: '+esc(REPORT_WHY[x.reason]||x.reason));
+  for(const x of R.by||[])add(x.t,'Filed a report about '+esc(x.name||x.target));
+  for(const x of R.tickets||[])add(x.t,'Support ticket: '+esc(x.topic));
+  for(const x of R.bugs||[])add(x.t,'Bug report: '+esc(x.ti));
+  for(const x of p.actions||[])add(x.t,'Admin: '+esc(x.action.replace(/_/g,' '))+(x.reason?' · '+esc(x.reason):'')+(x.outcome==='failed'?' (failed)':''));
+  ev.sort((x,y)=>y[0]-x[0]);
+  return ev.length?`<ul class="adm-tl">${ev.slice(0,80).map(([t,x])=>`<li><time>${esc(adminTime(t))}</time>${x}</li>`).join('')}</ul>`:'<p class="hint">Nothing recorded yet.</p>';
 }
 /* the player's Chancery Club, and a free membership an admin turns on or off (functions/admin.js, club()) */
 const ADM_CLUB_DAYS=[[7,'A week'],[30,'30 days'],[90,'90 days'],[365,'A year'],[3650,'Ten years']];

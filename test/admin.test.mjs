@@ -180,6 +180,19 @@ test('an admin turns a free Chancery Club membership on and off, audited, and th
   assert.ok(log.some(e => e.action === 'club_granted' && e.name === 'Clubland' && e.outcome === 'completed'));
   assert.ok(log.some(e => e.action === 'club_revoked' && e.reason === 'Prize withdrawn'));
 });
+test('the player page brings the nation, purchases, same-address accounts, reports and admin actions', async () => {
+  const a = await user(true), p = await user(), q = await user(); await seed(p.uid, 'Overviewland'); await seed(q.uid, 'Neighbourland');
+  await put('accountSeen/' + p.uid, { ip: '203.0.113.9', at: Date.now() }); await put('accountSeen/' + q.uid, { ip: '203.0.113.9', at: Date.now() });
+  await put('reports/ovr' + p.uid.slice(0, 10), { by: q.uid, kind: 'nation', target: p.uid, reg: 'meridian', reason: 'spam', t: Date.now() });
+  await put('shopTx/txn_ovr' + p.uid.slice(0, 8).toLowerCase(), { uid: p.uid, product: 'founder', status: 'completed', ok: true, paid: Date.now() });
+  await call(a, { op: 'note', uid: p.uid, text: 'Watching' });
+  const r = await call(a, { op: 'player', uid: p.uid });
+  assert.ok(r.nation && typeof r.nation.dec === 'number');
+  assert.deepEqual(r.alts.map(x => x.uid), [q.uid]); assert.equal(r.alts[0].name, 'Neighbourland');
+  assert.equal(r.reports.against.length, 1); assert.equal(r.reports.against[0].reason, 'spam');
+  assert.equal(r.purchases.tx.length, 1); assert.equal(r.purchases.tx[0].product, 'founder');
+  assert.ok(r.actions.some(e => e.action === 'note_saved'));
+});
 test('region switches preserve records, stop battles, and atomically log the authenticated actor', async () => {
   const a = await user(true), p = await user(); await seed(p.uid); const before = (await get('nationx/' + p.uid)).fields.j;
   await call(a, { op: 'region', reg: 'meridian', enabled: false, reason: 'Storage maintenance', actor: 'forged' });
