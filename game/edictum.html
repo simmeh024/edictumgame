@@ -4396,6 +4396,9 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .pp-nav .btn{flex:none;white-space:nowrap}
 .pp-jump{flex:1 1 160px;min-width:0;max-width:260px}
 .pp-count{margin:0}
+.pp-reach{margin:4px 0 0}
+.pp-endo{display:flex;flex-wrap:wrap;gap:4px 10px;margin:6px 0 0;font-size:12.5px}.pp-endo-on{color:var(--c);font-weight:650}.pp-endo-off{color:var(--ink-3)}
+.pp-diary{margin:8px 0 0;border-collapse:collapse;font-size:12.5px}.pp-diary th,.pp-diary td{padding:2px 12px 2px 0;text-align:left;vertical-align:top}.pp-diary thead th{font-weight:600;color:var(--ink-3)}
 .pp-info{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:12px;align-items:center;width:min(100%,560px);padding:10px 14px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet)}
 .pp-info-st svg{display:block;width:96px;height:auto}
 .pp-info-n{margin:0;font:600 17px/1.2 var(--f-display);color:var(--ink)}
@@ -40293,6 +40296,71 @@ document.addEventListener('animationend',e=>{
 {let raf=0,cur=null,px=0,py=0;
   document.addEventListener('pointermove',e=>{const s=e.target.closest&&e.target.closest('.pp-stage');if(cur&&cur!==s){cur.classList.remove('lit');cur=null;}if(!s)return;cur=s;px=e.clientX;py=e.clientY;
     if(raf)return;raf=requestAnimationFrame(()=>{raf=0;if(!cur)return;const r=cur.getBoundingClientRect();cur.style.setProperty('--gx',(((px-r.left)/r.width)*2-1).toFixed(3));cur.style.setProperty('--gy',(((py-r.top)/r.height)*2-1).toFixed(3));cur.classList.add('lit');});},{passive:true});}
+/* ───────── stamps that mean something, the reach of your own stamp, and a travel diary ─────────
+   A stamp starts as a plain entry stamp. What the two nations then do together is endorsed on it, once and for
+   good: a trade visa for a trade deal, an alliance seal, a letters endorsement for writing to them, and a red
+   "border crossed" for a war. They are kept as bits in an 11th field of the stamp (e[10], see PPR), so a later
+   quarrel never takes a seal away. A 12th field (e[11]) keeps a note of the nation on the day it was stamped:
+   people, leader, type of state and capital, so a chosen stamp shows the nation then beside the nation now.
+   The passport page also says how many passports in the region carry the player's own stamp, and where that
+   ranks, from the short hashes every record shares (pph, see ppCarried). */
+const PPR=[{b:1,k:'trade',w:'TRADE VISA',l:'Trade visa',how:'make a trade deal with them',c:'#2f7d4f'},{b:2,k:'ally',w:'ALLIED',l:'Alliance seal',how:'join the same alliance',c:'#2b4f9b'},
+  {b:4,k:'dm',w:'CORRESPONDENT',l:'Letters endorsement',how:'write them a letter',c:'#7a5a2b'},{b:8,k:'war',w:'BORDER CROSSED',l:'Border crossed',how:'only war brings this one',c:'#b0262c'}];
+function ppRelNow(me,id){
+  let b=0;try{if(liveDeals(me).some(d=>d&&d.w===id))b|=1;}catch(e){}try{if(sameAlliance(myId(),id))b|=2;}catch(e){}
+  if((me.dm||[]).some(m=>m&&m.w===id&&!m.i))b|=4;try{if(warWith(id).war)b|=8;}catch(e){}return b;
+}
+function ppNote(x,now){const n=x&&x.n;if(!n)return null;let p=0;try{p=popNow(n,now);}catch(e){p=+n.pop||0;}let c='';try{c=classify(n.s);}catch(e){}
+  return [Math.round(p*1000)/1000,czText(((n.leader||'')+' '+(n.ruler||'')).trim(),60),czText(c,40),czText(n.capital||'',40)];}
+ppClean=(f=>function(d){
+  const o=f.apply(this,arguments);if(!o||!o.v||!d||!d.v)return o;
+  for(const id of Object.keys(o.v)){const e=d.v[id];if(!Array.isArray(e))continue;const r=Number.isInteger(e[10])?e[10]&15:0,t=e[11];
+    const note=Array.isArray(t)&&t.length===4?[typeof t[0]==='number'&&isFinite(t[0])?Math.max(0,t[0]):0,czText(t[1],60),czText(t[2],40),czText(t[3],40)]:null;
+    if(r||note){o.v[id][10]=r;if(note)o.v[id][11]=note;}}
+  return o;})(ppClean);
+/* the player's own record only: a new stamp gets its note, and every stamp its endorsements */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||OBS||!n.pp||!n.pp.v)return;const ov=(old&&old.pp&&old.pp.v)||{},msgs=[];
+  for(const id of Object.keys(n.pp.v)){const e=n.pp.v[id];if(!Array.isArray(e))continue;
+    if(!ov[id]&&!e[11]){const note=ppNote(findNation(id),now);if(note){while(e.length<10)e.push('');if(!Number.isInteger(e[10]))e[10]=0;e[11]=note;}}
+    const had=Number.isInteger(e[10])?e[10]:0,b=had|ppRelNow(n,id);
+    if(b!==had){while(e.length<10)e.push('');e[10]=b;const got=PPR.filter(r=>(b&r.b)&&!(had&r.b));if(got.length)msgs.push(`New in your passport: ${got.map(r=>r.l.toLowerCase()).join(' and ')} on the stamp of ${e[0]}.`);}
+  }
+  return msgs.length?msgs.slice(0,2):undefined;
+});
+ppSnap=(f=>function(e){const s=f.apply(this,arguments);s.rel=Number.isInteger(e&&e[10])?e[10]:0;return s;})(ppSnap);
+/* the endorsements overprint the stamp's lower edge, two at most */
+ppStampBody=(f=>function(s){const h=f.apply(this,arguments);if(!s||!s.rel)return h;
+  const on=PPR.filter(r=>s.rel&r.b).slice(-2);
+  return h+on.map((r,i)=>{const w=r.w.length*4.3+8,x=118-w-i*6,y=48-i*13;return `<g transform="rotate(-7 ${x+w/2} ${y+5})" opacity=".9"><rect x="${x}" y="${y}" width="${w}" height="11" rx="1.5" fill="none" stroke="${r.c}" stroke-width="1.2"/><text x="${x+w/2}" y="${y+8}" text-anchor="middle" font-family="ui-monospace,monospace" font-weight="700" font-size="6.6" letter-spacing=".6" fill="${r.c}">${r.w}</text></g>`;}).join('');
+})(ppStampBody);
+/* how many passports carry each stamp, counted at most once a minute from the hashes every record shares */
+let PP_REACH={at:0,w:null,c:null};
+function ppReach(){
+  const now=Date.now();if(PP_REACH.c&&PP_REACH.w===S.world&&now-PP_REACH.at<60000)return PP_REACH.c;const c=new Map();
+  for(const w of Object.keys(S.world||{})){const r=S.world[w];const hs=r&&r.pp&&r.pp.v?Object.keys(r.pp.v).map(ppHash):Array.isArray(r&&r.pph)?r.pph:[];for(const h of new Set(hs))c.set(h,(c.get(h)||0)+1);}
+  PP_REACH={at:now,w:S.world,c};return c;
+}
+const ppOrd=k=>k+(k%100>10&&k%100<14?'th':['th','st','nd','rd'][k%10]||'th');
+function ppReachLine(){
+  if(!S.nation||S.mode==='local'||!S.world)return '';const c=ppReach(),me=myId(),mine=c.get(ppHash(me))||0;
+  const all=allNations().filter(x=>!x.npc).map(x=>({x,k:c.get(ppHash(x.id))||0})).filter(o=>o.k>0).sort((a,b)=>b.k-a.k);
+  const rank=all.findIndex(o=>o.x.me||o.x.id===me)+1,top=all.slice(0,3).map(o=>`${esc(o.x.n.name)} (${o.k})`).join(', ');
+  return `<p class="hint pp-reach"><b>Your stamp is in ${mine===1?'one passport':mine+' passports'}</b>${rank?` · ${ppOrd(rank)} most collected in ${esc(REGION)}`:''}${top?` · most collected: ${top}`:''}</p>`;
+}
+function ppDiary(e,id){
+  const x=findNation(id),now=Date.now(),then=e[11],nowN=x?ppNote(x,now):null,rel=Number.isInteger(e[10])?e[10]:0;
+  const row=(l,a,b)=>`<tr><th scope="row">${l}</th><td>${a||'—'}</td><td>${b||'—'}</td></tr>`;
+  const endo=`<p class="pp-endo">${PPR.map(r=>rel&r.b?`<span class="pp-endo-on" style="--c:${r.c}">✓ ${r.l}</span>`:r.k==='war'?'':`<span class="pp-endo-off">${r.l}: ${esc(r.how)}</span>`).join('')}</p>`;
+  const diary=then?`<table class="pp-diary"><thead><tr><th></th><th scope="col">When you visited</th><th scope="col">Now</th></tr></thead><tbody>${row('People',fmtPop(then[0]),nowN?fmtPop(nowN[0]):'Gone from the map')}${row('Leader',esc(then[1]),nowN?esc(nowN[1]):'')}${row('Type of state',esc(then[2]),nowN?esc(nowN[2]):'')}${row('Capital',esc(then[3]),nowN?esc(nowN[3]):'')}</tbody></table>`:'<p class="hint">Stamped before the passport kept a diary: stamps collected from now on remember the nation as it was.</p>';
+  return endo+diary;
+}
+ppBookHTML=(f=>function(x,st,ctx){
+  let h=f.apply(this,arguments);const bk=ppBook(x),e=st&&st.info&&bk.v[st.info];
+  if(e&&x.me){const i=h.indexOf('<div class="pp-info" role="status">');if(i>=0){const j=h.indexOf('</p></div>',h.indexOf('<p class="hint">',i));if(j>=0)h=h.slice(0,j+4)+ppDiary(e,st.info)+h.slice(j+4);}}
+  if(ctx==='p'&&x.me)h=h.replace(/(<p class="hint pp-count">[\s\S]*?<\/p>)/,'$1'+ppReachLine());
+  return h;})(ppBookHTML);
+
 /* the cover's glint runs while the cover is on screen (see .pp-gl): watched once drawn, by the page, the passport
    viewer, and a page turn's last spread */
 const PPG={io:null,obs:new Set()};
