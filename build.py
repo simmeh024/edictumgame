@@ -86,6 +86,28 @@ BOOT = ('<div id="app"><div class="found home-static">'
         '<main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%(desc)s</p>' + LOADING + LEGAL + '</main></div>')
 
 
+# origins every visit talks to soon after load (sign-in, then Firestore): connecting early saves a round trip each
+PRECONNECT = ['https://identitytoolkit.googleapis.com', 'https://firestore.googleapis.com']
+
+
+def game_loader(scripts):
+    """An inline script that loads the game's scripts after the front page has painted: at the first frame it
+    starts their downloads (preload), and once the fonts are in (at most 1.5 s) and one more frame is painted it
+    adds them, in order (async=false). Compiling the game blocks the page for seconds on a phone, so the front
+    page's own text must be on screen first. A tab in the background (no frames) adds them at once, and so
+    does the load event, at the latest. A failed download of one marked True shows the loader's retry message
+    (window.__edictum.bootError)."""
+    return ('(function(){var L=%s,d=document;function pre(){if(pre.d)return;pre.d=1;L.forEach(function(x){var l=d.createElement("link");'
+            'l.rel="preload";l.as="script";l.href=x[0];d.head.appendChild(l)})}'
+            'function go(){if(go.d)return;go.d=1;pre();window.__edictum.loading=1;L.forEach(function(x){var s=d.createElement("script");'
+            's.src=x[0];s.async=false;if(x[1])s.onerror=function(){window.__edictum.bootError()};d.body.appendChild(s)})}'
+            'function frame(f){requestAnimationFrame(function(){setTimeout(f,0)})}'
+            'if(d.hidden||!window.requestAnimationFrame)go();else{frame(pre);'
+            'var f=d.fonts&&d.fonts.ready?Promise.race([d.fonts.ready,new Promise(function(r){setTimeout(r,1500)})]):Promise.resolve();'
+            'f.then(function(){frame(go)});setTimeout(go,3000);window.addEventListener("load",go)}})();'
+            % json.dumps([[u, bool(f)] for u, f in scripts]))
+
+
 def fail(msg):
     sys.exit('build.py: ' + msg)
 
@@ -288,6 +310,8 @@ def main():
         js_url = hashed(out, 'game', 'js', script)
     # every region's map, long-cached on its own: it changes only when the generators or the regions do
     maps_url = hashed(out, 'maps', 'js', bake_maps(script))
+    # the Firebase adapter runs after the game, so it is a deferred file of its own (an inline script cannot wait)
+    shim_url = hashed(out, 'shim', 'js', inline_js(os.path.join(SRC, 'shim.js'), minify))
 
     a = lambda path: (site + path) if site else path
     e = lambda s: html.escape(s, quote=True)
@@ -334,20 +358,21 @@ def main():
         '[hidden]{display:none!important}'
         '.ed-boot-pending .boot,.ed-boot-pending .home-static .boot-load{visibility:hidden}</style>',
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'stub.js'), minify),
-    ] + ['<link rel="preload" href="%s" as="script" fetchpriority="high">' % u
-         for u in [maps_url, content_url, js_url] if u] + [
+    ] + ['<link rel="preconnect" href="%s" crossorigin>' % u for u in PRECONNECT] + [
         '<script defer src="%s%s" fetchpriority="low"></script>' % (vendor, n) for n in SDK] + meta + [
         game_head,
     ] + ['<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' % u for u in preload] + [
+
         '<link rel="stylesheet" href="%s">' % css_url,
         '</head>',
         '<body>',
         BOOT % dict(home_copy(script), desc=e(DESCRIPTION)),
-        # without the maps (a failed download) the game generates its map, as it can
-        '<script src="%s"></script>' % maps_url,
-    ] + (['<script src="%s" onerror="window.__edictum.bootError()"></script>' % content_url] if content_url else []) + [
-        '<script src="%s" onerror="window.__edictum.bootError()"></script>' % js_url,
-        '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'shim.js'), minify),
+        # The front page above (BOOT) paints first, with its fonts: the game's scripts download from the first
+        # frame and run after it, in this order, the adapter (shim) last (see game_loader). Run as plain or
+        # deferred scripts, compiling 3.5 MB of game held the first paint back by seconds on a phone.
+        # Without the maps (a failed download) the game generates its map, as it can.
+        '<script>\n%s\n</script>' % game_loader([(maps_url, False)] + ([(content_url, True)] if content_url else []) +
+                                                [(js_url, True), (shim_url, False)]),
         '</body>',
         '</html>',
         '',

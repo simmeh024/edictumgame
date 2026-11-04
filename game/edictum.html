@@ -42094,6 +42094,8 @@ const NWE_TOOLS=[['bold','<b>B</b>','Bold (Ctrl+B)'],['italic','<i>I</i>','Itali
 const nwePatch=(add,chg,fix)=>Object.entries({add,chg,fix}).map(([k,l])=>`<p><strong>${NW_PN[k]}</strong></p><ul data-pn="${k}">${(l&&l.length?l:['…']).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('')+'<p><br></p>';
 /* the changelog: merged pull requests since the last published post, sorted by their titles into a patch notes block */
 const NWE_REPO='simmeh024/edictumgame';
+/* the poll section stays as the writer left it when the page redraws (a save or a snapshot arriving) */
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.classList&&d.classList.contains('nwe-poll'))NWE.pOpen=d.open;},true);
 async function nweChangelog(){
   if(NWE.cl)return;NWE.cl=true;NWE.err='';render();
   try{
@@ -42117,7 +42119,7 @@ async function nweList(){
   catch(e){NWE.lerr='The posts could not be loaded'+(e&&e.code?' ('+e.code+')':'')+'.';}
   NWE.lbusy=false;if(S.view==='admin-news')render();
 }
-function nweOpen(p){
+function nweOpen(p){NWE.pOpen=false;
   const by=nweByline();
   Object.assign(NWE,{id:p?p.id:null,ti:p?p.ti:'',as:p&&p.as==='nation'?'nation':'staff',nm:p&&p.as==='staff'?p.nm:by.nm,rl:p&&p.as==='staff'?p.rl:by.rl,lk:!!(p&&p.lk),pub:!!(p&&p.pub),t:p?p.t:0,
     tg:p?p.tg:'',pn:!!(p&&p.pn),pq:p&&p.pl?p.pl.q:'',po:p&&p.pl?p.pl.o.join('\n'):'',pend:p&&p.pl&&p.pl.end?new Date(p.pl.end).toISOString().slice(0,10):'',
@@ -42293,7 +42295,7 @@ function nweView(){
     <div id="nwe-host" class="nwe-host"></div>
     <input type="file" id="nwe-file" accept="image/*" multiple hidden>
     <p class="hint">${NWE.up?`<b>Uploading ${NWE.up} ${NWE.up===1?'image':'images'}…</b> `:''}Paste or drop images into the text, or use Image. They are made smaller (at most ${NW_IMG_SIDE} pixels wide) before they upload. Links open in a new tab.</p>
-    <details class="nwe-poll"${NWE.pq||NWE.po?' open':''}><summary>Add a poll</summary>
+    <details class="nwe-poll"${NWE.pq||NWE.po||NWE.pOpen?' open':''}><summary>Add a poll</summary>
       <div class="field"><label for="nwe-pq">Question</label><input class="input" id="nwe-pq" maxlength="200" value="${esc(NWE.pq)}" placeholder="Which region should open next?" autocomplete="off"></div>
       <div class="field"><label for="nwe-po">Answers, one on each line (two to six)</label><textarea class="input" id="nwe-po" rows="4" aria-describedby="nwe-pon">${esc(NWE.po)}</textarea><p class="hint" id="nwe-pon">${nwePollCount(NWE.po)}</p></div>
       <div class="field"><label for="nwe-pend">Closes after (optional)</label><input class="input" id="nwe-pend" type="date" value="${esc(NWE.pend)}"></div>
