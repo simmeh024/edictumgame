@@ -90,7 +90,7 @@ test('naming the first city pays 3 land credits and 5 goods, once',()=>{
 });
 
 test('a list done in full pays its bonus and its epithet once, and gifts respect storage',()=>{
-  const r=rewards();r.ctx.DEVK='c';let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},stock:{food:395,timber:45,iron:25,oil:10,goods:40}});
+  const r=rewards();r.ctx.DEVK='cu';let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},stock:{food:395,timber:45,iron:25,oil:10,goods:40}});
   const m=r.save(n);
   assert.ok(m.some(x=>/^Your tutorial steps earned 8 land credits, and 5 goods\./.test(x)),m.join(' | '));
   assert.ok(m.some(x=>/^List complete: Your nation starts here\. 10 food and 10 timber, and the epithet “the Founder”, under Epithet in Customise\.$/.test(x)),m.join(' | '));

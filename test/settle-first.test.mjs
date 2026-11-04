@@ -15,7 +15,7 @@ function section(store={}){
     window:{edictumStat:(name,p)=>sent.push([name,p])},document:{addEventListener(){}},
     esc:s=>String(s),cellOf:l=>l?l.c:-1,territory:()=>({}),fdSites:()=>[11,-1,33],landName:c=>'Isle '+c,
     issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK',go:v=>{},mapTabs:()=>'<div class="stabs">TABS</div>',prvT2:()=>'States',prvLow:s=>s.toLowerCase(),prvOnRec:n=>!!n.prov,
-    ffbCard:()=>'FFB',pgEligible:()=>false,tutRow:()=>'ROW',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
+    ffbCard:()=>'FFB',VIEWS_EXT:{customise:()=>'CZ'},tutDevGet:()=>'',tutMark:()=>{},pgEligible:()=>false,tutRow:()=>'ROW',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
     TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]},{k:'charter',tasks:[{k:'charter'},{k:'flag'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
     tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:true,lock:''}]});
   vm.runInContext(source.slice(start,end)+';this.T={TL:TUT_LISTS,pgEligible:(...a)=>pgEligible(...a),tutRow:(...a)=>tutRow(...a),go:v=>go(v),mapTabs:()=>mapTabs("map"),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
@@ -87,7 +87,7 @@ test('the map tabs reach the cities and the states, which can be switched on the
 test('Customise is open from the start, and Finish your charter waits at the end of the list for the others',()=>{
   const {T,S}=section();
   assert.equal(T.pgEligible({},'charter'),true);assert.equal(T.pgEligible({},'map'),false);
-  assert.deepEqual([...T.TL[1].tasks.map(s=>s.k)],['flag','charter'],'the charter task is last');
+  assert.deepEqual([...T.TL[1].tasks.map(s=>s.k)],['flag','cust','charter'],'Customise your nation, then the charter, come last');
   const n=nation({capital:'Port Alder'});
   assert.equal(T.tutRow(n,{k:'charter',ok:false}),'','hidden while the naming task is open');
   n.capital='Estport';assert.equal(T.tutRow(n,{k:'charter',ok:false}),'ROW','shown once the others are done');

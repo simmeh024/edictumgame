@@ -33167,14 +33167,14 @@ function tutSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PA
 function tutCall(f,d){try{const v=f();return v==null?d:v;}catch(e){return d;}}
 
 /* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited,
-   c the charter signed (its task pays once, and the payment is kept on the record) ── */
+   u the Customise page visited, c the charter signed (each task pays once, and the payment is kept on the record) ── */
 function tutDevGet(){
   const n=S.nation,seed=n?String(n.seed):'';if(TUT.devSeed!==seed){TUT.devSeed=seed;TUT.dev='';}
   let k=TUT.dev;try{const o=JSON.parse(localStorage.getItem(TUT_DEV_KEY)||'null');if(o&&o.s===seed&&typeof o.k==='string')k+=o.k;}catch(e){}return k;
 }
 function tutMark(c){
   if(!S.nation)return;const k=tutDevGet();if(k.includes(c))return;TUT.dev+=c;
-  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxc]/g,'')}));}catch(e){}
+  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcu]/g,'')}));}catch(e){}
   tutLcSoon();
 }
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
@@ -41356,7 +41356,10 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
 /* Customise is open from the start, and "Finish your charter" is the last task of the first list: it shows only
    once the list's other tasks are done, and signing it completes the list */
 pgEligible=(f=>function(n,k){return k==='charter'?!!n:f.apply(this,arguments);})(pgEligible);
-{const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter');L.tasks.push(L.tasks.splice(i,1)[0]);}
+{const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter'),ch=L.tasks.splice(i,1)[0];
+  L.tasks.push({k:'cust',t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',f:(n,d)=>String(d||'').includes('u')},ch);}
+/* a visit to Customise ticks its task (after the page is drawn: the mark saves, which draws again) */
+VIEWS_EXT.customise=(f=>function(){if(S.nation&&!S.nation.npc&&!OBS&&!tutDevGet().includes('u'))setTimeout(()=>tutMark('u'),0);return f.apply(this,arguments);})(VIEWS_EXT.customise);
 tutRow=(f=>function(n,x){
   if(x&&x.k==='charter'&&!x.ok){const L=TUT_LISTS.find(L=>L.k==='charter');let rest=true;try{rest=tutState(n,L).every(y=>y.k==='charter'||y.ok);}catch(e){}if(!rest)return '';}
   return f.apply(this,arguments);})(tutRow);
