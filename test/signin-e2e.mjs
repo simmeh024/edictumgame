@@ -305,29 +305,26 @@ check('and dissolves its nation, keeping the account', await until(async () => (
 const Q = await player('Q');
 await open(Q);
 await founded(Q, 'Quayside');
-/* armed for one page: the page a link opens, which switches and leaves; it then writes another copy at pagehide */
+/* a write at pagehide, made only as the switch leaves the page (the dialog then says "Switching to your …"), in a
+   handler registered at the page's start, so before leave()'s own; it notes that it ran */
 await Q.ctx.addInitScript(() => {
-  const k = 'test.unloadWrite', v = sessionStorage.getItem(k);
-  if (v === '1') sessionStorage.setItem(k, '2'); else if (v === '2') sessionStorage.setItem(k, '3');
   addEventListener('pagehide', () => {
-    if (sessionStorage.getItem(k) !== '2') return;
+    if (!/Switching to your/.test(document.querySelector('.ed-msg')?.textContent || '')) return;
     const n = JSON.parse(localStorage.getItem('statehood.nation.v1') || 'null');
-    if (n) { n.motto = 'Written at unload'; n._rev = 7; localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); }
+    if (n) { n.motto = 'Written at unload'; n._rev = 7; localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); sessionStorage.setItem('test.unloadWrote', '1'); }
   });
 });
 const firstQ = await sendLink(Q, 'rook@example.com');
-await Q.evaluate(() => sessionStorage.setItem('test.unloadWrite', '1'));
 await Q.goto(firstQ);
 await Q.waitForSelector('[data-ed="switch"]', { timeout: 15000 });
 const switchedQ = Q.waitForNavigation({ timeout: 15000 }).then(() => true, () => false);
 await Q.click('[data-ed="switch"]');
 if (!(await switchedQ)) {
   const secondQ = await until(async () => { const l = await emailLink('rook@example.com'); return l !== firstQ && l; });
-  await Q.evaluate(() => sessionStorage.setItem('test.unloadWrite', '1'));
   await Q.goto(secondQ);
 }
 check('Q switches into the account without a nation, taking Quayside along', await until(async () => (await ready(Q).catch(() => null)) === uidR, 20000) && await until(async () => (await sideName(Q)) === 'Quayside', 15000));
-check('the unload hook did run', await Q.evaluate(() => sessionStorage.getItem('test.unloadWrite')) === '3');
+check('the write at unload did run', await Q.evaluate(() => sessionStorage.getItem('test.unloadWrote')) === '1');
 check('and a write at unload did not replace the moved copy', (await localNation(Q))?.motto !== 'Written at unload' && await until(async () => (await nationDoc(uidR))?.rec?.name === 'Quayside', 20000) && (await nationDoc(uidR)).rec.motto !== 'Written at unload');
 
 await finish();
