@@ -16334,7 +16334,49 @@ function describe(n){
   const cult=[];if(n.lang)cult.push('the national language is '+esc(n.lang));if(n.faith)cult.push('most people follow '+esc(n.faith));if(n.sport)cult.push('the national sport is '+esc(n.sport));if(n.dish)cult.push('the national dish is '+esc(n.dish));
   const cs=(cult.length?' '+list(cult).replace(/^./,c=>c.toUpperCase())+'.':'')+(n.anthem?` Its national anthem is “${esc(n.anthem)}”.`:'');
   const p3=`${crime}${s.crime<35&&lawPct>11?', thanks to a well-funded police force':''}. ${leg.length?(n.npc&&!(n.laws&&n.laws.length)?'Long-standing laws mean that ':'Recent government decisions mean that ')+list(leg.map(esc))+'.':'The government has yet to pass any memorable legislation.'} ${esc(poss(n.name))} national animal is the ${esc(n.animal)}, ${animal}.${cs}`;
+  const p4=prvOverview(n);
+  if(p4)return [p1,p2,p3,p4,cuOverview(n)];
   return [p1,p2,p3,cuOverview(n)];
+}
+/* the nation's provinces (states, cantons …) in a paragraph of the Overview: built from the record and the map,
+   phrased by a pick seeded on the nation, so two nations with the same shape still read differently. '' when none. */
+const PRVO_FLAV={p:['a patchwork of provinces','its provinces','a quarrelsome family of provinces'],s:['a union of states','its states','a loose federation of states'],c:['a quilt of counties','its counties','a scatter of old counties'],k:['a confederation of cantons','its cantons','a jigsaw of proud cantons'],f:['a tidy grid of prefectures','its prefectures','a ledger of prefectures'],d:['a chain of departments','its departments','an orderly set of departments'],o:['a sprawl of oblasts','its oblasts','a great ring of oblasts'],h:['a green muddle of shires','its shires','a hedge-bound tangle of shires'],u:['a coronet of duchies','its duchies','a squabbling set of ancient duchies'],l:['a league of lands','its lands','a weave of old lands']};
+const PRVO_GOVT={builder:'is forever cutting ribbons',farmer:'judges every harvest fair in person',ironfist:'keeps order with a heavy hand',reformer:'has thrown open the council doors',merchant:'treats the office as a trading house',scholar:'opens a school a season',green:'will not let a hedge be cut',populist:'is cheered wherever they go, and spends accordingly',grafter:'is said to take a cut of every contract',showman:'never misses a parade',soldier:'drills the local regiment at dawn',devout:'opens every session with a prayer',loyal:'answers to {CAP} without question',firebrand:'speaks of local pride a little too often'};
+function prvOverview(n){
+  try{
+    if(!prvOnRec(n))return '';
+    const T=territory(),i=prvIdx(T,n);if(i===undefined)return '';
+    const N=prvPops(T,prvNatWith(T,i,n.prov));if(!N||!N.prov||!N.prov.length)return '';
+    const r=rng(hash(String(n.seed||n.name||'')+':pvo:'+N.prov.length)),pick=a=>a[Math.floor(r()*a.length)];
+    const tk=PRV_TERMS[n.prov.term]?n.prov.term:'p',t1=prvLow(prvT1(n)),t2=prvLow(prvT2(n)),nm=esc(n.name),cap=esc(n.capital||'the capital');
+    const live=N.prov.filter(p=>p.cells.length),dorm=N.prov.filter(p=>!p.cells.length),pn=p=>esc(p.q.nm);
+    const out=[];
+    if(N.prov.length===1){out.push(`${nm} has a single ${t1}, ${pn(N.prov[0])}, which tidy-minded officials insist is “only the beginning.”`);}
+    else{
+      const names=N.prov.map(pn),shown=names.length>4?names.slice(0,3).join(', ')+` and ${names.length-3} others`:list(names);
+      out.push(pick([`${nm} is ${PRVO_FLAV[tk][0]}: ${N.prov.length} in all, namely ${shown}.`,`The map of ${nm} is divided into ${N.prov.length} ${t2}, ${shown}.`,`Few visitors can name all ${N.prov.length} of ${esc(poss(n.name))} ${t2}, but locals will happily list ${shown}, usually with opinions.`]));
+    }
+    if(live.length>=2&&N.pop>0){
+      const by=[...live].sort((a,b)=>b.pop-a.pop),big=by[0],sm=by[by.length-1],pc=Math.round(big.share*100);
+      const bc=esc(prvCapName(n,big)),sc=esc(prvCapName(n,sm));
+      out.push(pick([`The largest, ${pn(big)}, governed from ${bc}, holds ${pc}% of the people, while little ${pn(sm)} counts just ${fmtPop(sm.pop)} and is proud of every one.`,`${pn(big)}, seated at ${bc}, is home to ${pc}% of all ${esc(plural(n.demonym||'citizen'))}; ${pn(sm)}, run from ${sc}, is the smallest, and never lets the others forget it.`,`Nearly ${pc}% of the nation lives in ${pn(big)}, whose seat at ${bc} rivals ${cap} itself, while the people of ${pn(sm)} like to say they are few but well chosen.`]));
+    }
+    const aut=N.prov.map(p=>p.q.a||0),mx=Math.max(...aut);
+    if(N.prov.length>=2){
+      if(mx===0)out.push(pick([`All of them are run firmly from ${cap}.`,`Every decision, down to the colour of the park benches, is still made in ${cap}.`]));
+      else{const hr=N.prov.filter(p=>(p.q.a||0)===mx),w=mx===3?'self-governing under home rule':prvLow(PRV_AUT[mx][0]);
+        out.push(hr.length===N.prov.length?pick([`Every one of them is ${w}, and ${cap} mostly sends greetings cards.`,`All of them are ${w}, which keeps ${cap} humble.`]):`${list(hr.map(pn))} ${hr.length>1?'are':'is'} ${w}${mx>=2?', with '+(hr.length>1?'their':'its')+' own parliament'+(mx===3?' and a say in everything but defence and the currency':' and police'):''}, while the rest answer more closely to ${cap}.`);}
+    }
+    const gv=N.prov.filter(p=>p.q.g&&!p.q.g.ac&&p.cells.length);
+    if(gv.length){const p=pick(gv),g=p.q.g,tr=g.tr.length?pick(g.tr):null,lo=prvLoy(n,p,N,Date.now()),lw=lo==null?'':prvLoyWord(lo);
+      const what=tr?PRVO_GOVT[tr].replace('{CAP}',cap):'keeps a low profile';
+      const loy=lw==='Devoted'?'and is devoted to the nation':lw==='Steady'?'and is steady in their loyalty':lw==='Restless'?'and has grown restless with '+cap:lw==='Disloyal'?'and is openly disloyal, to the alarm of '+cap:'';
+      out.push(`In ${pn(p)}, Governor ${esc(g.nm)} ${what}${loy?', '+loy:''}.`);}
+    const fl=N.prov.filter(p=>p.q.f).length;
+    if(fl)out.push(fl===N.prov.length?`Each flies a flag of its own.`:`${fl===1?'One of them flies':fl+' of them fly'} a flag of ${fl===1?'its':'their'} own.`);
+    if(dorm.length)out.push(`${list(dorm.map(pn))} ${dorm.length>1?'lie':'lies'} dormant, ${dorm.length>1?'their seats':'its seat'} lost, kept alive only on old maps.`);
+    return out.join(' ');
+  }catch(e){return '';}
 }
 function fmtVal(k,n,now){
   if(k==='pop')return fmtPop(popNow(n,now));
