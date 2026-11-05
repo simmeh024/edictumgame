@@ -16635,7 +16635,7 @@ function auditNation(n,raw,id,now,keep){
   const age=Math.max(0,((ts||now)-(n.founded||now))/DAY);
   if(n.pop>5*Math.pow(1.35,age)+3*age+1)why.push(`${fmtPop(n.pop)} people is more than a nation ${Math.floor(age)} days old can have grown.`);
   if(Array.isArray(n.conq)&&S.db){
-    const un=n.conq.filter(e=>e&&!e.n&&e.t>=REF_EPOCH&&typeof e.s!=='string'),fk=n.conq.filter(e=>e&&!e.n&&typeof e.s==='string'&&REF.ok.get(refK(id,e))===false);
+    const un=n.conq.filter(e=>e&&!e.n&&e.t>=REF_EPOCH&&typeof refSig(e)!=='string'),fk=n.conq.filter(e=>e&&!e.n&&typeof refSig(e)==='string'&&REF.ok.get(refK(id,e))===false);
     if(un.length){why.push(refWhy(un.length,false));n.conq=n.conq.filter(e=>!un.includes(e));}
     if(fk.length)why.push(refWhy(fk.length,true));
   }
@@ -16678,11 +16678,16 @@ async function raceFetch(){
    counts until its check fails, one without never does. A computer nation's counterattack (e.n) is
    recorded by the nation it hit and needs none. */
 const REF_EPOCH=Number(window.EDICTUM_REF_EPOCH)||Date.UTC(2026,9,29),REF={key:undefined,keyAt:0,ok:new Map(),want:new Map(),busy:false};
-const refText=(src,e)=>['edictum-battle-1',src,e.c,e.t,e.w||''].join('|');
-const refK=(src,e)=>refText(src,e)+'|'+e.s;
+/* The first seal (s) names no defender, so odds the referee held to one nation's army could be spent on another's hex.
+   Since SEAL2_AT a conquest counts only with the second seal (s2), over the defender too (d), and only where the hex
+   was d's when it fell (territory()). Earlier conquests keep the first seal. */
+const SEAL2_AT=Number(window.EDICTUM_SEAL2_AT)||Date.UTC(2026,10,10);
+const refV2=e=>e.t>=SEAL2_AT,refSig=e=>refV2(e)?e.s2:e.s;
+const refText=(src,e)=>refV2(e)?['edictum-battle-2',src,e.c,e.t,e.w||'',e.d||''].join('|'):['edictum-battle-1',src,e.c,e.t,e.w||''].join('|');
+const refK=(src,e)=>refText(src,e)+'|'+refSig(e);
 function sealed(src,e){
   if(!S.db||!(e.t>=REF_EPOCH))return true;
-  if(typeof e.s!=='string')return false;
+  if(typeof refSig(e)!=='string')return false;
   const k=refK(src,e),v=REF.ok.get(k);
   if(v===undefined&&!REF.want.has(k)){REF.want.set(k,{src,e});refSoon();}
   return v!==false;
@@ -16696,7 +16701,7 @@ async function refKey(){
   try{const s=await S.db.doc('referee/pub').get(),k=s.exists?(s.data()||{}).k:null;REF.key=typeof k==='string'?await crypto.subtle.importKey('spki',unb64(k),{name:'ECDSA',namedCurve:'P-256'},false,['verify']):null;}catch(e){REF.key=undefined;}
   return REF.key;
 }
-async function refVerify(key,src,e){try{return !!(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,unb64(e.s),new TextEncoder().encode(refText(src,e))));}catch(err){return false;}}
+async function refVerify(key,src,e){try{return !!(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,unb64(refSig(e)),new TextEncoder().encode(refText(src,e))));}catch(err){return false;}}
 async function refCheck(){
   const items=[...REF.want].slice(0,200),bad=new Set();let later=false;
   for(const [k] of items)REF.want.delete(k);
@@ -16714,7 +16719,7 @@ const refWhy=(k,forged)=>`${k===1?'One of its conquests carries':k+' of its conq
 /* a record's forged seals, once checked, go on the admins' list (sealed() already sets them aside) */
 function refFlag(id){
   const x=S.world[id];if(id===S.uid||!x||!Array.isArray(x.conq))return;
-  const bad=x.conq.filter(e=>e&&typeof e.s==='string'&&REF.ok.get(refK(id,e))===false);if(!bad.length)return;
+  const bad=x.conq.filter(e=>e&&typeof refSig(e)==='string'&&REF.ok.get(refK(id,e))===false);if(!bad.length)return;
   const a=AUDIT.get(id)||{why:[],name:x.name};a.why=a.why.filter(w=>!/a seal the referee did not make/.test(w)).concat(refWhy(bad.length,true));AUDIT.set(id,a);
 }
 /* What the land entries are read from: the records (replaced when they change, never edited; commit() also
@@ -16731,7 +16736,7 @@ function collectConquests(at){
 }
 function readConquests(at){
   const out=[];
-  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
+  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)add(id,S.world[id]);
   if(at!=null){const keep=out.filter(e=>e.t<=at);out.length=0;out.push(...keep);}
@@ -16802,7 +16807,7 @@ function territory(extra){
     if(e.npc){const si=byId[e.src];if(si===undefined||cur!==si)continue;}
     else if(e.t>=FIX_EPOCH){
       if(cur<0||cur===oi||(list[cur].n.founded||0)>e.t)continue;
-      const vid=list[cur].id;if(!warCovers(e.src,vid,e.t)&&!(e.w&&(warCovers(e.src,e.w,e.t)||warCovers(e.w,vid,e.t))))continue;
+      const vid=list[cur].id;if(S.db&&e.t>=SEAL2_AT&&e.d!==vid)continue;/* the seal's defender held the hex */if(!warCovers(e.src,vid,e.t)&&!(e.w&&(warCovers(e.src,e.w,e.t)||warCovers(e.w,vid,e.t))))continue;
       const q=rate.get(e.src)||[];while(q.length&&q[0]<e.t-DAY)q.shift();if(q.length>=16)continue;q.push(e.t);rate.set(e.src,q);
     }
     if(cur===oi&&!over.has(e.c))continue;
@@ -16986,7 +16991,7 @@ async function attack(){
   if(readiness(S.nation,now).r<1)return;
   {const cq=conqCap(S.nation,now);if(cq){S.warMsg=cq;S.mapTarget=null;updateMapPanel();redrawMaps();return;}}
   const bi=T.owner[cell],en=T.list[bi],od=battle(T,cell,mi,bi,fr.get(cell)),aw=atWar(myId(),en.id);
-  let win,t=now,seal=null,pe=od.p,w=aw&&!aw.direct&&aw.defending?aw.defending:'';
+  let win,t=now,seal=null,seal2=null,pe=od.p,w=aw&&!aw.direct&&aw.defending?aw.defending:'';
   if(S.db){
     S.attacking=true;S.warMsg='The referee is rolling the dice…';updateMapPanel();
     let res;
@@ -16996,16 +17001,16 @@ async function attack(){
     if(!res||!res.ok){
       const why=res&&res.why;
       if(why==='ready'){const n=clone(S.nation),ms=readyMs(n);n.ready=0;n.readyAt=Date.now()+clamp(Number(res.next)||ms,0,ms)-ms;commit(n);}
-      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':'The battle was not fought: the referee could not be reached. Try again in a moment.';
+      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
       S.mapTarget=null;updateMapPanel();redrawMaps();return;
     }
-    win=!!res.win;t=Number(res.t)||Date.now();seal=typeof res.s==='string'?res.s:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
+    win=!!res.win;t=Number(res.t)||Date.now();seal=typeof res.s==='string'?res.s:null;seal2=typeof res.s2==='string'?res.s2:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
   }else win=Math.random()<od.p;
   const n=clone(S.nation),msgs=[];
   spendReady(n,now);
   applyEffects(n,{wealth:-0.3,happy:-0.4,mil:win?0.3:-0.2});
   n.conq=(n.conq||[]).slice();
-  if(win){const e=w?{c:cell,t,w}:{c:cell,t};if(seal){e.s=seal;REF.ok.set(refK(myId(),e),true);}n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell)});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
+  if(win){const e=w?{c:cell,t,w,d:en.id}:{c:cell,t,d:en.id};if(seal)e.s=seal;if(seal2)e.s2=seal2;if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell)});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
   else msgs.push(`${en.n.name} held the line. Your attack was repelled.`);
   if(pe<od.p-0.005)msgs.push(`The referee put your chance at ${Math.round(pe*100)}%, not ${Math.round(od.p*100)}%: it goes by both armies as last saved.`);
   const counters=[bi];for(const id of alliesOf(en.id)){const j=T.byId[id];if(j!==undefined&&T.list[j].npc&&atWar(id,myId()))counters.push(j);}
@@ -18134,7 +18139,9 @@ function gamesBids(e){
   for(const x of allNations()){if(x.npc)continue;const bs=(x.n.games&&x.n.games.bids)||[];const b=bs.find(q=>q.e===e&&q.t<edStart(e));if(b)out.push({id:x.id,n:x.n,s:b.s,t:b.t,me:!!x.me});}
   return out.sort((a,b)=>b.s-a.s||a.t-b.t);
 }
-function gamesHost(e){const b=gamesBids(e);if(b.length)return {id:b[0].id,n:b[0].n,player:true};const id=NPC_HOSTS[((e%NPC_HOSTS.length)+NPC_HOSTS.length)%NPC_HOSTS.length];return {id,n:NPC_BY_ID[id],player:false};}
+/* the computer-run nation that hosts week e when nobody bids: one of this region's own (NPC_HOSTS is refilled per region) */
+function npcHost(e){const L=NPC_HOSTS.length;return L?NPC_HOSTS[((e%L)+L)%L]:null;}
+function gamesHost(e){const b=gamesBids(e);if(b.length)return {id:b[0].id,n:b[0].n,player:true};const id=npcHost(e);return {id,n:NPC_BY_ID[id],player:false};}
 function evName(ev,host){if(ev!=='national')return GAME_EVENTS[ev].n;const s=host.player?(host.n.sport||'football'):NPC_SPORT[host.id];return cap1(s);}
 function ctxOf(id){
   const z={coast:0,dev:0,forts:0,barracks:0};
@@ -18253,7 +18260,7 @@ function gamesView(){
   <section class="section"><h2 class="h2">Medal table</h2>${mt.rows.length?`<p class="hint" style="margin-bottom:10px">All Games since players joined: ${mt.eds} so far.</p><div class="tbl-wrap"><table class="tbl mtab"><thead><tr><th>Nation</th><th class="c-pop">Gold</th><th class="c-pop">Silver</th><th class="c-pop">Bronze</th></tr></thead><tbody>${mt.rows.map(r=>`<tr class="${r.me?'me':''}"><td>${nationLink(r.id,r.n.name,r.me)}</td><td class="c-pop">${r.m[0]}</td><td class="c-pop">${r.m[1]}</td><td class="c-pop">${r.m[2]}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty"><p class="empty-h">No medals yet</p><p>The table fills up once the first Games with players in them are over.</p></div>`}</section>
   <section class="section"><h2 class="h2">Host ${esc(edName(e+1))}</h2>
     <p class="muted">Hosting adds ${HOST_BONUS} points to every event for your team, and brings tourism, culture and happiness once the Games are over, at a small cost to incomes. A bid costs ${costText(BID_COST)}, all returned if you lose. Until this week’s Games end you can raise your bid, or withdraw it and get three quarters of your stake back. The strongest bid wins: culture, tourism, wealth, cities and buildings all count.</p>
-    ${nextBids.length?`<ul class="bids">${nextBids.map((b,i)=>`<li><span>${i===0?'<span class="pill up">Leading</span> ':''}${b.me?'<b>'+esc(b.n.name)+'</b>':esc(b.n.name)}</span><span class="num">Bid strength ${b.s}</span></li>`).join('')}</ul>`:`<p class="hint" style="margin-top:10px">No bids yet. Without one, ${esc(NPC_BY_ID[NPC_HOSTS[((e+1)%8+8)%8]].name)} hosts.</p>`}
+    ${nextBids.length?`<ul class="bids">${nextBids.map((b,i)=>`<li><span>${i===0?'<span class="pill up">Leading</span> ':''}${b.me?'<b>'+esc(b.n.name)+'</b>':esc(b.n.name)}</span><span class="num">Bid strength ${b.s}</span></li>`).join('')}</ul>`:`<p class="hint" style="margin-top:10px">No bids yet.${NPC_BY_ID[npcHost(e+1)]?` Without one, ${esc(NPC_BY_ID[npcHost(e+1)].name)} hosts.`:''}</p>`}
     <div class="row" style="margin-top:14px">${myBid?c3BidTools(n,myBid,st):!canFeature(n,'host')?`<span class="pill">Unlocks at ${fmtPopShort(featureAt('host'))} people</span>`:`<button class="btn" data-act="g-bid"${miss.length?' disabled':''}>Bid to host (strength ${bidStrength(n)})</button>`}</div>
     ${myBid?c3BidNote(n,myBid,st):''}${!myBid&&miss.length?`<p class="hint" style="margin-top:8px">You need ${esc(list(miss))} more in your stockpile.</p>`:''}
   </section>`;
@@ -18378,7 +18385,7 @@ function autoPlan(T,k){
 }
 function writeClaims(cells,msg,auto,plan){
   if(!cells.length)return false;
-  const checked=mpClaimSequence(territory(),cells);if(checked.blocked.length||checked.cost>landCredits(S.nation)||(S.nation.claims||[]).length+checked.cost>600){S.mapMsg=checked.blocked[0]?.why||'Not enough land credits or room in your land record.';S.mpMsg=S.mapMsg;render();return false;}cells=checked.cells;if(!cells.length)return false;
+  const checked=mpClaimSequence(territory(),cells);if(checked.blocked.length||checked.cost>landCredits(S.nation)||(S.nation.claims||[]).length+checked.cost>600){if(!auto){S.mapMsg=checked.blocked[0]?.why||'Not enough land credits or room in your land record.';S.mpMsg=S.mapMsg;render();}return false;}cells=checked.cells;if(!cells.length)return false;
   const now=Date.now(),n=clone(S.nation);
   n.claims=(n.claims||[]).concat(cells.map((c,k)=>({c,t:now+k})));if(plan)delete n.mapPlan;if(auto)autoLog(n,cells,now);
   commit(n);S.mapClaim=null;render();
@@ -18392,9 +18399,9 @@ function claimBlock(one){
   writeClaims(cells,`${S.nation.name} has claimed ${cells.length===1?'a hex':cells.length+' hexes'} ${placePhrase(cells[0])}.`);
 }
 function claimAuto(quiet){
-  const T=territory(),cr=landCredits(S.nation);if(cr<1)return;
+  const T=territory(),cr=landCredits(S.nation);if(cr<1)return false;
   const cells=autoPlan(T,cr);
-  writeClaims(cells,quiet?'':`${S.nation.name} spread into ${cells.length===1?'one new hex':cells.length+' new hexes'}.`,!!quiet);
+  return writeClaims(cells,quiet?'':`${S.nation.name} spread into ${cells.length===1?'one new hex':cells.length+' new hexes'}.`,!!quiet);
 }
 /* convert a nation from automatic growth: every hex it holds now becomes a claim */
 function legacyClaims(n,now){
@@ -25197,7 +25204,16 @@ asmState=function(now){
   return {c,t0:a?a.t0:asmT0(c),t1:a?a.t1:asmT0(c+1),now,recs,L,cur:a?a.cur:null,locked:!!a,D,DD:{D,info,npc},V,sig:a?String(hash(civicSignature(a))):'connecting'};
 };
 asmHistory=function(st,max){return [...st.L.values()].filter(L=>L.f&&L.c<st.c).sort((a,b)=>b.c-a.c).slice(0,max|0);};
-asmDue=function(n,now){if(!asmReady())return false;const st=asmState(now),a=asmA(n);return !!(st.cur&&a?.cur?.k!==st.cur.k)||[...st.L.values()].some(L=>L.f&&!(a?.h||[]).some(h=>h.r===REG.id&&h.c===L.c));};
+/* due only for what the save hook above would record: the same window of cycles (the last ASM_BACK, closed after
+   this nation arrived) and only ones the server has decided. The server sends a dozen cycles, more than the hook
+   ever records, so asking about all of them kept a commit and a save going every 30 s for good */
+asmDue=function(n,now){
+  if(!asmReady()||!n||(n.reg||REG.id)!==REG.id)return false;
+  const st=asmState(now),a=asmA(n);if(st.cur&&a?.cur?.k!==st.cur.k)return true;
+  const h=(a&&a.h)||[],arr=Math.max(asmArr(n),(n.asm&&n.asm.st)||now);
+  for(let c=Math.max(st.c-ASM_BACK,asmCyc(arr));c<st.c;c++)if(asmT0(c+1)>arr&&asmFinal(c,st.recs,st.L)&&!h.some(x=>x.r===REG.id&&x.c===c))return true;
+  return false;
+};
 const civicAssemblyView=VIEWS_EXT.assembly;
 VIEWS_EXT.assembly=now=>{
   const a=S.civic&&S.civic.reg===REG.id?S.civic.account:null;
@@ -36490,7 +36506,7 @@ function normalizeBase(d){
   const name=str(d.name,40).trim();
   const wars={};if(d.wars&&typeof d.wars==='object')for(const k of Object.keys(d.wars).slice(0,40)){const t=num(d.wars[k]&&d.wars[k].t,0);if(t&&k.length<=60)wars[k]=d.wars[k].by===1&&NPC_SET.has(k)?{t,by:1}:{t};}
   const peace={};if(d.peace&&typeof d.peace==='object')for(const k of Object.keys(d.peace).slice(0,40)){const t=num(d.peace[k],0);if(t&&k.length<=60)peace[k]=t;}
-  const conq=d.cv===MAP_VER&&Array.isArray(d.conq)?d.conq.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-400).map(e=>{if(typeof e.n==='string'&&NPC_SET.has(e.n))return {c:e.c,t:e.t,n:e.n};const o=typeof e.w==='string'&&e.w.length<=60?{c:e.c,t:e.t,w:e.w}:{c:e.c,t:e.t};if(typeof e.s==='string'&&e.s.length<=100)o.s=e.s;return o;}):[];
+  const conq=d.cv===MAP_VER&&Array.isArray(d.conq)?d.conq.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-400).map(e=>{if(typeof e.n==='string'&&NPC_SET.has(e.n))return {c:e.c,t:e.t,n:e.n};const o=typeof e.w==='string'&&e.w.length<=60?{c:e.c,t:e.t,w:e.w}:{c:e.c,t:e.t};if(typeof e.s==='string'&&e.s.length<=100)o.s=e.s;if(typeof e.s2==='string'&&e.s2.length<=100)o.s2=e.s2;if(typeof e.d==='string'&&e.d.length<=128)o.d=e.d;return o;}):[];
   const alli=d.alli&&typeof d.alli==='object'&&typeof d.alli.name==='string'&&d.alli.name.trim()?{name:d.alli.name.trim().slice(0,40),t:num(d.alli.t,0),inv:Array.isArray(d.alli.inv)?d.alli.inv.filter(e=>e&&typeof e.id==='string'&&e.id.length<=60).slice(-30).map(e=>({id:e.id,t:num(e.t,0)})):[]}:null;
   const spy=d.spy&&Number.isInteger(d.spy.n)?{n:clamp(d.spy.n,0,4),at:num(d.spy.at,now)}:null;
   const intel=Array.isArray(d.intel)?d.intel.filter(r=>r&&typeof r.tg==='string'&&INTEL[r.k]).slice(0,12).map(r=>{const o={t:num(r.t,0),tg:r.tg.slice(0,60),tn:str(r.tn,40),r:clamp(Math.round(num(r.r,1)),1,20),m:clamp(Math.round(num(r.m,0)),-9,9),k:r.k};if(typeof r.u==='number'&&isFinite(r.u))o.u=r.u;if(Number.isInteger(r.c)&&r.c>=-1&&r.c<MAP.N)o.c=r.c;if(r.dim===1)o.dim=1;if(typeof r.gw==='number'&&isFinite(r.gw))o.gw=clamp(Math.round(r.gw),-20,0);if(r.d&&typeof r.d==='object')o.d={b:num(r.d.b,0),rd:typeof r.d.rd==='number'?r.d.rd:null,mx:num(r.d.mx,6),dp:num(r.d.dp,0),al:str(r.d.al,40),wp:Array.isArray(r.d.wp)?r.d.wp.filter(x=>typeof x==='string').slice(0,20).map(x=>x.slice(0,40)):[],w:num(r.d.w,0)};return o;}):[];
@@ -38915,6 +38931,16 @@ try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',
 new MutationObserver(()=>{drawAllGuill();redrawMaps();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawAllGuill();redrawMaps();});
 
+/* automatic land: the tick ends here only when land was claimed (that commit draws the page). A nation with credits it
+   cannot spend (boxed in, no harbour reach, or a full land record) carries on with the rest of the tick, and asks
+   again after a minute, or sooner once its credits or claims change */
+let autoLandMiss=null;
+function autoLandTry(now){
+  const k=landCredits(S.nation)+'|'+(S.nation.claims||[]).length;
+  if(autoLandMiss&&autoLandMiss.k===k&&now-autoLandMiss.t<60000)return false;
+  if(claimAuto(true)){autoLandMiss=null;return true;}
+  autoLandMiss={k,t:now};return false;
+}
 function tick(){
   if(regBlocked())return;
   if(!S.nation)return;
@@ -38926,7 +38952,7 @@ function tick(){
   if(gamesPending(S.nation,now)){commit(clone(S.nation));render();return;}
   if(cellOf(S.nation.loc)>=0&&!Array.isArray(S.nation.claims)){commit(clone(S.nation));render();return;}
   if(milesReached(popNow(S.nation,now)).length>(S.nation.mileAck||0)){commit(clone(S.nation));render();return;}
-  if(S.nation.autoLand&&(S.view!=='map'||S.mpMode!=='plan')&&landCredits(S.nation)>0){claimAuto(true);return;}
+  if(S.nation.autoLand&&(S.view!=='map'||S.mpMode!=='plan')&&landCredits(S.nation)>0&&autoLandTry(now))return;
   const navSig=navSigOf(S.nation,now);
   if(navSig!==S.navSig){S.navSig=navSig;if(S.view==='messages'&&S.msgPeer)markThreadRead(S.msgPeer);if(!navSoft(v,now))render();return;}
   refreshBell(now);expTick(now);
@@ -39141,7 +39167,7 @@ async function susScan(){
     const qs=await S.db.collection('nations').where('reg','==',R.id).get();
     for(const d of qs.docs){k++;let raw=null,n=null;try{raw=d.data();n=normalize(raw);}catch(e){continue;}
       let why=auditNation(n,raw,d.id,now,false);
-      if(key&&Array.isArray(n.conq)){let f=0;for(const e of n.conq)if(e&&!e.n&&typeof e.s==='string'&&!(await refVerify(key,d.id,e)))f++;if(f)why=why.concat(refWhy(f,true));}
+      if(key&&Array.isArray(n.conq)){let f=0;for(const e of n.conq)if(e&&!e.n&&typeof refSig(e)==='string'&&!(await refVerify(key,d.id,e)))f++;if(f)why=why.concat(refWhy(f,true));}
       if(why.length)out.push({id:d.id,reg:R.id,name:(n&&n.name)||'A nation',why});}}
     ADMS.scan=out;ADMS.at=now;ADMS.n=k;
   }catch(e){ADMS.err='The other regions could not be checked: '+((e&&e.code)||'unknown error')+'.';}

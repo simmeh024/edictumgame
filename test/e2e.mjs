@@ -589,7 +589,7 @@ check('an attack from the war map is rolled by the referee, and a victory takes 
 const army = await ownerFields('armies/' + uidA);
 check('the referee keeps the battles and the army’s readiness', army.n && Number(army.n.integerValue) === fights && Number(army.r.integerValue) === 7 - fights, JSON.stringify(army));
 const own = await A.evaluate(c => { const e = (G.S.nation.conq || []).find(x => x.c === c); return e ? { e, ok: G.REF.ok.get(G.refK(G.myId(), e)), ready: G.readiness(G.S.nation, Date.now()).r } : null; }, won);
-check('the conquest carries the server’s time and the referee’s seal', own && typeof own.e.s === 'string' && own.e.s.length > 80 && own.ok === true && own.ready === 6 - fights, JSON.stringify(own));
+check('the conquest carries the server’s time and the referee’s seal', own && typeof own.e.s === 'string' && own.e.s.length > 80 && typeof own.e.s2 === 'string' && own.e.s2.length > 80 && own.e.d === war.npc && own.ok === true && own.ready === 6 - fights, JSON.stringify(own));
 check('and another player’s game counts it, having checked the seal', await until(() => B.evaluate(([c, a]) => { const T = G.territory(); return T.owner[c] === T.byId[a]; }, [won, uidA]), 20000));
 await A.screenshot({ path: path.join(OUT, 'referee-victory.png') });
 // Keep the sender from overwriting the administrator's tamper fixture during the observer assertion.
@@ -598,12 +598,30 @@ await A.evaluate(()=>{G.S.mode='readonly';G.render();});
 await sleep(2500);
 const spare = await A.evaluate(npc => { const T = G.territory(), out = []; for (const [cell] of G.frontier(T)) { const o = T.list[T.owner[cell]]; if (o && o.id === npc) out.push(cell); } return out.slice(0, 2); }, war.npc);
 const fA = await ownerFields('nations/' + uidA), recA = JSON.parse(fA.j.stringValue), at = Date.now();
-recA.conq = recA.conq.concat({ c: spare[0], t: at - 2000 }, { c: spare[1], t: at - 1000, s: own.e.s }); recA.updatedAt = at;
+recA.conq = recA.conq.concat({ c: spare[0], t: at - 2000 }, { c: spare[1], t: at - 1000, d: own.e.d, s: own.e.s, s2: own.e.s2 }); recA.updatedAt = at;
 await ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { ...fA, j: { stringValue: JSON.stringify(recA) }, updatedAt: { integerValue: String(at) }, ts: { timestampValue: new Date().toISOString() } } }) });
 check('another player’s game counts neither, and says why', spare.length === 2 && await until(() => B.evaluate(([a, at, cs]) => {
   const x = G.S.world[a]; if (!x || x.updatedAt !== at) return false;
   const T = G.territory(), why = (G.AUDIT.get(a) || {}).why || [];
   return cs.every(c => T.owner[c] !== T.byId[a]) && why.some(w => /no seal from the referee/.test(w)) && why.some(w => /a seal the referee did not make/.test(w)); }, [uidA, at, spare]), 20000), JSON.stringify(spare));
+// a genuine seal for odds asked against another nation (a computer nation, with no army to hold them to), spent on a hex
+// of the nation at war: the seal names that other nation, so the hex stays its holder's
+const odd = await A.evaluate(async ([npc, used]) => {
+  const T = G.territory(), other = G.allNations().find(x => x.npc && x.id !== npc);let cell = null;
+  for (const [c] of G.frontier(T)) { const o = T.list[T.owner[c]]; if (o && o.id === npc && !used.includes(c)) { cell = c; break; } }
+  if (!other || cell == null) return null;
+  const api = await window.claude.use('referee');
+  for (let i = 0; i < 3; i++) { const r = await api.battle({ d: other.id, c: cell, p: 0.95 }); if (!r.ok) return { why: r.why }; if (r.win) return { c: cell, t: r.t, d: other.id, s: r.s, s2: r.s2 }; }
+  return null; }, [war.npc, spare]);
+let atO = 0;
+if (odd && odd.s2) {
+  const fO = await ownerFields('nations/' + uidA), recO = JSON.parse(fO.j.stringValue);atO = Date.now();
+  recO.conq = recO.conq.concat({ c: odd.c, t: odd.t, d: odd.d, s: odd.s, s2: odd.s2 }); recO.updatedAt = atO;
+  await ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { ...fO, j: { stringValue: JSON.stringify(recO) }, updatedAt: { integerValue: String(atO) }, ts: { timestampValue: new Date().toISOString() } } }) });
+}
+check('a sealed conquest naming another defender does not take the hex', !!(odd && odd.s2) && await until(() => B.evaluate(([a, at, c, npc]) => {
+  const x = G.S.world[a]; if (!x || x.updatedAt !== at) return false;
+  const T = G.territory(); return T.owner[c] === T.byId[npc] && G.REF.ok.get(G.refK(a, (x.conq || []).find(e => e.c === c && e.s2))) !== false; }, [uidA, atO, odd && odd.c, war.npc]), 20000), JSON.stringify(odd && { c: odd.c, d: odd.d, why: odd.why }));
 await A.evaluate(()=>{G.S.mode='world';G.render();});
 // the referee's count of readiness is the one that holds: spent elsewhere, the page's next attack is refused
 const drained = await A.evaluate(async npc => { const api = await window.claude.use('referee'); for (let i = 0; i < 9; i++) { const r = await api.battle({ d: npc, c: 0, p: 0.05 }); if (!r.ok) return r.why; } return 'never'; }, war.npc);
@@ -624,7 +642,7 @@ check('a save that grows a nation tenfold since its last is refused', forged !==
 const cheatRec = JSON.parse((await restGet('nations/' + uidB)).body.fields.j.stringValue);
 Object.assign(cheatRec, { name: 'Cheatonia', pop: 900, popAt: Date.now(), founded: Date.now() - 2 * 864e5, updatedAt: Date.now(), stock: { food: 60, timber: 9999, iron: 25, oil: 10, goods: 40 } });
 for (const k of ['loc', 'claims', 'conq', 'cities', 'alli', 'allyOf', 'wars', 'peace', 'asm', 'dm', 'pp']) delete cheatRec[k];
-cheatRec.conq = [{ c: 5, t: Date.now() - 60000 }, { c: 6, t: Date.now() - 30000, s: own.e.s }];  // no seal, and another's
+cheatRec.conq = [{ c: 5, t: Date.now() - 60000 }, { c: 6, t: Date.now() - 30000, d: own.e.d, s: own.e.s, s2: own.e.s2 }];  // no seal, and another's
 await ownerDoc('nations/cheat-1', { method: 'PATCH', body: JSON.stringify({ fields: { v: { integerValue: '1' }, j: { stringValue: JSON.stringify(cheatRec) }, reg: { stringValue: 'meridian' }, name: { stringValue: 'Cheatonia' },
   updatedAt: { integerValue: String(cheatRec.updatedAt) }, ts: { timestampValue: new Date().toISOString() }, pop: { doubleValue: 10 }, army: { doubleValue: 1 }, cl: { integerValue: '0' } } }) });
 await nav(A, 'region');

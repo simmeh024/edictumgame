@@ -35,10 +35,10 @@ async function read(path) { const r = await doc(path); return r.status === 200 ?
 async function list(path) { const r = await doc(path + '?pageSize=300'); return r.status === 200 ? (await r.json()).documents || [] : []; }
 const del = path => doc(path, { method: 'DELETE' });
 // a nation as src/shim.js saves it: the record's JSON beside the headline numbers
-function nation(uid, rec = {}, army = 5) {
-  const j = JSON.stringify({ name: 'Testland', reg: 'meridian', pop: 12, ...rec });
+function nation(uid, rec = {}, army = 5, reg = 'meridian') {
+  const j = JSON.stringify({ name: 'Testland', reg, pop: 12, ...rec });
   return doc('nations/' + uid, { method: 'PATCH', body: JSON.stringify({ fields: {
-    v: { integerValue: '1' }, j: { stringValue: j }, reg: { stringValue: 'meridian' }, name: { stringValue: 'Testland' },
+    v: { integerValue: '1' }, j: { stringValue: j }, reg: { stringValue: reg }, name: { stringValue: 'Testland' },
     updatedAt: { integerValue: String(Date.now()) }, ts: { timestampValue: new Date().toISOString() },
     pop: { doubleValue: 12 }, army: { doubleValue: army }, cl: { integerValue: '0' } } }) });
 }
@@ -46,8 +46,8 @@ function nation(uid, rec = {}, army = 5) {
 async function checker() {
   const k = (await read('referee/pub')).fields.k.stringValue;
   const key = await crypto.subtle.importKey('spki', Buffer.from(k, 'base64'), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-  return (uid, c, t, w, s) => crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, Buffer.from(s, 'base64url'),
-    new TextEncoder().encode(['edictum-battle-1', uid, c, t, w || ''].join('|')));
+  return (uid, c, t, w, s, d) => crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, Buffer.from(s, 'base64url'),
+    new TextEncoder().encode((d === undefined ? ['edictum-battle-1', uid, c, t, w || ''] : ['edictum-battle-2', uid, c, t, w || '', d]).join('|')));
 }
 
 test('only a signed-in player with a saved nation can fight', async () => {
@@ -71,7 +71,9 @@ test('the referee rolls each battle, keeps the army’s readiness and seals ever
     assert.ok(r.t >= t0 - 1000 && r.t <= Date.now() + 1000, 'the server’s time');
     assert.equal(r.p, 0.95);
     assert.equal(typeof r.s === 'string', r.win, 'a seal comes with a victory only');
-    if (r.win) won.push({ c: 100 + i, t: r.t, w: i === 3 ? 'ally-1' : '', s: r.s });
+    assert.equal(typeof r.s2 === 'string', r.win, 'and the second seal, naming the defender');
+    assert.equal(r.d, NPC);
+    if (r.win) won.push({ c: 100 + i, t: r.t, w: i === 3 ? 'ally-1' : '', s: r.s, s2: r.s2 });
   }
   const no = await battle(g);
   assert.equal(no.ok, false);
@@ -85,6 +87,9 @@ test('the referee rolls each battle, keeps the army’s readiness and seals ever
     assert.equal(await ok(g.uid, e.c, e.t - 86400000, e.w, e.s), false, 'another time');
     assert.equal(await ok(g.uid, e.c, e.t, e.w ? '' : 'ally-2', e.s), false, 'another war');
     assert.equal(await ok('someone-else', e.c, e.t, e.w, e.s), false, 'another nation');
+    assert.equal(await ok(g.uid, e.c, e.t, e.w, e.s2, NPC), true, 'the second seal names the defender');
+    assert.equal(await ok(g.uid, e.c, e.t, e.w, e.s2, 'npc-tarrow'), false, 'another defender');
+    assert.equal(await ok(g.uid, e.c, e.t, e.w, e.s2, 'someone-else'), false, 'a player for a computer nation');
   }
   const army = await read('armies/' + g.uid);
   assert.equal(Number(army.fields.n.integerValue), 7);
@@ -129,6 +134,19 @@ test('the odds stay within the game’s bounds, and no better than the two armie
   assert.equal((await battle(g, { d: foe.uid, p: 0.3, h: [friend.uid] })).p, 0.3, 'odds within the bound stand');
   const log = (await list(`armies/${g.uid}/log`)).map(d => d.fields);
   assert.ok(log.some(f => f.d.stringValue === foe.uid && Math.abs((f.cap.doubleValue ?? Number(f.cap.integerValue)) - 20 / 1020) < 1e-3), 'the log keeps the bound');
+});
+
+test('the defender must be a nation of the attacker’s region, and an attacker without an army gets no odds', async () => {
+  const g = await guest(), away = await guest(), foe = await guest(), none = await guest();
+  await nation(g.uid);
+  await nation(away.uid, { wars: { [g.uid]: { t: Date.now() } } }, 10, 'frostmarch');
+  assert.deepEqual(await battle(g, { d: 'no-such-nation' }), { ok: false, why: 'gone' }, 'an id with no nation');
+  assert.deepEqual(await battle(g, { d: 'npc-frostmarch-brimvik' }), { ok: false, why: 'gone' }, 'another region’s computer nation');
+  assert.deepEqual(await battle(g, { d: away.uid }), { ok: false, why: 'gone' }, 'a player in another region');
+  await nation(none.uid, {}, 0);
+  await nation(foe.uid, { wars: { [none.uid]: { t: Date.now() } } }, 10);
+  assert.equal((await battle(none, { d: foe.uid, p: 0.95 })).p, 0, 'no army against an army');
+  assert.equal((await list(`armies/${g.uid}/log`)).length, 0, 'refused battles are not fought');
 });
 
 test('a banned account cannot fight', async () => {
