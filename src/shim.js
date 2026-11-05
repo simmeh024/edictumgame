@@ -61,7 +61,7 @@
   };
   var LS_EMAIL = 'edictum.emailLink';     // {email, mode} while a sign-in link is on its way to that address
   var LS_DISCORD = 'edictum.discord';      // src/discord.html's answer from Discord's window: {state, code, error}
-  var A = { fb: null, auth: null, fs: null, uid: null, admin: false, online: false, why: '', frozen: false, leaving: false, sw: null, rest: '', projectId: '', raceAt: {},
+  var A = { fb: null, auth: null, fs: null, uid: null, admin: false, online: false, why: '', frozen: false, leaving: false, sw: null, rest: '', projectId: '', raceAt: {}, popBase: {},
     claims: null, claimsUid: '' };
 
   /* ───────── small helpers ───────── */
@@ -237,6 +237,19 @@
     var sj = spaceText(data), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
     var ref = A.fs.doc('nations/' + uid), expected = revision(data);
     enc.j = JSON.stringify(halves[0]);
+    /* The rules (grows) let the headline population rise only as fast as the game can since the last save, by the
+       server's clock, while the game counts growth by this device's clock: a clock running ahead, or another device's,
+       sends a population "from the future", refused (permission-denied) at every save once saves are seconds apart.
+       The headline is held within the allowance since the last server record this page knows of (popBase), timed by
+       performance.now() from when it was read or acknowledged: later than the server's time of it, so on the safe side.
+       The record itself (j) keeps the game's number. */
+    var base = A.popBase[uid];
+    if (base && enc.pop > base.pop) {
+      var days = Math.max(0, performance.now() - base.at) / 864e5, most = base.pop * Math.pow(1.35, days) + 3 * days;
+      /* only what a clock up to an hour ahead explains: anything beyond is sent as it is, for the rules to refuse */
+      var hour = days + 1 / 24, skewed = base.pop * Math.pow(1.35, hour) + 3 * hour;
+      if (enc.pop > most && enc.pop <= skewed) enc.pop = Math.max(base.pop, Math.floor(most * 1e4) / 1e4);
+    }
     var approved = await call('civic', { op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected });
     enc.j = approved.j; enc.permit = approved.permit;
     enc.rev = expected + 1;
@@ -244,6 +257,7 @@
        transaction against the new document; it must still match the state this action was based on. */
     return A.fs.runTransaction(async function (b) {
       var current = await b.get(ref), saved = current.exists ? current.data() : null;
+      if (saved && typeof saved.pop === 'number') A.popBase[uid] = { pop: saved.pop, at: performance.now() };
       for (var region of new Set([enc.reg, saved && saved.reg].filter(Boolean))) {
         var availability = await b.get(A.fs.doc('regionStatus/' + region));
         if (!A.admin && availability.exists && availability.data().enabled === false) {
@@ -276,7 +290,7 @@
       } else if (space) {
         b.delete(spaceRef);
       }
-    }).then(function () { A.raceAt[uid] = enc.updatedAt; setTimeout(recoveryCheck, 0); window.dispatchEvent(new Event('edictum:saved')); return { rev: enc.rev }; });
+    }).then(function () { A.raceAt[uid] = enc.updatedAt; A.popBase[uid] = { pop: enc.pop, at: performance.now() }; setTimeout(recoveryCheck, 0); window.dispatchEvent(new Event('edictum:saved')); return { rev: enc.rev }; });
   }
   /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
      carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in
