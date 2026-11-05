@@ -4,7 +4,7 @@
 import { BASE, player, open, found, until, check, finish, text, nav, restListAdmin, clearEmulators, sleep } from './lib.mjs';
 await clearEmulators();
 const RES = ['goods', 'oil', 'timber', 'iron'];
-const stock = p => p.evaluate(() => { const n = G.S.nation; return Object.fromEntries(['goods', 'oil', 'timber', 'iron'].map(r => [r, Math.floor(G.stockNow(n, Date.now())[r] || 0)])); });
+const stock = p => p.evaluate(() => { const n = G.S.nation; return Object.fromEntries(['goods', 'oil', 'timber', 'iron'].map(r => [r, Math.floor(G.RC().stock(n, Date.now())[r] || 0)])); });
 const credits = p => p.evaluate(() => G.RC().land(G.S.nation));
 
 const A = await player('recruiter');
@@ -12,7 +12,7 @@ const uidA = await open(A); await found(A, 'Recruitland');
 
 // the Social section in Settings
 await nav(A, 'settings');
-await A.waitForSelector('#set-social');
+await A.waitForSelector('#rc-link');
 const link = await A.$eval('#rc-link', i => i.value);
 check('Settings has a Social section with the player\'s own link', link === BASE.replace('127.0.0.1', '127.0.0.1') + '/?recruit=' + uidA || link.endsWith('/?recruit=' + uidA), link);
 const shares = await A.$$eval('#set-social .rc-share a', as => as.map(a => a.textContent + ' ' + a.href));
@@ -33,10 +33,10 @@ check('15 goods, oil, timber and iron for the recruit', RES.every(r => bStock[r]
 check('and 3 land credits', await credits(B) === 3);
 check('the pending link is forgotten', await B.evaluate(() => G.RC().pending()) === '');
 const docs = (await restListAdmin('recruits'));
-check('recruits/<uid> names the recruiter', docs.length === 1 && docs[0].name.endsWith('/' + uidB) && docs[0].fields.r.stringValue === uidA);
+check('recruits/<uid> names the recruiter', docs.length === 1 && docs[0].id === uidB && docs[0].fields.r.stringValue === uidA);
 
 // a second claim is not paid again
-check('a second claim finds the first', await B.evaluate(r => window.claude.use('recruit').claim(r), uidA) === 'done');
+check('a second claim finds the first', await B.evaluate(r => Promise.resolve(window.claude.use('recruit')).then(a => a.claim(r)), uidA) === 'done');
 
 // the recruiter's side
 await A.evaluate(() => G.RC().poll(true));
@@ -54,9 +54,9 @@ check('Word of Mouth is earned', await until(() => A.evaluate(() => !!(G.S.natio
 const C = await player('other');
 await open(C, BASE + '/?recruit=' + uidA); await found(C, 'Otherland', { newPlayer: true });
 const uidC = await C.evaluate(() => window.claude.use('user').then(u => u.id()));
-check('a player cannot file a claim naming themself', await C.evaluate(id => window.claude.use('recruit').claim(id), uidC) === 'bad');
+check('a player cannot file a claim naming themself', await C.evaluate(id => Promise.resolve(window.claude.use('recruit')).then(a => a.claim(id)), uidC) === 'bad');
 check('C was recruited by A too', await until(() => C.evaluate(() => !!G.S.nation.rcb), 30000));
-const listed = await C.evaluate(id => window.claude.use('recruit').mine().then(l => l.map(x => x.id)), uidA);
+const listed = await C.evaluate(id => Promise.resolve(window.claude.use('recruit')).then(a => a.mine()).then(l => l.map(x => x.id)), uidA);
 check('a player lists only recruits naming them', Array.isArray(listed) && listed.length === 0, JSON.stringify(listed));
 await A.evaluate(() => G.RC().poll(true));
 check('the recruiter is paid for the second recruit', await until(() => A.evaluate(() => (G.S.nation.rcp || []).length === 2), 15000) && await credits(A) === 6);

@@ -630,7 +630,7 @@
       return ref.get().then(function (d) {
         if (d.exists) return 'done';
         return ref.set({ r: by, t: serverTime() }).then(function () { return 'ok'; });
-      }).catch(function (e) { return e && e.code === 'permission-denied' ? 'bad' : 'retry'; });
+      }).catch(function () { return 'retry'; }); // the nation's first save may still be on its way
     },
     mine: function () {
       var u = A.auth && A.auth.currentUser;
