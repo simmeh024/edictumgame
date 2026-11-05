@@ -35282,9 +35282,10 @@ document.addEventListener('input',e=>{
 function fgChange(el){const sc=el.dataset.scope,tgt=fgTarget(sc);FG.drag='';if(tgt)fgCanon(tgt);fgDone(sc);}
 /* open groups stay open across redraws */
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.fgg)FG.open[d.dataset.fgg]=d.open;},true);
-/* the toggle event comes a moment after the click: a redraw in between (a save from another device) would replace the
-   section before it fires, so the click records the new state at once */
-document.addEventListener('click',e=>{const sm=e.target.closest&&e.target.closest('summary');const d=sm&&sm.parentElement;if(!d||d.tagName!=='DETAILS'||sm!==d.querySelector(':scope>summary'))return;if(d.dataset.fgg)FG.open[d.dataset.fgg]=!d.open;if(d.closest('#main')&&S.nation&&!UXP.ignoreDetails){UXP.data.folds[uxDetailKey(d)]=d.open;uxPersist();}},true);
+/* the toggle event comes a moment after the click: a redraw in between (a save from another device) replaces the section
+   before it fires, and every redraw ignores toggles for a tick (UXP.ignoreDetails, for the ones it makes itself). A click is
+   always the player's, so it records the new state at once. */
+document.addEventListener('click',e=>{const sm=e.target.closest&&e.target.closest('summary');const d=sm&&sm.parentElement;if(!d||d.tagName!=='DETAILS'||sm!==d.querySelector(':scope>summary'))return;if(d.dataset.fgg)FG.open[d.dataset.fgg]=!d.open;if(d.closest('#main')&&S.nation){UXP.data.folds[uxDetailKey(d)]=d.open;uxPersist();}},true);
 
 /* ── independent flag layers: bounded vector shapes, shared by all flag scopes ── */
 const FGL_MAX=8,FGL_KINDS={emblem:'Emblem',stripe:'Stripe',border:'Border',disc:'Disc'};
@@ -36593,7 +36594,7 @@ async function syncOwnNation(force=false){
         const r=n.reg&&n.reg!==REG.id?null:rebaseActs(n);
         if(r){if(!r.clash)try{localStorage.removeItem('edictum.unsaved.'+S.uid);}catch(e){}
           ownActs=[];ownActsBroken=0;S.nation=n;saveLocal(n);
-          if(r.acts){commit(r.n);saveSoon();if(!r.mine)toast('Your nation was also saved on another device. Your changes here were added to that save.'+(r.clash?' Where both devices changed the same thing, the other device’s choice was kept; a copy of this device’s version is in your account menu.':''));}
+          if(r.acts){commit(r.n);remoteLast=Math.max(remoteLast,performance.now());saveSoon();if(!r.mine)toast('Your nation was also saved on another device. Your changes here were added to that save.'+(r.clash?' Where both devices changed the same thing, the other device’s choice was kept; a copy of this device’s version is in your account menu.':''));}
           else render();
           return;}
         const kept=keepUnsaved(S.nation);
@@ -36692,11 +36693,14 @@ async function writeRemote(){
   catch(e){
     saveFailed=true;saveError=String(e&&e.code||'unknown').slice(0,64);publishSync();
     if(e&&e.code==='region_disabled'){remoteDirty=true;regionControls();return;}
-    if(e&&e.code==='unavailable'){await sleep(700+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
+    if(e&&e.code==='unavailable'){await sleep(1500+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
     if(e&&e.code==='save_conflict'){saveConflicts++;saveFailed=false;keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
     saveFailed=true;
     const code=e&&e.code;
-    if(code==='invalid_argument'||code==='not_granted'||code==='revoked'||code==='quota_exceeded')handleWriteError(e);
+    /* a refusal from the rules can be passing (paced: one save a second, so a retry or a replayed save just after
+       another device's; a permit that expired on the way): tried again like any failure, view-only from the third in a row */
+    if(code==='not_granted'||code==='invalid_argument'){saveStreak++;if(saveStreak>=3)handleWriteError(e);else publishSync();}
+    else if(code==='revoked'||code==='quota_exceeded')handleWriteError(e);
     else{saveStreak++;if(saveStreak===3)handleWriteError(e);else publishSync();}
     if(S.mode==='world')remoteDirty=true;
   }
