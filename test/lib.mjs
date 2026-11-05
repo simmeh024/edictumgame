@@ -55,7 +55,7 @@ export async function player(tag, opts = {}) {
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
   await ctx.addInitScript(([cap, gap, desk]) => {
-    window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true;
+    window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); window.EDICTUM_SEAL2_AT = Date.UTC(2026, 0, 2); /* conquests checked by the seal that names the defender */ if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true;
     window.EDICTUM_PROBE = g => { window.G = g; };
     // reward pop-ups as they always were; the quiet first hour has tests of its own
     try { if (!localStorage.getItem('statehood.notif')) localStorage.setItem('statehood.notif', JSON.stringify({ rw: 'on' })); } catch (e) {}

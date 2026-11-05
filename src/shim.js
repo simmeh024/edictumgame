@@ -1715,14 +1715,33 @@
       setMsg(authMessage(e), true);
       return;
     }
-    var nu = res && res.user, has = true, name = '';
+    var nu = res && res.user, has = true, known = false, name = '';
     if (!nu) { leave({ nation: null, uid: '-' }); return; }
-    try { var s = await within(A.fs.doc('nations/' + nu.uid).get(), 8000); has = s.exists; if (has) name = str((s.data() || {}).name, 80); } catch (e) { has = true; }
+    /* does that account hold a nation? asked twice: a slow phone link can miss the first answer */
+    for (var tries = 0; tries < 2 && !known; tries++) {
+      try { var s = await within(A.fs.doc('nations/' + nu.uid).get(), tries ? 15000 : 8000); has = s.exists; known = true; if (has) name = str((s.data() || {}).name, 80); } catch (e) { /* asked again, then unknown */ }
+    }
+    /* Still unknown, with a guest nation whose region copy may already be gone (dropped above): it must not be
+       wiped on a guess. It comes along as an unsaved copy at revision 0, and the game weighs it against the
+       account's record at load: a nation the account already holds is newer and loads (this copy goes to the
+       account menu, as the switch dialog promised); with none, this one is saved as the account's. */
+    if (!known && guest) {
+      guest._rev = 0; guest._dirty = true;
+      var carried = JSON.stringify(guest);
+      L.set(LS_NATION, carried);
+      leave({ nation: carried, uid: nu.uid }, 'Signed in with ' + via + '. “' + guest.name + '” came with you: if this ' + sw.what + ' already held a nation, that one loads and “' + guest.name + '” is kept in your account menu.');
+      return;
+    }
     if (has) {
       leave({ nation: null, uid: '-' }, name ? 'Signed in with ' + via + '. Welcome back to “' + name + '”.' : 'Signed in with ' + via + '.');
+    } else if (guest) {
+      guest._rev = 0;
+      var moved = JSON.stringify(guest);
+      L.set(LS_NATION, moved);
+      /* the copy goes back on pagehide too, should the game save it again (with the guest's revision) before the reload */
+      leave({ nation: moved, uid: nu.uid }, 'Signed in with ' + via + '. “' + guest.name + '” now lives in your ' + sw.what + '.');
     } else {
-      if (guest) { guest._rev = 0; L.set(LS_NATION, JSON.stringify(guest)); }
-      leave({ uid: nu.uid }, guest ? 'Signed in with ' + via + '. “' + guest.name + '” now lives in your ' + sw.what + '.' : 'Signed in with ' + via + '. The nation you found here will be kept with your account.');
+      leave({ uid: nu.uid }, 'Signed in with ' + via + '. The nation you found here will be kept with your account.');
     }
   }
   function syncSignoutButton() {

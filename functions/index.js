@@ -10,9 +10,10 @@
      d  the nation attacked: a player's uid, or a computer nation's id (npc-…)
      c  the hex (its cell number); p the odds the attacker's game worked out; w the ally whose war it is
         ('' in a war of its own); h the allied nations joining the assault
-     → {ok: true, win, t, s?, p, r}: t the server's time (the conquest's), s the seal of a victory, p the odds
-       used, r the readiness left; or {ok: false, why, next?}: why 'ready' (next: ms until the next point),
-       'nation' (no saved nation yet) or 'banned'
+     → {ok: true, win, t, s?, s2?, d, p, r}: t the server's time (the conquest's), s and s2 the seals of a victory,
+       d the defender they name, p the odds used, r the readiness left; or {ok: false, why, next?}: why 'ready'
+       (next: ms until the next point), 'nation' (no saved nation yet), 'gone' (no such defender in the
+       attacker's region) or 'banned'
    referee({op: 'forget'}): a player deleting their account clears their army's record, once the nation is
      gone (before that, clearing it would refill the army)
 
@@ -21,7 +22,10 @@
      referee/pub            {k, at}: its public half (SPKI, base64), which every game reads
      armies/{uid}           {r, at, n, w, last}: readiness r as of at (ms); battles n, won w, the last at last
      armies/{uid}/log/{id}  {d, c, p, pe, cap, roll, win, t}: every battle, for the admins
-   The seal: ECDSA P-256 with SHA-256 (64 bytes, base64url) over "edictum-battle-1|<uid>|<c>|<t>|<w>". */
+   The seals: ECDSA P-256 with SHA-256 (64 bytes, base64url) over "edictum-battle-1|<uid>|<c>|<t>|<w>" (s) and
+   "edictum-battle-2|<uid>|<c>|<t>|<w>|<d>" (s2). The first names no defender, so the odds held to one nation's army
+   could be spent on another's hex; since SEAL2_AT (game/edictum.html) a conquest counts only with s2, and only
+   when the hex was d's. s stays for builds older than that, which check only it. */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -37,7 +41,7 @@ initializeApp();
 const db = getFirestore();
 
 const REGION = 'europe-west1';  // beside Firestore (eur3); src/shim.js calls it here
-const SEAL = 'edictum-battle-1';
+const SEAL = 'edictum-battle-1', SEAL2 = 'edictum-battle-2';
 const P_MIN = 0.05, P_MAX = 0.95;      // the game's own bounds on the odds (battle() in game/edictum.html)
 const READY_BASE = 6, SLACK = 1;       // readiness as the game keeps it, plus one point for a master spy's gift
 /* The most the game's own factors can tilt a battle beyond the two armies: borders held around the hex,
@@ -60,6 +64,7 @@ async function signingKey() {
   return KEY;
 }
 function sealText(uid, c, t, w) { return [SEAL, uid, c, t, w || ''].join('|'); }
+function sealText2(uid, c, t, w, d) { return [SEAL2, uid, c, t, w || '', d].join('|'); }
 
 const record = s => { try { const j = s && s.exists ? s.get('j') : null; return typeof j === 'string' ? JSON.parse(j) || {} : {}; } catch (e) { return {}; } };
 const army = s => s && s.exists && typeof s.get('army') === 'number' ? s.get('army') : 0;
@@ -93,6 +98,11 @@ async function battle(uid, data) {
     if (ban.exists) return { ok: false, why: 'banned' };
     if (!me.exists) return { ok: false, why: 'nation' };
     const foe = npc ? null : rest.shift(), mine = record(me), now = Date.now();
+    /* the defender is a nation of the attacker's own region: one of its computer nations, or a player whose nation
+       is saved there (an id made up, or one from elsewhere, would have no army to hold the odds to) */
+    const myReg = me.get('reg') || 'meridian';
+    if (npc ? !DATA.regions.some(r => r.id === myReg && r.npcs.some(n => n.id === d)) : !foe.exists || (foe.get('reg') || 'meridian') !== myReg)
+      return { ok: false, why: 'gone' };
     const regions = [...new Set([me.get('reg'), foe?.get('reg')].filter(Boolean))];
     const availability = regions.length ? await tx.getAll(...regions.map(r => db.doc('regionStatus/' + r))) : [];
     const unavailable = availability.find(r => regionClosed(r, r.id));
@@ -107,11 +117,13 @@ async function battle(uid, data) {
     const al = allianceOf(uid, mine);
     let att = army(me);
     rest.forEach((s, i) => { if (al && allianceOf(help[i], record(s)) === al) att += 0.5 * army(s); });
-    const def = npc ? 0 : army(foe), cap = att > 0 && def > 0 ? Math.min(P_MAX, TILT * att / (TILT * att + def)) : P_MAX;
+    /* held to the armies whenever the defender has one: an attacker with none gets no odds at all, not the best */
+    const def = npc ? 0 : army(foe), cap = def > 0 ? Math.min(P_MAX, TILT * att / (TILT * att + def)) : P_MAX;
     const p = Math.min(P_MAX, Math.max(P_MIN, data.p)), pe = Math.min(p, cap);
     const roll = crypto.randomInt(0, 1e6) / 1e6, win = roll < pe;
-    const out = { ok: true, win, t: now, w, p: Math.round(pe * 1e4) / 1e4, r: rd.r - 1 };
-    if (win) out.s = crypto.sign('sha256', Buffer.from(sealText(uid, c, now, w)), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+    const out = { ok: true, win, t: now, w, d, p: Math.round(pe * 1e4) / 1e4, r: rd.r - 1 };
+    const sign = text => crypto.sign('sha256', Buffer.from(text), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+    if (win) { out.s = sign(sealText(uid, c, now, w)); out.s2 = sign(sealText2(uid, c, now, w, d)); }
     const prev = st.exists ? st.data() : {};
     tx.set(armyRef, { r: rd.r - 1, at: rd.r >= rd.max ? now : rd.at + rd.g * rd.ms, n: (prev.n || 0) + 1, w: (prev.w || 0) + (win ? 1 : 0), last: now });
     tx.set(logRef, { d, c, p: data.p, pe, cap, roll, win, t: now, ...(w ? { ally: w } : {}) });
