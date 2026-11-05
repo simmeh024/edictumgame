@@ -5173,6 +5173,7 @@ span.nw-tag{cursor:default}
   .cx-cats{top:72px}
   .city.cx-detail{padding:16px 14px}
 }
+.rc-row{display:flex;gap:8px;flex-wrap:wrap}.rc-row .input{flex:1 1 16em;min-width:0}.rc-share{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 8px}.rc-share a{text-decoration:none}
 </style>
 
 <div id="app"></div>
@@ -35029,6 +35030,8 @@ const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy',gyronny:'f
 /* the Community Board's achievements: a visit, then visits on five different days (tally cbvisit; cbday is the last day counted) */
 achDef('dip','dip-board','b','Town Crier','Visit the Community Board, where every region talks.',1,x=>aT(x,'cbvisit'),{u:'fp-gyronny'});
 achDef('dip','dip-board5','s','Regular at the Board','Visit the Community Board on five different days.',5,x=>aT(x,'cbvisit'),{u:'fp-lozenge'});
+[['dip-rc1','b','Word of Mouth',1,'Recruit a player: someone founds a nation through your link in Settings.'],['dip-rc3','s','Recruiting Sergeant',3,'Recruit three players through your link.'],['dip-rc10','g','Talent Scout',10,'Recruit ten players through your link.'],['dip-rc25','p','Founder of Founders',25,'Recruit twenty-five players. Half the region owes you a drink.']]
+  .forEach(([id,g,t,k,d])=>achDef('dip',id,g,t,d,k,x=>x.npc?0:Array.isArray(x.n.rcp)?x.n.rcp.length:0));
 function cbVisited(){
   const n=S.nation;if(!n||n.npc||!n.name||OBS||S.mode==='readonly')return;const day=Math.floor(Date.now()/DAY);
   if(tallyOf(n,'cbday')===day)return;
@@ -48034,7 +48037,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,achRankCredits,TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -48095,6 +48098,92 @@ function mlPings(prev,n){
     if(k==='msg'&&now-(ML_SENT.get(key)||0)<600000)continue;ML_SENT.set(key,now);a.ping(to,k,n.name);}}).catch(()=>{});
 }
 commit=(f=>function(n){const prev=S.nation,r=f.apply(this,arguments);try{if(S.nation!==prev)mlPings(prev,n);}catch(e){}return r;})(commit);
+/* ───────── recruiting: a player's own link, and a bonus for both sides ─────────
+   Settings › Social gives each player a link (/?recruit=<uid>) to share. A visitor who opens it keeps the
+   recruiter's id on this device (RC_KEY); once they found a nation and it is saved, the game files
+   recruits/<own uid> {r} (firestore.rules: once only, both nations must exist). Only a newly filed one pays the
+   recruit: RC_GIFT of each of RC_RES and RC_LAND land credits (n.rcb {r}). The recruiter's game lists the recruits
+   naming it (rcPoll) and pays itself the same for each one not yet in n.rcp, for up to RC_MAX recruits. */
+const RC_GIFT=15,RC_RES=['goods','oil','timber','iron'],RC_LAND=3,RC_MAX=50,RC_KEY='edictum.recruitBy.v1',RC_ID=/^[A-Za-z0-9_-]{6,128}$/;
+const RC={busy:false,at:0,n:null,tries:0,copied:false,api:null,ok:false};
+(()=>{try{const u=new URL(location.href),r=u.searchParams.get('recruit');if(!u.searchParams.has('recruit'))return;u.searchParams.delete('recruit');history.replaceState(history.state,'',u.pathname+u.search+u.hash);
+  if(r&&RC_ID.test(r)&&!localStorage.getItem(RC_KEY))localStorage.setItem(RC_KEY,JSON.stringify({r,t:Date.now()}));}catch(e){}})();
+function rcPending(){try{const o=JSON.parse(localStorage.getItem(RC_KEY)||'null');return o&&RC_ID.test(o.r)?o.r:'';}catch(e){return '';}}
+function rcForget(){try{localStorage.removeItem(RC_KEY);}catch(e){}}
+function rcApi(){return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('recruit'):null).then(a=>{RC.api=a&&typeof a.claim==='function'?a:null;RC.ok=true;return RC.api;},()=>null);}
+const rcPaid=n=>Array.isArray(n&&n.rcp)?n.rcp:[];
+const rcLand=n=>!n||n.npc?0:(n.rcb?RC_LAND:0)+Math.min(RC_MAX,rcPaid(n).length)*RC_LAND;
+landEarned=(f=>function(n){return f.apply(this,arguments)+rcLand(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+rcLand(n);})(earnedAt);
+NORM_HOOKS.push((n,d)=>{
+  if(d&&d.rcb&&typeof d.rcb.r==='string'&&RC_ID.test(d.rcb.r))n.rcb={r:d.rcb.r};else delete n.rcb;
+  if(d&&Array.isArray(d.rcp)){const a=[...new Set(d.rcp.filter(x=>typeof x==='string'&&RC_ID.test(x)))].slice(0,RC_MAX);if(a.length)n.rcp=a;else delete n.rcp;}else delete n.rcp;
+});
+/* commit() keeps the stock it can account for, so the gift is paid inside a commit hook, like the desk's: m._rcg asks for k gifts */
+COMMIT_HOOKS.push(n=>{if(!n)return;const k=n._rcg;delete n._rcg;if(Number.isInteger(k)&&k>0&&k<=RC_MAX)for(let i=0;i<k;i++)rcGift(n);});
+function rcGift(n){const now=Date.now(),st=stockNow(n,now);for(const r of RC_RES)st[r]=stockLimit(n,r,num0(st[r])+RC_GIFT,st[r]);n.stock=roundStock(st);n.stockAt=now;}
+const rcGiftText=()=>`+${RC_GIFT} ${RC_RES.map(resName).join(', +'+RC_GIFT+' ')} and +${RC_LAND} land credits`;
+/* the recruit's side: after the founding save, file the claim; it pays only if it is new */
+function rcClaim(){
+  const n=S.nation,by=rcPending();
+  if(!n||!n.name||n.npc||OBS||n.rcb||!by||by===myId()){if(n&&n.name&&(n.rcb||by===myId()))rcForget();return;}
+  if(RC.claiming)return;RC.claiming=true;
+  rcApi().then(api=>api?api.claim(by):'none').then(res=>{RC.claiming=false;
+    if(res==='retry'){if(++RC.tries<6)setTimeout(rcClaim,5000*RC.tries);return;}
+    rcForget();if(res!=='ok'||!S.nation||S.nation.rcb)return;
+    const m=clone(S.nation);m.rcb={r:by};m._rcg=1;commit(m);render();
+    toast({m:`Welcome, recruit! You joined through another player’s link, so you both get a founding bonus: ${rcGiftText()}.`,cf:1});
+  });
+}
+commit=(f=>function(n){const prev=S.nation,r=f.apply(this,arguments);try{if(n&&n.name&&!(prev&&prev.name)&&rcPending())setTimeout(rcClaim,4000);}catch(e){}return r;})(commit);
+/* the recruiter's side */
+function rcPoll(force){
+  const n=S.nation,now=Date.now();
+  if(!n||!n.name||n.npc||OBS||RC.busy||!force&&now-RC.at<5*60e3)return;
+  RC.busy=true;RC.at=now;
+  rcApi().then(api=>api?api.mine():null).then(list=>{RC.busy=false;if(!Array.isArray(list))return;const me=myId();
+    list=list.filter(x=>x&&RC_ID.test(x.id)&&x.id!==me);const was=RC.n;RC.n=list.length;
+    const cur=S.nation;if(!cur||!cur.name)return;const paid=new Set(rcPaid(cur)),due=list.filter(x=>!paid.has(x.id)).slice(0,Math.max(0,RC_MAX-paid.size));
+    if(!due.length){if(S.view==='settings'&&was!==RC.n)render();return;}
+    const m=clone(cur);m.rcp=rcPaid(m).concat(due.map(x=>x.id)).slice(0,RC_MAX);m._rcg=due.length;commit(m);render();
+    toast({m:due.length===1?`A new player founded a nation through your recruiting link: ${rcGiftText()}.`:`${due.length} new players founded nations through your recruiting link: ${rcGiftText()} for each.`,cf:1});
+  },()=>{RC.busy=false;});
+}
+setTimeout(()=>{rcClaim();rcPoll(true);},8000);
+setInterval(()=>{if(!document.hidden)rcPoll(false);},10*60e3);
+function rcLink(){return location.origin+'/?recruit='+encodeURIComponent(myId());}
+const RC_SHARE=[
+  ['Facebook',(u,t)=>`https://www.facebook.com/sharer/sharer.php?u=${u}`],
+  ['X',(u,t)=>`https://x.com/intent/post?text=${t}&url=${u}`],
+  ['Mastodon',(u,t)=>`https://mastodonshare.com/?text=${t}&url=${u}`],
+  ['WhatsApp',(u,t)=>`https://wa.me/?text=${t}%20${u}`],
+  ['Bluesky',(u,t)=>`https://bsky.app/intent/compose?text=${t}%20${u}`],
+  ['Telegram',(u,t)=>`https://t.me/share/url?url=${u}&text=${t}`],
+  ['Reddit',(u,t)=>`https://www.reddit.com/submit?url=${u}&title=${t}`],
+  ['LinkedIn',(u,t)=>`https://www.linkedin.com/sharing/share-offsite/?url=${u}`],
+  ['Email',(u,t)=>`mailto:?subject=${encodeURIComponent('Come and found a nation in Edictum')}&body=${t}%0A%0A${u}`]
+];
+function rcSection(){
+  const n=S.nation;if(OBS||!n||n.npc)return '';
+  rcPoll(false);if(!RC.ok)rcApi().then(()=>{if(S.view==='settings')render();});
+  if(!RC.api||!S.uid)return `<section class="fs" id="set-social"><h2 class="fs-l">Social</h2><p class="hint">${RC.ok?'Recruiting links work when the game is online.':'Loading your recruiting link…'}</p></section>`;
+  const link=rcLink(),u=encodeURIComponent(link),t=encodeURIComponent(`I rule ${n.name} in Edictum, a game of nations and edicts. Found yours through my link and we both get a bonus:`);
+  const paid=rcPaid(n).length,cnt=Math.max(paid,RC.n||0);
+  return `<section class="fs" id="set-social"><h2 class="fs-l">Social</h2>
+    <p class="hint fs-hint">Recruit a player: share your own link. When someone opens it, creates an account and founds a nation, you both get ${RC_GIFT} goods, ${RC_GIFT} oil, ${RC_GIFT} timber, ${RC_GIFT} iron and ${RC_LAND} land credits.</p>
+    <div class="field"><label for="rc-link">Your recruiting link</label><div class="rc-row"><input class="input" id="rc-link" readonly value="${esc(link)}"><button type="button" class="btn" data-act="rc-copy">${RC.copied?'Copied':'Copy link'}</button>${navigator.share?'<button type="button" class="btn ghost" data-act="rc-share">Share…</button>':''}</div></div>
+    <div class="rc-share" role="group" aria-label="Share your link on">${RC_SHARE.map(([nm,f])=>`<a class="chip-btn" href="${esc(f(u,t))}" target="_blank" rel="noopener noreferrer">${nm}</a>`).join('')}</div>
+    <p class="hint" role="status">${cnt?`${cnt===1?'One player has':cnt+' players have'} founded a nation through your link${paid?`, earning you ${Math.min(paid,RC_MAX)*RC_LAND} land credits so far`:''}.${cnt>=RC_MAX?` Rewards stop at ${RC_MAX} recruits; thank you for the rest.`:''}`:'No one has founded a nation through your link yet.'}${n.rcb?' You joined through another player’s link yourself.':''}</p>
+  </section>`;
+}
+settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<section class="fs" id="set-appearance">');return i<0?h+rcSection():h.slice(0,i)+rcSection()+h.slice(i);})(settingsView);
+document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='rc-link')try{e.target.select();}catch(err){}});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="rc-copy"],[data-act="rc-share"]');if(!el)return;const link=rcLink();
+  if(el.dataset.act==='rc-share'){navigator.share({title:'Edictum',text:'Found a nation in Edictum through my link and we both get a bonus.',url:link}).catch(()=>{});return;}
+  const done=()=>{RC.copied=true;render();setTimeout(()=>{RC.copied=false;if(S.view==='settings')render();},2500);};
+  const fallback=()=>{const i=document.getElementById('rc-link');if(i){i.select();try{document.execCommand('copy');done();}catch(err){}}};
+  try{navigator.clipboard.writeText(link).then(done,fallback);}catch(err){fallback();}
+});
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

@@ -619,6 +619,27 @@
       return A.fs.collection('mailQ').add({ to: to.slice(0, 128), by: u.uid, k: String(k), nm: str(nm, 80) || 'A nation', t: serverTime() }).then(function () { return true; }, function () { return false; });
     }
   });
+  /* recruiting (see firestore.rules, recruits): a player who founded a nation through another player's link
+     files recruits/<own uid> {r: that player's uid} once; the recruiter lists the ones naming them */
+  var recruitApi = Object.freeze({
+    me: function () { var u = A.auth && A.auth.currentUser; return u ? u.uid : ''; },
+    claim: function (by) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || typeof by !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(by) || by === u.uid) return Promise.resolve('bad');
+      var ref = A.fs.doc('recruits/' + u.uid);
+      return ref.get().then(function (d) {
+        if (d.exists) return 'done';
+        return ref.set({ r: by, t: serverTime() }).then(function () { return 'ok'; });
+      }).catch(function () { return 'retry'; }); // the nation's first save may still be on its way
+    },
+    mine: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || observing()) return Promise.resolve([]);
+      return A.fs.collection('recruits').where('r', '==', u.uid).limit(200).get().then(function (q) {
+        return q.docs.map(function (d) { var t = d.get('t'); return { id: d.id, t: t && t.toMillis ? t.toMillis() : 0 }; });
+      }, function () { return null; });
+    }
+  });
   /* bug reports (see firestore.rules): the game's Report a bug page sends one with send(report, screenshot?)
      and reads the player's own with mine(); admins list them, set(id, state, note) and remove them */
   var bugsApi = Object.freeze({
@@ -675,7 +696,7 @@
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'mail' ? mailApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
+        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'mail' ? mailApi : n === 'recruit' ? recruitApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }

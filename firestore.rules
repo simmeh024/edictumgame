@@ -285,6 +285,17 @@ service cloud.firestore {
     match /cbHidden/{id} {
       allow read: if isAdmin();
     }
+    // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, by the
+    // recruit, while both nations exist; the recruiter reads the ones naming them (each side pays itself the bonus)
+    match /recruits/{uid} {
+      allow read: if isSelf(uid) || isAdmin() || (signedIn() && resource.data.r == request.auth.uid);
+      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['r', 't']) && request.resource.data.keys().hasAll(['r', 't'])
+        && request.resource.data.r is string && request.resource.data.r.size() >= 6 && request.resource.data.r.size() <= 128
+        && request.resource.data.r != uid && request.resource.data.t == request.time
+        && exists(/databases/$(database)/documents/nations/$(uid))
+        && exists(/databases/$(database)/documents/nations/$(request.resource.data.r)) && !banned(uid);
+      allow delete: if isAdmin();
+    }
     // presence/{uid} {t}: the player's game is open, refreshed every few minutes while it is, so the board can show
     // who is online; only the player writes it, always with the server's time
     match /presence/{uid} {
