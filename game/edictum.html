@@ -20824,6 +20824,9 @@ const UNLOCKS={
   'c-crown':{k:'charge',n:'Crown',src:'ach'},'c-book':{k:'charge',n:'Open book',src:'ach'},'c-hammer':{k:'charge',n:'Hammer',src:'ach'},'c-key':{k:'charge',n:'Key',src:'ach'},'c-owl':{k:'charge',n:'Owl',src:'ach'},
   'c-ship':{k:'charge',n:'Ship',src:'set'},'c-anchor':{k:'charge',n:'Anchor',src:'set'},'c-fish':{k:'charge',n:'Fish',src:'set'},'c-stag':{k:'charge',n:'Stag',src:'set'},'c-bee':{k:'charge',n:'Bee',src:'set'},'c-moon':{k:'charge',n:'Crescent moon',src:'set'},
   'c-fleur':{k:'charge',n:'Fleur-de-lis',src:'free'},'c-mount':{k:'charge',n:'Trimount',src:'free'},'c-sword':{k:'charge',n:'Sword',src:'ach'},'c-bell':{k:'charge',n:'Bell',src:'ach'},'c-harp':{k:'charge',n:'Harp',src:'ach'},
+  /* ten more charges for the arms, the same ten as emblems for the flag; free to everyone */
+  'c-acorn':{k:'charge',n:'Acorn',src:'free'},'c-torch':{k:'charge',n:'Torch',src:'free'},'c-scales':{k:'charge',n:'Scales',src:'free'},'c-hourglass':{k:'charge',n:'Hourglass',src:'free'},'c-quill':{k:'charge',n:'Quill',src:'free'},'c-helm':{k:'charge',n:'Ship’s wheel',src:'free'},'c-grapes':{k:'charge',n:'Grapes',src:'free'},'c-lighthouse':{k:'charge',n:'Lighthouse',src:'free'},'c-dove':{k:'charge',n:'Dove',src:'free'},'c-pine':{k:'charge',n:'Pine',src:'free'},
+  'e-acorn':{k:'emblem',n:'Acorn',src:'free'},'e-torch':{k:'emblem',n:'Torch',src:'free'},'e-scales':{k:'emblem',n:'Scales',src:'free'},'e-hourglass':{k:'emblem',n:'Hourglass',src:'free'},'e-quill':{k:'emblem',n:'Quill',src:'free'},'e-helm':{k:'emblem',n:'Ship’s wheel',src:'free'},'e-grapes':{k:'emblem',n:'Grapes',src:'free'},'e-lighthouse':{k:'emblem',n:'Lighthouse',src:'free'},'e-dove':{k:'emblem',n:'Dove',src:'free'},'e-pine':{k:'emblem',n:'Pine',src:'free'},
   /* extra emblems for the flag designer */
   'e-crown':{k:'emblem',n:'Crown',src:'ach'},'e-eagle':{k:'emblem',n:'Eagle',src:'ach'},'e-gear':{k:'emblem',n:'Gear',src:'ach'},
   'e-anchor':{k:'emblem',n:'Anchor',src:'set'},'e-tree':{k:'emblem',n:'Tree',src:'set'},'e-wave':{k:'emblem',n:'Wave',src:'set'},
@@ -21985,12 +21988,16 @@ document.addEventListener('click',e=>{
    u (which a forger could fake, an accepted risk). Personal display settings stay in this browser. */
 const czHas=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 const czU=id=>czHas(UNLOCKS,id)?UNLOCKS[id]:null;
-const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner'};
+const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner',kite:'Norman kite',round:'Roundel',polish:'Polish',tudor:'Tudor',mural:'Mural'};
+/* shields that open with the nation's growth: the Mural shield, its top a town wall, with five cities (kept once chosen) */
+const CZ_SH_CITY={mural:5};
+const czShOk=(n,s)=>!CZ_SH_CITY[s]||(!!n&&((n.cities||[]).length>=CZ_SH_CITY[s]||!!(cz(n).a&&cz(n).a.s===s)));
+const czShHow=s=>`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
 const CZ_TINCT={or:['Or','#E2B13C'],argent:['Argent','#F2F1EA'],gules:['Gules','#C0282D'],azure:['Azure','#2457A6'],vert:['Vert','#23804A'],purpure:['Purpure','#743A8E'],sable:['Sable','#1E1E1E']};
 const CZ_METAL={or:1,argent:1};
 const CZ_DIVS={plain:'Plain',pale:'Per pale',fess:'Per fess',bend:'Per bend',bendsin:'Per bend sinister',quarterly:'Quarterly',perchev:'Per chevron',persalt:'Per saltire',chief:'Chief',fessb:'Fess',paleb:'Pale',bendb:'Bend',cross:'Cross',saltire:'Saltire',chevron:'Chevron',bordure:'Bordure',paly:'Paly',barry:'Barry',chequy:'Chequy',gyronny:'Gyronny'};
 const CZ_ORD={chief:'a chief',fessb:'a fess',paleb:'a pale',bendb:'a bend',cross:'a cross',saltire:'a saltire',chevron:'a chevron',bordure:'a bordure'};
-const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent',fleur:'a fleur-de-lis',mount:'a trimount',sword:'a sword erect',bell:'a bell',harp:'a harp'};
+const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent',fleur:'a fleur-de-lis',mount:'a trimount',sword:'a sword erect',bell:'a bell',harp:'a harp',acorn:'an acorn slipped',torch:'a torch inflamed',scales:'a pair of scales',hourglass:'an hourglass',quill:'a quill pen',helm:'a ship’s wheel',grapes:'a bunch of grapes',lighthouse:'a lighthouse',dove:'a dove volant',pine:'a pine tree'};
 const CZ_SYM=[['hol','National holiday',40,'Founding Day'],['flower','National flower',30,'Edelweiss'],['tree','National tree',30,'Silver birch'],['bird','National bird',30,'Kingfisher'],['inst','National instrument',30,'Hurdy-gurdy'],['col','National colours',40,'Green and gold'],['nick','Capital nickname',40,'The Old Lady']];
 /* National symbols open as the population grows (the holiday and its date from the start). Each opens once,
    with a notice and a gift of timber and iron; n.syu keeps the ones given, so a nation that shrinks keeps
@@ -22160,6 +22167,27 @@ function czCharge(k,c,d,flat){
       L('M28,70Q50,75 72,70',1.3)+L('M34,46Q50,41 66,46',1.1)+L('M41,30Q38,52 37,68',1));
     case 'harp':{let st='';for(let x=36;x<=66;x+=5){const y=20+(75-x)*68/43;st+=`M${x},${(22+Math.abs(x-48)*.12).toFixed(1)}V${(y-3).toFixed(1)}`;}
       return S([['M75,20L33,88',9],['M27,24Q22,58 31,88',6],['M27,24C40,9 57,31 75,20',6],['M23,86H40V93H23Z',0],[czCirc(76,19,4.5),0]],L(st,1.1)+L('M70,28L37,82',1));}
+    /* the ten charges added on 2026-11-05 (also flag emblems) */
+    case 'acorn':return S([['M48,12H52V31H48Z',0],[czEll(50,62,15,22,0),0],['M29,46Q29,29 50,29Q71,29 71,46Q71,53 50,53Q29,53 29,46Z',0]],
+      L('M33,40L44,50M41,33L56,50M52,31L67,46M36,48L48,33M47,50L62,32M58,50L68,38',1)+L('M43,62Q45,74 50,80',1.2));
+    case 'torch':return S([['M50,5C63,20 67,32 61,42Q57,48 50,48Q43,48 39,42C33,32 38,21 50,5Z',0],['M33,49H67L59,63H41Z',0],['M43,63H57L53,94H47Z',0]],
+      L('M50,20Q42,33 50,44Q57,34 50,20',1.2)+L('M37,54H63M45,72H55M46,82H54',1.1));
+    case 'scales':return S([[czCirc(50,12,5),0],['M48,15H52V85H48Z',0],['M14,23H86V28H14Z',0],['M28,84H72V91H28Z',0],
+      ['M16,27L8,58M16,27L36,58',1.8],['M84,27L64,58M84,27L92,58',1.8],['M5,58H39Q37,71 22,71Q7,71 5,58Z',0],['M61,58H95Q93,71 78,71Q63,71 61,58Z',0]],
+      L('M10,62H34M66,62H90',1)+L('M50,34V80',1));
+    case 'hourglass':return S([['M22,7H78V15H22Z',0],['M22,85H78V93H22Z',0],['M27,15V85',3.4],['M73,15V85',3.4],['M32,15H68Q68,38 54,50Q68,62 68,85H32Q32,62 46,50Q32,38 32,15Z',0]],
+      L('M38,28H62M50,50V78M38,82Q50,70 62,82',1.3)+L('M22,11H78M22,89H78',1));
+    case 'quill':return S([['M82,5C58,9 37,32 31,58C29,66 29,72 30,78L36,76C53,62 69,40 82,5Z',0],['M30,77L21,95L36,79Z',0]],
+      L('M80,8Q52,42 32,77',1.3)+L('M70,20L60,22M64,30L52,33M58,40L45,44M52,50L40,55M46,60L36,64M68,26L74,32M61,37L68,44M54,48L60,54',1));
+    case 'helm':{const sp=[],hd=[];for(let i=0;i<8;i++){const a=i*Math.PI/4,q=x=>x.toFixed(2);sp.push([`M${q(50+8*Math.cos(a))},${q(50+8*Math.sin(a))}L${q(50+38*Math.cos(a))},${q(50+38*Math.sin(a))}`,5]);hd.push([czCirc(50+42*Math.cos(a),50+42*Math.sin(a),5),0]);}
+      return S([...sp,...hd,[czCirc(50,50,27)+czCirc(50,50,20),0,'fill-rule="evenodd"'],[czCirc(50,50,9),0]],L(czCirc(50,50,23.5),1)+D(50,50,3));}
+    case 'grapes':{const b=[[32,40],[44,40],[56,40],[68,40],[38,52],[50,52],[62,52],[44,64],[56,64],[50,76]];
+      return S([['M50,32Q52,20 60,12',3.5],[czEll(70,22,13,7,-25),0],...b.map(([x,y])=>[czCirc(x,y,7.2),0])],b.map(([x,y])=>D(x-2.4,y-2.4,1.3)).join('')+L('M60,24Q70,21 80,17',1));}
+    case 'lighthouse':return S([['M37,30H63L69,86H31Z',0],['M39,17H61V30H39Z',0],['M35,18L50,5L65,18Z',0],['M23,86H77V93H23Z',0],['M8,12L37,21L8,30Z',0],['M92,12L63,21L92,30Z',0]],
+      `<path d="M35.5,46H64.5L65.8,58H34.2ZM33.6,66H66.4L67.7,78H32.3Z" fill="${d}" opacity=".55"/>`+L('M44,17V30M56,17V30',1.1)+L('M46,86V76A4,4 0 0 1 54,76V86',1.2));
+    case 'dove':return S([['M28,58L6,50L11,63L6,75L30,67Z',0],[czEll(48,58,23,12,-10),0],[czCirc(71,45,8.5),0],['M78,43L88,45L78,48Z',0],['M38,53C31,34 38,16 57,10C52,25 55,38 60,51Z',0],['M86,50Q92,60 87,69',1.8],[czEll(91,58,3.5,1.8,60),0],[czEll(84,62,3.5,1.8,-30),0]],
+      D(73,44,1.4)+L('M44,26Q47,38 52,48M50,18Q52,32 57,44',1)+L('M34,60Q46,66 62,62',1));
+    case 'pine':return S([['M50,5L66,29H58L74,51H64L83,76H17L36,51H26L42,29H34Z',0],['M45,76H55V93H45Z',0]],L('M50,14V74M50,34L40,44M50,34L60,44M50,56L36,68M50,56L64,68',1.1));
     /* flag emblems only */
     case 'royal':{const pe=[];for(const [x,y] of [[27,50],[29,40],[34,32],[41,27.5],[59,27.5],[66,32],[71,40],[73,50],[50,38],[50,48]])pe.push([czCirc(x,y,2.6),0]);
       return S([['M27,62Q26,30 50,27Q74,30 73,62',5.5],['M50,27V62',5],['M20,60H80V78H20Z',0],['M20,60L15,50L28,56ZM80,60L85,50L72,56Z',0],...pe,[czCirc(50,20,6.5),0],['M48,3H52V15H48Z',0],['M44,6.5H56V10.5H44Z',0]],
@@ -22174,7 +22202,7 @@ function czCharge(k,c,d,flat){
 }
 /* the unlockable emblems on a flag, sized like the base ones (radius r round x,y) */
 function czEmblemSVG(e,x,y,r,col){
-  const k={'e-crown':'royal','e-eagle':'eagle','e-gear':'gear','e-anchor':'fouled','e-tree':'tree','e-wave':'wave'}[e];if(!k)return '';
+  const k={'e-crown':'royal','e-eagle':'eagle','e-gear':'gear','e-anchor':'fouled','e-tree':'tree','e-wave':'wave','e-acorn':'acorn','e-torch':'torch','e-scales':'scales','e-hourglass':'hourglass','e-quill':'quill','e-helm':'helm','e-grapes':'grapes','e-lighthouse':'lighthouse','e-dove':'dove','e-pine':'pine'}[e];if(!k)return '';
   const s=r/40;return `<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(4)})">${czCharge(k,col,'rgba(0,0,0,.28)',1)}</g>`;
 }
 
@@ -22186,6 +22214,11 @@ function czShieldPath(s){switch(s){
   case 'oval':return 'M50,4C76,4 94,30 94,60C94,90 76,116 50,116C24,116 6,90 6,60C6,30 24,4 50,4Z';
   case 'lozenge':return 'M50,3L96,60L50,117L4,60Z';
   case 'banner':return 'M8,6H92V114H8Z';
+  case 'kite':return 'M50,4C76,4 92,14 92,30C92,62 70,96 50,117C30,96 8,62 8,30C8,14 24,4 50,4Z';
+  case 'round':return 'M50,12A48,48 0 1 1 49.99,12Z';
+  case 'polish':return 'M6,6Q28,0 50,10Q72,0 94,6Q86,30 94,56C94,90 72,106 50,116C28,106 6,90 6,56Q14,30 6,6Z';
+  case 'tudor':return 'M6,14L24,4L50,12L76,4L94,14V52C94,84 74,104 50,116C26,104 6,84 6,52Z';
+  case 'mural':return 'M6,18H15V6H29V18H43V6H57V18H71V6H85V18H94V56C94,88 74,104 50,116C26,104 6,88 6,56Z';
   default:return 'M6,6H94V48C94,80 74,102 50,116C26,102 6,80 6,48Z';}}
 function czDivBody(d,b,sp){
   const R=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${b}"/>`,P=p=>`<path d="${p}" fill="${b}"/>`,K=(p,w)=>`<path d="${p}" fill="none" stroke="${b}" stroke-width="${w}"/>`;
@@ -22378,7 +22411,7 @@ function czPick(k,id){
 }
 function czArm(f,v){
   const n=S.nation;if(!n)return false;const a=clone(cz(n).a||czDefaultArms(n));
-  if(f==='s'&&czHas(CZ_SHIELDS,v))a.s=v;else if(f==='d'&&czHas(CZ_DIVS,v))a.d=v;else if((f==='t0'||f==='t1')&&czHas(CZ_TINCT,v))a.t[+f[1]]=v;else if(f==='ct'&&czHas(CZ_TINCT,v))a.ct=v;
+  if(f==='s'&&czHas(CZ_SHIELDS,v)){if(!czShOk(n,v)){toast('Locked. '+czShHow(v));return false;}a.s=v;}else if(f==='d'&&czHas(CZ_DIVS,v))a.d=v;else if((f==='t0'||f==='t1')&&czHas(CZ_TINCT,v))a.t[+f[1]]=v;else if(f==='ct'&&czHas(CZ_TINCT,v))a.ct=v;
   else if(f==='c'){if(v){const u=czU(v);if(!u||u.k!=='charge')return false;if(czLocked(v)){toast('Locked. '+unlockHow(v));return false;}}a.c=v||'';}
   else if(f==='m')a.m=v==='1'?1:0;else if(f==='on')a.on=v==='1'?1:0;else return false;
   if(f!=='on')a.on=1;
@@ -22481,7 +22514,8 @@ VIEWS_EXT.customise=now=>{
   const armsBody=`<div class="cz-arms-wrap"><figure class="cz-arms-fig">${czArmsSVG(a,{motto:a.m?n.motto:'',label:'Coat of arms of '+n.name,cls:'cz-arms-big'})}<figcaption><span class="lbl">Blazon</span><span class="cz-blazon">${esc(czBlazon(a))}</span></figcaption>
     ${czSeg('On your nation page','cz-l-on',[['1','Shown'],['0','Hidden']],c.a&&c.a.on?'1':'0','cz-arm','on')}</figure>
     <div class="cz-arms-ctl">
-      <p class="sw-l">Shield</p><div class="cz-mgrid">${Object.keys(CZ_SHIELDS).map(s=>armB('s',s,czArmsSVG({...a,s,c:''}),CZ_SHIELDS[s],a.s===s)).join('')}</div>
+      <p class="sw-l">Shield</p><div class="cz-mgrid">${Object.keys(CZ_SHIELDS).map(s=>czShOk(n,s)?armB('s',s,czArmsSVG({...a,s,c:''}),CZ_SHIELDS[s],a.s===s)
+        :`<span id="cz-a-s-${s}" class="cz-mt locked" role="img" aria-label="${esc(CZ_SHIELDS[s])}, locked. ${esc(czShHow(s))}" title="${esc(CZ_SHIELDS[s])}: ${esc(czShHow(s))}"><span class="cz-mtv" aria-hidden="true">${czArmsSVG({...a,s,c:''})}</span><span class="cz-mtn">${CZ_LOCK}${esc(CZ_SHIELDS[s])}</span></span>`).join('')}</div>
       <p class="sw-l">Division</p><div class="cz-mgrid">${Object.keys(CZ_DIVS).map(d=>armB('d',d,czArmsSVG({...a,d,c:''}),CZ_DIVS[d],a.d===d)).join('')}</div>
       <div class="cz-tinrow"><div>${tl('Field',a.t[0])}${tinc('t0',a.t[0],'Field')}</div>${a.d==='plain'?'':`<div>${tl('Second tincture',a.t[1])}${tinc('t1',a.t[1],'Second tincture')}</div>`}</div>
       <p class="sw-l">Charge</p><div class="cz-mgrid cz-charges">${armB('c','','<span class="cz-none">None</span>','No charge',!a.c)}${charges}</div>
@@ -34583,7 +34617,7 @@ function prvFlagEdit(id,f,v){
     if(f==='k'){if(v===cur.k)return '';const d=prvDefFlag(n,q);q.f=v==='a'?(d.k==='a'?d:(()=>{const a=czDefaultArms(n);return {k:'a',s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};})()):(d.k==='f'?d:Object.assign({},(n.flag||DEF_FLAG),{k:'f'}));return '';}
     if(f==='reset'){delete q.f;return '';}
     if(cur.k==='f'){if(f==='p'&&PATTERNS[v])cur.p=v;else if(f==='e'&&EMBLEMS[v])cur.e=v;else if(f==='ec')cur.ec=safeColor(v,cur.ec);else if(/^c[0-2]$/.test(f))cur.c[+f[1]]=safeColor(v,cur.c[+f[1]]);else return '';}
-    else{if(f==='s'&&CZ_SHIELDS[v])cur.s=v;else if(f==='d'&&CZ_DIVS[v])cur.d=v;else if((f==='t0'||f==='t1')&&CZ_TINCT[v])cur.t[+f[1]]=v;else if(f==='ct'&&CZ_TINCT[v])cur.ct=v;else if(f==='c'&&(v===''||(czU(v)&&UNLOCKS[v].k==='charge')))cur.c=v;else return '';}
+    else{if(f==='s'&&CZ_SHIELDS[v]&&(czShOk(n,v)||cur.s===v))cur.s=v;else if(f==='d'&&CZ_DIVS[v])cur.d=v;else if((f==='t0'||f==='t1')&&CZ_TINCT[v])cur.t[+f[1]]=v;else if(f==='ct'&&CZ_TINCT[v])cur.ct=v;else if(f==='c'&&(v===''||(czU(v)&&UNLOCKS[v].k==='charge')))cur.c=v;else return '';}
     const fl=prvFlagNorm(cur,n);if(fl)q.f=fl;return '';},'');
 }
 
@@ -34662,7 +34696,7 @@ function prvFlagPicker(n,q){
       <p class="sw-l">Emblem</p><div class="prv-tiles">${Object.keys(EMBLEMS).filter(e=>has(e)||f.e===e).map(e=>B('e',e,flagSVG({p:'plain',c:[f.c[0]],e,ec:f.ec},'',{emb:1.75}),EMBLEMS[e],f.e===e)).join('')}</div>
       ${f.e!=='none'?`<p class="sw-l">Emblem colour</p>${SW('ec',f.ec,'Emblem colour')}`:''}`;}
   else{const ch=Object.keys(UNLOCKS).filter(k=>UNLOCKS[k].k==='charge'&&(has(k)||f.c===k));
-    body=`<p class="sw-l">Shield</p><div class="prv-tiles prv-ta">${Object.keys(CZ_SHIELDS).map(s=>B('s',s,czArmsSVG(Object.assign({},f,{s,c:''})),CZ_SHIELDS[s],f.s===s)).join('')}</div>
+    body=`<p class="sw-l">Shield</p><div class="prv-tiles prv-ta">${Object.keys(CZ_SHIELDS).filter(s=>czShOk(S.nation,s)||f.s===s).map(s=>B('s',s,czArmsSVG(Object.assign({},f,{s,c:''})),CZ_SHIELDS[s],f.s===s)).join('')}</div>
       <p class="sw-l">Division</p><div class="prv-tiles prv-ta">${Object.keys(CZ_DIVS).map(d=>B('d',d,czArmsSVG(Object.assign({},f,{d,c:''})),CZ_DIVS[d],f.d===d)).join('')}</div>
       <p class="sw-l">Field</p>${TI('t0',f.t[0],'Field')}${f.d==='plain'?'':`<p class="sw-l">Second tincture</p>${TI('t1',f.t[1],'Second tincture')}`}
       <p class="sw-l">Charge</p><div class="prv-tiles prv-ta">${B('c','','<span class="cz-none">None</span>','No charge',!f.c)}${ch.map(c=>B('c',c,czArmsSVG(Object.assign({},f,{d:'plain',c})),UNLOCKS[c].n,f.c===c)).join('')}</div>
@@ -35039,7 +35073,7 @@ const FG_EMB=Object.create(null);
 })();
 Object.assign(EMBLEMS,{bird:'Bird',lion:'Lion',fish:'Fish',sheaf:'Wheat sheaf',book:'Book',key:'Key',tower:'Tower',ship:'Ship',leaf:'Leaf',hand:'Hand',flower:'Flower',snowflake:'Snowflake',compass:'Compass star',
   'e-eye':'Eye','e-bolt':'Lightning bolt','e-wreath':'Laurel wreath'});
-const FG_PLURAL={'Wheat sheaf':'wheat sheaves',Fish:'fish',Waves:'waves',Lozenge:'lozenges',Oak:'oaks'};
+const FG_PLURAL={Grapes:'bunches of grapes',Scales:'pairs of scales',Hourglass:'hourglasses','Wheat sheaf':'wheat sheaves',Fish:'fish',Waves:'waves',Lozenge:'lozenges',Oak:'oaks'};
 /* unlocks: three patterns and three emblems, each tied to something the nation already does */
 Object.assign(UNLOCKS,{'fp-sunburst':{k:'fpat',n:'Sunburst',src:'ach'},'fp-checky':{k:'fpat',n:'Checky',src:'ach'},'fp-wavy':{k:'fpat',n:'Wavy fess',src:'ach'},
   'fp-gyronny':{k:'fpat',n:'Gyronny',src:'ach'},'fp-lozenge':{k:'fpat',n:'Lozenge',src:'ach'},
