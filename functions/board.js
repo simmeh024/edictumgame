@@ -8,6 +8,7 @@ import { eligibility, refuse } from './eligibility.js';
      cb/{reg}/posts/{tid}             a topic {a, nm, rg, fl?, fd?, st?, ti, x, tg, t, la, rc, pn?, lk?, hd?, ed?}
      cb/{reg}/posts/{tid}/posts/{rid} a reply {a, nm, rg, fl?, fd?, st?, x, t, hd?, ed?}
      cbHidden/{id}                    what a hidden topic or reply said, for admins only {reg, tid, rid?, ti?, x, by, t}
+     cbPace/{uid}                     the pacing of each player's posts {p, q} (paced(), below)
    Topics and replies are 'posts' collections so deleting an account, or an admin removing a nation, takes them too.
    Any Registered Nation may open a topic or reply in any region; the author is shown as their nation was when they
    posted: its name, region, flag, a Founding Supporter mark (fd) and an Edictum staff mark (st). */
@@ -35,6 +36,28 @@ function counted(meta, now, add) {
   return { n: (m.n || 0) + (add.n || 0), r: (m.r || 0) + (add.r || 0), la: add.n > 0 || add.r > 0 ? now : m.la || 0,
     dd: day(now), dn: (same ? m.dn || 0 : 0) + Math.max(0, (add.n || 0) + (add.r || 0)) };
 }
+/* Pacing (cbPace/{uid} {p: times of the player's posts in the last hour, q: of their topics}): one post every
+   CB_GAP, at most CB_HOUR an hour, CB_TOPICS of them new topics. Staff are not paced. Read in the post's
+   transaction; the returned function records the post, after the transaction's other reads. */
+export const CB_GAP = 30000, CB_HOUR = 20, CB_TOPICS = 5;
+const HOUR = 3600000;
+const inWords = ms => { const s = Math.ceil(ms / 1000); return s < 90 ? s + (s === 1 ? ' second' : ' seconds') : Math.ceil(s / 60) + ' minutes'; };
+async function paced(tx, db, who, topic, now) {
+  const ref = db.doc('cbPace/' + who.uid), s = await tx.get(ref);
+  const recent = k => (s.exists && Array.isArray(s.get(k)) ? s.get(k) : []).filter(t => typeof t === 'number' && t <= now && now - t < HOUR);
+  const p = recent('p'), q = recent('q');
+  if (!who.admin && !who.mod) {
+    const gap = p.length ? Math.max(...p) + CB_GAP - now : 0;
+    const hour = p.length >= CB_HOUR ? Math.min(...p.slice(-CB_HOUR)) + HOUR - now : 0;
+    const topics = topic && q.length >= CB_TOPICS ? Math.min(...q.slice(-CB_TOPICS)) + HOUR - now : 0;
+    const wait = Math.max(gap, hour, topics);
+    if (wait > 0) {
+      const why = topics >= wait ? `You have opened ${CB_TOPICS} topics in the last hour.` : hour >= wait ? `You have posted ${CB_HOUR} times in the last hour.` : 'Slow down a little.';
+      throw new HttpsError('failed-precondition', `${why} You can post again in ${inWords(wait)}.`, { code: 'cb_paced', wait });
+    }
+  }
+  return () => tx.set(ref, { p: p.concat(now).slice(-CB_HOUR), q: topic ? q.concat(now).slice(-CB_TOPICS) : q });
+}
 const staffOnly = who => { if (!who.admin && !who.mod) throw new HttpsError('permission-denied', 'Only Edictum staff can do that.'); };
 const audit = (b, db, who, action, extra) => b.create(db.collection('adminAudit').doc(), { actor: who.uid, action, outcome: 'completed', at: FieldValue.serverTimestamp(), ...extra });
 
@@ -45,7 +68,8 @@ export async function cbTopic(db, who, d, regions) {
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), metaRef = db.doc('cb/' + reg);
     const [meta, me] = await Promise.all([tx.get(metaRef), author(tx, db, who, e)]);
-    const now = Date.now(), ref = db.collection('cb/' + reg + '/posts').doc();
+    const now = Date.now(), ref = db.collection('cb/' + reg + '/posts').doc(), mark = await paced(tx, db, who, true, now);
+    mark();
     tx.create(ref, { ...me, ti, x, tg, t: now, la: now, rc: 0 });
     tx.set(metaRef, counted(meta, now, { n: 1 }));
     return { id: ref.id };
@@ -61,7 +85,8 @@ export async function cbReply(db, who, d, regions) {
     const [meta, topic, me] = await Promise.all([tx.get(metaRef), tx.get(topicRef), author(tx, db, who, e)]);
     if (!topic.exists || topic.get('hd')) refuse('cb_missing', 'This topic is no longer there.');
     if (topic.get('lk') && !who.admin && !who.mod) refuse('cb_locked', 'This topic is locked: it takes no more replies.');
-    const now = Date.now(), ref = topicRef.collection('posts').doc();
+    const now = Date.now(), ref = topicRef.collection('posts').doc(), mark = await paced(tx, db, who, false, now);
+    mark();
     tx.create(ref, { ...me, x, t: now });
     tx.update(topicRef, { rc: (topic.get('rc') || 0) + 1, la: now });
     tx.set(metaRef, counted(meta, now, { r: 1 }));

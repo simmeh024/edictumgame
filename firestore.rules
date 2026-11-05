@@ -6,6 +6,9 @@ rules_version = '2';
 //                            pop, army, cl}: the last three are headline numbers the rules bound
 //   stamps/{reg}/{key}/{uid} {t}: the server's time a save first carried a claim (c<cell>) or a find (s<site>)
 //   nationx/{uid}            its private half, {j, t, ts}: what the region need not download at every save
+//   nationp/{uid}            its own half, {j, t, ts}: what only its player reads (their letters)
+//   letters/{by~to~t}        a letter from one player to another, {by, to, x, t, ts}: only those two read it;
+//                            llimits/{uid} {l} paces them
 //   summaries/{uid}          {reg, name, pop, t}: the headline the World page and region counts read
 //   space/{uid}              {reg, name, t, j, ts}: Moon, Mars and belt data, only for nations that have any
 //   boards/{reg}/posts/{id}  one post on a region's message board, {a: author uid, t: server time, x: text}
@@ -100,7 +103,9 @@ service cloud.firestore {
         && d.v == 1
         && d.j is string && d.j.size() > 2 && d.j.size() <= 750000
         && region(d.reg) && label(d.name)
-        && d.updatedAt is number
+        // the device's time of the save: at most a day ahead of the server's (a clock set wrong), never far in the
+        // future, where the record would never fall dormant and hold a place in its region for good
+        && d.updatedAt is number && d.updatedAt <= request.time.toMillis() + 86400000
         && d.ts == request.time;
     }
     // The headline numbers beside the record, which every player's game holds the record to (the rules
@@ -258,6 +263,39 @@ service cloud.firestore {
         && nationAfter(uid).updatedAt == request.resource.data.t;
       allow delete: if isSelf(uid) || isAdmin();
     }
+    // the own half: written like the private half, with the nation, but read only by its player (and the admins)
+    match /nationp/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create, update: if isSelf(uid) && validPrivate(request.resource.data)
+        && nationAfter(uid).ts == request.time
+        && nationAfter(uid).updatedAt == request.resource.data.t;
+      allow delete: if isSelf(uid) || isAdmin();
+    }
+    // A letter from one player's nation to another's (src/shim.js, letters), with llimits/<uid> in the same batch.
+    // Only its writer and its reader read it (and the admins), and either may delete it. t is the time in the
+    // writer's own copy (nationp), which the id repeats, so a letter sent again is the same document.
+    function validLetter(id, d) {
+      return d.keys().hasAll(['by', 'to', 'x', 't', 'ts']) && d.keys().hasOnly(['by', 'to', 'x', 't', 'ts'])
+        && d.by == request.auth.uid && d.ts == request.time
+        && d.to is string && d.to.size() > 0 && d.to.size() <= 128 && d.to != d.by
+        && d.x is string && d.x.size() > 0 && d.x.size() <= 500
+        && d.t is int && d.t <= request.time.toMillis() + 86400000 && d.t > request.time.toMillis() - 30 * 86400000
+        && id == d.by + '~' + d.to + '~' + string(d.t)
+        && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/nations/$(d.to)) && !banned(request.auth.uid);
+    }
+    match /letters/{id} {
+      allow read: if isAdmin() || (signedIn() && (resource.data.to == request.auth.uid || resource.data.by == request.auth.uid));
+      allow create: if signedIn() && validLetter(id, request.resource.data)
+        && getAfter(/databases/$(database)/documents/llimits/$(request.auth.uid)).data.l == request.time;
+      allow delete: if signedIn() && (resource.data.to == request.auth.uid || resource.data.by == request.auth.uid);
+    }
+    // paces letters: one every 3 seconds; never deleted by the player (functions/accounts.js removes it with the account)
+    match /llimits/{uid} {
+      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['l']) && request.resource.data.l == request.time;
+      allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['l']) && request.resource.data.l == request.time
+        && request.time > resource.data.l + duration.value(3, 's');
+    }
 
     match /space/{uid} {
       allow read: if true;
@@ -297,6 +335,8 @@ service cloud.firestore {
     match /cbHidden/{id} {
       allow read: if isAdmin();
     }
+    // the Community Board's pacing of each player's posts (functions/board.js): only the server reads and writes it
+    match /cbPace/{uid} { allow read, write: if false; }
     // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, only by the
     // server (functions/accounts.js, 'recruit': a Registered Nation, newer than the recruiter's); the recruiter reads
     // the ones naming them (each side pays itself the bonus)
@@ -434,7 +474,7 @@ service cloud.firestore {
       allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['b']) && request.resource.data.b == request.time;
       allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['b']) && request.resource.data.b == request.time
         && request.time > resource.data.b + duration.value(60, 's');
-      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+      // never deleted by the player, which would undo the pacing: functions/accounts.js removes it with the account
     }
 
     match /limits/{uid} {
@@ -442,8 +482,7 @@ service cloud.firestore {
       allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['p']) && request.resource.data.p == request.time;
       allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['p']) && request.resource.data.p == request.time
         && request.time > resource.data.p + duration.value(20, 's');
-      // only with the nation itself (deleting the account), or deleting it would undo the pacing
-      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+      // never deleted by the player, which would undo the pacing: functions/accounts.js removes it with the account
     }
 
     // A player reports another player's post or nation; only admins read and clear the reports. The
@@ -472,7 +511,7 @@ service cloud.firestore {
       allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['r']) && request.resource.data.r == request.time;
       allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['r']) && request.resource.data.r == request.time
         && request.time > resource.data.r + duration.value(30, 's');
-      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+      // never deleted by the player, which would undo the pacing: functions/accounts.js removes it with the account
     }
 
     // A player asks the game's team for help: one ticket, which an admin answers and closes. The player
@@ -505,7 +544,7 @@ service cloud.firestore {
       allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['s']) && request.resource.data.s == request.time;
       allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['s']) && request.resource.data.s == request.time
         && request.time > resource.data.s + duration.value(60, 's');
-      allow delete: if isSelf(uid) && !existsAfter(/databases/$(database)/documents/nations/$(uid));
+      // never deleted by the player, which would undo the pacing: functions/accounts.js removes it with the account
     }
 
     // moderation: an admin hides a nation from the other players (until it is renamed, with rename), or records
@@ -550,12 +589,19 @@ service cloud.firestore {
     }
 
     // stamps: when a save first carries a claim on a free hex (c<cell>) or a site found (s<site>), the same
-    // batch stamps it with the server's time, which settles races between nations (src/shim.js); nobody can
-    // backdate one, and moving it later only harms its owner
+    // batch stamps it with the server's time, which settles races between nations (src/shim.js). Only in that
+    // save's batch, and only for an entry its permit lists as new (functions/civic.js, sk): no stamp can be
+    // written ahead of its claim, nor backdated; moving one later only harms its owner
+    function stampable(reg, key, uid) {
+      let saved = getAfter(/databases/$(database)/documents/nations/$(uid)).data;
+      return saved.ts == request.time && saved.reg == reg
+        && key in get(/databases/$(database)/documents/nationPermits/$(uid)/requests/$(saved.permit)).data.get('sk', []);
+    }
     match /stamps/{reg}/{key}/{uid} {
       allow read: if true;
       allow create, update: if isSelf(uid) && region(reg) && key.matches('[cs][0-9]{1,6}')
-        && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t == request.time;
+        && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t == request.time
+        && stampable(reg, key, uid);
       allow delete: if isSelf(uid) || isAdmin();
     }
 

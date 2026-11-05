@@ -538,6 +538,10 @@ await nav(B, 'messages');
 await until(() => B.$(`[data-act="dm-peer"][data-id="${uidA}"]`), 20000); await B.click(`[data-act="dm-peer"][data-id="${uidA}"]`);
 check('a message from staff says it comes from the Edictum team', await until(async () => /Edictum team/.test(await text(B, '.staff-note')) && /Edictum staff/.test(await text(B, '.bub.staff .bub-staff')) && /Edictum staff/.test(await text(B, `[data-act="dm-peer"][data-id="${uidA}"]`))));
 await B.locator('.thread').screenshot({ path: path.join(OUT, 'staff-message.png') });
+const sentLetter = async () => (await restListAdmin('letters')).find(d => d.fields.by?.stringValue === uidA && d.fields.to?.stringValue === uidB);
+check('a letter goes to its reader as a letters/ document', !!(await until(sentLetter, 15000)) && (await sentLetter()).fields.x.stringValue === 'Hello from the Edictum team.');
+check('and stays out of the writer’s public record', await until(async () => { const r = await nationDoc(uidA); return !!r && !JSON.stringify(r.rec).includes('Hello from the Edictum team'); }, 15000));
+check('nobody else can read it', (await restGet('letters/' + (await sentLetter()).id)).status === 403 && (await restGet('nationp/' + uidA)).status === 403);
 
 /* ── 7c. battles, rolled by the referee ─────────────────────────────────── */
 const ownerDoc = (p, init) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${p}`, Object.assign({ headers: { 'content-type': 'application/json', authorization: 'Bearer owner' } }, init));

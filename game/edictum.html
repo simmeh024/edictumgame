@@ -18510,8 +18510,35 @@ function landNotice(){
 }
 
 /* ───────── messages ───────── */
-/* Each message is kept in its sender's own record (n.dm) and shown only to the nation it is addressed
-   to. Computer nations answer after a short delay; their replies are written into your own record. */
+/* Each message is kept in its sender's own record (n.dm), in the half only its player reads (src/shim.js, nationp).
+   A letter to a player also goes to them as a letters/ document, which only the two of them read (lettersApi):
+   queued (q) until it is delivered (dmFlush), and heard by the reader's game as it arrives (LT, ltStart). Computer
+   nations answer after a short delay; their replies are written into your own record. Letters a game from before
+   this kept in its shared record still show, until that record is saved again (functions/civic.js moves them). */
+const LT={list:[],unsub:null,busy:false,at:0};
+function ltStart(){
+  if(LT.unsub||LT.busy||OBS||S.mode!=='world'||!S.uid||Date.now()-LT.at<30000)return;
+  LT.busy=true;LT.at=Date.now();
+  Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('letters'):null).then(api=>{
+    if(!api||typeof api.listen!=='function')return;
+    LT.unsub=api.listen(list=>{LT.list=Array.isArray(list)?list:[];if(S.view==='messages')render();},()=>{LT.unsub=null;});
+  },()=>{}).finally(()=>{LT.busy=false;});
+}
+/* letters to players, sent one by one (the rules pace them): a letter still queued, or refused for now, waits */
+const DMF={busy:false};
+function dmFlush(){
+  const n=S.nation;if(!n||OBS||S.mode!=='world'||DMF.busy)return;
+  const q=(n.dm||[]).filter(m=>m&&m.q&&!m.i);if(!q.length)return;
+  DMF.busy=true;
+  Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('letters'):null).then(async api=>{
+    if(!api||typeof api.send!=='function')return;
+    const done=new Set();
+    for(const m of q){const r=await api.send(m.w,m.x,m.t);if(r==='ok'||r==='no')done.add(m.t+'|'+m.w);else break;}
+    if(done.size&&S.nation){const k=clone(S.nation);k.dm=(k.dm||[]).map(m=>{if(!m||!m.q||!done.has(m.t+'|'+m.w))return m;const o=Object.assign({},m);delete o.q;return o;});commit(k);if(S.view==='messages')render();}
+  }).catch(()=>{}).finally(()=>{DMF.busy=false;});
+}
+setTimeout(dmFlush,9000);
+setInterval(()=>{if(!document.hidden)dmFlush();},20000);
 const NPC_VOICE={
   'npc-vellmark':{sign:'Office of the Grand Duke, Kasselburg',open:'Your letter has been received, stamped and filed in triplicate.',lines:['The Grand Duke reminds you that order is the foundation of all friendship.','Our border guards send their regards, and their binoculars.','Please note that unsolicited correspondence is read aloud at the weekly parade.']},
   'npc-karvesk':{sign:'Ministry of Correspondence, Steelgrad',open:'The Chairman acknowledges your communication and has assigned it a queue number.',lines:['Your message will be answered according to the Plan.','The tractor works send fraternal greetings. They send them to everyone.','We have exceeded our quota of diplomatic replies for the month, so this one is a bonus.']},
@@ -18541,8 +18568,12 @@ const OFFICES={},DM_SOURCES=[];
 const isOffice=id=>typeof id==='string'&&Object.hasOwn(OFFICES,id);
 function dmThreads(now){
   const me=myId(),n=S.nation,th=new Map(),add=(peer,m)=>{let a=th.get(peer);if(!a)th.set(peer,a=[]);a.push(m);};
-  for(const m of (n&&n.dm)||[]){if(m.i){if(m.t<=now)add(m.w,{from:m.w,t:m.t,x:m.x,mine:false});}else add(m.w,{from:me,t:m.t,x:m.x,mine:true});}
-  for(const x of allNations()){if(x.npc||x.me)continue;for(const m of x.n.dm||[])if(m.w===me&&!m.i)add(x.id,{from:x.id,t:m.t,x:m.x,mine:false});}
+  for(const m of (n&&n.dm)||[]){if(m.i){if(m.t<=now)add(m.w,{from:m.w,t:m.t,x:m.x,mine:false});}else add(m.w,{from:me,t:m.t,x:m.x,mine:true,q:!!m.q});}
+  /* letters to this nation: as letters/ documents, and any still in a sender's shared record (an older game's) */
+  const here=new Set(),got=new Set();
+  for(const x of allNations()){if(x.npc||x.me)continue;here.add(x.id);for(const m of x.n.dm||[])if(m.w===me&&!m.i){add(x.id,{from:x.id,t:m.t,x:m.x,mine:false});got.add(x.id+'|'+m.t);}}
+  ltStart();
+  for(const l of LT.list)if(here.has(l.by)&&!got.has(l.by+'|'+l.t)){add(l.by,{from:l.by,t:l.t,x:l.x,mine:false});got.add(l.by+'|'+l.t);}
   if(n)for(const src of DM_SOURCES){let a=[];try{a=src(n,now)||[];}catch(e){}for(const m of a)if(isOffice(m.peer)&&m.t<=now)add(m.peer,{from:m.peer,t:m.t,x:m.x,mine:false});}
   for(const a of th.values())a.sort((p,q)=>p.t-q.t);
   return th;
@@ -18558,11 +18589,12 @@ function sendDm(){
   const peer=S.msgPeer,x=String(S.msgDraft||'').trim().replace(/\s+\n/g,'\n').slice(0,500);
   if(!peer||!findNation(peer)){S.msgErr='Choose who to write to.';render();return;}
   if(!x){S.msgErr='Write something first.';render();return;}
-  const now=Date.now(),n=clone(S.nation);
-  n.dm=(n.dm||[]).concat({w:peer,t:now,x});
+  const now=Date.now(),n=clone(S.nation),player=!NPC_SET.has(peer)&&!isOffice(peer)&&S.mode==='world';
+  /* a letter to a player waits (q) until it has gone to them (dmFlush) */
+  n.dm=(n.dm||[]).concat(player?{w:peer,t:now,x,q:1}:{w:peer,t:now,x});
   if(NPC_SET.has(peer))n.dm.push({w:peer,t:now+30000+hash(x+':'+now)%60000,x:npcReply(peer,x,now),i:1});
   n.dm=n.dm.slice(-80);n.seenDm=Object.assign({},n.seenDm||{},{[peer]:now});
-  commit(n);S.msgDraft='';S.msgErr='';render();
+  commit(n);S.msgDraft='';S.msgErr='';render();if(player)setTimeout(dmFlush,0);
   const ta=document.getElementById('dm-text');if(ta)ta.focus();
 }
 function messagesView(){
@@ -18576,7 +18608,7 @@ function messagesView(){
   const conv=peers.map(id=>{const a=th.get(id),last=a[a.length-1],un=a.filter(m=>!m.mine&&m.t>(seen[id]||0)).length;
     return `<li><button class="conv${id===peer?' on':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${face(id)}</span><span class="conv-t"><b>${esc(nameOf(id))}${isStaff(id)?STAFF_PILL:''}</b><span>${last.mine?'You: ':''}${esc(last.x.slice(0,60))}</span></span><span class="conv-m">${rel(last.t)}${un?`<span class="badge" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
   const pst=!!px&&!px.npc&&isStaff(px.id);
-  const bubbles=thread.map(m=>`<li class="bub${m.mine?' mine':''}${!m.mine&&pst?' staff':''}">${!m.mine&&pst?'<span class="bub-staff">Edictum staff</span>':''}<p>${esc(m.x)}</p><span class="bub-t">${rel(m.t)}${m===lastMine&&peerSeen>=m.t?' · Seen':''}</span></li>`).join('');
+  const bubbles=thread.map(m=>`<li class="bub${m.mine?' mine':''}${!m.mine&&pst?' staff':''}">${!m.mine&&pst?'<span class="bub-staff">Edictum staff</span>':''}<p>${esc(m.x)}</p><span class="bub-t">${rel(m.t)}${m.q?' · Not sent yet':m===lastMine&&peerSeen>=m.t?' · Seen':''}</span></li>`).join('');
   /* an office's letters: read, not answered */
   const office=po?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${po.seal}</span><b>${esc(po.name)}</b><span class="chip">Office of ${esc(REG.the)}</span>${po.go?`<button class="linkish small" data-act="go" data-v="${po.go[0]}">${esc(po.go[1])}</button>`:''}</div>
       <ol class="bubs">${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters.</p>`:'';
@@ -18587,7 +18619,7 @@ function messagesView(){
     <section class="thread">${office||(px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button></div>
       ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs">${bubbles||'<li class="hint">No messages yet. Say hello.</li>'}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(px.n.name)} is drafting a reply…</p></li>`:''}</ol>
       <form id="dm-form" class="dm-form" novalidate><label class="lbl" for="dm-text">Message to ${esc(px.n.name)}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="500" rows="3" placeholder="Your Excellency…">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}<div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / 500</span></div></form>`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p></div>`)}
-      ${po?'':'<p class="hint dm-note">Letters travel inside each nation’s public record. Other players’ games only show them to the nation they are addressed to, but they are not encrypted, so keep secrets out of them.</p>'}</section>
+      ${po?'':'<p class="hint dm-note">Letters are private: only you, the nation you write to and the game’s team can read them.</p>'}</section>
   </div>`;
 }
 
@@ -24187,7 +24219,8 @@ function maintenanceView(){return `<div class="found maintenance"><header class=
    holiday after that save (holiday mode: e is the time the nation counts as active until). null if the
    count could not be had; the holiday part counts nothing if it fails */
 function sumActive(reg,since){
-  return Promise.all([S.db.count('summaries',[['reg','==',reg],['t','>',since]]),Promise.resolve().then(()=>S.db.count('summaries',[['reg','==',reg],['t','<=',since],['e','>',since]])).catch(()=>0)])
+  /* a summary dated more than a day ahead is not counted: the rules no longer take one, and it would never fall dormant */
+  return Promise.all([S.db.count('summaries',[['reg','==',reg],['t','>',since],['t','<=',Date.now()+DAY]]),Promise.resolve().then(()=>S.db.count('summaries',[['reg','==',reg],['t','<=',since],['e','>',since]])).catch(()=>0)])
     .then(([a,b])=>a==null?null:a+(Number(b)||0),()=>null);
 }
 function regStatsSoon(maxAge){
@@ -24204,7 +24237,7 @@ function regNamesSoon(id){
   if(!id||id===REG.id||S.mode==='local'||!S.db||Date.now()-(RSTAT.nat[id]||0)<3e5)return;
   RSTAT.nat[id]=Date.now();
   const since=Date.now()-DORM_MS,Q=S.db.collection('summaries').where('reg','==',id);
-  Promise.all([Q.where('t','>',since).orderBy('t','desc').limit(100).get(),(()=>{try{return Q.where('t','<=',since).where('e','>',since).limit(20).get().catch(()=>({docs:[]}));}catch(e){return {docs:[]};}})()]).then(([qs,qh])=>{
+  Promise.all([Q.where('t','>',since).where('t','<=',Date.now()+DAY).orderBy('t','desc').limit(100).get(),(()=>{try{return Q.where('t','<=',since).where('e','>',since).limit(20).get().catch(()=>({docs:[]}));}catch(e){return {docs:[]};}})()]).then(([qs,qh])=>{
     RSTAT.names[id]=qs.docs.concat(qh.docs).map(d=>d.data()).filter(x=>x&&x.name).sort((a,b)=>(Number(b.pop)||0)-(Number(a.pop)||0)).map(x=>({name:String(x.name).slice(0,40)}));
     if(S.view==='world')render();
   },()=>{RSTAT.nat[id]=0;});
@@ -24382,11 +24415,13 @@ function foundRegionBox(){
      refused, so only the right name wakes it. Waking keeps the nation and restarts its land the way a move
      does, in the same region, without the land-credit loss or the move wait.
    - Nothing is ever deleted. There is no “found a new nation instead”: the clues grow until the name is
-     found. Malformed or missing updatedAt counts as active. */
+     found. Malformed or missing updatedAt counts as active. One dated more than a day ahead (the rules no longer take
+   one) counts from the server's time of its last save (_ts), so it falls dormant like any other. */
 const DORMANT_DAYS=250,DORM_MS=DORMANT_DAYS*DAY,DORM_KEEP=12,DORM_LS='statehood.wake.v1';
 const DORM={w:{},all:{},waking:false,boot:Date.now(),tries:null,msg:'',draft:'',help:false,rs:0,letters:0,offered:false};
-/* the last activity, or 0 when updatedAt is missing, malformed or in the future */
-function dormLast(n){const t=n&&n.updatedAt;return typeof t==='number'&&isFinite(t)&&t>0&&t<Date.now()+DAY?t:0;}
+/* the last activity: updatedAt, or for one dated more than a day ahead the server's time of its last save; 0 when
+   it is missing or malformed */
+function dormLast(n){const t=n&&n.updatedAt;if(!(typeof t==='number'&&isFinite(t)&&t>0))return 0;return t<Date.now()+DAY?t:n._ts>0&&n._ts<Date.now()+DAY?n._ts:0;}
 function isDormant(n,now){if(!n||n.npc)return false;const t=dormLast(n),at=now||Date.now();return t>0&&at-t-awayIn(n,t,at)>DORM_MS;}
 function dozeAt(n){const t=dormLast(n);return t+DORM_MS+awayIn(n,t,Infinity);}
 /* the shared snapshot: sleepers leave this region's records and the World page's summary (an entry whose full
@@ -24574,7 +24609,11 @@ function dormNote(){const k=dormList().length;return k?(k===1?' One more lies do
 /* letters to and from a sleeper stay readable, and can still be sent: they wait for it to wake */
 dmThreads=(f=>function(now){
   const th=f.apply(this,arguments),me=myId();
-  for(const {id,n} of dormList()){let got=0;for(const m of Array.isArray(n.dm)?n.dm:[])if(m&&m.w===me&&!m.i&&typeof m.x==='string'){let a=th.get(id);if(!a)th.set(id,a=[]);a.push({from:id,t:m.t,x:m.x,mine:false});got=1;}if(got)th.get(id).sort((p,q)=>p.t-q.t);}
+  for(const {id,n} of dormList()){let got=0;const seen=new Set();
+    const put=(t,x)=>{if(seen.has(t))return;seen.add(t);let a=th.get(id);if(!a)th.set(id,a=[]);a.push({from:id,t,x,mine:false});got=1;};
+    for(const m of Array.isArray(n.dm)?n.dm:[])if(m&&m.w===me&&!m.i&&typeof m.x==='string')put(m.t,m.x);
+    for(const l of LT.list)if(l.by===id)put(l.t,l.x);
+    if(got)th.get(id).sort((p,q)=>p.t-q.t);}
   return th;
 })(dmThreads);
 findNation=(f=>function(id){const x=f.apply(this,arguments);return x||(DORM.letters>0&&dormFind(id))||x;})(findNation);
@@ -36613,7 +36652,7 @@ function normalizeBase(d){
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
-    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d))])),stockAt:num(d.stockAt,now),
+    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-80).map(m=>{const o={w:m.w.slice(0,60),t:num(m.t,0),x:m.x.slice(0,600)};if(m.i)o.i=1;else if(m.q)o.q=1;return o;}):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=60&&typeof v==='number'&&isFinite(v)).slice(-60)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
@@ -43088,7 +43127,7 @@ function cbView(){
   return head+cbForm()+`<div class="cb-regs">${own.concat(rest).map(cbBoard).join('')}</div>`;
 }
 async function cbCall(data){const api=await window.claude.use('civic');if(!api)throw Object.assign(new Error('Reconnect first.'),{code:'unavailable'});return api.request(data);}
-const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','permission-denied','invalid-argument'];
+const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','cb_paced','permission-denied','invalid-argument'];
 function cbErr(e,what){toast(e&&CB_SAY.includes(e.code)&&e.message?e.message:`The ${what} could not be saved. Try again in a moment.`);}
 async function cbSendTopic(){
   const f=CB.f;if(CB.busy)return;

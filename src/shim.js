@@ -15,6 +15,10 @@
      nationx/<uid>          {j:<JSON>, t, ts}: the private half (NX_KEYS), which only the nation's own player
                             needs, or another player opening that nation's pages. Nobody listens to it; it
                             is rewritten only when it changed. Loading nations/<uid> returns both, joined.
+     nationp/<uid>          {j:<JSON>, t, ts}: the own half (OWN_KEYS: the player's letters), which nobody else
+                            reads; with the others when the player loads their own nation.
+     letters/<by>~<to>~<t>  {by, to, x, t, ts}: a letter from one player to another, which only those two read;
+                            llimits/<uid> {l} paces them. The writer keeps their own copy in nationp.
      summaries/<uid>        {reg, name, pop, t, e?}: the headline for the World page and region counts; e, with
                             a holiday after the save, is the time the nation counts as active until.
      space/<uid>            {reg, name, t, j:<JSON of sp, belt, mapc, flag, pretitle>}, only for nations
@@ -168,9 +172,12 @@
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws', 'cuS', 'ws'].forEach(function (k) { NX_KEYS[k] = 1; });
+  /* The own half: what nobody but the player may read, not even on opening the nation's pages: the letters (dm),
+     which reach the nations they are written to as letters/ documents (lettersApi) */
+  var OWN_KEYS = { dm: 1 };
   function splitNation(d) {
-    var pub = {}, ext = {};
-    Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (NX_KEYS[k] ? ext : pub)[k] = d[k]; });
+    var pub = {}, ext = {}, own = {};
+    Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (OWN_KEYS[k] ? own : NX_KEYS[k] ? ext : pub)[k] = d[k]; });
     if (isObj(d.asm)) {
       ext.asmLocal = {};
       ['h','d','st','cur'].forEach(function(k) { if (k in d.asm) ext.asmLocal[k] = d.asm[k]; });
@@ -181,12 +188,13 @@
       Object.keys(d.pp).forEach(function (k) { (NX_PP[k] ? xp : pp)[k] = d.pp[k]; });
       pub.pp = pp; ext.pp = xp;
     }
-    return [pub, ext];
+    return [pub, ext, own];
   }
   /* the halves joined; the shared half wins, so a record last saved whole (before the split) reads as it was */
-  function joinNation(pub, ext) {
-    if (!isObj(pub) || !isObj(ext)) return pub;
-    var out = Object.assign({}, ext, pub);
+  function joinNation(pub, ext, own) {
+    if (!isObj(pub) || (!isObj(ext) && !isObj(own))) return pub;
+    if (!isObj(ext)) ext = {};
+    var out = Object.assign({}, ext, isObj(own) ? own : {}, pub);
     if (isObj(ext.asmLocal)) out.asm = Object.assign({}, ext.asmLocal, pub.asm || {});
     if (isObj(ext.pp) && isObj(pub.pp)) out.pp = Object.assign({}, ext.pp, pub.pp);
     return out;
@@ -204,7 +212,7 @@
       if (isObj(nd) && d.storageV === 1) nd.whv = 1;
       return nd;
     }
-    if (col === 'nationx') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
+    if (col === 'nationx' || col === 'nationp') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
     if (col === 'space') { var s = typeof d.j === 'string' ? parse(d.j) : null; return isObj(s) ? Object.assign(s, { reg: d.reg, name: d.name, updatedAt: num(d.t) }) : null; }
     if (col === 'presence') return { t: millis(d.t) || 0 };
     if (col === 'boards') return { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
@@ -235,7 +243,7 @@
     /* Space pacing and private-half changes are checked against the server, including saves made by
        another device; a per-page cache cannot safely decide whether a write can be skipped. */
     var enc = encode('nations', data), now = Date.now();
-    var sj = spaceText(data), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]);
+    var sj = spaceText(data), halves = splitNation(isObj(data) ? data : {}), xj = JSON.stringify(halves[1]), oj = JSON.stringify(halves[2]);
     var ref = A.fs.doc('nations/' + uid), expected = revision(data);
     enc.j = JSON.stringify(halves[0]);
     /* The rules (grows) let the headline population rise only as fast as the game can since the last save, by the
@@ -256,6 +264,7 @@
     var carry = expected === 0 ? parse(L.get(LS_CARRY)) : null, from = isObj(carry) && carry.to === uid && Date.now() - num(carry.at) < 7 * 864e5 ? str(carry.from, 128) : '';
     var approved = await call('civic', Object.assign({ op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected }, from ? { from: from } : {}));
     enc.j = approved.j; enc.permit = approved.permit;
+    var stampable = Array.isArray(approved.sk) ? approved.sk : null;
     enc.rev = expected + 1;
     /* Read and compare in the same transaction as every part of the save. Firestore retries a raced
        transaction against the new document; it must still match the state this action was based on. */
@@ -275,14 +284,17 @@
       if (saved && saved.storageV === 1) enc.storageV = 1;
       if (saved && saved.iq === 1) enc.iq = 1;
       var privateRef = A.fs.doc('nationx/' + uid), privateSnap = await b.get(privateRef);
+      var ownRef = A.fs.doc('nationp/' + uid), ownSnap = await b.get(ownRef);
       var spaceRef = A.fs.doc('space/' + uid), spaceSnap = await b.get(spaceRef), space = spaceSnap.exists ? spaceSnap.data() : null;
       b.set(A.fs.doc('nations/' + uid), enc);
       if (!privateSnap.exists || privateSnap.data().j !== xj) b.set(privateRef, { j: xj, t: enc.updatedAt, ts: serverTime() });
+      if (ownSnap.exists ? ownSnap.data().j !== oj : oj !== '{}') b.set(ownRef, { j: oj, t: enc.updatedAt, ts: serverTime() });
       var sum = { reg: enc.reg, name: enc.name, pop: enc.pop, t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
       if (e > sum.t) sum.e = e;
       b.set(A.fs.doc('summaries/' + uid), sum);
       var raceFrom = A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT;
-      raceKeys(data, raceFrom).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
+      /* only the entries the permit lists as new (sk): the rules take no other stamp */
+      raceKeys(data, raceFrom).filter(function (k) { return !stampable || stampable.indexOf(k) >= 0; }).forEach(function (k) { b.set(A.fs.doc('stamps/' + enc.reg + '/' + k + '/' + uid), { t: serverTime() }); });
       if (noSpace) { /* leave space/ as it is */ }
       else if (sj) {
         var changed = !space || space.reg !== enc.reg || space.name !== enc.name || spaceLayout(space.j) !== spaceLayout(sj);
@@ -309,7 +321,7 @@
   }
   function dropNation(uid) {
     var b = A.fs.batch();
-    ['nations/', 'nationx/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
+    ['nations/', 'nationx/', 'nationp/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
     return b.commit().then(function () { delete A.raceAt[uid]; });
   }
   /* a nation with its private half joined in */
@@ -317,14 +329,14 @@
     /* Own saves must use a coherent, server-confirmed pair. Separate gets can combine the shared half
        before another device's save with its private half afterwards (and cached reads can be stale). */
     var read = uid === A.uid ? A.fs.runTransaction(async function (tx) {
-      return [await tx.get(A.fs.doc('nations/' + uid)), await tx.get(A.fs.doc('nationx/' + uid))];
+      return [await tx.get(A.fs.doc('nations/' + uid)), await tx.get(A.fs.doc('nationx/' + uid)), await tx.get(A.fs.doc('nationp/' + uid))];
     }) : Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]);
     return read.then(function (r) {
-      var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null;
+      var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null, o = r[2] && r[2].exists ? r[2].data() : null;
       /* the player's own record, as saved: its claims and finds were stamped with that save */
       if (uid === A.uid && s.exists) { var own = s.data(); A.raceAt[uid] = isObj(own) ? num(own.updatedAt) : 0; }
-      if (!s.exists || !x) return s;
-      return { id: s.id, exists: true, data: function () { return joinNation(s.data(), decode('nationx', x)); } };
+      if (!s.exists || (!x && !o)) return s;
+      return { id: s.id, exists: true, data: function () { return joinNation(s.data(), x ? decode('nationx', x) : null, o ? decode('nationp', o) : null); } };
     });
   }
   function docApi(path) {
@@ -643,6 +655,32 @@
      has the server file recruits/<own uid> {r: that player's uid} once, as a Registered Nation; the recruiter lists
      the ones naming them. claim(by) → 'ok' (filed now), 'done' (filed before), 'guest' (link an account first),
      'retry' (the first save may still be on its way), 'no' (it does not count) or 'bad' */
+  /* letters between players (firestore.rules, letters): send(to, x, t) delivers the player's letter, written at t
+     (the time in their own copy, nationp), as letters/<uid>~<to>~<t> → 'ok' (delivered, now or before), 'later'
+     (paced, offline: try again) or 'no' (it cannot be delivered); listen(next) hears the letters written to this
+     player, newest first, as [{by, x, t}], and returns the function that stops listening */
+  var lettersApi = Object.freeze({
+    send: function (to, x, t) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing()) return Promise.resolve('later');
+      if (typeof to !== 'string' || !/^[\w-]{1,128}$/.test(to) || to === u.uid || typeof x !== 'string' || !x.trim() || !Number.isSafeInteger(t)) return Promise.resolve('no');
+      var ref = A.fs.doc('letters/' + u.uid + '~' + to + '~' + t), b = A.fs.batch();
+      b.set(ref, { by: u.uid, to: to, x: x.slice(0, 500), t: t, ts: serverTime() });
+      b.set(A.fs.doc('llimits/' + u.uid), { l: serverTime() });
+      return b.commit().then(function () { return 'ok'; }, function (e) {
+        if (!e || e.code !== 'permission-denied') return 'later';
+        /* refused: delivered before (a retry), paced, or not deliverable (no such nation) */
+        return ref.get().then(function (d) { return d.exists ? 'ok' : A.fs.doc('nations/' + to).get().then(function (n) { return n.exists ? 'later' : 'no'; }); }).catch(function () { return 'later'; });
+      });
+    },
+    listen: function (next, error) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || observing()) return null;
+      return A.fs.collection('letters').where('to', '==', u.uid).orderBy('t', 'desc').limit(200).onSnapshot(function (qs) {
+        next(qs.docs.map(function (d) { var v = d.data(); return { by: str(v.by, 128), x: str(v.x, 500), t: num(v.t) }; }).filter(function (l) { return l.by && l.x && l.t > 0; }));
+      }, function (e) { if (typeof error === 'function') error(mapError(e)); });
+    }
+  });
   var recruitApi = Object.freeze({
     me: function () { var u = A.auth && A.auth.currentUser; return u ? u.uid : ''; },
     claim: function (by) {
@@ -736,7 +774,7 @@
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'mail' ? mailApi : n === 'recruit' ? recruitApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
+        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'mail' ? mailApi : n === 'recruit' ? recruitApi : n === 'letters' ? lettersApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }
@@ -1523,6 +1561,12 @@
       for (var k = 0; k < health.docs.length; k += 400) {
         var bh = A.fs.batch(); health.docs.slice(k, k + 400).forEach(function (d) { bh.delete(d.ref); }); await bh.commit();
       }
+      /* letters written by the player and to them */
+      var sent = await within(A.fs.collection('letters').where('by', '==', u.uid).get(), 15000), got = await within(A.fs.collection('letters').where('to', '==', u.uid).get(), 15000);
+      var letters = sent.docs.concat(got.docs);
+      for (var q = 0; q < letters.length; q += 400) {
+        var bl = A.fs.batch(); letters.slice(q, q + 400).forEach(function (d) { bl.delete(d.ref); }); await bl.commit();
+      }
       /* bug reports, with their screenshots: a batch holds 200 of them */
       var bugs = await within(A.fs.collection('bugs').where('by', '==', u.uid).get(), 15000);
       for (var m = 0; m < bugs.docs.length; m += 200) {
@@ -1531,7 +1575,8 @@
         await bb.commit();
       }
       var b = A.fs.batch();
-      ['nations/', 'nationx/', 'summaries/', 'space/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'staff/', 'presence/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
+      /* the pacing documents (limits/, rlimits/, slimits/, blimits/) are the server's to remove with the account */
+      ['nations/', 'nationx/', 'nationp/', 'summaries/', 'space/', 'staff/', 'presence/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });
       await within(b.commit(), 15000);
       /* the referee's record of the army (readiness, battles), which only it may clear */
       try { await call('referee', { op: 'forget' }); } catch (e) { /* it holds no more than that */ }

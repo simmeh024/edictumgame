@@ -24,18 +24,20 @@ const nation = (name, extra = {}) => {
 const summaryOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, pop: n.pop ?? 1200, t: n.updatedAt, ...extra });
 const privateOf = (n, extra = {}) => ({ j: JSON.stringify({ inbox: [], tly: { a: 1 } }), t: n.updatedAt, ts: NOW(), ...extra });
 const spaceOf = (n, extra = {}) => ({ reg: n.reg, name: n.name, t: n.updatedAt, j: JSON.stringify({ sp: { moon: {} } }), ts: NOW(), ...extra });
-async function save(db, uid, n, { summary = summaryOf(n), space = null, priv = null, approved = true } = {}) {
+async function save(db, uid, n, { summary = summaryOf(n), space = null, priv = null, own = null, approved = true, sk = null, stamps = [] } = {}) {
   if(n&&approved)await env.withSecurityRulesDisabled(async ctx=>{
     const admin=ctx.firestore(),current=await admin.doc('nations/'+uid).get();
     if(n.rev===undefined)n.rev=(current.exists&&current.data().rev||0)+1;
     n.permit=crypto.randomUUID();
     const fields=Object.fromEntries(['j','reg','name','pop','army','cl','updatedAt','rev'].filter(k=>n[k]!==undefined).map(k=>[k,n[k]]));
-    await admin.doc('nationPermits/'+uid+'/requests/'+n.permit).set({...fields,exp:firebase.firestore.Timestamp.fromMillis(Date.now()+120000)});
+    await admin.doc('nationPermits/'+uid+'/requests/'+n.permit).set({...fields,...(sk?{sk}:{}),exp:firebase.firestore.Timestamp.fromMillis(Date.now()+120000)});
   });
   const b = db.batch();
   if (n) b.set(db.doc('nations/' + uid), n);
   if (summary) b.set(db.doc('summaries/' + uid), summary);
   if (priv) b.set(db.doc('nationx/' + uid), priv);
+  if (own) b.set(db.doc('nationp/' + uid), own);
+  for (const k of stamps) b.set(db.doc('stamps/' + (n ? n.reg : 'meridian') + '/' + k + '/' + uid), { t: NOW() });
   if (space) b.set(db.doc('space/' + uid), space);
   return b.commit();
 }
@@ -333,7 +335,7 @@ test('only admins hide nations; everyone reads who is hidden', async () => {
   await assertSucceeds(mod.doc('mod/bob').delete());
 });
 
-test('a player deleting their account finds and removes their own posts and limits', async () => {
+test('a player deleting their account finds and removes their own posts; the server removes their limits', async () => {
   const db = as('bob');
   const mine = await assertSucceeds(db.collectionGroup('posts').where('a', '==', 'bob').get());
   if (mine.size !== 1) throw new Error('expected Bob’s one post, found ' + mine.size);
@@ -341,9 +343,13 @@ test('a player deleting their account finds and removes their own posts and limi
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('limits/bob').set({ p: AGO(1000) }));
   await assertFails(db.doc('limits/bob').delete());                                       // not while the nation exists
   await assertFails(as('alice').doc('limits/bob').delete());
+  const withLimits = db.batch();                                                           // not even with the nation
+  for (const c of ['nations', 'limits']) withLimits.delete(db.doc(c + '/bob'));
+  await assertFails(withLimits.commit());
   const b = db.batch();                                                                    // as the account deletion does it
-  for (const c of ['nations', 'nationx', 'summaries', 'space', 'limits', 'rlimits']) b.delete(db.doc(c + '/bob'));
+  for (const c of ['nations', 'nationx', 'nationp', 'summaries', 'space']) b.delete(db.doc(c + '/bob'));
   await assertSucceeds(b.commit());
+  await assertFails(db.doc('limits/bob').delete());                                       // nor once it is gone
 });
 
 test('admins remove nations and ban accounts; a banned account saves, posts and reports nothing', async () => {
@@ -426,7 +432,7 @@ test('admins answer and close support tickets, with an expiry; players delete th
   await assertSucceeds(mod.doc('support/' + open.docs[1].id).delete());                   // spam
   const db = as('dave'), left = await assertSucceeds(db.collection('support').where('by', '==', 'dave').get());
   for (const d of left.docs) await assertSucceeds(db.doc(d.ref.path).delete());           // as the account deletion does it
-  await assertSucceeds(db.doc('slimits/dave').delete());                                   // Dave has no nation
+  await assertFails(db.doc('slimits/dave').delete());                                      // with no nation, the pace still holds
 });
 
 test('a banned player can still send a support ticket, to appeal', async () => {
@@ -508,7 +514,7 @@ test('admins read every bug report, set its state with a note, and delete it; pl
   const db = as('dave'), b = db.batch();                                                   // as the account deletion does it
   b.delete(db.doc('bugs/b1')); b.delete(db.doc('bugImg/b1'));
   await assertSucceeds(b.commit());
-  await assertSucceeds(db.doc('blimits/dave').delete());                                   // Dave has no nation
+  await assertFails(db.doc('blimits/dave').delete());                                      // with no nation, the pace still holds
 });
 
 test('everyone reads the Known bugs list; only admins write it, with a known status', async () => {
@@ -581,15 +587,66 @@ test('legacy records must gain headline numbers when adopting protected saves', 
   await assertFails(save(as('olga'), 'olga', bare, { summary: summaryOf(bare, { pop: 1200 }) }));
 });
 
-test('a race is stamped with the server’s time, by the claimer, and anyone reads it', async () => {
-  const db = as('alice');
-  await assertSucceeds(db.doc('stamps/meridian/c1234/alice').set({ t: NOW() }));
-  await assertSucceeds(db.doc('stamps/meridian/s17/alice').set({ t: NOW() }));
-  await assertFails(db.doc('stamps/meridian/c1235/alice').set({ t: Date.now() - 864e5 }));   // a backdated claim
-  await assertFails(db.doc('stamps/meridian/c1236/bob').set({ t: NOW() }));                   // someone else's
-  await assertFails(db.doc('stamps/meridian/x9/alice').set({ t: NOW() }));
-  await assertFails(db.doc('stamps/atlantis/c1/alice').set({ t: NOW() }));
+test('a race is stamped with the server’s time, in the save that carries the claim, and anyone reads it', async () => {
+  // each case a nation's first save, so the one-save-a-second pacing plays no part
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland'), { sk: ['c1234', 's17'], stamps: ['c1234', 's17'] }));
+  await assertFails(save(as('al2'), 'al2', nation('Al2'), { sk: ['c1234'], stamps: ['c1235'] }));            // a claim the save does not carry
+  await assertFails(save(as('al3'), 'al3', nation('Al3'), { stamps: ['c1236'] }));                          // a permit that lists none
+  await assertFails(as('al4').doc('stamps/meridian/c1237/al4').set({ t: NOW() }));                         // apart from a save: ahead of its claim
+  await assertFails(save(as('al5'), 'al5', nation('Al5'), { sk: ['c1238'], stamps: ['c1238'] }).then(() => as('al5').doc('stamps/meridian/c1238/al5').set({ t: NOW() })));   // moved again, apart from a save
+  await assertFails(save(as('al7'), 'al7', nation('Al7'), { sk: ['c1'], stamps: [] }).then(() => as('al7').doc('stamps/meridian/c1/al7').set({ t: Date.now() - 864e5 })));   // backdated
+  await assertFails(as('alice').doc('stamps/meridian/c1236/bob').set({ t: NOW() }));                        // someone else's
+  await assertFails(save(as('al8'), 'al8', nation('Al8'), { sk: ['x9'], stamps: ['x9'] }));
   await assertSucceeds(anon().doc('stamps/meridian/c1234/alice').get());
+});
+
+test('a save is dated no more than a day ahead of the server', async () => {
+  await assertFails(save(as('alice'), 'alice', nation('Aliceland', { updatedAt: Date.now() + 2 * 864e5 })));
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland', { updatedAt: Date.now() + 3600e3 })));
+});
+
+test('the own half is written with the nation and read only by its player and the admins', async () => {
+  const n = nation('Aliceland');
+  await assertSucceeds(save(as('alice'), 'alice', n, { own: privateOf(n) }));
+  await assertSucceeds(as('alice').doc('nationp/alice').get());
+  await assertFails(as('bob').doc('nationp/alice').get());
+  await assertFails(anon().doc('nationp/alice').get());
+  await assertSucceeds(as('mod', { admin: true }).doc('nationp/alice').get());
+  await assertFails(as('alice').doc('nationp/alice').set(privateOf(n)));                                     // apart from a save
+  await assertFails(as('alice').doc('cbPace/alice').get());                                                 // the board's pacing is the server's
+  await assertFails(as('alice').doc('cbPace/alice').set({ p: [], q: [] }));
+});
+
+test('a letter is read only by its writer and its reader, paced, and named by writer, reader and time', async () => {
+  await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('nations/alice').set(nation('Aliceland')); });
+  const t = Date.now(), at = tt => 'letters/alice~bob~' + tt;
+  const letter = (by, to, x, tt, { extra = {}, id = by + '~' + to + '~' + tt, pace = true } = {}) => {
+    const db = as(by), b = db.batch();
+    b.set(db.doc('letters/' + id), { by, to, x, t: tt, ts: NOW(), ...extra });
+    if (pace) b.set(db.doc('llimits/' + by), { l: NOW() });
+    return b.commit();
+  };
+  await assertSucceeds(letter('alice', 'bob', 'Dear Bob', t));
+  await assertFails(letter('alice', 'bob', 'Again at once', t + 1));                                        // paced
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('llimits/alice').set({ l: AGO(4000) }));
+  await assertFails(letter('alice', 'bob', 'Unpaced', t + 2, { pace: false }));                             // llimits/ must come along
+  await assertFails(letter('alice', 'bob', 'Wrong name', t + 3, { id: 'alice~bob~1' }));
+  await assertFails(letter('alice', 'nobody', 'To no nation', t + 4));
+  await assertFails(letter('dave', 'bob', 'From no nation', t + 5));
+  await assertFails(letter('alice', 'bob', 'x'.repeat(501), t + 6));
+  await assertFails(letter('alice', 'bob', 'Far ahead', t + 2 * 864e5));
+  await assertFails(letter('alice', 'bob', 'Forged', t + 7, { extra: { by: 'bob' }, id: 'bob~bob~' + (t + 7) }));
+  await assertSucceeds(letter('alice', 'bob', 'Dear Bob, again', t + 8));
+  await assertSucceeds(as('bob').collection('letters').where('to', '==', 'bob').orderBy('t', 'desc').get());
+  await assertSucceeds(as('alice').doc(at(t)).get());
+  await assertFails(as('carol').doc(at(t)).get());
+  await assertFails(anon().doc(at(t)).get());
+  await assertFails(as('carol').collection('letters').where('to', '==', 'bob').get());
+  await assertSucceeds(as('mod', { admin: true }).doc(at(t)).get());
+  await assertFails(as('carol').doc(at(t)).delete());
+  await assertSucceeds(as('bob').doc(at(t)).delete());
+  await assertSucceeds(as('alice').doc(at(t + 8)).delete());
+  await assertFails(as('alice').doc('llimits/alice').delete());                                              // the pace cannot be reset
 });
 
 test('the referee’s records: anyone reads its public key, a player their own army, and nobody writes them', async () => {
