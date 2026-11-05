@@ -210,6 +210,7 @@ test('Community Board: any Registered Nation posts in any region; the server wri
   const topic=(await db.doc('cb/frostmarch/posts/'+t.id).get()).data();
   assert.equal(topic.a,r.uid);assert.equal(topic.rg,'meridian');assert.equal(topic.ti,'Grain for steel');assert.equal(topic.tg,'trade');assert.equal(topic.fd,true);assert.equal(topic.st,undefined);assert.equal(topic.rc,0);
   const rep=await civic(far,{op:'cbReply',reg:'frostmarch',topic:t.id,x:'I have steel.'});
+  await db.doc('cbPace/'+r.uid).delete();                                 // the pacing has a test of its own
   await civic(r,{op:'cbReply',reg:'frostmarch',topic:t.id,x:'Deal.'});
   assert.equal((await db.doc('cb/frostmarch/posts/'+t.id).get()).get('rc'),2);
   const meta=(await db.doc('cb/frostmarch').get()).data();assert.equal(meta.n,1);assert.equal(meta.r,2);assert.equal(meta.dn,3);
@@ -295,4 +296,37 @@ test('A recruit counts once, as a Registered Nation founded in the last 30 days 
   const email=`civic-${crypto.randomUUID()}@example.test`;await auth.createUser({email,password:'test-only-password',emailVerified:true});
   const empty=await sign('signInWithPassword',{email,password:'test-only-password'});
   assert.deepEqual(await account(empty,{op:'recruit',by:recruiter.uid}),{ok:false,why:'nation_required'});
+});
+
+test('Community Board posts are paced: one every 30 seconds, 20 an hour, 5 of them topics; staff are not',async()=>{
+  const r=await player(true),now=Date.now(),ago=(k,ms)=>Array.from({length:k},(_,i)=>now-(i+1)*ms);
+  const topic=(p,i)=>civic(p,{op:'cbTopic',reg:'meridian',ti:'Topic number '+i,x:'Some words',tg:'general'});
+  const reply=(p,id,x)=>civic(p,{op:'cbReply',reg:'meridian',topic:id,x});
+  const first=await topic(r,1);
+  await assert.rejects(reply(r,first.id,'Too soon'),e=>e.code==='cb_paced'&&/post again in \d+ seconds/.test(e.message));
+  await db.doc('cbPace/'+r.uid).set({p:[now-31000],q:[now-31000]});
+  assert.ok((await reply(r,first.id,'Now it fits')).id);
+  await db.doc('cbPace/'+r.uid).set({p:ago(5,60000),q:ago(5,60000)});
+  await assert.rejects(topic(r,2),e=>e.code==='cb_paced'&&/5 topics in the last hour/.test(e.message));
+  assert.ok((await reply(r,first.id,'A reply still fits')).id);
+  await db.doc('cbPace/'+r.uid).set({p:ago(20,60000),q:[]});
+  await assert.rejects(reply(r,first.id,'The twenty-first'),e=>e.code==='cb_paced'&&/20 times in the last hour/.test(e.message));
+  const staff=await player(true);await auth.setCustomUserClaims(staff.uid,{mod:true});
+  const t=await topic(staff,3);assert.ok((await reply(staff,t.id,'At once')).id);
+});
+
+test('A save dated over a day ahead is refused; a permit lists the new claims and finds; old letters become letters/',async()=>{
+  const g=await player(),base={reg:'meridian',name:g.uid,pop:10,army:1,cl:0};
+  const save=(n,extra={})=>civic(g,{op:'authorizeSave',record:{...base,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name:g.uid,pop:10,...n}),...extra},rev:1});
+  await rejects(save({},{updatedAt:Date.now()+2*DAY}),'clock_ahead');
+  const dm=[{w:'some-player-1',t:111,x:'Hello there'},{w:'npc-vellmark',t:112,x:'To a computer nation'},{w:'npc-vellmark',t:113,x:'Its reply',i:1},{w:'office-monuments',t:114,x:'To an office'}];
+  await db.doc('nations/'+g.uid).update({j:JSON.stringify({reg:'meridian',name:g.uid,pop:10,claims:[{c:5,t:1}],disc:[{s:3,o:'found',t:1}],dm})});
+  const kept=await save({claims:[{c:5,t:1}],dm});
+  assert.deepEqual(kept.sk,[],'nothing new to stamp');
+  assert.equal((await db.collection('letters').where('by','==',g.uid).get()).size,0,'a save that still carries the letters moves none');
+  const p=await save({claims:[{c:5,t:1},{c:6,t:2}],disc:[{s:3,o:'found',t:1},{s:4,o:'great',t:2},{s:9,o:'nothing',t:3}]});
+  assert.deepEqual([...p.sk].sort(),['c6','s4']);
+  const l=await db.doc(`letters/${g.uid}~some-player-1~111`).get();
+  assert.equal(l.get('x'),'Hello there');assert.equal(l.get('to'),'some-player-1');assert.equal(l.get('t'),111);
+  assert.equal((await db.collection('letters').where('by','==',g.uid).get()).size,1,'only letters to players');
 });

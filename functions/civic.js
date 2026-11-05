@@ -43,6 +43,17 @@ async function createCap(tx, db, who, e, p, from, now) {
   return { cap: Math.max(cap, grown(fh.pop * HW_STEP, fh.at, now)), carry: fa.ref, fh };
 }
 
+/* the races this save may stamp (stamps/<reg>/<key>/<uid>, firestore.rules): the claims (c<cell>) and finds (s<site>)
+   it carries that the saved record did not, so no stamp can be written ahead of its claim (src/shim.js raceKeys) */
+function raceKeys(n, before) {
+  const had = new Set((Array.isArray(before.claims) ? before.claims : []).map(e => e && e.c));
+  const found = e => e && (e.o === 'found' || e.o === 'great') && Number.isInteger(e.s) && e.s >= 0 && e.s < 1e6;
+  const sites = new Set((Array.isArray(before.disc) ? before.disc : []).filter(found).map(e => e.s)), out = new Set();
+  for (const e of Array.isArray(n.claims) ? n.claims : []) if (e && Number.isInteger(e.c) && e.c >= 0 && e.c < 1e6 && !had.has(e.c)) out.add('c' + e.c);
+  for (const e of Array.isArray(n.disc) ? n.disc : []) if (found(e) && !sites.has(e.s)) out.add('s' + e.s);
+  return [...out].slice(0, 200);
+}
+
 async function permit(db, who, d) {
   const p = d.record;
   if (!p || typeof p.j !== 'string' || p.j.length > 700000 || typeof p.name !== 'string' || p.name.length > 80 || !['pop','army','cl','updatedAt'].every(k=>Number.isFinite(p[k])) || !regions.has(p.reg) || !Number.isSafeInteger(d.rev) || d.rev < 0)
@@ -51,6 +62,8 @@ async function permit(db, who, d) {
   try { n = JSON.parse(p.j); } catch { throw new HttpsError('invalid-argument', 'Invalid nation JSON.'); }
   if (!n || Array.isArray(n) || typeof n !== 'object' || n.reg !== p.reg || n.name !== p.name || own(n, 'asm'))
     throw new HttpsError('invalid-argument', 'Political records must be changed through the protected Assembly service.');
+  /* the rules take a save's time no more than a day ahead of the server's (a record dated later would never fall dormant) */
+  if (p.updatedAt > Date.now() + DAY) refuse('clock_ahead', 'This device’s clock is more than a day ahead, so the nation cannot be saved. Set the date and time right, and it saves again.');
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true });
     if ((e.saved.get('rev') || 0) !== d.rev) refuse('save_conflict', 'Another device saved this nation.');
@@ -82,10 +95,16 @@ async function permit(db, who, d) {
     } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) most = grown(e.saved.get('pop'), e.saved.get('ts').toMillis(), now) + 1e-4;
     const hw = hwOf(e.account), noted = Math.min(p.pop, most);
     if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now } }, { mergeFields: ['hw'] });
+    /* letters a game from before letters were private left in the shared record (dm, now in the own half: src/shim.js):
+       when the record is first saved without them, those to players become letters/ documents, so their readers
+       keep them. The same id as the game's own, so a save tried again writes them again, not twice. */
+    if (Array.isArray(before.dm) && !own(n, 'dm')) for (const m of before.dm.slice(-80))
+      if (m && !m.i && isId(m.w) && m.w !== who.uid && !npcIds.has(m.w) && !/^(npc|office)-/.test(m.w) && typeof m.x === 'string' && m.x.trim() && Number.isSafeInteger(m.t) && m.t > 0)
+        tx.set(db.doc('letters/' + who.uid + '~' + m.w + '~' + m.t), { by: who.uid, to: m.w, x: m.x.slice(0, 500), t: m.t, ts: FieldValue.serverTimestamp() });
     const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop: p.pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: d.rev + 1 };
-    const ref = db.collection('nationPermits/' + who.uid + '/requests').doc();
-    tx.create(ref, { ...result, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
-    return { ...result, permit: ref.id };
+    const ref = db.collection('nationPermits/' + who.uid + '/requests').doc(), sk = raceKeys(n, before);
+    tx.create(ref, { ...result, sk, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
+    return { ...result, sk, permit: ref.id };
   });
 }
 

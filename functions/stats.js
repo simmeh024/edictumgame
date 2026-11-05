@@ -24,7 +24,7 @@ export const FEATURES = {
   explore: r => arr(r.disc).length + arr(r.discArc).length > 0 || !!r.exp,
   alliance: r => !!obj(r.alli) || !!r.allyOf,
   war: r => Object.keys(obj(r.wars) || {}).length > 0,
-  letters: r => arr(r.dm).some(m => m && !m.i),
+  letters: r => arr(r.dm).some(m => m && !m.i) || num(obj(r.tly)?.dm) > 0, // dm itself is in the own half (nationp), unread here
   assembly: r => { const a = obj(r.asm); return !!a && (arr(a.v).length + arr(a.e).length + arr(a.s).length > 0 || !!a.p); },
   games: r => arr(obj(r.games)?.en).some(e => e && e.f),
   covert: r => arr(r.cov).length > 0,

@@ -36,6 +36,8 @@ const au = await text(B, '.cb-post .cb-au');
 check('the author column shows the flag, name, online state and the Founder badge', await B.$('.cb-post .cb-au .nw-fl svg') && /Playerland/.test(au) && /Online/.test(au) && /Founder/.test(au), au);
 check('line breaks survive', await B.$eval('.cb-post .cb-x', e => e.innerHTML.includes('<br>')));
 check('the topic has its own link', /^#community\/[a-z]+\/[A-Za-z0-9]{20}$/.test(await B.evaluate(() => location.hash)));
+await B.waitForSelector('#cb-r-x'); await B.fill('#cb-r-x', 'And iron, too.'); await B.click('#cb-rf button[type="submit"]');
+check('posting again at once is paced, and says when it can', await until(async () => /Slow down a little\. You can post again in \d+ seconds/.test(await B.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '))), 30000));
 
 // C, from their own region, finds it on the other board and replies
 await go(C, 'community'); await C.waitForSelector('.cb-reg');

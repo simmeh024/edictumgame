@@ -216,7 +216,7 @@ async function mutate(db, actor, data) {
       const b = db.batch();
       b.set(db.doc('mod/' + target), { hidden: false, removed: now, note: reason, name, t: now, by: actor });
       if (action === 'ban') b.set(db.doc('bans/' + target), { note: reason, name, t: now, by: actor });
-      ['nations', 'nationx', 'summaries', 'space'].forEach(c => b.delete(db.doc(c + '/' + target)));
+      ['nations', 'nationx', 'nationp', 'summaries', 'space'].forEach(c => b.delete(db.doc(c + '/' + target)));
       await b.commit();
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);
       const writer = db.bulkWriter(), writes = posts.docs.concat(reports.docs).map(d => writer.delete(d.ref)); await Promise.all([Promise.all(writes), writer.close()]);
