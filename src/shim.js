@@ -698,6 +698,25 @@
       return A.fs.doc('bugs/' + str(id, 40)).update({ st: BUG_ST[st] ? st : 'new', note: str(note, 1000), ut: serverTime(), uby: u.uid })
         .then(function () {}, function (e) { throw mapError(e); });
     },
+    /* the public Known bugs list: anyone reads it, admins add, change and remove entries */
+    known: function () {
+      return A.fs.collection('known').orderBy('ut', 'desc').limit(200).get().then(function (qs) {
+        return qs.docs.map(function (s) {
+          var d = s.data({ serverTimestamps: 'estimate' }) || {};
+          return { id: s.id, ti: str(d.ti, 120), x: str(d.x, 600), st: ['new', 'inv', 'fixed'].indexOf(d.st) >= 0 ? d.st : 'new', t: millis(d.t), ut: millis(d.ut) };
+        });
+      }, function (e) { throw mapError(e); });
+    },
+    knownSave: function (id, k) {
+      if (!isObj(k) || !str(k.ti, 120).trim()) return Promise.reject(mapError({ code: 'invalid-argument' }));
+      var ref = id ? A.fs.doc('known/' + str(id, 40)) : A.fs.collection('known').doc();
+      var doc = { ti: str(k.ti, 120).trim(), x: str(k.x, 600).trim(), st: ['new', 'inv', 'fixed'].indexOf(k.st) >= 0 ? k.st : 'new', ut: serverTime() };
+      if (!id) doc.t = serverTime();
+      return (id ? ref.update(doc) : ref.set(doc)).then(function () { return ref.id; }, function (e) { throw mapError(e); });
+    },
+    knownRemove: function (id) {
+      return A.fs.doc('known/' + str(id, 40)).delete().then(function () {}, function (e) { throw mapError(e); });
+    },
     /* with its screenshot, when it has one (a player may not delete a screenshot that is not there) */
     remove: function (id, img) {
       var b = A.fs.batch();

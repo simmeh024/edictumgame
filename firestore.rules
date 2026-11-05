@@ -397,6 +397,17 @@ service cloud.firestore {
         && request.resource.data.ut == request.time && request.resource.data.uby == request.auth.uid
         && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 1000));
     }
+    // the public Known bugs list beside the Report a bug page: {ti, x, st, t, ut}; only admins write it
+    match /known/{kid} {
+      allow read: if true;
+      allow delete: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['ti', 'x', 'st', 't', 'ut'])
+        && request.resource.data.ti is string && request.resource.data.ti.size() > 0 && request.resource.data.ti.size() <= 120
+        && request.resource.data.x is string && request.resource.data.x.size() <= 600
+        && request.resource.data.st in ['new', 'inv', 'fixed']
+        && request.resource.data.t is timestamp && request.resource.data.ut == request.time;
+    }
     // a report's screenshot, made smaller in the player's browser: only together with a new report of theirs
     match /bugImg/{bid} {
       allow create: if signedIn() && request.resource.data.keys().hasOnly(['d', 'm', 'w', 'h', 'by'])

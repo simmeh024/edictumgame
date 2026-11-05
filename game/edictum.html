@@ -4940,6 +4940,24 @@ span.nw-tag{cursor:default}
 .bga-shot{margin:0 0 8px}
 .bga-ti{display:block;margin:2px 0 4px;font-size:16px;color:var(--ink)}
 .bg-del{margin:6px 0 0}
+/* the Known bugs list: beside the form on wide screens, below it on narrow ones */
+.bg-cols{display:grid;grid-template-columns:minmax(0,74ch) minmax(260px,380px);gap:32px;align-items:start}
+.bg-known{position:sticky;top:16px;padding:16px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);max-height:calc(100vh - 32px);overflow:auto}
+.bg-known .h2{margin:0 0 4px}
+.kb-f{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.kb-q{width:100%;margin:0 0 10px}
+.kb-list{list-style:none;margin:0;padding:0}
+.kb-list li{padding:10px 0;border-top:1px solid var(--rule-2)}
+.kb-list li p{margin:4px 0 0;font-size:13.5px;color:var(--ink-2)}
+.kb-list b{display:block;margin-top:4px}
+.chip.kb-new{border-color:var(--stamp);color:var(--stamp)}
+.chip.kb-inv{border-color:var(--accent);color:var(--accent)}
+.chip.kb-fixed{border-color:var(--up);color:var(--up)}
+.kba{margin:0 0 28px;padding:14px 16px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.kba summary{cursor:pointer;font-weight:600;min-height:32px;line-height:32px}
+.kba-add{display:grid;gap:8px;margin:10px 0 14px;max-width:74ch}
+.kba .kb-list .row{margin-top:6px;flex-wrap:wrap;gap:6px}
+@media (max-width:1100px){.bg-cols{grid-template-columns:minmax(0,1fr)}.bg-known{position:static;max-height:none;max-width:74ch}}
 @media (max-width:600px){.bg-two{grid-template-columns:1fr}.bg-env dl,.bga-env dl{grid-template-columns:1fr;gap:0 0}.bg-env dd,.bga-env dd{margin-bottom:6px}}
 /* Letters from Willow Street: the story's place on the Edicts desk, the letter, its outcome, and the keepsakes */
 .edict-story{font:500 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--stamp-soft);color:var(--stamp)}
@@ -42997,7 +43015,8 @@ function bgView(){
     <details><summary>What you wrote</summary><blockquote class="sup-q">${esc(b.x)}</blockquote></details>
     ${b.note?`<div class="sup-a"><p class="lbl-h">The Edictum team${b.ut?' · '+esc(rel(b.ut)):''}</p><p>${esc(b.note)}</p></div>`:`<p class="hint">${BG_STW[b.st]}</p>`}
     ${BG.ask===b.id?`<div class="adm-ask"><p>Delete this report? The team no longer sees it either.</p><div class="row"><button type="button" class="btn danger small" data-act="bg-del-yes" data-id="${esc(b.id)}">Yes, delete</button><button type="button" class="btn ghost small" data-act="bg-del-no">Keep it</button></div></div>`:`<p class="bg-del"><button type="button" class="linkish" data-act="bg-del" data-id="${esc(b.id)}">Delete this report</button></p>`}</li>`;
-  return head+`<form class="bg-form" id="bg-form" novalidate>
+  if(!KB.list&&!KB.busy&&!KB.err)setTimeout(kbLoad,0);
+  return head+`<div class="bg-cols"><div class="bg-main"><form class="bg-form" id="bg-form" novalidate>
     ${BG.sent?`<div class="bg-sent" role="status"><p><b>Thank you.</b> Your report “${esc(BG.sent)}” is with the team. You can follow it under Your reports.</p></div>`:''}
     <div class="field"><label class="lbl" for="bg-ti">What went wrong, in a few words</label>
       <input class="input" id="bg-ti" maxlength="120" autocomplete="off" value="${esc(f.ti)}" placeholder="For example: the map stays blank after I claim land"></div>
@@ -43021,7 +43040,63 @@ function bgView(){
   <section class="bg-mine" aria-labelledby="bg-mine-h"><h2 class="h2" id="bg-mine-h">Your reports</h2>
     ${BG.lerr?`<p class="err">${esc(BG.lerr)} <button type="button" class="linkish" data-act="bg-retry">Try again</button></p>`:!BG.list?'<p class="hint">Loading your reports…</p>'
       :!L.length?'<p class="hint">You have not reported a bug yet. Reports you send appear here, with what the team made of them.</p>':`<ul class="sup-list">${L.map(mine).join('')}</ul>`}
-  </section>`;
+  </section></div>${kbAside()}</div>`;
+}
+/* ── Known bugs: a public list the team keeps, beside the form, so players see what is already known ── */
+const KB={busy:false,err:'',list:null,f:'all',q:'',at:0};
+const KB_ST={new:'New',inv:'Being investigated',fixed:'Fixed'};
+const KB_F={all:'All',new:'New',inv:'Being investigated',fixed:'Fixed'};
+function kbLoad(){
+  if(KB.busy)return;KB.busy=true;KB.err='';
+  bgApi().then(a=>{if(!a)throw new Error('offline');return a.known();}).then(list=>{KB.list=list;KB.busy=false;KB.at=Date.now();if(S.view==='bugs'||S.view==='admin-bugs')render();},
+    ()=>{KB.busy=false;KB.err='The known bugs could not be loaded.';if(S.view==='bugs'||S.view==='admin-bugs')render();});
+}
+const kbMatch=(k,f,q)=>(f==='all'||k.st===f)&&(!q||(k.ti+' '+k.x).toLowerCase().includes(q));
+function kbItems(){
+  const L=KB.list||[],q=KB.q.trim().toLowerCase(),show=L.filter(k=>kbMatch(k,KB.f,q));
+  if(!show.length)return `<p class="hint">${L.length?'No known bugs match.':'No known bugs right now.'}</p>`;
+  return `<ul class="kb-list">${show.map(k=>`<li><span class="chip kb-${k.st}">${KB_ST[k.st]}</span><b>${esc(k.ti)}</b>${k.x?`<p>${esc(k.x)}</p>`:''}<p class="hint">Updated ${esc(rel(k.ut||k.t))}</p></li>`).join('')}</ul>`;
+}
+function kbAside(){
+  const L=KB.list||[],cnt=f=>L.filter(k=>f==='all'||k.st===f).length;
+  return `<aside class="bg-known" aria-labelledby="kb-h"><h2 class="h2" id="kb-h">Known bugs</h2>
+    <p class="hint">Bugs the team already knows about, and where each stands. No need to report these again.</p>
+    ${KB.err?`<p class="err">${esc(KB.err)} <button type="button" class="linkish" data-act="kb-retry">Try again</button></p>`:!KB.list?'<p class="hint">Loading the known bugs…</p>':`
+    <div class="kb-f" role="group" aria-label="Show">${Object.entries(KB_F).map(([k,l])=>`<button type="button" class="btn ghost small" data-act="kb-f" data-f="${k}" aria-pressed="${KB.f===k}">${l} <span class="chip">${cnt(k)}</span></button>`).join('')}</div>
+    <input class="input kb-q" id="kb-q" type="search" placeholder="Search the known bugs" aria-label="Search the known bugs" value="${esc(KB.q)}" autocomplete="off">
+    <div id="kb-items">${kbItems()}</div>`}
+  </aside>`;
+}
+/* the admin side: on the Bug reports page, add entries and move them along (KBA.ti/x hold the add form) */
+const KBA={ti:'',x:'',st:'new',act:'',ask:''};
+function kbaSection(){
+  const L=KB.list||[];
+  return `<details class="kba" open><summary>Known bugs list (public, beside the Report a bug page) <span class="chip">${L.length}</span></summary>
+    <div class="kba-add"><label class="admh-lbl" for="kba-ti">Title</label><input class="input" id="kba-ti" maxlength="120" value="${esc(KBA.ti)}" autocomplete="off">
+      <label class="admh-lbl" for="kba-x">What players read (optional)</label><textarea class="input" id="kba-x" rows="2" maxlength="600">${esc(KBA.x)}</textarea>
+      <div class="row"><select class="input" id="kba-st" aria-label="Status">${Object.entries(KB_ST).map(([k,l])=>`<option value="${k}"${KBA.st===k?' selected':''}>${l}</option>`).join('')}</select><button type="button" class="btn small" data-act="kba-add">Add to the list</button></div></div>
+    ${KBA.act?`<p class="hint" role="status">${esc(KBA.act)}</p>`:''}
+    ${!KB.list?'<p class="hint">Loading…</p>':!L.length?'<p class="hint">The list is empty.</p>':`<ul class="kb-list">${L.map(k=>`<li><span class="chip kb-${k.st}">${KB_ST[k.st]}</span><b>${esc(k.ti)}</b>${k.x?`<p>${esc(k.x)}</p>`:''}
+      <div class="row">${Object.entries(KB_ST).filter(([s])=>s!==k.st).map(([s,l])=>`<button type="button" class="btn ghost small" data-act="kba-st" data-st="${s}" data-id="${esc(k.id)}">Mark ${l.toLowerCase()}</button>`).join('')}
+      <button type="button" class="btn ghost small adm-danger" data-act="kba-del" data-id="${esc(k.id)}">Remove</button></div>
+      ${KBA.ask===k.id?`<div class="adm-ask"><p>Remove “${esc(k.ti)}” from the public list?</p><div class="row"><button type="button" class="btn danger small" data-act="kba-del-yes" data-id="${esc(k.id)}">Yes, remove</button><button type="button" class="btn ghost small" data-act="kba-del-no">Cancel</button></div></div>`:''}</li>`).join('')}</ul>`}
+  </details>`;
+}
+async function kbaAct(a,id,st){
+  KBA.ask='';
+  try{
+    const api=await bgApi();if(!api)throw Object.assign(new Error('offline'),{code:'unavailable'});
+    if(a==='kba-add'){
+      const ti=KBA.ti.trim();if(!ti){KBA.act='Give the known bug a title.';render();return;}
+      await api.knownSave('',{ti,x:KBA.x,st:KBA.st});KBA.act=`“${ti}” is on the list.`;KBA.ti='';KBA.x='';KBA.st='new';
+    }else{
+      const k=(KB.list||[]).find(x=>x.id===id);if(!k)return;
+      if(a==='kba-st'){if(!KB_ST[st])return;await api.knownSave(id,{ti:k.ti,x:k.x,st});KBA.act=`“${k.ti}” is now ${KB_ST[st]}.`;}
+      else if(a==='kba-del-yes'){await api.knownRemove(id);KBA.act=`“${k.ti}” was removed.`;}
+      else return;
+    }
+  }catch(e){KBA.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
+  KB.list=null;kbLoad();render();
 }
 /* a screenshot, made smaller in the browser (at most BG_IMG_SIDE pixels on the long side) before it goes */
 async function bgShot(file){
@@ -43073,13 +43148,14 @@ function bgaCount(){
   S.db.count('bugs',[['st','==','new']]).then(k=>{if(k!=null&&BGA.n!==k){BGA.n=k;if(ADM_VIEWS.includes(S.view))render();}},()=>{});
 }
 function bgaView(){
-  const now0=Date.now();if(now0-BGA.seen>1e4)bgaLoad();BGA.seen=now0;
+  const now0=Date.now();if(now0-BGA.seen>1e4){bgaLoad();kbLoad();}BGA.seen=now0;
   const L=BGA.list,cnt=k=>L?L.filter(b=>bgaMatch(b,k)).length:0,show=L?L.filter(b=>bgaMatch(b,BGA.f)):[];
   return admShell('admin-bugs',`
     <p class="eyebrow">Admin portal</p><h1 class="display">Bug reports</h1>
     <p class="lede">Reports from the Report a bug page, newest first. The state you set and your note show on the player’s page, and the game tells them when either changes. <button type="button" class="linkish" data-act="bga-refresh"${BGA.busy?' disabled':''}>${BGA.busy?'Loading…':'Load again'}</button></p>
     ${BGA.err?`<p class="err">${esc(BGA.err)}</p>`:''}
     ${BGA.act?`<p class="hint" role="status">${esc(BGA.act)}</p>`:''}
+    ${kbaSection()}
     ${!L?`<p class="hint">${BGA.busy?'Loading the bug reports…':''}</p>`:`
     <div class="adme-cats" role="group" aria-label="Show">${Object.entries(BGA_F).map(([k,l])=>`<button type="button" class="btn ghost small" data-act="bga-f" data-f="${k}" aria-pressed="${BGA.f===k}">${l} <span class="chip">${cnt(k)}</span></button>`).join('')}</div>
     ${!show.length?`<p class="hint">${L.length?'No reports here.':'No bug reports yet. When a player sends one from the Report a bug page, it appears here.'}</p>`:`<ul class="adm-reps">${show.map(bgaItem).join('')}</ul>`}
@@ -43099,7 +43175,7 @@ function bgaItem(b){
       :`<button type="button" class="btn ghost small" data-act="bga-shot" data-id="${id}"${img===1?' disabled':''}>${img===1?'Loading the screenshot…':'Show the screenshot'}</button>`}</div>`:''}
     <label class="admh-lbl" for="bga-n-${id}">A note to the player (optional: they read it on their Report a bug page)</label>
     <textarea class="input admh-in bga-in" id="bga-n-${id}" data-id="${id}" rows="2" maxlength="1000">${esc(note)}</textarea>
-    <div class="row">${b.st==='new'?to('seen','Confirm'):''}${b.st!=='fixed'?to('fixed','Mark fixed'):''}${b.st!=='closed'?to('closed','Close'):''}${b.st!=='new'?to('new','Reopen as new'):''}${to(b.st,'Save the note')}<button type="button" class="btn ghost small adm-danger" data-act="bga-del" data-id="${id}">Delete</button></div>
+    <div class="row">${b.st==='new'?to('seen','Confirm'):''}${b.st!=='fixed'?to('fixed','Mark fixed'):''}${b.st!=='closed'?to('closed','Close'):''}${b.st!=='new'?to('new','Reopen as new'):''}${to(b.st,'Save the note')}<button type="button" class="btn ghost small" data-act="kba-from" data-id="${id}">Add to known bugs</button><button type="button" class="btn ghost small adm-danger" data-act="bga-del" data-id="${id}">Delete</button></div>
     ${BGA.ask===b.id?`<div class="adm-ask"><p>Delete this report for good, with its screenshot? The player no longer sees it either.</p><div class="row"><button type="button" class="btn danger small" data-act="bga-del-yes" data-id="${id}">Yes, delete</button><button type="button" class="btn ghost small" data-act="bga-del-no">Cancel</button></div></div>`:''}</li>`;
 }
 async function bgaAct(a,id,st){
@@ -43139,6 +43215,7 @@ shell=(f=>function(){if(S.view==='admin-bugs'&&S.isOwner)return bgaView();return
 admLoad=(f=>function(){const was=ADM.busy,r=f.apply(this,arguments);if(!was&&ADM.busy)bgaCount();return r;})(admLoad);
 go=(f=>function(v){
   /* the form starts at the page the player came from */
+  if((v==='bugs'||v==='admin-bugs')&&S.view!==v&&!KB.busy&&Date.now()-KB.at>6e4){KB.list=null;KB.err='';}
   if(v==='bugs'&&S.view!=='bugs'){if(!/^admin/.test(S.view))BG.from=NAV_PARENT[S.view]||S.view;const fm=bgForm();if(!fm.wset&&!fm.ti&&!fm.x)fm.where=BG.from;BG.sent='';BG.ask='';BG.lerr='';BG.list=null;}
   if(v==='admin-bugs'&&S.view!=='admin-bugs'){BGA.act='';BGA.ask='';BGA.seen=0;}
   return f.apply(this,arguments);})(go);
@@ -43147,9 +43224,13 @@ document.addEventListener('input',e=>{
   if(id==='bg-ti'){bgForm().ti=t.value.slice(0,120);return;}
   if(id==='bg-x'){const f=bgForm();f.x=t.value.slice(0,3000);const c=document.getElementById('bg-cc');if(c)c.textContent=f.x.length+' / 3000';return;}
   if(t&&t.classList&&t.classList.contains('bga-in'))BGA.dr[t.dataset.id]=t.value;
+  if(id==='kb-q'){KB.q=t.value.slice(0,80);const box=document.getElementById('kb-items');if(box)box.innerHTML=kbItems();return;}
+  if(id==='kba-ti'){KBA.ti=t.value.slice(0,120);return;}
+  if(id==='kba-x'){KBA.x=t.value.slice(0,600);return;}
 });
 document.addEventListener('change',e=>{
   const t=e.target;if(!t)return;
+  if(t.id==='kba-st'){KBA.st=t.value in KB_ST?t.value:'new';return;}
   if(t.id==='bg-where'){const f=bgForm();f.where=t.value;f.wset=true;return;}
   if(t.name==='bg-often'){bgForm().often=t.value in BG_OFTEN?t.value:'always';return;}
   if(t.id==='bg-file'){const f=t.files&&t.files[0];t.value='';if(f)bgShot(f);}
@@ -43172,6 +43253,15 @@ document.addEventListener('click',e=>{
     if(a==='bg-del-no'){BG.ask='';render();return;}
     if(a==='bg-del-yes')bgDelete(el.dataset.id);
     return;
+  }
+  if(a==='kb-f'){KB.f=el.dataset.f in KB_F?el.dataset.f:'all';render();return;}
+  if(a==='kb-retry'){KB.err='';KB.list=null;kbLoad();render();return;}
+  if(a.slice(0,4)==='kba-'){
+    if(!S.isOwner)return;
+    if(a==='kba-from'){const b=(BGA.list||[]).find(x=>x.id===el.dataset.id);if(b){KBA.ti=b.ti;KBA.x='';KBA.st='inv';KBA.act='';render();const i=document.getElementById('kba-ti');if(i){i.focus();if(i.scrollIntoView)i.scrollIntoView({block:'center'});}}return;}
+    if(a==='kba-del'){KBA.ask=el.dataset.id;render();return;}
+    if(a==='kba-del-no'){KBA.ask='';render();return;}
+    kbaAct(a,el.dataset.id,el.dataset.st);return;
   }
   if(a.slice(0,4)!=='bga-'||!S.isOwner)return;
   if(a==='bga-refresh'){bgaLoad();render();return;}

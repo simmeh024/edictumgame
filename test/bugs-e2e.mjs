@@ -88,6 +88,19 @@ await A.click('.adm-nav [data-v="admin-bugs"]');
 await A.waitForSelector('.adm-rep');
 const card = await text(A, '.adm-rep');
 check('the report shows with its title, place, frequency, nation and text', /New/.test(card) && /The map stays blank/.test(card) && /Map/.test(card) && /Sometimes/.test(card) && /Bugland/.test(card) && /whole map went white/.test(card));
+
+// the Known bugs list: the admin adds the report to it, being investigated, and adds a second one that is fixed
+await A.click('.adm-rep [data-act="kba-from"]');
+check('Add to known bugs fills in the title, as being investigated', await A.$eval('#kba-ti', i => i.value) === 'The map stays blank' && await A.$eval('#kba-st', s => s.value) === 'inv');
+await A.fill('#kba-x', 'The map can go white after claiming land. Reloading brings it back.');
+await A.click('[data-act="kba-add"]');
+check('it is on the list', await until(async () => /Being investigated\s*The map stays blank/.test(await text(A, '.kba .kb-list'))));
+await A.fill('#kba-ti', 'Toasts overlap on phones');
+await A.selectOption('#kba-st', 'fixed');
+await A.click('[data-act="kba-add"]');
+check('a second, fixed', await until(async () => /Fixed\s*Toasts overlap on phones/.test(await text(A, '.kba .kb-list'))));
+const known = await restListAdmin('known');
+check('both are stored', known.length === 2 && known.some(d => d.fields.st.stringValue === 'inv' && /go white/.test(d.fields.x.stringValue)));
 check('with an Inspect link to the player', await A.$eval('.adm-rep [data-act="admin-inspect"]', b => b.dataset.id) === uidB);
 await A.click('.adm-rep .bga-env summary');
 check('and its technical details', /Game version/.test(await text(A, '.adm-rep .bga-env')) && /Test explosion/.test(await text(A, '.adm-rep .bga-env')));
@@ -109,6 +122,17 @@ await B.reload(); await ready(B);
 check('the player is told the report is fixed', await until(async () => /Your bug report “The map stays blank” is now marked Fixed/.test(await toasts(B)), 15000));
 await nav(B, 'bugs');
 check('their page shows Fixed and the team’s note', await until(async () => /Fixed The map stays blank/.test(await text(B, '.bg-mine')) && /The Edictum team.*Fixed in today’s update/.test(await text(B, '.bg-mine'))));
+
+// the player sees the Known bugs list beside the form, with filters and a search
+check('the Known bugs list sits beside the form', await until(async () => /The map stays blank/.test(await text(B, '.bg-known'))) && await B.evaluate(() => { const a = document.querySelector('.bg-known').getBoundingClientRect(), f = document.querySelector('#bg-form').getBoundingClientRect(); return a.left > f.right; }));
+check('the filters count each status', /All 2/.test(await text(B, '.kb-f')) && /New 0/.test(await text(B, '.kb-f')) && /Being investigated 1/.test(await text(B, '.kb-f')) && /Fixed 1/.test(await text(B, '.kb-f')));
+await B.click('[data-act="kb-f"][data-f="fixed"]');
+check('Fixed shows only the fixed one', /Toasts overlap/.test(await text(B, '#kb-items')) && !/map stays blank/.test(await text(B, '#kb-items')));
+await B.click('[data-act="kb-f"][data-f="all"]');
+await B.fill('#kb-q', 'white');
+check('the search finds by description', /map stays blank/.test(await text(B, '#kb-items')) && !/Toasts/.test(await text(B, '#kb-items')));
+await B.fill('#kb-q', '');
+await B.screenshot({ path: OUT + '/bugs-known.png', fullPage: true });
 
 // the Help page leads here
 await nav(B, 'help');
