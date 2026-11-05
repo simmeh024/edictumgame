@@ -26,7 +26,7 @@ check('a genuinely slow download still reveals useful loading feedback',await un
 await A.screenshot({path:path.join(OUT,'startup-dark-loading.png')});
 release();await loading;await A.waitForSelector('.layout');await ready(A);await A.unroute(/\/assets\/game\./,hold);
 check('the actual game replaces the loader and clears its startup state',!(await A.$('.boot'))&&await A.evaluate(()=>!document.documentElement.classList.contains('ed-boot-pending')));
-await nav(A,'settings');await A.click('[data-act="theme"][data-v="auto"]');
+await nav(A,'settings');await A.click('#sg-tab-display');await A.click('[data-act="theme"][data-v="auto"]');
 check('Automatic theme still follows a light system after early dark preference',await A.evaluate(()=>!document.documentElement.hasAttribute('data-theme')&&getComputedStyle(document.body).backgroundColor==='rgb(232, 238, 235)'));
 
 // Use real browser caching: Playwright request interception disables the HTTP cache.
@@ -50,7 +50,7 @@ await B.addInitScript(()=>localStorage.setItem('statehood.theme','light'));
 await open(B);await B.waitForSelector('.layout');
 check('a saved light theme also wins over a dark system on a phone',await B.evaluate(()=>document.documentElement.dataset.theme==='light'&&getComputedStyle(document.body).backgroundColor==='rgb(232, 238, 235)'));
 check('the phone layout stays within the viewport',await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-await nav(B,'settings');await B.click('[data-act="theme"][data-v="auto"]');
+await nav(B,'settings');await B.click('#sg-tab-display');await B.click('[data-act="theme"][data-v="auto"]');
 check('Automatic theme can return to the dark system on the same phone session',await B.evaluate(()=>!document.documentElement.hasAttribute('data-theme')&&getComputedStyle(document.body).backgroundColor==='rgb(12, 22, 21)'));
 
 const F=await player('startup-download-failure',{storageState:await A.ctx.storageState({indexedDB:true})});

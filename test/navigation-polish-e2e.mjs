@@ -56,9 +56,11 @@ await C.locator('[data-fgg="c:layers"]>summary').click();await sleep(150);await 
 check('native designer sections keep their collapsed state',!await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
 await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
 check('an explicit search opens a previously collapsed target',await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
-await move(C,'settings');const culture=C.locator('fieldset').filter({has:C.locator('legend').filter({hasText:'Culture'})}).first();await culture.locator('.ux-fold-toggle').click();const cultureId=await culture.locator('legend').getAttribute('id');await C.selectOption('#ux-section-select',cultureId);
-check('the phone section menu reveals and focuses its destination',!await culture.evaluate(e=>e.classList.contains('ux-folded'))&&await C.locator('#s-lang').isVisible());
-await C.fill('#s-lang','Finderlish');await C.keyboard.press('Control+k');await C.waitForSelector('#qj-in');await C.keyboard.press('Escape');
+await move(C,'nation');const legis=C.locator('section.ux-foldable').filter({has:C.locator('h2.ux-section-heading').filter({hasText:'Recent legislation'})}).first();await legis.locator('.ux-fold-toggle').click();const legisId=await legis.locator('h2.ux-section-heading').getAttribute('id');await C.selectOption('#ux-section-select',legisId);
+check('the phone section menu reveals and focuses its destination',!await legis.evaluate(e=>e.classList.contains('ux-folded'))&&await until(()=>C.evaluate(id=>document.activeElement?.id===id,legisId),3000));
+/* Settings has tabs of its own instead of the section menu */
+await move(C,'settings');check('Settings has no section menu or fold controls',!await C.$('#ux-section-select')&&!await C.$('.ux-fold-toggle'));
+await C.click('#sg-tab-nation');await C.fill('#s-lang','Finderlish');await C.keyboard.press('Control+k');await C.waitForSelector('#qj-in');await C.keyboard.press('Escape');
 check('search can open from an editor and return without losing its draft',await C.inputValue('#s-lang')==='Finderlish'&&await C.evaluate(()=>document.activeElement?.id==='s-lang')&&!(await localNation(C)).lang);
 await C.evaluate(()=>{document.querySelector('#toast')?.style.setProperty('visibility','hidden');document.activeElement?.blur();});await C.screenshot({path:OUT+'/navigation-sections-390.png'});
 check('navigation controls fit a phone',await C.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));

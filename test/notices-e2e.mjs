@@ -14,7 +14,7 @@ check('a new nation’s first hour shows no reward pop-ups, while other notices 
 check('its rewards are in the bell', await A.evaluate(() => { document.querySelector('.bell').click(); const t = document.querySelector('.notif-pop')?.textContent || ''; document.querySelector('.bell').click(); return /Honours|Museum/.test(t); }));
 await nav(A, 'nation');
 check('the Nation page has one card for what waits', await until(() => A.evaluate(() => document.querySelectorAll('.nx-card').length <= 1 && !document.querySelector('.notice.land'))));
-await nav(A, 'settings');
+await nav(A, 'settings'); await A.click('#sg-tab-notif');
 check('Settings has a Notifications section', !!(await A.$('#set-notif')));
 await A.click('#ntf-badge-all'); await A.uncheck('[data-ntf-mute="ach"]'); await sleep(200);
 const pref = await A.evaluate(() => JSON.parse(localStorage.getItem('statehood.notif')));

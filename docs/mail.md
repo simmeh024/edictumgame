@@ -1,6 +1,6 @@
 # Letters by post (email)
 
-Players give an email address in **Settings › Letters by post**, confirm it with a six-figure code, and get a
+Players give an email address in **Settings › Notifications › Letters by post**, confirm it with a six-figure code, and get a
 welcome letter with tips. After that, they choose which letters they want:
 
 | Kind | What it says | When |

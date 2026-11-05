@@ -9,7 +9,7 @@ const uidB = await open(B); await found(B, 'Postland');
 const to = 'reader@example.test';
 const outbox = async () => (await restListAdmin('mailOutbox')).map(d => ({ to: d.fields.to.stringValue, subject: d.fields.subject.stringValue })).filter(l => l.to === to);
 
-await nav(B, 'settings');
+await nav(B, 'settings'); await B.click('#sg-tab-notif');
 check('Settings has a Letters by post card with an address field', await until(async () => !!(await B.$('#set-mail #ml-email'))), await text(B, '#set-mail'));
 await B.click('#set-mail [data-f="send"]');
 check('an empty address is refused', /Write your email address first/.test(await text(B, '#set-mail')));
@@ -27,7 +27,7 @@ check('the confirmed address and five kinds of letter show', await until(async (
 check('a welcome letter followed', await until(async () => (await outbox()).some(l => /^Welcome to the rolls, Postland/.test(l.subject))));
 await B.uncheck('#set-mail [data-ml-pref="away"]');
 await sleep(1500);
-await nav(B, 'nation'); await nav(B, 'settings');
+await nav(B, 'nation'); await nav(B, 'settings'); await B.click('#sg-tab-notif');
 check('switching a kind off is kept', await until(async () => (await B.$('#set-mail [data-ml-pref="away"]')) && !(await B.isChecked('#set-mail [data-ml-pref="away"]')) && await B.isChecked('#set-mail [data-ml-pref="msg"]')));
 
 // A writes to B: a ping, with the writer's nation name and no text

@@ -392,7 +392,7 @@ await KG.click('.edict [data-act="answer"]'); await KG.waitForSelector('.result'
 check('and comes back a royal decree under a REX or REGINA seal', /^By royal decree of the \S+ of Kingsmoor, /.test(await text(KG, '.result-fx')) && /REX|REGINA/.test(await text(KG, '.result .stamp')), await text(KG, '.result-fx'));
 check('signed by the nation’s own leader, by title while the leader has no name', /^By royal decree of the President of Kingsmoor, /.test(await text(KG, '.result-fx')), await text(KG, '.result-fx'));
 // who signs decrees is a choice on the Customise page
-await nav(KG, 'settings'); await KG.fill('#s-ruler', 'Ada Brook'); await KG.click('#settings-form button[type="submit"]');
+await nav(KG, 'settings'); await KG.click('#sg-tab-nation'); await KG.fill('#s-ruler', 'Ada Brook'); await KG.click('#settings-form button[type="submit"]');
 await until(async () => ((await localNation(KG)) || {}).ruler === 'Ada Brook');
 await nav(KG, 'customise'); await KG.click('#cz-tab-look');
 check('once the leader has a name, decrees give it', await until(async () => /By royal decree of President Ada Brook of Kingsmoor, …/.test(await text(KG, '.cz-ds-ex'))), await text(KG, '.cz-ds-ex'));
@@ -930,7 +930,7 @@ await SY.ctx.close();
 const HM = await player('HM', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });
 await open(HM);
 await found(HM, 'Restford');
-const toSettings = async () => { await HM.evaluate(() => { location.hash = '#settings'; }); await HM.waitForSelector('#s-freq'); };
+const toSettings = async () => { await HM.evaluate(() => { location.hash = '#settings/edicts'; }); await HM.waitForSelector('#s-freq'); };
 const edit = async f => { await HM.evaluate(src => { const n = JSON.parse(localStorage.getItem('statehood.nation.v1')); (0, eval)(src)(n, Date.now()); localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); }, f.toString()); await HM.reload(); await HM.waitForSelector('.layout, #dorm-name'); };
 const cards = async () => { await HM.evaluate(() => { location.hash = '#edicts'; }); await sleep(400); return (await HM.$$('.issue-card')).length; };
 await toSettings();
@@ -1004,7 +1004,7 @@ const heldBy = (p, n) => until(() => p.evaluate(([id, ns, cs]) => {
 }, [uidHW, uidNS, cellsHW]), 15000).then(r => check(`${n}: claims made before a capital beside them stay their claimer’s`, r && r.held === cellsHW.length && r.capAt > Math.max(...clHW.map(e => e.t)), JSON.stringify(r)));
 await heldBy(HW, 'for the claimer'); await heldBy(NS, 'for the late settler');
 await NS.ctx.close();
-await HW.evaluate(() => { location.hash = '#settings'; }); await HW.waitForSelector('#away-to');
+await HW.evaluate(() => { location.hash = '#settings/edicts'; }); await HW.waitForSelector('#away-to');
 const backHW = await HW.evaluate(() => { const d = new Date(Date.now() + 5 * 864e5), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; });
 await HW.fill('#away-to', backHW); await HW.click('[data-act="away-start"]');
 const fnum = v => Number(v && (v.integerValue ?? v.doubleValue));
