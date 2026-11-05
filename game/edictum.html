@@ -4532,6 +4532,11 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .pp-info-n{margin:0;font:600 17px/1.2 var(--f-display);color:var(--ink)}
 .pp-info .hint{margin:2px 0 0}
 .pp-modal{position:fixed;inset:0;z-index:2600;display:grid;place-items:center;padding:12px}
+.tab-yield{position:fixed;inset:0;z-index:3100;display:grid;place-items:center;padding:16px;background:rgba(8,12,12,.66)}
+.tab-yield-card{width:min(440px,100%);padding:20px 22px 22px;border-radius:8px;background:var(--paper);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.tab-yield-card .h2{margin:0 0 8px}
+.tab-yield-card p{margin:0 0 16px;color:var(--ink-2);line-height:1.5}
+html.tab-yielded,html.tab-yielded body{overflow:hidden}
 .pp-scrim{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(8,12,12,.66)}
 .pp-sheet{position:relative;width:min(980px,100%);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;padding:18px 20px 22px;border-radius:8px;background:var(--paper);box-shadow:0 20px 60px rgba(0,0,0,.4)}
 .pp-sheet-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 14px}
@@ -24559,6 +24564,7 @@ function regFull(id){const n=Math.max(RSTAT.n[id]||0,id===REG.id?regPlayers(id).
    so players gather rather than spread thin; once per tab, and never once they have changed the name the
    form suggested (RSTAT.nm0, kept when the founding page first draws) */
 function foundAutoRegion(){
+  if(tabPassive)return false;
   let chose=null;try{chose=localStorage.getItem('statehood.region');if(sessionStorage.getItem('statehood.autoreg'))return false;}catch(e){return false;}
   if(chose||S.draftKept||!regFull(REG.id)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
   const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)&&!regDisabled(R.id)).sort((a,b)=>(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
@@ -37049,7 +37055,7 @@ function normalizeBase(d){
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
 function loadLocal(){if(OBS)return null;try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
-function saveLocal(n){if(OBS)return;try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
+function saveLocal(n){if(OBS||tabPassive)return;try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
 
 /* Saves reach the region at most once every SAVE_GAP (this browser's copy is saved at once): the first
    after loading straight away, a pending one as soon as the tab is hidden or closed, and one within
@@ -37075,6 +37081,28 @@ const SAVE_RETRY=Array.isArray(window.EDICTUM_SAVE_RETRY)?window.EDICTUM_SAVE_RE
 const SAVE_ACT=Math.max(1500,Number(window.EDICTUM_SAVE_ACT)||8000);
 let saveStreak=0,remoteDue=0,lastInput=-1e9;
 for(const t of ['pointerdown','keydown'])window.addEventListener(t,()=>{lastInput=performance.now();},{capture:true,passive:true});
+/* One tab plays at a time. Every tab in this browser shares one copy of the nation (saveLocal) and one account, so two
+   playing tabs would overwrite each other's copy and race each other's saves. The newest tab plays (tabClaim, at start);
+   an older one stops (tabYield: no clock, commits or saves) and offers to play there instead, which reloads it from the
+   copy the other tab left. An observing tab keeps no copy, so it neither claims nor yields. tabPassive is a var: the
+   save functions above read it, and a let would not exist yet should one of them run before this line. */
+const TAB_KEY='edictum.tab',TAB_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);
+var tabPassive=false,tabAt=0;
+function tabClaim(){if(OBS)return;tabAt=Date.now();try{localStorage.setItem(TAB_KEY,JSON.stringify({id:TAB_ID,at:tabAt}));}catch(e){}}
+/* only a newer claim than this tab's own: two tabs loading at once (a browser restoring its session) each see the other's,
+   and the older one alone stops. Before its own claim a tab takes no notice: it claims next, and so is the newer. */
+const tabNewer=v=>!!v&&v.id!==TAB_ID&&tabAt>0&&(v.at>tabAt||v.at===tabAt&&String(v.id)>TAB_ID);
+function tabYield(){
+  if(tabPassive||OBS)return;
+  tabPassive=true;clearTimeout(remoteTimer);remoteTimer=0;remoteDirty=false;
+  const d=document.createElement('div');d.className='tab-yield';d.setAttribute('role','alertdialog');d.setAttribute('aria-modal','true');d.setAttribute('aria-labelledby','tab-yield-h');d.setAttribute('aria-describedby','tab-yield-p');
+  d.innerHTML='<div class="tab-yield-card"><h2 class="h2" id="tab-yield-h">Edictum is open in another tab</h2><p id="tab-yield-p">Your nation plays in one tab at a time, so two tabs can’t overwrite each other’s progress. Carry on in the other tab, or play here instead.</p><button class="btn" type="button">Play here</button></div>';
+  d.querySelector('button').addEventListener('click',()=>location.reload());
+  document.body.appendChild(d);document.documentElement.classList.add('tab-yielded');
+  try{d.querySelector('button').focus({preventScroll:true});}catch(e){}
+  publishSync();
+}
+window.addEventListener('storage',e=>{if(e.key!==TAB_KEY||!e.newValue||OBS)return;let v=null;try{v=JSON.parse(e.newValue);}catch(err){}if(tabNewer(v))tabYield();});
 const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Object.assign(new Error('The save took too long.'),{code:'unavailable'})),ms);p.then(v=>{clearTimeout(t);res(v);},e=>{clearTimeout(t);rej(e);});});
 /* Player changes since the last confirmed save. A save refused because another device saved first (save_conflict)
    replays them onto that save (rebaseActs) instead of discarding them. Each entry is what one action changed, read at
@@ -37197,7 +37225,7 @@ function useSavedNation(n){
 /* Retry a snapshot missed while saving, and fetch a coherent full record rather than replacing the
    nation's private half with defaults from the region's shared record. Revisions ignore device clocks. */
 async function syncOwnNation(force=false){
-  if(OBS||ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
+  if(OBS||tabPassive||ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
   if(!force&&!conflictPending&&!savedAfter(ownLatest,S.nation))return;
   ownSyncBusy=true;const before=commitNo;
   try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
@@ -37243,7 +37271,7 @@ async function ownGone(){
   render();publishSync();
   toast(`${n.name} is no longer saved: it was dissolved on another device. You can found a new nation.${kept?' A copy of the old one is in your account menu.':''}`);
 }
-function commit(n){if(OBS||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
+function commit(n){if(OBS||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
   ensureCities(n);syncBuildings(n,now);const warehouseNotes=whSync(n,now);if(warehouseNotes.length)setTimeout(()=>warehouseNotes.forEach(t=>toast(t)),0);
@@ -37255,7 +37283,7 @@ function commit(n){if(OBS||regBlocked())return;const act=actRecord(n),now=Date.n
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote(act&&performance.now()-lastInput<5000);}
 function queueRemote(player){
-  if(OBS)return;
+  if(OBS||tabPassive)return;
   if(regBlocked()||S.db&&!RCTRL.ready){remoteDirty=true;publishSync();return;}
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
   remoteDirty=true;
@@ -37267,7 +37295,7 @@ function queueRemote(player){
 }
 async function flushRemote(){
   clearTimeout(remoteTimer);remoteTimer=0;
-  if(OBS)return;
+  if(OBS||tabPassive)return;
   if(regBlocked()||!RCTRL.ready){publishSync();return;}
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
@@ -37281,13 +37309,14 @@ async function flushRemote(){
 }
 /* something another player is waiting for: save within SAVE_MIN instead of at the next gap */
 function saveSoon(){
-  if(OBS)return;
+  if(OBS||tabPassive)return;
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}remoteDirty=true;remoteSoon=true;publishSync();if(remoteBusy)return;
-  clearTimeout(remoteTimer);remoteDue=remoteLast+SAVE_MIN;remoteTimer=setTimeout(flushRemote,Math.max(0,remoteDue-performance.now()));
+  /* after failed saves, the retry steps still hold: a busy region is not asked again sooner */
+  clearTimeout(remoteTimer);remoteDue=remoteLast+(saveStreak?SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1]:SAVE_MIN);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteDue-performance.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
-  if(OBS)return;
+  if(OBS||tabPassive)return;
   if(regBlocked()||!RCTRL.ready)return;
   if(S.mode!=='world'||!S.db||!S.uid)return;
   while(remoteBusy)await sleep(100);
@@ -37298,10 +37327,17 @@ async function flushNow(){
      such as sign-out see its outcome instead of a save still in flight */
   while(remoteBusy)await sleep(100);
 }
-if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){keepUnsaved(S.nation);throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
+/* Sign-out waits for the latest changes to be saved. Where no save can go (view-only access, a region closed for
+   maintenance, an observing tab, another tab playing) waiting would refuse it for good: the copy keepUnsaved sets aside
+   goes with this account instead, offered in the account menu at its next sign-in, and src/shim.js says so ('kept'). */
+if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){const kept=keepUnsaved(S.nation);if(!remoteBusy&&(OBS||tabPassive||S.mode==='readonly'||regBlocked()))return kept?'kept':'';throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
+/* src/shim.js doSwitch: a sign-in failed after the guest's region copy was taken away. rev is the revision the region
+   holds now: 1 when the copy was put back, 0 when it could not be, so that the next save starts the record again */
+if(window.__edictum)window.__edictum.reviseOwn=rev=>{if(OBS||tabPassive||!S.nation||!Number.isSafeInteger(rev)||rev<0)return;S.nation._rev=rev;S.nation._dirty=true;ownActs=[];ownActsBroken=0;conflictPending=false;carried=false;saveLocal(S.nation);queueRemote(true);};
 /* a reload for a newer build (src/shim.js, versionCheck) first sends the latest changes, and leaves alone a page that
    holds something the player is writing that lives only here: a message, a resolution, a notice, a post, a history */
-if(window.__edictum){window.__edictum.flushSaves=flushNow;window.__edictum.keepPage=()=>!S.nation||!!(S.msgDraft||S.asmDraft||S.asmMsgDraft||S.dspDraft||S.flkDraft||S.rmbDraft||S.loreEdit);}
+/* a tab that let another play (tabYield) is never reloaded by itself: that would take the nation back from the tab in use */
+if(window.__edictum){window.__edictum.flushSaves=flushNow;window.__edictum.keepPage=()=>tabPassive||!S.nation||!!(S.msgDraft||S.asmDraft||S.asmMsgDraft||S.dspDraft||S.flkDraft||S.rmbDraft||S.loreEdit);}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
 window.addEventListener('pagehide',()=>{flushNow();});
 function resumeNation(e){
@@ -37316,7 +37352,7 @@ window.addEventListener('online',resumeNation);
 window.addEventListener('focus',resumeNation);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeNation();});
 async function writeRemote(){
-  if(OBS||!S.nation)return;
+  if(OBS||tabPassive||!S.nation)return;
   const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation),sentC=commitNo;
   sentLog.push({t:sent.updatedAt,c:sentC});if(sentLog.length>20)sentLog.shift();
   /* a save past SAVE_LIMIT is given up on here, yet may still land: its revision is then taken up as below, and a
@@ -37339,8 +37375,10 @@ async function writeRemote(){
     /* a refusal from the rules can be passing (paced: one save a second, so a retry or a replayed save just after
        another device's; a permit that expired on the way): tried again like any failure, view-only from the third in a row */
     if(code==='not_granted'||code==='invalid_argument'){saveStreak++;if(saveStreak>=3)handleWriteError(e);else publishSync();}
-    else if(code==='revoked'||code==='quota_exceeded')handleWriteError(e);
-    else{saveStreak++;if(saveStreak===3)handleWriteError(e);else publishSync();}
+    else if(code==='revoked')handleWriteError(e);
+    /* quota_exceeded: a rate limit (resource-exhausted, HTTP 429), so the region is busy: tried again at the SAVE_RETRY steps
+       like any failure. too_large (src/shim.js, encode) is said at once, and tried again at those steps too */
+    else{saveStreak++;if(saveStreak===(code==='too_large'?1:3))handleWriteError(e);else publishSync();}
     if(S.mode==='world')remoteDirty=true;
   }
 }
@@ -37348,7 +37386,8 @@ function handleWriteError(e){
   const code=e&&e.code;
   if(code==='region_disabled'){saveFailed=true;regionControls();publishSync();return;}
   if(code==='invalid_argument'||code==='not_granted'||code==='revoked'){S.mode='readonly';toast('You have view-only access here, so your nation is saved in this browser and not shared with the region.');render();}
-  else if(code==='quota_exceeded')toast('The region’s storage is full, so this change is saved in your browser only.');
+  else if(code==='quota_exceeded')toast('The region is busy just now. Your latest changes are kept in this browser and sent again shortly.');
+  else if(code==='too_large')toast('Your nation has grown too large to save to the region, so this change is kept in this browser only. Please report it as a bug.');
   else toast('That change could not reach the region. It is saved in this browser.');
   publishSync();
 }
@@ -40198,7 +40237,7 @@ function autoLandTry(now){
   autoLandMiss={k,t:now};return false;
 }
 function tick(){
-  if(regBlocked())return;
+  if(tabPassive||regBlocked())return;
   if(!S.nation)return;
   /* the stand-in of an observing tab has no clock of its own: only the region's maps move on */
   if(OBS){redrawMaps();return;}
@@ -49482,6 +49521,7 @@ document.addEventListener('visibilitychange',tabTitle);
 function start(data){
   data=data||{};
   applyTheme(themePref());
+  tabClaim();
   S.nation=OBS?obsNation():loadLocal();
   S.draft=data.draft||(!S.nation&&draftRestore())||newDraft();
   if(data.view){

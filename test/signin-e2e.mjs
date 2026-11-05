@@ -4,7 +4,7 @@
 // outbox; Discord is functions/discord.js's emulator stand-in (window.EDICTUM_DISCORD_EMU).
 import path from 'node:path';
 import { BASE, OUT, AUTH_HOST, PROJECT, check, finish, until, player, open, ready, found, openAccount, text, sideName, localNation, nationDoc, restGet,
-  restList, restListAdmin, accountExists, clearEmulators } from './lib.mjs';
+  restList, restListAdmin, accountExists, clearEmulators, nav } from './lib.mjs';
 
 await clearEmulators();
 const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
@@ -218,5 +218,116 @@ check('the first save of a carried nation names the guest it came from', await u
 check('and the note goes once it is saved', await until(() => M.evaluate(() => localStorage.getItem('edictum.carry') === null)));
 await M.evaluate(() => { const n = G.clone(G.S.nation); n.motto = 'Settled in'; G.commit(n); });
 check('later saves name nobody', await until(() => sent.some(x => x.rev > 0), 30000) && sent.filter(x => x.rev > 0).every(x => x.from === undefined), JSON.stringify(sent));
+
+
+/* ── 11. no save can go from here (view-only): signing out keeps the latest changes in this browser ── */
+// Sign-out waits for the latest changes to be saved; with view-only access (or a region closed for maintenance) none
+// can be, so it used to be refused for good. Now the copy goes with the account, offered in its account menu.
+/* once the saves above have landed: one landing later would mark this change as saved */
+await until(() => M.evaluate(() => window.__edictum.syncStatus === 'synced'), 20000);
+await M.evaluate(() => { G.S.mode = 'readonly'; const n = G.clone(G.S.nation); n.motto = 'Kept for later'; G.commit(n); });
+check('in view-only mode a change waits, unsent', (await localNation(M))?._dirty === true && (await localNation(M))?.motto === 'Kept for later');
+await openAccount(M);
+await M.click('[data-ed="signout"]');
+await M.check('#ed-guest-code-saved');
+await M.click('[data-ed="signout-yes"]');
+check('signing out is allowed', await until(async () => { const u = await ready(M).catch(() => null); return !!u && u !== uidM; }, 35000), await text(M, '.ed-msg'));
+check('and says the latest changes are kept in this browser', await until(async () => /kept in this browser/.test(await toasts(M)), 15000), await toasts(M));
+check('the copy is kept for that account', await M.evaluate(u => JSON.parse(localStorage.getItem('edictum.unsaved.' + u) || 'null')?.nation?.motto, uidM) === 'Kept for later');
+
+/* ── 12. a nation founded in this browser after signing out carries on ──────── */
+// Signed out with no connection, the browser has no account to start a new guest with; a nation founded then holds no
+// revision (no save carried it), and the next load with a connection used to wipe it without a word.
+const uidM2 = await settled(M);
+const noSave = route => route.request().postDataJSON()?.data?.op === 'authorizeSave' ? route.abort() : route.continue();
+await M.route('**/europe-west1/civic', noSave);
+await found(M, 'Newfound');
+check('a nation founded with no save reaching the region', !!uidM2 && (await localNation(M))?.name === 'Newfound' && !(await localNation(M))?._rev);
+const offline = await M.ctx.storageState();
+await M.ctx.close();
+const asSignedOut = (state, uid) => {
+  const o = state.origins.find(x => x.origin === ORIGIN);
+  o.localStorage = o.localStorage.filter(e => !e.name.startsWith('firebase:') && e.name !== 'edictum.uid' && e.name !== 'edictum.signedOut');
+  o.localStorage.push({ name: 'edictum.uid', value: '-' }, { name: 'edictum.signedOut', value: uid });
+  return state;
+};
+const M3 = await player('M3', { storageState: asSignedOut(offline, uidM) });
+await M3.goto(BASE + '/');
+const uidM3 = await settled(M3);
+check('the next load plays it rather than wiping it', !!uidM3 && await until(async () => (await sideName(M3)) === 'Newfound', 15000) && (await localNation(M3))?.name === 'Newfound');
+check('and saves it as this browser’s guest nation', await until(async () => (await nationDoc(uidM3))?.rec?.name === 'Newfound', 45000));
+await until(async () => { const n = await localNation(M3); return n && n._rev > 0 && !n._dirty; }, 15000);
+
+/* ── 13. a copy saved under the account that signed out is kept for that account ── */
+// A tab still open after the sign-out can save that account's nation into this browser again: that copy has a
+// revision, so it is the account's, and it is kept for it as when a sign-in is lost (8), not played by a new guest.
+const left = await M3.ctx.storageState();
+await M3.ctx.close();
+const M4 = await player('M4', { storageState: asSignedOut(left, uidM3) });
+await M4.goto(BASE + '/');
+const uidM4 = await settled(M4);
+check('a saved copy left after signing out is kept for its account', await until(async () => await M4.evaluate(() => JSON.parse(localStorage.getItem('edictum.parked') || 'null')?.uid).catch(() => null) === uidM3, 20000));
+check('the browser starts again as a guest, and says why', await until(() => M4.isVisible('#d-name'), 15000) && await until(async () => /signed out of the account that holds “Newfound”/.test(await toasts(M4))) && !!uidM4 && uidM4 !== uidM3 && (await restGet('nations/' + uidM4)).status === 404);
+
+/* ── 14. a sign-in that fails after the guest's region copy went ───────────── */
+// Switching to an email address drops the guest nation from the region before the sign-in, as only the guest can.
+// When the sign-in then fails and putting the copy back fails too, the game saves it again as a new record, rather
+// than taking the missing record for a nation dissolved on another device.
+const P = await player('P');
+const uidP = await open(P);
+await founded(P, 'Pellmont');
+const realP = await sendLink(P, 'ava@example.com');
+await P.ctx.addInitScript(() => { window.EDICTUM_SAVE_LIMIT = 4000; window.EDICTUM_SAVE_RETRY = [2000, 3000, 4000]; });
+await P.evaluate(() => localStorage.setItem('edictum.emailLink', JSON.stringify({ email: 'ava@example.com', mode: 'switch' })));
+let blockP = true;
+await P.route('**/europe-west1/civic', route => blockP && route.request().postDataJSON()?.data?.op === 'authorizeSave' ? route.abort() : route.continue());
+await P.goto(realP.replace(/oobCode=[^&]+/, 'oobCode=used-up-code'));
+check('a sign-in that fails leaves the guest playing', await until(async () => /sent a new one/.test(await text(P, '.ed-msg')), 20000) && (await ready(P)) === uidP && (await sideName(P)) === 'Pellmont', await text(P, '.ed-msg'));
+check('with its region copy gone for now', (await restGet('nations/' + uidP)).status === 404);
+blockP = false;
+check('its next save puts it back in the region', await until(async () => (await nationDoc(uidP))?.rec?.name === 'Pellmont', 45000));
+check('and it is never taken for a nation dissolved elsewhere', !/dissolved on another device/.test(await toasts(P)) && (await localNation(P))?.name === 'Pellmont');
+
+/* ── 15. the copy moved into an account without a nation survives a write at unload ── */
+// doSwitch's "that account holds no nation" branch leaves with the moved copy (revision 0). leave() writes it back on
+// pagehide, after the page's own pagehide handlers (registered earlier, so run first), so a save the game makes
+// while the page unloads cannot replace it.
+const R = await player('R');
+const uidR = await open(R);
+await founded(R, 'Rookhaven');
+await R.goto(await sendLink(R, 'rook@example.com'));
+check('R links an email address', await until(async () => /rook@example\.com/.test(await text(R, '.ed-acct-b')), 15000) && await registered(R));
+await R.keyboard.press('Escape').catch(() => {});
+await until(async () => !(await R.isVisible('dialog.ed-dlg[open]')), 5000);
+await nav(R, 'settings'); await R.click('#sg-tab-account'); await R.click('[data-act="dissolve-ask"]');
+await R.fill('#dz-type', 'Rookhaven'); await R.click('[data-act="dissolve-confirm"]');
+check('and dissolves its nation, keeping the account', await until(async () => (await restGet('nations/' + uidR)).status === 404, 15000) && await accountExists(uidR));
+const Q = await player('Q');
+await open(Q);
+await founded(Q, 'Quayside');
+/* armed for one page: the page a link opens, which switches and leaves; it then writes another copy at pagehide */
+await Q.ctx.addInitScript(() => {
+  const k = 'test.unloadWrite', v = sessionStorage.getItem(k);
+  if (v === '1') sessionStorage.setItem(k, '2'); else if (v === '2') sessionStorage.setItem(k, '3');
+  addEventListener('pagehide', () => {
+    if (sessionStorage.getItem(k) !== '2') return;
+    const n = JSON.parse(localStorage.getItem('statehood.nation.v1') || 'null');
+    if (n) { n.motto = 'Written at unload'; n._rev = 7; localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); }
+  });
+});
+const firstQ = await sendLink(Q, 'rook@example.com');
+await Q.evaluate(() => sessionStorage.setItem('test.unloadWrite', '1'));
+await Q.goto(firstQ);
+await Q.waitForSelector('[data-ed="switch"]', { timeout: 15000 });
+const switchedQ = Q.waitForNavigation({ timeout: 15000 }).then(() => true, () => false);
+await Q.click('[data-ed="switch"]');
+if (!(await switchedQ)) {
+  const secondQ = await until(async () => { const l = await emailLink('rook@example.com'); return l !== firstQ && l; });
+  await Q.evaluate(() => sessionStorage.setItem('test.unloadWrite', '1'));
+  await Q.goto(secondQ);
+}
+check('Q switches into the account without a nation, taking Quayside along', await until(async () => (await ready(Q).catch(() => null)) === uidR, 20000) && await until(async () => (await sideName(Q)) === 'Quayside', 15000));
+check('the unload hook did run', await Q.evaluate(() => sessionStorage.getItem('test.unloadWrite')) === '3');
+check('and a write at unload did not replace the moved copy', (await localNation(Q))?.motto !== 'Written at unload' && await until(async () => (await nationDoc(uidR))?.rec?.name === 'Quayside', 20000) && (await nationDoc(uidR)).rec.motto !== 'Written at unload');
 
 await finish();
