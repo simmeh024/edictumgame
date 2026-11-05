@@ -297,7 +297,6 @@ failReads = false; await C3.evaluate(() => window.dispatchEvent(new Event('focus
 check('after a failed first read, the newer save is loaded', await until(async () => (await localNation(C3))?.motto === 'Desktop saved while the phone was away', 30000));
 check('but the change it would replace is kept as a copy, and the player told', (await copies(C3)).includes('Kept through a failed first read') && await until(async () => /repeat your unsaved changes/.test(await toasts(C3)), 10000), JSON.stringify(await copies(C3)));
 await C3.ctx.unroute(/documents:batchGet/, failRead);
-for (let i = errors.length - 1; i >= 0; i--) if (/^returning phone 2 /.test(errors[i]) && /firestore|Failed to fetch|ERR_|network/i.test(errors[i])) errors.splice(i, 1);
 await saved(C3);
 
 // 16. dissolved on another device: the record is gone, as dissolving there leaves it
@@ -320,5 +319,8 @@ await C3.fill('#dz-type', 'Secondland'); await C3.click('[data-act="dissolve-con
 await sleep(500); releaseCommit(); await sleep(6000);
 check('dissolving while a save is on its way does not bring the nation back', !(await localNation(C3)) && await C3.isVisible('#d-name') && (await restGet('nations/' + uid)).status === 404, JSON.stringify({ local: (await localNation(C3))?.name, cloud: (await restGet('nations/' + uid)).status }));
 await C3.ctx.unroute(/\/documents:commit/, holdUpdate);
+
+// the SDK's warnings about the connections these scenarios cut on purpose (offline devices, failed reads)
+for (let i = errors.length - 1; i >= 0; i--) if (/^returning phone( 2)? console: /.test(errors[i]) && /Could not reach Cloud Firestore backend|@firebase\/firestore|Failed to fetch|ERR_|network/i.test(errors[i])) errors.splice(i, 1);
 
 await finish();
