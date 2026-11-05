@@ -1,4 +1,4 @@
-// Settings in five tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
+// Settings in six tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
 // the address; a jump from elsewhere opens the right tab; leaving with unsaved changes asks first; a phone gets a row of
 // tabs that sticks under the top bar (emulators).
 import { OUT, check, finish, sleep, until, player, open, found, nav, text, localNation, nationDoc, errors, clearEmulators } from './lib.mjs';
@@ -10,9 +10,9 @@ const A = await player('settings desktop', { recovery: true, vp: { width: 1366, 
 const uidA = await open(A); await found(A, 'Tabularia');
 await A.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await A.click('[data-ed="recovery-saved"]');
 
-// the page: five tabs, one pane at a time, Your nation first
+// the page: six tabs, one pane at a time, Your nation first
 await nav(A, 'settings'); await A.waitForSelector('#sg');
-check('Settings has five tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Notifications', 'Display', 'Account']));
+check('Settings has six tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Notifications', 'Display', 'Navigation', 'Account']));
 check('it opens on Your nation, with the other panes hidden', await tab(A) === 'nation' && await shown(A, '#s-motto') && !await shown(A, '#s-freq') && !await shown(A, '#set-notif') && !await shown(A, '#set-appearance'));
 check('on a wide screen the tabs are a list down the side', await A.$eval('.sg-rail', e => getComputedStyle(e).flexDirection) === 'column');
 check('the old section menu and fold controls are gone', !await A.$('#ux-section-select') && !await A.$('.ux-fold-toggle'));
@@ -98,7 +98,9 @@ check('Delete opens the account panel at its own delete step', /Delete your nati
 await A.keyboard.press('Escape'); await sleep(300);
 check('and closing it deletes nothing', !await A.$('dialog.ed-dlg[open]') && (await localNation(A))?.name === 'Tabularia');
 await A.click('#sg-tab-account'); await A.keyboard.press('ArrowUp');
-check('arrow keys move between tabs', await tab(A) === 'display' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-display');
+check('arrow keys move between tabs', await tab(A) === 'nav' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-nav');
+await A.keyboard.press('ArrowUp');
+check('and on to the one before', await tab(A) === 'display' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-display');
 await A.screenshot({ path: OUT + '/settings-display-1366.png' });
 
 // Start over: the founding page with the same name, the culture, look and edict settings carried, the rest afresh
