@@ -242,4 +242,14 @@ try {
   check('and the reloaded page says why', await until(async () => /updated while you were away/.test((await B.locator('.ed-toast').allTextContents()).join(' ')), 8000));
 } finally { fs.writeFileSync(VERSION, built); }
 
+// A device whose clock runs ahead counts more growth than the server's clock allows between saves seconds apart (rules:
+// grows). Its saves must still be accepted: the headline population is held within the allowance (src/shim.js, popBase).
+const F = await player('fast clock', { storageState: await A.ctx.storageState({ indexedDB: true }) });
+await F.ctx.addInitScript(() => { const skew = 20 * 60000, N = Date.now; Date.now = () => N() + skew; const O = Date; window.Date = class extends O { constructor(...a) { if (a.length) super(...a); else super(N() + skew); } static now() { return N() + skew; } }; });
+await open(F); await F.waitForSelector('.layout');
+const before = await rev();
+for (let i = 0; i < 4; i++) { await edit(F, 'Fast clock ' + i); await sleep(2500); }
+check('a device with its clock 20 minutes ahead keeps saving every few seconds', await until(async () => await motto() === 'Fast clock 3', 25000) && await rev() >= before + 3, JSON.stringify(await F.evaluate(() => window.__edictum.saveHealth)));
+check('and never turns view-only', await F.evaluate(() => G.S.mode) === 'world' && await F.evaluate(() => window.__edictum.saveHealth.error) !== 'not_granted');
+
 await finish();
