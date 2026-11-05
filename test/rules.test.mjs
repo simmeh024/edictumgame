@@ -511,6 +511,21 @@ test('admins read every bug report, set its state with a note, and delete it; pl
   await assertSucceeds(db.doc('blimits/dave').delete());                                   // Dave has no nation
 });
 
+test('everyone reads the Known bugs list; only admins write it, with a known status', async () => {
+  const mod = as('mod', { admin: true }), entry = (extra = {}) => ({ ti: 'Blank map', x: 'Reload brings it back.', st: 'inv', t: NOW(), ut: NOW(), ...extra });
+  await assertFails(as('alice').doc('known/k1').set(entry()));
+  await assertFails(mod.doc('known/k1').set(entry({ st: 'wontfix' })));
+  await assertFails(mod.doc('known/k1').set(entry({ ti: '' })));
+  await assertFails(mod.doc('known/k1').set(entry({ by: 'mod' })));
+  await assertSucceeds(mod.doc('known/k1').set(entry()));
+  await assertSucceeds(anon().collection('known').orderBy('ut', 'desc').limit(200).get());
+  await assertSucceeds(as('alice').doc('known/k1').get());
+  await assertFails(as('alice').doc('known/k1').update({ st: 'fixed', ut: NOW() }));
+  await assertSucceeds(mod.doc('known/k1').update({ st: 'fixed', ut: NOW() }));
+  await assertFails(as('alice').doc('known/k1').delete());
+  await assertSucceeds(mod.doc('known/k1').delete());
+});
+
 test('a banned player cannot report bugs', async () => {
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('bans/carol').set({ note: 'x', t: Date.now(), by: 'mod' }));
   await assertFails(bug(as('carol'), 'carol'));
