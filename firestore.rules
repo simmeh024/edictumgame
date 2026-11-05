@@ -391,11 +391,30 @@ service cloud.firestore {
       match /me/{uid} {
         allow read: if signedIn() && request.auth.uid == uid;
       }
+      // a reader's mark (an empty document), made in the same batch as the post's read count in devnewsStat:
+      // once per player and published post. Admins list and delete the marks with the post.
+      match /rd/{uid} {
+        allow read, delete: if isAdmin();
+        allow create: if signedIn() && request.auth.uid == uid && request.resource.data.keys().size() == 0
+          && get(/databases/$(database)/documents/devnews/$(pid)).data.pub == true
+          && getAfter(/databases/$(database)/documents/devnewsStat/$(pid)).data.get('n', 0)
+            == (exists(/databases/$(database)/documents/devnewsStat/$(pid)) ? get(/databases/$(database)/documents/devnewsStat/$(pid)).data.get('n', 0) : 0) + 1;
+      }
     }
-    // the totals of the reactions and votes on a post {r, v}, written only by civic()
+    // a first read of a post by this player: their mark is new in this very batch
+    function newsFirstRead(pid) {
+      return signedIn()
+        && !exists(/databases/$(database)/documents/devnews/$(pid)/rd/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/devnews/$(pid)/rd/$(request.auth.uid));
+    }
+    // the totals on a post: reactions and votes {r, v}, written only by civic(), and reads {n}, one up with
+    // each first read (above)
     match /devnewsStat/{pid} {
       allow read: if true;
       allow delete: if isAdmin();
+      allow create: if newsFirstRead(pid) && request.resource.data.keys().hasOnly(['n']) && request.resource.data.n == 1;
+      allow update: if newsFirstRead(pid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['n'])
+        && request.resource.data.n == resource.data.get('n', 0) + 1;
     }
     match /devnewsImg/{id} {
       allow read: if true;

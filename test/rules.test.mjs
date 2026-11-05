@@ -2,6 +2,7 @@
 //   npm run test:rules
 // (that is: firebase emulators:exec --only firestore "node --test test/rules.test.mjs")
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import { test, before, after, beforeEach } from 'node:test';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import firebase from 'firebase/compat/app';
@@ -770,6 +771,42 @@ test('news comments come only from civic(); their author or an admin deletes one
   await assertFails(as('alice', { mod: true }).doc('devnews/' + NEWS_ID + '/posts/c1').delete());   // moderators go through civic(), for the audit log
   await assertSucceeds(as('bob').doc('devnews/' + NEWS_ID + '/posts/c1').delete());
   await assertSucceeds(as('mod', { admin: true }).doc('devnews/' + NEWS_ID + '/posts/c2').delete());
+});
+test('a news read counts one per player, with their own mark, on a published post', async () => {
+  const DRAFT = 'draft0000000000000ab', admin = as('mod', { admin: true }), inc = by => firebase.firestore.FieldValue.increment(by);
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('devnews/' + NEWS_ID).set(newsPost('mod'));
+    await ctx.firestore().doc('devnews/' + DRAFT).set(newsPost('mod', { pub: false }));
+    await ctx.firestore().doc('devnewsStat/' + NEWS_ID).delete();
+  });
+  const read = (db, uid, { pid = NEWS_ID, by = 1, mark = {}, count = true, sign = true } = {}) => {
+    const b = db.batch();
+    if (sign) b.set(db.doc('devnews/' + pid + '/rd/' + uid), mark);
+    if (count) b.set(db.doc('devnewsStat/' + pid), { n: inc(by) }, { merge: true });
+    return b.commit();
+  };
+  const n = async () => (await admin.doc('devnewsStat/' + NEWS_ID).get()).data()?.n;
+  await assertSucceeds(read(as('alice'), 'alice'));                          // the first read makes the count
+  await assertFails(read(as('alice'), 'alice'));                             // once per player
+  await assertFails(read(as('bob'), 'bob', { by: 2 }));                      // one at a time
+  await assertFails(read(as('bob'), 'carol'));                               // in their own name
+  await assertFails(read(as('bob'), 'bob', { mark: { at: 1 } }));            // an empty mark
+  await assertFails(read(as('bob'), 'bob', { count: false }));               // no mark without the count
+  await assertFails(read(as('bob'), 'bob', { sign: false }));                // no count without a mark
+  await assertFails(read(anon(), 'bob'));
+  await assertFails(read(as('bob'), 'bob', { pid: DRAFT }));                 // published posts only
+  await assertFails(as('bob').doc('devnewsStat/' + NEWS_ID).set({ n: 1, r: { up: 9 } }, { merge: true }));
+  await assertSucceeds(read(as('bob'), 'bob'));
+  assert.equal(await n(), 2);
+  // civic() writes the reactions beside the count; a reader adds to it all the same
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('devnewsStat/' + NEWS_ID).set({ r: { up: 1 }, v: [] }, { merge: true }));
+  await assertSucceeds(read(as('carol'), 'carol'));
+  assert.equal(await n(), 3);
+  await assertSucceeds(anon().doc('devnewsStat/' + NEWS_ID).get());
+  await assertFails(as('bob').doc('devnews/' + NEWS_ID + '/rd/bob').get());   // who read what is for admins
+  await assertFails(as('bob').doc('devnews/' + NEWS_ID + '/rd/bob').delete());
+  await assertSucceeds(admin.collection('devnews/' + NEWS_ID + '/rd').get());
+  await assertSucceeds(admin.doc('devnews/' + NEWS_ID + '/rd/bob').delete());
 });
 test('news images and the index are written only by admins, and read by everyone', async () => {
   const img = (by, extra = {}) => ({ d: 'AAAA', m: 'image/webp', w: 800, h: 600, by, t: Date.now(), ...extra });

@@ -372,7 +372,7 @@ async function newsModerate(db, who, d) {
 }
 
 /* Reactions and poll votes on a post: the player's own choice is devnews/<post>/me/<uid> {e?, v?}, which only
-   they read, and the totals are devnewsStat/<post> {r: {kind: n}, v: [n, ...]}, which everyone reads. Both are
+   they read, and the totals are devnewsStat/<post> {r: {kind: n}, v: [n, ...], n?: reads}, which everyone reads. Both are
    written here, in one transaction, so a total always matches the choices behind it. */
 const NEWS_REACT = ['up', 'heart', 'party', 'think'];
 async function newsTally(db, who, d, kind) {
@@ -399,7 +399,8 @@ async function newsTally(db, who, d, kind) {
       while (v.length < n) v.push(0);
       v[o]++; mine.v = o;
     }
-    tx.set(st, { r, v });
+    // merged: the read count (n) beside them is written by the readers' browsers (see firestore.rules)
+    tx.set(st, { r, v }, { merge: true });
     if (Object.keys(mine).length) tx.set(me, mine); else tx.delete(me);
     return { r, v, e: mine.e || '', o: Number.isInteger(mine.v) ? mine.v : -1 };
   });
