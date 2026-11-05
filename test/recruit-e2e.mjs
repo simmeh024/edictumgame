@@ -1,7 +1,8 @@
-// Recruit a player: Settings › Social shows the player's own link and share buttons; a visitor who opens it and
-// founds a nation files recruits/<uid>, and both sides get 15 goods, oil, timber and iron plus 3 land credits.
-// The claim is filed once, never for oneself, and only the recruiter can list the recruits naming them.
-import { BASE, player, open, found, until, check, finish, text, nav, restListAdmin, clearEmulators, sleep } from './lib.mjs';
+// Recruit a player: Settings › Social shows the player's own link and share buttons; a visitor who opens it, founds a
+// nation and links a sign-in account has the server file recruits/<uid>, and both sides get 15 goods, oil, timber and
+// iron plus 3 land credits. A Guest Nation keeps the link until it links an account; a nation founded before the link
+// was opened never counts. The claim is filed once, never for oneself, and only the recruiter can list the recruits.
+import { BASE, player, open, found, until, check, finish, text, nav, restListAdmin, clearEmulators, sleep, register } from './lib.mjs';
 await clearEmulators();
 const RES = ['goods', 'oil', 'timber', 'iron'];
 const stock = p => p.evaluate(() => { const n = G.S.nation; return Object.fromEntries(['goods', 'oil', 'timber', 'iron'].map(r => [r, Math.floor(G.RC().stock(n, Date.now())[r] || 0)])); });
@@ -27,7 +28,10 @@ check('the link is taken out of the address bar', !B.url().includes('recruit='),
 check('and kept on the device until the nation is founded', await B.evaluate(() => G.RC().pending()) === uidA);
 const uidB = await B.evaluate(() => window.claude.use('user').then(u => u.id()));
 await found(B, 'Newland', { newPlayer: true });
-check('the recruit gets the bonus once the nation is saved', await until(() => B.evaluate(() => !!G.S.nation.rcb), 30000), await B.evaluate(() => JSON.stringify(G.S.nation.rcb || null)));
+check('a Guest Nation is told to link an account first', await until(async () => /Link a sign-in account/.test(await B.evaluate(() => document.body.innerText)), 30000));
+check('and keeps the link, unpaid', await B.evaluate(() => G.RC().pending()) === uidA && await B.evaluate(() => !G.S.nation.rcb) && (await restListAdmin('recruits')).length === 0);
+await register(B);
+check('the recruit gets the bonus once the account is linked', await until(() => B.evaluate(() => !!G.S.nation.rcb), 30000), await B.evaluate(() => JSON.stringify(G.S.nation.rcb || null)));
 const bStock = await stock(B);
 check('15 goods, oil, timber and iron for the recruit', RES.every(r => bStock[r] >= 15), JSON.stringify(bStock));
 check('and 3 land credits', await credits(B) === 3);
@@ -54,11 +58,20 @@ check('Word of Mouth is earned', await until(() => A.evaluate(() => !!(G.S.natio
 const C = await player('other');
 await open(C, BASE + '/?recruit=' + uidA); await found(C, 'Otherland', { newPlayer: true });
 const uidC = await C.evaluate(() => window.claude.use('user').then(u => u.id()));
+await register(C);
 check('a player cannot file a claim naming themself', await C.evaluate(id => Promise.resolve(window.claude.use('recruit')).then(a => a.claim(id)), uidC) === 'bad');
 check('C was recruited by A too', await until(() => C.evaluate(() => !!G.S.nation.rcb), 30000));
 const listed = await C.evaluate(id => Promise.resolve(window.claude.use('recruit')).then(a => a.mine()).then(l => l.map(x => x.id)), uidA);
 check('a player lists only recruits naming them', Array.isArray(listed) && listed.length === 0, JSON.stringify(listed));
 await A.evaluate(() => G.RC().poll(true));
 check('the recruiter is paid for the second recruit', await until(() => A.evaluate(() => (G.S.nation.rcp || []).length === 2), 15000) && await credits(A) === 6);
+
+// a player whose nation was founded before the link was opened is no recruit
+const D = await player('veteran');
+await open(D); await found(D, 'Oldland', { newPlayer: true }); await register(D);
+await D.evaluate(r => { localStorage.setItem('edictum.recruitBy.v1', JSON.stringify({ r, t: Date.now() + 3600e3 })); G.RC().claim(); }, uidA);
+check('a nation founded before the link was opened forgets it, unpaid', await until(() => D.evaluate(() => G.RC().pending() === ''), 8000) && await D.evaluate(() => !G.S.nation.rcb));
+const uidD = await D.evaluate(() => window.claude.use('user').then(u => u.id()));
+check('and files nothing', !(await restListAdmin('recruits')).some(d => d.id === uidD));
 
 await finish();

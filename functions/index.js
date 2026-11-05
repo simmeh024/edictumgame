@@ -137,7 +137,8 @@ async function forget(uid) {
   await db.recursiveDelete(ref);
   const account = await db.doc('accountIdentity/' + uid).get();
   if (account.get('recoveryHash')) await db.doc('guestRecovery/' + account.get('recoveryHash')).delete();
-  if (account.exists) await account.ref.set({ generation: account.get('generation') || '', recoveryIssued: !!(account.get('recoveryIssued') || account.get('recoveryHash')) });
+  /* hw stays: the population a new record on this account may start from (functions/civic.js, createCap) */
+  if (account.exists) await account.ref.set({ generation: account.get('generation') || '', recoveryIssued: !!(account.get('recoveryIssued') || account.get('recoveryHash')), ...(account.get('hw') ? { hw: account.get('hw') } : {}) });
   await db.recursiveDelete(db.doc('nationPermits/' + uid));
   const [proposals, votes] = await Promise.all(['proposals','votes'].map(c => db.collectionGroup(c).where('uid','==',uid).get()));
   const writer = db.bulkWriter();

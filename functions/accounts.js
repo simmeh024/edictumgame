@@ -1,13 +1,41 @@
 import crypto from 'node:crypto';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { identity, eligibility, refuse, registered } from './eligibility.js';
+import { identity, eligibility, refuse, registered, nationJSON, DAY } from './eligibility.js';
 import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail } from './mail.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
+/* Recruiting (game/edictum.html, rcClaim): a player who founded a nation through another player's link files
+   recruits/<uid> {r, t} here, once; each side's game then pays itself the bonus. A recruit counts only as a
+   Registered Nation (a linked sign-in account), founded in the last RECRUIT_DAYS and after the recruiter's own
+   nation: so a player who had a nation already, or two players opening each other's links, earn nothing.
+   → {ok: true} or {ok: false, why}: 'guest' (link an account first), 'done' (filed already), 'old', 'gone' (no such
+   recruiter), or the code eligibility() refused with ('nation_required' while the first save is on its way). */
+const RECRUIT_DAYS = 30;
+const bornOf = (saved, account) => {
+  const gen = saved.createTime.toMillis(), at = account.exists && account.get('nationGeneration') === gen ? account.get('nationAt') : gen;
+  const f = Number(nationJSON(saved).founded);
+  return f > 0 ? Math.min(at, f) : at;
+};
+async function recruit(db, who, by) {
+  if (typeof by !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(by) || by === who.uid) throw new HttpsError('invalid-argument', 'Name the player whose link you followed.');
+  if (!who.registered) return { ok: false, why: 'guest' };
+  const ref = db.doc('recruits/' + who.uid);
+  return db.runTransaction(async tx => {
+    const [filed, them, theirs] = await tx.getAll(ref, db.doc('nations/' + by), db.doc('accountIdentity/' + by));
+    if (filed.exists) return { ok: false, why: 'done' };
+    let e;
+    try { e = await eligibility(tx, who); } catch (err) { if (err.details?.code) return { ok: false, why: err.details.code }; throw err; }
+    if (!them.exists) return { ok: false, why: 'gone' };
+    const born = bornOf(e.saved, e.account);
+    if (Date.now() - born > RECRUIT_DAYS * DAY || bornOf(them, theirs) >= born) return { ok: false, why: 'old' };
+    tx.create(ref, { r: by, t: FieldValue.serverTimestamp() });
+    return { ok: true };
+  });
+}
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 /* The address a player last played from, for the admins' Inspect (functions/admin.js). Only the latest is kept,
    in accountSeen/{uid} {ip, at, exp}, and Firestore deletes it SEEN_DAYS after it was last seen (TTL on exp,
@@ -68,6 +96,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     return { ok: true };
   }
   const who = await identity(uid);
+  if (d.op === 'recruit') return recruit(db, who, d.by);
   if (d.op === 'status') {
     const [a, n] = await Promise.all([db.doc('accountIdentity/' + uid).get(), db.doc('nations/' + uid).get()]);
     return { kind: who.registered ? 'registered' : 'guest', hasNation: n.exists, recoveryIssued: a.get('generation') === who.generation && !!(a.get('recoveryIssued') || a.get('recoveryHash')), recoveryVersion: a.get('generation') === who.generation ? a.get('recoveryVersion') || 0 : 0 };
