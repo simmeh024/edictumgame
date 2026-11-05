@@ -347,6 +347,76 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .save-bar{position:relative;bottom:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 0 calc(12px + env(safe-area-inset-bottom));margin:-16px 0 40px;background:var(--paper);border-top:1px solid var(--rule)}
 .save-bar .hint:empty{display:none}
 .save-bar.is-dirty{position:sticky;box-shadow:0 -10px 18px -14px rgba(0,0,0,.35)}
+/* Settings: a tab list on the left (a row that scrolls on a phone) and one pane at a time */
+.sg{display:grid;grid-template-columns:208px minmax(0,1fr);gap:40px;align-items:start}
+.sg-rail{position:sticky;top:24px;display:flex;flex-direction:column;gap:2px}
+.sg-tab{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:10px 12px;border:0;border-left:3px solid transparent;border-radius:0 3px 3px 0;background:none;color:var(--ink-2);text-align:left;cursor:pointer}
+.sg-tab:hover{background:var(--sheet-2);color:var(--ink)}
+.sg-tab.on{background:var(--sheet);border-left-color:var(--accent);color:var(--ink)}
+.sg-tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.sg-tl{font-weight:600;font-size:15px;line-height:1.2}
+.sg-ts{font-size:12.5px;line-height:1.3;color:var(--ink-3)}
+.sg-tab.dirty .sg-ts{color:var(--stamp);font-weight:600}
+.sg-pane{display:none;min-width:0}
+.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="account"] #sg-p-account{display:block}
+.sg-head{margin:0 0 18px}
+.sg-hrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.sg-h{margin:0;font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1;font-variation-settings:"opsz" 48}
+.sg-scope{display:inline-block;font:500 10.5px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border:1px solid var(--rule-2);border-radius:3px;color:var(--ink-2);white-space:nowrap}
+.sg-saved{font-size:13px;font-weight:650;color:var(--up)}
+.sg-saved:not(:empty)::before{content:"\2713\00a0"}
+.sg-saved:empty{display:none}
+.sg-lead{margin:6px 0 0;max-width:64ch}
+.sg-card,.sg-fs{min-width:0;margin:0;padding:20px 0 26px;border:0;border-top:1px solid var(--rule)}
+.sg-fs>legend{float:left;width:100%}
+.sg-fs>legend+*{clear:both}
+.sg-ch{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0 0 14px;padding:0;font-size:17px;font-weight:650;line-height:1.25}
+.sg-count{font-size:12.5px;font-weight:500;color:var(--ink-3)}
+.sg-reset{margin-left:auto}
+.sg-one{grid-template-columns:minmax(0,320px)}
+.sg-cu{margin:14px 0 0;max-width:64ch}
+.sg-pv{display:grid;gap:10px;margin:0 0 22px;padding:16px 18px;background:var(--sheet);border:1px solid var(--rule);border-radius:4px}
+.sg-pv-l{margin:0;color:var(--ink-3)}
+.sg-pv-in{display:grid;grid-template-columns:128px minmax(0,1fr);gap:18px;align-items:center}
+.sg-pv-flag{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.sg-pv-flag .flag-frame{width:128px}
+.sg-pv .hero-pre{margin:0 0 2px}
+.sg-pv-name{margin:0;font-family:var(--f-display);font-weight:650;font-size:30px;line-height:1.05;overflow-wrap:anywhere;font-variation-settings:"opsz" 72}
+.sg-pv .hero-motto{margin:6px 0 0}
+.sg-pv-ruler{margin:8px 0 0;font-size:13.5px;font-weight:550;color:var(--ink-2)}
+.sg-pv-facts{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 0;font-size:12.5px;color:var(--ink-3)}
+.sg-pv-mc{display:inline-flex;align-items:center;gap:5px}
+.sg-pv-mc i{width:11px;height:11px;border-radius:50%;background:var(--hx);box-shadow:0 0 0 1px var(--rule-2)}
+.sg .save-bar{margin:0 0 8px}
+.sg-leave-t{flex-basis:100%;margin:0 0 2px}
+.sg #away-box{margin:0 0 22px}
+.sg .topic-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));column-gap:28px;border-bottom:1px solid var(--rule)}
+.sg .topic-row:last-child{border-bottom:0}
+.sg .danger-zone{margin-top:8px}
+.sg .danger-zone .sg-ch{color:var(--down)}
+/* below 1180px the tabs become a row across the top, which scrolls sideways on a phone */
+@media (max-width:1179px){
+  .sg{display:block}
+  .sg-rail{position:sticky;top:var(--sg-top,0px);z-index:6;flex-direction:row;gap:0;margin:0 0 20px;padding:0;overflow-x:auto;scrollbar-width:none;background:var(--paper);border-bottom:1px solid var(--rule)}
+  .sg-rail::-webkit-scrollbar{display:none}
+  .sg-tab{flex:none;flex-direction:row;align-items:center;width:auto;min-height:46px;padding:0 14px;border-left:0;border-bottom:3px solid transparent;border-radius:0}
+  .sg-tab.on{background:none;border-bottom-color:var(--accent)}
+  .sg-tab:hover{background:none}
+  .sg-ts{display:none}
+  .sg-tab.dirty .sg-tl::after{content:"";display:inline-block;width:7px;height:7px;margin-left:6px;border-radius:50%;background:var(--stamp);vertical-align:2px}
+}
+@media (max-width:959px){
+  .sg-rail{margin:0 -16px 20px;padding:0 28px 0 6px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .sg-tab{padding:0 11px}
+  .sg-h{font-size:24px}
+}
+@media (max-width:560px){
+  .sg-pv{padding:14px}
+  .sg-pv-in{grid-template-columns:76px minmax(0,1fr);gap:12px;align-items:start}
+  .sg-pv-flag .flag-frame{width:76px}
+  .sg-pv-name{font-size:24px}
+  .sg-reset{margin-left:0}
+}
 .hero-ruler{font-size:13.5px;font-weight:550;color:var(--ink-2);margin-top:8px}
 .hero-about{margin-top:14px;padding-left:14px;border-left:3px solid var(--accent);font-size:14.5px;line-height:1.55;max-width:60ch;color:var(--ink)}
 .res-pol{margin-top:12px;max-width:80ch}
@@ -16301,7 +16371,7 @@ function awayBox(n,now){
     ${S.awayErr?`<p class="err" style="margin-top:10px">${esc(S.awayErr)}</p>`:''}
     <div class="row" style="margin-top:12px"><button type="button" class="btn" data-act="away-start">Start holiday mode</button></div></div>`;
 }
-function awayNotice(n,now){const w=awayOf(n);return awayOn(n,now)?`<button class="notice" data-act="go" data-v="settings"><span class="notice-k">Holiday mode</span><span>No new edicts until ${esc(awayWhen(w.b))}.</span><span class="notice-go">Settings →</span></button>`:'';}
+function awayNotice(n,now){const w=awayOf(n);return awayOn(n,now)?`<button class="notice" data-act="go" data-v="settings" data-sg-tab="edicts"><span class="notice-k">Holiday mode</span><span>No new edicts until ${esc(awayWhen(w.b))}.</span><span class="notice-go">Settings →</span></button>`:'';}
 /* Pure: what the inbox holds at `now`. Writes happen only when the player acts. Each slot since the last edict
    counts at its own time, so a catch-up across the start or end of a membership gives each side its own room. A
    slot with no room is lost, as on a full desk it always was, and when the last one is the clock restarts at now:
@@ -22522,7 +22592,7 @@ function czDispRows(){
 function czDsBody(n){
   const m=dsMode(n),nameless=!String(n.ruler||'').trim();
   return `${czSeg('Decrees are signed by','cz-l-ds',DS_MODES,m,'cz-ds','')}<p class="cz-ds-ex"><span class="lbl">As it reads</span> <span class="cz-ds-t">${esc(chamberOf(n).decree(n.name))}, …</span></p>`
-    +(m==='l'&&nameless?`<p class="hint cz-ds-h">Your ${esc(n.leader||'leader')} has no name yet, so decrees give the title. <button type="button" class="linkish" data-act="go" data-v="settings">Name your leader in Settings</button></p>`:'');
+    +(m==='l'&&nameless?`<p class="hint cz-ds-h">Your ${esc(n.leader||'leader')} has no name yet, so decrees give the title. <button type="button" class="linkish" data-act="go" data-v="settings" data-sg-tab="nation">Name your leader in Settings</button></p>`:'');
 }
 function czSeg(label,id,opts,cur,act,f){
   return `<div class="cz-drow"><span class="cz-dl" id="${id}">${label}</span><div class="seg cz-seg" role="group" aria-labelledby="${id}">${opts.map(([v,l])=>`<button type="button" id="${id}-${v}" class="seg-b${cur===v?' on':''}" data-act="${act}"${f?` data-f="${f}"`:''} data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div></div>`;
@@ -33931,7 +34001,7 @@ const NAV_WORDS={nation:'overview home flag factbook',issues:'issues decisions d
   space:'moon mars asteroid belt colony starport',region:'nations neighbours visit',diplomacy:'alliances allies wars peace',trade:'resources deals goods food timber iron oil',
   intel:'spies covert operations missions',assembly:'votes resolutions delegate',games:'sport events medals',world:'regions move',
   dispatch:'newspaper news daily paper',messages:'letters mail',museum:'artefacts halls',achievements:'honours records',passport:'stamps visas travel cover collect',
-  customise:'arms flag banner colours epithet charge stamp currency banknote',settings:'theme dark light accent text size density motion pace dissolve',help:'how to play tutorial guide rules'};
+  customise:'arms flag banner colours epithet charge stamp currency banknote',settings:'theme dark light accent text size density motion pace dissolve holiday topics email letters notifications recruit tutorial leader motto capital language religion anthem map colour',help:'how to play tutorial guide rules'};
 const NAV_SVG=(p,w)=>`<svg viewBox="0 0 24 24" width="${w||22}" height="${w||22}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${p}</svg>`;
 const NAV_ICONS={
   nation:NAV_SVG('<path d="M5.5 21V3.5"/><path d="M5.5 4.5h12l-2.6 4 2.6 4h-12"/>'),
@@ -35641,7 +35711,7 @@ function cvLeader(n,now){
     <div class="cv-lead-id">
       <p class="eyebrow">Head of government</p>
       <h3 class="leader-n${named?' named':''}" id="cv-lead-n"><span class="cv-title">${esc(n.leader)}</span>${named?` <span class="cv-ruler">${esc(n.ruler)}</span>`:''}</h3>
-      ${named?'':`<p class="cv-unnamed">Not yet named. <button type="button" class="linkish small" id="cv-name" data-act="cv-name">Give your ${esc(String(n.leader||'leader').toLowerCase())} a name in Settings</button></p>`}
+      ${named?'':`<p class="cv-unnamed">Not yet named. <button type="button" class="linkish small" id="cv-name" data-act="cv-name" data-sg-tab="nation">Give your ${esc(String(n.leader||'leader').toLowerCase())} a name in Settings</button></p>`}
     </div>
     <div class="cv-lead-f">
       <dl class="cv-facts">
@@ -38588,63 +38658,127 @@ function foundView(){
     <div class="found-bar" id="found-bar">${foundBarHTML(d)}</div>
   </div>`;
 }
-function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,currency:n.currency,animal:n.animal,demonym:n.demonym,freq:String(n.freq),
-  ruler:n.ruler||'',lang:n.lang||'',faith:n.faith||'',sport:n.sport||'',dish:n.dish||'',anthem:n.anthem||'',about:n.about||'',mapc:n.mapc||'',topics:clone(n.topics||{})};}
+/* ───────── Settings: five tabs ─────────
+   Your nation (what other players see) is a draft with Save and Discard. Edicts, Notifications and Display apply at
+   once; Account holds sign-in, recruiting, the tutorial and dissolving. Every pane is drawn and CSS shows the open one
+   (.sg[data-tab]), so a jump from anywhere (a tutorial step, search, "Name your leader") only has to pick the tab
+   (sgShow, from the wiring near the end of the script). The open tab is in the address as #settings/<tab>. */
+const SG_TABS=[['nation','Your nation'],['edicts','Edicts'],['notif','Notifications'],['display','Display'],['account','Account']];
+const SG={tab:'nation',saved:null,leave:null,leaveOK:false};
+const SG_CULT=['lang','faith','sport','dish','anthem','about'];
+function sgTabOfId(id){
+  id=String(id||'').replace(/^#/,'');
+  if(/^(s-freq|away-|tp-|sg-topics|set-edicts)/.test(id))return 'edicts';
+  if(/^(set-notif|ntf-|set-mail|ml-)/.test(id))return 'notif';
+  if(/^(set-appearance|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
+  if(/^(set-acct|set-social|rc-|set-tut|set-dissolve)/.test(id))return 'account';
+  return 'nation';
+}
+function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,animal:n.animal,demonym:n.demonym,
+  ruler:n.ruler||'',lang:n.lang||'',faith:n.faith||'',sport:n.sport||'',dish:n.dish||'',anthem:n.anthem||'',about:n.about||'',mapc:n.mapc||''};}
+/* how many fields of the draft differ from the nation (the custom-title switch is not a field of its own) */
+function sgDirtyN(){const st=S.settings;if(!st||!S.nation)return 0;const a=settingsFrom(S.nation);return Object.keys(a).filter(k=>k!=='ptCustom'&&JSON.stringify(a[k])!==JSON.stringify(st[k])).length;}
+const sgTopicsN=n=>Object.values(n.topics||{}).filter(v=>v===1||v===-1).length;
+const sgCultN=st=>SG_CULT.filter(k=>String(st[k]||'').trim()).length;
+/* the line under each tab's name: what is set there now */
+function sgTabSub(k,n){
+  if(k==='nation'){const c=settingsDirty()?Math.max(1,sgDirtyN()):0;return c?`${c===1?'One change':c+' changes'} not saved`:'Seen by other players';}
+  if(k==='edicts'){if(awayOn(n,Date.now()))return 'On holiday';const f=(FREQS.find(x=>x[0]===+n.freq)||FREQS[0])[1],t=sgTopicsN(n);return f+(t?` · ${t} ${t===1?'topic':'topics'} changed`:'');}
+  if(k==='notif')return 'Pop-ups, the bell and letters';
+  if(k==='display'){const t=themePref();return (t==='auto'?'Automatic':t==='light'?'Light':'Dark')+' theme, this device';}
+  return 'Sign-in, recruiting, the tutorial';
+}
+function sgHead(k,scope,lead){
+  const sv=SG.saved&&SG.saved.k===k&&Date.now()-SG.saved.t<2500;
+  return `<div class="sg-head"><div class="sg-hrow"><h2 class="sg-h" id="sg-h-${k}">${esc(SG_TABS.find(t=>t[0]===k)[1])}</h2>${scope?`<span class="sg-scope">${scope}</span>`:''}<span class="sg-saved" data-sg-saved="${k}">${sv?'Saved':''}</span></div>${lead?`<p class="hint sg-lead">${lead}</p>`:''}</div>`;
+}
+/* the nation as other players see it, drawn from the draft as it is typed */
+function sgPreview(st,n){
+  const tx=(v,d)=>String(v||'').trim()||d,pt=tx(st.pretitle,n.pretitle),mot=tx(st.motto,''),ru=tx(st.ruler,''),ld=tx(st.leader,n.leader);
+  const mc=safeColor(st.mapc,'')||mapColor(n.flag);
+  return `<div class="sg-pv-flag"><div class="flag-frame">${flagSVG(n.flag,'Your flag')}</div><button type="button" class="linkish small" data-act="go" data-v="customise">Design the flag</button></div>
+    <div class="sg-pv-t"><p class="hero-pre">The ${esc(pt)} of</p><p class="sg-pv-name">${esc(n.name)}</p>${mot?`<p class="hero-motto">“${esc(mot)}”</p>`:''}
+      <p class="sg-pv-ruler">${ru?`Led by ${esc(ld)} ${esc(ru)}`:`Led by the ${esc(ld)}, not yet named`}</p>
+      <p class="sg-pv-facts"><span>Capital: ${esc(tx(st.capital,n.capital))}</span><span>Citizens: ${esc(tx(st.demonym,n.demonym))}</span><span>Animal: the ${esc(tx(st.animal,n.animal))}</span><span class="sg-pv-mc"><i style="--hx:${mc}" aria-hidden="true"></i>Map colour</span></p></div>`;
+}
 function settingsView(){
-  const n=S.nation,st=S.settings||(S.settings=settingsFrom(n));
+  const n=S.nation,st=S.settings||(S.settings=settingsFrom(n)),t=SG.tab,now=Date.now(),dirty=settingsDirty();
   const f=(id,label,max,ph,hint)=>`<div class="field"><label for="s-${id}">${label}</label><input class="input" id="s-${id}" data-bind="s.${id}" value="${esc(st[id]||'')}" maxlength="${max}" placeholder="${esc(ph)}" autocomplete="off">${hint?`<span class="hint">${hint}</span>`:''}</div>`;
   const ptSel=`<select class="input" id="s-ptsel" data-bind="s.ptsel">${PRETITLES.map(p=>`<option${!st.ptCustom&&p===st.pretitle?' selected':''}>${esc(p)}</option>`).join('')}<option value="__custom"${st.ptCustom?' selected':''}>Your own…</option></select>`;
   const mc=safeColor(st.mapc,'')||mapColor(n.flag);
   const theme=themePref();
-  const topicRows=ISSUE_TOPICS.map(([k,l])=>{const cur=st.topics[k]||0,cnt=ISSUES.filter(i=>i.c===k).length;
-    return `<div class="topic-row"><span class="topic-n" id="tp-${k}">${l}<span class="topic-c">${cnt} edicts</span></span><div class="seg" role="group" aria-labelledby="tp-${k}">${[[-1,'Fewer'],[0,'Normal'],[1,'More']].map(([v,t])=>`<button type="button" class="seg-b${cur===v?' on':''}" data-act="topic" data-k="${k}" data-v="${v}" aria-pressed="${cur===v}">${t}</button>`).join('')}</div></div>`;}).join('');
-  return `<header class="vh"><p class="eyebrow">Office of the ${esc(n.leader)}</p><h1>Settings</h1><p>The name ${esc(n.name)} is permanent. You can change everything else here. Other players see your particulars, culture, flag and map colour.</p></header>
-  <form id="settings-form" novalidate>
-    <fieldset class="fs"><legend class="fs-l">Particulars</legend>
-      <div class="fields" style="margin-bottom:16px">
-        <div class="field"><label for="s-ptsel">Type of state</label>${ptSel}</div>
-        ${st.ptCustom?f('pretitle','Your own type of state',40,'Most Serene Duchy','At least two letters.'):''}
-      </div>
-      ${particulars(st,'s',true)}
-    </fieldset>
-    <fieldset class="fs"><legend class="fs-l">Culture</legend>
-      <p class="hint fs-hint">All optional. Your choices show on your nation page, and some edicts mention your national sport, dish and language.</p>
-      <div class="fields">
-        ${f('lang','National language',30,'e.g. '+n.demonym)}
-        ${f('faith','Main religion',50,'e.g. the Church of the Sacred Otter')}
-        ${f('sport','National sport',30,'e.g. football')}
-        ${f('dish','National dish',40,'e.g. fish stew')}
-        ${f('anthem','National anthem',60,'e.g. Rise, O '+n.name)}
-      </div>
-      <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
-    </fieldset>
-    <fieldset class="fs"><legend class="fs-l">Flag</legend>
-      <div class="flag-preview-row"><div class="flag-frame">${flagSVG(n.flag,'Your flag')}</div><p class="hint">Your flag is designed in Customise, with its emblems, patterns and layers. <button type="button" class="linkish" data-act="go" data-v="customise">Open the flag designer</button></p></div>
-    </fieldset>
-    <fieldset class="fs"><legend class="fs-l">Map colour</legend>
-      <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
-      <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}</div>
-    </fieldset>
-    <fieldset class="fs"><legend class="fs-l">Edicts</legend>
-      <div class="fields"><div class="field"><label for="s-freq">How often new edicts arrive</label><select class="input" id="s-freq" data-bind="s.freq">${FREQS.map(([m,l])=>`<option value="${m}"${String(m)===st.freq?' selected':''}>${l}</option>`).join('')}</select></div></div>
-      ${awayBox(n,Date.now())}
-      <h3 class="sub-h">Topics</h3>
-      <p class="hint fs-hint">Choose which kinds of edict reach your desk more or less often. Edicts you already have are not affected.</p>
+  let cuNm=n.currency;try{cuNm=cuOf(n).nm||cuNm;}catch(e){}
+  const tn=sgTopicsN(n);
+  const topicRows=ISSUE_TOPICS.map(([k,l])=>{const cur=(n.topics||{})[k]||0,cnt=ISSUES.filter(i=>i.c===k).length;
+    return `<div class="topic-row"><span class="topic-n" id="tp-${k}">${l}<span class="topic-c">${cnt} edicts</span></span><div class="seg" role="group" aria-labelledby="tp-${k}">${[[-1,'Fewer'],[0,'Normal'],[1,'More']].map(([v,l2])=>`<button type="button" class="seg-b${cur===v?' on':''}" data-act="topic" data-k="${k}" data-v="${v}" aria-pressed="${cur===v}">${l2}</button>`).join('')}</div></div>`;}).join('');
+  const rail=`<div class="sg-rail" role="tablist" aria-label="Settings">${SG_TABS.map(([k,l])=>`<button type="button" role="tab" id="sg-tab-${k}" class="sg-tab${k===t?' on':''}${k==='nation'&&dirty?' dirty':''}" data-act="sg-tab" data-v="${k}" aria-selected="${k===t}" aria-controls="sg-p-${k}" tabindex="${k===t?0:-1}"><span class="sg-tl">${l}</span><span class="sg-ts" data-sg-sub="${k}">${esc(sgTabSub(k,n))}</span></button>`).join('')}</div>`;
+  const pane=(k,body)=>`<div class="sg-pane" id="sg-p-${k}" data-sg="${k}" role="tabpanel" aria-labelledby="sg-tab-${k}">${body}</div>`;
+  const save=SG.leave?`<p class="sg-leave-t" role="alert"><b>Your nation has changes that are not saved.</b> Save them before you go?</p><button class="btn" type="button" data-act="sg-leave-save">Save and go on</button><button class="btn ghost" type="button" data-act="sg-leave-go">Leave without saving</button><button class="linkish small" type="button" data-act="sg-leave-stay">Stay here</button>`
+    :`<button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="reset-settings">Discard changes</button><span class="hint" id="s-dirty">${dirty?'You have unsaved changes.':''}</span>`;
+  const nation=`${sgHead('nation','Seen by other players','Your particulars, culture and map colour show on your nation page, on the map and in the region. Nothing changes until you save.')}
+    <div class="sg-pv"><p class="lbl sg-pv-l">As other players see it</p><div class="sg-pv-in" id="sg-pv-in">${sgPreview(st,n)}</div></div>
+    <form id="settings-form" novalidate>
+      <fieldset class="sg-fs" id="set-leader"><legend class="sg-ch">State and leader</legend>
+        <div class="fields">
+          <div class="field"><label for="s-ptsel">Type of state</label>${ptSel}</div>
+          ${st.ptCustom?f('pretitle','Your own type of state',40,'Most Serene Duchy','At least two letters.'):''}
+          ${f('leader','Title of your leader',40,'President')}
+          ${f('ruler','Name of your leader (optional)',40,'Ada Brook')}
+        </div>
+      </fieldset>
+      <fieldset class="sg-fs" id="set-particulars"><legend class="sg-ch">Particulars</legend>
+        <div class="fields">
+          ${f('motto','National motto',80,'Strength Through Paperwork')}
+          ${f('capital','Capital city',40,'Port Alder')}
+          ${f('demonym','Citizens are called',40,'Corvanian')}
+          ${f('animal','National animal',30,'otter')}
+        </div>
+        <p class="hint sg-cu">Your currency is the ${esc(cuNm)}. Its name, symbol and banknotes are designed in Customise. <button type="button" class="linkish small" data-act="go" data-v="customise" data-cu-jump="1">Open the currency designer</button></p>
+      </fieldset>
+      <fieldset class="sg-fs" id="set-culture"><legend class="sg-ch">Culture <span class="sg-count" id="sg-cult-n">${sgCultN(st)} of 6 filled</span></legend>
+        <p class="hint fs-hint">All optional. Your choices show on your nation page, and some edicts mention your national sport, dish and language.</p>
+        <div class="fields">
+          ${f('lang','National language',30,'e.g. '+n.demonym)}
+          ${f('faith','Main religion',50,'e.g. the Church of the Sacred Otter')}
+          ${f('sport','National sport',30,'e.g. football')}
+          ${f('dish','National dish',40,'e.g. fish stew')}
+          ${f('anthem','National anthem',60,'e.g. Rise, O '+n.name)}
+        </div>
+        <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
+      </fieldset>
+      <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
+        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
+        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}</div>
+      </fieldset>
+      <div class="save-bar${dirty?' is-dirty':''}${SG.leave?' sg-leaving':''}" id="sg-save">${save}</div>
+    </form>`;
+  const edicts=`${sgHead('edicts','Applies at once','How often edicts reach your desk, and on which subjects. Edicts already waiting are not affected.')}
+    ${awayBox(n,now)}
+    <section class="sg-card" id="set-edicts"><h3 class="sg-ch">Pace</h3>
+      <div class="fields sg-one"><div class="field"><label for="s-freq">How often new edicts arrive</label><select class="input" id="s-freq">${FREQS.map(([m,l])=>`<option value="${m}"${m===+n.freq?' selected':''}>${l}</option>`).join('')}</select></div></div>
+    </section>
+    <section class="sg-card" id="sg-topics"><h3 class="sg-ch">Topics <span class="sg-count">${tn?`${tn} changed`:'All at normal'}</span>${tn?'<button type="button" class="linkish small sg-reset" data-act="sg-topics-reset">Set all back to normal</button>':''}</h3>
+      <p class="hint fs-hint">Choose which kinds of edict reach your desk more or less often.</p>
       <div class="topic-list">${topicRows}</div>
-    </fieldset>
-    <div class="save-bar${settingsDirty()?' is-dirty':''}"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="reset-settings">Discard changes</button><span class="hint" id="s-dirty">${settingsDirty()?'You have unsaved changes.':''}</span></div>
-  </form>
-  <section class="fs" id="set-appearance"><h2 class="fs-l">Appearance</h2>
-    <p class="hint fs-hint">Applies straight away, on this device only, and other players don’t see it.</p>
-    <div class="cz-disp">
-      <div class="cz-drow"><span class="cz-dl" id="set-l-th">Theme</span><div class="seg" role="group" aria-labelledby="set-l-th">${[['auto','Automatic'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button type="button" class="seg-b${theme===v?' on':''}" data-act="theme" data-v="${v}" aria-pressed="${theme===v}">${l}</button>`).join('')}</div></div>
-      ${czDispRows()}
-    </div>${stepsReset()}
-  </section>
-  <section class="danger-zone"><h2 class="h2">Dissolve nation</h2>
-    <p>Dissolving erases ${esc(theName(n))}, its census history and its legislation${S.mode==='world'?', and removes it and its messages from '+REGION:''}. This cannot be undone.</p>
-    ${S.confirmDissolve?`<div class="row"><button class="btn danger solid" data-act="dissolve-confirm">Yes, dissolve ${esc(n.name)}</button><button class="btn ghost" data-act="dissolve-cancel">Keep my nation</button></div>`:`<button class="btn danger" data-act="dissolve-ask">Dissolve nation…</button>`}
-  </section>`;
+    </section>`;
+  const notif=`${sgHead('notif','','What pops up, what the bell counts, and the letters the Herald sends.')}${ntfSection()}${mailSection()}`;
+  const display=`${sgHead('display','This device only','Applies at once. Other players don’t see it.')}
+    <section class="sg-card" id="set-appearance"><h3 class="sg-ch">Appearance</h3>
+      <div class="cz-disp">
+        <div class="cz-drow"><span class="cz-dl" id="set-l-th">Theme</span><div class="seg" role="group" aria-labelledby="set-l-th">${[['auto','Automatic'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button type="button" class="seg-b${theme===v?' on':''}" data-act="theme" data-v="${v}" aria-pressed="${theme===v}">${l}</button>`).join('')}</div></div>
+        ${czDispRows()}
+      </div>
+    </section>`;
+  const account=`${sgHead('account','','')}
+    ${OBS?'':`<section class="sg-card" id="set-acct"><h3 class="sg-ch">Sign-in</h3><p class="hint fs-hint">How you sign in, the accounts linked to ${esc(n.name)}, your recovery key and signing out are in the account panel.</p><button type="button" class="btn ghost" data-act="acct-open">Open the account panel</button></section>`}
+    ${rcSection()}
+    <section class="sg-card" id="set-tut"><h3 class="sg-ch">Tutorial</h3>${stepsReset()||`<p class="hint">Every tutorial list you have not finished is on your Nation page. <button type="button" class="linkish small" data-act="go" data-v="help">How to play</button></p>`}</section>
+    <section class="danger-zone" id="set-dissolve"><h3 class="sg-ch">Dissolve nation</h3>
+      <p>Dissolving erases ${esc(theName(n))}, its census history and its legislation${S.mode==='world'?', and removes it and its messages from '+REGION:''}. This cannot be undone.</p>
+      ${S.confirmDissolve?`<div class="row"><button class="btn danger solid" data-act="dissolve-confirm">Yes, dissolve ${esc(n.name)}</button><button class="btn ghost" data-act="dissolve-cancel">Keep my nation</button></div>`:`<button class="btn danger" data-act="dissolve-ask">Dissolve nation…</button>`}
+    </section>`;
+  return `<header class="vh"><p class="eyebrow">Office of the ${esc(n.leader)}</p><h1>Settings</h1><p>The name ${esc(n.name)} is permanent. Everything else can change here.</p></header>
+  <div class="sg" id="sg" data-tab="${t}">${rail}<div class="sg-body">${pane('nation',nation)}${pane('edicts',edicts)}${pane('notif',notif)}${pane('display',display)}${pane('account',account)}</div></div>`;
 }
 function settingsDirty(){const st=S.settings;if(!st||!S.nation)return false;const a=settingsFrom(S.nation);return Object.keys(a).some(k=>JSON.stringify(a[k])!==JSON.stringify(st[k]));}
 function markDirty(){const d=settingsDirty(),el=document.getElementById('s-dirty');if(el)el.textContent=d?'You have unsaved changes.':'';const b=document.querySelector('.save-bar');if(b)b.classList.toggle('is-dirty',d);}
@@ -38788,13 +38922,18 @@ function saveSettings(){
   const st=S.settings,now=Date.now();
   let n=clone(syncInbox(S.nation,now));
   const t=(v,max,def)=>String(v||'').trim().slice(0,max)||def;
-  const pt=String(st.pretitle||'').trim();if(st.ptCustom&&pt.length<2){toast('Give your type of state a name of at least two letters.');const el=document.getElementById('s-pretitle');if(el)el.focus();return;}
+  const pt=String(st.pretitle||'').trim();if(st.ptCustom&&pt.length<2){toast('Give your type of state a name of at least two letters.');SG.tab='nation';render();const el=document.getElementById('s-pretitle');if(el)el.focus();return false;}
   n.pretitle=t(st.pretitle,40,n.pretitle);n.motto=String(st.motto||'').trim().slice(0,80);n.capital=t(st.capital,40,n.capital);n.leader=t(st.leader,40,n.leader);
-  n.currency=t(st.currency,30,n.currency);n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);
+  n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);
   for(const [k,max] of [['ruler',40],['lang',30],['faith',50],['sport',30],['dish',40],['anthem',60],['about',280]])n[k]=String(st[k]||'').trim().slice(0,max);
-  n.mapc=safeColor(st.mapc,'');n.topics={};for(const [k] of ISSUE_TOPICS)if(st.topics[k]===1||st.topics[k]===-1)n.topics[k]=st.topics[k];
-  const f=parseInt(st.freq,10);if(FREQS.some(x=>x[0]===f))n.freq=f;
-  commit(n);S.settings=settingsFrom(n);render();toast('Changes saved.');
+  n.mapc=safeColor(st.mapc,'');
+  commit(n);S.settings=settingsFrom(n);render();toast('Changes saved.');return true;
+}
+/* Edicts: the pace and the topics apply at once, and the tab says so for a moment */
+function sgApply(fn){
+  if(!S.nation)return;const now=Date.now(),n=clone(syncInbox(S.nation,now));fn(n);commit(n);
+  SG.saved={k:SG.tab,t:Date.now()};render();
+  setTimeout(()=>{if(SG.saved&&Date.now()-SG.saved.t>=2400){SG.saved=null;for(const e of document.querySelectorAll('[data-sg-saved]'))e.textContent='';}},2500);
 }
 async function dissolve(){
   const uid=S.uid,db=S.db,world=S.mode==='world';
@@ -38848,7 +38987,7 @@ document.addEventListener('click',e=>{
   if(a==='suggest-name'){S.draft.name=nameIdea(S.draft.name);if(!S.draft.demonymTouched)S.draft.demonym=demonymOf(S.draft.name);S.foundErr='';render();return;}
   if(a==='reset-settings'){S.settings=settingsFrom(S.nation);render();return;}
   if(a==='mapc'&&S.settings){S.settings.mapc=el.dataset.val;render();return;}
-  if(a==='topic'&&S.settings){const v=+el.dataset.v;if(v)S.settings.topics[el.dataset.k]=v;else delete S.settings.topics[el.dataset.k];render();return;}
+  if(a==='topic'){const k=el.dataset.k,v=+el.dataset.v;if(!ISSUE_TOPICS.some(x=>x[0]===k))return;sgApply(n=>{n.topics=Object.assign({},n.topics||{});if(v===1||v===-1)n.topics[k]=v;else delete n.topics[k];});return;}
   if(a==='theme'){setTheme(el.dataset.v);return;}
   if(a==='dissolve-ask'){S.confirmDissolve=true;render();return;}
   if(a==='dissolve-cancel'){S.confirmDissolve=false;render();return;}
@@ -41247,7 +41386,7 @@ navQjGo=function(v){
 };
 function uxSearchButton(){return `<button type="button" class="ux-search-button" data-act="nav-qj-open" aria-label="Search game" title="Search game (Ctrl/Cmd + K)">${NAV_SVG('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',19)}</button>`;}
 function uxPrimarySections(rows,view){
-  const important={nation:['Overview','Factbook','Territory','Cities','Recent legislation'],settings:['Particulars','Culture','Map colour','Edicts','Appearance']};
+  const important={nation:['Overview','Factbook','Territory','Cities','Recent legislation']};
   if(important[view])return important[view].map(title=>rows.find(row=>row.title===title)).filter(Boolean);
   return rows.filter(({host})=>!host.parentElement?.closest('section,fieldset,article,aside')).slice(0,5);
 }
@@ -41257,7 +41396,7 @@ function uxFold(host,closed,persist=true){
 }
 function uxSections(){
   document.documentElement.classList.remove('ux-has-sections');
-  const root=document.querySelector('#main>.wrap');if(!root||!['nation','government','stats','settings','cities','trade','passport','help','museum'].includes(S.view))return;
+  const root=document.querySelector('#main>.wrap');if(!root||!['nation','government','stats','cities','trade','passport','help','museum'].includes(S.view))return;
   const candidates=[...root.querySelectorAll('h2,fieldset>legend')].filter(h=>!h.closest('dialog,[role="dialog"],.ux-sections,.pg-charter,.pg-first,.account-link-card')&&h.getClientRects().length),rows=[],seen=new Set();
   for(const h of candidates){const copy=h.cloneNode(true);copy.querySelectorAll('.fs-n,.ux-fold-toggle').forEach(e=>e.remove());const title=copy.textContent.trim();if(!title||title.length>100)continue;const host=h.parentElement;
     if(host===root||host.closest('.city,.bld,.opts,.mu-tiles')||seen.has(host))continue;seen.add(host);rows.push({h,host,title});if(rows.length>=24)break;}
@@ -47166,7 +47305,7 @@ function czTools(n,got,total){
   return `<div class="cz-tools"><div class="cz-find"><label class="cz-sr" for="cz-q">Search cosmetics and sections</label><input class="input" id="cz-q" type="search" placeholder="Search: eagle, gold, border, holiday…" value="${esc(CZ.q)}" autocomplete="off" enterkeyhint="search">
       <div class="seg cz-fil" role="group" aria-label="Show">${F.map(([k,l])=>`<button type="button" class="seg-b${CZ.f===k?' on':''}" data-act="cz-fil" data-v="${k}" aria-pressed="${CZ.f===k}">${l}</button>`).join('')}</div></div>
     <div class="cz-count"><span class="lbl">Cosmetics held</span><span class="cz-cn"><b>${got}</b> of ${total}</span><span class="bar" aria-hidden="true"><i style="width:${(got/total*100).toFixed(1)}%"></i></span></div>
-    <p class="hint cz-disp-moved">Theme, accent colour, text size and motion are in <button type="button" class="linkish" data-act="cz-show-disp">Settings, under Appearance</button>.</p></div>
+    <p class="hint cz-disp-moved">Theme, accent colour, text size and motion are in <button type="button" class="linkish" data-act="cz-show-disp">Settings, under Display</button>.</p></div>
   <div class="cz-res" id="cz-res" aria-live="polite"></div>`;
 }
 function czFilterPaint(){
@@ -47186,7 +47325,7 @@ function czFilterPaint(){
     const act=lk?(tk?`data-act="cz-try" data-k="${tk}" data-id="${esc(id)}"`:`data-act="cz-show" data-id="${esc(id)}"`):czEquip(id);
     return `<button type="button" class="cz-tile${lk?' locked':''}${on||tr?' on':''}" ${act} data-czid="${esc(id)}" aria-pressed="${!!(on||tr)}"><span class="cz-tv" aria-hidden="true">${czArt(id,n)}</span><span class="cz-tn">${lk?CZ_LOCK:''}<span>${esc(cap1(u.n))}</span>${CZ.fresh.has(id)?'<span class="cz-new">New</span>':''}${on?CZ_TICK:''}</span>${lk?`<span class="cz-how">${tr?'<b>Trying it on.</b> ':''}${esc(unlockHow(id))}</span>`:''}</button>`;};
   box.innerHTML=`<div class="cz-res-hd"><p><b>${total}</b> ${total===1?'cosmetic':'cosmetics'}${q?` match “${esc(CZ.q.trim())}”`:''}${f!=='all'?` · ${{own:'owned',locked:'locked',new:'new'}[f]}`:''}</p><button type="button" class="linkish small" data-act="cz-fil-clear">Clear the search</button></div>`
-    +(secs.length||disp?`<p class="cz-res-secs"><span class="lbl">Sections</span>${secs.map(([k,l])=>`<button type="button" class="chip-btn" data-act="cz-open" data-id="cz-sec-${k}">${esc(l)}</button>`).join('')}${disp?'<button type="button" class="chip-btn" data-act="cz-show-disp">Appearance, in Settings</button>':''}</p>`:'')
+    +(secs.length||disp?`<p class="cz-res-secs"><span class="lbl">Sections</span>${secs.map(([k,l])=>`<button type="button" class="chip-btn" data-act="cz-open" data-id="cz-sec-${k}">${esc(l)}</button>`).join('')}${disp?'<button type="button" class="chip-btn" data-act="cz-show-disp">Display, in Settings</button>':''}</p>`:'')
     +[...groups].map(([k,list])=>`<div class="cz-res-g"><h3 class="sub-h">${esc(CZ_KW[k])} <span class="hint">${list.length}</span></h3><div class="cz-grid cz-res-grid">${list.map(tileOf).join('')}</div></div>`).join('')
     +(!total&&!secs.length&&!disp?'<p class="cz-res-none">Nothing matches. Try another word, or clear the search.</p>':'');
 }
@@ -47461,8 +47600,8 @@ refreshBell=function(now){
 /* Settings: Notifications */
 function ntfSection(){
   const seg=(lab,id,opts,cur,f)=>`<div class="cz-drow"><span class="cz-dl" id="${id}">${lab}</span><div class="seg cz-seg" role="group" aria-labelledby="${id}">${opts.map(([v,l])=>`<button type="button" id="${id}-${v}" class="seg-b${String(cur)===String(v)?' on':''}" data-act="ntf" data-f="${f}" data-v="${v}" aria-pressed="${String(cur)===String(v)}">${l}</button>`).join('')}</div></div>`;
-  return `<section class="fs" id="set-notif"><h2 class="fs-l">Notifications</h2>
-    <p class="hint fs-hint">On this device. Everything still goes in the bell; these choose what pops up, and what the bell counts.</p>
+  return `<section class="sg-card" id="set-notif"><h3 class="sg-ch">In the game <span class="sg-scope">This device</span></h3>
+    <p class="hint fs-hint">Everything still goes in the bell; these choose what pops up, and what the bell counts.</p>
     <div class="cz-disp">
       ${seg('Pop-ups for achievements and finds','ntf-rw',[['auto','Quiet for the first hour'],['on','Always'],['off','Never, bell only']],NTF.rw,'rw')}
       ${seg('Pop-ups for tutorial steps','ntf-tut',[[1,'Show'],[0,'Hide']],NTF.tut,'tut')}
@@ -47472,7 +47611,6 @@ function ntfSection(){
       <div class="cz-drow"><span class="cz-dl" id="ntf-mute-l">Show in the bell</span><div class="ntf-mute" role="group" aria-labelledby="ntf-mute-l">${NTF_GROUPS.map(([k,l])=>`<label class="tog"><input type="checkbox" data-ntf-mute="${k}"${NTF.mute.includes(k)?'':' checked'}> ${esc(l)}</label>`).join('')}</div></div>
     </div><p class="hint">Messages, wars, trade offers, land credits and alliance invitations always show, and always count.</p></section>`;
 }
-settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<section class="fs" id="set-appearance">');return i<0?h+ntfSection():h.slice(0,i)+ntfSection()+h.slice(i);})(settingsView);
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="ntf"]');if(!el)return;const f=el.dataset.f,v=el.dataset.v;
   if(f==='rw'&&['auto','on','off'].includes(v))NTF.rw=v;else if(f==='tut')NTF.tut=v==='1'?1:0;else if(f==='badge')NTF.badge=v==='all'?'all':'act';else if(f==='nws')NTF.nws=v==='off'?'off':'on';else if(f==='nwc')NTF.nwc=v==='0'?0:1;else return;ntfSave();render();});
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.ntfMute;if(!k)return;NTF.mute=NTF.mute.filter(x=>x!==k);if(!e.target.checked)NTF.mute.push(k);ntfSave();refreshBell(Date.now());});
@@ -48262,9 +48400,8 @@ function mailSection(){
   else inner=`<p class="hint">Give the Herald an address and choose what you want to hear about: letters from other nations, wars, diplomacy, development news, a reminder when you are away. Nothing is sent until you confirm it, and every letter has a link to stop them.</p>
       <div class="field"><label for="ml-email">Email address</label><input class="input" id="ml-email" type="email" autocomplete="email" maxlength="200" value="${esc(ML.email||(st.email||''))}" data-ml-in="email" placeholder="you@example.com"></div>
       <p><button type="button" class="btn" data-act="mail" data-f="send"${dis}>Send me a code</button>${ML.edit?` <button type="button" class="btn ghost" data-act="mail" data-f="cancel"${dis}>Cancel</button>`:''}</p>`;
-  return `<section class="fs" id="set-mail"><h2 class="fs-l">Letters by post</h2>${inner}${note}</section>`;
+  return `<section class="sg-card" id="set-mail"><h3 class="sg-ch">Letters by post <span class="sg-scope">Your account</span></h3>${inner}${note}</section>`;
 }
-settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<section class="fs" id="set-appearance">');return i<0?h+mailSection():h.slice(0,i)+mailSection()+h.slice(i);})(settingsView);
 document.addEventListener('input',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.mlIn;if(k)ML[k]=e.target.value;});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="mail"]');if(!el)return;const f=el.dataset.f;
   if(f==='edit'){ML.edit=true;ML.err=ML.msg='';render();return;}
@@ -48371,17 +48508,16 @@ const RC_SHARE=[
 function rcSection(){
   const n=S.nation;if(OBS||!n||n.npc)return '';
   rcPoll(false);if(!RC.ok)rcApi().then(()=>{if(S.view==='settings')render();});
-  if(!RC.api||!S.uid)return `<section class="fs" id="set-social"><h2 class="fs-l">Social</h2><p class="hint">${RC.ok?'Recruiting links work when the game is online.':'Loading your recruiting link…'}</p></section>`;
+  if(!RC.api||!S.uid)return `<section class="sg-card" id="set-social"><h3 class="sg-ch">Recruit a player</h3><p class="hint">${RC.ok?'Recruiting links work when the game is online.':'Loading your recruiting link…'}</p></section>`;
   const link=rcLink(),u=encodeURIComponent(link),t=encodeURIComponent(`I rule ${n.name} in Edictum, a game of nations and edicts. Found yours through my link and we both get a bonus:`);
   const paid=rcPaid(n).length,cnt=Math.max(paid,RC.n||0);
-  return `<section class="fs" id="set-social"><h2 class="fs-l">Social</h2>
-    <p class="hint fs-hint">Recruit a player: share your own link. When someone opens it, founds a nation and links a sign-in account, you both get ${RC_GIFT} goods, ${RC_GIFT} oil, ${RC_GIFT} timber, ${RC_GIFT} iron and ${RC_LAND} land credits.</p>
+  return `<section class="sg-card" id="set-social"><h3 class="sg-ch">Recruit a player</h3>
+    <p class="hint fs-hint">Share your own link. When someone opens it, founds a nation and links a sign-in account, you both get ${RC_GIFT} goods, ${RC_GIFT} oil, ${RC_GIFT} timber, ${RC_GIFT} iron and ${RC_LAND} land credits.</p>
     <div class="field"><label for="rc-link">Your recruiting link</label><div class="rc-row"><input class="input" id="rc-link" readonly value="${esc(link)}"><button type="button" class="btn" data-act="rc-copy">${RC.copied?'Copied':'Copy link'}</button>${navigator.share?'<button type="button" class="btn ghost" data-act="rc-share">Share…</button>':''}</div></div>
     <div class="rc-share" role="group" aria-label="Share your link on">${RC_SHARE.map(([nm,f])=>`<a class="chip-btn" href="${esc(f(u,t))}" target="_blank" rel="noopener noreferrer">${nm}</a>`).join('')}</div>
     <p class="hint" role="status">${cnt?`${cnt===1?'One player has':cnt+' players have'} founded a nation through your link${paid?`, earning you ${Math.min(paid,RC_MAX)*RC_LAND} land credits so far`:''}.${cnt>=RC_MAX?` Rewards stop at ${RC_MAX} recruits; thank you for the rest.`:''}`:'No one has founded a nation through your link yet.'}${n.rcb?' You joined through another player’s link yourself.':RC.guest&&rcPending()?' You came through another player’s link: link a sign-in account from the account menu to collect the founding bonus for you both.':''}</p>
   </section>`;
 }
-settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<section class="fs" id="set-appearance">');return i<0?h+rcSection():h.slice(0,i)+rcSection()+h.slice(i);})(settingsView);
 document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='rc-link')try{e.target.select();}catch(err){}});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="rc-copy"],[data-act="rc-share"]');if(!el)return;const link=rcLink();
   if(el.dataset.act==='rc-share'){navigator.share({title:'Edictum',text:'Found a nation in Edictum through my link and we both get a bonus.',url:link}).catch(()=>{});return;}
@@ -48389,6 +48525,85 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   const fallback=()=>{const i=document.getElementById('rc-link');if(i){i.select();try{document.execCommand('copy');done();}catch(err){}}};
   try{navigator.clipboard.writeText(link).then(done,fallback);}catch(err){fallback();}
 });
+/* ───────── Settings tabs: switching, the address, jumps from elsewhere, and unsaved changes ─────────
+   Kept at the end so these wrappers sit outside every other wrapper of go, uxJump and tutGo. Switching a tab only
+   flips .sg[data-tab] (no redraw), so a half-typed draft and the scroll position stay as they are. */
+function sgHash(){if(S.view!=='settings')return;const h='#settings'+(SG.tab==='nation'?'':'/'+SG.tab);try{if(location.hash!==h)history.replaceState(history.state,'',h);}catch(e){}}
+function sgShow(t){
+  if(!SG_TABS.some(x=>x[0]===t))return;SG.tab=t;
+  const w=document.getElementById('sg');
+  if(w){w.dataset.tab=t;for(const b of w.querySelectorAll('.sg-tab')){const on=b.dataset.v===t;b.classList.toggle('on',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}
+    const r=w.querySelector('.sg-rail'),b=document.getElementById('sg-tab-'+t);if(r&&b&&r.scrollWidth>r.clientWidth+1)r.scrollLeft=Math.max(0,b.offsetLeft-(r.clientWidth-b.offsetWidth)/2);}
+  sgHash();
+}
+function sgSetTab(t,focus){
+  sgShow(t);
+  const w=document.getElementById('sg');if(w){const y=w.getBoundingClientRect().top+window.scrollY-(navNarrow()?70:sgRow()?0:24);if(window.scrollY>y)window.scrollTo({top:Math.max(0,y),left:0,behavior:'instant'});}
+  if(focus){const b=document.getElementById('sg-tab-'+t);if(b)b.focus({preventScroll:true});}
+}
+/* typing in Your nation: the preview, the culture count and the tab's own line follow the draft */
+function sgPaint(){
+  const st=S.settings,n=S.nation;if(!st||!n||S.view!=='settings')return;
+  const p=document.getElementById('sg-pv-in');if(p)p.innerHTML=sgPreview(st,n);
+  const c=document.getElementById('sg-cult-n');if(c)c.textContent=sgCultN(st)+' of 6 filled';
+  const s=document.querySelector('[data-sg-sub="nation"]');if(s)s.textContent=sgTabSub('nation',n);
+  const b=document.getElementById('sg-tab-nation');if(b)b.classList.toggle('dirty',settingsDirty());
+}
+markDirty=(f=>function(){const r=f.apply(this,arguments);sgPaint();return r;})(markDirty);
+/* on a phone the tab row sticks under the top bar, when that bar sticks */
+function sgDom(){
+  if(S.view!=='settings')return;const m=document.getElementById('main'),sd=document.querySelector('.side');
+  if(m)m.style.setProperty('--sg-top',(navNarrow()&&sd&&getComputedStyle(sd).position==='sticky'?sd.offsetHeight:0)+'px');
+}
+navAfter=(f=>function(){const r=f.apply(this,arguments);try{sgDom();}catch(e){}return r;})(navAfter);
+/* #settings/edicts and the like open that tab; the confirmation letter's link opens Notifications */
+uxHashView=(f=>function(h){if(h==='settings')SG.tab=ML_LINK?'notif':'nation';const m=/^settings\/(\w+)$/.exec(h||'');if(m&&SG_TABS.some(t=>t[0]===m[1])){SG.tab=m[1];return 'settings';}return f.apply(this,arguments);})(uxHashView);
+if(ML_LINK)SG.tab='notif';
+/* a jump to something in a closed tab opens that tab first */
+uxJump=(f=>function(target){
+  if(S.view==='settings'){const el=typeof target==='string'?document.querySelector(target):target,p=el&&el.closest&&el.closest('.sg-pane');if(p)sgShow(p.dataset.sg);}
+  return f.apply(this,arguments);})(uxJump);
+const sgRow=()=>{const r=S.view==='settings'&&document.querySelector('.sg-rail');return r&&getComputedStyle(r).flexDirection==='row'?r:null;};
+uxJumpY=(f=>function(el){const y=f.apply(this,arguments),r=sgRow();return r&&!r.contains(el)?Math.max(0,y-r.offsetHeight):y;})(uxJumpY);
+tutGo=(f=>function(v,b,to){if(v==='settings'&&to)SG.tab=sgTabOfId(to);return f.apply(this,arguments);})(tutGo);
+/* and a jump asked for from another page (search, Customise) picks the tab before the page is drawn */
+uxOpen=(f=>function(view,setup,target){if(view==='settings'&&typeof target==='string'&&target)SG.tab=sgTabOfId(target.trim().split(/[\s>]/)[0]);return f.apply(this,arguments);})(uxOpen);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-sg-tab]');if(el&&SG_TABS.some(t=>t[0]===el.dataset.sgTab))SG.tab=el.dataset.sgTab;},true);
+/* leaving Settings with Your nation half changed asks first, in the save bar. The browser's Back button is not
+   stopped (the address has already moved); the draft then waits in Settings, and the tab says so. */
+go=(f=>function(v){
+  if(S.view==='settings'&&v!=='settings'&&!SG.leaveOK&&!S.noPush&&S.nation&&settingsDirty()){
+    SG.leave={v};SG.tab='nation';render();const b=document.getElementById('sg-save');if(b)b.scrollIntoView({block:'nearest'});const k=b&&b.querySelector('.btn');if(k)k.focus({preventScroll:true});return;}
+  SG.leaveOK=false;SG.leave=null;const r=f.apply(this,arguments);if(S.view==='settings')sgHash();return r;})(go);
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
+  if(a==='sg-tab')sgSetTab(el.dataset.v,false);
+  else if(a==='sg-topics-reset')sgApply(n=>{n.topics={};});
+  else if(a==='sg-leave-go'){const v=SG.leave&&SG.leave.v;SG.leave=null;S.settings=null;if(v){SG.leaveOK=true;go(v);}else render();}
+  else if(a==='sg-leave-save'){const v=SG.leave&&SG.leave.v;SG.leave=null;if(saveSettings()&&v)go(v);}
+  else if(a==='sg-leave-stay'){SG.leave=null;render();const b=document.querySelector('#settings-form button[type="submit"]');if(b){b.scrollIntoView({block:'nearest'});b.focus({preventScroll:true});}}
+});
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='s-freq'&&S.nation){const f=parseInt(t.value,10);if(FREQS.some(x=>x[0]===f))sgApply(n=>{n.freq=f;});}});
+document.addEventListener('keydown',e=>{
+  const t=e.target;if(!t||!t.classList||!t.classList.contains('sg-tab'))return;
+  const d={ArrowDown:1,ArrowRight:1,ArrowUp:-1,ArrowLeft:-1}[e.key];if(!d&&e.key!=='Home'&&e.key!=='End')return;e.preventDefault();
+  const i=SG_TABS.findIndex(x=>x[0]===t.dataset.v),L=SG_TABS.length,j=e.key==='Home'?0:e.key==='End'?L-1:(i+d+L)%L;sgSetTab(SG_TABS[j][0],true);
+});
+/* the search knows every part of Settings */
+UX_SETTINGS.push(
+  {v:'focus:s-ruler',l:'Leader’s name and title',g:'Settings',words:'leader ruler name title president king queen head',view:'settings',target:'#s-ruler'},
+  {v:'focus:s-ptsel',l:'Type of state',g:'Settings',words:'pretitle republic kingdom empire duchy form of state',view:'settings',target:'#s-ptsel'},
+  {v:'focus:s-motto',l:'Motto, capital and citizens',g:'Settings',words:'motto capital city demonym citizens animal particulars',view:'settings',target:'#s-motto'},
+  {v:'focus:s-lang',l:'Culture: language, religion, sport, dish, anthem',g:'Settings',words:'culture language religion faith sport dish food anthem song about description',view:'settings',target:'#s-lang'},
+  {v:'focus:set-mapc',l:'Map colour',g:'Settings',words:'map colour color territory shade',view:'settings',target:'#set-mapc'},
+  {v:'focus:away-box',l:'Holiday mode',g:'Settings',words:'holiday away vacation pause break absent',view:'settings',target:'#away-box'},
+  {v:'focus:sg-topics',l:'Edict topics',g:'Settings',words:'topics subjects more fewer kinds of edict',view:'settings',target:'#sg-topics'},
+  {v:'focus:set-notif',l:'Notifications and pop-ups',g:'Settings',words:'notifications pop-ups popups toasts bell badge alerts',view:'settings',target:'#set-notif'},
+  {v:'focus:set-mail',l:'Letters by post (email)',g:'Settings',words:'email e-mail mail letters digest newsletter',view:'settings',target:'#set-mail'},
+  {v:'focus:set-social',l:'Recruit a player',g:'Settings',words:'recruit invite friend referral link share',view:'settings',target:'#set-social'},
+  {v:'focus:set-tut',l:'Show the tutorial again',g:'Settings',words:'tutorial lists restore help steps',view:'settings',target:'#set-tut'},
+  {v:'focus:set-dissolve',l:'Dissolve nation',g:'Settings',words:'dissolve delete reset start over quit',view:'settings',target:'#set-dissolve'}
+);
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

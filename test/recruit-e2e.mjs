@@ -12,7 +12,7 @@ const A = await player('recruiter');
 const uidA = await open(A); await found(A, 'Recruitland');
 
 // the Social section in Settings
-await nav(A, 'settings');
+await nav(A, 'settings'); await A.click('#sg-tab-account');
 await A.waitForSelector('#rc-link');
 const link = await A.$eval('#rc-link', i => i.value);
 check('Settings has a Social section with the player\'s own link', link === BASE.replace('127.0.0.1', '127.0.0.1') + '/?recruit=' + uidA || link.endsWith('/?recruit=' + uidA), link);
@@ -50,7 +50,7 @@ check('15 goods, oil, timber and iron for the recruiter', RES.every(r => aAfter[
 check('and 3 land credits', await credits(A) === 3);
 await A.evaluate(() => G.RC().poll(true)); await sleep(1500);
 check('polling again pays nothing more', await A.evaluate(() => G.S.nation.rcp.length) === 1 && await credits(A) === 3);
-await nav(A, 'nation'); await nav(A, 'settings');
+await nav(A, 'nation'); await nav(A, 'settings'); await A.click('#sg-tab-account');
 check('Settings counts the recruit', await until(async () => /One player has founded a nation through your link, earning you 3 land credits/.test(await text(A, '#set-social'))), await text(A, '#set-social'));
 check('Word of Mouth is earned', await until(() => A.evaluate(() => !!(G.S.nation.ach && G.S.nation.ach['dip-rc1'])), 15000));
 

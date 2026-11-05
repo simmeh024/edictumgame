@@ -162,8 +162,19 @@ tile shows it there, and a click on a locked one tries it on; neither is saved. 
 New filters list matching cosmetics from every tab. The page also shows what is new since the last visit and
 the three cosmetics closest to being earned, how many of each section are held, an Undo for this visit's
 changes and a Back to default per section. It warns before an unsaved currency is left behind. Theme, accent,
-text size, density and motion are device settings and live in Settings, under Appearance. The coat of arms
+text size, density and motion are device settings and live in Settings, under Display. The coat of arms
 has 24 charges, 10 of them free; the symbols save as each box is left.
+
+**The Settings page.** Five tabs (`SG_TABS`): Your nation (type of state, leader, particulars, culture, map
+colour), Edicts (holiday mode, pace, topics), Notifications (pop-ups and the bell on this device, letters by
+post), Display (theme, accent, text size, density, motion) and Account (sign-in, recruiting, the tutorial,
+dissolving). On a wide screen the tabs are a list down the side; below 1180px they are a row across the top
+that sticks under the top bar. Every pane is drawn and CSS shows the open one (`.sg[data-tab]`), so a jump
+from search, the tutorial or another page only picks the tab (`sgTabOfId`, and the `uxOpen`, `uxJump` and
+`tutGo` wrappers); the open tab is in the address as `#settings/<tab>`. Your nation is a draft (`S.settings`)
+with a live preview, Save and Discard, because other players see it; the tab counts unsaved changes, and
+leaving Settings with some asks first in the save bar. Everything else applies at once. The currency's name
+is set only in the Customise currency designer, and the flag only in the flag designer.
 
 **The Great Statue.** Each region's player nations build a statue together, in ten phases (`WND_PH`), on the
 Great Statue page and on the land nearest the middle of the map. Nothing is stored centrally: a nation's gifts
@@ -187,7 +198,7 @@ after the population reaches it, with a notice (a toast and the bell, from the C
 5 timber and 5 iron; `n.syu` keeps the ones given, so a nation that shrinks keeps them, and a symbol
 chosen before it had a threshold stays open.
 
-**The pace of edicts, and holiday mode.** In Settings a player chooses how often a new edict arrives:
+**The pace of edicts, and holiday mode.** In Settings › Edicts a player chooses how often a new edict arrives:
 every 30 minutes (the default), hour, 4, 8 or 12 hours, or once a day (`FREQS`; a nation saved at a
 pace no longer offered loads at 30 minutes). Holiday mode, also in Settings, stops new edicts until a
 date and time the player chooses, at most a calendar month ahead (`n.away`, `{a, b}`). The edict clock

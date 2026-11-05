@@ -232,7 +232,8 @@ try {
   await showing(B, false); await sleep(300); await showing(B, true); await sleep(4000);
   check('a page with something half written is not reloaded', await B.evaluate(() => window.__sameLoad === true));
   check('it is told a new version is out instead', /new version of Edictum is out/.test((await B.locator('.ed-toast').allTextContents()).join(' ')));
-  await nav(B, 'nation');
+  /* leaving with the motto half written asks first; this test leaves it unsaved */
+  await nav(B, 'nation'); if (await B.$('[data-act="sg-leave-go"]')) { await B.click('[data-act="sg-leave-go"]'); await sleep(250); }
   await B.evaluate(() => { const n = G.clone(G.S.nation); n.motto = 'Sent before the reload'; G.commit(n); });
   const loaded = B.waitForEvent('load', { timeout: 30000 }).then(() => true, () => false);
   await showing(B, false); await sleep(300); await showing(B, true);

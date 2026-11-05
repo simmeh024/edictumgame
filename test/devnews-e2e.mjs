@@ -138,7 +138,7 @@ check('the pinned post with a poll publishes', await until(async () => /is publi
 const pid2 = await A.evaluate(() => G.NEWS.NWE.id), d2 = (await restGet('devnews/' + pid2)).body.fields || {};
 check('the post keeps its kind, pin, poll and patch notes', d2.tg?.stringValue === 'feature' && d2.pn?.booleanValue === true && d2.pl?.mapValue?.fields?.o?.arrayValue?.values?.length === 3 && /<ul data-pn="add">/.test(d2.h?.stringValue || ''), d2.h?.stringValue);
 check('a player elsewhere in the game gets a pop-up for it', await until(async () => /New development news: “Patch 1\.1: the poll”/.test(await text(C, '#toast')), 15000));
-await go(C, 'settings'); await C.click('[data-act="ntf"][data-f="nwc"][data-v="0"]');
+await go(C, 'settings'); await C.click('#sg-tab-notif'); await C.click('[data-act="ntf"][data-f="nwc"][data-v="0"]');
 const G_unread = await C.evaluate(() => G.NEWS.nwUnread());
 check('with the count turned off the menu shows none', await until(async () => await badge(C) === '') && G_unread > 0);
 await C.click('[data-act="ntf"][data-f="nwc"][data-v="1"]');
