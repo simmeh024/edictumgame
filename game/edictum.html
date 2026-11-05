@@ -35282,6 +35282,9 @@ document.addEventListener('input',e=>{
 function fgChange(el){const sc=el.dataset.scope,tgt=fgTarget(sc);FG.drag='';if(tgt)fgCanon(tgt);fgDone(sc);}
 /* open groups stay open across redraws */
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.fgg)FG.open[d.dataset.fgg]=d.open;},true);
+/* the toggle event comes a moment after the click: a redraw in between (a save from another device) would replace the
+   section before it fires, so the click records the new state at once */
+document.addEventListener('click',e=>{const sm=e.target.closest&&e.target.closest('summary');const d=sm&&sm.parentElement;if(!d||d.tagName!=='DETAILS'||sm!==d.querySelector(':scope>summary'))return;if(d.dataset.fgg)FG.open[d.dataset.fgg]=!d.open;if(d.closest('#main')&&S.nation&&!UXP.ignoreDetails){UXP.data.folds[uxDetailKey(d)]=d.open;uxPersist();}},true);
 
 /* ── independent flag layers: bounded vector shapes, shared by all flag scopes ── */
 const FGL_MAX=8,FGL_KINDS={emblem:'Emblem',stripe:'Stripe',border:'Border',disc:'Disc'};
