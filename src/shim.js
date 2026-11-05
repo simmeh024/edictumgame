@@ -1204,6 +1204,13 @@
     if (!d.open) { try { d.showModal(); } catch (e) { d.setAttribute('open', ''); } }
     focusFirst();
   }
+  /* the game's Settings › Account › Danger zone opens the panel at its delete step; where that step is not offered
+     (offline, no nation) the panel opens as usual */
+  E.openAccount = function (view) {
+    if (!ui.box) return false;
+    open(view === 'delete' && who().kind !== 'local' && localNation() ? 'delete' : 'main');
+    return true;
+  };
   function focusFirst() { var f = ui.inn && ui.inn.querySelector('[data-autofocus]'); if (f) try { f.focus(); } catch (e) {} }
   function setMsg(m, err) { if (!ui.msg) return; ui.msg.textContent = m || ''; ui.msg.classList.toggle('ed-err', !!err); }
   function setBusy(m) {

@@ -176,6 +176,15 @@ with a live preview, Save and Discard, because other players see it; the tab cou
 leaving Settings with some asks first in the save bar. Everything else applies at once. The currency's name
 is set only in the Customise currency designer, and the flag only in the flag designer.
 
+**The danger zone.** Account ends with a red-bordered box (`sgDanger`), one row per thing that cannot be
+undone. Start over and Dissolve nation ask for the nation's name to be typed before their last button works.
+Start over dissolves the nation and opens the founding page with its name and particulars filled in; what
+`SG_CARRY` lists (leader's name, culture, factbook, map colour, Customise choices, currency design, edict pace
+and topics) waits in localStorage (`edictum.restart`) and goes onto the new nation when the same name is
+founded again. Founding waits until the old record is deleted (`S.dissolving`). Delete nation and account
+opens the account panel at its own delete step (`__edictum.openAccount('delete')` in `src/shim.js`), shown only
+when there is an online account to delete.
+
 **The Great Statue.** Each region's player nations build a statue together, in ten phases (`WND_PH`), on the
 Great Statue page and on the land nearest the middle of the map. Nothing is stored centrally: a nation's gifts
 sit in its own record (`n.wnd`, region, amounts, highest phase seen complete), and the statue is their sum.

@@ -1,13 +1,13 @@
 // Settings in five tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
 // the address; a jump from elsewhere opens the right tab; leaving with unsaved changes asks first; a phone gets a row of
 // tabs that sticks under the top bar (emulators).
-import { OUT, check, finish, sleep, until, player, open, found, nav, text, localNation, errors, clearEmulators } from './lib.mjs';
+import { OUT, check, finish, sleep, until, player, open, found, nav, text, localNation, nationDoc, errors, clearEmulators } from './lib.mjs';
 await clearEmulators();
 const shown = (p, sel) => p.locator(sel).isVisible();
 const tab = p => p.evaluate(() => document.getElementById('sg')?.dataset.tab || '');
 /* the guest recovery dialog takes focus when it opens, so it is acknowledged first */
 const A = await player('settings desktop', { recovery: true, vp: { width: 1366, height: 900 } });
-await open(A); await found(A, 'Tabularia');
+const uidA = await open(A); await found(A, 'Tabularia');
 await A.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await A.click('[data-ed="recovery-saved"]');
 
 // the page: five tabs, one pane at a time, Your nation first
@@ -82,9 +82,36 @@ await A.click('#sg-tab-nation'); await A.click('[data-act="go"][data-cu-jump]');
 check('the currency link opens the Money tab of Customise', await A.evaluate(() => G.S.view) === 'customise' && await shown(A, '#cz-sec-c'));
 await nav(A, 'settings'); await A.click('#sg-tab-account');
 check('Account has sign-in, recruiting, the tutorial and dissolving', await shown(A, '[data-act="acct-open"]') && await shown(A, '#set-social') && await shown(A, '#set-tut') && await shown(A, '[data-act="dissolve-ask"]'));
+check('the danger zone is a red box headed Danger zone', /^Danger zone$/.test(await text(A, '#set-danger .dz-h')) && await A.$eval('#set-danger', s => { const b = getComputedStyle(s.querySelector('.dz-box')), h = getComputedStyle(s.querySelector('.dz-h')); return b.borderTopStyle === 'solid' && parseFloat(b.borderTopWidth) >= 1 && b.borderTopColor === h.color; }));
+check('the danger zone has Start over, Dissolve and Delete nation and account', JSON.stringify(await A.$$eval('#set-danger .dz-t', e => e.map(x => x.textContent))) === JSON.stringify(['Start over', 'Dissolve nation', 'Delete nation and account']));
+await A.click('[data-act="dissolve-ask"]');
+check('dissolving asks once more, inside the box', /Dissolve Tabularia for good\?/.test(await text(A, '#set-dissolve .dz-sure')) && await shown(A, '[data-act="dissolve-confirm"]') && await A.$eval('#set-dissolve', e => e.classList.contains('dz-on')));
+check('with the name to type, and the last button off until then', await A.evaluate(() => document.activeElement?.id) === 'dz-type' && await A.$eval('#dz-go', b => b.disabled));
+await A.fill('#dz-type', 'Tabulari');
+check('a wrong name keeps it off', await A.$eval('#dz-go', b => b.disabled));
+await A.fill('#dz-type', 'tabularia ');
+check('the name in any case turns it on', await A.$eval('#dz-go', b => !b.disabled));
+await A.click('[data-act="dissolve-cancel"]');
+check('and Keep my nation backs out', !await A.$('[data-act="dissolve-confirm"]') && (await localNation(A))?.name === 'Tabularia');
+await A.click('[data-act="acct-delete"]'); await A.waitForSelector('dialog.ed-dlg[open]');
+check('Delete opens the account panel at its own delete step', /Delete your nation and account\?/.test(await text(A, 'dialog.ed-dlg[open]')));
+await A.keyboard.press('Escape'); await sleep(300);
+check('and closing it deletes nothing', !await A.$('dialog.ed-dlg[open]') && (await localNation(A))?.name === 'Tabularia');
 await A.click('#sg-tab-account'); await A.keyboard.press('ArrowUp');
 check('arrow keys move between tabs', await tab(A) === 'display' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-display');
 await A.screenshot({ path: OUT + '/settings-display-1366.png' });
+
+// Start over: the founding page with the same name, the culture, look and edict settings carried, the rest afresh
+await A.click('#sg-tab-account'); const old = await localNation(A);
+await A.click('[data-act="restart-ask"]'); await A.fill('#dz-type', 'Tabularia');
+await A.locator('#set-danger').screenshot({ path: OUT + '/settings-danger-1366.png' });
+await A.click('#dz-go'); await A.waitForSelector('#found-btn');
+check('Start over opens the founding page with the name filled in and says what comes along', await A.inputValue('#d-name') === 'Tabularia' && /Starting over as Tabularia/.test(await text(A, '.sg-rs')) && !await localNation(A));
+check('the old record is cleared from the region first', await until(async () => !(await nationDoc(uidA)) && await A.evaluate(() => !G.S.dissolving), 15000));
+await A.click('#found-btn');
+check('founded again, it keeps the culture, look and edict pace, and starts the rest afresh', await until(async () => { const n = await localNation(A); return n && n.name === 'Tabularia' && n.lang === 'Tabular' && n.mapc === '#3A8FD1' && n.ruler === 'Ada Brook' && n.freq === 240 && n.founded > old.founded && !(n.answered || []).length; }), JSON.stringify(await localNation(A))?.slice(0, 300));
+check('and the region has the new nation', await until(async () => { const d = await nationDoc(uidA); return !!d && d.name === 'Tabularia' && d.rec && d.rec.founded > old.founded && d.rec.lang === 'Tabular'; }, 20000));
+check('nothing is left waiting to be carried', await A.evaluate(() => !localStorage.getItem('edictum.restart')));
 await A.ctx.close();
 
 // a phone: a row of tabs under the top bar, and nothing wider than the screen
