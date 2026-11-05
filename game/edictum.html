@@ -36818,6 +36818,10 @@ const SAVE_GAP=Math.max(1500,Number(window.EDICTUM_SAVE_GAP)||60000),SAVE_MIN=15
    time would incorrectly make the first write wait the entire background-save interval. */
 let remoteBusy=false,remoteDirty=false,remoteTimer=0,remoteLast=-SAVE_GAP,remoteSoon=false,commitNo=0;
 let ownSyncBusy=false,ownLatest=null,conflictPending=false;
+/* carried: this page's copy holds changes from an earlier visit that no save has carried yet, which rebaseActs cannot
+   replay (they are not in ownActs); conflictCopy: the time of the copy keepUnsaved set aside for the conflict being
+   settled; goneFounded: the founding time of a nation dissolved here, whose record a read may still return */
+let carried=false,conflictCopy=0,goneFounded=0;
 let saveChecked=false,saveFailed=false,saveError='',saveConflicts=0;
 /* A save that has not finished within SAVE_LIMIT counts as failed (a stalled connection otherwise leaves every later
    save waiting behind it). Failed saves are tried again after SAVE_RETRY steps rather than the next SAVE_GAP, and
@@ -36898,7 +36902,7 @@ function actRead(n){
 function rebaseActs(remote){
   const mine=sentLog.find(x=>x.t===remote.updatedAt);
   if(mine){ownActs=ownActs.filter(a=>a.c>mine.c);if(ownActsBroken&&ownActsBroken<=mine.c)ownActsBroken=0;}
-  if(ownActsBroken)return null;
+  if(ownActsBroken||carried)return null;
   if(!ownActs.length)return {n:remote,acts:0,mine:!!mine};
   const m=clone(remote),now=Date.now();let st=null,clash=0;
   /* each action applies whole or not at all, its cost included: tried on a copy, it is left out when any of its
@@ -36927,7 +36931,21 @@ function publishSync(){
 }
 const saveRev=n=>n&&Number.isSafeInteger(n._rev)?n._rev:0;
 const savedAfter=(a,b)=>!!a&&(!b||saveRev(a)>saveRev(b)||(saveRev(a)===0&&saveRev(b)===0&&a.updatedAt>b.updatedAt));
-function keepUnsaved(n){if(OBS)return false;try{localStorage.setItem('edictum.unsaved.'+S.uid,JSON.stringify({at:Date.now(),nation:n}));return true;}catch(e){return false;}}
+/* Copies of this device's changes that a save conflict set aside (the account menu downloads them), newest first,
+   UNSAVED_KEEP of them: a later conflict adds its copy rather than replacing one the player may not have looked at.
+   Stored as {at, nation, prev: [older copies]}. keepUnsaved returns the new copy's time (0 when none could be kept),
+   which unsavedDrop takes away again once the conflict settled without needing it. */
+const UNSAVED_KEEP=3,unsavedKey=()=>'edictum.unsaved.'+S.uid;
+function unsavedCopies(){try{const o=JSON.parse(localStorage.getItem(unsavedKey())||'null');if(!o||!o.nation)return [];return [{at:o.at,nation:o.nation}].concat(Array.isArray(o.prev)?o.prev.filter(c=>c&&c.nation):[]);}catch(e){return [];}}
+function unsavedWrite(list){try{if(!list.length)localStorage.removeItem(unsavedKey());else localStorage.setItem(unsavedKey(),JSON.stringify(Object.assign({at:list[0].at,nation:list[0].nation},list.length>1?{prev:list.slice(1)}:{})));return true;}catch(e){return false;}}
+function keepUnsaved(n){
+  if(OBS||!n)return 0;
+  const at=Date.now(),j=JSON.stringify(n),list=[{at,nation:n},...unsavedCopies().filter(c=>JSON.stringify(c.nation)!==j)];
+  /* with the browser's storage full, fewer copies: the newest first */
+  for(let k=Math.min(UNSAVED_KEEP,list.length);k>0;k--)if(unsavedWrite(list.slice(0,k)))return at;
+  return 0;
+}
+function unsavedDrop(at){if(at)unsavedWrite(unsavedCopies().filter(c=>c.at!==at));}
 function useSavedNation(n){
   if(OBS)return;
   if(n.reg&&n.reg!==REG.id&&REG_BY_ID[n.reg]){regionReload(n);return;}
@@ -36941,24 +36959,46 @@ async function syncOwnNation(force=false){
   ownSyncBusy=true;const before=commitNo;
   try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
     saveChecked=true;saveFailed=false;
-    /* refused as another device's save, yet this account holds no nation: a copy of another account's (src/shim.js, strayCopy) */
-    if(!n){if(conflictPending&&window.__edictum&&typeof window.__edictum.strayCopy==='function')window.__edictum.strayCopy();return;}
+    /* refused as another device's save, yet this account holds no nation (ownGone) */
+    if(!n){if(conflictPending)await ownGone();return;}
+    /* the record of a nation dissolved here, read before its deletion reached the server, is not taken up again */
+    if(S.dissolving||goneFounded&&n.founded===goneFounded)return;
     ownLatest=n;
     if(!conflictPending&&(remoteBusy||remoteDirty||before!==commitNo))return;
     if(conflictPending||savedAfter(n,S.nation)){
-      if(conflictPending){conflictPending=false;
+      /* changes here that no save carries (refused, or not yet sent: an earlier visit's, after a first read that
+         failed) are replayed onto the newer save, or kept as a copy and the player told: never dropped unseen */
+      if(conflictPending||S.nation&&S.nation._dirty){conflictPending=false;
         const r=n.reg&&n.reg!==REG.id?null:rebaseActs(n);
-        if(r){if(!r.clash)try{localStorage.removeItem('edictum.unsaved.'+S.uid);}catch(e){}
+        if(r){if(!r.clash)unsavedDrop(conflictCopy);conflictCopy=0;
           ownActs=[];ownActsBroken=0;S.nation=n;saveLocal(n);
           if(r.acts){commit(r.n);remoteLast=Math.max(remoteLast,performance.now());saveSoon();if(!r.mine)toast('Your nation was also saved on another device. Your changes here were added to that save.'+(r.clash?' Where both devices changed the same thing, the other device’s choice was kept; a copy of this device’s version is in your account menu.':''));}
           else render();
           return;}
-        const kept=keepUnsaved(S.nation);
+        const kept=conflictCopy||keepUnsaved(S.nation);conflictCopy=0;carried=false;
         toast('Another device saved your nation. The latest save has been loaded. Please repeat your unsaved changes.'+(kept?' A copy of them is available in your account menu.':''));}
       useSavedNation(n);
     }
   }catch(e){saveFailed=true;/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
   finally{ownSyncBusy=false;publishSync();}
+}
+/* A save was refused and the server holds no record for this account: the nation was dissolved on another device (or
+   a moderator removed it). This page follows, with its copy in the account menu, instead of saying Saving for good
+   and refusing to sign out. A copy that belongs to another account goes to that account (src/shim.js, strayCopy);
+   while that is not known yet, nothing changes, and the next save or return to the tab asks again. */
+async function ownGone(){
+  let r='none';try{const sc=window.__edictum&&window.__edictum.strayCopy;if(typeof sc==='function')r=String(await sc()||'');}catch(e){r='';}
+  if(r!=='none'||!conflictPending)return;
+  conflictPending=false;remoteDirty=false;clearTimeout(remoteTimer);remoteTimer=0;
+  ownActs=[];ownActsBroken=0;carried=false;ownLatest=null;
+  const n=S.nation,m=S.mod&&S.mod[S.uid];
+  if(!n){conflictCopy=0;publishSync();return;}
+  goneFounded=n.founded||0;
+  if(m&&m.removed&&(n.founded||0)<m.removed){conflictCopy=0;modRemoved(m);publishSync();return;}
+  const kept=conflictCopy||keepUnsaved(n);conflictCopy=0;
+  S.nation=null;saveLocal(null);S.view='nation';S.draft=newDraft();S.openIssue=null;S.result=null;S.settings=null;
+  render();publishSync();
+  toast(`${n.name} is no longer saved: it was dissolved on another device. You can found a new nation.${kept?' A copy of the old one is in your account menu.':''}`);
 }
 function commit(n){if(OBS||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
@@ -37038,7 +37078,7 @@ async function writeRemote(){
   sentLog.push({t:sent.updatedAt,c:sentC});if(sentLog.length>20)sentLog.shift();
   /* a save past SAVE_LIMIT is given up on here, yet may still land: its revision is then taken up as below, and a
      later save it races is refused and replayed onto it (rebaseActs, sentLog) */
-  const landed=result=>{ownActs=ownActs.filter(a=>a.c>sentC);if(ownActsBroken&&ownActsBroken<=sentC)ownActsBroken=0;
+  const landed=result=>{ownActs=ownActs.filter(a=>a.c>sentC);if(ownActsBroken&&ownActsBroken<=sentC)ownActsBroken=0;carried=false;
     if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
   const send=async()=>{const p=ref.set(sent);p.then(landed,()=>{});
     const result=await saveWithin(p,SAVE_LIMIT);saveChecked=true;saveFailed=false;saveError='';saveStreak=0;
@@ -37050,7 +37090,7 @@ async function writeRemote(){
     saveFailed=true;saveError=String(e&&e.code||'unknown').slice(0,64);publishSync();
     if(e&&e.code==='region_disabled'){remoteDirty=true;regionControls();return;}
     if(e&&e.code==='unavailable'){await sleep(1500+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
-    if(e&&e.code==='save_conflict'){saveConflicts++;saveFailed=false;keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
+    if(e&&e.code==='save_conflict'){saveConflicts++;saveFailed=false;conflictCopy=keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
     saveFailed=true;
     const code=e&&e.code;
     /* a refusal from the rules can be passing (paced: one save a second, so a retry or a replayed save just after
@@ -38167,8 +38207,11 @@ async function connect(){
     if(remote&&(!S.nation||savedAfter(remote,S.nation)||saveRev(remote)===saveRev(S.nation)&&!S.nation._dirty&&remote.updatedAt>=S.nation.updatedAt)){
       if(S.nation&&S.nation._dirty){keepUnsaved(S.nation);toast('Another device saved your nation while you were away. The latest save has been loaded. Your unsaved copy is in your account menu.');}
       S.nation=remote;saveLocal(remote);}
-    else if(S.nation&&S.mode==='world')queueRemote();
-  }catch(e){saveFailed=true;}
+    else if(S.nation&&S.mode==='world'){carried=!!S.nation._dirty;queueRemote();}
+  }catch(e){saveFailed=true;
+    /* the first read failed: an earlier visit's unsent changes still go, and a newer save read later does not
+       silently replace them (syncOwnNation) */
+    if(S.nation&&S.nation._dirty){carried=true;if(S.mode==='world')queueRemote();}}
   publishSync();
   civicRefresh();
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
@@ -39730,6 +39773,8 @@ function sgApply(fn){
 }
 async function dissolve(draft){
   const uid=S.uid,db=S.db,world=S.mode==='world',again=!!(draft&&draft.name);
+  /* a save still on its way, or a read made before the deletion reaches the server, must not bring it back (syncOwnNation) */
+  goneFounded=S.nation&&S.nation.founded||0;ownLatest=null;conflictPending=false;carried=false;ownActs=[];ownActsBroken=0;
   S.nation=null;saveLocal(null);S.confirmDissolve=false;S.result=null;S.openIssue=null;S.view='nation';S.draft=again?draft:newDraft();S.settings=null;
   if(again)draftKeep();
   render();window.scrollTo(0,0);toast(again?`Starting over: answer the founding questions and found ${draft.name} again.`:'Your nation has been dissolved. You can found a new one.');

@@ -955,25 +955,34 @@
      sign-in left such copies under a new guest, where they never save and show as a second nation. The account
      they belong to holds the nation of the same name and founding; the copy is kept for it, as guard() does now. */
   var strayAt = 0; /* every refused save asks: look at most every 5 minutes */
+  /* → 'left' (the copy went to its account, and the page reloads), 'none' (no other account holds it: the game then
+     takes the nation as dissolved, game/edictum.html ownGone) or '' (not known: this account has a record again, the
+     check failed, or one is under way); the answer stands for 5 minutes */
+  var strayLast = '';
   E.strayCopy = async function () {
     var u = A.auth && A.auth.currentUser, n = localNation();
-    if (Date.now() - strayAt < 300000 || A.leaving || !u || u.uid !== A.uid || !n || !revision(n) || !num(n.founded)) return;
-    strayAt = Date.now();
+    if (A.leaving) return 'left';
+    if (Date.now() - strayAt < 300000) return strayLast;
+    if (!u || u.uid !== A.uid) return '';
+    if (!n || !revision(n) || !num(n.founded)) return 'none';
+    strayAt = Date.now(); strayLast = '';
     try {
-      if ((await within(A.fs.doc('nations/' + u.uid).get(), 8000)).exists) return;
+      if ((await within(A.fs.doc('nations/' + u.uid).get(), 8000)).exists) { strayAt = 0; return ''; }
       var qs = await within(A.fs.collection('nations').where('name', '==', str(n.name, 80)).get(), 15000), own = null;
       qs.docs.forEach(function (d) {
         var x = d.id !== u.uid ? decode(d.ref.path, d.data()) : null;
         if (!own && isObj(x) && x.founded === n.founded) own = { id: d.id, rec: x };
       });
-      if (!own || A.leaving) return;
+      if (A.leaving) return 'left';
+      if (!own) { strayLast = 'none'; return 'none'; }
       /* the same revision, saved later than this copy's last change: then the account's record wins, and this
          copy is offered in the account menu instead */
       if (revision(own.rec) === revision(n) && num(own.rec.updatedAt) > num(n.updatedAt)) { n._rev = 0; L.set(LS_NATION, JSON.stringify(n)); }
       L.set('edictum.unsaved.' + u.uid, null); /* the refused saves' copies of it, older than the one kept */
       park(own.id);
       leave({ nation: null, uid: u.uid }, signedOut(n.name));
-    } catch (e) { /* asked again by a later refused save */ }
+      strayLast = 'left'; return 'left';
+    } catch (e) { strayAt = 0; return ''; /* asked again by a later refused save */ }
   };
   async function boot() {
     var fb = window.firebase;
