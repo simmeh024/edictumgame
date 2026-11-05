@@ -104,6 +104,23 @@ await B.keyboard.press('Escape');
 await edit(B, 'Phone can save again'); await saved(B);
 check('the conflicted device can save a subsequent action', await motto() === 'Phone can save again');
 
+// A refused save is replayed onto the other device's save: different changes are both kept.
+await B.ctx.setOffline(true);
+await nav(B, 'settings'); await B.fill('#s-about', 'Written on the phone');
+await B.click('#settings-form button[type="submit"]');
+await sleep(2500);
+await edit(A, 'Desktop motto, phone about'); await saved(A);
+const beforeMerge = await rev();
+await B.evaluate(uid => localStorage.removeItem('edictum.unsaved.' + uid), uid);
+await B.ctx.setOffline(false);
+await B.evaluate(() => window.dispatchEvent(new Event('online')));
+const merged = async () => { const r = (await nationDoc(uid)).rec; return r.motto === 'Desktop motto, phone about' && r.about === 'Written on the phone'; };
+check('a refused save keeps both devices’ different changes', await until(merged, 20000), JSON.stringify((await nationDoc(uid)).rec.about));
+check('the replayed save is one new revision', await rev() === beforeMerge + 1);
+check('the desktop receives the replayed change', await until(async () => (await localNation(A)).about === 'Written on the phone', 15000));
+check('nothing needed keeping aside after a clean replay', await B.evaluate(uid => localStorage.getItem('edictum.unsaved.' + uid), uid) === null);
+await saved(B);
+
 // Failed saves remain pending and retry automatically without needing another gameplay action.
 await B.ctx.setOffline(true);
 await edit(B, 'Retry after reconnect'); await sleep(2500);
