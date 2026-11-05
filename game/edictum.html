@@ -36562,7 +36562,7 @@ function queueRemote(player){
   remoteDirty=true;
   publishSync();
   if(remoteBusy)return;
-  const gap=saveStreak?SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1]:player?SAVE_ACT:SAVE_GAP,due=remoteLast+gap;
+  const gap=saveStreak?SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1]:player?Math.min(SAVE_ACT,SAVE_GAP):SAVE_GAP,due=remoteLast+gap;
   if(remoteTimer&&remoteDue<=due)return;
   clearTimeout(remoteTimer);remoteDue=due;remoteTimer=setTimeout(flushRemote,Math.max(0,due-performance.now()));
 }
@@ -36572,6 +36572,8 @@ async function flushRemote(){
   if(regBlocked()||!RCTRL.ready){publishSync();return;}
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
+  /* offline, nothing is sent: the online event (resumeNation) sends the pending save */
+  if(navigator.onLine===false){publishSync();return;}
   remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=performance.now();
   publishSync();
   try{await writeRemote();}finally{remoteBusy=false;publishSync();}
@@ -36605,6 +36607,8 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 window.addEventListener('pagehide',()=>{flushNow();});
 function resumeNation(e){
   if(S.mode!=='world'){publishSync();return;}
+  /* offline, neither a save nor a read can reach the server: the online event comes back here */
+  if(navigator.onLine===false){publishSync();return;}
   if(e&&e.type==='online'){saveChecked=false;saveFailed=false;saveStreak=0;publishSync();}
   if(remoteDirty){clearTimeout(remoteTimer);remoteTimer=0;flushRemote();}else syncOwnNation(true);
 }
