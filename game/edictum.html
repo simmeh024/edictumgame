@@ -36501,21 +36501,22 @@ function actDiff(a,b,path,out,depth){
   out.push({p:path,v:actClone(b),o:actClone(a)});
 }
 function actAt(root,path){let o=root;for(const seg of path){if(o==null||typeof o!=='object')return undefined;o=actPlain(seg)?(Array.isArray(o)?o.find(x=>x&&x.id===seg.id):undefined):o[seg];}return o;}
+/* one change of an action applied to n; false when it no longer fits there (a clash): the other save changed the same
+   value, already holds what this adds, no longer holds what this removes or edits, or lacks where it goes */
 function actApply(n,op){
   if(op.add!==undefined||op.del){
     let arr=actAt(n,op.p);
     if(!Array.isArray(arr)){
       const last=op.p[op.p.length-1],par=actAt(n,op.p.slice(0,-1));
-      if(op.add===undefined||!actPlain(par)||actPlain(last)||arr!==undefined)return;
+      if(op.add===undefined||!actPlain(par)||actPlain(last)||arr!==undefined)return false;
       arr=par[last]=[];}
-    if(op.del){const i=op.del.id!==undefined?arr.findIndex(x=>x&&x.id===op.del.id):arr.findIndex(x=>actKey(x)===op.del.k);if(i>=0)arr.splice(i,1);}
-    else if(op.id?!arr.some(x=>x&&x.id===op.add.id):!arr.some(x=>actKey(x)===actKey(op.add)))arr.push(actClone(op.add));
-    return;}
+    if(op.del){const i=op.del.id!==undefined?arr.findIndex(x=>x&&x.id===op.del.id):arr.findIndex(x=>actKey(x)===op.del.k);if(i<0)return false;arr.splice(i,1);return true;}
+    if(op.id?arr.some(x=>x&&x.id===op.add.id):arr.some(x=>actKey(x)===actKey(op.add)))return false;
+    arr.push(actClone(op.add));return true;}
   const last=op.p[op.p.length-1],par=actAt(n,op.p.slice(0,-1));
-  if(par==null||typeof par!=='object')return true;
-  /* a value the other save changed as well keeps the other save's: a clash */
+  if(par==null||typeof par!=='object')return false;
   if(actKey(actAt(n,op.p))!==actKey(op.o))return false;
-  if(actPlain(last)){if(Array.isArray(par)){const i=par.findIndex(x=>x&&x.id===last.id);if(i>=0){if(op.d)par.splice(i,1);else par[i]=actClone(op.v);}}return true;}
+  if(actPlain(last)){if(!Array.isArray(par))return false;const i=par.findIndex(x=>x&&x.id===last.id);if(i<0)return false;if(op.d)par.splice(i,1);else par[i]=actClone(op.v);return true;}
   if(op.d)delete par[last];else par[last]=actClone(op.v);
   return true;
 }
@@ -36540,13 +36541,21 @@ function rebaseActs(remote){
   if(ownActsBroken)return null;
   if(!ownActs.length)return {n:remote,acts:0,mine:!!mine};
   const m=clone(remote),now=Date.now();let st=null,clash=0;
+  /* each action applies whole or not at all, its cost included: tried on a copy, it is left out when any of its
+     changes clashes or its resources would run short; a later action built on one left out then clashes too */
+  let cur=m;
   try{
-    for(const a of ownActs){for(const op of a.ops)if(actApply(m,op)===false)clash++;
-      if(a.ds){st=st||stockNow(remote,now);for(const r in a.ds)st[r]=num0(st[r])+a.ds[r];}}
+    for(const a of ownActs){
+      const t=clone(cur);let ok=a.ops.every(op=>actApply(t,op));
+      let st2=st;
+      if(ok&&a.ds){st2={...(st||stockNow(remote,now))};for(const r in a.ds)st2[r]=num0(st2[r])+a.ds[r];if(RES.some(r=>num0(st2[r])<-0.01))ok=false;}
+      if(!ok){clash++;continue;}
+      cur=t;st=st2;}
   }catch(e){return null;}
-  if(st){if(RES.some(r=>num0(st[r])<-0.01))return null;m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;}
-  else if(actKey(m)===actKey(remote))return clash?null:{n:remote,acts:0,mine:!!mine};
-  return {n:m,acts:ownActs.length,mine:!!mine,clash};
+  const m2=cur;
+  if(st){m2.stock=roundStock(st);m2.stockAt=now;m2._stockSet=true;}
+  else if(actKey(m2)===actKey(remote))return clash?null:{n:remote,acts:0,mine:!!mine};
+  return {n:m2,acts:ownActs.length-clash,mine:!!mine,clash};
 }
 /* The account control lives in the Firebase adapter. Publish actual save state, including the queue,
    so a connected browser never says Synced while its latest changes are still waiting to be sent. */
