@@ -176,6 +176,8 @@
   /* The own half: what nobody but the player may read, not even on opening the nation's pages: the letters (dm),
      which reach the nations they are written to as letters/ documents (lettersApi) */
   var OWN_KEYS = { dm: 1 };
+  /* the menu as its player arranged it (Settings › Navigation, n.nav) is for the private half too */
+  NX_KEYS.nav = 1;
   function splitNation(d) {
     var pub = {}, ext = {}, own = {};
     Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (OWN_KEYS[k] ? own : NX_KEYS[k] ? ext : pub)[k] = d[k]; });
