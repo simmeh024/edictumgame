@@ -392,8 +392,26 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .sg #away-box{margin:0 0 22px}
 .sg .topic-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));column-gap:28px;border-bottom:1px solid var(--rule)}
 .sg .topic-row:last-child{border-bottom:0}
-.sg .danger-zone{margin-top:8px}
-.sg .danger-zone .sg-ch{color:var(--down)}
+.sg .danger-zone{margin-top:8px;padding-top:20px;border-top:1px solid var(--rule)}
+.sg .danger-zone .dz-h{color:var(--down);margin-bottom:6px}
+.sg .danger-zone p.fs-hint{margin:0 0 14px}
+/* the danger zone: a red box, one row per thing that cannot be undone */
+.dz-box{border:1.5px solid var(--down);border-radius:6px;overflow:hidden}
+.dz-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding:16px 18px}
+.dz-row+.dz-row{border-top:1px solid var(--down)}
+.dz-row.dz-on{background:var(--down-soft)}
+.dz-txt{flex:1 1 300px;min-width:0}
+.sg .danger-zone .dz-t{margin:0 0 4px;font-weight:650;font-size:15px;color:var(--ink)}
+.sg .danger-zone .dz-d{margin:0;font-size:14px;color:var(--ink-2);max-width:62ch}
+.dz-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.sg .danger-zone .dz-sure{flex-basis:100%;margin:0;max-width:none;font-weight:650;color:var(--down)}
+.dz-confirm{flex:1 1 100%;flex-direction:column;align-items:flex-start;gap:8px}
+.dz-lbl{font-size:13.5px;color:var(--ink-2)}
+.dz-type{max-width:340px;width:100%}
+.dz-btns{display:flex;flex-wrap:wrap;gap:8px 10px}
+.dz-btns .btn[disabled]{opacity:.45;cursor:not-allowed}
+.sg-rs{max-width:none;margin:16px 0 0}
+@media (max-width:560px){.dz-row{padding:14px}.dz-acts,.dz-acts .btn,.dz-btns,.dz-type{width:100%;max-width:none}}
 /* below 1180px the tabs become a row across the top, which scrolls sideways on a phone */
 @media (max-width:1179px){
   .sg{display:block}
@@ -38665,7 +38683,7 @@ function foundView(){
   const d=S.draft,{s}=foundStats(d.answers),cat=classify(s);
   return `<div class="found">
     <header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator · Region of ${REGION}</span></header>
-    <div class="hm-top"><div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>
+    ${sgRestartNote(d)}<div class="hm-top"><div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>
       <p class="lede">${esc(HOME_LEDE)}</p>${homeFeats()}<p class="found-how">New to Edictum? <button type="button" class="linkish" data-act="found-help">Read how to play</button></p></div>
       <section class="hm-try edict" id="hm-try" aria-labelledby="hm-try-h">${homeTryHTML()}</section></div>
     ${foundRegionBox()}<div class="found-grid">
@@ -38710,7 +38728,7 @@ function sgTabOfId(id){
   if(/^(s-freq|away-|tp-|sg-topics|set-edicts)/.test(id))return 'edicts';
   if(/^(set-notif|ntf-|set-mail|ml-)/.test(id))return 'notif';
   if(/^(set-appearance|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
-  if(/^(set-acct|set-social|rc-|set-tut|set-dissolve)/.test(id))return 'account';
+  if(/^(set-acct|set-social|rc-|set-tut|set-danger|set-dissolve|set-restart|set-delete|dz-)/.test(id))return 'account';
   return 'nation';
 }
 function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,animal:n.animal,demonym:n.demonym,
@@ -38812,12 +38830,50 @@ function settingsView(){
     ${OBS?'':`<section class="sg-card" id="set-acct"><h3 class="sg-ch">Sign-in</h3><p class="hint fs-hint">How you sign in, the accounts linked to ${esc(n.name)}, your recovery key and signing out are in the account panel.</p><button type="button" class="btn ghost" data-act="acct-open">Open the account panel</button></section>`}
     ${rcSection()}
     <section class="sg-card" id="set-tut"><h3 class="sg-ch">Tutorial</h3>${stepsReset()||`<p class="hint">Every tutorial list you have not finished is on your Nation page. <button type="button" class="linkish small" data-act="go" data-v="help">How to play</button></p>`}</section>
-    <section class="danger-zone" id="set-dissolve"><h3 class="sg-ch">Dissolve nation</h3>
-      <p>Dissolving erases ${esc(theName(n))}, its census history and its legislation${S.mode==='world'?', and removes it and its messages from '+REGION:''}. This cannot be undone.</p>
-      ${S.confirmDissolve?`<div class="row"><button class="btn danger solid" data-act="dissolve-confirm">Yes, dissolve ${esc(n.name)}</button><button class="btn ghost" data-act="dissolve-cancel">Keep my nation</button></div>`:`<button class="btn danger" data-act="dissolve-ask">Dissolve nation…</button>`}
-    </section>`;
+    ${sgDanger(n)}`;
   return `<header class="vh"><p class="eyebrow">Office of the ${esc(n.leader)}</p><h1>Settings</h1><p>The name ${esc(n.name)} is permanent. Everything else can change here.</p></header>
   <div class="sg" id="sg" data-tab="${t}">${rail}<div class="sg-body">${pane('nation',nation)}${pane('edicts',edicts)}${pane('notif',notif)}${pane('display',display)}${pane('account',account)}</div></div>`;
+}
+/* ── the danger zone: Start over, Dissolve, Delete nation and account ──
+   Start over and Dissolve ask for the nation's name to be typed (S.dzType) before their last button works.
+   Delete opens the account panel's own step for it (src/shim.js, __edictum.openAccount), which deletes the
+   account on the server as well. Start over is a dissolve followed by the founding page with the old name and
+   particulars filled in; what SG_CARRY lists comes along when the nation is founded again (sgCarry, in found). */
+const SG_CARRY=['ruler','lang','faith','sport','dish','anthem','about','lore','mapc','cz','cur','freq','topics'],SG_CARRY_KEY='edictum.restart';
+const sgDzOk=()=>!!S.nation&&nameFold(S.dzType||'')===nameFold(S.nation.name);
+function sgCarry(v){try{if(v===undefined){const o=JSON.parse(localStorage.getItem(SG_CARRY_KEY)||'null');return o&&o.name&&Date.now()-o.t<7*86400000?o:null;}
+  if(v===null)localStorage.removeItem(SG_CARRY_KEY);else localStorage.setItem(SG_CARRY_KEY,JSON.stringify(v));}catch(e){}return null;}
+function sgDanger(n){
+  const k=S.confirmDissolve,ok=sgDzOk(),acct=S.mode==='world'&&!OBS&&!!S.uid;
+  const confirm=(key,ask,yes)=>`<div class="dz-acts dz-confirm" role="group" aria-labelledby="dz-${key}"><p class="dz-sure" role="alert">${ask}</p>
+      <label class="dz-lbl" for="dz-type">Type <b>${esc(n.name)}</b> to confirm</label><input class="input dz-type" id="dz-type" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(S.dzType||'')}">
+      <div class="dz-btns"><button class="btn danger solid" id="dz-go" data-act="${key}-confirm"${ok?'':' disabled'}>${yes}</button><button class="btn ghost" data-act="dissolve-cancel">Keep my nation</button></div></div>`;
+  const row=(key,title,desc,acts)=>`<div class="dz-row${k===key?' dz-on':''}" id="set-${key}"><div class="dz-txt"><p class="dz-t" id="dz-${key}">${title}</p><p class="dz-d">${desc}</p></div>${acts}</div>`;
+  const ask=(key,label)=>`<div class="dz-acts"><button class="btn danger" data-act="${key}-ask" aria-describedby="dz-${key}">${label}</button></div>`;
+  return `<section class="danger-zone" id="set-danger" aria-labelledby="dz-h"><h3 class="sg-ch dz-h" id="dz-h">Danger zone</h3>
+    <p class="hint fs-hint">What you do here cannot be undone.</p>
+    <div class="dz-box">
+      ${row('restart','Start over',`Founds ${esc(theName(n))} again from the beginning, under the same name. Population, laws, land, cities, achievements and stories start afresh. The flag, particulars, culture, factbook, map colour, currency, edict pace and topics, and Customise choices come along, and Shop purchases stay with your account.`,
+        k==='restart'?confirm('restart',`Start ${esc(n.name)} over from the beginning?`,'Yes, start over'):ask('restart','Start over…'))}
+      ${row('dissolve','Dissolve nation',`Erases ${esc(theName(n))}, its census history and its legislation${S.mode==='world'?', and removes it and its messages from '+esc(REGION):''}. Its name becomes free for others to take.`,
+        k==='dissolve'?confirm('dissolve',`Dissolve ${esc(n.name)} for good?`,`Yes, dissolve ${esc(n.name)}`):ask('dissolve','Dissolve nation…'))}
+      ${acct?row('delete','Delete nation and account',`Deletes ${esc(theName(n))}, every post you wrote on the region boards and your account, and ends any Chancery Club membership. Your Google or Discord account itself stays. The account panel asks once more.`,
+        `<div class="dz-acts"><button class="btn danger" data-act="acct-delete" aria-describedby="dz-delete">Delete nation and account…</button></div>`):''}
+    </div>
+  </section>`;
+}
+/* Start over: dissolve, then the founding page with the old name and particulars, and the rest kept for found() */
+function sgRestart(){
+  const n=S.nation;if(!n)return;
+  const d=Object.assign(newDraft(),{name:n.name,pretitle:n.pretitle,motto:n.motto||'',capital:n.capital||'Port Alder',leader:n.leader||'President',currency:n.currency||'crown',animal:n.animal||'otter',demonym:n.demonym||demonymOf(n.name),demonymTouched:true,flag:clone(n.flag||DEF_FLAG)});
+  const keep={};for(const f of SG_CARRY)if(n[f]!=null&&n[f]!=='')keep[f]=clone(n[f]);
+  sgCarry({name:n.name,t:Date.now(),keep});
+  dissolve(d);
+}
+/* on the founding page after Start over: what comes along, and a way to drop it and start fresh */
+function sgRestartNote(d){
+  const rs=sgCarry();if(!rs||!d||nameFold(rs.name)!==nameFold(d.name))return '';
+  return `<p class="info sg-rs" role="status"><b>Starting over as ${esc(rs.name)}.</b> Answer the founding questions and found it again: its culture, factbook, map colour, currency, edict settings and Customise choices come along. Keep the name to keep them. <button type="button" class="linkish small" data-act="sg-rs-drop">Start fresh instead</button></p>`;
 }
 function settingsDirty(){const st=S.settings;if(!st||!S.nation)return false;const a=settingsFrom(S.nation);return Object.keys(a).some(k=>JSON.stringify(a[k])!==JSON.stringify(st[k]));}
 function markDirty(){const d=settingsDirty(),el=document.getElementById('s-dirty');if(el)el.textContent=d?'You have unsaved changes.':'';const b=document.querySelector('.save-bar');if(b)b.classList.toggle('is-dirty',d);}
@@ -38903,6 +38959,7 @@ function go(v){
 function found(){
   if(regDisabled(REG.id)){S.foundErr=regionMessage(REG.id);render();return;}
   if(S.mode==='world'&&!RCTRL.ready){S.foundErr='Checking region availability. Please try again.';render();return;}
+  if(S.dissolving){S.foundErr=DISSOLVING_MSG;render();return;}
   const d=S.draft,name=d.name.trim().replace(/\s+/g,' ');
   if(name.length<2){S.foundErr='Give your nation a name of at least two characters.';render();const el=document.getElementById('d-name');if(el)el.focus();return;}
   if(nameTaken(name,REG.id)){S.foundErr=`${REG.name} already has a nation called ${name}. Choose another name.`;render();const el=document.getElementById('d-name');if(el)el.focus();return;}
@@ -38914,6 +38971,9 @@ function found(){
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
     log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1,onb:{v:1,u:[]}};
   for(let i=0;i<2;i++){n.inbox.push({id:pickIssue(n),at:now});n.issueSeq++;}
+  /* Start over (Settings › Account › Danger zone): the old nation's culture and look come along under the same name */
+  const rs=sgCarry();if(rs&&nameFold(rs.name)===nameFold(name)&&rs.keep&&typeof rs.keep==='object')for(const f of SG_CARRY)if(f in rs.keep)n[f]=clone(rs.keep[f]);
+  sgCarry(null);
   const cell=cellOf(d.loc),lost=cell>=0&&!!pickProblem(cell,territory());
   if(cell>=0&&!lost){n.loc=locOf(cell);n.log.unshift({t:now,k:'settle',a:landName(cell)});centerMain(cell,NEAR_Z);}
   commit(normalize(n));
@@ -38974,15 +39034,20 @@ function sgApply(fn){
   SG.saved={k:SG.tab,t:Date.now()};render();
   setTimeout(()=>{if(SG.saved&&Date.now()-SG.saved.t>=2400){SG.saved=null;for(const e of document.querySelectorAll('[data-sg-saved]'))e.textContent='';}},2500);
 }
-async function dissolve(){
-  const uid=S.uid,db=S.db,world=S.mode==='world';
-  S.nation=null;saveLocal(null);S.confirmDissolve=false;S.result=null;S.openIssue=null;S.view='nation';S.draft=newDraft();
-  render();window.scrollTo(0,0);toast('Your nation has been dissolved. You can found a new one.');
+async function dissolve(draft){
+  const uid=S.uid,db=S.db,world=S.mode==='world',again=!!(draft&&draft.name);
+  S.nation=null;saveLocal(null);S.confirmDissolve=false;S.result=null;S.openIssue=null;S.view='nation';S.draft=again?draft:newDraft();S.settings=null;
+  if(again)draftKeep();
+  render();window.scrollTo(0,0);toast(again?`Starting over: answer the founding questions and found ${draft.name} again.`:'Your nation has been dissolved. You can found a new one.');
   if(world&&db&&uid){
-    clearTimeout(remoteTimer);remoteTimer=0;remoteDirty=false;while(remoteBusy)await sleep(100);
-    try{await db.doc('nations/'+uid).delete();}catch(e){}
+    /* founding again waits for this (found: S.dissolving), so a new nation never meets the old one's record */
+    S.dissolving=true;
+    try{clearTimeout(remoteTimer);remoteTimer=0;remoteDirty=false;while(remoteBusy)await sleep(100);
+      try{await db.doc('nations/'+uid).delete();}catch(e){}}
+    finally{S.dissolving=false;if(!S.nation&&S.foundErr===DISSOLVING_MSG){S.foundErr='';render();}}
   }
 }
+const DISSOLVING_MSG='One moment: the old nation is still being cleared away. Try again in a second.';
 /* one post per document in boards/<region>/posts; the rules take one post per nation every RMB_GAP */
 const RMB_GAP=20000;
 let rmbBusy=false,rmbLast=0;
@@ -39028,9 +39093,11 @@ document.addEventListener('click',e=>{
   if(a==='mapc'&&S.settings){S.settings.mapc=el.dataset.val;render();return;}
   if(a==='topic'){const k=el.dataset.k,v=+el.dataset.v;if(!ISSUE_TOPICS.some(x=>x[0]===k))return;sgApply(n=>{n.topics=Object.assign({},n.topics||{});if(v===1||v===-1)n.topics[k]=v;else delete n.topics[k];});return;}
   if(a==='theme'){setTheme(el.dataset.v);return;}
-  if(a==='dissolve-ask'){S.confirmDissolve=true;render();return;}
-  if(a==='dissolve-cancel'){S.confirmDissolve=false;render();return;}
-  if(a==='dissolve-confirm'){dissolve();return;}
+  if(a==='dissolve-ask'||a==='restart-ask'){S.confirmDissolve=a==='restart-ask'?'restart':'dissolve';S.dzType='';render();const i=document.getElementById('dz-type');if(i)i.focus({preventScroll:true});return;}
+  if(a==='dissolve-cancel'){S.confirmDissolve=false;S.dzType='';render();return;}
+  if(a==='dissolve-confirm'){if(!sgDzOk()){const i=document.getElementById('dz-type');if(i)i.focus();return;}S.dzType='';dissolve();return;}
+  if(a==='restart-confirm'){if(!sgDzOk()){const i=document.getElementById('dz-type');if(i)i.focus();return;}S.dzType='';sgRestart();return;}
+  if(a==='acct-delete'){const f=window.__edictum&&window.__edictum.openAccount;if(!(typeof f==='function'&&f('delete'))){const b=document.querySelector('.ed-acct-b');if(b)b.click();else toast('The account panel is not available right now. Reload the page and try again.');}return;}
   if(a==='del-post'){removePost(el.dataset.a,el.dataset.p);return;}
   if(a==='visit-link'){const u=location.origin+location.pathname+'#visit/'+el.dataset.id;
     Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(u)).then(()=>toast(`The link is copied. Players of ${REGION} who open it see this nation.`),()=>toast('Copy this link: '+u));return;}
@@ -48622,6 +48689,10 @@ document.addEventListener('click',e=>{
   else if(a==='sg-leave-save'){const v=SG.leave&&SG.leave.v;SG.leave=null;if(saveSettings()&&v)go(v);}
   else if(a==='sg-leave-stay'){SG.leave=null;render();const b=document.querySelector('#settings-form button[type="submit"]');if(b){b.scrollIntoView({block:'nearest'});b.focus({preventScroll:true});}}
 });
+/* the danger zone's name check: the last button works once the name is typed */
+document.addEventListener('input',e=>{const t=e.target;if(!t||t.id!=='dz-type')return;S.dzType=t.value.slice(0,80);const b=document.getElementById('dz-go');if(b)b.disabled=!sgDzOk();});
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='dz-type'&&e.key==='Enter'&&sgDzOk()){e.preventDefault();const b=document.getElementById('dz-go');if(b)b.click();}});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="sg-rs-drop"]');if(!el)return;sgCarry(null);S.draft=newDraft();draftKeep();render();});
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='s-freq'&&S.nation){const f=parseInt(t.value,10);if(FREQS.some(x=>x[0]===f))sgApply(n=>{n.freq=f;});}});
 document.addEventListener('keydown',e=>{
   const t=e.target;if(!t||!t.classList||!t.classList.contains('sg-tab'))return;
@@ -48641,7 +48712,9 @@ UX_SETTINGS.push(
   {v:'focus:set-mail',l:'Letters by post (email)',g:'Settings',words:'email e-mail mail letters digest newsletter',view:'settings',target:'#set-mail'},
   {v:'focus:set-social',l:'Recruit a player',g:'Settings',words:'recruit invite friend referral link share',view:'settings',target:'#set-social'},
   {v:'focus:set-tut',l:'Show the tutorial again',g:'Settings',words:'tutorial lists restore help steps',view:'settings',target:'#set-tut'},
-  {v:'focus:set-dissolve',l:'Dissolve nation',g:'Settings',words:'dissolve delete reset start over quit',view:'settings',target:'#set-dissolve'}
+  {v:'focus:set-restart',l:'Start over (danger zone)',g:'Settings',words:'start over restart reset begin again new game danger zone',view:'settings',target:'#set-restart'},
+  {v:'focus:set-dissolve',l:'Dissolve nation (danger zone)',g:'Settings',words:'dissolve quit end nation danger zone',view:'settings',target:'#set-dissolve'},
+  {v:'focus:set-delete',l:'Delete nation and account (danger zone)',g:'Settings',words:'delete account erase data privacy remove me gdpr danger zone',view:'settings',target:'#set-delete'}
 );
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
