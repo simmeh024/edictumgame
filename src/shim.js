@@ -246,7 +246,9 @@
     var base = A.popBase[uid];
     if (base && enc.pop > base.pop) {
       var days = Math.max(0, performance.now() - base.at) / 864e5, most = base.pop * Math.pow(1.35, days) + 3 * days;
-      if (enc.pop > most) enc.pop = Math.max(base.pop, Math.floor(most * 1e4) / 1e4);
+      /* only what a clock up to an hour ahead explains: anything beyond is sent as it is, for the rules to refuse */
+      var hour = days + 1 / 24, skewed = base.pop * Math.pow(1.35, hour) + 3 * hour;
+      if (enc.pop > most && enc.pop <= skewed) enc.pop = Math.max(base.pop, Math.floor(most * 1e4) / 1e4);
     }
     var approved = await call('civic', { op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected });
     enc.j = approved.j; enc.permit = approved.permit;
