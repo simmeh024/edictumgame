@@ -23,7 +23,8 @@
                             running figures re-stamped at every save), or every SPACE_BEAT while playing.
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
      devnews/<id>           a development news post (admins write it in the portal), devnews/<id>/posts/<id>
-                            its comments (through civic()), devnewsImg/<id> its images, and devnewsMeta/latest
+                            its comments (through civic()), devnews/<id>/rd/<uid> its readers (newsRead, with
+                            the count in devnewsStat/<id>.n), devnewsImg/<id> its images, and devnewsMeta/latest
                             the latest published posts, which the game's unread count listens to.
      support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
                             paces them.
@@ -575,7 +576,20 @@
   });
   var adminApi = Object.freeze({ request: function (data) { return call('adminConsole', data); } });
 
-  var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post });
+  /* A player's first read of a development news post: their mark devnews/<post>/rd/<uid> and one more on the
+     post's count devnewsStat/<post>.n, in one batch the rules accept only together and only once per player. */
+  function newsRead(post) {
+    var u = A.auth && A.auth.currentUser, id = String(post || '');
+    if (A.frozen) return hang();
+    if (observing()) return Promise.reject(readOnly());
+    if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
+    if (!/^[A-Za-z0-9]{20}$/.test(id)) return Promise.reject(mapError({ code: 'invalid-argument' }));
+    var b = A.fs.batch();
+    b.set(A.fs.doc('devnews/' + id + '/rd/' + u.uid), {});
+    b.set(A.fs.doc('devnewsStat/' + id), { n: A.fb.firestore.FieldValue.increment(1) }, { merge: true });
+    return b.commit().then(function () {}, function (e) { throw mapError(e); });
+  }
+  var dbApi = Object.freeze({ doc: docApi, collection: collectionApi, collectionGroup: collectionGroupApi, count: count, post: post, newsRead: newsRead });
   var userApi = Object.freeze({
     id: function () { var u = A.auth && A.auth.currentUser; return Promise.resolve(u ? u.uid : null); },
     /* asked once per page load; a fresh token carries an admin claim granted since the last one */

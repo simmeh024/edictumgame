@@ -5,7 +5,7 @@ await clearEmulators();
 const A = await player('admin'), B = await player('player'), C = await player('guest'), M = await player('moderator');
 const uidA = await open(A); await found(A, 'Adminland');
 const uidB = await open(B); await found(B, 'Playerland');
-await open(C); await found(C, 'Guestland');
+const uidC = await open(C); await found(C, 'Guestland');
 const uidM = await open(M); await found(M, 'Modland');
 await register(A); await register(B); await register(M);
 await setClaims(uidA, { admin: true }); await A.reload(); await ready(A);
@@ -67,6 +67,12 @@ check('the post shows its title, byline and staff mark', await until(async () =>
 check('its images load from the database', await until(async () => (await B.$$('.nw-post .nw-body img[src^="blob:"]')).length === 2, 15000));
 check('a post newer than the last visit is marked New', /New/.test(await text(B, '.nw-date')));
 check('players see no staff controls', !await B.$('.nw-ctl') && !await B.$('[data-act="nw-c-rm"]'));
+
+// reads: a post on a player's screen for a few seconds counts once for them, in devnewsStat/<post>.n
+const reads = async id => Number((await restGet('devnewsStat/' + id)).body?.fields?.n?.integerValue || 0);
+const readers = async id => (await restListAdmin('devnews/' + id + '/rd')).map(d => d.id);
+check('a post on a player’s screen for a few seconds counts as a read', await until(async () => (await readers(pid)).includes(uidB) && await reads(pid) >= 1, 15000), await reads(pid));
+check('the reader’s mark is theirs alone to know of', (await restGet('devnews/' + pid + '/rd/' + uidB)).status !== 200);
 
 // comments
 await B.waitForSelector('#nw-ct-' + pid);
@@ -149,11 +155,14 @@ await go(B, 'nation'); await go(B, 'devnews');
 check('the pinned post leads the page with its kind', await until(async () => /Pinned/.test(await text(B, '.nw-post:first-child .nw-date')) && /New feature/.test(await text(B, '.nw-post:first-child .nw-date')) && /min read/.test(await text(B, '.nw-post:first-child .nw-date'))));
 check('its patch notes show as Added, Changed and Fixed', (await B.$$('.nw-post:first-child .nw-body ul[data-pn]')).length === 3 && /Added/.test(await text(B, '.nw-post:first-child .nw-body')));
 
-// reactions
+// reactions (beside the read count, which they leave alone)
+await until(async () => await reads(pid2) >= 1, 15000);
+const readsBefore = await reads(pid2);
 await B.click(`[data-act="nw-rx"][data-id="${pid2}"][data-v="up"]`);
 check('a reaction counts at once and on the server', await until(async () => /1/.test(await text(B, `[data-act="nw-rx"][data-id="${pid2}"][data-v="up"]`)) && (await restGet('devnewsStat/' + pid2)).body.fields?.r?.mapValue?.fields?.up?.integerValue === '1', 15000));
 await B.click(`[data-act="nw-rx"][data-id="${pid2}"][data-v="party"]`);
 check('choosing another reaction moves it', await until(async () => { const r = (await restGet('devnewsStat/' + pid2)).body.fields?.r?.mapValue?.fields || {}; return r.up?.integerValue === '0' && r.party?.integerValue === '1'; }, 15000));
+check('reacting keeps the post’s read count', await reads(pid2) >= readsBefore && readsBefore >= 1, [readsBefore, await reads(pid2)]);
 const meDoc = await restGet('devnews/' + pid2 + '/me/' + uidB);
 check('another player cannot read whom a nation reacted with', meDoc.status !== 200);
 
@@ -199,9 +208,19 @@ check('a shared link opens that post', await until(async () => /Patch 1\.1/.test
 await B.click('[data-act="nw-all"]');
 check('and goes back to all the news', await until(async () => (await B.$$('.nw-post')).length === 3));
 
-// the portal's totals, and 
+// a read counts once per player, even from a browser that forgot it counted (another device)
+check('the pinned post was read by the player and the guest', await until(async () => { const r = await readers(pid2); return r.includes(uidB) && r.includes(uidC); }, 15000), await readers(pid2));
+const once = await reads(pid2);
+await B.evaluate(() => { localStorage.removeItem('edictum.newsRead'); G.NEWS.NWR.done = null; });
+check('reading it again from a fresh browser is refused, and the count stays', await until(async () => B.evaluate(id => !!G.NEWS.NWR.done?.p?.has(id), pid2), 15000) && await reads(pid2) === once, [once, await reads(pid2)]);
+check('an admin’s own reading is not counted', !(await readers(pid)).includes(uidA) && !(await readers(pid2)).includes(uidA));
+
+// the portal's totals: reactions, votes and reads
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-news"]'); await A.waitForSelector('[data-act="nwe-new"]');
 check('the portal shows the reactions and votes', await until(async () => /Poll: 1 vote/.test(await text(A, '.nwe-tbl'))));
+check('and how many players read each post', await until(async () => { const n = await reads(pid2);
+  return n > 0 && await A.$$eval('.nwe-tbl tbody tr', (tr, n) => tr.some(r => /Patch 1\.1/.test(r.textContent) && r.querySelector('.nwe-rd')?.textContent.trim() === String(n)), n); }), await A.$$eval('.nwe-rd', c => c.map(x => x.textContent)));
+await A.screenshot({ path: OUT + '/devnews-admin.png', fullPage: true });
 await B.screenshot({ path: OUT + '/devnews-page.png', fullPage: true });
 const phone = await player('phone', { vp: { width: 390, height: 844 } });
 await open(phone); await found(phone, 'Phoneland');

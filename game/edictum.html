@@ -42405,7 +42405,44 @@ function nwExtras(list){
     if(!NW.me[p.id]&&S.uid)S.db.doc('devnews/'+p.id+'/me/'+S.uid).get().then(s=>{const d=s.exists?s.data():{};NW.me[p.id]={e:typeof d.e==='string'?d.e:'',o:Number.isInteger(d.v)?d.v:-1};up();},()=>{});
   }
 }
-function nwStat(d){const r={},v=d&&Array.isArray(d.v)?d.v.map(x=>Math.max(0,Number(x)||0)):[];for(const [k] of NW_RX)r[k]=Math.max(0,Number(d&&d.r&&d.r[k])||0);return {r,v};}
+function nwStat(d){const r={},v=d&&Array.isArray(d.v)?d.v.map(x=>Math.max(0,Number(x)||0)):[];for(const [k] of NW_RX)r[k]=Math.max(0,Number(d&&d.r&&d.r[k])||0);return {r,v,n:Math.max(0,Math.floor(Number(d&&d.n)||0))};}
+
+/* ── reads ──
+   A post counts as read once it has filled half the screen (or most of a short post is on it) for three
+   seconds, once per player and post: the shim's newsRead writes the reader's mark with one more on
+   devnewsStat/<post>.n, which the admin portal's list shows. Admins' own reads are not counted. The browser
+   remembers what it has counted, so each post is sent once. */
+const NW_READ_MS=3000,LS_NW_READ='edictum.newsRead';
+const NW_READS_TIP='Reads counts each player once per post, after the post has been on their screen for a few seconds; admins’ reads are not counted.';
+const NWR={at:{},busy:{},wait:{},done:null};
+function nwReadDone(){
+  if(NWR.done&&NWR.done.u===S.uid)return NWR.done.p;
+  let d=null;try{d=JSON.parse(localStorage.getItem(LS_NW_READ)||'null');}catch(e){}
+  NWR.done={u:S.uid,p:new Set(d&&d.u===S.uid&&Array.isArray(d.p)?d.p.filter(x=>NW_ID.test(x)):[])};
+  return NWR.done.p;
+}
+function nwReadKeep(id){const p=nwReadDone();p.add(id);try{localStorage.setItem(LS_NW_READ,JSON.stringify({u:S.uid,p:[...p].slice(-300)}));}catch(e){}}
+function nwReadScan(){
+  if(S.view!=='devnews'||document.hidden||!S.db||!S.uid||S.isOwner||OBS||typeof S.db.newsRead!=='function'){NWR.at={};return;}
+  const now=Date.now(),vh=window.innerHeight||0,done=nwReadDone(),on={};
+  for(const el of document.querySelectorAll('article.nw-post')){
+    const m=/^nw-([A-Za-z0-9]{20})$/.exec(el.id),id=m&&m[1];
+    if(!id||done.has(id)||NWR.busy[id]||NWR.wait[id]>now)continue;
+    const r=el.getBoundingClientRect(),vis=Math.min(r.bottom,vh)-Math.max(r.top,0);
+    if(vis<=0||vis<Math.min(r.height*.6,vh*.5))continue;
+    on[id]=NWR.at[id]||now;
+    if(now-on[id]>=NW_READ_MS)nwRead(id);
+  }
+  NWR.at=on;
+}
+function nwRead(id){
+  NWR.busy[id]=true;
+  S.db.newsRead(id).then(()=>{nwReadKeep(id);const st=NW.stat[id];if(st)st.n++;},
+    /* refused: counted already (on another device) or no longer published; otherwise tried again in a minute */
+    e=>{if(e&&e.code==='not_granted')nwReadKeep(id);else NWR.wait[id]=Date.now()+6e4;})
+    .then(()=>{delete NWR.busy[id];});
+}
+setInterval(nwReadScan,1000);
 function nwStaff(){return !!S.isOwner||NW.mod;}
 function nwByline(p){
   if(p.as==='nation')return `<p class="nw-by">${nwFlag(p.fl,p.nm)}<span class="nw-by-t"><b>${esc(p.nm)}</b><span class="nw-role">${p.rg&&REG_BY_ID[p.rg]?'Region of '+esc(REG_BY_ID[p.rg].name):'A nation of Edictum'}</span></span></p>`;
@@ -42547,12 +42584,12 @@ async function nwSend(pid){
 /* a reaction (shown at once, put back if it fails) or a vote, through civic() */
 async function nwTally(pid,op,v){
   if(NW.voting)return;NW.voting=pid;
-  const me=NW.me[pid]||{e:'',o:-1},st=NW.stat[pid]||nwStat(null),was={me:{...me},st:{r:{...st.r},v:st.v.slice()}};
+  const me=NW.me[pid]||{e:'',o:-1},st=NW.stat[pid]||nwStat(null),was={me:{...me},st:{r:{...st.r},v:st.v.slice(),n:st.n}};
   if(op==='newsReact'){if(me.e)st.r[me.e]=Math.max(0,(st.r[me.e]||0)-1);me.e=me.e===v?'':v;if(me.e)st.r[me.e]=(st.r[me.e]||0)+1;NW.me[pid]=me;NW.stat[pid]=st;}
   render();
   try{const api=await window.claude.use('civic');if(!api)throw Object.assign(new Error('Reconnect first.'),{code:'unavailable'});
     const r=await api.request(op==='newsReact'?{op,post:pid,e:v}:{op,post:pid,o:Number(v)}),d=r&&r.data&&r.data.r?r.data:r;
-    if(d&&d.r){NW.stat[pid]=nwStat(d);NW.me[pid]={e:d.e||'',o:Number.isInteger(d.o)?d.o:-1};}}
+    if(d&&d.r){NW.stat[pid]=nwStat({...d,n:st.n});NW.me[pid]={e:d.e||'',o:Number.isInteger(d.o)?d.o:-1};}}
   catch(e){NW.me[pid]=was.me;NW.stat[pid]=was.st;const c=e&&e.code;
     toast(['registration_required','moderated','banned','poll_closed','poll_voted','news_missing','nation_required'].includes(c)?e.message:op==='newsVote'?'The vote could not be counted. Try again in a moment.':'The reaction could not be saved.');
     if(c==='poll_voted'){delete NW.me[pid];delete NW.stat[pid];nwExtras([{id:pid}]);}}
@@ -42582,6 +42619,9 @@ async function nwDelete(pid){
   nwClose(pid);
   const cs=await S.db.collection('devnews/'+pid+'/posts').limit(500).get();
   await Promise.all(cs.docs.map(c=>S.db.doc('devnews/'+pid+'/posts/'+c.id).delete().catch(()=>{})));
+  /* its readers' marks, a few hundred at a time */
+  for(let i=0;i<50;i++){const rs=await S.db.collection('devnews/'+pid+'/rd').limit(400).get().catch(()=>null);if(!rs||!rs.size)break;
+    await Promise.all(rs.docs.map(r=>S.db.doc('devnews/'+pid+'/rd/'+r.id).delete().catch(()=>{})));if(rs.size<400)break;}
   await S.db.doc('devnews/'+pid).delete();
   await Promise.all((d&&Array.isArray(d.im)?d.im:[]).filter(id=>NW_ID.test(id)).map(id=>S.db.doc('devnewsImg/'+id).delete().catch(()=>{})));
   await nwIndex();
@@ -42630,7 +42670,9 @@ async function nweChangelog(){
 }
 async function nweList(){
   if(NWE.lbusy||!S.db)return;NWE.lbusy=true;NWE.lerr='';
-  try{const qs=await S.db.collection('devnews').orderBy('t','desc').limit(100).get();NWE.list=qs.docs.map(d=>nwPost(d.id,d.data())).filter(Boolean);}
+  try{const qs=await S.db.collection('devnews').orderBy('t','desc').limit(100).get();NWE.list=qs.docs.map(d=>nwPost(d.id,d.data())).filter(Boolean);
+    /* the reads and reactions as they are now, not as they were when this page last fetched them */
+    for(const p of NWE.list)delete NW.stat[p.id];}
   catch(e){NWE.lerr='The posts could not be loaded'+(e&&e.code?' ('+e.code+')':'')+'.';}
   NWE.lbusy=false;if(S.view==='admin-news')render();
 }
@@ -42831,13 +42873,13 @@ function nwAdminView(){
   const L=NWE.list,ask=NWE.lask;
   return admShell('admin-news',`
     <p class="eyebrow">Admin portal</p><h1 class="display">Development news</h1>
-    <p class="lede">Posts about the game for every player, on the Development news page under Other. A newly published post shows a count beside the page in every player’s menu until they open it. Drafts are seen only by admins.</p>
+    <p class="lede">Posts about the game for every player, on the Development news page under Other. A newly published post shows a count beside the page in every player’s menu until they open it. Drafts are seen only by admins. ${esc(NW_READS_TIP)}</p>
     <div class="row"><button type="button" class="btn" data-act="nwe-new">Write a post</button><button type="button" class="btn ghost" data-act="go" data-v="devnews">Open the news page</button></div>
     ${NWE.lerr?`<p class="err">${esc(NWE.lerr)}</p>`:''}
-    ${!L?`<p class="hint">${NWE.lbusy?'Fetching the posts…':''}</p>`:!L.length?'<p class="hint" style="margin-top:18px">No posts yet.</p>':`<div class="tbl-wrap nwe-tbl"><table class="tbl"><thead><tr><th>Title</th><th>State</th><th>Date</th><th>Signed</th><th><span class="u-sr">Actions</span></th></tr></thead><tbody>
+    ${!L?`<p class="hint">${NWE.lbusy?'Fetching the posts…':''}</p>`:!L.length?'<p class="hint" style="margin-top:18px">No posts yet.</p>':`<div class="tbl-wrap nwe-tbl"><table class="tbl"><thead><tr><th>Title</th><th>State</th><th>Date</th><th class="num"><span title="${esc(NW_READS_TIP)}">Reads</span></th><th>Signed</th><th><span class="u-sr">Actions</span></th></tr></thead><tbody>
       ${L.map(p=>{const st=NW.stat[p.id],rx=st?NW_RX.reduce((a,[k])=>a+(st.r[k]||0),0):0,vt=st?st.v.reduce((a,b)=>a+b,0):0;if(!st&&p.pub)nwExtras([p]);
         return `<tr><td><b>${esc(p.ti)}</b>${p.tg?` <span class="nw-tag t-${p.tg}">${esc(NW_TAG[p.tg])}</span>`:''}${p.pn?' <span class="chip nwe-live">Pinned</span>':''}${p.lk?' <span class="chip">Comments closed</span>':''}
-          ${p.pub&&(rx||p.pl)?`<div class="hint nwe-tot">${rx?NW_RX.filter(([k])=>st.r[k]).map(([k,e])=>e+' '+st.r[k]).join(' · '):''}${p.pl?`${rx?' — ':''}Poll: ${vt} ${vt===1?'vote':'votes'}${vt?' ('+p.pl.o.map((o,i)=>esc(o)+' '+(st.v[i]||0)).join(', ')+')':''}`:''}</div>`:''}</td><td><span class="chip${p.pub?' nwe-live':''}">${p.pub?'Published':'Draft'}</span></td><td>${esc(fmtDate(p.ed||p.t))}</td><td>${esc(p.nm)}${p.as==='staff'&&p.rl?` <span class="hint">(${esc(p.rl)})</span>`:''}</td>
+          ${p.pub&&(rx||p.pl)?`<div class="hint nwe-tot">${rx?NW_RX.filter(([k])=>st.r[k]).map(([k,e])=>e+' '+st.r[k]).join(' · '):''}${p.pl?`${rx?' — ':''}Poll: ${vt} ${vt===1?'vote':'votes'}${vt?' ('+p.pl.o.map((o,i)=>esc(o)+' '+(st.v[i]||0)).join(', ')+')':''}`:''}</div>`:''}</td><td><span class="chip${p.pub?' nwe-live':''}">${p.pub?'Published':'Draft'}</span></td><td>${esc(fmtDate(p.ed||p.t))}</td><td class="num nwe-rd">${!p.pub&&!(st&&st.n)?'<span class="hint" aria-label="None">—</span>':st?st.n.toLocaleString('en-US'):'<span class="hint">…</span>'}</td><td>${esc(p.nm)}${p.as==='staff'&&p.rl?` <span class="hint">(${esc(p.rl)})</span>`:''}</td>
         <td><div class="row"><button type="button" class="btn ghost small" data-act="nwe-edit" data-id="${p.id}">Edit</button><button type="button" class="btn ghost small adm-danger" data-act="nwe-del" data-id="${p.id}">Delete</button></div>
         ${ask===p.id?`<div class="adm-ask"><p>Delete “${esc(p.ti)}” with its images and comments?</p><div class="row"><button type="button" class="btn danger small" data-act="nwe-del-yes" data-id="${p.id}">Yes, delete</button><button type="button" class="btn ghost small" data-act="nwe-del-no">Cancel</button></div></div>`:''}</td></tr>`;}).join('')}
     </tbody></table></div>`}`);
@@ -48368,7 +48410,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
