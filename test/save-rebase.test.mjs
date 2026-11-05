@@ -9,11 +9,11 @@ const from = html.indexOf('const ACT_SKIP='), to = html.indexOf('/* The account 
 assert.ok(from > 0 && to > from, 'the replay code is found');
 const RES = ['goods', 'food'];
 const make = () => new Function('RES', `
-  const clone=v=>JSON.parse(JSON.stringify(v)),num0=v=>Number(v)||0,OBS=false,S={nation:null};let commitNo=0;
+  const clone=v=>JSON.parse(JSON.stringify(v)),num0=v=>Number(v)||0,OBS=false,S={nation:null};let commitNo=0,carried=false;
   const roundStock=st=>Object.fromEntries(RES.map(r=>[r,Math.round(num0(st[r])*100)/100]));
   const stockNow=n=>({...n.stock});
   ${html.slice(from, to)}
-  return {S,act(n){const r=actRecord(n);S.nation=n;commitNo++;return r;},rebase:rebaseActs,acts:()=>ownActs};`)(RES);
+  return {S,act(n){const r=actRecord(n);S.nation=n;commitNo++;return r;},rebase:rebaseActs,acts:()=>ownActs,carry(v){carried=v;}};`)(RES);
 
 const base = () => ({ name: 'Testland', updatedAt: 1, stock: { goods: 100, food: 50 }, cities: [{ id: 'c1', nm: 'Port', b: [] }], mayor: null, motto: 'Old' });
 // one action: a copy of the nation changed by f, with its resources set as an action does (_stockSet)
@@ -74,4 +74,14 @@ test('an edit to a city the other save no longer has is left out, cost included'
   assert.equal(r.n.motto, 'Kept');
   assert.equal(r.n._stockSet, undefined, 'no cost was charged');
   assert.equal(r.n.stock.goods, 100);
+});
+
+test('changes carried over from an earlier visit are never replayed: the copy and the notice apply', () => {
+  const g = make(); g.S.nation = base(); g.carry(true);
+  const cloud = { ...base(), updatedAt: 2, motto: 'Elsewhere' };
+  assert.equal(g.rebase(cloud), null, 'even with no action of this visit to replay');
+  play(g, n => { n.mayor = 'Ada'; });
+  assert.equal(g.rebase(cloud), null);
+  g.carry(false);
+  assert.ok(g.rebase(cloud), 'once a save has carried them, the actions of this visit replay again');
 });

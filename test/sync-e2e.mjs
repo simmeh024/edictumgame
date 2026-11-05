@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   check, finish, sleep, until, player, open, ready, found, nav, localNation,
-  nationDoc, restGet, clearEmulators, openAccount, errors, OUT
+  nationDoc, restGet, clearEmulators, openAccount, errors, OUT, FS_HOST, PROJECT
 } from './lib.mjs';
 
 await clearEmulators();
@@ -252,5 +252,73 @@ const before = await rev();
 for (let i = 0; i < 4; i++) { await edit(F, 'Fast clock ' + i); await sleep(2500); }
 check('a device with its clock 20 minutes ahead keeps saving every few seconds', await until(async () => await motto() === 'Fast clock 3', 25000) && await rev() >= before + 3, JSON.stringify(await F.evaluate(() => window.__edictum.saveHealth)));
 check('and never turns view-only', await F.evaluate(() => G.S.mode) === 'world' && await F.evaluate(() => window.__edictum.saveHealth.error) !== 'not_granted');
+
+/* ── save safety: an earlier visit's changes, more than one kept copy, a first read that fails, a nation dissolved
+   on another device, and dissolving while a save is on its way ── */
+const copies = p => p.evaluate(uid => { const o = JSON.parse(localStorage.getItem('edictum.unsaved.' + uid) || 'null'); return o ? [o].concat(o.prev || []).map(c => c.nation.motto) : []; }, uid);
+const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast, .ed-toast')].map(t => t.textContent).join(' | '));
+const syncState = p => p.evaluate(() => window.__edictum.syncStatus);
+const leaveWith = async (p, motto) => { await p.ctx.setOffline(true); await edit(p, motto); await sleep(1500); const st = await p.ctx.storageState({ indexedDB: true }); await p.ctx.close(); return st; };
+await saved(B); await saved(A);
+await B.evaluate(uid => localStorage.removeItem('edictum.unsaved.' + uid), uid);
+
+// 18. a change from the last visit, sent on return, meets a save another device made meanwhile
+const lastVisit = await leaveWith(B, 'Carried from the last visit');
+const C2 = await player('returning phone', { vp: { width: 390, height: 844 }, storageState: lastVisit });
+let releasePermit, permitHeld = false; const permitGate = new Promise(r => { releasePermit = r; });
+const holdPermit = async route => { if (!permitHeld && route.request().postDataJSON()?.data?.op === 'authorizeSave') { permitHeld = true; await permitGate; } return route.continue(); };
+await C2.ctx.route('**/europe-west1/civic', holdPermit);
+await open(C2); await C2.waitForSelector('.layout');
+check('a returning device sends the change its last visit left unsaved', await until(() => permitHeld, 15000));
+await edit(A, 'Desktop saved meanwhile'); await saved(A);
+releasePermit();
+check('refused, it loads the other device’s save', await until(async () => (await localNation(C2))?.motto === 'Desktop saved meanwhile', 20000));
+check('and keeps the last visit’s change as a copy instead of dropping it', (await copies(C2))[0] === 'Carried from the last visit', JSON.stringify(await copies(C2)));
+check('and asks the player to repeat it', await until(async () => /repeat your unsaved changes/.test(await toasts(C2)), 10000));
+await C2.ctx.unroute('**/europe-west1/civic', holdPermit);
+await saved(C2);
+
+// 19. a second conflict keeps its own copy beside the first
+await C2.ctx.setOffline(true); await edit(C2, 'Second change kept aside'); await sleep(1500);
+await edit(A, 'Desktop saved again'); await saved(A);
+await C2.ctx.setOffline(false); await C2.evaluate(() => window.dispatchEvent(new Event('online')));
+check('a second conflict loads the other save again', await until(async () => (await localNation(C2))?.motto === 'Desktop saved again', 20000));
+check('and keeps its copy beside the first one, which is not lost', JSON.stringify(await copies(C2)) === JSON.stringify(['Second change kept aside', 'Carried from the last visit']), JSON.stringify(await copies(C2)));
+await saved(C2);
+
+// 20. the first read on return fails; a newer save from another device then arrives
+const failedRead = await leaveWith(C2, 'Kept through a failed first read');
+await edit(A, 'Desktop saved while the phone was away'); await saved(A);
+const C3 = await player('returning phone 2', { vp: { width: 390, height: 844 }, storageState: failedRead });
+let failReads = true; const failRead = route => failReads ? route.abort() : route.continue();
+await C3.ctx.route(/documents:batchGet/, failRead);
+await open(C3); await C3.waitForSelector('.layout'); await sleep(15000); // past the SDK's own retries of that read
+failReads = false; await C3.evaluate(() => window.dispatchEvent(new Event('focus')));
+check('after a failed first read, the newer save is loaded', await until(async () => (await localNation(C3))?.motto === 'Desktop saved while the phone was away', 30000));
+check('but the change it would replace is kept as a copy, and the player told', (await copies(C3)).includes('Kept through a failed first read') && await until(async () => /repeat your unsaved changes/.test(await toasts(C3)), 10000), JSON.stringify(await copies(C3)));
+await C3.ctx.unroute(/documents:batchGet/, failRead);
+for (let i = errors.length - 1; i >= 0; i--) if (/^returning phone 2 /.test(errors[i]) && /firestore|Failed to fetch|ERR_|network/i.test(errors[i])) errors.splice(i, 1);
+await saved(C3);
+
+// 16. dissolved on another device: the record is gone, as dissolving there leaves it
+await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/nations/${uid}`, { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
+await edit(C3, 'Saved after the dissolve');
+check('a save refused for a nation dissolved on another device lets it go', await until(async () => !(await localNation(C3)) && await C3.isVisible('#d-name'), 20000));
+check('and says so, keeping a copy of it', await until(async () => /dissolved on another device/.test(await toasts(C3)), 10000) && (await copies(C3))[0] === 'Saved after the dissolve');
+check('it no longer says Saving', await until(async () => await syncState(C3) === 'synced', 10000), await syncState(C3));
+check('and signing out is allowed', await C3.evaluate(async () => { try { await window.__edictum.beforeSignOut(); return true; } catch (e) { return e.message; } }) === true);
+
+// 17. dissolving while a save is on its way
+await found(C3, 'Secondland'); await saved(C3);
+let releaseCommit, commitHeld = false; const commitGate = new Promise(r => { releaseCommit = r; });
+const holdUpdate = async route => { if (!commitHeld && (route.request().postData() || '').includes('"update"')) { commitHeld = true; await commitGate; } return route.continue(); };
+await C3.ctx.route(/\/documents:commit/, holdUpdate);
+await edit(C3, 'A save still on its way');
+check('a save is on its way', await until(() => commitHeld, 15000));
+await nav(C3, 'settings'); await C3.click('#sg-tab-account'); await C3.click('[data-act="dissolve-ask"]');
+await C3.fill('#dz-type', 'Secondland'); await C3.click('[data-act="dissolve-confirm"]');
+await sleep(500); releaseCommit(); await sleep(6000);
+check('dissolving while a save is on its way does not bring the nation back', !(await localNation(C3)) && await C3.isVisible('#d-name') && (await restGet('nations/' + uid)).status === 404, JSON.stringify({ local: (await localNation(C3))?.name, cloud: (await restGet('nations/' + uid)).status }));
+await C3.ctx.unroute(/\/documents:commit/, holdUpdate);
 
 await finish();
