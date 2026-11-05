@@ -37079,7 +37079,9 @@ let saveChecked=false,saveFailed=false,saveError='',saveConflicts=0;
 const SAVE_LIMIT=Math.max(2000,Number(window.EDICTUM_SAVE_LIMIT)||45000);
 const SAVE_RETRY=Array.isArray(window.EDICTUM_SAVE_RETRY)?window.EDICTUM_SAVE_RETRY:[5000,15000,30000,60000];
 const SAVE_ACT=Math.max(1500,Number(window.EDICTUM_SAVE_ACT)||8000);
-let saveStreak=0,remoteDue=0,lastInput=-1e9;
+/* saveBusy: the last save met a rate limit (quota_exceeded, HTTP 429). Only then does saveSoon wait for the retry
+   step too; a passing refusal (the rules' one save a second, often met just after founding) is tried again within SAVE_MIN */
+let saveStreak=0,remoteDue=0,lastInput=-1e9,saveBusy=false;
 for(const t of ['pointerdown','keydown'])window.addEventListener(t,()=>{lastInput=performance.now();},{capture:true,passive:true});
 /* One tab plays at a time. Every tab in this browser shares one copy of the nation (saveLocal) and one account, so two
    playing tabs would overwrite each other's copy and race each other's saves. The newest tab plays (tabClaim, at start);
@@ -37311,8 +37313,8 @@ async function flushRemote(){
 function saveSoon(){
   if(OBS||tabPassive)return;
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}remoteDirty=true;remoteSoon=true;publishSync();if(remoteBusy)return;
-  /* after failed saves, the retry steps still hold: a busy region is not asked again sooner */
-  clearTimeout(remoteTimer);remoteDue=remoteLast+(saveStreak?SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1]:SAVE_MIN);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteDue-performance.now()));
+  /* a busy region (saveBusy) is not asked again before the retry step */
+  clearTimeout(remoteTimer);remoteDue=remoteLast+(saveBusy&&saveStreak?SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1]:SAVE_MIN);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteDue-performance.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
@@ -37344,7 +37346,7 @@ function resumeNation(e){
   if(S.mode!=='world'){publishSync();return;}
   /* offline, neither a save nor a read can reach the server: the online event comes back here */
   if(navigator.onLine===false){publishSync();return;}
-  if(e&&e.type==='online'){saveChecked=false;saveFailed=false;saveStreak=0;publishSync();}
+  if(e&&e.type==='online'){saveChecked=false;saveFailed=false;saveStreak=0;saveBusy=false;publishSync();}
   if(remoteDirty){clearTimeout(remoteTimer);remoteTimer=0;flushRemote();}else syncOwnNation(true);
 }
 window.addEventListener('offline',publishSync);
@@ -37360,15 +37362,15 @@ async function writeRemote(){
   const landed=result=>{ownActs=ownActs.filter(a=>a.c>sentC);if(ownActsBroken&&ownActsBroken<=sentC)ownActsBroken=0;carried=false;
     if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
   const send=async()=>{const p=ref.set(sent);p.then(landed,()=>{});
-    const result=await saveWithin(p,SAVE_LIMIT);saveChecked=true;saveFailed=false;saveError='';saveStreak=0;
+    const result=await saveWithin(p,SAVE_LIMIT);saveChecked=true;saveFailed=false;saveError='';saveStreak=0;saveBusy=false;
     /* Actions made while this write was in flight are based on it too. Advance their revision without
        replacing those actions with the older object just sent. */
     if(result&&Number.isSafeInteger(result.rev)&&S.nation&&saveRev(S.nation)===saveRev(sent)){S.nation._rev=result.rev;S.nation._dirty=remoteDirty;saveLocal(S.nation);}};
   try{await send();}
   catch(e){
-    saveFailed=true;saveError=String(e&&e.code||'unknown').slice(0,64);publishSync();
+    saveFailed=true;saveError=String(e&&e.code||'unknown').slice(0,64);saveBusy=!!e&&e.code==='quota_exceeded';publishSync();
     if(e&&e.code==='region_disabled'){remoteDirty=true;regionControls();return;}
-    if(e&&e.code==='unavailable'){await sleep(1500+Math.random()*900);try{await send();return;}catch(e2){e=e2;}}
+    if(e&&e.code==='unavailable'){await sleep(1500+Math.random()*900);try{await send();return;}catch(e2){e=e2;saveBusy=!!e&&e.code==='quota_exceeded';}}
     if(e&&e.code==='save_conflict'){saveConflicts++;saveFailed=false;conflictCopy=keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
     saveFailed=true;
     const code=e&&e.code;
