@@ -305,13 +305,17 @@ check('and dissolves its nation, keeping the account', await until(async () => (
 const Q = await player('Q');
 await open(Q);
 await founded(Q, 'Quayside');
-/* a write at pagehide, made only as the switch leaves the page (the dialog then says "Switching to your …"), in a
-   handler registered at the page's start, so before leave()'s own; it notes that it ran */
+/* a write at pagehide, made only as the switch leaves the page (doSwitch has just noted edictum.carry, which no
+   other unload here sees), in a handler registered at the page's start, so before leave()'s own. Every unload notes
+   what it saw, for the check's detail */
 await Q.ctx.addInitScript(() => {
   addEventListener('pagehide', () => {
-    if (!/Switching to your/.test(document.querySelector('.ed-msg')?.textContent || '')) return;
-    const n = JSON.parse(localStorage.getItem('statehood.nation.v1') || 'null');
-    if (n) { n.motto = 'Written at unload'; n._rev = 7; localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); sessionStorage.setItem('test.unloadWrote', '1'); }
+    const carry = localStorage.getItem('edictum.carry'), n = JSON.parse(localStorage.getItem('statehood.nation.v1') || 'null');
+    const seen = JSON.parse(sessionStorage.getItem('test.unloadSeen') || '[]');
+    seen.push({ carry: !!carry, name: n && n.name, rev: n && n._rev, msg: (document.querySelector('.ed-msg')?.textContent || '').slice(0, 60) });
+    sessionStorage.setItem('test.unloadSeen', JSON.stringify(seen));
+    if (!carry || !n || n.name !== 'Quayside') return;
+    n.motto = 'Written at unload'; n._rev = 7; localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); sessionStorage.setItem('test.unloadWrote', '1');
   });
 });
 const firstQ = await sendLink(Q, 'rook@example.com');
@@ -324,7 +328,8 @@ if (!(await switchedQ)) {
   await Q.goto(secondQ);
 }
 check('Q switches into the account without a nation, taking Quayside along', await until(async () => (await ready(Q).catch(() => null)) === uidR, 20000) && await until(async () => (await sideName(Q)) === 'Quayside', 15000));
-check('the write at unload did run', await Q.evaluate(() => sessionStorage.getItem('test.unloadWrote')) === '1');
+/* the new account answers ready() as soon as the sign-in lands, before leave() reloads the page: wait for that unload */
+check('the write at unload did run', await until(async () => await Q.evaluate(() => sessionStorage.getItem('test.unloadWrote')) === '1', 20000), JSON.stringify({ switchedAtOnce: await switchedQ, unloads: await Q.evaluate(() => JSON.parse(sessionStorage.getItem('test.unloadSeen') || '[]')) }));
 check('and a write at unload did not replace the moved copy', (await localNation(Q))?.motto !== 'Written at unload' && await until(async () => (await nationDoc(uidR))?.rec?.name === 'Quayside', 20000) && (await nationDoc(uidR)).rec.motto !== 'Written at unload');
 
 await finish();
