@@ -172,7 +172,8 @@
   ['asmLocal', 'onb', 'mapPlan', 'inbox', 'chain', 'issueClock', 'issueSeq', 'freq', 'topics', 'iseen', 'isd', 'bonce', 'dec', 'shDone', 'seen',
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cuJournal', 'exp', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
-    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws', 'cuS', 'ws'].forEach(function (k) { NX_KEYS[k] = 1; });
+    'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws', 'cuS', 'ws',
+    'mdt', 'pso', 'rpl', 'brf', 'aph', 'ldr'].forEach(function (k) { NX_KEYS[k] = 1; });
   /* The own half: what nobody but the player may read, not even on opening the nation's pages: the letters (dm),
      which reach the nations they are written to as letters/ documents (lettersApi) */
   var OWN_KEYS = { dm: 1 };
