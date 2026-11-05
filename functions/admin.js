@@ -14,7 +14,20 @@ const text = (v, max = 128) => typeof v === 'string' ? v.trim().slice(0, max) : 
 const id = v => { const s = text(v); if (!s || s.includes('/')) throw new HttpsError('invalid-argument', 'A valid record ID is required.'); return s; };
 const ms = v => v?.toMillis?.() || 0;
 const key = s => String(s || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
-let directory = null, directoryAt = 0;
+let directory = null, directoryAt = 0, onlineSet = null, onlineAt = 0;
+/* Online now: a game tab in front reports its save health at least once a minute (src/shim.js, healthSoon), so a
+   player with a report in the last ONLINE_MS has the game open. Cached briefly, like the directory. */
+const ONLINE_MS = 3 * 60000;
+async function online(db, refresh) {
+  if (!onlineSet || refresh || Date.now() - onlineAt > 20000) {
+    const qs = await db.collection('saveHealth').where('t', '>', Timestamp.fromMillis(Date.now() - ONLINE_MS)).select('uid').get();
+    onlineSet = new Set(qs.docs.map(d => d.get('uid')).filter(Boolean));
+    onlineAt = Date.now();
+  }
+  return onlineSet;
+}
+/* last activity filters: within the last hour, day or week, or quiet for over a week or a month */
+const ACT = { h1: t => t >= Date.now() - 3600000, d1: t => t >= Date.now() - 86400000, d7: t => t >= Date.now() - 7 * 86400000, old7: t => t < Date.now() - 7 * 86400000, old30: t => t < Date.now() - 30 * 86400000 };
 
 async function players(db, data) {
   // Read only the small public summaries, cached for a minute. Legacy nations need no migration.
@@ -23,14 +36,17 @@ async function players(db, data) {
     directory = qs.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     directoryAt = Date.now();
   }
-  const q = key(text(data.q, 128)), reg = text(data.reg, 40);
-  const matches = directory.filter(p => (!reg || p.reg === reg) && (!q || key(p.name).includes(q) || key(p.uid).includes(q)));
+  const q = key(text(data.q, 128)), reg = text(data.reg, 40), act = text(data.act, 8), on = await online(db, data.refresh === true);
+  const tOf = p => typeof p.t === 'number' ? p.t : ms(p.t);
+  const matches = directory.filter(p => (!reg || p.reg === reg) && (!q || key(p.name).includes(q) || key(p.uid).includes(q))
+    && (act !== 'online' || on.has(p.uid)) && (!ACT[act] || ACT[act](tOf(p))));
   if (q && !text(data.q).includes('/') && !matches.some(p => p.uid === text(data.q))) {
     const direct = await db.doc('summaries/' + text(data.q)).get();
     if (direct.exists && (!reg || direct.get('reg') === reg)) matches.unshift({ uid: direct.id, ...direct.data() });
   }
   const offset = Number.isSafeInteger(data.offset) && data.offset >= 0 ? data.offset : 0;
-  return { players: matches.slice(offset, offset + 50), total: matches.length, next: offset + 50 < matches.length ? offset + 50 : null, at: directoryAt };
+  const page = matches.slice(offset, offset + 50).map(p => ({ ...p, on: on.has(p.uid) }));
+  return { players: page, total: matches.length, online: on.size, next: offset + 50 < matches.length ? offset + 50 : null, at: directoryAt };
 }
 // Who is behind a nation, from Firebase Authentication itself, never from the nation's shared record.
 // Email link sign-in is Firebase's 'password' provider; Discord is a custom claim (functions/discord.js).

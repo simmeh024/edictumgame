@@ -4168,6 +4168,11 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-search{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:20px 0}
 .adm-search .field{flex:1 1 220px;margin:0}
 .adm-search .btn{min-height:44px}
+.adm-ptbl .adm-filt td{padding-top:6px;padding-bottom:10px;vertical-align:middle}
+.adm-ptbl .adm-filt .input{min-height:38px;padding:6px 10px;font-size:.88rem;width:100%;min-width:120px}
+.adm-onlyon{display:inline-flex;align-items:center;gap:8px;font-size:.88rem;white-space:nowrap;cursor:pointer}
+.adm-on{display:inline-block;width:9px;height:9px;border-radius:50%;background:#3fbf6f;box-shadow:0 0 0 3px rgba(63,191,111,.22);vertical-align:middle}
+.adm-on-t{font-size:.78rem;color:#3fbf6f;font-weight:600}
 .adm-detail{margin:22px 0;padding:20px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
 .adm-detail code,.adm td code{overflow-wrap:anywhere;white-space:normal;font:12px var(--f-mono)}
 .adm-detail dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:10px;margin:16px 0}
@@ -39235,14 +39240,14 @@ document.addEventListener('click',e=>{
 });
 
 /* ───────── staff operations ───────── */
-const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:''};
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
   if(ADMX.busy)return;ADMX.busy=true;ADMX.err='';ADMX.loaded[v]=true;render();
   try{
     if(v==='admin-players'){
-      if(!more)ADMX.query={q:ADMX.q,reg:ADMX.reg};
+      if(!more)ADMX.query={q:ADMX.q,reg:ADMX.reg,act:ADMX.act};
       const d=await adminRequest({op:'search',...ADMX.query,offset:more&&ADMX.search?ADMX.search.next:0,refresh});
       if(more&&ADMX.search)d.players=ADMX.search.players.concat(d.players);ADMX.search=d;
     }
@@ -39415,8 +39420,13 @@ function adminExtraView(v){
   if(v==='admin-players'){
     const d=ADMX.search;
     body=`<p class="lede">Find a nation by name or player ID across every region. Inspect its latest confirmed save, the account behind it and its moderation status, keep private notes on it, and ask it for a new name, hide, delete or ban it.</p>
-      <form class="adm-search" id="admin-search"><div class="field"><label for="admin-q">Nation name or player ID</label><input class="input" id="admin-q" maxlength="128" value="${esc(ADMX.q)}" placeholder="Search players"></div><div class="field"><label for="admin-reg">Region</label><select class="input" id="admin-reg"><option value="">All regions</option>${REGIONS.map(r=>`<option value="${r.id}"${ADMX.reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div><button class="btn"${ADMX.busy?' disabled':''}>Search</button><button type="button" class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh directory</button></form>
-      ${adminPlayerDetail(ADMX.player)}${d?`<p class="hint">${d.total} ${d.total===1?'match':'matches'} · directory refreshed ${esc(adminTime(d.at))}</p>${d.players.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th>Region</th><th>Last activity</th><th>Player</th></tr></thead><tbody>${d.players.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(regName(p.reg))}</td><td>${esc(adminTime(p.t))}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect player</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No matching players.</p>'}${d.next!=null?'<button class="btn ghost" data-act="admin-extra-more">Load more players</button>':''}`:''}`;
+      <form class="adm-search" id="admin-search"><button class="btn"${ADMX.busy?' disabled':''}>Search</button><button type="button" class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh directory</button>${ADMX.q||ADMX.reg||ADMX.act?`<button type="button" class="btn ghost" data-act="admin-filter-clear"${ADMX.busy?' disabled':''}>Clear filters</button>`:''}</form>
+      ${adminPlayerDetail(ADMX.player)}${d?`<p class="hint">${d.total} ${d.total===1?'match':'matches'}${d.online!=null?` · <span class="adm-on" aria-hidden="true"></span> ${d.online} online now`:''} · directory refreshed ${esc(adminTime(d.at))}</p>`:''}<div class="tbl-wrap"><table class="tbl adm-ptbl"><thead><tr><th>Nation</th><th>Region</th><th>Last activity</th><th>Player</th></tr>
+        <tr class="adm-filt"><td><label class="u-sr" for="admin-q">Filter by nation name or player ID</label><input class="input" id="admin-q" form="admin-search" maxlength="128" value="${esc(ADMX.q)}" placeholder="Name or player ID" enterkeyhint="search"></td>
+        <td><label class="u-sr" for="admin-reg">Filter by region</label><select class="input" id="admin-reg" form="admin-search"><option value="">All regions</option>${REGIONS.map(r=>`<option value="${r.id}"${ADMX.reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></td>
+        <td><label class="u-sr" for="admin-act">Filter by last activity</label><select class="input" id="admin-act" form="admin-search">${[['','Any time'],['online','Online now'],['h1','In the last hour'],['d1','In the last 24 hours'],['d7','In the last 7 days'],['old7','Quiet over 7 days'],['old30','Quiet over 30 days']].map(([k,l])=>`<option value="${k}"${ADMX.act===k?' selected':''}>${l}</option>`).join('')}</select></td>
+        <td><label class="adm-onlyon"><input type="checkbox" id="admin-onlyon" form="admin-search"${ADMX.act==='online'?' checked':''}> Online only</label></td></tr></thead>
+        <tbody>${d&&d.players.length?d.players.map(p=>`<tr><td>${p.on?'<span class="adm-on" title="Online now" role="img" aria-label="Online now"></span> ':''}${esc(p.name)}</td><td>${esc(regName(p.reg))}</td><td>${p.on?'<b class="adm-on-t">Online now</b><br>':''}${esc(adminTime(p.t))}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect player</button></td></tr>`).join(''):`<tr><td colspan="4" class="hint">${d?'No matching players.':'Loading the directory…'}</td></tr>`}</tbody></table></div>${d&&d.next!=null?'<button class="btn ghost" data-act="admin-extra-more">Load more players</button>':''}`;
   }
   if(v==='admin-health'){
     const d=ADMX.health,rows=d?d.sessions:[],stale=s=>Date.now()-s.t>5*60000;
@@ -39433,7 +39443,10 @@ function adminExtraView(v){
   return admShell(v,`<p class="eyebrow">Admin portal</p><h1 class="display">${title}</h1>${body}${ADMX.busy?'<p class="hint" role="status">Loading…</p>':''}${ADMX.err?`<p class="err" role="alert">${esc(ADMX.err)}</p>`:''}`);
 }
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.id==='admin-club-why')ADMX.clubWhy=t.value;if(t.id==='admin-club-days')ADMX.clubDays=Number(t.value);if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
-document.addEventListener('change',e=>{if(e.target.id==='admin-reg')ADMX.reg=e.target.value;if(e.target.dataset.regionMode){ADMX.modes[e.target.dataset.regionMode]=e.target.value;render();}});
+document.addEventListener('change',e=>{const t=e.target;
+  /* the column filters search as soon as they change; the name filter on Enter or Search */
+  if(t.id==='admin-reg'||t.id==='admin-act'||t.id==='admin-onlyon'){if(t.id==='admin-reg')ADMX.reg=t.value;if(t.id==='admin-act')ADMX.act=t.value;if(t.id==='admin-onlyon')ADMX.act=t.checked?'online':'';if(S.isOwner&&S.view==='admin-players')adminExtraLoad('admin-players');return;}
+  if(e.target.id==='admin-reg')ADMX.reg=e.target.value;if(e.target.dataset.regionMode){ADMX.modes[e.target.dataset.regionMode]=e.target.value;render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='admin-search'||e.target.id==='admin-audit-filter'){e.preventDefault();if(S.isOwner)adminExtraLoad(S.view);}});
 document.addEventListener('click',async e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act,id=el.dataset.id;
@@ -39442,6 +39455,7 @@ document.addEventListener('click',async e=>{
   if(a==='region-ask'){ADMX.ask=id;ADMX.modes[id]=regMode(id)==='coming_soon'?'coming_soon':'maintenance';render();return;}
   if(a==='region-cancel'){ADMX.ask=null;render();return;}
   if(a==='region-enable'||a==='region-disable'){adminSetRegion(id,a==='region-enable');return;}
+  if(a==='admin-filter-clear'){ADMX.q='';ADMX.reg='';ADMX.act='';adminExtraLoad('admin-players');return;}
   if(a==='admin-extra-refresh'||a==='admin-extra-more'){adminExtraLoad(S.view,a==='admin-extra-more',a==='admin-extra-refresh');return;}
   if(a==='admin-history'){ADMX.target=id;ADMX.loaded['admin-audit']=false;ADMX.audit=null;go('admin-audit');return;}
   if(a==='admin-mod'){

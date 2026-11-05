@@ -32,6 +32,18 @@ await A.fill('#admin-q', uidB); await A.click('#admin-search button:not([type])'
 check('an exact player ID can be searched', await until(async () => !await A.$('.adm-main [role="status"]') && /Playerland/.test(await text(A, '.adm-main .tbl'))));
 await A.fill('#admin-q', 'no-such-player-zzzz'); await A.click('#admin-search button:not([type])');
 check('search explains when there are no matches', await until(async () => /No matching players/.test(await text(A, '.adm-main'))));
+await A.click('[data-act="admin-filter-clear"]');
+check('Clear filters empties every column filter', await until(async () => await A.inputValue('#admin-q') === '' && /Playerland/.test(await text(A, '.adm-main .tbl'))));
+await A.selectOption('#admin-act', 'online');
+check('the activity column filters to players online now, each marked with the online icon', await until(async () => { const t = await text(A, '.adm-main .tbl'); return /Playerland/.test(t) && !!await A.$(`tr:has([data-id="${uidB}"]) .adm-on`) && await A.isChecked('#admin-onlyon'); }, 20000));
+check('the count of players online is shown', /\d+ online now/.test(await text(A, '.adm-main')));
+await A.selectOption('#admin-act', 'old30');
+check('a nation active today is not quiet for 30 days', await until(async () => /No matching players/.test(await text(A, '.adm-main .tbl'))));
+await A.selectOption('#admin-act', ''); await until(async () => /Playerland/.test(await text(A, '.adm-main .tbl')));
+await A.selectOption('#admin-reg', 'frostmarch');
+check('the region column filters by region', await until(async () => /No matching players/.test(await text(A, '.adm-main .tbl'))));
+await A.click('[data-act="admin-filter-clear"]');
+await until(async () => /Playerland/.test(await text(A, '.adm-main .tbl')));
 await A.screenshot({ path: OUT + '/admin-player-search.png', fullPage: true });
 
 await page('admin-health');
