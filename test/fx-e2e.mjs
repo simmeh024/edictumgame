@@ -5,7 +5,7 @@
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { OUT, PROJECT, FS_HOST, check, finish, sleep, until, player, open, found, nav, text, localNation, nationDoc, restGet, clearEmulators, errors } from './lib.mjs';
+import { OUT, PROJECT, FS_HOST, check, finish, sleep, until, player, open, found, nav, czSection, text, localNation, nationDoc, restGet, clearEmulators, errors } from './lib.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..'), DAY = 864e5;
 const job = now => JSON.parse(execFileSync(process.execPath, [path.join(ROOT, 'jobs/fx/run.mjs'), '--project', PROJECT, '--region', 'meridian'].concat(now ? ['--now', String(now)] : []),
@@ -88,7 +88,7 @@ check('nor a currency’s history', (await tryWrite(A, 'fxh/' + uidA, { d: { '20
 
 /* ── designing the currency ── */
 await nav(A, 'customise');
-await A.click('#cz-tab-money');
+await czSection(A, 'c');
 check('Customise has a Currency section with a live banknote and coin', !!(await A.$('#cz-sec-c .cu-note')) && !!(await A.$('#cz-sec-c .cu-coin')));
 await A.fill('#cu-f-nm', 'Aldorian Thaler'); await A.fill('#cu-f-cd', 'ald'); await A.fill('#cu-f-sy', '₮');
 await sleep(150);
@@ -159,7 +159,7 @@ await nav(T, 'exchange'); await nav(T, 'nation');
 check('a second visit pays nothing more', (await credits()) === c0 + 2 && Math.abs((await oil()) - o0 - 5) < 0.01);
 check('the checklist ticks the task', /Done/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')));
 await T.click('.tut-l-mark li[data-k="fxd"] [data-act="go"]'); await sleep(300);
-check('its other step opens the currency designer', /#customise$/.test(T.url()) && !!(await T.$('#cz-sec-c')));
+check('its other step opens the currency designer', /#customise(\/currency)?$/.test(T.url()) && !!(await T.$('#cz-sec-c')));
 await T.fill('#cu-f-cd', 'TRS'); await T.click('#cu-form button[type="submit"]'); await sleep(400);
 check('designing the currency pays the second: 2 more land credits and 5 more oil', await until(async () => (await credits()) === c0 + 4) && Math.abs((await oil()) - o0 - 10) < 0.01, `credits ${await credits()}, oil ${await oil()}`);
 const tn = await localNation(T);
@@ -198,7 +198,7 @@ check('its controls are large enough to touch', !tgt.length, JSON.stringify(tgt.
 check('the chart, controls and prestige badges carry text, not only colour', (await B.$$('.cu-pb .cu-pb-t')).length >= 9 && !!(await B.$('[aria-label="Swap the two currencies"]')));
 await B.screenshot({ path: path.join(OUT, 'exchange-390.png'), fullPage: true });
 await nav(B, 'customise');
-await B.click('#cz-tab-money'); await sleep(200);
+await czSection(B, 'c');
 check('so does the currency designer', (await noScroll(B)) <= 0);
 await B.screenshot({ path: path.join(OUT, 'customise-currency-390.png') });
 await B.ctx.close();

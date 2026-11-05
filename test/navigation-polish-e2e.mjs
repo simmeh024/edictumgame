@@ -15,9 +15,12 @@ check('desktop section links need no horizontal scrollbar',await A.locator('.ux-
 await A.evaluate(()=>document.documentElement.setAttribute('data-theme','dark'));await A.screenshot({path:OUT+'/navigation-compact-1280.png'});await A.evaluate(()=>document.documentElement.removeAttribute('data-theme'));
 await search(A,'money');check('player words find the currency designer',await result(A,'focus:currency').count()===1);await result(A,'focus:currency').click();await view(A,'customise');
 check('a specific search result opens and focuses its designer',await A.evaluate(()=>document.activeElement?.id==='cz-sec-c')&&!await A.locator('#cz-sec-c').evaluate(e=>e.classList.contains('ux-folded')),await A.evaluate(()=>JSON.stringify({focus:document.activeElement?.id,route:G.UX.UXP.route,y:window.scrollY,top:document.getElementById('cz-sec-c').getBoundingClientRect().top})));
-check('Customise is in tabs, the search result’s own open',await A.locator('#cz-tab-money').getAttribute('aria-selected')==='true'&&!await A.locator('#cz-sec-b').isVisible());
-await A.click('#cz-tab-look');check('a tab shows its own sections',await A.locator('#cz-sec-b').isVisible()&&!await A.locator('#cz-sec-c').isVisible());
-await move(A,'nation');await move(A,'customise');check('the tab is remembered when returning',await A.locator('#cz-sec-b').isVisible());
+const shownSecs=p=>p.$$eval('.cz-sec',s=>s.filter(x=>x.getClientRects().length).map(x=>x.id).join());
+check('Customise shows one section at a time, the search result’s own',await shownSecs(A)==='cz-sec-c'&&await A.locator('#cz-go-c').getAttribute('aria-current')==='true');
+check('a list down the side names the sections under their groups, with how much of each is held',await A.$$eval('.cz-go',b=>b.length>=6&&b.every(x=>document.getElementById('cz-sec-'+x.dataset.v)))&&JSON.stringify(await A.$$eval('.cz-rail-g',g=>g.map(x=>x.textContent)))===JSON.stringify(['Identity','Presentation','Money'])&&/held/.test(await A.locator('#cz-go-b .cz-go-n').textContent())&&!await A.locator('#cz-tab-look').isVisible());
+await A.click('#cz-go-b');check('a click in the list shows that section alone, and the address says so',await shownSecs(A)==='cz-sec-b'&&await A.evaluate(()=>location.hash)==='#customise/banner');
+await A.focus('#cz-go-b');await A.keyboard.press('ArrowDown');check('arrow keys move down the list',await shownSecs(A)==='cz-sec-s'&&await A.evaluate(()=>document.activeElement?.id)==='cz-go-s');await A.click('#cz-go-b');
+await move(A,'nation');await move(A,'customise');check('the section is remembered when returning',await A.locator('#cz-sec-b').isVisible());
 await A.reload();await A.waitForSelector('.layout');await view(A,'customise');check('and after a refresh',await A.locator('#cz-sec-b').isVisible());
 await A.fill('#cz-q','money');await A.click('[data-act="cz-open"][data-id="cz-sec-c"]');await sleep(200);check('a section found by searching Customise opens in its tab',await A.locator('#cz-sec-c').isVisible()&&!await A.locator('#cz-sec-b').isVisible());
 await A.evaluate(()=>window.scrollTo(0,800));await sleep(250);const position=await A.evaluate(()=>window.scrollY);
@@ -44,7 +47,7 @@ const tradeLink=warehouse.locator('[data-act="ux-resource"][data-r="iron"]'),nee
 check('a missing material opens a contextual trade shortcut',(await A.locator('.ux-resource-notice').textContent()).includes('iron')&&(await A.locator('.ux-resource-notice').textContent()).includes(need));
 await A.click('[data-act="ux-material-back"]');await view(A,'cities');
 check('returning from requirements keeps the selected city and spends nothing',await A.locator(`#city-${city.id} .cat-wrap`).isVisible()&&(await localNation(A)).cities[0].b.length===0);
-await move(A,'customise');await A.click('#cz-tab-id');const locked=A.locator('#cz-sec-t .ux-unlock-link[aria-label^="View achievement"]').first(),unlockId=await locked.getAttribute('data-id');
+await move(A,'customise');await A.click('#cz-go-t');const locked=A.locator('#cz-sec-t .ux-unlock-link[aria-label^="View achievement"]').first(),unlockId=await locked.getAttribute('data-id');
 const unlockTarget=await A.evaluate(id=>G.UX.uxUnlockInfo(id).target,unlockId),flagBefore=JSON.stringify((await localNation(A)).flag);await locked.click();await view(A,'achievements');
 check('locked designs link to the exact unearned achievement',await A.locator(unlockTarget).isVisible()&&await A.evaluate(()=>G.S.achF==='all'));
 check('viewing a requirement does not apply the locked design',JSON.stringify((await localNation(A)).flag)===flagBefore&&await A.locator('button button').count()===0);
@@ -56,6 +59,8 @@ await C.locator('[data-fgg="c:layers"]>summary').click();await sleep(150);await 
 check('native designer sections keep their collapsed state',!await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
 await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
 check('an explicit search opens a previously collapsed target',await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
+await move(C,'customise');await C.click('#cz-tab-look');check('on a phone the group tabs pick a group and a row of chips its sections',await C.locator('#cz-sub-s').isVisible()&&!await C.locator('#cz-sub-a').isVisible()&&!await C.locator('.cz-rail').isVisible());
+await C.click('#cz-sub-s');check('and a chip shows that section alone',await shownSecs(C)==='cz-sec-s');
 await move(C,'nation');const legis=C.locator('section.ux-foldable').filter({has:C.locator('h2.ux-section-heading').filter({hasText:'Recent legislation'})}).first();await legis.locator('.ux-fold-toggle').click();const legisId=await legis.locator('h2.ux-section-heading').getAttribute('id');await C.selectOption('#ux-section-select',legisId);
 check('the phone section menu reveals and focuses its destination',!await legis.evaluate(e=>e.classList.contains('ux-folded'))&&await until(()=>C.evaluate(id=>document.activeElement?.id===id,legisId),3000));
 /* Settings has tabs of its own instead of the section menu */
