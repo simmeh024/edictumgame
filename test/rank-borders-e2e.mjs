@@ -2,7 +2,7 @@
 // a nation is walked up the ladder by recording achievements, and at every rank the card on the Nation page
 // must wear that rank's border and nameplate. Customise may choose an earlier border, never a later one.
 // Screenshots of every rank land in test/out (rank-NN-<look>.png).
-import {OUT,PROJECT,check,finish,until,player,open,found,nav,sleep} from './lib.mjs';
+import {OUT,PROJECT,check,finish,until,player,open,found,nav,czSection,sleep} from './lib.mjs';
 import path from 'node:path';
 if(!PROJECT.startsWith('demo-'))throw Error('This suite requires demo emulators');
 
@@ -53,7 +53,7 @@ check('the Census page’s Hall of Honours shows the nation in its border and ra
 await shot('.id-hon','rank-census.png');
 
 /* Customise: an earlier border can be chosen; the card keeps it, and Follow my rank brings the rank's back */
-await nav(A,'customise');await A.click('#cz-tab-look');
+await nav(A,'customise');await czSection(A,'b');
 check('Customise offers every border, the rank’s own first',await A.locator('.cz-g-bd .cz-tile').count()===info.borders+1);
 await shot('.cz-g-bd','rank-customise.png');
 await A.click('#cz-bd-b-silver');

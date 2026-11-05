@@ -94,6 +94,12 @@ export async function settle(p){await nav(p,'map');await p.click('[data-act="map
 // Founding opens the map to claim the first land; these suites start from the Nation page, as before.
 export async function establish(p){await p.evaluate(()=>{if(!G.S.nation?.onb)return;const n=G.clone(G.S.nation);delete n.onb;G.commit(n);G.PG.saveSoon();G.render();});if(await p.evaluate(()=>G.S.view==='map'))await nav(p,'nation');}
 export const nav = async (p, v) => { await p.evaluate(v => document.querySelector(`.nav [data-v="${v}"]`).click(), v); await sleep(250); };
+/* Customise shows one section at a time: open one by its key (t e a y v b s z c), through its address */
+const CZ_SLUGS = { t: 'epithet', e: 'flag', a: 'arms', y: 'symbols', v: 'provinces', b: 'banner', s: 'decrees', z: 'finery', c: 'currency' };
+export async function czSection(p, k) {
+  await p.evaluate(h => { if (location.hash !== h) location.hash = h; else window.dispatchEvent(new PopStateEvent('popstate')); }, '#customise/' + CZ_SLUGS[k]);
+  await p.waitForSelector('#cz-sec-' + k, { state: 'visible', timeout: 15000 }); await sleep(150);
+}
 export const text = (p, sel) => p.$eval(sel, el => el.textContent.replace(/\s+/g, ' ').trim()).catch(() => '');
 export const sideName = p => text(p, '.side-nm');
 export const localNation = p => p.evaluate(() => JSON.parse(localStorage.getItem('statehood.nation.v1') || 'null'));

@@ -76,7 +76,7 @@ await search('recruit', 'focus:set-social');
 check('searching “recruit” opens Account', await tab(A) === 'account' && await shown(A, '#set-social'));
 await search('anthem', 'focus:s-lang');
 check('searching “anthem” opens Your nation at culture', await tab(A) === 'nation' && await until(() => A.evaluate(() => document.activeElement?.id === 's-lang'), 3000));
-await nav(A, 'customise'); await A.click('#cz-tab-id'); await A.click('[data-act="cz-show-disp"]'); await sleep(600);
+await nav(A, 'customise'); await A.click('[data-act="cz-show-disp"]'); await sleep(600);
 check('Customise’s link to the theme opens Display', await A.evaluate(() => G.S.view) === 'settings' && await tab(A) === 'display');
 await A.click('#sg-tab-nation'); await A.click('[data-act="go"][data-cu-jump]'); await sleep(500);
 check('the currency link opens the Money tab of Customise', await A.evaluate(() => G.S.view) === 'customise' && await shown(A, '#cz-sec-c'));

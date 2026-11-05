@@ -154,14 +154,17 @@ are Roman (Edictum MCCLI, Anno IV, counted from the founding); the decision stam
 wax seal of state whose inscription follows the government (SPQ, REX, IMP and so on). The other stamps
 are in the same section of the Customise page.
 
-**The Customise page.** Three tabs: Identity (epithet, flag, arms, symbols, provinces), Presentation
-(banner, card border, decrees, finery) and Money (currency). Every section is drawn and CSS hides the
-other tabs' (`.cz-dock[data-tab]`), so a jump from anywhere only switches the tab. A dock at the top keeps a
-preview in view, as the nation card, sidebar, Region row, map marker, banknote or decree. Pointing at a
+**The Customise page.** Nine sections in three groups: Identity (epithet, flag, arms, symbols, provinces),
+Presentation (banner, decrees, finery) and Money (currency), shown one at a time. On a wide screen a list
+down the side names them under their groups and says how much of each is held; below 1180px the dock keeps
+the group tabs and adds a row of section chips. Every section is drawn and CSS shows the open one
+(`.cz-dock[data-sec]`), so a jump from anywhere only picks the section (`czTabFor`, `czSecSet`); the open
+section is remembered, with the last one of each group, and is in the address as `#customise/<slug>`. A dock
+at the top keeps a preview in view, as the nation card, sidebar, Region row, map marker, banknote or decree. Pointing at a
 tile shows it there, and a click on a locked one tries it on; neither is saved. A search and Owned / Locked /
 New filters list matching cosmetics from every tab. The page also shows what is new since the last visit and
 the three cosmetics closest to being earned, how many of each section are held, an Undo for this visit's
-changes and a Back to default per section. It warns before an unsaved currency is left behind. Theme, accent,
+changes and a Back to default per section, and folds "Closest to unlocking" to one line. It warns before an unsaved currency is left behind. Theme, accent,
 text size, density and motion are device settings and live in Settings, under Display. The coat of arms
 has 24 charges, 10 of them free; the symbols save as each box is left.
 

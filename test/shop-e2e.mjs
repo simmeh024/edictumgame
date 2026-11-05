@@ -4,7 +4,7 @@
 // the same finery on a nation that only wrote it into its own record; the Chancery Club gives a desk of ten, a pick,
 // presets and a Chronicle, and when it ends the ten edicts stay. Screenshots land in test/out (shop-*.png).
 //   npm run test:shop-e2e
-import { BASE, OUT, PROJECT, FN_HOST, check, finish, until, player, open, found, nav, sleep, register, restGet } from './lib.mjs';
+import { BASE, OUT, PROJECT, FN_HOST, check, finish, until, player, open, found, nav, czSection, sleep, register, restGet } from './lib.mjs';
 import { signature } from '../functions/shop-core.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -149,7 +149,7 @@ check('nor to its own player’s game', await C.evaluate(() => { const c = G.SHO
 
 /* ── trying finery on in Customise: the neighbour tries the Engraver's frame on, and nothing is saved ── */
 await go(B, 'customise');
-await B.click('#cz-tab-look');
+await czSection(B, 'b');
 await B.waitForSelector('[data-act="cz-try"][data-id="f-engraver"]', { timeout: 15000 });
 check('the Shop’s pieces are in Customise, to try on', /Try it on/.test(await txt(B, '[data-act="cz-try"][data-id="f-engraver"]')));
 await click(B, '[data-act="cz-try"][data-id="f-engraver"]');
@@ -203,7 +203,7 @@ await go(A, 'shop');await click(A, '[data-act="shop-pick"][data-id="p-moire"]');
 check('the monthly pick is kept on the public list', !!(await until(async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('p-moire'); }, 8000)));
 await shot(A, '.shop-vip', 'shop-vip-member.png');
 /* presets */
-await go(A, 'customise');await click(A, '#cz-tab-look');
+await go(A, 'customise');await czSection(A, 'z');
 await click(A, '[data-act="pre-save"][data-k="1"]');
 check('a preset saved while a member', !!(await until(() => A.evaluate(() => !!(G.SHOP.PRE.doc && G.SHOP.PRE.doc[1])), 6000)));
 await A.evaluate(() => document.getElementById('cz-p-p-guilloche').click());await sleep(500);

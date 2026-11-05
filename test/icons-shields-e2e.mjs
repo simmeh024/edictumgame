@@ -1,11 +1,11 @@
 // Ten new icons, free: charges for the coat of arms and the same ten as flag emblems; five new shields, the Mural
 // shield opening with five cities (emulators).
-import { OUT, check, finish, until, player, open, found } from './lib.mjs';
+import { OUT, check, finish, until, player, open, found, czSection } from './lib.mjs';
 const KS = ['acorn', 'torch', 'scales', 'hourglass', 'quill', 'helm', 'grapes', 'lighthouse', 'dove', 'pine'];
 const SH = ['kite', 'round', 'polish', 'tudor', 'mural'];
 const A = await player('icons', { recovery: true });
 await open(A); await found(A, 'Iconia');
-const openCz = async () => { await A.evaluate(() => { G.S.view = 'customise'; G.render(); }); await A.waitForSelector('#cz-a-s-heater'); };
+const openCz = async () => { await A.evaluate(() => { G.S.view = 'customise'; G.render(); }); await czSection(A, 'a'); await A.waitForSelector('#cz-a-s-heater'); };
 await openCz();
 check('the ten new charges can be chosen at once', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#cz-a-c-c-' + k); return b && b.querySelector('svg path'); }), KS));
 check('and the ten new flag emblems', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#c-e-e-' + k); return b && b.querySelector('svg path'); }), KS));

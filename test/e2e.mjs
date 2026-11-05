@@ -10,7 +10,7 @@
 // stand-in for Google.
 import path from 'node:path';
 import {
-  BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, establish, nav, text, sideName, localNation,
+  BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, establish, nav, czSection, text, sideName, localNation,
   restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT
 } from './lib.mjs';
 
@@ -394,7 +394,7 @@ check('signed by the nation’s own leader, by title while the leader has no nam
 // who signs decrees is a choice on the Customise page
 await nav(KG, 'settings'); await KG.click('#sg-tab-nation'); await KG.fill('#s-ruler', 'Ada Brook'); await KG.click('#settings-form button[type="submit"]');
 await until(async () => ((await localNation(KG)) || {}).ruler === 'Ada Brook');
-await nav(KG, 'customise'); await KG.click('#cz-tab-look');
+await nav(KG, 'customise'); await czSection(KG, 's');
 check('once the leader has a name, decrees give it', await until(async () => /By royal decree of President Ada Brook of Kingsmoor, …/.test(await text(KG, '.cz-ds-ex'))), await text(KG, '.cz-ds-ex'));
 await KG.click('#cz-l-ds-s');
 check('signed by the type of state, they read as they used to', await until(async () => /By royal decree of the Crown of Kingsmoor/.test(await text(KG, '.cz-ds-ex')) && ((await localNation(KG)).cz || {}).ds === 's'));
@@ -897,7 +897,7 @@ await HQ.ctx.close();
 const SY = await player('SY', { block: /\/vendor\/firebase\/|\/__\/firebase\//, inject: false });
 await open(SY);
 await found(SY, 'Symbolia');
-const toCz = async () => { await SY.evaluate(() => { location.hash = '#customise'; }); await SY.waitForSelector('#cz-tab-id'); await SY.click('#cz-tab-id'); await SY.waitForSelector('#cz-sym-form'); };
+const toCz = async () => { await czSection(SY, 'y'); await SY.waitForSelector('#cz-sym-form'); };
 const setPop = async p => { await SY.evaluate(p => { const n = JSON.parse(localStorage.getItem('statehood.nation.v1')); n.pop = p; n.popAt = Date.now(); localStorage.setItem('statehood.nation.v1', JSON.stringify(n)); }, p); await SY.reload(); await SY.waitForSelector('.layout'); };
 const saveSym = async () => { await SY.keyboard.press('Tab'); await sleep(300); }; // a symbol saves when its box is left
 await toCz();
