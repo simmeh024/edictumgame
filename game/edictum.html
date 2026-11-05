@@ -358,7 +358,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .sg-ts{font-size:12.5px;line-height:1.3;color:var(--ink-3)}
 .sg-tab.dirty .sg-ts{color:var(--stamp);font-weight:600}
 .sg-pane{display:none;min-width:0}
-.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="account"] #sg-p-account{display:block}
+.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="nav"] #sg-p-nav,.sg[data-tab="account"] #sg-p-account{display:block}
 .sg-head{margin:0 0 18px}
 .sg-hrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .sg-h{margin:0;font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1;font-variation-settings:"opsz" 48}
@@ -3496,11 +3496,11 @@ button.fk-rs:hover,.fk-rs.on{color:var(--fk-rs)}
 .nav-chev{flex:none;margin-left:auto;opacity:.75}
 .nav-grp.shut .nav-chev{rotate:-90deg}
 .nav-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--stamp)}
-.nav-grp:not(.shut) .nav-dot,.nav-grp:not(.shut) .nav-dsr{display:none}
+.nav-grp:not(.shut) .nav-dot:not(.nav-hb),.nav-grp:not(.shut) .nav-dsr{display:none}
 .nav-g{display:flex;flex-direction:column;gap:1px}
 .nav-grp.shut .nav-btn:not(.on){display:none}
 .nav .nav-btn{padding:6px 12px;line-height:1.45}
-.nav .nav-btn>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.nav .nav-btn>.nav-l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .side-kbd{margin-top:10px;font-size:12px;line-height:1.45;color:var(--ink-3)}
 .side-kbd kbd,.qj-foot kbd{display:inline-block;min-width:1.7em;padding:0 .35em;border:1px solid var(--rule-2);border-bottom-width:2px;border-radius:3px;background:var(--sheet-2);color:var(--ink-2);font:500 .92em/1.4 var(--f-mono);text-align:center}
 @media (hover:none),(pointer:coarse){.side-kbd{display:none}}
@@ -3556,7 +3556,7 @@ html.u-lock{overflow:hidden}
 .more-gh{margin:0 0 8px;font:500 10.5px/1.3 var(--f-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
 .more-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
 .more-b{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;min-height:42px;padding:7px 12px;border:1px solid var(--rule);border-radius:3px;background:var(--paper);color:var(--ink);font-weight:550;text-align:left;cursor:pointer}
-.more-b>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more-b>.nav-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .more-b.on{background:var(--accent-soft);border-color:var(--accent);font-weight:650}
 @media (prefers-reduced-motion:no-preference){
   .more-modal.in .more-sheet{animation:u-sheet .24s cubic-bezier(.2,.7,.2,1)}
@@ -5315,6 +5315,126 @@ span.nw-tag{cursor:default}
   .city.cx-detail{padding:16px 14px}
 }
 .rc-row{display:flex;gap:8px;flex-wrap:wrap}.rc-row .input{flex:1 1 16em;min-width:0}.rc-share{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 8px}.rc-share a{text-decoration:none}
+/* ── menu icons, and the menu as the player arranges it (Settings › Navigation) ── */
+.nav-btn{justify-content:flex-start}
+.nav .nav-btn{gap:11px}
+.nav-btn .badge{margin-left:auto}
+.nav-ic{flex:none;display:grid;place-items:center;width:20px;height:20px;color:var(--ink-3)}
+.nav-ic svg{width:19px;height:19px}
+.nav-btn:hover .nav-ic{color:var(--ink-2)}
+.nav-btn.on .nav-ic{color:var(--accent)}
+.side-index .nav-ic{width:18px;height:18px}
+.side-index .nav-ic svg{width:17px;height:17px}
+.nav-noic .nav .nav-ic{display:none}
+/* the More sheet: a tile for each page, its icon above its name */
+.more-g{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.more-b{position:relative;flex-direction:column;justify-content:center;gap:5px;min-height:70px;padding:10px 4px 8px;border-radius:6px;font-size:12.5px;line-height:1.2;text-align:center}
+.more-b>.nav-l{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.more-b .nav-ic{width:24px;height:24px;color:var(--ink-2)}
+.more-b .nav-ic svg{width:22px;height:22px}
+.more-b.on .nav-ic{color:var(--accent)}
+.more-b .badge{position:absolute;top:5px;right:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;font-size:10.5px}
+@media (max-width:339px){.more-g{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* no group headings: one plain list, nothing folded */
+.nav-flat .nav-gh,.nav-flat .more-gh{display:none}
+.nav-flat .nav-grp+.nav-grp{margin-top:0}
+.nav-flat .nav-grp.shut .nav-btn{display:flex}
+.nav-flat .more-grp{margin-top:6px}
+.nav-flat .more-grp:first-of-type{margin-top:12px}
+/* icons only: a narrow rail on wide screens, each name on hover (.nav-tip) and for screen readers */
+@media (min-width:960px){
+  .layout.nav-rail{grid-template-columns:76px minmax(0,1fr)}
+  .nav-rail .side{gap:16px;padding-top:18px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:10px}
+  .nav-rail .side-top{gap:14px}
+  .nav-rail .brand-row{flex-direction:column;align-items:center;gap:10px}
+  .nav-rail .brand{display:none}
+  .nav-rail .brand-actions{flex-direction:column}
+  .nav-rail .side-who{flex-direction:column;align-items:center;gap:8px}
+  .nav-rail .side-who>.side-nation{flex:none;align-items:center}
+  .nav-rail .side-flag{width:48px}
+  .nav-rail .side-name,.nav-rail .nav .nav-l,.nav-rail .side-foot .mode span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .nav-rail .adm-pill{padding:3px 6px;font-size:9.5px}
+  .nav-rail .nav-gh{display:none}
+  .nav-rail .nav-grp+.nav-grp{margin-top:8px;padding-top:8px;border-top:1px solid var(--rule)}
+  .nav-rail .nav-grp.shut .nav-btn{display:flex}
+  .nav-rail .nav .nav-btn{position:relative;justify-content:center;padding:8px 0}
+  .nav-rail .nav .nav-ic{width:24px;height:24px}
+  .nav-rail .nav .nav-ic svg{width:21px;height:21px}
+  .nav-rail .nav .nav-btn .badge{position:absolute;top:1px;right:5px;margin:0;min-width:16px;height:16px;padding:0 4px;border-radius:8px;font-size:9.5px;box-shadow:0 0 0 2px var(--sheet)}
+  .nav-rail .side-kbd{display:none}
+  .nav-rail .side-foot .mode{justify-content:center}
+  .nav-rail .side-legal{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:0}
+  .nav-rail .side-legal a{font-size:10.5px}
+  .nav-rail .notif-pop{left:86px}
+  .nav-rail .ed-acct-b{justify-content:center;padding:8px 0}
+  .nav-rail .ed-acct-t,.nav-rail .ed-out>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .nav-rail .ed-sync{justify-content:center;padding:0;font-size:0}
+  .nav-rail .ed-out{padding:7px 0}
+}
+.nav-tip{position:fixed;z-index:70;translate:0 -50%;max-width:240px;padding:4px 9px;border-radius:3px;background:var(--ink);color:var(--paper);font:600 12.5px/1.3 var(--f-body);white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
+.nav-tip[hidden]{display:none}
+/* Settings › Navigation */
+.nvs-opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:4px}
+.nvs-o{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;padding:12px;border:1px solid var(--rule-2);border-radius:5px;background:var(--sheet);color:var(--ink);text-align:left;cursor:pointer}
+.nvs-o:hover{border-color:var(--ink-3)}
+.nvs-o.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.nvs-o b{font-size:14.5px;line-height:1.25}
+.nvs-o>span:last-child{font-size:12.5px;line-height:1.35;color:var(--ink-3)}
+.nvs-pic{display:flex;flex-direction:column;gap:5px;align-self:stretch;padding:9px;border:1px solid var(--rule);border-radius:4px;background:var(--paper)}
+.nvs-pic i{display:flex;align-items:center;gap:6px;height:8px}
+.nvs-pic i::before{content:"";flex:none;width:8px;height:8px;border-radius:2px;background:var(--ink-3)}
+.nvs-pic i::after{content:"";flex:1;height:5px;border-radius:3px;background:var(--rule-2)}
+.nvs-pic.nvs-l i::before{display:none}
+.nvs-pic.nvs-i{align-items:center}
+.nvs-pic.nvs-i i::after{display:none}
+.nvs-chk{display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer}
+.nvs-chk input{flex:none;width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent)}
+.nvs-chk b{display:block;font-weight:600}
+.nvp{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.nve{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.nve-g{border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet)}
+.nve-g.drop{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.nve-gh{display:flex;align-items:center;gap:6px;padding:7px 8px 7px 10px;border-bottom:1px solid var(--rule)}
+.nve-gn{flex:1;min-width:0;padding:5px 8px;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--ink);font:500 11.5px/1.3 var(--f-mono);letter-spacing:.12em;text-transform:uppercase}
+.nve-gn:hover{border-color:var(--rule-2)}
+.nve-gn:focus{border-color:var(--accent);background:var(--paper);outline:none}
+.nve-cnt{flex:none;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.nve-l{list-style:none;margin:0;padding:4px}
+.nve-empty{padding:9px 10px;font-size:13px;font-style:italic;color:var(--ink-3)}
+.nve-r{position:relative;display:flex;align-items:center;gap:8px;min-height:36px;padding:2px 4px;border-radius:4px}
+.nve-r:hover{background:var(--sheet-2)}
+.nve-r.drag{opacity:.4}
+.nve-r.ov-t::before,.nve-r.ov-b::after{content:"";position:absolute;left:4px;right:4px;height:2px;border-radius:1px;background:var(--accent)}
+.nve-r.ov-t::before{top:-1px}
+.nve-r.ov-b::after{bottom:-1px}
+.nve-grip{flex:none;display:grid;place-items:center;width:20px;height:30px;color:var(--ink-3);cursor:grab;opacity:.75}
+.nve-r .nav-ic{color:var(--ink-2)}
+.nve-n{flex:1;min-width:0;overflow:hidden;font-weight:500;white-space:nowrap;text-overflow:ellipsis}
+.nve-new,.nve-off{display:inline-block;margin-left:8px;padding:2px 6px;border-radius:3px;font:600 10.5px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;vertical-align:1px}
+.nve-new{background:var(--stamp);color:var(--stamp-ink)}
+.nve-off{border:1px solid var(--rule-2);color:var(--ink-3)}
+.nve-r.off .nve-n>.nve-t,.nve-r.off .nav-ic{opacity:.5}
+.nve-r.off .nve-n>.nve-t{text-decoration:line-through;text-decoration-color:var(--ink-3)}
+.nve-mv{flex:none;max-width:140px;padding:3px 6px;border:1px solid var(--rule-2);border-radius:3px;background:var(--paper);color:var(--ink-2);font:inherit;font-size:12.5px}
+@media (hover:hover) and (pointer:fine){.nve-mv{opacity:0;transition:opacity .12s}.nve-r:hover .nve-mv,.nve-r:focus-within .nve-mv{opacity:1}}
+.nve-ib{flex:none;display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid transparent;border-radius:3px;background:none;color:var(--ink-2);cursor:pointer}
+.nve-ib:hover:not(:disabled){border-color:var(--rule-2);background:var(--paper);color:var(--ink)}
+.nve-ib:disabled{opacity:.3;cursor:default}
+.nve-eye[aria-pressed="false"]{color:var(--ink-3)}
+.nve-lock{cursor:help;opacity:.6}
+.nve-add{align-self:flex-start}
+.nvt{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:8px;align-items:end;margin-top:4px}
+.nvt label{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink-3)}
+.nvt select{min-width:0;padding:6px 8px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);color:var(--ink);font:inherit;font-size:14px}
+.nvt-more{padding:6px 10px;border:1px dashed var(--rule-2);border-radius:3px;font-size:14px;color:var(--ink-3)}
+.nvt-prev{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:min(360px,100%);margin-top:14px;padding:6px 4px 8px;border:1px solid var(--rule-2);border-top-color:var(--rule);border-radius:0 0 16px 16px;background:var(--sheet)}
+.nvt-t{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;color:var(--ink-2);font-size:11px;font-weight:600}
+.nvt-t>span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nvt-ic{display:grid;place-items:center;width:44px;height:26px;border-radius:13px}
+.nvt-ic svg{width:20px;height:20px}
+.nvt-t:first-child .nvt-ic{background:var(--accent-soft);color:var(--accent)}
+@media (max-width:719px){.nvs-opts{grid-template-columns:1fr}.nvs-pic{display:none}.nvt{grid-template-columns:1fr 1fr}.nvt>label:last-child{display:none}}
+@media (max-width:479px){.nve-mv{display:none}.nve-cnt{display:none}}
 /* ── the Government page in five tabs (GV) ── */
 :root{--gp-cons:#2f5d9e;--gp-soc:#c0392b;--gp-lib:#c48a07;--gp-grn:#2f8a4c;--gp-fam:#7a4b8c;--gp-def:#56606b;--gp-ani:#c2577f;--gp-one:#8c6a1f}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--gp-cons:#7fa6e6;--gp-soc:#f08a7e;--gp-lib:#efc25a;--gp-grn:#72cf8f;--gp-fam:#c79ad8;--gp-def:#a9b4c0;--gp-ani:#ee9cbc;--gp-one:#e0bf6e}}
@@ -34224,14 +34344,46 @@ const NAV_WORDS={nation:'overview home flag factbook',issues:'issues decisions d
   space:'moon mars asteroid belt colony starport',region:'nations neighbours visit',diplomacy:'alliances allies wars peace',trade:'resources deals goods food timber iron oil',
   intel:'spies covert operations missions',assembly:'votes resolutions delegate',games:'sport events medals',world:'regions move',
   dispatch:'newspaper news daily paper',messages:'letters mail',museum:'artefacts halls',achievements:'honours records',passport:'stamps visas travel cover collect',
-  customise:'arms flag banner colours epithet charge stamp currency banknote',settings:'theme dark light accent text size density motion pace dissolve holiday topics email letters notifications recruit tutorial leader motto capital language religion anthem map colour',help:'how to play tutorial guide rules'};
+  customise:'arms flag banner colours epithet charge stamp currency banknote',settings:'theme dark light accent text size density motion pace dissolve holiday topics email letters notifications recruit tutorial leader motto capital language religion anthem map colour menu navigation side bar icons tab bar',help:'how to play tutorial guide rules'};
 const NAV_SVG=(p,w)=>`<svg viewBox="0 0 24 24" width="${w||22}" height="${w||22}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${p}</svg>`;
+/* one icon for every page: a 24 grid, 1.7 stroke, round ends. Nation, Edicts, Map, Region and More are the tab bar's own */
 const NAV_ICONS={
   nation:NAV_SVG('<path d="M5.5 21V3.5"/><path d="M5.5 4.5h12l-2.6 4 2.6 4h-12"/>'),
   issues:NAV_SVG('<path d="M14.5 3.5H7.2a.7.7 0 0 0-.7.7v15.6c0 .4.3.7.7.7h10.6c.4 0 .7-.3.7-.7V7.5Z"/><path d="M14.5 3.5v4h4M9.5 12h6M9.5 15.5h4"/>'),
+  government:NAV_SVG('<path d="M3.5 8.8 12 4.2l8.5 4.6Z"/><path d="M6.4 11.5v6M10.1 11.5v6M13.9 11.5v6M17.6 11.5v6M3.5 20.5h17M4.8 17.5h14.4"/>'),
+  cities:NAV_SVG('<path d="M3.5 20.5h17"/><path d="M5 20.5V11h5"/><path d="M10 20.5V4.5h5.5v16"/><path d="M15.5 9H19v11.5"/><path d="M12.2 8.2h1.2M12.2 11.6h1.2M12.2 15h1.2M7 14.2h.8M7 17.2h.8M17 12.5h.4M17 16h.4"/>'),
+  provinces:NAV_SVG('<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 11.5H11V3.5M11 11.5l2 9M11 11.5h9.5"/>'),
+  stats:NAV_SVG('<path d="M3.5 20.5h17"/><rect x="5" y="13" width="3" height="7.5" rx=".5"/><rect x="10.5" y="5.5" width="3" height="15" rx=".5"/><rect x="16" y="9.5" width="3" height="11" rx=".5"/>'),
+  census:NAV_SVG('<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c.5-3.4 2.9-5.5 6-5.5s5.5 2.1 6 5.5"/><path d="M15.5 5.6a3 3 0 0 1 0 5.8"/><path d="M17.5 14.3c1.9.6 3.1 2.4 3.5 5.2"/>'),
   map:NAV_SVG('<path d="M3.5 6.6 9 4.5l6 2.1 5.5-2.1v12.9L15 19.5l-6-2.1-5.5 2.1Z"/><path d="M9 4.5v12.9M15 6.6v12.9"/>'),
+  space:NAV_SVG('<path d="M12 3c3 2.2 4.5 5.4 4.5 9.2V16h-9v-3.8C7.5 8.4 9 5.2 12 3Z"/><circle cx="12" cy="10" r="1.8"/><path d="M7.5 12.5 4.8 15.6v3l2.7-1.6M16.5 12.5l2.7 3.1v3l-2.7-1.6M10.3 19l1.7 2.4 1.7-2.4"/>'),
   region:NAV_SVG('<path d="M12 3.3 19.5 7.6v8.8L12 20.7l-7.5-4.3V7.6Z"/><path d="M12 12V3.3M12 12l7.5 4.4M12 12l-7.5 4.4"/>'),
+  diplomacy:NAV_SVG('<circle cx="8.8" cy="12" r="5.6"/><circle cx="15.2" cy="12" r="5.6"/>'),
+  trade:NAV_SVG('<path d="M4 8h15M15.5 4.5 19 8l-3.5 3.5M20 16H5M8.5 12.5 5 16l3.5 3.5"/>'),
+  exchange:NAV_SVG('<rect x="2.5" y="6" width="19" height="12" rx="1.5"/><circle cx="12" cy="12" r="2.8"/><path d="M5.8 9.5v5M18.2 9.5v5"/>'),
+  intel:NAV_SVG('<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>'),
+  assembly:NAV_SVG('<path d="M3.5 11h17v8.5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1Z"/><path d="M8.5 11V3.5h7V11"/><path d="m10.4 7.2 1.2 1.2 2-2.4M9.5 15.5h5"/>'),
+  games:NAV_SVG('<circle cx="12" cy="15.3" r="5.2"/><path d="M8.6 11.4 6 3.5h3.8L12 8.5l2.2-5H18l-2.6 7.9"/><circle cx="12" cy="15.3" r="2"/>'),
+  world:NAV_SVG('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.5 3.6 5.3 3.6 8.5s-1.2 6-3.6 8.5c-2.4-2.5-3.6-5.3-3.6-8.5S9.6 6 12 3.5Z"/>'),
+  wonder:NAV_SVG('<circle cx="11.6" cy="5.4" r="1.6"/><path d="M9.6 14.5 10.4 8.6h2.6l.9 5.9Z"/><path d="M13 9.4 15.8 5.4"/><path d="M15.2 4.2 16.6 2.9"/><path d="M8.3 14.5h7v3h-7ZM6.3 17.5h11v3h-11Z"/>'),
+  dispatch:NAV_SVG('<path d="M4.5 5h12v13.5A1.5 1.5 0 0 0 18 20H6a1.5 1.5 0 0 1-1.5-1.5Z"/><path d="M16.5 9h3v9.5a1.5 1.5 0 0 1-3 0"/><path d="M7.5 8.5h6M7.5 12h6M7.5 15.5h4"/>'),
+  messages:NAV_SVG('<rect x="3" y="5.5" width="18" height="13" rx="1.5"/><path d="m3.6 6.6 8.4 6.4 8.4-6.4"/>'),
+  flock:NAV_SVG('<path d="M2.5 10.5q4.75-5.5 9.5 1.5 4.75-7 9.5-1.5"/><path d="M10 18q1.6-2.2 3.2 0 1.6-2.2 3.2 0"/>'),
+  museum:NAV_SVG('<path d="M9.5 3.5h5M10.5 3.5v2.7C7.7 7.5 6 10 6 13.1c0 3.2 1.9 5.9 4.1 7.4h3.8c2.2-1.5 4.1-4.2 4.1-7.4 0-3.1-1.7-5.6-4.5-6.9V3.5"/><path d="M6.3 11.3h11.4M6.6 15.2h10.8"/>'),
+  achievements:NAV_SVG('<path d="M7.5 4h9v5a4.5 4.5 0 0 1-9 0Z"/><path d="M7.5 6H4.5v1.2a3.3 3.3 0 0 0 3.3 3.3M16.5 6h3v1.2a3.3 3.3 0 0 1-3.3 3.3"/><path d="M12 13.5V17M8.5 20.5h7M9.5 20.5c0-2.1 1-3.5 2.5-3.5s2.5 1.4 2.5 3.5"/>'),
+  passport:NAV_SVG('<rect x="5" y="3" width="14" height="18" rx="1.5"/><circle cx="12" cy="10.5" r="3.4"/><path d="M8.6 10.5h6.8M12 7.1c.9 1 1.4 2.1 1.4 3.4s-.5 2.4-1.4 3.4c-.9-1-1.4-2.1-1.4-3.4s.5-2.4 1.4-3.4ZM9 17.3h6"/>'),
+  devnews:NAV_SVG('<path d="M3.5 10v4a1 1 0 0 0 1 1h2l8 4.5v-15l-8 4.5h-2a1 1 0 0 0-1 1Z"/><path d="M6.8 15.2 8 19.5h2.3l-1-4"/><path d="M18 9.3a3.8 3.8 0 0 1 0 5.4M20 7.2a6.7 6.7 0 0 1 0 9.6"/>'),
+  community:NAV_SVG('<rect x="3.5" y="4" width="17" height="13" rx="1"/><path d="M7.5 17 6 20.5M16.5 17l1.5 3.5"/><path d="M7 7.5h4.5V12H7ZM14 8h3M14 11h3M7 14.3h10"/>'),
+  bugs:NAV_SVG('<rect x="7.5" y="8" width="9" height="12.5" rx="4.5"/><path d="M12 12.5v8M9.3 8.3a2.7 2.7 0 0 1 5.4 0M7.5 13.3H4M20 13.3h-3.5M7.8 17.2 5 19M16.2 17.2 19 19M8 10.2 5.2 8.2M16 10.2l2.8-2"/>'),
+  shop:NAV_SVG('<path d="M5.3 8h13.4l-1 12.5H6.3Z"/><path d="M9 10.5V7a3 3 0 0 1 6 0v3.5"/>'),
+  chronicle:NAV_SVG('<path d="M12 6.5C10 5 7.2 4.5 3.5 5v13c3.7-.5 6.5 0 8.5 1.5 2-1.5 4.8-2 8.5-1.5V5c-3.7-.5-6.5 0-8.5 1.5Z"/><path d="M12 6.5v13"/>'),
+  customise:NAV_SVG('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.9-.8 1.9-1.8 0-1.2-1.1-1.6-1.1-2.8 0-1 .8-1.7 1.8-1.7h2.2c2.1 0 3.7-1.6 3.7-3.7 0-3.9-3.8-7-8.5-7Z"/><circle cx="7.6" cy="11.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.6" cy="7.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="17.1" cy="9.8" r="1.1" fill="currentColor" stroke="none"/>'),
+  settings:NAV_SVG('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>'),
+  help:NAV_SVG('<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7"/><circle cx="12" cy="16.9" r=".9" fill="currentColor" stroke="none"/>'),
   more:NAV_SVG('<rect x="4" y="4" width="6.5" height="6.5" rx="1.3"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.3"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.3"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.3"/>')};
+/* a page a later module adds without an icon of its own */
+const NAV_IC_DEF=NAV_SVG('<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>');
+const navIcon=v=>NAV_ICONS[v]||NAV_IC_DEF;
 const NAV_CHEV='<svg class="nav-chev" viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 4.5 6 7.5 9 4.5"/></svg>';
 const NAVU={shut:null,ret:null,qj:null,qa:0,cur:null};
 function navSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PAGE.id==='string'?SOC_PAGE:null;}catch(e){return null;}}
@@ -34252,8 +34404,63 @@ function navGroups(){
   const out=NAV_GROUPS.map(g=>({k:g.k,l:g.l,items:[]})),by={},put=new Set();for(const g of out)by[g.k]=g;
   for(const g of NAV_GROUPS)for(const v of g.v)if(v in lab&&!put.has(v)){by[g.k].items.push([v,lab[v]]);put.add(v);}
   for(const v of order)if(!put.has(v)){by[gOf[v]||'other'].items.push([v,lab[v]]);put.add(v);}
-  return out.filter(g=>g.items.length);
+  return navLayout(out).filter(g=>g.items.length);
 }
+/* ───────── the player's own menu (Settings › Navigation) ─────────
+   n.nav is saved with the nation and kept through normalize (navNorm). Every part is optional:
+     s  'l' labels only, or 'i' icons only (a narrow rail on wide screens); absent: icons and labels
+     h  0: no group headings, one plain list; absent: headings
+     o  the layout as a JSON string, [[group key, own name or '', [page, …]], …]. It is a string so that a save
+        replayed after a conflict (rebaseActs) sets the order whole instead of merging two orders as sets
+     x  pages hidden from the menu, never Nation or Settings. They stay in Go to page, in links and in the tutorial
+     t  the phone tab bar's four pages, 'nation,issues,map,region'
+   navGroups() lays the pages out as o says. A page o does not name (added by a later update, or unlocked since)
+   joins its usual group, or Other, or the last group, and the Navigation tab marks it New. navShown() is what the
+   menu draws: navGroups() without the hidden pages, but always with the page that is open. NAVP.raw asks for the
+   usual layout (navDefault), and an observer (OBS) always sees it. */
+const NAV_LOCK=['nation','settings'],NAV_KEY=/^[a-z][a-z0-9]{0,11}$/,NAV_PG=/^[a-z][a-z0-9_-]{0,23}$/,NAV_GMAX=16;
+const NAVP={raw:0,memo:new WeakMap()};
+function navNorm(d){
+  if(!d||typeof d!=='object'||Array.isArray(d))return null;const p={};
+  if(d.s==='l'||d.s==='i')p.s=d.s;
+  if(d.h===0)p.h=0;
+  if(typeof d.o==='string'&&d.o.length<=4000){let a=null;try{a=JSON.parse(d.o);}catch(e){}
+    if(Array.isArray(a)){const seen=new Set(),ks=new Set(),out=[];
+      for(const g of a.slice(0,NAV_GMAX)){if(!Array.isArray(g)||typeof g[0]!=='string'||!NAV_KEY.test(g[0])||ks.has(g[0]))continue;ks.add(g[0]);
+        const l=typeof g[1]==='string'?g[1].replace(/\s+/g,' ').trim().slice(0,24):'';
+        const v=(Array.isArray(g[2])?g[2]:[]).filter(x=>typeof x==='string'&&NAV_PG.test(x)&&!seen.has(x)&&seen.add(x)).slice(0,80);
+        out.push([g[0],l,v]);}
+      if(out.length)p.o=JSON.stringify(out);}}
+  if(Array.isArray(d.x)){const x=[...new Set(d.x.filter(v=>typeof v==='string'&&NAV_PG.test(v)&&!NAV_LOCK.includes(v)))].slice(0,80);if(x.length)p.x=x;}
+  if(typeof d.t==='string'&&d.t.length<=200){const t=[...new Set(d.t.split(',').filter(v=>NAV_PG.test(v)))].slice(0,4);if(t.length)p.t=t.join(',');}
+  return Object.keys(p).length?p:null;
+}
+NORM_HOOKS.push((n,d)=>{const p=navNorm(d&&d.nav);if(p)n.nav=p;});
+function navPrefs(n){
+  if(n===undefined)n=S.nation;if(NAVP.raw||!n||!n.nav||typeof n.nav!=='object')return null;
+  let obs=false;try{obs=!!OBS;}catch(e){}if(obs)return null;
+  let p=NAVP.memo.get(n.nav);if(p)return p;const c=navNorm(n.nav)||{};
+  p={s:c.s||'b',h:c.h!==0,o:c.o?JSON.parse(c.o):null,x:new Set(c.x||[]),t:c.t?c.t.split(','):null};
+  NAVP.memo.set(n.nav,p);return p;
+}
+function navLayout(def){
+  const P=navPrefs();if(!P||!P.o)return def;
+  const home=Object.create(null),lab=Object.create(null),dl=Object.create(null),by=Object.create(null),out=[],put=new Set();
+  for(const g of def){dl[g.k]=g.l;for(const it of g.items){home[it[0]]=g.k;lab[it[0]]=it[1];}}
+  for(const [k,l,v] of P.o){const g={k,l:l||dl[k]||'My pages',items:[]};by[k]=g;out.push(g);
+    for(const x of v)if(x in lab&&!put.has(x)){g.items.push([x,lab[x]]);put.add(x);}}
+  for(const g of def)for(const it of g.items)if(!put.has(it[0])){(by[g.k]||by.other||out[out.length-1]).items.push(it);put.add(it[0]);}
+  return out;
+}
+function navDefault(){NAVP.raw++;try{return navGroups();}finally{NAVP.raw--;}}
+function navShown(){
+  const P=navPrefs(),g=navGroups();if(!P||!P.x.size)return g;const cur=navCur();
+  return g.map(x=>({...x,items:x.items.filter(([v])=>v===cur||!P.x.has(v))})).filter(x=>x.items.length);
+}
+/* the phone tab bar: the player's four, or the usual four; a hidden or locked-away page gives way to the next */
+function navTabsOf(want,x,vis){const out=[];for(const v of [...want,...NAV_TABS,...Object.keys(vis)])if(out.length<4&&vis[v]&&!x.has(v)&&!out.includes(v))out.push(v);return out;}
+function navTabList(vis){const P=navPrefs();return P?navTabsOf(P.t||[],P.x,vis):NAV_TABS.filter(v=>vis[v]);}
+function navCls(){const P=navPrefs();return P?(P.s==='i'?' nav-rail':P.s==='l'?' nav-noic':'')+(P.h?'':' nav-flat'):'';}
 function navLabel(v){for(const g of navGroups())for(const [k,l] of g.items)if(k===v)return l;return '';}
 /* badges: {page: [{h: visible HTML, t: words for screen readers}]} */
 function navBadges(cnt,lcr,dmu){
@@ -34285,23 +34492,24 @@ function navSoft(v,now){
 }
 const navSr=t=>`<span class="u-sr">, ${esc(t)}</span>`;
 const navBadgeWords=(b,items)=>items.filter(([v])=>b[v]).map(([v,l])=>l+': '+b[v].map(x=>x.t).join(', '));
-function navBtn(v,l,b,cur,cls,idp){const on=cur===v;return `<button class="${cls}${on?' on':''}" data-act="go" data-v="${v}" id="${idp}${v}"${on?' aria-current="page"':''}><span>${esc(l)}</span>${b[v]?b[v].map(x=>x.h+navSr(x.t)).join(''):''}</button>`;}
+function navBtn(v,l,b,cur,cls,idp){const on=cur===v;return `<button class="${cls}${on?' on':''}" data-act="go" data-v="${v}" id="${idp}${v}"${on?' aria-current="page"':''}><span class="nav-ic" aria-hidden="true">${navIcon(v)}</span><span class="nav-l">${esc(l)}</span>${b[v]?b[v].map(x=>x.h+navSr(x.t)).join(''):''}</button>`;}
 function navHTML(b){
-  const cur=navCur(),shut=navShut();
-  return navGroups().map(g=>{const sh=shut.has(g.k),w=navBadgeWords(b,g.items);
-    return `<div class="nav-grp${sh?' shut':''}" data-g="${g.k}"><button type="button" class="nav-gh" data-act="nav-grp" data-g="${g.k}" id="ngh-${g.k}" aria-expanded="${!sh}" aria-controls="ng-${g.k}"><span class="nav-gl">${esc(g.l)}</span>${w.length?`<span class="nav-dot" aria-hidden="true"></span><span class="u-sr nav-dsr">, ${esc(w.join('; '))}</span>`:''}${NAV_CHEV}</button><div class="nav-g" id="ng-${g.k}" role="group" aria-labelledby="ngh-${g.k}">${g.items.map(([v,l])=>navBtn(v,l,b,cur,'nav-btn','nav-')).join('')}</div></div>`;}).join('');
+  /* a badge on a hidden page (an edict waiting, a letter) shows as the group's dot, open or folded */
+  const cur=navCur(),shut=navShut(),all=Object.create(null);for(const g of navGroups())all[g.k]=g.items;
+  return navShown().map(g=>{const sh=shut.has(g.k),w=navBadgeWords(b,g.items),on=new Set(g.items.map(x=>x[0])),hw=navBadgeWords(b,(all[g.k]||[]).filter(([v])=>!on.has(v)));
+    return `<div class="nav-grp${sh?' shut':''}" data-g="${g.k}"><button type="button" class="nav-gh" data-act="nav-grp" data-g="${g.k}" id="ngh-${g.k}" aria-expanded="${!sh}" aria-controls="ng-${g.k}"><span class="nav-gl">${esc(g.l)}</span>${w.length||hw.length?`<span class="nav-dot${hw.length?' nav-hb':''}" aria-hidden="true"></span>`:''}${w.length?`<span class="u-sr nav-dsr">, ${esc(w.join('; '))}</span>`:''}${hw.length?`<span class="u-sr">, ${esc(hw.join('; '))}</span>`:''}${NAV_CHEV}</button><div class="nav-g" id="ng-${g.k}" role="group" aria-labelledby="ngh-${g.k}">${g.items.map(([v,l])=>navBtn(v,l,b,cur,'nav-btn','nav-')).join('')}</div></div>`;}).join('');
 }
 function navTabs(b){
-  const cur=navCur(),lab={};for(const g of navGroups())for(const [v,l] of g.items)lab[v]=l;
-  const tabs=NAV_TABS.filter(v=>lab[v]),inTabs=tabs.includes(cur),rest=navBadgeWords(b,Object.keys(lab).filter(v=>!tabs.includes(v)).map(v=>[v,lab[v]]));
+  const cur=navCur(),lab={},vis={};for(const g of navGroups())for(const [v,l] of g.items)lab[v]=l;for(const g of navShown())for(const [v] of g.items)vis[v]=1;
+  const tabs=navTabList(vis),inTabs=tabs.includes(cur),rest=navBadgeWords(b,Object.keys(lab).filter(v=>!tabs.includes(v)).map(v=>[v,lab[v]]));
   return `<nav class="tabbar" aria-label="Main pages">${tabs.map(v=>{const on=cur===v;
-    return `<button class="tab${on?' on':''}" data-act="go" data-v="${v}" id="tab-${v}"${on?' aria-current="page"':''}><span class="tab-ic">${NAV_ICONS[v]||''}${b[v]?b[v][0].h:''}</span><span class="tab-l">${esc(lab[v])}</span>${b[v]?navSr(b[v].map(x=>x.t).join(', ')):''}</button>`;}).join('')
+    return `<button class="tab${on?' on':''}" data-act="go" data-v="${v}" id="tab-${v}"${on?' aria-current="page"':''}><span class="tab-ic">${navIcon(v)}${b[v]?b[v][0].h:''}</span><span class="tab-l">${esc(lab[v])}</span>${b[v]?navSr(b[v].map(x=>x.t).join(', ')):''}</button>`;}).join('')
   }<button type="button" class="tab tab-more${inTabs?'':' on'}" data-act="nav-more" id="tab-more" aria-haspopup="dialog" aria-expanded="${!!S.moreOpen}" aria-controls="more-sheet"><span class="tab-ic">${NAV_ICONS.more}${rest.length?'<span class="tab-dot" aria-hidden="true"></span>':''}</span><span class="tab-l">More</span>${!inTabs&&lab[cur]?navSr('now on '+lab[cur]):''}${rest.length?navSr(rest.join('; ')):''}</button></nav>`;
 }
 function navSheet(b){
   const cur=navCur();
   return `<div class="more-modal" id="more-sheet" role="dialog" aria-modal="true" aria-labelledby="more-h"><button type="button" class="more-scrim" data-act="nav-more-x" aria-label="Close" tabindex="-1"></button><div class="more-sheet"><div class="more-hd"><h2 class="more-t" id="more-h">All pages</h2><button type="button" class="more-x" data-act="nav-more-x" id="more-x" aria-label="Close">${NAV_SVG('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',20)}</button></div>${
-    navGroups().map(g=>`<section class="more-grp" aria-labelledby="mh-${g.k}"><h3 class="more-gh" id="mh-${g.k}">${esc(g.l)}</h3><div class="more-g">${g.items.map(([v,l])=>navBtn(v,l,b,cur,'more-b','mb-')).join('')}</div></section>`).join('')}</div></div>`;
+    navShown().map(g=>`<section class="more-grp" aria-labelledby="mh-${g.k}"><h3 class="more-gh" id="mh-${g.k}">${esc(g.l)}</h3><div class="more-g">${g.items.map(([v,l])=>navBtn(v,l,b,cur,'more-b','mb-')).join('')}</div></section>`).join('')}</div></div>`;
 }
 /* the shell's pieces: the side bar's own list (wide), the tab bar (narrow), the page foot (narrow) */
 function navSide(nar,nav){return nar?'':`<nav class="nav" aria-label="Pages">${nav}</nav>
@@ -38373,7 +38581,7 @@ function shell(){
   const n=S.nation,now=Date.now(),v=syncInbox(n,now),cnt=v.inbox.length;
   S.lastCount=cnt;const lcr=landCredits(n),dmu=dmUnread(now);S.navSig=navSigOf(n,now,lcr,dmu);
   const nb=navBadges(cnt,lcr,dmu),nar=navNarrow(),nav=navHTML(nb);
-  return `<div class="layout"><button type="button" class="skip-link" data-act="nav-skip">Skip to content</button>
+  return `<div class="layout${navCls()}"><button type="button" class="skip-link" data-act="nav-skip">Skip to content</button>
   <aside class="side">
     <div class="side-top">
       <div class="brand-row"><div class="brand"><span class="wordmark">Edictum</span><span class="brand-sub">Region of ${REGION}</span></div><div class="brand-actions">${OBS?'':bellButton(now)}${uxSearchButton()}</div></div>
@@ -39492,7 +39700,7 @@ function foundView(){
    once; Account holds sign-in, recruiting, the tutorial and dissolving. Every pane is drawn and CSS shows the open one
    (.sg[data-tab]), so a jump from anywhere (a tutorial step, search, "Name your leader") only has to pick the tab
    (sgShow, from the wiring near the end of the script). The open tab is in the address as #settings/<tab>. */
-const SG_TABS=[['nation','Your nation'],['edicts','Edicts'],['notif','Notifications'],['display','Display'],['account','Account']];
+const SG_TABS=[['nation','Your nation'],['edicts','Edicts'],['notif','Notifications'],['display','Display'],['nav','Navigation'],['account','Account']];
 const SG={tab:'nation',saved:null,leave:null,leaveOK:false};
 const SG_CULT=['lang','faith','sport','dish','anthem','about'];
 function sgTabOfId(id){
@@ -39501,6 +39709,7 @@ function sgTabOfId(id){
   if(/^(set-notif|ntf-|set-mail|ml-)/.test(id))return 'notif';
   if(/^(set-appearance|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
   if(/^(set-acct|set-social|rc-|set-tut|set-danger|set-dissolve|set-restart|set-delete|dz-)/.test(id))return 'account';
+  if(/^(set-nav|nv-)/.test(id))return 'nav';
   return 'nation';
 }
 function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,animal:n.animal,demonym:n.demonym,
@@ -39515,6 +39724,7 @@ function sgTabSub(k,n){
   if(k==='edicts'){if(awayOn(n,Date.now()))return 'On holiday';const f=(FREQS.find(x=>x[0]===+n.freq)||FREQS[0])[1],t=sgTopicsN(n);return f+(t?` · ${t} ${t===1?'topic':'topics'} changed`:'');}
   if(k==='notif')return 'Pop-ups, the bell and letters';
   if(k==='display'){const t=themePref();return (t==='auto'?'Automatic':t==='light'?'Light':'Dark')+' theme, this device';}
+  if(k==='nav')return navSub();
   return 'Sign-in, recruiting, the tutorial';
 }
 function sgHead(k,scope,lead){
@@ -39604,7 +39814,7 @@ function settingsView(){
     <section class="sg-card" id="set-tut"><h3 class="sg-ch">Tutorial</h3>${stepsReset()||`<p class="hint">Every tutorial list you have not finished is on your Nation page. <button type="button" class="linkish small" data-act="go" data-v="help">How to play</button></p>`}</section>
     ${sgDanger(n)}`;
   return `<header class="vh"><p class="eyebrow">Office of the ${esc(n.leader)}</p><h1>Settings</h1><p>The name ${esc(n.name)} is permanent. Everything else can change here.</p></header>
-  <div class="sg" id="sg" data-tab="${t}">${rail}<div class="sg-body">${pane('nation',nation)}${pane('edicts',edicts)}${pane('notif',notif)}${pane('display',display)}${pane('account',account)}</div></div>`;
+  <div class="sg" id="sg" data-tab="${t}">${rail}<div class="sg-body">${pane('nation',nation)}${pane('edicts',edicts)}${pane('notif',notif)}${pane('display',display)}${pane('nav',navSettings())}${pane('account',account)}</div></div>`;
 }
 /* ── the danger zone: Start over, Dissolve, Delete nation and account ──
    Start over and Dissolve ask for the nation's name to be typed (S.dzType) before their last button works.
@@ -46570,7 +46780,6 @@ function wndView(now){
   <section class="wd-box wd-phs"><h2 class="h2">Ten phases</h2><ol class="wd-phl">${ph}</ol></section>`;
 }
 EXT_PAGES.push('wonder');NAV_LABELS.wonder='Great Statue';NAV_WORDS.wonder='wonder statue great monument build pool resources region together';
-NAV_ICONS.wonder=NAV_SVG('<path d="M9 21h6M8 21l1-4h6l1 4"/><path d="M10.5 17v-5.5l-1.5-3h6l-1.5 3V17"/><circle cx="12" cy="6" r="2"/><path d="M14.5 8.5 17 3.5"/>');
 (()=>{const g=NAV_GROUPS.find(x=>x.k==='abroad');if(g&&!g.v.includes('wonder'))g.v.splice(g.v.indexOf('world')+1||g.v.length,0,'wonder');})();
 VIEWS_EXT.wonder=now=>wndView(now);
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="wd-give"]');if(!el||!S.nation)return;wndGive(el.dataset.r,el.dataset.v==='max'?Infinity:+el.dataset.v);});
@@ -49607,6 +49816,171 @@ UX_SETTINGS.push(
   {v:'focus:cz-sec-s',l:'Decrees and stamps',g:'Design',words:'decree stamp seal signed signature',view:'customise',target:'#cz-sec-s'},
   {v:'focus:cz-sec-z',l:'Finery',g:'Design',words:'finery shop badge card inscription presets',view:'customise',target:'#cz-sec-z'}
 );
+/* ───────── Settings › Navigation: the menu as the player arranges it (n.nav, see navNorm) ─────────
+   The tab works on a model (navModel): the groups in order with their pages, the hidden pages, the style, the
+   headings and the tab bar. Every change is packed back into n.nav (navPack leaves out whatever is as usual, so a
+   player who changes nothing saves nothing) and applies at once through sgApply: the side bar beside the tab is the
+   preview. Every move works three ways: dragging a row, its arrows, or its group menu. Ids stay put from one
+   drawing to the next, so render() hands the focus back to the button that was pressed. */
+const NAV_ED_UP=NAV_SVG('<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5"/>',16),NAV_ED_DN=NAV_SVG('<path d="M12 6v12M6.5 12.5 12 18l5.5-5.5"/>',16);
+const NAV_ED_EYE=NAV_SVG('<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>',16);
+const NAV_ED_EYEX=NAV_SVG('<path d="M10 5.7c.6-.1 1.3-.2 2-.2 6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.4 3.2M6.6 6.9C3.9 8.7 2.5 12 2.5 12S6 18.5 12 18.5c1.8 0 3.3-.6 4.6-1.4M3.5 3.5l17 17"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',16);
+const NAV_ED_LOCK=NAV_SVG('<rect x="5.5" y="10.5" width="13" height="10" rx="1.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',16);
+const NAV_ED_GRIP=NAV_SVG([6.5,12,17.5].map(y=>`<circle cx="9" cy="${y}" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="${y}" r="1" fill="currentColor" stroke="none"/>`).join(''),16);
+const NAV_STYLES=[['b','Icons and labels','The usual menu, quick to scan.'],['l','Labels only','Words alone, as the menu used to be.'],['i','Icons only','A narrow rail that leaves more room for the page. Names show on hover.']];
+const NAV_PRESETS=[['def','Edictum default'],['daily','Every day first'],['az','One list, A to Z'],['rail','Compact rail']];
+const NAV_DAILY=['nation','issues','map','cities','messages','dispatch'];
+const NAVD={v:null};
+const navDefL=k=>{const g=NAV_GROUPS.find(d=>d.k===k);return g?g.l:'';};
+function navModel(){
+  const P=navPrefs()||{s:'b',h:true,o:null,x:new Set(),t:null},G=navGroups(),by=Object.create(null),lab=Object.create(null);
+  for(const g of G){by[g.k]=g;for(const [v,l] of g.items)lab[v]=l;}
+  const own=k=>P.o&&(P.o.find(o=>o[0]===k)||[])[1];
+  const order=P.o?P.o.map(o=>o[0]):[];for(const g of G)if(!order.includes(g.k))order.push(g.k);
+  const named=new Set();if(P.o)for(const o of P.o)for(const v of o[2])named.add(v);
+  return {s:P.s,h:P.h,x:new Set(P.x),t:P.t?[...P.t]:null,lab,
+    g:order.map(k=>({k,l:by[k]?by[k].l:own(k)||navDefL(k)||'My pages',v:by[k]?by[k].items.map(i=>i[0]):[]})),
+    fresh:new Set(P.o?Object.keys(lab).filter(v=>!named.has(v)):[])};
+}
+function navUsual(M){return navDefault().map(g=>({k:g.k,l:g.l,v:g.items.map(i=>i[0]).filter(v=>M.lab[v])})).filter(g=>g.v.length);}
+function navPack(M){
+  const ser=G=>JSON.stringify(G.map(g=>[g.k,g.l===navDefL(g.k)?'':g.l,g.v]));
+  const p={},o=ser(M.g);if(M.s!=='b')p.s=M.s;if(!M.h)p.h=0;if(o!==ser(navUsual(M)))p.o=o;
+  const x=[...M.x].filter(v=>!NAV_LOCK.includes(v));if(x.length)p.x=x;
+  if(M.t&&M.t.join(',')!==NAV_TABS.join(','))p.t=M.t.join(',');
+  return navNorm(p);
+}
+function navFind(M,v){for(const g of M.g){const i=g.v.indexOf(v);if(i>=0)return [g,i];}return [null,-1];}
+function navTake(M,v){const [g,i]=navFind(M,v);if(g)g.v.splice(i,1);return !!g;}
+function navSay(t){
+  let el=document.getElementById('nv-live');
+  if(!el){el=document.createElement('div');el.id='nv-live';el.className='u-sr';el.setAttribute('role','status');el.setAttribute('aria-live','polite');document.body.appendChild(el);}
+  el.textContent='';setTimeout(()=>{el.textContent=t;},60);
+}
+function navWhere(M,v){const [g,i]=navFind(M,v);return g?`${M.lab[v]}: ${i+1} of ${g.v.length} in ${g.l}.`:'';}
+/* apply a change to the model; fn returns false when there is nothing to do */
+function navEdit(fn,focus,say){
+  let obs=false;try{obs=!!OBS;}catch(e){}if(!S.nation||obs)return;
+  const M=navModel();if(fn(M)===false)return;
+  const p=navPack(M),msg=typeof say==='function'?say(M):say;
+  sgApply(n=>{if(p)n.nav=p;else delete n.nav;});
+  if(focus){let el=document.getElementById(focus);
+    if(el&&el.disabled){const m=/^nv-(g?)(up|dn)-(.+)$/.exec(focus);if(m)el=document.getElementById(`nv-${m[1]}${m[2]==='up'?'dn':'up'}-${m[3]}`);}
+    if(el&&!el.disabled)try{el.focus();if(el.select&&focus.startsWith('nv-gn-'))el.select();}catch(e){}}
+  if(msg)navSay(msg);
+}
+function navMove(M,v,d){
+  const [g,i]=navFind(M,v);if(!g)return false;const gi=M.g.indexOf(g);
+  if(i+d>=0&&i+d<g.v.length){g.v.splice(i,1);g.v.splice(i+d,0,v);return true;}
+  const h=M.g[gi+d];if(!h)return false;g.v.splice(i,1);if(d<0)h.v.push(v);else h.v.unshift(v);return true;
+}
+function navPreset(M,k){
+  if(k==='rail'){M.s='i';return;}
+  if(k==='def'){M.s='b';M.h=true;M.x=new Set();M.t=null;M.g=navUsual(M);return;}
+  if(k==='az'){M.g=[{k:'c1',l:'All pages',v:Object.keys(M.lab).sort((a,b)=>M.lab[a].localeCompare(M.lab[b]))}];M.h=false;return;}
+  if(k==='daily'){const top=NAV_DAILY.filter(v=>M.lab[v]);M.g=[{k:'c1',l:'Every day',v:top},...navUsual(M).map(g=>({...g,v:g.v.filter(v=>!top.includes(v))})).filter(g=>g.v.length)];M.h=true;M.t=['nation','issues','map','messages'];}
+}
+function navSub(){
+  const P=navPrefs();if(!P)return 'The usual menu';const b=[];
+  if(P.o)b.push('your own order');if(P.x.size)b.push(P.x.size+' hidden');if(P.s==='i')b.push('icons only');else if(P.s==='l')b.push('labels only');if(!P.h)b.push('one list');if(!b.length&&P.t)b.push('your own tab bar');
+  const t=b.join(' · ')||'the usual menu';return t.charAt(0).toUpperCase()+t.slice(1);
+}
+function navSettings(){
+  const M=navModel(),G=M.g,eff=navTabsOf(M.t||[],M.x,M.lab),usual=!navPack(M),last=G.length-1;
+  const opts=k=>G.map(h=>`<option value="${h.k}"${h.k===k?' selected':''}>${esc(h.l)}</option>`).join('');
+  const row=(v,g,gi,i)=>{const l=M.lab[v],off=M.x.has(v),lock=NAV_LOCK.includes(v),L=esc(l);
+    return `<li class="nve-r${off?' off':''}" draggable="true" data-v="${v}"><span class="nve-grip" title="Drag to move" aria-hidden="true">${NAV_ED_GRIP}</span><span class="nav-ic" aria-hidden="true">${navIcon(v)}</span><span class="nve-n"><span class="nve-t">${L}</span>${M.fresh.has(v)?'<span class="nve-new">New</span>':''}${off?'<span class="nve-off">Hidden</span>':''}</span>`
+      +`<select class="nve-mv" id="nv-mv-${v}" data-v="${v}" aria-label="Group for ${L}">${opts(g.k)}</select>`
+      +`<button type="button" class="nve-ib" id="nv-up-${v}" data-act="nv-up" data-v="${v}" aria-label="Move ${L} up"${gi||i?'':' disabled'}>${NAV_ED_UP}</button>`
+      +`<button type="button" class="nve-ib" id="nv-dn-${v}" data-act="nv-dn" data-v="${v}" aria-label="Move ${L} down"${gi<last||i<g.v.length-1?'':' disabled'}>${NAV_ED_DN}</button>`
+      +(lock?`<span class="nve-ib nve-lock" role="img" aria-label="${L} always stays in the menu" title="${L} always stays in the menu">${NAV_ED_LOCK}</span>`
+        :`<button type="button" class="nve-ib nve-eye" id="nv-eye-${v}" data-act="nv-eye" data-v="${v}" aria-pressed="${!off}" aria-label="Show ${L} in the menu" title="${off?'Show in the menu':'Hide from the menu'}">${off?NAV_ED_EYEX:NAV_ED_EYE}</button>`)+`</li>`;};
+  const groups=G.map((g,gi)=>`<section class="nve-g" data-g="${g.k}" aria-label="${esc(g.l)}"><div class="nve-gh"><input class="nve-gn" id="nv-gn-${g.k}" data-g="${g.k}" value="${esc(g.l)}" maxlength="24" autocomplete="off" aria-label="Name of the group ${esc(g.l)}">`
+    +`<span class="nve-cnt">${g.v.length===1?'1 page':g.v.length+' pages'}</span>`
+    +`<button type="button" class="nve-ib" id="nv-gup-${g.k}" data-act="nv-gup" data-g="${g.k}" aria-label="Move the group ${esc(g.l)} up"${gi?'':' disabled'}>${NAV_ED_UP}</button>`
+    +`<button type="button" class="nve-ib" id="nv-gdn-${g.k}" data-act="nv-gdn" data-g="${g.k}" aria-label="Move the group ${esc(g.l)} down"${gi<last?'':' disabled'}>${NAV_ED_DN}</button>`
+    +(g.v.length?'':`<button type="button" class="btn ghost small" id="nv-gdel-${g.k}" data-act="nv-gdel" data-g="${g.k}">Remove</button>`)
+    +`</div><ul class="nve-l" data-g="${g.k}">${g.v.length?g.v.map((v,i)=>row(v,g,gi,i)).join(''):'<li class="nve-empty">Drag pages here, or remove this group.</li>'}</ul></section>`).join('');
+  const all=Object.keys(M.lab).filter(v=>!M.x.has(v));
+  return `${sgHead('nav','Saved with your nation','Arrange the menu your way: put the pages you use most at the top, rename or add groups, and hide the pages you never open. Hidden pages are still in the search (press / on a keyboard) and in links from other pages.')}
+    <section class="sg-card" id="set-nav-style"><h3 class="sg-ch">Menu style</h3><p class="hint fs-hint">How each page appears in the side bar on a wider screen. On a phone, pages are in the tab bar and the More sheet.</p>
+      <div class="nvs-opts" role="group" aria-label="Menu style">${NAV_STYLES.map(([k,l,d])=>`<button type="button" class="nvs-o${M.s===k?' on':''}" id="nv-s-${k}" data-act="nv-style" data-v="${k}" aria-pressed="${M.s===k}"><span class="nvs-pic nvs-${k}" aria-hidden="true"><i></i><i></i><i></i></span><b>${l}</b><span>${d}</span></button>`).join('')}</div>
+      <label class="nvs-chk"><input type="checkbox" id="nv-heads"${M.h?' checked':''}><span><b>Show group headings</b><span class="hint">Turn off for one plain list in your own order.</span></span></label>
+    </section>
+    <section class="sg-card" id="set-nav-presets"><h3 class="sg-ch">Start from a preset</h3><p class="hint fs-hint">A quick starting point. Anything can be changed afterwards.</p>
+      <div class="nvp">${NAV_PRESETS.map(([k,l])=>`<button type="button" class="btn ghost small" id="nv-p-${k}" data-act="nv-preset" data-v="${k}">${l}</button>`).join('')}</div>
+    </section>
+    <section class="sg-card" id="set-nav-pages"><h3 class="sg-ch">Pages and groups</h3><p class="hint fs-hint">Drag a page by its handle, or use its arrows and group menu. The eye hides a page from the menu. Nation and Settings always stay, so the way back is never lost.</p>
+      <div class="nve">${groups}<button type="button" class="btn ghost small nve-add" id="nv-gadd" data-act="nv-gadd"${G.length>=NAV_GMAX?' disabled':''}>+ New group</button></div>
+    </section>
+    <section class="sg-card" id="set-nav-tabs"><h3 class="sg-ch">Phone tab bar</h3><p class="hint fs-hint">The four pages in the bar at the foot of a phone screen. More always comes last and opens every other page.</p>
+      <div class="nvt">${eff.map((t,i)=>`<label>Tab ${i+1}<select id="nv-tab-${i}" data-i="${i}">${all.map(v=>`<option value="${v}"${v===t?' selected':''}>${esc(M.lab[v])}</option>`).join('')}</select></label>`).join('')}<label>Last<span class="nvt-more">More</span></label></div>
+      <div class="nvt-prev" aria-hidden="true">${eff.concat('more').map(v=>`<span class="nvt-t"><span class="nvt-ic">${navIcon(v)}</span><span>${v==='more'?'More':esc(M.lab[v])}</span></span>`).join('')}</div>
+    </section>
+    <section class="sg-card" id="set-nav-reset"><h3 class="sg-ch">Start over</h3><p class="hint fs-hint">${usual?'The menu is as usual.':'Every page back in its usual place, with icons and labels, and the usual tab bar.'}</p>
+      <button type="button" class="btn ghost" id="nv-reset" data-act="nv-reset"${usual?' disabled':''}>Reset navigation</button>
+    </section>`;
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="nv-"]');if(!el||!S.nation)return;
+  const a=el.dataset.act,v=el.dataset.v,k=el.dataset.g;
+  if(a==='nv-style')navEdit(M=>{if(M.s===v)return false;M.s=v;},'nv-s-'+v,()=>NAV_STYLES.find(x=>x[0]===v)[1]+'.');
+  else if(a==='nv-preset')navEdit(M=>{navPreset(M,v);},'nv-p-'+v,'Menu set to '+NAV_PRESETS.find(x=>x[0]===v)[1]+'.');
+  else if(a==='nv-reset')navEdit(M=>{navPreset(M,'def');},'sg-tab-nav','The menu is back to usual.');
+  else if(a==='nv-up'||a==='nv-dn')navEdit(M=>navMove(M,v,a==='nv-up'?-1:1),el.id,M=>navWhere(M,v));
+  else if(a==='nv-eye')navEdit(M=>{if(NAV_LOCK.includes(v))return false;if(M.x.has(v))M.x.delete(v);else M.x.add(v);},el.id,M=>`${M.lab[v]} ${M.x.has(v)?'hidden from':'shown in'} the menu.`);
+  else if(a==='nv-gup'||a==='nv-gdn')navEdit(M=>{const i=M.g.findIndex(g=>g.k===k),j=i+(a==='nv-gup'?-1:1);if(i<0||!M.g[j])return false;[M.g[i],M.g[j]]=[M.g[j],M.g[i]];},el.id);
+  else if(a==='nv-gdel')navEdit(M=>{const i=M.g.findIndex(g=>g.k===k);if(i<0||M.g[i].v.length)return false;M.g.splice(i,1);},'nv-gadd','Group removed.');
+  else if(a==='nv-gadd'){let key='';navEdit(M=>{if(M.g.length>=NAV_GMAX)return false;for(let i=1;i<=NAV_GMAX*2&&!key;i++)if(!M.g.some(g=>g.k==='c'+i))key='c'+i;M.g.push({k:key,l:'New group',v:[]});},null,'New group added at the end.');
+    const i=document.getElementById('nv-gn-'+key);if(i){i.focus();i.select();}}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t||!S.nation)return;
+  if(t.id==='nv-heads')navEdit(M=>{M.h=t.checked;},'nv-heads');
+  else if(t.classList.contains('nve-mv')){const v=t.dataset.v,k=t.value;navEdit(M=>{const h=M.g.find(g=>g.k===k);if(!h||h.v.includes(v))return false;navTake(M,v);h.v.push(v);},t.id,M=>navWhere(M,v));}
+  else if(t.classList.contains('nve-gn')){const k=t.dataset.g,l=t.value.replace(/\s+/g,' ').trim().slice(0,24);navEdit(M=>{const g=M.g.find(x=>x.k===k);if(!g)return false;const nl=l||navDefL(k)||'My pages';if(nl===g.l)return false;g.l=nl;},document.activeElement===t?t.id:null);}
+  else if(/^nv-tab-\d$/.test(t.id)){const i=+t.dataset.i,v=t.value;navEdit(M=>{const eff=navTabsOf(M.t||[],M.x,M.lab),j=eff.indexOf(v);if(eff[i]===v)return false;if(j>=0)eff[j]=eff[i];eff[i]=v;M.t=eff;},t.id);}
+});
+/* a group's new name shows in the side bar as it is typed, and Enter keeps it */
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.classList||!t.classList.contains('nve-gn'))return;
+  for(const s of document.querySelectorAll(`#ngh-${CSS.escape(t.dataset.g)} .nav-gl`))s.textContent=t.value||navDefL(t.dataset.g)||'My pages';});
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('nve-gn')&&e.key==='Enter'){e.preventDefault();t.dispatchEvent(new Event('change',{bubbles:true}));}});
+/* dragging a page: a line shows where it lands; on an empty group, or below its last page, it goes to the end */
+document.addEventListener('dragstart',e=>{const r=e.target&&e.target.closest&&e.target.closest('.nve-r');if(!r)return;NAVD.v=r.dataset.v;r.classList.add('drag');
+  try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',NAVD.v);}catch(x){}});
+const navDragClear=()=>{for(const x of document.querySelectorAll('.nve-r.drag,.nve-r.ov-t,.nve-r.ov-b,.nve-g.drop'))x.classList.remove('drag','ov-t','ov-b','drop');};
+document.addEventListener('dragend',()=>{NAVD.v=null;navDragClear();});
+document.addEventListener('dragover',e=>{
+  if(!NAVD.v)return;const g=e.target&&e.target.closest&&e.target.closest('.nve-g');if(!g)return;e.preventDefault();
+  for(const x of document.querySelectorAll('.nve-r.ov-t,.nve-r.ov-b,.nve-g.drop'))x.classList.remove('ov-t','ov-b','drop');
+  const r=e.target.closest('.nve-r');
+  if(r&&r.dataset.v!==NAVD.v){const b=r.getBoundingClientRect();r.classList.add(e.clientY<b.top+b.height/2?'ov-t':'ov-b');}else if(!r)g.classList.add('drop');
+});
+document.addEventListener('drop',e=>{
+  const v=NAVD.v;if(!v)return;const g=e.target&&e.target.closest&&e.target.closest('.nve-g');if(!g)return;e.preventDefault();
+  const r=e.target.closest('.nve-r'),k=g.dataset.g,to=r&&r.dataset.v!==v?r.dataset.v:null,after=!!(r&&r.classList.contains('ov-b'));
+  NAVD.v=null;navDragClear();if(r&&!to)return;
+  navEdit(M=>{const h=M.g.find(x=>x.k===k);if(!h)return false;navTake(M,v);if(to){const i=h.v.indexOf(to);h.v.splice(i<0?h.v.length:i+(after?1:0),0,v);}else h.v.push(v);},null,M=>navWhere(M,v));
+});
+/* icons only: the page's name beside the icon under the pointer or the keyboard focus */
+const NAVT={b:null};
+function navTip(b){
+  let t=document.getElementById('nav-tip');NAVT.b=b&&b.isConnected?b:null;
+  if(!NAVT.b){if(t)t.hidden=true;return;}
+  if(!t){t=document.createElement('div');t.id='nav-tip';t.className='nav-tip';t.setAttribute('aria-hidden','true');document.body.appendChild(t);}
+  const r=b.getBoundingClientRect(),l=b.querySelector('.nav-l,.ed-acct-k');t.textContent=l?l.textContent:b.getAttribute('aria-label')||b.textContent.trim();t.hidden=false;
+  t.style.left=Math.round(r.right+10)+'px';t.style.top=Math.round(r.top+r.height/2)+'px';
+}
+const navRailBtn=e=>{const b=e.target&&e.target.closest&&e.target.closest('.side .nav-btn,.side .side-foot button,.side .side-nation');return b&&b.closest('.nav-rail')&&!navNarrow()?b:null;};
+document.addEventListener('pointerover',e=>{navTip(navRailBtn(e));},{passive:true});
+document.addEventListener('pointerout',e=>{if(!e.relatedTarget)navTip(null);},{passive:true});
+document.addEventListener('focusin',e=>{navTip(navRailBtn(e));});
+document.addEventListener('focusout',()=>{navTip(null);});
+/* a scroll carries the name along with a button still under the pointer or focused, and drops it otherwise */
+document.addEventListener('scroll',()=>{const b=NAVT.b;if(!b)return;const r=b.isConnected&&b.getBoundingClientRect();
+  navTip(r&&r.bottom>0&&r.top<innerHeight&&(b.matches(':hover')||b===document.activeElement)?b:null);},{capture:true,passive:true});
+navAfter=(f=>function(){const r=f.apply(this,arguments);navTip(null);return r;})(navAfter);
+UX_SETTINGS.push({v:'focus:set-nav-pages',l:'Menu and navigation',g:'Settings',words:'menu navigation side bar sidebar icons order arrange hide pages groups tab bar rail',view:'settings',target:'#set-nav-pages'});
 /* ───────── Government tabs: switching, the address, and jumps from elsewhere ─────────
    As in Settings, switching a tab only flips .gv[data-tab] (no redraw), so the scroll position stays where it was.
    Kept at the end so these wrappers sit outside every other wrapper of go, uxJump, uxOpen and tutGo. */
