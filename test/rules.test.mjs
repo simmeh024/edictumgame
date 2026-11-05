@@ -752,3 +752,35 @@ test('the Community Board is read by everyone and written only by civic(); prese
   await assertSucceeds(anon().doc('presence/alice').get());
   await assertSucceeds(as('bob').doc('cb/meridian/posts/t1').delete());
 });
+
+test('a mail ping is one per sender, nation and kind, under the sender\'s saved name, to its own region, and paced', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('nations/alice').set(nation('Aliceland'));
+    await db.doc('nations/carol').set(nation('Caroland', { reg: 'frostmarch' }));
+  });
+  const ping = (by, to, k, extra = {}, id = by + '~' + to + '~' + k) => as(by).doc('mailQ/' + id).set({ to, by, k, nm: 'Aliceland', t: NOW(), ...extra });
+  await assertSucceeds(ping('alice', 'bob', 'msg'));
+  await assertFails(ping('alice', 'bob', 'msg'), 'refreshed within 10 minutes');
+  await assertSucceeds(ping('alice', 'bob', 'war'));
+  await assertFails(ping('alice', 'bob', 'trade', {}, 'random-id'), 'any other document');
+  await assertFails(ping('alice', 'bob', 'trade', { nm: 'Click here, prize inside' }), 'words of the player\'s own');
+  await assertFails(ping('alice', 'carol', 'msg'), 'another region');
+  await assertFails(ping('alice', 'nobody', 'msg'), 'a nation that does not exist');
+  await assertFails(as('alice').doc('mailQ/bob~alice~msg').set({ to: 'alice', by: 'bob', k: 'msg', nm: 'Bobland', t: NOW() }), 'in someone else\'s name');
+  await assertFails(as('dave').doc('mailQ/dave~bob~msg').set({ to: 'bob', by: 'dave', k: 'msg', nm: 'Daveland', t: NOW() }), 'without a nation');
+  await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('mailQ/alice~bob~msg').update({ t: AGO(11 * 60000) }); });
+  await assertSucceeds(ping('alice', 'bob', 'msg'), 'refreshed after 10 minutes');
+  await assertFails(as('alice').doc('mailQ/alice~bob~msg').get(), 'write-only');
+});
+
+test('recruits are filed only by the server; a recruiter reads the ones naming them', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('nations/alice').set(nation('Aliceland'));
+    await db.doc('recruits/carol').set({ r: 'bob', t: AGO(1000) });
+  });
+  await assertFails(as('alice').doc('recruits/alice').set({ r: 'bob', t: NOW() }));
+  await assertSucceeds(as('bob').collection('recruits').where('r', '==', 'bob').get());
+  await assertFails(as('alice').doc('recruits/carol').get());
+});

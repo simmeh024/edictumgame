@@ -205,4 +205,18 @@ check('a stray copy is noticed and kept for its account', await until(async () =
 check('the browser starts again as a guest, and says why', await until(() => H3.isVisible('#d-name'), 15000) && await until(async () => /signed out of the account that holds “Harrowgate”/.test(await toasts(H3))));
 check('nothing was saved for the guest', !!uidH3 && uidH3 !== uidH && (await restGet('nations/' + uidH3)).status === 404 && await harrowgates() === 1);
 
+/* ── 10. a guest nation carried into an account names the guest on its first save there ── */
+// doSwitch notes {from, to} (edictum.carry); the first save under `to` (revision 0) sends `from`, so the server may
+// let the record start as large as the guest's last save (functions/civic.js, createCap), and the note then goes.
+const M = await player('M');
+const uidM = await open(M);
+const sent = [];
+await M.route('**/europe-west1/civic', route => { const d = route.request().postDataJSON()?.data; if (d?.op === 'authorizeSave') sent.push({ rev: d.rev, from: d.from }); route.continue(); });
+await M.evaluate(([to]) => localStorage.setItem('edictum.carry', JSON.stringify({ from: 'guest-carried-from', to, at: Date.now() })), [uidM]);
+await founded(M, 'Movingham');
+check('the first save of a carried nation names the guest it came from', await until(() => sent.some(x => x.rev === 0)) && sent.find(x => x.rev === 0).from === 'guest-carried-from', JSON.stringify(sent));
+check('and the note goes once it is saved', await until(() => M.evaluate(() => localStorage.getItem('edictum.carry') === null)));
+await M.evaluate(() => { const n = G.clone(G.S.nation); n.motto = 'Settled in'; G.commit(n); });
+check('later saves name nobody', await until(() => sent.some(x => x.rev > 0), 30000) && sent.filter(x => x.rev > 0).every(x => x.from === undefined), JSON.stringify(sent));
+
 await finish();
