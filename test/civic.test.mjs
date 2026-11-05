@@ -243,3 +243,56 @@ test('Community Board: staff pin, lock, hide, move and delete from inside the bo
   const log=await db.collection('adminAudit').where('topic','==',t.id).get();
   assert.deepEqual(new Set(log.docs.map(x=>x.get('action'))),new Set(['board_pin','board_lock','board_hide','board_unhide','board_move','board_delete']));
 });
+
+test('A new record starts no larger than a new nation could have grown, the account\'s last save, or the guest it was carried from',async()=>{
+  const save=(p,pop,{rev=0,name='Freshland',...extra}={})=>civic(p,{op:'authorizeSave',record:{reg:'meridian',name,pop,army:1,cl:0,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name,pop})},rev,...extra});
+  const big=async(p,linked)=>{await db.doc('nations/'+p.uid).update({pop:900,ts:new Date()});assert.ok((await save(p,900,{rev:1,name:p.uid})).permit);};
+  const hw=async p=>(await db.doc('accountIdentity/'+p.uid).get()).get('hw');
+  // a fresh account: a new nation's size, and its first save is noted
+  const fresh=await sign('signUp',{});
+  assert.ok((await save(fresh,5)).permit);
+  await rejects(save(fresh,5000),'population_limit');
+  assert.equal((await hw(fresh)).pop,5);
+  // a nation deleted and saved again: no larger than its last save allows
+  const again=await player();await big(again);assert.equal((await hw(again)).pop,900);
+  await db.doc('nations/'+again.uid).delete();
+  await rejects(save(again,5000,{name:again.uid}),'population_limit');
+  assert.ok((await save(again,900,{name:again.uid})).permit);
+  // an update's permit notes no more than the rules would let it save
+  const jump=await player();await save(jump,10,{rev:1,name:jump.uid});await save(jump,9e6,{rev:1,name:jump.uid});
+  assert.ok((await hw(jump)).pop<11,'a jump the rules refuse is not noted: '+(await hw(jump)).pop);
+  // a guest's nation carried into an account: from that guest's last save, once
+  const guest=await player();await big(guest);await db.doc('nations/'+guest.uid).delete();
+  const into=await sign('signUp',{}), other=await sign('signUp',{});
+  await rejects(save(into,900,{name:guest.uid}),'population_limit');
+  assert.ok((await save(into,900,{name:guest.uid,from:guest.uid})).permit);
+  assert.equal((await hw(guest)).to,into.uid);
+  await rejects(save(other,900,{name:guest.uid,from:guest.uid}),'population_limit');
+  // never from a Registered Nation still in the region, nor from a guest's of another name
+  const kept=await player(true);await big(kept);
+  await rejects(save(other,900,{name:kept.uid,from:kept.uid}),'population_limit');
+  const live=await player();await big(live);
+  await rejects(save(other,900,{name:'Another name',from:live.uid}),'population_limit');
+  assert.ok((await save(other,900,{name:live.uid,from:live.uid})).permit,'a guest copy of the same name, which a switch could not drop first');
+});
+
+test('A recruit counts once, as a Registered Nation founded in the last 30 days and after its recruiter',async()=>{
+  const recruiter=await player();await age(recruiter,3*DAY);
+  const guest=await player(), linked=await player(true);
+  assert.deepEqual(await account(guest,{op:'recruit',by:recruiter.uid}),{ok:false,why:'guest'});
+  assert.deepEqual(await account(linked,{op:'recruit',by:recruiter.uid}),{ok:true});
+  assert.equal((await db.doc('recruits/'+linked.uid).get()).get('r'),recruiter.uid);
+  assert.deepEqual(await account(linked,{op:'recruit',by:recruiter.uid}),{ok:false,why:'done'});
+  await assert.rejects(account(linked,{op:'recruit',by:linked.uid}),e=>e.status==='INVALID_ARGUMENT');
+  // two players opening each other's links: only the newer one is a recruit
+  const a=await player(true), b=await player(true);await age(a,2*DAY);
+  assert.deepEqual(await account(a,{op:'recruit',by:b.uid}),{ok:false,why:'old'});
+  assert.deepEqual(await account(b,{op:'recruit',by:a.uid}),{ok:true});
+  // a veteran, a recruiter that does not exist, and an account with no nation yet
+  const veteran=await player(true);await age(veteran,40*DAY);const elder=await player();await age(elder,50*DAY);
+  assert.deepEqual(await account(veteran,{op:'recruit',by:elder.uid}),{ok:false,why:'old'});
+  assert.deepEqual(await account(await player(true),{op:'recruit',by:'no-such-player'}),{ok:false,why:'gone'});
+  const email=`civic-${crypto.randomUUID()}@example.test`;await auth.createUser({email,password:'test-only-password',emailVerified:true});
+  const empty=await sign('signInWithPassword',{email,password:'test-only-password'});
+  assert.deepEqual(await account(empty,{op:'recruit',by:recruiter.uid}),{ok:false,why:'nation_required'});
+});

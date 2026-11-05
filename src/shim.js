@@ -41,6 +41,7 @@
   var LS_NATION = 'statehood.nation.v1'; // the game's own copy of the player's nation
   var LS_UID = 'edictum.uid';            // the account that copy belongs to ('-' once signed out)
   var LS_PARK = 'edictum.parked';        // {uid, at, nation}: the copy of an account this browser was signed out of
+  var LS_CARRY = 'edictum.carry';        // {from, to, at}: a guest's nation carried into account `to` on signing in, until its first save there
   var SS_FLASH = 'edictum.flash';        // a message to show after a reload
   var MAX_JSON = 700000;                 // well under Firestore's 1 MiB document limit
   var SPACE_BEAT = 12 * 3600000;         // rewrite an unchanged space document this often while playing
@@ -250,7 +251,10 @@
       var hour = days + 1 / 24, skewed = base.pop * Math.pow(1.35, hour) + 3 * hour;
       if (enc.pop > most && enc.pop <= skewed) enc.pop = Math.max(base.pop, Math.floor(most * 1e4) / 1e4);
     }
-    var approved = await call('civic', { op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected });
+    /* a guest's nation carried into this account (doSwitch): its first save here names the guest account, whose last
+       save the server lets a new record start from (functions/civic.js, createCap) */
+    var carry = expected === 0 ? parse(L.get(LS_CARRY)) : null, from = isObj(carry) && carry.to === uid && Date.now() - num(carry.at) < 7 * 864e5 ? str(carry.from, 128) : '';
+    var approved = await call('civic', Object.assign({ op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected }, from ? { from: from } : {}));
     enc.j = approved.j; enc.permit = approved.permit;
     enc.rev = expected + 1;
     /* Read and compare in the same transaction as every part of the save. Firestore retries a raced
@@ -290,7 +294,7 @@
       } else if (space) {
         b.delete(spaceRef);
       }
-    }).then(function () { A.raceAt[uid] = enc.updatedAt; A.popBase[uid] = { pop: enc.pop, at: performance.now() }; setTimeout(recoveryCheck, 0); window.dispatchEvent(new Event('edictum:saved')); return { rev: enc.rev }; });
+    }).then(function () { if (from) L.set(LS_CARRY, null); A.raceAt[uid] = enc.updatedAt; A.popBase[uid] = { pop: enc.pop, at: performance.now() }; setTimeout(recoveryCheck, 0); window.dispatchEvent(new Event('edictum:saved')); return { rev: enc.rev }; });
   }
   /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
      carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in
@@ -627,24 +631,27 @@
      mailQ). A ping carries no text; if that player asked for letters, the hourly job may write to them. */
   var mailApi = Object.freeze({
     request: function (data) { return A.frozen ? hang() : call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'mail' })); },
+    /* one ping per sender, nation and kind until the job has handled it (the rules: nm is the nation's saved name,
+       `to` a nation of the same region, and a ping refreshed at most every 10 minutes) */
     ping: function (to, k, nm) {
       var u = A.auth && A.auth.currentUser;
-      if (!u || A.frozen || observing() || typeof to !== 'string' || !to || to === u.uid) return Promise.resolve(false);
-      return A.fs.collection('mailQ').add({ to: to.slice(0, 128), by: u.uid, k: String(k), nm: str(nm, 80) || 'A nation', t: serverTime() }).then(function () { return true; }, function () { return false; });
+      if (!u || A.frozen || observing() || typeof to !== 'string' || !to || to.length > 128 || to === u.uid) return Promise.resolve(false);
+      return A.fs.doc('mailQ/' + u.uid + '~' + to + '~' + String(k)).set({ to: to, by: u.uid, k: String(k), nm: str(nm, 80) || 'A nation', t: serverTime() }).then(function () { return true; }, function () { return false; });
     }
   });
-  /* recruiting (see firestore.rules, recruits): a player who founded a nation through another player's link
-     files recruits/<own uid> {r: that player's uid} once; the recruiter lists the ones naming them */
+  /* recruiting (functions/accounts.js, 'recruit'): a player who founded a nation through another player's link
+     has the server file recruits/<own uid> {r: that player's uid} once, as a Registered Nation; the recruiter lists
+     the ones naming them. claim(by) → 'ok' (filed now), 'done' (filed before), 'guest' (link an account first),
+     'retry' (the first save may still be on its way), 'no' (it does not count) or 'bad' */
   var recruitApi = Object.freeze({
     me: function () { var u = A.auth && A.auth.currentUser; return u ? u.uid : ''; },
     claim: function (by) {
       var u = A.auth && A.auth.currentUser;
       if (!u || A.frozen || observing() || typeof by !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(by) || by === u.uid) return Promise.resolve('bad');
-      var ref = A.fs.doc('recruits/' + u.uid);
-      return ref.get().then(function (d) {
-        if (d.exists) return 'done';
-        return ref.set({ r: by, t: serverTime() }).then(function () { return 'ok'; });
-      }).catch(function () { return 'retry'; }); // the nation's first save may still be on its way
+      return call('accounts', { op: 'recruit', by: by }).then(function (r) {
+        var why = r && r.why;
+        return r && r.ok ? 'ok' : why === 'done' || why === 'guest' ? why : why === 'nation_required' || why === 'region_disabled' ? 'retry' : 'no';
+      }, function () { return 'retry'; });
     },
     mine: function () {
       var u = A.auth && A.auth.currentUser;
@@ -1727,6 +1734,7 @@
        account menu, as the switch dialog promised); with none, this one is saved as the account's. */
     if (!known && guest) {
       guest._rev = 0; guest._dirty = true;
+      if (anon && anon.uid !== nu.uid) L.set(LS_CARRY, JSON.stringify({ from: anon.uid, to: nu.uid, at: Date.now() }));
       var carried = JSON.stringify(guest);
       L.set(LS_NATION, carried);
       leave({ nation: carried, uid: nu.uid }, 'Signed in with ' + via + '. “' + guest.name + '” came with you: if this ' + sw.what + ' already held a nation, that one loads and “' + guest.name + '” is kept in your account menu.');
@@ -1736,6 +1744,7 @@
       leave({ nation: null, uid: '-' }, name ? 'Signed in with ' + via + '. Welcome back to “' + name + '”.' : 'Signed in with ' + via + '.');
     } else if (guest) {
       guest._rev = 0;
+      if (anon && anon.uid !== nu.uid) L.set(LS_CARRY, JSON.stringify({ from: anon.uid, to: nu.uid, at: Date.now() }));
       var moved = JSON.stringify(guest);
       L.set(LS_NATION, moved);
       /* the copy goes back on pagehide too, should the game save it again (with the guest's revision) before the reload */

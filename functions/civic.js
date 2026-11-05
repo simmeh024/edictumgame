@@ -15,6 +15,33 @@ const text = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o || {}, k);
 const politicalKeys = new Set(['r','e','s','v','p','a','m','o','j','ox','pw']);
 export const politicalPart = a => Object.fromEntries(Object.entries(a || {}).filter(([k]) => politicalKeys.has(k)));
+const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
+
+/* The population a nation's record may start with. firestore.rules (grows) holds every update to x1.35 a day plus
+   3 million a day since the last save, but a create has no last save: a record deleted and saved again, or one saved
+   from a fresh account, could start at any size, and army and land are bounded by it. So a create is held here to
+   the most of: a new nation (FOUND_POP, 5 million in the game) grown since the account began; this account's last
+   save (accountIdentity/<uid>.hw, kept by every save below); and, for a guest's nation carried into an account on
+   signing in (src/shim.js, doSwitch), that guest account's last save, once (d.from; the guest's record is gone by
+   then, or is a guest's of the same name). */
+const FOUND_POP = 20, HW_STEP = 1.05, HW_EVERY = 6 * 3600000, CARRY_MS = 7 * DAY;
+const grown = (pop, at, now) => { const days = Math.max(0, (now - at) / DAY); return pop * Math.pow(1.35, days) + 3 * days; };
+const hwOf = s => { const h = s && s.exists ? s.get('hw') : null; return h && Number.isFinite(h.pop) && Number.isFinite(h.at) ? h : null; };
+async function createCap(tx, db, who, e, p, from, now) {
+  let cap = grown(FOUND_POP, Date.parse(who.generation) || now, now);
+  const hw = hwOf(e.account);
+  if (hw) cap = Math.max(cap, grown(hw.pop * HW_STEP, hw.at, now));
+  if (p.pop <= cap + 1e-4 || !isId(from) || from === who.uid) return { cap };
+  const [fa, fn] = await tx.getAll(db.doc('accountIdentity/' + from), db.doc('nations/' + from)), fh = hwOf(fa);
+  if (!fh || now - fh.at > CARRY_MS || (fh.to && fh.to !== who.uid)) return { cap };
+  if (fn.exists) {
+    if (fn.get('name') !== p.name) return { cap };
+    let guest = true;
+    try { guest = !registered(await getAuth().getUser(from)); } catch { /* the guest account is gone */ }
+    if (!guest) return { cap };
+  }
+  return { cap: Math.max(cap, grown(fh.pop * HW_STEP, fh.at, now)), carry: fa.ref, fh };
+}
 
 async function permit(db, who, d) {
   const p = d.record;
@@ -45,6 +72,16 @@ async function permit(db, who, d) {
     // Invalid NPC-looking strings must not evade registration requirements.
     if (actor.exists && actor.get('generation') === e.generation) n.asm = actor.get('record');
     else n.asm = { r: p.reg, e: [], s: [], v: [] };
+    /* the population: a create held to createCap; an update only noted, at no more than the rules will let it save */
+    const now = Date.now();
+    let most = Infinity;
+    if (!e.saved.exists) {
+      const c = await createCap(tx, db, who, e, p, d.from, now);
+      if (p.pop > c.cap + 1e-4) refuse('population_limit', 'This nation is larger than a new record can start. Sign in to the account that held it.');
+      if (c.carry) tx.set(c.carry, { hw: { ...c.fh, to: who.uid } }, { mergeFields: ['hw'] });
+    } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) most = grown(e.saved.get('pop'), e.saved.get('ts').toMillis(), now) + 1e-4;
+    const hw = hwOf(e.account), noted = Math.min(p.pop, most);
+    if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now } }, { mergeFields: ['hw'] });
     const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop: p.pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: d.rev + 1 };
     const ref = db.collection('nationPermits/' + who.uid + '/requests').doc();
     tx.create(ref, { ...result, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });

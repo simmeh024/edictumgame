@@ -20172,17 +20172,44 @@ function releaseHex(c,T){
   if(!recentClaims(T).some(e=>e.c===c))return '';
   return `<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="lc-release" data-c="${c}">Release this claim (1 credit back)</button></div><p class="hint" style="margin-top:6px">You claimed this hex in the last 24 hours, so you can still give it up.</p>`;
 }
+/* the patches of a nation's land in T: cell → patch number, for the hexes nation j owns, joined edge to edge */
+function landPatches(T,j){
+  const own=new Set(),id=new Map();if(j===undefined)return id;
+  for(let c=0;c<MAP.N;c++)if(T.owner[c]===j)own.add(c);
+  let k=0;for(const c of own){if(id.has(c))continue;const st=[c];id.set(c,k);while(st.length){const x=st.pop();for(let d=0;d<6;d++){const y=MAP.nbr[x*6+d];if(y>=0&&own.has(y)&&!id.has(y)){id.set(y,k);st.push(y);}}}k++;}
+  return id;
+}
 function releaseClaims(cells){
   const T=territory(),ok=new Set(recentClaims(T).map(e=>e.c));cells=[...new Set(cells)].filter(c=>ok.has(c));
   if(!cells.length){toast('That land can no longer be released.');updateMapPanel();redrawMaps();return;}
+  const asked=new Set(cells);
   const without=drop=>{const n=clone(S.nation),d=new Set(drop);n.claims=n.claims.filter(e=>!d.has(e.c));return n;};
+  const patchesOf=n=>{const prev=S.nation;S.nation=n;try{const T2=territory();return landPatches(T2,T2.byId[myId()]);}finally{S.nation=prev;}};
+  /* recent claims the release would cut off go with it: claimed next to the land given up, they would stay behind as
+     an outpost to claim onward from, past the rule that land is claimed next to your borders. A patch of recent claims
+     that was apart already (an island shore reached from a harbour) stays, as does any patch holding older land, a
+     city or the capital, which the rest of the land does not depend on */
+  const P0=landPatches(T,T.byId[myId()]),size0=new Map();for(const k of P0.values())size0.set(k,(size0.get(k)||0)+1);
+  for(let i=0;i<8;i++){
+    const P1=patchesOf(without(cells)),groups=new Map(),drop=new Set(cells),add=[];
+    for(const [c,k] of P1)(groups.get(k)||groups.set(k,[]).get(k)).push(c);
+    for(const p of groups.values()){
+      if(p.some(c=>!ok.has(c)||drop.has(c)))continue;
+      const k0=P0.get(p[0]);if(size0.get(k0)===p.length&&p.every(c=>P0.get(c)===k0))continue;
+      add.push(...p);
+    }
+    if(!add.length)break;
+    cells=cells.concat(add);
+  }
   /* a hex your own core would take back is not freed by releasing it, so it is kept as a claim */
   const kept=n=>{const prev=S.nation;S.nation=n;try{const T2=territory(),j=T2.byId[myId()];return cells.filter(c=>j!==undefined&&T2.owner[c]===j);}finally{S.nation=prev;}};
   let stay=kept(without(cells));if(stay.length){cells=cells.filter(c=>!stay.includes(c));if(cells.length&&kept(without(cells)).length)cells=[];}
   if(!cells.length){toast('Your core land would grow straight back over that hex, so it stays a claim.');return;}
-  const n=without(cells),auto=!!n.autoLand;if(auto)n.autoLand=false;
+  const n=without(cells),auto=!!n.autoLand,cut=cells.filter(c=>!asked.has(c)).length;if(auto)n.autoLand=false;
+  /* the lifetime count of land claimed gives back what is released: claiming the same hex again counts it once */
+  const gone=(S.nation.claims||[]).filter(e=>cells.includes(e.c)).length;if(n.tly&&n.tly.claim)n.tly.claim=Math.max(0,n.tly.claim-gone);
   commit(n);S.mapCell=null;S.mapClaim=null;render();
-  toast(`${n.name} released ${cells.length===1?'a hex':cells.length+' hexes'}: ${cells.length===1?'one land credit is':cells.length+' land credits are'} free to spend again.${auto?' Automatic spending is now off, so they wait for you.':''}`);
+  toast(`${n.name} released ${cells.length===1?'a hex':cells.length+' hexes'}${cut?`, ${cut===1?'one of them':cut+' of them'} because ${cut===1?'it':'they'} would have been cut off from the rest of your land`:''}: ${cells.length===1?'one land credit is':cells.length+' land credits are'} free to spend again.${auto?' Automatic spending is now off, so they wait for you.':''}`);
 }
 
 /* ───────── how to get more land, reclaimed land and a navy ───────── */
@@ -48266,15 +48293,18 @@ function mlPings(prev,n){
 commit=(f=>function(n){const prev=S.nation,r=f.apply(this,arguments);try{if(S.nation!==prev)mlPings(prev,n);}catch(e){}return r;})(commit);
 /* ───────── recruiting: a player's own link, and a bonus for both sides ─────────
    Settings › Social gives each player a link (/?recruit=<uid>) to share. A visitor who opens it keeps the
-   recruiter's id on this device (RC_KEY); once they found a nation and it is saved, the game files
-   recruits/<own uid> {r} (firestore.rules: once only, both nations must exist). Only a newly filed one pays the
+   recruiter's id on this device (RC_KEY {r, t: when it was opened}). Once they have founded a nation after opening it,
+   saved it and linked a sign-in account (a Registered Nation), the server files recruits/<own uid> {r}
+   (functions/accounts.js, 'recruit': once only, for a nation founded in the last 30 days and after the recruiter's). A
+   Guest Nation keeps the link until it links an account (edictum:linked asks again). Only a newly filed one pays the
    recruit: RC_GIFT of each of RC_RES and RC_LAND land credits (n.rcb {r}). The recruiter's game lists the recruits
    naming it (rcPoll) and pays itself the same for each one not yet in n.rcp, for up to RC_MAX recruits. */
 const RC_GIFT=15,RC_RES=['goods','oil','timber','iron'],RC_LAND=3,RC_MAX=50,RC_KEY='edictum.recruitBy.v1',RC_ID=/^[A-Za-z0-9_-]{6,128}$/;
 const RC={busy:false,at:0,n:null,tries:0,copied:false,api:null,ok:false};
 (()=>{try{const u=new URL(location.href),r=u.searchParams.get('recruit');if(!u.searchParams.has('recruit'))return;u.searchParams.delete('recruit');history.replaceState(history.state,'',u.pathname+u.search+u.hash);
   if(r&&RC_ID.test(r)&&!localStorage.getItem(RC_KEY))localStorage.setItem(RC_KEY,JSON.stringify({r,t:Date.now()}));}catch(e){}})();
-function rcPending(){try{const o=JSON.parse(localStorage.getItem(RC_KEY)||'null');return o&&RC_ID.test(o.r)?o.r:'';}catch(e){return '';}}
+function rcRead(){try{const o=JSON.parse(localStorage.getItem(RC_KEY)||'null');return o&&RC_ID.test(o.r)?o:null;}catch(e){return null;}}
+function rcPending(){const o=rcRead();return o?o.r:'';}
 function rcForget(){try{localStorage.removeItem(RC_KEY);}catch(e){}}
 function rcApi(){return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('recruit'):null).then(a=>{RC.api=a&&typeof a.claim==='function'?a:null;RC.ok=true;return RC.api;},()=>null);}
 const rcPaid=n=>Array.isArray(n&&n.rcp)?n.rcp:[];
@@ -48291,12 +48321,20 @@ function rcGift(n){const now=Date.now(),st=stockNow(n,now);for(const r of RC_RES
 const rcGiftText=()=>`+${RC_GIFT} ${RC_RES.map(resName).join(', +'+RC_GIFT+' ')} and +${RC_LAND} land credits`;
 /* the recruit's side: after the founding save, file the claim; it pays only if it is new */
 function rcClaim(){
-  const n=S.nation,by=rcPending();
+  const n=S.nation,o=rcRead(),by=o?o.r:'';
   if(!n||!n.name||n.npc||OBS||n.rcb||!by||by===myId()){if(n&&n.name&&(n.rcb||by===myId()))rcForget();return;}
+  /* a link counts for a nation founded after it was opened, not for one the player had already */
+  if(o.t>0&&n.founded>0&&n.founded<o.t-60000){rcForget();return;}
   if(RC.claiming)return;RC.claiming=true;
   rcApi().then(api=>api?api.claim(by):'none').then(res=>{RC.claiming=false;
     if(res==='retry'){if(++RC.tries<6)setTimeout(rcClaim,5000*RC.tries);return;}
-    rcForget();if(res!=='ok'||!S.nation||S.nation.rcb)return;
+    if(res==='none')return;
+    if(res==='guest'){
+      RC.guest=true;const o2=rcRead();
+      if(o2&&!o2.g){try{localStorage.setItem(RC_KEY,JSON.stringify(Object.assign({},o2,{g:1})));}catch(e){}toast({m:'You came through another player’s recruiting link. Link a sign-in account from the account menu and you both get a founding bonus.'});}
+      if(S.view==='settings')render();return;
+    }
+    RC.guest=false;rcForget();if(res!=='ok'||!S.nation||S.nation.rcb)return;
     const m=clone(S.nation);m.rcb={r:by};m._rcg=1;commit(m);render();
     toast({m:`Welcome, recruit! You joined through another player’s link, so you both get a founding bonus: ${rcGiftText()}.`,cf:1});
   });
@@ -48316,6 +48354,7 @@ function rcPoll(force){
   },()=>{RC.busy=false;});
 }
 setTimeout(()=>{rcClaim();rcPoll(true);},8000);
+window.addEventListener('edictum:linked',()=>{RC.tries=0;RC.guest=false;setTimeout(rcClaim,1500);});
 setInterval(()=>{if(!document.hidden)rcPoll(false);},10*60e3);
 function rcLink(){return location.origin+'/?recruit='+encodeURIComponent(myId());}
 const RC_SHARE=[
@@ -48336,10 +48375,10 @@ function rcSection(){
   const link=rcLink(),u=encodeURIComponent(link),t=encodeURIComponent(`I rule ${n.name} in Edictum, a game of nations and edicts. Found yours through my link and we both get a bonus:`);
   const paid=rcPaid(n).length,cnt=Math.max(paid,RC.n||0);
   return `<section class="fs" id="set-social"><h2 class="fs-l">Social</h2>
-    <p class="hint fs-hint">Recruit a player: share your own link. When someone opens it, creates an account and founds a nation, you both get ${RC_GIFT} goods, ${RC_GIFT} oil, ${RC_GIFT} timber, ${RC_GIFT} iron and ${RC_LAND} land credits.</p>
+    <p class="hint fs-hint">Recruit a player: share your own link. When someone opens it, founds a nation and links a sign-in account, you both get ${RC_GIFT} goods, ${RC_GIFT} oil, ${RC_GIFT} timber, ${RC_GIFT} iron and ${RC_LAND} land credits.</p>
     <div class="field"><label for="rc-link">Your recruiting link</label><div class="rc-row"><input class="input" id="rc-link" readonly value="${esc(link)}"><button type="button" class="btn" data-act="rc-copy">${RC.copied?'Copied':'Copy link'}</button>${navigator.share?'<button type="button" class="btn ghost" data-act="rc-share">Share…</button>':''}</div></div>
     <div class="rc-share" role="group" aria-label="Share your link on">${RC_SHARE.map(([nm,f])=>`<a class="chip-btn" href="${esc(f(u,t))}" target="_blank" rel="noopener noreferrer">${nm}</a>`).join('')}</div>
-    <p class="hint" role="status">${cnt?`${cnt===1?'One player has':cnt+' players have'} founded a nation through your link${paid?`, earning you ${Math.min(paid,RC_MAX)*RC_LAND} land credits so far`:''}.${cnt>=RC_MAX?` Rewards stop at ${RC_MAX} recruits; thank you for the rest.`:''}`:'No one has founded a nation through your link yet.'}${n.rcb?' You joined through another player’s link yourself.':''}</p>
+    <p class="hint" role="status">${cnt?`${cnt===1?'One player has':cnt+' players have'} founded a nation through your link${paid?`, earning you ${Math.min(paid,RC_MAX)*RC_LAND} land credits so far`:''}.${cnt>=RC_MAX?` Rewards stop at ${RC_MAX} recruits; thank you for the rest.`:''}`:'No one has founded a nation through your link yet.'}${n.rcb?' You joined through another player’s link yourself.':RC.guest&&rcPending()?' You came through another player’s link: link a sign-in account from the account menu to collect the founding bonus for you both.':''}</p>
   </section>`;
 }
 settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<section class="fs" id="set-appearance">');return i<0?h+rcSection():h.slice(0,i)+rcSection()+h.slice(i);})(settingsView);

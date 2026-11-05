@@ -215,15 +215,26 @@ service cloud.firestore {
     match /mailAddr/{id} { allow read, write: if false; }
     match /mailOutbox/{id} { allow read, write: if false; }
     match /mailState/{id} { allow read, write: if false; }
-    // a ping: something a player did to another nation (src/shim.js, mail.ping), which jobs/mail may turn into a
-    // letter for that nation's player if they asked for it. Write-only; it carries no text of the player's own.
+    // a ping: something a player did to another nation of its region (src/shim.js, mail.ping), which jobs/mail may
+    // turn into a letter for that nation's player if they asked for it. Write-only, and it carries no text of the
+    // player's own: nm is the sender's nation name as saved. One document per sender, nation and kind
+    // (<by>~<to>~<k>), which the hourly job deletes once handled, refreshed at most every 10 minutes: so nobody can
+    // flood another player's letters, or put words of their own in the Herald's.
+    function validPing(id) {
+      let d = request.resource.data;
+      let me = get(/databases/$(database)/documents/nations/$(request.auth.uid)).data;
+      return signedIn() && d.keys().hasOnly(['to', 'by', 'k', 'nm', 't']) && d.keys().hasAll(['to', 'by', 'k', 'nm', 't'])
+        && d.by == request.auth.uid && d.t == request.time
+        && d.to is string && d.to.size() > 0 && d.to.size() <= 128 && d.to != request.auth.uid
+        && d.k in ['msg', 'war', 'conq', 'peace', 'trade', 'shared', 'alremove', 'aladmit', 'cede']
+        && id == d.by + '~' + d.to + '~' + d.k
+        && d.nm == me.name
+        && get(/databases/$(database)/documents/nations/$(d.to)).data.reg == me.reg
+        && !banned(request.auth.uid);
+    }
     match /mailQ/{id} {
-      allow create: if signedIn() && request.resource.data.keys().hasOnly(['to', 'by', 'k', 'nm', 't'])
-        && request.resource.data.by == request.auth.uid && request.resource.data.t == request.time
-        && request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 128
-        && request.resource.data.to != request.auth.uid
-        && request.resource.data.k in ['msg', 'war', 'conq', 'peace', 'trade', 'shared', 'alremove', 'aladmit', 'cede']
-        && label(request.resource.data.nm) && request.resource.data.nm.size() > 0;
+      allow create: if validPing(id);
+      allow update: if validPing(id) && request.time > resource.data.t + duration.value(600, 's');
     }
     match /assemblyRegions/{region}/{document=**} { allow read, write: if false; }
 
@@ -286,15 +297,11 @@ service cloud.firestore {
     match /cbHidden/{id} {
       allow read: if isAdmin();
     }
-    // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, by the
-    // recruit, while both nations exist; the recruiter reads the ones naming them (each side pays itself the bonus)
+    // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, only by the
+    // server (functions/accounts.js, 'recruit': a Registered Nation, newer than the recruiter's); the recruiter reads
+    // the ones naming them (each side pays itself the bonus)
     match /recruits/{uid} {
       allow read: if isSelf(uid) || isAdmin() || (signedIn() && resource.data.r == request.auth.uid);
-      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['r', 't']) && request.resource.data.keys().hasAll(['r', 't'])
-        && request.resource.data.r is string && request.resource.data.r.size() >= 6 && request.resource.data.r.size() <= 128
-        && request.resource.data.r != uid && request.resource.data.t == request.time
-        && exists(/databases/$(database)/documents/nations/$(uid))
-        && exists(/databases/$(database)/documents/nations/$(request.resource.data.r)) && !banned(uid);
       allow delete: if isAdmin();
     }
     // presence/{uid} {t}: the player's game is open, refreshed every few minutes while it is, so the board can show
