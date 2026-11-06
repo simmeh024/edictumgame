@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth,
-  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, VIP_COLLECTION, SIG_TOLERANCE } from '../functions/shop-core.js';
+  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
 
 const DAY = 864e5, H = 36e5, src = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const tx = (id, product, o = {}) => ({ id, product, ok: true, ck: true, status: 'completed', created: Date.UTC(2026, 10, 1), paid: Date.UTC(2026, 10, 1, 1), period: null, sub: '', ...o });
@@ -128,12 +128,70 @@ test('two subscriptions paid side by side: the second is cancelled and refunded,
   assert.equal(done.cancels.length, 0); assert.equal(done.refunds.length, 0, 'asked once');
 });
 
-test('monthly picks: the paid month now falls in, kept in the public list for good', () => {
-  const t0 = Date.UTC(2026, 10, 2), m1 = addMonth(t0), vip = { per: [{ s: t0, e: m1 }] };
-  assert.deepEqual(pickPeriod(vip, t0 + DAY), { s: t0, e: m1 }); assert.equal(pickPeriod(vip, m1), null); assert.equal(pickPeriod(null, t0), null);
-  const e = entitlement({ picks: { [t0]: 'p-moire', [m1]: 'not-a-cosmetic' } });
-  assert.deepEqual(e.cosmetics, ['p-moire'], 'only the collection, and kept with no membership at all');
+test('monthly picks: one per paid month, open until five weeks after it ends, kept in the public list for good', () => {
+  const t0 = Date.UTC(2026, 10, 2), m1 = addMonth(t0), m2 = addMonth(m1), vip = { per: [{ s: t0, e: m1 }, { s: m1, e: m2 }] };
+  assert.deepEqual(pickPeriod(vip, t0 + DAY), { s: t0, e: m1 }); assert.equal(pickPeriod(null, t0), null);
+  assert.equal(pickPeriod(vip, t0 - DAY), null, 'not before the month begins');
+  assert.equal(pickPeriod(vip, t0 + DAY, { [t0]: 'p-moire' }), null, 'chosen: the next month is not open yet');
+  assert.deepEqual(pickPeriod(vip, m1 + DAY), { s: t0, e: m1 }, 'a month not chosen for comes first, while its choice is open');
+  assert.deepEqual(pickPeriod(vip, m1 + DAY, { [t0]: 'p-moire' }), { s: m1, e: m2 });
+  assert.equal(PICK_GRACE, 35 * DAY);
+  assert.deepEqual(pickPeriod({ per: [{ s: t0, e: m1 }] }, m1 + PICK_GRACE - 1), { s: t0, e: m1 });
+  assert.equal(pickPeriod({ per: [{ s: t0, e: m1 }] }, m1 + PICK_GRACE), null, 'a choice not made by then lapses');
+  const e = entitlement({ picks: { [t0]: 'p-moire', [m1]: 'not-a-cosmetic', [m2]: 'a-petrol' } });
+  assert.deepEqual(e.cosmetics, ['p-moire', 'a-petrol'], 'only the collection (released later pieces too), and kept with no membership at all');
   assert.equal(VIP_COLLECTION.length, 8);
+});
+
+test('the collection grows: two pieces at the start of each month, never one twice, none sold elsewhere', () => {
+  assert.ok(CLUB_DROPS.length >= 6, 'at least six months of new pieces');
+  assert.equal(new Set(CLUB_IDS).size, CLUB_IDS.length, 'no piece twice');
+  assert.equal(CLUB_IDS.length, VIP_COLLECTION.length + CLUB_DROPS.reduce((a, d) => a + d.ids.length, 0));
+  for (const d of CLUB_DROPS) {
+    assert.equal(d.ids.length, 2, 'two pieces each month');
+    const t = new Date(d.from);
+    assert.ok(t.getUTCDate() === 1 && t.getUTCHours() === 0 && t.getUTCMinutes() === 0, 'at the start of a month, UTC');
+  }
+  for (let i = 1; i < CLUB_DROPS.length; i++) assert.equal(CLUB_DROPS[i].from, addMonth(CLUB_DROPS[i - 1].from), 'one month after another, no gap');
+  const first = CLUB_DROPS[0].from;
+  assert.deepEqual(clubReleased(first - 1), VIP_COLLECTION);
+  assert.deepEqual(clubReleased(first), [...VIP_COLLECTION, ...CLUB_DROPS[0].ids]);
+  assert.deepEqual(clubReleased(CLUB_DROPS.at(-1).from).sort(), [...CLUB_IDS].sort());
+  /* a member from the first day, choosing every month, always has something left to choose while new pieces come */
+  for (let k = 0; k < CLUB_DROPS.length + 1; k++) {
+    const at = CLUB_DROPS[0].from + k * 31 * DAY - DAY;
+    assert.ok(clubReleased(at).length > k + 1, 'month ' + (k + 1) + ' still has a piece to choose');
+  }
+  /* a new piece is defined by the Shop alone, not also by another part of the game */
+  for (const id of CLUB_DROPS.flatMap(d => d.ids)) assert.ok(!src.includes(`'${id}':{k:`), id + ' is not also an unlock elsewhere');
+});
+
+test('months of membership and the Chancery seals', () => {
+  const t0 = Date.UTC(2026, 10, 3), y1 = Array.from({ length: 12 }).reduce(addMonth, t0);
+  assert.deepEqual(SEALS, { 'csl-member': 0, 'csl-brass': 3, 'csl-silver': 6, 'csl-gold': 12, 'csl-grand': 24 });
+  /* a paid year: its months count as each begins, not all at once */
+  const subs = { sub_y: { status: 'active', next: y1, period: { s: t0, e: y1 }, firstTxn: 'txn_y' } };
+  const year = tx('txn_y', 'vipyear', { sub: 'sub_y', paid: t0, period: { s: t0, e: y1 } });
+  const e = entitlement({ txs: [year], subs, now: t0 + DAY });
+  assert.equal(e.vip.m, 1); assert.equal(e.vip.f.length, 11);
+  assert.equal(tenure(e.vip, t0 + DAY), 1);
+  const m3 = Array.from({ length: 3 }).reduce(addMonth, t0), m6 = Array.from({ length: 6 }).reduce(addMonth, t0);
+  assert.equal(tenure(e.vip, m3 - 1), 3); assert.equal(tenure(e.vip, m3), 4);
+  assert.ok(sealHeld('csl-member', e.vip, t0 + DAY)); assert.ok(!sealHeld('csl-brass', e.vip, t0 + DAY));
+  assert.ok(sealHeld('csl-brass', e.vip, m3 - 1), 'the third month has begun'); assert.ok(sealHeld('csl-silver', e.vip, m6 - 1));
+  assert.ok(!sealHeld('csl-gold', e.vip, y1 - DAY + 1) || tenure(e.vip, y1 - 1) >= 12);
+  assert.equal(tenure(e.vip, y1 - 1), 12);
+  assert.ok(!sealHeld('csl-member', e.vip, y1), 'the plain seal ends with the membership');
+  assert.ok(sealHeld('csl-gold', e.vip, y1 + 400 * DAY), 'a seal for months of membership is kept');
+  assert.ok(!sealHeld('csl-nope', e.vip, t0 + DAY)); assert.ok(!sealHeld('csl-member', null, t0));
+  /* a refunded month counts no more */
+  const t1 = addMonth(t0), t2 = addMonth(t1);
+  const months = [tx('txn_1', 'vip', { sub: 'sub_m', paid: t0, period: { s: t0, e: t1 } }), tx('txn_2', 'vip', { sub: 'sub_m', paid: t1, period: { s: t1, e: t2 } })];
+  assert.equal(entitlement({ txs: months, subs: { sub_m: { status: 'active', firstTxn: 'txn_1' } }, now: t1 + DAY }).vip.m, 2);
+  assert.equal(entitlement({ txs: months, subs: { sub_m: { status: 'active', firstTxn: 'txn_1' } }, adjs: [adj('txn_2', 'refund', 'approved')], now: t1 + DAY }).vip.m, 1);
+  /* a free month an admin grants alongside a paid one adds none */
+  const both = entitlement({ txs: [months[0]], subs: { sub_m: { status: 'active', firstTxn: 'txn_1' } }, comp: { at: t0 + DAY, until: t0 + 20 * DAY }, now: t0 + 2 * DAY });
+  assert.equal(both.vip.m, 1);
 });
 
 test('the game sells what the server sells: every cosmetic in the catalogue is in the game, from the right source', () => {
@@ -143,7 +201,7 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   for (const m of src.matchAll(/\['(cd-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'card');
   const block = src.slice(src.indexOf('const SHOP_NONE='), src.indexOf('/* the new places a cosmetic can go'));
   for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"]]) {
-    const ids = p === 'vip' ? CATALOGUE.products.vip.collection : CATALOGUE.products[p].grants;
+    const ids = p === 'vip' ? CLUB_IDS : CATALOGUE.products[p].grants;
     for (const id of ids) { assert.ok(def.has(id), id + ' is drawn in the game'); assert.ok(block.includes(`'${id}'`), id); }
     assert.ok(block.includes(src2));
   }
@@ -161,7 +219,11 @@ test('the Chancery Club yearly: a paid year, picked from month by month without 
   assert.equal(e.vip.until, y1); assert.equal(e.vip.plan, 'year'); assert.equal(e.vip.n, 12); assert.equal(e.vip.renews, y1);
   assert.equal(e.vip.per.length, 12, 'every month of the year is kept for picking');
   const m6 = Array.from({ length: 6 }).reduce(addMonth, t0);
-  assert.deepEqual(pickPeriod(e.vip, m6 + DAY), { s: m6, e: addMonth(m6) }, 'the seventh month is a pick of its own');
+  const picked = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [Array.from({ length: i }).reduce(addMonth, t0), 'p-moire']));
+  assert.deepEqual(pickPeriod(e.vip, m6 + DAY, picked), { s: m6, e: addMonth(m6) }, 'the seventh month is a pick of its own');
+  const open = e.vip.per.find(p => m6 + DAY < p.e + PICK_GRACE);
+  assert.equal(open.s, Array.from({ length: 4 }).reduce(addMonth, t0), 'the fifth month ended under five weeks ago');
+  assert.equal(pickPeriod(e.vip, m6 + DAY).s, open.s, 'the earliest month not chosen for whose choice is still open comes first');
   /* a monthly subscription paid inside the year is a second subscription: cancelled and refunded */
   const month = tx('txn_m', 'vip', { sub: 'sub_m', paid: t0 + 40 * DAY, period: { s: t0 + 40 * DAY, e: addMonth(t0 + 40 * DAY) } });
   const e2 = entitlement({ txs: [year, month], subs: { ...subs, sub_m: { status: 'active', firstTxn: 'txn_m' } }, now: t0 + 41 * DAY });

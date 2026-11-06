@@ -17,16 +17,20 @@
                              notifications have not yet brought, and works out what the caller owns again
      portal                → {url, cancel, payment}: links into Paddle's customer portal (they expire; never stored)
      resume                takes back a cancellation the caller scheduled, while the paid month still runs
-     pick {key}            the Chancery Club's monthly pick: one cosmetic from its collection per paid month
+     pick {key}            the Chancery Club's monthly pick: one cosmetic from its collection per paid month, from the
+                             pieces released by then; a month's choice stays open until PICK_GRACE after it ends
+     seal {id}             the Chancery seal the player shows beside the nation's name ('' for none): the plain one
+                             while a member, the others after so many months of membership (shop-core.js, SEALS)
      closing               cancels the caller's subscriptions before the account is deleted
 
    Storage (only this code writes it; see firestore.rules):
      authConfig/paddle      {env, apiKey, webhookSecret, clientToken, prices: {founder, idpack, vip}}
                             (tools/admin/set-paddle.mjs). Nobody reads it but this code.
      shop/{uid}             what the player owns, which only they read: {owns: {founder?, idpack?}, vip?: {until,
-                            from, runs, per, status, cancelAt, renews, n}, picks: {periodStart: id}, pend, notes, reg}
-     finery/{uid}           {c: [cosmetic ids], reg}: the shop cosmetics every other player's game checks before it
-                            shows them (a nation's own record cannot vouch for them)
+                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, pend, notes, reg}
+     finery/{uid}           {c: [cosmetic ids], reg, cl?}: the shop cosmetics every other player's game checks before it
+                            shows them (a nation's own record cannot vouch for them); cl {s, u, m, f}, only once the player
+                            has chosen a Chancery seal to show: which, and the membership's end and months that decide it
      shopCheckouts/{txn}    {uid, product, at, env, price}: each checkout this server opened
      shopTx/{txn}           a completed transaction: {uid, product, ok, ck, created, paid, period, sub, ctm, …}
      shopSubs/{sub}         a subscription: {uid, status, period, cancelAt, next, firstTxn, occ, …}
@@ -42,7 +46,7 @@
 import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
-import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, VIP_COLLECTION, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
+import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 const LIVE_API = 'https://api.paddle.com', SANDBOX_API = 'https://sandbox-api.paddle.com';
@@ -192,10 +196,14 @@ async function settle(cfg, uid) {
     const doc = { v: 1, owns: e.owns, picks, pend, notes: e.notes.slice(-10), reg, at: now };
     if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
+    /* the seal the player chose to show stays chosen; the games show it only while it is held (by cl's figures) */
+    const seal = Object.hasOwn(SEALS, shop.get('seal') || '') ? shop.get('seal') : '';
+    if (seal) doc.seal = seal;
+    const cl = seal && e.vip ? { s: seal, u: e.vip.until, m: e.vip.m, f: e.vip.f } : null;
     /* renewals reported before their subscription was known to be this player's */
     for (const s of txDocs.values()) if (s.get('uid') !== uid) tx.update(s.ref, { uid });
     tx.set(shopRef, doc);
-    if (e.cosmetics.length) tx.set(finRef, { c: e.cosmetics, reg }); else tx.delete(finRef);
+    if (e.cosmetics.length || cl) tx.set(finRef, cl ? { c: e.cosmetics, reg, cl } : { c: e.cosmetics, reg }); else tx.delete(finRef);
     return { e, txDocs, subMap };
   });
   /* refunds and cancellations the rules call for, each asked once */
@@ -218,9 +226,9 @@ async function pace(uid, field, gap, max) {
   const db = getFirestore(), ref = db.doc('shopLimits/' + uid), now = Date.now();
   await db.runTransaction(async tx => {
     const s = await tx.get(ref), d = s.exists ? s.data() : {};
-    if (field === 'r') {
-      if (now - (d.r || 0) < gap) throw new HttpsError('resource-exhausted', 'Checked a moment ago. Try again in a few seconds.');
-      tx.set(ref, { r: now }, { merge: true });
+    if (field === 'r' || field === 's') {
+      if (now - (d[field] || 0) < gap) throw new HttpsError('resource-exhausted', field === 's' ? 'Changed a moment ago. Try again in a few seconds.' : 'Checked a moment ago. Try again in a few seconds.');
+      tx.set(ref, { [field]: now }, { merge: true });
     } else {
       const fresh = now - (d.at || 0) < 3600000, n = fresh ? d.n || 0 : 0;
       if (n >= max) throw new HttpsError('resource-exhausted', 'Too many checkouts opened this hour. Try again later.');
@@ -339,18 +347,41 @@ async function resume(cfg, uid) {
 
 async function pick(cfg, uid, d) {
   const db = getFirestore(), key = d.key;
-  if (!VIP_COLLECTION.includes(key)) throw new HttpsError('invalid-argument', 'Choose one of the Chancery Club’s cosmetics.');
+  if (!CLUB_IDS.includes(key)) throw new HttpsError('invalid-argument', 'Choose one of the Chancery Club’s cosmetics.');
   const ref = db.doc('shop/' + uid), fin = db.doc('finery/' + uid), now = clock(cfg);
+  if (!clubReleased(now).includes(key)) refuse('not_yet', 'That piece joins the collection later. Choose one from the collection as it is now.');
   return db.runTransaction(async tx => {
-    const [s, f] = await tx.getAll(ref, fin), picks = { ...(s.get('picks') || {}) }, per = pickPeriod(s.get('vip'), now);
-    if (!per) refuse('vip_required', 'The monthly pick is for members of The Chancery Club.');
-    if (picks[per.s]) refuse('picked', 'You have already chosen this month’s cosmetic. The next choice comes with your next paid month.');
+    const [s, f] = await tx.getAll(ref, fin), picks = { ...(s.get('picks') || {}) }, vip = s.get('vip'), per = pickPeriod(vip, now, picks);
+    if (!per) {
+      const current = (vip && Array.isArray(vip.per) ? vip.per : []).some(p => p.s <= now && now < p.e);
+      if (current) refuse('picked', 'You have already chosen this month’s cosmetic. The next choice comes with your next paid month.');
+      refuse('vip_required', 'The monthly pick is for members of The Chancery Club.');
+    }
     if (Object.values(picks).includes(key)) refuse('held', 'You already hold that one. Choose another.');
     picks[per.s] = key;
     tx.update(ref, { picks, at: now });
-    tx.set(fin, { c: [...new Set([...(f.get('c') || []), key])], reg: s.get('reg') || '' });
+    /* merged: the seal's figures (cl) stay as they are */
+    tx.set(fin, { c: [...new Set([...(f.get('c') || []), key])], reg: s.get('reg') || '' }, { merge: true });
     return { ok: true, key, period: per };
   });
+}
+
+/* the Chancery seal shown beside the nation's name, or none. Choosing one needs it to be held now; the games then show
+   it while it is held, by the figures settle() publishes with it (finery cl). */
+async function seal(cfg, uid, d) {
+  const id = typeof d.id === 'string' ? d.id : '';
+  if (id && !Object.hasOwn(SEALS, id)) throw new HttpsError('invalid-argument', 'Choose one of the Chancery seals.');
+  await pace(uid, 's', 2000);
+  const db = getFirestore(), ref = db.doc('shop/' + uid);
+  if (id) {
+    let vip = (await ref.get()).get('vip');
+    /* a record from before months were counted (vip.m) is worked out again first */
+    if (vip && vip.m == null) vip = (await settle(cfg, uid)).vip;
+    if (!sealHeld(id, vip, clock(cfg))) refuse('seal_locked', SEALS[id] ? `That seal comes with ${SEALS[id]} months of membership of the Chancery Club.` : 'The Chancery seal is for members of the Club.');
+  }
+  await ref.set({ seal: id }, { merge: true });
+  await settle(cfg, uid);
+  return { ok: true, seal: id };
 }
 
 /* before the account is deleted (src/shim.js, doDelete): no subscription may go on billing an account that is gone */
@@ -388,8 +419,10 @@ export async function shopStep(uid, d) {
   const db = getFirestore();
   if (d.step === 'status') {
     const cfg = await settings(false), [shop, nation] = await db.getAll(db.doc('shop/' + uid), db.doc('nations/' + uid));
-    /* a nation founded in another region since: the projection follows it */
-    if (cfg.on && shop.exists && nation.exists && shop.get('reg') !== nation.get('reg')) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
+    /* a nation founded in another region since: the projection follows it; a membership kept before its months were
+       counted (vip.m, for the Chancery seals) is counted now, once */
+    const moved = shop.exists && nation.exists && shop.get('reg') !== nation.get('reg'), uncounted = shop.exists && !!shop.get('vip') && shop.get('vip').m == null;
+    if (cfg.on && (moved || uncounted)) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
     /* the prices on sale now (public: the page asks Paddle what they come to in the player's own currency) */
     const prices = cfg.on ? Object.fromEntries(PRODUCTS.filter(p => cfg.prices[p]).map(p => [p, [].concat(cfg.prices[p])[0]])) : {};
     return { on: cfg.on, env: cfg.on ? cfg.env : '', token: cfg.on ? cfg.token : '', prices, now: clock(cfg), until: FOUNDER_CUTOFF, catalogue: CATALOGUE };
@@ -402,6 +435,7 @@ export async function shopStep(uid, d) {
   if (d.step === 'portal') return portal(cfg, uid);
   if (d.step === 'resume') return resume(cfg, uid);
   if (d.step === 'pick') return pick(cfg, uid, d);
+  if (d.step === 'seal') return seal(cfg, uid, d);
   if (d.step === 'closing') return closing(cfg, uid);
   throw new HttpsError('invalid-argument', 'Unknown shop step.');
 }
