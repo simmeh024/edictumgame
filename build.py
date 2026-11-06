@@ -32,6 +32,7 @@ debugging. Minifying (esbuild) and baking the maps run through Node; everything 
 standard library.
 """
 import argparse
+import base64
 import gzip
 import hashlib
 import html
@@ -88,6 +89,53 @@ BOOT = ('<div id="app"><div class="found home-static">'
 
 # origins every visit talks to soon after load (sign-in, then Firestore): connecting early saves a round trip each
 PRECONNECT = ['https://identitytoolkit.googleapis.com', 'https://firestore.googleapis.com']
+
+# The Content-Security-Policy of every page, as a <meta> (with_csp): the hashes of the pages' own inline scripts
+# change with each build, which firebase.json's fixed headers could not follow. Scripts run only from this site,
+# the inline scripts the build wrote (by hash), Google's sign-in (apis.google.com, which Firebase's pop-up sign-in
+# loads), Google Analytics (only after the player allows it: src/shim.js) and Paddle (the Shop). So a player's
+# words that slipped past the game's escaping still could not run as script. Styles stay open to inline ones (the
+# game sets style attributes everywhere); images may come from anywhere over https (none is ever a script).
+# 127.0.0.1 and localhost are the emulators' (the tests'); a page served from the site cannot use them for harm.
+CSP = [
+    ('default-src', ["'self'"]),
+    ('script-src', ["'self'", 'https://apis.google.com', 'https://www.googletagmanager.com', 'https://*.googletagmanager.com',
+                    'https://cdn.paddle.com']),
+    ('style-src', ["'self'", "'unsafe-inline'", 'https://cdn.paddle.com']),
+    ('img-src', ["'self'", 'data:', 'blob:', 'https:']),
+    ('font-src', ["'self'", 'data:']),
+    ('media-src', ["'self'", 'data:', 'blob:']),
+    ('connect-src', ["'self'", 'https://*.googleapis.com', 'https://*.cloudfunctions.net', 'https://*.run.app',
+                     'https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://*.googletagmanager.com',
+                     'https://*.paddle.com', 'https://api.github.com', 'https://www.google.com',
+                     'http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*']),
+    ('frame-src', ["'self'", 'https://*.firebaseapp.com', 'https://*.web.app', 'https://apis.google.com',
+                   'https://accounts.google.com', 'https://*.paddle.com']),
+    ('worker-src', ["'self'", 'blob:']),
+    ('manifest-src', ["'self'"]),
+    ('object-src', ["'none'"]),
+    ('base-uri', ["'self'"]),
+    ('form-action', ["'self'"]),
+]
+INLINE_SCRIPT = re.compile(r'<script(\s[^>]*)?>(.*?)</script>', re.S | re.I)
+NOT_JS = re.compile(r'''\bsrc\s*=|\btype\s*=\s*["']?application/(ld\+)?json''', re.I)
+
+
+def with_csp(page):
+    """The page with its Content-Security-Policy as the first thing after <meta charset>, so it covers every script
+    after it: each inline script (not a data block such as the JSON-LD) by the hash of its exact text."""
+    hashes = []
+    for attrs, body in INLINE_SCRIPT.findall(page):
+        if attrs and NOT_JS.search(attrs):
+            continue
+        h = "'sha256-%s'" % base64.b64encode(hashlib.sha256(body.encode('utf-8')).digest()).decode('ascii')
+        if h not in hashes:
+            hashes.append(h)
+    policy = '; '.join('%s %s' % (k, ' '.join(v + hashes if k == 'script-src' else v)) for k, v in CSP)
+    m = re.search(r'<meta charset="utf-8">', page, re.I)
+    if not m:
+        fail('a page without <meta charset="utf-8"> cannot carry its Content-Security-Policy')
+    return page[:m.end()] + '\n<meta http-equiv="Content-Security-Policy" content="%s">' % html.escape(policy, quote=False) + page[m.end():]
 
 
 def game_loader(scripts):
@@ -285,7 +333,11 @@ def main():
                 fail('node_modules/firebase/%s is missing' % f)
     for f in ('favicon.svg', 'apple-touch-icon.png', 'og.png', 'privacy.html', 'privacidad.html', 'terms.html', 'terminos.html', 'discord.html', 'mail.html',
               'pricing.html', 'precios.html', 'refunds.html', 'reembolsos.html', 'push-sw.js'):
-        shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))  # served as /privacy, /privacidad, /terms, /terminos, /discord, /mail, /pricing, /precios, /refunds, /reembolsos
+        # served as /privacy, /privacidad, /terms, /terminos, /discord, /mail, /pricing, /precios, /refunds, /reembolsos
+        if f.endswith('.html'):
+            write(os.path.join(out, f), with_csp(read(os.path.join(SRC, f))))
+        else:
+            shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))
 
     # the game's styles (with the shim's and the fonts') and its script become long-cached files
     styles = re.findall(r'<style[^>]*>(.*?)</style>', game_head, re.S | re.I)
@@ -380,10 +432,10 @@ def main():
     # The build: a hash of the page, which names every asset and carries the shim, so any change to what a
     # player runs changes it. An open tab compares its own with /version.json to learn of a newer deploy (shim.js).
     build = hashlib.sha256(page.encode('utf-8')).hexdigest()[:12]
-    page = page.replace(BUILD_MARK, build)
+    page = with_csp(page.replace(BUILD_MARK, build))
     write(os.path.join(out, 'index.html'), page)
     write(os.path.join(out, 'version.json'), json.dumps({'b': build}) + '\n')
-    write(os.path.join(out, '404.html'), NOT_FOUND)
+    write(os.path.join(out, '404.html'), with_csp(NOT_FOUND))
     size = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(out) for f in fs)
     kb = lambda url: '%d KB, %d KB gzipped' % (os.path.getsize(os.path.join(out, url.lstrip('/'))) // 1024,
                                               len(gzip.compress(read(os.path.join(out, url.lstrip('/')), 'rb'), 9)) // 1024)
