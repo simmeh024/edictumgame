@@ -52573,8 +52573,13 @@ function alPageView(now){
     <div class="dip-col"><section class="dip-sec"><h2 class="h2">Charter</h2><dl class="mp-dl al-ch-dl"><div><dt>Type</dt><dd>${esc(AL_TYPES[D.ty].n)}: ${esc(AL_TYPES[D.ty].d)}</dd></div><div><dt>Who may join</dt><dd>${esc(AL_ACCESS[D.acc][1])}</dd></div><div><dt>Projects</dt><dd>${pjs.length?pjs.map(([k,v])=>esc(AL_PJ[k][0])+(AL_RULES.projects[k].max>1?' '+v:'')).join(', '):'None yet'}</dd></div><div><dt>Combined population</dt><dd>${fmtPop(alPopOf(A))}</dd></div></dl></section>
     <section class="dip-sec"><h2 class="h2">History</h2>${alHistoryHTML(A)}</section></div></div></div>`;
 }
-EXT_PAGES.push('alliance');NAV_LABELS.alliance='Alliance';NAV_PARENT.alliance='diplomacy';
+/* not a menu page (EXT_PAGES would file it under Other): drawn here, opened by links and by its address */
+NAV_PARENT.alliance='diplomacy';
 VIEWS_EXT.alliance=now=>alPageView(now);
+mainView=(f=>function(v,now){if(S.view==='alliance')return extView('alliance',now);return f.apply(this,arguments);})(mainView);
+function alHashOpen(){const m=/^#alliance\/([\w-]{1,128})$/.exec(location.hash||'');if(!m)return false;AL.view=m[1];S.view='alliance';render();return true;}
+start=(f=>function(){const r=f.apply(this,arguments);try{alHashOpen();}catch(e){}return r;})(start);
+window.addEventListener('popstate',()=>{try{alHashOpen();}catch(e){}});
 function alOpenPage(aid){AL.view=aid;go('alliance');try{const h='#alliance/'+aid;if(location.hash!==h)history.replaceState(history.state,'',h);}catch(e){}window.scrollTo(0,0);}
 
 /* ── two map lenses: Diplomacy (allies, enemies, truces, goodwill) and Alliances (each in its own colour) ── */
@@ -52726,7 +52731,6 @@ function dpTabOfSel(sel){const s=String(sel||'').trim().split(/[\s>]/)[0].replac
 uxHashView=(f=>function(h){
   if(h==='diplomacy')AL.tab='overview';
   let m=/^diplomacy\/(\w+)$/.exec(h||'');if(m&&DP_TABS.some(t=>t[0]===m[1])){AL.tab=m[1];return 'diplomacy';}
-  m=/^alliance\/([\w-]{1,128})$/.exec(h||'');if(m){AL.view=m[1];return 'alliance';}
   return f.apply(this,arguments);})(uxHashView);
 uxJump=(f=>function(target){if(S.view==='diplomacy'){const el=typeof target==='string'?document.querySelector(target):target,p=el&&el.closest&&el.closest('.dp-pane');if(p)dpShow(p.dataset.dp);}return f.apply(this,arguments);})(uxJump);
 uxOpen=(f=>function(view,setup,target){if(view==='diplomacy'&&typeof target==='string'){const t=dpTabOfSel(target);if(t)AL.tab=t;}return f.apply(this,arguments);})(uxOpen);
