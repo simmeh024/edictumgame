@@ -67,11 +67,12 @@ await A.click('[data-act="gf-k"][data-v="dish"]'); await A.click('[data-act="gf-
 check('a gift to a player is recorded by the sender', ((await localNation(A)).gft || []).some(g => g.to === uidB && g.k === 'dish'));
 await nav(B, 'diplomacy');
 check('the recipient sees it waiting for thanks', await until(() => B.evaluate(() => { G.render(); return !!document.querySelector('[data-act="gf-answer"]'); }), 20000));
+await B.click('#dp-tab-gifts'); /* gifts have their own tab on the Diplomacy page */
 await B.click('[data-act="gf-ak"][data-v="card"]'); await B.click('[data-act="gf-answer"]'); await sleep(300);
 check('the reply is kept by the replier', ((await localNation(B)).gfr || []).length === 1);
 await nav(A, 'diplomacy');
 check('and reaches the sender', await until(() => A.evaluate(() => { G.render(); return /Replies/.test(document.querySelector('.gf-sec')?.textContent || ''); }), 20000));
-await A.locator('.gf-sec').screenshot({ path: OUT + '/gifts-two.png' });
+await A.click('#dp-tab-gifts'); await A.locator('.gf-sec').screenshot({ path: OUT + '/gifts-two.png' });
 /* an answered gift stays answered: replies are kept for the 60 days a gift can be answered, and up to 200 (only the last 40
    once were, and a gift answered before them came back as waiting for thanks) */
 await B.evaluate(() => { const n = G.clone(G.S.nation), now = Date.now();

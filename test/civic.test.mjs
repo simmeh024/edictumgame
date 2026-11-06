@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
@@ -329,4 +330,107 @@ test('A save dated over a day ahead is refused; a permit lists the new claims an
   const l=await db.doc(`letters/${g.uid}~some-player-1~111`).get();
   assert.equal(l.get('x'),'Hello there');assert.equal(l.get('to'),'some-player-1');assert.equal(l.get('t'),111);
   assert.equal((await db.collection('letters').where('by','==',g.uid).get()).size,1,'only letters to players');
+});
+
+/* ── alliances (functions/alliances.js) ── */
+const allianceOf = async aid => (await db.doc('alliances/' + aid).get()).data();
+async function record(p, patch) { const s = await db.doc('nations/' + p.uid).get(), n = JSON.parse(s.get('j')); Object.assign(n, patch); await s.ref.update({ j: JSON.stringify(n) }); }
+const BLOCS = ['npc-vellmark', 'npc-karvesk', 'npc-lucanto', 'npc-ilsund', 'npc-marrowmere'];
+
+test('Alliances: founded by a Registered Nation of 10 million, joined on request, run by officers, and passed on when the leader leaves', async () => {
+  const f = await player(true, true), b = await player(true, true), c = await player(), g = await player(true, true), name = 'Pact ' + crypto.randomUUID().slice(0, 8);
+  await rejects(civic(c, { op: 'alFound', name }), 'registration_required');
+  const { aid } = await civic(f, { op: 'alFound', name, mo: 'Together', ty: 'trade', acc: 'apply', col: '#2a9d8f', em: { p: 'tri-h', c: ['#C8102E', '#FFFFFF', '#152450'], e: 'star', ec: '#F2C230' } });
+  let A = await allianceOf(aid);
+  assert.equal(A.ld, f.uid); assert.equal(A.ty, 'trade'); assert.equal(A.col, '#2A9D8F'); assert.ok(A.mem[f.uid]);
+  assert.equal((await db.doc('allyOf/' + f.uid).get()).get('a'), aid);
+  await rejects(civic(g, { op: 'alFound', name: name.toUpperCase() }), 'al_name');
+  await rejects(civic(f, { op: 'alFound', name: name + ' II' }), 'al_member');
+  await db.doc('nations/' + g.uid).update({ pop: 9 });
+  await rejects(civic(g, { op: 'alFound', name: 'Too small' }), 'al_small');
+  /* asking: a note waits for an officer; a guest may ask too */
+  await civic(b, { op: 'alRequest', aid, x: 'We share a river.' });
+  await civic(c, { op: 'alRequest', aid });
+  A = await allianceOf(aid); assert.equal(A.rq[b.uid].x, 'We share a river.'); assert.ok(A.rq[c.uid]);
+  await assert.rejects(civic(b, { op: 'alAnswer', aid, id: c.uid, yes: true }));
+  assert.equal((await civic(f, { op: 'alAnswer', aid, id: b.uid, yes: true })).joined, true);
+  await civic(f, { op: 'alRole', aid, id: b.uid, r: 'o' });
+  assert.equal((await civic(b, { op: 'alAnswer', aid, id: c.uid, yes: true })).joined, true);
+  A = await allianceOf(aid); assert.equal(A.mem[b.uid].r, 'o'); assert.ok(A.mem[c.uid]); assert.equal(A.xp, 20);
+  /* an officer removes members, never the leader or another officer */
+  await assert.rejects(civic(b, { op: 'alRemove', aid, id: f.uid }));
+  /* the leader leaves: the longest-serving officer leads */
+  await civic(f, { op: 'alLeave', aid });
+  A = await allianceOf(aid); assert.equal(A.ld, b.uid); assert.equal(A.mem[f.uid], undefined); assert.equal(A.mem[b.uid].r, undefined);
+  assert.equal((await db.doc('allyOf/' + f.uid).get()).exists, false);
+  assert.ok(A.log.some(e => e.k === 'leader' && e.a === b.uid && e.x === 'left'));
+  /* an invitation-only alliance turns away a request; an invitation lets the nation in */
+  await civic(b, { op: 'alEdit', aid, acc: 'invite', mo: 'Closed doors' });
+  await rejects(civic(f, { op: 'alRequest', aid }), 'al_closed');
+  await civic(b, { op: 'alInvite', aid, id: f.uid });
+  assert.equal((await civic(f, { op: 'alRequest', aid })).joined, true);
+  /* the type changes once a week */
+  await civic(b, { op: 'alEdit', aid, ty: 'def' });
+  await rejects(civic(b, { op: 'alEdit', aid, ty: 'research' }), 'al_type_wait');
+  /* the leader dissolves it */
+  await civic(b, { op: 'alLeave', aid, disband: true });
+  assert.equal((await db.doc('alliances/' + aid).get()).exists, false);
+  for (const p of [b, c, f]) assert.equal((await db.doc('allyOf/' + p.uid).get()).exists, false);
+});
+
+test('Alliances: pledges are credited once, projects need the level and the treasury, and the daily tally earns renown and replaces an absent leader', async () => {
+  const f = await player(true, true), b = await player(true, true), now = Date.now();
+  const { aid } = await civic(f, { op: 'alFound', name: 'Treasury ' + crypto.randomUUID().slice(0, 8), acc: 'open' });
+  await civic(b, { op: 'alRequest', aid });
+  await record(f, { alp: [{ t: now - 2000, k: 'goods', q: 50, a: aid }, { t: now - 1000, k: 'timber', q: 45, a: aid }, { t: now - 900, k: 'iron', q: 9, a: 'elsewhere' }] });
+  const d1 = await civic(f, { op: 'alDonate', aid });
+  assert.deepEqual(d1.credited, { goods: 50, timber: 45 }); assert.equal(d1.xp, 9);
+  assert.deepEqual((await civic(f, { op: 'alDonate', aid })).credited, {});
+  let A = await allianceOf(aid); assert.equal(A.tr.goods, 50); assert.equal(A.dn[f.uid].lt, now - 1000);
+  await rejects(civic(f, { op: 'alBuild', aid, p: 'market' }), 'al_level');
+  await civic(f, { op: 'alBuild', aid, p: 'hall' });
+  A = await allianceOf(aid); assert.equal(A.pj.hall, 1); assert.equal(A.tr.timber, 5); assert.equal(A.tr.goods, 20);
+  await rejects(civic(f, { op: 'alBuild', aid, p: 'granary' }), 'al_treasury');
+  await assert.rejects(civic(b, { op: 'alBuild', aid, p: 'granary' }));
+  /* the tally: a deal between the two, a gift, a battle fought in an ally's war, both active; once a day */
+  await record(f, { deals: [{ id: 'd1', w: b.uid, g: ['food', 1], r: ['iron', 1], t: now - 5000 }], gft: [{ id: 'g1', to: b.uid, k: 'card', m: 0, t: now - 4000 }] });
+  await record(b, { deals: [{ id: 'd1', w: f.uid, a: 1, g: ['iron', 1], r: ['food', 1], t: now - 4500 }], conq: [{ c: 5, t: now - 3000, w: f.uid, d: 'npc-x' }] });
+  await db.doc('alliances/' + aid).update({ tt: now - 21 * 3600e3 });
+  const t1 = await civic(b, { op: 'alTally', aid });
+  assert.deepEqual(t1.parts, { active: 2, deals: 1, gifts: 1, battles: 1, calls: 0 });
+  assert.equal(t1.xp, 2 * 3 + 2 + 2 + 5);
+  assert.equal((await civic(b, { op: 'alTally', aid })).skipped, true);
+  /* a leader away for a week hands over to a member who still plays */
+  await db.doc('nations/' + f.uid).update({ updatedAt: now - 8 * 86400000 });
+  await db.doc('alliances/' + aid).update({ tt: now - 21 * 3600e3 });
+  await civic(b, { op: 'alTally', aid });
+  A = await allianceOf(aid); assert.equal(A.ld, b.uid); assert.ok(A.mem[f.uid], 'the old leader stays a member');
+  assert.ok(A.log.some(e => e.k === 'leader' && e.x === 'away'));
+});
+
+test('Alliances: computer nations join by affinity with the leader, and an alliance from before moves over under its founder', async () => {
+  const data = JSON.parse(fs.readFileSync(new URL('../functions/civic-data.json', import.meta.url), 'utf8'));
+  const npc = data.regions.find(r => r.id === 'meridian').npcs.find(n => !BLOCS.includes(n.id));
+  const f = await player(true, true);
+  const { aid } = await civic(f, { op: 'alFound', name: 'Machines ' + crypto.randomUUID().slice(0, 8) });
+  /* values as far from the computer nation's as they go */
+  const far = k => ((npc.s[k] ?? 50) >= 50 ? 0 : 100);
+  await record(f, { s: { civil: far('civil'), econ: far('econ'), pol: far('pol') }, gw: {} });
+  await rejects(civic(f, { op: 'alInvite', aid, id: npc.id }), 'al_affinity');
+  await record(f, { s: { civil: npc.s.civil, econ: npc.s.econ, pol: npc.s.pol } });
+  assert.equal((await civic(f, { op: 'alInvite', aid, id: npc.id })).joined, true);
+  assert.equal((await db.doc('allyOf/' + npc.id).get()).get('a'), aid);
+  await rejects(civic(f, { op: 'alInvite', aid, id: 'npc-vellmark' }), 'al_bloc');
+  await civic(f, { op: 'alLeave', aid, disband: true });
+  assert.equal((await db.doc('allyOf/' + npc.id).get()).exists, false);
+  /* an old alliance: in its founder's record, with a member whose record names the founder */
+  const L = await player(true, true), m = await player(true, true), now = Date.now();
+  await record(L, { alli: { name: 'Old Guard', t: now - 10 * 86400000, inv: [{ id: m.uid, t: now - 9 * 86400000 }] } });
+  await record(m, { allyOf: L.uid });
+  assert.equal((await civic(m, { op: 'alMigrate', f: L.uid })).aid, L.uid);
+  const A = await allianceOf(L.uid);
+  assert.equal(A.name, 'Old Guard'); assert.equal(A.ld, L.uid); assert.ok(A.mem[m.uid]); assert.equal(A.xp, 50);
+  assert.equal((await db.doc('allyOf/' + m.uid).get()).get('a'), L.uid);
+  assert.equal((await civic(L, { op: 'alMigrate', f: L.uid })).aid, L.uid, 'asked again, it is already there');
+  await civic(L, { op: 'alLeave', aid: L.uid, disband: true });
 });
