@@ -219,6 +219,24 @@ test('the Chancery Club: months paid, cancellation kept to the end of the month,
   assert.equal((await shop(p.uid)).vip.until, m1);
 });
 
+test('two notifications at once: the newer one is kept, and the membership shows it', async () => {
+  /* a cancellation from the portal, and a notification from before it, reported at the same moment, in either order:
+     each reads, compares and writes in one transaction now, and the membership is worked out from what it reads in its own */
+  const p = await player(), t0 = Date.now() - H, m1 = t0 + 30 * DAY, sub = rid('sub');
+  const c = await call(p, { step: 'checkout', product: 'vip' });
+  await hook('transaction.completed', pay(c.txn, { sub, period: { s: t0, e: m1 } }));
+  const ps = P.subs.get(sub);
+  for (let k = 0; k < 4; k++) {
+    const at = Date.now() + k * 1000;
+    const newer = () => hook('subscription.updated', { ...ps, scheduled_change: { action: 'cancel', effective_at: new Date(m1).toISOString() }, updated_at: new Date(at).toISOString() }, { occurred: new Date(at).toISOString() });
+    const older = () => hook('subscription.updated', { ...ps, scheduled_change: null }, { occurred: new Date(at - 60000).toISOString() });
+    await Promise.all(k % 2 ? [newer(), older()] : [older(), newer()]);
+    const s = await shop(p.uid);
+    assert.equal(s.vip.cancelAt, m1, 'round ' + k + ': the cancellation stands');
+    assert.equal(s.vip.until, m1);
+  }
+});
+
 test('two subscriptions paid side by side: the second is cancelled and refunded', async () => {
   const p = await player(), t0 = Date.now() - H, m1 = t0 + 30 * DAY;
   const c1 = await call(p, { step: 'checkout', product: 'vip' });

@@ -16823,7 +16823,10 @@ function awayEnd(){
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='away-start'){awayStart();return;}if(a==='away-end'){awayEnd();return;}});
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='away-to'){S.awayTo=e.target.value;S.awayErr='';}});
-NORM_HOOKS.push((n,d)=>{const w=d&&d.away;if(!w||typeof w!=='object')return;const a=Number(w.a),b=Number(w.b);if(isFinite(a)&&isFinite(b)&&a>0&&b>a&&b<=awayMax(a)+60000)n.away={a,b};});
+/* a calendar month after a, counted in this device's time zone: a device elsewhere, or across a clock change, may count it
+   an hour or a day or two either way, so a holiday set there is kept within three days of that (once within a minute,
+   which dropped valid holidays on load); the holiday page still sets at most a month */
+NORM_HOOKS.push((n,d)=>{const w=d&&d.away;if(!w||typeof w!=='object')return;const a=Number(w.a),b=Number(w.b);if(isFinite(a)&&isFinite(b)&&a>0&&b>a&&b<=awayMax(a)+3*DAY)n.away={a,b};});
 /* Settings: start a holiday, or end the one under way */
 function awayBox(n,now){
   const w=awayOf(n);
@@ -17916,6 +17919,10 @@ function collectDeals(){
   return {active,pending};
 }
 let econMemo={T:null,k:'',at:0,v:null};
+/* a nation's size for its demand and its goods: its population's land budget, as before claims. A nation with claims is
+   held at CORE_HEXES in the territory (its land is what it claimed), and that fixed size once stood for every such nation
+   here too, so a large one never ran short of food */
+function econSize(x){return x.cm?Math.max(CORE_HEXES,budgetOf(x.pop||0)):x.budget;}
 function economy(){
   const now=Date.now();
   if(econMemo.v&&now-econMemo.at<1500&&econMemo.ref===S.nation&&econMemo.w===S.world)return econMemo.v;
@@ -17924,7 +17931,7 @@ function economy(){
   const L=T.list.length,mk=()=>Object.fromEntries(RES.map(r=>[r,new Float64Array(L)]));
   const prod=mk(),dem=mk(),exp=mk(),imp=mk(),sup=mk(),ratio=mk(),req=mk();
   for(let c=0;c<MAP.N;c++){const o=T.owner[c];if(o<0)continue;prod.food[o]+=CELL_RES.food[c];prod.timber[o]+=CELL_RES.timber[c];prod.iron[o]+=CELL_RES.iron[c];prod.oil[o]+=CELL_RES.oil[c];}
-  T.list.forEach((x,i)=>{const s=x.n.s||{};prod.goods[i]=x.budget*(0.4+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=x.budget*DEMAND[r];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
+  T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.4+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
   const CSt=cityState(T);T.list.forEach((x,i)=>{const a=CSt.agg[i];for(const r of RES){prod[r][i]+=a.add[r];dem[r][i]+=a.up[r];}});
   const tariff=T.list.map(x=>!!(x.n.policies||{}).importTariffs),reserve=T.list.map(x=>!!(x.n.policies||{}).strategicReserves);
   const dl=collectDeals(),active=dl.active.filter(d=>T.byId[d.a]!==undefined&&T.byId[d.b]!==undefined&&RES.includes(d.ag[0])&&RES.includes(d.bg[0]));
@@ -18697,15 +18704,24 @@ function baseScores(n,id,focus){
 const formOf=(id,e,ev)=>(hash(id+':'+e+':'+ev)%2401)/100-12;
 const dqOf=(id,e)=>hash(id+':dq:'+e)%4===0;
 function entryOf(n,e){return ((n&&n.games&&n.games.en)||[]).find(q=>q.e===e);}
+/* A player's scores are capped at what its stats allow, plus 3, so a record cannot claim more than it could have had. A
+   finished edition is capped at the stats the nation had when it ended (its history keeps them every few hours, the last
+   90), so its podium no longer moves with the nation's stats today; only where the history no longer reaches back that
+   far are today's stats the cap, as before. */
+function gamesStatsAt(n,t){
+  let best=null;for(const x of Array.isArray(n&&n.hist)?n.hist:[])if(x&&x.t<=t&&Array.isArray(x.s)&&(!best||x.t>best.t))best=x;
+  return best?Object.fromEntries(STAT_KEYS.map((k,i)=>[k,Number.isFinite(+best.s[i])?+best.s[i]:(n.s||{})[k]])):null;
+}
 let gamesMemo={k:'',v:null};
 function gamesResults(e){
-  const docs=allNations().filter(x=>!x.npc).map(x=>x.id+':'+((entryOf(x.n,e)||{}).t||0)).join('|'),k=e+'#'+docs+'#'+gamesBids(e).map(b=>b.id).join(',');
+  const past=e<edOf(b1Now()),end=edStart(e+1);
+  const docs=allNations().filter(x=>!x.npc).map(x=>x.id+':'+((entryOf(x.n,e)||{}).t||0)).join('|'),k=e+(past?'p':'c')+'#'+docs+'#'+gamesBids(e).map(b=>b.id).join(',');
   if(gamesMemo.k===k)return gamesMemo.v;
   const host=gamesHost(e),evs=edEvents(e),parts=[];
   for(const x of allNations()){
     if(x.npc){parts.push({id:x.id,n:x.n,npc:true,sc:baseScores(npcAt(x.id,GAMES_EPOCH+e*GAMES_WEEK)||x.n,x.id,null),dq:false});continue;}
     const en=entryOf(x.n,e);if(!en)continue;
-    {const mx=baseScores(x.n,x.id,en.f||null),sc={};for(const k of Object.keys(en.sc))sc[k]=Math.min(en.sc[k],(mx[k]||0)+3);parts.push({id:x.id,n:x.n,me:!!x.me,sc,f:en.f,dq:!!en.es&&dqOf(x.id,e)});}
+    {const st=past?gamesStatsAt(x.n,end):null,mx=baseScores(st?{...x.n,s:st}:x.n,x.id,en.f||null),sc={};for(const k of Object.keys(en.sc))sc[k]=Math.min(en.sc[k],(mx[k]||0)+3);parts.push({id:x.id,n:x.n,me:!!x.me,sc,f:en.f,dq:!!en.es&&dqOf(x.id,e)});}
   }
   const res={};
   for(const ev of evs)res[ev]=parts.filter(p=>!p.dq).map(p=>({p,v:Math.round(Math.max(0,(p.sc[ev]||0)+(p.id===host.id?HOST_BONUS:0)+formOf(p.id,e,ev))*10)/10})).sort((a,b)=>b.v-a.v||(a.p.id<b.p.id?-1:1));
@@ -31813,9 +31829,14 @@ function btEvDef(e,id){
   return {t:D.t,d:D.d.replace('{X}',X),ch:D.ch.map(([a,b,f])=>[a,b.replace('{J}',J),f])};
 }
 function btMorale(bt,id){let m=0;for(const e of btEvents(bt,id)){if(e.eff==null)continue;const f=btEvDef(e,id).ch[e.eff];if(f&&f[2].mo)m+=f[2].mo;}return m;}
+/* what a choice's cost asks for that the stockpile does not hold, in words ('' when it is all there) */
+function btEvLack(n,cost,now){const st=stockNow(n,now||Date.now());const short=RES.filter(r=>(cost[r]||0)>(st[r]||0));return short.length?list(short.map(r=>Math.floor(st[r]||0)+' '+resName(r))):'';}
 function btEvChoose(j,c){
   const n=S.nation,bt=n&&n.belt;if(!bt)return false;const now=Date.now(),e=btEvents(bt,myId())[j];if(!e||e.t>now||now>=e.end||e.c!=null)return false;
-  const D=btEvDef(e,myId()),ch=D.ch[c];if(!ch)return false;const f=ch[2],n2=clone(n),b=n2.belt;
+  const D=btEvDef(e,myId()),ch=D.ch[c];if(!ch)return false;const f=ch[2];
+  /* a choice that costs stock needs it: once it took what there was and gave its morale anyway */
+  if(f.st){const lack=btEvLack(n,f.st,now);if(lack){toast(`That needs ${costText(f.st)}. You have ${lack}.`);return false;}}
+  const n2=clone(n),b=n2.belt;
   let ev=(b.ev||'').split('');while(ev.length<=j)ev.push('_');ev[j]=String(c);b.ev=ev.join('');
   if(f.nm)b.nm=f.nm;if(f.rp){b.rp=btRP(n,now)+f.rp;b.ra=now;}
   if(f.st){const st=stockNow(n,now);for(const r in f.st)st[r]=Math.max(0,st[r]-f.st[r]);n2.stock=roundStock(st);n2.stockAt=now;n2._stockSet=true;}
@@ -32223,7 +32244,7 @@ function btVoySec(now){
 const btKmTxt=km=>km>=1e9?(km/1e9).toFixed(2)+' billion km':Math.round(km/1e6)+' million km';
 function btEvHtml(e,now){
   const D=btEvDef(e,myId()),day=Math.floor((e.t-S.nation.belt.v)/DAY);
-  if(e.c==null&&now<e.end)return `<li class="bt-ev open"><p class="bt-evh"><span class="hint num">Day ${day}</span> <b>${esc(D.t)}</b></p><p>${esc(D.d)}</p><div class="bt-evc">${D.ch.map((c,k)=>`<button class="btn${k?'':' ghost'} small-btn" data-act="bt-ev" data-j="${e.i}" data-c="${k}">${esc(c[0])}</button>`).join('')}</div><p class="hint">If no one answers before the next news, the crew chooses “${esc(D.ch[0][0])}”.</p></li>`;
+  if(e.c==null&&now<e.end)return `<li class="bt-ev open"><p class="bt-evh"><span class="hint num">Day ${day}</span> <b>${esc(D.t)}</b></p><p>${esc(D.d)}</p><div class="bt-evc">${D.ch.map((c,k)=>{const lack=c[2].st?btEvLack(S.nation,c[2].st,now):'';return `<button class="btn${k?'':' ghost'} small-btn" data-act="bt-ev" data-j="${e.i}" data-c="${k}"${lack?` aria-disabled="true" title="Needs ${esc(costText(c[2].st))}; you have ${esc(lack)}"`:''}>${esc(c[0])}${lack?` <span class="hint">(needs ${esc(costText(c[2].st))})</span>`:''}</button>`;}).join('')}</div><p class="hint">If no one answers before the next news, the crew chooses “${esc(D.ch[0][0])}”.</p></li>`;
   const c=D.ch[e.eff]||D.ch[0];return `<li class="bt-ev"><p class="bt-evh"><span class="hint num">Day ${day}</span> <b>${esc(D.t)}</b></p><p class="hint">${esc(D.d)} ${e.c==null?'The crew decided:':'You chose:'} ${esc(c[0])}. ${esc(c[1])}</p></li>`;
 }
 /* the side panel */
