@@ -125,7 +125,18 @@ await A.mouse.click(bb.x+bb.width/2,bb.y+60);check('a tap opens the details shee
 await A.screenshot({path:OUT+'/map-sheet-390.png'});await A.click('.mp-grab');check('its handle folds it',await until(()=>A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open'))));}
 /* choosing a hex to claim: with fewer credits than the block holds, the claim takes the hex chosen, not the block's
    first hexes by number (a player clicked one hex and saw, and claimed, others) */
-const K=await player('claim choice',{vp:{width:390,height:844}}),uidK=await open(K);await found(K,'Claimland');await nav(K,'map');
+/* founded inland, with free land all round and no capital near: the map's own suggestion can be a small island or a
+   cramped coast, with no block of free land to choose from (CI once found none) */
+const K=await player('claim choice',{vp:{width:390,height:844}}),uidK=await open(K);
+await K.waitForSelector('#d-name');await K.fill('#d-name','Claimland');
+const home=await K.evaluate(()=>{const T=G.territory(),M=G.MAP,D=G.MD;
+  for(let c=0;c<M.N;c++){
+    if(M.T[c]<2||T.owner[c]>=0||M.coast[c]<4||D.pickProblem(c,T))continue;
+    const near=D.ringCells(c,4);if(near.length<40||!near.every(([v])=>M.T[v]>=2&&T.owner[v]<0))continue;
+    G.S.draft.loc=G.locOf(c);G.render();return c;
+  }return null;});
+if(home==null)throw Error('No free inland place for the claim test');
+await K.click('#found-btn');await K.waitForSelector('.layout');await establish(K);await nav(K,'map');
 /* on a phone, the second tap of a double tap zooms in: it does not choose the hex it lands on first */
 const tapped=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
   const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),a=[...fr].find(c=>D.claimableBlocks(T).has(D.BLOCKS().of[c]));if(a==null)return {why:'no free hex'};
@@ -136,17 +147,28 @@ const tapped=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
   return {a,first,after:G.S.mapClaim&&G.S.mapClaim.c,hw};});
 check('a double tap keeps the hex its first tap chose',tapped.first===tapped.a&&tapped.after===tapped.a,JSON.stringify(tapped));
 await K.setViewportSize({width:1280,height:900});await nav(K,'nation');await nav(K,'map');
-/* a new nation holds more credits than most blocks have free hexes: two are left after claiming single hexes */
-for(let i=0;i<10;i++){
-  const st=await K.evaluate(()=>{const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<=2)return {cr};
-    for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b),c=plan.find(x=>fr.has(x));if(plan.length>1&&c!=null){G.S.mapClaim={b,c};G.render();return {cr,c};}}return {cr,none:1};});
+/* a new nation holds more credits than most blocks have touching hexes, and its first claims earn more (the tutorial's
+   land steps once took it from 4 to 14, past a fixed ten single claims): it spends them down to two, a whole block at a
+   time while that leaves two or more, then single hexes. Only land the game lets it claim (mpClaimSequence: not within
+   2 hexes of another capital, nor too far) */
+const tried=[];
+for(let i=0;i<40;i++){
+  const st=await K.evaluate(tried=>{const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<=2)return {cr};
+    const ok=c=>fr.has(c)&&!tried.includes(c)&&!D.mpClaimSequence(T,[c]).blocked.length;
+    for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b),c=plan.find(ok);if(c==null||plan.length<2)continue;
+      const whole=cr-plan.length>=2&&!D.mpClaimSequence(T,plan).blocked.length;
+      G.S.mapClaim={b,c};G.render();return {cr,c,act:whole?'lc-block':'lc-one'};}
+    return {cr,none:1};},tried);
   if(st.cr<=2||st.none)break;
-  await K.locator('#map-panel [data-act="lc-one"]').click();
-  await until(()=>K.evaluate(cr=>G.MD.landCredits(G.S.nation)<cr,st.cr),8000);
+  tried.push(st.c);
+  await K.locator(`#map-panel [data-act="${st.act}"]`).click();
+  await until(()=>K.evaluate(cr=>G.MD.landCredits(G.S.nation)!==cr,st.cr),8000);
 }
+/* a hex past the first ones by number, whose claim (the path to it, then the rest) the game allows */
 const pick=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
   const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<1)return {cr};
-  for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b);if(plan.length<=cr)continue;const a=plan.slice(cr).find(c=>fr.has(c));if(a!=null)return {a,b,first:plan.slice(0,cr),cr};}
+  for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b);if(plan.length<=cr)continue;
+    for(const a of plan.slice(cr).filter(c=>fr.has(c)))if(!D.mpClaimSequence(T,D.blockPlan(T,b,a).slice(0,cr)).blocked.length)return {a,b,first:plan.slice(0,cr),cr};}
   return {cr};});
 if(pick.a==null)throw Error('No block with a free hex past the credits: '+JSON.stringify(pick));
 await clickCell(K,pick.a);
