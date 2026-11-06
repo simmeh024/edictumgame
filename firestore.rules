@@ -142,11 +142,12 @@ service cloud.firestore {
     // (holiday mode); at most a month (32 days) past t, so nobody can stay awake on it for longer
     function validSummary(d) {
       return d.keys().hasAll(['reg', 'name', 'pop', 't'])
-        && d.keys().hasOnly(['reg', 'name', 'pop', 't', 'e'])
+        && d.keys().hasOnly(['reg', 'name', 'pop', 't', 'e', 'f'])
         && region(d.reg) && label(d.name)
         && d.pop is number && d.pop >= 0
         && d.t is number
-        && (!('e' in d) || (d.e is number && d.e > d.t && d.e <= d.t + 2764800000));
+        && (!('e' in d) || (d.e is number && d.e > d.t && d.e <= d.t + 2764800000))
+        && (!('f' in d) || (d.f is number && d.f > 0 && d.f <= d.t + 60000));
     }
     function validPrivate(d) {
       return d.keys().hasAll(['j', 't', 'ts'])
@@ -211,6 +212,15 @@ service cloud.firestore {
     match /staffNotes/{uid} { allow read, write: if false; }
     // the day-by-day player statistics (jobs/stats), read only through the admin console (functions/admin.js, 'stats')
     match /statsDays/{day} { allow read, write: if false; }
+    // the admin portal's: engagement scores for Player search (functions/stats.js), the watchlist, staff alerts with
+    // their thresholds and the alerts job's memory (functions/alerts.js), and the pings kept for the Live feed
+    // (jobs/mail, functions/feed.js). Only the server reads and writes them.
+    match /statsEngage/{part} { allow read, write: if false; }
+    match /watch/{uid} { allow read, write: if false; }
+    match /adminAlerts/{id} { allow read, write: if false; }
+    match /adminCfg/{id} { allow read, write: if false; }
+    match /alertState/{id} { allow read, write: if false; }
+    match /feedLog/{hour} { allow read, write: if false; }
     // Discord sign-in (functions/discord.js): the application's secret, and which account holds each Discord account
     match /authConfig/{id} { allow read, write: if false; }
     match /discordLinks/{id} { allow read, write: if false; }

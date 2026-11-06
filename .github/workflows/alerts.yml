@@ -1,0 +1,83 @@
+# Every fifteen minutes, the alerts job (jobs/stats/alerts.mjs, functions/alerts.js) files staff alerts for the admin
+# portal's Watchlist & alerts page: players reported again and again, nations growing too fast, save errors, a rush of
+# foundings, purchases and what watched players do. GitHub runs scheduled workflows from the default branch only, and
+# may start them a few minutes late.
+#
+# Needs, under Settings > Secrets and variables > Actions (the same as Deploy and Statistics):
+#   secret   FIREBASE_SERVICE_ACCOUNT  the service account key JSON; it needs to read and write Firestore
+#   variable FIREBASE_PROJECT_ID       the Firebase project id
+# Optional:
+#   secret   STAFF_ALERT_WEBHOOK       a Discord webhook URL (channel settings > Integrations > Webhooks) for the staff
+#                                      channel: the new alerts are posted there too
+#   variable SITE_URL                  the site the Discord message links to (https://edictumgame.com when unset)
+# Run by hand (Actions > Alerts > Run workflow) with target staging to use FIREBASE_SERVICE_ACCOUNT_STAGING and
+# FIREBASE_STAGING_PROJECT_ID instead. Without them the workflow says so and does nothing.
+name: Alerts
+
+on:
+  schedule:
+    - cron: '4,19,34,49 * * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which project: live or staging'
+        type: choice
+        options: [live, staging]
+        default: live
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alerts-${{ inputs.target || 'live' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Look for what the staff should know about
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJECT_ID: ${{ inputs.target == 'staging' && vars.FIREBASE_STAGING_PROJECT_ID || vars.FIREBASE_PROJECT_ID }}
+      HAS_SERVICE_ACCOUNT: ${{ (inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT) != '' }}
+    steps:
+      - name: Check the repository settings
+        id: settings
+        run: |
+          if [ "$HAS_SERVICE_ACCOUNT" != "true" ] || [ -z "$PROJECT_ID" ]; then
+            msg="The alerts job did not run: the repository is missing the service account secret or the project id variable for this target (README.md, Owner setup)."
+            echo "::warning title=Alerts job skipped::$msg"
+            { echo "### Alerts job skipped"; echo; echo "$msg"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: jobs/stats/package-lock.json
+
+      - name: Install the job's pinned packages
+        if: steps.settings.outputs.ready == 'true'
+        run: npm ci --prefix jobs/stats
+
+      - name: File the alerts
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT }}
+          STAFF_ALERT_WEBHOOK: ${{ inputs.target == 'staging' && '' || secrets.STAFF_ALERT_WEBHOOK }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" node jobs/stats/alerts.mjs --project "$PROJECT_ID" | tee "$RUNNER_TEMP/report.json"
+          { echo "### Staff alerts"; echo; echo '```json'; cat "$RUNNER_TEMP/report.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
