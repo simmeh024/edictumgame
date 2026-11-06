@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   check, finish, sleep, until, player, open, ready, found, nav, localNation,
-  nationDoc, restGet, clearEmulators, openAccount, errors, OUT, FS_HOST, PROJECT
+  nationDoc, restGet, clearEmulators, openAccount, errors, OUT, FS_HOST, PROJECT, BASE
 } from './lib.mjs';
 
 await clearEmulators();
@@ -320,7 +320,49 @@ await sleep(500); releaseCommit(); await sleep(6000);
 check('dissolving while a save is on its way does not bring the nation back', !(await localNation(C3)) && await C3.isVisible('#d-name') && (await restGet('nations/' + uid)).status === 404, JSON.stringify({ local: (await localNation(C3))?.name, cloud: (await restGet('nations/' + uid)).status }));
 await C3.ctx.unroute(/\/documents:commit/, holdUpdate);
 
+// 21. two tabs in one browser share one copy of the nation: the newest plays, the other stops and can take over
+await found(C3, 'Tabsworth'); await saved(C3);
+const T2 = await C3.ctx.newPage();
+T2.on('pageerror', e => errors.push('second tab PAGEERROR ' + e.message));
+await T2.goto(BASE + '/'); await T2.waitForSelector('.layout', { timeout: 20000 });
+check('opening a second tab stops the first', await until(() => C3.isVisible('.tab-yield'), 10000) && /open in another tab/.test(await C3.locator('.tab-yield').textContent()));
+let stoppedSaves = 0;
+const countStopped = r => { if (/europe-west1\/civic/.test(r.url()) && /authorizeSave/.test(r.postData() || '')) stoppedSaves++; };
+C3.on('request', countStopped);
+await C3.evaluate(() => { const n = G.clone(G.S.nation); n.motto = 'From the stopped tab'; G.commit(n); });
+await edit(T2, 'From the newest tab'); await saved(T2);
+await sleep(3000);
+check('the stopped tab neither changes nor saves the nation', (await localNation(T2)).motto === 'From the newest tab' && await C3.evaluate(() => G.S.nation.motto) !== 'From the stopped tab' && stoppedSaves === 0 && await motto() === 'From the newest tab', JSON.stringify({ stoppedSaves, cloud: await motto() }));
+C3.off('request', countStopped);
+/* two tabs loading at once each see the other's claim: only a newer one than its own stops a tab */
+await T2.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'edictum.tab', newValue: JSON.stringify({ id: 'an-older-tab', at: 1 }) })));
+await sleep(500);
+check('an older claim arriving late stops nothing', !(await T2.isVisible('.tab-yield')));
+/* the busy-region check below wants short retry steps: the reload "Play here" makes takes them up */
+await C3.ctx.addInitScript(() => { window.EDICTUM_SAVE_RETRY = [1000, 2000, 3000, 4000]; });
+await Promise.all([C3.waitForNavigation({ timeout: 20000 }), C3.click('.tab-yield button')]);
+await C3.waitForSelector('.layout', { timeout: 20000 });
+check('“Play here” takes over with the other tab’s latest', await until(() => T2.isVisible('.tab-yield'), 10000) && await C3.evaluate(() => G.S.nation.motto) === 'From the newest tab');
+await T2.close();
+
+// 22. a busy region (a rate limit, HTTP 429): tried again at growing gaps, and never called full
+const busyAt = [];
+const busy = route => {
+  if (!(route.request().postData() || '').includes('authorizeSave')) return route.continue();
+  busyAt.push(Date.now());
+  return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED', message: 'Too many requests' } }) });
+};
+await C3.route('**/europe-west1/civic', busy);
+await edit(C3, 'Sent once the region has room');
+const gaps = () => busyAt.slice(1).map((t, i) => t - busyAt[i]);
+check('a rate-limited save is tried again at growing gaps', await until(() => busyAt.length >= 3, 20000) && gaps()[0] >= 900 && gaps()[1] >= 1900, JSON.stringify(gaps()));
+check('the player hears the region is busy, not that its storage is full', await until(async () => /region is busy/.test(await toasts(C3)), 15000) && !/storage is full/.test(await toasts(C3)), await toasts(C3));
+await C3.unroute('**/europe-west1/civic', busy);
+check('and the save lands once the region has room', await until(async () => await motto() === 'Sent once the region has room', 20000));
+
+
 // the SDK's warnings about the connections these scenarios cut on purpose (offline devices, failed reads)
 for (let i = errors.length - 1; i >= 0; i--) if (/^returning phone( 2)? console: /.test(errors[i]) && /Could not reach Cloud Firestore backend|@firebase\/firestore|Failed to fetch|ERR_|network/i.test(errors[i])) errors.splice(i, 1);
+
 
 await finish();

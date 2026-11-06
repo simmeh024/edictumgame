@@ -46,6 +46,7 @@
   var LS_NATION = 'statehood.nation.v1'; // the game's own copy of the player's nation
   var LS_UID = 'edictum.uid';            // the account that copy belongs to ('-' once signed out)
   var LS_PARK = 'edictum.parked';        // {uid, at, nation}: the copy of an account this browser was signed out of
+  var LS_OUT = 'edictum.signedOut';      // the account this browser last signed out of, until the next sign-in here
   var LS_CARRY = 'edictum.carry';        // {from, to, at}: a guest's nation carried into account `to` on signing in, until its first save there
   var SS_FLASH = 'edictum.flash';        // a message to show after a reload
   var MAX_JSON = 700000;                 // well under Firestore's 1 MiB document limit
@@ -122,7 +123,7 @@
     if (col === 'presence') return { t: serverTime() };
     if (col !== 'nations') return JSON.parse(JSON.stringify(data == null ? {} : data));
     var j = JSON.stringify(data == null ? {} : data);
-    if (j.length > MAX_JSON) throw mapError({ code: 'resource-exhausted', message: 'This nation is too large to save (' + j.length + ' characters).' });
+    if (j.length > MAX_JSON) throw mapError({ code: 'too_large', message: 'This nation is too large to save (' + j.length + ' characters).' });
     var d = isObj(data) ? data : {};
     /* headline numbers beside the record, which the rules bound (growth since the last save, army and land for
        the population) and every player's game holds the record to: population, army strength, land claimed */
@@ -927,7 +928,13 @@
       leave({ nation: null, uid: user.uid }, has ? 'The nation “' + mine.name + '” in this browser belongs to another sign-in. Sign in to that account to play it again.' : signedOut(mine.name));
       return true;
     }
-    leave({ nation: null, uid: user.uid });
+    /* signed out here since. A copy no save ever carried was founded after that, in this browser (offline, before a new
+       guest could be made): it carries on under this sign-in, as a first nation would. A copy with a revision is the
+       account's that signed out (a tab still open saved it after the sign-out): kept for that account, as above */
+    var out = str(L.get(LS_OUT), 128);
+    if (!revision(mine)) return false;
+    if (out) park(out);
+    leave({ nation: null, uid: user.uid }, out ? signedOut(mine.name) : '');
     return true;
   }
   function signedOut(name) {
@@ -1021,7 +1028,7 @@
     } catch (e) { return goOffline('anonymous sign-in failed', e); }
     if (!user) return goOffline('anonymous sign-in failed');
     if (await guard(user) || unpark(user)) return;
-    L.set(LS_UID, user.uid);
+    L.set(LS_UID, user.uid); L.set(LS_OUT, null);
     A.uid = user.uid;
     try { await within(readClaims(user), 5000); } catch (e) { /* read again when the token changes */ }
     A.online = E.settle(apiFor(true));
@@ -1789,15 +1796,26 @@
       }
       res = await sw.signIn();
     } catch (e) {
-      if (cleared && guest && anon) { try { guest._rev = 0; await within(saveNation(anon.uid, guest), 8000); } catch (e2) {} }
+      /* the guest's region copy went before the sign-in: it goes back (asked twice; a refusal as another device's save means
+         the first one landed after all). The game then saves on from the revision the region holds: 1 once it is back,
+         or 0, a new record at its next save, when it could not be put back now (game/edictum.html, reviseOwn) */
+      var back = -1;
+      if (cleared && guest && anon) {
+        guest._rev = 0;
+        for (var tr = 0; tr < 2 && back < 0; tr++) {
+          try { await within(saveNation(anon.uid, guest), 10000); back = 1; } catch (e2) { if (e2 && e2.code === 'save_conflict') back = 1; }
+        }
+        if (back < 0) back = 0;
+      }
       A.frozen = false; A.leaving = false; A.sw = null; setBusy('');
+      if (back >= 0 && typeof E.reviseOwn === 'function') { try { E.reviseOwn(back); } catch (e3) {} }
       /* an email link used up (by the attempt to link it here, which Firebase counts as its one use) or
          expired: a fresh one, which goes straight to switching */
       if (sw.email && (e.code === 'auth/invalid-action-code' || e.code === 'auth/expired-action-code')) {
         sendLinkTo(sw.email, 'switch').then(function () { setMsg('That link could only be used once, so we sent a new one. Open it to switch.'); }, function () {});
         return;
       }
-      setMsg(authMessage(e), true);
+      setMsg(authMessage(e) + (back === 0 ? ' “' + guest.name + '” is kept in this browser and goes back to the region with its next save.' : ''), true);
       return;
     }
     var nu = res && res.user, has = true, known = false, name = '';
@@ -1848,11 +1866,14 @@
     setBusy('Saving before signing out…');
     try {
       if(guest&&recoveryRotation(uid))throw new Error('Finish regenerating and save your new recovery key before signing out.');
-      if (n && typeof E.beforeSignOut === 'function') await within(E.beforeSignOut(), 25000);
+      /* 'kept': no save could go from here (view-only, maintenance), and the latest changes wait in this browser */
+      var kept = n && typeof E.beforeSignOut === 'function' ? await within(E.beforeSignOut(), 25000) : '';
       A.leaving = true; A.frozen = true;
       await A.auth.signOut();
       if (guest) clearRecovery(uid);
-      leave({ nation: null, uid: '-' }, guest ? 'Signed out. Use your recovery code to sign back in to your Guest Nation.' : 'Signed out. Sign in with your linked account to continue your nation.');
+      L.set(LS_OUT, uid);
+      var note = kept === 'kept' ? ' Your latest changes could not reach the region from here: they are kept in this browser, in the account menu once you sign in again.' : '';
+      leave({ nation: null, uid: '-' }, (guest ? 'Signed out. Use your recovery code to sign back in to your Guest Nation.' : 'Signed out. Sign in with your linked account to continue your nation.') + note);
     } catch(e) { A.leaving = false; A.frozen = false; setBusy(''); setMsg(e.message || 'Sign-out could not finish. Try again.', true); }
   }
 
