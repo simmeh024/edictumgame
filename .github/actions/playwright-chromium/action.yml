@@ -1,0 +1,35 @@
+name: Install Chromium for Playwright
+description: >
+  Installs Playwright's Chromium and the Ubuntu packages it needs, taking the packages from the
+  Actions cache when it has them instead of the Ubuntu mirror (install.sh explains why). Run it
+  after npm ci.
+inputs:
+  save-cache:
+    description: "'true' to save the packages to the Actions cache when it had none for this runner image and Playwright"
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Name the cache entry
+      id: key
+      shell: bash
+      # ImageOS is the runner image's Ubuntu (e.g. ubuntu26): the packages depend on it and on
+      # Playwright's list for that release
+      run: echo "key=playwright-debs-$ImageOS-$(node -p "require('./node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+    - name: Restore the system packages from the Actions cache
+      id: restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/.cache/playwright-debs
+        key: ${{ steps.key.outputs.key }}
+    - name: Install the system packages and Chromium
+      id: install
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/install.sh"
+    - name: Save the system packages to the Actions cache
+      if: inputs.save-cache == 'true' && steps.restore.outputs.cache-hit != 'true' && steps.install.outputs.debs != '0'
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.cache/playwright-debs
+        key: ${{ steps.key.outputs.key }}
