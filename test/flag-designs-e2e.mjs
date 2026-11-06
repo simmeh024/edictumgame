@@ -25,8 +25,8 @@ check('and Gyronny can now be chosen, Lozenge still locked', !!await A.$('#c-p-g
 // five different days unlock Lozenge
 await A.evaluate(() => { const n = G.clone(G.S.nation); n.tly.cbvisit = 4; n.tly.cbday = 1; G.commit(n); G.S.view = 'community'; G.render(); });
 check('visits on five days earn Regular at the Board', await until(async () => (await localNation(A)).tly.cbvisit === 5, 10000));
-await openFlag();
-check('and Lozenge can be chosen', !!await A.$('#c-p-lozenge'));
+/* the achievement, and so the pattern, can arrive with the save after the visit's own: save again and look until it shows */
+check('and Lozenge can be chosen', await until(async () => { await A.evaluate(() => { G.commit(G.clone(G.S.nation)); }); await openFlag(); return !!await A.$('#c-p-lozenge'); }, 10000));
 // a sheet of the five, for the pull request (the page is replaced: this is the end of the suite)
 await A.evaluate(() => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); const svgs = ['gyronny', 'lozenge', 'pile', 'wave2', 'chev3'].map(p => document.querySelector('#c-p-' + p + ' svg').outerHTML);
   document.body.innerHTML = '<div id="fd-all" style="display:inline-grid;grid-template-columns:repeat(5,150px);gap:10px;padding:10px;background:#eee">' + svgs.map(v => `<div style="width:150px;height:100px">${v}</div>`).join('') + '</div>'; });

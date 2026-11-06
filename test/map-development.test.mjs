@@ -57,6 +57,21 @@ test('only completed, held coastal harbours unlock free island shores',()=>{
  assert.ok(ctx.mpHarbourFrontier(world).has(b));world.owner[b]=1;assert.ok(!ctx.mpHarbourFrontier(world).has(b));world.owner[b]=-1;world.protected=new Set([b]);assert.ok(!ctx.mpHarbourFrontier(world).has(b));
  world.protected.clear();world.owner[a]=1;assert.equal(ctx.mpHarbourFrontier(world).size,0);
 });
+test('a harbour reaches across a bay to the far shore of its own landmass',()=>{
+ const {ctx,n,world,b}=coastFixture();ctx.MAP.comp[b]=0;n.cities[0].b[0].d=NOW;
+ assert.ok(ctx.mpHarbourFrontier(world).has(b));assert.equal(ctx.mpClaimSequence(world,[b]).blocked.length,0);
+});
+test('a navy stretches harbour reach from four hexes of water route to six',()=>{
+ const {ctx,n,world,cell}=fixture(),a=cell(1,4),six=cell(7,4),seven=cell(8,4);ctx.MAP.T.fill(0);for(const c of [a,six,seven])ctx.MAP.T[c]=2;
+ world.owner.fill(-1);world.owner[a]=0;n.cities=[{id:'cap',c:a,nm:'Port',b:[{k:'harbour',d:NOW}]}];
+ assert.equal(ctx.mpHarbourReach(n),4);assert.ok(!ctx.mpHarbourFrontier(world).has(six));
+ n.policies.navalFleet=1;assert.equal(ctx.mpHarbourReach(n),6);
+ const fr=ctx.mpHarbourFrontier(world);assert.ok(fr.has(six));assert.equal(fr.get(six).path.length-1,6);assert.ok(!fr.has(seven));
+});
+test('shores that already touch your land are claimed the ordinary way, not by harbour',()=>{
+ const {ctx,n,world,b,cell}=coastFixture();n.cities[0].b[0].d=NOW;world.owner[cell(5,3)]=0;ctx.MAP.T[cell(5,3)]=2;
+ assert.ok(!ctx.mpHarbourFrontier(world).has(b));
+});
 test('a captured harbour works for its current holder and stops when the city is lost',()=>{
  const {ctx,n,world,a,b}=coastFixture();world.list.push({id:'other',n:{reg:'meridian',cities:n.cities},pop:1});n.cities=[];world.occ[a]=1;world.list[1].n.cities[0].b[0].d=NOW;
  assert.ok(ctx.mpHarbourFrontier(world).has(b));world.owner[a]=1;assert.equal(ctx.mpHarbourFrontier(world).size,0);

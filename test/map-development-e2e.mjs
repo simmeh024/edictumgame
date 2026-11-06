@@ -49,7 +49,8 @@ check('overlapping production districts never double-count a hex',large.unique==
 await A.evaluate(()=>{G.commit(G.clone(G.S.nation));G.render();});await saved();await nav(A,'cities');
 check('city cards explain their population-based production reach',/3-hex reach/.test(await text(A,'.mp-influence')));
 await nav(A,'map');
-check('map tools expose expansion, transport and optional visual layers',await A.locator('.mp-map-toolbar').count()===1&&await A.locator('[data-mp-opt]').count()===3);
+check('map tools expose expansion, transport and optional visual layers',await A.locator('.mp-map-toolbar').count()===1&&await A.locator('[data-mp-opt]').count()===4);
+check('a finished harbour adds the Harbour reach layer, off by default',await A.locator('[data-mp-opt="reach"]:not(:checked)').count()===1);
 const clickCell=async(p,c)=>{
  await p.evaluate(c=>{G.MD.centerMain(c,5);G.render();},c);const cv=p.locator('canvas[data-map="main"]');await cv.scrollIntoViewIfNeeded();
  const pos=await p.evaluate(c=>{const cv=document.querySelector('canvas[data-map="main"]'),v=G.MD.viewOf('main',cv),s=G.MD.mapScale(cv,v);return {x:cv.clientWidth/2+(G.MAP.cx[c]-v.cx)*s,y:cv.clientHeight/2+(G.MAP.cy[c]-v.cy)*s};},c);
