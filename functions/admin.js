@@ -7,8 +7,10 @@ import { gather, summarize, nationRow } from './stats.js';
 import { setComp } from './shop.js';
 import { cbDelete } from './board.js';
 import { shopSummary } from './shop-stats.js';
+import DATA from './civic-data.json' with { type: 'json' };
 
-const REGIONS = new Set('meridian frostmarch northernpale driftlands silentmoors wildwood saffron hollow ashen ironsteppe gilded verdantbasin coralreach emberisles lanterncoast jadeterraces highcrags cloudspine obsidianrim ambershallows sunkenkingdoms mistral stormwrack longvalley greywater scatteredcrown'.split(' '));
+/* every region, from the same list the save permit checks (civic-data.json): a list of its own here missed Terra */
+const REGIONS = new Set(DATA.regions.map(r => r.id));
 export const MAINTENANCE = 'Current region is disabled and undergoing maintainance, check back soon.';
 const text = (v, max = 128) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 const id = v => { const s = text(v); if (!s || s.includes('/')) throw new HttpsError('invalid-argument', 'A valid record ID is required.'); return s; };

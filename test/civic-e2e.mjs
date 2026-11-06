@@ -146,4 +146,11 @@ if(await vote.count()){
  check('an older in-flight snapshot cannot roll back a confirmed vote',await B.evaluate(()=>!window.staleCivicAccepted&&G.S.civic.own.v.some(v=>v.v===1)));
  await B.unroute('**/europe-west1/civic');
 }
+// Past resolutions: the closed counts from the protected records (none showed: asked for with no number, it took none)
+await nav(B,'assembly');
+const pastShown=await B.evaluate(()=>{const c=G.S.civic;if(!c)return 'no civic';
+  const lock={c:c.c-1,f:1,ti:'A test of past counts',ok:1,y:3,n:1,cat:'env',g:0,by:G.S.uid,bn:G.S.nation.name};
+  G.S.civic=Object.assign({},c,{locks:[...(c.locks||[]).filter(L=>L.c!==lock.c),lock]});G.render();
+  return [...document.querySelectorAll('.asm-hist li')].map(li=>li.textContent.replace(/\s+/g,' ')).join(' | ')||document.querySelector('.asm-hist, .section .empty')?.textContent||'';});
+check('Past resolutions lists the closed counts',/A test of past counts/.test(pastShown)&&/Passed/.test(pastShown),pastShown.slice(0,200));
 await finish();

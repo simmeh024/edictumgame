@@ -1,5 +1,5 @@
 // Real UI and private/shared saves on desktop and phone. All fixture writes target local emulators.
-import {BASE,OUT,PROJECT,FS_HOST,check,finish,until,player,open,nav,text,localNation,nationDoc,restGet,establish,clearEmulators,errors} from './lib.mjs';
+import {BASE,OUT,PROJECT,FS_HOST,check,finish,until,player,open,nav,text,localNation,nationDoc,restGet,establish,found,clearEmulators,errors} from './lib.mjs';
 if(!PROJECT.startsWith('demo-'))throw Error('This suite requires a demo emulator project');
 await clearEmulators();
 const settle=p=>p.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
@@ -123,4 +123,40 @@ await A.setViewportSize({width:390,height:844});await nav(A,'nation');await nav(
 check('on a phone the details start folded',await A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open')));
 await A.mouse.click(bb.x+bb.width/2,bb.y+60);check('a tap opens the details sheet',await until(()=>A.evaluate(()=>document.getElementById('map-panel').classList.contains('sheet-open'))));
 await A.screenshot({path:OUT+'/map-sheet-390.png'});await A.click('.mp-grab');check('its handle folds it',await until(()=>A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open'))));}
+/* choosing a hex to claim: with fewer credits than the block holds, the claim takes the hex chosen, not the block's
+   first hexes by number (a player clicked one hex and saw, and claimed, others) */
+const K=await player('claim choice',{vp:{width:390,height:844}}),uidK=await open(K);await found(K,'Claimland');await nav(K,'map');
+/* on a phone, the second tap of a double tap zooms in: it does not choose the hex it lands on first */
+const tapped=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
+  const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),a=[...fr].find(c=>D.claimableBlocks(T).has(D.BLOCKS().of[c]));if(a==null)return {why:'no free hex'};
+  D.centerMain(a,8);G.render();const cv=document.querySelector('canvas[data-map="main"]'),v=D.viewOf('main',cv),s=D.mapScale(cv,v),r=cv.getBoundingClientRect();
+  const x=r.left+cv.clientWidth/2+(G.MAP.cx[a]-v.cx)*s,y=r.top+cv.clientHeight/2+(G.MAP.cy[a]-v.cy)*s;
+  const tap=(px,py,id)=>{for(const t of ['pointerdown','pointerup'])cv.dispatchEvent(new PointerEvent(t,{pointerId:id,pointerType:'touch',isPrimary:true,clientX:px,clientY:py,bubbles:true}));};
+  tap(x,y,41);const first=G.S.mapClaim&&G.S.mapClaim.c,hw=(G.MAP.cx[1]-G.MAP.cx[0])*s;tap(x+Math.min(24,1.6*hw),y,42);
+  return {a,first,after:G.S.mapClaim&&G.S.mapClaim.c,hw};});
+check('a double tap keeps the hex its first tap chose',tapped.first===tapped.a&&tapped.after===tapped.a,JSON.stringify(tapped));
+await K.setViewportSize({width:1280,height:900});await nav(K,'nation');await nav(K,'map');
+/* a new nation holds more credits than most blocks have free hexes: two are left after claiming single hexes */
+for(let i=0;i<10;i++){
+  const st=await K.evaluate(()=>{const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<=2)return {cr};
+    for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b),c=plan.find(x=>fr.has(x));if(plan.length>1&&c!=null){G.S.mapClaim={b,c};G.render();return {cr,c};}}return {cr,none:1};});
+  if(st.cr<=2||st.none)break;
+  await K.locator('#map-panel [data-act="lc-one"]').click();
+  await until(()=>K.evaluate(cr=>G.MD.landCredits(G.S.nation)<cr,st.cr),8000);
+}
+const pick=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
+  const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<1)return {cr};
+  for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b);if(plan.length<=cr)continue;const a=plan.slice(cr).find(c=>fr.has(c));if(a!=null)return {a,b,first:plan.slice(0,cr),cr};}
+  return {cr};});
+if(pick.a==null)throw Error('No block with a free hex past the credits: '+JSON.stringify(pick));
+await clickCell(K,pick.a);
+check('clicking a hex chooses that hex',await until(()=>K.evaluate(a=>G.S.mapClaim&&G.S.mapClaim.c===a,pick.a)),JSON.stringify(await K.evaluate(()=>G.S.mapClaim)));
+check('and the claim on offer starts with it',await K.evaluate(([a,b,cr])=>{const p=G.MD.blockPlan(G.territory(),b,a).slice(0,cr);return p.length===cr&&p[0]===a;},[pick.a,pick.b,pick.cr]));
+check('the panel offers the claim of that many hexes',(pick.cr===1?/Claim this hex/:new RegExp('Claim '+pick.cr+' of its hexes')).test(await text(K,'#map-panel')),await text(K,'#map-panel'));
+const before=new Set(((await localNation(K))?.claims||[]).map(e=>e.c));
+await K.locator('#map-panel [data-act="lc-block"]').click();
+const got=async()=>((await localNation(K))?.claims||[]).map(e=>e.c).filter(c=>!before.has(c));
+check('claiming takes the hex that was clicked',await until(async()=>(await got()).includes(pick.a),10000),JSON.stringify({pick,claimed:await got()}));
+check('and as many as the credits allow',(await got()).length===pick.cr);
+await K.ctx.close();
 await A.ctx.close();check('no page errors',!errors.length,errors.join(' | '));await finish();

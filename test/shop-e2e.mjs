@@ -209,6 +209,23 @@ check('a preset saved while a member', !!(await until(() => A.evaluate(() => !!(
 await A.evaluate(() => document.getElementById('cz-p-p-guilloche').click());await sleep(500);
 await click(A, '[data-act="pre-load"][data-k="1"]');
 check('loading it puts the saved look back on', (await A.evaluate(() => G.SHOP.cz(G.S.nation).p)) === 'p-firsted');
+/* presets saved on another device since this page read them are kept (a save here once wrote its old copy over them) */
+const presetSlots = () => A.evaluate(async () => { const s = await (await window.claude.use('db')).doc('presets/' + G.S.uid).get(); return Object.keys((s.exists && s.data().p) || {}).sort(); });
+const elsewhere = k => A.evaluate(async k => { const db = await window.claude.use('db'), s = await db.doc('presets/' + G.S.uid).get(), p = { ...s.data().p };
+  p[k] = { n: 'From another device ' + k, cz: {}, fj: '{}', t: Date.now() }; await db.doc('presets/' + G.S.uid).set({ p }); }, k);
+await elsewhere('2');
+check('this page has not seen the other device’s preset', await A.evaluate(() => !G.SHOP.PRE.doc[2]));
+await click(A, '[data-act="pre-save"][data-k="3"]');
+check('saving one keeps the one another device saved', !!(await until(async () => JSON.stringify(await presetSlots()) === '["1","2","3"]', 6000)), JSON.stringify(await presetSlots()));
+await elsewhere('4');
+await click(A, '[data-act="pre-save"][data-k="4"]');
+check('a slot another device filled meanwhile is asked about first, not saved over', !!(await until(() => A.evaluate(() => G.SHOP.PRE.confirm === '4' && /From another device 4/.test(G.SHOP.PRE.doc[4].n)), 6000)));
+await click(A, '[data-act="pre-cancel"]');
+/* presets that could not be read show as not loaded, never as empty slots to save over */
+await A.evaluate(() => { Object.assign(G.SHOP.PRE, { doc: null, uid: '', failAt: Date.now() }); G.render(); });
+check('presets that could not be read cannot be saved over', await A.evaluate(() => !!document.getElementById('pre-wait') && !document.querySelector('[data-act="pre-save"]')));
+await A.evaluate(() => { G.SHOP.PRE.failAt = 0; G.render(); });
+check('and they load again', !!(await until(() => A.evaluate(() => !!document.querySelector('[data-act="pre-load"][data-k="2"]') && !!G.SHOP.PRE.doc && Object.keys(G.SHOP.PRE.doc).length === 4), 8000)));
 /* the Chronicle */
 await A.evaluate(() => { const x = G.S.nation.inbox.find(e => !e.ws && e.id !== 'fd-settle'); G.answer(x.id, 0); });
 await sleep(600);await A.evaluate(() => G.SHOP.chrFlush());

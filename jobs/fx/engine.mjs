@@ -87,18 +87,24 @@ export function npcPopAt(npc, now, ctx) {
    are suspended while the two are at war. Returns id → {partners: Set, volume: units a day both ways}. */
 export function tradeOf(recs, npcIds) {
   const out = new Map(), at = id => { let o = out.get(id); if (!o) out.set(id, o = { partners: new Set(), volume: 0 }); return o; };
-  const seen = new Set(), mirrored = (x, y) => Array.isArray(x.g) && Array.isArray(y.r) && x.g[0] === y.r[0] && x.g[1] === y.r[1] && x.r[0] === y.g[0] && x.r[1] === y.g[1];
+  /* both sides' goods are checked as lists: a partner's malformed acceptance (no g, say) once threw here and stopped
+     the whole region's daily run, every day */
+  const seen = new Set(), mirrored = (x, y) => Array.isArray(x.g) && Array.isArray(x.r) && Array.isArray(y.g) && Array.isArray(y.r)
+    && x.g[0] === y.r[0] && x.g[1] === y.r[1] && x.r[0] === y.g[0] && x.r[1] === y.g[1];
   for (const [id, n] of recs) {
-    for (const x of Array.isArray(n.deals) ? n.deals : []) {
-      if (!isObj(x) || x.a || typeof x.w !== 'string' || x.w === id || !Array.isArray(x.g) || !Array.isArray(x.r) || seen.has(x.id)) continue;
-      const tg = recs.get(x.w);
-      if (tg && num(x.t, 0) < num(tg.founded, 0)) continue;
-      let live = npcIds.has(x.w);
-      if (!live && tg) live = (Array.isArray(tg.deals) ? tg.deals : []).some(y => isObj(y) && y.id === x.id && y.a && y.w === id && mirrored(x, y));
-      if (!live) continue;
-      seen.add(x.id);
-      const vol = clamp(num(x.g[1], 0), 0, 100) + clamp(num(x.r[1], 0), 0, 100);
-      const A = at(id), B = at(x.w); A.partners.add(x.w); B.partners.add(id); A.volume += vol; B.volume += vol;
+    for (const x of Array.isArray(n?.deals) ? n.deals : []) {
+      /* and anything else a record could hold that this does not expect skips that one deal, not the region */
+      try {
+        if (!isObj(x) || x.a || typeof x.w !== 'string' || x.w === id || !Array.isArray(x.g) || !Array.isArray(x.r) || seen.has(x.id)) continue;
+        const tg = recs.get(x.w);
+        if (tg && num(x.t, 0) < num(tg.founded, 0)) continue;
+        let live = npcIds.has(x.w);
+        if (!live && tg) live = (Array.isArray(tg.deals) ? tg.deals : []).some(y => isObj(y) && y.id === x.id && y.a && y.w === id && mirrored(x, y));
+        if (!live) continue;
+        seen.add(x.id);
+        const vol = clamp(num(x.g[1], 0), 0, 100) + clamp(num(x.r[1], 0), 0, 100);
+        const A = at(id), B = at(x.w); A.partners.add(x.w); B.partners.add(id); A.volume += vol; B.volume += vol;
+      } catch { /* left out */ }
     }
   }
   return out;
