@@ -161,6 +161,12 @@ await A.click('.nwe-poll summary'); await A.fill('#nwe-pq', 'Which region next?'
 await A.click('[data-act="nwe-pub"]');
 check('the pinned post with a poll publishes', await until(async () => /is published/.test(await text(A, '.nwe-msg'))));
 const pid2 = await A.evaluate(() => G.NEWS.NWE.id), d2 = (await restGet('devnews/' + pid2)).body.fields || {};
+// a bad address left in the link field: the post list still loads after it (the two once shared one error)
+await A.click('#nwe-body'); await A.keyboard.press('End'); await A.click('.nwe-b[data-nwc="link"]');
+await A.waitForSelector('#nwe-url:visible'); await A.fill('#nwe-url', 'not a link'); await A.click('[data-act="nwe-link-ok"]');
+check('a bad link address is refused, and says why', await until(async () => /A link needs an address/.test(await text(A, '#nwe-lerr'))));
+await A.click('[data-act="nwe-back"]'); if (await A.$('[data-act="nwe-leave-yes"]')) await A.click('[data-act="nwe-leave-yes"]');
+check('the post list loads after it, without the link message', await until(async () => /Patch 1\.1: the poll/.test(await text(A, '.nwe-tbl'))) && !/A link needs an address/.test(await text(A, '.adm')));
 check('the post keeps its kind, pin, poll and patch notes', d2.tg?.stringValue === 'feature' && d2.pn?.booleanValue === true && d2.pl?.mapValue?.fields?.o?.arrayValue?.values?.length === 3 && /<ul data-pn="add">/.test(d2.h?.stringValue || ''), d2.h?.stringValue);
 check('a player elsewhere in the game gets a pop-up for it', await until(async () => /New development news: “Patch 1\.1: the poll”/.test(await text(C, '#toast')), 15000));
 await go(C, 'settings'); await C.click('#sg-tab-notif'); await C.click('[data-act="ntf"][data-f="nwc"][data-v="0"]');
