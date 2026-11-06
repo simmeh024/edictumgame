@@ -60,8 +60,9 @@ check('at the published rate, V(A) ÷ V(B), both ways', Math.abs(got / r - 1) < 
 check('and compares their prestige', (await A.$$('#cu-out .cu-pb')).length === 2 && (await text(A, '#cu-out .cu-why')).length > 10);
 await A.click('[data-act="cu-swap"]'); await sleep(200);
 check('the swap button swaps them', (await A.$eval('#cu-from', s => s.value)) === 'npc-vellmark' && (await A.$eval('#cu-to', s => s.value)) === uidA);
-await A.fill('#cu-amt', '1.234,5'); await sleep(150);
-check('an amount in another format is understood', /1,234\.50|1\.234,50|1 234,50|1’234\.50/.test(await text(A, '#cu-out .cu-res-a')), await text(A, '#cu-out .cu-res-a'));
+/* the result redraws a moment after the typing (once read after a fixed 150 ms, it could still show the amount before) */
+await A.fill('#cu-amt', '1.234,5');
+check('an amount in another format is understood', await until(async () => /1,234\.50|1\.234,50|1 234,50|1’234\.50/.test(await text(A, '#cu-out .cu-res-a')), 5000), await text(A, '#cu-out .cu-res-a'));
 
 /* sorting */
 await A.click('.cu-th[data-k="prestige"]'); await sleep(200);
