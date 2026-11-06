@@ -42,14 +42,14 @@ test('an address is confirmed by its code, welcomed once, and every letter can b
   await assert.rejects(call(u, { step: 'prefs', p: { news: false } }), /Confirm your address/);
   await call(u, { step: 'verify', code });
   const st = await call(u, { step: 'status' });
-  assert.equal(st.ok, true); assert.equal(st.email, to); assert.deepEqual(st.p, { msg: true, war: true, dip: true, news: true, away: true });
+  assert.equal(st.ok, true); assert.equal(st.email, to); assert.deepEqual(st.p, { msg: true, now: false, war: true, dip: true, news: true, away: true });   // each letter right away: only when chosen
   const letters = await outbox(to); assert.equal(letters.length, 2); assert.match(letters[1].subject, /Welcome to the rolls, Herald Test Republic/);
   assert.equal((await call(u, { step: 'prefs', p: { news: false, bogus: true } })).p.news, false);
   const tok = (await get('mailAccounts/' + u.uid)).fields.tok.stringValue;
   assert.match(letters[1].html, new RegExp('/mail\\?t=' + tok));
   await assert.rejects(call(null, { step: 'unsub', t: 'nonsense-key-123' }), /no longer valid/);
   await call(null, { step: 'unsub', t: tok });
-  assert.deepEqual((await call(u, { step: 'status' })).p, { msg: false, war: false, dip: false, news: false, away: false });
+  assert.deepEqual((await call(u, { step: 'status' })).p, { msg: false, now: false, war: false, dip: false, news: false, away: false });
   await call(u, { step: 'remove' });
   assert.equal((await call(u, { step: 'status' })).email, '');
   assert.equal(await get('mailTokens/' + tok), null);

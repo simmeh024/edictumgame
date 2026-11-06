@@ -618,25 +618,44 @@ test('the own half is written with the nation and read only by its player and th
   await assertFails(as('alice').doc('cbPace/alice').set({ p: [], q: [] }));
 });
 
+/* a letter as src/shim.js writes it: the letter, today's count (llimits) and, outside a group, the pair's count */
+const DAY_MS = 864e5, today = () => Math.floor(Date.now() / DAY_MS), EXP = () => firebase.firestore.Timestamp.fromMillis(Date.now() + 365 * DAY_MS);
+async function lettersBefore(by) {
+  let n = 0, u = {};
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore(), l = await db.doc('llimits/' + by).get();
+    n = l.exists && l.get('d') === today() ? l.get('n') || 0 : 0;
+    const ps = await db.collection('lpair').where('by', '==', by).get();
+    ps.docs.forEach(d => { u[d.get('to')] = d.get('u'); });
+  });
+  return { n, u };
+}
+async function letterBatch(by, list, { pace = true, pair = true, count = null, uplus = 1, extra = {} } = {}) {
+  const k = await lettersBefore(by), db = as(by), b = db.batch();
+  for (const m of list) b.set(db.doc('letters/' + (m.id || by + '~' + m.to + '~' + m.t)), { by, to: m.to, x: m.x, t: m.t, ts: NOW(), exp: EXP(), ...(m.extra || {}), ...extra });
+  if (pace) b.set(db.doc('llimits/' + by), { l: NOW(), d: today(), n: count ?? k.n + list.length });
+  if (pair && list.length === 1) b.set(db.doc('lpair/' + by + '~' + list[0].to), { by, to: list[0].to, u: (k.u[list[0].to] || 0) + uplus, l: NOW() });
+  return b.commit();
+}
+const letter = (by, to, x, tt, o = {}) => letterBatch(by, [{ to, x, t: tt, id: o.id, extra: o.extra }], o);
+const unpace = by => env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('llimits/' + by).set({ l: AGO(4000) }, { merge: true }));
+
 test('a letter is read only by its writer and its reader, paced, and named by writer, reader and time', async () => {
   await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('nations/alice').set(nation('Aliceland')); });
   const t = Date.now(), at = tt => 'letters/alice~bob~' + tt;
-  const letter = (by, to, x, tt, { extra = {}, id = by + '~' + to + '~' + tt, pace = true } = {}) => {
-    const db = as(by), b = db.batch();
-    b.set(db.doc('letters/' + id), { by, to, x, t: tt, ts: NOW(), ...extra });
-    if (pace) b.set(db.doc('llimits/' + by), { l: NOW() });
-    return b.commit();
-  };
   await assertSucceeds(letter('alice', 'bob', 'Dear Bob', t));
   await assertFails(letter('alice', 'bob', 'Again at once', t + 1));                                        // paced
-  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('llimits/alice').set({ l: AGO(4000) }));
+  await unpace('alice');
   await assertFails(letter('alice', 'bob', 'Unpaced', t + 2, { pace: false }));                             // llimits/ must come along
+  await assertFails(letter('alice', 'bob', 'Uncounted', t + 2, { pair: false }));                           // and, outside a group, lpair/
   await assertFails(letter('alice', 'bob', 'Wrong name', t + 3, { id: 'alice~bob~1' }));
   await assertFails(letter('alice', 'nobody', 'To no nation', t + 4));
   await assertFails(letter('dave', 'bob', 'From no nation', t + 5));
   await assertFails(letter('alice', 'bob', 'x'.repeat(501), t + 6));
   await assertFails(letter('alice', 'bob', 'Far ahead', t + 2 * 864e5));
   await assertFails(letter('alice', 'bob', 'Forged', t + 7, { extra: { by: 'bob' }, id: 'bob~bob~' + (t + 7) }));
+  await assertFails(letter('alice', 'bob', 'Kept for ever', t + 7, { extra: { exp: firebase.firestore.Timestamp.fromMillis(Date.now() + 5000 * DAY_MS) } }));
+  await assertFails(letter('alice', 'bob', 'A stray field', t + 7, { extra: { z: 1 } }));
   await assertSucceeds(letter('alice', 'bob', 'Dear Bob, again', t + 8));
   await assertSucceeds(as('bob').collection('letters').where('to', '==', 'bob').orderBy('t', 'desc').get());
   await assertSucceeds(as('alice').doc(at(t)).get());
@@ -648,6 +667,103 @@ test('a letter is read only by its writer and its reader, paced, and named by wr
   await assertSucceeds(as('bob').doc(at(t)).delete());
   await assertSucceeds(as('alice').doc(at(t + 8)).delete());
   await assertFails(as('alice').doc('llimits/alice').delete());                                              // the pace cannot be reset
+  await assertFails(as('alice').doc('lpair/alice~bob').delete());                                            // nor the count of unanswered letters
+  await assertSucceeds(as('alice').doc('llimits/alice').get());                                              // a player reads their own count
+  await assertFails(as('bob').doc('llimits/alice').get());
+});
+
+test('a letter may be a formal note, answer a letter, carry an attachment, or go to a group', async () => {
+  await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('nations/alice').set(nation('Aliceland')); await ctx.firestore().doc('nations/dan').set(nation('Danmark')); });
+  const t = Date.now(), ok = async (x, extra, o) => { await unpace('alice'); return letter('alice', 'bob', x, t + Math.floor(Math.random() * 1e6), { extra, ...o }); };
+  await assertSucceeds(ok('A note', { k: 'protest' }));
+  await assertFails(ok('No such note', { k: 'insult' }));
+  await assertSucceeds(ok('An answer', { r: { t: t - 5, x: 'Your letter' } }));
+  await assertFails(ok('A long answer', { r: { t: t - 5, x: 'y'.repeat(161) } }));
+  await assertSucceeds(ok('A trade offer', { a: { k: 'deal', id: 'd1' } }));
+  await assertSucceeds(ok('A city', { a: { k: 'city', c: 1234, nm: 'Port Alder' } }));
+  await assertFails(ok('No such thing', { a: { k: 'bomb' } }));
+  await assertFails(ok('A loose key', { a: { k: 'city', html: '<b>' } }));
+  // a group letter: one document for each member, counted by the day only, four to a batch
+  const g = { id: 'gr:abc-3', m: ['alice', 'bob', 'dan'], nm: 'The Three' };
+  await unpace('alice');
+  await assertSucceeds(letterBatch('alice', [{ to: 'bob', x: 'To all', t: t + 1 }, { to: 'dan', x: 'To all', t: t + 1 }], { pair: false, extra: { g } }));
+  await unpace('alice');
+  await assertFails(letterBatch('alice', [{ to: 'carol', x: 'Not a member', t: t + 2 }], { pair: false, extra: { g } }));
+  await assertFails(letterBatch('alice', [{ to: 'bob', x: 'Not one of them', t: t + 3 }], { pair: false, extra: { g: { id: 'gr:x', m: ['bob', 'dan'] } } }));
+  await assertFails(letterBatch('alice', [1, 2, 3, 4, 5].map(i => ({ to: 'bob', x: 'Five', t: t + 10 + i })), { pair: false, extra: { g } }));   // more than four a batch
+});
+
+test('ten letters in a row wait for an answer, and 150 a day is the most', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('nations/alice').set(nation('Aliceland'));
+    await db.doc('lpair/alice~bob').set({ by: 'alice', to: 'bob', u: 9, l: AGO(60000) });
+  });
+  const t = Date.now();
+  await assertSucceeds(letter('alice', 'bob', 'The tenth', t));
+  await unpace('alice');
+  await assertFails(letter('alice', 'bob', 'The eleventh', t + 1));
+  await assertFails(letter('alice', 'bob', 'Counted wrong', t + 1, { uplus: 0 }));
+  await assertFails(letter('alice', 'bob', 'Counted down', t + 1, { uplus: -9 }));
+  // bob answers, and sets alice's count back to nought in the same batch
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('lpair/bob~alice').set({ by: 'bob', to: 'alice', u: 1, l: AGO(60000) }));
+  await assertFails(as('alice').doc('lpair/bob~alice').update({ u: 5 }));                                   // only back to nought
+  await assertFails(as('carol').doc('lpair/alice~bob').update({ u: 0 }));                                   // and only by its reader
+  {
+    const k = await lettersBefore('bob'), db = as('bob'), b = db.batch();
+    b.set(db.doc('letters/bob~alice~' + t), { by: 'bob', to: 'alice', x: 'At last', t, ts: NOW(), exp: EXP() });
+    b.set(db.doc('llimits/bob'), { l: NOW(), d: today(), n: k.n + 1 });
+    b.set(db.doc('lpair/bob~alice'), { by: 'bob', to: 'alice', u: 2, l: NOW() });
+    b.update(db.doc('lpair/alice~bob'), { u: 0 });
+    await assertSucceeds(b.commit());
+  }
+  await unpace('alice');
+  await assertSucceeds(letter('alice', 'bob', 'Thank you', t + 2));
+  await assertSucceeds(as('alice').doc('lpair/alice~bob').get());
+  await assertFails(as('carol').doc('lpair/alice~bob').get());
+  // the day's count: at most 150, never counted down, a new day starts again
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('llimits/alice').set({ l: AGO(4000), d: today(), n: 150 }));
+  await assertFails(letter('alice', 'bob', 'One too many', t + 3));
+  await assertFails(letter('alice', 'bob', 'Counted back', t + 3, { count: 1 }));
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('llimits/alice').set({ l: AGO(4000), d: today() - 1, n: 150 }));
+  await assertSucceeds(letter('alice', 'bob', 'A new day', t + 4));
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('llimits/alice').set({ l: AGO(4000) }));       // a record from before the count
+  await assertSucceeds(letter('alice', 'bob', 'From an older record', t + 5));
+});
+
+test('a blocked nation writes no letters and sends no pings; read receipts are their reader’s', async () => {
+  await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('nations/alice').set(nation('Aliceland')); });
+  const t = Date.now();
+  await assertSucceeds(as('bob').doc('lblock/bob~alice').set({ b: 'bob', x: 'alice', t: NOW() }));
+  await assertFails(as('alice').doc('lblock/bob~alice').delete());                                          // only the blocker lifts it
+  await assertFails(as('alice').doc('lblock/alice~bob').set({ b: 'bob', x: 'alice', t: NOW() }));           // nor writes one in another's name
+  await assertSucceeds(as('alice').doc('lblock/bob~alice').get());                                          // the blocked may see why
+  await assertSucceeds(as('alice').doc('lblock/carol~alice').get());                                        // (and that there is none)
+  await assertFails(as('carol').doc('lblock/bob~alice').get());
+  await assertFails(letter('alice', 'bob', 'Let me in', t));
+  await assertFails(as('alice').doc('mailQ/alice~bob~msg').set({ to: 'bob', by: 'alice', k: 'msg', nm: 'Aliceland', t: NOW() }));
+  await assertSucceeds(as('bob').doc('lblock/bob~alice').delete());
+  await assertSucceeds(letter('alice', 'bob', 'Thank you for unblocking', t + 1));
+  // read receipts
+  await assertSucceeds(as('bob').doc('lseen/bob~alice').set({ r: 'bob', w: 'alice', t }));
+  await assertFails(as('alice').doc('lseen/bob~alice').set({ r: 'bob', w: 'alice', t }));
+  await assertFails(as('bob').doc('lseen/bob~alice').set({ r: 'bob', w: 'alice', t: Date.now() + 864e5 }));
+  await assertSucceeds(as('alice').collection('lseen').where('w', '==', 'alice').get());
+  await assertFails(as('carol').doc('lseen/bob~alice').get());
+  await assertFails(as('alice').doc('lseen/bob~alice').delete());
+  await assertSucceeds(as('bob').doc('lseen/bob~alice').delete());
+  // the server's own records
+  await assertFails(as('bob').doc('pushSubs/bob').get());
+  await assertFails(as('bob').doc('pushSubs/bob').set({ s: [] }));
+  await assertFails(as('bob').doc('lnote/alice~bob').get());
+});
+
+test('a letter can be reported, with its words', async () => {
+  await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('nations/alice').set(nation('Aliceland')); });
+  const db = as('alice'), b = db.batch();
+  b.set(db.collection('reports').doc(), { by: 'alice', kind: 'letter', target: 'bob', post: 'bob~alice~' + Date.now(), reg: 'meridian', reason: 'harassment', t: NOW(), name: 'Bobland', x: 'A rude letter' });
+  b.set(db.doc('rlimits/alice'), { r: NOW() });
+  await assertSucceeds(b.commit());
 });
 
 test('the referee’s records: anyone reads its public key, a player their own army, and nobody writes them', async () => {
