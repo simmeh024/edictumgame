@@ -17,8 +17,10 @@
                             is rewritten only when it changed. Loading nations/<uid> returns both, joined.
      nationp/<uid>          {j:<JSON>, t, ts}: the own half (OWN_KEYS: the player's letters), which nobody else
                             reads; with the others when the player loads their own nation.
-     letters/<by>~<to>~<t>  {by, to, x, t, ts}: a letter from one player to another, which only those two read;
-                            llimits/<uid> {l} paces them. The writer keeps their own copy in nationp.
+     letters/<by>~<to>~<t>  {by, to, x, t, ts, exp, k?, r?, a?, g?}: a letter from one player to another, which only
+                            those two read; llimits/<uid> {l, d, n} paces and counts them, lpair/<by>~<to> {u} counts
+                            those not yet answered, lblock/<b>~<x> refuses them and lseen/<r>~<w> {t} is a read
+                            receipt. The writer keeps their own copy in nationp.
      summaries/<uid>        {reg, name, pop, t, e?, f?}: the headline for the World page and region counts (f, the
                             founding time, for the admin portal's Live feed); e, with
                             a holiday after the save, is the time the nation counts as active until.
@@ -178,7 +180,9 @@
     'mdt', 'pso', 'rpl', 'brf', 'aph', 'ldr'].forEach(function (k) { NX_KEYS[k] = 1; });
   /* The own half: what nobody but the player may read, not even on opening the nation's pages: the letters (dm),
      which reach the nations they are written to as letters/ documents (lettersApi) */
-  var OWN_KEYS = { dm: 1 };
+  /* … and what only the player needs to know about them: which conversations they have read (seenDm) and their
+     letter settings (dmx: blocks, mutes, pins, archives, offices, read receipts) */
+  var OWN_KEYS = { dm: 1, seenDm: 1, dmx: 1 };
   /* the menu as its player arranged it (Settings › Navigation, n.nav) is for the private half too */
   NX_KEYS.nav = 1;
   function splitNation(d) {
@@ -676,30 +680,188 @@
      has the server file recruits/<own uid> {r: that player's uid} once, as a Registered Nation; the recruiter lists
      the ones naming them. claim(by) → 'ok' (filed now), 'done' (filed before), 'guest' (link an account first),
      'retry' (the first save may still be on its way), 'no' (it does not count) or 'bad' */
-  /* letters between players (firestore.rules, letters): send(to, x, t) delivers the player's letter, written at t
-     (the time in their own copy, nationp), as letters/<uid>~<to>~<t> → 'ok' (delivered, now or before), 'later'
-     (paced, offline: try again) or 'no' (it cannot be delivered); listen(next) hears the letters written to this
-     player, newest first, as [{by, x, t}], and returns the function that stops listening */
+  /* letters between players (firestore.rules, letters). A letter is {to, x, t, k?, r?, a?, g?}: t is the time in the
+     writer's own copy (nationp), which the document's id repeats (letters/<uid>~<to>~<t>), so a letter sent again is
+     the same document. Each batch also counts the day's letters (llimits {l, d, n}) and, outside group letters, those
+     to that nation not yet answered (lpair/<uid>~<to> {u}); a letter to a nation whose own count to us stands above
+     nought sets it back (lpair/<to>~<uid>). What the shim knows of those counts is kept for a short while (LQ) and
+     read again when a batch is refused, which is then tried once more.
+     send(letter) → 'ok' (delivered, now or before), 'later' (paced or offline: try again), 'no' (no such nation),
+       'blocked' (that nation accepts no letters from us), 'cap' (ten unanswered) or 'day' (150 today)
+     sendGroup([letter, …]) → the same answer for each: a group letter goes to up to four members a batch
+     listen(next, error, since) hears the letters written to this player, newest first, as [{id, by, to, x, t, ts, k?,
+       r?, a?, g?}]: all of the last 200, or (since, the server time of the newest the game holds) only those after it
+     older(peer, before, n) → the letters both ways with that player written before `before`, newest first
+     seen(next) hears the read receipts of the players this one writes to: {uid: time read up to}
+     markSeen(w, t) tells w we have read their letters up to t; unseen() takes back every receipt we gave
+     block(x, on) → 'ok' or 'no'; blocks() → the uids this player blocks
+     remove(ids) deletes letters (written by or to this player)
+     notify(ids) asks the server to tell the readers of letters just delivered (functions/letters.js: a push
+       notification, or a letter by post), and push(step, data) sets up this device's notifications */
+  var DAY_MS = 86400000, LETTERS_DAY = 150, LETTER_KEEP = 365 * DAY_MS;
+  var LQ = { at: 0, d: -1, n: 0, out: {}, inn: {}, blk: {} };
+  function lqFresh() { if (Date.now() - LQ.at > 30000) { LQ.at = Date.now(); LQ.out = {}; LQ.inn = {}; } }
+  function lqDay() { return Math.floor(Date.now() / DAY_MS); }
+  function letterDoc(uid, m) {
+    var d = { by: uid, to: m.to, x: String(m.x).slice(0, 500), t: m.t, ts: serverTime(), exp: A.fb.firestore.Timestamp.fromMillis(Date.now() + LETTER_KEEP) };
+    if (typeof m.k === 'string' && /^(congrats|protest|condol|friend|ultim|treaty)$/.test(m.k)) d.k = m.k;
+    if (isObj(m.r) && Number.isSafeInteger(m.r.t)) d.r = { t: m.r.t, x: str(m.r.x, 160) };
+    if (isObj(m.a) && /^(deal|peace|ally|city|ach)$/.test(m.a.k)) {
+      var a = { k: m.a.k };
+      if (typeof m.a.id === 'string' && m.a.id) a.id = m.a.id.slice(0, 128);
+      if (Number.isSafeInteger(m.a.c)) a.c = m.a.c;
+      if (typeof m.a.nm === 'string' && m.a.nm) a.nm = m.a.nm.slice(0, 80);
+      d.a = a;
+    }
+    if (isObj(m.g) && typeof m.g.id === 'string' && Array.isArray(m.g.m)) {
+      d.g = { id: m.g.id.slice(0, 80), m: m.g.m.filter(function (x) { return typeof x === 'string' && /^[\w-]{1,128}$/.test(x); }).slice(0, 13) };
+      if (typeof m.g.nm === 'string' && m.g.nm) d.g.nm = m.g.nm.slice(0, 60);
+    }
+    return d;
+  }
+  function letterOf(d) {
+    var v = d.data({ serverTimestamps: 'estimate' }) || {}, o = { id: d.id, by: str(v.by, 128), to: str(v.to, 128), x: str(v.x, 500), t: num(v.t), ts: millis(v.ts) || num(v.t) };
+    if (typeof v.k === 'string') o.k = v.k.slice(0, 12);
+    if (isObj(v.r) && Number.isSafeInteger(v.r.t)) o.r = { t: v.r.t, x: str(v.r.x, 160) };
+    if (isObj(v.a) && typeof v.a.k === 'string') { o.a = { k: v.a.k.slice(0, 12) }; if (typeof v.a.id === 'string') o.a.id = v.a.id.slice(0, 128); if (Number.isSafeInteger(v.a.c)) o.a.c = v.a.c; if (typeof v.a.nm === 'string') o.a.nm = v.a.nm.slice(0, 80); }
+    if (isObj(v.g) && typeof v.g.id === 'string' && Array.isArray(v.g.m)) { o.g = { id: v.g.id.slice(0, 80), m: v.g.m.filter(function (x) { return typeof x === 'string'; }).slice(0, 13) }; if (typeof v.g.nm === 'string') o.g.nm = v.g.nm.slice(0, 60); }
+    return o;
+  }
+  /* what the rules will check: today's count, and the two counts of each pair (read when not known) */
+  async function lqLoad(uid, tos, pairs) {
+    lqFresh();
+    var jobs = [];
+    if (LQ.d < 0) jobs.push(A.fs.doc('llimits/' + uid).get().then(function (s) { var v = s.exists ? s.data() : {}; LQ.d = Number.isInteger(v.d) ? v.d : -1; LQ.n = Number.isInteger(v.n) ? v.n : 0; if (LQ.d < 0) LQ.d = -2; }));
+    tos.forEach(function (to) {
+      /* a block is read again whenever it is known, so a lifted one is never trusted from memory */
+      if (!(to in LQ.blk) || LQ.blk[to]) jobs.push(A.fs.doc('lblock/' + to + '~' + uid).get().then(function (s) { LQ.blk[to] = s.exists; }, function () { LQ.blk[to] = false; }));
+      if (!pairs) return;
+      if (!(to in LQ.out)) jobs.push(A.fs.doc('lpair/' + uid + '~' + to).get().then(function (s) { LQ.out[to] = s.exists ? num(s.get('u')) : 0; }));
+      if (!(to in LQ.inn)) jobs.push(A.fs.doc('lpair/' + to + '~' + uid).get().then(function (s) { LQ.inn[to] = s.exists ? num(s.get('u')) : 0; }));
+    });
+    await within(Promise.all(jobs), 15000);
+  }
+  function lqForget() { LQ.at = 0; LQ.d = -1; LQ.out = {}; LQ.inn = {}; LQ.blk = {}; }
+  async function sendBatch(list, group) {
+    var u = A.auth && A.auth.currentUser;
+    if (!u || A.frozen || observing()) return list.map(function () { return 'later'; });
+    var ok = list.filter(function (m) { return isObj(m) && typeof m.to === 'string' && /^[\w-]{1,128}$/.test(m.to) && m.to !== u.uid && typeof m.x === 'string' && m.x.trim() && Number.isSafeInteger(m.t); });
+    if (ok.length !== list.length || !ok.length || ok.length > 4 || (!group && ok.length > 1)) return list.map(function () { return 'no'; });
+    var tos = ok.map(function (m) { return m.to; }), attempt = async function () {
+      await lqLoad(u.uid, tos, !group);
+      var out = [], b = A.fs.batch(), day = lqDay(), go = ok.filter(function (m) { if (LQ.blk[m.to]) { out.push('blocked'); return false; } out.push(null); return true; });
+      if (!group && LQ.out[tos[0]] >= 10) return ['cap'];
+      var n = (LQ.d === day ? LQ.n : 0) + go.length;
+      if (n > LETTERS_DAY) return list.map(function () { return 'day'; });
+      if (!go.length) return out;
+      go.forEach(function (m) { b.set(A.fs.doc('letters/' + u.uid + '~' + m.to + '~' + m.t), letterDoc(u.uid, m)); });
+      b.set(A.fs.doc('llimits/' + u.uid), { l: serverTime(), d: day, n: n });
+      if (!group) {
+        var to = tos[0];
+        b.set(A.fs.doc('lpair/' + u.uid + '~' + to), { by: u.uid, to: to, u: LQ.out[to] + 1, l: serverTime() });
+        if (LQ.inn[to] > 0) b.update(A.fs.doc('lpair/' + to + '~' + u.uid), { u: 0 });
+      }
+      await within(b.commit(), 20000);
+      LQ.d = day; LQ.n = n; if (!group) { LQ.out[tos[0]] += 1; LQ.inn[tos[0]] = 0; }
+      return out.map(function (r) { return r || 'ok'; });
+    };
+    try { return await attempt(); } catch (e) {
+      if (!e || e.code !== 'permission-denied') return list.map(function () { return 'later'; });
+    }
+    /* refused: what we knew may be stale (another device wrote), so read it all again and try once more */
+    lqForget();
+    try { return await attempt(); } catch (e) {
+      if (!e || e.code !== 'permission-denied') return list.map(function () { return 'later'; });
+    }
+    /* still refused: delivered before (a retry), blocked, too many, or no such nation; or only paced */
+    return Promise.all(ok.map(function (m) {
+      return A.fs.doc('letters/' + u.uid + '~' + m.to + '~' + m.t).get().then(function (d) {
+        if (d.exists) return 'ok';
+        if (LQ.blk[m.to]) return 'blocked';
+        if (!group && LQ.out[m.to] >= 10) return 'cap';
+        if (LQ.d === lqDay() && LQ.n + ok.length > LETTERS_DAY) return 'day';
+        return A.fs.doc('nations/' + m.to).get().then(function (n) { return n.exists ? 'later' : 'no'; });
+      }).catch(function () { return 'later'; });
+    }));
+  }
   var lettersApi = Object.freeze({
-    send: function (to, x, t) {
-      var u = A.auth && A.auth.currentUser;
-      if (!u || A.frozen || observing()) return Promise.resolve('later');
-      if (typeof to !== 'string' || !/^[\w-]{1,128}$/.test(to) || to === u.uid || typeof x !== 'string' || !x.trim() || !Number.isSafeInteger(t)) return Promise.resolve('no');
-      var ref = A.fs.doc('letters/' + u.uid + '~' + to + '~' + t), b = A.fs.batch();
-      b.set(ref, { by: u.uid, to: to, x: x.slice(0, 500), t: t, ts: serverTime() });
-      b.set(A.fs.doc('llimits/' + u.uid), { l: serverTime() });
-      return b.commit().then(function () { return 'ok'; }, function (e) {
-        if (!e || e.code !== 'permission-denied') return 'later';
-        /* refused: delivered before (a retry), paced, or not deliverable (no such nation) */
-        return ref.get().then(function (d) { return d.exists ? 'ok' : A.fs.doc('nations/' + to).get().then(function (n) { return n.exists ? 'later' : 'no'; }); }).catch(function () { return 'later'; });
-      });
-    },
-    listen: function (next, error) {
+    send: function (m) { return sendBatch([m], false).then(function (r) { return r[0]; }); },
+    sendGroup: function (list) { return Array.isArray(list) ? sendBatch(list, true) : Promise.resolve([]); },
+    listen: function (next, error, since) {
       var u = A.auth && A.auth.currentUser;
       if (!u || observing()) return null;
-      return A.fs.collection('letters').where('to', '==', u.uid).orderBy('t', 'desc').limit(200).onSnapshot(function (qs) {
-        next(qs.docs.map(function (d) { var v = d.data(); return { by: str(v.by, 128), x: str(v.x, 500), t: num(v.t) }; }).filter(function (l) { return l.by && l.x && l.t > 0; }));
-      }, function (e) { if (typeof error === 'function') error(mapError(e)); });
+      /* only the letters newer than those the game holds; while that query's index is still being built (just after a
+         deploy) the last 200 instead */
+      var unsub = null, stopped = false;
+      function start(since) {
+        var q = A.fs.collection('letters').where('to', '==', u.uid);
+        q = since > 0 ? q.where('ts', '>', A.fb.firestore.Timestamp.fromMillis(since)).orderBy('ts', 'desc').limit(200) : q.orderBy('t', 'desc').limit(200);
+        unsub = q.onSnapshot(function (qs) {
+          var list = qs.docs.map(letterOf).filter(function (l) { return l.by && l.x && l.t > 0; });
+          list.forEach(function (l) { delete LQ.inn[l.by]; delete LQ.out[l.by]; });
+          next(list);
+        }, function (e) {
+          if (since > 0 && e && e.code === 'failed-precondition' && !stopped) { start(0); return; }
+          if (typeof error === 'function') error(mapError(e));
+        });
+      }
+      start(num(since));
+      return function () { stopped = true; if (unsub) unsub(); };
+    },
+    older: function (peer, before, n) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || observing() || typeof peer !== 'string' || !/^[\w-]{1,128}$/.test(peer)) return Promise.resolve([]);
+      var lim = Math.max(1, Math.min(50, num(n) || 30)), c = A.fs.collection('letters'), t = num(before) || Date.now() + DAY_MS;
+      return within(Promise.all([c.where('by', '==', u.uid).where('to', '==', peer).where('t', '<', t).orderBy('t', 'desc').limit(lim).get(),
+        c.where('by', '==', peer).where('to', '==', u.uid).where('t', '<', t).orderBy('t', 'desc').limit(lim).get()]), 15000).then(function (r) {
+        return r[0].docs.concat(r[1].docs).map(letterOf).filter(function (l) { return l.x && l.t > 0; }).sort(function (a, b) { return b.t - a.t; });
+      }, function (e) { throw mapError(e); });
+    },
+    seen: function (next) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || observing()) return null;
+      return A.fs.collection('lseen').where('w', '==', u.uid).limit(300).onSnapshot(function (qs) {
+        var o = {}; qs.docs.forEach(function (d) { var r = str(d.get('r'), 128), t = num(d.get('t')); if (r && t > 0) o[r] = t; }); next(o);
+      }, function () {});
+    },
+    markSeen: function (w, t) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || typeof w !== 'string' || !/^[\w-]{1,128}$/.test(w) || w === u.uid || !Number.isSafeInteger(t)) return Promise.resolve(false);
+      return A.fs.doc('lseen/' + u.uid + '~' + w).set({ r: u.uid, w: w, t: Math.min(t, Date.now()) }).then(function () { return true; }, function () { return false; });
+    },
+    unseen: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || observing()) return Promise.resolve(false);
+      return A.fs.collection('lseen').where('r', '==', u.uid).get().then(function (qs) {
+        var b = A.fs.batch(); qs.docs.forEach(function (d) { b.delete(d.ref); }); return qs.docs.length ? b.commit() : null;
+      }).then(function () { return true; }, function () { return false; });
+    },
+    block: function (x, on) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || typeof x !== 'string' || !/^[\w-]{1,128}$/.test(x) || x === u.uid) return Promise.resolve('no');
+      var ref = A.fs.doc('lblock/' + u.uid + '~' + x);
+      return (on ? ref.set({ b: u.uid, x: x, t: serverTime() }) : ref.delete()).then(function () { return 'ok'; }, function () { return 'no'; });
+    },
+    blocks: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || observing()) return Promise.resolve(null);
+      return A.fs.collection('lblock').where('b', '==', u.uid).limit(500).get().then(function (qs) { return qs.docs.map(function (d) { return str(d.get('x'), 128); }).filter(Boolean); }, function () { return null; });
+    },
+    remove: function (ids) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || !Array.isArray(ids)) return Promise.resolve(false);
+      var ok = ids.filter(function (id) { return typeof id === 'string' && /^[\w-]{1,128}~[\w-]{1,128}~\d{1,16}$/.test(id) && id.split('~').slice(0, 2).indexOf(u.uid) >= 0; }).slice(0, 400);
+      if (!ok.length) return Promise.resolve(true);
+      var b = A.fs.batch(); ok.forEach(function (id) { b.delete(A.fs.doc('letters/' + id)); });
+      return b.commit().then(function () { return true; }, function () { return false; });
+    },
+    notify: function (ids) {
+      if (A.frozen || observing() || !Array.isArray(ids) || !ids.length) return Promise.resolve(false);
+      return call('accounts', { op: 'letters', step: 'notify', ids: ids.filter(function (x) { return typeof x === 'string'; }).slice(0, 13) }).then(function () { return true; }, function () { return false; });
+    },
+    push: function (step, data) {
+      if (A.frozen || observing() || ['key', 'add', 'remove', 'status'].indexOf(step) < 0) return Promise.reject(new Error('no'));
+      return call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'letters', step: step }));
     }
   });
   var recruitApi = Object.freeze({
@@ -1340,14 +1502,14 @@
         '<label class="ed-lbl2" for="ed-email">Email address</label><input class="input" id="ed-email" type="email" maxlength="200" autocomplete="email" spellcheck="false" data-enter="email-finish" data-autofocus>' +
         row('<button type="button" class="btn" data-ed="email-finish">Sign in</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
     } else if (ui.view === 'report' && ui.report) {
-      var r = ui.report, post = r.kind === 'post', reasons = REASONS.filter(function (x) { return post ? x[0] !== 'name' && x[0] !== 'cheating' : true; });
-      h = '<p class="eyebrow">Report</p><h2 class="ed-h" id="ed-dlg-h">' + (post ? 'Report this post?' : 'Report ' + quoted(r.name) + '?') + '</h2>' +
+      var r = ui.report, post = r.kind === 'post' || r.kind === 'letter', reasons = REASONS.filter(function (x) { return post ? x[0] !== 'name' && x[0] !== 'cheating' : true; });
+      h = '<p class="eyebrow">Report</p><h2 class="ed-h" id="ed-dlg-h">' + (r.kind === 'letter' ? 'Report this letter?' : post ? 'Report this post?' : 'Report ' + quoted(r.name) + '?') + '</h2>' +
         (post ? '<blockquote class="ed-quote">' + esc(str(r.x, 400)) + '</blockquote>' : '') +
         '<fieldset class="ed-reasons"><legend>What is wrong?</legend>' + reasons.map(function (x, i) {
-          return '<label><input type="radio" name="ed-reason" value="' + x[0] + '"' + (i ? '' : ' checked data-autofocus') + '> ' + esc(post && x[0] === 'content' ? 'An offensive post' : x[1]) + '</label>';
+          return '<label><input type="radio" name="ed-reason" value="' + x[0] + '"' + (i ? '' : ' checked data-autofocus') + '> ' + esc(post && x[0] === 'content' ? (r.kind === 'letter' ? 'An offensive letter' : 'An offensive post') : x[1]) + '</label>';
         }).join('') + '</fieldset>' +
         '<label class="ed-lbl2" for="ed-note">Anything else the moderators should know? (optional)</label><textarea class="input" id="ed-note" rows="3" maxlength="300"></textarea>' +
-        '<p class="ed-fine">Reports go to the game\'s moderators, not to the player. You can send one every 30 seconds.</p>' +
+        '<p class="ed-fine">Reports go to the game\'s moderators, not to the player' + (r.kind === 'letter' ? ', with the letter, so they can read it' : '') + '. You can send one every 30 seconds.</p>' +
         row('<button type="button" class="btn" data-ed="report-yes">Send report</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
     } else if (ui.view === 'support' && ui.support) {
       h = '<p class="eyebrow">Support</p><h2 class="ed-h" id="ed-dlg-h">Create a support ticket</h2>' +
@@ -1531,8 +1693,8 @@
     var r = ui.report, u = A.auth && A.auth.currentUser;
     if (!r || !u || ui.busy) return;
     var pick = ui.dlg.querySelector('input[name="ed-reason"]:checked'), note = ui.dlg.querySelector('#ed-note');
-    var doc = { by: u.uid, kind: r.kind === 'post' ? 'post' : 'nation', target: str(r.target, 128), reg: str(r.reg, 40), reason: pick ? pick.value : 'other', t: serverTime() };
-    if (r.kind === 'post' && r.post) doc.post = str(r.post, 64);
+    var doc = { by: u.uid, kind: r.kind === 'post' || r.kind === 'letter' ? r.kind : 'nation', target: str(r.target, 128), reg: str(r.reg, 40), reason: pick ? pick.value : 'other', t: serverTime() };
+    if ((r.kind === 'post' || r.kind === 'letter') && r.post) doc.post = str(r.post, r.kind === 'letter' ? 200 : 64);
     if (note && note.value.trim()) doc.note = note.value.trim().slice(0, 300);
     if (r.name) doc.name = str(r.name, 160);
     if (r.x) doc.x = str(r.x, 600);
@@ -1606,7 +1768,8 @@
       }
       /* letters written by the player and to them */
       var sent = await within(A.fs.collection('letters').where('by', '==', u.uid).get(), 15000), got = await within(A.fs.collection('letters').where('to', '==', u.uid).get(), 15000);
-      var letters = sent.docs.concat(got.docs);
+      var mine = await within(Promise.all([A.fs.collection('lblock').where('b', '==', u.uid).get(), A.fs.collection('lseen').where('r', '==', u.uid).get()]), 15000);
+      var letters = sent.docs.concat(got.docs, mine[0].docs, mine[1].docs);
       for (var q = 0; q < letters.length; q += 400) {
         var bl = A.fs.batch(); letters.slice(q, q + 400).forEach(function (d) { bl.delete(d.ref); }); await bl.commit();
       }

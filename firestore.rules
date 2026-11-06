@@ -7,8 +7,9 @@ rules_version = '2';
 //   stamps/{reg}/{key}/{uid} {t}: the server's time a save first carried a claim (c<cell>) or a find (s<site>)
 //   nationx/{uid}            its private half, {j, t, ts}: what the region need not download at every save
 //   nationp/{uid}            its own half, {j, t, ts}: what only its player reads (their letters)
-//   letters/{by~to~t}        a letter from one player to another, {by, to, x, t, ts}: only those two read it;
-//                            llimits/{uid} {l} paces them
+//   letters/{by~to~t}        a letter from one player to another, {by, to, x, t, ts, exp, k?, r?, a?, g?}: only
+//                            those two read it; llimits/{uid} {l, d, n} paces and counts them, lpair/{by~to} counts
+//                            those not yet answered, lblock/{b~x} refuses them, lseen/{r~w} says they were read
 //   summaries/{uid}          {reg, name, pop, t}: the headline the World page and region counts read
 //   space/{uid}              {reg, name, t, j, ts}: Moon, Mars and belt data, only for nations that have any
 //   boards/{reg}/posts/{id}  one post on a region's message board, {a: author uid, t: server time, x: text}
@@ -245,7 +246,8 @@ service cloud.firestore {
         && id == d.by + '~' + d.to + '~' + d.k
         && d.nm == me.name
         && get(/databases/$(database)/documents/nations/$(d.to)).data.reg == me.reg
-        && !banned(request.auth.uid);
+        && !banned(request.auth.uid)
+        && !exists(/databases/$(database)/documents/lblock/$(d.to + '~' + request.auth.uid));
     }
     match /mailQ/{id} {
       allow create: if validPing(id);
@@ -284,28 +286,105 @@ service cloud.firestore {
     // A letter from one player's nation to another's (src/shim.js, letters), with llimits/<uid> in the same batch.
     // Only its writer and its reader read it (and the admins), and either may delete it. t is the time in the
     // writer's own copy (nationp), which the id repeats, so a letter sent again is the same document.
+    // exp is when Firestore's time-to-live policy deletes it, a year on (the client's clock, within a few days).
+    // Optional: k, a formal note's kind; r, the letter it answers ({t, x}: its time and a few words of it); a, an
+    // attachment ({k, id?, c?, nm?}: a trade offer, peace, an alliance, a city or an achievement, read by the game
+    // from what is public); g, a group letter ({id, m: every member's uid, nm?}), one document for each member.
+    // Never to a nation that blocked the writer (lblock), at most 150 a day (llimits), and, outside group letters,
+    // at most ten in a row to a nation that has not answered (lpair, which the same batch counts up).
+    function letterExtras(d) {
+      return (!('k' in d) || d.k in ['congrats', 'protest', 'condol', 'friend', 'ultim', 'treaty'])
+        && (!('r' in d) || (d.r is map && d.r.keys().hasAll(['t', 'x']) && d.r.keys().hasOnly(['t', 'x'])
+          && d.r.t is int && d.r.x is string && d.r.x.size() <= 160))
+        && (!('a' in d) || (d.a is map && d.a.keys().hasAll(['k']) && d.a.keys().hasOnly(['k', 'id', 'c', 'nm'])
+          && d.a.k in ['deal', 'peace', 'ally', 'city', 'ach']
+          && (!('id' in d.a) || (d.a.id is string && d.a.id.size() <= 128))
+          && (!('c' in d.a) || d.a.c is int)
+          && (!('nm' in d.a) || (d.a.nm is string && d.a.nm.size() <= 80))))
+        && (!('g' in d) || (d.g is map && d.g.keys().hasAll(['id', 'm']) && d.g.keys().hasOnly(['id', 'm', 'nm'])
+          && d.g.id is string && d.g.id.size() > 0 && d.g.id.size() <= 80
+          && d.g.m is list && d.g.m.size() <= 13 && d.by in d.g.m && d.to in d.g.m
+          && (!('nm' in d.g) || (d.g.nm is string && d.g.nm.size() <= 60))));
+    }
     function validLetter(id, d) {
-      return d.keys().hasAll(['by', 'to', 'x', 't', 'ts']) && d.keys().hasOnly(['by', 'to', 'x', 't', 'ts'])
+      return d.keys().hasAll(['by', 'to', 'x', 't', 'ts', 'exp']) && d.keys().hasOnly(['by', 'to', 'x', 't', 'ts', 'exp', 'k', 'r', 'a', 'g'])
         && d.by == request.auth.uid && d.ts == request.time
         && d.to is string && d.to.size() > 0 && d.to.size() <= 128 && d.to != d.by
         && d.x is string && d.x.size() > 0 && d.x.size() <= 500
         && d.t is int && d.t <= request.time.toMillis() + 86400000 && d.t > request.time.toMillis() - 30 * 86400000
+        && d.exp is timestamp && d.exp > request.time + duration.value(360, 'd') && d.exp < request.time + duration.value(370, 'd')
         && id == d.by + '~' + d.to + '~' + string(d.t)
+        && letterExtras(d)
         && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
-        && exists(/databases/$(database)/documents/nations/$(d.to)) && !banned(request.auth.uid);
+        && exists(/databases/$(database)/documents/nations/$(d.to)) && !banned(request.auth.uid)
+        && !exists(/databases/$(database)/documents/lblock/$(d.to + '~' + d.by));
     }
     match /letters/{id} {
       allow read: if isAdmin() || (signedIn() && (resource.data.to == request.auth.uid || resource.data.by == request.auth.uid));
       allow create: if signedIn() && validLetter(id, request.resource.data)
-        && getAfter(/databases/$(database)/documents/llimits/$(request.auth.uid)).data.l == request.time;
+        && getAfter(/databases/$(database)/documents/llimits/$(request.auth.uid)).data.l == request.time
+        && ('g' in request.resource.data
+          || getAfter(/databases/$(database)/documents/lpair/$(request.auth.uid + '~' + request.resource.data.to)).data.l == request.time);
       allow delete: if signedIn() && (resource.data.to == request.auth.uid || resource.data.by == request.auth.uid);
     }
-    // paces letters: one every 3 seconds; never deleted by the player (functions/accounts.js removes it with the account)
+    // paces letters: one batch every 3 seconds (a group letter's batch holds up to four), and counts them: d is the
+    // day (whole days since 1970, UTC), n the letters written on it, at most 150 (admins: any number). A record
+    // from before the count ({l} alone) starts a new day. The player reads their own, to count on from it; never
+    // deleted by the player (functions/accounts.js removes it with the account).
+    function letterCount(d, before) {
+      return d.keys().hasAll(['l', 'd', 'n']) && d.keys().hasOnly(['l', 'd', 'n']) && d.l == request.time
+        && d.d is int && d.d * 86400000 <= request.time.toMillis() && request.time.toMillis() < (d.d + 1) * 86400000
+        && d.n is int && d.n >= 1 && (d.n <= 150 || isAdmin())
+        && (before != null && before.get('d', -1) == d.d
+          ? d.n > before.get('n', 0) && d.n <= before.get('n', 0) + 4
+          : d.n <= 4);
+    }
     match /llimits/{uid} {
-      allow create: if isSelf(uid) && request.resource.data.keys().hasOnly(['l']) && request.resource.data.l == request.time;
-      allow update: if isSelf(uid) && request.resource.data.keys().hasOnly(['l']) && request.resource.data.l == request.time
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid) && letterCount(request.resource.data, null);
+      allow update: if isSelf(uid) && letterCount(request.resource.data, resource.data)
         && request.time > resource.data.l + duration.value(3, 's');
     }
+    // lpair/<by>~<to> {by, to, u, l}: how many letters `by` has written to `to` since `to` last answered. The writer
+    // counts it up by one with every letter (l == the letter's time), to at most ten; `to` sets it back to nought when
+    // they answer. Read by those two; never deleted by the player (functions/accounts.js removes it with the account).
+    match /lpair/{id} {
+      allow read: if signedIn() && (resource == null || resource.data.by == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.keys().hasAll(['by', 'to', 'u', 'l']) && request.resource.data.keys().hasOnly(['by', 'to', 'u', 'l'])
+        && request.resource.data.by == request.auth.uid && request.resource.data.to is string
+        && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 128 && request.resource.data.to != request.auth.uid
+        && id == request.auth.uid + '~' + request.resource.data.to
+        && request.resource.data.u == 1 && request.resource.data.l == request.time;
+      allow update: if signedIn() && request.resource.data.keys().hasAll(['by', 'to', 'u', 'l']) && request.resource.data.keys().hasOnly(['by', 'to', 'u', 'l'])
+        && request.resource.data.by == resource.data.by && request.resource.data.to == resource.data.to
+        && ((resource.data.by == request.auth.uid && request.resource.data.l == request.time
+            && request.resource.data.u == resource.data.u + 1 && (request.resource.data.u <= 10 || isAdmin()))
+          || (resource.data.to == request.auth.uid && request.resource.data.u == 0 && request.resource.data.l == resource.data.l));
+    }
+    // lblock/<b>~<x> {b, x, t}: b accepts no letters (nor letters by post about them) from x. b writes and deletes it;
+    // x may read it, so their game can say why a letter cannot be delivered.
+    match /lblock/{id} {
+      allow read: if signedIn() && (resource == null || resource.data.b == request.auth.uid || resource.data.x == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.keys().hasAll(['b', 'x', 't']) && request.resource.data.keys().hasOnly(['b', 'x', 't'])
+        && request.resource.data.b == request.auth.uid && request.resource.data.x is string
+        && request.resource.data.x.size() > 0 && request.resource.data.x.size() <= 128 && request.resource.data.x != request.auth.uid
+        && id == request.auth.uid + '~' + request.resource.data.x && request.resource.data.t == request.time;
+      allow delete: if signedIn() && resource.data.b == request.auth.uid;
+    }
+    // lseen/<r>~<w> {r, w, t}: r has read w's letters up to t (a read receipt), written only when r sends them
+    // (Settings › Letters); read by those two.
+    match /lseen/{id} {
+      allow read: if signedIn() && (resource == null || resource.data.r == request.auth.uid || resource.data.w == request.auth.uid);
+      allow create, update: if signedIn() && request.resource.data.keys().hasAll(['r', 'w', 't']) && request.resource.data.keys().hasOnly(['r', 'w', 't'])
+        && request.resource.data.r == request.auth.uid && request.resource.data.w is string
+        && request.resource.data.w.size() > 0 && request.resource.data.w.size() <= 128 && request.resource.data.w != request.auth.uid
+        && id == request.auth.uid + '~' + request.resource.data.w
+        && request.resource.data.t is int && request.resource.data.t <= request.time.toMillis() + 60000;
+      allow delete: if signedIn() && resource.data.r == request.auth.uid;
+    }
+    // written only by functions/letters.js: a device's push subscriptions, and when a player was last told of letters
+    match /pushSubs/{uid} { allow read, write: if false; }
+    match /lnote/{id} { allow read, write: if false; }
 
     match /space/{uid} {
       allow read: if true;
@@ -520,11 +599,11 @@ service cloud.firestore {
       return d.keys().hasAll(['by', 'kind', 'target', 'reg', 'reason', 't'])
         && d.keys().hasOnly(['by', 'kind', 'target', 'post', 'reg', 'reason', 'note', 't', 'name', 'x'])
         && d.by == request.auth.uid && d.t == request.time
-        && d.kind in ['post', 'nation']
+        && d.kind in ['post', 'nation', 'letter']
         && d.target is string && d.target.size() > 0 && d.target.size() <= 128 && d.target != request.auth.uid
         && region(d.reg)
         && d.reason in ['name', 'content', 'harassment', 'spam', 'cheating', 'other']
-        && (!('post' in d) || (d.post is string && d.post.size() <= 64))
+        && (!('post' in d) || (d.post is string && d.post.size() <= 200))
         && (!('note' in d) || (d.note is string && d.note.size() <= 300))
         && (!('name' in d) || (d.name is string && d.name.size() <= 160))
         && (!('x' in d) || (d.x is string && d.x.size() <= 600));
