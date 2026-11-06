@@ -24,7 +24,7 @@ or an email address if they like), and **Firestore** holds the shared world.
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `functions/` | The referee: one Cloud Function (`referee`, in `europe-west1`) that rolls battles on the server, keeps each army's readiness and seals every victory (see Fair play). |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
-| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job; `stats.yml` records the day's player statistics. |
+| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job; `stats.yml` records the day's player statistics; `mail.yml` sends Letters by post every hour; `alerts.yml` files staff alerts every 15 minutes. |
 | `jobs/fx/` | The daily currency job: every currency's exchange value and Currency Prestige, from the nations' records (Firebase Admin SDK, its own `package.json`). See Currencies below. |
 | `jobs/stats/` | The nightly record of player statistics for the admin portal's Statistics page (`functions/stats.js` does the counting). See 9c2 below. |
 | `test/` | Rules tests, end-to-end tests and a smoke test, all on the Firebase emulators, and the currency engine's tests. |
@@ -903,6 +903,37 @@ to list Authentication users, which the **Firebase Admin** role of step 5 includ
 first night after the workflow reaches `main`; **Actions** → **Statistics** → **Run workflow** records the
 last 24 hours at once, as that day's point (the night's run then leaves that day alone). The rules refuse
 `statsDays/` to every client.
+
+The page also has an **Onboarding funnel** (the nations founded in the last eight weeks, a row per founding week,
+the share that has settled, claimed land, started a building, decided an edict, founded a second city, finished
+the charter and linked a sign-in; choose a cell to list who is stuck there), release markers (◆) on the day charts
+for each development news post, **Feature use over time** (the nightly record keeps what the month's players use,
+so this chart starts two nights after the release), **Engagement** and **Recruiting** (day-7 retention of
+players who came through a recruiting link, per recruiter, against everyone else). Each count also writes every
+nation's engagement score to `statsEngage/<n>` (the nightly job does too), which **Player search** shows, filters
+and sorts by.
+
+### 9c2b. The Live feed, the watchlist and staff alerts
+
+**Live feed** (`#admin-feed`) lists what players did lately: foundings (from the founding time each save now
+writes to `summaries/<uid>.f`), wars, peace, conquests, trade and alliances (the pings each game files for
+Letters by post, which `jobs/mail` keeps in `feedLog/<hour>` for 7 days once handled; letters themselves never
+appear), board posts, purchases, recruits, reports, help queries, bug reports and staff actions. It reads at
+most every 20 seconds per time span and refreshes itself every minute while open.
+
+**Watchlist & alerts** (`#admin-watch`) keeps the players the staff follow (`watch/<uid>`, added from a player's
+page with a reason, audited, deleted with the account) beside how their nation has changed since, and the
+alerts that `.github/workflows/alerts.yml` files every 15 minutes (`jobs/stats/alerts.mjs`,
+`functions/alerts.js`): a player reported 3 times in a day, a nation growing 50% and a million people in a day,
+save errors for 5 players and a fifth of those playing in an hour, three times the usual foundings in an hour,
+every purchase, and a watched player playing again, renamed, moved, reported or gone. The thresholds are set on
+the page (`adminCfg/alerts`). The admin menu shows how many alerts are unseen.
+
+To have new alerts posted to a staff Discord channel as well: in Discord, the channel's **Edit channel** →
+**Integrations** → **Webhooks** → **New webhook**, copy its URL, and add it on GitHub under **Settings** →
+**Secrets and variables** → **Actions** as the secret `STAFF_ALERT_WEBHOOK`. Without it the alerts only show in
+the portal. The workflow needs the same service account secret and project variable as Deploy. The rules refuse
+`statsEngage/`, `watch/`, `adminAlerts/`, `adminCfg/`, `alertState/` and `feedLog/` to every client.
 
 ### 9c3. Observing another region
 

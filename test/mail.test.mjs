@@ -66,6 +66,11 @@ test('the hourly job sends one digest of unseen pings, then waits; and one away 
   await ping('trade', 'Quietvale', now - 3600000);          // diplomacy is off
   await ping('msg', 'Oldnews', seen - 1000);               // before their last visit: already seen
   await job(now);
+  // the handled pings, but letters, are kept an hour by hour for the admin portal's Live feed (functions/feed.js)
+  const hour = new Date(Math.floor(now / 3600000) * 3600000).toISOString().slice(0, 13);
+  const log = await (await fetch(docs + '/feedLog/' + hour, { headers })).json();
+  const kinds = (log.fields.items.arrayValue.values || []).map(v => v.mapValue.fields.k.stringValue);
+  assert.ok(kinds.includes('war') && kinds.includes('trade') && !kinds.includes('msg'), 'kept for the feed: ' + kinds.join());
   const after = await outbox(to), digest = after.find(l => /dispatches/i.test(l.subject)), away = after.find(l => /awaits its/.test(l.subject));
   assert.ok(digest, 'a digest was sent'); assert.match(digest.subject, /^Urgent dispatches for Courier Land/);
   assert.match(digest.html, /Ravenmark<\/b> declared war/); assert.match(digest.html, /Ravenmark<\/b> has written to you\. <span[^>]*>\(2 times\)/);

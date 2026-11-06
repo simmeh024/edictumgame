@@ -87,6 +87,15 @@ check('with 3 left a repeal is still possible, but not twice', await A.evaluate(
 // the budget: a region median on each bar, then an emergency shift for 3 mandate
 await A.click('#gv-tab-budget');
 check('the Budget tab shows each department beside the region median', await tab(A) === 'budget' && (await A.$$('#gv-bud .gv-med')).length === 12);
+/* a department at its cap (the largest may hold at most about 45%) is refused: nothing moves, and no mandate is spent
+   (the decree once took the five points from the giver anyway, spread them over every department, and charged in full) */
+const md0 = await A.evaluate(() => G.GV().md(G.S.nation));
+const budget0 = await A.evaluate(() => { const n = G.clone(G.S.nation), b0 = { ...n.budget }, rest = Object.keys(b0).filter(k => k !== 'health').reduce((a, k) => a + b0[k], 0);
+  n.budget = { ...b0, health: Math.round(rest * 0.82 * 10) / 10 }; G.commit(n); G.render(); return b0; });
+await A.selectOption('#gv-from', 'defence'); await A.selectOption('#gv-to', 'health');
+check('a department at its cap is refused before any mandate is spent', /Healthcare is at its cap/.test(await text(A, '.gv-shift-pv')) && await A.$eval('[data-act="gv-shift"]', b => b.disabled)
+  && (await A.evaluate(() => G.GV().md(G.S.nation))) >= md0 - 1e-9, await text(A, '.gv-shift-pv'));
+await A.evaluate(b0 => { const n = G.clone(G.S.nation); n.budget = b0; G.commit(n); G.render(); }, budget0);
 await A.selectOption('#gv-from', 'defence'); await A.selectOption('#gv-to', 'health');
 check('the choice survives the redraw and previews the shift', await A.$eval('#gv-from', s => s.value) === 'defence' && /Defence .* → .*; Healthcare .* → /.test(await text(A, '.gv-shift-pv')) && /Public Health \+1, Militarism −1/.test(await text(A, '.gv-shift-pv')));
 const b0 = await A.evaluate(() => { const n = G.S.nation, t = Object.values(n.budget).reduce((a, b) => a + b, 0); return { d: n.budget.defence / t * 100, h: n.budget.health / t * 100 }; });

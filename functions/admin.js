@@ -3,7 +3,9 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { registered } from './eligibility.js';
-import { gather, summarize, nationRow } from './stats.js';
+import { gather, summarize, nationRow, saveEngage, loadEngage } from './stats.js';
+import { feed, SPANS, GROUP } from './feed.js';
+import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp } from './shop.js';
 import { cbDelete } from './board.js';
 import { shopSummary } from './shop-stats.js';
@@ -31,6 +33,17 @@ async function online(db, refresh) {
 /* last activity filters: within the last hour, day or week, or quiet for over a week or a month */
 const ACT = { h1: t => t >= Date.now() - 3600000, d1: t => t >= Date.now() - 86400000, d7: t => t >= Date.now() - 7 * 86400000, old7: t => t < Date.now() - 7 * 86400000, old30: t => t < Date.now() - 30 * 86400000 };
 
+/* engagement filters (functions/stats.js, engagement): high, middling, low, or not scored yet */
+const ENG = { hi: e => !!e && e[0] >= 60, mid: e => !!e && e[0] >= 30 && e[0] < 60, lo: e => !!e && e[0] < 30, none: e => !e };
+const SORTS = { eng: (a, b) => (b.eng?.[0] ?? -1) - (a.eng?.[0] ?? -1), act: (a, b) => tOf(b) - tOf(a), pop: (a, b) => (Number(b.pop) || 0) - (Number(a.pop) || 0) };
+const tOf = p => typeof p.t === 'number' ? p.t : ms(p.t);
+/* the engagement scores the statistics last wrote (statsEngage, eight small documents), kept a minute per instance
+   like the directory, so a count made on another instance shows soon */
+let engaged = null, engagedAt = 0;
+async function engagement(db, refresh) {
+  if (!engaged || refresh || Date.now() - engagedAt > 60000) { engaged = await loadEngage(db).catch(() => ({ at: 0, m: new Map() })); engagedAt = Date.now(); }
+  return engaged;
+}
 async function players(db, data) {
   // Read only the small public summaries, cached for a minute. Legacy nations need no migration.
   if (!directory || data.refresh === true || Date.now() - directoryAt > 60000) {
@@ -38,17 +51,19 @@ async function players(db, data) {
     directory = qs.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     directoryAt = Date.now();
   }
-  const q = key(text(data.q, 128)), reg = text(data.reg, 40), act = text(data.act, 8), on = await online(db, data.refresh === true);
-  const tOf = p => typeof p.t === 'number' ? p.t : ms(p.t);
-  const matches = directory.filter(p => (!reg || p.reg === reg) && (!q || key(p.name).includes(q) || key(p.uid).includes(q))
-    && (act !== 'online' || on.has(p.uid)) && (!ACT[act] || ACT[act](tOf(p))));
+  const q = key(text(data.q, 128)), reg = text(data.reg, 40), act = text(data.act, 8), en = text(data.eng, 8), sort = text(data.sort, 8);
+  const [on, E] = await Promise.all([online(db, data.refresh === true), engagement(db, data.refresh === true)]);
+  const eng = p => E.m.get(p.uid) || null;
+  let matches = directory.filter(p => (!reg || p.reg === reg) && (!q || key(p.name).includes(q) || key(p.uid).includes(q))
+    && (act !== 'online' || on.has(p.uid)) && (!ACT[act] || ACT[act](tOf(p))) && (!ENG[en] || ENG[en](eng(p))));
   if (q && !text(data.q).includes('/') && !matches.some(p => p.uid === text(data.q))) {
     const direct = await db.doc('summaries/' + text(data.q)).get();
     if (direct.exists && (!reg || direct.get('reg') === reg)) matches.unshift({ uid: direct.id, ...direct.data() });
   }
+  if (SORTS[sort]) matches = matches.map(p => ({ ...p, eng: eng(p) })).sort((a, b) => SORTS[sort](a, b) || String(a.name).localeCompare(String(b.name)));
   const offset = Number.isSafeInteger(data.offset) && data.offset >= 0 ? data.offset : 0;
-  const page = matches.slice(offset, offset + 50).map(p => ({ ...p, on: on.has(p.uid) }));
-  return { players: page, total: matches.length, online: on.size, next: offset + 50 < matches.length ? offset + 50 : null, at: directoryAt };
+  const page = matches.slice(offset, offset + 50).map(p => ({ ...p, on: on.has(p.uid), eng: eng(p) }));
+  return { players: page, total: matches.length, online: on.size, next: offset + 50 < matches.length ? offset + 50 : null, at: directoryAt, engAt: E.at };
 }
 // Who is behind a nation, from Firebase Authentication itself, never from the nation's shared record.
 // Email link sign-in is Firebase's 'password' provider; Discord is a custom claim (functions/discord.js).
@@ -63,9 +78,9 @@ async function account(db, uid) {
   return { kind: registered(u) ? 'registered' : 'guest', linked, admin: claims.admin === true, disabled: u.disabled, created: at(u.metadata.creationTime), lastSignIn: at(u.metadata.lastSignInTime), lastRefresh: at(u.metadata.lastRefreshTime), ip: s.get('ip') || '', ipAt: s.get('at') || 0 };
 }
 async function player(db, uid) {
-  const [n, ban, mod, sessions, acct, notes, shop, comp] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get(), db.doc('shop/' + uid).get(), db.doc('shopComp/' + uid).get()]);
+  const [n, ban, mod, sessions, acct, notes, shop, comp, watch] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get(), db.doc('shop/' + uid).get(), db.doc('shopComp/' + uid).get(), db.doc('watch/' + uid).get()]);
   const d = n.data() || {}, more = await overview(db, uid, d, acct, shop);
-  return { ...more, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  return { ...more, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), watch: watchState(watch), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
 }
 /* The rest of a player's page: their nation at a glance, what they bought, other accounts seen from their address,
    reports and tickets by and about them, and the admin actions on them (the page builds its timeline from these) */
@@ -80,7 +95,7 @@ async function overview(db, uid, shared, acct, shop) {
     db.collection('adminAudit').where('target', '==', uid).orderBy('at', 'desc').limit(30).get(),
     acct?.ip ? db.collection('accountSeen').where('ip', '==', acct.ip).limit(21).get() : null]);
   const r = shared && Object.keys(shared).length ? nationRow(uid, shared, priv.data(), now) : null;
-  const nation = r && { name: r.name, pop: r.pop, founded: r.founded, t: r.t, dec: r.dec, cities: r.cities, claims: r.claims, tut: r.tut.length, lists: r.lists, features: r.f, inbox: r.inbox,
+  const nation = r && { name: r.name, pop: r.pop, founded: r.founded, t: r.t, dec: r.dec, cities: r.cities, claims: r.claims, tut: r.tut.length, lists: r.lists, features: r.f, inbox: r.inbox, eng: r.eng,
     rulings: r.ans.sort((a, b) => b[0] - a[0]).slice(0, 8).map(([t, id, o]) => ({ t, id, o })) };
   const txIds = txs.docs.map(t => t.id), adjs = [];
   for (let i = 0; i < txIds.length; i += 30) adjs.push(...(await db.collection('shopAdj').where('txn', 'in', txIds.slice(i, i + 30)).get()).docs.map(a => a.data()));
@@ -160,7 +175,8 @@ async function stats(db, data) {
   const reg = text(data.reg, 40);
   if (reg && !REGIONS.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
   if (!counted || data.refresh === true || Date.now() - counted.at > 600000) {
-    counting = counting || gather(db, (max, token) => getAuth().listUsers(max, token), { regions: [...REGIONS] }).then(g => { counted = g; return g; }).finally(() => { counting = null; });
+    counting = counting || gather(db, (max, token) => getAuth().listUsers(max, token), { regions: [...REGIONS] })
+      .then(async g => { counted = g; await saveEngage(db, g).then(() => { engaged = null; }, () => {}); return g; }).finally(() => { counting = null; });
     await counting;
   }
   return summarize(counted, reg);
@@ -251,6 +267,71 @@ async function mutate(db, actor, data) {
     throw e;
   }
 }
+/* The watchlist: players the staff follow, watch/{uid} {by, at, why, base}, base being their nation as it was when
+   they were added, to compare with now. Read and written only here (the rules refuse every client), each change in the
+   audit log, and deleted with the player's account (functions/accounts.js). The alerts job reports what they do. */
+const watchState = s => s.exists ? { at: s.get('at') || 0, by: s.get('by') || '', why: s.get('why') || '' } : null;
+const glance = r => r ? { name: r.name, reg: r.reg, pop: r.pop, cities: r.cities, claims: r.claims, dec: r.dec, t: r.t } : null;
+async function watchOp(db, actor, data) {
+  const action = text(data.action, 10), now = Date.now();
+  if (action === 'add' || action === 'remove') {
+    const target = id(data.uid), why = text(data.why, 200), ref = db.doc('watch/' + target), event = db.collection('adminAudit').doc();
+    if (action === 'add' && !why) throw new HttpsError('invalid-argument', 'Say why you are watching this player.');
+    const [n, x] = await db.getAll(db.doc('nations/' + target), db.doc('nationx/' + target));
+    const r = n.exists ? nationRow(target, n.data(), x.exists ? x.data() : null, now) : null;
+    await db.runTransaction(async tx => {
+      if (action === 'add') tx.set(ref, { by: actor, at: now, why, base: glance(r) }); else tx.delete(ref);
+      tx.create(event, { actor, action: action === 'add' ? 'watch_added' : 'watch_removed', target, reason: why || 'Taken off the watchlist', ...(r?.name ? { name: r.name } : {}),
+        operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    });
+    return { watch: action === 'add' ? { at: now, by: actor, why } : null };
+  }
+  /* the list: each player now beside when they were added, their open reports, and what they did in the last week */
+  const qs = await db.collection('watch').orderBy('at', 'desc').limit(200).get(), uids = qs.docs.map(d => d.id);
+  const [on, halves, reports] = await Promise.all([online(db), uids.length ? db.getAll(...uids.flatMap(u => [db.doc('nations/' + u), db.doc('nationx/' + u)])) : [],
+    Promise.all(uids.map(u => db.collection('reports').where('target', '==', u).count().get().then(s => s.data().count, () => null)))]);
+  const rows = qs.docs.map((d, i) => {
+    const n = halves[2 * i], x = halves[2 * i + 1], r = n.exists ? nationRow(d.id, n.data(), x.exists ? x.data() : null, now) : null;
+    return { uid: d.id, why: d.get('why') || '', by: d.get('by') || '', at: d.get('at') || 0, base: d.get('base') || null, now: glance(r), eng: r?.eng || null, on: on.has(d.id), reports: reports[i] };
+  });
+  const recent = uids.length ? (await feed(db, { span: 'd7', uids })).events.slice(0, 150) : [];
+  return { at: now, rows, recent };
+}
+/* Staff alerts (functions/alerts.js files them from the alerts job): the latest, how many are unseen, the thresholds
+   (adminCfg/alerts) and how the job last ran (alertState/run). */
+async function alertsOp(db, actor, data) {
+  const action = text(data.action, 10) || 'list';
+  const unseen = () => db.collection('adminAlerts').where('seen', '==', false).count().get().then(s => s.data().count, () => 0);
+  if (action === 'count') return { unseen: await unseen() };
+  if (action === 'seen') {
+    const ids = Array.isArray(data.ids) ? data.ids.map(v => text(v, 300)).filter(v => v && !v.includes('/')).slice(0, 300) : null;
+    const docs = ids ? (ids.length ? await db.getAll(...ids.map(i => db.doc('adminAlerts/' + i))) : []).filter(d => d.exists)
+      : (await db.collection('adminAlerts').where('seen', '==', false).limit(450).get()).docs;
+    for (let i = 0; i < docs.length; i += 450) { const b = db.batch(); docs.slice(i, i + 450).forEach(d => b.update(d.ref, { seen: true })); await b.commit(); }
+    return { marked: docs.length, unseen: await unseen() };
+  }
+  const cfgRef = db.doc('adminCfg/alerts');
+  if (action === 'cfg') {
+    const before = await cfgRef.get(), cfg = alertConfig({ ...(before.exists ? before.data() : {}), ...(data.cfg && typeof data.cfg === 'object' ? data.cfg : {}) });
+    const event = db.collection('adminAudit').doc();
+    await db.runTransaction(async tx => {
+      tx.set(cfgRef, cfg);
+      tx.create(event, { actor, action: 'alerts_config', target: 'alerts', reason: Object.entries(cfg).map(([k, v]) => k + ' ' + v).join(', ').slice(0, 300), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    });
+    return { cfg };
+  }
+  const [qs, cfg, st, n] = await Promise.all([db.collection('adminAlerts').orderBy('t', 'desc').limit(150).get(), cfgRef.get(), db.doc('alertState/run').get(), unseen()]);
+  return { alerts: qs.docs.map(d => ({ id: d.id, ...d.data() })), unseen: n, cfg: alertConfig(cfg.exists ? cfg.data() : null), defaults: ALERT_DEFAULTS,
+    run: st.exists ? { at: st.get('at') || 0, discord: st.get('discord') || '', filed: st.get('filed') || 0 } : null };
+}
+/* The Live feed (functions/feed.js) and how many play now */
+async function feedOp(db, data) {
+  const span = SPANS[text(data.span, 4)] ? text(data.span, 4) : 'h6', reg = text(data.reg, 40);
+  if (reg && !REGIONS.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
+  const known = new Set(Object.values(GROUP)), groups = Array.isArray(data.groups) ? data.groups.map(g => text(g, 12)).filter(g => known.has(g)) : null;
+  const [d, on] = await Promise.all([feed(db, { span, reg, groups, refresh: data.refresh === true }), online(db, data.refresh === true)]);
+  return { ...d, online: on.size };
+}
 export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, memory: '512MiB', timeoutSeconds: 300 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   if (req.auth.token.admin !== true) throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
@@ -265,5 +346,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'moderate') return mutate(db, actor, d);
   if (d.op === 'note') return note(db, actor, d);
   if (d.op === 'club') return club(db, actor, d);
+  if (d.op === 'feed') return feedOp(db, d);
+  if (d.op === 'watch') return watchOp(db, actor, d);
+  if (d.op === 'alerts') return alertsOp(db, actor, d);
   throw new HttpsError('invalid-argument', 'Unknown console request.');
 });

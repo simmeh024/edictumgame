@@ -1,7 +1,7 @@
 // The Statistics page's counting (functions/stats.js), on hand-made records: no emulator needed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nationRow, accountRow, summarize, snapshot, dayKey, DAY } from '../functions/stats.js';
+import { nationRow, accountRow, summarize, snapshot, dayKey, DAY, engagement, engageParts, ENG_PARTS, FUNNEL, funnelMask } from '../functions/stats.js';
 
 const NOW = Date.parse('2026-11-02T15:00:00Z');
 const save = (rec, extra = {}) => ({ j: JSON.stringify(rec), reg: rec.reg, name: rec.name, pop: rec.pop, updatedAt: rec.updatedAt, ...extra });
@@ -65,7 +65,8 @@ test('the whole world: activity, rulings, retention, the tutorial and accounts',
   assert.equal(d.regions.length, 3, 'every region with nations or a board');
   assert.deepEqual(d.regions.find(r => r.reg === 'meridian'), { reg: 'meridian', nations: 2, a1: 2, a7: 2, a30: 2, new1: 1, new7: 1, new30: 1, dec1: 3, deciders1: 2, posts: { all: 9, week: 4 } });
   assert.equal(d.list, null); assert.equal(d.history[0].a1, 2);
-  assert.ok(!JSON.stringify(d).includes('Aldoria'), 'no nation names for the whole world');
+  const { funnel, eng, recruits, ...rest } = d;
+  assert.ok(!JSON.stringify(rest).includes('Aldoria'), 'no nation names for the whole world but in the funnel, the most engaged and the recruiters');
 });
 
 test('one region: its own figures, its accounts and its nations, the most recently active first', () => {
@@ -83,4 +84,55 @@ test('the nightly record names the day that just ended and keeps each region\'s 
   assert.equal(s.d, '2026-11-02'); assert.equal(dayKey(Date.parse('2026-11-02T23:59:00Z')), '2026-11-02');
   assert.deepEqual(Object.keys(s.regs).sort(), ['frostmarch', 'meridian']);
   assert.equal(s.all.accounts, 5); assert.equal(s.all.registered, 2); assert.equal(s.all.nations, 3);
+});
+
+test('engagement: days played in the fortnight, edicts decided, parts of the game used and those with other nations', () => {
+  const g = world(), [a, b, c] = g.rows;
+  assert.equal(a.d14, 2, 'today and three days ago'); assert.equal(a.r14, 3, 'a set-aside edict is no decision');
+  assert.deepEqual(a.eng, [22, 2, 3, 4, 1], 'land, build, cities and war; war is with another nation');
+  assert.deepEqual(b.eng, [4, 1, 1, 0, 0], '40 / 14 for the day and 25 / 30 for the edict'); assert.deepEqual(c.eng, [0, 0, 0, 0, 0], 'Cirrus played more than a fortnight ago');
+  const busy = nationRow('d', save({ name: 'Dorn', reg: 'meridian', pop: 1, updatedAt: NOW, founded: NOW - 40 * DAY,
+    hist: Array.from({ length: 20 }, (_, i) => ({ t: NOW - i * DAY, p: 1 })), answered: Array.from({ length: 40 }, (_, i) => ({ id: 'e' + i, o: 0, t: NOW - i * 3600000 })),
+    deals: [{}], alli: { a: 1 }, wars: { x: {} }, claims: [{}], cities: [{ b: [{}] }, {}], disc: [1], cov: [1], ddc: 2, mvN: 1 }), null, NOW);
+  assert.equal(busy.d14, 14, 'the history counts the days, at most 14'); assert.equal(busy.eng[0], 100);
+  assert.equal(engagement({ d14: 30, r14: 0, f: [] })[1], 14);
+  const parts = engageParts(g.rows);
+  assert.equal(parts.length, ENG_PARTS); assert.deepEqual(Object.assign({}, ...parts), { a: a.eng, b: b.eng, c: c.eng });
+});
+
+test('the onboarding funnel: each nation founded in the last eight weeks with the steps it has taken', () => {
+  const d = summarize(world()), F = d.funnel;
+  assert.deepEqual(F.steps, FUNNEL); assert.equal(F.total, 3); assert.equal(F.from, Date.parse('2026-09-14T00:00:00Z'), 'eight Mondays back');
+  const by = Object.fromEntries(F.nations.map(x => [x[0], x]));
+  assert.deepEqual(F.nations.map(x => x[0]), ['b', 'c', 'a'], 'the newest first');
+  assert.equal(by.a[5], 127, 'Aldoria has done every step, Google sign-in included');
+  assert.equal(by.b[5], 1 << FUNNEL.indexOf('ruled'), 'Borvia decided an edict and nothing else');
+  assert.equal(by.c[5], 0); assert.equal(by.a[1], 'Aldoria'); assert.equal(by.a[2], 'meridian');
+  assert.equal(funnelMask({ f: ['settled', 'land'], dec: 0, lists: '' }, true), 0b1000011);
+  assert.deepEqual(summarize(world(), 'frostmarch').funnel.nations.map(x => x[0]), ['c']);
+});
+
+test('recruiting: who came through a link and stayed a week, beside everyone else', () => {
+  const g = world(); g.recruits = [{ id: 'b', r: 'a', t: NOW - 5 * 3600000 }, { id: 'c', r: 'a', t: NOW - 10 * DAY }, { id: 'gone', r: 'a', t: NOW }];
+  const R = summarize(g).recruits;
+  assert.equal(R.n, 2, 'a recruit with no nation now is left out'); assert.equal(R.recruiters, 1);
+  assert.equal(R.of, 1); assert.equal(R.kept, 0, 'Cirrus left in its first hour; Borvia is too young to tell');
+  assert.deepEqual(R.others, { of: 1, kept: 1 }, 'Aldoria');
+  assert.deepEqual(R.list, [{ r: 'a', n: 2, of: 1, kept: 0, a7: 1, last: NOW - 5 * 3600000, name: 'Aldoria', reg: 'meridian' }]);
+  assert.equal(summarize(g, 'meridian').recruits.n, 1, 'only recruits living in the region');
+  assert.equal(summarize(world()).recruits.n, 0);
+});
+
+test('releases, engagement bands and the most engaged for the page; feature use in the nightly record', () => {
+  const g = world(); g.news = [{ id: 'n1', t: NOW - 2 * DAY, ti: 'Cities expanded', tg: 'update' }, { id: 'n0', t: NOW - 90 * DAY, ti: 'Old', tg: '' }];
+  const d = summarize(g);
+  assert.deepEqual(d.releases, [{ t: NOW - 2 * DAY, ti: 'Cities expanded', tg: 'update' }], 'only those in the charts\' 60 days');
+  assert.deepEqual(d.eng.bands, [3, 0, 0, 0]); assert.equal(d.eng.median, 4); assert.deepEqual(d.eng.top.map(x => x.id), ['a', 'b', 'c']);
+  const { funnel, eng, recruits, ...rest } = d;
+  assert.ok(!JSON.stringify(rest).includes('Aldoria'), 'for the whole world, nations are named only in the funnel, the most engaged and the recruiters');
+  const s = snapshot(g, Date.parse('2026-11-03T00:07:00Z'));
+  assert.equal(s.all.act30, 3); assert.deepEqual(s.all.feat, { settled: 1, land: 1, build: 1, cities: 1, war: 1, holiday: 1 });
+  assert.equal(s.regs.frostmarch.act30, 1); assert.deepEqual(s.regs.frostmarch.feat, {});
+  g.days = [{ d: '2026-11-01', all: { a1: 2, act30: 3, feat: { war: 1 } }, regs: {} }];
+  assert.deepEqual(summarize(g).history[0].feat, { war: 1 }, 'the page reads the feature history from the daily records');
 });

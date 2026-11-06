@@ -89,7 +89,18 @@ export async function found(p, name, {newPlayer=false} = {}) {
 }
 // Founding leaves the capital's place to the first edict; the established-nation suites settle at once on the map
 // instead (which takes that edict off the desk unanswered), so their nations start as they always have.
-export async function settle(p){await nav(p,'map');await p.click('[data-act="map-suggest"]');await p.click('[data-act="settle"]');await p.waitForFunction(()=>!G.S.nation.inbox.some(x=>x.id==='fd-settle'));}
+// A suggested spot can be refused by the time it is taken (the game checks it again: another test player may have settled
+// near it meanwhile, the map's data arriving between the two clicks), and the founding edict then stays: suggest and
+// settle again, and say what the game said if it never takes.
+export async function settle(p){
+  await nav(p,'map');
+  const settled=()=>p.evaluate(()=>!G.S.nation.inbox.some(x=>x.id==='fd-settle'));
+  for(let i=0;i<4&&!(await settled());i++){
+    await p.click('[data-act="map-suggest"]');await p.click('[data-act="settle"]');
+    await p.waitForFunction(()=>!G.S.nation.inbox.some(x=>x.id==='fd-settle'),undefined,{timeout:8000}).catch(()=>{});
+  }
+  if(!(await settled()))throw new Error('Settling did not take: '+JSON.stringify(await p.evaluate(()=>({pick:G.S.mapPick,msg:G.S.mapMsg,loc:G.S.nation.loc,view:G.S.view}))));
+}
 // Existing suites exercise established nations; the onboarding suite keeps the new-player record.
 // Founding opens the map to claim the first land; these suites start from the Nation page, as before.
 export async function establish(p){await p.evaluate(()=>{if(!G.S.nation?.onb)return;const n=G.clone(G.S.nation);delete n.onb;G.commit(n);G.PG.saveSoon();G.render();});if(await p.evaluate(()=>G.S.view==='map'))await nav(p,'nation');}
