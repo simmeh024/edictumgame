@@ -16883,6 +16883,8 @@ function fill(t,n,x){
 function fmtPop(p){if(p>=999500)return (p/1e6).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' trillion';if(p>=999.5){const b=p/1000;return (b<9.995?b.toFixed(2):b<99.95?b.toFixed(1):Math.round(b))+' billion';}return (p<9.995?p.toFixed(2):p<99.95?p.toFixed(1):Math.round(p))+' million';}
 function fmtBig(x){if(x>=999.95e12)return (x/1e15).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' quadrillion';if(x>=999.95e9)return (x/1e12).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' trillion';if(x>=999.95e6)return (x/1e9).toFixed(1)+' billion';if(x>=1e6)return (x/1e6).toFixed(1)+' million';return Math.round(x).toLocaleString('en-US');}
 function fmtDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
+/* a UTC day (a Chronicle row, kept by its UTC date) by its own date: fmtDate showed the day before west of UTC */
+function fmtDayUTC(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});}catch(e){return '';}}
 function fmtTime(t){try{return new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){return '';}}
 /* " (3 days ago)", for a date shown in full */
 function relDays(t){const d=Math.floor((Date.now()-t)/DAY);return d<1?' (today)':d===1?' (yesterday)':` (${d} days ago)`;}
@@ -44793,7 +44795,7 @@ for(const is of NB_ISSUES){ISSUES.push(is);is.no=ISSUES.length;is.nbx=false;ISSU
    Comments are devnews/<id>/posts/<id>, posted through civic() like the region boards (a linked account, one
    post every 20 seconds); moderators and admins remove them there, admins also hide a nation or ban. */
 const NW_PAGE=10,NW_IMG_MAX=680000,NW_IMG_SIDE=1600,NW_CACHE='edictum-news-img-v1',NW_ID=/^[A-Za-z0-9]{20}$/;
-const NW={posts:null,busy:false,err:'',more:false,at:0,cnt:{},cm:{},draft:{},sending:'',meta:null,metaOn:false,mod:false,ask:null,seenAt:0,opened:false,
+const NW={posts:null,busy:false,err:'',more:false,at:0,cnt:{},cm:{},draft:{},sending:'',meta:null,metaOn:false,mod:false,ask:null,seenAt:0,opened:false,again:false,
   pin:'',pinned:null,tag:'',q:'',arc:null,arcBusy:false,arcErr:'',arcOpen:false,focus:'',one:null,oneErr:'',stat:{},me:{},sort:'old',reply:{},voting:''};
 /* a post's kind, shown as a chip and used to filter the page */
 const NW_TAGS=[['update','Update'],['feature','New feature'],['balance','Balance change'],['fix','Fix'],['event','Event']],NW_TAG=Object.fromEntries(NW_TAGS);
@@ -44911,7 +44913,7 @@ function nwListen(){
     if(was&&nw&&nw.t>top&&nw.t>nwSeenT(S.nation)&&S.view!=='devnews'&&NTF.nws!=='off')toast(`New development news: “${nw.ti||'a new post'}”. Read it under Other › Development news.`);
     if(was){NW.arc=null;NW.one=null;}
     /* a post published, changed or taken down: the list is out of date, and read again at once on the page */
-    if(was){NW.posts=null;NW.err='';if(S.view==='devnews'){nwLoad(false);return;}}
+    if(was){NW.posts=null;NW.err='';if(NW.busy)NW.again=true;if(S.view==='devnews'){nwLoad(false);return;}}
     if(nwUnread()!==before)render();
   },()=>{NW.metaOn=false;});
   Promise.resolve(window.claude.use('user')).then(u=>u&&typeof u.isMod==='function'?u.isMod():false).then(m=>{NW.mod=!!m;if(m&&S.view==='devnews')render();},()=>{});
@@ -44919,19 +44921,26 @@ function nwListen(){
 
 /* ── the page ── */
 async function nwLoad(more){
-  if(NW.busy||!S.db)return;NW.busy=true;NW.err='';
+  if(!S.db)return;
+  /* a post published or changed while a page is still being read (Older posts, say): read the list again after it */
+  if(NW.busy){if(!more)NW.again=true;return;}
+  NW.busy=true;NW.err='';const base=NW.posts;
   try{
     let q=S.db.collection('devnews').where('pub','==',true);
     const last=more&&NW.posts&&NW.posts[NW.posts.length-1];if(last)q=q.where('t','<',last.t);
     const qs=await q.orderBy('t','desc').limit(NW_PAGE).get(),list=qs.docs.map(d=>nwPost(d.id,d.data())).filter(Boolean);
+    /* an older page that comes back after the list was cleared for a new read belongs to the old list: drop it */
+    if(!(last&&NW.posts!==base)){
     NW.posts=last?NW.posts.concat(list):list;NW.more=qs.size===NW_PAGE;NW.at=Date.now();
     /* the pinned post leads the page, read on its own when it is older than the first page */
     if(!last){NW.pinned=null;const pin=NW.pin||(list.find(p=>p.pn)||{}).id||'';
       if(pin){const p=list.find(x=>x.id===pin)||await nwGetPost(pin);if(p&&p.pub&&p.pn)NW.pinned=p;}}
-    if(!last)nwAuto();
-    nwExtras(NW.pinned?list.concat(NW.pinned):list);
+    /* the first post's comments open on the page only: a player who left while it loaded gets no listener */
+    if(!last&&S.view==='devnews')nwAuto();
+    nwExtras(NW.pinned?list.concat(NW.pinned):list);}
   }catch(e){NW.err='The news could not be loaded'+(e&&e.code?' ('+e.code+')':'')+'.';}
-  NW.busy=false;
+  finally{NW.busy=false;}
+  if(NW.again){NW.again=false;NW.posts=null;if(S.view==='devnews'){nwLoad(false);return;}}
   if(S.view==='devnews'){nwSeen();render();}
 }
 async function nwGetPost(id){try{const s=await S.db.doc('devnews/'+id).get();return s.exists?nwPost(id,s.data()):null;}catch(e){return null;}}
@@ -45178,7 +45187,7 @@ async function nwIndex(){
 /* ── the editor, in the admin portal ──
    A contenteditable with the browser's own editing commands. Its element lives across redraws (the page is
    redrawn from markup, which would lose the text and the caret): render() moves it into #nwe-host each time. */
-const NWE={id:null,ti:'',as:'staff',nm:'',rl:'',lk:false,pub:false,t:0,tg:'',pn:false,pq:'',po:'',pend:'',cl:false,node:null,busy:false,err:'',msg:'',prev:false,up:0,dirty:false,ask:'',list:null,lbusy:false,lerr:'',lask:''};
+const NWE={id:null,ti:'',as:'staff',nm:'',rl:'',lk:false,pub:false,t:0,tg:'',pn:false,pq:'',po:'',pend:'',cl:false,node:null,busy:false,err:'',msg:'',prev:false,up:0,dirty:false,ask:'',list:null,lbusy:false,lerr:'',lkErr:'',lask:''};
 const LS_NWE_BY='edictum.newsByline',LS_NWE_DRAFT='edictum.newsDraft';
 function nweByline(){let b={};try{b=JSON.parse(localStorage.getItem(LS_NWE_BY)||'{}')||{};}catch(e){}return {nm:typeof b.nm==='string'&&b.nm.trim()?b.nm.slice(0,80):'Pascal',rl:typeof b.rl==='string'?b.rl.slice(0,60):'Founder & Developer'};}
 const NWE_TOOLS=[['bold','<b>B</b>','Bold (Ctrl+B)'],['italic','<i>I</i>','Italic (Ctrl+I)'],['underline','<u>U</u>','Underline (Ctrl+U)'],['strikeThrough','<s>S</s>','Strikethrough'],0,
@@ -45190,7 +45199,10 @@ const NWE_TOOLS=[['bold','<b>B</b>','Bold (Ctrl+B)'],['italic','<i>I</i>','Itali
 const nwePatch=(add,chg,fix)=>Object.entries({add,chg,fix}).map(([k,l])=>`<p><strong>${NW_PN[k]}</strong></p><ul data-pn="${k}">${(l&&l.length?l:['…']).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('')+'<p><br></p>';
 /* the changelog: merged pull requests since the last published post, sorted by their titles into a patch notes block */
 const NWE_REPO='simmeh024/edictumgame';
-/* the poll section stays as the writer left it when the page redraws (a save or a snapshot arriving) */
+/* the poll section stays as the writer left it when the page redraws (a save or a snapshot arriving).
+   The click on its heading records it too: 'toggle' only fires a moment later, and a redraw in between
+   would draw the section closed again, after which the old section's 'toggle' never reaches the page */
+document.addEventListener('click',e=>{const s=e.target&&e.target.closest&&e.target.closest('.nwe-poll>summary');if(s)NWE.pOpen=!s.parentElement.open;},true);
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.classList&&d.classList.contains('nwe-poll'))NWE.pOpen=d.open;},true);
 async function nweChangelog(){
   if(NWE.cl)return;NWE.cl=true;NWE.err='';render();
@@ -45217,11 +45229,14 @@ async function nweList(){
   catch(e){NWE.lerr='The posts could not be loaded'+(e&&e.code?' ('+e.code+')':'')+'.';}
   NWE.lbusy=false;if(S.view==='admin-news')render();
 }
+/* a moment as the yyyy-mm-dd of the admin's own calendar: the date field shows and saves local days (a UTC date was a
+   day later west of UTC, so each save moved a poll's close a day on) */
+function nweDay(t){const d=new Date(t),z=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
 function nweOpen(p){NWE.pOpen=false;
   const by=nweByline();
   Object.assign(NWE,{id:p?p.id:null,ti:p?p.ti:'',as:p&&p.as==='nation'?'nation':'staff',nm:p&&p.as==='staff'?p.nm:by.nm,rl:p&&p.as==='staff'?p.rl:by.rl,lk:!!(p&&p.lk),pub:!!(p&&p.pub),t:p?p.t:0,
-    tg:p?p.tg:'',pn:!!(p&&p.pn),pq:p&&p.pl?p.pl.q:'',po:p&&p.pl?p.pl.o.join('\n'):'',pend:p&&p.pl&&p.pl.end?new Date(p.pl.end).toISOString().slice(0,10):'',
-    err:'',msg:'',prev:false,dirty:false,ask:''});
+    tg:p?p.tg:'',pn:!!(p&&p.pn),pq:p&&p.pl?p.pl.q:'',po:p&&p.pl?p.pl.o.join('\n'):'',pend:p&&p.pl&&p.pl.end?nweDay(p.pl.end):'',
+    err:'',msg:'',prev:false,dirty:false,ask:'',lkErr:''});
   const ed=document.createElement('div');
   ed.id='nwe-body';ed.className='nwe-body nw-body';ed.contentEditable='true';ed.spellcheck=true;
   ed.setAttribute('role','textbox');ed.setAttribute('aria-multiline','true');ed.setAttribute('aria-labelledby','nwe-body-l');
@@ -45259,8 +45274,9 @@ function nweOffsAt(o){const ed=NWE.node;if(!ed||!o)return null;const w=document.
   while((t=w.nextNode())){const L=t.length;if(c.length<2&&o[0]<=k+L){c=[t,o[0]-k];}if(c.length===2&&o[1]<=k+L){return [c[0],c[1],t,o[1]-k];}k+=L;}return null;}
 /* the toolbar's Link opens a field under it, remembering what was selected */
 function nweLinkAsk(){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;NWE.lk0=nweOffs();NWE.lf=true;f.hidden=false;nweLinkErr('');if(!i.value)i.value=NWE.lfv='https://';i.focus();i.select();}
-/* the message is kept (NWE.lerr), so a redraw of the page while it shows does not take it away */
-function nweLinkErr(m){NWE.lerr=m||'';const e=document.getElementById('nwe-lerr');if(e){e.textContent=m;e.hidden=!m;}}
+/* the message is kept (NWE.lkErr), so a redraw of the page while it shows does not take it away. It has a field of its
+   own: in NWE.lerr, the post list's error, it stopped the list loading until a reload */
+function nweLinkErr(m){NWE.lkErr=m||'';const e=document.getElementById('nwe-lerr');if(e){e.textContent=m;e.hidden=!m;}}
 function nweLinkDone(ok){const f=document.getElementById('nwe-lf'),i=document.getElementById('nwe-url');if(!f||!i)return;const u=i.value.trim();
   if(ok&&u&&u!=='https://'&&!/^(https?:\/\/|mailto:)[^\s<>"]+$/i.test(u)){nweLinkErr('A link needs an address starting with https:// or mailto:.');i.focus();return;}
   NWE.lf=false;NWE.lfv='';f.hidden=true;i.value='';nweLinkErr('');const c=NWE.lk0;NWE.lk0=null;
@@ -45390,7 +45406,7 @@ function nweView(){
       <label class="nwe-chk"><input type="checkbox" id="nwe-pn"${NWE.pn?' checked':''}> Pin to the top of the page <span class="hint">(unpins any other)</span></label></div>
     <p class="lbl" id="nwe-body-l">Text <button type="button" class="linkish small nwe-cl" data-act="nwe-cl"${NWE.cl?' disabled':''}>${NWE.cl?'Reading GitHub…':'Draft patch notes from merged pull requests'}</button></p>
     <div class="nwe-tools" role="toolbar" aria-label="Formatting" aria-controls="nwe-body">${tools}</div>
-    <div class="nwe-lf" id="nwe-lf"${NWE.lf?'':' hidden'}><div class="field"><label for="nwe-url">Link to which address?</label><input class="input" id="nwe-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(NWE.lfv||'')}"></div><button type="button" class="btn small" data-act="nwe-link-ok">Add link</button><button type="button" class="btn ghost small" data-act="nwe-link-x">Cancel</button><p class="err" id="nwe-lerr" role="alert"${NWE.lerr?'':' hidden'}>${esc(NWE.lerr||'')}</p></div>
+    <div class="nwe-lf" id="nwe-lf"${NWE.lf?'':' hidden'}><div class="field"><label for="nwe-url">Link to which address?</label><input class="input" id="nwe-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(NWE.lfv||'')}"></div><button type="button" class="btn small" data-act="nwe-link-ok">Add link</button><button type="button" class="btn ghost small" data-act="nwe-link-x">Cancel</button><p class="err" id="nwe-lerr" role="alert"${NWE.lkErr?'':' hidden'}>${esc(NWE.lkErr||'')}</p></div>
     <div id="nwe-host" class="nwe-host"></div>
     <input type="file" id="nwe-file" accept="image/*" multiple hidden>
     <p class="hint">${NWE.up?`<b>Uploading ${NWE.up} ${NWE.up===1?'image':'images'}…</b> `:''}Paste or drop images into the text, or use Image. They are made smaller (at most ${NW_IMG_SIDE} pixels wide) before they upload. Links open in a new tab.</p>
@@ -50173,8 +50189,8 @@ function chrView(now){
   const dec=Object.values(doc.d||{}).filter(e=>e&&typeof e.t==='number').sort((a,b)=>b.t-a.t);
   const [y,m]=mk.split('-').map(Number),first=Date.UTC(y,m-1,1),days=new Date(Date.UTC(y,m,0)).getUTCDate(),today=chrDay(now),rows=[];
   for(let k=days;k>=1;k--){const t=first+(k-1)*DAY,day=chrDay(t);if(day>today)continue;const x=doc.s&&doc.s[day];
-    rows.push(x?`<tr><td>${esc(fmtDate(t))}</td><td class="num">${esc(fmtPop(x.p))}</td><td>${esc(x.c||'')}</td><td class="num">${x.s?Math.round(x.s.econ||0):''}</td><td class="num">${x.s?Math.round(x.s.happy||0):''}</td></tr>`
-      :`<tr class="chr-gap"><td>${esc(fmtDate(t))}</td><td colspan="4">${!chrInRun(t+DAY-1)&&!chrInRun(t)?'Not recorded: not a member that day.':'No snapshot: a day is noted when your nation is open in the game.'}</td></tr>`);}
+    rows.push(x?`<tr><td>${esc(fmtDayUTC(t))}</td><td class="num">${esc(fmtPop(x.p))}</td><td>${esc(x.c||'')}</td><td class="num">${x.s?Math.round(x.s.econ||0):''}</td><td class="num">${x.s?Math.round(x.s.happy||0):''}</td></tr>`
+      :`<tr class="chr-gap"><td>${esc(fmtDayUTC(t))}</td><td colspan="4">${!chrInRun(t+DAY-1)&&!chrInRun(t)?'Not recorded: not a member that day.':'No snapshot: a day is noted when your nation is open in the game.'}</td></tr>`);}
   return `${head}${status}
   <nav class="chr-months" aria-label="Months of the Chronicle">${months.map(k=>`<button type="button" class="chip-btn${k===mk?' on':''}" data-act="chr-month" data-m="${k}" aria-pressed="${k===mk}">${esc(new Date(k+'-01T00:00:00Z').toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'}))}</button>`).join('')}</nav>
   <div class="row chr-x"><button type="button" class="btn ghost sm" data-act="chr-x-dcsv">Decisions (CSV)</button><button type="button" class="btn ghost sm" data-act="chr-x-scsv">Snapshots (CSV)</button><button type="button" class="btn ghost sm" data-act="chr-x-json">Everything (JSON)</button><button type="button" class="btn ghost sm" data-act="chr-print">Print</button></div>
