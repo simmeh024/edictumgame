@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { signature, FOUNDER_CUTOFF, FOUNDER_GRACE, CATALOGUE } from '../functions/shop-core.js';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum', AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099', FN = process.env.FUNCTIONS_EMULATOR_HOST || '127.0.0.1:5001';
 initializeApp({ projectId: PROJECT });
@@ -267,6 +267,74 @@ test('the monthly pick: one per paid month, from the collection, kept after the 
   await hook('adjustment.created', { id: rid('adj'), action: 'refund', type: 'full', status: 'approved', transaction_id: c.txn });
   const s = await shop(p.uid);
   assert.equal(s.vip, undefined); assert.deepEqual(Object.values(s.picks), ['p-moire']); assert.deepEqual((await finery(p.uid)).c, ['p-moire']);
+});
+
+test('the collection grows on its day, a month’s choice stays open five weeks, and a missed one can still be made', async () => {
+  const drop = CATALOGUE.products.vip.drops[0], first = Date.parse(drop.from), now0 = first - DAY;
+  await config({ skew: now0 - Date.now() });
+  try {
+    /* one paid month that ended ten days ago, with no choice made for it */
+    const p = await player(), t0 = now0 - 40 * DAY, m1 = now0 - 10 * DAY;
+    const c = await call(p, { step: 'checkout', product: 'vip' });
+    await hook('transaction.completed', pay(c.txn, { sub: rid('sub'), period: { s: t0, e: m1 } }));
+    assert.ok((await shop(p.uid)).vip.until < now0, 'no longer a member');
+    await rejects(call(p, { step: 'pick', key: drop.ids[0] }), 'not_yet');
+    await assert.rejects(call(p, { step: 'pick', key: 'not-a-piece' }), e => e.status === 'INVALID_ARGUMENT');
+    /* the first of the month: the new pieces can be chosen, for the month still open */
+    await config({ skew: first + H - Date.now() });
+    const r = await call(p, { step: 'pick', key: drop.ids[0] });
+    assert.equal(r.period.s, t0);
+    assert.ok((await finery(p.uid)).c.includes(drop.ids[0]));
+    await rejects(call(p, { step: 'pick', key: 'p-moire' }), 'vip_required');
+    /* five weeks after the month ended, a choice not made lapses */
+    const q = await player(), d = await call(q, { step: 'checkout', product: 'vip' });
+    await config({ skew: m1 + 35 * DAY + H - Date.now() });
+    await hook('transaction.completed', pay(d.txn, { sub: rid('sub'), period: { s: t0, e: m1 } }));
+    await rejects(call(q, { step: 'pick', key: 'p-moire' }), 'vip_required');
+  } finally { await config(); }
+});
+
+test('Chancery seals: chosen by the player, held by months of membership, published for every game and taken down again', async () => {
+  const later = () => new Promise(r => setTimeout(r, 2100));
+  /* a member of one month: the wax seal, not yet brass */
+  const p = await player(), t0 = Date.now() - H, sp = rid('sub');
+  const c = await call(p, { step: 'checkout', product: 'vip' });
+  await hook('transaction.completed', pay(c.txn, { sub: sp, period: { s: t0, e: t0 + 30 * DAY } }));
+  await assert.rejects(call(p, { step: 'seal', id: 'csl-nope' }), e => e.status === 'INVALID_ARGUMENT');
+  await rejects(call(p, { step: 'seal', id: 'csl-brass' }), 'seal_locked');
+  await later();
+  assert.equal((await finery(p.uid)), undefined, 'nothing is published before a seal is chosen');
+  const r = await call(p, { step: 'seal', id: 'csl-member' });
+  assert.equal(r.seal, 'csl-member');
+  assert.equal((await shop(p.uid)).seal, 'csl-member');
+  const f = await finery(p.uid);
+  assert.deepEqual(f.cl, { s: 'csl-member', u: t0 + 30 * DAY, m: 1, f: [] }); assert.deepEqual(f.c, []); assert.equal(f.reg, 'meridian');
+  await rejects(call(p, { step: 'seal', id: '' }), 'RESOURCE_EXHAUSTED');
+  /* a pick keeps the seal's figures */
+  await call(p, { step: 'pick', key: 'p-moire' });
+  assert.deepEqual((await finery(p.uid)).cl.s, 'csl-member');
+  /* a later notification keeps the choice */
+  await hook('subscription.updated', P.subs.get(sp));
+  assert.equal((await shop(p.uid)).seal, 'csl-member'); assert.equal((await finery(p.uid)).cl.s, 'csl-member');
+  await later();
+  await call(p, { step: 'seal', id: '' });
+  const g = await finery(p.uid);
+  assert.ok(!('cl' in g), 'taken down'); assert.deepEqual(g.c, ['p-moire']);
+  /* three months of membership: brass; a record kept before months were counted is counted once on status */
+  const q = await player(), y0 = Date.now() - 70 * DAY;
+  const d = await call(q, { step: 'checkout', product: 'vipyear' }), sub = rid('sub');
+  await hook('transaction.completed', pay(d.txn, { sub, period: { s: y0, e: y0 + 365 * DAY } }));
+  assert.equal((await shop(q.uid)).vip.m, 3);
+  await db.doc('shop/' + q.uid).update({ 'vip.m': FieldValue.delete() });
+  await call(q, { step: 'status' });
+  assert.equal((await shop(q.uid)).vip.m, 3, 'counted again');
+  await call(q, { step: 'seal', id: 'csl-brass' });
+  await later();
+  await rejects(call(q, { step: 'seal', id: 'csl-silver' }), 'seal_locked');
+  assert.equal((await finery(q.uid)).cl.s, 'csl-brass'); assert.equal((await finery(q.uid)).cl.f.length, 9, 'the year’s months still to come');
+  /* not a member at all */
+  const x = await player();
+  await rejects(call(x, { step: 'seal', id: 'csl-member' }), 'seal_locked');
 });
 
 test('reconciliation: a payment whose notification never came is found when the player checks back', async () => {

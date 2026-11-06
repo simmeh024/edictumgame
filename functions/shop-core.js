@@ -24,6 +24,17 @@ export const REQUIRED = PRODUCTS.filter(p => !CAT.products[p].optional);
 export const FOUNDER_CUTOFF = Date.parse(CAT.products.founder.until);
 export const FOUNDER_GRACE = CAT.products.founder.graceMinutes * 60000;
 export const VIP_COLLECTION = CAT.products.vip.collection;
+/* The Club's collection grows: the pieces it opened with, and two more at the start of each month (the catalogue's
+   drops, from 00:00 UTC on their day). A piece can be chosen once its month has begun, and one chosen is kept for good. */
+export const CLUB_DROPS = (CAT.products.vip.drops || []).map(d => ({ from: Date.parse(d.from), ids: d.ids })).filter(d => Number.isFinite(d.from)).sort((a, b) => a.from - b.from);
+export const CLUB_IDS = [...new Set([...VIP_COLLECTION, ...CLUB_DROPS.flatMap(d => d.ids)])];
+export const clubReleased = now => [...VIP_COLLECTION, ...CLUB_DROPS.filter(d => d.from <= now).flatMap(d => d.ids)];
+/* a paid month's choice stays open this long after the month ends: a month with nothing left to choose waits for the
+   next pieces, and a member who missed a month can still choose for it */
+export const PICK_GRACE = (CAT.products.vip.pickGraceDays || 35) * 86400000;
+/* The Chancery seals a player may show beside the nation's name, by months of membership: the plain seal (0) while a
+   member, and the others once that many months have begun, kept for good. Nothing is shown unless the player chooses. */
+export const SEALS = CAT.products.vip.seals || {};
 /* Paddle's own libraries allow 5 seconds between signing and checking; a cold start can take longer than that, and a
    replayed notification changes nothing here (see above), so this allows five minutes */
 export const SIG_TOLERANCE = 300;
@@ -124,7 +135,7 @@ export function months(p) {
      picks {periodStart: cosmetic}: the Chancery Club's monthly picks
      now   the server's time: which paid months to keep for picking (without it, the last three)
      comp  {at, until}: a membership an admin granted for free (shopComp/{uid}), counted like a paid one
-   → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n},
+   → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n, m, f},
       gifts: [{p, from, t, txn}], refunds: [{txn, why}], cancels: [{sub, why}], notes: [{k, txn, t}], cosmetics: [ids shown to other players]}
    A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends. */
 export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null }) {
@@ -184,19 +195,39 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
     const last = per.reduce((a, b) => b.e > a.e ? b : a), s = subs[last.sub] || {}, gift = last.plan === 'gift' || last.plan === 'comp';
     const status = gift ? last.plan : s.status || 'active', until = runs[runs.length - 1][1];
     /* the months still to come (a paid year is picked from month by month without another word from Paddle), or the last three */
-    const keep = now ? per.filter(p => p.e > now - 35 * 86400000) : [];
+    const keep = now ? per.filter(p => p.e > now - PICK_GRACE) : [];
+    /* months of membership, for the seals: each month counted once (free months an admin granted alongside paid ones add
+       none), those begun by now (m), and when each of the rest begins (f: a paid year's months begin without another word
+       from Paddle, so the games count them in as their day comes) */
+    let m = 0, end = -Infinity;
+    const f = [];
+    for (const p of per) {
+      if (p.s < end - 3600000) { end = Math.max(end, p.e); continue; }
+      end = Math.max(end, p.e);
+      if (!now || p.s <= now) m++; else f.push(p.s);
+    }
     /* maps, not pairs: Firestore stores no arrays inside arrays */
     out.vip = { until, from: runs[runs.length - 1][0], runs: runs.slice(-4).map(r => ({ s: r[0], e: r[1] })), per: (keep.length ? keep.slice(0, 14) : per.slice(-3)).map(p => ({ s: p.s, e: p.e })),
-      status, plan: last.plan, cancelAt: gift ? 0 : s.cancelAt || 0, renews: !gift && status === 'active' && !s.cancelAt ? s.next || 0 : 0, n: per.length };
+      status, plan: last.plan, cancelAt: gift ? 0 : s.cancelAt || 0, renews: !gift && status === 'active' && !s.cancelAt ? s.next || 0 : 0, n: per.length, m, f: f.slice(0, 13) };
   }
   out.gifts = valid.filter(t => t.gift && t.payer && !voided(t.id, adjs)).sort((a, b) => a.paid - b.paid).slice(-10).map(t => ({ p: t.product, from: t.payer, t: t.paid, txn: t.id }));
   const grant = p => out.owns[p] ? CAT.products[p].grants : [];
-  out.cosmetics = [...new Set([...grant('founder'), ...grant('idpack'), ...Object.values(picks || {}).filter(k => VIP_COLLECTION.includes(k))])];
+  out.cosmetics = [...new Set([...grant('founder'), ...grant('idpack'), ...Object.values(picks || {}).filter(k => CLUB_IDS.includes(k))])];
   return out;
 }
 
-/* the paid month a monthly pick belongs to: the one now falls in, or null */
-export function pickPeriod(vip, now) {
+/* the paid month a pick is for: the earliest month begun by now with no choice made yet, while its choice is open (until
+   PICK_GRACE after the month ends), or null */
+export function pickPeriod(vip, now, picks = {}) {
   const per = vip && Array.isArray(vip.per) ? vip.per : [];
-  return per.find(p => p.s <= now && now < p.e) || null;
+  return per.filter(p => p.s <= now && now < p.e + PICK_GRACE && !(picks && picks[p.s])).sort((a, b) => a.s - b.s)[0] || null;
+}
+/* months of membership begun by now; a seal held now */
+export function tenure(vip, now) {
+  if (!vip || typeof vip !== 'object') return 0;
+  return (Number(vip.m) || 0) + (Array.isArray(vip.f) ? vip.f.filter(s => s <= now).length : 0);
+}
+export function sealHeld(id, vip, now) {
+  if (!Object.hasOwn(SEALS, id) || !vip) return false;
+  return SEALS[id] ? tenure(vip, now) >= SEALS[id] : now < vip.until;
 }
