@@ -52140,6 +52140,8 @@ function alConnect(){
   try{AL.unsub=S.db.collection('alliances').where('reg','==',reg).onSnapshot(qs=>{
     const m=new Map();for(const d of qs.docs){try{m.set(d.id,alNorm(d.id,d.data()||{}));}catch(e){}}
     AL.docs=m;AL.rev++;AL.ready=true;AL.err='';polMemo.k='';
+    /* the menu keeps its counts (invitations, requests) for a few seconds: count again now */
+    NVX.ver++;
     alChatConnect();alSoon();
     if(['diplomacy','alliance','region','visit'].includes(S.view)&&!alTyping())quietRender();else if(S.view==='map')redrawMaps();
   },e=>{AL.err=(e&&e.message)||'unavailable';});}catch(e){}
