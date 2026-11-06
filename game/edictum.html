@@ -19178,6 +19178,9 @@ const OFFICES={},DM_SOURCES=[];
 const isOffice=id=>typeof id==='string'&&Object.hasOwn(OFFICES,id);
 const dmSeal=(bg,ink,path)=>`<svg viewBox="0 0 36 24" role="img" aria-hidden="true"><rect width="36" height="24" fill="${bg}"/><g transform="translate(6 0)" fill="none" stroke="${ink}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${path}</g></svg>`;
 const weekStart=t=>{const d=new Date(t),w=(d.getUTCDay()+6)%7;return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-w,8);};
+/* a weekly letter is dated the Monday of its week, and only written for a week that began after the nation was founded,
+   so a new nation does not start with letters waiting (nor its tab's count raised by them) */
+const weekFor=(n,now)=>{const wk=weekStart(now);return wk>num0(n&&n.founded)?wk:0;};
 OFFICES['office-census']={name:'The Census Office',go:['census','Open the census'],about:'Writes when your population passes a milestone.',
   seal:dmSeal('#e6ecef','#2c4a5c','<path d="M4 20h16M6 20V9M10 20V5M14 20V11M18 20V7"/>')};
 DM_SOURCES.push(n=>(n.log||[]).filter(l=>l.k==='mile').slice(0,12).map(l=>({peer:'office-census',t:l.t,x:`To the government of ${n.name},
@@ -19199,10 +19202,10 @@ The Games Committee, ${REG.name}`})));
 OFFICES['office-bank']={name:'The Central Bank',go:['currency','Open the Bureau'],about:'A weekly note on your currency’s value and prestige.',
   seal:dmSeal('#e7efe6','#2e5a3a','<circle cx="12" cy="12" r="8"/><path d="M12 7v10M9.5 9.5h3.5a1.6 1.6 0 0 1 0 3.2h-2a1.6 1.6 0 0 0 0 3.2H14.5"/>')};
 DM_SOURCES.push((n,now)=>{
-  const e=typeof cuE==='function'?cuE(myId()):null;if(!e||!Number.isFinite(e.r))return [];
+  const e=typeof cuE==='function'?cuE(myId()):null,wk=weekFor(n,now);if(!wk||!e||!Number.isFinite(e.r))return [];
   let nm='currency';try{nm=cuOf(n).nm||nm;}catch(er){}
   const mv=Number.isFinite(e.d7)?e.d7:0,word=mv>0.5?`rose by ${mv.toFixed(1)}%`:mv<-0.5?`fell by ${Math.abs(mv).toFixed(1)}%`:'held steady';
-  return [{peer:'office-bank',t:weekStart(now),x:`To the Treasury of ${n.name},
+  return [{peer:'office-bank',t:wk,x:`To the Treasury of ${n.name},
 
 This week the ${nm} ${word}. It ranks ${e.r}${e.r===1?'st':e.r===2?'nd':e.r===3?'rd':'th'} among the currencies of ${REG.the}, with a prestige of ${Math.round(e.p||0)}.
 
@@ -19214,7 +19217,7 @@ OFFICES['office-gazette']={name:'The Regional Gazette',go:['region','Open the re
   seal:dmSeal('#efe9e0','#3d3427','<path d="M5 5h12v14H5zM8 9h6M8 12h6M8 15h4"/>')};
 const GZ={k:'',v:[]};
 DM_SOURCES.push((n,now)=>{
-  const wk=weekStart(now),k=wk+':'+allNations().length;if(GZ.k===k)return GZ.v;
+  const wk=weekFor(n,now);if(!wk)return [];const k=wk+':'+allNations().length;if(GZ.k===k)return GZ.v;
   const from=wk-7*DAY,nw=[],al=[],war=[],pc=[];
   for(const x of allNations()){if(x.npc)continue;const d=x.n;if(d.founded>=from&&d.founded<wk)nw.push(d.name);
     for(const l of d.log||[]){if(l.t<from)break;if(l.t>=wk)continue;if(l.k==='alfound')al.push(`${d.name} founded ${l.b}`);else if(l.k==='war'&&typeof l.a==='string')war.push(`${d.name} declared war on ${nameOf(l.a)}`);else if(l.k==='peace'&&typeof l.a==='string')pc.push(`${d.name} and ${nameOf(l.a)}`);}}

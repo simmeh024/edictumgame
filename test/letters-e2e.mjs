@@ -159,7 +159,9 @@ check('and from the list', !(await B.$(`.conv-list [data-id="${uidA}"]`)));
 
 /* ── 11. the offices: switched off in Settings ── */
 await nav(A, 'messages');
-check('the Regional Gazette writes to every nation', await until(() => A.$('.conv-list [data-id="office-gazette"]')));
+check('a new nation starts with no weekly letter waiting (its week began before it was founded)', !(await A.$('.conv-list [data-id="office-gazette"]')));
+await A.evaluate(() => { const n = G.clone(G.S.nation); n.founded = Date.now() - 8 * 864e5; G.commit(n); G.render(); });
+check('the Regional Gazette writes to every nation from its first full week', await until(() => A.$('.conv-list [data-id="office-gazette"]')));
 await nav(A, 'settings'); await A.click('#sg-tab-letters'); await A.uncheck('#set-letters-off [data-id="office-gazette"]');
 check('switching it off is kept in the record', await until(() => A.evaluate(() => !!(G.S.nation.dmx.off || {})['office-gazette'])));
 await nav(A, 'messages');
