@@ -5423,7 +5423,15 @@ span.nw-tag{cursor:default}
 .cx-tabs .stab{min-height:44px}
 .cx-cats{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px;position:sticky;top:0;z-index:2;background:var(--sheet);padding:8px 0}
 .cx-afford{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);margin-left:6px;min-height:36px}
-.cx-lvc{font-size:11px;padding:1px 6px;margin-left:4px;border-color:var(--accent);color:var(--accent)}
+.ugb{display:inline-flex;gap:2px;margin-left:6px;vertical-align:1px}
+.ugb i{display:block;width:10px;height:10px;border-radius:2px;border:1px solid var(--rule-2);background:transparent}
+.ugb i.on{border-color:var(--ug);background:var(--ug)}
+.ugb i.wip{border-color:var(--ug);background:repeating-linear-gradient(135deg,var(--ug) 0 2px,transparent 2px 4px)}
+.ugb i.on.ugb-gold{box-shadow:0 0 5px var(--ug)}
+.ugb-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;background:var(--ug);vertical-align:0}
+.ugb-grey{--ug:#8a9693}.ugb-green{--ug:#2e9a52}.ugb-blue{--ug:#2f6fd0}.ugb-purple{--ug:#8a4cd0}.ugb-gold{--ug:#cf9a12}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .ugb-grey{--ug:#a3aeab}:root:not([data-theme="light"]) .ugb-green{--ug:#5cc882}:root:not([data-theme="light"]) .ugb-blue{--ug:#6aa5f0}:root:not([data-theme="light"]) .ugb-purple{--ug:#b38cf2}:root:not([data-theme="light"]) .ugb-gold{--ug:#f0c445}}
+:root[data-theme="dark"] .ugb-grey{--ug:#a3aeab}:root[data-theme="dark"] .ugb-green{--ug:#5cc882}:root[data-theme="dark"] .ugb-blue{--ug:#6aa5f0}:root[data-theme="dark"] .ugb-purple{--ug:#b38cf2}:root[data-theme="dark"] .ugb-gold{--ug:#f0c445}
 .cx-lv{display:block;margin-top:4px;font-size:12.5px}
 .cx-lv-c{color:var(--ink-3)}
 .cx-qa{gap:10px}
@@ -18235,7 +18243,7 @@ function cityState(T){
     if(x.npc){for(const c of npcCities(x.id))all.push({id:c.id,c:c.c,nm:c.nm,cap:!!c.cap,fid:x.id,fn:x.n,npc:true,done:c.b.slice(),prog:[]});continue;}
     for(const c of cityList(x.n)){
       const done=[],prog=[];for(const b of c.b||[]){if(!BUILDINGS[b.k])continue;if(b.d<=now)done.push(b.k);else prog.push(b);}
-      const ct={id:c.id,c:c.c,nm:cityLabel(x.n,c),cap:c.c===x.cap,fid:x.id,fn:x.n,npc:false,done,prog,rec:c,lv:cxLevels(c,now)};cxMoodOn(ct,now);all.push(ct);
+      const ct={id:c.id,c:c.c,nm:cityLabel(x.n,c),cap:c.c===x.cap,fid:x.id,fn:x.n,npc:false,done,prog,rec:c,ug:cxUpMap(c,now)};cxMoodOn(ct,now);all.push(ct);
     }
   }
   for(const ct of all){const o=T.owner[ct.c],fi=T.byId[ct.fid];ct.hi=o;ct.fi=fi;ct.active=o>=0&&(o===fi||T.occ[ct.c]===1);ct.dist=[];}
@@ -18251,7 +18259,7 @@ function cityState(T){
     const yieldOf=r=>{const Y=CELL_RES[r];return Y?ct.dist.reduce((s,c)=>s+Y[c],0):0;};
     for(const key of ct.done){
       const B=BUILDINGS[key];a.dev++;if(B.w)a.wonders.push(B.n);if(bldAgg(a,B,key,T.list[ct.hi]))continue;
-      const lm=ct.lv&&ct.lv[key]?CX_LV[ct.lv[key]-1]:1,om=lm*(ct.mk||1);
+      const lm=ct.ug&&ct.ug[key]?CX_LV[ct.ug[key]]:1,om=lm*(ct.mk||1);
       if(B.res)for(const r in B.res){const [m,f]=B.res[r];a.add[r]+=(m*yieldOf(r)+f)*om;}
       if(B.up)for(const r in B.up)a.up[r]+=B.up[r]*lm;
       if(B.prosper)a.prosper+=B.prosper*lm;if(B.army)a.army+=B.army*lm;if(B.growth)a.growth+=B.growth*lm;
@@ -22848,7 +22856,10 @@ achDef('odd','odd-flag','b','Vexillologist','Redesign your national flag.',1,x=>
 achDef('odd','odd-flag10','s','Vexillomaniac','Redesign your flag 10 times. The flagmakers send their thanks.',10,x=>aT(x,'log:flag'));
 /* ── round two (2026-11-04): the newer parts of the game, longer careers and achievements about achievements ── */
 const aNum=v=>Number.isFinite(+v)?+v:0;
-function aCxLv(x,min){return achM(x,'cxlv'+min,()=>{let k=0;for(const c of x.n.cities||[])for(const b of c.b||[]){try{if(b.d<=x.now&&cxLevel(b,x.now)>=min)k++;}catch(e){}}return k;});}
+/* building upgrades: per city, the blocks each finished building has (literals: the cities section defines CX_UG later) */
+function aCxUps(x){return achM(x,'cxups',()=>{const o=[];for(const c of x.n.cities||[]){const r=[];for(const b of c.b||[]){try{if(b.d<=x.now&&cxUpgradable(b.k))r.push(cxUps(b,x.now));}catch(e){}}o.push(r);}return o;});}
+const aCxLv=(x,min)=>aCxUps(x).flat().filter(v=>v>=min).length;
+const aCxBlocks=x=>aCxUps(x).flat().reduce((s,v)=>s+v,0);
 const aGifts=x=>achM(x,'wnd',()=>{const c=(x.n.wnd&&x.n.wnd.c)||{};return Object.values(c).reduce((s,v)=>s+Math.max(0,aNum(v)),0);});
 const aAchN=x=>Object.keys(x.n.ach||{}).filter(id=>ACH_BY_ID[id]).length;
 [['found-stk7','b','Creature of Habit',7,'Keep up a presence streak of 7 days.'],['found-stk30','s','Regular as Clockwork',30,'Keep up a presence streak of 30 days.'],['found-stk100','g','Part of the Furniture',100,'Keep up a presence streak of 100 days. The building staff have started saying good morning.']]
@@ -22860,9 +22871,18 @@ achDef('found','found-tut','g','Graduate of the Charter','Finish every one of th
   .forEach(([id,t,n,g,d])=>achDef('bld',id,t,n,d,g,aGifts));
 achDef('soc','soc-ws1','b','Dear Mara','Answer the first letter from Willow Street.',1,x=>Math.floor(aNum(x.n.wsl)/WS_LAND),{fm:'bool'});
 achDef('soc','soc-ws8','g','Willow Street Regular','Answer all eight letters from Willow Street.',8,x=>Math.floor(aNum(x.n.wsl)/WS_LAND));
-achDef('land','land-cxlv2','b','Extension Approved','Raise a building to level 2.',1,x=>aCxLv(x,2),{fm:'bool'});
-achDef('land','land-cxlv3','s','Top of the Range','Raise a building to level 3.',1,x=>aCxLv(x,3),{fm:'bool'});
-achDef('land','land-cxlv10','g','Planning Permission','Have 10 buildings at level 3.',10,x=>aCxLv(x,3));
+achDef('land','land-cxlv2','b','Extension Approved','Upgrade a building: its first block, the grey one.',1,x=>aCxLv(x,1),{fm:'bool'});
+achDef('land','land-cxlv3','s','Top of the Range','Give a building all five upgrades, up to the gold block.',1,x=>aCxLv(x,5),{fm:'bool'});
+achDef('land','land-cxlv10','g','Planning Permission','Have 10 buildings with the gold block.',10,x=>aCxLv(x,5));
+/* building upgrades, round two (2026-11-06): one per colour, blocks in total, a rainbow, a gilded city */
+[['bld-ug2','b','A Lick of Paint',2,'Give a building its green upgrade block, the second.'],['bld-ug3','b','Blue Ribbon',3,'Give a building its blue upgrade block, the third.'],['bld-ug4','s','Born to the Purple',4,'Give a building its purple upgrade block, the fourth.']]
+  .forEach(([id,t,n,g,d])=>achDef('bld',id,t,n,d,1,x=>aCxLv(x,g),{fm:'bool'}));
+[['bld-ugb10','b','Under Renovation',10,'Make 10 building upgrades, counting every coloured block.'],['bld-ugb50','s','Grand Refurbishment',50,'Make 50 building upgrades, counting every coloured block.'],['bld-ugb150','g','Gilt-Edged',150,'Make 150 building upgrades, counting every coloured block. The builders have bought a second van.']]
+  .forEach(([id,t,n,g,d])=>achDef('bld',id,t,n,d,g,aCxBlocks));
+achParts('bld','bld-ug-rainbow','s','Full Spectrum','Have a building at every colour at once: one with one upgrade (grey), one with two (green), three (blue), four (purple) and five (gold).',
+  x=>{const f=new Set(aCxUps(x).flat());return ['grey','green','blue','purple','gold'].map((c,i)=>achP(`A building at ${c}, ${i+1} ${i?'upgrades':'upgrade'}`,f.has(i+1)));});
+achDef('bld','bld-ug-city','g','Gilded City','Give every building in one city all five upgrades, with at least five buildings there that can be upgraded.',1,x=>achYes(aCxUps(x).some(r=>r.length>=5&&r.every(v=>v>=5))),{fm:'bool'});
+achDef('bld','bld-ug-gold25','p','Midas Touch','Have 25 buildings with the gold block.',25,x=>aCxLv(x,5));
 achDef('law','law-1500','p','Statute Book of Babel','Make 1,500 decisions. Nobody has read all of them, including you.',1500,aDec);
 achDef('law','law-dismiss100','g','Wastepaper Basket','Veto 100 edicts.',100,x=>aT(x,'dismiss'));
 [['odd-ach50','s','Decorated',50,'Earn 50 achievements.'],['odd-ach150','g','Medal Rack',150,'Earn 150 achievements. Your jacket now clinks.'],['odd-ach250','p','Full Dress Uniform',250,'Earn 250 achievements.']]
@@ -50380,17 +50400,29 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   if(a==='obs-exit'){e.preventDefault();obsExit();}});
 
 /* ───────── cities, expanded: building levels, a city's mood and its matters, mayors, roads and walls ─────────
-   A finished building (not a wonder, a leadership building or the Warehouse, which has tiers of its own) can be raised to
-   level 2 and then 3: half as much again, then double, its output, upkeep and bonuses. A city has a mood (0–100) from what
+   A finished building (not a wonder, a leadership building or the Warehouse, which has tiers of its own) can be upgraded
+   five times, one coloured block at a time: grey (common), green (uncommon), blue (rare), purple (epic) and gold
+   (legendary). Each block adds a little more of the building's output, upkeep and bonuses than the one before (+10%, +15%,
+   +20%, +25%, +30% of the base, so double at gold), and each costs more and takes longer to fit. Buildings raised to the
+   old levels 2 and 3 (×1.5 and ×2, before the blocks) count as four and five blocks, so nobody lost output. A city has a mood (0–100) from what
    stands in it, its mayor, its roads and how its last matter went: a thriving city produces 10% more, an uneasy one 5%
    less and a restless one 15% less, and is easier to take. Every two or three days a city brings the player a matter
    with two answers. A mayor brings one trait. Roads are the map's transport network, built from the city's page; a city
    on a finished road builds 10% faster. Walls (three levels) make the city hex, and a little the hexes next to it,
-   harder to take, for whoever holds it. All of it lives in the city's record (my, wl, wu, ne, mb; a building's lv, lu),
+   harder to take, for whoever holds it. All of it lives in the city's record (my, wl, wu, ne, mb; a building's ug, uu),
    so other players work out the same mood and walls.
    The Cities page shows one city at a time: a list (a row of tabs on a phone), what needs the player, a slim
    stockpile, and the city in four tabs: Buildings, Build, People, Defence & roads. */
-const CX_LV=[1,1.5,2],CX_UP={2:1.5,3:2.5};
+/* the five upgrade blocks: fx is what the block adds (a share of the building's base effect), cost and h scale the
+   building's own cost and build time */
+const CX_UG=[
+  {c:'grey',r:'common',fx:0.10,cost:0.4,h:0.5},
+  {c:'green',r:'uncommon',fx:0.15,cost:0.6,h:0.8},
+  {c:'blue',r:'rare',fx:0.20,cost:0.9,h:1.2},
+  {c:'purple',r:'epic',fx:0.25,cost:1.3,h:1.7},
+  {c:'gold',r:'legendary',fx:0.30,cost:1.8,h:2.4}
+];
+const CX_UG_MAX=CX_UG.length,CX_LV=CX_UG.reduce((a,u)=>(a.push(Math.round((a[a.length-1]+u.fx)*100)/100),a),[1]);
 const CX_WALL=[null,{cost:{timber:20,iron:10},h:4},{cost:{timber:30,iron:25},h:8},{cost:{timber:30,iron:40,goods:20},h:12}];
 const CX_WALL_CITY=0.15,CX_WALL_NEAR=0.05,CX_MAYOR_COST={goods:15},CX_EV_GAP=2*DAY;
 const CX_TRAITS={
@@ -50429,12 +50461,17 @@ const CX_LETTERS={
 };
 
 /* the record fields, kept on save and load */
+/* ug: upgrade blocks filled (1–5); uu: the block being fitted {u,s,d}. A record from before the blocks has lv (2 or 3)
+   and lu {l,s,d}: they read as 4 and 5 blocks, and are written back as ug/uu on the next save. Literals, not CX_UG_MAX:
+   normCities may run before this section does. */
 function cxBldExtras(b){
   const o={};if(!b||typeof b!=='object')return o;
-  if(b.lv===2||b.lv===3)o.lv=b.lv;const u=b.lu,lv=o.lv||1;
-  if(u&&typeof u==='object'&&u.l===lv+1&&u.l<=3&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=7*DAY)o.lu={l:u.l,s:u.s,d:u.d};
+  const old=l=>l===3?5:l===2?4:0,g=Number.isInteger(b.ug)&&b.ug>=1&&b.ug<=5?b.ug:old(b.lv);if(g)o.ug=g;
+  const ol=!b.uu&&b.lu&&typeof b.lu==='object'&&old(b.lu.l)?{u:old(b.lu.l),s:b.lu.s,d:b.lu.d}:null,u=ol||b.uu;
+  if(u&&typeof u==='object'&&(ol?u.u>g:u.u===g+1)&&u.u<=5&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=7*DAY)o.uu={u:u.u,s:u.s,d:u.d};
   return o;
 }
+function cxUgPut(b,e){delete b.lv;delete b.lu;delete b.ug;delete b.uu;if(e.ug)b.ug=e.ug;if(e.uu)b.uu=e.uu;}
 function cxCityExtras(c){
   const o={};if(!c||typeof c!=='object')return o;
   const m=c.my;if(m&&typeof m==='object'&&typeof m.nm==='string'&&Object.hasOwn(CX_TRAITS,m.tr)&&Number.isFinite(m.t))o.my={nm:c3CleanName(m.nm,40),tr:m.tr,t:m.t};
@@ -50444,8 +50481,9 @@ function cxCityExtras(c){
   const mb=c.mb;if(mb&&typeof mb==='object'&&Number.isFinite(mb.v)&&Number.isFinite(mb.u)&&mb.v)o.mb={v:clamp(Math.round(mb.v),-15,15),u:mb.u};
   return o;
 }
-function cxLevel(b,now){const e=cxBldExtras(b);return e.lu&&e.lu.d<=now?e.lu.l:e.lv||1;}
-function cxLevels(c,now){const o={};for(const b of (c&&c.b)||[])if(b.d<=now&&BUILDINGS[b.k]){const l=cxLevel(b,now);if(l>1)o[b.k]=l;}return o;}
+function cxUps(b,now){const e=cxBldExtras(b);return e.uu&&e.uu.d<=now?e.uu.u:e.ug||0;}
+function cxUpMap(c,now){const o={};for(const b of (c&&c.b)||[])if(b.d<=now&&BUILDINGS[b.k]){const u=cxUps(b,now);if(u)o[b.k]=u;}return o;}
+const cxUgWord=u=>`${CX_UG[u-1].c} (${CX_UG[u-1].r})`;
 function cxWallLv(rec,now){if(!rec)return 0;const e=cxCityExtras(rec);return e.wu&&e.wu.d<=now?e.wu.l:e.wl||0;}
 function cxUpgradable(k){const B=BUILDINGS[k];return !!B&&!B.w&&!B.lead&&k!=='warehouse'&&!!(B.res||B.prosper||B.army||B.growth);}
 
@@ -50454,7 +50492,7 @@ function cxRoadAt(fn,cell,now){return (Array.isArray(fn&&fn.infra)?fn.infra:[]).
 function cxMood(ct,now){
   const rec=ct.rec,parts=[];let v=55;const add=(d,t)=>{if(d){v+=d;parts.push([d,t]);}};
   if(ct.cap)add(5,'Seat of government');
-  for(const k of ct.done){const B=BUILDINGS[k];if(!B)continue;let d=CX_MOOD_B[k]??(B.w?5:B.c==='soc'?3:0);if(d>0&&ct.lv&&ct.lv[k])d+=2*(ct.lv[k]-1);add(d,B.n+(ct.lv&&ct.lv[k]?' (level '+ct.lv[k]+')':''));}
+  for(const k of ct.done){const B=BUILDINGS[k];if(!B)continue;let d=CX_MOOD_B[k]??(B.w?5:B.c==='soc'?3:0);const u=ct.ug&&ct.ug[k];if(d>0&&u)d+=u;add(d,B.n+(u?` (${u} ${u===1?'upgrade':'upgrades'})`:''));}
   const my=rec&&cxCityExtras(rec).my;if(my){add(3,'Has a mayor');if(my.tr==='populist')add(12,'A crowd-pleasing mayor');}
   if(cxRoadAt(ct.fn,ct.c,now))add(5,'A road to the rest of the nation');
   const mb=rec&&rec.mb;if(mb&&mb.u>now&&mb.v)add(clamp(Math.round(mb.v),-15,15),'How its last matter went');
@@ -50488,7 +50526,7 @@ BATTLE_MODS.push((T,cell,ai,bi)=>{if(bi===undefined||bi<0||!T.list[bi])return nu
 COMMIT_HOOKS.push((n,old,now)=>{
   const out=[];
   for(const c of n.cities||[]){
-    for(const b of c.b||[]){const e=cxBldExtras(b);if(e.lu&&e.lu.d<=now){b.lv=e.lu.l;delete b.lu;if(BUILDINGS[b.k])out.push(`The ${BUILDINGS[b.k].n} in ${cityLabel(n,c)} now works at level ${b.lv}.`);}}
+    for(const b of c.b||[]){const e=cxBldExtras(b);if(e.uu&&e.uu.d<=now){const u=e.uu.u;cxUgPut(b,{ug:u});if(BUILDINGS[b.k])out.push(`The ${BUILDINGS[b.k].n} in ${cityLabel(n,c)} gains its ${CX_UG[u-1].c} upgrade, ${u} of ${CX_UG_MAX}${u===CX_UG_MAX?': it now works at double strength':''}.`);}}
     const e=cxCityExtras(c);if(e.wu&&e.wu.d<=now){c.wl=e.wu.l;delete c.wu;out.push(`The walls of ${cityLabel(n,c)} reach level ${c.wl}.`);}
   }
   return out;
@@ -50498,26 +50536,26 @@ COMMIT_HOOKS.push((n,old,now)=>{
 function cxHeld(cid){const {T,mine}=myCityStates(),ct=mine.find(c=>c.id===cid);return ct&&ct.active&&!(ct.hi>=0&&T.list[ct.hi].id!==myId())?ct:null;}
 function cxPay(n,st,cost,now){for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;}
 function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+Math.floor((cost[r]||0)/2),st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;}
-function cxUpQuote(n,ct,k,to){const base=bCost(n,k),c={};for(const r in base)c[r]=Math.ceil(base[r]*CX_UP[to]);return {cost:c,hours:Math.round(bHours(n,k)*CX_UP[to]*cxBuildK(ct)*10)/10};}
-function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{const e=cxBldExtras(b);return e.lu&&e.lu.d>now;})||null;}
+function cxUpQuote(n,ct,k,to){const U=CX_UG[to-1],base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost));return {cost:c,hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*cxBuildK(ct)*10)/10)};}
+function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{if(!b||!cxUpgradable(b.k))return false;const e=cxBldExtras(b);return e.uu&&e.uu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
-  if(!cxUpgradable(k))return 'This building has no levels.';
+  if(!cxUpgradable(k))return 'This building cannot be upgraded.';
   const b=ct.rec&&ct.rec.b.find(x=>x.k===k);if(!b||b.d>now)return 'Finish the building first.';
-  if(cxLevel(b,now)>=3)return 'It works at the highest level.';
-  const busy=cxUpBusy(ct.rec,now);if(busy)return `The builders are raising the ${BUILDINGS[busy.k].n} first.`;
-  const miss=lacking(cxUpQuote(n,ct,k,cxLevel(b,now)+1).cost,st);return miss.length?'You need '+list(miss)+' more.':null;
+  if(cxUps(b,now)>=CX_UG_MAX)return 'All five upgrades are done.';
+  const busy=cxUpBusy(ct.rec,now);if(busy)return `The builders are upgrading the ${BUILDINGS[busy.k].n} first.`;
+  const miss=lacking(cxUpQuote(n,ct,k,cxUps(b,now)+1).cost,st);return miss.length?'You need '+list(miss)+' more.':null;
 }
 function cxUpgrade(cid,k){
   const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),st=stockNow(S.nation,now),p=cxUpProblem(S.nation,ct,k,st,now);
   if(p){S.cityMsg=p;render();return;}
-  const to=cxLevel(ct.rec.b.find(x=>x.k===k),now)+1,q=cxUpQuote(S.nation,ct,k,to);
+  const to=cxUps(ct.rec.b.find(x=>x.k===k),now)+1,q=cxUpQuote(S.nation,ct,k,to);
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid),b=c&&c.b.find(x=>x.k===k);if(!b)return;
-  cxPay(n,st,q.cost,now);if(to>2)b.lv=to-1;b.lu={l:to,s:now,d:now+q.hours*3600e3};
-  commit(n);S.cityMsg='';render();toast(`Work has started on raising the ${BUILDINGS[k].n} in ${ct.nm} to level ${to}. It will be ready in ${fmtDur(q.hours*3600e3)}.`);
+  cxPay(n,st,q.cost,now);cxUgPut(b,{ug:to-1,uu:{u:to,s:now,d:now+q.hours*3600e3}});
+  commit(n);S.cityMsg='';render();toast(`Work has started on the ${CX_UG[to-1].c} upgrade of the ${BUILDINGS[k].n} in ${ct.nm}, ${to} of ${CX_UG_MAX}. It will be ready in ${fmtDur(q.hours*3600e3)}.`);
 }
 function cxUpCancel(cid,k){
   const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid),b=c&&c.b.find(x=>x.k===k),e=b&&cxBldExtras(b);
-  if(!e||!e.lu||e.lu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,cxUpQuote(S.nation,ct,k,e.lu.l).cost,now);delete b.lu;
+  if(!e||!e.uu||e.uu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,cxUpQuote(S.nation,ct,k,e.uu.u).cost,now);cxUgPut(b,{ug:e.ug});
   commit(n);S.cityMsg='';render();toast(`Work on the ${BUILDINGS[k].n} has stopped. Half the materials were saved.`);
 }
 function cxWallQuote(n,ct,to){const W=CX_WALL[to],f=cabFx(n),c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]*f.cost));return {cost:c,hours:Math.round(W.h*f.build*cxBuildK(ct)*10)/10};}
@@ -50589,15 +50627,25 @@ function cxCanUp(ct,b,now){const q=ct.prog.filter(x=>x.s>now).sort((x,y)=>x.s-y.
 
 /* the page */
 const cxOk=(ct,T)=>ct.active&&!(ct.hi>=0&&T.list[ct.hi]&&T.list[ct.hi].id!==myId());
-function cxLvChip(ct,k){const l=ct.lv&&ct.lv[k];return l?` <span class="chip cx-lvc">Level ${l}</span>`:'';}
+/* five small blocks: filled ones in their colour, the one being fitted striped, the rest empty */
+function cxUgBar(g,wip){
+  const lab=`${g} of ${CX_UG_MAX} upgrades${g?', '+cxUgWord(g):''}${wip?`; the ${CX_UG[wip-1].c} one is being fitted`:''}`;
+  return `<span class="ugb" role="img" aria-label="${lab}" title="${lab}">${CX_UG.map((u,i)=>`<i class="ugb-${u.c}${i<g?' on':i+1===wip?' wip':''}"></i>`).join('')}</span>`;
+}
+function cxUgLegend(){return `<p class="hint cx-ugl">Upgrades: ${CX_UG.map(u=>`<i class="ugb-dot ugb-${u.c}" aria-hidden="true"></i>${u.c}`).join(' ')}. Each adds a little more of what the building does (+${Math.round(CX_UG[0].fx*100)}% for grey, up to +${Math.round(CX_UG[CX_UG_MAX-1].fx*100)}% for gold, so double in all) and costs more than the last. One at a time in each city.</p>`;}
+function cxLvChip(ct,k){
+  if(ct.npc||!ct.rec||!cxUpgradable(k))return '';
+  const now=Date.now(),b=(ct.rec.b||[]).find(x=>x.k===k);if(!b||b.d>now)return '';
+  const e=cxBldExtras(b);return ' '+cxUgBar(cxUps(b,now),e.uu&&e.uu.d>now?e.uu.u:0);
+}
 function cxLvBits(ct,k,mine,now){
   if(!mine||!cxUpgradable(k)||!ct.rec)return '';
   const b=ct.rec.b.find(x=>x.k===k);if(!b||b.d>now)return '';
   const e=cxBldExtras(b);
-  if(e.lu&&e.lu.d>now)return `<span class="cx-lv">Raising to level ${e.lu.l}: <span data-live="build" data-d="${e.lu.d}">${fmtDur(e.lu.d-now)}</span> left. <button class="linkish small" data-act="cx-up-no" data-id="${esc(ct.id)}" data-k="${k}">Stop</button></span>`;
-  const lv=cxLevel(b,now);if(lv>=3)return `<span class="cx-lv">At the highest level.</span>`;
-  const st=stockNow(S.nation,now),q=cxUpQuote(S.nation,ct,k,lv+1),p=cxUpProblem(S.nation,ct,k,st,now);
-  return `<span class="cx-lv"><button class="linkish small" data-act="cx-up" data-id="${esc(ct.id)}" data-k="${k}"${p?' disabled':''}>Raise to level ${lv+1}</button> <span class="cx-lv-c">${esc(costText(q.cost))} · ${q.hours} h · ${lv+1===2?'+50%':'double the level 1'} effect${p&&!/^You need/.test(p)?' · '+esc(p):''}</span></span>`;
+  if(e.uu&&e.uu.d>now)return `<span class="cx-lv">Fitting the ${CX_UG[e.uu.u-1].c} upgrade, ${e.uu.u} of ${CX_UG_MAX}: <span data-live="build" data-d="${e.uu.d}">${fmtDur(e.uu.d-now)}</span> left. <button class="linkish small" data-act="cx-up-no" data-id="${esc(ct.id)}" data-k="${k}">Stop</button></span>`;
+  const g=cxUps(b,now);if(g>=CX_UG_MAX)return `<span class="cx-lv">All five upgrades done: it works at double strength.</span>`;
+  const U=CX_UG[g],st=stockNow(S.nation,now),q=cxUpQuote(S.nation,ct,k,g+1),p=cxUpProblem(S.nation,ct,k,st,now);
+  return `<span class="cx-lv"><button class="linkish small" data-act="cx-up" data-id="${esc(ct.id)}" data-k="${k}"${p?' disabled':''}><i class="ugb-dot ugb-${U.c}" aria-hidden="true"></i>Upgrade to ${U.c}</button> <span class="cx-lv-c">${g+1} of ${CX_UG_MAX}, ${U.r} · ${esc(costText(q.cost))} · ${q.hours} h · +${Math.round(U.fx*100)}% of its base effect${p&&!/^You need/.test(p)?' · '+esc(p):''}</span></span>`;
 }
 function cxCatBar(n,ct){
   const cur=S.cxCat||'all';
@@ -50625,11 +50673,11 @@ function cxPage(T,CS,mine,held,a,n,st,now){
   const mi=T.byId[myId()],lim=maxCities(T,mi),have=cityList(n).length,canFound=have<lim&&have<MAX_CITIES;
   const own=cpSorted(mine,T),cap=cpSorted(held,T),all=own.concat(cap);
   let sel=S.cityOpen||S.cxSel;if(sel!=='new'&&!all.some(c=>c.id===sel))sel=all[0]?all[0].id:'new';S.cxSel=sel;
-  const cur=all.find(c=>c.id===sel),fx=bldEffects(a);
+  const cur=all.find(c=>c.id===sel),fx=bldEffects(a),ub=all.reduce((s,ct)=>s+Object.values(ct.ug||{}).reduce((t,v)=>t+v,0),0);
   const detail=sel==='new'||!cur?`<section class="city cx-new" id="cx-new"><p class="eyebrow">Ministry of Works</p><h3 class="city-n">Found a new city</h3>${foundCityForm(T,st)}</section>`:cityCard(cur,T,n,st,now);
   const listHtml=`${own.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}${cap.length?`<p class="lbl-h cx-list-h">Captured</p>${cap.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}`:''}<button class="cx-item cx-add${sel==='new'?' on':''}" data-act="cx-sel" data-id="new" aria-current="${sel==='new'?'true':'false'}"><span class="cx-it-h"><b>+ Found a city</b></span><span class="cx-it-s">${canFound?`${lim-have} more allowed`:have>=MAX_CITIES?'Every city founded':`Next at ${fmtPopShort(nextCityAt(n))} people`}</span></button>`;
   return `${cxTodo(T,mine,now,canFound)}${cxStock(n,now)}
-  <details class="cx-more"><summary>${own.length+cap.length} ${own.length+cap.length===1?'city':'cities'} of ${lim} allowed · ${a.dev} ${a.dev===1?'building':'buildings'}${a.wonders.length?' · '+esc(list(a.wonders)):''} · what they give you</summary>
+  <details class="cx-more"><summary>${own.length+cap.length} ${own.length+cap.length===1?'city':'cities'} of ${lim} allowed · ${a.dev} ${a.dev===1?'building':'buildings'}${ub?` · ${ub} ${ub===1?'upgrade':'upgrades'}`:''}${a.wonders.length?' · '+esc(list(a.wonders)):''} · what they give you</summary>
     <p class="fig-s-big">${fx.length?esc(fx.join('; ')).replace(/^./,c=>c.toUpperCase())+'.':'Nothing yet. Start with a sawmill or farm.'}</p>${cpSummary(T,n)}${whSummary(n,now)}
     <p class="hint">Whatever your nation produces beyond what it needs collects in the stockpile every day, up to ${stockCap(n)} of each. Buildings are paid for from it. Short of something? Build a sawmill, mine or factory, or trade for it.</p></details>
   <div class="cx-wrap"><nav class="cx-list" aria-label="Your cities">${listHtml}</nav><div class="cx-main" id="cx-main">${detail}</div></div>`;
@@ -50686,7 +50734,7 @@ function cityCard(ct,T,n,st,now){
   else{
     const rows=rowsOf();
     const end=ct.prog.reduce((m,b)=>Math.max(m,b.d),0);
-    body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${end>now?`<p class="hint cx-qend">The builders are busy until ${c3When(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
+    body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${ok&&ct.done.some(cxUpgradable)?cxUgLegend():''}${end>now?`<p class="hint cx-qend">The builders are busy until ${c3When(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
   }
   return `<article class="city cx-detail" id="city-${esc(ct.id)}">
     <div class="city-h"><div><p class="eyebrow">${ct.cap?'Capital':'City'} · ${esc(cap1(placePhrase(ct.c).replace(/^in the |^on /,'')))}</p><h3 class="city-n">${esc(ct.nm)}</h3>${cpCardPop(ct,T)}</div>
@@ -50721,7 +50769,7 @@ document.addEventListener('click',e=>{
 
 /* ───────── fifty edicts for the newest systems: parliament and the mandate, cities, the passport and the rest ─────────
    Edicts about the Government page (the seats, the voting system, the Senate, the mandate, the morning briefing and the
-   leader's record), the cities (mayors, walls, building levels, roads and a city's mood), the passport's stamps, the
+   leader's record), the cities (mayors, walls, building upgrades, roads and a city's mood), the passport's stamps, the
    Community Board, the statistics, the time zones, recruited nations, the Hall of Honours and heraldry. All but the four
    Community Board edicts wait for their system to work for the nation (a mayor in office, walls built, a stamp
    collected (ppCount), a recruit paid, the Keeper of the Hours earned; the statistics, for thirty decided edicts to chart), and none goes to a computer-run nation (nr).
@@ -50768,7 +50816,7 @@ function nsSys(n){const p=pol(n);return p.noElections?'none':p.sortition?'lot':p
 function nsSeats(n){try{return gvSeatCount(n).seats;}catch(e){return 0;}}
 function nsMayors(n){return nsCities(n).filter(c=>cxCityExtras(c).my).length;}
 function nsWalls(n){const now=Date.now();return nsCities(n).reduce((m,c)=>Math.max(m,cxWallLv(c,now)),0);}
-function nsLevel(n){const now=Date.now();return nsCities(n).reduce((m,c)=>Math.max(m,...Object.values(cxLevels(c,now))),1);}
+function nsTopUp(n){const now=Date.now();return nsCities(n).reduce((m,c)=>Math.max(m,...Object.values(cxUpMap(c,now))),0);}
 function nsRaising(n){const now=Date.now();return nsCities(n).some(c=>!!cxUpBusy(c,now));}
 function nsSore(n){const now=Date.now();return nsCities(n).some(c=>{const mb=cxCityExtras(c).mb;return !!mb&&mb.v<0&&mb.u>now;});}
 function nsRoad(n){const now=Date.now();return (Array.isArray(n&&n.infra)?n.infra:[]).some(r=>r&&Number.isFinite(r.d)&&r.d<=now);}
@@ -50828,7 +50876,7 @@ const NS_ISSUES=[
  {t:'“Give her everything,” says historian Professor Augustin Merrydown. “A record that cannot survive an honest book is not much of a record.”',e:{pol:2,civil:1,culture:1,md:-1},fx:'an honest biography of the {L} of {N} is a bestseller, and its chapter on mistakes is quoted in parliament'},
  {t:'“A short book, with photographs,” says the {L}’s spokesman, Desmond Arkwright-Vale. “People like pictures, and pictures never misquote anybody.”',e:{pol:-1,cons:1,md:2},fx:'a glossy book of photographs of the {L} sits in every {D} school library, and the {L} looks splendid in all of them'},
  {t:'“Let the {L} write it,” says Minister of Culture and Sport {CUL}. “Nobody knows the record better, and the royalties could build a library.”',e:{culture:2,weird:1,b:{edu:1}},fx:'the {L} of {N} wrote an autobiography, mostly in the third person, and the royalties built a library'}]},
-/* the cities: mayors, walls, building levels, roads and moods */
+/* the cities: mayors, walls, building upgrades, roads and moods */
 {id:'cxp-chains',c:'culture',t:'Chains of Office',req:n=>nsMayors(n)>=1,q:'The mayors of {N}’s cities have asked for chains of office: heavy gold chains bearing each city’s arms, to be worn at openings, funerals and the annual dinner. The jewellers’ estimate is large, and one mayor has already ordered a chain so long that it trails behind him on the ground. The Treasury has asked whether a badge would do.',o:[
  {t:'“Gold chains, with each city’s arms,” says Alderman Percival Hobcraft of the mayors’ association. “A mayor in a chain is a city with a face.”',e:{culture:2,cons:1,tax:1},fx:'every mayor in {N} wears a gold chain with the city’s arms, and one of them needs a page to carry the end'},
  {t:'“A badge,” says Finance Minister {FIN}. “Enamel, a pin at the back, a sensible size. Dignity is not measured by the kilo.”',e:{econ:1,happy:-1},fx:'{D} mayors wear an enamel badge on the lapel, and the Treasury has bought several hundred spares'},
@@ -50853,11 +50901,11 @@ const NS_ISSUES=[
  {t:'“Dig the moat, and let nature have it,” says ecologist Dr. Saoirse Ballinamore. “Invaders hate frogs. Herons hate invaders. It is a very old alliance.”',e:{env:2,mil:1,tax:1},fx:'a moat full of frogs, herons and pike surrounds a city of {N}, and invaders and mosquitoes are both rare'},
  {t:'“No moat,” says Minister of Health and Education {HEA}. “Standing water breeds mosquitoes, and mosquitoes breed complaints.”',e:{health:1,env:-1},fx:'the city walls of {N} stand on dry ground, and the herons have gone elsewhere'},
  {t:'“A moat for swimming,” says lifeguard Lowenna Tregothnan. “Clean water, a diving board on the gatehouse, and a lifeguard in every tower.”',e:{happy:2,health:1,weird:1,mil:-1},fx:'the moat around a walled city of {N} is an open-air swimming pool, with a lifeguard in every tower'}]},
-{id:'cxp-hum',c:'society',t:'The Hum at Level Three',req:n=>nsLevel(n)>=3,q:'One of {N}’s buildings has been raised to its third level, and it now produces twice what it did. It also hums. People in the streets around it say the hum is a low G, that it never stops and that it has started to appear in their dreams. A local choir has begun tuning to it.',o:[
+{id:'cxp-hum',c:'society',t:'The Golden Hum',req:n=>nsTopUp(n)>=5,q:'One of {N}’s buildings has been given its fifth and last upgrade, the gold one, and it now produces twice what it did. It also hums. People in the streets around it say the hum is a low G, that it never stops and that it has started to appear in their dreams. A local choir has begun tuning to it.',o:[
  {t:'“Soundproof it,” says acoustic engineer Dr. Ferris Oakbarrow. “Double the output, and none of the noise.”',e:{health:1,happy:1,tax:1},fx:'the busiest building in the city is wrapped in soundproofing, and the streets around it are quiet enough to hear birds'},
  {t:'“It is the sound of prosperity,” says plant manager Eustace Coldbeck. “Other cities would pay to hum like this.”',e:{econ:2,happy:-1,health:-1},fx:'the low G of a busy building hums over a {D} city day and night, and its people have learned to sleep to it'},
  {t:'“Make it the city’s note,” says choirmaster Henrietta Lyle-Mbeki. “Every hymn, anthem and doorbell in G.”',e:{culture:2,weird:2},fx:'everything in a {D} city is tuned to the hum of its busiest building, and visiting orchestras complain'}]},
-{id:'cxp-scaffold',c:'culture',t:'The Scaffolding Society',req:n=>nsRaising(n),q:'A building in one of {N}’s cities is being raised to a higher level, and it is covered in scaffolding. The neighbours have grown attached to it. Climbing plants have taken over the lower poles, a family of pigeons has moved in at the top, and a petition asks that the scaffolding stay up after the work is done, as “a monument to the city getting better”.',o:[
+{id:'cxp-scaffold',c:'culture',t:'The Scaffolding Society',req:n=>nsRaising(n),q:'A building in one of {N}’s cities is being upgraded, and it is covered in scaffolding. The neighbours have grown attached to it. Climbing plants have taken over the lower poles, a family of pigeons has moved in at the top, and a petition asks that the scaffolding stay up after the work is done, as “a monument to the city getting better”.',o:[
  {t:'“Take it down when the work is finished, as planned,” says site foreman Ignatius Clatworthy. “Scaffolding is a means, not an end.”',e:{econ:1,cons:1},fx:'the scaffolding came down on schedule, and the pigeons have moved to the cathedral'},
  {t:'“Leave one corner up for ever, with the climbing plants,” says architect Imogen Tallowfield. “Cities forget how they were built. This one need not.”',e:{culture:2,weird:2,tour:1},fx:'one corner of scaffolding stands for ever in a {D} city, covered in roses, with a family of pigeons in residence'},
  {t:'“Wrap all scaffolding in murals,” says street artist Kwabena Asamoah-Lusk. “If a city must wear scaffolding, let it dress for the occasion.”',e:{culture:2,happy:1,tax:1},fx:'all scaffolding in {N} is wrapped in murals, and people are sad when the building beneath is finished'}]},
@@ -51052,7 +51100,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
