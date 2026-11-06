@@ -5,25 +5,29 @@
 # libraries, so --with-deps only adds nine font packages (about 22 MB) from the Ubuntu mirror. On
 # 2026-11-06 that mirror served them to some runners at 26-36 kB/s, the usual 15 s step took 10-14
 # minutes, and the browser jobs ran out of time. So:
-#   1. the font packages' .deb files come from the Actions cache when it has them (no mirror at all);
+#   1. the font packages' .deb files come from the Actions cache when it has them, installed with
+#      dpkg, which never touches the network (apt-get, even given the local files, fetched the same
+#      versions from the mirror again);
 #   2. Playwright's own check (install-deps --dry-run) decides whether anything is still missing;
-#   3. only then is the mirror used, each try cut off after a few minutes, and the second try skips
-#      the Azure mirror that stalled;
+#   3. only then is the mirror used: a first try cut off after a minute (a healthy mirror needs
+#      1-8 s), then a second, longer one that skips the Azure mirror that stalled;
 #   4. the browser itself comes from Playwright's CDN (fast; cut off and tried again the same way).
 set -euo pipefail
 
 debs="$HOME/.cache/playwright-debs"
 node="$(command -v node)"
 cli="$PWD/node_modules/playwright/cli.js"
-apt_try=3m      # a healthy mirror needs under 30 s for the 22 MB
-browser_try=2m  # the CDN usually needs under 15 s for the browser and its headless shell
+apt_tries=(1m 3m)  # per try of the mirror
+browser_try=2m     # the CDN usually needs under 15 s for the browser and its headless shell
 started=$SECONDS
 from="already on the runner"
 
 if compgen -G "$debs/*.deb" >/dev/null; then
   echo "::group::Install $(ls "$debs"/*.deb | wc -l) system packages from the Actions cache"
-  # local .deb files: apt downloads nothing as long as their own dependencies are installed
-  if sudo apt-get install -y --no-install-recommends "$debs"/*.deb; then from="Actions cache"; fi
+  # their own dependencies are on the runner image already (apt downloaded only these), and dpkg
+  # configures the ones that depend on each other after unpacking them all
+  if sudo timeout -k 10s 2m dpkg -i "$debs"/*.deb; then from="Actions cache"
+  else echo "::warning title=Cached packages::Installing the cached system packages failed; the check below decides what is missing."; fi
   echo "::endgroup::"
 fi
 
@@ -38,12 +42,13 @@ else
   echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99-keep-playwright-debs >/dev/null
   done_apt=
   for try in 1 2; do
-    echo "::group::Install the missing system packages from the Ubuntu mirror (try $try of 2, at most $apt_try)"
+    limit="${apt_tries[$((try - 1))]}"
+    echo "::group::Install the missing system packages from the Ubuntu mirror (try $try of 2, at most $limit)"
     # timeout runs as root so that, when it fires, it also stops apt-get and its downloads
-    if sudo timeout -k 15s "$apt_try" "$node" "$cli" install-deps chromium; then done_apt=1; fi
+    if sudo timeout -k 15s "$limit" "$node" "$cli" install-deps chromium; then done_apt=1; fi
     echo "::endgroup::"
     [ -n "$done_apt" ] && break
-    echo "::warning title=Slow Ubuntu mirror::Installing Chromium's system packages failed or took over $apt_try (try $try of 2)."
+    echo "::warning title=Slow Ubuntu mirror::Installing Chromium's system packages failed or took over $limit (try $try of 2)."
     sudo dpkg --configure -a || true
     if [ "$try" = 1 ] && [ -f /etc/apt/apt-mirrors.txt ]; then
       echo "Mirrors: $(tr '\n' ' ' < /etc/apt/apt-mirrors.txt)"
