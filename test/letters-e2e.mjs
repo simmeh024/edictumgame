@@ -34,6 +34,9 @@ await nav(A, 'messages'); await A.click('.dm-head-b [data-act="dm-cz"]');
 check('Customise opens on Stationery', await until(async () => (await A.evaluate(() => location.hash)) === '#customise/stationery' && await A.isVisible('#cz-sec-l')));
 check('Stationery is in the side list of sections', !!(await A.$('#cz-go-l')) || !!(await A.$('#cz-sub-l')));
 check('with papers, seals and signatures, some to be earned', (await A.$$('#cz-sec-l .cz-g-lp .cz-tile')).length >= 9 && (await A.$$('#cz-sec-l .cz-g-ls .cz-tile.locked')).length >= 3);
+check('five papers come with achievements', (await A.$$('#cz-sec-l .cz-g-lp:not(.cz-g-lpg) .cz-tile[data-id^="lp-a-"]')).length === 5);
+check('and the government has a paper for each of its 27 classifications, the nation’s own one already held',
+  (await A.$$('#cz-sec-l .cz-g-lpg .cz-tile')).length === 27 && (await A.$$('#cz-sec-l .cz-g-lpg .cz-tile:not(.locked)')).length >= 1 && /classed that way/.test(await text(A, '#cz-sec-l')));
 await A.click('#cz-lp-lp-cream'); await sleep(300); await A.click('#cz-ls-ls-red'); await sleep(300); await A.click('#cz-lg-lg-name'); await sleep(300);
 check('choosing paper, seal and signature saves them', await until(async () => { const c = await A.evaluate(() => G.S.nation.cz || {}); return c.lp === 'lp-cream' && c.ls === 'ls-red' && c.lg === 'lg-name'; }));
 if (await A.$('[data-act="cz-ctx"][data-v="letter"]')) await A.click('[data-act="cz-ctx"][data-v="letter"]');
@@ -66,6 +69,7 @@ await B.click('#toast [data-kind="letter"]');
 check('which opens the conversation', await until(async () => (await B.evaluate(() => G.S.view)) === 'messages' && (await B.evaluate(() => G.S.msgPeer)) === uidA));
 check('the note shows its kind, and the writer’s paper, seal and signature', await until(async () => /Note of Friendship/.test(await text(B, '.bub:not(.mine) .dm-note-h')) && !!(await B.$('.bub.lp-cream .dm-wax.ls-red')) && /Inkwell/.test(await text(B, '.bub .dm-sig'))));
 check('the trade offer is a card with Accept and Decline', !!(await B.$('.dm-att-c [data-act="tr-accept"]')) && !!(await B.$('.dm-att-c [data-act="tr-decline"]')));
+check('the conversation never scrolls sideways, though the seal hangs over the corner', await B.evaluate(() => { const b = document.querySelector('.bubs'); return !!b && b.scrollWidth <= b.clientWidth + 1 && getComputedStyle(b).overflowX === 'hidden'; }));
 await B.locator('.thread').screenshot({ path: path.join(OUT, 'letters-note.png') }).catch(() => {});
 await B.click('.dm-att-c [data-act="tr-accept"]');
 check('accepting it in the letter signs the deal', await until(() => B.evaluate(uid => (G.S.nation.deals || []).some(d => d.w === uid && d.a), uidA)));
@@ -84,6 +88,12 @@ await B.fill('#dm-text', 'Gladly, friend.'); await B.click('#dm-form button[type
 const ans = await until(() => find(uidB, uidA, 'Gladly, friend.'), 20000);
 check('the answer carries the words it answers', !!ans && /Shall our nations/.test(ans.r?.x?.stringValue || ''));
 check('and A sees them quoted', await until(async () => /Shall our nations/.test(await text(A, '.bub:not(.mine) .dm-q')), 20000));
+const longLetter = 'L'.repeat(1990) + ' The end.';
+await A.fill('#dm-text', longLetter);
+check('the composer counts up to 2,500 characters', /\/ 2,500/.test(await text(A, '#dm-count')), await text(A, '#dm-count'));
+await A.click('#dm-form button[type="submit"]');
+check('a long letter arrives whole', !!(await until(async () => { const l = await find(uidA, uidB, /^L+ The end\.$/); return l && l.x === longLetter; }, 25000)));
+await sleep(3500);
 
 /* ── 6. ten letters in a row wait for an answer ── */
 await ownerSet('lpair/' + uidA + '~' + uidB, { by: { stringValue: uidA }, to: { stringValue: uidB }, u: { integerValue: '9' }, l: { timestampValue: new Date(Date.now() - 60000).toISOString() } });

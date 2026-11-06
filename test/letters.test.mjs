@@ -13,8 +13,8 @@ vm.runInContext(`${line('const DM_PEER_KEEP=')}
 ${line('const dmUid=')}
 function num0(v){return typeof v==='number'&&isFinite(v)?v:0;}
 ${fn('dmNorm')}${fn('dmxClean')}${fn('dmTrim')}
-this.api={dmNorm,dmxClean,dmTrim,DM_PEER_KEEP,DM_ALL_KEEP};`, ctx);
-const { dmNorm, dmxClean, dmTrim, DM_PEER_KEEP, DM_ALL_KEEP } = ctx.api;
+this.api={dmNorm,dmxClean,dmTrim,DM_PEER_KEEP,DM_ALL_KEEP,DM_MAX,DM_CHARS};`, ctx);
+const { dmNorm, dmxClean, dmTrim, DM_PEER_KEEP, DM_ALL_KEEP, DM_MAX, DM_CHARS } = ctx.api;
 const plain = o => JSON.parse(JSON.stringify(o));
 
 test('the own copy keeps a letter’s note, answer, attachment and group, and nothing else', () => {
@@ -27,6 +27,8 @@ test('the own copy keeps a letter’s note, answer, attachment and group, and no
   assert.deepEqual(plain(dmNorm({ w: 'npc-x', t: 1, x: 'Hi', i: 1, q: 1, b: 1 })), { w: 'npc-x', t: 1, x: 'Hi', i: 1 });   // written to us: never queued
   assert.deepEqual(plain(dmNorm({ w: 'bob', t: 1, x: 'x', q: 1, h: 'day', hd: 20400 })), { w: 'bob', t: 1, x: 'x', q: 1, h: 'day', hd: 20400 });
   assert.equal(dmNorm({ w: 'bob', t: 1, x: 'x', h: 'whenever' }).h, undefined);
+  assert.equal(DM_MAX, 2500);
+  assert.equal(dmNorm({ w: 'bob', t: 1, x: 'z'.repeat(DM_MAX) }).x.length, DM_MAX);                     // a long letter is kept whole
 });
 
 test('letter settings keep only what they should', () => {
@@ -58,6 +60,15 @@ test('the own copy keeps every letter not yet sent, the last of each conversatio
   dmTrim(many);
   assert.equal(many.dm.length, DM_ALL_KEEP);
   assert.ok(Object.keys(many.dmx.cut).length >= 1);
+  // and no more than DM_CHARS of text: long letters go oldest first, a letter not yet sent stays
+  const long = { dm: [] };
+  for (let p = 0; p < 10; p++) for (let i = 0; i < 20; i++) long.dm.push({ w: 'p' + p, t: i * 100 + p, x: 'w'.repeat(DM_MAX) });
+  long.dm.push({ w: 'p0', t: 1, x: 'w'.repeat(DM_MAX), q: 1 });
+  dmTrim(long);
+  const chars = long.dm.reduce((s, m) => s + m.x.length, 0);
+  assert.ok(chars <= DM_CHARS + DM_MAX, chars);
+  assert.ok(long.dm.length < 201 && long.dm.some(m => m.q));
+  assert.equal(Math.max(...long.dm.filter(m => !m.q).map(m => m.t)), 19 * 100 + 9);                       // the newest stay
   // nothing trimmed, nothing changed
   const few = { dm: [{ w: 'bob', t: 1, x: 'a' }] };
   dmTrim(few);

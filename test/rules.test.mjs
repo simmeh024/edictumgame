@@ -651,7 +651,7 @@ test('a letter is read only by its writer and its reader, paced, and named by wr
   await assertFails(letter('alice', 'bob', 'Wrong name', t + 3, { id: 'alice~bob~1' }));
   await assertFails(letter('alice', 'nobody', 'To no nation', t + 4));
   await assertFails(letter('dave', 'bob', 'From no nation', t + 5));
-  await assertFails(letter('alice', 'bob', 'x'.repeat(501), t + 6));
+  await assertFails(letter('alice', 'bob', 'x'.repeat(2501), t + 6));                                       // 2,500 characters at most
   await assertFails(letter('alice', 'bob', 'Far ahead', t + 2 * 864e5));
   await assertFails(letter('alice', 'bob', 'Forged', t + 7, { extra: { by: 'bob' }, id: 'bob~bob~' + (t + 7) }));
   await assertFails(letter('alice', 'bob', 'Kept for ever', t + 7, { extra: { exp: firebase.firestore.Timestamp.fromMillis(Date.now() + 5000 * DAY_MS) } }));
@@ -676,6 +676,7 @@ test('a letter may be a formal note, answer a letter, carry an attachment, or go
   await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('nations/alice').set(nation('Aliceland')); await ctx.firestore().doc('nations/dan').set(nation('Danmark')); });
   const t = Date.now(), ok = async (x, extra, o) => { await unpace('alice'); return letter('alice', 'bob', x, t + Math.floor(Math.random() * 1e6), { extra, ...o }); };
   await assertSucceeds(ok('A note', { k: 'protest' }));
+  await assertSucceeds(ok('y'.repeat(2500)));                                                               // a long letter
   await assertFails(ok('No such note', { k: 'insult' }));
   await assertSucceeds(ok('An answer', { r: { t: t - 5, x: 'Your letter' } }));
   await assertFails(ok('A long answer', { r: { t: t - 5, x: 'y'.repeat(161) } }));
@@ -761,7 +762,7 @@ test('a blocked nation writes no letters and sends no pings; read receipts are t
 test('a letter can be reported, with its words', async () => {
   await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('nations/alice').set(nation('Aliceland')); });
   const db = as('alice'), b = db.batch();
-  b.set(db.collection('reports').doc(), { by: 'alice', kind: 'letter', target: 'bob', post: 'bob~alice~' + Date.now(), reg: 'meridian', reason: 'harassment', t: NOW(), name: 'Bobland', x: 'A rude letter' });
+  b.set(db.collection('reports').doc(), { by: 'alice', kind: 'letter', target: 'bob', post: 'bob~alice~' + Date.now(), reg: 'meridian', reason: 'harassment', t: NOW(), name: 'Bobland', x: 'A rude letter, at length. '.repeat(90) });   // 2,340 characters: a long letter, reported whole
   b.set(db.doc('rlimits/alice'), { r: NOW() });
   await assertSucceeds(b.commit());
 });

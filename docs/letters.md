@@ -7,7 +7,7 @@ sets up once.
 
 - **Conversations** with any nation of the region, computer-run nations, the region's offices, groups of up to 12
   nations, and their alliance (every player member, automatically).
-- **Letters**: up to 500 characters, as a plain letter or a formal note (Congratulation, Protest, Condolence,
+- **Letters**: up to 2,500 characters, as a plain letter or a formal note (Congratulation, Protest, Condolence,
   Friendship, Ultimatum, Treaty). A letter can answer another (it quotes a few words of it) and carry one
   attachment: a trade offer, a peace offer, an alliance invitation, a city or an achievement. The reader's card
   shows the attachment as it stands now, with the buttons of its own page (Accept, Decline, Join, Accept peace,
@@ -21,7 +21,10 @@ sets up once.
   push notifications, blocked nations, muted and archived conversations.
 - **Customise › Stationery** (the Messages page's Customise button): paper, wax seal and signature, which other
   players see on the letters they get. Some are free; others come with letters written (10 to 200), prestige
-  (1,000 to 2,500) or the Chancery Club.
+  (1,000 to 2,500), five achievements (Grand Coalition, The Diplomat, The Unbowed, The Champion, Island Hopper) or the
+  Chancery Club. "Papers of your government" has one paper for each of the Bureau's 27 classifications: a nation
+  earns one the first time it is classed that way and keeps it (govCatsHeld). These 32 are drawn from one table
+  (LP_X), whose variables a stylesheet injected at start-up turns into classes (.lpx).
 
 ## How it works
 
@@ -36,6 +39,8 @@ sets up once.
   - `letters/<by>~<to>~<t>`: one letter to one reader (a group letter is one per member); deleted by Firestore's
     TTL policy on `exp`, a year on.
   - `llimits/<uid>` `{l, d, n}`: one batch every 3 seconds, at most 150 letters a day.
+  - A letter is at most 2,500 characters. The player's own copy keeps at most 400,000 characters of letters
+    (DM_CHARS) and this browser's cache 900,000 (LT_CHARS), dropping the oldest first.
   - `lpair/<by>~<to>` `{u}`: letters in a row not yet answered, at most 10 (group letters are not counted).
   - `lblock/<b>~<x>`: b accepts no letters, and no Letters by post pings, from x.
   - `lseen/<r>~<w>` `{t}`: a read receipt.
