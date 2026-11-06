@@ -19055,7 +19055,7 @@ function dmTrim(n){
 }
 
 /* ── letters heard from the server: kept in this browser (LT_KEEP of them), so a new session only asks for newer ── */
-const LT={list:[],unsub:null,sunsub:null,busy:false,at:0,uid:'',since:0,seen:{},older:{},olderEnd:{},more:{},toastAt:0,blocksAt:0,groups:{}};
+const LT={list:[],unsub:null,sunsub:null,busy:false,at:0,uid:'',since:0,seen:{},older:{},olderEnd:{},more:{},toastAt:0,blocksAt:0,groups:{},ready:false};
 const ltApi=()=>Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('letters'):null);
 const ltKey=()=>'edictum.lt.'+(S.uid||'');
 function ltValid(l){return l&&typeof l.id==='string'&&dmUid(l.by)&&typeof l.x==='string'&&l.x&&Number.isFinite(l.t);}
@@ -19068,8 +19068,9 @@ function ltMerge(list){
   return fresh;
 }
 function ltForget(pred){const before=LT.list.length;LT.list=LT.list.filter(l=>!pred(l));if(LT.list.length!==before)ltSave();}
+/* not before connect() has finished (LT.ready): the start's own reads go first */
 function ltStart(){
-  if(OBS||S.mode!=='world'||!S.uid)return;
+  if(!LT.ready||OBS||S.mode!=='world'||!S.uid)return;
   if(LT.uid!==S.uid){if(LT.unsub)try{LT.unsub();}catch(e){}if(LT.sunsub)try{LT.sunsub();}catch(e){}
     Object.assign(LT,{list:[],unsub:null,sunsub:null,at:0,uid:S.uid,since:0,seen:{},older:{},olderEnd:{},more:{},blocksAt:0});ltLoad();LT.toastAt=Math.max(LT.since,Date.now()-60000);}
   if(LT.unsub||LT.busy||Date.now()-LT.at<30000)return;
@@ -48789,7 +48790,10 @@ function shopConnect(){
   if(SHOP.uid===S.uid)return;
   if(SHOP.unsub)try{SHOP.unsub();}catch(e){}
   if(SHOP.finUnsub)try{SHOP.finUnsub();}catch(e){}
-  Object.assign(SHOP,{uid:S.uid,doc:null,sig:'{}',unsub:null,finUnsub:null,cfg:null});VIP_RUNS=[];czVer++;shopEnum();
+  /* the status (on sale, prices, the catalogue) is the same for every account: the first connection keeps one the page has
+     already loaded, and only a switch to another account asks again, at once */
+  const first=!SHOP.uid;
+  Object.assign(SHOP,{uid:S.uid,doc:null,sig:'{}',unsub:null,finUnsub:null},first?{}:{cfg:null,statusAt:0});VIP_RUNS=[];czVer++;shopEnum();
   try{const c=JSON.parse(localStorage.getItem(SHOP_KEY+S.uid)||'null');if(c&&typeof c==='object')shopTake(c,true);}catch(e){}
   try{SHOP.unsub=S.db.doc('shop/'+S.uid).onSnapshot(s=>shopTake(s.exists?s.data():{},false),()=>{});}catch(e){}
   try{SHOP.finUnsub=S.db.collection('finery').where('reg','==',REG.id).onSnapshot(qs=>{
@@ -51298,6 +51302,7 @@ document.addEventListener('keydown',e=>{
    they reach: the paper, the wax seal and the signature (n.cz lp, ls, lg), unlocked by writing letters, by prestige
    or with the Chancery Club. Kept at the end so these wrappers sit outside the Settings and Customise wiring. */
 COMMIT_HOOKS.push(dmNpcHook);
+connect=(f=>async function(){const r=await f.apply(this,arguments);LT.ready=true;setTimeout(()=>{ltStart();if(S.view==='messages')render();},1500);return r;})(connect);
 SG_TABS.splice(SG_TABS.findIndex(t=>t[0]==='notif')+1,0,['letters','Letters']);
 sgTabOfId=(f=>function(id){return /^#?(set-letters|sl-)/.test(String(id||''))?'letters':f.apply(this,arguments);})(sgTabOfId);
 sgTabSub=(f=>function(k,n){if(k!=='letters')return f.apply(this,arguments);const x=dmx(n),all=Object.keys(OFFICES).length,on=Object.keys(OFFICES).filter(id=>!(x.off||{})[id]).length,b=(x.bl||[]).length;
