@@ -6,6 +6,7 @@ import { identity, eligibility, refuse, registered, nationJSON, DAY } from './el
 import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail } from './mail.js';
+import { lettersStep, forgetLetters } from './letters.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 /* Recruiting (game/edictum.html, rcClaim): a player who founded a nation through another player's link files
@@ -76,6 +77,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (d.op === 'discord') return discordStep(uid, d);
   if (d.op === 'shop') return shopStep(uid, d);
   if (d.op === 'mail') return mailStep(uid, d);
+  if (d.op === 'letters') return lettersStep(uid, d);
   if (d.op === 'seen') {
     // Once a page load (src/shim.js, seenCheck); the same address writes at most once an hour, moving the expiry with it.
     const ip = address(req.rawRequest), ref = db.doc('accountSeen/' + uid), now = Date.now(), last = await ref.get();
@@ -93,6 +95,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
+    // the counts, blocks and read receipts of its letters, and its devices' push subscriptions (functions/letters.js)
+    await forgetLetters(uid);
     await getAuth().deleteUser(uid);
     return { ok: true };
   }

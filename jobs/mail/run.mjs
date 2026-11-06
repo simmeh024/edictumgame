@@ -55,7 +55,7 @@ const q = await db.collection('mailQ').limit(5000).get(), byTo = new Map();
 for (const d of q.docs) { const x = d.data(); (byTo.get(x.to) || byTo.set(x.to, []).get(x.to)).push({ ref: d.ref, k: x.k, nm: x.nm, t: ms(x.t) }); }
 for (const [to, list] of byTo) {
   const a = acc.get(to), s = a ? await summary(to) : null, seen = s ? s.t || 0 : 0;
-  const want = a ? list.filter(x => a.p && a.p[PING_KIND[x.k]] && x.t > seen && now - x.t < PING_KEEP) : [];
+  const want = a ? list.filter(x => a.p && a.p[PING_KIND[x.k]] && !(x.k === 'msg' && a.p.now) && x.t > seen && now - x.t < PING_KEEP) : [];   // letters right away went already (functions/letters.js)
   if (want.length && now - (a.last || 0) < DIGEST_GAP) {         // wait for the next window; drop only the rest
     for (const x of list) if (!want.includes(x)) drop.push(x.ref);
     report.pingsKept += want.length; continue;

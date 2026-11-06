@@ -1,6 +1,7 @@
 // Menu badges on every page: a number where something waits on the player (crates back from a dig, today's
 // cabinet briefing, a war report since the page was last open), a dot for other news since then, cleared by a visit,
-// and Settings › Notifications can hide the dots. Phones show the same in the More sheet.
+// and Settings › Notifications can hide the dots. Phones show the same in the More sheet. On the page itself, the tab
+// or heading where the waiting thing is carries the same badge (Field digs, Cabinet, The Moon).
 //   python3 build.py
 //   node test/nav-badges.mjs
 // It serves public/ itself, so the game runs in its local mode (no emulators), and drives the nation through the
@@ -44,7 +45,9 @@ const badges = () => page.evaluate(() => Object.fromEntries([...document.querySe
 const words = v => page.evaluate(v => [...document.querySelectorAll(`nav.nav [data-v="${v}"] .u-sr`)].map(x => x.textContent).join(''), v);
 /* change the nation as a save would, and draw the page again */
 const edit = fn => page.evaluate(src => { const G = window.__game, n = G.clone(G.S.nation); (0, eval)('(' + src + ')')(n, Date.now(), G); G.commit(n); G.render(); }, fn.toString());
-const go = async v => { await page.click(`nav.nav [data-v="${v}"]`); await until(() => page.evaluate(v => window.__game.S.view === v, v)); await sleep(300); };
+const mark = sel => page.evaluate(sel => { const e = document.querySelector(sel); return e ? (e.querySelector('.nvx-tb')?.textContent || '') + '|' + (e.querySelector('.nvx-sr')?.textContent || '') : null; }, sel);
+/* a guide the game opens on a first visit is closed first; the menu is clicked through the page */
+const go = async v => { await page.evaluate(() => document.querySelector('#tut-g [data-act="tut-g-close"]')?.click()); await page.evaluate(v => document.querySelector(`nav.nav [data-v="${v}"]`).click(), v); await until(() => page.evaluate(v => window.__game.S.view === v, v)); await sleep(300); };
 
 try {
   await page.goto(BASE);
@@ -59,6 +62,9 @@ try {
 
   let b = await badges();
   check('today’s cabinet briefing shows as 1 on Government', String(b.government) === '1' && /cabinet briefing/.test(await words('government')), JSON.stringify(b));
+  await go('government');
+  check('on the Government page the Cabinet tab says where it is', /^1\|.*cabinet briefing/.test(await mark('#gv-tab-cabinet') || ''), await mark('#gv-tab-cabinet'));
+  await go('nation');
   await edit((n, now, G) => { const st = G.GV().brief(n, now); n.brf = { d: st.d, i: st.it.id, a: 0 }; });
   check('answering it takes the badge away', await until(async () => !(await badges()).government));
 
@@ -68,10 +74,22 @@ try {
   await edit((n, now) => { n.dig = [{ s: 0, t0: now - 7200e3, t1: now - 5000, r: 12 }]; });
   b = await badges();
   check('diggers back with crates to open show as 1 on the Museum', String(b.museum) === '1' && /crates to open/.test(await words('museum')), JSON.stringify(b));
-  await go('museum'); await go('nation');
+  await go('museum');
+  check('in the Museum the Field digs tab says where the crates are', /^1\|.*crates to open/.test(await mark('.mu-tabs [data-h="digs"]') || ''), await mark('.mu-tabs [data-h="digs"]'));
+  await page.screenshot({ path: path.join(OUT, 'nav-badges-museum.png') });
+  check('other halls carry nothing', !(await page.evaluate(() => document.querySelector('.mu-tabs [data-h="entrance"] .nvx-tb'))));
+  await go('nation');
   check('a visit alone does not clear what still waits there', String((await badges()).museum) === '1');
   await edit(n => { n.dig = []; });
   check('opening the crates clears it', !(await badges()).museum);
+
+  /* a capital, then a finished Lunar Colony: a landing site to choose, marked on the Moon's tab */
+  await page.click('text=Settle by the sea'); await until(() => page.evaluate(() => (window.__game.S.nation.cities || []).length > 0), 8000);
+  await edit((n, now) => { n.cities[0].b = [...(n.cities[0].b || []), { k: 'lunar', s: now - 9e6, d: now - 5000, a: 1 }]; });
+  check('a Lunar Colony ready to land shows as 1 on Space', String((await badges()).space) === '1' && /landing site/.test(await words('space')), JSON.stringify(await badges()));
+  await go('space');
+  check('and on the Space page, on the Moon’s tab', /^1\|.*landing site to choose on the Moon/.test(await mark('.sp-tabs [data-b="moon"]') || ''), await mark('.sp-tabs [data-b="moon"]'));
+  await page.evaluate(() => { location.hash = '#nation'; }); await until(() => page.evaluate(() => window.__game.S.view === 'nation'));
 
   await edit((n, now) => { n.log = [{ t: now, k: 'npcwar', a: '', b: 'Ostrava', fx: '' }, ...(n.log || [])]; });
   b = await badges();
