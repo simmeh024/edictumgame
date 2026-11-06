@@ -161,7 +161,13 @@ check('a second visit pays nothing more', (await credits()) === c0 + 2 && Math.a
 check('the checklist ticks the task', /Done/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')));
 await T.click('.tut-l-mark li[data-k="fxd"] [data-act="go"]'); await sleep(300);
 check('its other step opens the currency designer', /#customise(\/currency)?$/.test(T.url()) && !!(await T.$('#cz-sec-c')));
+await T.fill('#cu-f-cd', 'T1'); await T.click('#cu-form button[type="submit"]');
+check('a code that is not three to five letters is refused: the field keeps it, focused, and nothing is saved', await until(async () => await T.evaluate(() => document.activeElement?.id === 'cu-f-cd' && document.activeElement.value === 'T1'), 5000) && !((await localNation(T)).cur || {}).cd);
+// the reason comes as a toast, after any reward toasts already queued (each stays its reading time; a pointer on it holds it)
+await T.mouse.move(1, 1);
+check('and says why', await until(async () => /cannot be a currency code: a code is three to five letters/.test(await toastsT()), 30000), await toastsT());
 await T.fill('#cu-f-cd', 'TRS'); await T.click('#cu-form button[type="submit"]'); await sleep(400);
+check('three letters are saved as typed', await until(async () => ((await localNation(T)).cur || {}).cd === 'TRS', 5000));
 check('designing the currency pays the second: 2 more land credits and 5 more oil', await until(async () => (await credits()) === c0 + 4) && Math.abs((await oil()) - o0 - 10) < 0.01, `credits ${await credits()}, oil ${await oil()}`);
 const tn = await localNation(T);
 check('and earns Legal Tender and the Proof Coin', tn.ach['cur-design'] && tn.coll['mi-proof'] && tn.tut.lc.includes('fxd'));

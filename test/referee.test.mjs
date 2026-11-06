@@ -132,6 +132,14 @@ test('the odds stay within the game’s bounds, and no better than the two armie
   const helped = await battle(g, { d: foe.uid, p: 0.9, h: [friend.uid, stranger.uid] });
   assert.ok(Math.abs(helped.p - 1020 / 2020) < 1e-3, 'an ally adds half its army, a stranger nothing: ' + helped.p);
   assert.equal((await battle(g, { d: foe.uid, p: 0.3, h: [friend.uid] })).p, 0.3, 'odds within the bound stand');
+  /* an alliance the server keeps (allyOf/, functions/alliances.js) counts too: here the stranger has joined g's */
+  const index = (uid, a) => doc('allyOf/' + uid, { method: 'PATCH', body: JSON.stringify({ fields: { a: { stringValue: a }, reg: { stringValue: 'meridian' } } }) });
+  await index(g.uid, 'srv-pact'); await index(stranger.uid, 'srv-pact');
+  const big = await battle(g, { d: foe.uid, p: 0.9, h: [stranger.uid] });
+  assert.equal(big.p, 0.9, 'a fellow member of a server alliance adds half its army: ' + big.p);
+  const old = await battle(g, { d: foe.uid, p: 0.9, h: [friend.uid] });
+  assert.ok(Math.abs(old.p - 20 / 1020) < 1e-3, "once its alliance is the server’s, the old founder’s record no longer counts: " + old.p);
+  await del('allyOf/' + g.uid); await del('allyOf/' + stranger.uid);
   const log = (await list(`armies/${g.uid}/log`)).map(d => d.fields);
   assert.ok(log.some(f => f.d.stringValue === foe.uid && Math.abs((f.cap.doubleValue ?? Number(f.cap.integerValue)) - 20 / 1020) < 1e-3), 'the log keeps the bound');
 });

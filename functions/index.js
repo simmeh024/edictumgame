@@ -95,6 +95,7 @@ async function battle(uid, data) {
     if (!npc) refs.push(db.doc('nations/' + d));
     help.forEach(id => refs.push(db.doc('nations/' + id)));
     const [me, st, ban, ...rest] = await tx.getAll(...refs);
+    const alliances = (await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id)))).map(s => s.exists && typeof s.get('a') === 'string' ? s.get('a') : '');
     if (ban.exists) return { ok: false, why: 'banned' };
     if (!me.exists) return { ok: false, why: 'nation' };
     const foe = npc ? null : rest.shift(), mine = record(me), now = Date.now();
@@ -114,9 +115,10 @@ async function battle(uid, data) {
     if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now };
     /* the odds: the attacker's own, within the game's bounds, and no better than its army, with its allies'
        help, could make them against the defender's, both as their last saves declared */
-    const al = allianceOf(uid, mine);
+    /* an alliance is the server's (allyOf/, functions/alliances.js); one not yet moved there, its founder's record's */
+    const al = alliances[0] || allianceOf(uid, mine);
     let att = army(me);
-    rest.forEach((s, i) => { if (al && allianceOf(help[i], record(s)) === al) att += 0.5 * army(s); });
+    rest.forEach((s, i) => { if (al && (alliances[i + 1] || allianceOf(help[i], record(s))) === al) att += 0.5 * army(s); });
     /* held to the armies whenever the defender has one: an attacker with none gets no odds at all, not the best */
     const def = npc ? 0 : army(foe), cap = def > 0 ? Math.min(P_MAX, TILT * att / (TILT * att + def)) : P_MAX;
     const p = Math.min(P_MAX, Math.max(P_MIN, data.p)), pe = Math.min(p, cap);

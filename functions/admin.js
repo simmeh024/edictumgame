@@ -8,6 +8,7 @@ import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp } from './shop.js';
 import { cbDelete } from './board.js';
+import { alDrop } from './alliances.js';
 import { shopSummary } from './shop-stats.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
@@ -236,6 +237,9 @@ async function mutate(db, actor, data) {
       if (action === 'ban') b.set(db.doc('bans/' + target), { note: reason, name, t: now, by: actor });
       ['nations', 'nationx', 'nationp', 'summaries', 'space'].forEach(c => b.delete(db.doc(c + '/' + target)));
       await b.commit();
+      await alDrop(db, target);
+      const chat = await db.collectionGroup('chat').where('a', '==', target).get();
+      if (!chat.empty) { const w = db.bulkWriter(); await Promise.all([Promise.all(chat.docs.map(d => w.delete(d.ref))), w.close()]); }
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);
       const writer = db.bulkWriter(), writes = posts.docs.concat(reports.docs).map(d => writer.delete(d.ref)); await Promise.all([Promise.all(writes), writer.close()]);
     }

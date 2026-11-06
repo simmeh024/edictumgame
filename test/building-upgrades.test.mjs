@@ -16,7 +16,7 @@ const plain=v=>v===undefined?v:JSON.parse(JSON.stringify(v)),deq=(a,b,m)=>assert
 function load(){
   const ctx={DAY,BUILDINGS:{farm:{n:'Farm Estates',res:{food:[0.6,2]}},mine:{n:'Iron Mine',res:{iron:[1,1.5]}},market:{n:'Market Hall',prosper:0.02},
       barracks:{n:'Barracks',army:0.02},clinic:{n:'Clinic',growth:0.05},warehouse:{n:'Warehouse',res:{}},palace:{n:'Palace',lead:1,prosper:0.01},colossus:{n:'Colossus',w:1,prosper:0.03}},
-    bCost:()=>({timber:10,goods:8}),bHours:()=>4,cxBuildK:()=>1,
+    RES:['food','timber','iron','oil','goods'],bCost:()=>({timber:10,goods:8}),bHours:()=>4,cxBuildK:()=>1,
     clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),c3CleanName:s=>s,CX_TRAITS:{},
     achM:(x,k,f)=>k in x.m?x.m[k]:(x.m[k]=f()),achYes:v=>v?1:0,achP:(l,ok)=>[l,!!ok],defs:{}};
   ctx.achDef=(c,id,t,n,d,g,f,o)=>{ctx.defs[id]={c,id,t,n,d,g,f,...(o||{})};};
@@ -25,7 +25,7 @@ function load(){
   vm.runInContext([
     cut('/* the five upgrade blocks','const CX_WALL='),
     cut('/* ug: upgrade blocks filled','function cxWallLv('),
-    line('function cxUpgradable('),line('function cxUpQuote('),
+    line('function paidClean('),line('function cxUpgradable('),line('function cxUpList('),line('function cxUpQuote('),
     cut('/* building upgrades: per city','const aGifts='),
     cut("achDef('land','land-cxlv2'","achDef('law','law-1500'")
   ].join('\n')+'\nthis.CX_UG=CX_UG;this.CX_UG_MAX=CX_UG_MAX;this.CX_LV=CX_LV;',ctx);
@@ -66,6 +66,13 @@ test('the old levels 2 and 3 read as four and five blocks, so nobody loses outpu
   // and the record is written back in the new fields
   const b={k:'farm',lv:3,s:1,d:2};G.cxUgPut(b,G.cxBldExtras(b));
   deq(b,{k:'farm',s:1,d:2,ug:5});
+});
+
+test('an upgrade keeps what was paid for it, never more than the block’s list price',()=>{
+  const s=NOW-1000,d=NOW+3600e3;
+  deq(G.cxBldExtras({k:'farm',ug:4,uu:{u:5,s,d,p:{timber:12,goods:999,iron:3}}}).uu.p,{timber:12,goods:15},'gold lists at 18 timber, 15 goods');
+  deq(G.cxBldExtras({k:'farm',lu:{l:3,s,d,p:{timber:30}},lv:2}).uu.p,{timber:25},'an old level 3 raise lists at 2.5 times');
+  deq(G.cxUpList('farm',1),{timber:4,goods:4});
 });
 
 test('only sound fields survive: one block at a time, five at most, a week at most',()=>{

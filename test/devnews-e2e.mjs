@@ -89,6 +89,10 @@ check('the count stays cleared after a reload (the nation remembers)', await unt
 await A.click('.adm-return'); await go(A, 'devnews');
 check('admins see the post’s staff controls', await until(async () => /Edit/.test(await text(A, '.nw-ctl')) && /Close comments/.test(await text(A, '.nw-ctl')) && /Delete post/.test(await text(A, '.nw-ctl'))));
 check('and Remove, Hide nation and Ban on a player’s comment', await until(async () => !!await A.$('[data-act="nw-c-rm"]') && !!await A.$('[data-act="nw-c-hide"]') && !!await A.$('[data-act="nw-c-ban"]')));
+await A.click('[data-act="nw-c-hide"]');
+check('Hide nation asks first, and hides nobody yet', await until(async () => /Hide (Playerland|Guestland|Modland) from the other players\?/.test(await text(A, '.nw-c .adm-ask'))) && (await sleep(600), (await restGet('mod/' + uidB)).status === 404 && (await restGet('mod/' + uidC)).status === 404));
+await A.click('.nw-c [data-act="nw-ask-no"]');
+check('Cancel closes the question', await until(async () => !await A.$('.nw-c .adm-ask')));
 await A.fill('#nw-ct-' + pid, 'Thank you all for playing.');
 await A.click(`#nw-cf-${pid} button[type="submit"]`);
 check('an admin’s comment on their own post carries the developer mark', await until(async () => /Developer/.test(await text(B, '.nw-c.staff')), 15000));
@@ -113,11 +117,26 @@ await until(async () => /with the moderators/.test(await text(C, 'body')), 8000)
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-reports"]');
 check('the report arrives in the queue as a news comment', await until(async () => /News comment/.test(await text(A, '.adm-reps')) && /Playerland/.test(await text(A, '.adm-reps')), 15000));
 await A.click('[data-act="adm-delpost"]');
+check('Remove the post asks first, and the comment stays until the answer', await until(async () => /Remove this news comment by/.test(await text(A, '.adm-rep .adm-ask'))) && (await sleep(600), /spam\.example/.test(await text(B, '.nw-cl'))));
+await A.click('[data-act="adm-delpost-yes"]');
 check('removing it from the queue deletes the comment', await until(async () => !/spam\.example/.test(await text(B, '.nw-cl')), 15000));
 
 // closing comments, and a post signed by a nation
 await A.click('.adm-return'); await go(A, 'devnews');
-await A.waitForSelector(`[data-act="nw-lock"][data-id="${pid}"]`); await A.click(`[data-act="nw-lock"][data-id="${pid}"]`);
+await A.waitForSelector(`[data-act="nw-lock"][data-id="${pid}"]`);
+// a post outside the loaded page (as one older than the first ten is), opened on its own from the archive: the staff
+// buttons find it there too
+await A.click('[data-act="nw-arc"]');
+await A.waitForSelector(`.nw-arc [data-id="${pid}"]`);
+await A.evaluate(id => { const NW = G.NEWS.NW; NW.posts = NW.posts.filter(p => p.id !== id); if (NW.pinned && NW.pinned.id === id) NW.pinned = null; NW.one = null; }, pid);
+await A.click(`.nw-arc [data-id="${pid}"]`);
+check('the post opens on its own, outside the loaded list', await until(async () => (await A.$$('.nw-post')).length === 1 && !!await A.$(`[data-act="nw-lock"][data-id="${pid}"]`)) && await A.evaluate(id => !G.NEWS.NW.posts.some(p => p.id === id) && G.NEWS.NW.one?.id === id, pid));
+await A.click(`[data-act="nw-lock"][data-id="${pid}"]`);
+check('Close comments works on it', await until(async () => (await restGet('devnews/' + pid)).body?.fields?.lk?.booleanValue === true));
+await A.click(`[data-act="nw-edit"][data-id="${pid}"]`);
+check('and Edit opens it in the editor', await until(async () => /The first development news/.test(await A.$eval('#nwe-ti', i => i.value).catch(() => ''))));
+await A.evaluate(() => { const NW = G.NEWS.NW; NW.posts = null; NW.one = null; NW.focus = ''; NW.arcOpen = false; });  // read the list again
+await A.click('.adm-return'); await go(A, 'devnews');
 await B.reload(); await ready(B); await go(B, 'devnews');
 check('closed comments refuse new ones', await until(async () => /Comments are closed on this post/.test(await text(B, '.nw-cm'))) && !await B.$('#nw-ct-' + pid));
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-news"]'); await A.waitForSelector('[data-act="nwe-new"]'); await A.click('[data-act="nwe-new"]');

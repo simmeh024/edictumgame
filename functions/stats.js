@@ -23,7 +23,7 @@ export const FEATURES = {
   cities: r => arr(r.cities).length >= 2,
   trade: r => arr(r.deals).length > 0,
   explore: r => arr(r.disc).length + arr(r.discArc).length > 0 || !!r.exp,
-  alliance: r => !!obj(r.alli) || !!r.allyOf,
+  alliance: r => !!obj(r.alli) || !!r.allyOf || !!r.alm,
   war: r => Object.keys(obj(r.wars) || {}).length > 0,
   letters: r => arr(r.dm).some(m => m && !m.i) || num(obj(r.tly)?.dm) > 0, // dm itself is in the own half (nationp), unread here
   assembly: r => { const a = obj(r.asm); return !!a && (arr(a.v).length + arr(a.e).length + arr(a.s).length > 0 || !!a.p); },
