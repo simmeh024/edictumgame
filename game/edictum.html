@@ -5621,6 +5621,12 @@ button[disabled] .gv-cost{opacity:.6}
 .gv-pub-pf{font-size:12px;color:var(--ink-3)}
 .gv-pub-l b{font-weight:650;overflow-wrap:anywhere}
 .gv-pub-lead{grid-column:1/-1;border-top:3px solid var(--cv-lead)!important}
+/* menu badges: a small dot for news on a page since it was last open (a number is something waiting) */
+.badge.dot{min-width:0;width:9px;height:9px;padding:0;border-radius:50%;background:var(--accent);align-self:center}
+.side-index .nav-btn .badge.dot,.more-b .badge.dot{min-width:0;width:9px;height:9px;padding:0}
+.more-b .badge.dot{top:8px;right:9px}
+.tab .badge.dot{min-width:0;width:9px;height:9px;padding:0;top:-1px;left:calc(50% + 8px)}
+.nav-rail .nav .nav-btn .badge.dot{min-width:0;width:8px;height:8px;padding:0;top:4px;right:10px}
 </style>
 
 <div id="app"></div>
@@ -49127,7 +49133,7 @@ const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum find
   ['wnd','The Great Statue',['wnd']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']]];
 const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
 const NTF=(()=>{let d={};try{d=JSON.parse(localStorage.getItem(NTF_KEY)||'{}')||{};}catch(e){d={};}
-  return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
+  return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,nvd:d.nvd===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
 function ntfSave(){try{localStorage.setItem(NTF_KEY,JSON.stringify(NTF));}catch(e){}}
 const ntfMuted=k=>NTF.mute.some(g=>(NTF_GROUPS.find(x=>x[0]===g)||[,,[]])[2].includes(k));
 const ntfFirstHour=()=>!!(S.nation&&Date.now()-(S.nation.founded||0)<3600e3);
@@ -49169,11 +49175,12 @@ function ntfSection(){
       ${seg('The bell’s number counts','ntf-badge',[['act','What needs me'],['all','Everything new']],NTF.badge,'badge')}
       ${seg('Pop-up for new development news','ntf-nws',[['on','Show'],['off','Hide']],NTF.nws,'nws')}
       ${seg('Count new development news in the menu','ntf-nwc',[[1,'Show'],[0,'Hide']],NTF.nwc,'nwc')}
+      ${seg('Dots in the menu for news since your last visit','ntf-nvd',[[1,'Show'],[0,'Hide']],NTF.nvd,'nvd')}
       <div class="cz-drow"><span class="cz-dl" id="ntf-mute-l">Show in the bell</span><div class="ntf-mute" role="group" aria-labelledby="ntf-mute-l">${NTF_GROUPS.map(([k,l])=>`<label class="tog"><input type="checkbox" data-ntf-mute="${k}"${NTF.mute.includes(k)?'':' checked'}> ${esc(l)}</label>`).join('')}</div></div>
     </div><p class="hint">Messages, wars, trade offers, land credits and alliance invitations always show, and always count.</p></section>`;
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="ntf"]');if(!el)return;const f=el.dataset.f,v=el.dataset.v;
-  if(f==='rw'&&['auto','on','off'].includes(v))NTF.rw=v;else if(f==='tut')NTF.tut=v==='1'?1:0;else if(f==='badge')NTF.badge=v==='all'?'all':'act';else if(f==='nws')NTF.nws=v==='off'?'off':'on';else if(f==='nwc')NTF.nwc=v==='0'?0:1;else return;ntfSave();render();});
+  if(f==='rw'&&['auto','on','off'].includes(v))NTF.rw=v;else if(f==='tut')NTF.tut=v==='1'?1:0;else if(f==='badge')NTF.badge=v==='all'?'all':'act';else if(f==='nws')NTF.nws=v==='off'?'off':'on';else if(f==='nwc')NTF.nwc=v==='0'?0:1;else if(f==='nvd')NTF.nvd=v==='0'?0:1;else return;ntfSave();render();});
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.ntfMute;if(!k)return;NTF.mute=NTF.mute.filter(x=>x!==k);if(!e.target.checked)NTF.mute.push(k);ntfSave();refreshBell(Date.now());});
 
 /* ── the Nation page: one card for what waits, instead of a banner for each ── */
@@ -50733,6 +50740,80 @@ document.addEventListener('keydown',e=>{
   const d={ArrowRight:1,ArrowLeft:-1}[e.key];if(!d&&e.key!=='Home'&&e.key!=='End')return;e.preventDefault();
   const i=GV_TABS.findIndex(x=>x[0]===t.dataset.v),L=GV_TABS.length,j=e.key==='Home'?0:e.key==='End'?L-1:(i+d+L)%L;gvSetTab(GV_TABS[j][0],true);
 });
+/* ───────── a badge on every page that needs the player ─────────
+   Each page of the menu shows a number when something there waits on the player, and a small dot when there is news
+   on it since the player last had it open. The number counts the page's own state, which goes once it is dealt with
+   (crates to open, an offer, invitation or gift to answer, a vote to cast, today's cabinet briefing, a landing site or
+   a city to found, disloyal governors, explorers' reports to hear), plus the bell's "needs you" news for that page
+   (BELL_ACT: war, a seized hex, a covert result, a blockade) that came after the player last left it. Any other news
+   in the bell for a page (a finished building, an achievement, today's Dispatch) is the dot, which Settings ›
+   Notifications can turn off (NTF.nvd). When each page was last left is kept on this device, per nation
+   (statehood.navSeen.<id>); a nation first seen here starts from now, so old news is not raised again. A new player
+   still on the charter is not shown the daily briefing. The figures are worked out at most every 4 s (the tick asks
+   every second) and again after any change to the nation or page. */
+const NVX={cur:null,seen:null,ver:0,memo:null};
+/* bell kinds a page's own state already counts (or another badge does) */
+const NVX_STATE=new Set(['msg','dig','gift','exp','land','alli']);
+const nvxKey=id=>'statehood.navSeen.'+id;
+function nvxSeen(){
+  const id=String(myId()||'');
+  if(!NVX.seen||NVX.seen.id!==id){let d=null;try{d=JSON.parse(localStorage.getItem(nvxKey(id))||'null');}catch(e){d=null;}
+    const ok=!!(d&&typeof d==='object'&&typeof d.t0==='number'&&isFinite(d.t0)&&d.p&&typeof d.p==='object'&&!Array.isArray(d.p));
+    NVX.seen={id,t0:ok?d.t0:Date.now(),p:{}};
+    if(ok)for(const [k,t] of Object.entries(d.p))if(typeof t==='number'&&isFinite(t)&&k.length<24)NVX.seen.p[k]=t;
+    if(!ok)nvxSave();}
+  return NVX.seen;
+}
+function nvxSave(){const s=NVX.seen;if(!s||!s.id)return;try{localStorage.setItem(nvxKey(s.id),JSON.stringify({t0:s.t0,p:s.p}));}catch(e){}}
+/* the page on screen counts as seen while it is open, up to the moment it is left */
+function nvxVisit(now){
+  const cur=navCur(),id=String(myId()||'');if(cur===NVX.cur&&NVX.seen&&NVX.seen.id===id)return;
+  const s=nvxSeen();if(NVX.cur&&NVX.cur!==cur)s.p[NVX.cur]=now;if(cur)s.p[cur]=now;NVX.cur=cur;NVX.ver++;nvxSave();
+}
+/* is any hex free for a new city? The first that would do, without ranking them as the Cities page does */
+function nvxCitySite(T,mi){for(let i=0;i<MAP.N;i++)if(T.owner[i]===mi&&!T.isCap[i]&&!cityProblem(i,T))return true;return false;}
+/* {page: {k: things waiting, w: [words], e: "needs you" news since the page was left, d: other news since then}} */
+function nvxCompute(n,now){
+  const out={},me=myId(),cur=navCur(),o=v=>out[v]||(out[v]={k:0,w:[],e:0,d:0});
+  const add=(v,k,w)=>{if(k>0){const x=o(v);x.k+=k;x.w.push(w);}},each=f=>{try{f();}catch(e){}};
+  each(()=>{const k=(n.dig||[]).filter(d=>d.t1<=now).length;add('museum',k,k===1?'diggers back with crates to open':k+' digs back with crates to open');});
+  each(()=>{const P=politics();let k=0;for(const A of P.al.values())if(!A.npc&&A.invited.includes(me)&&!A.members.includes(me))k++;
+    add('diplomacy',k,k===1?'an alliance invitation':k+' alliance invitations');
+    const mine=P.al.get(me),q=mine&&mine.pending?mine.pending.length:0;add('diplomacy',q,q===1?'a nation asking to join your alliance':q+' nations asking to join your alliance');});
+  each(()=>{const k=gfIncoming().filter(g=>!g.reply&&now-g.t<14*DAY).length;add('diplomacy',k,k===1?'a gift to answer':k+' gifts to answer');});
+  each(()=>{const k=economy().pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).length;add('trade',k,k===1?'a trade offer':k+' trade offers');});
+  each(()=>{const k=enemies().filter(x=>{const w=warWith(x.id);return w.direct&&w.theyOffered&&!w.iOffered;}).length;add('map',k,k===1?'an offer of peace':k+' offers of peace');});
+  each(()=>{if(cellOf(n.loc)<0)return;const t=flNow(),k=(n.fl||[]).filter(p=>p.a<=t&&t-p.a<=3*DAY&&!p.h).length;add('map',k,k===1?'an explorers’ report to hear':k+' explorers’ reports to hear');});
+  each(()=>{if((n.reg||REG.id)!==REG.id||!asmMemberAt(n,now))return;const st=asmState(now);if(!st.cur||!st.V)return;const m=st.V.rows.find(r=>r.me);if(m&&!m.t)add('assembly',1,'a vote to cast');});
+  each(()=>{for(const [id,nm] of [['moon','the Moon'],['mars','Mars']])if(!(n.sp&&n.sp[id])&&spAccess(n,id,now))add('space',1,'a landing site to choose on '+nm);});
+  each(()=>{const k=provDisloyal(n);add('provinces',k,k===1?'a disloyal governor':k+' disloyal governors');});
+  each(()=>{if(!pgGuided(n)&&!gvBriefState(n,now).done)add('government',1,'today’s cabinet briefing');});
+  each(()=>{const T=territory(),mi=T.byId[me];if(mi===undefined)return;const k=Math.min(maxCities(T,mi),MAX_CITIES)-cityList(n).length;
+    if(k>0&&nvxCitySite(T,mi))add('cities',k,k===1?'a city to found':k+' cities to found');});
+  each(()=>{const s=nvxSeen(),{ev}=notifItems(now);
+    /* the statue's "phase complete" is dated each time it is asked (until the next save raises the phase), so it is left
+       out: its rewards ('wndr') are dated */
+    for(const x of ev){if(!x||x.read||!x.go||!(x.t<=now)||x.k==='wnd')continue;const v=NAV_PARENT[x.go]||x.go;if(v===cur||x.t<=Math.max(s.t0,s.p[v]||0))continue;
+      if(BELL_ACT.has(x.k)){if(!NVX_STATE.has(x.k))o(v).e++;}else o(v).d++;}});
+  for(const x of Object.values(out))if(x.e)x.w.push(x.e===1?'1 new report':x.e+' new reports');
+  return out;
+}
+function nvxGet(n,now){
+  if(!n||n.npc||OBS||n!==S.nation)return {};
+  nvxVisit(now);
+  const m=NVX.memo,mu=NTF.mute.join();
+  if(m&&m.n===n&&m.ver===NVX.ver&&m.mu===mu&&now>=m.at&&now-m.at<4000)return m.v;
+  let v={};try{v=nvxCompute(n,now);}catch(e){v={};}
+  NVX.memo={n,ver:NVX.ver,mu,at:now,v};return v;
+}
+/* the tick draws the menu again when a page's figure changes */
+navSigOf=(f=>function(n,now){const s=f.apply(this,arguments);if(!n||n!==S.nation)return s;const x=nvxGet(n,now||Date.now());
+  return s+'|'+Object.keys(x).sort().map(v=>{const o=x[v],k=o.k+o.e;return k?v+k:NTF.nvd!==0&&o.d?v+'.':'';}).join('');})(navSigOf);
+navBadges=(f=>function(){const b=f.apply(this,arguments),n=S.nation;if(!n)return b;const x=nvxGet(n,Date.now());
+  for(const [v,o] of Object.entries(x)){const k=o.k+o.e;
+    if(k)(b[v]=b[v]||[]).push({h:`<span class="badge" aria-hidden="true">${k>99?'99+':k}</span>`,t:o.w.join(', ')});
+    else if(o.d&&NTF.nvd!==0&&!b[v])b[v]=[{h:'<span class="badge dot" aria-hidden="true"></span>',t:'new since your last visit'}];}
+  return b;})(navBadges);
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
