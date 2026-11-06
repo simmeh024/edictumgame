@@ -1,4 +1,4 @@
-// Cities, expanded, in the real game: the one-city-at-a-time page, building levels, walls, mayors, a city's
+// Cities, expanded, in the real game: the one-city-at-a-time page, building upgrades, walls, mayors, a city's
 // matters and mood, the plan filters, the queue, saving and reloading, and the phone layout.
 import {OUT,PROJECT,check,finish,until,sleep,player,open,found,nav,text,localNation,nationDoc,clearEmulators} from './lib.mjs';
 if(!PROJECT.startsWith('demo-'))throw Error('City tests require demo emulators');
@@ -21,18 +21,38 @@ check('the city opens in four tabs',await A.locator(`#city-${cid} .cx-tabs .stab
 check('what needs the player is listed',/no mayor/.test(await text(A,'.cx-todo')));
 await A.screenshot({path:OUT+'/cities-plus-desktop.png',fullPage:true});
 
-/* building levels */
+/* building upgrades: five coloured blocks, grey to gold */
 const f1=await foodAdd();
-check('a finished farm offers level 2',await A.locator(`[data-act="cx-up"][data-k="farm"]`).isEnabled());
+const row=()=>text(A,`#city-${cid} .blds`),blocks=()=>A.evaluate(id=>[...document.querySelectorAll(`#city-${id} .blds .ugb`)].map(u=>[...u.children].map(i=>i.className).join(' ')),cid);
+const farmRec=async()=>(await rec()).b.find(b=>b.k==='farm');
+check('a finished farm shows five empty upgrade blocks',JSON.stringify(await blocks())===JSON.stringify(['ugb-grey ugb-green ugb-blue ugb-purple ugb-gold']),JSON.stringify(await blocks()));
+check('and offers its grey upgrade',await A.locator(`[data-act="cx-up"][data-k="farm"]`).isEnabled()&&/Upgrade to grey/.test(await row()));
 const st0=(await localNation(A)).stock;
 await A.click(`[data-act="cx-up"][data-k="farm"]`);
-const lu=(await rec()).b.find(b=>b.k==='farm').lu;
-check('raising it starts work and spends 1.5 times the cost',!!lu&&lu.l===2&&(await localNation(A)).stock.timber<st0.timber-14);
-await set(()=>{const b=n.cities[0].b.find(b=>b.k==='farm');b.lu.s=t-7200e3;b.lu.d=t-1000;});
-check('on completion the farm works at level 2',await until(async()=>(await rec()).b.find(b=>b.k==='farm').lv===2));
+const uu=(await farmRec()).uu,spent=st0.timber-(await localNation(A)).stock.timber;
+check('upgrading starts work on block 1 and spends 0.4 times the cost',!!uu&&uu.u===1&&spent>3&&spent<6,`${JSON.stringify(uu)}, ${spent} timber`);
+check('the block being fitted is striped',(await blocks())[0].split(' ')[0]==='ugb-grey'&&await A.locator(`#city-${cid} .ugb i.wip`).count()===1);
+await set(()=>{const b=n.cities[0].b.find(b=>b.k==='farm');b.uu.s=t-7200e3;b.uu.d=t-1000;});
+check('on completion the farm has one block',await until(async()=>(await farmRec()).ug===1));
 const f2=await foodAdd();
-check('and its food output is half as much again',Math.abs(f2-f1*1.5)<0.05,`${f1} → ${f2}`);
-check('the row says level 2 and offers level 3',/Level 2/.test(await text(A,`#city-${cid} .blds`))&&await A.locator(`[data-act="cx-up"][data-k="farm"]`).count()===1);
+check('and its food output is 10% higher',Math.abs(f2-f1*1.1)<0.05,`${f1} → ${f2}`);
+check('the row fills the grey block and offers green',(await blocks())[0]==='ugb-grey on ugb-green ugb-blue ugb-purple ugb-gold'&&/Upgrade to green/.test(await row()));
+
+/* a farm raised to the old level 2 counts four blocks */
+await set(()=>{const b=n.cities[0].b.find(b=>b.k==='farm');delete b.ug;b.lv=2;});
+check('an old level 2 reads as four blocks',await A.evaluate(id=>G.CX.ups(G.S.nation.cities.find(c=>c.id===id).b.find(b=>b.k==='farm'),Date.now()),cid)===4);
+const f4=await foodAdd();
+check('and gives 70% more, more than the old level’s 50%',Math.abs(f4-f1*1.7)<0.05,`${f1} → ${f4}`);
+check('the row shows four blocks and offers gold',(await blocks())[0]==='ugb-grey on ugb-green on ugb-blue on ugb-purple on ugb-gold'&&/Upgrade to gold/.test(await row()));
+await A.click(`[data-act="cx-up"][data-k="farm"]`);
+const fr=await farmRec();
+check('the gold upgrade is written in the new fields',fr.ug===4&&fr.uu&&fr.uu.u===5&&fr.lv===undefined,JSON.stringify(fr));
+await set(()=>{const b=n.cities[0].b.find(b=>b.k==='farm');b.uu.s=t-7200e3;b.uu.d=t-1000;});
+check('on completion the farm is gold',await until(async()=>(await farmRec()).ug===5));
+const f5=await foodAdd();
+check('and works at double strength',Math.abs(f5-f1*2)<0.05,`${f1} → ${f5}`);
+check('the row says all five are done',/All five upgrades done/.test(await row())&&await A.locator(`[data-act="cx-up"][data-k="farm"]`).count()===0);
+check('the upgrade achievements are earned',await until(()=>A.evaluate(()=>['land-cxlv2','bld-ug2','bld-ug3','bld-ug4','land-cxlv3'].every(id=>G.S.nation.ach&&G.S.nation.ach[id]))));
 
 /* walls */
 await A.click(`#city-${cid} [data-act="cx-tab"][data-k="def"]`);
@@ -75,10 +95,10 @@ check('moving it up swaps the order',q.join()==='theatre,market',q.join());
 /* saved and reloaded */
 await saved();
 const d=await nationDoc(uid),c0=d.rec.cities.find(c=>c.id===cid);
-check('the server keeps the mayor, walls and levels',!!c0.my&&c0.wl===1&&c0.b.find(b=>b.k==='farm').lv===2);
+check('the server keeps the mayor, walls and upgrades',!!c0.my&&c0.wl===1&&c0.b.find(b=>b.k==='farm').ug===5);
 await A.reload();await until(()=>A.evaluate(()=>!!(window.G&&G.S.nation)));
 const c1=await rec();
-check('and so does a reload',!!c1.my&&c1.wl===1&&c1.b.find(b=>b.k==='farm').lv===2);
+check('and so does a reload',!!c1.my&&c1.wl===1&&c1.b.find(b=>b.k==='farm').ug===5);
 
 /* the phone */
 const P=await player('cities phone',{vp:{width:390,height:844}});await open(P);await found(P,'Pocketia');await nav(P,'cities');

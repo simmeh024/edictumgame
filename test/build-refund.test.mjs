@@ -1,7 +1,7 @@
 // What a cancelled building gives back (game/edictum.html, bug run item 52). Cancelling a queued or half-built
 // building, or abandoning its city, refunded today's price: the cabinet's cost bonus (70 to 100 per cent) could have
 // changed since it was paid, so a cheap cabinet then a dear one paid out more than went in. The price paid is now kept
-// on the building (p), a level being raised (lu.p) and walls going up (wu.p), and a cancel gives that back.
+// on the building (p), an upgrade being fitted (uu.p) and walls going up (wu.p), and a cancel gives that back.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -28,7 +28,7 @@ function city({ costK = 1, farmP, millP } = {}) {
     ${fn('bCost')}
     ${fn('paidClean')}
     ${fn('bPaid')}
-    ${line(/const CX_LV=[^\n]*/)}
+    ${line(/const CX_UG=\[[\s\S]*?\n\];\nconst CX_UG_MAX=[^\n]*/)}
     ${line(/const CX_WALL=[^\n]*/)}
     const CX_TRAITS={},clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),c3CleanName=v=>String(v);
     ${fn('cxUpList')}
@@ -76,13 +76,16 @@ test('a kept price is never more than the list price, and junk is dropped', () =
   assert.equal(C.paidClean(null, list), null);
   assert.deepEqual(copy(C.bPaid(C.S.nation, { k: 'farm', p: { timber: 1e9 } })), { timber: list.timber });
 });
-test('a level being raised and walls going up keep their price, capped at the list', () => {
+test('an upgrade being fitted and walls going up keep their price, capped at the list', () => {
   const C = city();
   const t = Date.now();
-  const lu = C.cxBldExtras({ k: 'farm', lu: { l: 2, s: t, d: t + 3600e3, p: { timber: 11, goods: 999 } } }).lu;
-  assert.equal(lu.p.timber, 11);
-  assert.ok(lu.p.goods < 999 && lu.p.goods > 0, 'goods capped at the level’s list price');
-  assert.equal(C.cxBldExtras({ k: 'farm', lu: { l: 2, s: t, d: t + 3600e3 } }).lu.p, undefined, 'none kept, none made up');
+  const uu = C.cxBldExtras({ k: 'farm', ug: 2, uu: { u: 3, s: t, d: t + 3600e3, p: { timber: 5, goods: 999 } } }).uu;
+  assert.equal(uu.p.timber, 5);
+  assert.equal(uu.p.goods, 8, 'goods capped at the blue block’s list price (0.9 of 8, rounded up)');
+  assert.equal(C.cxBldExtras({ k: 'farm', uu: { u: 1, s: t, d: t + 3600e3 } }).uu.p, undefined, 'none kept, none made up');
+  // a raise to the old level 2 still under way keeps its price, capped at that level's list (1.5 times the farm's)
+  const old = C.cxBldExtras({ k: 'farm', lu: { l: 2, s: t, d: t + 3600e3, p: { timber: 11, goods: 999 } } }).uu;
+  assert.deepEqual(copy(old), { u: 4, s: t, d: t + 3600e3, p: { timber: 11, goods: 12 } });
   const wu = C.cxCityExtras({ wu: { l: 1, s: t, d: t + 3600e3, p: { timber: 15, iron: 7 } } }).wu;
   assert.deepEqual(copy(wu.p), { timber: 15, iron: 7 });
 });
@@ -94,6 +97,6 @@ test('the build, queue and quick-first-building paths keep the price, and the sa
   assert.match(fn('cxWall'), /p:q\.cost\}/);
   assert.match(html, /if\(o\.d>Date\.now\(\)\)\{const p=paidClean\(b\.p,bCost\(null,b\.k\)\);if\(p\)o\.p=p;\}/);
   assert.match(fn('c3AbandonPlan'), /bPaid\(n,b\)/);
-  assert.match(fn('cxUpCancel'), /e\.lu\.p\|\|/);
+  assert.match(fn('cxUpCancel'), /e\.uu\.p\|\|/);
   assert.match(fn('cxWallCancel'), /e\.wu\.p\|\|/);
 });
