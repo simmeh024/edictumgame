@@ -3,7 +3,9 @@
 //
 //  1. pings (mailQ/<id>, written by players' games when they write to, fight or deal with another nation):
 //     one digest per player, at most every DIGEST_GAP, and never about something they have already seen, i.e.
-//     anything from before their nation's last save (summaries/<uid>.t). Pings are deleted once handled.
+//     anything from before their nation's last save (summaries/<uid>.t). Pings are deleted once handled; all but
+//     letters ('msg') are first kept in feedLog/<hour> {t, items} for the admin portal's Live feed (functions/feed.js),
+//     which keeps them FEED_KEEP and then deletes them.
 //  2. development news published since the last run (mailState/news {at}); the very first run only notes the time.
 //  3. one reminder when a nation has not been visited for AWAY_DAYS (mailAccounts/<uid>.away remembers it).
 //
@@ -13,7 +15,7 @@
 //
 // .github/workflows/mail.yml runs it every hour. It prints a JSON report.
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { mailConfig, send, digestLetter, newsLetter, awayLetter, PING_KIND, AWAY_DAYS } from '../../functions/mail-core.js';
 
 const args = process.argv.slice(2), opt = k => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
@@ -76,6 +78,13 @@ for (const [uid, a] of acc) {
 }
 
 report.sent = await send(db, letters, cfg);
+// the handled pings, but letters, for the Live feed: one document per hour, and none older than FEED_KEEP
+const FEED_KEEP = 7 * DAY, HOUR = 3600000, hour = Math.floor(now / HOUR) * HOUR;
+const kept = q.docs.map(d => d.data()).filter(x => x.k !== 'msg' && x.by && x.to).map(x => ({ by: x.by, to: x.to, k: x.k, nm: String(x.nm || '').slice(0, 80), t: ms(x.t) }));
+for (let i = 0; i < kept.length; i += 400) await db.doc('feedLog/' + new Date(hour).toISOString().slice(0, 13) + (i ? '-' + i / 400 : '')).set({ t: hour, items: FieldValue.arrayUnion(...kept.slice(i, i + 400)) }, { merge: true });
+const stale = await db.collection('feedLog').where('t', '<', now - FEED_KEEP).limit(400).get();
+if (stale.size) { const b = db.batch(); stale.docs.forEach(d => b.delete(d.ref)); await b.commit(); }
+report.feedKept = kept.length; report.feedRemoved = stale.size;
 for (let i = 0; i < updates.length; i += 400) { const b = db.batch(); for (const [uid, u] of updates.slice(i, i + 400)) b.update(db.doc('mailAccounts/' + uid), u); await b.commit(); }
 for (let i = 0; i < drop.length; i += 400) { const b = db.batch(); for (const r of drop.slice(i, i + 400)) b.delete(r); await b.commit(); }
 report.pingsDeleted = drop.length;

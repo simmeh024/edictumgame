@@ -270,3 +270,97 @@ test('statistics count every nation and account, for the world or one region, an
   const h = await call(a, { op: 'stats', refresh: true });
   assert.equal(h.history.at(-1).d, '2030-01-01'); assert.ok(h.history.at(-1).nations >= 2);
 });
+test('player search shows each player’s engagement score from the last count, and sorts and filters by it', async () => {
+  const a = await user(true), p = await user(), now = Date.now();
+  const rulings = Array.from({ length: 30 }, (_, i) => ({ id: 'e' + i, o: 0, t: now - i * 3600000 }));
+  const hist = Array.from({ length: 14 }, (_, i) => ({ t: now - i * 86400000, p: 5 }));
+  await put('nations/' + p.uid, { name: 'Keenland', reg: 'meridian', pop: 5, updatedAt: now, j: JSON.stringify({ name: 'Keenland', reg: 'meridian', pop: 5, founded: now - 20 * 86400000, updatedAt: now, answered: rulings, hist, deals: [{}], alli: { a: 1 }, wars: { x: {} }, claims: [{}], cities: [{ b: [{}] }, {}] }) });
+  await put('summaries/' + p.uid, { name: 'Keenland', reg: 'meridian', pop: 5, t: now });
+  await call(a, { op: 'stats', refresh: true });
+  assert.ok(await get('statsEngage/0'), 'counting the statistics writes the scores');
+  const found = (await call(a, { op: 'search', q: 'keenland', refresh: true })).players.find(x => x.uid === p.uid);
+  assert.ok(Array.isArray(found.eng) && found.eng[0] >= 90, JSON.stringify(found.eng));
+  const top = await call(a, { op: 'search', sort: 'eng', eng: 'hi' });
+  assert.ok(top.players.length && top.players[0].eng[0] >= top.players.at(-1).eng[0]); assert.ok(top.players.every(x => x.eng && x.eng[0] >= 60));
+  assert.ok(top.engAt > 0);
+  assert.ok((await call(a, { op: 'search', eng: 'lo' })).players.every(x => x.uid !== p.uid));
+  assert.ok((await call(a, { op: 'player', uid: p.uid })).nation.eng[0] >= 90, 'the player page counts it afresh');
+});
+test('the watchlist: added with a reason, compared with now, audited, and gone with the account', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Watchedland');
+  await assert.rejects(call(p, { op: 'watch', action: 'list' }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(a, { op: 'watch', action: 'add', uid: p.uid }), e => e.status === 'INVALID_ARGUMENT');
+  const added = (await call(a, { op: 'watch', action: 'add', uid: p.uid, why: 'Second account of a banned player?' })).watch;
+  assert.equal(added.why, 'Second account of a banned player?'); assert.equal(added.by, a.uid);
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).watch, added);
+  const row = (await call(a, { op: 'watch', action: 'list' })).rows.find(r => r.uid === p.uid);
+  assert.equal(row.base.name, 'Watchedland'); assert.equal(row.now.name, 'Watchedland'); assert.equal(row.reports, 0);
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  assert.ok(log.some(e => e.action === 'watch_added' && e.actor === a.uid && e.name === 'Watchedland'));
+  await call(a, { op: 'watch', action: 'remove', uid: p.uid });
+  assert.equal(await get('watch/' + p.uid), null); assert.equal((await call(a, { op: 'player', uid: p.uid })).watch, null);
+  assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'watch_removed'));
+  await call(a, { op: 'watch', action: 'add', uid: p.uid, why: 'Kept until the account goes' });
+  for (const path of ['nations/', 'nationx/', 'summaries/']) await del(path + p.uid);
+  await call(p, { op: 'close' }, 'accounts');
+  assert.equal(await get('watch/' + p.uid), null);
+});
+test('the Live feed: foundings, what nations did to each other, reports and board posts, but never letters', async () => {
+  const a = await user(true), p = await user(), q = await user(), now = Date.now();
+  await put('summaries/' + p.uid, { name: 'Feedland', reg: 'meridian', pop: 5, t: now, f: now - 60000 });
+  await put('summaries/' + q.uid, { name: 'Targetia', reg: 'meridian', pop: 5, t: now - 86400000 });
+  await put(`mailQ/${p.uid}~${q.uid}~war`, { by: p.uid, to: q.uid, k: 'war', nm: 'Feedland', t: new Date(now - 30000) });
+  await put(`mailQ/${p.uid}~${q.uid}~msg`, { by: p.uid, to: q.uid, k: 'msg', nm: 'Feedland', t: new Date(now - 20000) });
+  await put('reports/feedrep', { by: q.uid, target: p.uid, kind: 'nation', reason: 'spam', name: 'Feedland', reg: 'meridian', t: new Date(now - 10000) });
+  await put('cb/meridian/posts/FeedTopic00000000000', { a: p.uid, nm: 'Feedland', ti: 'Grain prices', x: 'Too high', t: now - 5000 });
+  await assert.rejects(call(p, { op: 'feed' }), e => e.status === 'PERMISSION_DENIED');
+  const f = await call(a, { op: 'feed', span: 'h1', refresh: true }), mine = f.events.filter(e => e.uid === p.uid || e.to === p.uid);
+  const kinds = mine.map(e => e.k);
+  for (const k of ['found', 'war', 'report', 'topic']) assert.ok(kinds.includes(k), k + ' in ' + kinds.join());
+  assert.ok(!f.events.some(e => e.k === 'msg'), 'letters are never shown');
+  const war = mine.find(e => e.k === 'war'); assert.equal(war.toName, 'Targetia'); assert.equal(war.reg, 'meridian');
+  assert.equal(mine.find(e => e.k === 'report').byName, 'Targetia');
+  assert.ok(f.online >= 0 && f.counts.war >= 1);
+  const wars = await call(a, { op: 'feed', span: 'h1', groups: ['war'] });
+  assert.ok(wars.events.length && wars.events.every(e => ['war', 'conq', 'peace'].includes(e.k)));
+  assert.ok(!(await call(a, { op: 'feed', span: 'h1', reg: 'frostmarch' })).events.some(e => e.uid === p.uid));
+  await assert.rejects(call(a, { op: 'feed', reg: 'atlantis' }), e => e.status === 'INVALID_ARGUMENT');
+});
+test('the alerts job files each finding once, posts the new ones to Discord, and the page lists and settles them', async () => {
+  const a = await user(true), p = await user(), q = await user(), r = await user(), now = Date.now(), H = 3600000;
+  for (const i of [1, 2, 3]) await put('reports/alertrep' + i, { by: p.uid, target: q.uid, kind: 'nation', reason: 'name', name: 'Reportia', reg: 'meridian', t: new Date(now - i * H) });
+  await put('nations/' + r.uid, { name: 'Boomland', reg: 'meridian', pop: 9, j: JSON.stringify({ name: 'Boomland', reg: 'meridian', pop: 9, hist: [{ t: now - 24 * H, p: 2 }] }) });
+  await put('summaries/' + r.uid, { name: 'Boomland', reg: 'meridian', pop: 9, t: now });
+  await put('summaries/' + p.uid, { name: 'Watchland', reg: 'meridian', pop: 5, t: now - 3 * H });
+  await put('shopTx/alerttx', { uid: p.uid, ok: true, product: 'vip', paid: now - 60000 });
+  await call(a, { op: 'watch', action: 'add', uid: p.uid, why: 'Alerts test' });
+  /* a stand-in for Discord's webhook */
+  const { createServer } = await import('node:http'), posts = [];
+  const hook = createServer((req, res) => { let b = ''; req.on('data', c => { b += c; }); req.on('end', () => { posts.push(JSON.parse(b)); res.writeHead(204).end(); }); });
+  await new Promise(ok => hook.listen(0, '127.0.0.1', ok));
+  const run = t => promisify(execFile)(process.execPath, [fileURLToPath(new URL('../jobs/stats/alerts.mjs', import.meta.url)), '--project', project, '--now', String(t)],
+    { env: { ...process.env, STAFF_ALERT_WEBHOOK: `http://127.0.0.1:${hook.address().port}/hook` } }).then(x => JSON.parse(x.stdout));
+  try {
+    const first = await run(now), day = new Date(now).toISOString().slice(0, 10);
+    for (const id of [`rep~${q.uid}~${day}`, `pop~${r.uid}~${day}`, 'buy~alerttx']) assert.ok(await get('adminAlerts/' + id), id);
+    assert.equal(first.discord, 'sent'); assert.equal(posts.length, 1); assert.match(posts[0].content, /Reportia was reported 3 times/); assert.match(posts[0].content, /#admin-watch>$/);
+    const again = await run(now + 60000);
+    assert.equal(again.filed, 0, 'nothing is filed twice'); assert.equal(posts.length, 1, 'and nothing is posted twice');
+    await put('summaries/' + p.uid, { name: 'Watchland', reg: 'meridian', pop: 5, t: now + 90000 });
+    await run(now + 120000);
+    assert.ok(await get(`adminAlerts/won~${p.uid}~${new Date(now + 120000).toISOString().slice(0, 13)}`), 'a watched player back after hours away');
+  } finally { hook.close(); }
+  await assert.rejects(call(p, { op: 'alerts' }), e => e.status === 'PERMISSION_DENIED');
+  const list = await call(a, { op: 'alerts' });
+  assert.ok(list.alerts.some(x => x.k === 'reports' && x.uid === q.uid && !x.seen)); assert.ok(list.unseen >= 4); assert.equal(list.run.discord, 'sent');
+  assert.equal(list.cfg.reports, 3);
+  const one = list.alerts.find(x => x.k === 'buy');
+  assert.equal((await call(a, { op: 'alerts', action: 'seen', ids: [one.id, 'no-such-alert'] })).marked, 1);
+  assert.equal((await call(a, { op: 'alerts', action: 'seen' })).unseen, 0);
+  assert.equal((await call(a, { op: 'alerts', action: 'count' })).unseen, 0);
+  const cfg = (await call(a, { op: 'alerts', action: 'cfg', cfg: { reports: 5, errPct: 900, buys: false } })).cfg;
+  assert.equal(cfg.reports, 5); assert.equal(cfg.errPct, 100); assert.equal(cfg.buys, false);
+  assert.equal((await call(a, { op: 'alerts' })).cfg.reports, 5);
+  assert.ok((await call(a, { op: 'audit', target: 'alerts' })).events.some(e => e.action === 'alerts_config' && e.actor === a.uid));
+  await call(a, { op: 'alerts', action: 'cfg', cfg: { reports: 3, buys: true } });
+});

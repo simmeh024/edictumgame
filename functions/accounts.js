@@ -90,7 +90,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     if ((await db.doc('nations/' + uid).get()).exists) refuse('nation_exists', 'Delete the nation first.');
     await forgetShop(uid);
     // and the pacing of its posts, reports, tickets and bug reports, which players may not delete (firestore.rules)
-    await Promise.all(['accountSeen/', 'staffNotes/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/'].map(c => db.doc(c + uid).delete()));
+    await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
     await getAuth().deleteUser(uid);
