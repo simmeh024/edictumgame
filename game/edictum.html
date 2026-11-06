@@ -5621,6 +5621,12 @@ button[disabled] .gv-cost{opacity:.6}
 .gv-pub-pf{font-size:12px;color:var(--ink-3)}
 .gv-pub-l b{font-weight:650;overflow-wrap:anywhere}
 .gv-pub-lead{grid-column:1/-1;border-top:3px solid var(--cv-lead)!important}
+/* menu badges: a small dot for news on a page since it was last open (a number is something waiting) */
+.badge.dot{min-width:0;width:9px;height:9px;padding:0;border-radius:50%;background:var(--accent);align-self:center}
+.side-index .nav-btn .badge.dot,.more-b .badge.dot{min-width:0;width:9px;height:9px;padding:0}
+.more-b .badge.dot{top:8px;right:9px}
+.tab .badge.dot{min-width:0;width:9px;height:9px;padding:0;top:-1px;left:calc(50% + 8px)}
+.nav-rail .nav .nav-btn .badge.dot{min-width:0;width:8px;height:8px;padding:0;top:4px;right:10px}
 </style>
 
 <div id="app"></div>
@@ -20092,7 +20098,9 @@ function protectedNow(id){const x=findNation(id);return !!x&&!x.npc&&!canFeature
 function spareOf(E,id,res){const j=E.T.byId[id];return j===undefined?0:Math.max(0,E.sup[res][j]-E.dem[res][j]);}
 
 /* ───────── land credits: when the next one comes ───────── */
-function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)-(n.mvl||0);}
+/* the credits earned at population p: everything landEarned counts at today's population, rank credits included (and the
+   dig credits below), so the next credit's population is reckoned from the same total */
+function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+achRankCredits(n)-(n.mvl||0);}
 function nextCreditPop(n){
   const T=territory(),i=T.byId[myId()],used=i===undefined?0:claimsUsed(n,T,i),need=used+1,p0=popNow(n);
   if(earnedAt(n,p0)>=need)return p0;let lo=p0,hi=p0;
@@ -22173,7 +22181,9 @@ achDef('war','war-lost','b','Strategic Withdrawal','Lose a hex in war.',1,x=>aT(
 /* ── Peace & diplomacy ── */
 [['dip-peace1','b','Olive Branch',1,'Make peace, and mean most of it.'],['dip-peace3','s','Shuttle Diplomacy',3,'Make peace 3 times.'],['dip-peace5','g','The Peacemaker',5,'Make peace 5 times. Some would say you keep starting them.','t-peacemaker']]
   .forEach(([id,t,n,g,d,u])=>achDef('dip',id,t,n,d,g,x=>aT(x,'log:peace'),{u}));
-achDef('dip','dip-return','s','Magnanimous','Make peace and hand back the land you took.',1,x=>achYes(Object.values(x.n.pterm||{}).includes('return')||aLog(x,l=>l.k==='peace'&&l.fx==='return')),{fm:'bool'});
+/* peace made, not offered: the terms of an offer (n.pterm) count only once the war with that nation is over (the other
+   side accepted later); an offer that ends a war at once is in the log */
+achDef('dip','dip-return','s','Magnanimous','Make peace and hand back the land you took.',1,x=>achYes(aLog(x,l=>l.k==='peace'&&l.fx==='return')||Object.entries(x.n.pterm||{}).some(([id,t])=>{if(t!=='return')return false;try{return !pairWar(x.id,id).war;}catch(e){return false;}})),{fm:'bool'});
 achDef('dip','dip-alfound','b','Founding Member','Found an alliance.',1,x=>Math.max(aT(x,'log:alfound'),x.n.alli?1:0));
 achDef('dip','dip-admit','s','Open Doors','Admit 3 members to your alliance.',3,x=>aT(x,'log:aladmit'));
 achDef('dip','dip-coalition','g','Grand Coalition','Belong to an alliance of 4 or more nations.',4,aAlly,{u:'c-sword'});
@@ -43395,6 +43405,12 @@ function ddCanVote(n){
 }
 function ddDay(t){const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function ddNextDay(t){const d=new Date(t);d.setHours(24,0,0,0);return d.getTime();}
+/* The desk's day (and the presence streak's) only moves on: a save from a device whose date is behind another's (a time
+   zone further west) keeps the desk of the later date, instead of replacing it with a fresh one. Two devices in different
+   time zones once took turns starting the desk again, wiping its progress and paying its rewards twice. */
+const ddLater=(day,than)=>!than||day>than;
+/* when the next desk comes: this device's next midnight, or, while it is behind the desk's date, the midnight after it */
+function ddNextAt(now,D){const day=ddDay(now);if(!D||!D.d||!(D.d>day))return ddNextDay(now);const [y,m,d]=D.d.split('-').map(Number);return new Date(y,m-1,d+1).getTime();}
 /* the day's three tasks: [key, target, resource, resource] */
 function ddRoll(n,day){
   const r=rng(hash(String(n.seed)+':desk:'+day)),pick=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
@@ -43426,14 +43442,14 @@ COMMIT_HOOKS.push((n,old,now)=>{
   /* the same nation's last record, with its tallies: only then are the differences real */
   const base=old&&old.name===n.name&&old.tly&&typeof old.tly==='object'?old:null;
   const gift=(r,v)=>{const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
-  if(ddOn()){if(!n.dd||n.dd.d!==day)n.dd=ddFresh(n,day);
+  if(ddOn()){if(!n.dd||ddLater(day,n.dd.d))n.dd=ddFresh(n,day);
   const D=n.dd;D.q.forEach(([k,goal,ra,rb],i)=>{
     if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
     if(D.c[i]>=goal){D.p[i]=1;gift(ra,DD_GIFT);gift(rb,DD_GIFT);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${DD_GIFT} ${resName(ra)} and +${DD_GIFT} ${resName(rb)}.`);}
   });
   if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;out.push('Today’s desk is clear: +1 land credit to spend on the map.');}}
-  if(base&&(!n.stk||n.stk.d!==day)&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
+  if(base&&(!n.stk||ddLater(day,n.stk.d))&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
     const k=Math.min(STK_MAX,stkDays(n)+1);n.stk={n:k,d:day};if(k<=STK_NOTES.length)out.push(`Day ${k} of your presence: ${STK_NOTES[k-1]}.`);}
   /* the quick first building: its first cart, once, if it still stands */
   const F=n.ffb;
@@ -43456,16 +43472,16 @@ NORM_HOOKS.push((n,d)=>{
 /* ── the desk on the edicts page ── */
 function ddMark(k){
   const n=S.nation;if(!n||n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;
-  const day=ddDay(Date.now()),D=n.dd&&n.dd.d===day?n.dd:null,i=(D?D.q:ddRoll(n,day)).findIndex(q=>q[0]===k);
+  const day=ddDay(Date.now()),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:null,i=(D?D.q:ddRoll(n,day)).findIndex(q=>q[0]===k);
   if(i<0||D&&D.p[i])return;const m=clone(n);m._ddm=k;commit(m);saveSoon();
 }
 function ddCard(now){
   const n=S.nation;if(!n||n.npc||!ddOn())return '';
-  const day=ddDay(now),D=n.dd&&n.dd.d===day?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&n.stk.d===day),nx=STK_UNLOCKS[sk];
+  const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),nx=STK_UNLOCKS[sk];
   const rows=D.q.map(([k,goal,ra,rb],i)=>{const T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0);
     return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${DD_GIFT} ${esc(resName(ra))}, +${DD_GIFT} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
   const dots=`<span class="lc-dots" aria-hidden="true">${STK_UNLOCKS.map((x,i)=>`<i${i<sk?' class="on"':''}></i>`).join('')}</span>`;
-  return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextDay(now)}">${esc(fmtWait(ddNextDay(now)-now))}</b></span></div>
+  return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextAt(now,D)}">${esc(fmtWait(ddNextAt(now,D)-now))}</b></span></div>
     <ol class="dd-l">${rows}</ol>
     <p class="dd-f">${D.w?'Your desk is clear: today’s land credit is yours.':'Clear all three for <b>+1 land credit</b>.'}</p>
     <p class="hint dd-stk">${dots}Presence: ${sk?`day ${sk}`:'not started'}${nx?` · next: ${STK_NEXT[sk]}`:' · all three rewards earned'}. ${today?'Today counts.':'Answer an edict or claim a hex today to count it.'} A missed day only pauses it.</p></section>`;
@@ -43551,7 +43567,7 @@ setInterval(()=>{
   document.querySelectorAll('[data-live="ffbbar"]').forEach(el=>{const a=+el.dataset.s,b=+el.dataset.d;el.style.width=clamp((now-a)/(b-a)*100,0,100).toFixed(1)+'%';});
   document.querySelectorAll('[data-live="ddnext"]').forEach(el=>{el.textContent=fmtWait(Math.max(0,+el.dataset.t-now));});
   if(n.npc||regBlocked()||S.mode==='readonly')return;
-  if(n.ffb&&!n.ffb.p&&now>=n.ffb.d||n.name&&S.view==='issues'&&document.querySelector('.dd')&&(!n.dd||n.dd.d!==ddDay(now))){commit(clone(n));render();}
+  if(n.ffb&&!n.ffb.p&&now>=n.ffb.d||n.name&&S.view==='issues'&&document.querySelector('.dd')&&(!n.dd||ddLater(ddDay(now),n.dd.d))){commit(clone(n));render();}
 },1000);
 
 /* ───────── the founding edict: where the capital will stand ─────────
@@ -47204,7 +47220,8 @@ function wndGive(r,amt){
   const now=Date.now(),st=stockNow(n0,now),give=Math.floor(Math.min(amt,left,st[r]));if(give<1){toast(`You have no ${resName(r)} to spare.`);return;}
   const n=clone(n0);
   /* the first gift to another region's statue: what was earned at the old one is kept (n.wnx) */
-  if(n.wnd&&!wndMine(n)){const got=wndRewarded(n),x=n.wnx||{u:[],l:0};n.wnx={u:[...new Set(x.u.concat(got))].sort((a,b)=>a-b),l:(x.l||0)+WND_LAND*got.length};}
+  if(n.wnd&&!wndMine(n)){const got=wndRewarded(n),x=n.wnx||{u:[],l:0};n.wnx={u:[...new Set(x.u.concat(got))].sort((a,b)=>a-b),l:(x.l||0)+WND_LAND*got.length};
+    if(x.pt===1||(n.wnd.ph||0)>=WND_N&&wndGave(n.wnd))n.wnx.pt=1;}
   const w=wndMine(n)?clone(n.wnd):{r:REG.id,c:{},ph:0,t:0,g:[]};
   st[r]-=give;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   w.c[r]=Math.round((num0(w.c[r])+give)*10)/10;if(!w.t0)w.t0=w.t||now;w.t=now;
@@ -47231,10 +47248,15 @@ NORM_HOOKS.push((n,d)=>{
 });
 NORM_HOOKS.push((n,d)=>{
   const x=d&&d.wnx;if(!x||typeof x!=='object')return;
-  n.wnx={u:Array.isArray(x.u)?[...new Set(x.u.filter(i=>Number.isInteger(i)&&i>=0&&i<WND_N))].sort((a,b)=>a-b):[],l:Number.isInteger(x.l)?clamp(x.l,0,999):0};
+  n.wnx={u:Array.isArray(x.u)?[...new Set(x.u.filter(i=>Number.isInteger(i)&&i>=0&&i<WND_N))].sort((a,b)=>a-b):[],l:Number.isInteger(x.l)?clamp(x.l,0,999):0};if(x.pt===1)n.wnx.pt=1;
 });
 UNLOCKS['t-patron']={k:'title',n:'the Patron',src:'wonder'};
-UNLOCK_SOURCES.push({earned:n=>{try{return wndMine(n)&&RES.some(r=>num0(n.wnd.c[r])>0)&&wndState().done>=WND_N?['t-patron']:[];}catch(e){return [];}},
+/* the Patron: a nation that gave to its statue and saw it finished. Its record keeps the phases it saw finished (n.wnd.ph),
+   so the title stays with it after a move, and once it gives to another region's statue, in what it keeps (n.wnx.pt);
+   once it counted only while the nation was still in that region */
+const wndGave=w=>!!w&&RES.some(r=>num0(w.c&&w.c[r])>0);
+UNLOCK_SOURCES.push({earned:n=>{try{if(!n||n.npc)return [];if(n.wnx&&n.wnx.pt===1)return ['t-patron'];const w=n.wnd;if(!wndGave(w))return [];
+  return (w.ph||0)>=WND_N||wndMine(n)&&wndState().done>=WND_N?['t-patron']:[];}catch(e){return [];}},
   how:id=>id==='t-patron'?'Help build the Great Statue of your region, and see it finished.':null});
 
 /* ── the phases' rewards ──
@@ -47521,6 +47543,7 @@ function digHeld(n,sid){const own=colOwned(n);return digSet(sid).items.filter(a=
 /* 2 land credits for half of each collection, and 7 more for all of it */
 function digCredits(n){if(!n||n.npc)return 0;let k=0;for(const sid of DIG_SETS){const h=digHeld(n,sid),L=digSet(sid).items.length;if(h*2>=L)k+=2;if(h>=L)k+=7;}return k;}
 landEarned=(f=>function(n){return f.apply(this,arguments)+digCredits(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+digCredits(n);})(earnedAt);
 colRewardWords=(f=>function(s){return s&&s.dig?'2 land credits at half way and 7 more when complete, and '+f(s):f(s);})(colRewardWords);
 COMMIT_HOOKS.push((n,old)=>{
   if(!n||n.npc||!old)return [];const out=[];
@@ -47607,12 +47630,17 @@ const GF_DAY=3,GF_GW=3,GF_GW_TOP=15;
 const gfGw=v=>{v=v||0;return v>=GF_GW_TOP?v:Math.min(GF_GW_TOP,v+GF_GW);};
 const gfId=()=>myId()+':'+Date.now().toString(36);
 const gfToday=t=>new Date(t).toISOString().slice(0,10);
+/* a gift is answerable for GF_KEEP: an older one waits for no thanks, and the reply to it may go. Replies are kept for as
+   long, and up to GF_REPLIES_MAX of them: once only the last 40 were kept, and a gift answered before that came back as
+   waiting for thanks (its sender's record keeps it until they send another gift) */
+const GF_KEEP=60*DAY,GF_REPLIES_MAX=200;
 function gfSent(n){return Array.isArray(n&&n.gft)?n.gft:[];}
 function gfReplies(n){return Array.isArray(n&&n.gfr)?n.gfr:[];}
 /* the gifts other nations sent me, with my reply if I gave one */
 function gfIncoming(){
   const me=myId(),mine=new Map(gfReplies(S.nation).map(r=>[r.id,r])),out=[];
-  for(const x of allNations())if(!x.me&&!x.npc)for(const g of gfSent(x.n))if(g.to===me)out.push({...g,from:x,reply:mine.get(g.id)||null});
+  const now=Date.now();
+  for(const x of allNations())if(!x.me&&!x.npc)for(const g of gfSent(x.n))if(g.to===me&&now-g.t<GF_KEEP)out.push({...g,from:x,reply:mine.get(g.id)||null});
   return out.sort((a,b)=>b.t-a.t);
 }
 /* the gifts I sent, with the reply: a player's from its record, a computer nation's of its own accord */
@@ -47632,20 +47660,20 @@ function gfWhyNot(to,now){
 function gfSend(to,k,m){
   const now=Date.now(),why=gfWhyNot(to,now);if(why){toast(why);return;}
   if(!GF_KINDS[k]||!(m>=0&&m<GF_MSG.length))return;const x=findNation(to),n=clone(S.nation);
-  n.gft=gfSent(n).filter(g=>now-g.t<60*DAY).concat({id:gfId(),to,k,m,t:now}).slice(-40);
+  n.gft=gfSent(n).filter(g=>now-g.t<GF_KEEP).concat({id:gfId(),to,k,m,t:now}).slice(-40);
   n.gw={...(n.gw||{})};n.gw[to]=gfGw(n.gw[to]);
   commit(n);S.gfTo=null;render();toast(`${cap1(fill(GF_KINDS[k][1],S.nation))} is on its way to ${x.n.name}.${x.npc?' Computer nations usually answer within a few hours.':''}`);
 }
 function gfAnswer(id,k,m){
   const g=gfIncoming().find(x=>x.id===id);if(!g||g.reply||!GF_KINDS[k]||!(m>=0&&m<GF_REPLY.length))return;
-  const now=Date.now(),n=clone(S.nation);n.gfr=gfReplies(n).filter(r=>now-r.t<60*DAY).concat({id,f:g.from.id,k,m,t:now}).slice(-40);
+  const now=Date.now(),n=clone(S.nation);n.gfr=gfReplies(n).filter(r=>now-r.t<GF_KEEP).concat({id,f:g.from.id,k,m,t:now}).slice(-GF_REPLIES_MAX);
   n.gw={...(n.gw||{})};n.gw[g.from.id]=gfGw(n.gw[g.from.id]);
   commit(n);render();toast(`Your thanks, and ${fill(GF_KINDS[k][1],S.nation)}, are on their way to ${g.from.n.name}.`);
 }
 NORM_HOOKS.push((n,d)=>{
   const id=v=>typeof v==='string'&&v.length>0&&v.length<=200,tm=v=>typeof v==='number'&&isFinite(v)&&v>0;
   if(Array.isArray(d.gft))n.gft=d.gft.filter(g=>g&&id(g.id)&&id(g.to)&&GF_KINDS[g.k]&&Number.isInteger(g.m)&&g.m>=0&&g.m<GF_MSG.length&&tm(g.t)).slice(-40).map(g=>({id:g.id,to:g.to,k:g.k,m:g.m,t:g.t}));
-  if(Array.isArray(d.gfr))n.gfr=d.gfr.filter(g=>g&&id(g.id)&&id(g.f)&&GF_KINDS[g.k]&&Number.isInteger(g.m)&&g.m>=0&&g.m<GF_REPLY.length&&tm(g.t)).slice(-40).map(g=>({id:g.id,f:g.f,k:g.k,m:g.m,t:g.t}));
+  if(Array.isArray(d.gfr))n.gfr=d.gfr.filter(g=>g&&id(g.id)&&id(g.f)&&GF_KINDS[g.k]&&Number.isInteger(g.m)&&g.m>=0&&g.m<GF_REPLY.length&&tm(g.t)).slice(-GF_REPLIES_MAX).map(g=>({id:g.id,f:g.f,k:g.k,m:g.m,t:g.t}));
 });
 /* a gift as a small picture, made from the sender's own nation */
 function gfArt(k,n){
@@ -49332,7 +49360,7 @@ const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum find
   ['wnd','The Great Statue',['wnd']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']]];
 const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
 const NTF=(()=>{let d={};try{d=JSON.parse(localStorage.getItem(NTF_KEY)||'{}')||{};}catch(e){d={};}
-  return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
+  return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,nvd:d.nvd===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
 function ntfSave(){try{localStorage.setItem(NTF_KEY,JSON.stringify(NTF));}catch(e){}}
 const ntfMuted=k=>NTF.mute.some(g=>(NTF_GROUPS.find(x=>x[0]===g)||[,,[]])[2].includes(k));
 const ntfFirstHour=()=>!!(S.nation&&Date.now()-(S.nation.founded||0)<3600e3);
@@ -49374,11 +49402,12 @@ function ntfSection(){
       ${seg('The bell’s number counts','ntf-badge',[['act','What needs me'],['all','Everything new']],NTF.badge,'badge')}
       ${seg('Pop-up for new development news','ntf-nws',[['on','Show'],['off','Hide']],NTF.nws,'nws')}
       ${seg('Count new development news in the menu','ntf-nwc',[[1,'Show'],[0,'Hide']],NTF.nwc,'nwc')}
+      ${seg('Dots in the menu for news since your last visit','ntf-nvd',[[1,'Show'],[0,'Hide']],NTF.nvd,'nvd')}
       <div class="cz-drow"><span class="cz-dl" id="ntf-mute-l">Show in the bell</span><div class="ntf-mute" role="group" aria-labelledby="ntf-mute-l">${NTF_GROUPS.map(([k,l])=>`<label class="tog"><input type="checkbox" data-ntf-mute="${k}"${NTF.mute.includes(k)?'':' checked'}> ${esc(l)}</label>`).join('')}</div></div>
     </div><p class="hint">Messages, wars, trade offers, land credits and alliance invitations always show, and always count.</p></section>`;
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="ntf"]');if(!el)return;const f=el.dataset.f,v=el.dataset.v;
-  if(f==='rw'&&['auto','on','off'].includes(v))NTF.rw=v;else if(f==='tut')NTF.tut=v==='1'?1:0;else if(f==='badge')NTF.badge=v==='all'?'all':'act';else if(f==='nws')NTF.nws=v==='off'?'off':'on';else if(f==='nwc')NTF.nwc=v==='0'?0:1;else return;ntfSave();render();});
+  if(f==='rw'&&['auto','on','off'].includes(v))NTF.rw=v;else if(f==='tut')NTF.tut=v==='1'?1:0;else if(f==='badge')NTF.badge=v==='all'?'all':'act';else if(f==='nws')NTF.nws=v==='off'?'off':'on';else if(f==='nwc')NTF.nwc=v==='0'?0:1;else if(f==='nvd')NTF.nvd=v==='0'?0:1;else return;ntfSave();render();});
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.ntfMute;if(!k)return;NTF.mute=NTF.mute.filter(x=>x!==k);if(!e.target.checked)NTF.mute.push(k);ntfSave();refreshBell(Date.now());});
 
 /* ── the Nation page: one card for what waits, instead of a banner for each ── */
@@ -50410,7 +50439,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -50938,6 +50967,80 @@ document.addEventListener('keydown',e=>{
   const d={ArrowRight:1,ArrowLeft:-1}[e.key];if(!d&&e.key!=='Home'&&e.key!=='End')return;e.preventDefault();
   const i=GV_TABS.findIndex(x=>x[0]===t.dataset.v),L=GV_TABS.length,j=e.key==='Home'?0:e.key==='End'?L-1:(i+d+L)%L;gvSetTab(GV_TABS[j][0],true);
 });
+/* ───────── a badge on every page that needs the player ─────────
+   Each page of the menu shows a number when something there waits on the player, and a small dot when there is news
+   on it since the player last had it open. The number counts the page's own state, which goes once it is dealt with
+   (crates to open, an offer, invitation or gift to answer, a vote to cast, today's cabinet briefing, a landing site or
+   a city to found, disloyal governors, explorers' reports to hear), plus the bell's "needs you" news for that page
+   (BELL_ACT: war, a seized hex, a covert result, a blockade) that came after the player last left it. Any other news
+   in the bell for a page (a finished building, an achievement, today's Dispatch) is the dot, which Settings ›
+   Notifications can turn off (NTF.nvd). When each page was last left is kept on this device, per nation
+   (statehood.navSeen.<id>); a nation first seen here starts from now, so old news is not raised again. A new player
+   still on the charter is not shown the daily briefing. The figures are worked out at most every 4 s (the tick asks
+   every second) and again after any change to the nation or page. */
+const NVX={cur:null,seen:null,ver:0,memo:null};
+/* bell kinds a page's own state already counts (or another badge does) */
+const NVX_STATE=new Set(['msg','dig','gift','exp','land','alli']);
+const nvxKey=id=>'statehood.navSeen.'+id;
+function nvxSeen(){
+  const id=String(myId()||'');
+  if(!NVX.seen||NVX.seen.id!==id){let d=null;try{d=JSON.parse(localStorage.getItem(nvxKey(id))||'null');}catch(e){d=null;}
+    const ok=!!(d&&typeof d==='object'&&typeof d.t0==='number'&&isFinite(d.t0)&&d.p&&typeof d.p==='object'&&!Array.isArray(d.p));
+    NVX.seen={id,t0:ok?d.t0:Date.now(),p:{}};
+    if(ok)for(const [k,t] of Object.entries(d.p))if(typeof t==='number'&&isFinite(t)&&k.length<24)NVX.seen.p[k]=t;
+    if(!ok)nvxSave();}
+  return NVX.seen;
+}
+function nvxSave(){const s=NVX.seen;if(!s||!s.id)return;try{localStorage.setItem(nvxKey(s.id),JSON.stringify({t0:s.t0,p:s.p}));}catch(e){}}
+/* the page on screen counts as seen while it is open, up to the moment it is left */
+function nvxVisit(now){
+  const cur=navCur(),id=String(myId()||'');if(cur===NVX.cur&&NVX.seen&&NVX.seen.id===id)return;
+  const s=nvxSeen();if(NVX.cur&&NVX.cur!==cur)s.p[NVX.cur]=now;if(cur)s.p[cur]=now;NVX.cur=cur;NVX.ver++;nvxSave();
+}
+/* is any hex free for a new city? The first that would do, without ranking them as the Cities page does */
+function nvxCitySite(T,mi){for(let i=0;i<MAP.N;i++)if(T.owner[i]===mi&&!T.isCap[i]&&!cityProblem(i,T))return true;return false;}
+/* {page: {k: things waiting, w: [words], e: "needs you" news since the page was left, d: other news since then}} */
+function nvxCompute(n,now){
+  const out={},me=myId(),cur=navCur(),o=v=>out[v]||(out[v]={k:0,w:[],e:0,d:0});
+  const add=(v,k,w)=>{if(k>0){const x=o(v);x.k+=k;x.w.push(w);}},each=f=>{try{f();}catch(e){}};
+  each(()=>{const k=(n.dig||[]).filter(d=>d.t1<=now).length;add('museum',k,k===1?'diggers back with crates to open':k+' digs back with crates to open');});
+  each(()=>{const P=politics();let k=0;for(const A of P.al.values())if(!A.npc&&A.invited.includes(me)&&!A.members.includes(me))k++;
+    add('diplomacy',k,k===1?'an alliance invitation':k+' alliance invitations');
+    const mine=P.al.get(me),q=mine&&mine.pending?mine.pending.length:0;add('diplomacy',q,q===1?'a nation asking to join your alliance':q+' nations asking to join your alliance');});
+  each(()=>{const k=gfIncoming().filter(g=>!g.reply&&now-g.t<14*DAY).length;add('diplomacy',k,k===1?'a gift to answer':k+' gifts to answer');});
+  each(()=>{const k=economy().pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).length;add('trade',k,k===1?'a trade offer':k+' trade offers');});
+  each(()=>{const k=enemies().filter(x=>{const w=warWith(x.id);return w.direct&&w.theyOffered&&!w.iOffered;}).length;add('map',k,k===1?'an offer of peace':k+' offers of peace');});
+  each(()=>{if(cellOf(n.loc)<0)return;const t=flNow(),k=(n.fl||[]).filter(p=>p.a<=t&&t-p.a<=3*DAY&&!p.h).length;add('map',k,k===1?'an explorers’ report to hear':k+' explorers’ reports to hear');});
+  each(()=>{if((n.reg||REG.id)!==REG.id||!asmMemberAt(n,now))return;const st=asmState(now);if(!st.cur||!st.V)return;const m=st.V.rows.find(r=>r.me);if(m&&!m.t)add('assembly',1,'a vote to cast');});
+  each(()=>{for(const [id,nm] of [['moon','the Moon'],['mars','Mars']])if(!(n.sp&&n.sp[id])&&spAccess(n,id,now))add('space',1,'a landing site to choose on '+nm);});
+  each(()=>{const k=provDisloyal(n);add('provinces',k,k===1?'a disloyal governor':k+' disloyal governors');});
+  each(()=>{if(!pgGuided(n)&&!gvBriefState(n,now).done)add('government',1,'today’s cabinet briefing');});
+  each(()=>{const T=territory(),mi=T.byId[me];if(mi===undefined)return;const k=Math.min(maxCities(T,mi),MAX_CITIES)-cityList(n).length;
+    if(k>0&&nvxCitySite(T,mi))add('cities',k,k===1?'a city to found':k+' cities to found');});
+  each(()=>{const s=nvxSeen(),{ev}=notifItems(now);
+    /* the statue's "phase complete" is dated each time it is asked (until the next save raises the phase), so it is left
+       out: its rewards ('wndr') are dated */
+    for(const x of ev){if(!x||x.read||!x.go||!(x.t<=now)||x.k==='wnd')continue;const v=NAV_PARENT[x.go]||x.go;if(v===cur||x.t<=Math.max(s.t0,s.p[v]||0))continue;
+      if(BELL_ACT.has(x.k)){if(!NVX_STATE.has(x.k))o(v).e++;}else o(v).d++;}});
+  for(const x of Object.values(out))if(x.e)x.w.push(x.e===1?'1 new report':x.e+' new reports');
+  return out;
+}
+function nvxGet(n,now){
+  if(!n||n.npc||OBS||n!==S.nation)return {};
+  nvxVisit(now);
+  const m=NVX.memo,mu=NTF.mute.join();
+  if(m&&m.n===n&&m.ver===NVX.ver&&m.mu===mu&&now>=m.at&&now-m.at<4000)return m.v;
+  let v={};try{v=nvxCompute(n,now);}catch(e){v={};}
+  NVX.memo={n,ver:NVX.ver,mu,at:now,v};return v;
+}
+/* the tick draws the menu again when a page's figure changes */
+navSigOf=(f=>function(n,now){const s=f.apply(this,arguments);if(!n||n!==S.nation)return s;const x=nvxGet(n,now||Date.now());
+  return s+'|'+Object.keys(x).sort().map(v=>{const o=x[v],k=o.k+o.e;return k?v+k:NTF.nvd!==0&&o.d?v+'.':'';}).join('');})(navSigOf);
+navBadges=(f=>function(){const b=f.apply(this,arguments),n=S.nation;if(!n)return b;const x=nvxGet(n,Date.now());
+  for(const [v,o] of Object.entries(x)){const k=o.k+o.e;
+    if(k)(b[v]=b[v]||[]).push({h:`<span class="badge" aria-hidden="true">${k>99?'99+':k}</span>`,t:o.w.join(', ')});
+    else if(o.d&&NTF.nvd!==0&&!b[v])b[v]=[{h:'<span class="badge dot" aria-hidden="true"></span>',t:'new since your last visit'}];}
+  return b;})(navBadges);
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
