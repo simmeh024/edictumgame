@@ -5622,6 +5622,8 @@ button[disabled] .gv-cost{opacity:.6}
 .gv-pub-l b{font-weight:650;overflow-wrap:anywhere}
 .gv-pub-lead{grid-column:1/-1;border-top:3px solid var(--cv-lead)!important}
 /* menu badges: a small dot for news on a page since it was last open (a number is something waiting) */
+.nvx-tb{margin-left:8px;vertical-align:middle}
+.stab .nvx-tb,.gv-tab .nvx-tb,.lbl .nvx-tb,.prv-gn .nvx-tb{min-width:20px;height:20px;padding:0 5px;font-size:11px}
 .badge.dot{min-width:0;width:9px;height:9px;padding:0;border-radius:50%;background:var(--accent);align-self:center}
 .side-index .nav-btn .badge.dot,.more-b .badge.dot{min-width:0;width:9px;height:9px;padding:0}
 .more-b .badge.dot{top:8px;right:9px}
@@ -17742,7 +17744,7 @@ function allianceSection(){
       ${open.length?`<h3 class="lbl-h" style="margin-top:20px">Player alliances</h3><ul class="mems">${open.map(x=>`<li class="mem"><span class="mem-n"><b>${esc(x.name)}</b> · ${x.members.length} ${x.members.length===1?'member':'members'}</span>${req?'':`<button class="btn ghost" data-act="al-join" data-id="${esc(x.id)}">Ask to join</button>`}</li>`).join('')}</ul>`:''}`;
   }
   const blocs=NPC_BLOCS.map(b=>`<li><b>${esc(b.name)}</b>: ${esc(list(b.members.map(nameOf)))}</li>`).join('');
-  return `<section class="dip-sec"><h2 class="h2">Alliance</h2>${msg}${body}<h3 class="lbl-h" style="margin-top:22px">Computer alliances</h3><ul class="blocs">${blocs}</ul><p class="hint">Attack one member of an alliance and the others defend it.</p></section>`;
+  return `<section class="dip-sec"><h2 class="h2" id="dip-al-h">Alliance</h2>${msg}${body}<h3 class="lbl-h" style="margin-top:22px">Computer alliances</h3><ul class="blocs">${blocs}</ul><p class="hint">Attack one member of an alliance and the others defend it.</p></section>`;
 }
 function warsSection(){
   const me=myId(),en=enemies(),now=Date.now();
@@ -17990,7 +17992,7 @@ function tradeView(){
   <div class="trade-grid">
     <section>
       <h2 class="h2">Agreements</h2>
-      ${incoming?`<h3 class="lbl-h">Offers to you</h3><ul class="deals">${incoming}</ul>`:''}
+      ${incoming?`<h3 class="lbl-h tr-in-h">Offers to you</h3><ul class="deals">${incoming}</ul>`:''}
       ${active?`<h3 class="lbl-h"${incoming?' style="margin-top:20px"':''}>Active deals</h3><ul class="deals">${active}</ul>`:''}
       ${outgoing?`<h3 class="lbl-h" style="margin-top:20px">Your offers</h3><ul class="deals">${outgoing}</ul>`:''}
       ${!incoming&&!active&&!outgoing?'<div class="empty"><p class="empty-h">No trade deals yet</p><p>Propose one with the form, or pick an offer from the world market below it.</p></div>':''}
@@ -35273,7 +35275,7 @@ function prvGovHTML(n,N,p,now,own){
   const g=p.q.g,t1=prvT1(n);
   if(!g)return `<p class="prv-gov-none">No governor</p>`;
   const lo=prvLoy(n,p,N,now),fx=prvFxWords(prvGovFx(n,p,N,now));
-  return `<div class="prv-gov">${cvMed({seed:g.nm,cls:'cv-med-g',small:1,ink:cvGovInk(N?prvMix(N.col||'#57A6DE',PRV_TINT[p.tint||0]):'#57A6DE')})}
+  return `<div class="prv-gov${!g.ac&&lo<25?' prv-dis':''}">${cvMed({seed:g.nm,cls:'cv-med-g',small:1,ink:cvGovInk(N?prvMix(N.col||'#57A6DE',PRV_TINT[p.tint||0]):'#57A6DE')})}
     <div class="prv-gw"><p class="prv-gn"><span class="u-sr">${g.ac?'Acting governor':'Governor'}: </span>${esc(g.nm)}${g.ac?' <span class="chip">Acting</span>':''}</p>
     ${g.tr.length?`<div class="traits">${g.tr.map(t=>`<span class="chip trait" title="${esc(PRV_GT[t][1]+'. At full strength: '+prvTraitWords(t)+'.')}">${esc(PRV_GT[t][0])}</span>`).join('')}</div>`:''}
     ${g.ac?`<p class="hint">Keeps the seat warm until you choose a governor.</p>`:`<div class="loy"><span class="lbl">Loyalty</span><span class="bar" role="img" aria-label="Loyalty ${Math.round(lo)} of 100"><i style="width:${Math.round(lo)}%"></i></span><span class="loy-t${lo<25?' low':''}">${prvLoyWord(lo)}</span></div>`}
@@ -50772,24 +50774,26 @@ function nvxVisit(now){
 }
 /* is any hex free for a new city? The first that would do, without ranking them as the Cities page does */
 function nvxCitySite(T,mi){for(let i=0;i<MAP.N;i++)if(T.owner[i]===mi&&!T.isCap[i]&&!cityProblem(i,T))return true;return false;}
-/* {page: {k: things waiting, w: [words], e: "needs you" news since the page was left, d: other news since then}} */
+/* {page: {k: things waiting, w: [words], at: [where each is on the page], e: "needs you" news since the page was left,
+   d: other news since then}}. at: {sel: the tab or heading to mark, k, w}, or all: every match marked “!” (each disloyal
+   governor) */
 function nvxCompute(n,now){
-  const out={},me=myId(),cur=navCur(),o=v=>out[v]||(out[v]={k:0,w:[],e:0,d:0});
-  const add=(v,k,w)=>{if(k>0){const x=o(v);x.k+=k;x.w.push(w);}},each=f=>{try{f();}catch(e){}};
-  each(()=>{const k=(n.dig||[]).filter(d=>d.t1<=now).length;add('museum',k,k===1?'diggers back with crates to open':k+' digs back with crates to open');});
+  const out={},me=myId(),cur=navCur(),o=v=>out[v]||(out[v]={k:0,w:[],at:[],e:0,d:0});
+  const add=(v,k,w,sel,all)=>{if(k>0){const x=o(v);x.k+=k;x.w.push(w);if(sel)x.at.push({sel,k,w,all:!!all});}},each=f=>{try{f();}catch(e){}};
+  each(()=>{const k=(n.dig||[]).filter(d=>d.t1<=now).length;add('museum',k,k===1?'diggers back with crates to open':k+' digs back with crates to open','.mu-tabs [data-h="digs"]');});
   each(()=>{const P=politics();let k=0;for(const A of P.al.values())if(!A.npc&&A.invited.includes(me)&&!A.members.includes(me))k++;
-    add('diplomacy',k,k===1?'an alliance invitation':k+' alliance invitations');
-    const mine=P.al.get(me),q=mine&&mine.pending?mine.pending.length:0;add('diplomacy',q,q===1?'a nation asking to join your alliance':q+' nations asking to join your alliance');});
-  each(()=>{const k=gfIncoming().filter(g=>!g.reply&&now-g.t<14*DAY).length;add('diplomacy',k,k===1?'a gift to answer':k+' gifts to answer');});
-  each(()=>{const k=economy().pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).length;add('trade',k,k===1?'a trade offer':k+' trade offers');});
-  each(()=>{const k=enemies().filter(x=>{const w=warWith(x.id);return w.direct&&w.theyOffered&&!w.iOffered;}).length;add('map',k,k===1?'an offer of peace':k+' offers of peace');});
-  each(()=>{if(cellOf(n.loc)<0)return;const t=flNow(),k=(n.fl||[]).filter(p=>p.a<=t&&t-p.a<=3*DAY&&!p.h).length;add('map',k,k===1?'an explorers’ report to hear':k+' explorers’ reports to hear');});
-  each(()=>{if((n.reg||REG.id)!==REG.id||!asmMemberAt(n,now))return;const st=asmState(now);if(!st.cur||!st.V)return;const m=st.V.rows.find(r=>r.me);if(m&&!m.t)add('assembly',1,'a vote to cast');});
-  each(()=>{for(const [id,nm] of [['moon','the Moon'],['mars','Mars']])if(!(n.sp&&n.sp[id])&&spAccess(n,id,now))add('space',1,'a landing site to choose on '+nm);});
-  each(()=>{const k=provDisloyal(n);add('provinces',k,k===1?'a disloyal governor':k+' disloyal governors');});
-  each(()=>{if(!pgGuided(n)&&!gvBriefState(n,now).done)add('government',1,'today’s cabinet briefing');});
+    add('diplomacy',k,k===1?'an alliance invitation':k+' alliance invitations','#dip-al-h');
+    const mine=P.al.get(me),q=mine&&mine.pending?mine.pending.length:0;add('diplomacy',q,q===1?'a nation asking to join your alliance':q+' nations asking to join your alliance','#dip-al-h');});
+  each(()=>{const k=gfIncoming().filter(g=>!g.reply).length;add('diplomacy',k,k===1?'a gift to answer':k+' gifts to answer');});
+  each(()=>{const k=economy().pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).length;add('trade',k,k===1?'a trade offer':k+' trade offers','.tr-in-h');});
+  each(()=>{const k=enemies().filter(x=>{const w=warWith(x.id);return w.direct&&w.theyOffered&&!w.iOffered;}).length;add('map',k,k===1?'an offer of peace':k+' offers of peace','.map-tabs [data-v="map"]');});
+  each(()=>{if(cellOf(n.loc)<0)return;const t=flNow(),k=(n.fl||[]).filter(p=>p.a<=t&&t-p.a<=3*DAY&&!p.h).length;add('map',k,k===1?'an explorers’ report to hear':k+' explorers’ reports to hear','.map-tabs [data-v="explore"]');});
+  each(()=>{if((n.reg||REG.id)!==REG.id||!asmMemberAt(n,now))return;const st=asmState(now);if(!st.cur||!st.V)return;const m=st.V.rows.find(r=>r.me);if(m&&!m.t)add('assembly',1,'a vote to cast','.asm-vote .asm-my .lbl');});
+  each(()=>{for(const [id,nm] of [['moon','the Moon'],['mars','Mars']])if(!(n.sp&&n.sp[id])&&spAccess(n,id,now))add('space',1,'a landing site to choose on '+nm,`.sp-tabs [data-b="${id}"]`);});
+  each(()=>{const k=provDisloyal(n);add('provinces',k,k===1?'a disloyal governor':k+' disloyal governors','.prv-dis .prv-gn',true);});
+  each(()=>{if(!pgGuided(n)&&!gvBriefState(n,now).done)add('government',1,'today’s cabinet briefing','#gv-tab-cabinet');});
   each(()=>{const T=territory(),mi=T.byId[me];if(mi===undefined)return;const k=Math.min(maxCities(T,mi),MAX_CITIES)-cityList(n).length;
-    if(k>0&&nvxCitySite(T,mi))add('cities',k,k===1?'a city to found':k+' cities to found');});
+    if(k>0&&nvxCitySite(T,mi))add('cities',k,k===1?'a city to found':k+' cities to found','.cx-add .cx-it-h');});
   each(()=>{const s=nvxSeen(),{ev}=notifItems(now);
     /* the statue's "phase complete" is dated each time it is asked (until the next save raises the phase), so it is left
        out: its rewards ('wndr') are dated */
@@ -50814,6 +50818,22 @@ navBadges=(f=>function(){const b=f.apply(this,arguments),n=S.nation;if(!n)return
     if(k)(b[v]=b[v]||[]).push({h:`<span class="badge" aria-hidden="true">${k>99?'99+':k}</span>`,t:o.w.join(', ')});
     else if(o.d&&NTF.nvd!==0&&!b[v])b[v]=[{h:'<span class="badge dot" aria-hidden="true"></span>',t:'new since your last visit'}];}
   return b;})(navBadges);
+/* on the page itself: the tab or heading where each waiting thing is gets the same badge, so the player knows where
+   to look (Field digs, Expeditions, the Cabinet tab, the Moon, Found a new city, Offers to you…). Drawn after every
+   render; a tab that already carries a badge of its own (an expedition back) keeps it */
+function nvxMark(){
+  const n=S.nation;if(!n||n.npc||OBS)return;let x;try{x=nvxGet(n,Date.now())[navCur()];}catch(e){return;}if(!x||!x.at||!x.at.length)return;
+  const hit=new Map();
+  for(const a of x.at){let els=[];try{els=a.all?[...document.querySelectorAll(a.sel)]:[document.querySelector(a.sel)].filter(Boolean);}catch(e){}
+    for(const el of els){const t=hit.get(el)||{k:0,w:[],all:a.all};t.k+=a.all?1:a.k;if(!a.all)t.w.push(a.w);hit.set(el,t);}}
+  for(const [el,t] of hit){
+    el.querySelectorAll(':scope > .nvx-tb,:scope > .nvx-sr').forEach(e=>e.remove());
+    if(el.querySelector(':scope > .badge'))continue;
+    const w=t.all?'needs your attention':t.w.join(', ');
+    el.insertAdjacentHTML('beforeend',`<span class="badge nvx-tb" aria-hidden="true">${t.all?'!':t.k>99?'99+':t.k}</span><span class="u-sr nvx-sr">, ${esc(w)}</span>`);
+  }
+}
+render=(f=>function(){const r=f.apply(this,arguments);try{nvxMark();}catch(e){}return r;})(render);
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
