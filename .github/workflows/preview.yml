@@ -60,10 +60,13 @@ jobs:
 
   # Each suite gets a separate runner, build, browser and emulator database. Suites reset their data,
   # so running them concurrently against one shared emulator would erase each other's fixtures.
+  # Time limits: the suite step has its own (12 minutes; the slowest suite, Core game, takes about 6),
+  # and so does installing Chromium, so a slow Ubuntu mirror can no longer eat the suite's time. The
+  # job's limit only bounds the whole.
   browser:
     name: Browser · ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -274,9 +277,15 @@ jobs:
       - name: Install the currency job's packages
         if: matrix.fx
         run: npm ci --prefix jobs/fx
+      # Chromium's Ubuntu packages come from the Actions cache (filled on main by playwright-cache.yml);
+      # the first suite fills this pull request's own cache entry when main has none yet
       - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 12
+        uses: ./.github/actions/playwright-chromium
+        with:
+          save-cache: ${{ strategy.job-index == 0 }}
       - name: Run ${{ matrix.name }}
+        timeout-minutes: 12
         env:
           TEST_SCRIPT: ${{ matrix.script }}
         run: npm run "$TEST_SCRIPT"
