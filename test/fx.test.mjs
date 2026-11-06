@@ -139,6 +139,22 @@ test('deals count only when both sides hold them (or the partner is computer-run
   assert.equal(E.warsOf(recs, new Set()).get('a'), undefined, 'both made peace');
 });
 
+test('a malformed acceptance is no deal, and never stops the region’s run', () => {
+  const recs = new Map([
+    ['a', { founded: 0, deals: [{ id: 'd1', w: 'b', g: ['food', 5], r: ['iron', 3], t: 5 }, { id: 'd2', w: 'c', g: ['oil', 2], r: ['food', 2], t: 5 }, { id: 'd3', w: 'd', g: ['oil', 1], r: ['food', 1], t: 5 }] }],
+    /* b's acceptance has no g (once a TypeError for the whole region), c's goods are not lists, d's is fine */
+    ['b', { founded: 0, deals: [{ id: 'd1', w: 'a', r: ['food', 5], t: 6, a: 1 }] }],
+    ['c', { founded: 0, deals: [{ id: 'd2', w: 'a', g: 'food', r: null, t: 6, a: 1 }, null, 7, { id: 'x', w: 'a', g: { 0: 'food' }, r: [], a: 1 }] }],
+    ['d', { founded: 0, deals: [{ id: 'd3', w: 'a', g: ['food', 1], r: ['oil', 1], t: 6, a: 1 }] }],
+    ['e', null]
+  ]);
+  let T;
+  assert.doesNotThrow(() => { T = E.tradeOf(recs, new Set()); });
+  assert.deepEqual([...T.get('a').partners], ['d'], 'only the well-formed deal counts');
+  assert.equal(T.get('b'), undefined);
+  assert.equal(T.get('c'), undefined);
+});
+
 test('prestige does not depend on the nominal denomination, nor on the value', () => {
   const rec = player(), ids = ['aaa', 'zzz', 'uid-7', 'uid-9001'];
   const vs = ids.map(id => E.denomination(id));

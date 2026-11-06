@@ -18759,13 +18759,19 @@ function claimFrontier(T){
   landMemo={T,me,hk,fr,bs};return fr;
 }
 function claimableBlocks(T){claimFrontier(T);return landMemo.bs;}
-/* the free hexes of a block that join up with your land, nearest first */
-function blockPlan(T,b){
-  const mi=T.byId[myId()],inB=new Set(BLOCKS.cells[b].filter(c=>freeCell(T,c))),seen=new Set(),order=[];
+/* the free hexes of a block that join up with your land, nearest first. from, a hex of the block the player chose,
+   comes first, after the hexes that lead to it from your land: a claim of fewer hexes than the block holds (fewer
+   credits) takes the chosen one, not the block's first hexes by number, which once took other land than the one
+   clicked. Each hex in the order still joins your land or one before it. */
+function blockPlan(T,b,from){
+  const inB=new Set(BLOCKS.cells[b].filter(c=>freeCell(T,c))),par=new Map(),order=[];
   const reachable=claimFrontier(T);let front=[...inB].filter(c=>reachable.has(c));
-  front.forEach(c=>seen.add(c));
-  while(front.length){order.push(...front);const nx=[];for(const c of front)for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb>=0&&inB.has(nb)&&!seen.has(nb)){seen.add(nb);nx.push(nb);}}front=nx;}
-  return order;
+  if(from!=null&&inB.has(from))front.sort((x,y)=>hexDist(x,from)-hexDist(y,from)||x-y);
+  front.forEach(c=>par.set(c,-1));
+  while(front.length){order.push(...front);const nx=[];for(const c of front)for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb>=0&&inB.has(nb)&&!par.has(nb)){par.set(nb,c);nx.push(nb);}}front=nx;}
+  if(from==null||!par.has(from))return order;
+  const path=[];for(let c=from;c>=0;c=par.get(c))path.unshift(c);
+  const on=new Set(path);return path.concat(order.filter(c=>!on.has(c)));
 }
 /* the cheapest free hexes to grow into, as automatic growth used to choose them */
 function autoPlan(T,k){
@@ -18790,7 +18796,7 @@ function writeClaims(cells,msg,auto,plan){
 function claimBlock(one){
   const T=territory(),cl=S.mapClaim;if(!cl)return;
   const cr=landCredits(S.nation);if(cr<1){S.mapClaim=null;updateMapPanel();redrawMaps();return;}
-  const cells=one?(claimFrontier(T).has(cl.c)?[cl.c]:[]):blockPlan(T,cl.b).slice(0,cr);
+  const cells=one?(claimFrontier(T).has(cl.c)?[cl.c]:[]):blockPlan(T,cl.b,cl.c).slice(0,cr);
   if(!cells.length){S.mapMsg='That land is no longer free.';S.mapClaim=null;updateMapPanel();redrawMaps();return;}
   writeClaims(cells,`${S.nation.name} has claimed ${cells.length===1?'a hex':cells.length+' hexes'} ${placePhrase(cells[0])}.`);
 }
@@ -18815,12 +18821,13 @@ function blockFacts(cells){
   return {terr,y};
 }
 function claimPanel(T){
-  const cl=S.mapClaim,n=S.nation,cr=landCredits(n),plan=blockPlan(T,cl.b);
+  const cl=S.mapClaim,n=S.nation,cr=landCredits(n),plan=blockPlan(T,cl.b,cl.c);
   if(!plan.length||cr<1){S.mapClaim=null;return '';}
-  const take=plan.slice(0,cr),f=blockFacts(take),adj=claimFrontier(T).has(cl.c);
+  const take=plan.slice(0,cr),f=blockFacts(take),adj=claimFrontier(T).has(cl.c),reach=plan.indexOf(cl.c)+1;
   return `<p class="eyebrow">Land office</p><h2 class="mp-h">Free land on ${esc(landName(cl.c))}</h2>
     <dl class="mp-dl"><div><dt>Free hexes in this block</dt><dd>${plan.length}</dd></div><div><dt>Terrain</dt><dd>${esc(list(f.terr))}</dd></div><div><dt>Yields a day</dt><dd>${esc(list(f.y))||'Little'}</dd></div><div><dt>Your land credits</dt><dd><b>${cr}</b></dd></div></dl>
-    <div class="row" style="margin-top:16px"><button class="btn" data-act="lc-block">${take.length===plan.length?`Claim the block (${plan.length} ${plan.length===1?'credit':'credits'})`:`Claim ${take.length} of its hexes (${take.length} ${take.length===1?'credit':'credits'})`}</button>${adj&&plan.length>1?`<button class="btn ghost" data-act="lc-one">Only this hex (1 credit)</button>`:''}<button class="btn ghost" data-act="lc-cancel">Cancel</button></div>
+    <div class="row" style="margin-top:16px"><button class="btn" data-act="lc-block">${take.length===plan.length?`Claim the block (${plan.length} ${plan.length===1?'credit':'credits'})`:take.length===1&&take[0]===cl.c?'Claim this hex (1 credit)':`Claim ${take.length} of its hexes (${take.length} ${take.length===1?'credit':'credits'})`}</button>${adj&&plan.length>1&&!(take.length===1&&take[0]===cl.c)?`<button class="btn ghost" data-act="lc-one">Only this hex (1 credit)</button>`:''}<button class="btn ghost" data-act="lc-cancel">Cancel</button></div>
+    ${reach>cr?`<p class="hint mp-reach">The hex you chose is ${reach} hexes in from your land, so it takes ${reach} credits to reach: ${take.length===1?'this claim is the first step':`these ${take.length} hexes lead towards it`}.</p>`:''}
     <p class="hint" style="margin-top:10px">Claimed land is yours for good, unless it is taken in war. Changed your mind? You can release a claim within 24 hours and get the credit back.</p>`;
 }
 function landBox(n){
@@ -25649,7 +25656,8 @@ asmState=function(now){
   const V=a&&a.V?Object.assign({},a.V,{rows:a.V.rows.map(row=>Object.assign({},row,{n:row.npc?NPC_NATIONS.find(n=>n.id===row.id):find(row.id)?.n,me:row.id===S.uid}))}):null;
   return {c,t0:a?a.t0:asmT0(c),t1:a?a.t1:asmT0(c+1),now,recs,L,cur:a?a.cur:null,locked:!!a,D,DD:{D,info,npc},V,sig:a?String(hash(civicSignature(a))):'connecting'};
 };
-asmHistory=function(st,max){return [...st.L.values()].filter(L=>L.f&&L.c<st.c).sort((a,b)=>b.c-a.c).slice(0,max|0);};
+/* max as the local version takes it: none asked (Past resolutions) is the usual ASM_HMAX, not none at all */
+asmHistory=function(st,max){return [...st.L.values()].filter(L=>L.f&&L.c<st.c).sort((a,b)=>b.c-a.c).slice(0,max>0?max|0:ASM_HMAX);};
 /* due only for what the save hook above would record: the same window of cycles (the last ASM_BACK, closed after
    this nation arrived) and only ones the server has decided. The server sends a dozen cycles, more than the hook
    ever records, so asking about all of them kept a commit and a save going every 30 s for good */
@@ -27845,23 +27853,25 @@ function trBufs(){
   if(!trBuf||trBuf.N!==N){
     const AQ=new Int32Array(N),AR=new Int32Array(N);
     for(let i=0;i<N;i++){const r=Math.floor(i/MAP.COLS),c=i%MAP.COLS;AQ[i]=c-(r-(r&1))/2;AR[i]=r;}
-    trBuf={N,AQ,AR,g:new Int32Array(N),st:new Int32Array(N),cl:new Int32Array(N),par:new Int32Array(N),gen:0,hp:new Float64Array(8192)};
+    /* heap keys are priority*CM+cell: CM, a power of two above every cell number (once a fixed 65536, which most maps
+       outgrow: their southern cells came out as other cells, so routes there failed) */
+    trBuf={N,CM:2**Math.max(16,Math.ceil(Math.log2(N+1))),AQ,AR,g:new Int32Array(N),st:new Int32Array(N),cl:new Int32Array(N),par:new Int32Array(N),gen:0,hp:new Float64Array(8192)};
   }
   return trBuf;
 }
 /* A* from src to dst; land: roads only. pc(c) is the charge for boarding or landing at land cell c. */
 function trSearch(src,dst,land,pc){
-  const B=trBufs(),{AQ,AR,g,st,cl,par}=B,gen=++B.gen,nbr=MAP.nbr,TT=MAP.T,hw=land?10:TR_SEA*1.4;
+  const B=trBufs(),{AQ,AR,g,st,cl,par,CM}=B,gen=++B.gen,nbr=MAP.nbr,TT=MAP.T,hw=land?10:TR_SEA*1.4;
   const qd=AQ[dst],rd=AR[dst],x0=MAP.cx[src],y0=MAP.cy[src],dx=MAP.cx[dst]-x0,dy=MAP.cy[dst]-y0,nl=(Math.abs(dx)+Math.abs(dy))||1;
   const H=i=>{const a=AQ[i]-qd,b=AR[i]-rd;return hw*(Math.abs(a)+Math.abs(b)+Math.abs(a+b))/2;};
   const D=i=>Math.min(1023,Math.floor(Math.abs((MAP.cx[i]-x0)*dy-(MAP.cy[i]-y0)*dx)/nl/2.5));
   let hp=B.hp,n=0;
   const push=k=>{if(n>=hp.length){const b=new Float64Array(hp.length*2);b.set(hp);hp=B.hp=b;}let i=n++;while(i>0){const p=(i-1)>>1;if(hp[p]<=k)break;hp[i]=hp[p];i=p;}hp[i]=k;};
   const pop=()=>{const top=hp[0],last=hp[--n];if(n>0){let i=0;for(;;){let c=2*i+1;if(c>=n)break;if(c+1<n&&hp[c+1]<hp[c])c++;if(hp[c]>=last)break;hp[i]=hp[c];i=c;}hp[i]=last;}return top;};
-  g[src]=0;st[src]=gen;par[src]=-1;push((H(src)*1024+D(src))*65536+src);
+  g[src]=0;st[src]=gen;par[src]=-1;push((H(src)*1024+D(src))*CM+src);
   let found=false;
   while(n){
-    const k=pop(),c=k%65536;
+    const k=pop(),c=k%CM;
     if(cl[c]===gen)continue;cl[c]=gen;
     if(c===dst){found=true;break;}
     const gc=g[c],wc=TT[c]<2;
@@ -27870,7 +27880,7 @@ function trSearch(src,dst,land,pc){
       const tj=TT[j],wj=tj<2;if(land&&wj)continue;
       let ng=gc+(wj?TR_SEA:TR_LC[tj]);
       if(wj!==wc)ng+=pc(wc?j:c);
-      if(st[j]!==gen||ng<g[j]){st[j]=gen;g[j]=ng;par[j]=c;push(((ng+H(j))*1024+D(j))*65536+j);}
+      if(st[j]!==gen||ng<g[j]){st[j]=gen;g[j]=ng;par[j]=c;push(((ng+H(j))*1024+D(j))*CM+j);}
     }
   }
   if(!found)return null;
@@ -27897,16 +27907,16 @@ function trPorts(T){
 const trTrees=new Map();
 function trTree(src){
   const key=RECL.sig+'|'+src;let t=trTrees.get(key);if(t)return t;
-  const B=trBufs(),{AQ,AR,g,st,cl,par}=B,gen=++B.gen,nbr=MAP.nbr,TT=MAP.T,q0=AQ[src],r0=AR[src];
+  const B=trBufs(),{AQ,AR,g,st,cl,par,CM}=B,gen=++B.gen,nbr=MAP.nbr,TT=MAP.T,q0=AQ[src],r0=AR[src];
   const D=i=>{const a=Math.abs(AQ[i]-q0),b=Math.abs(AR[i]-r0),c=Math.abs(AQ[i]-q0+AR[i]-r0);return Math.min(1023,a<b?(a<c?a:c):(b<c?b:c));};
   let hp=B.hp,n=0;
   const push=k=>{if(n>=hp.length){const b=new Float64Array(hp.length*2);b.set(hp);hp=B.hp=b;}let i=n++;while(i>0){const p=(i-1)>>1;if(hp[p]<=k)break;hp[i]=hp[p];i=p;}hp[i]=k;};
   const pop=()=>{const top=hp[0],last=hp[--n];if(n>0){let i=0;for(;;){let c=2*i+1;if(c>=n)break;if(c+1<n&&hp[c+1]<hp[c])c++;if(hp[c]>=last)break;hp[i]=hp[c];i=c;}hp[i]=last;}return top;};
   g[src]=0;st[src]=gen;par[src]=-1;push(src);
   while(n){
-    const k=pop(),c=k%65536;if(cl[c]===gen)continue;cl[c]=gen;const gc=g[c];
+    const k=pop(),c=k%CM;if(cl[c]===gen)continue;cl[c]=gen;const gc=g[c];
     for(let e=0;e<6;e++){const j=nbr[c*6+e];if(j<0||cl[j]===gen||TT[j]<2)continue;const ng=gc+TR_LC[TT[j]];
-      if(st[j]!==gen||ng<g[j]){st[j]=gen;g[j]=ng;par[j]=c;push((ng*1024+D(j))*65536+j);}}
+      if(st[j]!==gen||ng<g[j]){st[j]=gen;g[j]=ng;par[j]=c;push((ng*1024+D(j))*CM+j);}}
   }
   const P2=new Int32Array(MAP.N).fill(-2),G2=new Int32Array(MAP.N);
   for(let i=0;i<MAP.N;i++)if(cl[i]===gen){P2[i]=par[i];G2[i]=g[i];}
@@ -30776,7 +30786,7 @@ function inspStatus(T,cell){
   const adj=claimFrontier(T).has(cell),cr=landCredits(n);
   if(!adj)return `<p class="hint">Free land, but not connected to your territory or reachable across water from a completed coastal Harbour within four hexes.</p>`;
   if(cr<1){const np=nextCreditPop(n);return `<p class="hint">Free and reachable. You have no land credits to spend${np?`: the next arrives at ${fmtPop(np)} people`:''}.${esc(landDeficitNote(n))}</p>`;}
-  const plan=blockPlan(T,BLOCKS.of[cell]).slice(0,cr);
+  const plan=blockPlan(T,BLOCKS.of[cell],cell).slice(0,cr);
   return `<div class="row" style="margin-top:14px"><button class="btn" data-act="insp-one" data-c="${cell}">Claim this hex (1 credit)</button>${plan.length>1?`<button class="btn ghost" data-act="insp-block" data-c="${cell}">Claim ${plan.length} hexes of this block (${plan.length} credits)</button>`:''}</div><p class="hint" style="margin-top:8px">You have ${cr} land ${cr===1?'credit':'credits'}.</p>`;
 }
 function inspectPanel(T,cell){
@@ -30797,7 +30807,7 @@ document.addEventListener('click',e=>{
   if(a!=='insp-one'&&a!=='insp-block')return;
   const c=+b.dataset.c,T=territory(),cr=landCredits(S.nation);if(!(c>=0)||cr<1)return;
   if(!freeCell(T,c)||!claimFrontier(T).has(c)){S.mapMsg='That land is no longer free.';updateMapPanel();return;}
-  const cells=a==='insp-one'?[c]:blockPlan(T,BLOCKS.of[c]).slice(0,cr);
+  const cells=a==='insp-one'?[c]:blockPlan(T,BLOCKS.of[c],c).slice(0,cr);
   writeClaims(cells,`${S.nation.name} has claimed ${cells.length===1?'a hex':cells.length+' hexes'} ${placePhrase(cells[0])}.`);
 });
 HELP_EXT.push({k:'inspect',t:'The tile inspector',body:()=>`<p>Click any hex on the map to see what is known about it: its terrain, landmass, climate and daily yields, who holds it and how (a starting core, a claim, a conquest or land reclaimed from the sea), any city, discovery, river, lake or weather, and how far it lies from your capital. Free land next to your borders can be claimed from there with a land credit, one hex at a time or a whole block.</p><p>Your starting core of ${CORE_HEXES} hexes is always free. Land you claim costs one credit a hex.</p>`});
@@ -36699,7 +36709,9 @@ function drawMap(cv,P){
     if(lcr>0){const set=new Set(),cells=[];for(const b of claimableBlocks(T))for(const c of blockPlan(T,b))if(freeCell(T,c)){set.add(c);const x=MAP.cx[c],y=MAP.cy[c];if(x>=x0&&x<=x1&&y>=y0&&y<=y1)cells.push(c);}
       g.globalAlpha=0.16;fillCells(cells,col.accent);g.globalAlpha=1;
       g.beginPath();edgeList(g,cells,(i,j)=>j<0||!set.has(j)||BLOCKS.of[j]!==BLOCKS.of[i]);g.setLineDash([3/s,2.2/s]);g.strokeStyle=col.accent;g.lineWidth=1.3/s;g.stroke();g.setLineDash([]);
-      if(S.mapClaim){const plan=blockPlan(T,S.mapClaim.b).slice(0,lcr),ps=new Set(plan);g.globalAlpha=0.5;fillCells(plan,col.accent);g.globalAlpha=1;g.beginPath();edgeList(g,plan,(i,j)=>j<0||!ps.has(j));g.strokeStyle=col.accent;g.lineWidth=2.4/s;g.stroke();}}
+      if(S.mapClaim){const plan=blockPlan(T,S.mapClaim.b,S.mapClaim.c).slice(0,lcr),ps=new Set(plan);g.globalAlpha=0.5;fillCells(plan,col.accent);g.globalAlpha=1;g.beginPath();edgeList(g,plan,(i,j)=>j<0||!ps.has(j));g.strokeStyle=col.accent;g.lineWidth=2.4/s;g.stroke();
+        /* and a ring on the hex chosen, so it is plain which one the claim is about */
+        if(S.mapClaim.c>=0){g.beginPath();hexPath(g,S.mapClaim.c,HEX_R-1);g.strokeStyle=col.ink;g.lineWidth=2.6/s;g.stroke();}}}
     if(S.mapCell!=null){g.beginPath();hexPath(g,S.mapCell,HEX_R-1);g.strokeStyle=col.ink;g.lineWidth=2.6/s;g.stroke();}
   }
   const hv=parseInt(cv.dataset.hover||'-1',10);
@@ -40249,7 +40261,7 @@ function tick(){
   if(gamesPending(S.nation,now)){commit(clone(S.nation));render();return;}
   if(cellOf(S.nation.loc)>=0&&!Array.isArray(S.nation.claims)){commit(clone(S.nation));render();return;}
   if(milesReached(popNow(S.nation,now)).length>(S.nation.mileAck||0)){commit(clone(S.nation));render();return;}
-  if(S.nation.autoLand&&(S.view!=='map'||S.mpMode!=='plan')&&landCredits(S.nation)>0&&autoLandTry(now))return;
+  if(S.nation.autoLand&&(S.view!=='map'||S.mpMode!=='plan'&&!S.mapClaim)&&landCredits(S.nation)>0&&autoLandTry(now))return;
   const navSig=navSigOf(S.nation,now);
   if(navSig!==S.navSig){S.navSig=navSig;if(S.view==='messages'&&S.msgPeer)markThreadRead(S.msgPeer);if(!navSoft(v,now))render();return;}
   refreshBell(now);expTick(now);
@@ -42740,7 +42752,7 @@ function lcPick(force,move){
 function lcFocus(c){const v=S.mapViews&&S.mapViews.main;if(v){v.cx=MAP.cx[c];v.cy=MAP.cy[c];v.z=Math.max(v.z,LC_Z);}else centerMain(c,LC_Z);}
 function lcCoachHTML(){
   const n=S.nation;LC.on=lcCeremony(n);if(!LC.on)return '';
-  const T=territory(),cr=landCredits(n),held=lcHeld(n),cl=S.mapClaim,k=cl?blockPlan(T,cl.b).slice(0,cr).length:0;
+  const T=territory(),cr=landCredits(n),held=lcHeld(n),cl=S.mapClaim,k=cl?blockPlan(T,cl.b,cl.c).slice(0,cr).length:0;
   const tap=window.matchMedia&&matchMedia('(pointer: coarse)').matches?'Tap':'Click',unlock=pgNew(n)&&!pgAvailable(n,'map');
   const dots=`<span class="lc-dots" aria-hidden="true">${Array.from({length:LC_FIRST},(x,i)=>`<i${i<held?' class="on"':''}></i>`).join('')}</span>`;
   return `<section class="lc-coach" id="lc-coach" aria-labelledby="lc-coach-t"><div class="lc-coach-b"><p class="eyebrow">Land office</p>
@@ -48302,29 +48314,47 @@ VIEWS_EXT.shop=now=>shopView(now);
 /* ── Customise: the new rows (badge, card, inscription, land) and the Chancery Club's design presets ──
    presets/<uid> {p: {1..5: {n, cz, fj, t}}}: written only while a member (firestore.rules), kept and loadable after.
    Loading one puts on only what the nation holds at that moment; anything no longer held is left out and named. */
-const PRE={doc:null,uid:'',busy:false,name:'',confirm:''};
+const PRE={doc:null,uid:'',busy:false,name:'',confirm:'',failAt:0};
+function preOf(s){const d=s&&s.exists?s.data():null;return d&&d.p&&typeof d.p==='object'&&!Array.isArray(d.p)?d.p:{};}
+/* presets that could not be read stay unknown (null): none shows as empty, none can be saved over, and they are asked
+   for again after a while */
 function preLoad(){
-  if(!S.db||!S.uid||PRE.uid===S.uid)return;PRE.uid=S.uid;
-  S.db.doc('presets/'+S.uid).get().then(s=>{const d=s.exists?s.data():null;PRE.doc=d&&d.p&&typeof d.p==='object'?d.p:{};if(S.view==='customise')render();},()=>{PRE.doc={};});
+  if(!S.db||!S.uid||PRE.uid===S.uid||Date.now()-PRE.failAt<30000)return;PRE.uid=S.uid;
+  S.db.doc('presets/'+S.uid).get().then(s=>{PRE.doc=preOf(s);PRE.failAt=0;if(S.view==='customise')render();},
+    ()=>{PRE.doc=null;PRE.uid='';PRE.failAt=Date.now();if(S.view==='customise')render();});
 }
 function preNow(n){
   const c=cz(n),o={};for(const f of Object.keys(CZ_KIND))if(c[f]&&c[f]!==CZ_DEF[f])o[f]=c[f];
   if(c.a)o.a=clone(c.a);if(c.ds==='t'||c.ds==='s')o.ds=c.ds;return o;
 }
-async function preWrite(p){const ref=S.db.doc('presets/'+S.uid),keep={};for(const [k,v] of Object.entries(p))if(v)keep[k]=v;await ref.set({p:keep});PRE.doc=keep;}
+/* Every change is made to the presets as saved now, read afresh: another device may have saved one since this page
+   read them. change(p) gets that copy and returns the new one; a failed read writes nothing. */
+async function preWrite(change){
+  const ref=S.db.doc('presets/'+S.uid),p=change({...preOf(await ref.get())}),keep={};
+  for(const [k,v] of Object.entries(p))if(v)keep[k]=v;
+  await ref.set({p:keep});PRE.doc=keep;
+}
 async function preSave(k){
   const n=S.nation;if(!n||PRE.busy||!S.db)return;
   if(!shopMember()){toast('Saving a preset needs the Chancery Club. Saved presets stay yours either way.');return;}
-  if(PRE.doc&&PRE.doc[k]&&PRE.confirm!==k){PRE.confirm=k;render();return;}
+  if(!PRE.doc){toast('Your saved presets have not loaded yet. Try again in a moment.');preLoad();return;}
+  if(PRE.doc[k]&&PRE.confirm!==k){PRE.confirm=k;render();return;}
+  const known=!!PRE.doc[k];
   PRE.busy=true;PRE.confirm='';render();
   const nm=czText(PRE.name,40)||'Design '+roman(+k);
-  try{await preWrite({...(PRE.doc||{}),[k]:{n:nm,cz:preNow(n),fj:JSON.stringify(n.flag||{}).slice(0,20000),t:Date.now()}});PRE.name='';toast(`Saved as “${nm}”.`);}
-  catch(e){toast(e&&e.code==='not_granted'?'Saving a preset needs an active Chancery Club membership.':'The preset could not be saved. Try again.');}
+  try{await preWrite(p=>{
+      /* the slot was saved on another device since: asked first, as for any slot in use */
+      if(p[k]&&!known)throw Object.assign(new Error('That slot was saved on another device.'),{code:'pre_taken',p});
+      return {...p,[k]:{n:nm,cz:preNow(n),fj:JSON.stringify(n.flag||{}).slice(0,20000),t:Date.now()}};});
+    PRE.name='';toast(`Saved as “${nm}”.`);}
+  catch(e){
+    if(e&&e.code==='pre_taken'){PRE.doc=e.p;PRE.confirm=String(k);toast('That slot now holds a preset saved on another device. Replace it, or choose another slot.');}
+    else toast(e&&e.code==='not_granted'?'Saving a preset needs an active Chancery Club membership.':'The preset could not be saved. Try again.');}
   finally{PRE.busy=false;render();}
 }
 async function preRemove(k){
   if(PRE.busy||!PRE.doc||!PRE.doc[k])return;PRE.busy=true;render();
-  try{const p={...PRE.doc};delete p[k];await preWrite(p);toast('Preset removed.');}catch(e){toast('The preset could not be removed. Try again.');}finally{PRE.busy=false;render();}
+  try{await preWrite(p=>{delete p[k];return p;});toast('Preset removed.');}catch(e){toast('The preset could not be removed. Try again.');}finally{PRE.busy=false;render();}
 }
 function preApply(k){
   const n0=S.nation,p=PRE.doc&&PRE.doc[k];if(!n0||!p)return;
@@ -48348,6 +48378,7 @@ function preHTML(n){
   if(!S.uid||S.mode!=='world')return '';
   preLoad();
   const member=shopMember(),doc=PRE.doc||{},have=Object.keys(doc).length;
+  if(member&&!PRE.doc)return `<h3 class="sub-h">Design presets</h3><p class="hint" id="pre-wait">${PRE.failAt?'Your saved presets could not be loaded just now. They are asked for again in a moment.':'Loading your saved presets…'}</p>`;
   if(!member&&!have)return `<h3 class="sub-h">Design presets</h3><p class="hint">Members of the Chancery Club save up to five whole looks here and switch between them with one click. <button type="button" class="linkish small" data-act="go" data-v="shop">About the Chancery Club</button></p>`;
   const slot=k=>{const p=doc[k],conf=PRE.confirm===String(k);
     return `<li class="pre-slot${p?'':' empty'}"><span class="pre-n">${p?esc(p.n):'Empty'}</span><span class="hint">${p?'Saved '+esc(fmtDate(p.t)):'Slot '+roman(k)}</span><span class="pre-b">
@@ -49041,6 +49072,9 @@ mapPanel=(f=>function(){const h=f.apply(this,arguments);const o=mapxOpen();retur
 function mapxSheet(open){MAPX.sheet=!!open;if(!open&&S.mpMode)S.mpMode='';const p=document.getElementById('map-panel');if(!p)return;const o=mapxOpen();p.classList.toggle('sheet-open',o);const g=p.querySelector('.mp-grab');if(g){g.setAttribute('aria-expanded',o);const t=g.querySelector('.mp-grab-t');if(t)t.textContent=o?'Hide details':'Details · tap the map';}if(o)p.scrollTop=0;}
 /* a tap on the main map opens the sheet first, so the panel is already in view (no page scroll) */
 mapClick=(f=>function(cv,cell,ev){
+  /* the second tap of a double tap (the document's pointerup below, which runs after this) zooms in on the first one:
+     it does not choose the hex it landed on first, often a neighbour of the one chosen (a hex is a few pixels wide) */
+  const t=MAPX.tap;if(ev&&ev.pointerType&&ev.pointerType!=='mouse'&&cv&&cv.dataset.map!=='mini'&&!S.mpMode&&t&&t.cv===cv&&performance.now()-t.at<320&&Math.hypot(t.x-ev.clientX,t.y-ev.clientY)<28)return;
   if(!(cv&&cv.dataset.map==='main'&&mapxNarrow()&&!cv.parentElement.classList.contains('is-full')))return f.apply(this,arguments);
   /* the sheet opens a moment later, so a second tap of a double tap still lands on the map; and the old scroll
      towards the panel is not wanted while the sheet is there (it measured the sheet mid-slide and moved the page) */
@@ -49544,7 +49578,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)

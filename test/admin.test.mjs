@@ -219,6 +219,11 @@ test('region switches preserve records, stop battles, and atomically log the aut
   assert.equal((await get('regionStatus/meridian')).fields.enabled.booleanValue, true);
   assert.equal((await get('regionStatus/meridian')).fields.mode.stringValue, 'enabled');
   await assert.rejects(call(a, { op: 'region', reg: 'unknown', enabled: false, reason: 'bad' }), e => e.status === 'INVALID_ARGUMENT');
+  /* Terra too (the admin list now comes from civic-data.json, which the save permit uses) */
+  await call(a, { op: 'region', reg: 'terra', enabled: true, reason: 'Opening Terra' });
+  assert.equal((await get('regionStatus/terra')).fields.enabled.booleanValue, true);
+  await call(a, { op: 'region', reg: 'terra', enabled: false, mode: 'coming_soon', reason: 'Not yet' });
+  assert.equal((await get('regionStatus/terra')).fields.mode.stringValue, 'coming_soon');
 });
 test('save health reports client diagnostics alongside independently confirmed server saves', async () => {
   const a = await user(true), p = await user(); await seed(p.uid, 'Healthland');
