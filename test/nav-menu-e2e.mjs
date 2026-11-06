@@ -22,7 +22,7 @@ await A.screenshot({ path: OUT + '/nav-icons-1366.png' });
 
 // the Navigation tab
 await nav(A, 'settings'); await A.click('#sg-tab-nav');
-check('Settings has a Navigation tab, between Display and Account', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Notifications', 'Display', 'Navigation', 'Account']));
+check('Settings has a Navigation tab, between Display and Account', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Notifications', 'Letters', 'Display', 'Navigation', 'Account']));
 check('it is in the address', await A.evaluate(() => location.hash) === '#settings/nav');
 check('a new nation has the usual menu and nothing to reset', /The usual menu/.test(await text(A, '[data-sg-sub="nav"]')) && await A.$eval('#nv-reset', b => b.disabled) && !(await navOf(A)));
 check('every page is listed, with Nation and Settings locked', await A.$$eval('.nve-r', r => r.length) === icons.length && !await A.$('#nv-eye-nation') && !await A.$('#nv-eye-settings') && !!await A.$('.nve-r[data-v="nation"] .nve-lock'));

@@ -12,7 +12,7 @@ await A.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await A.click(
 
 // the page: six tabs, one pane at a time, Your nation first
 await nav(A, 'settings'); await A.waitForSelector('#sg');
-check('Settings has six tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Notifications', 'Display', 'Navigation', 'Account']));
+check('Settings has seven tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Notifications', 'Letters', 'Display', 'Navigation', 'Account']));
 check('it opens on Your nation, with the other panes hidden', await tab(A) === 'nation' && await shown(A, '#s-motto') && !await shown(A, '#s-freq') && !await shown(A, '#set-notif') && !await shown(A, '#set-appearance'));
 check('on a wide screen the tabs are a list down the side', await A.$eval('.sg-rail', e => getComputedStyle(e).flexDirection) === 'column');
 check('the old section menu and fold controls are gone', !await A.$('#ux-section-select') && !await A.$('.ux-fold-toggle'));

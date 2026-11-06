@@ -6,6 +6,7 @@ welcome letter with tips. After that, they choose which letters they want:
 | Kind | What it says | When |
 |---|---|---|
 | Letters from other nations | who wrote (never the text) | hourly digest |
+| Each letter right away | with the kind above: who wrote, at once, instead of in the digest (functions/letters.js, at most 40 a day) | right away |
 | War | war declared, hex seized, peace made | hourly digest |
 | Diplomacy | trade deals, alliances, matters raised, hexes ceded | hourly digest |
 | Development news | new posts from the team | the hour after they are published |

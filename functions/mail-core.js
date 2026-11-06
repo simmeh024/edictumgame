@@ -7,13 +7,14 @@
 
    Kinds a player may choose (mailAccounts/<uid>.p, all on once the address is confirmed):
      msg    letters from other players' nations (the text is not copied into the mail)
+     now    with msg: each letter right away (functions/letters.js), not in the hourly digest; off unless chosen
      war    wars declared on them, hexes seized, peace made
      dip    diplomacy: trade deals, alliances, matters raised, border hexes ceded
      news   new development news from the Edictum team
      away   one reminder when their nation has gone unvisited for AWAY_DAYS */
 import crypto from 'node:crypto';
 
-export const KINDS = ['msg', 'war', 'dip', 'news', 'away'];
+export const KINDS = ['msg', 'now', 'war', 'dip', 'news', 'away'];
 export const AWAY_DAYS = 3;
 const SITE = 'https://edictumgame.com';
 const FROM = 'The Herald of Edictum <herald@edictumgame.com>';
@@ -22,7 +23,7 @@ const emulated = () => process.env.FUNCTIONS_EMULATOR === 'true' || !!process.en
 export const digest = v => crypto.createHash('sha256').update(String(v)).digest('hex');
 export const token = () => crypto.randomBytes(18).toString('base64url');
 export const validEmail = e => typeof e === 'string' && e.length <= 200 && /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/i.test(e);
-export const defaultPrefs = () => Object.fromEntries(KINDS.map(k => [k, true]));
+export const defaultPrefs = () => Object.fromEntries(KINDS.map(k => [k, k !== 'now']));
 export function cleanPrefs(p) {
   const o = defaultPrefs();
   if (p && typeof p === 'object') for (const k of KINDS) if (k in p) o[k] = !!p[k];
@@ -161,6 +162,15 @@ export function digestLetter(cfg, { to, nation, pings, tok }) {
   return { to, subject: title, unsub: `${cfg.site}/mail?t=${tok}`,
     html: page(cfg, { tone, icon: urgent ? '&#x2694;&#xFE0F;' : '&#x1F4EC;', kicker: urgent ? 'Urgent dispatch' : 'The courier’s bag', title, lead: `${list.length} ${list.length === 1 ? 'matter awaits' : 'matters await'} your decision`, body, cta: { href: cfg.site, label: 'Return to your desk' }, foot: footFor(cfg, tok) }),
     text: `${title}\n\n${list.map(x => '- ' + LINE[x.k][1](x).replace(/<[^>]+>/g, '') + (x.n > 1 ? ` (${x.n} times)` : '')).join('\n')}\n\n${cfg.site}\nStop these letters: ${cfg.site}/mail?t=${tok}` };
+}
+/* one letter, right away: who wrote, never what (functions/letters.js) */
+export function nowLetter(cfg, { to, nation, from, group, tok }) {
+  const title = group ? `${from} wrote to ${group}` : `A letter from ${from}`;
+  const body = p(group ? `<b>${esc(from)}</b> has written to <b>${esc(group)}</b>, a conversation ${esc(nation || 'your nation')} is part of.` : `<b>${esc(from)}</b> has written to ${esc(nation || 'your nation')}. The letter is waiting for you in Messages.`)
+    + p('<span style="font-size:15px;color:#5d6f6b">Letters stay private, so the Herald does not copy them into the post. You chose to hear of each letter right away; the hourly digest leaves them out.</span>');
+  return { to, subject: title, unsub: `${cfg.site}/mail?t=${tok}`,
+    html: page(cfg, { tone: 'calm', icon: '&#x2709;&#xFE0F;', kicker: 'By return of post', title, lead: 'A letter awaits your reply', body, cta: { href: cfg.site + '/#messages', label: 'Read the letter' }, foot: footFor(cfg, tok) }),
+    text: `${title}\n\nThe letter is waiting for you in Messages: ${cfg.site}/#messages\nStop these letters: ${cfg.site}/mail?t=${tok}` };
 }
 export function newsLetter(cfg, { to, posts, tok }) {
   const title = posts.length === 1 ? posts[0].ti : `${posts.length} new notices from the Edictum team`;
