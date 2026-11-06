@@ -122,13 +122,17 @@ async function ingestSub(cfg, d, occ) {
   const db = getFirestore();
   const f = subFacts(d);
   if (!isId(f.id, 'sub')) return '';
-  const ref = db.doc('shopSubs/' + f.id), prev = await ref.get();
-  let uid = prev.get('uid') || '';
-  if (!uid && isId(f.firstTxn, 'txn')) uid = (await db.doc('shopCheckouts/' + f.firstTxn).get()).get('uid') || '';
-  const { id, ...facts } = f;
-  /* an older notification arriving after a newer one changes nothing */
-  if (!(prev.get('occ') > occ)) await ref.set({ ...facts, firstTxn: prev.get('firstTxn') || f.firstTxn, uid, occ }, { merge: true });
-  else if (uid && !prev.get('uid')) await ref.update({ uid });
+  const ref = db.doc('shopSubs/' + f.id), { id, ...facts } = f;
+  /* an older notification arriving after a newer one changes nothing: read, compared and written in one transaction, so two
+     arriving together cannot both pass the check and the older be written last */
+  const { prev, uid } = await db.runTransaction(async tx => {
+    const prev = await tx.get(ref);
+    let uid = prev.get('uid') || '';
+    if (!uid && isId(f.firstTxn, 'txn')) uid = (await tx.get(db.doc('shopCheckouts/' + f.firstTxn))).get('uid') || '';
+    if (!(prev.get('occ') > occ)) tx.set(ref, { ...facts, firstTxn: prev.get('firstTxn') || f.firstTxn, uid, occ }, { merge: true });
+    else if (uid && !prev.get('uid')) tx.update(ref, { uid });
+    return { prev, uid };
+  });
   if (uid) await bindCustomer(uid, f.ctm);
   /* a subscription started outside the game: end it and give the money back */
   if (!uid && isId(f.firstTxn, 'txn') && f.status !== 'canceled' && !prev.get('cancelAsked')) {
@@ -145,9 +149,8 @@ async function ingestAdj(cfg, d, occ) {
   const db = getFirestore();
   const f = adjFacts(d);
   if (!isId(f.id, 'adj') || !isId(f.txn, 'txn')) return '';
-  const ref = db.doc('shopAdj/' + f.id), prev = await ref.get();
-  const { id, ...facts } = f;
-  if (!(prev.get('occ') > occ)) await ref.set({ ...facts, occ }, { merge: true });
+  const ref = db.doc('shopAdj/' + f.id), { id, ...facts } = f;
+  await db.runTransaction(async tx => { const prev = await tx.get(ref); if (!(prev.get('occ') > occ)) tx.set(ref, { ...facts, occ }, { merge: true }); });
   const [t, ck] = await db.getAll(db.doc('shopTx/' + f.txn), db.doc('shopCheckouts/' + f.txn));
   let uid = t.get('uid') || ck.get('uid') || '';
   if (!uid && isId(f.sub, 'sub')) uid = (await db.doc('shopSubs/' + f.sub).get()).get('uid') || '';
@@ -164,23 +167,22 @@ async function ingest(cfg, ev) {
 
 /* ───────── what a player owns, worked out again ───────── */
 async function settle(cfg, uid) {
-  const db = getFirestore();
-  const subs = (await db.collection('shopSubs').where('uid', '==', uid).get()).docs;
-  const txDocs = new Map((await db.collection('shopTx').where('uid', '==', uid).get()).docs.map(s => [s.id, s]));
-  const subIds = subs.map(s => s.id);
-  for (let i = 0; i < subIds.length; i += 30)
-    for (const s of (await db.collection('shopTx').where('sub', 'in', subIds.slice(i, i + 30)).get()).docs) txDocs.set(s.id, s);
-  /* renewals reported before their subscription was known to be this player's */
-  const adopt = [...txDocs.values()].filter(s => s.get('uid') !== uid);
-  if (adopt.length) { const b = db.batch(); adopt.forEach(s => b.update(s.ref, { uid })); await b.commit(); }
-  const ids = [...txDocs.keys()], adjs = [];
-  for (let i = 0; i < ids.length; i += 30) adjs.push(...(await db.collection('shopAdj').where('txn', 'in', ids.slice(i, i + 30)).get()).docs.map(s => s.data()));
-  const txs = [...txDocs.values()].map(s => ({ ...s.data(), id: s.id }));
-  const subMap = Object.fromEntries(subs.map(s => [s.id, s.data()]));
-  const compDoc = await db.doc('shopComp/' + uid).get(), comp = compDoc.exists ? { at: compDoc.get('at'), until: compDoc.get('until') } : null;
-  const shopRef = db.doc('shop/' + uid), finRef = db.doc('finery/' + uid);
-  const e = await db.runTransaction(async tx => {
-    const [shop, nation] = await tx.getAll(shopRef, db.doc('nations/' + uid));
+  const db = getFirestore(), shopRef = db.doc('shop/' + uid), finRef = db.doc('finery/' + uid);
+  /* everything it is worked out from is read inside the transaction: a notification stored meanwhile (two settling at once)
+     makes it run again on the new facts. Read before it, the later of two could write what the earlier one saw, and a paid
+     member was then no member until the next refresh. */
+  const { e, txDocs, subMap } = await db.runTransaction(async tx => {
+    const subs = (await tx.get(db.collection('shopSubs').where('uid', '==', uid))).docs;
+    const txDocs = new Map((await tx.get(db.collection('shopTx').where('uid', '==', uid))).docs.map(s => [s.id, s]));
+    const subIds = subs.map(s => s.id);
+    for (let i = 0; i < subIds.length; i += 30)
+      for (const s of (await tx.get(db.collection('shopTx').where('sub', 'in', subIds.slice(i, i + 30)))).docs) txDocs.set(s.id, s);
+    const ids = [...txDocs.keys()], adjs = [];
+    for (let i = 0; i < ids.length; i += 30) adjs.push(...(await tx.get(db.collection('shopAdj').where('txn', 'in', ids.slice(i, i + 30)))).docs.map(s => s.data()));
+    const txs = [...txDocs.values()].map(s => ({ ...s.data(), id: s.id }));
+    const subMap = Object.fromEntries(subs.map(s => [s.id, s.data()]));
+    const [compDoc, shop, nation] = await tx.getAll(db.doc('shopComp/' + uid), shopRef, db.doc('nations/' + uid));
+    const comp = compDoc.exists ? { at: compDoc.get('at'), until: compDoc.get('until') } : null;
     const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp });
     /* who gave what: the giving nation's name, as it is now */
     const from = [...new Set(e.gifts.map(g => g.from))], names = from.length ? Object.fromEntries((await tx.getAll(...from.map(u => db.doc('nations/' + u)))).map(s => [s.id, String(s.get('name') || '').slice(0, 60)])) : {};
@@ -190,9 +192,11 @@ async function settle(cfg, uid) {
     const doc = { v: 1, owns: e.owns, picks, pend, notes: e.notes.slice(-10), reg, at: now };
     if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
+    /* renewals reported before their subscription was known to be this player's */
+    for (const s of txDocs.values()) if (s.get('uid') !== uid) tx.update(s.ref, { uid });
     tx.set(shopRef, doc);
     if (e.cosmetics.length) tx.set(finRef, { c: e.cosmetics, reg }); else tx.delete(finRef);
-    return e;
+    return { e, txDocs, subMap };
   });
   /* refunds and cancellations the rules call for, each asked once */
   for (const r of e.refunds) {
