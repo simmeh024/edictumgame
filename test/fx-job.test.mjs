@@ -161,6 +161,26 @@ test('a full run deletes the history of a nation that no longer exists', async (
   assert.ok(await read('fxh/uid-frost'), 'a nation in another region keeps its history');
 });
 
+test('a nation founded again after a removal gets a currency, and a history, of its own', async () => {
+  /* Vale is valued for two days; a moderator removes it, and the same account founds a new nation, before the next run */
+  await run({ now: T0 }); await run({ now: T0 + DAY });
+  assert.equal(Object.keys((await read('fxh/uid-vale')).d).length, 2);
+  await asAdmin(async db => {
+    await db.doc('mod/uid-vale').set({ hidden: false, removed: T0 + DAY + 3600e3, t: T0 + DAY + 3600e3, by: 'admin' });
+    await db.doc('nations/uid-vale').set(nationDoc('Newvale', 'meridian', { founded: T0 + DAY + 7200e3, updatedAt: T0 + DAY + 9000e3, deals: [] }, T0 + 2 * DAY));
+  });
+  await run({ now: T0 + 2 * DAY });
+  assert.ok((await pubOf('meridian')).n['uid-vale'], 'the new nation has a currency');
+  assert.deepEqual(Object.keys((await read('fxh/uid-vale')).d), [isoDay(dayNum(T0 + 2 * DAY))], 'with a history of its own, not the removed nation’s');
+  await run({ now: T0 + 3 * DAY });
+  assert.equal(Object.keys((await read('fxh/uid-vale')).d).length, 2, 'which then goes on');
+  assert.ok((await pubOf('meridian')).n['uid-vale']);
+  /* and a nation founded before a removal stays out, as before */
+  await asAdmin(db => db.doc('mod/uid-vale').set({ hidden: false, removed: T0 + 3 * DAY + 3600e3, t: T0 + 3 * DAY + 3600e3, by: 'admin' }));
+  await run({ now: T0 + 4 * DAY });
+  assert.ok(!(await pubOf('meridian')).n['uid-vale'], 'removed again: left out');
+});
+
 test('a nation that moves region keeps one history', async () => {
   await run({ now: T0 });
   const before = (await pubOf('meridian')).n['uid-vale'];
