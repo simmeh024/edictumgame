@@ -4342,6 +4342,39 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adst-list h3{margin:22px 0 2px;font-size:15px;color:var(--ink)}
 .adst-list h3 .hint{font-weight:400}
 @media (max-width:640px){.adst-row{grid-template-columns:minmax(0,1fr) 100px}.adst-row .adst-meter{grid-column:1/-1;grid-row:2}.adst-grid{grid-template-columns:minmax(0,1fr)}.adst-heat{grid-template-columns:28px repeat(24,minmax(0,1fr));gap:1px}}
+.adst-c.rel::before{content:'';position:absolute;top:0;bottom:0;left:50%;border-left:1px dashed var(--ink-3);pointer-events:none}
+.adst-c.rel::after{content:'';position:absolute;top:-13px;left:50%;width:7px;height:7px;transform:translateX(-50%) rotate(45deg);background:var(--ink-2);pointer-events:none}
+.adin-rels{margin-top:12px}
+.adin-fun td,.adin-fun th{white-space:nowrap}
+.adin-fun .adin-fc button{font-weight:600;font-variant-numeric:tabular-nums}
+.adin-fun td.adin-fc.on{box-shadow:inset 0 0 0 2px var(--ink)}
+.adin-fun .adin-fc .hint{display:block;font-size:11px}
+.adin-fun tr.adin-all td{border-bottom:2px solid var(--rule)}
+.adin-stuck{margin-top:14px}
+.adin-steps{display:inline-flex;gap:3px}.adin-steps i{width:10px;height:10px;border-radius:2px;border:1px solid var(--rule);background:var(--sheet-2)}.adin-steps i.y{background:var(--accent);border-color:var(--accent)}
+.adin-eng{display:inline-block;min-width:34px;padding:1px 8px;border-radius:999px;font-weight:600;font-size:13px;line-height:1.5;text-align:center;font-variant-numeric:tabular-nums;border:1px solid var(--rule-2)}
+.adin-eng.hi{background:color-mix(in srgb,var(--accent) 34%,transparent)}.adin-eng.mid{background:color-mix(in srgb,var(--accent) 14%,transparent)}.adin-eng.lo{background:transparent;color:var(--ink-2)}
+.adin-sort{margin:0 0 0 auto;flex:0 1 240px}
+.adin-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0}
+.adin-chips .btn[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.adin-chips .btn[aria-pressed="true"] .chip{border-color:currentColor;color:inherit}
+.adin-feed{list-style:none;margin:10px 0;padding:0;border-top:1px solid var(--rule-2)}
+.adin-ev{display:grid;grid-template-columns:88px 26px minmax(0,1fr);align-items:baseline;gap:8px;padding:8px 2px;border-bottom:1px solid var(--rule-2);overflow-wrap:anywhere}
+.adin-ev time{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.adin-ic{text-align:center}
+.adin-alerts{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.adin-al{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--rule-2);border-left:4px solid var(--accent);border-radius:4px;background:var(--sheet)}
+.adin-al.lvl-warn{border-left-color:#c98a1a}.adin-al.lvl-alert{border-left-color:var(--bad,#b3261e)}
+.adin-al:not(.new){opacity:.78}
+.adin-al p{margin:0 0 2px}
+.adin-cfg{margin-top:18px}.adin-cfg>summary{cursor:pointer;font-weight:600}
+.adin-cfg-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px 18px;margin:12px 0}
+.adin-cfg-g .row{flex-wrap:nowrap;align-items:center}.adin-cfg-g input{max-width:120px}
+.adin-up{color:#2f9e5b;font-size:12px}.adin-down{color:var(--bad,#b3261e);font-size:12px}
+.adm-ptbl select.input{min-width:0}
+/* the filters' hidden labels are absolutely placed: anchored to their cells, they stay inside the table's scroll box */
+.adm-ptbl .adm-filt td{position:relative}
+@media (max-width:640px){.adin-ev{grid-template-columns:64px 22px minmax(0,1fr)}.adin-al{grid-template-columns:22px minmax(0,1fr)}.adin-al>.row{grid-column:2}.adin-sort{margin:0;flex:1 1 100%}}
 .adme-cats{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 4px}
 .adme-cats .btn{min-height:40px}
 .adme-cats .btn[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
@@ -40645,14 +40678,14 @@ function admShowMenu(){
   m.addEventListener('close',()=>{if(m.isConnected&&!m.open&&ADM_MOBILE.matches)admHideMenu();},{once:true});
 }
 function admShell(v,body){
-  const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help;
+  const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help;setTimeout(awCount,0);
   const tab=(k,l,count)=>`<a href="#${k}" data-act="adm-tab" data-v="${k}"${v===k?' aria-current="page"':''}><span>${l}</span>${count?` <span class="chip">${count}</span>`:''}</a>`;
   const group=(label,links)=>`<section class="adm-nav-group" aria-label="${label}"><h2 class="adm-nav-label">${label}</h2>${links}</section>`;
   return `<div class="adm">
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
-        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-players','Player search')+tab('admin-regions','Region control'))}
+        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news'))}
@@ -40687,14 +40720,14 @@ document.addEventListener('click',e=>{
 });
 
 /* ───────── staff operations ───────── */
-const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:''};
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
   if(ADMX.busy)return;ADMX.busy=true;ADMX.err='';ADMX.loaded[v]=true;render();
   try{
     if(v==='admin-players'){
-      if(!more)ADMX.query={q:ADMX.q,reg:ADMX.reg,act:ADMX.act};
+      if(!more)ADMX.query={q:ADMX.q,reg:ADMX.reg,act:ADMX.act,eng:ADMX.eng,sort:ADMX.sort};
       const d=await adminRequest({op:'search',...ADMX.query,offset:more&&ADMX.search?ADMX.search.next:0,refresh});
       if(more&&ADMX.search)d.players=ADMX.search.players.concat(d.players);ADMX.search=d;
     }
@@ -40768,6 +40801,7 @@ ${adminCards(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
+    <h3 class="help-h3">Watchlist</h3>${adminWatch(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
 }
 /* the player page at a glance, and its panels (functions/admin.js, overview()) */
@@ -40784,6 +40818,8 @@ function adminCards(p){
     card('Last seen',esc(adminTime(Math.max(p.savedAt||0,a&&a.lastRefresh||0,n&&n.t||0)))),
     card('Region',p.reg?esc(regName(p.reg)):'No nation'),
     card('Population',n?esc(fmtPop(Number(n.pop)||0)):'–'),
+    card('Engagement',n&&n.eng?admEng(n.eng)+' <span class="hint">of 100</span>':'–'),
+    card('Watchlist',p.watch?'Watched':'No',!!p.watch),
     card('Reports against',against,against>0),
     card('Same address',alts,alts>0)].join('')}</div>`;
 }
@@ -40867,13 +40903,14 @@ function adminExtraView(v){
   if(v==='admin-players'){
     const d=ADMX.search;
     body=`<p class="lede">Find a nation by name or player ID across every region. Inspect its latest confirmed save, the account behind it and its moderation status, keep private notes on it, and ask it for a new name, hide, delete or ban it.</p>
-      <form class="adm-search" id="admin-search"><button class="btn"${ADMX.busy?' disabled':''}>Search</button><button type="button" class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh directory</button>${ADMX.q||ADMX.reg||ADMX.act?`<button type="button" class="btn ghost" data-act="admin-filter-clear"${ADMX.busy?' disabled':''}>Clear filters</button>`:''}</form>
-      ${adminPlayerDetail(ADMX.player)}${d?`<p class="hint">${d.total} ${d.total===1?'match':'matches'}${d.online!=null?` · <span class="adm-on" aria-hidden="true"></span> ${d.online} online now`:''} · directory refreshed ${esc(adminTime(d.at))}</p>`:''}<div class="tbl-wrap"><table class="tbl adm-ptbl"><thead><tr><th>Nation</th><th>Region</th><th>Last activity</th><th>Player</th></tr>
+      <form class="adm-search" id="admin-search"><button class="btn"${ADMX.busy?' disabled':''}>Search</button><button type="button" class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh directory</button>${ADMX.q||ADMX.reg||ADMX.act||ADMX.eng?`<button type="button" class="btn ghost" data-act="admin-filter-clear"${ADMX.busy?' disabled':''}>Clear filters</button>`:''}<div class="field adin-sort"><label for="admin-sort">Sort by</label><select class="input" id="admin-sort">${[['','Name'],['eng','Engagement, highest first'],['act','Last activity, latest first'],['pop','Population, largest first']].map(([k,l])=>`<option value="${k}"${ADMX.sort===k?' selected':''}>${l}</option>`).join('')}</select></div></form>
+      ${adminPlayerDetail(ADMX.player)}${d?`<p class="hint">${d.total} ${d.total===1?'match':'matches'}${d.online!=null?` · <span class="adm-on" aria-hidden="true"></span> ${d.online} online now`:''} · directory refreshed ${esc(adminTime(d.at))}${d.engAt?` · engagement scored ${esc(rel(d.engAt))}`:' · engagement is scored when Statistics is counted and every night'}</p>`:''}<div class="tbl-wrap"><table class="tbl adm-ptbl"><thead><tr><th>Nation</th><th>Region</th><th>Last activity</th><th class="num">Engagement</th><th>Player</th></tr>
         <tr class="adm-filt"><td><label class="u-sr" for="admin-q">Filter by nation name or player ID</label><input class="input" id="admin-q" form="admin-search" maxlength="128" value="${esc(ADMX.q)}" placeholder="Name or player ID" enterkeyhint="search"></td>
         <td><label class="u-sr" for="admin-reg">Filter by region</label><select class="input" id="admin-reg" form="admin-search"><option value="">All regions</option>${REGIONS.map(r=>`<option value="${r.id}"${ADMX.reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></td>
         <td><label class="u-sr" for="admin-act">Filter by last activity</label><select class="input" id="admin-act" form="admin-search">${[['','Any time'],['online','Online now'],['h1','In the last hour'],['d1','In the last 24 hours'],['d7','In the last 7 days'],['old7','Quiet over 7 days'],['old30','Quiet over 30 days']].map(([k,l])=>`<option value="${k}"${ADMX.act===k?' selected':''}>${l}</option>`).join('')}</select></td>
+        <td><label class="u-sr" for="admin-eng">Filter by engagement</label><select class="input" id="admin-eng" form="admin-search">${[['','Any'],['hi','High (60+)'],['mid','Middling (30–59)'],['lo','Low (under 30)'],['none','Not scored yet']].map(([k,l])=>`<option value="${k}"${ADMX.eng===k?' selected':''}>${l}</option>`).join('')}</select></td>
         <td><label class="adm-onlyon"><input type="checkbox" id="admin-onlyon" form="admin-search"${ADMX.act==='online'?' checked':''}> Online only</label></td></tr></thead>
-        <tbody>${d&&d.players.length?d.players.map(p=>`<tr><td>${p.on?'<span class="adm-on" title="Online now" role="img" aria-label="Online now"></span> ':''}${esc(p.name)}</td><td>${esc(regName(p.reg))}</td><td>${p.on?'<b class="adm-on-t">Online now</b><br>':''}${esc(adminTime(p.t))}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect player</button></td></tr>`).join(''):`<tr><td colspan="4" class="hint">${d?'No matching players.':'Loading the directory…'}</td></tr>`}</tbody></table></div>${d&&d.next!=null?'<button class="btn ghost" data-act="admin-extra-more">Load more players</button>':''}`;
+        <tbody>${d&&d.players.length?d.players.map(p=>`<tr><td>${p.on?'<span class="adm-on" title="Online now" role="img" aria-label="Online now"></span> ':''}${esc(p.name)}</td><td>${esc(regName(p.reg))}</td><td>${p.on?'<b class="adm-on-t">Online now</b><br>':''}${esc(adminTime(p.t))}</td><td class="num">${admEng(p.eng)}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect player</button></td></tr>`).join(''):`<tr><td colspan="5" class="hint">${d?'No matching players.':'Loading the directory…'}</td></tr>`}</tbody></table></div>${d&&d.next!=null?'<button class="btn ghost" data-act="admin-extra-more">Load more players</button>':''}`;
   }
   if(v==='admin-health'){
     const d=ADMX.health,rows=d?d.sessions:[],stale=s=>Date.now()-s.t>5*60000;
@@ -40892,7 +40929,7 @@ function adminExtraView(v){
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.id==='admin-club-why')ADMX.clubWhy=t.value;if(t.id==='admin-club-days')ADMX.clubDays=Number(t.value);if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
 document.addEventListener('change',e=>{const t=e.target;
   /* the column filters search as soon as they change; the name filter on Enter or Search */
-  if(t.id==='admin-reg'||t.id==='admin-act'||t.id==='admin-onlyon'){if(t.id==='admin-reg')ADMX.reg=t.value;if(t.id==='admin-act')ADMX.act=t.value;if(t.id==='admin-onlyon')ADMX.act=t.checked?'online':'';if(S.isOwner&&S.view==='admin-players')adminExtraLoad('admin-players');return;}
+  if(t.id==='admin-reg'||t.id==='admin-act'||t.id==='admin-onlyon'||t.id==='admin-eng'||t.id==='admin-sort'){if(t.id==='admin-eng')ADMX.eng=t.value;if(t.id==='admin-sort')ADMX.sort=t.value;if(t.id==='admin-reg')ADMX.reg=t.value;if(t.id==='admin-act')ADMX.act=t.value;if(t.id==='admin-onlyon')ADMX.act=t.checked?'online':'';if(S.isOwner&&S.view==='admin-players')adminExtraLoad('admin-players');return;}
   if(e.target.id==='admin-reg')ADMX.reg=e.target.value;if(e.target.dataset.regionMode){ADMX.modes[e.target.dataset.regionMode]=e.target.value;render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='admin-search'||e.target.id==='admin-audit-filter'){e.preventDefault();if(S.isOwner)adminExtraLoad(S.view);}});
 document.addEventListener('click',async e=>{
@@ -40902,7 +40939,7 @@ document.addEventListener('click',async e=>{
   if(a==='region-ask'){ADMX.ask=id;ADMX.modes[id]=regMode(id)==='coming_soon'?'coming_soon':'maintenance';render();return;}
   if(a==='region-cancel'){ADMX.ask=null;render();return;}
   if(a==='region-enable'||a==='region-disable'){adminSetRegion(id,a==='region-enable');return;}
-  if(a==='admin-filter-clear'){ADMX.q='';ADMX.reg='';ADMX.act='';adminExtraLoad('admin-players');return;}
+  if(a==='admin-filter-clear'){ADMX.q='';ADMX.reg='';ADMX.act='';ADMX.eng='';adminExtraLoad('admin-players');return;}
   if(a==='admin-extra-refresh'||a==='admin-extra-more'){adminExtraLoad(S.view,a==='admin-extra-more',a==='admin-extra-refresh');return;}
   if(a==='admin-history'){ADMX.target=id;ADMX.loaded['admin-audit']=false;ADMX.audit=null;go('admin-audit');return;}
   if(a==='admin-mod'){
@@ -40915,7 +40952,7 @@ document.addEventListener('click',async e=>{
   if(a==='admin-note-save'){adminNoteSave(id);return;}
   if(a==='admin-club'){adminClubSet(id,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';
+    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }
@@ -40944,7 +40981,7 @@ function stCols(title,hint,rows,unit){
   const max=Math.max(1,...rows.map(r=>r[1]||0)),last=rows[rows.length-1],def=`${last[0]}: ${stN(last[1])} ${unit}`;
   return `<figure class="adst-fig"><h3>${esc(title)}</h3>${hint?`<p class="hint">${hint}</p>`:''}
     <div class="adst-cols" role="img" aria-label="${esc(title)}: ${rows.length} days, from ${esc(rows[0][0])} to ${esc(last[0])}; most ${stN(max)}, latest ${stN(last[1])}"><span class="adst-max">${stN(max)}</span>
-      ${rows.map(([l,v])=>`<span class="adst-c" data-tip="${esc(l)}: ${stN(v)} ${esc(unit)}">${v?`<i style="height:${(v/max*100).toFixed(1)}%"></i>`:''}</span>`).join('')}</div>
+      ${rows.map(([l,v,m])=>`<span class="adst-c${m&&m.length?' rel':''}" data-tip="${esc(l)}: ${stN(v)} ${esc(unit)}${m&&m.length?esc(' · ◆ '+m.join(' · ')):''}">${v?`<i style="height:${(v/max*100).toFixed(1)}%"></i>`:''}</span>`).join('')}</div>
     <div class="adst-axis" aria-hidden="true"><span>${esc(rows[0][0])}</span><span>${esc(last[0])}</span></div>
     <p class="adst-tip">Latest: ${esc(def)}</p>
     <details class="adst-tbl"><summary>Show as a table</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Day</th><th class="num">${esc(cap1(unit))}</th></tr></thead><tbody>${rows.slice().reverse().map(([l,v])=>`<tr><td>${esc(l)}</td><td class="num">${stN(v)}</td></tr>`).join('')}</tbody></table></div></details></figure>`;
@@ -40988,19 +41025,20 @@ function adminStatsView(){
   const sec=(t,hint,body)=>`<section class="adst-sec"><h2 class="h2">${t}</h2>${hint?`<p class="hint">${hint}</p>`:''}${body}</section>`;
   let body='';
   if(d){
-    const A=d.accounts,days=d.days,hist=d.history.filter(h=>h.a1!=null),dev=d.devices||{},devAll=(dev.Desktop||0)+(dev.Mobile||0);
+    const A=d.accounts,days=d.days,hist=d.history.filter(h=>h.a1!=null),dev=d.devices||{},devAll=(dev.Desktop||0)+(dev.Mobile||0),R=stRelDays(d);
     body=`<div class="adm-kpis">
       ${kpi(d.now15,'playing now (saved in the last 15 minutes)')}${kpi(d.a1,'active today (the last 24 hours)')}${kpi(d.a7,'active this week')}${kpi(d.a30,'active this month (30 days)')}
       ${kpi(stPc(d.a1,d.a30),'of this month’s players played today')}${kpi(d.new7,'new nations this week')}
       ${kpi(d.dec1,`edicts decided today, by ${stN(d.deciders1)} ${d.deciders1===1?'nation':'nations'}${d.deciders1?` (${stN(d.medRuled1)} each, the median)`:''}`)}${kpi(d.nations,'nations in all, dormant ones included')}
       ${all?kpi(stPc(A.new30Founded,A.new30),`of this month’s ${stN(A.new30)} new visitors founded a nation`):''}${kpi(stPc(A.registered,A.withNation),'of nations have a linked sign-in')}
     </div>
-    ${sec('Day by day','',`<div class="adst-grid">
-      ${hist.length?stCols('Players active each day','Nations saved in the 24 hours up to midnight UTC, recorded every night'+(hist.length<7?`; the record began ${esc(stDay(hist[0].d))}`:'')+'.',hist.map(h=>[stDay(h.d),h.a1]),'players'):`<figure class="adst-fig"><h3>Players active each day</h3><p class="hint">Recorded every night from now on by the Statistics workflow (jobs/stats): the first day appears after the next midnight UTC. Until then, the active counts above are today’s.</p></figure>`}
-      ${stCols('Nations founded each day','Nations still in the game, by the day they were founded.',days.map(x=>[stDay(x.d),x.founded]),'nations')}
-      ${all?stCols('New visitors each day','Browsers that opened the game for the first time: each is given a guest account. A player signing in on a new device counts again.',days.map(x=>[stDay(x.d),x.visitors]),'visitors'):''}
-      ${stCols('Nations that decided an edict each day','From each nation’s latest 80 rulings, so days further back miss some of the busiest players.',days.slice(-30).map(x=>[stDay(x.d),x.rulers]),'nations')}
-    </div>`)}
+    ${sec('Onboarding funnel','From founding to a nation that has settled in, for the nations founded in the last eight weeks.',stFunnel(d))}
+    ${sec('Day by day',(d.releases||[]).length?'◆ marks a day with a development news post.':'',`<div class="adst-grid">
+      ${hist.length?stCols('Players active each day','Nations saved in the 24 hours up to midnight UTC, recorded every night'+(hist.length<7?`; the record began ${esc(stDay(hist[0].d))}`:'')+'.',hist.map(h=>[stDay(h.d),h.a1,R[h.d]]),'players'):`<figure class="adst-fig"><h3>Players active each day</h3><p class="hint">Recorded every night from now on by the Statistics workflow (jobs/stats): the first day appears after the next midnight UTC. Until then, the active counts above are today’s.</p></figure>`}
+      ${stCols('Nations founded each day','Nations still in the game, by the day they were founded.',days.map(x=>[stDay(x.d),x.founded,R[x.d]]),'nations')}
+      ${all?stCols('New visitors each day','Browsers that opened the game for the first time: each is given a guest account. A player signing in on a new device counts again.',days.map(x=>[stDay(x.d),x.visitors,R[x.d]]),'visitors'):''}
+      ${stCols('Nations that decided an edict each day','From each nation’s latest 80 rulings, so days further back miss some of the busiest players.',days.slice(-30).map(x=>[stDay(x.d),x.rulers,R[x.d]]),'nations')}
+    </div>${stReleases(d)}`)}
     ${sec('Coming back','Of the nations old enough to tell, how many were still saved that long after their founding.',`<div class="adst-rows">${d.lasting.map(x=>stBar(`Still playing ${x.d===1?'a day':x.d+' days'} after founding`,x.kept,x.of,` of ${stN(x.of)}`)).join('')}</div>
       <h3 class="help-h3">By the week they were founded</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Week from</th><th class="num">Founded</th><th class="num">Back after a day</th><th class="num">Back after a week</th><th class="num">Active in the last 7 days</th></tr></thead><tbody>
         ${d.weeks.slice().reverse().map(w=>`<tr><td>${esc(fmtDate(w.w))}</td><td class="num">${stN(w.n)}</td><td class="num">${w.d1.of?`${stPc(w.d1.kept,w.d1.of)} <span class="hint">${stN(w.d1.kept)}</span>`:'–'}</td><td class="num">${w.d7.of?`${stPc(w.d7.kept,w.d7.of)} <span class="hint">${stN(w.d7.kept)}</span>`:'–'}</td><td class="num">${w.n?`${stPc(w.a7,w.n)} <span class="hint">${stN(w.a7)}</span>`:'–'}</td></tr>`).join('')}</tbody></table></div>
@@ -41013,12 +41051,15 @@ function adminStatsView(){
     ${sec('Getting started',`How many of the ${stN(d.nationCount)} nations have done each step of the tutorial, list by list.`,`<div class="adst-list">${TUT_LISTS.map(L=>`<h3>${esc(L.eb)}: ${esc(stTxt(L.t,L.k))} <span class="hint">· list finished by ${stPc(d.lists[L.c]||0,d.nationCount)}</span></h3>
       <div class="adst-rows">${L.tasks.map(s=>stBar(esc(stTxt(s.t,s.k)),d.tut[s.k]||0,d.nationCount)).join('')}</div>`).join('')}</div>`)}
     ${sec('What nations use',`Of the ${stN(d.active30)} nations active this month.`,`<div class="adst-rows">${Object.entries(ST_FEAT).map(([k,l])=>[l,d.features[k]||0]).sort((a,b)=>b[1]-a[1]).map(([l,k])=>stBar(l,k,d.active30)).join('')}</div>`)}
+    ${sec('Feature use over time','Night by night, with the days of development news marked: did players take up what was released?',stFeatHist(d,R))}
+    ${sec('Engagement','',stEngage(d))}
     ${sec('Accounts and devices','',`<div class="adst-grid">
       <div class="adst-fig"><h3>Sign-ins</h3><p class="hint">The accounts behind the ${stN(A.withNation)} nations${all?`, among ${stN(A.total)} accounts in all (${stN(A.total-A.withNation)} without a nation: visitors who never founded one, or a second device). ${stN(A.new7)} new accounts this week`:''}${A.limited?'; the first 50,000 accounts were counted':''}.</p>
         <div class="adst-rows">${stBar('Guests',A.withNation-A.registered,A.withNation)}${stBar('Registered',A.registered,A.withNation)}${stBar('Google',A.google,A.withNation)}${stBar('Email link',A.email,A.withNation)}${stBar('Discord',A.discord,A.withNation)}</div></div>
       <div class="adst-fig"><h3>Devices</h3><p class="hint">Players whose game reported from each kind of device in the last 24 hours; one playing on both counts twice.</p>
         <div class="adst-rows">${stBar('Desktop',dev.Desktop||0,devAll)}${stBar('Phone or tablet',dev.Mobile||0,devAll)}</div>
         <p class="hint" style="margin-top:14px">${stN(d.finery)} ${d.finery===1?'player owns':'players own'} cosmetics from the Shop. ${d.posts?`${stN(d.posts.week)} board posts this week, ${stN(d.posts.all)} on the ${all?'boards':'board'} in all.`:''}</p></div></div>`)}
+    ${sec('Recruiting','Players who founded a nation through another player’s recruiting link, and whether they stayed.',stRecruits(d))}
     ${all?sec('Regions','Choose a region to see its figures and its nations.',stRegions(d)):sec(`Nations in ${esc(regName(reg))}`,'',stNations(d))}`;
   }
   return admShell('admin-stats',`<p class="eyebrow">Admin portal</p><h1 class="display">Statistics</h1>
@@ -41026,7 +41067,7 @@ function adminStatsView(){
     <div class="adst-pick"><div class="field"><label for="st-reg">Region</label><select class="input" id="st-reg"><option value="">All regions</option>${REGIONS.slice().sort((a,b)=>a.name<b.name?-1:1).map(r=>`<option value="${r.id}"${reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>${reg?`<button type="button" class="btn ghost" data-act="st-reg" data-v="">Back to all regions</button>${obsRegionBtn(reg,'btn')}`:''}</div>
     ${ADMST.busy?`<p class="hint" role="status">Counting every nation${all?'':' in '+esc(regName(reg))}…</p>`:''}${ADMST.err?`<p class="err" role="alert">${esc(ADMST.err)} <button type="button" class="linkish" data-act="st-retry">Try again</button></p>`:''}${body}`);
 }
-function stPick(reg){ADMST.reg=REG_BY_ID[reg]?reg:'';ADMST.err='';if(!ADMST.d[ADMST.reg])stLoad(false);else render();const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});window.scrollTo(0,0);}
+function stPick(reg){ADMST.reg=REG_BY_ID[reg]?reg:'';ADMST.err='';ADIN.fun=null;if(!ADMST.d[ADMST.reg])stLoad(false);else render();const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});window.scrollTo(0,0);}
 document.addEventListener('change',e=>{if(e.target.id==='st-reg'&&S.isOwner)stPick(e.target.value);});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
   if(a==='st-reg'){stPick(el.dataset.v);return;}
@@ -41086,6 +41127,250 @@ function adminShopView(){
     ${ADSH.busy?'<p class="hint" role="status">Counting the shop’s records…</p>':''}${ADSH.err?`<p class="err" role="alert">${esc(ADSH.err)} <button type="button" class="linkish" data-act="sh-refresh">Try again</button></p>`:''}${body}`);
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="sh-refresh"]');if(el&&S.isOwner)shLoad();});
+
+/* ───────── admin insights: the onboarding funnel, release markers, feature use, engagement, recruiting, the Live
+   feed, the watchlist and staff alerts ─────────
+   Statistics gains the funnel from founding to a nation that has settled in (functions/stats.js FUNNEL: a row per
+   week's new nations, and who is stuck at each step), release markers on its day charts (a development news post that
+   day), feature use night by night (jobs/stats records it), engagement and recruiting. Player search shows each
+   player's engagement score (written whenever the statistics are counted, and every night) and sorts by it. The Live
+   feed lists what players did lately (functions/feed.js); Watchlist & alerts keeps the players the staff follow and the
+   alerts the alerts job files every fifteen minutes (functions/alerts.js), whose unseen count shows in the admin menu.
+   CSS prefix adin-. */
+const ADIN={fun:null,feat:'trade'};
+const ST_FUN={settled:'Settled a capital',land:'Claimed land',build:'Started a building',ruled:'Decided an edict',cities:'Founded a second city',charter:'Finished the charter',registered:'Linked a sign-in'};
+const adinDay=t=>new Date(t).toISOString().slice(0,10);
+/* development news by UTC day, for the charts' release markers */
+function stRelDays(d){const m={};for(const r of d.releases||[]){const k=adinDay(r.t);(m[k]=m[k]||[]).push(r.ti||'A release');}return m;}
+function stReleases(d){
+  const L=(d.releases||[]).slice().sort((a,b)=>b.t-a.t);if(!L.length)return '';
+  return `<details class="adst-tbl adin-rels"><summary>${L.length} ${L.length===1?'release':'releases'} marked on the charts (◆)</summary><ul class="adm-tl">${L.map(r=>`<li><time>${esc(fmtDate(r.t))}</time>${esc(r.ti||'A release')}${r.tg?` <span class="hint">${esc(r.tg)}</span>`:''}</li>`).join('')}</ul></details>`;
+}
+/* the engagement score as a badge: [score, days, rulings, uses, social] (functions/stats.js, engagement) */
+function admEng(e){
+  if(!Array.isArray(e))return '<span class="hint">–</span>';
+  const tip=`Engagement ${e[0]} of 100: played ${e[1]} of the last 14 days · ${e[2]} ${e[2]===1?'edict':'edicts'} decided in them · uses ${e[3]} parts of the game · ${e[4]} with other nations`;
+  return `<span class="adin-eng ${e[0]>=60?'hi':e[0]>=30?'mid':'lo'}" data-tip="${esc(tip)}" aria-label="${esc(tip)}">${e[0]}</span>`;
+}
+/* ── the onboarding funnel ── */
+function adinFunnel(F){
+  const W=[];for(let w=7;w>=0;w--){const a=F.from+w*7*DAY;W.push({w:String(a),a,L:F.nations.filter(x=>x[3]>=a&&x[3]<a+7*DAY)});}
+  return [{w:'all',a:F.from,L:F.nations}].concat(W);
+}
+const adinFirstGap=m=>{for(let i=0;i<7;i++)if(!(m&(1<<i)))return i;return 7;};
+function stFunnel(d){
+  const F=d.funnel;if(!F||!F.nations.length)return '<p class="hint">No nations founded in the last eight weeks.</p>';
+  const S_=F.steps,rows=adinFunnel(F),all=rows[0].L;
+  /* the step where the most of those who got that far stopped */
+  let worst=null;
+  S_.forEach((k,i)=>{const prev=all.filter(x=>(x[5]&((1<<i)-1))===((1<<i)-1)),go=prev.filter(x=>x[5]&(1<<i));if(prev.length>=5){const drop=1-go.length/prev.length;if(!worst||drop>worst.drop)worst={k,drop,of:prev.length};}});
+  const cell=(R,i)=>{const n=R.L.length,k=R.L.filter(x=>x[5]&(1<<i)).length,stuck=R.L.filter(x=>adinFirstGap(x[5])===i).length,p=n?k/n*100:0,on=ADIN.fun&&ADIN.fun.w===R.w&&ADIN.fun.s===i;
+    if(!n)return '<td class="num hint">–</td>';
+    return `<td class="num adin-fc${on?' on':''}" style="background:color-mix(in srgb,var(--accent) ${Math.round(p*.32)}%,transparent)"><button type="button" class="linkish${on?' on':''}" data-act="st-fun" data-w="${R.w}" data-s="${i}" aria-pressed="${on}" data-tip="${esc(`${k} of ${n} ${ST_FUN[S_[i]].toLowerCase()}; ${stuck} stopped just before it`)}">${Math.round(p)}%</button><span class="hint">${stuck} stuck</span></td>`;};
+  const sel=ADIN.fun&&rows.find(R=>R.w===ADIN.fun.w),pick=sel?sel.L.filter(x=>adinFirstGap(x[5])===ADIN.fun.s).sort((a,b)=>b[4]-a[4]):null;
+  return `<p class="hint">Each row is the nations founded that week; each cell, how many of them have done the step (as their records show it now). A nation is <b>stuck</b> at the first step it has not done. Choose a cell to see who is stuck there.${worst?` The biggest drop: of the ${stN(worst.of)} who got as far, ${stPc(Math.round(worst.drop*worst.of),worst.of)} stopped before “${esc(ST_FUN[worst.k])}”.`:''}${F.total>F.nations.length?` Only the ${stN(F.nations.length)} newest of ${stN(F.total)} are counted.`:''}</p>
+    <div class="tbl-wrap"><table class="tbl adin-fun"><thead><tr><th>Founded</th><th class="num">Nations</th>${S_.map(k=>`<th class="num">${esc(ST_FUN[k])}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(R=>`<tr${R.w==='all'?' class="adin-all"':''}><td>${R.w==='all'?'<b>All eight weeks</b>':'Week of '+esc(fmtDate(R.a))}</td><td class="num">${stN(R.L.length)}</td>${S_.map((k,i)=>cell(R,i)).join('')}</tr>`).join('')}</tbody></table></div>
+    ${pick?`<div class="adin-stuck" id="adin-stuck"><h3 class="help-h3">${esc(sel.w==='all'?'Founded in the last eight weeks':'Founded the week of '+fmtDate(sel.a))}, stuck before “${esc(ST_FUN[S_[ADIN.fun.s]])}” <span class="hint">· ${stN(pick.length)}</span> <button type="button" class="linkish" data-act="st-fun-close">Close</button></h3>
+      ${pick.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th>Region</th><th>Founded</th><th>Last active</th><th>Steps done</th><th>Player</th></tr></thead><tbody>${pick.slice(0,200).map(x=>`<tr><td>${esc(x[1])}</td><td>${esc(regName(x[2]))}</td><td>${esc(rel(x[3]))}</td><td>${x[4]?esc(rel(x[4])):'–'}</td><td><span class="adin-steps">${S_.map((k,i)=>`<i class="${x[5]&(1<<i)?'y':''}" data-tip="${esc(ST_FUN[k])}${x[5]&(1<<i)?': done':': not yet'}"></i>`).join('')}</span></td><td><div class="row"><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x[0])}">Inspect player</button>${x[2]===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x[0])}">View nation</button>`:obsVisitBtn(x[2],x[0])}</div></td></tr>`).join('')}</tbody></table></div>${pick.length>200?`<p class="hint">The 200 most recently active of ${stN(pick.length)}.</p>`:''}`:'<p class="hint">No one is stuck here.</p>'}</div>`:''}`;
+}
+/* ── feature use night by night (statsDays feat/act30) ── */
+function stFeatHist(d,R){
+  const H=d.history.filter(h=>h.feat&&h.act30);
+  if(H.length<2)return `<p class="hint">Recorded every night from now on by the Statistics workflow: the chart starts once two nights are recorded${H.length?` (the first was ${esc(stDay(H[0].d))})`:''}. Until then, “What nations use” above shows today’s figures.</p>`;
+  const k=ST_FEAT[ADIN.feat]?ADIN.feat:'trade',share=(h,f)=>h&&h.act30?Math.round((h.feat[f]||0)/h.act30*1000)/10:null,last=H[H.length-1],ago=n=>H.length>n?H[H.length-1-n]:null;
+  const ch=v=>v==null?'–':`${v>0?'+':''}${stN(v)}`;
+  return `<div class="adst-pick"><div class="field"><label for="st-feat">Part of the game</label><select class="input" id="st-feat">${Object.entries(ST_FEAT).map(([f,l])=>`<option value="${f}"${f===k?' selected':''}>${esc(l)}</option>`).join('')}</select></div></div>
+    ${stCols(ST_FEAT[k],'Of the players active in the 30 days before each night, the share whose nation did this. ◆ marks a day with a development news post.',H.map(h=>[stDay(h.d),share(h,k),R[h.d]]),'per cent')}
+    <details class="adst-tbl"><summary>Every part, now and before</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Part of the game</th><th class="num">Last night</th><th class="num">Change in a week</th><th class="num">Change in 30 days</th></tr></thead><tbody>
+    ${Object.entries(ST_FEAT).map(([f,l])=>{const a=share(last,f),w=ago(7),m=ago(30);return `<tr><td>${esc(l)}</td><td class="num">${a==null?'–':stN(a)+'%'}</td><td class="num">${w?ch(Math.round((a-share(w,f))*10)/10):'–'}</td><td class="num">${m?ch(Math.round((a-share(m,f))*10)/10):'–'}</td></tr>`;}).join('')}</tbody></table></div></details>`;
+}
+/* ── engagement ── */
+function stEngage(d){
+  const E=d.eng;if(!E)return '';
+  const B=['Low (under 25)','Some (25 to 49)','Good (50 to 74)','High (75 and over)'];
+  return `<div class="adst-grid"><div class="adst-fig"><h3>How engaged</h3><p class="hint">This month’s ${stN(d.active30)} players by their engagement score (the median is ${stN(E.median)}). The score adds the days of the last fortnight they played (up to 40), the edicts they decided in it (25), the parts of the game they use (15) and those that involve other nations (20).</p>
+      <div class="adst-rows">${B.map((l,i)=>stBar(l,E.bands[i]||0,d.active30)).join('')}</div></div>
+    <div class="adst-fig"><h3>The most engaged</h3>${E.top.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th>Region</th><th class="num">Score</th><th></th></tr></thead><tbody>${E.top.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(regName(x.reg))}</td><td class="num">${admEng(x.eng)}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No one played this month.</p>'}</div></div>`;
+}
+/* ── recruiting ── */
+function stRecruits(d){
+  const R=d.recruits;if(!R)return '';
+  if(!R.n)return '<p class="hint">No nation here was founded through a recruiting link yet (Settings › Account › Recruit a player).</p>';
+  return `<p class="hint">${stN(R.n)} ${R.n===1?'nation was':'nations were'} founded through the recruiting links of ${stN(R.recruiters)} ${R.recruiters===1?'player':'players'}. A week after founding, ${R.of?`${stPc(R.kept,R.of)} of them were still playing (${stN(R.kept)} of ${stN(R.of)} old enough to tell)`:'none is old enough to tell yet'}, against ${R.others.of?`${stPc(R.others.kept,R.others.of)} of everyone else`:'– for everyone else'}.</p>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Recruiter</th><th>Region</th><th class="num">Recruits</th><th class="num">Still playing after a week</th><th class="num">Active this week</th><th>Latest</th><th></th></tr></thead><tbody>
+    ${R.list.map(p=>`<tr><td>${p.name?esc(p.name):'<span class="hint">No nation now</span>'}</td><td>${p.reg?esc(regName(p.reg)):'–'}</td><td class="num">${stN(p.n)}</td><td class="num">${p.of?`${stPc(p.kept,p.of)} <span class="hint">${stN(p.kept)} of ${stN(p.of)}</span>`:'–'}</td><td class="num">${stN(p.a7)}</td><td>${p.last?esc(rel(p.last)):'–'}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.r)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='st-fun'){const w=el.dataset.w,s=+el.dataset.s;ADIN.fun=ADIN.fun&&ADIN.fun.w===w&&ADIN.fun.s===s?null:{w,s};render();if(ADIN.fun)setTimeout(()=>{const x=document.getElementById('adin-stuck');if(x)x.scrollIntoView({block:'nearest'});},0);return;}
+  if(a==='st-fun-close'){ADIN.fun=null;render();}});
+document.addEventListener('change',e=>{if(e.target.id==='st-feat'&&S.isOwner){ADIN.feat=e.target.value;render();}});
+
+/* ── the player page: the watchlist ── */
+function adminWatch(p){
+  const w=p.watch,busy=ADMX.watchBusy;
+  const msg=ADMX.watchMsg?`<p class="hint" aria-live="polite">${esc(ADMX.watchMsg)}</p>`:'';
+  if(w)return `<p>On the watchlist since ${esc(adminTime(w.at))}${w.by?`, added by <code>${esc(w.by.slice(0,8))}…</code>`:''}: ${esc(w.why)}</p><p class="hint">The alerts job reports when this player plays again, changes name or region, is reported or loses the nation.</p>
+    <div class="row"><button class="btn ghost small" data-act="adin-watch" data-v="remove" data-id="${esc(p.uid)}"${busy?' disabled':''}>${busy?'Saving…':'Take off the watchlist'}</button><button class="btn ghost small" data-act="adm-tab" data-v="admin-watch">Open the watchlist</button></div>${msg}`;
+  return `<p class="hint">Follow this player: the alerts job reports when they play again, change name or region, are reported or lose the nation, and the watchlist compares their nation with now.</p>
+    <div class="field"><label for="admin-watch-why">Why (staff only)</label><input class="input" id="admin-watch-why" data-id="${esc(p.uid)}" maxlength="200" value="${esc(ADMX.watchFor===p.uid?ADMX.watchWhy:'')}" placeholder="For example: second account of a banned player?"></div>
+    <button class="btn ghost small" data-act="adin-watch" data-v="add" data-id="${esc(p.uid)}"${busy?' disabled':''}>${busy?'Saving…':'Add to the watchlist'}</button>${msg}`;
+}
+async function adminWatchSet(uid,action){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.watchBusy)return;
+  const why=ADMX.watchFor===uid?ADMX.watchWhy.trim():'';
+  if(action==='add'&&!why){ADMX.watchMsg='Write why you are watching this player first.';render();document.getElementById('admin-watch-why')?.focus();return;}
+  ADMX.watchBusy=true;ADMX.watchMsg='';render();
+  try{const r=await adminRequest({op:'watch',action,uid,why});p.watch=r.watch;ADMX.watchWhy='';ADMX.watchMsg=action==='add'?'Added to the watchlist.':'Taken off the watchlist.';AW.d=null;}
+  catch(e){ADMX.watchMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  finally{ADMX.watchBusy=false;render();}
+}
+document.addEventListener('input',e=>{if(e.target.id==='admin-watch-why'){ADMX.watchWhy=e.target.value;ADMX.watchFor=e.target.dataset.id;}});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="adin-watch"]');if(el&&S.isOwner)adminWatchSet(el.dataset.id,el.dataset.v);});
+
+/* ── the Live feed ── */
+const AF={span:'h6',reg:'',groups:[],d:null,busy:false,err:'',auto:true,timer:0};
+const AF_GROUPS=[['found','Foundings'],['war','War and peace'],['dip','Diplomacy and trade'],['board','Board posts'],['shop','Purchases'],['recruit','Recruits'],['mod','Reports, help and staff']];
+const AF_SPANS=[['h1','The last hour'],['h6','The last 6 hours'],['d1','The last 24 hours'],['d7','The last 7 days']];
+const AF_ICON={found:'🏛️',war:'⚔️',conq:'🏴',peace:'🕊️',cede:'🗺️',trade:'🤝',shared:'📜',aladmit:'🛡️',alremove:'🚪',buy:'💰',report:'🚩',ticket:'❓',bug:'🐞',admin:'🔧',topic:'📌',reply:'💬',post:'💬',comment:'📰',recruit:'🎟️'};
+async function afLoad(refresh){
+  if(AF.busy)return;AF.busy=true;AF.err='';if(!refresh)render();
+  try{AF.d=await adminRequest({op:'feed',span:AF.span,reg:AF.reg,groups:AF.groups,refresh:!!refresh});}
+  catch(e){AF.err=e.message||'The feed could not be loaded.';}
+  finally{AF.busy=false;if(S.view==='admin-feed')render();afTick();}
+}
+/* refreshes itself every minute while the page is open, the tab in front and auto-refresh on */
+function afTick(){clearTimeout(AF.timer);if(S.view!=='admin-feed'||!AF.auto)return;AF.timer=setTimeout(()=>{if(S.view==='admin-feed'&&AF.auto&&!document.hidden)afLoad(true);else afTick();},60000);}
+/* one event in words: names are buttons that open the player page */
+function afWho(uid,name){return uid?`<button type="button" class="linkish" data-act="admin-inspect" data-id="${esc(uid)}">${esc(name||'a player '+uid.slice(0,6))}</button>`:esc(name||'Someone');}
+function afLine(e){
+  const N=afWho(e.uid,e.name),T=afWho(e.to,e.toName),q=x=>x?` “${esc(x)}”`:'',board=e.reg?`the ${esc(regName(e.reg))} Community Board`:'a Community Board';
+  switch(e.k){
+    case 'found':return `${N} was founded${e.reg?' in '+esc(regName(e.reg)):''}`;
+    case 'war':return `${N} declared war on ${T}`;case 'conq':return `${N} seized a hex of ${T}’s land`;case 'peace':return `${N} made peace with ${T}`;
+    case 'cede':return `${N} ceded a border hex to ${T}`;case 'trade':return `${N} signed a trade deal with ${T}`;case 'shared':return `${N} raised a matter with ${T}`;
+    case 'aladmit':return `${N} admitted ${T} to its alliance`;case 'alremove':return `${N} removed ${T} from its alliance`;
+    case 'buy':return e.gift&&e.to?`${N} was given ${esc(ADM_PRODUCT[e.x]||e.x||'something')} by ${T}`:`${N} bought ${esc(ADM_PRODUCT[e.x]||e.x||'something')}`;
+    case 'report':return `${N} was reported for ${esc(e.x||'something')}${e.by?' by '+afWho(e.by,e.byName):''}`;
+    case 'ticket':return `${N} asked for help${e.x?': '+esc(e.x):''}`;case 'bug':return `${N} reported a bug${q(e.x)}`;
+    case 'admin':{/* the audit log also keeps a player's own step (a forced rename done), and staff actions on a region */
+      if(e.by&&e.by===e.uid)return `${N}: ${esc(e.x)}`;
+      const on=REG_BY_ID[e.uid]?esc(regName(e.uid)):e.uid&&e.uid!=='alerts'?N:'';
+      return `Staff${e.by?' ('+afWho(e.by,e.byName)+')':''}: ${esc(e.x)}${on?' · '+on:''}`;}
+    case 'topic':return `${N} started a topic on ${board}${q(e.x)}`;case 'reply':return `${N} replied on ${board}${q(e.x)}`;
+    case 'post':return `${N} wrote on the ${esc(regName(e.reg))} board${q(e.x)}`;case 'comment':return `${N} commented on development news${q(e.x)}`;
+    case 'recruit':return `${N} was founded through ${T}’s recruiting link`;
+  }
+  return esc(e.k);
+}
+function afList(events,empty){
+  if(!events.length)return `<p class="hint">${empty}</p>`;
+  return `<ol class="adin-feed">${events.map(e=>`<li class="adin-ev k-${esc(e.k)}"><time datetime="${new Date(e.t).toISOString()}" title="${esc(new Date(e.t).toLocaleString())}">${esc(rel(e.t))}</time><span class="adin-ic" aria-hidden="true">${AF_ICON[e.k]||'•'}</span><span class="adin-tx">${afLine(e)}${e.reg&&e.k!=='found'&&!['topic','reply','post'].includes(e.k)?` <span class="chip">${esc(regName(e.reg))}</span>`:''}</span></li>`).join('')}</ol>`;
+}
+function adminFeedView(){
+  if(!AF.d&&!AF.busy&&!AF.err)setTimeout(()=>afLoad(false),0);
+  const d=AF.d,c=d?d.counts:{},on=g=>AF.groups.includes(g);
+  return admShell('admin-feed',`<p class="eyebrow">Admin portal</p><h1 class="display">Live feed</h1>
+    <p class="lede">What players did lately, from what the server already keeps: foundings, wars and diplomacy, trade, board posts, purchases, recruits, reports, help queries, bug reports and staff actions. Letters between players are never shown.${d?` Read ${esc(rel(d.at))}.`:''} <button type="button" class="linkish" data-act="af-refresh"${AF.busy?' disabled':''}>${AF.busy?'Reading…':'Refresh'}</button></p>
+    <div class="adst-pick"><div class="field"><label for="af-span">Time</label><select class="input" id="af-span">${AF_SPANS.map(([k,l])=>`<option value="${k}"${AF.span===k?' selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label for="af-reg">Region</label><select class="input" id="af-reg"><option value="">All regions</option>${REGIONS.slice().sort((a,b)=>a.name<b.name?-1:1).map(r=>`<option value="${r.id}"${AF.reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>
+      <label class="adm-onlyon"><input type="checkbox" id="af-auto"${AF.auto?' checked':''}> Refresh every minute</label></div>
+    ${d?`<div class="adm-kpis">${`<div class="adm-kpi"><b>${stN(d.online)}</b><span><span class="adm-on" aria-hidden="true"></span> playing now</span></div>`}<div class="adm-kpi"><b>${stN(d.total)}</b><span>events in ${esc((AF_SPANS.find(s=>s[0]===d.span)||[])[1]||'').toLowerCase()}</span></div>${['found','war','dip','board'].map(g=>`<div class="adm-kpi"><b>${stN(c[g]||0)}</b><span>${esc(AF_GROUPS.find(x=>x[0]===g)[1].toLowerCase())}</span></div>`).join('')}</div>`:''}
+    <div class="adin-chips" role="group" aria-label="Show only">${AF_GROUPS.map(([g,l])=>`<button type="button" class="btn ghost small" data-act="af-group" data-v="${g}" aria-pressed="${on(g)}">${esc(l)}${d?` <span class="chip">${stN(c[g]||0)}</span>`:''}</button>`).join('')}${AF.groups.length?'<button type="button" class="linkish" data-act="af-group" data-v="">Show everything</button>':''}</div>
+    ${AF.err?`<p class="err" role="alert">${esc(AF.err)} <button type="button" class="linkish" data-act="af-refresh">Try again</button></p>`:''}
+    ${d?afList(d.events,'Nothing happened in this time'+(AF.reg?' in '+esc(regName(AF.reg)):'')+(AF.groups.length?' of these kinds':'')+'.')+(d.events.length>=400?'<p class="hint">The 400 latest events. Choose a shorter time or fewer kinds to see the rest.</p>':''):'<p class="hint" role="status">Reading the feed…</p>'}`);
+}
+document.addEventListener('change',e=>{const t=e.target;if(!S.isOwner||S.view!=='admin-feed')return;
+  if(t.id==='af-span'){AF.span=t.value;AF.d=null;afLoad(false);}
+  if(t.id==='af-reg'){AF.reg=t.value;afLoad(false);}
+  if(t.id==='af-auto'){AF.auto=t.checked;afTick();render();}});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='af-refresh'){afLoad(true);return;}
+  if(a==='af-group'){const g=el.dataset.v;AF.groups=!g?[]:AF.groups.includes(g)?AF.groups.filter(x=>x!==g):AF.groups.concat(g);afLoad(false);}});
+
+/* ── Watchlist & alerts ── */
+const AW={d:null,a:null,busy:false,err:'',kind:'',cfg:null,cfgMsg:'',cfgBusy:false,unseen:0,unseenAt:0,counting:false};
+const AW_KINDS=[['','All'],['reports','Reports'],['pop','Population'],['errors','Save errors'],['spike','Foundings'],['buy','Purchases'],['watch','Watched players']];
+const AW_CFG=[['reports','Reports against one player in 24 hours','times'],['popPct','Population growth in a day','per cent'],['popMin','…and at least','million'],['errors','Players with a save error in an hour','players'],['errPct','…and at least','per cent of those playing'],['spike','Foundings in an hour, against the week’s average','times'],['spikeMin','…and at least','nations']];
+async function awLoad(){
+  if(AW.busy)return;AW.busy=true;AW.err='';render();
+  try{const [d,a]=await Promise.all([adminRequest({op:'watch',action:'list'}),adminRequest({op:'alerts'})]);AW.d=d;AW.a=a;AW.unseen=a.unseen;AW.unseenAt=Date.now();if(!AW.cfg)AW.cfg={...a.cfg};}
+  catch(e){AW.err=e.message||'The watchlist could not be loaded.';}
+  finally{AW.busy=false;if(S.view==='admin-watch')render();}
+}
+/* the menu's count of unseen alerts, at most once a minute while the portal is open */
+function awCount(){
+  if(AW.counting||Date.now()-AW.unseenAt<60000||!S.isOwner)return;AW.counting=true;
+  adminRequest({op:'alerts',action:'count'}).then(r=>{const ch=r.unseen!==AW.unseen;AW.unseen=r.unseen;AW.unseenAt=Date.now();if(ch&&ADM_VIEWS.includes(S.view))render();},()=>{AW.unseenAt=Date.now();}).finally(()=>{AW.counting=false;});
+}
+async function awSeen(ids){
+  try{const r=await adminRequest({op:'alerts',action:'seen',...(ids?{ids}:{})});AW.unseen=r.unseen;AW.unseenAt=Date.now();if(AW.a)for(const x of AW.a.alerts)if(!ids||ids.includes(x.id))x.seen=true;}
+  catch(e){AW.err=e.message||'The alerts could not be marked.';}
+  render();
+}
+async function awSaveCfg(){
+  if(AW.cfgBusy||!AW.cfg)return;AW.cfgBusy=true;AW.cfgMsg='';render();
+  try{const r=await adminRequest({op:'alerts',action:'cfg',cfg:AW.cfg});AW.cfg={...r.cfg};if(AW.a)AW.a.cfg=r.cfg;AW.cfgMsg='Saved. The next run of the alerts job uses these.';}
+  catch(e){AW.cfgMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  finally{AW.cfgBusy=false;render();}
+}
+const AW_LVL={alert:'🚨',warn:'⚠️',info:'ℹ️'};
+function awDiscord(run){
+  if(!run)return 'The alerts job has not run yet: it runs every 15 minutes from the main branch (GitHub Actions › Alerts).';
+  const s=String(run.discord||''),d=s==='off'?'Discord is not set up (add a STAFF_ALERT_WEBHOOK secret to the repository).':s==='paused'?'Posting to Discord is paused in the settings below.':s.startsWith('failed')?`The last post to Discord failed (${esc(s.slice(6).trim()||'no answer')}).`:'New alerts are posted to the staff Discord channel too.';
+  return `The alerts job last ran ${esc(rel(run.at))}. ${d}`;
+}
+function awAlerts(){
+  const A=AW.a;if(!A)return '';
+  const L=A.alerts.filter(x=>!AW.kind||x.k===AW.kind),un=A.alerts.filter(x=>!x.seen).length;
+  return `<p class="hint">${awDiscord(A.run)}</p>
+    <div class="adin-chips" role="group" aria-label="Show only">${AW_KINDS.map(([k,l])=>{const n=k?A.alerts.filter(x=>x.k===k&&!x.seen).length:un;return `<button type="button" class="btn ghost small" data-act="aw-kind" data-v="${k}" aria-pressed="${AW.kind===k}">${esc(l)}${n?` <span class="chip">${n}</span>`:''}</button>`;}).join('')}${un?'<button type="button" class="btn small" data-act="aw-seen-all">Mark all as seen</button>':''}</div>
+    ${L.length?`<ul class="adin-alerts">${L.map(x=>`<li class="adin-al lvl-${esc(x.lvl)}${x.seen?'':' new'}"><span class="adin-ic" aria-hidden="true">${AW_LVL[x.lvl]||'•'}</span><div><p class="adin-al-h"><b>${esc(x.ti)}</b>${x.seen?'':' <span class="chip">New</span>'}</p>${x.x?`<p class="hint">${esc(x.x)}</p>`:''}<p class="hint"><time title="${esc(new Date(x.t).toLocaleString())}">${esc(rel(x.t))}</time>${x.reg?' · '+esc(regName(x.reg)):''}</p></div>
+      <div class="row">${x.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.uid)}">Inspect player</button>`:''}${x.seen?'':`<button class="btn ghost small" data-act="aw-seen" data-id="${esc(x.id)}">Seen</button>`}</div></li>`).join('')}</ul>`:`<p class="hint">${A.alerts.length?'No alerts of this kind.':'No alerts in the last 30 days.'}</p>`}
+    <details class="adin-cfg"><summary>Alert settings</summary><p class="hint">When the alerts job files an alert. Changes apply from its next run.</p>
+      <div class="adin-cfg-g">${AW_CFG.map(([k,l,u])=>`<div class="field"><label for="aw-cfg-${k}">${esc(l)}</label><div class="row"><input class="input" type="number" id="aw-cfg-${k}" data-cfg="${k}" step="any" value="${esc(String(AW.cfg?AW.cfg[k]:''))}"><span class="hint">${esc(u)}</span></div></div>`).join('')}</div>
+      ${[['buys','An alert for every purchase'],['watch','Alerts about watched players'],['discord','Post new alerts to Discord']].map(([k,l])=>`<label class="adm-onlyon"><input type="checkbox" data-cfg="${k}"${AW.cfg&&AW.cfg[k]?' checked':''}> ${esc(l)}</label>`).join(' ')}
+      <div class="row" style="margin-top:12px"><button class="btn" data-act="aw-cfg-save"${AW.cfgBusy?' disabled':''}>${AW.cfgBusy?'Saving…':'Save settings'}</button><button class="btn ghost" data-act="aw-cfg-default">Back to the defaults</button></div>${AW.cfgMsg?`<p class="hint" aria-live="polite">${esc(AW.cfgMsg)}</p>`:''}</details>`;
+}
+function awDelta(a,b,fmt){if(a==null||b==null)return '';const d=a-b;if(!d)return '';return ` <span class="${d>0?'adin-up':'adin-down'}">${d>0?'+':'−'}${fmt(Math.abs(d))}</span>`;}
+function awWatch(){
+  const d=AW.d;if(!d)return '';
+  if(!d.rows.length)return '<p class="hint">No one is on the watchlist. Inspect a player (Player search, the Live feed or Statistics) and add them under Watchlist on their page.</p>';
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th>Region</th><th class="num">Population</th><th class="num">Cities</th><th class="num">Hexes</th><th class="num">Edicts decided</th><th class="num">Engagement</th><th class="num">Open reports</th><th>Last active</th><th>Why</th><th></th></tr></thead><tbody>
+    ${d.rows.map(r=>{const n=r.now,b=r.base||{};return `<tr><td>${r.on?'<span class="adm-on" title="Online now" role="img" aria-label="Online now"></span> ':''}${esc(n?n.name:b.name||r.uid.slice(0,8))}${!n?' <span class="hint">no nation now</span>':n&&b.name&&n.name!==b.name?` <span class="hint">was ${esc(b.name)}</span>`:''}</td>
+      <td>${n?esc(regName(n.reg)):'–'}${n&&b.reg&&n.reg!==b.reg?` <span class="hint">was ${esc(regName(b.reg))}</span>`:''}</td>
+      <td class="num">${n?esc(fmtPop(Number(n.pop)||0)):'–'}${n?awDelta(n.pop,b.pop,v=>fmtPop(v)):''}</td><td class="num">${n?stN(n.cities):'–'}${n?awDelta(n.cities,b.cities,stN):''}</td><td class="num">${n?stN(n.claims):'–'}${n?awDelta(n.claims,b.claims,stN):''}</td><td class="num">${n?stN(n.dec):'–'}${n?awDelta(n.dec,b.dec,stN):''}</td>
+      <td class="num">${admEng(r.eng)}</td><td class="num">${r.reports?`<b class="adin-down">${stN(r.reports)}</b>`:stN(r.reports)}</td><td>${r.on?'<b class="adm-on-t">Online now</b>':n&&n.t?esc(rel(n.t)):'–'}</td>
+      <td>${esc(r.why)}<br><span class="hint">since ${esc(fmtDate(r.at))}</span></td>
+      <td><div class="row"><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect</button>${n?(n.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(r.uid)}">View nation</button>`:obsVisitBtn(n.reg,r.uid)):''}<button class="btn ghost small" data-act="aw-unwatch" data-id="${esc(r.uid)}">Take off</button></div></td></tr>`;}).join('')}</tbody></table></div>
+    <p class="hint">The small figures are the change since each player was added.</p>
+    <h3 class="help-h3">What they did in the last 7 days</h3>${afList(d.recent,'Nothing from the watched players in the last 7 days.')}`;
+}
+function adminWatchView(){
+  if(!AW.d&&!AW.busy&&!AW.err)setTimeout(awLoad,0);
+  return admShell('admin-watch',`<p class="eyebrow">Admin portal</p><h1 class="display">Watchlist &amp; alerts</h1>
+    <p class="lede">The players the staff follow, and the alerts the alerts job files every 15 minutes: players reported again and again, nations growing too fast, save errors, a rush of foundings, purchases and what watched players do. <button type="button" class="linkish" data-act="aw-refresh"${AW.busy?' disabled':''}>${AW.busy?'Loading…':'Refresh'}</button></p>
+    ${AW.err?`<p class="err" role="alert">${esc(AW.err)} <button type="button" class="linkish" data-act="aw-refresh">Try again</button></p>`:''}
+    <section class="adst-sec"><h2 class="h2">Alerts${AW.unseen?` <span class="chip">${stN(AW.unseen)} new</span>`:''}</h2>${AW.a?awAlerts():AW.busy?'<p class="hint" role="status">Loading…</p>':''}</section>
+    <section class="adst-sec"><h2 class="h2">Watchlist${AW.d?` <span class="hint">· ${stN(AW.d.rows.length)}</span>`:''}</h2>${AW.d?awWatch():''}</section>`);
+}
+document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.cfg;if(!k||!AW.cfg||e.target.type!=='number')return;const v=Number(e.target.value);if(e.target.value!==''&&Number.isFinite(v))AW.cfg[k]=v;});
+document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.cfg;if(!k||!AW.cfg||e.target.type!=='checkbox')return;AW.cfg[k]=e.target.checked;});
+document.addEventListener('click',async e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='aw-refresh'){AW.d=null;AW.a=null;awLoad();return;}
+  if(a==='aw-kind'){AW.kind=el.dataset.v;render();return;}
+  if(a==='aw-seen'){awSeen([el.dataset.id]);return;}
+  if(a==='aw-seen-all'){awSeen(null);return;}
+  if(a==='aw-cfg-save'){awSaveCfg();return;}
+  if(a==='aw-cfg-default'){if(AW.a)AW.cfg={...AW.a.defaults};AW.cfgMsg='The defaults are filled in: save to use them.';render();return;}
+  if(a==='aw-unwatch'){const uid=el.dataset.id;el.disabled=true;try{await adminRequest({op:'watch',action:'remove',uid});if(AW.d)AW.d.rows=AW.d.rows.filter(r=>r.uid!==uid);if(ADMX.player&&ADMX.player.uid===uid)ADMX.player.watch=null;}catch(err){AW.err=err.message||'That did not work.';}render();}});
+
+ADM_VIEWS.push('admin-feed','admin-watch');
+shell=(f=>function(){if(S.view==='admin-feed'&&S.isOwner)return adminFeedView();if(S.view==='admin-watch'&&S.isOwner)return adminWatchView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){
+  if(v==='admin-watch'&&S.view!=='admin-watch'){AW.d=null;AW.a=null;AW.cfgMsg='';}
+  if(v!=='admin-feed')clearTimeout(AF.timer);
+  const r=f.apply(this,arguments);if(v==='admin-feed'&&AF.d)afLoad(true);return r;})(go);
 
 /* ───────── support tickets ─────────
    The Help page (and the founding page's help) opens a support ticket: src/shim.js shows the form and

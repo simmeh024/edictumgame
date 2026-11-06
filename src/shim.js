@@ -19,7 +19,8 @@
                             reads; with the others when the player loads their own nation.
      letters/<by>~<to>~<t>  {by, to, x, t, ts}: a letter from one player to another, which only those two read;
                             llimits/<uid> {l} paces them. The writer keeps their own copy in nationp.
-     summaries/<uid>        {reg, name, pop, t, e?}: the headline for the World page and region counts; e, with
+     summaries/<uid>        {reg, name, pop, t, e?, f?}: the headline for the World page and region counts (f, the
+                            founding time, for the admin portal's Live feed); e, with
                             a holiday after the save, is the time the nation counts as active until.
      space/<uid>            {reg, name, t, j:<JSON of sp, belt, mapc, flag, pretitle>}, only for nations
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
@@ -296,6 +297,8 @@
       if (ownSnap.exists ? ownSnap.data().j !== oj : oj !== '{}') b.set(ownRef, { j: oj, t: enc.updatedAt, ts: serverTime() });
       var sum = { reg: enc.reg, name: enc.name, pop: enc.pop, t: enc.updatedAt }, e = activeUntil(data, enc.updatedAt);
       if (e > sum.t) sum.e = e;
+      /* when the nation was founded, for the admin portal's Live feed and founding alerts (functions/feed.js) */
+      if (isObj(data) && typeof data.founded === 'number' && data.founded > 0 && data.founded <= sum.t + 60000) sum.f = Math.floor(data.founded);
       b.set(A.fs.doc('summaries/' + uid), sum);
       var raceFrom = A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT;
       /* only the entries the permit lists as new (sk): the rules take no other stamp */
