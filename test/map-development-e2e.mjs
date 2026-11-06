@@ -136,8 +136,9 @@ const tapped=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
   return {a,first,after:G.S.mapClaim&&G.S.mapClaim.c,hw};});
 check('a double tap keeps the hex its first tap chose',tapped.first===tapped.a&&tapped.after===tapped.a,JSON.stringify(tapped));
 await K.setViewportSize({width:1280,height:900});await nav(K,'nation');await nav(K,'map');
-/* a new nation holds more credits than most blocks have free hexes: two are left after claiming single hexes */
-for(let i=0;i<10;i++){
+/* a new nation holds more credits than most blocks have free hexes (more again with a rank's credits): two are left
+   after claiming single hexes */
+for(let i=0;i<40;i++){
   const st=await K.evaluate(()=>{const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<=2)return {cr};
     for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b),c=plan.find(x=>fr.has(x));if(plan.length>1&&c!=null){G.S.mapClaim={b,c};G.render();return {cr,c};}}return {cr,none:1};});
   if(st.cr<=2||st.none)break;
