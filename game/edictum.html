@@ -8303,7 +8303,7 @@ animalTestingBan:['Cosmetic Testing Ban','Cosmetics may not be tested on animals
 moonBase:['Lunar Base','The nation runs a permanent base on the Moon.'],
 fortifications:['Border Fortifications','Bunkers and earthworks line the frontier. Your hexes are 15% harder to take.'],
 coastalBatteries:['Coastal Batteries','Guns cover every beach. Your coastal hexes are 25% harder to take.'],
-navalFleet:['Blue-Water Navy','A fleet escorts every crossing. Your troops cross the sea without losing strength.'],
+navalFleet:['Blue-Water Navy','A fleet escorts every crossing. Your troops cross the sea without losing strength, and your harbours reach six hexes across water to claim land.'],
 mountainTroops:['Mountain Troops','Specialist units fight in high country. Hills and mountains give defenders only half their usual advantage against you.'],
 militaryAcademy:['Military Academy','Officers are trained to a high standard. Your army is 10% stronger.'],
 drones:['Combat Drones','Unmanned aircraft support every assault. Your attacks are 10% stronger.'],
@@ -18473,7 +18473,7 @@ function hexPanel(T,cell){
   const prob=cityProblem(cell,T);
   if(!S.cityName||S.citySite!==cell){S.citySite=cell;S.cityName=cityNameIdea(cell);}
   const st=stockNow(n,Date.now()),miss=lacking(CITY_COST,st);
-  return headEl+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}
+  return headEl+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}
     ${prob?`<p class="hint" style="margin-top:12px">${esc(prob)}</p><div class="row" style="margin-top:12px">${back}</div>`:`<form id="mc-form" novalidate style="margin-top:14px"><label class="lbl" for="mc-name">Found a city here</label><div class="name-row" style="margin-top:6px"><input class="input" id="mc-name" data-bind="ctname" value="${esc(S.cityName)}" maxlength="30" autocomplete="off"><button class="btn" type="submit"${miss.length?' disabled':''}>Found</button></div><p class="hint" style="margin-top:6px">${miss.length?'You need '+esc(list(miss))+' more.':'Costs '+costText(CITY_COST)+'.'}</p></form><div class="row" style="margin-top:12px">${back}</div>`}`;
 }
 /* map markers: drawn after national labels, before capitals */
@@ -18894,7 +18894,7 @@ function nextCreditAt(n){const p=popNow(n),h=popForHexes(budgetOf(p)+1),m=mileOf
 const freeCell=(T,c)=>c>=0&&MAP.T[c]>=2&&T.owner[c]===-1&&!T.isCap[c]&&claimOk(T,c);
 let landMemo={T:null,me:'',fr:null,bs:null};
 function claimFrontier(T){
-  const me=myId(),hk=mpHarbours(T).map(c=>c.c).join(',');if(landMemo.T===T&&landMemo.me===me&&landMemo.hk===hk&&landMemo.fr)return landMemo.fr;
+  const me=myId(),hk=mpHarbours(T).map(c=>c.c).join(',')+'/'+mpHarbourReach(S.nation);if(landMemo.T===T&&landMemo.me===me&&landMemo.hk===hk&&landMemo.fr)return landMemo.fr;
   const mi=T.byId[me],fr=new Set(),bs=new Set();
   if(mi!==undefined)for(let c=0;c<MAP.N;c++){if(T.owner[c]!==mi)continue;for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb>=0&&freeCell(T,nb)){fr.add(nb);bs.add(BLOCKS.of[nb]);}}}
   for(const c of mpHarbourFrontier(T).keys()){fr.add(c);bs.add(BLOCKS.of[c]);}
@@ -18975,7 +18975,7 @@ function claimPanel(T){
 function landBox(n){
   const cr=landCredits(n);
   return `<div class="lc-box${cr?' has':''}"><div class="lc-top"><span class="lbl">Land credits</span><span class="lc-v">${cr}</span></div>
-    <p>${cr?`Choose where ${esc(n.name)} grows: select any highlighted block next to your borders or an island shore within harbour reach.`:(()=>{const np=nextCreditPop(n);return np?`Your next land credit arrives at <b>${fmtPop(np)}</b> people.`:'You have used every land credit your population allows.';})()}${landDeficitNote(n)}</p>
+    <p>${cr?`Choose where ${esc(n.name)} grows: select any highlighted block next to your borders, or a dotted shore your harbours reach across the water.`:(()=>{const np=nextCreditPop(n);return np?`Your next land credit arrives at <b>${fmtPop(np)}</b> people.`:'You have used every land credit your population allows.';})()}${landDeficitNote(n)}</p>
     ${cr?`<div class="row"><button class="btn small-btn" data-act="lc-auto">Spend ${cr===1?'it':'them'} for me</button></div>`:''}
     <label class="tog"><input type="checkbox" data-act="lc-autotoggle"${n.autoLand?' checked':''}> Spend new credits automatically</label>${landExtras(n)}</div>`;
 }
@@ -19873,7 +19873,7 @@ function logLine(l,n,id){
     case 'mile':return `The population passed ${l.a}${l.b?`, and ${n.name} became a ${l.b}`:''}.`;
     case 'rec':return l.a==='1'?`A hex of new land off ${l.fx} was reclaimed from the sea.`:`${l.a} hexes of new land off ${l.fx} were reclaimed from the sea.`;
     case 'disc':return `The nation’s explorers discovered ${siteName(+l.a)}.`;case 'incident':return `An expedition strayed onto ${poss(tg())} land.`;
-    case 'cede':return `A border hex on ${l.fx} was ceded to ${tg()}.`;case 'take':return `A border hex on ${l.fx} was annexed from ${tg()}.`;case 'shared':return `${n.name} raised a matter with ${tg()}.`;
+    case 'cede':return `A border hex on ${l.fx} was ceded to ${tg()}.`;case 'lswap':return `A hex on ${l.a} was given up for free land on ${l.fx}.`;case 'take':return `A border hex on ${l.fx} was annexed from ${tg()}.`;case 'shared':return `${n.name} raised a matter with ${tg()}.`;
     case 'sym':return `${n.name} can now choose ${symWhat(String(l.a||'').split(',').filter(k=>SYM_AT[k]),n)}.`;
     case 'cur':return `${n.name} renamed its national currency from the ${l.a} to the ${l.b}.`;case 'fxm':return cuMileText(id,l.a,l.b,l.fx||cuOf(n).nm,REG.name);
     default:return '';
@@ -21238,12 +21238,14 @@ function releaseClaims(cells){
 function landHelp(n){
   const coast=geo(n,'coast'),navy=!!pol(n).navalFleet,rc=(n.rec||[]).length;
   return `<details class="lc-list lc-help" data-keep="lhOpen"${S.lhOpen?' open':''}><summary>More land, reclaimed land and a navy</summary>
-    <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or an island shore reached by a completed coastal Harbour within four hexes.</p>
+    <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or a free shore that a completed coastal Harbour reaches across up to ${mpHarbourReach(n)} hexes of water: another island, or the far side of a bay on your own coast. Turn on <b>Harbour reach</b> in the map key to see how far your harbours reach.</p>
+    <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
     <p><b>Reclaimed land</b> comes from decisions, not from a button or a building. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
-    <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, and your troops cross the sea without losing strength. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
+    <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, your troops cross the sea without losing strength, and your harbours reach ${MP_NAVY_REACH} hexes across water instead of ${MP_SEA_REACH} to claim land. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
   </details>`;
 }
 function landExtras(n){const T=territory();return claimList(T,n)+releaseBox(T)+landHelp(n);}
+
 function navyReach(n){return pol(n).navalFleet?'Claim land toward the empty corners of the map to bring more of it within reach.':'Claim land toward the empty corners of the map, or get a navy: the Blue-Water Navy law, which comes from decisions about a fleet offered to coastal nations, lets your explorers travel 15 hexes further.';}
 
 /* ───────── migration routes: a key with numbers, and the figures on hover ───────── */
@@ -21536,7 +21538,7 @@ function helpBody(n){
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
     land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} and every city you found earns ${CITY_CREDITS}. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
-      <p>On the map, select a highlighted block next to your border or a marked island shore within harbour reach. A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 45 hexes of your capital and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
+      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 45 hexes of your capital and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>There is only one way to win land from the sea: some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
@@ -31418,7 +31420,7 @@ function inspStatus(T,cell){
   if(T.isCap[cell])return '';
   const ban=claimBanNote(T,cell,n);if(ban)return ban;
   const adj=claimFrontier(T).has(cell),cr=landCredits(n);
-  if(!adj)return `<p class="hint">Free land, but not connected to your territory or reachable across water from a completed coastal Harbour within four hexes.</p>`;
+  if(!adj)return `<p class="hint">${esc(claimWhy(T,cell))}</p>`;
   if(cr<1){const np=nextCreditPop(n);return `<p class="hint">Free and reachable. You have no land credits to spend${np?`: the next arrives at ${fmtPop(np)} people`:''}.${esc(landDeficitNote(n))}</p>`;}
   const plan=blockPlan(T,BLOCKS.of[cell],cell).slice(0,cr);
   return `<div class="row" style="margin-top:14px"><button class="btn" data-act="insp-one" data-c="${cell}">Claim this hex (1 credit)</button>${plan.length>1?`<button class="btn ghost" data-act="insp-block" data-c="${cell}">Claim ${plan.length} hexes of this block (${plan.length} credits)</button>`:''}</div><p class="hint" style="margin-top:8px">You have ${cr} land ${cr===1?'credit':'credits'}.</p>`;
@@ -35442,6 +35444,52 @@ function prvNorm(d,n){
 }
 NORM_HOOKS.push((n,d)=>{if(n.npc){delete n.prov;return;}const v=prvNorm(d&&d.prov,n);if(v)n.prov=v;else delete n.prov;});
 
+/* ── sea links: a short crossing counts as touching ──
+   Two hexes of one nation's land touch across a strait of at most SEA_LINK hexes of water, or by a finished
+   shipping connection between two of its cities. Divisions use it: a hex moves across a strait, two divisions
+   on either shore merge, and a division over a strait is still one piece. Islands (patches of a nation's land
+   joined edge to edge) are kept beside it: a whole island may belong to any division. */
+const SEA_LINK=2,SEA_MEMO=new WeakMap();
+function seaShips(T,i,now){
+  const x=T.list[i],out=[];if(!x||x.npc||!Array.isArray(x.n.infra))return out;
+  const hb=c=>cityList(x.n).some(ct=>ct.c===c&&(ct.b||[]).some(b=>b.k==='harbour'&&b.d<=now));
+  for(const r of x.n.infra)if(r&&r.k==='sea'&&r.reg===REG.id&&r.d<=now&&T.owner[r.a]===i&&T.owner[r.b]===i&&MAP.T[r.a]>=2&&MAP.T[r.b]>=2&&hb(r.a))out.push([r.a,r.b]);
+  return out;
+}
+function seaMemo(T,i){let m=SEA_MEMO.get(T);if(!m)SEA_MEMO.set(T,m=new Map());let e=m.get(i);if(!e)m.set(i,e={});return e;}
+/* cell → Set of the nation's own land hexes it touches across water */
+function seaLinks(T,i){
+  const ships=seaShips(T,i,Date.now()),k=RECL.sig+'|'+ships.join(';'),e=seaMemo(T,i);if(e.lk===k&&e.links)return e.links;
+  const m=new Map(),add=(a,b)=>{if(a===b)return;let s=m.get(a);if(!s)m.set(a,s=new Set());s.add(b);};
+  for(let c=0;c<MAP.N;c++){
+    if(T.owner[c]!==i||MAP.T[c]<2)continue;let wet=false;for(let d=0;d<6&&!wet;d++){const v=MAP.nbr[c*6+d];if(v>=0&&MAP.T[v]<2)wet=true;}if(!wet)continue;
+    const seen=new Set([c]);let fr=[c];
+    for(let step=0;step<SEA_LINK&&fr.length;step++){
+      const nx=[];for(const a of fr)for(let d=0;d<6;d++){const v=MAP.nbr[a*6+d];if(v<0||seen.has(v)||MAP.T[v]>=2)continue;seen.add(v);nx.push(v);}fr=nx;
+      for(const w of fr)for(let d=0;d<6;d++){const v=MAP.nbr[w*6+d];if(v>=0&&v!==c&&MAP.T[v]>=2&&T.owner[v]===i){add(c,v);add(v,c);}}
+    }
+  }
+  for(const [a,b] of ships){add(a,b);add(b,a);}
+  e.lk=k;e.links=m;return m;
+}
+/* the nation's islands: id (cell → island number), size (island number → hexes) and main (the capital's island) */
+function seaIsles(T,i){
+  const e=seaMemo(T,i);if(e.isles)return e.isles;
+  const id=landPatches(T,i),size=new Map();for(const v of id.values())size.set(v,(size.get(v)||0)+1);
+  const cap=T.list[i]?T.list[i].cap:-1;return e.isles={id,size,main:id.has(cap)?id.get(cap):-1};
+}
+/* does your nation hold land apart from the capital's island? */
+function prvHasIsles(T){const i=T.byId[myId()];return i!==undefined&&seaIsles(T,i).size.size>1;}
+/* an island of a single hex, which may be a division on its own */
+function prvIslet(T,i,c){const I=seaIsles(T,i),k=I.id.get(c);return k!==undefined&&I.size.get(k)===1;}
+/* does hex c touch any of these hexes, edge to edge or across a strait? */
+function prvTouch(T,i,c,cells){
+  const set=new Set(cells);for(let d=0;d<6;d++){const v=MAP.nbr[c*6+d];if(v>=0&&set.has(v))return true;}
+  const ls=seaLinks(T,i).get(c);if(ls)for(const v of ls)if(set.has(v))return true;return false;
+}
+/* can two divisions become one without leaving it in more pieces than either had? */
+function prvCanJoin(T,i,a,b){return prvPieces(a.cells.concat(b.cells),T,i)<=Math.max(1,prvPieces(a.cells,T,i),prvPieces(b.cells,T,i));}
+
 /* ── which hex belongs where ── */
 /* a short key for the parts of a record that move borders (worked out every time: a record being edited changes in place) */
 function prvSigOf(P){
@@ -35479,6 +35527,8 @@ function prvBuild(T,i,P,cells,pv,base){
   const seg=[],adj=prov.map(()=>new Set());
   for(const c of cells){const a=pv[c],x=MAP.cx[c],y=MAP.cy[c];for(let d=0;d<3;d++){const nb=MAP.nbr[c*6+d];if(nb<0||T.owner[nb]!==i)continue;const b=pv[nb];if(b===a||b<0)continue;const k=(d+1)%6;
     seg.push(x+HCX[d]*HEX_R,y+HCY[d]*HEX_R,x+HCX[k]*HEX_R,y+HCY[k]*HEX_R);adj[a-base].add(b-base);adj[b-base].add(a-base);}}
+  /* divisions facing each other across a strait are neighbours too (no border line, but never the same tint) */
+  try{for(const [c,ls] of seaLinks(T,i)){const a=pv[c];if(a<base||a>=base+prov.length)continue;for(const v of ls){const b=pv[v];if(b<base||b>=base+prov.length||b===a)continue;adj[a-base].add(b-base);adj[b-base].add(a-base);}}}catch(e){}
   for(const p of prov){
     p.adj=[...adj[p.gi-base]].sort((a,b)=>a-b);p.cap=p.cells.includes(cap);
     let sx=0,sy=0;for(const c of p.cells){sx+=MAP.cx[c];sy+=MAP.cy[c];}const n=p.cells.length;
@@ -35592,7 +35642,19 @@ function prvFa(n){const p=n&&!n.npc&&n.prov;return p&&p.fa?p.fa:null;}
 
 /* ── a division's hexes, and how many pieces a set of hexes falls into ── */
 function prvOfCell(N,c){if(!N||!(c>=0))return null;const g=N.pv[c]-N.base;return g>=0&&g<N.prov.length?N.prov[g]:null;}
-function prvPieces(cells){const set=new Set(cells),seen=new Set();let k=0;for(const c of cells){if(seen.has(c))continue;k++;seen.add(c);const q=[c];for(let h=0;h<q.length;h++){const a=q[h];for(let d=0;d<6;d++){const nb=MAP.nbr[a*6+d];if(nb>=0&&set.has(nb)&&!seen.has(nb)){seen.add(nb);q.push(nb);}}}}return k;}
+/* hexes join edge to edge or across a strait (sea links). With a nation (T, i), a piece made only of whole islands of
+   that nation is not counted: an island can belong to any division, so a division is one piece and any whole islands */
+function prvPieces(cells,T,i){
+  if(!cells.length)return 0;
+  const set=new Set(cells),seen=new Set(),own=T&&i!==undefined,L=own?seaLinks(T,i):null,I=own?seaIsles(T,i):null;let k=0,whole=0;
+  for(const c of cells){if(seen.has(c))continue;k++;seen.add(c);const q=[c];
+    for(let h=0;h<q.length;h++){const a=q[h];
+      for(let d=0;d<6;d++){const nb=MAP.nbr[a*6+d];if(nb>=0&&set.has(nb)&&!seen.has(nb)){seen.add(nb);q.push(nb);}}
+      const ls=L&&L.get(a);if(ls)for(const nb of ls)if(set.has(nb)&&!seen.has(nb)){seen.add(nb);q.push(nb);}}
+    if(I){const ids=new Set();for(const a of q)ids.add(I.id.get(a));let tot=0;for(const v of ids)tot+=v===undefined?Infinity:I.size.get(v);if(tot===q.length)whole++;}
+  }
+  return own?Math.max(1,k-whole):k;
+}
 
 /* ── names in the flavour of the nation's language (the same families as its citizens' names) ── */
 const PRV_NM={en:['%shire','%land','%dale','North %','%wold','Upper %','%mere','%march'],nor:['%land','%mark','%dal','%fjord','%sund','%vik'],sla:['%ovo','%sk','%ava','%ograd','%ia','%insk'],
@@ -35639,13 +35701,14 @@ function prvCands(n,q,role){return [0,1,2].map(j=>prvGen(n,q.id,role+':'+((q.gq|
 function prvNew(n,P,seat,nm,now){const id=++P.q,g=prvGen(n,id,'g0',true);g.t=now;return {id,nm,s:seat,g};}
 
 /* ── checks ── */
-/* every division that holds land keeps at least two hexes (one already smaller, after a war, may stay as it is but not shrink) */
+/* every division that holds land keeps at least two hexes (one already smaller, after a war, may stay as it is but not
+   shrink), unless it is an island of one hex */
 function prvCheck(T,i,P,P0){
   const N=prvNatWith(T,i,P),O=P0?prvNatWith(T,i,P0):null,t1=prvLow(prvT1({prov:P}));
   for(const p of N.prov){if(p.dorm)continue;const k=p.cells.length,o=O&&O.byId.get(p.id),ko=o&&!o.dorm?o.cells.length:Infinity;
-    if(k<PRV_MIN&&k<ko)return k?`${p.nm} would hold only one hex. Each ${t1} needs at least ${PRV_MIN}.`:`${p.nm} would hold no land at all.`;
-    /* and none falls into more pieces than it had (hexes moved by hand can cut a new border) */
-    const pc=prvPieces(p.cells),po=o&&!o.dorm?prvPieces(o.cells):1;if(pc>Math.max(1,po))return `${p.nm} would fall into ${pc} pieces. Each ${t1} stays in one piece.`;}
+    if(k<PRV_MIN&&k<ko&&!(k===1&&prvIslet(T,i,p.cells[0])))return k?`${p.nm} would hold only one hex. Each ${t1} needs at least ${PRV_MIN}, unless it is an island of one hex.`:`${p.nm} would hold no land at all.`;
+    /* and none falls into more pieces than it had (hexes moved by hand can cut a new border); a strait does not cut, and whole islands are free */
+    const pc=prvPieces(p.cells,T,i),po=o&&!o.dorm?prvPieces(o.cells,T,i):1;if(pc>Math.max(1,po))return `${p.nm} would fall into ${pc} pieces. Each ${t1} stays in one piece, apart from whole islands.`;}
   return '';
 }
 /* hand-moved hexes that are no longer held, or that would go there anyway, are forgotten */
@@ -35692,11 +35755,31 @@ function prvMoveHex(c,toId){
     if(!to||to.dorm)return `Choose the ${t1} to move hexes into.`;
     if(from===to)return `That hex is already in ${to.nm}.`;
     if(from.src.includes(c))return `That hex is the seat of ${from.nm}. Move the seat first.`;
-    if(!to.cells.some(q=>hexDist(q,c)===1))return `That hex does not touch ${to.nm}. Each ${t1} stays in one piece, so move hexes across a shared border.`;
-    if(from.cells.length-1<PRV_MIN)return `${from.nm} would be left with one hex. Merge the two instead.`;
-    if(prvPieces(from.cells.filter(q=>q!==c))>prvPieces(from.cells))return `Moving that hex would cut ${from.nm} in two.`;
-    P.x[c]=toId;return '';
+    if(!prvTouch(T,i,c,to.cells)){const I=seaIsles(T,i),k=I.id.get(c);return `That hex does not touch ${to.nm}, by land or across a strait of up to ${SEA_LINK} sea hexes. Each ${t1} stays in one piece, so move hexes across a shared border${k!==I.main?', or use Move islands to move this whole island':''}.`;}
+    const rest=from.cells.filter(q=>q!==c);
+    if(rest.length<PRV_MIN&&!(rest.length===1&&prvIslet(T,i,rest[0])))return `${from.nm} would be left with one hex. Merge the two instead.`;
+    if(prvPieces(rest,T,i)>prvPieces(from.cells,T,i))return `Moving that hex would cut ${from.nm} in two.`;
+    P.x[c]=toId;return prvCheck(T,i,P,S.nation.prov);
   },'');
+}
+/* a whole island (a patch of your land apart from the capital's) into one division, in one go */
+function prvMoveIsle(c,toId){
+  let k0=0,nm='';
+  const ok=prvEdit((n,P,T,i)=>{
+    const N=prvNatWith(T,i,P),to=N.byId.get(toId),t1=prvLow(prvT1(n)),I=seaIsles(T,i),k=I.id.get(c);
+    if(T.owner[c]!==i||k===undefined)return 'That hex is not yours.';
+    if(!to||to.dorm)return `Choose the ${t1} to move the island into.`;
+    if(k===I.main)return `That hex is on the same land as your capital, not an island. Move single hexes there instead.`;
+    const isle=[];for(const [x,v] of I.id)if(v===k)isle.push(x);
+    if(isle.every(x=>prvOfCell(N,x)===to))return `That island is already all in ${to.nm}.`;
+    const seat=N.prov.find(p=>p!==to&&!p.dorm&&p.src.some(s=>isle.includes(s)));
+    if(seat)return `The seat of ${seat.nm} stands on that island. Merge ${seat.nm} into ${to.nm} instead, or move its seat first.`;
+    if(Object.keys(P.x||{}).length+isle.length>PRV_MAXX)return `Too many hexes have been moved by hand already. Move a seat or merge two ${prvLow(prvT2(n))} instead.`;
+    if(!P.x)P.x={};for(const x of isle)P.x[x]=toId;k0=isle.length;nm=to.nm;
+    return prvCheck(T,i,P,S.nation.prov);
+  },'');
+  if(ok){PRV.ui.msg=`The whole island, ${k0===1?'one hex':k0+' hexes'}, is now part of ${nm}.`;render();}
+  return ok;
 }
 function prvAdd(c){
   let nm='';
@@ -35725,7 +35808,7 @@ function prvMerge(aId,bId){
   prvEdit((n,P,T,i)=>{
     const N=prvNatWith(T,i,P),a=N.byId.get(aId),b=N.byId.get(bId),A=P.l.find(v=>v.id===aId);
     if(!a||!b||a===b||!A)return 'Choose two divisions to merge.';
-    if(!b.dorm&&!a.adj.some(j=>N.prov[j]===b))return `${a.nm} and ${b.nm} do not touch, and a ${prvLow(prvT1(n))} must stay in one piece.`;
+    if(!b.dorm&&!prvCanJoin(T,i,a,b))return `${a.nm} and ${b.nm} do not touch, by land or across a strait of up to ${SEA_LINK} sea hexes, and a ${prvLow(prvT1(n))} must stay in one piece.`;
     const m=(A.m||[]).concat(b.dorm?[]:b.src.map((c,j)=>[c,b.srcK[j]]));if(m.length>PRV_MAXM)return `${a.nm} has taken in too many others. Move hexes by hand instead.`;
     if(m.length)A.m=m;for(const k of Object.keys(P.x))if(P.x[k]===bId)P.x[k]=aId;
     P.l=P.l.filter(v=>v.id!==bId);n.log.unshift({t:Date.now(),k:'provmrg',a:a.nm,b:b.nm});n.log=n.log.slice(0,60);return '';
@@ -35868,7 +35951,7 @@ function prvSide(n,N,p,now,T){
   const council=PRV_COUNCIL.map(([r,d],k)=>{const m=(q.c||[])[k],open=pick===String(k);
     return `<li><div class="prv-cr"><span><b>${r}</b> <span class="hint">${d}</span></span><span>${m?`${esc(m.nm)} ${cvSkillMeter(m.sk)}`:'<span class="muted">Empty</span>'}</span></div>
       <div class="row prv-crb"><button type="button" class="linkish small" id="prv-pk-${k}" data-act="prv-pick" data-r="${k}" aria-expanded="${open}">${open?'Close':m?'Replace…':'Appoint…'}</button>${m?`<button type="button" class="linkish small" id="prv-dc-${k}" data-act="prv-dismiss-c" data-id="${id}" data-r="${k}">Dismiss</button>`:''}</div>${open?cands(String(k)):''}</li>`;}).join('');
-  const nbs=p.adj.map(j=>N.prov[j]).filter(x=>x&&!x.dorm).concat(N.prov.filter(x=>x.dorm&&x!==p));
+  const nbs=N.prov.filter(x=>x!==p&&!x.dorm&&prvCanJoin(T,N.i,p,x)).concat(N.prov.filter(x=>x.dorm&&x!==p));
   return `<section class="prv-side" id="prv-side" aria-labelledby="prv-side-h" style="--pc:${esc(prvTintOf(T,p))}">
     <div class="prv-sh">${prvArt(n,q,'',' prv-big')}<div><p class="eyebrow">${p.cap?'Capital '+esc(low1):esc(t1)} · ${esc(cpFmt(p.pop))}</p><h2 class="prv-sn" id="prv-side-h" tabindex="-1">${esc(p.nm)}</h2></div></div>
     <form id="prv-ren-form" class="name-row prv-ren" data-id="${id}" novalidate><label class="u-sr" for="prv-ren">Name of the ${esc(low1)}</label><input class="input" id="prv-ren" maxlength="32" value="${esc(q.nm)}" autocomplete="off"><button class="btn ghost" type="submit">Rename</button></form>
@@ -35920,7 +36003,7 @@ function prvView(now){
   if(PRV.ui.sel==null||!N.byId.get(PRV.ui.sel))PRV.ui.sel=(N.capP||N.prov[0]).id;
   const p=N.byId.get(PRV.ui.sel),live=N.prov.filter(x=>!x.dorm),big=live.slice().sort((a,b)=>b.pop-a.pop)[0],dis=live.filter(x=>x.q.g&&!x.q.g.ac&&prvLoy(n,x,N,now)<25);
   const ed=PRV.ui.edit,tool=PRV.ui.tool,fx=prvFxWords(n.prov.fa||{});
-  const toolHint={move:`Click a hex across the border of ${esc(p.nm)} to move it in. Each ${esc(t1)} must stay in one piece and keep at least ${PRV_MIN} hexes.`,add:`Click a hex of your land to make it the seat of a new ${esc(t1)}. It takes the hexes nearest to it.`,seat:`Click a hex of ${esc(p.nm)} to move its seat there. Its borders follow.`}[tool];
+  const toolHint={move:`Click a hex across the border of ${esc(p.nm)}, or across a strait of up to ${SEA_LINK} sea hexes, to move it in. Each ${esc(t1)} must stay in one piece and keep at least ${PRV_MIN} hexes.`,isle:`Click any hex of an island to move the whole island into ${esc(p.nm)}, however far across the sea it lies.`,add:`Click a hex of your land to make it the seat of a new ${esc(t1)}. It takes the hexes nearest to it.`,seat:`Click a hex of ${esc(p.nm)} to move its seat there. Its borders follow.`}[tool];
   const rows=live.slice().sort((a,b)=>b.pop-a.pop);
   return head(`${esc(n.name)} is divided into ${live.length===1?'one '+esc(t1):live.length+' '+esc(t2)}. Each hex you hold belongs to the ${esc(t1)} whose seat is nearest, unless you move it; new land joins one by itself. Governors and councils change the census a little, in proportion to how many people live there.`)+`
   <div class="figs prv-figs"><div class="fig"><span class="lbl">${esc(T2)}</span><span class="fig-v">${live.length} <span class="prv-of">of ${N.max}</span></span><span class="fig-s">one for every ${PRV_PER} hexes you hold (${N.held})</span></div>
@@ -35928,7 +36011,7 @@ function prvView(now){
     <div class="fig"><span class="lbl">Together they do</span><span class="fig-v prv-fv prv-fxs">${fx.length?esc(fx.slice(0,2).join(', ')):'Nothing yet'}</span><span class="fig-s">${fx.length>2?esc(fx.slice(2).join(', ')):dis.length?`${dis.length} disloyal governor${dis.length===1?'':'s'}`:'no figure moves more than 2 points'}</span></div></div>
   <section class="prv-lay"><div class="prv-mapc">
     <div class="prv-bar"><button type="button" class="btn${ed?'':' ghost'} small-btn" id="prv-edit" data-act="prv-edit" aria-pressed="${ed}">${ed?'Done editing':'Edit borders'}</button>
-      ${ed?`<div class="seg" role="group" aria-label="Editing tool">${[['move','Move hexes'],['add','New '+t1],['seat','Move seat']].map(([k,l])=>`<button type="button" class="seg-b${tool===k?' on':''}" id="prv-tool-${k}" data-act="prv-tool" data-v="${k}" aria-pressed="${tool===k}">${esc(l)}</button>`).join('')}</div>`:''}
+      ${ed?`<div class="seg" role="group" aria-label="Editing tool">${[['move','Move hexes'],...(prvHasIsles(T)?[['isle','Move islands']]:[]),['add','New '+t1],['seat','Move seat']].map(([k,l])=>`<button type="button" class="seg-b${tool===k?' on':''}" id="prv-tool-${k}" data-act="prv-tool" data-v="${k}" aria-pressed="${tool===k}">${esc(l)}</button>`).join('')}</div>`:''}
       <label class="prv-selw"><span class="u-sr">Selected ${esc(t1)}</span><select class="input" id="prv-selp">${N.prov.map(x=>`<option value="${x.id}"${x.id===p.id?' selected':''}>${esc(x.nm)}${x.dorm?' (dormant)':''}</option>`).join('')}</select></label></div>
     ${mapBox('prov',ed?' pick':'').replace('<canvas class="map-cv" data-map="prov"',`<canvas class="map-cv" id="prv-cv" tabindex="0" data-map="prov" aria-describedby="prv-kbd"`).replace(/aria-label="Map of [^"]*"/,`aria-label="Map of ${esc(n.name)} by ${esc(t1)}"`)}
     <p class="hint prv-kh" id="prv-kbd">${ed?toolHint:`Click a hex to select its ${esc(t1)}.`} With the map focused, arrow keys move a cursor and Enter acts on its hex.</p>
@@ -35939,7 +36022,8 @@ function prvView(now){
     <tbody>${rows.map(x=>{const lo=x.q.g&&!x.q.g.ac?Math.round(prvLoy(n,x,N,now)):null;return `<tr${x.id===p.id?' class="me"':''}><td><span class="nm"><button type="button" class="linkish" data-act="prv-sel" data-id="${x.id}">${esc(x.nm)}</button>${x.cap?'<span class="chip">Capital</span>':''}</span></td><td class="c-pop">${esc(cpFmt(x.pop))}</td><td class="c-pop">${prvPct(x.share)}</td><td class="c-pop">${x.cells.length}</td><td>${x.cities.length}</td><td>${x.q.g?esc(x.q.g.nm)+(x.q.g.ac?' (acting)':''):'None'}</td><td>${lo==null?'':lo+' · '+prvLoyWord(lo)}</td><td>${PRV_AUT[x.q.a||0][0]}</td></tr>`;}).join('')}</tbody></table></div>
     <p class="hint prv-sum">${live.length} ${esc(live.length===1?t1:t2)}, ${esc(cpFmt(N.pop))} people in all: each ${esc(t1)} counts the people of its cities and its share of the countryside, by hexes and what they yield, so together they add up to the nation.</p></section>
   <section class="section prv-how"><h2 class="h2">How ${esc(t2)} work</h2>
-    <p><b>Borders.</b> A ${esc(t1)} holds the hexes nearest its seat through your own land. Move single hexes across a border, found a new ${esc(t1)} on any hex, move a seat, or merge two that touch. You may have one ${esc(t1)} for every ${PRV_PER} hexes, up to ${PRV_MAXL}, and each keeps at least ${PRV_MIN} hexes. A move that would cut a ${esc(t1)} in two is refused: they stay in one piece. Land you gain joins the nearest one; land you lose leaves. If a seat falls in war, it moves to the nearest hex you still hold.</p>
+    <p><b>Borders.</b> A ${esc(t1)} holds the hexes nearest its seat through your own land. Move single hexes across a border, found a new ${esc(t1)} on any hex, move a seat, or merge two that touch. You may have one ${esc(t1)} for every ${PRV_PER} hexes, up to ${PRV_MAXL}, and each keeps at least ${PRV_MIN} hexes (an island of one hex may be a ${esc(t1)} on its own). A move that would cut a ${esc(t1)} in two is refused: they stay in one piece. Land you gain joins the nearest one; land you lose leaves. If a seat falls in war, it moves to the nearest hex you still hold.</p>
+    <p><b>Across the sea.</b> A strait of up to ${SEA_LINK} sea hexes does not cut a ${esc(t1)}, and neither does a finished shipping connection between two of your cities: hexes on either side count as touching, so you can move them across and merge the ${esc(t2)} on both shores. Whole islands are free to belong to any ${esc(t1)}, however far away: use <b>Move islands</b> while editing to move one in a single step.</p>
     <p><b>Governors.</b> Each has two traits. A trait works in proportion to its ${esc(t1)}’s share of your people, so a governor of a third of the nation has a third of the full effect (a Farmer’s food comes from the ${esc(t1)}’s own land). Replacing a governor in office costs the others 4 loyalty. Loyalty drifts towards a level set by autonomy, the governor’s traits, national happiness and whether the ${esc(t1)} is richer than average. Below 25 a governor is disloyal: their traits count half, and the bell will tell you.</p>
     <p><b>Councils</b> are optional: a Treasurer adds revenue, a Constable fights crime, a Planner speeds building, each by their skill. Dismissing one costs the governor 3 loyalty.</p>
     <p><b>Autonomy</b> runs from Centralised to Home Rule. Each step adds local happiness and civil rights and makes the governor more loyal, but costs economy and building speed. Raising it pleases the governor; lowering it costs 8 loyalty a step.</p>
@@ -36065,6 +36149,7 @@ function prvMapAct(cell){
   if(!PRV.ui.edit){const p=prvOfCell(prvNatWith(T,i,n.prov),cell);if(p){PRV.ui.sel=p.id;PRV.ui.pick='';PRV.ui.msg=`${p.nm} selected.`;render();}return;}
   if(PRV.ui.tool==='add')prvAdd(cell);
   else if(PRV.ui.tool==='seat')prvSeat(PRV.ui.sel,cell);
+  else if(PRV.ui.tool==='isle')prvMoveIsle(cell,PRV.ui.sel);
   else{const N=prvNatWith(T,i,n.prov),p=prvOfCell(N,cell);if(p&&p.id===PRV.ui.sel){prvMsg(`That hex is already in ${p.nm}. Click a hex across its border to move it in, or choose another ${t1} above.`);return;}prvMoveHex(cell,PRV.ui.sel);}
 }
 function prvKbdSay(c){
@@ -36172,7 +36257,7 @@ document.addEventListener('click',e=>{
   if(a==='prv-go'){PRV.ui.sel=id;go('provinces');return;}
   if(a==='prv-sel'){PRV.ui.sel=id;PRV.ui.pick='';PRV.ui.msg='';render();const h=document.getElementById('prv-side-h');if(h&&el.closest('.prv-cards,.prv-tbl')){h.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});try{h.focus({preventScroll:true});}catch(err){}}return;}
   if(a==='prv-edit'){PRV.ui.edit=!PRV.ui.edit;PRV.ui.msg=PRV.ui.edit?'Editing borders. Choose a tool, then click the map.':'';render();return;}
-  if(a==='prv-tool'){PRV.ui.tool=el.dataset.v==='add'||el.dataset.v==='seat'?el.dataset.v:'move';PRV.ui.msg='';render();return;}
+  if(a==='prv-tool'){PRV.ui.tool=['add','seat','isle'].includes(el.dataset.v)?el.dataset.v:'move';PRV.ui.msg='';render();return;}
   if(a==='prv-pick'){const r=el.dataset.r;PRV.ui.pick=PRV.ui.pick===r?'':r;render();return;}
   if(a==='prv-appoint'){prvAppoint(id,el.dataset.r,+el.dataset.j);return;}
   if(a==='prv-dismiss-c'){prvDismissC(id,+el.dataset.r);return;}
@@ -37580,7 +37665,7 @@ function mapLegend(pre){
 }
 function worldMapView(){
   const n=S.nation,placed=cellOf(n.loc)>=0;
-  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders or island shores within four hexes of a completed coastal Harbour to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital and 3 from another nation’s claims.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
+  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders, or on shores a completed coastal Harbour reaches across up to four hexes of water (six with a navy), to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital and 3 from another nation’s claims.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
   <div class="map-layout${mapFsOn('main')?' ml-full':''}">
     <div class="ml-map">${mapBox('main',placed?'':' pick')}</div>
     <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
@@ -40644,7 +40729,7 @@ function toast(msg){
 const VIEW_HASH={issues:'edicts'},HASH_VIEW={edicts:'issues'};
 function go(v){
   uxBeforeNavigation(v);
-  S.mpMode='';S.mpRemove=null;
+  S.mpMode='';S.mpRemove=null;S.lsw=null;
   S.rewardHash=location.hash;
   try{const hv=v==='visit'?'visit/'+encodeURIComponent(S.visit||''):VIEW_HASH[v]||v;if(!S.noPush&&(location.hash||'').slice(1)!==hv)history.pushState(null,'','#'+hv);}catch(e){}S.noPush=false;
   S.view=v;S.atlasPlay=false;if(v!=='explore')S.siteEdit=null;S.openIssue=null;S.result=null;S.confirmDissolve=false;S.mapMsg='';S.warMsg='';S.confirmWar=null;S.mapTarget=null;S.confirmLeave=false;S.alMsg='';S.tradeMsg='';S.cityMsg='';S.confirmDemo=null;S.cabPick=null;S.cabMsg='';S.gamesMsg='';S.mapClaim=null;S.msgErr='';if(v==='stats'&&!S.statsKeep){S.statsFor=null;S.statsTab='overview';}S.statsKeep=false;S.loreEdit=false;
@@ -43098,10 +43183,18 @@ function mpHarbours(T){
     if(done)out.push({c:c.c,id:c.id,nm:cityLabel(x.n,c)});
   }return out;
 }
+/* how far a harbour reaches across water to claim land: four hexes, six with a navy (the Blue-Water Navy law) */
+const MP_NAVY_REACH=6;
+function mpHarbourReach(n){return pol(n).navalFleet?MP_NAVY_REACH:MP_SEA_REACH;}
+/* free shores a completed harbour reaches across water: another island, or the far side of a bay on your own coast
+   (land that already touches yours is claimed the ordinary way, so it is left out) */
 function mpHarbourFrontier(T){
-  const out=new Map();for(const ct of mpHarbours(T))for(const [c,path] of mpSeaReach(ct.c)){
-    if(MAP.comp[c]===MAP.comp[ct.c]||!freeCell(T,c))continue;
-    if(!out.has(c))out.set(c,{city:ct,path});
+  const out=new Map(),hi=T.byId[myId()],reach=mpHarbourReach(S.nation);
+  const touches=c=>{for(let d=0;d<6;d++){const v=MAP.nbr[c*6+d];if(v>=0&&T.owner[v]===hi)return true;}return false;};
+  for(const ct of mpHarbours(T))for(const [c,path] of mpSeaReach(ct.c,reach)){
+    if(out.has(c)&&out.get(c).path.length<=path.length)continue;
+    if(!freeCell(T,c)||touches(c))continue;
+    out.set(c,{city:ct,path});
   }return out;
 }
 function mpClaimSequence(T,input){
@@ -43110,7 +43203,7 @@ function mpClaimSequence(T,input){
   for(const c of input){if(!mpCell(c)){blocked.push({c,why:'This location no longer exists.'});continue;}if(taken.has(c)||T.owner[c]===hi)continue;
     if(!freeCell(T,c)){blocked.push({c,why:T.owner[c]>=0?'Another nation holds this hex.':'This hex cannot be claimed.'});continue;}
     let joins=sea.has(c);for(let d=0;!joins&&d<6;d++){const nb=MAP.nbr[c*6+d];if(nb>=0&&(T.owner[nb]===hi||taken.has(nb)))joins=true;}
-    if(!joins){blocked.push({c,why:'Connect this hex to your land, an earlier planned hex, or a harbour within four hexes across water.'});continue;}
+    if(!joins){blocked.push({c,why:`Connect this hex to your land, an earlier planned hex, or a harbour within ${mpHarbourReach(S.nation)} hexes across water.`});continue;}
     taken.add(c);cells.push(c);
   }return {cells,blocked,cost:cells.length};
 }
@@ -43175,7 +43268,7 @@ function mpRemoveRoute(id){const n=clone(S.nation);n.infra=(n.infra||[]).filter(
 function mpMapToolbar(){if(!pgAvailable(S.nation,'map'))return '';return `<div class="mp-map-toolbar row" aria-label="Map tools"><button class="btn${S.mpMode==='plan'?'':' ghost'}" data-act="mp-mode" data-v="plan" aria-pressed="${S.mpMode==='plan'}">Plan expansion</button><button class="btn${S.mpMode==='transport'?'':' ghost'}" data-act="mp-mode" data-v="transport" aria-pressed="${S.mpMode==='transport'}">Transport networks</button>${S.mpMode?'<button class="btn ghost" data-act="mp-mode" data-v="">Return to normal map</button>':''}</div>`;}
 function mpPlanHTML(T){
   const draft=mpDraft(),p=mpClaimSequence(T,draft),cr=landCredits(S.nation),facts=blockFacts(p.cells),owned=draft.length-p.cells.length-p.blocked.length;
-  return `<section class="mp-tool"><h2 class="mp-h">Plan your expansion</h2><p>Select connected free hexes on the map in the order you want to claim them. Select a planned hex again to remove it. Saving a plan spends no credits. Automatic land spending on this device pauses while you plan.</p><dl class="mp-dl"><div><dt>Remaining cost</dt><dd>${p.cost} land ${p.cost===1?'credit':'credits'}</dd></div><div><dt>Available</dt><dd>${cr} land ${cr===1?'credit':'credits'}</dd></div><div><dt>Base yield per day</dt><dd>${esc(list(facts.y))||'None yet'}</dd></div>${owned?`<div><dt>Already yours</dt><dd>${owned} hexes, no extra cost</dd></div>`:''}</dl>${p.blocked.length?`<p class="err">${esc(p.blocked[0].why)} Remove blocked steps or adjust the plan.</p>`:''}${p.cost>cr?'<p class="hint">Save this plan for later, or remove steps until it fits your credits.</p>':''}<ol class="mp-steps">${draft.map((c,i)=>`<li><span>${i+1}. ${esc(terrName(c))} · ${esc(landName(c))}${p.blocked.some(b=>b.c===c)?' · blocked':''}</span><button class="linkish small" data-act="mp-drop" data-c="${c}" aria-label="Remove step ${i+1}">Remove</button></li>`).join('')}</ol><div class="row"><button class="btn" data-act="mp-apply"${!p.cost||p.blocked.length||p.cost>cr?' disabled':''}>Claim plan (${p.cost} ${p.cost===1?'credit':'credits'})</button><button class="btn ghost" data-act="mp-save">Save for later</button><button class="linkish" data-act="mp-clear">Clear draft</button><button class="linkish" data-act="mp-load">Load saved plan</button></div><p class="hint">Island shores can start a plan when a completed coastal harbour reaches them across at most four hexes of water route. Each claimed hex still costs one land credit. Production bonuses apply only once land is claimed.</p></section>`;
+  return `<section class="mp-tool"><h2 class="mp-h">Plan your expansion</h2><p>Select connected free hexes on the map in the order you want to claim them. Select a planned hex again to remove it. Saving a plan spends no credits. Automatic land spending on this device pauses while you plan.</p><dl class="mp-dl"><div><dt>Remaining cost</dt><dd>${p.cost} land ${p.cost===1?'credit':'credits'}</dd></div><div><dt>Available</dt><dd>${cr} land ${cr===1?'credit':'credits'}</dd></div><div><dt>Base yield per day</dt><dd>${esc(list(facts.y))||'None yet'}</dd></div>${owned?`<div><dt>Already yours</dt><dd>${owned} hexes, no extra cost</dd></div>`:''}</dl>${p.blocked.length?`<p class="err">${esc(p.blocked[0].why)} Remove blocked steps or adjust the plan.</p>`:''}${p.cost>cr?'<p class="hint">Save this plan for later, or remove steps until it fits your credits.</p>':''}<ol class="mp-steps">${draft.map((c,i)=>`<li><span>${i+1}. ${esc(terrName(c))} · ${esc(landName(c))}${p.blocked.some(b=>b.c===c)?' · blocked':''}</span><button class="linkish small" data-act="mp-drop" data-c="${c}" aria-label="Remove step ${i+1}">Remove</button></li>`).join('')}</ol><div class="row"><button class="btn" data-act="mp-apply"${!p.cost||p.blocked.length||p.cost>cr?' disabled':''}>Claim plan (${p.cost} ${p.cost===1?'credit':'credits'})</button><button class="btn ghost" data-act="mp-save">Save for later</button><button class="linkish" data-act="mp-clear">Clear draft</button><button class="linkish" data-act="mp-load">Load saved plan</button></div><p class="hint">A shore across the water, on an island or the far side of a bay, can start a plan when a completed coastal harbour reaches it across at most ${mpHarbourReach(S.nation)} hexes of water${pol(S.nation).navalFleet?' (six with your navy)':' (six with a navy)'}. Each claimed hex still costs one land credit. Production bonuses apply only once land is claimed.</p></section>`;
 }
 function mpTransportHTML(T){
   const hi=T.byId[myId()],CS=cityState(T),cities=CS.all.filter(c=>c.active&&c.hi===hi),kind=S.mpKind||'road';
@@ -43215,7 +43308,7 @@ MAP_LAYERS.push({stage:'screen',kinds:['main','visit'],draw:M=>{
       g.fillStyle=dk?'rgba(230,236,255,.75)':'rgba(20,40,90,.7)';g.fillText(lb,x+bw/2,6);}}
 }});
 MAP_CONTROLS.push(()=>`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="landscape"${mapOpt('mp-landscape',true)?' checked':''}> Policy landscapes</label>${pgAvailable(S.nation,'map')?`<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="networks"${mapOpt('mp-networks',true)?' checked':''}> Transport networks</label>`:''}<label class="mig-tog mfx-tog"><input type="checkbox" data-mp-opt="influence"${mapOpt('mp-influence',false)?' checked':''}> City production areas</label>`);
-MAP_LEGEND.push(()=>pgAvailable(S.nation,'map')?'<span class="lg mp-key">Dotted island shores: harbour annexation · Numbered hexes: expansion plan · Solid lines: roads · Double lines: rail · Dotted lines: shipping · Dashed lines: construction · Red lines: cut connection</span>':'');
+MAP_LEGEND.push(()=>pgAvailable(S.nation,'map')?'<span class="lg mp-key">Dotted shores: land your harbours reach ·Numbered hexes: expansion plan · Solid lines: roads · Double lines: rail · Dotted lines: shipping · Dashed lines: construction · Red lines: cut connection</span>':'');
 function mpForestGlyphVisible(n,c){return !n.policies?.clearFelling||hash('fell:'+c)%4===0;}
 function mpLandscape(n,c,industrial=false){
   const p=n.policies||{},out=[];if(BIOME[c]===2||PAINT_COL[paintOf(c)]==='forest'){
@@ -43245,6 +43338,118 @@ MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
 }});
 MAP_LAYERS.push({stage:'top',kinds:['main'],draw:M=>{if(S.mpMode!=='plan'||M.s*HEX_W<16)return;M.g.font='700 11px '+MAP_FONT;M.g.textAlign='center';M.g.textBaseline='middle';M.g.fillStyle=M.col.ink;mpDraft().forEach((c,i)=>M.g.fillText(String(i+1),...M.scr(c)));}});
 MAP_TIP.unshift(ctx=>{if(ctx.kind!=='main'||!mpCell(ctx.cell))return null;const T=territory(),isle=mpHarbourFrontier(T).get(ctx.cell);if(isle)return 'Harbour annexation from '+cityLabel(S.nation,isle.city)+' · '+(isle.path.length-1)+'-hex water route · 1 land credit';return null;});
+/* ───────── why free land is out of reach, and how far your harbours reach ───────── */
+const MP_WHY_FAR=12,MP_AREA=new Map();
+/* the water hexes a harbour's routes cross on the way to land it can claim */
+function mpSeaArea(a,reach){
+  const key=RECL.sig+'|'+a+'|'+reach,hit=MP_AREA.get(key);if(hit)return hit;
+  const out=[],seen=new Set([a]);let fr=[a];
+  for(let s=1;s<reach&&fr.length;s++){const nx=[];for(const c of fr)for(let d=0;d<6;d++){const v=MAP.nbr[c*6+d];if(v<0||seen.has(v)||MAP.T[v]>=2)continue;seen.add(v);nx.push(v);out.push(v);}fr=nx;}
+  if(MP_AREA.size>60)MP_AREA.clear();MP_AREA.set(key,out);return out;
+}
+/* a plain answer to "why can't I claim this?" for free land that is not next to your borders or within harbour reach */
+function claimWhy(T,cell){
+  const n=S.nation,R=mpHarbourReach(n),navy=!!pol(n).navalFleet,more=navy?'':` (${MP_NAVY_REACH} with the Blue-Water Navy law)`,hs=mpHarbours(T);
+  if(!isCoastal(cell))return 'Free land, but it does not touch your borders, and it lies inland, so no harbour can reach it. Claim the land in between first: Plan expansion lets you choose the whole path at once.';
+  if(!hs.length){
+    const mi=T.byId[myId()],coastCity=cityList(n).some(c=>T.owner[c.c]===mi&&isCoastal(c.c));
+    return `Free land on the coast, but it does not touch your borders. A completed Harbour in one of your coastal cities reaches free shores up to ${R} hexes across water${more}${coastCity?'':', so found a city on your coast first'}.`;
+  }
+  let best=null;for(const h of hs){const p=mpSeaReach(h.c,MP_WHY_FAR).get(cell);if(p&&(!best||p.length<best.p.length))best={h,p};}
+  if(!best)return `Free land on the coast, but none of your harbours can reach it within ${MP_WHY_FAR} hexes of water. Claim toward it over land, or build a Harbour in a city on a nearer coast.`;
+  const d=best.p.length-1;
+  if(d<=R)return 'Free land, but it cannot be claimed from your land or harbours just now.';
+  return `Free land on the coast, ${d} hexes across water from your harbour at ${best.h.nm}. Your harbours reach ${R}${more}, so it is ${d-R===1?'one hex':(d-R)+' hexes'} too far. Turn on Harbour reach in the map key to see what they do reach.`;
+}
+MAP_CONTROLS.push(()=>{try{if(!S.nation||cellOf(S.nation.loc)<0||!mpHarbours(territory()).length)return '';return `<label class="mig-tog mfx-tog" title="Shades the water your completed harbours can cross to claim land, and outlines the free shores they reach"><input type="checkbox" data-mp-opt="reach"${mapOpt('mp-reach',false)?' checked':''}> Harbour reach</label>`;}catch(e){return '';}});
+MAP_LAYERS.push({stage:'over',kinds:['main'],draw:M=>{
+  if(!S.nation||!mapOpt('mp-reach',false))return;const T=M.T,hs=mpHarbours(T);if(!hs.length)return;
+  const g=M.g,s=M.s,R=mpHarbourReach(S.nation),water=new Set(),inV=c=>MAP.cx[c]>=M.x0-HEX_W&&MAP.cx[c]<=M.x1+HEX_W&&MAP.cy[c]>=M.y0-HEX_W&&MAP.cy[c]<=M.y1+HEX_W;
+  for(const h of hs)for(const c of mpSeaArea(h.c,R))water.add(c);
+  g.globalAlpha=0.24;g.fillStyle=M.col.accent;g.beginPath();for(const c of water)if(inV(c))hexFill(g,c,HEX_R-0.4);g.fill();g.globalAlpha=1;
+  g.strokeStyle=M.col.accent;g.lineWidth=2/s;g.setLineDash([1.5/s,3/s]);g.beginPath();for(const c of mpHarbourFrontier(T).keys())if(inV(c))hexPath(g,c,HEX_R-1.5);g.stroke();g.setLineDash([]);
+}});
+/* ───────── swapping a claimed hex for free land ───────── */
+/* Once a day a hex you claimed can be given up for a free hex elsewhere, at no cost: the old claim leaves your record
+   and the new one is made now, so the credits used stay the same. Not for a hex with a city or a connection on it,
+   the starting core, reclaimed land or land won in war, and never where part of your land would be cut off. */
+const SWAP_MS=DAY;
+NORM_HOOKS.push((n,d)=>{if(typeof d.lswT==='number'&&isFinite(d.lswT)&&d.lswT>0)n.lswT=d.lswT;});
+function withNation(n,fn){const prev=S.nation;S.nation=n;try{return fn();}finally{S.nation=prev;}}
+function swapWait(n,now=Date.now()){return n&&n.lswT?Math.max(0,n.lswT+SWAP_MS-now):0;}
+/* why hex c cannot be given up in a swap, or '' */
+function swapFromWhy(T,c){
+  const n=S.nation,mi=T.byId[myId()];if(!n||mi===undefined||T.owner[c]!==mi)return 'That hex is not yours.';
+  if(T.isCap[c])return 'Your capital stays where it is.';
+  if(T.occ&&T.occ[c])return 'Land taken in war cannot be swapped.';
+  const e=(n.claims||[]).find(q=>q.c===c);if(!e)return 'Only land you claimed can be swapped: your starting core and reclaimed land stay.';
+  if(n.lcgT&&e.t<=n.lcgT)return 'This hex came with your land when claiming began, so it cannot be swapped.';
+  if((n.cities||[]).some(x=>x.c===c))return 'A city stands on this hex.';
+  if((n.infra||[]).some(r=>Array.isArray(r.path)&&r.path.includes(c)))return 'A road, railway or shipping connection runs through this hex. Remove it first.';
+  return '';
+}
+/* check a swap of from for to; {why} when it cannot be done, else {next}, the record to commit */
+function swapCheck(from,to){
+  const n=S.nation,T=territory(),mi=T.byId[myId()];
+  const why=swapFromWhy(T,from);if(why)return {why};
+  const w=swapWait(n);if(w>0)return {why:`You can swap one hex a day. The next swap is possible in ${fmtDur(w)}.`};
+  if(to===from||T.owner[to]===mi)return {why:'Choose free land to take instead, not land you already hold.'};
+  if(!(to>=0&&to<MAP.N)||MAP.T[to]<2)return {why:'Water can’t be claimed. Choose free land.'};
+  if(!freeCell(T,to))return {why:T.owner[to]>=0?`${T.list[T.owner[to]].n.name} holds that hex.`:T.isCap[to]?'That is a capital.':'That hex cannot be claimed: it is too close to another capital or too far from yours.'};
+  const without=clone(n);without.claims=(without.claims||[]).filter(e=>e.c!==from);
+  const T1=withNation(without,()=>territory()),j=T1.byId[myId()];
+  if(j===undefined||T1.owner[from]===j)return {why:'Your starting core would grow straight back over that hex, so it cannot be given up.'};
+  const parts=(TT,k)=>new Set(landPatches(TT,k).values()).size;
+  if(parts(T1,j)>parts(T,mi))return {why:'Giving up that hex would cut part of your land off from the rest.'};
+  if(!withNation(without,()=>claimFrontier(T1).has(to)))return {why:'That hex would not join your land once the old one is given up. Choose free land next to your borders, or a shore your harbours reach.'};
+  const now=Date.now(),next=clone(without);next.claims=next.claims.concat({c:to,t:now});next.lswT=now;
+  const T2=withNation(next,()=>territory()),k=T2.byId[myId()];
+  if(k===undefined||T2.owner[to]!==k||T2.owner[from]===k||T2.count[k]!==T.count[mi])return {why:'That swap would not work out on the map. Try another hex.'};
+  return {next};
+}
+/* the button under your own hex */
+function swapHex(c,T){
+  const n=S.nation;if(!n||!Array.isArray(n.claims)||!n.claims.some(e=>e.c===c))return '';
+  const why=swapFromWhy(T,c);if(why)return /^A road/.test(why)?`<p class="hint" style="margin-top:10px">A road, railway or shipping connection runs through this hex, so it cannot be swapped for other land.</p>`:'';
+  const w=swapWait(n);if(w>0)return `<p class="hint" style="margin-top:10px">You swapped land recently. You can swap a hex for other land again in ${fmtDur(w)}.</p>`;
+  return `<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="lsw-start" data-c="${c}">Swap this hex for other land</button></div><p class="hint" style="margin-top:6px">Give it up and take a free hex elsewhere instead, at no cost. One swap a day.</p>`;
+}
+function swapYield(c){const f=blockFacts([c]);return esc(terrName(c))+' on '+esc(landName(c))+(f.y.length?', '+esc(list(f.y))+' a day':'');}
+function swapPanel(){
+  const L=S.lsw;if(!L||!S.nation)return '';const ok=L.to!=null&&!L.why;
+  const pick=L.to==null?`<p>Click free land on the map to take instead: next to your borders, or a shore your harbours reach. Nothing changes until you confirm.</p>`:L.why?`<p class="err">${esc(L.why)}</p><p class="hint">Click another hex to try again.</p>`:'';
+  return `<section class="lsw" aria-labelledby="lsw-h"><p class="eyebrow">Land office</p><h2 class="mp-h" id="lsw-h">Swap a hex</h2>
+    <dl class="mp-dl"><div><dt>Give up</dt><dd>${swapYield(L.c)}</dd></div>${ok?`<div><dt>Take instead</dt><dd>${swapYield(L.to)}</dd></div>`:''}</dl>${pick}
+    <div class="row" style="margin-top:14px">${ok?'<button class="btn" data-act="lsw-go">Swap the hexes</button>':''}<button class="btn ghost" data-act="lsw-cancel">Cancel</button></div>
+    <p class="hint" style="margin-top:10px">A swap costs no land credit: the old claim is dropped and the new one made now. You can swap one hex a day.</p></section>`;
+}
+function swapGo(){
+  const L=S.lsw;if(!L||L.to==null)return;const r=swapCheck(L.c,L.to);if(r.why){L.why=r.why;updateMapPanel();redrawMaps();return;}
+  const n=r.next,from=L.c,to=L.to;
+  /* the tally of land claimed counts the new hex when it is committed; the hex given up comes off, so a swap adds nothing */
+  if(n.tly&&n.tly.claim)n.tly.claim=Math.max(0,n.tly.claim-1);
+  if(Array.isArray(n.log)){n.log.unshift({t:n.lswT,k:'lswap',a:landName(from),fx:landName(to)});n.log=n.log.slice(0,60);}
+  commit(n);S.lsw=null;S.mapCell=null;S.mapClaim=null;S.mapInspect=null;render();
+  toast(`${n.name} gave up a hex ${placePhrase(from)} and claimed one ${placePhrase(to)} instead.`);
+}
+MAP_PANEL_TOP.push(()=>swapPanel());
+mapPanel0=(f=>function(){return S.lsw?'':f.apply(this,arguments);})(mapPanel0);
+MAP_CLICK.unshift(ctx=>{
+  if(!S.lsw||ctx.kind!=='main'||!S.nation)return false;if(!(ctx.cell>=0))return true;
+  if(ctx.cell===S.lsw.c){S.lsw.to=null;S.lsw.why='';return true;}
+  S.lsw.to=ctx.cell;S.lsw.why=swapCheck(S.lsw.c,ctx.cell).why||'';return true;
+});
+MAP_LAYERS.push({stage:'over',kinds:['main'],draw:M=>{
+  const L=S.lsw;if(!L)return;const g=M.g,s=M.s;
+  g.beginPath();hexPath(g,L.c,HEX_R-1.2);g.setLineDash([4/s,3/s]);g.strokeStyle=M.col.down;g.lineWidth=2.4/s;g.stroke();g.setLineDash([]);
+  if(L.to!=null&&!L.why){g.globalAlpha=0.34;g.fillStyle=M.col.accent;g.beginPath();hexFill(g,L.to,HEX_R-0.6);g.fill();g.globalAlpha=1;g.beginPath();hexPath(g,L.to,HEX_R-1.2);g.strokeStyle=M.col.accent;g.lineWidth=2.4/s;g.stroke();}
+}});
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('[data-act]');if(!b||!S.nation)return;const a=b.dataset.act;
+  if(a==='lsw-start'){const c=+b.dataset.c;if(!(c>=0))return;S.lsw={c,to:null,why:''};S.mpMode='';S.mapClaim=null;S.mapTarget=null;S.mapInspect=null;updateMapPanel();redrawMaps();return;}
+  if(a==='lsw-cancel'){S.lsw=null;updateMapPanel();redrawMaps();return;}
+  if(a==='lsw-go')swapGo();
+});
 document.addEventListener('change',e=>{
   if(e.target.dataset?.mpOpt){setMapOpt('mp-'+e.target.dataset.mpOpt,e.target.checked);return;}
   if(e.target.id==='mp-net-kind'){S.mpKind=e.target.value;S.mpMsg='';updateMapPanel();redrawMaps();}
@@ -43258,7 +43463,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
   if(a==='mp-load'){S.mpDraft=S.nation.mapPlan?.reg===REG.id?S.nation.mapPlan.cells.slice():[];S.mpMsg='Saved plan loaded.';updateMapPanel();redrawMaps();}
   if(a==='mp-save')mpSavePlan();if(a==='mp-apply')mpApplyPlan();if(a==='mp-net-build')mpBuildRoute();if(a==='mp-net-remove'){S.mpRemove=el.dataset.id;updateMapPanel();}if(a==='mp-net-keep'){S.mpRemove=null;updateMapPanel();}if(a==='mp-net-remove-confirm'){mpRemoveRoute(el.dataset.id);S.mpRemove=null;}
 });
-HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most four hexes to a separate island. You claim individual free hexes at one land credit each, then may expand over connected island land. Other nations' territory, protected capital areas and the 45-hex capital limit remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most four steps. Land routes have at most 64 steps; a nation keeps at most 24 routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
+HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most four hexes (six with the Blue-Water Navy law) to a free shore: on another island, or across a bay or fjord on your own landmass. You claim individual free hexes at one land credit each, then may expand over connected land from there. Shipping connections still cross at most four hexes. Other nations' territory, protected capital areas and the 45-hex capital limit remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most four steps. Land routes have at most 64 steps; a nation keeps at most 24 routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
 
 HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the flag designer in Customise, under Flag, and expand <b>Layers</b>. (Layers come once your charter is finished; the founding page has the basic designer.) Add up to eight independent emblems, stripes, borders and discs over your original design. Each has its own colour, position, size and rotation. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
 
@@ -50014,7 +50219,7 @@ document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.tar
 const MAPX={sheet:false,hintAt:0,tap:null};
 const mapxNarrow=()=>window.innerWidth<=1100;
 /* the sheet stays open while it holds the page's task: choosing where to begin, or the planning and transport tools */
-const mapxOpen=()=>MAPX.sheet||!!(S.nation&&(cellOf(S.nation.loc)<0||S.mpMode));
+const mapxOpen=()=>MAPX.sheet||!!(S.nation&&(cellOf(S.nation.loc)<0||S.mpMode||S.lsw));
 worldMapView=(f=>function(){
   let h=f.apply(this,arguments);const n=S.nation,placed=n&&cellOf(n.loc)>=0;
   h=h.replace(/(<header class="vh"><p class="eyebrow">Cartographer’s office<\/p><h1>World map<\/h1>)<p>([\s\S]*?)<\/p>/,(m,a,p)=>`${a}<p>${placed?'Spend land credits on the highlighted land next to your borders, and watch the region move.':'Choose where your nation begins.'}</p><details class="map-how" id="map-how"><summary>How land works</summary><p>${p}</p></details>`);
@@ -50029,7 +50234,7 @@ return h.replace('<aside class="map-panel" id="map-panel"',`<aside class="map-pa
   MAP_PANEL_TOP[i]=ctx=>{if(!S.mpMode&&!S.mpMsg)return '';return String(f(ctx)||'').replace(/<p class="eyebrow">Cartographer's tools<\/p><div class="row">[\s\S]*?(<button class="linkish" data-act="mp-mode" data-v="">Finish planning<\/button>)?<\/div>/,(m,fin)=>fin?`<div class="row mp-finish">${fin}</div>`:'');};}}
 /* a handle for the sheet, and a title for it while it is folded */
 mapPanel=(f=>function(){const h=f.apply(this,arguments);const o=mapxOpen();return `<button type="button" class="mp-grab" data-act="mp-sheet" aria-expanded="${o}"><span class="mp-grab-bar" aria-hidden="true"></span><span class="mp-grab-t">${o?'Hide details':'Details · tap the map'}</span></button>`+h;})(mapPanel);
-function mapxSheet(open){MAPX.sheet=!!open;if(!open&&S.mpMode)S.mpMode='';const p=document.getElementById('map-panel');if(!p)return;const o=mapxOpen();p.classList.toggle('sheet-open',o);const g=p.querySelector('.mp-grab');if(g){g.setAttribute('aria-expanded',o);const t=g.querySelector('.mp-grab-t');if(t)t.textContent=o?'Hide details':'Details · tap the map';}if(o)p.scrollTop=0;}
+function mapxSheet(open){MAPX.sheet=!!open;if(!open&&S.mpMode)S.mpMode='';if(!open&&S.lsw){S.lsw=null;redrawMaps();}const p=document.getElementById('map-panel');if(!p)return;const o=mapxOpen();p.classList.toggle('sheet-open',o);const g=p.querySelector('.mp-grab');if(g){g.setAttribute('aria-expanded',o);const t=g.querySelector('.mp-grab-t');if(t)t.textContent=o?'Hide details':'Details · tap the map';}if(o)p.scrollTop=0;}
 /* a tap on the main map opens the sheet first, so the panel is already in view (no page scroll) */
 mapClick=(f=>function(cv,cell,ev){
   /* the second tap of a double tap (the document's pointerup below, which runs after this) zooms in on the first one:
@@ -50810,7 +51015,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
