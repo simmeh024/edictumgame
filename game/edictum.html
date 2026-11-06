@@ -41123,10 +41123,23 @@ async function admAct(a,id){
 }
 /* ── Suspicious nations: what every game sets aside, for this region as it is and for the others on request ── */
 const ADMS={scan:null,at:0,n:0,busy:false,err:'',act:'',ask:null};
+/* the land check. Credits follow today's population (its budget and milestones), so a nation whose population falls keeps
+   claims its credits no longer cover, which the game allows (landDeficitNote). Only claims beyond what it earned at its
+   peak population are something the game could not have produced. The peak is held to the bound auditNation sets for a
+   population of the nation's age, so a made-up peak buys no room the population check would not already have flagged. */
+const SUS_LAND_SLACK=2;
+function popLand(n,p){return Math.max(0,budgetOf(p)-CORE_HEXES)+milesReached(p).reduce((s,m,i)=>s+mileCredit(n,i),0);}
+function susLand(n,used,now){
+  now=now||Date.now();const earned=landEarned(n);if(!(used>earned+SUS_LAND_SLACK))return '';
+  const p=popNow(n,now),age=Math.max(0,((n._ts||now)-(n.founded||now))/DAY),cap=5*Math.pow(1.35,age)+3*age+1;
+  const peak=Math.max(p,Math.min(Math.max(num0(n.peak),num0(tallyOf(n,'peak'))),cap)),top=earned+Math.max(0,popLand(n,peak)-popLand(n,p));
+  if(used<=top+SUS_LAND_SLACK)return '';
+  return `It holds ${used} claimed hexes with ${earned} land credits earned${top>earned?`, and ${top} at its peak of ${fmtPop(peak)} people`:''}.`;
+}
 function susHere(){
   const out=[];let T=null;try{T=territory();}catch(e){}
   for(const id of Object.keys(S.world||{})){const n=S.world[id];if(!n||n.npc)continue;const a=AUDIT.get(id),why=a?a.why.slice():[];
-    try{const i=T&&T.byId[id];if(i!==undefined&&Array.isArray(n.claims)){const used=claimsUsed(n,T,i),earned=landEarned(n);if(used>earned+2)why.push(`It holds ${used} claimed hexes with ${earned} land credits earned.`);}}catch(e){}
+    try{const i=T&&T.byId[id];if(i!==undefined&&Array.isArray(n.claims)){const w=susLand(n,claimsUsed(n,T,i));if(w)why.push(w);}}catch(e){}
     if(why.length)out.push({id,reg:REG.id,name:n.name,why});}
   return out;
 }
