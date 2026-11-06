@@ -15,7 +15,7 @@ const CABINET=/\{(FIN|DEF|FOR|INT|WRK|HEA|CUL)\}/;
 const OLDER=2206,LAWS=['fixedBenches','diasporaSeats','questionTime','electedMayors','rampartWalks','roadsideInns'];
 
 /* a nation for the stubs: seats, md (mandate), dec (edicts decided), ldr (decided under this leader), stamps, rank,
-   and cities whose records carry my, mb, wl (walls), lvs (building levels) and busy (a building being raised) */
+   and cities whose records carry my, mb, wl (walls), ups (a building's upgrade blocks) and busy (a building being upgraded) */
 /* values made in the section's own context have its prototypes: compare them as plain data */
 const plain=x=>JSON.parse(JSON.stringify(x));
 const nation=(o={})=>Object.assign({policies:{},cities:[],seats:51,md:5,dec:0,ldr:0,stamps:0,rank:0},o);
@@ -26,7 +26,7 @@ function load(){
     clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),pol:n=>(n&&n.policies)||{},
     mdRate:n=>5,mdNow:n=>n.md,mdGain:(n,v)=>{n.md=Math.max(0,Math.min(10,n.md+v));},mdFmt:v=>String(Math.round(v*10)/10),
     cxMood:ct=>({v:ct.base??60,parts:[[5,'Seat of government']]}),geoAfter:()=>[['Land','A hex of new land.']],
-    cxCityExtras:c=>c||{},cxWallLv:c=>(c&&c.wl)||0,cxLevels:c=>(c&&c.lvs)||{},cxUpBusy:c=>(c&&c.busy)||null,cxRoadAt:(fn,cell)=>(fn.infra||[]).some(r=>r.a===cell||r.b===cell),
+    cxCityExtras:c=>c||{},cxWallLv:c=>(c&&c.wl)||0,cxUpMap:c=>(c&&c.ups)||{},cxUpBusy:c=>(c&&c.busy)||null,cxRoadAt:(fn,cell)=>(fn.infra||[]).some(r=>r.a===cell||r.b===cell),
     gvSeatCount:n=>({seats:n.seats}),decisions:n=>n.dec,gvLdr:n=>({e:n.ldr}),cityCount:n=>n.cities.length,ppCount:n=>n.stamps,
     achPoints:n=>n.rank,achRank:p=>({i:p})
   };
@@ -74,7 +74,7 @@ const ON={
   'cxp-ramparts':[{cities:[city({wl:1})]},{cities:[city()]}],
   'cxp-gate':[{cities:[city({wl:1}),city({wl:2})]},{cities:[city({wl:1}),city({wl:1})]}],
   'cxp-moat':[{cities:[city({wl:3})]},{cities:[city({wl:2})]}],
-  'cxp-hum':[{cities:[city({lvs:{farm:2}}),city({lvs:{mine:3}})]},{cities:[city({lvs:{farm:2,mine:2}})]}],
+  'cxp-hum':[{cities:[city({ups:{farm:4}}),city({ups:{mine:5}})]},{cities:[city({ups:{farm:4,mine:4}})]}],
   'cxp-scaffold':[{cities:[city({busy:{k:'farm'}})]},{cities:[city()]}],
   'cxp-sulk':[{cities:[city({mb:{v:-6,u:Date.now()+3600e3}})]},{cities:[city({mb:{v:-6,u:Date.now()-1}}),city({mb:{v:6,u:Date.now()+3600e3}})]}],
   'cxp-road-name':[{infra:[{k:'road',a:1,b:2,d:Date.now()-1}]},{infra:[{k:'road',a:1,b:2,d:Date.now()+3600e3}]}],

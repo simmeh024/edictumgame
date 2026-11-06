@@ -1,0 +1,45 @@
+# Keeps Chromium's Ubuntu packages (.deb files) in the Actions cache on main, for the Preview workflow's
+# browser jobs (.github/actions/playwright-chromium explains why they skip the Ubuntu mirror). A pull
+# request can only read cache entries made on main or by its own runs, so this is what lets a pull
+# request's first run use them.
+#
+# Runs when package-lock.json changes on main (a new Playwright can need other packages), every Monday
+# (GitHub drops an entry nobody read for 7 days, and ubuntu-latest moves to newer Ubuntu releases), and by
+# hand (Actions > Playwright cache > Run workflow). When main already has the entry it changes nothing.
+name: Playwright cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package-lock.json
+      - .github/actions/playwright-chromium/**
+      - .github/workflows/playwright-cache.yml
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-cache
+  cancel-in-progress: false
+
+jobs:
+  fill:
+    name: Keep Chromium's system packages in the cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Install Chromium for Playwright
+        uses: ./.github/actions/playwright-chromium
+        with:
+          save-cache: 'true'

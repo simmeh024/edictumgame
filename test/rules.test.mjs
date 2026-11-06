@@ -995,3 +995,25 @@ test('recruits are filed only by the server; a recruiter reads the ones naming t
   await assertSucceeds(as('bob').collection('recruits').where('r', '==', 'bob').get());
   await assertFails(as('alice').doc('recruits/carol').get());
 });
+
+test('alliances and the allyOf index are read by everyone and written only by the server; only members read the channel', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('alliances/al1').set({ reg: 'meridian', name: 'The Pact', ld: 'bob', mem: { bob: { t: 1 }, carol: { t: 2 } }, npc: {}, iv: {}, rq: {} });
+    await db.doc('alliances/al1/chat/m1').set({ a: 'bob', nm: 'Bobland', x: 'Allies only', t: 1 });
+    await db.doc('allyOf/bob').set({ a: 'al1', reg: 'meridian', t: 1 });
+  });
+  await assertSucceeds(anon().doc('alliances/al1').get());
+  await assertSucceeds(anon().collection('alliances').where('reg', '==', 'meridian').get());
+  await assertSucceeds(anon().doc('allyOf/bob').get());
+  await assertSucceeds(as('carol').collection('alliances/al1/chat').orderBy('t', 'desc').limit(60).get());
+  await assertFails(as('alice').collection('alliances/al1/chat').orderBy('t', 'desc').limit(60).get());
+  await assertFails(anon().doc('alliances/al1/chat/m1').get());
+  await assertFails(as('bob').doc('alliances/al1/chat/m2').set({ a: 'bob', x: 'Forged', t: 2 }));
+  await assertFails(as('bob').doc('alliances/al1').update({ ld: 'alice' }));
+  await assertFails(as('alice').doc('alliances/al2').set({ reg: 'meridian', name: 'Mine', ld: 'alice', mem: { alice: { t: 1 } } }));
+  await assertFails(as('alice').doc('allyOf/alice').set({ a: 'al1' }));
+  await assertFails(as('alice').doc('alPace/alice').get());
+  /* a player deleting their account finds their board posts, never the channel (not a 'posts' collection) */
+  await assertSucceeds(as('bob').collectionGroup('posts').where('a', '==', 'bob').get());
+});

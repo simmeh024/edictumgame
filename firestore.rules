@@ -426,6 +426,16 @@ service cloud.firestore {
     }
     // the Community Board's pacing of each player's posts (functions/board.js): only the server reads and writes it
     match /cbPace/{uid} { allow read, write: if false; }
+    // alliances (functions/alliances.js): written only by the server. Anyone reads an alliance and the allyOf/ index;
+    // only its members read its channel, and alPace/ (the channel's pacing) is the server's alone
+    match /alliances/{aid} {
+      allow read: if true;
+      match /chat/{pid} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/alliances/$(aid)).data.mem;
+      }
+    }
+    match /allyOf/{id} { allow read: if true; }
+    match /alPace/{uid} { allow read, write: if false; }
     // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, only by the
     // server (functions/accounts.js, 'recruit': a Registered Nation, newer than the recruiter's); the recruiter reads
     // the ones naming them (each side pays itself the bonus)
