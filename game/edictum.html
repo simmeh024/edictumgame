@@ -17580,7 +17580,10 @@ function inviteAllyBase(id){
   if(warWith(id).war){S.alMsg=`You are at war with ${x.n.name}. Make peace before inviting them.`;render();return;}
   if(x.npc){const a=affinity(x.n,n0);if(a<ALLY_MIN){S.alMsg=`${x.n.name} declined. Your values are too far apart: affinity ${a} of the ${ALLY_MIN} needed.`;render();return;}}
   const n=clone(n0),now=Date.now();
-  if(!n.alli.inv.some(e=>e.id===id))n.alli.inv=n.alli.inv.concat({id,t:now}).slice(-30);
+  /* an invitation from before the nation last left counts for nothing (politics: membership needs e.t > alLeft), so
+     approving one that left and asked again once kept that old one, and it stayed pending however often it was approved */
+  const e0=n.alli.inv.find(e=>e.id===id);
+  if(!e0||(!x.npc&&(x.n.alLeft||0)>=e0.t))n.alli.inv=n.alli.inv.filter(e=>e.id!==id).concat({id,t:now}).slice(-30);
   const joined=x.npc||(x.n.allyOf===myId());
   if(joined){n.log.unshift({t:now,k:'aladmit',a:id,b:x.n.name,fx:n.alli.name});n.log=n.log.slice(0,60);}
   commit(n);S.alMsg=joined?`${x.n.name} has joined ${n.alli.name}.`:`Invitation sent to ${x.n.name}. They join when they accept.`;render();
@@ -19110,7 +19113,9 @@ function industries(n){
 function climateOf(cell){
   if(cell<0)return null;
   const row=Math.floor(cell/MAP.COLS),lat=regLat(row),coast=MAP.coast[cell],T=MAP.T[cell];
-  const temp=26-(lat-22)*0.42-(T===4?5:T===3?2:0)+(coast<=1?1:0);
+  /* colder away from the equator either way: by the latitude's size (south of the equator it once grew hotter, 49 °C at 33° S,
+     which made Terra's southern polar land dry steppe); seasons and water temperatures use the same rule */
+  const temp=26-(Math.abs(lat)-22)*0.42-(T===4?5:T===3?2:0)+(coast<=1?1:0);
   const rain=Math.round(450+Math.max(0,4-coast)*120+(T>=3?180:0)+hash('rain:'+cellKey(cell))%220);
   const kind=temp<3?'Subarctic':temp<8?(coast<=2?'Cool maritime':'Continental'):temp<15?(coast<=2?'Temperate maritime':'Temperate continental'):temp<19?(rain<750?'Mediterranean':'Warm temperate'):'Subtropical';
   return {temp,rain,kind,lat};
@@ -21199,8 +21204,12 @@ function tallyScan(n,old,now){
   /* buildings finished */
   const bdone=(m,at)=>{const s=new Set();for(const c of (m&&m.cities)||[])for(const b of c.b||[])if(b.d<=at)s.add(c.id+'|'+b.k+'|'+b.s);return s;};
   const oldB=bdone(old,old?(old.updatedAt||0):0);
+  /* a capital carried through a move or a wake from dormancy (old.mvCap, put back when the nation settles again) was
+     counted where it first stood: its city and buildings are not new, though the record before settling had no cities */
+  const cap0=old&&old.mvCap&&typeof old.mvCap==='object'?old.mvCap:null;
+  if(cap0)for(const b of cap0.b||[])if(b.d<=(old.updatedAt||0))oldB.add(cap0.id+'|'+b.k+'|'+b.s);
   for(const c of n.cities||[])for(const b of c.b||[]){if(b.d>now||oldB.has(c.id+'|'+b.k+'|'+b.s))continue;bump('build',b.d);bump('build:'+b.k,b.d);if(BUILDINGS[b.k]&&BUILDINGS[b.k].w)bump('wonder',b.d);}
-  for(const c of n.cities||[])if(!(old&&(old.cities||[]).some(o=>o.id===c.id)))bump('cities',c.t||now);
+  for(const c of n.cities||[])if(!(old&&(old.cities||[]).some(o=>o.id===c.id))&&!(cap0&&cap0.id===c.id))bump('cities',c.t||now);
   /* medals, event by event, worked out once when an edition is claimed */
   const g=n.games,og=old&&old.games;
   if(g&&Array.isArray(g.cl)){const was=new Set((og&&og.cl)||[]);for(const e of g.cl){if(was.has(e))continue;try{const R=gamesResults(e),m=medalsIn(R,myId());const at=edStart(e+1);for(const [ev,i] of m.list)bump('medal:'+ev+':'+['g','s','b'][i],at);if(m.g)bump('medal:g',at,m.g);if(m.s)bump('medal:s',at,m.s);if(m.b)bump('medal:b',at,m.b);bump('games',at);}catch(err){}}}
@@ -21565,6 +21574,18 @@ const COL_SETS=[
   ['fo-poster','The Festival Poster','poster','#E07A2F','r','From the year every hotel was full. It promised sunshine and was technically right for an afternoon.','Become the Reach’s favourite holiday.',colHi('tour',85)],
   ['fo-verse','The Lost Verse','quill','#5A2D82','u','A verse of the anthem nobody remembered writing, found in a drawer after a cultural decision. Choirs now sing it under protest.','Cultural decisions sometimes turn up forgotten things.',colDraw('verse','iss:culture',1/8,24)]]}
 ];
+/* Coins of the Reach outside Meridian: the eight coins written above are Meridian's computer nations', which no other
+   region has, so its set could never be finished elsewhere. A region's own computer nations (four to eight) each give
+   one instead, under the same keys in order: a coin found in one region is still the nth coin in another. */
+const COL_COIN_KEYS=['co-vellmark','co-oskaloo','co-brennoch','co-karvesk','co-lucanto','co-tarrow','co-marrowmere','co-ilsund'];
+if(!REG_MER){
+  const s=COL_SETS.find(s=>s.id==='coins'),words=['Mark','Crown','Florin','Thaler','Ducat','Shilling','Real','Penny'];
+  const mer=new Map(s.items.filter(x=>COL_COIN_KEYS.includes(x[0])).map(x=>[x[0],x]));
+  const mine=NPCS.slice(0,COL_COIN_KEYS.length).map((x,i)=>{const m=mer.get(COL_COIN_KEYS[i]);
+    return [COL_COIN_KEYS[i],`The ${x.name} ${words[i]}`,m?m[2]:'coin',m?m[3]:'#C9A227','c',`A coin of ${x.name}, struck at its treasury and handed over with the first trade or letter between your nations.`,`Trade with ${x.name}, or write to it.`,colCoin(x.id)];});
+  const at=s.items.findIndex(x=>COL_COIN_KEYS.includes(x[0]));
+  s.items=s.items.filter(x=>!COL_COIN_KEYS.includes(x[0]));s.items.splice(at,0,...mine);
+}
 const COL_ITEMS=[],COL_BY_ID={},COL_SET_BY_ID={};
 for(const s of COL_SETS){COL_SET_BY_ID[s.id]=s;s.items=s.items.map(([id,n,g,c,r,l,h,q])=>{const a={id,set:s.id,n,g,c,r,l,h,q};COL_ITEMS.push(a);COL_BY_ID[id]=a;return a;});}
 /* titles for the number of sets completed */
@@ -27491,7 +27512,7 @@ function seaBase(){
   for(let r=0;r<R;r++)la[r]=regLat(r);
   for(let i=0;i<N;i++){
     const t=MAP.T[i],r=(i/C)|0,c=i%C,lat=la[r];
-    if(t<2){tb[i]=26-(lat-22)*0.42+1;if(t===1){shal.push(i);for(let d=0;d<6;d++){const j=MAP.nbr[i*6+d];if(j>=0&&MAP.T[j]>=2){ring[i]=1;break;}}}continue;}
+    if(t<2){tb[i]=26-(Math.abs(lat)-22)*0.42+1;if(t===1){shal.push(i);for(let d=0;d<6;d++){const j=MAP.nbr[i*6+d];if(j>=0&&MAP.T[j]>=2){ring[i]=1;break;}}}continue;}
     tb[i]=climateOf(i).temp;const p=paintOf(i),tp=SEA_TP[p];if(tp==null||p===4)continue;
     const al=Math.abs(lat),a=al<16?0:al<26?1:2,n1=seaNoise(c/4.5,r/3.5,rs),n2=seaNoise(c/7+11,r/5+7,rs^0x5bd1);
     let v;if(p===5){const ev=al>56?0.62:al>42?0.3:0.14;v=n2<ev?2:n1<0.5?0:1;}else v=n1<0.38?0:n1<0.66?1:2;
@@ -27663,7 +27684,7 @@ function wxMake(k,j,b,L){
   const key=REG.id+':'+k+':'+j;let s=wxMemo.get(key);if(s)return s;
   if(wxMemo.size>80){const now=seaNow();for(const [m,q] of wxMemo)if(q.b+q.L<now-WX_HR||q.b>now+13*WX_HR)wxMemo.delete(m);if(wxMemo.size>120)wxMemo.clear();}
   const R=wxReg(),r=rng(hash('wx:'+key)),tm=b+L/2,pm=seaPhase(tm),hx=HEX_W;
-  const mx=(0.06+0.88*r())*MAP.W,my=(0.08+0.84*r())*MAP.H,row=clamp(Math.round(my/MAP.H*(MAP.ROWS-1)),0,MAP.ROWS-1),lat=regLat(row),temp=26-(lat-22)*0.42+seaShift(lat,pm),wet=R.wet,arid=wet<-0.3;
+  const mx=(0.06+0.88*r())*MAP.W,my=(0.08+0.84*r())*MAP.H,row=clamp(Math.round(my/MAP.H*(MAP.ROWS-1)),0,MAP.ROWS-1),lat=regLat(row),temp=26-(Math.abs(lat)-22)*0.42+seaShift(lat,pm),wet=R.wet,arid=wet<-0.3;
   const W={rain:Math.max(0.4,3+3*Math.max(0,wet)-(arid?2.2:0)),storm:Math.max(0.3,0.8+1.8*Math.max(0,wet)+(temp>16?1.2:0)-(arid?0.4:0)),fog:Math.max(0.3,1.1+(temp>0&&temp<14?1.3:0)+R.isles*0.8-(arid?0.6:0)),
     blizzard:temp<-3?1.4:0,heat:temp>21&&wet<0.6?1.2+Math.max(0,-wet)*2:0,dust:arid&&temp>4?2.5*(-wet):0};
   let tot=0;for(const q in W)tot+=W[q];let u=r()*tot,type='rain';for(const q in W){u-=W[q];if(u<0){type=q;break;}}
@@ -31259,7 +31280,9 @@ function btResProblem(n,i,now){
 function btResStart(i){
   const n0=S.nation,p=btResProblem(n0,i);if(p){S.btMsg=p;btRefresh();return false;}
   const n=clone(n0),now=Date.now(),R=BT_RS[i],st=stockNow(n0,now);for(const r of RES)st[r]-=R.cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  const b=n.belt;b.rp=btRP(n0,now)-R.rp;b.ra=now;b.rq=(b.rq||[]).filter(q=>q[2]>now).concat([[i,now,now+R.h*3600e3]]);S.btMsg='';commit(n);
+  /* research already finished stays in the queue for the save hook below to record (it once went from here unrecorded,
+     when another was started before any save had noted it) */
+  const b=n.belt;b.rp=btRP(n0,now)-R.rp;b.ra=now;b.rq=(b.rq||[]).concat([[i,now,now+R.h*3600e3]]);S.btMsg='';commit(n);
   toast(`Research begun: ${R.n}. Ready in ${fmtWait(R.h*3600e3)}.`);return true;
 }
 
@@ -32930,7 +32953,7 @@ function fkSea(t){try{return typeof seaInfo==='function'?seaInfo(t):null;}catch(
 function fkTemp(c,t){try{const cl=climateOf(c);return cl.temp+(typeof seaShift==='function'?seaShift(cl.lat,seaPhase(t)):0);}catch(e){return null;}}
 function fkIced(c,t){
   try{if(typeof seaShift!=='function'||typeof SEA_STEPS==='undefined')return false;const p=(Math.floor(seaPhase(t)*SEA_STEPS)+0.5)/SEA_STEPS,lp=(p+0.96)%1;
-    for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j<0||MAP.T[j]!==1)continue;const lat=regLat((j/MAP.COLS)|0),ts=27-(lat-22)*0.42+seaShift(lat,lp);if(ts<=-1.7)return true;}}catch(e){}
+    for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j<0||MAP.T[j]!==1)continue;const lat=regLat((j/MAP.COLS)|0),ts=27-(Math.abs(lat)-22)*0.42+seaShift(lat,lp);if(ts<=-1.7)return true;}}catch(e){}
   return false;
 }
 /* wars: who the nation is at war with now, and since when (a post at time t sees only the ones begun by then) */
