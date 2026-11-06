@@ -18292,6 +18292,11 @@ function stockNow(n,now){
 const roundStock=st=>Object.fromEntries(RES.map(r=>[r,Math.round(num0(st[r])*100)/100]));
 const fmtStock=v=>String(Math.floor(v+1e-6));
 function bCost(n,key){const B=BUILDINGS[key],k=cabFx(n).cost,o={};for(const r of RES)if(B.cost[r])o[r]=Math.max(1,Math.round(B.cost[r]*k));return o;}
+/* what was paid, kept on a building (p), a level being raised (lu.p) and walls going up (wu.p), so that a cancel gives
+   back that and not today's price: the cabinet's cost bonus may have changed in between. Never more than the list price
+   (max); work started before this was kept has none, and gets today's price as before. */
+function paidClean(p,max){if(!p||typeof p!=='object'||Array.isArray(p)||!max)return null;const o={};for(const r of RES){const v=p[r];if(max[r]&&Number.isFinite(v)&&v>0)o[r]=Math.min(max[r],Math.round(v));}return Object.keys(o).length?o:null;}
+function bPaid(n,b){return paidClean(b&&b.p,bCost(null,b.k))||bCost(n,b.k);}
 function bHours(n,key){return Math.round(BUILDINGS[key].h*cabFx(n).build*10)/10;}
 function costText(cost){return RES.filter(r=>cost[r]).map(r=>cost[r]+' '+resName(r)).join(', ');}
 function lacking(cost,st){const out=[];for(const r of RES)if(cost[r]&&st[r]+1e-6<cost[r])out.push(Math.ceil(cost[r]-st[r])+' '+resName(r));return out;}
@@ -18389,14 +18394,14 @@ function startBuild(cid,key){
   const cost=bCost(S.nation,key),ms=cxHours(S.nation,ct,key)*3600e3;
   for(const r of RES)st[r]-=cost[r]||0;
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  c.b.push({k:key,s:now,d:now+ms});
+  c.b.push({k:key,s:now,d:now+ms,p:cost});
   commit(n);S.cityMsg='';render();
   toast(`Work has started on ${B.w?'the ':'a '}${B.n} in ${ct.nm}. It will be ready in ${fmtDur(ms)}.`);
 }
 function cancelBuild(cid,key){
   const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
   const b=c.b.find(x=>x.k===key&&x.d>now);if(!b)return;const B=BUILDINGS[key];
-  const q=b.s>now,st=stockNow(S.nation,now),cost=bCost(S.nation,key);for(const r of RES)st[r]=stockLimit(n,r,st[r]+(q?(cost[r]||0):Math.floor((cost[r]||0)/2)),st[r]);
+  const q=b.s>now,st=stockNow(S.nation,now),cost=bPaid(S.nation,b);for(const r of RES)st[r]=stockLimit(n,r,st[r]+(q?(cost[r]||0):Math.floor((cost[r]||0)/2)),st[r]);
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;c.b=c.b.filter(x=>x!==b);c3Chain(c,now);
   commit(n);S.cityMsg='';render();toast(q?`The ${B.n} has been taken out of the queue in ${cityLabel(n,c)}. All the materials were returned.`:`Work on the ${B.n} has stopped. Half the materials were saved.${c.b.some(x=>x.d>now)?' The builders move on to the next building in the queue.':''}`);
 }
@@ -21384,7 +21389,7 @@ function c3Rename(cid,raw){
 function c3AbandonPlan(cid,now){
   const n=S.nation,c=(n.cities||[]).find(x=>x.id===cid);if(!c)return null;
   const back={},lost=[],stop=[],queue=[];
-  for(const b of c.b||[]){const B=BUILDINGS[b.k];if(!B)continue;if(b.d<=now){lost.push(B.n);continue;}const cost=bCost(n,b.k),q=b.s>now;(q?queue:stop).push(B.n);for(const r of RES){const v=q?(cost[r]||0):Math.floor((cost[r]||0)/2);if(v)back[r]=(back[r]||0)+v;}}
+  for(const b of c.b||[]){const B=BUILDINGS[b.k];if(!B)continue;if(b.d<=now){lost.push(B.n);continue;}const cost=bPaid(n,b),q=b.s>now;(q?queue:stop).push(B.n);for(const r of RES){const v=q?(cost[r]||0):Math.floor((cost[r]||0)/2);if(v)back[r]=(back[r]||0)+v;}}
   let hex=null;
   try{const T=territory(),mi=T.byId[myId()],sim=Object.assign({},n,{cities:n.cities.filter(x=>x.id!==cid)});let T2;const save=S.nation;try{S.nation=sim;T2=territory();}finally{S.nation=save;}
     const i2=T2.byId[myId()],o2=T2.owner[c.c];hex={keep:o2===i2&&i2!==undefined,to:o2>=0&&o2!==i2?T2.list[o2].n.name:'',before:mi===undefined?0:T.count[mi],after:i2===undefined?0:T2.count[i2]};}catch(e){hex=null;}
@@ -21448,7 +21453,7 @@ function c3Queue(ct,key){
   const cost=bCost(S.nation,key),ms=cxHours(S.nation,ct,key)*3600e3,s=c.b.reduce((m,b)=>Math.max(m,b.d||0),now);
   for(const r of RES)st[r]-=cost[r]||0;
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  c.b.push({k:key,s,d:s+ms});
+  c.b.push({k:key,s,d:s+ms,p:cost});
   commit(n);S.cityMsg='';render();
   toast(`${B.w?'The ':'A '}${B.n} joins the queue in ${ct.nm}. Work starts in ${fmtDur(s-now)} and takes ${fmtDur(ms)}.`);
 }
@@ -37794,7 +37799,7 @@ function normCities(d){
     const id=typeof c.id==='string'&&c.id?c.id.slice(0,16):'c'+out.length;if(ids.has(id))continue;
     seen.add(c.c);ids.add(id);
     const bs=[],bk=new Set();
-    for(const b of Array.isArray(c.b)?c.b:[]){if(!b||!BUILDINGS[b.k]||bk.has(b.k))continue;bk.add(b.k);const o={k:b.k,s:nm(b.s,0),d:nm(b.d,0)};if(b.a)o.a=1;Object.assign(o,whExtras(b),cxBldExtras(b));bs.push(o);if(bs.length>=25)break;}
+    for(const b of Array.isArray(c.b)?c.b:[]){if(!b||!BUILDINGS[b.k]||bk.has(b.k))continue;bk.add(b.k);const o={k:b.k,s:nm(b.s,0),d:nm(b.d,0)};if(b.a)o.a=1;if(o.d>Date.now()){const p=paidClean(b.p,bCost(null,b.k));if(p)o.p=p;}Object.assign(o,whExtras(b),cxBldExtras(b));bs.push(o);if(bs.length>=25)break;}
     out.push(Object.assign({id,c:c.c,nm:typeof c.nm==='string'?c.nm.trim().slice(0,30):'',t:nm(c.t,0),b:bs},cxCityExtras(c)));
     if(out.length>=MAX_CITIES)break;
   }
@@ -39048,12 +39053,15 @@ function cuCzBody(n){
     <div class="row cu-bar"><button class="btn" type="submit">Save the currency</button><button type="button" class="btn ghost" data-act="cu-reset">Back to the suggestion</button><span class="hint" id="cu-msg"></span></div>
   </form></div>`;
 }
+/* the code as typed: empty takes the suggestion; anything else must be three to five letters (the draft drops a bad one,
+   so the check is made here, before it is lost) */
+const cuCodeBad=v=>{const t=typeof v==='string'?v.trim():'';return !!t&&!/^[A-Za-z]{3,5}$/.test(t);};
 function cuSave(){
   const n=S.nation,d=CU.d;if(!n||!d)return false;
+  if(cuCodeBad(d.cd)){toast(`“${String(d.cd).trim()}” cannot be a currency code: a code is three to five letters, A to Z. Leave it empty for the suggestion.`);const i=document.getElementById('cu-f-cd');if(i)i.focus();return false;}
   const unit=cuStr(d.unit,30)||n.currency||'crown',[t,c]=cuDraftCur(n,Object.assign({},d,{unit})),dd=cuDefault(t),out={};
   for(const k of ['nm','pl','cd','sy','su','sn','sp','nf','mo']){const v=c[k];if(k==='pl'?v!==dd.nm.replace(/(\S+)$/,w=>plural(w))&&v:v!==dd[k])out[k]=v;}
   for(const g of ['note','coin']){const o={};for(const k of Object.keys(c[g]))if(c[g][k]!==dd[g][k])o[k]=c[g][k];if(Object.keys(o).length)out[g]=o;}
-  if(out.cd&&!cuClean({cd:out.cd})){toast('A code is three to five letters.');return false;}
   const before=cuOf(n),m=clone(n),now=Date.now();m.currency=unit;const cl=cuClean(out);if(cl)m.cur=cl;else delete m.cur;
   const after=cuOf(m);
   if(after.nm!==before.nm||m.currency!==n.currency){m.log.unshift({t:now,k:'cur',a:before.nm,b:after.nm});m.log=m.log.slice(0,60);}
@@ -40381,7 +40389,7 @@ function regionView(now){
     posts.sort((a,b)=>b.p.t-a.p.t);
     const canPost=S.mode==='world'&&!!S.nation&&civicRegistered();
     board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?`Guest Nations can read community topics.${accountActionHint('topic')}`:'You have view-only access, so you can read the board but not post.'}</div>`}
-    ${posts.length?`<ul class="posts">${posts.slice(0,S.rmbN||50).map(({aid,p})=>{const mine=aid===S.uid&&!OBS,nat=mine?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,mine):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p></li>`;}).join('')}</ul>${posts.length>(S.rmbN||50)?`<p class="more-row"><button type="button" class="btn ghost small" data-act="rmb-more">Show older posts</button> <span class="hint">${Math.min(S.rmbN||50,posts.length)} of ${posts.length}</span></p>`:''}`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
+    ${posts.length?`<ul class="posts">${posts.slice(0,S.rmbN||50).map(({aid,p})=>{const mine=aid===S.uid&&!OBS,nat=mine?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,mine):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}" aria-expanded="${S.rmbAsk===p.id}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p>${del&&S.rmbAsk===p.id?`<div class="adm-ask" role="group" aria-label="Remove this message"><p>${mine?'Remove your message?':`Remove this message by ${esc(nat?nat.name:'a former nation')}?`} It is deleted for everyone and cannot be brought back.</p><div class="row"><button type="button" class="btn danger small" data-act="del-post-yes" data-a="${esc(aid)}" data-p="${esc(p.id)}">Yes, remove it</button><button type="button" class="btn ghost small" data-act="del-post-no">Keep it</button></div></div>`:''}</li>`;}).join('')}</ul>${posts.length>(S.rmbN||50)?`<p class="more-row"><button type="button" class="btn ghost small" data-act="rmb-more">Show older posts</button> <span class="hint">${Math.min(S.rmbN||50,posts.length)} of ${posts.length}</span></p>`:''}`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
   <div class="tbl-wrap"><table class="tbl"><thead><tr>${regTh('name','Nation','')}${regTh('cat','Category','c-cat')}${regTh('al','Alliance','c-al')}${regTh('pop','Population','c-pop')}${regTh('area','Land area','c-pop')}</tr></thead><tbody>
@@ -40919,7 +40927,9 @@ document.addEventListener('click',e=>{
   if(a==='dissolve-confirm'){if(!sgDzOk()){const i=document.getElementById('dz-type');if(i)i.focus();return;}S.dzType='';dissolve();return;}
   if(a==='restart-confirm'){if(!sgDzOk()){const i=document.getElementById('dz-type');if(i)i.focus();return;}S.dzType='';sgRestart();return;}
   if(a==='acct-delete'){const f=window.__edictum&&window.__edictum.openAccount;if(!(typeof f==='function'&&f('delete'))){const b=document.querySelector('.ed-acct-b');if(b)b.click();else toast('The account panel is not available right now. Reload the page and try again.');}return;}
-  if(a==='del-post'){removePost(el.dataset.a,el.dataset.p);return;}
+  if(a==='del-post'){S.rmbAsk=S.rmbAsk===el.dataset.p?null:el.dataset.p;render();return;}
+  if(a==='del-post-no'){S.rmbAsk=null;render();return;}
+  if(a==='del-post-yes'){S.rmbAsk=null;removePost(el.dataset.a,el.dataset.p);render();return;}
   if(a==='visit-link'){const u=location.origin+location.pathname+'#visit/'+el.dataset.id;
     Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(u)).then(()=>toast(`The link is copied. Players of ${REGION} who open it see this nation.`),()=>toast('Copy this link: '+u));return;}
   if(a==='reg-sort'){const k=el.dataset.k;S.regDir=(S.regSort||'pop')===k?-(S.regDir||-1):(k==='name'||k==='cat'||k==='al'?1:-1);S.regSort=k;render();const b=document.querySelector(`[data-act="reg-sort"][data-k="${k}"]`);if(b)b.focus({preventScroll:true});return;}
@@ -41102,9 +41112,15 @@ const CONTACT='p.slettenaar@gmail.com';
    closed, the connection dropped) is confirmed on the next visit. */
 const REN={on:false,val:'',err:'',busy:false,told:0,asked:0};
 const nameFold=s=>String(s||'').normalize('NFKD').replace(/\p{M}/gu,'').replace(/\s+/g,' ').trim().toLowerCase();
-/* a name already used by another nation in the region, sleepers included (folded, so case and accents do not matter) */
+/* a name already used by another nation in the region, sleepers and computer-run nations included (folded, so case and
+   accents do not matter) */
+function npcNamesOf(reg){
+  if(reg===REG.id)return NPC_NATIONS.map(x=>x.name);if(reg==='meridian')return NPCS_MER.map(x=>x.name);
+  const R=REG_BY_ID[reg];return R&&Array.isArray(R.npcs)?R.npcs.map(x=>x.name):[];
+}
 function nameTaken(v,reg){
   const f=nameFold(v),own=k=>k!==S.uid;
+  if(npcNamesOf(reg).some(x=>nameFold(x)===f))return true;
   for(const src of [S.worldAll,DORM.all,S.world,DORM.w])if(src)for(const k of Object.keys(src)){const x=src[k];if(x&&own(k)&&(x.reg||reg)===reg&&nameFold(x.name)===f)return true;}
   return false;
 }
@@ -41203,9 +41219,16 @@ function adminView(v='admin'){
 }
 function admReports(list){
   const n=list?list.length:0;
-  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const ban=q.a==='adm-ban';
-    return `<div class="adm-ask"><p>${ban?`Ban the player of <b>${esc(r.name||'this nation')}</b>? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a linked account cannot.`:`Remove <b>${esc(r.name||'this nation')}</b> for good? The nation and its posts are deleted; the player may found a new one.`}</p>
-      <div class="row"><button class="btn danger small" data-act="${q.a}-yes" data-id="${esc(r.id)}">${ban?'Yes, ban':'Yes, remove'}</button><button class="btn ghost small" data-act="adm-ask-no">Cancel</button></div></div>`;};
+  /* every action on a ticket asks first: one stray click used to remove a post or hide a nation at once */
+  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const nm=`<b>${esc(r.name||'this nation')}</b>`,what=/^news:/.test(r.post||'')?'news comment':/^cb:/.test(r.post||'')?'Community Board message':'post';
+    const t={'adm-ban':[`Ban the player of ${nm}? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a linked account cannot.`,'Yes, ban'],
+      'adm-remove':[`Remove ${nm} for good? The nation and its posts are deleted; the player may found a new one.`,'Yes, remove'],
+      'adm-delpost':[`Remove this ${what} by ${nm}? It is deleted for everyone, and the ticket is closed.`,'Yes, remove the '+what.split(' ').pop()],
+      'adm-hide':[`Hide ${nm} from the other players? Its player still plays it and is told why. You can show it again under Hidden nations. The ticket is closed.`,'Yes, hide it'],
+      'adm-rename':[`Ask the player of ${nm} for a new name? The nation is hidden from the other players until they choose one. The ticket is closed.`,'Yes, ask for a new name']}[q.a];
+    if(!t)return '';
+    return `<div class="adm-ask"><p>${t[0]}</p>
+      <div class="row"><button class="btn danger small" data-act="${q.a}-yes" data-id="${esc(r.id)}">${t[1]}</button><button class="btn ghost small" data-act="adm-ask-no">Cancel</button></div></div>`;};
   return `<h2 class="h2">Report queue${n?` <span class="chip">${n}</span>`:''}</h2>
     ${ADM.act?`<p class="hint">${esc(ADM.act)}</p>`:''}
     ${list==null?'<p class="err">The reports could not be loaded.</p>':!n?'<p class="hint">No open reports. When a player reports a post or a nation, a ticket appears here. Support tickets are under Help queries.</p>':
@@ -41232,9 +41255,10 @@ async function admAct(a,id){
   const why=r?(REPORT_WHY[r.reason]||'Reported')+(r.note?': '+r.note:'')+'.':'';
   ADM.ask=null;
   try{
-    if(a==='adm-delpost'&&r){await adminRequest({op:'moderate',action:'delete_post',target:r.post,reg:r.reg,report:id,reason:why});ADM.act='The post was removed and the ticket closed.';}
-    else if(a==='adm-hide'&&r){await adminRequest({op:'moderate',action:'hide',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden from other players and the ticket closed.`;}
-    else if(a==='adm-rename'&&r){await adminRequest({op:'moderate',action:'rename',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden until its player chooses a new name, and the ticket closed.`;}
+    if((a==='adm-delpost'||a==='adm-hide'||a==='adm-rename')&&r){ADM.ask={a,id};ADM.act='';render();return;}
+    else if(a==='adm-delpost-yes'&&r){await adminRequest({op:'moderate',action:'delete_post',target:r.post,reg:r.reg,report:id,reason:why});ADM.act='The post was removed and the ticket closed.';}
+    else if(a==='adm-hide-yes'&&r){await adminRequest({op:'moderate',action:'hide',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden from other players and the ticket closed.`;}
+    else if(a==='adm-rename-yes'&&r){await adminRequest({op:'moderate',action:'rename',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden until its player chooses a new name, and the ticket closed.`;}
     else if((a==='adm-remove'||a==='adm-ban')&&r){ADM.ask={a,id};ADM.act='';render();return;}
     else if((a==='adm-remove-yes'||a==='adm-ban-yes')&&r){const ban=a==='adm-ban-yes';await admRemove(r.target,why,String(r.name||'').slice(0,80),ban);ADM.act=ban?`The player of ${r.name||'that nation'} is banned, the nation removed and its tickets closed.`:`${r.name||'The nation'} was removed and its tickets closed.`;}
     else if(a==='adm-close'&&r){await adminRequest({op:'moderate',action:'close_report',target:id,reason:'Closed moderation report'});ADM.act='The ticket was closed.';}
@@ -41280,11 +41304,12 @@ async function susScan(){
   ADMS.busy=false;if(S.view==='admin-sus')render();
 }
 function susRow(x){
-  const hid=S.mod&&S.mod[x.id]&&S.mod[x.id].hidden,ask=ADMS.ask===x.id;
+  const hid=S.mod&&S.mod[x.id]&&S.mod[x.id].hidden,ask=ADMS.ask&&ADMS.ask.id===x.id?ADMS.ask.a:'';
   return `<li class="adm-rep"><p class="adm-rep-h"><b>${esc(x.name)}</b> · ${esc((REG_BY_ID[x.reg]||{}).name||x.reg)} · player ID <code>${esc(x.id)}</code>${hid?' <span class="chip">Hidden</span>':''}</p>
     <ul class="sus-why">${x.why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>
-    ${ask?`<div class="row"><span class="hint">Ban the player of ${esc(x.name)}? The nation and its posts are removed.</span><button class="btn danger small" data-act="sus-ban-yes" data-id="${esc(x.id)}">Ban</button><button class="btn ghost small" data-act="sus-no">Cancel</button></div>`
-    :`<div class="row">${x.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(x.reg,x.id)}${hid?'':`<button class="btn ghost small" data-act="sus-hide" data-id="${esc(x.id)}">Hide</button>`}<button class="btn ghost small" data-act="sus-ban" data-id="${esc(x.id)}">Ban…</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button></div>`}</li>`;
+    ${ask==='hide'?`<div class="row"><span class="hint">Hide ${esc(x.name)} from the other players? Its player still plays it and is told why. You can show it again under Hidden nations.</span><button class="btn danger small" data-act="sus-hide-yes" data-id="${esc(x.id)}">Hide</button><button class="btn ghost small" data-act="sus-no">Cancel</button></div>`
+    :ask?`<div class="row"><span class="hint">Ban the player of ${esc(x.name)}? The nation and its posts are removed.</span><button class="btn danger small" data-act="sus-ban-yes" data-id="${esc(x.id)}">Ban</button><button class="btn ghost small" data-act="sus-no">Cancel</button></div>`
+    :`<div class="row">${x.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(x.reg,x.id)}${hid?'':`<button class="btn ghost small" data-act="sus-hide" data-id="${esc(x.id)}">Hide…</button>`}<button class="btn ghost small" data-act="sus-ban" data-id="${esc(x.id)}">Ban…</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button></div>`}</li>`;
 }
 function susRows(){return susHere().concat(ADMS.scan||[]);}
 function adminSusView(){
@@ -41300,15 +41325,16 @@ function adminSusView(){
 async function susAct(a,id){
   const x=susRows().find(r=>r.id===id),note=x?('Suspected cheating: '+x.why.join(' ')).slice(0,300):'Suspected cheating.',name=x?String(x.name).slice(0,80):'';
   try{
-    if(a==='sus-hide'){await adminRequest({op:'moderate',action:'hide',target:id,reason:note,name});ADMS.act=`${name||'The nation'} is hidden from other players.`;}
-    else if(a==='sus-ban'){ADMS.ask=id;ADMS.act='';render();return;}
+    if(a==='sus-hide'){ADMS.ask={id,a:'hide'};ADMS.act='';render();return;}
+    else if(a==='sus-hide-yes'){ADMS.ask=null;await adminRequest({op:'moderate',action:'hide',target:id,reason:note,name});ADMS.act=`${name||'The nation'} is hidden from other players.`;}
+    else if(a==='sus-ban'){ADMS.ask={id,a:'ban'};ADMS.act='';render();return;}
     else if(a==='sus-ban-yes'){ADMS.ask=null;await admRemove(id,note,name,true);if(ADMS.scan)ADMS.scan=ADMS.scan.filter(r=>r.id!==id);ADMS.act=`The player of ${name||'that nation'} is banned and the nation removed.`;}
   }catch(e){ADMS.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
   render();
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
   if(a==='sus-scan'){susScan();return;}if(a==='sus-no'){ADMS.ask=null;render();return;}
-  if(a==='sus-hide'||a==='sus-ban'||a==='sus-ban-yes')susAct(a,el.dataset.id);});
+  if(a==='sus-hide'||a==='sus-hide-yes'||a==='sus-ban'||a==='sus-ban-yes')susAct(a,el.dataset.id);});
 
 /* ── All edicts: the whole catalog by category, read straight from ISSUES, so it needs no server. A row's
    question and options are drawn only when it is opened; the search hides rows without redrawing. ── */
@@ -41432,7 +41458,7 @@ document.addEventListener('click',e=>{
   if(a==='admin-close'){go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
   if(a==='adm-ask-no'){ADM.ask=null;render();return;}
-  if(/^adm-(delpost|hide|rename|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner)admAct(a,el.dataset.id);return;}
+  if(/^adm-(delpost|delpost-yes|hide|hide-yes|rename|rename-yes|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner)admAct(a,el.dataset.id);return;}
   if(a==='report-nation'||a==='report-post'){
     const id=el.dataset.id||el.dataset.a,x=findNation(id);if(!x||x.npc)return;
     let info={kind:'nation',target:id,reg:REG.id,name:fullName(x.n),x:[x.n.motto,x.n.about].filter(Boolean).join(' · ').slice(0,600)};
@@ -44140,7 +44166,7 @@ function ffbStart(key){
   if(!opt||opt.why){toast(opt&&opt.why?opt.why:'The quick first building is no longer on offer.');render();return;}
   const now=Date.now(),st=stockNow(n0,now),m=ensureCities(clone(n0)),c=m.cities.find(x=>x.id===o.ct.id);if(!c)return;
   const cost=bCost(n0,key);for(const r of RES)st[r]-=cost[r]||0;m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;
-  c.b.push({k:key,s:now,d:now+FFB_MS});m.ffb={k:key,c:c.id,s:now,d:now+FFB_MS};
+  c.b.push({k:key,s:now,d:now+FFB_MS,p:cost});m.ffb={k:key,c:c.id,s:now,d:now+FFB_MS};
   commit(m);saveSoon();render();toast(`Builders are on site: the ${BUILDINGS[key].n} in ${cityLabel(m,c)} will be ready in ${fmtDur(FFB_MS)}.`);
 }
 function ffbCard(){
@@ -44804,11 +44830,11 @@ function nwCommentRow(p,x,kids){
   const acts=[!x.re&&!p.lk&&S.mode==='world'?`<button type="button" class="linkish small" data-act="nw-c-re" data-p="${p.id}" data-id="${x.id}">Reply</button>`:'',
     me?`<button type="button" class="linkish small" data-act="nw-c-del" data-p="${p.id}" data-id="${x.id}">Delete</button>`:`<button type="button" class="linkish small" data-act="nw-c-rep" data-p="${p.id}" data-id="${x.id}">Report</button>`,
     nwStaff()&&!me?`<button type="button" class="linkish small nw-mod" data-act="nw-c-rm" data-p="${p.id}" data-id="${x.id}">Remove</button>`:'',
-    adminTarget?`<button type="button" class="linkish small nw-mod" data-act="nw-c-hide" data-p="${p.id}" data-id="${x.id}">Hide nation</button><button type="button" class="linkish small nw-mod" data-act="nw-c-ban" data-p="${p.id}" data-id="${x.id}">Ban player…</button>`:''].join('');
-  const confirm=ask==='rm'?`Remove this comment by ${esc(x.nm)}? It is kept in the admin audit log.`:ask==='ban'?`Ban the player of ${esc(x.nm)}? Their nation, its posts and comments are deleted and the account can no longer play.`:'';
+    adminTarget?`<button type="button" class="linkish small nw-mod" data-act="nw-c-hide" data-p="${p.id}" data-id="${x.id}">Hide nation…</button><button type="button" class="linkish small nw-mod" data-act="nw-c-ban" data-p="${p.id}" data-id="${x.id}">Ban player…</button>`:''].join('');
+  const confirm=ask==='rm'?`Remove this comment by ${esc(x.nm)}? It is kept in the admin audit log.`:ask==='hide'?`Hide ${esc(x.nm)} from the other players? Its player still plays it and is told why. You can show it again in the admin portal, under Hidden nations.`:ask==='ban'?`Ban the player of ${esc(x.nm)}? Their nation, its posts and comments are deleted and the account can no longer play.`:'';
   return `<li class="nw-c${x.st?' staff':''}" id="nwc-${x.id}"><div class="nw-c-h">${nwFlag(x.fl,x.nm)}<b>${esc(x.nm)}</b>${x.a===S.uid&&S.nation?shopBadge(S.nation,1):x.a&&S.world&&S.world[x.a]?shopBadge(S.world[x.a],1):''}${x.st==='admin'?(p.as==='staff'&&p.by===x.a?'<span class="staff-pill nw-dev">Developer</span>':STAFF_PILL):x.st==='mod'?'<span class="staff-pill nw-modpill">Moderator</span>':''}${x.rg&&REG_BY_ID[x.rg]?`<span class="nw-c-r">${esc(REG_BY_ID[x.rg].name)}</span>`:''}<span class="post-t">${esc(rel(x.t))}</span></div>
     <p class="post-x">${esc(x.x)}</p><div class="nw-c-a">${acts}</div>
-    ${confirm?`<div class="adm-ask"><p>${confirm}</p><div class="row"><button type="button" class="btn danger small" data-act="nw-c-${ask}-yes" data-p="${p.id}" data-id="${x.id}">${ask==='ban'?'Yes, ban':'Yes, remove'}</button><button type="button" class="btn ghost small" data-act="nw-ask-no">Cancel</button></div></div>`:''}${kids&&kids.length?`<ol class="nw-cl nw-re">${kids.map(y=>nwCommentRow(p,y)).join('')}</ol>`:''}</li>`;
+    ${confirm?`<div class="adm-ask"><p>${confirm}</p><div class="row"><button type="button" class="btn danger small" data-act="nw-c-${ask}-yes" data-p="${p.id}" data-id="${x.id}">${ask==='ban'?'Yes, ban':ask==='hide'?'Yes, hide it':'Yes, remove'}</button><button type="button" class="btn ghost small" data-act="nw-ask-no">Cancel</button></div></div>`:''}${kids&&kids.length?`<ol class="nw-cl nw-re">${kids.map(y=>nwCommentRow(p,y)).join('')}</ol>`:''}</li>`;
 }
 function nwComments(p,c){
   const list=c.list?c.list.filter(x=>!(S.mod&&S.mod[x.a]&&S.mod[x.a].hidden&&x.a!==S.uid)):null,busy=NW.sending===p.id,d=NW.draft[p.id]||'';
@@ -44914,20 +44940,22 @@ async function nwTally(pid,op,v){
     if(c==='poll_voted'){delete NW.me[pid];delete NW.stat[pid];nwExtras([{id:pid}]);}}
   NW.voting='';render();
 }
+function nwCopies(id){const out=[];for(const p of (NW.posts||[]).concat(NW.pinned||[],NW.one||[]))if(p&&p.id===id&&!out.includes(p))out.push(p);return out;}
+function nwPostOf(id){return nwCopies(id)[0]||null;}
 function nwFind(pid,cid){const c=NW.cm[pid];return c&&c.list?c.list.find(x=>x.id===cid):null;}
 async function nwAct(a,pid,cid){
-  const p=NW.posts&&NW.posts.find(x=>x.id===pid),x=cid?nwFind(pid,cid):null;
+  const p=nwPostOf(pid),x=cid?nwFind(pid,cid):null;
   try{
     if(a==='nw-c-del'&&x&&x.a===S.uid){await S.db.doc('devnews/'+pid+'/posts/'+cid).delete();toast('Your comment was deleted.');}
     else if(a==='nw-c-rep'&&x){const r=await window.claude.use('report');if(r)r.open({kind:'post',target:x.a,post:'news:'+pid+':'+cid,reg:x.rg,name:x.nm,x:x.x.slice(0,600)});else toast('Reporting needs a connection.');}
-    else if((a==='nw-c-rm'||a==='nw-c-ban')&&x){NW.ask={post:pid,c:cid,a:a==='nw-c-rm'?'rm':'ban'};render();return;}
+    else if((a==='nw-c-rm'||a==='nw-c-ban'||a==='nw-c-hide')&&x){NW.ask={post:pid,c:cid,a:a.slice(5)};render();return;}
     else if(a==='nw-c-rm-yes'&&x&&nwStaff()){NW.ask=null;const api=await window.claude.use('civic');await api.request({op:'newsModerate',post:pid,comment:cid,reason:'Removed from development news'});toast('The comment was removed.');}
-    else if(a==='nw-c-hide'&&x&&S.isOwner){await adminRequest({op:'moderate',action:'hide',target:x.a,reason:'A comment on development news',name:x.nm});toast(`${x.nm} is hidden from other players.`);}
+    else if(a==='nw-c-hide-yes'&&x&&S.isOwner){NW.ask=null;await adminRequest({op:'moderate',action:'hide',target:x.a,reason:'A comment on development news',name:x.nm});toast(`${x.nm} is hidden from other players.`);}
     else if(a==='nw-c-ban-yes'&&x&&S.isOwner){NW.ask=null;await admRemove(x.a,'A comment on development news',x.nm,true);toast(`The player of ${x.nm} is banned and the nation removed.`);}
     else if(a==='nw-lock'&&p&&S.isOwner){const s=await S.db.doc('devnews/'+pid).get(),d=s.exists?s.data():null;if(!d)return;
-      if(p.lk)delete d.lk;else d.lk=true;d.by=S.uid;await S.db.doc('devnews/'+pid).set(d);p.lk=!p.lk;toast(p.lk?'Comments on this post are closed.':'Comments on this post are open again.');}
+      if(p.lk)delete d.lk;else d.lk=true;d.by=S.uid;await S.db.doc('devnews/'+pid).set(d);const lk=!p.lk;for(const q of nwCopies(pid))q.lk=lk;toast(lk?'Comments on this post are closed.':'Comments on this post are open again.');}
     else if(a==='nw-del'&&p){NW.ask={post:pid,a:'del'};render();return;}
-    else if(a==='nw-del-yes'&&p&&S.isOwner){NW.ask=null;await nwDelete(pid);NW.posts=NW.posts.filter(q=>q.id!==pid);toast('The post was deleted.');}
+    else if(a==='nw-del-yes'&&p&&S.isOwner){NW.ask=null;await nwDelete(pid);if(NW.posts)NW.posts=NW.posts.filter(q=>q.id!==pid);if(NW.pinned&&NW.pinned.id===pid)NW.pinned=null;if(NW.one&&NW.one.id===pid)NW.one=null;NW.arc=null;if(NW.focus===pid)nwFocus('');toast('The post was deleted.');}
   }catch(e){NW.ask=null;toast('That did not work'+(e&&e.message?': '+e.message:'.'));}
   render();
 }
@@ -45269,8 +45297,8 @@ document.addEventListener('click',e=>{
     if(a==='nw-vote'){nwTally(el.dataset.id,'newsVote',el.dataset.v);return;}
     if(a==='nw-c-re'){NW.reply[el.dataset.p]=el.dataset.id;render();const t=document.getElementById('nw-ct-'+el.dataset.p);if(t)try{t.focus();}catch(err){}return;}
     if(a==='nw-c-re-no'){delete NW.reply[el.dataset.p];render();return;}
-    if(a==='nw-edit'&&S.isOwner){const p=NW.posts&&NW.posts.find(x=>x.id===el.dataset.id);if(p){go('admin-news');nweOpen(p);render();}return;}
-    if(/^nw-(c-(del|rep|rm|rm-yes|hide|ban|ban-yes)|lock|del|del-yes)$/.test(a))nwAct(a,el.dataset.p||el.dataset.id,el.dataset.p?el.dataset.id:'');
+    if(a==='nw-edit'&&S.isOwner){const p=nwPostOf(el.dataset.id);if(p){go('admin-news');nweOpen(p);render();}return;}
+    if(/^nw-(c-(del|rep|rm|rm-yes|hide|hide-yes|ban|ban-yes)|lock|del|del-yes)$/.test(a))nwAct(a,el.dataset.p||el.dataset.id,el.dataset.p?el.dataset.id:'');
     return;
   }
   if(a.slice(0,4)!=='nwe-'||!S.isOwner)return;
@@ -50432,14 +50460,14 @@ const CX_LETTERS={
 function cxBldExtras(b){
   const o={};if(!b||typeof b!=='object')return o;
   if(b.lv===2||b.lv===3)o.lv=b.lv;const u=b.lu,lv=o.lv||1;
-  if(u&&typeof u==='object'&&u.l===lv+1&&u.l<=3&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=7*DAY)o.lu={l:u.l,s:u.s,d:u.d};
+  if(u&&typeof u==='object'&&u.l===lv+1&&u.l<=3&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=7*DAY){o.lu={l:u.l,s:u.s,d:u.d};const p=paidClean(u.p,cxUpList(b.k,u.l));if(p)o.lu.p=p;}
   return o;
 }
 function cxCityExtras(c){
   const o={};if(!c||typeof c!=='object')return o;
   const m=c.my;if(m&&typeof m==='object'&&typeof m.nm==='string'&&Object.hasOwn(CX_TRAITS,m.tr)&&Number.isFinite(m.t))o.my={nm:c3CleanName(m.nm,40),tr:m.tr,t:m.t};
   if(Number.isInteger(c.wl)&&c.wl>0)o.wl=clamp(c.wl,0,3);
-  const u=c.wu,wl=o.wl||0;if(u&&typeof u==='object'&&u.l===wl+1&&u.l<=3&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=3*DAY)o.wu={l:u.l,s:u.s,d:u.d};
+  const u=c.wu,wl=o.wl||0;if(u&&typeof u==='object'&&u.l===wl+1&&u.l<=3&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=3*DAY){o.wu={l:u.l,s:u.s,d:u.d};const p=paidClean(u.p,cxWallList(u.l));if(p)o.wu.p=p;}
   if(Number.isFinite(c.ne))o.ne=c.ne;
   const mb=c.mb;if(mb&&typeof mb==='object'&&Number.isFinite(mb.v)&&Number.isFinite(mb.u)&&mb.v)o.mb={v:clamp(Math.round(mb.v),-15,15),u:mb.u};
   return o;
@@ -50498,6 +50526,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
 function cxHeld(cid){const {T,mine}=myCityStates(),ct=mine.find(c=>c.id===cid);return ct&&ct.active&&!(ct.hi>=0&&T.list[ct.hi].id!==myId())?ct:null;}
 function cxPay(n,st,cost,now){for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;}
 function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+Math.floor((cost[r]||0)/2),st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;}
+/* the list prices of a level and of a wall level (no cabinet bonus): the most a kept price can be */
+function cxUpList(k,to){if(!BUILDINGS[k]||!CX_UP[to])return null;const base=bCost(null,k),c={};for(const r in base)c[r]=Math.ceil(base[r]*CX_UP[to]);return c;}
+function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return c;}
 function cxUpQuote(n,ct,k,to){const base=bCost(n,k),c={};for(const r in base)c[r]=Math.ceil(base[r]*CX_UP[to]);return {cost:c,hours:Math.round(bHours(n,k)*CX_UP[to]*cxBuildK(ct)*10)/10};}
 function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{const e=cxBldExtras(b);return e.lu&&e.lu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
@@ -50512,12 +50543,12 @@ function cxUpgrade(cid,k){
   if(p){S.cityMsg=p;render();return;}
   const to=cxLevel(ct.rec.b.find(x=>x.k===k),now)+1,q=cxUpQuote(S.nation,ct,k,to);
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid),b=c&&c.b.find(x=>x.k===k);if(!b)return;
-  cxPay(n,st,q.cost,now);if(to>2)b.lv=to-1;b.lu={l:to,s:now,d:now+q.hours*3600e3};
+  cxPay(n,st,q.cost,now);if(to>2)b.lv=to-1;b.lu={l:to,s:now,d:now+q.hours*3600e3,p:q.cost};
   commit(n);S.cityMsg='';render();toast(`Work has started on raising the ${BUILDINGS[k].n} in ${ct.nm} to level ${to}. It will be ready in ${fmtDur(q.hours*3600e3)}.`);
 }
 function cxUpCancel(cid,k){
   const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid),b=c&&c.b.find(x=>x.k===k),e=b&&cxBldExtras(b);
-  if(!e||!e.lu||e.lu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,cxUpQuote(S.nation,ct,k,e.lu.l).cost,now);delete b.lu;
+  if(!e||!e.lu||e.lu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,e.lu.p||cxUpQuote(S.nation,ct,k,e.lu.l).cost,now);delete b.lu;
   commit(n);S.cityMsg='';render();toast(`Work on the ${BUILDINGS[k].n} has stopped. Half the materials were saved.`);
 }
 function cxWallQuote(n,ct,to){const W=CX_WALL[to],f=cabFx(n),c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]*f.cost));return {cost:c,hours:Math.round(W.h*f.build*cxBuildK(ct)*10)/10};}
@@ -50530,12 +50561,12 @@ function cxWall(cid){
   const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),st=stockNow(S.nation,now),p=cxWallProblem(S.nation,ct,st,now);
   if(p){S.cityMsg=p;render();return;}
   const to=cxWallLv(ct.rec,now)+1,q=cxWallQuote(S.nation,ct,to),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
-  cxPay(n,st,q.cost,now);if(to>1)c.wl=to-1;c.wu={l:to,s:now,d:now+q.hours*3600e3};
+  cxPay(n,st,q.cost,now);if(to>1)c.wl=to-1;c.wu={l:to,s:now,d:now+q.hours*3600e3,p:q.cost};
   commit(n);S.cityMsg='';render();toast(`The masons start on level ${to} of the walls of ${ct.nm}. Ready in ${fmtDur(q.hours*3600e3)}.`);
 }
 function cxWallCancel(cid){
   const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid),e=c&&cxCityExtras(c);
-  if(!e||!e.wu||e.wu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,cxWallQuote(S.nation,ct,e.wu.l).cost,now);delete c.wu;
+  if(!e||!e.wu||e.wu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,e.wu.p||cxWallQuote(S.nation,ct,e.wu.l).cost,now);delete c.wu;
   commit(n);S.cityMsg='';render();toast(`Work on the walls of ${ct.nm} has stopped. Half the materials were saved.`);
 }
 function cxCands(ct,now){
