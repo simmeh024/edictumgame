@@ -49,21 +49,27 @@ async function regionRecords(db, reg, now) {
   return recs;
 }
 
-/* moderation: removed nations are left out; hidden ones are valued but marked, so only their owner sees them */
+/* moderation: removed nations are left out; hidden ones are valued but marked, so only their owner sees them. removed is
+   the time of the removal (functions/admin.js), which, as in the game, takes out only a nation founded before it: the
+   same account may found a new nation since, with a currency of its own */
 async function moderation(db) {
   const out = new Map();
-  try { const qs = await db.collection('mod').get(); for (const d of qs.docs) { const v = d.data() || {}; if (v.hidden || v.removed) out.set(d.id, { hidden: !!v.hidden, removed: !!v.removed }); } } catch (e) { /* none */ }
+  try { const qs = await db.collection('mod').get(); for (const d of qs.docs) { const v = d.data() || {}; if (v.hidden || v.removed) out.set(d.id, { hidden: !!v.hidden, removed: v.removed === true ? Infinity : Number(v.removed) || 0 }); } } catch (e) { /* none */ }
   return out;
 }
+const founded = rec => { const t = Number(rec && rec.founded); return Number.isFinite(t) ? t : 0; };
 
 /* a currency new to this region's state but with a history (its nation moved here): its state, from that history */
-async function seeded(db, ids, day) {
+async function seeded(db, ids, day, since = {}) {
   const out = {};
   await Promise.all(ids.map(async id => {
     try {
       const s = await db.doc('fxh/' + id).get(), h = s.exists && s.data() && s.data().d;
       if (!h || typeof h !== 'object') return;
-      const days = Object.keys(h).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && Array.isArray(h[k])).map(k => [dayNum(Date.parse(k + 'T00:00:00Z')), +h[k][0], +h[k][1]]).filter(d => d[0] < day).sort((a, b) => a[0] - b[0]);
+      /* since[id]: the founding day of a nation founded again after a removal. The job's entry for a day is made just
+         after midnight, so entries up to that day were the removed nation's */
+      const from = since[id] == null ? -Infinity : since[id] + 1;
+      const days = Object.keys(h).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && Array.isArray(h[k])).map(k => [dayNum(Date.parse(k + 'T00:00:00Z')), +h[k][0], +h[k][1]]).filter(d => d[0] < day && d[0] >= from).sort((a, b) => a[0] - b[0]);
       const st = seedState(id, days); if (st) out[id] = st;
     } catch (e) { /* a new currency */ }
   }));
@@ -96,30 +102,42 @@ export async function runRegion(db, region, { now, day, world, mod, runId }) {
   if (!L.ok) return { reg: region.id, skipped: L.why };
   const prev = L.prev || {}, prevState = prev.n || {};
   const recs = await regionRecords(db, region.id, now);
-  for (const id of [...recs.keys()]) if (mod.get(id) && mod.get(id).removed) recs.delete(id);
+  /* removed: only a nation founded before the removal. One founded since is a new currency (again): its state starts
+     afresh once (state fd marks the founding it belongs to), and its history leaves out the removed nation's days */
+  const again = new Map();
+  for (const [id, rec] of [...recs]) {
+    const m = mod.get(id); if (!m || !m.removed) continue;
+    if (founded(rec) < m.removed) { recs.delete(id); continue; }
+    again.set(id, founded(rec));
+  }
+  const kept = id => !again.has(id) || (prevState[id] && prevState[id].fd === again.get(id));
+  const newer = [...again.keys()].filter(id => !kept(id)), since = Object.fromEntries(newer.map(id => [id, dayNum(again.get(id))]));
+  const prevKept = Object.fromEntries(Object.entries(prevState).filter(([id]) => kept(id)));
   const npcIds = new Set(region.npcs.map(x => x.id)), trade = tradeOf(recs, npcIds), wars = warsOf(recs, npcIds);
   const forged = counterfeitsOf(new Map([...region.npcs.map(x => [x.id, x]), ...recs]), now, region.id);
   const nations = [];
   for (const x of region.npcs) nations.push({ id: x.id, I: indicators(x.id, x, now, { npc: true, npcPop: world.npcPop, npcEpoch: world.npcEpoch, trade: trade.get(x.id), wars: wars.get(x.id), counterfeit: forged.get(x.id) }) });
   for (const [id, rec] of recs) nations.push({ id, I: indicators(id, rec, now, { trade: trade.get(id), wars: wars.get(id), counterfeit: forged.get(id) }) });
-  const prior = Object.assign(await seeded(db, [...recs.keys()].filter(id => !prevState[id]), day), prevState);
+  const prior = Object.assign(await seeded(db, [...recs.keys()].filter(id => !prevKept[id]), day, since), prevKept);
   const { state, pub, events } = stepRegion(nations, prior, day);
   /* milestones: kept on each currency (its last few) and for the region (the last thirty) */
   const evs = prev.ev && Array.isArray(prev.ev) ? prev.ev.slice() : [];
   for (const [id, code, arg] of events) {
     const e = [day, code, arg];
-    state[id].ev = (state[id].ev || prevState[id] && prevState[id].ev || []).concat([e]).slice(-EVENTS_KEPT);
+    state[id].ev = (state[id].ev || prevKept[id] && prevKept[id].ev || []).concat([e]).slice(-EVENTS_KEPT);
     evs.push([day, id, code, arg]);
   }
   for (const id of Object.keys(state)) {
-    if (!state[id].ev && prevState[id] && prevState[id].ev) state[id].ev = prevState[id].ev;
+    if (again.has(id)) state[id].fd = again.get(id);
+    if (!state[id].ev && prevKept[id] && prevKept[id].ev) state[id].ev = prevKept[id].ev;
     if (state[id].ev) pub[id].ev = state[id].ev;
     if (mod.get(id) && mod.get(id).hidden) pub[id].hd = 1;
     if (npcIds.has(id)) pub[id].npc = 1;
   }
   const t = now, iso = isoDay(day), regionEvents = evs.filter(e => recs.has(e[1]) || npcIds.has(e[1])).slice(-REGION_EVENTS_KEPT);
   const ops = [];
-  for (const id of Object.keys(state)) ops.push(['set', db.doc('fxh/' + id), { reg: region.id, t, d: { [iso]: [pub[id].v, pub[id].p] } }, { merge: true }]);
+  /* a currency starting afresh replaces the history left by the removed nation; every other adds today's entry */
+  for (const id of Object.keys(state)) ops.push(['set', db.doc('fxh/' + id), { reg: region.id, t, d: { [iso]: [pub[id].v, pub[id].p] } }, newer.includes(id) ? undefined : { merge: true }]);
   await commitAll(db, ops);
   /* last, and only while the lease is still ours: the public document and the state, marking the day done */
   const gone = Object.keys(prevState).filter(id => !state[id]);

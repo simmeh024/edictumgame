@@ -127,3 +127,23 @@ test('normalising keeps what the four lists save and drops the rest',()=>{
   assert.deepEqual(JSON.parse(JSON.stringify(r.ctx.normalize({lc:['city','nope','city','fxd'],ch:'zdcq',v:25,p:1,w:24,g:'mq',x:1}))),{g:'m',lc:['city','fxd'],ch:'cd',v:25,p:1,w:24});
   assert.equal(r.ctx.normalize({p:2,ch:'',lc:[]}),null);
 });
+
+/* the game adds "Customise your nation" to the charter list later in the file than the lists: run that too */
+function withCust(r){
+  const a=source.indexOf("{const L=TUT_LISTS.find(L=>L.k==='charter')"),b=source.indexOf('ch);}',a);
+  assert.ok(a>0&&b>a,'the Customise task is found');
+  vm.runInContext(source.slice(a,b+'ch);}'.length)+";if(typeof tutRebuild==='function')tutRebuild();",r.ctx);return r;
+}
+test('“Customise your nation” pays, and with it the charter list’s bonus and “the Founder”',()=>{
+  const r=withCust(rewards());r.ctx.DEVK='c';
+  assert.ok(r.ctx.lists[0].tasks.some(s=>s.k==='cust'));
+  let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1}});
+  r.save(n);
+  assert.ok(!n.tut.lc.includes('cust'),'not before Customise is opened');assert.ok(!(n.tut.ch||'').includes('c'),'nor the list');
+  r.ctx.DEVK='cu';n=r.reload(n);const m=r.save(n);
+  assert.ok(n.tut.lc.includes('cust'),'opening Customise pays its step: '+m.join(' | '));
+  assert.ok(m.some(x=>/^List complete: Your nation starts here\./.test(x)),m.join(' | '));
+  assert.equal(n.tut.ch,'c');assert.deepEqual([...r.ctx.unlocks[0].earned(n)],['t-founder']);
+  n=r.reload(n);assert.ok(n.tut.lc.includes('cust'),'and it is kept on reload');assert.deepEqual(r.save(n),[]);
+  const pub=JSON.parse(JSON.stringify(n));delete pub.tut;assert.equal(r.ctx.credits(pub),r.ctx.credits(n),'another player’s game counts all of it');
+});

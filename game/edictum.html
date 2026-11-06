@@ -25802,6 +25802,8 @@ const CV_KINDS={
 };
 const CV_KEYS=['s','b','d','m','c'];
 const CV_GAP=8*3600e3,CV_SAME=DAY,CV_NEW=3*DAY,CV_LIVE=72*3600e3,CV_RV=48*3600e3,CV_BP=7*DAY,CV_KEEP=16,CV_MAX=20,CV_LOY=12,CV_DISMISS=2;
+/* n.cvIn, the incidents already applied: at least the last CV_IN_MIN, and every one still within CV_LIVE, up to CV_IN_MAX */
+const CV_IN_MIN=60,CV_IN_MAX=1000;
 const CV_SCN=['scn-nap','scn-chat','scn-portrait','scn-double','scn-moat','scn-karaoke','scn-memoir','scn-shed','scn-diploma','scn-speech','scn-wedding','scn-homework'];
 const CV_SCN_SET=new Set(CV_SCN);
 /* rumour headlines for each scandal: {TN} the nation, {TCAP} its capital */
@@ -26043,8 +26045,16 @@ function cvApply(n,old,now){
     }
     n.cvIn.push(e.key);
   }
-  n.cvIn=n.cvIn.slice(-60);
+  n.cvIn=cvInTrim(n.cvIn,now);
   return out;
+}
+/* the applied incidents worth remembering: the last CV_IN_MIN, and every one whose operation could still be applied
+   (CV_LIVE, with a day to spare for clocks). Only the last 60 were once kept, so past 60 incidents in three days the
+   older ones counted as new again, and landed again at every commit */
+function cvInTrim(keys,now){
+  const me=myId(),live=new Set();
+  try{for(const e of cvIndex().all)if(e.op.tg===me&&now-e.op.t<CV_LIVE+DAY)live.add(e.key);}catch(e){}
+  return keys.filter((k,i)=>i>=keys.length-CV_IN_MIN||live.has(k)).slice(-CV_IN_MAX);
 }
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc||!n.name)return [];
@@ -26090,7 +26100,7 @@ NORM_HOOKS.push((n,d)=>{
     }
     if(out.length)n.cov=out;
   }
-  if(Array.isArray(d.cvIn)){const a=d.cvIn.filter(k=>typeof k==='string'&&/^[a-z0-9]{1,12}$/.test(k)).slice(-60);if(a.length)n.cvIn=a;}
+  if(Array.isArray(d.cvIn)){const a=d.cvIn.filter(k=>typeof k==='string'&&/^[a-z0-9]{1,12}$/.test(k)).slice(-CV_IN_MAX);if(a.length)n.cvIn=a;}
   if(Array.isArray(d.cvEx)){const a=d.cvEx.filter(t=>num(t)&&t>0).slice(-30);if(a.length)n.cvEx=a;}
 });
 
@@ -33910,7 +33920,16 @@ const TUT_LISTS=[
     {k:'world',t:'Look round the known world',h:()=>`${REGIONS.length} regions, each with its own lands, climate and nations, and you may move to any of them.`,v:'world',b:'Open the World page',lc:2,gift:{oil:10},
      f:(n,d)=>d.includes('w')||(n.log||[]).some(l=>l&&l.k==='move')}]}
 ];
-const TUT_ALL=TUT_LISTS.flatMap(L=>L.tasks),TUT_BY=Object.fromEntries(TUT_ALL.map(s=>[s.k,s]));
+/* every task, by key, and the most land credits the tutorial pays: rebuilt whenever a list changes. A task added to a
+   list later in this file (Customise your nation) was once missing from them, so it never paid, and nor did its list's
+   completion bonus, which waits for every task in it */
+const TUT_ALL=[],TUT_BY={};let TUT_MAXC=0;
+function tutRebuild(){
+  TUT_ALL.length=0;TUT_ALL.push(...TUT_LISTS.flatMap(L=>L.tasks));
+  for(const k of Object.keys(TUT_BY))delete TUT_BY[k];for(const s of TUT_ALL)TUT_BY[s.k]=s;
+  TUT_MAXC=TUT_ALL.reduce((a,s)=>a+(s.own?0:s.lc||1),0)+TUT_LISTS.reduce((a,L)=>a+(L.bonus.lc||0),0);
+}
+tutRebuild();
 const tutLcIds=()=>TUT_ALL.filter(s=>!s.own).map(s=>s.k);
 const tutLcOf=n=>n&&n.tut&&Array.isArray(n.tut.lc)?n.tut.lc:[];
 const tutChOf=n=>n&&n.tut&&typeof n.tut.ch==='string'?n.tut.ch:'';
@@ -33924,7 +33943,6 @@ function tutState(n,L,cheap){
 /* a list done in full, with lc the keys paid (or about to be) */
 const tutAllOk=(n,L,lc)=>tutTasks(L).every(s=>{if(!s.own)return lc.includes(s.k);try{return !!s.f(n,'',true);}catch(e){return false;}});
 /* the land credits the tutorial has paid: each task’s, and each finished list’s bonus */
-const TUT_MAXC=TUT_ALL.reduce((a,s)=>a+(s.own?0:s.lc||1),0)+TUT_LISTS.reduce((a,L)=>a+(L.bonus.lc||0),0);
 function tutCredits(n){
   if(!n)return 0;if(!n.tut)return clamp(Math.round(+n.tlc||0),0,TUT_MAXC); /* another player's record: only the total is shared */
   let c=0;for(const k of tutLcOf(n))c+=tutTaskLc(k);for(const L of TUT_LISTS)if(tutChOf(n).includes(L.c))c+=L.bonus.lc||0;return c;
@@ -43227,6 +43245,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
 pgEligible=(f=>function(n,k){return k==='charter'?!!n:f.apply(this,arguments);})(pgEligible);
 {const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter'),ch=L.tasks.splice(i,1)[0];
   L.tasks.push({k:'cust',t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',f:(n,d)=>String(d||'').includes('u')},ch);}
+tutRebuild();
 /* a visit to Customise ticks its task (after the page is drawn: the mark saves, which draws again) */
 VIEWS_EXT.customise=(f=>function(){if(S.nation&&!S.nation.npc&&!OBS&&!tutDevGet().includes('u'))setTimeout(()=>tutMark('u'),0);return f.apply(this,arguments);})(VIEWS_EXT.customise);
 tutRow=(f=>function(n,x){
@@ -46646,14 +46665,20 @@ let wndMemo={k:'',v:null};
 function wndState(){
   const L=allNations().filter(x=>!x.npc&&x.n&&x.n.wnd&&x.n.wnd.r===REG.id);
   const key=REG.id+'|'+L.map(x=>x.id+':'+x.n.wnd.t+':'+(x.n.wnd.ph||0)).join(',');if(wndMemo.k===key)return wndMemo.v;
-  const tot=Object.fromEntries(RES.map(r=>[r,0])),who=[];let floor=0,start=0;
+  const tot=Object.fromEntries(RES.map(r=>[r,0])),who=[],P=[];let floor=0,start=0;
   for(const x of L){const c=x.n.wnd.c||{};let sum=0;for(const r of RES){const v=num0(c[r]);tot[r]+=v;sum+=v;}floor=Math.max(floor,x.n.wnd.ph||0);
+    const p=x.n.wnd.p;if(p&&typeof p==='object')for(const [k,o] of Object.entries(p)){const i=+k;if(!(i>=0&&i<WND_N)||!o)continue;const a=P[i]||(P[i]={});for(const r of RES)a[r]=(a[r]||0)+num0(o[r]);}
     if(sum>0){who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c});const t0=x.n.wnd.t0||x.n.wnd.t;if(t0>0&&(!start||t0<start))start=t0;}}
+  /* what phase d has of what it needs: past what the earlier phases took of the running total, or what was given to
+     it (n.wnd.p), whichever is more. A nation that leaves takes its gifts out of the total: with finished phases kept
+     finished (floor), the total alone could then fall short of them for good, and the phase after never fill up */
+  const gotOf=(d,r)=>{const q=WND_PH[d][2][r]||0,prev=d?(WND_CUM[d-1][r]||0):0;return clamp(Math.max(tot[r]-prev,num0(P[d]&&P[d][r])),0,q);};
   let done=0;while(done<WND_N&&RES.every(r=>tot[r]+1e-6>=(WND_CUM[done][r]||0)))done++;
   done=Math.max(done,Math.min(WND_N,floor));
-  /* the phase in progress: what it still needs, measured past what the earlier phases took */
+  while(done<WND_N&&RES.every(r=>gotOf(done,r)+1e-6>=(WND_PH[done][2][r]||0)))done++;
+  /* the phase in progress: what it still needs */
   const need={},cur=done<WND_N?WND_PH[done][2]:{};let want=0,have=0;
-  for(const r of RES){const q=cur[r]||0;if(!q)continue;const prev=done?(WND_CUM[done-1][r]||0):0,got=clamp(tot[r]-prev,0,q);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
+  for(const r of RES){const q=cur[r]||0;if(!q)continue;const got=gotOf(done,r);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
   who.sort((a,b)=>b.sum-a.sum||(a.name<b.name?-1:1));
   wndMemo={k:key,v:{tot,done,need,frac:want?have/want:1,who,start}};return wndMemo.v;
 }
@@ -46670,6 +46695,8 @@ function wndGive(r,amt){
   const w=wndMine(n)?clone(n.wnd):{r:REG.id,c:{},ph:0,t:0,g:[]};
   st[r]-=give;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   w.c[r]=Math.round((num0(w.c[r])+give)*10)/10;if(!w.t0)w.t0=w.t||now;w.t=now;
+  /* and against the phase it went to (n.wnd.p), which it counts towards whoever else has left the region since */
+  w.p=Object.assign({},w.p);const pd=w.p[W.done]=Object.assign({},w.p[W.done]);pd[r]=Math.round((num0(pd[r])+give)*10)/10;
   w.g=[...new Set((w.g||[]).concat(W.done))].sort((a,b)=>a-b);n.wnd=w;
   commit(n);const after=wndState();
   if(after.done>W.done){const m=clone(S.nation),got=wndRaise(m,after.done,now);commit(m);
@@ -46684,6 +46711,8 @@ NORM_HOOKS.push((n,d)=>{
   const c={};for(const r of RES){const v=Number(w.c&&w.c[r]);if(Number.isFinite(v)&&v>0)c[r]=Math.min(v,50000);}
   n.wnd={r:w.r,c,ph:Number.isInteger(w.ph)?clamp(w.ph,0,WND_N):0,t:typeof w.t==='number'&&isFinite(w.t)?w.t:0};
   if(typeof w.t0==='number'&&isFinite(w.t0)&&w.t0>0)n.wnd.t0=w.t0;
+  if(w.p&&typeof w.p==='object'&&!Array.isArray(w.p)){const p={};for(const [k,o] of Object.entries(w.p)){const i=+k;if(!Number.isInteger(i)||i<0||i>=WND_N||!o||typeof o!=='object')continue;
+    const a={};for(const r of RES){const v=Number(o[r]);if(Number.isFinite(v)&&v>0)a[r]=Math.min(v,50000);}if(Object.keys(a).length)p[i]=a;}if(Object.keys(p).length)n.wnd.p=p;}
   /* the phases given to; a record from before they were kept gave to the phase it had reached */
   n.wnd.g=Array.isArray(w.g)?[...new Set(w.g.filter(i=>Number.isInteger(i)&&i>=0&&i<WND_N))].sort((a,b)=>a-b):Object.keys(c).length?[Math.min(n.wnd.ph,WND_N-1)]:[];
 });
