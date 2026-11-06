@@ -703,7 +703,7 @@
   function lqFresh() { if (Date.now() - LQ.at > 30000) { LQ.at = Date.now(); LQ.out = {}; LQ.inn = {}; } }
   function lqDay() { return Math.floor(Date.now() / DAY_MS); }
   function letterDoc(uid, m) {
-    var d = { by: uid, to: m.to, x: String(m.x).slice(0, 500), t: m.t, ts: serverTime(), exp: A.fb.firestore.Timestamp.fromMillis(Date.now() + LETTER_KEEP) };
+    var d = { by: uid, to: m.to, x: String(m.x).slice(0, 2500), t: m.t, ts: serverTime(), exp: A.fb.firestore.Timestamp.fromMillis(Date.now() + LETTER_KEEP) };
     if (typeof m.k === 'string' && /^(congrats|protest|condol|friend|ultim|treaty)$/.test(m.k)) d.k = m.k;
     if (isObj(m.r) && Number.isSafeInteger(m.r.t)) d.r = { t: m.r.t, x: str(m.r.x, 160) };
     if (isObj(m.a) && /^(deal|peace|ally|city|ach)$/.test(m.a.k)) {
@@ -720,7 +720,7 @@
     return d;
   }
   function letterOf(d) {
-    var v = d.data({ serverTimestamps: 'estimate' }) || {}, o = { id: d.id, by: str(v.by, 128), to: str(v.to, 128), x: str(v.x, 500), t: num(v.t), ts: millis(v.ts) || num(v.t) };
+    var v = d.data({ serverTimestamps: 'estimate' }) || {}, o = { id: d.id, by: str(v.by, 128), to: str(v.to, 128), x: str(v.x, 2500), t: num(v.t), ts: millis(v.ts) || num(v.t) };
     if (typeof v.k === 'string') o.k = v.k.slice(0, 12);
     if (isObj(v.r) && Number.isSafeInteger(v.r.t)) o.r = { t: v.r.t, x: str(v.r.x, 160) };
     if (isObj(v.a) && typeof v.a.k === 'string') { o.a = { k: v.a.k.slice(0, 12) }; if (typeof v.a.id === 'string') o.a.id = v.a.id.slice(0, 128); if (Number.isSafeInteger(v.a.c)) o.a.c = v.a.c; if (typeof v.a.nm === 'string') o.a.nm = v.a.nm.slice(0, 80); }
@@ -1697,7 +1697,7 @@
     if ((r.kind === 'post' || r.kind === 'letter') && r.post) doc.post = str(r.post, r.kind === 'letter' ? 200 : 64);
     if (note && note.value.trim()) doc.note = note.value.trim().slice(0, 300);
     if (r.name) doc.name = str(r.name, 160);
-    if (r.x) doc.x = str(r.x, 600);
+    if (r.x) doc.x = str(r.x, r.kind === 'letter' ? 2500 : 600);
     setBusy('Sending…');
     var b = A.fs.batch();
     b.set(A.fs.collection('reports').doc(), doc);
