@@ -16928,10 +16928,10 @@ function fmtDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'nume
 /* a UTC day (a Chronicle row, kept by its UTC date) by its own date: fmtDate showed the day before west of UTC */
 function fmtDayUTC(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});}catch(e){return '';}}
 function fmtTime(t){try{return new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){return '';}}
+/* the day to say after a clock time: nothing for today, ' tomorrow', then ' on Saturday' within the week, then ' on 9 Nov 2026' */
+function dayTail(t,now){try{const a=new Date(now),b=new Date(t);a.setHours(0,0,0,0);b.setHours(0,0,0,0);const d=Math.round((b-a)/864e5);return d<=0?'':d===1?' tomorrow':d<7?' on '+new Date(t).toLocaleDateString('en-GB',{weekday:'long'}):' on '+fmtDate(t);}catch(e){return '';}}
 /* " (3 days ago)", for a date shown in full */
 function relDays(t){const d=Math.floor((Date.now()-t)/DAY);return d<1?' (today)':d===1?' (yesterday)':` (${d} days ago)`;}
-/* a wait of hours or days, for "in …" */
-function fmtWait(ms){if(ms<DAY)return fmtDur(ms);const d=Math.floor(ms/DAY),h=Math.round((ms-d*DAY)/3600e3);return d+(d===1?' day':' days')+(h?' '+h+' h':'');}
 function rel(t){const d=Date.now()-t;if(d<45e3)return 'just now';if(d<3600e3)return Math.max(1,Math.round(d/60e3))+' min ago';if(d<DAY)return Math.round(d/3600e3)+' h ago';return fmtDate(t);}
 function fmtDur(ms){if(ms<=15e3)return 'a moment';if(ms<60e3)return 'under a minute';const m=Math.ceil(ms/60e3);if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return h+' h'+(r?' '+r+' min':'');}
 function firstSentence(t){const m=String(t).match(/^.*?[.!?](\s|$)/);return m?m[0].trim():t;}
@@ -17845,7 +17845,7 @@ function warControls(x){
   }
   if(!x.npc&&!civicRegistered())return `<div class="war-box calm"><button class="btn danger" disabled aria-describedby="account-war-requirement">Declare war</button>${accountActionHint('war')}<p class="hint">War also requires ${fmtPopShort(featureAt('war'))} people and the normal treaty and protection requirements.</p></div>`;
   if(pol(S.nation).pacifistConstitution)return `<div class="war-box calm"><p>Your pacifist constitution forbids declaring war. An edict may give you the chance to change it.</p></div>`;
-  if(ws.truceUntil&&ws.truceUntil>now)return `<div class="war-box calm"><p>A truce holds until ${fmtTime(ws.truceUntil)}${new Date(ws.truceUntil).toDateString()!==new Date(now).toDateString()?' tomorrow':''}.</p></div>`;
+  if(ws.truceUntil&&ws.truceUntil>now)return `<div class="war-box calm"><p>A truce holds until ${fmtTime(ws.truceUntil)}${dayTail(ws.truceUntil,now)}.</p></div>`;
   if(!canFeature(S.nation,'war'))return `<div class="war-box calm"><p>Declaring war unlocks at ${fmtPopShort(featureAt('war'))} people. Until then, grow, trade and make friends.</p></div>`;
   if(!x.npc&&!canFeature(x.n,'war'))return `<div class="war-box calm"><p>${nm} has fewer than ${fmtPopShort(featureAt('war'))} people, so it is protected from war.</p></div>`;
   if(S.confirmWar===x.id){const def=alliesOf(x.id).map(nameOf);return `<div class="war-box"><p class="war-k">Declare war on ${nm}?</p><p>Your army can then attack their hexes within reach. Every attack costs money and morale${x.npc?`, and ${nm} will strike back`:''}.${def.length?` ${def.length===1?'Its ally':'Its allies'} ${esc(list(def))} will defend it.`:''}</p><div class="row"><button class="btn danger solid" data-act="war-declare" data-id="${esc(x.id)}">Declare war</button><button class="btn ghost" data-act="war-cancel">Cancel</button></div></div>`;}
@@ -18560,7 +18560,7 @@ function cityProblem(cell,T){
   const CS=cityState(T);
   for(const ct of CS.all){if(!ct.active&&ct.fid!==myId())continue;if(hexDist(ct.c,cell)<CITY_MIN_DIST)return ct.c===cell?`${ct.nm} already stands here.`:`That is too close to ${ct.nm}. Cities must be at least ${CITY_MIN_DIST} hexes apart.`;}
   const lim=maxCities(T,mi),have=cityList(S.nation).length;
-  if(have>=lim)return have>=MAX_CITIES?`You have the most cities a nation can found (${MAX_CITIES}).`:`At its size, ${S.nation.name} can have ${lim} ${lim===1?'city':'cities'}. The next one unlocks at ${fmtPopShort(nextCityAt(S.nation))} people${nextAreaCity(myArea(T,mi))?` or ${(nextAreaCity(myArea(T,mi))/1e6)} million km² of land`:''}.`;
+  if(have>=lim)return have>=MAX_CITIES?`You have the most cities a nation can found (${MAX_CITIES}).`:`At its size, ${S.nation.name} can have ${lim} ${lim===1?'city':'cities'}.${nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at ${nextCityWhen(S.nation,myArea(T,mi))}.`:''}`;
   return '';
 }
 function siteValue(cell,T){
@@ -18677,7 +18677,7 @@ function catalog(ct,n,st){
 function foundCityForm(T,st){
   const mi=T.byId[myId()],lim=maxCities(T,mi),have=cityList(S.nation).length;
   if(have>=lim){
-    return `<div class="empty"><p class="empty-h">${have>=MAX_CITIES?'Every city founded':'No room for another city yet'}</p><p>${have>=MAX_CITIES?`${esc(S.nation.name)} has ${MAX_CITIES} cities, the most a nation can found.`:`At ${fmtPop(popNow(S.nation))} people, ${esc(S.nation.name)} can have ${lim} ${lim===1?'city':'cities'}. The next one unlocks at ${fmtPopShort(nextCityAt(S.nation))} people${nextAreaCity(myArea(T,mi))?` or ${nextAreaCity(myArea(T,mi))/1e6} million km² of land`:''}.`}</p></div>`;
+    return `<div class="empty"><p class="empty-h">${have>=MAX_CITIES?'Every city founded':nextCityWhen(S.nation,myArea(T,mi))?'No room for another city yet':'No room for another city'}</p><p>${have>=MAX_CITIES?`${esc(S.nation.name)} has ${MAX_CITIES} cities, the most a nation can found.`:`At ${fmtPop(popNow(S.nation))} people, ${esc(S.nation.name)} can have ${lim} ${lim===1?'city':'cities'}.${nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at ${nextCityWhen(S.nation,myArea(T,mi))}.`:''}`}</p></div>`;
   }
   const sites=citySites(T);
   if(S.citySite==null||cityProblem(S.citySite,T))S.citySite=sites.length?sites[0]:null;
@@ -19911,6 +19911,9 @@ function refreshBell(now){
 }
 
 function nextCityAt(n){const p=popNow(n),m=MILESTONES.find(m=>m.city&&p<m.p-1e-9);return m?m.p:null;}
+/* what unlocks the next city: "300 million people or 4 million km² of land", just one of them once the other is used up
+   (past 200M people only land is left), or '' when neither is; short is for the city list's button */
+function nextCityWhen(n,km2,short){const p=nextCityAt(n),a=nextAreaCity(km2),ps=p!=null?fmtPopShort(p)+' people':'',as=a?(a/1e6)+' million km²'+(short?'':' of land'):'';return short?(ps||as):[ps,as].filter(Boolean).join(' or ');}
 /* ───────── national statistics ───────── */
 /* Hundreds of derived figures for role play. Everything is worked out from a nation's census scores,
    policies, budget, land, cities, trade, cabinet and history, so the numbers move with every decision
@@ -20805,7 +20808,7 @@ function atlasLoop(ts){
   if(!S.atlasPlay||S.view!=='atlas'){atlasRaf=0;return;}
   const D=atlasData(),dt=atlasLast?Math.min(100,ts-atlasLast):16;atlasLast=ts;
   const prevKey=atlasKey(S.atlasT);S.atlasT=Math.min(D.end,(S.atlasT==null?D.start:S.atlasT)+(D.end-D.start)*dt/20000);
-  if(S.atlasT>=D.end){S.atlasT=D.end;S.atlasPlay=false;render();return;}
+  if(S.atlasT>=D.end){S.atlasT=D.end;S.atlasPlay=false;atlasRaf=0;render();return;}
   const c=document.getElementById('atlas-cap');if(c)c.textContent=atlasCaption();const r=document.getElementById('atlas-t');if(r)r.value=String(Math.round((S.atlasT-D.start)/Math.max(1,D.end-D.start)*1000));
   if(atlasKey(S.atlasT)!==prevKey){const sd=document.getElementById('atlas-side');if(sd)sd.innerHTML=atlasSide();redrawMaps();}
   atlasRaf=requestAnimationFrame(atlasLoop);
@@ -27060,7 +27063,7 @@ function cvOpsSection(now){
     <div class="spy-card cv-card">
       <div class="cv-top"><div><p class="eyebrow">Agents</p>${pips(ag.r,ag.max)}<p class="hint" style="margin-top:6px">${ag.r<ag.max?`Next agent ready in ${fmtDur(ag.next)}.`:'All agents are ready.'} Shared with military intelligence.</p></div>
         <div><p class="eyebrow">Next operation</p><p class="cv-next">${young?'After 3 days':wait?`In ${fmtDur(wait)}`:'Ready'}</p></div></div>
-      ${rvs.map(o=>`<div class="cv-rv"><p><b>Retaliation:</b> ${esc(o.x.n.name)} was caught ${esc(cvVerbYou(o.e.op.k))}. Until ${fmtTime(o.e.op.t+CV_RV)}${new Date(o.e.op.t+CV_RV).toDateString()!==new Date(now).toDateString()?' tomorrow':''}, your first operation against them costs half, is 15 points likelier to succeed and 10 less likely to be exposed, and ignores the waiting times.</p>${S.cvTg===o.x.id?'':`<button class="btn ghost" data-act="cv-rv" data-id="${esc(o.x.id)}">Target ${esc(o.x.n.name)}</button>`}</div>`).join('')}
+      ${rvs.map(o=>`<div class="cv-rv"><p><b>Retaliation:</b> ${esc(o.x.n.name)} was caught ${esc(cvVerbYou(o.e.op.k))}. Until ${fmtTime(o.e.op.t+CV_RV)}${dayTail(o.e.op.t+CV_RV,now)}, your first operation against them costs half, is 15 points likelier to succeed and 10 less likely to be exposed, and ignores the waiting times.</p>${S.cvTg===o.x.id?'':`<button class="btn ghost" data-act="cv-rv" data-id="${esc(o.x.id)}">Target ${esc(o.x.n.name)}</button>`}</div>`).join('')}
       ${ts.length?`<div class="field cv-field"><label class="lbl-h" for="cv-tg">Target</label><select class="input" id="cv-tg">${ts.map(x=>{const pr=cvProtected(x,now);return `<option value="${esc(x.id)}"${sel&&x.id===sel.id?' selected':''}${pr?' disabled':''}>${esc(x.n.name)}${x.npc?' (computer)':' (player)'}${pr?', protected while new':''}${cvRetal(x.id,n,now)?', retaliation':''}</option>`;}).join('')}</select></div>`:'<p class="muted">There is nobody else in the region to spy on.</p>'}
       <p class="lbl-h" id="cv-k-l" style="margin-top:16px">Operation</p>
       <div class="cv-kinds" role="group" aria-labelledby="cv-k-l">${CV_KEYS.filter(q=>q!=='c'||pgAvailable(n,'finance',now)).map(q=>`<button type="button" class="cv-k" data-act="cv-k" data-k="${q}" aria-pressed="${q===k}"><b>${esc(CV_KINDS[q].n)}</b><span>${esc(costText(cvOpCost(q,sel?!!cvRetal(sel.id,n,now):false)))}</span></button>`).join('')}</div>
@@ -51056,7 +51059,7 @@ function cxPage(T,CS,mine,held,a,n,st,now){
   let sel=S.cityOpen||S.cxSel;if(sel!=='new'&&!all.some(c=>c.id===sel))sel=all[0]?all[0].id:'new';S.cxSel=sel;
   const cur=all.find(c=>c.id===sel),fx=bldEffects(a),ub=all.reduce((s,ct)=>s+Object.values(ct.ug||{}).reduce((t,v)=>t+v,0),0);
   const detail=sel==='new'||!cur?`<section class="city cx-new" id="cx-new"><p class="eyebrow">Ministry of Works</p><h3 class="city-n">Found a new city</h3>${foundCityForm(T,st)}</section>`:cityCard(cur,T,n,st,now);
-  const listHtml=`${own.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}${cap.length?`<p class="lbl-h cx-list-h">Captured</p>${cap.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}`:''}<button class="cx-item cx-add${sel==='new'?' on':''}" data-act="cx-sel" data-id="new" aria-current="${sel==='new'?'true':'false'}"><span class="cx-it-h"><b>+ Found a city</b></span><span class="cx-it-s">${canFound?`${lim-have} more allowed`:have>=MAX_CITIES?'Every city founded':`Next at ${fmtPopShort(nextCityAt(n))} people`}</span></button>`;
+  const listHtml=`${own.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}${cap.length?`<p class="lbl-h cx-list-h">Captured</p>${cap.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}`:''}<button class="cx-item cx-add${sel==='new'?' on':''}" data-act="cx-sel" data-id="new" aria-current="${sel==='new'?'true':'false'}"><span class="cx-it-h"><b>+ Found a city</b></span><span class="cx-it-s">${canFound?`${lim-have} more allowed`:have>=MAX_CITIES?'Every city founded':nextCityWhen(n,myArea(T,mi),true)?`Next at ${nextCityWhen(n,myArea(T,mi),true)}`:'No room for another'}</span></button>`;
   return `${cxTodo(T,mine,now,canFound)}${cxStock(n,now)}
   <details class="cx-more"><summary>${own.length+cap.length} ${own.length+cap.length===1?'city':'cities'} of ${lim} allowed · ${a.dev} ${a.dev===1?'building':'buildings'}${ub?` · ${ub} ${ub===1?'upgrade':'upgrades'}`:''}${a.wonders.length?' · '+esc(list(a.wonders)):''} · what they give you</summary>
     <p class="fig-s-big">${fx.length?esc(fx.join('; ')).replace(/^./,c=>c.toUpperCase())+'.':'Nothing yet. Start with a sawmill or farm.'}</p>${cpSummary(T,n)}${whSummary(n,now)}
@@ -51488,13 +51491,25 @@ if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({ALX:()=>({
    leave a ping (mail.ping) that the hourly mail job may turn into a letter for that player, if they asked for one. */
 const ML_KINDS=[['msg','Letters from other nations','Who wrote, never what'],['now','Each letter right away','Instead of in the hourly digest; with the kind above'],['war','War','Wars declared on you, land seized, peace made'],['dip','Diplomacy','Trade deals, alliances, matters raised'],['news','Development news','When the Edictum team posts news'],['away','A reminder when I am away','Once, after 3 days without a visit']];
 const ML_PING={war:'war',conq:'conq',peace:'peace',trade:'trade',shared:'shared',alremove:'alremove',aladmit:'aladmit',cede:'cede'};
-const ML={st:null,busy:false,err:'',msg:'',email:'',code:'',edit:false,loading:false};
+const ML={st:null,busy:false,err:'',msg:'',email:'',code:'',edit:false,loading:false,tries:0,retryAt:0};
 /* the "Confirm in one click" button in the confirmation letter opens /?mailcode=<code>#settings: the code is taken
    from the address at once, and confirmed as soon as the Herald says a code is waiting for this account */
 let ML_LINK=(()=>{try{const u=new URL(location.href),c=(u.searchParams.get('mailcode')||'').replace(/\D/g,'');if(!u.searchParams.has('mailcode'))return '';u.searchParams.delete('mailcode');history.replaceState(history.state,'',u.pathname+u.search+u.hash);return c.length===6?c:'';}catch(e){return '';}})();
 function mlApi(){return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('mail'):null);}
-function mlLoad(force){if(ML.loading||ML.st&&!force)return;ML.loading=true;
-  mlApi().then(a=>a?a.request({step:'status'}):null).then(r=>{ML.st=r||{off:true};if(ML_LINK){const c=ML_LINK;ML_LINK='';if(r&&r.wait){ML.code=c;setTimeout(()=>mlDo({step:'verify',code:c},()=>{ML.code='';ML.msg='Confirmed from your letter. A welcome letter is on its way.';}),0);}else if(r&&r.ok)ML.msg='This address is already confirmed.';else ML.err='Open the confirmation link on the device where you asked for the code, or enter the code here.';}},()=>{ML.st={off:true,fail:true};}).finally(()=>{ML.loading=false;if(S.view==='settings')render();});}
+/* what an emailed confirmation link (ML_LINK) means once the Herald has said where this account stands: a code still
+   waiting is confirmed at once; otherwise the player is told why the link did nothing */
+function mlLinkNote(r){
+  if(r&&r.wait)return null;
+  if(r&&r.ok)return {msg:'This address is already confirmed.'};
+  if(r&&r.email)return {err:'This confirmation link has expired: a code lasts 30 minutes. Send yourself a new one below.'};
+  if(r)return {err:'This confirmation link was sent for another account. Sign in with the account you asked from and open the link again, or give your address below.'};
+  return {err:'Letters by post are not available here, so the confirmation link cannot be used.'};
+}
+/* after a failed status check, the next try waits 5 s, then 10, 20 … up to 5 minutes */
+function mlRetryWait(tries){return Math.min(300e3,5e3*Math.pow(2,Math.max(0,tries-1)));}
+function mlLoad(force){if(ML.loading)return;if(ML.st&&!force&&!(ML.st.fail&&Date.now()>=ML.retryAt))return;ML.loading=true;
+  mlApi().then(a=>a?a.request({step:'status'}):null).then(r=>{ML.st=r||{off:true};ML.tries=0;if(ML_LINK){const c=ML_LINK;ML_LINK='';const lk=mlLinkNote(r);if(!lk){ML.code=c;setTimeout(()=>mlDo({step:'verify',code:c},()=>{ML.code='';ML.msg='Confirmed from your letter. A welcome letter is on its way.';}),0);}else if(lk.msg)ML.msg=lk.msg;else ML.err=lk.err;}},
+    ()=>{ML.st={off:true,fail:true};ML.tries++;const w=mlRetryWait(ML.tries);ML.retryAt=Date.now()+w;setTimeout(()=>{if(ML.st&&ML.st.fail&&S.view==='settings')mlLoad();},w+50);}).finally(()=>{ML.loading=false;if(S.view==='settings')render();});}
 function mlDo(data,ok){if(ML.busy)return;ML.busy=true;ML.err='';ML.msg='';render();
   mlApi().then(a=>{if(!a)throw new Error('Letters are not available here.');return a.request(data);})
     .then(r=>{ML.busy=false;if(ok)ok(r);mlLoad(true);render();},e=>{ML.busy=false;ML.err=(e&&e.message)||'That did not work. Try again in a moment.';render();});}
@@ -51503,7 +51518,7 @@ function mailSection(){
   const note=`${ML.err?`<p class="hint" role="alert" style="color:var(--danger,#b0262c)">${esc(ML.err)}</p>`:''}${ML.msg?`<p class="hint" role="status">${esc(ML.msg)}</p>`:''}`;
   let inner;
   if(!st)inner='<p class="hint">Asking the Herald…</p>';
-  else if(st.off)inner=`<p class="hint">${st.fail?'The Herald could not be reached just now. Try again later.':'Letters by post are not available here.'}</p>`;
+  else if(st.off)inner=st.fail?`<p class="hint">The Herald could not be reached just now. The game tries again by itself. <button type="button" class="btn ghost" data-act="mail" data-f="retry">Try again</button></p>`:'<p class="hint">Letters by post are not available here.</p>';
   else if(st.ok&&!ML.edit)inner=`<p>Letters go to <b>${esc(st.email)}</b>. <button type="button" class="btn ghost" data-act="mail" data-f="edit"${dis}>Change address</button> <button type="button" class="btn ghost danger" data-act="mail" data-f="remove"${dis}>Forget my address</button></p>
       <div class="ntf-mute" role="group" aria-label="Letters I want">${ML_KINDS.map(([k,l,h])=>`<label class="tog"><input type="checkbox" data-ml-pref="${k}"${st.p&&st.p[k]?' checked':''}${dis}> ${esc(l)} <span class="hint">${esc(h)}</span></label>`).join('')}</div>
       <p class="hint">At most one letter about other nations every six hours, and never about what you have already seen in the game.</p>`;
@@ -51517,6 +51532,7 @@ function mailSection(){
 }
 document.addEventListener('input',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.mlIn;if(k)ML[k]=e.target.value;});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="mail"]');if(!el)return;const f=el.dataset.f;
+  if(f==='retry'){if(ML.loading)return;ML.st=null;ML.tries=0;ML.retryAt=0;mlLoad(true);render();return;}
   if(f==='edit'){ML.edit=true;ML.err=ML.msg='';render();return;}
   if(f==='cancel'){ML.edit=false;ML.err='';render();return;}
   if(f==='send'||f==='resend'){const email=f==='resend'?ML.st.email:String(ML.email||'').trim();if(!email){ML.err='Write your email address first.';render();return;}
