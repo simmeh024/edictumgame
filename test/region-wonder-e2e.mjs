@@ -72,6 +72,31 @@ check('the reply is kept by the replier', ((await localNation(B)).gfr || []).len
 await nav(A, 'diplomacy');
 check('and reaches the sender', await until(() => A.evaluate(() => { G.render(); return /Replies/.test(document.querySelector('.gf-sec')?.textContent || ''); }), 20000));
 await A.locator('.gf-sec').screenshot({ path: OUT + '/gifts-two.png' });
+/* an answered gift stays answered: replies are kept for the 60 days a gift can be answered, and up to 200 (only the last 40
+   once were, and a gift answered before them came back as waiting for thanks) */
+await B.evaluate(() => { const n = G.clone(G.S.nation), now = Date.now();
+  n.gfr = n.gfr.concat(Array.from({ length: 45 }, (_, i) => ({ id: 'gfx' + i, f: n.gfr[0].f, k: 'card', m: 0, t: now + i }))); G.commit(n); G.render(); });
+await sleep(1500); await B.reload(); await B.waitForFunction(() => window.G && G.S && G.S.nation && G.S.world); await nav(B, 'diplomacy');
+check('an answered gift stays answered behind 45 newer replies', await until(() => B.evaluate(() => { G.render(); return G.S.nation.gfr.length === 46 && !!document.querySelector('.gf-sec') && !document.querySelector('[data-act="gf-answer"]'); }), 15000),
+  JSON.stringify(await B.evaluate(() => ({ replies: G.S.nation.gfr.length, waiting: document.querySelectorAll('[data-act="gf-answer"]').length }))));
+/* and a gift older than those 60 days waits for no thanks (its reply may have gone) */
+check('a gift past sixty days waits for no thanks', await B.evaluate(() => { const n = G.clone(G.S.nation); n.gfr = []; G.S.nation = n;
+  for (const r of Object.values(G.S.world || {})) for (const g of (r && r.gft) || []) g.t = Date.now() - 61 * 864e5;
+  G.render(); return !document.querySelector('[data-act="gf-answer"]'); }));
+
+/* Magnanimous: for peace made with the land handed back, not for an offer the other side has not taken up (in A's page only:
+   A declared war on B moments ago, after B was founded (an older war would not count), and offers peace, handing the land
+   back; then B makes peace too) */
+const mag = await A.evaluate(id => {
+  const a = G.RK.ACH.find(x => x.id === 'dip-return'), me = G.S.uid, t = Date.now(), n0 = G.S.nation, b0 = G.S.world[id];
+  G.S.nation = { ...n0, wars: { ...(n0.wars || {}), [id]: { t: t - 3000 } }, peace: { ...(n0.peace || {}), [id]: t - 2000 }, pterm: { [id]: 'return' }, log: [] };
+  const x = { n: G.S.nation, id: me, now: t, me: true, npc: false, m: {} }, offered = a.f(x);
+  G.S.world[id] = { ...b0, peace: { ...(b0.peace || {}), [me]: t - 1000 } };
+  const made = a.f(x);
+  G.S.nation = n0; G.S.world[id] = b0;
+  return { offered, made };
+}, uidB);
+check('Magnanimous waits for the peace to be made', mag.offered === 0 && mag.made === 1, JSON.stringify(mag));
 
 /* field digs, on the Museum page */
 await A.evaluate(() => { G.S.muHall = 'digs'; location.hash = '#museum'; }); await sleep(400);

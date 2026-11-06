@@ -71,6 +71,19 @@ test('a new day draws new tasks and keeps the credits already earned',()=>{
   assert.equal(m.dd.d,D.ddDay(NOW));eq(m.dd.c,[0,0,0]);assert.equal(m.dd.w,undefined);assert.equal(m.ddc,4);
 });
 
+test('two devices in different time zones share one desk: the day only moves on',()=>{
+  /* a phone already in tomorrow (a time zone further east) clears the desk; a laptop still in today then saves */
+  const D=desk();let n=nation();n.dd=fixedDesk(D,NOW+DAY);n.stk={n:1,d:D.ddDay(NOW+DAY)};
+  let [m,old]=next(n,x=>{x._ddm='visit';x.tly.dm=1;x.tly.iss=7;});D.save(m,old,NOW+DAY);
+  assert.equal(m.ddc,1);eq(m.dd.p,[1,1,1]);
+  [m,old]=next(m,x=>{x._ddm='visit';x.tly.dm=2;x.tly.iss=9;});const notes=D.save(m,old,NOW);
+  assert.equal(m.dd.d,D.ddDay(NOW+DAY),'the later day’s desk is kept');eq(m.dd.p,[1,1,1]);
+  assert.equal(m.ddc,1,'and its land credit is not paid again: '+notes.join(' | '));
+  assert.equal(m.stk.n,1,'nor does the earlier date count as another day of presence');
+  /* the next desk comes once the laptop's date passes the desk's */
+  [m,old]=next(m,x=>{x.tly.iss=10;});D.save(m,old,NOW+2*DAY);assert.equal(m.dd.d,D.ddDay(NOW+2*DAY));assert.equal(m.dd.w,undefined,'a fresh desk');assert.equal(m.ddc,1);
+});
+
 test('nothing counts against another nation or a record without tallies',()=>{
   const D=desk();let n=nation();n.dd=fixedDesk(D);
   let [m]=next(n,x=>{x.tly.iss=20;});D.save(m,{...structuredClone(n),name:'Otherland'});eq(m.dd.c,[0,0,0]);

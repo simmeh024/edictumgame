@@ -39,6 +39,10 @@ for(let i=0;i<info.ranks;i++){
   if(ok)walked++;else check(`rank ${i} (${rk}, ${pts} prestige) wears the ${name} border`,false,JSON.stringify(c));
   await shot('.hero.id-sec',`rank-${String(i).padStart(2,'0')}-${id.slice(2)}.png`);
 }
+/* the next land credit is reckoned from every credit the nation has: at the top rank, its rank credits too (the forecast once
+   left them out, and with them spent it named a population far past the real one) */
+const lc=await A.evaluate(()=>{const n=G.S.nation,R=G.RK;return {rank:R.achRankCredits(n),earned:R.landEarned(n),at:R.earnedAt(n,R.popNow(n))};});
+check('the next-credit forecast counts rank credits',lc.rank>0&&lc.at===lc.earned,JSON.stringify(lc));
 check('each rank, from Footnote to Eternal, puts its own border and nameplate on the card',walked===info.ranks,`${walked} of ${info.ranks}`);
 
 /* the ranks list shows every border, and the borders not yet reached are dimmed */
