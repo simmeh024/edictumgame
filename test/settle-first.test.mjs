@@ -15,7 +15,7 @@ function section(store={}){
     window:{edictumStat:(name,p)=>sent.push([name,p])},document:{addEventListener(){}},
     esc:s=>String(s),cellOf:l=>l?l.c:-1,territory:()=>({}),fdSites:()=>[11,-1,33],landName:c=>'Isle '+c,
     issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK',go:v=>{},mapTabs:()=>'<div class="stabs">TABS</div>',prvT2:()=>'States',prvLow:s=>s.toLowerCase(),prvOnRec:n=>!!n.prov,
-    ffbCard:()=>'FFB',VIEWS_EXT:{customise:()=>'CZ'},tutDevGet:()=>'',tutMark:()=>{},pgEligible:()=>false,tutRow:()=>'ROW',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
+    ffbCard:()=>'FFB',VIEWS_EXT:{customise:()=>'CZ'},tutDevGet:()=>'',tutMark:()=>{},tutRebuild:()=>{},pgEligible:()=>false,tutRow:()=>'ROW',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
     TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]},{k:'charter',tasks:[{k:'charter'},{k:'flag'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
     tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:true,lock:''}]});
   vm.runInContext(source.slice(start,end)+';this.T={TL:TUT_LISTS,pgEligible:(...a)=>pgEligible(...a),tutRow:(...a)=>tutRow(...a),go:v=>go(v),mapTabs:()=>mapTabs("map"),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
