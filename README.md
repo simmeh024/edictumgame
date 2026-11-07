@@ -306,8 +306,10 @@ from earlier answers) and adds a playable agency on the Space page.
   slot that could take it rolls one in 8 from the slot's own time and the seed, the misses are kept
   (`n.mc.r`, `n.mc.rt`), and the 12th eligible slot brings it regardless. A full desk, a holiday, a
   follow-up or a Willow Street letter that is due takes the slot without a roll. Each later letter arrives
-  through an ordinary slot once its mission or building has happened (`mcReady`), one on the desk at a
-  time. A veto means the proposal failed; the missions never wait for a letter. "Fly Me to the Moon" is
+  through an ordinary slot once its mission or building has happened (`mcReady`) and the nation has
+  enacted its gate of edicts (`MC_GATE`: letter II at 100, then 200, 400, 800, 1,000, 1,300, 1,800 and IX at
+  2,000; X to XIV at 2,000 too), one on the desk at a time. A veto means the proposal failed; the missions
+  never wait for a letter. "Fly Me to the Moon" is
   chapter IX now (the settlement charter), so the old edict left the random pool.
 - *Eight governments.* 112 versions (`MC_STORY.fam`), each family with its own speakers and dilemmas;
   chapter IX is an elected commission or an appointed director (Senate), royal patronage or a civilian

@@ -68,7 +68,7 @@ function game(){
     ${fnIn(UI,'mcMdState')}${fnIn(UI,'mcSpend')}
     const mcNow=()=>Date.now();
     this.G={S,ISSUES,ISSUE_BY_ID,ISSUES_RANDOM,NORM_HOOKS,COMMIT_HOOKS,toasts,syncInbox,answer,dismiss,commit,fill,
-      MC_STORY,MC_IDS,MC_TITLES,MC_FACTS,MC_MS,MC_CHAIN,MC_AT,MC_ODDS,MC_GUAR,MC_SEC,MC_MD,MD_COST,MC_TEAM_KEYS,WS_FAMS,
+      MC_STORY,MC_IDS,MC_TITLES,MC_FACTS,MC_MS,MC_CHAIN,MC_AT,MC_GATE,mcGate,MC_ODDS,MC_GUAR,MC_SEC,MC_MD,MD_COST,MC_TEAM_KEYS,WS_FAMS,
       mcOf,mcNorm,mcBlank,mcCtx,mcCtxNorm,mcLetter,mcOutcome,mcVariant,mcReveal,mcReady,mcNext,mcRoll,mcDone,mcDoneAt,mcHas,mcSlots,mcActive,mcStartProblem,mcHours,mcCost,mcManifest,mcCond,mcDsl,mcCr,mcMdState,mcSpend,mcSiteSecs,mcCrew,
       mdCost,mdNow,wsOf,fdFam,setRuns:r=>{VIP_RUNS=r;}};`,ctx);
   return ctx.G;
@@ -201,7 +201,7 @@ test('the chart lights up as the missions land, and only adds',()=>{
 });
 
 test('a veto files the proposal as failed, the story goes on, and the mission can still be flown',()=>{
-  const G=game(),now=Date.now();let n=ready(G,MC0,{seed:'v'});n.mc.r=11;agency(n,'flt',{cam:DAY});G.S.nation=after(G,n,1);
+  const G=game(),now=Date.now();let n=ready(G,2000,{seed:'v'});n.mc.r=11;agency(n,'flt',{cam:DAY});G.S.nation=after(G,n,1);
   assert.deepEqual(J(mcOn(G.S.nation).map(x=>x.id)),['mc-1']);G.dismiss('mc-1');
   const w=G.S.nation.mc;assert.equal(w.c.length,1);assert.equal(w.c[0].o,-1);assert.equal(w.x.tr,-1,'Okafor remembers');
   /* the next chapter is due (the camera test already flew): it comes, and remembers the failure */
@@ -212,14 +212,14 @@ test('a veto files the proposal as failed, the story goes on, and the mission ca
 });
 
 test('one letter on the desk at a time, and a nation that is ahead catches up through ordinary slots',()=>{
-  const G=game();let n=ready(G,MC0,{seed:'c'});n.mc.r=11;agency(n,'flt',{cam:DAY,orb:DAY});bld(n,'mctrl');G.S.nation=after(G,n,3);
+  const G=game();let n=ready(G,2000,{seed:'c'});n.mc.r=11;agency(n,'flt',{cam:DAY,orb:DAY});bld(n,'mctrl');G.S.nation=after(G,n,3);
   assert.equal(mcOn(G.S.nation).length,1,'only one on the desk');
   for(let k=0;k<4;k++){const id='mc-'+(k+1);assert.equal(mcOn(G.S.nation)[0].id,id);G.answer(id,0);G.S.nation=after(G,G.S.nation,1);clearDesk(G);}
   assert.equal(G.S.nation.mc.c.length,4,'four answered');assert.equal(mcOn(G.S.nation).length,0,'chapter V waits for the station and the relay');
 });
 
 test('a change of government: the letter on the desk keeps its voice; the next one is addressed to the new authority',()=>{
-  const G=game();let n=ready(G,MC0,{seed:'g'});n.mc.r=11;agency(n,'flt',{cam:DAY});n=after(G,n,1);
+  const G=game();let n=ready(G,2000,{seed:'g'});n.mc.r=11;agency(n,'flt',{cam:DAY});n=after(G,n,1);
   const ent=n.inbox.find(isMc),before=G.fill('{MCQ}',n,ent);
   /* a revolution: the Republic becomes a Kingdom, and the freedoms collapse */
   n.pretitle='Kingdom';n.leader='King';n.s.civil=5;n.s.pol=5;n.policies.censorship=true;
@@ -336,4 +336,26 @@ test('two devices: a mission, a mandate spend, a letter or a landing is never ap
   /* a landing on both: one colony, one landing cost */
   g=replay();g.S.nation=rbase();rplay(g,n=>{n.sp={moon:{t:10,c:7,e:3}};n.stock.goods-=50;});
   cloud={...rbase(),updatedAt:2,sp:{moon:{t:9,c:8,e:3}},stock:{food:50,timber:50,iron:50,oil:50,goods:50}};assert.equal(g.rebase(cloud),null);
+});
+
+test('every letter also waits for its gate of enacted edicts: 50, 100, 200, 400, 800, 1,000, 1,300, 1,800, then 2,000',()=>{
+  const G=game(),now=Date.now();
+  assert.deepEqual(J(G.MC_GATE),[50,100,200,400,800,1000,1300,1800,2000]);
+  assert.deepEqual(J(Array.from({length:14},(x,k)=>G.mcGate(k))),[50,100,200,400,800,1000,1300,1800,2000,2000,2000,2000,2000,2000],'letters X to XIV keep the last gate');
+  assert.equal(G.MC_AT,G.MC_GATE[0]);
+  /* a nation far ahead: the Lunar Colony landed, so every chapter's mission is credited; only the gates hold it back */
+  const ahead=(e,k)=>{const n=ready(G,e);n.cities[0].b.push({k:'lunar',s:now-50*DAY,d:now-40*DAY});n.sp={moon:{t:now-30*DAY,c:4242,k:'',b:'',p:3,pa:now,e:9}};
+    n.mc.c=Array.from({length:k},()=>({o:0,f:'rep',b:'111',t:1,x:''}));return n;};
+  for(let k=1;k<14;k++){const g=G.mcGate(k);
+    assert.ok(G.mcReady(ahead(g,k),k,now),'chapter '+(k+1)+' is otherwise ready');
+    assert.equal(G.mcNext(ahead(g-1,k),now),-1,`letter ${k+1} waits at ${g-1} edicts`);
+    assert.equal(G.mcNext(ahead(g,k),now),k,`letter ${k+1} may come at ${g}`);}
+  /* through the real edict clock: chapter III needs 200, so at 150 it stays away however many slots pass */
+  let n=ahead(150,2);n=after(G,n,5);assert.equal(mcOn(n).length,0,'150 edicts: no letter III');
+  n=ahead(200,2);n=after(G,n,1);assert.deepEqual(J(mcOn(n).map(x=>x.id)),['mc-3'],'200 edicts: it comes with the next slot');
+  /* the gate counts enacted edicts only: answering the letters does not open the next gate */
+  n=ready(G,100,{seed:'gate'});n.mc.r=11;agency(n,'flt',{cam:DAY});G.S.nation=after(G,n,1);G.answer('mc-1',0);
+  assert.equal(G.S.nation.ws.e,100,'a letter answered is not an enacted edict');G.S.nation=after(G,G.S.nation,1);assert.deepEqual(J(mcOn(G.S.nation).map(x=>x.id)),['mc-2']);
+  G.answer('mc-2',0);bld(G.S.nation,'mctrl');G.S.nation=after(G,G.S.nation,3);assert.equal(mcOn(G.S.nation).length,0,'letter III waits for 200 edicts');
+  clearDesk(G);assert.equal(G.S.nation.ws.e,103,'three ordinary edicts enacted');
 });
