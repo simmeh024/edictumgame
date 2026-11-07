@@ -114,16 +114,19 @@ export function voided(txn, adjs) {
 }
 export const founderInTime = t => t.created > 0 && t.created < FOUNDER_CUTOFF && t.paid > 0 && t.paid < FOUNDER_CUTOFF + FOUNDER_GRACE;
 
-/* one calendar month on, in UTC (31 January → 28 or 29 February) */
-export function addMonth(t) {
-  const d = new Date(t), y = d.getUTCFullYear(), m = d.getUTCMonth() + 1, last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+/* k calendar months on, in UTC, counted from the same day (31 January → 28 or 29 February, and 31 March a month later) */
+export function addMonths(t, k) {
+  const d = new Date(t), y = d.getUTCFullYear(), m = d.getUTCMonth() + k, last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
   return Date.UTC(y, m, Math.min(d.getUTCDate(), last), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
 }
+export const addMonth = t => addMonths(t, 1);
 
-/* a paid period cut into calendar months, for the monthly pick (a year gives twelve) */
+/* a paid period cut into calendar months, for the monthly pick (a year gives twelve). Each month is counted from the
+   period's first day: stepping a month at a time from the last would lose the 29th–31st at February for good, and leave
+   a year begun on those days a thirteenth month of a day or two. */
 export function months(p) {
   const out = [];
-  for (let a = p.s; a < p.e - 3600000;) { const b = Math.min(addMonth(a), p.e); out.push({ ...p, s: a, e: b }); a = b; }
+  for (let k = 1, a = p.s; a < p.e - 3600000; k++) { const b = Math.min(addMonths(p.s, k), p.e); out.push({ ...p, s: a, e: b }); a = b; }
   return out;
 }
 
@@ -161,7 +164,7 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
   const bySub = new Map();
   for (const t of vt) {
     const yearly = CAT.products[t.product].kind === 'yearly', s = subs[t.sub] || {};
-    const period = t.period || (s.firstTxn === t.id && s.period) || { s: t.paid, e: yearly ? Array.from({ length: 12 }).reduce(addMonth, t.paid) : addMonth(t.paid) };
+    const period = t.period || (s.firstTxn === t.id && s.period) || { s: t.paid, e: addMonths(t.paid, yearly ? 12 : 1) };
     if (!bySub.has(t.sub)) bySub.set(t.sub, []);
     bySub.get(t.sub).push({ ...period, sub: t.sub, txn: t, plan: yearly ? 'year' : 'month' });
   }

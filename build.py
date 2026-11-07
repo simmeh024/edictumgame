@@ -108,6 +108,7 @@ CSP = [
     ('connect-src', ["'self'", 'https://*.googleapis.com', 'https://*.cloudfunctions.net', 'https://*.run.app',
                      'https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://*.googletagmanager.com',
                      'https://*.paddle.com', 'https://api.github.com', 'https://www.google.com',
+                     'https://apis.google.com',  # Google sign-in's loader pings it (gen_204)
                      'http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*']),
     ('frame-src', ["'self'", 'https://*.firebaseapp.com', 'https://*.web.app', 'https://apis.google.com',
                    'https://accounts.google.com', 'https://*.paddle.com',
