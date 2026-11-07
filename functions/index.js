@@ -158,7 +158,7 @@ export const referee = onCall({ region: REGION, maxInstances: 20, cpu: 1, memory
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const data = req.data && typeof req.data === 'object' ? req.data : {};
   // functions/pace.js: battles are held back by readiness anyway; forgetting (many deletes and queries) is rare
-  if (data.op === 'battle') { pace([['rb:' + uid, 10, 0.5], ...ipRule(req, 'ri', 200, 10)]); return battle(uid, data); }
+  if (data.op === 'battle') { pace([['rb:' + uid, 60, 1], ...ipRule(req, 'ri', 300, 10)]); return battle(uid, data); }
   if (data.op === 'forget') { pace([['rf:' + uid, 3, 1 / 60]]); return forget(uid); }
   throw new HttpsError('invalid-argument', 'Unknown request.');
 });

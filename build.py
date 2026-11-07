@@ -110,7 +110,8 @@ CSP = [
                      'https://*.paddle.com', 'https://api.github.com', 'https://www.google.com',
                      'http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*']),
     ('frame-src', ["'self'", 'https://*.firebaseapp.com', 'https://*.web.app', 'https://apis.google.com',
-                   'https://accounts.google.com', 'https://*.paddle.com']),
+                   'https://accounts.google.com', 'https://*.paddle.com',
+                   'http://127.0.0.1:*', 'http://localhost:*']),  # the Auth emulator's sign-in frame
     ('worker-src', ["'self'", 'blob:']),
     ('manifest-src', ["'self'"]),
     ('object-src', ["'none'"]),
