@@ -123,10 +123,16 @@ export const addMonth = t => addMonths(t, 1);
 
 /* a paid period cut into calendar months, for the monthly pick (a year gives twelve). Each month is counted from the
    period's first day: stepping a month at a time from the last would lose the 29th–31st at February for good, and leave
-   a year begun on those days a thirteenth month of a day or two. */
+   a year begun on those days a thirteenth month of a day or two. What is left after the last whole month, up to TAIL
+   (a period that ends a day or two past its anniversary), belongs to that month and is no month of its own. */
+const TAIL = 3 * 864e5;
 export function months(p) {
   const out = [];
-  for (let k = 1, a = p.s; a < p.e - 3600000; k++) { const b = Math.min(addMonths(p.s, k), p.e); out.push({ ...p, s: a, e: b }); a = b; }
+  for (let k = 1, a = p.s; a < p.e - 3600000; k++) {
+    let b = Math.min(addMonths(p.s, k), p.e);
+    if (p.e - b < TAIL) b = p.e;
+    out.push({ ...p, s: a, e: b }); a = b;
+  }
   return out;
 }
 

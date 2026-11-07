@@ -343,3 +343,58 @@ test('a paid year begun on the 29th–31st is twelve months, each from that day,
   assert.equal(y.length, 12); assert.equal(y[1].s, Date.UTC(2027, 1, 28)); assert.equal(y[2].s, Date.UTC(2027, 2, 31));
   assert.equal(addMonth(j), Date.UTC(2027, 1, 28));
 });
+
+test('a year begun on the 29th, 30th or 31st, through an ordinary or a leap February, or on a leap day: twelve months from that day', () => {
+  const day = t => new Date(t).toISOString().slice(0, 10), last = (y, mo) => new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+  const starts = s => months({ s, e: addMonths(s, 12), plan: 'year' }).map(p => day(p.s));
+  assert.deepEqual(starts(Date.UTC(2026, 7, 30, 10)), ['2026-08-30', '2026-09-30', '2026-10-30', '2026-11-30', '2026-12-30', '2027-01-30',
+    '2027-02-28', '2027-03-30', '2027-04-30', '2027-05-30', '2027-06-30', '2027-07-30']);
+  assert.deepEqual(starts(Date.UTC(2026, 7, 31, 10)), ['2026-08-31', '2026-09-30', '2026-10-31', '2026-11-30', '2026-12-31', '2027-01-31',
+    '2027-02-28', '2027-03-31', '2027-04-30', '2027-05-31', '2027-06-30', '2027-07-31']);
+  /* a leap February takes the 29th, and the 30th and 31st come back in March */
+  assert.deepEqual(starts(Date.UTC(2027, 7, 29)).slice(5, 8), ['2028-01-29', '2028-02-29', '2028-03-29']);
+  assert.deepEqual(starts(Date.UTC(2027, 7, 30)).slice(5, 8), ['2028-01-30', '2028-02-29', '2028-03-30']);
+  assert.deepEqual(starts(Date.UTC(2027, 7, 31)).slice(5, 8), ['2028-01-31', '2028-02-29', '2028-03-31']);
+  /* begun on a leap day: the 29th of every month, and the year ends on the 28th of the next February */
+  const leap = Date.UTC(2028, 1, 29, 12);
+  assert.equal(day(addMonths(leap, 12)), '2029-02-28');
+  assert.deepEqual(starts(leap), ['2028-02-29', '2028-03-29', '2028-04-29', '2028-05-29', '2028-06-29', '2028-07-29',
+    '2028-08-29', '2028-09-29', '2028-10-29', '2028-11-29', '2028-12-29', '2029-01-29']);
+  /* every day of 2026 to 2028, at any hour: twelve months end to end, each on that day or its month's last */
+  for (let s = Date.UTC(2026, 0, 1, 7, 30); s < Date.UTC(2029, 0, 1); s += DAY) {
+    const d = new Date(s).getUTCDate(), e = addMonths(s, 12), m = months({ s, e });
+    assert.equal(m.length, 12, day(s)); assert.equal(m[0].s, s); assert.equal(m[11].e, e);
+    m.forEach((p, k) => {
+      const at = new Date(p.s);
+      if (k) assert.equal(p.s, m[k - 1].e, day(s) + ': no gap, no overlap');
+      assert.equal(at.getUTCDate(), Math.min(d, last(at.getUTCFullYear(), at.getUTCMonth())), day(s) + ', month ' + (k + 1));
+      assert.equal(at.getUTCHours() * 60 + at.getUTCMinutes(), 7 * 60 + 30, 'the same time of day');
+      assert.ok(p.e - p.s >= 28 * DAY && p.e - p.s <= 31 * DAY, day(s) + ', month ' + (k + 1) + ' is a month long');
+    });
+    /* a year Paddle bills as 365 or 366 days, a day short of its anniversary or a day past it, is twelve months too */
+    for (const len of [365, 366]) {
+      const q = months({ s, e: s + len * DAY });
+      assert.equal(q.length, 12, day(s) + ', ' + len + ' days'); assert.equal(q[11].e, s + len * DAY);
+    }
+  }
+});
+
+test('the months behind the seals: a paid year from the 31st, a free membership from the 31st, and gifted months, none counted twice', () => {
+  const s = Date.UTC(2026, 7, 31, 10), y1 = addMonths(s, 12);
+  /* a paid year as Paddle reports it, and as this server works it out when it does not (from the payment) */
+  const subs = { sub_y: { status: 'active', next: y1, period: { s, e: y1 }, firstTxn: 'txn_y' } };
+  for (const period of [{ s, e: y1 }, null]) {
+    const e = entitlement({ txs: [tx('txn_y', 'vipyear', { sub: 'sub_y', paid: s, period })], subs: period ? subs : { sub_y: { status: 'active' } }, now: s + 70 * DAY });
+    assert.equal(e.vip.until, y1); assert.equal(e.vip.n, 12, 'twelve months');
+    assert.equal(e.vip.m, 3, '31 August, 30 September and 31 October have begun'); assert.equal(e.vip.f.length, 9);
+    assert.deepEqual(e.vip.f.slice(0, 4), [Date.UTC(2026, 10, 30, 10), Date.UTC(2026, 11, 31, 10), Date.UTC(2027, 0, 31, 10), Date.UTC(2027, 1, 28, 10)]);
+    assert.equal(tenure(e.vip, y1 - 1), 12); assert.ok(!sealHeld('csl-gold', e.vip, addMonths(s, 11) - 1)); assert.ok(sealHeld('csl-gold', e.vip, addMonths(s, 11)));
+  }
+  /* a free membership of three months from 31 January: three, not a fourth from the 28ths that followed February */
+  const at = Date.UTC(2027, 0, 31), comp = entitlement({ comp: { at, until: addMonths(at, 3) }, now: at });
+  assert.equal(comp.vip.n, 3); assert.deepEqual(comp.vip.per.map(p => p.s), [at, Date.UTC(2027, 1, 28), Date.UTC(2027, 2, 31)]);
+  assert.equal(comp.vip.f.length, 2);
+  /* two gifted months bought on 31 January: one month each, the second from where the first ends */
+  const g = entitlement({ txs: [tx('txn_g1', 'giftvip', { paid: at }), tx('txn_g2', 'giftvip', { paid: at + H })], now: at + DAY });
+  assert.equal(g.vip.n, 2); assert.equal(g.vip.until, Date.UTC(2027, 2, 28));
+});
