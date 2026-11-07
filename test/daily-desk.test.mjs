@@ -65,6 +65,22 @@ test('a visit marks itself once, and clearing all three pays one land credit',()
   m=D.reload(m);assert.equal(m.ddc,1);assert.equal(m.dd.w,1);
 });
 
+test('in a nation’s first week a cleared desk pays two land credits, and after it one',()=>{
+  const D=desk();let n=nation({founded:NOW-2*DAY});n.dd=fixedDesk(D);n.stk={n:1,d:D.ddDay(NOW)};
+  let [m,old]=next(n,x=>{x._ddm='visit';x.tly.dm=1;x.tly.iss=7;});let notes=D.save(m,old);
+  assert.equal(m.ddc,1);assert.equal(m.ddw,1);assert.match(notes.at(-1),/Today’s desk is clear: \+2 land credits in your first week/);
+  assert.equal(D.earned(m),BASE+2);
+  [m,old]=next(m,x=>{x.tly.iss=12;});eq(D.save(m,old),[]);assert.equal(D.earned(m),BASE+2,'paid once');
+  m=D.reload(m);assert.equal(m.ddw,1);assert.equal(D.earned(m),BASE+2,'kept on reload');
+  /* a week and a day after founding the desk pays its ordinary credit */
+  const late=NOW+6*DAY;m.dd=fixedDesk(D,late);m.stk={n:2,d:D.ddDay(late)};
+  [m,old]=next(m,x=>{x._ddm='visit';x.tly.dm=2;x.tly.iss=20;});notes=D.save(m,old,late);
+  assert.equal(m.ddc,2);assert.equal(m.ddw,1);assert.match(notes.at(-1),/Today’s desk is clear: \+1 land credit to spend/);
+  assert.equal(D.earned(m),BASE+3);
+  for(const bad of [0,-1,1.5,9,'2'])assert.equal(D.reload({ddw:bad}).ddw,undefined,String(bad));
+  assert.equal(D.reload({ddw:8}).ddw,8);
+});
+
 test('a new day draws new tasks and keeps the credits already earned',()=>{
   const D=desk();let n=nation({ddc:4});n.dd={...fixedDesk(D,NOW-DAY),p:[1,1,1],c:[2,1,1],w:1};
   const [m,old]=next(n,()=>{});D.save(m,old);

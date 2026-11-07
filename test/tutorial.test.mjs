@@ -83,8 +83,8 @@ test('naming the first city pays 3 land credits and 5 goods, once',()=>{
   const before=r.ctx.credits(n);
   n.capital='Harbourtown';const m=r.save(n);
   assert.equal(m.length,1);assert.match(m[0],/^Step done: Name your first city\. \+3 land credits and 5 goods\. Spend them on the map\.$/);
-  assert.equal(n.stock.goods,45);assert.equal(r.ctx.credits(n),before+3);
-  n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.equal(n.stock.goods,45);
+  assert.equal(n.stock.goods,48,'5 goods, after the 3 for settling');assert.equal(r.ctx.credits(n),before+3);
+  n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.equal(n.stock.goods,48);
   // a rename on the Cities page counts too, even back to the placeholder
   const r2=rewards();const m2=nation({loc:3,tly:{'log:cityren':1}});r2.save(m2);assert.ok(m2.tut.lc.includes('city'));
 });
@@ -92,8 +92,8 @@ test('naming the first city pays 3 land credits and 5 goods, once',()=>{
 test('a list done in full pays its bonus and its epithet once, and gifts respect storage',()=>{
   const r=rewards();r.ctx.DEVK='cu';let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},stock:{food:395,timber:45,iron:25,oil:10,goods:40}});
   const m=r.save(n);
-  assert.ok(m.some(x=>/^Your tutorial steps earned 8 land credits, and 5 goods\./.test(x)),m.join(' | '));
-  assert.ok(m.some(x=>/^List complete: Your nation starts here\. 10 food and 10 timber, and the epithet “the Founder”, under Epithet in Customise\.$/.test(x)),m.join(' | '));
+  assert.ok(m.some(x=>/^Your tutorial steps earned 8 land credits, and 20 goods\./.test(x)),m.join(' | '));
+  assert.ok(m.some(x=>/^List complete: Your nation starts here\. \+3 land credits and 10 food and 10 timber, and the epithet “the Founder”, under Epithet in Customise\.$/.test(x)),m.join(' | '));
   assert.equal(n.tut.ch,'c');assert.equal(n.stock.food,400);assert.equal(n.stock.timber,55);
   assert.deepEqual([...r.ctx.unlocks[0].earned(n)],['t-founder']);
   n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.equal(n.tut.ch,'c');assert.equal(n.stock.timber,55);
@@ -102,7 +102,7 @@ test('a list done in full pays its bonus and its epithet once, and gifts respect
 test('advanced steps pay two credits and a gift; an Assembly resolution counts once proposed',()=>{
   const r=rewards();let n=nation({loc:3,asm:{p:{ti:'Free Hats',tx:'Hats for every citizen of the region.',c:'civil',g:0}}});
   const m=r.save(n);assert.ok(n.tut.lc.includes('res'));assert.ok(n.tut.lc.includes('asm'),'proposing is also having one’s say');
-  assert.ok(m.some(x=>/earned 4 land credits, and 5 food and 10 goods/.test(x)),m.join(' | '));
+  assert.ok(m.some(x=>/earned 4 land credits, and 13 goods and 5 food/.test(x)),m.join(' | '));
   n=r.reload(n);delete n.asm;assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('res'),'a reward is never taken back');
 });
 
