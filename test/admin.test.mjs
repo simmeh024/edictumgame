@@ -46,6 +46,34 @@ async function seed(uid, name = 'Old Émber Republic') {
   await put('nationx/' + uid, { j: '{"private":"kept"}' });
 }
 
+test('a ban marks the sign-ins it used: the same Google account comes back banned, and an unban clears the marks', async () => {
+  const a = await user(true), p = await user(), sub = 'g' + p.uid;
+  const jwt = o => [{ alg: 'none', typ: 'JWT' }, o].map(x => Buffer.from(JSON.stringify(x)).toString('base64url')).join('.') + '.';
+  const google = async () => {   // a new sign-in with p's Google account, as after closing the account: a new player ID
+    const r = await (await fetch(auth + '/identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=fake', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ requestUri: 'http://localhost', returnSecureToken: true, postBody: 'providerId=google.com&id_token=' + jwt({ sub, email: sub.toLowerCase() + '@example.test', email_verified: true }) }) })).json();
+    return { uid: r.localId, token: r.idToken };
+  };
+  const found = u => call(u, { op: 'authorizeSave', record: { reg: 'meridian', name: 'Comeback ' + u.uid.slice(0, 6), pop: 5, army: 1, cl: 0, updatedAt: Date.now(), j: JSON.stringify({ reg: 'meridian', name: 'Comeback ' + u.uid.slice(0, 6), pop: 5 }) }, rev: 0 }, 'civic');
+  const marks = async uid => ((await (await fetch(docs + ':runQuery', { method: 'POST', headers, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'banIds' }], where: { fieldFilter: { field: { fieldPath: 'u' }, op: 'EQUAL', value: { stringValue: uid } } } } }) })).json()).filter(r => r.document));
+  await link(p, { google: true });
+  await call(a, { op: 'moderate', action: 'ban', target: p.uid, reason: 'Cheating' });
+  assert.ok((await marks(p.uid)).length >= 1, 'the Google account (and its address, when verified)');
+  // the banned player closes the account (allowed: their data is theirs to delete) and signs in again
+  await call(p, { op: 'close' }, 'accounts');
+  const q = await google(); assert.notEqual(q.uid, p.uid);
+  await assert.rejects(found(q), e => e.status === 'FAILED_PRECONDITION');
+  assert.ok(await get('bans/' + q.uid), 'the new account is banned too');
+  // an unban takes the marks away
+  await call(a, { op: 'moderate', action: 'unban', target: p.uid, reason: 'Appeal accepted' });
+  assert.equal((await marks(p.uid)).length, 0);
+  // a ban from before the marks: closing the account marks its sign-ins then
+  const r = await user(); await link(r, { email: true });
+  await put('bans/' + r.uid, { note: 'Old ban', name: '', t: 1, by: a.uid });
+  await call(r, { op: 'close' }, 'accounts');
+  assert.equal((await marks(r.uid)).length, 1);
+});
+
 test('staff endpoints reject visitors and ordinary players', async () => {
   const g = await user();
   await assert.rejects(call(null, { op: 'search' }), e => e.status === 'UNAUTHENTICATED');

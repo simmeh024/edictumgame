@@ -1,12 +1,14 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, DAY } from './eligibility.js';
+import { createHash } from 'node:crypto';
+import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, refuseBannedIdentity, DAY } from './eligibility.js';
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
+import { pace, ipRule } from './pace.js';
 
 const regions = new Set(DATA.regions.map(r => r.id));
 const statKeys = Object.keys(DATA.regions[0].npcs[0].s);
@@ -24,17 +26,21 @@ const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
    the most of: a new nation (FOUND_POP, 5 million in the game) grown since the account began; this account's last
    save (accountIdentity/<uid>.hw, kept by every save below); and, for a guest's nation carried into an account on
    signing in (src/shim.js, doSwitch), that guest account's last save, once (d.from; the guest's record is gone by
-   then, or is a guest's of the same name). */
+   then, or is a guest's of the same name). A carry needs the guest's carry key (d.fk): a secret only that guest's
+   browser holds, whose hash its own saves note beside hw (d.ck, hw.k), so nobody can start a nation from another
+   player's population by naming their account. Never from a banned account. */
 const FOUND_POP = 20, HW_STEP = 1.05, HW_EVERY = 6 * 3600000, CARRY_MS = 7 * DAY;
 const grown = (pop, at, now) => { const days = Math.max(0, (now - at) / DAY); return pop * Math.pow(1.35, days) + 3 * days; };
 const hwOf = s => { const h = s && s.exists ? s.get('hw') : null; return h && Number.isFinite(h.pop) && Number.isFinite(h.at) ? h : null; };
-async function createCap(tx, db, who, e, p, from, now) {
+/* a carry key as the server keeps it: never the key itself */
+export const carryHash = k => typeof k === 'string' && /^[0-9a-f]{32,64}$/.test(k) ? createHash('sha256').update('carry:' + k).digest('hex') : '';
+async function createCap(tx, db, who, e, p, from, fk, now) {
   let cap = grown(FOUND_POP, Date.parse(who.generation) || now, now);
   const hw = hwOf(e.account);
   if (hw) cap = Math.max(cap, grown(hw.pop * HW_STEP, hw.at, now));
-  if (p.pop <= cap + 1e-4 || !isId(from) || from === who.uid) return { cap };
-  const [fa, fn] = await tx.getAll(db.doc('accountIdentity/' + from), db.doc('nations/' + from)), fh = hwOf(fa);
-  if (!fh || now - fh.at > CARRY_MS || (fh.to && fh.to !== who.uid)) return { cap };
+  if (p.pop <= cap + 1e-4 || !isId(from) || from === who.uid || !fk) return { cap };
+  const [fa, fn, fb] = await tx.getAll(db.doc('accountIdentity/' + from), db.doc('nations/' + from), db.doc('bans/' + from)), fh = hwOf(fa);
+  if (!fh || now - fh.at > CARRY_MS || (fh.to && fh.to !== who.uid) || fh.k !== fk || fb.exists) return { cap };
   if (fn.exists) {
     if (fn.get('name') !== p.name) return { cap };
     let guest = true;
@@ -64,6 +70,8 @@ async function permit(db, who, d) {
   if (!n || Array.isArray(n) || typeof n !== 'object' || n.reg !== p.reg || n.name !== p.name || own(n, 'asm'))
     throw new HttpsError('invalid-argument', 'Political records must be changed through the protected Assembly service.');
   /* the rules take a save's time no more than a day ahead of the server's (a record dated later would never fall dormant) */
+  /* a new record: not from a sign-in a banned account used (functions/eligibility.js, identityHashes) */
+  if (d.rev === 0) await refuseBannedIdentity(db, who);
   if (p.updatedAt > Date.now() + DAY) refuse('clock_ahead', 'This device’s clock is more than a day ahead, so the nation cannot be saved. Set the date and time right, and it saves again.');
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true });
@@ -90,22 +98,39 @@ async function permit(db, who, d) {
     const now = Date.now();
     let most = Infinity;
     if (!e.saved.exists) {
-      const c = await createCap(tx, db, who, e, p, d.from, now);
+      const c = await createCap(tx, db, who, e, p, d.from, carryHash(d.fk), now);
       if (p.pop > c.cap + 1e-4) refuse('population_limit', 'This nation is larger than a new record can start. Sign in to the account that held it.');
       if (c.carry) tx.set(c.carry, { hw: { ...c.fh, to: who.uid } }, { mergeFields: ['hw'] });
     } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) most = grown(e.saved.get('pop'), e.saved.get('ts').toMillis(), now) + 1e-4;
-    const hw = hwOf(e.account), noted = Math.min(p.pop, most);
-    if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now } }, { mergeFields: ['hw'] });
+    /* a guest's carry key (src/shim.js, carryKey), noted with its last save so only its own browser can carry it */
+    const hw = hwOf(e.account), noted = Math.min(p.pop, most), ck = who.registered ? '' : carryHash(d.ck), k = ck || (hw && typeof hw.k === 'string' ? hw.k : '');
+    if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to || (ck && hw.k !== ck)) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now, ...(k ? { k } : {}) } }, { mergeFields: ['hw'] });
     /* letters a game from before letters were private left in the shared record (dm, now in the own half: src/shim.js):
        when the record is first saved without them, those to players become letters/ documents, so their readers
-       keep them. The same id as the game's own, so a save tried again writes them again, not twice. */
+       keep them. The same id as the game's own, so a save tried again writes them again, not twice. A save may only
+       keep that old list as it was or drop it, never add to it or change it: a list of its own would turn into letters
+       written here, past the blocks and limits firestore.rules hold every letter to. They expire like any other. */
+    if (own(n, 'dm') && JSON.stringify(n.dm) !== JSON.stringify(before.dm)) { if (Array.isArray(before.dm)) n.dm = before.dm; else delete n.dm; }
     if (Array.isArray(before.dm) && !own(n, 'dm')) for (const m of before.dm.slice(-80))
       if (m && !m.i && isId(m.w) && m.w !== who.uid && !npcIds.has(m.w) && !/^(npc|office)-/.test(m.w) && typeof m.x === 'string' && m.x.trim() && Number.isSafeInteger(m.t) && m.t > 0)
-        tx.set(db.doc('letters/' + who.uid + '~' + m.w + '~' + m.t), { by: who.uid, to: m.w, x: m.x.slice(0, 500), t: m.t, ts: FieldValue.serverTimestamp() });
+        tx.set(db.doc('letters/' + who.uid + '~' + m.w + '~' + m.t), { by: who.uid, to: m.w, x: m.x.slice(0, 500), t: m.t, ts: FieldValue.serverTimestamp(), exp: Timestamp.fromMillis(now + 365 * DAY) });
     const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop: p.pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: d.rev + 1 };
     const ref = db.collection('nationPermits/' + who.uid + '/requests').doc(), sk = raceKeys(n, before);
     tx.create(ref, { ...result, sk, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
     return { ...result, sk, permit: ref.id };
+  });
+}
+
+/* a guest's carry key, noted before it switches to another account (src/shim.js, otherAccount), should none of its saves
+   have sent it yet: only beside a last save it already has, and only for a guest */
+async function noteCarryKey(db, who, d) {
+  const ck = carryHash(d.ck), ref = db.doc('accountIdentity/' + who.uid);
+  if (who.registered || !ck) return { ok: false };
+  return db.runTransaction(async tx => {
+    const hw = hwOf(await tx.get(ref));
+    if (!hw || hw.to) return { ok: false };
+    if (hw.k !== ck) tx.set(ref, { hw: { ...hw, k: ck } }, { mergeFields: ['hw'] });
+    return { ok: true };
   });
 }
 
@@ -407,12 +432,23 @@ async function newsTally(db, who, d, kind) {
   });
 }
 
+/* what civic answers: anything else is refused before it reads a thing. An Assembly action reads every nation of the
+   region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
+const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'resign', 'rejoin']);
+const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'topic', 'state', ...ASSEMBLY_ACTS]);
+
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
 export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 60 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const db = getFirestore(), who = await identity(req.auth.uid), d = req.data || {};
+  const d = req.data && typeof req.data === 'object' ? req.data : {}, uid = req.auth.uid, op = typeof d.op === 'string' ? d.op : '';
+  if (!CIVIC_OPS.has(op) && !isAllianceOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
+  // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
+  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : [])]);
+  const db = getFirestore(), who = await identity(uid);
   if (d.op === 'authorizeSave') return permit(db, who, d);
+  if (d.op === 'carryKey') return noteCarryKey(db, who, d);
   if (d.op === 'newsComment') return newsComment(db, who, d);
   if (d.op === 'newsModerate') return newsModerate(db, who, d);
   if (d.op === 'newsReact') return newsTally(db, who, d, 'e');

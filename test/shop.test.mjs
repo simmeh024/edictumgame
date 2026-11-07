@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth,
+import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth, addMonths, months,
   CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
 
 const DAY = 864e5, H = 36e5, src = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
@@ -330,4 +330,16 @@ test('a free membership an admin grants counts as the Club, split into monthly p
   const paid = entitlement({ txs: [tx('txn_a', 'vip', { sub: 'sub_a', paid: at, period: { s: at, e: addMonth(at) } })], subs: { sub_a: { status: 'active', next: addMonth(at) } }, comp: { at, until: at + 7 * DAY }, now: at });
   assert.equal(paid.vip.plan, 'month', 'the paid month outlasts a week free');
   assert.equal(paid.vip.until, addMonth(at));
+});
+
+test('a paid year begun on the 29th–31st is twelve months, each from that day, not a thirteenth of a day', () => {
+  const s = Date.UTC(2026, 7, 29, 10), e = addMonths(s, 12), m = months({ s, e, plan: 'year' });
+  assert.equal(e, Date.UTC(2027, 7, 29, 10));
+  assert.equal(m.length, 12);
+  assert.deepEqual(m.slice(5, 8).map(p => new Date(p.s).toISOString().slice(0, 10)), ['2027-01-29', '2027-02-28', '2027-03-29']);
+  assert.equal(m[11].e, e);
+  assert.equal(months({ s, e: s + 365 * DAY }).length, 12, 'a year of 365 days as well');
+  const j = Date.UTC(2027, 0, 31), y = months({ s: j, e: addMonths(j, 12) });
+  assert.equal(y.length, 12); assert.equal(y[1].s, Date.UTC(2027, 1, 28)); assert.equal(y[2].s, Date.UTC(2027, 2, 31));
+  assert.equal(addMonth(j), Date.UTC(2027, 1, 28));
 });

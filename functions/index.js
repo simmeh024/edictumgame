@@ -36,6 +36,7 @@ export { civic } from './civic.js';
 export { paddle } from './shop.js';
 import { identity, eligibility, refuse, regionClosed } from './eligibility.js';
 import DATA from './civic-data.json' with { type: 'json' };
+import { pace, ipRule } from './pace.js';
 
 initializeApp();
 const db = getFirestore();
@@ -156,7 +157,8 @@ export const referee = onCall({ region: REGION, maxInstances: 20, cpu: 1, memory
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const data = req.data && typeof req.data === 'object' ? req.data : {};
-  if (data.op === 'battle') return battle(uid, data);
-  if (data.op === 'forget') return forget(uid);
+  // functions/pace.js: battles are held back by readiness anyway; forgetting (many deletes and queries) is rare
+  if (data.op === 'battle') { pace([['rb:' + uid, 60, 1], ...ipRule(req, 'ri', 300, 10)]); return battle(uid, data); }
+  if (data.op === 'forget') { pace([['rf:' + uid, 3, 1 / 60]]); return forget(uid); }
   throw new HttpsError('invalid-argument', 'Unknown request.');
 });

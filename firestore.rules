@@ -229,6 +229,7 @@ service cloud.firestore {
     match /mailAccounts/{uid} { allow read, write: if false; }
     match /mailTokens/{id} { allow read, write: if false; }
     match /mailAddr/{id} { allow read, write: if false; }
+    match /mailIp/{id} { allow read, write: if false; }
     match /mailOutbox/{id} { allow read, write: if false; }
     match /mailState/{id} { allow read, write: if false; }
     // a ping: something a player did to another nation of its region (src/shim.js, mail.ping), which jobs/mail may
@@ -695,6 +696,8 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // banIds/<hash> {u, t}: a sign-in a banned account used, as a one-way hash (functions/eligibility.js); server only
+    match /banIds/{id} { allow read, write: if false; }
     // bans: the banned player may read their own, so the game can tell them why
     match /bans/{uid} {
       allow read: if isSelf(uid) || isAdmin();

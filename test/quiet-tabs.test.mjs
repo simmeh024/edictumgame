@@ -20,7 +20,7 @@ function saver(space){
     set:(ref,data)=>writes.push({path:ref.path,data:json(data)}),delete:ref=>writes.push({path:ref.path,gone:true})})};
   const c=vm.createContext({A,performance,MAX_JSON:700000,BOOT_AT:1,SPACE_MIN:12000,SPACE_BEAT:12*3600000,serverTime:()=>'now',num:v=>typeof v==='number'&&Number.isFinite(v)?v:0,
     str:(v,max)=>typeof v==='string'?v.slice(0,max):'',isObj:v=>!!v&&typeof v==='object'&&!Array.isArray(v),parse:s=>{try{return JSON.parse(s);}catch(e){return null;}},millis:v=>v,mapError:e=>e,
-    call:async(name,d)=>({...d.record,permit:'test-permit'}),setTimeout:()=>{},window:{dispatchEvent(){}},Event:class{},recoveryCheck:()=>{},splitNation:d=>[d,{}],activeUntil:(d,t)=>t,raceKeys:()=>[]});
+    call:async(name,d)=>({...d.record,permit:'test-permit'}),setTimeout:()=>{},window:{dispatchEvent(){}},Event:class{},recoveryCheck:()=>{},splitNation:d=>[d,{}],activeUntil:(d,t)=>t,raceKeys:()=>[],isGuest:()=>false});
   vm.runInContext(shim.match(/var SPACE_RUN = [^;]*;/)[0]+'\n'+['encode','revision','spaceText','sorted','spaceLayout','saveNation'].map(n=>fns.get(n)).join('\n'),c);
   return {c,writes,space:()=>writes.find(w=>w.path==='space/player')};
 }

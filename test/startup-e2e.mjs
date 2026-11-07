@@ -35,7 +35,11 @@ const update=readFileSync(path.join(root,core.slice(1)),'utf8')+'\nwindow.__edic
 const updateURL='/assets/game.'+createHash('sha256').update(update).digest('hex').slice(0,10)+'.js';
 const updateFile=path.join(root,updateURL.slice(1)),updatePage=path.join(root,'startup-update.html');
 try{
-  writeFileSync(updateFile,update);writeFileSync(updatePage,html.replaceAll(core,updateURL));
+  /* the loader names the game's file, so its hash in the page's Content-Security-Policy changes with it (build.py) */
+  const hashOf=s=>"'sha256-"+createHash('sha256').update(s.replace(/\r\n/g,'\n')).digest('base64')+"'";  // as a browser reads it: CRLF as LF
+  let swapped=html.replaceAll(core,updateURL);
+  for(const [,s] of html.matchAll(/<script>([\s\S]*?)<\/script>/g))if(s.includes(core))swapped=swapped.replace(hashOf(s),hashOf(s.replaceAll(core,updateURL)));
+  writeFileSync(updateFile,update);writeFileSync(updatePage,swapped);
   await A.goto(BASE+'/startup-update');await A.waitForSelector('.layout');await ready(A);
   const timing=await A.evaluate(()=>{
     const list=performance.getEntriesByType('resource'),story=list.find(x=>/\/assets\/content\./.test(x.name)),code=list.find(x=>/\/assets\/game\./.test(x.name));
