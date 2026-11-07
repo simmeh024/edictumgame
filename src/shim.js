@@ -28,7 +28,8 @@
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
                             rewritten only when what other regions read from it changes (spaceLayout: not the
                             running figures re-stamped at every save), or every SPACE_BEAT while playing.
-     boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
+     boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts; one an
+                            admin signed as the Edictum team adds {of: true, nm, rl?, st: 'admin'}.
      devnews/<id>           a development news post (admins write it in the portal), devnews/<id>/posts/<id>
                             its comments (through civic()), devnews/<id>/rd/<uid> its readers (newsRead, with
                             the count in devnewsStat/<id>.n), devnewsImg/<id> its images, and devnewsMeta/latest
@@ -228,7 +229,11 @@
     if (col === 'nationx' || col === 'nationp') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
     if (col === 'space') { var s = typeof d.j === 'string' ? parse(d.j) : null; return isObj(s) ? Object.assign(s, { reg: d.reg, name: d.name, updatedAt: num(d.t) }) : null; }
     if (col === 'presence') return { t: millis(d.t) || 0 };
-    if (col === 'boards') return { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
+    if (col === 'boards') {
+      var post = { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
+      // a message an admin signed as the Edictum team: the name and role they chose
+      return d.of === true ? Object.assign(post, { of: true, nm: str(d.nm, 80), rl: str(d.rl, 60) }) : post;
+    }
     return d;
   }
   function snapOf(s) {
