@@ -550,3 +550,16 @@ test('Alliances: computer nations join by affinity with the leader, and an allia
   assert.equal((await civic(L, { op: 'alMigrate', f: L.uid })).aid, L.uid, 'asked again, it is already there');
   await civic(L, { op: 'alLeave', aid: L.uid, disband: true });
 });
+
+test('The Delegate names the region’s newspaper; nobody else can, and the same Delegate waits six hours',async()=>{
+  const a=await player(true,true,'driftlands'),b=await player(true,true,'driftlands');
+  const endorsed=await civic(b,{op:'endorse',target:a.uid,on:true});assert.ok(endorsed.D);
+  const leader=endorsed.D.id===a.uid?a:b,other=leader===a?b:a;
+  await rejects(civic(other,{op:'paper',name:'The Forged Times'}),'delegate_required');
+  await assert.rejects(civic(leader,{op:'paper',name:'X'}));
+  await assert.rejects(civic(leader,{op:'paper',name:'',motto:'A motto without a name'}));
+  await civic(leader,{op:'paper',name:'The Driftlands Courier',motto:'Washed up, written down'});
+  const p=await db.doc('press/driftlands').get();
+  assert.equal(p.get('nm'),'The Driftlands Courier');assert.equal(p.get('mo'),'Washed up, written down');assert.equal(p.get('by'),leader.uid);assert.ok(p.get('t')>Date.now()-60000);
+  await rejects(civic(leader,{op:'paper',name:'The Second Name'}),'paper_cooldown');
+});
