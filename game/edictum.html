@@ -5035,10 +5035,28 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cb-was{margin:8px 0 0}
 .cb-rh{max-width:900px;margin:22px 0 10px}
 .cb-rf,.cb-ef{max-width:900px}
+/* a post signed by the Edictum team: the team's initial where a flag would be; an admin's Reply as choice */
+.cb-team .nw-av{width:52px;height:52px;font-size:22px}
+.cb-row-au .cb-row-av{width:30px;height:30px;font-size:14px}
+.cb-as{max-width:900px;margin:18px 0 10px}
+/* the admin portal's Community boards page */
+.cba-form{max-width:900px}
+.cba-quick{display:flex;flex-wrap:wrap;gap:4px 18px;margin:0 0 10px}
+.cba-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.cba-reg{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);cursor:pointer;min-width:0}
+.cba-reg:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.cba-reg-n{flex:1;min-width:0;font-weight:600;overflow-wrap:anywhere}
+.cba-reg-c{flex:none;font-size:12.5px}
+.cba-regs>.hint{margin:10px 0 0}
+.cba-opts{display:flex;flex-direction:column;gap:8px;margin:14px 0 6px}
+.cba-opts label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.cba-done{max-width:900px;margin:0 0 18px}
+.cba-lh{margin:36px 0 10px}
 @media (max-width:640px){
   .cb-post{grid-template-columns:1fr;gap:10px;padding:14px}
   .cb-au{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 10px}
   .cb-au .nw-fl{width:34px}
+  .cb-team .nw-av{width:34px;height:34px;font-size:15px}
   .cb-reg-b{padding:0 12px 12px}.cb-reg-tg{padding:12px}
 }
 /* development news: the posts, their comments, and the editor in the admin portal */
@@ -41691,7 +41709,7 @@ function admShell(v,body){
         ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n))}
-        ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news'))}
+        ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards'))}
         ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
@@ -45607,14 +45625,14 @@ function cbMs(v){return typeof v==='number'?v:v&&typeof v.toMillis==='function'?
 function cbPost(id,d){
   if(!d||typeof d.a!=='string')return null;
   return {id,a:d.a,nm:String(d.nm||'A nation').slice(0,80),rg:String(d.rg||''),fl:typeof d.fl==='string'?d.fl:'',fd:d.fd===true,st:d.st==='admin'||d.st==='mod'?d.st:'',
-    ti:String(d.ti||'').slice(0,CB_TITLE),x:String(d.x||'').slice(0,CB_TEXT),tg:CB_TAG[d.tg]?d.tg:'general',t:cbMs(d.t),la:cbMs(d.la)||cbMs(d.t),rc:Number(d.rc)||0,
+    of:d.of===true,rl:String(d.rl||'').slice(0,60),ti:String(d.ti||'').slice(0,CB_TITLE),x:String(d.x||'').slice(0,CB_TEXT),tg:CB_TAG[d.tg]?d.tg:'general',t:cbMs(d.t),la:cbMs(d.la)||cbMs(d.t),rc:Number(d.rc)||0,
     pn:d.pn===true,lk:d.lk===true,hd:d.hd===true,ed:cbMs(d.ed)};
 }
 const cbDay=()=>new Date().toISOString().slice(0,10);
 /* the counts for every board */
 function cbListen(){
   if(CB.metaOn||!S.db)return;CB.metaOn=true;
-  try{S.db.collection('cb').onSnapshot(qs=>{const m={};for(const d of qs.docs)m[d.id]=d.data()||{};CB.meta=m;if(S.view==='community')quietRender();},()=>{CB.metaOn=false;});}catch(e){CB.metaOn=false;}
+  try{S.db.collection('cb').onSnapshot(qs=>{const m={};for(const d of qs.docs)m[d.id]=d.data()||{};CB.meta=m;if(S.view==='community'||S.view==='admin-board')quietRender();},()=>{CB.metaOn=false;});}catch(e){CB.metaOn=false;}
 }
 /* one region's topics, newest activity first, with its pinned ones whatever their age */
 function cbLoad(reg){
@@ -45640,7 +45658,7 @@ function cbCloseTopic(){const T=CB.topic;if(T)T.off.forEach(f=>{try{f&&f();}catc
 /* who is online: presence/<uid> {t}, asked at most every two minutes for each author on screen */
 function cbPresence(list){
   if(!S.db||!list)return;const now=Date.now();
-  for(const p of list){const a=p&&p.a;if(!a||now-(CB.presAsk[a]||0)<120e3)continue;CB.presAsk[a]=now;
+  for(const p of list){const a=p&&!p.of&&p.a;if(!a||now-(CB.presAsk[a]||0)<120e3)continue;CB.presAsk[a]=now;
     S.db.doc('presence/'+a).get().then(s=>{const t=s.exists?Number((s.data()||{}).t)||0:0;if(CB.pres[a]!==t){CB.pres[a]=t;if(S.view==='community')quietRender();}},()=>{});}
 }
 function cbOnline(a){if(a===S.uid&&S.mode==='world')return true;const t=CB.pres[a];return !!t&&Date.now()-t<CB_ONLINE;}
@@ -45652,8 +45670,11 @@ function cbBeat(){
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)cbBeat();});
 
-/* the author column: flag, name, online or not, and the badges */
+/* the author column: flag, name, online or not, and the badges; a post signed by the Edictum team has the team's
+   initial, the name and role the admin chose and the staff badge instead */
+const cbTeamAv=(p,cls)=>`<span class="nw-av${cls?' '+cls:''}" aria-hidden="true">${esc((p.nm||'E').charAt(0).toUpperCase())}</span>`;
 function cbAuthor(p){
+  if(p.of)return `<div class="cb-au cb-team">${cbTeamAv(p)}<b class="cb-au-n">${esc(p.nm)}</b>${STAFF_PILL}${p.rl?`<span class="cb-au-r">${esc(p.rl)}</span>`:''}</div>`;
   const on=cbOnline(p.a),R=REG_BY_ID[p.rg];
   return `<div class="cb-au">${nwFlag(p.fl,p.nm)}<b class="cb-au-n">${esc(p.nm)}</b><span class="cb-on${on?' on':''}"><i aria-hidden="true"></i>${on?'Online':'Offline'}</span>${p.st==='admin'?STAFF_PILL:p.st==='mod'?'<span class="staff-pill nw-modpill">Moderator</span>':''}${p.fd?`<span class="founder-pill cb-fd" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}Founder</span>`:''}${R?`<span class="cb-au-r">${esc(R.name)}</span>`:''}</div>`;
 }
@@ -45665,17 +45686,19 @@ function cbModBar(reg,p,tid){
   if(!cbStaff())return '';const rid=tid?p.id:'',t=tid||p.id,d=cbData(reg,t,rid),b=(a,l)=>`<button type="button" class="linkish small nw-mod" data-act="cb-mod" data-v="${a}" ${d}>${l}</button>`;
   const bits=[!rid&&S.isOwner?b(p.pn?'unpin':'pin',p.pn?'Unpin':'Pin'):'',!rid?b(p.lk?'unlock':'lock',p.lk?'Unlock':'Lock'):'',b(p.hd?'unhide':'hide',p.hd?'Unhide':'Hide'),
     `<button type="button" class="linkish small nw-mod adm-danger" data-act="cb-del" ${d}>Delete</button>`,!rid&&S.isOwner?`<button type="button" class="linkish small nw-mod" data-act="cb-move" ${d}>Move…</button>`:'',
-    S.isOwner&&p.a!==S.uid?`<button type="button" class="linkish small nw-mod" data-act="admin-inspect" data-id="${esc(p.a)}">Inspect player</button>`:''].join('');
+    S.isOwner&&p.a!==S.uid&&!p.of?`<button type="button" class="linkish small nw-mod" data-act="admin-inspect" data-id="${esc(p.a)}">Inspect player</button>`:''].join('');
   let q='';
   if(cbAsking(t,rid,'del'))q=`<div class="adm-ask"><p>Delete this ${rid?'reply':'topic'+(p.rc?` and its ${p.rc} ${p.rc===1?'reply':'replies'}`:'')} by ${esc(p.nm)}? The admin audit log keeps what it said.</p><div class="row"><button type="button" class="btn danger small" data-act="cb-del-yes" ${d}>Yes, delete</button><button type="button" class="btn ghost small" data-act="cb-ask-no">Cancel</button></div></div>`;
   if(cbAsking(t,rid,'move'))q=`<div class="adm-ask"><label class="lbl" for="cb-move-to">Move this topic to</label><select class="input" id="cb-move-to">${regionsByAvail().filter(R=>R.id!==reg).map(R=>`<option value="${R.id}"${CB.moveTo===R.id?' selected':''}>${esc(R.name)}</option>`).join('')}</select><div class="row"><button type="button" class="btn small" data-act="cb-move-yes" ${d}>Move</button><button type="button" class="btn ghost small" data-act="cb-ask-no">Cancel</button></div></div>`;
   const k=rid||t,hid=p.hd&&S.isOwner?(CB.hidden[k]!==undefined?`<blockquote class="adm-quote cb-was">${CB.hidden[k]?esc(CB.hidden[k]):'Nothing was kept.'}</blockquote>`:`<button type="button" class="linkish small nw-mod" data-act="cb-was" ${d}>Show what it said</button>`):'';
   return `<div class="cb-modbar" role="group" aria-label="Moderation"><span class="cb-modl">Staff</span>${bits}</div>${hid}${q}`;
 }
-/* the author's own controls, and everyone else's report */
+/* the author's own controls, and everyone else's report; any admin edits what the Edictum team signed, and nobody
+   reports it */
 function cbOwnBar(reg,p,tid){
   const rid=tid?p.id:'',t=tid||p.id,d=cbData(reg,t,rid);
   if(p.hd||S.mode!=='world')return '';
+  if(p.of&&p.a!==S.uid)return S.isOwner?`<div class="cb-acts"><button type="button" class="linkish small" data-act="cb-edit" ${d}>Edit</button></div>`:'';
   if(p.a===S.uid){const ask=cbAsking(t,rid,'own')?`<div class="adm-ask"><p>Delete your ${rid?'reply':'topic'}${!rid&&p.rc?` and its ${p.rc} ${p.rc===1?'reply':'replies'}`:''}?</p><div class="row"><button type="button" class="btn danger small" data-act="cb-del-yes" ${d}>Yes, delete</button><button type="button" class="btn ghost small" data-act="cb-ask-no">Cancel</button></div></div>`:'';
     return `<div class="cb-acts"><button type="button" class="linkish small" data-act="cb-edit" ${d}>Edit</button><button type="button" class="linkish small" data-act="cb-own-del" ${d}>Delete</button></div>${ask}`;}
   return `<div class="cb-acts"><button type="button" class="linkish small" data-act="cb-rep" ${d}>Report</button></div>`;
@@ -45695,10 +45718,10 @@ function cbArticle(reg,p,tid){
 /* a line in a board's list of topics */
 function cbRow(reg,p){
   if(p.hd&&!cbStaff())return '';
-  const on=cbOnline(p.a);
-  return `<li class="cb-row${p.pn?' pin':''}${p.hd?' hd':''}"><span class="cb-row-au">${nwFlag(p.fl,p.nm)}<span class="cb-dot${on?' on':''}" title="${on?'Online':'Offline'}"></span></span>
+  const on=!p.of&&cbOnline(p.a);
+  return `<li class="cb-row${p.pn?' pin':''}${p.hd?' hd':''}"><span class="cb-row-au">${p.of?cbTeamAv(p,'cb-row-av'):`${nwFlag(p.fl,p.nm)}<span class="cb-dot${on?' on':''}" title="${on?'Online':'Offline'}"></span>`}</span>
     <a class="cb-row-m" href="#community/${reg}/${p.id}" data-act="cb-topic" data-reg="${reg}" data-t="${p.id}"><span class="cb-row-t">${p.pn?'<span class="chip cb-pin">Pinned</span> ':''}${p.lk?'<span class="chip">Locked</span> ':''}${p.hd?'<i>Hidden by staff</i>':esc(p.ti)}</span>
-    <span class="cb-row-s"><span class="cb-tag t-${p.tg}">${esc(CB_TAG[p.tg])}</span><span>${esc(p.nm)}<span class="u-sr"> (${on?'online':'offline'})</span>${p.st==='admin'?' · Edictum staff':''}${p.fd?' · Founder':''}</span><span>${p.rc} ${p.rc===1?'reply':'replies'}</span><span>${esc(rel(p.la))}</span></span></a></li>`;
+    <span class="cb-row-s"><span class="cb-tag t-${p.tg}">${esc(CB_TAG[p.tg])}</span><span>${esc(p.nm)}${p.of?'':`<span class="u-sr"> (${on?'online':'offline'})</span>`}${p.st==='admin'?' · Edictum staff':''}${p.fd?' · Founder':''}</span><span>${p.rc} ${p.rc===1?'reply':'replies'}</span><span>${esc(rel(p.la))}</span></span></a></li>`;
 }
 function cbBoard(R){
   const reg=R.id,mine=!!(REG&&reg===REG.id),open=cbOpenSet().has(reg),m=CB.meta[reg]||{},today=m.dd===cbDay()?m.dn||0:0,n=m.n||0;
@@ -45717,6 +45740,7 @@ function cbForm(){
   if(hint)return `<div class="info">${hint} <button type="button" class="linkish" data-act="cb-new-no">Close</button></div>`;
   const f=CB.f;
   return `<form class="rmb-form cb-nf" id="cb-nf"><h2 class="h3">New topic</h2>
+    ${S.isOwner?`<p class="hint">As an admin you can also sign a topic as the Edictum team, or post it on several boards at once, from <button type="button" class="linkish" data-act="go" data-v="admin-board">Community boards in the admin portal</button>.</p>`:''}
     <div class="cb-nf-row"><span><label class="lbl" for="cb-f-reg">Board</label><select class="input" id="cb-f-reg">${regionsByAvail().filter(R=>!regDisabled(R.id)||R.id===f.reg).map(R=>`<option value="${R.id}"${R.id===f.reg?' selected':''}>${esc(R.name)}${REG&&R.id===REG.id?' (your region)':''}</option>`).join('')}</select></span>
     <span><label class="lbl" for="cb-f-tg">Kind</label><select class="input" id="cb-f-tg">${CB_TAGS.map(([k,l])=>`<option value="${k}"${k===f.tg?' selected':''}>${l}</option>`).join('')}</select></span></div>
     <label class="lbl" for="cb-f-ti">Title</label><input class="input" id="cb-f-ti" maxlength="${CB_TITLE}" value="${esc(f.ti)}" placeholder="What is it about?">
@@ -45729,9 +45753,14 @@ function cbTopicView(head){
   if(T.err)return head+back+`<p class="err">${esc(T.err)}</p>`;
   if(!p)return head+back+'<p class="hint">Fetching the topic…</p>';
   if(p.hd&&!cbStaff())return head+back+'<div class="info">This topic was hidden by Edictum staff.</div>';
-  const list=reps&&reps.list?reps.list.filter(x=>!x.hd||cbStaff()):null,hint=accountActionHint('topic');
-  const form=p.lk&&!cbStaff()?'<p class="hint">This topic is locked: it takes no more replies.</p>':S.mode!=='world'?'<p class="hint">Reconnect to reply.</p>':hint?`<div class="info">${hint}</div>`:
-    `<form class="rmb-form cb-rf" id="cb-rf"><label class="lbl" for="cb-r-x">Reply as ${esc(fullName(S.nation))}</label><textarea class="input" id="cb-r-x" rows="4" maxlength="${CB_TEXT}" placeholder="Your reply…">${esc(CB.rx)}</textarea><div class="rmb-bar"><span class="hint" id="cb-r-c">${CB.rx.length} / ${CB_TEXT}</span><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='reply'?'Posting…':'Post reply'}</button></div></form>`;
+  const list=reps&&reps.list?reps.list.filter(x=>!x.hd||cbStaff()):null,team=cbReplyAs()==='team',hint=team?'':accountActionHint('topic');
+  /* an admin answers as the Edictum team (the signature kept on the admin portal's Community boards page) or as their
+     nation: the team by default under a topic the team signed */
+  const sg=cbaSign(),as=S.isOwner?`<fieldset class="nwe-as cb-as"><legend class="lbl">Reply as</legend>
+      <label class="nwe-opt" for="cb-r-team"><input type="radio" name="cb-r-as" id="cb-r-team" value="team"${team?' checked':''}><span><b>${esc(sg.nm)}</b>${sg.rl?` (${esc(sg.rl)})`:''} ${STAFF_PILL}</span></label>
+      ${S.nation&&S.nation.name?`<label class="nwe-opt" for="cb-r-nat"><input type="radio" name="cb-r-as" id="cb-r-nat" value="nation"${team?'':' checked'}><span class="nwe-opt-n">${nwFlag(JSON.stringify(S.nation.flag||{}),S.nation.name)}<b>${esc(fullName(S.nation))}</b></span></label>`:''}</fieldset>`:'';
+  const form=p.lk&&!cbStaff()?'<p class="hint">This topic is locked: it takes no more replies.</p>':S.mode!=='world'?'<p class="hint">Reconnect to reply.</p>':`${as}${hint?`<div class="info">${hint}</div>`:
+    `<form class="rmb-form cb-rf" id="cb-rf"><label class="lbl" for="cb-r-x">${S.isOwner?'Your reply':'Reply as '+esc(fullName(S.nation))}</label><textarea class="input" id="cb-r-x" rows="4" maxlength="${CB_TEXT}" placeholder="Your reply…">${esc(CB.rx)}</textarea><div class="rmb-bar"><span class="hint" id="cb-r-c">${CB.rx.length} / ${CB_TEXT}</span><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='reply'?'Posting…':'Post reply'}</button></div></form>`}`;
   return head+back+cbArticle(T.reg,p)+`<h2 class="h3 cb-rh">${p.rc} ${p.rc===1?'reply':'replies'}</h2>`+
     (reps&&reps.err?`<p class="err">${esc(reps.err)}</p>`:list==null?'<p class="hint">Loading the replies…</p>':`<div class="cb-reps">${list.map(x=>cbArticle(T.reg,x,p.id)).join('')}</div>`)+form;
 }
@@ -45760,7 +45789,7 @@ async function cbSendTopic(){
 async function cbSendReply(){
   const T=CB.topic,x=CB.rx.trim();if(!T||!x||CB.busy)return;
   CB.busy='reply';render();
-  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x});CB.rx='';}
+  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x,...(cbReplyAs()==='team'?{as:'team',...cbaSign()}:{})});CB.rx='';}
   catch(e){cbErr(e,'reply');}
   CB.busy='';render();
   const t=document.getElementById('cb-r-x');if(t&&!CB.rx)try{t.focus({preventScroll:true});}catch(e){}
@@ -45835,6 +45864,120 @@ document.addEventListener('click',e=>{
   if(a==='cb-mod'){cbModAct(el.dataset.v,reg,t,r);return;}
   if(a==='cb-was'&&S.isOwner){S.db.doc('cbHidden/'+(r||t)).get().then(s=>{const d=s.exists?s.data()||{}:{};CB.hidden[r||t]=[d.ti,d.x].filter(Boolean).join(' — ');render();},()=>toast('It could not be fetched.'));return;}
   if(a==='cb-rep'){const p=cbFind(reg,t,r);if(!p)return;Promise.resolve(window.claude.use('report')).then(R=>{if(R)R.open({kind:'post',target:p.a,post:'cb:'+reg+':'+t+(r?':'+r:''),reg:REG_BY_ID[p.rg]?p.rg:reg,name:p.nm,x:((p.ti?p.ti+': ':'')+p.x).slice(0,600)});else toast('Reporting needs a connection.');});return;}
+});
+
+/* ───────── Community boards in the admin portal ─────────
+   Game content › Community boards: an admin opens a topic on any region's board, or the same topic on every board at
+   once (civic op cbPost, functions/board.js). It is signed as the Edictum team (a name and a role kept in this
+   browser, the staff badge, no nation needed, editable by any admin) or as the admin's own nation, and pinned or
+   locked as they choose. Each board gets a topic of its own, so players answer on their own board. Below the form:
+   the topics the team has signed, board by board (cb/<region>/posts where of == true), to open on the board, where
+   the usual staff controls unpin, lock, edit or delete them. The same signature answers on the board (Reply as). */
+const LS_CBA='edictum.cbSign';
+const CBA={regs:null,ti:'',x:'',tg:'general',as:'team',pn:true,lk:false,busy:false,ask:false,err:'',done:null,list:null,lbusy:false,lerr:'',sign:null};
+/* the team's signature as typed (CBA.sign) and as posted: a name, at worst 'Edictum team', and a role if any */
+function cbaSign(){
+  if(!CBA.sign){CBA.sign={nm:'',rl:''};try{const o=JSON.parse(localStorage.getItem(LS_CBA)||'null');if(o&&typeof o==='object')CBA.sign={nm:String(o.nm||'').slice(0,80),rl:String(o.rl||'').slice(0,60)};}catch(e){}}
+  return {nm:CBA.sign.nm.trim()||'Edictum team',rl:CBA.sign.rl.trim()};
+}
+function cbaKeepSign(){try{localStorage.setItem(LS_CBA,JSON.stringify(CBA.sign));}catch(e){}}
+function cbaNation(){return !!(S.nation&&S.nation.name);}
+function cbaTeam(){return CBA.as!=='nation'||!cbaNation();}
+/* how an admin replies on the board: as they chose, else as the team under a topic the team signed (or with no nation) */
+function cbReplyAs(){
+  if(!S.isOwner)return 'nation';if(CB.ras&&(CB.ras==='team'||cbaNation()))return CB.ras;if(!cbaNation())return 'team';
+  const p=CB.topic&&CB.topic.p;return p&&p.of?'team':'nation';
+}
+cbCloseTopic=(f=>function(){CB.ras='';return f.apply(this,arguments);})(cbCloseTopic);
+/* the boards chosen: every open region until the admin picks */
+function cbaRegs(){if(!CBA.regs)CBA.regs=new Set(REGIONS.filter(R=>!regDisabled(R.id)).map(R=>R.id));return CBA.regs;}
+function cbaGoLabel(n){return !n?'Choose a board':n===1?'Post on 1 board':n===REGIONS.length?`Post on all ${n} boards`:`Post on ${n} boards`;}
+function cbaCheck(){
+  if(!cbaRegs().size)return 'Choose at least one board.';
+  if(CBA.ti.trim().length<3)return 'Give the topic a title of at least three characters.';
+  if(!CBA.x.trim())return 'Write something first.';
+  return '';
+}
+/* the topics signed by the team, newest first: one small query a board, asked when the page opens */
+async function cbaLoad(){
+  if(!S.db||CBA.lbusy)return;CBA.lbusy=true;CBA.lerr='';
+  try{const per=await Promise.all(REGIONS.map(R=>S.db.collection('cb/'+R.id+'/posts').where('of','==',true).limit(40).get()
+      .then(qs=>qs.docs.map(d=>{const p=cbPost(d.id,d.data());if(p)p.reg=R.id;return p;}).filter(Boolean))));
+    CBA.list=per.flat().sort((a,b)=>b.t-a.t).slice(0,80);}
+  catch(e){CBA.lerr='The team’s topics could not be fetched. Try again in a moment.';}
+  CBA.lbusy=false;if(S.view==='admin-board')render();
+}
+async function cbaSend(){
+  if(CBA.busy)return;const regs=[...cbaRegs()].filter(r=>REG_BY_ID[r]),team=cbaTeam();
+  CBA.busy=true;CBA.err='';render();
+  try{const r=await cbCall({op:'cbPost',regs,ti:CBA.ti.trim(),x:CBA.x.trim(),tg:CBA.tg,pn:CBA.pn,lk:CBA.lk,...(team?{as:'team',...cbaSign()}:{})}),ids=r&&r.ids||{};
+    CBA.done=regionsByAvail().filter(R=>ids[R.id]).map(R=>[R.id,ids[R.id]]);CBA.ti='';CBA.x='';CBA.ask=false;CBA.list=null;
+    toast(CBA.done.length===1?'The topic is posted.':`The topic is posted on ${CBA.done.length} boards.`);}
+  catch(e){CBA.ask=false;CBA.err=e&&CB_SAY.includes(e.code)&&e.message?e.message:'The topic could not be posted'+(e&&e.message?': '+e.message:'.');}
+  CBA.busy=false;render();
+  const f=document.getElementById(CBA.err?'cba-go':'cba-ti');if(f)try{f.focus({preventScroll:!!CBA.err});}catch(e){}
+}
+function cbaView(){
+  const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Community boards</h1>
+    <p class="lede">Open a topic on any region’s Community Board, or the same topic on all of them at once. Each board gets a topic of its own, so players answer on their own board. Signed as the Edictum team it needs no nation, carries the staff badge, and any admin can edit it on the board.</p>
+    <div class="row"><button type="button" class="btn ghost" data-act="go" data-v="community">Open the Community Board</button></div>`;
+  if(!S.db)return admShell('admin-board',head+'<div class="info">The boards need a connection. This page works once the game is connected.</div>');
+  cbListen();if(!CBA.list&&!CBA.lbusy&&!CBA.lerr)cbaLoad();
+  const regs=cbaRegs(),all=regionsByAvail(),n=regs.size,raw=(cbaSign(),CBA.sign),sg=cbaSign(),team=cbaTeam(),nat=cbaNation();
+  const names=all.filter(R=>regs.has(R.id)).map(R=>R.name),who=team?sg.nm:fullName(S.nation);
+  const boards=`<fieldset class="nwe-as cba-regs"><legend class="lbl">Boards</legend>
+    <p class="cba-quick"><button type="button" class="linkish small" data-act="cba-pick" data-v="open">Every open region</button><button type="button" class="linkish small" data-act="cba-pick" data-v="all">Every region</button><button type="button" class="linkish small" data-act="cba-pick" data-v="none">None</button></p>
+    <div class="cba-grid">${all.map(R=>{const k=(CB.meta[R.id]||{}).n||0,md=regMode(R.id);
+      return `<label class="cba-reg" for="cba-r-${R.id}"><input type="checkbox" id="cba-r-${R.id}" name="cba-reg" value="${R.id}"${regs.has(R.id)?' checked':''}><span class="cba-reg-n">${esc(R.name)}${md!=='enabled'?` <span class="chip">${md==='coming_soon'?'Coming soon':'Maintenance'}</span>`:''}</span><span class="hint cba-reg-c">${k} ${k===1?'topic':'topics'}</span></label>`;}).join('')}</div>
+    ${all.some(R=>regDisabled(R.id))?'<p class="hint">Players do not see the board of a closed region while it is empty: a topic there shows it to them.</p>':''}</fieldset>`;
+  const sign=`<fieldset class="nwe-as cba-as"><legend class="lbl">Post as</legend>
+    <label class="nwe-opt" for="cba-as-team"><input type="radio" name="cba-as" id="cba-as-team" value="team"${team?' checked':''}><span><b id="cba-sig">${esc(sg.nm)}</b>${sg.rl?` (${esc(sg.rl)})`:''} ${STAFF_PILL}<span class="hint">the Edictum team, with no nation or region</span></span></label>
+    ${team?`<div class="nwe-by"><div class="field"><label for="cba-nm">Name</label><input class="input" id="cba-nm" maxlength="80" value="${esc(raw.nm)}" placeholder="Edictum team" autocomplete="off"></div><div class="field"><label for="cba-rl">Role (optional)</label><input class="input" id="cba-rl" maxlength="60" value="${esc(raw.rl)}" placeholder="Community manager" autocomplete="off"></div></div>`:''}
+    ${nat?`<label class="nwe-opt" for="cba-as-nat"><input type="radio" name="cba-as" id="cba-as-nat" value="nation"${team?'':' checked'}><span class="nwe-opt-n">${nwFlag(JSON.stringify(S.nation.flag||{}),S.nation.name)}<b>${esc(S.nation.name)}</b> <span class="hint">your nation${REG?', in '+esc(REG.name):''}</span></span></label>`:''}</fieldset>`;
+  const ask=CBA.ask?`<div class="adm-ask" id="cba-ask"><p>Post “${esc(CBA.ti.trim())}” on ${n===1?'the board of '+esc(names[0]):n+' boards'} as ${esc(who)}${CBA.pn?', pinned to the top':''}${CBA.lk?', locked':''}? Players see it at once.</p><div class="row"><button type="button" class="btn small" id="cba-yes" data-act="cba-yes"${CBA.busy?' disabled':''}>${CBA.busy?'Posting…':'Yes, post it'}</button><button type="button" class="btn ghost small" data-act="cba-no">Cancel</button></div></div>`:'';
+  const done=CBA.done&&CBA.done.length?`<div class="info cba-done" role="status"><b>Posted on ${CBA.done.length} ${CBA.done.length===1?'board':'boards'}.</b> Open it on ${CBA.done.map(([r,id])=>`<a href="#community/${r}/${id}" data-act="cba-open" data-reg="${r}" data-t="${id}">${esc(regName(r))}</a>`).join(', ')}.</div>`:'';
+  const form=`<form class="rmb-form cba-form" id="cba-f" novalidate>${boards}${sign}
+    <div class="cb-nf-row"><span><label class="lbl" for="cba-tg">Kind</label><select class="input" id="cba-tg">${CB_TAGS.map(([k,l])=>`<option value="${k}"${k===CBA.tg?' selected':''}>${l}</option>`).join('')}</select></span></div>
+    <label class="lbl" for="cba-ti">Title</label><input class="input" id="cba-ti" maxlength="${CB_TITLE}" value="${esc(CBA.ti)}" placeholder="What is it about?">
+    <label class="lbl" for="cba-x">Post</label><textarea class="input" id="cba-x" rows="8" maxlength="${CB_TEXT}" placeholder="What the regions should know…">${esc(CBA.x)}</textarea>
+    <div class="cba-opts"><label for="cba-pn"><input type="checkbox" id="cba-pn"${CBA.pn?' checked':''}> Pin it to the top of each board</label><label for="cba-lk"><input type="checkbox" id="cba-lk"${CBA.lk?' checked':''}> Lock it, so it takes no replies</label></div>
+    ${CBA.err?`<p class="err" role="alert">${esc(CBA.err)}</p>`:''}
+    <div class="rmb-bar"><span class="hint" id="cba-c">${CBA.x.length} / ${CB_TEXT}</span><button class="btn" type="submit" id="cba-go"${n&&!CBA.busy?'':' disabled'}>${cbaGoLabel(n)}</button></div>${ask}</form>`;
+  const L=CBA.list,list=`<h2 class="h3 cba-lh">Topics signed by the team</h2>${CBA.lerr?`<p class="err">${esc(CBA.lerr)}</p>`:!L?'<p class="hint">Fetching them…</p>':!L.length?'<p class="hint">None yet.</p>':
+    `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Title</th><th>Board</th><th>Signed</th><th>Posted</th><th class="num">Replies</th></tr></thead><tbody>${L.map(p=>`<tr><td><a href="#community/${p.reg}/${p.id}" data-act="cba-open" data-reg="${p.reg}" data-t="${p.id}">${p.hd?'<i>Hidden by staff</i>':esc(p.ti)}</a>${p.pn?' <span class="chip cb-pin">Pinned</span>':''}${p.lk?' <span class="chip">Locked</span>':''}</td><td>${esc(regName(p.reg))}</td><td>${esc(p.nm)}</td><td>${esc(rel(p.t))}</td><td class="num">${p.rc}</td></tr>`).join('')}</tbody></table></div>`}
+    <p><button type="button" class="btn ghost small" data-act="cba-reload"${CBA.lbusy?' disabled':''}>${CBA.lbusy?'Fetching…':'Fetch again'}</button></p>`;
+  return admShell('admin-board',head+done+form+list);
+}
+ADM_VIEWS.push('admin-board');
+shell=(f=>function(){if(S.view==='admin-board'&&S.isOwner)return cbaView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){if(v==='admin-board'&&S.view!=='admin-board'){CBA.ask=false;CBA.err='';CBA.done=null;CBA.list=null;CBA.lerr='';}return f.apply(this,arguments);})(go);
+document.addEventListener('input',e=>{
+  const t=e.target,id=t&&t.id||'';if(id.slice(0,4)!=='cba-')return;
+  /* what the confirmation quotes has changed: it goes until Post is pressed again */
+  if(CBA.ask&&(id==='cba-ti'||id==='cba-x'||id==='cba-nm')){CBA.ask=false;const q=document.getElementById('cba-ask');if(q)q.remove();}
+  if(id==='cba-ti'){CBA.ti=t.value.slice(0,CB_TITLE);return;}
+  if(id==='cba-x'){CBA.x=t.value.slice(0,CB_TEXT);const c=document.getElementById('cba-c');if(c)c.textContent=CBA.x.length+' / '+CB_TEXT;return;}
+  if(id==='cba-nm'||id==='cba-rl'){cbaSign();CBA.sign[id==='cba-nm'?'nm':'rl']=t.value.slice(0,id==='cba-nm'?80:60);cbaKeepSign();const b=document.getElementById('cba-sig');if(b)b.textContent=cbaSign().nm;return;}
+});
+document.addEventListener('change',e=>{
+  const t=e.target,id=t&&t.id||'';
+  if(t.name==='cb-r-as'){CB.ras=t.value==='team'?'team':'nation';render();return;}
+  if(id.slice(0,4)!=='cba-')return;
+  if(t.name==='cba-reg'&&REG_BY_ID[t.value]){const s=cbaRegs();if(t.checked)s.add(t.value);else s.delete(t.value);CBA.ask=false;render();return;}
+  if(t.name==='cba-as'){CBA.as=t.value==='nation'?'nation':'team';CBA.ask=false;render();return;}
+  if(id==='cba-tg'&&CB_TAG[t.value]){CBA.tg=t.value;return;}
+  if(id==='cba-pn'||id==='cba-lk'){CBA[id.slice(4)]=t.checked;CBA.ask=false;render();return;}
+});
+document.addEventListener('submit',e=>{if(!e.target||e.target.id!=='cba-f')return;e.preventDefault();
+  if(CBA.busy)return;CBA.err=cbaCheck();CBA.done=null;CBA.ask=!CBA.err;render();
+  const f=document.getElementById(CBA.err?'cba-go':'cba-yes');if(f)try{f.focus({preventScroll:!CBA.ask});}catch(err){}});
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;if(a.slice(0,4)!=='cba-'||!S.isOwner)return;
+  if(a==='cba-pick'){const v=el.dataset.v;CBA.regs=new Set(v==='none'?[]:REGIONS.filter(R=>v==='all'||!regDisabled(R.id)).map(R=>R.id));CBA.ask=false;render();return;}
+  if(a==='cba-yes'){cbaSend();return;}
+  if(a==='cba-no'){CBA.ask=false;render();const g=document.getElementById('cba-go');if(g)try{g.focus({preventScroll:true});}catch(err){}return;}
+  if(a==='cba-open'){e.preventDefault();const reg=el.dataset.reg,t=el.dataset.t;if(!REG_BY_ID[reg]||!CB_ID.test(t))return;cbOpenSet().add(reg);CB.pend=[reg,t];go('community');window.scrollTo(0,0);return;}
+  if(a==='cba-reload'){CBA.list=null;CBA.lerr='';cbaLoad();render();return;}
 });
 
 /* ───────── Report a bug ─────────

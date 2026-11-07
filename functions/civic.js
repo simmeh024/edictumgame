@@ -5,7 +5,7 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { cbTopic, cbReply, cbEdit, cbDelete, cbMod } from './board.js';
+import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
 
 const regions = new Set(DATA.regions.map(r => r.id));
@@ -423,6 +423,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'cbEdit') return cbEdit(db, who, d, regions);
   if (d.op === 'cbDelete') return cbDelete(db, who, d, regions);
   if (d.op === 'cbMod') return cbMod(db, who, d, regions);
+  if (d.op === 'cbPost') return cbPost(db, who, d, regions);
   if (isAllianceOp(d.op)) return alliance(db, who, d);
   if (d.op === 'topic') return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);

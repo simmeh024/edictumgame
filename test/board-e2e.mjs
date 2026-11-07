@@ -79,4 +79,34 @@ check('the author deletes their topic', await until(async () => /deleted/i.test(
 await sleep(500);
 await C.click('[data-act="cb-back"]');
 check('the board counts are back to nothing', await until(async () => /0 topics/.test(await text(C, `.cb-reg[data-reg="${far}"] .cb-reg-c`))));
+
+// the admin portal's Community boards page: one topic on every open board, signed as the Edictum team
+await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-board"]');
+await A.waitForSelector('#cba-f');
+const picked = await A.$$eval('[name="cba-reg"]', l => l.filter(i => i.checked).map(i => i.value));
+check('every open region is chosen to begin with', picked.includes(home) && picked.includes(far) && picked.length >= 2, picked.join());
+check('players never see the portal page', !(await B.$('.adm-nav [data-v="admin-board"]')));
+await A.click('[data-act="cba-pick"][data-v="none"]');
+check('choosing no board leaves nothing to post', await A.$eval('#cba-go', b => b.disabled && /Choose a board/.test(b.textContent)));
+await A.check(`#cba-r-${home}`); await A.check(`#cba-r-${far}`);
+check('the button counts the boards', /Post on 2 boards/.test(await text(A, '#cba-go')));
+await A.fill('#cba-nm', 'Pascal'); await A.fill('#cba-rl', 'Lead developer');
+await A.fill('#cba-ti', 'Welcome to the boards'); await A.fill('#cba-x', 'Say hello to your neighbours.\nBe kind.');
+await A.click('#cba-go');
+check('posting asks first, naming the boards and the signature', await until(async () => /Welcome to the boards.*2 boards.*Pascal.*pinned/.test(await text(A, '#cba-ask'))));
+await A.click('#cba-yes');
+check('it reports a link for each board', await until(async () => (await A.$$('.cba-done [data-act="cba-open"]')).length === 2));
+check('the team’s topics are listed below the form', await until(async () => (await A.$$('.tbl-wrap tbody tr')).length === 2 && /Welcome to the boards/.test(await text(A, '.tbl-wrap'))));
+await go(C, 'community'); await C.waitForSelector('.cb-reg');
+check('players find it pinned on their own board', await until(async () => /Pinned\s*Welcome to the boards/.test(await text(C, `.cb-reg[data-reg="${home}"]`))));
+await C.click(`.cb-reg[data-reg="${home}"] [data-act="cb-topic"]`);
+check('the author column shows the team, the role and the staff badge, with no flag or online dot', await until(async () => {
+  const t = await text(C, '.cb-post .cb-au'); return /Pascal/.test(t) && /Lead developer/.test(t) && !!(await C.$('.cb-post .cb-au.cb-team .staff-pill')) && !(await C.$('.cb-post .cb-au .nw-fl')) && !/Online|Offline/.test(t); }));
+check('nobody reports the team, and players cannot edit it', !(await C.$('.cb-post [data-act="cb-rep"]')) && !(await C.$('.cb-post [data-act="cb-edit"]')));
+// the admin replies on the board, as the team by default under the team's topic
+await A.click(`.cba-done [data-act="cba-open"][data-reg="${home}"]`);
+await A.waitForSelector('#cb-r-x');
+check('under a team topic the admin replies as the team by default', await A.$eval('#cb-r-team', i => i.checked));
+await A.fill('#cb-r-x', 'Questions welcome.'); await A.click('#cb-rf button[type="submit"]');
+check('the reply is signed by the team', await until(async () => /Questions welcome/.test(await text(C, '.cb-reps')) && /Pascal/.test(await text(C, '.cb-reps .cb-au'))));
 await finish();
