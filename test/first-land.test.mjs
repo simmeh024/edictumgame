@@ -20,41 +20,41 @@ function credits(){
 const CAP=5,city=(c,nm)=>({id:'c'+c,c,nm,b:[]});
 const nation=over=>({name:'Firstland',loc:CAP,cities:[city(CAP,'')],...over});
 
-test('a new nation is founded with three land credits, without a note',()=>{
+test('a new nation is founded with seven land credits (a whole block), without a note',()=>{
   const r=credits(),n=nation();
   assert.deepEqual(r.save(n,null),[]);
-  assert.equal(n.fdc,1);assert.equal(r.earned(n),BASE+3);assert.equal(r.at(n),BASE+3);
-  assert.equal(r.earned(r.reload(n)),BASE+3);
+  assert.equal(n.fdc,1);assert.equal(r.earned(n),BASE+7);assert.equal(r.at(n),BASE+7);
+  assert.equal(r.earned(r.reload(n)),BASE+7);
 });
 
-test('a nation founded earlier gets its three credits once, with a note',()=>{
+test('a nation founded earlier gets its seven credits once, with a note',()=>{
   const r=credits();let n=nation();
   assert.equal(r.earned(n),BASE);
   const m=r.save(n,nation());
-  assert.equal(m.length,1);assert.match(m[0],/founded with 3 land credits, and Firstland has its 3/);
+  assert.equal(m.length,1);assert.match(m[0],/founded with 7 land credits, and Firstland has its 7/);
   for(let i=0;i<3;i++){n=r.reload(n);assert.deepEqual(r.save(n,structuredClone(n)),[]);}
-  assert.equal(r.earned(n),BASE+3);
+  assert.equal(r.earned(n),BASE+7);
 });
 
 test('each city founded earns two credits, and founding again after abandoning pays nothing',()=>{
   const r=credits();let n=nation({fdc:1});
   const before=structuredClone(n);n.cities.push(city(9,'Bellmouth'));
   assert.deepEqual(r.save(n,before),['Founding Bellmouth earned 2 land credits. Spend them on the map.']);
-  assert.equal(n.ctc,1);assert.equal(r.earned(n),BASE+5);
+  assert.equal(n.ctc,1);assert.equal(r.earned(n),BASE+9);
   let old=structuredClone(n);n.cities=n.cities.filter(c=>c.c!==9);
-  assert.deepEqual(r.save(n,old),[]);assert.equal(r.earned(n),BASE+5,'abandoning keeps the credits');
+  assert.deepEqual(r.save(n,old),[]);assert.equal(r.earned(n),BASE+9,'abandoning keeps the credits');
   old=structuredClone(n);n.cities.push(city(12,'Bellmouth Again'));
   assert.deepEqual(r.save(n,old),[],'refounding does not pay twice');assert.equal(n.ctc,1);
   n=r.reload(n);old=structuredClone(n);n.cities.push(city(15,'Seaford'));
   assert.match(r.save(n,old)[0],/Founding Seaford earned 2 land credits/);
-  assert.equal(n.ctc,2);assert.equal(r.earned(n),BASE+7);
+  assert.equal(n.ctc,2);assert.equal(r.earned(n),BASE+11);
 });
 
 test('cities founded before the change are paid for once, with a note',()=>{
   const r=credits();let n=nation({fdc:1,cities:[city(CAP,''),city(9,'Bellmouth'),city(15,'Seaford')]});
   const m=r.save(n,structuredClone(n));
   assert.equal(m.length,1);assert.match(m[0],/\+4 for the 2 cities Firstland has founded/);
-  n=r.reload(n);assert.deepEqual(r.save(n,structuredClone(n)),[]);assert.equal(r.earned(n),BASE+7);
+  n=r.reload(n);assert.deepEqual(r.save(n,structuredClone(n)),[]);assert.equal(r.earned(n),BASE+11);
 });
 
 test('a capital missing from the city list is not counted as a founded city',()=>{

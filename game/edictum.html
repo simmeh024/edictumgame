@@ -21532,7 +21532,7 @@ function releaseClaims(cells){
 function landHelp(n){
   const coast=geo(n,'coast'),navy=!!pol(n).navalFleet,rc=(n.rec||[]).length;
   return `<details class="lc-list lc-help" data-keep="lhOpen"${S.lhOpen?' open':''}><summary>More land, reclaimed land and a navy</summary>
-    <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or a free shore that a completed coastal Harbour reaches across up to ${mpHarbourReach(n)} hexes of water: another island, or the far side of a bay on your own coast. Turn on <b>Harbour reach</b> in the map key to see how far your harbours reach.</p>
+    <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Finishing the charter list earns 3, a daily desk cleared in your first week earns 2 instead of 1, and coming back on a second and a third day earns 2 each. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or a free shore that a completed coastal Harbour reaches across up to ${mpHarbourReach(n)} hexes of water: another island, or the far side of a bay on your own coast. Turn on <b>Harbour reach</b> in the map key to see how far your harbours reach.</p>
     <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
     <p><b>Reclaimed land</b> comes from decisions, not from a button or a building. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
     <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, your troops cross the sea without losing strength, and your harbours reach ${MP_NAVY_REACH} hexes across water instead of ${MP_SEA_REACH} to claim land. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
@@ -21831,7 +21831,7 @@ function helpBody(n){
       <p>At set populations you reach milestones. They unlock buildings, more cities and bonus land credits, declaring war (at ${fp('war')}), founding alliances (at ${fp('alli')}) and bidding to host the Games (at ${fp('host')}). The Growth section of your Nation page lists them all.</p>`,
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
-    land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} and every city you found earns ${CITY_CREDITS}. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
+    land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} (a whole block of land) and every city you found earns ${CITY_CREDITS}. Your first days earn more: the charter list, a daily desk worth double in your first week, and 2 credits each for coming back on a second and a third day. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
       <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 45 hexes of your capital and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
@@ -34797,15 +34797,15 @@ function tutLandHint(n){
 const TUT_LISTS=[
   {k:'charter',c:'c',eb:'The charter',t:()=>'Your nation starts here',hk:'statehood.steps0.v1',
    lede:'Your name, flag and founding principles are saved. A few particulars more, and your charter is complete.',
-   bonus:{gift:{food:10,timber:10},u:'t-founder'},tasks:[
-    {k:'settle',t:'Choose where your capital stands',h:'Your first edict asks where to build it: by the sea, on farmland or in the hills.',v:'issues',b:'Open edicts',f:n=>cellOf(n.loc)>=0},
+   bonus:{lc:3,gift:{food:10,timber:10},u:'t-founder'},tasks:[
+    {k:'settle',t:'Choose where your capital stands',h:'Your first edict asks where to build it: by the sea, on farmland or in the hills.',v:'issues',b:'Open edicts',gift:{goods:3},f:n=>cellOf(n.loc)>=0},
     {k:'city',t:'Name your first city',h:n=>n.capital===TUT_CAP0?`${TUT_CAP0} is only a placeholder. Give your capital a name of your own: every player in ${REGION} sees it.`:`Every player in ${REGION} sees the name of your capital.`,
      act:'tut-city',b:'Name it',lc:3,gift:{goods:5},f:n=>(!!n.capital&&n.capital!==TUT_CAP0)||tallyOf(n,'log:cityren')>0,lock:n=>tutCapCity(n)?'':'Settle your capital first, then name it.'},
-    {k:'charter',t:'Finish your charter',h:'Everything is in place. Sign the charter to collect the founder’s bonus and move on to the next list.',act:'pg-charter',b:'Finish charter',f:(n,d)=>String(d||'').includes('c')},
-    {k:'ruler',t:'Name your leader',h:n=>`Your ${String(n.leader||'Leader').toLowerCase()} heads the cabinet and signs every banknote. Settings gives them a name.`,v:'settings',to:'s-ruler',b:'Open Settings',f:n=>typeof n.ruler==='string'&&!!n.ruler.trim()},
-    {k:'culture',t:'Describe your culture',h:'A national language, religion, sport, dish or anthem: edicts mention them, and your nation page shows them.',v:'settings',to:'s-lang',b:'Open Settings',
+    {k:'charter',t:'Finish your charter',h:'Everything is in place. Sign the charter to collect the founder’s bonus and move on to the next list.',act:'pg-charter',b:'Finish charter',gift:{goods:3},f:(n,d)=>String(d||'').includes('c')},
+    {k:'ruler',t:'Name your leader',h:n=>`Your ${String(n.leader||'Leader').toLowerCase()} heads the cabinet and signs every banknote. Settings gives them a name.`,v:'settings',to:'s-ruler',b:'Open Settings',gift:{goods:3},f:n=>typeof n.ruler==='string'&&!!n.ruler.trim()},
+    {k:'culture',t:'Describe your culture',h:'A national language, religion, sport, dish or anthem: edicts mention them, and your nation page shows them.',v:'settings',to:'s-lang',b:'Open Settings',gift:{goods:3},
      f:n=>TUT_CULT.some(k=>typeof n[k]==='string'&&!!n[k].trim())},
-    {k:'flag',t:'Design your flag',h:'Stripes, emblems and colours in layers. Your flag flies on the map, on your banknotes and on every page.',v:'customise',to:'cz-sec-e',b:'Design it',f:n=>tallyOf(n,'log:flag')>0,lock:tutCharterLock}]},
+    {k:'flag',t:'Design your flag',h:'Stripes, emblems and colours in layers. Your flag flies on the map, on your banknotes and on every page.',v:'customise',to:'cz-sec-e',b:'Design it',gift:{goods:3},f:n=>tallyOf(n,'log:flag')>0,lock:tutCharterLock}]},
   {k:'first',c:'f',eb:'First steps',t:()=>'Welcome to Edictum',hk:'statehood.steps.v1',
    lede:'The daily round of a nation: edicts, land and buildings, the map, your cabinet and your neighbours.',
    bonus:{lc:2,gift:{goods:10},u:'t-steward'},tasks:[
@@ -34837,7 +34837,7 @@ const TUT_LISTS=[
     {k:'fleet',t:'Send a party to a fleeting find',h:'Shipwrecks, whales and fairs last only hours, and only the first five parties to arrive share the spoils.',v:'explore',b:'Expeditions',gift:{timber:5},f:n=>Array.isArray(n.fl)&&n.fl.length>0},
     {k:'cv',t:'Try a covert operation',h:'Plant a scandal, steal blueprints, sabotage a deal or bribe a minister, if your agent is not caught.',v:'intel',b:'Intelligence',gift:{iron:5},
      lock:n=>tutAge(n)<CV_NEW?'Opens three days after founding.':'',f:n=>Array.isArray(n.cov)&&n.cov.length>0},
-    {k:'desk',t:'Clear your daily desk',h:'Three small tasks wait on your Edicts page each day. Clear all three for a land credit of their own.',v:'issues',b:'Open the desk',gift:{timber:5},f:n=>(+n.ddc||0)>0},
+    {k:'desk',t:'Clear your daily desk',h:'Three small tasks wait on your Edicts page each day. Clear all three for a land credit of their own, or two in your first week.',v:'issues',b:'Open the desk',gift:{timber:5},f:n=>(+n.ddc||0)>0},
     {k:'fxv',t:'Visit the Foreign Exchange Bureau',h:'See what your currency is worth, how far it is trusted, and how it compares with your neighbours’.',v:'exchange',b:'Open the Bureau',lc:2,gift:{oil:5},f:(n,d)=>d.includes('x')},
     {k:'fxd',t:'Design your currency',h:'Name it, choose its code and symbol, and design its banknotes and coin.',v:'customise',cu:1,b:'Design it',lc:2,gift:{oil:5},lock:tutCharterLock,
      f:n=>!!n.cur||cuRenamed(n)||tallyOf(n,'log:cur')>0}]},
@@ -44223,7 +44223,7 @@ document.addEventListener('click',e=>{
    the map counts the credits waiting, with one button to claim. "Not now" puts the card away on this device.
    Each claim of your own pulses the whole border, a counter on the map shows the territory, and in the first
    hours after founding every third claimed hex earns a toast with a little confetti. */
-const FOUND_CREDITS=3,CITY_CREDITS=2,LC_FIRST=3,LC_SESSION=3*3600e3,LC_Z=10,LC_COACH_KEY='edictum.lccoach.v1';
+const FOUND_CREDITS=7,CITY_CREDITS=2,LC_FIRST=3,LC_SESSION=3*3600e3,LC_Z=10,LC_COACH_KEY='edictum.lccoach.v1';
 const LC={on:false,gone:'',seed:'',seen:-1,upAt:0,upBy:0};
 const lcFoundCredits=n=>n&&n.fdc===1?FOUND_CREDITS:0;
 const lcCityCredits=n=>n&&Number.isInteger(n.ctc)?n.ctc*CITY_CREDITS:0;
@@ -44333,6 +44333,7 @@ writeClaims=(f=>function(cells,msg,auto,plan){
    them, and they add to landEarned like the tutorial's). Progress is counted save by save from the tallies
    (tallyScan runs first) and from what the save adds; a visit or a vote leaves no trace in the record, so
    it marks itself (n._ddm, read and dropped at once).
+   In a nation's first week (DD_WEEK from founding) a cleared desk pays a second land credit, counted in n.ddw.
    Presence (n.stk): a day counts when an edict is answered or a hex claimed. The first three such days unlock
    a stamp in indigo ink, a cartouche for the motto and a pennant over the capital; a missed day only pauses
    the count.
@@ -44340,6 +44341,10 @@ writeClaims=(f=>function(cells,msg,auto,plan){
    Sawmill or Market Hall in its capital that takes FFB_MS instead of hours. On completion its first cart
    (FFB_GIFT of what it makes) arrives, and the card counts the stock up while the player watches. */
 const DD_GIFT=3,DD_RES=['timber','oil','iron','goods'],DD_KEY_RX=/^\d{4}-\d{2}-\d{2}$/,STK_UNLOCKS=['s-indigo','m-cartouche','pn-pennant'],STK_MAX=1e5;
+/* the first week's desks: a second credit each, at most one a calendar day (eight days can touch a week) */
+const DD_WEEK=7*864e5,DD_WEEK_MAX=8;
+const ddWeek=(n,now)=>{const f=+(n&&n.founded)||0;return f>0&&now>=f&&now-f<DD_WEEK;};
+const ddwOf=n=>n&&Number.isInteger(n.ddw)&&n.ddw>0?Math.min(n.ddw,DD_WEEK_MAX):0;
 const FFB_MS=3*60000,FFB_GIFT=12,FFB_KEYS=['farm','sawmill','market'],FFB_OUT={farm:'food',sawmill:'timber',market:'goods'};
 const ddOthers=()=>{try{return allNations().some(x=>!x.me);}catch(e){return false;}};
 /* the browser tests turn the desk off (test/lib.mjs) unless a suite asks for it, so its gifts never move the stock
@@ -44387,8 +44392,8 @@ function ddDelta(n,old,k){
   return 0;
 }
 const stkDays=n=>n&&n.stk&&Number.isInteger(n.stk.n)?n.stk.n:0;
-landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0);})(landEarned);
-earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0);})(earnedAt);
+landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n);})(earnedAt);
 UNLOCK_SOURCES.push({earned:n=>STK_UNLOCKS.slice(0,Math.min(STK_UNLOCKS.length,stkDays(n))),
   how:id=>{const i=STK_UNLOCKS.indexOf(id);return i<0?null:`Day ${i+1} of presence: answer an edict or claim a hex on ${i?i+1+' different days':'any day'}.`;}});
 const STK_NOTES=['the Enacted stamp in indigo ink is yours, under Decrees in Customise','a cartouche for your motto is yours, under Banner in Customise','a pennant over your capital on the map is yours, under Banner in Customise'],
@@ -44405,7 +44410,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
     if(D.c[i]>=goal){D.p[i]=1;gift(ra,DD_GIFT);gift(rb,DD_GIFT);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${DD_GIFT} ${resName(ra)} and +${DD_GIFT} ${resName(rb)}.`);}
   });
-  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;out.push('Today’s desk is clear: +1 land credit to spend on the map.');}}
+  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;
+    if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
+    else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}}
   if(base&&(!n.stk||ddLater(day,n.stk.d))&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
     const k=Math.min(STK_MAX,stkDays(n)+1);n.stk={n:k,d:day};if(k<=STK_NOTES.length)out.push(`Day ${k} of your presence: ${STK_NOTES[k-1]}.`);}
   /* the quick first building: its first cart, once, if it still stands */
@@ -44422,6 +44429,7 @@ NORM_HOOKS.push((n,d)=>{
     n.dd={d:D.d,q:D.q.map(q=>q.slice(0,4)),c:ar(D.c,v=>Number.isInteger(v)&&v>0?Math.min(v,10):0),p:ar(D.p,v=>v===1?1:0)};if(D.w===1)n.dd.w=1;}
   else delete n.dd;
   if(d&&Number.isInteger(d.ddc)&&d.ddc>0&&d.ddc<=STK_MAX)n.ddc=d.ddc;else delete n.ddc;
+  if(d&&Number.isInteger(d.ddw)&&d.ddw>0&&d.ddw<=DD_WEEK_MAX)n.ddw=d.ddw;else delete n.ddw;
   const K=d&&d.stk;if(K&&Number.isInteger(K.n)&&K.n>0&&K.n<=STK_MAX&&typeof K.d==='string'&&DD_KEY_RX.test(K.d))n.stk={n:K.n,d:K.d};else delete n.stk;
   const F=d&&d.ffb;if(F&&FFB_KEYS.includes(F.k)&&typeof F.c==='string'&&F.c.length>0&&F.c.length<=40&&Number.isFinite(F.s)&&Number.isFinite(F.d)&&F.d>=F.s){n.ffb={k:F.k,c:F.c,s:F.s,d:F.d};if(F.p===1)n.ffb.p=1;}else delete n.ffb;
 });
@@ -44434,13 +44442,13 @@ function ddMark(k){
 }
 function ddCard(now){
   const n=S.nation;if(!n||n.npc||!ddOn())return '';
-  const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),nx=STK_UNLOCKS[sk];
+  const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),nx=STK_UNLOCKS[sk],wk=ddWeek(n,now);
   const rows=D.q.map(([k,goal,ra,rb],i)=>{const T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0);
     return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${DD_GIFT} ${esc(resName(ra))}, +${DD_GIFT} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
   const dots=`<span class="lc-dots" aria-hidden="true">${STK_UNLOCKS.map((x,i)=>`<i${i<sk?' class="on"':''}></i>`).join('')}</span>`;
   return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextAt(now,D)}">${esc(fmtWait(ddNextAt(now,D)-now))}</b></span></div>
     <ol class="dd-l">${rows}</ol>
-    <p class="dd-f">${D.w?'Your desk is clear: today’s land credit is yours.':'Clear all three for <b>+1 land credit</b>.'}</p>
+    <p class="dd-f">${D.w?(wk?'Your desk is clear: today’s two land credits are yours.':'Your desk is clear: today’s land credit is yours.'):wk?'Clear all three for <b>+2 land credits</b>, double in your first week.':'Clear all three for <b>+1 land credit</b>.'}</p>
     <p class="hint dd-stk">${dots}Presence: ${sk?`day ${sk}`:'not started'}${nx?` · next: ${STK_NEXT[sk]}`:' · all three rewards earned'}. ${today?'Today counts.':'Answer an edict or claim a hex today to count it.'} A missed day only pauses it.</p></section>`;
 }
 issuesView=(f=>function(v,now){const h=f.apply(this,arguments),c=ddCard(now||Date.now());return c?h.replace('</header>','</header>'+c):h;})(issuesView);
@@ -44730,7 +44738,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
    once the list's other tasks are done, and signing it completes the list */
 pgEligible=(f=>function(n,k){return k==='charter'?!!n:f.apply(this,arguments);})(pgEligible);
 {const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter'),ch=L.tasks.splice(i,1)[0];
-  L.tasks.push({k:'cust',t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',f:(n,d)=>String(d||'').includes('u')},ch);}
+  L.tasks.push({k:'cust',t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',gift:{goods:3},f:(n,d)=>String(d||'').includes('u')},ch);}
 tutRebuild();
 /* a visit to Customise ticks its task (after the page is drawn: the mark saves, which draws again) */
 VIEWS_EXT.customise=(f=>function(){if(S.nation&&!S.nation.npc&&!OBS&&!tutDevGet().includes('u'))setTimeout(()=>tutMark('u'),0);return f.apply(this,arguments);})(VIEWS_EXT.customise);
@@ -45651,6 +45659,63 @@ document.addEventListener('click',e=>{
   if(a==='nwe-leave-yes'){NWE.ask='';nweClose();return;}
   if(a==='nwe-leave-no'){NWE.ask='';render();return;}
 });
+
+/* ───────── a head start: more land in a nation's first days ─────────
+   A nation is founded with FOUND_CREDITS (seven: a whole block of land), every step of the charter list pays
+   HS_GOODS goods and the finished list 3 land credits (TUT_LISTS), a desk cleared in the first week pays a second
+   credit (n.ddw, in the desk's own hook), and the second and third days a player comes back pay WB_CREDITS each.
+   n.wbk {n: days counted, at most WB_DAYS; d: the last of them} keeps the days: any save made on a new day counts
+   it, and the game saves by itself when one is due, so opening the game is enough.
+   Nations founded before the head start (no n.hst) are paid it back once, at their next save, with one note. The
+   founding and charter credits follow by themselves (they are worked out, not stored); the charter's goods are
+   paid for each step already done; the first-week desks are counted from the desks cleared (at most one a day,
+   and only on days the desk existed, from HS_DESK_FROM); and the days back come from the presence streak, the
+   desks cleared and whether the nation was founded before today. */
+const HS_OLD_FOUND=3,HS_GOODS=3,HS_STEPS=['settle','charter','ruler','culture','flag','cust'],HS_DESK_FROM=new Date(2026,9,30).getTime(),WB_CREDITS=2,WB_DAYS=3;
+const wbDays=n=>n&&n.wbk&&Number.isInteger(n.wbk.n)&&n.wbk.n>0?Math.min(n.wbk.n,WB_DAYS):0;
+const wbCredits=n=>WB_CREDITS*Math.max(0,wbDays(n)-1);
+landEarned=(f=>function(n){return f.apply(this,arguments)+wbCredits(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+wbCredits(n);})(earnedAt);
+NORM_HOOKS.push((n,d)=>{
+  if(d&&d.hst===1)n.hst=1;else delete n.hst;
+  const W=d&&d.wbk;if(W&&Number.isInteger(W.n)&&W.n>0&&W.n<=WB_DAYS&&typeof W.d==='string'&&DD_KEY_RX.test(W.d))n.wbk={n:W.n,d:W.d};else delete n.wbk;
+});
+/* what a nation founded before the head start is owed, from its record before this save (old): land credits for
+   founding (fd), the finished charter (ch), first-week desks (dd) and days back (wb, from days), and goods */
+function hsOwed(n,old,now){
+  const day=ddDay(now),f=+old.founded||0,L=TUT_LISTS.find(L=>L.k==='charter'),dc=Number.isInteger(old.ddc)&&old.ddc>0?old.ddc:0;
+  const o={fd:old.fdc===1?Math.max(0,FOUND_CREDITS-HS_OLD_FOUND):0,ch:L&&tutChOf(old).includes(L.c)?L.bonus.lc||0:0,dd:0,
+    goods:HS_GOODS*tutLcOf(old).filter(k=>HS_STEPS.includes(k)).length};
+  if(dc&&f>0){const a=Math.max(f,HS_DESK_FROM),b=Math.min(f+DD_WEEK,now);o.dd=Math.max(0,Math.min(dc,b>a?Math.ceil((b-a)/DAY):0,DD_WEEK_MAX-ddwOf(n)));}
+  const sk=stkDays(old)+(old.stk&&ddLater(day,old.stk.d)?1:0);
+  o.days=Math.min(WB_DAYS,Math.max(1,sk,dc,f>0&&ddLater(day,ddDay(f))?2:1));o.wb=WB_CREDITS*(o.days-1);
+  return o;
+}
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||!n.name)return;const day=ddDay(now);
+  if(n.hst!==1){
+    n.hst=1;const was=old&&old.name&&old.founded===n.founded?old:null;
+    if(!was){n.wbk={n:1,d:day};return;} /* a new nation: its founding day is day one */
+    const o=hsOwed(n,was,now);n.wbk={n:o.days,d:day};if(o.dd)n.ddw=ddwOf(n)+o.dd;
+    let got=0;if(o.goods){const st=stockNow(n,now),had=num0(st.goods);st.goods=stockLimit(n,'goods',had+o.goods,st.goods);got=Math.max(0,Math.round(num0(st.goods)-had));n.stock=roundStock(st);n.stockAt=now;}
+    const lc=o.fd+o.ch+o.dd+o.wb,p=[];
+    if(o.fd)p.push(`${o.fd} from the larger founding grant`);
+    if(o.ch)p.push(`${o.ch} for the finished charter`);
+    if(o.dd)p.push(`${o.dd} more for desks cleared in your first week`);
+    if(o.wb)p.push(`${o.wb} for coming back on ${o.days>2?'a second and a third day':'a second day'}`);
+    if(!lc&&!got)return;
+    return [`A bigger head start, paid back to ${n.name}: ${lc?`+${lc} land credits (${list(p)})`:''}${lc&&got?', and ':''}${got?`${got} goods for the charter steps you had done`:''}.${lc?' Spend them on the map.':''}`];
+  }
+  if(!n.wbk){n.wbk={n:WB_DAYS,d:day};return;} /* lost: count the days as paid, so they never pay twice */
+  if(wbDays(n)<WB_DAYS&&ddLater(day,n.wbk.d)){const k=wbDays(n)+1;n.wbk={n:k,d:day};
+    return [`Welcome back to ${n.name}: your ${k===2?'second':'third'} day brings ${WB_CREDITS} land credits. Spend them on the map.`];}
+});
+/* opening the game on a new day is enough: it saves once when a day back, or the head start, is due */
+setInterval(()=>{try{
+  const n=S.nation;if(!n||n.npc||!n.name||document.hidden||OBS||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready)return;
+  if(n.hst===1&&!(n.wbk&&wbDays(n)<WB_DAYS&&ddLater(ddDay(Date.now()),n.wbk.d)))return;
+  commit(clone(n));const a=document.activeElement;if(!(a&&a.closest&&a.closest('input,textarea,select,[contenteditable]')))quietRender();
+}catch(e){}},5000);
 
 /* ───────── Community Board ─────────
    Under Other: a board for every region, where any Registered Nation opens topics and replies, wherever it lives.
