@@ -275,6 +275,62 @@ over the street, her daughter Ada's question, and at last what goes into the rec
   New edicts go after the letters (their numbers follow every other edict's), so nothing is inserted
   before them.
 
+**Letters from Mission Control.** A space programme told through fourteen letters from Dr. Lyra Okafor,
+the director of the nation's space agency, from a borrowed classroom to the first night on the Moon. It
+follows Willow Street's design (frozen context per letter, `fdFam` families, freedom bands, laws, facts
+from earlier answers) and adds a playable agency on the Space page.
+
+- *The agency.* Once the capital is settled, Space › Mission Control founds and names the agency and funds
+  one team first: Science & Survey (borrowed telescope time), Flight Operations (a small camera test) or
+  Engineering & Logistics (an old tracking station restored for observing time). Each first assignment
+  costs a few resources and takes 15 to 45 minutes, so the first image comes in the opening session. The
+  other teams join for a few resources. One mission slot at first, two once Mission Control is built.
+  Missions (`MC_MS`) are timed like buildings (`{s, d}`), so they finish offline and on every device; the
+  page shows the job under way, the time left, the next requirement with a direct build or start button,
+  and what each mission will reveal.
+- *Buildings* (`BUILDINGS`, section "Mission Control on the Space page"): Mission Control (from the start,
+  4 h; the second slot), Deep Space Tracking Station (15 million people, 8 h; receives the relay's data and
+  charts any sector on request), Robotics and Landing Lab (75 million, 12 h; the rover) and Crew and Habitat
+  Centre (1 billion, Science 60, 24 h; the habitat test, crew and cargo planning). One per nation; a building
+  in any city the nation holds counts. The Observatory, the Space Port and the Lunar Colony are reused: an
+  Observatory makes the telescope route quicker and, like a Space Port, credits the first image or flight.
+- *The chart.* The Space page's Moon starts black for every nation: the real lunar map under a mask of
+  160 sectors (`MC_SEC`, 0 uncharted, 1 seen from orbit, 2 charted). `mcReveal` derives the mask from the
+  missions flown and the story's facts (a crescent, an orbital strip, the near side, a far-side belt, the
+  poles and three candidate landing sites, the rover's ground, the beacon, the corridor), so nothing extra
+  is stored. Feature names and tile details appear only in charted sectors, and other colonies' names stay off the chart. The Lunar
+  Colony still opens the shared settlement map and the ordinary landing, whose checks run at confirmation;
+  the landing panel offers the preferred surveyed site and the free alternatives.
+- *The letters* (`mc-1` … `mc-14`, after every other edict, never random). Letter I needs 50 enacted
+  edicts on Willow Street's lifetime count (`n.ws.e`, which no longer counts story letters). Each ordinary
+  slot that could take it rolls one in 8 from the slot's own time and the seed, the misses are kept
+  (`n.mc.r`, `n.mc.rt`), and the 12th eligible slot brings it regardless. A full desk, a holiday, a
+  follow-up or a Willow Street letter that is due takes the slot without a roll. Each later letter arrives
+  through an ordinary slot once its mission or building has happened (`mcReady`), one on the desk at a
+  time. A veto means the proposal failed; the missions never wait for a letter. "Fly Me to the Moon" is
+  chapter IX now (the settlement charter), so the old edict left the random pool.
+- *Eight governments.* 112 versions (`MC_STORY.fam`), each family with its own speakers and dilemmas;
+  chapter IX is an elected commission or an appointed director (Senate), royal patronage or a civilian
+  charter (Crown), frontier command or civilian science (Empire), a freight concession or public control
+  (Divan), protected ground or sample collection (Synod), crew elections or central appointment
+  (Congress), overseas funding with strings or local authority (Governor's Council), shared funding or
+  the local rates (Borough). An answer's `cg` line goes into the cargo manifest only if it was chosen, so a
+  refused contract never flies.
+- *Gold.* Every letter from Mission Control has a 2 px `--mc-gold` border and a "Mission Control · Letter N
+  of XIV" label, on the Edicts desk, opened and answered, in every theme.
+- *Mandate.* Three spends from the Government page's mandate (`MC_MD`: second staff 2, an earlier relay
+  window 3, a parallel review of the crew and cargo plans 4), priced by `mdCost` like any decree, each once,
+  charged in the same commit as its effect and counted in the leader's record. Publishing the far-side
+  charts gives 1 back and the first night 2, once each.
+- *Older nations.* A Lunar Colony under construction, a finished one or a landed colony credits the
+  programme's missions and buildings from the saved facts, so a veteran's letters arrive one slot at a
+  time. A crewed landing prepared by the agency gives the colony two expansion points, once.
+- *Storage.* `n.mc` is private (`NX_KEYS`): `{v, a, ms, c, x, r, rt, md, pf?, xn?, ld?}`, bounded by
+  `mcNorm`. `test/mission-control.test.mjs` (in `test:fx`) covers the roll, the guarantee, blocked slots,
+  prerequisites, vetoes, a change of government, the chart, the mandate, veterans and two devices;
+  `npm run test:mission-control` checks the page, the chart, a landing and the gold border on a desktop and
+  a phone in both themes.
+
 **The banner's stamps.** A nation's banner carries ink stamps for its highest seat in the region's
 Assembly (the Delegate's chair, or else a member's seat: every player nation unless it resigned, and
 every computer nation) and its alliance, if it has one.
@@ -541,6 +597,7 @@ npm run test:buildings     # the later buildings: plans, completion, city effect
 npm run test:bugs          # Report a bug: the form, screenshots, pacing, the admin page, notes, deleting
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
 npm run test:willow        # Letters from Willow Street: a milestone, a change of government, reloads, a second device
+npm run test:mission-control # Mission Control: the agency, the chart, the mandate, a landing, the gold letters
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
 npm run test:flag-layers   # flag layers, touch and keyboard editing, Undo and shared designs

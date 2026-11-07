@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 
 const source=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8');
-const START='/* ───────── fifty edicts for the newest systems',END='/* ───────── the browser tab';
+const START='/* ───────── fifty edicts for the newest systems',END='/* ───────── Letters from Mission Control:';
 const STAT_KEYS=JSON.parse(source.match(/const STAT_KEYS = (\[[^\]]+\])/)[1].replace(/'/g,'"'));
 const BUDGET_KEYS=[...source.slice(source.indexOf('const BUDGET = ['),source.indexOf('];',source.indexOf('const BUDGET = ['))).matchAll(/\['([a-z]+)','/g)].map(m=>m[1]);
 const TOPICS=JSON.parse(source.match(/const ISSUE_TOPICS = (\[.*?\]\]);/)[1].replace(/'/g,'"')).map(([k])=>k);
