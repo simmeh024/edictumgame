@@ -96,7 +96,8 @@ await A.click('#cba-go');
 check('posting asks first, naming the boards and the signature', await until(async () => /Welcome to the boards.*2 boards.*Pascal.*pinned/.test(await text(A, '#cba-ask'))));
 await A.click('#cba-yes');
 check('it reports a link for each board', await until(async () => (await A.$$('.cba-done [data-act="cba-open"]')).length === 2));
-check('the team’s topics are listed below the form', await until(async () => (await A.$$('.tbl-wrap tbody tr')).length === 2 && /Welcome to the boards/.test(await text(A, '.tbl-wrap'))));
+check('the team’s topics are listed below the form', await until(async () => (await A.$$('.tbl-wrap tbody tr')).length === 2 && /Welcome to the boards/.test(await text(A, '.tbl-wrap'))),
+  await A.evaluate(() => { const h = document.querySelector('.cba-lh'); return h ? h.parentElement.innerText.split('Topics signed by the team').pop().slice(0, 300) : 'no list'; }));
 await go(C, 'community'); await C.waitForSelector('.cb-reg');
 check('players find it pinned on their own board', await until(async () => /Pinned\s*Welcome to the boards/.test(await text(C, `.cb-reg[data-reg="${home}"]`))));
 await C.click(`.cb-reg[data-reg="${home}"] [data-act="cb-topic"]`);

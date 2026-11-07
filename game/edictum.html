@@ -45874,7 +45874,7 @@ document.addEventListener('click',e=>{
    the topics the team has signed, board by board (cb/<region>/posts where of == true), to open on the board, where
    the usual staff controls unpin, lock, edit or delete them. The same signature answers on the board (Reply as). */
 const LS_CBA='edictum.cbSign';
-const CBA={regs:null,ti:'',x:'',tg:'general',as:'team',pn:true,lk:false,busy:false,ask:false,err:'',done:null,list:null,lbusy:false,lerr:'',sign:null};
+const CBA={regs:null,ti:'',x:'',tg:'general',as:'team',pn:true,lk:false,busy:false,ask:false,err:'',done:null,list:null,lbusy:false,lerr:'',lseq:0,sign:null};
 /* the team's signature as typed (CBA.sign) and as posted: a name, at worst 'Edictum team', and a role if any */
 function cbaSign(){
   if(!CBA.sign){CBA.sign={nm:'',rl:''};try{const o=JSON.parse(localStorage.getItem(LS_CBA)||'null');if(o&&typeof o==='object')CBA.sign={nm:String(o.nm||'').slice(0,80),rl:String(o.rl||'').slice(0,60)};}catch(e){}}
@@ -45898,20 +45898,24 @@ function cbaCheck(){
   if(!CBA.x.trim())return 'Write something first.';
   return '';
 }
-/* the topics signed by the team, newest first: one small query a board, asked when the page opens */
+/* the topics signed by the team, newest first: one small query a board, asked when the page opens and again after a
+   post. A fetch overtaken by a newer one (a post made while the first was still on its way) is dropped, or its older
+   list would stand in for the newer one. */
 async function cbaLoad(){
-  if(!S.db||CBA.lbusy)return;CBA.lbusy=true;CBA.lerr='';
+  if(!S.db)return;const n=++CBA.lseq;CBA.lbusy=true;CBA.lerr='';
+  let list=null,err='';
   try{const per=await Promise.all(REGIONS.map(R=>S.db.collection('cb/'+R.id+'/posts').where('of','==',true).limit(40).get()
       .then(qs=>qs.docs.map(d=>{const p=cbPost(d.id,d.data());if(p)p.reg=R.id;return p;}).filter(Boolean))));
-    CBA.list=per.flat().sort((a,b)=>b.t-a.t).slice(0,80);}
-  catch(e){CBA.lerr='The team’s topics could not be fetched. Try again in a moment.';}
-  CBA.lbusy=false;if(S.view==='admin-board')render();
+    list=per.flat().sort((a,b)=>b.t-a.t).slice(0,80);}
+  catch(e){err='The team’s topics could not be fetched. Try again in a moment.';}
+  if(n!==CBA.lseq)return;
+  CBA.list=list;CBA.lerr=err;CBA.lbusy=false;if(S.view==='admin-board')render();
 }
 async function cbaSend(){
   if(CBA.busy)return;const regs=[...cbaRegs()].filter(r=>REG_BY_ID[r]),team=cbaTeam();
   CBA.busy=true;CBA.err='';render();
   try{const r=await cbCall({op:'cbPost',regs,ti:CBA.ti.trim(),x:CBA.x.trim(),tg:CBA.tg,pn:CBA.pn,lk:CBA.lk,...(team?{as:'team',...cbaSign()}:{})}),ids=r&&r.ids||{};
-    CBA.done=regionsByAvail().filter(R=>ids[R.id]).map(R=>[R.id,ids[R.id]]);CBA.ti='';CBA.x='';CBA.ask=false;CBA.list=null;
+    CBA.done=regionsByAvail().filter(R=>ids[R.id]).map(R=>[R.id,ids[R.id]]);CBA.ti='';CBA.x='';CBA.ask=false;CBA.list=null;cbaLoad();
     toast(CBA.done.length===1?'The topic is posted.':`The topic is posted on ${CBA.done.length} boards.`);}
   catch(e){CBA.ask=false;CBA.err=e&&CB_SAY.includes(e.code)&&e.message?e.message:'The topic could not be posted'+(e&&e.message?': '+e.message:'.');}
   CBA.busy=false;render();
@@ -45950,7 +45954,7 @@ function cbaView(){
 }
 ADM_VIEWS.push('admin-board');
 shell=(f=>function(){if(S.view==='admin-board'&&S.isOwner)return cbaView();return f.apply(this,arguments);})(shell);
-go=(f=>function(v){if(v==='admin-board'&&S.view!=='admin-board'){CBA.ask=false;CBA.err='';CBA.done=null;CBA.list=null;CBA.lerr='';}return f.apply(this,arguments);})(go);
+go=(f=>function(v){if(v==='admin-board'&&S.view!=='admin-board'){CBA.ask=false;CBA.err='';CBA.done=null;CBA.list=null;CBA.lerr='';CBA.lseq++;CBA.lbusy=false;}return f.apply(this,arguments);})(go);
 document.addEventListener('input',e=>{
   const t=e.target,id=t&&t.id||'';if(id.slice(0,4)!=='cba-')return;
   /* what the confirmation quotes has changed: it goes until Post is pressed again */
