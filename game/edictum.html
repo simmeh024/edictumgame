@@ -5439,6 +5439,10 @@ span.nw-tag{cursor:default}
 .cx-todo{margin:0 0 16px;padding:12px 14px;border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:4px;background:var(--sheet)}
 .cx-todo .lbl-h{margin:0 0 8px}
 .cx-todo-l{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ca-flash{animation:caFlash 2.4s ease-out 1;border-radius:4px}
+@keyframes caFlash{0%,35%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 3px transparent}}
+@media (prefers-reduced-motion:reduce){.ca-flash{animation:none;box-shadow:0 0 0 2px var(--accent)}}
+:root[data-motion="reduce"] .ca-flash{animation:none;box-shadow:0 0 0 2px var(--accent)}
 .cx-todo-l .chip-btn{min-height:40px;text-align:left}
 .cx-stock{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
 .cx-stk{background:var(--sheet);padding:8px 12px;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:baseline;min-width:0}
@@ -19889,10 +19893,10 @@ function bellButton(now){const c=notifCount(now);return `<button class="bell${S.
 function notifPanel(now){
   if(!S.notifOpen)return '';
   const {pin,ev}=notifItems(now),prev=S.notifPrev||0;
-  const row=(x,pinned)=>`<li class="nt-item${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}"><button class="nt" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
+  const row=(x,pinned)=>`<li class="nt-item${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}"><button class="nt" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"${x.cx?` data-cx="${esc(x.cx)}" data-cxt="${esc(x.tab||'')}" data-cxa="${esc(x.at||'')}"`:''}><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
   return `<div class="notif-pop" role="dialog" aria-label="Notifications"><div class="np-h"><b>Notifications</b><button class="linkish small" data-act="notif">Close</button></div>
     ${pin.length?`<ul class="nts">${pin.map(x=>row(x,true)).join('')}</ul>`:''}
-    ${ev.length?`<ul class="nts">${ev.map(x=>row(x,false)).join('')}</ul>`:(pin.length?'':'<p class="hint np-empty">Nothing yet. Wars, trade, messages, milestones and finished buildings will appear here.</p>')}
+    ${ev.length?`<ul class="nts">${ev.map(x=>row(x,false)).join('')}</ul>`:(pin.length?'':'<p class="hint np-empty">Nothing yet. Wars, trade, messages, matters in your cities, milestones and finished buildings will appear here.</p>')}
   </div>`;
 }
 function openNotifs(){
@@ -50367,7 +50371,7 @@ VIEWS_EXT.chronicle=now=>chrView(now);
    number counts only what needs the player (BELL_ACT); anything else new shows as a dot, and whole kinds of notice
    can be left out of the bell altogether. */
 const NTF_KEY='statehood.notif';
-const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum finds and digs',['museum','dig']],['build','Finished buildings',['build']],['mile','Population milestones',['mile','mile0']],
+const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum finds and digs',['museum','dig']],['build','Finished buildings',['build']],['city','City reminders: empty blocks, mayors, room for a city',['cxtodo']],['mile','Population milestones',['mile','mile0']],
   ['games','The Games',['games','host','hostwin']],['news','The Dispatch and Flock',['dispatch','flock']],['space','Space and the belt',['space','belt']],['gift','Gifts',['gift']],
   ['wnd','The Great Statue',['wnd']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']]];
 const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
@@ -50416,7 +50420,7 @@ function ntfSection(){
       ${seg('Count new development news in the menu','ntf-nwc',[[1,'Show'],[0,'Hide']],NTF.nwc,'nwc')}
       ${seg('Dots in the menu for news since your last visit','ntf-nvd',[[1,'Show'],[0,'Hide']],NTF.nvd,'nvd')}
       <div class="cz-drow"><span class="cz-dl" id="ntf-mute-l">Show in the bell</span><div class="ntf-mute" role="group" aria-labelledby="ntf-mute-l">${NTF_GROUPS.map(([k,l])=>`<label class="tog"><input type="checkbox" data-ntf-mute="${k}"${NTF.mute.includes(k)?'':' checked'}> ${esc(l)}</label>`).join('')}</div></div>
-    </div><p class="hint">Messages, wars, trade offers, land credits and alliance invitations always show, and always count.</p></section>`;
+    </div><p class="hint">Messages, wars, trade offers, land credits, alliance invitations and matters in your cities always show, and always count.</p></section>`;
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="ntf"]');if(!el)return;const f=el.dataset.f,v=el.dataset.v;
   if(f==='rw'&&['auto','on','off'].includes(v))NTF.rw=v;else if(f==='tut')NTF.tut=v==='1'?1:0;else if(f==='badge')NTF.badge=v==='all'?'all':'act';else if(f==='nws')NTF.nws=v==='off'?'off':'on';else if(f==='nwc')NTF.nwc=v==='0'?0:1;else if(f==='nvd')NTF.nvd=v==='0'?0:1;else return;ntfSave();render();});
@@ -51039,12 +51043,18 @@ function cxStock(n,now){
   const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n);
   return `<section class="cx-stock" aria-label="Stockpile">${RES.map(r=>`<div class="cx-stk"><span class="cx-stk-l">${RES_INFO[r][0]}</span><span class="cx-stk-v"><span data-live="stock" data-r="${r}">${fmtStock(st[r])}</span><small> / ${cap}</small></span><span class="bar"><i data-live="stockbar" data-r="${r}" style="width:${Math.min(100,st[r]/cap*100).toFixed(1)}%"></i></span><span class="cx-stk-r">${st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+' a day':'Not growing'}</span></div>`).join('')}</section>`;
 }
-function cxTodo(T,mine,now,canFound){
+/* what needs the player in their cities, as [text, tab, city id, kind, the city, the matter / the empty blocks / the
+   cities without a mayor]: the Cities page lists it, and the bell (section CA) tells it */
+function cxTodoList(T,mine,now,canFound){
   const it=[];
-  for(const ct of mine){if(!cxOk(ct,T))continue;const ev=cxEvDue(ct,now);if(ev)it.push([`${ct.nm}: ${cxFill(ev.t,ct)}`,'ppl',ct.id]);}
-  for(const ct of mine){if(!cxOk(ct,T))continue;const b=blkOf(ct,T),u=blkUsed(ct);if(!ct.prog.length&&u<b.n)it.push([`${ct.nm}: ${b.n-u===1?'an empty block':(b.n-u)+' empty blocks'} and idle builders`,'build',ct.id]);}
-  const noMy=mine.filter(c=>cxOk(c,T)&&c.rec&&!cxCityExtras(c.rec).my);if(noMy.length)it.push([noMy.length===1?`${noMy[0].nm} has no mayor`:`${noMy.length} cities have no mayor`,'ppl',noMy[0].id]);
-  if(canFound)it.push(['You can found a new city','new','new']);
+  for(const ct of mine){if(!cxOk(ct,T))continue;const ev=cxEvDue(ct,now);if(ev)it.push([`${ct.nm}: ${cxFill(ev.t,ct)}`,'ppl',ct.id,'ev',ct,ev]);}
+  for(const ct of mine){if(!cxOk(ct,T))continue;const b=blkOf(ct,T),u=blkUsed(ct);if(!ct.prog.length&&u<b.n)it.push([`${ct.nm}: ${b.n-u===1?'an empty block':(b.n-u)+' empty blocks'} and idle builders`,'build',ct.id,'blk',ct,b.n-u]);}
+  const noMy=mine.filter(c=>cxOk(c,T)&&c.rec&&!cxCityExtras(c.rec).my);if(noMy.length)it.push([noMy.length===1?`${noMy[0].nm} has no mayor`:`${noMy.length} cities have no mayor`,'ppl',noMy[0].id,'my',noMy[0],noMy]);
+  if(canFound)it.push(['You can found a new city','new','new','new']);
+  return it;
+}
+function cxTodo(T,mine,now,canFound){
+  const it=cxTodoList(T,mine,now,canFound);
   if(!it.length)return '';
   return `<section class="cx-todo" aria-labelledby="cx-todo-h"><p class="lbl-h" id="cx-todo-h">Needs your attention</p><div class="cx-todo-l">${it.slice(0,6).map(([t,tab,id])=>`<button class="chip-btn" data-act="cx-go" data-id="${esc(id)}" data-tab="${tab}">${esc(t)} →</button>`).join('')}${it.length>6?`<span class="hint">and ${it.length-6} more</span>`:''}</div></section>`;
 }
@@ -51071,13 +51081,13 @@ function cxPeople(ct,T,n,st,now,ok){
   const mood=`<section class="cx-sec"><h4 class="lbl-h">Mood</h4><p class="cx-mood-v"><b>${m.v}</b> of 100 <span class="pill ${band[3]}">${band[1]}</span></p><span class="bar cx-mood-bar"><i style="width:${m.v}%"></i></span><p class="hint">${band[4]}</p>
     <ul class="cx-parts"><li><span>Every city starts at</span><b>55</b></li>${m.parts.map(([d,t])=>`<li><span>${esc(t)}</span><b class="${d>0?'up':'down'}">${d>0?'+':'−'}${Math.abs(d)}</b></li>`).join('')}</ul></section>`;
   const opt=(o,i)=>{const miss=o.c?lacking(o.c,st):[];return `<div class="cx-ev-o"><button class="btn${i?' ghost':''}" data-act="cx-ev" data-id="${esc(ct.id)}" data-i="${i}"${miss.length?' disabled':''}>${esc(o.l)}</button><span class="hint">${[o.c?'Costs '+costText(o.c):'',o.g?'Brings '+costText(o.g):'',o.m?`mood ${o.m>0?'+':'−'}${Math.abs(o.m)} for three days`:'',o.s?'a small lift for the nation':''].filter(Boolean).join(' · ')||'No cost'}${miss.length?` · you need ${esc(list(miss))} more`:''}</span></div>`;};
-  const matter=!ok?'':ev?`<section class="cx-sec cx-ev"><p class="notice-k">A matter for you</p><h4 class="cx-ev-h">${esc(cxFill(ev.t,ct))}</h4><p>${esc(ev.b)}</p><div class="cx-ev-os">${ev.o.map(opt).join('')}</div></section>`:`<section class="cx-sec"><h4 class="lbl-h">Matters</h4><p class="hint">${esc(ct.nm)} brings you a matter every two or three days. The next one comes ${c3When(cxEvAt(ct))}.</p></section>`;
+  const matter=!ok?'':ev?`<section class="cx-sec cx-ev" id="cx-matter"><p class="notice-k">A matter for you</p><h4 class="cx-ev-h">${esc(cxFill(ev.t,ct))}</h4><p>${esc(ev.b)}</p><div class="cx-ev-os">${ev.o.map(opt).join('')}</div></section>`:`<section class="cx-sec"><h4 class="lbl-h">Matters</h4><p class="hint">${esc(ct.nm)} brings you a matter every two or three days. The next one comes ${c3When(cxEvAt(ct))}.</p></section>`;
   let mayor;
   if(my){const fire=S.cxFire===ct.id,L=CX_LETTERS[my.tr],lead=({Thriving:'The city is in fine spirits.',Content:'The city is calm.',Uneasy:'There is grumbling in the market.',Restless:'I will be frank: the people are unhappy.'})[band[1]];
-    mayor=`<section class="cx-sec"><h4 class="lbl-h">Mayor</h4><div class="cx-mayor"><p><b>${esc(my.nm)}</b> <span class="chip">${esc(CX_TRAITS[my.tr][0])}</span></p><p class="hint">${esc(CX_TRAITS[my.tr][1])} In office since ${fmtDate(my.t)}.</p>
+    mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><div class="cx-mayor"><p><b>${esc(my.nm)}</b> <span class="chip">${esc(CX_TRAITS[my.tr][0])}</span></p><p class="hint">${esc(CX_TRAITS[my.tr][1])} In office since ${fmtDate(my.t)}.</p>
       <blockquote class="cx-letter"><p>${esc(lead)} ${esc(L[hash(ct.id+':'+Math.floor(now/(7*DAY)))%L.length])}</p><footer>${esc(my.nm)}, Mayor of ${esc(ct.nm)}</footer></blockquote>
       ${ok?(fire?`<div class="row"><span class="hint">Dismiss ${esc(my.nm)}? A new mayor costs ${esc(costText(CX_MAYOR_COST))}.</span><button class="btn danger small-btn" data-act="cx-fire" data-id="${esc(ct.id)}">Dismiss</button><button class="linkish small" data-act="cx-fire-no">Keep</button></div>`:`<button class="linkish small" data-act="cx-fire-ask" data-id="${esc(ct.id)}">Dismiss the mayor…</button>`):''}</div></section>`;}
-  else mayor=`<section class="cx-sec"><h4 class="lbl-h">Mayor</h4><p class="hint">${esc(ct.nm)} has no mayor. Appointing one costs ${esc(costText(CX_MAYOR_COST))}, lifts the city’s mood by 3 and brings one trait. New candidates come forward every week.</p>${ok?`<ul class="cx-cands">${cxCands(ct,now).map((c,i)=>`<li class="opt"><div class="opt-h"><b>${esc(c.nm)}</b></div><p class="opt-d"><span class="chip">${esc(CX_TRAITS[c.tr][0])}</span> ${esc(CX_TRAITS[c.tr][1])}</p><button class="btn" data-act="cx-mayor" data-id="${esc(ct.id)}" data-i="${i}"${lacking(CX_MAYOR_COST,st).length?' disabled':''}>Appoint</button></li>`).join('')}</ul>`:''}</section>`;
+  else mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><p class="hint">${esc(ct.nm)} has no mayor. Appointing one costs ${esc(costText(CX_MAYOR_COST))}, lifts the city’s mood by 3 and brings one trait. New candidates come forward every week.</p>${ok?`<ul class="cx-cands">${cxCands(ct,now).map((c,i)=>`<li class="opt"><div class="opt-h"><b>${esc(c.nm)}</b></div><p class="opt-d"><span class="chip">${esc(CX_TRAITS[c.tr][0])}</span> ${esc(CX_TRAITS[c.tr][1])}</p><button class="btn" data-act="cx-mayor" data-id="${esc(ct.id)}" data-i="${i}"${lacking(CX_MAYOR_COST,st).length?' disabled':''}>Appoint</button></li>`).join('')}</ul>`:''}</section>`;
   return matter+mood+mayor;
 }
 function cxDefence(ct,T,n,st,now,ok){
@@ -53017,6 +53027,46 @@ tutGo=(f=>function(v,b,to){if(v==='diplomacy'){AL.tab=to?dpTabOfSel(to)||'allian
 go=(f=>function(v){const r=f.apply(this,arguments);if(S.view==='diplomacy'){dpHash();if(AL.tab==='alliance'&&AL.sub==='channel')alChatSeen();}if(S.view==='alliance'&&AL.view){try{const h='#alliance/'+AL.view;if(location.hash!==h)history.replaceState(history.state,'',h);}catch(e){}}return r;})(go);
 /* links from elsewhere that name a tab: the bell's alliance news opens Alliance, gifts open Gifts */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-v="diplomacy"],[data-dp-tab]');if(!el)return;const t=el.dataset.dpTab||'';if(DP_TABS.some(x=>x[0]===t))AL.tab=t;},true);
+
+/* ───────── cities that need you, in the bell (CA) ─────────
+   What the Cities page lists under "Needs your attention" also goes in the bell as pinned notices: a matter waiting for an
+   answer (one notice for each city, or one for them all past three), empty blocks with idle builders, cities without a
+   mayor and room for a new city. Each counts in the bell's number until the bell is opened, and a click opens that city
+   on the right tab with the matter, the candidates for mayor or the plans in view, lit up for a moment. Matters always
+   show and count; the other reminders can be left out in Settings › Notifications, and wait until the first guided steps
+   are done. The Cities entry in the menu counts the matters waiting, besides a city to found. */
+const CA={memo:null};
+const caNames=a=>list(a.length>3?a.slice(0,3).map(c=>c.nm).concat([`${a.length-3} more`]):a.map(c=>c.nm));
+function caCompute(n,now){
+  const {T,mine}=myCityStates(),mi=T.byId[myId()],out=[];if(mi===undefined)return out;
+  const lim=Math.min(maxCities(T,mi),MAX_CITIES),free=lim-cityList(n).length;
+  const it=cxTodoList(T,mine,now,free>0&&nvxCitySite(T,mi)),ev=it.filter(x=>x[3]==='ev'),blk=it.filter(x=>x[3]==='blk'),my=it.find(x=>x[3]==='my');
+  if(ev.length<=3)for(const x of ev)out.push({k:'cxev',kl:x[4].nm,txt:`${cxFill(x[5].t,x[4])}. A matter waits for your answer.`,cx:x[2],tab:'ppl',at:'ev',c:1});
+  else out.push({k:'cxev',kl:'Your cities',txt:`${ev.length} cities have matters waiting for your answer: ${caNames(ev.map(x=>x[4]))}.`,cx:ev[0][2],tab:'ppl',at:'ev',c:ev.length});
+  if(blk.length===1)out.push({k:'cxtodo',kl:'Ministry of Works',txt:`${blk[0][4].nm} has ${blk[0][5]===1?'an empty block':blk[0][5]+' empty blocks'} and idle builders. Choose what to build.`,cx:blk[0][2],tab:'build'});
+  else if(blk.length)out.push({k:'cxtodo',kl:'Ministry of Works',txt:`${caNames(blk.map(x=>x[4]))} have empty blocks and idle builders.`,cx:blk[0][2],tab:'build'});
+  if(my)out.push({k:'cxtodo',kl:'Ministry of Works',txt:my[5].length===1?`${my[4].nm} has no mayor. Candidates are waiting to be appointed.`:`${my[5].length} cities have no mayor: ${caNames(my[5])}.`,cx:my[2],tab:'ppl',at:'mayor'});
+  if(it.some(x=>x[3]==='new'))out.push({k:'cxtodo',kl:'Ministry of Works',txt:free===1?`You can found a new city. A site is free on your land.`:`You can found ${free} new cities. Sites are free on your land.`,cx:'new',tab:'new'});
+  return out;
+}
+function caItems(n,now){
+  if(!n||n.npc||OBS||n!==S.nation||cellOf(n.loc)<0)return [];
+  const m=CA.memo;if(m&&m.n===n&&now>=m.at&&now-m.at<3000)return m.v;
+  /* during the first guided steps the tutorial already points at building; only matters are told then */
+  let v=[];try{v=caCompute(n,now);if(pgGuided(n))v=v.filter(x=>x.k==='cxev');}catch(e){v=[];}
+  CA.memo={n,at:now,v};return v;
+}
+notifItems=(f=>function(now){const r=f.apply(this,arguments);try{const t=now||Date.now();r.pin.push(...caItems(S.nation,t).filter(x=>!ntfMuted(x.k)).map(x=>({...x,go:'cities'})));}catch(e){}return r;})(notifItems);
+/* where a notice lands: the matter, the candidates for mayor, the new-city form, or the city with its Build tab open */
+function caTarget(id,tab,at){return id==='new'?'#cx-new':at==='ev'?'#cx-matter':at==='mayor'?'#cx-mayor':'#city-'+CSS.escape(id);}
+/* runs before the bell's own click (which closes it and opens the Cities page), so the page opens on that city */
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-cx]');if(!el)return;
+  const id=el.dataset.cx,tab=el.dataset.cxt||'b',target=caTarget(id,tab,el.dataset.cxa);
+  UXP.pending={view:'cities',target,setup:()=>{S.cxSel=id;S.cityMsg='';S.confirmDemo=null;S.cityOpen=tab==='build'?id:null;S.cxTab=tab==='build'||tab==='new'?'b':tab;S.caFlash=target;}};},true);
+render=(f=>function(){const r=f.apply(this,arguments);if(S.caFlash&&S.view==='cities'){const sel=S.caFlash;S.caFlash=null;try{const el=document.querySelector(sel);if(el)el.classList.add('ca-flash');}catch(e){}}return r;})(render);
+/* the menu: matters waiting count on Cities, as a city to found does */
+nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{const k=caItems(n,now).filter(x=>x.k==='cxev').reduce((s,x)=>s+(x.c||1),0);
+  if(k){const x=out.cities||(out.cities={k:0,w:[],at:[],e:0,d:0});x.k+=k;x.w.unshift(k===1?'a matter to answer':k+' matters to answer');}}catch(e){}return out;})(nvxCompute);
 
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
