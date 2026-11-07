@@ -114,20 +114,16 @@ export function voided(txn, adjs) {
 }
 export const founderInTime = t => t.created > 0 && t.created < FOUNDER_CUTOFF && t.paid > 0 && t.paid < FOUNDER_CUTOFF + FOUNDER_GRACE;
 
-/* n calendar months on, in UTC, on the same day where the month has it (31 January → 28 or 29 February → 31 March) */
-export function addMonths(t, n) {
-  const d = new Date(t), y = d.getUTCFullYear(), m = d.getUTCMonth() + n, last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+/* one calendar month on, in UTC (31 January → 28 or 29 February) */
+export function addMonth(t) {
+  const d = new Date(t), y = d.getUTCFullYear(), m = d.getUTCMonth() + 1, last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
   return Date.UTC(y, m, Math.min(d.getUTCDate(), last), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
 }
-/* one calendar month on (31 January → 28 or 29 February) */
-export const addMonth = t => addMonths(t, 1);
 
-/* a paid period cut into calendar months, for the monthly pick (a year gives twelve). Each month is counted from the
-   period's first day, not from the month before it: stepping on from 28 February would leave every later month on the
-   28th, and a year begun on the 29th–31st with a thirteenth month of a few days */
+/* a paid period cut into calendar months, for the monthly pick (a year gives twelve) */
 export function months(p) {
   const out = [];
-  for (let i = 1, a = p.s; a < p.e - 3600000; i++) { const b = Math.min(addMonths(p.s, i), p.e); out.push({ ...p, s: a, e: b }); a = b; }
+  for (let a = p.s; a < p.e - 3600000;) { const b = Math.min(addMonth(a), p.e); out.push({ ...p, s: a, e: b }); a = b; }
   return out;
 }
 
@@ -165,7 +161,7 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
   const bySub = new Map();
   for (const t of vt) {
     const yearly = CAT.products[t.product].kind === 'yearly', s = subs[t.sub] || {};
-    const period = t.period || (s.firstTxn === t.id && s.period) || { s: t.paid, e: addMonths(t.paid, yearly ? 12 : 1) };
+    const period = t.period || (s.firstTxn === t.id && s.period) || { s: t.paid, e: yearly ? Array.from({ length: 12 }).reduce(addMonth, t.paid) : addMonth(t.paid) };
     if (!bySub.has(t.sub)) bySub.set(t.sub, []);
     bySub.get(t.sub).push({ ...period, sub: t.sub, txn: t, plan: yearly ? 'year' : 'month' });
   }
@@ -224,18 +220,7 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
    PICK_GRACE after the month ends), or null */
 export function pickPeriod(vip, now, picks = {}) {
   const per = vip && Array.isArray(vip.per) ? vip.per : [];
-  return per.filter(p => p.s <= now && now < p.e + PICK_GRACE && !pickFor(picks, p, per)).sort((a, b) => a.s - b.s)[0] || null;
-}
-/* the choice made for a month: kept under the month's start, or, for a month whose start moved when months came to be
-   counted from a membership's first day (a 29th–31st had slipped to an earlier day), under a start up to four days off
-   that no month of the membership has now */
-export const PICK_SLIP = 4 * 86400000;
-export function pickFor(picks, p, per = []) {
-  if (!picks || !p) return undefined;
-  if (picks[p.s]) return picks[p.s];
-  const starts = new Set(per.map(q => q.s));
-  for (const k of Object.keys(picks)) { const t = Number(k); if (Math.abs(t - p.s) <= PICK_SLIP && !starts.has(t)) return picks[k]; }
-  return undefined;
+  return per.filter(p => p.s <= now && now < p.e + PICK_GRACE && !(picks && picks[p.s])).sort((a, b) => a.s - b.s)[0] || null;
 }
 /* months of membership begun by now; a seal held now */
 export function tenure(vip, now) {
