@@ -135,6 +135,32 @@ check('a division holding a whole far island passes the one-piece check', chk ==
 const mergeOpts = await p.locator('#prv-mrg option').allTextContents();
 check('the merge list offers the other division', mergeOpts.length >= 1, mergeOpts.join(','));
 
+/* old seats: the capital division takes in the other and keeps its seat; founding on that hex is refused, with a button
+   that removes the old seat, after which the same hex founds a division again */
+const capId = await p.evaluate(() => { const T = G.territory(), i = T.byId[G.myId()]; return G.SL.prvNatWith(T, i, G.S.nation.prov).capP.id; });
+check('the second division is not the capital one', capId !== B.id, String(capId));
+await p.selectOption('#prv-selp', String(capId)); await sleep(300);
+await p.selectOption('#prv-mrg', String(B.id)); await p.click('#prv-mrg-b'); await sleep(400);
+const olds = await p.evaluate(() => G.S.nation.prov.l.map(q => ({ id: q.id, m: q.m || null })));
+check('a merger keeps the other seat as an old seat', olds.length === 1 && JSON.stringify(olds[0].m) === JSON.stringify([[sec, B.id]]), JSON.stringify(olds));
+const side = await text(p, '#prv-side');
+check('the panel explains the old seat and offers to remove it', /Old seats/i.test(side) && /kept its seat, so no border moved/.test(side) && await p.locator('#prv-old').count() === 1, side.slice(0, 200));
+check('the card counts the old seat', /and one old seat/.test(await text(p, `#prv-c-${capId}`)));
+await p.click('#prv-tool-add'); await clickOn('prov', sec);
+const oldMsg = await text(p, '#prv-msg');
+console.log('found on the old seat:', oldMsg);
+check('founding on the old seat is refused, naming it, with a button to remove it', /^That hex is an old seat of .+, kept when another province merged into it, so it cannot be the seat of a new province yet\. Remove .+’s old seat$/.test(oldMsg) && await p.locator('#prv-old-fix').count() === 1, oldMsg);
+await p.locator('.prv-mapc').screenshot({ path: OUT + '/provinces-old-seat.png' });
+await p.locator('#prv-old').scrollIntoViewIfNeeded();
+const oldBox = await p.evaluate(() => { const b = document.getElementById('prv-old').getBoundingClientRect(), s = document.getElementById('prv-side').getBoundingClientRect(); return { x: s.left, y: b.bottom - 170, width: s.width, height: 180 }; });
+await p.screenshot({ path: OUT + '/provinces-old-seat-panel.png', clip: oldBox });
+await p.click('#prv-old-fix'); await sleep(400);
+const gone = await text(p, '#prv-msg'), left = await p.evaluate(() => G.S.nation.prov.l.map(q => q.m || null));
+check('Remove old seats forgets the old seat and says where its land went', /has given up its old seat\. The land it held now belongs to whichever seat is nearest\./.test(gone) && left.every(m => !m) && await p.locator('#prv-old, #prv-old-fix').count() === 0, gone);
+await clickOn('prov', sec);
+const again2 = await p.evaluate(() => G.S.nation.prov.l.map(q => q.s));
+check('the old seat hex can then be the seat of a new division', again2.length === 2 && again2.includes(sec), await text(p, '#prv-msg'));
+
 /* idea 5: swap a claimed hex for free land, from the map */
 await p.evaluate(() => { const n = G.clone(G.S.nation); n.lcb = (n.lcb || 0) + 3; G.commit(n); });
 await p.evaluate(() => G.WH.claimAuto(true));

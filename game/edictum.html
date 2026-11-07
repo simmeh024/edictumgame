@@ -35781,7 +35781,7 @@ const PRV_COUNCIL=[['Treasurer','Raises the province’s revenue'],['Constable',
 const PRV_FA={crime:2,happy:2,civil:2,corrupt:2,edu:2,sci:2,env:2,tour:2,culture:2,mil:2,relig:2,cons:2,safety:2,pr:0.04,ar:0.05,bu:0.12,fd:40};
 const PRV_FAK=Object.keys(PRV_FA);
 const PRV_FXN={pr:'economy',ar:'army',bu:'build times',fd:'food'};
-const PRV={iss:null,notes:[],fd:null,ui:{sel:null,edit:false,tool:'move',msg:'',cur:-1,open:'',pick:''},memo:{T:null,k:'',v:null},side:new Map(),pop:{k:'',v:null},tpl:null,tplN:-1,cz:''};
+const PRV={iss:null,notes:[],fd:null,ui:{sel:null,edit:false,tool:'move',msg:'',cur:-1,open:'',pick:'',fix:null},memo:{T:null,k:'',v:null},side:new Map(),pop:{k:'',v:null},tpl:null,tplN:-1,cz:''};
 
 /* ── the words ── */
 function prvTermOf(n){const t=n&&n.prov&&PRV_TERMS[n.prov.term];return t||PRV_TERMS.p;}
@@ -36106,6 +36106,21 @@ function prvPrune(T,i,P){
   const N0=prvNatWith(T,i,Object.assign({},P,{x:{}}));
   for(const k of ks){const c=+k,p=prvOfCell(N0,c);if(T.owner[c]!==i||(p&&p.id===P.x[k]))delete P.x[k];}
 }
+/* old seats: a division keeps the seats of those merged into it (q.m), so a merger moves no border. They hold their land
+   until removed; a refusal they cause names them, and the page offers to remove them (PRV.ui.fix, while its message shows) */
+const prvOld=p=>p&&!p.dorm?Math.max(0,p.src.length-1):0;
+function prvFix(id,msg){PRV.ui.fix={id,msg};return msg;}
+/* prvCheck against the record in hand, but when the change would cut a division between its seat and an old seat, and
+   would pass without that division's old seats, say so */
+function prvCheckOld(T,i,P,lead){
+  const why=prvCheck(T,i,P,S.nation.prov);if(!why)return '';
+  const N=prvNatWith(T,i,P),O=prvNatWith(T,i,S.nation.prov),t1=prvLow(prvT1({prov:P}));
+  for(const q of P.l){if(!q.m||!q.m.length)continue;
+    const p=N.byId.get(q.id),o=O.byId.get(q.id);if(!p||p.dorm||prvPieces(p.cells,T,i)<=Math.max(1,o&&!o.dorm?prvPieces(o.cells,T,i):1))continue;
+    const m=q.m;delete q.m;const ok=!prvCheck(T,i,P,S.nation.prov);q.m=m;
+    if(ok)return prvFix(q.id,`${lead} would cut ${q.nm} in two, between its seat and an old seat it kept when another ${t1} merged into it (a small dot on the map). Choose another hex, or remove the old seat${prvOld(p)===1?'':'s'}.`);}
+  return why;
+}
 
 /* ── switching on, and the starting division ── */
 function prvStart(n,T,i,now){
@@ -36143,7 +36158,7 @@ function prvMoveHex(c,toId){
     if(T.owner[c]!==i||!from)return 'That hex is not yours.';
     if(!to||to.dorm)return `Choose the ${t1} to move hexes into.`;
     if(from===to)return `That hex is already in ${to.nm}.`;
-    if(from.src.includes(c))return `That hex is the seat of ${from.nm}. Move the seat first.`;
+    if(from.src.includes(c))return c===from.seat?`That hex is the seat of ${from.nm}. Move the seat first.`:prvFix(from.id,`That hex is an old seat of ${from.nm}, kept when another ${t1} merged into it, so it stays in ${from.nm}.`);
     if(!prvTouch(T,i,c,to.cells)){const I=seaIsles(T,i),k=I.id.get(c);return `That hex does not touch ${to.nm}, by land or across a strait of up to ${SEA_LINK} sea hexes. Each ${t1} stays in one piece, so move hexes across a shared border${k!==I.main?', or use Move islands to move this whole island':''}.`;}
     const rest=from.cells.filter(q=>q!==c);
     if(rest.length<PRV_MIN&&!(rest.length===1&&prvIslet(T,i,rest[0])))return `${from.nm} would be left with one hex. Merge the two instead.`;
@@ -36162,7 +36177,7 @@ function prvMoveIsle(c,toId){
     const isle=[];for(const [x,v] of I.id)if(v===k)isle.push(x);
     if(isle.every(x=>prvOfCell(N,x)===to))return `That island is already all in ${to.nm}.`;
     const seat=N.prov.find(p=>p!==to&&!p.dorm&&p.src.some(s=>isle.includes(s)));
-    if(seat)return `The seat of ${seat.nm} stands on that island. Merge ${seat.nm} into ${to.nm} instead, or move its seat first.`;
+    if(seat)return isle.includes(seat.seat)?`The seat of ${seat.nm} stands on that island. Merge ${seat.nm} into ${to.nm} instead, or move its seat first.`:prvFix(seat.id,`An old seat of ${seat.nm} stands on that island, kept when another ${t1} merged into it. Merge ${seat.nm} into ${to.nm} instead, or remove the old seat.`);
     if(Object.keys(P.x||{}).length+isle.length>PRV_MAXX)return `Too many hexes have been moved by hand already. Move a seat or merge two ${prvLow(prvT2(n))} instead.`;
     if(!P.x)P.x={};for(const x of isle)P.x[x]=toId;k0=isle.length;nm=to.nm;
     return prvCheck(T,i,P,S.nation.prov);
@@ -36177,10 +36192,10 @@ function prvAdd(c){
     if(T.owner[c]!==i)return `A new ${t1} needs a seat on your own land.`;
     if(act>=N.max)return `${n.name} holds ${N.held} hexes, enough for ${N.max===1?'one '+t1:N.max+' '+t2} (one for every ${PRV_PER} hexes). Merge two, or claim more land.`;
     if(P.l.length>=PRV_MAXL)return `No nation may have more than ${PRV_MAXL} ${t2}.`;
-    const here=prvOfCell(N,c);if(here&&here.src.includes(c))return `That hex is already the seat of ${here.nm}.`;
+    const here=prvOfCell(N,c);if(here&&here.src.includes(c))return c===here.seat?`That hex is already the seat of ${here.nm}.`:prvFix(here.id,`That hex is an old seat of ${here.nm}, kept when another ${t1} merged into it, so it cannot be the seat of a new ${t1} yet.`);
     const ct=cityState(T).byCell.get(c);nm=prvNameIdea(n,c,P,ct?ct.nm:'');
     P.l.push(prvNew(n,P,c,nm,Date.now()));
-    return prvCheck(T,i,P,S.nation.prov);
+    return prvCheckOld(T,i,P,`A new ${t1} here`);
   });
   if(ok){const p=S.nation.prov.l[S.nation.prov.l.length-1];PRV.ui.sel=p.id;PRV.ui.msg=`${p.nm} is founded, with ${p.g.nm} as governor. Rename it below.`;render();}
 }
@@ -36189,8 +36204,19 @@ function prvSeat(id,c){
     const N=prvNatWith(T,i,P),p=N.byId.get(id),q=P.l.find(v=>v.id===id);if(!p||!q)return 'Choose a division first.';
     if(prvOfCell(N,c)!==p)return `The seat must be a hex of ${p.nm}.`;
     if(p.src.includes(c)&&c===p.seat)return `That is already the seat of ${p.nm}.`;
-    q.s=c;if(q.m){q.m=q.m.filter(v=>v[0]!==c);if(!q.m.length)delete q.m;}delete P.x[c];return prvCheck(T,i,P,S.nation.prov);
+    q.s=c;if(q.m){q.m=q.m.filter(v=>v[0]!==c);if(!q.m.length)delete q.m;}delete P.x[c];return prvCheckOld(T,i,P,'Moving the seat there');
   },'The seat has moved. Its borders follow the hexes now nearest to it.');
+}
+/* give up a division's old seats: the land they held goes to whichever seat is now nearest */
+function prvDropOld(id){
+  let k=0,nm='';
+  const ok=prvEdit((n,P,T,i)=>{
+    const q=P.l.find(v=>v.id===id);if(!q)return 'That division no longer exists.';
+    nm=q.nm;if(!q.m)return `${q.nm} has no old seats.`;k=prvOld(prvNatWith(T,i,P).byId.get(id));
+    delete q.m;const why=prvCheck(T,i,P,S.nation.prov);return why?`The old seats stay: ${why}`:'';
+  },'');
+  if(ok){PRV.ui.fix=null;PRV.ui.msg=`${nm} has given up ${k===1?'its old seat':k?`its ${k} old seats`:'its old seats'}. The land ${k===1?'it':'they'} held now belongs to whichever seat is nearest.`;render();}
+  return ok;
 }
 function prvMerge(aId,bId){
   const n0=S.nation;const A0=n0&&n0.prov&&n0.prov.l.find(v=>v.id===aId),B0=n0&&n0.prov&&n0.prov.l.find(v=>v.id===bId);
@@ -36325,7 +36351,7 @@ function prvCard(n,N,p,now,own,T){
     <div class="prv-ch">${prvArt(n,p.q,(p.q.f&&p.q.f.k==='a'?'Arms of ':'Flag of ')+p.nm)}<div class="prv-ct"><p class="eyebrow">${p.cap?'Capital '+esc(prvLow(t1)):esc(t1)}${p.dorm?' · dormant':''}</p><h3 class="prv-n">${esc(p.nm)}</h3></div></div>
     ${p.dorm?`<p class="hint">Its seat was lost, with no land of yours within ${PRV_LOSTR} hexes. It wakes when you hold land there again, or merge it into another.</p>`:`
     <dl class="prv-dl"><div><dt>People</dt><dd>${esc(cpFmt(p.pop))} <span class="muted">(${prvPct(p.share)})</span></dd></div><div><dt>Area</dt><dd>${fmtArea(p.cells.length)} <span class="muted">(${prvHexes(p.cells.length)})</span></dd></div>
-      <div><dt>Cities</dt><dd>${cities.length?esc(list(cities.map(c=>c.ct.nm))):'None'}</dd></div><div><dt>Seat</dt><dd>${esc(prvSeatText(n,p))}</dd></div>
+      <div><dt>Cities</dt><dd>${cities.length?esc(list(cities.map(c=>c.ct.nm))):'None'}</dd></div><div><dt>Seat</dt><dd>${esc(prvSeatText(n,p))}${prvOld(p)?` <span class="muted">(and ${prvOld(p)===1?'one old seat':prvOld(p)+' old seats'})</span>`:''}</dd></div>
       <div><dt>Council</dt><dd>${esc(prvCouncilLine(p))}</dd></div><div><dt>Autonomy</dt><dd>${PRV_AUT[p.q.a||0][0]}</dd></div></dl>
     ${prvGovHTML(n,N,p,now,own)}`}
     ${own?`<button type="button" class="btn ghost small-btn prv-manage" id="prv-m-${id}" data-act="prv-sel" data-id="${id}" aria-pressed="${sel}">${sel?'Selected':'Manage'}</button>`:''}
@@ -36340,7 +36366,7 @@ function prvSide(n,N,p,now,T){
   const council=PRV_COUNCIL.map(([r,d],k)=>{const m=(q.c||[])[k],open=pick===String(k);
     return `<li><div class="prv-cr"><span><b>${r}</b> <span class="hint">${d}</span></span><span>${m?`${esc(m.nm)} ${cvSkillMeter(m.sk)}`:'<span class="muted">Empty</span>'}</span></div>
       <div class="row prv-crb"><button type="button" class="linkish small" id="prv-pk-${k}" data-act="prv-pick" data-r="${k}" aria-expanded="${open}">${open?'Close':m?'Replace…':'Appoint…'}</button>${m?`<button type="button" class="linkish small" id="prv-dc-${k}" data-act="prv-dismiss-c" data-id="${id}" data-r="${k}">Dismiss</button>`:''}</div>${open?cands(String(k)):''}</li>`;}).join('');
-  const nbs=N.prov.filter(x=>x!==p&&!x.dorm&&prvCanJoin(T,N.i,p,x)).concat(N.prov.filter(x=>x.dorm&&x!==p));
+  const nbs=N.prov.filter(x=>x!==p&&!x.dorm&&prvCanJoin(T,N.i,p,x)).concat(N.prov.filter(x=>x.dorm&&x!==p)),old=prvOld(p),t2=prvLow(prvT2(n));
   return `<section class="prv-side" id="prv-side" aria-labelledby="prv-side-h" style="--pc:${esc(prvTintOf(T,p))}">
     <div class="prv-sh">${prvArt(n,q,'',' prv-big')}<div><p class="eyebrow">${p.cap?'Capital '+esc(low1):esc(t1)} · ${esc(cpFmt(p.pop))}</p><h2 class="prv-sn" id="prv-side-h" tabindex="-1">${esc(p.nm)}</h2></div></div>
     <form id="prv-ren-form" class="name-row prv-ren" data-id="${id}" novalidate><label class="u-sr" for="prv-ren">Name of the ${esc(low1)}</label><input class="input" id="prv-ren" maxlength="32" value="${esc(q.nm)}" autocomplete="off"><button class="btn ghost" type="submit">Rename</button></form>
@@ -36351,6 +36377,8 @@ function prvSide(n,N,p,now,T){
     <div class="seg prv-aut" role="group" aria-labelledby="prv-aut-l">${PRV_AUT.map(([l],k)=>`<button type="button" class="seg-b${aut===k?' on':''}" id="prv-a-${k}" data-act="prv-aut" data-id="${id}" data-v="${k}" aria-pressed="${aut===k}">${l}</button>`).join('')}</div>
     <p class="hint prv-auth">${esc(PRV_AUT[aut][1])} ${aut?`Here: ${esc(prvFxWords({happy:0.8*aut*p.share,civil:0.7*aut*p.share,pr:-0.01*aut*p.share,bu:0.03*aut*p.share}).join(', ')||'too small to measure')}, and governors are ${7*aut} points more loyal.`:'No local say, no extra cost. Each step up adds local happiness and civil rights but costs economy and building speed, in proportion to its share of the people.'}</p>
     ${nbs.length?`<h3 class="prv-h3"><label for="prv-mrg">Merge</label></h3><div class="prv-mrg"><select class="input" id="prv-mrg">${nbs.map(x=>`<option value="${x.id}">${esc(x.nm)}${x.dorm?' (dormant)':''}</option>`).join('')}</select><button type="button" class="btn ghost" id="prv-mrg-b" data-act="prv-merge" data-id="${id}">Merge into ${esc(p.nm)}</button></div><p class="hint">The other ${esc(low1)} and its hexes join ${esc(p.nm)}; its governor steps down.</p>`:''}
+    ${old?`<h3 class="prv-h3">Old seats</h3><p class="hint">${old===1?`When another ${esc(low1)} merged into ${esc(p.nm)}, ${esc(p.nm)} kept its seat`:`When other ${esc(t2)} merged into ${esc(p.nm)}, ${esc(p.nm)} kept their seats`}, so no border moved. ${old===1?'It shows as a small dot':'They show as small dots'} while you edit borders, and a new ${esc(low1)} may not cut ${esc(p.nm)} between two of its seats. Remove ${old===1?'it':'them'} to redraw that land: ${old===1?'its':'their'} hexes go to whichever seat is nearest.</p>
+    <div class="row prv-crb"><button type="button" class="btn ghost small-btn" id="prv-old" data-act="prv-old" data-id="${id}">Remove ${old===1?'the old seat':'the '+old+' old seats'}</button></div>`:''}
     ${prvFlagPicker(n,q)}
   </section>`;
 }
@@ -36393,7 +36421,9 @@ function prvView(now){
   const p=N.byId.get(PRV.ui.sel),live=N.prov.filter(x=>!x.dorm),big=live.slice().sort((a,b)=>b.pop-a.pop)[0],dis=live.filter(x=>x.q.g&&!x.q.g.ac&&prvLoy(n,x,N,now)<25);
   const ed=PRV.ui.edit,tool=PRV.ui.tool,fx=prvFxWords(n.prov.fa||{});
   const toolHint={move:`Click a hex across the border of ${esc(p.nm)}, or across a strait of up to ${SEA_LINK} sea hexes, to move it in. Each ${esc(t1)} must stay in one piece and keep at least ${PRV_MIN} hexes.`,isle:`Click any hex of an island to move the whole island into ${esc(p.nm)}, however far across the sea it lies.`,add:`Click a hex of your land to make it the seat of a new ${esc(t1)}. It takes the hexes nearest to it.`,seat:`Click a hex of ${esc(p.nm)} to move its seat there. Its borders follow.`}[tool];
-  const rows=live.slice().sort((a,b)=>b.pop-a.pop);
+  const rows=live.slice().sort((a,b)=>b.pop-a.pop),olds=live.some(x=>prvOld(x)>0);
+  /* a refusal caused by old seats offers to remove them, for as long as its message shows */
+  const fx0=PRV.ui.fix,fixP=fx0&&PRV.ui.msg&&fx0.msg===PRV.ui.msg?N.byId.get(fx0.id):null,fixK=prvOld(fixP);
   return head(`${esc(n.name)} is divided into ${live.length===1?'one '+esc(t1):live.length+' '+esc(t2)}. Each hex you hold belongs to the ${esc(t1)} whose seat is nearest, unless you move it; new land joins one by itself. Governors and councils change the census a little, in proportion to how many people live there.`)+`
   <div class="figs prv-figs"><div class="fig"><span class="lbl">${esc(T2)}</span><span class="fig-v">${live.length} <span class="prv-of">of ${N.max}</span></span><span class="fig-s">one for every ${PRV_PER} hexes you hold (${N.held})</span></div>
     <div class="fig"><span class="lbl">Largest</span><span class="fig-v prv-fv">${esc(big?big.nm:'')}</span><span class="fig-s">${big?esc(cpFmt(big.pop))+' people, '+prvPct(big.share):''}</span></div>
@@ -36403,15 +36433,15 @@ function prvView(now){
       ${ed?`<div class="seg" role="group" aria-label="Editing tool">${[['move','Move hexes'],...(prvHasIsles(T)?[['isle','Move islands']]:[]),['add','New '+t1],['seat','Move seat']].map(([k,l])=>`<button type="button" class="seg-b${tool===k?' on':''}" id="prv-tool-${k}" data-act="prv-tool" data-v="${k}" aria-pressed="${tool===k}">${esc(l)}</button>`).join('')}</div>`:''}
       <label class="prv-selw"><span class="u-sr">Selected ${esc(t1)}</span><select class="input" id="prv-selp">${N.prov.map(x=>`<option value="${x.id}"${x.id===p.id?' selected':''}>${esc(x.nm)}${x.dorm?' (dormant)':''}</option>`).join('')}</select></label></div>
     ${mapBox('prov',ed?' pick':'').replace('<canvas class="map-cv" data-map="prov"',`<canvas class="map-cv" id="prv-cv" tabindex="0" data-map="prov" aria-describedby="prv-kbd"`).replace(/aria-label="Map of [^"]*"/,`aria-label="Map of ${esc(n.name)} by ${esc(t1)}"`)}
-    <p class="hint prv-kh" id="prv-kbd">${ed?toolHint:`Click a hex to select its ${esc(t1)}.`} With the map focused, arrow keys move a cursor and Enter acts on its hex.</p>
-    <p class="u-sr" id="prv-kbd-live" aria-live="polite"></p><p class="prv-msg" id="prv-msg" role="status" aria-live="polite">${esc(PRV.ui.msg)}</p></div>
+    <p class="hint prv-kh" id="prv-kbd">${ed?toolHint+(olds?` Small dots are old seats, kept from merged ${esc(t2)}.`:''):`Click a hex to select its ${esc(t1)}.`} With the map focused, arrow keys move a cursor and Enter acts on its hex.</p>
+    <p class="u-sr" id="prv-kbd-live" aria-live="polite"></p><p class="prv-msg" id="prv-msg" role="status" aria-live="polite">${esc(PRV.ui.msg)}${fixK?` <button type="button" class="linkish" id="prv-old-fix" data-act="prv-old" data-id="${fixP.id}">Remove ${esc(fixP.nm)}’s old seat${fixK===1?'':'s'}</button>`:''}</p></div>
     ${prvSide(n,N,p,now,T)}</section>
   <section class="section"><h2 class="h2">${esc(T2)}</h2><div class="prv-cards">${N.prov.map(x=>prvCard(n,N,x,now,true,T)).join('')}</div></section>
   <section class="section"><h2 class="h2">By population</h2><div class="tbl-wrap"><table class="tbl prv-tbl"><thead><tr><th>${esc(T1)}</th><th class="c-pop">People</th><th class="c-pop">Share</th><th class="c-pop">Area</th><th>Cities</th><th>Governor</th><th>Loyalty</th><th>Autonomy</th></tr></thead>
     <tbody>${rows.map(x=>{const lo=x.q.g&&!x.q.g.ac?Math.round(prvLoy(n,x,N,now)):null;return `<tr${x.id===p.id?' class="me"':''}><td><span class="nm"><button type="button" class="linkish" data-act="prv-sel" data-id="${x.id}">${esc(x.nm)}</button>${x.cap?'<span class="chip">Capital</span>':''}</span></td><td class="c-pop">${esc(cpFmt(x.pop))}</td><td class="c-pop">${prvPct(x.share)}</td><td class="c-pop">${x.cells.length}</td><td>${x.cities.length}</td><td>${x.q.g?esc(x.q.g.nm)+(x.q.g.ac?' (acting)':''):'None'}</td><td>${lo==null?'':lo+' · '+prvLoyWord(lo)}</td><td>${PRV_AUT[x.q.a||0][0]}</td></tr>`;}).join('')}</tbody></table></div>
     <p class="hint prv-sum">${live.length} ${esc(live.length===1?t1:t2)}, ${esc(cpFmt(N.pop))} people in all: each ${esc(t1)} counts the people of its cities and its share of the countryside, by hexes and what they yield, so together they add up to the nation.</p></section>
   <section class="section prv-how"><h2 class="h2">How ${esc(t2)} work</h2>
-    <p><b>Borders.</b> A ${esc(t1)} holds the hexes nearest its seat through your own land. Move single hexes across a border, found a new ${esc(t1)} on any hex, move a seat, or merge two that touch. You may have one ${esc(t1)} for every ${PRV_PER} hexes, up to ${PRV_MAXL}, and each keeps at least ${PRV_MIN} hexes (an island of one hex may be a ${esc(t1)} on its own). A move that would cut a ${esc(t1)} in two is refused: they stay in one piece. Land you gain joins the nearest one; land you lose leaves. If a seat falls in war, it moves to the nearest hex you still hold.</p>
+    <p><b>Borders.</b> A ${esc(t1)} holds the hexes nearest its seat through your own land. Move single hexes across a border, found a new ${esc(t1)} on any hex, move a seat, or merge two that touch. A merger moves no border: the ${esc(t1)} that remains keeps the other’s seat as an old seat (a small dot while editing) until you remove it from its panel. You may have one ${esc(t1)} for every ${PRV_PER} hexes, up to ${PRV_MAXL}, and each keeps at least ${PRV_MIN} hexes (an island of one hex may be a ${esc(t1)} on its own). A move that would cut a ${esc(t1)} in two is refused: they stay in one piece. Land you gain joins the nearest one; land you lose leaves. If a seat falls in war, it moves to the nearest hex you still hold.</p>
     <p><b>Across the sea.</b> A strait of up to ${SEA_LINK} sea hexes does not cut a ${esc(t1)}, and neither does a finished shipping connection between two of your cities: hexes on either side count as touching, so you can move them across and merge the ${esc(t2)} on both shores. Whole islands are free to belong to any ${esc(t1)}, however far away: use <b>Move islands</b> while editing to move one in a single step.</p>
     <p><b>Governors.</b> Each has two traits. A trait works in proportion to its ${esc(t1)}’s share of your people, so a governor of a third of the nation has a third of the full effect (a Farmer’s food comes from the ${esc(t1)}’s own land). Replacing a governor in office costs the others 4 loyalty. Loyalty drifts towards a level set by autonomy, the governor’s traits, national happiness and whether the ${esc(t1)} is richer than average. Below 25 a governor is disloyal: their traits count half, and the bell will tell you.</p>
     <p><b>Councils</b> are optional: a Treasurer adds revenue, a Constable fights crime, a Planner speeds building, each by their skill. Dismissing one costs the governor 3 loyalty.</p>
@@ -36620,7 +36650,7 @@ NOTIF_SOURCES.push((n,now)=>{
 
 HELP_EXT.push({k:'provinces',t:'Provinces and states',body:n=>{const T2=n?prvT2(n):'Provinces',t1=prvLow(n?prvT1(n):'Province'),t2=prvLow(T2);
   return `<p>Any player nation may divide itself into provinces, or states, counties, cantons, prefectures, departments, oblasts, shires, duchies or lands. It is off until you switch it on in <button type="button" class="linkish" data-act="prv-cz">Customise</button>, where you also choose the word. Switched on, ${esc(prvLow(n&&n.prov?T2:'they'))} get a page of their own in the menu, under Your nation. Switching off hides them and keeps everything.</p>
-  <p><b>Borders.</b> Every hex you hold belongs to the ${esc(t1)} whose seat is nearest through your own land, unless you move it by hand. A capital ${esc(t1)} is made round your capital, and a second round your second city if you have one. You may have one for every ${PRV_PER} hexes you hold (up to ${PRV_MAXL}), each with at least ${PRV_MIN} hexes, and each must stay in one piece: a move that would cut one in two is refused. New land joins the nearest; lost land leaves; a seat lost in war moves to the nearest hex still held.</p>
+  <p><b>Borders.</b> Every hex you hold belongs to the ${esc(t1)} whose seat is nearest through your own land, unless you move it by hand. A capital ${esc(t1)} is made round your capital, and a second round your second city if you have one. You may have one for every ${PRV_PER} hexes you hold (up to ${PRV_MAXL}), each with at least ${PRV_MIN} hexes, and each must stay in one piece: a move that would cut one in two is refused. When you merge two, the one that remains keeps the other’s seat as an old seat, so no border moves; a new ${esc(t1)} may not cut between two of its seats until you remove its old seats from its panel on the ${esc(T2)} page. New land joins the nearest; lost land leaves; a seat lost in war moves to the nearest hex still held.</p>
   <p><b>People.</b> Each ${esc(t1)} counts the people of its cities, and a share of the countryside by its hexes and what they yield, so together they add up to the nation exactly.</p>
   <p><b>Governors, councils and autonomy.</b> Each ${esc(t1)} has a governor with two traits (a Builder speeds construction, a Farmer adds food from its land, an Iron Fist cuts crime and costs happiness, and so on), and may have a council of a Treasurer, a Constable and a Planner. Their effects reach the nation in proportion to the ${esc(t1)}’s share of the people, and all together never move a census figure by more than 2 points. More autonomy brings local happiness and civil rights but costs economy and building speed. Loyalty drifts with autonomy, traits and how the ${esc(t1)} is doing; a disloyal governor’s traits count half. Some edicts name a ${esc(t1)} and its governor, and can sack them, test their loyalty or change their autonomy.</p>
   <p><b>Flags and arms.</b> Each ${esc(t1)} flies a variant of your own flag or bears a variant of your arms until you design its own from the same patterns, emblems, shields and charges you hold.</p>
@@ -36653,6 +36683,7 @@ document.addEventListener('click',e=>{
   if(a==='prv-dismiss-g'){prvDismissG(id);return;}
   if(a==='prv-aut'){prvSetAut(id,+el.dataset.v);return;}
   if(a==='prv-merge'){const s=document.getElementById('prv-mrg');if(s)prvMerge(id,+s.value);return;}
+  if(a==='prv-old'){prvDropOld(id);return;}
   if(a==='prv-flag'){prvFlagEdit(id,el.dataset.f,el.dataset.v);return;}
   if(a==='prv-fopen'){const d=el.closest('details');PRV.ui.open=d&&d.open?'':'f'+id;return;}
 });
