@@ -140,7 +140,9 @@ player saves it under another name), remove the nation (it and its posts are del
 a new one), ban the player (the nation is removed and the account can no longer save, post or
 report), or simply close the ticket. Hidden nations and banned players are listed in the portal
 with Unhide and Unban. A banned guest can come back by clearing their browser; a linked account
-cannot.
+cannot: a ban also keeps one-way hashes of the account's sign-ins (`banIds/`, functions/eligibility.js), so
+closing the account and signing in again with the same Google account, verified address or Discord account
+makes a new account that is banned as soon as it founds a nation. Unban clears them.
 
 **Edicts.** Edicts go before the nation's government, which follows its type of state: the Senate of
 a republic ("By decree of the Senate and People of …"), a monarch's Privy Council (royal decrees), an

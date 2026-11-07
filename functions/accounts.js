@@ -2,12 +2,13 @@ import crypto from 'node:crypto';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { identity, eligibility, refuse, registered, nationJSON, DAY } from './eligibility.js';
+import { identity, eligibility, refuse, registered, nationJSON, banMarks, DAY } from './eligibility.js';
 import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail } from './mail.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
+import { pace, ipRule } from './pace.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 /* Recruiting (game/edictum.html, rcClaim): a player who founded a nation through another player's link files
@@ -54,6 +55,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (req.data && req.data.op === 'mail' && req.data.step === 'unsub') return mailUnsub(req.data);
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
+  // functions/pace.js: a game opens with a step or two here; settings, sign-ins and the shop add a few more
+  pace([['a:' + uid, 20, 0.5], ...ipRule(req, 'ai', 200, 10)]);
   if (d.op === 'recover') {
     // Both a caller and IP budget: creating fresh anonymous accounts does not bypass guessing limits.
     const ip = digest(String(req.rawRequest.ip || 'unknown'));
@@ -77,7 +80,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   }
   if (d.op === 'discord') return discordStep(uid, d);
   if (d.op === 'shop') return shopStep(uid, d);
-  if (d.op === 'mail') return mailStep(uid, d);
+  if (d.op === 'mail') return mailStep(uid, d, String(req.rawRequest?.ip || ''));
   if (d.op === 'letters') return lettersStep(uid, d);
   if (d.op === 'seen') {
     // Once a page load (src/shim.js, seenCheck); the same address writes at most once an hour, moving the expiry with it.
@@ -91,6 +94,13 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     // The address it last played from, the staff's notes on it (functions/admin.js) and what it owns from the
     // shop (functions/shop.js, which first ends any subscription) go with it.
     if ((await db.doc('nations/' + uid).get()).exists) refuse('nation_exists', 'Delete the nation first.');
+    // A banned account may close, but its sign-ins stay marked (functions/eligibility.js, identityHashes): signing in
+    // with them again makes a new account that is banned as well. Bans from before the marks get them here.
+    if ((await db.doc('bans/' + uid).get()).exists) {
+      const b = db.batch(), t = Date.now();
+      for (const h of await banMarks(uid)) b.set(db.doc('banIds/' + h), { u: uid, t });
+      await b.commit();
+    }
     await forgetShop(uid);
     // and the pacing of its posts, reports, tickets and bug reports, which players may not delete (firestore.rules)
     await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/'].map(c => db.doc(c + uid).delete()));

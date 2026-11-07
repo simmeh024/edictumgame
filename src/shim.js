@@ -50,7 +50,8 @@
   var LS_UID = 'edictum.uid';            // the account that copy belongs to ('-' once signed out)
   var LS_PARK = 'edictum.parked';        // {uid, at, nation}: the copy of an account this browser was signed out of
   var LS_OUT = 'edictum.signedOut';      // the account this browser last signed out of, until the next sign-in here
-  var LS_CARRY = 'edictum.carry';        // {from, to, at}: a guest's nation carried into account `to` on signing in, until its first save there
+  var LS_CARRY = 'edictum.carry';        // {from, to, at, k}: a guest's nation carried into account `to` on signing in, until its first save there
+  var LS_CK = 'edictum.ck';              // {u, k}: this browser's guest's carry key (carryKey)
   var SS_FLASH = 'edictum.flash';        // a message to show after a reload
   var MAX_JSON = 700000;                 // well under Firestore's 1 MiB document limit
   var SPACE_BEAT = 12 * 3600000;         // rewrite an unchanged space document this often while playing
@@ -248,6 +249,25 @@
     if (!(b > a) || !(t > 0)) return t;
     return t + Math.min(Math.max(0, b - Math.max(a, t)), 32 * 864e5 - 60000);
   }
+  /* A guest's carry key: a secret only this browser holds. The guest's saves send it, and the server notes its hash
+     beside the account's last save (functions/civic.js, carryHash); the first save after switching to another account
+     (doSwitch, LS_CARRY.k) sends it back, so only the browser that played the guest can carry its nation over. */
+  function carryKey(uid) {
+    var c = isObj(A.ck) && A.ck.u === uid ? A.ck : parse(L.get(LS_CK));
+    if (!(isObj(c) && c.u === uid && /^[0-9a-f]{64}$/.test(c.k))) {
+      var b = new Uint8Array(32); crypto.getRandomValues(b);
+      c = { u: uid, k: Array.from(b).map(function (v) { return v.toString(16).padStart(2, '0'); }).join('') };
+      L.set(LS_CK, JSON.stringify(c));
+    }
+    A.ck = c;
+    return c.k;
+  }
+  /* the carry key this browser holds for guest uid, if any (none is made here: the server would not know it) */
+  function heldCarryKey(uid) {
+    var c = isObj(A.ck) && A.ck.u === uid ? A.ck : parse(L.get(LS_CK));
+    return isObj(c) && c.u === uid && /^[0-9a-f]{64}$/.test(c.k) ? c.k : '';
+  }
+  function isGuest(uid) { var u = A.auth && A.auth.currentUser; return !!(u && u.uid === uid && !linkedUser(u)); }
   /* a nation save: the shared half, its summary and, when they changed, the private half and the space document */
   async function saveNation(uid, data, noSpace) {
     /* Space pacing and private-half changes are checked against the server, including saves made by
@@ -272,7 +292,8 @@
     /* a guest's nation carried into this account (doSwitch): its first save here names the guest account, whose last
        save the server lets a new record start from (functions/civic.js, createCap) */
     var carry = expected === 0 ? parse(L.get(LS_CARRY)) : null, from = isObj(carry) && carry.to === uid && Date.now() - num(carry.at) < 7 * 864e5 ? str(carry.from, 128) : '';
-    var approved = await call('civic', Object.assign({ op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected }, from ? { from: from } : {}));
+    var approved = await call('civic', Object.assign({ op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected },
+      from ? { from: from, fk: str(carry.k, 64) } : {}, isGuest(uid) ? { ck: carryKey(uid) } : {}));
     enc.j = approved.j; enc.permit = approved.permit;
     var stampable = Array.isArray(approved.sk) ? approved.sk : null;
     enc.rev = expected + 1;
@@ -1831,6 +1852,9 @@
     if (linkedUser(A.auth.currentUser)) { setMsg('That ' + sw.what + ' belongs to another Edictum account. Sign out first to play that one.', true); return; }
     A.sw = sw;
     if (sw.ready && !localNation()) { doSwitch(); return; }
+    /* a guest about to switch: its carry key is noted now, should none of its saves have sent it yet */
+    var me = A.auth.currentUser;
+    if (me && localNation()) call('civic', { op: 'carryKey', ck: carryKey(me.uid) }).catch(function () {});
     ui.view = 'switch'; setMsg(''); draw();
   }
 
@@ -1996,7 +2020,7 @@
        account menu, as the switch dialog promised); with none, this one is saved as the account's. */
     if (!known && guest) {
       guest._rev = 0; guest._dirty = true;
-      if (anon && anon.uid !== nu.uid) L.set(LS_CARRY, JSON.stringify({ from: anon.uid, to: nu.uid, at: Date.now() }));
+      if (anon && anon.uid !== nu.uid) L.set(LS_CARRY, JSON.stringify({ from: anon.uid, to: nu.uid, at: Date.now(), k: heldCarryKey(anon.uid) }));
       var carried = JSON.stringify(guest);
       L.set(LS_NATION, carried);
       leave({ nation: carried, uid: nu.uid }, 'Signed in with ' + via + '. “' + guest.name + '” came with you: if this ' + sw.what + ' already held a nation, that one loads and “' + guest.name + '” is kept in your account menu.');
@@ -2006,7 +2030,7 @@
       leave({ nation: null, uid: '-' }, name ? 'Signed in with ' + via + '. Welcome back to “' + name + '”.' : 'Signed in with ' + via + '.');
     } else if (guest) {
       guest._rev = 0;
-      if (anon && anon.uid !== nu.uid) L.set(LS_CARRY, JSON.stringify({ from: anon.uid, to: nu.uid, at: Date.now() }));
+      if (anon && anon.uid !== nu.uid) L.set(LS_CARRY, JSON.stringify({ from: anon.uid, to: nu.uid, at: Date.now(), k: heldCarryKey(anon.uid) }));
       var moved = JSON.stringify(guest);
       L.set(LS_NATION, moved);
       /* the copy goes back on pagehide too, should the game save it again (with the guest's revision) before the reload */

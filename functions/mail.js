@@ -14,14 +14,20 @@
    Storage (server only; firestore.rules):
      mailAccounts/{uid}  {e, ok, p, tok, code?, codeAt?, tries?, sends: [ms], welcomed?, last?, away?}
      mailTokens/{tok}    {uid}: the unsubscribe link's key
-     mailAddr/{sha256}   {n: [ms]}: codes sent to one address in the last day, against using us to pester people */
+     mailAddr/{sha256}   {n: [ms]}: codes sent to one address in the last day, against using us to pester people
+     mailIp/{sha256}     {n: [ms]}: codes asked for from one IP address in the last day (fresh guest accounts are free,
+                         so a limit per player alone does not stop anyone sending codes to a list of addresses)
+     mailState/verify    {d, n}: codes sent today (d, whole days since 1970) across the game, at most VERIFY_DAY
+
+   A code goes only to a player with a nation, and its letter names no nation: the address's owner never asked for
+   it, so it carries no words a player chose. */
 import { HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
 import { refuse } from './eligibility.js';
 import { mailConfig, send, verifyLetter, welcomeLetter, digest, token, validEmail, cleanPrefs, defaultPrefs } from './mail-core.js';
 
-const DAY = 86400000, CODE_MS = 30 * 60000;
+const DAY = 86400000, CODE_MS = 30 * 60000, IP_DAY = 30, VERIFY_DAY = 500;
 
 async function who(db, uid) {
   const s = await db.doc('summaries/' + uid).get(), n = s.exists ? s.get('name') : '';
@@ -44,7 +50,7 @@ export async function forgetMail(uid) {
   await ref.delete();
 }
 
-export async function mailStep(uid, d) {
+export async function mailStep(uid, d, ip = '') {
   const db = getFirestore(), ref = db.doc('mailAccounts/' + uid), now = Date.now();
   if (d.step === 'status') {
     const s = await ref.get();
@@ -62,20 +68,26 @@ export async function mailStep(uid, d) {
   if (d.step === 'set') {
     const e = String(d.email || '').trim().toLowerCase();
     if (!validEmail(e)) throw new HttpsError('invalid-argument', 'That does not look like an email address.');
+    if (!(await db.doc('summaries/' + uid).get()).exists) refuse('nation_required', 'Found and save a nation first.');
     const code = String(crypto.randomInt(0, 1e6)).padStart(6, '0'), addr = db.doc('mailAddr/' + digest(e));
+    const from = db.doc('mailIp/' + digest('ip:' + (ip || 'unknown'))), total = db.doc('mailState/verify'), today = Math.floor(now / DAY);
     await db.runTransaction(async tx => {
-      const [s, a] = await tx.getAll(ref, addr);
+      const [s, a, f, g] = await tx.getAll(ref, addr, from, total);
       const sends = (s.exists && s.get('sends') || []).filter(t => now - t < DAY), aN = (a.exists && a.get('n') || []).filter(t => now - t < DAY);
+      const fN = (f.exists && f.get('n') || []).filter(t => now - t < DAY), gN = g.exists && g.get('d') === today ? g.get('n') || 0 : 0;
       if (sends.length && now - sends.at(-1) < 60000) throw new HttpsError('resource-exhausted', 'Wait a minute before asking for another code.');
       if (sends.length >= 5) throw new HttpsError('resource-exhausted', 'That is enough codes for today. Try again tomorrow.');
       if (aN.length >= 3) throw new HttpsError('resource-exhausted', 'That address has had enough codes for today. Try again tomorrow.');
+      if (fN.length >= IP_DAY || gN >= VERIFY_DAY) throw new HttpsError('resource-exhausted', 'The Herald has sent all the codes it can for today. Try again tomorrow.');
       const keep = s.exists && s.get('ok') && s.get('e') === e;
       if (keep) refuse('mail_same', 'That address is already confirmed.');
       tx.set(ref, { e, ok: false, code: digest(uid + ':' + code), codeAt: now, tries: 0, sends: sends.concat(now), p: s.exists ? cleanPrefs(s.get('p')) : defaultPrefs(), tok: s.exists && s.get('tok') || '', welcomed: s.exists && !!s.get('welcomed') }, { merge: false });
       tx.set(addr, { n: aN.concat(now) });
+      tx.set(from, { n: fN.concat(now) });
+      tx.set(total, { d: today, n: gN + 1 });
     });
-    const cfg = await mailConfig(db), { nation } = await who(db, uid);
-    try { await send(db, [verifyLetter(cfg, { to: e, code, nation })], cfg); }
+    const cfg = await mailConfig(db);
+    try { await send(db, [verifyLetter(cfg, { to: e, code })], cfg); }
     catch (err) { if (err.code === 'mail_off') refuse('mail_off', err.message); throw new HttpsError('unavailable', 'The Herald could not send the letter. Try again in a while.'); }
     return { ok: true };
   }

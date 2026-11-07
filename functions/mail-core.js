@@ -106,9 +106,10 @@ const rows = (tone, items) => `<table role="presentation" width="100%" cellpaddi
 <td valign="middle" style="padding:0 0 12px 12px;font:15px/1.5 ${SANS};color:#2b3533">${html}</td></tr>`).join('')}</table>`;
 const footFor = (cfg, tok) => tok ? `<a href="${esc(cfg.site)}/mail?t=${esc(tok)}" style="color:#7a8a86">Stop these letters</a> &middot; choose which ones in Settings, under Letters by post.` : '';
 
-export function verifyLetter(cfg, { to, code, nation }) {
+/* no nation's name: whoever asked chose it, and the address's owner may never have asked (functions/mail.js) */
+export function verifyLetter(cfg, { to, code }) {
   const title = 'Your seal of confirmation', t = TONE.seal, link = `${cfg.site}/?mailcode=${code}#settings`;
-  const body = p(`The Herald has been asked to deliver the dispatches of ${nation ? '<b>' + esc(nation) + '</b>' : 'a nation of Edictum'} to this address. Before a single letter is sealed, the chancery needs proof that this desk is truly yours.`)
+  const body = p(`The Herald has been asked to deliver the dispatches of a nation of Edictum to this address. Before a single letter is sealed, the chancery needs proof that this desk is truly yours.`)
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 6px"><tr><td align="center" style="background:${t.soft};border:2px dashed ${t.accent};border-radius:14px;padding:22px 12px">
 <div style="font:700 12px/1 ${SANS};letter-spacing:.18em;text-transform:uppercase;color:${t.accent};margin-bottom:12px">Your code</div>
 <div style="font:700 40px/1 ui-monospace,'SF Mono',Consolas,'Courier New',monospace;letter-spacing:.28em;color:#12403c;-webkit-user-select:all;user-select:all">${esc(code)}</div>
