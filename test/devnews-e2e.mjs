@@ -1,6 +1,6 @@
 // Development news: an admin writes a post with formatting and an image, players see a count in the menu, read
 // it and comment; moderators and admins remove comments, admins close comments and handle a report.
-import { OUT, player, open, ready, found, register, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators, sleep } from './lib.mjs';
+import { OUT, player, open, ready, found, register, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators, sleep, errors } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('player'), C = await player('guest'), M = await player('moderator');
 const uidA = await open(A); await found(A, 'Adminland');
@@ -22,7 +22,12 @@ check('with nothing published the page says so', await until(async () => /No new
 await go(B, 'nation');
 
 // the sanitiser keeps formatting and drops everything that could run or track
+const seen = errors.length;
 const clean = await A.evaluate(() => G.NEWS.nwClean('<div onclick="x()"><h1 style="color:red">Title</h1><p>ok <b>bold</b> <i>it</i> <span>plain</span></p></div><script>alert(1)</script><img src="https://evil.example/t.gif"><img data-img="abc"><img data-img="AbCdEfGhIjKlMnOpQrSt" src="x" onerror="alert(1)" alt="A map"><a href="javascript:alert(1)">bad</a> <a href="https://edictumgame.com" onmouseover="x">good</a><iframe src="https://x"></iframe><style>*{}</style><ul><li>one</li></ul>'));
+/* Chrome checks each on…= attribute the sanitiser's DOMParser reads against the page's Content-Security-Policy and
+   reports it, though that document never runs one: those reports, from this step only, are expected */
+await sleep(300);
+for (let i = errors.length; i-- > seen;) if (/^admin console: .*inline event handler/.test(errors[i])) errors.splice(i, 1);
 check('the sanitiser keeps headings, emphasis, lists, uploaded images and web links only',
   clean === '<h2>Title</h2><p>ok <strong>bold</strong> <em>it</em> plain</p><img data-img="AbCdEfGhIjKlMnOpQrSt" alt="A map">bad <a href="https://edictumgame.com" target="_blank" rel="noopener noreferrer">good</a><ul><li>one</li></ul>', clean);
 

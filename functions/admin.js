@@ -2,7 +2,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { registered } from './eligibility.js';
+import { registered, banMarks } from './eligibility.js';
 import { gather, summarize, nationRow, saveEngage, loadEngage } from './stats.js';
 import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
@@ -229,12 +229,22 @@ async function mutate(db, actor, data) {
       await db.doc('mod/' + target).set({ hidden: true, rename: true, note: reason, name, t: now, by: actor });
     }
     if (action === 'unhide') await db.doc('mod/' + target).delete();
-    if (action === 'unban') await db.doc('bans/' + target).delete();
+    if (action === 'unban') {
+      await db.doc('bans/' + target).delete();
+      const marks = await db.collection('banIds').where('u', '==', target).get();
+      if (!marks.empty) { const b = db.batch(); marks.docs.forEach(d => b.delete(d.ref)); await b.commit(); }
+    }
     if (action === 'remove' || action === 'ban') {
       // Publish the ban/tombstone together with removal; open browsers follow the tombstone.
       const b = db.batch();
       b.set(db.doc('mod/' + target), { hidden: false, removed: now, note: reason, name, t: now, by: actor });
-      if (action === 'ban') b.set(db.doc('bans/' + target), { note: reason, name, t: now, by: actor });
+      if (action === 'ban') {
+        b.set(db.doc('bans/' + target), { note: reason, name, t: now, by: actor });
+        // the sign-ins it uses (functions/eligibility.js, identityHashes), so a new account on them is banned too
+        for (const h of await banMarks(target)) b.set(db.doc('banIds/' + h), { u: target, t: now });
+      }
+      // and the size it last saved at (functions/civic.js, createCap): a nation founded again starts afresh
+      b.set(db.doc('accountIdentity/' + target), { hw: FieldValue.delete() }, { merge: true });
       ['nations', 'nationx', 'nationp', 'summaries', 'space'].forEach(c => b.delete(db.doc(c + '/' + target)));
       await b.commit();
       await alDrop(db, target);

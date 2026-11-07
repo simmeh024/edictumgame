@@ -36,7 +36,7 @@ test('an address is confirmed by its code, welcomed once, and every letter can b
   assert.deepEqual((await call(u, { step: 'status' })).wait, true);
   await assert.rejects(call(u, { step: 'set', email: to }), e => e.status === 'RESOURCE_EXHAUSTED');   // a minute between codes
   const [seal] = await outbox(to); assert.match(seal.subject, /^\d{6} is your Edictum confirmation seal$/);
-  assert.match(seal.html, /Herald Test Republic/);
+  assert.doesNotMatch(seal.html, /Herald Test Republic/);   // no words of the player's own to an address that may not be theirs
   const code = seal.subject.slice(0, 6), wrong = code === '000000' ? '111111' : '000000';
   await assert.rejects(call(u, { step: 'verify', code: wrong }), /not the code/);
   await assert.rejects(call(u, { step: 'prefs', p: { news: false } }), /Confirm your address/);
@@ -53,6 +53,12 @@ test('an address is confirmed by its code, welcomed once, and every letter can b
   await call(u, { step: 'remove' });
   assert.equal((await call(u, { step: 'status' })).email, '');
   assert.equal(await get('mailTokens/' + tok), null);
+});
+
+test('a code goes only to a player with a nation', async () => {
+  const u = await user(), to = u.uid.toLowerCase() + '@example.test';
+  await assert.rejects(call(u, { step: 'set', email: to }), e => e.status === 'FAILED_PRECONDITION');
+  assert.equal((await outbox(to)).length, 0);
 });
 
 test('the hourly job sends one digest of unseen pings, then waits; and one away reminder', async () => {

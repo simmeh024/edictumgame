@@ -248,7 +248,8 @@ test('Community Board: staff pin, lock, hide, move and delete from inside the bo
 
 test('A new record starts no larger than a new nation could have grown, the account\'s last save, or the guest it was carried from',async()=>{
   const save=(p,pop,{rev=0,name='Freshland',...extra}={})=>civic(p,{op:'authorizeSave',record:{reg:'meridian',name,pop,army:1,cl:0,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name,pop})},rev,...extra});
-  const big=async(p,linked)=>{await db.doc('nations/'+p.uid).update({pop:900,ts:new Date()});assert.ok((await save(p,900,{rev:1,name:p.uid})).permit);};
+  const big=async(p,ck)=>{await db.doc('nations/'+p.uid).update({pop:900,ts:new Date()});assert.ok((await save(p,900,{rev:1,name:p.uid,...(ck?{ck}:{})})).permit);};
+  const KEY='a'.repeat(64), KEY2='b'.repeat(64);
   const hw=async p=>(await db.doc('accountIdentity/'+p.uid).get()).get('hw');
   // a fresh account: a new nation's size, and its first save is noted
   const fresh=await sign('signUp',{});
@@ -263,19 +264,53 @@ test('A new record starts no larger than a new nation could have grown, the acco
   // an update's permit notes no more than the rules would let it save
   const jump=await player();await save(jump,10,{rev:1,name:jump.uid});await save(jump,9e6,{rev:1,name:jump.uid});
   assert.ok((await hw(jump)).pop<11,'a jump the rules refuse is not noted: '+(await hw(jump)).pop);
-  // a guest's nation carried into an account: from that guest's last save, once
-  const guest=await player();await big(guest);await db.doc('nations/'+guest.uid).delete();
+  // a guest's nation carried into an account: from that guest's last save, once, and only with the guest's carry key
+  const guest=await player();await big(guest,KEY);await db.doc('nations/'+guest.uid).delete();
+  assert.ok((await hw(guest)).k&&(await hw(guest)).k!==KEY,'only a hash of the key is kept');
   const into=await sign('signUp',{}), other=await sign('signUp',{});
   await rejects(save(into,900,{name:guest.uid}),'population_limit');
-  assert.ok((await save(into,900,{name:guest.uid,from:guest.uid})).permit);
+  await rejects(save(into,900,{name:guest.uid,from:guest.uid}),'population_limit');
+  await rejects(save(into,900,{name:guest.uid,from:guest.uid,fk:KEY2}),'population_limit');
+  assert.ok((await save(into,900,{name:guest.uid,from:guest.uid,fk:KEY})).permit);
   assert.equal((await hw(guest)).to,into.uid);
-  await rejects(save(other,900,{name:guest.uid,from:guest.uid}),'population_limit');
-  // never from a Registered Nation still in the region, nor from a guest's of another name
-  const kept=await player(true);await big(kept);
-  await rejects(save(other,900,{name:kept.uid,from:kept.uid}),'population_limit');
-  const live=await player();await big(live);
-  await rejects(save(other,900,{name:'Another name',from:live.uid}),'population_limit');
-  assert.ok((await save(other,900,{name:live.uid,from:live.uid})).permit,'a guest copy of the same name, which a switch could not drop first');
+  await rejects(save(other,900,{name:guest.uid,from:guest.uid,fk:KEY}),'population_limit');
+  // never from a Registered Nation still in the region (its saves note no key), nor from a guest's of another name
+  const kept=await player(true);await big(kept,KEY);assert.equal((await hw(kept)).k,undefined);
+  await rejects(save(other,900,{name:kept.uid,from:kept.uid,fk:KEY}),'population_limit');
+  const live=await player();await big(live,KEY);
+  await rejects(save(other,900,{name:'Another name',from:live.uid,fk:KEY}),'population_limit');
+  assert.ok((await save(other,900,{name:live.uid,from:live.uid,fk:KEY})).permit,'a guest copy of the same name, which a switch could not drop first');
+  // never from a banned account
+  const gone=await player();await big(gone,KEY);await db.doc('nations/'+gone.uid).delete();await db.doc('bans/'+gone.uid).set({note:'Cheating',t:1,by:'staff'});
+  await rejects(save(await sign('signUp',{}),900,{name:gone.uid,from:gone.uid,fk:KEY}),'population_limit');
+  // a guest whose saves never sent a key notes it before switching (src/shim.js, otherAccount)
+  const quiet=await player();await big(quiet);assert.equal((await hw(quiet)).k,undefined);
+  assert.deepEqual(await civic(quiet,{op:'carryKey',ck:'not a key'}),{ok:false});
+  assert.deepEqual(await civic(quiet,{op:'carryKey',ck:KEY2}),{ok:true});
+  await db.doc('nations/'+quiet.uid).delete();
+  assert.ok((await save(await sign('signUp',{}),900,{name:quiet.uid,from:quiet.uid,fk:KEY2})).permit);
+  assert.deepEqual(await civic(await player(true),{op:'carryKey',ck:KEY}),{ok:false},'a Registered Nation has no carry key');
+});
+
+test('A save cannot add letters through the old shared letter list (dm); one it already had becomes letters once, which expire',async()=>{
+  const p=await player(), victim=await player();
+  const save=n=>civic(p,{op:'authorizeSave',record:{reg:'meridian',name:p.uid,pop:10,army:1,cl:0,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name:p.uid,pop:10,...n})},rev:1});
+  const sent=async()=>(await db.collection('letters').where('by','==',p.uid).get()).docs;
+  // a list the saved record never had is not approved, and so never turns into letters
+  assert.equal(JSON.parse((await save({dm:[{w:victim.uid,x:'Spam',t:123}]})).j).dm,undefined);
+  assert.ok((await save({})).permit);assert.equal((await sent()).length,0);
+  // a list from before letters were private: kept only as it was, then turned into letters once dropped
+  const old=[{w:victim.uid,x:'An old letter',t:456}];
+  const s=await db.doc('nations/'+p.uid).get();await s.ref.update({j:JSON.stringify({...JSON.parse(s.get('j')),dm:old})});
+  assert.deepEqual(JSON.parse((await save({dm:[...old,{w:victim.uid,x:'Added',t:789}]})).j).dm,old);
+  assert.equal((await sent()).length,0);
+  await save({});
+  const ls=await sent();assert.deepEqual(ls.map(d=>d.id),[p.uid+'~'+victim.uid+'~456']);
+  assert.ok(ls[0].get('exp').toMillis()>Date.now()+360*DAY,'expires like any other letter');
+});
+
+test('civic refuses an unknown request before it reads anything',async()=>{
+  await assert.rejects(civic(await player(),{op:'nonsense'}),e=>e.status==='INVALID_ARGUMENT');
 });
 
 test('A recruit counts once, as a Registered Nation founded in the last 30 days and after its recruiter',async()=>{
