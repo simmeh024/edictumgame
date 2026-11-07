@@ -133,6 +133,10 @@ check('the desktop admin menu sits to the left of its content', await A.evaluate
   const s = document.querySelector('.adm-sidebar').getBoundingClientRect(), m = document.querySelector('.adm-main').getBoundingClientRect();
   return s.width >= 200 && s.right < m.left && Math.abs(s.top - m.top) < 10;
 }));
+check('the admin menu hugs the left edge and every link has an icon of its own', await A.evaluate(() => {
+  const links = [...document.querySelectorAll('.adm-nav a')], ics = links.map(a => a.querySelector('.adm-nav-ic svg') && a.querySelector('.adm-nav-ic').innerHTML);
+  return document.querySelector('.adm-sidebar').getBoundingClientRect().left < 40 && links.length >= 18 && ics.every(Boolean) && new Set(ics).size === ics.length;
+}));
 for (const [view, title] of [['admin-regions','Regions'],['admin-reports','Reports'],['admin-hidden','Hidden nations'],['admin-bans','Banned players'],['admin-sus','Suspicious nations'],['admin-help','Help queries']]) {
   await A.click(`.adm-nav [data-v="${view}"]`);
   check('the sidebar opens ' + title, await until(async () => await text(A, '.adm-main h1') === title && !!await A.$(`.adm-nav [data-v="${view}"][aria-current="page"]`) && new URL(A.url()).hash === '#' + view));
