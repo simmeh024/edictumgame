@@ -3653,6 +3653,11 @@ button.fk-rs:hover,.fk-rs.on{color:var(--fk-rs)}
 .tut-lc{display:inline-block;margin-left:7px;padding:0 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent-hi);font:600 10.5px/1.65 var(--f-mono);letter-spacing:.03em;vertical-align:2px;white-space:nowrap}
 .tut-lch{letter-spacing:.02em}
 :root[data-size="large"] .tut-lc{font-size:12px}
+/* the map colour a step earns, on its tag */
+.tut-mc{display:inline-block;width:10px;height:9px;margin:0 4px 0 1px;vertical-align:-1px;background:var(--hx);clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+/* a map colour in Settings still to be earned: its colour, dashed, with a lock */
+.sw.sw-lock{display:inline-grid;place-items:center;border-style:dashed;border-color:var(--ink-3);cursor:help}
+.sw-lock .cz-lock{color:#fff;filter:drop-shadow(0 0 1px rgba(0,0,0,.6))}
 
 /* Round 11 (U): the navigation. Groups in the side bar; below 960 px a tab bar, a More sheet and an index at the foot of
    each page; “Go to page” on / or Ctrl+K; a skip link */
@@ -34840,14 +34845,15 @@ function tutSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PA
 function tutCall(f,d){try{const v=f();return v==null?d:v;}catch(e){return d;}}
 
 /* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited,
-   u the Customise page visited, c the charter signed (each task pays once, and the payment is kept on the record) ── */
+   u the Customise page visited, c the charter signed, b a message posted on the region's board (each task pays once, and
+   the payment is kept on the record) ── */
 function tutDevGet(){
   const n=S.nation,seed=n?String(n.seed):'';if(TUT.devSeed!==seed){TUT.devSeed=seed;TUT.dev='';}
   let k=TUT.dev;try{const o=JSON.parse(localStorage.getItem(TUT_DEV_KEY)||'null');if(o&&o.s===seed&&typeof o.k==='string')k+=o.k;}catch(e){}return k;
 }
 function tutMark(c){
   if(!S.nation)return;const k=tutDevGet();if(k.includes(c))return;TUT.dev+=c;
-  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcu]/g,'')}));}catch(e){}
+  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcub]/g,'')}));}catch(e){}
   tutLcSoon();
 }
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
@@ -34867,6 +34873,8 @@ const tutAsmLock=n=>!tutReg()?'Only Registered Nations act in the Assembly: link
 const tutPopLock=(f,what)=>n=>canFeature(n,f)?'':`${what} at ${fmtPopShort(featureAt(f))} people.`;
 const tutCharterLock=n=>pgAvailable(n,'charter')?'':'Finish your charter first: it opens Customise.';
 const tutSettleLock=n=>cellOf(n.loc)<0?'Settle on the map first: your first edict asks where.':'';
+/* a message of this player's nation (or a reply) among the region board's latest, not one signed by the Edictum team */
+const tutRmbMine=()=>{try{const m=S.rmb&&S.uid&&!OBS?S.rmb[S.uid]:null;return !!m&&m.posts.some(p=>!p.of);}catch(e){return false;}};
 const tutCapCity=n=>{try{const c=cellOf(n.loc);return c<0?null:cityList(n).find(x=>x.c===c)||null;}catch(e){return null;}};
 const tutPrvT2=()=>{try{return prvT2(S.nation);}catch(e){return 'Provinces';}},tutPrvOn=()=>{try{return prvOnRec(S.nation);}catch(e){return false;}};
 function tutLandHint(n){
@@ -34902,7 +34910,10 @@ const TUT_LISTS=[
      f:n=>!!n.exp||(n.disc||[]).length>0||tallyOf(n,'exp')>0},
     {k:'dm',t:'Write to another nation',h:'Computer-run nations reply within minutes.',v:'messages',b:'Messages',f:n=>(n.dm||[]).some(m=>!m.i)||tallyOf(n,'dm')>0},
     {k:'google',own:1,t:'Keep your nation on every device',h:'Link it to Google, Discord or an email address: it is kept safe and plays anywhere. Earns 5 land credits, and 5 iron, 5 timber and 5 goods.',
-     act:'acct-open',b:'Link a sign-in',f:n=>!!n.glk}]},
+     act:'acct-open',b:'Link a sign-in',f:n=>!!n.glk},
+    {k:'rmb',t:()=>`Say hi to ${REGION}`,h:'Leave a message on the region’s board: a hello, a question or news of your nation. Every player in the region reads it.',
+     v:'region',to:'rmb-text',b:'Open the board',lc:2,gift:{food:5,timber:5,iron:5,oil:5,goods:5},mapc:'#A347C8',mapcN:'Orchid',
+     lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()}]},
   {k:'mark',c:'m',eb:'Next steps',t:()=>`Make your mark in ${REGION}`,hk:'statehood.steps2.v1',
    lede:'Your region: its paper, its Assembly and Games, the nations next door, and money of your own.',
    bonus:{lc:3,gift:{iron:10},u:'t-renowned'},tasks:[
@@ -34953,6 +34964,11 @@ function tutRebuild(){
   TUT_MAXC=TUT_ALL.reduce((a,s)=>a+(s.own?0:s.lc||1),0)+TUT_LISTS.reduce((a,L)=>a+(L.bonus.lc||0),0);
 }
 tutRebuild();
+/* the map colours a task earns (s.mapc, named s.mapcN): Settings offers each among the map colours once its task is paid,
+   and shows it locked, with how to earn it, until then */
+const tutMapcs=()=>TUT_ALL.filter(s=>s.mapc);
+const tutMapcOf=c=>TUT_ALL.find(s=>s.mapc===c)||null;
+const tutMapcOk=(n,c)=>{const s=tutMapcOf(c);return !s||tutLcOf(n).includes(s.k);};
 const tutLcIds=()=>TUT_ALL.filter(s=>!s.own).map(s=>s.k);
 const tutLcOf=n=>n&&n.tut&&Array.isArray(n.tut.lc)?n.tut.lc:[];
 const tutChOf=n=>n&&n.tut&&typeof n.tut.ch==='string'?n.tut.ch:'';
@@ -34972,7 +34988,9 @@ function tutCredits(n){
 }
 const tutGiftText=g=>list(Object.entries(g||{}).filter(([r,v])=>v>0).map(([r,v])=>v+' '+r));
 function tutRwText(lc,g){const p=[];if(lc)p.push(`+${lc} land credit${lc===1?'':'s'}`);const t=tutGiftText(g);if(t)p.push(t);return p.join(' and ');}
-const tutTag=s=>s.own?GL_TAG:`<span class="tut-lc" title="Earns ${esc(tutRwText(s.lc||1,s.gift).slice(1))}">+${s.lc||1} land${Object.entries(s.gift||{}).map(([r,v])=>` · ${v} ${r}`).join('')}</span>`;
+/* the gift on a task's tag: each resource, or "5 of each resource" when it gives the same of all five */
+function tutGiftTag(g){const e=Object.entries(g||{});if(e.length>=5&&e.every(([r,v])=>v===e[0][1]))return ` · ${e[0][1]} of each resource`;return e.map(([r,v])=>` · ${v} ${r}`).join('');}
+const tutTag=s=>s.own?GL_TAG:`<span class="tut-lc" title="Earns ${esc(tutRwText(s.lc||1,s.gift).slice(1))}${s.mapc?`, and the ${esc(s.mapcN)} map colour`:''}">+${s.lc||1} land${tutGiftTag(s.gift)}${s.mapc?` · <i class="tut-mc" style="--hx:${s.mapc}" aria-hidden="true"></i>${esc(s.mapcN)}`:''}</span>`;
 /* ── tutorial: end of the lists ── */
 
 /* ── which list the Nation page shows: the first one not done, hidden on this device, or stood aside ── */
@@ -35047,8 +35065,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
   for(const k of add)more(TUT_BY[k].gift);const stepGift=Object.assign({},gift);for(const L of chAdd)more(L.bonus.gift);
   if(Object.keys(gift).length){const st=stockNow(n,now);for(const [r,x] of Object.entries(gift))st[r]=stockLimit(n,r,num0(st[r])+x,st[r]);n.stock=roundStock(st);n.stockAt=now;}
   const out=[],lcs=add.reduce((a,k)=>a+tutTaskLc(k),0),spend=c=>c?` Spend ${c===1?'it':'them'} on the map.`:'';
-  if(one)out.push(`Step done: ${tutTxt(one.t,n)}. ${tutRwText(lcs,stepGift)}.${spend(lcs)}`);
-  else if(add.length)out.push(`Your tutorial steps earned ${lcs} land credits${tutGiftText(stepGift)?', and '+tutGiftText(stepGift):''}.${spend(lcs)}`);
+  const col=add.map(k=>TUT_BY[k]).filter(s=>s&&s.mapc).map(s=>` The ${s.mapcN} map colour is yours too: choose it under Map colour in Settings.`).join('');
+  if(one)out.push(`Step done: ${tutTxt(one.t,n)}. ${tutRwText(lcs,stepGift)}.${spend(lcs)}${col}`);
+  else if(add.length)out.push(`Your tutorial steps earned ${lcs} land credits${tutGiftText(stepGift)?', and '+tutGiftText(stepGift):''}.${spend(lcs)}${col}`);
   for(const L of chAdd){const u=UNLOCKS[L.bonus.u];out.push(`List complete: ${L.t()}. ${tutRwText(L.bonus.lc||0,L.bonus.gift)}${u?`, and the epithet “${u.n}”, under Epithet in Customise`:''}.`);}
   return out;
 });
@@ -41148,6 +41167,14 @@ function sgPreview(st,n){
       <p class="sg-pv-ruler">${ru?`Led by ${esc(ld)} ${esc(ru)}`:`Led by the ${esc(ld)}, not yet named`}</p>
       <p class="sg-pv-facts"><span>Capital: ${esc(tx(st.capital,n.capital))}</span><span>Citizens: ${esc(tx(st.demonym,n.demonym))}</span><span>Animal: the ${esc(tx(st.animal,n.animal))}</span><span class="sg-pv-mc"><i style="--hx:${mc}" aria-hidden="true"></i>Map colour</span></p></div>`;
 }
+/* the map colours tutorial tasks earn, after the twelve everyone has: chosen like them once earned, locked until then
+   (a locked one says, on hover and when pressed, which task earns it) */
+function mapcEarnedSw(n,st){
+  return tutMapcs().map(s=>{const c=s.mapc,nm=esc(s.mapcN);
+    if(tutMapcOk(n,c))return `<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${nm}, earned in the tutorial" title="${nm}, earned in the tutorial"></button>`;
+    const how=mapcHow(n,s);return `<button type="button" class="sw sw-lock" style="--sw:${c}" data-act="mapc-lock" data-k="${esc(s.k)}" aria-label="Map colour: ${nm}, locked. ${esc(how)}" title="${nm}: ${esc(how)}">${CZ_LOCK}</button>`;}).join('');
+}
+function mapcHow(n,s){const L=TUT_LISTS.find(L=>L.tasks.includes(s));return `Earned by the tutorial task “${tutTxt(s.t,n)}”${L?` in “${L.t()}”`:''}.`;}
 function settingsView(){
   const n=S.nation,st=S.settings||(S.settings=settingsFrom(n)),t=SG.tab,now=Date.now(),dirty=settingsDirty();
   const f=(id,label,max,ph,hint)=>`<div class="field"><label for="s-${id}">${label}</label><input class="input" id="s-${id}" data-bind="s.${id}" value="${esc(st[id]||'')}" maxlength="${max}" placeholder="${esc(ph)}" autocomplete="off">${hint?`<span class="hint">${hint}</span>`:''}</div>`;
@@ -41194,8 +41221,8 @@ function settingsView(){
         <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
       </fieldset>
       <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
-        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
-        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}</div>
+        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
+        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}</div>
       </fieldset>
       <div class="save-bar${dirty?' is-dirty':''}${SG.leave?' sg-leaving':''}" id="sg-save">${save}</div>
     </form>`;
@@ -41415,7 +41442,7 @@ function saveSettings(){
   n.pretitle=t(st.pretitle,40,n.pretitle);n.motto=String(st.motto||'').trim().slice(0,80);n.capital=t(st.capital,40,n.capital);n.leader=t(st.leader,40,n.leader);
   n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);
   for(const [k,max] of [['ruler',40],['lang',30],['faith',50],['sport',30],['dish',40],['anthem',60],['about',280]])n[k]=String(st[k]||'').trim().slice(0,max);
-  n.mapc=safeColor(st.mapc,'');
+  {const mc=safeColor(st.mapc,'');n.mapc=tutMapcOk(n,mc)?mc:n.mapc||'';}
   commit(n);S.settings=settingsFrom(n);render();toast('Changes saved.');return true;
 }
 /* Edicts: the pace and the topics apply at once, and the tab says so for a moment */
@@ -41456,7 +41483,7 @@ async function postRmb(reply){
   const wait=rmbLast+RMB_GAP-Date.now();
   if(!team&&wait>0){toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Post again in ${Math.ceil(wait/1000)} seconds.`);return;}
   rmbBusy=true;if(reply)RGN.reDraft='';else S.rmbDraft='';
-  try{await S.db.post(REG.id,text.slice(0,400),{...(team?{as:'team',...cbaSign()}:{}),...(re?{re}:{})});if(!team)rmbLast=Date.now();if(reply&&RGN.re===re)RGN.re='';}
+  try{await S.db.post(REG.id,text.slice(0,400),{...(team?{as:'team',...cbaSign()}:{}),...(re?{re}:{})});if(!team){rmbLast=Date.now();tutMark('b');}if(reply&&RGN.re===re)RGN.re='';}
   catch(e){if(reply)RGN.reDraft=text;else S.rmbDraft=text;
     if(e&&e.code==='rmb_reply_missing'){RGN.re='';RGN.reDraft='';toast(e.message);}
     else if(e&&['registration_required','moderated','banned','region_disabled'].includes(e.code))toast(e.message);else if(e&&['quota_exceeded','not_granted'].includes(e.code))toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Try again in a moment.`);else handleWriteError(e);}
@@ -41492,6 +41519,7 @@ document.addEventListener('click',e=>{
   if(a==='suggest-name'){S.draft.name=nameIdea(S.draft.name);if(!S.draft.demonymTouched)S.draft.demonym=demonymOf(S.draft.name);S.foundErr='';render();return;}
   if(a==='reset-settings'){S.settings=settingsFrom(S.nation);render();return;}
   if(a==='mapc'&&S.settings){S.settings.mapc=el.dataset.val;render();return;}
+  if(a==='mapc-lock'){const s=TUT_BY[el.dataset.k];if(s)toast(`${s.mapcN} is not yours yet. ${mapcHow(S.nation,s)}`);return;}
   if(a==='topic'){const k=el.dataset.k,v=+el.dataset.v;if(!ISSUE_TOPICS.some(x=>x[0]===k))return;sgApply(n=>{n.topics=Object.assign({},n.topics||{});if(v===1||v===-1)n.topics[k]=v;else delete n.topics[k];});return;}
   if(a==='theme'){setTheme(el.dataset.v);return;}
   if(a==='dissolve-ask'||a==='restart-ask'){S.confirmDissolve=a==='restart-ask'?'restart':'dissolve';S.dzType='';render();const i=document.getElementById('dz-type');if(i)i.focus({preventScroll:true});return;}
