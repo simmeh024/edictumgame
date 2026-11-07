@@ -58,6 +58,7 @@ const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].ma
 // toasts show one at a time, and founding queued several: allow for the queue
 check('a second post within 20 seconds waits, and the player is told', await until(async () => /every 20 seconds/.test(await toasts(A)), 40000) && (await A.inputValue('#rmb-text')) === 'Too soon');
 await A.fill('#rmb-text', '');
+check('the post ticks “Say hi” in Welcome to Edictum, kept in the saved record', await until(async () => await A.evaluate(() => (G.S.nation.tut?.lc || []).includes('rmb')) && ((await localNation(A))?.tut?.lc || []).includes('rmb')));
 
 // the decisions page is called Edicts, at #edicts; an old #issues link still opens it
 await nav(A, 'issues');

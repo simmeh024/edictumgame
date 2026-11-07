@@ -433,8 +433,10 @@ none, since a guest who signed out would lose the nation). Signing out starts a 
 Above Sign out, a small status shows **Synced** after server confirmation, **Saving** while changes
 are queued or in flight, and **Offline** when synchronization is unavailable. Guests with a nation
 see the same status. Its text is announced to screen readers when it changes.
-Linking is also the last of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
-once (`n.glk`).
+Linking is also one of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
+once (`n.glk`). The step after it, **Say hi**, needs the linked sign-in, because only a Registered
+Nation may post on the region's board: a message or a reply there pays 2 land credits, 5 of each
+resource and Orchid, a thirteenth map colour (`mapc` on the task), which Settings shows locked until then.
 
 - **Google** is Firebase's own provider (`linkWithPopup`).
 - **Email** sends a one-time sign-in link (Firebase's email-link sign-in, a `password` provider without

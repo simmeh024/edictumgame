@@ -23,7 +23,7 @@ function rewards(){
   vm.runInContext(fn('list')+'\n'+fn('stockLimit')+'\nconst TUT_V=25,TUT_GS="mrba";const tutFresh=()=>false;\n'+fn('tutNorm')+'\n'+
     between('/* ── tutorial: the lists ── */','/* ── tutorial: end of the lists ── */')+'\n'+
     between('/* ── tutorial: rewards ── */','/* ── tutorial: end of rewards ── */')+'\n'+source.slice(google,glEnd)+
-    '\nthis.normalize=tutNorm;this.credits=n=>landEarned(n);this.lists=TUT_LISTS;this.unlocks=UNLOCK_SOURCES;',ctx);
+    '\nthis.normalize=tutNorm;this.credits=n=>landEarned(n);this.lists=TUT_LISTS;this.unlocks=UNLOCK_SOURCES;this.mapcOk=tutMapcOk;',ctx);
   return {
     ctx,
     save(n){const old=structuredClone(n),messages=[];for(const hook of ctx.COMMIT_HOOKS){const m=hook(n,old,Date.now());if(m)messages.push(...m);}return messages;},
@@ -120,6 +120,24 @@ test('a legacy generic Google marker is safely removed without replaying either 
   const r=rewards();let n=r.reload(nation({tut:{lc:['google','settle']},loc:3}));
   assert.deepEqual([...n.tut.lc],['settle']);
   assert.deepEqual(r.save(n),[]);assert.equal(n.stock.goods,40);
+});
+
+test('saying hi on the region board pays 2 land credits, 5 of each resource and the Orchid map colour, once',()=>{
+  const r=rewards(),L=r.ctx.lists.find(x=>x.k==='first'),s=L.tasks.find(x=>x.k==='rmb');
+  assert.ok(s,'Say hi is in Welcome to Edictum, the second list');assert.equal(s.t(),'Say hi to Testland');
+  assert.equal(s.v,'region');assert.equal(s.to,'rmb-text','its button opens the board, at the message box');
+  r.ctx.S.google=false;assert.match(s.lock({}),/Registered Nations/,'a guest cannot post on the board yet');r.ctx.S.google=true;assert.equal(s.lock({}),'');
+  let n=nation({loc:3});r.save(n);n=r.reload(n);
+  assert.ok(!n.tut.lc.includes('rmb'),'not before a message is posted');
+  assert.ok(!r.ctx.mapcOk(n,'#A347C8'),'Orchid is locked until then');assert.ok(r.ctx.mapcOk(n,'#3A8FD1'),'the twelve map colours stay free');assert.ok(r.ctx.mapcOk(n,''));
+  const before=r.ctx.credits(n),stock={...n.stock};
+  r.ctx.DEVK='b';const m=r.save(n);
+  assert.equal(m.length,1,m.join(' | '));
+  assert.match(m[0],/^Step done: Say hi to Testland\. \+2 land credits and 5 food, 5 timber, 5 iron, 5 oil, and 5 goods\. Spend them on the map\. The Orchid map colour is yours too: choose it under Map colour in Settings\.$/);
+  assert.equal(r.ctx.credits(n),before+2);
+  for(const k of ['food','timber','iron','oil','goods'])assert.equal(n.stock[k],stock[k]+5,k);
+  assert.ok(r.ctx.mapcOk(n,'#A347C8'),'and Orchid is earned');
+  r.ctx.DEVK='';n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('rmb'),'kept on reload, on any device');assert.ok(r.ctx.mapcOk(n,'#A347C8'));
 });
 
 test('normalising keeps what the four lists save and drops the rest',()=>{
