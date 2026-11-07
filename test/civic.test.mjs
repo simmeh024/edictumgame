@@ -280,6 +280,22 @@ test('Community Board: an admin posts one topic on several boards as the Edictum
   assert.ok(e);assert.deepEqual(e.get('topics'),res.ids);assert.match(e.get('reason'),/Server maintenance/);
 });
 
+test('Region message board: an admin posts on any region’s board as the Edictum team, unpaced; a player cannot',async()=>{
+  const r=await player(true),staff=await sign('signUp',{});await auth.setCustomUserClaims(staff.uid,{admin:true});
+  // an admin with no nation at all, on a region that is not theirs
+  const t=await civic(staff,{op:'topic',reg:'frostmarch',text:'Hello from the team',as:'team',nm:'Pascal',rl:'Lead developer'});
+  const d=(await db.doc('boards/frostmarch/posts/'+t.id).get()).data();
+  assert.equal(d.a,staff.uid);assert.equal(d.of,true);assert.equal(d.nm,'Pascal');assert.equal(d.rl,'Lead developer');assert.equal(d.st,'admin');assert.equal(d.x,'Hello from the team');
+  const w=await civic(staff,{op:'topic',reg:'wildwood',text:'And here at once',as:'team'});
+  const wd=(await db.doc('boards/wildwood/posts/'+w.id).get()).data();assert.equal(wd.nm,'Edictum team');assert.equal(wd.rl,undefined);
+  await assert.rejects(civic(staff,{op:'topic',reg:'atlantis',text:'Nowhere',as:'team'}),e=>e.status==='INVALID_ARGUMENT');
+  await assert.rejects(civic(staff,{op:'topic',reg:'frostmarch',text:'As a nation I have none'}),e=>e.code==='nation_required');
+  // a player who asks to sign as the team still posts as their nation, and only on their own region's board
+  await assert.rejects(civic(r,{op:'topic',reg:'frostmarch',text:'Not my region',as:'team'}),e=>e.status==='PERMISSION_DENIED');
+  const p=await civic(r,{op:'topic',reg:'meridian',text:'My own region',as:'team',nm:'Edictum team'});
+  const pd=(await db.doc('boards/meridian/posts/'+p.id).get()).data();assert.equal(pd.a,r.uid);assert.equal(pd.of,undefined);assert.equal(pd.nm,undefined);assert.equal(pd.st,undefined);
+});
+
 test('A new record starts no larger than a new nation could have grown, the account\'s last save, or the guest it was carried from',async()=>{
   const save=(p,pop,{rev=0,name='Freshland',...extra}={})=>civic(p,{op:'authorizeSave',record:{reg:'meridian',name,pop,army:1,cl:0,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name,pop})},rev,...extra});
   const big=async(p,ck)=>{await db.doc('nations/'+p.uid).update({pop:900,ts:new Date()});assert.ok((await save(p,900,{rev:1,name:p.uid,...(ck?{ck}:{})})).permit);};

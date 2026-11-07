@@ -28,7 +28,8 @@
                             with Moon, Mars or belt data. Every player listens to all of these, so it is
                             rewritten only when what other regions read from it changes (spaceLayout: not the
                             running figures re-stamped at every save), or every SPACE_BEAT while playing.
-     boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts.
+     boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts; one an
+                            admin signed as the Edictum team adds {of: true, nm, rl?, st: 'admin'}.
      devnews/<id>           a development news post (admins write it in the portal), devnews/<id>/posts/<id>
                             its comments (through civic()), devnews/<id>/rd/<uid> its readers (newsRead, with
                             the count in devnewsStat/<id>.n), devnewsImg/<id> its images, and devnewsMeta/latest
@@ -86,8 +87,10 @@
   /* An admin observing another region (game/edictum.html, OBS) sees it read-only. While this tab's key is set, the
      adapter refuses what would act for the player there or touch their nation: saving or deleting any document but
      the admin's own staff mark and development news, a board post, the referee, the Assembly and the shop. The game
-     sends none of these while observing; this holds should a page path be missed. */
-  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta'];
+     sends none of these while observing; this holds should a page path be missed. Two exceptions act as the admin,
+     not the player: a message on the region's board signed by the Edictum team (post, as: 'team'), and removing a
+     board message (boards/, which the rules let only its author or an admin delete, and nobody create). */
+  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards'];
   function observing() { return !!SS.get(SS_OBSERVE); }
   function readOnly() { return mapError({ code: 'read_only', message: 'Nothing is saved while observing a region.' }); }
   function parse(s) { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -226,7 +229,11 @@
     if (col === 'nationx' || col === 'nationp') { var x = typeof d.j === 'string' ? parse(d.j) : null; return isObj(x) ? x : null; }
     if (col === 'space') { var s = typeof d.j === 'string' ? parse(d.j) : null; return isObj(s) ? Object.assign(s, { reg: d.reg, name: d.name, updatedAt: num(d.t) }) : null; }
     if (col === 'presence') return { t: millis(d.t) || 0 };
-    if (col === 'boards') return { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
+    if (col === 'boards') {
+      var post = { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
+      // a message an admin signed as the Edictum team: the name and role they chose
+      return d.of === true ? Object.assign(post, { of: true, nm: str(d.nm, 80), rl: str(d.rl, 60) }) : post;
+    }
     return d;
   }
   function snapOf(s) {
@@ -463,13 +470,15 @@
     var out = await r.json(), f = out && out[0] && out[0].result && out[0].result.aggregateFields;
     return f && f.n ? Number(f.n.integerValue || 0) : 0;
   }
-  /* a post on a region's board, paced by limits/<uid> (see firestore.rules) */
-  function post(reg, text) {
+  /* a post on a region's board, paced by limits/<uid> (see firestore.rules); an admin's signed by the Edictum team
+     (o: {as: 'team', nm, rl}) may go to any region, observed or not, and the server checks they are an admin */
+  function post(reg, text, o) {
     if (A.frozen) return hang();
-    if (observing()) return Promise.reject(readOnly());
+    var team = isObj(o) && o.as === 'team';
+    if (observing() && !team) return Promise.reject(readOnly());
     var u = A.auth.currentUser;
     if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
-    return call('civic', { op: 'topic', reg: str(reg,40), text: String(text || '') }).then(function(r) { return r.id; });
+    return call('civic', Object.assign({ op: 'topic', reg: str(reg,40), text: String(text || '') }, team ? { as: 'team', nm: str(o.nm, 80), rl: str(o.rl, 60) } : {})).then(function(r) { return r.id; });
   }
   function collectionGroupApi(name) { return Object.freeze(queryApi(A.fs.collectionGroup(String(name)))); }
   /* ───────── support tickets ───────── */
@@ -530,7 +539,7 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
-    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) || name === 'accounts' && op === 'shop')) throw readOnly();
+    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);
