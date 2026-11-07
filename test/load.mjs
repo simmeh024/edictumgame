@@ -18,7 +18,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { setLogLevel } from 'firebase/firestore';
-import { player, open, found, nav, until, sleep, OUT, PROJECT, FS_HOST, clearEmulators, errors } from './lib.mjs';
+import { player, open, found, nav, until, sleep, OUT, PROJECT, FS_HOST, clearEmulators, errors, regionTab } from './lib.mjs';
 setLogLevel('error');
 
 const REAL = +(process.env.LOAD_REAL || 6), BOTS = +(process.env.LOAD_BOTS || 44), MIN = +(process.env.LOAD_MINUTES || 5), WARM = 60e3, CAL = 120e3;
@@ -70,8 +70,8 @@ const stat = p => p.evaluate(() => Object.assign({}, window.__fs || {}));
 async function play(p, stop) {
   const acts = [
     async () => { await nav(p, 'issues'); const c = await p.$('.issue-card'); if (c) { await c.click(); await p.waitForSelector('.edict [data-act="answer"]', { timeout: 5000 }).catch(() => {}); const b = await p.$$('.edict [data-act="answer"]'); if (b.length) await b[Math.floor(Math.random() * b.length)].click(); } },
-    async () => { await nav(p, 'region'); const v = await p.$$('.tbl [data-act="visit"]'); if (v.length) await v[Math.floor(Math.random() * v.length)].click().catch(() => {}); },
-    async () => { await nav(p, 'region'); const t = await p.$('#rmb-text'); if (t) { await t.fill('Greetings from the load test, ' + new Date().toISOString().slice(11, 19)); await p.click('#rmb-form button[type="submit"]').catch(() => {}); } },
+    async () => { await regionTab(p); const v = await p.$$('.tbl [data-act="visit"]'); if (v.length) await v[Math.floor(Math.random() * v.length)].click().catch(() => {}); },
+    async () => { await regionTab(p, 'board'); const t = await p.$('#rmb-text'); if (t) { await t.fill('Greetings from the load test, ' + new Date().toISOString().slice(11, 19)); await p.click('#rmb-form button[type="submit"]').catch(() => {}); } },
     async () => { await nav(p, 'map'); },
     async () => { await nav(p, 'nation'); }
   ];

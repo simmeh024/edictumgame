@@ -3,7 +3,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {counterfeitsOf} from '../jobs/fx/engine.mjs';
-import {OUT,PROJECT,FS_HOST,check,finish,until,player,open,found,nav,text,localNation,nationDoc,restGet,clearEmulators,errors} from './lib.mjs';
+import {OUT,PROJECT,FS_HOST,check,finish,until,player,open,found,nav,text,localNation,nationDoc,restGet,clearEmulators,errors,regionTab} from './lib.mjs';
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..'),DAY=864e5;
 const noScroll=p=>p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
 await clearEmulators();
@@ -40,7 +40,7 @@ check('policy reports are saved in the private half only',await until(async()=>{
 await nav(C,'nation');const ownProse=await text(C,'.overview > p:last-child');
 check('the nation overview has a separate currency paragraph grounded in its institutions',(await C.$$('.overview > p')).length===4&&/Coinlander Crown/.test(ownProse)&&/independent central bank/.test(ownProse),ownProse);
 await C.locator('.overview').screenshot({path:path.join(OUT,'currency-overview-1280.png')});
-await nav(D,'region');await D.click(`[data-act="visit"][data-id="${uidC}"]`);
+await nav(D,'region');await regionTab(D);await D.click(`.tbl [data-act="visit"][data-id="${uidC}"]`);
 check('visiting that nation shows the same distinctive currency paragraph',await until(async()=>await text(D,'.overview > p:last-child')===ownProse));
 await nav(D,'nation');const otherProse=await text(D,'.overview > p:last-child');
 check('another nation has its own currency story',otherProse!==ownProse&&/Notelander Crown/.test(otherProse));

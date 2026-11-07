@@ -29,7 +29,8 @@
                             rewritten only when what other regions read from it changes (spaceLayout: not the
                             running figures re-stamped at every save), or every SPACE_BEAT while playing.
      boards/<reg>/posts/<id> {a:<author uid>, t:<server time>, x:<text>}, with limits/<uid> {p} pacing posts; one an
-                            admin signed as the Edictum team adds {of: true, nm, rl?, st: 'admin'}.
+                            admin signed as the Edictum team adds {of: true, nm, rl?, st: 'admin'}; a reply adds
+                            re:<the id of the message it answers>, and reactions are rv {<uid>: kind} (civic only).
      devnews/<id>           a development news post (admins write it in the portal), devnews/<id>/posts/<id>
                             its comments (through civic()), devnews/<id>/rd/<uid> its readers (newsRead, with
                             the count in devnewsStat/<id>.n), devnewsImg/<id> its images, and devnewsMeta/latest
@@ -231,6 +232,9 @@
     if (col === 'presence') return { t: millis(d.t) || 0 };
     if (col === 'boards') {
       var post = { id: p[3], a: str(d.a, 128), t: millis(d.t) || Date.now(), x: str(d.x, 500), r: p[1] };
+      if (typeof d.re === 'string' && /^[A-Za-z0-9]{20}$/.test(d.re)) post.re = d.re;
+      // the reactions: {uid: kind}, at most RMB_RV_MAX (functions/board.js) of the known kinds
+      if (isObj(d.rv)) { var rv = {}, k = 0; for (var u in d.rv) { if (k >= 500) break; if (Object.prototype.hasOwnProperty.call(d.rv, u) && /^[\w-]{1,128}$/.test(u) && RMB_RX.indexOf(d.rv[u]) >= 0) { rv[u] = d.rv[u]; k++; } } if (k) post.rv = rv; }
       // a message an admin signed as the Edictum team: the name and role they chose
       return d.of === true ? Object.assign(post, { of: true, nm: str(d.nm, 80), rl: str(d.rl, 60) }) : post;
     }
@@ -472,13 +476,14 @@
   }
   /* a post on a region's board, paced by limits/<uid> (see firestore.rules); an admin's signed by the Edictum team
      (o: {as: 'team', nm, rl}) may go to any region, observed or not, and the server checks they are an admin */
+  var RMB_RX = ['up', 'heart', 'party', 'think'];
   function post(reg, text, o) {
     if (A.frozen) return hang();
-    var team = isObj(o) && o.as === 'team';
+    var team = isObj(o) && o.as === 'team', re = isObj(o) && typeof o.re === 'string' && /^[A-Za-z0-9]{20}$/.test(o.re) ? o.re : '';
     if (observing() && !team) return Promise.reject(readOnly());
     var u = A.auth.currentUser;
     if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
-    return call('civic', Object.assign({ op: 'topic', reg: str(reg,40), text: String(text || '') }, team ? { as: 'team', nm: str(o.nm, 80), rl: str(o.rl, 60) } : {})).then(function(r) { return r.id; });
+    return call('civic', Object.assign({ op: 'topic', reg: str(reg,40), text: String(text || '') }, team ? { as: 'team', nm: str(o.nm, 80), rl: str(o.rl, 60) } : {}, re ? { re: re } : {})).then(function(r) { return r.id; });
   }
   function collectionGroupApi(name) { return Object.freeze(queryApi(A.fs.collectionGroup(String(name)))); }
   /* ───────── support tickets ───────── */

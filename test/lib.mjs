@@ -105,6 +105,9 @@ export async function settle(p){
 // Founding opens the map to claim the first land; these suites start from the Nation page, as before.
 export async function establish(p){await p.evaluate(()=>{if(!G.S.nation?.onb)return;const n=G.clone(G.S.nation);delete n.onb;G.commit(n);G.PG.saveSoon();G.render();});if(await p.evaluate(()=>G.S.view==='map'))await nav(p,'nation');}
 export const nav = async (p, v) => { await p.evaluate(v => document.querySelector(`.nav [data-v="${v}"]`).click(), v); await sleep(250); };
+/* the Region page opens on its Overview: a test that clicks a nation in the table, or posts on the board, opens that tab
+   first (from anywhere: it opens the Region page when it is not open) */
+export const regionTab = async (p, t = 'nations') => { if (!(await p.$('#rgn-tab-' + t))) await nav(p, 'region'); await p.click('#rgn-tab-' + t); await sleep(120); };
 /* Customise shows one section at a time: open one by its key (t e a y v b s z c), through its address */
 const CZ_SLUGS = { t: 'epithet', e: 'flag', a: 'arms', y: 'symbols', v: 'provinces', b: 'banner', s: 'decrees', z: 'finery', c: 'currency', l: 'stationery' };
 export async function czSection(p, k) {

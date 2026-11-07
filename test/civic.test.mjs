@@ -296,6 +296,37 @@ test('Region message board: an admin posts on any region’s board as the Edictu
   const pd=(await db.doc('boards/meridian/posts/'+p.id).get()).data();assert.equal(pd.a,r.uid);assert.equal(pd.of,undefined);assert.equal(pd.nm,undefined);assert.equal(pd.st,undefined);
 });
 
+test('Region message board: replies stay one level deep on the same board; a nation has one reaction a message, and a second click takes it back',async()=>{
+  const a=await player(true),b=await player(true),c=await player(true),g=await player(),far=await player(true,false,'frostmarch');
+  const top=await civic(a,{op:'topic',text:'A question for the region'});
+  const re=await civic(b,{op:'topic',text:'An answer',re:top.id});
+  const rd=(await db.doc('boards/meridian/posts/'+re.id).get()).data();assert.equal(rd.re,top.id);assert.equal(rd.a,b.uid);assert.equal(rd.x,'An answer');
+  // not to a reply, not to a message that is gone, not across regions: a refused reply leaves no pacing behind
+  await rejects(civic(c,{op:'topic',text:'Deeper still',re:re.id}),'rmb_reply_missing');
+  await rejects(civic(c,{op:'topic',text:'To nothing',re:'A'.repeat(20)}),'rmb_reply_missing');
+  await assert.rejects(civic(c,{op:'topic',text:'A bad id',re:'short'}),e=>e.status==='INVALID_ARGUMENT');
+  await rejects(civic(far,{op:'topic',text:'From the Frostmarch',re:top.id}),'rmb_reply_missing');
+  const ok=await civic(c,{op:'topic',text:'A second answer',re:top.id});assert.equal((await db.doc('boards/meridian/posts/'+ok.id).get()).get('re'),top.id);
+  // reactions: a guest nation too; another kind replaces the first, the same kind again takes it back
+  assert.deepEqual(await civic(g,{op:'topicReact',post:top.id,e:'heart'}),{e:'heart'});
+  assert.deepEqual(await civic(b,{op:'topicReact',post:top.id,e:'up'}),{e:'up'});
+  assert.deepEqual((await db.doc('boards/meridian/posts/'+top.id).get()).get('rv'),{[g.uid]:'heart',[b.uid]:'up'});
+  assert.deepEqual(await civic(b,{op:'topicReact',post:top.id,e:'party'}),{e:'party'});
+  assert.deepEqual(await civic(g,{op:'topicReact',post:top.id,e:'heart'}),{e:''});
+  assert.deepEqual((await db.doc('boards/meridian/posts/'+top.id).get()).get('rv'),{[b.uid]:'party'});
+  await civic(g,{op:'topicReact',post:re.id,e:'think'});
+  assert.deepEqual((await db.doc('boards/meridian/posts/'+re.id).get()).get('rv'),{[g.uid]:'think'});
+  await assert.rejects(civic(b,{op:'topicReact',post:top.id,e:'angry'}),e=>e.status==='INVALID_ARGUMENT');
+  await rejects(civic(far,{op:'topicReact',post:top.id,e:'up'}),'rmb_missing');
+  await assert.rejects(civic(far,{op:'topicReact',reg:'meridian',post:top.id,e:'up'}),e=>e.status==='PERMISSION_DENIED');
+  await db.doc('mod/'+c.uid).set({hidden:true,t:Date.now()});await rejects(civic(c,{op:'topicReact',post:top.id,e:'up'}),'moderated');
+  // a closed account takes its reactions with it
+  await civic(g,{op:'topicReact',post:top.id,e:'up'});
+  await db.doc('nations/'+g.uid).delete();await account(g,{op:'close'});
+  assert.deepEqual((await db.doc('boards/meridian/posts/'+top.id).get()).get('rv'),{[b.uid]:'party'});
+  assert.equal((await db.doc('boards/meridian/posts/'+re.id).get()).get('rv.'+g.uid),undefined);
+});
+
 test('A new record starts no larger than a new nation could have grown, the account\'s last save, or the guest it was carried from',async()=>{
   const save=(p,pop,{rev=0,name='Freshland',...extra}={})=>civic(p,{op:'authorizeSave',record:{reg:'meridian',name,pop,army:1,cl:0,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name,pop})},rev,...extra});
   const big=async(p,ck)=>{await db.doc('nations/'+p.uid).update({pop:900,ts:new Date()});assert.ok((await save(p,900,{rev:1,name:p.uid,...(ck?{ck}:{})})).permit);};

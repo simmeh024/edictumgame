@@ -1,14 +1,14 @@
 // Quality-of-life fixes: the region table sorts, the board and happenings page back, the message list finds a nation,
 // closing an edict keeps the place in the list, the peep limit says when it ends, a nation's link copies, the news
 // editor asks for a link in the page and counts poll answers, and a toast clears the map's phone sheet (emulators).
-import { OUT, check, finish, sleep, until, player, open, found, nav, text, register, setClaims, ready, clearEmulators } from './lib.mjs';
+import { OUT, check, finish, sleep, until, player, open, found, nav, text, register, setClaims, ready, clearEmulators, regionTab } from './lib.mjs';
 await clearEmulators();
 const A = await player('qol', { vp: { width: 1280, height: 800 } });
 const uidA = await open(A); await found(A, 'Tidyland');
 await A.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
 // 1. the region table sorts by the column clicked, and back again
-await nav(A, 'region');
+await nav(A, 'region'); await regionTab(A);
 await A.waitForSelector('[data-act="reg-sort"][data-k="name"]');
 const names = () => A.$$eval('.tbl tbody tr .nm-main', r => r.map(x => x.textContent.trim()));
 check('the region table starts largest population first', await A.$eval('th[aria-sort="descending"] [data-k="pop"]', () => true).catch(() => false));
@@ -24,10 +24,10 @@ check('and a second click Z to A', Z[0] === N[N.length - 1] && await A.$eval('th
 const posts = () => A.evaluate(uid => { const t = Date.now(); G.S.rmb[uid] = { posts: Array.from({ length: 70 }, (_, i) => ({ id: 'q' + i, t: t - i * 60000, x: 'Post number ' + i })) }; G.render(); }, uidA);
 await A.evaluate(() => { const n = G.clone(G.S.nation), t = Date.now(); for (let i = 0; i < 40; i++) n.log.push({ k: 'flag', t: t - i * 1000 }); G.commit(n); G.render(); });
 check('the board shows 50 posts with a way to older ones', await until(async () => { await posts(); return (await A.$$('.posts .post')).length === 50 && !!await A.$('[data-act="rmb-more"]'); }));
-await A.click('[data-act="rmb-more"]');
+await regionTab(A, 'board'); await A.click('[data-act="rmb-more"]');
 check('and then all 70', await until(async () => { await posts(); return (await A.$$('.posts .post')).length === 70 && !await A.$('[data-act="rmb-more"]'); }));
 check('happenings stop at 30 with a way to older ones', (await A.$$('.haps li')).length === 30 && !!await A.$('[data-act="hap-more"]'));
-await A.click('[data-act="hap-more"]');
+await regionTab(A, 'happenings'); await A.click('[data-act="hap-more"]');
 check('and then show more', (await A.$$('.haps li')).length > 30);
 
 // 9. a nation's page copies its link

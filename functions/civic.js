@@ -6,7 +6,7 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, teamMark } from './board.js';
+import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
 import { pace, ipRule } from './pace.js';
 
@@ -436,7 +436,7 @@ async function newsTally(db, who, d, kind) {
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'resign', 'rejoin']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
-  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'state', ...ASSEMBLY_ACTS]);
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
@@ -445,7 +445,8 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   const d = req.data && typeof req.data === 'object' ? req.data : {}, uid = req.auth.uid, op = typeof d.op === 'string' ? d.op : '';
   if (!CIVIC_OPS.has(op) && !isAllianceOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
   // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
-  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : [])]);
+  // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
+  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' ? [['cr:' + uid, 20, 1 / 4]] : [])]);
   const db = getFirestore(), who = await identity(uid);
   if (d.op === 'authorizeSave') return permit(db, who, d);
   if (d.op === 'carryKey') return noteCarryKey(db, who, d);
@@ -460,9 +461,11 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'cbDelete') return cbDelete(db, who, d, regions);
   if (d.op === 'cbMod') return cbMod(db, who, d, regions);
   if (d.op === 'cbPost') return cbPost(db, who, d, regions);
+  if (d.op === 'topicReact') return rmbReact(db, who, d);
   if (isAllianceOp(d.op)) return alliance(db, who, d);
   /* a message on a region's board: a nation on its own region's, or an admin, as the Edictum team (board.js teamMark),
-     on any region's (from its region page, observing it or not), unpaced */
+     on any region's (from its region page, observing it or not), unpaced. With re, it replies to a message on the same
+     board that is not itself a reply (board.js rmbParent) */
   if (d.op === 'topic') return db.runTransaction(async tx => {
     const team = asTeam(who, d), e = await eligibility(tx, who, team ? TEAM_OK : {}), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
     const reg = team ? (typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '') : e.n.reg;
@@ -471,8 +474,9 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     const x = text(d.text, 400), now = Date.now();
     if (!x) throw new HttpsError('invalid-argument', 'Write a message first.');
     if (!team && s.exists && now - s.get('p').toMillis() < 20000) throw new HttpsError('resource-exhausted', 'Wait 20 seconds between community posts.');
+    const re = d.re ? await rmbParent(tx, db, reg, d.re) : '';
     const ref = db.collection('boards/' + reg + '/posts').doc();
-    tx.create(ref, { a: who.uid, t: FieldValue.serverTimestamp(), x, ...(team ? teamMark(d) : {}) });
+    tx.create(ref, { a: who.uid, t: FieldValue.serverTimestamp(), x, ...(re ? { re } : {}), ...(team ? teamMark(d) : {}) });
     tx.set(limit, { p: FieldValue.serverTimestamp() });
     return { id: ref.id };
   });
