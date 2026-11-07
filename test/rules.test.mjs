@@ -395,6 +395,7 @@ test('a player sends support tickets, at most one a minute, and reads only their
   await assertFails(ticket(db, 'dave', { x: 'x'.repeat(2001) }));
   await assertFails(ticket(db, 'dave', { st: 'closed' }));
   await assertFails(ticket(db, 'dave', { reply: 'Fixed it myself' }));
+  await assertFails(ticket(db, 'dave', { m: [{ a: 's', x: 'Fixed', t: 1 }] }));         // nor start a conversation
   await assertFails(ticket(db, 'dave', { email: 'x'.repeat(201) }));
   await assertFails(ticket(db, 'dave', { reg: 'atlantis' }));
   await assertFails(ticket(anon(), 'dave'));
@@ -407,7 +408,9 @@ test('a player sends support tickets, at most one a minute, and reads only their
   await assertFails(as('alice').collection('support').where('by', '==', 'dave').get());   // nobody else reads them
   await assertFails(as('alice').collection('support').get());
   await assertFails(anon().doc(mine.docs[0].ref.path).get());
-  await assertFails(db.doc(mine.docs[0].ref.path).update({ st: 'closed' }));              // only admins close them
+  await assertFails(db.doc(mine.docs[0].ref.path).update({ st: 'closed' }));              // closing, and writing back,
+  await assertFails(db.doc(mine.docs[0].ref.path).update({ m: [{ a: 's', x: 'Fixed', t: Date.now() }] })); // go through
+  await assertFails(db.doc(mine.docs[0].ref.path).update({ w: 'p', pc: 0 }));               // functions/support.js
 });
 
 test('admins answer and close support tickets, with an expiry; players delete their own', async () => {

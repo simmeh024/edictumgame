@@ -4610,6 +4610,27 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .sup-a{padding:8px 10px;border-left:3px solid var(--accent);background:var(--sheet-2)}
 .sup-a .lbl-h{margin:0 0 4px}
 .sup-a p:last-child{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+/* a support ticket's conversation: the player's messages on the left rule, the team's in the accent */
+.sup-th{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px}
+.sup-m{padding:6px 10px;border-left:3px solid var(--rule-2);background:var(--sheet-2);border-radius:0 3px 3px 0}
+.sup-m.sup-team{border-left-color:var(--accent)}
+.sup-m.sup-new{box-shadow:inset 0 0 0 1px var(--accent)}
+.sup-who{margin:0 0 2px;font-size:12.5px;color:var(--ink-2)}
+.sup-who b{color:var(--ink);font-weight:600}
+.sup-x{margin:0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.chip.sup-new-c{border-color:var(--accent);color:var(--accent);padding:2px 5px}
+.chip.sup-c-p{border-color:var(--accent);color:var(--accent)}
+.chip.sup-c-s{border-color:var(--rule-2)}
+.chip.sup-c-x{opacity:.8}
+.sup-more{margin:0 0 8px}
+.sup-more>summary{cursor:pointer;font-size:13.5px;color:var(--ink-2);margin-bottom:6px}
+.sup-in{display:block;width:100%;box-sizing:border-box;resize:vertical}
+.sup-t .row{margin-top:8px;gap:8px}
+.sup-foot{margin:8px 0 0;font-size:13.5px;color:var(--ink-2)}
+.sup-foot .linkish{font-weight:500;color:var(--ink-2)}
+.admh-when{margin:0 0 8px}
+.admh-keys{margin:4px 0 0;font-size:12px}
+@media (hover:none){.admh-keys{display:none}}
 .side-legal{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
 .side-legal a{color:inherit}
 .found-legal a{color:inherit}
@@ -41819,8 +41840,10 @@ function admLoad(force){
     S.db.collection('summaries').orderBy('pop','desc').limit(10).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null),
     S.db.collection('reports').orderBy('t','desc').limit(100).get().then(qs=>qs.docs.map(d=>{const x=d.data()||{};return Object.assign({},x,{id:d.id,t:x.t&&typeof x.t.toMillis==='function'?x.t.toMillis():Number(x.t)||0});}),()=>null),
     S.db.collection('bans').orderBy('t','desc').limit(200).get().then(qs=>qs.docs.map(d=>Object.assign({id:d.id},d.data())),()=>null),
-    c('support',[['st','==','open']])
-  ]).then(([all,active,week,today,live,space,regs,top,reports,bans,help])=>{
+    c('support',[['st','==','open']]),c('support',[['w','==','p']])
+  ]).then(([all,active,week,today,live,space,regs,top,reports,bans,open,waiting])=>{
+    /* help queries to answer: the open tickets, less those waiting for the player (functions/support.js keeps w only on open ones) */
+    const help=open==null?null:Math.max(0,open-(waiting||0));
     /* active in 250 days: the regions' counts, which count a holiday as activity */
     if(regs.every(r=>r[0]!=null))active=regs.reduce((t,r)=>t+r[0],0);
     ADM.d={all,active,week,today,live,space,top,reports,bans,help,regs:REGIONS.map((R,i)=>({R,active:regs[i][0],today:regs[i][1],posts:regs[i][2]}))};
@@ -41849,7 +41872,7 @@ function adminView(v='admin'){
       ${kpi(d.all,'nations in all, dormant ones included')}
       ${kpi(d.space,'nations in space (Moon, Mars or the belt)')}
       ${kpi(d.reports?d.reports.length:null,'open reports')}
-      ${kpi(d.help,'open help queries')}
+      ${kpi(d.help,'help queries to answer')}
       ${kpi(BGA.n,'new bug reports')}
     </div>`:''}
     ${v==='admin'||v==='admin-reports'?admReports(d.reports):''}
@@ -42097,7 +42120,7 @@ const ADM_ICONS={
   'admin-health':NAV_SVG('<path d="M12 19.5S3.5 14.8 3.5 9a4.3 4.3 0 0 1 8.5-1.6A4.3 4.3 0 0 1 20.5 9c0 5.8-8.5 10.5-8.5 10.5Z"/><path d="M7 12h2.3l1.4-2.4 2.2 4.6 1.4-2.2H17"/>'),
   'admin-audit':NAV_SVG('<rect x="5" y="4.5" width="14" height="16" rx="1.5"/><path d="M9 3.5h6v3H9Z"/><path d="M8.5 10.5h7M8.5 14h7M8.5 17.5h4"/>')};
 function admShell(v,body){
-  const n=ADMH.d?ADMH.d.open.length:ADM.d&&ADM.d.help;setTimeout(awCount,0);
+  const n=ADMH.d?admhNeeds(ADMH.d):ADM.d&&ADM.d.help;setTimeout(awCount,0);
   const tab=(k,l,count)=>`<a href="#${k}" data-act="adm-tab" data-v="${k}"${v===k?' aria-current="page"':''}><span class="adm-nav-ic">${ADM_ICONS[k]||NAV_IC_DEF}</span><span class="adm-nav-l">${l}</span>${count?` <span class="chip">${count}</span>`:''}</a>`;
   const group=(label,links)=>`<section class="adm-nav-group" aria-label="${label}"><h2 class="adm-nav-label">${label}</h2>${links}</section>`;
   return `<div class="adm">
@@ -42263,7 +42286,7 @@ function adminReports(p){
   const part=(h,L,f)=>`<p class="hint">${h} (${L.length})</p>${L.length?`<ul class="adm-tl">${L.map(x=>`<li>${f(x)}</li>`).join('')}</ul>`:''}`;
   return part('Reports against this player',R.against||[],x=>`${why(x)} · by <button class="linkish" data-act="admin-inspect" data-id="${esc(x.by)}">${esc(x.by.slice(0,8))}…</button>`)
     +part('Reports filed by this player',R.by||[],x=>`${why(x)} · about ${esc(x.name||x.target)}`)
-    +part('Support tickets',R.tickets||[],x=>`<time>${esc(adminTime(x.t))}</time>${esc(x.topic)} · ${esc(x.st)}${x.x?': '+esc(x.x):''}`)
+    +part('Support tickets',R.tickets||[],x=>`<time>${esc(adminTime(x.t))}</time>${esc(x.topic)} · ${esc(x.st)}${x.n?` · ${x.n} ${x.n===1?'reply':'replies'}`:''}${x.x?': '+esc(x.x):''}`)
     +part('Bug reports',R.bugs||[],x=>`<time>${esc(adminTime(x.t))}</time>${esc(x.ti)} · ${esc(x.st)}`);
 }
 function adminTimeline(p){
@@ -42651,7 +42674,7 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
 const AF={span:'h6',reg:'',groups:[],d:null,busy:false,err:'',auto:true,timer:0};
 const AF_GROUPS=[['found','Foundings'],['war','War and peace'],['dip','Diplomacy and trade'],['board','Board posts'],['shop','Purchases'],['recruit','Recruits'],['mod','Reports, help and staff']];
 const AF_SPANS=[['h1','The last hour'],['h6','The last 6 hours'],['d1','The last 24 hours'],['d7','The last 7 days']];
-const AF_ICON={found:'🏛️',war:'⚔️',conq:'🏴',peace:'🕊️',cede:'🗺️',trade:'🤝',shared:'📜',aladmit:'🛡️',alremove:'🚪',buy:'💰',report:'🚩',ticket:'❓',bug:'🐞',admin:'🔧',topic:'📌',reply:'💬',post:'💬',comment:'📰',recruit:'🎟️'};
+const AF_ICON={found:'🏛️',war:'⚔️',conq:'🏴',peace:'🕊️',cede:'🗺️',trade:'🤝',shared:'📜',aladmit:'🛡️',alremove:'🚪',buy:'💰',report:'🚩',ticket:'❓',ticketr:'❓',bug:'🐞',admin:'🔧',topic:'📌',reply:'💬',post:'💬',comment:'📰',recruit:'🎟️'};
 async function afLoad(refresh){
   if(AF.busy)return;AF.busy=true;AF.err='';if(!refresh)render();
   try{AF.d=await adminRequest({op:'feed',span:AF.span,reg:AF.reg,groups:AF.groups,refresh:!!refresh});}
@@ -42671,7 +42694,7 @@ function afLine(e){
     case 'aladmit':return `${N} admitted ${T} to its alliance`;case 'alremove':return `${N} removed ${T} from its alliance`;
     case 'buy':return e.gift&&e.to?`${N} was given ${esc(ADM_PRODUCT[e.x]||e.x||'something')} by ${T}`:`${N} bought ${esc(ADM_PRODUCT[e.x]||e.x||'something')}`;
     case 'report':return `${N} was reported for ${esc(e.x||'something')}${e.by?' by '+afWho(e.by,e.byName):''}`;
-    case 'ticket':return `${N} asked for help${e.x?': '+esc(e.x):''}`;case 'bug':return `${N} reported a bug${q(e.x)}`;
+    case 'ticket':return `${N} asked for help${e.x?': '+esc(e.x):''}`;case 'ticketr':return `${N} wrote back on a help query${q(e.x)}`;case 'bug':return `${N} reported a bug${q(e.x)}`;
     case 'admin':{/* the audit log also keeps a player's own step (a forced rename done), and staff actions on a region */
       if(e.by&&e.by===e.uid)return `${N}: ${esc(e.x)}`;
       const on=REG_BY_ID[e.uid]?esc(regName(e.uid)):e.uid&&e.uid!=='alerts'?N:'';
@@ -42793,95 +42816,198 @@ go=(f=>function(v){
 
 /* ───────── support tickets ─────────
    The Help page (and the founding page's help) opens a support ticket: src/shim.js shows the form and
-   sends it. Below it the player sees their own tickets and the team's answers. Admins answer them on the
-   Help queries page of the admin portal; an answer closes the ticket, and Firestore deletes closed
-   tickets 90 days later. */
-const SUP={list:null,busy:false,err:''};
+   sends it. A ticket is a conversation (functions/support.js): below the form the player sees their own
+   tickets, each with every message from them and from the team, writes back while it is open and closes it
+   when they need nothing more; writing in a ticket closed in the last 14 days opens it again. Admins reply on
+   the Help queries page of the admin portal: a reply keeps the ticket open for the player to write back, and
+   Send and close ends it. Firestore deletes closed tickets 90 days later. A word from the team that the
+   player has not read puts a number on the Help menu item (supUnread) and a toast on the next page load. */
+const SUP={list:null,busy:false,err:'',dr:{},msg:{},open:null,sending:null,timer:0};
 const SUP_TOPIC={bug:'Something is broken',account:'Account or signing in',play:'A question about playing',other:'Something else'};
-function supApi(){return Promise.resolve(window.claude&&window.claude.use('support'));}
-function supReset(){SUP.list=null;SUP.err='';}
+const SUP_IN_A_ROW=3;
+/* use() answers with a promise (src/stub.js waits for Firebase): the menu, which counts every second, keeps the API */
+let SUP_API=null;
+function supApi(){return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('support'):null).then(a=>{if(a)SUP_API=a;return a;});}
+function supUnread(){try{return SUP_API&&typeof SUP_API.unread==='function'?SUP_API.unread()||0:0;}catch(e){return 0;}}
+supApi().catch(()=>{});
+function supReset(){SUP.list=null;SUP.err='';SUP.msg={};SUP.open=null;}
 function supLoad(){
-  if(SUP.busy)return;SUP.busy=true;SUP.err='';
-  supApi().then(a=>a?a.mine():[]).then(list=>{SUP.list=Array.isArray(list)?list:[];SUP.busy=false;supRedraw();},
+  if(SUP.busy)return;SUP.busy=true;SUP.err='';clearTimeout(SUP.timer);
+  supApi().then(a=>a?a.mine():[]).then(list=>{SUP.list=Array.isArray(list)?list:[];SUP.busy=false;supRedraw();supPoll();},
     ()=>{SUP.busy=false;SUP.err='Your tickets could not be loaded.';supRedraw();});
 }
-function supRedraw(){const el=document.getElementById('sup-box');if(el)el.outerHTML=supportBox();}
+/* while a ticket waits for the team, the page looks again every minute, so their reply shows without a reload; never
+   while the player is writing in the box */
+function supPoll(){
+  clearTimeout(SUP.timer);
+  if(!(SUP.list||[]).some(t=>t.st==='open'&&t.w==='s'))return;
+  SUP.timer=setTimeout(()=>{
+    if(!document.getElementById('sup-box')||document.hidden)return;
+    const ae=document.activeElement;if(ae&&ae.closest&&ae.closest('#sup-box')&&ae.matches('textarea')){supPoll();return;}
+    supLoad();},60000);
+}
+function supRedraw(focus){
+  const el=document.getElementById('sup-box');if(!el)return;
+  el.outerHTML=supportBox();
+  if(focus){const f=document.getElementById(focus);if(f)try{f.focus({preventScroll:false});}catch(e){}}
+}
+/* one conversation, oldest first: me = 'p' for the player's own page, 's' for the admin portal; later than `since`
+   (a time) is marked new; on the admin page, `keep` messages show and the earlier ones fold away */
+function supThread(t,me,since,keep){
+  const L=t.msgs||[],cut=keep&&L.length>keep+1?L.length-keep:0;
+  const who=x=>me==='p'?(x.a==='p'?'You':'The Edictum team'):(x.a==='p'?esc(t.name||'The player'):'The team');
+  const one=x=>{const fresh=since&&x.a!==me&&x.t>since;
+    return `<li class="sup-m ${x.a==='s'?'sup-team':'sup-pl'}${fresh?' sup-new':''}"><p class="sup-who"><b>${who(x)}</b> · <time>${esc(rel(x.t))}</time>${fresh?' <span class="chip sup-new-c">New</span>':''}</p><p class="sup-x">${esc(x.x)}</p></li>`;};
+  return (cut?`<details class="sup-more"><summary>${cut} earlier ${cut===1?'message':'messages'}</summary><ol class="sup-th">${L.slice(0,cut).map(one).join('')}</ol></details>`:'')
+    +`<ol class="sup-th">${L.slice(cut).map(one).join('')}</ol>`;
+}
+function supState(t){return t.st==='closed'?['Closed','sup-c-x']:t.w==='p'?['The team replied','sup-c-p']:['Waiting for the team','sup-c-s'];}
+function supOrder(L){const r=t=>t.st==='open'?(t.w==='p'?0:1):2;return L.slice().sort((a,b)=>r(a)-r(b)||b.lt-a.lt);}
+function supItem(t){
+  const id=esc(t.id),[st,cls]=supState(t),msg=SUP.msg[t.id],busy=SUP.sending===t.id,box=(label,btns)=>`
+    <label class="admh-lbl" for="sup-r-${id}">${label}</label>
+    <textarea class="input sup-in" id="sup-r-${id}" data-id="${id}" rows="3" maxlength="2000"${busy?' disabled':''}>${esc(SUP.dr[t.id]||'')}</textarea>
+    <div class="row">${btns}</div>`;
+  let foot='';
+  if(t.st==='open'){
+    foot=t.pc>=SUP_IN_A_ROW?`<p class="hint">You have written ${SUP_IN_A_ROW} times in a row. You can write again once the team has replied.</p>`
+      :box(t.w==='p'?'Write back to the team':'Add something to your ticket',`<button type="button" class="btn small" data-act="sup-send" data-id="${id}"${busy?' disabled':''}>${busy?'Sending…':'Send reply'}</button>`);
+    foot+=`<p class="sup-foot">${t.w==='s'?'Waiting for the team. You are told when they reply. ':''}<button type="button" class="linkish" data-act="sup-close" data-id="${id}"${busy?' disabled':''}>My question is settled: close this ticket</button></p>`;
+  }else{
+    foot=`<p class="hint">${t.closedBy==='player'?'You closed this ticket':t.msgs.some(x=>x.a==='s')?'The team closed this ticket':'The team closed this ticket without a written reply'}${t.ct?' '+esc(rel(t.ct)):''}.</p>`;
+    if(t.reopen)foot+=SUP.open===t.id?box('Write to the team: this opens the ticket again',`<button type="button" class="btn small" data-act="sup-send" data-id="${id}"${busy?' disabled':''}>${busy?'Sending…':'Send and reopen'}</button><button type="button" class="btn ghost small" data-act="sup-more-no" data-id="${id}">Cancel</button>`)
+      :`<p class="sup-foot"><button type="button" class="linkish" data-act="sup-more" data-id="${id}">Still need help? Write back to open it again</button></p>`;
+  }
+  const thread=supThread(t,'p',t.fresh);
+  return `<li class="sup-t" id="sup-t-${id}"><p class="sup-h"><span class="chip ${cls}">${st}</span> <b>${esc(SUP_TOPIC[t.topic]||'Support')}</b> · opened ${esc(rel(t.t))}</p>
+    ${t.st==='closed'&&!t.fresh&&SUP.open!==t.id?`<details class="sup-more"><summary>The conversation (${t.msgs.length} ${t.msgs.length===1?'message':'messages'})</summary>${thread}</details>`:thread}
+    ${foot}${msg?`<p class="${msg[1]?'err':'hint'}" id="sup-m-${id}" role="status" tabindex="-1">${esc(msg[0])}</p>`:''}</li>`;
+}
 function supportBox(){
-  const off=S.mode==='local',L=SUP.list||[];
+  const off=S.mode==='local',L=supOrder(SUP.list||[]);
   if(!off&&!SUP.list&&!SUP.busy&&!SUP.err)setTimeout(supLoad,0);
-  const state=t=>t.st==='open'?'Open':t.reply?'Answered':'Closed';
-  const item=t=>`<li class="sup-t"><p class="sup-h"><span class="chip">${state(t)}</span> <b>${esc(SUP_TOPIC[t.topic]||'Support')}</b> · ${esc(rel(t.t))}</p>
-    <blockquote class="sup-q">${esc(t.x)}</blockquote>
-    ${t.reply?`<div class="sup-a"><p class="lbl-h">The Edictum team answered${t.ct?' '+esc(rel(t.ct)):''}</p><p>${esc(t.reply)}</p></div>`:t.st==='closed'?'<p class="hint">Closed without a written answer.</p>':'<p class="hint">Waiting for an answer. It will appear here, and you are told when it does.</p>'}</li>`;
   return `<section class="sup" id="sup-box" aria-labelledby="sup-h"><h2 class="h2" id="sup-h">Support</h2>
-    <p>Stuck, ${S.nation?'':'found a bug, '}or have a question this guide does not answer? Create a support ticket and the game’s team will answer it here.${S.nation?' Found a bug? <button type="button" class="linkish" data-act="go" data-v="bugs">Report it on the Report a bug page</button>, with a screenshot if you like.':''}</p>
+    <p>Stuck, ${S.nation?'':'found a bug, '}or have a question this guide does not answer? Create a support ticket. The game’s team replies here, and you can write back until your question is settled.${S.nation?' Found a bug? <button type="button" class="linkish" data-act="go" data-v="bugs">Report it on the Report a bug page</button>, with a screenshot if you like.':''}</p>
     ${off?`<p class="hint">Support tickets need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>`:`<div class="row"><button type="button" class="btn" data-act="sup-new">Create a support ticket</button></div>
-    ${SUP.err?`<p class="err">${esc(SUP.err)} <button type="button" class="linkish" data-act="sup-retry">Try again</button></p>`:!SUP.list?'<p class="hint">Loading your tickets…</p>':!L.length?'':`<h3 class="help-h3">Your tickets</h3><ul class="sup-list">${L.map(item).join('')}</ul><p class="hint">Closed tickets are deleted 90 days after they are closed.</p>`}`}
+    ${SUP.err?`<p class="err">${esc(SUP.err)} <button type="button" class="linkish" data-act="sup-retry">Try again</button></p>`:!SUP.list?'<p class="hint">Loading your tickets…</p>':!L.length?'':`<h3 class="help-h3">Your tickets</h3><ul class="sup-list">${L.map(supItem).join('')}</ul><p class="hint">Closed tickets are deleted 90 days after they are closed. For 14 days you can write in one to open it again.</p>`}`}
   </section>`;
 }
+async function supSend(id){
+  const box=document.getElementById('sup-r-'+id);if(box)SUP.dr[id]=box.value;
+  const x=(SUP.dr[id]||'').trim();
+  if(!x){SUP.msg[id]=['Write your reply first.',1];supRedraw('sup-r-'+id);return;}
+  if(SUP.sending)return;
+  SUP.sending=id;SUP.msg[id]=null;supRedraw();
+  try{
+    const api=await supApi();if(!api)throw new Error('offline');
+    const r=await api.reply(id,x);
+    delete SUP.dr[id];SUP.open=null;SUP.msg[id]=[r&&r.reopened?'Sent. The ticket is open again, and the team will reply here.':'Sent. The team will reply here.',0];
+  }catch(e){SUP.msg[id]=[e&&/^support_/.test(e.code||'')&&e.message?e.message:'Your reply could not be sent. Try again in a moment.',1];}
+  SUP.sending=null;
+  await supRefresh();supRedraw('sup-m-'+id);
+}
+async function supCloseMine(id){
+  if(SUP.sending)return;
+  SUP.sending=id;supRedraw();
+  try{const api=await supApi();if(!api)throw new Error('offline');await api.close(id);SUP.msg[id]=['Closed. If you need more help with it in the next 14 days, write back here and it opens again.',0];}
+  catch(e){SUP.msg[id]=[e&&/^support_/.test(e.code||'')&&e.message?e.message:'The ticket could not be closed. Try again in a moment.',1];}
+  SUP.sending=null;
+  await supRefresh();supRedraw('sup-m-'+id);
+}
+/* reads the tickets again, keeping the page's messages and drafts */
+function supRefresh(){
+  return supApi().then(a=>a?a.mine():null).then(list=>{if(Array.isArray(list)){SUP.list=list;SUP.err='';}supPoll();},()=>{});
+}
 
-/* the admin portal's Help queries page: open tickets oldest first, each with a box for the answer
-   (kept in ADMH.dr while the page redraws), and the latest closed ones */
-const ADMH={busy:false,err:'',d:null,act:'',ask:null,dr:{},seen:0};
+/* the admin portal's Help queries page: the tickets waiting for the team, oldest wait first, each with a box for the
+   reply (kept in ADMH.dr while the page redraws); those waiting for the player; and the latest closed ones */
+const ADMH={busy:false,err:'',d:null,act:'',ask:null,dr:{},seen:0,busyId:''};
+function admhNeeds(d){return d?d.open.filter(t=>t.w!=='p').length:0;}
 function admhLoad(){
   if(ADMH.busy)return;ADMH.busy=true;ADMH.err='';
-  supApi().then(a=>{if(!a)throw new Error('offline');return a.list();}).then(d=>{ADMH.d=d;ADMH.busy=false;if(ADM.d)ADM.d.help=d.open.length;if(S.view==='admin-help')render();},
+  supApi().then(a=>{if(!a)throw new Error('offline');return a.list();}).then(d=>{ADMH.d=d;ADMH.busy=false;if(ADM.d)ADM.d.help=admhNeeds(d);if(S.view==='admin-help')render();},
     ()=>{ADMH.busy=false;ADMH.err='The help queries could not be loaded. Try again in a moment.';if(S.view==='admin-help')render();});
 }
 function adminHelpView(){
   const now0=Date.now();if(now0-ADMH.seen>1e4)admhLoad();ADMH.seen=now0;
-  const d=ADMH.d;
+  const d=ADMH.d,need=d?d.open.filter(t=>t.w!=='p').sort((a,b)=>a.lt-b.lt):[],wait=d?d.open.filter(t=>t.w==='p').sort((a,b)=>b.lt-a.lt):[];
   return admShell('admin-help',`
     <p class="eyebrow">Admin portal</p><h1 class="display">Help queries</h1>
-    <p class="lede">Support tickets from players, oldest first. An answer appears on the player’s Help page, and the game tells them it has come. <button type="button" class="linkish" data-act="admh-refresh"${ADMH.busy?' disabled':''}>${ADMH.busy?'Loading…':'Load again'}</button></p>
+    <p class="lede">Support tickets from players. <b>Send reply</b> keeps the ticket open so the player can write back; <b>Send and close</b> ends it. The player reads the conversation on their Help page, and the game tells them when you have written. <button type="button" class="linkish" data-act="admh-refresh"${ADMH.busy?' disabled':''}>${ADMH.busy?'Loading…':'Load again'}</button></p>
     ${ADMH.err?`<p class="err">${esc(ADMH.err)}</p>`:''}
     ${ADMH.act?`<p class="hint" role="status">${esc(ADMH.act)}</p>`:''}
     ${!d?`<p class="hint">${ADMH.busy?'Loading the help queries…':''}</p>`:`
-    <h2 class="h2">Open${d.open.length?` <span class="chip">${d.open.length}</span>`:''}</h2>
-    ${!d.open.length?'<p class="hint">No open help queries. When a player creates a support ticket on the Help page, it appears here.</p>':`<ul class="adm-reps">${d.open.map(admhOpen).join('')}</ul>`}
+    <h2 class="h2">To answer${need.length?` <span class="chip">${need.length}</span>`:''}</h2>
+    ${!need.length?'<p class="hint">No help queries waiting for the team. When a player creates a support ticket on the Help page, or writes back in one, it appears here.</p>':`<ul class="adm-reps">${need.map(admhOpen).join('')}</ul>`}
+    <h2 class="h2">Waiting for the player${wait.length?` <span class="chip">${wait.length}</span>`:''}</h2>
+    ${!wait.length?'<p class="hint">None. Tickets you have replied to without closing wait here until the player writes back.</p>':`<ul class="adm-reps">${wait.map(admhOpen).join('')}</ul>`}
     <h2 class="h2">Recently closed</h2>
-    ${!d.closed.length?'<p class="hint">None yet.</p>':`<ul class="adm-reps">${d.closed.map(admhClosed).join('')}</ul><p class="hint">Closed tickets are deleted automatically 90 days after they were closed.</p>`}`}
+    ${!d.closed.length?'<p class="hint">None yet.</p>':`<ul class="adm-reps">${d.closed.map(admhClosed).join('')}</ul><p class="hint">Closed tickets are deleted automatically 90 days after they were closed. A player can open their own again for 14 days by writing in it.</p>`}`}
   `);
 }
-function admhWho(t){return `<b>${esc(t.name||'No nation yet')}</b>${t.reg?` · ${esc(regName(t.reg))}`:''} · player ID <code>${esc(t.by)}</code>`;}
+function admhWho(t){return `<b>${esc(t.name||'No nation yet')}</b>${t.reg?` · ${esc(regName(t.reg))}`:''} · <button type="button" class="linkish" data-act="admin-inspect" data-id="${esc(t.by)}">player <code>${esc(t.by.slice(0,8))}…</code></button>`;}
+function admhLine(t){
+  const last=t.msgs[t.msgs.length-1],n=t.msgs.length;
+  return `<p class="hint admh-when">Opened ${esc(rel(t.t))} · ${n} ${n===1?'message':'messages'}${n>1?` · last from ${last.a==='p'?'the player':'the team'} ${esc(rel(last.t))}`:''}${t.st==='open'&&t.pc>=SUP_IN_A_ROW?' · the player can write no more until you reply':''}</p>`;
+}
 function admhOpen(t){
-  const id=esc(t.id);
-  return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${esc(SUP_TOPIC[t.topic]||'Support')}</span> ${admhWho(t)} · ${esc(rel(t.t))}</p>
-    <blockquote class="adm-quote">${esc(t.x)}</blockquote>
-    ${t.email?`<p class="hint">Would like the answer by email too: <a href="mailto:${esc(t.email)}?subject=${encodeURIComponent('Your Edictum support ticket')}">${esc(t.email)}</a></p>`:''}
-    <label class="admh-lbl" for="admh-r-${id}">Your answer (the player reads it on their Help page)</label>
-    <textarea class="input admh-in" id="admh-r-${id}" data-id="${id}" rows="4" maxlength="2000">${esc(ADMH.dr[t.id]||'')}</textarea>
-    <div class="row"><button class="btn small" data-act="admh-answer" data-id="${id}">Send answer and close</button><button class="btn ghost small" data-act="admh-close" data-id="${id}">Close without answer</button><button class="btn ghost small adm-danger" data-act="admh-del" data-id="${id}">Delete</button></div>
+  const id=esc(t.id),busy=ADMH.busyId===t.id,dis=busy?' disabled':'',dr=ADMH.dr[t.id]||'',last=[...t.msgs].reverse().find(x=>x.a==='s');
+  const body=dr.trim()||(last?last.x:'');
+  return `<li class="adm-rep admh-t" id="admh-t-${id}"><p class="adm-rep-h"><span class="chip">${esc(SUP_TOPIC[t.topic]||'Support')}</span> ${admhWho(t)}</p>
+    ${admhLine(t)}
+    ${supThread(t,'s',0,6)}
+    ${t.email?`<p class="hint">Would like replies by email too: <a href="mailto:${esc(t.email)}?subject=${encodeURIComponent('Your Edictum support ticket')}${body?'&amp;body='+encodeURIComponent(body.slice(0,1500)):''}">${esc(t.email)}</a>${body?' (the link fills in '+(dr.trim()?'your draft':'your last reply')+')':''}</p>`:''}
+    <label class="admh-lbl" for="admh-r-${id}">Your reply (the player reads it on their Help page and can write back)</label>
+    <textarea class="input admh-in" id="admh-r-${id}" data-id="${id}" rows="4" maxlength="2000"${dis}>${esc(dr)}</textarea>
+    <div class="row"><button class="btn small" data-act="admh-reply" data-id="${id}"${dis}>${busy?'Sending…':'Send reply'}</button><button class="btn ghost small" data-act="admh-answer" data-id="${id}"${dis}>Send and close</button><button class="btn ghost small" data-act="admh-close" data-id="${id}"${dis}>Close without reply</button><button class="btn ghost small adm-danger" data-act="admh-del" data-id="${id}"${dis}>Delete</button></div>
+    <p class="hint admh-keys">Ctrl+Enter sends the reply and keeps the ticket open.</p>
     ${ADMH.ask===t.id?`<div class="adm-ask"><p>Delete this ticket for good? The player no longer sees it either. Meant for spam.</p><div class="row"><button class="btn danger small" data-act="admh-del-yes" data-id="${id}">Yes, delete</button><button class="btn ghost small" data-act="admh-ask-no">Cancel</button></div></div>`:''}</li>`;
 }
 function admhClosed(t){
-  return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${esc(SUP_TOPIC[t.topic]||'Support')}</span> ${admhWho(t)} · asked ${esc(rel(t.t))}${t.ct?` · closed ${esc(rel(t.ct))}`:''}</p>
-    <blockquote class="adm-quote">${esc(t.x)}</blockquote>${t.reply?`<p class="hint">Answered: “${esc(t.reply)}”</p>`:'<p class="hint">Closed without an answer.</p>'}</li>`;
+  const id=esc(t.id),busy=ADMH.busyId===t.id,n=t.msgs.length;
+  return `<li class="adm-rep admh-t" id="admh-t-${id}"><p class="adm-rep-h"><span class="chip">${esc(SUP_TOPIC[t.topic]||'Support')}</span> ${admhWho(t)} · asked ${esc(rel(t.t))}${t.ct?` · closed ${esc(rel(t.ct))} by ${t.closedBy==='player'?'the player':'the team'}`:''}</p>
+    <details class="sup-more"><summary>The conversation (${n} ${n===1?'message':'messages'})${t.msgs.some(x=>x.a==='s')?'':' · no written reply'}</summary>${supThread(t,'s',0,0)}</details>
+    <div class="row"><button class="btn ghost small" data-act="admh-reopen" data-id="${id}"${busy?' disabled':''}>${busy?'Reopening…':'Reopen'}</button></div></li>`;
 }
 async function admhAct(a,id){
-  const api=await supApi();if(!api)return;
+  const api=await supApi();if(!api||ADMH.busyId)return;
   const box=document.getElementById('admh-r-'+id);if(box)ADMH.dr[id]=box.value;
   ADMH.ask=null;
+  const r=(ADMH.dr[id]||'').trim();
+  if(a==='admh-del'){ADMH.ask=id;ADMH.act='';render();return;}
+  if((a==='admh-reply'||a==='admh-answer')&&!r){ADMH.act='Write a reply first, or close the ticket without one.';render();const b=document.getElementById('admh-r-'+id);if(b)b.focus();return;}
+  ADMH.busyId=id;render();
   try{
-    if(a==='admh-answer'){const r=(ADMH.dr[id]||'').trim();if(!r){ADMH.act='Write an answer first, or close the ticket without one.';render();return;}await api.answer(id,r);delete ADMH.dr[id];ADMH.act='The answer was sent and the ticket closed.';}
-    else if(a==='admh-close'){await api.answer(id,'');delete ADMH.dr[id];ADMH.act='The ticket was closed without an answer.';}
-    else if(a==='admh-del'){ADMH.ask=id;ADMH.act='';render();return;}
+    if(a==='admh-reply'){await api.answer(id,r,true);delete ADMH.dr[id];ADMH.act='Your reply was sent. The ticket stays open, waiting for the player.';}
+    else if(a==='admh-answer'){await api.answer(id,r);delete ADMH.dr[id];ADMH.act='Your reply was sent and the ticket closed.';}
+    else if(a==='admh-close'){await api.answer(id,'');delete ADMH.dr[id];ADMH.act='The ticket was closed without a reply.';}
+    else if(a==='admh-reopen'){await api.reopen(id);ADMH.act='The ticket is open again, under To answer.';}
     else if(a==='admh-del-yes'){await api.remove(id);delete ADMH.dr[id];ADMH.act='The ticket was deleted.';}
-  }catch(e){ADMH.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
-  admhLoad();render();
+  }catch(e){ADMH.act='That did not work: '+((e&&e.message)||(e&&e.code)||'unknown error');}
+  ADMH.busyId='';admhLoad();render();
 }
-document.addEventListener('input',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('admh-in'))ADMH.dr[t.dataset.id]=t.value;});
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.classList)return;if(t.classList.contains('admh-in')&&t.dataset.id)ADMH.dr[t.dataset.id]=t.value;else if(t.classList.contains('sup-in'))SUP.dr[t.dataset.id]=t.value;});
+/* Ctrl+Enter (or ⌘+Enter) in a reply box sends it */
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||!(e.ctrlKey||e.metaKey))return;const t=e.target;if(!t||!t.classList)return;
+  if(t.classList.contains('admh-in')&&t.dataset.id&&S.isOwner&&!t.classList.contains('bga-in')){e.preventDefault();admhAct('admh-reply',t.dataset.id);}
+  else if(t.classList.contains('sup-in')){e.preventDefault();supSend(t.dataset.id);}
+});
 document.addEventListener('click',e=>{
-  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act,id=el.dataset.id;
   if(a==='sup-new'){
     supApi().then(api=>{if(!api){toast('Support tickets need a connection to the game.');return;}
-      api.open({name:S.nation?S.nation.name:'',reg:S.nation?REG.id:'',onSent:()=>{supReset();supLoad();}});});
+      api.open({name:S.nation?S.nation.name:'',reg:S.nation?REG.id:'',onSent:()=>{SUP.msg={};supRefresh().then(()=>supRedraw());}});});
     return;
   }
   if(a==='sup-retry'){supReset();supLoad();supRedraw();return;}
+  if(a==='sup-send'){supSend(id);return;}
+  if(a==='sup-close'){supCloseMine(id);return;}
+  if(a==='sup-more'){SUP.open=id;SUP.msg[id]=null;supRedraw('sup-r-'+id);return;}
+  if(a==='sup-more-no'){SUP.open=null;supRedraw();return;}
   if(a==='admh-refresh'){admhLoad();render();return;}
   if(a==='admh-ask-no'){ADMH.ask=null;render();return;}
-  if(/^admh-(answer|close|del|del-yes)$/.test(a)){if(S.isOwner)admhAct(a,el.dataset.id);return;}
+  if(/^admh-(reply|answer|close|reopen|del|del-yes)$/.test(a)){if(S.isOwner)admhAct(a,id);return;}
 });
 
 /* ───────── the passport ─────────
@@ -56018,6 +56144,9 @@ NOTIF_SOURCES.push((n,now)=>{
     txt:`${o.p.of?(o.p.nm||'The Edictum team'):nameOf(o.aid)} replied to your message on the board: “${o.p.x.length>80?o.p.x.slice(0,79)+'…':o.p.x}”`,go:'region'}));
 });
 
+/* a reply from the Edictum team to a support ticket, not yet read on the Help page (src/shim.js, supportCheck) */
+navBadges=(f=>function(){const b=f.apply(this,arguments),k=S.view==='help'?0:supUnread();if(k)(b.help=b.help||[]).push({h:`<span class="badge" aria-hidden="true">${k}</span>`,t:k===1?'a reply from the team':k+' replies from the team'});return b;})(navBadges);
+navSigOf=(f=>function(){return f.apply(this,arguments)+'|sup'+(S.view==='help'?0:supUnread());})(navSigOf);
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
