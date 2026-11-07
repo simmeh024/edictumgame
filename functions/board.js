@@ -35,14 +35,16 @@ async function author(tx, db, who, e) {
     ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}), ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}) };
 }
 /* who signs a new post: the player's nation, or for an admin who asks (as: 'team') the Edictum team. The team needs
-   no nation, so only a ban stops it, and a nation of the admin's in a closed region does not. */
-const TEAM_OK = { nation: false, hidden: true, linked: false, allowClosedRegion: true };
-const asTeam = (who, d) => who.admin && d.as === 'team';
+   no nation, so only a ban stops it, and a nation of the admin's in a closed region does not. The region page's
+   message board (civic op 'topic') signs the same way. */
+export const TEAM_OK = { nation: false, hidden: true, linked: false, allowClosedRegion: true };
+export const asTeam = (who, d) => who.admin && d.as === 'team';
+/* the team's signature: the name and role the admin chose, the staff mark */
+export function teamMark(d) { const rl = line(d.rl, 60); return { nm: line(d.nm, 80) || 'Edictum team', st: 'admin', of: true, ...(rl ? { rl } : {}) }; }
 async function signer(tx, db, who, d) {
   if (!asTeam(who, d)) return author(tx, db, who, await eligibility(tx, who));
   await eligibility(tx, who, TEAM_OK);
-  const rl = line(d.rl, 60);
-  return { a: who.uid, nm: line(d.nm, 80) || 'Edictum team', rg: '', st: 'admin', of: true, ...(rl ? { rl } : {}) };
+  return { a: who.uid, rg: '', ...teamMark(d) };
 }
 function counted(meta, now, add) {
   const m = meta.exists ? meta.data() : {}, same = m.dd === day(now);

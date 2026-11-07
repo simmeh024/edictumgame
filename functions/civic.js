@@ -6,7 +6,7 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost } from './board.js';
+import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, teamMark } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
 import { pace, ipRule } from './pace.js';
 
@@ -461,14 +461,18 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'cbMod') return cbMod(db, who, d, regions);
   if (d.op === 'cbPost') return cbPost(db, who, d, regions);
   if (isAllianceOp(d.op)) return alliance(db, who, d);
+  /* a message on a region's board: a nation on its own region's, or an admin, as the Edictum team (board.js teamMark),
+     on any region's (from its region page, observing it or not), unpaced */
   if (d.op === 'topic') return db.runTransaction(async tx => {
-    const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
-    if (d.reg && d.reg !== e.n.reg) throw new HttpsError('permission-denied', 'Post to your own region.');
+    const team = asTeam(who, d), e = await eligibility(tx, who, team ? TEAM_OK : {}), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
+    const reg = team ? (typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '') : e.n.reg;
+    if (team && !reg) throw new HttpsError('invalid-argument', 'Choose a region.');
+    if (!team && d.reg && d.reg !== e.n.reg) throw new HttpsError('permission-denied', 'Post to your own region.');
     const x = text(d.text, 400), now = Date.now();
     if (!x) throw new HttpsError('invalid-argument', 'Write a message first.');
-    if (s.exists && now - s.get('p').toMillis() < 20000) throw new HttpsError('resource-exhausted', 'Wait 20 seconds between community posts.');
-    const ref = db.collection('boards/' + e.n.reg + '/posts').doc();
-    tx.create(ref, { a: who.uid, t: FieldValue.serverTimestamp(), x });
+    if (!team && s.exists && now - s.get('p').toMillis() < 20000) throw new HttpsError('resource-exhausted', 'Wait 20 seconds between community posts.');
+    const ref = db.collection('boards/' + reg + '/posts').doc();
+    tx.create(ref, { a: who.uid, t: FieldValue.serverTimestamp(), x, ...(team ? teamMark(d) : {}) });
     tx.set(limit, { p: FieldValue.serverTimestamp() });
     return { id: ref.id };
   });

@@ -5039,6 +5039,11 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cb-team .nw-av{width:52px;height:52px;font-size:22px}
 .cb-row-au .cb-row-av{width:30px;height:30px;font-size:14px}
 .cb-as{max-width:900px;margin:18px 0 10px}
+/* the region page's message board: an admin's choice of signature, and a message signed by the Edictum team */
+.rmb-as{margin:0 0 12px}
+.rmb-sig{margin:8px 0 0}
+.post-h .rmb-av{width:26px;height:26px;font-size:12.5px}
+.post-h .rmb-rl{font-size:12.5px}
 /* the admin portal's Community boards page */
 .cba-form{max-width:900px}
 .cba-quick{display:flex;flex-wrap:wrap;gap:4px 18px;margin:0 0 10px}
@@ -39601,7 +39606,8 @@ async function connect(){
   let boardQS=none;
   const board=()=>{
     const r={};
-    for(const d of boardQS.docs){const p=d.data();if(!p||!p.a||typeof p.x!=='string'||hidden(p.a))continue;(r[p.a]||(r[p.a]={posts:[]})).posts.push({id:p.id,t:Number(p.t)||0,x:p.x.slice(0,400),r:REG.id});}
+    for(const d of boardQS.docs){const p=d.data(),team=!!p&&p.of===true;if(!p||!p.a||typeof p.x!=='string'||!team&&hidden(p.a))continue;
+      (r[p.a]||(r[p.a]={posts:[]})).posts.push({id:p.id,t:Number(p.t)||0,x:p.x.slice(0,400),r:REG.id,...(team?{of:true,nm:String(p.nm||'Edictum team').slice(0,80),rl:String(p.rl||'').slice(0,60)}:{})});}
     S.rmb=r;
     if(S.view==='region')quietRender();
   };
@@ -40663,9 +40669,17 @@ function regionView(now){
     const posts=[];
     for(const aid of Object.keys(S.rmb))for(const p of S.rmb[aid].posts)posts.push({aid,p});
     posts.sort((a,b)=>b.p.t-a.p.t);
-    const canPost=S.mode==='world'&&!!S.nation&&civicRegistered();
-    board=`${canPost?`<form class="rmb-form" id="rmb-form"><label class="lbl" for="rmb-text">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?`Guest Nations can read community topics.${accountActionHint('topic')}`:'You have view-only access, so you can read the board but not post.'}</div>`}
-    ${posts.length?`<ul class="posts">${posts.slice(0,S.rmbN||50).map(({aid,p})=>{const mine=aid===S.uid&&!OBS,nat=mine?S.nation:(S.world[aid]||dormRec(aid));const nm=nat?nationLink(aid,nat.name,mine):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&S.mode==='world';return `<li class="post"><div class="post-h">${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}" aria-expanded="${S.rmbAsk===p.id}">Remove</button>`:aid!==S.uid&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p>${del&&S.rmbAsk===p.id?`<div class="adm-ask" role="group" aria-label="Remove this message"><p>${mine?'Remove your message?':`Remove this message by ${esc(nat?nat.name:'a former nation')}?`} It is deleted for everyone and cannot be brought back.</p><div class="row"><button type="button" class="btn danger small" data-act="del-post-yes" data-a="${esc(aid)}" data-p="${esc(p.id)}">Yes, remove it</button><button type="button" class="btn ghost small" data-act="del-post-no">Keep it</button></div></div>`:''}</li>`;}).join('')}</ul>${posts.length>(S.rmbN||50)?`<p class="more-row"><button type="button" class="btn ghost small" data-act="rmb-more">Show older posts</button> <span class="hint">${Math.min(S.rmbN||50,posts.length)} of ${posts.length}</span></p>`:''}`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
+    const teamOk=rmbTeamOk(),natOk=rmbNationOk(),canPost=natOk||teamOk,team=rmbAsTeam(),sg=teamOk?cbaSign():null;
+    /* an admin's choice of signature: the Edictum team (alone while observing) or their nation */
+    const as=teamOk?`<fieldset class="nwe-as rmb-as"><legend class="lbl">Post as</legend>
+      <label class="nwe-opt" for="rmb-as-team"><input type="radio" name="rmb-as" id="rmb-as-team" value="team"${team?' checked':''}><span><b>${esc(sg.nm)}</b>${sg.rl?` (${esc(sg.rl)})`:''} ${STAFF_PILL}<span class="hint">the Edictum team${OBS?', from outside the region':''}</span></span></label>
+      ${natOk?`<label class="nwe-opt" for="rmb-as-nat"><input type="radio" name="rmb-as" id="rmb-as-nat" value="nation"${team?'':' checked'}><span class="nwe-opt-n"><span class="mflag">${flagSVG(S.nation.flag,'Flag of '+S.nation.name)}</span><b>${esc(fullName(S.nation))}</b></span></label>`:''}
+      <p class="hint rmb-sig">The team’s name and role are set on <button type="button" class="linkish small" data-act="go" data-v="admin-board">Community boards</button> in the admin portal.</p></fieldset>`:'';
+    board=`${canPost?`<form class="rmb-form" id="rmb-form">${as}<label class="lbl" for="rmb-text">${teamOk?'Your message':`Post as ${esc(fullName(S.nation))}`}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?`Guest Nations can read community topics.${accountActionHint('topic')}`:'You have view-only access, so you can read the board but not post.'}</div>`}
+    ${posts.length?`<ul class="posts">${posts.slice(0,S.rmbN||50).map(({aid,p})=>{const mine=aid===S.uid&&!OBS,tm=!!p.of,nat=tm?null:mine?S.nation:(S.world[aid]||dormRec(aid));const nm=tm?`<b>${esc(p.nm)}</b>`:nat?nationLink(aid,nat.name,mine):'<b>A former nation</b>';const del=(aid===S.uid||S.isOwner)&&(S.mode==='world'||!!OBS&&!!S.isOwner);
+      /* a message signed by the Edictum team: the team's initial, the name, the staff badge and the role */
+      const who=tm?`<span class="nw-av rmb-av" aria-hidden="true">${esc((p.nm||'E').charAt(0).toUpperCase())}</span>${nm}${STAFF_PILL}${p.rl?`<span class="hint rmb-rl">${esc(p.rl)}</span>`:''}`:`${nat?`<span class="mflag">${flagSVG(nat.flag,'Flag of '+nat.name)}</span>`:''}${nm}${nat?shopBadge(nat,1):''}${isStaff(aid)?STAFF_PILL:''}`;
+      return `<li class="post${tm?' rmb-team':''}"><div class="post-h">${who}<span class="post-t">${rel(p.t)}</span>${del?`<button class="linkish small" data-act="del-post" data-a="${esc(aid)}" data-p="${esc(p.id)}" aria-expanded="${S.rmbAsk===p.id}">Remove</button>`:aid!==S.uid&&!tm&&S.mode==='world'?`<button class="linkish small post-rep" data-act="report-post" data-a="${esc(aid)}" data-p="${esc(p.id)}">Report</button>`:''}</div><p class="post-x">${esc(p.x)}</p>${del&&S.rmbAsk===p.id?`<div class="adm-ask" role="group" aria-label="Remove this message"><p>${mine?'Remove your message?':`Remove this message by ${esc(tm?p.nm:nat?nat.name:'a former nation')}?`} It is deleted for everyone and cannot be brought back.</p><div class="row"><button type="button" class="btn danger small" data-act="del-post-yes" data-a="${esc(aid)}" data-p="${esc(p.id)}">Yes, remove it</button><button type="button" class="btn ghost small" data-act="del-post-no">Keep it</button></div></div>`:''}</li>`;}).join('')}</ul>${posts.length>(S.rmbN||50)?`<p class="more-row"><button type="button" class="btn ghost small" data-act="rmb-more">Show older posts</button> <span class="hint">${Math.min(S.rmbN||50,posts.length)} of ${posts.length}</span></p>`:''}`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
   }
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>${asmRegionBox(now)}
   <div class="tbl-wrap"><table class="tbl"><thead><tr>${regTh('name','Nation','')}${regTh('cat','Category','c-cat')}${regTh('al','Alliance','c-al')}${regTh('pop','Population','c-pop')}${regTh('area','Land area','c-pop')}</tr></thead><tbody>
@@ -41156,13 +41170,19 @@ const DISSOLVING_MSG='One moment: the old nation is still being cleared away. Tr
 /* one post per document in boards/<region>/posts; the rules take one post per nation every RMB_GAP */
 const RMB_GAP=20000;
 let rmbBusy=false,rmbLast=0;
+/* An admin may post as the Edictum team (the signature kept on the portal's Community boards page) on any region's
+   board: always while observing another region, and by choice on their own region's. The server checks the claim
+   and does not pace the team. */
+function rmbTeamOk(){return !!S.isOwner&&!!S.db&&!S.banned&&(S.mode==='world'||!!OBS);}
+function rmbNationOk(){return S.mode==='world'&&!OBS&&!!S.nation&&civicRegistered();}
+function rmbAsTeam(){return rmbTeamOk()&&(!rmbNationOk()||S.rmbAs==='team');}
 async function postRmb(){
-  const text=S.rmbDraft.trim();
-  if(!text||rmbBusy||S.mode!=='world'||!S.nation)return;
+  const text=S.rmbDraft.trim(),team=rmbAsTeam();
+  if(!text||rmbBusy||!team&&(S.mode!=='world'||!S.nation))return;
   const wait=rmbLast+RMB_GAP-Date.now();
-  if(wait>0){toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Post again in ${Math.ceil(wait/1000)} seconds.`);return;}
+  if(!team&&wait>0){toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Post again in ${Math.ceil(wait/1000)} seconds.`);return;}
   rmbBusy=true;S.rmbDraft='';
-  try{await S.db.post(REG.id,text.slice(0,400));rmbLast=Date.now();}
+  try{await S.db.post(REG.id,text.slice(0,400),team?{as:'team',...cbaSign()}:undefined);if(!team)rmbLast=Date.now();}
   catch(e){S.rmbDraft=text;if(e&&['registration_required','moderated','banned','region_disabled'].includes(e.code))toast(e.message);else if(e&&['quota_exceeded','not_granted'].includes(e.code))toast(`The board takes one message from each nation every ${RMB_GAP/1000} seconds. Try again in a moment.`);else handleWriteError(e);}
   finally{rmbBusy=false;render();}
 }
@@ -45970,6 +45990,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target,id=t&&t.id||'';
   if(t.name==='cb-r-as'){CB.ras=t.value==='team'?'team':'nation';render();return;}
+  if(t.name==='rmb-as'){S.rmbAs=t.value==='team'?'team':'nation';render();return;}
   if(id.slice(0,4)!=='cba-')return;
   if(t.name==='cba-reg'&&REG_BY_ID[t.value]){const s=cbaRegs();if(t.checked)s.add(t.value);else s.delete(t.value);CBA.ask=false;render();return;}
   if(t.name==='cba-as'){CBA.as=t.value==='nation'?'nation':'team';CBA.ask=false;render();return;}
