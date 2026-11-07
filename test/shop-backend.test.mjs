@@ -320,18 +320,26 @@ test('Chancery seals: chosen by the player, held by months of membership, publis
   await call(p, { step: 'seal', id: '' });
   const g = await finery(p.uid);
   assert.ok(!('cl' in g), 'taken down'); assert.deepEqual(g.c, ['p-moire']);
-  /* three months of membership: brass; a record kept before months were counted is counted once on status */
-  const q = await player(), y0 = Date.now() - 70 * DAY;
-  const d = await call(q, { step: 'checkout', product: 'vipyear' }), sub = rid('sub');
-  await hook('transaction.completed', pay(d.txn, { sub, period: { s: y0, e: y0 + 365 * DAY } }));
-  assert.equal((await shop(q.uid)).vip.m, 3);
-  await db.doc('shop/' + q.uid).update({ 'vip.m': FieldValue.delete() });
-  await call(q, { step: 'status' });
-  assert.equal((await shop(q.uid)).vip.m, 3, 'counted again');
-  await call(q, { step: 'seal', id: 'csl-brass' });
-  await later();
-  await rejects(call(q, { step: 'seal', id: 'csl-silver' }), 'seal_locked');
-  assert.equal((await finery(q.uid)).cl.s, 'csl-brass'); assert.equal((await finery(q.uid)).cl.f.length, 9, 'the year’s months still to come');
+  /* three months of membership: brass; a record kept before months were counted is counted once on status. The year
+     begins on 31 August and the server's clock stands 70 days later, so its months cross the 30ths and February the same
+     way whatever day this runs (a year begun on the 29th–31st once came to thirteen months) */
+  const y0 = Date.UTC(2026, 7, 31, 10), y1 = y0 + 365 * DAY;
+  await config({ skew: y0 + 70 * DAY - Date.now() });
+  try {
+    const q = await player();
+    const d = await call(q, { step: 'checkout', product: 'vipyear' }), sub = rid('sub');
+    await hook('transaction.completed', pay(d.txn, { at: y0, sub, period: { s: y0, e: y1 } }));
+    const v = (await shop(q.uid)).vip;
+    assert.equal(v.m, 3, '31 August, 30 September and 31 October have begun'); assert.equal(v.n, 12, 'twelve months, not a thirteenth');
+    assert.deepEqual(v.f.slice(0, 4), [Date.UTC(2026, 10, 30, 10), Date.UTC(2026, 11, 31, 10), Date.UTC(2027, 0, 31, 10), Date.UTC(2027, 1, 28, 10)]);
+    await db.doc('shop/' + q.uid).update({ 'vip.m': FieldValue.delete() });
+    await call(q, { step: 'status' });
+    assert.equal((await shop(q.uid)).vip.m, 3, 'counted again');
+    await call(q, { step: 'seal', id: 'csl-brass' });
+    await later();
+    await rejects(call(q, { step: 'seal', id: 'csl-silver' }), 'seal_locked');
+    assert.equal((await finery(q.uid)).cl.s, 'csl-brass'); assert.equal((await finery(q.uid)).cl.f.length, 9, 'the year’s months still to come');
+  } finally { await config(); }
   /* not a member at all */
   const x = await player();
   await rejects(call(x, { step: 'seal', id: 'csl-member' }), 'seal_locked');
