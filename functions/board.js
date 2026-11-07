@@ -1,5 +1,5 @@
 import { HttpsError } from 'firebase-functions/v2/https';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, FieldPath } from 'firebase-admin/firestore';
 import { eligibility, refuse } from './eligibility.js';
 
 /* The Community Board: one board per region, read by everyone, written only here (civic ops cb*), so every post
@@ -240,4 +240,45 @@ async function cbMove(db, who, reg, tid, d, regions, reason) {
   const hid = await db.collection('cbHidden').where('tid', '==', tid).get();
   if (!hid.empty) { const b = db.batch(); hid.docs.forEach(h => b.update(h.ref, { reg: to })); await b.commit(); }
   return { ok: true, reg: to };
+}
+
+/* ── the Region page's message board ──
+     boards/{reg}/posts/{pid}  {a, t, x, re?, rv?, of?, nm?, rl?, st?}
+   A reply is a message of its own in the same collection, with re: the id of the message it answers. Threads stay
+   one level deep: a reply answers a message on the same board that is not itself a reply (civic op 'topic' checks it
+   with rmbParent). Reactions are rv {uid: kind}, written only here (civic op 'topicReact'): one per nation on each
+   message, and the same kind again takes it back. Everyone reads them, so readers see which nations reacted. */
+export const RMB_REACT = ['up', 'heart', 'party', 'think'];
+export const RMB_RV_MAX = 500;
+export async function rmbParent(tx, db, reg, re) {
+  const id = id20(re);
+  if (!id) throw new HttpsError('invalid-argument', 'Choose a message to reply to.');
+  const p = await tx.get(db.doc('boards/' + reg + '/posts/' + id));
+  if (!p.exists || p.get('re')) refuse('rmb_reply_missing', 'That message is no longer there to reply to.');
+  return id;
+}
+/* any nation of the region reacts (a guest too, as on development news); a moderated or banned one may not */
+export async function rmbReact(db, who, d) {
+  const pid = id20(d.post), kind = RMB_REACT.includes(d.e) ? d.e : '';
+  if (!pid || !kind) throw new HttpsError('invalid-argument', 'Choose a message and a reaction.');
+  return db.runTransaction(async tx => {
+    const e = await eligibility(tx, who, { linked: false }), reg = e.n.reg;
+    if (d.reg && d.reg !== reg) throw new HttpsError('permission-denied', 'React on your own region’s board.');
+    const ref = db.doc('boards/' + reg + '/posts/' + pid), p = await tx.get(ref);
+    if (!p.exists) refuse('rmb_missing', 'That message is no longer on the board.');
+    const rv = p.get('rv') && typeof p.get('rv') === 'object' ? p.get('rv') : {}, had = rv[who.uid] || '', pick = had === kind ? '' : kind;
+    if (pick && !had && Object.keys(rv).length >= RMB_RV_MAX) refuse('rmb_full', 'This message has all the reactions it can hold.');
+    tx.update(ref, new FieldPath('rv', who.uid), pick || FieldValue.delete());
+    return { e: pick };
+  });
+}
+/* a nation's reactions go with its account (functions/accounts.js) or with its removal by an admin (functions/admin.js) */
+export async function rmbForget(db, uid, regs) {
+  if (typeof uid !== 'string' || !uid) return 0;
+  const found = await Promise.all([...regs].map(reg => db.collection('boards/' + reg + '/posts').where(new FieldPath('rv', uid), 'in', RMB_REACT).get()));
+  const docs = found.flatMap(q => q.docs);
+  if (!docs.length) return 0;
+  const w = db.bulkWriter();
+  await Promise.all([Promise.all(docs.map(d => w.update(d.ref, new FieldPath('rv', uid), FieldValue.delete()))), w.close()]);
+  return docs.length;
 }

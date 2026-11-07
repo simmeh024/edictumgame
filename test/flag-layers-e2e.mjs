@@ -1,4 +1,4 @@
-import {OUT,PROJECT,check,finish,until,player,open,found,nav,localNation,nationDoc,clearEmulators,errors} from './lib.mjs';
+import {OUT,PROJECT,check,finish,until,player,open,found,nav,localNation,nationDoc,clearEmulators,errors,regionTab} from './lib.mjs';
 if(!PROJECT.startsWith('demo-'))throw Error('This suite requires demo emulators');
 await clearEmulators();
 const expand=async(p,sc)=>{const d=p.locator(`[data-fgg="${sc}:layers"]`);if(!await d.evaluate(el=>el.open))await d.locator('summary').click();};
@@ -34,7 +34,7 @@ await undo(A);await undo(A);check('Undo restores the original stack order',(awai
 await save(A);const shared=(await nationDoc(uid)).shared.flag;
 check('layers are saved in the shared nation record',shared.layers.length===2);
 await A.reload();await A.waitForSelector('.layout');check('layers survive a complete reload',JSON.stringify((await localNation(A)).flag)===JSON.stringify(shared));
-const B=await player('flag visitor');await open(B);await found(B,'Visitorland');await nav(B,'region');await B.click(`[data-act="visit"][data-id="${uid}"]`);
+const B=await player('flag visitor');await open(B);await found(B,'Visitorland');await nav(B,'region');await regionTab(B);await B.click(`.tbl [data-act="visit"][data-id="${uid}"]`);
 check('another player sees the shared layered flag',await until(()=>B.locator('.hero [data-fgl-layer]').count())&&await B.locator('.hero [data-fgl-layer="1"]').count()>0);
 const C=await player('flag phone',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});
 check('a second device restores the same account',await open(C)===uid);await C.waitForSelector('.layout');await nav(C,'customise');await expand(C,'c');

@@ -1,7 +1,7 @@
 // Observer mode: an admin opens another region read-only (game/edictum.html, OBS), walks its map, Region page,
 // Census and nations, and comes back with their own nation untouched, in this browser and on the server.
 // A player who is not an admin is sent straight back to their own nation.
-import { OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, clearEmulators, nav, sleep } from './lib.mjs';
+import { OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, clearEmulators, nav, sleep, regionTab } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('frost player');
 const uidA = await open(A); await found(A, 'Adminland');
@@ -37,10 +37,10 @@ const navs = await A.$$eval('.nav [data-v]', els => [...new Set(els.map(e => e.d
 check('the menu holds only the pages there are to observe', navs === 'census,map,region,world', navs);
 await A.screenshot({ path: OUT + '/observe-map.png', fullPage: true });
 
-await nav(A, 'region');
+await nav(A, 'region'); await regionTab(A);
 check('the Region page lists the region’s nations, with no “You”', await until(async () => /Frostia/.test(await text(A, '.tbl')) && !/Adminland/.test(await text(A, '.tbl')) && !await A.$('.tbl .chip.you')));
-check('and its board, with a form that posts only as the Edictum team', /Message board/.test(await text(A, '.region-cols')) && !!await A.$('#rmb-form #rmb-as-team:checked') && !await A.$('#rmb-as-nat'));
-await A.click(`[data-act="visit"][data-id="${uidB}"]`);
+check('and its board, with a form that posts only as the Edictum team', /Message board/.test(await text(A, '#rgn-p-board')) && !!await A.$('#rmb-form #rmb-as-team:checked') && !await A.$('#rmb-as-nat'));
+await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`);
 check('a nation’s page opens', await until(async () => await A.evaluate(() => G.S.view === 'visit') && /Frostia/.test(await text(A, '.main'))));
 const acts = await A.$$eval('.visit-acts [data-act]', els => els.map(e => e.dataset.act).join(','));
 check('with nothing to do to it but look: no trade, spy, message or war', acts === 'map-open,st-open,admin-inspect', acts);
@@ -66,7 +66,7 @@ check('nothing was posted on the region’s board', (await restGet('boards/frost
 
 // ...but the admin may address the region as the Edictum team, and remove what is posted there
 await A.evaluate(() => { G.S.view = 'region'; G.render(); });
-await A.waitForSelector('#rmb-text');
+await regionTab(A, 'board');
 await A.fill('#rmb-text', 'Welcome to the Frostmarch, from the team.'); await A.click('#rmb-form button[type="submit"]');
 check('an observing admin posts on the region’s board as the Edictum team', await until(async () => /Welcome to the Frostmarch/.test(await text(A, '.posts')) && /Edictum team/.test(await text(A, '.posts .post-h'))));
 const team = ((await restGet('boards/frostmarch/posts')).body?.documents || []).map(d => d.fields);
@@ -75,7 +75,7 @@ await nav(B, 'region');
 check('the region’s players see it with the team’s initial and staff badge, and nothing to report', await until(async () => /Welcome to the Frostmarch/.test(await text(B, '.posts'))) && !!await B.$('.post.rmb-team .rmb-av') && !!await B.$('.post.rmb-team .staff-pill') && !await B.$('.post.rmb-team [data-act="report-post"]'));
 check('the admin’s nation, which is elsewhere, is not named on it', !/Adminland/.test(await text(B, '.posts')));
 await A.click('.post.rmb-team [data-act="del-post"]'); await A.click('[data-act="del-post-yes"]');
-check('the observing admin removes a message from the board', await until(async () => (await restGet('boards/frostmarch/posts')).body?.documents == null && !/Welcome to the Frostmarch/.test(await text(B, '.region-cols'))));
+check('the observing admin removes a message from the board', await until(async () => (await restGet('boards/frostmarch/posts')).body?.documents == null && !/Welcome to the Frostmarch/.test(await text(B, '#rgn-p-board'))));
 check('and the admin’s nation is still untouched', await raw(A) === before && await stamp(uidA) === beforeServer, await stamp(uidA));
 await A.screenshot({ path: OUT + '/observe-portal.png', fullPage: true });
 

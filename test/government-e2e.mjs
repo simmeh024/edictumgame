@@ -2,7 +2,7 @@
 // a parliament whose seats follow the population and the edicts; the budget beside the region with an emergency shift;
 // the laws by topic with where each came from, repeal and restore paid for from the mandate; the daily cabinet briefing
 // and a quiet word with a restless minister; the private half keeps the new fields; visitors see another cabinet.
-import { check, finish, sleep, until, player, open, found, nav, text, localNation, errors, clearEmulators, ready, nationDoc } from './lib.mjs';
+import { check, finish, sleep, until, player, open, found, nav, text, localNation, errors, clearEmulators, ready, nationDoc, regionTab } from './lib.mjs';
 await clearEmulators();
 const shown = (p, sel) => p.locator(sel).first().isVisible();
 const tab = p => p.evaluate(() => document.getElementById('gv')?.dataset.tab || '');
@@ -126,7 +126,7 @@ await A.reload(); await ready(A); await A.waitForSelector('.layout');
 check('and survive a reload', await A.evaluate(() => { const n = G.S.nation; return !!(n.mdt && n.brf && n.ldr && n.ldr.d === 3 && n.aph.length >= 1); }));
 
 // visitors see another nation's cabinet: offices and names, never loyalty
-await nav(A, 'region'); await A.click('.tbl [data-act="visit"]'); await A.waitForSelector('.gv-pub');
+await nav(A, 'region'); await regionTab(A); await A.click('.tbl [data-act="visit"]'); await A.waitForSelector('.gv-pub');
 check('another nation’s page shows its cabinet', (await A.$$('.gv-pub-l li')).length === 8 && /Head of government/.test(await text(A, '.gv-pub')) && /Finance Minister/.test(await text(A, '.gv-pub')));
 check('without loyalty or skill', !/Devoted|Steady|Restless|Plotting|Skill/.test(await text(A, '.gv-pub-l')));
 

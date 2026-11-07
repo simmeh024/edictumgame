@@ -11,7 +11,7 @@
 import path from 'node:path';
 import {
   BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, establish, nav, czSection, text, sideName, localNation,
-  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT
+  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT, regionTab
 } from './lib.mjs';
 
 await clearEmulators();
@@ -46,6 +46,7 @@ check('A’s Region page lists both nations', !!regionA);
 check('B’s Region page lists both nations', !!regionB);
 
 /* ── 2. the region message board ────────────────────────────────────────── */
+await regionTab(A, 'board');
 await A.fill('#rmb-text', 'Greetings from Aldoria');
 await A.click('#rmb-form button[type="submit"]');
 check('B sees A’s post on the board', await until(async () => /Greetings from Aldoria/.test(await text(B, '.posts'))));
@@ -80,6 +81,7 @@ check('the World page counts the Frostmarch’s player', !!frostCard, frostCard)
 await A.click('[data-act="wr-sel"][data-id="frostmarch"]');
 check('and lists it when the region is opened', await until(async () => /Player nations: Frostia/.test(await text(A, '.wr-detail'))));
 await nav(R, 'region');
+await regionTab(R, 'board');
 check('R’s board is the Frostmarch’s, without Meridian’s posts', !/Greetings from Aldoria/.test(await text(R, '.posts')));
 
 /* ── 3. reloads ─────────────────────────────────────────────────────────── */
@@ -110,6 +112,7 @@ check('a visitor who is not signed in cannot write one', (await restPatch('natio
 check('B’s nation is unchanged', (await nationDoc(uidB)).name === 'Borvia');
 
 /* ── 5. an admin moderates the board ────────────────────────────────────── */
+await regionTab(B, 'board');
 await B.fill('#rmb-text', 'A rude remark from Borvia');
 await B.click('#rmb-form button[type="submit"]');
 await until(async () => /rude remark/.test(await text(A, '.posts')));
@@ -170,6 +173,7 @@ check('resizing to desktop restores the sidebar without a modal overlay', await 
 await A.click('[data-act="admin-close"]');
 check('Back to the game returns to the nation page', await until(async () => !!(await A.$('.layout')) && !(await A.$('.adm'))));
 await nav(A, 'region');
+await regionTab(A, 'board');
 const del = await until(() => A.$(`.posts [data-act="del-post"][data-a="${uidB}"]`));
 check('the admin sees Remove on B’s post', !!del);
 if (del) await del.click();
@@ -193,9 +197,11 @@ const uidM = await open(M);
 await found(M, 'Spamland');
 await nav(M, 'region');
 await register(M);
+await regionTab(M, 'board');
 await M.fill('#rmb-text', 'Buy cheap gold at spam.example');
 await M.click('#rmb-form button[type="submit"]');
 await nav(B, 'region');
+await regionTab(B, 'board');
 const repBtn = await until(() => B.$(`.posts [data-act="report-post"][data-a="${uidM}"]`));
 check('players see Report on other players’ posts, not on their own', !!repBtn && !(await B.$(`.posts [data-act="report-post"][data-a="${uidB}"]`)));
 await B.click(`.posts [data-act="report-post"][data-a="${uidM}"]`);
@@ -208,7 +214,7 @@ check('the report is sent, and the player thanked', await until(async () => /wit
 const reps1 = await until(async () => { const l = await restListAdmin('reports'); return l.length ? l : null; });
 check('the report keeps what was reported, and why', !!reps1 && reps1[0].fields.kind.stringValue === 'post' && reps1[0].fields.target.stringValue === uidM && /Buy cheap gold/.test(reps1[0].fields.x.stringValue) && reps1[0].fields.reason.stringValue === 'spam' && reps1[0].fields.note.stringValue === 'Advertising');
 check('players cannot read reports', (await restGet('reports')).status === 403);
-await B.click(`.tbl [data-act="visit"][data-id="${uidM}"]`);
+await regionTab(B); await B.click(`.tbl [data-act="visit"][data-id="${uidM}"]`);
 await B.waitForSelector('[data-act="report-nation"]');
 await B.click('[data-act="report-nation"]');
 await B.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
@@ -218,7 +224,7 @@ await B.keyboard.press('Escape');
 const N = await player('N');
 const uidN = await open(N);
 await found(N, 'Nettleton');
-await nav(N, 'region');
+await nav(N, 'region'); await regionTab(N);
 await until(() => N.$(`.tbl [data-act="visit"][data-id="${uidM}"]`)); await N.click(`.tbl [data-act="visit"][data-id="${uidM}"]`);
 await N.click('[data-act="report-nation"]');
 await N.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
@@ -250,7 +256,7 @@ check('Unhide brings it back', await until(async () => (await restGet('mod/' + u
 const O = await player('O');
 await open(O);
 await found(O, 'Ostrava');
-await nav(O, 'region');
+await nav(O, 'region'); await regionTab(O);
 await until(() => O.$(`.tbl [data-act="visit"][data-id="${uidM}"]`)); await O.click(`.tbl [data-act="visit"][data-id="${uidM}"]`);
 await O.click('[data-act="report-nation"]');
 await O.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
@@ -275,7 +281,7 @@ check('Unban lifts it', await until(async () => !(await restListAdmin('bans')).s
 const P = await player('P');
 await open(P);
 await found(P, 'Pellmell');
-await nav(P, 'region');
+await nav(P, 'region'); await regionTab(P);
 await until(() => P.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await P.click(`.tbl [data-act="visit"][data-id="${uidB}"]`);
 await P.click('[data-act="report-nation"]');
 await P.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
@@ -351,6 +357,7 @@ await Q.click('[data-ed="support-yes"]');
 await until(async () => (await restListAdmin('support')).some(t => t.fields.by.stringValue === uidQ));
 await nav(Q, 'region');
 await register(Q);
+await regionTab(Q, 'board');
 await Q.fill('#rmb-text', 'Goodbye, region');
 await Q.click('#rmb-form button[type="submit"]');
 await until(async () => (await restList('boards/meridian/posts')).some(p => p.fields.a.stringValue === uidQ));
@@ -413,7 +420,7 @@ await until(async () => (await KG.getAttribute('#cz-l-ds-l', 'aria-pressed')) ==
 await KG.locator('#cz-sec-s').screenshot({ path: path.join(OUT, 'customise-decrees.png') }); // a locator: choosing redraws the page
 await KG.ctx.close();
 // the passport: A opens B's page and collects its entry stamp
-await nav(A, 'region');
+await nav(A, 'region'); await regionTab(A);
 await until(() => A.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`);
 check('opening a nation’s page stamps its entry stamp into your passport', await until(async () => { const r = await nationDoc(uidA); return !!(r && r.rec.pp && r.rec.pp.v[uidB] && r.rec.pp.p[0].includes(uidB)); }, 15000));
 check('the stamps stay in the private half; the shared half counts them by hash', await until(async () => { const r = await nationDoc(uidA); return !!(r && !r.shared.pp.v && Array.isArray(r.shared.pph) && r.shared.pph.length === Object.keys(r.rec.pp.v).length); }, 15000));
@@ -428,7 +435,7 @@ if (await A.$(`[data-act="asm-end"][data-id="${uidB}"]`)) {
   await A.click(`[data-act="asm-end"][data-id="${uidB}"]`);
   if(!await until(()=>A.evaluate(id=>G.S.civic?.own.e.some(e=>e.i===id&&!e.w),uidB),15000))throw Error('The endorsement was not confirmed by the Assembly.');
 }
-await nav(A, 'region');
+await nav(A, 'region'); await regionTab(A);
 await until(() => A.$('.tbl [data-act="visit"][data-id="npc-vellmark"]')); await A.click('.tbl [data-act="visit"][data-id="npc-vellmark"]');
 check('a computer nation’s shows its seat and its alliance', await until(async () => /Member/.test(await text(A, '.hero .hs-asm')) && /The Iron Compact/.test(await text(A, '.hero .hs-al'))));
 await until(async()=>{await A.locator('.hero').screenshot({ path: path.join(OUT, 'banner-stamps.png') });return true;});
@@ -436,13 +443,13 @@ await nav(A, 'assembly');
 const delName = await until(() => text(A, '.asm-del-n'));
 await nav(A, 'nation');
 const delA = !!(await A.$('.hero .hs-del')), memA = !!(await A.$('.hero .hs-asm'));
-await nav(A, 'region'); await until(() => A.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`); await A.waitForSelector('.hero');
+await nav(A, 'region'); await regionTab(A); await until(() => A.$(`.tbl [data-act="visit"][data-id="${uidB}"]`)); await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`); await A.waitForSelector('.hero');
 const delB = !!(await A.$('.hero .hs-del')), memB = !!(await A.$('.hero .hs-asm'));
 check('the Delegate’s stamp is on the nation the Assembly names, and on no other', !!delName && /Aldoria/.test(delName) === delA && /Borvia/.test(delName) === delB && !(delA && delB), JSON.stringify({ delName, delA, delB }));
 check('each member shows only its highest seat: the Delegate, or a member', delA !== memA && delB !== memB, JSON.stringify({ delA, memA, delB, memB }));
 check('an admin sees no staff pill on a player’s banner', !(await A.$('.hero .staff-pill')));
 // B opens A's passport from A's page
-await nav(B, 'region');
+await nav(B, 'region'); await regionTab(B);
 await until(() => B.$(`.tbl [data-act="visit"][data-id="${uidA}"]`)); await B.click(`.tbl [data-act="visit"][data-id="${uidA}"]`);
 check('an admin’s nation is marked Edictum staff on its banner, for other players too', await until(async () => /Edictum staff/.test(await text(B, '.hero .hero-cat')), 15000));
 await until(() => B.$('.visit-acts [data-act="pp-view"]')); await B.click('.visit-acts [data-act="pp-view"]');
@@ -507,7 +514,7 @@ await C.evaluate(() => {
   n.pp = { v, p, l: [] }; localStorage.setItem(k, JSON.stringify(n));
 });
 await C.reload(); await ready(C);
-await nav(C, 'region');
+await nav(C, 'region'); await regionTab(C);
 const npc1 = await until(() => C.$eval('.tbl [data-act="visit"][data-id^="npc-"]', e => e.dataset.id).catch(() => null));
 await C.click(`.tbl [data-act="visit"][data-id="${npc1}"]`);
 check('the 20th stamp earns a land credit', await until(async () => { const n = await localNation(C); return !!n.pp && Object.keys(n.pp.v).length === 20 && n.pp.cr === 1; }, 10000));
@@ -538,6 +545,7 @@ await D0.ctx.close();
 
 /* ── 7b. Edictum staff, in posts and messages ───────────────────────────── */
 await nav(B, 'region');
+await regionTab(B, 'board');
 check('an admin’s board posts carry the staff pill', await until(async () => B.$$eval('.post', ps => ps.some(p => /Aldoria/.test((p.querySelector('.post-h') || {}).textContent || '') && !!p.querySelector('.staff-pill'))), 15000));
 await nav(A, 'messages');
 await A.selectOption('#dm-new', uidB); await A.waitForSelector('#dm-text');

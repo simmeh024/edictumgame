@@ -8,6 +8,8 @@ import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail } from './mail.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
+import { rmbForget } from './board.js';
+import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
@@ -113,6 +115,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     const chat = await db.collectionGroup('chat').where('a', '==', uid).get();
     if (!chat.empty) { const w = db.bulkWriter(); await Promise.all([Promise.all(chat.docs.map(c => w.delete(c.ref))), w.close()]); }
     await db.doc('alPace/' + uid).delete();
+    // its reactions on the region boards (functions/board.js)
+    await rmbForget(db, uid, DATA.regions.map(r => r.id));
     await getAuth().deleteUser(uid);
     return { ok: true };
   }
