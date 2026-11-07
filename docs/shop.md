@@ -9,7 +9,7 @@ adds prestige, rank, resources or strength.
 |---|---|---|---|---|
 | Founder's Package | `founder` | €9.99 | one payment, sold until 1 February 2027 23:59:59 UTC | Founding Supporter badge, First Edition banner, Engraver's flag frame, First Edition decision stamp, Founder's capital marker, Founder's Gilt (land), passport inscription, a certificate in the museum |
 | Nation Identity Card Pack | `idpack` | €2.99 | one payment | Diplomatic Ledger, Atlas Edition and Civic Modern card designs |
-| The Chancery Club | `vip` | €4.99 a month | subscription | ten waiting edicts instead of five, one cosmetic each paid month from its collection (kept), five design presets, the Expanded National Chronicle |
+| The Chancery Club | `vip` | €4.99 a month | subscription | ten waiting edicts instead of five, one cosmetic each paid month from its collection (kept; two new pieces join it each month), a Chancery seal beside the nation's name if the player chooses, five design presets, the Expanded National Chronicle |
 | The Chancery Club, yearly | `vipyear` | €49.99 a year | subscription, optional | the same membership, paid for a year (two months free); one cosmetic pick each calendar month of the paid year |
 | A month of the Club, as a gift | `giftvip` | €4.99 | one payment, gift only, optional | a month of membership for another nation, from when it is paid or from where its paid membership ends |
 
@@ -60,6 +60,24 @@ sets up (`set-paddle.mjs --check` compares the two).
   Paddle turns down gives it back. A refund made in Paddle's dashboard arrives as type `partial` even when it gives
   back the whole item, so one whose items are each refunded in full counts as full (`adjFacts`). Partial refunds
   leave it. A second payment for something already owned is refunded. A purchase this server never opened (a checkout started outside the game) is refunded, since there is no one to deliver it to.
+- **The Club's collection grows.** It opened with eight pieces (`vip.collection`); the catalogue's `vip.drops` add two
+  more at 00:00 UTC on the first of each month (`{from, ids}`), so a member choosing every month always has something
+  new. A piece can be chosen once its month has begun (the server refuses an earlier one with `not_yet`), and the game
+  shows a piece of a later month nowhere, not even to try on. **The drops run to May 2027:** add the next months (two
+  new pieces each, drawn in the game and listed in its `add(…,'vip')` block, which `test/shop.test.mjs` checks) before
+  then. If they ever run out, a member who holds every released piece keeps the month's choice open (below) until new
+  ones come, and the Shop says so.
+- **A month's choice stays open.** The pick is for the earliest paid month begun and not yet chosen for, until five
+  weeks after that month ends (`pickGraceDays`, `pickPeriod`): a member who missed a month, or held everything, can still
+  choose for it. A month whose choice is not made by then lapses.
+- **Chancery seals.** A member may show a seal beside the nation's name (with the Founder's badge: its page, the region
+  board, the Assembly, news comments). `vip.seals` maps each to the months of membership it needs: `csl-member` (0: while
+  a member), `csl-brass` 3, `csl-silver` 6, `csl-gold` 12, `csl-grand` 24, the last four kept for good. Months count once
+  each as they begin (`vip.m` begun when the record was worked out, `vip.f` the starts still to come, so a paid year's
+  months count in on their day without a word from Paddle); a refunded month counts no more. Nothing shows unless the
+  player chooses: `accounts {op: 'shop', step: 'seal', id}` (or `''` for none) stores `shop/<uid>.seal`, and only then
+  does `settle` publish `finery/<uid>.cl {s, u, m, f}`, from which every game works out whether the seal is still held
+  (the plain seal ends with `u`). The `status` step works out once more a record kept before months were counted.
 - **The desk.** `edictCapAt(t)` in the game: 5, or 10 at any time inside a paid month. It decides only whether a new
   edict arrives; loading and saving keep up to 10 (`EDICT_KEEP`), so a queue is never cut, whatever a device knows.
   When a membership ends, every waiting edict stays and new ones arrive once fewer than five wait, at the usual

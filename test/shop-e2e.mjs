@@ -1,11 +1,12 @@
 // The Bureau of National Finery in the browser, against the emulators and a stand-in for Paddle's API (the server
 // answers env 'fake', so the page opens no Paddle.js; this test plays Paddle: it marks the payment taken and sends
 // the signed notification). One player buys the Founder's Package and wears it; a neighbour sees it, and does not see
-// the same finery on a nation that only wrote it into its own record; the Chancery Club gives a desk of ten, a pick,
-// presets and a Chronicle, and when it ends the ten edicts stay. Screenshots land in test/out (shop-*.png).
+// the same finery on a nation that only wrote it into its own record; the Chancery Club comes first on the page, gives
+// a desk of ten, a pick, a seal beside the name (seen by the neighbour), presets and a Chronicle, and when it ends the ten
+// edicts stay and the seal comes down; a full desk outside the Club says so once. Screenshots land in test/out (shop-*.png).
 //   npm run test:shop-e2e
 import { BASE, OUT, PROJECT, FN_HOST, check, finish, until, player, open, found, nav, czSection, sleep, register, restGet } from './lib.mjs';
-import { signature } from '../functions/shop-core.js';
+import { signature, CATALOGUE } from '../functions/shop-core.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import path from 'node:path';
@@ -84,7 +85,13 @@ const A = await player('shop founder', { vp: { width: 1280, height: 1000 }, cap:
 await A.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66' }; window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])) }); }, PRICES);
 await go(A, 'shop');
 const page = await txt(A, '.shop-founder');
-check('the Founder’s Package comes first, priced in euros', /€9\.99/.test(page) && (await A.evaluate(() => document.querySelector('.shop-item').classList.contains('shop-founder'))), page.slice(0, 120));
+check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
+check('the Chancery Club comes first on the page', await A.evaluate(() => document.querySelector('.shop-item').classList.contains('shop-vip')));
+const cmp = (await A.evaluate(() => [...document.querySelectorAll('.shop-cmp tbody tr')].map(r => [...r.children].map(c => c.textContent.trim()).join('|')))).join(' / ');
+check('beside free play, in a table', /Waiting edicts on your desk\|5\|10/.test(cmp) && /Chancery seal/.test(cmp) && /nothing here adds any/.test(cmp), cmp.slice(0, 200));
+const drops = CATALOGUE.products.vip.drops.map(d => ({ from: Date.parse(d.from), ids: d.ids })), later = drops.filter(d => d.from > Date.now());
+if (later.length) check('the Club says when new pieces join its collection', /Two new pieces join on/.test(await txt(A, '.shop-vip')));
+check('only pieces released so far are in the collection', await A.evaluate(ids => ids.every(id => !document.querySelector(`.shop-picks [data-id="${id}"]`)) && document.querySelectorAll('.shop-picks li').length >= 8, later.flatMap(d => d.ids)));
 const local = await until(() => A.evaluate(() => { const f = document.querySelector('#shop-founder-price .shop-local'), v = document.querySelector('#shop-vip-price .shop-local'); return f && v ? [f.textContent, v.textContent] : null; }), 8000);
 check('each euro price carries what it comes to in the player’s currency', !!local && local[0] === 'MX$209.39 in your currency' && local[1] === 'MX$104.66 a month in your currency', JSON.stringify(local));
 check('the buttons ask for the amount Paddle will charge', /MX\$209\.39/.test(await txt(A, '[data-act="shop-buy"][data-p="founder"]')) && /MX\$104\.66 a month/.test(await txt(A, '[data-act="shop-buy"][data-p="vip"]')));
@@ -151,7 +158,8 @@ check('nor to its own player’s game', await C.evaluate(() => { const c = G.SHO
 await go(B, 'customise');
 await czSection(B, 'b');
 await B.waitForSelector('[data-act="cz-try"][data-id="f-engraver"]', { timeout: 15000 });
-check('the Shop’s pieces are in Customise, to try on', /Try it on/.test(await txt(B, '[data-act="cz-try"][data-id="f-engraver"]')));
+check('the Shop’s pieces are in Customise, to try on', /Try it on/.test(await txt(B, '[data-act="cz-try"][data-id="f-engraver"]')) && !!(await B.$('[data-act="cz-try"][data-id="f-ribbon"]')));
+if (drops.some(d => d.ids.includes('f-marquetry') && d.from > Date.now())) check('a piece of a later month is not offered yet', !(await B.$('[data-act="cz-try"][data-id="f-marquetry"]')));
 await click(B, '[data-act="cz-try"][data-id="f-engraver"]');
 check('tried on, it shows on the nation in Customise', await B.evaluate(() => G.SHOP.cz(G.S.nation).f === 'f-engraver') && /Trying on/.test(await txt(B, '.cz-lv-try')));
 check('and nothing is saved', await B.evaluate(() => !(G.S.nation.cz && G.S.nation.cz.f === 'f-engraver')));
@@ -202,6 +210,16 @@ check('the Edicts page counts to ten', /10 of 10 on your desk/.test(await txt(A,
 await go(A, 'shop');await click(A, '[data-act="shop-pick"][data-id="p-moire"]');
 check('the monthly pick is kept on the public list', !!(await until(async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('p-moire'); }, 8000)));
 await shot(A, '.shop-vip', 'shop-vip-member.png');
+/* the Chancery seal: chosen in the Shop, then beside the name for the player and for the neighbour */
+check('a member of a month may show the wax seal, not yet the brass', !!(await A.$('[data-act="shop-seal"][data-id="csl-member"]')) && !(await A.$('[data-act="shop-seal"][data-id="csl-brass"]')));
+await click(A, '[data-act="shop-seal"][data-id="csl-member"]');
+check('the seal is published for every game', !!(await until(async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('csl-member'); }, 8000)));
+check('and shown as chosen', !!(await until(async () => /Shown/.test(await txt(A, '.club-sl.on')), 6000)));
+await go(A, 'nation');await A.evaluate(() => scrollTo(0, 0));
+check('beside the name on the player’s own nation card', !!(await until(() => A.evaluate(() => !!document.querySelector('.hero .club-seal[data-seal="member"]')), 6000)));
+await shot(A, '.hero.id-sec', 'shop-hero-seal.png');
+await B.evaluate(id => { location.hash = 'visit/' + id; }, aUid);await sleep(900);
+check('and on the neighbour’s view of it', !!(await until(() => B.evaluate(() => { G.render(); return !!document.querySelector('.hero .club-seal[data-seal="member"]'); }), 10000)));
 /* presets */
 await go(A, 'customise');await czSection(A, 'z');
 await click(A, '[data-act="pre-save"][data-k="1"]');
@@ -250,10 +268,23 @@ check('the Edicts page says why nothing new arrives', /membership has ended\. Al
 await A.reload();await A.waitForFunction(() => window.G && G.S && G.S.nation);await sleep(1500);
 check('and after a reload, still ten', (await A.evaluate(() => G.S.nation.inbox.length)) === 10);
 check('the pick stays after the membership', (await A.evaluate(() => G.SHOP.held())).includes('p-moire'));
+await B.evaluate(() => { location.hash = 'map'; });await sleep(300);await B.evaluate(id => { location.hash = 'visit/' + id; }, aUid);
+check('the wax seal ends with the membership, for the neighbour too', !!(await until(() => B.evaluate(() => { G.render(); return !!document.querySelector('.hero') && !document.querySelector('.hero .club-seal'); }), 10000)));
 await go(A, 'customise');await sleep(600);
 check('presets still load after, but cannot be saved', await A.evaluate(() => !!document.querySelector('[data-act="pre-load"][data-k="1"]') && !document.querySelector('[data-act="pre-save"]')));
 await go(A, 'chronicle');
 check('the Chronicle is read-only after', /Read-only/.test(await txt(A, '.notice')));
+
+/* ── a full desk outside the Club: one quiet line once an edict could not arrive, put away for a day ── */
+await B.evaluate(() => { let n = G.clone(G.S.nation); n.freq = 60; n.issueClock = Date.now() - 6 * 36e5; n = G.syncInbox(n, Date.now()); G.commit(n);
+  const m = G.clone(G.S.nation); m.issueClock = Date.now() - 2 * 36e5 - 60000; G.commit(m); G.render(); });
+await go(B, 'issues');
+const hint = await until(async () => (await txt(B, '.desk-hint')) || null, 15000);
+check('a full desk says edicts could not arrive, and what a desk in the Club holds', !!hint && /2 edicts could not arrive/.test(hint) && /holds ten/.test(hint), String(hint));
+await shot(B, '.desk-hint', 'shop-desk-hint.png');
+await click(B, '[data-act="desk-hint-off"]');
+check('“Not now” puts it away', !(await B.$('.desk-hint')));
+check('a member’s desk shows no such line', !(await A.$('.desk-hint')));
 
 /* ── in the dark theme ── */
 await A.emulateMedia({ colorScheme: 'dark' });await go(A, 'shop');await sleep(600);await A.evaluate(() => scrollTo(0, 0));
