@@ -246,6 +246,40 @@ test('Community Board: staff pin, lock, hide, move and delete from inside the bo
   assert.deepEqual(new Set(log.docs.map(x=>x.get('action'))),new Set(['board_pin','board_lock','board_hide','board_unhide','board_move','board_delete']));
 });
 
+test('Community Board: an admin posts one topic on several boards as the Edictum team, which any admin may edit',async()=>{
+  const r=await player(true),staff=await player(true),other=await player(true),bare=await sign('signUp',{});
+  await Promise.all([staff,other,bare].map(p=>auth.setCustomUserClaims(p.uid,{admin:true})));
+  const d={op:'cbPost',regs:['meridian','frostmarch','atlantis','meridian'],ti:'  Server maintenance  ',x:'Back in an hour.',tg:'help',as:'team',nm:'Pascal',rl:'Lead developer',pn:true};
+  await assert.rejects(civic(r,d),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(staff,{...d,regs:['atlantis']}),e=>e.status==='INVALID_ARGUMENT');
+  await assert.rejects(civic(staff,{...d,ti:'Hi'}),e=>e.status==='INVALID_ARGUMENT');
+  const before=(await db.doc('cb/frostmarch').get()).get('n')||0;
+  // an admin with no nation of their own still signs as the team; a region it does not know, or named twice, is skipped
+  const res=await civic(bare,d);
+  assert.deepEqual(Object.keys(res.ids).sort(),['frostmarch','meridian']);
+  const tref=db.doc('cb/meridian/posts/'+res.ids.meridian),t=(await tref.get()).data();
+  assert.equal(t.of,true);assert.equal(t.a,bare.uid);assert.equal(t.nm,'Pascal');assert.equal(t.rl,'Lead developer');assert.equal(t.st,'admin');assert.equal(t.rg,'');assert.equal(t.fl,undefined);
+  assert.equal(t.ti,'Server maintenance');assert.equal(t.tg,'help');assert.equal(t.pn,true);assert.equal(t.lk,undefined);assert.equal(t.rc,0);
+  assert.equal((await db.doc('cb/frostmarch/posts/'+res.ids.frostmarch).get()).get('x'),'Back in an hour.');
+  assert.equal((await db.doc('cb/frostmarch').get()).get('n'),before+1);
+  // as the admin's nation, locked
+  const n=await civic(staff,{...d,regs:['frostmarch'],as:'nation',lk:true}),nt=(await db.doc('cb/frostmarch/posts/'+n.ids.frostmarch).get()).data();
+  assert.equal(nt.of,undefined);assert.equal(nt.nm,staff.uid);assert.equal(nt.rg,'meridian');assert.equal(nt.st,'admin');assert.equal(nt.lk,true);assert.equal(nt.rl,undefined);
+  // a player who asks to sign as the team still signs as their nation
+  const p=await civic(r,{op:'cbReply',reg:'meridian',topic:res.ids.meridian,x:'Thanks',as:'team',nm:'Edictum team'});
+  const pr=(await tref.collection('posts').doc(p.id).get()).data();assert.equal(pr.of,undefined);assert.equal(pr.nm,r.uid);assert.equal(pr.st,undefined);
+  // another admin answers as the team, with the plain signature, and edits the team's topic; a player may not
+  const a=await civic(other,{op:'cbReply',reg:'meridian',topic:res.ids.meridian,x:'Ask away',as:'team'});
+  const ar=(await tref.collection('posts').doc(a.id).get()).data();assert.equal(ar.of,true);assert.equal(ar.nm,'Edictum team');assert.equal(ar.rl,undefined);
+  await civic(other,{op:'cbEdit',reg:'meridian',topic:res.ids.meridian,ti:'Server maintenance tonight',x:'Back in two hours.'});
+  const ed=(await tref.get()).data();assert.equal(ed.ti,'Server maintenance tonight');assert.equal(ed.nm,'Pascal');assert.ok(ed.ed>0);
+  await assert.rejects(civic(r,{op:'cbEdit',reg:'meridian',topic:res.ids.meridian,ti:'Mine now',x:'Mine now'}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(other,{op:'cbEdit',reg:'meridian',topic:res.ids.meridian,reply:p.id,x:'Not yours'}),e=>e.status==='PERMISSION_DENIED');
+  assert.equal((await tref.get()).get('rc'),2);
+  const log=await db.collection('adminAudit').where('actor','==',bare.uid).get(),e=log.docs.find(x=>x.get('action')==='board_post');
+  assert.ok(e);assert.deepEqual(e.get('topics'),res.ids);assert.match(e.get('reason'),/Server maintenance/);
+});
+
 test('A new record starts no larger than a new nation could have grown, the account\'s last save, or the guest it was carried from',async()=>{
   const save=(p,pop,{rev=0,name='Freshland',...extra}={})=>civic(p,{op:'authorizeSave',record:{reg:'meridian',name,pop,army:1,cl:0,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name,pop})},rev,...extra});
   const big=async(p,ck)=>{await db.doc('nations/'+p.uid).update({pop:900,ts:new Date()});assert.ok((await save(p,900,{rev:1,name:p.uid,...(ck?{ck}:{})})).permit);};

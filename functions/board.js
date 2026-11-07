@@ -5,13 +5,16 @@ import { eligibility, refuse } from './eligibility.js';
 /* The Community Board: one board per region, read by everyone, written only here (civic ops cb*), so every post
    carries what the server knows rather than what a browser claims.
      cb/{reg}                         {n: topics, r: replies, la: last activity (ms), dd: day (UTC date), dn: posts that day}
-     cb/{reg}/posts/{tid}             a topic {a, nm, rg, fl?, fd?, st?, ti, x, tg, t, la, rc, pn?, lk?, hd?, ed?}
-     cb/{reg}/posts/{tid}/posts/{rid} a reply {a, nm, rg, fl?, fd?, st?, x, t, hd?, ed?}
+     cb/{reg}/posts/{tid}             a topic {a, nm, rg, fl?, fd?, st?, of?, rl?, ti, x, tg, t, la, rc, pn?, lk?, hd?, ed?}
+     cb/{reg}/posts/{tid}/posts/{rid} a reply {a, nm, rg, fl?, fd?, st?, of?, rl?, x, t, hd?, ed?}
      cbHidden/{id}                    what a hidden topic or reply said, for admins only {reg, tid, rid?, ti?, x, by, t}
      cbPace/{uid}                     the pacing of each player's posts {p, q} (paced(), below)
    Topics and replies are 'posts' collections so deleting an account, or an admin removing a nation, takes them too.
    Any Registered Nation may open a topic or reply in any region; the author is shown as their nation was when they
-   posted: its name, region, flag, a Founding Supporter mark (fd) and an Edictum staff mark (st). */
+   posted: its name, region, flag, a Founding Supporter mark (fd) and an Edictum staff mark (st).
+   An admin may instead sign as the Edictum team (of: true, with a name and a role of their choosing, no flag or
+   region): that needs no nation of their own, reaches a closed region's board too, and any admin may edit it.
+   cbPost, from the admin portal, opens the same topic on several boards (or all of them) at once. */
 export const CB_TAGS = ['general', 'trade', 'diplomacy', 'war', 'help', 'offtopic'];
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -30,6 +33,16 @@ async function author(tx, db, who, e) {
   const flag = e.n.flag && typeof e.n.flag === 'object' ? JSON.stringify(e.n.flag) : '';
   return { a: who.uid, nm: line(e.saved.get('name'), 80) || 'A nation', rg: e.n.reg || e.saved.get('reg') || '',
     ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}), ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}) };
+}
+/* who signs a new post: the player's nation, or for an admin who asks (as: 'team') the Edictum team. The team needs
+   no nation, so only a ban stops it, and a nation of the admin's in a closed region does not. */
+const TEAM_OK = { nation: false, hidden: true, linked: false, allowClosedRegion: true };
+const asTeam = (who, d) => who.admin && d.as === 'team';
+async function signer(tx, db, who, d) {
+  if (!asTeam(who, d)) return author(tx, db, who, await eligibility(tx, who));
+  await eligibility(tx, who, TEAM_OK);
+  const rl = line(d.rl, 60);
+  return { a: who.uid, nm: line(d.nm, 80) || 'Edictum team', rg: '', st: 'admin', of: true, ...(rl ? { rl } : {}) };
 }
 function counted(meta, now, add) {
   const m = meta.exists ? meta.data() : {}, same = m.dd === day(now);
@@ -66,8 +79,7 @@ export async function cbTopic(db, who, d, regions) {
   if (ti.length < 3) throw new HttpsError('invalid-argument', 'Give the topic a title of at least three characters.');
   if (!x) throw new HttpsError('invalid-argument', 'Write something first.');
   return db.runTransaction(async tx => {
-    const e = await eligibility(tx, who), metaRef = db.doc('cb/' + reg);
-    const [meta, me] = await Promise.all([tx.get(metaRef), author(tx, db, who, e)]);
+    const me = await signer(tx, db, who, d), metaRef = db.doc('cb/' + reg), meta = await tx.get(metaRef);
     const now = Date.now(), ref = db.collection('cb/' + reg + '/posts').doc(), mark = await paced(tx, db, who, true, now);
     mark();
     tx.create(ref, { ...me, ti, x, tg, t: now, la: now, rc: 0 });
@@ -81,8 +93,8 @@ export async function cbReply(db, who, d, regions) {
   if (!tid) throw new HttpsError('invalid-argument', 'Choose a topic.');
   if (!x) throw new HttpsError('invalid-argument', 'Write a reply first.');
   return db.runTransaction(async tx => {
-    const e = await eligibility(tx, who), metaRef = db.doc('cb/' + reg), topicRef = db.doc('cb/' + reg + '/posts/' + tid);
-    const [meta, topic, me] = await Promise.all([tx.get(metaRef), tx.get(topicRef), author(tx, db, who, e)]);
+    const me = await signer(tx, db, who, d), metaRef = db.doc('cb/' + reg), topicRef = db.doc('cb/' + reg + '/posts/' + tid);
+    const [meta, topic] = await Promise.all([tx.get(metaRef), tx.get(topicRef)]);
     if (!topic.exists || topic.get('hd')) refuse('cb_missing', 'This topic is no longer there.');
     if (topic.get('lk') && !who.admin && !who.mod) refuse('cb_locked', 'This topic is locked: it takes no more replies.');
     const now = Date.now(), ref = topicRef.collection('posts').doc(), mark = await paced(tx, db, who, false, now);
@@ -94,16 +106,42 @@ export async function cbReply(db, who, d, regions) {
   });
 }
 
-/* the author changes their own words; the post shows when it was edited */
+/* An admin's topic on several boards at once, from the admin portal: the same words as a topic of its own on each
+   chosen board, pinned or locked as asked, signed as the Edictum team or as the admin's nation. One transaction:
+   two writes a board and the audit entry, far below Firestore's 500. */
+export async function cbPost(db, who, d, regions) {
+  if (!who.admin) throw new HttpsError('permission-denied', 'Only admins can post to several boards at once.');
+  const regs = [...new Set(Array.isArray(d.regs) ? d.regs.filter(r => typeof r === 'string' && regions.has(r)) : [])];
+  const ti = line(d.ti, CB_TITLE), x = body(d.x, CB_TEXT), tg = CB_TAGS.includes(d.tg) ? d.tg : 'general';
+  if (!regs.length) throw new HttpsError('invalid-argument', 'Choose at least one board.');
+  if (ti.length < 3) throw new HttpsError('invalid-argument', 'Give the topic a title of at least three characters.');
+  if (!x) throw new HttpsError('invalid-argument', 'Write something first.');
+  return db.runTransaction(async tx => {
+    const me = await signer(tx, db, who, d), metaRefs = regs.map(r => db.doc('cb/' + r)), metas = await tx.getAll(...metaRefs);
+    const now = Date.now(), ids = {};
+    regs.forEach((reg, i) => {
+      const ref = db.collection('cb/' + reg + '/posts').doc(); ids[reg] = ref.id;
+      tx.create(ref, { ...me, ti, x, tg, t: now, la: now, rc: 0, ...(d.pn === true ? { pn: true } : {}), ...(d.lk === true ? { lk: true } : {}) });
+      tx.set(metaRefs[i], counted(metas[i], now, { n: 1 }));
+    });
+    audit(tx, db, who, 'board_post', { target: who.uid, name: me.nm, reg: regs.join(', '), topics: ids, x: line(ti + ': ' + x, 1000),
+      reason: line(`“${ti}” on ${regs.length === 1 ? 'the board of ' + regs[0] : regs.length + ' boards: ' + regs.join(', ')}`, 300),
+      ...(d.pn === true ? { pinned: true } : {}), ...(d.lk === true ? { locked: true } : {}) });
+    return { ids };
+  });
+}
+
+/* the author changes their own words, and any admin those signed by the Edictum team; the post shows when it was edited */
 export async function cbEdit(db, who, d, regions) {
   const reg = where(regions, d), tid = id20(d.topic), rid = d.reply ? id20(d.reply) : '', x = body(d.x, CB_TEXT), ti = line(d.ti, CB_TITLE);
   if (!tid || (d.reply && !rid)) throw new HttpsError('invalid-argument', 'Choose a post.');
   if (!x || (!rid && ti.length < 3)) throw new HttpsError('invalid-argument', 'A post needs its text, and a topic its title.');
   return db.runTransaction(async tx => {
-    await eligibility(tx, who);
     const ref = db.doc('cb/' + reg + '/posts/' + tid + (rid ? '/posts/' + rid : '')), p = await tx.get(ref);
+    const team = p.get('of') === true && who.admin;
+    if (p.exists && p.get('a') !== who.uid && !team) throw new HttpsError('permission-denied', 'You can only edit your own posts.');
+    await eligibility(tx, who, team ? TEAM_OK : {});
     if (!p.exists || p.get('hd')) refuse('cb_missing', 'This post is no longer there.');
-    if (p.get('a') !== who.uid) throw new HttpsError('permission-denied', 'You can only edit your own posts.');
     tx.update(ref, { x, ...(rid ? {} : { ti, ...(CB_TAGS.includes(d.tg) ? { tg: d.tg } : {}) }), ed: Date.now() });
     return { ok: true };
   });

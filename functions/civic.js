@@ -6,7 +6,7 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { cbTopic, cbReply, cbEdit, cbDelete, cbMod } from './board.js';
+import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
 import { pace, ipRule } from './pace.js';
 
@@ -436,7 +436,7 @@ async function newsTally(db, who, d, kind) {
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'resign', 'rejoin']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
-  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'topic', 'state', ...ASSEMBLY_ACTS]);
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'state', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
@@ -459,6 +459,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'cbEdit') return cbEdit(db, who, d, regions);
   if (d.op === 'cbDelete') return cbDelete(db, who, d, regions);
   if (d.op === 'cbMod') return cbMod(db, who, d, regions);
+  if (d.op === 'cbPost') return cbPost(db, who, d, regions);
   if (isAllianceOp(d.op)) return alliance(db, who, d);
   if (d.op === 'topic') return db.runTransaction(async tx => {
     const e = await eligibility(tx, who), limit = db.doc('limits/' + who.uid), s = await tx.get(limit);
