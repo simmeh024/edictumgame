@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth,
+import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth, addMonths, months, pickFor,
   CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
 
 const DAY = 864e5, H = 36e5, src = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
@@ -228,6 +228,39 @@ test('the Chancery Club yearly: a paid year, picked from month by month without 
   const month = tx('txn_m', 'vip', { sub: 'sub_m', paid: t0 + 40 * DAY, period: { s: t0 + 40 * DAY, e: addMonth(t0 + 40 * DAY) } });
   const e2 = entitlement({ txs: [year, month], subs: { ...subs, sub_m: { status: 'active', firstTxn: 'txn_m' } }, now: t0 + 41 * DAY });
   assert.deepEqual(e2.cancels, [{ sub: 'sub_m', why: 'duplicate' }]); assert.ok(e2.refunds.some(r => r.txn === 'txn_m'));
+});
+
+test('a year begun on the 29th–31st is still twelve months, each on its first day where the month has it; choices made before keep their month', () => {
+  const iso = t => new Date(t).toISOString().slice(0, 10);
+  /* every first day over two years (one crossing 29 February 2028), as Paddle bills a year and as twelve calendar months */
+  for (let d = Date.UTC(2026, 0, 1, 2, 7); d < Date.UTC(2028, 0, 1); d += DAY) {
+    assert.equal(months({ s: d, e: d + 365 * DAY }).length, 12, `a year of 365 days from ${iso(d)}`);
+    assert.equal(months({ s: d, e: addMonths(d, 12) }).length, 12, `twelve calendar months from ${iso(d)}`);
+  }
+  const aug29 = Date.UTC(2026, 7, 29, 2, 7);
+  assert.deepEqual(months({ s: aug29, e: aug29 + 365 * DAY }).map(p => iso(p.s)), ['2026-08-29', '2026-09-29', '2026-10-29', '2026-11-29', '2026-12-29',
+    '2027-01-29', '2027-02-28', '2027-03-29', '2027-04-29', '2027-05-29', '2027-06-29', '2027-07-29'], 'back on the 29th after February');
+  assert.equal(iso(addMonths(Date.UTC(2028, 0, 31), 1)), '2028-02-29'); assert.equal(iso(addMonths(Date.UTC(2028, 0, 31), 2)), '2028-03-31');
+  assert.equal(iso(addMonths(Date.UTC(2026, 10, 30), 3)), '2027-02-28', 'across the year end');
+  /* a year paid with no period from Paddle ends a calendar year on, not three days short */
+  const jan31 = Date.UTC(2027, 0, 31), y = entitlement({ txs: [tx('txn_y', 'vipyear', { sub: 'sub_y', paid: jan31 })], subs: { sub_y: { status: 'active' } }, now: jan31 + DAY });
+  assert.equal(iso(y.vip.until), '2028-01-31'); assert.equal(y.vip.per.length, 12); assert.equal(iso(y.vip.per[2].s), '2027-03-31');
+  /* choices made while months slipped (31 August, 30 September, 30 October …) still count for the month they were for */
+  const aug31 = Date.UTC(2026, 7, 31), e = entitlement({ txs: [tx('txn_z', 'vipyear', { sub: 'sub_z', paid: aug31, period: { s: aug31, e: addMonths(aug31, 12) } })], subs: { sub_z: { status: 'active' } }, now: aug31 + DAY });
+  assert.deepEqual(e.vip.per.slice(0, 3).map(p => iso(p.s)), ['2026-08-31', '2026-09-30', '2026-10-31']);
+  const old = { [aug31]: 'p-moire', [Date.UTC(2026, 8, 30)]: 'a-petrol', [Date.UTC(2026, 9, 30)]: 'p-damask' }, nov5 = Date.UTC(2026, 10, 5);
+  assert.equal(pickFor(old, e.vip.per[2], e.vip.per), 'p-damask', 'the choice under 30 October is the month from 31 October');
+  assert.equal(pickPeriod(e.vip, nov5, old), null, 'so no month is open for a second choice');
+  assert.equal(pickPeriod(e.vip, nov5, { [aug31]: 'p-moire', [Date.UTC(2026, 8, 30)]: 'a-petrol' }).s, Date.UTC(2026, 9, 31), 'one not made is still open');
+  /* a month that starts days from another keeps its own choice: a start some month still has is never borrowed */
+  const n2 = Date.UTC(2026, 10, 2), n4 = Date.UTC(2026, 10, 4), side = { per: [{ s: n2, e: addMonth(n2) }, { s: n4, e: addMonth(n4) }] };
+  assert.deepEqual(pickPeriod(side, n4 + DAY, { [n2]: 'p-moire' }), side.per[1]);
+  /* the game reads the choices the same way */
+  const g = { DAY }; vm.createContext(g);
+  vm.runInContext(src.slice(src.indexOf('function clubPickFor('), src.indexOf('return undefined;}', src.indexOf('function clubPickFor(')) + 18), g);
+  assert.equal(g.clubPickFor(old, e.vip.per[2], e.vip.per), 'p-damask');
+  assert.equal(g.clubPickFor({ [n2]: 'p-moire' }, side.per[1], side.per), undefined);
+  assert.match(src, /used=cur&&clubPickFor\(picks,cur,v\.per\)/);
 });
 
 test('gifts: what was given belongs to the nation it went to; a gifted month starts where the paid membership ends', () => {

@@ -49308,7 +49308,11 @@ function clubOpenIds(t){const v=clubVipCat();if(!v||!Array.isArray(v.collection)
 function clubGrace(){const v=clubVipCat();return ((v&&v.pickGraceDays)||35)*DAY;}
 /* the paid months a choice can still be made for: begun, not chosen for, and under five weeks past their end (the server's
    pickPeriod takes the earliest) */
-function clubPerOpen(v,picks,t){const g=clubGrace();return (v&&Array.isArray(v.per)?v.per:[]).filter(p=>p&&p.s<=t&&t<p.e+g&&!(picks&&picks[p.s])).sort((a,b)=>a.s-b.s);}
+function clubPerOpen(v,picks,t){const g=clubGrace(),per=v&&Array.isArray(v.per)?v.per:[];return per.filter(p=>p&&p.s<=t&&t<p.e+g&&!clubPickFor(picks,p,per)).sort((a,b)=>a.s-b.s);}
+/* the choice made for a month (shop-core.js pickFor): under its start, or under a start up to four days off that no month
+   has now (months once slipped from the 29th–31st to an earlier day) */
+function clubPickFor(picks,p,per){if(!picks||!p)return undefined;if(picks[p.s])return picks[p.s];const st=new Set((per||[]).map(q=>q.s));
+  for(const k of Object.keys(picks)){const x=Number(k);if(Math.abs(x-p.s)<=4*DAY&&!st.has(x))return picks[k];}return undefined;}
 /* ── the Chancery seals: months of membership (shop-core.js tenure/sealHeld, the same sums) ── */
 const SEAL_INFO={'csl-member':{n:'Chancery seal',c:['#b5455f','#6e1f33','#f6dfe6']},'csl-brass':{n:'Brass Chancery seal',c:['#e2bf6a','#8a6416','#3d2a06']},
   'csl-silver':{n:'Silver Chancery seal',c:['#f4f6f8','#7d868f','#2c3238']},'csl-gold':{n:'Gold Chancery seal',c:['#fbeab0','#b48a2c','#4a3305']},
@@ -49858,7 +49862,7 @@ function shopVipSec(n,t){
       <div class="row shop-row">${st==='past_due'?`<button type="button" class="btn" data-act="shop-portal"${!on?' disabled':''}>Update payment method</button>`:shopCta(cp,'Join again · '+shopPay(cp)+cper)}</div>`;
   }else state=`<div class="row shop-row">${shopCta(cp,'Join the Chancery Club · '+shopPay(cp)+cper)}</div>`;
   /* the collection as it stands, its newest pieces first; the months a choice can still be made for */
-  const picks=SHOP.doc&&SHOP.doc.picks||{},held=new Set(Object.values(picks)),open=v?clubPerOpen(v,picks,t):[],cur=member&&v&&Array.isArray(v.per)?v.per.find(p=>p.s<=t&&t<p.e):null,used=cur&&picks[cur.s];
+  const picks=SHOP.doc&&SHOP.doc.picks||{},held=new Set(Object.values(picks)),open=v?clubPerOpen(v,picks,t):[],cur=member&&v&&Array.isArray(v.per)?v.per.find(p=>p.s<=t&&t<p.e):null,used=cur&&clubPickFor(picks,cur,v.per);
   const avail=clubOpenIds(t),left=avail.filter(id=>!held.has(id)),drops=clubDrops(),last=drops.filter(d=>d.from<=t).pop(),next=drops.find(d=>d.from>t);
   const sameMonth=(a,b)=>{const x=new Date(a),y=new Date(b);return x.getUTCFullYear()===y.getUTCFullYear()&&x.getUTCMonth()===y.getUTCMonth();};
   const fresh=new Set(last&&sameMonth(last.from,t)?last.ids:[]),canPick=open.length>0&&on&&S.mode==='world';
