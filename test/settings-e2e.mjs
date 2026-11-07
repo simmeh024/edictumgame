@@ -1,4 +1,4 @@
-// Settings in six tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
+// Settings in eight tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
 // the address; a jump from elsewhere opens the right tab; leaving with unsaved changes asks first; a phone gets a row of
 // tabs that sticks under the top bar (emulators).
 import { OUT, check, finish, sleep, until, player, open, found, nav, text, localNation, nationDoc, errors, clearEmulators } from './lib.mjs';
@@ -12,7 +12,7 @@ await A.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await A.click(
 
 // the page: six tabs, one pane at a time, Your nation first
 await nav(A, 'settings'); await A.waitForSelector('#sg');
-check('Settings has seven tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Notifications', 'Letters', 'Display', 'Navigation', 'Account']));
+check('Settings has eight tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Land', 'Notifications', 'Letters', 'Display', 'Navigation', 'Account']));
 check('it opens on Your nation, with the other panes hidden', await tab(A) === 'nation' && await shown(A, '#s-motto') && !await shown(A, '#s-freq') && !await shown(A, '#set-notif') && !await shown(A, '#set-appearance'));
 check('on a wide screen the tabs are a list down the side', await A.$eval('.sg-rail', e => getComputedStyle(e).flexDirection) === 'column');
 check('the old section menu and fold controls are gone', !await A.$('#ux-section-select') && !await A.$('.ux-fold-toggle'));
@@ -65,6 +65,33 @@ await A.reload(); await A.waitForSelector('#sg');
 check('and still does after a reload', await tab(A) === 'display' && await shown(A, '[data-act="theme"][data-v="dark"]'));
 await A.evaluate(() => { location.hash = '#nation'; }); await sleep(300); await A.evaluate(() => { location.hash = '#settings'; }); await sleep(400);
 check('#settings opens Your nation', await tab(A) === 'nation');
+
+// Land: pausing land credit gains keeps a nation small; its credits are stored, and all of them come back with gains
+const lh = () => A.evaluate(() => { const L = G.LH(), n = G.S.nation; return { paused: L.paused(n), stored: L.stored(n), credits: L.credits(n) }; });
+await A.click('#sg-tab-land');
+check('the Land tab shows its own pane, in the address', await tab(A) === 'land' && await shown(A, '#lh-pause') && !await shown(A, '#s-freq') && await A.evaluate(() => location.hash) === '#settings/land');
+const lh0 = await lh();
+check('gains are on at first, with credits to spend', !lh0.paused && lh0.credits > 0 && !await A.$eval('#lh-pause', e => e.checked) && /Gains on/.test(await text(A, '[data-sg-sub="land"]')));
+await A.click('#lh-pause');
+check('pausing is saved at once', await until(async () => (await localNation(A)).lcp > 0) && /Saved/.test(await text(A, '[data-sg-saved="land"]')));
+const lh1 = await lh();
+check('while paused nothing can be spent, and every credit is stored', lh1.paused && lh1.credits === 0 && lh1.stored === lh0.credits);
+check('the tab line and the pane say so', (await text(A, '[data-sg-sub="land"]')).includes(`Gains paused · ${lh0.credits} stored`) && /Paused since .* land credits? stored/.test(await text(A, '#lh-state')));
+check('the bell has no land to spend', await A.evaluate(() => !G.RGNX().notifItems(Date.now()).pin.some(p => p.k === 'land')));
+await A.reload(); await A.waitForSelector('#sg');
+check('the pause holds after a reload', await tab(A) === 'land' && await A.$eval('#lh-pause', e => e.checked) && (await lh()).credits === 0);
+await nav(A, 'map');
+check('the map’s land office shows what is stored', await until(() => shown(A, '.lc-box.lc-paused'), 5000) && (await text(A, '.lc-box.lc-paused .lc-v')) === String(lh0.credits) && !await A.$('[data-act="lc-auto"]'));
+await A.screenshot({ path: OUT + '/settings-land-map-1366.png' }); /* the panel redraws with the clock, so not an element shot */
+await A.click('.lc-box.lc-paused [data-sg-tab="land"]'); await sleep(500);
+check('and its link opens Settings at Land', await A.evaluate(() => G.S.view) === 'settings' && await tab(A) === 'land');
+await A.screenshot({ path: OUT + '/settings-land-1366.png' });
+await A.click('#lh-pause');
+check('turning gains back on makes every stored credit available', await until(async () => !('lcp' in await localNation(A))) && (await lh()).credits === lh0.credits && /Gains on/.test(await text(A, '[data-sg-sub="land"]')));
+await A.click('#lh-auto');
+check('the Land tab also turns on automatic spending', await until(async () => (await localNation(A)).autoLand === true) && /spent automatically/.test(await text(A, '[data-sg-sub="land"]')));
+await A.click('#lh-auto');
+check('and off again', await until(async () => (await localNation(A)).autoLand === false));
 
 // jumps from elsewhere open the right tab
 const search = async (q, v) => { await nav(A, 'map'); await A.keyboard.press('Control+k'); await A.waitForSelector('#qj-in'); await A.fill('#qj-in', q); await A.click(`.qj-o[data-v="${v}"]`); await sleep(600); };
