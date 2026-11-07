@@ -19129,7 +19129,7 @@ function mileUnlocks(m,n){
 function growthSection(n){
   const M=mileOf(n),nx=M.next,prev=[...M.reached].pop()||{p:0},pct=nx?clamp((M.pop-prev.p)/(nx.p-prev.p)*100,0,100):100;
   return `<section class="section"><h2 class="h2">Growth</h2>
-    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${M.reached.length} of ${MILESTONES.length} milestones reached · ${esc(growthText(n))}</p>${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
+    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${M.reached.length} of ${MILESTONES.length} milestones reached · ${esc(growthText(n))}</p>${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
       ${nx?`<div class="mile-next"><p class="lbl">Next milestone: ${fmtPopShort(nx.p)}</p><span class="bar"><i style="width:${pct.toFixed(1)}%"></i></span><p>${esc(cap1(list(mileUnlocks(nx,n))))}${nx.t?`, and the rank of ${esc(nx.t)}`:''}.</p></div>`:`<div class="mile-next"><p>Every milestone reached. ${esc(n.name)} is a ${esc(M.title)}.</p></div>`}</div>
     ${mileList(M.pop,m=>{const done=M.pop>=m.p-1e-9;return `<li class="${done?'done':''}"><span class="ms-p">${done?'<span class="tick" aria-label="Reached">✓</span>':''}${fmtPopShort(m.p)}</span><span class="ms-u">${esc(cap1(list(mileUnlocks(m,n))))}${m.t?` <span class="chip">${esc(m.t)}</span>`:''}</span></li>`;})}${mileMore(M.pop)}
   </section>`;
@@ -20896,7 +20896,17 @@ function expTick(now){
 const LAND_CAP=[0,4,2.2,1.6,1.2,2.6,0.8,4.5];
 const NPC_EPOCH=Date.UTC(2026,9,25),FIX_EPOCH=Date.UTC(2026,9,25);
 const NPC_ROOM={'npc-karvesk':1.35,'npc-vellmark':1.4,'npc-tarrow':1.5,'npc-brennoch':1.45,'npc-lucanto':1.6,'npc-oskaloo':1.7,'npc-marrowmere':1.55,'npc-ilsund':1.8};
-function rateOf(n){const s=n.s;return 0.06*(0.55+s.health/250+s.safety/400+s.happy/400+s.wealth/500)*(n.gm||1)*(1-Math.max(0,s.tax-50)/150);}
+/* growth by size (balance pass, 2026-11-07): a young nation booms, twice as fast at 5 million and back to normal by
+   15 million, so the first milestone comes in the first day or so; above 100 million growth slows, to half its pace near
+   1.8 billion and a quarter at a trillion, so the late game is a climb and the biggest nations do not run away. Like the
+   rest of the rate it is taken from the population at each save (growthSnap). jobs/fx/engine.mjs keeps a copy.
+   RATE_TOP: a boosted rate stays under ln 1.35 = 0.300, the most firestore.rules (grows) and the population-for-age
+   check let a nation grow in a day, and under RATE_MAX, however long it goes unsaved. Without the boom the rate tops
+   out near 0.158 (every stat at 100, growth ×1.6), so the cap only ever trims the boom. */
+const GROW_BOOM=2,BOOM_FROM=5,BOOM_TO=15,GROW_DAMP=0.8,DAMP_FROM=100,RATE_TOP=0.29;
+function sizeRate(p){p=Math.max(0.1,+p||0);return (1+(GROW_BOOM-1)*Math.min(1,Math.max(0,(BOOM_TO-p)/(BOOM_TO-BOOM_FROM))))/(1+GROW_DAMP*Math.max(0,Math.log10(p/DAMP_FROM)));}
+function sizeNote(p){const f=sizeRate(p);return f>1.005?`<p class="hint">A young nation: growing ${fmt1(f)}× as fast until ${fmtPopShort(BOOM_TO)} people.</p>`:f<0.995?`<p class="hint">At this size, growth runs at ${Math.round(f*100)}% of its usual pace.</p>`:'';}
+function rateOf(n){const s=n.s;return Math.min(RATE_TOP,0.06*(0.55+s.health/250+s.safety/400+s.happy/400+s.wealth/500)*(n.gm||1)*(1-Math.max(0,s.tax-50)/150)*sizeRate(n.pop));}
 function npcPop(n,now){const P0=n.pop,K=P0*(NPC_ROOM[n.id]||1.5),t=Math.max(0,(now||Date.now())-NPC_EPOCH)/DAY;return K/(1+(K-P0)/P0*Math.exp(-0.012*t));}
 function logistic(P0,K,r,dt){return P0<=K?K/(1+(K-P0)/P0*Math.exp(-r*dt)):K+(P0-K)*Math.exp(-0.02*dt);}
 function popNow(n,now){
@@ -21822,7 +21832,7 @@ function helpBody(n){
       <p>Some stories continue: a follow-up can arrive some hours after your decision. Edicts often draw on your land, your coast and your neighbours, and players next door can raise a matter with you that lands on your desk. In Settings you can ask for more or fewer edicts on each topic.</p>${G(go('issues','Open edicts'))}`,
     time:`<p>Everything happens in real time. A year of game time passes every ${yrDays===1?'day':yrDays+' days'}, so leaders and ministers grow a year older every ${yrDays} days, and the statistics count years the same way. Computer nations pass one law a day. Buildings, expeditions, readiness and spies all recover or finish on the clock, whether or not you are playing.</p>`,
     pop:`<p>Your population grows along a curve towards what your land can support, its capacity. Capacity comes from the land you hold: reclaimed land and farmland support the most people, mountains the fewest. Each city adds room for about 6 million more and each building about 1 million, and the total rises with science and health and falls when food runs short.${n&&n.pk?` Right now ${esc(n.name)} can support about ${fmtPop(n.pk)}.`:''}</p>
-      <p>How fast you grow depends on health, safety, happiness and wealth, on food, hospitals, housing and your Minister of Health and Education. Income tax above 50% slows growth. Above capacity, the population slowly shrinks. Migration adds or takes people on top.</p>
+      <p>How fast you grow depends on health, safety, happiness and wealth, on food, hospitals, housing and your Minister of Health and Education. Income tax above 50% slows growth. Size matters too: a young nation grows up to twice as fast until it reaches ${fmtPopShort(BOOM_TO)} people, and above ${fmtPopShort(DAMP_FROM)} growth gradually slows, to about half its pace near 2 billion. Above capacity, the population slowly shrinks. Migration adds or takes people on top.</p>
       <p>At set populations you reach milestones. They unlock buildings, more cities and bonus land credits, declaring war (at ${fp('war')}), founding alliances (at ${fp('alli')}) and bidding to host the Games (at ${fp('host')}). The Growth section of your Nation page lists them all.</p>`,
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
@@ -29314,7 +29324,7 @@ BLD_CATS.splice(3,0,['lead','Leadership']);
 /* where the new buildings unlock: leadership and mid-game ones join existing milestones */
 {const add=(p,...k)=>{const m=MILESTONES.find(m=>m.p===p);m.b=(m.b||[]).concat(k);};
   add(8.5,'palace','parliament','collfarm','monastery');add(12.5,'parade','freeport');add(15,'rail');add(20,'oracle','secpol');
-  add(25,'mint','press','culture');add(35,'stadium');add(50,'exchange');add(75,'power');add(200,'airport');add(1000,'vfarm');
+  add(25,'mint','press','culture');add(35,'stadium');add(50,'exchange');add(75,'power');add(200,'airport');add(500,'vfarm');
   MILESTONES.find(m=>m.p===1000).x='the World Power Medallion';}
 /* milestones from a billion to a trillion (indices 16 to 28: never insert before them, tallies count by index) */
 MILESTONES.push(
@@ -29456,7 +29466,7 @@ HELP_EXT.push({k:'leadbld',t:'Leadership buildings',body:n=>{
   return `<p>Twelve buildings belong to a kind of government. A nation’s leadership groups follow its type of state, set in Settings and changed by some edicts, and its freedoms. A nation can belong to several groups, or to none.${n?` Right now ${esc(n.name)} counts as ${g.length?list(ldrNames(g).map(esc)):'none of them'}.`:''}</p>
     <ul>${LDR.map(G=>`<li><b>${esc(G.n)}</b>: ${esc(G.who)}. ${esc(cap1(list(Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].lead===G.k).map(k=>BUILDINGS[k].n+' ('+ldrLow(BUILDINGS[k].d.replace(/\.$/,''))+')'))))}.</li>`).join('')}</ul>
     <p>The catalogue tags each one, such as “Crown only”. Most are one per nation. If your government changes and you leave a group, its buildings are never lost: they fall dormant, keep their block, give nothing, and work again the moment you return. A captured one works only if its new holder belongs to the group. Stolen plans cannot unlock them.</p>`;}});
-HELP_EXT.push({k:'giants',t:'Beyond a billion',body:n=>`<p>Above a billion people, land alone cannot hold a nation. Vertical Farms, Arcologies, Orbital Habitats and the Orbital Elevator add room for billions more, counted with your science and health like the rest of your capacity. Fusion Plants and Hyperloop Terminals keep them supplied, and the Lunar Colony, the last wonder, opens the Moon.</p>
+HELP_EXT.push({k:'giants',t:'Half a billion and beyond',body:n=>`<p>From half a billion people, land alone cannot hold a nation. Vertical Farms (from 500 million), Arcologies, Orbital Habitats and the Orbital Elevator add room for billions more, counted with your science and health like the rest of your capacity. Fusion Plants and Hyperloop Terminals keep them supplied, and the Lunar Colony, the last wonder, opens the Moon.</p>
   <p>Milestones carry on to a trillion people, through ${list(MILESTONES.filter(m=>m.p>1000&&m.t).map(m=>esc(m.t)))}, with more cities (up to ${MAX_CITIES}) and bonus land credits. Land credits from population slow down above a billion: about ${budgetOf(1e6)-budgetOf(1000)} more between a billion and a trillion.</p>
   <p>It is a long road. The late buildings are dear, take days to finish and each needs a free building block, which only a big city has to spare. Expect months, not days. Stolen plans cannot bring them early.</p>`});
 
