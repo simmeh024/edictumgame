@@ -1152,6 +1152,9 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .c3-ab{margin:6px 0 0;padding-left:18px}.c3-ab li+li{margin-top:4px}
 .bld-q .bld-n{color:var(--ink-2)}.bld-q .bld-bar{opacity:.5}
 .stk-strip{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 20px;margin:0 0 26px;padding:11px 16px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.gb-why{margin:-4px 0 14px;padding:8px 12px;border:1px dashed var(--rule-2);border-radius:4px;font-size:13px;color:var(--ink-2)}
+.gb-why ul{margin:0 0 4px;padding-left:1.1em;display:grid;gap:3px}.gb-why .row{gap:12px;flex-wrap:wrap}
+.gb-mkt{margin:0 0 18px}.gb-mkt-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin:10px 0 4px}.gb-mkt-f .btn{justify-self:start}
 .stk-strip-h{font:500 10.5px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
 .stk-i{display:inline-flex;align-items:baseline;gap:6px;font-size:13px;color:var(--ink-2);white-space:nowrap}
 .stk-i b{font-family:var(--f-display);font-weight:600;font-size:18px;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -18556,10 +18559,10 @@ function diplomacyView(now){
    proposer's document holds the offer, the partner's holds a mirrored acceptance. */
 const RES=['food','timber','iron','oil','goods'];
 const RES_INFO={food:['Food','Feeds your people. Shortages slow population growth.'],timber:['Timber','Builds homes, ships and bridges. Shortages drag on the economy.'],iron:['Iron','Makes weapons and tools. Shortages weaken your army.'],oil:['Oil','Fuels tanks and factories. Shortages weaken your army and economy.'],goods:['Goods','Factory output, from your economy and science. Shortages drag on prosperity.']};
-const DEMAND={food:2.3,timber:0.8,iron:0.6,oil:0.45,goods:1};
+const DEMAND={food:2.3,timber:0.8,iron:0.45,oil:0.45,goods:1};
 const MAX_DEALS=8;
 const CELL_RES=(()=>{
-  const N=MAP.N,o={food:new Float32Array(N),timber:new Float32Array(N),iron:new Float32Array(N),oil:new Float32Array(N)},Y=[null,null,[2.4,0.6,0],[1,1.4,0.8],[0.2,0.3,2.2]];
+  const N=MAP.N,o={food:new Float32Array(N),timber:new Float32Array(N),iron:new Float32Array(N),oil:new Float32Array(N)},Y=[null,null,[2.4,0.6,0.2],[1,1.4,0.8],[0.2,0.3,2.2]];
   for(let i=0;i<N;i++){
     const t=MAP.T[i];if(t<2)continue;
     o.food[i]=Y[t][0];o.timber[i]=Y[t][1];o.iron[i]=Y[t][2];
@@ -18598,7 +18601,7 @@ function economy(){
   const L=T.list.length,mk=()=>Object.fromEntries(RES.map(r=>[r,new Float64Array(L)]));
   const prod=mk(),dem=mk(),exp=mk(),imp=mk(),sup=mk(),ratio=mk(),req=mk(),impF=mk();
   for(let c=0;c<MAP.N;c++){const o=T.owner[c];if(o<0)continue;prod.food[o]+=CELL_RES.food[c];prod.timber[o]+=CELL_RES.timber[c];prod.iron[o]+=CELL_RES.iron[c];prod.oil[o]+=CELL_RES.oil[c];}
-  T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.4+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
+  T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.6+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
   const CSt=cityState(T);T.list.forEach((x,i)=>{const a=CSt.agg[i];for(const r of RES){prod[r][i]+=a.add[r];dem[r][i]+=a.up[r];}});
   const tariff=T.list.map(x=>!!(x.n.policies||{}).importTariffs),reserve=T.list.map(x=>!!(x.n.policies||{}).strategicReserves);
   const dl=collectDeals(),active=dl.active.filter(d=>T.byId[d.a]!==undefined&&T.byId[d.b]!==undefined&&RES.includes(d.ag[0])&&RES.includes(d.bg[0]));
@@ -18804,7 +18807,8 @@ const BUILDINGS={
   sawmill:{n:'Sawmill',c:'prod',d:'Timber from the land around the city doubles, and 2 more a day.',cost:{food:12,goods:8},h:2,res:{timber:[1,2]}},
   mine:{n:'Iron Mine',c:'prod',d:'Iron from the land around the city doubles, and 1.5 more a day.',cost:{timber:20,food:10},h:4,res:{iron:[1,1.5]},need:'hills'},
   oilwell:{n:'Oil Wells',c:'prod',d:'Oil from deposits around the city +150%.',cost:{iron:15,timber:10},h:6,res:{oil:[1.5,0]},need:'oil'},
-  factory:{n:'Factory',c:'prod',d:'Goods +5 a day. Uses 1 oil a day.',cost:{timber:15,iron:12},h:4,res:{goods:[0,5]},up:{oil:1}},
+  orepit:{n:'Ore Pits',c:'prod',d:'Iron from the land around the city +50%, and 1 more a day. For cities with no hills nearby.',cost:{timber:15,food:10},h:4,res:{iron:[0.5,1]},need:'flat'},
+  factory:{n:'Factory',c:'prod',d:'Goods +5 a day. Uses 1 oil a day, except your first Factory, which runs without.',cost:{timber:15,iron:6},h:4,res:{goods:[0,5]},up:{oil:1}},
   harbour:{n:'Harbour',c:'prod',d:'Food +3 and goods +1 a day from fishing and shipping.',cost:{timber:25,iron:5},h:4,res:{food:[0,3],goods:[0,1]},need:'coast',once:{tour:1}},
   market:{n:'Market Hall',c:'soc',d:'Your economy +3%.',cost:{timber:12,goods:12},h:3,prosper:0.03},
   university:{n:'University',c:'soc',d:'Education +4 and Science +3 when completed, then goods +1 a day.',cost:{timber:15,goods:20},h:6,res:{goods:[0,1]},once:{edu:4,sci:3}},
@@ -18819,7 +18823,7 @@ const BUILDINGS={
   wall:{n:'Great Wall',c:'won',w:1,d:'Every hex you hold is 12% harder to take.',cost:{timber:40,iron:60,food:30},h:24,wall:0.12},
   spaceport:{n:'Space Port',c:'won',w:1,d:'Science +8 and Weirdness +3 when completed, then goods +4 a day.',cost:{iron:60,oil:30,goods:60},h:24,res:{goods:[0,4]},need:'sci',once:{sci:8,weird:3}}
 };
-const NEED_TXT={hills:'Needs hills or mountains near the city.',oil:'Needs an oil deposit near the city.',coast:'Coastal cities only.',sci:'Needs Science & Technology of 60 or more.'};
+const NEED_TXT={flat:'For cities with no hills nearby: where there are hills, build an Iron Mine.',hills:'Needs hills or mountains near the city.',oil:'Needs an oil deposit near the city.',coast:'Coastal cities only.',sci:'Needs Science & Technology of 60 or more.'};
 const NPC_CITY_DEF={
   'npc-vellmark':{names:['Hartwald','Eisenfurt'],cap:['barracks','fortress','mine','factory'],extra:[['fortress','sawmill'],['mine','barracks']]},
   'npc-karvesk':{names:['Novo Plant','Ironfield'],cap:['factory','barracks','university','hospital','mine'],extra:[['mine','factory'],['fortress','sawmill']]},
@@ -18911,7 +18915,8 @@ function cityState(T){
       const B=BUILDINGS[key];a.dev++;if(B.w)a.wonders.push(B.n);if(bldAgg(a,B,key,T.list[ct.hi]))continue;
       const lm=ct.ug&&ct.ug[key]?CX_LV[ct.ug[key]]:1,om=lm*(ct.mk||1);
       if(B.res)for(const r in B.res){const [m,f]=B.res[r];a.add[r]+=(m*yieldOf(r)+f)*om;}
-      if(B.up)for(const r in B.up)a.up[r]+=B.up[r]*lm;
+      /* the nation's first Factory runs without oil (goods balance) */
+      if(B.up)for(const r in B.up){if(key==='factory'&&r==='oil'&&!a.facFree){a.facFree=1;continue;}a.up[r]+=B.up[r]*lm;}
       if(B.prosper)a.prosper+=B.prosper*lm;if(B.army)a.army+=B.army*lm;if(B.growth)a.growth+=B.growth*lm;
       if(B.fort)a.forts.push(ct.c);if(B.wall)a.wall=true;
     }
@@ -18982,6 +18987,7 @@ function buildProblem(n,ct,key,st){
   if(B.w&&nationHas(n,key))return {k:'have',t:'You already have this wonder.'};
   if(B.need==='coast'&&!isCoastal(ct.c))return {k:'need',t:NEED_TXT.coast};
   if(B.need==='hills'&&!ct.dist.some(c=>MAP.T[c]>=3))return {k:'need',t:NEED_TXT.hills};
+  if(B.need==='flat'&&ct.dist.some(c=>MAP.T[c]>=3))return {k:'need',t:NEED_TXT.flat};
   if(B.need==='oil'&&!ct.dist.some(c=>CELL_RES.oil[c]>0)&&!depOf(n,ct).oil)return {k:'need',t:NEED_TXT.oil};
   if(B.need==='sci'&&n.s.sci<60)return {k:'need',t:NEED_TXT.sci};{const q=blkProblem(ct);if(q)return q;}
   const miss=lacking(bCost(n,key),st);
@@ -23633,7 +23639,8 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const best=got.slice().sort((a,b)=>ACH_TIER[b.t].p-ACH_TIER[a.t].p);
   let txt=got.length===1?`Achievement earned: ${achQ(got[0].n)} (${achTierWord(got[0].t)}, ${pts} prestige).`:got.length<=3?`${got.length} achievements earned: ${list(got.map(a=>achQ(a.n)))} (+${pts} prestige).`:`${got.length} achievements earned, among them ${list(best.slice(0,2).map(a=>achQ(a.n)))} (+${fmt0(pts)} prestige).`;
   if(ul.length)txt+=` Unlocked: ${ul.length<=3?list(ul):ul.slice(0,2).join(', ')+' and '+(ul.length-2)+' more'}.`;
-  if(r1.i>r0.i)txt+=` Your rank is now ${r1.name}, worth ${(r1.i-r0.i)*ACH_RANK_CREDITS} land credits.`;
+  if(r1.i>r0.i){const k=r1.i-r0.i;try{const st=stockNow(n,now);for(const r in RANK_GIFT)st[r]=stockLimit(n,r,num0(st[r])+RANK_GIFT[r]*k,st[r]);n.stock=roundStock(st);n.stockAt=now;}catch(e){}
+    txt+=` Your rank is now ${r1.name}, worth ${k*ACH_RANK_CREDITS} land credits, ${k*RANK_GIFT.iron} iron and ${k*RANK_GIFT.goods} goods.`;}
   return [{m:txt,links:rewardRefs('achievement',got)}];
 });
 NORM_HOOKS.push((n,d)=>{
@@ -45546,7 +45553,7 @@ writeClaims=(f=>function(cells,msg,auto,plan){
    A quick first building (n.ffb): once a nation has claimed land and built nothing, it is offered a Farm,
    Sawmill or Market Hall in its capital that takes FFB_MS instead of hours. On completion its first cart
    (FFB_GIFT of what it makes) arrives, and the card counts the stock up while the player watches. */
-const DD_GIFT=3,DD_RES=['timber','oil','iron','goods'],DD_KEY_RX=/^\d{4}-\d{2}-\d{2}$/,STK_UNLOCKS=['s-indigo','m-cartouche','pn-pennant'],STK_MAX=1e5;
+const DD_GIFT=3,ddGift=r=>DD_GIFT+(r==='iron'||r==='goods'?2:0),DD_CLEAR={iron:8,goods:8},RANK_GIFT={iron:15,goods:15},DD_RES=['timber','oil','iron','goods'],DD_KEY_RX=/^\d{4}-\d{2}-\d{2}$/,STK_UNLOCKS=['s-indigo','m-cartouche','pn-pennant'],STK_MAX=1e5;
 /* the first week's desks: a second credit each, at most one a calendar day (eight days can touch a week) */
 const DD_WEEK=7*864e5,DD_WEEK_MAX=8;
 const ddWeek=(n,now)=>{const f=+(n&&n.founded)||0;return f>0&&now>=f&&now-f<DD_WEEK;};
@@ -45614,9 +45621,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const D=n.dd;D.q.forEach(([k,goal,ra,rb],i)=>{
     if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
-    if(D.c[i]>=goal){D.p[i]=1;gift(ra,DD_GIFT);gift(rb,DD_GIFT);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${DD_GIFT} ${resName(ra)} and +${DD_GIFT} ${resName(rb)}.`);}
+    if(D.c[i]>=goal){D.p[i]=1;gift(ra,ddGift(ra));gift(rb,ddGift(rb));out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${ddGift(ra)} ${resName(ra)} and +${ddGift(rb)} ${resName(rb)}.`);}
   });
-  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;
+  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;for(const r in DD_CLEAR)gift(r,DD_CLEAR[r]);out.push(`A clear desk: +${DD_CLEAR.iron} iron and +${DD_CLEAR.goods} goods.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
     else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}}
   if(base&&(!n.stk||ddLater(day,n.stk.d))&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
@@ -45650,7 +45657,7 @@ function ddCard(now){
   const n=S.nation;if(!n||n.npc||!ddOn())return '';
   const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),nx=STK_UNLOCKS[sk],wk=ddWeek(n,now);
   const rows=D.q.map(([k,goal,ra,rb],i)=>{const T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0);
-    return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${DD_GIFT} ${esc(resName(ra))}, +${DD_GIFT} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
+    return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${ddGift(ra)} ${esc(resName(ra))}, +${ddGift(rb)} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
   const dots=`<span class="lc-dots" aria-hidden="true">${STK_UNLOCKS.map((x,i)=>`<i${i<sk?' class="on"':''}></i>`).join('')}</span>`;
   return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextAt(now,D)}">${esc(fmtWait(ddNextAt(now,D)-now))}</b></span></div>
     <ol class="dd-l">${rows}</ol>
@@ -52075,6 +52082,96 @@ nationNotes=(f=>function(n,cnt,now){
 wrDrawSoon=function(){if(wrQ)return;wrQ=true;requestAnimationFrame(function step(){const all=[...document.querySelectorAll('canvas.wr-map:not([data-done])')];if(!all.length){wrQ=false;return;}
   const c=all.find(x=>{const r=x.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight;})||all[0];try{drawRegionPreview(c);}catch(e){}c.dataset.done=c.dataset.done||'x';requestAnimationFrame(step);});};
 
+
+/* ───────── goods and iron, balanced (2026-11-09) ─────────
+   1. The state keeps a share: the stockpile always gains GB.SHARE of what the land and buildings make (less what is
+      exported), even when the people use it all. 2. Goods: a richer base (0.6), and a small boost that grows with the
+      square root of the population. 5. A resource below the price of the cheapest thing it buys gains at least
+      GB.TRICKLE a day. (3: plains iron, iron demand and the Ore Pits; 4: the cheaper Factory; 7: the desk and ranks are
+      in their own places above.) 6. The Bureau's market on the Trade page. 8. The goods bar says why a resource is slow. */
+const GB={SHARE:0.2,POP_K:0.25,TRICKLE:1,MKT_DAY:120,MKT_HI:0.7,MKT_LO:0.4};
+const GB_VAL={food:1,timber:1.2,iron:3,oil:3,goods:3};
+const GB_MIN=(()=>{const o={};for(const r of RES){let m=Infinity;for(const c of [CITY_COST,...Object.values(BUILDINGS).map(b=>b.cost||{})])if(c[r]>0&&c[r]<m)m=c[r];o[r]=m;}return o;})();
+const gbPopGoods=n=>{try{return GB.POP_K*Math.sqrt(Math.max(0,popNow(n)));}catch(e){return 0;}};
+{const m=MILESTONES.find(m=>(m.b||[]).includes('mine'));if(m&&!m.b.includes('orepit'))m.b.push('orepit');}
+stockRates=(f=>function(n){
+  const o=f.apply(this,arguments);let E,i;try{E=economy();i=E.byDoc.get(n);}catch(e){return o;}if(i===undefined)return o;
+  for(const r of RES){const fl=GB.SHARE*Math.max(0,E.prod[r][i]-E.exp[r][i]);if(fl>o[r])o[r]=fl;}
+  if(n&&!n.npc){o.goods+=gbPopGoods(n);const st=n.stock||START_STOCK;for(const r of RES)if(isFinite(GB_MIN[r])&&num0(st[r])<GB_MIN[r]&&o[r]<GB.TRICKLE)o[r]=GB.TRICKLE;}
+  return o;
+})(stockRates);
+/* where a resource's day comes from, for the goods bar's explanation */
+function gbWhy(n,r){
+  let E,i;try{E=economy();i=E.byDoc.get(n);}catch(e){return '';}if(i===undefined)return '';
+  const made=E.prod[r][i],used=E.dem[r][i],st=n.stock||START_STOCK;
+  if(isFinite(GB_MIN[r])&&num0(st[r])<GB_MIN[r])return `${RES_INFO[r][0]} is low, so the state tops it up by ${GB.TRICKLE} a day until you can afford the next thing that needs it.`;
+  if(r==='oil'&&made<0.05)return 'There is no oil on your land: claim land with a deposit, sign a deposit edict, or buy it at the Bureau’s market.';
+  const fix={food:'Farm Estates, a Harbour or more land help.',timber:'A Sawmill or forest land helps.',iron:'An Iron Mine on hills, Ore Pits elsewhere, or hilly land helps.',oil:'Oil Wells near a deposit help.',goods:'A Factory, a Harbour or a University helps; so do a stronger economy and science.'}[r];
+  return made<=used?`Your people use all the ${resName(r)} your land makes (${fmtAmt(made)} made, ${fmtAmt(used)} used a day), so only the state’s share reaches the stockpile. ${fix}`:`${fix}`;
+}
+c3Strip=(f=>function(n,now,o){
+  const h=f.apply(this,arguments);if(!h||(o&&o.compact)||!n||n.npc)return h;
+  let rt;try{rt=stockRates(n);}catch(e){return h;}const cap=stockCap(n),st=stockNow(n,now||Date.now());
+  const slow=RES.filter(r=>rt[r]<0.5&&st[r]<cap);if(!slow.length)return h;
+  const lines=slow.slice(0,2).map(r=>`<li><b>${esc(RES_INFO[r][0])} is slow.</b> ${esc(gbWhy(n,r))}</li>`).join('');
+  return h+`<div class="gb-why" role="note"><ul>${lines}</ul><div class="row"><button type="button" class="linkish small" data-act="gb-flows">See Budget &amp; flows</button><button type="button" class="linkish small" data-act="gb-market">Trade at the Bureau’s market</button></div></div>`;
+})(c3Strip);
+
+/* 6: the Bureau's market. Swap a surplus for what is short, at the Bureau's price: the better the first goods of the day,
+   then less for every unit already sold today (GB.MKT_DAY units in all), so the market helps but never replaces trade.
+   n.mkt {d: the day, q: units handed over that day} */
+const MKT={give:'food',get:'goods',q:'',msg:''};
+const gbDay=t=>Math.floor((t||Date.now())/DAY);
+NORM_HOOKS.push((n,d)=>{const m=d&&d.mkt;if(m&&Number.isInteger(m.d)&&typeof m.q==='number'&&isFinite(m.q))n.mkt={d:m.d,q:clamp(m.q,0,GB.MKT_DAY)};});
+function gbSold(n,now){const m=n&&n.mkt;return m&&m.d===gbDay(now)?m.q:0;}
+function gbQuote(n,give,get,q,now){
+  if(!RES.includes(give)||!RES.includes(get)||give===get)return {err:'Choose two different resources.'};
+  q=Math.floor(+q||0);if(q<1)return {err:'Choose how much to hand over.'};
+  const sold=gbSold(n,now),left=Math.max(0,GB.MKT_DAY-sold);if(left<1)return {err:'The Bureau’s market has taken all it will today. It opens again tomorrow.'};
+  if(q>left)return {err:`The market takes ${left} more today.`};
+  const st=stockNow(n,now);if(q>st[give]+1e-6)return {err:`You have ${fmtStock(st[give])} ${resName(give)}.`};
+  /* the price at the middle of this sale: from GB.MKT_HI for the day's first unit down to GB.MKT_LO for its last */
+  const mid=(sold+q/2)/GB.MKT_DAY,rate=GB.MKT_HI-(GB.MKT_HI-GB.MKT_LO)*clamp(mid,0,1);
+  const out=Math.floor(q*GB_VAL[give]/GB_VAL[get]*rate*10)/10;
+  if(out<1)return {err:`That is too little ${resName(give)} for a whole unit of ${resName(get)}.`};
+  const room=stockCap(n)-st[get];if(out>room+1e-6)return {err:`Your stores hold ${fmtStock(Math.max(0,room))} more ${resName(get)}.`};
+  return {q,out,rate,left};
+}
+function gbTrade(){
+  const n0=S.nation;if(!n0||OBS)return;const now=Date.now(),Q=gbQuote(n0,MKT.give,MKT.get,MKT.q,now);
+  if(Q.err){MKT.msg=Q.err;render();return;}
+  const n=clone(n0),st=stockNow(n,now);st[MKT.give]-=Q.q;st[MKT.get]=stockLimit(n,MKT.get,num0(st[MKT.get])+Q.out,st[MKT.get]);
+  n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;n.mkt={d:gbDay(now),q:gbSold(n0,now)+Q.q};
+  commit(n);try{saveSoon();}catch(e){}
+  MKT.msg=`Exchanged ${Q.q} ${resName(MKT.give)} for ${fmtAmt(Q.out)} ${resName(MKT.get)}.`;MKT.q='';render();
+  try{window.edictumStat&&window.edictumStat('bureau_market',{q:Q.q});}catch(e){}
+}
+function gbMarketHTML(n){
+  if(!n||cellOf(n.loc)<0)return '';const now=Date.now(),st=stockNow(n,now),sold=gbSold(n,now),left=Math.max(0,GB.MKT_DAY-sold);
+  const opt=(cur,ex)=>RES.map(r=>`<option value="${r}"${r===cur?' selected':''}${r===ex?' disabled':''}>${esc(RES_INFO[r][0])} (${fmtStock(st[r])})</option>`).join('');
+  const Q=MKT.q?gbQuote(n,MKT.give,MKT.get,MKT.q,now):null,rateNow=GB.MKT_HI-(GB.MKT_HI-GB.MKT_LO)*clamp(sold/GB.MKT_DAY,0,1);
+  const per=GB_VAL[MKT.give]/GB_VAL[MKT.get]*rateNow;
+  return `<section class="paper gb-mkt" id="gb-mkt" aria-labelledby="gb-mkt-h"><p class="eyebrow">Open every day</p><h2 class="h2" id="gb-mkt-h">The Bureau’s market</h2>
+    <p>Hand over a surplus and take what you are short of. The first units of the day fetch the best price; the market takes ${GB.MKT_DAY} units a day in all${sold?`, and ${left} more today`:''}. Trade deals with other nations pay better.</p>
+    <div class="gb-mkt-f"><label class="field"><span class="cz-flab">Hand over</span><select class="input" id="gb-give">${opt(MKT.give,MKT.get)}</select></label>
+      <label class="field"><span class="cz-flab">Amount</span><input class="input" id="gb-q" type="number" min="1" max="${left}" step="1" inputmode="numeric" value="${esc(String(MKT.q))}" placeholder="e.g. 30"></label>
+      <label class="field"><span class="cz-flab">Receive</span><select class="input" id="gb-get">${opt(MKT.get,MKT.give)}</select></label>
+      <button type="button" class="btn" data-act="gb-trade"${!Q||Q.err||OBS?' disabled':''}>Exchange</button></div>
+    <p class="hint" id="gb-mkt-q" aria-live="polite">${Q&&!Q.err?`You hand over ${Q.q} ${esc(resName(MKT.give))} and receive ${esc(fmtAmt(Q.out))} ${esc(resName(MKT.get))}.`:Q&&Q.err?esc(Q.err):`Today: 1 ${esc(resName(MKT.give))} fetches about ${esc(fmtAmt(per))} ${esc(resName(MKT.get))}.`}</p>
+    ${MKT.msg?`<p class="notice" role="status">${esc(MKT.msg)}</p>`:''}</section>`;
+}
+tradeView=(f=>function(){const h=f.apply(this,arguments),m=gbMarketHTML(S.nation);if(!m)return h;
+  /* under the stockpile and its explanation, before the first section of the page */
+  const st=h.indexOf('stk-strip'),sec=st<0?-1:h.indexOf('<section',st),at=sec>=0?sec:h.indexOf('</header>')+9;return at<9?h+m:h.slice(0,at)+m+h.slice(at);})(tradeView);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act^="gb-"]');if(!el||!S.nation)return;const a=el.dataset.act;
+  if(a==='gb-trade')gbTrade();
+  else if(a==='gb-flows'){S.statsFor=null;S.statsTab='budget';S.statsKeep=true;go('stats');}
+  else if(a==='gb-market'){go('trade');requestAnimationFrame(()=>{const m=document.getElementById('gb-mkt');if(m)m.scrollIntoView({block:'start'});});}});
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.id)return;
+  if(t.id==='gb-q'){MKT.q=t.value;MKT.msg='';const n=S.nation,q=document.getElementById('gb-mkt-q'),b=document.querySelector('[data-act="gb-trade"]');if(!n||!q)return;const Q=gbQuote(n,MKT.give,MKT.get,MKT.q,Date.now());
+    q.textContent=Q.err||`You hand over ${Q.q} ${resName(MKT.give)} and receive ${fmtAmt(Q.out)} ${resName(MKT.get)}.`;if(b)b.disabled=!!Q.err;}});
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.id)return;if(t.id==='gb-give'||t.id==='gb-get'){MKT[t.id==='gb-give'?'give':'get']=t.value;if(MKT.give===MKT.get)MKT[t.id==='gb-give'?'get':'give']=RES.find(r=>r!==t.value);MKT.msg='';render();}});
+
 /* ───────── more statistics: two free tabs, and the Chancery Club's Bureau ─────────
    Free for everyone: Region trends (the region's average census scores over the last 90 days, from every nation's
    own history) and Budget & flows (the money and each resource, in and out, and the cities ranked by what they make).
@@ -56434,7 +56531,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({GB:()=>({stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)

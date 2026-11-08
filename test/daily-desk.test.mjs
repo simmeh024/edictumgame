@@ -51,8 +51,8 @@ test('tasks count from the tallies a save adds, and each pays once',()=>{
   const D=desk();let n=nation();n.dd=fixedDesk(D);n.stk={n:1,d:D.ddDay(NOW)}; // today's presence is already counted
   let [m,old]=next(n,x=>{x.tly.iss=6;});eq(D.save(m,old),[]);eq(m.dd.c,[1,0,0]);
   [m,old]=next(m,x=>{x.tly.iss=7;});const notes=D.save(m,old);
-  assert.equal(notes.length,1);assert.match(notes[0],/Desk task done: Answer 2 edicts\. \+3 timber and \+3 iron/);
-  assert.equal(m.stock.timber,23);assert.equal(m.stock.iron,23);eq(m.dd.p,[1,0,0]);
+  assert.equal(notes.length,1);assert.match(notes[0],/Desk task done: Answer 2 edicts\. \+3 timber and \+5 iron/); // iron and goods pay 2 more (goods balance)
+  assert.equal(m.stock.timber,23);assert.equal(m.stock.iron,25);eq(m.dd.p,[1,0,0]);
   [m,old]=next(m,x=>{x.tly.iss=9;});eq(D.save(m,old),[]);assert.equal(m.stock.timber,23,'a done task never pays again');
 });
 
