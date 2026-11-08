@@ -62,6 +62,7 @@ for (const [label, vp] of [['desktop', { viewport: { width: 1280, height: 900 } 
   ok(await page.evaluate(() => !!document.querySelector('dialog#g-cer[open]') && document.querySelectorAll('#g-cer .gc-ev').length === 5), `${label}: the ceremony opens with five podiums`);
   ok(await page.evaluate(() => document.getElementById('g-cer').scrollTop === 0), `${label}: the ceremony opens at its top`);
   await page.click('[data-act="g-cer-close"]');
+  await page.waitForFunction(() => !document.getElementById('g-cer'), null, { timeout: 5000 }).catch(() => {});
   const after = await page.evaluate(() => ({ dlg: !!document.getElementById('g-cer'), call: !!document.getElementById('g-cer-call'), pods: document.querySelectorAll('.pods').length,
     again: !!document.querySelector('.linkish[data-act="g-cer"]'), eds: (document.querySelector('#g-records .hint') || {}).textContent || '' }));
   ok(!after.dlg && !after.call && after.pods === 1 && after.again, `${label}: once watched, the podiums show on the page with "Watch the medal ceremony"`);
