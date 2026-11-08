@@ -60,6 +60,8 @@ const go = async (p, v) => { await p.evaluate(v => { const b = document.querySel
 const txt = (p, sel) => p.evaluate(s => [...document.querySelectorAll(s)].map(e => e.textContent.replace(/\s+/g, ' ').trim()).join(' | '), sel);
 const shot = async (p, sel, file) => { for (let k = 0; ; k++) { try { return await p.locator(sel).first().screenshot({ path: path.join(OUT, file) }); } catch (e) { if (k >= 3) { check('screenshot ' + file, false, e.message); return; } await sleep(300); } } };
 const click = async (p, sel) => { await p.waitForSelector(sel, { timeout: 8000 }); await p.click(sel); await sleep(350); };
+/* the Shop's items open in a drawer; a script click reaches the card even behind another drawer's scrim */
+const openDr = async (p, k) => { await p.waitForSelector(`[data-act="shop-open"][data-p="${k}"]`, { timeout: 8000 }); await p.evaluate(k => document.querySelector(`[data-act="shop-open"][data-p="${k}"]`).click(), k); await p.waitForSelector(`.shop-dr .shop-${k}`, { timeout: 8000 }); await sleep(250); };
 
 /* ── a guest: the Shop says what linking is for, and nothing is bought ── */
 /* the public pages Paddle's site review asks for: prices and a refund policy, linked from the home page */
@@ -77,27 +79,36 @@ check('a guest is told purchases need a linked sign-in', /Purchases belong to yo
 await G.waitForSelector('[data-act="shop-buy"][data-p="founder"]', { timeout: 20000 });
 await click(G, '[data-act="shop-buy"][data-p="founder"]');
 check('buying as a guest asks for a link instead', /link a sign-in first/i.test(await txt(G, '.shop-err')) && !(await G.evaluate(() => window.__edictumCheckout)));
-check('without an answer from Paddle the prices stay in euros alone', !(await G.evaluate(() => document.querySelector('.shop-local'))) && /€9\.99/.test(await txt(G, '[data-act="shop-buy"][data-p="founder"]')));
+check('without an answer from Paddle the prices stay in euros alone', !(await G.evaluate(() => document.querySelector('.shop-local'))) && /€9\.99/.test(await txt(G, '#shop-founder-tag')));
 
 /* ── a Registered Nation buys the Founder's Package ── */
 const A = await player('shop founder', { vp: { width: 1280, height: 1000 }, cap: 500 });const aUid = await open(A);await found(A, 'Gildmark');await register(A);
 /* Paddle answers in the player's own currency (here Mexican pesos), as it does for a player in Mexico */
 await A.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66' }; window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])) }); }, PRICES);
 await go(A, 'shop');
+check('the Chancery Club leads the page, before the cards', await A.evaluate(() => { const c = document.querySelector('.shop-club'), g = document.querySelector('.shop-grid'); return !!c && !!g && !!(c.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING); }));
+check('the items sit in a grid of cards, two to a row on a desktop', await A.evaluate(() => { const g = document.querySelector('.shop-grid'); return !!g && getComputedStyle(g).gridTemplateColumns.split(' ').length >= 2 && document.querySelectorAll('.shop-cd').length >= 2; }));
+await A.evaluate(() => scrollTo(0, 0));await A.screenshot({ path: path.join(OUT, 'shop-front.png'), fullPage: true });
+await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
-check('the Chancery Club comes first on the page', await A.evaluate(() => document.querySelector('.shop-item').classList.contains('shop-vip')));
+check('the founder card’s drawer holds its full page', await A.evaluate(() => !!document.querySelector('.shop-dr .shop-founder')));
+const founderEyebrow = await txt(A, '.shop-founder .eyebrow');
+await openDr(A, 'vip');
 const cmp = (await A.evaluate(() => [...document.querySelectorAll('.shop-cmp tbody tr')].map(r => [...r.children].map(c => c.textContent.trim()).join('|')))).join(' / ');
 check('beside free play, in a table', /Waiting edicts on your desk\|5\|10/.test(cmp) && /Chancery seal/.test(cmp) && /nothing here adds any/.test(cmp), cmp.slice(0, 200));
 const drops = CATALOGUE.products.vip.drops.map(d => ({ from: Date.parse(d.from), ids: d.ids })), later = drops.filter(d => d.from > Date.now());
 if (later.length) check('the Club says when new pieces join its collection', /Two new pieces join on/.test(await txt(A, '.shop-vip')));
 check('only pieces released so far are in the collection', await A.evaluate(ids => ids.every(id => !document.querySelector(`.shop-picks [data-id="${id}"]`)) && document.querySelectorAll('.shop-picks li').length >= 8, later.flatMap(d => d.ids)));
-const local = await until(() => A.evaluate(() => { const f = document.querySelector('#shop-founder-price .shop-local'), v = document.querySelector('#shop-vip-price .shop-local'); return f && v ? [f.textContent, v.textContent] : null; }), 8000);
-check('each euro price carries what it comes to in the player’s currency', !!local && local[0] === 'MX$209.39 in your currency' && local[1] === 'MX$104.66 a month in your currency', JSON.stringify(local));
-check('the buttons ask for the amount Paddle will charge', /MX\$209\.39/.test(await txt(A, '[data-act="shop-buy"][data-p="founder"]')) && /MX\$104\.66 a month/.test(await txt(A, '[data-act="shop-buy"][data-p="vip"]')));
+const local = await until(() => A.evaluate(() => { const f = document.querySelector('#shop-founder-tag'), v = document.querySelector('#shop-vip-price .shop-local'); return f && v && /MX/.test(f.textContent) ? [f.textContent, v.textContent] : null; }), 8000);
+check('each price carries what it comes to in the player’s currency', !!local && local[0] === 'MX$209.39' && local[1] === 'MX$104.66 a month in your currency', JSON.stringify(local));
+check('the Club’s button asks for the amount Paddle will charge', /MX\$104\.66 a month/.test(await txt(A, '[data-act="shop-buy"][data-p="vip"]')));
+const vipEyebrow = await txt(A, '.shop-vip .eyebrow');
+await openDr(A, 'founder');
+check('and so does the founder’s', /MX\$209\.39/.test(await txt(A, '[data-act="shop-buy"][data-p="founder"]')));
 check('the small print says Paddle charges in the player’s own currency', /charges in your own currency/.test(await txt(A, '.shop-small')));
 check('the deadline is given in UTC and in the player’s own time', /1 February 2027, 23:59:59 UTC/.test(page) && /where you are/.test(page));
-check('permanent and recurring are told apart', /Permanent/.test(await txt(A, '.shop-founder .eyebrow')) && /Recurring/.test(await txt(A, '.shop-vip .eyebrow')));
+check('permanent and recurring are told apart', /Permanent/.test(founderEyebrow) && /Recurring/.test(vipEyebrow));
 check('the humour survives', /Your citizens will remain unimpressed/.test(await txt(A, '.shop-vh')));
 for (const v of ['banner', 'stamp', 'passport', 'land']) { await click(A, `[data-act="shop-pv"][data-v="${v}"]`); await shot(A, '.shop-founder .shop-pv-box', `shop-preview-${v}.png`); }
 check('the passport preview carries the inscription', /FOUNDING SUPPORTER · FIRST EDITION/.test(await A.evaluate(() => { const b = document.querySelector('[data-act="shop-pv"][data-v="passport"]'); b.click(); return new Promise(r => setTimeout(() => r(document.querySelector('.shop-pv-pp')?.textContent || ''), 300)); })));
@@ -133,7 +144,7 @@ await shot(A, '.hero.id-sec', 'shop-hero-founder.png');
 await go(A, 'museum');
 check('the certificate hangs in the museum, with the nation’s name', !!(await until(() => A.evaluate(() => { const s = document.querySelector('#shop-cert svg'); return s && /Gildmark/.test(s.textContent); }), 5000)));
 await shot(A, '#shop-cert', 'shop-certificate.png');
-await go(A, 'shop');
+await go(A, 'shop');await openDr(A, 'idpack');
 for (const cd of ['cd-ledger', 'cd-atlas', 'cd-civic']) { await click(A, `[data-act="shop-cd"][data-v="${cd}"]`); await shot(A, '.shop-idpack .shop-pv-box', `shop-card-${cd.slice(3)}.png`); }
 await go(A, 'map');await sleep(1200);
 check('Founder’s Gilt drawn on the player’s own land', !!(await until(() => A.evaluate(() => !!document.querySelector('canvas[data-map="main"]')?._gilt), 6000)));
@@ -176,7 +187,7 @@ check('leaving Customise takes it off', await B.evaluate(() => G.SHOP.cz(G.S.nat
 /* ── a gift: the card pack, from Gildmark to Plainholm (a week old by the server's clock) ── */
 await db.doc('authConfig/paddle').update({ skew: 8 * DAY });
 await until(() => A.evaluate(id => !!(G.S.world && G.S.world[id]), bUid), 15000);
-await go(A, 'shop');
+await go(A, 'shop');await openDr(A, 'idpack');
 await click(A, '[data-act="shop-gift-open"][data-p="idpack"]');
 await A.selectOption('#shop-gift-to', bUid);
 await shot(A, '.shop-gift', 'shop-gift.png');
@@ -185,12 +196,12 @@ const gTxn = await payFor(A);
 check('the gift’s checkout names the nation it is for', !!gTxn && P.tx.get(gTxn).custom_data.to === bUid && P.tx.get(gTxn).custom_data.uid === aUid);
 check('the giver is told it is on its way, not kept waiting', /Gift paid/.test(await txt(A, '.shop-sent')) && !(await A.$('.shop-wait')));
 check('the neighbour owns it', !!(await until(() => B.evaluate(() => G.SHOP.SHOP.doc && G.SHOP.SHOP.doc.owns && G.SHOP.SHOP.doc.owns.idpack), 10000)));
-await go(B, 'shop');
+await go(B, 'shop');await openDr(B, 'idpack');
 check('with the giver named in the Shop', /A gift from Gildmark/.test(await txt(B, '.shop-idpack')));
 await db.doc('authConfig/paddle').update({ skew: 0 });
 
 /* ── the Chancery Club ── */
-await go(A, 'shop');
+await go(A, 'shop');await openDr(A, 'vip');
 check('a desk of five before joining', (await A.evaluate(() => G.SHOP.cap(Date.now()))) === 5);
 check('the Club can be paid yearly, two months free', !!(await A.$('[data-act="shop-plan"][data-v="year"]')) && /two months free/.test(await txt(A, '.shop-plan')));
 await click(A, '[data-act="shop-plan"][data-v="year"]');
@@ -210,7 +221,7 @@ check('the saved nation carries the marker that keeps older builds from cutting 
 await go(A, 'issues');
 check('the Edicts page counts to ten', /10 of 10 on your desk/.test(await txt(A, '.issue-meta')));
 /* the monthly pick */
-await go(A, 'shop');await click(A, '[data-act="shop-pick"][data-id="p-moire"]');
+await go(A, 'shop');await openDr(A, 'vip');await click(A, '[data-act="shop-pick"][data-id="p-moire"]');
 check('the monthly pick is kept on the public list', !!(await until(async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('p-moire'); }, 8000)));
 await shot(A, '.shop-vip', 'shop-vip-member.png');
 /* the Chancery seal: chosen in the Shop, then beside the name for the player and for the neighbour */
@@ -292,12 +303,23 @@ check('a member’s desk shows no such line', !(await A.$('.desk-hint')));
 /* ── in the dark theme ── */
 await A.emulateMedia({ colorScheme: 'dark' });await go(A, 'shop');await sleep(600);await A.evaluate(() => scrollTo(0, 0));
 await A.screenshot({ path: path.join(OUT, 'shop-dark.png') });
+await openDr(A, 'idpack');await A.screenshot({ path: path.join(OUT, 'shop-drawer-dark.png') });
+check('Escape closes the drawer', await A.evaluate(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await new Promise(r => setTimeout(r, 200)); return !document.querySelector('.shop-dr'); }));
 await A.emulateMedia({ colorScheme: 'light' });
 
 /* ── on a phone ── */
 await A.setViewportSize({ width: 390, height: 844 });await go(A, 'shop');await sleep(600);
 check('no sideways scrolling on a phone', await A.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 await A.screenshot({ path: path.join(OUT, 'shop-phone.png'), fullPage: true });
+await openDr(A, 'idpack');await A.screenshot({ path: path.join(OUT, 'shop-phone-drawer.png') });
+check('the drawer is a bottom sheet on a phone, with no sideways scrolling', await A.evaluate(() => { const d = document.querySelector('.shop-dr').getBoundingClientRect(); return d.bottom >= innerHeight - 1 && d.top > 0 && document.documentElement.scrollWidth <= innerWidth + 1; }));
+/* the wishlist and Hide owned are this device's own */
+await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
+await click(A, '[data-act="shop-wish"][data-p="idpack"]');await click(A, '[data-act="shop-f"][data-v="wish"]');
+check('a hearted item shows under Wishlist', (await A.evaluate(() => [...document.querySelectorAll('.shop-cd')].map(c => c.dataset.p))).join() === 'idpack');
+await click(A, '[data-act="shop-f"][data-v="all"]');await click(A, '#shop-ho');
+check('Hide owned leaves out what the nation owns, and keeps the rest', await A.evaluate(() => !document.querySelector('.shop-cd[data-p="founder"]') && !!document.querySelector('.shop-cd[data-p="idpack"]')));
+await click(A, '#shop-ho');
 
 server.close();
 await db.doc('authConfig/paddle').delete();

@@ -218,3 +218,17 @@ npm run test:shop-backend   # the server against a stand-in for Paddle (Auth, Fi
 npm run test:rules          # includes test/shop-rules.test.mjs: ownership, billing records, presets, Chronicle, iq
 npm run test:shop-e2e       # the browser: buying, wearing, a neighbour, a forger, the Club, the desk of ten, a phone
 ```
+
+## The Shop page
+
+The page opens with the Chancery Club as a banner (this month's new pieces, price, Join), then filter chips (All, Club,
+Cosmetics, Gifts, Limited time, Wishlist) with a Hide owned switch, then the items as compact cards in a grid: two to a
+row on a desktop, one on a phone. A card shows a picture, a line about it, labels (Owned, Ends in n d, A gift, Gift only),
+its price on a tag and a Buy button. Clicking it opens a drawer (a bottom sheet on a phone) with the item's full section:
+previews, the full list, gifting, the Club's table, picks and seals. The drawer also has "Pairs well with" and
+"Recently viewed". One card a week is the Bureau's pick. A confirmed purchase stamps "Granted" on its card.
+
+- To add an item, add an entry in `shopCards()` (`sec` picks its section, `tags` its chips) and a case in `shopDrawerBody()`.
+  Sections (Limited time, Cosmetics, Gifts, Bundles) appear once any of them holds two items; until then the cards share one grid.
+- The wishlist, Recently viewed and Hide owned are kept on the device (`localStorage`, `edictum.shop.*`), not on the account.
+- While a drawer is open, the cards behind it keep their prices but show no buttons, so each buy button exists once.
