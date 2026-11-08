@@ -19611,8 +19611,8 @@ function gamesView(){
     return `<li class="gev${focus?' focus':''}"><div class="gev-h"><b>${esc(evName(ev,host))}</b><span class="hint">${esc(EV_HINT[ev])}</span></div>
       <div class="gev-me"><span class="lbl">Your team</span><span class="gev-v">${en?proj.toFixed(1):'—'}</span><span class="gev-r">${en?(myRank>=0?ordinal(myRank+1)+' of '+rows.length+' so far':'Disqualified'):'Not entered'}</span></div>
       <div class="gev-lead"><span class="lbl">Leading</span>${rows.slice(0,3).map((r,i)=>`<span class="gl"><span class="medal m${i}">${i+1}</span>${r.p.me?'<b>'+esc(r.p.n.name)+'</b>':esc(r.p.n.name)}</span>`).join('')}</div>
-      <button class="btn${focus?'':' ghost'} small-btn" data-act="g-focus" data-ev="${ev}" aria-pressed="${!!focus}">${focus?'Training focus':'Focus training here'}</button>
-      ${gevWhyHTML(gevWhy(n,id,e,ev,en?en.f:null,host.id),en?proj:null)}</li>`;
+      ${OBS?'':`<button class="btn${focus?'':' ghost'} small-btn" data-act="g-focus" data-ev="${ev}" aria-pressed="${!!focus}">${focus?'Training focus':'Focus training here'}</button>
+      ${gevWhyHTML(gevWhy(n,id,e,ev,en?en.f:null,host.id),en?proj:null)}`}</li>`;
   }).join('');
   const last=e-1>=0?gamesResults(e-1):null,lastMine=last?medalsIn(last,id):null,lastEntered=last&&entryOf(n,e-1);
   /* until the ceremony is watched, last week stays out of the medal table and the records */
@@ -19620,7 +19620,7 @@ function gamesView(){
   const nextBids=gamesBids(e+1),myBid=(n.games&&n.games.bids||[]).find(b=>b.e===e+1),st=stockNow(n,now),miss=lacking(BID_COST,st);
   return `${head}${msg}${c3Strip(n,now,{need:!myBid&&canFeature(n,'host')?BID_COST:null})}
   <section class="games-now"><div class="gn-h"><div><p class="eyebrow">This week</p><h2 class="gn-t">${esc(cap1(edName(e)))}</h2><p class="muted">Hosted by ${host.id===id?'<b>'+esc(host.n.name)+'</b> (you)':esc(host.n.name)} in ${esc(host.n.capital)}. Results in <b data-live="gclose" data-t="${edStart(e+1)}">${fmtWait(edStart(e+1)-now)}</b>.</p></div>
-    <div>${en?`<span class="pill up">Your team is entered</span>`:`<button class="btn" data-act="g-enter">Send your team</button>`}</div></div>
+    <div>${OBS?'':en?`<span class="pill up">Your team is entered</span>`:`<button class="btn" data-act="g-enter">Send your team</button>`}</div></div>
     ${pol(n).enhancedSport?'<p class="hint">Enhanced Sport is legal in your nation: your scores are 10% higher, but one Games in four your team is disqualified.</p>':''}
     <p class="hint">Pick one event to focus your training on for ${FOCUS_BONUS} more points. Scores shown include the luck of the draw.</p>
     <ul class="gevs">${evRows}</ul></section>
@@ -19628,12 +19628,12 @@ function gamesView(){
     :`<section class="section"><h2 class="h2">Last week: ${esc(cap1(edName(e-1)))}</h2><p class="muted" style="margin-bottom:14px">Hosted by ${esc(last.host.n.name)}. ${lastEntered?(lastMine.g+lastMine.s+lastMine.b?`Your team won ${esc(medalWords(lastMine))}.`:'Your team came home without a medal.'):'Your team did not take part.'}${lastEntered?` <button class="linkish" data-act="g-cer" data-e="${e-1}">Watch the medal ceremony</button>`:''}</p>
     <div class="pods">${last.evs.map(ev=>`<div class="podc"><p class="lbl-h">${esc(evName(ev,last.host))}</p>${podium(last,ev)}</div>`).join('')}</div></section>`):''}
   <section class="section"><h2 class="h2">Medal table</h2>${mt.rows.length?`<p class="hint" style="margin-bottom:10px">All Games since players joined: ${mt.eds} so far.</p><div class="tbl-wrap"><table class="tbl mtab"><thead><tr><th>Nation</th><th class="c-pop">Gold</th><th class="c-pop">Silver</th><th class="c-pop">Bronze</th></tr></thead><tbody>${mt.rows.map(r=>`<tr class="${r.me?'me':''}"><td>${nationLink(r.id,r.n.name,r.me)}</td><td class="c-pop">${r.m[0]}</td><td class="c-pop">${r.m[1]}</td><td class="c-pop">${r.m[2]}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty"><p class="empty-h">No medals yet</p><p>The table fills up once the first Games with players in them are over.</p></div>`}</section>
-  ${gamesRecordsHTML(hideLast?e-1:e)}${gamesCabinetHTML(n)}
+  ${gamesRecordsHTML(hideLast?e-1:e)}${OBS?'':gamesCabinetHTML(n)}
   <section class="section"><h2 class="h2">Host ${esc(edName(e+1))}</h2>
     <p class="muted">Hosting adds ${HOST_BONUS} points to every event for your team, and brings tourism, culture and happiness once the Games are over, at a small cost to incomes. A bid costs ${costText(BID_COST)}, all returned if you lose. Until this week’s Games end you can raise your bid, or withdraw it and get three quarters of your stake back. The strongest bid wins: culture, tourism, wealth, cities and buildings all count.</p>
     ${nextBids.length?`<ul class="bids">${nextBids.map((b,i)=>`<li><span>${i===0?'<span class="pill up">Leading</span> ':''}${b.me?'<b>'+esc(b.n.name)+'</b>':esc(b.n.name)}</span><span class="num">Bid strength ${b.s}</span></li>`).join('')}</ul>`:`<p class="hint" style="margin-top:10px">No bids yet.${NPC_BY_ID[npcHost(e+1)]?` Without one, ${esc(NPC_BY_ID[npcHost(e+1)].name)} hosts.`:''}</p>`}
-    <div class="row" style="margin-top:14px">${myBid?c3BidTools(n,myBid,st):!canFeature(n,'host')?`<span class="pill">Unlocks at ${fmtPopShort(featureAt('host'))} people</span>`:`<button class="btn" data-act="g-bid"${miss.length?' disabled':''}>Bid to host (strength ${bidStrength(n)})</button>`}</div>
-    ${myBid?c3BidNote(n,myBid,st):''}${!myBid&&miss.length?`<p class="hint" style="margin-top:8px">You need ${esc(list(miss))} more in your stockpile.</p>`:''}
+    <div class="row" style="margin-top:14px"${OBS?' hidden':''}>${myBid?c3BidTools(n,myBid,st):!canFeature(n,'host')?`<span class="pill">Unlocks at ${fmtPopShort(featureAt('host'))} people</span>`:`<button class="btn" data-act="g-bid"${miss.length?' disabled':''}>Bid to host (strength ${bidStrength(n)})</button>`}</div>
+    ${!OBS&&myBid?c3BidNote(n,myBid,st):''}${!OBS&&!myBid&&miss.length?`<p class="hint" style="margin-top:8px">You need ${esc(list(miss))} more in your stockpile.</p>`:''}
   </section>`;
 }
 
@@ -27346,10 +27346,10 @@ function civicInstall(value){
   return true;
 }
 async function civicRefresh(){
-  if(OBS||!S.uid||!S.nation||S.mode==='local')return;
+  if(OBS&&!S.obsOn||!S.uid||!S.nation||S.mode==='local')return;
   if(civicLoading||civicBusy){civicAgain=true;return;}
   civicLoading=true;const epoch=civicEpoch;
-  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request({op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';if(!civicInstall(next))civicMissed();if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||['diplomacy','devnews'].includes(S.view)&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
+  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request(OBS?{op:'state',obs:REG.id}:{op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';if(!civicInstall(next))civicMissed();if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||['diplomacy','devnews'].includes(S.view)&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
   catch(e){civicMissed();if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
   finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
@@ -27403,7 +27403,7 @@ asmDue=function(n,now){
 const civicAssemblyView=VIEWS_EXT.assembly;
 VIEWS_EXT.assembly=now=>{
   const a=S.civic&&S.civic.reg===REG.id?S.civic.account:null;
-  const reason=!a?'Connecting to the Assembly…':a.kind==='guest'?'Guest Nations may read debates. Link a sign-in account to become a Registered Nation and take political actions.':a.reason==='moderated'?'This nation cannot take political actions while under moderation.':!a.eligible?'Assembly voting, proposals and leadership unlock 24 hours after your nation was founded.':'';
+  const reason=!a?'Connecting to the Assembly…':OBS?'You are observing: this is the Assembly as its members see it, read-only.':a.kind==='guest'?'Guest Nations may read debates. Link a sign-in account to become a Registered Nation and take political actions.':a.reason==='moderated'?'This nation cannot take political actions while under moderation.':!a.eligible?'Assembly voting, proposals and leadership unlock 24 hours after your nation was founded.':'';
   return (reason?`<p class="war-msg" role="status">${esc(reason)}</p>`:'')+civicAssemblyView(now);
 };
 window.addEventListener('edictum:linked',()=>{civicAt=0;civicFails=0;civicRetry=0;civicEpoch++;civicRefresh();});
@@ -50181,6 +50181,7 @@ function wndView(now){
     <figure class="wd-fig paper">${wndSVG(W.done,W.frac,{cls:'wd-big'})}<figcaption><span class="lbl">${fin?'Finished':`Phase ${W.done+1} of ${WND_N}`}</span><b>${esc(fin?'Unveiled, gilded and much photographed':WND_PH[W.done][0])}</b>${fin?'':`<span class="hint">${Math.floor(W.frac*100)}% of this phase is built.</span>`}</figcaption></figure>
     <div class="wd-side">
       ${fin?`<section class="wd-box"><h2 class="h2">Finished</h2><p>The statue stands over ${esc(REG.the)}. ${mine?`${esc(n.name)} is on the plaque, and may style itself <b>“the Patron”</b> in Customise.`:'Your nation gave nothing towards it, which the guides mention on every tour.'}</p></section>`
+        :OBS?`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. Observing, you see the statue as they do.</p></section>`
         :`<section class="wd-box"><h2 class="h2">Give to this phase</h2><p class="hint">Gifts come from your stock, and count only towards what this phase still needs.${mine?` You have given ${esc(costText(Object.fromEntries(RES.filter(r=>mine.c[r]>0).map(r=>[r,Math.round(mine.c[r])]))))} so far.`:''}</p>${give}</section>`}
       <section class="wd-box"><h2 class="h2">The plaque</h2>${plaque}</section>
     </div>
@@ -53065,7 +53066,7 @@ go=(f=>function(v){if(v!=='map')MAPX.sheet=false;return f.apply(this,arguments);
    its nations' pages, as a player there sees them, with a bar on every page that leads back. The tab reloads into
    the region and out of it, so the map, the region's listeners and everything worked out from them are the
    observed region's, and nothing of the admin's own nation is in the page. Defined last: these wrap the views. */
-const OBS_NAV=['map','region','census','world'],OBS_VIEWS=OBS_NAV.concat('visit','stats');
+const OBS_NAV=['map','region','census','world','assembly','wonder','dispatch','community','games'],OBS_VIEWS=OBS_NAV.concat('visit','stats','alliance');
 let obsGoing=false;
 /* the observing tab's S.nation: a nation with no land, no clock and no record, which nothing saves */
 function obsNation(){const now=Date.now();return normalize({name:'Observer',pretitle:'Observer',leader:'Observer',reg:REG.id,founded:now,popAt:now,issueClock:now,updatedAt:now,claims:[],inbox:[],log:[]});}
@@ -53105,6 +53106,16 @@ function obsMapPanel(){
     <dl class="mp-dl"><div><dt>Population</dt><dd>${fmtPop(popNow(x.n))}</dd></div><div><dt>Land area</dt><dd>${fmtArea(T.count[i])}</dd></div><div><dt>Army</dt><dd>${brig(x.n)}</dd></div><div><dt>Alliance</dt><dd>${esc(allianceName(x.id))}</dd></div></dl>
     <div class="row" style="margin-top:16px"><button class="btn ghost" data-act="visit" data-id="${esc(x.id)}">View nation</button></div>`;
 }
+/* an alliance's page, with its channel, read-only: observers read every alliance's channel (firestore.rules) */
+function obsChat(A){
+  const C=AL.chat;if(C.aid!==A.id)return '<p class="hint" role="status">Opening the channel…</p>';
+  if(C.err)return `<p class="err">${esc(C.err)}</p>`;
+  if(!C.list.length)return '<p class="hint">No messages in this channel yet.</p>';
+  return `<ol class="al-chat">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b><span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
+}
+alPageView=(f=>function(){const h=f.apply(this,arguments);if(!OBS)return h;const A=politics().al.get(AL.view);if(!A||!A.srv)return h;
+  try{alChatConnect();}catch(e){}
+  return h+`<section class="dip-sec obs-chan"><h2 class="h2">Channel <span class="hint">· the members’ messages, read-only</span></h2>${obsChat(A)}</section>`;})(alPageView);
 go=(f=>function(v){return f.call(this,OBS?obsView(v):v);})(go);
 shell=(f=>function(){if(OBS)S.view=obsView(S.view);return f.apply(this,arguments);})(shell);
 mainView=(f=>function(){
@@ -57993,7 +58004,7 @@ function alNorm(id,d){
 
 /* ── the region's alliances, and the member's channel ── */
 function alConnect(){
-  if(!S.db||S.mode!=='world')return;
+  if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;
   const reg=REG.id;if(AL.reg===reg&&AL.unsub)return;
   if(AL.unsub)try{AL.unsub();}catch(e){}
   AL.reg=reg;AL.ready=false;
@@ -58010,7 +58021,7 @@ connect=(f=>async function(){const r=await f.apply(this,arguments);try{alConnect
 /* someone typing in a field of the page is not drawn over by a snapshot; the next one, or a click, draws it */
 function alTyping(){const a=document.activeElement;return !!(a&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT'&&/^(text|search|number)$/.test(a.type))&&a.closest&&a.closest('.dp,.alp'));}
 function alChatConnect(){
-  const A=alMine(),aid=A&&A.srv?A.id:'',C=AL.chat;
+  const A=OBS?(S.view==='alliance'?politics().al.get(AL.view):null):alMine(),aid=A&&A.srv?A.id:'',C=AL.chat;
   if(C.aid===aid)return;
   if(C.unsub)try{C.unsub();}catch(e){}
   Object.assign(C,{aid,list:[],unsub:null,err:''});
@@ -58018,6 +58029,7 @@ function alChatConnect(){
   if(!aid||!S.db)return;
   try{C.unsub=S.db.collection('alliances/'+aid+'/chat').orderBy('t','desc').limit(60).onSnapshot(qs=>{
     C.list=qs.docs.map(d=>{const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,1000),t:Number(v.t)||0};}).sort((a,b)=>a.t-b.t);C.err='';
+    if(OBS){if(S.view==='alliance'&&!alTyping())quietRender();return;}
     if(S.view==='diplomacy'&&AL.tab==='alliance'&&AL.sub==='channel'){alChatSeen();if(!alTyping())quietRender();}else NVX.ver++;
   },e=>{C.err='The channel could not be loaded.';});}catch(e){}
 }

@@ -1031,6 +1031,8 @@ test('alliances and the allyOf index are read by everyone and written only by th
   await assertSucceeds(as('carol').collection('alliances/al1/chat').orderBy('t', 'desc').limit(60).get());
   await assertFails(as('alice').collection('alliances/al1/chat').orderBy('t', 'desc').limit(60).get());
   await assertFails(anon().doc('alliances/al1/chat/m1').get());
+  await assertSucceeds(as('mod', { admin: true }).collection('alliances/al1/chat').orderBy('t', 'desc').limit(60).get());  // an observing admin reads it
+  await assertFails(as('mod', { admin: true }).doc('alliances/al1/chat/m3').set({ a: 'mod', x: 'Staff', t: 3 }));
   await assertFails(as('bob').doc('alliances/al1/chat/m2').set({ a: 'bob', x: 'Forged', t: 2 }));
   await assertFails(as('bob').doc('alliances/al1').update({ ld: 'alice' }));
   await assertFails(as('alice').doc('alliances/al2').set({ reg: 'meridian', name: 'Mine', ld: 'alice', mem: { alice: { t: 1 } } }));

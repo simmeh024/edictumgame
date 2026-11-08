@@ -588,7 +588,7 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
-    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') || name === 'accounts' && op === 'shop')) throw readOnly();
+    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);
