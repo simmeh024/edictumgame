@@ -130,6 +130,9 @@ test('session diagnostics are private, paced and limited to the reporting player
   await assertFails(as('bob').doc('saveHealth/alice-session').set({ ...report, uid: 'bob' }));
   await assertFails(db.doc('saveHealth/forged').set({ ...report, uid: 'bob' }));
   await assertFails(db.doc('saveHealth/oversized').set({ ...report, error: 'x'.repeat(65) }));
+  await assertSucceeds(db.doc('saveHealth/with-page').set({ ...report, pg: 'edicts' }));
+  await assertFails(db.doc('saveHealth/long-page').set({ ...report, pg: 'x'.repeat(41) }));
+  await assertFails(db.doc('saveHealth/num-page').set({ ...report, pg: 7 }));
   await assertFails(db.doc('saveHealth/alice-session').set(report));
   await assertSucceeds(as('mod', { admin: true }).collection('saveHealth').get());
   await assertSucceeds(db.doc('saveHealth/alice-session').delete());

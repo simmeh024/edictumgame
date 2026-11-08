@@ -162,6 +162,20 @@ async function health(db) {
     return { id: d.id, uid: s.uid, reg: n.reg || s.reg, name: n.name || s.uid, device: s.device, status: s.status, pending: s.pending, error: s.error, conflicts: s.conflicts, revision: s.revision, t: ms(s.t), savedAt: ms(n.ts), serverRevision: n.rev || 0 };
   }) };
 }
+/* Online players: every session that reported in the last ONLINE_MS, one row per player (their latest tab), with the
+   page that tab is on (saveHealth.pg, newer game versions) and the nation's name, region and flag from its save. */
+async function onlinePlayers(db) {
+  const qs = await db.collection('saveHealth').where('t', '>', Timestamp.fromMillis(Date.now() - ONLINE_MS)).orderBy('t', 'desc').limit(1000).get();
+  const latest = new Map(), tabs = new Map();
+  for (const d of qs.docs) { const u = d.get('uid'); if (!u) continue; tabs.set(u, (tabs.get(u) || 0) + 1); if (!latest.has(u)) latest.set(u, d.data()); }
+  const uids = [...latest.keys()];
+  const ns = uids.length ? await db.getAll(...uids.map(u => db.doc('nations/' + u)), { fieldMask: ['name', 'reg', 'flag', 'pop'] }) : [];
+  const nations = new Map(ns.map(n => [n.id, n.data() || {}]));
+  return { at: Date.now(), limited: qs.size === 1000, players: uids.map(u => {
+    const s = latest.get(u), n = nations.get(u) || {};
+    return { uid: u, name: text(n.name, 80) || u, reg: n.reg || s.reg, flag: n.flag && typeof n.flag === 'object' ? n.flag : null, pop: Number(n.pop) || 0, pg: text(s.pg, 40), device: s.device, status: s.status, tabs: tabs.get(u), t: ms(s.t) };
+  }) };
+}
 async function audit(db, data) {
   let q = db.collection('adminAudit');
   if (text(data.target)) q = q.where('target', '==', text(data.target));
@@ -368,6 +382,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'search') return players(db, d);
   if (d.op === 'player') return player(db, id(d.uid));
   if (d.op === 'health') return health(db);
+  if (d.op === 'online') return onlinePlayers(db);
   if (d.op === 'stats') return stats(db, d);
   if (d.op === 'shopStats') return shopStats(db);
   if (d.op === 'audit') return audit(db, d);
