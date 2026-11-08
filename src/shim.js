@@ -1280,6 +1280,7 @@
     });
     mount();
     if (emailLink) finishEmailLink(emailLink);
+    else setTimeout(googleReturn, 0);
     setTimeout(supportCheck, 6000);
     /* and again every few minutes while a ticket waits, so a reply reaches a player who keeps the game open */
     setInterval(function () { if (!document.hidden) supportCheck(); }, 5 * 60000);
@@ -1369,12 +1370,32 @@
     discord: '<svg viewBox="0 0 127.14 96.36" aria-hidden="true" focusable="false"><path fill="#fff" d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/></svg>',
     email: '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="2.8" y="4.6" width="14.4" height="10.8" rx="1.4" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M3.4 5.4 10 10.6l6.6-5.2" fill="none" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/><circle cx="10" cy="11" r="2.3" fill="#fff"/><circle cx="10" cy="11" r="1" fill="#6a3db3"/></svg>'
   };
+  /* the sign-in this browser last used (LS_LAST: 'google' | 'discord' | 'email'): a returning guest sees it first */
+  var LS_LAST = 'edictum.lastSignIn';
+  function lastSignIn() { var v = L.get(LS_LAST); return v === 'google' || v === 'discord' || v === 'email' ? v : ''; }
+  function noteSignIn(what) { var a = /google/i.test(what) ? 'google' : /discord/i.test(what) ? 'discord' : /email/i.test(what) ? 'email' : ''; if (a) L.set(LS_LAST, a); }
   function linkingButtons(u) {
-    var guest = !linkedUser(u);
-    return LINK_OPTIONS.filter(function (o) { return !hasProvider(u, o.provider); }).map(function (o) {
-      return '<button type="button" class="btn ed-signin' + (guest ? '' : ' ghost') + '" data-ed="' + o.action + '"><span class="ed-mark ed-mark-' + o.action + '">' + MARKS[o.action] + '</span><span>' +
-        esc((guest ? 'Continue with ' : 'Add ') + o.name) + '</span></button>';
+    var guest = !linkedUser(u), last = guest ? lastSignIn() : '';
+    var opts = LINK_OPTIONS.filter(function (o) { return !hasProvider(u, o.provider); });
+    if (last) opts.sort(function (a, b) { return (b.action === last) - (a.action === last); });
+    return opts.map(function (o) {
+      return '<button type="button" class="btn ed-signin ed-signin-' + o.action + (guest ? '' : ' ghost') + '" data-ed="' + o.action + '"><span class="ed-mark ed-mark-' + o.action + '">' + MARKS[o.action] + '</span><span>' +
+        esc((guest ? 'Continue with ' : 'Add ') + o.name) + '</span>' + (o.action === last ? '<span class="ed-last">Last used</span>' : '') + '</button>';
     }).join('');
+  }
+  /* in-app browsers (Discord, Instagram, Facebook, X, TikTok, Snapchat, Line, Android WebView) block Google's sign-in
+     and often pop-ups: such a visitor is told to open the game in their own browser */
+  function webview() { return /FBAN|FBAV|Instagram|Discord|Twitter|TikTok|musical_ly|Snapchat|Line\/|; wv\)|GSA\//i.test(navigator.userAgent || ''); }
+  function phoneLike() { return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent || '')); }
+  function webviewNote() {
+    return webview() ? '<div class="ed-web" role="note"><p><b>You are in an in-app browser.</b> Google and Discord often refuse to sign in here. Open Edictum in Safari or Chrome instead: use the app\'s menu (⋯) and choose Open in browser, or copy the link.</p><div class="ed-row"><button type="button" class="btn ghost small" data-ed="copy-url">Copy the link</button></div></div>' : '';
+  }
+  /* what linking gives, and what it never does: said beside the buttons */
+  var PERKS = '<ul class="ed-perks"><li>Play the same nation on your phone and computer</li><li>Keep it safe if this browser is cleared</li><li>Vote in the Assembly, post on the boards and found alliances</li></ul>';
+  var TRUST = '<p class="ed-fine ed-trust">We never post anything for you or see your password. <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
+  function maskEmail(e) {
+    var m = /^([^@]*)@(.*)$/.exec(String(e || '')); if (!m) return String(e || '');
+    var u = m[1]; return (u.length <= 2 ? u.charAt(0) + '•' : u.slice(0, 2) + '•••' + (u.length > 5 ? u.slice(-1) : '')) + '@' + m[2];
   }
   /* the account's custom claims: admin, and dc/dcn, a linked Discord account's id and name */
   function keepClaims(u, r) { if (u && r && r.claims) { A.claims = r.claims; A.claimsUid = u.uid; } }
@@ -1434,8 +1455,9 @@
   function paint() {
     if (!ui.btn) return;
     var w = who(), head = ui.box.classList.contains('ed-head'), k, v;
+    ui.box.dataset.kind = w.kind;
     if (w.kind === 'linked') { k = head ? 'Signed in' : 'Registered Nation'; v = w.email || w.discord || w.name || 'Your account'; }
-    else if (w.kind === 'guest') { k = head ? 'Have a nation?' : 'Guest Nation'; v = head ? 'Sign in' : 'Keep your nation on every device'; }
+    else if (w.kind === 'guest') { k = head ? 'Already rule a nation?' : 'Guest Nation'; v = head ? 'Sign in to continue' : (localNation() ? 'Clearing this browser can lose it' : 'Keep your nation on every device'); }
     else { k = 'Playing offline'; v = head ? 'Sign-in unavailable' : 'Saved in this browser for now'; }
     ui.btn.innerHTML = ICON + '<span class="ed-acct-t"><span class="ed-acct-k">' + esc(k) + '</span> <span class="ed-acct-v">' + esc(v) + '</span></span>';
     /* Guest sign-out uses the recovery-code confirmation; both account types can end this browser session. */
@@ -1571,13 +1593,16 @@
         row('<button type="button" class="btn" data-ed="email-send">Send the link</button><button type="button" class="btn ghost" data-ed="back">Back</button>');
     } else if (ui.view === 'email-sent') {
       h = '<p class="eyebrow">Check your email</p><h2 class="ed-h" id="ed-dlg-h">Open the link we sent</h2>' +
-        '<p>We sent a sign-in link to <b>' + esc(ui.email) + '</b>. Open it in this browser to finish. It can take a minute to arrive; if it does not, look in your spam folder.</p>' +
-        row('<button type="button" class="btn" data-ed="close" data-autofocus>Done</button><button type="button" class="btn ghost" data-ed="email">Use another address</button>');
+        '<p>We sent a sign-in link to <b title="' + esc(ui.email) + '">' + esc(maskEmail(ui.email)) + '</b>. Open it <b>in this browser</b> to finish.</p>' +
+        '<ul class="ed-perks"><li>It can take a minute or two to arrive.</li><li>Not there? Look in your spam or promotions folder for a message from Edictum.</li><li>Each link works once and expires after a while.</li></ul>' +
+        row('<button type="button" class="btn" data-ed="close" data-autofocus>Done</button><button type="button" class="btn ghost" data-ed="email-resend" id="ed-resend"' + (resendLeft() ? ' disabled' : '') + '>' + resendLabel() + '</button>') +
+        row('<button type="button" class="linkish" data-ed="email">Wrong address? Use another one</button>');
     } else if (ui.view === 'email-finish') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Which address was the link sent to?</h2>' +
-        '<p>This browser did not ask for the sign-in link, so confirm the address it was sent to. Nobody else can finish a sign-in with your link that way.</p>' +
+        '<p>It looks like you opened the link on a different browser or device from the one that asked for it (or this browser\'s data was cleared since). That is fine: type the address the link was sent to, and you are signed in <b>here</b>. Nobody else can finish a sign-in with your link that way.</p>' +
         '<label class="ed-lbl2" for="ed-email">Email address</label><input class="input" id="ed-email" type="email" maxlength="200" autocomplete="email" spellcheck="false" data-enter="email-finish" data-autofocus>' +
-        row('<button type="button" class="btn" data-ed="email-finish">Sign in</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
+        row('<button type="button" class="btn" data-ed="email-finish">Sign in here</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>') +
+        '<p class="ed-fine">Meant to sign in on the other device? Open the link there instead. Or <button type="button" class="linkish" data-ed="email">send a new link to use on this one</button>.</p>';
     } else if (ui.view === 'report' && ui.report) {
       var r = ui.report, post = r.kind === 'post' || r.kind === 'letter', reasons = REASONS.filter(function (x) { return post ? x[0] !== 'name' && x[0] !== 'cheating' : true; });
       h = '<p class="eyebrow">Report</p><h2 class="ed-h" id="ed-dlg-h">' + (r.kind === 'letter' ? 'Report this letter?' : post ? 'Report this post?' : 'Report ' + quoted(r.name) + '?') + '</h2>' +
@@ -1616,9 +1641,9 @@
       ui.view = 'main';
       if (w.kind === 'guest') {
         h = '<p class="eyebrow">' + (n ? 'Guest Nation' : 'Your account') + '</p><h2 class="ed-h" id="ed-dlg-h">' + (n ? 'Keep your nation on every device' : 'Sign in to your nation') + '</h2>' +
-          (n ? '<p>' + nm + ' is a Guest Nation. Keep your recovery code safe, or link a sign-in account to become a Registered Nation. Registration unlocks community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>'
-             : '<p>If your nation is linked to Google, Discord or an email address, sign in with it to carry on here. New to Edictum? Found a nation on this page, and link a sign-in whenever you like.</p>') +
-          row(linkingButtons(A.auth.currentUser)) +
+          (n ? '<p>' + nm + ' is a Guest Nation, tied to this browser: <b>if its data is cleared, the nation can be lost</b>. Link a sign-in to become a Registered Nation.</p>' + PERKS + '<p class="ed-fine">Assembly voting also needs a nation at least 24 hours old.</p>'
+             : '<p>If your nation is linked to Google, Discord or an email address, sign in with it to carry on here. New to Edictum? Close this and found a nation on this page; you can link a sign-in whenever you like.</p>') +
+          webviewNote() + row(linkingButtons(A.auth.currentUser)) + TRUST +
           (n ? row('<button type="button" class="btn ghost" data-ed="recovery-regenerate">Regenerate recovery key</button><button type="button" class="btn ghost" data-ed="signout">Sign out</button>') + '<p class="ed-fine">A saved code cannot be displayed again. Regenerating replaces it and stops the previous key from working. After linking, use your linked sign-in to recover this nation.</p>' :
             row('<button type="button" class="btn ghost" data-ed="guest-session">Login with active guest session</button>') + row('<button type="button" class="linkish" data-ed="recover">Recover with a code</button>'));
       } else if (w.kind === 'linked') {
@@ -1633,7 +1658,7 @@
       if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>') + '</div>';
       if (w.kind !== 'local' && n) h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
       if (GA.id) h += '<p class="ed-fine ed-stats-set">Visit statistics (Google Analytics): ' + (statsChoice() === 'y' ? 'allowed. <button type="button" class="linkish" data-ed="stats-n">Turn off</button>' : 'off. <button type="button" class="linkish" data-ed="stats-y">Allow</button>') + '</p>';
-      h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
+      if (w.kind !== 'guest') h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
     }
     ui.inn.innerHTML = h;
     if (ui.busy) setBusy(ui.busy);
@@ -1668,6 +1693,8 @@
     if (a === 'discord') { discord(); return; }
     if (a === 'email') { ui.emailMode = ''; ui.view = 'email'; setMsg(''); draw(); return; }
     if (a === 'email-send') { sendEmailLink(); return; }
+    if (a === 'email-resend') { if (!resendLeft() && ui.email) sendLinkTo(ui.email, ui.emailMode).then(function () { setMsg('Sent again. Use the newest link.'); }, function () {}); return; }
+    if (a === 'copy-url') { var url = location.origin + location.pathname; try { navigator.clipboard.writeText(url).then(function () { setMsg('Link copied. Paste it into Safari or Chrome.'); }, function () { setMsg(url); }); } catch (e) { setMsg(url); } return; }
     if (a === 'email-finish') { var typed = ui.dlg.querySelector('#ed-email'); finishEmailLink(ui.emailLink, typed ? typed.value.trim() : ''); return; }
     if (a === 'switch') { doSwitch(); return; }
     if (a === 'signout') { ui.view = 'signout'; setMsg(''); draw(); return; }
@@ -1881,7 +1908,13 @@
   function authMessage(e) {
     var c = String((e && e.code) || '');
     if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request' || c === 'auth/user-cancelled') return 'Sign-in was cancelled.';
-    if (c === 'auth/popup-blocked') return 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.';
+    if (c === 'auth/popup-blocked') return webview() ? 'This in-app browser blocked the sign-in window. Open Edictum in Safari or Chrome and sign in there.' : 'Your browser blocked the sign-in window. Tap the button again, or allow pop-ups for this site.';
+    if (c === 'auth/account-exists-with-different-credential') return 'That email address already belongs to an Edictum nation that signs in another way. Sign in the way you used before' + (lastSignIn() ? ' (this browser last used ' + ({ google: 'Google', discord: 'Discord', email: 'an email link' })[lastSignIn()] + ')' : '') + '.';
+    if (c === 'auth/timeout') return 'The sign-in took too long. Try again.';
+    if (c === 'auth/internal-error') return webview() ? 'Sign-in does not work in this in-app browser. Open Edictum in Safari or Chrome.' : 'Something went wrong on the sign-in side. Try again in a moment.';
+    if (c === 'auth/requires-recent-login') return 'For your safety, sign in again first, then try once more.';
+    if (c === 'auth/missing-or-invalid-nonce' || c === 'auth/invalid-credential') return 'That sign-in could not be checked. Try again.';
+    if (c === 'auth/redirect-cancelled-by-user' || c === 'auth/redirect-operation-pending') return 'Sign-in was cancelled.';
     if (c === 'auth/unauthorized-domain' || c === 'auth/unauthorized-continue-uri') return 'Sign-in is not set up for this web address yet: the site owner needs to add it to the authorised domains in Firebase Authentication.';
     if (c === 'auth/operation-not-allowed') return 'This way of signing in is not switched on for this game yet.';
     if (c === 'auth/network-request-failed') return 'The sign-in could not reach the server. Check your connection and try again.';
@@ -1894,6 +1927,7 @@
   }
   /* this account now has another sign-in (what: 'Google account', 'Discord account', 'email address') */
   function linkedNow(u, what, label) {
+    noteSignIn(what);
     clearRecovery(u.uid);
     setBusy('');
     var n = localNation();
@@ -1919,6 +1953,8 @@
     var u = A.auth && A.auth.currentUser;
     if (!u || hasProvider(u, 'google.com')) return;
     setBusy('Waiting for Google…');
+    /* a phone (where pop-ups open as tabs that often lose their way back) goes to Google and back instead */
+    if (phoneLike() && !webview()) { googleRedirect(u); return; }
     u.linkWithPopup(provider()).then(function () {
       var g = (u.providerData || []).filter(function (p) { return p.providerId === 'google.com'; })[0];
       linkedNow(u, 'Google account', g && g.email);
@@ -1928,7 +1964,36 @@
         otherAccount({ what: 'Google account', ready: !!cred, signIn: function () { return cred ? A.auth.signInWithCredential(cred) : A.auth.signInWithPopup(provider()); } });
         return;
       }
+      if (e && e.code === 'auth/popup-blocked' && !webview()) { googleRedirect(u); return; }
       setBusy('');
+      setMsg(authMessage(e), true);
+    });
+  }
+  /* SS_GREDIR marks a redirect under way; googleReturn() finishes it once the page is back */
+  var SS_GREDIR = 'edictum.gredir';
+  function googleRedirect(u) {
+    var flush = E.flushSaves;
+    Promise.resolve(typeof flush === 'function' ? flush() : null).catch(function () {}).then(function () {
+      SS.set(SS_GREDIR, '1');
+      return u.linkWithRedirect(provider());
+    }).catch(function (e) { SS.set(SS_GREDIR, null); setBusy(''); setMsg(authMessage(e), true); });
+  }
+  function googleReturn() {
+    if (!SS.get(SS_GREDIR)) return;
+    SS.set(SS_GREDIR, null);
+    A.auth.getRedirectResult().then(function (res) {
+      var u = res && res.user;
+      if (!u) return;
+      open('main');
+      var g = (u.providerData || []).filter(function (p) { return p.providerId === 'google.com'; })[0];
+      linkedNow(u, 'Google account', g && g.email);
+    }, function (e) {
+      open('main');
+      if (e && e.code === 'auth/credential-already-in-use') {
+        var cred = e.credential || null;
+        otherAccount({ what: 'Google account', ready: !!cred, signIn: function () { return cred ? A.auth.signInWithCredential(cred) : A.auth.signInWithPopup(provider()); } });
+        return;
+      }
       setMsg(authMessage(e), true);
     });
   }
@@ -1986,9 +2051,23 @@
   /* An email link: Firebase emails a one-time link back to this page, and the account then has a 'password'
      provider without a password. LS_EMAIL remembers the address (Firebase asks for it again to finish), and
      the mode: 'switch' when the link is to sign in to that address's own account rather than link it here. */
+  /* a resend waits a minute after each send, counted down on its button */
+  var RESEND_MS = 60000, resendTimer = 0;
+  function resendLeft() { return Math.max(0, Math.ceil(((ui.sentAt || 0) + RESEND_MS - Date.now()) / 1000)); }
+  function resendLabel() { var s = resendLeft(); return s ? 'Resend in ' + s + ' s' : 'Resend the link'; }
+  function resendTick() {
+    clearInterval(resendTimer);
+    resendTimer = setInterval(function () {
+      var b = ui.inn && ui.inn.querySelector('#ed-resend');
+      if (!b || ui.view !== 'email-sent') { clearInterval(resendTimer); return; }
+      b.textContent = resendLabel(); b.disabled = !!ui.busy || resendLeft() > 0;
+      if (!resendLeft()) clearInterval(resendTimer);
+    }, 1000);
+  }
   function sendLinkTo(email, mode) {
     setBusy('Sending the link…');
     return A.auth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname, handleCodeInApp: true }).then(function () {
+      ui.sentAt = Date.now(); setTimeout(resendTick, 0);
       L.set(LS_EMAIL, JSON.stringify({ email: email, mode: mode || '' }));
       ui.email = email; ui.emailMode = mode || ''; setBusy(''); ui.view = 'email-sent'; setMsg(''); draw();
     }, function (e) { setBusy(''); setMsg(authMessage(e), true); throw e; });
@@ -2065,6 +2144,7 @@
       return;
     }
     var nu = res && res.user, has = true, known = false, name = '';
+    noteSignIn(sw.what);
     if (!nu) { leave({ nation: null, uid: '-' }); return; }
     /* does that account hold a nation? asked twice: a slow phone link can miss the first answer */
     for (var tries = 0; tries < 2 && !known; tries++) {
@@ -2083,6 +2163,7 @@
       return;
     }
     if (has) {
+      SS.set('edictum.wb', '1'); /* the game greets the player with what waited for them */
       leave({ nation: null, uid: '-' }, name ? 'Signed in with ' + via + '. Welcome back to “' + name + '”.' : 'Signed in with ' + via + '.');
     } else if (guest) {
       guest._rev = 0;

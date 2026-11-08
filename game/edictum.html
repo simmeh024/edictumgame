@@ -5072,6 +5072,16 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .account-link-card{margin:16px 0;padding:18px 20px}
 .account-link-card .h2{margin:0 0 8px;font-size:22px}
 .account-link-card p{margin:0 0 10px}
+.wb-card{display:flex;gap:18px;align-items:flex-start;margin:16px 0;padding:18px 20px}
+.wb-flag{flex:none;width:84px}
+.wb-flag svg{display:block;width:100%;height:auto;border-radius:3px;box-shadow:0 0 0 1px var(--rule)}
+.wb-body{min-width:0}
+.wb-card .h2{margin:0 0 8px;font-size:22px}
+.wb-card p{margin:0 0 6px}
+.wb-list{margin:0 0 12px;padding-left:20px}
+.link-nudge{margin:14px 0;padding:12px 14px;border-left:3px solid var(--down)}
+.link-nudge p{margin:0 0 8px}
+@media (max-width:560px){.wb-card{flex-direction:column}.wb-flag{width:64px}}
 .account-access{margin:10px 0;line-height:1.55}
 .account-access p{margin:0 0 6px}
 .account-access .linkish,.account-link-card .linkish{white-space:normal;text-align:start}
@@ -45161,7 +45171,35 @@ function accountTypesHelp(){
 }
 HELP_EXT.push({k:'account-types',t:'Account types',top:true,body:accountTypesHelp});
 const accountStepsBase=firstStepsCard;
-firstStepsCard=n=>accountStepsBase(n)+accountLinkCard(n);
+firstStepsCard=n=>welcomeBackCard(n)+accountStepsBase(n)+accountLinkCard(n)+linkNudge(n);
+/* After signing in to an account that already holds a nation (src/shim.js leaves edictum.wb in sessionStorage
+   before its reload), the overview opens with the flag, the name and what waited while the player was away. */
+let wbShow=false;try{if(sessionStorage.getItem('edictum.wb')){wbShow=true;sessionStorage.removeItem('edictum.wb');}}catch(e){}
+function welcomeBackCard(n){
+  if(!wbShow||!n||n.npc||OBS)return '';
+  let ed=0,dm=0,lc=0;try{ed=S.lastCount||0;dm=dmUnread(Date.now())||0;lc=landCredits(n)||0;}catch(e){}
+  const bits=[];
+  if(ed)bits.push(`<li><b>${ed}</b> ${ed===1?'edict waits':'edicts wait'} on your desk</li>`);
+  if(dm)bits.push(`<li><b>${dm}</b> unread ${dm===1?'letter':'letters'}</li>`);
+  if(lc)bits.push(`<li><b>${lc}</b> land ${lc===1?'credit':'credits'} to spend</li>`);
+  return `<section class="paper wb-card" aria-labelledby="wb-h"><span class="wb-flag">${flagSVG(n.flag,'Your flag')}</span><div class="wb-body"><p class="eyebrow">Welcome back</p><h2 class="h2" id="wb-h">${esc(fullName(n))}</h2>${bits.length?`<p>While you were away:</p><ul class="wb-list">${bits.join('')}</ul>`:'<p>All quiet while you were away: your nation is just as you left it.</p>'}<div class="row">${ed?'<button type="button" class="btn" data-act="wb-go" data-v="issues">Open the desk</button>':''}<button type="button" class="${ed?'linkish small':'btn ghost'}" data-act="wb-hide">${ed?'Later':'Carry on'}</button></div></div></section>`;
+}
+/* A guest who has ruled on three edicts is reminded, once and briefly, that the nation hangs on this browser.
+   The charter's own link card says it first; this one waits until that card is gone. */
+const nudgeKey=n=>'edictum.link-nudge.'+String(n.seed);
+function linkNudge(n){
+  const a=accountInfo();
+  if(!n||n.npc||OBS||S.google||!a||a.kind!=='guest'||(n.answered||0)<3||accountHintHidden.has(nudgeKey(n)))return '';
+  if(accountLinkCard(n))return '';
+  try{if(localStorage.getItem(nudgeKey(n)))return '';}catch(e){return '';}
+  return `<div class="hint link-nudge" role="note"><p><b>${esc(n.name)} is tied to this browser.</b> If its data is cleared, a Guest Nation can be lost. Link Google, Discord or an email address to keep it safe and play on any device.</p><div class="row"><button type="button" class="btn small" data-act="acct-open">Keep my nation</button><button type="button" class="linkish small" data-act="link-nudge-hide">Not now</button></div></div>`;
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='wb-hide'){wbShow=false;render();}
+  else if(a==='wb-go'){wbShow=false;const g=document.createElement('button');g.dataset.act='go';g.dataset.v=b.dataset.v;g.hidden=true;document.body.appendChild(g);g.click();g.remove();}
+  else if(a==='link-nudge-hide'&&S.nation){const k=nudgeKey(S.nation);accountHintHidden.add(k);try{localStorage.setItem(k,'1');}catch(err){}render();}
+});
 const accountCustomiseBase=VIEWS_EXT.customise;
 VIEWS_EXT.customise=now=>{const body=accountCustomiseBase(now),card=accountLinkCard(S.nation);return card?body.replace('</header>','</header>'+card):body;};
 document.addEventListener('click',e=>{
