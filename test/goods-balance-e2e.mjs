@@ -45,6 +45,16 @@ const slowShown = await A.evaluate(() => !!document.querySelector('.gb-why'));
 const slowAny = await A.evaluate(() => { const g = G.GB(), n = G.S.nation, rt = g.stockRates(n); return Object.values(rt).some(v => v < 0.5); });
 check('the goods bar explains a slow resource, with links', slowShown === slowAny && (!slowShown || !!(await A.$('.gb-why [data-act="gb-flows"]'))));
 
+/* large iron deposits, and harbour towns */
+const dep = await A.evaluate(() => { const g = G.GB(), D = g.IRON_DEP, by = [0, 0, 0, 0, 0]; let first = -1, n = 0, ok = true;
+  for (let i = 0; i < D.length; i++) if (D[i]) { n++; by[g.MAP_T[i]]++; if (first < 0) first = i; if (g.CELL_RES.iron[i] < g.IRON_DEP_YIELD || g.CELL_RES.oil[i]) ok = false; }
+  return { n, by, first, ok, harbour: g.BUILDINGS.harbour.res.goods[1] }; });
+check('large iron deposits lie across the map, mostly in the hills and mountains, never on oil', dep.n > 60 && dep.n < 200 && dep.ok && dep.by[4] + dep.by[3] > dep.by[2], JSON.stringify(dep));
+check('a Harbour now makes 3 goods a day', dep.harbour === 3);
+await nav(A, 'map');await sleep(800);
+await A.evaluate(c => { G.GB().mapAt(c); G.render(); }, dep.first);await sleep(1200);
+await A.locator('canvas[data-map="main"]').screenshot({ path: path.join(OUT, 'goods-iron-deposit.png') }).catch(e => check('map screenshot', false, e.message));
+
 /* the Help page explains it */
 await nav(A, 'help');await sleep(500);
 const help = await text(A, '#help-trade');
