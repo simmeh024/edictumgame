@@ -35,7 +35,8 @@
                             its comments (through civic()), devnews/<id>/rd/<uid> its readers (newsRead, with
                             the count in devnewsStat/<id>.n), devnewsImg/<id> its images, and devnewsMeta/latest
                             the latest published posts, which the game's unread count listens to.
-     support/<id>           a player's support ticket and, once closed, an admin's answer; slimits/<uid> {s}
+     support/<id>           a player's support ticket: the conversation with the team (functions/support.js), and
+                            once closed, when and by whom; slimits/<uid> {s}
                             paces them.
      bugs/<id>              a player's bug report and the team's verdict, bugImg/<id> its screenshot;
                             blimits/<uid> {b} paces them.
@@ -63,8 +64,11 @@
   var SIGN_IN_HOSTS = ['edictumgame.com']; // domains whose own address handles Google sign-in
   var SUPPORT_KEEP = 90 * 86400000;      // a closed support ticket is deleted this long after (Firestore TTL)
   var FN_REGION = 'europe-west1';        // where the referee runs (functions/index.js)
-  var LS_SUP = 'edictum.support';        // set while this browser has sent a ticket that may get an answer
-  var LS_SUP_SEEN = 'edictum.support.seen'; // the time of the last answer the player was told about
+  var LS_SUP = 'edictum.support';        // set while this browser has a ticket that may get an answer
+  var LS_SUP_SEEN = 'edictum.support.seen'; // the time of the team's latest word the player has read on the Help page
+  var LS_SUP_TOLD = 'edictum.support.told'; // the time of the team's latest word a toast has told them about
+  var LS_SUP_NEW = 'edictum.support.new';   // how many tickets have a word from the team not yet read (the Help badge)
+  var SUP_REOPEN = 14 * 86400000;           // a ticket closed this recently opens again when the player writes in it
   var LS_BUG = 'edictum.bugs';           // set while this browser has sent a bug report the team may still look at
   var LS_BUG_SEEN = 'edictum.bugs.seen'; // the time of the last change to them the player was told about
   var LS_STATS = 'edictum.analytics';    // 'y' or 'n': the visitor's answer to the visit statistics card
@@ -90,8 +94,10 @@
      the admin's own staff mark and development news, a board post, the referee, the Assembly and the shop. The game
      sends none of these while observing; this holds should a page path be missed. Two exceptions act as the admin,
      not the player: a message on the region's board signed by the Edictum team (post, as: 'team'), and removing a
-     board message (boards/, which the rules let only its author or an admin delete, and nobody create). */
-  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards'];
+     board message (boards/, which the rules let only its author or an admin delete, and nobody create), and sending a
+     newspaper edition back to be filed again from the records (papers/, which only an admin may delete; the game files
+     none while observing, and the rules want a nation of that region). */
+  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards', 'papers'];
   function observing() { return !!SS.get(SS_OBSERVE); }
   function readOnly() { return mapError({ code: 'read_only', message: 'Nothing is saved while observing a region.' }); }
   function parse(s) { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -129,6 +135,8 @@
   function encode(col, data) {
     /* presence/<uid> {t}: always the server's time (the rules insist), whatever the game passes */
     if (col === 'presence') return { t: serverTime() };
+    /* papers/<region>_<edition>: filed at the server's time (the rules insist) */
+    if (col === 'papers') return Object.assign(JSON.parse(JSON.stringify(data == null ? {} : data)), { t: serverTime() });
     if (col !== 'nations') return JSON.parse(JSON.stringify(data == null ? {} : data));
     var j = JSON.stringify(data == null ? {} : data);
     if (j.length > MAX_JSON) throw mapError({ code: 'too_large', message: 'This nation is too large to save (' + j.length + ' characters).' });
@@ -486,29 +494,45 @@
     return call('civic', Object.assign({ op: 'topic', reg: str(reg,40), text: String(text || '') }, team ? { as: 'team', nm: str(o.nm, 80), rl: str(o.rl, 60) } : {}, re ? { re: re } : {})).then(function(r) { return r.id; });
   }
   function collectionGroupApi(name) { return Object.freeze(queryApi(A.fs.collectionGroup(String(name)))); }
-  /* ───────── support tickets ───────── */
+  /* ───────── support tickets ─────────
+     A ticket is a conversation (functions/support.js): the player's first message, then m, the replies of both
+     sides. The game gets msgs, all of them oldest first; w, whose turn it is while it is open ('p' the player,
+     's' the team); news, the time of the team's latest word (a reply, or closing it); and closedBy. */
   function ticketOf(s) {
-    var d = s.data({ serverTimestamps: 'estimate' }) || {};
-    return { id: s.id, by: str(d.by, 128), topic: str(d.topic, 20), x: str(d.x, 2000), t: millis(d.t), st: d.st === 'closed' ? 'closed' : 'open',
-      name: str(d.name, 160), reg: str(d.reg, 40), email: str(d.email, 200), reply: str(d.reply, 2000), ct: millis(d.ct) };
+    var d = s.data({ serverTimestamps: 'estimate' }) || {}, by = str(d.by, 128), t = millis(d.t), ct = millis(d.ct), rby = str(d.rby, 128);
+    var st = d.st === 'closed' ? 'closed' : 'open', first = str(d.x, 2000);
+    var m = (Array.isArray(d.m) ? d.m : []).slice(0, 60).map(function (x) {
+      return isObj(x) && typeof x.x === 'string' && x.x ? { a: x.a === 's' ? 's' : 'p', x: str(x.x, 2000), t: num(x.t) } : null;
+    }).filter(Boolean);
+    /* a ticket answered before replies existed keeps the team's answer in reply */
+    if (typeof d.reply === 'string' && d.reply && !m.some(function (x) { return x.a === 's'; })) m.push({ a: 's', x: str(d.reply, 2000), t: ct || t });
+    var closedBy = st === 'closed' ? (rby && rby === by ? 'player' : 'team') : '', news = 0;
+    m.forEach(function (x) { if (x.a === 's') news = Math.max(news, x.t); });
+    if (closedBy === 'team') news = Math.max(news, ct);
+    return { id: s.id, by: by, topic: str(d.topic, 20), x: first, t: t, st: st, name: str(d.name, 160), reg: str(d.reg, 40), email: str(d.email, 200),
+      ct: ct, closedBy: closedBy, msgs: [{ a: 'p', x: first, t: t }].concat(m), replies: m.length, w: st === 'open' ? (d.w === 'p' ? 'p' : 's') : '',
+      pc: num(d.pc), lt: millis(d.lt) || (m.length ? m[m.length - 1].t : t), news: news, reopen: st === 'closed' && ct > 0 && Date.now() - ct < SUP_REOPEN };
   }
-  /* the player has seen these: remember the latest answer, and stop looking once nothing is open */
-  function supportSeen(list) {
-    var last = num(Number(L.get(LS_SUP_SEEN))), open = false;
-    list.forEach(function (t) { if (t.st === 'closed') last = Math.max(last, t.ct); else open = true; });
-    L.set(LS_SUP_SEEN, last || null);
-    if (!open) L.set(LS_SUP, null);
+  /* keep looking for the team's words while a ticket is open, or closed recently enough to open again */
+  function supportWatch(list) {
+    L.set(LS_SUP, list.some(function (t) { return t.st === 'open' || t.reopen; }) ? '1' : null);
   }
-  /* a while after the page loads, tell a player who is waiting for an answer that it has come */
+  function supportNew(list, since) { return list.filter(function (t) { return t.news > since; }); }
+  /* a while after the page loads, tell a player whose ticket the team has replied to or closed; the Help menu item
+     shows how many until they read them there (unread(); the game's menu looks at it every second) */
   function supportCheck() {
     var u = A.auth && A.auth.currentUser;
     if (!L.get(LS_SUP) || !u || A.leaving) return;
-    var seen = num(Number(L.get(LS_SUP_SEEN)));
     A.fs.collection('support').where('by', '==', u.uid).limit(50).get().then(function (qs) {
-      var list = qs.docs.map(ticketOf), fresh = list.filter(function (t) { return t.st === 'closed' && t.ct > seen; });
-      if (fresh.length) toast(fresh.length > 1 ? 'The Edictum team has answered ' + fresh.length + ' of your support tickets. The answers are on the Help page.'
-        : 'The Edictum team has answered your support ticket. The answer is on the Help page.');
-      supportSeen(list);
+      var list = qs.docs.map(ticketOf), seen = num(Number(L.get(LS_SUP_SEEN))), told = Math.max(seen, num(Number(L.get(LS_SUP_TOLD))));
+      var unread = supportNew(list, seen), fresh = supportNew(list, told);
+      var said = fresh.filter(function (t) { return t.msgs.some(function (x) { return x.a === 's' && x.t > told; }); });
+      if (said.length) toast(said.length > 1 ? 'The Edictum team has replied to ' + said.length + ' of your support tickets. The replies are on the Help page.'
+        : 'The Edictum team has replied to your support ticket. The reply is on the Help page.');
+      else if (fresh.length) toast(fresh.length > 1 ? 'The Edictum team has closed ' + fresh.length + ' of your support tickets. They are on the Help page.' : 'The Edictum team has closed your support ticket. It is on the Help page.');
+      if (fresh.length) L.set(LS_SUP_TOLD, Math.max.apply(null, fresh.map(function (t) { return t.news; })));
+      L.set(LS_SUP_NEW, unread.length || null);
+      supportWatch(list);
     }, function () {});
   }
   /* ───────── bug reports ───────── */
@@ -674,28 +698,44 @@
   });
   /* the game opens the report dialog: open({kind:'post'|'nation', target:<uid>, post, reg, name, x}) */
   var reportApi = Object.freeze({ open: function (info) { if (isObj(info)) open('report', info); } });
-  /* support tickets (see firestore.rules): the player opens one with open({name, reg, onSent}) and reads
-     their own with mine(); admins list, answer and delete them */
+  /* support tickets (see firestore.rules and functions/support.js): the player opens one with open({name, reg, onSent}),
+     reads their own with mine() (each with fresh, the time they had read up to when the team has said something
+     since, which marks it read), writes back with reply(id, text) and closes one with close(id); unread() is how many
+     have a word from the team not yet read. Admins list them, reply (keeping it open) or answer (closing it), reopen
+     and delete them. */
   var supportApi = Object.freeze({
     open: function (info) { open('support', isObj(info) ? info : {}); },
     mine: function () {
       var u = A.auth && A.auth.currentUser;
       if (!u) return Promise.resolve([]);
       return A.fs.collection('support').where('by', '==', u.uid).limit(50).get().then(function (qs) {
-        var list = qs.docs.map(ticketOf).sort(function (a, b) { return b.t - a.t; });
-        supportSeen(list);
+        var seen = num(Number(L.get(LS_SUP_SEEN))), list = qs.docs.map(ticketOf).sort(function (a, b) { return b.lt - a.lt; });
+        list.forEach(function (t) { t.fresh = t.news > seen ? seen || 1 : 0; });
+        var last = list.reduce(function (m, t) { return Math.max(m, t.news); }, seen);
+        L.set(LS_SUP_SEEN, last || null); L.set(LS_SUP_TOLD, Math.max(last, num(Number(L.get(LS_SUP_TOLD)))) || null);
+        L.set(LS_SUP_NEW, null);
+        supportWatch(list);
         return list;
       }, function (e) { throw mapError(e); });
     },
+    reply: function (id, text) {
+      return call('accounts', { op: 'support', step: 'reply', id: str(id, 64), x: str(String(text || ''), 2000) }).then(function (r) { L.set(LS_SUP, '1'); return r; });
+    },
+    close: function (id) { return call('accounts', { op: 'support', step: 'close', id: str(id, 64) }); },
+    unread: function () { return num(Number(L.get(LS_SUP_NEW))); },
     list: function () {
       var c = A.fs.collection('support');
       return Promise.all([c.where('st', '==', 'open').limit(300).get(), c.orderBy('ct', 'desc').limit(30).get()]).then(function (r) {
-        return { open: r[0].docs.map(ticketOf).sort(function (a, b) { return a.t - b.t; }), closed: r[1].docs.map(ticketOf) };
+        return { open: r[0].docs.map(ticketOf), closed: r[1].docs.map(ticketOf).filter(function (t) { return t.st === 'closed'; }) };
       }, function (e) { throw mapError(e); });
     },
-    answer: function (id, reply) {
-      return adminApi.request({ op: 'moderate', action: reply && reply.trim() ? 'support_answer' : 'support_close', target: id, reply: reply || '', reason: reply && reply.trim() ? 'Answered support ticket' : 'Closed support ticket without an answer' });
+    /* keepOpen: a reply that leaves the ticket open, the player's turn; otherwise the answer closes it (none: closes it without one) */
+    answer: function (id, reply, keepOpen) {
+      var said = !!(reply && String(reply).trim());
+      return adminApi.request({ op: 'moderate', action: keepOpen ? 'support_reply' : said ? 'support_answer' : 'support_close', target: id, reply: reply || '',
+        reason: keepOpen ? 'Replied to support ticket' : said ? 'Answered and closed support ticket' : 'Closed support ticket without an answer' });
     },
+    reopen: function (id) { return adminApi.request({ op: 'moderate', action: 'support_reopen', target: id, reason: 'Reopened support ticket' }); },
     remove: function (id) { return adminApi.request({ op: 'moderate', action: 'support_delete', target: id, reason: 'Deleted support spam' }); }
   });
   /* Letters by post (functions/mail.js): the game's Settings card reads and changes the player's address with
@@ -1241,6 +1281,8 @@
     mount();
     if (emailLink) finishEmailLink(emailLink);
     setTimeout(supportCheck, 6000);
+    /* and again every few minutes while a ticket waits, so a reply reaches a player who keeps the game open */
+    setInterval(function () { if (!document.hidden) supportCheck(); }, 5 * 60000);
     setTimeout(bugsCheck, 7000);
     setTimeout(recoveryCheck, 1800);
     setTimeout(seenCheck, 4000);
@@ -1553,7 +1595,7 @@
         }).join('') + '</fieldset>' +
         '<label class="ed-lbl2" for="ed-sup-x">What happened, or what would you like to know?</label><textarea class="input" id="ed-sup-x" rows="6" maxlength="2000"></textarea>' +
         '<label class="ed-lbl2" for="ed-sup-mail">Email address (optional, if you would like the answer by email too)</label><input class="input" id="ed-sup-mail" type="email" maxlength="200" autocomplete="email">' +
-        '<p class="ed-fine">The answer appears on the Help page. The ticket includes your player ID and your nation\'s name, and only you and the game\'s team can read it. You can send one ticket a minute. <a href="/privacy" target="_blank" rel="noopener">Privacy</a></p>' +
+        '<p class="ed-fine">The team replies on the Help page, and you can write back there until your question is settled. The ticket includes your player ID and your nation\'s name, and only you and the game\'s team can read it. You can send one ticket a minute. <a href="/privacy" target="_blank" rel="noopener">Privacy</a></p>' +
         row('<button type="button" class="btn" data-ed="support-yes">Send ticket</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
     } else if (ui.view === 'delete') {
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Delete your nation and account?</h2>' +
@@ -1764,7 +1806,7 @@
     b.set(A.fs.doc('slimits/' + u.uid), { s: serverTime() });
     b.commit().then(function () {
       L.set(LS_SUP, '1');
-      setBusy(''); ui.dlg.close(); toast('Your ticket is with the Edictum team. The answer will appear on the Help page.');
+      setBusy(''); ui.dlg.close(); toast('Your ticket is with the Edictum team. Their reply will appear on the Help page, where you can write back.');
       if (typeof s.onSent === 'function') { try { s.onSent(); } catch (e) { /* the game's own trouble */ } }
     }, function (e) {
       setBusy('');
@@ -1829,7 +1871,7 @@
     /* the data is gone; now the account, with its links. The server ends it (a browser may only just after a
        sign-in); failing that the browser tries, and failing that the sign-in simply ends, and the empty
        account holds nothing of the game's */
-    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set(LS_BUG, null); L.set(LS_BUG_SEEN, null); L.set('edictum.unsaved.' + u.uid, null); L.set('edictum.emailLinked.' + u.uid, null); clearRecovery(u.uid);
+    L.set(LS_SUP, null); L.set(LS_SUP_SEEN, null); L.set(LS_SUP_TOLD, null); L.set(LS_SUP_NEW, null); L.set(LS_BUG, null); L.set(LS_BUG_SEEN, null); L.set('edictum.unsaved.' + u.uid, null); L.set('edictum.emailLinked.' + u.uid, null); clearRecovery(u.uid);
     try { await call('accounts', { op: 'close' }); await A.auth.signOut(); }
     catch (e) { try { await u.delete(); } catch (e2) { try { await A.auth.signOut(); } catch (e3) {} } }
     leave({ nation: null, uid: '-' }, 'Your nation and account have been deleted. This browser starts again as a new guest.');

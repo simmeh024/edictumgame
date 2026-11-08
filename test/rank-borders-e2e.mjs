@@ -53,7 +53,9 @@ await shot('.ach-ladder','rank-ladder.png');
 /* the Census page's Hall of Honours lists the region's player nations by prestige, each in its border */
 await nav(A,'census');
 const hon=await A.evaluate(()=>{const r=document.querySelector('.id-hon-r.me');return {rows:document.querySelectorAll('.id-hon-r').length,sw:r?r.querySelector('.id-bdsw-c').className:'',rank:r?r.querySelector('.id-hon-k').textContent:''};});
-check('the Census page’s Hall of Honours shows the nation in its border and rank',hon.rows>=1&&hon.sw.includes('id-rk-prism')&&hon.rank===await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[1]),JSON.stringify(hon));
+/* the top rank's look: its border's material (ID_BD), whatever the ladder's top is */
+const topLook=await A.evaluate(()=>'id-rk-'+G.RK.ID_BD.at(-1)[2].split(' ')[0]);
+check('the Census page’s Hall of Honours shows the nation in its border and rank',hon.rows>=1&&hon.sw.includes(topLook)&&hon.rank===await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[1]),JSON.stringify(hon));
 await shot('.id-hon','rank-census.png');
 
 /* Customise: an earlier border can be chosen; the card keeps it, and Follow my rank brings the rank's back */
@@ -66,7 +68,7 @@ await nav(A,'nation');
 check('a chosen earlier border replaces the rank’s on the card',(await card()).cls.includes('id-rk-silver'));
 check('the nameplate still names the rank actually held',(await card()).plate===await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[1]));
 await nav(A,'customise');await A.click('#cz-bd-none');await nav(A,'nation');
-check('Follows your rank brings the rank’s border back',(await card()).cls.includes('id-rk-prism'));
+check('Follows your rank brings the rank’s border back',(await card()).cls.includes(topLook));
 
 /* a border above the rank held cannot be worn, whatever the record says; a computer nation keeps a plain card */
 check('a border above the rank is never shown',await A.evaluate(()=>{const n=G.clone(G.S.nation);n.ach={};n.cz=Object.assign({},n.cz,{bd:'b-prism',u:['b-prism']});return G.RK.idBdIndex(n)===0;}));

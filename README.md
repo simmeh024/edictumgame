@@ -58,8 +58,8 @@ or an email address if they like), and **Firestore** holds the shared world.
 - `reports/<id>`: a player's report of another player's post or nation (a ticket in the admin
   portal), with a copy of what was reported; `rlimits/<uid>` `{r}` paces reporting. Only admins
   read them.
-- `support/<id>`: a player's support ticket (topic, text, nation, optional email) and, once an admin
-  closes it, the answer and an expiry `exp`. A Firestore time-to-live policy on `exp` deletes closed
+- `support/<id>`: a player's support ticket (topic, text, nation, optional email), the conversation after it
+  (`m`, whose turn `w`, written only by `functions/support.js`) and, once closed, by whom and an expiry `exp`. A Firestore time-to-live policy on `exp` deletes closed
   tickets 90 days later. The policy is set once per project (Firebase console, Firestore,
   Time-to-live: collection group `support`, timestamp field `exp`). It needs billing, so the staging
   project goes without; `firestore.indexes.json` only takes `exp` out of indexing, and deploys leave
@@ -462,10 +462,14 @@ designing the currency, each worth `CU_STEP_CREDITS` (2) land credits and `CU_ST
 the steps join `n.tut.lc` with the others.
 
 **Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
-a message and, if the player wants, an email address. Their tickets and the team's answers are listed
-below it, and a player waiting for an answer is told when it comes. Admins answer on the portal's
-**Help queries** page (`#admin-help`): an answer closes the ticket; a ticket can also be closed
-without one, or deleted as spam. Banned players can still send tickets, to appeal.
+a message and, if the player wants, an email address. A ticket is a conversation: their tickets are listed
+below it with every message from them and from the team, they write back while it is open, close it when
+they need nothing more, and can open it again by writing in it within 14 days of its closing (three messages
+in a row at most, until the team replies). A reply from the team brings a toast (on the next page load, or
+within five minutes) and a number on the Help menu item until it is read. Admins work on the portal's
+**Help queries** page (`#admin-help`), in three lists (To answer, Waiting for the player, Recently closed):
+**Send reply** keeps the ticket open for the player, **Send and close** ends it; a ticket can also be closed
+without a reply, reopened, or deleted as spam. Banned players can still send tickets, and write back, to appeal.
 
 **Deleting an account.** The account menu's **Delete my nation and account** removes the player's
 posts in every region, their support tickets, their nation, summary and space record, their pacing records and their

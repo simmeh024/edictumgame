@@ -395,6 +395,7 @@ test('a player sends support tickets, at most one a minute, and reads only their
   await assertFails(ticket(db, 'dave', { x: 'x'.repeat(2001) }));
   await assertFails(ticket(db, 'dave', { st: 'closed' }));
   await assertFails(ticket(db, 'dave', { reply: 'Fixed it myself' }));
+  await assertFails(ticket(db, 'dave', { m: [{ a: 's', x: 'Fixed', t: 1 }] }));         // nor start a conversation
   await assertFails(ticket(db, 'dave', { email: 'x'.repeat(201) }));
   await assertFails(ticket(db, 'dave', { reg: 'atlantis' }));
   await assertFails(ticket(anon(), 'dave'));
@@ -407,7 +408,9 @@ test('a player sends support tickets, at most one a minute, and reads only their
   await assertFails(as('alice').collection('support').where('by', '==', 'dave').get());   // nobody else reads them
   await assertFails(as('alice').collection('support').get());
   await assertFails(anon().doc(mine.docs[0].ref.path).get());
-  await assertFails(db.doc(mine.docs[0].ref.path).update({ st: 'closed' }));              // only admins close them
+  await assertFails(db.doc(mine.docs[0].ref.path).update({ st: 'closed' }));              // closing, and writing back,
+  await assertFails(db.doc(mine.docs[0].ref.path).update({ m: [{ a: 's', x: 'Fixed', t: Date.now() }] })); // go through
+  await assertFails(db.doc(mine.docs[0].ref.path).update({ w: 'p', pc: 0 }));               // functions/support.js
 });
 
 test('admins answer and close support tickets, with an expiry; players delete their own', async () => {
@@ -1016,4 +1019,28 @@ test('alliances and the allyOf index are read by everyone and written only by th
   await assertFails(as('alice').doc('alPace/alice').get());
   /* a player deleting their account finds their board posts, never the channel (not a 'posts' collection) */
   await assertSucceeds(as('bob').collectionGroup('posts').where('a', '==', 'bob').get());
+});
+
+test('the newspaper: press/ is read by everyone and written only by the server; an edition is filed once, by a player of its region, a week at most after it closed', async () => {
+  const EPOCH = Date.UTC(2026, 0, 1), DAYMS = 86400000, today = Math.floor((Date.now() - EPOCH) / DAYMS) + 1;
+  const paper = (no, by, extra = {}) => ({ r: 'meridian', no, by, v: 1, j: '{"v":1}', t: NOW(), ...extra });
+  await assertSucceeds(anon().doc('press/meridian').get());
+  await assertFails(as('bob').doc('press/meridian').set({ nm: 'The Bob Times' }));
+  const no = today - 2, id = 'papers/meridian_' + no;
+  await assertSucceeds(as('bob').doc(id).set(paper(no, 'bob')));
+  // filed once: nobody changes or removes it but an admin
+  await assertFails(as('bob').doc(id).set(paper(no, 'bob', { j: '{"v":1,"x":1}' })));
+  await assertFails(as('bob').doc(id).delete());
+  await assertSucceeds(as('bob').doc(id).get());
+  await assertFails(anon().doc(id).get());
+  // only a player of the region, under their own name, with the server's time, nothing else
+  await assertFails(as('carol').doc('papers/meridian_' + (today - 3)).set(paper(today - 3, 'carol')));
+  await assertFails(as('bob').doc('papers/meridian_' + (today - 3)).set(paper(today - 3, 'carol')));
+  await assertFails(as('bob').doc('papers/meridian_' + (today - 3)).set(paper(today - 3, 'bob', { t: AGO(0) })));
+  await assertFails(as('bob').doc('papers/meridian_' + (today - 3)).set(paper(today - 3, 'bob', { extra: 1 })));
+  await assertFails(as('bob').doc('papers/meridian_' + (today - 4)).set(paper(today - 3, 'bob')));
+  // not before it has closed (and an hour more), not more than a week after
+  await assertFails(as('bob').doc('papers/meridian_' + today).set(paper(today, 'bob')));
+  await assertFails(as('bob').doc('papers/meridian_' + (today - 8)).set(paper(today - 8, 'bob')));
+  await assertSucceeds(as('mod', { admin: true }).doc(id).delete());
 });

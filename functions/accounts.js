@@ -11,6 +11,7 @@ import { alDrop } from './alliances.js';
 import { rmbForget } from './board.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
+import { supportStep } from './support.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 /* Recruiting (game/edictum.html, rcClaim): a player who founded a nation through another player's link files
@@ -84,6 +85,9 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (d.op === 'shop') return shopStep(uid, d);
   if (d.op === 'mail') return mailStep(uid, d, String(req.rawRequest?.ip || ''));
   if (d.op === 'letters') return lettersStep(uid, d);
+  // the player's side of a support ticket (functions/support.js); before identity(), so a banned player can still
+  // write back about their appeal
+  if (d.op === 'support') return supportStep(db, uid, d);
   if (d.op === 'seen') {
     // Once a page load (src/shim.js, seenCheck); the same address writes at most once an hour, moving the expiry with it.
     const ip = address(req.rawRequest), ref = db.doc('accountSeen/' + uid), now = Date.now(), last = await ref.get();
@@ -117,6 +121,13 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await db.doc('alPace/' + uid).delete();
     // its reactions on the region boards (functions/board.js)
     await rmbForget(db, uid, DATA.regions.map(r => r.id));
+    // the region newspapers: a Delegate's signature on a paper's name (functions/civic.js, paper) and the account
+    // that printed an edition into the archive (papers/, firestore.rules); the name and the editions stay
+    const [named, printed] = await Promise.all([db.collection('press').where('by', '==', uid).get(), db.collection('papers').where('by', '==', uid).get()]);
+    if (!named.empty || !printed.empty) {
+      const w = db.bulkWriter();
+      await Promise.all([...named.docs.map(s => w.update(s.ref, { by: FieldValue.delete(), bn: FieldValue.delete() })), ...printed.docs.map(s => w.update(s.ref, { by: '' })), w.close()]);
+    }
     await getAuth().deleteUser(uid);
     return { ok: true };
   }

@@ -10,7 +10,7 @@ export const HOUR = 3600000, DAY = 24 * HOUR, FEED_KEEP = 7 * DAY;
 export const SPANS = { h1: HOUR, h6: 6 * HOUR, d1: DAY, d7: FEED_KEEP };
 /* every kind of event and the group the page filters it by */
 export const GROUP = { found: 'found', war: 'war', conq: 'war', peace: 'war', trade: 'dip', shared: 'dip', aladmit: 'dip', alremove: 'dip', cede: 'dip',
-  buy: 'shop', report: 'mod', ticket: 'mod', bug: 'mod', admin: 'mod', topic: 'board', reply: 'board', post: 'board', comment: 'board', recruit: 'recruit' };
+  buy: 'shop', report: 'mod', ticket: 'mod', ticketr: 'mod', bug: 'mod', admin: 'mod', topic: 'board', reply: 'board', post: 'board', comment: 'board', recruit: 'recruit' };
 export const PING_KINDS = new Set(['war', 'conq', 'peace', 'trade', 'shared', 'aladmit', 'alremove', 'cede']);
 const LIMIT = 400;
 const ms = v => typeof v === 'number' ? v : v?.toMillis?.() || 0;
@@ -71,7 +71,7 @@ async function nameAll(db, uids) {
 export async function gatherFeed(db, { since, now = Date.now() }) {
   // a source that fails (an index still building after a deploy, say) leaves its events out rather than the whole feed
   const ts = Timestamp.fromMillis(since), safe = p => p.catch(e => { console.warn('feed: a source failed:', e.message); return { docs: [] }; });
-  const [found, queued, logged, tx, cfg, reports, tickets, bugs, postsT, postsN, recruits, audit] = await Promise.all([
+  const [found, queued, logged, tx, cfg, reports, tickets, talked, bugs, postsT, postsN, recruits, audit] = await Promise.all([
     safe(db.collection('summaries').where('f', '>', since).orderBy('f', 'desc').limit(300).select('name', 'reg', 'f').get()),
     safe(db.collection('mailQ').where('t', '>', ts).limit(2000).get()),
     safe(db.collection('feedLog').where('t', '>', since - HOUR).get()),
@@ -79,6 +79,8 @@ export async function gatherFeed(db, { since, now = Date.now() }) {
     db.doc('authConfig/paddle').get().catch(() => null),
     safe(db.collection('reports').orderBy('t', 'desc').limit(100).get()),
     safe(db.collection('support').orderBy('t', 'desc').limit(50).get()),
+    // tickets with a recent message (functions/support.js, lt): the player's replies in them
+    safe(db.collection('support').where('lt', '>', ts).orderBy('lt', 'desc').limit(50).get()),
     safe(db.collection('bugs').orderBy('t', 'desc').limit(50).get()),
     // posts keep their time as a server timestamp (region boards, news comments) or in ms (the Community Board)
     safe(db.collectionGroup('posts').where('t', '>', ts).orderBy('t', 'desc').limit(150).get()),
@@ -95,6 +97,7 @@ export async function gatherFeed(db, { since, now = Date.now() }) {
     reports.docs.map(d => ({ k: 'report', t: ms(d.get('t')), uid: sid(d.get('target')), by: sid(d.get('by')), name: txt(d.get('name'), 40),
       x: txt(d.get('reason'), 20) + (d.get('kind') === 'post' ? ' · a post' : ''), ref: d.id })),
     tickets.docs.map(d => ({ k: 'ticket', t: ms(d.get('t')), uid: sid(d.get('by')), x: txt(d.get('topic'), 40), ref: d.id })),
+    talked.docs.flatMap(d => (Array.isArray(d.get('m')) ? d.get('m') : []).filter(m => m && m.a === 'p').map(m => ({ k: 'ticketr', t: ms(m.t), uid: sid(d.get('by')), x: txt(m.x, 90), ref: d.id }))),
     bugs.docs.map(d => ({ k: 'bug', t: ms(d.get('t')), uid: sid(d.get('by')), x: txt(d.get('ti'), 90), ref: d.id })),
     postsT.docs.concat(postsN.docs).map(d => postEvent(d.ref.path, d.data())),
     recruits.docs.map(d => ({ k: 'recruit', t: ms(d.get('t')), uid: d.id, to: sid(d.get('r')) })),

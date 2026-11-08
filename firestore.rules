@@ -16,8 +16,9 @@ rules_version = '2';
 //   limits/{uid}             {p}: the time of the player's last post, which paces posting
 //   reports/{id}             a player's report of another player's post or nation (admins read them)
 //   rlimits/{uid}            {r}: the time of the player's last report, which paces reporting
-//   support/{id}             a player's support ticket, {by, topic, x, t, st, name?, reg?, email?}, and an
-//                            admin's answer when it is closed {reply?, ct, rby, exp}
+//   support/{id}             a player's support ticket, {by, topic, x, t, st, name?, reg?, email?}: the player
+//                            creates it; the conversation after that {m, w, pc, lt} and closing it {ct, rby, exp}
+//                            are written only by functions/support.js (an older answer may be in reply)
 //   slimits/{uid}            {s}: the time of the player's last support ticket, which paces them
 //   bugs/{id}                a player's bug report, {by, ti, x, where, often, env, t, st, name?, reg?, img?}, and
 //                            an admin's verdict {st, note, ut, uby}; bugImg/{id} its screenshot, blimits/{uid} {b}
@@ -450,6 +451,32 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isSelf(uid) && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t == request.time;
       allow delete: if isSelf(uid) || isAdmin();
+    }
+
+    // The region's newspaper (the game's Daily Dispatch). press/{region}: its name and motto as the Assembly's
+    // Delegate chose them, and the classified advertisements the moderators struck out; only the server writes it
+    // (functions/civic.js, paper; functions/admin.js, delete_post and press_reset).
+    match /press/{reg} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // papers/{region}_{edition}: an edition as it went to press, so it reads the same however the records change
+    // later. The game works an edition out from the records; the first player of that region to read it at least an
+    // hour after it closed files it, once, within a week. Nobody changes one; a moderator deletes one to have it
+    // filed again. The text is the paper's (j, a JSON string the game checks as it reads it).
+    function validPaper(d, pid) {
+      return d.keys().hasAll(['r', 'no', 'by', 'v', 'j', 't']) && d.keys().hasOnly(['r', 'no', 'by', 'v', 'j', 't'])
+        && region(d.r) && d.no is int && d.no > 0 && pid == d.r + '_' + string(d.no)
+        && d.by == request.auth.uid && d.t == request.time && d.v == 1
+        && d.j is string && d.j.size() > 0 && d.j.size() <= 300000
+        && request.time.toMillis() >= 1767225600000 + d.no * 86400000 + 3600000
+        && request.time.toMillis() < 1767225600000 + (d.no + 7) * 86400000;
+    }
+    match /papers/{pid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validPaper(request.resource.data, pid) && !banned(request.auth.uid)
+        && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == request.resource.data.r;
+      allow delete: if isAdmin();
     }
 
     // every post, wherever it is, for a player deleting their account (posts where a == their uid)
