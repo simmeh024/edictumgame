@@ -55,6 +55,13 @@ await nav(A, 'map');await sleep(800);
 await A.evaluate(c => { G.GB().mapAt(c); G.render(); }, dep.first);await sleep(1200);
 await A.locator('canvas[data-map="main"]').screenshot({ path: path.join(OUT, 'goods-iron-deposit.png') }).catch(e => check('map screenshot', false, e.message));
 
+/* achievements for iron deposits, harbours and the stockpile: each works its figure out for a real nation */
+const oreAch = await A.evaluate(() => { const ids = ['land-ore1', 'land-ore5', 'land-ore12', 'bld-lode', 'bld-orepit', 'bld-harb3', 'eco-iron10', 'eco-goods25', 'eco-iron300'];
+  const x = { n: G.S.nation, id: G.S.uid, me: true, m: {}, now: Date.now() };
+  return ids.map(id => { const a = G.RK.ACH.find(q => q.id === id); return a ? [id, a.f(x), a.g] : [id, 'missing']; }); });
+check('nine new achievements for iron deposits, harbours and the stockpile, each with a figure', oreAch.every(([, v, g]) => Number.isFinite(v) && v >= 0 && g > 0), JSON.stringify(oreAch));
+check('a stockpile of iron counts towards Iron Reserve', (oreAch.find(r => r[0] === 'eco-iron300') || [])[1] >= 20, JSON.stringify(oreAch));
+
 /* the Help page explains it */
 await nav(A, 'help');await sleep(500);
 const help = await text(A, '#help-trade');

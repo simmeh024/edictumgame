@@ -75,11 +75,13 @@ try {
   await until(() => page.evaluate(() => !!(window.__game.S.nation.mc && window.__game.S.nation.mc.a)));
   check('the agency is founded with its name, Science & Survey first', await page.evaluate(() => { const a = window.__game.S.nation.mc.a; return a.nm === 'Lampwick Lunar Office' && a.f === 'sci' && !!a.tm.sci; }));
   check('the next step offers the first assignment', await page.evaluate(() => !!document.querySelector('[data-act="mc-start"][data-k="scope"]')));
+  /* the goods just before: a full stockpile may already have earned achievements, and a new rank pays goods */
+  const goods0 = await page.evaluate(() => window.__game.S.nation.stock.goods);
   await page.click('[data-act="mc-start"][data-k="scope"]');
   await until(() => page.evaluate(() => !!window.__game.S.nation.mc.ms.scope));
   const job = await page.evaluate(() => (document.querySelector('.mc-jobs li') || {}).innerText || '');
   check('the job under way: its name, time remaining and what it will reveal', /Borrowed telescope time/.test(job) && /Ready in/.test(job) && /crescent/.test(job), job);
-  check('its cost came from the stockpile', await page.evaluate(() => Math.round(window.__game.S.nation.stock.goods) <= 297));
+  check('its cost came from the stockpile', await page.evaluate(g0 => window.__game.S.nation.stock.goods <= g0 - 2.5, goods0));
   await t.edit((n, now) => { n.mc.ms.scope.s = now - 3600e3; n.mc.ms.scope.d = now - 1000; });
   await sleep(500);
   const lit = await page.evaluate(() => [...window.__game.MC.reveal(window.__game.S.nation, Date.now())].filter(v => v > 0).length);

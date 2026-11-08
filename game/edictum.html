@@ -23472,6 +23472,20 @@ achDef('bld','bld-all','p','The Full Set',`Complete every one of the ${ACH_PLAIN
   .forEach(([k,n,u])=>achDef('bld','bld-w-'+k,'g',n,`Complete the ${BUILDINGS[k].n}.`,1,x=>achYes(aBuilt(x,k)>0),{fm:'bool',u}));
 achDef('bld','bld-wonders','p','Wonders of the Reach','Complete all five wonders.',ACH_WONDERS.length,x=>ACH_WONDERS.filter(k=>aBuilt(x,k)>0).length);
 achDef('bld','bld-factory','g','Dark Satanic Mills','Have a Factory standing in 4 cities.',4,x=>aStanding(x).factory||0,{u:'e-gear'});
+/* iron deposits, harbours and the stockpile (goods and iron balance) */
+function aDeps(x){return achM(x,'deps',()=>{try{const T=territory(),i=T.byId[x.id];if(i===undefined)return 0;let k=0;for(let c=0;c<MAP.N;c++)if(IRON_DEP[c]&&T.owner[c]===i)k++;return k;}catch(e){return 0;}});}
+function aLode(x){return achM(x,'lode',()=>{try{const T=territory(),i=T.byId[x.id];if(i===undefined)return 0;return cityState(T).all.some(ct=>ct.hi===i&&ct.active&&ct.done.includes('mine')&&ct.dist.some(c=>IRON_DEP[c]))?1:0;}catch(e){return 0;}});}
+const aRate=(x,r)=>{try{return x.n.npc?0:Math.floor(stockRates(x.n)[r]||0);}catch(e){return 0;}};
+const aHave=(x,r)=>{try{return x.n.npc?0:Math.floor(stockNow(x.n,x.now)[r]||0);}catch(e){return 0;}};
+achDef('land','land-ore1','b','Strike It Rich','Hold a hex with a large iron deposit.',1,aDeps);
+achDef('land','land-ore5','s','Seams of Iron','Hold 5 large iron deposits at once.',5,aDeps);
+achDef('land','land-ore12','g','Iron Baron','Hold 12 large iron deposits at once.',12,aDeps);
+achDef('bld','bld-lode','s','Mother Lode','Have an Iron Mine working a large iron deposit near its city.',1,aLode,{fm:'bool'});
+achDef('bld','bld-orepit','b','Pits and Pieces','Complete Ore Pits in a city with no hills nearby.',1,x=>achYes(aBuilt(x,'orepit')>0),{fm:'bool'});
+achDef('bld','bld-harb3','s','Port of Call','Have a Harbour standing in 3 cities.',3,x=>aStanding(x).harbour||0);
+achDef('eco','eco-iron10','s','Ironworks of the Realm','Have your stockpile gain 10 iron a day.',10,x=>aRate(x,'iron'));
+achDef('eco','eco-goods25','g','Workshop of the World','Have your stockpile gain 25 goods a day.',25,x=>aRate(x,'goods'));
+achDef('eco','eco-iron300','s','Iron Reserve','Hold 300 iron in your stockpile at once.',300,x=>aHave(x,'iron'));
 achDef('bld','bld-fortress','g','Fortress Nation','Have a Fortress standing in 4 cities.',4,x=>aStanding(x).fortress||0,{u:'f-iron'});
 achDef('bld','bld-uni','s','Ivory Towers','Have a University standing in 3 cities.',3,x=>aStanding(x).university||0);
 achParts('bld','bld-capital','s','No Vacancies','Put a finished building on every block of your capital.',blkAchParts);
