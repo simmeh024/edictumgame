@@ -45,6 +45,15 @@ const lc=await A.evaluate(()=>{const n=G.S.nation,R=G.RK;return {rank:R.achRankC
 check('the next-credit forecast counts rank credits',lc.rank>0&&lc.at===lc.earned,JSON.stringify(lc));
 check('each rank, from Footnote to Eternal, puts its own border and nameplate on the card',walked===info.ranks,`${walked} of ${info.ranks}`);
 
+/* the newest top ranks' borders move, and stand still when motion is reduced */
+await nav(A,'nation');
+const anim=await A.evaluate(()=>{const r=document.querySelector('.hero.id-sec .id-bd .id-bd-r');return r?getComputedStyle(r).animationName:'';});
+check('the top rank’s border is animated',/idBdSpin/.test(anim)&&/idBdGlow/.test(anim),anim);
+check('so are the other three new top borders',await A.evaluate(()=>['comet','ember','tide'].every(k=>{const d=document.createElement('div');d.className='id-bd id-bd-'+k;d.innerHTML='<i class="id-bd-r"></i>';document.body.appendChild(d);const a=getComputedStyle(d.firstChild).animationName;d.remove();return a&&a!=='none';})));
+await A.emulateMedia({reducedMotion:'reduce'});
+check('and stand still when motion is reduced',await A.evaluate(()=>{const r=document.querySelector('.hero.id-sec .id-bd .id-bd-r');return !!r&&getComputedStyle(r).animationName==='none';}));
+await A.emulateMedia({reducedMotion:'no-preference'});
+
 /* the ranks list shows every border, and the borders not yet reached are dimmed */
 await nav(A,'achievements');await A.locator('.ach-ladder summary').click();
 check('the ranks list shows a border beside every rank',await A.locator('.ach-ladder li .id-bdsw').count()===info.ranks);
