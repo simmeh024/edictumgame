@@ -101,11 +101,6 @@ check('and the bell says so too', await B.evaluate(() => G.DSP().dspTitle()) ===
 await shot(B, 'named');
 
 /* ── 5. the archive ── */
-// the name was written straight to press/ above, so A's page (which reads it every few minutes) is told too: whichever
-// reader files the edition (B yesterday's, or A the one before when yesterday's is not an hour closed yet, before 01:00 UTC)
-// files it under the Delegate's name
-await A.evaluate(() => G.DSP().pressLoad(true));
-await until(() => A.evaluate(() => G.DSP().dspTitle() === 'The Meridian Messenger'), 8000);
 const no = new Date().getUTCHours() >= 1 ? today() - 1 : today() - 2;
 const wait = 47000 - (Date.now() - TA); if (wait > 0) await sleep(wait);
 /* reader A read the press doc before it was named (it rereads it every 5 minutes): let it hear the name first, as
