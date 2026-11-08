@@ -312,12 +312,12 @@ await N.click('[data-ed="support-yes"]');
 check('a malformed email address is refused', await until(async () => /does not look right/.test(await text(N, '.ed-msg'))));
 await N.fill('#ed-sup-mail', 'nettleton@example.com');
 await N.click('[data-ed="support-yes"]');
-check('the ticket is sent, and the player told where the answer will appear', await until(async () => /answer will appear on the Help page/.test(await toasts(N))));
+check('the ticket is sent, and the player told where the reply will appear', await until(async () => /reply will appear on the Help page, where you can write back/.test(await toasts(N))));
 const tk = await until(async () => { const l = await restListAdmin('support'); return l.length ? l : null; });
 const tf = tk && tk[0].fields;
 check('the ticket keeps the player, nation, topic, text and email', !!tf && tf.by.stringValue === uidN && tf.name.stringValue === 'Nettleton' && tf.topic.stringValue === 'account' && /shrank overnight/.test(tf.x.stringValue) && tf.email.stringValue === 'nettleton@example.com' && tf.st.stringValue === 'open');
 check('strangers cannot read support tickets', (await restGet('support')).status === 403);
-check('the Help page lists it as open', await until(async () => { const t = await text(N, '#sup-box .sup-list'); return /Open/.test(t) && /shrank overnight/.test(t); }));
+check('the Help page lists it as waiting for the team', await until(async () => { const t = await text(N, '#sup-box .sup-list'); return /Waiting for the team/i.test(t) && /shrank overnight/.test(t); }));
 await N.click('#sup-box [data-act="sup-new"]');
 await N.waitForSelector('dialog.ed-dlg[open] [data-ed="support-yes"]');
 await N.fill('#ed-sup-x', 'And another thing');
@@ -328,23 +328,59 @@ await A.click('.side-who .adm-pill');
 await A.locator('.adm-nav [data-v="admin-help"]').first().click();
 const hq = await until(async () => { const t = await text(A, '.adm-reps'); return /shrank overnight/.test(t) ? t : ''; }, 15000);
 check('the admin portal has a Help queries page listing the ticket', !!hq && /#admin-help$/.test(A.url()) && /Nettleton/.test(hq) && /nettleton@example\.com/.test(hq), hq ? '' : (await text(A, '.adm')).slice(0, 400));
-check('its tab shows how many are open', /Help queries 1/.test(await text(A, '.adm-nav')));
-await A.click('[data-act="admh-answer"]');
-check('an empty answer is refused', await until(async () => /Write an answer first/.test(await text(A, '.adm'))));
-await A.fill('.admh-in', 'Nations shrink when their people leave. See Migration on the Help page.');
-await A.click('[data-act="admh-answer"]');
-check('Send answer closes the ticket, with the answer and an expiry', await until(async () => {
-  const f = ((await restListAdmin('support'))[0] || {}).fields;
-  return !!f && f.st.stringValue === 'closed' && /Migration/.test(f.reply.stringValue) && !!(f.exp && f.exp.timestampValue) && f.rby.stringValue === uidA;
+check('its tab shows how many wait for the team', /Help queries 1/.test(await text(A, '.adm-nav')));
+const tkf = async () => ((await restListAdmin('support'))[0] || {}).fields || {};
+const said = f => JSON.stringify((f.m && f.m.arrayValue && f.m.arrayValue.values) || []);
+await A.click('[data-act="admh-reply"]');
+check('an empty reply is refused', await until(async () => /Write a reply first/.test(await text(A, '.adm'))));
+await A.fill('.admh-in', 'Nations shrink when their people leave. When did it happen?');
+await A.click('[data-act="admh-reply"]');
+check('Send reply keeps the ticket open, waiting for the player', await until(async () => {
+  const f = await tkf();
+  return f.st && f.st.stringValue === 'open' && f.w && f.w.stringValue === 'p' && /When did it happen/.test(said(f)) && !f.exp && !f.ct;
 }));
-check('the page moves it to Recently closed', await until(async () => { const t = await text(A, '.adm'); return /No open help queries/.test(t) && /Answered: .*Migration/.test(t); }));
-await nav(N, 'nation');                                                      // on the Help page itself the answer simply shows
+check('the page moves it to Waiting for the player', await until(async () => { const t = await text(A, '.adm'); return /No help queries waiting for the team/.test(t) && /Waiting for the player 1/.test(t); }));
+check('and its tab counts none to answer', await until(async () => !/Help queries \d/.test(await text(A, '.adm-nav'))));
+await nav(N, 'nation');                                                      // on the Help page itself the reply simply shows
 await N.reload(); await ready(N);
-check('the player is told the answer has come', await until(async () => /answered your support ticket/.test(await toasts(N)), 15000));
+check('the player is told the team has replied', await until(async () => /replied to your support ticket/.test(await toasts(N)), 15000));
+const helpBadge = () => N.evaluate(() => [...document.querySelectorAll('nav.nav [data-v="help"] .badge')].map(b => b.textContent).join(''));
+check('the Help menu item counts the unread reply', await until(async () => (await helpBadge()) === '1'));
 await nav(N, 'help');
-check('and reads it on the Help page', await until(async () => /Answered/.test(await text(N, '#sup-box .sup-list')) && /Migration/.test(await text(N, '#sup-box .sup-a'))));
+check('the reply shows on the Help page, marked new, with a box to write back', await until(async () => {
+  const t = await text(N, '#sup-box .sup-list'); return /The team replied/i.test(t) && /When did it happen/.test(t) && /New/.test(t);
+}) && !!(await N.$('#sup-box .sup-in')));
+await N.click('#sup-box [data-act="sup-send"]');
+check('an empty reply from the player is refused', await until(async () => /Write your reply first/.test(await text(N, '#sup-box'))));
+await N.fill('#sup-box .sup-in', 'Last night, after the harvest edict.');
+await N.click('#sup-box [data-act="sup-send"]');
+check('the player writes back, and the ticket waits for the team again', await until(async () => /Sent\. The team will reply here/.test(await text(N, '#sup-box')) && /Waiting for the team/i.test(await text(N, '#sup-box .sup-list'))));
+check('their reply is kept in the ticket, the team’s turn', await until(async () => { const f = await tkf(); return /after the harvest/.test(said(f)) && !f.w && f.st.stringValue === 'open'; }));
+check('and the menu badge has gone', (await helpBadge()) === '');
+await A.click('[data-act="admh-refresh"]');
+check('the admin finds it under To answer again, with the whole conversation', await until(async () => { const t = await text(A, '.adm'); return /To answer 1/.test(t) && /after the harvest/.test(t) && /When did it happen/.test(t); }));
+await A.fill('.admh-in', 'That edict moves people to the farms. See Migration on the Help page.');
+await A.click('[data-act="admh-answer"]');
+check('Send and close closes the ticket, with the reply and an expiry', await until(async () => {
+  const f = await tkf();
+  return f.st && f.st.stringValue === 'closed' && /Migration/.test(said(f)) && !!(f.exp && f.exp.timestampValue) && f.rby.stringValue === uidA && !f.w;
+}));
+check('the page moves it to Recently closed, where it can be reopened', await until(async () => { const t = await text(A, '.adm'); return /No help queries waiting for the team/.test(t) && /closed .* by the team/.test(t) && !!(await A.$('[data-act="admh-reopen"]')); }));
+await nav(N, 'nation');
+await N.reload(); await ready(N);
+check('the player is told again', await until(async () => /replied to your support ticket/.test(await toasts(N)), 15000));
+await nav(N, 'help');
+check('and reads the whole conversation, closed', await until(async () => { const t = await text(N, '#sup-box .sup-list'); return /Closed/.test(t) && /Migration/.test(t) && /after the harvest/.test(t) && /The team closed this ticket/.test(t); }));
+await N.click('#sup-box [data-act="sup-more"]');
+await N.fill('#sup-box .sup-in', 'Thanks! Can I stop it happening again?');
+await N.click('#sup-box [data-act="sup-send"]');
+check('writing in a closed ticket opens it again', await until(async () => /open again/.test(await text(N, '#sup-box')) && (await tkf()).st.stringValue === 'open'));
+await N.click('#sup-box [data-act="sup-close"]');
+check('the player closes it themself', await until(async () => { const f = await tkf(); return f.st.stringValue === 'closed' && f.rby.stringValue === uidN; }) && await until(async () => /You closed this ticket/.test(await text(N, '#sup-box'))));
+await A.click('[data-act="admh-refresh"]');
+check('the admin sees who closed it', await until(async () => /by the player/.test(await text(A, '.adm'))));
 await A.click('[data-act="adm-tab"][data-v="admin"]');
-check('the Overview tab leads back, counting no open help queries', await until(async () => /open help queries/.test(await text(A, '.adm-kpis')) && !!(await A.$('.adm-nav [data-v="admin"][aria-current="page"]'))));
+check('the Overview tab leads back, counting no help queries to answer', await until(async () => /help queries to answer/.test(await text(A, '.adm-kpis')) && !!(await A.$('.adm-nav [data-v="admin"][aria-current="page"]'))));
 await A.click('[data-act="admin-close"]');
 
 /* ── 5c. deleting a nation and account ─────────────────────────────────── */
