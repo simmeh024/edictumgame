@@ -24876,6 +24876,17 @@ function rlfCached(){
   return rlfLoad=rlfDB().then(db=>new Promise(ok=>{const q=db.transaction('kv').objectStore('kv').get('rlf:'+REG.id);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null);}))
     .catch(()=>null).then(v=>{if(v&&v.k===key&&v.k===rlfKey()&&v.Q instanceof Int16Array&&v.Q.length===v.W*v.H&&!rlfF){const V=new Float32Array(v.Q.length);for(let i=0;i<V.length;i++)V[i]=v.Q[i]/8192;rlfF={sig:RECL.sig,W:v.W,H:v.H,V,ms:0,slices:0,cached:true};rlfJob=null;rlfL=null;rlfLK='';redrawMaps();return true;}return false;});
 }
+/* The founder is typing a name: the map work founding needs (rivers, the relief, what lies round every cell
+   for the advisors' pins) is done now, in idle moments and small slices, so pressing Found does not wait for
+   it. Only once per page, and only for someone who starts to found. */
+function foundWarm(){
+  if(S.nation||foundWarm.on)return;foundWarm.on=1;
+  const idle=f=>window.requestIdleCallback?requestIdleCallback(f,{timeout:3000}):setTimeout(f,300);
+  idle(()=>{try{if(!rvQ&&!rvTried)rvIdle();}catch(e){}
+    idle(()=>{try{if(!rlfF)rlfCached().then(hit=>{if(!hit&&!S.nation)idle(rlfStart);});}catch(e){}
+      idle(()=>{try{fdRings().all();}catch(e){}});});});
+}
+document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='d-name')foundWarm();});
 function rlfWarm(){if(!S.nation||rlfF)return;rlfCached().then(hit=>{if(!hit)rlfStart();});}
 if(window.requestIdleCallback)requestIdleCallback(rlfWarm,{timeout:2500});else setTimeout(rlfWarm,600);
 function rlfLayer(col){
@@ -24912,6 +24923,22 @@ function rlfFacets(g,cells,col){
   if(!cells||!cells.length)return;const dk=rlfDark(col),r=HEX_R*0.96;
   for(let k=0;k<6;k++){const b=RLF_FC[k],k2=(k+1)%6;g.beginPath();
     for(const i of cells){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x,y-3.2);g.lineTo(x+HCX[k]*r,y+HCY[k]*r);g.lineTo(x+HCX[k2]*r,y+HCY[k2]*r);g.closePath();}
+    g.fillStyle=b>0?(dk?'rgba(236,242,232,':'rgba(255,255,250,')+(b*(dk?0.07:0.46)).toFixed(3)+')':(dk?'rgba(0,0,0,':'rgba(46,38,40,')+(-b*(dk?0.32:0.2)).toFixed(3)+')';g.fill();}
+}
+
+/* The same peaks for the baked pictures (terrainBitmap, terrainTile): every peak is the same shape, so one
+   is drawn into a small sprite at the picture's scale and stamped on each mountain. Filling six paths of
+   thousands of triangles took over half a second on a phone when a nation was founded. */
+const RLF_SPR=new Map();
+function rlfFacetsBaked(g,cells,col,sc){
+  if(!cells||!cells.length)return;const dk=rlfDark(col),key=(dk?1:0)+':'+sc;let sp=RLF_SPR.get(key);
+  const R=HEX_R+2;
+  if(!sp){const px=Math.ceil(2*R*sc)+2,c=document.createElement('canvas');c.width=px;c.height=px;const q=c.getContext('2d');if(!q){rlfFacets(g,cells,col);return;}
+    q.setTransform(sc,0,0,sc,px/2,px/2);rlfFacetsAt(q,0,0,dk);sp={c,w:px/sc};RLF_SPR.set(key,sp);}
+  for(const i of cells)g.drawImage(sp.c,MAP.cx[i]-sp.w/2,MAP.cy[i]-sp.w/2,sp.w,sp.w);
+}
+function rlfFacetsAt(g,x,y,dk){const r=HEX_R*0.96;
+  for(let k=0;k<6;k++){const b=RLF_FC[k],k2=(k+1)%6;g.beginPath();g.moveTo(x,y-3.2);g.lineTo(x+HCX[k]*r,y+HCY[k]*r);g.lineTo(x+HCX[k2]*r,y+HCY[k2]*r);g.closePath();
     g.fillStyle=b>0?(dk?'rgba(236,242,232,':'rgba(255,255,250,')+(b*(dk?0.07:0.46)).toFixed(3)+')':(dk?'rgba(0,0,0,':'rgba(46,38,40,')+(-b*(dk?0.32:0.2)).toFixed(3)+')';g.fill();}
 }
 
@@ -38534,7 +38561,7 @@ function terrainBitmap(col){
   const byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]);for(let i=0;i<MAP.N;i++){byT[MAP.T[i]].push(i);byP[paintOf(i)].push(i);}
   byP.forEach((cells,p)=>{if(!p||!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=col[PAINT_COL[p]];g.fill();});
   g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1.3/TBMP_SCALE;g.stroke();
-  rlfFacets(g,byP[4],col);tbmp=c;tbmpKey=key;return c;
+  rlfFacetsBaked(g,byP[4],col,TBMP_SCALE);tbmp=c;tbmpKey=key;return c;
 }
 /* Between that picture and the zoom where hexes are drawn one by one, a sharper picture in square tiles
    (0.8 pixels per map unit), made as the view first needs them and kept up to a pixel budget, oldest
@@ -38550,7 +38577,7 @@ function terrainTile(col,tx,ty){
   for(let r=r0;r<=r1;r++)for(let q=c0,i=r*MAP.COLS+c0;q<=c1;q++,i++){byT[MAP.T[i]].push(i);byP[paintOf(i)].push(i);}
   byP.forEach((cells,p)=>{if(!p||!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=col[PAINT_COL[p]];g.fill();});
   g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1.3/TT_SCALE;g.stroke();
-  rlfFacets(g,byP[4],col);return c;
+  rlfFacetsBaked(g,byP[4],col,TT_SCALE);return c;
 }
 /* the tiles under the view, drawn in device pixels at whole-pixel edges so no seams show; false when the
    view needs more tiles than the budget holds (the caller draws hexes instead) */
@@ -45808,16 +45835,24 @@ fill=(f=>function(t,n,x){
     t=t.replace(/\{FD(T|Q|[123]|X[123])\}/g,(m,k)=>k==='T'?T.t:k==='Q'?T.q:k[0]==='X'?FD_FX[+k[1]-1]:T.o[+k-1]).replace(/\{P([123])\}/g,(m,k)=>{const c=s[+k-1];return c>=0?landName(c):'the map';});}
   return f.call(this,t,n,x);})(fill);
 /* three free sites near one another: a coast, the best farmland and hills, each clear of other capitals */
+/* what lies within two hexes of every land cell, worked out once per map (and warmed on the front page while
+   the founder types, see foundWarm): the scan for the advisors' pins read it for every cell at founding */
+let FD_RINGS=null;
+function fdRings(){
+  const key=MAP.N+'|'+RECL.sig;if(FD_RINGS&&FD_RINGS.key===key)return FD_RINGS;
+  const food=new Float32Array(MAP.N),iron=new Float32Array(MAP.N),hill=new Uint8Array(MAP.N),done=new Uint8Array(MAP.N);
+  const at=i=>{if(!done[i]){let f=0,h=0,o=0;for(const c of fdRing(i)){if(MAP.T[c]<2)continue;f+=CELL_RES.food[c];o+=CELL_RES.iron[c];if(MAP.T[c]>=3)h++;}food[i]=f;iron[i]=o;hill[i]=h;done[i]=1;}return i;};
+  return FD_RINGS={key,at,food,iron,hill,all(){for(let i=0;i<MAP.N;i++)if(MAP.T[i]>=2)at(i);}};
+}
 function fdRing(i){const out=[i],seen=new Set(out);for(let r=0;r<2;r++)for(const a of out.slice()){for(let d=0;d<6;d++){const b=MAP.nbr[a*6+d];if(b>=0&&!seen.has(b)){seen.add(b);out.push(b);}}}return out;}
 function fdSites(n,T){
   const key=String(n.seed)+':'+(S.fdRoll||0),old=S.fdSites;
   if(old&&old.key===key&&old.cells.every(c=>c>=0&&!pickProblem(c,T)))return old.cells;
-  const r=rng(hash(key+':fd')),caps=T.list.filter(x=>!x.me&&x.id!=='draft').map(x=>x.cap),cand=[];
+  const R=fdRings(),r=rng(hash(key+':fd')),caps=T.list.filter(x=>!x.me&&x.id!=='draft').map(x=>x.cap),cand=[];
   for(let i=0;i<MAP.N;i++){
     if(MAP.T[i]<2||MAP.T[i]===4||T.owner[i]>=0)continue;const k=MAP.comp[i];if(k<0||MAP.comps[k].size<40)continue;
     let d=1e9;for(const q of caps){const h=hexDist(i,q);if(h<d)d=h;}if(d<MIN_CAP_DIST+3)continue;
-    let food=0,hill=0,iron=0;for(const c of fdRing(i)){if(MAP.T[c]<2)continue;food+=CELL_RES.food[c];iron+=CELL_RES.iron[c];if(MAP.T[c]>=3)hill++;}
-    cand.push({i,sp:Math.min(d,14),coast:isCoastal(i),food,hill,iron,j:r()*4});
+    cand.push({i,sp:Math.min(d,14),coast:isCoastal(i),food:R.food[R.at(i)],hill:R.hill[i],iron:R.iron[i],j:r()*4});
   }
   const SC=[x=>x.coast?x.food*0.6+x.sp+x.j:-1e9,x=>x.food*1.2+x.sp+x.j,x=>x.hill>=3?x.hill*3+x.iron*2+x.sp+x.j:-1e9];
   /* other places: a re-draw keeps clear of the places already offered (the jitter alone can draw the same
