@@ -50,9 +50,26 @@ await nav(A,'nation');
 const anim=await A.evaluate(()=>{const r=document.querySelector('.hero.id-sec .id-bd .id-bd-r');return r?getComputedStyle(r).animationName:'';});
 check('the top rank’s border is animated',/idBdSpin/.test(anim)&&/idBdGlow/.test(anim),anim);
 check('so are the other three new top borders',await A.evaluate(()=>['comet','ember','tide'].every(k=>{const d=document.createElement('div');d.className='id-bd id-bd-'+k;d.innerHTML='<i class="id-bd-r"></i>';document.body.appendChild(d);const a=getComputedStyle(d.firstChild).animationName;d.remove();return a&&a!=='none';})));
+check('the top ranks’ light spills past the card’s edge',/idLeak/.test(await A.evaluate(()=>getComputedStyle(document.querySelector('.hero.id-sec')).animationName)));
+await shot('.hero.id-sec','rank-top-leak.png');
 await A.emulateMedia({reducedMotion:'reduce'});
 check('and stand still when motion is reduced',await A.evaluate(()=>{const r=document.querySelector('.hero.id-sec .id-bd .id-bd-r');return !!r&&getComputedStyle(r).animationName==='none';}));
 await A.emulateMedia({reducedMotion:'no-preference'});
+
+/* the fifth and sixth tiers: Prismatic (200) and secret Obsidian (500), shown only as "Obsidian (?)" until earned */
+await nav(A,'achievements');await sleep(400);
+const tiers=await A.evaluate(()=>({x:G.RK.ACH_TIER.x,o:G.RK.ACH_TIER.o,nx:G.RK.ACH.filter(a=>a.t==='x').length,no:G.RK.ACH.filter(a=>a.t==='o').length,sec:G.RK.ACH.filter(a=>a.t==='o').every(a=>a.sec)}));
+check('a Prismatic tier worth 200 and a secret Obsidian tier worth 500',tiers.x&&tiers.x.p===200&&tiers.o&&tiers.o.p===500&&tiers.nx>=15&&tiers.no>=6&&tiers.sec,JSON.stringify(tiers));
+/* the nation has earned everything by now: take one Obsidian back to see it hidden */
+await A.evaluate(()=>{const n=G.clone(G.S.nation);delete n.ach['obs-pop'];G.commit(n);G.render();});await sleep(500);
+const obs=await A.evaluate(()=>{const n=G.S.nation;const c=document.querySelector('#ach-obs-pop');return c?{t:c.textContent.replace(/\s+/g,' ').trim(),has:!!(n.ach&&n.ach['obs-pop'])}:null;});
+check('an unearned Obsidian achievement shows only as “Obsidian (?)”',!!obs&&(obs.has||/Obsidian \(\?\)/.test(obs.t)&&!/Uncountable/.test(obs.t)&&/Obsidian · 500/.test(obs.t)),JSON.stringify(obs));
+check('the tier summary counts Prismatic and Obsidian',/Prismatic/.test(await A.evaluate(()=>document.body.textContent))&&/Obsidian/.test(await A.evaluate(()=>document.body.textContent)));
+await A.evaluate(()=>{const c=document.querySelector('#ach-obs-pop');if(c)c.scrollIntoView({block:'center'});});await sleep(200);
+await A.screenshot({path:path.join(OUT,'ach-obsidian.png')});
+await A.evaluate(()=>{const n=G.clone(G.S.nation);n.ach=Object.assign({},n.ach,{'obs-pop':Date.now()});G.commit(n);G.render();});await sleep(400);
+await A.evaluate(()=>{const c=document.querySelector('.ach-card.on.at-x')||document.querySelector('.ach-card.at-x');if(c)c.scrollIntoView({block:'center'});});await sleep(200);
+await A.screenshot({path:path.join(OUT,'ach-prismatic.png')});
 
 /* the ranks list shows every border, and the borders not yet reached are dimmed */
 await nav(A,'achievements');await A.locator('.ach-ladder summary').click();
