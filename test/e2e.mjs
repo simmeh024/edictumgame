@@ -971,7 +971,9 @@ const sy1 = await until(async () => { const n = await localNation(SY); return n 
 const tutGift = (a, b, r) => SY.evaluate(([a, b, r]) => { const t = x => (x && x.tut) || {}, was = new Set(t(a).lc || []), now = t(b).lc || [], ch = t(a).ch || '';
   return G.TUTL.lists.reduce((sum, L) => sum + L.tasks.filter(s => !was.has(s.k) && now.includes(s.k)).reduce((x, s) => x + ((s.gift || {})[r] || 0), 0)
     + (!ch.includes(L.c) && (t(b).ch || '').includes(L.c) ? (L.bonus.gift[r] || 0) : 0), 0); }, [a, b, r]);
-const gain = async (a, b, r) => b.stock[r] - a.stock[r] - await tutGift(a, b, r);
+/* a new achievement rank brings iron and goods too (goods balance): left out, as the tutorial's gifts are */
+const rankGift = (a, b, r) => SY.evaluate(([a, b, r]) => { if (r !== 'iron' && r !== 'goods') return 0; const k = x => x && x.ach ? G.RK.achRank(G.RK.achPoints(x)).i : 0; return 15 * Math.max(0, k(b) - k(a)); }, [a, b, r]);
+const gain = async (a, b, r) => b.stock[r] - a.stock[r] - await tutGift(a, b, r) - await rankGift(a, b, r);
 check('the next save grants the three, once, with 15 timber and 15 iron', !!sy1 && ['flower', 'tree', 'bird'].every(k => sy1.syu.includes(k)) && sy1.syu.length === 3 && Math.abs(await gain(sy0, sy1, 'timber') - 15) < 0.5 && Math.abs(await gain(sy0, sy1, 'iron') - 15) < 0.5 && ((sy1.cz || {}).sy || {}).flower === 'Edelweiss', JSON.stringify([sy0.stock, sy1 && sy1.stock, sy1 && sy1.syu]));
 check('and says so', await until(async () => /Symbolia can now choose its national flower, tree, and bird\. The College of Arms sends 15 timber and 15 iron\./.test(await toasts(SY)), 15000));
 await SY.click('.bell'); await SY.waitForSelector('.notif-pop');
