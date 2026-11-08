@@ -24,6 +24,9 @@
 // where, get, batch, runTransaction), so the tests run it against the emulator with either.
 import { DAY, VERSION, indicators, stepRegion, seedState, tradeOf, warsOf, counterfeitsOf, TIERS } from './engine.mjs';
 import { loadWorld } from './world.mjs';
+import { inflateRawSync } from 'node:zlib';
+/* nations/ keeps the record in j (text, v 1) or deflated in z (bytes, v 2): functions/nationtext.js */
+const nationText = raw => { if (typeof raw.j === 'string') return raw.j; if (raw.z && raw.z.length) { try { return inflateRawSync(Buffer.from(raw.z)).toString('utf8'); } catch { return null; } } return raw.j; };
 
 export const DORMANT_DAYS = 260; // a nation unsaved this long (250 days' dormancy and a month's holiday) is left out
 export const LEASE_MS = 10 * 60000;
@@ -38,7 +41,7 @@ async function regionRecords(db, reg, now) {
   const qs = await db.collection('nations').where('reg', '==', reg).get();
   const recs = new Map();
   for (const d of qs.docs) {
-    const raw = d.data() || {}, rec = parse(raw.j);
+    const raw = d.data() || {}, rec = parse(nationText(raw));
     if (!rec || typeof rec !== 'object' || Array.isArray(rec)) continue;
     const at = Number(raw.updatedAt) || Number(rec.updatedAt) || 0;
     if (now - at > DORMANT_DAYS * DAY) continue;

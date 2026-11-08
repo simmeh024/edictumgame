@@ -82,8 +82,10 @@ first rows, not the square.
    intelligence, lore and the passport's stamps live in nationx/, read when someone opens that nation's pages. The
    shared half is still most of a played record: the edict history, provinces, cabinet, museum, achievements and
    messages are read across the region (the Dispatch, the Flock, the region page).
-2. **Compress the shared half.** The JSON compresses to about a fifth of its size, which would cut the data by about
-   80% (the reads stay the same).
+2. **Done (2026-11-08): compress the shared half.** The save permit (functions/civic.js) deflates the record and the
+   game saves it as nations/{uid} v 2, bytes in z instead of text in j (functions/nationtext.js reads either; src/shim.js
+   inflates with fflate). A new nation's 4.0 KB becomes 1.7 KB (57% less); the longer, repetitive lists of a played
+   record compress better. The reads stay the same; a record is rewritten in the new form at its next save.
 3. **Done: publish less often.** At most once a minute instead of every 15 seconds, and within two seconds for what
    another player waits for (messages, offers, declarations, votes, bids, claims). A player making several changes a
    minute now costs the region a quarter of what they did.

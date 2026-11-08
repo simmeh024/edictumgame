@@ -11,8 +11,7 @@
 import path from 'node:path';
 import {
   BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, establish, nav, czSection, text, sideName, localNation,
-  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT, regionTab
-} from './lib.mjs';
+  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT, regionTab, fieldsText } from './lib.mjs';
 
 await clearEmulators();
 const t0 = Date.now();
@@ -24,7 +23,7 @@ check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.le
 await found(A, 'Aldoria');
 await until(()=>nationDoc(uidA));await register(A,{old:true});
 const docA = await until(() => nationDoc(uidA));
-check('A’s nation is saved to nations/<uid> in the stored shape, with the headline numbers the rules bound', docA && docA.v === 1 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,j,name,permit,pop,reg,rev,ts,updatedAt,v', docA && docA.keys.join());
+check('A’s nation is saved to nations/<uid> in the stored shape, deflated (v 2, z), with the headline numbers the rules bound', docA && docA.v === 2 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,name,permit,pop,reg,rev,ts,updatedAt,v,z', docA && docA.keys.join());
 const xA = await until(async () => { const r = await restGet('nationx/' + uidA); return r.status === 200 ? r.body.fields : null; });
 const xrec = xA && xA.j ? JSON.parse(xA.j.stringValue) : {};
 check('its private half is saved to nationx/<uid>, and the shared half leaves it out', xA && Object.keys(xA).sort().join() === 'j,t,ts' && Array.isArray(xrec.inbox) && typeof xrec.issueClock === 'number'
@@ -658,7 +657,7 @@ await A.evaluate(()=>{G.S.mode='readonly';G.render();});
 // conquests typed into A's record past the game: one without a seal, one with the seal of another hex
 await sleep(2500);
 const spare = await A.evaluate(npc => { const T = G.territory(), out = []; for (const [cell] of G.frontier(T)) { const o = T.list[T.owner[cell]]; if (o && o.id === npc) out.push(cell); } return out.slice(0, 2); }, war.npc);
-const fA = await ownerFields('nations/' + uidA), recA = JSON.parse(fA.j.stringValue), at = Date.now();
+const fA = await ownerFields('nations/' + uidA), recA = JSON.parse(fieldsText(fA)), at = Date.now();
 recA.conq = recA.conq.concat({ c: spare[0], t: at - 2000 }, { c: spare[1], t: at - 1000, d: own.e.d, s: own.e.s, s2: own.e.s2 }); recA.updatedAt = at;
 await ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { ...fA, j: { stringValue: JSON.stringify(recA) }, updatedAt: { integerValue: String(at) }, ts: { timestampValue: new Date().toISOString() } } }) });
 check('another player’s game counts neither, and says why', spare.length === 2 && await until(() => B.evaluate(([a, at, cs]) => {
@@ -676,7 +675,7 @@ const odd = await A.evaluate(async ([npc, used]) => {
   return null; }, [war.npc, spare]);
 let atO = 0;
 if (odd && odd.s2) {
-  const fO = await ownerFields('nations/' + uidA), recO = JSON.parse(fO.j.stringValue);atO = Date.now();
+  const fO = await ownerFields('nations/' + uidA), recO = JSON.parse(fieldsText(fO));atO = Date.now();
   recO.conq = recO.conq.concat({ c: odd.c, t: odd.t, d: odd.d, s: odd.s, s2: odd.s2 }); recO.updatedAt = atO;
   await ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { ...fO, j: { stringValue: JSON.stringify(recO) }, updatedAt: { integerValue: String(atO) }, ts: { timestampValue: new Date().toISOString() } } }) });
 }
@@ -700,7 +699,7 @@ const forged = await B.evaluate(async uid => { const db = await window.claude.us
   try { await db.doc('nations/' + uid).set(r); return 'saved'; } catch (e) { return (e && e.code) || String(e); } }, uidB);
 check('a save that grows a nation tenfold since its last is refused', forged !== 'saved', forged);
 // a record written past the game: every game holds it to its save's figures, and the admin portal lists it
-const cheatRec = JSON.parse((await restGet('nations/' + uidB)).body.fields.j.stringValue);
+const cheatRec = JSON.parse(fieldsText((await restGet('nations/' + uidB)).body.fields));
 Object.assign(cheatRec, { name: 'Cheatonia', pop: 900, popAt: Date.now(), founded: Date.now() - 2 * 864e5, updatedAt: Date.now(), stock: { food: 60, timber: 9999, iron: 25, oil: 10, goods: 40 } });
 for (const k of ['loc', 'claims', 'conq', 'cities', 'alli', 'allyOf', 'wars', 'peace', 'asm', 'dm', 'pp']) delete cheatRec[k];
 cheatRec.conq = [{ c: 5, t: Date.now() - 60000 }, { c: 6, t: Date.now() - 30000, d: own.e.d, s: own.e.s, s2: own.e.s2 }];  // no seal, and another's

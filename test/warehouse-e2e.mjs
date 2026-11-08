@@ -1,4 +1,4 @@
-import {OUT,PROJECT,FS_HOST,check,finish,until,player,open,found,nav,localNation,nationDoc,restGet,errors,clearEmulators} from './lib.mjs';
+import {OUT,PROJECT,FS_HOST,check,finish,until,player,open,found,nav,localNation,nationDoc,restGet,errors,clearEmulators, fieldsText } from './lib.mjs';
 if(!PROJECT.startsWith('demo-'))throw Error('Warehouse tests require demo emulators');
 await clearEmulators();
 const A=await player('warehouse desktop'),uid=await open(A);await found(A,'Storeland');
@@ -46,7 +46,7 @@ let C=await player('warehouse phone',{vp:{width:390,height:844},storageState:awa
 check('another device restores the upgraded Warehouse and expanded stock',await C.evaluate(()=>G.WH.stockCap(G.S.nation)===7800&&G.S.nation.cities.some(c=>c.b.some(b=>b.k==='warehouse'&&b.wl===4&&b.wr===1))));
 // Population jumps are emulator-admin fixtures; ordinary saves must continue obeying growth limits.
 await saved();await C.ctx.close();await A.goto('about:blank');
-const pub=(await restGet('nations/'+uid)).body.fields,ext=(await restGet('nationx/'+uid)).body.fields,now=Date.now(),pn=JSON.parse(pub.j.stringValue),xn=JSON.parse(ext.j.stringValue);
+const pub=(await restGet('nations/'+uid)).body.fields,ext=(await restGet('nationx/'+uid)).body.fields,now=Date.now(),pn=JSON.parse(fieldsText(pub)),xn=JSON.parse(ext.j.stringValue);
 // Stay above the 30-million gate while the ordinary population simulation advances during loading.
 pn.pop=32;pn.popAt=now;pn.updatedAt=now;xn.lcb=30+(xn.whLc||0);
 const patch=async(path,fields)=>{const mask=Object.keys(fields).map(k=>'updateMask.fieldPaths='+k).join('&'),r=await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}?${mask}`,{method:'PATCH',headers:{'content-type':'application/json',authorization:'Bearer owner'},body:JSON.stringify({fields})});if(!r.ok)throw Error('Fixture patch failed: '+r.status);};

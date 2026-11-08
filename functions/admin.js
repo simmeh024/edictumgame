@@ -3,6 +3,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { registered, banMarks } from './eligibility.js';
+import { nationText } from './nationtext.js';
 import { gather, summarize, nationRow, saveEngage, loadEngage } from './stats.js';
 import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
@@ -169,10 +170,10 @@ async function onlinePlayers(db) {
   const latest = new Map(), tabs = new Map();
   for (const d of qs.docs) { const u = d.get('uid'); if (!u) continue; tabs.set(u, (tabs.get(u) || 0) + 1); if (!latest.has(u)) latest.set(u, d.data()); }
   const uids = [...latest.keys()];
-  const ns = uids.length ? await db.getAll(...uids.map(u => db.doc('nations/' + u)), { fieldMask: ['name', 'reg', 'j'] }) : [];
+  const ns = uids.length ? await db.getAll(...uids.map(u => db.doc('nations/' + u)), { fieldMask: ['name', 'reg', 'j', 'z'] }) : [];
   /* the flag lives inside the nation's JSON text (j), not as a field of its own */
   const flagOf = j => { try { const f = JSON.parse(j || '{}').flag; return f && typeof f === 'object' ? f : null; } catch { return null; } };
-  const nations = new Map(ns.map(n => { const d = n.data() || {}; return [n.id, { name: d.name, reg: d.reg, flag: flagOf(d.j) }]; }));
+  const nations = new Map(ns.map(n => { const d = n.data() || {}; return [n.id, { name: d.name, reg: d.reg, flag: flagOf(nationText(d)) }]; }));
   return { at: Date.now(), limited: qs.size === 1000, players: uids.map(u => {
     const s = latest.get(u), n = nations.get(u) || {};
     return { uid: u, name: text(n.name, 80) || u, reg: n.reg || s.reg, flag: n.flag, pg: text(s.pg, 40), device: s.device, status: s.status, tabs: tabs.get(u), t: ms(s.t) };

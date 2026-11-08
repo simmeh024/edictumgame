@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { createHash } from 'node:crypto';
+import { deflateNation } from './nationtext.js';
 import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, refuseBannedIdentity, DAY } from './eligibility.js';
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
@@ -116,7 +117,11 @@ async function permit(db, who, d) {
         tx.set(db.doc('letters/' + who.uid + '~' + m.w + '~' + m.t), { by: who.uid, to: m.w, x: m.x.slice(0, 500), t: m.t, ts: FieldValue.serverTimestamp(), exp: Timestamp.fromMillis(now + 365 * DAY) });
     const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop: p.pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: d.rev + 1 };
     const ref = db.collection('nationPermits/' + who.uid + '/requests').doc(), sk = raceKeys(n, before);
-    tx.create(ref, { ...result, sk, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
+    /* the text deflated as well (z): a client that asks (zip) saves that instead of j, and the rules compare it with
+       this permit's z; a build from before saves j as it always did */
+    const z = deflateNation(result.j);
+    tx.create(ref, { ...result, z, sk, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
+    if (d.zip === 1) { const { j, ...rest } = result; return { ...rest, z: z.toString('base64'), sk, permit: ref.id }; }
     return { ...result, sk, permit: ref.id };
   });
 }

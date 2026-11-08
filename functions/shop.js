@@ -47,6 +47,7 @@
 import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
+import { nationText } from './nationtext.js';
 import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
@@ -252,7 +253,7 @@ async function giftCheck(uid, to, product, now) {
   if (!nation.exists) refuse('gift_unknown', 'That nation cannot receive gifts.');
   /* the record itself is kept as JSON beside a few headline fields (src/shim.js encode) */
   let rec = {};
-  try { rec = JSON.parse(nation.get('j') || '{}') || {}; } catch { rec = {}; }
+  try { rec = JSON.parse(nationText(nation) || '{}') || {}; } catch { rec = {}; }
   const founded = Number(rec.founded) || 0;
   if (!founded || now - founded < 7 * DAY) refuse('gift_new', 'Gifts go to nations founded at least a week ago.');
   if (CATALOGUE.products[product].kind === 'once' && (shop.get('owns') || {})[product]) refuse('gift_owned', 'That nation already owns it.');

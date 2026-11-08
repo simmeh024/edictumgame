@@ -857,6 +857,22 @@ test('an approved save cannot be changed into a forged political payload or repl
   await env.withSecurityRulesDisabled(ctx=>ctx.firestore().doc('nationPermits/dana/requests/expired').set({...Object.fromEntries(['j','reg','name','pop','army','cl','updatedAt','rev'].map(k=>[k,expired[k]])),exp:AGO(1000)}));
   await assertFails(save(as('dana'),'dana',expired,{approved:false}));
 });
+test('a deflated save (v 2, z) must carry the permit\'s exact bytes, and never j beside them',async()=>{
+  const {deflateRawSync}=await import('node:zlib');
+  const n=nation('Zedland',{rev:1,permit:'zip'}),z=firebase.firestore.Blob.fromUint8Array(new Uint8Array(deflateRawSync(Buffer.from(n.j))));
+  const permit={...Object.fromEntries(['j','reg','name','pop','army','cl','updatedAt','rev'].map(k=>[k,n[k]])),z,exp:firebase.firestore.Timestamp.fromMillis(Date.now()+120000)};
+  await env.withSecurityRulesDisabled(ctx=>ctx.firestore().doc('nationPermits/zed/requests/zip').set(permit));
+  const {j,...rest}=n,zipped={...rest,v:2,z};
+  const other=firebase.firestore.Blob.fromUint8Array(new Uint8Array(deflateRawSync(Buffer.from(JSON.stringify({name:'Zedland',reg:'meridian',asm:{v:[1]}})))));
+  await assertFails(save(as('zed'),'zed',{...zipped,z:other},{approved:false}));   // bytes the permit did not approve
+  await assertFails(save(as('zed'),'zed',{...zipped,j},{approved:false}));         // j and z together
+  await assertFails(save(as('zed'),'zed',{...zipped,v:1},{approved:false}));       // z under the old version
+  await assertFails(save(as('zed'),'zed',{...rest,v:2},{approved:false}));         // neither
+  await assertSucceeds(save(as('zed'),'zed',zipped,{approved:false}));
+  // the same permit still approves the old form, for a build from before
+  await env.withSecurityRulesDisabled(ctx=>ctx.firestore().doc('nationPermits/yan/requests/zip').set(permit));
+  await assertSucceeds(save(as('yan'),'yan',{...n},{approved:false}));
+});
 
 // development news: admins write posts, images and the index; players read what is published and comment through civic()
 const NEWS_ID = 'N0tAReal1dButTwenty0', IMG_ID = 'Img0000000000000000A';
