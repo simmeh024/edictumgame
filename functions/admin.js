@@ -378,6 +378,36 @@ async function feedOp(db, data) {
   const [d, on] = await Promise.all([feed(db, { span, reg, groups, refresh: data.refresh === true }), online(db, data.refresh === true)]);
   return { ...d, online: on.size };
 }
+/* Letters between players (letters/, written by the game, kept a year): who a player writes to, and one
+   conversation in full. Every look is an adminAudit event; reading a conversation needs a stated reason, which the
+   audit keeps. The player is not told. */
+const LT_LIST = 1000, LT_THREAD = 300;
+async function lettersOp(db, actor, data) {
+  const uid = id(data.uid), other = data.with ? id(data.with) : '', event = db.collection('adminAudit').doc();
+  const name = text((await db.doc('nations/' + uid).get()).get('name'), 80);
+  if (!other) {
+    const [out, inn] = await Promise.all([
+      db.collection('letters').where('by', '==', uid).select('to', 't').limit(LT_LIST).get(),
+      db.collection('letters').where('to', '==', uid).select('by', 't').limit(LT_LIST).get()]);
+    const per = new Map(), add = (w, t, dir) => { const c = per.get(w) || { uid: w, sent: 0, got: 0, last: 0 }; c[dir]++; if (t > c.last) c.last = t; per.set(w, c); };
+    for (const d of out.docs) add(d.get('to'), +d.get('t') || 0, 'sent');
+    for (const d of inn.docs) add(d.get('by'), +d.get('t') || 0, 'got');
+    const ids = [...per.keys()], ns = ids.length ? await db.getAll(...ids.map(u => db.doc('nations/' + u)), { fieldMask: ['name', 'reg'] }) : [];
+    for (const n of ns) { const c = per.get(n.id); c.name = text(n.get('name'), 80) || ''; c.reg = text(n.get('reg'), 40) || ''; }
+    await event.create({ actor, action: 'letters_listed', target: uid, reason: ids.length + ' correspondents', ...(name ? { name } : {}), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    return { uid, limited: out.size === LT_LIST || inn.size === LT_LIST, people: [...per.values()].sort((a, b) => b.last - a.last) };
+  }
+  const reason = text(data.reason, 300);
+  if (reason.length < 5) throw new HttpsError('invalid-argument', 'Say why you are reading this conversation (at least 5 characters). The reason is kept in the audit log.');
+  const [a, b] = await Promise.all([
+    db.collection('letters').where('by', '==', uid).where('to', '==', other).limit(LT_THREAD).get(),
+    db.collection('letters').where('by', '==', other).where('to', '==', uid).limit(LT_THREAD).get()]);
+  const letters = [...a.docs, ...b.docs].map(d => ({ id: d.id, by: d.get('by'), to: d.get('to'), x: text(d.get('x'), 2500), t: +d.get('t') || 0, ...(d.get('g') ? { g: true } : {}) }))
+    .sort((p, q) => p.t - q.t).slice(-LT_THREAD);
+  const otherName = text((await db.doc('nations/' + other).get()).get('name'), 80);
+  await event.create({ actor, action: 'letters_read', target: uid, with: other, reason, ...(name ? { name } : {}), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+  return { uid, with: other, name, otherName, limited: a.size === LT_THREAD || b.size === LT_THREAD, letters };
+}
 export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, memory: '512MiB', timeoutSeconds: 300 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   if (req.auth.token.admin !== true) throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
@@ -392,6 +422,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);
   if (d.op === 'note') return note(db, actor, d);
+  if (d.op === 'letters') return lettersOp(db, actor, d);
   if (d.op === 'club') return club(db, actor, d);
   if (d.op === 'feed') return feedOp(db, d);
   if (d.op === 'watch') return watchOp(db, actor, d);

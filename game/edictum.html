@@ -767,6 +767,15 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .gev-v{font-family:var(--f-display);font-weight:650;font-size:22px}
 .gev-r{font-size:12.5px;color:var(--ink-3)}
 .gev-lead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:13.5px}
+.adlt-h{margin:14px 0 8px;font-size:15px}
+.adlt-th{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-height:560px;overflow:auto}
+.adlt-th li{padding:8px 12px;border:1px solid var(--rule);border-radius:8px;max-width:620px}
+.adlt-th li.me{background:var(--accent-soft)}
+.adlt-th li.them{margin-left:auto;background:var(--sheet)}
+.adlt-meta{margin:0 0 4px;font-size:12px;color:var(--ink-3)}
+.adlt-x{margin:0;overflow-wrap:anywhere}
+.adlt-tbl .num{text-align:right}
+.adlt-why{margin-top:12px;max-width:560px}
 .gw{grid-column:1/-1;font-size:13px}
 .gw summary{cursor:pointer;color:var(--ink-3);width:max-content;min-height:32px;display:flex;align-items:center}
 .gw ul{list-style:none;margin:6px 0 2px;padding:10px 12px;display:grid;gap:4px;background:var(--sheet-2,rgba(0,0,0,.03));border:1px solid var(--rule);border-radius:6px;max-width:520px}
@@ -43195,6 +43204,7 @@ ${adminCards(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
+    <h3 class="help-h3">Letters with other players</h3>${adminLetters(p)}
     <h3 class="help-h3">Watchlist</h3>${adminWatch(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
 }
@@ -43282,6 +43292,45 @@ function adminNotes(p){
     <span class="hint" id="admin-note-h">Only admins see these; the player never does. ${n.at?`Last saved ${esc(rel(n.at))} by ${n.by===S.uid?'you':`<code>${esc(n.by)}</code>`}.`:'No notes yet.'} Saving an empty field deletes them, and so does deleting the account.</span></div>
     <div class="row"><button class="btn ghost small" data-act="admin-note-save" data-id="${esc(p.uid)}"${ADMX.noteBusy?' disabled':''}>${ADMX.noteBusy?'Saving…':'Save notes'}</button></div>${ADMX.noteMsg?`<p class="hint" aria-live="polite">${esc(ADMX.noteMsg)}</p>`:''}`;
 }
+/* Letters between players (functions/admin.js, lettersOp): first who this player writes to, then one conversation,
+   read only with a reason. Every look is in the admin audit log; the player is not told. */
+const ADLT={uid:'',people:null,limited:false,busy:false,msg:'',with:'',why:'',thread:null};
+function adminLetters(p){
+  const L=ADLT;if(L.uid!==p.uid){L.uid=p.uid;L.people=null;L.with='';L.why='';L.thread=null;L.msg='';}
+  const note=`<p class="hint">Letters are private. Open them only to look into a report or a rule break. Each list and each conversation you open is written to the admin audit log with your reason; the player is not told.</p>`;
+  const msg=L.msg?`<p class="hint" aria-live="polite">${esc(L.msg)}</p>`:'';
+  if(!L.people)return `${note}<div class="row"><button class="btn ghost small" data-act="admin-lt-list" data-id="${esc(p.uid)}"${L.busy?' disabled':''}>${L.busy?'Loading…':'Show who this player writes to'}</button></div>${msg}`;
+  const nm=c=>c.name?esc(c.name):`<code>${esc(c.uid)}</code>`;
+  if(L.thread){const T=L.thread,who=u=>u===T.uid?esc(T.name||'This player'):esc(T.otherName||'The other player');
+    return `${note}<div class="row"><button class="btn ghost small" data-act="admin-lt-back">Back to the list</button></div>
+      <h4 class="adlt-h">${esc(T.name||p.name)} and ${esc(T.otherName||T.with)} <span class="hint">· ${T.letters.length} letter${T.letters.length===1?'':'s'}${T.limited?', the latest only':''}</span></h4>
+      ${T.letters.length?`<ol class="adlt-th">${T.letters.map(l=>`<li class="${l.by===T.uid?'me':'them'}"><p class="adlt-meta"><b>${who(l.by)}</b> · ${esc(new Date(l.t).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'}))}${l.g?' · group letter':''}</p><p class="adlt-x">${esc(l.x).replace(/\n/g,'<br>')}</p></li>`).join('')}</ol>`:'<p class="hint">No letters between them are kept (letters are deleted after a year, or by either player).</p>'}${msg}`;}
+  if(!L.people.length)return `${note}<p class="hint">This player has no letters with other players.</p>${msg}`;
+  const pick=L.with?L.people.find(c=>c.uid===L.with):null;
+  return `${note}<div class="tbl-wrap"><table class="tbl adlt-tbl"><thead><tr><th>Correspondent</th><th class="num">Sent</th><th class="num">Received</th><th>Last letter</th><th></th></tr></thead><tbody>${L.people.map(c=>`<tr${c.uid===L.with?' class="me"':''}><td>${nm(c)}${c.reg?` <span class="hint">${esc(regName(c.reg))}</span>`:''}</td><td class="num">${c.sent}</td><td class="num">${c.got}</td><td>${c.last?esc(rel(c.last)):''}</td><td><button class="btn ghost small" data-act="admin-lt-pick" data-id="${esc(c.uid)}">Read…</button></td></tr>`).join('')}</tbody></table></div>
+    ${L.limited?'<p class="hint">Only the first 1,000 letters each way were counted.</p>':''}
+    ${pick?`<div class="field adlt-why"><label for="admin-lt-why">Why are you reading the conversation with ${nm(pick)}?</label><input class="input" id="admin-lt-why" maxlength="300" value="${esc(L.why)}" placeholder="For example: report about harassment, ticket 123"><span class="hint">Kept in the admin audit log.</span></div>
+      <div class="row"><button class="btn small" data-act="admin-lt-read"${L.busy||L.why.trim().length<5?' disabled':''}>${L.busy?'Opening…':'Open the conversation'}</button><button class="btn ghost small" data-act="admin-lt-cancel">Cancel</button></div>`:''}${msg}`;
+}
+async function adminLettersLoad(uid){
+  const L=ADLT;if(L.busy)return;L.busy=true;L.msg='';render();
+  try{const r=await adminRequest({op:'letters',uid});if(L.uid===uid){L.people=r.people||[];L.limited=!!r.limited;}}
+  catch(e){L.msg='The letters could not be listed: '+(e.message||e.code||'unknown error');}
+  L.busy=false;render();
+}
+async function adminLettersRead(){
+  const L=ADLT,uid=L.uid,w=L.with,reason=L.why.trim();if(L.busy||!uid||!w||reason.length<5)return;L.busy=true;L.msg='';render();
+  try{const r=await adminRequest({op:'letters',uid,with:w,reason});if(L.uid===uid){L.thread=r;L.why='';}}
+  catch(e){L.msg='The conversation was not opened: '+(e.message||e.code||'unknown error');}
+  L.busy=false;render();
+}
+document.addEventListener('input',e=>{const t=e.target;if(t.id!=='admin-lt-why')return;ADLT.why=t.value;const b=document.querySelector('[data-act="admin-lt-read"]');if(b)b.disabled=ADLT.busy||ADLT.why.trim().length<5;});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='admin-lt-list'){adminLettersLoad(el.dataset.id);return;}
+  if(a==='admin-lt-pick'){ADLT.with=el.dataset.id;ADLT.why='';ADLT.msg='';render();const f=document.getElementById('admin-lt-why');if(f)f.focus();return;}
+  if(a==='admin-lt-cancel'){ADLT.with='';ADLT.why='';render();return;}
+  if(a==='admin-lt-read'){adminLettersRead();return;}
+  if(a==='admin-lt-back'){ADLT.thread=null;ADLT.with='';render();return;}});
 async function adminNoteSave(uid){
   const p=ADMX.player;if(!p||p.uid!==uid||ADMX.noteBusy)return;
   const text=ADMX.noteFor===uid?ADMX.note:(p.staffNote||{}).text||'';

@@ -454,3 +454,24 @@ test('a reported classified advertisement is struck out for the whole region, an
   assert.ok(d.fields.x.mapValue.fields[p.uid + '_abc123'], 'and the removals stay');
   await assert.rejects(call(p, { op: 'moderate', action: 'press_reset', target: 'meridian', reason: 'x' }));
 });
+test('admins list who a player writes to and read one conversation only with a reason, every look audited', async () => {
+  const a = await user(true), p = await user(), q = await user(), r = await user();
+  await seed(p.uid, 'Penland'); await seed(q.uid, 'Quillia'); await seed(r.uid, 'Rookmere');
+  const t0 = Date.now() - 3600000, exp = new Date(Date.now() + 365 * 86400000);
+  const letter = (by, to, t, x) => put(`letters/${by}~${to}~${t}`, { by, to, x, t, ts: new Date(t), exp });
+  await letter(p.uid, q.uid, t0, 'Hello Quillia, shall we trade timber?');
+  await letter(q.uid, p.uid, t0 + 60000, 'Gladly.\nTen for ten.');
+  await letter(p.uid, r.uid, t0 + 120000, 'A word about the border.');
+  await assert.rejects(call(p, { op: 'letters', uid: q.uid }), e => e.status === 'PERMISSION_DENIED');
+  const list = await call(a, { op: 'letters', uid: p.uid });
+  assert.deepEqual(list.people.map(c => [c.name, c.sent, c.got]), [['Rookmere', 1, 0], ['Quillia', 1, 1]]);
+  await assert.rejects(call(a, { op: 'letters', uid: p.uid, with: q.uid }), e => e.status === 'INVALID_ARGUMENT');
+  await assert.rejects(call(a, { op: 'letters', uid: p.uid, with: q.uid, reason: 'hm' }), e => e.status === 'INVALID_ARGUMENT');
+  const th = await call(a, { op: 'letters', uid: p.uid, with: q.uid, reason: 'Report 42: harassment' });
+  assert.deepEqual(th.letters.map(l => [l.by === p.uid ? 'p' : 'q', l.x]), [['p', 'Hello Quillia, shall we trade timber?'], ['q', 'Gladly.\nTen for ten.']]);
+  assert.equal(th.otherName, 'Quillia');
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  assert.ok(log.some(e => e.action === 'letters_listed' && e.actor === a.uid));
+  const read = log.find(e => e.action === 'letters_read');
+  assert.ok(read && read.actor === a.uid && read.with === q.uid && read.reason === 'Report 42: harassment' && !JSON.stringify(read).includes('timber'));
+});

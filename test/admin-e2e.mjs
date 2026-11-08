@@ -189,6 +189,22 @@ check('and shown again on inspecting the player, with who saved them', await unt
 check('the player cannot read them', await R.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 check('nor can an admin’s browser outside the console', await A.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 await A.screenshot({ path: OUT + '/admin-player-notes.png', fullPage: true });
+// Letters between players: the console lists who a player writes to, and opens one conversation only with a reason.
+{ const lt = Date.now() - 600000, put = (by, to, t, x) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/letters/${by}~${to}~${t}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields: { by: { stringValue: by }, to: { stringValue: to }, x: { stringValue: x }, t: { integerValue: String(t) }, ts: { timestampValue: new Date(t).toISOString() }, exp: { timestampValue: new Date(Date.now() + 365 * 86400000).toISOString() } } }) });
+  await put(uidR, uidB, lt, 'Meet me at the border at dawn.'); await put(uidB, uidR, lt + 60000, 'Bring the timber.');
+  await inspect(uidR);
+  check('a player’s letters stay closed until an admin asks for them', /Show who this player writes to/.test(await detail()) && !/Meet me at the border/.test(await detail()));
+  await A.click(`[data-act="admin-lt-list"][data-id="${uidR}"]`);
+  check('the console lists who the player writes to, with counts', await until(async () => !!await A.$(`[data-act="admin-lt-pick"][data-id="${uidB}"]`)));
+  await A.click(`[data-act="admin-lt-pick"][data-id="${uidB}"]`);
+  check('a conversation opens only with a reason', await A.isDisabled('[data-act="admin-lt-read"]'));
+  await A.fill('#admin-lt-why', 'Report about threats');
+  await A.click('[data-act="admin-lt-read"]');
+  check('the conversation shows both sides in order', await until(async () => /Meet me at the border at dawn\.[\s\S]*Bring the timber\./.test(await detail())));
+  check('and the look is in the audit log with its reason', await until(async () => (await restListAdmin('adminAudit')).some(e => e.fields.action?.stringValue === 'letters_read' && e.fields.target?.stringValue === uidR && e.fields.reason?.stringValue === 'Report about threats'), 15000));
+  await A.screenshot({ path: OUT + '/admin-player-letters.png', fullPage: true });
+  await A.click('[data-act="admin-lt-back"]'); }
 await inspect(uidD);
 await A.click(`[data-act="admin-mod"][data-a="remove"][data-id="${uidD}"]`);
 check('deleting a nation asks to confirm first, and says what happens', await until(async () => /Delete Deleteland for good\? The nation and its posts are deleted/.test(await text(A, '#admin-mod-ask'))) && !!await nationDoc(uidD));
