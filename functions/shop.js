@@ -48,6 +48,8 @@ import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
 import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
+/* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
+const GRANTS_V = Math.max(1, ...Object.values(CATALOGUE.products).map(p => p.grantsV || 1));
 
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 const LIVE_API = 'https://api.paddle.com', SANDBOX_API = 'https://sandbox-api.paddle.com';
@@ -194,7 +196,7 @@ async function settle(cfg, uid) {
     const reg = (nation.exists && nation.get('reg')) || shop.get('reg') || '';
     /* a checkout opened in the last two hours and not yet paid: "awaiting confirmation" on every device */
     const pend = Object.fromEntries(Object.entries(shop.get('pend') || {}).filter(([p, t]) => now - t < 2 * 3600000 && !(CLUB.includes(p) ? e.vip && e.vip.until > now : e.owns[p])));
-    const doc = { v: 1, owns: e.owns, picks, pend, notes: e.notes.slice(-10), reg, at: now };
+    const doc = { v: 1, owns: e.owns, picks, pend, notes: e.notes.slice(-10), reg, at: now, gv: GRANTS_V };
     if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
     /* the seal the player chose to show stays chosen; the games show it only while it is held (by cl's figures) */
@@ -437,7 +439,9 @@ export async function shopStep(uid, d) {
     /* a nation founded in another region since: the projection follows it; a membership kept before its months were
        counted (vip.m, for the Chancery seals) is counted now, once */
     const moved = shop.exists && nation.exists && shop.get('reg') !== nation.get('reg'), uncounted = shop.exists && !!shop.get('vip') && shop.get('vip').m == null;
-    if (cfg.on && (moved || uncounted)) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
+    /* a pack that has grown since this account's finery was worked out (the catalogue's grantsV): its new pieces, now */
+    const grown = shop.exists && Object.keys(shop.get('owns') || {}).length > 0 && (shop.get('gv') || 1) < GRANTS_V;
+    if (cfg.on && (moved || uncounted || grown)) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
     /* the prices on sale now (public: the page asks Paddle what they come to in the player's own currency) */
     const prices = cfg.on ? Object.fromEntries(PRODUCTS.filter(p => cfg.prices[p]).map(p => [p, [].concat(cfg.prices[p])[0]])) : {};
     return { on: cfg.on, env: cfg.on ? cfg.env : '', token: cfg.on ? cfg.token : '', prices, now: clock(cfg), until: FOUNDER_CUTOFF, catalogue: CATALOGUE };

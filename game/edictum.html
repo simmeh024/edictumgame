@@ -5529,6 +5529,11 @@ span.nw-tag{cursor:default}
 .shop-pk-n{display:flex;flex-direction:column;font-weight:600;font-size:14px}
 .shop-pk .btn,.shop-pk .chip{justify-self:start}
 .btn.sm{padding:5px 10px;font-size:13px}
+.shop-anim{color:var(--accent);font-size:11px}
+.shop-lps{list-style:none;margin:6px 0 14px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.shop-lp{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.shop-lp>span:last-child{display:flex;flex-direction:column;font-size:14px}
+.shop-lp .hint{margin:0;font-size:12px}
 .shop-small{margin:8px 0 24px;font-size:13px}
 .shop-small ul{padding-left:1.1em;display:grid;gap:6px}
 /* the Shop's front: Club banner, chips, card grid, drawer */
@@ -5591,7 +5596,11 @@ span.nw-tag{cursor:default}
 .shop-small-d>summary{cursor:pointer;min-height:36px;line-height:36px;color:var(--ink-2);font-size:14px}
 .shop-small-d .shop-small{margin-top:4px}
 .shop-scrim{position:fixed;inset:0;z-index:80;background:rgba(8,20,18,.38)}
-.shop-dr{position:fixed;top:0;right:0;bottom:0;z-index:81;width:min(560px,100%);overflow:auto;overscroll-behavior:contain;padding:calc(14px + env(safe-area-inset-top,0px)) max(22px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) 22px;background:var(--paper);border-left:1px solid var(--rule-2);box-shadow:-12px 0 32px rgba(0,0,0,.16);animation:shopDrIn .2s ease-out}
+.shop-dr{position:fixed;top:0;right:0;bottom:0;z-index:81;width:min(560px,100%);overflow:auto;overscroll-behavior:contain;padding:calc(14px + env(safe-area-inset-top,0px)) max(22px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) 22px;background:var(--paper);border-left:1px solid var(--rule-2);box-shadow:-12px 0 32px rgba(0,0,0,.16)}
+.shop-dr.in{animation:shopDrIn .2s ease-out}
+/* the nation card is drawn at a desktop width and scaled to the drawer, so its name never wraps letter by letter */
+.shop-dr .shop-pv-hero{width:780px;zoom:.57}
+.shop-dr .shop-pv-box{overflow:hidden}
 @keyframes shopDrIn{from{transform:translateX(24px);opacity:.4}}
 .shop-dr-top{position:sticky;top:calc(-14px - env(safe-area-inset-top,0px));z-index:2;display:flex;justify-content:space-between;align-items:center;margin:-14px -22px 12px;padding:10px 22px;background:var(--paper);border-bottom:1px solid var(--rule)}
 .shop-dr-top .eyebrow{margin:0}
@@ -5603,7 +5612,7 @@ span.nw-tag{cursor:default}
 .shop-mini:hover{border-color:var(--accent)}
 .shop-mini-v{display:flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;overflow:hidden}
 .shop-mini-v svg{max-width:100%;max-height:100%}.shop-mini-v .shop-cm{min-height:0;padding:2px;font-size:6px}.shop-mini-v .shop-cm b{font-size:7px}.shop-mini-v .founder-pill{display:none}
-@media (max-width:640px){.shop-club{grid-template-columns:1fr;padding:18px}.shop-cb-a{justify-items:start;text-align:left}.shop-cd{grid-template-columns:76px minmax(0,1fr)}.shop-cd-v{width:76px;height:76px}
+@media (max-width:640px){.shop-dr .shop-pv-hero{zoom:.37}.shop-club{grid-template-columns:1fr;padding:18px}.shop-cb-a{justify-items:start;text-align:left}.shop-cd{grid-template-columns:76px minmax(0,1fr)}.shop-cd-v{width:76px;height:76px}
   .shop-dr{top:auto;width:100%;max-height:88vh;border-left:0;border-top:1px solid var(--rule-2);border-radius:12px 12px 0 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .shop-dr-top{top:-14px;margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}}
 @media (prefers-reduced-motion:reduce){.shop-cd,.shop-dr{transition:none;animation:none}.thump .shop-granted{animation:none}}
@@ -5680,26 +5689,75 @@ span.nw-tag{cursor:default}
 .shop-more>summary{cursor:pointer;min-height:36px;line-height:36px;color:var(--ink-2)}
 .desk-hint{display:block;text-align:left;margin:0 0 14px}
 .desk-hint p{margin:0 0 8px}
-/* the three card designs: the paper and the type change, the rank's border does not */
-.hero.cd-ledger{background:#f7f1df repeating-linear-gradient(180deg,transparent 0 23px,rgba(70,110,170,.18) 23px 24px);color:#2b2a25}
-.hero.cd-ledger::before{content:"";position:absolute;top:0;bottom:0;left:62px;border-left:2px solid rgba(190,50,50,.38);pointer-events:none}
-.hero.cd-ledger .hero-name{font-family:'Bodoni Moda',var(--f-display);color:#1f1d18}
+/* the Card Pack's seven designs: the paper and the type change, the rank's border does not. Each card sets the
+   page's own tokens inside it, so every line of the card (chips, links, stats) reads on its paper in either theme. */
+.hero[class*=" cd-"]{color:var(--ink)}
+.hero.cd-ledger{--sheet:#f6efdb;--sheet-2:#efe6cb;--ink:#26231d;--ink-2:#4b463b;--ink-3:#6b6452;--rule:#d9cdaa;--rule-2:#c4b48a;
+  background:radial-gradient(rgba(120,95,40,.07) .7px,transparent 1px) 0 0/5px 5px,repeating-linear-gradient(180deg,transparent 0 23px,rgba(70,110,170,.2) 23px 24px) 0 54px,linear-gradient(#f6efdb,#f1e7cc);outline-color:#c4b48a}
+.hero.cd-ledger::before{content:"";position:absolute;top:0;bottom:0;left:58px;width:5px;border-left:1.5px solid rgba(190,50,50,.42);border-right:1px solid rgba(190,50,50,.3);pointer-events:none}
+.hero.cd-ledger::after{content:"";position:absolute;left:20px;top:22%;width:16px;height:56%;pointer-events:none;background:radial-gradient(circle,#ddd2b2 0 5px,rgba(0,0,0,.18) 5.5px,transparent 6.5px) center top/16px 33.3% repeat-y;opacity:.9}
+.hero.cd-ledger .hero-name{font-family:'Bodoni Moda',var(--f-display);color:#1b1914}
 .hero.cd-ledger .hero-pre,.hero.cd-ledger .hero-blurb{font-family:'Courier Prime','IBM Plex Mono',monospace;color:#4b463b}
-.hero.cd-ledger .hero-motto,.hero.cd-ledger .hero-ruler,.hero.cd-ledger .hero-about{color:#3b372e}
-.hero.cd-atlas{background:#efe6cf linear-gradient(0deg,rgba(60,110,100,.12) 1px,transparent 1px) 0 0/48px 48px,#efe6cf linear-gradient(90deg,rgba(60,110,100,.12) 1px,transparent 1px) 0 0/48px 48px;color:#33291a}
-.hero.cd-atlas::after{content:"";position:absolute;right:18px;bottom:14px;width:92px;height:92px;opacity:.28;pointer-events:none;background:conic-gradient(from 0deg,#2f6f63 0 6deg,transparent 6deg 84deg,#2f6f63 84deg 96deg,transparent 96deg 174deg,#2f6f63 174deg 186deg,transparent 186deg 264deg,#2f6f63 264deg 276deg,transparent 276deg 354deg,#2f6f63 354deg);-webkit-mask:radial-gradient(circle,transparent 30%,#000 31%,#000 70%,transparent 71%);mask:radial-gradient(circle,transparent 30%,#000 31%,#000 70%,transparent 71%)}
-.hero.cd-atlas .hero-name{font-family:Cinzel,var(--f-display);letter-spacing:.02em;color:#2a2114}
-.hero.cd-atlas .hero-pre,.hero.cd-atlas .hero-blurb,.hero.cd-atlas .hero-motto,.hero.cd-atlas .hero-ruler,.hero.cd-atlas .hero-about{color:#4a3d27}
-.hero.cd-civic{background:var(--sheet);border-top:10px solid var(--accent)}
-.hero.cd-civic .czp,.hero.cd-civic .id-guill{opacity:.18}
-.hero.cd-civic .hero-name{font-family:'Public Sans Variable','Public Sans',sans-serif;font-weight:800;letter-spacing:-.025em}
-.hero.cd-civic .hero-pre{font:600 12px/1.3 var(--f-mono);letter-spacing:.14em;text-transform:uppercase}
-.hero.cd-ledger .czp,.hero.cd-atlas .czp{opacity:.22}
+.hero.cd-ledger .hero-pre{letter-spacing:.06em}
+.hero.cd-atlas{--sheet:#efe6cf;--sheet-2:#e6dbbd;--ink:#2e2516;--ink-2:#4a3d27;--ink-3:#6c5c3e;--rule:#cdbf98;--rule-2:#b3a27a;
+  background:repeating-radial-gradient(ellipse 140% 90% at 88% 112%,transparent 0 17px,rgba(122,94,48,.14) 17px 18px),linear-gradient(0deg,rgba(47,111,99,.13) 1px,transparent 1px) 0 0/48px 48px,linear-gradient(90deg,rgba(47,111,99,.13) 1px,transparent 1px) 0 0/48px 48px,radial-gradient(ellipse at 20% 0,#f5eedb,#e9dcbc);outline:2px solid rgba(47,111,99,.35);outline-offset:-9px}
+.hero.cd-atlas::after{content:"";position:absolute;right:18px;bottom:14px;width:96px;height:96px;opacity:.34;pointer-events:none;background:conic-gradient(from 0deg,#2f6f63 0 5deg,transparent 5deg 85deg,#2f6f63 85deg 95deg,transparent 95deg 175deg,#2f6f63 175deg 185deg,transparent 185deg 265deg,#2f6f63 265deg 275deg,transparent 275deg 355deg,#2f6f63 355deg),radial-gradient(circle,transparent 0 22px,#2f6f63 22px 23.5px,transparent 24px 40px,#2f6f63 40px 41px,transparent 41.5px);-webkit-mask:radial-gradient(circle,transparent 0 6px,#000 6.5px 47px,transparent 48px);mask:radial-gradient(circle,transparent 0 6px,#000 6.5px 47px,transparent 48px)}
+.hero.cd-atlas .hero-name{font-family:Cinzel,var(--f-display);letter-spacing:.03em;color:#2a2114}
+.hero.cd-civic{border-top:10px solid var(--accent);background:radial-gradient(color-mix(in srgb,var(--ink) 9%,transparent) 1px,transparent 1.4px) 0 0/16px 16px,var(--sheet)}
+.hero.cd-civic::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:color-mix(in srgb,var(--accent) 45%,transparent);pointer-events:none}
+.hero.cd-civic .czp,.hero.cd-civic .id-guill{opacity:.16}
+.hero.cd-civic .hero-name{font-family:'Public Sans Variable','Public Sans',sans-serif;font-weight:800;letter-spacing:-.03em}
+.hero.cd-civic .hero-pre{font:600 12px/1.3 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.hero.cd-ledger .czp,.hero.cd-atlas .czp{opacity:.2}
+/* Embassy Vellum: midnight blue, a gold double rule and faint engraving */
+.hero.cd-embassy{--sheet:#14213d;--sheet-2:#1b2b4d;--ink:#f3ead2;--ink-2:#d7cba8;--ink-3:#b3a682;--rule:#3a4a6b;--rule-2:#c9a54a;--accent:#e2c26a;--accent-soft:#2a3657;
+  background:repeating-radial-gradient(circle at 50% 120%,transparent 0 9px,rgba(226,194,106,.06) 9px 10px),radial-gradient(ellipse at 30% 0,#22345c,#101a31 70%);border-color:#c9a54a;outline:1px solid #c9a54a;outline-offset:-8px;box-shadow:inset 0 0 0 11px #14213d,inset 0 0 0 12px rgba(201,165,74,.55)}
+.hero.cd-embassy .hero-name{font-family:'Bodoni Moda',var(--f-display);color:#ecd48c;letter-spacing:.005em}
+.hero.cd-embassy .hero-pre{font:600 12px/1.3 var(--f-mono);letter-spacing:.2em;text-transform:uppercase;color:#c9a54a}
+.hero.cd-embassy .czp,.hero.cd-embassy .id-guill{opacity:.14}
+/* Telegram: buff form paper, a printed header and pasted tape */
+.hero.cd-telegram{--sheet:#efe2b6;--sheet-2:#e6d6a2;--ink:#231e10;--ink-2:#463d22;--ink-3:#6a5d36;--rule:#cdb978;--rule-2:#a8925a;--accent:#8c2a1c;--accent-soft:#e9d3a6;
+  padding-top:52px;background:repeating-linear-gradient(180deg,transparent 0 26px,rgba(255,255,255,.55) 26px 46px,transparent 46px 52px) 0 70px/100% 100% no-repeat,radial-gradient(rgba(90,70,20,.06) .7px,transparent 1px) 0 0/4px 4px,#efe2b6}
+.hero.cd-telegram::before{content:"TELEGRAM · STATE PRIORITY · DELIVER BY HAND";position:absolute;left:0;right:0;top:0;padding:9px 30px;background:#8c2a1c;color:#f6e9c4;font:700 11px/1.2 'Courier Prime','IBM Plex Mono',monospace;letter-spacing:.24em;pointer-events:none;white-space:nowrap;overflow:hidden}
+.hero.cd-telegram .hero-name{font-family:'Courier Prime','IBM Plex Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:#1d180b}
+.hero.cd-telegram .hero-pre,.hero.cd-telegram .hero-blurb,.hero.cd-telegram .hero-motto{font-family:'Courier Prime','IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
+.hero.cd-telegram .czp,.hero.cd-telegram .id-guill{opacity:.12}
+/* Holographic Seal (animated): pearl-white security film, a sheen that crosses it and a turning foil seal */
+.hero.cd-holo{--sheet:#f2f3f6;--sheet-2:#e7e9ef;--ink:#1d2230;--ink-2:#454c5e;--ink-3:#687083;--rule:#cfd3dc;--rule-2:#aab1c0;
+  background:repeating-linear-gradient(115deg,rgba(120,130,160,.06) 0 2px,transparent 2px 7px),linear-gradient(160deg,#f7f8fb,#e9ecf2)}
+.hero.cd-holo::before{content:"";position:absolute;inset:-20%;pointer-events:none;mix-blend-mode:multiply;opacity:.55;background:linear-gradient(115deg,transparent 30%,rgba(255,120,180,.45) 40%,rgba(120,200,255,.5) 46%,rgba(160,255,190,.45) 52%,rgba(255,230,120,.45) 58%,transparent 68%) 0 0/250% 100%;animation:cdHolo 7s ease-in-out infinite}
+.hero.cd-holo::after{content:"";position:absolute;right:22px;bottom:18px;width:74px;height:74px;border-radius:50%;pointer-events:none;opacity:.75;background:conic-gradient(from 0deg,#ff8ac0,#ffd36e,#9df0b4,#7ed0ff,#b9a3ff,#ff8ac0);-webkit-mask:radial-gradient(circle,transparent 0 20px,#000 21px 25px,transparent 26px 29px,#000 30px 37px,transparent 37.5px);mask:radial-gradient(circle,transparent 0 20px,#000 21px 25px,transparent 26px 29px,#000 30px 37px,transparent 37.5px);animation:cdTurn 14s linear infinite}
+.hero.cd-holo .hero-name{background:linear-gradient(100deg,#1d2230 0 40%,#5b4f9e 50%,#1d2230 60% 100%) 0 0/300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:cdHolo 7s ease-in-out infinite}
+.hero.cd-holo,.hero.cd-starlit{isolation:isolate}
+.hero.cd-holo::before,.hero.cd-starlit::before,.hero.cd-starlit::after{z-index:-1}
+@keyframes cdHolo{0%{background-position:100% 0}50%{background-position:0 0}100%{background-position:100% 0}}
+@keyframes cdTurn{to{transform:rotate(360deg)}}
+/* Starlit Charter (animated): a night sky that twinkles, with a slow meteor now and then */
+.hero.cd-starlit{--sheet:#151337;--sheet-2:#1e1b47;--ink:#ece9ff;--ink-2:#c3bfe8;--ink-3:#9c97cc;--rule:#34306a;--rule-2:#5a54a0;--accent:#b8b0ff;--accent-soft:#2b2763;
+  background:radial-gradient(ellipse at 80% 110%,rgba(120,90,220,.35),transparent 60%),radial-gradient(ellipse at 0 0,#24205a,#0f0d2a 75%);border-color:#3a3577;outline-color:#4a4490}
+.hero.cd-starlit::before,.hero.cd-starlit::after{content:"";position:absolute;inset:0;pointer-events:none;background-repeat:repeat}
+.hero.cd-starlit::before{background-image:radial-gradient(1.4px 1.4px at 20px 30px,#fff,transparent),radial-gradient(1px 1px at 90px 80px,#dcd8ff,transparent),radial-gradient(1.6px 1.6px at 150px 20px,#fff,transparent),radial-gradient(1px 1px at 60px 140px,#fff,transparent),radial-gradient(1.2px 1.2px at 190px 120px,#cfc9ff,transparent);background-size:220px 170px;animation:cdTwinkle 4.5s ease-in-out infinite}
+.hero.cd-starlit::after{background-image:radial-gradient(1px 1px at 40px 60px,#fff,transparent),radial-gradient(1.5px 1.5px at 120px 110px,#f3efff,transparent),radial-gradient(1px 1px at 170px 50px,#fff,transparent),linear-gradient(200deg,transparent 48%,rgba(255,255,255,.75) 50%,transparent 52%);background-size:190px 150px,190px 150px,190px 150px,120px 2px;background-repeat:repeat,repeat,repeat,no-repeat;background-position:0 0,0 0,0 0,-150px 40px;animation:cdTwinkle 6s ease-in-out -2s infinite,cdMeteor 11s linear infinite}
+.hero.cd-starlit .hero-name{font-family:Cinzel,var(--f-display);letter-spacing:.04em;color:#f4f1ff;text-shadow:0 0 18px rgba(184,176,255,.45)}
+.hero.cd-starlit .hero-pre{font:600 12px/1.3 var(--f-mono);letter-spacing:.2em;text-transform:uppercase;color:#b8b0ff}
+.hero.cd-starlit .czp,.hero.cd-starlit .id-guill{opacity:.12}
+/* Cinzel is all capitals and wider: its names are fitted to the card on their own measure */
+.hero.cd-atlas .hero-name,.hero.cd-starlit .hero-name{font-size:max(22px,min(clamp(34px,5.6vw,56px),calc(100cqi / (var(--lw,8) * .68))))}
+@keyframes cdTwinkle{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes cdMeteor{0%,86%{background-position:0 0,0 0,0 0,-150px 40px}100%{background-position:0 0,0 0,0 0,110% 120%}}
+@media (prefers-reduced-motion:reduce){.hero.cd-holo::before,.hero.cd-holo::after,.hero.cd-holo .hero-name,.hero.cd-starlit::before,.hero.cd-starlit::after,.shop-cm.cd-holo::after,.shop-cm.cd-starlit::after{animation:none}}
+:root[data-motion="reduce"] .hero.cd-holo::before,:root[data-motion="reduce"] .hero.cd-holo::after,:root[data-motion="reduce"] .hero.cd-holo .hero-name,:root[data-motion="reduce"] .hero.cd-starlit::before,:root[data-motion="reduce"] .hero.cd-starlit::after,:root[data-motion="reduce"] .shop-cm.cd-holo::after,:root[data-motion="reduce"] .shop-cm.cd-starlit::after{animation:none}
 .shop-cm{display:flex;flex-direction:column;justify-content:center;width:100%;min-height:58px;padding:6px 8px;border:1px solid var(--rule);border-radius:3px;background:var(--sheet);text-align:left;overflow:hidden}
 .shop-cm b{font:650 14px/1.1 var(--f-display);overflow-wrap:anywhere}.shop-cm-k{font-size:9px;opacity:.75}
-.shop-cm.cd-ledger{background:#f7f1df repeating-linear-gradient(180deg,transparent 0 9px,rgba(70,110,170,.2) 9px 10px);color:#2b2a25;font-family:'Courier Prime',monospace}
+.shop-cm.cd-ledger{background:linear-gradient(90deg,transparent 0 14px,rgba(190,50,50,.4) 14px 15px,transparent 15px),#f6efdb repeating-linear-gradient(180deg,transparent 0 9px,rgba(70,110,170,.2) 9px 10px);padding-left:20px;color:#2b2a25;font-family:'Courier Prime',monospace}
 .shop-cm.cd-atlas{background:#efe6cf linear-gradient(0deg,rgba(60,110,100,.16) 1px,transparent 1px) 0 0/14px 14px;color:#33291a}.shop-cm.cd-atlas b{font-family:Cinzel,serif}
 .shop-cm.cd-civic{border-top:5px solid var(--accent)}.shop-cm.cd-civic b{font-family:'Public Sans',sans-serif;font-weight:800}
+.shop-cm{position:relative}
+.shop-cm.cd-embassy{background:radial-gradient(ellipse at 30% 0,#22345c,#101a31 70%);color:#f3ead2;border-color:#c9a54a;box-shadow:inset 0 0 0 2px #14213d,inset 0 0 0 3px rgba(201,165,74,.6)}.shop-cm.cd-embassy b{font-family:'Bodoni Moda',serif;color:#ecd48c}
+.shop-cm.cd-telegram{background:#efe2b6;color:#231e10;padding-top:14px;font-family:'Courier Prime',monospace}.shop-cm.cd-telegram::before{content:"TELEGRAM";position:absolute;left:0;right:0;top:0;padding:1px 6px;background:#8c2a1c;color:#f6e9c4;font:700 7px/1.3 'Courier Prime',monospace;letter-spacing:.2em}.shop-cm.cd-telegram b{font-family:'Courier Prime',monospace;text-transform:uppercase}
+.shop-cm.cd-holo{background:linear-gradient(160deg,#f7f8fb,#e9ecf2);color:#1d2230;overflow:hidden}.shop-cm.cd-holo::after{content:"";position:absolute;inset:0;mix-blend-mode:multiply;opacity:.6;background:linear-gradient(115deg,transparent 30%,rgba(255,120,180,.5) 40%,rgba(120,200,255,.55) 48%,rgba(160,255,190,.5) 56%,transparent 66%) 0 0/250% 100%;animation:cdHolo 7s ease-in-out infinite}
+.shop-cm.cd-starlit{background:radial-gradient(ellipse at 0 0,#24205a,#0f0d2a 75%);color:#ece9ff;border-color:#3a3577;overflow:hidden}.shop-cm.cd-starlit b{font-family:Cinzel,serif}.shop-cm.cd-starlit::after{content:"";position:absolute;inset:0;background-image:radial-gradient(1px 1px at 10px 8px,#fff,transparent),radial-gradient(1px 1px at 40px 30px,#fff,transparent),radial-gradient(1.3px 1.3px at 70px 12px,#fff,transparent);background-size:90px 44px;animation:cdTwinkle 4.5s ease-in-out infinite}
+.shop-cm>*{position:relative}
 /* design presets and the Chronicle */
 .pre-slots{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}
 .pre-slot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 10px;border:1px solid var(--rule);border-radius:6px}
@@ -50648,7 +50706,9 @@ const SHOP_NONE=new Set();
   const add=(id,k,n,src)=>Object.defineProperty(UNLOCKS,id,{value:{k,n,src},enumerable:false,configurable:true,writable:true});
   for(const [id,k,n] of [['bg-founder','badge','Founding Supporter'],['p-firsted','pattern','First Edition'],['f-engraver','frame','Engraver’s frame'],['s-firsted','stamp','Enacted · First Edition'],
     ['pn-founder','pin','Founder’s marker'],['in-founder','inscription','Founding Supporter inscription'],['te-gilt','territory','Founder’s Gilt']])add(id,k,n,'founder');
-  for(const [id,n] of [['cd-ledger','Diplomatic Ledger'],['cd-atlas','Atlas Edition'],['cd-civic','Civic Modern']])add(id,'card',n,'idpack');
+  for(const [id,n] of [['cd-ledger','Diplomatic Ledger'],['cd-atlas','Atlas Edition'],['cd-civic','Civic Modern'],['cd-embassy','Embassy Vellum'],['cd-telegram','Telegram'],['cd-holo','Holographic Seal'],['cd-starlit','Starlit Charter']])add(id,'card',n,'idpack');
+  /* the pack's two letter papers (drawn by LP_X with the others) */
+  for(const [id,n] of [['lp-i-embassy','Embassy Letterhead'],['lp-i-telegram','Telegram Form']])add(id,'paper',n,'idpack');
   for(const [id,k,n] of [['t-illustrious','title','the Illustrious'],['t-magnanimous','title','the Magnanimous'],['a-claret','accent','Claret'],['a-verdigris','accent','Verdigris'],
     ['s-chancery','stamp','Sealed in Chancery'],['p-moire','pattern','Moiré silk'],['f-ribbon','frame','Chancery ribbon'],['pn-quill','pin','Quill'],
     /* joining the collection two at a time, at the start of each month (the catalogue's drops) */
@@ -50886,7 +50946,7 @@ document.addEventListener('click',e=>{
   else if(a==='shop-pv'){SHOP.pv=el.dataset.v;render();}
   else if(a==='shop-cd'){SHOP.cd=el.dataset.v;render();}
   else if(a==='shop-dismiss'){SHOP.err='';render();}
-  else if(a==='shop-open'){const p=el.dataset.p;SHOP.dr=p;SHOP.rv=[p,...SHOP.rv.filter(x=>x!==p)].slice(0,6);shopLsSet('rv',SHOP.rv);render();requestAnimationFrame(()=>{const d=document.querySelector('.shop-dr');if(d){d.scrollTop=0;d.focus({preventScroll:true});}});}
+  else if(a==='shop-open'){const p=el.dataset.p;SHOP.drNew=!SHOP.dr;SHOP.dr=p;SHOP.rv=[p,...SHOP.rv.filter(x=>x!==p)].slice(0,6);shopLsSet('rv',SHOP.rv);render();requestAnimationFrame(()=>{const d=document.querySelector('.shop-dr');if(d){d.scrollTop=0;d.focus({preventScroll:true});}});}
   else if(a==='shop-close')shopDrClose();
   else if(a==='shop-f'){SHOP.f=el.dataset.v||'all';render();}
   else if(a==='shop-wish'){const p=el.dataset.p;SHOP.wish.has(p)?SHOP.wish.delete(p):SHOP.wish.add(p);shopLsSet('wish',[...SHOP.wish]);render();}
@@ -51144,7 +51204,8 @@ function shopCta(p,label){
   return `<button type="button" class="btn shop-buy" data-act="shop-buy" data-p="${p}"${busy||SHOP.busy?' disabled':''} aria-describedby="shop-${p}-price">${busy?'Opening the checkout…':opened?'Checkout open: reopen it':esc(label)}</button>`;
 }
 function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
-  return p==='idpack'?(on.length?` You are using the ${esc(UNLOCKS[on[0]].n)} card.`:' Not in use: you have the classic card.'):on.length?` You are wearing ${on.length===SHOP_IDS[p].length?'all '+on.length:on.length+' of '+SHOP_IDS[p].length} pieces.`:' None of it is in use yet.';}
+  const onCd=on.filter(id=>UNLOCKS[id].k==='card');
+  return p==='idpack'?(onCd.length?` You are using the ${esc(UNLOCKS[onCd[0]].n)} card.`:' Not in use: you have the classic card.'):on.length?` You are wearing ${on.length===SHOP_IDS[p].length?'all '+on.length:on.length+' of '+SHOP_IDS[p].length} pieces.`:' None of it is in use yet.';}
 function shopOwned(p,extra){const at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns[p];return `<p class="shop-owned"><span class="chip ok">Owned</span> since ${esc(shopDate(at))}.${shopGiftFrom(p)?' A gift from '+esc(shopGiftFrom(p))+'.':''}${shopWorn(p)}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p><div class="row shop-row">${extra||''}<button type="button" class="btn ghost" data-act="go" data-v="customise">Equip in Customise</button></div>`;}
 function shopFounder(n,t){
   const until=shopUntil(),open=t<until,own=shopOwns('founder');
@@ -51175,14 +51236,19 @@ function shopFounder(n,t){
   </section>`;
 }
 function shopIdPack(n){
-  const own=shopOwns('idpack'),cds=SHOP_IDS.idpack,cur=cds.includes(SHOP.cd)?SHOP.cd:cds[0];
-  const blurb={'cd-ledger':'Cream ledger paper, ruled in faint blue with a red margin, typed like a consular register.','cd-atlas':'Map paper: a graticule, contour lines and a compass rose, in sepia and sea green.','cd-civic':'A clean modern card: a band of your nation’s colour, bold type and plenty of air.'};
+  const own=shopOwns('idpack'),cds=SHOP_IDS.idpack.filter(id=>UNLOCKS[id].k==='card'),lps=SHOP_IDS.idpack.filter(id=>UNLOCKS[id].k==='paper'),cur=cds.includes(SHOP.cd)?SHOP.cd:cds[0];
+  const blurb={'cd-ledger':'Cream register paper with blue rules, a double red margin and binder holes, typed like a consular register.','cd-atlas':'Map paper: a graticule, contour lines and a compass rose, in sepia and sea green.','cd-civic':'A clean modern card: a band of your nation’s colour, a dot grid, bold type and plenty of air.',
+    'cd-embassy':'Midnight blue vellum inside a gold double rule, with faint engraving and gilt lettering.','cd-telegram':'Buff telegram form under a red printed header, the name typed on pasted tape.',
+    'cd-holo':'Animated. Pearl security film: a rainbow sheen crosses the card and a foil seal turns in the corner.','cd-starlit':'Animated. A night sky that twinkles behind your name, with the odd shooting star.'};
+  const anim=id=>id==='cd-holo'||id==='cd-starlit';
   let pv='';try{pv=`<div class="shop-pv-hero" inert>${hero(shopPv(n,{cd:cur}))}</div>`;}catch(e){pv='';}
+  const papers=lps.map(id=>`<li class="shop-lp"><span class="lp-sw ${lpClass(id)}" aria-hidden="true"><i></i><i></i><i></i></span><span><b>${esc(UNLOCKS[id].n)}</b><span class="hint">${id==='lp-i-embassy'?'Matches Embassy Vellum.':'Matches Telegram.'}</span></span></li>`).join('');
   return `<section class="shop-item shop-idpack" aria-labelledby="shop-i-h">
     <div class="shop-head"><div><p class="eyebrow">Permanent · one payment</p><h2 class="h2" id="shop-i-h">Nation Identity Card Pack</h2></div><p class="shop-price" id="shop-idpack-price">${esc(shopPrice('idpack'))}<span>once</span>${shopLocalTag('idpack')}</p></div>
-    <p>Three designs for your nation card. Switch between them, or back to the classic card, in Customise whenever you like. Your rank’s border stays exactly as it is.</p>
-    <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview a card design">${cds.map(id=>`<button type="button" class="seg-b${cur===id?' on':''}" data-act="shop-cd" data-v="${id}" aria-pressed="${cur===id}">${esc(UNLOCKS[id].n)}</button>`).join('')}</div>
+    <p>Seven designs for your nation card, two of them animated, and two letter papers for your Messages. Switch between them, or back to the classic card, in Customise whenever you like. Your rank’s border stays exactly as it is.</p>
+    <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview a card design">${cds.map(id=>`<button type="button" class="seg-b${cur===id?' on':''}" data-act="shop-cd" data-v="${id}" aria-pressed="${cur===id}">${esc(UNLOCKS[id].n)}${anim(id)?' <span class="shop-anim" title="Animated">✦</span>':''}</button>`).join('')}</div>
       <div class="shop-pv-box" aria-live="polite"><p class="shop-pv-l">${esc(UNLOCKS[cur].n)}: ${esc(blurb[cur]||'')}</p>${pv}</div></div>
+    ${papers?`<h3 class="sub-h">Letter papers</h3><ul class="shop-lps">${papers}</ul>`:''}
     ${own?shopOwned('idpack'):`<div class="row shop-row">${shopCta('idpack','Buy the card pack · '+shopPay('idpack'))}</div>`}${shopGiftHTML('idpack')}
   </section>`;
 }
@@ -51285,7 +51351,7 @@ function shopCards(n,t){
     out.push({p:'founder',sec:'limited',tags:['limited','cosmetic','gift'],name:'The Founder’s Package',pitch:'Seven pieces of founder finery and a certificate, for those who were here at the start.',
       art:()=>shopArt('f-engraver',n)+FOUNDER_DOT,price:'founder',per:'once',own:fOwn,sell:fOpen,
       lbls:[...(fOpen&&!fOwn?[['end',d<=1?'Last day':'Ends in '+d+' d']]:[]),...(shopGiftFrom('founder')?[['','A gift']]:[])]});}
-  out.push({p:'idpack',sec:'cosmetic',tags:['cosmetic','gift'],name:'Nation Identity Card Pack',pitch:'Three designs for your nation card: Ledger, Atlas and Civic Modern.',
+  out.push({p:'idpack',sec:'cosmetic',tags:['cosmetic','gift'],name:'Nation Identity Card Pack',pitch:'Seven designs for your nation card, two of them animated, and two letter papers.',
     art:()=>shopCardMini(n,SHOP.cd||'cd-ledger'),price:'idpack',per:'once',own:shopOwns('idpack'),sell:true,lbls:shopGiftFrom('idpack')?[['','A gift']]:[]});
   if(shopSells('giftvip'))out.push({p:'giftvip',sec:'gift',tags:['gift','club'],name:'A month of the Club, as a gift',pitch:'A month of the Chancery Club for another player’s nation. They see your name with it.',
     art:()=>`<span class="shop-cd-seal">${clubSealSVG('csl-member')}</span>`,price:'giftvip',per:'once',own:false,sell:true,gift:true,lbls:[['','Gift only']]});
@@ -51342,8 +51408,9 @@ function shopDrawer(n,t,cards){
   const mini=k=>{const c=cards.find(x=>x.p===k);let a='';try{a=c?c.art():'';}catch(e){}return `<li><button type="button" class="shop-mini" data-act="shop-open" data-p="${k}"><span class="shop-mini-v" aria-hidden="true">${k==='vip'?clubSealSVG('csl-member'):a}</span><span>${esc(nameOf(k))}</span></button></li>`;};
   const pairs=['vip',...cards.map(c=>c.p)].filter(k=>k!==p&&!(cards.find(c=>c.p===k)||{}).own).slice(0,3);
   const rv=SHOP.rv.filter(k=>k!==p&&nameOf(k)).slice(0,4);
-  return `<div class="shop-scrim" data-act="shop-close"></div>
-  <aside class="shop-dr" role="dialog" aria-modal="true" aria-label="${esc(nameOf(p))}" tabindex="-1">
+  const isNew=SHOP.drNew;SHOP.drNew=false;
+  return `<div class="shop-scrim${isNew?' in':''}" data-act="shop-close"></div>
+  <aside class="shop-dr${SHOP.drNew?' in':''}" role="dialog" aria-modal="true" aria-label="${esc(nameOf(p))}" tabindex="-1">
     <div class="shop-dr-top"><span class="eyebrow">Bureau of National Finery</span><button type="button" class="shop-dr-x" data-act="shop-close" aria-label="Close">×</button></div>
     ${shopNotice(n)}${body}
     ${pairs.length?`<h3 class="shop-dr-h">Pairs well with</h3><ul class="shop-minis">${pairs.map(mini).join('')}</ul>`:''}
@@ -51375,6 +51442,9 @@ EXT_PAGES.push('shop','chronicle');NAV_LABELS.shop='Shop';NAV_LABELS.chronicle='
 NAV_WORDS.shop='shop store buy finery founder package cosmetics card pack chancery club membership subscription vip seal';
 NAV_WORDS.chronicle='chronicle history record decisions snapshots export csv json print chancery club';
 VIEWS_EXT.shop=now=>shopView(now);
+/* the page is drawn anew on every change: the open drawer keeps where its reader was (opening another item starts at its top) */
+render=(f=>function(){const d=S.view==='shop'?document.querySelector('.shop-dr'):null,top=d?d.scrollTop:0,p=SHOP.dr;const r=f.apply(this,arguments);
+  if(d&&top&&SHOP.dr===p){const e=document.querySelector('.shop-dr');if(e&&e!==d)e.scrollTop=top;}return r;})(render);
 go=(f=>function(v){if(v!=='shop'&&SHOP.dr){SHOP.dr='';if(SHOP.gift)SHOP.gift=null;}return f.apply(this,arguments);})(go);
 
 /* ── Customise: the new rows (badge, card, inscription, land) and the Chancery Club's design presets ──
@@ -56844,6 +56914,8 @@ const LP_X={
   'lp-a-diplomat':{n:'Chancellery Ribbon',bg:'#faf5ea',ink:'#2b1d14',bd:'#d9c6a3',acc:'#7a1f2b',pat:'linear-gradient(90deg,#7a1f2b 0 7px,transparent 7px)',pl:'22px'},
   'lp-a-unbowed':{n:'Field Dispatch',bg:'#d8cfae',ink:'#2c2a1c',bd:'#8a7d4f',acc:'#5b4d1c',g:'✸',pat:LP_STRIPES('rgba(60,50,20,.06)'),ff:'"Courier New",Courier,monospace'},
   'lp-a-champion':{n:'Laurel Letterhead',bg:'#ffffff',ink:'#1f2a1f',bd:'#c9d8c0',acc:'#3f7a3a',g:'❦'},
+  'lp-i-embassy':{n:'Embassy Letterhead',bg:'#14213d',ink:'#f3ead2',bd:'#c9a54a',acc:'#e2c26a',g:'✶',bw:'2px',sh:'inset 0 0 0 3px #14213d,inset 0 0 0 4px rgba(201,165,74,.6)',pat:'repeating-radial-gradient(circle at 50% 130%,transparent 0 9px,rgba(226,194,106,.07) 9px 10px)'},
+  'lp-i-telegram':{n:'Telegram Form',bg:'#efe2b6',ink:'#231e10',bd:'#a8925a',acc:'#8c2a1c',g:'✆',ff:'"Courier Prime","Courier New",Courier,monospace',pat:'linear-gradient(#8c2a1c,#8c2a1c),repeating-linear-gradient(180deg,transparent 0 22px,rgba(255,255,255,.5) 22px 40px)',ps:'100% 6px,100% 100%',pr:'no-repeat,repeat'},
   'lp-a-isles':{n:'Sea Chart',bg:'#e9f2f7',ink:'#16324a',bd:'#9bbad0',acc:'#1f5f8b',g:'✵',pat:LP_GRID}
 };
 /* the 27 classifications, in CATS order: [paper's name, bg, ink, border, accent, ornament, extras] */
@@ -56876,7 +56948,7 @@ const LP_X={
  ['Scrap Paper','#d9c7a0','#241a0b','#8c7448','#7a2e1c','Ⓐ',{pat:LP_DOTS('rgba(60,40,10,.12)'),ps:'7px 7px',bs:'dashed'}]
 ].forEach(([n,bg,ink,bd,acc,g,x],i)=>{LP_X['lp-k'+i]={n,bg,ink,bd,acc,g,cat:CATS[i],...(x||{})};});
 const LP_CAT=Object.fromEntries(Object.entries(LP_X).filter(([,v])=>v.cat).map(([id,v])=>[v.cat,id]));
-for(const [id,v] of Object.entries(LP_X))UNLOCKS[id]={k:'paper',n:v.n,src:v.cat?'gov':'ach'};
+for(const [id,v] of Object.entries(LP_X))if(!(UNLOCKS[id]&&UNLOCKS[id].src==='idpack'))UNLOCKS[id]={k:'paper',n:v.n,src:v.cat?'gov':'ach'};
 /* one stylesheet: each paper's variables, then the rules they share */
 {const css=Object.entries(LP_X).map(([id,v])=>`.${id}{--lp-bg:${v.bg};--lp-ink:${v.ink};--lp-bd:${v.bd};--lp-acc:${v.acc}${v.pat?`;--lp-pat:${v.pat}`:''}${v.ps?`;--lp-ps:${v.ps}`:''}${v.pr?`;--lp-pr:${v.pr}`:''}${v.bw?`;--lp-bw:${v.bw}`:''}${v.bs?`;--lp-bs:${v.bs}`:''}${v.sh?`;--lp-sh:${v.sh}`:''}${v.pl?`;--lp-pl:${v.pl}`:''}${v.ff?`;--lp-ff:${v.ff}`:''}}`).join('\n');
   const el=document.createElement('style');el.id='lp-papers';el.textContent=css;document.head.appendChild(el);}

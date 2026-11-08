@@ -426,3 +426,16 @@ test('a purchase this game never opened is refunded; a closing account has its m
   await call(p, { step: 'closing' });
   assert.equal(P.subs.get(sub).status, 'canceled');
 });
+
+test('a pack that has grown: an owner settled under an older grants version gets the new pieces when the game asks for the status', async () => {
+  const p = await player(), c = await call(p, { step: 'checkout', product: 'idpack' });
+  await hook('transaction.completed', pay(c.txn));
+  assert.deepEqual((await finery(p.uid)).c.sort(), [...CATALOGUE.products.idpack.grants].sort(), 'every piece of the pack, papers too');
+  assert.equal((await shop(p.uid)).gv, CATALOGUE.products.idpack.grantsV);
+  /* as an account settled before the pack grew: the first three cards, no version */
+  await db.doc('finery/' + p.uid).update({ c: ['cd-ledger', 'cd-atlas', 'cd-civic'] });
+  await db.doc('shop/' + p.uid).update({ gv: FieldValue.delete() });
+  await call(p, { step: 'status' });
+  assert.deepEqual((await finery(p.uid)).c.sort(), [...CATALOGUE.products.idpack.grants].sort(), 'settled again, with the new pieces');
+  assert.equal((await shop(p.uid)).gv, CATALOGUE.products.idpack.grantsV);
+});
