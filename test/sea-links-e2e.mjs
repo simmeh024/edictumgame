@@ -178,11 +178,20 @@ if (pair) {
   await nav(p, 'map');
   await p.evaluate(c => { G.MD.centerMain(c, 18); G.render(); }, pair.from);
   await sleep(300);
-  await clickOn('main', pair.from);
-  await p.locator('[data-act="lsw-start"]').waitFor({ timeout: 3000 }).catch(() => {});
+  /* what the click picked, and why there is no Swap button: said whenever a click misses */
+  const swapDiag = () => p.evaluate(c => { const v = G.S.mapViews && G.S.mapViews.main; return { want: c, inspect: G.S.mapInspect, target: G.S.mapTarget, pick: G.S.mapPick, mode: G.S.mpMode, view: G.S.view, mapView: v && { cx: Math.round(v.cx), cy: Math.round(v.cy), z: v.z }, wantAt: { cx: Math.round(G.MAP.cx[c]), cy: Math.round(G.MAP.cy[c]) }, held: G.S.nation.claims.some(e => e.c === c), why: G.SL.swapFromWhy(G.territory(), c), wait: G.SL.swapWait(G.S.nation), dialog: !!document.querySelector('dialog[open]'), panel: (document.getElementById('map-panel')?.textContent || '').replace(/\s+/g, ' ').slice(0, 300) }; }, pair.from);
+  /* on a slow runner the map can still be settling just after the page opens, and a click then lands on whatever hex
+     was in the middle before (CI, 2026-11-08: it inspected a free hex twelve hexes away); click again, up to three times */
+  const misses = [];
+  for (let i = 0; i < 3; i++) {
+    if (i) await sleep(800);
+    await clickOn('main', pair.from);
+    await p.locator('[data-act="lsw-start"]').waitFor({ timeout: 2000 }).catch(() => {});
+    if (await p.locator('[data-act="lsw-start"]').count() === 1) break;
+    misses.push(await swapDiag());
+  }
   const offered = await p.locator('[data-act="lsw-start"]').count() === 1;
-  /* when it is not offered, say what the click picked and why, rather than only timing out on the next click */
-  check('your claimed hex offers Swap this hex for other land', offered, offered ? '' : JSON.stringify(await p.evaluate(c => ({ want: c, pick: G.S.mapPick, target: G.S.mapTarget, inspect: G.S.mapInspect, mode: G.S.mpMode, view: G.S.view, held: G.S.nation.claims.some(e => e.c === c), why: G.SL.swapFromWhy(G.territory(), c), wait: G.SL.swapWait(G.S.nation), dialog: !!document.querySelector('dialog[open]'), panel: (document.getElementById('map-panel')?.textContent || '').replace(/\s+/g, ' ').slice(0, 400) }), pair.from)));
+  check('your claimed hex offers Swap this hex for other land', offered, misses.length ? JSON.stringify({ misses }) : '');
   await p.click('[data-act="lsw-start"]'); await sleep(200);
   check('swap mode asks for free land to take instead', /Click free land on the map to take instead/.test(await text(p, '.lsw')));
   await clickOn('main', spot.isle[0]);
