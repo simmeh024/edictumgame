@@ -52183,11 +52183,20 @@ function gbQuote(n,give,get,q,now){
   const room=stockCap(n)-st[get];if(out>room+1e-6)return {err:`Your stores hold ${fmtStock(Math.max(0,room))} more ${resName(get)}.`};
   return {q,out,rate,left};
 }
+function gbBump(n,k,by,now){if(!n.tly||typeof n.tly!=='object')n.tly={};n.tlf=n.tlf||{};if(Object.keys(n.tly).length>=TALLY_MAX&&!(k in n.tly))return;n.tly[k]=(n.tly[k]||0)+by;if(!n.tlf[k])n.tlf[k]=now;}
+/* the market's achievements, under Economy & trade */
+achDef('eco','eco-mkt1','b','Open for Business','Make your first exchange at the Bureau’s market, on the Trade page.',1,x=>aT(x,'mkt'));
+achDef('eco','eco-mkt10','s','Regular at the Counter','Make ten exchanges at the Bureau’s market.',10,x=>aT(x,'mkt'));
+achDef('eco','eco-mkt500','g','Merchant of the Bureau','Hand over 500 units in all at the Bureau’s market.',500,x=>aT(x,'mktq'));
+achDef('eco','eco-mktall','s','Something of Everything','Receive each of the five resources from the Bureau’s market.',5,x=>RES.filter(r=>aT(x,'mktg:'+r)>0).length);
+achDef('eco','eco-mktfull','b','Closing Time','Use up a whole day’s market: 120 units in one day.',1,x=>aT(x,'mktfull'));
 function gbTrade(){
   const n0=S.nation;if(!n0||OBS)return;const now=Date.now(),Q=gbQuote(n0,MKT.give,MKT.get,MKT.q,now);
   if(Q.err){MKT.msg=Q.err;render();return;}
   const n=clone(n0),st=stockNow(n,now);st[MKT.give]-=Q.q;st[MKT.get]=stockLimit(n,MKT.get,num0(st[MKT.get])+Q.out,st[MKT.get]);
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;n.mkt={d:gbDay(now),q:gbSold(n0,now)+Q.q};
+  /* tallies for the market's achievements: exchanges, units handed over, each resource received, a day's market used up */
+  gbBump(n,'mkt',1,now);gbBump(n,'mktq',Q.q,now);gbBump(n,'mktg:'+MKT.get,1,now);if(n.mkt.q>=GB.MKT_DAY)gbBump(n,'mktfull',1,now);
   commit(n);try{saveSoon();}catch(e){}
   MKT.msg=`Exchanged ${Q.q} ${resName(MKT.give)} for ${fmtAmt(Q.out)} ${resName(MKT.get)}.`;MKT.q='';render();
   try{window.edictumStat&&window.edictumStat('bureau_market',{q:Q.q});}catch(e){}
