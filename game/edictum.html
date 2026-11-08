@@ -17914,7 +17914,7 @@ function warWith(id){
   const d=pairWar(me,id);return {war:false,truceUntil:d.truceUntil};
 }
 function enemies(){const out=[];if(!S.nation)return out;for(const x of allNations()){if(!x.me&&warWith(x.id).war)out.push(x);}return out;}
-function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(id);return x?x.n.name:'a former nation';}
+function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(id)||(typeof XN!=='undefined'&&XN.get(id));return x?x.n.name:'a former nation';}
 
 /* Enemy hexes this nation can attack: next to its own or its allies' land, or up to three hexes
    beyond across unclaimed land or shallow sea. Allied land is open; other nations' land blocks. */
@@ -19623,6 +19623,23 @@ rewardPrepare=(f=>function(r){if(r&&r.kind==='letter'){if(!S.nation)return false
 const DMF={busy:false};
 const dmKey=m=>m.t+'|'+m.w;
 function dmAnswered(m){const th=dmThreads(Date.now()).get(m.w)||[];return th.some(x=>!x.mine&&x.t>m.t);}
+/* nations of other regions in letters: an admin writes to any region's nation, and a player sees an admin's letter
+   from another region. Only the name is known (summaries/, public), so they show without a flag or stationery. */
+var XN=new Map(),XNQ=new Set(),XNF={q:'',busy:false,res:null,err:''};
+function dmFind(id){return findNation(id)||XN.get(id)||null;}
+function xnLoad(id){
+  if(!id||typeof id!=='string'||XN.has(id)||XNQ.has(id)||!S.db||isOffice(id)||dmIsGroup(id)||NPC_SET.has(id)||findNation(id))return;
+  XNQ.add(id);
+  Promise.resolve().then(()=>S.db.doc('summaries/'+id).get()).then(sn=>{const d=sn.exists?(sn.data()||{}):null;
+    if(d&&d.name){XN.set(id,{id,n:{name:String(d.name).slice(0,80)},far:true,reg:String(d.reg||'')});quietRender();}},()=>{});
+}
+function xnFind(q){
+  q=String(q||'').trim();if(!S.isOwner||!S.db||!q||XNF.busy)return;XNF.busy=true;XNF.err='';XNF.q=q;render();
+  Promise.resolve().then(()=>S.db.collection('summaries').where('name','==',q).limit(12).get()).then(qs=>{
+    XNF.res=qs.docs.filter(d=>d.id!==myId()).map(d=>{const v=d.data()||{};const x={id:d.id,n:{name:String(v.name||'').slice(0,80)},far:true,reg:String(v.reg||'')};if(!findNation(d.id))XN.set(d.id,x);return x;});
+  },e=>{XNF.err='The search failed: '+((e&&e.code)||'unknown error')+'.';}).then(()=>{XNF.busy=false;render();});
+}
+function xnRegName(id){const x=XN.get(id);if(!x||findNation(id))return '';const R=REGIONS.find(R=>R.id===x.reg);return R?R.name:'another region';}
 function dmFlush(){
   const n=S.nation;if(!n||OBS||S.mode!=='world'||DMF.busy)return;
   const day=dmDay(),q=(n.dm||[]).filter(m=>m&&m.q&&!m.i&&!m.b&&!(m.h==='cap'&&!dmAnswered(m))&&!(m.h==='day'&&m.hd===day));if(!q.length)return;
@@ -19815,7 +19832,7 @@ function dmThreads(now){
   for(const y of allNations()){if(y.npc||y.me)continue;here.add(y.id);for(const m of y.n.dm||[])if(m.w===me&&!m.i)add(y.id,{from:y.id,t:m.t,x:m.x,mine:false});}
   ltStart();
   const cut=x.cut||{};
-  for(const l of LT.list){if(!here.has(l.by)||bl.has(l.by))continue;const peer=l.g?l.g.id:l.by;if(!l.g&&cut[peer]&&l.t<cut[peer])continue;
+  for(const l of LT.list){if(bl.has(l.by))continue;if(!here.has(l.by)){if(l.g||!(S.isOwner||isStaff(l.by)))continue;xnLoad(l.by);}const peer=l.g?l.g.id:l.by;if(!l.g&&cut[peer]&&l.t<cut[peer])continue;
     if(l.g&&!LT.groups[peer])LT.groups[peer]={m:l.g.m,nm:l.g.nm||''};
     add(peer,{from:l.by,t:l.t,x:l.x,mine:false,id:l.id,k:l.k,r:l.r,a:l.a});}
   for(const [peer,a] of Object.entries(LT.older))for(const l of a){const mine=l.by===me;add(peer,{from:l.by,t:l.t,x:l.x,mine,id:l.id,k:l.k,r:l.r,a:l.a});}
@@ -19852,7 +19869,7 @@ function dmNoteText(k,peer){const n=S.nation,t=DM_NOTES[k];return t?t[1].replace
 function sendDm(){
   const peer=S.msgPeer,x=String(S.msgDraft||'').trim().replace(/\s+\n/g,'\n').slice(0,DM_MAX),c=S.dmCompose||{};
   const grp=dmIsGroup(peer);
-  if(!peer||(!grp&&!findNation(peer))){S.msgErr='Choose who to write to.';render();return;}
+  if(!peer||(!grp&&!dmFind(peer))){S.msgErr='Choose who to write to.';render();return;}
   if(isOffice(peer))return;
   if(!x){S.msgErr='Write something first.';render();return;}
   if(!grp&&dmBlocked(peer)){S.msgErr=`You have blocked ${nameOf(peer)}. Unblock it to write.`;render();return;}
@@ -19939,29 +19956,30 @@ function dmAttOptions(peer){
 /* ── the page ── */
 const dmDayLabel=t=>{const d=new Date(t),s=new Date();s.setHours(0,0,0,0);const y=new Date(s.getTime()-DAY);return t>=s.getTime()?'Today':t>=y.getTime()?'Yesterday':fmtDate(t);};
 const dmClock=t=>{try{return new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
-function dmFace(id){if(isOffice(id))return OFFICES[id].seal;if(dmIsGroup(id))return `<span class="dm-grp" aria-hidden="true">${/^al:/.test(id)?'⚑':(dmGroupMeta(id).m.length||'·')}</span>`;const x=findNation(id);return x?flagSVG(x.n.flag,'Flag of '+x.n.name):'';}
+function dmFace(id){if(isOffice(id))return OFFICES[id].seal;if(dmIsGroup(id))return `<span class="dm-grp" aria-hidden="true">${/^al:/.test(id)?'⚑':(dmGroupMeta(id).m.length||'·')}</span>`;const x=dmFind(id);return x?flagSVG(x.n.flag,'Flag of '+x.n.name):'';}
 const dmKind=id=>isOffice(id)?'offices':dmIsGroup(id)?'groups':NPC_SET.has(id)?'computer':'players';
 /* the sender's stationery (Customise › Stationery): paper, a wax seal, a signature; anyone else's only if they hold it */
-function dmPaper(id){const x=findNation(id);if(!x||x.npc)return {lp:'',ls:'',lg:''};try{const c=cz(x.n);return {lp:c.lp&&c.lp!=='lp-plain'?c.lp:'',ls:c.ls||'',lg:c.lg||''};}catch(e){return {lp:'',ls:'',lg:''};}}
+function dmPaper(id){const x=dmFind(id);if(!x||x.npc||x.far)return {lp:'',ls:'',lg:''};try{const c=cz(x.n);return {lp:c.lp&&c.lp!=='lp-plain'?c.lp:'',ls:c.ls||'',lg:c.lg||''};}catch(e){return {lp:'',ls:'',lg:''};}}
 function dmSignN(n,lg){if(!n||!lg)return '';const ld=String(n.leader||''),ru=String(n.ruler||'').trim();
   const who=lg==='lg-title'||!ru?`The ${ld} of ${n.name}`:`${ru}, ${ld} of ${n.name}`;return `<span class="dm-sig${lg==='lg-flourish'?' fl':lg==='lg-script'?' sc':''}">${esc(who)}</span>`;}
 function dmWaxN(n,ls){if(!n||!ls)return '';return `<span class="dm-wax ${esc(ls)}" aria-hidden="true">${ls==='ls-arms'?czArmsSVG({...(cz(n).a||czDefaultArms(n)),m:0}):`<i>${esc(String(n.name||'?').charAt(0))}</i>`}</span>`;}
-function dmSign(id,lg){const x=findNation(id);return x?dmSignN(x.n,lg):'';}
-function dmWax(id,ls){const x=findNation(id);return x?dmWaxN(x.n,ls):'';}
+function dmSign(id,lg){const x=dmFind(id);return x?dmSignN(x.n,lg):'';}
+function dmWax(id,ls){const x=dmFind(id);return x?dmWaxN(x.n,ls):'';}
 function messagesView(){
   const n=S.nation,now=Date.now(),th=dmThreads(now),seen=n.seenDm||{},me=myId(),x=dmx(n);
-  if(S.msgPeer&&!findNation(S.msgPeer)&&!isOffice(S.msgPeer)&&!dmIsGroup(S.msgPeer))S.msgPeer=null;
+  if(S.msgPeer&&!dmFind(S.msgPeer)&&!isOffice(S.msgPeer)&&!dmIsGroup(S.msgPeer)&&!XNQ.has(S.msgPeer))S.msgPeer=null;
   if(S.view==='messages'&&typeof cuLoad==='function')try{cuLoad();}catch(e){}
   /* the alliance's own conversation is always listed, even before its first letter */
   const al=dmAlliance();if(al&&!th.has(al.id)&&!(x.del&&x.del[al.id]))th.set(al.id,[]);
   const F=S.dmF||'all',q=String(S.dmS||'').trim().toLowerCase(),pin=x.pin||{};
-  const peers=[...th.keys()].filter(id=>findNation(id)||isOffice(id)||dmIsGroup(id)).filter(id=>{
+  for(const id of th.keys())xnLoad(id);
+  const peers=[...th.keys()].filter(id=>dmFind(id)||isOffice(id)||dmIsGroup(id)).filter(id=>{
     const a=th.get(id),arc=dmArchived(id,a);if(F==='archived')return arc;if(arc)return false;
     if(F==='unread')return dmUnreadIn(id,a,seen)>0;if(F!=='all'&&dmKind(id)!==F)return false;
     if(q)return nameOf(id).toLowerCase().includes(q)||a.some(m=>m.x.toLowerCase().includes(q));return true;
   }).sort((a,b)=>(pin[b]?1:0)-(pin[a]?1:0)||((th.get(b).slice(-1)[0]||{t:0}).t-(th.get(a).slice(-1)[0]||{t:0}).t));
   const others=allNations().filter(y=>!y.me).sort((a,b)=>(a.npc?1:0)-(b.npc?1:0)||a.n.name.localeCompare(b.n.name));
-  const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,grp=dmIsGroup(peer),px=peer&&!po&&!grp?findNation(peer):null,all=peer?(th.get(peer)||[]):[];
+  const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,grp=dmIsGroup(peer),px=peer&&!po&&!grp?dmFind(peer):null,all=peer?(th.get(peer)||[]):[];
   const shown=DM_SHOW*((LT.more[peer]||0)+1),thread=all.slice(-shown),hidden=all.length-thread.length;
   const lastMine=[...thread].reverse().find(m=>m.mine&&!m.q),peerSeen=px&&!px.npc&&!grp&&dmRR()?Math.max(num0(LT.seen[peer]),num0(px.n.seenDm&&px.n.seenDm[me])):0;
   const snip=(a)=>{if(!q)return '';const m=[...a].reverse().find(m=>m.x.toLowerCase().includes(q));if(!m)return '';const i=m.x.toLowerCase().indexOf(q),s=Math.max(0,i-24);return `<span class="dm-hit">${s?'…':''}${esc(m.x.slice(s,i))}<mark>${esc(m.x.slice(i,i+q.length))}</mark>${esc(m.x.slice(i+q.length,i+q.length+40))}</span>`;};
@@ -19997,7 +20015,7 @@ function messagesView(){
       ${c.r?`<div class="dm-quoting"><blockquote class="dm-q">${esc(c.r.x)}</blockquote><button type="button" class="linkish small" data-act="dm-unquote" aria-label="Stop answering that letter">×</button></div>`:''}
       <div class="dm-tools"><label class="cz-sr" for="dm-kind">Kind of letter</label><select class="input dm-kind" id="dm-kind" data-bind="dmkind"><option value="">A letter</option>${Object.entries(DM_NOTES).map(([k,v])=>`<option value="${k}"${c.k===k?' selected':''}>${esc(v[0])}</option>`).join('')}</select>
         ${opts.length?`<div class="dm-att"><button type="button" class="btn ghost small dm-att-b" data-act="dm-attmenu" aria-expanded="${!!S.dmAttOpen}">Attach</button>${S.dmAttOpen?`<div class="dm-att-p">${opts.map(([a,l],i)=>`<button type="button" class="linkish small" data-act="dm-attach" data-i="${i}">${esc(l)}</button>`).join('')}</div>`:''}</div>`:''}
-        ${!grp&&px&&!px.npc?`<button type="button" class="linkish small" data-act="go" data-v="trade" data-dm-trade="${esc(peer)}">Propose a deal</button>`:''}</div>
+        ${!grp&&px&&!px.npc&&!px.far?`<button type="button" class="linkish small" data-act="go" data-v="trade" data-dm-trade="${esc(peer)}">Propose a deal</button>`:''}</div>
       ${c.a?`<div class="dm-att-chip"><span>${esc(DM_ATT[c.a.k]||'Attachment')}: ${esc((opts.find(o=>JSON.stringify(o[0])===JSON.stringify(c.a))||[0,c.a.nm||''])[1])}</span><button type="button" class="linkish small" data-act="dm-unattach" aria-label="Remove the attachment">×</button></div>`:''}
       <label class="lbl" for="dm-text">${grp?`Letter to ${esc(nameOf(peer))}`:`Message to ${esc(px.n.name)}`}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="${DM_MAX}" rows="4" placeholder="${grp?'Dear friends…':'Your Excellency…'}">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}
       ${unans>=DM_CAP-2&&!isStaff(me)?`<p class="hint dm-warn">${unans>=DM_CAP?`You have written ${DM_CAP} letters in a row. The next waits until ${esc(px.n.name)} answers.`:`You have written ${unans} letters in a row; after ${DM_CAP}, the next waits for an answer.`}</p>`:''}
@@ -20006,7 +20024,7 @@ function messagesView(){
       <ol class="bubs">${more}${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.</p>`:'';
   const gm=grp?dmGroupMeta(peer):null;
   const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span><span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
-    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
+    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
   const filters=`<div class="dm-filters" role="group" aria-label="Show">${DM_FILTERS.map(([k,l])=>`<button type="button" class="chip-btn${F===k?' on':''}" data-act="dm-filter" data-v="${k}" aria-pressed="${F===k}">${l}</button>`).join('')}</div>`;
   const pick=S.dmGroupPick?`<div class="dm-gpick"><p class="lbl">A letter to several nations (up to ${DM_GROUP_MAX})</p><input class="input" id="dm-gname" maxlength="60" placeholder="A name for the conversation (optional)" value="${esc(S.dmGName||'')}" data-bind="dmgname"><div class="dm-gl">${others.filter(y=>!y.npc&&!dmBlocked(y.id)).map(y=>`<label><input type="checkbox" data-act="dm-gsel" value="${esc(y.id)}"${(S.dmGSel||[]).includes(y.id)?' checked':''}> ${esc(y.n.name)}</label>`).join('')||'<p class="hint">No other player nations in the region yet.</p>'}</div><div class="row"><button type="button" class="btn small" data-act="dm-gstart"${(S.dmGSel||[]).length<2?' disabled':''}>Start writing</button><button type="button" class="btn ghost small" data-act="dm-gcancel">Cancel</button></div></div>`:'';
   return `<header class="vh dm-head"><div><p class="eyebrow">Diplomatic bag</p><h1>Messages</h1><p>Write to any nation in ${REGION}. Letters to players arrive at once, wherever they are; computer-run nations answer within a minute or two, and sometimes write first.</p></div>
@@ -20014,6 +20032,7 @@ function messagesView(){
   <div class="msg-layout${peer?' in-thread':''}">
     <aside class="convs"><label class="lbl" for="dm-new">New message to</label>${others.length>3?`<input type="search" class="input dm-q" id="dm-q" placeholder="Type to find a nation…" aria-label="Find a nation to write to" autocomplete="off" style="margin-bottom:6px" value="${esc(S.dmQ||'')}">`:''}<select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(y=>{const off=!!S.dmQ&&!y.n.name.toLowerCase().includes(S.dmQ.trim().toLowerCase());return `<option value="${esc(y.id)}"${y.id===peer?' selected':''}${off||dmBlocked(y.id)?' hidden disabled':''}>${esc(y.n.name)}${y.npc?' (computer)':isStaff(y.id)?' (Edictum staff)':''}</option>`;}).join('')}</select>
       ${S.mode==='world'?`<button type="button" class="linkish small dm-gnew" data-act="dm-gpick">${S.dmGroupPick?'':'Write to several nations at once'}</button>`:''}${pick}
+      ${S.isOwner&&S.mode==='world'?`<form class="dm-xn" id="dm-xn-form" style="margin-top:8px"><label class="lbl" for="dm-xn">Any region (admin)</label><div style="display:flex;gap:6px"><input type="search" class="input" id="dm-xn" placeholder="Exact nation name" autocomplete="off" value="${esc(XNF.q)}"><button type="submit" class="btn ghost small"${XNF.busy?' disabled':''}>${XNF.busy?'Finding…':'Find'}</button></div>${XNF.err?`<p class="hint">${esc(XNF.err)}</p>`:XNF.res?(XNF.res.length?`<ul class="conv-list">${XNF.res.map(x=>{const R=REGIONS.find(R=>R.id===x.reg);return `<li><button type="button" class="linkish small" data-act="xn-pick" data-id="${esc(x.id)}">${esc(x.n.name)} <span class="hint">· ${esc(R?R.name:x.reg)}</span></button></li>`;}).join('')}</ul>`:`<p class="hint">No nation is called “${esc(XNF.q)}”. Names must match exactly.</p>`):''}</form>`:''}
       <input type="search" class="input dm-s" id="dm-s" placeholder="Search letters…" aria-label="Search your letters" autocomplete="off" value="${esc(S.dmS||'')}">${filters}
       ${peers.length?`<ul class="conv-list">${conv}</ul>`:`<p class="hint" style="margin-top:14px">${q?'No letters match.':F==='all'?'No conversations yet.':F==='archived'?'Nothing archived.':'None here.'}</p>`}</aside>
     <section class="thread">${office||(head?`${head}${confirm}
@@ -20053,6 +20072,7 @@ document.addEventListener('click',e=>{
   else if(a==='dm-idea'){const R=k=>RES.includes(k)?k:RES[0];S.trade={...(S.trade||{}),w:id,gr:R(el.dataset.r),ga:+el.dataset.ra||10,rr:R(el.dataset.g),ra:+el.dataset.ga||10};S.tradeMsg='';go('trade');}
   else if(a==='dm-gpick'){S.dmGroupPick=true;S.dmGSel=[];S.dmGName='';render();}
   else if(a==='dm-gcancel'){S.dmGroupPick=false;render();}
+  else if(a==='xn-pick'){const id=el.dataset.id;if(!S.isOwner||!XN.has(id)&&!findNation(id))return;dmSetPeer(id);render();return;}
   else if(a==='dm-gstart'){const sel=(S.dmGSel||[]).filter(x=>findNation(x)).slice(0,DM_GROUP_MAX);if(sel.length<2)return;const me=myId(),m=[me,...sel],gid=dmGroupId(m);
     LT.groups[gid]={m,nm:String(S.dmGName||'').trim().slice(0,60)};S.dmGroupPick=false;S.dmF='all';dmSetPeer(gid);render();const ta=document.getElementById('dm-text');if(ta)ta.focus();}
 });
@@ -21108,6 +21128,7 @@ document.addEventListener('input',e=>{
   if(b==='migmap'){S.mapMig=el.checked;migSave(el.checked);redrawMaps();return;}
   if(b==='atlas'){const D=atlasData();S.atlasT=D.start+(+el.value)/1000*(D.end-D.start);if(+el.value>=1000)S.atlasT=D.end;S.atlasPlay=false;const pb=document.querySelector('[data-act="atlas-play"]');if(pb){pb.textContent='Play';pb.setAttribute('aria-pressed','false');}const c=document.getElementById('atlas-cap');if(c)c.textContent=atlasCaption();const sd=document.getElementById('atlas-side');if(sd)sd.innerHTML=atlasSide();redrawMaps();return;}
 });
+document.addEventListener('submit',e=>{if(e.target.id==='dm-xn-form'){e.preventDefault();const i=document.getElementById('dm-xn');xnFind(i?i.value:'');}});
 document.addEventListener('submit',e=>{if(e.target.id==='site-form'){e.preventDefault();const i=document.getElementById('site-name');nameSite(+e.target.dataset.s,i?i.value:S.siteName);}});
 function expTick(now){
   document.querySelectorAll('[data-live="exp"]').forEach(el=>{el.textContent=fmtDur(+el.dataset.t-now);});
