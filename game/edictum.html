@@ -22728,6 +22728,10 @@ function tallyScan(n,old,now){
   /* the event log */
   const lsig=l=>l.t+'|'+l.k+'|'+(l.a||'')+'|'+(l.b||'')+'|'+(l.fx||''),oldL=sigs(old&&old.log,lsig);
   for(const l of n.log||[]){if(oldL.has(lsig(l)))continue;bump('log:'+l.k,l.t);if(TALLY_TARGET_KINDS.has(l.k)&&l.a)bump(l.k+':'+l.a,l.t);}
+  /* the Regional Assembly: sessions on record, the player's own motions passed, terms as Delegate */
+  {const hs=h=>h.r+'|'+h.c,oh=sigs(old&&old.asm&&old.asm.h,hs),me=myId();
+   for(const h of (n.asm&&n.asm.h)||[]){if(oh.has(hs(h)))continue;bump('asm:res',h.f);if(h.ok&&h.by===me)bump('asm:mine',h.f);}
+   const ds=d=>d.t+'|'+d.r,od=sigs(old&&old.asm&&old.asm.d,ds);for(const d of (n.asm&&n.asm.d)||[])if(d.on&&!od.has(ds(d)))bump('asm:del',d.t);}
   /* decisions, by topic */
   const asig=a=>a.t+'|'+a.id,oldA=sigs(old&&old.answered,asig);
   for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];if(a.o<0){bump('dismiss',a.t);continue;}bump('iss',a.t);if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);}}
@@ -35815,7 +35819,7 @@ document.addEventListener('submit',e=>{
   const ta=document.getElementById('flk-text'),x=String(ta?ta.value:'').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g,' ').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim().slice(0,FK_LEN),now=Date.now();
   if(!S.nation||!x){toast('Write something first.');return;}
   if(fkTodayCount(S.nation,now)>=FK_DAYMAX){toast('That is ten peeps in a day. Try again tomorrow.');return;}
-  const n=clone(S.nation);n.flk=(Array.isArray(n.flk)?n.flk:[]).concat({t:now,x}).slice(-FK_KEEP);commit(n);saveSoon();S.flkDraft='';S.flkN=FK_PAGE;S.flkTag=null;render();toast('Peeped. The nation is reading it.');
+  const n=clone(S.nation);n.flk=(Array.isArray(n.flk)?n.flk:[]).concat({t:now,x}).slice(-FK_KEEP);gbBump(n,'flk',1,now);commit(n);saveSoon();S.flkDraft='';S.flkN=FK_PAGE;S.flkTag=null;render();toast('Peeped. The nation is reading it.');
 },true);
 document.addEventListener('input',e=>{const el=e.target;if(!el||el.id!=='flk-text')return;S.flkDraft=el.value;const c=document.getElementById('flk-cnt');if(c)c.textContent=el.value.length+' / '+FK_LEN;});
 /* new peeps arrive while the page is open: a pill offers them, nothing jumps */
@@ -41237,7 +41241,7 @@ function mdOk(n,k,now){return mdNow(n,now)+1e-9>=mdCost(n,k);}
 function mdWait(n,k,now){const need=mdCost(n,k)-mdNow(n,now);return need<=1e-9?0:need/Math.max(0.05,mdRate(n))*DAY;}
 const mdFmt=v=>{const x=Math.floor(v*10+1e-6)/10;return x%1?x.toFixed(1):String(x);};
 /* spending banks the rest now; under one-person rule a decree also costs a point of political freedom */
-function mdSpend(n,k,now){n.mdt={v:Math.round(Math.max(0,mdNow(n,now)-mdCost(n,k))*1000)/1000,t:now};if(mdOne(n))applyEffects(n,{pol:-1});}
+function mdSpend(n,k,now){n.mdt={v:Math.round(Math.max(0,mdNow(n,now)-mdCost(n,k))*1000)/1000,t:now};try{gbBump(n,'mdt',1,now);}catch(e){}if(mdOne(n))applyEffects(n,{pol:-1});}
 function mdGain(n,v,now){n.mdt={v:Math.round(clamp(mdNow(n,now)+v,0,MD_CAP)*1000)/1000,t:now};}
 function mdShort(n,k,now){return `Not enough mandate: this needs ${mdCost(n,k)}, and you have ${mdFmt(mdNow(n,now))}. Enough in ${fmtDur(mdWait(n,k,now))}.`;}
 function mdMeter(v,cls){return `<span class="gv-md-m${cls?' '+cls:''}" role="meter" aria-valuemin="0" aria-valuemax="${MD_CAP}" aria-valuenow="${mdFmt(v)}" aria-label="Mandate ${mdFmt(v)} of ${MD_CAP}">${Array.from({length:MD_CAP},(_,i)=>`<i style="--f:${clamp(v-i,0,1).toFixed(2)}"></i>`).join('')}</span>`;}
@@ -41447,7 +41451,7 @@ function gvBriefState(n,now){
 function gvBriefAnswer(j){
   const now=Date.now(),n0=S.nation;if(!n0)return;const st=gvBriefState(n0,now);if(st.done)return;const o=st.it.o[j];if(!o)return;
   const n=clone(n0),cab0=cabOf(n0),s0={...n0.s},md0=mdNow(n0,now),e=Object.assign({},o.e),md=e.md||0;delete e.md;
-  applyEffects(n,e);if(md)mdGain(n,md,now);n.brf={d:st.d,i:st.it.id,a:j};
+  applyEffects(n,e);if(md)mdGain(n,md,now);n.brf={d:st.d,i:st.it.id,a:j};try{gbBump(n,'brf',1,now);}catch(e){}
   commit(n);
   const bits=[];for(const k of STAT_KEYS){const v=Math.round(S.nation.s[k]-s0[k]);if(v)bits.push(`${cenName(k)} ${v>0?'+':'−'}${Math.abs(v)}`);}
   const cab1=cabOf(S.nation);for(const pf of PF_KEYS){const a=cab0[pf],b=cab1[pf];if(a&&b&&a.nm===b.nm&&a.lo!==b.lo)bits.push(`${b.nm}: loyalty ${a.lo} → ${b.lo}`);}
@@ -52548,7 +52552,7 @@ achDef('bld','bld-sky120','x','Skyline of the Age','Have 120 buildings standing 
 [['dip-rc40','p','Talent Agency',40,'Recruit 40 players through your link.'],['dip-rc60','x','Nation Builder',60,'Recruit 60 players. Whole regions owe you a drink.']]
   .forEach(([id,t,n,g,d])=>achDef('dip',id,t,n,d,g,x=>x.npc?0:Array.isArray(x.n.rcp)?x.n.rcp.length:0));
 achDef('mus','mus-all','x','The Complete Collection','Collect every artefact in the Reach.',()=>aCollTotal(),x=>x.npc?0:aCollN('count',x.n),{need:achMuseum});
-[['press-hold20','p','Front Page Regular',20,'Be the lead story of the newspaper 20 times.'],['press-hold30','x','Paper of Record',30,'Be the lead story of the newspaper 30 times.']]
+[['press-hold20','p','Front Page Regular',20,'Be the lead story of the newspaper 20 times.'],['press-hold30','x','Front Page Forever',30,'Be the lead story of the newspaper 30 times.']]
   .forEach(([id,t,n,g,d])=>achDef('press',id,t,n,d,g,x=>aT(x,'dsp:lead')));
 [['land-ore20','p','Iron Crown',20,'Hold 20 large iron deposits at once.'],['land-ore30','x','Lord of the Lodes',30,'Hold 30 large iron deposits at once.']]
   .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,aDeps));
@@ -52560,6 +52564,56 @@ achDef('eco','eco-iron50','x','Iron Age','Have your stockpile gain 50 iron a day
 [['odd-desk180','p','Half a Year of Desks',180,'Clear your daily desk on 180 days.'],['odd-desk365','x','Every Day a Desk',365,'Clear your daily desk on 365 days.']]
   .forEach(([id,t,n,g,d])=>achDef('odd',id,t,n,d,g,aDesks));
 achDef('odd','odd-stk365','x','Unbroken','Keep up a presence streak of 365 days.',365,x=>x.npc?0:stkDays(x.n));
+
+/* ───────── achievements for Flock, provinces, warehouses, roads, mayors and city mood, the Assembly and parliament ───────── */
+const aProvN=x=>achM(x,'prv',()=>{try{if(x.npc||!prvOnRec(x.n))return 0;const T=territory(),i=prvIdx(T,x.n);if(i===undefined)return 0;const N=prvNatWith(T,i,x.n.prov);return N&&N.prov?N.prov.filter(p=>p.cells&&p.cells.length).length:0;}catch(e){return 0;}});
+const aWh=x=>achM(x,'wh',()=>{try{return x.npc?[]:whOwnEntries(x.n).filter(e=>e.b&&e.b.d<=x.now);}catch(e){return [];}});
+const aInfra=(x,k)=>(Array.isArray(x.n.infra)?x.n.infra:[]).filter(r=>r&&Number.isFinite(r.d)&&r.d<=x.now&&(!k||r.k===k)).length;
+const aMyCities=x=>achM(x,'mycities',()=>{try{const T=territory(),i=T.byId[x.id];if(i===undefined)return [];return cityState(T).all.filter(ct=>ct.hi===i&&ct.active);}catch(e){return [];}});
+const aMood=(x,min)=>aMyCities(x).filter(ct=>{try{return cxMood(ct,x.now).v>=min;}catch(e){return false;}}).length;
+const aMayors=x=>(x.n.cities||[]).filter(c=>{try{return !!cxCityExtras(c).my;}catch(e){return false;}}).length;
+const aParl=x=>achM(x,'parl',()=>{try{return x.npc?null:gvParl(x.n,x.now);}catch(e){return null;}});
+/* Flock */
+[['flk-1','b','First Peep',1,'Post your first peep on Flock.'],['flk-25','s','Regular Peeper',25,'Post 25 peeps on Flock.'],['flk-100','g','Influencer',100,'Post 100 peeps on Flock. The nation hangs on every word.']]
+  .forEach(([id,t,n,g,d])=>achDef('soc',id,t,n,d,g,x=>aT(x,'flk')));
+/* provinces */
+[['prv-2','b','A Second Seat',2,'Govern your land as two provinces.'],['prv-5','s','Federal Republic',5,'Govern your land as five provinces.'],['prv-10','g','United Provinces',10,'Govern your land as ten provinces.']]
+  .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,aProvN));
+achDef('land','prv-gov5','s','Governor’s Ball','Appoint five governors.',5,x=>aT(x,'log:govnew'));
+achDef('land','prv-merge','b','Two Become One','Merge two provinces into one.',1,x=>aT(x,'log:provmrg'));
+/* warehouses */
+achDef('bld','wh-1','b','Somewhere to Put It','Complete a Warehouse.',1,x=>aWh(x).length);
+achDef('bld','wh-3','s','Three Depots','Have a Warehouse in three cities.',3,x=>aWh(x).length);
+achDef('bld','wh-t3','s','Stacked to the Rafters','Raise a Warehouse to its third tier.',1,x=>achYes(aWh(x).some(e=>whLevel(e.b,x.now)>=2)),{fm:'bool'});
+achDef('bld','wh-max','g','The Great Depot','Raise a Warehouse to its final tier.',1,x=>achYes(aWh(x).some(e=>whLevel(e.b,x.now)>=WH_BONUS.length-1)),{fm:'bool'});
+/* roads and transport */
+achDef('land','tr-1','b','All Roads','Build your first road.',1,x=>aInfra(x,'road'));
+achDef('land','tr-10','s','Road Network','Have 10 roads, rail lines or bridges finished.',10,x=>aInfra(x)-aInfra(x,'sea'));
+achDef('land','tr-rail','g','Iron Horse','Finish a rail line.',1,x=>aInfra(x,'rail'));
+achDef('land','tr-bridge','s','Mind the Gap','Finish a bridge.',1,x=>aInfra(x,'bridge'));
+achDef('land','tr-all','g','Every Road Leads Home','Have at least four cities, every one of them on a road.',1,x=>{const C=aMyCities(x);return achYes(C.length>=4&&C.every(ct=>cxRoadAt(ct.fn,ct.c,x.now)));},{fm:'bool'});
+/* mayors and city mood */
+achDef('land','my-1','b','Chain of Office','Appoint a mayor.',1,aMayors);
+achDef('land','my-all','s','A Mayor for Every Town','Have a mayor in every city, with at least four cities.',1,x=>{const c=(x.n.cities||[]).length;return achYes(c>=4&&aMayors(x)>=c);},{fm:'bool'});
+achDef('land','md-thrive','s','City of Plenty','Have a city whose mood is Thriving.',1,x=>aMood(x,75));
+achDef('land','md-all','g','Content Nation','Have at least five cities, every one Content or better.',1,x=>{const C=aMyCities(x);return achYes(C.length>=5&&aMood(x,50)===C.length);},{fm:'bool'});
+achDef('land','md-10','p','Golden Age of Cities','Have ten Thriving cities at once.',10,x=>aMood(x,75));
+/* the Regional Assembly */
+[['asm-1','b','Order, Order',1,'Sit through your first Assembly session.'],['asm-25','s','Seasoned Member',25,'Sit through 25 Assembly sessions.']]
+  .forEach(([id,t,n,g,d])=>achDef('dip',id,t,n,d,g,x=>aT(x,'asm:res')));
+[['asm-mine','s','Author of the Motion',1,'See a resolution you proposed pass the Assembly.'],['asm-mine5','g','Legislator of the Reach',5,'See five resolutions you proposed pass the Assembly.']]
+  .forEach(([id,t,n,g,d])=>achDef('dip',id,t,n,d,g,x=>aT(x,'asm:mine')));
+[['asm-del','s','Delegate of the Reach',1,'Serve a term as Delegate of the Regional Assembly.'],['asm-del5','p','Perennial Delegate',5,'Serve five terms as Delegate.']]
+  .forEach(([id,t,n,g,d])=>achDef('dip',id,t,n,d,g,x=>aT(x,'asm:del')));
+/* elections and parliament */
+achDef('gov','gv-alone','s','Governing Alone','Have one party govern with a majority of its own.',1,x=>{const P=aParl(x);return achYes(!!P&&P.sys!=='none'&&P.gov.length===1&&P.govSeats>=P.maj);},{fm:'bool'});
+achDef('gov','gv-coal','b','Coalition of the Willing','Have three or more parties govern together.',1,x=>{const P=aParl(x);return achYes(!!P&&P.gov.length>=3);},{fm:'bool'});
+achDef('gov','gv-seats','g','A Full House','Have a parliament of 600 seats or more.',600,x=>{const P=aParl(x);return P?P.seats:0;});
+achDef('gov','gv-senate','b','Upper Chamber','Have an upper house sitting.',1,x=>{const P=aParl(x);return achYes(!!(P&&P.senate));},{fm:'bool'});
+[['md-spend10','s','Mandate Spender',10,'Spend your mandate 10 times.'],['md-spend50','g','Political Capital',50,'Spend your mandate 50 times.']]
+  .forEach(([id,t,n,g,d])=>achDef('gov',id,t,n,d,g,x=>aT(x,'mdt')));
+[['brf-10','b','Read the Briefing',10,'Answer 10 daily briefings.'],['brf-60','s','Well Briefed',60,'Answer 60 daily briefings.']]
+  .forEach(([id,t,n,g,d])=>achDef('gov',id,t,n,d,g,x=>aT(x,'brf')));
 
 /* ───────── Obsidian: secret, extreme versions of the hardest goals (500 prestige each) ─────────
    Shown only as "Obsidian (?)" with a hint until earned. */
