@@ -117,6 +117,13 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await db.doc('alPace/' + uid).delete();
     // its reactions on the region boards (functions/board.js)
     await rmbForget(db, uid, DATA.regions.map(r => r.id));
+    // the region newspapers: a Delegate's signature on a paper's name (functions/civic.js, paper) and the account
+    // that printed an edition into the archive (papers/, firestore.rules); the name and the editions stay
+    const [named, printed] = await Promise.all([db.collection('press').where('by', '==', uid).get(), db.collection('papers').where('by', '==', uid).get()]);
+    if (!named.empty || !printed.empty) {
+      const w = db.bulkWriter();
+      await Promise.all([...named.docs.map(s => w.update(s.ref, { by: FieldValue.delete(), bn: FieldValue.delete() })), ...printed.docs.map(s => w.update(s.ref, { by: '' })), w.close()]);
+    }
     await getAuth().deleteUser(uid);
     return { ok: true };
   }
