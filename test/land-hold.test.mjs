@@ -10,8 +10,10 @@ const MARK='/* ───────── keeping small: land credit gains paus
 const STORED=9;
 
 function sandbox(nation){
-  const start=source.indexOf(MARK),end=source.indexOf('\nconst hot=window.claude',start);
-  assert.ok(start>0&&end>start,'the section sits at the end of the script, before the hot-reload tail');
+  // the section ends at the hot-reload tail, or at the next banner if a later feature is added after it
+  const start=source.indexOf(MARK),tail=source.indexOf('\nconst hot=window.claude',start),next=source.indexOf('\n/* ───────── ',start+MARK.length);
+  const end=next>start&&next<tail?next:tail;
+  assert.ok(start>0&&end>start,'the section sits near the end of the script, before the hot-reload tail');
   const listeners=[],applied=[],toasts=[];
   const ctx=vm.createContext({
     S:{nation,view:'settings'},OBS:false,NORM_HOOKS:[],

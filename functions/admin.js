@@ -10,6 +10,7 @@ import { setComp } from './shop.js';
 import { cbDelete, rmbForget } from './board.js';
 import { alDrop } from './alliances.js';
 import { shopSummary } from './shop-stats.js';
+import { supportAdmin } from './support.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 /* every region, from the same list the save permit checks (civic-data.json): a list of its own here missed Terra */
@@ -109,7 +110,7 @@ async function overview(db, uid, shared, acct, shop) {
   const alts = names.map(s => ({ uid: s.id, name: s.get('name') || '', reg: s.get('reg') || '', t: s.get('t') || 0, at: (seen.docs.find(d => d.id === s.id)?.get('at')) || 0 }));
   const rep = d => ({ id: d.id, t: when(d.get('t')), reason: text(d.get('reason'), 40), note: text(d.get('note'), 300), kind: d.get('kind') || '', name: text(d.get('name'), 80), by: d.get('by') || '', target: d.get('target') || '' });
   return { nation, purchases, alts, reports: { against: few(against, rep), by: few(by, rep),
-    tickets: few(tickets, d => ({ id: d.id, t: when(d.get('t')), topic: d.get('topic') || '', x: text(d.get('x'), 300), st: d.get('st') || '' })),
+    tickets: few(tickets, d => ({ id: d.id, t: when(d.get('t')), topic: d.get('topic') || '', x: text(d.get('x'), 300), st: d.get('st') || '', n: Array.isArray(d.get('m')) ? d.get('m').length : 0 })),
     bugs: few(bugs, d => ({ id: d.id, t: when(d.get('t')), ti: text(d.get('ti'), 120), st: d.get('st') || '' })) },
     actions: acts.docs.map(e => ({ t: ms(e.get('at')), action: e.get('action') || '', reason: text(e.get('reason'), 200), actor: e.get('actor') || '', outcome: e.get('outcome') || '' })) };
 }
@@ -210,9 +211,19 @@ async function setRegion(db, actor, data) {
   });
   return { ok: true };
 }
+const AD_KEEP = 12 * 86400000;
+async function adOff(db, reg, key, now) {
+  const ref = db.doc('press/' + reg);
+  await db.runTransaction(async tx => {
+    const s = await tx.get(ref), x = { ...(s.get('x') || {}) };
+    for (const k of Object.keys(x)) if (!(Number(x[k]) > now - AD_KEEP)) delete x[k];
+    x[key] = now;
+    tx.set(ref, { x }, { mergeFields: ['x'] });
+  });
+}
 async function mutate(db, actor, data) {
   const action = text(data.action, 40), target = id(data.target), reason = text(data.reason, 300) || 'Admin console action';
-  const allowed = ['hide', 'rename', 'unhide', 'remove', 'ban', 'unban', 'delete_post', 'close_report', 'support_answer', 'support_close', 'support_delete'];
+  const allowed = ['hide', 'rename', 'unhide', 'remove', 'ban', 'unban', 'delete_post', 'close_report', 'press_reset', 'support_reply', 'support_answer', 'support_close', 'support_reopen', 'support_delete'];
   if (!allowed.includes(action)) throw new HttpsError('invalid-argument', 'Unknown admin action.');
   if (['hide', 'rename', 'remove', 'ban'].includes(action) && target === actor) throw new HttpsError('failed-precondition', 'You cannot moderate your own account.');
   const event = db.collection('adminAudit').doc(), common = { actor, action, target, reason, operation: event.id };
@@ -260,19 +271,22 @@ async function mutate(db, actor, data) {
     // and a Community Board post is cb:<region>:<topic>[:<reply>] (functions/board.js keeps the counts right)
     const cb = action === 'delete_post' && /^cb:([a-z]{2,40}):([A-Za-z0-9]{20})(?::([A-Za-z0-9]{20}))?$/.exec(target);
     if (cb) await cbDelete(db, { uid: actor, admin: true }, { reg: cb[1], topic: cb[2], ...(cb[3] ? { reply: cb[3] } : {}), reason }, new Set([cb[1]]));
-    else if (action === 'delete_post' && !news) { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
+    // a classified advertisement in the region's newspaper is ad:<region>:<player>:<ad>. It lives in the player's own
+    // record, which only their game writes, so it is struck out in press/<region>.x, which every reader of the paper
+    // follows; entries older than the longest an advertisement is kept (12 days) go at the same time
+    const ad = action === 'delete_post' && !cb && !news && /^ad:([a-z]{2,40}):([\w-]{1,128}):([a-z0-9]{1,12})$/.exec(target);
+    if (ad) {
+      if (!REGIONS.has(ad[1])) throw new HttpsError('invalid-argument', 'Choose a region.');
+      await adOff(db, ad[1], ad[2] + '_' + ad[3], now);
+    } else if (action === 'delete_post' && !news && !cb) { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
     if (action === 'close_report') await db.doc('reports/' + target).delete();
-    if (action.startsWith('support_')) {
-      const ref = db.doc('support/' + target);
-      if (action === 'support_delete') await ref.delete();
-      else await db.runTransaction(async tx => {
-        const s = await tx.get(ref);
-        if (!s.exists || s.get('st') !== 'open') throw new HttpsError('failed-precondition', 'This ticket is already closed or removed.');
-        const reply = text(data.reply, 2000);
-        if (action === 'support_answer' && !reply) throw new HttpsError('invalid-argument', 'Write an answer first.');
-        tx.update(ref, { st: 'closed', ct: FieldValue.serverTimestamp(), rby: actor, exp: Timestamp.fromMillis(now + 90 * 86400000), ...(reply ? { reply } : {}) });
-      });
+    // the newspaper's name and motto as a Delegate chose them (functions/civic.js, paper): back to the paper's own
+    if (action === 'press_reset') {
+      if (!REGIONS.has(target)) throw new HttpsError('invalid-argument', 'Choose a region.');
+      await db.doc('press/' + target).set({ nm: '', mo: '', by: FieldValue.delete(), bn: FieldValue.delete(), t: now }, { merge: true });
     }
+    // a reply keeps the ticket open (the player's turn); an answer closes it (functions/support.js)
+    if (action.startsWith('support_')) await supportAdmin(db, actor, action, target, data.reply);
     if (text(data.report)) await db.doc('reports/' + id(data.report)).delete();
     await db.collection('adminAudit').add({ ...common, name, outcome: 'completed', at: FieldValue.serverTimestamp() });
     directoryAt = 0;

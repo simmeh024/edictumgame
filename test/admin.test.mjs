@@ -275,6 +275,53 @@ test('moderation and support actions have immutable server outcomes, including f
   assert.equal((await get('bans/' + p.uid)).fields.by.stringValue, a.uid);
   assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'ban' && e.outcome === 'completed' && e.actor === a.uid));
 });
+test('a support ticket is a conversation: a reply keeps it open, the player writes back, closes it and opens it again', async () => {
+  const a = await user(true), p = await user(), q = await user(), sup = (u, d) => call(u, { op: 'support', ...d }, 'accounts');
+  const say = (reply, action = 'support_reply') => call(a, { op: 'moderate', action, target: 'talk-test', reply, reason: 'Replied to support ticket' });
+  const doc = async () => (await get('support/talk-test')).fields, thread = f => (f.m?.arrayValue?.values || []).map(v => v.mapValue.fields);
+  await put('support/talk-test', { by: p.uid, topic: 'play', st: 'open', x: 'How do I claim land?', t: new Date(), name: 'Talkland' });
+  await assert.rejects(say(''), e => e.status === 'INVALID_ARGUMENT');                            // a reply needs words
+  await say('Open the Map and pick a hex next to your border.');
+  let f = await doc();
+  assert.equal(f.st.stringValue, 'open'); assert.equal(f.w.stringValue, 'p'); assert.equal(Number(f.pc.integerValue), 0); assert.ok(f.lt.timestampValue);
+  assert.equal(thread(f).length, 1); assert.equal(thread(f)[0].a.stringValue, 's'); assert.equal(thread(f)[0].by.stringValue, a.uid);
+  assert.ok(!f.ct && !f.exp && !f.rby, 'a reply does not close it');
+  // the player writes back, and only on their own ticket
+  await assert.rejects(sup(q, { step: 'reply', id: 'talk-test', x: 'Me too' }), e => e.status === 'FAILED_PRECONDITION');
+  await assert.rejects(sup(p, { step: 'reply', id: 'talk-test', x: '   ' }), e => e.status === 'INVALID_ARGUMENT');
+  await assert.rejects(sup(p, { step: 'reply', id: '../nations/x', x: 'Hi' }), e => e.status === 'INVALID_ARGUMENT');
+  await sup(p, { step: 'reply', id: 'talk-test', x: 'Which hexes\r\ncount as next to it?' });
+  f = await doc();
+  assert.ok(!f.w, 'the team’s turn again'); assert.equal(Number(f.pc.integerValue), 1);
+  assert.equal(thread(f)[1].a.stringValue, 'p'); assert.equal(thread(f)[1].x.stringValue, 'Which hexes\ncount as next to it?');
+  // three in a row at most, until the team answers
+  await sup(p, { step: 'reply', id: 'talk-test', x: 'Hello?' }); await sup(p, { step: 'reply', id: 'talk-test', x: 'Anyone?' });
+  await assert.rejects(sup(p, { step: 'reply', id: 'talk-test', x: 'Fourth' }), e => e.status === 'FAILED_PRECONDITION');
+  // the Live feed shows the player writing back
+  const fe = await call(a, { op: 'feed', span: 'h1', refresh: true });
+  assert.ok(fe.events.some(e => e.k === 'ticketr' && e.uid === p.uid && /Anyone/.test(e.x)), 'a reply in the feed');
+  // the team answers and closes; the player opens it again by writing in it
+  await say('Any hex that touches one you hold.', 'support_answer');
+  f = await doc();
+  assert.equal(f.st.stringValue, 'closed'); assert.equal(f.rby.stringValue, a.uid); assert.ok(f.exp.timestampValue); assert.ok(!f.w); assert.equal(thread(f).length, 5);
+  await assert.rejects(say('More'), e => e.status === 'FAILED_PRECONDITION');                     // closed stays closed for the team
+  const r = await sup(p, { step: 'reply', id: 'talk-test', x: 'One more thing' });
+  assert.equal(r.reopened, true);
+  f = await doc();
+  assert.equal(f.st.stringValue, 'open'); assert.ok(!f.ct && !f.exp && !f.rby); assert.equal(Number(f.pc.integerValue), 1);
+  // the player closes it themself, and nobody else can
+  await assert.rejects(sup(q, { step: 'close', id: 'talk-test' }), e => e.status === 'FAILED_PRECONDITION');
+  await sup(p, { step: 'close', id: 'talk-test' });
+  f = await doc();
+  assert.equal(f.st.stringValue, 'closed'); assert.equal(f.rby.stringValue, p.uid); assert.ok(f.exp.timestampValue);
+  // an admin reopens it; a ticket closed too long ago stays closed for the player
+  await call(a, { op: 'moderate', action: 'support_reopen', target: 'talk-test', reason: 'Reopened support ticket' });
+  assert.equal((await doc()).st.stringValue, 'open');
+  await assert.rejects(call(a, { op: 'moderate', action: 'support_reopen', target: 'talk-test', reason: 'x' }), e => e.status === 'FAILED_PRECONDITION');
+  await put('support/talk-old', { by: p.uid, topic: 'play', st: 'closed', x: 'Old question', t: new Date(Date.now() - 40 * 86400000), ct: new Date(Date.now() - 20 * 86400000), rby: a.uid });
+  await assert.rejects(sup(p, { step: 'reply', id: 'talk-old', x: 'Still there?' }), e => e.status === 'FAILED_PRECONDITION' && /Create a new ticket/.test(e.message));
+  assert.ok((await call(a, { op: 'audit', target: 'talk-test' })).events.some(e => e.action === 'support_reply' && e.outcome === 'completed'));
+});
 test('statistics count every nation and account, for the world or one region, and the nightly job records them', async () => {
   const a = await user(true), p = await user(), q = await user(); await user();
   const now = Date.now(), rec = (name, reg, extra) => JSON.stringify({ name, reg, pop: 5, founded: now - 3 * 86400000, updatedAt: now, ...extra });
@@ -391,4 +438,19 @@ test('the alerts job files each finding once, posts the new ones to Discord, and
   assert.equal((await call(a, { op: 'alerts' })).cfg.reports, 5);
   assert.ok((await call(a, { op: 'audit', target: 'alerts' })).events.some(e => e.action === 'alerts_config' && e.actor === a.uid));
   await call(a, { op: 'alerts', action: 'cfg', cfg: { reports: 3, buys: true } });
+});
+
+test('a reported classified advertisement is struck out for the whole region, and the paper\'s name can be reset', async () => {
+  const a = await user(true), p = await user();
+  await put('press/meridian', { nm: 'The Rude Gazette', mo: 'Rude since today', by: p.uid, bn: 'Rudeland', t: Date.now() });
+  await call(a, { op: 'moderate', action: 'delete_post', target: `ad:meridian:${p.uid}:abc123`, reg: 'meridian', reason: 'Spam or advertising' });
+  let d = await get('press/meridian');
+  assert.ok(d.fields.x.mapValue.fields[p.uid + '_abc123'], 'the advertisement is struck out');
+  assert.equal(d.fields.nm.stringValue, 'The Rude Gazette', 'the name is untouched by a removal');
+  await assert.rejects(call(a, { op: 'moderate', action: 'delete_post', target: `ad:nowhere:${p.uid}:abc123`, reason: 'x' }), e => e.status === 'INVALID_ARGUMENT');
+  await call(a, { op: 'moderate', action: 'press_reset', target: 'meridian', reason: 'Offensive name' });
+  d = await get('press/meridian');
+  assert.equal(d.fields.nm.stringValue, '');assert.equal(d.fields.mo.stringValue, '');assert.equal(d.fields.by, undefined);
+  assert.ok(d.fields.x.mapValue.fields[p.uid + '_abc123'], 'and the removals stay');
+  await assert.rejects(call(p, { op: 'moderate', action: 'press_reset', target: 'meridian', reason: 'x' }));
 });

@@ -27,10 +27,11 @@
      authConfig/paddle      {env, apiKey, webhookSecret, clientToken, prices: {founder, idpack, vip}}
                             (tools/admin/set-paddle.mjs). Nobody reads it but this code.
      shop/{uid}             what the player owns, which only they read: {owns: {founder?, idpack?}, vip?: {until,
-                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, pend, notes, reg}
-     finery/{uid}           {c: [cosmetic ids], reg, cl?}: the shop cosmetics every other player's game checks before it
+                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, adbox?, pend, notes, reg}
+     finery/{uid}           {c: [cosmetic ids], reg, cl?, bx?}: the shop cosmetics every other player's game checks before it
                             shows them (a nation's own record cannot vouch for them); cl {s, u, m, f}, only once the player
-                            has chosen a Chancery seal to show: which, and the membership's end and months that decide it
+                            has chosen a Chancery seal to show: which, and the membership's end and months that decide it;
+                            bx, only once they box their newspaper advertisements (adbox): the membership's end
      shopCheckouts/{txn}    {uid, product, at, env, price}: each checkout this server opened
      shopTx/{txn}           a completed transaction: {uid, product, ok, ck, created, paid, period, sub, ctm, …}
      shopSubs/{sub}         a subscription: {uid, status, period, cancelAt, next, firstTxn, occ, …}
@@ -200,10 +201,14 @@ async function settle(cfg, uid) {
     const seal = Object.hasOwn(SEALS, shop.get('seal') || '') ? shop.get('seal') : '';
     if (seal) doc.seal = seal;
     const cl = seal && e.vip ? { s: seal, u: e.vip.until, m: e.vip.m, f: e.vip.f } : null;
+    /* boxed classified advertisements in the region's newspaper, a Club perk: once the player chooses them (step adbox),
+       finery bx says until when the membership runs, and the games box their advertisements placed before then */
+    if (shop.get('adbox') === true) doc.adbox = true;
+    const bx = doc.adbox && e.vip ? e.vip.until : 0;
     /* renewals reported before their subscription was known to be this player's */
     for (const s of txDocs.values()) if (s.get('uid') !== uid) tx.update(s.ref, { uid });
     tx.set(shopRef, doc);
-    if (e.cosmetics.length || cl) tx.set(finRef, cl ? { c: e.cosmetics, reg, cl } : { c: e.cosmetics, reg }); else tx.delete(finRef);
+    if (e.cosmetics.length || cl || bx) tx.set(finRef, { c: e.cosmetics, reg, ...(cl ? { cl } : {}), ...(bx ? { bx } : {}) }); else tx.delete(finRef);
     return { e, txDocs, subMap };
   });
   /* refunds and cancellations the rules call for, each asked once */
@@ -384,6 +389,16 @@ async function seal(cfg, uid, d) {
   return { ok: true, seal: id };
 }
 
+/* boxed advertisements in the newspaper on or off (see settle, bx): showing them tells other players this one is a
+   member, so it is the player's choice, made the first time they place a boxed advertisement */
+async function adbox(cfg, uid, d) {
+  if (typeof d.on !== 'boolean') throw new HttpsError('invalid-argument', 'Choose whether to box your advertisements.');
+  await pace(uid, 's', 2000);
+  await getFirestore().doc('shop/' + uid).set({ adbox: d.on }, { merge: true });
+  const e = await settle(cfg, uid);
+  return { ok: true, adbox: d.on, until: e.vip ? e.vip.until : 0 };
+}
+
 /* before the account is deleted (src/shim.js, doDelete): no subscription may go on billing an account that is gone */
 async function closing(cfg, uid) {
   const db = getFirestore();
@@ -436,6 +451,7 @@ export async function shopStep(uid, d) {
   if (d.step === 'resume') return resume(cfg, uid);
   if (d.step === 'pick') return pick(cfg, uid, d);
   if (d.step === 'seal') return seal(cfg, uid, d);
+  if (d.step === 'adbox') return adbox(cfg, uid, d);
   if (d.step === 'closing') return closing(cfg, uid);
   throw new HttpsError('invalid-argument', 'Unknown shop step.');
 }
