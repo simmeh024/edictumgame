@@ -34,9 +34,24 @@ check('the admin’s own nation is nowhere in the page: a stand-in without land 
 check('the map shows the region’s player nations', await until(async () => await A.evaluate(() => G.territory().list.some(x => x.n.name === 'Frostia')), 15000));
 check('its panel selects nations rather than offering a place to settle', /Select a nation on the map/.test(await text(A, '#map-panel')) && !await A.$('[data-act="map-suggest"]'));
 const navs = await A.$$eval('.nav [data-v]', els => [...new Set(els.map(e => e.dataset.v))].sort().join(','));
-check('the menu holds only the pages there are to observe', navs === 'census,map,region,world', navs);
+check('the menu holds only the pages there are to observe', navs === 'assembly,census,community,dispatch,games,map,region,wonder,world', navs);
 await A.screenshot({ path: OUT + '/observe-map.png', fullPage: true });
 
+// The region's Assembly, Great Statue, Games and alliances, with their members' channel, as a player there sees them.
+{ const uidF = uidB, now = Date.now(), put = (path, fields) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields }) });
+  await put('alliances/al-frost', { reg: { stringValue: 'frostmarch' }, name: { stringValue: 'Frost Pact' }, mem: { mapValue: { fields: { [uidF]: { mapValue: { fields: { t: { integerValue: String(now) }, r: { stringValue: 'o' } } } } } } } });
+  await put('alliances/al-frost/chat/m1', { a: { stringValue: uidF }, nm: { stringValue: 'Frostia' }, x: { stringValue: 'Shall we raid the Meridian herring fleet?' }, t: { integerValue: String(now) } });
+  await nav(A, 'assembly');
+  check('the Assembly opens with the region’s seats, read-only', await until(async () => /The Frostmarch Assembly/.test(await text(A, '.main')) && /one run by a player/.test(await text(A, '.main')) && /You are observing/.test(await text(A, '.main')), 20000), (await text(A, '.main')).slice(0, 300));
+  await nav(A, 'wonder');
+  check('the Great Statue shows its phase without a form to give', await until(async () => /The Great Statue of the Frostmarch/.test(await text(A, '.main'))) && !/Give to this phase/.test(await text(A, '.main')));
+  await nav(A, 'games');
+  check('the Games show the region’s events without a team to send', await until(async () => /The Frostmarch Games/.test(await text(A, '.main'))) && !await A.$('[data-act="g-enter"]') && !await A.$('[data-act="g-focus"]') && !await A.$('#g-cabinet'));
+  await nav(A, 'region'); await regionTab(A, 'alliances');
+  check('the Region page lists the region’s alliances', await until(async () => !!await A.$('[data-act="al-page"]'), 20000));
+  await A.click('[data-act="al-page"]');
+  check('an alliance’s page opens with its members’ channel, read-only', await until(async () => /Frost Pact/.test(await text(A, '.main')) && /Shall we raid the Meridian herring fleet\?/.test(await text(A, '.obs-chan')), 20000) && !await A.$('#al-chat-form'));
+  await A.screenshot({ path: OUT + '/observe-alliance.png', fullPage: true }); }
 await nav(A, 'region'); await regionTab(A);
 check('the Region page lists the region’s nations, with no “You”', await until(async () => /Frostia/.test(await text(A, '.tbl')) && !/Adminland/.test(await text(A, '.tbl')) && !await A.$('.tbl .chip.you')));
 check('and its board, with a form that posts only as the Edictum team', /Message board/.test(await text(A, '#rgn-p-board')) && !!await A.$('#rmb-form #rmb-as-team:checked') && !await A.$('#rmb-as-nat'));

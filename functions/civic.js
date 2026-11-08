@@ -271,7 +271,19 @@ async function regionView(db, who, waited) {
   try { return await run; } finally { if (closing.get(reg) === run) closing.delete(reg); }
 }
 
+/* An admin observing a region (the game's observer mode) reads its Assembly as a player there sees it, without a seat:
+   the same cached region view, with no record of their own, and nothing closed or locked on their account. */
+async function observeView(db, who, reg) {
+  if (!who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can observe a region.');
+  if (!regions.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
+  const now = Date.now(), meta = await db.doc('assemblyRegions/' + reg).get();
+  const base = await regionBase(db, reg, rootKey(meta));
+  const records = base.records.slice(), locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now);
+  return output({ records, locks, engine: due.engine }, '', now, { n: { reg }, kind: 'observer', readyAt: 0, moderated: false });
+}
+
 async function assembly(db, who, d) {
+  if (d.op === 'state' && typeof d.obs === 'string' && d.obs) return observeView(db, who, d.obs);
   if (d.op === 'state') return await regionView(db, who) || assemblyTx(db, who, d);
   return assemblyTx(db, who, d);
 }
