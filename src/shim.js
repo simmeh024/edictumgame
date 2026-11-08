@@ -1393,10 +1393,6 @@
   /* what linking gives, and what it never does: said beside the buttons */
   var PERKS = '<ul class="ed-perks"><li>Play the same nation on your phone and computer</li><li>Keep it safe if this browser is cleared</li><li>Vote in the Assembly, post on the boards and found alliances</li></ul>';
   var TRUST = '<p class="ed-fine ed-trust">We never post anything for you or see your password. <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
-  function maskEmail(e) {
-    var m = /^([^@]*)@(.*)$/.exec(String(e || '')); if (!m) return String(e || '');
-    var u = m[1]; return (u.length <= 2 ? u.charAt(0) + '•' : u.slice(0, 2) + '•••' + (u.length > 5 ? u.slice(-1) : '')) + '@' + m[2];
-  }
   /* the account's custom claims: admin, and dc/dcn, a linked Discord account's id and name */
   function keepClaims(u, r) { if (u && r && r.claims) { A.claims = r.claims; A.claimsUid = u.uid; } }
   function readClaims(u) { return u ? u.getIdTokenResult().then(function (r) { keepClaims(u, r); }) : Promise.resolve(); }
@@ -1593,7 +1589,7 @@
         row('<button type="button" class="btn" data-ed="email-send">Send the link</button><button type="button" class="btn ghost" data-ed="back">Back</button>');
     } else if (ui.view === 'email-sent') {
       h = '<p class="eyebrow">Check your email</p><h2 class="ed-h" id="ed-dlg-h">Open the link we sent</h2>' +
-        '<p>We sent a sign-in link to <b title="' + esc(ui.email) + '">' + esc(maskEmail(ui.email)) + '</b>. Open it <b>in this browser</b> to finish.</p>' +
+        '<p>We sent a sign-in link to <b>' + esc(ui.email) + '</b>. Open it <b>in this browser</b> to finish.</p>' +
         '<ul class="ed-perks"><li>It can take a minute or two to arrive.</li><li>Not there? Look in your spam or promotions folder for a message from Edictum.</li><li>Each link works once and expires after a while.</li></ul>' +
         row('<button type="button" class="btn" data-ed="close" data-autofocus>Done</button><button type="button" class="btn ghost" data-ed="email-resend" id="ed-resend"' + (resendLeft() ? ' disabled' : '') + '>' + resendLabel() + '</button>') +
         row('<button type="button" class="linkish" data-ed="email">Wrong address? Use another one</button>');
