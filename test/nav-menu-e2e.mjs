@@ -28,10 +28,10 @@ check('a new nation has the usual menu and nothing to reset', /The usual menu/.t
 check('every page is listed, with Nation and Settings locked', await A.$$eval('.nve-r', r => r.length) === icons.length && !await A.$('#nv-eye-nation') && !await A.$('#nv-eye-settings') && !!await A.$('.nve-r[data-v="nation"] .nve-lock'));
 
 // hide a page
-await A.click('#nv-eye-space');
-check('a hidden page leaves the side bar', await until(async () => !await inSide(A, 'space')));
-check('it is saved at once, and the tab says so', (await navOf(A))?.x?.includes('space') && /1 hidden/.test(await text(A, '[data-sg-sub="nav"]')) && /Saved/.test(await text(A, '[data-sg-saved="nav"]')));
-check('the eye keeps the focus and says the page is hidden', await A.evaluate(() => document.activeElement?.id) === 'nv-eye-space' && await A.$eval('#nv-eye-space', b => b.getAttribute('aria-pressed')) === 'false');
+await A.click('#nv-eye-world');
+check('a hidden page leaves the side bar', await until(async () => !await inSide(A, 'world')));
+check('it is saved at once, and the tab says so', (await navOf(A))?.x?.includes('world') && /1 hidden/.test(await text(A, '[data-sg-sub="nav"]')) && /Saved/.test(await text(A, '[data-sg-saved="nav"]')));
+check('the eye keeps the focus and says the page is hidden', await A.evaluate(() => document.activeElement?.id) === 'nv-eye-world' && await A.$eval('#nv-eye-world', b => b.getAttribute('aria-pressed')) === 'false');
 
 // move pages: arrows, and the group menu
 await A.click('#nv-up-census');
@@ -59,10 +59,10 @@ check('groups move with their arrows', await until(async () => (await side(A)).m
 // a hidden page with a badge shows on its group; the search still finds it
 await A.click('#nv-eye-issues');
 check('a hidden page’s badge becomes its group’s dot', await until(async () => !await inSide(A, 'issues')) && await A.$eval('.side .nav-grp[data-g="nation"] .nav-dot.nav-hb', e => getComputedStyle(e).display !== 'none').catch(() => false));
-await A.keyboard.press('Control+k'); await A.waitForSelector('#qj-in'); await A.fill('#qj-in', 'Space');
-check('a hidden page is still in the search', !!await A.$('#qj-list [data-v="space"]'));
-await A.click('#qj-list [data-v="space"]'); await sleep(400);
-check('and while it is open it shows in the menu', await A.$eval('.side .nav-btn.on', b => b.dataset.v).catch(() => '') === 'space');
+await A.keyboard.press('Control+k'); await A.waitForSelector('#qj-in'); await A.fill('#qj-in', 'World');
+check('a hidden page is still in the search', !!await A.$('#qj-list [data-v="world"]'));
+await A.click('#qj-list [data-v="world"]'); await sleep(400);
+check('and while it is open it shows in the menu', await A.$eval('.side .nav-btn.on', b => b.dataset.v).catch(() => '') === 'world');
 await nav(A, 'settings'); await A.click('#sg-tab-nav');
 
 // menu style and headings
@@ -92,7 +92,7 @@ await nav(A, 'settings'); await A.click('#sg-tab-nav'); await A.click('#nv-p-az'
 const az = await side(A);
 check('One list, A to Z: every shown page in one alphabetical list', az.length === 1 && az[0].v.length > 20 && await A.$eval('.layout', e => e.classList.contains('nav-flat')));
 await A.click('#nv-reset');
-check('Reset puts the usual menu back and saves nothing', await until(async () => !(await navOf(A))) && JSON.stringify((await side(A)).map(g => g.k)) === JSON.stringify(['nation', 'land', 'abroad', 'news', 'coll', 'other', 'opts']) && await inSide(A, 'space') && await A.$eval('#nv-reset', b => b.disabled));
+check('Reset puts the usual menu back and saves nothing', await until(async () => !(await navOf(A))) && JSON.stringify((await side(A)).map(g => g.k)) === JSON.stringify(['nation', 'land', 'abroad', 'news', 'coll', 'other', 'opts']) && await inSide(A, 'world') && await A.$eval('#nv-reset', b => b.disabled));
 await A.ctx.close();
 
 // a phone: the tab bar is the player's choice, and the More sheet shows icon tiles

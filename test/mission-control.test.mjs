@@ -39,7 +39,7 @@ function game(){
     function pickIssue(n){const ids=ISSUES.filter(i=>!i.fo&&!i.ws&&!i.mc&&i.id&&!n.inbox.some(x=>x.id===i.id));return ids[hash(n.seed+':'+n.issueSeq)%ids.length].id;}
     function incomingShared(){return [];}function sharedInto(){}function b1Draw(m){return nextEntry(m);}
     function edictPriorNorm(p){return p&&p.id?p:null;}function findNation(){return null;}function pickNb(){return null;}
-    function commit(n){const now=Date.now();for(const h of COMMIT_HOOKS)h(n,S.nation,now);S.nation=n;}
+    function commit(n){const now=Date.now();for(const h of COMMIT_HOOKS)for(const t of h(n,S.nation,now)||[])toast(t);S.nation=n;}
     function fill(t,n,x){return String(t).replace(/\\{N\\}/g,n.name).replace(/\\{CAP\\}/g,n.capital).replace(/\\{L\\}/g,n.leader).replace(/\\{D\\}/g,n.demonym).replace(/\\{(Cs|C|A|As|FIN|DEF|FOR|INT|WRK|HEA|CUL)\\}/g,'x');}
     function geoAfter(n,opt,ent,now){return [];}
     function applyP(n,e){if(e&&e.p)for(const k of Object.keys(e.p)){if(e.p[k])n.policies[k]=true;else delete n.policies[k];}}
@@ -70,7 +70,7 @@ function game(){
     this.G={S,ISSUES,ISSUE_BY_ID,ISSUES_RANDOM,NORM_HOOKS,COMMIT_HOOKS,toasts,syncInbox,answer,dismiss,commit,fill,
       MC_STORY,MC_IDS,MC_TITLES,MC_FACTS,MC_MS,MC_CHAIN,MC_AT,MC_GATE,mcGate,MC_ODDS,MC_GUAR,MC_SEC,MC_MD,MD_COST,MC_TEAM_KEYS,WS_FAMS,
       mcOf,mcNorm,mcBlank,mcCtx,mcCtxNorm,mcLetter,mcOutcome,mcVariant,mcReveal,mcReady,mcNext,mcRoll,mcDone,mcDoneAt,mcHas,mcSlots,mcActive,mcStartProblem,mcHours,mcCost,mcManifest,mcCond,mcDsl,mcCr,mcMdState,mcSpend,mcSiteSecs,mcCrew,
-      mdCost,mdNow,wsOf,fdFam,setRuns:r=>{VIP_RUNS=r;}};`,ctx);
+      mdCost,mdNow,wsOf,fdFam,SPX_AT,SPX_AGAIN,SPX_ID,SPX_TEAM,spOpen,spPreDue,spPre,spPreAt,mcVet,setRuns:r=>{VIP_RUNS=r;}};`,ctx);
   return ctx.G;
 }
 const G0=game();
@@ -83,9 +83,9 @@ function nation(G,over={}){
 function normalize(G,d){const n=JSON.parse(JSON.stringify(d));n.inbox=(d.inbox||[]).filter(x=>x&&G.ISSUE_BY_ID[x.id]).slice(0,5).map(x=>({id:x.id,at:x.at}));for(const h of G.NORM_HOOKS)h(n,d);return n;}
 /* the desk as the player sees it after `slots` arrival times have passed */
 function after(G,n,slots){const m=JSON.parse(JSON.stringify(n));m.issueClock=Date.now()-slots*m.freq*MIN-1000;return G.syncInbox(m,Date.now());}
-const isMc=x=>/^mc-/.test(x.id),mcOn=n=>[...n.inbox].filter(isMc),J=x=>JSON.parse(JSON.stringify(x));
+const isMc=x=>/^mc-\d/.test(x.id),mcOn=n=>[...n.inbox].filter(isMc),J=x=>JSON.parse(JSON.stringify(x));
 /* a nation that has enacted e edicts, with Willow Street's letters up to date so none of them is due */
-function ready(G,e=MC0,over={}){const n=nation(G,over);n.ws.e=e;n.ws.c=[5,10,25,50,100,250,500,1000].filter(a=>a<=e).map(()=>({o:0,f:'rep',b:'111',t:1,x:'',n:''}));if(n.ws.c.length>=8)n.ws.d=1;return n;}
+function ready(G,e=MC0,over={}){const n=nation(G,over);if(!n.mc.p)n.mc.p={o:0,t:Date.now()-30*DAY};n.ws.e=e;n.ws.c=[5,10,25,50,100,250,500,1000].filter(a=>a<=e).map(()=>({o:0,f:'rep',b:'111',t:1,x:'',n:''}));if(n.ws.c.length>=8)n.ws.d=1;return n;}
 const MC0=G0.MC_AT;
 /* the agency, with a mission flown (s and d in the past) */
 function agency(n,tm='flt',flown={}){const now=Date.now();n.mc.a={nm:'Testorian Space Agency',t:now-30*DAY,f:tm,tm:{sci:now-30*DAY,flt:now-30*DAY,eng:now-30*DAY}};
@@ -358,4 +358,59 @@ test('every letter also waits for its gate of enacted edicts: 50, 100, 200, 400,
   assert.equal(G.S.nation.ws.e,100,'a letter answered is not an enacted edict');G.S.nation=after(G,G.S.nation,1);assert.deepEqual(J(mcOn(G.S.nation).map(x=>x.id)),['mc-2']);
   G.answer('mc-2',0);bld(G.S.nation,'mctrl');G.S.nation=after(G,G.S.nation,3);assert.equal(mcOn(G.S.nation).length,0,'letter III waits for 200 edicts');
   clearDesk(G);assert.equal(G.S.nation.ws.e,103,'three ordinary edicts enacted');
+});
+
+/* ── the prelude: the edict that opens the Space page ── */
+const closed=(G,e)=>{const n=ready(G,e);delete n.mc.p;return n;};
+const isPre=G=>x=>x.id===G.SPX_ID;
+test('the Space page opens with an edict once 25 edicts are enacted: certain, one copy, and any answer opens it',()=>{
+  const G=game(),pre=isPre(G);
+  assert.equal(G.SPX_AT,25);
+  let n=closed(G,24);assert.equal(G.spOpen(n),false,'closed below the count');n=after(G,n,6);assert.equal(n.inbox.filter(pre).length,0,'24 edicts: no prelude');
+  const v=after(G,closed(G,25),1);assert.deepEqual(J(v.inbox.map(x=>x.id)),[G.SPX_ID],'the very next slot brings it, no dice');
+  assert.equal(after(G,v,4).inbox.filter(pre).length,1,'one copy, however many slots pass');
+  const is=G.ISSUE_BY_ID[G.SPX_ID];assert.equal(is.fo,1);assert.ok(!G.ISSUES_RANDOM.includes(is),'never drawn at random');assert.equal(is.o.length,3);
+  assert.deepEqual(J(G.SPX_TEAM).sort(),['eng','flt','sci'],'each answer backs a different team');
+  for(let o=0;o<3;o++){G.S.nation=after(G,closed(G,25),1);G.toasts.length=0;G.answer(G.SPX_ID,o);const m=G.S.nation;
+    assert.equal(m.mc.p.o,o);assert.ok(G.spOpen(m),'open after answer '+(o+1));assert.ok(G.toasts.some(t=>/Space page is open/.test(t)),'and the player is told');
+    assert.equal(m.ws.e,25,'a story edict: it does not count as an enacted edict');
+    const back=normalize(G,J(m));assert.equal(back.mc.p.o,o,'kept across a reload');
+    assert.equal(after(G,back,6).inbox.filter(pre).length,0,'and it never comes again');}
+  /* a Willow Street letter due at the same count goes first, then the prelude */
+  n=closed(G,25);n.ws.c=n.ws.c.slice(0,2);let w=after(G,n,1);assert.equal(w.inbox[0].id,'ws-3','Willow Street first');
+  w=after(G,w,1);assert.ok(w.inbox.some(pre),'then the prelude, with the next slot');
+});
+
+test('a veto puts it off for five more edicts, and Dr. Okafor’s first letter waits for the page',()=>{
+  const G=game(),pre=isPre(G);
+  G.S.nation=after(G,closed(G,25),1);G.toasts.length=0;G.dismiss(G.SPX_ID);
+  let m=G.S.nation;assert.deepEqual(J(m.mc.p),{o:-1,t:m.mc.p.t,e:25});assert.ok(!G.spOpen(m),'still closed');assert.ok(G.toasts.some(t=>/come back/.test(t)));
+  assert.equal(G.spPreAt(m),30);assert.equal(normalize(G,J(m)).mc.p.e,25,'the veto is kept across a reload');
+  m.ws.e=29;assert.equal(after(G,m,4).inbox.filter(pre).length,0,'not before thirty');
+  m.ws.e=30;G.S.nation=after(G,m,1);assert.ok(G.S.nation.inbox.some(pre),'back at thirty');
+  G.answer(G.SPX_ID,1);assert.ok(G.spOpen(G.S.nation));assert.equal(G.S.nation.mc.p.o,1,'an answer after a veto opens it');
+  /* sixty edicts on a closed page: the prelude comes, letter I does not, and its dice are not rolled */
+  const n=closed(G,60);n.mc.r=11;const v=after(G,n,3);assert.equal(mcOn(v).length,0,'no letter from Mission Control');assert.equal(v.mc.r,11,'no roll while the page is closed');assert.ok(v.inbox.some(pre));
+  G.S.nation=v;G.answer(G.SPX_ID,0);const w=after(G,G.S.nation,1);assert.deepEqual(J(mcOn(w).map(x=>x.id)),['mc-1'],'then letter I, with its misses intact');
+});
+
+test('a nation already in space keeps the page and never sees the prelude',()=>{
+  const G=game(),now=Date.now();
+  const cases={agency:n=>agency(n),letter:n=>{n.mc.c=[{o:0,f:'rep',b:'111',t:1,x:''}];},desk:n=>{n.inbox=[{id:'mc-1',at:now-1}];},
+    colony:n=>{n.sp={moon:{t:now-DAY,c:5,e:1}};},mars:n=>{n.sp={mars:{t:now-DAY,c:5,e:1}};},belt:n=>{n.belt={st:-1};},wonder:n=>{n.cities[0].b.push({k:'lunar',s:now-DAY,d:now+DAY});}};
+  for(const [k,f] of Object.entries(cases)){const n=closed(G,60);f(n);assert.ok(G.spOpen(n,now),k);assert.equal(G.spPreDue(n,now),false,k+': no prelude');
+    if(k!=='desk')assert.equal(after(G,n,4).inbox.filter(isPre(G)).length,0,k+': none arrives');}
+  assert.equal(G.spOpen(closed(G,60),now),false,'a nation with none of them waits for the edict');
+  assert.ok(G.spOpen({npc:1}),'computer nations count as open');
+});
+
+test('the prelude’s text and record: known placeholders, a bounded record, and a copy left on the desk goes',()=>{
+  const G=game(),P=G.MC_STORY.pre,all=[P.t,P.q,...P.o.flatMap(o=>[o.t,o.fx,o.r]),P.veto].join(' ');
+  assert.deepEqual([...new Set(all.match(/\{[A-Z]+\}/g))].sort(),['{CAP}','{DEF}','{HEA}','{N}','{WRK}']);
+  assert.ok(P.o.every(o=>o.r.length>80&&o.fx.length>20&&/Ministry of Space Affairs|Agency \(proposed\)/.test(o.fx+o.r)),'every answer founds the Ministry of Space Affairs');
+  const n=J(nation(G));
+  assert.equal(normalize(G,{...n,mc:{v:1,c:[],ms:{},p:{o:7,t:1}}}).mc.p,undefined,'an unknown answer is dropped');
+  assert.deepEqual(J(normalize(G,{...n,mc:{v:1,c:[],ms:{},p:{o:-1,t:5,e:31}}}).mc.p),{o:-1,t:5,e:31});
+  const open=normalize(G,{...n,mc:{v:1,c:[],ms:{},p:{o:2,t:5,e:9}},inbox:[{id:G.SPX_ID,at:1}]});
+  assert.deepEqual(J(open.mc.p),{o:2,t:5},'a count is kept only with a veto');assert.equal(open.inbox.length,0,'a copy left on the desk after the page opened goes');
 });
