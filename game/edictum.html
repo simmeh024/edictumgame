@@ -17914,7 +17914,7 @@ function warWith(id){
   const d=pairWar(me,id);return {war:false,truceUntil:d.truceUntil};
 }
 function enemies(){const out=[];if(!S.nation)return out;for(const x of allNations()){if(!x.me&&warWith(x.id).war)out.push(x);}return out;}
-function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(id);return x?x.n.name:'a former nation';}
+function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(id)||(typeof XN!=='undefined'&&XN.get(id));return x?x.n.name:'a former nation';}
 
 /* Enemy hexes this nation can attack: next to its own or its allies' land, or up to three hexes
    beyond across unclaimed land or shallow sea. Allied land is open; other nations' land blocks. */
@@ -18804,7 +18804,7 @@ function buildProblem(n,ct,key,st){
   if(B.w&&nationHas(n,key))return {k:'have',t:'You already have this wonder.'};
   if(B.need==='coast'&&!isCoastal(ct.c))return {k:'need',t:NEED_TXT.coast};
   if(B.need==='hills'&&!ct.dist.some(c=>MAP.T[c]>=3))return {k:'need',t:NEED_TXT.hills};
-  if(B.need==='oil'&&!ct.dist.some(c=>CELL_RES.oil[c]>0))return {k:'need',t:NEED_TXT.oil};
+  if(B.need==='oil'&&!ct.dist.some(c=>CELL_RES.oil[c]>0)&&!depOf(n,ct).oil)return {k:'need',t:NEED_TXT.oil};
   if(B.need==='sci'&&n.s.sci<60)return {k:'need',t:NEED_TXT.sci};{const q=blkProblem(ct);if(q)return q;}
   const miss=lacking(bCost(n,key),st);
   if(miss.length)return {k:'cost',t:'You need '+list(miss)+' more.'};
@@ -19623,6 +19623,23 @@ rewardPrepare=(f=>function(r){if(r&&r.kind==='letter'){if(!S.nation)return false
 const DMF={busy:false};
 const dmKey=m=>m.t+'|'+m.w;
 function dmAnswered(m){const th=dmThreads(Date.now()).get(m.w)||[];return th.some(x=>!x.mine&&x.t>m.t);}
+/* nations of other regions in letters: an admin writes to any region's nation, and a player sees an admin's letter
+   from another region. Only the name is known (summaries/, public), so they show without a flag or stationery. */
+var XN=new Map(),XNQ=new Set(),XNF={q:'',busy:false,res:null,err:''};
+function dmFind(id){return findNation(id)||XN.get(id)||null;}
+function xnLoad(id){
+  if(!id||typeof id!=='string'||XN.has(id)||XNQ.has(id)||!S.db||isOffice(id)||dmIsGroup(id)||NPC_SET.has(id)||findNation(id))return;
+  XNQ.add(id);
+  Promise.resolve().then(()=>S.db.doc('summaries/'+id).get()).then(sn=>{const d=sn.exists?(sn.data()||{}):null;
+    if(d&&d.name){XN.set(id,{id,n:{name:String(d.name).slice(0,80)},far:true,reg:String(d.reg||'')});quietRender();}},()=>{});
+}
+function xnFind(q){
+  q=String(q||'').trim();if(!S.isOwner||!S.db||!q||XNF.busy)return;XNF.busy=true;XNF.err='';XNF.q=q;render();
+  Promise.resolve().then(()=>S.db.collection('summaries').where('name','==',q).limit(12).get()).then(qs=>{
+    XNF.res=qs.docs.filter(d=>d.id!==myId()).map(d=>{const v=d.data()||{};const x={id:d.id,n:{name:String(v.name||'').slice(0,80)},far:true,reg:String(v.reg||'')};if(!findNation(d.id))XN.set(d.id,x);return x;});
+  },e=>{XNF.err='The search failed: '+((e&&e.code)||'unknown error')+'.';}).then(()=>{XNF.busy=false;render();});
+}
+function xnRegName(id){const x=XN.get(id);if(!x||findNation(id))return '';const R=REGIONS.find(R=>R.id===x.reg);return R?R.name:'another region';}
 function dmFlush(){
   const n=S.nation;if(!n||OBS||S.mode!=='world'||DMF.busy)return;
   const day=dmDay(),q=(n.dm||[]).filter(m=>m&&m.q&&!m.i&&!m.b&&!(m.h==='cap'&&!dmAnswered(m))&&!(m.h==='day'&&m.hd===day));if(!q.length)return;
@@ -19815,7 +19832,7 @@ function dmThreads(now){
   for(const y of allNations()){if(y.npc||y.me)continue;here.add(y.id);for(const m of y.n.dm||[])if(m.w===me&&!m.i)add(y.id,{from:y.id,t:m.t,x:m.x,mine:false});}
   ltStart();
   const cut=x.cut||{};
-  for(const l of LT.list){if(!here.has(l.by)||bl.has(l.by))continue;const peer=l.g?l.g.id:l.by;if(!l.g&&cut[peer]&&l.t<cut[peer])continue;
+  for(const l of LT.list){if(bl.has(l.by))continue;if(!here.has(l.by)){if(l.g||!(S.isOwner||isStaff(l.by)))continue;xnLoad(l.by);}const peer=l.g?l.g.id:l.by;if(!l.g&&cut[peer]&&l.t<cut[peer])continue;
     if(l.g&&!LT.groups[peer])LT.groups[peer]={m:l.g.m,nm:l.g.nm||''};
     add(peer,{from:l.by,t:l.t,x:l.x,mine:false,id:l.id,k:l.k,r:l.r,a:l.a});}
   for(const [peer,a] of Object.entries(LT.older))for(const l of a){const mine=l.by===me;add(peer,{from:l.by,t:l.t,x:l.x,mine,id:l.id,k:l.k,r:l.r,a:l.a});}
@@ -19852,7 +19869,7 @@ function dmNoteText(k,peer){const n=S.nation,t=DM_NOTES[k];return t?t[1].replace
 function sendDm(){
   const peer=S.msgPeer,x=String(S.msgDraft||'').trim().replace(/\s+\n/g,'\n').slice(0,DM_MAX),c=S.dmCompose||{};
   const grp=dmIsGroup(peer);
-  if(!peer||(!grp&&!findNation(peer))){S.msgErr='Choose who to write to.';render();return;}
+  if(!peer||(!grp&&!dmFind(peer))){S.msgErr='Choose who to write to.';render();return;}
   if(isOffice(peer))return;
   if(!x){S.msgErr='Write something first.';render();return;}
   if(!grp&&dmBlocked(peer)){S.msgErr=`You have blocked ${nameOf(peer)}. Unblock it to write.`;render();return;}
@@ -19939,29 +19956,30 @@ function dmAttOptions(peer){
 /* ── the page ── */
 const dmDayLabel=t=>{const d=new Date(t),s=new Date();s.setHours(0,0,0,0);const y=new Date(s.getTime()-DAY);return t>=s.getTime()?'Today':t>=y.getTime()?'Yesterday':fmtDate(t);};
 const dmClock=t=>{try{return new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
-function dmFace(id){if(isOffice(id))return OFFICES[id].seal;if(dmIsGroup(id))return `<span class="dm-grp" aria-hidden="true">${/^al:/.test(id)?'⚑':(dmGroupMeta(id).m.length||'·')}</span>`;const x=findNation(id);return x?flagSVG(x.n.flag,'Flag of '+x.n.name):'';}
+function dmFace(id){if(isOffice(id))return OFFICES[id].seal;if(dmIsGroup(id))return `<span class="dm-grp" aria-hidden="true">${/^al:/.test(id)?'⚑':(dmGroupMeta(id).m.length||'·')}</span>`;const x=dmFind(id);return x?flagSVG(x.n.flag,'Flag of '+x.n.name):'';}
 const dmKind=id=>isOffice(id)?'offices':dmIsGroup(id)?'groups':NPC_SET.has(id)?'computer':'players';
 /* the sender's stationery (Customise › Stationery): paper, a wax seal, a signature; anyone else's only if they hold it */
-function dmPaper(id){const x=findNation(id);if(!x||x.npc)return {lp:'',ls:'',lg:''};try{const c=cz(x.n);return {lp:c.lp&&c.lp!=='lp-plain'?c.lp:'',ls:c.ls||'',lg:c.lg||''};}catch(e){return {lp:'',ls:'',lg:''};}}
+function dmPaper(id){const x=dmFind(id);if(!x||x.npc||x.far)return {lp:'',ls:'',lg:''};try{const c=cz(x.n);return {lp:c.lp&&c.lp!=='lp-plain'?c.lp:'',ls:c.ls||'',lg:c.lg||''};}catch(e){return {lp:'',ls:'',lg:''};}}
 function dmSignN(n,lg){if(!n||!lg)return '';const ld=String(n.leader||''),ru=String(n.ruler||'').trim();
   const who=lg==='lg-title'||!ru?`The ${ld} of ${n.name}`:`${ru}, ${ld} of ${n.name}`;return `<span class="dm-sig${lg==='lg-flourish'?' fl':lg==='lg-script'?' sc':''}">${esc(who)}</span>`;}
 function dmWaxN(n,ls){if(!n||!ls)return '';return `<span class="dm-wax ${esc(ls)}" aria-hidden="true">${ls==='ls-arms'?czArmsSVG({...(cz(n).a||czDefaultArms(n)),m:0}):`<i>${esc(String(n.name||'?').charAt(0))}</i>`}</span>`;}
-function dmSign(id,lg){const x=findNation(id);return x?dmSignN(x.n,lg):'';}
-function dmWax(id,ls){const x=findNation(id);return x?dmWaxN(x.n,ls):'';}
+function dmSign(id,lg){const x=dmFind(id);return x?dmSignN(x.n,lg):'';}
+function dmWax(id,ls){const x=dmFind(id);return x?dmWaxN(x.n,ls):'';}
 function messagesView(){
   const n=S.nation,now=Date.now(),th=dmThreads(now),seen=n.seenDm||{},me=myId(),x=dmx(n);
-  if(S.msgPeer&&!findNation(S.msgPeer)&&!isOffice(S.msgPeer)&&!dmIsGroup(S.msgPeer))S.msgPeer=null;
+  if(S.msgPeer&&!dmFind(S.msgPeer)&&!isOffice(S.msgPeer)&&!dmIsGroup(S.msgPeer)&&!XNQ.has(S.msgPeer))S.msgPeer=null;
   if(S.view==='messages'&&typeof cuLoad==='function')try{cuLoad();}catch(e){}
   /* the alliance's own conversation is always listed, even before its first letter */
   const al=dmAlliance();if(al&&!th.has(al.id)&&!(x.del&&x.del[al.id]))th.set(al.id,[]);
   const F=S.dmF||'all',q=String(S.dmS||'').trim().toLowerCase(),pin=x.pin||{};
-  const peers=[...th.keys()].filter(id=>findNation(id)||isOffice(id)||dmIsGroup(id)).filter(id=>{
+  for(const id of th.keys())xnLoad(id);
+  const peers=[...th.keys()].filter(id=>dmFind(id)||isOffice(id)||dmIsGroup(id)).filter(id=>{
     const a=th.get(id),arc=dmArchived(id,a);if(F==='archived')return arc;if(arc)return false;
     if(F==='unread')return dmUnreadIn(id,a,seen)>0;if(F!=='all'&&dmKind(id)!==F)return false;
     if(q)return nameOf(id).toLowerCase().includes(q)||a.some(m=>m.x.toLowerCase().includes(q));return true;
   }).sort((a,b)=>(pin[b]?1:0)-(pin[a]?1:0)||((th.get(b).slice(-1)[0]||{t:0}).t-(th.get(a).slice(-1)[0]||{t:0}).t));
   const others=allNations().filter(y=>!y.me).sort((a,b)=>(a.npc?1:0)-(b.npc?1:0)||a.n.name.localeCompare(b.n.name));
-  const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,grp=dmIsGroup(peer),px=peer&&!po&&!grp?findNation(peer):null,all=peer?(th.get(peer)||[]):[];
+  const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,grp=dmIsGroup(peer),px=peer&&!po&&!grp?dmFind(peer):null,all=peer?(th.get(peer)||[]):[];
   const shown=DM_SHOW*((LT.more[peer]||0)+1),thread=all.slice(-shown),hidden=all.length-thread.length;
   const lastMine=[...thread].reverse().find(m=>m.mine&&!m.q),peerSeen=px&&!px.npc&&!grp&&dmRR()?Math.max(num0(LT.seen[peer]),num0(px.n.seenDm&&px.n.seenDm[me])):0;
   const snip=(a)=>{if(!q)return '';const m=[...a].reverse().find(m=>m.x.toLowerCase().includes(q));if(!m)return '';const i=m.x.toLowerCase().indexOf(q),s=Math.max(0,i-24);return `<span class="dm-hit">${s?'…':''}${esc(m.x.slice(s,i))}<mark>${esc(m.x.slice(i,i+q.length))}</mark>${esc(m.x.slice(i+q.length,i+q.length+40))}</span>`;};
@@ -19997,7 +20015,7 @@ function messagesView(){
       ${c.r?`<div class="dm-quoting"><blockquote class="dm-q">${esc(c.r.x)}</blockquote><button type="button" class="linkish small" data-act="dm-unquote" aria-label="Stop answering that letter">×</button></div>`:''}
       <div class="dm-tools"><label class="cz-sr" for="dm-kind">Kind of letter</label><select class="input dm-kind" id="dm-kind" data-bind="dmkind"><option value="">A letter</option>${Object.entries(DM_NOTES).map(([k,v])=>`<option value="${k}"${c.k===k?' selected':''}>${esc(v[0])}</option>`).join('')}</select>
         ${opts.length?`<div class="dm-att"><button type="button" class="btn ghost small dm-att-b" data-act="dm-attmenu" aria-expanded="${!!S.dmAttOpen}">Attach</button>${S.dmAttOpen?`<div class="dm-att-p">${opts.map(([a,l],i)=>`<button type="button" class="linkish small" data-act="dm-attach" data-i="${i}">${esc(l)}</button>`).join('')}</div>`:''}</div>`:''}
-        ${!grp&&px&&!px.npc?`<button type="button" class="linkish small" data-act="go" data-v="trade" data-dm-trade="${esc(peer)}">Propose a deal</button>`:''}</div>
+        ${!grp&&px&&!px.npc&&!px.far?`<button type="button" class="linkish small" data-act="go" data-v="trade" data-dm-trade="${esc(peer)}">Propose a deal</button>`:''}</div>
       ${c.a?`<div class="dm-att-chip"><span>${esc(DM_ATT[c.a.k]||'Attachment')}: ${esc((opts.find(o=>JSON.stringify(o[0])===JSON.stringify(c.a))||[0,c.a.nm||''])[1])}</span><button type="button" class="linkish small" data-act="dm-unattach" aria-label="Remove the attachment">×</button></div>`:''}
       <label class="lbl" for="dm-text">${grp?`Letter to ${esc(nameOf(peer))}`:`Message to ${esc(px.n.name)}`}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="${DM_MAX}" rows="4" placeholder="${grp?'Dear friends…':'Your Excellency…'}">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}
       ${unans>=DM_CAP-2&&!isStaff(me)?`<p class="hint dm-warn">${unans>=DM_CAP?`You have written ${DM_CAP} letters in a row. The next waits until ${esc(px.n.name)} answers.`:`You have written ${unans} letters in a row; after ${DM_CAP}, the next waits for an answer.`}</p>`:''}
@@ -20006,7 +20024,7 @@ function messagesView(){
       <ol class="bubs">${more}${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.</p>`:'';
   const gm=grp?dmGroupMeta(peer):null;
   const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span><span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
-    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
+    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
   const filters=`<div class="dm-filters" role="group" aria-label="Show">${DM_FILTERS.map(([k,l])=>`<button type="button" class="chip-btn${F===k?' on':''}" data-act="dm-filter" data-v="${k}" aria-pressed="${F===k}">${l}</button>`).join('')}</div>`;
   const pick=S.dmGroupPick?`<div class="dm-gpick"><p class="lbl">A letter to several nations (up to ${DM_GROUP_MAX})</p><input class="input" id="dm-gname" maxlength="60" placeholder="A name for the conversation (optional)" value="${esc(S.dmGName||'')}" data-bind="dmgname"><div class="dm-gl">${others.filter(y=>!y.npc&&!dmBlocked(y.id)).map(y=>`<label><input type="checkbox" data-act="dm-gsel" value="${esc(y.id)}"${(S.dmGSel||[]).includes(y.id)?' checked':''}> ${esc(y.n.name)}</label>`).join('')||'<p class="hint">No other player nations in the region yet.</p>'}</div><div class="row"><button type="button" class="btn small" data-act="dm-gstart"${(S.dmGSel||[]).length<2?' disabled':''}>Start writing</button><button type="button" class="btn ghost small" data-act="dm-gcancel">Cancel</button></div></div>`:'';
   return `<header class="vh dm-head"><div><p class="eyebrow">Diplomatic bag</p><h1>Messages</h1><p>Write to any nation in ${REGION}. Letters to players arrive at once, wherever they are; computer-run nations answer within a minute or two, and sometimes write first.</p></div>
@@ -20014,6 +20032,7 @@ function messagesView(){
   <div class="msg-layout${peer?' in-thread':''}">
     <aside class="convs"><label class="lbl" for="dm-new">New message to</label>${others.length>3?`<input type="search" class="input dm-q" id="dm-q" placeholder="Type to find a nation…" aria-label="Find a nation to write to" autocomplete="off" style="margin-bottom:6px" value="${esc(S.dmQ||'')}">`:''}<select class="input" id="dm-new" data-bind="dmnew"><option value="">Choose a nation…</option>${others.map(y=>{const off=!!S.dmQ&&!y.n.name.toLowerCase().includes(S.dmQ.trim().toLowerCase());return `<option value="${esc(y.id)}"${y.id===peer?' selected':''}${off||dmBlocked(y.id)?' hidden disabled':''}>${esc(y.n.name)}${y.npc?' (computer)':isStaff(y.id)?' (Edictum staff)':''}</option>`;}).join('')}</select>
       ${S.mode==='world'?`<button type="button" class="linkish small dm-gnew" data-act="dm-gpick">${S.dmGroupPick?'':'Write to several nations at once'}</button>`:''}${pick}
+      ${S.isOwner&&S.mode==='world'?`<form class="dm-xn" id="dm-xn-form" style="margin-top:8px"><label class="lbl" for="dm-xn">Any region (admin)</label><div style="display:flex;gap:6px"><input type="search" class="input" id="dm-xn" placeholder="Exact nation name" autocomplete="off" value="${esc(XNF.q)}"><button type="submit" class="btn ghost small"${XNF.busy?' disabled':''}>${XNF.busy?'Finding…':'Find'}</button></div>${XNF.err?`<p class="hint">${esc(XNF.err)}</p>`:XNF.res?(XNF.res.length?`<ul class="conv-list">${XNF.res.map(x=>{const R=REGIONS.find(R=>R.id===x.reg);return `<li><button type="button" class="linkish small" data-act="xn-pick" data-id="${esc(x.id)}">${esc(x.n.name)} <span class="hint">· ${esc(R?R.name:x.reg)}</span></button></li>`;}).join('')}</ul>`:`<p class="hint">No nation is called “${esc(XNF.q)}”. Names must match exactly.</p>`):''}</form>`:''}
       <input type="search" class="input dm-s" id="dm-s" placeholder="Search letters…" aria-label="Search your letters" autocomplete="off" value="${esc(S.dmS||'')}">${filters}
       ${peers.length?`<ul class="conv-list">${conv}</ul>`:`<p class="hint" style="margin-top:14px">${q?'No letters match.':F==='all'?'No conversations yet.':F==='archived'?'Nothing archived.':'None here.'}</p>`}</aside>
     <section class="thread">${office||(head?`${head}${confirm}
@@ -20053,6 +20072,7 @@ document.addEventListener('click',e=>{
   else if(a==='dm-idea'){const R=k=>RES.includes(k)?k:RES[0];S.trade={...(S.trade||{}),w:id,gr:R(el.dataset.r),ga:+el.dataset.ra||10,rr:R(el.dataset.g),ra:+el.dataset.ga||10};S.tradeMsg='';go('trade');}
   else if(a==='dm-gpick'){S.dmGroupPick=true;S.dmGSel=[];S.dmGName='';render();}
   else if(a==='dm-gcancel'){S.dmGroupPick=false;render();}
+  else if(a==='xn-pick'){const id=el.dataset.id;if(!S.isOwner||!XN.has(id)&&!findNation(id))return;dmSetPeer(id);render();return;}
   else if(a==='dm-gstart'){const sel=(S.dmGSel||[]).filter(x=>findNation(x)).slice(0,DM_GROUP_MAX);if(sel.length<2)return;const me=myId(),m=[me,...sel],gid=dmGroupId(m);
     LT.groups[gid]={m,nm:String(S.dmGName||'').trim().slice(0,60)};S.dmGroupPick=false;S.dmF='all';dmSetPeer(gid);render();const ta=document.getElementById('dm-text');if(ta)ta.focus();}
 });
@@ -21108,6 +21128,7 @@ document.addEventListener('input',e=>{
   if(b==='migmap'){S.mapMig=el.checked;migSave(el.checked);redrawMaps();return;}
   if(b==='atlas'){const D=atlasData();S.atlasT=D.start+(+el.value)/1000*(D.end-D.start);if(+el.value>=1000)S.atlasT=D.end;S.atlasPlay=false;const pb=document.querySelector('[data-act="atlas-play"]');if(pb){pb.textContent='Play';pb.setAttribute('aria-pressed','false');}const c=document.getElementById('atlas-cap');if(c)c.textContent=atlasCaption();const sd=document.getElementById('atlas-side');if(sd)sd.innerHTML=atlasSide();redrawMaps();return;}
 });
+document.addEventListener('submit',e=>{if(e.target.id==='dm-xn-form'){e.preventDefault();const i=document.getElementById('dm-xn');xnFind(i?i.value:'');}});
 document.addEventListener('submit',e=>{if(e.target.id==='site-form'){e.preventDefault();const i=document.getElementById('site-name');nameSite(+e.target.dataset.s,i?i.value:S.siteName);}});
 function expTick(now){
   document.querySelectorAll('[data-live="exp"]').forEach(el=>{el.textContent=fmtDur(+el.dataset.t-now);});
@@ -55046,10 +55067,180 @@ HELP_EXT.push({k:'space-page',t:'The Space page, step by step',body:n=>{const m=
   <p>The first time you open the page, a short tour points at each of these.</p>
   ${n&&!n.npc?`<div class="tut-hb"><button type="button" class="btn ghost small-btn" data-act="tut-guide" data-g="s"><span class="tut-qi" aria-hidden="true">?</span>Take the tour</button></div>`:''}`;}});
 
+/* ───────── thirty edicts that find iron, oil or timber for a city ─────────
+   Thirty edicts in which something turns up near one of the nation's cities: a seam of iron, a pocket of oil, a stand
+   of timber nobody had counted. One answer in each keeps the find, and that option carries the effect dep ('iron',
+   'oil' or 'timber'). After the answer geoAfter gives the deposit to the city that has fewest of that kind (the capital
+   first on a tie), saved as n.dep {cityId:{iron,oil,timber}} with at most DEP_MAX of a kind in one city, and names the
+   city among its notes. A deposit yields like a hex of its own round the city: DEP_YIELD a day, multiplied by the
+   city's own Mine, Lumber Mill or Oil Wells as land is, and an oil deposit lets a city build Oil Wells. Every edict
+   needs a city (nr: computer-run nations have no deposits). */
+const DEP_KIND=['iron','oil','timber'],DEP_MAX=2,DEP_YIELD={iron:3,oil:5,timber:3};
+function depMap(n){const d=n&&n.dep;return d&&typeof d==='object'&&!Array.isArray(d)?d:{};}
+function depOf(n,ct){const id=ct&&(ct.rec&&ct.rec.id||ct.id),e=id&&depMap(n)[id];const o={iron:0,oil:0,timber:0};if(e)for(const r of DEP_KIND)o[r]=e[r]|0;return o;}
+function depCities(n){return Array.isArray(n&&n.cities)?n.cities.filter(c=>c&&typeof c.id==='string'):[];}
+function depPick(n,r){
+  const cs=depCities(n);if(!cs.length)return null;const cap=cs.find(c=>c.cap)||cs[0];
+  let best=null,bv=Infinity;for(const c of [cap,...cs.filter(c=>c!==cap)]){const v=depOf(n,c)[r];if(v<DEP_MAX&&v<bv){best=c;bv=v;}}
+  return best;
+}
+NORM_HOOKS.push((n,d)=>{
+  const src=d&&d.dep;if(!src||typeof src!=='object'||Array.isArray(src)){delete n.dep;return;}
+  const ids=new Set(depCities(n).map(c=>c.id)),out={};
+  for(const id of Object.keys(src)){const e=src[id];if(!ids.has(id)||!e||typeof e!=='object')continue;const o={};
+    for(const r of DEP_KIND){const v=e[r];if(Number.isInteger(v)&&v>0)o[r]=Math.min(v,DEP_MAX);}if(Object.keys(o).length)out[id]=o;}
+  if(Object.keys(out).length)n.dep=out;else delete n.dep;
+});
+nbCity=(f=>function(a,ct,x,yieldOf){
+  f(a,ct,x,yieldOf);const n=x&&!x.npc&&x.n;if(!n||!n.dep)return;const d=depOf(n,ct);
+  for(const r of DEP_KIND){if(!d[r])continue;const base=d[r]*DEP_YIELD[r];let v=base;
+    for(const key of ct.done){const B=BUILDINGS[key];if(!B||!B.res||!B.res[r])continue;const lm=ct.ug&&ct.ug[key]?CX_LV[ct.ug[key]]:1;v+=B.res[r][0]*base*lm*(ct.mk||1);}
+    a.add[r]+=v;}
+})(nbCity);
+geoAfter=(f=>function(n,opt,ent,now,prior){
+  const notes=f(n,opt,ent,now,prior),r=opt&&opt.e&&opt.e.dep;
+  if(DEP_KIND.includes(r)&&n&&!n.npc){
+    const c=depPick(n,r),what=r==='oil'?'An oil deposit':r==='iron'?'An iron deposit':'A stand of timber';
+    if(!c)notes.push(['Deposit',depCities(n).length?`Every city already has ${DEP_MAX} ${r} deposits, so this one adds nothing.`:'You have no city to give it to yet.']);
+    else{const m=n.dep={...depMap(n)};const e=m[c.id]={...(m[c.id]||{})};e[r]=(e[r]|0)+1;
+      notes.push(['Deposit',`${what} near ${cityLabel(n,c)}: +${DEP_YIELD[r]} ${resName(r)} a day, more with ${r==='oil'?'Oil Wells':r==='iron'?'a Mine':'a Lumber Mill'}.`]);}
+  }
+  return notes;
+})(geoAfter);
+
+/* the edicts: after every edict before them, so no number shifts */
+const DEP_ISSUES=[
+/* iron */
+{id:'dep-red-stream',c:'econ',t:'The River Runs Rust',q:'Since the spring floods, a stream outside {CAP} has run the colour of strong tea. Anglers are furious, a geologist with a magnet is delighted, and a painter has moved into a tent on the bank to capture what she calls “the national mood”.',o:[
+ {t:'“That is iron ore washing out of the hillside,” says geologist Dr Ottoline Prust. “Open a mine at the source, and the stream runs clear within a year.”',e:{econ:3,env:-2,dep:'iron'},fx:'a mine works the hillside above the rusty stream, and the anglers have been given a new pond and a free hat'},
+ {t:'“Line the stream with limestone and let it settle,” says river warden Joss Pellow-Quaint. “The fish come back, the water comes clean, and the hill keeps its secrets.”',e:{env:3,econ:-1,b:{env:1}},fx:'limestone baffles clean the stream, and trout have returned to it in suspicious numbers'},
+ {t:'“Keep it red,” says the painter. “Nowhere else has a river like this. Sell postcards.”',e:{tour:2,culture:2,weird:2},fx:'the Rust River is a protected curiosity, and its postcards outsell the capital’s'}]},
+{id:'dep-compass-fail',c:'econ',t:'True North, Roughly',q:'Hikers on the moors near {CAP} report that their compasses point firmly at a sheep pen. The sheep appear unaffected. The farmer charges two {Cs} a look.',o:[
+ {t:'“The pen sits on a lode of magnetite,” says surveyor Bartholomew Quillanack. “Buy the farmer out and dig. Iron like that does not turn up twice.”',e:{econ:3,wealth:1,happy:-1,dep:'iron'},fx:'the sheep pen is now the head of a mine, and the sheep have retired to a pen that points nowhere in particular'},
+ {t:'“Put up a sign and a proper map,” says the hikers’ club. “Lost hikers are bad for everyone.”',e:{tour:1,b:{transport:1}},fx:'the moors carry signposts reading “Ignore your compass”, and fewer hikers turn up in the wrong county'},
+ {t:'“Leave the farmer to his business,” says Agriculture adviser Morwenna Treloggan. “Two {Cs} a look is honest work.”',e:{weird:2,econ:1},fx:'the magnetic sheep pen has a queue on Sundays, and the farmer has bought a second hat'}]},
+{id:'dep-cathedral-nails',c:'culture',t:'Holy Iron',q:'Restorers repairing the roof of an old church near {CAP} found its nails were forged from iron dug from the churchyard itself. A parish record of 1612 says there is “a great plenty more beneath the yew”.',o:[
+ {t:'“Then dig beneath the yew,” says Industry adviser Hadrian Vennorgrue. “Carefully, and around the graves. The parish gets a share.”',e:{econ:3,culture:-2,wealth:1,dep:'iron'},fx:'a small, respectful mine works the land beyond the churchyard wall, and the parish has a new organ'},
+ {t:'“Not a spade near the churchyard,” says the vicar. “Let the dead keep their iron.”',e:{culture:2,happy:1},fx:'the churchyard is protected, and the yew keeps its secret'},
+ {t:'“Forge souvenir nails from the old ones,” says a gift shop. “Pilgrims will pay.”',e:{tour:2,weird:1,corrupt:1},fx:'the church sells holy nails, and the parish council insists every one is the original'}]},
+{id:'dep-meteor-field',c:'tech',t:'Something Fell Here Once',q:'A farmer ploughing near {CAP} keeps breaking ploughshares on lumps of black metal. A university says the field is the remains of an iron meteorite, broken up long before anyone thought to write it down.',o:[
+ {t:'“Mine it,” says metallurgist Professor Ingeborg Sallowfield. “Meteoric iron is nearly pure. We would be smelting the sky.”',e:{econ:2,sci:2,dep:'iron'},fx:'iron from a fallen star is mined outside {CAP}, and blacksmiths queue for it'},
+ {t:'“Make it a protected site,” says the university. “A field like this is a laboratory.”',e:{sci:3,b:{edu:1}},fx:'the meteorite field is a research station, and the farmer is paid not to plough it'},
+ {t:'“Sell the lumps at auction,” says the farmer. “Collectors pay a fortune for space rocks.”',e:{wealth:2,corrupt:1,weird:1},fx:'collectors abroad pay fortunes for fist-sized lumps of {N}'}]},
+{id:'dep-old-workings',c:'econ',t:'Under the Old Market',q:'Builders laying pipes beneath a market in {CAP} broke through into tunnels nobody knew were there: an iron mine abandoned three centuries ago, with the picks still leaning on the walls and a great deal of ore left in them.',o:[
+ {t:'“Reopen it,” says mining engineer Cuthbert Ambleside-Rook. “Our ancestors gave up when the pumps failed. Ours do not.”',e:{econ:3,happy:-1,dep:'iron'},fx:'the old mine beneath the market is working again, and stallholders swear their apples tremble at noon'},
+ {t:'“Open it as a museum,” says heritage officer Philippa Gorrance. “Those picks have waited three hundred years for visitors.”',e:{culture:2,tour:2,b:{edu:1}},fx:'tours of the forgotten mine start beneath the cheese stall'},
+ {t:'“Fill it with concrete before the market falls in,” says Public Works.',e:{econ:-1,happy:1},fx:'the tunnels are filled, and the market is the most solid place in {CAP}'}]},
+{id:'dep-blacksmith-claim',c:'econ',t:'A Blacksmith’s Secret',q:'For forty years one blacksmith near {CAP} has made the best tools in {N}, from iron he never buys. On his retirement he has revealed why: a seam in his back garden, which he is willing to sell to the state for the price of a good pension.',o:[
+ {t:'“Pay the man,” says Finance Minister {FIN}. “A seam of good iron for one pension is the bargain of the decade.”',e:{econ:3,wealth:-1,dep:'iron'},fx:'the blacksmith’s garden is a state mine, and he visits it every morning to tell the miners they are doing it wrong'},
+ {t:'“That iron belongs to the state already,” says Treasury lawyer Ambrose Fenstrathe. “Mineral rights. He owes us forty years of it.”',e:{wealth:1,civil:-2,happy:-2,corrupt:1},fx:'the blacksmith has been billed for forty years of iron, and the case has made him a folk hero'},
+ {t:'“Let him keep his garden,” says neighbour Edwina Larrowbeck. “Some secrets should retire with their owners.”',e:{happy:1,culture:1},fx:'the seam stays in the blacksmith’s garden, and his last apprentice has the only key'}]},
+{id:'dep-island-iron',c:'econ',t:'The Red Cliffs',q:'Survey drones mapping the coast near {CAP} have found that a stretch of cliffs is mostly iron ore, held together by habit. Seabirds nest in every ledge.',o:[
+ {t:'“Quarry the back of the cliff and leave the face,” says engineer Leopold Havengreave. “The birds keep their ledges and we keep the ore.”',e:{econ:3,env:-2,dep:'iron'},fx:'the red cliffs are quarried from behind, and the seabirds pretend not to notice'},
+ {t:'“Make the cliffs a bird reserve,” says ornithologist Tamsin Wheelwright. “Ore can be bought. A colony like this cannot.”',e:{env:3,tour:1},fx:'the red cliffs are a reserve, and their birds have never been more photographed'},
+ {t:'“Paint a giant flag on them,” says a minister. “Seen from every ship.”',e:{weird:2,culture:1,env:-1},fx:'the red cliffs carry a flag the size of a village, visible from the sea'}]},
+{id:'dep-bog-iron',c:'nature',t:'The Bog Gives Back',q:'Peat cutters near {CAP} have found the bog’s bottom lined with lumps of bog iron, the ore their ancestors smelted before mines were invented. Historians are excited. The peat cutters would like to be paid more.',o:[
+ {t:'“Smelt it the old way, at scale,” says Industry adviser Hadrian Vennorgrue. “Bog iron grows back, slowly. It is the only renewable iron in {N}.”',e:{econ:2,culture:1,env:-1,dep:'iron'},fx:'bog iron is dug and smelted outside {CAP}, and the forge smells pleasantly of peat'},
+ {t:'“Rewet the bog and let it be,” says ecologist Saskia Brindleshaw-Kelt. “Peat holds more carbon than a forest.”',e:{env:4,econ:-1,b:{env:1}},fx:'the bog has been rewetted, and the frogs are deafening'},
+ {t:'“Hold an Iron Age festival,” says a reenactment society. “Smelting demonstrations, helmets, mead.”',e:{tour:2,culture:2,weird:1},fx:'the Bog Iron Festival draws thousands in helmets, and nobody has yet fallen in'}]},
+{id:'dep-scrap-hill',c:'econ',t:'A Mountain of Old Cars',q:'A scrapyard outside {CAP} has grown, over fifty years, into a hill the height of a cathedral. Its owner has died, and left it to the nation “for whatever it is worth”.',o:[
+ {t:'“It is worth a great deal of iron,” says recycling engineer Wilhelmina Cardenwick. “Melt it down. It is a mine that needs no digging.”',e:{econ:2,env:2,dep:'iron'},fx:'the scrap hill feeds a furnace that will run for decades, and a 1962 limousine has been saved for the museum'},
+ {t:'“Landscape it as a park,” says an architect. “Grass over the cars, and a café at the top.”',e:{happy:2,weird:1,b:{env:1}},fx:'Scrap Hill is a park, and dogs occasionally dig up a hubcap'},
+ {t:'“Sell it abroad,” says Treasury official Cornelius Brackelsby. “Somebody else can melt it.”',e:{wealth:2,env:-1},fx:'the scrap hill has gone abroad on forty ships'}]},
+{id:'dep-dowser',c:'weird',t:'The Dowser’s Rod',q:'A retired postman in {CAP} claims his hazel rod can find metal underground. To general surprise, he has just found it three times running in front of a government geologist, who has asked to sit down.',o:[
+ {t:'“Hire him, and dig where he points,” says the geologist. “I cannot explain it. I can only measure it.”',e:{econ:2,weird:3,sci:-1,dep:'iron'},fx:'a mine opens where the postman pointed, and the Ministry of Industry has added a hazel rod to its equipment list'},
+ {t:'“Test him properly,” says science adviser Dr Jocasta Pellistrode. “Blindfold, controls, twenty trials.”',e:{sci:2,weird:-1},fx:'the postman found nothing in twenty trials, and three things on his way home'},
+ {t:'“Give him a medal and a pension,” says Interior Minister {INT}. “The nation needs its characters.”',e:{happy:1,weird:2},fx:'the dowsing postman has a medal, and wears it on every walk'}]},
+/* oil */
+{id:'dep-gas-pond',c:'nature',t:'The Pond That Burns',q:'Children near {CAP} have discovered that a pond, if you throw a match at it, briefly catches fire. Parents are alarmed. The children are thrilled. An oil company has sent a man in a clean car.',o:[
+ {t:'“Drill,” says petroleum engineer Rasmus Halvergate. “Gas bubbling up means oil below. The pond is waving at us.”',e:{econ:3,env:-3,wealth:1,dep:'oil'},fx:'a derrick stands beside the burning pond, and the children have been given matches of a safer kind'},
+ {t:'“Fence it and cap the vents,” says safety officer Philomena Gorst. “A pond on fire is not a resource. It is an accident with a view.”',e:{env:1,happy:1,b:{health:1}},fx:'the pond is fenced and capped, and no longer catches fire on purpose'},
+ {t:'“Charge for it,” says a café owner. “The only flaming pond in the region.”',e:{tour:2,weird:2},fx:'the Flaming Pond has a viewing deck and a café that sells toasted marshmallows'}]},
+{id:'dep-black-well',c:'econ',t:'Something Wrong With the Well',q:'A village well outside {CAP} has started drawing up water with a rainbow sheen and a smell of petrol. The villagers want clean water. The geologists want the village.',o:[
+ {t:'“There is oil under that village,” says geologist Dr Barnaby Thrushgarren. “Pipe the water in from the hills, and drill the well properly.”',e:{econ:3,env:-2,b:{health:1},dep:'oil'},fx:'the village has piped water and an oil well where its well used to be, and nobody has tasted petrol since'},
+ {t:'“Seal the seep and clean the aquifer,” says water engineer Lucinda Okonedo-Vane. “Water first.”',e:{env:2,econ:-2,b:{health:1}},fx:'the seep is sealed, and the village water tastes of nothing again'},
+ {t:'“Bottle it as a health tonic,” says a man with a cart.',e:{weird:3,corrupt:2,health:-1},fx:'“Rainbow Water” is sold in {CAP} as a tonic, and doctors have issued a firm statement'}]},
+{id:'dep-tar-pit',c:'tech',t:'The Tar Pit',q:'A field near {CAP} has developed a soft black patch that swallows boots. Children dared to cross it have lost several. Palaeontologists who came to look have found the bones of a giant deer inside.',o:[
+ {t:'“A tar seep that size sits on oil,” says oilman Ezekiel Banfather. “Drill a hundred metres away and leave the deer in peace.”',e:{econ:3,env:-2,dep:'oil'},fx:'oil is drawn from beneath the tar pit, and the giant deer stands, reassembled, in the museum'},
+ {t:'“It is a fossil trap,” says palaeontologist Professor Hesper Lindqvist-Moor. “Who knows what else is in there.”',e:{sci:3,culture:1,econ:-1},fx:'the tar pit is a dig site, and has so far yielded a deer, two wolves and eleven boots'},
+ {t:'“Fence it,” says Public Works. “And return the boots.”',e:{happy:1},fx:'the tar pit is fenced, and its boots have been returned to their owners, mostly'}]},
+{id:'dep-seismic-survey',c:'econ',t:'A Rumble Under the Suburbs',q:'A foreign company asks permission to run seismic trucks through the suburbs of {CAP} at night. The vibrations will rattle windows for a week. It is fairly sure there is oil under the bypass.',o:[
+ {t:'“Let them look, and keep the rights,” says Industry adviser Hadrian Vennorgrue. “They pay for the survey, we own what they find.”',e:{econ:3,happy:-2,dep:'oil'},fx:'oil has been found under the bypass, and {CAP}’s windows have been reglazed at the company’s expense'},
+ {t:'“Not through our streets,” says residents’ leader Morag Fenmarrow. “Let them shake somebody else’s windows.”',e:{happy:2,econ:-1},fx:'the seismic trucks have gone elsewhere, and the suburbs sleep'},
+ {t:'“Sell them the rights outright,” says Treasury official Cornelius Brackelsby. “Money now.”',e:{wealth:3,corrupt:1,econ:-1},fx:'a foreign company owns whatever lies under the bypass, and is not saying'}]},
+{id:'dep-whale-oil',c:'weird',t:'Not That Kind of Oil',q:'Archivists in {CAP} have found a 19th-century deed granting a whaling company “all oil within one league of the harbour, of whatever kind, for ever”. The company is long gone. Its last shareholder, aged 97, has hired a lawyer.',o:[
+ {t:'“Buy out the shareholder, and drill,” says Finance Minister {FIN}. “If the deed says there is oil, somebody once knew.”',e:{econ:2,wealth:-1,weird:1,dep:'oil'},fx:'the 97-year-old shareholder has been bought out, and a well near the harbour is producing'},
+ {t:'“The deed means whale oil,” says Treasury lawyer Ambrose Fenstrathe. “Whale oil there is none.”',e:{civil:1},fx:'the court has ruled that the deed covers whales only, and there are none to claim'},
+ {t:'“Frame it,” says the archive. “It is a beautiful piece of greed.”',e:{culture:2},fx:'the whaling deed hangs in the national archive, beside a portrait of a very satisfied whale'}]},
+{id:'dep-gas-flicker',c:'nature',t:'Lights on the Marsh',q:'Pale flames flicker over a marsh near {CAP} on still nights. Folklore says they lead travellers astray. The national gas board says they are methane, and probably the top of something bigger.',o:[
+ {t:'“Drill the marsh edge,” says energy adviser Gideon Ravenquill. “Where marsh gas leaks, oil lies.”',e:{econ:3,env:-2,culture:-1,dep:'oil'},fx:'an oil well works the marsh edge, and the lights have gone out, to the sorrow of the folklore society'},
+ {t:'“Protect the marsh lights,” says the folklore society. “Every child should see one.”',e:{culture:2,tour:1,env:1},fx:'the marsh lights are protected, and lead tourists astray along a marked path'},
+ {t:'“Burn it for electricity,” says a councillor. “Small, local, clean-ish.”',e:{env:1,econ:1,b:{env:1}},fx:'a small generator burns the marsh gas, and the village above it has free street lighting'}]},
+{id:'dep-offshore-bubble',c:'econ',t:'Bubbles Off the Point',q:'Fishermen near {CAP} report a patch of sea that fizzes like soda water and a slick that rainbows in the sun. The fish have left. The fishermen would like compensation, or an explanation.',o:[
+ {t:'“Sink a shallow well,” says marine engineer Sigrid Tollerquay. “The leak is the oil telling us where it is. Better we draw it than the sea does.”',e:{econ:3,env:-1,dep:'oil'},fx:'a shallow platform off the point draws the oil the sea was leaking, and the fish are cautiously coming back'},
+ {t:'“Compensate the fishermen and cap the leak,” says Fisheries officer Branwen Tuckerby.',e:{env:2,econ:-1,happy:1},fx:'the leak is capped, the fishermen compensated, and the sea has stopped fizzing'},
+ {t:'“Sell boat trips,” says a skipper. “The Fizzing Sea.”',e:{tour:2,env:-1},fx:'boat trips to the Fizzing Sea leave every hour, and seasickness is up'}]},
+{id:'dep-garage-drill',c:'weird',t:'A Hole in the Garage',q:'A retired dentist in {CAP} has been drilling in his garage for eleven years, “out of curiosity”. Last night he struck oil. It is now in his kitchen, and rising.',o:[
+ {t:'“Take over the well and pay him a royalty,” says Industry adviser Hadrian Vennorgrue. “Curiosity should be rewarded.”',e:{econ:2,weird:2,dep:'oil'},fx:'the dentist’s garage is a state oil well, and he has bought a new kitchen'},
+ {t:'“Fine him for drilling without a permit,” says Public Works.',e:{civil:-1,happy:-1},fx:'the dentist has been fined, the hole capped, and his kitchen cleaned by a specialist team'},
+ {t:'“Make him Minister of Energy,” says a tabloid.',e:{weird:3,pol:-1},fx:'the dentist was offered a ministry, and declined it in favour of a new drill'}]},
+{id:'dep-shale-quarry',c:'econ',t:'The Stone That Burns',q:'A slate quarry near {CAP} has hit a layer of black stone that smoulders when the quarrymen light their lunchtime fire on it. Oil shale, says a visiting expert, and a good deal of it.',o:[
+ {t:'“Cook the oil out of the shale,” says chemical engineer Dr Lysander Coldenvaux. “It is messy, but it is ours.”',e:{econ:3,env:-3,dep:'oil'},fx:'a retort beside the quarry cooks oil out of the burning stone, and the quarrymen eat lunch elsewhere'},
+ {t:'“Sell the shale as fuel to cement works,” says the quarry owner.',e:{econ:1,env:-1,wealth:1},fx:'the burning stone heats cement kilns across {N}'},
+ {t:'“Close that part of the quarry,” says safety officer Philomena Gorst. “Stone that catches fire does not belong under a lunch.”',e:{happy:1,env:1},fx:'the black layer is sealed, and lunch in the quarry is unremarkable again'}]},
+{id:'dep-hot-spring',c:'nature',t:'The Spa Smells Odd',q:'The famous hot spring near {CAP} has started to smell of diesel. Bathers complain. A geologist says the earthquake last winter has opened a path from an oil pocket below.',o:[
+ {t:'“Drill the pocket and drain it away from the spring,” says petroleum engineer Rasmus Halvergate. “The spa is saved and the oil is ours.”',e:{econ:2,tour:1,env:-1,dep:'oil'},fx:'the oil pocket is drained by a well on the hill, and the spa smells of sulphur again, as nature intended'},
+ {t:'“Close the spa and let the spring settle,” says the health inspector.',e:{tour:-2,b:{health:1}},fx:'the spa is closed for a year, and its regulars bathe at home in protest'},
+ {t:'“Market it as a petroleum spa,” says a wellness entrepreneur. “Detox through hydrocarbons.”',e:{weird:3,health:-1,corrupt:1},fx:'the Petroleum Spa has a waiting list, and doctors a new pamphlet'}]},
+/* timber */
+{id:'dep-lost-forest',c:'nature',t:'The Forest on No Map',q:'Satellite photographs have found a forest of old oaks in a fold of the hills near {CAP}, on no map since the 1700s. The one family who live there say they assumed everyone knew.',o:[
+ {t:'“Manage it for timber,” says forester Hamish Lockwood-Tay. “Fell one oak in fifty, plant two. In a century it will be bigger than it is now.”',e:{econ:2,env:-1,dep:'timber'},fx:'the forgotten forest is managed for timber, and the family who live there have been made its wardens'},
+ {t:'“Protect every tree,” says ecologist Saskia Brindleshaw-Kelt. “Old oaks like these are a world of their own.”',e:{env:4,econ:-1},fx:'the lost forest is a national reserve, and its family are its rangers'},
+ {t:'“Leave it off the map,” says the family. “It managed for three centuries.”',e:{weird:2,env:1},fx:'the forest has been politely removed from the maps again'}]},
+{id:'dep-storm-blowdown',c:'nature',t:'After the Storm',q:'A winter storm has flattened a wide belt of pine in the hills above {CAP}. Thousands of trunks lie like spilled matches. Left, they will rot or burn. Cleared, they are a fortune.',o:[
+ {t:'“Clear it and replant,” says forester Hamish Lockwood-Tay. “Salvage the fallen wood, and set up a mill to cut it.”',e:{econ:3,env:1,dep:'timber'},fx:'a sawmill cuts the storm’s pines, and a new forest is planted in neat rows behind it'},
+ {t:'“Leave it,” says ecologist Saskia Brindleshaw-Kelt. “Dead wood is a home for a thousand things.”',e:{env:3,econ:-1},fx:'the fallen pines are left to rot, and the beetles have never been happier'},
+ {t:'“Let the people take what they can carry,” says Interior Minister {INT}.',e:{happy:2,equal:1,env:-1},fx:'families from {CAP} have firewood for three winters'}]},
+{id:'dep-poplar-gift',c:'econ',t:'A Very Generous Will',q:'A reclusive landowner near {CAP} has died and left the state thirty thousand poplars he planted himself, one a day, for eighty years. His will asks only that they be “put to good use”.',o:[
+ {t:'“Then use them,” says timber merchant Cordelia Ashwerne. “Poplar makes plywood, matches, crates. Cut in rotation, they last for ever.”',e:{econ:3,dep:'timber'},fx:'the poplars are cut and replanted in rotation, and every crate from {CAP} carries a little badge in the old man’s honour'},
+ {t:'“Make it a park in his name,” says a councillor.',e:{happy:2,env:2,b:{env:1}},fx:'Poplar Park has thirty thousand trees and a statue of a man with a spade'},
+ {t:'“Sell the land,” says Treasury official Cornelius Brackelsby. “Poplars do not pay pensions.”',e:{wealth:2,env:-2,happy:-1},fx:'the poplars are gone, and a car park stands where the old man planted them'}]},
+{id:'dep-bamboo-escape',c:'nature',t:'The Bamboo Has Escaped',q:'Bamboo planted in one garden in {CAP} twenty years ago has spread underground across four streets, a school and a cemetery. It grows a metre a day in summer. It cannot be stopped.',o:[
+ {t:'“Harvest it,” says builder Jonah Merriweather-Pike. “Bamboo is stronger than steel for its weight. We have a timber forest that replants itself.”',e:{econ:2,weird:1,dep:'timber'},fx:'bamboo from the four streets is cut weekly for scaffolding, and the school has a bamboo bike shed'},
+ {t:'“Dig it out,” says Public Works. “Every rhizome.”',e:{econ:-2,happy:1},fx:'the bamboo has been dug out at enormous expense, and a shoot has already appeared in the cemetery'},
+ {t:'“Bring in pandas,” says the zoo.',e:{tour:3,weird:3,wealth:-2},fx:'two pandas have moved to {CAP}, and the bamboo is finally losing'}]},
+{id:'dep-sunken-logs',c:'econ',t:'Logs in the Lake',q:'Divers in a lake near {CAP} have found thousands of logs on its bed, lost from rafts floated down a century ago. Preserved in cold water, the timber is said to be the finest in the world.',o:[
+ {t:'“Raise them,” says timber merchant Cordelia Ashwerne. “Sinker wood sells for ten times new timber.”',e:{econ:3,wealth:1,dep:'timber'},fx:'sinker logs are raised from the lake and sold to violin makers across the world'},
+ {t:'“They are a fish nursery now,” says ecologist Saskia Brindleshaw-Kelt. “Leave them.”',e:{env:2},fx:'the logs stay on the lake bed, and the trout thank you'},
+ {t:'“Raise one, for a museum,” says the heritage officer.',e:{culture:2},fx:'one sunken log is raised and displayed, still wearing its century-old timber mark'}]},
+{id:'dep-hedge-trees',c:'nature',t:'The Hedgerow Oaks',q:'A survey has counted over a million oaks growing wild in the hedgerows around {CAP}, planted by jays burying acorns and forgetting them. Farmers want them gone. Carpenters want them felled. Jays have not been consulted.',o:[
+ {t:'“Harvest one in ten,” says forester Hamish Lockwood-Tay. “A million oaks is a timber forest stretched into a line.”',e:{econ:2,env:-1,dep:'timber'},fx:'one hedgerow oak in ten is felled for timber, and the jays have been seen burying more'},
+ {t:'“Protect the hedgerows,” says a wildlife group. “They are the countryside’s corridors.”',e:{env:3},fx:'the hedgerow oaks are protected, and the jays are thanked'},
+ {t:'“Award the jays a medal,” says a minister.',e:{weird:3,happy:1},fx:'the jay is now {N}’s Honorary Forester, and appears on a stamp'}]},
+{id:'dep-fire-regrowth',c:'nature',t:'Twenty Years After the Fire',q:'The great forest fire near {CAP} left a black wasteland twenty years ago. Nobody replanted it. Nature did, all by itself, and the birches are now tall enough to cut.',o:[
+ {t:'“Work it as a timber forest,” says timber merchant Cordelia Ashwerne. “Nature has done the planting. We only have to do the cutting.”',e:{econ:2,env:-1,dep:'timber'},fx:'the self-planted forest is worked for timber, and every felled birch is replaced by two'},
+ {t:'“Declare it a symbol of renewal,” says Culture Minister {CUL}. “Plant a memorial grove at the centre.”',e:{culture:2,env:2},fx:'the Renewal Forest has a memorial grove, and it is the most visited wood in {N}'},
+ {t:'“Build houses there,” says a developer.',e:{econ:2,env:-3,happy:1},fx:'a new suburb stands in the regrown forest, and its streets are named after trees'}]},
+{id:'dep-orchard-retire',c:'econ',t:'Old Orchards',q:'Orchards around {CAP} planted after the war have stopped bearing fruit. Thousands of old apple and cherry trees stand idle. Furniture makers say fruitwood is the most beautiful wood there is.',o:[
+ {t:'“Fell and replant,” says furniture maker Augustin Pemberley-Shaw. “New trees for fruit, old wood for tables.”',e:{econ:3,culture:1,dep:'timber'},fx:'old orchards are felled for fine furniture and replanted, and apple wood tables sell abroad'},
+ {t:'“Leave them for the bees,” says beekeeper Evadne Throstle.',e:{env:3},fx:'the old orchards stand, and are humming'},
+ {t:'“Burn them as firewood,” says a farmer. “Apple wood smokes beautifully.”',e:{happy:1,env:-1},fx:'{CAP} smells of apple wood every winter'}]},
+{id:'dep-cork-forest',c:'econ',t:'Bark Worth Having',q:'A grove of cork oaks near {CAP}, planted by a homesick ambassador in 1860, has grown into a forest. Nobody has harvested it in a hundred years. The bark is thirty centimetres thick.',o:[
+ {t:'“Harvest the bark, and coppice the old trees for timber,” says forester Hamish Lockwood-Tay. “Two crops from one wood.”',e:{econ:3,dep:'timber'},fx:'the ambassador’s forest yields cork and timber, and every wine bottle in {N} is sealed with it'},
+ {t:'“Protect the grove as a living memorial,” says the Foreign Ministry.',e:{culture:2,env:2},fx:'the Ambassador’s Grove is protected, and diplomats are taken there to feel homesick'},
+ {t:'“Sell the cork rights to a wine country,” says Treasury official Cornelius Brackelsby.',e:{wealth:2,corrupt:1},fx:'a foreign winery owns the cork grove, and pays rent in bottles'}]},
+{id:'dep-ship-timbers',c:'culture',t:'The Navy’s Forgotten Oaks',q:'Admiralty papers from 1790 reveal a royal forest near {CAP}, planted to build warships that were never ordered. Its oaks are now two hundred and thirty years old, each marked with a broad arrow, and the navy would like to know what it intends to do with them.',o:[
+ {t:'“Fell them for timber at last,” says shipwright Tobias Grennaway-Hulme. “Every tree was grown straight for a mast. They have waited long enough.”',e:{econ:3,env:-1,culture:-1,dep:'timber'},fx:'the navy’s oaks are felled in turn and replanted, and a replica frigate is being built from the first of them'},
+ {t:'“Keep them as a monument,” says naval historian Araminta Skellbrook. “The navy’s oldest fleet, still at anchor.”',e:{culture:2,env:2,tour:1},fx:'the Admiralty Oaks are a monument, and sailors salute them on the way past'},
+ {t:'“Hand the forest to the navy,” says Defence. “They planted it.”',e:{mil:1,econ:-1},fx:'the navy runs a forest, and its officers have learnt to march in step through it'}]}
+];
+for(const is of DEP_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;is.nr=true;is.req=n=>depCities(n).length>0;ISSUES_RANDOM.push(is);}
+
 /* ───────── a hundred and fifty edicts: beauty contests, fireworks, sport and scandal ─────────
-   Numbered after the fourteen Mission Control letters (2257–2270) and the Space page’s prelude (2271), so no older
-   number moves: these are 2272 to 2421. Thirty-seven about beauty contests (pgt-), thirty-seven about fireworks (fwk-), thirty-eight about sport (spo-) and
-   thirty-eight about scandals (scd-). Nothing here waits for a condition, and every one is drawn at random. */
+   Numbered after the fourteen Mission Control letters (2257–2270), the Space page’s prelude (2271) and the thirty
+   deposit edicts (2272–2301), so no older number moves: these are 2302 to 2451. Thirty-seven about beauty contests
+   (pgt-), thirty-seven about fireworks (fwk-), thirty-eight about sport (spo-) and thirty-eight about scandals (scd-).
+   Nothing here waits for a condition, and every one is drawn at random. */
 const SHOW_ISSUES=[
 /* beauty contests: pageants for people, places, produce and machines, and the people who judge them */
 {id:'pgt-prettiest-marrow',c:'culture',t:'The Prettiest Marrow',q:'The Upper Dimbley Show has added a beauty class for vegetables, judged not on size but on looks. This year’s winning marrow was later found to be wearing foundation, a little blusher and a false stalk. Its grower says every marrow at the show was “made up to some degree”, and the cucumbers are demanding a recount.',o:[
