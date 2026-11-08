@@ -1,7 +1,7 @@
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {OUT,PROJECT,FS_HOST,BASE,check,finish,sleep,until,player,open,found,nav,localNation,nationDoc,clearEmulators,errors} from './lib.mjs';
+import {OUT,PROJECT,FS_HOST,BASE,check,finish,sleep,until,player,open,found,nav,czSection,localNation,nationDoc,clearEmulators,errors} from './lib.mjs';
 const comparisonReady=async p=>{await p.waitForFunction(()=>{const el=document.querySelector('#hh-account-types'),r=el?.getBoundingClientRect(),bar=document.querySelector('.ux-sections')?.getBoundingClientRect();return r&&r.top>=(bar?.bottom||0)&&r.top<innerHeight/2&&document.activeElement===el&&!document.getAnimations().some(a=>a.playState==='running'&&a.effect?.target?.closest?.('.main'));});await p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));};
 if(!PROJECT.startsWith('demo-'))throw Error('Onboarding tests require demo emulators');
 await clearEmulators();
@@ -64,8 +64,8 @@ check('a city and three real claims reveal transport and expansion planning',awa
 check('the first claim starts presence',await A.evaluate(()=>G.S.nation.stk?.n===1));
 await nav(A,'issues');check('the edicts page sets three tasks for today, with presence below them',await A.locator('.dd .dd-t').count()===3&&/day 1/.test(await A.locator('.dd-stk').textContent()));
 await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.locator('.dd').screenshot({path:OUT+'/daily-desk-1280.png'});await A.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
-await nav(A,'customise');check('the first day of presence unlocks the indigo stamp in Customise',await A.locator('#cz-st-s-indigo').count()===1);
-check('the flag designer lives in Customise',await A.locator('#cz-sec-e #c-fgd').count()===1&&await A.locator('#c-flag-save').count()===1);
+await nav(A,'customise');await czSection(A,'e');check('the flag designer lives in Customise',await A.locator('#cz-sec-e #c-fgd').count()===1&&await A.locator('#c-flag-save').count()===1);
+await czSection(A,'s');check('the first day of presence unlocks the indigo stamp in Customise',await A.locator('#cz-st-s-indigo').count()===1);
 await nav(A,'map');check('after the first claims, a quick first building is offered',await A.locator('.ffb .ffb-go').isVisible());
 const ffbK=await A.locator('.ffb .ffb-go').getAttribute('data-k');await A.click('.ffb .ffb-go');
 check('the quick first building takes three minutes',await A.evaluate(()=>{const f=G.S.nation.ffb;return !!f&&f.d-f.s===180000;})&&await A.locator('.ffb.is-on [data-live="ffb"]').isVisible());
