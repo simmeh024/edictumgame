@@ -28153,7 +28153,7 @@ function dspView(now){
   if(E.fix)boxes.push(['fix','Corrections',box('fix','Corrections','dsp-fx-h',`<p class="dsp-small">${esc(E.fix)}</p>`)]);
   const tabs=narrow?`<div class="dsp-tabs" role="tablist" aria-label="Features">${boxes.map(([k,l])=>`<button type="button" role="tab" class="dsp-tab${k===side?' on':''}" id="dsp-t-${k}" data-act="dsp-side" data-k="${k}" aria-selected="${k===side}" aria-controls="dsp-p-${k}" tabindex="${k===side?0:-1}">${esc(l)}</button>`).join('')}</div>`:'';
   /* sections: all open on a wide screen; on a phone each folds, the first open unless the reader chose */
-  const open=S.dspOpen instanceof Set?S.dspOpen:(S.dspOpen=new Set(E.secs.length?[E.secs[0].k]:[]));
+  const open=S.dspOpen instanceof Set?S.dspOpen:new Set(E.secs.length?[E.secs[0].k]:[]);
   const secHTML=q=>{const shut=narrow&&!open.has(q.k),hd=narrow?`<h2 class="dsp-sh dsp-sec-h" id="dsp-s-${q.k}"><button type="button" class="dsp-sec-t" data-act="dsp-sec" data-k="${q.k}" aria-expanded="${!shut}" aria-controls="dsp-si-${q.k}">${esc(q.l)} <span>${q.st.length===1?'one story':q.st.length+' stories'}</span></button></h2>`:`<h2 class="dsp-sh" id="dsp-s-${q.k}">${esc(q.l)}</h2>`;
     return `<section class="dsp-sec${shut?' shut':''}" aria-labelledby="dsp-s-${q.k}">${hd}<div class="dsp-sec-in" id="dsp-si-${q.k}">${q.st.map(s=>dspStory(s,'h3','',byId,M)).join('')}</div></section>`;};
   /* the bar: every part of the paper, and the stories about you */
@@ -28237,7 +28237,10 @@ function dspReport(id,i){
   Promise.resolve(window.claude&&window.claude.use?window.claude.use('report'):null).then(R=>{if(R)R.open({kind:'post',target:id,post:'ad:'+REG.id+':'+id+':'+i,reg:REG.id,name:x.n.name,x:dspClean(ad.x,DSP_AD_LEN)});else toast('Reporting needs a connection.');});
 }
 /* jumping about the paper: a folded section opens first */
-function dspOpenSec(k){const el=document.querySelector(`.dsp-sec [data-k="${k}"]`),sec=el&&el.closest('.dsp-sec');if(!(S.dspOpen instanceof Set))S.dspOpen=new Set();S.dspOpen.add(k);if(sec){sec.classList.remove('shut');el.setAttribute('aria-expanded','true');}}
+/* the reader's own choice of open sections, from the first one they open or close: until then the edition shown opens
+   its first section, so it starts from what is open on the page */
+function dspOpenSet(){if(!(S.dspOpen instanceof Set))S.dspOpen=new Set([...document.querySelectorAll('.dsp-sec:not(.shut) [data-act="dsp-sec"]')].map(b=>b.dataset.k));return S.dspOpen;}
+function dspOpenSec(k){const el=document.querySelector(`.dsp-sec [data-k="${k}"]`),sec=el&&el.closest('.dsp-sec');dspOpenSet().add(k);if(sec){sec.classList.remove('shut');el.setAttribute('aria-expanded','true');}}
 function dspJump(id){
   const sec=/^dsp-s-(\w+)$/.exec(id);if(sec&&dspNarrow())dspOpenSec(sec[1]);
   const el=document.getElementById(id);if(!el)return;
@@ -28272,7 +28275,7 @@ document.addEventListener('click',e=>{
   if(a==='dsp-adclose'){S.dspForm=false;S.dspDraft='';S.dspMsg='';render();const b=document.querySelector('[data-act="dsp-adopen"]');if(b)b.focus();return;}
   if(a==='dsp-jump'){dspJump(el.dataset.to);return;}
   if(a==='dsp-mine'){dspMine();return;}
-  if(a==='dsp-sec'){const k=el.dataset.k,sec=el.closest('.dsp-sec');if(!(S.dspOpen instanceof Set))S.dspOpen=new Set();const on=!S.dspOpen.has(k);if(on)S.dspOpen.add(k);else S.dspOpen.delete(k);if(sec)sec.classList.toggle('shut',!on);el.setAttribute('aria-expanded',String(on));return;}
+  if(a==='dsp-sec'){const k=el.dataset.k,sec=el.closest('.dsp-sec'),open=dspOpenSet(),on=!open.has(k);if(on)open.add(k);else open.delete(k);if(sec)sec.classList.toggle('shut',!on);el.setAttribute('aria-expanded',String(on));return;}
   if(a==='dsp-side'){const k=el.dataset.k;S.dspSide=k;const w=document.getElementById('dsp-side');if(w){for(const b of w.querySelectorAll('.dsp-tab')){const on=b.dataset.k===k;b.classList.toggle('on',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of w.querySelectorAll('.dsp-box'))p.classList.toggle('on',p.id==='dsp-p-'+k);}return;}
   if(a==='dsp-po'){dspPoAct(el.dataset.k,el.dataset.key);return;}
   if(a==='dsp-reprint'){dspReprint(+el.dataset.no);return;}
