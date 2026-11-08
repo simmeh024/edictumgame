@@ -773,7 +773,8 @@ service cloud.firestore {
       allow create, update: if signedIn() && request.resource.data.uid == request.auth.uid
         && (!exists(/databases/$(database)/documents/saveHealth/$(sid))
           || (resource.data.uid == request.auth.uid && request.time > resource.data.t + duration.value(10, 's')))
-        && request.resource.data.keys().hasOnly(['uid', 'reg', 'device', 'status', 'revision', 'pending', 'error', 'conflicts', 't', 'expiresAt'])
+        && request.resource.data.keys().hasOnly(['uid', 'reg', 'device', 'status', 'revision', 'pending', 'error', 'conflicts', 't', 'expiresAt', 'pg'])
+        && (!('pg' in request.resource.data) || (request.resource.data.pg is string && request.resource.data.pg.size() <= 40))
         && region(request.resource.data.reg)
         && request.resource.data.device in ['Desktop', 'Mobile']
         && request.resource.data.status in ['synced', 'saving', 'offline']

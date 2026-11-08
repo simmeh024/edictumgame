@@ -1422,12 +1422,14 @@
       healthLast = performance.now();
       A.fs.doc('saveHealth/' + A.uid + '_' + healthSession).set({ uid: A.uid, reg: str(n.reg, 40) || 'meridian',
         device: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop', status: E.syncStatus || 'saving',
-        revision: revision(n), pending: !!n._dirty, error: str(h.error, 64), conflicts: Math.min(1000000, num(h.conflicts)),
+        revision: revision(n), pending: !!n._dirty, error: str(h.error, 64), conflicts: Math.min(1000000, num(h.conflicts)), pg: (location.hash || '').slice(1).split('/')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40),
         t: serverTime(), expiresAt: A.fb.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000)
       }).catch(function () { /* diagnostics must never interfere with saving the nation */ });
     }, Math.max(250, healthLast + 15000 - performance.now()));
   }
   window.addEventListener('edictum:sync', healthSoon);
+  /* the admin Online players page shows which page each player is on */
+  window.addEventListener('hashchange', healthSoon);
   setInterval(function () { if (!document.hidden) healthSoon(); }, 60000);
   window.addEventListener('online', paintSync);
   window.addEventListener('offline', paintSync);

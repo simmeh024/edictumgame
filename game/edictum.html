@@ -6166,6 +6166,7 @@ button[disabled] .gv-cost{opacity:.6}
 .spx-out .row{margin-top:8px}
 .spx-help-l{margin:8px 0 12px;padding-left:22px;display:grid;gap:6px;line-height:1.5}
 /* spx:end */
+.adm-oflag{display:inline-block;width:42px;line-height:0}.adm-oflag svg{width:42px;height:auto;border-radius:2px;box-shadow:0 0 0 1px var(--line,rgba(0,0,0,.15))}
 </style>
 
 <div id="app"></div>
@@ -42237,7 +42238,7 @@ function tick(){
    demand (one cheap count per figure), loaded when the page opens and at most once a minute after. */
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
 const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
-const ADM_EXTRA=['admin-players','admin-health','admin-audit'];
+const ADM_EXTRA=['admin-players','admin-online','admin-health','admin-audit'];
 const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus','admin-edicts','admin-stats','admin-shop',ADM_EXTRA);
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
@@ -42589,6 +42590,7 @@ const ADM_ICONS={
   'admin-shop':NAV_ICONS.shop,
   'admin-feed':NAV_SVG('<path d="M2.5 12h4l2.5-6.5 5 13 2.5-6.5h5"/>'),
   'admin-players':NAV_SVG('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.3 15.3 5.2 5.2"/><circle cx="10.5" cy="9" r="2"/><path d="M7.2 14.2c.7-1.5 1.9-2.3 3.3-2.3s2.6.8 3.3 2.3"/>'),
+  'admin-online':NAV_SVG('<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="18" cy="8" r="2.2" fill="currentColor"/>'),
   'admin-watch':NAV_SVG('<path d="M6 15.5V10.5a6 6 0 0 1 12 0v5l1.8 2.5H4.2Z"/><path d="M10 20.5h4"/>'),
   'admin-regions':NAV_ICONS.world,
   'admin-reports':NAV_SVG('<path d="M4 4.5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9l-4.5 3.5v-3.5H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z"/><path d="M12 7.5v4.5"/><circle cx="12" cy="14.2" r=".9" fill="currentColor" stroke="none"/>'),
@@ -42610,7 +42612,7 @@ function admShell(v,body){
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
-        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
+        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards'))}
@@ -42645,6 +42647,7 @@ document.addEventListener('click',e=>{
 });
 
 /* ───────── staff operations ───────── */
+setInterval(()=>{if(S.isOwner&&S.view==='admin-online'&&!document.hidden&&!ADMX.busy)adminExtraLoad('admin-online');},30000);
 const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
@@ -42657,6 +42660,7 @@ async function adminExtraLoad(v,more=false,refresh=false){
       if(more&&ADMX.search)d.players=ADMX.search.players.concat(d.players);ADMX.search=d;
     }
     if(v==='admin-health')ADMX.health=await adminRequest({op:'health'});
+    if(v==='admin-online')ADMX.online=await adminRequest({op:'online'});
     if(v==='admin-audit'){
       const d=await adminRequest({op:'audit',target:ADMX.target,after:more&&ADMX.audit?ADMX.audit.next:''});
       if(more&&ADMX.audit)d.events=ADMX.audit.events.concat(d.events);ADMX.audit=d;
@@ -42823,7 +42827,7 @@ async function adminNoteSave(uid){
 }
 function adminExtraView(v){
   if(!ADMX.loaded[v]&&!ADMX.busy)setTimeout(()=>adminExtraLoad(v),0);
-  const title={'admin-players':'Player search','admin-health':'Save health','admin-audit':'Admin audit log'}[v];
+  const title={'admin-players':'Player search','admin-online':'Online players','admin-health':'Save health','admin-audit':'Admin audit log'}[v];
   let body='';
   if(v==='admin-players'){
     const d=ADMX.search;
@@ -42836,6 +42840,12 @@ function adminExtraView(v){
         <td><label class="u-sr" for="admin-eng">Filter by engagement</label><select class="input" id="admin-eng" form="admin-search">${[['','Any'],['hi','High (60+)'],['mid','Middling (30–59)'],['lo','Low (under 30)'],['none','Not scored yet']].map(([k,l])=>`<option value="${k}"${ADMX.eng===k?' selected':''}>${l}</option>`).join('')}</select></td>
         <td><label class="adm-onlyon"><input type="checkbox" id="admin-onlyon" form="admin-search"${ADMX.act==='online'?' checked':''}> Online only</label></td></tr></thead>
         <tbody>${d&&d.players.length?d.players.map(p=>`<tr><td>${p.on?'<span class="adm-on" title="Online now" role="img" aria-label="Online now"></span> ':''}${esc(p.name)}</td><td>${esc(regName(p.reg))}</td><td>${p.on?'<b class="adm-on-t">Online now</b><br>':''}${esc(adminTime(p.t))}</td><td class="num">${admEng(p.eng)}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect player</button></td></tr>`).join(''):`<tr><td colspan="5" class="hint">${d?'No matching players.':'Loading the directory…'}</td></tr>`}</tbody></table></div>${d&&d.next!=null?'<button class="btn ghost" data-act="admin-extra-more">Load more players</button>':''}`;
+  }
+  if(v==='admin-online'){
+    const d=ADMX.online,rows=d?d.players.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))):[];
+    const page=pg=>!pg?'<span class="hint">Not reported</span>':esc(NAV_LABELS[pg]||(pg.charAt(0).toUpperCase()+pg.slice(1)).replace(/-/g,' '));
+    body=`<p class="lede">Everyone with the game open in the last three minutes: the page their latest tab is on, their region and flag. Write to any of them directly; the letter arrives in their Messages from you. The list refreshes every 30 seconds while you are here.</p><button class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh now</button>
+      ${d?`<p class="hint"><span class="adm-on" aria-hidden="true"></span> ${rows.length} online · checked ${esc(adminTime(d.at))}${d.limited?' · showing the latest 1,000 sessions':''}. Older game versions do not report their page.</p>${rows.length?`<div class="tbl-wrap"><table class="tbl adm-otbl"><thead><tr><th>Flag</th><th>Nation</th><th>Region</th><th>Page</th><th>Device</th><th>Actions</th></tr></thead><tbody>${rows.map(p=>`<tr><td><span class="adm-oflag">${flagSVG(p.flag,'Flag of '+p.name)}</span></td><td><b>${esc(p.name)}</b><br><span class="hint">seen ${esc(rel(p.t))}</span></td><td>${esc(regName(p.reg))}</td><td>${page(p.pg)}</td><td>${esc(p.device||'')}${p.tabs>1?`<br><span class="hint">${p.tabs} tabs</span>`:''}</td><td><div class="row"><button class="btn small" data-act="admin-online-msg" data-id="${esc(p.uid)}">Message</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect</button></div></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">Nobody is online right now.</p>'}`:''}`;
   }
   if(v==='admin-health'){
     const d=ADMX.health,rows=d?d.sessions:[],stale=s=>Date.now()-s.t>5*60000;
@@ -42866,6 +42876,12 @@ document.addEventListener('click',async e=>{
   if(a==='region-enable'||a==='region-disable'){adminSetRegion(id,a==='region-enable');return;}
   if(a==='admin-filter-clear'){ADMX.q='';ADMX.reg='';ADMX.act='';ADMX.eng='';adminExtraLoad('admin-players');return;}
   if(a==='admin-extra-refresh'||a==='admin-extra-more'){adminExtraLoad(S.view,a==='admin-extra-more',a==='admin-extra-refresh');return;}
+  if(a==='admin-online-msg'){
+    const p=ADMX.online&&ADMX.online.players.find(q=>q.uid===id);if(!p)return;
+    if(id===myId()){toast('That is you.');return;}
+    if(!findNation(id))XN.set(id,{id,n:{name:String(p.name).slice(0,80)},far:true,reg:String(p.reg||'')});
+    go('messages');dmSetPeer(id);render();return;
+  }
   if(a==='admin-history'){ADMX.target=id;ADMX.loaded['admin-audit']=false;ADMX.audit=null;go('admin-audit');return;}
   if(a==='admin-mod'){
     if(ADM_MOD_ASK[el.dataset.a]){ADMX.mod={a:el.dataset.a,uid:id};ADMX.modMsg='';render();document.getElementById('admin-mod-reason')?.focus();}
