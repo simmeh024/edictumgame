@@ -108,6 +108,9 @@ await A.evaluate(() => G.DSP().pressLoad(true));
 await until(() => A.evaluate(() => G.DSP().dspTitle() === 'The Meridian Messenger'), 8000);
 const no = new Date().getUTCHours() >= 1 ? today() - 1 : today() - 2;
 const wait = 47000 - (Date.now() - TA); if (wait > 0) await sleep(wait);
+/* reader A read the press doc before it was named (it rereads it every 5 minutes): let it hear the name first, as
+   in the hour after midnight UTC it is A that files the edition, the one before yesterday's */
+await until(() => A.evaluate(() => { const D = G.DSP(); if (D.dspTitle() !== 'The Meridian Messenger') D.pressLoad(true); return D.dspTitle() === 'The Meridian Messenger'; }), 8000);
 await paper(A); await A.click(`.dsp-ed[data-no="${no}"]`);
 const filed = await until(() => getDoc(`papers/meridian_${no}`), 30000, 500);
 let packed = null; try { packed = filed && JSON.parse(filed.fields.j.stringValue); } catch (e) {}
