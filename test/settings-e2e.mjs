@@ -78,6 +78,9 @@ const lh1 = await lh();
 check('while paused nothing can be spent, and every credit is stored', lh1.paused && lh1.credits === 0 && lh1.stored === lh0.credits);
 check('the tab line and the pane say so', (await text(A, '[data-sg-sub="land"]')).includes(`Gains paused · ${lh0.credits} stored`) && /Paused since .* land credits? stored/.test(await text(A, '#lh-state')));
 check('the bell has no land to spend', await A.evaluate(() => !G.RGNX().notifItems(Date.now()).pin.some(p => p.k === 'land')));
+// the reload must come after the pause has reached the server: reloading within the save gap (80 ms after the click, as
+// this did) left it to chance which copy the page kept, and on CI the server's older one sometimes won
+check('the pause reaches the server', await until(async () => { const d = await nationDoc(uidA); return !!(d && d.rec && d.rec.lcp > 0); }, 15000));
 await A.reload(); await A.waitForSelector('#sg');
 check('the pause holds after a reload', await tab(A) === 'land' && await A.$eval('#lh-pause', e => e.checked) && (await lh()).credits === 0);
 await nav(A, 'map');
