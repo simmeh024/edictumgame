@@ -18574,7 +18574,15 @@ const CELL_RES=(()=>{
 /* large iron deposits, scattered over the map (the same for every player): mountains most often, then hills, now and then
    lowland, never where there is oil. Each adds IRON_DEP_YIELD iron a day to the land, which an Iron Mine doubles. */
 const IRON_DEP_YIELD=4;
-const IRON_DEP=(()=>{const N=MAP.N,a=new Uint8Array(N);for(let i=0;i<N;i++){const t=MAP.T[i];if(t<2||CELL_RES.oil[i])continue;const p=t===4?25:t===3?8:1;if(hash('ore:'+cellKey(i))%1000<p){a[i]=1;CELL_RES.iron[i]+=IRON_DEP_YIELD;}}return a;})();
+/* every map gets its share: one deposit for every IRON_DEP_PER land hexes (at least IRON_DEP_MIN, at most IRON_DEP_MAX),
+   the hexes ranked by a hash weighted towards mountains (25) and hills (8) over lowland (1), so a flat map still has some */
+const IRON_DEP_PER=250,IRON_DEP_MIN=24,IRON_DEP_MAX=400,IRON_DEP_W=[0,0,1,8,25];
+function ironDepPick(T,oil,keyOf,h){
+  const land=[];for(let i=0;i<T.length;i++)if(T[i]>=2&&!oil[i])land.push(i);
+  const K=Math.min(land.length,Math.max(IRON_DEP_MIN,Math.min(IRON_DEP_MAX,Math.round(land.length/IRON_DEP_PER))));
+  return land.map(i=>[((h('ore:'+keyOf(i))%1000003)+1)/IRON_DEP_W[T[i]],i]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).slice(0,K).map(x=>x[1]);
+}
+const IRON_DEP=(()=>{const a=new Uint8Array(MAP.N);for(const i of ironDepPick(MAP.T,CELL_RES.oil,cellKey,hash)){a[i]=1;CELL_RES.iron[i]+=IRON_DEP_YIELD;}return a;})();
 const resName=r=>RES_INFO[r][0].toLowerCase();
 const fmtAmt=x=>{const v=Math.round(x*10)/10;return Number.isInteger(v)?String(v):v.toFixed(1);};
 const roundAmt=v=>clamp(Math.round((parseFloat(v)||0)*2)/2,0,100);
