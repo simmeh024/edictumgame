@@ -422,7 +422,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .sg-ts{font-size:12.5px;line-height:1.3;color:var(--ink-3)}
 .sg-tab.dirty .sg-ts{color:var(--stamp);font-weight:600}
 .sg-pane{display:none;min-width:0}
-.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="nav"] #sg-p-nav,.sg[data-tab="account"] #sg-p-account,.sg[data-tab="letters"] #sg-p-letters{display:block}
+.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="nav"] #sg-p-nav,.sg[data-tab="account"] #sg-p-account,.sg[data-tab="letters"] #sg-p-letters,.sg[data-tab="land"] #sg-p-land{display:block}
 .sg-head{margin:0 0 18px}
 .sg-hrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .sg-h{margin:0;font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1;font-variation-settings:"opsz" 48}
@@ -588,6 +588,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .notice.land .notice-k,.notice.land .notice-go{color:var(--accent)}
 .lc-box{margin-top:14px;padding:14px;border:1px solid var(--rule);border-radius:4px;background:var(--paper);display:grid;gap:8px;font-size:13.5px}
 .lc-box.has{border-color:var(--accent);background:var(--accent-soft)}
+.lc-box.lc-paused{border-style:dashed}
 .lc-top{display:flex;justify-content:space-between;align-items:baseline}
 .lc-v{font-family:var(--f-display);font-weight:650;font-size:28px;line-height:1}
 .lc-box p{margin:0}
@@ -21747,6 +21748,7 @@ function landHelp(n){
   const coast=geo(n,'coast'),navy=!!pol(n).navalFleet,rc=(n.rec||[]).length;
   return `<details class="lc-list lc-help" data-keep="lhOpen"${S.lhOpen?' open':''}><summary>More land, reclaimed land and a navy</summary>
     <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Finishing the charter list earns 3, a daily desk cleared in your first week earns 2 instead of 1, and coming back on a second and a third day earns 2 each. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or a free shore that a completed coastal Harbour reaches across up to ${mpHarbourReach(n)} hexes of water: another island, or the far side of a bay on your own coast. Turn on <b>Harbour reach</b> in the map key to see how far your harbours reach.</p>
+    <p><b>Staying small.</b> A nation that would rather keep its borders can pause land credit gains in Settings › Land. Credits earned meanwhile are stored, and all of them can be spent once gains are back on. ${lhLink('Land settings')}</p>
     <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
     <p><b>Reclaimed land</b> comes from decisions, not from a button or a building. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
     <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, your troops cross the sea without losing strength, and your harbours reach ${MP_NAVY_REACH} hexes across water instead of ${MP_SEA_REACH} to claim land. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
@@ -28151,7 +28153,7 @@ function dspView(now){
   if(E.fix)boxes.push(['fix','Corrections',box('fix','Corrections','dsp-fx-h',`<p class="dsp-small">${esc(E.fix)}</p>`)]);
   const tabs=narrow?`<div class="dsp-tabs" role="tablist" aria-label="Features">${boxes.map(([k,l])=>`<button type="button" role="tab" class="dsp-tab${k===side?' on':''}" id="dsp-t-${k}" data-act="dsp-side" data-k="${k}" aria-selected="${k===side}" aria-controls="dsp-p-${k}" tabindex="${k===side?0:-1}">${esc(l)}</button>`).join('')}</div>`:'';
   /* sections: all open on a wide screen; on a phone each folds, the first open unless the reader chose */
-  const open=S.dspOpen instanceof Set?S.dspOpen:(S.dspOpen=new Set(E.secs.length?[E.secs[0].k]:[]));
+  const open=S.dspOpen instanceof Set?S.dspOpen:new Set(E.secs.length?[E.secs[0].k]:[]);
   const secHTML=q=>{const shut=narrow&&!open.has(q.k),hd=narrow?`<h2 class="dsp-sh dsp-sec-h" id="dsp-s-${q.k}"><button type="button" class="dsp-sec-t" data-act="dsp-sec" data-k="${q.k}" aria-expanded="${!shut}" aria-controls="dsp-si-${q.k}">${esc(q.l)} <span>${q.st.length===1?'one story':q.st.length+' stories'}</span></button></h2>`:`<h2 class="dsp-sh" id="dsp-s-${q.k}">${esc(q.l)}</h2>`;
     return `<section class="dsp-sec${shut?' shut':''}" aria-labelledby="dsp-s-${q.k}">${hd}<div class="dsp-sec-in" id="dsp-si-${q.k}">${q.st.map(s=>dspStory(s,'h3','',byId,M)).join('')}</div></section>`;};
   /* the bar: every part of the paper, and the stories about you */
@@ -28235,7 +28237,10 @@ function dspReport(id,i){
   Promise.resolve(window.claude&&window.claude.use?window.claude.use('report'):null).then(R=>{if(R)R.open({kind:'post',target:id,post:'ad:'+REG.id+':'+id+':'+i,reg:REG.id,name:x.n.name,x:dspClean(ad.x,DSP_AD_LEN)});else toast('Reporting needs a connection.');});
 }
 /* jumping about the paper: a folded section opens first */
-function dspOpenSec(k){const el=document.querySelector(`.dsp-sec [data-k="${k}"]`),sec=el&&el.closest('.dsp-sec');if(!(S.dspOpen instanceof Set))S.dspOpen=new Set();S.dspOpen.add(k);if(sec){sec.classList.remove('shut');el.setAttribute('aria-expanded','true');}}
+/* the reader's own choice of open sections, from the first one they open or close: until then the edition shown opens
+   its first section, so it starts from what is open on the page */
+function dspOpenSet(){if(!(S.dspOpen instanceof Set))S.dspOpen=new Set([...document.querySelectorAll('.dsp-sec:not(.shut) [data-act="dsp-sec"]')].map(b=>b.dataset.k));return S.dspOpen;}
+function dspOpenSec(k){const el=document.querySelector(`.dsp-sec [data-k="${k}"]`),sec=el&&el.closest('.dsp-sec');dspOpenSet().add(k);if(sec){sec.classList.remove('shut');el.setAttribute('aria-expanded','true');}}
 function dspJump(id){
   const sec=/^dsp-s-(\w+)$/.exec(id);if(sec&&dspNarrow())dspOpenSec(sec[1]);
   const el=document.getElementById(id);if(!el)return;
@@ -28270,7 +28275,7 @@ document.addEventListener('click',e=>{
   if(a==='dsp-adclose'){S.dspForm=false;S.dspDraft='';S.dspMsg='';render();const b=document.querySelector('[data-act="dsp-adopen"]');if(b)b.focus();return;}
   if(a==='dsp-jump'){dspJump(el.dataset.to);return;}
   if(a==='dsp-mine'){dspMine();return;}
-  if(a==='dsp-sec'){const k=el.dataset.k,sec=el.closest('.dsp-sec');if(!(S.dspOpen instanceof Set))S.dspOpen=new Set();const on=!S.dspOpen.has(k);if(on)S.dspOpen.add(k);else S.dspOpen.delete(k);if(sec)sec.classList.toggle('shut',!on);el.setAttribute('aria-expanded',String(on));return;}
+  if(a==='dsp-sec'){const k=el.dataset.k,sec=el.closest('.dsp-sec'),open=dspOpenSet(),on=!open.has(k);if(on)open.add(k);else open.delete(k);if(sec)sec.classList.toggle('shut',!on);el.setAttribute('aria-expanded',String(on));return;}
   if(a==='dsp-side'){const k=el.dataset.k;S.dspSide=k;const w=document.getElementById('dsp-side');if(w){for(const b of w.querySelectorAll('.dsp-tab')){const on=b.dataset.k===k;b.classList.toggle('on',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of w.querySelectorAll('.dsp-box'))p.classList.toggle('on',p.id==='dsp-p-'+k);}return;}
   if(a==='dsp-po'){dspPoAct(el.dataset.k,el.dataset.key);return;}
   if(a==='dsp-reprint'){dspReprint(+el.dataset.no);return;}
@@ -32312,6 +32317,7 @@ function inspStatus(T,cell){
   const ban=claimBanNote(T,cell,n);if(ban)return ban;
   const adj=claimFrontier(T).has(cell),cr=landCredits(n);
   if(!adj)return `<p class="hint">${esc(claimWhy(T,cell))}</p>`;
+  if(cr<1&&lcPaused(n))return `<p class="hint">Free and reachable. ${lhPauseNote()}</p>`;
   if(cr<1){const np=nextCreditPop(n);return `<p class="hint">Free and reachable. You have no land credits to spend${np?`: the next arrives at ${fmtPop(np)} people`:''}.${esc(landDeficitNote(n))}</p>`;}
   const plan=blockPlan(T,BLOCKS.of[cell],cell).slice(0,cr);
   return `<div class="row" style="margin-top:14px"><button class="btn" data-act="insp-one" data-c="${cell}">Claim this hex (1 credit)</button>${plan.length>1?`<button class="btn ghost" data-act="insp-block" data-c="${cell}">Claim ${plan.length} hexes of this block (${plan.length} credits)</button>`:''}</div><p class="hint" style="margin-top:8px">You have ${cr} land ${cr===1?'credit':'credits'}.</p>`;
@@ -35380,6 +35386,7 @@ const tutPrvT2=()=>{try{return prvT2(S.nation);}catch(e){return 'Provinces';}},t
 function tutLandHint(n){
   if(cellOf(n.loc)<0)return 'Settle first. Then credits arrive as your population grows.';
   const cr=landCredits(n);if(cr)return `You have ${cr} to spend: click a free hex beside your border to claim one.`;
+  if(lcPaused(n))return 'Land credit gains are paused in Settings › Land: turn them back on to claim land.';
   const np=nextCreditPop(n);return np?`Your next credit arrives at ${fmtPop(np)} people.`:'Click a free hex beside your border: the tile inspector shows what it yields and claims it for a credit.';
 }
 const TUT_LISTS=[
@@ -38968,7 +38975,7 @@ function commit(n){if(OBS||tabPassive||regBlocked())return;const act=actRecord(n
   if(!n.lcfx&&cellOf(n.loc)>=0){const k=coreRepair(n);n.lcfx=1;if(k)setTimeout(()=>{const c=landCredits(S.nation);toast(`The land you held when land credits arrived is now paid for: all ${k} ${k===1?'hex stays':'hexes stay'} yours and no longer count against your credits. You have ${c} land ${c===1?'credit':'credits'} to spend.`);},0);}
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
-  if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now);if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
+  if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now).map(t=>lcPauseMsg(n,t));if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote(act&&performance.now()-lastInput<5000);}
 function queueRemote(player){
   if(OBS||tabPassive)return;
@@ -51774,7 +51781,7 @@ function sbProj(x,ser){
   const n=x.n,now=Date.now(),pop=popNow(n),rate=sbRate(ser,'pop',7),out=[];
   const eta=(need,r)=>r&&r>0?sbDays(need/r*DAY):null;
   const m=(typeof MILESTONES!=='undefined'?MILESTONES:[]).find(q=>q.p>pop+1e-9);if(m){const e=eta(m.p-pop,rate);out.push(['Next population milestone',fmtPopShort(m.p)+' people',e?'in about '+e:'when your population grows again']);}
-  try{const c=nextCreditAt(n);if(c&&c>pop){const e=eta(c-pop,rate);out.push(['Next land credit','at '+fmtPop(c),e?'in about '+e:'when your population grows again']);}}catch(e){}
+  try{const c=nextCreditAt(n);if(c&&c>pop){const e=eta(c-pop,rate);out.push(['Next land credit','at '+fmtPop(c),lcPaused(n)?'stored, as gains are paused':e?'in about '+e:'when your population grows again']);}}catch(e){}
   const L=allNations().filter(y=>y.n&&!y.n.dormant&&y.id!==x.id).map(y=>{const s=sbSeries(y);return {y,p:popNow(y.n),r:sbRate(s,'pop',7)||0};}).filter(o=>o.p>pop).sort((a,b)=>a.p-b.p);
   if(L.length){const o=L[0],close=(rate||0)-o.r;out.push([`Overtaking ${o.y.n.name}`,`${fmtPop(o.p-pop)} behind`,close>0?`in about ${sbDays((o.p-pop)/close*DAY)} at both nations’ present pace`:'not at the present pace']);}else out.push(['Largest nation in the region','You are already',`ahead of every nation in ${REG.the}`]);
   try{const pts=achPoints(n),nx=ACH_RANKS.find(q=>q[0]>pts);if(nx){const got=Object.entries(n.ach||{}).filter(([id,t])=>ACH_BY_ID[id]&&t>now-14*DAY).reduce((s,[id])=>s+ACH_TIER[ACH_BY_ID[id].t].p,0)/14;out.push([`Next rank: ${nx[1]}`,`${fmt0(nx[0]-pts)} prestige to go`,got>0?`in about ${sbDays((nx[0]-pts)/got*DAY)} at your last fortnight’s pace`:'no achievements in the last fortnight']);}}catch(e){}
@@ -55481,7 +55488,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -57332,6 +57339,63 @@ function dspDom(){
 }
 navAfter=(f=>function(){const r=f.apply(this,arguments);try{dspDom();}catch(e){}return r;})(navAfter);
 
+
+/* ───────── keeping small: land credit gains paused (Settings › Land, n.lcp) ─────────
+   A nation that would rather stay small can pause its land credit gains in Settings › Land. Credits are still earned
+   as before (population, milestones, cities, ranks and bonuses all count, as landEarned always has), but none can be
+   spent while gains are paused: landCredits reads 0, so the map stops offering land, and the land office, the bell, the
+   badges and automatic spending stay quiet. Turning gains back on makes every stored credit available at once.
+   n.lcp: when gains were paused (absent while they are on). Kept at the end so these wrappers sit outside every other. */
+function lcPaused(n){return !!n&&!n.npc&&typeof n.lcp==='number'&&n.lcp>0;}
+const lcRaw=landCredits;
+/* the credits waiting: what landCredits would give if gains were on */
+function lcStored(n){try{return lcRaw(n);}catch(e){return 0;}}
+landCredits=(f=>function(n){return lcPaused(n)?0:f.apply(this,arguments);})(landCredits);
+NORM_HOOKS.push((n,d)=>{if(d&&typeof d.lcp==='number'&&isFinite(d.lcp)&&d.lcp>0)n.lcp=d.lcp;});
+/* a note that credits were earned tells a paused nation they are stored, not to spend them on the map (commit) */
+function lcPauseMsg(n,t){
+  if(!lcPaused(n))return t;
+  const re=/[:.]? ?[Ss]pend (?:them|it) on the map\./,fix=s=>typeof s==='string'&&re.test(s)?s.replace(re,'. They are stored while land credit gains are paused.'):s;
+  return t&&typeof t==='object'&&typeof t.m==='string'?Object.assign({},t,{m:fix(t.m)}):fix(t);
+}
+function lhLink(l){return `<button type="button" class="linkish small" data-act="go" data-v="settings" data-sg-tab="land">${l}</button>`;}
+/* the map's land office, while gains are paused: what is stored, and the way back to Settings */
+landBox=(f=>function(n){if(!lcPaused(n))return f.apply(this,arguments);const k=lcStored(n);
+  return `<div class="lc-box lc-paused"><div class="lc-top"><span class="lbl">Stored land credits</span><span class="lc-v">${k}</span></div>
+    <p>Land credit gains are paused, so ${esc(n.name)} keeps the land it has. Credits earned meanwhile are stored, and every one of them can be spent once gains are back on.</p>
+    <p>${lhLink('Land settings')}</p>${landExtras(n)}</div>`;})(landBox);
+function lhPauseNote(){return `Land credit gains are paused, so no land can be claimed until you turn them back on. ${lhLink('Land settings')}`;}
+
+/* Settings › Land, after Edicts: pausing gains, and spending new credits automatically (the same switch as the map's) */
+SG_TABS.splice(SG_TABS.findIndex(t=>t[0]==='edicts')+1,0,['land','Land']);
+sgTabOfId=(f=>function(id){return /^#?(set-land|lh-)/.test(String(id||''))?'land':f.apply(this,arguments);})(sgTabOfId);
+sgTabSub=(f=>function(k,n){if(k!=='land')return f.apply(this,arguments);
+  if(lcPaused(n)){const s=lcStored(n);return `Gains paused · ${s} stored`;}
+  return n.autoLand?'Gains on · spent automatically':'Gains on';})(sgTabSub);
+function lhPane(n){
+  const p=lcPaused(n),k=p?lcStored(n):landCredits(n),cr=k===1?'credit':'credits';
+  return `${sgHead('land','Applies at once',`How ${esc(n.name)} grows across the map. Land credits arrive as your population grows, with milestones, cities and achievement ranks, and each one claims a hex.`)}
+    <section class="sg-card" id="set-land"><h3 class="sg-ch">Keep ${esc(n.name)} small</h3>
+      <label class="tog"><input type="checkbox" id="lh-pause" data-act="lh-pause"${p?' checked':''}> Pause land credit gains</label>
+      <p class="hint">For a nation that wants to stay small. While gains are paused no land credit can be spent: the map stops offering free land, and the land office and the bell stop asking. ${esc(n.name)} still earns credits as it grows, and they are stored. Turn gains back on and every stored credit is yours to spend.</p>
+      <p class="lh-state" id="lh-state">${p?`Paused since ${esc(fmtDate(n.lcp))}. <b>${k}</b> land ${cr} stored.`:`Gains are on. You have <b>${k}</b> land ${cr} to spend.`}</p>
+      ${p&&n.autoLand&&k?`<p class="hint">Spending new credits automatically is on, so turning gains back on spends the stored ${cr} at once.</p>`:''}
+    </section>
+    <section class="sg-card" id="set-land-auto"><h3 class="sg-ch">Spending</h3>
+      <label class="tog"><input type="checkbox" id="lh-auto" data-act="lh-auto"${n.autoLand?' checked':''}> Spend new credits automatically</label>
+      <p class="hint">Credits are then spent on the cheapest free land beside your borders. Otherwise you choose the land yourself. <button type="button" class="linkish small" data-act="go" data-v="map">Open the map</button></p>
+    </section>`;
+}
+settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<div class="sg-pane" id="sg-p-notif"');if(i<0||!S.nation)return h;
+  return h.slice(0,i)+`<div class="sg-pane" id="sg-p-land" data-sg="land" role="tabpanel" aria-labelledby="sg-tab-land">${lhPane(S.nation)}</div>`+h.slice(i);})(settingsView);
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!S.nation||OBS)return;const a=t.dataset.act;
+  if(a==='lh-pause'){const on=t.checked;if(on===lcPaused(S.nation))return;
+    sgApply(n=>{if(on)n.lcp=Date.now();else delete n.lcp;});
+    const k=on?lcStored(S.nation):landCredits(S.nation),nm=S.nation.name;
+    toast(on?`Land credit gains are paused: ${nm} keeps its borders, and new credits are stored.`
+      :`Land credit gains are back on.${k?` ${k} stored land ${k===1?'credit is':'credits are'} ${S.nation.autoLand?'now spent automatically':'yours to spend on the map'}.`:''}`);}
+  else if(a==='lh-auto'){const on=t.checked;if(on===!!S.nation.autoLand)return;sgApply(n=>{n.autoLand=on;});}
+});
 
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
