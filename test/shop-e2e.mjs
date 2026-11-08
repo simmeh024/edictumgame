@@ -126,7 +126,7 @@ await click(A, '[data-act="shop-buy"][data-p="founder"]');
 const fTxn = await payFor(A);
 check('the checkout was opened for a transaction the server made', !!fTxn && P.tx.get(fTxn).custom_data.uid === aUid && P.tx.get(fTxn).items[0].price.id === PRICES.founder);
 check('owned once Paddle confirms it', !!(await until(() => A.evaluate(() => /Owned/.test(document.querySelector('.shop-founder')?.textContent || '')), 10000)));
-check('the founder cosmetics are held, by the server’s word, with the whole Card Pack', (await A.evaluate(() => G.SHOP.held().length)) === 16);
+check('the founder cosmetics are held, by the server’s word, with the whole Card Pack and the flag pieces', (await A.evaluate(() => G.SHOP.held().length)) === 20);
 const fno = await until(() => A.evaluate(() => G.SHOP.SHOP.doc && G.SHOP.SHOP.doc.fno), 8000);
 check('the founder has a number', Number.isInteger(fno) && fno > 0, String(fno));
 check('and the Card Pack shows as included, not for sale', await A.evaluate(() => !document.querySelector('[data-act="shop-buy"][data-p="idpack"]')));
@@ -174,6 +174,14 @@ await shot(B, '#fdr-pop', 'shop-founder-pop.png');
 await click(B, '#fdr-pop [data-act="fdr-shop"]');
 check('and leads to the Founder’s Package in the Shop', await B.evaluate(() => G.S.view === 'shop' && !!document.querySelector('.shop-dr .shop-founder')));
 const tipTxt = await B.evaluate(id => G.SHOP.mapTip(id), aUid);
+/* the founder's flag pieces: shown on a founder's flag, and on nobody else's */
+await A.evaluate(() => { const m = G.clone(G.S.nation); m.flag = Object.assign({}, m.flag, { p: 'fdawn', e: 'e-rosette' }); G.commit(m); G.PG.saveSoon(); });
+check('a founder flies Founder’s Dawn with the Founder’s Rosette', await A.evaluate(() => { const f = G.SHOP.flagNorm(G.S.nation.flag, G.S.nation); return f.p === 'fdawn' && f.e === 'e-rosette'; }));
+await A.evaluate(() => G.PG.saveSoon());await sleep(2500);
+check('and a neighbour sees them', !!(await until(() => B.evaluate(id => { const n = G.S.world && G.S.world[id]; if (!n) return false; const f = G.SHOP.flagNorm(n.flag, n); return f.p === 'fdawn' && f.e === 'e-rosette'; }, aUid), 12000)));
+check('a nation that is no founder falls back to a plain design', await B.evaluate(() => { const n = G.clone(G.S.nation); n.flag = Object.assign({}, n.flag, { p: 'fcharter', e: 'e-keystone' }); const f = G.SHOP.flagNorm(n.flag, n); return f.p === 'border' && f.e === 'none'; }));
+await A.evaluate(() => { const s = document.createElement('div'); s.id = 'fdr-flags'; s.style.cssText = 'display:flex;gap:8px;padding:8px;background:#fff'; s.innerHTML = ['fdawn', 'fcharter'].map(p => G.SHOP.flagSVG({ p, c: ['#1d3557', '#e9c46a', '#8a2a1c'], e: p === 'fdawn' ? 'e-keystone' : 'e-rosette', ec: p === 'fdawn' ? '#1d3557' : '#e9c46a' }, '')).join(''); s.querySelectorAll('svg').forEach(v => { v.style.width = '240px'; v.style.height = '160px'; }); document.body.prepend(s); });
+await shot(A, '#fdr-flags', 'shop-founder-flags.png');await A.evaluate(() => document.getElementById('fdr-flags').remove());
 check('a founder’s land says so on the map', /Founding Supporter No\. \d{4}/.test(tipTxt), tipTxt);
 const C = await player('shop forger', { cap: 500 });const cUid = await open(C);await found(C, 'Forgeria');
 /* a tampered client: the record saved as it stands, past the game's own commit (which would rewrite cz.u) */
