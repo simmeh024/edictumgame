@@ -1971,6 +1971,21 @@ canvas.wr-map:not([data-done]){background:linear-gradient(100deg,var(--sea) 30%,
 .ml-key>summary{min-height:40px;display:flex;align-items:center;cursor:pointer;font-weight:600;font-size:13.5px}
 .ml-keys{margin:0 0 12px}
 .sb-head{margin-bottom:12px}.sb-head .hint{margin:4px 0 0}
+.sb-imp td,.sb-imp th{text-align:left}.sb-imp th{min-width:220px}.sb-imp-t{display:block;font-weight:600}.sb-imp .hint{display:block;font-weight:400;margin:2px 0 0}
+.sb-chip{display:inline-block;margin:0 4px 4px 0;padding:2px 6px;border-radius:3px;background:var(--sheet-2);font:500 12px/1.3 var(--f-mono);white-space:nowrap}
+.sb-chip.up{color:var(--up)}.sb-chip.dn{color:var(--down)}
+.sb-tl .sb-tl-m line{stroke:var(--rule-2);stroke-dasharray:2 3}.sb-tl .sb-tl-m circle{fill:var(--accent);stroke:var(--sheet);stroke-width:1.5}
+.sb-tl .sb-tl-m text{font-size:11px;fill:var(--ink-2)}.sb-tl .k-war circle,.sb-tl .k-lost circle{fill:var(--down)}.sb-tl .k-peace circle,.sb-tl .k-conq circle{fill:var(--up)}.sb-tl .k-issue circle{fill:var(--ink-3)}
+.sb-tl-key{display:flex;gap:6px 14px;flex-wrap:wrap;margin:4px 0 8px;font-size:13px;color:var(--ink-2)}
+.sb-tl-l{list-style:none;margin:0;padding:0;display:grid}
+.sb-tl-l li{display:grid;grid-template-columns:22px 110px minmax(0,1fr) auto;gap:4px 10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--rule);font-size:14px}
+.sb-tl-l time{font:500 12px var(--f-mono);color:var(--ink-3)}.sb-tl-g{text-align:center;color:var(--ink-2)}
+@media (max-width:600px){.sb-tl-l li{grid-template-columns:22px minmax(0,1fr)}.sb-tl-l li>.hint,.sb-tl-l time{grid-column:2}}
+.sb-league th,.sb-league td{text-align:left}.sb-league th[scope=row]{position:relative;min-width:150px}.sb-rk{font:600 12px var(--f-mono);color:var(--ink-3)}
+.sb-bar{display:block;height:4px;margin-top:4px;width:var(--w);max-width:100%;border-radius:2px;background:var(--accent);opacity:.55}
+.sb-mood{font:600 13px var(--f-mono)}.sb-mood.up{color:var(--up)}.sb-mood.dn{color:var(--down)}
+.st-scroll{overflow-x:auto}
+.pp-pyr{display:block;width:100%;max-width:340px;height:auto;margin:0 auto}.pp-pyr .pp-m{fill:var(--accent);opacity:.75}.pp-pyr .pp-f{fill:var(--accent);opacity:.45}
 .sb-hon{display:inline-block;padding:2px 8px;margin:2px 4px 0 0;border:1px dashed var(--rule-2);border-radius:999px;font-size:12px;color:var(--ink-3)}.sb-hon.on{border-style:solid;border-color:var(--accent);color:var(--ink)}
 .sb-subs{flex-wrap:wrap;margin-bottom:16px}.sb-subs .seg-b{min-height:40px}
 .sb-lede{font-family:var(--f-display);font-size:19px;line-height:1.35;margin:0 0 6px}
@@ -52048,8 +52063,8 @@ function sbBudget(x,A){
 }
 
 /* ── the Bureau (members) ── */
-const SB_SUBS=[['dash','My dashboard'],['charts','Charts'],['records','Records'],['week','Weekly report'],['rank','In the region'],['proj','Projections'],['export','Export']];
-const SB={sub:'dash',k1:'pop',k2:'',days:90};
+const SB_SUBS=[['dash','My dashboard'],['charts','Charts'],['impact','Edict impact'],['timeline','Timeline'],['cities','City league'],['records','Records'],['week','Weekly report'],['rank','In the region'],['proj','Projections'],['export','Export']];
+const SB={sub:'dash',k1:'pop',k2:'',days:90,ik:'happy',ck:'out',tk:'pop'};
 NORM_HOOKS.push((n,d)=>{
   if(Array.isArray(d.sdash)){const a=[...new Set(d.sdash.filter(k=>SB_KEYS.includes(k)))].slice(0,6);if(a.length)n.sdash=a;}
   const x=d.sbx;if(x&&typeof x==='object'){const day=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v),wk=v=>Number.isInteger(v)&&v>0;n.sbx={d:Array.isArray(x.d)?[...new Set(x.d.filter(day))].slice(-10):[],w:Array.isArray(x.w)?[...new Set(x.w.filter(wk))].slice(-10):[],x:x.x===1?1:0};}
@@ -52074,13 +52089,13 @@ function sbBureau(x,A){
   const tabs=`<div class="seg sb-subs" role="group" aria-label="The Bureau">${SB_SUBS.map(([k,l])=>`<button type="button" class="seg-b${k===sub?' on':''}" data-act="sb-sub" data-v="${k}" aria-pressed="${k===sub}">${l}</button>`).join('')}</div>`;
   const span=ser.length>1?sbDays(ser[ser.length-1].t-ser[0].t):'a day';
   let body='';
-  if(sub==='dash')body=sbDashHTML(n,ser);else if(sub==='charts')body=sbChartsHTML(n,ser);else if(sub==='records')body=sbRecords(ser);else if(sub==='week')body=sbWeek(x,ser);
+  if(sub==='dash')body=sbDashHTML(n,ser);else if(sub==='charts')body=sbChartsHTML(n,ser);else if(sub==='impact')body=sbImpact(x,ser);else if(sub==='timeline')body=sbTimeline(x,ser);else if(sub==='cities')body=sbLeague(x);else if(sub==='records')body=sbRecords(ser);else if(sub==='week')body=sbWeek(x,ser);
   else if(sub==='rank')body=sbRank(x);else if(sub==='proj')body=sbProj(x,ser);else body=sbExportHTML(n,ser);
   return `<div class="sb-head"><p class="eyebrow">The Bureau · Chancery Club</p><p class="hint">${esc(span)} of history${CHR.loading?' (loading the Chronicle…)':''}. ${SB_HON.map(h=>`<span class="sb-hon${h[3](n)?' on':''}" title="${esc(h[2])}">${h[3](n)?'✓ ':''}${esc(h[1])}</span>`).join(' ')}</p></div>${tabs}<div class="sb-body">${body}</div>`;
 }
 function sbPreview(n){
   return `<div class="sb-preview"><div class="sb-blur" aria-hidden="true">${sbChart(sbSeries({n,me:true}),'pop','happy',{w:640,h:200})}<div class="sb-fake">${['Records','Weekly report','In the region','Projections'].map(t=>`<span>${t}</span>`).join('')}</div></div>
-    <div class="sb-cta"><p class="eyebrow">The Bureau · Chancery Club</p><h3 class="h2">Your nation, in depth</h3><ul class="shop-list"><li>Charts of any figure over a year, and two at once</li><li>Records and streaks, and a weekly report card to print or save</li><li>Where you stand in the region, score by score</li><li>Projections: your next milestone, land credit and rank</li><li>A dashboard of your own, and every figure to export</li></ul>
+    <div class="sb-cta"><p class="eyebrow">The Bureau · Chancery Club</p><h3 class="h2">Your nation, in depth</h3><ul class="shop-list"><li>Charts of any figure over a year, and two at once</li><li>What each edict you signed actually did, a week and a month on</li><li>A timeline of your decisions, wars and treaties against any figure</li><li>Your cities ranked by size, mood and output</li><li>Records and streaks, and a weekly report card to print or save</li><li>Where you stand in the region, score by score</li><li>Projections: your next milestone, land credit and rank</li><li>A dashboard of your own, and every figure to export</li></ul>
     <div class="row"><button type="button" class="btn" data-act="go" data-v="shop">About the Chancery Club</button></div><p class="hint">Region trends and Budget &amp; flows are free for everyone, in the tabs above.</p></div></div>`;
 }
 function sbDelta(ser,k,days){const last=ser[ser.length-1],q=sbAt(ser,last.t-days*DAY)||ser[0];const a=sbVal(q,k),b=sbVal(last,k);return a==null||b==null?null:b-a;}
@@ -52165,9 +52180,119 @@ function sbPng(){
 }
 function sbPin(k,on){const n0=S.nation;if(!n0||!SB_KEYS.includes(k))return;const n=clone(n0),cur=sbDash(n0).slice();n.sdash=on?[...new Set(cur.concat(k))].slice(0,6):cur.filter(q=>q!==k);commit(n);render();}
 
-/* the tabs: two free, one for members; drawn through the Statistics page's own hook */
+
+/* ── the Bureau: what each edict did (members) ──
+   For every edict on record (n.answered, the last 80): the census changes its option made at once (the option's own e),
+   and how the nation's figures moved over the week and the month after, from the Bureau's daily history. Other things
+   happen in a month too, so the after-figures are what followed, not what the edict alone caused, and the page says so. */
+const SB_IMP_KEYS=['pop','happy','econ','wealth','civil','health','crime','pol'];
+function sbOptE(id,o){const is=ISSUE_BY_ID[id],op=is&&Array.isArray(is.o)?is.o[o]:null;const e=op&&op.e&&typeof op.e==='object'?op.e:{};return Object.entries(e).filter(([k,v])=>STATS[k]&&typeof v==='number'&&v);}
+function sbEdictTitle(id,n){const is=ISSUE_BY_ID[id];if(!is)return 'An edict no longer in the archive';try{return dspClean(fill(is.t,n,null),90)||is.t;}catch(e){return String(is.t||'').replace(/\{[^}]*\}/g,'');}}
+function sbAfter(ser,k,t,days){const a=sbAt(ser,t),last=ser[ser.length-1];if(!a||last.t<t+days*DAY*0.9)return null;const b=sbAt(ser,t+days*DAY);const va=sbVal(a,k),vb=b?sbVal(b,k):null;return va==null||vb==null?null:vb-va;}
+function sbDeltaTxt(k,d){if(d==null)return '<span class="hint">too soon</span>';if(Math.abs(d)<(k==='pop'?0.0005:0.05))return '<span class="sb-d">±0</span>';const good=(d>0)!==sbLow(k);
+  return `<span class="sb-d ${good?'up':'dn'}">${d>0?'+':'−'}${esc(k==='pop'?fmtPop(Math.abs(d)):fmt1(Math.abs(d)))}</span>`;}
+function sbImpact(x,ser){
+  const n=x.n,k=SB_IMP_KEYS.includes(SB.ik)?SB.ik:'happy',rows=(n.answered||[]).filter(a=>a&&a.t>0).slice().reverse().slice(0,40);
+  if(!rows.length)return `<div class="empty"><p class="empty-h">No edicts on record yet</p><p>Sign an edict and the Bureau starts tracking what followed.</p></div>`;
+  const scored=rows.map(a=>({a,w:sbAfter(ser,k,a.t,7),m:sbAfter(ser,k,a.t,30),e:sbOptE(a.id,a.o)}));
+  const judged=scored.filter(r=>r.m!=null).sort((p,q)=>(sbLow(k)?p.m-q.m:q.m-p.m));
+  const best=judged[0],worst=judged.length>1?judged[judged.length-1]:null;
+  const lede=best?`Over the month after each edict, ${esc(sbName(k).toLowerCase())} rose most after “${esc(sbEdictTitle(best.a.id,n))}” (${sbDeltaTxt(k,best.m)})${worst&&worst!==best?` and did worst after “${esc(sbEdictTitle(worst.a.id,n))}” (${sbDeltaTxt(k,worst.m)})`:''}.`:'Edicts need a month on record before the Bureau can compare them. The week after shows sooner.';
+  const sel=`<label class="field sb-ik"><span class="cz-flab">Follow</span><select class="input" data-sb="ik">${SB_IMP_KEYS.map(q=>`<option value="${q}"${q===k?' selected':''}>${esc(sbName(q))}</option>`).join('')}</select></label>`;
+  const body=scored.map(r=>{const top=r.e.sort((p,q)=>Math.abs(q[1])-Math.abs(p[1])).slice(0,3);
+    return `<tr><th scope="row"><span class="sb-imp-t">${esc(sbEdictTitle(r.a.id,n))}</span><span class="hint">${esc(new Date(r.a.t).toLocaleDateString('en-GB',{day:'numeric',month:'short'}))}${r.a.fx?' · '+esc(dspClean(r.a.fx,80)):''}</span></th>
+      <td>${top.length?top.map(([q,v])=>`<span class="sb-chip ${(v>0)!==sbLow(q)?'up':'dn'}">${esc(sbName(q))} ${v>0?'+':'−'}${fmt1(Math.abs(v))}</span>`).join(' '):'<span class="hint">No census change</span>'}</td>
+      <td>${sbDeltaTxt(k,r.w)}</td><td>${sbDeltaTxt(k,r.m)}</td></tr>`;}).join('');
+  return `<div class="sb-ctl">${sel}</div><p class="sb-lede">${lede}</p>
+    <p class="hint">“At once” is what the option you chose changed in the census. The week and the month after show how ${esc(sbName(k).toLowerCase())} moved over that time: other edicts, wars and trade move it too.</p>
+    <div class="st-scroll"><table class="st-table st-cols sb-imp"><thead><tr><th scope="col">Edict</th><th scope="col">At once</th><th scope="col">A week after</th><th scope="col">A month after</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+/* ── the Bureau: a timeline of what the nation did, against any figure (members) ── */
+const SB_TL_KIND={issue:['✎','Edict'],war:['⚔','War'],peace:['☮','Peace'],conq:['⚑','Land taken'],lost:['⚑','Land lost'],cat:['◆','Reclassified'],trade:['⇄','Trade'],flag:['⚐','New flag'],settle:['⌂','Settled']};
+function sbTlEvents(n,t0){
+  const ev=[];for(const a of n.answered||[])if(a&&a.t>=t0)ev.push({t:a.t,k:'issue',txt:'Signed “'+sbEdictTitle(a.id,n)+'”.'});
+  for(const l of n.log||[]){if(!l||!(l.t>=t0)||l.k==='issue')continue;let txt='';try{txt=logLine(l,n,myId())||'';}catch(e){txt='';}if(txt)ev.push({t:l.t,k:SB_TL_KIND[l.k]?l.k:'other',txt});}
+  return ev.sort((a,b)=>b.t-a.t);
+}
+function sbTimeline(x,ser){
+  const n=x.n,k=SB_KEYS.includes(SB.tk)?SB.tk:'pop',last=ser[ser.length-1],t0=last.t-SB.days*DAY,pts=ser.filter(q=>q.t>=t0&&sbVal(q,k)!=null),ev=sbTlEvents(n,t0);
+  const W=680,Hh=230,P={l:46,r:14,t:14,b:40};let svg='<p class="hint sb-empty">Not enough history yet: a line appears once there are two days of figures.</p>';
+  if(pts.length>=2){const x0=Math.max(t0,pts[0].t),x1=last.t,X=t=>P.l+(t-x0)/(x1-x0||1)*(W-P.l-P.r);
+    const v=pts.map(q=>sbVal(q,k));let lo=Math.min(...v),hi=Math.max(...v);if(hi-lo<1e-6){hi+=1;lo-=1;}const Y=q=>P.t+(1-(q-lo)/(hi-lo))*(Hh-P.t-P.b);
+    const line=pts.map((q,i)=>(i?'L':'M')+X(q.t).toFixed(1)+','+Y(sbVal(q,k)).toFixed(1)).join('');
+    const marks=ev.filter(e=>e.t>=x0).map(e=>{const xx=X(e.t).toFixed(1),q=sbAt(pts,e.t)||pts[0],yy=Y(sbVal(q,k)).toFixed(1),G=SB_TL_KIND[e.k]||['•',''];
+      return `<g class="sb-tl-m k-${e.k}"><line x1="${xx}" x2="${xx}" y1="${P.t}" y2="${Hh-P.b+4}"/><circle cx="${xx}" cy="${yy}" r="4"/><text x="${xx}" y="${Hh-P.b+16}" text-anchor="middle">${G[0]}</text><title>${esc(new Date(e.t).toLocaleDateString('en-GB',{day:'numeric',month:'short'})+': '+e.txt)}</title></g>`;}).join('');
+    const lab=t=>new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short'}),fv=q=>k==='pop'?(q>=1000?fmt1(q/1000)+'bn':(q>=100?Math.round(q):fmt1(q))+'m'):Math.round(q);
+    svg=`<svg class="sb-chart sb-tl" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(sbName(k))} from ${esc(lab(x0))} to ${esc(lab(x1))}, with ${ev.length} events marked">
+      ${[lo,hi].map(q=>`<line class="sb-g" x1="${P.l}" x2="${W-P.r}" y1="${Y(q).toFixed(1)}" y2="${Y(q).toFixed(1)}"/><text class="sb-at" x="${P.l-6}" y="${(Y(q)+3).toFixed(1)}" text-anchor="end">${esc(String(fv(q)))}</text>`).join('')}
+      <path class="sb-l1" d="${line}"/>${marks}<text class="sb-at" x="${P.l}" y="${Hh-4}">${esc(lab(x0))}</text><text class="sb-at" x="${W-P.r}" y="${Hh-4}" text-anchor="end">${esc(lab(x1))}</text></svg>`;}
+  const ctl=`<div class="sb-ctl"><label class="field"><span class="cz-flab">Against</span><select class="input" data-sb="tk">${SB_KEYS.map(q=>`<option value="${q}"${q===k?' selected':''}>${esc(sbName(q))}</option>`).join('')}</select></label>
+    <div class="seg" role="group" aria-label="Range">${[[30,'30 days'],[90,'90 days'],[180,'6 months'],[365,'A year']].map(([d,l])=>`<button type="button" class="seg-b${SB.days===d?' on':''}" data-act="sb-days" data-v="${d}" aria-pressed="${SB.days===d}">${l}</button>`).join('')}</div></div>`;
+  const key=`<p class="sb-tl-key">${Object.entries(SB_TL_KIND).filter(([kk])=>ev.some(e=>e.k===kk)).map(([kk,[g,l]])=>`<span class="k-${kk}"><b aria-hidden="true">${g}</b> ${l}</span>`).join('')}</p>`;
+  const list=ev.length?`<ol class="sb-tl-l">${ev.slice(0,60).map(e=>`<li class="k-${e.k}"><span class="sb-tl-g" aria-hidden="true">${(SB_TL_KIND[e.k]||['•'])[0]}</span><time datetime="${new Date(e.t).toISOString()}">${esc(new Date(e.t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}))}</time><span>${esc(e.txt)}</span><span class="hint">${esc(sbName(k))} ${esc(sbFmt(k,sbVal(sbAt(ser,e.t)||ser[0],k)))}</span></li>`).join('')}</ol>`:'<p class="hint">Nothing on record in this range.</p>';
+  return `${ctl}${svg}${key}<h3 class="sub-h">What happened</h3>${list}`;
+}
+
+/* ── the Bureau: the nation's cities, ranked (members) ── */
+const SB_CK=[['out','Output'],['pop','People'],['mood','Mood'],['bld','Buildings']];
+function sbLeague(x){
+  const n=x.n,T=territory(),i=T.byId[x.id],now=Date.now();if(i===undefined)return '<p class="hint">This nation is not on the map yet.</p>';
+  let CS;try{CS=cityState(T);}catch(e){return '<p class="hint">The cities could not be read just now.</p>';}
+  const rows=CS.all.filter(c=>c.hi===i&&c.active).map(c=>{const nc=(n.cities||[]).find(q=>q.c===c.c),o=c.buildOutput||{},out=RES.reduce((s,r)=>s+(o[r]||0),0);
+    let mood=null;try{mood=cxMood(c,now).v;}catch(e){}let pop=0;try{pop=cpPop(c,T);}catch(e){}let tier=0;try{tier=capTier(pop);}catch(e){}
+    const my=c.rec&&typeof cxCityExtras==='function'?cxCityExtras(c.rec).my:null;
+    return {nm:nc?cityLabel(n,nc):landName(c.c),cap:!!c.cap,out,o,pop,tier,mood,bld:(c.done||[]).length,mayor:my&&my.nm||''};});
+  if(!rows.length)return '<p class="hint">No cities yet.</p>';
+  const key=SB_CK.some(q=>q[0]===SB.ck)?SB.ck:'out',val=r=>key==='pop'?r.pop:key==='mood'?(r.mood??-1):key==='bld'?r.bld:r.out;rows.sort((a,b)=>val(b)-val(a));
+  const max=Math.max(...rows.map(val),1e-9),tot=rows.reduce((s,r)=>s+r.out,0);
+  const best=rows[0],lowMood=rows.filter(r=>r.mood!=null).sort((a,b)=>a.mood-b.mood)[0];
+  const lede=`${rows.length} ${rows.length===1?'city':'cities'}, making ${fmtAmt(tot)} goods a day between them. ${esc(best.nm)} leads on ${esc(SB_CK.find(q=>q[0]===key)[1].toLowerCase())}${lowMood&&lowMood!==best&&lowMood.mood<45?`; ${esc(lowMood.nm)} is the least content (mood ${lowMood.mood})`:''}.`;
+  const seg=`<div class="seg" role="group" aria-label="Rank by">${SB_CK.map(([k,l])=>`<button type="button" class="seg-b${k===key?' on':''}" data-act="sb-ck" data-v="${k}" aria-pressed="${k===key}">${l}</button>`).join('')}</div>`;
+  const tr=(r,j)=>`<tr><td class="sb-rk">${j+1}</td><th scope="row">${esc(r.nm)}${r.cap?' <span class="hint">capital</span>':''}<span class="sb-bar" style="--w:${(val(r)/max*100).toFixed(1)}%" aria-hidden="true"></span></th>
+    <td>${esc(cpFmt?cpFmt(r.pop):fmtPop(r.pop))}<span class="hint"> ${esc(CAP_TIERS[r.tier]?CAP_TIERS[r.tier].n:'')}</span></td><td>${r.mood==null?'—':`<span class="sb-mood ${r.mood>=65?'up':r.mood<45?'dn':''}">${r.mood}</span>`}</td><td>${r.bld}</td>
+    <td>${r.out>0?esc(fmtAmt(r.out))+' a day':'<span class="hint">none yet</span>'}</td><td>${r.mayor?esc(r.mayor):'<span class="hint">none</span>'}</td></tr>`;
+  return `<div class="sb-ctl">${seg}<button type="button" class="linkish small" data-act="go" data-v="cities">Open Cities</button></div><p class="sb-lede">${lede}</p>
+    <div class="st-scroll"><table class="st-table st-cols sb-league"><thead><tr><th scope="col">#</th><th scope="col">City</th><th scope="col">People</th><th scope="col">Mood</th><th scope="col">Buildings</th><th scope="col">Output</th><th scope="col">Mayor</th></tr></thead><tbody>${rows.map(tr).join('')}</tbody></table></div>`;
+}
+
+/* ── free: Population. Growth split into natural change and migration, births and deaths, an age pyramid, room left,
+   and the line over time. The census keeps age shares, health and growth, not births and deaths as such: those, and
+   the pyramid's five-year bands, are the Bureau's estimates from them, and are labelled so. ── */
+function popEst(n,A){
+  const P=popNow(n),nat=growth(n),old=(A&&A.old)||15,kids=(A&&A.kids)||25,h=(n.s&&n.s.health)||50;
+  /* a year passes every YEAR_MS: deaths a real day are the yearly rate times the game years in a day */
+  const deathRate=(0.0045+0.00045*old+0.00006*(100-h))*DAY/YEAR_MS,deaths=P*deathRate,births=Math.max(0,nat+deaths);
+  return {P,nat,mig:migNet(n)||0,births,deaths,kids,old,work:Math.max(0,100-kids-old)};
+}
+function popPyramid(E){
+  /* sixteen five-year bands, 0–4 to 75+: children, working age and retired spread over their bands so each group keeps its share */
+  const groups=[[0,3,E.kids],[3,13,E.work],[13,16,E.old]],bands=[];
+  for(const [a,b,share] of groups){const w=[];for(let j=a;j<b;j++)w.push(Math.exp(-((j-a)/(b-a))*(b-a>4?0.9:0.6)));const s=w.reduce((p,q)=>p+q,0);w.forEach((q,j)=>bands[a+j]=share*q/s);}
+  const max=Math.max(...bands),W=300,H=16*14+20;
+  const rows=bands.map((v,j)=>{const y=6+(15-j)*14,w=v/max*(W/2-34),m=w*0.49,f=w*0.51,lab=j===15?'75+':`${j*5}–${j*5+4}`;
+    return `<rect class="pp-m" x="${(W/2-m).toFixed(1)}" y="${y}" width="${m.toFixed(1)}" height="11"/><rect class="pp-f" x="${W/2}" y="${y}" width="${f.toFixed(1)}" height="11"/><text class="sb-at" x="4" y="${y+9}">${lab}</text>`;}).join('');
+  return `<svg class="pp-pyr" viewBox="0 0 ${W} ${H}" role="img" aria-label="Estimated age pyramid: ${Math.round(E.kids)}% children, ${Math.round(E.work)}% of working age, ${Math.round(E.old)}% retired">${rows}<text class="sb-at" x="${W/2-6}" y="${H-2}" text-anchor="end">Men</text><text class="sb-at" x="${W/2+6}" y="${H-2}">Women</text></svg>`;
+}
+function popTab(x,A){
+  const n=x.n,E=popEst(n,A),day=v=>(v>=0?'+':'−')+fmtPeople(Math.abs(v)),cap=n.npc?null:n.pk||null,ser=sbSeries({...x,me:x.me&&shopMember()}),last=ser[ser.length-1],sel=ser.filter(q=>q.t>=last.t-90*DAY);
+  const tot=E.nat+E.mig,left=cap?Math.max(0,cap-E.P):null,mc=n.mgc||{i:0,o:0};
+  const tiles=[['People',fmtPop(E.P)],['Change a day',day(tot)],['Natural change a day',day(E.nat)],['Net migration a day',day(E.mig)],['Births a day (est.)',fmtPeople(E.births)],['Deaths a day (est.)',fmtPeople(E.deaths)]];
+  const share=Math.abs(E.nat)+Math.abs(E.mig)>0?Math.abs(E.mig)/(Math.abs(E.nat)+Math.abs(E.mig))*100:0;
+  const lede=`${esc(n.name)} ${tot>=0?'grows':'shrinks'} by about ${esc(fmtPeople(Math.abs(tot)))} a day: ${E.nat>=0?'more births than deaths':'more deaths than births'}${Math.abs(E.mig)>0.00001?`, and ${E.mig>=0?'more people arriving than leaving':'more people leaving than arriving'} (${Math.round(share)}% of the change)`:''}.`;
+  const room=cap?stCard('Room to grow',`<p>${esc(n.name)} has room for about ${esc(fmtPop(cap))} on its land, with its cities, buildings, food and science. It is ${Math.round(Math.min(100,E.P/cap*100))}% full.${left>0&&tot>0?` At today’s pace it fills up in ${esc(sbDays(left/tot*DAY))}.`:''}</p><div class="bar" role="img" aria-label="${Math.round(E.P/cap*100)}% full"><i style="width:${Math.min(100,E.P/cap*100).toFixed(1)}%"></i></div><p class="hint">More land, cities and buildings, food and science raise it.</p>`):'';
+  return `<p class="sb-lede">${lede}</p><div class="st-tiles">${tiles.map(([l,v])=>`<div class="fig"><span class="lbl">${l}</span><span class="fig-v st-v">${esc(v)}</span></div>`).join('')}</div>
+    <div class="st-grid">${stCard('Population over time',sbChart(sel,'pop',null,{w:640,h:200}),true)}
+    ${stCard('Age pyramid (estimated)',popPyramid(E)+`<p class="hint">From the census’s age shares: ${Math.round(E.kids)}% children, ${Math.round(E.work)}% of working age, ${Math.round(E.old)}% retired.</p>`)}
+    ${stCard('Where the change comes from',hbars([['Births (est.)',E.births,fmtPeople(E.births)+' a day'],['Deaths (est.)',E.deaths,fmtPeople(E.deaths)+' a day'],['Arriving',Math.max(0,E.mig),E.mig>0?fmtPeople(E.mig)+' net a day':'—'],['Leaving',Math.max(0,-E.mig),E.mig<0?fmtPeople(-E.mig)+' net a day':'—']].map(([l,v,t],_,arr)=>[l,v/Math.max(...arr.map(r=>r[1]),1e-9)*100,t]))+'<p class="hint">Births and deaths are estimated from the age shares, health and natural growth. The Migration tab shows who comes and goes.</p>')}
+    ${room}${n.npc?'':stCard('Since founding',stTable([['Born abroad, arrived',fmtPeople(mc.i||0)],['Emigrated',fmtPeople(mc.o||0)],['Highest population',fmtPop(Math.max(n.peak||0,E.P))]]))}</div>`;
+}
+
+/* the tabs: three free, one for members; drawn through the Statistics page's own hook */
+{const i=STAT_TABS.findIndex(t=>t[0]==='migration');STAT_TABS.splice(i<0?STAT_TABS.length:i,0,['population','Population']);}
 STAT_TABS.push(['trends','Region trends'],['budget','Budget & flows'],['bureau','The Bureau ★']);
 fpStats=(f=>function(tab,body,x,A){
+  if(tab==='population')return popTab(x,A);
   if(tab==='trends')return sbTrends();
   if(tab==='budget')return sbBudget(x,A);
   if(tab==='bureau')return sbBureau(x,A);
@@ -52177,10 +52302,11 @@ document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="sb-"]');if(!el||!S.nation)return;const a=el.dataset.act,v=el.dataset.v;
   if(a==='sb-sub'){if(SB_SUBS.some(s=>s[0]===v)){SB.sub=v;render();}}
   else if(a==='sb-days'){SB.days=[30,90,180,365].includes(+v)?+v:90;render();}
+  else if(a==='sb-ck'){if(SB_CK.some(q=>q[0]===v)){SB.ck=v;render();}}
   else if(a==='sb-pin')sbPin(el.dataset.k,true);else if(a==='sb-unpin')sbPin(el.dataset.k,false);
   else if(a==='sb-x')sbExport(v);else if(a==='sb-print')sbPrint();else if(a==='sb-png')sbPng();
 });
-document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.sb;if(!k)return;const v=e.target.value;if(k==='k1'&&SB_KEYS.includes(v))SB.k1=v;else if(k==='k2')SB.k2=SB_KEYS.includes(v)?v:'';render();});
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.sb;if(!k)return;const v=e.target.value;if(k==='k1'&&SB_KEYS.includes(v))SB.k1=v;else if(k==='k2')SB.k2=SB_KEYS.includes(v)?v:'';else if(k==='ik'&&SB_IMP_KEYS.includes(v))SB.ik=v;else if(k==='tk'&&SB_KEYS.includes(v))SB.tk=v;render();});
 
 /* ───────── the map, easier: the map first, a sheet for details on a phone, and more ways to move ─────────
    The World map page leads with the map: one line of introduction (the rest folds away), the map as tall as the
