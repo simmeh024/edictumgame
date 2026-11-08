@@ -1,4 +1,4 @@
-// The Meridian Games page: "Why this score" adds up to the score shown, last week's results wait behind a medal
+// The Games page (the Meridian Games in the Meridian Reach, named after each region elsewhere): "Why this score" adds up to the score shown, last week's results wait behind a medal
 // ceremony (and stay out of the medal table and records until it is watched), the bell says the results are in
 // without giving them away, records and the medal cabinet are drawn, and medals unlock the cabinet's keepsakes.
 //   python3 build.py
@@ -62,10 +62,21 @@ for (const [label, vp] of [['desktop', { viewport: { width: 1280, height: 900 } 
   ok(await page.evaluate(() => !!document.querySelector('dialog#g-cer[open]') && document.querySelectorAll('#g-cer .gc-ev').length === 5), `${label}: the ceremony opens with five podiums`);
   ok(await page.evaluate(() => document.getElementById('g-cer').scrollTop === 0), `${label}: the ceremony opens at its top`);
   await page.click('[data-act="g-cer-close"]');
+  await page.waitForFunction(() => !document.getElementById('g-cer'), null, { timeout: 5000 }).catch(() => {});
   const after = await page.evaluate(() => ({ dlg: !!document.getElementById('g-cer'), call: !!document.getElementById('g-cer-call'), pods: document.querySelectorAll('.pods').length,
     again: !!document.querySelector('.linkish[data-act="g-cer"]'), eds: (document.querySelector('#g-records .hint') || {}).textContent || '' }));
   ok(!after.dlg && !after.call && after.pods === 1 && after.again, `${label}: once watched, the podiums show on the page with "Watch the medal ceremony"`);
   ok(/From 1 finished/.test(after.eds), `${label}: the records then include last week`);
+}
+{ // every region holds its own Games, named after it
+  const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  page.on('pageerror', e => errs.push('frostmarch: ' + e.message));
+  await page.addInitScript(() => { window.EDICTUM_PROBE = g => { window.__game = g; }; try { localStorage.setItem('statehood.region', 'frostmarch'); } catch (e) {} });
+  await page.goto(BASE); await page.fill('#d-name', 'Frostland'); await page.click('#found-btn');
+  await page.waitForFunction(() => window.__game && window.__game.S.nation);
+  await page.evaluate(() => { const G = window.__game; G.S.view = 'games'; G.render(); });
+  const t = await page.evaluate(() => ({ h1: document.querySelector('h1').textContent, mer: /Meridian Games/.test(document.body.innerText) }));
+  ok(t.h1 === 'The Frostmarch Games' && !t.mer, `in Frostmarch the page is "${t.h1}" and never says Meridian Games`);
 }
 ok(!errs.length, 'no errors in the page' + (errs.length ? ': ' + errs.join(' | ') : ''));
 await browser.close(); server.close();

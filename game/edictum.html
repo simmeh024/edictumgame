@@ -19437,7 +19437,12 @@ const EV_HINT={national:'health, happiness and a little weirdness',athletics:'he
 const edOf=t=>Math.floor((t-GAMES_EPOCH)/GAMES_WEEK);
 const edStart=e=>GAMES_EPOCH+e*GAMES_WEEK;
 const ordinal=k=>k+((k%100>=11&&k%100<=13)?'th':(['th','st','nd','rd'][k%10]||'th'));
-const edName=e=>'the '+ordinal(e+1)+' Meridian Games';
+/* each region holds its own Games, named after it (the Meridian Games in the Meridian Reach). Texts written
+   with "Meridian Games" (edicts, help, achievements, the Museum) are shown with this region's name by gamesLocal */
+const GAMES_WORD={meridian:'Meridian',frostmarch:'Frostmarch',northernpale:'Pale',driftlands:'Driftland',silentmoors:'Moorland',wildwood:'Wildwood',saffron:'Saffron',hollow:'Plateau',ashen:'Ashen',ironsteppe:'Steppe',gilded:'Gilded',verdantbasin:'Verdant',coralreach:'Coral',emberisles:'Ember',lanterncoast:'Lantern',jadeterraces:'Jade',highcrags:'Highcrag',cloudspine:'Cloudspine',obsidianrim:'Obsidian',ambershallows:'Amber',sunkenkingdoms:'Sunken Kingdoms',mistral:'Mistral',stormwrack:'Stormwrack',longvalley:'Valley',greywater:'Greywater',scatteredcrown:'Crown',terra:'Terra'};
+function gamesWord(){const r=typeof REG!=='undefined'&&REG?REG:null;if(!r)return 'Meridian';return GAMES_WORD[r.id]||String(r.name||'Meridian').replace(/^The\s+/i,'').split(/\s+/)[0]||'Meridian';}
+function gamesLocal(t){const w=gamesWord();return w==='Meridian'||typeof t!=='string'?t:t.replace(/Meridian Games/g,w+' Games');}
+const edName=e=>'the '+ordinal(e+1)+' '+gamesWord()+' Games';
 function edEvents(e){const r=rng(hash('games:'+e)),pool=Object.keys(GAME_EVENTS).filter(k=>k!=='national');for(let i=pool.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}return ['national'].concat(pool.slice(0,4));}
 function gamesBids(e){
   const out=[];
@@ -42338,7 +42343,7 @@ function render(){if(fxRender())return;
      Translate), made the translator redo and keep track of the whole page each time, which wore a long session
      down to a crawl. The serial numbers that make SVG ids unique differ from drawing to drawing, so they are
      left out of the comparison. A jump or a reward to show always draws. */
-  const html=(OBS?obsBar():'')+(S.nation?shell():foundView()),app=document.getElementById('app'),same=renderKey(html);
+  const html=gamesLocal((OBS?obsBar():'')+(S.nation?shell():foundView())),app=document.getElementById('app'),same=renderKey(html);
   if(same===RENDER_LAST.k&&!uxPlan&&!rewardJump&&app.firstChild&&RENDER_LAST.app===app.firstChild){RENDER_LAST.skips++;return;}
   const navK=navBefore();
   if(pageTranslated()){dismantle(app);RENDER_LAST.tr++;}
@@ -42365,6 +42370,7 @@ function updatePreview(){clearTimeout(pvTimer);
   drawAllGuill();
 }
 function toast(msg){
+  if(typeof gamesLocal!=='function'){}else if(typeof msg==='string')msg=gamesLocal(msg);else if(msg&&typeof msg==='object'&&typeof msg.m==='string')msg={...msg,m:gamesLocal(msg.m)};
   const item={m:String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links:msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[],cf:!!(msg&&typeof msg==='object'&&msg.cf)};
   if(!item.m)return;
   const same=x=>x&&x.m===item.m&&JSON.stringify(x.links)===JSON.stringify(item.links);
