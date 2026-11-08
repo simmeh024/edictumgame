@@ -12,8 +12,8 @@ const BUDGET_KEYS=[...source.slice(source.indexOf('const BUDGET = ['),source.ind
 const TOPICS=JSON.parse(source.match(/const ISSUE_TOPICS = (\[.*?\]\]);/)[1].replace(/'/g,'"')).map(([k])=>k);
 const PLACEHOLDERS=new Set(['N','D','C','Cs','L','CAP','A','As','SPORT','DISH','LANG','FIN','DEF','FOR','INT','WRK','HEA','CUL']);
 const CABINET=/\{(FIN|DEF|FOR|INT|WRK|HEA|CUL)\}/;
-/* every edict before this section, the fourteen Mission Control letters (2257–2270) last */
-const OLDER=2270;
+/* every edict before this section: the fourteen Mission Control letters (2257–2270), then the Space page’s prelude (2271) */
+const OLDER=2271;
 const SETS={pgt:37,fwk:37,spo:38,scd:38};
 
 function load(){
@@ -22,6 +22,7 @@ function load(){
   const a=source.indexOf(START),b=source.indexOf(END,a+START.length);
   assert(a>0&&b>a,'the section is there');
   assert(a>source.indexOf('for(let k=0;k<MC_N;k++)'),'after the Mission Control letters, so no number moves');
+  assert(a>source.indexOf('{const P=MC_STORY.pre,is={id:SPX_ID'),'after the Space page’s prelude, so no number moves');
   assert(b<=source.indexOf('/* ───────── the browser tab'),'before the browser tab’s section, which its own test cuts to boot');
   assert.equal(source.indexOf('ISSUES.push(',b),-1,'no edict is added after this section');
   /* read back as JSON, so the arrays belong to this realm and compare with deepEqual */

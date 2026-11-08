@@ -1553,6 +1553,10 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 /* patterns behind the banner */
 .czp{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;color:var(--guill);opacity:.42;-webkit-mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.22) 36%,#000 80%);mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.22) 36%,#000 80%)}
 .czp *{vector-effect:non-scaling-stroke}
+.czp-au{animation:czpAu 14s ease-in-out infinite alternate}.czp-au1{animation-duration:19s;animation-direction:alternate-reverse}.czp-au2{animation-duration:23s}
+@keyframes czpAu{from{transform:translateX(-120px)}to{transform:translateX(120px)}}
+.czp-tw{animation:czpTw 4s ease-in-out infinite}@keyframes czpTw{50%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){.czp-au,.czp-tw{animation:none}}:root[data-motion="reduce"] .czp-au,:root[data-motion="reduce"] .czp-tw{animation:none}
 @media (max-width:600px){.hero .czp{opacity:.32}}
 .cz-pt{position:relative;display:block;aspect-ratio:16/9;background:var(--sheet);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
 .cz-pt .czp{opacity:.8;-webkit-mask-image:none;mask-image:none}
@@ -6149,6 +6153,19 @@ button[disabled] .gv-cost{opacity:.6}
 .gv-md-sp{margin-top:12px}
 @media (max-width:600px){.mc-night{grid-template-columns:1fr}.mc-md-dl dt{min-width:0}.mc-teams{grid-template-columns:1fr}}
 /* mc:end */
+/* spx:start */
+/* the Space page before its edict, the tour button, and the prelude's result */
+.spx-lock{max-width:720px}
+.spx-lock .row{margin-top:10px}
+.spx-lock .lbl-h{margin-top:24px}
+.spx-bar{display:block;max-width:420px;margin:8px 0 4px}
+.spx-bar i{background:var(--mc-gold)}
+.spx-list{margin:6px 0 0;padding-left:20px;display:grid;gap:4px;color:var(--ink-2);font-size:14.5px;line-height:1.45}
+.spx-tour{margin:10px 0 0}
+.spx-backed{margin:10px 0 0;padding:8px 12px;border-left:3px solid var(--mc-gold);background:var(--mc-gold-soft);color:var(--ink)}
+.spx-out .row{margin-top:8px}
+.spx-help-l{margin:8px 0 12px;padding-left:22px;display:grid;gap:6px;line-height:1.5}
+/* spx:end */
 </style>
 
 <div id="app"></div>
@@ -27188,7 +27205,7 @@ function cvApply(n,old,now){
         /* a full desk gives up an ordinary edict for it; one holding more than it has room for (a membership that
            ended) still gives up only one, so nothing else is lost */
         if(n.inbox.length<edictCapAt(now)){n.inbox.push({id:op.is,at:now});placed=true;}
-        else{const i=n.inbox.findIndex(x=>!x.ch&&!x.sh&&!x.ws&&!x.mc&&!CV_SCN_SET.has(x.id));if(i>=0){n.inbox.splice(i,1);n.inbox.push({id:op.is,at:now});placed=true;}}
+        else{const i=n.inbox.findIndex(x=>!x.ch&&!x.sh&&!x.ws&&!x.mc&&x.id!=='mc-pre'&&!CV_SCN_SET.has(x.id));if(i>=0){n.inbox.splice(i,1);n.inbox.push({id:op.is,at:now});placed=true;}}
       }
       const tt=ISSUE_BY_ID[op.is].t;
       if(placed)out.push(who?`Agents of ${who} have planted a scandal, “${tt}”. It is on your desk.`:`An anonymous source has leaked a scandal, “${tt}”. It is on your desk.`);
@@ -32245,7 +32262,7 @@ function spLine(x,now){const n=x.n;if(!n||!n.sp)return [];const out=[];for(const
 NATION_SECTIONS.push((x,now)=>{const n=x&&x.n;if(!n||n.npc)return '';const L=spLine(x,now);
   if(L.length)return `<section class="section sp-sec"><h2 class="h2">In space</h2>${L.join('')}</section>`;
   if(spAccess(n,'moon',now))return `<section class="section sp-sec"><h2 class="h2">In space</h2><p class="sp-line"><span class="chip">The Moon</span> The Lunar Colony is ready. <button class="linkish small" data-act="go" data-v="space">Choose a landing site</button></p></section>`;
-  const m=spLunarAt();if(m&&popNow(n,now)>=m.p*0.2)return `<section class="section sp-sec"><h2 class="h2">In space</h2><p class="sp-line"><span class="chip">The Moon</span> ${Math.min(99.9,popNow(n,now)/m.p*100).toFixed(1)}% of the way to the Lunar Colony. <button class="linkish small" data-act="go" data-v="space">See what it takes</button></p></section>`;
+  const m=spLunarAt();if(m&&spOpen(n,now)&&popNow(n,now)>=m.p*0.2)return`<section class="section sp-sec"><h2 class="h2">In space</h2><p class="sp-line"><span class="chip">The Moon</span> ${Math.min(99.9,popNow(n,now)/m.p*100).toFixed(1)}% of the way to the Lunar Colony. <button class="linkish small" data-act="go" data-v="space">See what it takes</button></p></section>`;
   return '';});
 VISIT_SECTIONS.push((x,now)=>{if(!x||x.npc||!x.n||!x.n.sp)return '';const L=spLine(x,now);return L.length?`<section class="sp-visit"><p class="eyebrow">In space</p>${L.join('')}</section>`:'';});
 /* honours */
@@ -35323,7 +35340,8 @@ function fkDebug(o){o=o||{};if('t' in o)fkClock=o.t;if(o.clear){fkNat.clear();fk
    A task ticks itself off from what the nation has actually done and pays once: land credits and, for most, a gift
    of resources. A list done in full pays a bonus and an epithet for Customise, once.
    Saved: n.tut = {g, lc, ch, v, p, w} (own record, normalised by tutNorm), and n.tlc the land credits it has paid (shared):
-     g  the space guides already shown: 'm' the Moon, 'r' Mars, 'b' the belt (before the voyage), 'a' the belt on arrival;
+     g  the space guides already shown: 's' the tour of the Space page (its first visit once open), 'm' the Moon,
+        'r' Mars, 'b' the belt (before the voyage), 'a' the belt on arrival;
      lc the tasks already rewarded, by key: never twice and never taken back, and a task in lc stays ticked
         (one done on another device counts here too);
      ch the lists done in full and rewarded, by letter (TUT_LISTS[i].c);
@@ -35332,7 +35350,7 @@ function fkDebug(o){o=o||{};if('t' in o)fkClock=o.t;if(o.clear){fkNat.clear();fk
      w  the version whose What’s new card was dismissed (a nation founded in this version never sees it).
    Per device (localStorage, keyed by the nation’s seed): a list hidden, a lens tried, a tile inspected, the World
    page and the Exchange Bureau visited. A task ticked that way is written into n.tut.lc by one ordinary save. */
-const TUT_V=25,TUT_GS='mrba',TUT_DEV_KEY='statehood.tut.v1';
+const TUT_V=25,TUT_GS='smrba',TUT_DEV_KEY='statehood.tut.v1';
 const TUT={g:null,chk:0,shown:new Set(),dev:'',devSeed:'',newGone:'',raf:0,mv:0,lcT:0,lcTry:new Set()};
 function tutNorm(d){
   if(!d||typeof d!=='object'||Array.isArray(d))return null;const o={};
@@ -35685,8 +35703,9 @@ const TUT_GUIDES={
       f:()=>[['A rush lasts',`${BT_RUSH_H} hours`],['Within',`${BT_RUSH_R} AU of the strike`],['Bonus','+3 on every roll']]}
   ]}
 };
-/* when each guide is due: the Lunar Colony done, a Starport done, the Olympus Spaceport done, the ship arrived */
-const TUT_WHEN={m:(n,t)=>spAccess(n,'moon',t),r:(n,t)=>spAccess(n,'mars',t),b:(n,t)=>btReady(n,t),a:(n,t)=>!!n.belt&&t>=btArr(n.belt)};
+/* when each guide is due: the Space page open and on screen with its agency (spTourDue), the Lunar Colony done, a
+   Starport done, the Olympus Spaceport done, the ship arrived */
+const TUT_WHEN={s:(n,t)=>spTourDue(n,t),m:(n,t)=>spAccess(n,'moon',t),r:(n,t)=>spAccess(n,'mars',t),b:(n,t)=>btReady(n,t),a:(n,t)=>!!n.belt&&t>=btArr(n.belt)};
 function tutDue(n,now){
   if(!n||n.npc)return [];now=now||Date.now();const seed=String(n.seed),out=[];
   for(const g of TUT_GS){if(tutSeen(n,g)||TUT.shown.has(seed+':'+g))continue;let ok=false;try{ok=!!TUT_WHEN[g](n,now);}catch(e){}if(ok)out.push(g);}
@@ -35730,6 +35749,7 @@ function tutOpen(b){const n=S.nation,now=Date.now();try{return b==='moon'?spAcce
 const TUT_WHERE={map:'the map',panel:'the panel beside the map',legend:'the key under the map',tabs:'the tabs above the map',lab:'the Mining research tab'};
 const TUT_TAB={moon:'Moon tab',mars:'Mars tab',belt:'Belt tab'};
 function tutFig(P){
+  if(P.tg&&P.tg.pg)return spTourFig(P);
   const t=P.tg,R=t.r,n=S.nation,on=k=>k===R||(R==='lab'&&(k==='map'||k==='panel'))?' class="on"':'';
   const svg=`<svg viewBox="0 0 220 120" aria-hidden="true" focusable="false"><rect${on('tabs')} x="8" y="4" width="36" height="9" rx="4"/><rect${on('tabs')} x="48" y="4" width="26" height="9" rx="4"/><rect${on('tabs')} x="78" y="4" width="32" height="9" rx="4"/>
     <rect x="8" y="18" width="204" height="7" rx="2"/><rect${on('map')} x="8" y="30" width="134" height="64" rx="3"/><rect${on('panel')} x="148" y="30" width="64" height="64" rx="3"/><rect${on('legend')} x="8" y="99" width="134" height="7" rx="2"/><rect x="8" y="111" width="204" height="6" rx="2"/></svg>`;
@@ -35761,7 +35781,10 @@ function tutSpot(){
 function tutPlace(scroll){
   const g=TUT.g;if(!g||!g.el.isConnected)return;
   const P=g.G.p[g.i],els=tutTarget(P),has=!!els;if(has!==g.has){g.has=has;tutBody(0);}
-  const sheet=g.el.querySelector('.tut-sheet'),W=innerWidth,H=innerHeight,wide=W>=900,r=has?tutRect(els):null,right=has&&wide&&(r.left+r.right)/2<W/2;
+  const sheet=g.el.querySelector('.tut-sheet'),W=innerWidth,H=innerHeight,r=has?tutRect(els):null;
+  /* beside the target on a wide screen; the Space page's tour, whose targets span the page, docks above or below
+     them instead when there is no room beside */
+  let wide=W>=900,right=has&&wide&&(r.left+r.right)/2<W/2;if(has&&wide&&P.tg&&P.tg.pg&&(right?W-r.right:r.left)<376){wide=false;right=false;}
   sheet.classList.toggle('tut-dock',has&&!wide);
   sheet.style.width=has&&wide?clamp(right?W-r.right-36:r.left-36,340,440)+'px':'';
   const sw=sheet.offsetWidth,sh=sheet.offsetHeight;let left=(W-sw)/2,top=(H-sh)/2;
@@ -35865,7 +35888,7 @@ function tutHelp(n){
     <p>Some tasks wait on your nation: a second city opens at ${fmtPopShort(featureAt('city'))} people, alliances at ${fmtPopShort(featureAt('alli'))}, bids for the Games at ${fmtPopShort(featureAt('host'))}, and the Assembly to Registered Nations a day old. Until then the task says when.</p>
     ${hid.length>1?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show every hidden list again</button></div>`:''}${lists}
     <h3 class="help-h3">Space guides</h3>
-    <p>Space has guides of its own. The first time the Moon opens to you, then Mars, then the asteroid belt, and again when your ship reaches the belt, a short guide walks through what is new, pointing at the Space page as it goes. Each appears once for your nation, on whichever device you play, and never while you are in the middle of something. Each body’s tab also keeps a checklist of its first five tasks, with a “?” that reopens its guide.</p>
+    <p>Space has guides of its own. The first time you open the Space page, a tour shows you round it: the space agency, its missions, the survey chart and what to do first. The first time the Moon opens to you, then Mars, then the asteroid belt, and again when your ship reaches the belt, a short guide walks through what is new, pointing at the Space page as it goes. Each appears once for your nation, on whichever device you play, and never while you are in the middle of something. Each body’s tab also keeps a checklist of its first five tasks, with a “?” that reopens its guide.</p>
     ${me?`<div class="tut-hb">${[...TUT_GS].map(g=>`<button type="button" class="btn ghost small-btn" data-act="tut-guide" data-g="${g}"><span class="tut-qi" aria-hidden="true">?</span>${esc(TUT_GUIDES[g].bt)}</button>`).join('')}</div>`:''}`;
 }
 HELP_EXT.push({k:'tut',t:'Tutorial',top:true,body:n=>tutHelp(n)});
@@ -52612,7 +52635,8 @@ const NS_ISSUES=[
 for(const is of NS_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;is.nr=true;if(is.req)is.w=2;ISSUES_RANDOM.push(is);}
 
 /* ───────── Letters from Mission Control: a space agency from the first day, and fourteen letters to the Moon ─────────
-   Once its capital is settled, a nation may found a space agency on the Space page. Its director, Dr. Lyra Okafor,
+   Once the Space page is open (the prelude, SPX_ID, after SPX_AT enacted edicts) and its capital is settled, a
+   nation may found a space agency there. Its director, Dr. Lyra Okafor,
    starts in a borrowed classroom with one mission slot and one funded team (Science & Survey, Flight Operations, or
    Engineering & Logistics); every starting team can earn the first image of the Moon, and the others join as the
    programme grows. Missions are paid from the stockpile and timed like buildings (a start and a due time), so they
@@ -52620,7 +52644,8 @@ for(const is of NS_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id
    the Moon (MC_SEC sectors, black until seen), from a narrow crescent to the landing corridor; the Lunar Colony wonder
    stays the gateway to the full settlement map and the ordinary landing.
    The correspondence: Okafor writes fourteen letters (mc-1 to mc-14, after every other edict, never drawn at random).
-   The first may arrive once a nation has enacted MC_GATE[0] edicts (Willow Street's own count, n.ws.e): each ordinary
+   The first may arrive once the Space page is open and the nation has enacted MC_GATE[0] edicts (Willow Street's own
+   count, n.ws.e): each ordinary
    arrival slot that could take it rolls one in MC_ODDS, derived from the slot's own time and the nation's seed, and
    the misses are kept (n.mc.r, n.mc.rt), so the MC_GUAR-th eligible slot brings it whatever the dice said. After it,
    each chapter arrives through an ordinary slot once its mission or building has happened and the nation has
@@ -52630,7 +52655,7 @@ for(const is of NS_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id
    files the proposal as failed and the story goes on; the missions themselves never wait for a letter.
    n.mc (private, NX_KEYS) = {v:1, a:{nm,t,f,tm:{team:t}}, ms:{mission:{s,d,v?,g?}}, c:[resolved letters], x:{facts},
      r: opening misses, rt: the last slot rolled, md:{c1,c4,c11,g5,g14}: mandate spends and gains, pf: preferred
-     landing tile, xn: expedition name, ld:{t,c,p}: the crewed landing}.
+     landing tile, xn: expedition name, ld:{t,c,p}: the crewed landing, p:{o,t,e?}: the prelude's answer}.
    MC_STORY is a content catalogue (scripts/split-content.mjs). New edicts go after this section's ISSUES.push. */
 const MC_STORY={
 /* how Okafor opens her first letter to a new kind of state ({MCOLD}: the one before, as Willow Street names it) */
@@ -52667,6 +52692,21 @@ pol:[
 late:{12:'I wrote this before the landing, and Finance insists that it be sent anyway, so that the decision is minuted. The crew are already down. Please treat what follows as the question we would have asked, and answer it for the record.'},
 /* what a letter whose proposal failed leaves behind (Okafor's trust falls by one as well) */
 dis:[{},{},{},{rl:'dom<-'},{pub:'keep<-'},{},{},{},{},{hb:'power<-'},{est:'delay<-'},{man:'spare<-'},{lz:'pref<-'},{fn:'quiet<-'}],
+/* the prelude: the ordinary edict that opens the Space page (SPX_ID). Every answer opens it; tm is the team the
+   answer backs, offered first when the agency is founded; r is what came of it, told on the result page */
+pre:{t:'Class 4B Would Like to Know',
+ q:'Thirty-one nine-year-olds from a primary school in {CAP} have written to the government, in pencil, after a class trip to the university observatory, where an astronomer called Dr. Lyra Okafor let each of them look at the Moon through a brass telescope older than their grandparents. Their letter asks one question: “Who in {N} has the Moon as their job?” Nobody has. There is a drawing of a rocket with a dog at the window, and a postscript from Dr. Okafor herself: the observatory’s budget has just been cut to one telescope and a kettle, and she would be glad to help, if anybody asks. Every newspaper in {N} has printed the letter on its front page, dog and all.',
+ o:[
+ {t:'“Answer the children properly,” says Minister of Health and Education {HEA}. “Open a Ministry of Space Affairs: one desk, one chair, and Dr. Okafor in it. She can borrow the university telescope two nights a month, and every school in {N} will hear what she sees.”',
+  e:{sci:2,edu:2,tax:1},tm:'sci',fx:'a Ministry of Space Affairs has opened, with one desk, one chair and Dr. Lyra Okafor in it, to answer Class 4B’s question',
+  r:'The Ministry of Space Affairs opens on a Tuesday: one desk at the end of a corridor in the Education building, under a sign Class 4B painted themselves. Dr. Okafor brings her own kettle and a folder marked “Agency (proposed)”. The children get their answer on headed paper, and frame it.'},
+ {t:'“There is a tracking dish behind the old weather station that nobody has pointed at anything since the forecasts moved to the coast,” says Minister of Public Works {WRK}. “Give Dr. Okafor the dish, a toolbox and a desk in the forecast room, and make the Moon a works project. We are good at works projects.”',
+  e:{sci:2,econ:1,tax:1},tm:'eng',fx:'the old tracking dish behind the weather station belongs to a new Ministry of Space Affairs, and so, for the time being, does the forecast room',
+  r:'Two railway societies and a retired radar officer spend three weekends evicting starlings from the dish. It turns, slowly, with a noise like a garden gate. Dr. Okafor takes a desk in the old forecast room, under a barometer that has pointed to “change” for thirty years, and opens a folder marked “Agency (proposed)”.'},
+ {t:'“The army has sounding rockets in storage and a firing range that stands empty on Sundays,” says Defence Minister {DEF}. “Put a Ministry of Space Affairs in the hut by the range, give Dr. Okafor the keys, and let the first thing {N} sends up carry a camera instead of a warhead. Class 4B may do the countdown.”',
+  e:{sci:2,mil:1,happy:1},tm:'flt',fx:'a Ministry of Space Affairs works from the hut by the army range, with the keys to a store of sounding rockets and a promise to Class 4B about the countdown',
+  r:'The hut by the range gets a new padlock, a second chair and a sign that says “Ministry of Space Affairs (please knock)”. The rockets in the store turn out to be in excellent condition, and the army is quietly pleased to have somebody to lend them to. On the desk is a folder marked “Agency (proposed)”.'}],
+ veto:'Vetoed. Class 4B is sent a polite reply and keeps asking: the question will come back.'},
 fam:{
 /* the Republic, and the Senate every unnamed state falls back on: “Committee Stage” */
 rep:{name:'Committee Stage',to:'Dear Senators,',ch:[
@@ -54124,6 +54164,8 @@ function mcNorm(raw,n){
   if(Number.isInteger(raw.pf)&&raw.pf>=0&&raw.pf<640*400)w.pf=raw.pf;
   const xn=mcStr(raw.xn,40);if(xn)w.xn=xn;
   if(raw.ld&&mcNum(raw.ld.t)&&Number.isInteger(raw.ld.c)&&raw.ld.c>=0)w.ld={t:raw.ld.t,c:raw.ld.c,p:raw.ld.p===1?1:0};
+  /* the prelude that opened the Space page (see SPX_ID): its answer, when, and at a veto the count it waits beyond */
+  if(raw.p&&typeof raw.p==='object'&&Number.isInteger(raw.p.o)&&raw.p.o>=-1&&raw.p.o<=2&&mcNum(raw.p.t)){w.p={o:raw.p.o,t:raw.p.t};if(raw.p.o===-1&&Number.isInteger(raw.p.e)&&raw.p.e>=0&&raw.p.e<=1e7)w.p.e=raw.p.e;}
   if(w.c.length>=MC_N)w.d=1;
   return w;
 }
@@ -54256,7 +54298,7 @@ const mcGate=k=>MC_GATE[Math.min(k,MC_GATE.length-1)];
 function mcNext(m,t){
   if(!m||m.npc||!m.name)return -1;const w=mcOf(m);if(!w||w.c.length>=MC_N)return -1;
   if((m.inbox||[]).some(x=>mcK(x.id)>=0))return -1;
-  const k=w.c.length;if(mcEdicts(m)<mcGate(k))return -1;if(k===0)return 0;
+  const k=w.c.length;if(mcEdicts(m)<mcGate(k))return -1;if(k===0)return spOpen(m,t)?0:-1;
   return mcReady(m,k,t)?k:-1;
 }
 /* the roll for one slot: derived from the slot's time and the seed, so a reload, a catch-up or another device rolls the same */
@@ -54434,6 +54476,58 @@ dismiss=(f=>function(id){
   finally{MC_ACT=null;}
   S.openIssue=null;render();window.scrollTo(0,0);
   toast('Vetoed. The proposal fails, Dr. Okafor is told so, and the programme carries on without it.');
+})(dismiss);
+
+/* ── the prelude: the edict that opens the Space page ──
+   The Space page stays out of the menu until a nation has enacted SPX_AT edicts (Willow Street's count, n.ws.e,
+   as for the letters) and then answered “Class 4B Would Like to Know” (SPX_ID, MC_STORY.pre). It is an ordinary
+   edict, after every other one and never drawn at random: the first ordinary arrival slot once the count is reached
+   brings it, after any follow-up or Willow Street letter that is due, so it is certain rather than rolled. Any answer
+   opens the page and backs one team (offered first when the agency is founded). A veto puts it off until SPX_AGAIN
+   more edicts have been enacted. Dr. Okafor's first letter waits for the page to be open.
+   A nation already in space keeps the page and never sees the prelude: an agency, a letter from Mission Control
+   (resolved or on the desk), a colony on the Moon or Mars, the belt, or the Lunar Colony wonder begun.
+   n.mc.p = {o: the answer (0 to 2), or -1 vetoed with e the count at the veto; t: when}. */
+const SPX_AT=25,SPX_AGAIN=5,SPX_ID='mc-pre',SPX_TEAM=MC_STORY.pre.o.map(o=>o.tm);
+const spPre=n=>{const w=mcOf(n);return w&&w.p||null;};
+function mcVet(n,t){
+  const w=mcOf(n);if(w&&(w.a||w.c.length))return true;
+  if((n.inbox||[]).some(x=>mcK(x.id)>=0)||n.belt||(n.sp&&(n.sp.moon||n.sp.mars)))return true;
+  return mcCr(n,t||Date.now())>=1;
+}
+/* whether the Space page is open to this nation (computer nations and the old ways in count as open) */
+function spOpen(n,t){if(!n||n.npc)return true;const p=spPre(n);return !!p&&p.o>=0||mcVet(n,t);}
+/* the count of enacted edicts the prelude waits for: SPX_AT, or SPX_AGAIN beyond the last veto */
+function spPreAt(n){const p=spPre(n);return p&&p.o===-1?Math.max(SPX_AT,(p.e||0)+SPX_AGAIN):SPX_AT;}
+function spPreDue(m,t){
+  if(!m||m.npc||!m.name||(m.inbox||[]).some(x=>x.id===SPX_ID)||spOpen(m,t))return false;
+  return mcEdicts(m)>=spPreAt(m);
+}
+nextEntry=(f=>function(m){
+  if(wsChainDue(m)||wsDue(m)||!spPreDue(m,m.issueClock))return f.apply(this,arguments);
+  return {id:SPX_ID,at:m.issueClock};
+})(nextEntry);
+{const P=MC_STORY.pre,is={id:SPX_ID,c:'tech',fo:1,spx:1,t:P.t,q:P.q,o:P.o.map(o=>({t:o.t,e:o.e,fx:o.fx}))};
+  ISSUES.push(is);is.no=ISSUES.length;is.nbx=false;ISSUE_BY_ID[is.id]=is;}
+/* a copy left on the desk after the page opened on another device goes */
+NORM_HOOKS.push(n=>{const p=n.mc&&n.mc.p;if(p&&p.o>=0)n.inbox=n.inbox.filter(x=>x.id!==SPX_ID);});
+/* the answer or the veto, recorded once (a replayed save sees the same decisions in the old record and adds none) */
+COMMIT_HOOKS.unshift((n,old,now)=>{
+  if(!n||n.npc||!n.name||!old||old.founded!==n.founded||old.seed!==n.seed)return [];
+  const sig=a=>a.t+'|'+a.id+'|'+a.o,had=new Map();for(const a of old.answered||[])if(a.id===SPX_ID)had.set(sig(a),(had.get(sig(a))||0)+1);
+  const out=[];
+  for(const a of n.answered||[]){if(a.id!==SPX_ID)continue;const h=had.get(sig(a));if(h){had.set(sig(a),h-1);continue;}
+    const w=mcOf(n)||mcBlank(),p=w.p;if(p&&p.o>=0)continue;
+    n.mc={...w,p:a.o>=0?{o:a.o,t:a.t}:{o:-1,t:a.t,e:mcEdicts(n)}};
+    if(a.o>=0)out.push('The Space page is open. Dr. Lyra Okafor is waiting there, with a folder marked “Agency (proposed)”.');}
+  return out;
+});
+dismiss=(f=>function(id){
+  if(id!==SPX_ID||!S.nation)return f.apply(this,arguments);
+  const now=Date.now(),n=clone(syncInbox(S.nation,now));if(!n.inbox.some(x=>x.id===id))return;
+  markSeen(n,id);if(n.inbox.length>=edictCapAt(now))n.issueClock=now;n.inbox=n.inbox.filter(x=>x.id!==id);
+  n.answered.push({id,o:-1,t:now,fx:''});n.answered=n.answered.slice(-80);commit(n);
+  S.openIssue=null;render();window.scrollTo(0,0);toast(MC_STORY.pre.veto);
 })(dismiss);
 
 /* ───────── Mission Control on the Space page, the chart, the Edicts desk and the mandate ─────────
@@ -54803,7 +54897,7 @@ NOTIF_SOURCES.push((n,now)=>{
   for(const k of Object.keys(w.ms)){const t=mcDoneAt(n,k,now);if(t>=since&&t<=now)out.push({t,k:'space',kl:'Space',txt:/^sc\d+$/.test(k)?'A sector survey is complete: the chart has a new sector.':`${MC_MS[k].n}: done.${MC_MS[k].rv?' The chart now shows '+MC_MS[k].rv+'.':''}`,go:'space'});}
   return out.slice(-8);
 });
-HELP_EXT.push({k:'mission-control',t:'Mission Control: the space agency',body:n=>`<p>Once your capital is settled you can found a space agency on the <b>Space</b> page. Dr. Lyra Okafor runs it, at first from a borrowed classroom: one mission at a time, with whichever team you fund first. Science & Survey borrows telescope time, Flight Operations launches a small camera test, and Engineering & Logistics restores an old tracking station; each brings back the first image of the Moon within the hour. The other teams join for a few resources.</p>
+HELP_EXT.push({k:'mission-control',t:'Mission Control: the space agency',body:n=>`<p>The <b>Space</b> page opens with an edict, “${esc(MC_STORY.pre.t)}”, which arrives once you have enacted ${SPX_AT} edicts. There, with your capital settled, you can found a space agency. Dr. Lyra Okafor runs it, at first from a borrowed classroom: one mission at a time, with whichever team you fund first. Science & Survey borrows telescope time, Flight Operations launches a small camera test, and Engineering & Logistics restores an old tracking station; each brings back the first image of the Moon within the hour. The other teams join for a few resources.</p>
   <p><b>Buildings.</b> Mission Control adds a second mission slot (from the start), the Deep Space Tracking Station receives orbital imagery and charts any sector you choose (from ${fmtPopShort(bldUnlockAt('dsts'))} people), the Robotics and Landing Lab builds rovers and landers (from ${fmtPopShort(bldUnlockAt('robo'))}) and the Crew and Habitat Centre trains crews (from ${fmtPopShort(bldUnlockAt('crewc'))}). The Observatory, the Space Port and the Lunar Colony wonder play their part too.</p>
   <p><b>The chart.</b> Your own survey of the Moon starts black. Each mission lights part of it: a crescent, an orbital strip, the near side, a belt round the far side, the poles and three candidate landing sites, then the ground around your preferred site. The shared map and the ordinary landing open with the Lunar Colony, as before.</p>
   <p><b>The letters.</b> Once you have enacted ${MC_AT} edicts, Dr. Okafor’s first letter can arrive with any edict (one chance in ${MC_ODDS} each time, and certainly by the ${MC_GUAR}th). Thirteen more follow as the programme reaches each step, written for your type of government, and each also waits for a number of enacted edicts: ${list(MC_GATE.slice(1).map((g,i)=>'letter '+roman(i+2)+' at '+fmt0(g)))}, and the last five at ${fmt0(MC_GATE[MC_GATE.length-1])} too. A veto means the proposal fails; the missions themselves never wait for a letter.</p>
@@ -54815,9 +54909,146 @@ document.addEventListener('click',e=>{
   if(el.dataset.act==='sp-zoom')spZoomAt(cv,cv.clientWidth/2,cv.clientHeight/2,+el.dataset.d>0?1.6:1/1.6);else{const v=spViewOf(cv),B=SPB.moon;v.z=1;v.cx=B.W/2;v.cy=B.H/2;spSched(cv);}
 },true);
 
+/* ───────── The Space page opens: the prelude on the desk, the closed page, and the tour ─────────
+   Until the prelude (SPX_ID, “Class 4B Would Like to Know”) is answered, Space is out of the menu, the More sheet,
+   Settings › Navigation and Go to page, and #space says what opens it and how far the nation has come. The prelude
+   wears Mission Control's gold on the desk, and its result page leads to Space. The first visit to the open page, with
+   the agency on screen, starts the tour: the space guide 's' (TUT_GUIDES), eight steps that point at the page and end
+   with what to do next. The Tour button at the top of the page, and How to play, bring it back. */
+const spxObs=()=>{try{return !!OBS;}catch(e){return false;}};
+const spxTag=()=>`<span class="edict-story mc-tag">Mission Control · Prelude</span>`;
+const spxTeamN=k=>MC_TEAMS[k]?MC_TEAMS[k].n:'';
+/* the menu, the More sheet, the Navigation tab and Go to page all read navGroups */
+{const base=navGroups;
+  navGroups=function(){const g=base.apply(this,arguments),n=S.nation;if(!n||spxObs()||spOpen(n))return g;
+    return g.map(x=>({...x,items:x.items.filter(([v])=>v!=='space')})).filter(x=>x.items.length);};}
+/* #space before the page is open: what opens it, and what waits there */
+function spxClosed(n,now){
+  const e=mcEdicts(n),at=spPreAt(n),p=spPre(n),P=MC_STORY.pre,x=syncInbox(n,now).inbox.find(y=>y.id===SPX_ID),prog=clamp(e/Math.max(1,at),0,1);
+  const st=x?`<p>It is on your Edicts desk now: <b>“${esc(P.t)}”</b>.</p><div class="row"><button class="btn" data-act="open" data-id="${SPX_ID}" data-at="${x.at}">Read it</button></div>`
+    :e>=at?`<p>${esc(n.name)} has enacted ${fmt0(e)} edicts, so it arrives with your next edict.</p><div class="row"><button class="btn ghost" data-act="go" data-v="issues">Open edicts</button></div>`
+    :`<p>${p&&p.o===-1?`You vetoed it, so it comes back once you have enacted ${fmt0(at)} edicts.`:`It arrives once you have enacted ${fmt0(at)} edicts.`} ${esc(n.name)} has enacted ${fmt0(e)} so far.</p>
+      <span class="bar spx-bar" role="img" aria-label="${fmt0(e)} of ${fmt0(at)} edicts"><i style="width:${(prog*100).toFixed(1)}%"></i></span><div class="row"><button class="btn ghost" data-act="go" data-v="issues">Open edicts</button></div>`;
+  return `<header class="vh"><p class="eyebrow">Ministry of Space Affairs</p><h1>Space</h1></header>
+    <section class="section spx-lock" aria-labelledby="spx-h"><p class="eyebrow">Not open yet</p><h2 class="h2" id="spx-h">Nobody in ${esc(n.name)} has the Moon as their job</h2>
+    <p>The Space page opens with an edict, and whatever you decide in it opens the page.</p>${st}
+    <h3 class="lbl-h">Waiting here</h3><ul class="spx-list"><li>A space agency, run by Dr. Lyra Okafor from a borrowed classroom</li><li>Missions that light up a black chart of the Moon, a sector at a time</li><li>Fourteen letters from Mission Control, from your ${fmt0(MC_GATE[0])}th enacted edict</li><li>Much later, a colony on the Moon itself, then Mars and the asteroid belt</li></ul></section>`;
+}
+spView=(f=>function(now){
+  const n=S.nation;now=now||Date.now();if(n&&!n.npc&&!spxObs()&&!spOpen(n,now))return spxClosed(n,now);
+  const h=f.apply(this,arguments);if(!n||n.npc||spxObs()||cellOf(n.loc)<0||S.spBody==='mars'||S.spBody==='belt'||typeof h!=='string')return h;
+  return h.replace('</header>',()=>`<p class="spx-tour"><button type="button" class="tut-q" data-act="tut-guide" data-g="s" aria-label="Take the tour of the Space page"><span class="tut-qi" aria-hidden="true">?</span>Tour of this page</button></p></header>`);
+})(spView);
+/* the founding form offers the team the prelude backed */
+mcAgencyHTML=(f=>function(n,now){
+  const w=mcOf(n),p=spPre(n),tm=!w||w.a||!p||p.o<0?'':SPX_TEAM[p.o];if(tm&&!S.mcTeam)S.mcTeam=tm;
+  const h=f.apply(this,arguments);if(!tm)return h;
+  return h.replace('<fieldset class="mc-teams">',m=>`<p class="hint spx-backed">Class 4B’s letter is pinned above her desk. Your edict backed <b>${esc(spxTeamN(tm))}</b>, so it is chosen below; any of the three will do.</p>`+m);
+})(mcAgencyHTML);
+
+/* ── the prelude on the Edicts desk: Mission Control's gold, and a way on to the Space page ── */
+issuesView=(f=>function(v,now){
+  const h=f.apply(this,arguments),x=v&&v.inbox&&v.inbox.find(e=>e.id===SPX_ID);if(!x||typeof h!=='string')return h;
+  return h.replace(new RegExp(`<li class="issue-item([^"]*)"><button class="issue-card" (data-act="open" data-id="${SPX_ID}" data-at="${x.at}")><span class="edict-tags">`),
+    (m,cls,a)=>`<li class="issue-item mc-item${cls}"><button class="issue-card mc-card" ${a}><span class="edict-tags">${spxTag()}`);
+})(issuesView);
+issueView=(f=>function(v){
+  if(S.openIssue!==SPX_ID||!S.nation)return f.apply(this,arguments);
+  return f.apply(this,arguments).replace('<article class="paper edict">','<article class="paper edict mc-paper">')
+    .replace('<p class="form-code">',()=>`<p class="form-code">${spxTag()} `)
+    .replace(/<div class="issue-foot">[\s\S]*?<\/div>/,()=>`<div class="issue-foot"><button class="btn ghost" data-act="dismiss" data-id="${SPX_ID}" aria-label="Veto: put the question off">Veto</button><span class="hint">Any answer opens the Space page. A veto puts the question off until you have enacted ${SPX_AGAIN} more edicts.</span></div>`);
+})(issueView);
+resultView=(f=>function(){
+  const r=S.result,n=S.nation,o=r&&r.id===SPX_ID&&MC_STORY.pre.o[r.o];if(!o||!n)return f.apply(this,arguments);
+  const tm=spxTeamN(o.tm);
+  return f.apply(this,arguments).replace('<article class="paper result edict">','<article class="paper result edict mc-paper">')
+    .replace('<p class="form-code">',()=>`<p class="form-code">${spxTag()} `)
+    .replace(/(<p class="result-fx">[\s\S]*?<\/p>)/,m=>`${m}<div class="ws-out mc-out spx-out"><h2 class="lbl-h">From the Ministry of Space Affairs</h2><p>${esc(fill(o.r,n,r.ctx))}</p>
+      <p><b>The Space page is open.</b> Found the space agency there; ${esc(tm)}, the team your answer backed, is chosen already. A short tour shows you round the page.</p>
+      <div class="row"><button type="button" class="btn" data-act="go" data-v="space">Open the Space page</button></div></div>`);
+})(resultView);
+/* the bell, for a fortnight: the page opened */
+NOTIF_SOURCES.push((n,now)=>{const p=spPre(n),w=mcOf(n);if(!p||p.o<0||n.npc||p.t<now-14*DAY||p.t>now)return [];
+  return [{t:p.t,k:'space',kl:'Space',txt:w&&w.a?'The Space page is open.':'The Space page is open: found your space agency there.',go:'space'}];});
+
+/* ── the tour: guide 's' of the space guides ── */
+/* due on the open Space page with the agency on screen (its first visit, or the first after this tour arrived) */
+function spTourDue(n,t){
+  return !spxObs()&&S.view==='space'&&S.spBody!=='mars'&&S.spBody!=='belt'&&cellOf(n.loc)>=0&&spOpen(n,t)&&!!document.getElementById('mc-agency');
+}
+const spxAgency=()=>document.getElementById('mc-agency');
+/* the agency's title: its eyebrow and its name */
+const spxHead=()=>{const a=spxAgency();return a?[...a.children].slice(0,2):null;};
+/* the missions under way: the heading and its list */
+const spxJobs=()=>{const a=spxAgency();if(!a)return null;const h=[...a.querySelectorAll('.lbl-h')].find(x=>/^Under way/.test(x.textContent.trim()));return h?[h,h.nextElementSibling].filter(Boolean):null;};
+/* the line under the agency's name (where it works, and its mission slots) */
+const spxStatus=()=>{const a=spxAgency(),p=a&&a.querySelector(':scope > p.hint');return p?[p]:null;};
+const spxNext=n=>{try{const w=mcOf(n);if(!w||!w.a)return null;return mcNextStep(n,Date.now());}catch(e){return null;}};
+const spxPlain=s=>String(s||'').replace(/^Next:\s*/,'').replace(/\.$/,'');
+TUT_GUIDES.s={nm:'the Space page',bt:'The Space page',sh:'Tour',p:[
+  {h:'Your space programme',tg:{b:'moon',pg:1,r:'agency',sel:[spxHead,'#mc-agency']},
+    p:()=>{const n=S.nation;return `<p>This page is ${esc(n.name)}’s space programme. It starts small: Dr. Lyra Okafor, one desk and one mission at a time. Each mission lights up more of a black chart of the Moon.</p><p>Much later, the Lunar Colony wonder lands your people on the real Moon, the one every nation shares.</p>`;},
+    f:()=>[['Director','Dr. Lyra Okafor'],['Missions','one at a time, to begin with'],['Paid from','your stockpile']]},
+  {get h(){const w=mcOf(S.nation);return w&&w.a?'Your teams':'Found the agency';},tg:{b:'moon',pg:1,r:'teams',sel:['#mc-agency .mc-teams','#mc-agency .mc-tm']},
+    p:()=>{const n=S.nation,w=mcOf(n),p=spPre(n);
+      if(!w||!w.a)return `<p>Choose the team to fund first, name the agency or keep the name offered, and press <b>Found the agency</b> below the teams. It costs nothing.</p><p>Any team brings back the first picture of the Moon within the hour; the others join later.${p&&p.o>=0?` Your edict backed ${esc(spxTeamN(SPX_TEAM[p.o]))}, so it is chosen already.`:''}</p>`;
+      const has=MC_TEAM_KEYS.filter(k=>w.a.tm[k]),miss=MC_TEAM_KEYS.filter(k=>!w.a.tm[k]);
+      return `<p>${esc(cap1(mcAgName(w.a.nm)))} has ${esc(list(has.map(spxTeamN)))}.${miss.length?` Fund ${esc(list(miss.map(spxTeamN)))} with the buttons here when a mission needs ${miss.length===1?'it':'them'}.`:' All three teams are working.'}</p><p>Science & Survey looks and plans, Flight Operations flies, and Engineering & Logistics builds. Each team flies one mission at a time.</p>`;},
+    f:()=>{const w=mcOf(S.nation);return w&&w.a?MC_TEAM_KEYS.filter(k=>!w.a.tm[k]).map(k=>[MC_TEAMS[k].n,costText(MC_TEAMS[k].cost)]):[];}},
+  {h:'Missions take time',tg:{b:'moon',pg:1,r:'jobs',sel:[spxJobs,'#mc-agency .mc-teams']},
+    p:()=>`<p>A mission is paid from your stockpile when it starts and takes real time, like a building, so it finishes while you are away. <b>Under way</b> shows what is flying, how long it has left, and what the chart will show when it is done.</p><p>The agency has one mission slot. Mission Control, a building for one of your cities, adds a second.</p>`,
+    f:()=>[['First assignment','under an hour'],['Mission slots','1, or 2 with Mission Control'],['While you are away','missions still finish']]},
+  {h:'What to do now',tg:{b:'moon',pg:1,r:'next',sel:['#mc-agency .mc-next','#mc-agency .mc-found .row','#mc-agency']},
+    p:()=>{const n=S.nation,w=mcOf(n),nx=spxNext(n);
+      if(!w||!w.a)return `<p><b>Found the agency.</b> Choose a team above and press <b>Found the agency</b>. A box then appears here with the team’s first assignment and a button to start it.</p><p>From then on that box always names the next thing the programme needs, with the button that does it.</p>`;
+      const now=Date.now(),more=MC_CHAIN.filter(k=>!mcDone(n,k,now)&&!w.ms[k]&&!mcStartProblem(n,k,now)).length>1;
+      return nx?`<p>This box always names the next thing the programme needs, with the button that does it. Now: <b>${esc(spxPlain(nx.t))}</b>.${nx.rv?` It will show ${esc(nx.rv)} on the chart.`:''}</p>${more?'<p>Other missions you could start are listed under it.</p>':''}`
+        :`<p>Nothing is waiting on you: the programme is flying. When a mission comes home, the next step appears here, with the button that does it.</p>`;},
+    f:()=>{const n=S.nation,w=mcOf(n),nx=spxNext(n);return [['Next',!w||!w.a?'found the agency':nx?spxPlain(nx.t):'wait for the missions under way']];}},
+  {h:'The survey chart',tg:{b:'moon',pg:1,r:'chart',sel:['.mc-chart .sp-wrap','.mc-chart','.sp-layout .ml-map .sp-wrap']},
+    p:()=>{const n=S.nation,acc=tutCall(()=>spAccess(n,'moon',Date.now()),false);
+      return `<p>Your own survey of the Moon starts black. Each mission lights part of it: a thin crescent first, then the near side from orbit, a belt round the far side, the poles and three candidate landing sites, and at last the ground around the site you choose.</p><p>${acc?'Your Lunar Colony is complete, so the shared map of the Moon is here instead: it is where you land.':'Dim sectors were seen from orbit; clear ones are charted in detail. With a Deep Space Tracking Station, Science & Survey can chart any sector you select on the chart.'}</p>`;},
+    f:()=>{const n=S.nation,L=tutCall(()=>mcReveal(n,Date.now()),[]);return [['Sectors',fmt0(MC_SEC)],['Seen so far',`${fmt0(L.filter(v=>v>0).length)} of ${fmt0(MC_SEC)}`]];}},
+  {h:'Buildings for the agency',tg:{b:'moon',pg:1,r:'status',sel:[spxStatus,'#mc-agency']},
+    p:()=>`<p>Four buildings serve the agency, built in Cities like any other: <b>Mission Control</b> (a second mission slot), the <b>Deep Space Tracking Station</b> (receives orbital pictures and charts any sector, from ${fmtPopShort(bldUnlockAt('dsts'))} people), the <b>Robotics and Landing Lab</b> (rovers and landers, from ${fmtPopShort(bldUnlockAt('robo'))}) and the <b>Crew and Habitat Centre</b> (crews and habitats, from ${fmtPopShort(bldUnlockAt('crewc'))}). Your Observatory and Space Port count too.</p><p>When the next step needs one of them, its box has a button that starts it in a city with room.</p>`,
+    f:()=>['mctrl','dsts'].map(k=>[BUILDINGS[k].n,`${costText(BUILDINGS[k].cost)}, ${BUILDINGS[k].h} h`])},
+  {h:'Letters from Mission Control',tg:{b:'moon',pg:1,r:'story',sel:['#mc-agency .mc-story','#mc-agency']},
+    p:()=>{const e=mcEdicts(S.nation);return `<p>Dr. Okafor writes fourteen letters as the programme reaches each step. The first can arrive once you have enacted ${fmt0(MC_GATE[0])} edicts (you have enacted ${fmt0(e)}), and each later one waits for its mission and for more edicts. They come to your Edicts desk with a gold border.</p><p>Each asks for a decision. A veto means her proposal fails, but the missions carry on. Some steps can be hurried with mandate from the Government page.</p>`;},
+    f:()=>[['Letters','14, each with a gold border'],['The first',`from ${fmt0(MC_GATE[0])} enacted edicts`]]},
+  {h:'The road to the Moon',tg:{b:'moon',pg:1,r:'steps',sel:['.sp-teaser .sp-steps','.sp-tabs']},
+    p:()=>{const m=spLunarAt();return `<p>The checklist at the foot of the page is the way to the real Moon: reach ${m?fmtPopShort(m.p):'the last milestone’s'} people, build the Lunar Colony wonder in one of your cities, then land on the shared map beside every other nation. A Starport on the Moon opens Mars, and Mars the asteroid belt; each has a guide of its own.</p><p>That is the tour. <b>Tour of this page</b>, at the top, brings it back.</p>`;},
+    f:()=>{const m=spLunarAt(),n=S.nation;return [['The Moon opens at',m?fmtPopShort(m.p)+' people':''],['Your population',tutCall(()=>fmtPop(popNow(n,Date.now())),'')]];}}
+]};
+/* the picture a step shows when the page is not on screen: the Space page, top to bottom, with its part lit */
+const SPX_WHERE={agency:'the space agency, at the top',teams:'the agency’s teams',jobs:'the missions under way',next:'the next step, under the missions',chart:'the survey chart',status:'the line under the agency’s name',story:'the row of letter dots',steps:'the checklist at the foot of the page'};
+function spTourFig(P){
+  const R=P.tg.r,n=S.nation,on=k=>k===R?' class="on"':'';
+  const svg=`<svg viewBox="0 0 220 120" aria-hidden="true" focusable="false"><rect x="8" y="3" width="90" height="7" rx="2"/>
+    <rect${on('agency')} x="8" y="14" width="204" height="56" rx="3"/><rect${on('status')} x="14" y="20" width="110" height="5" rx="2"/><rect${on('teams')} x="14" y="28" width="150" height="6" rx="2"/><rect${on('story')} x="14" y="37" width="96" height="5" rx="2"/>
+    <rect${on('jobs')} x="14" y="45" width="192" height="9" rx="2"/><rect${on('next')} x="14" y="57" width="192" height="9" rx="2"/>
+    <rect${on('chart')} x="8" y="74" width="204" height="28" rx="3"/><rect${on('steps')} x="8" y="106" width="204" height="10" rx="2"/></svg>`;
+  const open=!!n&&spOpen(n),can=open&&cellOf(n.loc)>=0;
+  const why=!n?'':!open?`It opens with an edict once you have enacted ${fmt0(spPreAt(n))} edicts.`:'Settle your capital first: your first edict asks where.';
+  return `<figure class="tut-fig">${svg}<figcaption>On the Space page: ${esc(SPX_WHERE[R]||'the page')}. ${can?`<button type="button" class="linkish" data-act="tut-g-there">Show me</button>`:esc(why)}</figcaption></figure>`;
+}
+
+/* ── How to play: the Space page in a few steps ── */
+HELP_EXT.push({k:'space-page',t:'The Space page, step by step',body:n=>{const m=spLunarAt();return `<p>The Space page is your nation’s space programme. It opens with an edict, “${esc(MC_STORY.pre.t)}”, which arrives once you have enacted ${fmt0(SPX_AT)} edicts: whatever you answer opens the page, and a veto puts the question off for ${SPX_AGAIN} more edicts. Until then Space is not in the menu.</p>
+  <ol class="spx-help-l">
+    <li><b>Found the agency.</b> Name it, choose a first team and press Found the agency. It costs nothing, and the team your edict backed is chosen already.</li>
+    <li><b>Start the first assignment.</b> Every team’s first assignment brings back the first picture of the Moon within the hour.</li>
+    <li><b>Follow the next step.</b> The box under your missions always names what the programme needs next, with the button that does it.</li>
+    <li><b>Build Mission Control</b> in one of your cities, for a second mission slot. The tracking station, the robotics lab and the crew centre follow as your population grows.</li>
+    <li><b>Watch the chart.</b> Each mission lights more of the black survey chart of the Moon.</li>
+    <li><b>Answer Dr. Okafor’s letters</b> on the Edicts page, from your ${fmt0(MC_GATE[0])}th enacted edict. They have a gold border.</li>
+    <li><b>Build the Lunar Colony</b>${m?` at ${fmtPopShort(m.p)} people`:''}, and land on the Moon that every nation shares.</li>
+  </ol>
+  <p>The first time you open the page, a short tour points at each of these.</p>
+  ${n&&!n.npc?`<div class="tut-hb"><button type="button" class="btn ghost small-btn" data-act="tut-guide" data-g="s"><span class="tut-qi" aria-hidden="true">?</span>Take the tour</button></div>`:''}`;}});
+
 /* ───────── a hundred and fifty edicts: beauty contests, fireworks, sport and scandal ─────────
-   Numbered after the fourteen Mission Control letters (2257–2270), so no older number moves: these are 2271 to 2420.
-   Thirty-seven about beauty contests (pgt-), thirty-seven about fireworks (fwk-), thirty-eight about sport (spo-) and
+   Numbered after the fourteen Mission Control letters (2257–2270) and the Space page’s prelude (2271), so no older
+   number moves: these are 2272 to 2421. Thirty-seven about beauty contests (pgt-), thirty-seven about fireworks (fwk-), thirty-eight about sport (spo-) and
    thirty-eight about scandals (scd-). Nothing here waits for a condition, and every one is drawn at random. */
 const SHOW_ISSUES=[
 /* beauty contests: pageants for people, places, produce and machines, and the people who judge them */
@@ -55488,7 +55719,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -56209,6 +56440,40 @@ UNLOCK_SOURCES.push({earned:n=>n&&n.ach?Object.keys(LP_ACH).filter(id=>n.ach[LP_
 uxUnlockInfo=(f=>function(id){if(UNLOCKS[id]&&UNLOCKS[id].src==='gov')return {label:'See your classification',view:'nation',target:'.vh'};
   const a=LP_ACH[id]&&ACH_BY_ID[LP_ACH[id]];if(a)return {label:'View achievement',view:'achievements',target:'#'+CSS.escape('ach-'+a.id),setup:()=>{S.achFor=null;S.achCat=a.c;S.achF='all';}};
   return f.apply(this,arguments);})(uxUnlockInfo);
+/* six more patterns for the nation card: milestones of an early game, and an animated one at 1,000 prestige */
+const PT2=[['p-charter','Charter rules',n=>tutChOf(n).includes('c'),'Finish your charter on the Nation page.'],
+  ['p-lamplight','Lamplight',n=>{const w=wsOf(n);return !!w&&w.c.length>0;},'Start the first Willow Street letter.'],
+  ['p-hello','Hello bubbles',n=>tutLcOf(n).includes('rmb')||(n===S.nation&&tutRmbMine()),'Say hi on your region’s community board.'],
+  ['p-meridian','Meridians',n=>n===S.nation&&areaOf(myId())>1e6,'Hold more than 1,000,000 km² of land.'],
+  ['p-crowd','Multitude',n=>Math.max(+n.pop||0,+n.peak||0)>=10,'Reach a population of 10 million.'],
+  ['p-aurora','Aurora (animated)',n=>achPoints(n)>=1000,'Reach 1,000 prestige (achievement points).']];
+for(const [id,nm] of PT2)UNLOCKS[id]={k:'pattern',n:nm,src:'pt2'};
+UNLOCK_SOURCES.push({earned:n=>{if(!n||n.npc)return [];return PT2.filter(p=>{try{return !!p[2](n);}catch(e){return false;}}).map(p=>p[0]);},
+  how:id=>{const p=PT2.find(p=>p[0]===id);return p?p[3]:null;}});
+function pt2Body(p,seed){
+  const q=v=>(+v).toFixed(1),r=rng(seed||7);let o='';
+  if(p==='p-charter'){for(let y=14;y<320;y+=16)o+=`<path d="M40,${y}H1000" stroke-opacity=".55"/>`;o+='<path d="M60,0V320M66,0V320" stroke-opacity=".7"/>';
+    for(const [x,y,R] of [[860,160,62],[690,70,28],[740,250,22]]){o+=`<circle cx="${x}" cy="${y}" r="${R}"/><circle cx="${x}" cy="${y}" r="${q(R*.78)}" stroke-dasharray="2 3"/>`;
+      let d='';for(let i=0;i<10;i++){const a=i*Math.PI/5-Math.PI/2,rr=i%2?R*.25:R*.55;d+=(i?'L':'M')+q(x+rr*Math.cos(a))+','+q(y+rr*Math.sin(a));}o+=`<path d="${d}Z"/>`;}}
+  else if(p==='p-lamplight'){for(let x=60;x<1000;x+=130){const h=170+r()*60,b=300;o+=`<path d="M${x},${b}V${b-h}M${x-10},${b}H${x+10}M${x-9},${b-h}H${x+9}L${x+6},${b-h-16}H${x-6}Z"/>`;
+      for(let k=1;k<5;k++)o+=`<circle cx="${x}" cy="${b-h-8}" r="${14*k}" stroke-opacity="${q(.9/k)}"${k>1?' stroke-dasharray="3 4"':''}/>`;}
+    o+='<path d="M0,300H1000" stroke-opacity=".6"/>';}
+  else if(p==='p-hello'){for(let y=10;y<320;y+=64)for(let x=(y/64%2)*60;x<1000;x+=120){if(r()<.25)continue;const w=46+r()*40,h=26+r()*14,X=x+r()*30,Y=y+r()*16;
+      o+=`<path d="M${q(X+6)},${q(Y)}H${q(X+w-6)}Q${q(X+w)},${q(Y)} ${q(X+w)},${q(Y+6)}V${q(Y+h-6)}Q${q(X+w)},${q(Y+h)} ${q(X+w-6)},${q(Y+h)}H${q(X+18)}L${q(X+8)},${q(Y+h+10)}L${q(X+10)},${q(Y+h)}H${q(X+6)}Q${q(X)},${q(Y+h)} ${q(X)},${q(Y+h-6)}V${q(Y+6)}Q${q(X)},${q(Y)} ${q(X+6)},${q(Y)}Z"/>`;
+      for(let k=0;k<3;k++)o+=`<circle cx="${q(X+w/2-10+k*10)}" cy="${q(Y+h/2)}" r="1.6" fill="currentColor"/>`;}}
+  else if(p==='p-meridian'){for(let x=0;x<=1000;x+=50)o+=`<path d="M${x},0V320" stroke-opacity=".25"/>`;for(let y=0;y<=320;y+=40)o+=`<path d="M0,${y}H1000" stroke-opacity=".25"/>`;
+    const cx=820,cy=160,R=140;o+=`<circle cx="${cx}" cy="${cy}" r="${R}" stroke-width="1.4"/>`;
+    for(let k=1;k<6;k++){const rx=R*Math.cos(k*Math.PI/12*2);o+=`<ellipse cx="${cx}" cy="${cy}" rx="${q(Math.abs(rx))}" ry="${R}"/>`;}o+=`<path d="M${cx},${cy-R}V${cy+R}"/>`;
+    for(let k=-2;k<=2;k++){const y=cy+k*R/3,w=Math.sqrt(R*R-(k*R/3)**2);o+=`<ellipse cx="${cx}" cy="${q(y)}" rx="${q(w)}" ry="${q(w*.12)}"/>`;}}
+  else if(p==='p-crowd'){for(let y=6;y<320;y+=12)for(let x=6+((y-6)/12%2)*6;x<1000;x+=12){const s=Math.pow(x/1000,1.4)*4.6*(.75+r()*.5);if(s>.5)o+=`<circle cx="${q(x)}" cy="${y}" r="${q(s)}" fill="currentColor" stroke="none"/>`;}}
+  else if(p==='p-aurora'){for(let b=0;b<3;b++){o+=`<g class="czp-au czp-au${b}">`;for(let j=0;j<9;j++){const pts=[];for(let x=-240;x<=1240;x+=20)pts.push(q(x)+','+q(60+b*90+j*4+22*Math.sin(x/110+b*1.3+j*.12)+8*Math.sin(x/41+b)));o+=`<path d="M${pts.join('L')}" stroke-opacity="${q(.9-j*.08)}"/>`;}o+='</g>';}
+    for(let i=0;i<40;i++)o+=`<circle class="czp-tw" style="animation-delay:${q(-r()*4)}s" cx="${q(r()*1000)}" cy="${q(r()*320)}" r="${q(.8+r()*1.2)}" fill="currentColor" stroke="none"/>`;}
+  return o;
+}
+czPatSVG=(f=>function(p,seed,mini){
+  if(!PT2.some(x=>x[0]===p))return f.apply(this,arguments);
+  return `<svg class="czp${mini?' mini':''}" viewBox="0 0 1000 320" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1">${pt2Body(p,seed)}</g></svg>`;
+})(czPatSVG);
 const LS_SAMPLE='We write to propose a lasting friendship between our nations, and a modest exchange of cheese.';
 czArt=(f=>function(id,n){const u=czU(id);if(!u||!['paper','seal','sign'].includes(u.k))return f.apply(this,arguments);
   if(u.k==='paper')return `<span class="lp-sw ${lpClass(id)}"><i></i><i></i><i></i></span>`;
@@ -56284,6 +56549,7 @@ function nvxCompute(n,now){
   each(()=>{if(cellOf(n.loc)<0)return;const t=flNow(),k=(n.fl||[]).filter(p=>p.a<=t&&t-p.a<=3*DAY&&!p.h).length;add('map',k,k===1?'an explorers’ report to hear':k+' explorers’ reports to hear','.map-tabs [data-v="explore"]');});
   each(()=>{if((n.reg||REG.id)!==REG.id||!asmMemberAt(n,now))return;const st=asmState(now);if(!st.cur||!st.V)return;const m=st.V.rows.find(r=>r.me);if(m&&!m.t)add('assembly',1,'a vote to cast','.asm-vote .asm-my .lbl');});
   each(()=>{for(const [id,nm] of [['moon','the Moon'],['mars','Mars']])if(!(n.sp&&n.sp[id])&&spAccess(n,id,now))add('space',1,'a landing site to choose on '+nm,`.sp-tabs [data-b="${id}"]`);});
+  each(()=>{const w=mcOf(n),p=spPre(n);if(w&&!w.a&&p&&p.o>=0&&cellOf(n.loc)>=0)add('space',1,'a space agency to found','#mc-agency .mc-found .btn');});
   each(()=>{const k=provDisloyal(n);add('provinces',k,k===1?'a disloyal governor':k+' disloyal governors','.prv-dis .prv-gn',true);});
   each(()=>{if(!pgGuided(n)&&!gvBriefState(n,now).done)add('government',1,'today’s cabinet briefing','#gv-tab-cabinet');});
   each(()=>{const T=territory(),mi=T.byId[me];if(mi===undefined)return;const k=Math.min(maxCities(T,mi),MAX_CITIES)-cityList(n).length;
