@@ -79,6 +79,7 @@ check('a guest is told purchases need a linked sign-in', /Purchases belong to yo
 await G.waitForSelector('[data-act="shop-buy"][data-p="founder"]', { timeout: 20000 });
 await click(G, '[data-act="shop-buy"][data-p="founder"]');
 check('buying as a guest asks for a link instead', /link a sign-in first/i.test(await txt(G, '.shop-err')) && !(await G.evaluate(() => window.__edictumCheckout)));
+check('and remembers the purchase, to open its checkout once the sign-in is linked', await G.evaluate(() => !!(G.SHOP.SHOP.after && G.SHOP.SHOP.after.p === 'founder')) && /opens by itself/.test(await txt(G, '.shop-err')));
 check('without an answer from Paddle the prices stay in euros alone', !(await G.evaluate(() => document.querySelector('.shop-local'))) && /€9\.99/.test(await txt(G, '#shop-founder-tag')));
 
 /* ── a Registered Nation buys the Founder's Package ── */
@@ -125,7 +126,10 @@ await click(A, '[data-act="shop-buy"][data-p="founder"]');
 const fTxn = await payFor(A);
 check('the checkout was opened for a transaction the server made', !!fTxn && P.tx.get(fTxn).custom_data.uid === aUid && P.tx.get(fTxn).items[0].price.id === PRICES.founder);
 check('owned once Paddle confirms it', !!(await until(() => A.evaluate(() => /Owned/.test(document.querySelector('.shop-founder')?.textContent || '')), 10000)));
-check('the founder cosmetics are held, by the server’s word', (await A.evaluate(() => G.SHOP.held().length)) === 7);
+check('the founder cosmetics are held, by the server’s word, with the whole Card Pack', (await A.evaluate(() => G.SHOP.held().length)) === 16);
+const fno = await until(() => A.evaluate(() => G.SHOP.SHOP.doc && G.SHOP.SHOP.doc.fno), 8000);
+check('the founder has a number', Number.isInteger(fno) && fno > 0, String(fno));
+check('and the Card Pack shows as included, not for sale', await A.evaluate(() => !document.querySelector('[data-act="shop-buy"][data-p="idpack"]')));
 
 /* ── wearing it ── */
 await go(A, 'customise');
@@ -142,6 +146,8 @@ await go(A, 'nation');await A.evaluate(() => scrollTo(0, 0));await sleep(400);
 check('the badge and the First Edition banner on the nation card', await A.evaluate(() => !!document.querySelector('.hero .founder-pill') && !!document.querySelector('.hero svg.shop-fe')));
 await shot(A, '.hero.id-sec', 'shop-hero-founder.png');
 await go(A, 'museum');
+check('the Founders’ Wall in the museum names the founder, with their number', !!(await until(async () => /Gildmark/.test(await txt(A, '#fwall')) && /No\. \d{4}/.test(await txt(A, '#fwall .fwall-p.me')), 8000)), (await txt(A, '#fwall')).slice(0, 200));
+await shot(A, '#fwall', 'shop-founders-wall.png');
 check('the certificate hangs in the museum, with the nation’s name', !!(await until(() => A.evaluate(() => { const s = document.querySelector('#shop-cert svg'); return s && /Gildmark/.test(s.textContent); }), 5000)));
 await shot(A, '#shop-cert', 'shop-certificate.png');
 await go(A, 'shop');await openDr(A, 'idpack');
@@ -161,6 +167,14 @@ const diag = seen ? '' : JSON.stringify(await B.evaluate(id => { const n = G.S.w
 check('another player sees the founder finery, vouched for by the server', !!seen, JSON.stringify(seen) + diag);
 await B.evaluate(id => { location.hash = 'visit/' + id; }, aUid);await sleep(900);
 check('the badge beside the name on the visit page', await B.evaluate(() => !!document.querySelector('.hero .founder-pill')));
+check('the badge carries the founder’s number', !!(await until(async () => /No\. \d{4}/.test(await txt(B, '.hero .founder-pill')), 8000)));
+await B.click('.hero .founder-pill');await sleep(300);
+check('a tap on the badge says what it is and where it comes from', /Founding Supporter/.test(await txt(B, '#fdr-pop')) && !!(await B.$('#fdr-pop [data-act="fdr-shop"]')));
+await shot(B, '#fdr-pop', 'shop-founder-pop.png');
+await click(B, '#fdr-pop [data-act="fdr-shop"]');
+check('and leads to the Founder’s Package in the Shop', await B.evaluate(() => G.S.view === 'shop' && !!document.querySelector('.shop-dr .shop-founder')));
+const tipTxt = await B.evaluate(id => G.SHOP.mapTip(id), aUid);
+check('a founder’s land says so on the map', /Founding Supporter No\. \d{4}/.test(tipTxt), tipTxt);
 const C = await player('shop forger', { cap: 500 });const cUid = await open(C);await found(C, 'Forgeria');
 /* a tampered client: the record saved as it stands, past the game's own commit (which would rewrite cz.u) */
 /* the game's own first save may land in between ("Another device saved this nation"): forge again from the fresh copy */
@@ -321,7 +335,7 @@ await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key
 await click(A, '[data-act="shop-wish"][data-p="idpack"]');await click(A, '[data-act="shop-f"][data-v="wish"]');
 check('a hearted item shows under Wishlist', (await A.evaluate(() => [...document.querySelectorAll('.shop-cd')].map(c => c.dataset.p))).join() === 'idpack');
 await click(A, '[data-act="shop-f"][data-v="all"]');await click(A, '#shop-ho');
-check('Hide owned leaves out what the nation owns, and keeps the rest', await A.evaluate(() => !document.querySelector('.shop-cd[data-p="founder"]') && !!document.querySelector('.shop-cd[data-p="idpack"]')));
+check('Hide owned leaves out what the nation owns (the Card Pack comes with the founder’s), and keeps the rest', await A.evaluate(() => !document.querySelector('.shop-cd[data-p="founder"]') && !document.querySelector('.shop-cd[data-p="idpack"]') && !!document.querySelector('.shop-cd[data-p="giftvip"]')));
 await click(A, '#shop-ho');
 
 server.close();

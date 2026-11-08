@@ -5480,6 +5480,23 @@ span.nw-tag{cursor:default}
 /* ───────── the Bureau of National Finery (the shop) ───────── */
 .founder-pill{display:inline-flex;align-items:center;gap:5px;flex:none;padding:3px 10px 3px 7px;border-radius:999px;background:linear-gradient(135deg,#7b5714,#c39a3e 45%,#8c6519);color:#fff7df;font:600 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;vertical-align:middle;box-shadow:inset 0 0 0 1px rgba(255,240,200,.35)}
 .founder-pill svg{width:11px;height:11px;flex:none}
+.founder-pill[role="button"]{cursor:pointer}
+.founder-pill[role="button"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.founder-no{margin-left:5px;padding-left:5px;border-left:1px solid rgba(255,240,200,.45);font-variant-numeric:tabular-nums}
+.fdr-pop{position:fixed;z-index:90;max-width:min(340px,calc(100vw - 16px));padding:14px 16px;background:var(--sheet);color:var(--ink);border:1px solid #b08d3c;border-radius:6px;box-shadow:inset 0 0 0 3px var(--sheet),inset 0 0 0 4px rgba(176,141,60,.5),0 10px 28px rgba(0,0,0,.18);font-size:14px}
+.fdr-pop p{margin:0 0 8px}.fdr-pop .row{gap:10px;flex-wrap:wrap;align-items:center}
+.fdr-pop-h{display:flex;align-items:center;gap:6px;font:650 16px/1.2 var(--f-display);color:#8a6519}.fdr-pop-h svg{width:14px;height:14px}
+:root[data-theme="dark"] .fdr-pop-h{color:#e2c27a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .fdr-pop-h{color:#e2c27a}}
+.fwall{margin:0 0 26px;padding:22px 24px;border:1px solid #b08d3c;border-radius:4px;background:linear-gradient(135deg,rgba(195,154,62,.14),var(--sheet) 60%);box-shadow:inset 0 0 0 3px var(--sheet),inset 0 0 0 4px rgba(176,141,60,.45)}
+.fwall .h2{margin:2px 0 4px}
+.fwall-l{list-style:none;margin:14px 0 8px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.fwall-p{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 10px;align-items:baseline;padding:8px 10px;border:1px solid rgba(176,141,60,.5);border-radius:3px;background:linear-gradient(180deg,rgba(226,194,106,.18),rgba(176,141,60,.08))}
+.fwall-p.me{border-color:#b08d3c;box-shadow:inset 0 0 0 1px #b08d3c}
+.fwall-no{grid-row:span 2;font:600 12px/1 var(--f-mono);letter-spacing:.06em;color:#8a6519;font-variant-numeric:tabular-nums}
+:root[data-theme="dark"] .fwall-no{color:#e2c27a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .fwall-no{color:#e2c27a}}
+.fwall-p b{font:650 15px/1.2 var(--f-display);overflow-wrap:anywhere}.fwall-r{font-size:12px;color:var(--ink-3)}
 .founder-pill.sm{padding:2px 5px;margin-left:6px;gap:0}
 .founder-sr,.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .post-h .founder-pill:not(.sm),.hero-cat .founder-pill{margin-left:2px}
@@ -20102,6 +20119,8 @@ function dmAttOptions(peer){
 /* ── the page ── */
 const dmDayLabel=t=>{const d=new Date(t),s=new Date();s.setHours(0,0,0,0);const y=new Date(s.getTime()-DAY);return t>=s.getTime()?'Today':t>=y.getTime()?'Yesterday':fmtDate(t);};
 const dmClock=t=>{try{return new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
+/* the founder's brass dot beside a correspondent's name, as on their page (only what the server vouches for) */
+function dmFounder(id){try{if(isOffice(id))return '';const x=findNation(id);return x&&typeof shopBadge==='function'?shopBadge(x.n,1):'';}catch(e){return '';}}
 function dmFace(id){if(isOffice(id))return OFFICES[id].seal;if(dmIsGroup(id))return `<span class="dm-grp" aria-hidden="true">${/^al:/.test(id)?'⚑':(dmGroupMeta(id).m.length||'·')}</span>`;const x=dmFind(id);return x?flagSVG(x.n.flag,'Flag of '+x.n.name):'';}
 const dmKind=id=>isOffice(id)?'offices':dmIsGroup(id)?'groups':NPC_SET.has(id)?'computer':'players';
 /* the sender's stationery (Customise › Stationery): paper, a wax seal, a signature; anyone else's only if they hold it */
@@ -20130,7 +20149,7 @@ function messagesView(){
   const lastMine=[...thread].reverse().find(m=>m.mine&&!m.q),peerSeen=px&&!px.npc&&!grp&&dmRR()?Math.max(num0(LT.seen[peer]),num0(px.n.seenDm&&px.n.seenDm[me])):0;
   const snip=(a)=>{if(!q)return '';const m=[...a].reverse().find(m=>m.x.toLowerCase().includes(q));if(!m)return '';const i=m.x.toLowerCase().indexOf(q),s=Math.max(0,i-24);return `<span class="dm-hit">${s?'…':''}${esc(m.x.slice(s,i))}<mark>${esc(m.x.slice(i,i+q.length))}</mark>${esc(m.x.slice(i+q.length,i+q.length+40))}</span>`;};
   const conv=peers.map(id=>{const a=th.get(id),last=a[a.length-1],un=dmUnreadIn(id,a,seen),mu=dmMuted(id);
-    return `<li><button class="conv${id===peer?' on':''}${un&&!mu?' un':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${dmFace(id)}</span><span class="conv-t"><b>${pin[id]?'<span class="dm-pin" title="Pinned">📌</span>':''}${esc(nameOf(id))}${!dmIsGroup(id)&&isStaff(id)?STAFF_PILL:''}${mu?'<span class="dm-mu" title="Muted">🔕</span>':''}</b><span>${last?`${last.mine?'You: ':dmIsGroup(id)?esc(nameOf(last.from))+': ':''}${esc(last.x.slice(0,60))}`:'No letters yet. Write to every member at once.'}</span>${snip(a)}</span><span class="conv-m">${last?rel(last.t):''}${un?`<span class="badge${mu?' quiet':''}" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
+    return `<li><button class="conv${id===peer?' on':''}${un&&!mu?' un':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${dmFace(id)}</span><span class="conv-t"><b>${pin[id]?'<span class="dm-pin" title="Pinned">📌</span>':''}${esc(nameOf(id))}${!dmIsGroup(id)&&isStaff(id)?STAFF_PILL:''}${!dmIsGroup(id)?dmFounder(id):''}${mu?'<span class="dm-mu" title="Muted">🔕</span>':''}</b><span>${last?`${last.mine?'You: ':dmIsGroup(id)?esc(nameOf(last.from))+': ':''}${esc(last.x.slice(0,60))}`:'No letters yet. Write to every member at once.'}</span>${snip(a)}</span><span class="conv-m">${last?rel(last.t):''}${un?`<span class="badge${mu?' quiet':''}" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
   const pst=!!px&&!px.npc&&isStaff(px.id);
   /* the letters, with a line for each day, and the tools of each letter */
   let day='';
@@ -20140,7 +20159,7 @@ function messagesView(){
     const status=m.b?' · Not delivered: this nation does not accept your letters':m.h==='cap'?` · Waiting for a reply: you have written ${DM_CAP} letters in a row`:m.h==='day'?' · Waits until tomorrow: 150 letters a day':m.q?(Array.isArray(m.to)?` · Delivered to ${(m.qd||[]).length} of ${m.to.length}`:' · Not sent yet'):m===lastMine&&peerSeen>=m.t?' · Seen':'';
     const note=m.k&&DM_NOTES[m.k]?`<p class="dm-note-h">${esc(DM_NOTES[m.k][0])}</p>`:'';
     const quote=m.r?`<blockquote class="dm-q">${esc(m.r.x)}</blockquote>`:'';
-    const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}</span>`:'';
+    const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}${dmFounder(m.from)}</span>`:'';
     const tools=po?'':`<span class="bub-tools">${m.q&&m.mine?`<button type="button" class="linkish small" data-act="dm-withdraw" data-t="${m.t}">Withdraw</button>`:`<button type="button" class="linkish small" data-act="dm-reply" data-t="${m.t}" data-from="${esc(m.from)}">Reply</button>`}${!m.mine&&!m.npc&&!isOffice(m.from)&&S.mode==='world'?`<button type="button" class="linkish small" data-act="dm-report" data-t="${m.t}" data-from="${esc(m.from)}">Report</button>`:''}</span>`;
     return `${sep}<li class="bub${m.mine?' mine':''}${st?' staff':''}${P.lp?' '+lpClass(P.lp):''}${m.k?' note':''}"${lpGlyph(P.lp)}>${st?'<span class="bub-staff">Edictum staff</span>':''}${who}${note}${quote}<p>${esc(m.x)}</p>${m.a?dmAttCard(m.a,m.from,m.mine,peer):''}${dmSign(m.mine?me:m.from,m.npc?'':P.lg)}${dmWax(m.mine?me:m.from,P.ls)}<span class="bub-t" title="${esc(dmClock(m.t))}">${rel(m.t)}${status}</span>${tools}</li>`;
   }).join('');
@@ -38756,6 +38775,9 @@ function hoverAt(cv,cell,e,tip){
   const sub=t>=2?terrName(cell)+' · '+landName(cell)+(CELL_RES.oil[cell]?' · Oil':'')+(SITE_AT.has(cell)?' · '+siteLabel(SITE_AT.get(cell)):'')+(o<0&&cv.dataset.map==='main'&&S.nation&&landCredits(S.nation)>0&&claimableBlocks(T).has(BLOCKS.of[cell])&&freeCell(T,cell)?' · Claimable':''):'';
   mapShowTip(cv,e,tip,head,tipAdd?(sub?sub+tipAdd:tipAdd.slice(3)):sub);
 }
+/* a founder's land says so on the map */
+MAP_TIP.push(({kind,cell})=>{if(kind!=='main'||cell<0)return '';const T=mapTerr(kind),o=T.owner[cell];if(!(o>=0))return '';const n=T.list[o].n;let b='';try{b=cz(n).bg;}catch(e){}
+  if(b!=='bg-founder')return '';const no=founderNo(n);return '★ Founding Supporter'+(no?' '+founderNoTxt(no):'');});
 function mapShowTip(cv,e,tip,head,sub){
   tip.textContent='';const b=document.createElement('b');b.textContent=head;tip.appendChild(b);
   if(sub){tip.appendChild(document.createElement('br'));tip.appendChild(document.createTextNode(sub));}
@@ -50773,7 +50795,7 @@ function shopMember(t){const v=shopVip();return !!v&&(t==null?shopNow():t)<v.unt
 function shopHeld(n){
   const d=SHOP.doc;
   if(!d){const u=n&&n.cz&&Array.isArray(n.cz.u)?n.cz.u:[];return u.filter(shopIs);}
-  const out=[];if(shopOwns('founder'))out.push(...SHOP_IDS.founder);if(shopOwns('idpack'))out.push(...SHOP_IDS.idpack);
+  const out=[];if(shopOwns('founder'))out.push(...SHOP_IDS.founder,...SHOP_IDS.idpack);if(shopOwns('idpack'))out.push(...SHOP_IDS.idpack);
   for(const k of Object.values(d.picks||{}))if(SHOP_IDS.vip.includes(k))out.push(k);
   return out;
 }
@@ -50830,11 +50852,11 @@ function shopConnect(){
   try{const c=JSON.parse(localStorage.getItem(SHOP_KEY+S.uid)||'null');if(c&&typeof c==='object')shopTake(c,true);}catch(e){}
   try{SHOP.unsub=S.db.doc('shop/'+S.uid).onSnapshot(s=>shopTake(s.exists?s.data():{},false),()=>{});}catch(e){}
   try{SHOP.finUnsub=S.db.collection('finery').where('reg','==',REG.id).onSnapshot(qs=>{
-    const m=new Map(),cm=new Map(),bx=new Map();for(const d of qs.docs){const x=d.data()||{},c=x.c;if(Array.isArray(c))m.set(d.id,new Set(c.filter(id=>typeof id==='string'&&shopIs(id))));
+    const m=new Map(),cm=new Map(),bx=new Map(),fn=new Map();for(const d of qs.docs){const x=d.data()||{},c=x.c;if(Number.isInteger(x.fno)&&x.fno>0)fn.set(d.id,x.fno);if(Array.isArray(c))m.set(d.id,new Set(c.filter(id=>typeof id==='string'&&shopIs(id))));
       const cl=x.cl;if(cl&&typeof cl==='object'&&typeof cl.s==='string')cm.set(d.id,{s:cl.s,u:+cl.u||0,m:+cl.m||0,f:Array.isArray(cl.f)?cl.f.filter(v=>typeof v==='number'):[]});
       /* boxed newspaper advertisements: until when the server vouches for them (functions/shop.js, adbox) */
       if(typeof x.bx==='number'&&isFinite(x.bx)&&x.bx>0)bx.set(d.id,x.bx);}
-    const sig=JSON.stringify([[...m].map(([k,v])=>[k,[...v].sort()]),[...cm],[...bx]]);SHOP.fin=m;SHOP.cl=cm;SHOP.bx=bx;if(sig===SHOP.finSig)return;SHOP.finSig=sig;shopBump();},()=>{});}catch(e){}
+    const sig=JSON.stringify([[...m].map(([k,v])=>[k,[...v].sort()]),[...cm],[...bx],[...fn]]);SHOP.fin=m;SHOP.cl=cm;SHOP.bx=bx;SHOP.fno=fn;if(sig===SHOP.finSig)return;SHOP.finSig=sig;shopBump();},()=>{});}catch(e){}
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{shopConnect();}catch(e){}return r;})(connect);
 async function shopApiP(){try{return await Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('shop'):null);}catch(e){return null;}}
@@ -50855,7 +50877,7 @@ function shopLinked(){let a=null;try{a=accountInfo();}catch(e){}return !!S.googl
 function shopDark(){const t=document.documentElement.getAttribute('data-theme');return t?t==='dark':!!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);}
 function shopErr(e){
   const c=e&&e.code,m=e&&e.message||'';
-  const T={registration_required:'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.',
+  const T={registration_required:'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.'+(SHOP.after?' Your checkout opens by itself as soon as it is linked.':''),
     sale_ended:'The Founder’s Package is no longer on sale. Nothing was charged.',owned:'You already own this.',vip_active:'You are already a member of the Chancery Club.',
     shop_off:'The Bureau of National Finery is not open yet.',shop_unavailable:'The payment service did not answer. Nothing was charged. Try again in a minute.',
     unavailable:'The server could not be reached. Nothing was charged. Check your connection and try again.',nation_required:'Found and save your nation first.',
@@ -50866,7 +50888,9 @@ async function shopBuy(p,to){
   if(SHOP.busy||!SHOP_PRODUCTS.includes(p))return;
   SHOP.err='';
   if(S.mode!=='world'){SHOP.err='Reconnect to buy. Nothing was charged.';render();return;}
-  if(!shopLinked()){SHOP.err='link';render();return;}
+  /* a guest: link a sign-in, and the checkout opens by itself once it is linked (within ten minutes) */
+  if(!shopLinked()){SHOP.err='link';SHOP.after={p,to:to||'',t:Date.now()};render();try{window.edictumStat&&window.edictumStat('shop_link_prompt',{product:SHOP_PRODUCTS.indexOf(p)});}catch(e){}
+    const b=document.querySelector('.ed-acct-b');if(b)b.click();return;}
   SHOP.busy=p;render();
   try{
     const r=await shopReq({step:'checkout',product:p,...(to?{to}:{})});
@@ -50961,7 +50985,13 @@ const SHOP_BRASS='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 .6 7.4
 const FOUNDER_PILL=`<span class="founder-pill" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}Founding Supporter</span>`;
 const FOUNDER_DOT=`<span class="founder-pill sm" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}<span class="founder-sr">Founding Supporter</span></span>`;
 /* beside a name: only a badge the server vouches for (cz checks it), and only if its owner chose to wear it */
-function shopBadge(n,sm){let b='';try{b=n&&typeof n==='object'&&!n.npc?cz(n).bg:'';}catch(e){}return b==='bg-founder'?(sm?FOUNDER_DOT:FOUNDER_PILL):'';}
+/* a founder's number: the player's own from shop/, anyone else's from their finery/ (both written by the server) */
+function founderNo(n){if(!n||typeof n!=='object'||n.npc)return 0;if(shopMine(n))return +(SHOP.doc&&SHOP.doc.fno)||0;const uid=flIdOf(n);return uid&&SHOP.fno?SHOP.fno.get(uid)||0:0;}
+const founderNoTxt=no=>'No. '+String(no).padStart(4,'0');
+function founderPill(n,sm){const no=founderNo(n),mine=shopMine(n)?1:0,t='Founding Supporter'+(no?' '+founderNoTxt(no):'')+': among the first to help write the world of Edictum. Select to learn more.';
+  return sm?`<span class="founder-pill sm" role="button" tabindex="0" data-fno="${no}" data-mine="${mine}" title="${esc(t)}">${SHOP_BRASS}<span class="founder-sr">${esc(t)}</span></span>`
+    :`<span class="founder-pill" role="button" tabindex="0" data-fno="${no}" data-mine="${mine}" title="${esc(t)}">${SHOP_BRASS}Founding Supporter${no?`<span class="founder-no">${founderNoTxt(no)}</span>`:''}</span>`;}
+function shopBadge(n,sm){let b='';try{b=n&&typeof n==='object'&&!n.npc?cz(n).bg:'';}catch(e){}return b==='bg-founder'?founderPill(n,sm):'';}
 hero=(f=>function(n){const h=f.apply(this,arguments),b=shopBadge(n);return b?h.replace(/(<span class="cat-pill">[^<]*<\/span>)/,'$1'+b):h;})(hero);
 asmWho=(f=>function(id){const h=f.apply(this,arguments);let x=null;try{x=asmRecs().find(r=>r.id===id);}catch(e){}return x?h+shopBadge(x.n,1):h;})(asmWho);
 /* the Chancery seal a nation shows: its player's choice, vouched for by the server (the player's own shop/, everyone
@@ -50979,6 +51009,26 @@ function clubSealPill(x,sm){
   return `<span class="club-seal${sm?' sm':''}" data-seal="${esc(x.id.slice(4))}" title="${esc(tip)}">${clubSealSVG(x.id)}<span class="${sm?'founder-sr':'club-seal-l'}">${esc(sm?tip:lbl)}</span></span>`;
 }
 shopBadge=(f=>function(n,sm){const b=f.apply(this,arguments);let x=null;try{x=clubSealOf(n);}catch(e){}return x?b+clubSealPill(x,sm):b;})(shopBadge);
+/* "Whose is that?": a tap on a founder's badge says what it is, and where it comes from */
+function founderPopClose(){const p=document.getElementById('fdr-pop');if(p)p.remove();}
+function founderPop(el){
+  founderPopClose();const no=+el.dataset.fno||0,mine=el.dataset.mine==='1',open=shopNow()<shopUntil();
+  const p=document.createElement('div');p.id='fdr-pop';p.className='fdr-pop';p.setAttribute('role','dialog');p.setAttribute('aria-label','Founding Supporter');
+  p.innerHTML=`<p class="fdr-pop-h">${SHOP_BRASS}Founding Supporter${no?' · '+founderNoTxt(no):''}</p><p>${mine?'That is you: one of the first nations to back Edictum.':'One of the first nations to back Edictum'+(no?`, and the ${esc(ordinal(no))} to do so`:'')+'.'} Founders wear a brass badge, the First Edition banner and a gilt edge on their land, and their names are on the Founders’ Wall in every museum.</p>`+
+    `<p class="hint">${open?'The Founder’s Package is on sale until 1 February 2027, and never again after that.':'The Founder’s Package is no longer sold.'}</p><div class="row">${open&&!mine?'<button type="button" class="btn sm" data-act="fdr-shop">See the Founder’s Package</button>':''}<button type="button" class="linkish small" data-act="fdr-wall">The Founders’ Wall</button><button type="button" class="linkish small" data-act="fdr-x">Close</button></div>`;
+  document.body.appendChild(p);const r=el.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight;
+  let x=Math.min(innerWidth-w-8,Math.max(8,r.left)),y=r.bottom+8;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-8);p.style.left=x+'px';p.style.top=y+'px';
+  try{window.edictumStat&&window.edictumStat('founder_badge_tap',{mine:mine?1:0});}catch(e){}
+  const b=p.querySelector('button');if(b)b.focus({preventScroll:true});
+}
+document.addEventListener('click',e=>{
+  const pill=e.target.closest&&e.target.closest('.founder-pill[role="button"]');
+  if(pill&&!pill.closest('.shop-pv,.cz-tile,.shop-cd,.fdr-pop')){e.preventDefault();e.stopPropagation();founderPop(pill);return;}
+  const a=e.target.closest&&e.target.closest('[data-act^="fdr-"]');
+  if(a){const k=a.dataset.act;founderPopClose();if(k==='fdr-shop'){SHOP.dr='founder';SHOP.drNew=true;go('shop');}else if(k==='fdr-wall'){S.muHall='entrance';S.museumFor=null;go('museum');requestAnimationFrame(()=>{const w=document.getElementById('fwall');if(w)w.scrollIntoView({block:'start'});});}return;}
+  if(!(e.target.closest&&e.target.closest('#fdr-pop')))founderPopClose();
+},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')founderPopClose();else if((e.key==='Enter'||e.key===' ')&&e.target&&e.target.classList&&e.target.classList.contains('founder-pill')&&e.target.getAttribute('role')==='button'){e.preventDefault();founderPop(e.target);}});
 /* the card's design: a class on the card, the rank's border untouched */
 czHeroCls=(f=>function(n){const c=cz(n).cd;return f.apply(this,arguments)+(c?' '+c:'');})(czHeroCls);
 czStampArt=(f=>function(s,n){
@@ -51095,13 +51145,13 @@ ppObsSVG=(f=>function(n,d){
   const dark=d&&d.g&&d.g.tint==='pt-night',[bg]=PP_TINT[d&&d.g&&d.g.tint]||PP_TINT['pt-cream'],br=dark?'#e2c27a':'#7a5a17',lt=dark?'#a8894a':'#b8933f',txt=dark?'#d6dbea':'#4d4a40';
   const box=`<g class="pp-ins"><rect x="22" y="128" width="256" height="66" rx="3" fill="${bg}" fill-opacity=".94" stroke="${br}" stroke-width="1.6"/><rect x="26.5" y="132.5" width="247" height="57" rx="1.5" fill="none" stroke="${lt}" stroke-width=".6" stroke-dasharray="1 1.5"/>
 <text x="150" y="153" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-weight="700" font-size="7.6" letter-spacing=".9" fill="${br}">FOUNDING SUPPORTER · FIRST EDITION</text><path d="M96,162H140M160,162H204" stroke="${lt}" stroke-width=".6"/><path d="${czStarPts(150,162,8,3.6,1.5)}" fill="${br}"/>
-<text x="150" y="178" text-anchor="middle" font-family="'Cormorant Garamond',Georgia,serif" font-style="italic" font-size="11" fill="${txt}">Among the first to help write the world of Edictum.</text></g>`;
+<text x="150" y="178" text-anchor="middle" font-family="'Cormorant Garamond',Georgia,serif" font-style="italic" font-size="11" fill="${txt}">${founderNo(n)?'Founder '+founderNoTxt(founderNo(n))+', among the first to write Edictum.':'Among the first to help write the world of Edictum.'}</text></g>`;
   return h.replace(/(<svg x="168" y="300")/,()=>box+'<svg x="168" y="300"');
 })(ppObsSVG);
 
 /* ── the certificate: in the player's museum, to print or to download ── */
 function shopCertSVG(n,at,uid){
-  const id='crt'+(++czSeq),q=v=>(+v).toFixed(1),no='FE-'+(hash(String(uid||'')+':'+at)%9000000+1000000);
+  const fno=+(SHOP.doc&&SHOP.doc.fno)||0,id='crt'+(++czSeq),q=v=>(+v).toFixed(1),no='FE-'+(hash(String(uid||'')+':'+at)%9000000+1000000);
   let rim='';for(const [x,y,a] of czPerim(34,34,1032,712,96))rim+=`<ellipse cx="${q(x)}" cy="${q(y)}" rx="9" ry="3.4" transform="rotate(${q(a+45)} ${q(x)} ${q(y)})"/>`;
   const ros=(cx,cy)=>{let s='';for(let i=0;i<24;i++)s+=`<ellipse cx="${cx}" cy="${cy}" rx="22" ry="7" transform="rotate(${i*7.5} ${cx} ${cy})"/>`;return s;};
   const nm=fullName(n),fs=Math.max(30,Math.min(54,1500/Math.max(12,nm.length)));
@@ -51116,7 +51166,7 @@ function shopCertSVG(n,at,uid){
 <text x="550" y="${q(330+fs*.3)}" text-anchor="middle" font-family="'Bodoni Moda',Georgia,serif" font-weight="600" font-size="${q(fs)}" fill="#1f1a12">${esc(nm)}</text>
 <text x="550" y="420" text-anchor="middle" font-family="'Cormorant Garamond',Georgia,serif" font-size="24" fill="#3b3326">was among the first to help write the world of Edictum,</text>
 <text x="550" y="452" text-anchor="middle" font-family="'Cormorant Garamond',Georgia,serif" font-size="24" fill="#3b3326">a Founding Supporter of the First Edition.</text>
-<text x="550" y="512" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="15" letter-spacing="2" fill="#5c4a2a">PURCHASED ${esc(shopDate(at).toUpperCase())}</text>
+<text x="550" y="512" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="15" letter-spacing="2" fill="#5c4a2a">${fno?'FOUNDER '+esc(founderNoTxt(fno).toUpperCase())+' · ':''}PURCHASED ${esc(shopDate(at).toUpperCase())}</text>
 <g transform="translate(470,548)">${czStampArt('s-firsted',n).replace(/^<svg viewBox="0 0 168 96"/,'<svg width="168" height="96" viewBox="0 0 168 96"')}</g>
 <path d="M150,676H420M680,676H950" stroke="#3b3326" stroke-width="1"/><text x="285" y="700" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="12" letter-spacing="1.5" fill="#5c4a2a">KEEPER OF THE BUREAU</text>
 <text x="285" y="664" text-anchor="middle" font-family="'Great Vibes',cursive" font-size="34" fill="#23305e">The Keeper</text><text x="815" y="700" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="12" letter-spacing="1.5" fill="#5c4a2a">CERTIFICATE Nº ${no}</text>
@@ -51129,9 +51179,24 @@ function shopCertHTML(n){
 }
 museumView=(f=>function(now){
   const h=f.apply(this,arguments),vis=!!(S.museumFor&&S.museumFor!==myId()),hall=S.muHall||'entrance';
-  if(vis||hall!=='entrance'||!shopOwns('founder')||!S.nation)return h;
-  return h.replace('<div class="mu-hall" data-hall="entrance">',()=>'<div class="mu-hall" data-hall="entrance">'+shopCertHTML(S.nation));
+  if(hall!=='entrance'||!S.nation)return h;
+  return h.replace('<div class="mu-hall" data-hall="entrance">',()=>'<div class="mu-hall" data-hall="entrance">'+(!vis&&shopOwns('founder')?shopCertHTML(S.nation):'')+fwallHTML());
 })(museumView);
+/* founders/<uid> {no, n, reg, at}: every founding nation, by number, written only by the server; read once a while */
+const FWALL={list:null,at:0,busy:false,all:false};
+function fwallLoad(){
+  if(FWALL.busy||!S.db||S.mode!=='world'||Date.now()-FWALL.at<5*60000)return;FWALL.busy=true;FWALL.at=Date.now();
+  S.db.collection('founders').orderBy('no').limit(1000).get().then(qs=>{FWALL.list=qs.docs.map(d=>({id:d.id,...d.data()})).filter(x=>Number.isInteger(x.no));},()=>{if(!FWALL.list)FWALL.list=null;})
+    .finally(()=>{FWALL.busy=false;if(S.view==='museum'&&!document.hidden)render();});
+}
+function fwallHTML(){
+  fwallLoad();const L=FWALL.list,open=shopNow()<shopUntil(),me=S.uid,show=L?(FWALL.all?L:L.slice(0,120)):[];
+  const plaque=x=>`<li class="fwall-p${x.id===me?' me':''}"><span class="fwall-no">${esc(founderNoTxt(x.no))}</span><b>${esc(x.n||'A founding nation')}</b><span class="fwall-r">${esc(regName(x.reg))}</span></li>`;
+  const body=L==null?'<p class="hint">The wall is being read…</p>':L.length?`<ol class="fwall-l">${show.map(plaque).join('')}</ol>${L.length>show.length?`<button type="button" class="linkish" data-act="fwall-all">Show all ${L.length} founders</button>`:''}`:'<p class="hint">No names yet. The first to support Edictum will be engraved here as founder No. 0001.</p>';
+  return `<section class="fwall" id="fwall" aria-labelledby="fwall-h"><p class="eyebrow">Engraved in brass, in the order they came</p><h2 class="h2" id="fwall-h">The Founders’ Wall</h2>
+    <p class="hint">Every nation that backed Edictum with the Founder’s Package, in every region, numbered by when it joined.${open&&!shopOwns('founder')?' <button type="button" class="linkish small" data-act="fdr-shop">Add your nation</button>':''}</p>${body}</section>`;
+}
+document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('[data-act="fwall-all"]');if(a){FWALL.all=true;render();}});
 function shopCertPrint(){
   const n=S.nation,at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns.founder;if(!n||!at)return;
   const w=window.open('','_blank');if(!w){toast('Allow pop-ups for this page to print the certificate.');return;}
@@ -51187,7 +51252,7 @@ function shopNotice(n){
   else if(cfg&&!cfg.on)out.push('<p class="notice shop-note">The Bureau of National Finery is not open yet. Nothing can be bought for the moment.</p>');
   if(cfg&&cfg.on&&cfg.env!=='live')out.push(`<p class="notice shop-note shop-test"><b>Test mode.</b> Payments go to Paddle’s sandbox: use Paddle’s test cards, and no real money changes hands.</p>`);
   if(S.mode==='world'&&!shopLinked())out.push(`<div class="notice shop-note shop-link"><p><b>Purchases belong to your account</b>, so they need a linked sign-in: Google, Discord or an email address. Then they follow you to every device, and to any nation you found later.</p><div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${typeof accountCompareButton==='function'?accountCompareButton():''}</div></div>`);
-  if(SHOP.err)out.push(`<div class="notice shop-note shop-err" role="alert"><p>${SHOP.err==='link'?'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.':esc(SHOP.err)}</p><div class="row">${SHOP.err==='link'?'<button type="button" class="btn" data-act="acct-open">Link a sign-in</button>':''}<button type="button" class="linkish small" data-act="shop-dismiss">Dismiss</button></div></div>`);
+  if(SHOP.err)out.push(`<div class="notice shop-note shop-err" role="alert"><p>${SHOP.err==='link'?'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.'+(SHOP.after?' Your checkout opens by itself as soon as it is linked.':''):esc(SHOP.err)}</p><div class="row">${SHOP.err==='link'?'<button type="button" class="btn" data-act="acct-open">Link a sign-in</button>':''}<button type="button" class="linkish small" data-act="shop-dismiss">Dismiss</button></div></div>`);
   if(SHOP.sent)out.push(`<div class="notice shop-note shop-sent" role="status"><p><b>Gift paid.</b> ${esc(cap1(SHOP_WHAT[SHOP.sent.p]||'your gift'))} goes to ${esc(SHOP.sent.name)} once Paddle confirms the payment, usually within seconds. They see your nation’s name with it.</p><div class="row"><button type="button" class="linkish small" data-act="shop-sent-ok">Done</button></div></div>`);
   if(SHOP.wait){const p=SHOP.wait.p,nm=p==='founder'?'the Founder’s Package':p==='idpack'?'the Nation Identity Card Pack':'your Chancery Club membership';
     out.push(`<div class="notice shop-note shop-wait" role="status"><p><b>Payment received by Paddle.</b> Waiting for confirmation of ${nm}; it usually takes a few seconds. You can leave this page: it arrives on every device once confirmed.</p><div class="row"><button type="button" class="btn ghost" data-act="shop-check"${SHOP.checking?' disabled':''}>${SHOP.checking?'Checking…':'Check again'}</button></div></div>`);}
@@ -51224,6 +51289,8 @@ function shopFounder(n,t){
   const items=[['Founding Supporter badge','Beside your nation’s name on its page, on the region board and in the Assembly.'],['First Edition banner','Engraved security paper, printed in your flag’s own colours.'],
     ['Engraver’s flag frame','Fine hatching, a double rule and brass rosettes.'],['First Edition decision stamp','“Enacted · First Edition”, in brass, on every decision you enact.'],
     ['Founder’s capital marker','A brass medallion beside your capital on the world map.'],['Founder’s Gilt','A brass edge, fine hatching and a quiet shimmer on your land, seen by every player in your region. Your map colour stays your own.'],
+    ['The whole Nation Identity Card Pack','Seven card designs, two of them animated, and two letter papers. Worth '+shopPrice('idpack')+' on its own.'],
+    ['Your founder’s number','Engraved on your certificate and passport, shown on your badge, and on the Founders’ Wall in every museum.'],
     ['Passport inscription','“Founding Supporter · First Edition” in brass lettering on your passport.'],['A personal certificate','With your nation’s name and the date, in your museum, to print or download.']];
   return `<section class="shop-item shop-founder" aria-labelledby="shop-f-h">
     <div class="shop-head"><div><p class="eyebrow">Permanent · one payment · not sold after 1 February 2027</p><h2 class="h2" id="shop-f-h">The Founder’s Package</h2></div><p class="shop-price" id="shop-founder-price">${esc(shopPrice('founder'))}<span>once</span>${shopLocalTag('founder')}</p></div>
@@ -51249,7 +51316,7 @@ function shopIdPack(n){
     <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview a card design">${cds.map(id=>`<button type="button" class="seg-b${cur===id?' on':''}" data-act="shop-cd" data-v="${id}" aria-pressed="${cur===id}">${esc(UNLOCKS[id].n)}${anim(id)?' <span class="shop-anim" title="Animated">✦</span>':''}</button>`).join('')}</div>
       <div class="shop-pv-box" aria-live="polite"><p class="shop-pv-l">${esc(UNLOCKS[cur].n)}: ${esc(blurb[cur]||'')}</p>${pv}</div></div>
     ${papers?`<h3 class="sub-h">Letter papers</h3><ul class="shop-lps">${papers}</ul>`:''}
-    ${own?shopOwned('idpack'):`<div class="row shop-row">${shopCta('idpack','Buy the card pack · '+shopPay('idpack'))}</div>`}${shopGiftHTML('idpack')}
+    ${own?shopOwned('idpack'):shopOwns('founder')?'<p class="shop-owned"><span class="chip ok">Included</span> It comes with your Founder’s Package. <button type="button" class="linkish small" data-act="go" data-v="customise">Equip in Customise</button></p>':`<div class="row shop-row">${shopCta('idpack','Buy the card pack · '+shopPay('idpack'))}</div>`}${shopGiftHTML('idpack')}
   </section>`;
 }
 /* a gift for another player's nation: theirs once paid, and they see which nation gave it */
@@ -51348,11 +51415,11 @@ const SHOP_SECS=[['limited','Limited time'],['cosmetic','Cosmetics'],['gift','Gi
 function shopCards(n,t){
   const out=[],until=shopUntil(),fOpen=t<until,fOwn=shopOwns('founder');
   if(fOpen||fOwn){const left=until-t,d=Math.max(0,Math.ceil(left/DAY));
-    out.push({p:'founder',sec:'limited',tags:['limited','cosmetic','gift'],name:'The Founder’s Package',pitch:'Seven pieces of founder finery and a certificate, for those who were here at the start.',
+    out.push({p:'founder',sec:'limited',tags:['limited','cosmetic','gift'],name:'The Founder’s Package',pitch:'Founder finery, a numbered certificate, a place on the Founders’ Wall and the whole Card Pack.',
       art:()=>shopArt('f-engraver',n)+FOUNDER_DOT,price:'founder',per:'once',own:fOwn,sell:fOpen,
-      lbls:[...(fOpen&&!fOwn?[['end',d<=1?'Last day':'Ends in '+d+' d']]:[]),...(shopGiftFrom('founder')?[['','A gift']]:[])]});}
+      lbls:[...(fOpen&&!fOwn?[['end',d<=1?'Last day':'Ends in '+d+' d'],['','Card Pack included']]:[]),...(shopGiftFrom('founder')?[['','A gift']]:[])]});}
   out.push({p:'idpack',sec:'cosmetic',tags:['cosmetic','gift'],name:'Nation Identity Card Pack',pitch:'Seven designs for your nation card, two of them animated, and two letter papers.',
-    art:()=>shopCardMini(n,SHOP.cd||'cd-ledger'),price:'idpack',per:'once',own:shopOwns('idpack'),sell:true,lbls:shopGiftFrom('idpack')?[['','A gift']]:[]});
+    art:()=>shopCardMini(n,SHOP.cd||'cd-ledger'),price:'idpack',per:'once',own:shopOwns('idpack')||shopOwns('founder'),sell:true,lbls:shopGiftFrom('idpack')?[['','A gift']]:[]});
   if(shopSells('giftvip'))out.push({p:'giftvip',sec:'gift',tags:['gift','club'],name:'A month of the Club, as a gift',pitch:'A month of the Chancery Club for another player’s nation. They see your name with it.',
     art:()=>`<span class="shop-cd-seal">${clubSealSVG('csl-member')}</span>`,price:'giftvip',per:'once',own:false,sell:true,gift:true,lbls:[['','Gift only']]});
   return out;
@@ -51442,6 +51509,11 @@ EXT_PAGES.push('shop','chronicle');NAV_LABELS.shop='Shop';NAV_LABELS.chronicle='
 NAV_WORDS.shop='shop store buy finery founder package cosmetics card pack chancery club membership subscription vip seal';
 NAV_WORDS.chronicle='chronicle history record decisions snapshots export csv json print chancery club';
 VIEWS_EXT.shop=now=>shopView(now);
+/* a purchase begun as a guest carries on once the sign-in is linked: at the next redraw, on any page */
+render=(f=>function(){const r=f.apply(this,arguments);const a=SHOP.after;
+  if(a&&(Date.now()-a.t>10*60000||S.mode!=='world'))SHOP.after=null;
+  else if(a&&shopLinked()&&!SHOP.busy){SHOP.after=null;SHOP.err='';try{window.edictumStat&&window.edictumStat('shop_link_resume',{product:SHOP_PRODUCTS.indexOf(a.p)});}catch(e){}setTimeout(()=>{if(S.view!=='shop')go('shop');shopBuy(a.p,a.to||undefined);},0);}
+  return r;})(render);
 /* the page is drawn anew on every change: the open drawer keeps where its reader was (opening another item starts at its top) */
 render=(f=>function(){const d=S.view==='shop'?document.querySelector('.shop-dr'):null,top=d?d.scrollTop:0,p=SHOP.dr;const r=f.apply(this,arguments);
   if(d&&top&&SHOP.dr===p){const e=document.querySelector('.shop-dr');if(e&&e!==d)e.scrollTop=top;}return r;})(render);
@@ -56222,7 +56294,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)

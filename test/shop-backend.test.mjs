@@ -431,11 +431,33 @@ test('a pack that has grown: an owner settled under an older grants version gets
   const p = await player(), c = await call(p, { step: 'checkout', product: 'idpack' });
   await hook('transaction.completed', pay(c.txn));
   assert.deepEqual((await finery(p.uid)).c.sort(), [...CATALOGUE.products.idpack.grants].sort(), 'every piece of the pack, papers too');
-  assert.equal((await shop(p.uid)).gv, CATALOGUE.products.idpack.grantsV);
+  const GV = Math.max(...Object.values(CATALOGUE.products).map(x => x.grantsV || 1));
+  assert.equal((await shop(p.uid)).gv, GV);
   /* as an account settled before the pack grew: the first three cards, no version */
   await db.doc('finery/' + p.uid).update({ c: ['cd-ledger', 'cd-atlas', 'cd-civic'] });
   await db.doc('shop/' + p.uid).update({ gv: FieldValue.delete() });
   await call(p, { step: 'status' });
   assert.deepEqual((await finery(p.uid)).c.sort(), [...CATALOGUE.products.idpack.grants].sort(), 'settled again, with the new pieces');
-  assert.equal((await shop(p.uid)).gv, CATALOGUE.products.idpack.grantsV);
+  assert.equal((await shop(p.uid)).gv, GV);
+});
+
+test('founders are numbered by when they paid, kept on the Founders’ Wall, and get the Card Pack with the package', async () => {
+  const a = await player(), b = await player();
+  const ca = await call(a, { step: 'checkout', product: 'founder' }), cb = await call(b, { step: 'checkout', product: 'founder' });
+  const t0 = Date.now() - 60000;
+  /* the reports may come in any order: each founder gets a number of their own */
+  await hook('transaction.completed', pay(cb.txn, { at: t0 + 1000 }));
+  await hook('transaction.completed', pay(ca.txn, { at: t0 }));
+  const na = (await shop(a.uid)).fno, nb = (await shop(b.uid)).fno;
+  assert.ok(na > 0 && nb > 0 && na !== nb, `numbered: ${na}, ${nb}`);
+  assert.equal((await finery(a.uid)).fno, na, 'every game can show it');
+  const wall = (await db.doc('founders/' + a.uid).get()).data();
+  assert.equal(wall.no, na); assert.equal(wall.reg, 'meridian'); assert.ok(wall.n, 'the nation’s name is on the wall');
+  /* settling again never moves a number */
+  await call(a, { step: 'refresh' }).catch(() => {});
+  assert.equal((await shop(a.uid)).fno, na);
+  /* the Card Pack comes with the package: its pieces are held, and it is not sold to them again */
+  const c = (await finery(a.uid)).c;
+  for (const id of CATALOGUE.products.idpack.grants) assert.ok(c.includes(id), id + ' comes with the Founder’s Package');
+  await rejects(call(a, { step: 'checkout', product: 'idpack' }), 'owned');
 });

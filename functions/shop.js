@@ -51,6 +51,8 @@ import { nationText } from './nationtext.js';
 import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
 const GRANTS_V = Math.max(1, ...Object.values(CATALOGUE.products).map(p => p.grantsV || 1));
+/* a product another one the account owns already includes (the Founder's Package includes the Card Pack) */
+const includedIn = (product, owns) => Object.entries(CATALOGUE.products).some(([k, p]) => owns[k] && Array.isArray(p.includes) && p.includes.includes(product));
 
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 const LIVE_API = 'https://api.paddle.com', SANDBOX_API = 'https://sandbox-api.paddle.com';
@@ -189,7 +191,28 @@ async function settle(cfg, uid) {
     for (let i = 0; i < ids.length; i += 30) adjs.push(...(await tx.get(db.collection('shopAdj').where('txn', 'in', ids.slice(i, i + 30)))).docs.map(s => s.data()));
     const txs = [...txDocs.values()].map(s => ({ ...s.data(), id: s.id }));
     const subMap = Object.fromEntries(subs.map(s => [s.id, s.data()]));
-    const [compDoc, shop, nation] = await tx.getAll(db.doc('shopComp/' + uid), shopRef, db.doc('nations/' + uid));
+    const [compDoc, shop, nation] = await tx.getAll(db.doc('shopComp/' + uid), shopRef, db.doc('nations/' + uid)), now0 = clock(cfg);
+    /* the founder's number: given once from a counter (shopMeta/founders), so two numbers are never the same, and kept for
+       good (a refund leaves a gap; a number never moves). The first time it is used, everyone who had paid for the package
+       before numbers existed is numbered at once, in the order they paid (shopFounderNo/<uid> holds each number). */
+    const fWrites = [];
+    let fno = Number(shop.get('fno')) || 0;
+    if (!fno && txs.some(t => t.product === 'founder' && t.status === 'completed')) {
+      const [counter, mine] = await tx.getAll(db.doc('shopMeta/founders'), db.doc('shopFounderNo/' + uid));
+      if (mine.exists) fno = Number(mine.get('n')) || 0;
+      else {
+        let last = counter.exists ? Number(counter.get('last')) || 0 : 0;
+        if (!counter.exists) {
+          const seen = new Set();
+          for (const t of (await tx.get(db.collection('shopTx').where('product', '==', 'founder').where('status', '==', 'completed').orderBy('paid'))).docs) {
+            const u = t.get('uid');if (!u || seen.has(u)) continue;seen.add(u);last++;
+            if (u === uid) fno = last;else fWrites.push([db.doc('shopFounderNo/' + u), { n: last, at: now0 }]);
+          }
+        }
+        if (!fno) fno = ++last;
+        fWrites.push([db.doc('shopFounderNo/' + uid), { n: fno, at: now0 }], [db.doc('shopMeta/founders'), { last }]);
+      }
+    }
     const comp = compDoc.exists ? { at: compDoc.get('at'), until: compDoc.get('until') } : null;
     const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp });
     /* who gave what: the giving nation's name, as it is now */
@@ -198,6 +221,8 @@ async function settle(cfg, uid) {
     /* a checkout opened in the last two hours and not yet paid: "awaiting confirmation" on every device */
     const pend = Object.fromEntries(Object.entries(shop.get('pend') || {}).filter(([p, t]) => now - t < 2 * 3600000 && !(CLUB.includes(p) ? e.vip && e.vip.until > now : e.owns[p])));
     const doc = { v: 1, owns: e.owns, picks, pend, notes: e.notes.slice(-10), reg, at: now, gv: GRANTS_V };
+    if (fno) doc.fno = fno;
+    const founder = !!e.owns.founder && fno > 0;
     if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
     /* the seal the player chose to show stays chosen; the games show it only while it is held (by cl's figures) */
@@ -210,8 +235,13 @@ async function settle(cfg, uid) {
     const bx = doc.adbox && e.vip ? e.vip.until : 0;
     /* renewals reported before their subscription was known to be this player's */
     for (const s of txDocs.values()) if (s.get('uid') !== uid) tx.update(s.ref, { uid });
+    for (const [ref, v] of fWrites) tx.set(ref, v);
     tx.set(shopRef, doc);
-    if (e.cosmetics.length || cl || bx) tx.set(finRef, { c: e.cosmetics, reg, ...(cl ? { cl } : {}), ...(bx ? { bx } : {}) }); else tx.delete(finRef);
+    if (e.cosmetics.length || cl || bx) tx.set(finRef, { c: e.cosmetics, reg, ...(cl ? { cl } : {}), ...(bx ? { bx } : {}), ...(founder ? { fno } : {}) }); else tx.delete(finRef);
+    /* the Founders' Wall in every museum: the founding nations, by number (the name as it was when last settled) */
+    const wall = db.doc('founders/' + uid);
+    if (founder) tx.set(wall, { no: fno, n: String((nation.exists && nation.get('name')) || '').slice(0, 60), reg, at: e.owns.founder });
+    else tx.delete(wall);
     return { e, txDocs, subMap };
   });
   /* refunds and cancellations the rules call for, each asked once */
@@ -258,7 +288,7 @@ async function giftCheck(uid, to, product, now) {
   try { rec = JSON.parse(nationText(nation) || '{}') || {}; } catch { rec = {}; }
   const founded = Number(rec.founded) || 0;
   if (!founded || now - founded < 7 * DAY) refuse('gift_new', 'Gifts go to nations founded at least a week ago.');
-  if (CATALOGUE.products[product].kind === 'once' && (shop.get('owns') || {})[product]) refuse('gift_owned', 'That nation already owns it.');
+  if (CATALOGUE.products[product].kind === 'once' && ((shop.get('owns') || {})[product] || includedIn(product, shop.get('owns') || {}))) refuse('gift_owned', 'That nation already owns it.');
   if (CATALOGUE.products[product].kind === 'giftmonth' && liveSub(shop.get('vip'))) refuse('gift_member', 'That nation already pays for The Chancery Club, so a gifted month would add nothing yet.');
 }
 
@@ -276,6 +306,7 @@ async function checkout(cfg, who, d) {
   const owns = shop.get('owns') || {}, vip = shop.get('vip'), now = clock(cfg);
   if (!to) {
     if (!club && owns[product]) refuse('owned', 'You already own this.');
+    if (!club && includedIn(product, owns)) refuse('owned', 'Your Founder’s Package already includes it.');
     if (club && liveSub(vip)) vip.status === 'past_due'
       ? refuse('vip_past_due', 'Your last membership payment did not go through. Update the payment method under Manage subscription to carry on.')
       : refuse('vip_active', 'You are already a member of The Chancery Club. Manage your membership from the Shop.');
