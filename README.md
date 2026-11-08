@@ -280,7 +280,8 @@ the director of the nation's space agency, from a borrowed classroom to the firs
 follows Willow Street's design (frozen context per letter, `fdFam` families, freedom bands, laws, facts
 from earlier answers) and adds a playable agency on the Space page.
 
-- *The agency.* Once the capital is settled, Space › Mission Control founds and names the agency and funds
+- *The agency.* Once the Space page is open (its edict, below) and the capital is settled, Space › Mission
+  Control founds and names the agency and funds
   one team first: Science & Survey (borrowed telescope time), Flight Operations (a small camera test) or
   Engineering & Logistics (an old tracking station restored for observing time). Each first assignment
   costs a few resources and takes 15 to 45 minutes, so the first image comes in the opening session. The
@@ -327,11 +328,36 @@ from earlier answers) and adds a playable agency on the Space page.
 - *Older nations.* A Lunar Colony under construction, a finished one or a landed colony credits the
   programme's missions and buildings from the saved facts, so a veteran's letters arrive one slot at a
   time. A crewed landing prepared by the agency gives the colony two expansion points, once.
-- *Storage.* `n.mc` is private (`NX_KEYS`): `{v, a, ms, c, x, r, rt, md, pf?, xn?, ld?}`, bounded by
+- *Storage.* `n.mc` is private (`NX_KEYS`): `{v, a, ms, c, x, r, rt, md, pf?, xn?, ld?, p?}`, bounded by
   `mcNorm`. `test/mission-control.test.mjs` (in `test:fx`) covers the roll, the guarantee, blocked slots,
   prerequisites, vetoes, a change of government, the chart, the mandate, veterans and two devices;
   `npm run test:mission-control` checks the page, the chart, a landing and the gold border on a desktop and
   a phone in both themes.
+
+**The Space page opens with an edict.** A new nation does not see Space in its menu, the More sheet, Settings ›
+Navigation or Go to page; `#space` explains what opens it and shows the count so far. Once it has enacted
+`SPX_AT` (25) edicts on Willow Street's count, the next ordinary arrival slot brings "Class 4B Would Like to Know"
+(`mc-pre`, text in `MC_STORY.pre`), after any follow-up or Willow Street letter that is due: certain, not rolled.
+Thirty-one schoolchildren ask who in the nation has the Moon as their job, with a postscript from Dr. Okafor,
+whose observatory budget has just been cut. Three ministers answer: a Ministry of Space Affairs in the
+Education building (backs Science & Survey), the old tracking dish behind the weather station (Engineering &
+Logistics) or the army range's sounding rockets (Flight Operations).
+
+- Any answer opens the page (`n.mc.p = {o, t}`); the team it backs is chosen already in the agency's founding
+  form. A veto (`{o: -1, t, e}`) puts the question off until `SPX_AGAIN` (5) more edicts have been enacted.
+  It is a story edict: it does not count towards the 25, and it wears Mission Control's gold on the desk.
+- Dr. Okafor's first letter waits for the page to be open, and its dice are not rolled until then.
+- A nation already in space keeps the page and never sees the prelude (`mcVet`): a founded agency, a letter
+  from Mission Control resolved or on the desk, a colony on the Moon or Mars, the belt, or the Lunar Colony
+  wonder begun.
+- *The tour.* The first visit to the open page starts the space guide `s` (`TUT_GUIDES.s`, beside the Moon,
+  Mars and belt guides): eight steps that light up the agency, its teams, the missions under way, the next
+  step, the survey chart, the buildings, the letters and the road to the Moon, and end with what to do now.
+  On a wide screen it sits beside its target, or above or below it when the target spans the page; on a
+  phone it docks. It is remembered in `n.tut.g`; "Tour of this page" and How to play bring it back, and How
+  to play has "The Space page, step by step".
+- Tests: four more in `test/mission-control.test.mjs`, and `npm run test:space-gate` (the closed page, the
+  gold edict, an answer, the tour step by step, a veto, on a desktop and a phone in both themes).
 
 **The banner's stamps.** A nation's banner carries ink stamps for its highest seat in the region's
 Assembly (the Delegate's chair, or else a member's seat: every player nation unless it resigned, and
@@ -600,6 +626,7 @@ npm run test:bugs          # Report a bug: the form, screenshots, pacing, the ad
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
 npm run test:willow        # Letters from Willow Street: a milestone, a change of government, reloads, a second device
 npm run test:mission-control # Mission Control: the agency, the chart, the mandate, a landing, the gold letters
+npm run test:space-gate      # the Space page: closed until its edict at 25, the edict, a veto, the tour
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
 npm run test:flag-layers   # flag layers, touch and keyboard editing, Undo and shared designs

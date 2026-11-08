@@ -45,7 +45,8 @@ async function start(theme, viewport) {
   await page.evaluate(() => { location.hash = '#map'; }); await sleep(600);
   await page.evaluate(() => { const b = document.createElement('button'); b.dataset.act = 'map-suggest'; document.body.appendChild(b); b.click(); b.dataset.act = 'settle'; b.click(); b.remove(); });
   await until(() => page.evaluate(() => (window.__game.S.nation.cities || []).length > 0 || !!window.__game.S.nation.loc));
-  await edit(n => { delete n.onb; n.stock = { food: 300, timber: 300, iron: 300, oil: 300, goods: 300 }; n.stockAt = Date.now(); n._stockSet = true; });
+  /* the Space page already open (its prelude answered) and its tour already seen: test/space-gate.mjs covers both */
+  await edit(n => { delete n.onb; n.stock = { food: 300, timber: 300, iron: 300, oil: 300, goods: 300 }; n.stockAt = Date.now(); n._stockSet = true; n.mc.p = { o: 0, t: Date.now() - 1000 }; n.tut = Object.assign({}, n.tut, { g: ((n.tut && n.tut.g) || '') + 's' }); });
   const go = async v => { await page.evaluate(v => { location.hash = '#' + v; }, v); await until(() => page.evaluate(v => window.__game.S.view === v, v)); await sleep(400); };
   return { ctx, page, errors, edit, go };
 }
