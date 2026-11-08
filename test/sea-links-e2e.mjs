@@ -179,7 +179,10 @@ if (pair) {
   await p.evaluate(c => { G.MD.centerMain(c, 18); G.render(); }, pair.from);
   await sleep(300);
   await clickOn('main', pair.from);
-  check('your claimed hex offers Swap this hex for other land', await p.locator('[data-act="lsw-start"]').count() === 1);
+  await p.locator('[data-act="lsw-start"]').waitFor({ timeout: 3000 }).catch(() => {});
+  const offered = await p.locator('[data-act="lsw-start"]').count() === 1;
+  /* when it is not offered, say what the click picked and why, rather than only timing out on the next click */
+  check('your claimed hex offers Swap this hex for other land', offered, offered ? '' : JSON.stringify(await p.evaluate(c => ({ want: c, pick: G.S.mapPick, target: G.S.mapTarget, inspect: G.S.mapInspect, mode: G.S.mpMode, view: G.S.view, held: G.S.nation.claims.some(e => e.c === c), why: G.SL.swapFromWhy(G.territory(), c), wait: G.SL.swapWait(G.S.nation), dialog: !!document.querySelector('dialog[open]'), panel: (document.getElementById('map-panel')?.textContent || '').replace(/\s+/g, ' ').slice(0, 400) }), pair.from)));
   await p.click('[data-act="lsw-start"]'); await sleep(200);
   check('swap mode asks for free land to take instead', /Click free land on the map to take instead/.test(await text(p, '.lsw')));
   await clickOn('main', spot.isle[0]);
