@@ -23566,8 +23566,16 @@ function achMiniCard(q,kind){
   return `<li class="ach-mini at-${a.t}${on?' on':''}"><div class="ach-mini-h">${achMedal(a.t)}<b>${esc(a.n)}</b></div>
     ${kind==='next'?`<p class="ach-mini-d">${esc(a.d)}</p><div class="ach-prog"><span class="bar"><i style="width:${achPct(a,r).toFixed(1)}%"></i></span><span class="ach-nums">${r.parts?`${r.v} of ${r.g} conditions`:esc(achNum(a,r))}</span></div>`:`<p class="ach-mini-d">${esc(ACH_CAT[a.c])} · ${t?fmtDate(t):'at the next save'}</p>`}</li>`;
 }
+let achLadderRows=()=>'';
+/* filled on the summary's click (so the rows are there the moment it opens; toggle fires a task later) and on toggle
+   (an open fold restored by uxDetails, or opened from the keyboard) */
+const achLadderFill=d=>{const ol=d&&d.querySelector('ol[data-lazy]');if(ol){ol.innerHTML=achLadderRows();ol.removeAttribute('data-lazy');}};
+document.addEventListener('click',e=>{const s=e.target.closest&&e.target.closest('.ach-ladder>summary');if(s)achLadderFill(s.parentElement);},true);
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.open&&d.classList&&d.classList.contains('ach-ladder'))achLadderFill(d);},true);
 function achLadder(pts){
-  return `<details class="ach-ladder"><summary>All ranks and prestige rewards</summary><ol>${ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${i||u.length?`<span class="ach-rw">Reward: ${esc(list((i?[ACH_RANK_CREDITS+' land credits']:[]).concat(u)))}</span>`:''}</span>${idBdSwatch(Math.min(i,ID_BD.length-1))}</li>`;}).join('')}</ol></details>`;
+  /* the ladder (every rank with its border swatch, ~1,500 elements) is only built when the fold is opened */
+  achLadderRows=()=>ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${i||u.length?`<span class="ach-rw">Reward: ${esc(list((i?[ACH_RANK_CREDITS+' land credits']:[]).concat(u)))}</span>`:''}</span>${idBdSwatch(Math.min(i,ID_BD.length-1))}</li>`;}).join('');
+  return `<details class="ach-ladder"><summary>All ranks and prestige rewards</summary><ol data-lazy="1"></ol></details>`;
 }
 function achLeaders(cur){
   const pl=allNations().filter(y=>!y.npc).map(y=>({y,p:achPoints(y.n),c:achEarnedIds(y.n).length})).sort((a,b)=>b.p-a.p||b.c-a.c||(a.y.n.name<b.y.n.name?-1:1));
@@ -51451,7 +51459,7 @@ function czDom(){
   const tabN={};
   for(const s of main.querySelectorAll('.cz-sec')){
     const k=s.id.replace('cz-sec-',''),h=s.querySelector(':scope>h2');if(!h)continue;
-    const T=[...new Set([...s.querySelectorAll('[data-czid]')].map(e=>e.dataset.czid))],own=T.filter(id=>!czLocked(id)).length;
+    const T=s.dataset.lazy?(CZ.lazyIds&&CZ.lazyIds[k])||[]:[...new Set([...s.querySelectorAll('[data-czid]')].map(e=>e.dataset.czid))],own=T.filter(id=>!czLocked(id)).length;
     let tl=h.querySelector('.cz-sec-tl');if(!tl){tl=document.createElement('span');tl.className='cz-sec-tl';h.appendChild(tl);}
     tl.innerHTML=(T.length?`<span class="cz-prog" title="${own} of ${T.length} held"><span class="cz-sr">Held: </span><b>${own}</b>/${T.length}</span>`:'')+(CZ_RESET[k]&&czResetDirty(k)?`<button type="button" class="linkish small" data-act="cz-reset" data-v="${k}">${k==='y'?'Clear all':'Back to default'}</button>`:'');
     const o=tabN[czTabOf(k)]||(tabN[czTabOf(k)]=[0,0]);o[0]+=own;o[1]+=T.length;
@@ -56269,6 +56277,31 @@ extView=(f=>function(v){
   if(!present.has(CZ.sec)){czSecSet(czSecIn(CZ.tab,present));h=h.replace(/data-sec="\w"/,`data-sec="${CZ.sec}"`);}
   return h.slice(0,i)+`<div class="cz-lay" id="cz-lay">${czRail(present)}<div class="cz-main">`+h.slice(i).replace('<!--cz-subs-->',czSubs(present))+`</div></div>`;
 })(extView);
+/* only the open section is put on the page. The others (all hidden by CSS) were thousands of elements, mostly SVG,
+   that made every redraw of Customise slow (about 0.8 s on a phone). Each hidden one keeps its heading and stays a
+   stub (data-lazy); the cosmetics it holds are read from its markup here (CZ.lazyIds), so czDom's counts still cover
+   every section. A jump that only flips attributes (czSecPaint) redraws when it lands on a stub */
+const czCut=h=>{
+  const out=[];let pos=0;const open=/<section class="cz-sec[^"]*" id="cz-sec-(\w)"[^>]*>/g;let m;CZ.lazyIds={};
+  while((m=open.exec(h))){
+    const k=m[1],a=m.index;let d=1,t;const tag=/<\/?section\b/g;tag.lastIndex=open.lastIndex;
+    while(d&&(t=tag.exec(h)))d+=t[0][1]==='/'?-1:1;if(d)break;const b=h.indexOf('>',t.index)+1;
+    if(k!==CZ.sec){
+      const body=h.slice(a,b),ids=new Set();
+      for(const g of body.match(/<[a-z][^>]*>/g)||[]){
+        const ux=/data-ux-unlock="([^"]+)"/.exec(g);if(ux&&UNLOCKS[ux[1]]){ids.add(ux[1]);continue;}
+        if(!/data-act="(cz-pick|cz-try)"/.test(g)&&!(/data-act="cz-arm"/.test(g)&&/data-f="c"/.test(g)))continue;
+        const v=/data-id="([^"]+)"/.exec(g)||/data-v="([^"]+)"/.exec(g);if(v&&UNLOCKS[v[1]])ids.add(v[1]);
+      }
+      CZ.lazyIds[k]=[...ids];const he=body.indexOf('</h2>'),hd=he>0?body.slice(m[0].length,he+5):'';
+      out.push(h.slice(pos,a),m[0].replace(/>$/,' data-lazy="1">'),hd,'</section>');pos=b;
+    }
+    open.lastIndex=b;
+  }
+  return out.length?out.join('')+h.slice(pos):h;
+};
+extView=(f=>function(v){const h=f.apply(this,arguments);if(v!=='customise'||typeof h!=='string'||!h.includes('id="cz-dock"'))return h;try{return czCut(h);}catch(e){return h;}})(extView);
+czSecPaint=(f=>function(){const s=document.getElementById('cz-sec-'+CZ.sec);if(s&&s.dataset.lazy){render();return;}return f.apply(this,arguments);})(czSecPaint);
 /* #customise/arms and the like open that section; plain #customise opens the one last seen */
 uxHashView=(f=>function(h){const m=/^customise\/([a-z]+)$/.exec(h||'');if(m){const k=Object.keys(CZ_SLUG).find(x=>CZ_SLUG[x]===m[1]);if(k)czSecSet(k);return 'customise';}return f.apply(this,arguments);})(uxHashView);
 go=(f=>function(){const r=f.apply(this,arguments);if(S.view==='customise')czHash();return r;})(go);

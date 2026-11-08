@@ -118,7 +118,10 @@ check('the founder cosmetics are held, by the server’s word', (await A.evaluat
 
 /* ── wearing it ── */
 await go(A, 'customise');
+/* only the open section is on the page: banner (b), decrees (s), finery (z) */
+const CZ_SEC_FOR = { p: 'b', f: 'b', pn: 'b', st: 's', bg: 'z', ins: 'z', te: 'z' };
 for (const id of ['cz-p-p-firsted', 'cz-f-f-engraver', 'cz-st-s-firsted', 'cz-pn-pn-founder', 'cz-bg-bg-founder', 'cz-ins-in-founder', 'cz-te-te-gilt']) {
+  await czSection(A, CZ_SEC_FOR[id.split('-')[1]]);
   const ok = await until(() => A.evaluate(id => { const b = document.getElementById(id); if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); return document.getElementById(id)?.getAttribute('aria-pressed') === 'true'; }, id), 6000);
   if (!ok) check('equipped in Customise: ' + id, false);
 }
@@ -224,7 +227,7 @@ check('and on the neighbour’s view of it', !!(await until(() => B.evaluate(() 
 await go(A, 'customise');await czSection(A, 'z');
 await click(A, '[data-act="pre-save"][data-k="1"]');
 check('a preset saved while a member', !!(await until(() => A.evaluate(() => !!(G.SHOP.PRE.doc && G.SHOP.PRE.doc[1])), 6000)));
-await A.evaluate(() => document.getElementById('cz-p-p-guilloche').click());await sleep(500);
+await czSection(A, 'b');await A.evaluate(() => document.getElementById('cz-p-p-guilloche').click());await sleep(500);await czSection(A, 'z');
 await click(A, '[data-act="pre-load"][data-k="1"]');
 check('loading it puts the saved look back on', (await A.evaluate(() => G.SHOP.cz(G.S.nation).p)) === 'p-firsted');
 /* presets saved on another device since this page read them are kept (a save here once wrote its old copy over them) */

@@ -149,7 +149,7 @@ await T.evaluate(() => { const s = String(JSON.parse(localStorage.getItem('state
 await nav(T, 'census'); await nav(T, 'nation');
 check('then Make your mark offers the Bureau and the currency’s design at 2 land credits and 5 oil each',
   /Make your mark/.test(await text(T, '.tut-l-mark')) && /\+2 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')) && /\+2 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxd"]')));
-check('the designs still to be earned are locked', await (async () => { await nav(T, 'customise'); return !!(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-met-platinum.cu-lk')) && !!(await T.$('#cu-l-st-3.cu-lk')); })());
+check('the designs still to be earned are locked', await (async () => { await nav(T, 'customise'); await czSection(T, 'c'); return !!(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-met-platinum.cu-lk')) && !!(await T.$('#cu-l-st-3.cu-lk')); })());
 const c0 = await credits(), o0 = await oil();
 await nav(T, 'exchange');
 check('visiting the Bureau pays the first step: 2 land credits and 5 oil', await until(async () => (await localNation(T)).tut && (await localNation(T)).tut.lc.includes('fxv'))
