@@ -2,6 +2,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { createHash } from 'node:crypto';
+import { nationText } from './nationtext.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 export const DAY = 86400000;
@@ -12,7 +13,7 @@ export const regionClosed = (control, region) => control.exists ? control.get('e
 export const regionMessage = control => !control.exists || control.get('mode') === 'coming_soon' ? 'This region is coming soon. Please check back later.' : 'Current region is disabled and undergoing maintainance, check back soon.';
 // A linked Discord account is a custom claim (functions/discord.js), not a provider Firebase knows.
 export const registered = user => !!user.customClaims?.dc || user.providerData.some(p => p.providerId !== 'password' || user.emailVerified);
-export const nationJSON = snap => { try { return snap.exists ? JSON.parse(snap.get('j')) : {}; } catch { return {}; } };
+export const nationJSON = snap => { try { return snap.exists ? JSON.parse(nationText(snap)) : {}; } catch { return {}; } };
 export function refuse(code, message) { throw new HttpsError('failed-precondition', message, { code }); }
 /* The sign-ins an account is known by, as one-way hashes (banIds/<hash> {u, t}): a ban notes them (functions/admin.js),
    so the same Google account, verified email address or Discord account cannot come back as a new player by closing

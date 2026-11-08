@@ -35,6 +35,7 @@ export { accounts } from './accounts.js';
 export { civic } from './civic.js';
 export { paddle } from './shop.js';
 import { identity, eligibility, refuse, regionClosed } from './eligibility.js';
+import { nationText } from './nationtext.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
 
@@ -67,7 +68,7 @@ async function signingKey() {
 function sealText(uid, c, t, w) { return [SEAL, uid, c, t, w || ''].join('|'); }
 function sealText2(uid, c, t, w, d) { return [SEAL2, uid, c, t, w || '', d].join('|'); }
 
-const record = s => { try { const j = s && s.exists ? s.get('j') : null; return typeof j === 'string' ? JSON.parse(j) || {} : {}; } catch (e) { return {}; } };
+const record = s => { try { const j = s && s.exists ? nationText(s) : null; return typeof j === 'string' ? JSON.parse(j) || {} : {}; } catch (e) { return {}; } };
 const army = s => s && s.exists && typeof s.get('army') === 'number' ? s.get('army') : 0;
 /* the alliance a record belongs to: its founder's id */
 const allianceOf = (id, n) => n.alli && n.alli.name ? id : typeof n.allyOf === 'string' ? n.allyOf : '';

@@ -222,14 +222,30 @@
     if (isObj(ext.pp) && isObj(pub.pp)) out.pp = Object.assign({}, ext.pp, pub.pp);
     return out;
   }
+  /* a nations/ document's JSON text: v 1 in j, v 2 deflated in z (bytes; functions/nationtext.js). The region's
+     listener hands over every nation at every change, so each one's text is kept until its next save. */
+  function nationText(path, d) {
+    if (typeof d.j === 'string') return d.j;
+    var z = d.z, inflate = typeof self !== 'undefined' && self.edictumInflate;
+    if (!z || typeof inflate !== 'function' || typeof TextDecoder !== 'function') return null;
+    var cache = nationText.cache || (nationText.cache = new Map());
+    var key = num(d.rev) + ':' + num(d.updatedAt) + ':' + millis(d.ts), hit = cache.get(path);
+    if (hit && hit.key === key) return hit.txt;
+    try {
+      var txt = new TextDecoder().decode(inflate(typeof z.toUint8Array === 'function' ? z.toUint8Array() : new Uint8Array(z)));
+      if (cache.size > 2000) cache.clear();
+      cache.set(path, { key: key, txt: txt });
+      return txt;
+    } catch (e) { return null; }
+  }
   function decode(path, d) {
     if (!d) return d;
     var p = String(path).split('/'), col = p[0];
     if (col === 'nations') {
       /* the record, with what the rules checked beside it: the server's time of the save and the headline
          numbers (set after parsing, so the record cannot claim its own) */
-      var nd = typeof d.j === 'string' ? parse(d.j) : d;
-      if (isObj(nd) && typeof d.j === 'string') Object.assign(nd, { _ts: millis(d.ts), _pop: typeof d.pop === 'number' ? d.pop : undefined,
+      var txt = nationText(path, d), nd = txt != null ? parse(txt) : d;
+      if (isObj(nd) && txt != null) Object.assign(nd, { _ts: millis(d.ts), _pop: typeof d.pop === 'number' ? d.pop : undefined,
         _army: typeof d.army === 'number' ? d.army : undefined, _cl: typeof d.cl === 'number' ? d.cl : undefined,
         _rev: Number.isSafeInteger(d.rev) && d.rev >= 0 ? d.rev : 0, _dirty: false });
       if (isObj(nd) && d.storageV === 1) nd.whv = 1;
@@ -311,9 +327,13 @@
     /* a guest's nation carried into this account (doSwitch): its first save here names the guest account, whose last
        save the server lets a new record start from (functions/civic.js, createCap) */
     var carry = expected === 0 ? parse(L.get(LS_CARRY)) : null, from = isObj(carry) && carry.to === uid && Date.now() - num(carry.at) < 7 * 864e5 ? str(carry.from, 128) : '';
+    var zip = typeof self !== 'undefined' && typeof self.edictumInflate === 'function' && A.fb && A.fb.firestore && A.fb.firestore.Blob;
     var approved = await call('civic', Object.assign({ op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected },
-      from ? { from: from, fk: str(carry.k, 64) } : {}, isGuest(uid) ? { ck: carryKey(uid) } : {}));
-    enc.j = approved.j; enc.permit = approved.permit;
+      from ? { from: from, fk: str(carry.k, 64) } : {}, isGuest(uid) ? { ck: carryKey(uid) } : {}, zip ? { zip: 1 } : {}));
+    /* saved deflated (v 2, z) when the server sent it so: every player in the region downloads a fifth as much */
+    if (typeof approved.z === 'string') { delete enc.j; enc.v = 2; enc.z = A.fb.firestore.Blob.fromBase64String(approved.z); }
+    else enc.j = approved.j;
+    enc.permit = approved.permit;
     var stampable = Array.isArray(approved.sk) ? approved.sk : null;
     enc.rev = expected + 1;
     /* Read and compare in the same transaction as every part of the save. Firestore retries a raced

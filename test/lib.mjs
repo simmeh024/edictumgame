@@ -7,6 +7,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
+import { inflateRawSync } from 'node:zlib';
 
 const pw = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
 export const BASE = (process.env.BASE_URL || 'http://127.0.0.1:5000').replace(/\/$/, '');
@@ -146,12 +147,14 @@ export async function accountExists(uid) {
   const b = await r.json().catch(() => ({}));
   return Array.isArray(b.users) && b.users.length > 0;
 }
+// a REST document's record text: j, else z deflated (nations/ v 2, functions/nationtext.js)
+export const fieldsText = f => f && f.j ? f.j.stringValue : f && f.z ? inflateRawSync(Buffer.from(f.z.bytesValue, 'base64')).toString('utf8') : null;
 // a nation's stored envelope: rec is the whole record (the shared half in nations/ joined with the private
 // half in nationx/, as src/shim.js joins them), shared the shared half alone
 export async function nationDoc(uid) {
   const [r, x] = await Promise.all([restGet('nations/' + uid), restGet('nationx/' + uid)]);
   if (r.status !== 200) return null;
-  const f = r.body.fields || {}, shared = f.j ? JSON.parse(f.j.stringValue) : null;
+  const f = r.body.fields || {}, shared = f.j || f.z ? JSON.parse(fieldsText(f)) : null;
   const ext = x.status === 200 && x.body.fields && x.body.fields.j ? JSON.parse(x.body.fields.j.stringValue) : null;
   let rec = shared;
   if (shared && ext) { rec = Object.assign({}, ext, shared); if (ext.pp && shared.pp) rec.pp = Object.assign({}, ext.pp, shared.pp); }

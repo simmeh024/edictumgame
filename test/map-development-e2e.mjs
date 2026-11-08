@@ -1,5 +1,5 @@
 // Real UI and private/shared saves on desktop and phone. All fixture writes target local emulators.
-import {BASE,OUT,PROJECT,FS_HOST,check,finish,until,player,open,nav,text,localNation,nationDoc,restGet,establish,found,clearEmulators,errors} from './lib.mjs';
+import {BASE,OUT,PROJECT,FS_HOST,check,finish,until,player,open,nav,text,localNation,nationDoc,restGet,establish,found,clearEmulators,errors, fieldsText } from './lib.mjs';
 if(!PROJECT.startsWith('demo-'))throw Error('This suite requires a demo emulator project');
 await clearEmulators();
 const settle=p=>p.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
@@ -23,7 +23,7 @@ const saved=async(p=A)=>{if(!await until(async()=>{const n=await localNation(p);
 await saved();
 async function patchDoc(doc,change){
  const raw=await restGet(doc);if(raw.status!==200)throw Error('Missing fixture '+doc);
- const fields=raw.body.fields,record=JSON.parse(fields.j.stringValue);change(record);fields.j={stringValue:JSON.stringify(record)};
+ const fields=raw.body.fields,record=JSON.parse(fieldsText(fields));change(record);fields.j={stringValue:JSON.stringify(record)};
  if(doc.startsWith('nations/')){fields.pop={doubleValue:record.pop};fields.rev={integerValue:String(Number(fields.rev.integerValue)+1)};fields.t={integerValue:String(Date.now())};}
  const r=await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${doc}`,{method:'PATCH',headers:{authorization:'Bearer owner','content-type':'application/json'},body:JSON.stringify({fields})});
  if(!r.ok)throw Error('Could not seed emulator fixture '+r.status);

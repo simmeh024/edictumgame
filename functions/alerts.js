@@ -13,6 +13,7 @@
 //   buys     every purchase (when on)
 //   watch    a watched player (watch/<uid>) back after an hour away, renamed, moved, reported or gone (when on)
 // The id of each finding says what it is and when, so a finding is filed once however often the job runs.
+import { nationText } from './nationtext.js';
 export const MIN = 60000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 export const ALERT_DEFAULTS = { reports: 3, popPct: 50, popMin: 1, errors: 5, errPct: 20, spike: 3, spikeMin: 5, buys: true, watch: true, discord: true };
 export const ALERT_LIMITS = { reports: [1, 100], popPct: [5, 100000], popMin: [0, 1e6], errors: [1, 10000], errPct: [1, 100], spike: [1.5, 100], spikeMin: [1, 100000] };
@@ -148,7 +149,7 @@ export async function runAlerts(db, { now = Date.now(), webhook = '', site = 'ht
     const docs = await db.getAll(...changed.docs.slice(i, i + 300).map(d => db.doc('nations/' + d.id)));
     for (const d of docs) {
       if (!d.exists) continue;
-      let r = null; try { r = typeof d.get('j') === 'string' ? JSON.parse(d.get('j')) : d.data(); } catch { r = null; }
+      let r = null; try { const t = nationText(d); r = t != null ? JSON.parse(t) : d.data(); } catch { r = null; }
       if (r) nations.push({ id: d.id, name: txt(d.get('name') || r.name, 60), reg: String(d.get('reg') || r.reg || ''), pop: num(d.get('pop')) || num(r.pop), hist: r.hist });
     }
   }

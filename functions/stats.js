@@ -4,6 +4,8 @@
 // (summarize). Nation names leave here only for the admin portal (a region's nations, the onboarding funnel, the most
 // engaged players and the recruiters), and they are public in the game anyway.
 // Pure: it is handed a Firestore instance and a way to list accounts, so the job and the tests can use it as well.
+import { nationText } from './nationtext.js';
+
 export const DAY = 86400000;
 const KEEP = 30 * DAY;   // rulings older than this are not kept per nation (a record holds its latest 80 at most)
 const SPAN = 60;         // days on the daily charts
@@ -37,7 +39,7 @@ export const FEATURES = {
 
 /* one nation, from its shared half (nations/) and private half (nationx/), joined as src/shim.js joins them */
 export function nationRow(id, shared, priv, now) {
-  const own = typeof shared?.j === 'string' ? parse(shared.j) : obj(shared); // a record saved before the JSON text is the document itself
+  const text = nationText(shared), own = text != null ? parse(text) : obj(shared); // a record saved before the JSON text is the document itself
   if (!own || typeof own.name !== 'string') return null;
   const r = Object.assign({}, parse(priv?.j) || {}, own), tut = obj(r.tut) || {}, ans = [], f = [];
   for (const a of arr(r.answered))

@@ -96,14 +96,15 @@ service cloud.firestore {
 
     // The nation's JSON text is capped well below Firestore's 1 MiB document limit;
     // src/shim.js refuses anything over 700,000 characters before it gets here.
+    // v 1 holds it in j (text); v 2 deflated in z (bytes, functions/nationtext.js), a fifth of the size or less.
     function validNation(d) {
-      return d.keys().hasAll(['v', 'j', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit', 'iq'])
+      return d.keys().hasAll(['v', 'reg', 'name', 'updatedAt', 'ts'])
+        && d.keys().hasOnly(['v', 'j', 'z', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit', 'iq'])
         && (!('storageV' in d) || (d.storageV is int && d.storageV == 1))
         && (!('iq' in d) || (d.iq is int && d.iq == 1))
         && (!('rev' in d) || (d.rev is int && d.rev > 0))
-        && d.v == 1
-        && d.j is string && d.j.size() > 2 && d.j.size() <= 750000
+        && ((d.v == 1 && !('z' in d) && d.j is string && d.j.size() > 2 && d.j.size() <= 750000)
+          || (d.v == 2 && !('j' in d) && d.z is bytes && d.z.size() > 2 && d.z.size() <= 750000))
         && region(d.reg) && label(d.name)
         // the device's time of the save: at most a day ahead of the server's (a clock set wrong), never far in the
         // future, where the record would never fall dormant and hold a place in its region for good
@@ -194,7 +195,8 @@ service cloud.firestore {
     // Opaque JSON needs server approval: rules compare the exact approved payload and revision.
     function permitted(uid, d) {
       let p = get(/databases/$(database)/documents/nationPermits/$(uid)/requests/$(d.permit)).data;
-      return d.permit is string && p.exp > request.time && p.j == d.j && p.reg == d.reg
+      return d.permit is string && p.exp > request.time
+        && (d.v == 2 ? p.get('z', null) == d.z : p.j == d.j) && p.reg == d.reg
         && p.name == d.name && p.pop == d.pop && p.army == d.army && p.cl == d.cl
         && p.updatedAt == d.updatedAt && p.rev == d.rev
         && (!p.get('sensitive', false) || unmoderated(uid, p.nationGeneration));

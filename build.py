@@ -226,6 +226,25 @@ def inline_js(path, minify):
     return js.strip()
 
 
+INFLATE = ("const r=require('esbuild').buildSync({stdin:{contents:\"import{inflateSync}from'fflate';"
+           "self.edictumInflate=inflateSync;\",resolveDir:process.cwd()},bundle:true,format:'iife',minify:true,"
+           "write:false,charset:'utf8',logLevel:'error'});process.stdout.write(r.outputFiles[0].text);")
+
+
+def inflate_js():
+    """fflate's synchronous inflate (about 3 KB) as self.edictumInflate, for src/shim.js: nations/ records are
+    stored deflated (field z) and the game reads them synchronously."""
+    if not os.path.isdir(os.path.join(ROOT, 'node_modules', 'fflate')):
+        fail('node_modules/fflate is missing. Run "npm ci" first.')
+    try:
+        r = subprocess.run(['node', '-e', INFLATE], capture_output=True, cwd=ROOT)
+    except FileNotFoundError:
+        fail('Node.js is needed to bundle fflate')
+    if r.returncode:
+        fail('esbuild could not bundle fflate:\n%s' % r.stderr.decode('utf-8', 'replace')[-2000:])
+    return r.stdout.decode('utf-8').strip()
+
+
 ESBUILD = ("const s=[];process.stdin.on('data',d=>s.push(d)).on('end',()=>{"
            "const r=require('esbuild').transformSync(Buffer.concat(s).toString('utf8'),"
            "{loader:process.argv[1],minify:true,charset:'utf8',logLevel:'error'});process.stdout.write(r.code);});")
@@ -365,7 +384,7 @@ def main():
     # every region's map, long-cached on its own: it changes only when the generators or the regions do
     maps_url = hashed(out, 'maps', 'js', bake_maps(script))
     # the Firebase adapter runs after the game, so it is a deferred file of its own (an inline script cannot wait)
-    shim_url = hashed(out, 'shim', 'js', inline_js(os.path.join(SRC, 'shim.js'), minify))
+    shim_url = hashed(out, 'shim', 'js', inflate_js() + '\n' + inline_js(os.path.join(SRC, 'shim.js'), minify))
 
     a = lambda path: (site + path) if site else path
     e = lambda s: html.escape(s, quote=True)
