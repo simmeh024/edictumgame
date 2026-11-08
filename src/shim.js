@@ -94,8 +94,10 @@
      the admin's own staff mark and development news, a board post, the referee, the Assembly and the shop. The game
      sends none of these while observing; this holds should a page path be missed. Two exceptions act as the admin,
      not the player: a message on the region's board signed by the Edictum team (post, as: 'team'), and removing a
-     board message (boards/, which the rules let only its author or an admin delete, and nobody create). */
-  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards'];
+     board message (boards/, which the rules let only its author or an admin delete, and nobody create), and sending a
+     newspaper edition back to be filed again from the records (papers/, which only an admin may delete; the game files
+     none while observing, and the rules want a nation of that region). */
+  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards', 'papers'];
   function observing() { return !!SS.get(SS_OBSERVE); }
   function readOnly() { return mapError({ code: 'read_only', message: 'Nothing is saved while observing a region.' }); }
   function parse(s) { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -133,6 +135,8 @@
   function encode(col, data) {
     /* presence/<uid> {t}: always the server's time (the rules insist), whatever the game passes */
     if (col === 'presence') return { t: serverTime() };
+    /* papers/<region>_<edition>: filed at the server's time (the rules insist) */
+    if (col === 'papers') return Object.assign(JSON.parse(JSON.stringify(data == null ? {} : data)), { t: serverTime() });
     if (col !== 'nations') return JSON.parse(JSON.stringify(data == null ? {} : data));
     var j = JSON.stringify(data == null ? {} : data);
     if (j.length > MAX_JSON) throw mapError({ code: 'too_large', message: 'This nation is too large to save (' + j.length + ' characters).' });

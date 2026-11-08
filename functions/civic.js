@@ -271,9 +271,23 @@ async function assembly(db, who, d) {
   return assemblyTx(db, who, d);
 }
 
+/* The Delegate names the region's newspaper (the game's Daily Dispatch) and gives it a motto: press/<region> {nm, mo,
+   by, bn, t}, which every player of the region reads. Empty fields put the paper back to its own name. The same
+   Delegate may change them once every six hours; a new Delegate may at once. Moderators reset them (functions/admin.js,
+   press_reset), and the advertisements they remove share the document (x). */
+const PAPER_NAME = /^[\p{L}\p{N}][\p{L}\p{N} '’&.,-]*$/u, PAPER_MOTTO = /^[\p{L}\p{N} '’&.,;:!?()“”"-]*$/u;
+async function paperName(tx, db, reg, who, mine, d, now) {
+  const nm = text(d.name, 40), mo = text(d.motto, 90), ref = db.doc('press/' + reg);
+  if (nm && (nm.length < 3 || !PAPER_NAME.test(nm) || !/\p{L}/u.test(nm))) throw new HttpsError('invalid-argument', 'A name for the paper has 3 to 40 letters, numbers, spaces and simple punctuation.');
+  if (mo && (!PAPER_MOTTO.test(mo) || !/\p{L}/u.test(mo))) throw new HttpsError('invalid-argument', 'A motto has up to 90 letters, numbers, spaces and simple punctuation.');
+  if (mo && !nm) throw new HttpsError('invalid-argument', 'Give the paper a name before its motto.');
+  const s = await tx.get(ref);
+  if (s.get('by') === who.uid && now - (Number(s.get('t')) || 0) < 6 * 3600000) refuse('paper_cooldown', 'The Delegate can rename the paper once every six hours.');
+  return { ref, doc: { nm, mo, by: who.uid, bn: text(mine?.n?.name, 40), t: now } };
+}
 async function assemblyTx(db, who, d) {
   const action = d.op !== 'state';
-  let written = '';
+  let written = '', paper = null;
   const out = await db.runTransaction(async tx => {
     const now = Date.now();
     const e = await eligibility(tx, who, { linked: action, age: action ? DAY : 0, hidden: !action });
@@ -312,9 +326,10 @@ async function assemblyTx(db, who, d) {
         entries.push({ [key]: target, t: now });
       } else if (d.on === false && active) active.w = now;
       a[field] = entries.filter(x => !x.w || now - x.w < 4 * DAY);
-    } else if (op === 'agenda' || op === 'message') {
+    } else if (op === 'agenda' || op === 'message' || op === 'paper') {
       if (st.D?.id !== who.uid) refuse('delegate_required', 'Only the current Delegate can do that.');
-      if (op === 'agenda') {
+      if (op === 'paper') paper = await paperName(tx, db, reg, who, mine, d, now);
+      else if (op === 'agenda') {
         if (!queued(d.key)) refuse('invalid_target', 'Choose a queued proposal.');
         if (a.a?.k === d.key && a.a.c === ctx.c + 1) delete a.a;
         else a.a = { c: ctx.c + 1, k: d.key, t: now };
@@ -330,6 +345,7 @@ async function assemblyTx(db, who, d) {
     } else if (op !== 'state') throw new HttpsError('invalid-argument', 'Unknown political action.');
     // All reads precede writes. The region revision serializes boundary finalization, votes and elections.
     for (const [ref, L] of ctx.pending) tx.set(ref, L);
+    if (paper) tx.set(paper.ref, paper.doc, { merge: true });
     if (action) {
       mine.n.asm = a;
       tx.set(ctx.root.collection('actors').doc(who.uid), { generation: e.generation, record: a, at: now });
@@ -434,7 +450,7 @@ async function newsTally(db, who, d, kind) {
 
 /* what civic answers: anything else is refused before it reads a thing. An Assembly action reads every nation of the
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
-const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'resign', 'rejoin']);
+const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
   'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', ...ASSEMBLY_ACTS]);
 

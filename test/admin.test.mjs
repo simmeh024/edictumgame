@@ -439,3 +439,18 @@ test('the alerts job files each finding once, posts the new ones to Discord, and
   assert.ok((await call(a, { op: 'audit', target: 'alerts' })).events.some(e => e.action === 'alerts_config' && e.actor === a.uid));
   await call(a, { op: 'alerts', action: 'cfg', cfg: { reports: 3, buys: true } });
 });
+
+test('a reported classified advertisement is struck out for the whole region, and the paper\'s name can be reset', async () => {
+  const a = await user(true), p = await user();
+  await put('press/meridian', { nm: 'The Rude Gazette', mo: 'Rude since today', by: p.uid, bn: 'Rudeland', t: Date.now() });
+  await call(a, { op: 'moderate', action: 'delete_post', target: `ad:meridian:${p.uid}:abc123`, reg: 'meridian', reason: 'Spam or advertising' });
+  let d = await get('press/meridian');
+  assert.ok(d.fields.x.mapValue.fields[p.uid + '_abc123'], 'the advertisement is struck out');
+  assert.equal(d.fields.nm.stringValue, 'The Rude Gazette', 'the name is untouched by a removal');
+  await assert.rejects(call(a, { op: 'moderate', action: 'delete_post', target: `ad:nowhere:${p.uid}:abc123`, reason: 'x' }), e => e.status === 'INVALID_ARGUMENT');
+  await call(a, { op: 'moderate', action: 'press_reset', target: 'meridian', reason: 'Offensive name' });
+  d = await get('press/meridian');
+  assert.equal(d.fields.nm.stringValue, '');assert.equal(d.fields.mo.stringValue, '');assert.equal(d.fields.by, undefined);
+  assert.ok(d.fields.x.mapValue.fields[p.uid + '_abc123'], 'and the removals stay');
+  await assert.rejects(call(p, { op: 'moderate', action: 'press_reset', target: 'meridian', reason: 'x' }));
+});
