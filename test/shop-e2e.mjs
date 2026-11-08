@@ -145,7 +145,10 @@ await go(A, 'museum');
 check('the certificate hangs in the museum, with the nation’s name', !!(await until(() => A.evaluate(() => { const s = document.querySelector('#shop-cert svg'); return s && /Gildmark/.test(s.textContent); }), 5000)));
 await shot(A, '#shop-cert', 'shop-certificate.png');
 await go(A, 'shop');await openDr(A, 'idpack');
-for (const cd of ['cd-ledger', 'cd-atlas', 'cd-civic']) { await click(A, `[data-act="shop-cd"][data-v="${cd}"]`); await shot(A, '.shop-idpack .shop-pv-box', `shop-card-${cd.slice(3)}.png`); }
+for (const cd of ['cd-ledger', 'cd-atlas', 'cd-civic', 'cd-embassy', 'cd-telegram', 'cd-holo', 'cd-starlit']) { await click(A, `[data-act="shop-cd"][data-v="${cd}"]`); await shot(A, '.shop-idpack .shop-pv-box', `shop-card-${cd.slice(3)}.png`); }
+check('the card pack offers seven designs and two letter papers', (await A.evaluate(() => document.querySelectorAll('.shop-idpack [data-act="shop-cd"]').length)) === 7 && /Embassy Letterhead/.test(await txt(A, '.shop-lps')) && /Telegram Form/.test(await txt(A, '.shop-lps')));
+check('the animated cards move, and say so', await A.evaluate(() => { const h = document.querySelector('.shop-idpack .hero.cd-starlit'); return !!h && getComputedStyle(h, '::before').animationName === 'cdTwinkle' && document.querySelectorAll('.shop-idpack .shop-anim').length === 2; }));
+const dr = await A.evaluate(async () => { const d = document.querySelector('.shop-dr'); d.scrollTop = 300; const top = d.scrollTop; document.querySelector('[data-act="shop-cd"][data-v="cd-atlas"]').click(); await new Promise(r => setTimeout(r, 300)); const e = document.querySelector('.shop-dr'), nm = e.querySelector('.shop-pv-hero .hero-name'); return [e.scrollTop > top - 60, !e.classList.contains('in'), !!nm && nm.getBoundingClientRect().width > 150, top, e.scrollTop, nm && nm.getBoundingClientRect().width]; }); check('a click inside the drawer keeps its scroll, and the card preview is not squeezed', dr.slice(0, 3).every(Boolean), JSON.stringify(dr));
 await go(A, 'map');await sleep(1200);
 check('Founder’s Gilt drawn on the player’s own land', !!(await until(() => A.evaluate(() => !!document.querySelector('canvas[data-map="main"]')?._gilt), 6000)));
 await A.evaluate(() => { const t = document.querySelector('.toast'); if (t) t.remove(); });await shot(A, 'canvas[data-map="main"]', 'shop-map-gilt.png');

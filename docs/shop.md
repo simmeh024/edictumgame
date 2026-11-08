@@ -8,7 +8,7 @@ adds prestige, rank, resources or strength.
 | Product | ID | Price | Kind | What it gives |
 |---|---|---|---|---|
 | Founder's Package | `founder` | €9.99 | one payment, sold until 1 February 2027 23:59:59 UTC | Founding Supporter badge, First Edition banner, Engraver's flag frame, First Edition decision stamp, Founder's capital marker, Founder's Gilt (land), passport inscription, a certificate in the museum |
-| Nation Identity Card Pack | `idpack` | €2.99 | one payment | Diplomatic Ledger, Atlas Edition and Civic Modern card designs |
+| Nation Identity Card Pack | `idpack` | €2.99 | one payment | Seven card designs (Diplomatic Ledger, Atlas Edition, Civic Modern, Embassy Vellum, Telegram, and the animated Holographic Seal and Starlit Charter) and two letter papers (Embassy Letterhead, Telegram Form) |
 | The Chancery Club | `vip` | €4.99 a month | subscription | ten waiting edicts instead of five, one cosmetic each paid month from its collection (kept; two new pieces join it each month), a Chancery seal beside the nation's name if the player chooses, five design presets, the Expanded National Chronicle |
 | The Chancery Club, yearly | `vipyear` | €49.99 a year | subscription, optional | the same membership, paid for a year (two months free); one cosmetic pick each calendar month of the paid year |
 | A month of the Club, as a gift | `giftvip` | €4.99 | one payment, gift only, optional | a month of membership for another nation, from when it is paid or from where its paid membership ends |
@@ -232,3 +232,7 @@ previews, the full list, gifting, the Club's table, picks and seals. The drawer 
   Sections (Limited time, Cosmetics, Gifts, Bundles) appear once any of them holds two items; until then the cards share one grid.
 - The wishlist, Recently viewed and Hide owned are kept on the device (`localStorage`, `edictum.shop.*`), not on the account.
 - While a drawer is open, the cards behind it keep their prices but show no buttons, so each buy button exists once.
+
+**A pack that grows.** When a product's `grants` gain pieces, raise its `grantsV` in the catalogue. Each account's
+`shop/<uid>` keeps the `gv` it was settled under. The Shop's `status` step settles an owner again when their `gv` is
+older, so they get the new pieces (and other players' games see them in `finery/`) the next time they open the game.
