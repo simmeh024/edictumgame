@@ -6,7 +6,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 
 const source=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8');
-const START='/* ───────── thirty edicts that find iron, oil or timber',END='/* ───────── the browser tab';
+/* the section runs to the next one: the hundred and fifty edicts after it, then the browser tab */
+const START='/* ───────── thirty edicts that find iron, oil or timber',END='\n/* ───────── ';
 
 function game(){
   const ctx=vm.createContext({
@@ -14,8 +15,8 @@ function game(){
     BUILDINGS:{mine:{res:{iron:[1,0]}},oilwell:{res:{oil:[1.5,0]}},school:{}},CX_LV:[1,1.2],
     nbCity:(a)=>{a.base=true;},geoAfter:()=>[],cityLabel:(n,c)=>c.nm,resName:r=>r
   });
-  const a=source.indexOf(START),b=source.indexOf(END,a);
-  assert.ok(a>0&&b>a,'the section sits just before the browser tab');
+  const a=source.indexOf(START),b=source.indexOf(END,a+START.length);
+  assert.ok(a>0&&b>a&&b<source.indexOf('/* ───────── the browser tab'),'the section sits before the browser tab');
   vm.runInContext(source.slice(a,b)+'\nthis.DEP=DEP_ISSUES;',ctx);
   return ctx;
 }
