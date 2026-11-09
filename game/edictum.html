@@ -22802,7 +22802,7 @@ function tallyScan(n,old,now){
    const ds=d=>d.t+'|'+d.r,od=sigs(old&&old.asm&&old.asm.d,ds);for(const d of (n.asm&&n.asm.d)||[])if(d.on&&!od.has(ds(d)))bump('asm:del',d.t);}
   /* decisions, by topic */
   const asig=a=>a.t+'|'+a.id,oldA=sigs(old&&old.answered,asig);
-  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];if(a.o<0){bump('dismiss',a.t);continue;}bump('iss',a.t);if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);}}
+  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];const isp=/^(pgt|fwk|scd)-/.test(a.id)?a.id.slice(0,3):'';if(a.o<0){bump('dismiss',a.t);if(isp==='scd')bump('dismiss:scd',a.t);continue;}bump('iss',a.t);if(isp)bump('isp:'+isp,a.t);{const d=new Date(a.t);if(d.getMonth()===0&&d.getDate()===1)bump('iss:ny',a.t);}if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);}}
   /* spies */
   const isig=r=>r.t+'|'+r.tg+'|'+r.k,oldI=sigs(old&&old.intel,isig);
   for(const r of n.intel||[]){if(oldI.has(isig(r)))continue;bump('spy',r.t);bump('spy:'+r.k,r.t);}
@@ -27802,7 +27802,7 @@ function cvLaunch(){
     n.gw=gw;applyEffects(n,{happy:-1});n.cvEx=(n.cvEx||[]).concat(now).slice(-30);
   }
   n.cov=cvTrim([op].concat(n.cov||[]),now);
-  cvBump(n,'cov',now);cvBump(n,'cov:'+k,now);if(R.ex)cvBump(n,'cov:ex',now);else if(R.ok)cvBump(n,'cov:clean',now);
+  cvBump(n,'cov',now);cvBump(n,'cov:'+k,now);if(R.ex)cvBump(n,'cov:ex',now);else if(R.ok){cvBump(n,'cov:clean',now);if(k==='c')cvBump(n,'cov:cclean',now);}
   commit(n);S.cvShow=id;S.cvOpen=null;S.cvMsg='';render();
   toast(`${cvNameOfK(k)} against ${x.n.name}: ${R.ok?'success':'it failed'}${R.ex?', and your agent was recognised':', and nobody knows it was you'}.`);
   const r=document.getElementById('cv-result');if(r&&r.scrollIntoView)try{r.scrollIntoView({block:'nearest'});}catch(e){}
@@ -47342,7 +47342,7 @@ document.addEventListener('click',e=>{
     if(a==='nw-share'){const u=location.origin+location.pathname+'#devnews/'+el.dataset.id;
       Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(u)).then(()=>toast('The link to this post is copied.'),()=>toast('Copy this link: '+u));return;}
     if(a==='nw-rx'){nwTally(el.dataset.id,'newsReact',el.dataset.v);return;}
-    if(a==='nw-vote'){nwTally(el.dataset.id,'newsVote',el.dataset.v);return;}
+    if(a==='nw-vote'){nwTally(el.dataset.id,'newsVote',el.dataset.v);achFlag('nwv');return;}
     if(a==='nw-c-re'){NW.reply[el.dataset.p]=el.dataset.id;render();const t=document.getElementById('nw-ct-'+el.dataset.p);if(t)try{t.focus();}catch(err){}return;}
     if(a==='nw-c-re-no'){delete NW.reply[el.dataset.p];render();return;}
     if(a==='nw-edit'&&S.isOwner){const p=nwPostOf(el.dataset.id);if(p){go('admin-news');nweOpen(p);render();}return;}
@@ -47421,6 +47421,26 @@ setInterval(()=>{try{
   if(n.hst===1&&!(n.wbk&&wbDays(n)<WB_DAYS&&ddLater(ddDay(Date.now()),n.wbk.d)))return;
   commit(clone(n));const a=document.activeElement;if(!(a&&a.closest&&a.closest('input,textarea,select,[contenteditable]')))quietRender();
 }catch(e){}},5000);
+
+/* ───────── twelve fun achievements (2026-11-09) ─────────
+   For corners of the game that had none. Most read the tally (isp:pgt/fwk/scd, dismiss:scd, iss:ny, cov:cclean,
+   log:budget, deal:/trade: partners) with the recent decisions as a fallback; a confirmed bug report (n.bgok) and a
+   vote in a news poll (n.nwv) are one-off flags set by achFlag. */
+NORM_HOOKS.push((n,d)=>{for(const k of ['bgok','nwv'])if(d&&d[k]===1)n[k]=1;else delete n[k];});
+function achFlag(k){try{const n=S.nation;if(!n||n.npc||!n.name||n[k]===1||OBS||S.mode==='readonly')return;const m=clone(n);m[k]=1;commit(m);}catch(e){}}
+const aAns=(x,f)=>(x.n.answered||[]).filter(a=>{try{return f(a);}catch(e){return false;}}).length;
+achDef('law','fun-circus','s','Bread and Circuses','Decide 5 edicts about pageants or fireworks.',5,x=>Math.max(aT(x,'isp:pgt')+aT(x,'isp:fwk'),aAns(x,a=>a.o>=0&&/^(pgt|fwk)-/.test(a.id))));
+achDef('law','fun-nocomment','b','No Comment','Put a scandal aside without answering it.',1,x=>Math.max(aT(x,'dismiss:scd'),aAns(x,a=>a.o<0&&/^scd-/.test(a.id))),{sec:'The press office is, regrettably, at lunch.'});
+achDef('gov','fun-books','s','Creative Accounting','Move money between departments by emergency decree 3 times.',3,x=>aT(x,'log:budget'));
+achDef('soc','fun-holiday','b','Bank Holiday Enthusiast','Give every worker statutory paid holidays.',1,x=>achYes(aPol(x,'holidayEntitlement')),{fm:'bool'});
+achDef('mus','fun-spade','b','Spade Work','Complete a set of finds from the field digs.',1,x=>{try{return achYes(DIG_SETS.some(sid=>{const L=digSet(sid).items.length;return L>0&&digHeld(x.n,sid)>=L;}));}catch(e){return 0;}},{fm:'bool'});
+achDef('eco','fun-silk','s','Silk Road','Trade with 5 different nations.',5,x=>Math.max(aKeys(x,'deal:'),aKeys(x,'trade:')));
+achDef('spy','fun-cat','g','Cat on the Note','Counterfeit a rival’s currency without being found out.',1,x=>aT(x,'cov:cclean'),{sec:'Nobody checks the portrait. Nobody ever checks the portrait.'});
+achDef('dip','fun-endorse','s','Well Connected','Hold 10 endorsements in the Regional Assembly at once.',10,x=>{if(!x.me)return 0;try{const o=asmState(x.now).DD.info.get(x.id);return o&&o.k||0;}catch(e){return 0;}});
+achDef('dip','fun-paper','b','Fine Paper','Choose a paper in Customise › Stationery and send a letter on it.',1,x=>{try{const c=cz(x.n);return achYes(c.lp&&c.lp!=='lp-plain'&&aT(x,'dm')>0);}catch(e){return 0;}},{fm:'bool'});
+achDef('odd','fun-bug','s','Exterminator','Report a bug the team confirms.',1,x=>achYes(x.n.bgok===1),{fm:'bool'});
+achDef('press','fun-poll','b','Vox Populi','Vote in a poll on a development news post.',1,x=>achYes(x.n.nwv===1),{fm:'bool'});
+achDef('odd','fun-newyear','b','New Year’s Resolution','Decide an edict on the first of January.',1,x=>Math.max(aT(x,'iss:ny'),aAns(x,a=>{const d=new Date(a.t);return d.getMonth()===0&&d.getDate()===1;})),{sec:'Most resolutions last until February. Laws last longer.'});
 
 /* ───────── 50-player gift ─────────
    A one-time pop-up for every nation founded before M50_CUT, in every region: a wrapped box in the middle that the
@@ -47890,7 +47910,7 @@ function bgWhereOpts(cur){
 function bgForm(){if(!BG.f)BG.f={ti:'',x:'',where:BG.from,often:'always',wset:false};return BG.f;}
 function bgLoad(){
   if(BG.lbusy)return;BG.lbusy=true;BG.lerr='';
-  bgApi().then(a=>a?a.mine():[]).then(list=>{BG.list=Array.isArray(list)?list:[];BG.lbusy=false;if(S.view==='bugs')render();},
+  bgApi().then(a=>a?a.mine():[]).then(list=>{BG.list=Array.isArray(list)?list:[];if(BG.list.some(b=>b&&(b.st==='seen'||b.st==='fixed')))achFlag('bgok');BG.lbusy=false;if(S.view==='bugs')render();},
     ()=>{BG.lbusy=false;BG.lerr='Your reports could not be loaded.';if(S.view==='bugs')render();});
 }
 function bgView(){
