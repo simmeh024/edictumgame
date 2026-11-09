@@ -20064,7 +20064,11 @@ const BLOCKS=(()=>{
 /* every achievement rank above the first is worth ACH_RANK_CREDITS land credits */
 const ACH_RANK_CREDITS=10;
 function achRankCredits(n){try{return n&&!n.npc&&n.ach?ACH_RANK_CREDITS*achRank(achPoints(n)).i:0;}catch(e){return 0;}}
-function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)+achRankCredits(n)-(n.mvl||0));}
+/* every province (state, county…) a nation adds beyond its first is worth PRV_CREDITS land credits, counted on the most it has ever held (n.prpk) so merging and re-adding earns nothing more */
+const PRV_CREDITS=3;
+function prvPeak(n){try{if(!n||n.npc)return 0;const k=n.prov&&n.prov.on&&Array.isArray(n.prov.l)?n.prov.l.length:0;if(k>(n.prpk||0))n.prpk=k;return n.prpk||0;}catch(e){return 0;}}
+function prvCredits(n){return PRV_CREDITS*Math.max(0,prvPeak(n)-1);}
+function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)+achRankCredits(n)+prvCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
   const T=territory(),i=T.byId[myId()];if(i===undefined)return 0;
@@ -37619,7 +37623,7 @@ function prvMoveIsle(c,toId){
   return ok;
 }
 function prvAdd(c){
-  let nm='';
+  let nm='';const pk0=prvPeak(S.nation);
   const ok=prvEdit((n,P,T,i)=>{
     const N=prvNatWith(T,i,P),t1=prvLow(prvT1(n)),t2=prvLow(prvT2(n)),act=N.prov.filter(p=>!p.dorm).length;
     if(T.owner[c]!==i)return `A new ${t1} needs a seat on your own land.`;
@@ -37630,7 +37634,7 @@ function prvAdd(c){
     P.l.push(prvNew(n,P,c,nm,Date.now()));
     return prvCheckOld(T,i,P,`A new ${t1} here`);
   });
-  if(ok){const p=S.nation.prov.l[S.nation.prov.l.length-1];PRV.ui.sel=p.id;PRV.ui.msg=`${p.nm} is founded, with ${p.g.nm} as governor. Rename it below.`;render();}
+  if(ok){const p=S.nation.prov.l[S.nation.prov.l.length-1],more=prvPeak(S.nation)>pk0&&pk0>0;PRV.ui.sel=p.id;PRV.ui.msg=`${p.nm} is founded, with ${p.g.nm} as governor.${more?` ${PRV_CREDITS} land credits come with it.`:''} Rename it below.`;render();}
 }
 function prvSeat(id,c){
   prvEdit((n,P,T,i)=>{
@@ -53366,6 +53370,9 @@ const aParl=x=>achM(x,'parl',()=>{try{return x.npc?null:gvParl(x.n,x.now);}catch
 /* provinces */
 [['prv-2','b','A Second Seat',2,'Govern your land as two provinces.'],['prv-5','s','Federal Republic',5,'Govern your land as five provinces.'],['prv-10','g','United Provinces',10,'Govern your land as ten provinces.']]
   .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,aProvN));
+/* provinces added: the most ever held, each beyond the first worth PRV_CREDITS land credits */
+[['prv-add1','b','Lines on the Map',1,'Add a province to your nation. Three land credits come with it.'],['prv-add4','s','Provincial Planner',4,'Add four provinces to your nation over time.'],['prv-add8','g','Patchwork Realm',8,'Add eight provinces to your nation over time.'],['prv-add15','p','Federation of Many',15,'Add fifteen provinces to your nation over time.'],['prv-add23','p','Every Seat Filled',23,'Add twenty-three provinces: the most any nation may have.']]
+  .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,x=>Math.max(0,prvPeak(x.n)-1)));
 achDef('land','prv-gov5','s','Governor’s Ball','Appoint five governors.',5,x=>aT(x,'log:govnew'));
 achDef('land','prv-merge','b','Two Become One','Merge two provinces into one.',1,x=>aT(x,'log:provmrg'));
 /* warehouses */

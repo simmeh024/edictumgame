@@ -32,7 +32,7 @@ function game(prov) {
     S: { nation: n }, territory: () => terr, clone: o => JSON.parse(JSON.stringify(o)), render: () => {}, toast: () => {},
     commit: m => { ctx.S.nation = m; terr.list[0].n = m; }, cityState: () => ({ byCell: new Map() }), czText: (s, k) => String(s || '').slice(0, k),
     prvNameIdea: () => 'Gamma', prvNew: (n, P, s, nm) => ({ id: ++P.q, nm, s, g: { nm: 'Gov', tr: [] } }),
-    HEX_R: 10, HCX: [1, .5, -.5, -1, -.5, .5], HCY: [0, .8, .8, 0, -.8, -.8],
+    PRV_CREDITS: 3, prvPeak: n => Math.max(n.prpk || 0, n.prov.l.length), HEX_R: 10, HCX: [1, .5, -.5, -1, -.5, .5], HCY: [0, .8, .8, 0, -.8, -.8],
   });
   vm.runInContext([src.match(/const clamp = \(v,a,b\) => [^\n]*/)[0], src.match(/function hexDist\(a,b\)\{[^\n]*/)[0],
     cut('function landPatches(', 'function releaseClaims('), cut('const PRV_TERMS=', '/* ── names in the flavour of the nation'),
