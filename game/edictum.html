@@ -778,6 +778,9 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .adlt-why{margin-top:12px;max-width:560px}
 .mw-top{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:20px;align-items:start;margin:0 0 22px}
 .mw-bld{width:100%;height:auto;display:block;background:var(--sheet);border:1px solid var(--rule);border-radius:8px}
+.mw-side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.mw-side .mu-figs{margin:0;grid-template-columns:1fr 1fr}
+.mw-price{margin:4px 0 6px}
 .mw-boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
 .mw-boxes .wd-box p{margin:0 0 8px}
 .mw-tk,.mw-cu{flex-wrap:wrap;gap:6px}
@@ -38733,7 +38736,7 @@ function muEmpty(h,p,o){
 /* the entrance: a plan of the building, the visitor information, highlights and recent acquisitions */
 function muEntrance(x,now,vis){
   const n=x.n,own=colOwned(n),k=collCount(n),sets=collSetsDone(n),cur=!n.npc?cabOf(n).cul:null;
-  const pol=n.policies||{},adm=pol.sundayClosing?'Free, closed on Sundays':pol.siesta?'Free, closed after lunch':pol.fourDay?'Free, four days a week':'Free';
+  const pol=n.policies||{};let adm=pol.sundayClosing?'Free, closed on Sundays':pol.siesta?'Free, closed after lunch':pol.fourDay?'Free, four days a week':'Free';const tk0=typeof MW_TK!=='undefined'&&!x.npc?MW_TK[mwOf(n).tk]:null;if(tk0&&tk0[1])adm=adm.replace(/^Free/,tk0[0]);
   const rows=[
     ['Curator',!n.npc&&n.mw&&n.mw.cu&&typeof MW_CU!=='undefined'&&MW_CU[n.mw.cu.k]?`${esc(n.mw.cu.nm)}<span class="hint mu-sub">${esc(MW_CU[n.mw.cu.k].nm)}</span>`:cur?`${esc(cur.nm)}<span class="hint mu-sub">Minister of Culture and Sport</span>`:'The state archivist'],
     ['Opened',n.npc?'Before records began':`${muDate(n.founded)}<span class="hint mu-sub">the day ${esc(n.name)} was founded</span>`],
@@ -53523,9 +53526,11 @@ function mwEntranceExtra(x,now,vis){
   const cu=m.cu?`<p><b>${esc(m.cu.nm)}</b>, ${esc(MW_CU[m.cu.k].nm.toLowerCase())}: ${esc(MW_CU[m.cu.k].d)}</p>`:'<p class="hint">No curator yet: the Minister of Culture keeps the keys.</p>';
   const hire=vis?'':`<div class="row mw-cu">${Object.entries(MW_CU).map(([k,c])=>`<button class="btn ghost small${m.cu&&m.cu.k===k?' on':''}" data-act="mw-hire" data-k="${k}" title="${esc(c.d)}"${m.cu&&m.cu.k===k?' aria-pressed="true"':''}>${esc(c.nm)}</button>`).join('')}</div><p class="hint">A curator costs 40 goods and signs on for at least a week.</p>`;
   const tk=vis?'':`<div class="row mw-tk" role="group" aria-label="Admission">${MW_TK.map(([l],i)=>`<button class="btn ghost small${m.tk===i?' on':''}" data-act="mw-tk" data-k="${i}" aria-pressed="${m.tk===i}">${esc(l)}</button>`).join('')}</div>
+    <p class="mw-price"><b>${esc(MW_TK[m.tk][0])}</b>: ${MW_TK[m.tk][1]?`${MW_TK[m.tk][1]} goods per million visitors`:'no charge at the door'}. About <b>${T.goods} goods</b> a day from ${fmt0(mwVisitors(n,x.id,now))} visitors a year${T.shop?` (gift shop ${T.shop*2})`:''}${MW_TK[m.tk][2]?`, −${MW_TK[m.tk][2]} happiness`:''}.</p>
     <p class="hint">Dearer tickets bring in more but keep some visitors away, and grumbling costs a little happiness at each collection. The gift shop sells replicas of the rare and legendary things on show.</p>
     <div class="row"><button class="btn" data-act="mw-collect"${mwCanCollect(n,now)?'':' disabled'}>${mwCanCollect(n,now)?`Collect today’s takings (${T.goods} goods)`:'Takings collected today'}</button></div>`;
-  return `<div class="mw-top">${mwBuildingSVG(n,x.id,now)}
+  const side=`<div class="mw-side">${mwBuildingSVG(n,x.id,now)}${vis?'':c3Strip(n,now,{compact:true,h:'Your stockpile',need:F&&!m.b?F.cost:null})}${muFigs([['Visitors a year',fmt0(mwVisitors(n,x.id,now))],['Display cases',`${mwOnShow(n).length} of ${mwSlots(n)}`],['Ranking',pos<0?'—':`${ordinal(pos+1)} of ${R.length}`]].concat(vis?[]:[['Takings',mwCanCollect(n,now)?`${T.goods} goods waiting`:'Collected today']]))}</div>`;
+  return `<div class="mw-top">${side}
     <div class="mw-boxes">
       <section class="wd-box"><h2 class="h2">The building</h2><p>${MW_FLOOR_NM[m.fl]}${m.fl>1?` and ${m.fl-1} floor${m.fl>2?'s':''} above`:' only'}. ${mwSlots(n)} display cases.</p>${floorBox}</section>
       <section class="wd-box"><h2 class="h2">Curator</h2>${cu}${hire}</section>
