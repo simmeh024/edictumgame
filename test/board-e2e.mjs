@@ -127,4 +127,13 @@ check('the Chancery\'s New topic button chooses the Chancery', await B.$eval('#c
 await sleep(31000);
 await B.fill('#cb-f-ti', 'Members only'); await B.fill('#cb-f-x', 'Hello, fellow members.'); await B.click('#cb-nf button[type="submit"]');
 check('the topic is posted on the Chancery board and opens', await until(async () => /Members only/.test(await text(B, '.cb-post .cb-ti')) && /The Chancery/.test(await text(B, '.cb-back')) && /^#community\/chancery\//.test(await B.evaluate(() => location.hash))));
+// a nation in another region (only its public summary) can be mentioned too: the list searches every region
+for (const c of ['summaries', 'nations']) await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${c}/farNation0001`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
+  body: JSON.stringify({ fields: { name: { stringValue: 'Zephyria' }, reg: { stringValue: 'frostmarch' } } }) });
+await go(C, 'community'); if (await C.$('[data-act="cb-back"]')) await C.click('[data-act="cb-back"]'); await C.waitForSelector('.cb-start [data-act="cb-new"]'); await C.click('.cb-start [data-act="cb-new"]');
+await C.focus('#cb-f-x'); await C.keyboard.type('Hello @zeph');
+check('typing @ finds a nation in any region, named with its region', await until(async () => /@Zephyria · /.test(await text(C, '#cb-mn'))));
+await C.keyboard.press('Enter');
+await C.fill('#cb-f-ti', 'Far away'); await C.click('#cb-nf button[type="submit"]');
+check('picking it mentions that nation', await until(async () => /@Zephyria/.test(await text(C, '.cb-post .cb-at'))));
 await finish();
