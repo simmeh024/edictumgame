@@ -18920,7 +18920,7 @@ function economy(){
   const L=T.list.length,mk=()=>Object.fromEntries(RES.map(r=>[r,new Float64Array(L)]));
   const prod=mk(),dem=mk(),exp=mk(),imp=mk(),sup=mk(),ratio=mk(),req=mk(),impF=mk();
   for(let c=0;c<MAP.N;c++){const o=T.owner[c];if(o<0)continue;prod.food[o]+=CELL_RES.food[c];prod.timber[o]+=CELL_RES.timber[c];prod.iron[o]+=CELL_RES.iron[c];prod.oil[o]+=CELL_RES.oil[c];}
-  T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.6+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
+  T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.7+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
   const CSt=cityState(T);T.list.forEach((x,i)=>{const a=CSt.agg[i];for(const r of RES){prod[r][i]+=a.add[r];dem[r][i]+=a.up[r];}});
   const tariff=T.list.map(x=>!!(x.n.policies||{}).importTariffs),reserve=T.list.map(x=>!!(x.n.policies||{}).strategicReserves);
   const dl=collectDeals(),active=dl.active.filter(d=>T.byId[d.a]!==undefined&&T.byId[d.b]!==undefined&&RES.includes(d.ag[0])&&RES.includes(d.bg[0]));
@@ -19208,7 +19208,7 @@ const BUILDINGS={
   mine:{n:'Iron Mine',c:'prod',d:'Iron from the land around the city doubles, and 1.5 more a day.',cost:{timber:20,food:10},h:4,res:{iron:[1,1.5]},need:'hills'},
   oilwell:{n:'Oil Wells',c:'prod',d:'Oil from deposits around the city +150%.',cost:{iron:15,timber:10},h:6,res:{oil:[1.5,0]},need:'oil'},
   orepit:{n:'Ore Pits',c:'prod',d:'Iron from the land around the city +50%, and 1 more a day. For cities with no hills nearby.',cost:{timber:15,food:10},h:4,res:{iron:[0.5,1]},need:'flat'},
-  factory:{n:'Factory',c:'prod',d:'Goods +5 a day. Uses 1 oil a day, except your first Factory, which runs without.',cost:{timber:15,iron:6},h:4,res:{goods:[0,5]},up:{oil:1}},
+  factory:{n:'Factory',c:'prod',d:'Goods +6 a day. Uses 1 oil a day, except your first Factory, which runs without.',cost:{timber:15,iron:6},h:4,res:{goods:[0,6]},up:{oil:1}},
   harbour:{n:'Harbour',c:'prod',d:'Food +3 and goods +3 a day from fishing and shipping.',cost:{timber:25,iron:5},h:4,res:{food:[0,3],goods:[0,3]},need:'coast',once:{tour:1}},
   market:{n:'Market Hall',c:'soc',d:'Your economy +3% and one more trade deal slot.',cost:{timber:12,goods:12},h:3,prosper:0.03},
   university:{n:'University',c:'soc',d:'Education +4 and Science +3 when completed, then goods +1 a day.',cost:{timber:15,goods:20},h:6,res:{goods:[0,1]},once:{edu:4,sci:3}},
@@ -53247,7 +53247,7 @@ wrDrawSoon=function(){if(wrQ)return;wrQ=true;requestAnimationFrame(function step
       square root of the population. 5. A resource below the price of the cheapest thing it buys gains at least
       GB.TRICKLE a day. (3: plains iron, iron demand and the Ore Pits; 4: the cheaper Factory; 7: the desk and ranks are
       in their own places above.) 6. The Bureau's market on the Trade page. 8. The goods bar says why a resource is slow. */
-const GB={SHARE:0.2,POP_K:0.25,TRICKLE:1,MKT_DAY:120,MKT_HI:0.7,MKT_LO:0.4};
+const GB={SHARE:0.3,POP_K:0.35,TRICKLE:1,MKT_DAY:120,MKT_HI:0.7,MKT_LO:0.4};
 const GB_VAL={food:1,timber:1.2,iron:3,oil:3,goods:3};
 const GB_MIN=(()=>{const o={};for(const r of RES){let m=Infinity;for(const c of [CITY_COST,...Object.values(BUILDINGS).map(b=>b.cost||{})])if(c[r]>0&&c[r]<m)m=c[r];o[r]=m;}return o;})();
 const gbPopGoods=n=>{try{return GB.POP_K*Math.sqrt(Math.max(0,popNow(n)));}catch(e){return 0;}};
@@ -53281,7 +53281,7 @@ function rbdParts(n,r){
   const E=economy(),i=E.byDoc.get(n);if(i===undefined)return null;
   const T=E.T,x=T.list[i],made=[],used=[],trade=[],stock=[];
   let base=0;
-  if(r==='goods'){const s=x.n.s||{};base=econSize(x)*(0.6+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);made.push(['Industry (size, economy and science)',base]);}
+  if(r==='goods'){const s=x.n.s||{};base=econSize(x)*(0.7+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);made.push(['Industry (size, economy and science)',base]);}
   else{const Y=CELL_RES[r];let h=0;for(let c=0;c<MAP.N;c++)if(T.owner[c]===i&&Y[c]){base+=Y[c];h++;}made.push([`Your land (${fmt0(h)} hex${h===1?'':'es'} that yield it)`,base]);}
   const pol=x.n.policies||{};let run=base;
   for(const k in RES_POL)if(pol[k]&&RES_POL[k][r]){const m=RES_POL[k][r],d=run*(m-1);run*=m;made.push([`Policy: ${POLICIES[k]?POLICIES[k][0]:k} (${m>1?'+':'−'}${Math.round(Math.abs(m-1)*100)}%)`,d]);}
