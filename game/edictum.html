@@ -1267,6 +1267,28 @@ button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:fo
 .rbd-neg{color:var(--stamp)}
 .rbd-note{font-size:12.5px;color:var(--ink-2);margin:10px 0 0}
 @media (max-width:560px){.rbd-modal{place-items:end center;padding:0}.rbd-sheet{width:100%;max-height:88vh;border-radius:10px 10px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px))}}
+/* the poster's dialog (above the full-screen map, which sits at 3000) */
+.pst-modal{position:fixed;inset:0;z-index:3100;display:grid;place-items:center;padding:16px}
+.pst-scrim{position:absolute;inset:0;border:0;padding:0;background:rgba(8,18,17,.55);cursor:pointer}
+.pst-sheet{position:relative;width:min(800px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:20px 22px 22px;background:var(--sheet);color:var(--ink);border:1px solid var(--rule-2);border-top:4px solid var(--accent);border-radius:6px;box-shadow:var(--shadow)}
+.pst-x{position:absolute;top:14px;right:16px}
+.pst-h{font-family:var(--f-display);font-size:26px;margin:2px 0 4px;padding-right:64px;overflow-wrap:anywhere}
+.pst-sum{margin:0 0 14px;color:var(--ink-2)}
+.pst-ctl{display:flex;flex-wrap:wrap;gap:10px 22px;margin:0 0 14px}
+.pst-grp{display:flex;align-items:center;gap:8px}
+.pst-lab{font-size:12.5px;color:var(--ink-3)}
+.pst-seg{display:inline-flex;border:1px solid var(--rule-2);border-radius:6px;overflow:hidden}
+.pst-opt{font:inherit;font-size:14px;min-height:36px;padding:6px 14px;border:0;background:var(--sheet);color:var(--ink);cursor:pointer}
+.pst-opt+.pst-opt{border-left:1px solid var(--rule-2)}
+.pst-opt[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.pst-opt:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.pst-stage{display:grid;place-items:center;min-height:240px;padding:14px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:6px}
+.pst-stage canvas{display:block;width:auto;height:auto;max-width:100%;max-height:60vh;box-shadow:var(--shadow)}
+.pst-wait{margin:0;color:var(--ink-2);text-align:center}
+.pst-acts{margin-top:14px}
+.pst-note{min-height:1.4em;font-size:12.5px;color:var(--ink-2);margin:10px 0 0}
+.mc-b.mc-poster{display:inline-grid;place-items:center}
+@media (max-width:560px){.pst-modal{place-items:end center;padding:0}.pst-sheet{width:100%;max-height:92vh;border-radius:10px 10px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px))}.pst-stage{min-height:180px;padding:8px}.pst-stage canvas{max-height:50vh}}
 .stk-strip{margin:0 0 26px;padding:12px 14px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
 .gb-why{margin:-4px 0 14px;padding:8px 12px;border:1px dashed var(--rule-2);border-radius:4px;font-size:13px;color:var(--ink-2)}
 .gb-why ul{margin:0 0 4px;padding-left:1.1em;display:grid;gap:3px}.gb-why .row{gap:12px;flex-wrap:wrap}
@@ -21645,7 +21667,8 @@ function sitePanel(si){
     ${P.why?`<p class="hint" style="margin-top:10px">${esc(P.why)}</p>`:''}
     <div class="row" style="margin-top:14px">${P.why?'':`<button class="btn" data-act="exp-send" data-s="${si}">${R?'Send an expedition anyway':'Send an expedition'}</button>`}<button class="btn ghost" data-act="go" data-v="explore">Expeditions</button>${P.owner&&!P.owner.me?`<button class="btn ghost" data-act="map-select" data-id="${esc(P.owner.id)}">${esc(P.owner.n.name)}</button>`:''}<button class="btn ghost" data-act="map-desel">Close</button></div>`;
 }
-function drawSites(g,scr,off,col,s,boxes,kind){
+/* known: only the sites already found (a poster's sheet leaves the question marks out) */
+function drawSites(g,scr,off,col,s,boxes,kind,known){
   if(kind==='found'||kind==='mini')return;const z=s*HEX_W;if(z<5)return;
   const R=discoveries(),at=kind==='atlas'?S.atlasT:null;
   g.textAlign='center';g.textBaseline='middle';
@@ -21654,7 +21677,7 @@ function drawSites(g,scr,off,col,s,boxes,kind){
     if(!found&&at!=null)return;
     if(found){g.beginPath();for(let k=0;k<10;k++){const a=-Math.PI/2+k*Math.PI/5,r=k%2?2.6:6;g.lineTo(px+Math.cos(a)*r,py+Math.sin(a)*r);}g.closePath();g.fillStyle=col.stamp;g.fill();g.lineWidth=1.4;g.strokeStyle=col.sheet;g.stroke();
       if(z>=11){const nm=siteName(si);g.font='600 11px '+MAP_FONT;const tw=g.measureText(nm).width,b={x:px-tw/2-3,y:py+7,w:tw+6,h:14};if(!boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h)){boxes.push(b);mfxLabel(g,nm,px,py+14,col,3);}}}
-    else{g.beginPath();g.arc(px,py,6.6,0,Math.PI*2);g.fillStyle=col.sheet;g.fill();g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();g.font='700 9.5px '+MAP_FONT;g.fillStyle=col.ink;g.fillText('?',px,py+0.5);}
+    else if(!known){g.beginPath();g.arc(px,py,6.6,0,Math.PI*2);g.fillStyle=col.sheet;g.fill();g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();g.font='700 9.5px '+MAP_FONT;g.fillStyle=col.ink;g.fillText('?',px,py+0.5);}
   });
   g.textBaseline='alphabetic';
 }
@@ -22857,6 +22880,7 @@ function helpBody(n){
     npc:`<p>${Num(NPC_NATIONS.length)} computer-run nations share ${REGION}. Each passes one law a day, choosing what suits its founding character, then drifts 12% of the way back to that character, so its values stay recognisable.</p>
       <p>They have half the people their founding papers promised and hold half the land those people would give a player, so most of the map is left free for players. They grow slowly, trade when the terms suit them and answer your letters within a minute or two. A hawkish one may declare war on a hostile neighbour every ${hrs(WAR_SLOT)}, offers peace after a day or two of fighting, and leaves your alliance if your values drift apart.</p>`,
     track:`<p>The bell lists what happened while you were away: wars, peace offers, trade, messages, finished buildings, milestones and changes in your cabinet. Standing items, such as land credits to spend, stay at the top until they are dealt with, but count as new only until you have seen them.</p>
+      <p>The World map can make a poster of your nation: your land with its cities, roads and rivers, under your name, flag and arms, in three looks and three shapes. Use the Poster button in the map’s tools, or the picture button among the map’s controls. The picture is made in your browser and saved to your device, to keep or to share.</p>
       <p>The Region page has five tabs: an overview of ${REGION} (its Assembly, its Great Statue, its leading nations, its wars and the nations new this week, each with a welcome letter to send), every nation in it with a quick look at each, its happenings, its message board, where you can reply to a message or react to it, and its alliances, with the way to join one. A reply to one of your messages rings the bell. Statistics keeps your nation’s history, its factbook and hundreds of figures.</p>`
   };
   const SECS=HELP_EXT.filter(h=>h.top).map(h=>[h.k,h.t]).concat(HELP_SECS,HELP_EXT.filter(h=>!h.top).map(h=>[h.k,h.t]));for(const h of HELP_EXT){try{body[h.k]=h.body(n);}catch(e){body[h.k]='';}}
@@ -39291,7 +39315,8 @@ function drawMap(cv,P){
   const g=tc.getContext('2d');if(!g)return;
   const kind=cv.dataset.map,v=viewOf(kind,cv);clampView(cv,v);
   const s=mapScale(cv,v),OX=w/2-v.cx*s,oy=h/2-v.cy*s,draft=mapDraftOn;
-  const cs=getComputedStyle(document.documentElement),C=k=>cs.getPropertyValue(k).trim();
+  /* a plate may bring its own colours (P.pal, by CSS variable name): the poster's looks */
+  const cs=getComputedStyle(document.documentElement),PAL=P&&P.pal,C=k=>PAL&&PAL[k]!=null?PAL[k]:cs.getPropertyValue(k).trim();
   const col={sea:C('--sea'),sea2:C('--sea-2'),land:C('--land'),hill:C('--hill'),mount:C('--mount'),forest:C('--forest'),marsh:C('--marsh'),arid:C('--arid'),polder:C('--polder'),coast:C('--coast'),ink:C('--ink'),sheet:C('--sheet'),stamp:C('--stamp'),down:C('--down'),accent:C('--accent')};
   g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=col.sea;g.fillRect(0,0,w,h);
   /* once for each turn of the globe on screen (see the globe), the one nearest the view's centre first: it wins
@@ -39359,8 +39384,11 @@ function drawMap(cv,P){
   const order=T.list.map((x,i)=>i).filter(i=>T.count[i]>0).sort((a,b)=>(T.list[b].me?1:0)-(T.list[a].me?1:0)||T.count[b]-T.count[a]);
   g.textAlign='center';g.textBaseline='alphabetic';g.lineJoin='round';
   for(const i of order){
-    const x=T.list[i],name=String(x.n.name||''),lc=dcLabelAt(T,i,s,kind,scr),[px,py0]=scr(lc),py=py0-(lc===x.cap?dcLift(T,i,s,kind):7);
-    const fs=Math.round(clamp(10.5+Math.sqrt(T.count[i])*0.55,11,19)*zf);
+    /* on a poster's sheet (P.sheet) the nation's own name is the title: its capital is named here in its place,
+       over the capital itself, unless the map is close enough for the capital's own line (cpCapLines) to name it */
+    const x=T.list[i],sheet=!!(P&&P.sheet&&x.me);if(sheet&&s*HEX_R>=14.5)continue;
+    const name=String((sheet?x.n.capital:x.n.name)||''),lc=sheet?x.cap:dcLabelAt(T,i,s,kind,scr),[px,py0]=scr(lc),py=py0-(lc===x.cap?dcLift(T,i,s,kind):7);
+    const fs=sheet?Math.round(13.5*zf):Math.round(clamp(10.5+Math.sqrt(T.count[i])*0.55,11,19)*zf);
     g.font=(x.me?700:600)+' '+fs+'px '+MAP_FONT;
     const tw=g.measureText(name).width,b={x:px-tw/2-3,y:py-fs,w:tw+6,h:fs+5};
     if(b.x+b.w<0||b.x>w||b.y+b.h<0||b.y>h)continue;
@@ -39369,7 +39397,7 @@ function drawMap(cv,P){
     mfxLabel(g,name,px,py,col,3.6);
   }
   if(kind==='atlas')drawAtlasCities(g,T,scr,off,col);else drawCities(g,T,scr,off,col,s,boxes);
-  drawSites(g,scr,off,col,s,boxes,kind);
+  drawSites(g,scr,off,col,s,boxes,kind,!!(P&&P.sheet));
   mfxCaps(g,T,scr,off,col);
   M.boxes=boxes;ML('top');
   if(first)M0=M;first=false;
@@ -58305,9 +58333,354 @@ function start(data){
   setInterval(()=>{if(document.hidden)tabTitle();else tick();},10000);
   window.addEventListener('popstate',()=>{const r=rewardRoute(location.hash);if(r){rewardOpen(r.kind,r.id,false);return;}S.colDetail=null;const h0=(location.hash||'').slice(1),h=uxHashView(h0);if(['nation','visit','issues','map','explore','atlas','cities','diplomacy','trade','government','games','census','stats','region','messages','settings','help','museum','achievements','customise','world','admin-help','admin-sus'].concat(ADM_VIEWS,EXT_PAGES).includes(h)){S.noPush=true;go(h);}});
 }
+/* ───────── the poster: the nation as a decorated map, saved as a picture ─────────
+   World map › Poster (the button in the map's tools, and the picture button among the map's controls). The map on
+   the sheet is drawn by drawMap itself, as a visitor sees it (no planning marks, no lens, no time zones), zoomed to
+   fit the nation, with the land of others paled so the nation stands out. Round it: the name with the arms and the
+   flag, a compass, a scale bar, where the nation lies in its region, six facts and a key. Three looks (Atlas: the
+   game's own light map colours whatever the player's theme; Antique; Night) and three shapes. Nothing is stored
+   or sent: the picture is made in the browser, and saved or shared from there. */
+const PST_LOOKS={
+  atlas:{n:'Atlas',paper:'#f8fbf9',ink:'#12292a',ink2:'#45605c',accent:'#1d6a5c',veil:0.5,ol:'#262626',
+    pal:{'--sea':'#b3cfd8','--sea-2':'#d6eaee','--land':'#f3efd5','--hill':'#e2d2c4','--mount':'#bfb3a6','--forest':'#bfd9a7','--marsh':'#b6d8cb','--arid':'#efd9a4','--polder':'#ebf0b2','--coast':'#86a39d','--terr-a':'.5','--ink':'#12292a','--sheet':'#f8fbf9','--stamp':'#6a3db3','--down':'#b3302a','--accent':'#1d6a5c'}},
+  antique:{n:'Antique',paper:'#efe3c6',ink:'#3d2a17',ink2:'#6b5235',accent:'#8a3b22',veil:0.5,ol:'#3d2a17',hatch:true,
+    pal:{'--sea':'#ddd3b0','--sea-2':'#e6dcbc','--land':'#ead9a8','--hill':'#dcc393','--mount':'#c2a577','--forest':'#cdc88f','--marsh':'#d2d2a8','--arid':'#ecd08f','--polder':'#e3dc9c','--coast':'#7a6442','--terr-a':'.42','--ink':'#3d2a17','--sheet':'#efe3c6','--stamp':'#6b3f73','--down':'#9c3b22','--accent':'#8a3b22'}},
+  night:{n:'Night',paper:'#0f1c22',ink:'#ece2c6',ink2:'#b3a37a',accent:'#d9b765',veil:0.55,ol:'#ece2c6',
+    pal:{'--sea':'#0a1b1f','--sea-2':'#142e36','--land':'#2b3324','--hill':'#3b3430','--mount':'#55504a','--forest':'#183d24','--marsh':'#173f37','--arid':'#46391c','--polder':'#3a4a1d','--coast':'#416660','--terr-a':'.55','--ink':'#ece2c6','--sheet':'#0f1c22','--stamp':'#b59cf5','--down':'#ff8577','--accent':'#d9b765'}}
+};
+/* the sheets, in their own units (a picture is k times as many pixels): the map's frame, the name block (tw: the
+   room the name may take), the rule under it, the facts, the rule over the key, the key and the foot */
+const PST_SHAPES={
+  portrait:{n:'Portrait',W:600,H:800,map:[36,168,528,430],head:{cx:300,top:36,size:56,tw:320,arms:[48,40],flag:[474,50]},rule:[36,564,154],facts:{x:40,y:622,cols:3,cw:176},frule:694,key:{x:40,y:716,cols:3,cw:176},foot:{x:300,y:766,a:'center'}},
+  wide:{n:'Wide',W:900,H:560,map:[304,36,560,488],head:{cx:161,top:120,size:46,tw:244,arms:[86,40],flag:[162,50]},rule:[36,286,236],facts:{x:40,y:262,cols:2,cw:126},frule:376,key:{x:40,y:400,cols:2,cw:126},foot:{x:40,y:516,a:'left',two:true}},
+  square:{n:'Square',W:740,H:740,map:[36,152,668,392],head:{cx:370,top:30,size:54,tw:440,arms:[48,36],flag:[614,46]},rule:[36,704,140],facts:{x:40,y:568,cols:3,cw:222},frule:640,key:{x:40,y:662,cols:3,cw:222},foot:{x:370,y:708,a:'center'}}
+};
+const PST_KEY=[['border','Your border'],['prov','Province'],['river','River'],['road','Road'],['rail','Railway'],['sea','Sea route']];
+const PST_BODY='"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif',PST_PAD=40,PST_SMAX=2.6;
+const PST_ICON='<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 11l3-3.4 2 2 1.4-1.4L13 11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+const PST={look:'atlas',shape:'portrait',open:false,seq:0,cv:null,blob:null,back:null,run:null,noImg:false};
+try{const m=/^([a-z]+)\/([a-z]+)$/.exec(localStorage.getItem('statehood.poster')||'');if(m&&PST_LOOKS[m[1]]&&PST_SHAPES[m[2]]){PST.look=m[1];PST.shape=m[2];}}catch(e){}
+
+/* kilometres across one pixel of a map drawn at scale s (a hex is AREA_PER_HEX square kilometres) */
+function pstKm(s){return Math.sqrt(AREA_PER_HEX/(1.5*SQ3*HEX_R*HEX_R))/s;}
+/* the scale bar: a round number of kilometres, as near as may be to `want` pixels long */
+function pstBar(s,want){
+  const km=pstKm(s);let best=1,bd=Infinity;
+  for(let e=0;e<7;e++)for(const b of [1,2,2.5,5]){const v=b*10**e,d=Math.abs(v/km-want);if(d<bd){bd=d;best=v;}}
+  return {km:best,px:best/km};
+}
+/* the nation's land as a box of map units; across the seam of the globe it is measured round its capital */
+function pstBox(T,mi){
+  const rx=MAP.cx[T.list[mi].cap];let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+  for(let i=0;i<MAP.N;i++){if(T.owner[i]!==mi)continue;const x=wrapNear(MAP.cx[i],rx),y=MAP.cy[i];if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  return {x0:x0-HEX_W/2,x1:x1+HEX_W/2,y0:y0-HEX_R,y1:y1+HEX_R};
+}
+/* the view that fits that box into a frame of mw by mh with room round it; a few hexes are not blown up to fill it */
+function pstView(b,mw,mh){
+  const s=Math.min(PST_SMAX,(mw-2*PST_PAD)/Math.max(1,b.x1-b.x0),(mh-2*PST_PAD)/Math.max(1,b.y1-b.y0)),cx=(b.x0+b.x1)/2;
+  return {s,cx:((cx%MAP_PW)+MAP_PW)%MAP_PW,cy:(b.y0+b.y1)/2};
+}
+/* twice the sheet's units on a phone, three times elsewhere (a portrait is then 1800 by 2400 pixels) */
+function pstDensity(){return window.matchMedia&&matchMedia('(pointer: coarse)').matches?2:3;}
+/* while a poster's map is drawn (PST.run): old-map hatching on the sea, the land of others paled, and the nation's
+   border laid on again over a band of its own colour */
+MAP_LAYERS.push({stage:'terrain',kinds:['visit'],draw:M=>{
+  const R=PST.run;if(!R||!R.L.hatch)return;const g=M.g,cells=M.byT[0].concat(M.byT[1]);if(!cells.length)return;
+  g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.6);g.clip();
+  g.setTransform(M.dpr,0,0,M.dpr,0,0);g.beginPath();for(let y=2.5;y<M.h;y+=5){g.moveTo(0,y);g.lineTo(M.w,y);}
+  g.globalAlpha=0.42;g.strokeStyle=M.col.coast;g.lineWidth=0.5;g.stroke();
+}});
+MAP_LAYERS.push({stage:'over',kinds:['visit'],draw:M=>{
+  const R=PST.run;if(!R)return;const g=M.g,T=M.T,mi=R.mi,rest=[];
+  for(const t of [2,3,4])for(const i of M.byT[t])if(T.owner[i]!==mi)rest.push(i);
+  if(rest.length){g.beginPath();for(const i of rest)hexFill(g,i,HEX_R+0.5);g.globalAlpha=R.L.veil;g.fillStyle=M.col.sheet;g.fill();g.globalAlpha=1;}
+  const own=M.byO.get(mi);if(!own)return;
+  g.lineJoin='round';g.lineCap='round';g.beginPath();edgeList(g,own,(i,j)=>j<0||T.owner[j]!==mi);
+  g.globalAlpha=0.3;g.strokeStyle=R.band;g.lineWidth=7/M.s;g.stroke();g.globalAlpha=1;g.strokeStyle=M.col.ink;g.lineWidth=2.3/M.s;g.stroke();
+}});
+/* the map itself: drawMap onto a canvas of its own, through a hidden canvas that only lends its size, with the
+   view, the map's options and the colours set for the picture and put back at once */
+function pstMap(L,mw,mh,k){
+  const T=territory(),mi=T.byId[myId()];if(mi===undefined||!T.count[mi])return null;
+  const V=pstView(pstBox(T,mi),mw,mh),host=document.createElement('canvas'),out=document.createElement('canvas');
+  host.dataset.map='visit';host.dataset.hover='-1';host.setAttribute('aria-hidden','true');
+  host.style.cssText=`position:fixed;left:-99999px;top:0;width:${mw}px;height:${mh}px;visibility:hidden;pointer-events:none`;
+  document.body.appendChild(host);
+  /* sheet: the nation's own name is the sheet's title, so the map names its capital there instead (a long name
+     cannot be cut off by the frame), and leaves out the question marks of sites nobody has found */
+  const P={c:out,m:0,dpr:k,pal:L.pal,sheet:true,v:null},views=S.mapViews||(S.mapViews={}),had='visit' in views,old=views.visit,mem={};
+  const opts={lens:'pol','mp-tz':false,'mp-networks':true,'mp-landscape':true,'mp-influence':false,trade:false};
+  for(const o in opts){mem[o]=o in MAPOPT_MEM?[MAPOPT_MEM[o]]:null;MAPOPT_MEM[o]=opts[o];}
+  views.visit={z:V.s/Math.min(mw/MAP.W,mh/MAP.H),cx:V.cx,cy:V.cy};
+  PST.run={mi,L,band:T.list[mi].col};
+  try{drawMap(host,P);}catch(e){P.v=null;}
+  finally{PST.run=null;if(had)views.visit=old;else delete views.visit;for(const o in opts){if(mem[o])MAPOPT_MEM[o]=mem[o][0];else delete MAPOPT_MEM[o];}host.remove();}
+  return P.v?{c:out,s:P.v.s,ox:P.v.ox,oy:P.v.oy,T,mi}:null;
+}
+/* Where the inset, the compass and the scale bar go. The inset, then the compass, each take the corner of the
+   map's frame where they cover least of the nation (pts: points of the frame to keep clear, x then y: the centres
+   of its hexes, and its cities with their names, more than once to weigh more; r: a hex's reach). The bar lies
+   along the bottom or the top edge, left, right or in the middle (bl, bc, br, tl, tc, tr), clear of those two
+   and where it covers least. Each has its own order of preference when places are equally free. */
+function pstPlace(pts,r,mw,mh){
+  const hit=(x0,y0,x1,y1)=>{let n=0;for(let k=0;k<pts.length;k+=2)if(pts[k]>x0-r&&pts[k]<x1+r&&pts[k+1]>y0-r&&pts[k+1]<y1+r)n++;return n;};
+  const free=new Set(['tl','tr','bl','br']),used=[];
+  const corner=(order,w,h)=>{let best=null,bn=Infinity,bb=null;for(const c of order){if(!free.has(c))continue;const x0=c[1]==='l'?0:mw-w,y0=c[0]==='t'?0:mh-h,n=hit(x0,y0,x0+w,y0+h);if(n<bn){bn=n;best=c;bb=[x0,y0,x0+w,y0+h];}}free.delete(best);used.push(bb);return best;};
+  const inset=corner(['br','bl','tr','tl'],132,104),compass=corner(['tr','tl','br','bl'],96,96);
+  let bar='bl',bn=Infinity;
+  for(const c of ['bl','br','bc','tl','tr','tc']){
+    const w=190,h=34,x0=c[1]==='l'?0:c[1]==='r'?mw-w:(mw-w)/2,y0=c[0]==='t'?0:mh-h;
+    if(used.some(b=>b[0]<x0+w&&x0<b[2]&&b[1]<y0+h&&y0<b[3]))continue;
+    const n=hit(x0,y0,x0+w,y0+h);if(n<bn){bn=n;bar=c;}
+  }
+  return {inset,compass,bar};
+}
+/* the key names only what this nation's map shows: its border and rivers always, its provinces and the kinds of
+   route it has built */
+function pstKeyOf(n,T,mi){
+  const has=new Set(['border','river']);
+  try{for(const raw of n.infra||[]){const r=mpRouteShape(raw);if(r&&r.reg===REG.id)has.add(r.k);}}catch(e){}
+  try{if(prvState(T).nats.has(mi))has.add('prov');}catch(e){}
+  return PST_KEY.filter(([k])=>has.has(k));
+}
+/* a line of text that shrinks to its room (o.max), and is cut short with an ellipsis when it still does not fit */
+function pstText(g,t,x,y,o){
+  let size=o.size;const font=z=>(o.it?'italic ':'')+(o.w||400)+' '+z+'px '+(o.fam||MAP_FONT);
+  t=String(t);g.font=font(size);try{g.letterSpacing=(o.ls||0)+'px';}catch(e){}
+  if(o.max){
+    while(size>(o.min||11)&&g.measureText(t).width>o.max){size-=0.5;g.font=font(size);}
+    if(g.measureText(t).width>o.max){while(t.length>1&&g.measureText(t+'…').width>o.max)t=t.slice(0,-1);t=t.trimEnd()+'…';}
+  }
+  g.textAlign=o.a||'left';g.textBaseline='alphabetic';g.fillStyle=o.fill;g.fillText(t,x,y);
+  try{g.letterSpacing='0px';}catch(e){}
+  return size;
+}
+/* the name: on one line while it fits at no less than about two thirds of its size, else on two lines of about
+   equal length, the second on the same baseline a single line would have */
+function pstTitle(g,t,cx,base,size,tw,L){
+  t=String(t).trim();
+  const wide=(s,z)=>{g.font='600 '+z+'px '+MAP_FONT;try{g.letterSpacing='1px';}catch(e){}const v=g.measureText(s).width;try{g.letterSpacing='0px';}catch(e){}return v;};
+  let z=size;while(z>size*0.62&&wide(t,z)>tw)z-=1;
+  const sp=[];for(let i=1;i<t.length-1;i++)if(t[i]===' ')sp.push(i);
+  if(wide(t,z)<=tw||!sp.length){pstText(g,t,cx,base,{size:z,w:600,ls:1,fill:L.ink,a:'center',max:tw,min:16});return 1;}
+  const mid=sp.reduce((a,b)=>Math.abs(b-t.length/2)<Math.abs(a-t.length/2)?b:a),l1=t.slice(0,mid),l2=t.slice(mid+1);
+  z=Math.floor(size*0.46);while(z>14&&Math.max(wide(l1,z),wide(l2,z))>tw)z-=0.5;
+  pstText(g,l1,cx,base-z*1.1,{size:z,w:600,ls:1,fill:L.ink,a:'center',max:tw,min:z});pstText(g,l2,cx,base,{size:z,w:600,ls:1,fill:L.ink,a:'center',max:tw,min:z});
+  return 2;
+}
+function pstCompass(g,x,y,r,L){
+  const a=r*0.17,star=(R,q)=>{g.beginPath();g.moveTo(0,-R);g.lineTo(q,-q);g.lineTo(R,0);g.lineTo(q,q);g.lineTo(0,R);g.lineTo(-q,q);g.lineTo(-R,0);g.lineTo(-q,-q);g.closePath();};
+  g.save();g.translate(x,y);
+  g.globalAlpha=0.84;g.beginPath();g.arc(0,0,r+13,0,Math.PI*2);g.fillStyle=L.paper;g.fill();g.globalAlpha=1;
+  g.strokeStyle=L.ink;g.lineWidth=0.7;g.lineJoin='miter';g.beginPath();g.arc(0,0,r*0.7,0,Math.PI*2);g.stroke();
+  g.save();g.rotate(Math.PI/4);star(r*0.62,a*0.8);g.fillStyle=L.paper;g.fill();g.stroke();g.restore();
+  star(r,a);g.fillStyle=L.ink;g.fill();
+  g.beginPath();for(const [px,py,qx,qy] of [[0,-r,a,-a],[r,0,a,a],[0,r,-a,a],[-r,0,-a,-a]]){g.moveTo(px,py);g.lineTo(qx,qy);g.lineTo(0,0);g.closePath();}
+  g.fillStyle=L.paper;g.fill();g.restore();
+  pstText(g,'N',x,y-r-1.5,{size:13,w:600,fill:L.ink,a:'center'});
+}
+/* x is the bar's left end, its middle or its right end, as `at` says (l, c, r) */
+function pstScaleBar(g,x,y,s,L,at){
+  const B=pstBar(s,88),lab=B.km.toLocaleString('en-US')+' km';g.font='400 13px '+PST_BODY;
+  const tw=g.measureText(lab).width,bw=8+B.px+7+tw+8;x-=at==='r'?bw:at==='c'?bw/2:0;
+  g.globalAlpha=0.86;g.fillStyle=L.paper;g.fillRect(x,y,bw,24);g.globalAlpha=1;
+  for(let i=0;i<4;i++){g.fillStyle=i%2?L.paper:L.ink;g.fillRect(x+8+i*B.px/4,y+9.5,B.px/4,5);}
+  g.strokeStyle=L.ink;g.lineWidth=0.6;g.strokeRect(x+8,y+9.5,B.px,5);
+  pstText(g,lab,x+8+B.px+7,y+16.5,{size:13,fam:PST_BODY,fill:L.ink});
+}
+/* where the nation lies: the whole region as a small picture, the nation's land in the look's accent, ringed */
+function pstInset(g,x,y,w,h,L,T,mi,k){
+  const sc=Math.min((w-10)/MAP.W,(h-26)/MAP.H),iw=MAP.W*sc,ih=MAP.H*sc,c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(iw*k));c.height=Math.max(1,Math.round(ih*k));
+  const q=c.getContext('2d'),hw=HEX_W/2+0.35/sc,hh=HEX_R*0.75+0.35/sc,rx=MAP.cx[T.list[mi].cap];let sx=0,sy=0,cnt=0;
+  g.fillStyle=L.paper;g.fillRect(x,y,w,h);g.strokeStyle=L.ink;g.lineWidth=0.8;g.strokeRect(x,y,w,h);
+  pstText(g,'In '+REG.name,x+7,y+15,{size:13,fam:PST_BODY,fill:L.ink2,max:w-14,min:10});
+  if(!q)return;q.scale(sc*k,sc*k);q.beginPath();
+  for(let i=0;i<MAP.N;i++){if(MAP.T[i]<2||T.owner[i]===mi)continue;q.rect(MAP.cx[i]-hw,MAP.cy[i]-hh,2*hw,2*hh);}
+  q.globalAlpha=0.38;q.fillStyle=L.ink2;q.fill();q.globalAlpha=1;q.beginPath();
+  for(let i=0;i<MAP.N;i++){if(T.owner[i]!==mi)continue;q.rect(MAP.cx[i]-hw,MAP.cy[i]-hh,2*hw,2*hh);sx+=wrapNear(MAP.cx[i],rx);sy+=MAP.cy[i];cnt++;}
+  q.fillStyle=L.accent;q.fill();
+  const ox=x+(w-iw)/2,oy=y+21;g.drawImage(c,ox,oy,iw,ih);
+  if(cnt){const cx=(((sx/cnt)%MAP_PW)+MAP_PW)%MAP_PW;g.beginPath();g.arc(ox+cx*sc,oy+sy/cnt*sc,7,0,Math.PI*2);g.strokeStyle=L.accent;g.lineWidth=1.2;g.stroke();}
+}
+/* the arms and the flag are the game's own drawings (SVG), turned into pictures the canvas can take */
+function pstImg(svg,w,h){
+  return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);
+    im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(String(svg).replace(/^<svg\b/,`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"`));});
+}
+async function pstArt(n,L){
+  if(PST.noImg)return {};
+  try{
+    const a=czArmsOn(n)?cz(n).a:null,out={};
+    if(a)out.arms=await pstImg(czArmsSVG(a).replace('class="cz-ol"',`stroke="${L.ol}"`),318,378);
+    out.flag=await pstImg(flagSVG(n.flag,'Flag'),468,312);
+    /* a browser that will not let a canvas be read back after such a picture gets the poster without them */
+    const im=out.flag||out.arms;
+    if(im){const t=document.createElement('canvas');t.width=t.height=2;const q=t.getContext('2d');q.drawImage(im,0,0,2,2);q.getImageData(0,0,1,1);}
+    return out;
+  }catch(e){PST.noImg=true;return {};}
+}
+function pstFlag(g,im,n,x,y,L){
+  const w=78,h=52;
+  if(im)g.drawImage(im,x,y,w,h);
+  else{const c=(n.flag&&n.flag.c)||[];for(let i=0;i<3;i++){g.fillStyle=safeColor(c[i],DEF_FLAG.c[i]);g.fillRect(x+i*w/3,y,w/3+0.5,h);}}
+  g.strokeStyle=L.ink;g.lineWidth=1;g.strokeRect(x,y,w,h);
+}
+/* a nation without arms carries the year it was founded where the flag would be, and its flag in their place */
+function pstEst(g,x,y,n,L){
+  const yr=n.founded?new Date(n.founded).getFullYear():0;if(!yr)return;
+  g.strokeStyle=L.ink;g.lineWidth=1.2;g.beginPath();g.arc(x,y,26,0,Math.PI*2);g.stroke();g.lineWidth=0.6;g.beginPath();g.arc(x,y,22.5,0,Math.PI*2);g.stroke();
+  pstText(g,'Est.',x,y-3,{size:12,it:true,fill:L.ink2,a:'center'});pstText(g,String(yr),x,y+13,{size:16,w:600,fill:L.ink,a:'center'});
+}
+/* the key's marks are drawn the way the map draws the things themselves */
+function pstKeySym(g,kind,x,y,L,C){
+  const my=y-4.5,line=(col,w,dash,al)=>{g.beginPath();g.moveTo(x,my);g.lineTo(x+26,my);g.setLineDash(dash||[]);g.globalAlpha=al||1;g.strokeStyle=col;g.lineWidth=w;g.stroke();g.setLineDash([]);g.globalAlpha=1;};
+  g.lineCap='butt';
+  if(kind==='border'){g.lineCap='round';line(C.band,7,null,0.3);line(L.ink,2.3);}
+  else if(kind==='prov')line(C.prov,1.3,[4,2.6],0.9);
+  else if(kind==='river'){g.lineCap='round';for(const [col,w] of [[C.bank,3.3],[C.river,2]]){g.beginPath();g.moveTo(x,my);g.quadraticCurveTo(x+6.5,my-5,x+13,my);g.quadraticCurveTo(x+19.5,my+5,x+26,my);g.strokeStyle=col;g.lineWidth=w;g.stroke();}}
+  else if(kind==='road')line(L.ink,1.8);
+  else if(kind==='rail'){line(L.ink,3.6);line(L.paper,1);}
+  else line(L.accent,1.8,[2,4]);
+  g.lineCap='butt';
+}
+function pstFonts(){
+  if(!document.fonts||!document.fonts.load)return Promise.resolve();
+  const want=['600 40px '+MAP_FONT,'italic 400 15px '+MAP_FONT,'500 16px '+MAP_FONT,'400 13px '+PST_BODY,'500 13px '+PST_BODY];
+  return Promise.race([Promise.all(want.map(f=>document.fonts.load(f).catch(()=>{}))),new Promise(r=>setTimeout(r,1500))]);
+}
+/* the whole sheet, as a canvas; null when the nation is not on the map */
+async function pstRender(lookKey,shapeKey){
+  const n=S.nation,L=PST_LOOKS[lookKey]||PST_LOOKS.atlas,Sh=PST_SHAPES[shapeKey]||PST_SHAPES.portrait;
+  if(!n||cellOf(n.loc)<0)return null;
+  const k=pstDensity(),[mx,my,mw,mh]=Sh.map,W=Sh.W,H=Sh.H;
+  await pstFonts();const art=await pstArt(n,L);
+  const M=pstMap(L,mw,mh,k);if(!M)return null;
+  const cv=document.createElement('canvas');cv.width=W*k;cv.height=H*k;cv.className='pst-cv';cv.dataset.look=PST_LOOKS[lookKey]?lookKey:'atlas';cv.dataset.shape=PST_SHAPES[shapeKey]?shapeKey:'portrait';
+  cv.setAttribute('role','img');cv.setAttribute('aria-label','Poster of '+n.name+': its land on the map of '+REG.name+', with its name, flag, facts and a key');
+  const g=cv.getContext('2d');if(!g)return null;g.scale(k,k);
+  g.fillStyle=L.paper;g.fillRect(0,0,W,H);
+  g.strokeStyle=L.ink;g.lineWidth=1.6;g.strokeRect(13,13,W-26,H-26);g.lineWidth=0.6;g.strokeRect(18.5,18.5,W-37,H-37);
+  /* the map, and what lies on it */
+  g.drawImage(M.c,mx,my,mw,mh);
+  g.save();g.beginPath();g.rect(mx,my,mw,mh);g.clip();
+  const pts=[],vcx=(mw/2-M.ox)/M.s,fx=c=>wrapNear(MAP.cx[c],vcx)*M.s+M.ox,fy=c=>MAP.cy[c]*M.s+M.oy,mine=M.T.list[M.mi].id;
+  for(let i=0;i<MAP.N;i++)if(M.T.owner[i]===M.mi)pts.push(fx(i),fy(i));
+  /* a city and the name under it count for more than a hex of open country; a neighbour's city counts once */
+  for(const c of cityState(M.T).all){const x=fx(c.c),y=fy(c.c);if(x<0||x>mw||y<0||y>mh)continue;for(let w=c.fid===mine?3:1;w>0;w--)pts.push(x,y,x,y+14,x-28,y+20,x+28,y+20,x,y+28);}
+  const at=pstPlace(pts,HEX_R*M.s,mw,mh),lf=c=>c[1]==='l',tp=c=>c[0]==='t';
+  pstCompass(g,lf(at.compass)?mx+48:mx+mw-48,tp(at.compass)?my+50:my+mh-42,24,L);
+  pstScaleBar(g,at.bar[1]==='l'?mx+6:at.bar[1]==='r'?mx+mw-6:mx+mw/2,tp(at.bar)?my+6:my+mh-30,M.s,L,at.bar[1]);
+  pstInset(g,lf(at.inset)?mx+10:mx+mw-122,tp(at.inset)?my+10:my+mh-94,112,84,L,M.T,M.mi,k);
+  g.restore();g.strokeStyle=L.ink;g.lineWidth=1.1;g.strokeRect(mx,my,mw,mh);
+  /* the name, between the arms and the flag */
+  const hd=Sh.head,ty=hd.top+22,pre=String(n.pretitle||'').trim();
+  if(art.arms){g.drawImage(art.arms,hd.arms[0],hd.arms[1],60,60*378/318);pstFlag(g,art.flag,n,hd.flag[0],hd.flag[1],L);}
+  else{pstFlag(g,art.flag,n,hd.arms[0],hd.arms[1]+10,L);pstEst(g,hd.flag[0]+39,hd.flag[1]+26,n,L);}
+  pstText(g,pre?'A map of the '+pre+' of':'A map of',hd.cx,ty,{size:15,it:true,fill:L.ink2,a:'center',max:hd.tw,min:10});
+  pstTitle(g,n.name,hd.cx,ty+hd.size*0.92,hd.size,hd.tw,L);
+  if(n.motto)pstText(g,'“'+n.motto+'”',hd.cx,ty+hd.size*0.92+26,{size:15,it:true,fill:L.ink2,a:'center',max:hd.tw+30,min:10});
+  const r=Sh.rule,rm=(r[0]+r[1])/2;
+  g.strokeStyle=L.ink;g.lineWidth=0.8;g.beginPath();g.moveTo(r[0],r[2]);g.lineTo(rm-9,r[2]);g.moveTo(rm+9,r[2]);g.lineTo(r[1],r[2]);g.stroke();
+  g.fillStyle=L.accent;g.beginPath();g.moveTo(rm,r[2]-4.5);g.lineTo(rm+4.5,r[2]);g.lineTo(rm,r[2]+4.5);g.lineTo(rm-4.5,r[2]);g.closePath();g.fill();
+  /* six facts */
+  const T=M.T,me=T.list[M.mi],cities=cityState(T).all.filter(c=>c.fid===me.id&&!c.npc).length;
+  const facts=[['Population',fmtPop(popNow(n))],['Area',fmtArea(T.count[M.mi])],['Capital',n.capital||'Unnamed'],['Cities',String(cities)],['Founded',n.founded?fmtDate(n.founded):'Before records'],['Region',REG.name]],F=Sh.facts;
+  facts.forEach(([a,b],i)=>{const x=F.x+(i%F.cols)*F.cw,y=F.y+Math.floor(i/F.cols)*40;
+    pstText(g,a,x,y,{size:13,fam:PST_BODY,fill:L.ink2});pstText(g,b,x,y+19,{size:16,w:500,fill:L.ink,max:F.cw-10,min:11});});
+  g.globalAlpha=0.6;g.strokeStyle=L.ink;g.lineWidth=0.6;g.beginPath();g.moveTo(r[0],Sh.frule);g.lineTo(r[1],Sh.frule);g.stroke();g.globalAlpha=1;
+  /* the key */
+  const col={sea:L.pal['--sea'],land:L.pal['--land'],ink:L.pal['--ink']},rc=rvCols(col),K=Sh.key;
+  const C={band:me.col,prov:prvMix(me.col,rlfDark(col)?0.3:-0.52),river:rc.w,bank:rc.b};
+  pstKeyOf(n,T,M.mi).forEach(([kind,name],i)=>{const x=K.x+(i%K.cols)*K.cw,y=K.y+Math.floor(i/K.cols)*22;pstKeySym(g,kind,x,y,L,C);pstText(g,name,x+34,y,{size:13,fam:PST_BODY,fill:L.ink});});
+  /* the foot: when it was made, and where the game is */
+  const ft=Sh.foot,day='Surveyed '+fmtDate(Date.now());
+  if(ft.two){pstText(g,day,ft.x,ft.y,{size:13,fam:PST_BODY,fill:L.ink2});pstText(g,'edictumgame.com',ft.x,ft.y+18,{size:13,w:500,fam:PST_BODY,fill:L.accent});}
+  else pstText(g,day+'  ·  edictumgame.com',ft.x,ft.y,{size:13,fam:PST_BODY,fill:L.ink2,a:ft.a});
+  return cv;
+}
+
+/* the dialog: the look and the shape, the picture, and Save (and Share, where the browser can share a file) */
+function pstCanShare(){try{return !!(navigator.share&&navigator.canShare&&typeof File==='function'&&navigator.canShare({files:[new File([new Uint8Array(1)],'p.png',{type:'image/png'})]}));}catch(e){return false;}}
+function pstFile(n){return shopSlug(n.name)+'-poster-'+PST.look+'-'+PST.shape+'.png';}
+function pstHTML(n){
+  const seg=(act,cur,list,lab)=>`<div class="pst-grp"><span class="pst-lab" id="pst-l-${act}">${lab}</span><div class="pst-seg" role="group" aria-labelledby="pst-l-${act}">${Object.keys(list).map(k=>`<button type="button" class="pst-opt" data-act="pst-${act}" data-v="${k}" aria-pressed="${k===cur}">${list[k].n}</button>`).join('')}</div></div>`;
+  return `<div class="pst-modal" role="dialog" aria-modal="true" aria-labelledby="pst-h"><button type="button" class="pst-scrim" data-act="pst-close" aria-label="Close" tabindex="-1"></button>
+    <div class="pst-sheet"><button type="button" class="pst-x linkish small" data-act="pst-close" id="pst-x">Close</button>
+    <p class="eyebrow">World map</p><h2 class="pst-h" id="pst-h">Poster of ${esc(n.name)}</h2>
+    <p class="pst-sum">Your nation as a map to keep or to share. The picture is made here in your browser.</p>
+    <div class="pst-ctl">${seg('look',PST.look,PST_LOOKS,'Look')}${seg('shape',PST.shape,PST_SHAPES,'Shape')}</div>
+    <div class="pst-stage" id="pst-stage" aria-live="polite"></div>
+    <div class="row pst-acts"><button type="button" class="btn" data-act="pst-save" id="pst-save" disabled>Save picture</button>${pstCanShare()?'<button type="button" class="btn ghost" data-act="pst-share" id="pst-share" disabled>Share</button>':''}</div>
+    <p class="pst-note" id="pst-note" role="status"></p></div></div>`;
+}
+function pstNote(t){const e=document.getElementById('pst-note');if(e)e.textContent=t||'';}
+function pstReady(on){for(const id of ['pst-save','pst-share']){const b=document.getElementById(id);if(b)b.disabled=!on;}}
+function pstStat(name){try{if(typeof window.edictumStat==='function')window.edictumStat(name,{look:Object.keys(PST_LOOKS).indexOf(PST.look),shape:Object.keys(PST_SHAPES).indexOf(PST.shape)});}catch(e){}}
+function pstDraw(){
+  const id=++PST.seq,stage=document.getElementById('pst-stage');PST.cv=null;PST.blob=null;pstReady(false);pstNote('');
+  if(stage)stage.innerHTML='<p class="pst-wait">Drawing the poster…</p>';
+  requestAnimationFrame(()=>setTimeout(async()=>{
+    let cv=null;try{cv=await pstRender(PST.look,PST.shape);}catch(e){cv=null;}
+    if(id!==PST.seq||!PST.open)return;
+    const st=document.getElementById('pst-stage');if(!st)return;
+    if(!cv){st.innerHTML='<p class="pst-wait">The poster could not be drawn here. Try another look or shape.</p>';return;}
+    PST.cv=cv;st.innerHTML='';st.appendChild(cv);
+    try{cv.toBlob(b=>{if(id!==PST.seq||!b)return;PST.blob=b;pstReady(true);},'image/png');}
+    catch(e){if(!PST.noImg){PST.noImg=true;pstDraw();}else pstNote('Your browser would not make the picture.');}
+  },20));
+}
+function pstShow(){
+  const n=S.nation;if(!n||cellOf(n.loc)<0)return;
+  let el=document.getElementById('pst-root');if(!el){el=document.createElement('div');el.id='pst-root';document.body.appendChild(el);}
+  PST.open=true;el.innerHTML=pstHTML(n);const x=document.getElementById('pst-x');if(x)x.focus();pstDraw();
+}
+function pstHide(){
+  const el=document.getElementById('pst-root');if(el)el.innerHTML='';PST.open=false;PST.seq++;PST.cv=null;PST.blob=null;
+  const b=PST.back;PST.back=null;const to=b&&b.isConnected?b:document.querySelector('[data-act="poster-open"]');if(to)to.focus();
+}
+function pstSave(){
+  const n=S.nation,b=PST.blob;if(!n||!b)return;const name=pstFile(n),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+  pstNote('Saved as '+name+'.');pstStat('poster_saved');
+}
+function pstShare(){
+  const n=S.nation,b=PST.blob;if(!n||!b)return;
+  try{navigator.share({files:[new File([b],pstFile(n),{type:'image/png'})],title:'Map of '+n.name,text:n.name+' on Edictum · edictumgame.com'}).then(()=>pstStat('poster_shared'),e=>{if(!e||e.name!=='AbortError')pstNote('Sharing did not work here. Save the picture instead.');});}
+  catch(e){pstNote('Sharing did not work here. Save the picture instead.');}
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='poster-open'){e.preventDefault();PST.back=el;pstShow();return;}
+  if(!PST.open||!el.closest('#pst-root'))return;
+  if(a==='pst-close')pstHide();
+  else if(a==='pst-look'||a==='pst-shape'){
+    const v=el.dataset.v;if(a==='pst-look'&&PST_LOOKS[v])PST.look=v;if(a==='pst-shape'&&PST_SHAPES[v])PST.shape=v;
+    document.querySelectorAll('#pst-root .pst-opt').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===(b.dataset.act==='pst-look'?PST.look:PST.shape))));
+    try{localStorage.setItem('statehood.poster',PST.look+'/'+PST.shape);}catch(err){}
+    pstDraw();
+  }
+  else if(a==='pst-save')pstSave();
+  else if(a==='pst-share')pstShare();
+});
+/* Escape closes the poster alone (not the full-screen map under it), and Tab stays inside it */
+document.addEventListener('keydown',e=>{
+  if(!PST.open)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();pstHide();return;}
+  if(e.key!=='Tab')return;
+  const f=[...document.querySelectorAll('#pst-root .pst-sheet button:not([disabled])')];if(!f.length)return;
+  const i=f.indexOf(document.activeElement);
+  if(e.shiftKey&&i<=0){e.preventDefault();f[f.length-1].focus();}else if(!e.shiftKey&&(i<0||i===f.length-1)){e.preventDefault();f[0].focus();}
+},true);
+/* the way in: a button at the end of the map's tools, and a picture button among the map's own controls (which
+   the full-screen map keeps); both only once the nation is on the map */
+mpMapToolbar=(f=>function(){const h=f.apply(this,arguments),n=S.nation;if(!h||!n||cellOf(n.loc)<0)return h;const i=h.lastIndexOf('</div>');return i<0?h:h.slice(0,i)+'<button class="btn ghost" data-act="poster-open">Poster</button>'+h.slice(i);})(mpMapToolbar);
+mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='main'||!n||cellOf(n.loc)<0)return h;
+  return h.replace('</div><div class="map-tip"',()=>`<button type="button" class="mc-b mc-poster" data-act="poster-open" aria-label="Make a poster of your nation" title="Poster of your nation">${PST_ICON}</button></div><div class="map-tip"`);})(mapBox);
+
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
