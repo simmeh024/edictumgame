@@ -11,6 +11,7 @@ import { setComp } from './shop.js';
 import { cbDelete, rmbForget } from './board.js';
 import { alDrop } from './alliances.js';
 import { shopSummary } from './shop-stats.js';
+import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
@@ -198,7 +199,20 @@ async function stats(db, data) {
       .then(async g => { counted = g; await saveEngage(db, g).then(() => { engaged = null; }, () => {}); return g; }).finally(() => { counting = null; });
     await counting;
   }
-  return summarize(counted, reg);
+  if (!counted.more) counted.more = await gatherMore(db, counted.at);
+  return { ...summarize(counted, reg), more: moreSummary(counted, counted.more, reg) };
+}
+/* Export everything (the Statistics page's Export button): the world and every region as the page counts them, every
+   nation's row (no account details: no email, IP or sign-in), the shop, for a spreadsheet or an AI to read. */
+async function statsExport(db) {
+  const world = await stats(db, {});
+  const regions = {};
+  for (const r of REGIONS) regions[r] = await stats(db, { reg: r });
+  const shop = await shopStats(db);
+  const nations = counted.rows.map(x => ({ id: x.id, reg: x.reg, name: x.name, pop: x.pop, founded: x.founded, lastActive: x.t, decided: x.dec,
+    decided14d: x.r14, daysPlayed14d: x.d14, cities: x.cities, claims: x.claims, edictPace: x.freq, inbox: x.inbox, engagement: x.eng?.[0] ?? null,
+    tutorialSteps: x.tut.length, tutorialLists: x.lists, features: x.f.concat(x.f2 || []), edictsInForce: x.pol || [], achievements: x.ach || [] }));
+  return { at: counted.at, world, regions, shop, nations };
 }
 /* The Shop statistics page (functions/shop-stats.js): the shop's billing records are few, so they are read whole
    each time; the latest sales name their nations. */
@@ -211,7 +225,8 @@ async function shopStats(db) {
   const uids = [...new Set(out.recent.flatMap(r => [r.uid, r.payer]).filter(Boolean))];
   const names = {};
   if (uids.length) for (const n of await db.getAll(...uids.map(u => db.doc('nations/' + u)))) if (n.exists) names[n.id] = text(n.get('name'), 80);
-  return { ...out, on: cfg.exists, names };
+  if (!counted) await stats(db, {});
+  return { ...out, on: cfg.exists, names, timing: buyerTiming(all(tx), counted.rows) };
 }
 async function setRegion(db, actor, data) {
   const target = id(data.reg), reason = text(data.reason, 300);
@@ -418,6 +433,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'online') return onlinePlayers(db);
   if (d.op === 'stats') return stats(db, d);
   if (d.op === 'shopStats') return shopStats(db);
+  if (d.op === 'statsExport') return statsExport(db);
   if (d.op === 'audit') return audit(db, d);
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);
