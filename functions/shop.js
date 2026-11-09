@@ -50,6 +50,7 @@ import { refuse, eligibility, identity, DAY } from './eligibility.js';
 import { nationText } from './nationtext.js';
 import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
+const P0until = p => { const u = CATALOGUE.products[p] && CATALOGUE.products[p].until; const t = u ? Date.parse(u) : NaN; return isFinite(t) ? t : 0; };
 const GRANTS_V = Math.max(1, ...Object.values(CATALOGUE.products).map(p => p.grantsV || 1));
 /* a product another one the account owns already includes (the Founder's Package includes the Card Pack) */
 const includedIn = (product, owns) => Object.entries(CATALOGUE.products).some(([k, p]) => owns[k] && Array.isArray(p.includes) && p.includes.includes(product));
@@ -299,6 +300,8 @@ async function checkout(cfg, who, d) {
   const P = CATALOGUE.products[product], to = typeof d.to === 'string' ? d.to : '', club = CLUB.includes(product);
   if (P.giftOnly && !to) throw new HttpsError('invalid-argument', 'Choose a nation to give it to.');
   if (to && !GIFTABLE.includes(product)) throw new HttpsError('invalid-argument', 'That cannot be given as a gift.');
+  /* a product sold for a while (the catalogue's until), as the Black Friday Pack: no checkout opens after its end */
+  if (product !== 'founder' && P0until(product) && clock(cfg) >= P0until(product)) refuse('sale_ended', `${CATALOGUE.products[product].name} is no longer on sale.`);
   if (product === 'founder' && clock(cfg) >= FOUNDER_CUTOFF) refuse('sale_ended', 'The Founder’s Package is no longer on sale. The sale ended on 1 February 2027 at 23:59:59 UTC.');
   await db.runTransaction(tx => eligibility(tx, who));
   if (to) await giftCheck(uid, to, product, clock(cfg));
