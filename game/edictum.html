@@ -22540,7 +22540,7 @@ function helpBody(n){
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
     land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} (a whole block of land) and every city you found earns ${CITY_CREDITS}. Your first days earn more: the charter list, a daily desk worth double in your first week, and 2 credits each for coming back on a second and a third day. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
-      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
+      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30, and up to 15 more as the average upgrade colour of its buildings rises to gold), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>There is only one way to win land from the sea: some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
@@ -36852,7 +36852,13 @@ function claimBan(T){
 /* Claim reach (2026-11-09): a claim counts within CAP_REACH of the capital or within the reach of any of the
    nation's own cities: 10 hexes plus one per building, at most 20, all raised by half (15 to 30). Cities made
    after the shown moment (atlas, TERR_AT) do not lend reach. */
-const CAP_REACH=68,cityReach=c=>Math.round(Math.min(20,10+(Array.isArray(c.b)?c.b.length:0))*1.5);
+/* 2026-11-09: on top, the average upgrade tier of the city's buildings (ug 0–5: none, grey, green, blue,
+   purple, gold) adds REACH_TIER hexes, read between steps, so upgrading every building to gold gives +15 */
+const CAP_REACH=68,REACH_TIER=[0,0,3,6,10,15];
+function reachTierBonus(c){const bs=Array.isArray(c&&c.b)?c.b:[];if(!bs.length)return 0;
+  const avg=bs.reduce((a,b)=>a+Math.max(0,Math.min(5,+(b&&b.ug)||0)),0)/bs.length,lo=Math.floor(avg),f=avg-lo;
+  return Math.round(REACH_TIER[lo]+(lo<5?(REACH_TIER[lo+1]-REACH_TIER[lo])*f:0));}
+const cityReach=c=>Math.round(Math.min(20,10+(Array.isArray(c.b)?c.b.length:0))*1.5)+reachTierBonus(c);
 function inReach(x,cell){
   if(hexDist(cell,x.cap)<=CAP_REACH)return true;
   const cs=x&&x.n&&Array.isArray(x.n.cities)?x.n.cities:[];
@@ -36863,7 +36869,7 @@ function claimOk(T,c){if(claimBan(T)[c])return false;const mi=T.byId[myId()];ret
 function claimBanNote(T,cell,n){
   if(claimOk(T,cell))return '';const mi=T.byId[myId()];
   if(claimBan(T)[cell]){const y=T.list.find((y,j)=>j!==mi&&hexDist(cell,y.cap)<=2);return `<p class="hint">Too close to ${y?esc(y.n.name)+'’s capital':'another capital'}. Land within 2 hexes of another nation’s capital can’t be claimed.</p>`;}
-  return `<p class="hint">Too far from ${esc(n.capital||'your capital')}. Claims must lie within ${CAP_REACH} hexes of your capital, or within reach of one of your cities (15 hexes, plus a hex and a half per building, up to 30).</p>`;
+  return `<p class="hint">Too far from ${esc(n.capital||'your capital')}. Claims must lie within ${CAP_REACH} hexes of your capital, or within reach of one of your cities (15 hexes, plus a hex and a half per building up to 30, and up to 15 more as its buildings' average upgrade colour rises from grey to gold).</p>`;
 }
 /* “one day”, “3 days”, and “less than a day” rather than “0 days” */
 const b2Days=k=>k<1?'less than a day':k===1?'one day':k+' days';
@@ -53715,6 +53721,10 @@ function cxUgBar(g,wip){
   const lab=`${g} of ${CX_UG_MAX} upgrades${g?', '+cxUgWord(g):''}${wip?`; the ${CX_UG[wip-1].c} one is being fitted`:''}`;
   return `<span class="ugb" role="img" aria-label="${lab}" title="${lab}">${CX_UG.map((u,i)=>`<i class="ugb-${u.c}${i<g?' on':i+1===wip?' wip':''}"></i>`).join('')}</span>`;
 }
+/* the city's claim reach: base from buildings plus the average-upgrade bonus */
+function cxReachLine(ct,n){const c=(n&&Array.isArray(n.cities)?n.cities:[]).find(x=>x&&x.id===ct.id);if(!c||!(c.c>=0))return '';
+  const tb=reachTierBonus(c),all=cityReach(c);
+  return `<p class="hint cx-reach">Claim reach: <b>${all} hexes</b> from ${esc(ct.nm||'this city')}${tb?` (${all-tb} from its buildings, +${tb} for their average upgrade colour)`:''}. Upgrading every building toward gold adds up to 15 more.</p>`;}
 function cxUgLegend(){return `<p class="hint cx-ugl">Upgrades: ${CX_UG.map(u=>`<i class="ugb-dot ugb-${u.c}" aria-hidden="true"></i>${u.c}`).join(' ')}. Each adds a little more of what the building does (+${Math.round(CX_UG[0].fx*100)}% for grey, up to +${Math.round(CX_UG[CX_UG_MAX-1].fx*100)}% for gold, so double in all) and costs more than the last. One at a time in each city.</p>`;}
 function cxLvChip(ct,k){
   if(ct.npc||!ct.rec||!cxUpgradable(k))return '';
@@ -53823,7 +53833,7 @@ function cityCard(ct,T,n,st,now){
   else{
     const rows=rowsOf();
     const end=ct.prog.reduce((m,b)=>Math.max(m,b.d),0);
-    body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${ok&&ct.done.some(cxUpgradable)?cxUgLegend():''}${end>now?`<p class="hint cx-qend">The builders are busy until ${c3When(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
+    body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${ok&&ct.done.some(cxUpgradable)?cxUgLegend():''}${cxReachLine(ct,n)}${end>now?`<p class="hint cx-qend">The builders are busy until ${c3When(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
   }
   return `<article class="city cx-detail" id="city-${esc(ct.id)}">
     <div class="city-h"><div><p class="eyebrow">${ct.cap?'Capital':'City'} · ${esc(cap1(placePhrase(ct.c).replace(/^in the |^on /,'')))}</p><h3 class="city-n">${esc(ct.nm)}</h3>${cpCardPop(ct,T)}</div>
