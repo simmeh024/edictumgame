@@ -53094,10 +53094,10 @@ go=(f=>function(v){if(v!=='map')MAPX.sheet=false;return f.apply(this,arguments);
      tk  ticket price 0 to 3          cu  {k, nm, t} the curator           tc  day the takings were last collected
      rs  {id: t1} restorations         lo  [{id, to, t0, t1}] loans out    ex  [month keys] exhibitions completed
      fh  [flag JSON] flags flown      yr  times this museum led its region
-   Buying a floor moves people into the museum's staff and visitors (they leave the population) and takes materials. */
+   A floor needs a nation of a certain size (a gate: nobody leaves) and takes materials. */
 const MW_FLOORS=[null,null,
-  {fl:2,nm:'The first floor',pop:1,need:8,cost:{timber:120,iron:40,goods:80},h:48},
-  {fl:3,nm:'The second floor and the dome',pop:4,need:40,cost:{timber:300,iron:120,goods:200,oil:40},h:96}];
+  {fl:2,nm:'The first floor',need:8,cost:{timber:120,iron:40,goods:80},h:48},
+  {fl:3,nm:'The second floor and the dome',need:40,cost:{timber:300,iron:120,goods:200,oil:40},h:96}];
 const MW_FLOOR_NM=['','Ground floor','First floor','Second floor'];
 const MW_UP={natural:2,treasury:2,flags:2,gallery:2,exhibit:3,loans:3};
 const MW_TK=[['Free',0,0],['A small donation',3,0.15],['A proper ticket',6,0.35],['Premium admission',9,0.6]];   // name, goods per million visitors, happiness lost per collection
@@ -53196,8 +53196,8 @@ function mwBuild(){
   if(popNow(n0,now)<F.need){toast(`${F.nm} needs a nation of ${fmtPopShort(F.need)} people.`);return;}
   const st=stockNow(n0,now),miss=lacking(F.cost,st);if(miss.length){toast(`You need ${list(miss)} more.`);return;}
   mwSave((n,m)=>{const st2=stockNow(n,now);for(const r of RES)st2[r]-=F.cost[r]||0;n.stock=roundStock(st2);n.stockAt=now;n._stockSet=true;
-    n.pop=Math.max(0.1,popNow(n,now)-F.pop);n.popAt=now;m.b={f:F.fl,t1:now+F.h*3600e3};cvBump(n,'mw:floor',now);});
-  toast(`The builders are on the scaffolding. ${F.nm} opens in ${fmtDur(F.h*3600e3)}; ${fmtPopShort(F.pop)} people have taken jobs at the museum.`);
+    m.b={f:F.fl,t1:now+F.h*3600e3};cvBump(n,'mw:floor',now);});
+  toast(`The builders are on the scaffolding. ${F.nm} opens in ${fmtDur(F.h*3600e3)}.`);
 }
 function mwShow(id){mwSave((n,m)=>{const on=m.dc.includes(id);if(on){m.dc=m.dc.filter(x=>x!==id);return;}
   if(mwLentIds(n).has(id)){toast('That artefact is out on loan.');return false;}
@@ -53325,7 +53325,7 @@ function mwLoans(x,now,vis){
 function mwEntranceExtra(x,now,vis){
   const n=x.n,m=mwOf(n),F=MW_FLOORS[m.fl+1],R=mwRanking(),pos=R.findIndex(r=>r.id===x.id),T=vis?null:mwTakings(n,x.id,now);
   const floorBox=vis?'':m.b?`<p>${esc(MW_FLOORS[m.b.f].nm)} opens in <b>${esc(fmtDur(Math.max(0,m.b.t1-now)))}</b>.</p>`:F?`<p>${esc(F.nm)}: ${F.fl===2?'four more display cases and the Display Gallery, Natural History, the Treasury and the Gallery of Flags':'four more cases, a dome, the Exhibition Hall and the Loans Gallery'}.</p>
-      <p class="hint">Costs ${esc(costText(F.cost))} and ${fmtPopShort(F.pop)} people, who leave for jobs at the museum. Takes ${F.h} hours. Needs ${fmtPopShort(F.need)} people.</p>
+      <p class="hint">Needs a nation of ${fmtPopShort(F.need)} people${popNow(n,now)<F.need?` (${esc(n.name)} has ${esc(fmtPop(popNow(n,now)))})`:''}. Costs ${esc(costText(F.cost))} and takes ${F.h} hours.</p>
       <div class="row"><button class="btn" data-act="mw-build"${popNow(n,now)<F.need||lacking(F.cost,stockNow(n,now)).length?' disabled':''}>Build ${esc(F.nm.replace(/^The /,'the '))}</button></div>`:'<p>All three floors and the dome are built.</p>';
   const cu=m.cu?`<p><b>${esc(m.cu.nm)}</b>, ${esc(MW_CU[m.cu.k].nm.toLowerCase())}: ${esc(MW_CU[m.cu.k].d)}</p>`:'<p class="hint">No curator yet: the Minister of Culture keeps the keys.</p>';
   const hire=vis?'':`<div class="row mw-cu">${Object.entries(MW_CU).map(([k,c])=>`<button class="btn ghost small${m.cu&&m.cu.k===k?' on':''}" data-act="mw-hire" data-k="${k}" title="${esc(c.d)}"${m.cu&&m.cu.k===k?' aria-pressed="true"':''}>${esc(c.nm)}</button>`).join('')}</div><p class="hint">A curator costs 40 goods and signs on for at least a week.</p>`;

@@ -48,10 +48,13 @@ await G(() => { const g = window.__game, n = g.S.nation, M = g.MW(), now = Date.
 await open('entrance');
 ok(/The building/.test(await main()) && !!await page.$('svg.mw-bld'), 'the Entrance Hall draws the building and its boxes');
 ok(await G(() => window.__game.MW().mwSlots(window.__game.S.nation)) === 4, 'the ground floor has four cases');
+await G(() => { const g = window.__game, n = g.S.nation; n.pop = 6; n.popAt = Date.now(); g.render(); });
+ok(!!await page.$('[data-act="mw-build"][disabled]') && /Needs a nation of 8 million/.test(await main()), 'a nation under 8 million cannot build the first floor yet');
+await G(() => { const g = window.__game, n = g.S.nation; n.pop = 12; n.popAt = Date.now(); g.render(); });
 const before = await G(() => { const g = window.__game; return { pop: g.popNow(g.S.nation), t: g.S.nation.stock.timber }; }).catch(() => null);
 await click('[data-act="mw-build"]');
 const built = await G(() => { const g = window.__game, n = g.S.nation, m = g.MW().mwOf(n); return { b: m.b, fl: m.fl, timber: Math.round(g.S.nation.stock.timber), pop: n.pop }; });
-ok(built.b && built.b.f === 2 && built.fl === 1 && built.timber < 400 && built.pop < 11.5, 'building the first floor takes people and materials, and starts the builders', JSON.stringify(built));
+ok(built.b && built.b.f === 2 && built.fl === 1 && built.timber < 400 && built.pop >= 11.9, 'building the first floor takes materials, keeps every citizen, and starts the builders', JSON.stringify(built));
 ok(/opens in/.test(await main()), 'the Entrance Hall says when it opens');
 // the builders finish: the next save opens the floor
 await G(() => { const g = window.__game, n = g.S.nation; n.mw.b.t1 = Date.now() - 1; g.commit(g.clone(n)); g.render(); });
