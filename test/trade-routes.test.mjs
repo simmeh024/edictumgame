@@ -15,6 +15,8 @@ function fn(name) {
   return html.slice(at + 1, i + 1);
 }
 const code = ['genGeom', 'trBufs', 'trSearch', 'trTree'].map(fn).join('\n');
+/* the globe: the wrap the game adds to MAP.nbr once the map is built, and its helpers */
+const globe = html.slice(html.indexOf('const MAP_PW='), html.indexOf('\n', html.indexOf('function mapTurns(')) + 1);
 const tradeConst = html.match(/const TR_BLK_R=[^\n]*;/)[0];
 const make = (cols, rows, sea) => new Function('cols', 'rows', 'sea', `
   const HEX_R=10,HEX_W=Math.sqrt(3)*HEX_R;
@@ -24,6 +26,7 @@ const make = (cols, rows, sea) => new Function('cols', 'rows', 'sea', `
   const G=genGeom(cols,rows),T=new Uint8Array(G.N).fill(2);
   for(let i=0;i<G.N;i++)if(sea(i%cols,Math.floor(i/cols)))T[i]=0;
   const MAP={...G,T};
+  ${globe}
   return {MAP,search:(a,b,land)=>trSearch(a,b,land,()=>5),tree:a=>trTree(a)};`)(cols, rows, sea);
 
 const COLS = 300, ROWS = 300;
@@ -40,13 +43,13 @@ function joined(M, cells) {
 test('a land route between two cells past 65,535 runs from one to the other, cell by cell', () => {
   const M = make(COLS, ROWS, () => false);
   assert.ok(M.MAP.N > 65536);
-  const a = at(20, 250), b = at(260, 280);
+  const a = at(20, 250), b = at(140, 280);
   assert.ok(a >= 65536 && b >= 65536);
   const R = M.search(a, b, true);
   assert.ok(R, 'a route is found');
   assert.equal(R.cells[0], a); assert.equal(R.cells[R.cells.length - 1], b);
   assert.equal(joined(M, R.cells), '');
-  assert.ok(R.cells.length >= 241 && R.cells.length < 320, 'and it is about as short as the map allows: ' + R.cells.length);
+  assert.ok(R.cells.length >= 121 && R.cells.length < 200, 'and it is about as short as the map allows: ' + R.cells.length);
 });
 
 test('a route from the north to the south crosses the 65,536th cell', () => {

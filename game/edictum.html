@@ -17958,6 +17958,19 @@ function legacyMap(){return (function(){
   return {COLS,ROWS,N,W,H,cx,cy,nbr,T,comp,comps,coast,npcLoc};
 })();}
 const MAP=bakedMap()||(REG_MER?embedLegacy(legacyMap()):genRegionMap(REG));
+/* ── the globe: every map wraps east to west ──
+   Sailing off the right edge brings a ship in on the left, as on a globe (north and south stay the poles). The
+   wrap is added to MAP.nbr only after the map is built, so decoding, landmasses and coasts are as before (no land
+   touches across the seam on any map). MAP.nbrFlat, the old flat table, is kept for grow(), so no nation's land
+   moves. MAP_PW is the width of one turn of the globe in map units; the map is drawn once per turn on screen. */
+const MAP_PW=HEX_W*MAP.COLS;
+MAP.nbrFlat=MAP.nbr.slice();
+(()=>{const C=MAP.COLS,R=MAP.ROWS,nb=MAP.nbr,DE=[[1,0],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1]],DO=[[1,0],[1,1],[0,1],[-1,0],[0,-1],[1,-1]];
+  for(let r=0;r<R;r++)for(const c of [0,C-1]){const i=r*C+c,D=(r&1)?DO:DE;for(let d=0;d<6;d++){if(nb[i*6+d]>=0)continue;const nr=r+D[d][1];if(nr<0||nr>=R)continue;nb[i*6+d]=nr*C+((c+D[d][0])%C+C)%C;}}})();
+/* the shortest way across x (map units) on the globe, and x moved by whole turns to lie nearest ref */
+const wrapDx=dx=>dx-Math.round(dx/MAP_PW)*MAP_PW,wrapNear=(x,ref)=>ref+wrapDx(x-ref);
+/* the screen offsets (ox) of each turn of the globe that shows in a view w pixels wide at scale s, nearest first */
+function mapTurns(ox,s,w,m){m=m||0;const P=MAP_PW*s,out=[];for(let k=Math.floor((-m-ox)/P);ox+k*P<=w+m;k++)out.push(ox+k*P);return out.sort((a,b)=>Math.abs(a-ox)-Math.abs(b-ox));}
 NPC_NATIONS.forEach(n=>{n.loc=locOf(MAP.npcLoc[n.id]);});
 
 const budgetOf=p=>p>1000?Math.floor(4+5.5*Math.sqrt(1000)+10*Math.log(p/1000)):Math.floor(4+5.5*Math.sqrt(Math.max(0,p)));
@@ -17970,14 +17983,15 @@ const fmtArea=cnt=>(cnt*AREA_PER_HEX).toLocaleString('en-US')+' km²';
 function locOf(i){return {c:i%MAP.COLS,r:Math.floor(i/MAP.COLS),m:MAP_VER};}
 function validLoc(l){return l&&typeof l==='object'&&l.m===MAP_VER&&Number.isInteger(l.c)&&Number.isInteger(l.r)&&l.c>=0&&l.r>=0&&l.c<MAP.COLS&&l.r<MAP.ROWS?{c:l.c,r:l.r,m:MAP_VER}:null;}
 function cellOf(loc){const l=validLoc(loc);if(!l)return -1;const i=l.r*MAP.COLS+l.c;return MAP.T[i]>=2?i:-1;}
-function hexDist(a,b){const ar=Math.floor(a/MAP.COLS),ac=a%MAP.COLS,br=Math.floor(b/MAP.COLS),bc=b%MAP.COLS;const dq=(ac-(ar-(ar&1))/2)-(bc-(br-(br&1))/2),dr=ar-br;return (Math.abs(dq)+Math.abs(dr)+Math.abs(dq+dr))/2;}
+function hexDist(a,b){const ar=Math.floor(a/MAP.COLS),ac=a%MAP.COLS,br=Math.floor(b/MAP.COLS),bc=b%MAP.COLS;const dq=(ac-(ar-(ar&1))/2)-(bc-(br-(br&1))/2),dr=ar-br;const C=MAP.COLS,f=q=>(Math.abs(q)+Math.abs(dr)+Math.abs(q+dr))/2;return Math.min(f(dq),f(dq-C),f(dq+C));}
 function cellAt(x,y){
+  x=((x%MAP_PW)+MAP_PW)%MAP_PW;
   const fr=(y-HEX_R)/(1.5*HEX_R),fq=(x-HEX_W/2)/HEX_W-fr/2,fs=-fq-fr;
   let q=Math.round(fq),r=Math.round(fr);const s=Math.round(fs);
   const dq=Math.abs(q-fq),dr=Math.abs(r-fr),ds=Math.abs(s-fs);
   if(dq>dr&&dq>ds)q=-r-s;else if(dr>ds)r=-q-s;
-  const c=q+(r-(r&1))/2;
-  return r<0||r>=MAP.ROWS||c<0||c>=MAP.COLS?-1:r*MAP.COLS+c;
+  const c=((q+(r-(r&1))/2)%MAP.COLS+MAP.COLS)%MAP.COLS;
+  return r<0||r>=MAP.ROWS?-1:r*MAP.COLS+c;
 }
 function landName(i){const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?c.name:'a remote islet';}
 function placePhrase(i){const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?placeIn(i)+' '+c.name:'on a remote islet';}
@@ -18153,7 +18167,7 @@ function readConquests(at){
 function grow(list,over){
   const N=MAP.N,L=list.length,owner=new Int16Array(N).fill(-1),grown=new Int32Array(L),held=new Int32Array(L),seen=new Uint8Array(Math.max(1,L*N)),heap=[];
   const pre=new Uint8Array(N);if(over)for(const [c,i] of over){owner[c]=i;held[i]++;pre[c]=1;}
-  const expand=(i,cell,cost)=>{for(let d=0;d<6;d++){const nb=MAP.nbr[cell*6+d];if(nb<0)continue;const t=MAP.T[nb];if(!t||seen[i*N+nb])continue;const o=owner[nb];if(o!==-1&&o!==i)continue;hpush(heap,[cost+STEP[t]/list[i].w,i,nb]);}};
+  const expand=(i,cell,cost)=>{for(let d=0;d<6;d++){const nb=MAP.nbrFlat[cell*6+d];if(nb<0)continue;const t=MAP.T[nb];if(!t||seen[i*N+nb])continue;const o=owner[nb];if(o!==-1&&o!==i)continue;hpush(heap,[cost+STEP[t]/list[i].w,i,nb]);}};
   list.forEach((x,i)=>{if(owner[x.cap]===-1){owner[x.cap]=i;grown[i]=1;held[i]++;seen[i*N+x.cap]=1;}});
   list.forEach((x,i)=>{if(owner[x.cap]===i&&grown[i])expand(i,x.cap,0);});
   while(heap.length){
@@ -22359,7 +22373,7 @@ function drawMigration(g,T,scr,col,s){
   migHits.length=0;const fl=migRoutes(T);if(!fl.length)return;
   const mx=fl[0].f,badges=[];g.lineCap='round';
   fl.forEach((f,k)=>{
-    const [x1,y1]=scr(T.list[f.a].cap),[x2,y2]=scr(T.list[f.b].cap),dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy);if(L<20)return;
+    const [x1,y1]=scr(T.list[f.a].cap),[x2r,y2]=scr(T.list[f.b].cap),x2=x1+wrapDx((x2r-x1)/s)*s,dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy);if(L<20)return;
     const cx=(x1+x2)/2-dy*0.18,cy=(y1+y2)/2+dx*0.18,w=migWidth(f.f,mx),c=f.ref?col.down:col.accent;
     const ex=x2-dx/L*8,ey=y2-dy/L*8;g.beginPath();g.moveTo(x1,y1);g.quadraticCurveTo(cx,cy,ex,ey);g.strokeStyle=c;g.globalAlpha=0.8;g.lineWidth=w;g.stroke();
     const ax=ex-cx,ay=ey-cy,al=Math.hypot(ax,ay)||1,ux=ax/al,uy=ay/al,h=5+w*1.6;g.beginPath();g.moveTo(ex+ux*h*0.6,ey+uy*h*0.6);g.lineTo(ex-ux*h*0.6-uy*h*0.55,ey-uy*h*0.6+ux*h*0.55);g.lineTo(ex-ux*h*0.6+uy*h*0.55,ey-uy*h*0.6-ux*h*0.55);g.closePath();g.fillStyle=c;g.fill();
@@ -25521,9 +25535,12 @@ function mfxFrame(f,now){
   if(!rm)mfxSea(f,g,t);
   if(mfxNightOn)mfxNight(f,g);
   if(!rm&&f.mig)mfxMig(f,g,t);
-  for(const L of MFX_LAYERS){g.save();try{L.draw(f,g,t,rm,now);}catch(e){}g.restore();}
-  if(f.kind==='main'&&mfxEv.length)mfxEvents(f,g,now,rm);
-  mfxHoverDraw(f,g,dt,rm);
+  /* the layers on each turn of the globe on screen (see the globe); hover fades once a frame, on the last */
+  const OX=f.ox,turns=mapTurns(OX,f.s,f.w,HEX_W*f.s);
+  try{turns.forEach((o,k)=>{f.ox=o;
+    for(const L of MFX_LAYERS){g.save();try{L.draw(f,g,t,rm,now);}catch(e){}g.restore();}
+    if(f.kind==='main'&&mfxEv.length)mfxEvents(f,g,now,rm);
+    mfxHoverDraw(f,g,k===turns.length-1?dt:0,rm);});}finally{f.ox=OX;}
   mfxFrames++;mfxCost+=performance.now()-t0;
 }
 function mfxSea(f,g,t){
@@ -30110,9 +30127,9 @@ function trBufs(){
 /* A* from src to dst; land: roads only. pc(c) is the charge for boarding or landing at land cell c. */
 function trSearch(src,dst,land,pc){
   const B=trBufs(),{AQ,AR,g,st,cl,par,CM}=B,gen=++B.gen,nbr=MAP.nbr,TT=MAP.T,hw=land?10:TR_SEA*1.4;
-  const qd=AQ[dst],rd=AR[dst],x0=MAP.cx[src],y0=MAP.cy[src],dx=MAP.cx[dst]-x0,dy=MAP.cy[dst]-y0,nl=(Math.abs(dx)+Math.abs(dy))||1;
-  const H=i=>{const a=AQ[i]-qd,b=AR[i]-rd;return hw*(Math.abs(a)+Math.abs(b)+Math.abs(a+b))/2;};
-  const D=i=>Math.min(1023,Math.floor(Math.abs((MAP.cx[i]-x0)*dy-(MAP.cy[i]-y0)*dx)/nl/2.5));
+  const qd=AQ[dst],rd=AR[dst],x0=MAP.cx[src],y0=MAP.cy[src],dx=wrapDx(MAP.cx[dst]-x0),dy=MAP.cy[dst]-y0,nl=(Math.abs(dx)+Math.abs(dy))||1,QC=MAP.COLS;
+  const hd=(a,b)=>(Math.abs(a)+Math.abs(b)+Math.abs(a+b))/2,H=i=>{const a=AQ[i]-qd,b=AR[i]-rd;return hw*Math.min(hd(a,b),hd(a-QC,b),hd(a+QC,b));};
+  const D=i=>Math.min(1023,Math.floor(Math.abs(wrapDx(MAP.cx[i]-x0)*dy-(MAP.cy[i]-y0)*dx)/nl/2.5));
   let hp=B.hp,n=0;
   const push=k=>{if(n>=hp.length){const b=new Float64Array(hp.length*2);b.set(hp);hp=B.hp=b;}let i=n++;while(i>0){const p=(i-1)>>1;if(hp[p]<=k)break;hp[i]=hp[p];i=p;}hp[i]=k;};
   const pop=()=>{const top=hp[0],last=hp[--n];if(n>0){let i=0;for(;;){let c=2*i+1;if(c>=n)break;if(c+1<n&&hp[c+1]<hp[c])c++;if(hp[c]>=last)break;hp[i]=hp[c];i=c;}hp[i]=last;}return top;};
@@ -30196,7 +30213,7 @@ function trPath(T,ai,bi,deg){
   trPaths.set(key,P);return P;
 }
 function trSees(a,b){
-  const ax=MAP.cx[a],ay=MAP.cy[a],dx=MAP.cx[b]-ax,dy=MAP.cy[b]-ay,n=Math.ceil(Math.hypot(dx,dy)/(HEX_R*0.5));
+  const ax=MAP.cx[a],ay=MAP.cy[a],dx=wrapDx(MAP.cx[b]-ax),dy=MAP.cy[b]-ay,n=Math.ceil(Math.hypot(dx,dy)/(HEX_R*0.5));
   for(let k=1;k<n;k++){const c=cellAt(ax+dx*k/n,ay+dy*k/n);if(c===a||c===b)continue;if(c<0||MAP.T[c]>=2)return false;}
   return true;
 }
@@ -30213,9 +30230,11 @@ function trGeo(cells){
   const TT=MAP.T,segs=[];let k=0;
   while(k<cells.length){const w=TT[cells[k]]<2;let j=k;while(j<cells.length&&(TT[cells[j]]<2)===w)j++;const run=cells.slice(k,j);if(w){if(k>0)run.unshift(cells[k-1]);if(j<cells.length)run.push(cells[j]);}segs.push({sea:w,cells:run});k=j;}
   const parts=[],X=[],Y=[],SEA=[],ports=[];let nr=0,ns=0;
+  let ref=MAP.cx[cells[0]];
   for(const sg of segs){
     if(sg.cells.length<2)continue;
-    const p=trChaikin(sg.sea?trPull(sg.cells):sg.cells.map(c=>[MAP.cx[c],MAP.cy[c]]),sg.sea?3:2),n=p.length;
+    const raw=sg.sea?trPull(sg.cells):sg.cells.map(c=>[MAP.cx[c],MAP.cy[c]]);for(const q of raw){q[0]=wrapNear(q[0],ref);ref=q[0];}
+    const p=trChaikin(raw,sg.sea?3:2),n=p.length;
     const pt={sea:sg.sea,X:new Float32Array(n),Y:new Float32Array(n),C:new Float32Array(n)};
     for(let i=0;i<n;i++){pt.X[i]=p[i][0];pt.Y[i]=p[i][1];if(i)pt.C[i]=pt.C[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);}
     parts.push(pt);
@@ -30297,7 +30316,7 @@ function trTimes(r){
   const P=r.P,n=P.X.length,CT=new Float32Array(n),vl=r.rail?TR_V.rail:TR_V.land;
   for(let i=1;i<n;i++)CT[i]=CT[i-1]+(P.CL[i]-P.CL[i-1])/(P.SEA[i]?TR_V.sea:vl);
   r.CT=CT;r.fw=P.a===r.d.a;r.tb=-1;
-  if(r.blk){const cx=MAP.cx[r.blk.at],cy=MAP.cy[r.blk.at];let bi=0,bd=1e18;for(let i=0;i<n;i++){if(i&&!P.SEA[i])continue;const q=(P.X[i]-cx)**2+(P.Y[i]-cy)**2;if(q<bd){bd=q;bi=i;}}r.tb=CT[bi];r.bi=bi;}
+  if(r.blk){const cx=MAP.cx[r.blk.at],cy=MAP.cy[r.blk.at];let bi=0,bd=1e18;for(let i=0;i<n;i++){if(i&&!P.SEA[i])continue;const q=wrapDx(P.X[i]-cx)**2+(P.Y[i]-cy)**2;if(q<bd){bd=q;bi=i;}}r.tb=CT[bi];r.bi=bi;}
   r.mid=CT[n-1]/2;r.len=Math.max(1,P.nr+P.ns);
 }
 function trAt(r,tau){
@@ -30322,11 +30341,11 @@ function trRunsOf(pt,bx,cb){
 /* Only what is on screen is stroked. Dashes and dots are stroked run by run with the dash offset at the
    run's distance along the route, so they stay put on the route while the map pans. */
 function trDraw(M){
-  const {cv,g,s,kind,col}=M;cv._trR=null;
+  const {cv,g,s,kind,col}=M;if(M.first!==false)cv._trR=null;
   if(!trOn())return;let E;try{E=economy();}catch(e){return;}
   if(E.T!==M.T)return;
   const R=trRoutes(E,kind==='main'?12:6);
-  cv._trR={R,s,ox:M.ox,oy:M.oy};
+  if(M.first!==false)cv._trR={R,s,ox:M.ox,oy:M.oy};
   if(R.partial)schedule(cv);
   const m=HEX_W,bx=[M.x0-m,M.y0-m,M.x1+m,M.y1+m],runs=[];
   for(const r of R.list){if(!r.P||!trInBox(r.P.bb,bx[0],bx[1],bx[2],bx[3],0))continue;const wc=r.vol<5?0:r.vol<12?1:2;for(const pt of r.P.parts)trRunsOf(pt,bx,(i0,i1)=>runs.push({r,pt,i0,i1,wc,t:pt.sea?(r.blk?'B':'s'):r.rail?'r':'d'}));}
@@ -30436,17 +30455,17 @@ MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:trDraw});
 MAP_LAYERS.push({stage:'screen',kinds:['main','visit'],draw:trMarks});
 MFX_LAYERS.push({
   build(f){f.trv=null;if(!trOn()||(f.kind!=='main'&&f.kind!=='visit'))return;const st=f.cv._trR;if(!st)return;
-    const x0=-f.ox/f.s,y0=-f.oy/f.s,x1=(f.w-f.ox)/f.s,y1=(f.h-f.oy)/f.s,v=st.R.list.filter(r=>r.P&&r.CT&&trInBox(r.P.bb,x0,y0,x1,y1,HEX_W));f.trv=v.length?v:null;},
+    const y0=-f.oy/f.s,y1=(f.h-f.oy)/f.s,v=st.R.list.filter(r=>r.P&&r.CT&&mapTurns(f.ox,f.s,f.w).some(o=>trInBox(r.P.bb,-o/f.s,y0,(f.w-o)/f.s,y1,HEX_W)));f.trv=v.length?v:null;},
   busy(f,rm){return !rm&&!!f.trv;},
   draw(f,g,t,rm){if(f.trv)trConvoys(f,g,t,rm);}
 });
 /* the route under the pointer (CSS pixels on the canvas), or null */
 function trHit(cv,x,y){
   const st=cv&&cv._trR;if(!st||!trOn()||!Number.isFinite(x))return null;
-  const {s,ox,oy}=st,mx=(x-ox)/s,my=(y-oy)/s,lim=(trLevel(s)?6:4)/s,T=st.R.T;let best=null,bd=lim;
+  const {s,ox,oy}=st,my=(y-oy)/s,lim=(trLevel(s)?6:4)/s,T=st.R.T;let best=null,bd=lim;
   for(const r of st.R.list){
-    const P=r.P;if(!P||mx<P.bb[0]-lim||mx>P.bb[2]+lim||my<P.bb[1]-lim||my>P.bb[3]+lim)continue;
-    let near=false;for(const i of [r.ai,r.bi]){const c=T.list[i].cap;if(Math.hypot(MAP.cx[c]-mx,MAP.cy[c]-my)*s<10)near=true;}if(near)continue;
+    const P=r.P;if(!P)continue;let mx=(x-ox)/s;mx=wrapNear(mx,(P.bb[0]+P.bb[2])/2);if(mx<P.bb[0]-lim||mx>P.bb[2]+lim||my<P.bb[1]-lim||my>P.bb[3]+lim)continue;
+    let near=false;for(const i of [r.ai,r.bi]){const c=T.list[i].cap;if(Math.hypot(wrapDx(MAP.cx[c]-mx),MAP.cy[c]-my)*s<10)near=true;}if(near)continue;
     for(let i=1;i<P.X.length;i++){const d=segDist(mx,my,[P.X[i-1],P.Y[i-1]],[P.X[i],P.Y[i]]);if(d<bd){bd=d;best=r;}}
   }
   return best;
@@ -39026,7 +39045,7 @@ function viewOf(kind,cv){
   return S.mapViews[kind]||(S.mapViews[kind]=(kind==='main'&&homeView(cv))||{z:cv&&cv.clientWidth&&cv.clientWidth/cv.clientHeight<1.2?1.8:1,cx:MAP.W/2,cy:MAP.H/2});
 }
 function mapScale(cv,v){const b=mfxBase(cv);return Math.min(b.clientWidth/MAP.W,b.clientHeight/MAP.H)*v.z;}
-function clampView(cv,v){const s=mapScale(cv,v),hw=cv.clientWidth/2/s,hh=cv.clientHeight/2/s;v.cx=MAP.W<=2*hw?MAP.W/2:clamp(v.cx,hw,MAP.W-hw);v.cy=MAP.H<=2*hh?MAP.H/2:clamp(v.cy,hh,MAP.H-hh);}
+function clampView(cv,v){const s=mapScale(cv,v),hw=cv.clientWidth/2/s,hh=cv.clientHeight/2/s;if(!Number.isFinite(v.cx))v.cx=MAP.W/2;v.cy=MAP.H<=2*hh?MAP.H/2:clamp(v.cy,hh,MAP.H-hh);}
 function hexPath(g,i,rad){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x+HCX[0]*rad,y+HCY[0]*rad);for(let k=1;k<6;k++)g.lineTo(x+HCX[k]*rad,y+HCY[k]*rad);g.closePath();}
 /* the same hexagon for fills: fill() closes it anyway, and closePath on a path of thousands of hexes is slow */
 function hexFill(g,i,rad){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x+HCX[0]*rad,y+HCY[0]*rad);for(let k=1;k<6;k++)g.lineTo(x+HCX[k]*rad,y+HCY[k]*rad);}
@@ -39098,10 +39117,14 @@ function drawMap(cv,P){
   if(tc.width!==PW||tc.height!==PH){tc.width=PW;tc.height=PH;}
   const g=tc.getContext('2d');if(!g)return;
   const kind=cv.dataset.map,v=viewOf(kind,cv);clampView(cv,v);
-  const s=mapScale(cv,v),ox=w/2-v.cx*s,oy=h/2-v.cy*s,draft=mapDraftOn;
+  const s=mapScale(cv,v),OX=w/2-v.cx*s,oy=h/2-v.cy*s,draft=mapDraftOn;
   const cs=getComputedStyle(document.documentElement),C=k=>cs.getPropertyValue(k).trim();
   const col={sea:C('--sea'),sea2:C('--sea-2'),land:C('--land'),hill:C('--hill'),mount:C('--mount'),forest:C('--forest'),marsh:C('--marsh'),arid:C('--arid'),polder:C('--polder'),coast:C('--coast'),ink:C('--ink'),sheet:C('--sheet'),stamp:C('--stamp'),down:C('--down'),accent:C('--accent')};
   g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=col.sea;g.fillRect(0,0,w,h);
+  /* once for each turn of the globe on screen (see the globe), the one nearest the view's centre first: it wins
+     the room for names, and only it draws the layers fixed to the screen and leaves state for the overlay */
+  const boxes=[];let first=true,M0=null;
+  for(const ox of mapTurns(OX,s,w,HEX_W*s)){
   g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);
   const x0=-ox/s-HEX_W,x1=(w-ox)/s+HEX_W,y0=-oy/s-2*HEX_R,y1=(h-oy)/s+2*HEX_R;
   const T=mapTerr(kind),byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]),byO=new Map();
@@ -39118,7 +39141,7 @@ function drawMap(cv,P){
   else if(!useTiles){byP.forEach((cells,p)=>{if(p)fillCells(cells,col[PAINT_COL[p]]);});if(!draft)rlfFacets(g,byP[4],col);}
   if(baked&&kind==='atlas'&&RECL.time.size){const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
   /* layers marked fixed sit at one place on the screen (the season badge): never on a plate, which moves */
-  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp:baked,draft,fixed:[]},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||(P&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
+  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp:baked,draft,fixed:[],first},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||((P||!first)&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
   ML('terrain');
   g.globalAlpha=parseFloat(C('--terr-a'))||0.5;
   for(const [o,cells] of byO)fillCells(cells,mapTerrCol(T,o,kind));
@@ -39159,7 +39182,7 @@ function drawMap(cv,P){
   if(kind!=='found'&&kind!=='atlas')for(const r of activeSurveys()){const [px,py]=scr(r.c);if(off(px,py))continue;g.beginPath();g.arc(px,py,7,0,Math.PI*2);g.moveTo(px-13,py);g.lineTo(px-4,py);g.moveTo(px+4,py);g.lineTo(px+13,py);g.moveTo(px,py-13);g.lineTo(px,py-4);g.moveTo(px,py+4);g.lineTo(px,py+13);g.strokeStyle=col.stamp;g.lineWidth=2;g.stroke();}
   if(kind==='main'&&S.mapMig)drawMigration(g,T,scr,col,s);
   M.scr=scr;M.off=off;ML('screen');
-  const zf=clamp(0.8+0.3*s,0.9,1.4),boxes=[];
+  const zf=clamp(0.8+0.3*s,0.9,1.4);
   const order=T.list.map((x,i)=>i).filter(i=>T.count[i]>0).sort((a,b)=>(T.list[b].me?1:0)-(T.list[a].me?1:0)||T.count[b]-T.count[a]);
   g.textAlign='center';g.textBaseline='alphabetic';g.lineJoin='round';
   for(const i of order){
@@ -39176,9 +39199,11 @@ function drawMap(cv,P){
   drawSites(g,scr,off,col,s,boxes,kind);
   mfxCaps(g,T,scr,off,col);
   M.boxes=boxes;ML('top');
-  if(P){P.v={s,ox,oy,w,h};return;}
-  cv._mmf=draft?null:{cx:v.cx,cy:v.cy,s,fixed:M.fixed};cv._mmcol=col;
-  mfxAfter(cv,kind,T,s,ox,oy,w,h,dpr,col);
+  if(first)M0=M;first=false;
+  }
+  if(P){P.v={s,ox:OX,oy,w,h};return;}
+  cv._mmf=draft?null:{cx:v.cx,cy:v.cy,s,fixed:M0?M0.fixed:[]};cv._mmcol=col;
+  mfxAfter(cv,kind,mapTerr(kind),s,OX,oy,w,h,dpr,col);
   if(!draft)mapPrewarm(cv);
 }
 const pendingDraw=new Set();
