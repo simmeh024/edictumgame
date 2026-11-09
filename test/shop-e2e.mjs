@@ -17,7 +17,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), SECRET = 'pdl_ntfset_e2e', H = 36e5, DAY = 864e5;
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── Paddle, played by this test ── */
@@ -101,6 +101,10 @@ check('the Old Republic Pack is on sale', /Old Republic Pack/.test(await txt(A, 
 await openDr(A, 'orpack');
 check('its drawer previews the card, arms, flag, stamp, marker and paper', !!(await A.$('.shop-orpack .hero.cd-marble')) && (await A.evaluate(() => document.querySelectorAll('.shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-orpack-price')));
 await A.locator('.shop-dr .shop-orpack').screenshot({ path: path.join(OUT, 'shop-or-drawer.png') });
+check('the Age of Sail Pack is on sale', /Age of Sail Pack/.test(await txt(A, '.shop-cd[data-p="sailpack"]')));
+await openDr(A, 'sailpack');
+check('its drawer previews the chart card, arms, flag, stamp, lighthouse and log', !!(await A.$('.shop-sailpack .hero.cd-chart')) && (await A.evaluate(() => document.querySelectorAll('.shop-sailpack .shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-sailpack-price')));
+await A.locator('.shop-dr .shop-sailpack').screenshot({ path: path.join(OUT, 'shop-sail-drawer.png') });
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
