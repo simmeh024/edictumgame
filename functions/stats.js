@@ -5,6 +5,7 @@
 // engaged players and the recruiters), and they are public in the game anyway.
 // Pure: it is handed a Firestore instance and a way to list accounts, so the job and the tests can use it as well.
 import { nationText } from './nationtext.js';
+import { rowMore } from './stats-more.js';
 
 export const DAY = 86400000;
 const KEEP = 30 * DAY;   // rulings older than this are not kept per nation (a record holds its latest 80 at most)
@@ -59,6 +60,7 @@ export function nationRow(id, shared, priv, now) {
     d14: days.size, r14: ans.filter(a => a[2] >= 0 && a[0] > from).length,
   };
   row.eng = engagement(row);
+  Object.assign(row, rowMore(r, now));
   return row;
 }
 /* How engaged a player is, 0 to 100, from four parts: the days of the last fortnight they played (40), the edicts they

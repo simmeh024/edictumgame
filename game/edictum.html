@@ -43597,7 +43597,7 @@ document.addEventListener('click',async e=>{
    every nation's save and every sign-in account (and keeps the count ten minutes), and jobs/stats records the headline
    figures every night for the daily history. Charts are plain HTML in the theme's colours: one series each, every value
    in the game's own tooltip on hover (data-tip), the latest under the chart, and all of them as a table too. */
-const ADMST={reg:'',d:{},busy:false,err:''};
+const ADMST={reg:'',d:{},busy:false,err:'',exp:'',expMsg:''};
 const ST_FEAT={settled:'Settled a capital',land:'Claimed land',build:'Has a building',cities:'Has two cities or more',trade:'In a trade deal',explore:'Explored a site',alliance:'In an alliance',war:'At war',letters:'Wrote to another nation',assembly:'Took part in the Assembly',games:'Entered an event at the Games',covert:'Ran a covert operation',desk:'Cleared a daily desk',space:'On the Moon, Mars or the belt',moved:'Moved to another region',holiday:'On holiday now'};
 async function stLoad(refresh){
   if(ADMST.busy)return;const reg=ADMST.reg;ADMST.busy=true;ADMST.err='';render();
@@ -43652,6 +43652,80 @@ function stNations(d){
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="num">Population</th><th>Founded</th><th>Last active</th><th class="num">Edicts decided</th><th class="num">Today</th><th class="num">Cities</th><th class="num">Hexes claimed</th><th class="num">Tutorial steps</th><th>Player</th></tr></thead><tbody>
     ${L.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${fmtPop(Number(x.pop)||0)}</td><td>${x.founded?esc(fmtDate(x.founded)):'–'}</td><td>${x.t?esc(rel(x.t)):'–'}</td><td class="num">${stN(x.dec)}</td><td class="num">${stN(x.ruled1)}</td><td class="num">${stN(x.cities)}</td><td class="num">${stN(x.claims)}</td><td class="num">${stN(x.tut)}</td><td><div class="row"><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>${ADMST.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(ADMST.reg,x.id)}</div></td></tr>`).join('')}</tbody></table></div>`;
 }
+/* ───────── more statistics: content use, regions and social, operations (functions/stats-more.js) ───────── */
+const ST_REACH={museum:'Has a Museum collection',press:'Runs a newspaper (Dispatch)',mission:'Mission Control letters',willow:'Willow Street letters',edicts:'Has an edict in force',achievements:'Has an achievement'};
+const stTbl=(head,rows)=>`<div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map(h=>`<th${h[1]?' class="num"':''}>${h[0]}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+const stFold=(sum,body)=>`<details class="adst-tbl"><summary>${sum}</summary>${body}</details>`;
+const stDesk=k=>{const rare=k.startsWith('rare:'),b=rare?k.slice(5):k;let t=b;try{t=DD_TASKS[b]?DD_TASKS[b].t(1):b;}catch(e){}return (rare?'Rare: ':'')+t;};
+function stContent(d){
+  const M=d.more.content,n=M.nations,P=Object.keys(POLICIES),E=P.map(k=>[k,M.edicts[k]||0]).sort((a,b)=>b[1]-a[1]),none=E.filter(x=>!x[1]);
+  const A=ACH.map(a=>[a,M.ach[a.id]||0]).sort((a,b)=>b[1]-a[1]),never=A.filter(x=>!x[1]),rare=A.filter(x=>x[1]).slice(-15).reverse();
+  const reach=Object.entries(Object.assign({},ST_FEAT,ST_REACH)).filter(([k])=>k!=='holiday').map(([k,l])=>[l,M.reach[k]||0]).sort((a,b)=>b[1]-a[1]);
+  const desk=Object.entries(M.desk).sort((a,b)=>b[1].shown-a[1].shown);
+  return `<div class="adst-grid">
+    <div class="adst-fig"><h3>Edicts in force</h3><p class="hint">Of ${stN(n)} nations, how many have each edict in force now. ${stN(none.length)} of ${stN(P.length)} edicts are in force nowhere.</p>
+      <div class="adst-rows">${E.slice(0,10).map(([k,v])=>stBar(esc(POLICIES[k][0]),v,n)).join('')}</div>
+      ${stFold(`All ${stN(P.length)} edicts`,stTbl([['Edict'],['Nations',1],['Share',1]],E.map(([k,v])=>`<tr><td>${esc(POLICIES[k][0])}</td><td class="num">${stN(v)}</td><td class="num">${stPc(v,n)}</td></tr>`)))}
+      ${none.length?stFold(`In force nowhere (${stN(none.length)})`,`<p class="hint">${none.map(([k])=>esc(POLICIES[k][0])).join(' · ')}</p>`):''}</div>
+    <div class="adst-fig"><h3>Achievement rarity</h3><p class="hint">Of ${stN(n)} nations. ${stN(never.length)} of ${stN(ACH.length)} achievements nobody has earned yet: too hard, or broken?</p>
+      <div class="adst-rows">${rare.map(([a,v])=>stBar(esc(a.n),v,n)).join('')}</div>
+      ${stFold(`All ${stN(ACH.length)} achievements`,stTbl([['Achievement'],['Nations',1],['Share',1]],A.map(([a,v])=>`<tr><td>${esc(a.n)} <span class="hint">${esc(a.d||'')}</span></td><td class="num">${stN(v)}</td><td class="num">${stPc(v,n)}</td></tr>`)))}
+      ${never.length?stFold(`Never earned (${stN(never.length)})`,`<p class="hint">${never.map(([a])=>esc(a.n)).join(' · ')}</p>`):''}</div>
+    <div class="adst-fig"><h3>Feature reach</h3><p class="hint">Of the ${stN(M.active30)} nations active this month, how many use each part of the game.</p>
+      <div class="adst-rows">${reach.map(([l,v])=>stBar(esc(l),v,M.active30)).join('')}</div></div>
+    <div class="adst-fig"><h3>Daily desk</h3><p class="hint">Today’s and yesterday’s desks of ${stN(M.deskNations)} nations active this month: ${stPc(M.deskClear,M.deskNations)} cleared all three. By task, how often it was done once given.</p>
+      <div class="adst-rows">${desk.length?desk.map(([k,v])=>stBar(esc(stDesk(k)),v.done,v.shown,` of ${stN(v.shown)}`)).join(''):'<p class="hint">No desks in the last two days.</p>'}</div></div>
+  </div>`;
+}
+function stSocial(d){
+  const S2=d.more.social,R=d.more.regions,regs=Object.entries(R).sort((a,b)=>b[1].nations-a[1].nations);
+  const forecast=(id,r)=>{const cap=regCap(id),per=r.weeks.slice(-4).reduce((a,b)=>a+b,0)/4,left=cap-r.a30;if(left<=0)return 'Full now';if(!per)return 'No growth';const w=left/per;return w>104?'Over two years':'In about '+(w<1.5?'a week':Math.round(w)+' weeks');};
+  return `${regs.length?`<h3 class="help-h3">Region fill and growth</h3><p class="hint">Fill is this month’s active nations against the region’s room. The forecast takes the last four weeks’ foundings, so it is rough.</p>
+    ${stTbl([['Region'],['Nations',1],['Active this month',1],['Room',1],['Fill',1],['Founded per week (8 weeks)'],['Full'],['Alliances',1],['Allied',1],['No contacts',1]],regs.map(([id,r])=>`<tr><td>${esc(regName(id))}</td><td class="num">${stN(r.nations)}</td><td class="num">${stN(r.a30)}</td><td class="num">${stN(regCap(id))}</td><td class="num">${stPc(r.a30,regCap(id))}</td><td>${r.weeks.join(' · ')}</td><td>${esc(forecast(id,r))}</td><td class="num">${stN(r.alliances)}</td><td class="num">${stN(r.inAlliance)}</td><td class="num">${stN(r.loners)}</td></tr>`))}`:''}
+    <div class="adst-grid">
+    <div class="adst-fig"><h3>Contacts</h3><p class="hint">Of the ${stN(S2.active30)} nations active this month.</p><div class="adst-rows">
+      ${stBar('In an alliance',S2.allied,S2.active30)}${stBar('Wrote a letter',S2.writers,S2.active30)}${stBar('In a trade deal',S2.traders,S2.active30)}${stBar('No contact with any nation',S2.loners,S2.active30)}</div></div>
+    <div class="adst-fig"><h3>Alliance sizes</h3><p class="hint">${stN(S2.alliances)} ${S2.alliances===1?'alliance':'alliances'}, by members (players).</p><div class="adst-rows">
+      ${['1','2-4','5-9','10+'].map(k=>stBar(k==='1'?'One member':k+' members',S2.sizes[k]||0,S2.alliances)).join('')}</div></div>
+    ${stCols('Posts each day','Board posts, news comments and Community Board posts.',S2.posts.map(x=>[stDay(x.d),x.n]),'posts')}
+  </div>`;
+}
+function stOps(d){
+  const O=d.more.ops,T=O.tickets,B=O.bugs,days=O.days;
+  return `<div class="adst-grid">
+    ${stCols('Players with the game open each day','Players whose game reported its save health (last 7 days).',days.map(x=>[stDay(x.d),x.players]),'players')}
+    ${stCols('Tabs with a save error each day','Game tabs that reported a save error.',days.map(x=>[stDay(x.d),x.errors]),'tabs')}
+    ${stCols('Tabs with a save conflict each day','Game tabs where a save met a newer copy (another device).',days.map(x=>[stDay(x.d),x.conflicts]),'tabs')}
+    <div class="adst-fig"><h3>Sessions</h3><p class="hint">${stN(O.players7)} players in the last 7 days opened the game in ${stN(O.tabsPerPlayerDay)} tabs a day each (the median). Session length is not recorded: a report keeps only its latest time.</p>
+      ${O.errors.length?`<h3 class="help-h3">Save errors</h3>`+stTbl([['Error'],['Tabs',1]],O.errors.map(([e,v])=>`<tr><td><code>${esc(e)}</code></td><td class="num">${stN(v)}</td></tr>`)):'<p class="hint">No save errors reported.</p>'}</div>
+  </div>
+  <h3 class="help-h3">Pages visited</h3><p class="hint">The page each game tab was on when it last reported, in the last 7 days.</p>
+  <div class="adst-rows">${O.pages.slice(0,25).map(p=>stBar(esc(p.pg),p.players,O.players7,` players · ${stN(p.tabs)} tabs`)).join('')}</div>
+  <h3 class="help-h3">Bugs and support</h3><p class="hint">The last 90 days. ${stN(B.n)} bug ${B.n===1?'report':'reports'} (${Object.entries(B.st).map(([k,v])=>`${stN(v)} ${esc(k)}`).join(', ')||'none'}); ${stN(T.n)} support ${T.n===1?'ticket':'tickets'}, ${stN(T.open)} open of which ${stN(T.unanswered)} unanswered. The team’s first answer came after ${stN(T.firstAnswerH)} hours (the median of ${stN(T.answered)}).</p>
+  ${stTbl([['Week from'],['Bug reports',1],['Tickets',1]],O.weeks.slice().reverse().map(w=>`<tr><td>${esc(fmtDate(w.w))}</td><td class="num">${stN(w.bugs)}</td><td class="num">${stN(w.tickets)}</td></tr>`))}`;
+}
+/* Export everything: the server sends the world, every region, every nation's row and the shop in one piece; the page
+   adds a glossary and saves one JSON file, made for a spreadsheet or for an AI to read. */
+const ST_GLOSSARY={
+  about:'Edictum admin statistics export. Times are milliseconds since 1970 (UTC) unless a field is a YYYY-MM-DD day. "a1/a7/a30" are nations that saved in the last 1/7/30 days. Nations are player countries; a nation id is its player account id.',
+  world:'The Statistics page for all regions (functions/stats.js summarize). more = content use, regions and social, operations (functions/stats-more.js).',
+  regions:'The same page for each region, keyed by region id.',
+  shop:'The Shop statistics page (functions/shop-stats.js). Money in each currency\'s smallest unit (cents). timing = how long buyers had played before their first purchase.',
+  nations:'One row per nation: population (millions), founded, lastActive, decided (edicts decided in all), decided14d, daysPlayed14d, engagement (0-100), features it uses now, edictsInForce, achievements.',
+  labels:'Readable names for edict, achievement and feature ids.',
+};
+async function stExport(){
+  if(ADMST.exp)return;ADMST.exp='Gathering every region…';render();
+  try{
+    const d=await adminRequest({op:'statsExport'});
+    const labels={edicts:Object.fromEntries(Object.entries(POLICIES).map(([k,v])=>[k,v[0]])),achievements:Object.fromEntries(ACH.map(a=>[a.id,a.n])),features:Object.assign({},ST_FEAT,ST_REACH),regions:Object.fromEntries(REGIONS.map(r=>[r.id,r.name]))};
+    const out=Object.assign({glossary:ST_GLOSSARY,exportedAt:new Date().toISOString()},d,{labels});
+    const url=URL.createObjectURL(new Blob([JSON.stringify(out,null,1)],{type:'application/json'})),a=document.createElement('a');
+    a.href=url;a.download='edictum-stats-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    ADMST.exp='';ADMST.expMsg=`Saved ${a.download}: ${stN(d.nations.length)} nations, ${stN(Object.keys(d.regions).length)} regions and the shop.`;
+  }catch(e){ADMST.exp='';ADMST.expMsg='The export failed: '+(e.message||e);}
+  if(S.view==='admin-stats')render();
+}
 function adminStatsView(){
   const reg=ADMST.reg,d=ADMST.d[reg],all=!reg,where=all?'every region':regName(reg);
   if(!d&&!ADMST.busy&&!ADMST.err)setTimeout(()=>stLoad(false),0);
@@ -43693,12 +43767,14 @@ function adminStatsView(){
       <div class="adst-fig"><h3>Devices</h3><p class="hint">Players whose game reported from each kind of device in the last 24 hours; one playing on both counts twice.</p>
         <div class="adst-rows">${stBar('Desktop',dev.Desktop||0,devAll)}${stBar('Phone or tablet',dev.Mobile||0,devAll)}</div>
         <p class="hint" style="margin-top:14px">${stN(d.finery)} ${d.finery===1?'player owns':'players own'} cosmetics from the Shop. ${d.posts?`${stN(d.posts.week)} board posts this week, ${stN(d.posts.all)} on the ${all?'boards':'board'} in all.`:''}</p></div></div>`)}
+    ${d.more?sec('Content use','What players use: edicts, achievements, the daily desk and each part of the game.',stContent(d))+sec(all?'Regions and social':'Region and social','',stSocial(d))+sec('Operations','Save health, pages, bug reports and support.',stOps(d)):''}
     ${sec('Recruiting','Players who founded a nation through another player’s recruiting link, and whether they stayed.',stRecruits(d))}
     ${all?sec('Regions','Choose a region to see its figures and its nations.',stRegions(d)):sec(`Nations in ${esc(regName(reg))}`,'',stNations(d))}`;
   }
   return admShell('admin-stats',`<p class="eyebrow">Admin portal</p><h1 class="display">Statistics</h1>
     <p class="lede">How players use Edictum in ${esc(where)}: counted on the server from every nation’s save and every sign-in account, and kept for ten minutes.${d?` Counted ${esc(rel(d.at))}.`:''} <button type="button" class="linkish" data-act="st-refresh"${ADMST.busy?' disabled':''}>${ADMST.busy?'Counting…':'Count again'}</button></p>
-    <div class="adst-pick"><div class="field"><label for="st-reg">Region</label><select class="input" id="st-reg"><option value="">All regions</option>${REGIONS.slice().sort((a,b)=>a.name<b.name?-1:1).map(r=>`<option value="${r.id}"${reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>${reg?`<button type="button" class="btn ghost" data-act="st-reg" data-v="">Back to all regions</button>${obsRegionBtn(reg,'btn')}`:''}</div>
+    <div class="adst-pick"><div class="field"><label for="st-reg">Region</label><select class="input" id="st-reg"><option value="">All regions</option>${REGIONS.slice().sort((a,b)=>a.name<b.name?-1:1).map(r=>`<option value="${r.id}"${reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>${reg?`<button type="button" class="btn ghost" data-act="st-reg" data-v="">Back to all regions</button>${obsRegionBtn(reg,'btn')}`:''}<button type="button" class="btn" data-act="st-export"${ADMST.exp?' disabled':''}>${ADMST.exp?'Exporting…':'Export everything'}</button></div>
+    ${ADMST.exp||ADMST.expMsg?`<p class="hint" role="status">${esc(ADMST.exp||ADMST.expMsg)}${ADMST.exp?'':' One JSON file with every figure, every region, every nation and the shop, with a glossary: ready for a spreadsheet or an AI to analyse.'}</p>`:''}
     ${ADMST.busy?`<p class="hint" role="status">Counting every nation${all?'':' in '+esc(regName(reg))}…</p>`:''}${ADMST.err?`<p class="err" role="alert">${esc(ADMST.err)} <button type="button" class="linkish" data-act="st-retry">Try again</button></p>`:''}${body}`);
 }
 function stPick(reg){ADMST.reg=REG_BY_ID[reg]?reg:'';ADMST.err='';ADIN.fun=null;if(!ADMST.d[ADMST.reg])stLoad(false);else render();const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});window.scrollTo(0,0);}
@@ -43706,6 +43782,7 @@ document.addEventListener('change',e=>{if(e.target.id==='st-reg'&&S.isOwner)stPi
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
   if(a==='st-reg'){stPick(el.dataset.v);return;}
   if(a==='st-refresh'){stLoad(true);return;}
+  if(a==='st-export'){stExport();return;}
   if(a==='st-retry'){ADMST.err='';stLoad(false);}});
 
 /* ───────── shop statistics ─────────
@@ -43753,6 +43830,9 @@ function adminShopView(){
       ${d.products.map(p=>`<tr><td>${esc(p.name)}</td><td class="num">${shMoney(p.amount,cur)}</td><td class="num">${stN(p.sold)}</td><td class="num">${stN(p.kept)}</td><td class="num">${stN(p.refunded)}</td><td class="num">${stN(p.gifts)}</td><td class="num">${shMoney(p.list,cur)}</td><td>${shSums(p.money)}</td><td class="num">${stN(p.opened30)}</td><td class="num">${stN(p.paid30)}</td></tr>`).join('')}</tbody></table></div>
       <p class="hint">A Club subscription counts once per paid month or year: renewals are purchases too.</p>`)}
     ${sec('The Chancery Club',`${stN(C.members)} ${C.members===1?'member':'members'} with a live subscription; ${stN(C.canceling)} of them cancelled, ending with the paid period.`,subsAll?`<div class="adst-rows">${Object.entries(C.status).sort((a,b)=>b[1]-a[1]).map(([k,v])=>stBar(esc(SH_STATUS[k]||k),v,subsAll)).join('')}</div>`:'<p class="hint">No subscriptions yet.</p>')}
+    ${d.timing&&d.timing.buyers?sec('Who buys, and when',`${stN(d.timing.buyers)} buyers. They first paid after ${stN(Math.round(d.timing.medianDays))} days of play, the median, having decided ${stN(d.timing.medianDecided)} edicts by now (the median). ${subsAll?`Club churn: ${stPc(C.status.canceled||0,subsAll)} of subscriptions ever started have ended.`:''}`,`<div class="adst-grid"><div class="adst-fig"><h3>Time to first purchase</h3><div class="adst-rows">${Object.entries(d.timing.bands).map(([k,v])=>stBar(esc(cap1(k)),v,d.timing.buyers)).join('')}</div></div>
+      <div class="adst-fig"><h3>First thing bought</h3><div class="adst-rows">${Object.entries(d.timing.firstProduct).sort((a,b)=>b[1]-a[1]).map(([k,v])=>stBar(esc((d.products.find(p=>p.k===k)||{}).name||k||'–'),v,d.timing.buyers)).join('')}</div></div></div>
+      <h3 class="help-h3">Checkout to payment, by product (30 days)</h3><div class="adst-rows">${d.products.filter(p=>p.opened30).map(p=>stBar(esc(p.name),p.paid30,p.opened30,` paid of ${stN(p.opened30)} checkouts`)).join('')||'<p class="hint">No checkouts opened in the last 30 days.</p>'}</div>`):''}
     ${sec('Latest purchases','The 30 most recent payments.',d.recent.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Product</th><th>Nation</th><th>Paid</th><th>State</th><th>Player</th></tr></thead><tbody>
       ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc((d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
   }

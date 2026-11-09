@@ -240,6 +240,12 @@ const stText = () => text(A, '.adm-main');
 check('Statistics counts the players, their edicts, the tutorial and every region', await until(async () => { const t = await stText(); return /active today/.test(t) && /Coming back/.test(t) && /Getting started/.test(t) && /Choose where your capital stands/.test(t) && /Meridian Reach/.test(t) && /Sign-ins/.test(t); }, 30000), (await stText()).slice(0, 400));
 check('a chart names the day and its count under the pointer', await (async () => { await A.hover('.adst-cols .adst-c:last-child'); return await until(async () => /^\d+ \w+: \d+ nations$/.test(await A.evaluate(() => { const t = document.getElementById('vtip'); return t && !t.hidden ? t.textContent : ''; }))); })());
 await A.screenshot({ path: OUT + '/admin-stats.png', fullPage: true });
+check('Statistics shows content use, regions and social, and operations', await until(async () => { const t = await stText(); return /Content use/.test(t) && /Edicts in force/.test(t) && /Achievement rarity/.test(t) && /Region fill and growth/.test(t) && /Operations/.test(t) && /Pages visited/.test(t); }, 30000), (await stText()).slice(0, 400));
+{
+  const [dl] = await Promise.all([A.waitForEvent('download', { timeout: 120000 }), A.click('[data-act="st-export"]')]);
+  const j = JSON.parse(await (await import('node:fs/promises')).readFile(await dl.path(), 'utf8'));
+  check('Export everything saves one JSON file with every region, every nation, the shop and a glossary', /^edictum-stats-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename()) && j.glossary && j.world?.more && j.regions?.meridian && j.nations.some(x => x.name === 'Adminland') && j.shop && j.labels?.edicts?.conscription && !JSON.stringify(j).includes('@'), Object.keys(j).join(','));
+}
 await A.selectOption('#st-reg', 'meridian');
 check('choosing a region lists its nations', await until(async () => { const t = await stText(); return /Nations in Meridian Reach/.test(t) && /Adminland/.test(t) && !/Choose a region to see/.test(t); }, 30000));
 const wide = A.viewportSize(); await A.setViewportSize({ width: 390, height: 844 });
