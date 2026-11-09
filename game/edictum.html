@@ -26447,8 +26447,9 @@ function regFull(id){const n=Math.max(RSTAT.n[id]||0,id===REG.id?regPlayers(id).
 function foundAutoRegion(){
   if(tabPassive)return false;
   let chose=null;try{chose=localStorage.getItem('statehood.region');if(sessionStorage.getItem('statehood.autoreg'))return false;}catch(e){return false;}
-  if(chose||S.draftKept||!regFull(REG.id)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
-  const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)&&!regDisabled(R.id)).sort((a,b)=>Date.now()<QUIET_FIRST_UNTIL?(RSTAT.n[a.id]||0)-(RSTAT.n[b.id]||0):(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
+  const quiet=Date.now()<QUIET_FIRST_UNTIL&&!regDisabled(REG.id)&&REGIONS.every(R=>regDisabled(R.id)||RSTAT.n[R.id]!=null);
+  if(chose||S.draftKept||!(regFull(REG.id)||quiet)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
+  const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)&&!regDisabled(R.id)&&(!quiet||regFull(REG.id)||(RSTAT.n[R.id]||0)<(RSTAT.n[REG.id]||0))).sort((a,b)=>Date.now()<QUIET_FIRST_UNTIL?(RSTAT.n[a.id]||0)-(RSTAT.n[b.id]||0):(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
   if(!open.length)return false;
   draftKeep(open[0].id);try{localStorage.setItem('statehood.region',open[0].id);sessionStorage.setItem('statehood.autoreg','1');}catch(e){return false;}
   location.reload();return true;
