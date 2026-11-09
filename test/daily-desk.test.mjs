@@ -23,10 +23,10 @@ function desk(over={}){
     num0:v=>Number.isFinite(v)?v:0,roundStock:s=>({...s}),resName:r=>r,czHas:(o,k)=>Object.hasOwn(o,k),
     BUILDINGS:{farm:{n:'Farm Estates'},sawmill:{n:'Sawmill'},market:{n:'Market Hall'}},...over});
   vm.runInContext(fn('hash')+'\n'+fn('rng')+'\n'+fn('tallyOf')+'\n'+source.slice(start,end)+
-    '\nthis.T={ddRoll,ddDay,DD_TASKS,STK_UNLOCKS,earned:n=>landEarned(n),src:UNLOCK_SOURCES};',ctx);
+    '\nthis.T={ddRoll,ddRare,ddDay,DD_TASKS,DD_RARE,STK_UNLOCKS,earned:n=>landEarned(n),src:UNLOCK_SOURCES};',ctx);
   return {...ctx.T,
     save(n,old,now=NOW){const out=[];for(const h of ctx.COMMIT_HOOKS){const m=h(n,old,now);if(m)out.push(...m);}return out;},
-    reload(n){const d=JSON.parse(JSON.stringify(n)),o={...d};for(const k of ['dd','ddc','stk','ffb'])delete o[k];for(const h of ctx.NORM_HOOKS)h(o,d);return o;}};
+    reload(n){const d=JSON.parse(JSON.stringify(n)),o={...d};for(const k of ['dd','ddc','ddr','stk','ffb'])delete o[k];for(const h of ctx.NORM_HOOKS)h(o,d);return o;}};
 }
 const nation=over=>({name:'Deskland',seed:'s1',loc:5,freq:30,stock:{food:20,timber:20,oil:20,iron:20,goods:20},tly:{iss:5,claim:2},cities:[{id:'cap',c:5,b:[]}],...over});
 const fixedDesk=(D,day)=>({d:D.ddDay(day||NOW),q:[['iss',2,'timber','iron'],['dm',1,'oil','goods'],['visit',1,'timber','goods']],c:[0,0,0],p:[0,0,0]});
@@ -143,4 +143,21 @@ test('saved records keep only well-formed desks, counts and builds',()=>{
   for(const bad of [{dd:{d:'30/10/2026',q:[['iss',3,'oil','iron']]}},{dd:{d:'2026-10-30',q:[['nap',1,'oil','iron']]}},{dd:{d:'2026-10-30',q:[['iss',3,'oil','oil']]}},{dd:{d:'2026-10-30',q:[['iss',99,'oil','iron']]}},
     {ddc:-1},{ddc:1.5},{stk:{n:0,d:'2026-10-30'}},{stk:{n:2,d:'yesterday'}},{ffb:{k:'wonder',c:'cap',s:1,d:2}},{ffb:{k:'farm',c:'cap',s:5,d:2}}]){
     const o=D.reload(bad);for(const k of ['dd','ddc','stk','ffb'])assert.equal(o[k],undefined,JSON.stringify(bad));}
+});
+
+test('a rare task every day, harder than the three and not one of them where it can be, paying resources and 3 land credits',()=>{
+  const D=desk(),n=nation();
+  for(let i=1;i<=28;i++){const day='2026-11-'+String(i).padStart(2,'0'),q=D.ddRoll(n,day),r=D.ddRare(n,day,q);
+    assert.ok(r&&D.DD_RARE[r.k],'there is always a rare task');eq(r,D.ddRare(n,day,q),'fixed by seed and date');
+    assert.ok(!q.some(x=>x[0]===r.k),'not one of the three');assert.ok(r.g>=D.DD_RARE[r.k][0]&&r.g<=D.DD_RARE[r.k][1]);}
+  let m=nation();m.dd={...fixedDesk(D),r:{k:'iss',g:3,c:0,p:0}};m.stk={n:1,d:D.ddDay(NOW)};
+  let [a,old]=next(m,x=>{x.tly.iss=7;});D.save(a,old);assert.equal(a.dd.r.c,2);assert.equal(a.dd.r.p,0);
+  [a,old]=next(a,x=>{x.tly.iss=8;});const notes=D.save(a,old);
+  assert.ok(notes.some(s=>/Rare task done: Answer 3 edicts\. \+5 iron, \+10 oil, \+20 timber, \+30 food and \+3 land credits/.test(s)),notes.join(' | '));
+  assert.equal(a.dd.r.p,1);assert.equal(a.ddr,1);assert.equal(D.earned(a),BASE+3,'three land credits');
+  [a,old]=next(a,x=>{x.tly.iss=12;});D.save(a,old);assert.equal(a.ddr,1,'paid once');
+  eq(D.reload(a).dd.r,{k:'iss',g:3,c:3,p:1});assert.equal(D.reload(a).ddr,1);
+});
+test('a desk drawn before the rare task existed gains one at its next save',()=>{
+  const D=desk(),n=nation();n.dd=fixedDesk(D);n.stk={n:1,d:D.ddDay(NOW)};const [a,old]=next(n,()=>{});D.save(a,old);assert.ok(a.dd.r&&D.DD_RARE[a.dd.r.k]);
 });
