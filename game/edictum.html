@@ -51789,7 +51789,9 @@ function shopCertHTML(n){
 museumView=(f=>function(now){
   const h=f.apply(this,arguments),vis=!!(S.museumFor&&S.museumFor!==myId()),hall=S.muHall||'entrance';
   if(hall!=='entrance'||!S.nation)return h;
-  return h.replace('<div class="mu-hall" data-hall="entrance">',()=>'<div class="mu-hall" data-hall="entrance">'+(!vis&&shopOwns('founder')?shopCertHTML(S.nation):'')+fwallHTML());
+  const W=(!vis&&shopOwns('founder')?shopCertHTML(S.nation):'')+fwallHTML();
+  if(h.includes('<div class="mu-hall" data-hall="entrance">')&&h.includes('<div class="mw-top">'))return h.replace('<div class="mw-top">',()=>W+'<div class="mw-top">');
+  return h.replace('<div class="mu-hall" data-hall="entrance">',()=>'<div class="mu-hall" data-hall="entrance">'+W);
 })(museumView);
 /* founders/<uid> {no, n, reg, at}: every founding nation, by number, written only by the server; read once a while */
 const FWALL={list:null,at:0,busy:false,all:false};
@@ -53538,7 +53540,8 @@ function mwEntranceExtra(x,now,vis){
       <section class="wd-box"><h2 class="h2">Museum of the Year</h2>${R.length?`<ol class="mw-rank">${R.slice(0,5).map((r,i)=>`<li${r.id===x.id?' class="me"':''}><span>${nationLink(r.id,r.n.name,r.me)}</span><span class="num">${r.s}</span></li>`).join('')}</ol>${pos>4?`<p class="hint">${esc(n.name)} is ${ordinal(pos+1)} of ${R.length}.</p>`:''}<p class="hint">Collection, sets, floors, cases, crowds and exhibitions count. The leading museum’s nation may style itself “Patron of the Arts”.</p>`:'<p class="hint">No museums ranked yet.</p>'}</section>
     </div></div>`;
 }
-muEntrance=(f=>function(x,now,vis){return mwEntranceExtra(x,now,vis)+f.apply(this,arguments);})(muEntrance);
+/* the floor plan is the eye-catcher: it leads, then the wall, the building and the takings */
+muEntrance=(f=>function(x,now,vis){const h=f.apply(this,arguments),i=h.indexOf('<section class="section mu-sec">');return i<0?mwEntranceExtra(x,now,vis)+h:h.slice(0,i)+mwEntranceExtra(x,now,vis)+h.slice(i);})(muEntrance);
 /* the floor plan: a floor switcher, and the rooms of the floors above */
 muPlan=(f=>function(x,now){
   const n=x.n,m=mwOf(n),fl=clamp(S.mwFloor||1,1,3),tabs=`<div class="mw-fltabs" role="group" aria-label="Floors">${[1,2,3].map(i=>`<button class="stab${i===fl?' on':''}" data-act="mw-floor" data-f="${i}"${i>m.fl?' data-locked="1"':''}>${MW_FLOOR_NM[i]}${i>m.fl?' (not built)':''}</button>`).join('')}</div>`;
