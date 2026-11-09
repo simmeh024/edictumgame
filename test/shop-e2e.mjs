@@ -94,7 +94,7 @@ await A.evaluate(() => scrollTo(0, 0));await A.screenshot({ path: path.join(OUT,
 check('the Black Friday Pack is on sale, with its end date', /Black Friday Pack/.test(await txt(A, '.shop-cd[data-p="bfpack"]')) && /Ends in|Last day/.test(await txt(A, '.shop-cd[data-p="bfpack"]')));
 await A.locator('.shop-cd[data-p="bfpack"]').screenshot({ path: path.join(OUT, 'shop-bf-card.png') });
 await openDr(A, 'bfpack');
-check('its drawer previews the Midnight Tag shield and the Night Owl', (await A.evaluate(() => document.querySelectorAll('.shop-bf-pv svg').length)) >= 2 && /€1\.99|1\.99/.test(await txt(A, '#shop-bfpack-price')) && /30 November/.test(await txt(A, '.shop-bfpack')));
+check('its drawer previews the Midnight Tag shield and the Night Owl', (await A.evaluate(() => document.querySelectorAll('.shop-bf-pv svg').length)) >= 4 && (await A.evaluate(() => document.querySelectorAll('.shop-bfpack .lp-i-receipt').length)) === 1 && (await A.evaluate(() => document.querySelectorAll('.shop-bf-cardpv .hero').length)) === 1 && /Bargain-Hunter/.test(await txt(A, '.shop-bfpack')) && /€1\.99|1\.99/.test(await txt(A, '#shop-bfpack-price')) && /30 November/.test(await txt(A, '.shop-bfpack')));
 await A.locator('.shop-dr .shop-bfpack').screenshot({ path: path.join(OUT, 'shop-bf-drawer.png') });
 /* the Old Republic Pack: a card, and a drawer previewing all ten pieces on the player's own nation */
 check('the Old Republic Pack is on sale', /Old Republic Pack/.test(await txt(A, '.shop-cd[data-p="orpack"]')));
