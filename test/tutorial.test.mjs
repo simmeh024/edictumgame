@@ -19,7 +19,7 @@ function rewards(){
     landEarned:n=>10,earnedAt:n=>10,decisions:n=>n.dec||0,cellOf:v=>Number.isInteger(v)?v:-1,tallyOf:(n,k)=>(n.tly&&n.tly[k])||0,
     pgAvailable:(n,k)=>!n.onb||n.onb.u.includes(k),pgNew:n=>!!n.onb,tutSoc:()=>null,tutDevGet:()=>ctx.DEVK||'',tutBlocks:()=>false,civicRegistered:()=>false,
     cityList:n=>n.cities||[],ppCount:n=>n.pp||0,ppStats:n=>({ds:0}),cuRenamed:()=>false,mapOpt:(k,d)=>d,LENS_INFO:{},canFeature:()=>false,featureAt:()=>7,fmtPopShort:p=>p+' million',
-    stockNow:n=>({...n.stock}),roundStock:s=>({...s}),num0:v=>+v||0,stockCap:()=>400,clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),GL_CREDITS:5,GL_GIFT:{iron:5,timber:5,goods:5}});
+    stockNow:n=>({...n.stock}),roundStock:s=>({...s}),num0:v=>+v||0,stockCap:()=>400,clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),GL_CREDITS:10,GL_GIFT:{iron:5,timber:5,goods:5,oil:5}});
   vm.runInContext(fn('list')+'\n'+fn('stockLimit')+'\nconst TUT_V=25,TUT_GS="mrba";const tutFresh=()=>false;\n'+fn('tutNorm')+'\n'+
     between('/* ── tutorial: the lists ── */','/* ── tutorial: end of the lists ── */')+'\n'+
     between('/* ── tutorial: rewards ── */','/* ── tutorial: end of rewards ── */')+'\n'+source.slice(google,glEnd)+
@@ -31,7 +31,8 @@ function rewards(){
   };
 }
 // a nation founded with the progressive reveals: the charter not yet finished
-const nation=over=>({name:'Togetherland',seed:'one',glk:1,onb:{v:1,u:[]},capital:'Port Alder',leader:'President',stock:{food:60,timber:45,iron:25,oil:10,goods:40},...over});
+// b:1, back pay already given: the back-pay test below covers it on its own
+const nation=over=>{const n={name:'Togetherland',seed:'one',glk:1,onb:{v:1,u:[]},capital:'Port Alder',leader:'President',stock:{food:60,timber:45,iron:25,oil:10,goods:40},...over};n.tut={b:1,...(n.tut||{})};return n;};
 
 test('there are four lists, every key is unique, and only the Google step pays outside n.tut.lc',()=>{
   const r=rewards(),L=r.ctx.lists;
@@ -57,33 +58,33 @@ test('an already linked nation never repeats the ordinary one-credit Google tuto
 test('linking still pays its dedicated reward once and remains paid after reloading',()=>{
   const r=rewards();let n=nation({glk:undefined});
   const first=r.save(n);
-  assert.equal(first.length,1);assert.match(first[0],/linked sign-in\. \+5 land credits/);
+  assert.equal(first.length,1);assert.match(first[0],/linked sign-in\. \+10 land credits, to spend on the map, and 5 iron, 5 timber, 5 goods and 5 oil|linked sign-in\. \+10 land credits/);
   assert.equal(n.glk,1);
-  assert.deepEqual(n.stock,{food:60,timber:50,iron:30,oil:10,goods:45});
+  assert.deepEqual(n.stock,{food:60,timber:50,iron:30,oil:15,goods:45});
   for(let i=0;i<5;i++){n=r.reload(n);assert.deepEqual(r.save(n),[]);}
   assert.equal(n.stock.goods,45);
 });
 
 test('ordinary steps still earn their credits once, including on a linked nation',()=>{
   const r=rewards();let n=nation({dec:3,loc:3});
-  assert.match(r.save(n)[0],/earned 2 land credits/);
+  assert.match(r.save(n)[0],/earned 4 land credits, and 3 goods, 5 iron, and 5 oil/);
   assert.deepEqual([...n.tut.lc],['settle','issue']);
   n=r.reload(n);assert.deepEqual(r.save(n),[]);
-  n.deals=[{id:'trade'}];assert.match(r.save(n)[0],/Propose a trade\. \+1 land credit\. Spend it on the map/);
+  n.deals=[{id:'trade'}];assert.match(r.save(n)[0],/Propose a trade\. \+2 land credits and 5 iron and 5 oil\. Spend them on the map/);
   n=r.reload(n);assert.deepEqual(r.save(n),[]);
-  assert.equal(r.ctx.credits(n),10+3); // the Google step’s five are added by a wrapper this sandbox leaves out
-  assert.equal(n.tlc,3,'the total is shared');
-  const pub=JSON.parse(JSON.stringify(n));delete pub.tut;assert.equal(r.ctx.credits(pub),10+3,'another player’s game counts the shared total');
+  assert.equal(r.ctx.credits(n),10+6); // the Google step’s five are added by a wrapper this sandbox leaves out
+  assert.equal(n.tlc,6,'the total is shared');
+  const pub=JSON.parse(JSON.stringify(n));delete pub.tut;assert.equal(r.ctx.credits(pub),10+6,'another player’s game counts the shared total');
   pub.tlc=1e6;assert.ok(r.ctx.credits(pub)<10+200,'and never more than the tutorial can pay');
 });
 
-test('naming the first city pays 3 land credits and 5 goods, once',()=>{
+test('naming the first city pays 4 land credits and 5 goods, once',()=>{
   const r=rewards();let n=nation({loc:3});r.save(n);n=r.reload(n);
   assert.ok(!n.tut.lc.includes('city'),'Port Alder is only the placeholder');
   const before=r.ctx.credits(n);
   n.capital='Harbourtown';const m=r.save(n);
-  assert.equal(m.length,1);assert.match(m[0],/^Step done: Name your first city\. \+3 land credits and 5 goods\. Spend them on the map\.$/);
-  assert.equal(n.stock.goods,48,'5 goods, after the 3 for settling');assert.equal(r.ctx.credits(n),before+3);
+  assert.equal(m.length,1);assert.match(m[0],/^Step done: Name your first city\. \+4 land credits and 5 goods\. Spend them on the map\.$/);
+  assert.equal(n.stock.goods,48,'5 goods, after the 3 for settling');assert.equal(r.ctx.credits(n),before+4);
   n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.equal(n.stock.goods,48);
   // a rename on the Cities page counts too, even back to the placeholder
   const r2=rewards();const m2=nation({loc:3,tly:{'log:cityren':1}});r2.save(m2);assert.ok(m2.tut.lc.includes('city'));
@@ -92,17 +93,17 @@ test('naming the first city pays 3 land credits and 5 goods, once',()=>{
 test('a list done in full pays its bonus and its epithet once, and gifts respect storage',()=>{
   const r=rewards();r.ctx.DEVK='cu';let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},stock:{food:395,timber:45,iron:25,oil:10,goods:40}});
   const m=r.save(n);
-  assert.ok(m.some(x=>/^Your tutorial steps earned 8 land credits, and 20 goods\./.test(x)),m.join(' | '));
+  assert.ok(m.some(x=>/^Your tutorial steps earned 14 land credits, and 20 goods\./.test(x)),m.join(' | '));
   assert.ok(m.some(x=>/^List complete: Your nation starts here\. \+3 land credits and 10 food and 10 timber, and the epithet “the Founder”, under Epithet in Customise\.$/.test(x)),m.join(' | '));
   assert.equal(n.tut.ch,'c');assert.equal(n.stock.food,400);assert.equal(n.stock.timber,55);
   assert.deepEqual([...r.ctx.unlocks[0].earned(n)],['t-founder']);
   n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.equal(n.tut.ch,'c');assert.equal(n.stock.timber,55);
 });
 
-test('advanced steps pay two credits and a gift; an Assembly resolution counts once proposed',()=>{
+test('advanced steps pay three credits and a gift; an Assembly resolution counts once proposed',()=>{
   const r=rewards();let n=nation({loc:3,asm:{p:{ti:'Free Hats',tx:'Hats for every citizen of the region.',c:'civil',g:0}}});
   const m=r.save(n);assert.ok(n.tut.lc.includes('res'));assert.ok(n.tut.lc.includes('asm'),'proposing is also having one’s say');
-  assert.ok(m.some(x=>/earned 4 land credits, and 13 goods and 5 food/.test(x)),m.join(' | '));
+  assert.ok(m.some(x=>/earned 7 land credits, and 13 goods and 5 food/.test(x)),m.join(' | '));
   n=r.reload(n);delete n.asm;assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('res'),'a reward is never taken back');
 });
 
@@ -122,7 +123,7 @@ test('a legacy generic Google marker is safely removed without replaying either 
   assert.deepEqual(r.save(n),[]);assert.equal(n.stock.goods,40);
 });
 
-test('saying hi on the region board pays 2 land credits, 5 of each resource and the Orchid map colour, once',()=>{
+test('saying hi on the region board pays 3 land credits, 10 iron and oil, 5 of the rest and the Orchid map colour, once',()=>{
   const r=rewards(),L=r.ctx.lists.find(x=>x.k==='first'),s=L.tasks.find(x=>x.k==='rmb');
   assert.ok(s,'Say hi is in Welcome to Edictum, the second list');assert.equal(s.t(),'Say hi to Testland');
   assert.equal(s.v,'region');assert.equal(s.to,'rmb-text','its button opens the board, at the message box');
@@ -133,9 +134,9 @@ test('saying hi on the region board pays 2 land credits, 5 of each resource and 
   const before=r.ctx.credits(n),stock={...n.stock};
   r.ctx.DEVK='b';const m=r.save(n);
   assert.equal(m.length,1,m.join(' | '));
-  assert.match(m[0],/^Step done: Say hi to Testland\. \+2 land credits and 5 food, 5 timber, 5 iron, 5 oil, and 5 goods\. Spend them on the map\. The Orchid map colour is yours too: choose it under Map colour in Settings\.$/);
-  assert.equal(r.ctx.credits(n),before+2);
-  for(const k of ['food','timber','iron','oil','goods'])assert.equal(n.stock[k],stock[k]+5,k);
+  assert.match(m[0],/^Step done: Say hi to Testland\. \+3 land credits and 5 food, 5 timber, 10 iron, 10 oil, and 5 goods\. Spend them on the map\. The Orchid map colour is yours too: choose it under Map colour in Settings\.$/);
+  assert.equal(r.ctx.credits(n),before+3);
+  for(const k of ['food','timber','iron','oil','goods'])assert.equal(n.stock[k],stock[k]+(k==='iron'||k==='oil'?10:5),k);
   assert.ok(r.ctx.mapcOk(n,'#A347C8'),'and Orchid is earned');
   r.ctx.DEVK='';n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('rmb'),'kept on reload, on any device');assert.ok(r.ctx.mapcOk(n,'#A347C8'));
 });
@@ -164,4 +165,12 @@ test('“Customise your nation” pays, and with it the charter list’s bonus a
   assert.equal(n.tut.ch,'c');assert.deepEqual([...r.ctx.unlocks[0].earned(n)],['t-founder']);
   n=r.reload(n);assert.ok(n.tut.lc.includes('cust'),'and it is kept on reload');assert.deepEqual(r.save(n),[]);
   const pub=JSON.parse(JSON.stringify(n));delete pub.tut;assert.equal(r.ctx.credits(pub),r.ctx.credits(n),'another player’s game counts all of it');
+});
+
+test('back pay: once, Welcome tasks already paid get 5 iron and 5 oil each, the Google step 5 oil, and credits count afresh',()=>{
+  const r=rewards();let n=r.reload({name:'Togetherland',seed:'one',glk:1,loc:3,stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{v:25,lc:['settle','issue','land']}});
+  const before=r.ctx.credits(n);assert.equal(before,10+2+2+2,'every paid task counts one credit more');
+  const m=r.save(n);assert.ok(m[0].startsWith('Tutorial rewards have gone up'),m.join(' | '));
+  assert.equal(n.stock.iron,35);assert.equal(n.stock.oil,25);assert.equal(n.tut.b,1);
+  n=r.reload(n);assert.equal(n.tut.b,1,'kept on reload');const st={...n.stock};assert.ok(!r.save(n).some(x=>/gone up/.test(x)),'never twice');assert.deepEqual(n.stock,st);
 });

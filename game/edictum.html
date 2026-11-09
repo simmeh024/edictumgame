@@ -36161,6 +36161,7 @@ function tutNorm(d){
   if(typeof d.ch==='string'){const c=TUT_LISTS.map(L=>L.c).filter(c=>d.ch.includes(c)).join('');if(c)o.ch=c;}
   if(Number.isInteger(d.v)&&d.v>0&&d.v<1000)o.v=d.v;
   if(d.p===1)o.p=1;
+  if(d.b===1)o.b=1;
   if(Number.isInteger(d.w)&&d.w>0&&d.w<1000)o.w=d.w;
   return Object.keys(o).length?o:null;
 }
@@ -36213,72 +36214,72 @@ const TUT_LISTS=[
   {k:'charter',c:'c',eb:'The charter',t:()=>'Your nation starts here',hk:'statehood.steps0.v1',
    lede:'Your name, flag and founding principles are saved. A few particulars more, and your charter is complete.',
    bonus:{lc:3,gift:{food:10,timber:10},u:'t-founder'},tasks:[
-    {k:'settle',t:'Choose where your capital stands',h:'Your first edict asks where to build it: by the sea, on farmland or in the hills.',v:'issues',b:'Open edicts',gift:{goods:3},f:n=>cellOf(n.loc)>=0},
+    {k:'settle',lc:2,t:'Choose where your capital stands',h:'Your first edict asks where to build it: by the sea, on farmland or in the hills.',v:'issues',b:'Open edicts',gift:{goods:3},f:n=>cellOf(n.loc)>=0},
     {k:'city',t:'Name your first city',h:n=>n.capital===TUT_CAP0?`${TUT_CAP0} is only a placeholder. Give your capital a name of your own: every player in ${REGION} sees it.`:`Every player in ${REGION} sees the name of your capital.`,
-     act:'tut-city',b:'Name it',lc:3,gift:{goods:5},f:n=>(!!n.capital&&n.capital!==TUT_CAP0)||tallyOf(n,'log:cityren')>0,lock:n=>tutCapCity(n)?'':'Settle your capital first, then name it.'},
-    {k:'charter',t:'Finish your charter',h:'Everything is in place. Sign the charter to collect the founder’s bonus and move on to the next list.',act:'pg-charter',b:'Finish charter',gift:{goods:3},f:(n,d)=>String(d||'').includes('c')},
-    {k:'ruler',t:'Name your leader',h:n=>`Your ${String(n.leader||'Leader').toLowerCase()} heads the cabinet and signs every banknote. Settings gives them a name.`,v:'settings',to:'s-ruler',b:'Open Settings',gift:{goods:3},f:n=>typeof n.ruler==='string'&&!!n.ruler.trim()},
-    {k:'culture',t:'Describe your culture',h:'A national language, religion, sport, dish or anthem: edicts mention them, and your nation page shows them.',v:'settings',to:'s-lang',b:'Open Settings',gift:{goods:3},
+     act:'tut-city',b:'Name it',lc:4,gift:{goods:5},f:n=>(!!n.capital&&n.capital!==TUT_CAP0)||tallyOf(n,'log:cityren')>0,lock:n=>tutCapCity(n)?'':'Settle your capital first, then name it.'},
+    {k:'charter',lc:2,t:'Finish your charter',h:'Everything is in place. Sign the charter to collect the founder’s bonus and move on to the next list.',act:'pg-charter',b:'Finish charter',gift:{goods:3},f:(n,d)=>String(d||'').includes('c')},
+    {k:'ruler',lc:2,t:'Name your leader',h:n=>`Your ${String(n.leader||'Leader').toLowerCase()} heads the cabinet and signs every banknote. Settings gives them a name.`,v:'settings',to:'s-ruler',b:'Open Settings',gift:{goods:3},f:n=>typeof n.ruler==='string'&&!!n.ruler.trim()},
+    {k:'culture',lc:2,t:'Describe your culture',h:'A national language, religion, sport, dish or anthem: edicts mention them, and your nation page shows them.',v:'settings',to:'s-lang',b:'Open Settings',gift:{goods:3},
      f:n=>TUT_CULT.some(k=>typeof n[k]==='string'&&!!n[k].trim())},
-    {k:'flag',t:'Design your flag',h:'Stripes, emblems and colours in layers. Your flag flies on the map, on your banknotes and on every page.',v:'customise',to:'cz-sec-e',b:'Design it',gift:{goods:3},f:n=>tallyOf(n,'log:flag')>0,lock:tutCharterLock}]},
+    {k:'flag',lc:2,t:'Design your flag',h:'Stripes, emblems and colours in layers. Your flag flies on the map, on your banknotes and on every page.',v:'customise',to:'cz-sec-e',b:'Design it',gift:{goods:3},f:n=>tallyOf(n,'log:flag')>0,lock:tutCharterLock}]},
   {k:'first',c:'f',eb:'First steps',t:()=>'Welcome to Edictum',hk:'statehood.steps.v1',
    lede:'The daily round of a nation: edicts, land and buildings, the map, your cabinet and your neighbours.',
    bonus:{lc:2,gift:{goods:10},u:'t-steward'},tasks:[
-    {k:'issue',t:'Answer three edicts',h:'Every decision moves your census: freedoms, economy, health, happiness and dozens more.',v:'issues',b:'Open edicts',f:n=>decisions(n)>=3},
-    {k:'land',t:'Spend a land credit',h:tutLandHint,v:'map',b:'Open the map',f:n=>(Array.isArray(n.claims)&&n.claims.length>0)||tallyOf(n,'claim')>0},
-    {k:'build',t:'Start a building',h:'Each city has building blocks. Put a farm, a sawmill or a market on one.',v:'cities',b:'Open cities',lock:tutSettleLock,
+    {k:'issue',lc:2,gift:{iron:5,oil:5},t:'Answer three edicts',h:'Every decision moves your census: freedoms, economy, health, happiness and dozens more.',v:'issues',b:'Open edicts',f:n=>decisions(n)>=3},
+    {k:'land',lc:2,gift:{iron:5,oil:5},t:'Spend a land credit',h:tutLandHint,v:'map',b:'Open the map',f:n=>(Array.isArray(n.claims)&&n.claims.length>0)||tallyOf(n,'claim')>0},
+    {k:'build',lc:2,gift:{iron:5,oil:5},t:'Start a building',h:'Each city has building blocks. Put a farm, a sawmill or a market on one.',v:'cities',b:'Open cities',lock:tutSettleLock,
      f:n=>(n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0},
-    {k:'insp',t:'Inspect a tile on the map',h:'Click any hex to see its land, yields, rivers, weather and owner, and claim it if it borders yours.',v:'map',b:'Open the map',f:(n,d)=>d.includes('i')},
-    {k:'lens',t:'Try a map lens',h:()=>`Lenses colour every nation by ${list(Object.values(LENS_INFO).map(x=>x.n.toLowerCase()))}.`,v:'map',b:'Open the map',f:(n,d)=>d.includes('l')||mapOpt('lens','pol')!=='pol'},
-    {k:'cab',t:'Appoint a minister',h:'Your cabinet governs between edicts. A new minister pleases some colleagues and unsettles the rest.',v:'government',to:'cv-h',b:'Open the cabinet',f:n=>(+n.cabAt||0)>0},
-    {k:'trade',t:'Propose a trade',h:'Swap a resource you have spare for one you lack. Your deals show on the map as trade routes.',v:'trade',b:'Open trade',
+    {k:'insp',lc:2,gift:{iron:5,oil:5},t:'Inspect a tile on the map',h:'Click any hex to see its land, yields, rivers, weather and owner, and claim it if it borders yours.',v:'map',b:'Open the map',f:(n,d)=>d.includes('i')},
+    {k:'lens',lc:2,gift:{iron:5,oil:5},t:'Try a map lens',h:()=>`Lenses colour every nation by ${list(Object.values(LENS_INFO).map(x=>x.n.toLowerCase()))}.`,v:'map',b:'Open the map',f:(n,d)=>d.includes('l')||mapOpt('lens','pol')!=='pol'},
+    {k:'cab',lc:2,gift:{iron:5,oil:5},t:'Appoint a minister',h:'Your cabinet governs between edicts. A new minister pleases some colleagues and unsettles the rest.',v:'government',to:'cv-h',b:'Open the cabinet',f:n=>(+n.cabAt||0)>0},
+    {k:'trade',lc:2,gift:{iron:5,oil:5},t:'Propose a trade',h:'Swap a resource you have spare for one you lack. Your deals show on the map as trade routes.',v:'trade',b:'Open trade',
      f:n=>(n.deals||[]).length>0||(n.log||[]).some(l=>l.k==='trade'||l.k==='tradeend')||tallyOf(n,'deal')+tallyOf(n,'dealok')>0},
-    {k:'exp',t:'Send an expedition',h:'Explore a rumoured site on the map. The first nation to discover it names it.',v:'explore',b:'Expeditions',lock:tutSettleLock,
+    {k:'exp',lc:2,gift:{iron:5,oil:5},t:'Send an expedition',h:'Explore a rumoured site on the map. The first nation to discover it names it.',v:'explore',b:'Expeditions',lock:tutSettleLock,
      f:n=>!!n.exp||(n.disc||[]).length>0||tallyOf(n,'exp')>0},
-    {k:'dm',t:'Write to another nation',h:'Computer-run nations reply within minutes.',v:'messages',b:'Messages',f:n=>(n.dm||[]).some(m=>!m.i)||tallyOf(n,'dm')>0},
-    {k:'google',own:1,t:'Keep your nation on every device',h:'Link it to Google, Discord or an email address: it is kept safe and plays anywhere. Earns 5 land credits, and 5 iron, 5 timber and 5 goods.',
+    {k:'dm',lc:2,gift:{iron:5,oil:5},t:'Write to another nation',h:'Computer-run nations reply within minutes.',v:'messages',b:'Messages',f:n=>(n.dm||[]).some(m=>!m.i)||tallyOf(n,'dm')>0},
+    {k:'google',own:1,t:'Keep your nation on every device',h:'Link it to Google, Discord or an email address: it is kept safe and plays anywhere. Earns 10 land credits, and 5 iron, 5 timber, 5 goods and 5 oil.',
      act:'acct-open',b:'Link a sign-in',f:n=>!!n.glk},
     {k:'rmb',t:()=>`Say hi to ${REGION}`,h:'Leave a message on the region’s board: a hello, a question or news of your nation. Every player in the region reads it.',
-     v:'region',to:'rmb-text',b:'Open the board',lc:2,gift:{food:5,timber:5,iron:5,oil:5,goods:5},mapc:'#A347C8',mapcN:'Orchid',
+     v:'region',to:'rmb-text',b:'Open the board',lc:3,gift:{food:5,timber:5,iron:10,oil:10,goods:5},mapc:'#A347C8',mapcN:'Orchid',
      lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()}]},
   {k:'mark',c:'m',eb:'Next steps',t:()=>`Make your mark in ${REGION}`,hk:'statehood.steps2.v1',
    lede:'Your region: its paper, its Assembly and Games, the nations next door, and money of your own.',
    bonus:{lc:3,gift:{iron:10},u:'t-renowned'},tasks:[
-    {k:'dsp',t:'Read today’s Dispatch',h:'The region’s paper reports what every player decided, and your own decisions can make the front page.',v:'dispatch',b:'Read the Dispatch',gift:{goods:5},f:n=>!!(n.dsp&&n.dsp.s>0)},
-    {k:'stamp',t:'Collect a passport stamp',h:'Open the page of a nation in your region: its entry stamp goes into your passport, and every 20 stamps earn a land credit.',v:'region',b:'Open the region',gift:{goods:5},f:n=>ppCount(n)>0},
-    {k:'ppdes',t:'Design your passport',h:'Choose its cover, its pages, or the entry stamp other nations collect from you.',v:'passport',b:'Open your passport',gift:{goods:5},f:n=>ppStats(n).ds>0},
-    {k:'asm',t:'Have your say in the Assembly',h:'Vote on the resolution or endorse a neighbour: passed resolutions change every member, and endorsements choose the Delegate.',v:'assembly',b:'Open the Assembly',gift:{food:5},lock:tutAsmLock,
+    {k:'dsp',lc:2,t:'Read today’s Dispatch',h:'The region’s paper reports what every player decided, and your own decisions can make the front page.',v:'dispatch',b:'Read the Dispatch',gift:{goods:5},f:n=>!!(n.dsp&&n.dsp.s>0)},
+    {k:'stamp',lc:2,t:'Collect a passport stamp',h:'Open the page of a nation in your region: its entry stamp goes into your passport, and every 20 stamps earn a land credit.',v:'region',b:'Open the region',gift:{goods:5},f:n=>ppCount(n)>0},
+    {k:'ppdes',lc:2,t:'Design your passport',h:'Choose its cover, its pages, or the entry stamp other nations collect from you.',v:'passport',b:'Open your passport',gift:{goods:5},f:n=>ppStats(n).ds>0},
+    {k:'asm',lc:2,t:'Have your say in the Assembly',h:'Vote on the resolution or endorse a neighbour: passed resolutions change every member, and endorsements choose the Delegate.',v:'assembly',b:'Open the Assembly',gift:{food:5},lock:tutAsmLock,
      f:n=>{const a=n.asm;return !!a&&(!!(a.v&&a.v.length)||!!(a.e&&a.e.length)||!!(a.s&&a.s.length)||!!a.p);}},
-    {k:'soc',when:()=>!!tutSoc(),t:()=>`Hear what your people are saying on ${tutSoc().name}`,h:'Your citizens talk about everything you decide: see what is trending at home and across the region.',
+    {k:'soc',lc:2,when:()=>!!tutSoc(),t:()=>`Hear what your people are saying on ${tutSoc().name}`,h:'Your citizens talk about everything you decide: see what is trending at home and across the region.',
      v:()=>tutSoc().id,b:()=>'Open '+tutSoc().name,gift:{goods:5},f:()=>{const s=tutSoc();return !!s&&!!s.seen();}},
-    {k:'games',t:'Choose your event at the Meridian Games',h:'Your athletes train hardest for the event you pick, and score higher in it.',v:'games',b:'Open the Games',gift:{food:5},f:n=>((n.games&&n.games.en)||[]).some(e=>e&&e.f)},
-    {k:'fleet',t:'Send a party to a fleeting find',h:'Shipwrecks, whales and fairs last only hours, and only the first five parties to arrive share the spoils.',v:'explore',b:'Expeditions',gift:{timber:5},f:n=>Array.isArray(n.fl)&&n.fl.length>0},
-    {k:'cv',t:'Try a covert operation',h:'Plant a scandal, steal blueprints, sabotage a deal or bribe a minister, if your agent is not caught.',v:'intel',b:'Intelligence',gift:{iron:5},
+    {k:'games',lc:2,t:'Choose your event at the Meridian Games',h:'Your athletes train hardest for the event you pick, and score higher in it.',v:'games',b:'Open the Games',gift:{food:5},f:n=>((n.games&&n.games.en)||[]).some(e=>e&&e.f)},
+    {k:'fleet',lc:2,t:'Send a party to a fleeting find',h:'Shipwrecks, whales and fairs last only hours, and only the first five parties to arrive share the spoils.',v:'explore',b:'Expeditions',gift:{timber:5},f:n=>Array.isArray(n.fl)&&n.fl.length>0},
+    {k:'cv',lc:2,t:'Try a covert operation',h:'Plant a scandal, steal blueprints, sabotage a deal or bribe a minister, if your agent is not caught.',v:'intel',b:'Intelligence',gift:{iron:5},
      lock:n=>tutAge(n)<CV_NEW?'Opens three days after founding.':'',f:n=>Array.isArray(n.cov)&&n.cov.length>0},
-    {k:'desk',t:'Clear your daily desk',h:'Three small tasks wait on your Edicts page each day. Clear all three for a land credit of their own, or two in your first week.',v:'issues',b:'Open the desk',gift:{timber:5},f:n=>(+n.ddc||0)>0},
-    {k:'fxv',t:'Visit the Foreign Exchange Bureau',h:'See what your currency is worth, how far it is trusted, and how it compares with your neighbours’.',v:'exchange',b:'Open the Bureau',lc:2,gift:{oil:5},f:(n,d)=>d.includes('x')},
-    {k:'fxd',t:'Design your currency',h:'Name it, choose its code and symbol, and design its banknotes and coin.',v:'customise',cu:1,b:'Design it',lc:2,gift:{oil:5},lock:tutCharterLock,
+    {k:'desk',lc:2,t:'Clear your daily desk',h:'Three small tasks wait on your Edicts page each day. Clear all three for a land credit of their own, or two in your first week.',v:'issues',b:'Open the desk',gift:{timber:5},f:n=>(+n.ddc||0)>0},
+    {k:'fxv',t:'Visit the Foreign Exchange Bureau',h:'See what your currency is worth, how far it is trusted, and how it compares with your neighbours’.',v:'exchange',b:'Open the Bureau',lc:3,gift:{oil:5},f:(n,d)=>d.includes('x')},
+    {k:'fxd',t:'Design your currency',h:'Name it, choose its code and symbol, and design its banknotes and coin.',v:'customise',cu:1,b:'Design it',lc:3,gift:{oil:5},lock:tutCharterLock,
      f:n=>!!n.cur||cuRenamed(n)||tallyOf(n,'log:cur')>0}]},
   {k:'destiny',c:'d',eb:'Advanced steps',t:()=>'Take control of your destiny',hk:'statehood.steps4.v1',
    lede:'The long game: laws for the whole region, alliances, new cities and roads, provinces, decrees and the Games at home.',
    bonus:{lc:5,gift:{goods:20},u:'t-sovereign'},tasks:[
-    {k:'res',t:'Put a resolution to the Assembly',h:'Write a proposal for every member to vote on. A resolution that passes changes the whole region.',v:'assembly',b:'Open the Assembly',lc:2,gift:{goods:10},lock:tutAsmLock,
+    {k:'res',t:'Put a resolution to the Assembly',h:'Write a proposal for every member to vote on. A resolution that passes changes the whole region.',v:'assembly',b:'Open the Assembly',lc:3,gift:{goods:10},lock:tutAsmLock,
      f:n=>!!(n.asm&&(n.asm.p||n.asm.pw))},
-    {k:'ally',t:'Found or join an alliance',h:'Allies stand together when one of them is attacked, and the founder chooses who joins.',v:'diplomacy',b:'Open diplomacy',lc:2,gift:{iron:10},
+    {k:'ally',t:'Found or join an alliance',h:'Allies stand together when one of them is attacked, and the founder chooses who joins.',v:'diplomacy',b:'Open diplomacy',lc:3,gift:{iron:10},
      lock:n=>canFeature(n,'alli')?'':`You may found one at ${fmtPopShort(featureAt('alli'))} people, or join sooner if an alliance invites you.`,
      f:n=>!!n.alli||!!n.alJoin||!!n.alm||tallyOf(n,'log:alfound')+tallyOf(n,'log:aljoin')>0},
-    {k:'city2',t:'Found a second city',h:'New cities open as your people multiply. Each has building blocks of its own and brings two land credits.',v:'cities',b:'Open cities',lc:2,gift:{food:10},
+    {k:'city2',t:'Found a second city',h:'New cities open as your people multiply. Each has building blocks of its own and brings two land credits.',v:'cities',b:'Open cities',lc:3,gift:{food:10},
      lock:tutPopLock('city','Your second city opens'),f:n=>(n.cities||[]).length>=2||tallyOf(n,'cities')>=2||tallyOf(n,'log:city')>0},
-    {k:'blk',t:'Fill a city’s building blocks',h:'Each block holds one building: fill every block in a city, or let one grow until it earns another.',v:'cities',b:'Open cities',lc:2,gift:{timber:10},f:(n,d,cheap)=>!cheap&&tutBlocks()},
-    {k:'road',t:'Link two cities by road',h:'Roads, railways and shipping lanes carry trade between your cities.',v:'map',b:'Open the map',lc:2,gift:{timber:10},
+    {k:'blk',t:'Fill a city’s building blocks',h:'Each block holds one building: fill every block in a city, or let one grow until it earns another.',v:'cities',b:'Open cities',lc:3,gift:{timber:10},f:(n,d,cheap)=>!cheap&&tutBlocks()},
+    {k:'road',t:'Link two cities by road',h:'Roads, railways and shipping lanes carry trade between your cities.',v:'map',b:'Open the map',lc:3,gift:{timber:10},
      lock:n=>(n.cities||[]).length<2?'Needs a second city.':pgAvailable(n,'map')?'':'Opens once your nation holds three claimed hexes.',f:n=>(n.infra||[]).length>0},
     {k:'prov',t:()=>'Divide your nation into '+prvLow(tutPrvT2()),h:'Give each a governor, a flag of its own and a share of the people. Switch them on in Customise first.',
-     v:()=>tutPrvOn()?'provinces':'customise',b:()=>tutPrvOn()?'Open '+tutPrvT2():'Open Customise',lc:2,gift:{goods:10},f:n=>prvOnRec(n)&&n.prov.l.length>=2},
-    {k:'repeal',t:'Repeal a policy by decree',h:'Your mandate lets you strike out a policy without waiting for an edict, at a small cost in happiness and political freedom.',v:'government',to:'gov-pols',b:'Open the government',lc:2,gift:{goods:10},
+     v:()=>tutPrvOn()?'provinces':'customise',b:()=>tutPrvOn()?'Open '+tutPrvT2():'Open Customise',lc:3,gift:{goods:10},f:n=>prvOnRec(n)&&n.prov.l.length>=2},
+    {k:'repeal',t:'Repeal a policy by decree',h:'Your mandate lets you strike out a policy without waiting for an edict, at a small cost in happiness and political freedom.',v:'government',to:'gov-pols',b:'Open the government',lc:3,gift:{goods:10},
      lock:n=>Object.keys(n.policies||{}).length?'':'Needs a policy first: some edict answers bring one in.',f:n=>(+n.rpAt||0)>0||tallyOf(n,'log:repeal')>0},
-    {k:'bid',t:'Bid to host the Meridian Games',h:'The host welcomes the region’s athletes and their crowds.',v:'games',b:'Open the Games',lc:2,gift:{iron:10},lock:tutPopLock('host','Bids open'),f:n=>tallyOf(n,'log:bid')>0},
-    {k:'lore',t:'Write your nation’s history',h:'The factbook tells other players where your nation came from, one chapter at a time.',v:'stats',b:'Open the factbook',lc:2,gift:{goods:10},f:n=>!!n.lore&&Object.keys(n.lore).length>0},
-    {k:'world',t:'Look round the known world',h:()=>`${REGIONS.length} regions, each with its own lands, climate and nations, and you may move to any of them.`,v:'world',b:'Open the World page',lc:2,gift:{oil:10},
+    {k:'bid',t:'Bid to host the Meridian Games',h:'The host welcomes the region’s athletes and their crowds.',v:'games',b:'Open the Games',lc:3,gift:{iron:10},lock:tutPopLock('host','Bids open'),f:n=>tallyOf(n,'log:bid')>0},
+    {k:'lore',t:'Write your nation’s history',h:'The factbook tells other players where your nation came from, one chapter at a time.',v:'stats',b:'Open the factbook',lc:3,gift:{goods:10},f:n=>!!n.lore&&Object.keys(n.lore).length>0},
+    {k:'world',t:'Look round the known world',h:()=>`${REGIONS.length} regions, each with its own lands, climate and nations, and you may move to any of them.`,v:'world',b:'Open the World page',lc:3,gift:{oil:10},
      f:(n,d)=>d.includes('w')||(n.log||[]).some(l=>l&&l.k==='move')}]}
 ];
 /* every task, by key, and the most land credits the tutorial pays: rebuilt whenever a list changes. A task added to a
@@ -36377,17 +36378,24 @@ function firstStepsCard(n){if(!n||n.npc)return '';let a='',b='';try{a=tutNewCard
 /* Each task pays once, the first time it is done, and a list done in full pays its bonus once. The Google step pays
    its own five credits (n.glk, below) and is deliberately absent from tutLcIds(): it must not be claimed here. */
 function tutLcNow(n){const out=[],ids=tutLcIds();for(const L of TUT_LISTS)try{for(const x of tutState(n,L))if(x.ok&&!x.s.own)out.push(x.k);}catch(e){}return out.filter(k=>ids.includes(k));}
+const TUT_FIRST_RAISE=new Set(['issue','land','build','insp','lens','cab','trade','exp','dm','rmb']);
 function tutPend(n){const had=tutLcOf(n),add=tutLcNow(n).filter(k=>!had.includes(k)),lc=had.concat(add),ch=tutChOf(n);return {add,lc,chAdd:TUT_LISTS.filter(L=>!ch.includes(L.c)&&tutAllOk(n,L,lc))};}
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc)return;const t=Object.assign({},n.tut||{});
   if(!n.tut&&tutFresh(n))t.w=TUT_V;
   if(!t.v){t.v=TUT_V;if(TUT_OLD_FIRST.every(k=>tutLcOf(n).includes(k)))t.p=1;}
+  /* back pay, once (t.b): Welcome to Edictum's tasks now pay 5 iron and 5 oil more, and the Google step 5 oil more,
+     so a nation paid before the raise is given the difference. Land credits need none: tutCredits() counts them afresh. */
+  let bp=null;
+  if(t.b!==1){t.b=1;const g={};for(const k of tutLcOf(n))if(TUT_FIRST_RAISE.has(k)){g.iron=(g.iron||0)+5;g.oil=(g.oil||0)+5;}if(n.glk)g.oil=(g.oil||0)+5;
+    if(Object.keys(g).length){const st=stockNow(n,now);for(const [r,x] of Object.entries(g))st[r]=stockLimit(n,r,num0(st[r])+x,st[r]);n.stock=roundStock(st);n.stockAt=now;bp=g;}}
   const {add,lc,chAdd}=tutPend(n);if(add.length)t.lc=lc;if(chAdd.length)t.ch=tutChOf(n)+chAdd.map(L=>L.c).join('');
   const v=tutNorm(t);if(v)n.tut=v;else delete n.tut;
   /* n.tut stays private; its credits are shared as one number (n.tlc), so other players’ games, and the admin’s list of
      suspicious nations, can count the land a nation has earned */
   const tc=tutCredits(n);if(tc)n.tlc=tc;else delete n.tlc;
-  if(!add.length&&!chAdd.length)return;
+  const bpMsg=bp?[`Tutorial rewards have gone up: every task now pays an extra land credit, and you have been given ${tutGiftText(bp)} for the steps you had already done.`]:[];
+  if(!add.length&&!chAdd.length)return bpMsg;
   const gift={},more=g=>{for(const [r,x] of Object.entries(g||{}))gift[r]=(gift[r]||0)+x;},one=add.length===1?TUT_BY[add[0]]:null;
   for(const k of add)more(TUT_BY[k].gift);const stepGift=Object.assign({},gift);for(const L of chAdd)more(L.bonus.gift);
   if(Object.keys(gift).length){const st=stockNow(n,now);for(const [r,x] of Object.entries(gift))st[r]=stockLimit(n,r,num0(st[r])+x,st[r]);n.stock=roundStock(st);n.stockAt=now;}
@@ -36396,7 +36404,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
   if(one)out.push(`Step done: ${tutTxt(one.t,n)}. ${tutRwText(lcs,stepGift)}.${spend(lcs)}${col}`);
   else if(add.length)out.push(`Your tutorial steps earned ${lcs} land credits${tutGiftText(stepGift)?', and '+tutGiftText(stepGift):''}.${spend(lcs)}${col}`);
   for(const L of chAdd){const u=UNLOCKS[L.bonus.u];out.push(`List complete: ${L.t()}. ${tutRwText(L.bonus.lc||0,L.bonus.gift)}${u?`, and the epithet “${u.n}”, under Epithet in Customise`:''}.`);}
-  return out;
+  return bpMsg.concat(out);
 });
 /* the credits: the tutorial’s on top of growth, milestones and bonuses (landCredits, the badge, the inspector and the
    Land office notice all follow landEarned; nextCreditPop follows earnedAt) */
@@ -36410,15 +36418,15 @@ UNLOCK_SOURCES.push({earned:n=>TUT_LISTS.filter(L=>tutChOf(n).includes(L.c)).map
 /* ── tutorial: end of rewards ── */
 /* ── the Google step: linking the account pays 5 land credits and 5 iron, 5 timber and 5 goods, once (n.glk).
    The shim says whether the account is linked (user.google()), and tells the page when it links. ── */
-const GL_CREDITS=5,GL_GIFT={iron:5,timber:5,goods:5};
-const GL_TAG='<span class="tut-lc" title="Earns five land credits, and 5 iron, 5 timber and 5 goods">+5 land</span>';
+const GL_CREDITS=10,GL_GIFT={iron:5,timber:5,goods:5,oil:5};
+const GL_TAG='<span class="tut-lc" title="Earns ten land credits, and 5 iron, 5 timber, 5 goods and 5 oil">+10 land</span>';
 landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&n.glk?GL_CREDITS:0);})(landEarned);
 earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&n.glk?GL_CREDITS:0);})(earnedAt);
 NORM_HOOKS.push((n,d)=>{if(d&&d.glk===1)n.glk=1;});
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!S.google||n.glk||!n.name||n.npc)return [];
   n.glk=1;const st=stockNow(n,now);for(const [r,v] of Object.entries(GL_GIFT))st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;
-  return [`Step done: ${n.name} is kept with your linked sign-in. +${GL_CREDITS} land credits to spend on the map, and ${GL_GIFT.iron} iron, ${GL_GIFT.timber} timber and ${GL_GIFT.goods} goods.`];
+  return [`Step done: ${n.name} is kept with your linked sign-in. +${GL_CREDITS} land credits to spend on the map, and ${GL_GIFT.iron} iron, ${GL_GIFT.timber} timber, ${GL_GIFT.goods} goods and ${GL_GIFT.oil} oil.`];
 });
 function glCheck(){const n=S.nation;if(S.google&&n&&!n.glk&&!n.npc&&n.name&&!dormHeld()){commit(clone(n));render();}}
 window.addEventListener('edictum:linked',async()=>{try{const u=await window.claude.use('user');S.google=!!(u&&typeof u.google==='function'&&await u.google());glCheck();render();}catch(e){}});
@@ -46146,7 +46154,7 @@ const accountHintKey=n=>'edictum.link-hint.'+String(n.seed);
 function accountLinkCard(n){
   const a=accountInfo();if(!n||!pgNew(n)||!tutLcOf(n).includes('charter')||tutHid(n,TUT_LISTS[1])||S.google||!a||a.kind!=='guest'||accountHintHidden.has(accountHintKey(n)))return '';
   try{if(localStorage.getItem(accountHintKey(n)))return '';}catch(e){}
-  return `<section class="paper account-link-card" aria-labelledby="account-link-heading"><p class="eyebrow">Your charter is complete</p><h2 class="h2" id="account-link-heading">Keep your nation on every device</h2><p>Link Google, Discord or an email address to become a Registered Nation and sign in on another browser or device. Registration opens community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>${!n.glk?`<p class="hint">First sign-in link: +${GL_CREDITS} land credits, +${GL_GIFT.iron} iron, +${GL_GIFT.timber} timber and +${GL_GIFT.goods} goods.</p>`:''}<div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${accountCompareButton()}<button type="button" class="linkish small" data-act="account-hint-hide">Not now</button></div></section>`;
+  return `<section class="paper account-link-card" aria-labelledby="account-link-heading"><p class="eyebrow">Your charter is complete</p><h2 class="h2" id="account-link-heading">Keep your nation on every device</h2><p>Link Google, Discord or an email address to become a Registered Nation and sign in on another browser or device. Registration opens community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>${!n.glk?`<p class="hint">First sign-in link: +${GL_CREDITS} land credits, +${GL_GIFT.iron} iron, +${GL_GIFT.timber} timber, +${GL_GIFT.goods} goods and +${GL_GIFT.oil} oil.</p>`:''}<div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${accountCompareButton()}<button type="button" class="linkish small" data-act="account-hint-hide">Not now</button></div></section>`;
 }
 function accountTypesHelp(){
   const rows=[['Found and grow a nation','Yes','Yes'],['Edicts, economy and construction','Yes','Yes'],['Hex claims and discoveries','Yes','Yes'],['Customisation and achievements','Yes','Yes'],['Read Assembly debates','Yes','Yes'],['Assembly voting','Unavailable','After 24 hours'],['Submit Assembly proposals','Unavailable','After 24 hours'],['Hold Assembly leadership','Unavailable','After 24 hours'],['Create community topics','Unavailable','Yes'],['Found an alliance','Unavailable','Yes*'],['Declare offensive wars on players','Unavailable','Yes*'],['Reports and support','Yes','Yes'],['Recover on another device','Recovery code only','Linked sign-in']];
@@ -46753,7 +46761,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
    once the list's other tasks are done, and signing it completes the list */
 pgEligible=(f=>function(n,k){return k==='charter'?!!n:f.apply(this,arguments);})(pgEligible);
 {const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter'),ch=L.tasks.splice(i,1)[0];
-  L.tasks.push({k:'cust',t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',gift:{goods:3},f:(n,d)=>String(d||'').includes('u')},ch);}
+  L.tasks.push({k:'cust',lc:2,t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',gift:{goods:3},f:(n,d)=>String(d||'').includes('u')},ch);}
 tutRebuild();
 /* a visit to Customise ticks its task (after the page is drawn: the mark saves, which draws again) */
 VIEWS_EXT.customise=(f=>function(){if(S.nation&&!S.nation.npc&&!OBS&&!tutDevGet().includes('u'))setTimeout(()=>tutMark('u'),0);return f.apply(this,arguments);})(VIEWS_EXT.customise);
