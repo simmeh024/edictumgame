@@ -69,7 +69,7 @@ check('and takes the code out of the address bar', await until(() => !/oobCode/.
 check('the control shows the address', await until(async () => /ava@example\.com/.test(await text(A, '.ed-acct-b')), 15000));
 check('the nation is now a Registered Nation', await registered(A));
 check('linking pays the first-link gift', await gift(A));
-check('and says so', await until(async () => /kept with your linked sign-in\. \+5 land credits/.test(await toasts(A)), 20000));
+check('and says so', await until(async () => /kept with your linked sign-in\. \+10 land credits/.test(await toasts(A)), 20000));
 
 /* ── 2. another browser: asked for the address, then signs in to that account ── */
 const B = await player('B');
