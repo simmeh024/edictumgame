@@ -31,6 +31,27 @@ async function gate(db, who, reg) {
   if (reg !== CB_CHANCERY || who.admin || who.mod) return;
   if (!chanceryOk(await db.doc('shop/' + who.uid).get())) refuse('cb_chancery', 'The Chancery board is for Chancery Club members and Founding Supporters.');
 }
+/* @mentions: the browser sends the ids of the nations it picked (mn, at most CB_MN), the server keeps only those whose
+   saved name follows an @ in the text, who are not the author, have not blocked them (lblock/{to~by}) and, on the
+   Chancery board, may read it. Each gets mentions/{uid}/m/{id} {by, nm, reg, tid, rid?, ti, x, t} for their bell,
+   and the post keeps mn {uid: name} so readers see the names as mentions. */
+export const CB_MN = 5;
+async function mentioned(tx, db, who, d, reg, text) {
+  const ids = [...new Set(Array.isArray(d.mn) ? d.mn.filter(u => typeof u === 'string' && /^[A-Za-z0-9_-]{6,128}$/.test(u) && u !== who.uid) : [])].slice(0, CB_MN);
+  if (!ids.length) return {};
+  const low = text.toLowerCase(), out = {};
+  const docs = await Promise.all(ids.map(u => Promise.all([tx.get(db.doc('nations/' + u)), tx.get(db.doc('lblock/' + u + '~' + who.uid)), reg === CB_CHANCERY ? tx.get(db.doc('shop/' + u)) : null])));
+  ids.forEach((u, i) => {
+    const [n, block, shop] = docs[i], nm = n.exists ? line(n.get('name'), 80) : '';
+    if (!nm || block.exists || (shop && !chanceryOk(shop)) || !low.includes('@' + nm.toLowerCase())) return;
+    out[u] = nm;
+  });
+  return out;
+}
+function notifyMentions(tx, db, mn, me, reg, tid, rid, ti, x, now) {
+  for (const u of Object.keys(mn)) tx.create(db.collection('mentions/' + u + '/m').doc(),
+    { by: me.a, nm: me.nm, reg, tid, ...(rid ? { rid } : {}), ti: line(ti, CB_TITLE), x: line(x, 160), t: now });
+}
 function where(regions, d) {
   const reg = typeof d.reg === 'string' && (regions.has(d.reg) || d.reg === CB_CHANCERY) ? d.reg : '';
   if (!reg) throw new HttpsError('invalid-argument', 'Choose a region.');
@@ -93,8 +114,10 @@ export async function cbTopic(db, who, d, regions) {
   return db.runTransaction(async tx => {
     const me = await signer(tx, db, who, d), metaRef = db.doc('cb/' + reg), meta = await tx.get(metaRef);
     const now = Date.now(), ref = db.collection('cb/' + reg + '/posts').doc(), mark = await paced(tx, db, who, true, now);
+    const mn = await mentioned(tx, db, who, d, reg, ti + ' ' + x);
     mark();
-    tx.create(ref, { ...me, ti, x, tg, t: now, la: now, rc: 0 });
+    tx.create(ref, { ...me, ti, x, tg, t: now, la: now, rc: 0, ...(Object.keys(mn).length ? { mn } : {}) });
+    notifyMentions(tx, db, mn, me, reg, ref.id, '', ti, x, now);
     tx.set(metaRef, counted(meta, now, { n: 1 }));
     return { id: ref.id };
   });
@@ -111,8 +134,10 @@ export async function cbReply(db, who, d, regions) {
     if (!topic.exists || topic.get('hd')) refuse('cb_missing', 'This topic is no longer there.');
     if (topic.get('lk') && !who.admin && !who.mod) refuse('cb_locked', 'This topic is locked: it takes no more replies.');
     const now = Date.now(), ref = topicRef.collection('posts').doc(), mark = await paced(tx, db, who, false, now);
+    const mn = await mentioned(tx, db, who, d, reg, x);
     mark();
-    tx.create(ref, { ...me, x, t: now });
+    tx.create(ref, { ...me, x, t: now, ...(Object.keys(mn).length ? { mn } : {}) });
+    notifyMentions(tx, db, mn, me, reg, tid, ref.id, topic.get('ti'), x, now);
     tx.update(topicRef, { rc: (topic.get('rc') || 0) + 1, la: now });
     tx.set(metaRef, counted(meta, now, { r: 1 }));
     return { id: ref.id };

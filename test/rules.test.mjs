@@ -1007,6 +1007,17 @@ test('the Chancery board is read only by Club members, Founding Supporters, admi
   await assertFails(as('vip').doc('cb/chancery/posts/c2').set({ a: 'vip', ti: 'x', x: 'y', t: 1, la: 1, rc: 0 }));
 });
 
+test('a player reads and clears only their own @mentions; nobody writes them', async () => {
+  await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('mentions/bob/m/m1').set({ by: 'alice', nm: 'Alicia', reg: 'meridian', tid: 't', x: 'hi', t: 1 }); });
+  await assertSucceeds(as('bob').collection('mentions/bob/m').orderBy('t', 'desc').limit(20).get());
+  await assertFails(as('alice').doc('mentions/bob/m/m1').get());
+  await assertFails(anon().doc('mentions/bob/m/m1').get());
+  await assertFails(as('alice').doc('mentions/bob/m/m2').set({ by: 'alice', t: 1 }));
+  await assertFails(as('bob').doc('mentions/bob/m/m1').update({ x: 'changed' }));
+  await assertFails(as('alice').doc('mentions/bob/m/m1').delete());
+  await assertSucceeds(as('bob').doc('mentions/bob/m/m1').delete());
+});
+
 test('a mail ping is one per sender, nation and kind, under the sender\'s saved name, to its own region, and paced', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();

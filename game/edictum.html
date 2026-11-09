@@ -5383,7 +5383,7 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cb-regs{display:flex;flex-direction:column;gap:10px;max-width:900px}
 .cb-reg{border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
 .cb-reg.mine{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
-.cb-ch-lock .cb-reg-tg{cursor:default}.cb-ch-p{margin:0;padding:0 16px 14px}
+.cb-ch-lock .cb-reg-tg{cursor:default}.cb-mn{list-style:none;margin:2px 0 6px;padding:4px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.12)}.cb-mn li{padding:6px 10px;border-radius:4px;cursor:pointer}.cb-mn li[aria-selected=true],.cb-mn li:hover{outline:2px solid var(--accent)}.cb-at{color:var(--accent);font-weight:600}.cb-at.me{background:color-mix(in srgb,var(--accent) 16%,transparent);border-radius:4px;padding:0 2px}.cb-ch-p{margin:0;padding:0 16px 14px}
 .cb-reg-h{margin:0;font:inherit}
 .cb-reg-tg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;width:100%;padding:13px 16px;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .cb-reg-tg:hover .cb-reg-n{text-decoration:underline}
@@ -20852,7 +20852,7 @@ function bellButton(now){const c=notifCount(now);return `<button class="bell${S.
 function notifPanel(now){
   if(!S.notifOpen)return '';
   const {pin,ev}=notifItems(now),prev=S.notifPrev||0;
-  const row=(x,pinned)=>`<li class="nt-item${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}"><button class="nt" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"${x.cx?` data-cx="${esc(x.cx)}" data-cxt="${esc(x.tab||'')}" data-cxa="${esc(x.at||'')}"`:''}><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
+  const row=(x,pinned)=>`<li class="nt-item${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}"><button class="nt" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"${x.cb?` data-cb="${esc(x.cb)}"`:''}${x.cx?` data-cx="${esc(x.cx)}" data-cxt="${esc(x.tab||'')}" data-cxa="${esc(x.at||'')}"`:''}><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
   return `<div class="notif-pop" role="dialog" aria-label="Notifications"><div class="np-h"><b>Notifications</b><button class="linkish small" data-act="notif">Close</button></div>
     ${pin.length?`<ul class="nts">${pin.map(x=>row(x,true)).join('')}</ul>`:''}
     ${ev.length?`<ul class="nts">${ev.map(x=>row(x,false)).join('')}</ul>`:(pin.length?'':'<p class="hint np-empty">Nothing yet. Wars, trade, messages, matters in your cities, milestones and finished buildings will appear here.</p>')}
@@ -47904,7 +47904,7 @@ function cbPost(id,d){
   if(!d||typeof d.a!=='string')return null;
   return {id,a:d.a,nm:String(d.nm||'A nation').slice(0,80),rg:String(d.rg||''),fl:typeof d.fl==='string'?d.fl:'',fd:d.fd===true,st:d.st==='admin'||d.st==='mod'?d.st:'',
     of:d.of===true,rl:String(d.rl||'').slice(0,60),ti:String(d.ti||'').slice(0,CB_TITLE),x:String(d.x||'').slice(0,CB_TEXT),tg:CB_TAG[d.tg]?d.tg:'general',t:cbMs(d.t),la:cbMs(d.la)||cbMs(d.t),rc:Number(d.rc)||0,
-    pn:d.pn===true,lk:d.lk===true,hd:d.hd===true,ed:cbMs(d.ed)};
+    pn:d.pn===true,lk:d.lk===true,hd:d.hd===true,ed:cbMs(d.ed),mn:d.mn&&typeof d.mn==='object'?Object.fromEntries(Object.entries(d.mn).filter(([u,v])=>typeof v==='string').slice(0,5).map(([u,v])=>[u,v.slice(0,80)])):{}};
 }
 const cbDay=()=>new Date().toISOString().slice(0,10);
 /* the counts for every board */
@@ -47956,7 +47956,10 @@ function cbAuthor(p){
   const on=cbOnline(p.a),R=REG_BY_ID[p.rg];
   return `<div class="cb-au">${nwFlag(p.fl,p.nm)}<b class="cb-au-n">${esc(p.nm)}</b><span class="cb-on${on?' on':''}"><i aria-hidden="true"></i>${on?'Online':'Offline'}</span>${p.st==='admin'?STAFF_PILL:p.st==='mod'?'<span class="staff-pill nw-modpill">Moderator</span>':''}${p.fd?`<span class="founder-pill cb-fd" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}Founder</span>`:''}${R?`<span class="cb-au-r">${esc(R.name)}</span>`:''}</div>`;
 }
-function cbText(x){return esc(x).replace(/\n/g,'<br>');}
+function cbText(x,mn){let h=esc(x);
+  for(const [u,nm] of Object.entries(mn||{}).sort((a,b)=>b[1].length-a[1].length)){const k='@'+esc(nm),me=u===S.uid;
+    h=h.replace(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<b class="cb-at${me?' me':''}">${m}</b>`);}
+  return h.replace(/\n/g,'<br>');}
 function cbData(reg,t,rid){return `data-reg="${reg}" data-t="${t}"${rid?` data-r="${rid}"`:''}`;}
 function cbAsking(t,rid,a){return !!(CB.ask&&CB.ask.t===t&&(CB.ask.r||'')===rid&&(!a||CB.ask.a===a));}
 /* staff controls, shown on every post to admins (moderators: lock, hide and delete) */
@@ -47990,7 +47993,7 @@ function cbEditForm(rid){
 function cbArticle(reg,p,tid){
   const rid=tid?p.id:'',editing=!!(CB.edit&&CB.edit.t===(tid||p.id)&&(CB.edit.r||'')===rid);
   const head=tid?'':`<div class="cb-th"><span class="cb-tag t-${p.tg}">${esc(CB_TAG[p.tg])}</span>${p.pn?'<span class="chip cb-pin">Pinned</span>':''}${p.lk?'<span class="chip">Locked</span>':''}</div><h2 class="cb-ti">${p.hd?'<i>Hidden by staff</i>':esc(p.ti)}</h2>`;
-  const body=p.hd?`<p class="hint">${S.isOwner?'Hidden by staff: other players do not see this.':'This post was hidden by Edictum staff.'}</p>`:editing?cbEditForm(rid):`<div class="post-x cb-x">${cbText(p.x)}</div>`;
+  const body=p.hd?`<p class="hint">${S.isOwner?'Hidden by staff: other players do not see this.':'This post was hidden by Edictum staff.'}</p>`:editing?cbEditForm(rid):`<div class="post-x cb-x">${cbText(p.x,p.mn)}</div>`;
   return `<article class="cb-post${p.st?' staff':''}${p.hd?' hd':''}" id="cb-${p.id}">${cbAuthor(p)}<div class="cb-body">${head}<p class="cb-when"><time datetime="${new Date(p.t||Date.now()).toISOString()}">${esc(rel(p.t))}</time>${p.ed?` · edited ${esc(rel(p.ed))}`:''}</p>${body}${editing?'':cbOwnBar(reg,p,tid)}${cbModBar(reg,p,tid)}</div></article>`;
 }
 /* a line in a board's list of topics */
@@ -48059,6 +48062,55 @@ function cbView(){
   const regs=regionsByAvail().filter(R=>!regDisabled(R.id)||(REG&&R.id===REG.id)||(CB.meta[R.id]&&CB.meta[R.id].n)),own=regs.filter(R=>REG&&R.id===REG.id),rest=regs.filter(R=>!REG||R.id!==REG.id);
   return head+cbForm()+`<div class="cb-regs">${own.map(cbBoard).join('')}${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${rest.map(cbBoard).join('')}</div>`;
 }
+/* ── @mentions: typing @ in a topic or reply offers the nations of the player's region and the authors on the boards
+   they have open; the server (functions/board.js mentioned) checks each name and leaves a notice in their bell ── */
+function cbMnPool(){const m=new Map(),add=(a,nm)=>{if(a&&nm&&a!==S.uid&&!m.has(a))m.set(a,nm);};
+  for(const x of allNations())if(!x.npc&&!x.me&&x.n&&x.n.name)add(x.id,x.n.name);
+  const posts=[...Object.values(CB.lists).flatMap(L=>(L.list||[]).concat(L.pins||[])),...(CB.topic&&CB.topic.p?[CB.topic.p]:[]),...(CB.reps&&CB.reps.list||[])];
+  for(const p of posts)if(!p.of)add(p.a,p.nm);
+  return m;}
+function cbMnIds(text){const low=String(text||'').toLowerCase(),out=[];
+  for(const [u,nm] of cbMnPool())if(low.includes('@'+nm.toLowerCase())&&out.length<5)out.push(u);
+  return out;}
+function cbMnQuery(t){const v=t.value.slice(0,t.selectionStart),m=/(?:^|[\s(])@([^@\n]{0,30})$/.exec(v);return m?m[1]:null;}
+function cbMnClose(){const b=document.getElementById('cb-mn');if(b)b.remove();const t=CB.mnFor&&document.getElementById(CB.mnFor);if(t)t.removeAttribute('aria-activedescendant');CB.mnFor=null;CB.mnSel=0;}
+function cbMnSuggest(t){
+  const q=cbMnQuery(t);if(q==null){cbMnClose();return;}
+  const ql=q.toLowerCase(),hits=[...cbMnPool()].filter(([u,nm])=>nm.toLowerCase().startsWith(ql)||ql.length>1&&nm.toLowerCase().includes(ql)).slice(0,6);
+  if(!hits.length){cbMnClose();return;}
+  let b=document.getElementById('cb-mn');if(!b){b=document.createElement('ul');b.id='cb-mn';b.className='cb-mn';b.setAttribute('role','listbox');b.setAttribute('aria-label','Mention a nation');t.insertAdjacentElement('afterend',b);}
+  CB.mnFor=t.id;CB.mnSel=Math.min(CB.mnSel||0,hits.length-1);
+  b.innerHTML=hits.map(([u,nm],i)=>`<li role="option" id="cb-mn-${i}" aria-selected="${i===CB.mnSel}" data-nm="${esc(nm)}">@${esc(nm)}</li>`).join('');
+  t.setAttribute('aria-activedescendant','cb-mn-'+CB.mnSel);}
+function cbMnPick(t,nm){
+  const pos=t.selectionStart,v=t.value,start=v.slice(0,pos).lastIndexOf('@');if(start<0)return;
+  const ins='@'+nm+' ';t.value=v.slice(0,start)+ins+v.slice(pos);t.selectionStart=t.selectionEnd=start+ins.length;
+  cbMnClose();t.dispatchEvent(new Event('input',{bubbles:true}));cbMnClose();t.focus();}
+document.addEventListener('keydown',e=>{
+  const t=e.target,b=document.getElementById('cb-mn');if(!b||!t||t.id!==CB.mnFor)return;
+  const n=b.children.length;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();CB.mnSel=(CB.mnSel+(e.key==='ArrowDown'?1:n-1))%n;cbMnSuggest(t);}
+  else if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();cbMnPick(t,b.children[CB.mnSel].dataset.nm);}
+  else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cbMnClose();}
+},true);
+/* a mention in the bell opens its topic: set before the bell's own click handler goes to the board */
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-cb]');if(!el)return;
+  const m=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.cb);if(m){cbOpenSet().add(m[1]);CB.pend=[m[1],m[2]];}},true);
+document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#cb-mn li');if(!li)return;e.preventDefault();const t=document.getElementById(CB.mnFor);if(t)cbMnPick(t,li.dataset.nm);});
+document.addEventListener('focusout',e=>{if(e.target&&e.target.id&&e.target.id===CB.mnFor)setTimeout(()=>{if(document.activeElement!==e.target)cbMnClose();},0);});
+/* the bell: mentions/{uid}/m, the newest 20; those older than 30 days are cleared */
+function cbMnListen(){
+  if(!S.db||!S.uid||CB.mnUid===S.uid)return;
+  if(CB.mnOff)try{CB.mnOff();}catch(e){}
+  CB.mnUid=S.uid;CB.mns=[];
+  CB.mnOff=S.db.collection('mentions/'+S.uid+'/m').orderBy('t','desc').limit(20).onSnapshot(qs=>{
+    const old=Date.now()-30*DAY;
+    CB.mns=qs.docs.map(d=>({id:d.id,...d.data()})).filter(m=>typeof m.t==='number'&&typeof m.reg==='string'&&CB_ID.test(m.tid||''));
+    for(const d of qs.docs)if(((d.data()||{}).t||0)<old&&d.ref)Promise.resolve().then(()=>d.ref.delete()).catch(()=>{});
+    if(typeof fkBellRefresh==='function')fkBellRefresh();},()=>{});}
+NOTIF_SOURCES.push((n,now)=>{cbMnListen();
+  return (CB.mns||[]).filter(m=>now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:'community',cb:m.reg+'/'+m.tid,
+    txt:`${String(m.nm||'A nation').slice(0,80)} mentioned you ${m.rid?'in a reply to':'in'} “${String(m.ti||'a topic').slice(0,80)}”: ${String(m.x||'').slice(0,120)}`}));});
 async function cbCall(data){const api=await window.claude.use('civic');if(!api)throw Object.assign(new Error('Reconnect first.'),{code:'unavailable'});return api.request(data);}
 const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','cb_chancery','cb_paced','permission-denied','invalid-argument'];
 function cbErr(e,what){toast(e&&CB_SAY.includes(e.code)&&e.message?e.message:`The ${what} could not be saved. Try again in a moment.`);}
@@ -48067,7 +48119,7 @@ async function cbSendTopic(){
   if(f.ti.trim().length<3){toast('Give the topic a title of at least three characters.');return;}
   if(!f.x.trim()){toast('Write something first.');return;}
   CB.busy='new';render();
-  try{const r=await cbCall({op:'cbTopic',reg:f.reg,ti:f.ti.trim(),x:f.x.trim(),tg:f.tg}),reg=f.reg;CB.f={reg:'',ti:'',x:'',tg:'general'};CB.form=false;
+  try{const r=await cbCall({op:'cbTopic',reg:f.reg,ti:f.ti.trim(),x:f.x.trim(),tg:f.tg,mn:cbMnIds(f.ti+' '+f.x)}),reg=f.reg;CB.f={reg:'',ti:'',x:'',tg:'general'};CB.form=false;
     cbOpenSet().add(reg);cbKeepOpen();if(r&&r.id){cbOpenTopic(reg,r.id);window.scrollTo(0,0);}toast('Your topic is posted.');}
   catch(e){cbErr(e,'topic');}
   CB.busy='';render();
@@ -48075,7 +48127,7 @@ async function cbSendTopic(){
 async function cbSendReply(){
   const T=CB.topic,x=CB.rx.trim();if(!T||!x||CB.busy)return;
   CB.busy='reply';render();
-  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x,...(cbReplyAs()==='team'?{as:'team',...cbaSign()}:{})});CB.rx='';}
+  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x,mn:cbMnIds(x),...(cbReplyAs()==='team'?{as:'team',...cbaSign()}:{})});CB.rx='';}
   catch(e){cbErr(e,'reply');}
   CB.busy='';render();
   const t=document.getElementById('cb-r-x');if(t&&!CB.rx)try{t.focus({preventScroll:true});}catch(e){}
@@ -48117,6 +48169,7 @@ go=(f=>function(v){
 document.addEventListener('input',e=>{
   const t=e.target,id=t&&t.id||'';if(id.slice(0,3)!=='cb-')return;
   if(id==='cb-f-ti'){CB.f.ti=t.value.slice(0,CB_TITLE);return;}
+  if(id==='cb-f-x'||id==='cb-r-x')cbMnSuggest(t);
   if(id==='cb-f-x'){CB.f.x=t.value.slice(0,CB_TEXT);const c=document.getElementById('cb-f-c');if(c)c.textContent=CB.f.x.length+' / '+CB_TEXT;return;}
   if(id==='cb-r-x'){CB.rx=t.value.slice(0,CB_TEXT);const c=document.getElementById('cb-r-c');if(c)c.textContent=CB.rx.length+' / '+CB_TEXT;return;}
   if(id==='cb-e-ti'&&CB.edit){CB.edit.ti=t.value.slice(0,CB_TITLE);return;}

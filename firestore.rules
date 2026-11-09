@@ -435,6 +435,10 @@ service cloud.firestore {
     }
     // the Community Board's pacing of each player's posts (functions/board.js): only the server reads and writes it
     match /cbPace/{uid} { allow read, write: if false; }
+    // @mentions in Community Board posts (functions/board.js): written only by the server; the player reads and clears their own
+    match /mentions/{uid}/m/{id} {
+      allow read, delete: if isSelf(uid);
+    }
     // alliances (functions/alliances.js): written only by the server. Anyone reads an alliance and the allyOf/ index;
     // only its members read its channel, and alPace/ (the channel's pacing) is the server's alone
     match /alliances/{aid} {
