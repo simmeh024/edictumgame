@@ -65,7 +65,7 @@ check('a stockpile of iron counts towards Iron Reserve', (oreAch.find(r => r[0] 
 /* the Help page explains it */
 await nav(A, 'help');await sleep(500);
 const help = await text(A, '#help-trade');
-check('Help explains the state’s share, the trickle, Ore Pits, the free first Factory and the market', /The state keeps a share/.test(help) && /20%/.test(help) && /Nobody is stuck/.test(help) && /Ore Pits/.test(help) && /first Factory runs without oil/.test(help) && /The Bureau’s market/.test(help), help.slice(0, 300));
+check('Help explains the state’s share, the trickle, Ore Pits, the free first Factory and the market', /The state keeps a share/.test(help) && /30%/.test(help) && /Nobody is stuck/.test(help) && /Ore Pits/.test(help) && /first Factory runs without oil/.test(help) && /The Bureau’s market/.test(help), help.slice(0, 300));
 await A.evaluate(() => document.getElementById('help-trade').scrollIntoView());await sleep(300);await A.screenshot({ path: path.join(OUT, 'goods-help.png') });
 
 await finish();
