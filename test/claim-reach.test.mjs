@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const src = readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const i = src.indexOf('const CAP_REACH='), j = src.indexOf('function claimOk(', i);
 const ctx = vm.createContext({ TERR_AT: null, hexDist: (a, b) => Math.abs(a - b) });
-vm.runInContext(src.slice(i, j).replace('const CAP_REACH', 'var CAP_REACH').replace(',cityReach=', ';var cityReach='), ctx);
+vm.runInContext(src.slice(i, j).replace("const CAP_REACH", "var CAP_REACH").replace("const cityReach", "var cityReach"), ctx);
 
 test('the capital reaches half again as far as the old 45 hexes', () => {
   assert.equal(ctx.CAP_REACH, 68);
@@ -28,4 +28,13 @@ test('a city founded after the shown moment lends no reach', () => {
   const x = { cap: 0, n: { cities: [{ c: 60, t: 500, b: [] }] } };
   ctx.TERR_AT = 100; assert.ok(!ctx.inReach(x, 75));
   ctx.TERR_AT = 1000; assert.ok(ctx.inReach(x, 75)); ctx.TERR_AT = null;
+});
+
+test('the average upgrade colour adds reach on top, never less', () => {
+  const b = (ug, k) => Array(k).fill({ ug });
+  assert.equal(ctx.cityReach({ b: b(0, 4) }), 21, 'no upgrades: unchanged');
+  assert.equal(ctx.cityReach({ b: b(1, 4) }), 21, 'all grey: unchanged');
+  assert.equal(ctx.cityReach({ b: b(3, 4) }), 27, 'all blue: +6');
+  assert.equal(ctx.cityReach({ b: b(5, 20) }), 45, 'twenty gold buildings: 30 + 15');
+  assert.equal(ctx.cityReach({ b: [{ ug: 5 }, { ug: 0 }] }), 18 + 5, 'average 2.5 sits between green and blue');
 });
