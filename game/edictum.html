@@ -24554,7 +24554,7 @@ function czSave(fn,lb,quiet){
   const n=S.nation,c=cz(n),o={a:c.a?clone(c.a):null,sy:clone(c.sy||{}),ds:c.ds};for(const f of Object.keys(CZ_KIND))o[f]=c[f];fn(o);
   const m=clone(n),s={};for(const f of Object.keys(CZ_KIND))if(o[f]&&o[f]!==CZ_DEF[f])s[f]=o[f];if(o.a)s.a=o.a;if(o.sy&&Object.keys(o.sy).length)s.sy=o.sy;if(o.ds==='t'||o.ds==='s')s.ds=o.ds;
   const was=n.cz&&typeof n.cz==='object'?clone(n.cz):null;
-  if(JSON.stringify({...(was||{}),u:0})!==JSON.stringify({...s,u:0}))czUndoPush({cz:was},lb||'your design');
+  if(JSON.stringify({...(was||{}),u:0})!==JSON.stringify({...s,u:0})){czUndoPush({cz:was},lb||'your design');try{gbBump(m,'cz',1,Date.now());}catch(e){}}
   m.cz=s;commit(m);if(!quiet)render();
 }
 function czLocked(id){const u=czU(id);return !u||(u.src!=='free'&&!czMine().has(id));}
@@ -46007,7 +46007,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const D=n.dd;D.q.forEach(([k,goal,ra,rb],i)=>{
     if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
-    if(D.c[i]>=goal){D.p[i]=1;gift(ra,ddGift(ra));gift(rb,ddGift(rb));out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${ddGift(ra)} ${resName(ra)} and +${ddGift(rb)} ${resName(rb)}.`);}
+    if(D.c[i]>=goal){D.p[i]=1;try{gbBump(n,'ddt',1,now);}catch(e){}gift(ra,ddGift(ra));gift(rb,ddGift(rb));out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${ddGift(ra)} ${resName(ra)} and +${ddGift(rb)} ${resName(rb)}.`);}
   });
   if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;for(const r in DD_CLEAR)gift(r,DD_CLEAR[r]);out.push(`A clear desk: +${DD_CLEAR.iron} iron and +${DD_CLEAR.goods} goods.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
@@ -52616,6 +52616,30 @@ achDef('eco','eco-iron50','x','Iron Age','Have your stockpile gain 50 iron a day
 [['odd-desk180','p','Half a Year of Desks',180,'Clear your daily desk on 180 days.'],['odd-desk365','x','Every Day a Desk',365,'Clear your daily desk on 365 days.']]
   .forEach(([id,t,n,g,d])=>achDef('odd',id,t,n,d,g,aDesks));
 achDef('odd','odd-stk365','x','Unbroken','Keep up a presence streak of 365 days.',365,x=>x.npc?0:stkDays(x.n));
+
+/* ───────── first steps: easy Bronze achievements that walk a new player through the game ─────────
+   Pages count the first time the player opens them (tally view:<page>, one save each, then never again). */
+const FS_SKIP=new Set(['visit','admin','admin-help','admin-stats','admin-shop','admin-online']);
+/* the first visit to a page is remembered here and written with the nation's next ordinary save (a save of its own would
+   redraw the page just as it opens, and wipe what the player starts typing) */
+const FS_PEND=new Set();
+go=(f=>function(v){const r=f.apply(this,arguments);try{const n=S.nation;
+  if(n&&!n.npc&&n.name&&!OBS&&S.mode!=='readonly'&&typeof v==='string'&&/^[a-z-]{2,24}$/.test(v)&&!FS_SKIP.has(v)&&!v.startsWith('admin')&&!tallyOf(n,'view:'+v))FS_PEND.add(v);}catch(e){}return r;})(go);
+COMMIT_HOOKS.unshift((n,old,now)=>{if(!FS_PEND.size||!n||n.npc||!n.name)return [];for(const v of FS_PEND)if(!tallyOf(n,'view:'+v))gbBump(n,'view:'+v,1,now);FS_PEND.clear();return [];});
+const fsSeen=x=>{const s=new Set(Object.keys(x.n.tly||{}).filter(k=>k.startsWith('view:')).map(k=>k.slice(5)));if(x.me)for(const v of FS_PEND)s.add(v);return s;};
+const aPages=x=>x.npc?0:fsSeen(x).size;
+const aViewed=(x,v)=>achYes(!x.npc&&fsSeen(x).has(v));
+achDef('found','fs-pages10','b','Finding Your Way','Open ten different pages of the game.',10,aPages);
+achDef('found','fs-pages20','b','Seen It All','Open twenty different pages of the game.',20,aPages);
+achDef('found','fs-stats','b','Census Taker','Open the Statistics page and see your nation in figures.',1,x=>aViewed(x,'stats'),{fm:'bool'});
+achDef('land','fs-map','b','Map Reader','Open the world map.',1,x=>aViewed(x,'map'),{fm:'bool'});
+achDef('odd','fs-ach','b','Hall of Fame','Open the Achievements page.',1,x=>aViewed(x,'achievements'),{fm:'bool'});
+achDef('gov','fs-brief','b','First Briefing','Answer a daily briefing on the Government page.',1,x=>aT(x,'brf'));
+achDef('gov','fs-mandate','b','Spending Capital','Spend your mandate for the first time.',1,x=>aT(x,'mdt'));
+achDef('odd','fs-desk','b','On the Desk','Finish your first daily desk task on the Edicts page.',1,x=>aT(x,'ddt'));
+achDef('odd','fs-style','b','A Touch of Style','Change anything about your nation’s look in Customise.',1,x=>aT(x,'cz'));
+achDef('soc','fs-move','b','Making a Difference','Move any census score by 5 points from where it started.',5,x=>{if(x.npc||!x.n.tlx)return 0;let b=0;for(const k of STAT_KEYS){const r=x.n.tlx[k];if(Array.isArray(r))b=Math.max(b,r[1]-r[0]);}return Math.min(5,Math.floor(b));});
+achDef('found','fs-welcome','b','Welcome Aboard','Finish the first tutorial list, Welcome.',1,x=>{try{return achYes(x.me&&tutChOf(x.n).length>=1);}catch(e){return 0;}},{fm:'bool'});
 
 /* ───────── achievements for Flock, provinces, warehouses, roads, mayors and city mood, the Assembly and parliament ───────── */
 const aProvN=x=>achM(x,'prv',()=>{try{if(x.npc||!prvOnRec(x.n))return 0;const T=territory(),i=prvIdx(T,x.n);if(i===undefined)return 0;const N=prvNatWith(T,i,x.n.prov);return N&&N.prov?N.prov.filter(p=>p.cells&&p.cells.length).length:0;}catch(e){return 0;}});
