@@ -25,6 +25,7 @@ check('a bar names the player, read-only, with the way out', await until(async (
 check('the page is the player’s own nation, in their region, read-only', await until(async () => await A.evaluate(id => G.S.uid === id && G.S.nation.name === 'Frostia' && G.S.mode === 'readonly' && G.S.view === 'nation' && document.querySelector('.brand-sub')?.textContent.includes('Frostmarch'), uidB) && await text(A, '.side-nm') === 'Frostia', 20000));
 const navA = await A.$$eval('.nav [data-v]', els => els.length), navB = await B.$$eval('.nav [data-v]', els => els.length);
 check('with the player’s full menu, as they see it', navA === navB && navA > 9, navA + ' vs ' + navB);
+check('the player is not shown as Edictum staff', !await A.$('.main .staff-pill') && !/Edictum staff/i.test(await text(A, '.main')));
 await A.screenshot({ path: OUT + '/player-view.png', fullPage: true });
 const beforeA = await rawA(), serverA = await stamp(uidA);
 for (const v of ['issues', 'cities', 'settings', 'customise', 'map']) { await nav(A, v);
