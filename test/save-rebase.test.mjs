@@ -9,7 +9,7 @@ const from = html.indexOf('const ACT_SKIP='), to = html.indexOf('/* The account 
 assert.ok(from > 0 && to > from, 'the replay code is found');
 const RES = ['goods', 'food'];
 const make = () => new Function('RES', `
-  const clone=v=>JSON.parse(JSON.stringify(v)),num0=v=>Number(v)||0,OBS=false,S={nation:null};let commitNo=0,carried=false;
+  const clone=v=>JSON.parse(JSON.stringify(v)),num0=v=>Number(v)||0,OBS=false,PV=null,S={nation:null};let commitNo=0,carried=false;
   const roundStock=st=>Object.fromEntries(RES.map(r=>[r,Math.round(num0(st[r])*100)/100]));
   const stockNow=n=>({...n.stock});
   ${html.slice(from, to)}

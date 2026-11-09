@@ -8846,7 +8846,13 @@ const HOME_REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('state
    admin's own region is never observed: the game there is theirs to play. */
 const OBS_KEY='edictum.observe';
 const OBS=(()=>{try{const r=sessionStorage.getItem(OBS_KEY);if(r&&REG_BY_ID[r]&&r!==HOME_REG.id)return r;if(r)sessionStorage.removeItem(OBS_KEY);}catch(e){}return '';})();
-const REG=OBS?REG_BY_ID[OBS]:HOME_REG;
+/* Player view (admins only): this tab shows one player's game as they see it, their nation, pages and settings, and
+   nothing in it can be done. sessionStorage PV_KEY holds "<uid>|<region>" (pvEnter, pvExit). S.uid is that player, so
+   every "me" is theirs; S.mode is readonly, every save path returns early (as for OBS) and the adapter refuses every
+   write and call but the Assembly's read-only state. Never at the same time as OBS. */
+const PV_KEY='edictum.pview';
+const PV=OBS?null:(()=>{try{const r=sessionStorage.getItem(PV_KEY),m=r&&/^([\w-]{1,128})\|([a-z0-9-]{1,40})$/.exec(r);if(m&&REG_BY_ID[m[2]])return {uid:m[1],reg:m[2]};if(r)sessionStorage.removeItem(PV_KEY);}catch(e){}return null;})();
+const REG=OBS?REG_BY_ID[OBS]:PV?REG_BY_ID[PV.reg]:HOME_REG;
 const REG_MER=REG.id==='meridian';
 /* Each region's grid is sized so that its land (geo.land of the grid) comes to about REGION_LAND hexes:
    room for REGION_CAP (250) player nations of some 120 hexes each beside the computer nations, or for its own
@@ -27665,7 +27671,7 @@ async function civicRefresh(){
   if(OBS&&!S.obsOn||!S.uid||!S.nation||S.mode==='local')return;
   if(civicLoading||civicBusy){civicAgain=true;return;}
   civicLoading=true;const epoch=civicEpoch;
-  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request(OBS?{op:'state',obs:REG.id}:{op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';if(!civicInstall(next))civicMissed();if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||['diplomacy','devnews'].includes(S.view)&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
+  try{civicApi=civicApi||await window.claude.use('civic');if(civicApi){const before=S.civic?civicSignature(S.civic):'',beforeAccount=JSON.stringify(accountInfo());const next=await civicApi.request(OBS||PV?{op:'state',obs:REG.id}:{op:'state'});if(epoch!==civicEpoch){civicAgain=true;return;}const cardView=['nation','customise'].includes(S.view),beforeCard=cardView?accountLinkCard(S.nation):'';if(!civicInstall(next))civicMissed();if(S.civic&&before!==civicSignature(S.civic)&&!civicBusy&&(['assembly','region','visit'].includes(S.view)||['diplomacy','devnews'].includes(S.view)&&beforeAccount!==JSON.stringify(accountInfo())||cardView&&beforeCard!==accountLinkCard(S.nation)))render();}}
   catch(e){civicMissed();if(S.view==='assembly'){S.asmMsg=e.message||'The Assembly could not be reached.';render();}}
   finally{civicLoading=false;if(civicAgain&&!civicBusy){civicAgain=false;setTimeout(civicRefresh,0);}}
 }
@@ -39698,8 +39704,8 @@ function normalizeBase(d){
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
-function loadLocal(){if(OBS)return null;try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
-function saveLocal(n){if(OBS||tabPassive)return;try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
+function loadLocal(){if(OBS||PV)return null;try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
+function saveLocal(n){if(OBS||PV||tabPassive)return;try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
 
 /* Saves reach the region at most once every SAVE_GAP (this browser's copy is saved at once): the first
    after loading straight away, a pending one as soon as the tab is hidden or closed, and one within
@@ -39734,7 +39740,7 @@ for(const t of ['pointerdown','keydown'])window.addEventListener(t,()=>{lastInpu
    save functions above read it, and a let would not exist yet should one of them run before this line. */
 const TAB_KEY='edictum.tab',TAB_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);
 var tabPassive=false,tabAt=0;
-function tabClaim(){if(OBS)return;tabAt=Date.now();try{localStorage.setItem(TAB_KEY,JSON.stringify({id:TAB_ID,at:tabAt}));}catch(e){}}
+function tabClaim(){if(OBS||PV)return;tabAt=Date.now();try{localStorage.setItem(TAB_KEY,JSON.stringify({id:TAB_ID,at:tabAt}));}catch(e){}}
 /* only a newer claim than this tab's own: two tabs loading at once (a browser restoring its session) each see the other's,
    and the older one alone stops. Before its own claim a tab takes no notice: it claims next, and so is the newer. */
 const tabNewer=v=>!!v&&v.id!==TAB_ID&&tabAt>0&&(v.at>tabAt||v.at===tabAt&&String(v.id)>TAB_ID);
@@ -39748,7 +39754,7 @@ function tabYield(){
   try{d.querySelector('button').focus({preventScroll:true});}catch(e){}
   publishSync();
 }
-window.addEventListener('storage',e=>{if(e.key!==TAB_KEY||!e.newValue||OBS)return;let v=null;try{v=JSON.parse(e.newValue);}catch(err){}if(tabNewer(v))tabYield();});
+window.addEventListener('storage',e=>{if(e.key!==TAB_KEY||!e.newValue||OBS||PV)return;let v=null;try{v=JSON.parse(e.newValue);}catch(err){}if(tabNewer(v))tabYield();});
 const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Object.assign(new Error('The save took too long.'),{code:'unavailable'})),ms);p.then(v=>{clearTimeout(t);res(v);},e=>{clearTimeout(t);rej(e);});});
 /* Player changes since the last confirmed save. A save refused because another device saved first (save_conflict)
    replays them onto that save (rebaseActs) instead of discarding them. Each entry is what one action changed, read at
@@ -39805,7 +39811,7 @@ function actApply(n,op){
    read, and until a save carries it no refused save is replayed. True when the action changed anything. */
 function actRecord(n){try{return actRead(n);}catch(e){console.warn('actRecord',e);ownActsBroken=commitNo+1;return true;}}
 function actRead(n){
-  if(OBS||!S.nation)return false;
+  if(OBS||PV||!S.nation)return false;
   if(n===S.nation){ownActsBroken=commitNo+1;return true;}
   const ops=[];actDiff(S.nation,n,[],ops,0);
   let ds=null;
@@ -39856,7 +39862,7 @@ const UNSAVED_KEEP=3,unsavedKey=()=>'edictum.unsaved.'+S.uid;
 function unsavedCopies(){try{const o=JSON.parse(localStorage.getItem(unsavedKey())||'null');if(!o||!o.nation)return [];return [{at:o.at,nation:o.nation}].concat(Array.isArray(o.prev)?o.prev.filter(c=>c&&c.nation):[]);}catch(e){return [];}}
 function unsavedWrite(list){try{if(!list.length)localStorage.removeItem(unsavedKey());else localStorage.setItem(unsavedKey(),JSON.stringify(Object.assign({at:list[0].at,nation:list[0].nation},list.length>1?{prev:list.slice(1)}:{})));return true;}catch(e){return false;}}
 function keepUnsaved(n){
-  if(OBS||!n)return 0;
+  if(OBS||PV||!n)return 0;
   const at=Date.now(),j=JSON.stringify(n),list=[{at,nation:n},...unsavedCopies().filter(c=>JSON.stringify(c.nation)!==j)];
   /* with the browser's storage full, fewer copies: the newest first */
   for(let k=Math.min(UNSAVED_KEEP,list.length);k>0;k--)if(unsavedWrite(list.slice(0,k)))return at;
@@ -39864,14 +39870,14 @@ function keepUnsaved(n){
 }
 function unsavedDrop(at){if(at)unsavedWrite(unsavedCopies().filter(c=>c.at!==at));}
 function useSavedNation(n){
-  if(OBS)return;
+  if(OBS||PV)return;
   if(n.reg&&n.reg!==REG.id&&REG_BY_ID[n.reg]){regionReload(n);return;}
   ownActs=[];ownActsBroken=0;S.nation=n;S.openIssue=null;S.result=null;S.settings=null;saveLocal(n);render();publishSync();
 }
 /* Retry a snapshot missed while saving, and fetch a coherent full record rather than replacing the
    nation's private half with defaults from the region's shared record. Revisions ignore device clocks. */
 async function syncOwnNation(force=false){
-  if(OBS||tabPassive||ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
+  if(OBS||PV||tabPassive||ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
   if(!force&&!conflictPending&&!savedAfter(ownLatest,S.nation))return;
   ownSyncBusy=true;const before=commitNo;
   try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
@@ -39917,7 +39923,7 @@ async function ownGone(){
   render();publishSync();
   toast(`${n.name} is no longer saved: it was dissolved on another device. You can found a new nation.${kept?' A copy of the old one is in your account menu.':''}`);
 }
-function commit(n){if(OBS||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
+function commit(n){if(OBS||PV||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
   ensureCities(n);syncBuildings(n,now);const warehouseNotes=whSync(n,now);if(warehouseNotes.length)setTimeout(()=>warehouseNotes.forEach(t=>toast(t)),0);
@@ -39929,7 +39935,7 @@ function commit(n){if(OBS||tabPassive||regBlocked())return;const act=actRecord(n
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now).map(t=>lcPauseMsg(n,t));if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote(act&&performance.now()-lastInput<5000);}
 function queueRemote(player){
-  if(OBS||tabPassive)return;
+  if(OBS||PV||tabPassive)return;
   if(regBlocked()||S.db&&!RCTRL.ready){remoteDirty=true;publishSync();return;}
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}
   remoteDirty=true;
@@ -39941,7 +39947,7 @@ function queueRemote(player){
 }
 async function flushRemote(){
   clearTimeout(remoteTimer);remoteTimer=0;
-  if(OBS||tabPassive)return;
+  if(OBS||PV||tabPassive)return;
   if(regBlocked()||!RCTRL.ready){publishSync();return;}
   if(remoteBusy||!remoteDirty||S.mode!=='world')return;
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
@@ -39955,14 +39961,14 @@ async function flushRemote(){
 }
 /* something another player is waiting for: save within SAVE_MIN instead of at the next gap */
 function saveSoon(){
-  if(OBS||tabPassive)return;
+  if(OBS||PV||tabPassive)return;
   if(S.mode!=='world'||!S.db||!S.uid){publishSync();return;}remoteDirty=true;remoteSoon=true;publishSync();if(remoteBusy)return;
   /* a busy region (saveBusy) is not asked again before the retry step */
   clearTimeout(remoteTimer);remoteDue=remoteLast+(saveBusy&&saveStreak?SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1]:SAVE_MIN);remoteTimer=setTimeout(flushRemote,Math.max(0,remoteDue-performance.now()));
 }
 /* send a pending save now (leaving the page, moving region), at the rules' pace of one a second */
 async function flushNow(){
-  if(OBS||tabPassive)return;
+  if(OBS||PV||tabPassive)return;
   if(regBlocked()||!RCTRL.ready)return;
   if(S.mode!=='world'||!S.db||!S.uid)return;
   while(remoteBusy)await sleep(100);
@@ -39976,10 +39982,10 @@ async function flushNow(){
 /* Sign-out waits for the latest changes to be saved. Where no save can go (view-only access, a region closed for
    maintenance, an observing tab, another tab playing) waiting would refuse it for good: the copy keepUnsaved sets aside
    goes with this account instead, offered in the account menu at its next sign-in, and src/shim.js says so ('kept'). */
-if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){const kept=keepUnsaved(S.nation);if(!remoteBusy&&(OBS||tabPassive||S.mode==='readonly'||regBlocked()))return kept?'kept':'';throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
+if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){const kept=keepUnsaved(S.nation);if(!remoteBusy&&(OBS||PV||tabPassive||S.mode==='readonly'||regBlocked()))return kept?'kept':'';throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
 /* src/shim.js doSwitch: a sign-in failed after the guest's region copy was taken away. rev is the revision the region
    holds now: 1 when the copy was put back, 0 when it could not be, so that the next save starts the record again */
-if(window.__edictum)window.__edictum.reviseOwn=rev=>{if(OBS||tabPassive||!S.nation||!Number.isSafeInteger(rev)||rev<0)return;S.nation._rev=rev;S.nation._dirty=true;ownActs=[];ownActsBroken=0;conflictPending=false;carried=false;saveLocal(S.nation);queueRemote(true);};
+if(window.__edictum)window.__edictum.reviseOwn=rev=>{if(OBS||PV||tabPassive||!S.nation||!Number.isSafeInteger(rev)||rev<0)return;S.nation._rev=rev;S.nation._dirty=true;ownActs=[];ownActsBroken=0;conflictPending=false;carried=false;saveLocal(S.nation);queueRemote(true);};
 /* a reload for a newer build (src/shim.js, versionCheck) first sends the latest changes, and leaves alone a page that
    holds something the player is writing that lives only here: a message, a resolution, a notice, a post, a history */
 /* a tab that let another play (tabYield) is never reloaded by itself: that would take the nation back from the tab in use */
@@ -39998,7 +40004,7 @@ window.addEventListener('online',resumeNation);
 window.addEventListener('focus',resumeNation);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeNation();});
 async function writeRemote(){
-  if(OBS||tabPassive||!S.nation)return;
+  if(OBS||PV||tabPassive||!S.nation)return;
   const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation),sentC=commitNo;
   sentLog.push({t:sent.updatedAt,c:sentC});if(sentLog.length>20)sentLog.shift();
   /* a save past SAVE_LIMIT is given up on here, yet may still land: its revision is then taken up as below, and a
@@ -41109,7 +41115,7 @@ setInterval(quietCheck,20000);
 let connectEngaged=false;
 async function connect(){
   /* observing needs the region's data and an admin's account: without either, this tab goes back to its own nation */
-  const quit=()=>{if(OBS)obsExit();};
+  const quit=()=>{if(OBS)obsExit();if(PV)pvExit();};
   if(!window.claude||typeof window.claude.use!=='function')return quit();
   let db,user;
   try{[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);}catch(e){return quit();}
@@ -41117,19 +41123,20 @@ async function connect(){
   const uid=await user.id();if(!uid)return quit();
   S.db=db;S.uid=uid;
   S.isOwner=await user.isOwner();
-  if(OBS&&!S.isOwner)return quit();
+  if((OBS||PV)&&!S.isOwner)return quit();
+  if(PV){S.uid=PV.uid;try{if(!(await pvLoad(db)))return;}catch(e){S.pvErr=e&&e.message||'unknown';render();return;}}
   await regionControls();
   try{S.google=typeof user.google==='function'?!!(await user.google()):false;}catch(e){S.google=false;}
   const can=await user.can('data.write');
-  S.mode=OBS||can===false?'readonly':'world';
+  S.mode=OBS||PV||can===false?'readonly':'world';
   publishSync();
   if(OBS){obsConnected();render();}
   /* a moderator's word comes first: a banned account saves nothing, and a removed nation's copy in this
      browser goes rather than being uploaded again */
-  try{const b=await db.doc('bans/'+uid).get();if(b.exists){S.banned=b.data()||{};S.mode='readonly';banNotice();}}catch(e){}
+  if(!PV)try{const b=await db.doc('bans/'+uid).get();if(b.exists){S.banned=b.data()||{};S.mode='readonly';banNotice();}}catch(e){}
   /* observing, the account's own nation is left alone: it is neither fetched, merged nor followed to its region */
-  if(!OBS)try{const m=await db.doc('mod/'+uid).get(),v=m.exists?m.data():null;if(v&&v.removed&&S.nation&&(S.nation.founded||0)<v.removed)modRemoved(v);}catch(e){}
-  if(!OBS)try{
+  if(!OBS&&!PV)try{const m=await db.doc('mod/'+uid).get(),v=m.exists?m.data():null;if(v&&v.removed&&S.nation&&(S.nation.founded||0)<v.removed)modRemoved(v);}catch(e){}
+  if(!OBS&&!PV)try{
     const snap=await db.doc('nations/'+uid).get();
     saveChecked=true;saveFailed=false;
     const rawMe=snap.exists?snap.data():null;
@@ -41181,14 +41188,14 @@ async function connect(){
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
       if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
     /* this record left the region from another device: follow it there */
-    if(!OBS&&hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
+    if(!OBS&&!PV&&hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
       if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&savedAfter(raw,S.nation)){ownLatest=raw;syncOwnNation();}},()=>{});
     hadMine=mineHere;
     dormSift(w,all);
     S.worldAll=all;
     S.world=w;
     /* saved from another device: the region has only its shared half, so load it whole */
-    ownLatest=w[S.uid]||ownLatest;syncOwnNation();
+    if(PV){if(w[S.uid]&&(w[S.uid].updatedAt||0)>(S.nation&&S.nation.updatedAt||0))pvLoad(S.db).catch(()=>{});}else{ownLatest=w[S.uid]||ownLatest;syncOwnNation();}
     if(!S.nation||S.view==='map')quietRender(()=>{updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();});
     else if((['region','census','visit','nation','diplomacy','trade'].includes(S.view)||S.view==='exchange'&&cuWorldMoved())&&!S.spyRolling)quietRender();
   };
@@ -42786,7 +42793,7 @@ function render(){if(fxRender())return;
      Translate), made the translator redo and keep track of the whole page each time, which wore a long session
      down to a crawl. The serial numbers that make SVG ids unique differ from drawing to drawing, so they are
      left out of the comparison. A jump or a reward to show always draws. */
-  const html=gamesLocal((OBS?obsBar():'')+(S.nation?shell():foundView())),app=document.getElementById('app'),same=renderKey(html);
+  const html=gamesLocal((OBS?obsBar():PV?pvBar():'')+(S.nation?shell():PV?pvWait():foundView())),app=document.getElementById('app'),same=renderKey(html);
   if(same===RENDER_LAST.k&&!uxPlan&&!rewardJump&&app.firstChild&&RENDER_LAST.app===app.firstChild){RENDER_LAST.skips++;return;}
   const navK=navBefore();
   if(pageTranslated()){dismantle(app);RENDER_LAST.tr++;}
@@ -43381,7 +43388,7 @@ function susRow(x){
     <ul class="sus-why">${x.why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>
     ${ask==='hide'?`<div class="row"><span class="hint">Hide ${esc(x.name)} from the other players? Its player still plays it and is told why. You can show it again under Hidden nations.</span><button class="btn danger small" data-act="sus-hide-yes" data-id="${esc(x.id)}">Hide</button><button class="btn ghost small" data-act="sus-no">Cancel</button></div>`
     :ask?`<div class="row"><span class="hint">Ban the player of ${esc(x.name)}? The nation and its posts are removed.</span><button class="btn danger small" data-act="sus-ban-yes" data-id="${esc(x.id)}">Ban</button><button class="btn ghost small" data-act="sus-no">Cancel</button></div>`
-    :`<div class="row">${x.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(x.reg,x.id)}${hid?'':`<button class="btn ghost small" data-act="sus-hide" data-id="${esc(x.id)}">Hide…</button>`}<button class="btn ghost small" data-act="sus-ban" data-id="${esc(x.id)}">Ban…</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button></div>`}</li>`;
+    :`<div class="row">${x.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(x.reg,x.id)}${hid?'':`<button class="btn ghost small" data-act="sus-hide" data-id="${esc(x.id)}">Hide…</button>`}<button class="btn ghost small" data-act="sus-ban" data-id="${esc(x.id)}">Ban…</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>${pvBtn(x.reg,x.id)}</div>`}</li>`;
 }
 function susRows(){return susHere().concat(ADMS.scan||[]);}
 function adminSusView(){
@@ -43642,7 +43649,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Purchases</h3>${adminPurchases(p)}
     <h3 class="help-h3">Reports and tickets</h3>${adminReports(p)}
     <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
-    <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
+    <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists?pvBtn(p.reg,p.uid):''}${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Letters with other players</h3>${adminLetters(p)}
@@ -47817,7 +47824,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
 });
 /* opening the game on a new day is enough: it saves once when a day back, or the head start, is due */
 setInterval(()=>{try{
-  const n=S.nation;if(!n||n.npc||!n.name||document.hidden||OBS||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready)return;
+  const n=S.nation;if(!n||n.npc||!n.name||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready)return;
   if(n.hst===1&&!(n.wbk&&wbDays(n)<WB_DAYS&&ddLater(ddDay(Date.now()),n.wbk.d)))return;
   commit(clone(n));const a=document.activeElement;if(!(a&&a.closest&&a.closest('input,textarea,select,[contenteditable]')))quietRender();
 }catch(e){}},5000);
@@ -47878,7 +47885,7 @@ document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest
   else{if(t.id==='m50-later')m50Later=true;m50Close();quietRender();}});
 document.addEventListener('keydown',e=>{const o=document.getElementById('m50');if(e.key==='Escape'&&o){if(!o.classList.contains('open'))m50Later=true;m50Close();quietRender();}});
 setInterval(()=>{try{const n=S.nation;
-  if(m50Later||!m50Due(n)||navigator.webdriver&&!window.EDICTUM_M50||document.hidden||OBS||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
+  if(m50Later||!m50Due(n)||navigator.webdriver&&!window.EDICTUM_M50||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
   m50Show();}catch(e){}},2000);
 
 /* ───────── Community Board ─────────
@@ -54265,7 +54272,40 @@ worldMapView=(f=>function(){
     <div class="ml-legend">${mapLegend()}</div>
   </div>`;
 })(worldMapView);
+/* ───────── player view ─────────
+   An admin sees one player's game as that player does (PV): their nation as saved, private half too, in their
+   region, with their layout, menus and settings; settings kept only in the player's browser are not seen. Nothing can
+   be done: commit and every save return early, S.mode is readonly and the adapter refuses all writes and calls. */
+let pvGoing=false;
+async function pvLoad(db){
+  const snap=await db.doc('nations/'+PV.uid).get(),raw=snap.exists?snap.data():null;
+  if(!raw){S.pvErr='This player has no nation.';render();return false;}
+  if(raw.reg&&raw.reg!==PV.reg&&REG_BY_ID[raw.reg]){pvEnter(PV.uid,raw.reg);return false;}
+  const n=normalize(raw);if(!n){S.pvErr='Their nation could not be read.';render();return false;}
+  S.nation=n;S.pvAt=Date.now();render();return true;
+}
+function pvEnter(uid,reg){
+  if(!S.isOwner||!uid||!REG_BY_ID[reg]||pvGoing)return;pvGoing=true;
+  Promise.resolve(OBS||PV?0:flushNow()).catch(()=>{}).then(()=>{
+    try{sessionStorage.removeItem(OBS_KEY);sessionStorage.setItem(PV_KEY,uid+'|'+reg);}
+    catch(e){pvGoing=false;toast('This browser keeps no session storage, which the player view needs.');return;}
+    try{history.replaceState(null,'','#nation');}catch(e){}
+    location.reload();});
+}
+function pvExit(){
+  try{sessionStorage.removeItem(PV_KEY);}catch(e){return;}
+  try{history.replaceState(null,'','#admin');}catch(e){}
+  location.reload();
+}
+function pvBtn(reg,uid){return S.isOwner&&S.mode!=='local'&&REG_BY_ID[reg]&&uid&&!PV?`<button type="button" class="btn ghost small" data-act="pv-go" data-id="${esc(uid)}" data-reg="${esc(reg)}">View as player</button>`:'';}
+function pvBar(){const n=S.nation;return `<div class="obs-bar pv-bar" role="region" aria-label="Player view"><p><b>Viewing as ${esc(n&&n.name?n.name:'a player')}</b> — ${esc(REG.name)}, read-only: nothing can be done or saved${S.pvAt?`, as of ${esc(rel(S.pvAt))}`:''}</p><button type="button" class="btn small" data-act="pv-exit">Leave player view</button></div>`;}
+function pvWait(){return S.pvErr?`<div class="empty"><p class="empty-h">The player view could not open</p><p>${esc(S.pvErr)}</p></div>`:`<p class="hint" role="status" style="padding:24px">Opening the player's game…</p>`;}
+/* any action that would change their nation is stopped before it is tried */
+let pvTap=0;window.addEventListener('pointerdown',()=>{pvTap=Date.now();},{capture:true,passive:true});
+commit=(f=>function(n){if(PV){if(Date.now()-pvTap<1500)toast('Player view: nothing can be done here.');return;}return f.apply(this,arguments);})(commit);
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='pv-go'){e.preventDefault();pvEnter(el.dataset.id,el.dataset.reg);return;}
+  if(a==='pv-exit'){e.preventDefault();pvExit();return;}
   if(a==='obs-go'){e.preventDefault();obsEnter(el.dataset.id,el.dataset.visit||'');return;}
   if(a==='obs-exit'){e.preventDefault();obsExit();}});
 
@@ -58247,7 +58287,7 @@ function start(data){
   data=data||{};
   applyTheme(themePref());
   tabClaim();
-  S.nation=OBS?obsNation():loadLocal();
+  S.nation=OBS?obsNation():PV?null:loadLocal();
   S.draft=data.draft||(!S.nation&&draftRestore())||newDraft();
   if(data.view){
     S.view=data.view;S.openIssue=data.openIssue||null;S.result=data.result||null;S.visit=data.visit||null;

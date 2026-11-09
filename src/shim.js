@@ -98,7 +98,12 @@
      newspaper edition back to be filed again from the records (papers/, which only an admin may delete; the game files
      none while observing, and the rules want a nation of that region). */
   var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards', 'papers'];
-  function observing() { return !!SS.get(SS_OBSERVE); }
+  /* An admin viewing the game as a player (game/edictum.html, PV: sessionStorage edictum.pview = "<uid>|<region>") sees
+     that player's nation, pages and settings and may do nothing at all: every write, board post, callable and letter is
+     refused, the admin's own team posts included; only the Assembly's read-only state (civic state with obs) is asked. */
+  var SS_PVIEW = 'edictum.pview';
+  function pviewing() { return !!SS.get(SS_PVIEW); }
+  function observing() { return !!SS.get(SS_OBSERVE) || pviewing(); }
   function readOnly() { return mapError({ code: 'read_only', message: 'Nothing is saved while observing a region.' }); }
   function parse(s) { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } }
   function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
@@ -402,7 +407,9 @@
        before another device's save with its private half afterwards (and cached reads can be stale). */
     var read = uid === A.uid ? A.fs.runTransaction(async function (tx) {
       return [await tx.get(A.fs.doc('nations/' + uid)), await tx.get(A.fs.doc('nationx/' + uid)), await tx.get(A.fs.doc('nationp/' + uid))];
-    }) : Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; })]);
+    }) : Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; }),
+      /* viewing as this player, the admin also reads their private half (the rules let an admin) */
+      pviewing() && SS.get(SS_PVIEW).split('|')[0] === uid ? A.fs.doc('nationp/' + uid).get().catch(function () { return null; }) : null]);
     return read.then(function (r) {
       var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null, o = r[2] && r[2].exists ? r[2].data() : null;
       /* the player's own record, as saved: its claims and finds were stamped with that save */
@@ -413,7 +420,7 @@
   }
   function docApi(path) {
     var p = String(path).split('/').filter(Boolean), col = p[0], ref = A.fs.doc(p.join('/')), nation = col === 'nations' && p.length === 2;
-    var shut = function () { return observing() && OBS_WRITE.indexOf(col) < 0; };
+    var shut = function () { return pviewing() || observing() && OBS_WRITE.indexOf(col) < 0; };
     return Object.freeze({
       id: ref.id,
       path: ref.path,
@@ -508,7 +515,7 @@
   function post(reg, text, o) {
     if (A.frozen) return hang();
     var team = isObj(o) && o.as === 'team', re = isObj(o) && typeof o.re === 'string' && /^[A-Za-z0-9]{20}$/.test(o.re) ? o.re : '';
-    if (observing() && !team) return Promise.reject(readOnly());
+    if (pviewing() || observing() && !team) return Promise.reject(readOnly());
     var u = A.auth.currentUser;
     if (!u) return Promise.reject(mapError({ code: 'unauthenticated' }));
     return call('civic', Object.assign({ op: 'topic', reg: str(reg,40), text: String(text || '') }, team ? { as: 'team', nm: str(o.nm, 80), rl: str(o.rl, 60) } : {}, re ? { re: re } : {})).then(function(r) { return r.id; });
@@ -588,6 +595,7 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
+    if (pviewing() && !(name === 'civic' && op === 'state' && data.obs)) throw readOnly();
     if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {

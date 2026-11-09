@@ -310,7 +310,7 @@ test('the letters are cached with the other stories, and read the same after ext
 /* the game's own replay of this device's actions onto another device's save (actRecord, rebaseActs) */
 const RFROM=html.indexOf('const ACT_SKIP='),RTO=html.indexOf('/* The account control lives in the Firebase adapter.');
 const replay=()=>new Function('RES',`
-  const clone=v=>JSON.parse(JSON.stringify(v)),num0=v=>Number(v)||0,OBS=false,S={nation:null};let commitNo=0,carried=false;
+  const clone=v=>JSON.parse(JSON.stringify(v)),num0=v=>Number(v)||0,OBS=false,PV=null,S={nation:null};let commitNo=0,carried=false;
   const roundStock=st=>Object.fromEntries(RES.map(r=>[r,Math.round(num0(st[r])*100)/100]));const stockNow=n=>({...n.stock});
   ${html.slice(RFROM,RTO)}
   return {S,act(n){const r=actRecord(n);S.nation=n;commitNo++;return r;},rebase:rebaseActs};`)(['food','timber','iron','oil','goods']);
