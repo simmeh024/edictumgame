@@ -467,7 +467,7 @@ test('the Black Friday Pack: €1.99, its three pieces held, gifts allowed, and 
   const p = await player(), c = await call(p, { step: 'checkout', product: 'bfpack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;
-  for (const id of ['sh-midnight', 'c-nowl', 'e-nowl']) assert.ok(f.includes(id), id + ' is held');
+  for (const id of ['sh-midnight', 'c-nowl', 'e-nowl', 'cd-midnight', 's-sold', 'p-barcode', 'pn-tag', 'lp-i-receipt', 't-bargain', 'a-midgold']) assert.ok(f.includes(id), id + ' is held');
   await rejects(call(p, { step: 'checkout', product: 'bfpack' }), 'owned');
   /* after the end of 30 November, by the server's clock */
   await config({ skew: Date.parse(CATALOGUE.products.bfpack.until) + 3600e3 - Date.now() });
