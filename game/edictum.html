@@ -1248,6 +1248,25 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .c3-ren{margin-top:14px}
 .c3-ab{margin:6px 0 0;padding-left:18px}.c3-ab li+li{margin-top:4px}
 .bld-q .bld-n{color:var(--ink-2)}.bld-q .bld-bar{opacity:.5}
+button.stk-i,button.cx-stk{font:inherit;color:inherit;text-align:left;background:none;border:0;padding:0;margin:0;cursor:pointer;border-radius:4px}
+button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:focus-visible,button.cx-stk:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.cx-stk{display:block;width:100%}
+.rbd-modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px}
+.rbd-scrim{position:absolute;inset:0;border:0;padding:0;background:rgba(8,18,17,.5);cursor:pointer}
+.rbd-sheet{position:relative;width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:20px 22px 22px;background:var(--sheet);color:var(--ink);border:1px solid var(--rule-2);border-top:4px solid var(--accent);border-radius:6px;box-shadow:var(--shadow)}
+.rbd-x{position:absolute;top:14px;right:16px}
+.rbd-h{font-family:var(--f-display);font-size:26px;margin:2px 0 4px}
+.rbd-sum{margin:0 0 14px;color:var(--ink-2)}
+.rbd-sec{margin:14px 0 4px;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.rbd-t{width:100%;border-collapse:collapse;font-size:14px}
+.rbd-t td{padding:5px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.rbd-t td:last-child{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:12px}
+.rbd-t .rbd-sub td{font-size:12.5px;color:var(--ink-2);padding-left:14px}
+.rbd-t .rbd-sub td:last-child{padding-left:12px}
+.rbd-t .rbd-tot td{font-weight:600;border-bottom:0;border-top:2px solid var(--rule-2)}
+.rbd-neg{color:var(--stamp)}
+.rbd-note{font-size:12.5px;color:var(--ink-2);margin:10px 0 0}
+@media (max-width:560px){.rbd-modal{place-items:end center;padding:0}.rbd-sheet{width:100%;max-height:88vh;border-radius:10px 10px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px))}}
 .stk-strip{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 20px;margin:0 0 26px;padding:11px 16px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
 .gb-why{margin:-4px 0 14px;padding:8px 12px;border:1px dashed var(--rule-2);border-radius:4px;font-size:13px;color:var(--ink-2)}
 .gb-why ul{margin:0 0 4px;padding-left:1.1em;display:grid;gap:3px}.gb-why .row{gap:12px;flex-wrap:wrap}
@@ -22522,7 +22541,7 @@ function c3Strip(n,now,o){
   if(!n||cellOf(n.loc)<0)return '';
   o=o||{};now=now||Date.now();const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n),need=o.need||{},h=o.h||'Stockpile';
   return `<div class="stk-strip${o.compact?' stk-c':''}" role="group" aria-label="${esc(h)}"><span class="stk-strip-h">${esc(h)}</span>${RES.map(r=>{const sh=need[r]>0&&st[r]+1e-6<need[r];
-    return `<span class="stk-i${sh?' stk-short':''}"><span class="stk-l">${RES_INFO[r][0]}</span><b data-live="stk3" data-r="${r}">${fmtStock(st[r])}</b><span class="stk-rt">${sh?`Need ${need[r]}`:st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+'<span class="stk-ad"> a day</span>':'<span class="stk-nl">Not growing</span><span class="stk-ns">+0</span>'}</span></span>`;}).join('')}${o.compact?'':'<button class="linkish small stk-go" data-act="go" data-v="cities">Open Cities</button>'}</div>`;
+    return `<button type="button" class="stk-i${sh?' stk-short':''}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="stk-l">${RES_INFO[r][0]}</span><b data-live="stk3" data-r="${r}">${fmtStock(st[r])}</b><span class="stk-rt">${sh?`Need ${need[r]}`:st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+'<span class="stk-ad"> a day</span>':'<span class="stk-nl">Not growing</span><span class="stk-ns">+0</span>'}</span></button>`;}).join('')}${o.compact?'':'<button class="linkish small stk-go" data-act="go" data-v="cities">Open Cities</button>'}</div>`;
 }
 
 /* computer nations freeze deals while they regard you as Hostile */
@@ -52791,6 +52810,67 @@ c3Strip=(f=>function(n,now,o){
   return h+`<div class="gb-why" role="note"><ul>${lines}</ul><div class="row"><button type="button" class="linkish small" data-act="gb-flows">See Budget &amp; flows</button><button type="button" class="linkish small" data-act="gb-market">Trade at the Bureau’s market</button></div></div>`;
 })(c3Strip);
 
+/* the stockpile's day, line by line: click a resource on the goods bar (or the Cities stockpile) for a modal that
+   lists everything that makes it, uses it, trades it and tops it up, adding up to the "+x a day" shown */
+function rbdParts(n,r){
+  const E=economy(),i=E.byDoc.get(n);if(i===undefined)return null;
+  const T=E.T,x=T.list[i],made=[],used=[],trade=[],stock=[];
+  let base=0;
+  if(r==='goods'){const s=x.n.s||{};base=econSize(x)*(0.6+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);made.push(['Industry (size, economy and science)',base]);}
+  else{const Y=CELL_RES[r];let h=0;for(let c=0;c<MAP.N;c++)if(T.owner[c]===i&&Y[c]){base+=Y[c];h++;}made.push([`Your land (${fmt0(h)} hex${h===1?'':'es'} that yield it)`,base]);}
+  const pol=x.n.policies||{};let run=base;
+  for(const k in RES_POL)if(pol[k]&&RES_POL[k][r]){const m=RES_POL[k][r],d=run*(m-1);run*=m;made.push([`Policy: ${POLICIES[k]?POLICIES[k][0]:k} (${m>1?'+':'−'}${Math.round(Math.abs(m-1)*100)}%)`,d]);}
+  const CSt=cityState(T),a=CSt.agg[i];let cs=0;
+  for(const ct of CSt.all){if(!ct.active||ct.hi!==i||!ct.buildOutput)continue;const v=ct.buildOutput[r]||0;if(Math.abs(v)<0.05)continue;cs+=v;made.push([`${ct.nm}${ct.cap?' (capital)':''}: buildings`,v,1]);}
+  const net=(a?a.add[r]:0)-cs;if(Math.abs(net)>=0.05)made.push(['Links between your cities',net,1]);
+  const mOther=E.prod[r][i]-run-(a?a.add[r]:0);if(Math.abs(mOther)>=0.05)made.push(['Other sources',mOther]);
+  if(E.exp[r][i]>=0.05)trade.push(['Exports in trade deals',-E.exp[r][i]]);
+  const im=E.sup[r][i]-E.prod[r][i]+E.exp[r][i];if(Math.abs(im)>=0.05)trade.push([`Imports in trade deals${(pol.importTariffs)?' (after tariffs)':''}`,im]);
+  used.push(['Your people',-econSize(x)*DEMAND[r]]);
+  if(a&&a.up[r]>=0.05)used.push(['Building upkeep',-a.up[r]]);
+  const left=E.sup[r][i]-E.dem[r][i];let got=Math.max(0,left);
+  stock.push([left>=0?'What is left over':'Nothing left over (your people use more than you have)',got]);
+  const add=(l,v)=>{if(Math.abs(v)>=0.05){stock.push([l,v]);got+=v;}};
+  try{add('Space colonies',spIncome(n)[r]||0);}catch(e){}
+  try{let b=0;for(const q of [btTrickle(n),btProvision(n)])b+=q[r]||0;if(b){const nv=Math.max(0,got+b);add('The asteroid belt',nv-got);}}catch(e){}
+  try{const id=flIdOf(n);if(id)add('Fading bonuses',flResRate(n,flFx(id,n))[r]||0);}catch(e){}
+  const share=GB.SHARE*Math.max(0,E.prod[r][i]-E.exp[r][i]);if(share>got)add(`Top-up to the state’s share (${Math.round(GB.SHARE*100)}% of what you make)`,share-got);
+  if(r==='goods'&&!n.npc)add('Your population’s own goods',gbPopGoods(n));
+  const st0=n.stock||START_STOCK;if(!n.npc&&isFinite(GB_MIN[r])&&num0(st0[r])<GB_MIN[r]&&got<GB.TRICKLE)add('State top-up while it is low',GB.TRICKLE-got);
+  const tot=stockRates(n)[r];add('Other effects',tot-got);
+  return {made,used,trade,stock,prod:E.prod[r][i],left,tot};
+}
+const rbdNum=v=>`<span class="${v<-0.04?'rbd-neg':''}">${v<-0.04?'−':'+'}${fmtAmt(Math.abs(v))}</span>`;
+function rbdRows(a){return a.map(([l,v,sub])=>`<tr${sub?' class="rbd-sub"':''}><td>${esc(l)}</td><td>${rbdNum(v)}</td></tr>`).join('');}
+function rbdHTML(n,r){
+  let P;try{P=rbdParts(n,r);}catch(e){P=null;}
+  const nm=RES_INFO[r][0],now=Date.now(),cap=stockCap(n),st=stockNow(n,now)[r];
+  const body=P?`<p class="rbd-sum">${fmtStock(st)} of ${cap} in the stockpile, ${st>=cap?'which is full: nothing more is added until you spend some':`gaining <b>${fmtAmt(P.tot)}</b> a day`}.</p>
+    <h3 class="rbd-sec">Made</h3><table class="rbd-t">${rbdRows(P.made)}<tr class="rbd-tot"><td>Made a day</td><td>${rbdNum(P.prod)}</td></tr></table>
+    ${P.trade.length?`<h3 class="rbd-sec">Trade</h3><table class="rbd-t">${rbdRows(P.trade)}</table>`:''}
+    <h3 class="rbd-sec">Used</h3><table class="rbd-t">${rbdRows(P.used)}<tr class="rbd-tot"><td>Left over a day</td><td>${rbdNum(P.left)}</td></tr></table>
+    <h3 class="rbd-sec">Into the stockpile</h3><table class="rbd-t">${rbdRows(P.stock)}<tr class="rbd-tot"><td>Stockpile gains a day</td><td>${rbdNum(P.tot)}</td></tr></table>
+    ${(()=>{const w=gbWhy(n,r);return w?`<p class="rbd-note">${esc(w)}</p>`:'';})()}`:`<p class="rbd-sum">Settle on the map first: your stockpile fills from the land you hold.</p>`;
+  return `<div class="rbd-modal" role="dialog" aria-modal="true" aria-labelledby="rbd-h"><button type="button" class="rbd-scrim" data-act="rbd-close" aria-label="Close" tabindex="-1"></button>
+    <div class="rbd-sheet"><button type="button" class="rbd-x linkish small" data-act="rbd-close" id="rbd-x">Close</button>
+    <p class="eyebrow">Stockpile</p><h2 class="rbd-h" id="rbd-h">${esc(nm)}</h2>${body}
+    <div class="row" style="margin-top:14px"><button type="button" class="linkish small" data-act="gb-flows">See Budget &amp; flows</button><button type="button" class="linkish small" data-act="gb-market">Trade at the Bureau’s market</button></div></div></div>`;
+}
+let rbdOpen=null,rbdBack=null;
+function rbdShow(r){
+  if(!S.nation||!RES.includes(r))return;let el=document.getElementById('rbd-root');
+  if(!el){el=document.createElement('div');el.id='rbd-root';document.body.appendChild(el);}
+  rbdOpen=r;el.innerHTML=rbdHTML(S.nation,r);const x=document.getElementById('rbd-x');if(x)x.focus();
+}
+function rbdHide(){const el=document.getElementById('rbd-root');if(el)el.innerHTML='';rbdOpen=null;const b=rbdBack;rbdBack=null;if(b&&b.isConnected)b.focus();}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='res-bd'){rbdBack=el;rbdShow(el.dataset.r);return;}
+  if(a==='rbd-close'){rbdHide();return;}
+  if(rbdOpen&&el.closest('#rbd-root'))rbdHide();
+});
+document.addEventListener('keydown',e=>{if(rbdOpen&&e.key==='Escape'){e.preventDefault();rbdHide();}});
+
 /* 6: the Bureau's market. Swap a surplus for what is short, at the Bureau's price: the better the first goods of the day,
    then less for every unit already sold today (GB.MKT_DAY units in all), so the market helps but never replaces trade.
    n.mkt {d: the day, q: units handed over that day} */
@@ -53983,7 +54063,7 @@ function cxCatBar(n,ct){
 }
 function cxStock(n,now){
   const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n);
-  return `<section class="cx-stock" aria-label="Stockpile">${RES.map(r=>`<div class="cx-stk"><span class="cx-stk-l">${RES_INFO[r][0]}</span><span class="cx-stk-v"><span data-live="stock" data-r="${r}">${fmtStock(st[r])}</span><small> / ${cap}</small></span><span class="bar"><i data-live="stockbar" data-r="${r}" style="width:${Math.min(100,st[r]/cap*100).toFixed(1)}%"></i></span><span class="cx-stk-r">${st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+' a day':'Not growing'}</span></div>`).join('')}</section>`;
+  return `<section class="cx-stock" aria-label="Stockpile">${RES.map(r=>`<button type="button" class="cx-stk" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="cx-stk-l">${RES_INFO[r][0]}</span><span class="cx-stk-v"><span data-live="stock" data-r="${r}">${fmtStock(st[r])}</span><small> / ${cap}</small></span><span class="bar"><i data-live="stockbar" data-r="${r}" style="width:${Math.min(100,st[r]/cap*100).toFixed(1)}%"></i></span><span class="cx-stk-r">${st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+' a day':'Not growing'}</span></button>`).join('')}</section>`;
 }
 /* what needs the player in their cities, as [text, tab, city id, kind, the city, the matter / the empty blocks / the
    cities without a mayor]: the Cities page lists it, and the bell (section CA) tells it */
