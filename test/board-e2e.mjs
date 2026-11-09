@@ -46,8 +46,17 @@ check('opening a collapsed board lists its topics', await until(async () => /Gra
 check('the collapsed header counts its topics', /1 topic/.test(await text(C, `.cb-reg[data-reg="${far}"] .cb-reg-c`)));
 await C.click(`.cb-reg[data-reg="${far}"] [data-act="cb-topic"]`);
 await C.waitForSelector('#cb-r-x');
-await C.fill('#cb-r-x', 'Steel for sale, ten tons.'); await C.click('#cb-rf button[type="submit"]');
+// C mentions B: typing @ offers the nations on the board, Enter picks one
+await C.fill('#cb-r-x', 'Steel for sale, ten tons. '); await C.focus('#cb-r-x'); await C.keyboard.type('@Play');
+check('typing @ offers matching nations', await until(async () => /@Playerland/.test(await text(C, '#cb-mn'))));
+await C.keyboard.press('Enter');
+check('picking one writes the full name', /ten tons\. @Playerland $/.test(await C.$eval('#cb-r-x', t => t.value)) && !(await C.$('#cb-mn')));
+await C.keyboard.type('interested?'); await C.click('#cb-rf button[type="submit"]');
 check('the reply appears for everyone', await until(async () => /ten tons/.test(await text(B, '.cb-reps'))));
+check('the mention is marked in the post', await until(async () => /@Playerland/.test(await text(B, '.cb-reps .cb-at.me'))));
+await B.evaluate(() => document.querySelector('.bell').click());
+check('the mentioned player gets a notice in the bell', await until(async () => /Readerland mentioned you in a reply to “Grain for steel”/.test(await B.evaluate(() => [...document.querySelectorAll('.nt-item')].map(e => e.textContent).join(' | ')))));
+await B.evaluate(() => document.querySelector('.bell').click());
 check('B, who did not write it, may report it but not edit it', await until(async () => !!(await B.$('.cb-reps [data-act="cb-rep"]')) && !(await B.$('.cb-reps [data-act="cb-edit"]'))));
 
 // the author edits their own reply

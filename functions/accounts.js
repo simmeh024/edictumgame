@@ -116,6 +116,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await forgetLetters(uid);
     // its place in an alliance (functions/alliances.js), and the pacing of its alliance channel posts
     await alDrop(db, uid);
+    // the @mentions waiting in its bell (functions/board.js)
+    await db.recursiveDelete(db.collection('mentions/' + uid + '/m'));
     const chat = await db.collectionGroup('chat').where('a', '==', uid).get();
     if (!chat.empty) { const w = db.bulkWriter(); await Promise.all([Promise.all(chat.docs.map(c => w.delete(c.ref))), w.close()]); }
     await db.doc('alPace/' + uid).delete();
