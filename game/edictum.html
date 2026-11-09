@@ -6585,6 +6585,7 @@ button[disabled] .gv-cost{opacity:.6}
 .spx-help-l{margin:8px 0 12px;padding-left:22px;display:grid;gap:6px;line-height:1.5}
 /* spx:end */
 .adm-oflag{display:inline-block;width:42px;line-height:0}.adm-oflag svg{width:42px;height:auto;border-radius:2px;box-shadow:0 0 0 1px var(--line,rgba(0,0,0,.15))}
+.tr-slots{margin:4px 0 16px}.tr-slots p{margin:0 0 6px}.tr-slots .sbar{display:block;max-width:320px;margin-bottom:6px}
 </style>
 
 <div id="app"></div>
@@ -18990,6 +18991,13 @@ function resPolicyNote(n){
   if(pol.strategicReserves)act.push('Strategic Reserves (shortages do half as much harm)');
   return `<p class="hint res-pol">${act.length?'Policies in force: '+esc(list(act))+'.':'None of your policies change your output yet. Edicts about farms, forests, mines, oil and industry can.'}</p>`;
 }
+/* deal slots: used of available, with where the slots come from */
+function trSlotsLine(){
+  const used=dealSlots(),max=maxDeals(),al=alFx(myId()).slots||0,mk=mktSlots(),free=Math.max(0,max-used);
+  const src=[`${MAX_DEALS} base`];if(mk)src.push(`${mk} from Market Hall${mk>1?'s':''}`);if(al)src.push(`${al} from your alliance`);
+  const tip=mk?'':' Build a Market Hall for one more.';
+  return `<div class="tr-slots${free?'':' full'}"><p><b>${used} of ${max}</b> deal slots used <span class="hint">(${esc(src.join(', '))})</span></p><span class="sbar${free?'':' down'}" role="img" aria-label="${used} of ${max} deal slots used"><i style="width:${max?Math.min(100,used/max*100):0}%"></i></span><p class="hint">${free?`${free} free. Offers you send count until they are answered or withdrawn.`:'All slots in use. End a deal or withdraw an offer to propose another.'}${tip}</p></div>`;
+}
 function tradeView(){
   cuLoad();
   const n=S.nation,E=economy(),me=myId(),i=E.T.byId[me];
@@ -19021,6 +19029,7 @@ function tradeView(){
   <div class="trade-grid">
     <section>
       <h2 class="h2">Agreements</h2>
+      ${trSlotsLine()}
       ${incoming?`<h3 class="lbl-h tr-in-h">Offers to you</h3><ul class="deals">${incoming}</ul>`:''}
       ${active?`<h3 class="lbl-h"${incoming?' style="margin-top:20px"':''}>Active deals</h3><ul class="deals">${active}</ul>`:''}
       ${outgoing?`<h3 class="lbl-h" style="margin-top:20px">Your offers</h3><ul class="deals">${outgoing}</ul>`:''}
