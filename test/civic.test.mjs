@@ -563,3 +563,14 @@ test('The Delegate names the region’s newspaper; nobody else can, and the same
   assert.equal(p.get('nm'),'The Driftlands Courier');assert.equal(p.get('mo'),'Washed up, written down');assert.equal(p.get('by'),leader.uid);assert.ok(p.get('t')>Date.now()-60000);
   await rejects(civic(leader,{op:'paper',name:'The Second Name'}),'paper_cooldown');
 });
+
+test('An admin observing a region reads its Assembly without a seat; a player cannot',async()=>{
+  const f=await player(false,false,'frostmarch'), p=await player(), a=await player();
+  await auth.setCustomUserClaims(a.uid,{admin:true});
+  const fresh=await sign('signInWithCustomToken',{token:await auth.createCustomToken(a.uid,{admin:true})});
+  await assert.rejects(civic(p,{op:'state',obs:'frostmarch'}),e=>e.status==='PERMISSION_DENIED');
+  const s=await civic(fresh,{op:'state',obs:'frostmarch'});
+  assert.equal(s.reg,'frostmarch');assert.ok(s.cur);assert.ok(s.recs.some(r=>r.id===f.uid));assert.ok(!s.recs.some(r=>r.id===a.uid));
+  assert.equal(s.account.eligible,false);
+  await assert.rejects(civic(fresh,{op:'state',obs:'atlantis'}),e=>e.status==='INVALID_ARGUMENT');
+});

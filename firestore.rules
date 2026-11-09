@@ -435,7 +435,7 @@ service cloud.firestore {
     match /alliances/{aid} {
       allow read: if true;
       match /chat/{pid} {
-        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/alliances/$(aid)).data.mem;
+        allow read: if isAdmin() || signedIn() && request.auth.uid in get(/databases/$(database)/documents/alliances/$(aid)).data.mem;
       }
     }
     match /allyOf/{id} { allow read: if true; }
