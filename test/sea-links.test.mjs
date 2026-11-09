@@ -1,4 +1,4 @@
-// Sea links for provinces (game/edictum.html): a strait of up to two sea hexes, or a finished shipping connection,
+// Sea links for provinces (game/edictum.html): a strait of up to SEA_LINK sea hexes, or a finished shipping connection,
 // counts as touching; whole islands may belong to any division; an island of one hex may be a division on its own.
 // Run with: npm run test:fx
 import { readFileSync } from 'node:fs';
@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 
 const src = readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, 'found ' + a); return src.slice(i, j); };
-const NOW = 1800000000000, W = 14, H = 9, N = W * H;
+const NOW = 1800000000000, S = +src.match(/const SEA_LINK=(\d+)/)[1], W = 2 * S + 14, H = 9, N = W * H;
+const F = S + 1;   // a gap one hex wider than a strait: far enough to be a separate island
 
 /* an axial grid: every hex is water until a test makes it land */
 function world(land, owned = land) {
@@ -26,8 +27,8 @@ function world(land, owned = land) {
 const at = (q, r) => r * W + q;
 const row = (r, ...qs) => qs.map(q => at(q, r));
 
-test('a strait of one or two sea hexes links the shores; three hexes of water do not', () => {
-  for (const [gap, linked] of [[1, true], [2, true], [3, false]]) {
+test('a strait of up to SEA_LINK sea hexes links the shores; one more hex of water does not', () => {
+  for (const [gap, linked] of [[1, true], [S, true], [S + 1, false]]) {
     const west = row(4, 0, 1, 2), east = row(4, 3 + gap, 4 + gap), { ctx, T } = world(west.concat(east));
     const L = ctx.seaLinks(T, 0);
     assert.equal(!!(L.get(at(2, 4)) && L.get(at(2, 4)).has(at(3 + gap, 4))), linked, `gap ${gap}`);
@@ -45,42 +46,42 @@ test('only the nation’s own land is linked, and another nation’s land is not
 });
 
 test('a division over a strait is one piece; one cut on the same land is two', () => {
-  const main = row(4, 0, 1, 2, 3, 4, 5), isle = row(4, 7, 8), { ctx, T } = world(main.concat(isle));
-  assert.equal(ctx.prvPieces(row(4, 4, 5, 7, 8), T, 0), 1);       // the shore and the island across one sea hex
-  assert.equal(ctx.prvPieces(row(4, 0, 1, 4, 5), T, 0), 2);       // two ends of the mainland without the middle
+  const m = F + 3, main = Array.from({ length: m + 1 }, (_, q) => at(q, 4)), isle = row(4, m + 2, m + 3), { ctx, T } = world(main.concat(isle));
+  assert.equal(ctx.prvPieces(row(4, m - 1, m, m + 2, m + 3), T, 0), 1);  // the shore and the island across one sea hex
+  assert.equal(ctx.prvPieces(row(4, 0, 1, m - 1, m), T, 0), 2);          // two ends of the mainland, further apart than a strait
 });
 
 test('a whole island far away does not count as a piece, part of one does', () => {
-  const main = row(4, 0, 1, 2, 3), isle = row(4, 9, 10, 11), { ctx, T } = world(main.concat(isle));
-  assert.equal(ctx.prvPieces(row(4, 0, 1, 9, 10, 11), T, 0), 1);  // part of the mainland and the whole island
-  assert.equal(ctx.prvPieces(row(4, 0, 1, 9, 10), T, 0), 2);      // part of the island stays a second piece
-  assert.equal(ctx.prvPieces(row(4, 9, 10, 11), T, 0), 1);        // an island alone is one
+  const i0 = 4 + F, main = row(4, 0, 1, 2, 3), isle = row(4, i0, i0 + 1, i0 + 2), { ctx, T } = world(main.concat(isle));
+  assert.equal(ctx.prvPieces(row(4, 0, 1, i0, i0 + 1, i0 + 2), T, 0), 1);  // part of the mainland and the whole island
+  assert.equal(ctx.prvPieces(row(4, 0, 1, i0, i0 + 1), T, 0), 2);          // part of the island stays a second piece
+  assert.equal(ctx.prvPieces(row(4, i0, i0 + 1, i0 + 2), T, 0), 1);        // an island alone is one
   assert.equal(ctx.prvPieces([at(0, 4), at(1, 4)]), 1, 'without a nation it counts edge-to-edge pieces as before');
 });
 
 test('two divisions join when the result stays one piece', () => {
-  const main = row(4, 0, 1, 2, 3, 4, 5), isle = row(4, 7, 8), far = row(4, 12, 13), { ctx, T } = world(main.concat(isle, far));
-  const A = { cells: row(4, 0, 1, 2) }, B = { cells: row(4, 3, 4, 5) }, C = { cells: isle }, D = { cells: far }, E = { cells: row(4, 0, 1) }, F = { cells: row(4, 4, 5) };
+  const m = F + 3, f0 = m + 4 + F, main = Array.from({ length: m + 1 }, (_, q) => at(q, 4)), isle = row(4, m + 2, m + 3), far = row(4, f0, f0 + 1), { ctx, T } = world(main.concat(isle, far));
+  const A = { cells: main.slice(0, 3) }, B = { cells: main.slice(3) }, C = { cells: isle }, D = { cells: far }, E = { cells: row(4, 0, 1) }, G = { cells: row(4, m - 1, m) };
   assert.ok(ctx.prvCanJoin(T, 0, A, B), 'neighbours on land');
   assert.ok(ctx.prvCanJoin(T, 0, B, C), 'across a strait');
   assert.ok(ctx.prvCanJoin(T, 0, A, D), 'a whole island far away');
-  assert.ok(!ctx.prvCanJoin(T, 0, E, F), 'two ends of the mainland with a third division between');
+  assert.ok(!ctx.prvCanJoin(T, 0, E, G), 'two ends of the mainland with a third division between');
 });
 
 test('an island of one hex may be a division; a hex of the mainland may not', () => {
-  const main = row(4, 0, 1, 2), { ctx, T } = world(main.concat([at(8, 4)]));
-  assert.ok(ctx.prvIslet(T, 0, at(8, 4)));
+  const main = row(4, 0, 1, 2), { ctx, T } = world(main.concat([at(3 + F, 4)]));
+  assert.ok(ctx.prvIslet(T, 0, at(3 + F, 4)));
   assert.ok(!ctx.prvIslet(T, 0, at(1, 4)));
   assert.ok(ctx.prvHasIsles(T));
 });
 
 test('a finished shipping connection between two cities links them, an unfinished one does not', () => {
-  const west = row(4, 0, 1), east = row(4, 6, 7), { ctx, T, n } = world(west.concat(east));
-  n.loc = 1; n.cities = [{ c: at(1, 4), b: [{ k: 'harbour', d: NOW - 1 }] }, { c: at(6, 4), b: [] }];
-  n.infra = [{ k: 'sea', a: at(1, 4), b: at(6, 4), d: NOW + 1000, reg: 'r', path: [] }];
-  assert.ok(!ctx.prvTouch(T, 0, at(6, 4), west));
+  const e0 = 2 + F, west = row(4, 0, 1), east = row(4, e0, e0 + 1), { ctx, T, n } = world(west.concat(east));
+  n.loc = 1; n.cities = [{ c: at(1, 4), b: [{ k: 'harbour', d: NOW - 1 }] }, { c: at(e0, 4), b: [] }];
+  n.infra = [{ k: 'sea', a: at(1, 4), b: at(e0, 4), d: NOW + 1000, reg: 'r', path: [] }];
+  assert.ok(!ctx.prvTouch(T, 0, at(e0, 4), west));
   n.infra[0].d = NOW - 1;
-  assert.ok(ctx.prvTouch(T, 0, at(6, 4), west));
+  assert.ok(ctx.prvTouch(T, 0, at(e0, 4), west));
   n.cities[0].b[0].d = NOW + 5;                                   // the harbour is not finished, so the route does not work
-  assert.ok(!ctx.prvTouch(T, 0, at(6, 4), west));
+  assert.ok(!ctx.prvTouch(T, 0, at(e0, 4), west));
 });
