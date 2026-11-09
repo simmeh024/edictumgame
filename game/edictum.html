@@ -18800,7 +18800,7 @@ function diplomacyView(now){
 const RES=['food','timber','iron','oil','goods'];
 const RES_INFO={food:['Food','Feeds your people. Shortages slow population growth.'],timber:['Timber','Builds homes, ships and bridges. Shortages drag on the economy.'],iron:['Iron','Makes weapons and tools. Shortages weaken your army.'],oil:['Oil','Fuels tanks and factories. Shortages weaken your army and economy.'],goods:['Goods','Factory output, from your economy and science. Shortages drag on prosperity.']};
 const DEMAND={food:2.3,timber:0.8,iron:0.45,oil:0.45,goods:1};
-const MAX_DEALS=8;
+const MAX_DEALS=12;
 const CELL_RES=(()=>{
   const N=MAP.N,o={food:new Float32Array(N),timber:new Float32Array(N),iron:new Float32Array(N),oil:new Float32Array(N)},Y=[null,null,[2.4,0.6,0.2],[1,1.4,0.8],[0.2,0.3,2.2]];
   for(let i=0;i<N;i++){
@@ -19062,7 +19062,7 @@ const BUILDINGS={
   orepit:{n:'Ore Pits',c:'prod',d:'Iron from the land around the city +50%, and 1 more a day. For cities with no hills nearby.',cost:{timber:15,food:10},h:4,res:{iron:[0.5,1]},need:'flat'},
   factory:{n:'Factory',c:'prod',d:'Goods +5 a day. Uses 1 oil a day, except your first Factory, which runs without.',cost:{timber:15,iron:6},h:4,res:{goods:[0,5]},up:{oil:1}},
   harbour:{n:'Harbour',c:'prod',d:'Food +3 and goods +3 a day from fishing and shipping.',cost:{timber:25,iron:5},h:4,res:{food:[0,3],goods:[0,3]},need:'coast',once:{tour:1}},
-  market:{n:'Market Hall',c:'soc',d:'Your economy +3%.',cost:{timber:12,goods:12},h:3,prosper:0.03},
+  market:{n:'Market Hall',c:'soc',d:'Your economy +3% and one more trade deal slot.',cost:{timber:12,goods:12},h:3,prosper:0.03},
   university:{n:'University',c:'soc',d:'Education +4 and Science +3 when completed, then goods +1 a day.',cost:{timber:15,goods:20},h:6,res:{goods:[0,1]},once:{edu:4,sci:3}},
   hospital:{n:'Hospital',c:'soc',d:'Public Health +4 when completed. Population growth +5%.',cost:{timber:12,goods:15},h:4,growth:0.05,once:{health:4}},
   housing:{n:'Housing Estates',c:'soc',d:'Population growth +8%. Uses 1 food a day.',cost:{timber:20,goods:5},h:3,growth:0.08,up:{food:1}},
@@ -22654,7 +22654,7 @@ function helpBody(n){
       <h3 class="help-h3">The Bureau’s market</h3>
       <p>On the Trade page you can hand over a surplus for a resource you are short of, at the Bureau’s price. The first units of the day fetch the best rate (${Math.round(GB.MKT_HI*100)}% of their value), falling to ${Math.round(GB.MKT_LO*100)}% as the day’s ${GB.MKT_DAY} units fill. Trade deals with other nations pay better, so use the market to fill a gap.</p>
       <h3 class="help-h3">Trade deals</h3>
-      <p>A trade deal swaps a daily flow of one resource for a flow of another, for as long as both sides keep it. You can hold up to ${MAX_DEALS} deals and offers at once (more in a trade bloc or with a Common Market). A computer nation accepts at once if you can spare what you offer and it can spare what you ask, it is not already well supplied with your resource, and the price is fair; players answer when they next play. A war between two nations suspends their deals.${typeof C3_HOSTILE==='number'?` A computer nation that regards you as hostile (goodwill ${String(C3_HOSTILE).replace('-','−')} or lower) freezes its deals with you and refuses new ones.`:''}</p>${G(go('trade','Open trade'))}`,
+      <p>A trade deal swaps a daily flow of one resource for a flow of another, for as long as both sides keep it. You can hold up to ${MAX_DEALS} deals and offers at once (one more for each Market Hall, and more in a trade bloc or with a Common Market). A computer nation accepts at once if you can spare what you offer and it can spare what you ask, it is not already well supplied with your resource, and the price is fair; players answer when they next play. A war between two nations suspends their deals.${typeof C3_HOSTILE==='number'?` A computer nation that regards you as hostile (goodwill ${String(C3_HOSTILE).replace('-','−')} or lower) freezes its deals with you and refuses new ones.`:''}</p>${G(go('trade','Open trade'))}`,
     mig:`<p>People move towards nations that are richer, happier, freer, safer, healthier and better educated, within ${MIG_RANGE} hexes of each other’s capitals. Income tax above 45%, overcrowding, war and occupied land put them off, and a nation that is losing land in a war sends out refugees.</p>
       <p>Arrivals and departures are each capped at half of natural growth, so migration bends your growth but never rules it. Open Borders, a Border Wall, Skilled Worker Visas and an Exit Tax all change the flows, and a Diplomata draws 3% more arrivals. The Migration tab in Statistics shows who comes and who goes.</p>`,
     nb:`<p>Your neighbours are the nearest nations within ${NB_RANGE} hexes, up to three of them. Border disputes, trade quarrels and shared stories involve them, and the Diplomacy page lists them.</p>
@@ -58904,7 +58904,9 @@ function alSame(a,b){const A=allianceOf(a);return !!A&&A.srv&&A===allianceOf(b);
 /* into the sums: army, prosperity and growth through the economy's effects; defence; trade slots; gifts; spies */
 economy=(f=>function(){const v=f.apply(this,arguments);if(v&&!v._al){v._al=true;try{v.T.list.forEach((x,i)=>{const fx=alFx(x.id),e=v.eff[i];if(!e||fx===AL_FX0)return;e.army*=1+fx.army;e.prosper*=1+fx.prosper;e.growth=clamp(e.growth*(1+fx.growth),0.5,1.6);});}catch(e){}}return v;})(economy);
 defenceMult=(f=>function(n,cell){const m=f.apply(this,arguments);const fx=alFx(alIdOf(n));return fx.def?m*(1+fx.def):m;})(defenceMult);
-function maxDeals(){return MAX_DEALS+alFx(myId()).slots;}
+/* each finished Market Hall adds one deal slot */
+function mktSlots(){try{return myCityStates().mine.reduce((t,c)=>t+(c.done||[]).filter(k=>k==='market').length,0);}catch(e){return 0;}}
+function maxDeals(){return MAX_DEALS+alFx(myId()).slots+mktSlots();}
 spyParts=(f=>function(me,tg){const p=f.apply(this,arguments);const fx=alFx(alIdOf(me));if(fx.spy)p.push(['your research accord',fx.spy]);return p;})(spyParts);
 /* a gift to a fellow member under an Embassy Row: twice the goodwill, and up to 25 */
 function alGiftGw(v,to){v=v||0;if(!alSame(myId(),to)||!alFx(myId()).gift)return gfGw(v);return v>=25?v:Math.min(25,v+2*GF_GW);}
