@@ -1289,6 +1289,15 @@ button.stk-i{padding:8px 10px 11px;border:1px solid var(--rule);border-radius:6p
 .stk-fill i{display:block;height:100%;background:var(--rc);transition:width .6s}
 .stk-full .stk-rt{color:var(--rc);font-weight:600}
 .stk-short{border-color:var(--down)}
+.r-ic{display:inline-grid;place-items:center;flex:none;width:28px;height:28px;margin-right:8px;border-radius:50%;vertical-align:middle;color:var(--rc);background:color-mix(in srgb,var(--rc) 16%,transparent)}
+.r-ic svg{width:17px;height:17px}
+.r-ic-s{width:20px;height:20px;margin-right:6px}.r-ic-s svg{width:13px;height:13px}
+.res-n b{display:flex;align-items:center}.res-n .r-ic,.al-res-k .r-ic,.cx-stk-l .r-ic,th .r-ic{color:var(--rc)}
+.cx-stk-l{display:flex;align-items:center}
+.cx-stk .bar i{background:var(--rc)}
+.rbd-h{display:flex;align-items:center}
+.prices li>span:first-child,.al-res-k{display:inline-flex;align-items:center}
+.chip-btn .r-ic-s{width:16px;height:16px;margin-right:4px}.chip-btn .r-ic-s svg{width:11px;height:11px}
 .stk-short b,.stk-short .stk-rt{color:var(--down)}
 .stk-short .stk-rt{font-weight:600}
 .stk-strip.stk-c{margin:0 0 16px;padding:10px}
@@ -19106,7 +19115,7 @@ function tradeView(){
   const msg=S.tradeMsg?`<p class="war-msg">${esc(S.tradeMsg)}</p>`:'';
   const rows=RES.map(r=>{
     const p=E.prod[r][i],net=E.imp[r][i]-E.exp[r][i],s=E.sup[r][i],d=E.dem[r][i],q=E.ratio[r][i],st=q>=1.1?['up','Surplus']:q>=0.9?['','Balanced']:['down','Shortage'];
-    return `<div class="res-row"><div class="res-n"><b>${RES_INFO[r][0]}</b><span>${RES_INFO[r][1]}</span></div><div class="res-v"><span class="lbl">Produced</span><span class="num">${fmtAmt(p)}</span></div><div class="res-v"><span class="lbl">Traded</span><span class="num">${net>0.05?'+':net<-0.05?'−':''}${fmtAmt(Math.abs(net))}</span></div><div class="res-bar"><span class="sbar ${st[0]}" role="img" aria-label="${RES_INFO[r][0]}: ${fmtAmt(s)} available against ${fmtAmt(d)} needed"><i style="width:${(clamp(q,0,1.5)/1.5*100).toFixed(1)}%"></i><b></b></span><span class="res-sd">${fmtAmt(s)} of ${fmtAmt(d)} needed a day</span></div><span class="pill ${st[0]}">${st[1]}</span></div>`;
+    return `<div class="res-row"><div class="res-n"><b>${resIco(r)}${RES_INFO[r][0]}</b><span>${RES_INFO[r][1]}</span></div><div class="res-v"><span class="lbl">Produced</span><span class="num">${fmtAmt(p)}</span></div><div class="res-v"><span class="lbl">Traded</span><span class="num">${net>0.05?'+':net<-0.05?'−':''}${fmtAmt(Math.abs(net))}</span></div><div class="res-bar"><span class="sbar ${st[0]}" role="img" aria-label="${RES_INFO[r][0]}: ${fmtAmt(s)} available against ${fmtAmt(d)} needed"><i style="width:${(clamp(q,0,1.5)/1.5*100).toFixed(1)}%"></i><b></b></span><span class="res-sd">${fmtAmt(s)} of ${fmtAmt(d)} needed a day</span></div><span class="pill ${st[0]}">${st[1]}</span></div>`;
   }).join('');
   const e=E.eff[i],x1=v=>'<span class="times">×</span>'+v.toFixed(2);
   const effects=`<div class="figs" style="margin-top:16px"><div class="fig"><span class="lbl">Army strength</span><span class="fig-v">${x1(e.army)}</span><span class="fig-s">from your iron and oil supply</span></div><div class="fig"><span class="lbl">Economy</span><span class="fig-v">${x1(e.prosper)}</span><span class="fig-s">from goods, timber and oil</span></div><div class="fig"><span class="lbl">Population growth</span><span class="fig-v">${x1(e.growth)}</span><span class="fig-s">from food, updated with each decision you make</span></div></div>`;
@@ -19130,7 +19139,7 @@ function tradeView(){
   const pOrder=partners.slice().sort((a,b)=>(fav.includes(b.id)?1:0)-(fav.includes(a.id)?1:0));
   const ally=id=>alSame(me,id),af=alFx(me),mf=S.trade.mf||'',mAll=!!S.trade.mAll;
   const shown=offers.filter(o=>!mf||o.r===mf),hist=trHist(E,i);
-  const trends=hist.length<2?'<p class="hint">Trend lines fill in as you play, one point a day.</p>':`<div class="tr-trends">${RES.map(r=>`<div><span class="lbl">${RES_INFO[r][0]}</span>${spark(hist.map(h=>h.n[r]||0),RES_INFO[r][0]+' net trade, last '+hist.length+' days')}<span class="hint">net ${fmtAmt(hist[hist.length-1].n[r]||0)}</span></div>`).join('')}</div><p class="hint">Net trade per day over the last ${hist.length} days, kept on this device.</p>`;
+  const trends=hist.length<2?'<p class="hint">Trend lines fill in as you play, one point a day.</p>':`<div class="tr-trends">${RES.map(r=>`<div>${resIco(r,'s')}<span class="lbl">${RES_INFO[r][0]}</span>${spark(hist.map(h=>h.n[r]||0),RES_INFO[r][0]+' net trade, last '+hist.length+' days')}<span class="hint">net ${fmtAmt(hist[hist.length-1].n[r]||0)}</span></div>`).join('')}</div><p class="hint">Net trade per day over the last ${hist.length} days, kept on this device.</p>`;
   if(!S.trade.touched&&offers.length){const o=offers[0];S.trade.touched=true;fillDeal(o.x.id,o.r,clamp(Math.floor(Math.min(o.spare,8)*2)/2,0.5,8),true);}
   return `${head}${msg}${c3Strip(n,Date.now())}
   <section><h2 class="h2">Resources</h2>${shortBtns?`<div class="market tr-short">${shortBtns}</div>`:''}<div class="res-card">${rows}</div>${effects}${resPolicyNote(n)}${cityTradeNote()}<p class="hint">New quotes include currency strength, up to 8% either way. Stronger currencies buy imports with fewer exports; weaker currencies make exports cheaper to foreign buyers. Signed daily quantities stay fixed. <button class="linkish small" data-act="go" data-v="exchange">Open the Exchange Bureau</button></p></section>
@@ -19143,7 +19152,7 @@ function tradeView(){
       ${outgoing?`<h3 class="lbl-h" style="margin-top:20px">Your offers</h3><ul class="deals">${outgoing}</ul>`:''}
       ${!incoming&&!active&&!outgoing?'<div class="empty"><p class="empty-h">No trade deals yet</p><p>Propose one with the form, or pick an offer from the world market below it.</p></div>':''}
       <h3 class="lbl-h" style="margin-top:28px">World prices</h3>
-      <ul class="prices">${RES.map(r=>`<li><span>${RES_INFO[r][0]}</span>${spark(hist.map(h=>h.p[r]||0),RES_INFO[r][0]+' world price trend')}<b>${E.price[r].toFixed(2)}</b></li>`).join('')}</ul>
+      <ul class="prices">${RES.map(r=>`<li><span>${resIco(r,'s')}${RES_INFO[r][0]}</span>${spark(hist.map(h=>h.p[r]||0),RES_INFO[r][0]+' world price trend')}<b>${E.price[r].toFixed(2)}</b></li>`).join('')}</ul>
       <p class="hint" style="margin-top:8px">How much the world needs of each resource compared with what it produces. Above 1 is scarce.</p>
       <h3 class="lbl-h" style="margin-top:28px">Trends</h3>${trends}
       <h3 class="lbl-h" style="margin-top:28px">Trade history</h3>${trLog(n)}
@@ -19162,7 +19171,7 @@ function tradeView(){
         <div class="row"><button class="btn" type="submit">Propose deal</button></div>
       </form>
       ${offers.length?`<h3 class="lbl-h" style="margin-top:24px">World market</h3><p class="hint" style="margin-bottom:10px">Nations with spare resources you could use. Select one to fill in the form.${af.tariffFree?' Allies in your trade bloc pay no tariffs.':''}</p>
-      <div class="market tr-mf" role="group" aria-label="Filter by resource"><button type="button" class="chip-btn${mf?'':' on'}" data-act="tr-mf" data-v="" aria-pressed="${!mf}">All</button>${RES.map(r=>`<button type="button" class="chip-btn${mf===r?' on':''}" data-act="tr-mf" data-v="${r}" aria-pressed="${mf===r}">${RES_INFO[r][0]}</button>`).join('')}</div>
+      <div class="market tr-mf" role="group" aria-label="Filter by resource"><button type="button" class="chip-btn${mf?'':' on'}" data-act="tr-mf" data-v="" aria-pressed="${!mf}">All</button>${RES.map(r=>`<button type="button" class="chip-btn${mf===r?' on':''}" data-act="tr-mf" data-v="${r}" aria-pressed="${mf===r}">${resIco(r,'s')}${RES_INFO[r][0]}</button>`).join('')}</div>
       <div class="market">${shown.slice(0,mAll?60:12).map(o=>`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${o.r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(o.spare*2)/2))}">${fav.includes(o.x.id)?'★ ':''}${esc(o.x.n.name)}${ally(o.x.id)?' (ally'+(af.tariffFree?', no tariff':'')+')':''} · ${resName(o.r)} +${fmtAmt(o.spare)}</button>`).join('')||'<p class="hint">Nobody has this to spare right now.</p>'}</div>
       ${shown.length>12?`<p><button type="button" class="linkish small" data-act="tr-mall">${mAll?'Show fewer':`Show all ${Math.min(60,shown.length)}`}</button></p>`:''}`:''}
     </section>
@@ -21112,7 +21121,7 @@ function statsView(){
   }else if(tab==='economy'){
     const inc=['Poorest fifth','Second fifth','Middle fifth','Fourth fifth','Richest fifth'].map((l,k)=>[l,A.income0*incBand(n.s,k/5,(k+1)/5)]);
     const T=territory(),ti=T.byId[id],E=A.E,ei=A.ei;
-    const trade=ei===undefined?'':stCard('Trade a day',`<table class="st-table st-cols"><thead><tr><th scope="col">Resource</th><th scope="col">Made</th><th scope="col">Sold</th><th scope="col">Bought</th></tr></thead><tbody>${RES.map(r=>`<tr><th scope="row">${esc(RES_INFO[r][0])}</th><td>${fmtAmt(E.prod[r][ei])}</td><td>${fmtAmt(E.exp[r][ei])}</td><td>${fmtAmt(E.imp[r][ei])}</td></tr>`).join('')}</tbody></table>`);
+    const trade=ei===undefined?'':stCard('Trade a day',`<table class="st-table st-cols"><thead><tr><th scope="col">Resource</th><th scope="col">Made</th><th scope="col">Sold</th><th scope="col">Bought</th></tr></thead><tbody>${RES.map(r=>`<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${fmtAmt(E.prod[r][ei])}</td><td>${fmtAmt(E.exp[r][ei])}</td><td>${fmtAmt(E.imp[r][ei])}</td></tr>`).join('')}</tbody></table>`);
     body=`<div class="st-grid">${stCard('The economy',stTable(R.economy),true)}${stCard('Average income by fifth of earners',hbars(inc.map(([l,v])=>[l,v,fmt0(v)+' '+plural(n.currency)])))}${stCard('Where the money comes from',stack([['Private sector',A.priv],['Government',A.gov],['State-owned industry',A.stateInd],['Black market',A.black]]))}${stCard('Largest industries',hbars(A.ind.map(c=>[c[0],c[1]/A.indTot*100,pctS(c[1]/A.indTot*100)])))}${trade}</div>`;
   }else if(tab==='government'){
     const b=budgetSorted(n);
@@ -22700,6 +22709,8 @@ const STK_ICON=(()=>{const sv=b=>`<svg viewBox="0 0 24 24" width="20" height="20
   iron:sv('<path d="M3 17l3-7h12l3 7z"/><path d="M6 10l2-3h8l2 3"/><path d="M3 17h18"/>'),
   oil:sv('<path d="M12 3c3 4.2 5.5 7.3 5.5 10.5a5.5 5.5 0 0 1-11 0C6.5 10.3 9 7.2 12 3z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/>'),
   goods:sv('<path d="M3 8l9-4 9 4v9l-9 4-9-4z"/><path d="M3 8l9 4 9-4M12 12v9"/><path d="M7.5 6l9 4"/>')};})();
+/* a resource's icon in its colour, for any list of resources (sz: small, as in chips and tables) */
+function resIco(r,sz){return STK_ICON[r]?`<span class="r-ic stk-${r}${sz?' r-ic-'+sz:''}" aria-hidden="true">${STK_ICON[r]}</span>`:'';}
 function c3Strip(n,now,o){
   if(!n||cellOf(n.loc)<0)return '';
   o=o||{};now=now||Date.now();const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n),need=o.need||{},h=o.h||'Stockpile';
@@ -53194,7 +53205,7 @@ function rbdHTML(n,r){
     ${(()=>{const w=gbWhy(n,r);return w?`<p class="rbd-note">${esc(w)}</p>`:'';})()}`:`<p class="rbd-sum">Settle on the map first: your stockpile fills from the land you hold.</p>`;
   return `<div class="rbd-modal" role="dialog" aria-modal="true" aria-labelledby="rbd-h"><button type="button" class="rbd-scrim" data-act="rbd-close" aria-label="Close" tabindex="-1"></button>
     <div class="rbd-sheet"><button type="button" class="rbd-x linkish small" data-act="rbd-close" id="rbd-x">Close</button>
-    <p class="eyebrow">Stockpile</p><h2 class="rbd-h" id="rbd-h">${esc(nm)}</h2>${body}
+    <p class="eyebrow">Stockpile</p><h2 class="rbd-h" id="rbd-h">${resIco(r)}${esc(nm)}</h2>${body}
     <div class="row" style="margin-top:14px"><button type="button" class="linkish small" data-act="gb-flows">See Budget &amp; flows</button><button type="button" class="linkish small" data-act="gb-market">Trade at the Bureau’s market</button></div></div></div>`;
 }
 let rbdOpen=null,rbdBack=null;
@@ -53476,7 +53487,7 @@ function sbBudget(x,A){
   if(i!==undefined&&E&&E.prod){const CS=cityState(T),ag=CS.agg[i]||{add:{}};
     const flow=[];res=`<div class="sb-flow-w"><table class="st-table st-cols sb-flow"><thead><tr><th scope="col">A day</th><th scope="col" title="Made by your land">Land</th><th scope="col" title="Made by buildings in your cities">Buildings</th><th scope="col" title="Used by your people and building upkeep">Used</th><th scope="col" title="Sent abroad in trade deals">Sold</th><th scope="col" title="Received in trade deals">Bought</th><th scope="col" title="Left over each day">Net</th></tr></thead><tbody>${RES.map(r=>{const bld=ag.add&&ag.add[r]||0,tot=E.prod[r][i]||0,bal=(E.sup[r][i]||0)-(E.dem[r][i]||0);
       flow.push({r,land:Math.max(0,tot-bld),bld,buy:Math.max(0,(E.sup[r][i]||0)-tot+(E.exp[r][i]||0)),use:E.dem[r][i]||0,sold:E.exp[r][i]||0,left:Math.max(0,bal),short:Math.max(0,-bal)});
-      return `<tr><th scope="row">${esc(RES_INFO[r][0])}</th><td>${fmtAmt(Math.max(0,tot-bld))}</td><td>${fmtAmt(bld)}</td><td>${fmtAmt(E.dem[r][i]||0)}</td><td>${fmtAmt(E.exp[r][i]||0)}</td><td>${fmtAmt(E.imp[r][i]||0)}</td><td class="${bal<-0.05?'sb-neg':bal>0.05?'sb-pos':''}">${bal>0?'+':bal<0?'−':''}${fmtAmt(Math.abs(bal))}</td></tr>`;}).join('')}</tbody></table></div>`+sbFlowBars(flow);
+      return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${fmtAmt(Math.max(0,tot-bld))}</td><td>${fmtAmt(bld)}</td><td>${fmtAmt(E.dem[r][i]||0)}</td><td>${fmtAmt(E.exp[r][i]||0)}</td><td>${fmtAmt(E.imp[r][i]||0)}</td><td class="${bal<-0.05?'sb-neg':bal>0.05?'sb-pos':''}">${bal>0?'+':bal<0?'−':''}${fmtAmt(Math.abs(bal))}</td></tr>`;}).join('')}</tbody></table></div>`+sbFlowBars(flow);
     const mine=CS.all.filter(c=>c.hi===i&&c.active).map(c=>{const nc=(n.cities||[]).find(q=>q.c===c.c),o=c.buildOutput||{},sum=RES.reduce((s,r)=>s+(o[r]||0),0);return {nm:nc?cityLabel(n,nc):landName(c.c),sum,o,b:(c.done||[]).length};}).sort((p,q)=>q.sum-p.sum);
     cities=mine.length?`<ol class="sb-cities">${mine.map(c=>`<li><b>${esc(c.nm)}</b><span class="hint">${c.b} ${c.b===1?'building':'buildings'}</span><span>${c.sum>0?esc(RES.filter(r=>c.o[r]>0.05).map(r=>fmtAmt(c.o[r])+' '+resName(r)).join(', '))+' a day':'Nothing from buildings yet'}</span></li>`).join('')}</ol>`:'<p class="hint">No cities yet.</p>';}
   return `<div class="st-grid">${stCard('The money',`<div class="st-tiles sb-money"><div class="fig"><span class="lbl">Output a year</span><span class="fig-v st-v">${esc(fmtBig(g))}</span><span class="fig-s">${esc(cur)}</span></div><div class="fig"><span class="lbl">Taken in tax</span><span class="fig-v st-v">${Math.round((n.s&&n.s.tax)||0)}%</span><span class="fig-s">${esc(fmtBig(spend))} ${esc(cur)}</span></div></div>
@@ -54417,7 +54428,7 @@ function cxCatBar(n,ct){
 }
 function cxStock(n,now){
   const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n);
-  return `<section class="cx-stock" aria-label="Stockpile">${RES.map(r=>`<button type="button" class="cx-stk" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="cx-stk-l">${RES_INFO[r][0]}</span><span class="cx-stk-v"><span data-live="stock" data-r="${r}">${fmtStock(st[r])}</span><small> / ${cap}</small></span><span class="bar"><i data-live="stockbar" data-r="${r}" style="width:${Math.min(100,st[r]/cap*100).toFixed(1)}%"></i></span><span class="cx-stk-r">${st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+' a day':'Not growing'}</span></button>`).join('')}</section>`;
+  return `<section class="cx-stock" aria-label="Stockpile">${RES.map(r=>`<button type="button" class="cx-stk stk-${r}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="cx-stk-l">${resIco(r,'s')}${RES_INFO[r][0]}</span><span class="cx-stk-v"><span data-live="stock" data-r="${r}">${fmtStock(st[r])}</span><small> / ${cap}</small></span><span class="bar"><i data-live="stockbar" data-r="${r}" style="width:${Math.min(100,st[r]/cap*100).toFixed(1)}%"></i></span><span class="cx-stk-r">${st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+' a day':'Not growing'}</span></button>`).join('')}</section>`;
 }
 /* what needs the player in their cities, as [text, tab, city id, kind, the city, the matter / the empty blocks / the
    cities without a mayor]: the Cities page lists it, and the bell (section CA) tells it */
@@ -59390,7 +59401,7 @@ function alChannelHTML(A){
 }
 function alTreasuryHTML(A){
   const D=A.doc,me=myId(),st=stockNow(S.nation),lv=alLevel(D.xp),can=alCan(A,me,'o'),pend=alPending(A),g=AL.give||{k:'goods',q:''};
-  const res=RES.map(r=>`<div class="al-res"><span class="al-res-k">${esc(RES_INFO[r][0])}</span><b>${fmt0(Math.floor(D.tr[r]||0))}</b></div>`).join('');
+  const res=RES.map(r=>`<div class="al-res"><span class="al-res-k">${resIco(r,'s')}${esc(RES_INFO[r][0])}</span><b>${fmt0(Math.floor(D.tr[r]||0))}</b></div>`).join('');
   const donors=Object.entries(D.dn).map(([id,v])=>({id,s:RES.reduce((a,r)=>a+num0(v[r]),0)})).filter(o=>o.s>0).sort((a,b)=>b.s-a.s).slice(0,5);
   const pj=Object.entries(AL_RULES.projects).map(([k,P])=>{const at=num0(D.pj[k]),done=at>=P.max,cost=done?null:P.cost[at],need=done?0:P.lv[at],short=cost?RES.filter(r=>(D.tr[r]||0)+1e-9<(cost[r]||0)):[];
     return `<li class="al-pj${done?' done':''}"><p class="al-pj-h"><b>${esc(AL_PJ[k][0])}</b><span class="al-pj-l" aria-label="Level ${at} of ${P.max}">${Array.from({length:P.max},(_,i)=>`<i class="${i<at?'on':''}"></i>`).join('')}</span></p><p class="hint">${esc(AL_PJ[k][1])}</p>
