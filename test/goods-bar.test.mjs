@@ -13,23 +13,23 @@ const fnBody=name=>cut(`function ${name}(`,'\n}\n');
 const RES=['food','timber','iron','oil','goods'];
 function load({stock={food:120,timber:30,iron:4,oil:400,goods:9.7},rates={food:3.25,timber:0,iron:1,oil:2,goods:0.5},cap=400}={}){
   const ctx={RES,RES_INFO:{food:['Food'],timber:['Timber'],iron:['Iron'],oil:['Oil'],goods:['Goods']},
-    cellOf:l=>l==null?-1:l,stockNow:()=>({...stock}),stockRates:()=>({...rates}),stockCap:()=>cap,
+    cellOf:l=>l==null?-1:l,STK_ICON:Object.fromEntries(RES.map(r=>[r,'<svg/>'])),stockNow:()=>({...stock}),stockRates:()=>({...rates}),stockCap:()=>cap,
     fmtStock:v=>String(Math.floor(v+1e-6)),fmtAmt:x=>{const v=Math.round(x*10)/10;return Number.isInteger(v)?String(v):v.toFixed(1);},
     esc:s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')};
   vm.createContext(ctx);
   vm.runInContext(fnBody('c3Strip')+'\n}',ctx);
   return ctx;
 }
-const items=h=>[...h.matchAll(/<button type="button" class="stk-i( stk-short)?" data-act="res-bd" data-r="\w+"[^>]*><span class="stk-l">(\w+)<\/span><b data-live="stk3" data-r="(\w+)">(\d+)<\/b><span class="stk-rt">(.*?)<\/span><\/button>(?=<button|<\/div>)/g)]
+const items=h=>[...h.matchAll(/<button type="button" class="stk-i stk-\w+( stk-short)?(?: stk-full)?" data-act="res-bd" data-r="\w+"[^>]*><span class="stk-ic" aria-hidden="true"><svg\/><\/span><span class="stk-tx"><span class="stk-l">(\w+)<\/span><b data-live="stk3" data-r="(\w+)">(\d+)<\/b><span class="stk-rt(?: up)?">(.*?)<\/span><\/span><span class="stk-fill"[^>]*><i [^>]*><\/i><\/span><\/button>(?=<button|<\/div>)/g)]
   .map(m=>({short:!!m[1],label:m[2],r:m[3],v:m[4],rt:m[5].replace(/<[^>]+>/g,'')}));
 const N={loc:12};
 
 test('the strip shows all five resources: what is held, and how it grows or that it is full',()=>{
   const h=load().c3Strip(N,1);
-  assert.match(h,/^<div class="stk-strip" role="group" aria-label="Stockpile"><span class="stk-strip-h">Stockpile<\/span>/);
+  assert.match(h,/^<div class="stk-strip" role="group" aria-label="Stockpile"><div class="stk-top"><span class="stk-strip-h">Stockpile<\/span>/);
   assert.deepEqual(items(h).map(x=>[x.label,x.v,x.rt,x.short]),[
-    ['Food','120','+3.3 a day',false],['Timber','30','Not growing+0',false],['Iron','4','+1 a day',false],['Oil','400','Full',false],['Goods','9','+0.5 a day',false]]);
-  assert.match(h,/data-act="go" data-v="cities">Open Cities<\/button><\/div>$/,'the full strip links to Cities');
+    ['Food','120','+3.3/day',false],['Timber','30','Not growing+0',false],['Iron','4','+1/day',false],['Oil','400','Full',false],['Goods','9','+0.5/day',false]]);
+  assert.match(h,/data-act="go" data-v="cities">Open Cities<\/button><\/div><div class="stk-row">/,'the full strip links to Cities');
 });
 
 test('a page’s cost marks only the resources the player is short of, with what it needs',()=>{
@@ -37,13 +37,13 @@ test('a page’s cost marks only the resources the player is short of, with what
   const it=items(h);
   assert.deepEqual(it.filter(x=>x.short).map(x=>[x.r,x.rt]),[['goods','Need 20']],'9.7 goods is short of 20; 30 timber is exactly enough');
   assert.equal(it.find(x=>x.r==='timber').rt,'Not growing+0');
-  assert.equal(it.find(x=>x.r==='food').rt,'+3.3 a day');
+  assert.equal(it.find(x=>x.r==='food').rt,'+3.3/day');
   assert.equal(items(load().c3Strip(N,1,{need:null})).filter(x=>x.short).length,0,'no cost, nothing marked');
 });
 
 test('the compact strip for side panels has five columns and no Cities link; a heading can be given',()=>{
   const h=load().c3Strip(N,1,{compact:true,h:'Your stockpile'});
-  assert.match(h,/^<div class="stk-strip stk-c" role="group" aria-label="Your stockpile"><span class="stk-strip-h">Your stockpile<\/span>/);
+  assert.match(h,/^<div class="stk-strip stk-c" role="group" aria-label="Your stockpile"><div class="stk-top"><span class="stk-strip-h">Your stockpile<\/span><\/div>/);
   assert.match(h,/<span class="stk-nl">Not growing<\/span><span class="stk-ns">\+0<\/span>/,'"Not growing", or "+0" where columns are narrow (CSS picks)');
   assert(!h.includes('Open Cities'));
 });
