@@ -46170,7 +46170,9 @@ function ddRare(n,day,q){
   if(k==='iss')g=Math.min(g,Math.max(2,Math.floor(2880/(n.freq||FREQ_DEF))));
   return {k,g,c:0,p:0};
 }
-const ddFresh=(n,day)=>{const q=ddRoll(n,day),r=ddRare(n,day,q);return {d:day,q,c:[0,0,0],p:[0,0,0],...(r?{r}:{})};};
+const ddFresh=(n,day,salt)=>{const k=day+(salt||''),q=ddRoll(n,k),r=ddRare(n,k,q);return {d:day,q,c:[0,0,0],p:[0,0,0],...(r?{r}:{})};};
+/* the weekly reset: once every seven days a cleared desk can be swapped for a fresh one, an extra day of tasks and credits (n.ddx = when it was last used) */
+const DDX_GAP=7*864e5,ddxAt=n=>n&&Number.isFinite(n.ddx)&&n.ddx>0?n.ddx:0,ddxReady=(n,now)=>now-ddxAt(n)>=DDX_GAP;
 /* how far one save moved a task on */
 function ddDelta(n,old,k){
   const tl=key=>tallyOf(n,key)-tallyOf(old,key);
@@ -46225,6 +46227,7 @@ NORM_HOOKS.push((n,d)=>{
   if(d&&Number.isInteger(d.ddc)&&d.ddc>0&&d.ddc<=STK_MAX)n.ddc=d.ddc;else delete n.ddc;
   if(d&&Number.isInteger(d.ddw)&&d.ddw>0&&d.ddw<=DD_WEEK_MAX)n.ddw=d.ddw;else delete n.ddw;
   if(d&&Number.isInteger(d.ddr)&&d.ddr>0&&d.ddr<=DD_RARE_MAX)n.ddr=d.ddr;else delete n.ddr;
+  if(d&&Number.isFinite(d.ddx)&&d.ddx>0&&d.ddx<=Date.now()+864e5)n.ddx=d.ddx;else delete n.ddx;
   const K=d&&d.stk;if(K&&Number.isInteger(K.n)&&K.n>0&&K.n<=STK_MAX&&typeof K.d==='string'&&DD_KEY_RX.test(K.d))n.stk={n:K.n,d:K.d};else delete n.stk;
   const F=d&&d.ffb;if(F&&FFB_KEYS.includes(F.k)&&typeof F.c==='string'&&F.c.length>0&&F.c.length<=40&&Number.isFinite(F.s)&&Number.isFinite(F.d)&&F.d>=F.s){n.ffb={k:F.k,c:F.c,s:F.s,d:F.d};if(F.p===1)n.ffb.p=1;}else delete n.ffb;
 });
@@ -46245,12 +46248,16 @@ function ddCard(now){
     <ol class="dd-l">${rows}${(()=>{const R=D.r||ddRare(n,D.d,D.q);if(!R)return '';const T=DD_TASKS[R.k],done=!!R.p,c=Math.min(R.g,R.c||0);
       return `<li class="dd-t dd-rare${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-rare-tag">Rare</span> ${esc(T.t(R.g))}</b><span class="hint">${done?'Done':`${c} of ${R.g}`} · +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food, <b>+${DD_RARE_CR} land credits</b></span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${R.k}">${esc(T.go[1])}</button>`:''}</li>`;})()}</ol>
     <p class="dd-f">${D.w?(wk?'Your desk is clear: today’s two land credits are yours.':'Your desk is clear: today’s land credit is yours.'):wk?'Clear all three for <b>+2 land credits</b>, double in your first week.':'Clear all three for <b>+1 land credit</b>.'}</p>
+    ${D.w&&S.mode!=='readonly'?(ddxReady(n,now)?'<div class="row dd-x-row"><button type="button" class="btn small-btn" data-act="dd-reset">Weekly reset: three new tasks now</button><span class="hint">Once every seven days: a fresh desk today, with its own land credit.</span></div>':`<p class="hint">Weekly reset ready again in <b>${esc(fmtWait(ddxAt(n)+DDX_GAP-now))}</b>.</p>`):''}
     <p class="hint dd-stk">${dots}Presence: ${sk?`day ${sk}`:'not started'}${nx?` · next: ${STK_NEXT[sk]}`:' · all three rewards earned'}. ${today?'Today counts.':'Answer an edict or claim a hex today to count it.'} A missed day only pauses it.</p></section>`;
 }
 issuesView=(f=>function(v,now){const h=f.apply(this,arguments),c=ddCard(now||Date.now());return c?h.replace('</header>','</header>'+c):h;})(issuesView);
 asmVote=(f=>function(){const r=f.apply(this,arguments);Promise.resolve(r).then(ok=>{if(ok)ddMark('vote');},()=>{});return r;})(asmVote);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
   if(a==='dd-go'){const T=DD_TASKS[el.dataset.k];if(!T||!T.go)return;go(T.go[0]);if(el.dataset.k==='road'&&pgAvailable(S.nation,'map')){S.mpMode='transport';render();}return;}
+  if(a==='dd-reset'){const n=S.nation,now=Date.now();if(n.npc||!ddOn()||regBlocked()||S.mode==='readonly'||!ddxReady(n,now))return;
+    const day=ddDay(now);if(!n.dd||ddLater(day,n.dd.d)||!n.dd.w)return;
+    const m=clone(n);m.ddx=now;m.dd=ddFresh(m,day,':x'+now);commit(m);saveSoon();render();toast('Weekly reset: three new tasks on your desk.');return;}
   if(a==='ffb-start'){ffbStart(el.dataset.k);return;}
   if(a==='ffb-x'){FFB.anim=null;render();return;}
 });
