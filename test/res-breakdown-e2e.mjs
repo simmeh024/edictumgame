@@ -23,4 +23,14 @@ for (const [v, sel] of [['cities', '.cx-stk[data-r="food"]'], ['trade', '.stk-i[
   await A.keyboard.press('Escape');await sleep(200);
   check(`Escape closes it on ${v}`, !(await A.$('#rbd-root .rbd-modal')));
 }
+/* Budget & flows: the table fits its card and the in-and-out bars follow it */
+await A.evaluate(() => { G.S.statsFor = null; G.S.statsTab = 'budget'; G.S.statsKeep = true; });
+await nav(A, 'stats');await sleep(600);
+const card = await A.evaluateHandle(() => [...document.querySelectorAll('.st-card')].find(c => /Resources, in and out/.test(c.textContent)));
+const fit = await card.evaluate(c => { const t = c.querySelector('.sb-flow'), w = c.querySelector('.sb-flow-w');return t && w ? { t: t.scrollWidth, w: w.clientWidth, rows: c.querySelectorAll('.sbf-row').length, segs: c.querySelectorAll('.sbf-bar i').length } : null; });
+check('the resources table fits its card', !!fit && fit.t <= fit.w + 1, JSON.stringify(fit));
+check('five in-and-out pairs follow it', !!fit && fit.rows === 5 && fit.segs >= 5, JSON.stringify(fit));
+await card.screenshot({ path: path.join(OUT, 'res-flows-card.png') });
+await A.emulateMedia({ colorScheme: 'dark' });await sleep(300);
+await card.screenshot({ path: path.join(OUT, 'res-flows-card-dark.png') });
 await finish();
