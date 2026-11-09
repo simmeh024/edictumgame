@@ -19149,7 +19149,7 @@ function cityState(T){
     if(x.npc){for(const c of npcCities(x.id))all.push({id:c.id,c:c.c,nm:c.nm,cap:!!c.cap,fid:x.id,fn:x.n,npc:true,done:c.b.slice(),prog:[]});continue;}
     for(const c of cityList(x.n)){
       const done=[],prog=[];for(const b of c.b||[]){if(!BUILDINGS[b.k])continue;if(b.d<=now)done.push(b.k);else prog.push(b);}
-      const ct={id:c.id,c:c.c,nm:cityLabel(x.n,c),cap:c.c===x.cap,fid:x.id,fn:x.n,npc:false,done,prog,rec:c,ug:cxUpMap(c,now)};cxMoodOn(ct,now);all.push(ct);
+      const ct={id:c.id,c:c.c,nm:cityLabel(x.n,c),cap:c.c===x.cap,fid:x.id,fn:x.n,npc:false,done,prog,rec:c,ug:cxUpMap(c,now)};Object.defineProperty(ct,'tT',{value:T});cxMoodOn(ct,now);all.push(ct);
     }
   }
   for(const ct of all){const o=T.owner[ct.c],fi=T.byId[ct.fid];ct.hi=o;ct.fi=fi;ct.active=o>=0&&(o===fi||T.occ[ct.c]===1);ct.dist=[];}
@@ -45412,16 +45412,34 @@ function mpRouteStatus(r,T,hi,byCell,now=Date.now()){
   if(!a||!a.active||a.hi!==hi)return 'Origin city lost';
   if(r.k==='rail'&&!a.done.includes('rail'))return 'Needs its railway station';
   if(r.k==='sea'&&!a.done.includes('harbour'))return 'Needs its harbour';
-  if(r.path.some((c,i)=>r.k==='sea'&&i>0&&i<r.path.length-1?MAP.T[c]>=2:MAP.T[c]<2||T.owner[c]!==hi))return 'Connection cut';
+  if(r.path.some((c,i)=>r.k==='sea'&&i>0&&i<r.path.length-1?MAP.T[c]>=2:MAP.T[c]<2||T.owner[c]!==hi))return r.k!=='sea'&&mpLiveCells(r,T,hi).length>1?(r.d>now?'Under construction':'Partly cut'):'Connection cut';
   return r.d>now?'Under construction':'Active';
 }
+/* the hexes of a road or railway still joined to one of its ends: walk in from each end until the first hex the nation
+   no longer holds (or that is no longer land). A whole route gives every hex; a sea lane is all or nothing. */
+function mpLiveCells(r,T,hi){
+  const P=r&&Array.isArray(r.path)?r.path:[],ok=c=>MAP.T[c]>=2&&T.owner[c]===hi;
+  if(r.k==='sea')return P.length&&P.every((c,i)=>i===0||i===P.length-1?ok(c):MAP.T[c]<2)?[P[0],P[P.length-1]]:[];
+  let i=0;while(i<P.length&&ok(P[i]))i++;if(i===P.length)return P.slice();
+  let j=P.length;while(j>i&&ok(P[j-1]))j--;
+  return P.slice(0,i).concat(P.slice(j));
+}
+/* how much of its own yield a road or railway hex that no city works adds */
+const MP_HEX_K=0.1;
 function mpNetworkBonuses(T,all,agg,now){
-  const byCell=new Map(all.filter(c=>c.active).map(c=>[c.c,c]));for(const ct of all)delete ct.transportBonus;
-  T.list.forEach((x,hi)=>{const bonuses=new Map();for(const raw of (Array.isArray(x.n.infra)?x.n.infra:[]).slice(0,MP_NET_MAX)){
-    const r=mpRouteShape(raw);if(!r||mpRouteStatus(r,T,hi,byCell,now)!=='Active')continue;
-    for(const cell of [r.a,r.b]){const ct=byCell.get(cell);if(ct&&ct.hi===hi)bonuses.set(ct,Math.max(bonuses.get(ct)||0,MP_TYPES[r.k].bonus));}}
+  const byCell=new Map(all.filter(c=>c.active).map(c=>[c.c,c]));for(const ct of all){delete ct.transportBonus;delete ct.roadHexes;}
+  T.list.forEach((x,hi)=>{const bonuses=new Map(),hexes=new Set();for(const raw of (Array.isArray(x.n.infra)?x.n.infra:[]).slice(0,MP_NET_MAX)){
+    const r=mpRouteShape(raw),st=r&&mpRouteStatus(r,T,hi,byCell,now);if(st!=='Active'&&st!=='Partly cut')continue;
+    /* every city the route passes through is on it, not only its two ends */
+    for(const cell of mpLiveCells(r,T,hi)){const ct=byCell.get(cell);if(ct&&ct.hi===hi)bonuses.set(ct,Math.max(bonuses.get(ct)||0,MP_TYPES[r.k].bonus));else if(r.k!=='sea')hexes.add(cell);}}
     const a=agg[hi];a.transportArmy=Math.min(0.06,bonuses.size*0.02);
-    for(const [ct,bonus] of bonuses){ct.transportBonus=bonus;for(const res of RES){const Y=CELL_RES[res];let land=Y?ct.dist.reduce((s,c)=>s+Y[c],0):0;for(const k in RES_POL)if(x.n.policies?.[k]&&RES_POL[k][res])land*=RES_POL[k][res];const local=Math.max(0,land+(ct.buildOutput?.[res]||0));if(local)a.add[res]=(a.add[res]||0)+local*bonus;}}
+    const pol=(res,v)=>{for(const k in RES_POL)if(x.n.policies?.[k]&&RES_POL[k][res])v*=RES_POL[k][res];return v;};
+    for(const [ct,bonus] of bonuses){ct.transportBonus=bonus;for(const res of RES){const Y=CELL_RES[res];const land=pol(res,Y?ct.dist.reduce((s,c)=>s+Y[c],0):0);const local=Math.max(0,land+(ct.buildOutput?.[res]||0));if(local)a.add[res]=(a.add[res]||0)+local*bonus;}}
+    /* road and railway hexes outside a boosted city's worked land produce a little more of their own yield */
+    const boosted=new Set();for(const ct of bonuses.keys())for(const c of ct.dist||[])boosted.add(c);
+    const own=[...hexes].filter(c=>!boosted.has(c));
+    for(const res of RES){const Y=CELL_RES[res];if(!Y)continue;const v=pol(res,own.reduce((s,c)=>s+Y[c],0))*MP_HEX_K;if(v>0)a.add[res]=(a.add[res]||0)+v;}
+    for(const ct of all)if(ct.hi===hi&&!ct.npc)ct.roadHexes=own.length;
   });
 }
 function mpRoutePreview(T,k,a,b){
@@ -45480,6 +45498,18 @@ function mpInfluenceHTML(ct,T){
 }
 MAP_PANEL.push(ctx=>{if(ctx.cell==null)return '';const T=territory(),ct=cityState(T).byCell.get(ctx.cell),o=T.owner[ctx.cell],n=o>=0?T.list[o].n:null;
   const industry=n&&cityState(T).all.some(c=>c.active&&c.hi===o&&c.done.includes('factory')&&c.dist.includes(ctx.cell)),labels=n?mpLandscape(n,ctx.cell,industry):[];return (ct?mpInfluenceHTML(ct,T):'')+(labels.length?`<p class="hint mp-landscape-note">Landscape: ${esc(list(labels))}. These details illustrate existing policies and development; they do not alter terrain yields.</p>`:'');});
+/* the roads, railways and sea lanes that run through a hex, and what that hex gets from them */
+function mpRoutesHereHTML(cell,T){
+  if(!mapOpt('mp-networks',true))return '';const CS=cityState(T),rows=[];
+  T.list.forEach((x,hi)=>{if(x.npc)return;for(const raw of (Array.isArray(x.n.infra)?x.n.infra:[]).slice(0,MP_NET_MAX)){const r=mpRouteShape(raw);if(!r||r.reg!==REG.id||!r.path.includes(cell))continue;
+    if(r.k==='sea'&&cell!==r.a&&cell!==r.b)continue;
+    const st=mpRouteStatus(r,T,hi,CS.byCell),live=(st==='Active'||st==='Partly cut')&&mpLiveCells(r,T,hi).includes(cell),A=CS.byCell.get(r.a),B=CS.byCell.get(r.b),end=cell===r.a||cell===r.b;
+    const name=c=>{const o=CS.byCell.get(c);return o?o.nm:terrName(c);},ct=CS.byCell.get(cell),mine=x.id===myId();
+    const what=!live?(st==='Under construction'?'not finished yet':st==='Partly cut'?'cut off from both ends here':'not working: '+st.toLowerCase()):ct&&ct.hi===hi?`${end?'':'passes through, so '}${esc(ct.nm)} counts as on it`:r.k==='sea'?'':`this hex yields ${Math.round(MP_HEX_K*100)}% more`;
+    rows.push(`<li><b>${esc((MP_TYPES[r.k]&&MP_TYPES[r.k].n)||'Connection')}</b> ${esc(name(r.a))} → ${esc(name(r.b))}${mine?'':` <span class="hint">(${esc(x.n.name||'another nation')})</span>`} · ${esc(st)}${what?` · <span class="hint">${what}</span>`:''}</li>`);}});
+  return rows.length?`<section class="mp-routes-here"><h3 class="h2">On this hex</h3><ul class="cx-parts">${rows.join('')}</ul>${rows.length?'<p class="hint">A hex under a connection cannot be released until the connection is removed.</p>':''}</section>`:'';
+}
+MAP_PANEL.push(ctx=>ctx.cell==null||!mpCell(ctx.cell)?'':mpRoutesHereHTML(ctx.cell,territory()));
 MAP_CLICK.unshift(ctx=>{
   if(ctx.kind!=='main'||!S.nation||!S.mpMode||!mpCell(ctx.cell))return false;
   if(S.mpMode==='plan'){mpPlanClick(ctx.cell);return true;}
@@ -45521,7 +45551,9 @@ MAP_LAYERS.push({stage:'land',kinds:['main','visit'],draw:M=>{
 MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
   const {g,T,s}=M,mi=T.byId[myId()],CS=cityState(T),stroke=(path,color,dash,width=1.8)=>{g.beginPath();path.forEach((c,i)=>i?g.lineTo(MAP.cx[c],MAP.cy[c]):g.moveTo(MAP.cx[c],MAP.cy[c]));g.strokeStyle=color;g.lineWidth=width/s;g.setLineDash(dash.map(v=>v/s));g.stroke();g.setLineDash([]);};
   if(mapOpt('mp-networks',true))T.list.forEach((x,hi)=>{for(const raw of (x.n.infra||[]).slice(0,MP_NET_MAX)){const r=mpRouteShape(raw);if(!r||r.reg!==REG.id)continue;const status=mpRouteStatus(r,T,hi,CS.byCell),cut=!['Active','Under construction'].includes(status);const color=cut?M.col.down:status==='Under construction'?M.col.stamp:r.k==='sea'?M.col.accent:M.col.ink;
-    stroke(r.path,color,cut||status==='Under construction'?[4,4]:r.k==='sea'?[2,4]:[],r.k==='rail'?3.6:1.8);if(r.k==='rail'&&!cut)stroke(r.path,M.col.sheet,[],1);}});
+    stroke(r.path,color,cut||status==='Under construction'?[4,4]:r.k==='sea'?[2,4]:[],r.k==='rail'?3.6:1.8);if(r.k==='rail'&&!cut)stroke(r.path,M.col.sheet,[],1);
+    /* a partly cut route: the stretches still joined to an end are drawn whole over the dashed red line */
+    if(status==='Partly cut'){const live=new Set(mpLiveCells(r,T,hi));let run=[];for(const c of r.path.concat(-1)){if(live.has(c)){run.push(c);continue;}if(run.length>1){stroke(run,M.col.ink,[],r.k==='rail'?3.6:1.8);if(r.k==='rail')stroke(run,M.col.sheet,[],1);}run=[];}}}});
   if(M.kind==='main'&&mi!==undefined){
     if(mapOpt('mp-influence',false))for(const ct of CS.all.filter(c=>c.active&&c.hi===mi)){g.globalAlpha=0.10;g.fillStyle=M.col.accent;g.beginPath();for(const c of ct.dist)hexFill(g,c,HEX_R-0.7);g.fill();g.globalAlpha=0.7;g.strokeStyle=M.col.accent;g.lineWidth=1.1/s;g.beginPath();const set=new Set(ct.dist);edgeList(g,ct.dist,(i,j)=>j<0||!set.has(j));g.stroke();g.globalAlpha=1;}
     if(landCredits(S.nation)>0){g.strokeStyle=M.col.accent;g.lineWidth=2/s;g.setLineDash([1.5/s,3/s]);g.beginPath();for(const c of mpHarbourFrontier(T).keys())if(MAP.cx[c]>=M.x0&&MAP.cx[c]<=M.x1&&MAP.cy[c]>=M.y0&&MAP.cy[c]<=M.y1)hexPath(g,c,HEX_R-1.5);g.stroke();g.setLineDash([]);}
@@ -53132,7 +53164,7 @@ achDef('land','tr-1','b','All Roads','Build your first road.',1,x=>aInfra(x,'roa
 achDef('land','tr-10','s','Road Network','Have 10 roads, rail lines or bridges finished.',10,x=>aInfra(x)-aInfra(x,'sea'));
 achDef('land','tr-rail','g','Iron Horse','Finish a rail line.',1,x=>aInfra(x,'rail'));
 achDef('land','tr-bridge','s','Mind the Gap','Finish a bridge.',1,x=>aInfra(x,'bridge'));
-achDef('land','tr-all','g','Every Road Leads Home','Have at least four cities, every one of them on a road.',1,x=>{const C=aMyCities(x);return achYes(C.length>=4&&C.every(ct=>cxRoadAt(ct.fn,ct.c,x.now)));},{fm:'bool'});
+achDef('land','tr-all','g','Every Road Leads Home','Have at least four cities, every one of them on a road.',1,x=>{const C=aMyCities(x);return achYes(C.length>=4&&C.every(ct=>cxRoadAt(ct.fn,ct.c,x.now,ct.tT)));},{fm:'bool'});
 /* mayors and city mood */
 achDef('land','my-1','b','Chain of Office','Appoint a mayor.',1,aMayors);
 achDef('land','my-all','s','A Mayor for Every Town','Have a mayor in every city, with at least four cities.',1,x=>{const c=(x.n.cities||[]).length;return achYes(c>=4&&aMayors(x)>=c);},{fm:'bool'});
@@ -54004,13 +54036,16 @@ function cxWallLv(rec,now){if(!rec)return 0;const e=cxCityExtras(rec);return e.w
 function cxUpgradable(k){const B=BUILDINGS[k];return !!B&&!B.w&&!B.lead&&k!=='warehouse'&&!!(B.res||B.prosper||B.army||B.growth);}
 
 /* mood */
-function cxRoadAt(fn,cell,now){return (Array.isArray(fn&&fn.infra)?fn.infra:[]).some(r=>r&&(r.a===cell||r.b===cell)&&Number.isFinite(r.d)&&r.d<=now);}
+/* a city is on a road when a finished route starts, ends or passes through it; with the territory known, only the part
+   of the route still joined to one of its ends counts */
+function cxRoadAt(fn,cell,now,T){const hi=T&&fn?T.list.findIndex(x=>x.n===fn):-1;
+  return (Array.isArray(fn&&fn.infra)?fn.infra:[]).some(r=>r&&Number.isFinite(r.d)&&r.d<=now&&(r.a===cell||r.b===cell||(r.k!=='sea'&&Array.isArray(r.path)&&r.path.includes(cell)))&&(hi<0||mpLiveCells(r,T,hi).includes(cell)));}
 function cxMood(ct,now){
   const rec=ct.rec,parts=[];let v=55;const add=(d,t)=>{if(d){v+=d;parts.push([d,t]);}};
   if(ct.cap)add(5,'Seat of government');
   for(const k of ct.done){const B=BUILDINGS[k];if(!B)continue;let d=CX_MOOD_B[k]??(B.w?5:B.c==='soc'?3:0);const u=ct.ug&&ct.ug[k];if(d>0&&u)d+=u;add(d,B.n+(u?` (${u} ${u===1?'upgrade':'upgrades'})`:''));}
   const my=rec&&cxCityExtras(rec).my;if(my){add(3,'Has a mayor');if(my.tr==='populist')add(12,'A crowd-pleasing mayor');}
-  if(cxRoadAt(ct.fn,ct.c,now))add(5,'A road to the rest of the nation');
+  if(cxRoadAt(ct.fn,ct.c,now,ct.tT))add(5,'A road to the rest of the nation');
   const mb=rec&&rec.mb;if(mb&&mb.u>now&&mb.v)add(clamp(Math.round(mb.v),-15,15),'How its last matter went');
   return {v:clamp(Math.round(v),0,100),parts};
 }
@@ -54019,7 +54054,7 @@ function cxMoodOn(ct,now){const m=cxMood(ct,now);ct.mood=m.v;const my=cxCityExtr
 function cxCityAgg(a,ct){const my=ct.rec&&cxCityExtras(ct.rec).my;if(!my)return;if(my.tr==='merchant')a.prosper+=0.01;if(my.tr==='scholar')a.add.goods+=1;}
 
 /* build times: a builder mayor and a finished road */
-function cxBuildK(ct){if(!ct)return 1;const my=ct.rec&&cxCityExtras(ct.rec).my;let k=1;if(my&&my.tr==='builder')k*=0.85;if(cxRoadAt(ct.fn,ct.c,Date.now()))k*=0.9;return k;}
+function cxBuildK(ct){if(!ct)return 1;const my=ct.rec&&cxCityExtras(ct.rec).my;let k=1;if(my&&my.tr==='builder')k*=0.85;if(cxRoadAt(ct.fn,ct.c,Date.now(),ct.tT))k*=0.9;return k;}
 function cxHours(n,ct,key){return Math.round(bHours(n,key)*cxBuildK(ct)*10)/10;}
 
 /* defence: walls, an old soldier, and a restless city */
@@ -54244,12 +54279,12 @@ function cxDefence(ct,T,n,st,now,ok){
   ${cxRoads(ct,T,n,st,ok)}`;
 }
 function cxRoads(ct,T,n,st,ok){
-  const hi=T.byId[myId()],CS=cityState(T),routes=(n.infra||[]).filter(r=>r&&(r.a===ct.c||r.b===ct.c));
-  const rows=routes.map(r=>{const o=CS.byCell.get(r.a===ct.c?r.b:r.a),s=mpRouteStatus(r,T,hi,CS.byCell);return `<li><span>${esc((MP_TYPES[r.k]&&MP_TYPES[r.k].n)||'Connection')} to ${esc(o?o.nm:terrName(r.a===ct.c?r.b:r.a))}</span><b class="${s==='Active'?'up':s==='Under construction'?'':'down'}">${esc(s)}${s==='Under construction'?' · '+fmtDur(r.d-Date.now())+' left':''}</b></li>`;}).join('');
+  const hi=T.byId[myId()],CS=cityState(T),routes=(n.infra||[]).filter(r=>r&&(r.a===ct.c||r.b===ct.c||(r.k!=='sea'&&Array.isArray(r.path)&&r.path.includes(ct.c))));
+  const rows=routes.map(r=>{const o=CS.byCell.get(r.a===ct.c?r.b:r.a),s=mpRouteStatus(r,T,hi,CS.byCell);const via=r.a!==ct.c&&r.b!==ct.c,nmOf=c=>{const q=CS.byCell.get(c);return q?q.nm:terrName(c);};return `<li><span>${esc((MP_TYPES[r.k]&&MP_TYPES[r.k].n)||'Connection')} ${via?`${esc(nmOf(r.a))} → ${esc(nmOf(r.b))}, passing through`:`to ${esc(o?o.nm:terrName(r.a===ct.c?r.b:r.a))}`}</span><b class="${s==='Active'?'up':s==='Under construction'?'':'down'}">${esc(s)}${s==='Under construction'?' · '+fmtDur(r.d-Date.now())+' left':''}</b></li>`;}).join('');
   const linked=new Set(routes.map(r=>r.a===ct.c?r.b:r.a));
   const can=pgAvailable(n,'map'),others=CS.all.filter(o=>o!==ct&&o.active&&o.hi===hi&&!linked.has(o.c));
   const offers=!ok?'':!can?'<p class="hint">Roads open once your nation holds three claimed hexes.</p>':others.length?`<ul class="cx-roads">${others.map(o=>{const p=mpRoutePreview(T,'road',ct.c,o.c),miss=p.why?[]:lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.why?esc(p.why):`${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}`}</span></span>${p.why?'':`<button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build road</button>`}</li>`;}).join('')}</ul>`:'<p class="hint">Every other city you hold is already connected to this one.</p>';
-  return `<section class="cx-sec"><h4 class="lbl-h">Roads</h4><p class="hint">A city on a finished road builds 10% faster, its people are happier (+5 mood), and its land produces more. Railways and sea lanes are built on the map, under Transport networks.</p>${rows?`<ul class="cx-parts">${rows}</ul>`:''}${offers}</section>`;
+  return `<section class="cx-sec"><h4 class="lbl-h">Roads</h4><p class="hint">A city on a finished road, at either end or anywhere along it, builds 10% faster, its people are happier (+5 mood), and its land produces more. Road hexes that no city works yield 10% more. If part of a road is lost, the stretches still joined to a city keep working. Railways and sea lanes are built on the map, under Transport networks.</p>${rows?`<ul class="cx-parts">${rows}</ul>`:''}${offers}</section>`;
 }
 function cityCard(ct,T,n,st,now){
   const mine=ct.fid===myId(),holder=ct.hi>=0?T.list[ct.hi]:null,taken=mine&&!!holder&&holder.id!==myId(),occupied=mine&&(!ct.active||taken),ok=mine&&ct.active&&!taken;
@@ -54325,7 +54360,7 @@ mdRate=(f=>function(n){return f(n)*(pol(n).questionTime?NS_MD_RATE:1);})(mdRate)
 const NS_MOOD=[
   ['electedMayors',3,'Elected Mayors',ct=>!!(ct.rec&&cxCityExtras(ct.rec).my)],
   ['rampartWalks',3,'Rampart Walks along its walls',(ct,now)=>cxWallLv(ct.rec,now)>0],
-  ['roadsideInns',2,'Roadside Inns on its road',(ct,now)=>cxRoadAt(ct.fn,ct.c,now)]
+  ['roadsideInns',2,'Roadside Inns on its road',(ct,now)=>cxRoadAt(ct.fn,ct.c,now,ct.tT)]
 ];
 cxMood=(f=>function(ct,now){
   const m=f(ct,now),p=ct&&!ct.npc&&ct.fn&&ct.fn.policies;if(!p)return m;

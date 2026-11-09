@@ -116,7 +116,32 @@ test('only the strongest active connection boosts each city, with bounded supply
 test('unfinished, cut or prerequisite-less routes give no production or supply bonus',()=>{
  const {ctx,n,world,a,b,all,agg}=networkFixture(),path=[...ctx.mpLandPath(world,0,a.c,b.c)],r=route(ctx,path,'rail');
  for(const kind of ['unfinished','cut','no station']){world.owner.fill(0);a.done=['rail'];n.infra=[{...r}];if(kind==='unfinished')n.infra[0].d=NOW+60000;if(kind==='cut')world.owner[path[1]]=1;if(kind==='no station')a.done=[];
-   const A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);assert.equal(A[0].add.food,0,kind);assert.equal(A[0].transportArmy,0,kind);}
+   const A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);
+   /* a cut route keeps the stretch still joined to its far city; the origin's own hex is the only part joined to it */
+   if(kind==='cut'){assert.equal(ctx.mpRouteStatus(n.infra[0],world,0,new Map(all.map(c=>[c.c,c])),NOW),'Partly cut');assert.equal(b.transportBonus,.1);assert.equal(a.transportBonus,.1);continue;}
+   assert.equal(A[0].add.food,0,kind);assert.equal(A[0].transportArmy,0,kind);}
+});
+function lineFixture(){
+ const f=fixture(),{ctx,n,world,cell}=f,a=city(cell(2,4)),m=city(cell(8,4)),b=city(cell(14,4)),all=[a,m,b];ctx.mpAssignDistricts(all,world,()=>2);
+ const path=[];for(let q=2;q<=14;q++)path.push(cell(q,4));n.infra=[route(ctx,path)];
+ return {...f,a,m,b,all,path,agg:()=>[{add:{food:0,timber:0,iron:0,oil:0},army:0}]};
+}
+test('a city the road passes through is on the road, not only its two ends',()=>{
+ const {ctx,world,a,m,b,all,agg}=lineFixture(),A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);
+ for(const ct of [a,m,b])assert.equal(ct.transportBonus,.04,ct.nm);assert.equal(A[0].transportArmy,.06);
+});
+test('road hexes that no city works yield ten percent more, counted once',()=>{
+ const {ctx,n,world,all,path,agg}=lineFixture(),worked=new Set(all.flatMap(c=>c.dist)),free=path.filter(c=>!worked.has(c));assert.ok(free.length>0);
+ const base=all.reduce((s,c)=>s+c.dist.length,0)*2*.04,A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);
+ assert.ok(Math.abs(A[0].add.food-(base+free.length*2*.1))<1e-8);
+ n.infra.push({...n.infra[0],id:'two',k:'rail',d:NOW-1});all.forEach(c=>c.done=['rail']);const B=agg();ctx.mpNetworkBonuses(world,all,B,NOW);
+ assert.ok(Math.abs(B[0].add.food-(base/.04*.1+free.length*2*.1))<1e-8,'a second route over the same hexes adds no more hex yield');
+});
+test('a partly cut road keeps working up to the break from each end',()=>{
+ const {ctx,n,world,a,m,b,all,path}=lineFixture();world.owner[path[3]]=1;
+ assert.deepEqual([...ctx.mpLiveCells(n.infra[0],world,0)],path.slice(0,3).concat(path.slice(4)));
+ ctx.mpNetworkBonuses(world,all,[{add:{},army:0}],NOW);for(const ct of [a,m,b])assert.equal(ct.transportBonus,.04,ct.nm);
+ world.owner[path[9]]=1;ctx.mpNetworkBonuses(world,all,[{add:{},army:0}],NOW);assert.equal(m.transportBonus,undefined,'cut off from both ends');assert.equal(a.transportBonus,.04);assert.equal(b.transportBonus,.04);
 });
 test('military transport supply is capped at six percent regardless of network size',()=>{
  const {ctx,n,world,cell}=fixture(),all=[2,4,6,8].map(q=>city(cell(q,4))),A=[{add:{food:0,timber:0,iron:0,oil:0},army:0}];ctx.mpAssignDistricts(all,world,()=>2);
