@@ -24397,7 +24397,7 @@ function czCharge(k,c,d,flat){
     case 'harp':{let st='';for(let x=36;x<=66;x+=5){const y=20+(75-x)*68/43;st+=`M${x},${(22+Math.abs(x-48)*.12).toFixed(1)}V${(y-3).toFixed(1)}`;}
       return S([['M75,20L33,88',9],['M27,24Q22,58 31,88',6],['M27,24C40,9 57,31 75,20',6],['M23,86H40V93H23Z',0],[czCirc(76,19,4.5),0]],L(st,1.1)+L('M70,28L37,82',1));}
     /* the ten charges added on 2026-11-05 (also flag emblems) */
-    case 'owl':return S([[czEll(50,70,22,28,0),0],[czCirc(50,40,19),0],['M32,30L30,14L42,25Z',0],['M68,30L70,14L58,25Z',0],['M40,96H46V104H40ZM54,96H60V104H54Z',0]],
+    case 'nowl':return S([[czEll(50,70,22,28,0),0],[czCirc(50,40,19),0],['M32,30L30,14L42,25Z',0],['M68,30L70,14L58,25Z',0],['M40,96H46V104H40ZM54,96H60V104H54Z',0]],
       `<circle cx="42" cy="39" r="7.5" fill="rgba(255,255,255,.9)"/><circle cx="58" cy="39" r="7.5" fill="rgba(255,255,255,.9)"/>`+D(42,39,3.6)+D(58,39,3.6)+`<path d="M47,47L50,54L53,47Z" fill="${d}"/>`+L('M38,66Q50,74 62,66M40,78Q50,86 60,78M43,89Q50,94 57,89',1.4));
     case 'acorn':return S([['M48,12H52V31H48Z',0],[czEll(50,62,15,22,0),0],['M29,46Q29,29 50,29Q71,29 71,46Q71,53 50,53Q29,53 29,46Z',0]],
       L('M33,40L44,50M41,33L56,50M52,31L67,46M36,48L48,33M47,50L62,32M58,50L68,38',1)+L('M43,62Q45,74 50,80',1.2));
@@ -24433,7 +24433,7 @@ function czCharge(k,c,d,flat){
 }
 /* the unlockable emblems on a flag, sized like the base ones (radius r round x,y) */
 function czEmblemSVG(e,x,y,r,col){
-  const k={'e-owl':'owl','e-crown':'royal','e-eagle':'eagle','e-gear':'gear','e-anchor':'fouled','e-tree':'tree','e-wave':'wave','e-acorn':'acorn','e-torch':'torch','e-scales':'scales','e-hourglass':'hourglass','e-quill':'quill','e-helm':'helm','e-grapes':'grapes','e-lighthouse':'lighthouse','e-dove':'dove','e-pine':'pine'}[e];if(!k)return '';
+  const k={'e-nowl':'nowl','e-crown':'royal','e-eagle':'eagle','e-gear':'gear','e-anchor':'fouled','e-tree':'tree','e-wave':'wave','e-acorn':'acorn','e-torch':'torch','e-scales':'scales','e-hourglass':'hourglass','e-quill':'quill','e-helm':'helm','e-grapes':'grapes','e-lighthouse':'lighthouse','e-dove':'dove','e-pine':'pine'}[e];if(!k)return '';
   const s=r/40;return `<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(4)})">${czCharge(k,col,'rgba(0,0,0,.28)',1)}</g>`;
 }
 
@@ -38009,7 +38009,7 @@ Object.assign(UNLOCKS,{'fp-sunburst':{k:'fpat',n:'Sunburst',src:'ach'},'fp-check
   'e-eye':{k:'emblem',n:'Eye',src:'set'},'e-bolt':{k:'emblem',n:'Lightning bolt',src:'set'},'e-wreath':{k:'emblem',n:'Laurel wreath',src:'ach'}});
 const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy',gyronny:'fp-gyronny',lozenge:'fp-lozenge',fdawn:'fp-fdawn',fcharter:'fp-fcharter'},FG_PFB={sunburst:'plain',checky:'quarters',wavy:'tri-h',gyronny:'quarters',lozenge:'centre',fdawn:'chief',fcharter:'border'};
 /* emblems only a founder may fly: anyone else's flag shows none (the shop's ids, vouched for by the server's finery/) */
-const FG_EU=new Set(['e-keystone','e-rosette','e-owl']);
+const FG_EU=new Set(['e-keystone','e-rosette','e-nowl']);
 /* the Community Board's achievements: a visit, then visits on five different days (tally cbvisit; cbday is the last day counted) */
 achDef('dip','dip-board','b','Town Crier','Visit the Community Board, where every region talks.',1,x=>aT(x,'cbvisit'),{u:'fp-gyronny'});
 achDef('dip','dip-board5','s','Regular at the Board','Visit the Community Board on five different days.',5,x=>aT(x,'cbvisit'),{u:'fp-lozenge'});
@@ -51335,7 +51335,7 @@ const SHOP_NONE=new Set();
     ['pn-founder','pin','Founder’s marker'],['in-founder','inscription','Founding Supporter inscription'],['te-gilt','territory','Founder’s Gilt'],
     ['fp-fdawn','fpat','Founder’s Dawn'],['fp-fcharter','fpat','Charter Bordure'],['e-keystone','emblem','Keystone'],['e-rosette','emblem','Founder’s Rosette']])add(id,k,n,'founder');
   /* the Black Friday Pack (on sale until the end of 30 November 2026, UTC): a shield and the Night Owl, on arms and flag */
-  for(const [id,k,n] of [['sh-midnight','shield','Midnight Tag shield'],['c-owl','charge','Night Owl'],['e-owl','emblem','Night Owl']])add(id,k,n,'bfpack');
+  for(const [id,k,n] of [['sh-midnight','shield','Midnight Tag shield'],['c-nowl','charge','Night Owl'],['e-nowl','emblem','Night Owl']])add(id,k,n,'bfpack');
   for(const [id,n] of [['cd-ledger','Diplomatic Ledger'],['cd-atlas','Atlas Edition'],['cd-civic','Civic Modern'],['cd-embassy','Embassy Vellum'],['cd-telegram','Telegram'],['cd-holo','Holographic Seal'],['cd-starlit','Starlit Charter']])add(id,'card',n,'idpack');
   /* the pack's two letter papers (drawn by LP_X with the others) */
   for(const [id,n] of [['lp-i-embassy','Embassy Letterhead'],['lp-i-telegram','Telegram Form']])add(id,'paper',n,'idpack');
@@ -51350,7 +51350,7 @@ const SHOP_NONE=new Set();
 Object.assign(CZ_KIND,{bg:'badge',cd:'card',ins:'inscription',te:'territory'});
 Object.assign(CZ_DEF,{bg:'',cd:'',ins:'',te:''});
 const SHOP_IDS={founder:[],idpack:[],vip:[],bfpack:[]};
-EMBLEMS['e-owl']='Night Owl';if(!CZ_EMBS.includes('e-owl'))CZ_EMBS.push('e-owl');
+EMBLEMS['e-nowl']='Night Owl';if(!CZ_EMBS.includes('e-nowl'))CZ_EMBS.push('e-nowl');
 for(const id of Object.getOwnPropertyNames(UNLOCKS)){const u=UNLOCKS[id];if(u&&SHOP_IDS[u.src])SHOP_IDS[u.src].push(id);}
 const shopIs=id=>!!(UNLOCKS[id]&&SHOP_IDS[UNLOCKS[id].src]);
 /* ── the Club's collection as it grows: the pieces it opened with, and the catalogue's drops from their day (UTC) ── */
@@ -51877,7 +51877,7 @@ function shopCta(p,label){
   if(!on||S.mode!=='world')return `<button type="button" class="btn" disabled>${esc(label)}</button>${cfg&&!cfg.on?'<span class="hint">Not on sale yet.</span>':''}`;
   return `<button type="button" class="btn shop-buy" data-act="shop-buy" data-p="${p}"${busy||SHOP.busy?' disabled':''} aria-describedby="shop-${p}-price">${busy?'Opening the checkout…':opened?'Checkout open: reopen it':esc(label)}</button>`;
 }
-function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-owl'?'c-owl':'',n.flag&&n.flag.e==='e-owl'?'e-owl':''].filter(Boolean):SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
+function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':''].filter(Boolean):SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
   const onCd=on.filter(id=>UNLOCKS[id].k==='card');
   return p==='idpack'?(onCd.length?` You are using the ${esc(UNLOCKS[onCd[0]].n)} card.`:' Not in use: you have the classic card.'):on.length?` You are wearing ${on.length===SHOP_IDS[p].length?'all '+on.length:on.length+' of '+SHOP_IDS[p].length} pieces.`:' None of it is in use yet.';}
 function shopOwned(p,extra){const at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns[p];return `<p class="shop-owned"><span class="chip ok">Owned</span> since ${esc(shopDate(at))}.${shopGiftFrom(p)?' A gift from '+esc(shopGiftFrom(p))+'.':''}${shopWorn(p)}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p><div class="row shop-row">${extra||''}<button type="button" class="btn ghost" data-act="go" data-v="customise">Equip in Customise</button></div>`;}
@@ -52078,7 +52078,7 @@ function shopClubBanner(n,t){
 function shopDrawerBody(p,n,t){return p==='vip'?shopVipSec(n,t):p==='founder'?shopFounder(n,t):p==='idpack'?shopIdPack(n):p==='giftvip'?shopGiftVip(n):p==='bfpack'?shopBfPack(n,t):'';}
 /* the Black Friday Pack: until the catalogue's date (the end of 30 November 2026, UTC) */
 function shopBfUntil(){const c=shopCat(),v=c&&c.products&&c.products.bfpack&&Date.parse(c.products.bfpack.until);return isFinite(v)?v:Date.UTC(2026,11,1);}
-function shopBfArts(n){const a=Object.assign({s:'heater',d:'plain',t:['sable','or'],c:'',ct:'or',m:0,on:1},cz(n).a||{});return {arms:czArmsSVG({...a,s:'midnight',c:'c-owl',t:[a.t&&a.t[0]||'sable','or'],ct:'or'}),flag:flagSVG(Object.assign({},n.flag||{},{e:'e-owl'}),'')};}
+function shopBfArts(n){const a=Object.assign({s:'heater',d:'plain',t:['sable','or'],c:'',ct:'or',m:0,on:1},cz(n).a||{});return {arms:czArmsSVG({...a,s:'midnight',c:'c-nowl',t:[a.t&&a.t[0]||'sable','or'],ct:'or'}),flag:flagSVG(Object.assign({},n.flag||{},{e:'e-nowl'}),'')};}
 function shopBfArt(n,mini){let A;try{A=shopBfArts(n);}catch(e){return '';}return `<span class="shop-bf-art${mini?' mini':''}">${A.arms}</span>`;}
 function shopBfPack(n,t){
   const until=shopBfUntil(),open=t<until,own=shopOwns('bfpack'),left=until-t,d=Math.floor(left/DAY),h=Math.floor(left%DAY/36e5);let A={arms:'',flag:''};try{A=shopBfArts(n);}catch(e){}
