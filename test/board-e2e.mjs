@@ -19,7 +19,7 @@ const go = (p, v) => p.evaluate(v => document.querySelector(`.nav [data-v="${v}"
 check('the Community Board sits under Other', /Community Board/.test(await text(B, '.side .nav-grp[data-g="other"] .nav-g')));
 await go(B, 'community');
 await B.waitForSelector('.cb-reg');
-const regs = await B.$$eval('.cb-reg', l => l.map(s => ({ reg: s.dataset.reg, mine: s.classList.contains('mine'), open: s.querySelector('.cb-reg-tg').getAttribute('aria-expanded') === 'true' })));
+const regs = await B.$$eval('.cb-reg:not([data-reg="chancery"])', l => l.map(s => ({ reg: s.dataset.reg, mine: s.classList.contains('mine'), open: s.querySelector('.cb-reg-tg').getAttribute('aria-expanded') === 'true' })));
 const home = await B.evaluate(() => G.S.nation.reg);
 check('the own region comes first, highlighted and open', regs[0].reg === home && regs[0].mine && regs[0].open, JSON.stringify(regs[0]));
 check('every other region is collapsed', regs.length > 3 && regs.slice(1).every(r => !r.mine && !r.open), regs.length);

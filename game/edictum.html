@@ -48021,7 +48021,7 @@ function cbTopicView(head){
    written only by them (firestore.rules chanceryMember) and staff */
 const CB_CH={id:'chancery',name:'The Chancery'};
 function cbChancery(){const d=SHOP.doc||{};return cbStaff()||!!(d.owns&&d.owns.founder)||!!(d.vip&&d.vip.until>Date.now());}
-function cbChanceryLocked(){return `<section class="cb-reg cb-ch-lock"><h2 class="cb-reg-h"><span class="cb-reg-tg"><span class="cb-car" aria-hidden="true">🔒</span><span class="cb-reg-n">The Chancery</span><span class="cb-reg-c">Members only</span></span></h2>
+function cbChanceryLocked(){return `<section class="cb-reg cb-ch-lock" data-reg="chancery"><h2 class="cb-reg-h"><span class="cb-reg-tg"><span class="cb-car" aria-hidden="true">🔒</span><span class="cb-reg-n">The Chancery</span><span class="cb-reg-c">Members only</span></span></h2>
   <p class="hint cb-ch-p">A private board for Chancery Club members and Founding Supporters. <button type="button" class="linkish" data-act="go" data-v="shop">See the Chancery Club</button></p></section>`;}
 function cbView(){
   const head=`<header class="vh"><p class="eyebrow">Every region’s notice board</p><h1>Community Board</h1><p>Talk trade, treaties and trouble with the nations of every region. Your own region’s board comes first; open any other to read it and join in.</p></header>`;
@@ -48030,7 +48030,7 @@ function cbView(){
   if(CB.pend){const [g,t]=CB.pend;CB.pend=null;cbOpenTopic(g,t);}
   if(CB.topic)return cbTopicView(head);
   const regs=regionsByAvail().filter(R=>!regDisabled(R.id)||(REG&&R.id===REG.id)||(CB.meta[R.id]&&CB.meta[R.id].n)),own=regs.filter(R=>REG&&R.id===REG.id),rest=regs.filter(R=>!REG||R.id!==REG.id);
-  return head+cbForm()+`<div class="cb-regs">${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${own.concat(rest).map(cbBoard).join('')}</div>`;
+  return head+cbForm()+`<div class="cb-regs">${own.map(cbBoard).join('')}${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${rest.map(cbBoard).join('')}</div>`;
 }
 async function cbCall(data){const api=await window.claude.use('civic');if(!api)throw Object.assign(new Error('Reconnect first.'),{code:'unavailable'});return api.request(data);}
 const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','cb_chancery','cb_paced','permission-denied','invalid-argument'];
