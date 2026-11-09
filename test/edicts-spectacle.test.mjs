@@ -26,7 +26,7 @@ function load(){
   assert(a>source.indexOf('{const P=MC_STORY.pre,is={id:SPX_ID'),'after the Space page’s prelude, so no number moves');
   assert(a>source.indexOf('for(const is of DEP_ISSUES)'),'after the deposit edicts, so no number moves');
   assert(b<=source.indexOf('/* ───────── the browser tab'),'before the browser tab’s section, which its own test cuts to boot');
-  assert.equal(source.indexOf('ISSUES.push(',b),-1,'no edict is added after this section');
+  assert.equal(source.indexOf('ISSUES.push(',source.indexOf('for(const is of BRD_ISSUES){ISSUES.push(')+40),-1,'only the border edicts come after this section');
   /* read back as JSON, so the arrays belong to this realm and compare with deepEqual */
   vm.runInContext(source.slice(a,b)+'\nthis.J=JSON.stringify({X:SHOW_ISSUES,R:SHOW_ISSUES.map(is=>ISSUES_RANDOM.includes(is)&&ISSUE_BY_ID[is.id]===is)});',ctx);
   return JSON.parse(ctx.J);
