@@ -10,7 +10,7 @@ await p.click('#found-btn');
 await p.waitForSelector('.layout', { timeout: 15000 });
 await sleep(500);
 
-/* a settling spot on a big coast with a small free island 7 to 10 hexes off. The candidates are listed in one go and the
+/* a settling spot on a big coast with a small free island 14 to 20 hexes off (beyond a 12-hex strait). The candidates are listed in one go and the
    game's own placement check runs once per call: run all at once, the checks held the page long enough (over ten
    seconds) for Firestore to report its backend unreachable */
 const cands = await p.evaluate(() => {
@@ -23,7 +23,7 @@ const cands = await p.evaluate(() => {
   const coast = []; for (let m = 0; m < M.N; m++) if (M.T[m] >= 2 && T.owner[m] === -1 && (size.get(M.comp[m]) || 0) >= 150 && coastal(m)) coast.push(m);
   for (const [k, cells] of isleCells) {
     if (cells.some(c => T.owner[c] !== -1)) continue;
-    for (const m of coast) { const d = hexDist(m, cells[0]); if (d >= 7 && d <= 10) { out.push({ cap: m, isle: cells, k }); if (out.length >= 400) return out; } }
+    for (const m of coast) { const d = hexDist(m, cells[0]); if (d >= 14 && d <= 20) { out.push({ cap: m, isle: cells, k }); if (out.length >= 400) return out; } }
   }
   return out;
 });
@@ -64,7 +64,7 @@ check('harbour frontier never lists shores already next to your land', reachInfo
 /* idea 4: a navy stretches the reach */
 const navy = await p.evaluate(() => { const before = G.MD.mpHarbourFrontier(G.territory()).size; const n = G.clone(G.S.nation); n.policies = { ...(n.policies || {}), navalFleet: 1 }; G.commit(n); G.render(); const after = G.MD.mpHarbourFrontier(G.territory()).size; return { before, after, reach: G.SL.mpHarbourReach(G.S.nation) }; });
 console.log('navy', JSON.stringify(navy));
-check('the Blue-Water Navy raises harbour reach to six and reaches more shore', navy.reach === 6 && navy.after >= navy.before);
+check('the Blue-Water Navy raises harbour reach to 16 and reaches more shore', navy.reach === 16 && navy.after >= navy.before);
 
 /* idea 6: the harbour reach toggle and the inspector's reason */
 await nav(p, 'map');
@@ -81,11 +81,11 @@ const why = await p.evaluate(cap => {
     const coastal = (() => { for (let d = 0; d < 6; d++) { const v = M.nbr[c * 6 + d]; if (v >= 0 && M.T[v] < 2) return true; } return false; })();
     const w = G.SL.claimWhy(T, c);
     const key = /too far/.test(w) ? 'far' : /inland/.test(w) ? 'inland' : /none of your harbours/.test(w) ? 'none' : 'other';
-    if (!out[key] && Math.abs(M.cx[c] - M.cx[cap]) < 400) out[key] = w;
+    if (!out[key] && Math.abs(M.cx[c] - M.cx[cap]) < 1500) out[key] = w;
   }
   return out;
 }, spot.cap);
-check('the inspector explains a shore just out of harbour reach', !!why.far && /hexes across water from your harbour at .+ Your harbours reach 6/.test(why.far));
+check('the inspector explains a shore just out of harbour reach', !!why.far && /hexes across water from your harbour at .+ Your harbours reach 16/.test(why.far));
 check('the inspector explains inland land', !!why.inland);
 
 /* idea 1 + 3: provinces with the far island */
@@ -123,7 +123,7 @@ await p.selectOption('#prv-selp', String(target.id)); await sleep(300);
 await p.click('#prv-tool-move'); await clickOn('prov', spot.isle[0]);
 const msg1 = await text(p, '#prv-msg');
 console.log('move one:', msg1);
-check('moving a lone island hex points to Move islands', /Move islands/.test(msg1) && /strait of up to 2 sea hexes/.test(msg1));
+check('moving a lone island hex points to Move islands', /Move islands/.test(msg1) && /strait of up to 12 sea hexes/.test(msg1));
 await p.click('#prv-tool-isle'); await clickOn('prov', spot.isle[0]);
 const after = await where(), msg2 = await text(p, '#prv-msg');
 console.log('island', JSON.stringify(before), '->', JSON.stringify(after), msg2);

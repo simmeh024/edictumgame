@@ -18091,7 +18091,7 @@ function territory(extra){
   const N=MAP.N,L=list.length,byId=Object.fromEntries(list.map((x,i)=>[x.id,i]));
   const isCap=new Uint8Array(N);list.forEach(x=>{isCap[x.cap]=1;});
   const cityOver=new Map();
-  list.forEach((x,i)=>{if(x.npc||!Array.isArray(x.n.cities))return;for(const c of x.n.cities){const cc=c.c;if(TERR_AT!=null&&(c.t||0)>TERR_AT)continue;if(!(cc>=0&&cc<N)||isCap[cc]||MAP.T[cc]<2||cityOver.has(cc)||hexDist(cc,x.cap)>30)continue;cityOver.set(cc,i);}});
+  list.forEach((x,i)=>{if(x.npc||!Array.isArray(x.n.cities))return;for(const c of x.n.cities){const cc=c.c;if(TERR_AT!=null&&(c.t||0)>TERR_AT)continue;if(!(cc>=0&&cc<N)||isCap[cc]||MAP.T[cc]<2||cityOver.has(cc)||hexDist(cc,x.cap)>CAP_REACH)continue;cityOver.set(cc,i);}});
   for(const [c,id] of RECL.owner){const i=byId[id];if(i===undefined||isCap[c]||cityOver.has(c))continue;if(TERR_AT!=null&&(RECL.time.get(c)||0)>TERR_AT)continue;cityOver.set(c,i);}
   /* claims are held from the moment they are made, before any core grows, so a later core or a
      growing computer nation cannot take them; a claim under the claimer's own later city still counts */
@@ -18100,7 +18100,7 @@ function territory(extra){
     if(!e.claim)continue;const oi=byId[e.o];if(oi===undefined||!list[oi].cm)continue;
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||MAP.T[e.c]<2)continue;
     if(cityOver.has(e.c)){if(cityOver.get(e.c)===oi&&!how.has(e.c)){used[oi]++;how.set(e.c,1);nat.set(e.c,oi);}continue;}
-    if(hexDist(e.c,list[oi].cap)>45||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
+    if(!inReach(list[oi],e.c)||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
     cityOver.set(e.c,oi);how.set(e.c,1);nat.set(e.c,oi);used[oi]++;
   }
   const base=grow(list,cityOver.size?cityOver:null),over=new Map(cityOver),lostPre=new Int32Array(L),rate=new Map();let moved=false;
@@ -22540,7 +22540,7 @@ function helpBody(n){
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
     land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} (a whole block of land) and every city you found earns ${CITY_CREDITS}. Your first days earn more: the charter list, a daily desk worth double in your first week, and 2 credits each for coming back on a second and a third day. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
-      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 45 hexes of your capital and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
+      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>There is only one way to win land from the sea: some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
@@ -36849,11 +36849,21 @@ function claimBan(T){
   T.list.forEach((y,j)=>{if(j===mi)return;for(const [c] of ringCells(y.cap,2))B[c]=1;});
   T._ban=B;T._banMe=me;T._banCap=mi===undefined?-1:T.list[mi].cap;return B;
 }
-function claimOk(T,c){return !claimBan(T)[c]&&(T._banCap<0||hexDist(c,T._banCap)<=45);}
+/* Claim reach (2026-11-09): a claim counts within CAP_REACH of the capital or within the reach of any of the
+   nation's own cities: 10 hexes plus one per building, at most 20, all raised by half (15 to 30). Cities made
+   after the shown moment (atlas, TERR_AT) do not lend reach. */
+const CAP_REACH=68,cityReach=c=>Math.round(Math.min(20,10+(Array.isArray(c.b)?c.b.length:0))*1.5);
+function inReach(x,cell){
+  if(hexDist(cell,x.cap)<=CAP_REACH)return true;
+  const cs=x&&x.n&&Array.isArray(x.n.cities)?x.n.cities:[];
+  for(const c of cs){if(!(c&&c.c>=0))continue;if(TERR_AT!=null&&(c.t||0)>TERR_AT)continue;if(hexDist(cell,c.c)<=cityReach(c))return true;}
+  return false;
+}
+function claimOk(T,c){if(claimBan(T)[c])return false;const mi=T.byId[myId()];return mi===undefined||inReach(T.list[mi],c);}
 function claimBanNote(T,cell,n){
   if(claimOk(T,cell))return '';const mi=T.byId[myId()];
   if(claimBan(T)[cell]){const y=T.list.find((y,j)=>j!==mi&&hexDist(cell,y.cap)<=2);return `<p class="hint">Too close to ${y?esc(y.n.name)+'’s capital':'another capital'}. Land within 2 hexes of another nation’s capital can’t be claimed.</p>`;}
-  return `<p class="hint">Too far from ${esc(n.capital||'your capital')}. Claims must lie within 45 hexes of your capital.</p>`;
+  return `<p class="hint">Too far from ${esc(n.capital||'your capital')}. Claims must lie within ${CAP_REACH} hexes of your capital, or within reach of one of your cities (15 hexes, plus a hex and a half per building, up to 30).</p>`;
 }
 /* “one day”, “3 days”, and “less than a day” rather than “0 days” */
 const b2Days=k=>k<1?'less than a day':k===1?'one day':k+' days';
@@ -36978,7 +36988,9 @@ NORM_HOOKS.push((n,d)=>{if(n.npc){delete n.prov;return;}const v=prvNorm(d&&d.pro
    shipping connection between two of its cities. Divisions use it: a hex moves across a strait, two divisions
    on either shore merge, and a division over a strait is still one piece. Islands (patches of a nation's land
    joined edge to edge) are kept beside it: a whole island may belong to any division. */
-const SEA_LINK=2,SEA_MEMO=new WeakMap();
+/* 2026-11-09: straits between separate landmasses reach SEA_LINK (12) hexes; along one coast of a single
+   landmass the old SEA_NEAR (2) still applies, so a long coast does not touch itself around a bay */
+const SEA_LINK=12,SEA_NEAR=2,SEA_MEMO=new WeakMap();
 function seaShips(T,i,now){
   const x=T.list[i],out=[];if(!x||x.npc||!Array.isArray(x.n.infra))return out;
   const hb=c=>cityList(x.n).some(ct=>ct.c===c&&(ct.b||[]).some(b=>b.k==='harbour'&&b.d<=now));
@@ -36989,13 +37001,13 @@ function seaMemo(T,i){let m=SEA_MEMO.get(T);if(!m)SEA_MEMO.set(T,m=new Map());le
 /* cell → Set of the nation's own land hexes it touches across water */
 function seaLinks(T,i){
   const ships=seaShips(T,i,Date.now()),k=RECL.sig+'|'+ships.join(';'),e=seaMemo(T,i);if(e.lk===k&&e.links)return e.links;
-  const m=new Map(),add=(a,b)=>{if(a===b)return;let s=m.get(a);if(!s)m.set(a,s=new Set());s.add(b);};
+  const pid=landPatches(T,i),m=new Map(),add=(a,b)=>{if(a===b)return;let s=m.get(a);if(!s)m.set(a,s=new Set());s.add(b);};
   for(let c=0;c<MAP.N;c++){
     if(T.owner[c]!==i||MAP.T[c]<2)continue;let wet=false;for(let d=0;d<6&&!wet;d++){const v=MAP.nbr[c*6+d];if(v>=0&&MAP.T[v]<2)wet=true;}if(!wet)continue;
     const seen=new Set([c]);let fr=[c];
     for(let step=0;step<SEA_LINK&&fr.length;step++){
       const nx=[];for(const a of fr)for(let d=0;d<6;d++){const v=MAP.nbr[a*6+d];if(v<0||seen.has(v)||MAP.T[v]>=2)continue;seen.add(v);nx.push(v);}fr=nx;
-      for(const w of fr)for(let d=0;d<6;d++){const v=MAP.nbr[w*6+d];if(v>=0&&v!==c&&MAP.T[v]>=2&&T.owner[v]===i){add(c,v);add(v,c);}}
+      for(const w of fr)for(let d=0;d<6;d++){const v=MAP.nbr[w*6+d];if(v>=0&&v!==c&&MAP.T[v]>=2&&T.owner[v]===i&&(step<SEA_NEAR||pid.get(c)!==pid.get(v))){add(c,v);add(v,c);}}
     }
   }
   for(const [a,b] of ships){add(a,b);add(b,a);}
@@ -39242,7 +39254,7 @@ function mapLegend(pre){
 }
 function worldMapView(){
   const n=S.nation,placed=cellOf(n.loc)>=0;
-  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders, or on shores a completed coastal Harbour reaches across up to four hexes of water (six with a navy), to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital and 3 from another nation’s claims.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
+  return `<header class="vh"><p class="eyebrow">Cartographer’s office</p><h1>World map</h1><p>${placed?'Every nation starts with a core of land round its capital. As your population grows you earn land credits: spend them on the highlighted blocks next to your borders, or on shores a completed coastal Harbour reaches across up to 14 hexes of water (16 with a navy), to choose where you grow. Land that others hold can only be taken in war.':`${esc(n.name)} is not on the map yet. Choose where it lies: any unclaimed land at least ${MIN_CAP_DIST} hexes from another capital and 3 from another nation’s claims.`}</p></header>${placed?mapTabs('map')+mpMapToolbar():''}
   <div class="map-layout${mapFsOn('main')?' ml-full':''}">
     <div class="ml-map">${mapBox('main',placed?'':' pick')}</div>
     <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
@@ -45122,7 +45134,7 @@ render=(f=>function(){const r=f.apply(this,arguments);for(const id of nxShown())
 ppViewOpen=(f=>function(id){const r=f.apply(this,arguments);nxWant(id);return r;})(ppViewOpen);
 
 /* ───────── map development: city reach, transport and private expansion plans ───────── */
-const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=4,MP_PLAN_MAX=48,MP_NET_MAX=24;
+const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=14,MP_PLAN_MAX=48,MP_NET_MAX=24;
 const MP_TYPES={road:{n:'Road',cost:{timber:2,goods:1},mins:15,bonus:0.04},rail:{n:'Railway',cost:{iron:3,goods:2},mins:30,bonus:0.10},sea:{n:'Shipping connection',cost:{timber:3,goods:2,oil:1},mins:20,bonus:0.06}};
 const mpCell=c=>Number.isInteger(c)&&c>=0&&c<MAP.N;
 const mpRadius=p=>p>=MP_CITY_GROW?MP_CITY_MAX:CITY_DISTRICT;
@@ -45166,7 +45178,7 @@ function mpHarbours(T){
   }return out;
 }
 /* how far a harbour reaches across water to claim land: four hexes, six with a navy (the Blue-Water Navy law) */
-const MP_NAVY_REACH=6;
+const MP_NAVY_REACH=16;
 function mpHarbourReach(n){return pol(n).navalFleet?MP_NAVY_REACH:MP_SEA_REACH;}
 /* free shores a completed harbour reaches across water: another island, or the far side of a bay on your own coast
    (land that already touches yours is claimed the ordinary way, so it is left out) */
@@ -45190,7 +45202,7 @@ function mpClaimSequence(T,input){
   }return {cells,blocked,cost:cells.length};
 }
 function mpRouteShape(r){
-  if(!r||!Object.hasOwn(MP_TYPES,r.k)||typeof r.id!=='string'||r.id.length>60||!mpCell(r.a)||!mpCell(r.b)||r.a===r.b||!Array.isArray(r.path)||r.path.length<2||r.path.length>(r.k==='sea'?5:65))return null;
+  if(!r||!Object.hasOwn(MP_TYPES,r.k)||typeof r.id!=='string'||r.id.length>60||!mpCell(r.a)||!mpCell(r.b)||r.a===r.b||!Array.isArray(r.path)||r.path.length<2||r.path.length>(r.k==='sea'?MP_SEA_REACH+1:65))return null;
   if(r.path[0]!==r.a||r.path.at(-1)!==r.b||!r.path.every(mpCell)||new Set(r.path).size!==r.path.length||r.path.some((c,i)=>i&&!mpAdjacent(r.path[i-1],c)))return null;
   if(!Number.isFinite(r.t)||r.t<=0||!Number.isFinite(r.d)||r.d<r.t+(r.path.length-1)*MP_TYPES[r.k].mins*60000||r.d-r.t>7*DAY||!REG_BY_ID[r.reg])return null;
   return {id:r.id,k:r.k,a:r.a,b:r.b,path:r.path.slice(),t:r.t,d:r.d,reg:r.reg};
@@ -45220,7 +45232,7 @@ function mpRoutePreview(T,k,a,b){
   if(k==='rail'&&!ct.done.includes('rail'))return {why:'Complete a Railway Station in the origin city first.'};
   if(k==='sea'&&!ct.done.includes('harbour'))return {why:'Complete a coastal Harbour in the origin city first.'};
   const path=k==='sea'?mpSeaReach(a).get(b):mpLandPath(T,hi,a,b);
-  if(!path)return {why:k==='sea'?'No water route reaches that coast within four hexes.':'No route through your own land connects these locations (maximum 64 steps).'};
+  if(!path)return {why:k==='sea'?'No water route reaches that coast within 14 hexes.':'No route through your own land connects these locations (maximum 64 steps).'};
   if((S.nation.infra||[]).some(r=>r.k===k&&((r.a===a&&r.b===b)||(r.a===b&&r.b===a))))return {why:'That connection already exists.'};
   const steps=path.length-1,cost=Object.fromEntries(Object.entries(type.cost).map(([r,v])=>[r,v*steps]));
   return {path,cost,ms:steps*type.mins*60000,steps,ct,type};
@@ -45250,7 +45262,7 @@ function mpRemoveRoute(id){const n=clone(S.nation);n.infra=(n.infra||[]).filter(
 function mpMapToolbar(){if(!pgAvailable(S.nation,'map'))return '';return `<div class="mp-map-toolbar row" aria-label="Map tools"><button class="btn${S.mpMode==='plan'?'':' ghost'}" data-act="mp-mode" data-v="plan" aria-pressed="${S.mpMode==='plan'}">Plan expansion</button><button class="btn${S.mpMode==='transport'?'':' ghost'}" data-act="mp-mode" data-v="transport" aria-pressed="${S.mpMode==='transport'}">Transport networks</button>${S.mpMode?'<button class="btn ghost" data-act="mp-mode" data-v="">Return to normal map</button>':''}</div>`;}
 function mpPlanHTML(T){
   const draft=mpDraft(),p=mpClaimSequence(T,draft),cr=landCredits(S.nation),facts=blockFacts(p.cells),owned=draft.length-p.cells.length-p.blocked.length;
-  return `<section class="mp-tool"><h2 class="mp-h">Plan your expansion</h2><p>Select connected free hexes on the map in the order you want to claim them. Select a planned hex again to remove it. Saving a plan spends no credits. Automatic land spending on this device pauses while you plan.</p><dl class="mp-dl"><div><dt>Remaining cost</dt><dd>${p.cost} land ${p.cost===1?'credit':'credits'}</dd></div><div><dt>Available</dt><dd>${cr} land ${cr===1?'credit':'credits'}</dd></div><div><dt>Base yield per day</dt><dd>${esc(list(facts.y))||'None yet'}</dd></div>${owned?`<div><dt>Already yours</dt><dd>${owned} hexes, no extra cost</dd></div>`:''}</dl>${p.blocked.length?`<p class="err">${esc(p.blocked[0].why)} Remove blocked steps or adjust the plan.</p>`:''}${p.cost>cr?'<p class="hint">Save this plan for later, or remove steps until it fits your credits.</p>':''}<ol class="mp-steps">${draft.map((c,i)=>`<li><span>${i+1}. ${esc(terrName(c))} · ${esc(landName(c))}${p.blocked.some(b=>b.c===c)?' · blocked':''}</span><button class="linkish small" data-act="mp-drop" data-c="${c}" aria-label="Remove step ${i+1}">Remove</button></li>`).join('')}</ol><div class="row"><button class="btn" data-act="mp-apply"${!p.cost||p.blocked.length||p.cost>cr?' disabled':''}>Claim plan (${p.cost} ${p.cost===1?'credit':'credits'})</button><button class="btn ghost" data-act="mp-save">Save for later</button><button class="linkish" data-act="mp-clear">Clear draft</button><button class="linkish" data-act="mp-load">Load saved plan</button></div><p class="hint">A shore across the water, on an island or the far side of a bay, can start a plan when a completed coastal harbour reaches it across at most ${mpHarbourReach(S.nation)} hexes of water${pol(S.nation).navalFleet?' (six with your navy)':' (six with a navy)'}. Each claimed hex still costs one land credit. Production bonuses apply only once land is claimed.</p></section>`;
+  return `<section class="mp-tool"><h2 class="mp-h">Plan your expansion</h2><p>Select connected free hexes on the map in the order you want to claim them. Select a planned hex again to remove it. Saving a plan spends no credits. Automatic land spending on this device pauses while you plan.</p><dl class="mp-dl"><div><dt>Remaining cost</dt><dd>${p.cost} land ${p.cost===1?'credit':'credits'}</dd></div><div><dt>Available</dt><dd>${cr} land ${cr===1?'credit':'credits'}</dd></div><div><dt>Base yield per day</dt><dd>${esc(list(facts.y))||'None yet'}</dd></div>${owned?`<div><dt>Already yours</dt><dd>${owned} hexes, no extra cost</dd></div>`:''}</dl>${p.blocked.length?`<p class="err">${esc(p.blocked[0].why)} Remove blocked steps or adjust the plan.</p>`:''}${p.cost>cr?'<p class="hint">Save this plan for later, or remove steps until it fits your credits.</p>':''}<ol class="mp-steps">${draft.map((c,i)=>`<li><span>${i+1}. ${esc(terrName(c))} · ${esc(landName(c))}${p.blocked.some(b=>b.c===c)?' · blocked':''}</span><button class="linkish small" data-act="mp-drop" data-c="${c}" aria-label="Remove step ${i+1}">Remove</button></li>`).join('')}</ol><div class="row"><button class="btn" data-act="mp-apply"${!p.cost||p.blocked.length||p.cost>cr?' disabled':''}>Claim plan (${p.cost} ${p.cost===1?'credit':'credits'})</button><button class="btn ghost" data-act="mp-save">Save for later</button><button class="linkish" data-act="mp-clear">Clear draft</button><button class="linkish" data-act="mp-load">Load saved plan</button></div><p class="hint">A shore across the water, on an island or the far side of a bay, can start a plan when a completed coastal harbour reaches it across at most ${mpHarbourReach(S.nation)} hexes of water${pol(S.nation).navalFleet?' (16 with your navy)':' (16 with a navy)'}. Each claimed hex still costs one land credit. Production bonuses apply only once land is claimed.</p></section>`;
 }
 function mpTransportHTML(T){
   const hi=T.byId[myId()],CS=cityState(T),cities=CS.all.filter(c=>c.active&&c.hi===hi),kind=S.mpKind||'road';
@@ -45321,7 +45333,7 @@ MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
 MAP_LAYERS.push({stage:'top',kinds:['main'],draw:M=>{if(S.mpMode!=='plan'||M.s*HEX_W<16)return;M.g.font='700 11px '+MAP_FONT;M.g.textAlign='center';M.g.textBaseline='middle';M.g.fillStyle=M.col.ink;mpDraft().forEach((c,i)=>M.g.fillText(String(i+1),...M.scr(c)));}});
 MAP_TIP.unshift(ctx=>{if(ctx.kind!=='main'||!mpCell(ctx.cell))return null;const T=territory(),isle=mpHarbourFrontier(T).get(ctx.cell);if(isle)return 'Harbour annexation from '+cityLabel(S.nation,isle.city)+' · '+(isle.path.length-1)+'-hex water route · 1 land credit';return null;});
 /* ───────── why free land is out of reach, and how far your harbours reach ───────── */
-const MP_WHY_FAR=12,MP_AREA=new Map();
+const MP_WHY_FAR=22,MP_AREA=new Map();
 /* the water hexes a harbour's routes cross on the way to land it can claim */
 function mpSeaArea(a,reach){
   const key=RECL.sig+'|'+a+'|'+reach,hit=MP_AREA.get(key);if(hit)return hit;
@@ -45445,7 +45457,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
   if(a==='mp-load'){S.mpDraft=S.nation.mapPlan?.reg===REG.id?S.nation.mapPlan.cells.slice():[];S.mpMsg='Saved plan loaded.';updateMapPanel();redrawMaps();}
   if(a==='mp-save')mpSavePlan();if(a==='mp-apply')mpApplyPlan();if(a==='mp-net-build')mpBuildRoute();if(a==='mp-net-remove'){S.mpRemove=el.dataset.id;updateMapPanel();}if(a==='mp-net-keep'){S.mpRemove=null;updateMapPanel();}if(a==='mp-net-remove-confirm'){mpRemoveRoute(el.dataset.id);S.mpRemove=null;}
 });
-HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most four hexes (six with the Blue-Water Navy law) to a free shore: on another island, or across a bay or fjord on your own landmass. You claim individual free hexes at one land credit each, then may expand over connected land from there. Shipping connections still cross at most four hexes. Other nations' territory, protected capital areas and the 45-hex capital limit remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most four steps. Land routes have at most 64 steps; a nation keeps at most 24 routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
+HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most 14 hexes (16 with the Blue-Water Navy law) to a free shore: on another island, or across a bay or fjord on your own landmass. You claim individual free hexes at one land credit each, then may expand over connected land from there. Shipping connections still cross at most 14 hexes. Other nations' territory, protected capital areas and the claim reach limit (68 hexes from the capital, or within reach of a city) remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most four steps. Land routes have at most 64 steps; a nation keeps at most 24 routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
 
 HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the flag designer in Customise, under Flag, and expand <b>Layers</b>. (Layers come once your charter is finished; the founding page has the basic designer.) Add up to eight independent emblems, stripes, borders and discs over your original design. Each has its own colour, position, size and rotation. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
 

@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 const src=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8'),NOW=1800000000000,DAY=864e5;
 function fixture(){
- const W=12,H=9,N=W*H,nbr=new Int32Array(N*6).fill(-1),T=new Uint8Array(N).fill(2),comp=new Int32Array(N),dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+ const W=24,H=9,N=W*H,nbr=new Int32Array(N*6).fill(-1),T=new Uint8Array(N).fill(2),comp=new Int32Array(N),dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
  for(let r=0;r<H;r++)for(let q=0;q<W;q++)dirs.forEach(([dq,dr],d)=>{const x=q+dq,y=r+dr;if(x>=0&&x<W&&y>=0&&y<H)nbr[(r*W+q)*6+d]=y*W+x;});
  const n={reg:'meridian',s:{wealth:50,sci:50},cities:[],policies:{}},world={byId:{me:0},list:[{id:'me',me:true,n,pop:10}],owner:new Int16Array(N).fill(0),isCap:new Uint8Array(N),occ:new Uint8Array(N)};
  class FixedDate extends Date{static now(){return NOW;}}
@@ -43,9 +43,9 @@ test('land transport follows owned land and respects its maximum path length',()
  world.owner[b]=1;assert.equal(ctx.mpLandPath(world,0,a,b),null);
  world.owner.fill(-1);world.owner[a]=0;world.owner[b]=0;assert.equal(ctx.mpLandPath(world,0,a,b),null);
 });
-test('harbour reach uses water-only routes and includes four steps but excludes five',()=>{
- const {ctx,world,cell}=fixture(),a=cell(1,4),four=cell(5,4),five=cell(6,4);ctx.MAP.T.fill(0);ctx.MAP.T[a]=2;ctx.MAP.T[four]=2;ctx.MAP.T[five]=2;
- const reach=ctx.mpSeaReach(a);assert.equal(reach.get(four).length-1,4);assert.ok(!reach.has(five));
+test('harbour reach uses water-only routes and includes fourteen steps but excludes fifteen',()=>{
+ const {ctx,world,cell}=fixture(),a=cell(1,4),four=cell(15,4),five=cell(16,4);ctx.MAP.T.fill(0);ctx.MAP.T[a]=2;ctx.MAP.T[four]=2;ctx.MAP.T[five]=2;
+ const reach=ctx.mpSeaReach(a);assert.equal(reach.get(four).length-1,14);assert.ok(!reach.has(five));
  for(const [end,path] of reach){assert.equal(ctx.MAP.T[end]>=2,true);assert.ok(path.slice(1,-1).every(c=>ctx.MAP.T[c]<2));}
  world.owner.fill(-1);
 });
@@ -61,12 +61,12 @@ test('a harbour reaches across a bay to the far shore of its own landmass',()=>{
  const {ctx,n,world,b}=coastFixture();ctx.MAP.comp[b]=0;n.cities[0].b[0].d=NOW;
  assert.ok(ctx.mpHarbourFrontier(world).has(b));assert.equal(ctx.mpClaimSequence(world,[b]).blocked.length,0);
 });
-test('a navy stretches harbour reach from four hexes of water route to six',()=>{
- const {ctx,n,world,cell}=fixture(),a=cell(1,4),six=cell(7,4),seven=cell(8,4);ctx.MAP.T.fill(0);for(const c of [a,six,seven])ctx.MAP.T[c]=2;
+test('a navy stretches harbour reach from 14 hexes of water route to 16',()=>{
+ const {ctx,n,world,cell}=fixture(),a=cell(1,4),six=cell(17,4),seven=cell(18,4);ctx.MAP.T.fill(0);for(const c of [a,six,seven])ctx.MAP.T[c]=2;
  world.owner.fill(-1);world.owner[a]=0;n.cities=[{id:'cap',c:a,nm:'Port',b:[{k:'harbour',d:NOW}]}];
- assert.equal(ctx.mpHarbourReach(n),4);assert.ok(!ctx.mpHarbourFrontier(world).has(six));
- n.policies.navalFleet=1;assert.equal(ctx.mpHarbourReach(n),6);
- const fr=ctx.mpHarbourFrontier(world);assert.ok(fr.has(six));assert.equal(fr.get(six).path.length-1,6);assert.ok(!fr.has(seven));
+ assert.equal(ctx.mpHarbourReach(n),14);assert.ok(!ctx.mpHarbourFrontier(world).has(six));
+ n.policies.navalFleet=1;assert.equal(ctx.mpHarbourReach(n),16);
+ const fr=ctx.mpHarbourFrontier(world);assert.ok(fr.has(six));assert.equal(fr.get(six).path.length-1,16);assert.ok(!fr.has(seven));
 });
 test('shores that already touch your land are claimed the ordinary way, not by harbour',()=>{
  const {ctx,n,world,b,cell}=coastFixture();n.cities[0].b[0].d=NOW;world.owner[cell(5,3)]=0;ctx.MAP.T[cell(5,3)]=2;
