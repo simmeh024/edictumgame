@@ -19,11 +19,12 @@ function rewards(){
     landEarned:n=>10,earnedAt:n=>10,decisions:n=>n.dec||0,cellOf:v=>Number.isInteger(v)?v:-1,tallyOf:(n,k)=>(n.tly&&n.tly[k])||0,
     pgAvailable:(n,k)=>!n.onb||n.onb.u.includes(k),pgNew:n=>!!n.onb,tutSoc:()=>null,tutDevGet:()=>ctx.DEVK||'',tutBlocks:()=>false,civicRegistered:()=>false,
     cityList:n=>n.cities||[],ppCount:n=>n.pp||0,ppStats:n=>({ds:0}),cuRenamed:()=>false,mapOpt:(k,d)=>d,LENS_INFO:{},canFeature:()=>false,featureAt:()=>7,fmtPopShort:p=>p+' million',
-    stockNow:n=>({...n.stock}),roundStock:s=>({...s}),num0:v=>+v||0,stockCap:()=>400,clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),GL_CREDITS:10,GL_GIFT:{iron:5,timber:5,goods:5,oil:5}});
+    stockNow:n=>({...n.stock}),roundStock:s=>({...s}),num0:v=>+v||0,stockCap:()=>400,clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),GL_CREDITS:10,GL_GIFT:{iron:5,timber:5,goods:5,oil:5},
+    paidClean:()=>null,cxUpList:()=>({})});
   vm.runInContext(fn('list')+'\n'+fn('stockLimit')+'\nconst TUT_V=25,TUT_GS="mrba";const tutFresh=()=>false;\n'+fn('tutNorm')+'\n'+
     between('/* ── tutorial: the lists ── */','/* ── tutorial: end of the lists ── */')+'\n'+
     between('/* ── tutorial: rewards ── */','/* ── tutorial: end of rewards ── */')+'\n'+source.slice(google,glEnd)+
-    '\nthis.normalize=tutNorm;this.credits=n=>landEarned(n);this.lists=TUT_LISTS;this.unlocks=UNLOCK_SOURCES;this.mapcOk=tutMapcOk;',ctx);
+    '\n'+fn('cityBonusOpen')+'\n'+fn('cxBldExtras')+'\n'+fn('cityGoldKept')+'\n'+fn('cityGoldOpen')+'\n'+fn('bldUgEver')+'\nthis.normalize=tutNorm;this.credits=n=>landEarned(n);this.lists=TUT_LISTS;this.unlocks=UNLOCK_SOURCES;this.mapcOk=tutMapcOk;this.cityOpen=cityBonusOpen;',ctx);
   return {
     ctx,
     save(n){const old=structuredClone(n),messages=[];for(const hook of ctx.COMMIT_HOOKS){const m=hook(n,old,Date.now());if(m)messages.push(...m);}return messages;},
@@ -31,8 +32,8 @@ function rewards(){
   };
 }
 // a nation founded with the progressive reveals: the charter not yet finished
-// b:1, back pay already given: the back-pay test below covers it on its own
-const nation=over=>{const n={name:'Togetherland',seed:'one',glk:1,onb:{v:1,u:[]},capital:'Port Alder',leader:'President',stock:{food:60,timber:45,iron:25,oil:10,goods:40},...over};n.tut={b:1,...(n.tut||{})};return n;};
+// b:1 and b2:1, both back pays already given: the back-pay tests below cover them on their own
+const nation=over=>{const n={name:'Togetherland',seed:'one',glk:1,onb:{v:1,u:[]},capital:'Port Alder',leader:'President',stock:{food:60,timber:45,iron:25,oil:10,goods:40},...over};n.tut={b:1,b2:1,...(n.tut||{})};return n;};
 
 test('there are four lists, every key is unique, and only the Google step pays outside n.tut.lc',()=>{
   const r=rewards(),L=r.ctx.lists;
@@ -173,4 +174,55 @@ test('back pay: once, Welcome tasks already paid get 5 iron and 5 oil each, the 
   const m=r.save(n);assert.ok(m[0].startsWith('Tutorial rewards have gone up'),m.join(' | '));
   assert.equal(n.stock.iron,35);assert.equal(n.stock.oil,25);assert.equal(n.tut.b,1);
   n=r.reload(n);assert.equal(n.tut.b,1,'kept on reload');const st={...n.stock};assert.ok(!r.save(n).some(x=>/gone up/.test(x)),'never twice');assert.deepEqual(n.stock,st);
+});
+
+test('Found a second city follows Start a building in Welcome to Edictum: the first building opens it, and it pays 5 land credits and 100 goods',()=>{
+  const r=rewards(),L=r.ctx.lists,F=L.find(x=>x.k==='first'),ks=F.tasks.map(s=>s.k),s=F.tasks.find(x=>x.k==='city2');
+  assert.equal(ks.indexOf('city2'),ks.indexOf('build')+1,'straight after Start a building');
+  assert.ok(!L.find(x=>x.k==='destiny').tasks.some(x=>x.k==='city2'),'no longer an advanced step');
+  assert.equal(s.lc,5);assert.deepEqual({...s.gift},{goods:100});
+  assert.deepEqual({...F.tasks.find(x=>x.k==='build').gift},{iron:5,oil:5,timber:40},'the opening step pays the timber a city costs, and more');
+  let n=nation({loc:3});assert.equal(r.ctx.cityOpen(n),false);assert.match(s.lock(n),/Start a building first/);
+  n.cities=[{b:[{k:'farm'}]}];assert.equal(r.ctx.cityOpen(n),true,'the first building opens it');assert.equal(s.lock(n),'');
+  let m=r.save(n);assert.ok(n.tut.lc.includes('build'));assert.equal(n.stock.timber,45+40);assert.ok(!n.tut.lc.includes('city2'));
+  n=r.reload(n);n.cities=[{b:[]}];assert.equal(r.ctx.cityOpen(n),true,'and it stays open once the step is paid, whatever is pulled down');
+  const goods=n.stock.goods,cr=r.ctx.credits(n);n.cities=[{b:[{k:'farm'}]},{b:[]}];m=r.save(n);
+  assert.ok(m.some(x=>/Step done: Found a second city\. \+5 land credits and 100 goods\./.test(x)),m.join(' | '));
+  assert.equal(n.stock.goods,goods+100);assert.equal(r.ctx.credits(n),cr+5);
+  n=r.reload(n);assert.deepEqual(r.save(n),[],'once');
+  assert.match(source,/function maxCities\(T,i\)\{return Math\.min\(MAX_CITIES,mileOf\(S\.nation\)\.cities\+areaCities\(myArea\(T,i\)\)\+\(cityBonusOpen\(S\.nation\)\?1:0\)\+/,'one more city than people and land bring');
+  assert.equal(r.ctx.cityOpen({npc:1,cities:[{b:[{k:'farm'}]}]}),false,'computer nations have none');
+});
+
+test('second back pay: once, a nation already paid is given 40 timber for its first building and 100 goods for its second city',()=>{
+  const r=rewards();let n=r.reload({name:'Togetherland',seed:'one',glk:1,loc:3,cities:[{b:[{k:'farm'}]},{b:[]}],stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{v:25,b:1,lc:['settle','build','city2']}});
+  assert.equal(r.ctx.credits(n),10+2+2+5,'the second city counts five credits now');
+  const m=r.save(n);assert.ok(m.some(x=>x.startsWith('Building and founding pay more')&&/given 40 timber and 100 goods/.test(x)),m.join(' | '));
+  assert.ok(!m.some(x=>/gone up/.test(x)),'the first back pay is not repeated');
+  assert.equal(n.stock.timber,85);assert.equal(n.stock.goods,140);assert.equal(n.tut.b2,1);
+  n=r.reload(n);assert.equal(n.tut.b2,1,'kept on reload');const st={...n.stock};assert.ok(!r.save(n).some(x=>/pay more/.test(x)),'never twice');assert.deepEqual(n.stock,st);
+  let one=r.reload({name:'Soloton',seed:'two',glk:1,loc:3,cities:[{b:[{k:'farm'}]}],stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{v:25,b:1,lc:['settle','build']}});
+  r.save(one);assert.equal(one.stock.timber,85,'the timber alone for a nation with one city');assert.equal(one.stock.goods,40);
+  let fresh=r.reload({name:'Newland',seed:'three',glk:1,loc:3,stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{v:25,b:1}});
+  assert.ok(!r.save(fresh).some(x=>/pay more/.test(x)),'nothing for a nation that had done neither');assert.equal(fresh.tut.b2,1);
+  fresh.cities=[{b:[{k:'farm'}]}];r.save(fresh);assert.equal(fresh.stock.timber,85,'which is then paid the new gift once, not twice');
+});
+
+test('upgrades are tutorial steps: grey in Make your mark pays 2 land credits and 25 of each resource, gold among the advanced steps 5 and 100 of each',()=>{
+  const r=rewards(),L=r.ctx.lists,g1=L.find(x=>x.k==='mark').tasks.find(s=>s.k==='ug1'),g5=L.find(x=>x.k==='destiny').tasks.find(s=>s.k==='ug5');
+  assert.ok(g1,'the grey upgrade is in the third list');assert.equal(g1.lc,2);assert.deepEqual({...g1.gift},{food:25,timber:25,iron:25,oil:25,goods:25});
+  assert.ok(g5,'the gold upgrade is among the advanced steps');assert.equal(g5.lc,5);assert.deepEqual({...g5.gift},{food:100,timber:100,iron:100,oil:100,goods:100});
+  const now=Date.now();let n=nation({loc:3,cities:[{b:[{k:'farm',s:now-9e6,d:now-8e6}]}]});
+  r.save(n);n=r.reload(n);assert.ok(n.tut.lc.includes('build'));assert.ok(!n.tut.lc.includes('ug1'),'a building alone is not an upgrade');
+  n.cities[0].b[0].uu={u:1,s:now-3600e3,d:now+3600e3};assert.deepEqual(r.save(n),[],'nor is a grey block still being fitted');
+  const st={...n.stock},cr=r.ctx.credits(n);n.cities[0].b[0]={k:'farm',s:now-9e6,d:now-8e6,ug:1};
+  let m=r.save(n);assert.ok(m.some(x=>/Step done: Upgrade a building to grey\. \+2 land credits and 25 food, 25 timber, 25 iron, 25 oil,? and 25 goods\./.test(x)),m.join(' | '));
+  for(const k of Object.keys(st))assert.equal(n.stock[k],st[k]+25,k);assert.equal(r.ctx.credits(n),cr+2);
+  n=r.reload(n);n.cities[0].b[0].ug=4;n.cities[0].b[0].uu={u:5,s:now-3600e3,d:now-1000};
+  const s2={...n.stock},c2=r.ctx.credits(n);m=r.save(n);
+  assert.ok(m.some(x=>/Step done: Take a building to gold\. \+5 land credits and 100 food, 100 timber, 100 iron, 100 oil,? and 100 goods\./.test(x)),'a gold block whose time is up counts: '+m.join(' | '));
+  for(const k of Object.keys(s2))assert.equal(n.stock[k],Math.min(400,s2[k]+100),k);assert.equal(r.ctx.credits(n),c2+5);
+  n=r.reload(n);n.cities[0].b=[];assert.deepEqual(r.save(n),[],'paid once, and never taken back');assert.ok(n.tut.lc.includes('ug1')&&n.tut.lc.includes('ug5'));
+  const vet=nation({loc:3,cities:[{b:[]}],ach:{'land-cxlv2':1,'land-cxlv3':1}});r.save(vet);
+  assert.ok(vet.tut.lc.includes('ug1')&&vet.tut.lc.includes('ug5'),'the achievements remember an upgrade whose building is gone');
 });

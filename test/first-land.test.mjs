@@ -68,7 +68,7 @@ test('saved markers are kept only within their bounds',()=>{
   for(const bad of [{fdc:2},{fdc:'1'},{ctc:0},{ctc:-1},{ctc:1.5},{ctc:14},{ctc:'3'}]){const o=r.reload(bad);assert.equal(o.fdc,undefined);assert.equal(o.ctc,undefined);}
 });
 
-test('a nation can found its second city at 7 million people',()=>{
+test('population milestones bring a city at 7 and at 8.5 million people',()=>{
   const start=source.indexOf('const MILESTONES='),end=source.indexOf('const fmtPopShort',start),ctx=vm.createContext({});
   vm.runInContext(source.slice(start,end)+'\nthis.M=MILESTONES;',ctx);
   const cities=p=>1+ctx.M.filter(m=>p>=m.p&&m.city).length;

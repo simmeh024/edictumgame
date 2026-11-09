@@ -19377,7 +19377,20 @@ const AREA_CITY_AT=[1,2,3,4,5,6,7,8,9,10,20,30,40,50,60,70,80,90,100].map(m=>m*1
 const areaCities=km2=>AREA_CITY_AT.filter(a=>km2>=a).length;
 const nextAreaCity=km2=>AREA_CITY_AT.find(a=>km2<a)||null;
 function myArea(T,i){try{return i===undefined||i<0?0:T.count[i]*AREA_PER_HEX;}catch(e){return 0;}}
-function maxCities(T,i){return Math.min(MAX_CITIES,mileOf(S.nation).cities+areaCities(myArea(T,i)));}
+/* a nation's first building opens one more city, on top of those its people and its land bring (the tutorial's Start a
+   building step, paid or done): a second city in the first session, not at 7 million people */
+function cityBonusOpen(n){try{return !!n&&!n.npc&&(tutLcOf(n).includes('build')||!!TUT_BY.build.f(n,'',true));}catch(e){return false;}}
+const cityBonusHint=n=>cityBonusOpen(n)?'':'Start a building first: your first building opens a second city.';
+/* and its first gold upgrade (a building's fifth block) opens another, once it has ever had one: the achievement for
+   it, the tally of gold upgrades finished, or a gold building standing now (an old level 3 reads as gold; a gold block
+   whose fitting time is up counts before the save that writes it, as the page already shows it gold). cityGoldKept is
+   the part that is on record, for the save that finishes the first one to say so */
+function cityGoldKept(n){try{return !!n&&!n.npc&&(!!(n.ach&&n.ach['land-cxlv3'])||tallyOf(n,'log:bgold')>0||cityList(n).some(c=>(c.b||[]).some(b=>cxBldExtras(b).ug>=5)));}catch(e){return false;}}
+function cityGoldOpen(n){try{if(cityGoldKept(n))return true;const now=Date.now();return !!n&&!n.npc&&cityList(n).some(c=>(c.b||[]).some(b=>{const u=cxBldExtras(b).uu;return !!u&&u.u>=5&&u.d<=now;}));}catch(e){return false;}}
+/* a building upgraded to at least this block: on record, or its fitting time up, or remembered by an achievement */
+function bldUgEver(n,min,ach){try{const now=Date.now();return !!n&&!n.npc&&(!!(ach&&n.ach&&n.ach[ach])||cityList(n).some(c=>(c.b||[]).some(b=>{const e=cxBldExtras(b);return e.ug>=min||!!(e.uu&&e.uu.u>=min&&e.uu.d<=now);})));}catch(e){return false;}}
+const cityGoldHint=n=>cityBonusOpen(n)&&!cityGoldOpen(n)?' Your first gold upgrade, a building’s fifth, opens one more.':'';
+function maxCities(T,i){return Math.min(MAX_CITIES,mileOf(S.nation).cities+areaCities(myArea(T,i))+(cityBonusOpen(S.nation)?1:0)+(cityGoldOpen(S.nation)?1:0));}
 function nationHas(n,key){return cityList(n).some(c=>(c.b||[]).some(b=>b.k===key));}
 function buildProblem(n,ct,key,st){
   const B=BUILDINGS[key];if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return {k:'intro',t:'Warehouse plans appear when any resource reaches 280 storage.'};if(whBusy(ct))return {k:'busy',t:'Finish or cancel this city’s Warehouse upgrade before starting other construction.'};
@@ -19402,7 +19415,7 @@ function cityProblem(cell,T){
   const CS=cityState(T);
   for(const ct of CS.all){if(!ct.active&&ct.fid!==myId())continue;if(hexDist(ct.c,cell)<CITY_MIN_DIST)return ct.c===cell?`${ct.nm} already stands here.`:`That is too close to ${ct.nm}. Cities must be at least ${CITY_MIN_DIST} hexes apart.`;}
   const lim=maxCities(T,mi),have=cityList(S.nation).length;
-  if(have>=lim)return have>=MAX_CITIES?`You have the most cities a nation can found (${MAX_CITIES}).`:`At its size, ${S.nation.name} can have ${lim} ${lim===1?'city':'cities'}.${nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at ${nextCityWhen(S.nation,myArea(T,mi))}.`:''}`;
+  if(have>=lim)return have>=MAX_CITIES?`You have the most cities a nation can found (${MAX_CITIES}).`:cityBonusHint(S.nation)||`At its size, ${S.nation.name} can have ${lim} ${lim===1?'city':'cities'}.${nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at ${nextCityWhen(S.nation,myArea(T,mi))}.`:''}${cityGoldHint(S.nation)}`;
   return '';
 }
 function siteValue(cell,T){
@@ -19515,7 +19528,7 @@ function catalog(ct,n,st){
 function foundCityForm(T,st){
   const mi=T.byId[myId()],lim=maxCities(T,mi),have=cityList(S.nation).length;
   if(have>=lim){
-    return `<div class="empty"><p class="empty-h">${have>=MAX_CITIES?'Every city founded':nextCityWhen(S.nation,myArea(T,mi))?'No room for another city yet':'No room for another city'}</p><p>${have>=MAX_CITIES?`${esc(S.nation.name)} has ${MAX_CITIES} cities, the most a nation can found.`:`At ${fmtPop(popNow(S.nation))} people, ${esc(S.nation.name)} can have ${lim} ${lim===1?'city':'cities'}.${nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at ${nextCityWhen(S.nation,myArea(T,mi))}.`:''}`}</p></div>`;
+    return `<div class="empty"><p class="empty-h">${have>=MAX_CITIES?'Every city founded':cityBonusHint(S.nation)?'A second city is one building away':nextCityWhen(S.nation,myArea(T,mi))?'No room for another city yet':'No room for another city'}</p><p>${have>=MAX_CITIES?`${esc(S.nation.name)} has ${MAX_CITIES} cities, the most a nation can found.`:cityBonusHint(S.nation)?'Put a farm, a sawmill or a market on one of your capital’s building blocks: your first building opens a second city.':`At ${fmtPop(popNow(S.nation))} people, ${esc(S.nation.name)} can have ${lim} ${lim===1?'city':'cities'}.${nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at ${nextCityWhen(S.nation,myArea(T,mi))}.`:''}${cityGoldHint(S.nation)}`}</p></div>`;
   }
   const sites=citySites(T);
   if(S.citySite==null||cityProblem(S.citySite,T))S.citySite=sites.length?sites[0]:null;
@@ -22799,7 +22812,7 @@ function helpBody(n){
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>There is only one way to win land from the sea: some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
-    cities:`<p>Your capital is your first city. More cities unlock at population milestones and as your land grows (one at every million km² up to 9 million, then one at every 10 million up to 100 million), up to ${MAX_CITIES}. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
+    cities:`<p>Your capital is your first city. Your first building opens a second, and your first gold upgrade (a building’s fifth) opens one more. More cities unlock at population milestones and as your land grows (one at every million km² up to 9 million, then one at every 10 million up to 100 million), up to ${MAX_CITIES}. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
       <p>Cities work the land within two hexes, expanding to three at two million city residents. Overlapping production areas count each hex once. ${blkHelp()} Each city builds one thing at a time${typeof C3_QMAX==='number'?`, with up to ${num(C3_QMAX)} more waiting in its queue`:''}; buildings are paid for from your stockpile and take hours to finish, wonders a day. Cancelling a project returns half the materials.</p>
       <p>Production buildings raise output; society buildings help growth, the economy and your census figures; defence buildings strengthen your army and borders; wonders do a little of everything. Some need hills, oil, a coast or high science, and more unlock at milestones. A city works for whoever holds its hex, so a captured city serves its conqueror.</p>${G(go('cities','Open cities'))}`,
     trade:`<p>There are five resources: ${list(RES.map(resName))}. Lowland yields food and a little iron, hills timber and some iron, mountains iron, and coasts add food. Oil comes from scattered deposits. Large iron deposits lie here and there across the map, worth ${IRON_DEP_YIELD} iron a day each, twice that with an Iron Mine, which a deposit lets you build without hills. Goods come from industry, which grows with your economy and science, and from harbours.</p>
@@ -36241,6 +36254,7 @@ function tutNorm(d){
   if(Number.isInteger(d.v)&&d.v>0&&d.v<1000)o.v=d.v;
   if(d.p===1)o.p=1;
   if(d.b===1)o.b=1;
+  if(d.b2===1)o.b2=1;
   if(Number.isInteger(d.w)&&d.w>0&&d.w<1000)o.w=d.w;
   return Object.keys(o).length?o:null;
 }
@@ -36271,7 +36285,7 @@ setMapOpt=(f=>function(k,v){if(k==='lens'&&v&&v!=='pol')tutMark('l');return f.ap
    credits it pays (1 unless said), gift resources it pays, lock(n) why it cannot be done yet ('' once it can), when()
    whether it is in the game at all, own 1 when it pays a reward of its own (the Google step, n.glk). t, h, v and b may
    be functions of the nation. Keys are kept for ever in n.tut.lc: never reuse one for a different task. */
-const TUT_OLD_FIRST=['issue','settle','land','build','trade','exp','dm'],TUT_CAP0='Port Alder',TUT_CULT=['lang','faith','sport','dish','anthem'];
+const TUT_OLD_FIRST=['issue','settle','land','build','trade','exp','dm'],TUT_BUILD_TIMBER=40,TUT_CITY2_GOODS=100,TUT_CAP0='Port Alder',TUT_CULT=['lang','faith','sport','dish','anthem'];
 const tutTxt=(v,n)=>typeof v==='function'?v(n):v;
 const tutAge=n=>Date.now()-(+n.founded||0);
 const tutReg=()=>{try{if(civicRegistered())return true;}catch(e){}return !!S.google;};
@@ -36306,8 +36320,10 @@ const TUT_LISTS=[
    bonus:{lc:2,gift:{goods:10},u:'t-steward'},tasks:[
     {k:'issue',lc:2,gift:{iron:5,oil:5},t:'Answer three edicts',h:'Every decision moves your census: freedoms, economy, health, happiness and dozens more.',v:'issues',b:'Open edicts',f:n=>decisions(n)>=3},
     {k:'land',lc:2,gift:{iron:5,oil:5},t:'Spend a land credit',h:tutLandHint,v:'map',b:'Open the map',f:n=>(Array.isArray(n.claims)&&n.claims.length>0)||tallyOf(n,'claim')>0},
-    {k:'build',lc:2,gift:{iron:5,oil:5},t:'Start a building',h:'Each city has building blocks. Put a farm, a sawmill or a market on one.',v:'cities',b:'Open cities',lock:tutSettleLock,
+    {k:'build',lc:2,gift:{iron:5,oil:5,timber:TUT_BUILD_TIMBER},t:'Start a building',h:'Each city has building blocks. Put a farm, a sawmill or a market on one: your first building opens a second city.',v:'cities',b:'Open cities',lock:tutSettleLock,
      f:n=>(n.cities||[]).some(c=>(c.b||[]).length)||(n.bonce||[]).length>0},
+    {k:'city2',t:'Found a second city',h:'Your first building opened it, on top of the cities your people and land bring. Each city has building blocks of its own and brings two land credits.',v:'cities',b:'Open cities',lc:5,gift:{goods:TUT_CITY2_GOODS},
+     lock:n=>cityBonusOpen(n)?'':'Start a building first: it opens your second city.',f:n=>(n.cities||[]).length>=2||tallyOf(n,'cities')>=2||tallyOf(n,'log:city')>0},
     {k:'insp',lc:2,gift:{iron:5,oil:5},t:'Inspect a tile on the map',h:'Click any hex to see its land, yields, rivers, weather and owner, and claim it if it borders yours.',v:'map',b:'Open the map',f:(n,d)=>d.includes('i')},
     {k:'lens',lc:2,gift:{iron:5,oil:5},t:'Try a map lens',h:()=>`Lenses colour every nation by ${list(Object.values(LENS_INFO).map(x=>x.n.toLowerCase()))}.`,v:'map',b:'Open the map',f:(n,d)=>d.includes('l')||mapOpt('lens','pol')!=='pol'},
     {k:'cab',lc:2,gift:{iron:5,oil:5},t:'Appoint a minister',h:'Your cabinet governs between edicts. A new minister pleases some colleagues and unsettles the rest.',v:'government',to:'cv-h',b:'Open the cabinet',f:n=>(+n.cabAt||0)>0},
@@ -36324,7 +36340,7 @@ const TUT_LISTS=[
     {k:'mdig',t:'Do a museum dig',h:'The Museum’s Field digs hall sends diggers to an old site. They come back hours later with finds for your collection.',
      act:'tut-dig',b:'Open the digs',lc:2,gift:{food:10,timber:10,iron:10,oil:10,goods:10},f:n=>(n.dig||[]).length>0||(n.digF||[]).length>0}]},
   {k:'mark',c:'m',eb:'Next steps',t:()=>`Make your mark in ${REGION}`,hk:'statehood.steps2.v1',
-   lede:'Your region: its paper, its Assembly and Games, the nations next door, and money of your own.',
+   lede:'Your region: its paper, its Assembly and Games, the nations next door, money of your own, and a first upgrade for a building.',
    bonus:{lc:3,gift:{iron:10},u:'t-renowned'},tasks:[
     {k:'dsp',lc:2,t:'Read today’s Dispatch',h:'The region’s paper reports what every player decided, and your own decisions can make the front page.',v:'dispatch',b:'Read the Dispatch',gift:{goods:5},f:n=>!!(n.dsp&&n.dsp.s>0)},
     {k:'stamp',lc:2,t:'Collect a passport stamp',h:'Open the page of a nation in your region: its entry stamp goes into your passport, and every 20 stamps earn a land credit.',v:'region',b:'Open the region',gift:{goods:5},f:n=>ppCount(n)>0},
@@ -36340,18 +36356,20 @@ const TUT_LISTS=[
     {k:'desk',lc:2,t:'Clear your daily desk',h:'Three small tasks wait on your Edicts page each day. Clear all three for a land credit of their own, or two in your first week.',v:'issues',b:'Open the desk',gift:{timber:5},f:n=>(+n.ddc||0)>0},
     {k:'fxv',t:'Visit the Foreign Exchange Bureau',h:'See what your currency is worth, how far it is trusted, and how it compares with your neighbours’.',v:'exchange',b:'Open the Bureau',lc:3,gift:{oil:5},f:(n,d)=>d.includes('x')},
     {k:'fxd',t:'Design your currency',h:'Name it, choose its code and symbol, and design its banknotes and coin.',v:'customise',cu:1,b:'Design it',lc:3,gift:{oil:5},lock:tutCharterLock,
-     f:n=>!!n.cur||cuRenamed(n)||tallyOf(n,'log:cur')>0}]},
+     f:n=>!!n.cur||cuRenamed(n)||tallyOf(n,'log:cur')>0},
+    {k:'ug1',t:'Upgrade a building to grey',h:'Every building takes five upgrades, one coloured block at a time. The first, the grey block, adds a tenth to what the building does.',v:'cities',b:'Open cities',lc:2,
+     gift:{food:25,timber:25,iron:25,oil:25,goods:25},f:n=>bldUgEver(n,1,'land-cxlv2')}]},
   {k:'destiny',c:'d',eb:'Advanced steps',t:()=>'Take control of your destiny',hk:'statehood.steps4.v1',
-   lede:'The long game: laws for the whole region, alliances, new cities and roads, provinces, decrees and the Games at home.',
+   lede:'The long game: laws for the whole region, alliances, roads between your cities, a building taken to gold, provinces, decrees and the Games at home.',
    bonus:{lc:5,gift:{goods:20},u:'t-sovereign'},tasks:[
     {k:'res',t:'Put a resolution to the Assembly',h:'Write a proposal for every member to vote on. A resolution that passes changes the whole region.',v:'assembly',b:'Open the Assembly',lc:3,gift:{goods:10},lock:tutAsmLock,
      f:n=>!!(n.asm&&(n.asm.p||n.asm.pw))},
     {k:'ally',t:'Found or join an alliance',h:'Allies stand together when one of them is attacked, and the founder chooses who joins.',v:'diplomacy',b:'Open diplomacy',lc:3,gift:{iron:10},
      lock:n=>canFeature(n,'alli')?'':`You may found one at ${fmtPopShort(featureAt('alli'))} people, or join sooner if an alliance invites you.`,
      f:n=>!!n.alli||!!n.alJoin||!!n.alm||tallyOf(n,'log:alfound')+tallyOf(n,'log:aljoin')>0},
-    {k:'city2',t:'Found a second city',h:'New cities open as your people multiply. Each has building blocks of its own and brings two land credits.',v:'cities',b:'Open cities',lc:3,gift:{food:10},
-     lock:tutPopLock('city','Your second city opens'),f:n=>(n.cities||[]).length>=2||tallyOf(n,'cities')>=2||tallyOf(n,'log:city')>0},
     {k:'blk',t:'Fill a city’s building blocks',h:'Each block holds one building: fill every block in a city, or let one grow until it earns another.',v:'cities',b:'Open cities',lc:3,gift:{timber:10},f:(n,d,cheap)=>!cheap&&tutBlocks()},
+    {k:'ug5',t:'Take a building to gold',h:'Five upgrades take a building from grey through green, blue and purple to gold, where it works at double strength. Your first gold upgrade opens one more city, too.',v:'cities',b:'Open cities',lc:5,
+     gift:{food:100,timber:100,iron:100,oil:100,goods:100},f:n=>cityGoldOpen(n)},
     {k:'road',t:'Link two cities by road',h:'Roads, railways and shipping lanes carry trade between your cities.',v:'map',b:'Open the map',lc:3,gift:{timber:10},
      lock:n=>(n.cities||[]).length<2?'Needs a second city.':pgAvailable(n,'map')?'':'Opens once your nation holds three claimed hexes.',f:n=>(n.infra||[]).length>0},
     {k:'prov',t:()=>'Divide your nation into '+prvLow(tutPrvT2()),h:'Give each a governor, a flag of its own and a share of the people. Switch them on in Customise first.',
@@ -36467,15 +36485,21 @@ COMMIT_HOOKS.push((n,old,now)=>{
   if(!t.v){t.v=TUT_V;if(TUT_OLD_FIRST.every(k=>tutLcOf(n).includes(k)))t.p=1;}
   /* back pay, once (t.b): Welcome to Edictum's tasks now pay 5 iron and 5 oil more, and the Google step 5 oil more,
      so a nation paid before the raise is given the difference. Land credits need none: tutCredits() counts them afresh. */
-  let bp=null;
-  if(t.b!==1){t.b=1;const g={};for(const k of tutLcOf(n))if(TUT_FIRST_RAISE.has(k)){g.iron=(g.iron||0)+5;g.oil=(g.oil||0)+5;}if(n.glk)g.oil=(g.oil||0)+5;
-    if(Object.keys(g).length){const st=stockNow(n,now);for(const [r,x] of Object.entries(g))st[r]=stockLimit(n,r,num0(st[r])+x,st[r]);n.stock=roundStock(st);n.stockAt=now;bp=g;}}
+  let bp=null,bp2=null;const had0=tutLcOf(n),give=g=>{const st=stockNow(n,now);for(const [r,x] of Object.entries(g))st[r]=stockLimit(n,r,num0(st[r])+x,st[r]);n.stock=roundStock(st);n.stockAt=now;};
+  if(t.b!==1){t.b=1;const g={};for(const k of had0)if(TUT_FIRST_RAISE.has(k)){g.iron=(g.iron||0)+5;g.oil=(g.oil||0)+5;}if(n.glk)g.oil=(g.oil||0)+5;
+    if(Object.keys(g).length){give(g);bp=g;}}
+  /* second back pay, once (t.b2): Start a building now gives 40 timber too, and Found a second city, moved up from the
+     advanced list, pays 100 goods and 5 land credits where it paid 10 food and 3. A nation paid before is given the
+     timber and the goods; the two credits follow by themselves */
+  if(t.b2!==1){t.b2=1;const g={};if(had0.includes('build'))g.timber=TUT_BUILD_TIMBER;if(had0.includes('city2'))g.goods=TUT_CITY2_GOODS;
+    if(Object.keys(g).length){give(g);bp2=g;}}
   const {add,lc,chAdd}=tutPend(n);if(add.length)t.lc=lc;if(chAdd.length)t.ch=tutChOf(n)+chAdd.map(L=>L.c).join('');
   const v=tutNorm(t);if(v)n.tut=v;else delete n.tut;
   /* n.tut stays private; its credits are shared as one number (n.tlc), so other players’ games, and the admin’s list of
      suspicious nations, can count the land a nation has earned */
   const tc=tutCredits(n);if(tc)n.tlc=tc;else delete n.tlc;
   const bpMsg=bp?[`Tutorial rewards have gone up: every task now pays an extra land credit, and you have been given ${tutGiftText(bp)} for the steps you had already done.`]:[];
+  if(bp2)bpMsg.push(`Building and founding pay more in the tutorial now: Start a building gives ${TUT_BUILD_TIMBER} timber, and Found a second city ${TUT_CITY2_GOODS} goods and 5 land credits. You have been given ${tutGiftText(bp2)} for the steps you had already done.`);
   if(!add.length&&!chAdd.length)return bpMsg;
   const gift={},more=g=>{for(const [r,x] of Object.entries(g||{}))gift[r]=(gift[r]||0)+x;},one=add.length===1?TUT_BY[add[0]]:null;
   for(const k of add)more(TUT_BY[k].gift);const stepGift=Object.assign({},gift);for(const L of chAdd)more(L.bonus.gift);
@@ -36776,7 +36800,7 @@ function tutHelp(n){
       <ol class="stp-l tut-hl-l">${st.map(x=>tutRow(m,x,me)).join('')}</ol>${tutBonusLine(m,L)}
       ${me&&tutHid(n,L)&&done<all?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-show" data-l="${L.k}">Show it again</button></div>`:''}`;}).join('');
   return `<p>Four lists on your Nation page see you from founding to the long game, one at a time: each appears once the one before is done or hidden. Every task ticks itself off from what your nation has actually done, and pays the first time it is done: land credits to spend on the map and, for most, a gift of resources. A task keeps its reward even if it later comes undone. A list done in full pays a bonus, and an epithet for your nation under Epithet in Customise.</p>
-    <p>Some tasks wait on your nation: a second city opens at ${fmtPopShort(featureAt('city'))} people, alliances at ${fmtPopShort(featureAt('alli'))}, bids for the Games at ${fmtPopShort(featureAt('host'))}, and the Assembly to Registered Nations a day old. Until then the task says when.</p>
+    <p>Some tasks wait on your nation: a second city opens with your first building, alliances at ${fmtPopShort(featureAt('alli'))}, bids for the Games at ${fmtPopShort(featureAt('host'))}, and the Assembly to Registered Nations a day old. Until then the task says when.</p>
     ${hid.length>1?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show every hidden list again</button></div>`:''}${lists}
     <h3 class="help-h3">Space guides</h3>
     <p>Space has guides of its own. The first time you open the Space page, a tour shows you round it: the space agency, its missions, the survey chart and what to do first. The first time the Moon opens to you, then Mars, then the asteroid belt, and again when your ship reaches the belt, a short guide walks through what is new, pointing at the Space page as it goes. Each appears once for your nation, on whichever device you play, and never while you are in the middle of something. Each body’s tab also keeps a checklist of its first five tasks, with a “?” that reopens its guide.</p>
@@ -54439,13 +54463,16 @@ BATTLE_MODS.push((T,cell,ai,bi)=>{if(bi===undefined||bi<0||!T.list[bi])return nu
 
 /* completions */
 COMMIT_HOOKS.push((n,old,now)=>{
-  const out=[];
+  /* the first gold upgrade ever opens one more city: judged on the record before this save (old), since the
+     achievement for it may already have been written into n by the time this runs */
+  const out=[],hadGold=cityGoldKept(old);let newGold=false;
   for(const c of n.cities||[]){
-    for(const b of c.b||[]){const e=cxBldExtras(b);if(e.uu&&e.uu.d<=now){const u=e.uu.u;cxUgPut(b,{ug:u});if(BUILDINGS[b.k])out.push(`The ${BUILDINGS[b.k].n} in ${cityLabel(n,c)} gains its ${CX_UG[u-1].c} upgrade, ${u} of ${CX_UG_MAX}${u===CX_UG_MAX?': it now works at double strength':''}.`);
+    for(const b of c.b||[]){const e=cxBldExtras(b);if(e.uu&&e.uu.d<=now){const u=e.uu.u;cxUgPut(b,{ug:u});if(u===CX_UG_MAX)newGold=true;if(BUILDINGS[b.k])out.push(`The ${BUILDINGS[b.k].n} in ${cityLabel(n,c)} gains its ${CX_UG[u-1].c} upgrade, ${u} of ${CX_UG_MAX}${u===CX_UG_MAX?': it now works at double strength':''}.`);
       /* the last, gold block is news (the newspaper reports it) */
       if(u===CX_UG_MAX&&BUILDINGS[b.k])n.log=[{t:e.uu.d,k:'bgold',a:String(cityLabel(n,c)).slice(0,60),b:String(BUILDINGS[b.k].n).slice(0,60)}].concat(n.log||[]).slice(0,60);}}
     const e=cxCityExtras(c);if(e.wu&&e.wu.d<=now){const d=e.wu.d;c.wl=e.wu.l;delete c.wu;out.push(`The walls of ${cityLabel(n,c)} reach level ${c.wl}.`);n.log=[{t:d,k:'cwall',a:String(cityLabel(n,c)).slice(0,60),b:String(c.wl)}].concat(n.log||[]).slice(0,60);}
   }
+  if(newGold&&!hadGold)out.push(`${n.name} has its first gold upgrade: it may found one more city.`);
   return out;
 });
 
@@ -54557,7 +54584,7 @@ function cxUgBar(g,wip){
 function cxReachLine(ct,n){const c=(n&&Array.isArray(n.cities)?n.cities:[]).find(x=>x&&x.id===ct.id);if(!c||!(c.c>=0))return '';
   const tb=reachTierBonus(c),all=cityReach(c);
   return `<p class="hint cx-reach">Claim reach: <b>${all} hexes</b> from ${esc(ct.nm||'this city')}${tb?` (${all-tb} from its buildings, +${tb} for their average upgrade colour)`:''}. Upgrading every building toward gold adds up to 15 more.</p>`;}
-function cxUgLegend(){return `<p class="hint cx-ugl">Upgrades: ${CX_UG.map(u=>`<i class="ugb-dot ugb-${u.c}" aria-hidden="true"></i>${u.c}`).join(' ')}. Each adds a little more of what the building does (+${Math.round(CX_UG[0].fx*100)}% for grey, up to +${Math.round(CX_UG[CX_UG_MAX-1].fx*100)}% for gold, so double in all) and costs more than the last. One at a time in each city.</p>`;}
+function cxUgLegend(){return `<p class="hint cx-ugl">Upgrades: ${CX_UG.map(u=>`<i class="ugb-dot ugb-${u.c}" aria-hidden="true"></i>${u.c}`).join(' ')}. Each adds a little more of what the building does (+${Math.round(CX_UG[0].fx*100)}% for grey, up to +${Math.round(CX_UG[CX_UG_MAX-1].fx*100)}% for gold, so double in all) and costs more than the last. One at a time in each city.${cityGoldOpen(S.nation)?'':' Your first gold upgrade opens one more city.'}</p>`;}
 function cxLvChip(ct,k){
   if(ct.npc||!ct.rec||!cxUpgradable(k))return '';
   const now=Date.now(),b=(ct.rec.b||[]).find(x=>x.k===k);if(!b||b.d>now)return '';
@@ -54606,7 +54633,7 @@ function cxPage(T,CS,mine,held,a,n,st,now){
   let sel=S.cityOpen||S.cxSel;if(sel!=='new'&&!all.some(c=>c.id===sel))sel=all[0]?all[0].id:'new';S.cxSel=sel;
   const cur=all.find(c=>c.id===sel),fx=bldEffects(a),ub=all.reduce((s,ct)=>s+Object.values(ct.ug||{}).reduce((t,v)=>t+v,0),0);
   const detail=sel==='new'||!cur?`<section class="city cx-new" id="cx-new"><p class="eyebrow">Ministry of Works</p><h3 class="city-n">Found a new city</h3>${foundCityForm(T,st)}</section>`:cityCard(cur,T,n,st,now);
-  const listHtml=`${own.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}${cap.length?`<p class="lbl-h cx-list-h">Captured</p>${cap.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}`:''}<button class="cx-item cx-add${sel==='new'?' on':''}" data-act="cx-sel" data-id="new" aria-current="${sel==='new'?'true':'false'}"><span class="cx-it-h"><b>+ Found a city</b></span><span class="cx-it-s">${canFound?`${lim-have} more allowed`:have>=MAX_CITIES?'Every city founded':nextCityWhen(n,myArea(T,mi),true)?`Next at ${nextCityWhen(n,myArea(T,mi),true)}`:'No room for another'}</span></button>`;
+  const listHtml=`${own.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}${cap.length?`<p class="lbl-h cx-list-h">Captured</p>${cap.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}`:''}<button class="cx-item cx-add${sel==='new'?' on':''}" data-act="cx-sel" data-id="new" aria-current="${sel==='new'?'true':'false'}"><span class="cx-it-h"><b>+ Found a city</b></span><span class="cx-it-s">${canFound?`${lim-have} more allowed`:have>=MAX_CITIES?'Every city founded':cityBonusHint(n)?'After your first building':nextCityWhen(n,myArea(T,mi),true)?`Next at ${nextCityWhen(n,myArea(T,mi),true)}`:'No room for another'}</span></button>`;
   return `${cxTodo(T,mine,now,canFound)}${cxStock(n,now)}
   <details class="cx-more"><summary>${own.length+cap.length} ${own.length+cap.length===1?'city':'cities'} of ${lim} allowed · ${a.dev} ${a.dev===1?'building':'buildings'}${ub?` · ${ub} ${ub===1?'upgrade':'upgrades'}`:''}${a.wonders.length?' · '+esc(list(a.wonders)):''} · what they give you</summary>
     <p class="fig-s-big">${fx.length?esc(fx.join('; ')).replace(/^./,c=>c.toUpperCase())+'.':'Nothing yet. Start with a sawmill or farm.'}</p>${cpSummary(T,n)}${whSummary(n,now)}
