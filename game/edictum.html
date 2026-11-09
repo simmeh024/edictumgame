@@ -5287,6 +5287,13 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .dd-x{display:flex;flex-direction:column;min-width:0}
 .dd-x b{font-weight:650;font-size:14.5px;line-height:1.3}
 .dd-t.done .dd-x b{color:var(--ink-2);font-weight:550}
+.dd-t.dd-rare{margin-top:6px;padding:10px 12px;border:1px solid #8a5cd0;border-radius:6px;background:linear-gradient(90deg,rgba(138,92,208,.16),rgba(138,92,208,.04))}
+.dd-rare .dd-i{border-color:#8a5cd0}
+.dd-t.dd-rare.done .dd-i{background:#8a5cd0;border-color:#8a5cd0}
+.dd-rare-tag{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:10px;background:#8a5cd0;color:#fff;font:700 10.5px/1.6 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;vertical-align:1px}
+:root[data-theme="dark"] .dd-t.dd-rare{border-color:#b08cf0;background:linear-gradient(90deg,rgba(176,140,240,.18),rgba(176,140,240,.04))}
+:root[data-theme="dark"] .dd-rare-tag,:root[data-theme="dark"] .dd-t.dd-rare.done .dd-i{background:#b08cf0;color:#1b1030}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .dd-t.dd-rare{border-color:#b08cf0;background:linear-gradient(90deg,rgba(176,140,240,.18),rgba(176,140,240,.04))}:root:not([data-theme="light"]) .dd-rare-tag,:root:not([data-theme="light"]) .dd-t.dd-rare.done .dd-i{background:#b08cf0;color:#1b1030}}
 .dd-x .hint{font-size:12.5px;line-height:1.4}
 .dd-f{margin:10px 0 4px;font-size:14px}
 .dd-stk{margin:6px 0 0}
@@ -46023,9 +46030,9 @@ const DD_TASKS={
   vote:{t:()=>'Vote in the Assembly',go:['assembly','Open the Assembly'],r:[1,1],ok:n=>ddCanVote(n)},
   road:{t:k=>k===1?'Build a road':`Build ${k} roads`,go:['map','Open Transport'],r:[1,2],ok:n=>pgAvailable(n,'map')&&cityList(n).length>=2&&(n.infra||[]).length<=MP_NET_MAX-2},
   claim:{t:k=>k===1?'Claim a hex':`Claim ${k} hexes`,go:['map','Open the map'],r:[1,2],ok:n=>landCredits(n)>=2},
-  dm:{t:()=>'Write to another nation',go:['messages','Open Messages'],r:[1,1],ok:ddOthers},
-  deal:{t:()=>'Propose a trade',go:['trade','Open Trade'],r:[1,1],ok:n=>cellOf(n.loc)>=0},
-  build:{t:()=>'Start a building',go:['cities','Open Cities'],r:[1,1],ok:n=>cellOf(n.loc)>=0}
+  dm:{t:k=>k>1?`Write ${k} letters to other nations`:'Write to another nation',go:['messages','Open Messages'],r:[1,1],ok:ddOthers},
+  deal:{t:k=>k>1?`Propose ${k} trades`:'Propose a trade',go:['trade','Open Trade'],r:[1,1],ok:n=>cellOf(n.loc)>=0},
+  build:{t:k=>k>1?`Start ${k} buildings`:'Start a building',go:['cities','Open Cities'],r:[1,1],ok:n=>cellOf(n.loc)>=0}
 };
 function ddCanVote(n){
   try{const now=Date.now(),st=asmState(now);if(!st||!st.cur||!asmMemberAt(n,now))return false;const mine=st.V&&st.V.rows.find(r=>r.me);return !(mine&&(mine.v>0||mine.v<0));}catch(e){return false;}
@@ -46045,7 +46052,20 @@ function ddRoll(n,day){
   return pool.slice(0,3).map(k=>{const [lo,hi]=DD_TASKS[k].r;let v=lo+Math.floor(r()*(hi-lo+1));
     if(k==='iss')v=Math.min(v,Math.max(1,Math.floor(1440/(n.freq||FREQ_DEF))));const [a,b]=pick(DD_RES);return [k,v,a,b];});
 }
-const ddFresh=(n,day)=>({d:day,q:ddRoll(n,day),c:[0,0,0],p:[0,0,0]});
+/* the rare task: one more each day, a little harder than the three, paid in DD_RARE_GIFT and DD_RARE_CR land credits
+   (counted in n.ddr, which adds to landEarned like n.ddc). It is drawn from a separate pool, avoiding the three's tasks
+   where it can, and kept in n.dd.r {k, g, c, p}. */
+const DD_RARE_GIFT={iron:5,oil:10,timber:20,food:30},DD_RARE_CR=3,DD_RARE_MAX=STK_MAX;
+const DD_RARE={iss:[6,8],claim:[3,4],exp:[2,3],road:[2,3],build:[2,2],dm:[2,3],deal:[2,2]};
+const ddrOf=n=>n&&Number.isInteger(n.ddr)&&n.ddr>0?Math.min(n.ddr,DD_RARE_MAX):0;
+function ddRare(n,day,q){
+  const r=rng(hash(String(n.seed)+':rare:'+day)),ok=k=>{try{if(k==='claim')return landCredits(n)>=DD_RARE.claim[0];return !!DD_TASKS[k].ok(n);}catch(e){return false;}};
+  const keys=Object.keys(DD_RARE).filter(ok),taken=new Set((q||[]).map(x=>x[0])),fresh=keys.filter(k=>!taken.has(k)),pool=fresh.length?fresh:keys;
+  if(!pool.length)return null;const k=pool[Math.floor(r()*pool.length)],[lo,hi]=DD_RARE[k];let g=lo+Math.floor(r()*(hi-lo+1));
+  if(k==='iss')g=Math.min(g,Math.max(2,Math.floor(2880/(n.freq||FREQ_DEF))));
+  return {k,g,c:0,p:0};
+}
+const ddFresh=(n,day)=>{const q=ddRoll(n,day),r=ddRare(n,day,q);return {d:day,q,c:[0,0,0],p:[0,0,0],...(r?{r}:{})};};
 /* how far one save moved a task on */
 function ddDelta(n,old,k){
   const tl=key=>tallyOf(n,key)-tallyOf(old,key);
@@ -46057,8 +46077,8 @@ function ddDelta(n,old,k){
   return 0;
 }
 const stkDays=n=>n&&n.stk&&Number.isInteger(n.stk.n)?n.stk.n:0;
-landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n);})(landEarned);
-earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n);})(earnedAt);
+landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n)+DD_RARE_CR*ddrOf(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n)+DD_RARE_CR*ddrOf(n);})(earnedAt);
 UNLOCK_SOURCES.push({earned:n=>STK_UNLOCKS.slice(0,Math.min(STK_UNLOCKS.length,stkDays(n))),
   how:id=>{const i=STK_UNLOCKS.indexOf(id);return i<0?null:`Day ${i+1} of presence: answer an edict or claim a hex on ${i?i+1+' different days':'any day'}.`;}});
 const STK_NOTES=['the Enacted stamp in indigo ink is yours, under Decrees in Customise','a cartouche for your motto is yours, under Banner in Customise','a pennant over your capital on the map is yours, under Banner in Customise'],
@@ -46070,14 +46090,17 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const base=old&&old.name===n.name&&old.tly&&typeof old.tly==='object'?old:null;
   const gift=(r,v)=>{const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
   if(ddOn()){if(!n.dd||ddLater(day,n.dd.d))n.dd=ddFresh(n,day);
-  const D=n.dd;D.q.forEach(([k,goal,ra,rb],i)=>{
+  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}D.q.forEach(([k,goal,ra,rb],i)=>{
     if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
     if(D.c[i]>=goal){D.p[i]=1;try{gbBump(n,'ddt',1,now);}catch(e){}gift(ra,ddGift(ra));gift(rb,ddGift(rb));out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${ddGift(ra)} ${resName(ra)} and +${ddGift(rb)} ${resName(rb)}.`);}
   });
   if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;for(const r in DD_CLEAR)gift(r,DD_CLEAR[r]);out.push(`A clear desk: +${DD_CLEAR.iron} iron and +${DD_CLEAR.goods} goods.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
-    else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}}
+    else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
+  const R=D.r;if(R&&!R.p){const dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
+    if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;for(const r in DD_RARE_GIFT)gift(r,DD_RARE_GIFT[r]);try{gbBump(n,'ddr',1,now);}catch(e){}
+      out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food and +${DD_RARE_CR} land credits.`);}}}
   if(base&&(!n.stk||ddLater(day,n.stk.d))&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
     const k=Math.min(STK_MAX,stkDays(n)+1);n.stk={n:k,d:day};if(k<=STK_NOTES.length)out.push(`Day ${k} of your presence: ${STK_NOTES[k-1]}.`);}
   /* the quick first building: its first cart, once, if it still stands */
@@ -46091,10 +46114,12 @@ NORM_HOOKS.push((n,d)=>{
   const D=d&&d.dd,okQ=q=>Array.isArray(q)&&czHas(DD_TASKS,q[0])&&Number.isInteger(q[1])&&q[1]>=1&&q[1]<=10&&DD_RES.includes(q[2])&&DD_RES.includes(q[3])&&q[2]!==q[3];
   if(D&&typeof D.d==='string'&&DD_KEY_RX.test(D.d)&&Array.isArray(D.q)&&D.q.length>=1&&D.q.length<=3&&D.q.every(okQ)){
     const L=D.q.length,ar=(a,f)=>Array.from({length:L},(x,i)=>f(Array.isArray(a)?a[i]:0));
-    n.dd={d:D.d,q:D.q.map(q=>q.slice(0,4)),c:ar(D.c,v=>Number.isInteger(v)&&v>0?Math.min(v,10):0),p:ar(D.p,v=>v===1?1:0)};if(D.w===1)n.dd.w=1;}
+    n.dd={d:D.d,q:D.q.map(q=>q.slice(0,4)),c:ar(D.c,v=>Number.isInteger(v)&&v>0?Math.min(v,10):0),p:ar(D.p,v=>v===1?1:0)};if(D.w===1)n.dd.w=1;
+    const R=D.r;if(R&&czHas(DD_RARE,R.k)&&Number.isInteger(R.g)&&R.g>=1&&R.g<=10)n.dd.r={k:R.k,g:R.g,c:Number.isInteger(R.c)&&R.c>0?Math.min(R.c,R.g):0,p:R.p===1?1:0};}
   else delete n.dd;
   if(d&&Number.isInteger(d.ddc)&&d.ddc>0&&d.ddc<=STK_MAX)n.ddc=d.ddc;else delete n.ddc;
   if(d&&Number.isInteger(d.ddw)&&d.ddw>0&&d.ddw<=DD_WEEK_MAX)n.ddw=d.ddw;else delete n.ddw;
+  if(d&&Number.isInteger(d.ddr)&&d.ddr>0&&d.ddr<=DD_RARE_MAX)n.ddr=d.ddr;else delete n.ddr;
   const K=d&&d.stk;if(K&&Number.isInteger(K.n)&&K.n>0&&K.n<=STK_MAX&&typeof K.d==='string'&&DD_KEY_RX.test(K.d))n.stk={n:K.n,d:K.d};else delete n.stk;
   const F=d&&d.ffb;if(F&&FFB_KEYS.includes(F.k)&&typeof F.c==='string'&&F.c.length>0&&F.c.length<=40&&Number.isFinite(F.s)&&Number.isFinite(F.d)&&F.d>=F.s){n.ffb={k:F.k,c:F.c,s:F.s,d:F.d};if(F.p===1)n.ffb.p=1;}else delete n.ffb;
 });
@@ -46112,7 +46137,8 @@ function ddCard(now){
     return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${ddGift(ra)} ${esc(resName(ra))}, +${ddGift(rb)} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
   const dots=`<span class="lc-dots" aria-hidden="true">${STK_UNLOCKS.map((x,i)=>`<i${i<sk?' class="on"':''}></i>`).join('')}</span>`;
   return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextAt(now,D)}">${esc(fmtWait(ddNextAt(now,D)-now))}</b></span></div>
-    <ol class="dd-l">${rows}</ol>
+    <ol class="dd-l">${rows}${(()=>{const R=D.r||ddRare(n,D.d,D.q);if(!R)return '';const T=DD_TASKS[R.k],done=!!R.p,c=Math.min(R.g,R.c||0);
+      return `<li class="dd-t dd-rare${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-rare-tag">Rare</span> ${esc(T.t(R.g))}</b><span class="hint">${done?'Done':`${c} of ${R.g}`} · +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food, <b>+${DD_RARE_CR} land credits</b></span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${R.k}">${esc(T.go[1])}</button>`:''}</li>`;})()}</ol>
     <p class="dd-f">${D.w?(wk?'Your desk is clear: today’s two land credits are yours.':'Your desk is clear: today’s land credit is yours.'):wk?'Clear all three for <b>+2 land credits</b>, double in your first week.':'Clear all three for <b>+1 land credit</b>.'}</p>
     <p class="hint dd-stk">${dots}Presence: ${sk?`day ${sk}`:'not started'}${nx?` · next: ${STK_NEXT[sk]}`:' · all three rewards earned'}. ${today?'Today counts.':'Answer an edict or claim a hex today to count it.'} A missed day only pauses it.</p></section>`;
 }
