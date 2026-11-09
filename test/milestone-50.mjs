@@ -31,7 +31,7 @@ async function until(f, ms = 8000) { const t = Date.now(); for (;;) { let v; try
 for (const [theme, viewport, tag] of [['light', { width: 1280, height: 860 }, 'desk'], ['dark', { width: 390, height: 844 }, 'phone']]) {
   const ctx = await browser.newContext({ viewport, colorScheme: theme }), page = await ctx.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.addInitScript(() => { window.EDICTUM_PROBE = g => { window.__game = g; }; });
+  await page.addInitScript(() => { window.EDICTUM_PROBE = g => { window.__game = g; }; window.EDICTUM_M50 = 1; });
   await page.goto(BASE);
   await page.fill('#d-name', 'Orrery'); await page.click('#found-btn');
   await page.waitForFunction(() => window.__game && window.__game.S.nation && window.__game.S.view);
