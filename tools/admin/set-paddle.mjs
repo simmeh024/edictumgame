@@ -15,6 +15,12 @@
 // vip=pri_…[,vipyear=pri_…,giftvip=pri_…]; a product may keep older prices after the first (vip=pri_new+pri_old) so
 // renewals at an old price count. vipyear (the Club, yearly) and giftvip (a month of it, as a gift) are optional: the
 // shop opens without them and offers each once its price is set.
+// Changing one thing in a set-up that already works, with nothing else asked again:
+//   node set-paddle.mjs --add-price bfpack=pri_…   adds (or replaces) one product's price, e.g. a new product such as the
+//                                                  Black Friday Pack; nothing secret is asked
+//   node set-paddle.mjs --new-secret               asks only for the notification destination's new secret key (after
+//                                                  regenerating it in Paddle), not shown as you type it
+// Both keep the environment, keys and other prices already saved, and then check everything with Paddle.
 // With FIRESTORE_EMULATOR_HOST set, this talks to the Firestore emulator instead and needs no key.
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -26,7 +32,7 @@ const CAT = JSON.parse(readFileSync(new URL('../../functions/shop-catalogue.json
 const PRODUCTS = Object.keys(CAT.products);
 const EVENTS = ['transaction.completed', 'subscription.created', 'subscription.updated', 'subscription.canceled', 'subscription.past_due', 'subscription.activated', 'adjustment.created', 'adjustment.updated'];
 const args = process.argv.slice(2), arg = k => { const i = args.indexOf(k); return i >= 0 ? String(args[i + 1] || '') : null; };
-const off = args.includes('--off'), checkOnly = args.includes('--check');
+const off = args.includes('--off'), checkOnly = args.includes('--check'), addPrice = arg('--add-price'), newSecret = args.includes('--new-secret');
 const env = arg('--env') || 'sandbox';
 if (!['sandbox', 'live'].includes(env)) { console.error('--env is sandbox or live.'); process.exit(2); }
 const emulator = !!process.env.FIRESTORE_EMULATOR_HOST;
@@ -70,6 +76,32 @@ try {
     const s = await ref.get();
     if (!s.exists) { console.error('Not set up yet: run this without --check.'); process.exit(1); }
     process.exit(await check(s.data()) ? 1 : 0);
+  }
+  /* one change to the saved set-up: a price, or the notification secret */
+  if (addPrice !== null || newSecret) {
+    const s = await ref.get();
+    if (!s.exists) { console.error('Not set up yet: run this without --add-price or --new-secret first.'); process.exit(1); }
+    const cfg = s.data();
+    if (addPrice !== null) {
+      const [k, v] = addPrice.split('=').map(x => String(x || '').trim()), ids = String(v || '').split('+').map(x => x.trim()).filter(Boolean);
+      if (!PRODUCTS.includes(k)) { console.error(`--add-price: ${k || '(nothing)'} is not a product. The products are ${PRODUCTS.join(', ')}.`); process.exit(2); }
+      if (!ids.length || !ids.every(priceOk)) { console.error(`--add-price: give it as ${k}=pri_… (Paddle's price ID, which starts with pri_).`); process.exit(2); }
+      cfg.prices = Object.assign({}, cfg.prices, { [k]: ids.length === 1 ? ids[0] : ids });
+      console.log(`${CAT.products[k].name}: price ${ids.join(' + ')}.`);
+    }
+    if (newSecret) {
+      const clean = v => String(v || '').replace(/[\s\u0000-\u001f\u007f\u200b-\u200d\u2060\ufeff]/g, '');
+      let muted = false;
+      const out = new Writable({ write(chunk, enc, done) { if (!muted) process.stdout.write(chunk); done(); } });
+      const rl = createInterface({ input: process.stdin, output: out, terminal: !!process.stdin.isTTY });
+      process.stdout.write('New notification destination secret key (pdl_ntfset_…, not shown; paste with a right-click, then Enter): ');
+      muted = true;const v = clean(clean(process.env.PADDLE_WEBHOOK_SECRET) || (await rl[Symbol.asyncIterator]().next()).value);muted = false;process.stdout.write('\n');rl.close();
+      if (!/^pdl_ntfset_[A-Za-z0-9_+/=-]{10,}$/.test(v) || v.indexOf('pdl_ntfset_', 1) > 0) { console.error(`That is not a notification secret key: it ${v.startsWith('pdl_ntfset_') ? 'starts' : 'does not start'} with pdl_ntfset_ and has ${v.length} characters. Nothing was changed.`); process.exit(2); }
+      cfg.webhookSecret = v;console.log('The notification secret key is replaced.');
+    }
+    cfg.at = Date.now();await ref.set(cfg);
+    console.log(`Saved for Paddle ${cfg.env}. The Shop picks it up at the next page load.`);
+    process.exit(await check(cfg) ? 1 : 0);
   }
   let muted = false;
   const out = new Writable({ write(chunk, enc, done) { if (!muted) process.stdout.write(chunk); done(); } });

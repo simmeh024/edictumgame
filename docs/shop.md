@@ -248,3 +248,5 @@ older, so they get the new pieces (and other players' games see them in `finery/
 - **Link and buy.** A guest who clicks Buy gets the sign-in panel. Once the sign-in is linked (within ten minutes), the checkout opens by itself. Analytics events: `shop_link_prompt`, `shop_link_resume`, `founder_badge_tap`.
 
 **Products sold for a while.** A product with `until` in the catalogue (the Black Friday Pack) opens no checkout after that time, by the server's clock (`sale_ended`). Unlike the Founder's Package, a payment that completes late is kept, not refunded. Its pieces stay with those who bought it.
+
+**Changing one thing later.** `node tools/admin/set-paddle.mjs --add-price bfpack=pri_…` adds (or replaces) one product's price, asking nothing secret. `--new-secret` asks only for a regenerated notification secret (hidden). Both keep everything else saved and then run the usual check with Paddle. In Windows PowerShell, run `npm.cmd ci` (the script policy blocks `npm`), and paste into the hidden prompt with a right-click.
