@@ -17,7 +17,25 @@ await set(()=>{const c=n.cities[0];c.b=[{k:'farm',s:t-2*864e5,d:t-864e5,a:1}];n.
 await nav(A,'cities');
 check('the page lists the cities beside one open city',await A.locator('.cx-list .cx-item').count()>=2&&await A.locator(`#city-${cid}.cx-detail`).count()===1);
 check('the stockpile is one slim row',await A.locator('.cx-stock .cx-stk').count()===5);
-check('the city opens in four tabs',await A.locator(`#city-${cid} .cx-tabs .stab`).count()===4);
+check('the city opens in five tabs',await A.locator(`#city-${cid} .cx-tabs .stab`).count()===5);
+
+/* the city's crest: its own coat of arms, saved in the city's record, shown in the header, the list and the map panel */
+check('a city shows a default crest in its header and the list',await A.locator(`#city-${cid} .cc-h svg`).count()===1&&await A.locator('.cx-list .cc-s svg').count()>=1);
+await A.click(`#city-${cid} .cx-tabs .stab:has-text("Crest")`);
+check('the Crest tab offers shields, divisions and tinctures',await A.locator('#cc-d-quarterly').count()===1&&await A.locator('#cc-t0-gules').count()===1);
+check('without a crest of its own the record has no cr',!(await rec()).cr);
+await A.click('#cc-d-quarterly');await A.click('#cc-t0-gules');await A.click('#cc-t1-or');
+const cr=(await rec()).cr;
+check('choosing a division and tinctures gives the city its own crest',cr&&cr.d==='quarterly'&&cr.t[0]==='gules'&&cr.t[1]==='or',JSON.stringify(cr));
+check('the blazon follows',/quarterly gules and or/i.test(await text(A,'.cc-fig .cz-blazon')));
+await saved();
+check('the crest is saved with the city',(await nationDoc(uid)).rec.cities.find(c=>c.id===cid)?.cr?.d==='quarterly');
+await A.click('#cc-reset');
+check('Back to the default removes the crest',!(await rec()).cr);
+await A.click('#cc-d-pale');
+await A.screenshot({path:OUT+'/city-crest.png',fullPage:false});
+await saved();
+await A.click(`#city-${cid} .cx-tabs .stab:has-text("Buildings")`);
 check('what needs the player is listed',/no mayor/.test(await text(A,'.cx-todo')));
 await A.screenshot({path:OUT+'/cities-plus-desktop.png',fullPage:true});
 

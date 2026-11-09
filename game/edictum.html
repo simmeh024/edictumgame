@@ -6109,6 +6109,14 @@ span.nw-tag{cursor:default}
 .cx-item:hover{border-color:var(--ink-3)}
 .cx-item.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-soft)}
 .cx-it-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cc-crest{display:inline-block;line-height:0;flex:none}.cc-crest svg{width:100%;height:auto;display:block}
+.cc-s{width:16px}.cc-mp{vertical-align:-2px;margin-right:6px}.cc-h{width:44px;margin-top:4px}.cc-big{width:120px}
+.cc-head{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.cc-wrap{display:grid;grid-template-columns:170px minmax(0,1fr);gap:20px;align-items:start}
+.cc-fig{margin:0;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;position:sticky;top:12px}
+.cc-acts{justify-content:center;flex-wrap:wrap;gap:6px}
+.cc-ctl .sw-l{margin:12px 0 6px}
+@media (max-width:640px){.cc-wrap{grid-template-columns:1fr}.cc-fig{position:static}.cc-big{width:96px}}
 .cx-it-h b{font-size:15px}
 .cx-it-s,.cx-it-b{font-size:12.5px;color:var(--ink-3)}
 .cx-it-b{color:var(--ink-2)}
@@ -19532,7 +19540,7 @@ function citiesSection(id,n){
 function hexPanel(T,cell){
   const mi=T.byId[myId()],CS=cityState(T),ct=CS.byCell.get(cell),n=S.nation;
   const yields=RES.filter(r=>r!=='goods'&&CELL_RES[r][cell]>0).map(r=>fmtAmt(CELL_RES[r][cell])+' '+resName(r));
-  const headEl=`<p class="eyebrow">${ct?(ct.cap?'Capital':'City'):'Your land'}</p><h2 class="mp-h">${ct?esc(ct.nm):`${terrName(cell)} on ${esc(landName(cell))}`}</h2>`;
+  const headEl=`<p class="eyebrow">${ct?(ct.cap?'Capital':'City'):'Your land'}</p><h2 class="mp-h">${ct&&ct.rec&&ct.fn?ccSVG(ct,'cc-s cc-mp'):''}${ct?esc(ct.nm):`${terrName(cell)} on ${esc(landName(cell))}`}</h2>`;
   const back=`<button class="btn ghost" data-act="map-desel">Back to ${esc(n.name)}</button>`;
   if(ct){
     return headEl+c3Strip(n,Date.now(),{compact:true})+cpPanelCity(ct,T)+`<p class="muted">${ct.done.length?esc(list(ct.done.map(k=>BUILDINGS[k].n))):'No buildings yet.'}${ct.prog.length?` Building: ${esc(BUILDINGS[ct.prog[0].k].n)}.`:''}</p>
@@ -31408,6 +31416,7 @@ function dcCities(g,T,scr,off,col,s,boxes){
     const ly=pl?pl.b.y+pl.b.h-1:py+6,tw=g.measureText(ct.nm).width,b={x:px-tw/2-2,y:ly,w:tw+4,h:fs+3};
     if(dcHit(b,boxes))continue;
     boxes.push(b);mfxLabel(g,ct.nm,px,ly+fs-1,col,3);cpLine(g,ct,T,px,ly+fs+3,Rp,boxes,col);
+    if(band>0&&ct.rec&&ct.fn&&ccHas(ct.rec)){const im=ccImg(ct),ch=fs+4,cw=ch*106/126,cb={x:b.x-cw-1,y:ly-1,w:cw,h:ch};if(im&&!dcHit(cb,boxes)){g.drawImage(im,cb.x,cb.y,cw,ch);boxes.push(cb);}}
   }
   /* the working buildings out in the district: cranes on the coast, headframes, derricks */
   if(SP&&Rp>=7){
@@ -54240,6 +54249,7 @@ function cxCityExtras(c){
   if(Number.isInteger(c.wl)&&c.wl>0)o.wl=clamp(c.wl,0,3);
   const u=c.wu,wl=o.wl||0;if(u&&typeof u==='object'&&u.l===wl+1&&u.l<=3&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=3*DAY){o.wu={l:u.l,s:u.s,d:u.d};const p=paidClean(u.p,cxWallList(u.l));if(p)o.wu.p=p;}
   if(Number.isFinite(c.ne))o.ne=c.ne;
+  if(c.cr&&typeof c.cr==='object'){const a=czCleanArms(c.cr,null);if(a)o.cr={s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};}
   const mb=c.mb;if(mb&&typeof mb==='object'&&Number.isFinite(mb.v)&&Number.isFinite(mb.u)&&mb.v)o.mb={v:clamp(Math.round(mb.v),-15,15),u:mb.u};
   return o;
 }
@@ -54448,7 +54458,7 @@ function cxTodo(T,mine,now,canFound){
 function cxItem(ct,T,now,on){
   const b=blkOf(ct,T),u=blkUsed(ct),cur=ct.prog.find(x=>x.s<=now)||ct.prog[0],band=ct.mood!=null&&ct.active?cxBand(ct.mood):null,ev=cxEvDue(ct,now);
   const st=!ct.active||!cxOk(ct,T)&&ct.fid===myId()?'Occupied':cur?`${BUILDINGS[cur.k].n} · ${fmtDur(cur.d-now)}`:ct.fid!==myId()?'Captured':u<b.n?(b.n-u===1?'One empty block':(b.n-u)+' empty blocks'):'Every block in use';
-  return `<button class="cx-item${on?' on':''}" data-act="cx-sel" data-id="${esc(ct.id)}" aria-current="${on?'true':'false'}"><span class="cx-it-h"><b>${esc(ct.nm)}</b>${ct.cap?'<span class="chip">Capital</span>':''}${ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</span><span class="cx-it-s">${ct.active?cpFmt(b.pop)+' people · ':''}${u}/${b.n} blocks${band?` · <span class="cx-mood-t ${band[3]}">${band[1]}</span>`:''}</span><span class="cx-it-b">${esc(st)}</span></button>`;
+  return `<button class="cx-item${on?' on':''}" data-act="cx-sel" data-id="${esc(ct.id)}" aria-current="${on?'true':'false'}"><span class="cx-it-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<b>${esc(ct.nm)}</b>${ct.cap?'<span class="chip">Capital</span>':''}${ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</span><span class="cx-it-s">${ct.active?cpFmt(b.pop)+' people · ':''}${u}/${b.n} blocks${band?` · <span class="cx-mood-t ${band[3]}">${band[1]}</span>`:''}</span><span class="cx-it-b">${esc(st)}</span></button>`;
 }
 function cxPage(T,CS,mine,held,a,n,st,now){
   const mi=T.byId[myId()],lim=maxCities(T,mi),have=cityList(n).length,canFound=have<lim&&have<MAX_CITIES;
@@ -54502,7 +54512,7 @@ function cxRoads(ct,T,n,st,ok){
 }
 function cityCard(ct,T,n,st,now){
   const mine=ct.fid===myId(),holder=ct.hi>=0?T.list[ct.hi]:null,taken=mine&&!!holder&&holder.id!==myId(),occupied=mine&&(!ct.active||taken),ok=mine&&ct.active&&!taken;
-  const tabs=[['b','Buildings']].concat(ok?[['build','Build'],['ppl','People'],['def','Defence & roads']]:[]);
+  const tabs=[['b','Buildings']].concat(ok?[['build','Build'],['ppl','People'],['def','Defence & roads']]:[]).concat(ct.rec&&ct.fn?[['cr','Crest']]:[]);
   const open=S.cityOpen===ct.id&&ok;let tab=open?'build':S.cxTab||'b';if(tab==='build'||!tabs.some(t=>t[0]===tab))tab='b';if(open)tab='build';
   const facts=ct.active?siteFacts(ct.c,T,ct.hi):[];
   const slots=slotsOf(ct),used=ct.done.length+ct.prog.length,band=ct.mood!=null&&ct.active?cxBand(ct.mood):null,my=ct.rec&&cxCityExtras(ct.rec).my,ev=ok&&cxEvDue(ct,now);
@@ -54512,13 +54522,14 @@ function cityCard(ct,T,n,st,now){
   if(tab==='build')body=`<details class="cx-have"${ct.done.length+ct.prog.length?' open':''}><summary>In ${esc(ct.nm)} now: ${used} of ${slots} blocks in use</summary><ul class="blds">${rowsOf()}</ul></details>${catalog(ct,n,st)}`;
   else if(tab==='ppl')body=cxPeople(ct,T,n,st,now,ok);
   else if(tab==='def')body=cxDefence(ct,T,n,st,now,ok);
+  else if(tab==='cr')body=cxCrest(ct,ok&&mine);
   else{
     const rows=rowsOf();
     const end=ct.prog.reduce((m,b)=>Math.max(m,b.d),0);
     body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${ok&&ct.done.some(cxUpgradable)?cxUgLegend():''}${cxReachLine(ct,n)}${end>now?`<p class="hint cx-qend">The builders are busy until ${c3When(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
   }
   return `<article class="city cx-detail" id="city-${esc(ct.id)}">
-    <div class="city-h"><div><p class="eyebrow">${ct.cap?'Capital':'City'} · ${esc(cap1(placePhrase(ct.c).replace(/^in the |^on /,'')))}</p><h3 class="city-n">${esc(ct.nm)}</h3>${cpCardPop(ct,T)}</div>
+    <div class="city-h"><div class="cc-head">${ct.rec&&ct.fn?ccSVG(ct,'cc-h'):''}<div><p class="eyebrow">${ct.cap?'Capital':'City'} · ${esc(cap1(placePhrase(ct.c).replace(/^in the |^on /,'')))}</p><h3 class="city-n">${esc(ct.nm)}</h3>${cpCardPop(ct,T)}</div></div>
       <div class="city-tags">${band?`<span class="chip cx-mood-t ${band[3]}" title="Mood ${ct.mood} of 100">${band[1]}</span>`:''}${my?`<span class="chip">Mayor ${esc(my.nm)}</span>`:''}${facts.map(f=>`<span class="chip">${esc(f)}</span>`).join('')}${!mine?`<span class="chip">From ${esc(ct.fn.name)}</span>`:''}</div></div>
     ${occupied?`<p class="err">Occupied by ${esc(holder?holder.n.name:'an enemy')}. Its buildings now work for them. Win it back to restore them.</p>`:''}
     ${!mine&&ct.active?`<p class="muted">Captured from ${esc(ct.fn.name)}. Its buildings work for you, but only its founder can build here.</p>`:''}
@@ -54526,6 +54537,58 @@ function cityCard(ct,T,n,st,now){
     <div class="cx-body">${body}</div>
     <div class="row cx-foot"><button class="btn ghost" data-act="ct-map" data-c="${ct.c}">Show on the map</button>${c3Tools(ct,ok)}</div>${c3Panel(ct,ok)}
   </article>`;
+}
+/* ── city crests: each city's own small coat of arms (record field cr: {s,d,t,c,ct}). Without one, a city shows its
+   nation's arms with another free charge, picked by the city's id. Charges and Shop shields count only while the
+   nation holds them, so every player draws the same crest. ── */
+function ccDef(fn,c){
+  const a=cz(fn).a||czDefaultArms(fn),h=hash(String(c&&c.id)+':crest'),ch=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].k==='charge'&&UNLOCKS[id].src==='free'&&id!==a.c);
+  return {s:CZ_SH_SHOP[a.s]?'heater':a.s,d:a.d,t:a.t.slice(),c:ch.length?ch[h%ch.length]:a.c,ct:a.ct};
+}
+function ccShopOk(fn,s){const k=CZ_SH_SHOP[s];if(!k)return true;return fn===S.nation?czMine().has(k):!!(fn&&fn.cz&&Array.isArray(fn.cz.u)&&fn.cz.u.includes(k));}
+function ccOf(fn,rec){
+  const e=rec&&cxCityExtras(rec).cr;if(!e)return ccDef(fn,rec);
+  const a={s:e.s,d:e.d,t:e.t.slice(),c:e.c,ct:e.ct};
+  if(a.c&&!czHolds(fn,a.c,fn&&fn.cz))a.c='';
+  if(!ccShopOk(fn,a.s))a.s='heater';
+  return a;
+}
+function ccHas(rec){return !!(rec&&cxCityExtras(rec).cr);}
+function ccSVG(ct,cls){return `<span class="cc-crest${cls?' '+cls:''}">${czArmsSVG(ccOf(ct.fn,ct.rec),{label:'Crest of '+ct.nm})}</span>`;}
+/* the map draws a city's crest beside its name once it has one of its own: SVG to an image, cached by design */
+const CC_IMG=new Map();
+function ccImg(ct){
+  const a=ccOf(ct.fn,ct.rec),k=JSON.stringify(a);let im=CC_IMG.get(k);
+  if(!im){if(CC_IMG.size>200)CC_IMG.clear();im=new Image();im.onload=()=>{try{redrawMaps();}catch(e){}};
+    im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(czArmsSVG(a,{}).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="106" height="126" '));CC_IMG.set(k,im);}
+  return im.complete&&im.naturalWidth?im:null;
+}
+function cxCrest(ct,ok){
+  const f=ccOf(ct.fn,ct.rec),own=ccHas(ct.rec),id=esc(ct.id),n=ct.fn,mine=n===S.nation?czMine():new Set(),has=k=>{const u=czU(k);return !!u&&(u.src==='free'||mine.has(k));};
+  if(!ok)return `<section class="cx-sec cc-wrap"><figure class="cc-fig">${ccSVG(ct,'cc-big')}<figcaption class="cz-blazon">${esc(czBlazon(f))}</figcaption></figure></section>`;
+  const B=(fl,v,inner,label,on)=>`<button type="button" class="prv-t${on?' on':''}" id="cc-${fl}-${esc(String(v||'none').replace(/[^\w-]/g,'_'))}" data-act="cx-cr" data-id="${id}" data-f="${fl}" data-v="${esc(v)}" aria-pressed="${on}" title="${esc(label)}"><span class="prv-tv" aria-hidden="true">${inner}</span><span class="u-sr">${esc(label)}</span></button>`;
+  const TI=(fl,cur,lab)=>`<div class="prv-sw" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).map(t=>`<button type="button" class="sw${cur===t?' on':''}" style="--sw:${CZ_TINCT[t][1]}" id="cc-${fl}-${t}" data-act="cx-cr" data-id="${id}" data-f="${fl}" data-v="${t}" aria-pressed="${cur===t}" aria-label="${esc(lab)}: ${CZ_TINCT[t][0]}" title="${CZ_TINCT[t][0]}"></button>`).join('')}</div>`;
+  const ch=Object.keys(UNLOCKS).filter(k=>UNLOCKS[k].k==='charge'&&has(k));
+  return `<section class="cx-sec cc-wrap"><figure class="cc-fig">${ccSVG(ct,'cc-big')}<figcaption><span class="lbl">Blazon</span> <span class="cz-blazon">${esc(czBlazon(f))}</span></figcaption>
+    <div class="row cc-acts"><button type="button" class="btn ghost small-btn" id="cc-nat" data-act="cx-cr" data-id="${id}" data-f="nat" data-v="1">Copy the nation’s arms</button>${own?`<button type="button" class="btn ghost small-btn" id="cc-reset" data-act="cx-cr" data-id="${id}" data-f="reset" data-v="1">Back to the default</button>`:''}</div></figure>
+    <div class="cc-ctl"><p class="hint">${own?`${esc(ct.nm)} flies a crest of its own. It shows on this page, in the city list, and beside the city’s name on the map.`:`${esc(ct.nm)} shows your nation’s arms with a charge of its own. Change anything below to give it a crest of its own, shown beside its name on the map too.`} Free to change.</p>
+      <p class="sw-l">Shield</p><div class="prv-tiles prv-ta">${Object.keys(CZ_SHIELDS).filter(s=>s===f.s||(CZ_SH_SHOP[s]?ccShopOk(n,s):czShOk(n,s))).map(s=>B('s',s,czArmsSVG({...f,s,c:''}),CZ_SHIELDS[s],f.s===s)).join('')}</div>
+      <p class="sw-l">Division</p><div class="prv-tiles prv-ta">${Object.keys(CZ_DIVS).map(d=>B('d',d,czArmsSVG({...f,d,c:''}),CZ_DIVS[d],f.d===d)).join('')}</div>
+      <p class="sw-l">Field</p>${TI('t0',f.t[0],'Field')}${f.d==='plain'?'':`<p class="sw-l">Second tincture</p>${TI('t1',f.t[1],'Second tincture')}`}
+      <p class="sw-l">Charge</p><div class="prv-tiles prv-ta">${B('c','','<span class="cz-none">None</span>','No charge',!f.c)}${ch.map(c=>B('c',c,czArmsSVG({...f,d:'plain',c}),UNLOCKS[c].n,f.c===c)).join('')}</div>
+      ${f.c?`<p class="sw-l">Tincture of the charge</p>${TI('ct',f.ct,'Tincture of the charge')}`:''}
+      <p class="hint">More shields and charges are earned in Customise › Arms.</p></div></section>`;
+}
+function cxCrestEdit(cid,f,v){
+  const ct=cxHeld(cid);if(!ct||OBS)return;const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
+  if(f==='reset'){if(!c.cr)return;delete c.cr;commit(n);render();toast(`${ct.nm} shows the default crest again.`);return;}
+  const cur=f==='nat'?(()=>{const a=cz(S.nation).a||czDefaultArms(S.nation);return {s:a.s,d:a.d,t:a.t.slice(),c:a.c,ct:a.ct};})():ccOf(S.nation,c);
+  if(f==='s'){if(!czHas(CZ_SHIELDS,v)||!(cur.s===v||(CZ_SH_SHOP[v]?ccShopOk(S.nation,v):czShOk(S.nation,v))))return;cur.s=v;}
+  else if(f==='d'&&czHas(CZ_DIVS,v))cur.d=v;else if((f==='t0'||f==='t1')&&czHas(CZ_TINCT,v))cur.t[+f[1]]=v;else if(f==='ct'&&czHas(CZ_TINCT,v))cur.ct=v;
+  else if(f==='c'){if(v&&(!czU(v)||UNLOCKS[v].k!=='charge'||czLocked(v))){toast('Locked. '+unlockHow(v));return;}cur.c=v||'';}
+  else if(f!=='nat')return;
+  const a=czCleanArms(cur,null);if(!a)return;c.cr={s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};
+  commit(n);render();
 }
 function cxShow(){if(!mapxNarrow())return;requestAnimationFrame(()=>{const m=document.getElementById('cx-main');if(m)m.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});});}
 document.addEventListener('click',e=>{
@@ -54546,6 +54609,7 @@ document.addEventListener('click',e=>{
   if(a==='cx-ev'){cxAnswer(id,+el.dataset.i);return;}
   if(a==='cx-road'){cxBuildRoad(+el.dataset.a,+el.dataset.b);return;}
   if(a==='cx-qup'){cxQueueUp(id,el.dataset.k);return;}
+  if(a==='cx-cr'){cxCrestEdit(id,el.dataset.f,el.dataset.v);return;}
 });
 
 /* ───────── fifty edicts for the newest systems: parliament and the mandate, cities, the passport and the rest ─────────
