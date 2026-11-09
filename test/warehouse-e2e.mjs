@@ -11,9 +11,11 @@ const fill=async()=>A.evaluate(()=>{const n=G.clone(G.S.nation),v=G.WH.stockCap(
 const completeBase=async id=>A.evaluate(id=>{const n=G.clone(G.S.nation),b=n.cities.find(c=>c.id===id).b.find(b=>b.k==='warehouse');b.s=Date.now()-21*864e5;b.d=Date.now()-20*864e5;delete b.a;G.commit(n);G.render();},id);
 check('warehouse edicts are ineligible before construction',await A.evaluate(()=>Object.values(G.WH.edicts).every(e=>!e.req(G.S.nation))));
 await nav(A,'cities');await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
-const quoted=await A.evaluate(()=>G.WH.bCost(G.S.nation,'warehouse')),before=await stock();
+const quoted=await A.evaluate(()=>G.WH.bCost(G.S.nation,'warehouse')),before=await stock(),lc0=(await localNation(A)).tut?.lc||[];
 await A.click(`[data-act="ct-build"][data-id="${cid}"][data-k="warehouse"]`);
-const after=await stock();check('building a Warehouse charges its quoted materials once',Object.entries(quoted).every(([r,v])=>Math.abs(before[r]-after[r]-v)<.3));
+// the first building also pays the Start a building step's gift, so count that back
+const after=await stock(),bg=lc0.includes('build')||!((await localNation(A)).tut?.lc||[]).includes('build')?{}:await A.evaluate(()=>G.TUTL.lists.flatMap(L=>L.tasks).find(s=>s.k==='build').gift||{});
+check('building a Warehouse charges its quoted materials once',Object.entries(quoted).every(([r,v])=>Math.abs(before[r]-after[r]+(bg[r]||0)-v)<.3),JSON.stringify({quoted,before,after,bg}));
 check('unfinished Warehouses provide no extra capacity',await cap()===400);
 await saved();check('warehouse saves carry the compatibility guard',(await restGet('nations/'+uid)).body.fields.storageV?.integerValue==='1');
 check('only one Warehouse can be built in a city',(await localNation(A)).cities.find(c=>c.id===cid).b.filter(b=>b.k==='warehouse').length===1);

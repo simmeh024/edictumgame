@@ -147,17 +147,17 @@ await nav(T, 'nation');
 check('the money tasks wait in Next steps until the first two lists are done or hidden', !(await T.$('.tut-l-mark')));
 await T.evaluate(() => { const s = String(JSON.parse(localStorage.getItem('statehood.nation.v1')).seed); localStorage.setItem('statehood.steps0.v1', s); localStorage.setItem('statehood.steps.v1', s); });
 await nav(T, 'census'); await nav(T, 'nation');
-check('then Make your mark offers the Bureau and the currency’s design at 2 land credits and 5 oil each',
-  /Make your mark/.test(await text(T, '.tut-l-mark')) && /\+2 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')) && /\+2 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxd"]')));
+check('then Make your mark offers the Bureau and the currency’s design at 3 land credits and 5 oil each',
+  /Make your mark/.test(await text(T, '.tut-l-mark')) && /\+3 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')) && /\+3 land · 5 oil/.test(await text(T, '.tut-l-mark li[data-k="fxd"]')));
 check('the designs still to be earned are locked', await (async () => { await nav(T, 'customise'); await czSection(T, 'c'); return !!(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-met-platinum.cu-lk')) && !!(await T.$('#cu-l-st-3.cu-lk')); })());
 const c0 = await credits(), o0 = await oil();
 await nav(T, 'exchange');
-check('visiting the Bureau pays the first step: 2 land credits and 5 oil', await until(async () => (await localNation(T)).tut && (await localNation(T)).tut.lc.includes('fxv'))
-  && await until(async () => /Visit the Foreign Exchange Bureau\. \+2 land credits and 5 oil/.test(await toastsT()), 30000)
-  && await until(async () => (await credits()) === c0 + 2) && Math.abs((await oil()) - o0 - 5) < 0.01, `credits ${c0} → ${await credits()}, oil ${o0} → ${await oil()}`);
+check('visiting the Bureau pays the first step: 3 land credits and 5 oil', await until(async () => (await localNation(T)).tut && (await localNation(T)).tut.lc.includes('fxv'))
+  && await until(async () => /Visit the Foreign Exchange Bureau\. \+3 land credits and 5 oil/.test(await toastsT()), 30000)
+  && await until(async () => (await credits()) === c0 + 3) && Math.abs((await oil()) - o0 - 5) < 0.01, `credits ${c0} → ${await credits()}, oil ${o0} → ${await oil()}`);
 check('and earns Bureau de Change and the Bureau’s First Ledger', await until(async () => { const n = await localNation(T); return n.ach && n.ach['cur-bureau'] && n.coll && n.coll['mi-ledger']; }));
 await nav(T, 'exchange'); await nav(T, 'nation');
-check('a second visit pays nothing more', (await credits()) === c0 + 2 && Math.abs((await oil()) - o0 - 5) < 0.01);
+check('a second visit pays nothing more', (await credits()) === c0 + 3 && Math.abs((await oil()) - o0 - 5) < 0.01);
 check('the checklist ticks the task', /Done/.test(await text(T, '.tut-l-mark li[data-k="fxv"]')));
 await T.click('.tut-l-mark li[data-k="fxd"] [data-act="go"]'); await sleep(300);
 check('its other step opens the currency designer', /#customise(\/currency)?$/.test(T.url()) && !!(await T.$('#cz-sec-c')));
@@ -168,7 +168,7 @@ await T.mouse.move(1, 1);
 check('and says why', await until(async () => /cannot be a currency code: a code is three to five letters/.test(await toastsT()), 30000), await toastsT());
 await T.fill('#cu-f-cd', 'TRS'); await T.click('#cu-form button[type="submit"]'); await sleep(400);
 check('three letters are saved as typed', await until(async () => ((await localNation(T)).cur || {}).cd === 'TRS', 5000));
-check('designing the currency pays the second: 2 more land credits and 5 more oil', await until(async () => (await credits()) === c0 + 4) && Math.abs((await oil()) - o0 - 10) < 0.01, `credits ${await credits()}, oil ${await oil()}`);
+check('designing the currency pays the second: 3 more land credits and 5 more oil', await until(async () => (await credits()) === c0 + 6) && Math.abs((await oil()) - o0 - 10) < 0.01, `credits ${await credits()}, oil ${await oil()}`);
 const tn = await localNation(T);
 check('and earns Legal Tender and the Proof Coin', tn.ach['cur-design'] && tn.coll['mi-proof'] && tn.tut.lc.includes('fxd'));
 await nav(T, 'nation');

@@ -45,7 +45,7 @@ await A.screenshot({path:OUT+'/onboarding-charter-1280.png'});
 await A.goto(BASE+'/#customise');await A.waitForSelector('#cz-sec-c',{state:'attached'});
 check('direct Customise links open Customise from the start',await A.locator('#cz-sec-c').count()===1);
 await A.evaluate(()=>G.PG.sign());await nav(A,'nation');
-check('finishing the charter offers optional linking with the existing reward',await until(()=>A.locator('.account-link-card').isVisible())&&/5 land credits/.test(await A.locator('.account-link-card').textContent()));
+check('finishing the charter offers optional linking with the existing reward',await until(()=>A.locator('.account-link-card').isVisible())&&/10 land credits/.test(await A.locator('.account-link-card').textContent()));
 await A.locator('.account-link-card [data-act="account-compare"]').click();await A.waitForSelector('#help-account-types');
 await comparisonReady(A);
 check('comparison opens the permanent Help section',await A.locator('#help-account-types table tbody tr').count()===13&&await A.locator('.help-toc [href="#help-account-types"]').count()===1);
@@ -89,8 +89,8 @@ const goods0=await A.evaluate(()=>G.S.nation.stock.goods),credits0=await A.evalu
 await A.click('.tut-l-charter [data-act="tut-city"]');
 check('its button opens the capital’s rename form on the Cities page',await until(()=>A.evaluate(()=>G.S.view==='cities'&&document.activeElement?.id==='c3-ren')));
 await A.fill('#c3-ren','Firstharbour');await A.press('#c3-ren','Enter');
-check('naming the capital pays 3 land credits and 5 goods, and says so',await until(()=>A.evaluate(()=>G.S.nation.capital==='Firstharbour'&&(G.S.nation.tut?.lc||[]).includes('city')))
-  &&await A.evaluate(([g,c])=>G.TUTL.credits(G.S.nation)===c+3&&G.S.nation.stock.goods>=g+4.9,[goods0,credits0])&&await until(async()=>/Name your first city\. \+3 land credits and 5 goods/.test(await toastText(A)),40000));
+check('naming the capital pays 4 land credits and 5 goods, and says so',await until(()=>A.evaluate(()=>G.S.nation.capital==='Firstharbour'&&(G.S.nation.tut?.lc||[]).includes('city')))
+  &&await A.evaluate(([g,c])=>G.TUTL.credits(G.S.nation)===c+4&&G.S.nation.stock.goods>=g+4.9,[goods0,credits0])&&await until(async()=>/Name your first city\. \+4 land credits and 5 goods/.test(await toastText(A)),40000));
 await nav(A,'help');check('How to play shows all four lists, with every task',await A.locator('#help-tut .tut-hl-l').count()===4&&await A.locator('#help-tut .tut-hl-l li[data-k="res"]').count()===1);
 await saved();
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..');execFileSync(process.execPath,[path.join(ROOT,'jobs/fx/run.mjs'),'--project',PROJECT,'--region','meridian'],{env:{...process.env,FIRESTORE_EMULATOR_HOST:FS_HOST},encoding:'utf8'});
