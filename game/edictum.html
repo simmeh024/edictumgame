@@ -5383,6 +5383,7 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cb-regs{display:flex;flex-direction:column;gap:10px;max-width:900px}
 .cb-reg{border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
 .cb-reg.mine{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.cb-ch-lock .cb-reg-tg{cursor:default}.cb-ch-p{margin:0;padding:0 16px 14px}
 .cb-reg-h{margin:0;font:inherit}
 .cb-reg-tg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;width:100%;padding:13px 16px;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .cb-reg-tg:hover .cb-reg-n{text-decoration:underline}
@@ -47993,14 +47994,14 @@ function cbForm(){
   const f=CB.f;
   return `<form class="rmb-form cb-nf" id="cb-nf"><h2 class="h3">New topic</h2>
     ${S.isOwner?`<p class="hint">As an admin you can also sign a topic as the Edictum team, or post it on several boards at once, from <button type="button" class="linkish" data-act="go" data-v="admin-board">Community boards in the admin portal</button>.</p>`:''}
-    <div class="cb-nf-row"><span><label class="lbl" for="cb-f-reg">Board</label><select class="input" id="cb-f-reg">${regionsByAvail().filter(R=>!regDisabled(R.id)||R.id===f.reg).map(R=>`<option value="${R.id}"${R.id===f.reg?' selected':''}>${esc(R.name)}${REG&&R.id===REG.id?' (your region)':''}</option>`).join('')}</select></span>
+    <div class="cb-nf-row"><span><label class="lbl" for="cb-f-reg">Board</label><select class="input" id="cb-f-reg">${cbChancery()?`<option value="chancery"${f.reg==='chancery'?' selected':''}>The Chancery (members)</option>`:''}${regionsByAvail().filter(R=>!regDisabled(R.id)||R.id===f.reg).map(R=>`<option value="${R.id}"${R.id===f.reg?' selected':''}>${esc(R.name)}${REG&&R.id===REG.id?' (your region)':''}</option>`).join('')}</select></span>
     <span><label class="lbl" for="cb-f-tg">Kind</label><select class="input" id="cb-f-tg">${CB_TAGS.map(([k,l])=>`<option value="${k}"${k===f.tg?' selected':''}>${l}</option>`).join('')}</select></span></div>
     <label class="lbl" for="cb-f-ti">Title</label><input class="input" id="cb-f-ti" maxlength="${CB_TITLE}" value="${esc(f.ti)}" placeholder="What is it about?">
     <label class="lbl" for="cb-f-x">Post as ${esc(fullName(S.nation))}</label><textarea class="input" id="cb-f-x" rows="6" maxlength="${CB_TEXT}" placeholder="Say your piece…">${esc(f.x)}</textarea>
     <div class="rmb-bar"><span class="hint" id="cb-f-c">${f.x.length} / ${CB_TEXT}</span><span class="row"><button type="button" class="btn ghost" data-act="cb-new-no">Cancel</button><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='new'?'Posting…':'Post topic'}</button></span></div></form>`;
 }
 function cbTopicView(head){
-  const T=CB.topic,R=REG_BY_ID[T.reg],p=T.p,reps=CB.reps;
+  const T=CB.topic,R=T.reg===CB_CH.id?CB_CH:REG_BY_ID[T.reg],p=T.p,reps=CB.reps;
   const back=`<p class="cb-back"><a href="#community" data-act="cb-back">← All boards</a> · ${esc(R?R.name:'')}</p>`;
   if(T.err)return head+back+`<p class="err">${esc(T.err)}</p>`;
   if(!p)return head+back+'<p class="hint">Fetching the topic…</p>';
@@ -48016,6 +48017,12 @@ function cbTopicView(head){
   return head+back+cbArticle(T.reg,p)+`<h2 class="h3 cb-rh">${p.rc} ${p.rc===1?'reply':'replies'}</h2>`+
     (reps&&reps.err?`<p class="err">${esc(reps.err)}</p>`:list==null?'<p class="hint">Loading the replies…</p>':`<div class="cb-reps">${list.map(x=>cbArticle(T.reg,x,p.id)).join('')}</div>`)+form;
 }
+/* the Chancery board (functions/board.js CB_CHANCERY): for Chancery Club members and Founding Supporters, read and
+   written only by them (firestore.rules chanceryMember) and staff */
+const CB_CH={id:'chancery',name:'The Chancery'};
+function cbChancery(){const d=SHOP.doc||{};return cbStaff()||!!(d.owns&&d.owns.founder)||!!(d.vip&&d.vip.until>Date.now());}
+function cbChanceryLocked(){return `<section class="cb-reg cb-ch-lock"><h2 class="cb-reg-h"><span class="cb-reg-tg"><span class="cb-car" aria-hidden="true">🔒</span><span class="cb-reg-n">The Chancery</span><span class="cb-reg-c">Members only</span></span></h2>
+  <p class="hint cb-ch-p">A private board for Chancery Club members and Founding Supporters. <button type="button" class="linkish" data-act="go" data-v="shop">See the Chancery Club</button></p></section>`;}
 function cbView(){
   const head=`<header class="vh"><p class="eyebrow">Every region’s notice board</p><h1>Community Board</h1><p>Talk trade, treaties and trouble with the nations of every region. Your own region’s board comes first; open any other to read it and join in.</p></header>`;
   if(!S.db)return head+'<div class="info">The board needs a connection. It appears here when the game is connected.</div>';
@@ -48023,10 +48030,10 @@ function cbView(){
   if(CB.pend){const [g,t]=CB.pend;CB.pend=null;cbOpenTopic(g,t);}
   if(CB.topic)return cbTopicView(head);
   const regs=regionsByAvail().filter(R=>!regDisabled(R.id)||(REG&&R.id===REG.id)||(CB.meta[R.id]&&CB.meta[R.id].n)),own=regs.filter(R=>REG&&R.id===REG.id),rest=regs.filter(R=>!REG||R.id!==REG.id);
-  return head+cbForm()+`<div class="cb-regs">${own.concat(rest).map(cbBoard).join('')}</div>`;
+  return head+cbForm()+`<div class="cb-regs">${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${own.concat(rest).map(cbBoard).join('')}</div>`;
 }
 async function cbCall(data){const api=await window.claude.use('civic');if(!api)throw Object.assign(new Error('Reconnect first.'),{code:'unavailable'});return api.request(data);}
-const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','cb_paced','permission-denied','invalid-argument'];
+const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','cb_chancery','cb_paced','permission-denied','invalid-argument'];
 function cbErr(e,what){toast(e&&CB_SAY.includes(e.code)&&e.message?e.message:`The ${what} could not be saved. Try again in a moment.`);}
 async function cbSendTopic(){
   const f=CB.f;if(CB.busy)return;

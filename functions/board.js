@@ -22,8 +22,17 @@ const body = (x, max) => typeof x === 'string' ? x.replace(/\r\n?/g, '\n').repla
 const day = t => new Date(t).toISOString().slice(0, 10);
 export const CB_TITLE = 120, CB_TEXT = 4000;
 
+/* The Chancery: one more board, not a region's, for Chancery Club members (a paid-up vip.until) and Founding
+   Supporters (owns.founder), both read from the server's own shop/{uid}; staff always. firestore.rules keeps the
+   same test for reading it. */
+export const CB_CHANCERY = 'chancery';
+export const chanceryOk = (shop, now = Date.now()) => !!(shop && shop.exists && (shop.get('owns.founder') || (shop.get('vip.until') || 0) > now));
+async function gate(db, who, reg) {
+  if (reg !== CB_CHANCERY || who.admin || who.mod) return;
+  if (!chanceryOk(await db.doc('shop/' + who.uid).get())) refuse('cb_chancery', 'The Chancery board is for Chancery Club members and Founding Supporters.');
+}
 function where(regions, d) {
-  const reg = typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '';
+  const reg = typeof d.reg === 'string' && (regions.has(d.reg) || d.reg === CB_CHANCERY) ? d.reg : '';
   if (!reg) throw new HttpsError('invalid-argument', 'Choose a region.');
   return reg;
 }
@@ -78,6 +87,7 @@ const audit = (b, db, who, action, extra) => b.create(db.collection('adminAudit'
 
 export async function cbTopic(db, who, d, regions) {
   const reg = where(regions, d), ti = line(d.ti, CB_TITLE), x = body(d.x, CB_TEXT), tg = CB_TAGS.includes(d.tg) ? d.tg : 'general';
+  await gate(db, who, reg);
   if (ti.length < 3) throw new HttpsError('invalid-argument', 'Give the topic a title of at least three characters.');
   if (!x) throw new HttpsError('invalid-argument', 'Write something first.');
   return db.runTransaction(async tx => {
@@ -92,6 +102,7 @@ export async function cbTopic(db, who, d, regions) {
 
 export async function cbReply(db, who, d, regions) {
   const reg = where(regions, d), tid = id20(d.topic), x = body(d.x, CB_TEXT);
+  await gate(db, who, reg);
   if (!tid) throw new HttpsError('invalid-argument', 'Choose a topic.');
   if (!x) throw new HttpsError('invalid-argument', 'Write a reply first.');
   return db.runTransaction(async tx => {
@@ -136,6 +147,7 @@ export async function cbPost(db, who, d, regions) {
 /* the author changes their own words, and any admin those signed by the Edictum team; the post shows when it was edited */
 export async function cbEdit(db, who, d, regions) {
   const reg = where(regions, d), tid = id20(d.topic), rid = d.reply ? id20(d.reply) : '', x = body(d.x, CB_TEXT), ti = line(d.ti, CB_TITLE);
+  await gate(db, who, reg);
   if (!tid || (d.reply && !rid)) throw new HttpsError('invalid-argument', 'Choose a post.');
   if (!x || (!rid && ti.length < 3)) throw new HttpsError('invalid-argument', 'A post needs its text, and a topic its title.');
   return db.runTransaction(async tx => {
@@ -161,6 +173,7 @@ async function dropTopic(db, ref) {
 /* the author deletes their own post, or staff delete anyone's */
 export async function cbDelete(db, who, d, regions) {
   const reg = where(regions, d), tid = id20(d.topic), rid = d.reply ? id20(d.reply) : '';
+  await gate(db, who, reg);
   if (!tid || (d.reply && !rid)) throw new HttpsError('invalid-argument', 'Choose a post.');
   const topicRef = db.doc('cb/' + reg + '/posts/' + tid), ref = rid ? topicRef.collection('posts').doc(rid) : topicRef, p = await ref.get();
   if (!p.exists) return { ok: true };

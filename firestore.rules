@@ -73,6 +73,11 @@ service cloud.firestore {
         'lanterncoast', 'jadeterraces', 'highcrags', 'cloudspine', 'obsidianrim', 'ambershallows',
         'sunkenkingdoms', 'mistral', 'stormwrack', 'longvalley', 'greywater', 'scatteredcrown', 'terra'];
     }
+    function chanceryMember() {
+      return isAdmin() || signedIn() && exists(/databases/$(database)/documents/shop/$(request.auth.uid))
+        && (get(/databases/$(database)/documents/shop/$(request.auth.uid)).data.get('owns', {}).get('founder', null) != null
+          || get(/databases/$(database)/documents/shop/$(request.auth.uid)).data.get('vip', {}).get('until', 0) > request.time.toMillis());
+    }
     function label(s) {
       return s is string && s.size() <= 80;
     }
@@ -483,7 +488,10 @@ service cloud.firestore {
 
     // every post, wherever it is, for a player deleting their account (posts where a == their uid)
     match /{path=**}/posts/{pid} {
-      allow read: if true;
+      // the Chancery board (cb/chancery) only for Club members, Founding Supporters and admins; an author always
+      // reads their own posts (account deletion queries posts where a == uid)
+      allow read: if !string(path).matches('^/?(databases/[^/]+/documents/)?cb/chancery(/.*)?$') || chanceryMember()
+        || signedIn() && resource.data.a == request.auth.uid;
     }
 
     // Development news: only admins write posts, their images and the index. The HTML is cleaned in the
