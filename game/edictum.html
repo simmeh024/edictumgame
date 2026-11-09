@@ -5383,7 +5383,7 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cb-regs{display:flex;flex-direction:column;gap:10px;max-width:900px}
 .cb-reg{border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
 .cb-reg.mine{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
-.cb-ch-lock .cb-reg-tg{cursor:default}.cb-mn{list-style:none;margin:2px 0 6px;padding:4px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.12)}.cb-mn li{padding:6px 10px;border-radius:4px;cursor:pointer}.cb-mn li[aria-selected=true],.cb-mn li:hover{outline:2px solid var(--accent)}.cb-at{color:var(--accent);font-weight:600}.cb-at.me{background:color-mix(in srgb,var(--accent) 16%,transparent);border-radius:4px;padding:0 2px}.cb-ch-p{margin:0;padding:0 16px 14px}
+.cb-ch-lock .cb-reg-tg{cursor:default}.cb-mn{list-style:none;margin:2px 0 6px;padding:4px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.12)}.cb-mn li{padding:6px 10px;border-radius:4px;cursor:pointer}.cb-mn li[aria-selected=true],.cb-mn li:hover{outline:2px solid var(--accent)}.cb-at{color:var(--accent);font-weight:600}.cb-mn-r{opacity:.65;font-size:.9em}.cb-at.me{background:color-mix(in srgb,var(--accent) 16%,transparent);border-radius:4px;padding:0 2px}.cb-ch-p{margin:0;padding:0 16px 14px}
 .cb-reg-h{margin:0;font:inherit}
 .cb-reg-tg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;width:100%;padding:13px 16px;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .cb-reg-tg:hover .cb-reg-n{text-decoration:underline}
@@ -48066,23 +48066,42 @@ function cbView(){
    they have open; the server (functions/board.js mentioned) checks each name and leaves a notice in their bell ── */
 function cbMnPool(){const m=new Map(),add=(a,nm)=>{if(a&&nm&&a!==S.uid&&!m.has(a))m.set(a,nm);};
   for(const x of allNations())if(!x.npc&&!x.me&&x.n&&x.n.name)add(x.id,x.n.name);
+  for(const [u,v] of CB.mnFar||[])add(u,v.nm);
   const posts=[...Object.values(CB.lists).flatMap(L=>(L.list||[]).concat(L.pins||[])),...(CB.topic&&CB.topic.p?[CB.topic.p]:[]),...(CB.reps&&CB.reps.list||[])];
   for(const p of posts)if(!p.of)add(p.a,p.nm);
   return m;}
-function cbMnIds(text){const low=String(text||'').toLowerCase(),out=[];
-  for(const [u,nm] of cbMnPool())if(low.includes('@'+nm.toLowerCase())&&out.length<5)out.push(u);
+function cbMnIds(text){const low=String(text||'').toLowerCase(),out=[],named=new Set();
+  for(const [nm,u] of CB.mnPick||[])if(low.includes('@'+nm.toLowerCase())&&out.length<5){out.push(u);named.add(nm.toLowerCase());}
+  for(const [u,nm] of cbMnPool())if(!out.includes(u)&&!named.has(nm.toLowerCase()))if(low.includes('@'+nm.toLowerCase())&&out.length<5)out.push(u);
   return out;}
 function cbMnQuery(t){const v=t.value.slice(0,t.selectionStart),m=/(?:^|[\s(])@([^@\n]{0,30})$/.exec(v);return m?m[1]:null;}
 function cbMnClose(){const b=document.getElementById('cb-mn');if(b)b.remove();const t=CB.mnFor&&document.getElementById(CB.mnFor);if(t)t.removeAttribute('aria-activedescendant');CB.mnFor=null;CB.mnSel=0;}
-function cbMnSuggest(t){
+/* every region: summaries/ (public: name and region of each nation) by name prefix, as typed and with the first
+   letter in upper and lower case; a short pause after typing, the newest 8 a query, answers kept for the page */
+function cbMnFarReg(u){const v=CB.mnFar&&CB.mnFar.get(u);return v&&v.reg&&(!REG||v.reg!==REG.id)?v.reg:'';}
+function cbMnFetch(t,q){
+  if(!S.db||!q)return;CB.mnQs=CB.mnQs||new Set();CB.mnFar=CB.mnFar||new Map();
+  const forms=[...new Set([q,q[0].toUpperCase()+q.slice(1),q[0].toLowerCase()+q.slice(1),q.toUpperCase()])].filter(f=>!CB.mnQs.has(f));
+  if(!forms.length)return;
+  clearTimeout(CB.mnTm);CB.mnTm=setTimeout(()=>{
+    forms.forEach(f=>CB.mnQs.add(f));
+    Promise.all(forms.map(f=>Promise.resolve().then(()=>S.db.collection('summaries').where('name','>=',f).where('name','<',f+'\uf8ff').limit(8).get()).then(qs=>qs.docs,()=>[]))).then(all=>{
+      let n=0;for(const d of all.flat()){const x=d.data()||{};if(typeof x.name==='string'&&x.name&&d.id!==S.uid&&!CB.mnFar.has(d.id)){CB.mnFar.set(d.id,{nm:x.name.slice(0,80),reg:String(x.reg||'')});n++;}}
+      const el=document.getElementById(CB.mnFor||t.id);if(n&&el&&document.activeElement===el)cbMnSuggest(el,true);});
+  },220);}
+function cbMnSuggest(t,again){
   const q=cbMnQuery(t);if(q==null){cbMnClose();return;}
-  const ql=q.toLowerCase(),hits=[...cbMnPool()].filter(([u,nm])=>nm.toLowerCase().startsWith(ql)||ql.length>1&&nm.toLowerCase().includes(ql)).slice(0,6);
+  const ql=q.toLowerCase();
+  if(!again&&q.trim())cbMnFetch(t,q.trim());
+  const hits=[...cbMnPool()].filter(([u,nm])=>nm.toLowerCase().startsWith(ql)||ql.length>1&&nm.toLowerCase().includes(ql))
+    .sort((a,b)=>(cbMnFarReg(a[0])?1:0)-(cbMnFarReg(b[0])?1:0)||(b[1].toLowerCase().startsWith(ql)?1:0)-(a[1].toLowerCase().startsWith(ql)?1:0)).slice(0,8);
   if(!hits.length){cbMnClose();return;}
   let b=document.getElementById('cb-mn');if(!b){b=document.createElement('ul');b.id='cb-mn';b.className='cb-mn';b.setAttribute('role','listbox');b.setAttribute('aria-label','Mention a nation');t.insertAdjacentElement('afterend',b);}
   CB.mnFor=t.id;CB.mnSel=Math.min(CB.mnSel||0,hits.length-1);
-  b.innerHTML=hits.map(([u,nm],i)=>`<li role="option" id="cb-mn-${i}" aria-selected="${i===CB.mnSel}" data-nm="${esc(nm)}">@${esc(nm)}</li>`).join('');
+  b.innerHTML=hits.map(([u,nm],i)=>`<li role="option" id="cb-mn-${i}" aria-selected="${i===CB.mnSel}" data-u="${esc(u)}" data-nm="${esc(nm)}">@${esc(nm)}${cbMnFarReg(u)?`<span class="cb-mn-r"> · ${esc(regName(cbMnFarReg(u)))}</span>`:''}</li>`).join('');
   t.setAttribute('aria-activedescendant','cb-mn-'+CB.mnSel);}
-function cbMnPick(t,nm){
+function cbMnPick(t,nm,u){
+  if(u){CB.mnPick=CB.mnPick||new Map();CB.mnPick.set(nm,u);}
   const pos=t.selectionStart,v=t.value,start=v.slice(0,pos).lastIndexOf('@');if(start<0)return;
   const ins='@'+nm+' ';t.value=v.slice(0,start)+ins+v.slice(pos);t.selectionStart=t.selectionEnd=start+ins.length;
   cbMnClose();t.dispatchEvent(new Event('input',{bubbles:true}));cbMnClose();t.focus();}
@@ -48090,13 +48109,13 @@ document.addEventListener('keydown',e=>{
   const t=e.target,b=document.getElementById('cb-mn');if(!b||!t||t.id!==CB.mnFor)return;
   const n=b.children.length;
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();CB.mnSel=(CB.mnSel+(e.key==='ArrowDown'?1:n-1))%n;cbMnSuggest(t);}
-  else if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();cbMnPick(t,b.children[CB.mnSel].dataset.nm);}
+  else if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();cbMnPick(t,b.children[CB.mnSel].dataset.nm,b.children[CB.mnSel].dataset.u);}
   else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cbMnClose();}
 },true);
 /* a mention in the bell opens its topic: set before the bell's own click handler goes to the board */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-cb]');if(!el)return;
   const m=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.cb);if(m){cbOpenSet().add(m[1]);CB.pend=[m[1],m[2]];}},true);
-document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#cb-mn li');if(!li)return;e.preventDefault();const t=document.getElementById(CB.mnFor);if(t)cbMnPick(t,li.dataset.nm);});
+document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#cb-mn li');if(!li)return;e.preventDefault();const t=document.getElementById(CB.mnFor);if(t)cbMnPick(t,li.dataset.nm,li.dataset.u);});
 document.addEventListener('focusout',e=>{if(e.target&&e.target.id&&e.target.id===CB.mnFor)setTimeout(()=>{if(document.activeElement!==e.target)cbMnClose();},0);});
 /* the bell: mentions/{uid}/m, the newest 20; those older than 30 days are cleared */
 function cbMnListen(){
