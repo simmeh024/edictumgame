@@ -52617,11 +52617,15 @@ achDef('odd','odd-stk365','x','Unbroken','Keep up a presence streak of 365 days.
 /* ───────── first steps: easy Bronze achievements that walk a new player through the game ─────────
    Pages count the first time the player opens them (tally view:<page>, one save each, then never again). */
 const FS_SKIP=new Set(['visit','admin','admin-help','admin-stats','admin-shop','admin-online']);
+/* the first visit to a page is remembered here and written with the nation's next ordinary save (a save of its own would
+   redraw the page just as it opens, and wipe what the player starts typing) */
+const FS_PEND=new Set();
 go=(f=>function(v){const r=f.apply(this,arguments);try{const n=S.nation;
-  if(n&&!n.npc&&n.name&&!OBS&&S.mode!=='readonly'&&typeof v==='string'&&/^[a-z-]{2,24}$/.test(v)&&!FS_SKIP.has(v)&&!v.startsWith('admin')&&!tallyOf(n,'view:'+v))
-    setTimeout(()=>{const n0=S.nation;if(!n0||tallyOf(n0,'view:'+v))return;const m=clone(n0);gbBump(m,'view:'+v,1,Date.now());commit(m);try{saveSoon();}catch(e){}},0);}catch(e){}return r;})(go);
-const aPages=x=>x.npc?0:Object.keys(x.n.tly||{}).filter(k=>k.startsWith('view:')).length;
-const aViewed=(x,v)=>achYes(aT(x,'view:'+v)>0);
+  if(n&&!n.npc&&n.name&&!OBS&&S.mode!=='readonly'&&typeof v==='string'&&/^[a-z-]{2,24}$/.test(v)&&!FS_SKIP.has(v)&&!v.startsWith('admin')&&!tallyOf(n,'view:'+v))FS_PEND.add(v);}catch(e){}return r;})(go);
+COMMIT_HOOKS.unshift((n,old,now)=>{if(!FS_PEND.size||!n||n.npc||!n.name)return [];for(const v of FS_PEND)if(!tallyOf(n,'view:'+v))gbBump(n,'view:'+v,1,now);FS_PEND.clear();return [];});
+const fsSeen=x=>{const s=new Set(Object.keys(x.n.tly||{}).filter(k=>k.startsWith('view:')).map(k=>k.slice(5)));if(x.me)for(const v of FS_PEND)s.add(v);return s;};
+const aPages=x=>x.npc?0:fsSeen(x).size;
+const aViewed=(x,v)=>achYes(!x.npc&&fsSeen(x).has(v));
 achDef('found','fs-pages10','b','Finding Your Way','Open ten different pages of the game.',10,aPages);
 achDef('found','fs-pages20','b','Seen It All','Open twenty different pages of the game.',20,aPages);
 achDef('found','fs-stats','b','Census Taker','Open the Statistics page and see your nation in figures.',1,x=>aViewed(x,'stats'),{fm:'bool'});
