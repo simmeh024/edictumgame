@@ -14,7 +14,7 @@ const { getAuth } = require('firebase-admin/auth');
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum', AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099', FN = process.env.FUNCTIONS_EMULATOR_HOST || '127.0.0.1:5001';
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), auth = getAuth(), DAY = 864e5, H = 36e5, SECRET = 'pdl_ntfset_test_secret';
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── the stand-in for Paddle ── */
@@ -472,4 +472,13 @@ test('the Black Friday Pack: €1.99, its three pieces held, gifts allowed, and 
   /* after the end of 30 November, by the server's clock */
   await config({ skew: Date.parse(CATALOGUE.products.bfpack.until) + 3600e3 - Date.now() });
   try { const q = await player(); await rejects(call(q, { step: 'checkout', product: 'bfpack' }), 'sale_ended'); } finally { await config(); }
+});
+
+test('the Old Republic Pack: €2.99 and all ten of its pieces held', async () => {
+  assert.equal(CATALOGUE.products.orpack.amount, 299);assert.equal(CATALOGUE.products.orpack.grants.length, 10);
+  const p = await player(), c = await call(p, { step: 'checkout', product: 'orpack' });
+  await hook('transaction.completed', pay(c.txn));
+  const f = (await finery(p.uid)).c;
+  for (const id of CATALOGUE.products.orpack.grants) assert.ok(f.includes(id), id + ' is held');
+  await rejects(call(p, { step: 'checkout', product: 'orpack' }), 'owned');
 });
