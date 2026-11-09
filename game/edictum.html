@@ -26387,6 +26387,9 @@ const RCTRL={ready:false,states:{},err:'',off:null};
 function regDisabled(id){const s=RCTRL.states[id];return s?s.enabled===false:!!(REG_BY_ID[id]&&REG_BY_ID[id].soon);}
 function regMode(id){if(!regDisabled(id))return 'enabled';const s=RCTRL.states[id];return !s||s.mode==='coming_soon'?'coming_soon':'maintenance';}
 /* the regions in the order players see them: open first, then those under maintenance, then those coming soon */
+/* until 12 Nov 2026 the founding lists put open regions with the fewest active players first, to spread new nations out */
+const QUIET_FIRST_UNTIL=Date.UTC(2026,10,12);
+function regionsForFounding(){const L=regionsByAvail();if(Date.now()>=QUIET_FIRST_UNTIL||!Object.keys(RSTAT.n).length)return L;const rk=R=>({enabled:0,maintenance:1,coming_soon:2})[regMode(R.id)]+(regFull(R.id)?0.5:0);return L.map((R,i)=>[R,i]).sort((a,b)=>rk(a[0])-rk(b[0])||(rk(a[0])===0?(RSTAT.n[a[0].id]||0)-(RSTAT.n[b[0].id]||0):0)||a[1]-b[1]).map(x=>x[0]);}
 function regionsByAvail(){const rk=R=>({enabled:0,maintenance:1,coming_soon:2})[regMode(R.id)];return REGIONS.map((R,i)=>[R,i]).sort((a,b)=>rk(a[0])-rk(b[0])||a[1]-b[1]).map(x=>x[0]);}
 /* the room a region has for active nations: its own cap, or the usual one (tests set EDICTUM_REGION_CAP for all) */
 function regCap(id){const R=REG_BY_ID[id];return window.EDICTUM_REGION_CAP||!(R&&R.cap>0)?REGION_CAP:R.cap;}
@@ -26443,7 +26446,7 @@ function foundAutoRegion(){
   if(tabPassive)return false;
   let chose=null;try{chose=localStorage.getItem('statehood.region');if(sessionStorage.getItem('statehood.autoreg'))return false;}catch(e){return false;}
   if(chose||S.draftKept||!regFull(REG.id)||(S.draft&&S.draft.name!==RSTAT.nm0))return false;
-  const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)&&!regDisabled(R.id)).sort((a,b)=>(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
+  const open=REGIONS.filter(R=>R.id!==REG.id&&!regFull(R.id)&&!regDisabled(R.id)).sort((a,b)=>Date.now()<QUIET_FIRST_UNTIL?(RSTAT.n[a.id]||0)-(RSTAT.n[b.id]||0):(RSTAT.n[b.id]||0)-(RSTAT.n[a.id]||0));
   if(!open.length)return false;
   draftKeep(open[0].id);try{localStorage.setItem('statehood.region',open[0].id);sessionStorage.setItem('statehood.autoreg','1');}catch(e){return false;}
   location.reload();return true;
@@ -26554,7 +26557,7 @@ function foundRegionBrowser(){
   regStatsSoon();
   const known=Object.keys(RSTAT.n).length>0;
   return `<p class="hint">Each region has its own map, computer nations and players. Everything you have filled in above comes with you when you switch.</p>
-    <div class="wr-grid fr-grid">${regionsByAvail().map(R=>{const here=R.id===REG.id,full=!here&&regFull(R.id),disabled=regDisabled(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,c=here||known?regCount(R.id):null;
+    <div class="wr-grid fr-grid">${regionsForFounding().map(R=>{const here=R.id===REG.id,full=!here&&regFull(R.id),disabled=regDisabled(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,c=here||known?regCount(R.id):null;
       return `<article class="wr-card${here?' here':''}${disabled?' region-disabled':''}"><button type="button" class="wr-pick" data-act="found-region" data-id="${R.id}"${here?' aria-current="true"':''}${full||disabled?' disabled':''}><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
         <span class="wr-b"><span class="wr-n">${esc(R.name)}${here?' <span class="chip ok">Chosen</span>':''}${full?' <span class="chip">Full</span>':''}${disabled?` <span class="chip">${regLabel(R.id)}</span>`:''}</span><span class="wr-s">${esc(R.short)}</span>
         <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations${c==null?'':` · ${c===1?'1 player':c+' players'}`}</span></span></button></article>`;}).join('')}</div>`;
@@ -26584,7 +26587,7 @@ function foundRegionBox(){
     <div class="fr-life" id="found-life">${foundLifeHTML()}</div>
     ${regDisabled(REG.id)?`<p class="err" role="status">${regionMessage(REG.id)}</p>`:''}
     ${full?`<p class="hint">${esc(REG.name)} is full: it has room for ${regCap(REG.id)} active nations. Choose another region to found your nation.</p>`:''}
-    <details class="fr-more"${full||regDisabled(REG.id)||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${regionsByAvail().map(R=>{const f=R.id!==REG.id&&regFull(R.id),disabled=regDisabled(R.id);return `<li class="${disabled?'region-disabled':''}"><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f||disabled?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}${disabled?` <span class="chip">${regLabel(R.id)}</span>`:''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
+    <details class="fr-more"${full||regDisabled(REG.id)||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${regionsForFounding().map(R=>{const f=R.id!==REG.id&&regFull(R.id),disabled=regDisabled(R.id);return `<li class="${disabled?'region-disabled':''}"><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f||disabled?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}${disabled?` <span class="chip">${regLabel(R.id)}</span>`:''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details></div>`;
 }
 
 /* ───────── Round 9 (E): dormant nations ─────────
