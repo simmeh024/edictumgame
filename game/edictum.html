@@ -776,6 +776,33 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .adlt-x{margin:0;overflow-wrap:anywhere}
 .adlt-tbl .num{text-align:right}
 .adlt-why{margin-top:12px;max-width:560px}
+.mw-top{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:20px;align-items:start;margin:0 0 22px}
+.mw-bld{width:100%;height:auto;display:block;background:var(--sheet);border:1px solid var(--rule);border-radius:8px}
+.mw-boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.mw-boxes .wd-box p{margin:0 0 8px}
+.mw-tk,.mw-cu{flex-wrap:wrap;gap:6px}
+.mw-tk .btn.on,.mw-cu .btn.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+.mw-rank{margin:0 0 8px;padding-left:20px;display:grid;gap:4px}
+.mw-rank li{display:list-item}
+.mw-rank li>span{display:inline-flex;justify-content:space-between;width:100%;gap:10px}
+.mw-rank li.me{font-weight:700}
+.mw-arts{list-style:none;margin:0 0 10px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.mw-art{display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 10px;align-items:center;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+.mw-art>.btn,.mw-art>.chip,.mw-art>.hint:last-child{grid-column:1/-1;justify-self:start}
+.mw-art-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mw-art-t b{overflow-wrap:anywhere}
+.mw-art.r-r{border-color:#4f7fb8}.mw-art.r-l{border-color:#c9a227;box-shadow:inset 0 0 0 1px #c9a22755}
+.mw-empty{display:flex;align-items:center;justify-content:center;min-height:64px;border-style:dashed;background:none}
+.mw-flags{list-style:none;margin:0 0 10px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.mw-flags li{display:flex;flex-direction:column;gap:6px}
+.mw-flag svg{width:100%;height:auto;display:block;box-shadow:0 1px 3px rgba(0,0,0,.25);border-radius:2px}
+.mw-ex{border:1px solid var(--rule);border-radius:10px;padding:16px 18px;background:var(--sheet)}
+.mw-lend{max-width:360px;margin:10px 0}
+.mw-planw{min-width:0}
+.mw-fltabs{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 10px}
+.mw-fltabs [data-locked]{opacity:.6}
+.mw-fp{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))!important;grid-template-rows:none!important}
+@media (max-width:760px){.mw-top{grid-template-columns:minmax(0,1fr)}}
 .gw{grid-column:1/-1;font-size:13px}
 .gw summary{cursor:pointer;color:var(--ink-3);width:max-content;min-height:32px;display:flex;align-items:center}
 .gw ul{list-style:none;margin:6px 0 2px;padding:10px 12px;display:grid;gap:4px;background:var(--sheet-2,rgba(0,0,0,.03));border:1px solid var(--rule);border-radius:6px;max-width:520px}
@@ -38640,7 +38667,7 @@ function muEntrance(x,now,vis){
   const n=x.n,own=colOwned(n),k=collCount(n),sets=collSetsDone(n),cur=!n.npc?cabOf(n).cul:null;
   const pol=n.policies||{},adm=pol.sundayClosing?'Free, closed on Sundays':pol.siesta?'Free, closed after lunch':pol.fourDay?'Free, four days a week':'Free';
   const rows=[
-    ['Curator',cur?`${esc(cur.nm)}<span class="hint mu-sub">Minister of Culture and Sport</span>`:'The state archivist'],
+    ['Curator',!n.npc&&n.mw&&n.mw.cu&&typeof MW_CU!=='undefined'&&MW_CU[n.mw.cu.k]?`${esc(n.mw.cu.nm)}<span class="hint mu-sub">${esc(MW_CU[n.mw.cu.k].nm)}</span>`:cur?`${esc(cur.nm)}<span class="hint mu-sub">Minister of Culture and Sport</span>`:'The state archivist'],
     ['Opened',n.npc?'Before records began':`${muDate(n.founded)}<span class="hint mu-sub">the day ${esc(n.name)} was founded</span>`],
     ['Visitors',`about ${fmt0(muVisitors(n,now))} a year`],
     ['Collection',`${k} of ${collTotal()} artefacts`],
@@ -53087,6 +53114,278 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
 /* leaving the page folds the sheet */
 go=(f=>function(v){if(v!=='map')MAPX.sheet=false;return f.apply(this,arguments);})(go);
 
+/* ───────── the museum, expanded: floors, display cases, takings, a curator, restoration, exhibitions, loans ─────────
+   n.mw (shared half, so other players' museums can show loans and the region can rank museums):
+     fl  floors built (1 to 3)        b   {f, t1} a floor being built       dc  [artefact ids] in the display cases
+     tk  ticket price 0 to 3          cu  {k, nm, t} the curator           tc  day the takings were last collected
+     rs  {id: t1} restorations         lo  [{id, to, t0, t1}] loans out    ex  [month keys] exhibitions completed
+     fh  [flag JSON] flags flown      yr  times this museum led its region
+   A floor needs a nation of a certain size (a gate: nobody leaves) and takes materials. */
+const MW_FLOORS=[null,null,
+  {fl:2,nm:'The first floor',need:8,cost:{timber:120,iron:40,goods:80},h:48},
+  {fl:3,nm:'The second floor and the dome',need:40,cost:{timber:300,iron:120,goods:200,oil:40},h:96}];
+const MW_FLOOR_NM=['','Ground floor','First floor','Second floor'];
+const MW_UP={natural:2,treasury:2,flags:2,gallery:2,exhibit:3,loans:3};
+const MW_TK=[['Free',0,0],['A small donation',3,0.15],['A proper ticket',6,0.35],['Premium admission',9,0.6]];   // name, goods per million visitors, happiness lost per collection
+const MW_CU={hoarder:{nm:'The Hoarder',d:'Keeps everything. Diggers roll 2 higher.',g:'crate'},scholar:{nm:'The Scholar',d:'Writes the labels. Each case counts a fifth more.',g:'book'},showman:{nm:'The Showman',d:'Puts on a show. A fifth more visitors.',g:'star'}};
+const MW_CU_NAMES=['Dr. Edith Marchbank','Professor Tobias Wren','Ms. Halcyon Brayford','Mr. Ignatius Pell','Dr. Rosamund Achterberg','Sir Clement Doyle-Hart'];
+const MW_EXHIBITS=[
+  {k:'steam',n:'The Age of Steam',d:'Engines, ledgers and the smell of coal.',w:['econ','trade','build','iron','coin','gear']},
+  {k:'sea',n:'Treasures of the Sea',d:'Everything the tide has ever given back.',w:['sea','ship','fish','tide','harbour','anchor']},
+  {k:'power',n:'Crowns and Ballots',d:'How the nation has been ruled, and by whom.',w:['gov','crown','ballot','law','scroll','seal']},
+  {k:'earth',n:'From the Earth',d:'Dug up, polished and labelled.',w:['dg-','fords','stone','pot','bone','fossil']},
+  {k:'arts',n:'The Arts and the People',d:'Songs, stamps and things people stood in line for.',w:['stamp','song','art','culture','festival','paint']},
+  {k:'world',n:'A Wider World',d:'Maps, letters and gifts from abroad.',w:['map','letter','gift','explore','compass','dm']}];
+const MW_RAR_PT={c:1,u:2,r:3,l:5};
+
+function mwOf(n){const m=n&&n.mw&&typeof n.mw==='object'?n.mw:{};return {fl:clamp(Math.floor(num0(m.fl))||1,1,3),b:m.b&&typeof m.b==='object'?m.b:null,dc:Array.isArray(m.dc)?m.dc:[],tk:clamp(Math.floor(num0(m.tk)),0,3),cu:m.cu&&MW_CU[m.cu.k]?m.cu:null,tc:num0(m.tc),rs:m.rs&&typeof m.rs==='object'?m.rs:{},lo:Array.isArray(m.lo)?m.lo:[],ex:Array.isArray(m.ex)?m.ex:[],fh:Array.isArray(m.fh)?m.fh:[],yr:num0(m.yr),yrD:num0(m.yrD)};}
+NORM_HOOKS.push((n,d)=>{
+  const m=d.mw;if(!m||typeof m!=='object'||Array.isArray(m))return;const own=n.coll||{},o={};
+  o.fl=clamp(Math.floor(num0(m.fl))||1,1,3);
+  if(m.b&&typeof m.b==='object'&&(m.b.f===2||m.b.f===3)&&isFinite(m.b.t1))o.b={f:m.b.f,t1:+m.b.t1};
+  if(Array.isArray(m.dc))o.dc=[...new Set(m.dc.filter(id=>typeof id==='string'&&COL_BY_ID[id]))].slice(0,12);
+  o.tk=clamp(Math.floor(num0(m.tk)),0,3);
+  if(m.cu&&typeof m.cu==='object'&&MW_CU[m.cu.k])o.cu={k:m.cu.k,nm:String(m.cu.nm||'').slice(0,60),t:num0(m.cu.t)};
+  o.tc=num0(m.tc);
+  if(m.rs&&typeof m.rs==='object'){o.rs={};for(const k of Object.keys(m.rs).slice(0,200))if(COL_BY_ID[k]&&isFinite(m.rs[k]))o.rs[k]=+m.rs[k];}
+  if(Array.isArray(m.lo))o.lo=m.lo.filter(x=>x&&COL_BY_ID[x.id]&&typeof x.to==='string'&&x.to.length<=128&&isFinite(x.t0)&&isFinite(x.t1)).slice(0,4).map(x=>({id:x.id,to:x.to,t0:+x.t0,t1:+x.t1}));
+  if(Array.isArray(m.ex))o.ex=m.ex.filter(x=>typeof x==='string'&&x.length<=20).slice(-24);
+  if(Array.isArray(m.fh))o.fh=m.fh.filter(x=>typeof x==='string'&&x.length<=3000).slice(-12);
+  o.yr=Math.max(0,Math.floor(num0(m.yr)));o.yrD=Math.max(0,Math.floor(num0(m.yrD)));
+  n.mw=o;
+});
+/* a floor whose builders have finished is open: settled on the next save */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc)return;const m=mwOf(n);let ch=false;
+  if(m.b&&m.b.t1<=now){m.fl=Math.max(m.fl,m.b.f);m.b=null;ch=true;try{n.log=[{t:now,k:'mwfl',a:MW_FLOOR_NM[m.fl]}].concat(n.log||[]).slice(0,60);}catch(e){}}
+  /* the gallery of flags keeps every design the nation has flown */
+  try{const f=JSON.stringify(n.flag||{});if(n.flag&&m.fh[m.fh.length-1]!==f){m.fh=m.fh.concat(f).slice(-12);ch=true;}}catch(e){}
+  /* finished loans come home */
+  const back=m.lo.filter(x=>x.t1<=now);if(back.length){m.lo=m.lo.filter(x=>x.t1>now);for(const x of back){applyEffects(n,{culture:0.5});cvBump(n,'mw:lent',now);}ch=true;}
+  /* museum of the year: leading the region's museums is remembered */
+  try{const R=mwRanking();if(R.length>=2&&R[0].me){const day=Math.floor(now/DAY);if(m.yrD!==day){m.yr++;m.yrD=day;ch=true;}}}catch(e){}
+  if(ch)n.mw={fl:m.fl,...(m.b?{b:m.b}:{}),dc:m.dc,tk:m.tk,...(m.cu?{cu:m.cu}:{}),tc:m.tc,rs:m.rs,lo:m.lo,ex:m.ex,fh:m.fh,yr:m.yr,yrD:m.yrD};
+});
+
+/* artefacts that come from a dig are "worn" until restored: one in three, the same ones every time */
+function mwWorn(n,id){const a=COL_BY_ID[id];if(!a||!DIG_SETS.includes(a.set))return false;return hash('worn:'+id)%3===0&&!(mwOf(n).rs[id]&&mwOf(n).rs[id]<=Date.now());}
+function mwRestoring(n,id){const t=mwOf(n).rs[id];return !!t&&t>Date.now();}
+function mwRestoreCost(id){const r=MW_RAR_PT[COL_BY_ID[id].r]||1;return {cost:{goods:20*r,timber:10*r},h:8*r};}
+/* cases: four on each floor */
+function mwSlots(n){return 4*mwOf(n).fl;}
+function mwLentIds(n){return new Set(mwOf(n).lo.map(x=>x.id));}
+function mwOnShow(n){const own=colOwned(n),lent=mwLentIds(n);return mwOf(n).dc.filter(id=>own[id]&&!lent.has(id)).slice(0,mwSlots(n));}
+/* borrowed: what other nations of the region have lent to this one, still on loan */
+function mwBorrowed(id,now){
+  now=now||Date.now();const out=[];
+  for(const x of allNations()){if(x.npc||x.id===id)continue;for(const l of mwOf(x.n).lo)if(l.to===id&&l.t0<=now&&l.t1>now&&COL_BY_ID[l.id])out.push({...l,from:x.id,fromN:x.n});}
+  return out;
+}
+function mwPoints(n,id,now){
+  const m=mwOf(n),sch=m.cu&&m.cu.k==='scholar'?1.2:1;
+  let p=0;for(const a of mwOnShow(n))p+=(MW_RAR_PT[COL_BY_ID[a].r]||1)*(mwWorn(n,a)?0.5:1);
+  for(const b of mwBorrowed(id,now))p+=MW_RAR_PT[COL_BY_ID[b.id].r]||1;
+  return Math.round(p*sch*10)/10;
+}
+function mwVisitors(n,id,now){
+  const m=mwOf(n),base=MU_VIS_BASE(n,now);
+  return Math.round(base*(1+0.35*(m.fl-1))*(1+mwPoints(n,id,now)/40)*(m.cu&&m.cu.k==='showman'?1.2:1)*(1-0.12*m.tk)/100)*100;
+}
+/* the takings: once a day, goods from tickets and the gift shop's replicas of rare things on show */
+function mwTakings(n,id,now){
+  const m=mwOf(n),v=mwVisitors(n,id,now)/1e6,shop=mwOnShow(n).filter(a=>['r','l'].includes(COL_BY_ID[a].r)).length;
+  return {goods:Math.max(m.tk||shop?1:0,Math.round(v*MW_TK[m.tk][1]+shop*2)),happy:MW_TK[m.tk][2],shop};
+}
+/* the visitor figures everywhere (Entrance, the Dispatch) count the floors, the cases and the curator */
+const MU_VIS_BASE=muVisitors;
+muVisitors=function(n,now){try{const x=allNations().find(y=>y.n===n);if(x&&!x.npc)return mwVisitors(n,x.id,now);}catch(e){}return MU_VIS_BASE(n,now);};
+function mwCanCollect(n,now){return Math.floor(now/DAY)>Math.floor(mwOf(n).tc/DAY);}
+
+/* travelling exhibitions: one a month for every region; three matching artefacts (owned, on loan to you, or yours on show) complete it */
+function mwExhibit(now){const d=new Date(now||Date.now()),k=d.getUTCFullYear()*12+d.getUTCMonth();return {...MW_EXHIBITS[k%MW_EXHIBITS.length],key:String(k)};}
+function mwMatches(E,id){const a=COL_BY_ID[id];if(!a)return false;const t=(a.set+' '+a.id+' '+a.g+' '+a.n).toLowerCase();return E.w.some(w=>t.includes(w));}
+function mwExhibitItems(n,id,now){const E=mwExhibit(now),own=Object.keys(colOwned(n)).filter(x=>mwMatches(E,x)),bor=mwBorrowed(id,now).map(b=>b.id).filter(x=>mwMatches(E,x));return {E,own,bor,all:[...new Set(own.concat(bor))]};}
+
+/* museum of the year: the region's player museums by collection, sets, floors, cases and crowds */
+function mwScore(x,now){const n=x.n,m=mwOf(n);return Math.round(collCount(n)+10*collSetsDone(n)+15*(m.fl-1)+mwPoints(n,x.id,now)+mwVisitors(n,x.id,now)/2e5+5*m.ex.length);}
+let mwRankMemo={k:'',v:null};
+function mwRanking(){
+  const now=Date.now(),L=allNations().filter(x=>!x.npc),k=Math.floor(now/60000)+'|'+L.map(x=>x.id+':'+(x.n.updatedAt||0)).join(',');
+  if(mwRankMemo.k===k)return mwRankMemo.v;
+  const v=L.map(x=>({id:x.id,n:x.n,me:!!x.me,s:mwScore(x,now)})).sort((a,b)=>b.s-a.s||(a.id<b.id?-1:1));mwRankMemo={k,v};return v;
+}
+
+/* ── actions ── */
+function mwSave(fn){const n0=S.nation;if(!n0||n0.npc||OBS)return;const n=clone(n0),m=mwOf(n);const r=fn(n,m,Date.now());if(r===false)return;n.mw={...m};commit(n);render();}
+function mwBuild(){
+  const n0=S.nation,m0=mwOf(n0),F=MW_FLOORS[m0.fl+1],now=Date.now();if(!F||m0.b){return;}
+  if(popNow(n0,now)<F.need){toast(`${F.nm} needs a nation of ${fmtPopShort(F.need)} people.`);return;}
+  const st=stockNow(n0,now),miss=lacking(F.cost,st);if(miss.length){toast(`You need ${list(miss)} more.`);return;}
+  mwSave((n,m)=>{const st2=stockNow(n,now);for(const r of RES)st2[r]-=F.cost[r]||0;n.stock=roundStock(st2);n.stockAt=now;n._stockSet=true;
+    m.b={f:F.fl,t1:now+F.h*3600e3};cvBump(n,'mw:floor',now);});
+  toast(`The builders are on the scaffolding. ${F.nm} opens in ${fmtDur(F.h*3600e3)}.`);
+}
+function mwShow(id){mwSave((n,m)=>{const on=m.dc.includes(id);if(on){m.dc=m.dc.filter(x=>x!==id);return;}
+  if(mwLentIds(n).has(id)){toast('That artefact is out on loan.');return false;}
+  if(mwOnShow(n).length>=mwSlots(n)){toast(`All ${mwSlots(n)} cases are full. Take something off show first${m.fl<3?', or build another floor':''}.`);return false;}
+  m.dc=m.dc.concat(id);});}
+function mwTicket(k){mwSave((n,m)=>{m.tk=clamp(+k,0,3);});}
+function mwCollect(){
+  const n0=S.nation,now=Date.now();if(!mwCanCollect(n0,now)){toast('The takings were collected today. The tills fill up again tomorrow.');return;}
+  const T=mwTakings(n0,myId(),now);
+  mwSave((n,m)=>{const st=stockNow(n,now);st.goods=stockLimit(n,'goods',st.goods+T.goods,st.goods);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+    if(T.happy)applyEffects(n,{happy:-T.happy});applyEffects(n,{tour:0.1*mwOf(n).fl});m.tc=now;cvBump(n,'mw:takings',now);});
+  toast(`The tills are in: ${T.goods} goods${T.shop?`, ${T.shop} from the gift shop’s replicas`:''}.${T.happy?' Some visitors grumbled about the price.':''}`);
+}
+function mwHire(k){
+  const n0=S.nation,m0=mwOf(n0),now=Date.now();
+  if(m0.cu&&now-m0.cu.t<7*DAY){toast(`${m0.cu.nm} has a contract until ${new Date(m0.cu.t+7*DAY).toLocaleDateString('en-GB',{day:'numeric',month:'long'})}.`);return;}
+  const cost={goods:40},st=stockNow(n0,now),miss=lacking(cost,st);if(miss.length){toast(`Hiring a curator costs ${costText(cost)}. You need ${list(miss)} more.`);return;}
+  mwSave((n,m)=>{const st2=stockNow(n,now);st2.goods-=40;n.stock=roundStock(st2);n.stockAt=now;n._stockSet=true;
+    m.cu={k,nm:MW_CU_NAMES[hash(myId()+':'+k+':'+Math.floor(now/DAY))%MW_CU_NAMES.length],t:now};});
+}
+function mwRestore(id){
+  const n0=S.nation,now=Date.now(),R=mwRestoreCost(id),st=stockNow(n0,now),miss=lacking(R.cost,st);
+  if(!mwWorn(n0,id)||mwRestoring(n0,id))return;if(miss.length){toast(`Restoring it costs ${costText(R.cost)}. You need ${list(miss)} more.`);return;}
+  mwSave((n,m)=>{const st2=stockNow(n,now);for(const r of RES)st2[r]-=R.cost[r]||0;n.stock=roundStock(st2);n.stockAt=now;n._stockSet=true;m.rs={...m.rs,[id]:now+R.h*3600e3};cvBump(n,'mw:restore',now);});
+  toast(`${colName(COL_BY_ID[id],n0)} has gone to the conservators. Back in ${fmtDur(R.h*3600e3)}.`);
+}
+function mwLend(id,to){
+  const n0=S.nation,now=Date.now(),m0=mwOf(n0);if(!to||!findNation(to)){toast('Choose a nation to lend it to.');return;}
+  if(m0.lo.length>=2){toast('Two loans at a time: wait for one to come home.');return;}
+  mwSave((n,m)=>{m.lo=m.lo.concat({id,to,t0:now,t1:now+7*DAY});m.dc=m.dc.filter(x=>x!==id);cvBump(n,'mw:lend',now);});
+  toast(`${colName(COL_BY_ID[id],n0)} is on its way to ${findNation(to).n.name} for a week.`);
+}
+function mwExhibitClaim(){
+  const n0=S.nation,now=Date.now(),X=mwExhibitItems(n0,myId(),now);if(mwOf(n0).ex.includes(X.E.key)||X.all.length<3)return;
+  mwSave((n,m)=>{m.ex=m.ex.concat(X.E.key);applyEffects(n,{culture:1,tour:1});cvBump(n,'mw:exhibit',now);});
+  toast(`“${X.E.n}” opens in your museum. The critics are, for once, broadly kind.`);
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='mw-build'){mwBuild();return;}if(a==='mw-show'){mwShow(el.dataset.id);return;}if(a==='mw-tk'){mwTicket(el.dataset.k);return;}
+  if(a==='mw-collect'){mwCollect();return;}if(a==='mw-hire'){mwHire(el.dataset.k);return;}if(a==='mw-restore'){mwRestore(el.dataset.id);return;}
+  if(a==='mw-lend'){const s=document.getElementById('mw-lend-to');mwLend(el.dataset.id,s&&s.value);return;}
+  if(a==='mw-exhibit'){mwExhibitClaim();return;}if(a==='mw-floor'){S.mwFloor=+el.dataset.f;render();return;}});
+
+/* keepsakes: the Curated (three exhibitions) and the Patron of the Arts (museum of the year) */
+Object.assign(UNLOCKS,{'t-curated':{k:'title',n:'the Curated',src:'mw'},'t-patronarts':{k:'title',n:'the Patron of the Arts',src:'mw'}});
+UNLOCK_SOURCES.push({earned:n=>{const m=mwOf(n),o=[];if(m.ex.length>=3)o.push('t-curated');if(m.yr>=1)o.push('t-patronarts');return o;},
+  how:id=>id==='t-curated'?'Complete three travelling exhibitions in your Museum.':id==='t-patronarts'?'Have the leading museum of your region (Museum of the Year).':null});
+/* the Hoarder's diggers */
+digMod=(f=>function(n){return f.apply(this,arguments)+(mwOf(n).cu&&mwOf(n).cu.k==='hoarder'?2:0);})(digMod);
+/* a borrowed artefact arrives: the borrower hears of it */
+NOTIF_SOURCES.push((n,now)=>mwBorrowed(myId(),now).filter(b=>now-b.t0<7*DAY).map(b=>({t:b.t0,k:'mwloan',kl:'Museum',txt:`${b.fromN.name} has lent your museum ${colIn(COL_BY_ID[b.id],b.fromN)} for a week.`,go:'museum'})));
+
+/* ── the building, drawn: it grows a floor at a time, a dome on top, banners for an exhibition, a queue for the crowds ── */
+function mwBuildingSVG(n,id,now){
+  const m=mwOf(n),fl=m.fl,v=mwVisitors(n,id,now),q=Math.min(12,Math.round(Math.log10(Math.max(10,v))*1.6)),ex=m.ex.includes(mwExhibit(now).key);
+  const W=320,base=150,fh=34,top=base-fh*fl,col='var(--ink-2)',paper='var(--sheet)';
+  let s=`<svg class="mw-bld" viewBox="0 0 ${W} 190" role="img" aria-label="The museum: ${fl} floor${fl>1?'s':''}${fl===3?' and a dome':''}${m.b?', with scaffolding':''}, about ${fmt0(v)} visitors a year">`;
+  s+=`<rect x="40" y="${base}" width="240" height="10" fill="${col}" opacity=".35"/>`;
+  for(let i=0;i<fl;i++){const y=base-fh*(i+1);s+=`<rect x="${60+i*8}" y="${y}" width="${200-i*16}" height="${fh}" fill="${paper}" stroke="${col}" stroke-width="1.5"/>`;
+    for(let c=0;c<6-i;c++){const x=74+i*8+c*((172-i*16)/(5-i||1));s+=`<rect x="${x.toFixed(1)}" y="${y+7}" width="7" height="${fh-12}" fill="${col}" opacity=".18"/>`;}}
+  s+=`<polygon points="${60+(fl-1)*8},${top} ${160},${top-26} ${260-(fl-1)*8},${top}" fill="${paper}" stroke="${col}" stroke-width="1.5"/>`;
+  if(fl===3)s+=`<path d="M136 ${top-22} a24 24 0 0 1 48 0" fill="${paper}" stroke="${col}" stroke-width="1.5"/><line x1="160" y1="${top-46}" x2="160" y2="${top-56}" stroke="${col}" stroke-width="1.5"/>`;
+  if(m.b)s+=`<g stroke="var(--accent)" stroke-width="1.2" opacity=".8"><rect x="${60+(fl)*8}" y="${top-fh}" width="${200-fl*16}" height="${fh}" fill="none" stroke-dasharray="4 3"/><line x1="${60+fl*8}" y1="${top-fh}" x2="${260-fl*8}" y2="${top}"/><line x1="${260-fl*8}" y1="${top-fh}" x2="${60+fl*8}" y2="${top}"/></g>`;
+  if(ex)s+=`<rect x="92" y="${base-fh+4}" width="10" height="24" fill="var(--accent)"/><rect x="218" y="${base-fh+4}" width="10" height="24" fill="var(--accent)"/>`;
+  s+=`<rect x="148" y="${base-22}" width="24" height="22" fill="${col}" opacity=".5"/>`;
+  for(let i=0;i<q;i++)s+=`<circle cx="${178+i*9}" cy="${base+20}" r="3" fill="${col}" opacity=".55"/><rect x="${175.5+i*9}" y="${base+23}" width="5" height="8" rx="2" fill="${col}" opacity=".45"/>`;
+  return s+'</svg>';
+}
+
+/* ── the halls upstairs ── */
+MU_HALLS.splice(MU_HALLS.length-1,0,['gallery','Display cases'],['natural','Natural History'],['treasury','Treasury'],['flags','Flags'],['exhibit','Exhibitions'],['loans','Loans']);
+Object.assign(MU_NO,{gallery:'IX',natural:'X',treasury:'XI',flags:'XII',exhibit:'XIII',loans:'XIV'});
+Object.assign(MU_HALL_NM,{gallery:'The Display Gallery',natural:'The Hall of Natural History',treasury:'The Treasury',flags:'The Gallery of Flags',exhibit:'The Exhibition Hall',loans:'The Loans Gallery'});
+Object.assign(MU_WALL,{gallery:'The cases the curator fills: what is on show draws the crowds.',natural:'Bones, stones and everything the diggers brought home.',treasury:'Money, medals and the things a nation keeps behind glass.',flags:'Every flag the nation has flown, from the first.',exhibit:'This month’s travelling exhibition, on its tour of every region.',loans:'Lent and borrowed: artefacts on their travels.'});
+function mwLocked(n,h){const need=MW_UP[h];return need&&mwOf(n).fl<need?need:0;}
+function mwLockedHTML(h,need,vis){return muEmpty(`${MU_FLOOR_IN(need)} is not built yet`,vis?'This museum has not built that floor.':`${MU_HALL_NM[h]} opens on ${MW_FLOOR_NM[need].toLowerCase()}. Build it from the Entrance Hall.`,{go:vis?null:[]});}
+function MU_FLOOR_IN(f){return MW_FLOOR_NM[f];}
+const artTile=(n,id,extra)=>{const a=COL_BY_ID[id];return `<li class="mw-art r-${a.r}"><span class="mw-art-g">${colGlyph(a,false,34)}</span><span class="mw-art-t"><b>${esc(colName(a,n))}</b><span class="hint">${esc(COL_RAR[a.r][0])}${mwWorn(n,id)?' · worn':''}</span></span>${extra||''}</li>`;};
+function mwGallery(x,now,vis){
+  const n=x.n,m=mwOf(n),own=colOwned(n),show=mwOnShow(n),slots=mwSlots(n),lent=mwLentIds(n);
+  const cases=Array.from({length:slots},(_,i)=>show[i]?artTile(n,show[i],vis?'':`<button class="btn ghost small" data-act="mw-show" data-id="${esc(show[i])}">Take off show</button>`):`<li class="mw-art mw-empty"><span class="hint">An empty case</span></li>`).join('');
+  const rest=vis?'':Object.keys(own).filter(id=>COL_BY_ID[id]&&!show.includes(id)).sort((a,b)=>MW_RAR_PT[COL_BY_ID[b].r]-MW_RAR_PT[COL_BY_ID[a].r]).slice(0,60);
+  return `${muFigs([['Cases filled',`${show.length} of ${slots}`],['Display points',String(mwPoints(n,x.id,now))],['Visitors',`about ${fmt0(mwVisitors(n,x.id,now))} a year`]])}
+  <section class="section mu-sec"><h2 class="h2">On show</h2><ul class="mw-arts">${cases}</ul><p class="hint">Each case counts by its artefact’s rarity: common 1, uncommon 2, rare 3, legendary 5; a worn one half. Display points bring visitors.</p></section>
+  ${vis?'':`<section class="section mu-sec"><h2 class="h2">In the stores</h2>${rest.length?`<ul class="mw-arts">${rest.map(id=>artTile(n,id,lent.has(id)?'<span class="chip">On loan</span>':`<button class="btn ghost small" data-act="mw-show" data-id="${esc(id)}"${show.length>=slots?' disabled':''}>Put on show</button>`)).join('')}</ul>`:'<p class="hint">The stores are empty. Artefacts come from playing: edicts, milestones, digs and more.</p>'}</section>`}`;
+}
+function mwNatural(x,now,vis){
+  const n=x.n,own=colOwned(n),dug=Object.keys(own).filter(id=>COL_BY_ID[id]&&DIG_SETS.includes(COL_BY_ID[id].set));
+  const R=Object.entries(mwOf(n).rs).filter(([,t])=>t>now);
+  return `${muFigs([['Finds from digs',String(dug.length)],['Worn',String(dug.filter(id=>mwWorn(n,id)).length)],['At the conservators',String(R.length)]])}
+  ${dug.length?`<ul class="mw-arts">${dug.map(id=>{const w=mwWorn(n,id),r=mwRestoring(n,id),R2=mwRestoreCost(id);
+    return artTile(n,id,vis?'':r?`<span class="chip">Back in ${esc(fmtDur(mwOf(n).rs[id]-now))}</span>`:w?`<button class="btn ghost small" data-act="mw-restore" data-id="${esc(id)}" title="${esc(costText(R2.cost))} · ${R2.h} hours">Restore (${esc(costText(R2.cost))})</button>`:'<span class="chip up">Restored</span>');}).join('')}</ul>
+    <p class="hint">One find in three comes out of the ground worn, and counts half in a display case until the conservators restore it.</p>`:muEmpty('No finds yet',vis?'':'Send diggers out from the Field digs office.',{go:vis?null:[]})}`;
+}
+function mwTreasury(x,now,vis){
+  const n=x.n,med=(n.games&&n.games.med)||{g:0,s:0,b:0},coins=Object.keys(colOwned(n)).filter(id=>COL_BY_ID[id]&&/coin|note|seal|medal|crown/.test((COL_BY_ID[id].g+' '+COL_BY_ID[id].id).toLowerCase()));
+  return `${muFigs([['Currency',esc(cap1(n.currency||'crown'))],['Medals',`${med.g} gold, ${med.s} silver, ${med.b} bronze`],['Coins, seals and crowns',String(coins.length)]])}
+  ${coins.length?`<ul class="mw-arts">${coins.map(id=>artTile(n,id)).join('')}</ul>`:'<p class="hint">No coins, seals or crowns in the collection yet.</p>'}`;
+}
+function mwFlags(x,now,vis){
+  const n=x.n,fh=mwOf(n).fh.slice().reverse();let flags=[];for(const j of fh){try{flags.push(JSON.parse(j));}catch(e){}}
+  if(!flags.length&&n.flag)flags=[n.flag];
+  return `<ul class="mw-flags">${flags.map((f,i)=>`<li><span class="mw-flag">${flagSVG(f,'')}</span><span class="hint">${i===0?'Flying today':`Flown before`}</span></li>`).join('')}</ul><p class="hint">The gallery hangs a new flag whenever ${esc(n.name)} changes its design, up to twelve.</p>`;
+}
+function mwExhibitHall(x,now,vis){
+  const n=x.n,X=mwExhibitItems(n,x.id,now),done=mwOf(n).ex.includes(X.E.key),endD=new Date(Date.UTC(new Date(now).getUTCFullYear(),new Date(now).getUTCMonth()+1,1));
+  return `<section class="mw-ex"><p class="eyebrow">On tour until ${esc(endD.toLocaleDateString('en-GB',{day:'numeric',month:'long'}))}</p><h2 class="h2">${esc(X.E.n)}</h2><p>${esc(X.E.d)}</p>
+    <p class="hint">${done?'This museum has staged it.':`Stage it with three matching artefacts, your own or on loan to you: ${X.all.length} of 3 so far.`}</p>
+    ${X.all.length?`<ul class="mw-arts">${X.all.slice(0,9).map(id=>artTile(n,id,X.bor.includes(id)&&!X.own.includes(id)?'<span class="chip">On loan</span>':'')).join('')}</ul>`:''}
+    ${!vis&&!done?`<div class="row"><button class="btn" data-act="mw-exhibit"${X.all.length<3?' disabled':''}>Stage the exhibition</button></div>`:''}
+    <p class="hint">Staging one adds 1 culture and 1 tourism. ${mwOf(n).ex.length} staged so far${!vis?'; three earn the title “the Curated”':''}.</p></section>`;
+}
+function mwLoans(x,now,vis){
+  const n=x.n,m=mwOf(n),bor=mwBorrowed(x.id,now),own=colOwned(n),others=allNations().filter(y=>!y.npc&&y.id!==x.id);
+  const out=m.lo.map(l=>`<li>${artTile(n,l.id,`<span class="hint">to ${nationLink(l.to,(findNation(l.to)||{n:{name:'a nation'}}).n.name,false)}, home in ${esc(fmtDur(l.t1-now))}</span>`)}</li>`).join('');
+  const lendable=vis?[]:Object.keys(own).filter(id=>COL_BY_ID[id]&&!mwLentIds(n).has(id)).sort((a,b)=>MW_RAR_PT[COL_BY_ID[b].r]-MW_RAR_PT[COL_BY_ID[a].r]).slice(0,24);
+  return `${muFigs([['Lent out',`${m.lo.length} of 2`],['Borrowed',String(bor.length)],['Loans made',String(tallyOf(n,'mw:lend'))]])}
+  <section class="section mu-sec"><h2 class="h2">Borrowed</h2>${bor.length?`<ul class="mw-arts">${bor.map(b=>artTile(b.fromN,b.id,`<span class="hint">from ${nationLink(b.from,b.fromN.name,false)}, until ${esc(new Date(b.t1).toLocaleDateString('en-GB',{day:'numeric',month:'short'}))}</span>`)).join('')}</ul>`:'<p class="hint">Nothing on loan here. When another museum lends one, it hangs here for a week and counts in the cases.</p>'}</section>
+  <section class="section mu-sec"><h2 class="h2">Lent out</h2>${out?`<ul class="mw-arts">${out}</ul>`:'<p class="hint">Nothing out on loan.</p>'}
+  ${!vis&&m.lo.length<2&&others.length&&lendable.length?`<div class="field mw-lend"><label for="mw-lend-to">Lend for a week to</label><select class="input" id="mw-lend-to">${others.map(y=>`<option value="${esc(y.id)}">${esc(y.n.name)}</option>`).join('')}</select></div>
+    <ul class="mw-arts">${lendable.map(id=>artTile(n,id,`<button class="btn ghost small" data-act="mw-lend" data-id="${esc(id)}">Lend</button>`)).join('')}</ul><p class="hint">A loan adds the artefact to the other museum’s cases for a week; when it comes home your culture rises a little.</p>`:''}</section>`;
+}
+
+/* ── the entrance gains the building, the floors, the takings, the curator and the region's museum of the year ── */
+function mwEntranceExtra(x,now,vis){
+  const n=x.n,m=mwOf(n),F=MW_FLOORS[m.fl+1],R=mwRanking(),pos=R.findIndex(r=>r.id===x.id),T=vis?null:mwTakings(n,x.id,now);
+  const floorBox=vis?'':m.b?`<p>${esc(MW_FLOORS[m.b.f].nm)} opens in <b>${esc(fmtDur(Math.max(0,m.b.t1-now)))}</b>.</p>`:F?`<p>${esc(F.nm)}: ${F.fl===2?'four more display cases and the Display Gallery, Natural History, the Treasury and the Gallery of Flags':'four more cases, a dome, the Exhibition Hall and the Loans Gallery'}.</p>
+      <p class="hint">Needs a nation of ${fmtPopShort(F.need)} people${popNow(n,now)<F.need?` (${esc(n.name)} has ${esc(fmtPop(popNow(n,now)))})`:''}. Costs ${esc(costText(F.cost))} and takes ${F.h} hours.</p>
+      <div class="row"><button class="btn" data-act="mw-build"${popNow(n,now)<F.need||lacking(F.cost,stockNow(n,now)).length?' disabled':''}>Build ${esc(F.nm.replace(/^The /,'the '))}</button></div>`:'<p>All three floors and the dome are built.</p>';
+  const cu=m.cu?`<p><b>${esc(m.cu.nm)}</b>, ${esc(MW_CU[m.cu.k].nm.toLowerCase())}: ${esc(MW_CU[m.cu.k].d)}</p>`:'<p class="hint">No curator yet: the Minister of Culture keeps the keys.</p>';
+  const hire=vis?'':`<div class="row mw-cu">${Object.entries(MW_CU).map(([k,c])=>`<button class="btn ghost small${m.cu&&m.cu.k===k?' on':''}" data-act="mw-hire" data-k="${k}" title="${esc(c.d)}"${m.cu&&m.cu.k===k?' aria-pressed="true"':''}>${esc(c.nm)}</button>`).join('')}</div><p class="hint">A curator costs 40 goods and signs on for at least a week.</p>`;
+  const tk=vis?'':`<div class="row mw-tk" role="group" aria-label="Admission">${MW_TK.map(([l],i)=>`<button class="btn ghost small${m.tk===i?' on':''}" data-act="mw-tk" data-k="${i}" aria-pressed="${m.tk===i}">${esc(l)}</button>`).join('')}</div>
+    <p class="hint">Dearer tickets bring in more but keep some visitors away, and grumbling costs a little happiness at each collection. The gift shop sells replicas of the rare and legendary things on show.</p>
+    <div class="row"><button class="btn" data-act="mw-collect"${mwCanCollect(n,now)?'':' disabled'}>${mwCanCollect(n,now)?`Collect today’s takings (${T.goods} goods)`:'Takings collected today'}</button></div>`;
+  return `<div class="mw-top">${mwBuildingSVG(n,x.id,now)}
+    <div class="mw-boxes">
+      <section class="wd-box"><h2 class="h2">The building</h2><p>${MW_FLOOR_NM[m.fl]}${m.fl>1?` and ${m.fl-1} floor${m.fl>2?'s':''} above`:' only'}. ${mwSlots(n)} display cases.</p>${floorBox}</section>
+      <section class="wd-box"><h2 class="h2">Curator</h2>${cu}${hire}</section>
+      ${vis?'':`<section class="wd-box"><h2 class="h2">Admission and the gift shop</h2>${tk}</section>`}
+      <section class="wd-box"><h2 class="h2">Museum of the Year</h2>${R.length?`<ol class="mw-rank">${R.slice(0,5).map((r,i)=>`<li${r.id===x.id?' class="me"':''}><span>${nationLink(r.id,r.n.name,r.me)}</span><span class="num">${r.s}</span></li>`).join('')}</ol>${pos>4?`<p class="hint">${esc(n.name)} is ${ordinal(pos+1)} of ${R.length}.</p>`:''}<p class="hint">Collection, sets, floors, cases, crowds and exhibitions count. The leading museum’s nation may style itself “Patron of the Arts”.</p>`:'<p class="hint">No museums ranked yet.</p>'}</section>
+    </div></div>`;
+}
+muEntrance=(f=>function(x,now,vis){return mwEntranceExtra(x,now,vis)+f.apply(this,arguments);})(muEntrance);
+/* the floor plan: a floor switcher, and the rooms of the floors above */
+muPlan=(f=>function(x,now){
+  const n=x.n,m=mwOf(n),fl=clamp(S.mwFloor||1,1,3),tabs=`<div class="mw-fltabs" role="group" aria-label="Floors">${[1,2,3].map(i=>`<button class="stab${i===fl?' on':''}" data-act="mw-floor" data-f="${i}"${i>m.fl?' data-locked="1"':''}>${MW_FLOOR_NM[i]}${i>m.fl?' (not built)':''}</button>`).join('')}</div>`;
+  if(fl===1)return `<div class="mw-planw">${tabs}${f.apply(this,arguments)}</div>`;
+  const rooms=Object.entries(MW_UP).filter(([,v])=>v===fl).map(([h])=>h);
+  return `<div class="mw-planw">${tabs}<section class="mu-plan mw-plan" aria-label="${MW_FLOOR_NM[fl]}"><div class="mu-fp mw-fp">${rooms.map((h,i)=>`<button class="mu-rm" data-act="mu-hall" data-h="${h}"${m.fl<fl?' disabled':''}><span class="mu-rm-no">${MU_NO[h]}</span><span class="mu-rm-n">${esc(MU_HALL_NM[h])}</span></button>`).join('')}</div>
+    <p class="mu-fp-key"><span>${m.fl<fl?`${MW_FLOOR_NM[fl]} is not built yet.`:'Choose a room to enter it.'}</span></p></section></div>`;
+})(muPlan);
+/* the new halls in the museum's own switch */
+museumView=(f=>function(now){
+  const h=S.muHall;
+  if(!MW_UP[h])return f.apply(this,arguments);
+  const x=muTarget();if(!x)return f.apply(this,arguments);
+  const vis=!!(S.museumFor&&S.museumFor!==myId()),need=mwLocked(x.n,h);
+  const html=f.apply(this,arguments);
+  let body='';try{body=need?mwLockedHTML(h,need,vis):({gallery:mwGallery,natural:mwNatural,treasury:mwTreasury,flags:mwFlags,exhibit:mwExhibitHall,loans:mwLoans})[h](x,now,vis);}catch(e){body=muEmpty('This hall is closed for cleaning',esc(e.message));}
+  return html.replace(/(<div class="mu-hall" data-hall="[a-z]+">(?:<p class="mu-wall">[\s\S]*?<\/p>)?)[\s\S]*?(<\/div>\s*<nav class="mu-walk")/,(m0,a,b)=>a+body+b);
+})(museumView);
+
 /* ───────── observer mode ─────────
    An admin opens any region read-only (OBS, by REG): its world map, Region page and board, Census, the World page and
    its nations' pages, as a player there sees them, with a bar on every page that leads back. The tab reloads into
@@ -57072,7 +57371,7 @@ function start(data){
 }
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
