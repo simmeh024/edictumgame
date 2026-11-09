@@ -11,6 +11,7 @@ await settle(A);
 for (const [v, sel] of [['cities', '.cx-stk[data-r="food"]'], ['trade', '.stk-i[data-r="goods"]']]) {
   await nav(A, v);await sleep(400);
   const has = await A.$(sel);check(`the ${v} page's ${sel} is a button`, !!has);if (!has) continue;
+  await A.screenshot({ path: path.join(OUT, `res-bar-${v}.png`), clip: await (await A.$(sel)).evaluate(e => { const r = e.parentElement.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }) });
   await A.click(sel);await sleep(300);
   const m = await A.evaluate(() => { const d = document.querySelector('#rbd-root .rbd-modal');if (!d) return null;
     const tot = [...d.querySelectorAll('.rbd-tot td:last-child')].map(x => x.textContent);
