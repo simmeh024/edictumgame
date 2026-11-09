@@ -9,6 +9,7 @@ adds prestige, rank, resources or strength.
 |---|---|---|---|---|
 | Founder's Package | `founder` | €9.99 | one payment, sold until 1 February 2027 23:59:59 UTC | Founding Supporter badge, First Edition banner, Engraver's flag frame, First Edition decision stamp, Founder's capital marker, Founder's Gilt (land), passport inscription, a certificate in the museum |
 | Nation Identity Card Pack | `idpack` | €2.99 | one payment | Seven card designs (Diplomatic Ledger, Atlas Edition, Civic Modern, Embassy Vellum, Telegram, and the animated Holographic Seal and Starlit Charter) and two letter papers (Embassy Letterhead, Telegram Form) |
+| Black Friday Pack | `bfpack` | €1.99 | one payment, sold until 30 November 2026 23:59:59 UTC, optional (offered once its Paddle price is set) | the Midnight Tag shield (arms), the Night Owl as a charge (arms) and as an emblem (flag); giftable |
 | The Chancery Club | `vip` | €4.99 a month | subscription | ten waiting edicts instead of five, one cosmetic each paid month from its collection (kept; two new pieces join it each month), a Chancery seal beside the nation's name if the player chooses, five design presets, the Expanded National Chronicle |
 | The Chancery Club, yearly | `vipyear` | €49.99 a year | subscription, optional | the same membership, paid for a year (two months free); one cosmetic pick each calendar month of the paid year |
 | A month of the Club, as a gift | `giftvip` | €4.99 | one payment, gift only, optional | a month of membership for another nation, from when it is paid or from where its paid membership ends |
@@ -245,3 +246,7 @@ older, so they get the new pieces (and other players' games see them in `finery/
 - **The Card Pack is included.** The founder `grants` list carries the Card Pack's pieces and `includes: ["idpack"]`. A founder can't buy the Card Pack or be given it.
 - **Seen in the wild.** The brass dot appears beside correspondents in Messages, and "★ Founding Supporter No. n" in the map's hover card. A tap on any badge explains it and links to the Shop and the wall.
 - **Link and buy.** A guest who clicks Buy gets the sign-in panel. Once the sign-in is linked (within ten minutes), the checkout opens by itself. Analytics events: `shop_link_prompt`, `shop_link_resume`, `founder_badge_tap`.
+
+**Products sold for a while.** A product with `until` in the catalogue (the Black Friday Pack) opens no checkout after that time, by the server's clock (`sale_ended`). Unlike the Founder's Package, a payment that completes late is kept, not refunded. Its pieces stay with those who bought it.
+
+**Changing one thing later.** `node tools/admin/set-paddle.mjs --add-price bfpack=pri_…` adds (or replaces) one product's price, asking nothing secret. `--new-secret` asks only for a regenerated notification secret (hidden). Both keep everything else saved and then run the usual check with Paddle. In Windows PowerShell, run `npm.cmd ci` (the script policy blocks `npm`), and paste into the hidden prompt with a right-click.

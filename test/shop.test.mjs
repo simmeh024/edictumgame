@@ -197,12 +197,12 @@ test('months of membership and the Chancery seals', () => {
 test('the game sells what the server sells: every cosmetic in the catalogue is in the game, from the right source', () => {
   assert.ok(src.includes('/*SHOP_CATALOGUE*/null'), 'build.py puts the catalogue here');
   const def = new Map();
-  for (const m of src.matchAll(/\['([a-z]{1,3}-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|title|accent|fpat|emblem)','[^']+'\]/g)) def.set(m[1], m[2]);
+  for (const m of src.matchAll(/\['([a-z]{1,3}-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|title|accent|fpat|emblem|shield|charge)','[^']+'\]/g)) def.set(m[1], m[2]);
   for (const m of src.matchAll(/\['(cd-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'card');
   for (const m of src.matchAll(/\['(lp-i-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'paper');
   for (const id of CATALOGUE.products.idpack.grants.filter(id => id.startsWith('lp-'))) assert.ok(src.includes(`'${id}':{n:`), id + ' has its paper in LP_X');
   const block = src.slice(src.indexOf('const SHOP_NONE='), src.indexOf('/* the new places a cosmetic can go'));
-  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"]]) {
+  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"]]) {
     const ids = p === 'vip' ? CLUB_IDS : CATALOGUE.products[p].grants;
     for (const id of ids) { assert.ok(def.has(id), id + ' is drawn in the game'); assert.ok(block.includes(`'${id}'`), id); }
     assert.ok(block.includes(src2));

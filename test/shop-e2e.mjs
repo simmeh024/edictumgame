@@ -17,7 +17,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), SECRET = 'pdl_ntfset_e2e', H = 36e5, DAY = 864e5;
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── Paddle, played by this test ── */
@@ -90,6 +90,12 @@ await go(A, 'shop');
 check('the Chancery Club leads the page, before the cards', await A.evaluate(() => { const c = document.querySelector('.shop-club'), g = document.querySelector('.shop-grid'); return !!c && !!g && !!(c.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING); }));
 check('the items sit in a grid of cards, two to a row on a desktop', await A.evaluate(() => { const g = document.querySelector('.shop-grid'); return !!g && getComputedStyle(g).gridTemplateColumns.split(' ').length >= 2 && document.querySelectorAll('.shop-cd').length >= 2; }));
 await A.evaluate(() => scrollTo(0, 0));await A.screenshot({ path: path.join(OUT, 'shop-front.png'), fullPage: true });
+/* the Black Friday Pack: a limited card, and a drawer previewing the shield and the owl on the player's own arms and flag */
+check('the Black Friday Pack is on sale, with its end date', /Black Friday Pack/.test(await txt(A, '.shop-cd[data-p="bfpack"]')) && /Ends in|Last day/.test(await txt(A, '.shop-cd[data-p="bfpack"]')));
+await A.locator('.shop-cd[data-p="bfpack"]').screenshot({ path: path.join(OUT, 'shop-bf-card.png') });
+await openDr(A, 'bfpack');
+check('its drawer previews the Midnight Tag shield and the Night Owl', (await A.evaluate(() => document.querySelectorAll('.shop-bf-pv svg').length)) >= 2 && /€1\.99|1\.99/.test(await txt(A, '#shop-bfpack-price')) && /30 November/.test(await txt(A, '.shop-bfpack')));
+await A.locator('.shop-dr .shop-bfpack').screenshot({ path: path.join(OUT, 'shop-bf-drawer.png') });
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));

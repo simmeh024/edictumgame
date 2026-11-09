@@ -54,7 +54,9 @@ const beforeCounterfeit=await localNation(C);
 await C.click('[data-act="cv-launch"]');
 check('launching counterfeiting creates a real operation and report',await until(async()=>{const n=await localNation(C);return n.cov?.[0].k==='c'&&/Counterfeit currency/.test(await text(C,'#cv-result'));}));
 const afterCounterfeit=await localNation(C);
-check('it spends the printed resource cost',Math.abs(beforeCounterfeit.stock.goods-afterCounterfeit.stock.goods-22)<0.1&&Math.abs(beforeCounterfeit.stock.timber-afterCounterfeit.stock.timber-10)<0.1,JSON.stringify({before:beforeCounterfeit.stock,after:afterCounterfeit.stock,op:afterCounterfeit.cov[0]}));
+/* a first covert operation can earn achievements, and a new rank pays 15 goods and 15 iron: leave that out */
+const rankUps=await C.evaluate(([a,b])=>{const k=x=>x&&x.ach?G.RK.achRank(G.RK.achPoints(x)).i:0;return Math.max(0,k(b)-k(a));},[beforeCounterfeit,afterCounterfeit]);
+check('it spends the printed resource cost',Math.abs(beforeCounterfeit.stock.goods+15*rankUps-afterCounterfeit.stock.goods-22)<0.1&&Math.abs(beforeCounterfeit.stock.timber-afterCounterfeit.stock.timber-10)<0.1,JSON.stringify({before:beforeCounterfeit.stock,after:afterCounterfeit.stock,op:afterCounterfeit.cov[0]}));
 check('the new operation survives a reload',await until(async()=> (await nationDoc(uidC))?.rec.cov?.[0].k==='c'));
 await open(C);await nav(C,'intel');
 check('reloaded operation stays a counterfeit operation',/Counterfeit currency/.test(await text(C,'.reps')));

@@ -221,7 +221,7 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
   }
   out.gifts = valid.filter(t => t.gift && t.payer && !voided(t.id, adjs)).sort((a, b) => a.paid - b.paid).slice(-10).map(t => ({ p: t.product, from: t.payer, t: t.paid, txn: t.id }));
   const grant = p => out.owns[p] ? CAT.products[p].grants : [];
-  out.cosmetics = [...new Set([...grant('founder'), ...grant('idpack'), ...Object.values(picks || {}).filter(k => CLUB_IDS.includes(k))])];
+  out.cosmetics = [...new Set([...ONCE.flatMap(p => grant(p)), ...Object.values(picks || {}).filter(k => CLUB_IDS.includes(k))])];
   return out;
 }
 
