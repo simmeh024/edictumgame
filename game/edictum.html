@@ -47885,7 +47885,7 @@ setInterval(()=>{try{const n=S.nation;
 const CB_TAGS=[['general','General'],['trade','Trade'],['diplomacy','Diplomacy'],['war','War'],['help','Help'],['offtopic','Off-topic']],CB_TAG=Object.fromEntries(CB_TAGS);
 const CB_ID=/^[A-Za-z0-9]{20}$/,CB_PAGE=30,CB_TEXT=4000,CB_TITLE=120,CB_BEAT=4*60e3,CB_ONLINE=10*60e3,LS_CB='edictum.cbOpen';
 const CB={meta:{},metaOn:false,open:null,lists:{},topic:null,reps:null,form:false,f:{reg:'',ti:'',x:'',tg:'general'},rx:'',busy:'',ask:null,edit:null,pres:{},presAsk:{},hidden:{},moveTo:'',pend:null};
-try{const o=JSON.parse(localStorage.getItem(LS_CB)||'null');if(Array.isArray(o))CB.open=new Set(o.filter(r=>REG_BY_ID[r]));}catch(e){}
+try{const o=JSON.parse(localStorage.getItem(LS_CB)||'null');if(Array.isArray(o))CB.open=new Set(o.filter(r=>REG_BY_ID[r]||r==='chancery'));}catch(e){}
 function cbKeepOpen(){try{localStorage.setItem(LS_CB,JSON.stringify([...cbOpenSet()]));}catch(e){}}
 /* which boards are open: the player's own region until they close it */
 function cbOpenSet(){if(!CB.open)CB.open=new Set(REG&&REG.id?[REG.id]:[]);return CB.open;}
@@ -47916,7 +47916,7 @@ function cbLoad(reg){
 function cbDrop(reg){const L=CB.lists[reg];if(!L)return;L.off.forEach(f=>{try{f();}catch(e){}});delete CB.lists[reg];}
 /* a topic on its own page, with its replies */
 function cbOpenTopic(reg,id){
-  cbCloseTopic();if(!S.db||!REG_BY_ID[reg]||!CB_ID.test(id))return;
+  cbCloseTopic();if(!S.db||!cbBoardOk(reg)||!CB_ID.test(id))return;
   const T=CB.topic={reg,id,p:null,err:'',off:[]},R=CB.reps={list:null,err:''};
   const up=()=>{if(S.view==='community')quietRender();};
   T.off=[S.db.doc('cb/'+reg+'/posts/'+id).onSnapshot(s=>{T.p=s.exists?cbPost(id,s.data()):null;T.err=s.exists?'':'This topic is no longer here. It may have been deleted or moved.';if(T.p)cbPresence([T.p]);up();},()=>{T.err='The topic could not be loaded.';up();}),
@@ -48037,6 +48037,8 @@ function cbTopicView(head){
    written only by them (firestore.rules chanceryMember) and staff */
 const CB_CH={id:'chancery',name:'The Chancery'};
 function cbChancery(){const d=SHOP.doc||{};return cbStaff()||!!(d.owns&&d.owns.founder)||!!(d.vip&&d.vip.until>Date.now());}
+/* a board a player may open or post on: a region's, or the Chancery for its members */
+function cbBoardOk(reg){return !!REG_BY_ID[reg]||reg===CB_CH.id&&cbChancery();}
 function cbChanceryLocked(){return `<section class="cb-reg cb-ch-lock" data-reg="chancery"><h2 class="cb-reg-h"><span class="cb-reg-tg"><span class="cb-car" aria-hidden="true">🔒</span><span class="cb-reg-n">The Chancery</span><span class="cb-reg-c">Members only</span></span></h2>
   <p class="hint cb-ch-p">A private board for Chancery Club members and Founding Supporters. <button type="button" class="linkish" data-act="go" data-v="shop">See the Chancery Club</button></p></section>`;}
 function cbView(){
@@ -48113,7 +48115,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target,id=t&&t.id||'';
-  if(id==='cb-f-reg'&&REG_BY_ID[t.value]){CB.f.reg=t.value;return;}
+  if(id==='cb-f-reg'&&cbBoardOk(t.value)){CB.f.reg=t.value;return;}
   if(id==='cb-f-tg'&&CB_TAG[t.value]){CB.f.tg=t.value;return;}
   if(id==='cb-move-to'&&REG_BY_ID[t.value]){CB.moveTo=t.value;return;}
 });
@@ -48126,7 +48128,7 @@ document.addEventListener('click',e=>{
   if(a==='cb-more'){const L=CB.lists[reg];if(L){L.n+=CB_PAGE;L.reload();}return;}
   if(a==='cb-topic'){e.preventDefault();cbOpenTopic(reg,t);render();window.scrollTo(0,0);return;}
   if(a==='cb-back'){e.preventDefault();cbCloseTopic();try{history.replaceState(null,'','#community');}catch(err){}render();return;}
-  if(a==='cb-new'){CB.form=true;CB.f.reg=REG_BY_ID[reg]?reg:REG?REG.id:'';cbCloseTopic();try{history.replaceState(null,'','#community');}catch(err){}render();window.scrollTo(0,0);const i=document.getElementById('cb-f-ti');if(i)try{i.focus();}catch(err){}return;}
+  if(a==='cb-new'){CB.form=true;CB.f.reg=cbBoardOk(reg)?reg:REG?REG.id:'';cbCloseTopic();try{history.replaceState(null,'','#community');}catch(err){}render();window.scrollTo(0,0);const i=document.getElementById('cb-f-ti');if(i)try{i.focus();}catch(err){}return;}
   if(a==='cb-new-no'){CB.form=false;render();return;}
   if(a==='cb-ask-no'){CB.ask=null;render();return;}
   if(a==='cb-edit'){const p=cbFind(reg,t,r);if(p){CB.edit={reg,t,r,ti:p.ti,x:p.x};render();const i=document.getElementById('cb-e-x');if(i)try{i.focus();}catch(err){}}return;}

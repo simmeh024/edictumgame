@@ -110,4 +110,12 @@ await A.waitForSelector('#cb-r-x');
 check('under a team topic the admin replies as the team by default', await A.$eval('#cb-r-team', i => i.checked));
 await A.fill('#cb-r-x', 'Questions welcome.'); await A.click('#cb-rf button[type="submit"]');
 check('the reply is signed by the team', await until(async () => /Questions welcome/.test(await text(C, '.cb-reps')) && /Pascal/.test(await text(C, '.cb-reps .cb-au'))));
+// the Chancery: B (a Founding Supporter) posts there from its own New topic button, and the topic stays there
+await go(B, 'community'); await B.waitForSelector('.cb-reg[data-reg="chancery"]');
+await B.click('[data-act="cb-tg"][data-reg="chancery"]');
+await B.waitForSelector('[data-act="cb-new"][data-reg="chancery"]'); await B.click('[data-act="cb-new"][data-reg="chancery"]');
+check('the Chancery\'s New topic button chooses the Chancery', await B.$eval('#cb-f-reg', s => s.value) === 'chancery');
+await sleep(31000);
+await B.fill('#cb-f-ti', 'Members only'); await B.fill('#cb-f-x', 'Hello, fellow members.'); await B.click('#cb-nf button[type="submit"]');
+check('the topic is posted on the Chancery board and opens', await until(async () => /Members only/.test(await text(B, '.cb-post .cb-ti')) && /The Chancery/.test(await text(B, '.cb-back')) && /^#community\/chancery\//.test(await B.evaluate(() => location.hash))));
 await finish();
