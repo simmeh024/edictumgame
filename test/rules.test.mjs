@@ -986,6 +986,27 @@ test('the Community Board is read by everyone and written only by civic(); prese
   await assertSucceeds(as('bob').doc('cb/meridian/posts/t1').delete());
 });
 
+test('the Chancery board is read only by Club members, Founding Supporters, admins and each post’s author', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('cb/chancery/posts/c1').set({ a: 'carl', nm: 'Carlia', ti: 'Hi', x: 'Members', t: 1, la: 1, rc: 1 });
+    await db.doc('cb/chancery/posts/c1/posts/r1').set({ a: 'carl', x: 'Reply', t: 2 });
+    await db.doc('shop/vip').set({ vip: { until: Date.now() + 86400000 } });
+    await db.doc('shop/old').set({ vip: { until: 5 } });
+    await db.doc('shop/fd').set({ owns: { founder: 1700000000000 } });
+  });
+  for (const who of [as('vip'), as('fd'), as('boss', { admin: true })]) {
+    await assertSucceeds(who.collection('cb/chancery/posts').orderBy('la', 'desc').limit(30).get());
+    await assertSucceeds(who.doc('cb/chancery/posts/c1/posts/r1').get());
+  }
+  for (const who of [anon(), as('old'), as('nobody')]) {
+    await assertFails(who.collection('cb/chancery/posts').orderBy('la', 'desc').limit(30).get());
+    await assertFails(who.doc('cb/chancery/posts/c1/posts/r1').get());
+  }
+  await assertSucceeds(as('carl').collectionGroup('posts').where('a', '==', 'carl').get());
+  await assertFails(as('vip').doc('cb/chancery/posts/c2').set({ a: 'vip', ti: 'x', x: 'y', t: 1, la: 1, rc: 0 }));
+});
+
 test('a mail ping is one per sender, nation and kind, under the sender\'s saved name, to its own region, and paced', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();
