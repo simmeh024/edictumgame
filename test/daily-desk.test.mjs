@@ -23,7 +23,7 @@ function desk(over={}){
     num0:v=>Number.isFinite(v)?v:0,roundStock:s=>({...s}),resName:r=>r,czHas:(o,k)=>Object.hasOwn(o,k),
     BUILDINGS:{farm:{n:'Farm Estates'},sawmill:{n:'Sawmill'},market:{n:'Market Hall'}},...over});
   vm.runInContext(fn('hash')+'\n'+fn('rng')+'\n'+fn('tallyOf')+'\n'+source.slice(start,end)+
-    '\nthis.T={ddRoll,ddRare,ddDay,DD_TASKS,DD_RARE,STK_UNLOCKS,earned:n=>landEarned(n),src:UNLOCK_SOURCES};',ctx);
+    '\nthis.T={ddRoll,ddRare,ddDay,ddFresh,ddxReady,DD_TASKS,DD_RARE,STK_UNLOCKS,earned:n=>landEarned(n),src:UNLOCK_SOURCES};',ctx);
   return {...ctx.T,
     save(n,old,now=NOW){const out=[];for(const h of ctx.COMMIT_HOOKS){const m=h(n,old,now);if(m)out.push(...m);}return out;},
     reload(n){const d=JSON.parse(JSON.stringify(n)),o={...d};for(const k of ['dd','ddc','ddr','stk','ffb'])delete o[k];for(const h of ctx.NORM_HOOKS)h(o,d);return o;}};
@@ -160,4 +160,16 @@ test('a rare task every day, harder than the three and not one of them where it 
 });
 test('a desk drawn before the rare task existed gains one at its next save',()=>{
   const D=desk(),n=nation();n.dd=fixedDesk(D);n.stk={n:1,d:D.ddDay(NOW)};const [a,old]=next(n,()=>{});D.save(a,old);assert.ok(a.dd.r&&D.DD_RARE[a.dd.r.k]);
+});
+
+test('the weekly reset: a fresh desk on the same day pays another land credit, then waits seven days',()=>{
+  const D=desk();let n=nation();n.dd=fixedDesk(D);n.dd.p=[1,1,1];n.dd.c=[2,1,1];n.dd.w=1;n.ddc=1;n.stk={n:1,d:D.ddDay(NOW)};
+  assert.ok(D.ddxReady(n,NOW));
+  const day=D.ddDay(NOW),f=D.ddFresh(n,day,':x'+NOW);assert.equal(f.d,day);eq(f.p,[0,0,0]);assert.ok(!f.w);
+  n.dd={...fixedDesk(D),d:day};n.ddx=NOW;
+  let [m,old]=next(n,x=>{x.tly.iss=7;x.tly.dm=1;});D.save(m,old);
+  [m,old]=next(m,x=>{x._ddm='visit';});D.save(m,old);
+  assert.equal(m.dd.w,1);assert.equal(m.ddc,2,'the reset desk earns its own credit');
+  assert.ok(!D.ddxReady(m,NOW+6*864e5));assert.ok(D.ddxReady(m,NOW+7*864e5));
+  assert.equal(D.reload(m).ddx,NOW,'the reset time survives a reload');
 });
