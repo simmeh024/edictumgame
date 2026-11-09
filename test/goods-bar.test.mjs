@@ -20,7 +20,7 @@ function load({stock={food:120,timber:30,iron:4,oil:400,goods:9.7},rates={food:3
   vm.runInContext(fnBody('c3Strip')+'\n}',ctx);
   return ctx;
 }
-const items=h=>[...h.matchAll(/<span class="stk-i( stk-short)?"><span class="stk-l">(\w+)<\/span><b data-live="stk3" data-r="(\w+)">(\d+)<\/b><span class="stk-rt">(.*?)<\/span><\/span>(?=<span class="stk-i|<button|<\/div>)/g)]
+const items=h=>[...h.matchAll(/<button type="button" class="stk-i( stk-short)?" data-act="res-bd" data-r="\w+"[^>]*><span class="stk-l">(\w+)<\/span><b data-live="stk3" data-r="(\w+)">(\d+)<\/b><span class="stk-rt">(.*?)<\/span><\/button>(?=<button|<\/div>)/g)]
   .map(m=>({short:!!m[1],label:m[2],r:m[3],v:m[4],rt:m[5].replace(/<[^>]+>/g,'')}));
 const N={loc:12};
 
