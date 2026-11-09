@@ -6585,7 +6585,7 @@ button[disabled] .gv-cost{opacity:.6}
 .spx-help-l{margin:8px 0 12px;padding-left:22px;display:grid;gap:6px;line-height:1.5}
 /* spx:end */
 .adm-oflag{display:inline-block;width:42px;line-height:0}.adm-oflag svg{width:42px;height:auto;border-radius:2px;box-shadow:0 0 0 1px var(--line,rgba(0,0,0,.15))}
-.tr-slots{margin:4px 0 16px}.tr-slots p{margin:0 0 6px}.tr-slots .sbar{display:block;max-width:320px;margin-bottom:6px}
+.tr-short{margin:0 0 12px}.tr-health{margin:0 0 10px}.deal-end{font-size:12px;color:var(--ink-3);margin-left:6px}.tr-spark{vertical-align:middle;margin:0 8px}.tr-spark polyline{fill:none;stroke:var(--ink-2);stroke-width:1.5}.tr-spark .z{stroke:var(--track);stroke-width:1}.tr-trends{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 16px}.tr-trends>div{display:flex;align-items:center;gap:4px}.tr-log{list-style:none;padding:0;margin:0;font-size:14px}.tr-log li{padding:4px 0;border-bottom:1px solid var(--track)}.tr-favs,.tr-mf{margin:8px 0}.chip-btn.on{outline:2px solid var(--ink-2)}.tr-slots{margin:4px 0 16px}.tr-slots p{margin:0 0 6px}.tr-slots .sbar{display:block;max-width:320px;margin-bottom:6px}
 </style>
 
 <div id="app"></div>
@@ -18832,12 +18832,12 @@ const mirrored=(x,y)=>x.g[0]===y.r[0]&&x.g[1]===y.r[1]&&x.r[0]===y.g[0]&&x.r[1]=
 function collectDeals(){
   const docs=tradeDocs(),by=new Map(docs),active=[],pending=[],seen=new Set();
   for(const [id,d] of docs)for(const x of d.deals||[]){
-    if(x.a||seen.has(x.id))continue;{const tg=by.get(x.w);if(tg&&x.t<(tg.founded||0))continue;}
+    if(x.a||seen.has(x.id)||(x.e&&x.e<=Date.now()))continue;{const tg=by.get(x.w);if(tg&&x.t<(tg.founded||0))continue;}
     seen.add(x.id);
-    if(NPC_SET.has(x.w)){active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:x.t,npc:true});continue;}
+    if(NPC_SET.has(x.w)){active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:x.t,e:x.e||0,npc:true});continue;}
     const pd=by.get(x.w),m=pd&&(pd.deals||[]).find(y=>y.id===x.id&&y.a&&y.w===id&&mirrored(x,y));
-    if(m)active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:Math.max(x.t,m.t)});
-    else pending.push({id:x.id,from:id,to:x.w,g:x.g,r:x.r,t:x.t,declined:!!(pd&&(pd.dealNo||[]).includes(x.id))});
+    if(m)active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:Math.max(x.t,m.t),e:x.e||0});
+    else pending.push({id:x.id,from:id,to:x.w,g:x.g,r:x.r,t:x.t,e:x.e||0,declined:!!(pd&&(pd.dealNo||[]).includes(x.id))});
   }
   return {active,pending};
 }
@@ -18900,7 +18900,7 @@ function npcVerdict(id,g,r){
 }
 
 /* trade actions */
-function liveDeals(n){const E=economy(),me=myId();return (n.deals||[]).filter(x=>!x.a||E.active.some(d=>d.id===x.id));}
+function liveDeals(n){const E=economy(),now=Date.now();return (n.deals||[]).filter(x=>!(x.e&&x.e<=now)&&(!x.a||E.active.some(d=>d.id===x.id)));}
 function dealSlots(){const E=economy(),me=myId();return E.active.filter(d=>d.a===me||d.b===me).length+E.pending.filter(p=>p.from===me&&!p.declined).length;}
 function proposeDeal(){
   const t=S.trade,x=findNation(t.w),g=[t.gr,roundAmt(t.ga)],r=[t.rr,roundAmt(t.ra)];
@@ -18911,11 +18911,16 @@ function proposeDeal(){
   if(warWith(x.id).war)return fail(`You are at war with ${x.n.name}, so trade is impossible.`);
   if(dealSlots()>=maxDeals())return fail(`You already have ${maxDeals()} deals and offers. End one before proposing another.`);
   if(x.npc){const v=npcVerdict(x.id,g,r);if(!v.ok)return fail(v.why);}
-  const n=clone(S.nation),now=Date.now();
-  n.deals=liveDeals(n).concat({id:Math.random().toString(36).slice(2,10),w:x.id,g,r,t:now});
-  if(x.npc){n.log.unshift({t:now,k:'trade',a:x.id,b:x.n.name});n.log=n.log.slice(0,60);}
+  const n=clone(S.nation),now=Date.now(),days=TR_ENDS.some(e=>e[0]===+t.end)?+t.end:0,deal={id:Math.random().toString(36).slice(2,10),w:x.id,g,r,t:now};
+  if(days)deal.e=now+days*TR_DAY;
+  n.deals=liveDeals(n).concat(deal);
+  /* a counter-offer declines the offer it answers */
+  const ctr=t.counter&&economy().pending.find(p=>p.id===t.counter&&p.from===x.id&&p.to===myId());
+  if(ctr)n.dealNo=(n.dealNo||[]).concat(ctr.id).slice(-20);
+  t.counter='';
+  if(x.npc){n.log.unshift({t:now,k:'trade',a:x.id,b:x.n.name,d:[g,r]});n.log=n.log.slice(0,60);}
   commit(n);
-  S.tradeMsg=x.npc?`${x.n.name} accepted. The deal starts today.`:`Offer sent to ${x.n.name}. The deal starts when they accept it.`;
+  S.tradeMsg=x.npc?`${x.n.name} accepted. The deal starts today.`:ctr?`Counter-offer sent to ${x.n.name}. Their offer was declined.`:`Offer sent to ${x.n.name}. The deal starts when they accept it.`;
   render();toast(x.npc?'Trade deal signed with '+x.n.name+'.':'Offer sent to '+x.n.name+'.');
 }
 function acceptDeal(id){
@@ -18923,8 +18928,9 @@ function acceptDeal(id){
   if(warWith(p.from).war){S.tradeMsg=`You are at war with ${nameOf(p.from)}.`;render();return;}
   if(dealSlots()>=maxDeals()){S.tradeMsg=`You already have ${maxDeals()} deals and offers. End one first.`;render();return;}
   const n=clone(S.nation),now=Date.now();
-  n.deals=liveDeals(n).concat({id,w:p.from,g:p.r,r:p.g,t:now,a:1});
-  n.log.unshift({t:now,k:'trade',a:p.from,b:nameOf(p.from)});n.log=n.log.slice(0,60);
+  const acc={id,w:p.from,g:p.r,r:p.g,t:now,a:1};if(p.e)acc.e=p.e;
+  n.deals=liveDeals(n).concat(acc);
+  n.log.unshift({t:now,k:'trade',a:p.from,b:nameOf(p.from),d:[p.r,p.g]});n.log=n.log.slice(0,60);
   commit(n);S.tradeMsg=`Deal agreed with ${nameOf(p.from)}.`;render();toast('Trade deal signed with '+nameOf(p.from)+'.');
 }
 function declineDeal(id){const n=clone(S.nation);n.dealNo=(n.dealNo||[]).concat(id).slice(-20);{const p=economy().pending.find(q=>q.id===id);if(p){n.log.unshift({t:Date.now(),k:'tradeno',a:p.from,b:nameOf(p.from)});n.log=n.log.slice(0,60);}}commit(n);S.tradeMsg='Offer declined.';render();}
@@ -18933,7 +18939,7 @@ function cancelDeal(id){
   const act=economy().active.find(d=>d.id===id),now=Date.now();
   n.deals=n.deals.filter(d=>d.id!==id);
   if(x.a)n.dealNo=(n.dealNo||[]).concat(id).slice(-20);
-  if(act){n.log.unshift({t:now,k:'tradeend',a:x.w,b:nameOf(x.w)});n.log=n.log.slice(0,60);}
+  if(act){n.log.unshift({t:now,k:'tradeend',a:x.w,b:nameOf(x.w),d:[x.g,x.r],s:act.t});n.log=n.log.slice(0,60);}
   commit(n);S.tradeMsg=act?`The deal with ${nameOf(x.w)} has ended.`:'Offer withdrawn.';render();
 }
 function fillDeal(w,rr,ra,quiet){
@@ -18969,14 +18975,15 @@ function dealPreview(){
   if(j!==undefined){const sp=Math.max(0,E.sup[r[0]][j]-E.dem[r[0]][j]);bits.push(sp<0.05?`${x.n.name} has no ${resName(r[0])} to spare${!x.npc?', so they may not be able to deliver it':''}.`:`${x.n.name} has ${fmtAmt(sp)} ${resName(r[0])} a day to spare${!x.npc&&sp<r[1]?', so they may only be able to deliver part of it':''}.`);}
   bits.push(cuTradeText(x.id));
   bits.push(`At world prices, ${fmtAmt(r[1])} ${resName(r[0])} is worth about ${fmtAmt(r[1]*E.price[r[0]]/E.price[g[0]])} ${resName(g[0])}.`);
+  if(+t.end)bits.push(`The deal ends by itself after ${t.end} days.`);
   let verdict;
   if(warWith(x.id).war)verdict=`<p class="err">You are at war with ${esc(x.n.name)}.</p>`;
-  else if(x.npc){const v=npcVerdict(x.id,g,r);verdict=`<p class="${v.ok?'ok-line':'err'}">${esc(v.why)}</p>`;}
+  else if(x.npc){const v=npcVerdict(x.id,g,r),want=npcWant(x.id,g,r);verdict=`<p class="${v.ok?'ok-line':'err'}">${esc(v.why)}</p>${!v.ok&&g[1]<want-1e-9?`<p><button type="button" class="linkish small" data-act="tr-fair" data-v="${want}">Offer ${fmtAmt(want)} ${esc(resName(g[0]))} instead</button></p>`:''}`;}
   else verdict=`<p class="muted">${esc(x.n.name)} sees your offer the next time they open Trade. The deal starts when they accept it.</p>`;
   return `<p class="muted">${esc(bits.join(' '))}</p>${verdict}`;
 }
-function dealRow(partner,give,get,status,actions){
-  const x=findNation(partner);
+function dealRow(partner,give,get,status,actions,e){
+  const x=findNation(partner);if(e)status+=`<span class="deal-end">${trEndsIn(e)}</span>`;
   return `<li class="deal">${x?`<span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>`:''}<div class="deal-b"><b>${esc(nameOf(partner))}</b><span>You send ${fmtAmt(give[1])} ${resName(give[0])} a day · you receive ${fmtAmt(get[1])} ${resName(get[0])} a day</span></div>${status}<span class="deal-a">${actions}</span></li>`;
 }
 function cityTradeNote(){
@@ -18991,12 +18998,63 @@ function resPolicyNote(n){
   if(pol.strategicReserves)act.push('Strategic Reserves (shortages do half as much harm)');
   return `<p class="hint res-pol">${act.length?'Policies in force: '+esc(list(act))+'.':'None of your policies change your output yet. Edicts about farms, forests, mines, oil and industry can.'}</p>`;
 }
+/* ── trade page helpers ── */
+/* deals kept on a nation: more than any nation's slots (12 base, Market Halls, alliance, rented) */
+const TR_STORE=48;
+function trLogAmts(d){if(!Array.isArray(d)||d.length!==2)return null;const o=d.map(a=>Array.isArray(a)&&RES.includes(a[0])&&Number.isFinite(a[1])?[a[0],clamp(Math.round(a[1]*2)/2,0,100)]:null);return o[0]&&o[1]?o:null;}
+const TR_DAY=864e5,TR_ENDS=[[0,'No end date'],[7,'7 days'],[30,'30 days']];
+/* a rented slot: goods from the stockpile for a week, at most two at once */
+const TR_X_COST=40,TR_X_MAX=2,TR_X_DAYS=7;
+function trXSlots(n,now){now=now||Date.now();return ((n&&n.trX)||[]).filter(t=>Number.isFinite(t)&&t>now);}
+function trEndsIn(e){const d=Math.max(0,Math.ceil((e-Date.now())/TR_DAY));return d<=1?'ends within a day':`ends in ${d} days`;}
+function npcWant(id,g,r){const E=economy();return Math.ceil(r[1]*E.price[r[0]]*0.9/E.price[g[0]]*cuTradeQuote(myId(),id).factor*2)/2;}
+function rentSlot(){
+  const n=clone(S.nation),now=Date.now(),st=stockNow(n,now),x=trXSlots(n,now);
+  if(x.length>=TR_X_MAX){S.tradeMsg=`You already rent ${TR_X_MAX} extra slots.`;render();return;}
+  if(st.goods+1e-6<TR_X_COST){S.tradeMsg=`Renting a slot costs ${TR_X_COST} goods from your stockpile. You have ${fmtStock(st.goods)}.`;render();return;}
+  st.goods-=TR_X_COST;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  n.trX=x.concat(now+TR_X_DAYS*TR_DAY);commit(n);S.tradeMsg=`Extra deal slot rented for ${TR_X_DAYS} days. Deals already signed keep running when it lapses.`;render();
+}
+function trFavToggle(id){if(!id)return;const n=clone(S.nation),f=(n.trFav||[]).filter(x=>x!==id);if(f.length===((n.trFav||[]).length))f.unshift(id);n.trFav=f.slice(0,8);commit(n);render();}
+/* a daily point per device for the trend lines: net trade and world price per resource, 14 days kept */
+function trHist(E,i){
+  const k='edictum.trh.'+myId(),day=Math.floor(Date.now()/TR_DAY);let h=[];
+  try{h=JSON.parse(localStorage.getItem(k)||'[]');if(!Array.isArray(h))h=[];}catch(e){h=[];}
+  const pt={d:day,n:{},p:{}};for(const r of RES){pt.n[r]=Math.round((E.imp[r][i]-E.exp[r][i])*10)/10;pt.p[r]=Math.round(E.price[r]*100)/100;}
+  h=h.filter(x=>x&&x.d!==day&&x.d>day-14).concat(pt).sort((a,b)=>a.d-b.d);
+  try{localStorage.setItem(k,JSON.stringify(h));}catch(e){}
+  return h;
+}
+function spark(vals,label){
+  if(vals.length<2)return '';
+  const w=72,h=18,lo=Math.min(...vals,0),hi=Math.max(...vals,0),sp=hi-lo||1,X=j=>(j/(vals.length-1)*w).toFixed(1),Y=v=>(h-1-(v-lo)/sp*(h-2)).toFixed(1);
+  return `<svg class="tr-spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(label)}"><line x1="0" x2="${w}" y1="${Y(0)}" y2="${Y(0)}" class="z"/><polyline points="${vals.map((v,j)=>X(j)+','+Y(v)).join(' ')}"/></svg>`;
+}
+/* deliveries missing from your active deals, per resource you receive */
+function trHealth(E,me){
+  const short={};let bad=0;
+  for(const d of E.active){if(d.a!==me&&d.b!==me)continue;const mine=d.a===me,get=mine?d.bg:d.ag;const f=d.sus?0:Math.min(d.fa==null?1:d.fa,d.fb==null?1:d.fb);if(f<0.995){bad++;short[get[0]]=(short[get[0]]||0)+get[1]*(1-f);}}
+  const parts=RES.filter(r=>short[r]>0.05).map(r=>fmtAmt(short[r])+' '+resName(r));
+  if(!bad)return '';
+  return `<p class="deal-warn tr-health">${bad===1?'One deal is':bad+' deals are'} not delivering in full: you are missing ${esc(list(parts))} a day. Suspended and frozen deals deliver nothing; the others are short because a side cannot spare enough.</p>`;
+}
+function trLog(n){
+  const L=(n.log||[]).filter(l=>l.k==='trade'||l.k==='tradeend'||l.k==='tradeno').slice(0,12);
+  if(!L.length)return '<p class="hint">Deals you sign, end and decline will be listed here.</p>';
+  const amt=a=>Array.isArray(a)&&RES.includes(a[0])?fmtAmt(a[1])+' '+resName(a[0]):'';
+  return `<ul class="tr-log">${L.map(l=>{
+    let t=l.k==='trade'?`Signed with ${esc(l.b||'')}`:l.k==='tradeend'?`Ended with ${esc(l.b||'')}`:`Declined an offer from ${esc(l.b||'')}`;
+    if(l.d&&amt(l.d[0]))t+=` · sent ${amt(l.d[0])}, received ${amt(l.d[1])} a day`;
+    if(l.k==='tradeend'&&l.s&&l.d&&amt(l.d[1])){const days=Math.max(1,Math.round((l.t-l.s)/TR_DAY));t+=` · ran ${days} day${days>1?'s':''}, about ${fmtAmt(l.d[1][1]*days)} ${resName(l.d[1][0])} received`;}
+    return `<li><span class="muted">${esc(fmtDate(l.t))}</span> ${t}</li>`;}).join('')}</ul>`;
+}
 /* deal slots: used of available, with where the slots come from */
 function trSlotsLine(){
   const used=dealSlots(),max=maxDeals(),al=alFx(myId()).slots||0,mk=mktSlots(),free=Math.max(0,max-used);
-  const src=[`${MAX_DEALS} base`];if(mk)src.push(`${mk} from Market Hall${mk>1?'s':''}`);if(al)src.push(`${al} from your alliance`);
+  const rx=trXSlots(S.nation);
+  const src=[`${MAX_DEALS} base`];if(mk)src.push(`${mk} from Market Hall${mk>1?'s':''}`);if(al)src.push(`${al} from your alliance`);if(rx.length)src.push(`${rx.length} rented until ${fmtDate(Math.min(...rx))}`);
   const tip=mk?'':' Build a Market Hall for one more.';
-  return `<div class="tr-slots${free?'':' full'}"><p><b>${used} of ${max}</b> deal slots used <span class="hint">(${esc(src.join(', '))})</span></p><span class="sbar${free?'':' down'}" role="img" aria-label="${used} of ${max} deal slots used"><i style="width:${max?Math.min(100,used/max*100):0}%"></i></span><p class="hint">${free?`${free} free. Offers you send count until they are answered or withdrawn.`:'All slots in use. End a deal or withdraw an offer to propose another.'}${tip}</p></div>`;
+  return `<div class="tr-slots${free?'':' full'}"><p><b>${used} of ${max}</b> deal slots used <span class="hint">(${esc(src.join(', '))})</span></p><span class="sbar${free?'':' down'}" role="img" aria-label="${used} of ${max} deal slots used"><i style="width:${max?Math.min(100,used/max*100):0}%"></i></span><p class="hint">${free?`${free} free. Offers you send count until they are answered or withdrawn.`:'All slots in use. End a deal or withdraw an offer to propose another.'}${tip}</p>${rx.length<TR_X_MAX?`<p><button type="button" class="linkish small" data-act="tr-rent">Rent one more slot for ${TR_X_DAYS} days (${TR_X_COST} goods from your stockpile)</button></p>`:''}</div>`;
 }
 function tradeView(){
   cuLoad();
@@ -19013,43 +19071,58 @@ function tradeView(){
   const active=E.active.filter(d=>d.a===me||d.b===me).map(d=>{
     const mine=d.a===me,partner=mine?d.b:d.a,give=mine?d.ag:d.bg,get=mine?d.bg:d.ag,f=Math.min(mine?d.fa:d.fb,mine?d.fb:d.fa);
     const st=d.frz?`<span class="pill down">Frozen</span><span class="deal-warn">${esc(nameOf(partner))} regards you as hostile and has frozen this deal. It resumes once relations improve.</span>`:d.sus?'<span class="pill down">Suspended by war</span>':f<0.995?`<span class="pill">${Math.round(f*100)}% delivered</span>`:'<span class="pill up">Active</span>';
-    return dealRow(partner,give,get,trDealSt(d,partner,f,st),`<button class="linkish small" data-act="tr-cancel" data-id="${esc(d.id)}">End deal</button>`);
+    return dealRow(partner,give,get,trDealSt(d,partner,f,st),`<button class="linkish small" data-act="tr-cancel" data-id="${esc(d.id)}">End deal</button>`,d.e);
   }).join('');
-  const incoming=E.pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).map(p=>dealRow(p.from,p.r,p.g,'<span class="pill">Offer</span>'+(()=>{const a=spareOf(E,p.from,p.g[0]),b=spareOf(E,myId(),p.r[0]),w=[];if(a<p.g[1]-1e-9)w.push(`${nameOf(p.from)} can spare only ${fmtAmt(a)} ${resName(p.g[0])} a day`);if(b<p.r[1]-1e-9)w.push(`you can spare only ${fmtAmt(b)} ${resName(p.r[0])} a day`);return w.length?`<span class="deal-warn">${esc(cap1(list(w)))}, so both sides would deliver only that share.</span>`:'';})(),`<button class="btn" data-act="tr-accept" data-id="${esc(p.id)}">Accept</button><button class="btn ghost" data-act="tr-decline" data-id="${esc(p.id)}">Decline</button>`)).join('');
-  const outgoing=E.pending.filter(p=>p.from===me).map(p=>dealRow(p.to,p.g,p.r,p.declined?'<span class="pill down">Declined</span>':'<span class="pill">Waiting</span>',`<button class="linkish small" data-act="tr-cancel" data-id="${esc(p.id)}">Withdraw</button>`)).join('');
+  const incoming=E.pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).map(p=>dealRow(p.from,p.r,p.g,'<span class="pill">Offer</span>'+(()=>{const a=spareOf(E,p.from,p.g[0]),b=spareOf(E,myId(),p.r[0]),w=[];if(a<p.g[1]-1e-9)w.push(`${nameOf(p.from)} can spare only ${fmtAmt(a)} ${resName(p.g[0])} a day`);if(b<p.r[1]-1e-9)w.push(`you can spare only ${fmtAmt(b)} ${resName(p.r[0])} a day`);return w.length?`<span class="deal-warn">${esc(cap1(list(w)))}, so both sides would deliver only that share.</span>`:'';})(),`<button class="btn" data-act="tr-accept" data-id="${esc(p.id)}">Accept</button>${findNation(p.from)&&!findNation(p.from).npc?`<button class="btn ghost" data-act="tr-counter" data-id="${esc(p.id)}">Counter</button>`:''}<button class="btn ghost" data-act="tr-decline" data-id="${esc(p.id)}">Decline</button>`,p.e)).join('');
+  const outgoing=E.pending.filter(p=>p.from===me).map(p=>dealRow(p.to,p.g,p.r,p.declined?'<span class="pill down">Declined</span>':'<span class="pill">Waiting</span>',`<button class="linkish small" data-act="tr-cancel" data-id="${esc(p.id)}">Withdraw</button>`,p.e)).join('');
   const partners=allNations().filter(x=>!x.me);
   if(!partners.some(p=>p.id===S.trade.w))S.trade.w=(partners.find(p=>p.npc&&!warWith(p.id).war)||partners[0]||{}).id||'';
   const resOpts=v=>RES.map(r=>`<option value="${r}"${r===v?' selected':''}>${RES_INFO[r][0]}</option>`).join('');
   const offers=[];
   E.T.list.forEach((x,j)=>{if(x.me||warWith(x.id).war)return;for(const r of RES){const spare=E.sup[r][j]-E.dem[r][j];if(spare>=1&&E.ratio[r][i]<1.1)offers.push({x,r,spare,need:E.ratio[r][i]});}});
   offers.sort((a,b)=>a.need-b.need||b.spare-a.spare);
+  /* one click to fix a shortage: the partner with the most to spare (computer nations first, as they answer at once) */
+  const shortBtns=RES.filter(r=>E.ratio[r][i]<0.9).map(r=>{const o=offers.filter(q=>q.r===r).sort((a,b)=>(b.x.npc?1:0)-(a.x.npc?1:0)||b.spare-a.spare)[0],gap=Math.max(0.5,Math.ceil((E.dem[r][i]-E.sup[r][i])*2)/2);
+    return o?`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${r}" data-a="${Math.max(0.5,Math.min(gap,Math.floor(o.spare*2)/2,8))}">Fix ${resName(r)} shortage · ${esc(o.x.n.name)}</button>`:`<span class="chip">No one has ${resName(r)} to spare</span>`;}).join('');
+  const fav=(n.trFav||[]).filter(id=>partners.some(p=>p.id===id));
+  const pOrder=partners.slice().sort((a,b)=>(fav.includes(b.id)?1:0)-(fav.includes(a.id)?1:0));
+  const ally=id=>alSame(me,id),af=alFx(me),mf=S.trade.mf||'',mAll=!!S.trade.mAll;
+  const shown=offers.filter(o=>!mf||o.r===mf),hist=trHist(E,i);
+  const trends=hist.length<2?'<p class="hint">Trend lines fill in as you play, one point a day.</p>':`<div class="tr-trends">${RES.map(r=>`<div><span class="lbl">${RES_INFO[r][0]}</span>${spark(hist.map(h=>h.n[r]||0),RES_INFO[r][0]+' net trade, last '+hist.length+' days')}<span class="hint">net ${fmtAmt(hist[hist.length-1].n[r]||0)}</span></div>`).join('')}</div><p class="hint">Net trade per day over the last ${hist.length} days, kept on this device.</p>`;
   if(!S.trade.touched&&offers.length){const o=offers[0];S.trade.touched=true;fillDeal(o.x.id,o.r,clamp(Math.floor(Math.min(o.spare,8)*2)/2,0.5,8),true);}
   return `${head}${msg}${c3Strip(n,Date.now())}
-  <section><h2 class="h2">Resources</h2><div class="res-card">${rows}</div>${effects}${resPolicyNote(n)}${cityTradeNote()}<p class="hint">New quotes include currency strength, up to 8% either way. Stronger currencies buy imports with fewer exports; weaker currencies make exports cheaper to foreign buyers. Signed daily quantities stay fixed. <button class="linkish small" data-act="go" data-v="exchange">Open the Exchange Bureau</button></p></section>
+  <section><h2 class="h2">Resources</h2>${shortBtns?`<div class="market tr-short">${shortBtns}</div>`:''}<div class="res-card">${rows}</div>${effects}${resPolicyNote(n)}${cityTradeNote()}<p class="hint">New quotes include currency strength, up to 8% either way. Stronger currencies buy imports with fewer exports; weaker currencies make exports cheaper to foreign buyers. Signed daily quantities stay fixed. <button class="linkish small" data-act="go" data-v="exchange">Open the Exchange Bureau</button></p></section>
   <div class="trade-grid">
     <section>
       <h2 class="h2">Agreements</h2>
       ${trSlotsLine()}
       ${incoming?`<h3 class="lbl-h tr-in-h">Offers to you</h3><ul class="deals">${incoming}</ul>`:''}
-      ${active?`<h3 class="lbl-h"${incoming?' style="margin-top:20px"':''}>Active deals</h3><ul class="deals">${active}</ul>`:''}
+      ${active?`<h3 class="lbl-h"${incoming?' style="margin-top:20px"':''}>Active deals</h3>${trHealth(E,me)}<ul class="deals">${active}</ul>`:''}
       ${outgoing?`<h3 class="lbl-h" style="margin-top:20px">Your offers</h3><ul class="deals">${outgoing}</ul>`:''}
       ${!incoming&&!active&&!outgoing?'<div class="empty"><p class="empty-h">No trade deals yet</p><p>Propose one with the form, or pick an offer from the world market below it.</p></div>':''}
       <h3 class="lbl-h" style="margin-top:28px">World prices</h3>
-      <ul class="prices">${RES.map(r=>`<li><span>${RES_INFO[r][0]}</span><b>${E.price[r].toFixed(2)}</b></li>`).join('')}</ul>
+      <ul class="prices">${RES.map(r=>`<li><span>${RES_INFO[r][0]}</span>${spark(hist.map(h=>h.p[r]||0),RES_INFO[r][0]+' world price trend')}<b>${E.price[r].toFixed(2)}</b></li>`).join('')}</ul>
       <p class="hint" style="margin-top:8px">How much the world needs of each resource compared with what it produces. Above 1 is scarce.</p>
+      <h3 class="lbl-h" style="margin-top:28px">Trends</h3>${trends}
+      <h3 class="lbl-h" style="margin-top:28px">Trade history</h3>${trLog(n)}
     </section>
     <section>
       <h2 class="h2">Propose a deal</h2>
       <form id="deal-form" class="deal-form" novalidate>
-        <div class="field"><label for="tr-w">Trade with</label><select class="input" id="tr-w" data-bind="tr.w">${partners.map(p=>{const w=warWith(p.id).war;return `<option value="${esc(p.id)}"${p.id===S.trade.w?' selected':''}${w?' disabled':''}>${esc(p.n.name)}${p.npc?' (computer)':''}${w?' (at war)':''}</option>`;}).join('')}</select></div>
+        <div class="field"><label for="tr-w">Trade with</label><div class="name-row"><select class="input" id="tr-w" data-bind="tr.w">${pOrder.map(p=>{const w=warWith(p.id).war;return `<option value="${esc(p.id)}"${p.id===S.trade.w?' selected':''}${w?' disabled':''}>${fav.includes(p.id)?'★ ':''}${esc(p.n.name)}${p.npc?' (computer)':''}${ally(p.id)?' (ally)':''}${w?' (at war)':''}</option>`;}).join('')}</select><button type="button" class="btn ghost small" data-act="tr-fav" aria-pressed="${fav.includes(S.trade.w)}" title="Pin this partner to the top">${fav.includes(S.trade.w)?'★ Pinned':'☆ Pin'}</button></div>${fav.length?`<div class="market tr-favs">${fav.map(id=>`<button type="button" class="chip-btn${id===S.trade.w?' on':''}" data-act="trade-go" data-id="${esc(id)}">★ ${esc(nameOf(id))}</button>`).join('')}</div>`:''}</div>
+        ${S.trade.counter?`<p class="hint">Counter-offer: proposing this declines their offer. <button type="button" class="linkish small" data-act="tr-counter-x">Cancel counter</button></p>`:''}
         <div class="deal-cols">
           <div class="field"><label for="tr-ga">You send (per day)</label><div class="name-row"><input class="input num-in" id="tr-ga" type="number" inputmode="decimal" min="0.5" max="100" step="0.5" value="${esc(S.trade.ga)}" data-bind="tr.ga"><select class="input" id="tr-gr" aria-label="Resource you send" data-bind="tr.gr">${resOpts(S.trade.gr)}</select></div></div>
           <div class="field"><label for="tr-ra">You receive (per day)</label><div class="name-row"><input class="input num-in" id="tr-ra" type="number" inputmode="decimal" min="0.5" max="100" step="0.5" value="${esc(S.trade.ra)}" data-bind="tr.ra"><select class="input" id="tr-rr" aria-label="Resource you receive" data-bind="tr.rr">${resOpts(S.trade.rr)}</select></div></div>
         </div>
+        <div class="field"><label for="tr-end">Runs for</label><select class="input" id="tr-end" data-bind="tr.end">${TR_ENDS.map(([d,l])=>`<option value="${d}"${String(d)===String(S.trade.end||0)?' selected':''}>${l}</option>`).join('')}</select></div>
         <div id="deal-preview" class="deal-preview">${dealPreview()}</div>
         <div class="row"><button class="btn" type="submit">Propose deal</button></div>
       </form>
-      ${offers.length?`<h3 class="lbl-h" style="margin-top:24px">World market</h3><p class="hint" style="margin-bottom:10px">Nations with spare resources you could use. Select one to fill in the form.</p><div class="market">${offers.slice(0,10).map(o=>`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${o.r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(o.spare*2)/2))}">${esc(o.x.n.name)} · ${resName(o.r)} +${fmtAmt(o.spare)}</button>`).join('')}</div>`:''}
+      ${offers.length?`<h3 class="lbl-h" style="margin-top:24px">World market</h3><p class="hint" style="margin-bottom:10px">Nations with spare resources you could use. Select one to fill in the form.${af.tariffFree?' Allies in your trade bloc pay no tariffs.':''}</p>
+      <div class="market tr-mf" role="group" aria-label="Filter by resource"><button type="button" class="chip-btn${mf?'':' on'}" data-act="tr-mf" data-v="" aria-pressed="${!mf}">All</button>${RES.map(r=>`<button type="button" class="chip-btn${mf===r?' on':''}" data-act="tr-mf" data-v="${r}" aria-pressed="${mf===r}">${RES_INFO[r][0]}</button>`).join('')}</div>
+      <div class="market">${shown.slice(0,mAll?60:12).map(o=>`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${o.r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(o.spare*2)/2))}">${fav.includes(o.x.id)?'★ ':''}${esc(o.x.n.name)}${ally(o.x.id)?' (ally'+(af.tariffFree?', no tariff':'')+')':''} · ${resName(o.r)} +${fmtAmt(o.spare)}</button>`).join('')||'<p class="hint">Nobody has this to spare right now.</p>'}</div>
+      ${shown.length>12?`<p><button type="button" class="linkish small" data-act="tr-mall">${mAll?'Show fewer':`Show all ${Math.min(60,shown.length)}`}</button></p>`:''}`:''}
     </section>
   </div>`;
 }
@@ -22663,7 +22736,7 @@ function helpBody(n){
       <h3 class="help-h3">The Bureau’s market</h3>
       <p>On the Trade page you can hand over a surplus for a resource you are short of, at the Bureau’s price. The first units of the day fetch the best rate (${Math.round(GB.MKT_HI*100)}% of their value), falling to ${Math.round(GB.MKT_LO*100)}% as the day’s ${GB.MKT_DAY} units fill. Trade deals with other nations pay better, so use the market to fill a gap.</p>
       <h3 class="help-h3">Trade deals</h3>
-      <p>A trade deal swaps a daily flow of one resource for a flow of another, for as long as both sides keep it. You can hold up to ${MAX_DEALS} deals and offers at once (one more for each Market Hall, and more in a trade bloc or with a Common Market). A computer nation accepts at once if you can spare what you offer and it can spare what you ask, it is not already well supplied with your resource, and the price is fair; players answer when they next play. A war between two nations suspends their deals.${typeof C3_HOSTILE==='number'?` A computer nation that regards you as hostile (goodwill ${String(C3_HOSTILE).replace('-','−')} or lower) freezes its deals with you and refuses new ones.`:''}</p>${G(go('trade','Open trade'))}`,
+      <p>A trade deal swaps a daily flow of one resource for a flow of another, for as long as both sides keep it. You can hold up to ${MAX_DEALS} deals and offers at once (one more for each Market Hall, and more in a trade bloc or with a Common Market). When every slot is taken you can rent one more for a week with goods from your stockpile. A deal can run for 7 or 30 days or with no end date, and you can answer a player's offer with a counter-offer. A computer nation accepts at once if you can spare what you offer and it can spare what you ask, it is not already well supplied with your resource, and the price is fair; players answer when they next play. A war between two nations suspends their deals.${typeof C3_HOSTILE==='number'?` A computer nation that regards you as hostile (goodwill ${String(C3_HOSTILE).replace('-','−')} or lower) freezes its deals with you and refuses new ones.`:''}</p>${G(go('trade','Open trade'))}`,
     mig:`<p>People move towards nations that are richer, happier, freer, safer, healthier and better educated, within ${MIG_RANGE} hexes of each other’s capitals. Income tax above 45%, overcrowding, war and occupied land put them off, and a nation that is losing land in a war sends out refugees.</p>
       <p>Arrivals and departures are each capped at half of natural growth, so migration bends your growth but never rules it. Open Borders, a Border Wall, Skilled Worker Visas and an Exit Tax all change the flows, and a Diplomata draws 3% more arrivals. The Migration tab in Statistics shows who comes and who goes.</p>`,
     nb:`<p>Your neighbours are the nearest nations within ${NB_RANGE} hexes, up to three of them. Border disputes, trade quarrels and shared stories involve them, and the Diplomacy page lists them.</p>
@@ -39494,7 +39567,7 @@ function normalizeBase(d){
   const policies={};if(d.policies&&typeof d.policies==='object')for(const k of Object.keys(d.policies))if(POLICIES[k]&&d.policies[k])policies[k]=true;
   const answered=Array.isArray(d.answered)?d.answered.filter(a=>a&&typeof a.id==='string').slice(-80).map(a=>({id:a.id.slice(0,40),o:num(a.o,-1),t:num(a.t,0),fx:str(a.fx,240)})):[];
   const inbox=Array.isArray(d.inbox)?d.inbox.filter(x=>x&&ISSUE_BY_ID[x.id]).slice(0,EDICT_KEEP).map(x=>({id:x.id,at:num(x.at,now)})):[];
-  const log=Array.isArray(d.log)?d.log.filter(x=>x&&typeof x.k==='string').slice(0,60).map(x=>({t:num(x.t,0),k:str(x.k,10),fx:str(x.fx,240),a:str(x.a,60),b:str(x.b,60)})):[];
+  const log=Array.isArray(d.log)?d.log.filter(x=>x&&typeof x.k==='string').slice(0,60).map(x=>{const o={t:num(x.t,0),k:str(x.k,10),fx:str(x.fx,240),a:str(x.a,60),b:str(x.b,60)};const dd=trLogAmts(x.d);if(dd){o.d=dd;if(Number.isFinite(x.s))o.s=x.s;}return o;}):[];
   const fl=d.flag||{};
   const flag={p:PATTERNS[fl.p]?fl.p:DEF_FLAG.p,c:[0,1,2].map(i=>safeColor(fl.c&&fl.c[i],DEF_FLAG.c[i])),e:EMBLEMS[fl.e]?fl.e:'none',ec:safeColor(fl.ec,'#F2C230')};
   const name=str(d.name,40).trim();
@@ -39504,13 +39577,14 @@ function normalizeBase(d){
   const alli=d.alli&&typeof d.alli==='object'&&typeof d.alli.name==='string'&&d.alli.name.trim()?{name:d.alli.name.trim().slice(0,40),t:num(d.alli.t,0),inv:Array.isArray(d.alli.inv)?d.alli.inv.filter(e=>e&&typeof e.id==='string'&&e.id.length<=60).slice(-30).map(e=>({id:e.id,t:num(e.t,0)})):[]}:null;
   const spy=d.spy&&Number.isInteger(d.spy.n)?{n:clamp(d.spy.n,0,4),at:num(d.spy.at,now)}:null;
   const intel=Array.isArray(d.intel)?d.intel.filter(r=>r&&typeof r.tg==='string'&&INTEL[r.k]).slice(0,12).map(r=>{const o={t:num(r.t,0),tg:r.tg.slice(0,60),tn:str(r.tn,40),r:clamp(Math.round(num(r.r,1)),1,20),m:clamp(Math.round(num(r.m,0)),-9,9),k:r.k};if(typeof r.u==='number'&&isFinite(r.u))o.u=r.u;if(Number.isInteger(r.c)&&r.c>=-1&&r.c<MAP.N)o.c=r.c;if(r.dim===1)o.dim=1;if(typeof r.gw==='number'&&isFinite(r.gw))o.gw=clamp(Math.round(r.gw),-20,0);if(r.d&&typeof r.d==='object')o.d={b:num(r.d.b,0),rd:typeof r.d.rd==='number'?r.d.rd:null,mx:num(r.d.mx,6),dp:num(r.d.dp,0),al:str(r.d.al,40),wp:Array.isArray(r.d.wp)?r.d.wp.filter(x=>typeof x==='string').slice(0,20).map(x=>x.slice(0,40)):[],w:num(r.d.w,0)};return o;}):[];
-  const deals=Array.isArray(d.deals)?d.deals.filter(x=>x&&typeof x.id==='string'&&typeof x.w==='string'&&Array.isArray(x.g)&&Array.isArray(x.r)&&RES.includes(x.g[0])&&RES.includes(x.r[0])).slice(0,12).map(x=>{const o={id:x.id.slice(0,16),w:x.w.slice(0,60),g:[x.g[0],clamp(Math.round(num(x.g[1],1)*2)/2,0.5,100)],r:[x.r[0],clamp(Math.round(num(x.r[1],1)*2)/2,0.5,100)],t:num(x.t,0)};if(x.a)o.a=1;return o;}):[];
+  const deals=Array.isArray(d.deals)?d.deals.filter(x=>x&&typeof x.id==='string'&&typeof x.w==='string'&&Array.isArray(x.g)&&Array.isArray(x.r)&&RES.includes(x.g[0])&&RES.includes(x.r[0])).slice(0,TR_STORE).map(x=>{const o={id:x.id.slice(0,16),w:x.w.slice(0,60),g:[x.g[0],clamp(Math.round(num(x.g[1],1)*2)/2,0.5,100)],r:[x.r[0],clamp(Math.round(num(x.r[1],1)*2)/2,0.5,100)],t:num(x.t,0)};if(x.a)o.a=1;if(Number.isFinite(x.e)&&x.e>0)o.e=x.e;return o;}):[];
+  const trFav=Array.isArray(d.trFav)?d.trFav.filter(x=>typeof x==='string'&&x.length<=60).slice(0,8):[],trX=Array.isArray(d.trX)?d.trX.filter(x=>Number.isFinite(x)&&x>now-TR_DAY).slice(-TR_X_MAX):[];
   const topics={};if(d.topics&&typeof d.topics==='object')for(const [k] of ISSUE_TOPICS){const v=d.topics[k];if(v===1||v===-1)topics[k]=v;}
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
-    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d))])),stockAt:num(d.stockAt,now),
+    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
@@ -42868,6 +42942,13 @@ document.addEventListener('click',e=>{
   if(a==='tr-decline'){declineDeal(el.dataset.id);return;}
   if(a==='tr-cancel'){cancelDeal(el.dataset.id);return;}
   if(a==='tr-fill'){fillDeal(el.dataset.w,el.dataset.r,parseFloat(el.dataset.a)||1);return;}
+  if(a==='tr-fair'){S.trade.ga=String(+el.dataset.v||S.trade.ga);const f=document.getElementById('tr-ga');if(f)f.value=S.trade.ga;const pv=document.getElementById('deal-preview');if(pv)pv.innerHTML=dealPreview();return;}
+  if(a==='tr-counter'){const p=economy().pending.find(q=>q.id===el.dataset.id&&q.to===myId());if(!p)return;const len=p.e?p.e-p.t:0;Object.assign(S.trade,{w:p.from,gr:p.r[0],ga:String(p.r[1]),rr:p.g[0],ra:String(p.g[1]),end:String(len?TR_ENDS.filter(e=>e[0]).reduce((b,e)=>Math.abs(e[0]*TR_DAY-len)<Math.abs(b*TR_DAY-len)?e[0]:b,7):0),counter:p.id,touched:true});S.tradeMsg='Change the amounts, then propose your counter-offer.';render();const f=document.getElementById('deal-form');if(f)f.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
+  if(a==='tr-counter-x'){S.trade.counter='';render();return;}
+  if(a==='tr-rent'){rentSlot();return;}
+  if(a==='tr-fav'){trFavToggle(S.trade.w);return;}
+  if(a==='tr-mf'){S.trade.mf=el.dataset.v||'';render();return;}
+  if(a==='tr-mall'){S.trade.mAll=!S.trade.mAll;render();return;}
   if(a==='found-suggest'){const c=suggestSpot(territory());if(c<0)S.mapMsg='No free land is left. Choose a spot on the map yourself.';else{S.draft.loc=locOf(c);S.mapMsg='';if(!S.mapViews)S.mapViews={};S.mapViews.found={z:4.5,cx:MAP.cx[c],cy:MAP.cy[c]};}updateFoundLoc();redrawMaps();return;}
   if(a==='map-suggest'){const c=suggestSpot(territory());if(c<0)S.mapMsg='No free land is left. Choose a spot on the map yourself.';else{S.mapPick=c;S.mapMsg='';centerMain(c,NEAR_Z);}updateMapPanel();redrawMaps();return;}
   if(a==='map-unpick'){S.mapPick=null;S.mapMsg='';updateMapPanel();redrawMaps();return;}
@@ -42877,7 +42958,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{
   const el=e.target,b=el.dataset&&el.dataset.bind;if(!b)return;
-  if(b.startsWith('tr.')){S.trade[b.slice(3)]=el.value;S.trade.touched=true;const pv=document.getElementById('deal-preview');if(pv)pv.innerHTML=dealPreview();return;}
+  if(b.startsWith('tr.')){S.trade[b.slice(3)]=el.value;S.trade.touched=true;if(b==='tr.w'){render();return;}const pv=document.getElementById('deal-preview');if(pv)pv.innerHTML=dealPreview();return;}
   if(b==='alname'){S.alName=el.value;return;}
   if(b==='ctname'){S.cityName=el.value;return;}
   if(b==='stfor'){S.statsFor=el.value;S.loreEdit=false;render();return;}
@@ -58916,7 +58997,7 @@ economy=(f=>function(){const v=f.apply(this,arguments);if(v&&!v._al){v._al=true;
 defenceMult=(f=>function(n,cell){const m=f.apply(this,arguments);const fx=alFx(alIdOf(n));return fx.def?m*(1+fx.def):m;})(defenceMult);
 /* each finished Market Hall adds one deal slot */
 function mktSlots(){try{return myCityStates().mine.reduce((t,c)=>t+(c.done||[]).filter(k=>k==='market').length,0);}catch(e){return 0;}}
-function maxDeals(){return MAX_DEALS+alFx(myId()).slots+mktSlots();}
+function maxDeals(){return MAX_DEALS+alFx(myId()).slots+mktSlots()+trXSlots(S.nation).length;}
 spyParts=(f=>function(me,tg){const p=f.apply(this,arguments);const fx=alFx(alIdOf(me));if(fx.spy)p.push(['your research accord',fx.spy]);return p;})(spyParts);
 /* a gift to a fellow member under an Embassy Row: twice the goodwill, and up to 25 */
 function alGiftGw(v,to){v=v||0;if(!alSame(myId(),to)||!alFx(myId()).gift)return gfGw(v);return v>=25?v:Math.min(25,v+2*GF_GW);}
