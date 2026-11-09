@@ -36305,7 +36305,9 @@ const TUT_LISTS=[
      act:'acct-open',b:'Link a sign-in',f:n=>!!n.glk},
     {k:'rmb',t:()=>`Say hi to ${REGION}`,h:'Leave a message on the region’s board: a hello, a question or news of your nation. Every player in the region reads it.',
      v:'region',to:'rmb-text',b:'Open the board',lc:3,gift:{food:5,timber:5,iron:10,oil:10,goods:5},mapc:'#A347C8',mapcN:'Orchid',
-     lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()}]},
+     lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()},
+    {k:'mdig',t:'Do a museum dig',h:'The Museum’s Field digs hall sends diggers to an old site. They come back hours later with finds for your collection.',
+     act:'tut-dig',b:'Open the digs',lc:2,gift:{food:10,timber:10,iron:10,oil:10,goods:10},f:n=>(n.dig||[]).length>0||(n.digF||[]).length>0}]},
   {k:'mark',c:'m',eb:'Next steps',t:()=>`Make your mark in ${REGION}`,hk:'statehood.steps2.v1',
    lede:'Your region: its paper, its Assembly and Games, the nations next door, and money of your own.',
    bonus:{lc:3,gift:{iron:10},u:'t-renowned'},tasks:[
@@ -36795,6 +36797,7 @@ document.addEventListener('click',e=>{
   if(a==='tut-show'&&L){tutHide(L,false);const N=tutCur(S.nation);if(N===L)tutGo('nation','','tut-h-'+L.k);else{render();toast(`“${L.t()}” returns to your Nation page once the lists before it are done or hidden.`);}return;}
   if(a==='tut-restore'){for(const x of TUT_LISTS)tutHide(x,false);const N=tutCur(S.nation);tutGo('nation','',N?'tut-h-'+N.k:'');toast('The tutorial lists are back on your Nation page.');return;}
   if(a==='tut-city'){tutCityGo();return;}
+  if(a==='tut-dig'){S.museumFor=null;S.muHall='digs';S.colDetail=null;S.muRen=false;go('museum');return;}
   if(a==='tut-new-x'){tutNewDismiss();return;}
   if(a==='tut-go'){tutGo(el.dataset.v,el.dataset.b||'',el.dataset.to||'');return;}
 });
