@@ -14,7 +14,7 @@ const { getAuth } = require('firebase-admin/auth');
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum', AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099', FN = process.env.FUNCTIONS_EMULATOR_HOST || '127.0.0.1:5001';
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), auth = getAuth(), DAY = 864e5, H = 36e5, SECRET = 'pdl_ntfset_test_secret';
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── the stand-in for Paddle ── */
@@ -596,6 +596,15 @@ test('a basket closed without paying stops being awaited; paid and not yet compl
   await call(q, { step: 'refresh' });
   const pend = (await shop(q.uid)).pend;
   assert.ok(pend.orpack && pend.cbpack);
+});
+
+test('the Tulip Mania Pack: €2.99 and all eleven of its pieces held', async () => {
+  assert.equal(CATALOGUE.products.tulippack.amount, 299);assert.equal(CATALOGUE.products.tulippack.grants.length, 11);
+  const p = await player(), c = await call(p, { step: 'checkout', product: 'tulippack' });
+  await hook('transaction.completed', pay(c.txn));
+  const f = (await finery(p.uid)).c;
+  for (const id of CATALOGUE.products.tulippack.grants) assert.ok(f.includes(id), id + ' is held');
+  await rejects(call(p, { step: 'checkout', product: 'tulippack' }), 'owned');
 });
 
 test('the founders’ thank-you gift: a founder chooses one pack, once, while the offer runs; a pack owned or a non-founder is refused', async () => {
