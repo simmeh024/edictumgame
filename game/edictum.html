@@ -18162,7 +18162,7 @@ function cellAt(x,y){
   return r<0||r>=MAP.ROWS?-1:r*MAP.COLS+c;
 }
 function landName(i){const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?c.name:'a remote islet';}
-function placePhrase(i){const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?placeIn(i)+' '+c.name:'on a remote islet';}
+function placePhrase(i){if(isLake(i))return 'on a lake in '+lakeShore(i);const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?placeIn(i)+' '+c.name:'on a remote islet';}
 function nationColor(n){return safeColor(n&&n.mapc,'')||mapColor(n&&n.flag);}
 function mapColor(f){
   const cs=(f&&Array.isArray(f.c))?f.c:DEF_FLAG.c;
@@ -18331,11 +18331,12 @@ function readConquests(at){
 }
 /* Grow every nation from its capital up to its population budget. Hexes in `over` are already
    held (conquests): they block other nations, their holder may pass through them, and they
-   do not count against the holder's budget. */
+   do not count against the holder's budget. Water stays open to all, a claimed lake too, so a
+   lake claim moves no one's core. */
 function grow(list,over){
   const N=MAP.N,L=list.length,owner=new Int16Array(N).fill(-1),grown=new Int32Array(L),held=new Int32Array(L),seen=new Uint8Array(Math.max(1,L*N)),heap=[];
   const pre=new Uint8Array(N);if(over)for(const [c,i] of over){owner[c]=i;held[i]++;pre[c]=1;}
-  const expand=(i,cell,cost)=>{for(let d=0;d<6;d++){const nb=MAP.nbrFlat[cell*6+d];if(nb<0)continue;const t=MAP.T[nb];if(!t||seen[i*N+nb])continue;const o=owner[nb];if(o!==-1&&o!==i)continue;hpush(heap,[cost+STEP[t]/list[i].w,i,nb]);}};
+  const expand=(i,cell,cost)=>{for(let d=0;d<6;d++){const nb=MAP.nbrFlat[cell*6+d];if(nb<0)continue;const t=MAP.T[nb];if(!t||seen[i*N+nb])continue;const o=owner[nb];if(o!==-1&&o!==i&&t>=2)continue;hpush(heap,[cost+STEP[t]/list[i].w,i,nb]);}};
   list.forEach((x,i)=>{if(owner[x.cap]===-1){owner[x.cap]=i;grown[i]=1;held[i]++;seen[i*N+x.cap]=1;}});
   list.forEach((x,i)=>{if(owner[x.cap]===i&&grown[i])expand(i,x.cap,0);});
   while(heap.length){
@@ -18374,7 +18375,7 @@ function territory(extra){
   const used=new Int32Array(L),how=new Map(),nat=new Map();
   for(const e of ev.list){
     if(!e.claim)continue;const oi=byId[e.o];if(oi===undefined||!list[oi].cm)continue;
-    if(!(e.c>=0&&e.c<N)||isCap[e.c]||MAP.T[e.c]<2)continue;
+    if(!(e.c>=0&&e.c<N)||isCap[e.c]||!claimLand(e.c))continue;
     if(cityOver.has(e.c)){if(cityOver.get(e.c)===oi&&!how.has(e.c)){used[oi]++;how.set(e.c,1);nat.set(e.c,oi);}continue;}
     if(!inReach(list[oi],e.c)||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
     cityOver.set(e.c,oi);how.set(e.c,1);nat.set(e.c,oi);used[oi]++;
@@ -19675,7 +19676,7 @@ function citiesSection(id,n){
 function hexPanel(T,cell){
   const mi=T.byId[myId()],CS=cityState(T),ct=CS.byCell.get(cell),n=S.nation;
   const yields=RES.filter(r=>r!=='goods'&&CELL_RES[r][cell]>0).map(r=>fmtAmt(CELL_RES[r][cell])+' '+resName(r));
-  const headEl=`<p class="eyebrow">${ct?(ct.cap?'Capital':'City'):'Your land'}</p><h2 class="mp-h">${ct&&ct.rec&&ct.fn?ccSVG(ct,'cc-s cc-mp'):''}${ct?esc(ct.nm):`${terrName(cell)} on ${esc(landName(cell))}`}</h2>`;
+  const lake=!ct&&isLake(cell),headEl=`<p class="eyebrow">${ct?(ct.cap?'Capital':'City'):lake?'Your lake':'Your land'}</p><h2 class="mp-h">${ct&&ct.rec&&ct.fn?ccSVG(ct,'cc-s cc-mp'):''}${ct?esc(ct.nm):lake?`Lake in ${esc(lakeShore(cell))}`:`${terrName(cell)} on ${esc(landName(cell))}`}</h2>`;
   const back=`<button class="btn ghost" data-act="map-desel">Back to ${esc(n.name)}</button>`;
   if(ct){
     return headEl+c3Strip(n,Date.now(),{compact:true})+cpPanelCity(ct,T)+`<p class="muted">${ct.done.length?esc(list(ct.done.map(k=>BUILDINGS[k].n))):'No buildings yet.'}${ct.prog.length?` Building: ${esc(BUILDINGS[ct.prog[0].k].n)}.`:''}</p>
@@ -19684,7 +19685,7 @@ function hexPanel(T,cell){
   const prob=cityProblem(cell,T);
   if(!S.cityName||S.citySite!==cell){S.citySite=cell;S.cityName=cityNameIdea(cell);}
   const st=stockNow(n,Date.now()),miss=lacking(CITY_COST,st);
-  return headEl+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}
+  return headEl+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):lake?'Nothing':'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}
     ${prob?`<p class="hint" style="margin-top:12px">${esc(prob)}</p><div class="row" style="margin-top:12px">${back}</div>`:`<form id="mc-form" novalidate style="margin-top:14px"><label class="lbl" for="mc-name">Found a city here</label><div class="name-row" style="margin-top:6px"><input class="input" id="mc-name" data-bind="ctname" value="${esc(S.cityName)}" maxlength="30" autocomplete="off"><button class="btn" type="submit"${miss.length?' disabled':''}>Found</button></div><p class="hint" style="margin-top:6px">${miss.length?'You need '+esc(list(miss))+' more.':'Costs '+costText(CITY_COST)+'.'}</p></form><div class="row" style="margin-top:12px">${back}</div>`}`;
 }
 /* map markers: drawn after national labels, before capitals */
@@ -20218,7 +20219,7 @@ function landCredits(n){
   return Math.max(0,landEarned(n)-claimsUsed(n,T,i));
 }
 function nextCreditAt(n){const p=popNow(n),h=popForHexes(budgetOf(p)+1),m=mileOf(n).next;return m&&mileCredit(n,MILESTONES.indexOf(m))&&m.p<h?m.p:h;}
-const freeCell=(T,c)=>c>=0&&MAP.T[c]>=2&&T.owner[c]===-1&&!T.isCap[c]&&claimOk(T,c);
+const freeCell=(T,c)=>claimLand(c)&&T.owner[c]===-1&&!T.isCap[c]&&claimOk(T,c);
 let landMemo={T:null,me:'',fr:null,bs:null};
 function claimFrontier(T){
   const me=myId(),hk=mpHarbours(T).map(c=>c.c).join(',')+'/'+mpHarbourReach(S.nation);if(landMemo.T===T&&landMemo.me===me&&landMemo.hk===hk&&landMemo.fr)return landMemo.fr;
@@ -20246,11 +20247,12 @@ function blockPlan(T,b,from){
 function autoPlan(T,k){
   const mi=T.byId[myId()];if(mi===undefined||k<=0)return [];
   const cap=T.list[mi].cap,taken=new Set(),out=[],cost=c=>hexDist(cap,c)+STEP[MAP.T[c]];
-  let fr=[...claimFrontier(T)];
+  /* land only: a lake is claimed by choice, never by the land office spending credits for you */
+  let fr=[...claimFrontier(T)].filter(c=>MAP.T[c]>=2);
   while(out.length<k&&fr.length){
     fr.sort((a,b)=>cost(a)-cost(b)||a-b);const c=fr.shift();if(taken.has(c))continue;
     taken.add(c);out.push(c);
-    for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb>=0&&freeCell(T,nb)&&!taken.has(nb)&&!fr.includes(nb))fr.push(nb);}
+    for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb>=0&&MAP.T[nb]>=2&&freeCell(T,nb)&&!taken.has(nb)&&!fr.includes(nb))fr.push(nb);}
   }
   return out;
 }
@@ -20293,7 +20295,7 @@ function claimPanel(T){
   const cl=S.mapClaim,n=S.nation,cr=landCredits(n),plan=blockPlan(T,cl.b,cl.c);
   if(!plan.length||cr<1){S.mapClaim=null;return '';}
   const take=plan.slice(0,cr),f=blockFacts(take),adj=claimFrontier(T).has(cl.c),reach=plan.indexOf(cl.c)+1;
-  return `<p class="eyebrow">Land office</p><h2 class="mp-h">Free land on ${esc(landName(cl.c))}</h2>
+  return `<p class="eyebrow">Land office</p><h2 class="mp-h">${isLake(cl.c)?`A free lake in ${esc(lakeShore(cl.c))}`:`Free land on ${esc(landName(cl.c))}`}</h2>
     <dl class="mp-dl"><div><dt>Free hexes in this block</dt><dd>${plan.length}</dd></div><div><dt>Terrain</dt><dd>${esc(list(f.terr))}</dd></div><div><dt>Yields a day</dt><dd>${esc(list(f.y))||'Little'}</dd></div><div><dt>Your land credits</dt><dd><b>${cr}</b></dd></div></dl>
     <div class="row" style="margin-top:16px"><button class="btn" data-act="lc-block">${take.length===plan.length?`Claim the block (${plan.length} ${plan.length===1?'credit':'credits'})`:take.length===1&&take[0]===cl.c?'Claim this hex (1 credit)':`Claim ${take.length} of its hexes (${take.length} ${take.length===1?'credit':'credits'})`}</button>${adj&&plan.length>1&&!(take.length===1&&take[0]===cl.c)?`<button class="btn ghost" data-act="lc-one">Only this hex (1 credit)</button>`:''}<button class="btn ghost" data-act="lc-cancel">Cancel</button></div>
     ${reach>cr?`<p class="hint mp-reach">The hex you chose is ${reach} hexes in from your land, so it takes ${reach} credits to reach: ${take.length===1?'this claim is the first step':`these ${take.length} hexes lead towards it`}.</p>`:''}
@@ -21327,6 +21329,31 @@ document.addEventListener('pointerleave',e=>{if(e.target.classList&&e.target.cla
 const BIOME_KEY=['','farmland','forest','marsh','arid','hills','mountain','polder'];
 const BIOME_NAME=['','Farmland','Forest','Marsh','Dry steppe','Hills','Mountains','Reclaimed land'];
 const MAP_T0=MAP.T.slice();
+/* ── lakes ──
+   Water shut in by land: a body of at most LAKE_MAX hexes of water that never reaches the open sea (the top or
+   bottom edge of the map, which every ocean touches). Lake hexes are claimed like land, a credit a hex, and drawn
+   under a paler wash of their holder's colour (LAKE_A of the usual), so the water shows through. They yield
+   nothing, carry no city, road or province seat, are never taken in war, and the core never grows over them.
+   Worked out once, on first use, from the map as it was made (MAP_T0), so a reclaimed hex leaves its lake whole. */
+const LAKE_MAX=40,LAKE_A=0.42;
+let LAKE=null;
+function lakeMap(){
+  if(LAKE)return LAKE;
+  const N=MAP.N,T=MAP_T0,nb=MAP.nbr,out=new Uint8Array(N),seen=new Uint8Array(N);
+  for(let i=0;i<N;i++){if(T[i]>=2||seen[i])continue;const cells=[i];seen[i]=1;let open=false;
+    for(let q=0;q<cells.length;q++){const a=cells[q];for(let d=0;d<6;d++){const j=nb[a*6+d];if(j<0){open=true;continue;}if(T[j]<2&&!seen[j]){seen[j]=1;cells.push(j);}}}
+    if(!open&&cells.length<=LAKE_MAX)for(const c of cells)out[c]=1;}
+  return LAKE=out;
+}
+/* a hex of a lake (still water: a reclaimed one is land again), and a hex a claim may take: land or lake */
+const isLake=c=>c>=0&&MAP.T[c]<2&&(LAKE||lakeMap())[c]===1;
+const claimLand=c=>c>=0&&(MAP.T[c]>=2||isLake(c));
+/* the land a lake lies in: the landmass of the nearest shore */
+function lakeShore(c){
+  const seen=new Set([c]),q=[c];
+  for(let h=0;h<q.length&&h<LAKE_MAX+2;h++){const a=q[h];for(let d=0;d<6;d++){const j=MAP.nbr[a*6+d];if(j<0||seen.has(j))continue;if(MAP.T[j]>=2&&MAP.comp[j]>=0)return landName(j);seen.add(j);q.push(j);}}
+  return landName(c);
+}
 const BIOME=(()=>{
   const N=MAP.N,b=new Uint8Array(N),h=(x,y,s)=>hash(s+':'+x+':'+y)/4294967296,sm=t=>t*t*(3-2*t);
   const vn=(x,y,s)=>{const ix=Math.floor(x),iy=Math.floor(y),fx=sm(x-ix),fy=sm(y-iy),a=h(ix,iy,s),c1=h(ix+1,iy,s),c2=h(ix,iy+1,s),d=h(ix+1,iy+1,s);return a+(c1-a)*fx+(c2-a)*fy+(a-c1-c2+d)*fx*fy;};
@@ -22482,8 +22509,9 @@ function homeView(cv){
 const PLACE_IN=['','in the farmlands of','in the forests of','in the marshes of','in the dry steppes of','in the hills of','in the mountains of','on reclaimed land off'];
 function placeIn(i){return (MAP.T[i]>=2&&PLACE_IN[BIOME[i]])||TERRAIN_IN[MAP.T[i]]||'';}
 function terrCount(cells){
-  const k=new Array(BIOME_NAME.length).fill(0);for(const c of cells)if(MAP.T[c]>=2)k[BIOME[c]]++;
-  return k.map((v,b)=>[v,b]).filter(([v,b])=>v&&b).sort((a,b)=>b[0]-a[0]||a[1]-b[1]).map(([v,b])=>`${BIOME_NAME[b].toLowerCase()} (${v})`);
+  const k=new Array(BIOME_NAME.length).fill(0);let lk=0;for(const c of cells){if(MAP.T[c]>=2)k[BIOME[c]]++;else if(isLake(c))lk++;}
+  const out=k.map((v,b)=>[v,b]).filter(([v,b])=>v&&b).sort((a,b)=>b[0]-a[0]||a[1]-b[1]).map(([v,b])=>`${BIOME_NAME[b].toLowerCase()} (${v})`);
+  if(lk)out.push(`lake (${lk})`);return out;
 }
 /* the map key: each land type with the colour and marking it has on the map */
 const TERR_GLYPH={
@@ -22610,6 +22638,7 @@ function landHelp(n){
   const coast=geo(n,'coast'),navy=!!pol(n).navalFleet,rc=(n.rec||[]).length;
   return `<details class="lc-list lc-help" data-keep="lhOpen"${S.lhOpen?' open':''}><summary>More land, reclaimed land and a navy</summary>
     <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Finishing the charter list earns 3, a daily desk cleared in your first week earns 2 instead of 1, and coming back on a second and a third day earns 2 each. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or a free shore that a completed coastal Harbour reaches across up to ${mpHarbourReach(n)} hexes of water: another island, or the far side of a bay on your own coast. Turn on <b>Harbour reach</b> in the map key to see how far your harbours reach.</p>
+    <p><b>Lakes.</b> A lake, water shut in by land and joined to no sea, is claimed like land: a credit a hex, from land or lake of yours next to it. Your colour lies paler over it, so the water shows through. A lake yields nothing and holds no city or road, but it closes the gap in your borders and joins you to its far shore. Spending credits for you takes land only.</p>
     <p><b>Staying small.</b> A nation that would rather keep its borders can pause land credit gains in Settings › Land. Credits earned meanwhile are stored, and all of them can be spent once gains are back on. ${lhLink('Land settings')}</p>
     <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
     <p><b>Reclaimed land</b> comes from decisions, not from a button or a building. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
@@ -26506,7 +26535,7 @@ function fpDrawMap(T,t){
     q.beginPath();edgeList(q,R.cells.filter(c=>MAP.T[c]>=2),(i,j)=>j<0||MAP.T[j]<2);q.strokeStyle=col.coast;q.lineWidth=1/s;q.stroke();fpBase={k:bk,c:b};}
   g.setTransform(1,0,0,1,0,0);g.drawImage(fpBase.c,0,0);tf();
   const by=new Map();for(const c of R.cells){const o=T.owner[c];if(o<0)continue;let a=by.get(o);if(!a)by.set(o,a=[]);a.push(c);}
-  g.globalAlpha=col.a;for(const [o,cells] of by){g.beginPath();for(const c of cells)hexFill(g,c,HEX_R+0.4);g.fillStyle=T.list[o].col;g.fill();}g.globalAlpha=1;g.lineJoin='round';
+  g.globalAlpha=col.a;for(const [o,cells] of by)fillHeld(g,cells,T.list[o].col,HEX_R+0.4);g.globalAlpha=1;g.lineJoin='round';
   for(const [o,cells] of by){g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=T.list[o].col;g.lineWidth=1.1/s;g.stroke();}
   const sub=T.byId[R.id],me=T.byId[myId()];
   const outline=(o,style,lw)=>{const cells=by.get(o);if(!cells)return;g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=style;g.lineWidth=lw/s;g.stroke();};
@@ -32391,7 +32420,7 @@ MAP_LAYERS.push({stage:'terrain',kinds:['main','visit'],draw:M=>{
   else{g.beginPath();for(const t of [2,3,4])for(const i of M.byT[t])if(M.T.owner[i]<0)hexFill(g,i,HEX_R+0.5);g.fillStyle=M.col.land;g.fill();}
   for(const [o,cells] of M.byO){const c=lensFill(M.T,o,M.kind);if(!c)continue;let a=by.get(c);if(!a)by.set(c,a=[]);a.push(cells);}
   g.globalAlpha=0.78;
-  for(const [c,parts] of by){g.beginPath();for(const cells of parts)for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=c;g.fill();}
+  for(const [c,parts] of by)fillHeld(g,parts.flat(),c,HEX_R+0.5);
   g.globalAlpha=1;
 }});
 /* Relations: your own land is hatched */
@@ -33647,6 +33676,10 @@ function inspectFacts(T,cell,noHead){
     let ct=null;try{ct=cityState(T).byCell.get(cell);}catch(e){}if(ct)h+=row(ct.cap?'Capital':'City',esc(ct.nm))+cpRows(ct,T,row);
     h+=row('Yields a day',y.length?esc(list(y)):'Little');
     if(cl)h+=row('Climate',`${esc(cl.kind)}, ${Math.round(cl.temp)} °C on average, ${Math.round(cl.rain)} mm of rain a year`);
+  }else if(isLake(cell)){
+    if(!noHead)h+=row('Water','A lake in '+esc(lakeShore(cell)));
+    h+=row('Held by',o<0?'Nobody':o===mi?`You, ${esc(inspHow(T,o,cell))}`:`${esc(T.list[o].n.name)}, ${esc(inspHow(T,o,cell))}`);
+    h+=row('Yields a day','Nothing');
   }else h+=row('Water',t===1?'Shallow sea along the coast':'Open ocean');
   if(SITE_AT.has(cell)){const si=SITE_AT.get(cell),r=discoveries().get(si);h+=row('Discovery',esc(siteLabel(si))+(r?` · found by ${esc(r.name||'a nation')}`:' · not yet found'));}
   if(mi!==undefined&&o!==mi){const d=hexDist(T.list[mi].cap,cell);h+=row('From your capital',d+(d===1?' hex':' hexes'));}
@@ -33654,8 +33687,8 @@ function inspectFacts(T,cell,noHead){
 }
 function inspStatus(T,cell){
   const n=S.nation,mi=T.byId[myId()],t=MAP.T[cell],o=T.owner[cell];
-  if(t<2)return `<p class="hint">Water can’t be claimed. Coastal nations sometimes reclaim shallow sea through their decisions.</p>`;
-  if(o>=0)return o===mi?'':`<p class="hint">Held by ${esc(T.list[o].n.name)}. Land others hold can only be taken in war.</p>`;
+  if(t<2&&!isLake(cell))return `<p class="hint">Open sea can’t be claimed, only land and lakes. Coastal nations sometimes reclaim shallow sea through their decisions.</p>`;
+  if(o>=0)return o===mi?'':t<2?`<p class="hint">Held by ${esc(T.list[o].n.name)}. A lake others hold cannot be taken.</p>`:`<p class="hint">Held by ${esc(T.list[o].n.name)}. Land others hold can only be taken in war.</p>`;
   if(T.isCap[cell])return '';
   const ban=claimBanNote(T,cell,n);if(ban)return ban;
   const adj=claimFrontier(T).has(cell),cr=landCredits(n);
@@ -33667,7 +33700,7 @@ function inspStatus(T,cell){
 }
 function inspectPanel(T,cell){
   if(!(cell>=0&&cell<MAP.N))return '';
-  const t=MAP.T[cell],head=t>=2?`${esc(terrName(cell))} on ${esc(landName(cell))}`:esc(TERRAIN[t]||'Sea');
+  const t=MAP.T[cell],head=t>=2?`${esc(terrName(cell))} on ${esc(landName(cell))}`:isLake(cell)?`Lake in ${esc(lakeShore(cell))}`:esc(TERRAIN[t]||'Sea');
   return `<div class="insp"><div class="insp-top"><p class="eyebrow">Tile inspector</p><button class="insp-x" data-act="insp-close" aria-label="Close the tile inspector">×</button></div><h2 class="mp-h">${head}</h2>${inspectFacts(T,cell,true)}${inspStatus(T,cell)}</div>`;
 }
 /* the same facts under the other panels: your own hex, a claimable block, a nation's land, a target */
@@ -33686,7 +33719,7 @@ document.addEventListener('click',e=>{
   const cells=a==='insp-one'?[c]:blockPlan(T,BLOCKS.of[c],c).slice(0,cr);
   writeClaims(cells,`${S.nation.name} has claimed ${cells.length===1?'a hex':cells.length+' hexes'} ${placePhrase(cells[0])}.`);
 });
-HELP_EXT.push({k:'inspect',t:'The tile inspector',body:()=>`<p>Click any hex on the map to see what is known about it: its terrain, landmass, climate and daily yields, who holds it and how (a starting core, a claim, a conquest or land reclaimed from the sea), any city, discovery, river, lake or weather, and how far it lies from your capital. Free land next to your borders can be claimed from there with a land credit, one hex at a time or a whole block.</p><p>Your starting core of ${CORE_HEXES} hexes is always free. Land you claim costs one credit a hex.</p>`});
+HELP_EXT.push({k:'inspect',t:'The tile inspector',body:()=>`<p>Click any hex on the map to see what is known about it: its terrain, landmass, climate and daily yields, who holds it and how (a starting core, a claim, a conquest or land reclaimed from the sea), any city, discovery, river, lake or weather, and how far it lies from your capital. Free land next to your borders can be claimed from there with a land credit, one hex at a time or a whole block, and so can a lake: water shut in by land, which your colour covers more faintly.</p><p>Your starting core of ${CORE_HEXES} hexes is always free. Land you claim costs one credit a hex.</p>`});
 /* run the repair soon after load, once the record (local or shared) has settled */
 {let lcfxTries=0;const lcfxT=setInterval(()=>{try{if(++lcfxTries>30){clearInterval(lcfxT);return;}const n=S.nation;if(!n||!n.name||S.moving||cellOf(n.loc)<0)return;if(n.lcfx){clearInterval(lcfxT);return;}if(window.claude&&typeof window.claude.use==='function'&&S.mode!=='world'&&lcfxTries<6)return;commit(clone(n));clearInterval(lcfxT);}catch(e){}},2000);}
 
@@ -38111,6 +38144,7 @@ function prvAdd(c){
   const ok=prvEdit((n,P,T,i)=>{
     const N=prvNatWith(T,i,P),t1=prvLow(prvT1(n)),t2=prvLow(prvT2(n)),act=N.prov.filter(p=>!p.dorm).length;
     if(T.owner[c]!==i)return `A new ${t1} needs a seat on your own land.`;
+    if(MAP.T[c]<2)return `A seat stands on land, not on a lake. Choose a hex of land for the new ${t1}.`;
     if(act>=N.max)return `${n.name} holds ${N.held} hexes, enough for ${N.max===1?'one '+t1:N.max+' '+t2} (one for every ${PRV_PER} hexes). Merge two, or claim more land.`;
     if(P.l.length>=PRV_MAXL)return `No nation may have more than ${PRV_MAXL} ${t2}.`;
     const here=prvOfCell(N,c);if(here&&here.src.includes(c))return c===here.seat?`That hex is already the seat of ${here.nm}.`:prvFix(here.id,`That hex is an old seat of ${here.nm}, kept when another ${t1} merged into it, so it cannot be the seat of a new ${t1} yet.`);
@@ -38124,6 +38158,7 @@ function prvSeat(id,c){
   prvEdit((n,P,T,i)=>{
     const N=prvNatWith(T,i,P),p=N.byId.get(id),q=P.l.find(v=>v.id===id);if(!p||!q)return 'Choose a division first.';
     if(prvOfCell(N,c)!==p)return `The seat must be a hex of ${p.nm}.`;
+    if(MAP.T[c]<2)return 'A seat stands on land, not on a lake.';
     if(p.src.includes(c)&&c===p.seat)return `That is already the seat of ${p.nm}.`;
     q.s=c;if(q.m){q.m=q.m.filter(v=>v[0]!==c);if(!q.m.length)delete q.m;}delete P.x[c];return prvCheckOld(T,i,P,'Moving the seat there');
   },'The seat has moved. Its borders follow the hexes now nearest to it.');
@@ -38416,7 +38451,7 @@ MAP_LAYERS.push({stage:'land',kinds:['main','visit','prov'],draw:M=>{
   if(lens||mine){
     const by=new Map();
     for(const [o,cells] of M.byO){if(!st.nats.has(o)||(mine&&!T.list[o].me))continue;for(const c of cells){const k=st.pv[c];if(k<0)continue;const col=prvTintOf(T,st.all[k]);let a=by.get(col);if(!a)by.set(col,a=[]);a.push(c);}}
-    g.globalAlpha=mine?0.6:0.78;for(const [col,cells] of by){g.beginPath();for(const c of cells)hexFill(g,c,HEX_R+0.5);g.fillStyle=col;g.fill();}g.globalAlpha=1;
+    g.globalAlpha=mine?0.6:0.78;for(const [col,cells] of by)fillHeld(g,cells,col,HEX_R+0.5);g.globalAlpha=1;
   }
   if(!mine&&hw<PRV_ZB)return;
   const dk=rlfDark(M.col);g.setLineDash([4/M.s,2.6/M.s]);g.lineCap='butt';
@@ -38494,7 +38529,7 @@ function prvMapAct(cell){
 }
 function prvKbdSay(c){
   const el=document.getElementById('prv-kbd-live');if(!el)return;const T=territory(),p=prvAt(T,c),n=S.nation;
-  el.textContent=MAP.T[c]<2?'Sea':`${terrName(c)} on ${landName(c)}${p?', '+p.nm+(p.id===PRV.ui.sel&&p.o===T.byId[myId()]?', selected':''):T.owner[c]>=0?', '+T.list[T.owner[c]].n.name:', unclaimed'}`;
+  el.textContent=MAP.T[c]<2?(isLake(c)?'Lake'+(p?', '+p.nm:T.owner[c]>=0?', '+T.list[T.owner[c]].n.name:', unclaimed'):'Sea'):`${terrName(c)} on ${landName(c)}${p?', '+p.nm+(p.id===PRV.ui.sel&&p.o===T.byId[myId()]?', selected':''):T.owner[c]>=0?', '+T.list[T.owner[c]].n.name:', unclaimed'}`;
 }
 document.addEventListener('keydown',e=>{
   const cv=e.target;if(!cv||cv.id!=='prv-cv')return;const k=e.key;
@@ -39678,6 +39713,12 @@ function clampView(cv,v){const s=mapScale(cv,v),hw=cv.clientWidth/2/s,hh=cv.clie
 function hexPath(g,i,rad){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x+HCX[0]*rad,y+HCY[0]*rad);for(let k=1;k<6;k++)g.lineTo(x+HCX[k]*rad,y+HCY[k]*rad);g.closePath();}
 /* the same hexagon for fills: fill() closes it anyway, and closePath on a path of thousands of hexes is slow */
 function hexFill(g,i,rad){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x+HCX[0]*rad,y+HCY[0]*rad);for(let k=1;k<6;k++)g.lineTo(x+HCX[k]*rad,y+HCY[k]*rad);}
+/* a nation's hexes in its colour at the alpha set, and any lake among them (the only water anyone holds) at LAKE_A of it,
+   so the water shows through; the alpha is left as it was */
+function fillHeld(g,cells,style,rad){
+  let wet=false;g.beginPath();for(const i of cells){if(MAP.T[i]<2){wet=true;continue;}hexFill(g,i,rad);}g.fillStyle=style;g.fill();
+  if(!wet)return;const a=g.globalAlpha;g.globalAlpha=a*LAKE_A;g.beginPath();for(const i of cells)if(MAP.T[i]<2)hexFill(g,i,rad);g.fill();g.globalAlpha=a;
+}
 function edgeList(g,cells,test){for(const i of cells){const x=MAP.cx[i],y=MAP.cy[i];for(let d=0;d<6;d++){if(!test(i,MAP.nbr[i*6+d]))continue;const k=(d+1)%6;g.moveTo(x+HCX[d]*HEX_R,y+HCY[d]*HEX_R);g.lineTo(x+HCX[k]*HEX_R,y+HCY[k]*HEX_R);}}}
 function drawPin(g,x,y,col){g.beginPath();g.arc(x,y-12,7.5,Math.PI*0.8,Math.PI*0.2,false);g.lineTo(x,y);g.closePath();g.fillStyle=col.stamp;g.fill();g.lineWidth=1.6;g.strokeStyle=col.sheet;g.stroke();g.beginPath();g.arc(x,y-12,2.8,0,Math.PI*2);g.fillStyle=col.sheet;g.fill();}
 /* the zoomed-out terrain picture: at most about 5.4 million pixels, whatever the region's size (phones cap canvases) */
@@ -39774,7 +39815,7 @@ function drawMap(cv,P){
   const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp:baked,draft,fixed:[],first},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||((P||!first)&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
   ML('terrain');
   g.globalAlpha=parseFloat(C('--terr-a'))||0.5;
-  for(const [o,cells] of byO)fillCells(cells,mapTerrCol(T,o,kind));
+  for(const [o,cells] of byO)fillHeld(g,cells,mapTerrCol(T,o,kind),HEX_R+0.5);
   g.globalAlpha=1;g.lineJoin='round';g.lineCap='round';rlfShade(g,col,s,draft?null:byP);
   if(s*HEX_W>=13&&!draft){g.beginPath();for(const t of [2,3])for(const i of byT[t]){if(!CELL_RES.oil[i])continue;const x=MAP.cx[i]+3.2,y=MAP.cy[i]+2.6;g.moveTo(x,y-4.4);g.quadraticCurveTo(x+3.4,y+0.4,x,y+3.2);g.quadraticCurveTo(x-3.4,y+0.4,x,y-4.4);}g.globalAlpha=0.6;g.fillStyle=col.ink;g.fill();g.globalAlpha=1;
     /* iron deposits: a small faceted nugget */
@@ -39967,8 +40008,8 @@ function hoverAt(cv,cell,e,tip){
   if(cell<0){tip.hidden=true;return;}
   const T=mapTerr(cv.dataset.map),t=MAP.T[cell],o=T.owner[cell];
   let ctn='';try{const c=cityState(T).byCell.get(cell);if(c)ctn=c.nm;}catch(e){}
-  const head=(ctn?ctn+' · ':'')+(o>=0?T.list[o].n.name:t>=2?'Unclaimed land':TERRAIN[t]);
-  const sub=t>=2?terrName(cell)+' · '+landName(cell)+(CELL_RES.oil[cell]?' · Oil':'')+(IRON_DEP[cell]?' · Iron deposit':'')+(SITE_AT.has(cell)?' · '+siteLabel(SITE_AT.get(cell)):'')+(o<0&&cv.dataset.map==='main'&&S.nation&&landCredits(S.nation)>0&&claimableBlocks(T).has(BLOCKS.of[cell])&&freeCell(T,cell)?' · Claimable':''):'';
+  const lake=isLake(cell),head=(ctn?ctn+' · ':'')+(o>=0?T.list[o].n.name:t>=2?'Unclaimed land':lake?'Lake':TERRAIN[t]);
+  const sub=lake?'Lake · '+lakeShore(cell)+(o<0&&cv.dataset.map==='main'&&S.nation&&landCredits(S.nation)>0&&claimableBlocks(T).has(BLOCKS.of[cell])&&freeCell(T,cell)?' · Claimable':''):t>=2?terrName(cell)+' · '+landName(cell)+(CELL_RES.oil[cell]?' · Oil':'')+(IRON_DEP[cell]?' · Iron deposit':'')+(SITE_AT.has(cell)?' · '+siteLabel(SITE_AT.get(cell)):'')+(o<0&&cv.dataset.map==='main'&&S.nation&&landCredits(S.nation)>0&&claimableBlocks(T).has(BLOCKS.of[cell])&&freeCell(T,cell)?' · Claimable':''):'';
   mapShowTip(cv,e,tip,head,tipAdd?(sub?sub+tipAdd:tipAdd.slice(3)):sub);
 }
 /* a founder's land says so on the map */
@@ -39993,7 +40034,7 @@ function mapClick(cv,cell,ev){
   S.mapSite=SITE_AT.has(cell)?SITE_AT.get(cell):null;
   if(S.nation&&cellOf(S.nation.loc)<0){const p=pickProblem(cell,territory());if(p)S.mapMsg=p;else{S.mapPick=cell;S.mapMsg='';}}
   else{const T=territory(),mi=T.byId[myId()],o=cell>=0?T.owner[cell]:-1;S.warMsg='';S.confirmWar=null;S.mapCell=o>=0&&o===mi?cell:null;
-    S.mapClaim=o<0&&cell>=0&&MAP.T[cell]>=2&&landCredits(S.nation)>0&&claimableBlocks(T).has(BLOCKS.of[cell])&&blockPlan(T,BLOCKS.of[cell]).includes(cell)?{b:BLOCKS.of[cell],c:cell}:null;
+    S.mapClaim=o<0&&claimLand(cell)&&landCredits(S.nation)>0&&claimableBlocks(T).has(BLOCKS.of[cell])&&blockPlan(T,BLOCKS.of[cell]).includes(cell)?{b:BLOCKS.of[cell],c:cell}:null;
     if(o>=0&&mi!==undefined&&o!==mi&&frontier(T).has(cell)){S.mapTarget=cell;S.mapSel=T.list[o].id;}
     else{S.mapTarget=null;S.mapSel=o>=0&&!T.list[o].me?T.list[o].id:null;}}
   updateMapPanel();schedule(cv);
@@ -46281,6 +46322,7 @@ function mpSeaArea(a,reach){
 /* a plain answer to "why can't I claim this?" for free land that is not next to your borders or within harbour reach */
 function claimWhy(T,cell){
   const n=S.nation,R=mpHarbourReach(n),navy=!!pol(n).navalFleet,more=navy?'':` (${MP_NAVY_REACH} with the Blue-Water Navy law)`,hs=mpHarbours(T);
+  if(isLake(cell))return 'A free lake, but it does not touch your borders. A lake hex is claimed from land or lake of yours next to it, so claim the shore first.';
   if(!isCoastal(cell))return 'Free land, but it does not touch your borders, and it lies inland, so no harbour can reach it. Claim the land in between first: Plan expansion lets you choose the whole path at once.';
   if(!hs.length){
     const mi=T.byId[myId()],coastCity=cityList(n).some(c=>T.owner[c.c]===mi&&isCoastal(c.c));
@@ -46325,7 +46367,7 @@ function swapCheck(from,to){
   const why=swapFromWhy(T,from);if(why)return {why};
   const w=swapWait(n);if(w>0)return {why:`You can swap one hex a day. The next swap is possible in ${fmtDur(w)}.`};
   if(to===from||T.owner[to]===mi)return {why:'Choose free land to take instead, not land you already hold.'};
-  if(!(to>=0&&to<MAP.N)||MAP.T[to]<2)return {why:'Water can’t be claimed. Choose free land.'};
+  if(!(to>=0&&to<MAP.N)||!claimLand(to))return {why:'Open sea can’t be claimed. Choose free land or a lake.'};
   if(!freeCell(T,to))return {why:T.owner[to]>=0?`${T.list[T.owner[to]].n.name} holds that hex.`:T.isCap[to]?'That is a capital.':'That hex cannot be claimed: it is too close to another capital or too far from yours.'};
   const without=clone(n);without.claims=(without.claims||[]).filter(e=>e.c!==from);
   const T1=withNation(without,()=>territory()),j=T1.byId[myId()];
@@ -59206,7 +59248,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
