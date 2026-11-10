@@ -155,5 +155,30 @@ for (const t of ['overview', 'board', 'alliances']) { await B.click('#rgn-tab-' 
 check('and so do the Overview, the Board and the Alliances', await wide() <= 1, await wide());
 await B.click('#rgn-tab-overview'); await shot(B, 'phone-overview');
 
+/* ── 7. who is online: a green dot on the flag of each nation whose player was in the game in the last 15 minutes,
+   told by the server from the game tabs' save reports (functions/presence.js); a player can switch it off ── */
+const dot = (p, id) => p.$(`#rgn-list tr.rgn-row[data-id="${id}"] .rgn-on`);
+const ask = p => p.evaluate(() => G.RGNX().onlRefresh(true));
+await regionTab(A, 'nations');
+await A.click('[data-act="rgn-filter"][data-v="all"]').catch(() => {});
+check('a nation whose player is in the game has a green dot on its flag', await until(async () => { await ask(A); return !!await dot(A, ub); }, 30000));
+check('the reader’s own nation has one too, and no computer nation does', !!await dot(A, ua) && (await A.$$('#rgn-list .rgn-on')).length === 2, (await A.$$('#rgn-list .rgn-on')).length);
+check('the dot says it in words', await A.getAttribute(`#rgn-list tr.rgn-row[data-id="${ub}"] .rgn-on`, 'aria-label') === 'Online now');
+check('the Online now filter lists who is online', /Online now 2/.test(await text(A, '.rgn-chips')));
+await A.click('[data-act="rgn-filter"][data-v="online"]');
+check('and only them', await until(async () => { const r = await rows(A); return r.length === 2 && r.includes(ua) && r.includes(ub); }));
+await A.click(`#rgn-pkb-${ub}`);
+check('the quick look says it as well', await until(async () => /Status\s*Online now/.test(await text(A, `#rgn-pk-${ub}`))));
+await shot(A, 'online');
+await B.setViewportSize({ width: 1366, height: 900 });
+await nav(B, 'settings'); await B.click('#sg-tab-account');
+check('Settings › Account has the switch, on at first', await B.isChecked('[data-act="sg-online"]'));
+await B.uncheck('[data-act="sg-online"]');
+check('switched off, it is kept with the nation', await until(() => B.evaluate(() => !!G.S.nation.dmx && G.S.nation.dmx.on === 0)));
+check('and the dot is gone for the other players', await until(async () => { await ask(A); return !await dot(A, ub); }, 40000));
+check('while the one who hid still sees who else is online', await until(async () => { await regionTab(B, 'nations'); await ask(B); return !!await dot(B, ua) && !await dot(B, ub); }, 20000));
+await nav(B, 'settings'); await B.click('#sg-tab-account'); await B.check('[data-act="sg-online"]');
+check('switched on again, the dot comes back', await until(async () => { await ask(A); return !!await dot(A, ub); }, 40000));
+
 check('no page errors', !errors.length, errors.slice(0, 3).join(' | '));
 await finish();
