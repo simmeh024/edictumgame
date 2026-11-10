@@ -6887,6 +6887,11 @@ button[disabled] .gv-cost{opacity:.6}
 const NORM_HOOKS=[];
 (function(){
 'use strict';
+/* Numbers with a set count of decimals. toLocaleString with options builds a new formatter on every call, some 40
+   times the cost of a kept one (population and money are drawn on every page, and fxFmt runs on every frame of a
+   count-up), so each format the game uses is made once and kept. */
+const NUMF=new Map();
+function numFmt(v,loc,min,max,grp){const k=loc+min+'|'+max+(grp===false?'n':'');let f=NUMF.get(k);if(!f)NUMF.set(k,f=new Intl.NumberFormat(loc,{minimumFractionDigits:min,maximumFractionDigits:max,useGrouping:grp!==false}));return f.format(v);}
 /* ───────── the known world: regions ───────── */
 /* Every region has its own generated map (all the same size, twice the area of the first map), its own
    landmass names and its own computer-run nations. A nation lives in one region at a time (n.reg); the
@@ -17900,8 +17905,8 @@ function fill(t,n,x){
   return String(t).replace(/\{N\}’s/g,()=>poss(n.name)).replace(/\b([Aa]n?) (?=\{(NBCAP|NBD|NBL|NB|LAND|SITE|N|D|Cs|C|L|CAP|As|A|SPORT|DISH|LANG|FIN|DEF|FOR|INT|WRK|HEA|CUL|TN?:\w+)\})/g,(m,a,k)=>{const v=/^([aio]|e(?!u|w)|u(?!n[aeiou]|ni|s[aeiou]|r[aeiou]|k|t))/i.test(val(k));return (v?a.charAt(0)+'n':a.charAt(0))+' ';})
     .replace(/\{(NBCAP|NBD|NBL|NB|LAND|SITE|N|D|Cs|C|L|CAP|As|A|SPORT|DISH|LANG|FIN|DEF|FOR|INT|WRK|HEA|CUL|TN?:\w+)\}/g,(m,k)=>val(k)).replace(/(?:[Tt]he )?Meridian Reach/g,regText).replace(/\b([Tt])he (whole |entire )?Reach\b/g,b1Reach);
 }
-function fmtPop(p){if(p>=999500)return (p/1e6).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' trillion';if(p>=999.5){const b=p/1000;return (b<9.995?b.toFixed(2):b<99.95?b.toFixed(1):Math.round(b))+' billion';}return (p<9.995?p.toFixed(2):p<99.95?p.toFixed(1):Math.round(p))+' million';}
-function fmtBig(x){if(x>=999.95e12)return (x/1e15).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' quadrillion';if(x>=999.95e9)return (x/1e12).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' trillion';if(x>=999.95e6)return (x/1e9).toFixed(1)+' billion';if(x>=1e6)return (x/1e6).toFixed(1)+' million';return Math.round(x).toLocaleString('en-US');}
+function fmtPop(p){if(p>=999500)return numFmt(p/1e6,'en-US',2,2)+' trillion';if(p>=999.5){const b=p/1000;return (b<9.995?b.toFixed(2):b<99.95?b.toFixed(1):Math.round(b))+' billion';}return (p<9.995?p.toFixed(2):p<99.95?p.toFixed(1):Math.round(p))+' million';}
+function fmtBig(x){if(x>=999.95e12)return numFmt(x/1e15,'en-US',2,2)+' quadrillion';if(x>=999.95e9)return numFmt(x/1e12,'en-US',2,2)+' trillion';if(x>=999.95e6)return (x/1e9).toFixed(1)+' billion';if(x>=1e6)return (x/1e6).toFixed(1)+' million';return Math.round(x).toLocaleString('en-US');}
 function fmtDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
 /* a UTC day (a Chronicle row, kept by its UTC date) by its own date: fmtDate showed the day before west of UTC */
 function fmtDayUTC(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});}catch(e){return '';}}
@@ -21152,7 +21157,7 @@ const STAT_TABS=[['overview','Overview'],['people','People'],['migration','Migra
 const LORE=[['history','History','How the nation came to be, its great moments and its old grudges.'],['geography','Geography & climate','Coasts, mountains, rivers, cities and the weather everyone complains about.'],['people','People & customs','What citizens eat, believe, celebrate and argue about.'],['government','Government & politics','How power works, who holds it and who would like to.'],['military','Armed forces','Traditions, famous regiments, victories and embarrassing defeats.'],['foreign','Foreign relations','Friends, rivals, treaties and the neighbour everyone avoids.']];
 const YEAR_MS=2*DAY;
 const fmt0=v=>Math.round(v).toLocaleString('en-US');
-const fmt1=v=>(Math.round(v*10)/10).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+const fmt1=v=>numFmt(Math.round(v*10)/10,'en-US',1,1);
 const pctS=v=>fmt1(v)+'%';
 const fmtCount=v=>v>=999.95e6?fmt1(v/1e9)+' billion':v>=999.95e3?fmt1(v/1e6)+' million':fmt0(v);
 const seedPick=(n,k,a)=>a[hash(String(n.seed||n.name)+':'+k)%a.length];
@@ -25901,7 +25906,11 @@ let mfxEv=[],mfxRaf=0,mfxIO=null,mfxSeen=null,mfxRef=[0,0],mfxFrames=0,mfxCost=0
 function mfxPref(k){try{const v=localStorage.getItem('statehood.map.'+k);return v==null?k==='night':v==='1';}catch(e){return k==='night';}}
 function mfxSetPref(k,v){try{localStorage.setItem('statehood.map.'+k,v?'1':'0');}catch(e){}}
 let mfxTilt=mfxPref('tilt'),mfxNightOn=mfxPref('night');
-function mfxRM(){try{return document.documentElement.getAttribute('data-motion')==='reduce'||!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}}
+/* asked on every frame of the map's effects: the system's setting is read from one kept media query (it follows changes
+   by itself) rather than a new one each time; the game's own reduced-motion choice (CZ.disp.rm) is checked first, as
+   the matchMedia wrapper above would answer it */
+let mfxRMQ;
+function mfxRM(){try{if(document.documentElement.getAttribute('data-motion')==='reduce'||CZ.disp.rm)return true;if(mfxRMQ===undefined)mfxRMQ=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null;return !!(mfxRMQ&&mfxRMQ.matches);}catch(e){return false;}}
 let mfxPh=null,mfxFreeze=false;
 function mfxPhase(){return mfxPh!=null?mfxPh:(Date.now()/MFX_DAY)%1;}
 const mfxSm=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
@@ -26323,7 +26332,7 @@ function fxNum(s){const m=/^(\D{0,2}?)(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(\D.*)?$/s
   return {pre:m[1],v:parseFloat(m[2].replace(/,/g,'')+(m[3]||'')),dp:m[3]?m[3].length-1:0,grp:m[2].includes(','),suf:m[4]||''};}
 function fxFmt(c,v){
   if(c.f==='1')return v.toFixed(1);if(c.f==='1%')return v.toFixed(1)+'%';
-  const p=c.p;return p.pre+v.toLocaleString('en-US',{minimumFractionDigits:p.dp,maximumFractionDigits:p.dp,useGrouping:p.grp})+p.suf;
+  const p=c.p;return p.pre+numFmt(v,'en-US',p.dp,p.dp,p.grp)+p.suf;
 }
 function fxCount(el,delay,dur){
   if(fxReduced())return;
@@ -44566,7 +44575,7 @@ async function stLoad(refresh){
   catch(e){ADMST.err=e.message||'The statistics could not be counted.';}
   finally{ADMST.busy=false;if(S.view==='admin-stats')render();}
 }
-const stN=v=>v==null?'–':Number(v).toLocaleString('en-GB',{maximumFractionDigits:1});
+const stN=v=>v==null?'–':numFmt(Number(v),'en-GB',0,1);
 const stPc=(k,of)=>of?Math.round(k/of*100)+'%':'–';
 const stDay=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 const stTxt=(v,d)=>{try{return tutTxt(v,S.nation);}catch(e){return d;}};
