@@ -10,6 +10,11 @@ const A=await player('rank borders',{vp:{width:412,height:900},dpr:2,dark:true})
 const info=await A.evaluate(()=>({ranks:G.RK.ACH_RANKS.length,borders:G.RK.ID_BD.length,max:G.RK.ACH.reduce((s,a)=>s+G.RK.ACH_TIER[a.t].p,0)}));
 check('every rank has a border',info.ranks===info.borders,JSON.stringify(info));
 check('the top rank can be reached with the achievements there are',info.max>=await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[0]),String(info.max));
+/* the Achievements page: a name belongs to one achievement, and every category has a picture for its icon (.ai-<category>) */
+const twice=await A.evaluate(()=>{const by={};for(const a of G.RK.ACH)(by[a.n]=by[a.n]||[]).push(a.id);return Object.entries(by).filter(([,l])=>l.length>1).map(([n,l])=>n+': '+l.join(' + '));});
+check('no two achievements share a name',twice.length===0,twice.join('; '));
+const bare=await A.evaluate(()=>[...new Set(G.RK.ACH.map(a=>a.c))].filter(c=>{const e=document.createElement('span');e.className='ai-'+c;document.body.appendChild(e);const ok=/url\(/.test(getComputedStyle(e).getPropertyValue('--ai'));e.remove();return !ok;}));
+check('every achievement category has an icon',bare.length===0,bare.join());
 
 /* the page re-renders when a save lands, which can swap the card out from under a screenshot: try again */
 const shot=async(sel,file)=>{for(let k=0;;k++){try{return await A.locator(sel).screenshot({path:path.join(OUT,file)});}catch(e){if(k>=3)throw e;await sleep(300);}}};

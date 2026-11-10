@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
-import { signature, FOUNDER_CUTOFF, FOUNDER_GRACE, CATALOGUE } from '../functions/shop-core.js';
+import { signature, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, CATALOGUE } from '../functions/shop-core.js';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -596,4 +596,43 @@ test('a basket closed without paying stops being awaited; paid and not yet compl
   await call(q, { step: 'refresh' });
   const pend = (await shop(q.uid)).pend;
   assert.ok(pend.orpack && pend.cbpack);
+});
+
+test('the founders’ thank-you gift: a founder chooses one pack, once, while the offer runs; a pack owned or a non-founder is refused', async () => {
+  const founder = async () => { const p = await player(), c = await call(p, { step: 'checkout', product: 'founder' }); await hook('transaction.completed', pay(c.txn)); return p; };
+  const other = await player();
+  await rejects(call(other, { step: 'fgift', p: 'cbpack' }), 'fgift_founders');
+  assert.equal((await db.doc('shopFGift/' + other.uid).get()).exists, false);
+  const f = await founder();
+  await assert.rejects(call(f, { step: 'fgift', p: 'bfpack' }), e => e.status === 'INVALID_ARGUMENT', 'only the offer’s packs');
+  await assert.rejects(call(f, { step: 'fgift', p: 'founder' }), e => e.status === 'INVALID_ARGUMENT');
+  assert.deepEqual(await call(f, { step: 'fgift', p: 'sailpack' }), { ok: true, p: 'sailpack' });
+  const s = await shop(f.uid);
+  assert.ok(s.owns.sailpack, 'owned'); assert.equal(s.fg, 'sailpack', 'the game knows it was the gift');
+  const fin = (await finery(f.uid)).c;
+  for (const id of CATALOGUE.products.sailpack.grants) assert.ok(fin.includes(id), id + ' is shown to other players');
+  const g = (await db.doc('shopFGift/' + f.uid).get()).data();
+  assert.equal(g.p, 'sailpack'); assert.equal(g.reg, 'meridian'); assert.ok(g.fno > 0, 'the founder’s number, for the statistics'); assert.ok(g.at > 0);
+  /* once only, and the pack is not sold or given to them again */
+  await new Promise(r => setTimeout(r, 2100));
+  await rejects(call(f, { step: 'fgift', p: 'orpack' }), 'fgift_chosen');
+  await rejects(call(f, { step: 'checkout', product: 'sailpack' }), 'owned');
+  assert.equal((await db.doc('shopFGift/' + f.uid).get()).get('p'), 'sailpack', 'the first choice stands');
+  /* a founder who bought a pack already chooses another */
+  const h = await founder(), b = await call(h, { step: 'checkout', product: 'orpack' });
+  await hook('transaction.completed', pay(b.txn));
+  await rejects(call(h, { step: 'fgift', p: 'orpack' }), 'owned');
+  await new Promise(r => setTimeout(r, 2100));
+  await call(h, { step: 'fgift', p: 'cbpack' });
+  const hs = await shop(h.uid);
+  assert.ok(hs.owns.orpack && hs.owns.cbpack); assert.equal(hs.fg, 'cbpack'); assert.ok(!(hs.notes || []).some(n => n.k === 'duplicate'), 'nothing refunded');
+  /* the Founder's Package refunded: the gift goes with it */
+  const fx = (await db.collection('shopTx').where('uid', '==', f.uid).where('product', '==', 'founder').get()).docs[0].id;
+  await hook('adjustment.created', { id: rid('adj'), action: 'refund', type: 'full', transaction_id: fx, status: 'approved', items: [] });
+  const after = await until(async () => { const x = await shop(f.uid); return !x.owns?.founder && x; });
+  assert.ok(after && !after.owns.sailpack, 'the pack left with the package'); assert.equal(after.fg, 'sailpack', 'the choice is still on record');
+  /* after the offer ends, by the server's clock */
+  const late = await founder();
+  await config({ skew: FOUNDER_GIFT.until + H - Date.now() });
+  try { await rejects(call(late, { step: 'fgift', p: 'cbpack' }), 'fgift_ended'); } finally { await config(); }
 });

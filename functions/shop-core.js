@@ -35,6 +35,12 @@ export const PICK_GRACE = (CAT.products.vip.pickGraceDays || 35) * 86400000;
 /* The Chancery seals a player may show beside the nation's name, by months of membership: the plain seal (0) while a
    member, and the others once that many months have begun, kept for good. Nothing is shown unless the player chooses. */
 export const SEALS = CAT.products.vip.seals || {};
+/* The founders' thank-you gift (November 2026): every holder of the Founder's Package may choose one of these packs once,
+   free, until `until` (the server's clock). The choice is kept in shopFGift/{uid} and owned while the package is. */
+export const FOUNDER_GIFT = (() => {
+  const g = CAT.founderGift || {}, until = Date.parse(g.until);
+  return { until: Number.isFinite(until) ? until : 0, packs: (Array.isArray(g.packs) ? g.packs : []).filter(p => CAT.products[p] && CAT.products[p].kind === 'once' && p !== 'founder') };
+})();
 /* Paddle's own libraries allow 5 seconds between signing and checking; a cold start can take longer than that, and a
    replayed notification changes nothing here (see above), so this allows five minutes */
 export const SIG_TOLERANCE = 300;
@@ -181,11 +187,14 @@ export function months(p) {
      now   the server's time: which paid months to keep for picking (without it, the last three)
      comp  {at, until}: a membership an admin granted for free (shopComp/{uid}), counted like a paid one
      prizes [when]: months of the Club won in the game (shopPrize/{uid}: the flag competition), each when it was won
-   → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n, m, f},
+     fgift {p, at}: the pack a founder chose as the thank-you gift (shopFGift/{uid}), owned from then while the Founder's
+           Package is; a payment for the same pack made after the choice is a second payment, and refunded (in a basket,
+           that line only)
+   → {owns: {founder?, idpack?: when paid}, fgift?: the pack the gift gave, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n, m, f},
       gifts: [{p, from, t, txn}], refunds: [{txn, why, item?, p?}], cancels: [{sub, why}], notes: [{k, txn, t, st, p?}], cosmetics: [ids shown to other players]}
    A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends; a month
    won begins the same way, after whatever is paid, given or granted, so it is never spent on days already covered. */
-export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null, prizes = [] }) {
+export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null, prizes = [], fgift = null }) {
   const out = { owns: {}, vip: null, gifts: [], refunds: [], cancels: [], notes: [], cosmetics: [] };
   /* a checkout this server opened, or a renewal of a subscription one of those started */
   const valid = txs.filter(t => t.status === 'completed' && t.ok && (t.ck || t.sub && subs[t.sub]));
@@ -196,6 +205,8 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
     if (!st) out.refunds.push({ txn: t.id, why, ...line });
     out.notes.push({ k: why, txn: t.id, t: t.paid, st: st || 'asked', ...(line ? { p: u.p } : {}) });
   };
+  /* what delivered each product: the transaction and its line */
+  const owners = {};
   for (const p of ONCE) {
     let owner = null;
     const lines = valid.filter(t => t.ck).flatMap(t => txUnits(t).filter(u => u.p === p && !voided(t.id, adjs, u)).map(u => ({ t, u }))).sort((a, b) => a.t.paid - b.t.paid);
@@ -204,10 +215,18 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
       /* money on its way back delivers nothing (a membership's month counts until its refund is made) */
       if (st === 'pending') { out.notes.push({ k: 'refund', txn: t.id, t: t.paid, st: 'pending', ...(u.i ? { p } : {}) }); continue; }
       if (p === 'founder' && !founderInTime(t) && !turnedDown) { refund(t, 'late', u); continue; }
-      if (!owner) owner = t;
+      if (!owner) owner = { t, u };
       else if (!turnedDown) refund(t, 'duplicate', u);
     }
-    if (owner) out.owns[p] = owner.paid;
+    if (owner) { out.owns[p] = owner.t.paid; owners[p] = owner; }
+  }
+  /* the founders' thank-you gift: the chosen pack, while the Founder's Package is owned. Paid for before it was chosen
+     (two tabs; the choice is refused otherwise), the gift adds nothing; paid for after, that payment is the second one
+     (in a basket, only its line is refunded) */
+  if (fgift && out.owns.founder && FOUNDER_GIFT.packs.includes(fgift.p) && Number.isFinite(fgift.at) && fgift.at > 0) {
+    const o = owners[fgift.p], later = o && o.t.paid > fgift.at && refundState(o.t.id, adjs, o.u) !== 'rejected';
+    if (later) refund(o.t, 'duplicate', o.u);
+    if (!o || later) { out.owns[fgift.p] = fgift.at; out.fgift = fgift.p; }
   }
   /* the Chancery Club: every paid month that still counts. A second subscription whose first payment fell inside a
      month another live subscription had already paid for (two checkouts paid side by side) is cancelled and refunded */

@@ -11,7 +11,7 @@ import { setComp } from './shop.js';
 import { cbDelete, rmbForget } from './board.js';
 import { alDrop } from './alliances.js';
 import { fcForget } from './flagcomp.js';
-import { shopSummary } from './shop-stats.js';
+import { shopSummary, founderGiftSummary } from './shop-stats.js';
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
 import DATA from './civic-data.json' with { type: 'json' };
@@ -220,14 +220,16 @@ async function statsExport(db) {
 /* The Shop statistics page (functions/shop-stats.js): the shop's billing records are few, so they are read whole
    each time; the latest sales name their nations. */
 async function shopStats(db) {
-  const [cfg, tx, sub, adj, ck] = await Promise.all([db.doc('authConfig/paddle').get(), db.collection('shopTx').get(), db.collection('shopSubs').get(),
-    db.collection('shopAdj').get(), db.collection('shopCheckouts').get()]);
+  const [cfg, tx, sub, adj, ck, fg, fw] = await Promise.all([db.doc('authConfig/paddle').get(), db.collection('shopTx').get(), db.collection('shopSubs').get(),
+    db.collection('shopAdj').get(), db.collection('shopCheckouts').get(), db.collection('shopFGift').get(), db.collection('founders').select().get()]);
   const all = q => q.docs.map(d => ({ id: d.id, ...d.data() }));
   const env = cfg.exists ? (cfg.get('env') === 'live' ? 'live' : cfg.get('env') || 'sandbox') : '';
   const out = shopSummary({ txs: all(tx), subs: all(sub), adjs: all(adj), cks: all(ck) }, Date.now(), env);
-  const uids = [...new Set(out.recent.flatMap(r => [r.uid, r.payer]).filter(Boolean))];
+  /* the founders' thank-you gift: which pack each founder chose */
+  out.fgift = founderGiftSummary(fg.docs.map(d => ({ uid: d.id, ...d.data() })), fw.docs.map(d => d.id), Date.now());
+  const uids = [...new Set([...out.recent.flatMap(r => [r.uid, r.payer]), ...out.fgift.recent.map(r => r.uid)].filter(Boolean))];
   const names = {};
-  if (uids.length) for (const n of await db.getAll(...uids.map(u => db.doc('nations/' + u)))) if (n.exists) names[n.id] = text(n.get('name'), 80);
+  if (uids.length) for (const n of await db.getAll(...uids.map(u => db.doc('nations/' + u)), { fieldMask: ['name'] })) if (n.exists) names[n.id] = text(n.get('name'), 80);
   if (!counted) await stats(db, {});
   return { ...out, on: cfg.exists, names, timing: buyerTiming(all(tx), counted.rows) };
 }
