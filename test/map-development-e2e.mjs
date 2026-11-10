@@ -120,7 +120,11 @@ await A.waitForTimeout(500);await A.evaluate(()=>document.querySelector('canvas[
 await A.click('[data-act="map-home"]');check('the home button returns to the capital',await until(()=>A.evaluate(()=>G.S.mapViews.main.z>=6)));
 check('the tools appear once, above the map',await A.locator('#map-panel [data-act="mp-mode"][data-v="plan"]').count()===0&&await A.locator('.mp-map-toolbar').count()===1);}
 await A.setViewportSize({width:390,height:844});await nav(A,'nation');await nav(A,'map');
+/* the Map page comes back at the scroll the desktop steps above left it at, which on a phone can put the top of the map
+   under the top bar (a taller toolbar is enough): bring the map just below the bar, so the tap lands on the map */
+await A.evaluate(()=>{const c=document.querySelector('canvas[data-map="main"]'),h=document.querySelector('.side-top');window.scrollBy(0,c.getBoundingClientRect().top-(h?h.getBoundingClientRect().bottom:0)-8);});
 {const cv=A.locator('canvas[data-map="main"]'),bb=await cv.boundingBox();
+check('the map is in view below the phone’s top bar',await A.evaluate(([x,y])=>document.elementFromPoint(x,y)?.closest('.map-wrap')!=null,[bb.x+bb.width/2,bb.y+60]),JSON.stringify(bb));
 check('on a phone the details start folded',await A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open')));
 await A.mouse.click(bb.x+bb.width/2,bb.y+60);check('a tap opens the details sheet',await until(()=>A.evaluate(()=>document.getElementById('map-panel').classList.contains('sheet-open'))));
 await A.screenshot({path:OUT+'/map-sheet-390.png'});await A.click('.mp-grab');check('its handle folds it',await until(()=>A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open'))));}
