@@ -43734,17 +43734,31 @@ const renderKey=h=>h.replace(/\b(crt|cu[bcn]|cz[afps]|fgo|cm|fp|id[fs]|pp[a-z]{1
    map canvas the size, hover and drag marks scripts put there are not differences. Another page (another view, a
    visit to another nation, founding) is still drawn whole, as is a page the browser is translating (dismantle), and
    an error midway draws it whole. localStorage edictum.patch = 0 turns it off. */
-const RPATCH={off:false,n:0,err:0,check:null};
+const RPATCH={off:false,n:0,err:0,check:null,why:null};
 try{RPATCH.off=localStorage.getItem('edictum.patch')==='0';}catch(e){}
 const RP_WHOLE=new Set(['svg','math','dialog','iframe','video','audio','object','embed','select','textarea','input','option','template']);
 const RP_CV_SKIP=new Set(['width','height','data-hover','data-done']),RP_CV_CLASS=/(^|\s)(dragging|fl-hot|nws-hot)(?=\s|$)/g;
 function rpRoute(){return (S.nation?'n':'f')+'|'+(OBS?'o':'')+(PV?'p':'')+'|'+S.view+'|'+(S.view==='visit'?S.visit||'':'');}
 function rpCls(el,name,v){return el.localName==='canvas'&&name==='class'?String(v).replace(RP_CV_CLASS,' ').replace(/ +/g,' ').trim():v;}
+/* the page column's style holds what pages measure onto it after drawing (--cz-dock-h, --sg-top …); a tile's
+   data-czid is added after drawing where the markup has none (czDom), always the same for the same tile */
+const RP_MAIN_SKIP=new Set(['style']),RP_EXTRA=new Set(['data-czid']);
 function rpAttrsSame(a,b){
-  const cv=a.localName==='canvas',A=a.attributes,B=b.attributes;let na=0,nb=0;
-  for(let i=0;i<B.length;i++){const x=B[i];if(cv&&RP_CV_SKIP.has(x.name))continue;nb++;const v=a.getAttribute(x.name);if(v===null||rpCls(a,x.name,v)!==rpCls(a,x.name,x.value))return false;}
-  for(let i=0;i<A.length;i++)if(!(cv&&RP_CV_SKIP.has(A[i].name)))na++;
+  const skip=a.localName==='canvas'?RP_CV_SKIP:a.id==='main'?RP_MAIN_SKIP:null,A=a.attributes,B=b.attributes;let na=0,nb=0;
+  for(let i=0;i<B.length;i++){const x=B[i];if(skip&&skip.has(x.name))continue;nb++;const v=a.getAttribute(x.name);if(v===null||rpCls(a,x.name,v)!==rpCls(a,x.name,x.value))return false;}
+  for(let i=0;i<A.length;i++){const m=A[i].name;if(!(skip&&skip.has(m))&&!(RP_EXTRA.has(m)&&!b.hasAttribute(m)))na++;}
   return na===nb;
+}
+/* What scripts add to a page after it is drawn, and add again after every draw, is taken off before the page is
+   compared with the new markup, so it does not count as a difference: the fold controls and section links of
+   uxSections, the unlock links of uxAddUnlocks, the trade notice of uxResourceNotice, the badges of nvxMark */
+function rpStrip(app){
+  app.querySelectorAll('nav.ux-sections,.ux-fold-toggle,.ux-fold-summary,.ux-unlock-link,aside.ux-resource-notice,.nvx-tb,.nvx-sr').forEach(e=>e.remove());
+  app.querySelectorAll('span.ux-unlock-wrap').forEach(w=>w.replaceWith(...w.childNodes));
+  const off=(e,...c)=>{e.classList.remove(...c);if(!e.classList.length)e.removeAttribute('class');};
+  app.querySelectorAll('[data-ux-section]').forEach(e=>{e.removeAttribute('data-ux-section');off(e,'ux-foldable','ux-folded');});
+  app.querySelectorAll('.ux-section-heading').forEach(h=>off(h,'ux-section-heading'));
+  app.querySelectorAll('[id^="ux-sec-"]').forEach(h=>h.removeAttribute('id'));
 }
 function rpField(f){return f.localName==='select'?[...f.options].every(o=>o.selected===o.defaultSelected):f.localName==='textarea'?f.value===f.defaultValue:f.type==='checkbox'||f.type==='radio'?f.checked===f.defaultChecked:f.value===f.defaultValue;}
 function rpClean(el){if(/^(input|select|textarea)$/.test(el.localName))return rpField(el);for(const f of el.querySelectorAll('input,select,textarea'))if(!rpField(f))return false;return true;}
@@ -43754,7 +43768,7 @@ function rpNode(a,b){
   if(t===3||t===8){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return;}
   if(t!==1||a.localName!==b.localName){a.replaceWith(b);return;}
   if(a.isEqualNode(b)){if(!rpClean(a))a.replaceWith(b);return;}
-  if(RP_WHOLE.has(a.localName)||!rpAttrsSame(a,b)){a.replaceWith(b);return;}
+  if(RP_WHOLE.has(a.localName)||!rpAttrsSame(a,b)){if(RPATCH.why)try{RPATCH.why(a,b);}catch(e){}a.replaceWith(b);return;}
   if(a.localName!=='canvas')rpKids(a,b);
 }
 function rpKids(p,q){
@@ -43775,7 +43789,7 @@ function renderPatch(app,html){
   if(RPATCH.off)return false;
   const t=document.createElement('template');t.innerHTML=html;
   const want=RPATCH.check?t.innerHTML:null;
-  try{rpKids(app,t.content);}catch(e){RPATCH.err++;return false;}
+  try{rpStrip(app);rpKids(app,t.content);}catch(e){RPATCH.err++;return false;}
   RPATCH.n++;if(want!==null)try{RPATCH.check(want,app.innerHTML);}catch(e){}
   return true;
 }
