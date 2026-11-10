@@ -23,7 +23,7 @@ await B.click('#set-mail [data-f="verify"]');
 check('a short code is refused in the page', /six figures/.test(await text(B, '#set-mail')));
 await B.fill('#ml-code', seal.subject.slice(0, 6));
 await B.click('#set-mail [data-f="verify"]');
-check('the confirmed address and six kinds of letter show', await until(async () => (await B.$$('#set-mail [data-ml-pref]')).length === 6 && /Letters go to reader@example\.test/.test(await text(B, '#set-mail'))), await text(B, '#set-mail'));
+check('the confirmed address and seven kinds of letter show', await until(async () => (await B.$$('#set-mail [data-ml-pref]')).length === 7 && /Letters go to reader@example\.test/.test(await text(B, '#set-mail'))), await text(B, '#set-mail'));
 check('a welcome letter followed', await until(async () => (await outbox()).some(l => /^Welcome to the rolls, Postland/.test(l.subject))), JSON.stringify((await restListAdmin('mailOutbox')).map(d => [d.fields.to?.stringValue, d.fields.subject?.stringValue])));
 await B.uncheck('#set-mail [data-ml-pref="away"]');
 await sleep(1500);

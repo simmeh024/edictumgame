@@ -569,7 +569,9 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
   pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' ? [['cr:' + uid, 20, 1 / 4]] : []),
     // scoring a flag: a judge clicks through a batch of ten, then one every two seconds
-    ...(op === 'fcRate' ? [['fr:' + uid, 30, 1 / 2]] : []),
+    ...(op === 'fcRate' || op === 'fcSkip' ? [['fr:' + uid, 30, 1 / 2]] : []),
+    // the design in progress is kept as it is drawn (the page waits a few seconds between saves); reports are rarer still
+    ...(op === 'fcDraft' ? [['fd:' + uid, 10, 1 / 3]] : []), ...(op === 'fcReport' ? [['fp:' + uid, 5, 1 / 10]] : []),
     // a page of the Book of Resolutions: ten at once, then one every five seconds
     ...(op === 'book' ? [['cbk:' + uid, 10, 1 / 5]] : [])]);
   const db = getFirestore(), who = await identity(uid);
