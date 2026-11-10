@@ -25797,7 +25797,8 @@ function idWatch(){
   if(!ID.io){if(typeof IntersectionObserver!=='function')return;ID.io=new IntersectionObserver(es=>{for(const e of es){if(e.isIntersecting)ID.vis.add(e.target);else ID.vis.delete(e.target);}idOriSync();idKick();},{rootMargin:'80px 0px'});}
   for(const el of ID.obs)if(!el.isConnected){ID.io.unobserve(el);ID.obs.delete(el);ID.vis.delete(el);}
   const fresh=[];
-  for(const el of document.querySelectorAll(ID_SEL)){if(ID.obs.has(el))continue;el._idt=idSheen(el);ID.obs.add(el);ID.io.observe(el);fresh.push(el);}
+  /* a card kept by a page drawn again in place keeps its sheen, unless the part that held it was drawn anew */
+  for(const el of document.querySelectorAll(ID_SEL)){if(ID.obs.has(el)){if(el._idt&&!el._idt.isConnected){el._idt=idSheen(el);fresh.push(el);}continue;}el._idt=idSheen(el);ID.obs.add(el);ID.io.observe(el);fresh.push(el);}
   if(fresh.length&&ID.src==='p'&&!ID.still)idApply(fresh);
   ID.zz=false;idOriSync();
 }
@@ -40379,25 +40380,27 @@ function mapGlide(cv,to,ms){
   G.raf=requestAnimationFrame(step);
 }
 function bindMap(cv){
+  /* once per canvas: a page drawn again in place keeps an unchanged canvas, and its listeners with it */
+  if(cv._mb)return;cv._mb=1;
   const kind=cv.dataset.map;
   if(kind==='mini'){cv.addEventListener('click',()=>openMapAt(cv.dataset.id));return;}
-  const pts=new Map(),tip=cv.parentElement.querySelector('.map-tip');let moved=0,pinchD=0;
+  const pts=new Map(),tipOf=()=>cv.parentElement&&cv.parentElement.querySelector('.map-tip');let tip=tipOf();let moved=0,pinchD=0;
   const pos=e=>mapPos(cv,e);
   const cellFrom=e=>{const v=viewOf(kind,cv),s=mapScale(cv,v),[sx,sy]=pos(e);return cellAt(v.cx+(sx-cv.clientWidth/2)/s,v.cy+(sy-cv.clientHeight/2)/s);};
   const spread=()=>{const a=[...pts.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);};
   cv.addEventListener('pointerdown',e=>{const hn=cv.parentElement.querySelector('.map-hint');if(hn)hn.remove();try{cv.setPointerCapture(e.pointerId);}catch(_){}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;if(pts.size===2)pinchD=spread();cv.classList.add('dragging');});
   cv.addEventListener('pointermove',e=>{
     const p=pts.get(e.pointerId);
-    if(!p){hoverAt(cv,cellFrom(e),e,tip);return;}
+    if(!p){hoverAt(cv,cellFrom(e),e,tip=tipOf());return;}
     const v=viewOf(kind,cv);
-    if(pts.size===1){const s=mapScale(cv,v),[dx,dy]=mapDelta(cv,e,p);moved+=Math.abs(dx)+Math.abs(dy);v.cx-=dx/s;v.cy-=dy/s;p.x=e.clientX;p.y=e.clientY;if(tip&&moved>4)tip.hidden=true;
+    if(pts.size===1){const s=mapScale(cv,v),[dx,dy]=mapDelta(cv,e,p);moved+=Math.abs(dx)+Math.abs(dy);v.cx-=dx/s;v.cy-=dy/s;p.x=e.clientX;p.y=e.clientY;if(moved>4&&(tip=tipOf()))tip.hidden=true;
       /* a few pixels of jitter in a click move the view without a redraw; a real drag moves the plate */
       if(moved>3){cv._drag=1;cv._pt=performance.now();mapGlideStop(kind);mapMoveStart(cv);schedule(cv);}}
     else if(pts.size===2){cv._drag=1;cv._pt=performance.now();p.x=e.clientX;p.y=e.clientY;const d=spread(),a=[...pts.values()];if(pinchD>0){const [mx,my]=mapPos(cv,{clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2});zoomAt(cv,mx,my,d/pinchD);}pinchD=d;moved+=10;}
   });
-  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}if(!pts.size){cv._drag=0;mapRenderFree();}};
+  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip=tipOf())tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}if(!pts.size){cv._drag=0;mapRenderFree();}};
   cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
-  cv.addEventListener('pointerleave',()=>{if(pts.size)return;cv.dataset.hover='-1';if(tip)tip.hidden=true;mfxHover(cv)||schedule(cv);});
+  cv.addEventListener('pointerleave',()=>{if(pts.size)return;cv.dataset.hover='-1';if(tip=tipOf())tip.hidden=true;mfxHover(cv)||schedule(cv);});
   /* Ctrl (or Cmd) and the wheel zoom; in full screen, where the page cannot scroll, the wheel alone does. Lines and pages of wheel are counted as pixels. */
   cv.addEventListener('wheel',e=>{const wrap=cv.parentElement;if(!(e.ctrlKey||e.metaKey)&&!(wrap&&wrap.classList.contains('is-full')))return;e.preventDefault();const [sx,sy]=pos(e),dy=e.deltaY*(e.deltaMode===1?33:e.deltaMode===2?400:1);zoomAt(cv,sx,sy,Math.exp(-clamp(dy,-300,300)*0.005));},{passive:false});
 }
@@ -43724,6 +43727,81 @@ const RENDER_LAST={k:null,app:null,skips:0,tr:0};
 function pageTranslated(){const c=document.documentElement.classList;return c.contains('translated-ltr')||c.contains('translated-rtl');}
 function dismantle(root){const st=[root];while(st.length){const n=st.pop();let c=n.lastChild;while(c){const p=c.previousSibling;n.removeChild(c);if(c.firstChild)st.push(c);c=p;}}}
 const renderKey=h=>h.replace(/\b(crt|cu[bcn]|cz[afps]|fgo|cm|fp|id[fs]|pp[a-z]{1,2}|shl|wd)\d+/g,'$1');
+/* ── drawing the same page again in place ──
+   A page drawn again (a click, a timer, a snapshot from the server) used to replace all of #app, so the browser
+   rebuilt, restyled and laid out every element (half a second on a phone for some pages) even when one number had
+   changed. Now the new markup is parsed aside and laid over the page node by node (renderPatch): an element whose
+   tag and attributes are unchanged is kept and only its insides are compared, changed text is changed in place, and
+   everything else is replaced by its new copy, as before: an element with any attribute changed, an SVG with any
+   change (its ids carry serial numbers that tie its parts together, so it always comes whole from one drawing), a
+   form field whose value is no longer the one it was drawn with (a full draw would put that back), a run of children
+   that no longer lines up. The page ends as a full draw would leave it, less the elements that did not change; on a
+   map canvas the size, hover and drag marks scripts put there are not differences. Another page (another view, a
+   visit to another nation, founding) is still drawn whole, as is a page the browser is translating (dismantle), and
+   an error midway draws it whole. localStorage edictum.patch = 0 turns it off. */
+const RPATCH={off:false,n:0,err:0,check:null,why:null};
+try{RPATCH.off=localStorage.getItem('edictum.patch')==='0';}catch(e){}
+const RP_WHOLE=new Set(['svg','math','dialog','iframe','video','audio','object','embed','select','textarea','input','option','template']);
+const RP_CV_CLASS=/(^|\s)(dragging|fl-hot|nws-hot)(?=\s|$)/g;
+function rpRoute(){return (S.nation?'n':'f')+'|'+(OBS?'o':'')+(PV?'p':'')+'|'+S.view+'|'+(S.view==='visit'?S.visit||'':'');}
+function rpCls(el,name,v){return el.localName==='canvas'&&name==='class'?String(v).replace(RP_CV_CLASS,' ').replace(/ +/g,' ').trim():v;}
+/* attributes scripts set on drawn elements, not differences where the new markup has none of its own: a canvas's
+   size and hover mark, what pages measure onto the page column (--cz-dock-h, --sg-top …), the tile ids czDom adds
+   (always the same for the same tile). A canvas drawn once and marked so (data-done) is drawn again, as before */
+const RP_CV_EXTRA=new Set(['width','height','data-hover']),RP_MAIN_EXTRA=new Set(['style']),RP_EXTRA=new Set(['data-czid']);
+function rpAttrsSame(a,b){
+  const ex=a.localName==='canvas'?RP_CV_EXTRA:a.id==='main'?RP_MAIN_EXTRA:null,A=a.attributes,B=b.attributes;let na=0,nb=0;
+  for(let i=0;i<B.length;i++){const x=B[i];nb++;const v=a.getAttribute(x.name);if(v===null||rpCls(a,x.name,v)!==rpCls(a,x.name,x.value))return false;}
+  for(let i=0;i<A.length;i++){const m=A[i].name;if(!b.hasAttribute(m)&&(RP_EXTRA.has(m)||ex&&ex.has(m)))continue;na++;}
+  return na===nb;
+}
+/* What scripts add to a page after it is drawn, and add again after every draw, is taken off before the page is
+   compared with the new markup, so it does not count as a difference: the fold controls and section links of
+   uxSections, the unlock links of uxAddUnlocks, the trade notice of uxResourceNotice, the badges of nvxMark */
+function rpStrip(app){
+  app.querySelectorAll('nav.ux-sections,.ux-fold-toggle,.ux-fold-summary,.ux-unlock-link,aside.ux-resource-notice,.nvx-tb,.nvx-sr').forEach(e=>e.remove());
+  app.querySelectorAll('span.ux-unlock-wrap').forEach(w=>w.replaceWith(...w.childNodes));
+  const off=(e,...c)=>{e.classList.remove(...c);if(!e.classList.length)e.removeAttribute('class');};
+  app.querySelectorAll('[data-ux-section]').forEach(e=>{e.removeAttribute('data-ux-section');off(e,'ux-foldable','ux-folded');});
+  app.querySelectorAll('.ux-section-heading').forEach(h=>off(h,'ux-section-heading'));
+  app.querySelectorAll('[id^="ux-sec-"]').forEach(h=>h.removeAttribute('id'));
+}
+function rpField(f){return f.localName==='select'?[...f.options].every(o=>o.selected===o.defaultSelected):f.localName==='textarea'?f.value===f.defaultValue:f.type==='checkbox'||f.type==='radio'?f.checked===f.defaultChecked:f.value===f.defaultValue;}
+function rpClean(el){if(/^(input|select|textarea)$/.test(el.localName))return rpField(el);for(const f of el.querySelectorAll('input,select,textarea'))if(!rpField(f))return false;return true;}
+function rpNode(a,b){
+  const t=a.nodeType;
+  if(t!==b.nodeType){a.replaceWith(b);return;}
+  if(t===3||t===8){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return;}
+  if(t!==1||a.localName!==b.localName){a.replaceWith(b);return;}
+  if(a.isEqualNode(b)){if(!rpClean(a))a.replaceWith(b);return;}
+  if(RP_WHOLE.has(a.localName)||!rpAttrsSame(a,b)){if(RPATCH.why)try{RPATCH.why(a,b);}catch(e){}a.replaceWith(b);return;}
+  if(a.localName!=='canvas')rpKids(a,b);
+}
+/* children scripts put into a drawn element and keep track of themselves: the sheen of a card (idSheen, watched by
+   idWatch) and a map's effects overlay (mfxAfter). Left where they are and not compared */
+const rpOwn=x=>x.nodeType===1&&(x.classList.contains('id-sh')||x.classList.contains('map-fx'));
+function rpKids(p,q){
+  const o=[...p.childNodes].filter(x=>!rpOwn(x)),n=[...q.childNodes];
+  if(o.length===n.length){for(let i=0;i<o.length;i++)rpNode(o[i],n[i]);return;}
+  /* the children that still line up at either end are compared pair by pair; the run between is replaced */
+  const ok=(a,b)=>a.nodeType===b.nodeType&&(a.nodeType!==1||a.localName===b.localName&&!RP_WHOLE.has(a.localName)&&rpAttrsSame(a,b));
+  const L=Math.min(o.length,n.length);let i=0,j=0;
+  while(i<L&&ok(o[i],n[i]))i++;
+  while(j<L-i&&ok(o[o.length-1-j],n[n.length-1-j]))j++;
+  const at=j?o[o.length-j]:null;
+  for(let k=i;k<o.length-j;k++)o[k].remove();
+  for(let k=i;k<n.length-j;k++)p.insertBefore(n[k],at);
+  for(let k=0;k<i;k++)rpNode(o[k],n[k]);
+  for(let k=1;k<=j;k++)rpNode(o[o.length-k],n[n.length-k]);
+}
+function renderPatch(app,html){
+  if(RPATCH.off)return false;
+  const t=document.createElement('template');t.innerHTML=html;
+  const want=RPATCH.check?t.innerHTML:null;
+  try{rpStrip(app);rpKids(app,t.content);}catch(e){RPATCH.err++;return false;}
+  RPATCH.n++;if(want!==null)try{RPATCH.check(want,app.innerHTML);}catch(e){}
+  return true;
+}
 function render(){if(fxRender())return;
   let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
   if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
@@ -43744,8 +43822,12 @@ function render(){if(fxRender())return;
   const html=gamesLocal((OBS?obsBar():PV?pvBar():'')+(S.nation?shell():PV?pvWait():foundView())),app=document.getElementById('app'),same=renderKey(html);
   if(same===RENDER_LAST.k&&!uxPlan&&!rewardJump&&app.firstChild&&RENDER_LAST.app===app.firstChild){RENDER_LAST.skips++;return;}
   const navK=navBefore();
-  if(pageTranslated()){dismantle(app);RENDER_LAST.tr++;}
-  app.innerHTML=html;RENDER_LAST.k=same;RENDER_LAST.app=app.firstChild;
+  const route=rpRoute();
+  if(pageTranslated()){dismantle(app);RENDER_LAST.tr++;app.innerHTML=html;}
+  /* idWatch (the cards' sheen) listens for #app's own children, which a patch keeps: it is told here */
+  else if(route===RENDER_LAST.route&&app.firstChild&&renderPatch(app,html)){try{idWatch();}catch(e){}}
+  else app.innerHTML=html;
+  RENDER_LAST.k=same;RENDER_LAST.app=app.firstChild;RENDER_LAST.route=route;
   navAfter(navK);
   if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
   drawAllGuill();
@@ -59921,7 +60003,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
