@@ -95,7 +95,10 @@ check('nothing is published while judging runs', (await admin('flagc/' + M)).st.
 
 /* ── results ── */
 await clockTo(Date.UTC(2031, 2, 25));
-const before = await Promise.all(ps.map(stock));
+/* a place also earns achievements, and each achievement rank gained is a gift of 15 goods of its own (the game's
+   RANK_GIFT): the prize is checked net of the ranks gained since this moment */
+const rank = p => p.evaluate(() => G.RK.achRank(G.RK.achPoints(G.S.nation)).i);
+const before = await Promise.all(ps.map(stock)), rank0 = await Promise.all(ps.map(rank));
 await fresh(A);
 check('the results arrive sealed', await until(async () => /The results of March 2031 are in/.test(await text(A, '.flc-box')), 20000), (await text(A, '.flc-box')).slice(0, 160));
 check('a podium waiting to be seen marks the menu', /\S/.test(await text(A, '.nav [data-v="flagcomp"] .badge')));
@@ -112,14 +115,15 @@ check('every flag entered is listed with its owner', await A.locator('.flc-grid 
 check('opening the envelope clears the mark', await until(async () => !/\S/.test(await text(A, '.nav [data-v="flagcomp"] .badge'))));
 /* the prizes: each podium nation adds its goods once; the winner's month of the Club is the server's */
 for (const p of [B, C, D]) await fresh(p);
-const prize = async (p, i, amt) => until(async () => { const s = await stock(p); return s.goods >= Math.min(399.5, before[i].goods + amt - 1) && s.goods <= before[i].goods + amt + 20; }, 15000);
-check('the winner is paid 300 goods', await prize(B, 1, 300), JSON.stringify([before[1].goods, (await stock(B)).goods]));
-check('second place 150', await prize(C, 2, 150), JSON.stringify([before[2].goods, (await stock(C)).goods]));
-check('third place 75', await prize(D, 3, 75), JSON.stringify([before[3].goods, (await stock(D)).goods]));
+const want = async (p, i, amt) => before[i].goods + amt + 15 * Math.max(0, await rank(p) - rank0[i]);
+const prize = async (p, i, amt) => until(async () => { const s = await stock(p), w = await want(p, i, amt); return s.goods >= Math.min(399.5, w - 1) && s.goods <= w + 8; }, 15000);
+check('the winner is paid 300 goods', await prize(B, 1, 300), JSON.stringify([before[1].goods, (await stock(B)).goods, rank0[1], await rank(B)]));
+check('second place 150', await prize(C, 2, 150), JSON.stringify([before[2].goods, (await stock(C)).goods, rank0[2], await rank(C)]));
+check('third place 75', await prize(D, 3, 75), JSON.stringify([before[3].goods, (await stock(D)).goods, rank0[3], await rank(D)]));
 check('and each place is on the nation’s record', await B.evaluate(m => (G.S.nation.fcp || []).includes(m + '/1'), M) && await C.evaluate(m => (G.S.nation.fcp || []).includes(m + '/2'), M) && await D.evaluate(m => (G.S.nation.fcp || []).includes(m + '/3'), M));
 const gB = (await stock(B)).goods; await fresh(B); await sleep(1500);
 check('never twice', Math.abs((await stock(B)).goods - gB) < 5 && await B.evaluate(() => (G.S.nation.fcp || []).length === 1));
-check('fourth place is paid nothing, and the bell says the results are in', (await stock(A)).goods < before[0].goods + 20 && await A.evaluate(() => (G.S.nation.log || []).some(l => l.k === 'fcres')) && !(await A.evaluate(() => G.S.nation.fcp)));
+check('fourth place is paid nothing, and the bell says the results are in', (await stock(A)).goods < await want(A, 0, 0) + 20 && await A.evaluate(() => (G.S.nation.log || []).some(l => l.k === 'fcres')) && !(await A.evaluate(() => G.S.nation.fcp)));
 check('the winner’s bell tells of first place', await B.evaluate(() => (G.S.nation.log || []).some(l => l.k === 'fcwin' && l.b === '1')));
 const won = await admin('shopPrize/' + uids[1]), vip = await admin('shop/' + uids[1]);
 check('the winner is given a month of the Chancery Club, by the server', !!won && !!won.m.mapValue.fields['fc-' + M] && vip && vip.vip && vip.vip.mapValue.fields.plan.stringValue === 'gift', JSON.stringify(vip && vip.vip));
