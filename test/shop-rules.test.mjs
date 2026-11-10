@@ -28,7 +28,7 @@ beforeEach(async () => {
     await db.doc('presets/lapsed').set({ p: { 1: preset('Old look'), 2: preset('Second') } });
     await db.doc('chron/lapsed/m/2026-10').set({ d: { '1_x': { i: 'x', t: 1 } }, s: {} });
     await db.doc('finery/member').set({ c: ['bg-founder'], reg: 'meridian' });
-    for (const c of ['shopTx/txn_1', 'shopSubs/sub_1', 'shopAdj/adj_1', 'shopCheckouts/txn_1', 'shopAcct/member', 'shopCustomers/ctm_1', 'shopEvents/evt_1', 'shopLimits/member', 'authConfig/paddle'])
+    for (const c of ['shopTx/txn_1', 'shopSubs/sub_1', 'shopAdj/adj_1', 'shopCheckouts/txn_1', 'shopAcct/member', 'shopCustomers/ctm_1', 'shopEvents/evt_1', 'shopLimits/member', 'shopFGift/member', 'authConfig/paddle'])
       await db.doc(c).set({ uid: 'member', secret: 'x' });
   });
 });
@@ -50,7 +50,7 @@ test('ownership: written by the server alone, read by its player alone; the publ
 });
 
 test('billing records, checkouts, customers, notifications and the Paddle settings are closed to every player', async () => {
-  for (const c of ['shopTx/txn_1', 'shopSubs/sub_1', 'shopAdj/adj_1', 'shopCheckouts/txn_1', 'shopAcct/member', 'shopCustomers/ctm_1', 'shopEvents/evt_1', 'shopLimits/member', 'authConfig/paddle']) {
+  for (const c of ['shopTx/txn_1', 'shopSubs/sub_1', 'shopAdj/adj_1', 'shopCheckouts/txn_1', 'shopAcct/member', 'shopCustomers/ctm_1', 'shopEvents/evt_1', 'shopLimits/member', 'shopFGift/member', 'authConfig/paddle']) {
     await assertFails(as('member').doc(c).get());
     await assertFails(as('member').doc(c).set({ uid: 'member' }));
   }

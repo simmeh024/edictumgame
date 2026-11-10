@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth, addMonths, months,
-  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
+  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
 
 const DAY = 864e5, H = 36e5, src = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const tx = (id, product, o = {}) => ({ id, product, ok: true, ck: true, status: 'completed', created: Date.UTC(2026, 10, 1), paid: Date.UTC(2026, 10, 1, 1), period: null, sub: '', ...o });
@@ -426,4 +426,42 @@ test('months won in the game: a month from where the membership so far ends, nev
   e = entitlement({ prizes: [addMonth(t0) - DAY, t0, NaN, 0, 'x'], now: t0 + DAY });
   assert.equal(e.vip.until, addMonth(m1)); assert.equal(e.vip.n, 2);
   assert.equal(entitlement({ prizes: [] }).vip, null); assert.equal(entitlement({}).vip, null);
+});
+
+test('the founders’ thank-you gift: one pack, free, owned while the Founder’s Package is; a later payment for it is refunded', () => {
+  assert.deepEqual(FOUNDER_GIFT.packs, ['cbpack', 'sailpack', 'orpack']);
+  assert.equal(FOUNDER_GIFT.until, Date.parse('2026-12-01T00:00:00Z'), 'November 2026 only');
+  const f = tx('txn_f', 'founder'), at = Date.UTC(2026, 10, 10);
+  let e = entitlement({ txs: [f], fgift: { p: 'cbpack', at } });
+  assert.equal(e.owns.cbpack, at); assert.equal(e.fgift, 'cbpack');
+  for (const id of CATALOGUE.products.cbpack.grants) assert.ok(e.cosmetics.includes(id), id + ' is shown to other players');
+  assert.ok(!e.owns.sailpack && !e.owns.orpack, 'one pack only');
+  /* the Founder's Package refunded: the gift goes with it */
+  e = entitlement({ txs: [f], adjs: [adj('txn_f', 'refund', 'approved')], fgift: { p: 'cbpack', at } });
+  assert.ok(!e.owns.cbpack && !e.fgift); assert.ok(!e.cosmetics.includes('cn-deco'));
+  /* no Founder's Package, or a pack the offer does not name: nothing */
+  assert.ok(!entitlement({ txs: [], fgift: { p: 'cbpack', at } }).owns.cbpack);
+  assert.ok(!entitlement({ txs: [f], fgift: { p: 'bfpack', at } }).owns.bfpack);
+  assert.ok(!entitlement({ txs: [f], fgift: { p: 'idpack', at } }).fgift);
+  /* paid for after it was chosen (a checkout left open in another tab): the payment is the second one, and refunded */
+  const later = tx('txn_s', 'sailpack', { paid: at + H });
+  e = entitlement({ txs: [f, later], fgift: { p: 'sailpack', at } });
+  assert.equal(e.owns.sailpack, at); assert.deepEqual(e.refunds, [{ txn: 'txn_s', why: 'duplicate' }]);
+  /* its refund on its way: the gift still holds, nothing asked twice */
+  e = entitlement({ txs: [f, later], adjs: [adj('txn_s', 'refund', 'pending_approval')], fgift: { p: 'sailpack', at } });
+  assert.equal(e.owns.sailpack, at); assert.deepEqual(e.refunds, []);
+  /* paid for before (the choice is refused then, but two tabs): the purchase stands, nothing refunded */
+  const before = tx('txn_o', 'orpack', { paid: at - H });
+  e = entitlement({ txs: [f, before], fgift: { p: 'orpack', at } });
+  assert.equal(e.owns.orpack, at - H); assert.ok(!e.fgift); assert.deepEqual(e.refunds, []);
+  /* a refund Paddle turned down: the payment stands */
+  e = entitlement({ txs: [f, later], adjs: [adj('txn_s', 'refund', 'rejected')], fgift: { p: 'sailpack', at } });
+  assert.equal(e.owns.sailpack, at + H); assert.deepEqual(e.refunds, []);
+});
+
+test('the founders’ gift in the game: the pop-up offers the catalogue’s packs, asks once, and is kept by the nation’s record', () => {
+  assert.match(src, /function fgfOffer\(\)\{const c=shopCat\(\),g=c&&c\.founderGift/);
+  assert.match(src, /NORM_HOOKS\.push\(\(n,d\)=>\{if\(d&&d\.fgs===1\)n\.fgs=1;else delete n\.fgs;\}\)/, 'n.fgs survives loading');
+  assert.match(src, /shopReq\(\{step:'fgift',p\}\)/);
+  for (const p of FOUNDER_GIFT.packs) assert.ok(src.includes(p + ":['"), p + ' has a line and a picture in the pop-up');
 });

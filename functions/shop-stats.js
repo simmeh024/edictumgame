@@ -4,7 +4,7 @@
 
    Money: Paddle charges in the buyer's local currency (shopTx.cur, total in that currency's lowest unit), so takings
    are kept apart per currency. "At list price" adds each sale's catalogue euro price instead, for one comparable sum. */
-import { CATALOGUE, refundState, voided } from './shop-core.js';
+import { CATALOGUE, FOUNDER_GIFT, refundState, voided } from './shop-core.js';
 
 export const DAY = 86400000;
 const dayKey = t => new Date(t).toISOString().slice(0, 10);
@@ -81,4 +81,16 @@ export function shopSummary({ txs = [], subs = [], adjs = [], cks = [] }, now = 
     days: Object.entries(days).map(([d, v]) => ({ d, ...v })),
     recent: recent.slice(0, 30)
   };
+}
+
+/* The founders' thank-you gift: the pack each founder chose (shopFGift/{uid}: {p, at, fno}), against the founders there are
+   now (founders/, the Founders' Wall's list, which a refunded package leaves). Those still to choose are the founders with
+   no choice; once the offer has ended they are the ones who let it pass. */
+export function founderGiftSummary(choices = [], founders = [], now = Date.now()) {
+  const fs = new Set(founders), chose = new Set(), packs = Object.fromEntries(FOUNDER_GIFT.packs.map(k => [k, 0]));
+  for (const c of choices) { if (!c || !c.uid) continue; chose.add(c.uid); if (Object.hasOwn(packs, c.p)) packs[c.p]++; }
+  const recent = choices.filter(c => c && c.uid).sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0)).slice(0, 100)
+    .map(c => ({ uid: c.uid, p: String(c.p || ''), at: Number(c.at) || 0, fno: Number(c.fno) || 0, founder: fs.has(c.uid) }));
+  return { until: FOUNDER_GIFT.until, open: now < FOUNDER_GIFT.until, chosen: chose.size, founders: fs.size, waiting: [...fs].filter(u => !chose.has(u)).length,
+    packs: FOUNDER_GIFT.packs.map(k => ({ k, name: CATALOGUE.products[k].name, n: packs[k] })), recent };
 }

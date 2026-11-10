@@ -5911,6 +5911,30 @@ span.nw-tag{cursor:default}
 @keyframes m50-shake{0%,80%,100%{transform:none}84%{transform:rotate(-5deg)}88%{transform:rotate(5deg)}92%{transform:rotate(-3deg)}}
 @keyframes m50-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.m50-box,.m50-cf{animation:none}.m50-lid,.m50-bow{transition:none}}
+/* the founders' thank-you gift: a pop-up with the packs to choose from, and its banner in the Shop (fgf-) */
+.fgf-bg{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px}
+.fgf{position:relative;max-width:640px;width:100%;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;padding:22px 20px 16px;background:var(--sheet);color:var(--ink);border:1px solid #b08d3c;border-radius:8px;box-shadow:inset 0 0 0 3px var(--sheet),inset 0 0 0 4px rgba(176,141,60,.5),0 14px 40px rgba(0,0,0,.3);text-align:center}
+.fgf .eyebrow,.fgf-banner .eyebrow{color:#9a7526}.fgf .h2{margin:4px 0 6px}.fgf p{margin:0 0 6px}
+.fgf-packs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0 12px}
+.fgf-pk{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet-2);color:inherit;font:inherit;text-align:center;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.fgf-pk:hover:not(:disabled){border-color:#b08d3c;transform:translateY(-1px)}
+.fgf-pk:focus-visible{outline:2px solid #b08d3c;outline-offset:2px}
+.fgf-pk[aria-pressed="true"]{border-color:#b08d3c;box-shadow:0 0 0 2px #b08d3c,0 8px 18px -10px rgba(122,87,20,.6);background:linear-gradient(180deg,rgba(195,154,62,.18),var(--sheet-2) 65%)}
+.fgf-pk:disabled{cursor:default;opacity:.55}
+.fgf-art{display:flex;align-items:center;justify-content:center;width:96px;height:96px;flex:none}
+.fgf-art svg{max-width:100%;max-height:100%}
+.fgf-tx{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fgf-tx b{font-size:14px;line-height:1.2}.fgf-tx small{font-size:12px;line-height:1.35;opacity:.8}
+.fgf-worth{font:600 10.5px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:#9a7526}
+.fgf-tick{position:absolute;top:7px;right:7px;width:20px;height:20px;border-radius:50%;background:#b08d3c;color:#fff7df;font-size:12px;line-height:20px;opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s}
+.fgf-pk[aria-pressed="true"] .fgf-tick{opacity:1;transform:none}
+.fgf-later{display:block;margin:8px auto 0}
+.fgf-big{width:132px;height:120px;margin:12px auto 6px}
+.fgf-row{justify-content:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.fgf-banner{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin:0 0 18px;padding:16px 20px;border:1px solid #b08d3c;border-radius:6px;background:linear-gradient(135deg,rgba(195,154,62,.16),var(--sheet) 65%)}
+.fgf-banner .h2{margin:2px 0 4px}.fgf-banner p{margin:0}
+@media (max-width:560px){.fgf{padding:18px 14px 12px}.fgf-packs{grid-template-columns:1fr;gap:8px}.fgf-pk{flex-direction:row;text-align:left;padding:10px 34px 10px 10px}.fgf-art{width:68px;height:68px}}
+@media (prefers-reduced-motion:reduce){.fgf-pk,.fgf-tick{transition:none}}
 .fdr-pop{position:fixed;z-index:90;max-width:min(340px,calc(100vw - 16px));padding:14px 16px;background:var(--sheet);color:var(--ink);border:1px solid #b08d3c;border-radius:6px;box-shadow:inset 0 0 0 3px var(--sheet),inset 0 0 0 4px rgba(176,141,60,.5),0 10px 28px rgba(0,0,0,.18);font-size:14px}
 .fdr-pop p{margin:0 0 8px}.fdr-pop .row{gap:10px;flex-wrap:wrap;align-items:center}
 .fdr-pop-h{display:flex;align-items:center;gap:6px;font:650 16px/1.2 var(--f-display);color:#8a6519}.fdr-pop-h svg{width:14px;height:14px}
@@ -44719,6 +44743,18 @@ function shMoney(v,cur){
 }
 const shSums=(o,none)=>{const e=Object.entries(o||{}).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);return e.length?e.map(([c,v])=>shMoney(v,c)).join(' · '):(none||'–');};
 const SH_STATUS={active:'Active',trialing:'On trial',past_due:'Payment overdue',paused:'Paused',canceled:'Ended'};
+/* the founders' thank-you gift (November 2026): which pack each founder chose (functions/shop-stats.js, founderGiftSummary) */
+function shFgift(g,nm){
+  let end='';try{end=new Date(g.until-1).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});}catch(e){}
+  const pk=k=>(g.packs.find(p=>p.k===k)||{}).name||k||'–';
+  const hint=`Every holder of the Founder’s Package may choose one of these packs, free, ${g.open?'until':'until the end of'} ${esc(end)} (UTC). ${stN(g.chosen)} ${g.chosen===1?'has':'have'} chosen; ${stN(g.waiting)} of the ${stN(g.founders)} ${g.founders===1?'founder':'founders'} there are now ${g.open?(g.waiting===1?'has':'have')+' not chosen yet':'did not choose'}.`;
+  return `<section class="adst-sec" id="adsh-fgift"><h2 class="h2">Founders’ thank-you gift</h2><p class="hint">${hint}</p>
+    <div class="adm-kpis">${g.packs.map(p=>`<div class="adm-kpi"><b>${stN(p.n)}</b><span>chose the ${esc(p.name)}</span></div>`).join('')}<div class="adm-kpi"><b>${stN(g.waiting)}</b><span>${g.waiting===1?'founder':'founders'} ${g.open?'still to choose':'who did not choose'}</span></div></div>
+    ${g.chosen?`<div class="adst-rows">${g.packs.map(p=>stBar(esc(p.name),p.n,g.chosen)).join('')}</div>
+    <h3 class="help-h3">Who chose what</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Nation</th><th class="num">Founder no.</th><th>Pack</th><th>Player</th></tr></thead><tbody>
+      ${g.recent.map(r=>`<tr><td>${r.at?esc(rel(r.at)):'–'}</td><td>${nm(r.uid)}${r.founder?'':' <span class="hint">no longer a founder (refunded)</span>'}</td><td class="num">${r.fno?stN(r.fno):'–'}</td><td>${esc(pk(r.p))}</td><td><button type="button" class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button></td></tr>`).join('')}</tbody></table></div>
+    ${g.chosen>g.recent.length?`<p class="hint">The latest ${stN(g.recent.length)} choices.</p>`:''}`:'<p class="hint">No founder has chosen yet.</p>'}</section>`;
+}
 function adminShopView(){
   const d=ADSH.d;
   if(!d&&!ADSH.busy&&!ADSH.err)setTimeout(shLoad,0);
@@ -44749,6 +44785,7 @@ function adminShopView(){
     ${d.timing&&d.timing.buyers?sec('Who buys, and when',`${stN(d.timing.buyers)} buyers. They first paid after ${stN(Math.round(d.timing.medianDays))} days of play, the median, having decided ${stN(d.timing.medianDecided)} edicts by now (the median). ${subsAll?`Club churn: ${stPc(C.status.canceled||0,subsAll)} of subscriptions ever started have ended.`:''}`,`<div class="adst-grid"><div class="adst-fig"><h3>Time to first purchase</h3><div class="adst-rows">${Object.entries(d.timing.bands).map(([k,v])=>stBar(esc(cap1(k)),v,d.timing.buyers)).join('')}</div></div>
       <div class="adst-fig"><h3>First thing bought</h3><div class="adst-rows">${Object.entries(d.timing.firstProduct).sort((a,b)=>b[1]-a[1]).map(([k,v])=>stBar(esc((d.products.find(p=>p.k===k)||{}).name||k||'–'),v,d.timing.buyers)).join('')}</div></div></div>
       <h3 class="help-h3">Checkout to payment, by product (30 days)</h3><div class="adst-rows">${d.products.filter(p=>p.opened30).map(p=>stBar(esc(p.name),p.paid30,p.opened30,` paid of ${stN(p.opened30)} checkouts`)).join('')||'<p class="hint">No checkouts opened in the last 30 days.</p>'}</div>`):''}
+    ${d.fgift?shFgift(d.fgift,nm):''}
     ${sec('Latest purchases','The 30 most recent payments.',d.recent.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Product</th><th>Nation</th><th>Paid</th><th>State</th><th>Player</th></tr></thead><tbody>
       ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc((d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
   }
@@ -53064,7 +53101,7 @@ function shopCta(p,label){
 function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=p==='cbpack'?shopCbWorn(n,c):p==='sailpack'?[c.a&&c.a.s==='rope'?'sh-rope':'',c.a&&c.a.c==='c-kraken'?'c-kraken':'',n.flag&&n.flag.e==='e-kraken'?'e-kraken':'',...SHOP_IDS.sailpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':'',...SHOP_IDS.bfpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='orpack'?[c.a&&c.a.s==='scutum'?'sh-scutum':'',c.a&&c.a.c==='c-aquila'?'c-aquila':'',n.flag&&n.flag.e==='e-aquila'?'e-aquila':'',...SHOP_IDS.orpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':''].filter(Boolean):SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
   const onCd=on.filter(id=>UNLOCKS[id].k==='card');
   return p==='idpack'?(onCd.length?` You are using the ${esc(UNLOCKS[onCd[0]].n)} card.`:' Not in use: you have the classic card.'):on.length?` You are wearing ${on.length===SHOP_IDS[p].length?'all '+on.length:on.length+' of '+SHOP_IDS[p].length} pieces.`:' None of it is in use yet.';}
-function shopOwned(p,extra){const at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns[p];return `<p class="shop-owned"><span class="chip ok">Owned</span> since ${esc(shopDate(at))}.${shopGiftFrom(p)?' A gift from '+esc(shopGiftFrom(p))+'.':''}${shopWorn(p)}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p><div class="row shop-row">${extra||''}<button type="button" class="btn ghost" data-act="go" data-v="customise">Equip in Customise</button></div>`;}
+function shopOwned(p,extra){const at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns[p];return `<p class="shop-owned"><span class="chip ok">Owned</span> since ${esc(shopDate(at))}.${shopGiftFrom(p)?' A gift from '+esc(shopGiftFrom(p))+'.':''}${SHOP.doc&&SHOP.doc.fg===p?' Your founder’s thank-you gift.':''}${shopWorn(p)}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p><div class="row shop-row">${extra||''}<button type="button" class="btn ghost" data-act="go" data-v="customise">Equip in Customise</button></div>`;}
 function shopFounder(n,t){
   const until=shopUntil(),open=t<until,own=shopOwns('founder');
   if(!own&&!open)return `<section class="shop-item shop-ended" aria-labelledby="shop-f-h"><p class="eyebrow">Sale ended</p><h2 class="h2" id="shop-f-h">The Founder’s Package</h2><p>The sale ended on 1 February 2027 at 23:59:59 UTC. Thank you to everyone who helped write the world of Edictum. The founder cosmetics stay with those who have them, and are not sold again.</p></section>`;
@@ -53234,7 +53271,7 @@ function shopWishBtn(p,name){const on=SHOP.wish.has(p);return `<button type="but
 function shopCardHTML(c,pick){
   let art='';try{art=c.art();}catch(e){art='';}
   const g=SHOP.gr[c.p],thump=g&&Date.now()-g<4000;
-  const lbls=[...(c.own?[['own','Owned']]:[]),...c.lbls];
+  const lbls=[...(c.own?[['own','Owned']]:[]),...(c.own&&SHOP.doc&&SHOP.doc.fg===c.p?[['','Founder’s gift']]:[]),...c.lbls];
   /* while a drawer is open its buttons are the only ones: the cards behind the scrim keep their prices */
   const act=c.own?'<span class="shop-cd-own">In your wardrobe</span>':SHOP.dr?'':c.gift?`<button type="button" class="btn ghost sm" data-act="shop-open" data-p="${c.p}">Choose a nation</button>`
     :c.sell?shopCta(c.p,'Buy'):'';
@@ -53386,7 +53423,7 @@ function shopView(now){
   const chips=SHOP_FILTERS.map(([k,l])=>`<button type="button" class="shop-chip" data-act="shop-f" data-v="${k}" aria-pressed="${f===k}">${l}${k==='wish'&&SHOP.wish.size?' · '+SHOP.wish.size:''}</button>`).join('');
   return `<header class="vh shop-vh"><div class="shop-vh-t"><p class="eyebrow">Cosmetics and convenience</p><h1>Bureau of National Finery</h1><p>By order of the Bureau, finer things for ${esc(theName(n))}. None of it adds prestige, rank, resources or power. Your citizens will remain unimpressed.</p></div>
     <button type="button" class="shop-info" data-act="shop-info" aria-label="Prices, payment and refunds" title="Prices, payment and refunds">i</button></header>
-  ${SHOP.dr?'':shopNotice(n)}${f==='all'||f==='club'?shopClubBanner(n,t):''}
+  ${SHOP.dr?'':shopNotice(n)}${SHOP.dr?'':fgfBanner()}${f==='all'||f==='club'?shopClubBanner(n,t):''}
   <div class="shop-filters" role="group" aria-label="Show"><div class="shop-chips">${chips}</div><label class="shop-ho"><input type="checkbox" id="shop-ho" data-act="shop-ho"${SHOP.ho?' checked':''}> Hide owned</label></div>
   ${f==='club'?'':grid}
   <details class="shop-small-d" id="shop-small-d"${SHOP.small?' open':''}><summary>Prices, payment and refunds</summary>${shopSmall()}</details>
@@ -53406,6 +53443,92 @@ render=(f=>function(){const r=f.apply(this,arguments);const a=SHOP.after;
 render=(f=>function(){const d=S.view==='shop'?document.querySelector('.shop-dr'):null,top=d?d.scrollTop:0,p=SHOP.dr;const r=f.apply(this,arguments);
   if(d&&top&&SHOP.dr===p){const e=document.querySelector('.shop-dr');if(e&&e!==d)e.scrollTop=top;}return r;})(render);
 go=(f=>function(v){if(v!=='shop'&&SHOP.dr){SHOP.dr='';if(SHOP.gift)SHOP.gift=null;}return f.apply(this,arguments);})(go);
+
+/* ───────── the founders' thank-you gift ─────────
+   For November 2026 (the catalogue's founderGift): every holder of the Founder's Package, those who have it and those
+   who buy it before the offer ends, chooses one pack free: the Central Bank, Age of Sail or Old Republic Pack. A pop-up
+   asks once (n.fgs=1 once it is closed or a pack is chosen); until a pack is chosen the Shop keeps a banner that opens it
+   again. functions/shop.js (step fgift) keeps the choice in shopFGift/<uid> and grants the pack while the Founder's
+   Package is owned; the admin portal's Shop statistics count the choices. A pack the founder owns already cannot be
+   chosen. Hidden under navigator.webdriver unless window.EDICTUM_FG (tests). CSS prefix fgf-. */
+const FGF={later:false,sel:'',busy:false,done:''};
+const FGF_INFO={cbpack:['For your money: Art Deco and Acanthus notes, a clear window, patina and square-holed coins, and more.',n=>shopCbArt(n)],
+  sailpack:['For a seafaring nation: a rope-edged shield and the Kraken, a chart card, a lighthouse on the map, and more.',n=>shopSailArt(n)],
+  orpack:['Senatorial dignity: a scutum and the aquila, a marble card, Imperial Purple, a forum on the map, and more.',n=>shopOrArt(n)]};
+function fgfOffer(){const c=shopCat(),g=c&&c.founderGift,u=g?Date.parse(g.until):NaN;return g&&isFinite(u)?{until:u,packs:(Array.isArray(g.packs)?g.packs:[]).filter(p=>SHOP_IDS[p]&&c.products[p])}:null;}
+function fgfEnd(o){try{return new Date(o.until-1).toLocaleDateString('en-GB',{day:'numeric',month:'long',timeZone:'UTC'});}catch(e){return '30 November';}}
+const fgfName=p=>{const c=shopCat();return c&&c.products[p]?c.products[p].name:p;};
+/* a founder who has not chosen yet, while the offer runs and one of its packs is not theirs yet: the server's word, not a
+   copy this device kept */
+function fgfOpen(){const o=fgfOffer(),d=SHOP.doc;return !!o&&!!d&&!SHOP.cached&&shopOwns('founder')&&!d.fg&&shopNow()<o.until&&o.packs.some(p=>!shopOwns(p));}
+NORM_HOOKS.push((n,d)=>{if(d&&d.fgs===1)n.fgs=1;else delete n.fgs;});
+function fgfStat(name,p){try{const o=fgfOffer();window.edictumStat&&window.edictumStat(name,p&&o?{pack:o.packs.indexOf(p)}:{});}catch(e){}}
+/* asked once: the pop-up does not come back by itself once closed (the Shop's banner stays until a pack is chosen) */
+function fgfSeen(){const n=S.nation;if(!n||n.fgs===1||S.mode!=='world'||OBS||PV)return;const m=clone(n);m.fgs=1;commit(m);}
+function fgfBanner(){
+  if(!fgfOpen())return '';const o=fgfOffer(),left=o.packs.filter(p=>!shopOwns(p)).map(p=>fgfName(p).replace(/ Pack$/,''));
+  const which=left.length>1?`the ${left.slice(0,-1).join(', ')} or ${left[left.length-1]} Pack`:`the ${left[0]} Pack`;
+  return `<section class="fgf-banner" aria-labelledby="fgf-bn-h"><div><p class="eyebrow">For founders · until ${esc(fgfEnd(o))}</p><h2 class="h2" id="fgf-bn-h">Your thank-you gift is waiting</h2>
+    <p>Choose one pack, free, to keep: ${esc(which)}.</p></div><button type="button" class="btn" data-act="fgf-open">Choose your gift</button></section>`;
+}
+function fgfHTML(n,o){
+  const fno=SHOP.doc&&+SHOP.doc.fno||0,end=fgfEnd(o),c=shopCat();
+  const pk=p=>{const own=shopOwns(p),I=FGF_INFO[p]||['',null],k=(c.products[p].grants||[]).length;let art='';try{art=I[1]?I[1](n):'';}catch(e){}
+    return `<button type="button" class="fgf-pk" aria-pressed="false" data-fgf="${p}"${own?' disabled':''}><span class="fgf-tick" aria-hidden="true">✓</span><span class="fgf-art" aria-hidden="true">${art}</span>
+      <span class="fgf-tx"><b>${esc(fgfName(p))}</b><small>${esc(I[0])}</small><span class="fgf-worth">${own?'Already yours':`${k} pieces · worth ${esc(shopPay(p))}`}</span></span></button>`;};
+  return `<div class="fgf" role="dialog" aria-modal="true" aria-labelledby="fgf-h" aria-describedby="fgf-d"><p class="eyebrow">For founders · until ${esc(end)}</p>
+  <h2 class="h2" id="fgf-h">Thank you, Founder${fno?' No. '+fno:''}</h2>
+  <p id="fgf-d">You backed Edictum in its first months. As our thanks, choose one pack, free, to keep for good.</p>
+  <div class="fgf-packs" role="group" aria-label="The packs">${o.packs.map(pk).join('')}</div>
+  <p class="err" id="fgf-err" role="alert" hidden></p>
+  <button type="button" class="btn" id="fgf-ok" disabled>Choose a pack above</button>
+  <p class="hint">One pack per founder. Not now? It waits in the Shop until ${esc(end)} (UTC).</p>
+  <button type="button" class="linkish small fgf-later" id="fgf-later">Later</button></div>`;
+}
+function fgfShow(){
+  if(document.getElementById('fgf'))return;const n=S.nation,o=fgfOffer();if(!n||!o)return;
+  FGF.sel='';FGF.done='';
+  const el=document.createElement('div');el.id='fgf';el.className='fgf-bg';el.innerHTML=fgfHTML(n,o);document.body.appendChild(el);
+  const f=el.querySelector('.fgf-pk:not(:disabled)');if(f)f.focus();
+  fgfStat('founder_gift_shown');
+}
+function fgfClose(){const el=document.getElementById('fgf');if(el)el.remove();FGF.sel='';quietRender();}
+function fgfPick(p){
+  if(FGF.busy||FGF.done)return;const el=document.getElementById('fgf'),b=el&&el.querySelector(`.fgf-pk[data-fgf="${p}"]`);if(!b||b.disabled)return;FGF.sel=p;
+  for(const x of el.querySelectorAll('.fgf-pk'))x.setAttribute('aria-pressed',String(x===b));
+  const ok=document.getElementById('fgf-ok');if(ok){ok.disabled=false;ok.textContent='Take the '+fgfName(p);}
+  const er=document.getElementById('fgf-err');if(er)er.hidden=true;
+}
+async function fgfClaim(){
+  const p=FGF.sel,ok=document.getElementById('fgf-ok');if(!p||FGF.busy||FGF.done)return;FGF.busy=true;
+  if(ok){ok.disabled=true;ok.textContent='Granting…';}
+  try{await shopReq({step:'fgift',p});FGF.done=p;fgfStat('founder_gift_claim',p);fgfSeen();fgfGranted(p);}
+  catch(e){const c=e&&e.code||'',m=/^(fgift_|owned$)/.test(c)&&e.message?e.message:c==='unavailable'?'The server could not be reached. Check your connection and try again.':(e&&e.message)||'Something went wrong. Try again.';
+    const er=document.getElementById('fgf-err');if(er){er.textContent=m;er.hidden=false;}if(ok){ok.disabled=false;ok.textContent='Take the '+fgfName(p);}
+    if(c==='fgift_chosen'||c==='fgift_ended'||c==='fgift_founders'){FGF.done='-';if(ok)ok.remove();}}
+  finally{FGF.busy=false;}
+}
+function fgfGranted(p){
+  const el=document.getElementById('fgf'),box=el&&el.querySelector('.fgf');if(!box)return;let art='';try{art=FGF_INFO[p][1](S.nation);}catch(e){}
+  box.innerHTML=`<p class="eyebrow">Granted</p><span class="fgf-art fgf-big" aria-hidden="true">${art}</span><h2 class="h2" id="fgf-h">The ${esc(fgfName(p))} is yours</h2>
+    <p id="fgf-d">Every piece of it is in Customise now. Thank you for founding Edictum with us.</p>
+    <div class="row fgf-row"><button type="button" class="btn" id="fgf-go">Open Customise</button><button type="button" class="btn ghost" id="fgf-close">Close</button></div>`;
+  for(let i=0;i<24;i++){const c=document.createElement('i');c.className='m50-cf';c.style.cssText=`--x:${Math.round(Math.random()*300-150)}px;--y:${Math.round(-80-Math.random()*160)}px;--r:${Math.round(Math.random()*720)}deg;background:${['#E2B13C','#C39A3E','#7B5714','#2457A6','#743A8E'][i%5]}`;box.appendChild(c);}
+  const g=document.getElementById('fgf-go');if(g)g.focus();
+}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#fgf .fgf-pk,#fgf-ok,#fgf-later,#fgf-close,#fgf-go,[data-act="fgf-open"]');if(!t)return;
+  if(t.dataset.act==='fgf-open'){if(fgfOpen())fgfShow();return;}
+  if(t.classList.contains('fgf-pk')){fgfPick(t.dataset.fgf);return;}
+  if(t.id==='fgf-ok'){fgfClaim();return;}
+  if(FGF.busy)return;
+  if(t.id==='fgf-later'){FGF.later=true;fgfStat('founder_gift_later');fgfSeen();fgfClose();return;}
+  if(t.id==='fgf-go'){fgfClose();go('customise');return;}
+  fgfClose();});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!document.getElementById('fgf')||FGF.busy)return;if(!FGF.done){FGF.later=true;fgfSeen();}fgfClose();});
+setInterval(()=>{try{const n=S.nation;
+  if(FGF.later||!n||n.fgs===1||document.getElementById('fgf')||document.getElementById('m50')||!fgfOpen()||SHOP.open||SHOP.wait||SHOP.gr&&Date.now()-(SHOP.gr.founder||0)<3000
+    ||navigator.webdriver&&!window.EDICTUM_FG||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode!=='world'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
+  fgfShow();}catch(e){}},2000);
 
 /* ── Customise: the new rows (badge, card, inscription, land) and the Chancery Club's design presets ──
    presets/<uid> {p: {1..5: {n, cz, fj, t}}}: written only while a member (firestore.rules), kept and loadable after.
