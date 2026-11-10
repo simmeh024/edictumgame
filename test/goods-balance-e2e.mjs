@@ -32,7 +32,7 @@ await A.click('[data-act="gb-trade"]');await sleep(500);
 const after = await A.evaluate(() => ({ st: G.GB().stockNow(G.S.nation), mkt: G.S.nation.mkt }));
 check('exchanging takes the food and gives goods', after.st.food < before.food - 29 && after.st.goods > before.goods + 5 && after.mkt && after.mkt.q === 30, JSON.stringify({ before, after }));
 const ach = await until(() => A.evaluate(() => { const n = G.S.nation; return n.ach && n.ach['eco-mkt1'] ? { t: n.tly, a: Object.keys(n.ach).filter(k => /^eco-mkt/.test(k)) } : null; }), 8000);
-check('the first exchange earns “Open for Business” and counts toward the rest', !!ach && ach.t.mkt === 1 && ach.t.mktq === 30 && ach.t['mktg:goods'] === 1, JSON.stringify(ach));
+check('the first exchange earns “A Fair Exchange” and counts toward the rest', !!ach && ach.t.mkt === 1 && ach.t.mktq === 30 && ach.t['mktg:goods'] === 1, JSON.stringify(ach));
 check('the market’s five achievements are on the Achievements page', await A.evaluate(() => ['eco-mkt1', 'eco-mkt10', 'eco-mkt500', 'eco-mktall', 'eco-mktfull'].every(id => G.RK.ACH.some(a => a.id === id))));
 check('the price falls as the day’s sales grow', await A.evaluate(() => { const g = G.GB(), n = G.S.nation, a = g.gbQuote(Object.assign({}, n, { mkt: null }), 'food', 'goods', 10, Date.now()), b = g.gbQuote(Object.assign({}, n, { mkt: { d: Math.floor(Date.now() / 864e5), q: 100 } }), 'food', 'goods', 10, Date.now()); return a.out > b.out; }));
 check('and stops at the day’s limit', await A.evaluate(() => /all it will today|takes \d+ more today/.test(G.GB().gbQuote(Object.assign({}, G.S.nation, { mkt: { d: Math.floor(Date.now() / 864e5), q: 120 } }), 'food', 'goods', 10, Date.now()).err || '')));
