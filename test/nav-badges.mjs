@@ -91,6 +91,14 @@ try {
   check('and on the Space page, on the Moon’s tab', /^1\|.*landing site to choose on the Moon/.test(await mark('.sp-tabs [data-b="moon"]') || ''), await mark('.sp-tabs [data-b="moon"]'));
   await page.evaluate(() => { location.hash = '#nation'; }); await until(() => page.evaluate(() => window.__game.S.view === 'nation'));
 
+  /* survey caches: today's caches still to dig up count on the Map; dug up (here: none left today), they are gone, so
+     the reports below count alone */
+  const svcN = await page.evaluate(() => { const G = window.__game, S = G.SVC(), n = G.S.nation, now = Date.now(); return S.svcOpen(n, now).filter(x => S.svcRoom(n, x[1], now) >= 1).length; });
+  b = await badges();
+  check('survey caches to dig up count on the Map', svcN > 0 && (b.map || []).includes(String(svcN)) && /survey caches? to dig up/.test(await words('map')), JSON.stringify({ svcN, b }));
+  await edit((n, now, G) => { n.svc = { d: G.SVC().svcDayOf(now), c: [] }; });
+  check('with today’s caches dug up, they no longer count', await until(async () => !/survey cache/.test(await words('map'))), await words('map'));
+
   await edit((n, now) => { n.log = [{ t: now, k: 'npcwar', a: '', b: 'Ostrava', fx: '' }, ...(n.log || [])]; });
   b = await badges();
   check('a declaration of war since the map was last open counts on the Map', (b.map || []).includes('1') && /1 new report/.test(await words('map')), JSON.stringify(b));
