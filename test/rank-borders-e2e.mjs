@@ -48,13 +48,13 @@ for(let i=0;i<info.ranks;i++){
    left them out, and with them spent it named a population far past the real one) */
 const lc=await A.evaluate(()=>{const n=G.S.nation,R=G.RK;return {rank:R.achRankCredits(n),earned:R.landEarned(n),at:R.earnedAt(n,R.popNow(n))};});
 check('the next-credit forecast counts rank credits',lc.rank>0&&lc.at===lc.earned,JSON.stringify(lc));
-check('each rank, from Footnote to Eternal, puts its own border and nameplate on the card',walked===info.ranks,`${walked} of ${info.ranks}`);
+check('each rank, from Footnote to The Blank Page, puts its own border and nameplate on the card',walked===info.ranks,`${walked} of ${info.ranks}`);
 
 /* the newest top ranks' borders move, and stand still when motion is reduced */
 await nav(A,'nation');
 const anim=await A.evaluate(()=>{const r=document.querySelector('.hero.id-sec .id-bd .id-bd-r');return r?getComputedStyle(r).animationName:'';});
 check('the top rank’s border is animated',/idBdSpin/.test(anim)&&/idBdGlow/.test(anim),anim);
-check('so are the other three new top borders',await A.evaluate(()=>['comet','ember','tide'].every(k=>{const d=document.createElement('div');d.className='id-bd id-bd-'+k;d.innerHTML='<i class="id-bd-r"></i>';document.body.appendChild(d);const a=getComputedStyle(d.firstChild).animationName;d.remove();return a&&a!=='none';})));
+check('so are the afterglow below it and three older moving borders',await A.evaluate(()=>['afterglow','comet','ember','tide'].every(k=>{const d=document.createElement('div');d.className='id-bd id-bd-'+k;d.innerHTML='<i class="id-bd-r"></i>';document.body.appendChild(d);const a=getComputedStyle(d.firstChild).animationName;d.remove();return a&&a!=='none';})));
 check('the top ranks’ light spills past the card’s edge',/idLeak/.test(await A.evaluate(()=>getComputedStyle(document.querySelector('.hero.id-sec')).animationName)));
 await shot('.hero.id-sec','rank-top-leak.png');
 await A.emulateMedia({reducedMotion:'reduce'});
@@ -113,4 +113,29 @@ await shot('#id-pp img.id-pp','rank-idcard.png');await A.click('.id-ppx');
 /* light theme, desktop width: the top border once more */
 await A.setViewportSize({width:1280,height:900});await A.emulateMedia({colorScheme:'light'});await nav(A,'nation');await A.evaluate(()=>scrollTo(0,0));await sleep(200);
 await shot('.hero.id-sec','rank-top-desktop-light.png');
+/* ── the ladder was stretched on 10 November 2026: a nation keeps the rank it held ──
+   3,300 prestige was Eminence (rank 20, from 3,250). On the new ladder alone it is Elder Statesman (19, from 3,000).
+   A nation from before the change has no mark yet; its first save writes down the rank it had. */
+const B=await player('old hand',{vp:{width:412,height:900},dpr:2,dark:true});await open(B);await found(B,'Oldland');
+const old=await B.evaluate(()=>{
+  const R=G.RK,n=G.clone(G.S.nation),ach={},t=Date.now()-86400000;let p=0;
+  const c=G.clone(R.cabOf(n));for(const k in c)Object.assign(c[k],{tr:['honest'],sk:3,lo:60});n.cab=c;
+  for(const a of R.ACH.slice().sort((x,y)=>R.ACH_TIER[y.t].p-R.ACH_TIER[x.t].p)){if(a.id.startsWith('cab-'))continue;const v=R.ACH_TIER[a.t].p;if(p+v<=3300){ach[a.id]=t;p+=v;}if(p>=3300)break;}
+  delete n.rkv;delete n.rkh;n.ach=ach;const before=R.achRankOf(n).i;G.commit(n);G.render();const m=G.S.nation,r=R.achRankOf(m);
+  return {p:R.achPoints(m),before,rkv:m.rkv,rkh:m.rkh,i:r.i,name:r.name,held:!!r.held,next:r.next&&r.next.at,bare:R.achRank(R.achPoints(m)).i,credits:R.achRankCredits(m),bd:R.idBdIndex(m),
+    fresh:R.achRankOf({ach:m.ach,rkv:2}).i,later:[R.achRankOf(m,3600).i,R.achRankOf(m,4000).i],has:G.WND.unlocks(m).includes(R.ID_BD[20][0]),hasNext:G.WND.unlocks(m).includes(R.ID_BD[21][0])};});
+check('a nation from before the change reads as the old ladder had it, and its first save writes that rank down',old.before===20&&old.rkv===2&&old.rkh===20&&old.p>=3250&&old.p<3500,JSON.stringify(old));
+check('it keeps the rank it held: Eminence, where the new ladder alone gives Elder Statesman',old.i===20&&old.name==='Eminence'&&old.held&&old.bare===19&&old.fresh===19&&old.next===4000,JSON.stringify(old));
+check('with its land credits and its border',old.credits===200&&old.bd===20&&old.has&&!old.hasNext,JSON.stringify(old));
+check('and climbs on from there: the next rank comes at the new mark',old.later[0]===20&&old.later[1]===21,JSON.stringify(old.later));
+await nav(B,'nation');await B.evaluate(()=>scrollTo(0,0));await sleep(200);
+const oc=await B.evaluate(()=>{const h=document.querySelector('.hero.id-sec'),b=h&&h.querySelector('.id-bd');return {cls:h?h.className:'',plate:b&&b.querySelector('.id-bd-pl')?b.querySelector('.id-bd-pl').textContent:'',look:G.RK.ID_BD[20][2].split(' ')[0]};});
+check('its card wears that rank’s border and name',oc.cls.includes('id-rk-'+oc.look)&&oc.plate==='Eminence',JSON.stringify(oc));
+await nav(B,'achievements');await sleep(400);
+check('the Achievements page names the rank held and counts on to the next',/Eminence/.test(await B.locator('.ach-rank').first().textContent())&&/to Kingmaker at 4,000/.test((await B.locator('.ach-next').first().textContent()).replace(/\s+/g,' ')),await B.locator('.ach-hp').first().textContent());
+await B.locator('.ach-ladder summary').click();
+check('and its ranks list ticks every rank up to it',await B.locator('.ach-ladder li.done').count()===21,String(await B.locator('.ach-ladder li.done').count()));
+/* the mark is kept by a reload, and the rank with it */
+await B.evaluate(()=>G.S.nation&&0);await sleep(2500);await B.reload();await B.waitForSelector('.layout',{timeout:30000});
+check('a reload keeps the rank',await until(()=>B.evaluate(()=>{const n=G.S&&G.S.nation;return !!n&&n.rkv===2&&n.rkh===20&&G.RK.achRankOf(n).i===20;}),15000),JSON.stringify(await B.evaluate(()=>({rkv:G.S.nation.rkv,rkh:G.S.nation.rkh,i:G.RK.achRankOf(G.S.nation).i}))));
 await finish();

@@ -28,7 +28,7 @@ function load(){
     cxMood:ct=>({v:ct.base??60,parts:[[5,'Seat of government']]}),geoAfter:()=>[['Land','A hex of new land.']],
     cxCityExtras:c=>c||{},cxWallLv:c=>(c&&c.wl)||0,cxUpMap:c=>(c&&c.ups)||{},cxUpBusy:c=>(c&&c.busy)||null,cxRoadAt:(fn,cell)=>(fn.infra||[]).some(r=>r.a===cell||r.b===cell),
     gvSeatCount:n=>({seats:n.seats}),decisions:n=>n.dec,gvLdr:n=>({e:n.ldr}),cityCount:n=>n.cities.length,ppCount:n=>n.stamps,
-    achPoints:n=>n.rank,achRank:p=>({i:p})
+    achPoints:n=>n.rank,achRank:p=>({i:p}),achRankOf:n=>({i:n.rank})
   };
   vm.createContext(ctx);
   const a=source.indexOf(START),b=source.indexOf(END,a);

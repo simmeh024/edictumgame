@@ -2754,6 +2754,16 @@ canvas.wr-map:not([data-done]){background:linear-gradient(100deg,var(--sea) 30%,
 .hero.id-rk-lastword,.id-bdsw-c.id-rk-lastword{animation:idLeakRainbow 4s linear infinite}
 @media (prefers-reduced-motion:reduce){.id-bd-obsid .id-bd-r,.id-bd-lastword .id-bd-r{animation:none}}
 :root[data-motion="reduce"] .id-bd-obsid .id-bd-r,:root[data-motion="reduce"] .id-bd-lastword .id-bd-r{animation:none}
+/* past the last word: an afterglow of rose and gold on black, then a blank page: ruled paper that every colour crosses,
+   with a stroke of blue ink travelling round it (a white rule alone was lost on the light theme) */
+.id-rk-afterglow{--bd-1:#fff7e0;--bd-2:#ffb86b;--bd-3:#1a0d1f;--bd-plate:linear-gradient(100deg,#1a0d1f,#7a2b5e 28%,#ffb86b 50%,#7a2b5e 72%,#1a0d1f);--bd-ink:#fff7e0;--lk1:255,184,107;--lk2:255,107,214}
+.id-rk-blank{--bd-1:#fff;--bd-2:#c9d3e6;--bd-3:#7f8aa3;--bd-plate:linear-gradient(100deg,#fff,#eef1f8 30%,#fff 50%,#e6eaf4 70%,#fff);--bd-ink:#1b2233;--lk1:255,255,255;--lk2:200,214,255}
+.id-bd-afterglow .id-bd-r{--bd-w:10px;background:conic-gradient(from calc(var(--bd-a)*-2),rgba(255,247,224,0) 0 315deg,#fff7e0 345deg,rgba(255,247,224,0) 360deg),radial-gradient(circle,rgba(255,255,255,.9) 0 .7px,rgba(255,255,255,0) 1.3px) 0 0/11px 7px,conic-gradient(from var(--bd-a),#1a0d1f,#7a2b5e,#ff6bd6,#ffb86b,#fff7e0,#ffb86b,#ff6bd6,#7a2b5e,#1a0d1f);animation:idBdSpin 5s linear infinite,idBdGlow 2.6s ease-in-out infinite}
+.id-bd-blank .id-bd-r{--bd-w:11px;background:conic-gradient(from calc(var(--bd-a)*-3),rgba(43,58,180,0) 0 342deg,rgba(43,58,180,.95) 353deg,rgba(43,58,180,0) 360deg),conic-gradient(from var(--bd-a),rgba(255,255,255,0) 0deg 40deg,#ff9aa5 70deg,#ffe08a 100deg,#bdf7c9 130deg,#a8deff 160deg,#d8c8ff 190deg,rgba(255,255,255,0) 220deg 360deg),repeating-linear-gradient(0deg,rgba(110,130,185,.34) 0 1px,rgba(255,255,255,0) 1px 4px),linear-gradient(#fff,#fff);box-shadow:inset 0 0 0 1px rgba(127,138,163,.8);animation:idBdSpin 4s linear infinite,idBdGlow 2s ease-in-out infinite}
+.hero.id-rk-afterglow,.hero.id-rk-blank,.id-bdsw-c.id-rk-afterglow,.id-bdsw-c.id-rk-blank{animation:idLeak 3s ease-in-out infinite}
+.hero.id-rk-blank,.id-bdsw-c.id-rk-blank{animation:idLeakRainbow 3.5s linear infinite}
+@media (prefers-reduced-motion:reduce){.id-bd-afterglow .id-bd-r,.id-bd-blank .id-bd-r{animation:none}}
+:root[data-motion="reduce"] .id-bd-afterglow .id-bd-r,:root[data-motion="reduce"] .id-bd-blank .id-bd-r{animation:none}
 @keyframes idLeak{0%,100%{box-shadow:0 0 10px 1px rgba(var(--lk1),.45),0 0 26px 4px rgba(var(--lk2),.22)}50%{box-shadow:0 0 18px 4px rgba(var(--lk1),.75),0 0 46px 12px rgba(var(--lk2),.4)}}
 /* the rainbow ranks: the glow itself turns through the colours (never a filter on the card, which would tint the flag) */
 @keyframes idLeakRainbow{0%,100%{box-shadow:0 0 14px 3px rgba(255,95,109,.6),0 0 40px 10px rgba(255,195,113,.3)}20%{box-shadow:0 0 18px 4px rgba(249,248,113,.6),0 0 46px 12px rgba(94,243,165,.32)}40%{box-shadow:0 0 14px 3px rgba(94,243,165,.6),0 0 40px 10px rgba(79,195,255,.3)}60%{box-shadow:0 0 18px 4px rgba(79,195,255,.65),0 0 46px 12px rgba(142,125,255,.34)}80%{box-shadow:0 0 14px 3px rgba(142,125,255,.6),0 0 40px 10px rgba(255,107,214,.3)}}
@@ -20295,7 +20305,7 @@ const BLOCKS=(()=>{
 })();
 /* every achievement rank above the first is worth ACH_RANK_CREDITS land credits */
 const ACH_RANK_CREDITS=10;
-function achRankCredits(n){try{return n&&!n.npc&&n.ach?ACH_RANK_CREDITS*achRank(achPoints(n)).i:0;}catch(e){return 0;}}
+function achRankCredits(n){try{return n&&!n.npc&&n.ach?ACH_RANK_CREDITS*achRankOf(n).i:0;}catch(e){return 0;}}
 /* every province (state, county…) a nation adds beyond its first is worth PRV_CREDITS land credits, counted on the most it has ever held (n.prpk) so merging and re-adding earns nothing more */
 const PRV_CREDITS=3;
 function prvPeak(n){try{if(!n||n.npc)return 0;const k=n.prov&&n.prov.on&&Array.isArray(n.prov.l)?n.prov.l.length:0;if(k>(n.prpk||0))n.prpk=k;return n.prpk||0;}catch(e){return 0;}}
@@ -23396,7 +23406,9 @@ const ID_BD=[['b-plain','Plain rule','plain','',0],['b-double','Double rule','do
   /* the newest top ranks: borders that move */
   ['b-comet','Comet’s tail','comet','cstar',2],['b-ember','Living flame','ember','sun',2],['b-tide','Pearl tide','tide','opal',2],['b-sovereign','Sovereign light','sovereign','prism',2],
   /* above them, borders whose light spills over the card's edge */
-  ['b-flare','Solar flare','flare','sun',2],['b-corona','Corona','flare','cstar',2],['b-storm','Living storm','storm','crystal',2],['b-tempest2','Thunderhead','storm','prism',2],['b-nova','Supernova','nova','cstar',2],['b-pulsar','Pulsar','nova','opal',2],['b-rift','Prismatic rift','rift','prism',2],['b-shard','Prism shard','rift','crystal',2],['b-apex','Beyond the atlas','apex','prism',2],['b-zenith2','High noon','apex','sun',2],['b-obsid','Obsidian crown','obsid','sun',2],['b-obsidstar','Obsidian night','obsid','cstar',2],['b-eventide','Eventide','lastword','crystal',2],['b-firstlight','First light','lastword','sun',2],['b-lastword','The last word','lastword','prism',2]];
+  ['b-flare','Solar flare','flare','sun',2],['b-corona','Corona','flare','cstar',2],['b-storm','Living storm','storm','crystal',2],['b-tempest2','Thunderhead','storm','prism',2],['b-nova','Supernova','nova','cstar',2],['b-pulsar','Pulsar','nova','opal',2],['b-rift','Prismatic rift','rift','prism',2],['b-shard','Prism shard','rift','crystal',2],['b-apex','Beyond the atlas','apex','prism',2],['b-zenith2','High noon','apex','sun',2],['b-obsid','Obsidian crown','obsid','sun',2],['b-obsidstar','Obsidian night','obsid','cstar',2],['b-eventide','Eventide','lastword','crystal',2],['b-firstlight','First light','lastword','sun',2],['b-lastword','The last word','lastword','prism',2],
+  /* past the last word: an afterglow, then a blank page that every colour crosses */
+  ['b-postscript','Afterglow','afterglow','cstar',2],['b-blankpage','The blank page','blank','prism',2]];
 /* from here up the border catches the same light as the foil strip */
 const ID_BD_LIT=ID_BD.findIndex(b=>b[0]==='b-rose');
 const UNLOCKS={
@@ -24092,38 +24104,40 @@ const ACH_RANKS=[[0,'Unregistered','Not yet in any ledger, though one clerk has 
   [2000,'Grandee','Your portrait hangs in at least one foreign ministry.'],
   [2250,'Toast of the Capital','Toasted at dinners you were not invited to.'],
   [2500,'Luminary','Foreign newspapers have learned to spell your name.'],
-  [2875,'Elder Statesman','Consulted by younger governments, then politely ignored.'],
-  [3250,'Eminence','Rivals check what you have done before deciding what to do.'],
-  [3625,'Kingmaker','Two coronations checked with you first.'],
-  [4000,'Venerable','Spoken of with respect, and occasionally with alarm.'],
-  [4500,'Colossus','Neighbours check which way your shadow falls before planning a picnic.'],
-  [5000,'Paragon','Held up as an example, and now and then as a warning.'],
-  [5500,'Household Name','Mentioned over breakfast in nations you have never visited.'],
-  [6000,'Living Legend','Schoolchildren across the Reach are examined on you.'],
-  [6750,'Monument','A square in four capitals bears your name, and a fountain in a fifth.'],
-  [7500,'Byword','Your name is now an adjective in four languages.'],
-  [8250,'Folk Hero','Sung about in taverns across the Reach, inaccurately and at length.'],
-  [9000,'Immortal of the Reach','Statues of you outnumber the pigeons that sit on them.'],
-  [9750,'Celestial','A constellation now bears your name, though nobody agrees which one.'],
-  [10500,'Founding Myth','Historians argue about whether you existed at all.'],
-  [11000,'Eternal','Nothing is left to prove, though you will try anyway.'],
-  [11500,'Patron Saint of the Reach','Invoked by travellers, sailors and people looking for their keys.'],
-  [12000,'Weather System','Other nations plan around you, like the seasons.'],
-  [12600,'The Whole Atlas','Every map of the Reach is, in some sense, a map of you.'],
-  [13200,'Standard Time','Clocks across the Reach are set by your noon.'],
-  [13800,'Common Knowledge','Schoolchildren learn your borders before their own.'],
-  [14400,'The Reach Itself','When people say “the Reach”, they increasingly mean you.'],
-  [15000,'Fixed Star','Navigators steer by you, and arrive roughly where they meant to.'],
-  [15600,'Law of Nature','Gravity was consulted, and agreed with you.'],
-  [16200,'First Cause','Philosophers trace every argument in the Reach back to you, eventually.'],
-  [16800,'The Edict Itself','Every decree ever signed was, in some sense, yours.'],
-  [17400,'Prime Mover','Nothing in the Reach moves until you have moved first.'],
-  [18000,'The Long Now','Historians have stopped dividing time into before and after you. It is all you.'],
-  [18600,'Prismatic Throne','Light itself bends a little on its way past your capital.'],
-  [19200,'Edictum Incarnate','The game, it turns out, was about you all along.'],
-  [19800,'Beyond the Atlas','The maps ran out. You did not.'],
-  [20400,'The Obsidian Crown','Forged in a volcano nobody else could find.'],
-  [21000,'The Last Word','After you, nothing more needs to be said.']];
+  [3000,'Elder Statesman','Consulted by younger governments, then politely ignored.'],
+  [3500,'Eminence','Rivals check what you have done before deciding what to do.'],
+  [4000,'Kingmaker','Two coronations checked with you first.'],
+  [4500,'Venerable','Spoken of with respect, and occasionally with alarm.'],
+  [5000,'Colossus','Neighbours check which way your shadow falls before planning a picnic.'],
+  [5500,'Paragon','Held up as an example, and now and then as a warning.'],
+  [6000,'Household Name','Mentioned over breakfast in nations you have never visited.'],
+  [6750,'Living Legend','Schoolchildren across the Reach are examined on you.'],
+  [7500,'Monument','A square in four capitals bears your name, and a fountain in a fifth.'],
+  [8250,'Byword','Your name is now an adjective in four languages.'],
+  [9000,'Folk Hero','Sung about in taverns across the Reach, inaccurately and at length.'],
+  [9750,'Immortal of the Reach','Statues of you outnumber the pigeons that sit on them.'],
+  [10500,'Celestial','A constellation now bears your name, though nobody agrees which one.'],
+  [11250,'Founding Myth','Historians argue about whether you existed at all.'],
+  [12000,'Eternal','Nothing is left to prove, though you will try anyway.'],
+  [12600,'Patron Saint of the Reach','Invoked by travellers, sailors and people looking for their keys.'],
+  [13200,'Weather System','Other nations plan around you, like the seasons.'],
+  [13800,'The Whole Atlas','Every map of the Reach is, in some sense, a map of you.'],
+  [14400,'Standard Time','Clocks across the Reach are set by your noon.'],
+  [15000,'Common Knowledge','Schoolchildren learn your borders before their own.'],
+  [15600,'The Reach Itself','When people say “the Reach”, they increasingly mean you.'],
+  [16200,'Fixed Star','Navigators steer by you, and arrive roughly where they meant to.'],
+  [16800,'Law of Nature','Gravity was consulted, and agreed with you.'],
+  [17400,'First Cause','Philosophers trace every argument in the Reach back to you, eventually.'],
+  [18000,'The Edict Itself','Every decree ever signed was, in some sense, yours.'],
+  [18600,'Prime Mover','Nothing in the Reach moves until you have moved first.'],
+  [19200,'The Long Now','Historians have stopped dividing time into before and after you. It is all you.'],
+  [19800,'Prismatic Throne','Light itself bends a little on its way past your capital.'],
+  [20400,'Edictum Incarnate','The game, it turns out, was about you all along.'],
+  [21000,'Beyond the Atlas','The maps ran out. You did not.'],
+  [21600,'The Obsidian Crown','Forged in a volcano nobody else could find.'],
+  [22200,'The Last Word','After you, nothing more needs to be said.'],
+  [22800,'Postscript','It turned out there was one more thing to say.'],
+  [23400,'The Blank Page','What comes next has not been written. You are holding the pen.']];
 const ACH_PRESTIGE={'a-gold':500,'f-stars':1000,'t-venerable':1500,'t-legendary':2500,'t-mythic':5000,'t-eternal':5500,...Object.fromEntries(ID_BD.slice(1).map(([id],i)=>[id,ACH_RANKS[i+1][0]]))};
 const ACH=[],ACH_BY_ID={},ACH_BY_U={};
 function achDef(c,id,t,n,d,g,f,o){const a=Object.assign({c,id,t,n,d,g,f},o||{});ACH.push(a);ACH_BY_ID[id]=a;if(a.u)ACH_BY_U[a.u]=a;return a;}
@@ -24457,6 +24471,27 @@ const achMet=r=>r.v>=r.g-1e-9;
 function achEarnedIds(n){const e=n&&n.ach;return e&&typeof e==='object'?Object.keys(e).filter(id=>ACH_BY_ID[id]):[];}
 function achPoints(n){let p=0;for(const id of achEarnedIds(n))p+=ACH_TIER[ACH_BY_ID[id].t].p;return p;}
 function achRank(p){let i=0;for(let k=0;k<ACH_RANKS.length;k++)if(p>=ACH_RANKS[k][0])i=k;const r=ACH_RANKS[i],nx=ACH_RANKS[i+1]||null;return {i,at:r[0],name:r[1],blurb:r[2],next:nx?{at:nx[0],name:nx[1]}:null,pct:nx?clamp((p-r[0])/(nx[0]-r[0])*100,0,100):100};}
+/* The ladder as it stood until 10 November 2026 (ranks 0 to 50). That day the ranks from Elder Statesman up were
+   moved further apart and two were added above The Last Word. No nation loses a rank it held: n.rkh is the rank it
+   had on the old ladder when its own game first saved under the new one (n.rkv marks that it has), and its rank is
+   never lower than that. Until a nation is marked, the floor is what the old ladder gives its points, so every game
+   reads another nation alike. The floor never exceeds what the points justify on the old ladder, and what a nation
+   held at an earlier count of points (the bell's and the Dispatch's look back) follows the old ladder up to it. */
+const ACH_RANKS_V1=[0,50,100,150,200,250,325,400,500,625,750,875,1000,1250,1500,1750,2000,2250,2500,2875,3250,3625,4000,4500,5000,5500,6000,6750,7500,8250,9000,9750,10500,11000,11500,12000,12600,13200,13800,14400,15000,15600,16200,16800,17400,18000,18600,19200,19800,20400,21000],ACH_RANKS_VER=2;
+function achIdxV1(p){let i=0;for(let k=0;k<ACH_RANKS_V1.length;k++)if(p>=ACH_RANKS_V1[k])i=k;return i;}
+function achFloor(n,p){if(!n||n.npc)return 0;const v=achIdxV1(p);return n.rkv>=ACH_RANKS_VER?Math.min(v,Number.isInteger(n.rkh)&&n.rkh>0?n.rkh:0):v;}
+/* a nation's rank at p points (its own points when p is left out) */
+function achRankOf(n,p){
+  if(p==null)p=achPoints(n);const r=achRank(p),f=achFloor(n,p);if(f<=r.i)return r;
+  const R=ACH_RANKS[f],nx=ACH_RANKS[f+1]||null,lo=ACH_RANKS_V1[f];
+  return {i:f,at:R[0],name:R[1],blurb:R[2],next:nx?{at:nx[0],name:nx[1]}:null,pct:nx?clamp((p-lo)/(nx[0]-lo)*100,0,100):100,held:true};
+}
+NORM_HOOKS.push((n,d)=>{
+  if(d&&d.rkv>=ACH_RANKS_VER){n.rkv=ACH_RANKS_VER;if(Number.isInteger(d.rkh)&&d.rkh>0)n.rkh=Math.min(ACH_RANKS_V1.length-1,d.rkh);else delete n.rkh;}
+  else{delete n.rkv;delete n.rkh;}
+});
+/* the first save under the new ladder writes down the rank held on the old one */
+COMMIT_HOOKS.push(n=>{if(n&&n.name&&!n.npc&&!(n.rkv>=ACH_RANKS_VER)){const f=achIdxV1(achPoints(n));if(f>0)n.rkh=f;else delete n.rkh;n.rkv=ACH_RANKS_VER;}return [];});
 const achAvail=()=>ACH.filter(achOn);
 /* what a record has met but not yet recorded */
 function achEvalNew(n,id,now){
@@ -24466,7 +24501,7 @@ function achEvalNew(n,id,now){
 }
 const achQ=s=>'‘'+s+'’';
 const achTierWord=t=>ACH_TIER[t].n.toLowerCase();
-function achUnlockWords(u){const U=UNLOCKS[u];if(!U)return '';const nm=U.n;return {title:`the title ‘${nm}’`,frame:`the ${nm} flag frame`,pattern:`the ${nm} banner pattern`,charge:`the ${nm} charge for the arms`,emblem:`the ${nm} flag emblem`,accent:`the ${nm} accent colour`,stamp:`the ${nm} decision stamp`,fpat:`the ${nm} flag pattern`,border:`the ${nm} card border`}[U.k]||nm;}
+function achUnlockWords(u){const U=UNLOCKS[u];if(!U)return '';const nm=U.n;return {title:`the title ‘${nm}’`,frame:`the ${nm} flag frame`,pattern:`the ${nm} banner pattern`,charge:`the ${nm} charge for the arms`,emblem:`the ${nm} flag emblem`,accent:`the ${nm} accent colour`,stamp:`the ${nm} decision stamp`,fpat:`the ${nm} flag pattern`,border:`the ${nm.replace(/^The /,'')} card border`}[U.k]||nm;}
 
 /* ───────── earning: in commit() ───────── */
 COMMIT_HOOKS.push((n,old,now)=>{
@@ -24477,9 +24512,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
   n.ach=Object.assign({},fresh?{}:n.ach);
   for(const a of got)n.ach[a.id]=now;
   if(!got.length)return [];
-  const pts=got.reduce((s,a)=>s+ACH_TIER[a.t].p,0),after=before+pts,r0=achRank(before),r1=achRank(after);
+  const pts=got.reduce((s,a)=>s+ACH_TIER[a.t].p,0),after=before+pts,r0=achRankOf(n,before),r1=achRankOf(n,after);
   if(quiet)return [{links:rewardRefs('achievement',got),m:`The honours office has caught up with your record: ${got.length} ${got.length===1?'achievement':'achievements'} already earned, worth ${fmt0(pts)} prestige. See the Achievements page.`}];
-  const ul=got.filter(a=>a.u).map(a=>achUnlockWords(a.u)).concat(Object.entries(ACH_PRESTIGE).filter(([,t])=>before<t&&after>=t).map(([u])=>achUnlockWords(u))).filter(Boolean);
+  const ul=got.filter(a=>a.u).map(a=>achUnlockWords(a.u)).concat(Object.entries(ACH_PRESTIGE).filter(([u,t])=>{const k=ID_BD.findIndex(q=>q[0]===u);return k>0?k>r0.i&&k<=r1.i:before<t&&after>=t;}).map(([u])=>achUnlockWords(u))).filter(Boolean);
   const best=got.slice().sort((a,b)=>ACH_TIER[b.t].p-ACH_TIER[a.t].p);
   let txt=got.length===1?`Achievement earned: ${achQ(got[0].n)} (${achTierWord(got[0].t)}, ${pts} prestige).`:got.length<=3?`${got.length} achievements earned: ${list(got.map(a=>achQ(a.n)))} (+${pts} prestige).`:`${got.length} achievements earned, among them ${list(best.slice(0,2).map(a=>achQ(a.n)))} (+${fmt0(pts)} prestige).`;
   if(ul.length)txt+=` Unlocked: ${ul.length<=3?list(ul):ul.slice(0,2).join(', ')+' and '+(ul.length-2)+' more'}.`;
@@ -24502,7 +24537,7 @@ function achGroups(n,since){
 NOTIF_SOURCES.push((n,now)=>{
   if(!n||!n.ach)return [];
   const all=achGroups(n,0),out=[];let cum=achPoints(n);
-  for(const g of all){const pts=g.as.reduce((s,a)=>s+ACH_TIER[a.t].p,0),r1=achRank(cum),r0=achRank(cum-pts);cum-=pts;
+  for(const g of all){const pts=g.as.reduce((s,a)=>s+ACH_TIER[a.t].p,0),r1=achRankOf(n,cum),r0=achRankOf(n,cum-pts);cum-=pts;
     if(now-g.t>30*DAY||out.length>=10)continue;
     const nm=a=>a.sec?'a secret achievement':achQ(a.n);
     let txt=g.as.length===1?`Achievement earned: ${nm(g.as[0])} (${achTierWord(g.as[0].t)}, ${pts} prestige).`:g.as.length<=3?`Achievements earned: ${list(g.as.map(nm))} (+${pts} prestige).`:`${g.as.length} achievements recorded, worth ${fmt0(pts)} prestige, among them ${nm(g.as[0])}.`;
@@ -24524,7 +24559,9 @@ HAP_SOURCES.push((x,now)=>{
 
 /* ───────── rewards ───────── */
 UNLOCK_SOURCES.push({
-  earned:n=>{const out=[];if(!n||!n.ach)return out;for(const id of achEarnedIds(n)){const a=ACH_BY_ID[id];if(a.u)out.push(a.u);}const p=achPoints(n);for(const [u,t] of Object.entries(ACH_PRESTIGE))if(p>=t)out.push(u);return out;},
+  earned:n=>{const out=[];if(!n||!n.ach)return out;for(const id of achEarnedIds(n)){const a=ACH_BY_ID[id];if(a.u)out.push(a.u);}const p=achPoints(n);for(const [u,t] of Object.entries(ACH_PRESTIGE))if(p>=t)out.push(u);
+    /* and the border of every rank held, also one kept from before the ladder was stretched */
+    for(let i=1,rk=Math.min(ID_BD.length-1,achRankOf(n,p).i);i<=rk;i++)if(!out.includes(ID_BD[i][0]))out.push(ID_BD[i][0]);return out;},
   how:u=>{const a=ACH_BY_U[u];if(a)return `Earn the ${achTierWord(a.t)} achievement ${achQ(a.n)}.`;const t=ACH_PRESTIGE[u];if(t!=null){const r=ACH_RANKS.find(q=>q[0]===t);return `Reach ${fmt0(t)} prestige${r?`, the rank of ${r[1]}`:''}.`;}return null;}
 });
 
@@ -24559,7 +24596,7 @@ function achState(x){
   const dry=x.me&&!n.ach?new Set(achEvalNew(n,x.id,c.now).map(a=>a.id)):null;
   for(const a of ACH){if(!achOn(a))continue;const r=achVal(a,c),on=!!e[a.id]||!!(dry&&dry.has(a.id));rows.push({a,r,on,t:e[a.id]||0,due:!on&&!!x.me&&achMet(r)});}
   const pts=achPoints(n);
-  return {rows,pts,rank:achRank(pts),earned:rows.filter(q=>q.on).length,pending:!!dry};
+  return {rows,pts,rank:achRankOf(n,pts),earned:rows.filter(q=>q.on).length,pending:!!dry};
 }
 function achRarity(){
   const pl=allNations().filter(y=>!y.npc),cnt={};
@@ -24599,14 +24636,14 @@ let achLadderRows=()=>'';
 const achLadderFill=d=>{const ol=d&&d.querySelector('ol[data-lazy]');if(ol){ol.innerHTML=achLadderRows();ol.removeAttribute('data-lazy');}};
 document.addEventListener('click',e=>{const s=e.target.closest&&e.target.closest('.ach-ladder>summary');if(s)achLadderFill(s.parentElement);},true);
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.open&&d.classList&&d.classList.contains('ach-ladder'))achLadderFill(d);},true);
-function achLadder(pts){
+function achLadder(pts,held){
   /* the ladder (every rank with its border swatch, ~1,500 elements) is only built when the fold is opened */
-  achLadderRows=()=>ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${i||u.length?`<span class="ach-rw">Reward: ${esc(list((i?[ACH_RANK_CREDITS+' land credits']:[]).concat(u)))}</span>`:''}</span>${idBdSwatch(Math.min(i,ID_BD.length-1))}</li>`;}).join('');
+  achLadderRows=()=>ACH_RANKS.map(([at,nm,bl],i)=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===at).map(([u])=>achUnlockWords(u));return `<li class="${pts>=at||i<=held?'done':''}"><span class="num">${fmt0(at)}</span><span><b>${esc(nm)}</b> <span class="hint">${esc(bl)}</span>${i||u.length?`<span class="ach-rw">Reward: ${esc(list((i?[ACH_RANK_CREDITS+' land credits']:[]).concat(u)))}</span>`:''}</span>${idBdSwatch(Math.min(i,ID_BD.length-1))}</li>`;}).join('');
   return `<details class="ach-ladder"><summary>All ranks and prestige rewards</summary><ol data-lazy="1"></ol></details>`;
 }
 function achLeaders(cur){
   const pl=allNations().filter(y=>!y.npc).map(y=>({y,p:achPoints(y.n),c:achEarnedIds(y.n).length})).sort((a,b)=>b.p-a.p||b.c-a.c||(a.y.n.name<b.y.n.name?-1:1));
-  return `<ol class="ach-lb">${pl.map((q,i)=>`<li class="${q.y.me?'me':''}${q.y.id===cur?' cur':''}"><span class="ach-lb-i num">${i+1}</span><span class="ach-lb-n"><span class="mflag">${flagSVG(q.y.n.flag,'Flag of '+q.y.n.name)}</span><span>${nationLink(q.y.id,q.y.n.name,q.y.me)}<span class="ach-lb-r">${esc(achRank(q.p).name)} · ${q.c} ${q.c===1?'achievement':'achievements'}</span></span></span><span class="ach-lb-p num">${fmt0(q.p)}</span></li>`).join('')}</ol>${pl.length<2?`<p class="hint" style="margin-top:8px">Other players’ nations join this table when you play in the shared region.</p>`:''}`;
+  return `<ol class="ach-lb">${pl.map((q,i)=>`<li class="${q.y.me?'me':''}${q.y.id===cur?' cur':''}"><span class="ach-lb-i num">${i+1}</span><span class="ach-lb-n"><span class="mflag">${flagSVG(q.y.n.flag,'Flag of '+q.y.n.name)}</span><span>${nationLink(q.y.id,q.y.n.name,q.y.me)}<span class="ach-lb-r">${esc(achRankOf(q.y.n,q.p).name)} · ${q.c} ${q.c===1?'achievement':'achievements'}</span></span></span><span class="ach-lb-p num">${fmt0(q.p)}</span></li>`).join('')}</ol>${pl.length<2?`<p class="hint" style="margin-top:8px">Other players’ nations join this table when you play in the shared region.</p>`:''}`;
 }
 
 /* ───────── the Achievements page ───────── */
@@ -24628,7 +24665,7 @@ VIEWS_EXT.achievements=now=>{
   const panel=`<section class="ach-head" aria-label="Prestige">
     <div class="ach-hp"><p class="eyebrow">Prestige</p><p class="ach-pp"><span class="ach-big num">${fmt0(st.pts)}</span><span class="ach-rank">${esc(rk.name)}</span></p><p class="hint">${esc(rk.blurb)}</p>
       ${rk.next?`<div class="ach-next"><span class="bar"><i style="width:${rk.pct.toFixed(1)}%"></i></span><p class="hint"><b>${fmt0(rk.next.at-st.pts)}</b> to ${esc(rk.next.name)} at ${fmt0(rk.next.at)}${(()=>{const u=Object.entries(ACH_PRESTIGE).filter(([,t])=>t===rk.next.at).map(([u])=>achUnlockWords(u));return u.length?`, which unlocks ${esc(list(u))}`:'';})()}.</p></div>`:`<p class="hint">The top of the ladder. There is no higher rank, only more achievements.</p>`}
-      ${achLadder(st.pts)}</div>
+      ${achLadder(st.pts,rk.i)}</div>
     <div class="ach-hs"><p class="eyebrow">Achievements</p><p class="ach-pp"><span class="ach-big num">${st.earned}</span><span class="ach-of">of ${rows.length}</span></p>
       <span class="bar ach-all"><i style="width:${pctAll.toFixed(1)}%"></i></span><ul class="ach-tiers">${tiers}</ul>
       ${x.me?`<p class="hint">Rewards unlocked: <b>${unl.filter(u=>have.has(u)).length} of ${unl.length}</b>. <button class="linkish small" data-act="go" data-v="customise">Open Customise</button></p>`:''}
@@ -25266,7 +25303,7 @@ VIEWS_EXT.customise=now=>{
   ${sec('a','III','Coat of arms','Design arms in the old heraldic tinctures. They stand beside your flag and in your factbook. Shields, divisions and ten charges are free; more charges are earned.',armsBody)}
   ${sec('y','IV','National symbols','A holiday, flower, tree, bird, instrument, colours and a nickname for '+esc(n.capital)+'. All optional. The holiday is yours from the start; the others unlock as your population grows, each with a gift of '+SYM_GIFT.timber+' timber and '+SYM_GIFT.iron+' iron.',syBody)}
   ${sec('b','I','Banner','The frame round your flag and the pattern behind it, at the top of your nation page, the border round that card, a frame for your motto, and how your capital is marked on the world map.',
-    `<h3 class="sub-h">Card border</h3><p class="hint cz-bd-h">Every rank of prestige brings a grander border, and the card takes your rank’s border by itself. You can also choose one you have already earned.</p><div class="cz-grid cz-g-bd">${tile('bd','',idBdSwatch(achRank(achPoints(n)).i,bdIn,'cz-bdsw'),'Follows your rank')}${U('border').map(id=>tile('bd',id,idBdSwatch(ID_BD.findIndex(b=>b[0]===id),bdIn,'cz-bdsw'),UNLOCKS[id].n)).join('')}</div>
+    `<h3 class="sub-h">Card border</h3><p class="hint cz-bd-h">Every rank of prestige brings a grander border, and the card takes your rank’s border by itself. You can also choose one you have already earned.</p><div class="cz-grid cz-g-bd">${tile('bd','',idBdSwatch(Math.min(ID_BD.length-1,achRankOf(n).i),bdIn,'cz-bdsw'),'Follows your rank')}${U('border').map(id=>tile('bd',id,idBdSwatch(ID_BD.findIndex(b=>b[0]===id),bdIn,'cz-bdsw'),UNLOCKS[id].n)).join('')}</div>
     <h3 class="sub-h">Frame</h3><div class="cz-grid cz-g-f">${U('frame').map(id=>tile('f',id,czFramed(id,flagSVG(n.flag,'')),UNLOCKS[id].n)).join('')}</div>
     <h3 class="sub-h">Pattern</h3><div class="cz-grid cz-g-p">${U('pattern').map(id=>tile('p',id,`<span class="cz-pt">${id==='p-plain'?'':czPatSVG(id,seed,1)}</span>`,UNLOCKS[id].n)).join('')}</div>
     <h3 class="sub-h">Motto frame</h3><div class="cz-grid cz-g-m">${tile('m','',`<span class="cz-mf">${esc(n.motto||'Your motto')}</span>`,'No frame')}${U('motto').map(id=>tile('m',id,`<span class="cz-mf mf-${id.slice(2)}">${esc(n.motto||'Your motto')}</span>`,UNLOCKS[id].n)).join('')}</div>
@@ -25325,7 +25362,7 @@ function idPattern(n){
 /* ── the border round the card: the rank's own, or an earlier one chosen in Customise (never a higher one) ── */
 function idBdIndex(n){
   if(!n||typeof n!=='object'||n.npc)return 0;
-  const rk=Math.min(ID_BD.length-1,achRank(achPoints(n)).i),c=cz(n).bd,i=c?ID_BD.findIndex(b=>b[0]===c):-1;
+  const rk=Math.min(ID_BD.length-1,achRankOf(n).i),c=cz(n).bd,i=c?ID_BD.findIndex(b=>b[0]===c):-1;
   return i>=0?Math.min(i,rk):rk;
 }
 const idBdLook=i=>(ID_BD[i]||ID_BD[0])[2].split(' ')[0];
@@ -25371,7 +25408,7 @@ function idBdHTML(i,plate,lit){
   const c=cor?[1,2,3,4].map(k=>`<b class="id-bd-c id-bd-c${k}">${ID_BD_ART[cor]}</b>`).join(''):'';
   return `<div class="id-bd ${look.split(' ').map(k=>'id-bd-'+k).join(' ')}${lit?' id-lit':''}" aria-hidden="true">${c}<i class="id-bd-r"></i>${pl&&plate?`<span class="id-bd-pl">${pl===2?ID_CROWN:''}<span>${esc(plate)}</span></span>`:''}</div>`;
 }
-function idBorder(n){const i=idBdIndex(n);return i?idBdHTML(i,achRank(achPoints(n)).name,i>=ID_BD_LIT):'';}
+function idBorder(n){const i=idBdIndex(n);return i?idBdHTML(i,achRankOf(n).name,i>=ID_BD_LIT):'';}
 /* a small picture of a border on a blank card, for the ranks list and Customise; inner: what sits on the card */
 function idBdSwatch(i,inner,cls){
   const b=ID_BD[i]||ID_BD[0];
@@ -25381,7 +25418,7 @@ function idBdSwatch(i,inner,cls){
 function idBdCardInner(n){return `<span class="id-bdsw-f">${flagSVG((n&&n.flag)||{},'')}</span><span class="id-bdsw-l" style="top:52px;width:80px"></span><span class="id-bdsw-l" style="top:68px;width:58px"></span><span class="id-bdsw-l" style="top:84px;width:70px"></span>`;}
 /* the Census page's Hall of Honours: the region's player nations by prestige, each in the border it wears */
 function idHonoursCensus(all){
-  const pl=all.filter(x=>!x.npc).map(x=>{const p=achPoints(x.n);return {x,p,r:achRank(p),i:idBdIndex(x.n)};}).sort((a,b)=>b.p-a.p||(a.x.n.name<b.x.n.name?-1:a.x.n.name>b.x.n.name?1:0));
+  const pl=all.filter(x=>!x.npc).map(x=>{const p=achPoints(x.n);return {x,p,r:achRankOf(x.n,p),i:idBdIndex(x.n)};}).sort((a,b)=>b.p-a.p||(a.x.n.name<b.x.n.name?-1:a.x.n.name>b.x.n.name?1:0));
   if(!pl.length)return '';
   const k=pl.findIndex(q=>q.x.me),me=k>=0?pl[k]:null,ord=n=>n+(n%100>10&&n%100<14?'th':['th','st','nd','rd'][n%10]||'th');
   return `<section class="section id-hon" aria-labelledby="id-hon-h"><div class="id-hon-top"><div><p class="eyebrow">Honours</p><h2 class="h2" id="id-hon-h">Hall of Honours</h2></div>
@@ -25582,6 +25619,7 @@ const ID_BD_CV={bronze:['#6b3a14','#e2a46a','#9c5a24','#f6cfa6','#86481b','#c98a
   sovereign:['#7a560e','#ffd86b','#ff9ad5','#9ad8ff','#c8a6ff','#fff4c4'],
   flare:['#5a1200','#ff7a18','#ffd166','#fff3b0','#ff4d00'],storm:['#0d1240','#3a4bd8','#9ad8ff','#e6f7ff','#5a3bd8'],nova:['#1a0033','#ff4fd8','#ffd1f5','#fff','#7a2bff'],
   obsid:['#050508','#6d4cc2','#2a2633','#b57bff','#0b0a10'],lastword:['#000','#b57bff','#ffffff','#ff6bd6','#4fc3ff','#000'],
+  afterglow:['#1a0d1f','#7a2b5e','#ff6bd6','#ffb86b','#fff7e0','#1a0d1f'],blank:['#ffffff','#ff9aa5','#ffe08a','#bdf7c9','#a8deff','#d8c8ff','#ffffff'],
   rift:['#ff5f6d','#ffc371','#f9f871','#5ef3a5','#4fc3ff','#8e7dff','#ff6bd6'],apex:['#ffffff','#ffd86b','#ff6bd6','#4fc3ff','#5ef3a5','#ffffff']};
 function idBdCanvas(g,W,H,i,dark){
   if(!i)return;const look=idBdLook(i);g.save();
@@ -25646,7 +25684,7 @@ async function idCard(n,x){
     if(n.motto){g.font=`italic 400 19px ${FD}`;g.fillStyle=P.ink2;for(const l of idWrap(g,'“'+n.motto+'”',MW,2)){y+=24;g.fillText(l,X,y);}}
     /* the register */
     const rows=[['Capital',n.capital],['Leader',n.leader+(n.ruler?' '+n.ruler:'')],['Population',fmtPop(popNow(n,now))],['Founded',n.founded>0?fmtDate(n.founded):'Before records began'],['Category',classify(n.s)]];
-    if(typeof achPoints==='function'&&!n.npc){const p=achPoints(n);rows.push(['Prestige',fmt0(p)+' · '+achRank(p).name]);}else rows.push(['Currency',plural(n.currency)]);
+    if(typeof achPoints==='function'&&!n.npc){const p=achPoints(n);rows.push(['Prestige',fmt0(p)+' · '+achRankOf(n,p).name]);}else rows.push(['Currency',plural(n.currency)]);
     const cw=146,gy=Math.max(y+30,300);let gb=gy;
     rows.forEach(([k,val],i)=>{const cx=X+(i%3)*(cw+10),cy=gy+(i<3?0:Math.max(64,gb-gy+18));g.fillStyle=P.ink3;g.font=`600 10px ${FM}`;try{g.letterSpacing='1.6px';}catch(e){}g.fillText(k.toUpperCase(),cx,cy);try{g.letterSpacing='0px';}catch(e){}
       const f=idFit(g,String(val||''),s=>`600 ${s}px ${FB}`,15.5,11,cw,i<3?3:2);g.fillStyle=P.ink;f.ls.forEach((l,j)=>g.fillText(l,cx,cy+19+j*(f.s+3)));if(i<3)gb=Math.max(gb,cy+19+(f.ls.length-1)*(f.s+3)+4);});
@@ -55512,7 +55550,7 @@ function nsSore(n){const now=Date.now();return nsCities(n).some(c=>{const mb=cxC
 function nsRoad(n){const now=Date.now();return (Array.isArray(n&&n.infra)?n.infra:[]).some(r=>r&&Number.isFinite(r.d)&&r.d<=now);}
 function nsRecruits(n){return Array.isArray(n&&n.rcp)?n.rcp.length:0;}
 function nsKeeper(n){return !!(n&&n.ach&&n.ach['law-zones']);}
-function nsRank(n){try{return achRank(achPoints(n)).i;}catch(e){return 0;}}
+function nsRank(n){try{return achRankOf(n).i;}catch(e){return 0;}}
 function nsLayers(n){const l=n&&n.flag&&n.flag.layers;return Array.isArray(l)?l.length:0;}
 
 /* the edicts: after every edict before them, so no number shifts */
@@ -59366,7 +59404,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ID_BD,achPoints,achRank,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -61254,7 +61292,7 @@ DISPATCH_SOURCES.push(ctx=>{
     let mx=0;for(const id in n.ach){const t=n.ach[id];if(typeof t==='number'&&t>mx)mx=t;}if(mx<ctx.from)continue;
     const e=achEarnedIds(n).map(id=>[n.ach[id],ACH_TIER[ACH_BY_ID[id].t].p]).filter(v=>typeof v[0]==='number').sort((a,b)=>a[0]-b[0]);
     let cum=0;
-    for(let j=0;j<e.length;){const t=e[j][0];let pts=0;while(j<e.length&&e[j][0]===t){pts+=e[j][1];j++;}const r0=achRank(cum).i;cum+=pts;if(t>=ctx.to)break;const r1=achRank(cum).i;
+    for(let j=0;j<e.length;){const t=e[j][0];let pts=0;while(j<e.length&&e[j][0]===t){pts+=e[j][1];j++;}const r0=achRankOf(n,cum).i;cum+=pts;if(t>=ctx.to)break;const r1=achRankOf(n,cum).i;
       if(r1>r0&&r1-r0<3&&r1>=DSP_RANK_MIN&&t>=ctx.from&&t<=ctx.now&&t>=mv){const R=ACH_RANKS[r1],N=dspClean(n.name,40);
         out.push({k:'rank:'+x.id+':'+r1,t,sec:'society',kick:'Honours',h:`${N} rises to the rank of ${R[1]}`,b:`${N} now holds the rank of ${R[1]} in the honours of ${REG.the}, with ${fmt0(cum)} points. ${R[2]}`,who:[x.id],w:r1>=20?6:4,go:'achievements'});}}
   }
