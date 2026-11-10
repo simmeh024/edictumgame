@@ -17,7 +17,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), SECRET = 'pdl_ntfset_e2e', H = 36e5, DAY = 864e5;
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── Paddle, played by this test ── */
@@ -105,6 +105,10 @@ check('the Age of Sail Pack is on sale', /Age of Sail Pack/.test(await txt(A, '.
 await openDr(A, 'sailpack');
 check('its drawer previews the chart card, arms, flag, stamp, lighthouse and log', !!(await A.$('.shop-sailpack .hero.cd-chart')) && (await A.evaluate(() => document.querySelectorAll('.shop-sailpack .shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-sailpack-price')));
 await A.locator('.shop-dr .shop-sailpack').screenshot({ path: path.join(OUT, 'shop-sail-drawer.png') });
+check('the Central Bank Pack is on sale', /Central Bank Pack/.test(await txt(A, '.shop-cd[data-p="cbpack"]')));
+await openDr(A, 'cbpack');
+check('its drawer previews the notes with the clear window, the coin, the card, stamp, bullion and paper', !!(await A.$('.shop-cbpack .hero.cd-treasury')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .cu-note').length)) === 2 && !!(await A.$('.shop-cbpack svg.cu-coin')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .shop-or-grid figure').length)) === 3 && /2\.99/.test(await txt(A, '#shop-cbpack-price')));
+await A.locator('.shop-dr .shop-cbpack').screenshot({ path: path.join(OUT, 'shop-cb-drawer.png') });
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));

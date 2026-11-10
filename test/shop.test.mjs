@@ -197,12 +197,12 @@ test('months of membership and the Chancery seals', () => {
 test('the game sells what the server sells: every cosmetic in the catalogue is in the game, from the right source', () => {
   assert.ok(src.includes('/*SHOP_CATALOGUE*/null'), 'build.py puts the catalogue here');
   const def = new Map();
-  for (const m of src.matchAll(/\['([a-z]{1,3}(?:-[a-z])?-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|title|accent|fpat|emblem|shield|charge|card|paper)','[^']+'\]/g)) def.set(m[1], m[2]);
+  for (const m of src.matchAll(/\['([a-z]{1,3}(?:-[a-z])?-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|title|accent|fpat|emblem|shield|charge|card|paper|cunote|cumetal|cushape|custrip)','[^']+'\]/g)) def.set(m[1], m[2]);
   for (const m of src.matchAll(/\['(cd-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'card');
   for (const m of src.matchAll(/\['(lp-i-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'paper');
   for (const id of CATALOGUE.products.idpack.grants.filter(id => id.startsWith('lp-'))) assert.ok(src.includes(`'${id}':{n:`), id + ' has its paper in LP_X');
   const block = src.slice(src.indexOf('const SHOP_NONE='), src.indexOf('/* the new places a cosmetic can go'));
-  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"]]) {
+  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"]]) {
     const ids = p === 'vip' ? CLUB_IDS : CATALOGUE.products[p].grants;
     for (const id of ids) { assert.ok(def.has(id), id + ' is drawn in the game'); assert.ok(block.includes(`'${id}'`), id); }
     assert.ok(block.includes(src2));
@@ -211,6 +211,10 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   assert.equal(CATALOGUE.products.vipyear.amount, 4999); assert.equal(CATALOGUE.products.giftvip.amount, 499);
   assert.ok(CATALOGUE.products.vipyear.optional && CATALOGUE.products.giftvip.optional, 'the shop opens without them');
   assert.equal(CATALOGUE.currency, 'EUR');
+  /* the Central Bank Pack's currency designs are lockable choices of the designer, each under its own piece */
+  for (const [id, re] of [['cn-deco', /pat:\{[^}]*deco:'cn-deco'/], ['cn-acanthus', /acanthus:'cn-acanthus'/], ['cm-patina', /patina:'cm-patina'/], ['cs-sqhole', /sqhole:'cs-sqhole'/], ['cx-window', /4:'cx-window'/]])
+    assert.ok(CATALOGUE.products.cbpack.grants.includes(id) && re.test(src), id + ' is in CU_LOCK');
+  assert.ok(src.includes("'lp-i-cheque':{n:"), 'the Bank Draft paper is in LP_X');
 });
 
 test('the Chancery Club yearly: a paid year, picked from month by month without another word from Paddle', () => {
