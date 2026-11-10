@@ -40,6 +40,7 @@
      shopEvents/{evt}       notifications already handled (Firestore deletes them after 90 days: TTL on exp)
      shopLimits/{uid}       {n, at, r}: pacing of checkouts and refreshes
      shopComp/{uid}         {at, until, by, why}: a Club membership an admin granted for free (functions/admin.js, setComp)
+     shopPrize/{uid}        {m: {key: when}}: months of the Club won in the game (grantPrizeMonth; key 'fc-2026-12')
    Billing records stay when an account is deleted (accounting needs them); shop/ and finery/ go with it.
 
    In the emulators (FUNCTIONS_EMULATOR) authConfig/paddle may also carry api (a stand-in for Paddle's API that the
@@ -192,7 +193,7 @@ async function settle(cfg, uid) {
     for (let i = 0; i < ids.length; i += 30) adjs.push(...(await tx.get(db.collection('shopAdj').where('txn', 'in', ids.slice(i, i + 30)))).docs.map(s => s.data()));
     const txs = [...txDocs.values()].map(s => ({ ...s.data(), id: s.id }));
     const subMap = Object.fromEntries(subs.map(s => [s.id, s.data()]));
-    const [compDoc, shop, nation] = await tx.getAll(db.doc('shopComp/' + uid), shopRef, db.doc('nations/' + uid)), now0 = clock(cfg);
+    const [compDoc, shop, nation, prizeDoc] = await tx.getAll(db.doc('shopComp/' + uid), shopRef, db.doc('nations/' + uid), db.doc('shopPrize/' + uid)), now0 = clock(cfg);
     /* the founder's number: given once from a counter (shopMeta/founders), so two numbers are never the same, and kept for
        good (a refund leaves a gap; a number never moves). The first time it is used, everyone who had paid for the package
        before numbers existed is numbered at once, in the order they paid (shopFounderNo/<uid> holds each number). */
@@ -215,7 +216,8 @@ async function settle(cfg, uid) {
       }
     }
     const comp = compDoc.exists ? { at: compDoc.get('at'), until: compDoc.get('until') } : null;
-    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp });
+    const prizes = prizeDoc.exists ? Object.values(prizeDoc.get('m') || {}).map(Number) : [];
+    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp, prizes });
     /* who gave what: the giving nation's name, as it is now */
     const from = [...new Set(e.gifts.map(g => g.from))], names = from.length ? Object.fromEntries((await tx.getAll(...from.map(u => db.doc('nations/' + u)))).map(s => [s.id, String(s.get('name') || '').slice(0, 60)])) : {};
     const reg = (nation.exists && nation.get('reg')) || shop.get('reg') || '';
@@ -451,7 +453,7 @@ export async function forgetShop(uid) {
   const db = getFirestore();
   if ((await db.collection('shopSubs').where('uid', '==', uid).get()).docs.some(s => s.get('status') !== 'canceled' && !s.get('closed')))
     { const cfg = await settings(false); if (cfg.on) await closing(cfg, uid); }
-  await Promise.all(['shop/', 'finery/', 'presets/', 'shopComp/'].map(c => db.doc(c + uid).delete()));
+  await Promise.all(['shop/', 'finery/', 'presets/', 'shopComp/', 'shopPrize/'].map(c => db.doc(c + uid).delete()));
   await db.recursiveDelete(db.doc('chron/' + uid));
 }
 
@@ -465,6 +467,21 @@ export async function setComp(uid, until, by, why) {
   } else await ref.delete();
   const e = await settle(cfg, uid);
   return { vip: e.vip, comp: until > now ? until : 0 };
+}
+
+/* a month of the Club won in the game (the flag competition's winner). key names the win, so asking twice grants once;
+   the month begins where the player's membership so far ends (entitlement, prizes). Works while the shop is closed. */
+export async function grantPrizeMonth(uid, key, at) {
+  const db = getFirestore(), ref = db.doc('shopPrize/' + uid);
+  if (typeof uid !== 'string' || !uid || !/^[a-z0-9-]{3,40}$/.test(String(key))) return { ok: false };
+  const fresh = await db.runTransaction(async tx => {
+    const s = await tx.get(ref);
+    if (s.exists && (s.get('m') || {})[key]) return false;
+    tx.set(ref, { m: { [key]: at } }, { merge: true });
+    return true;
+  });
+  const cfg = await settings(false), e = await settle(cfg, uid);
+  return { ok: true, fresh, vip: e.vip };
 }
 
 export async function shopStep(uid, d) {

@@ -9,6 +9,7 @@ import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
+import { flagOp, isFlagOp } from './flagcomp.js';
 import { pace, ipRule } from './pace.js';
 
 const regions = new Set(DATA.regions.map(r => r.id));
@@ -476,10 +477,12 @@ const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsMode
 export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 60 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const d = req.data && typeof req.data === 'object' ? req.data : {}, uid = req.auth.uid, op = typeof d.op === 'string' ? d.op : '';
-  if (!CIVIC_OPS.has(op) && !isAllianceOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
+  if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isFlagOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
   // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
-  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' ? [['cr:' + uid, 20, 1 / 4]] : [])]);
+  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' ? [['cr:' + uid, 20, 1 / 4]] : []),
+    // scoring a flag: a judge clicks through a batch of ten, then one every two seconds
+    ...(op === 'fcRate' ? [['fr:' + uid, 30, 1 / 2]] : [])]);
   const db = getFirestore(), who = await identity(uid);
   if (d.op === 'authorizeSave') return permit(db, who, d);
   if (d.op === 'carryKey') return noteCarryKey(db, who, d);
@@ -496,6 +499,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'cbPost') return cbPost(db, who, d, regions);
   if (d.op === 'topicReact') return rmbReact(db, who, d);
   if (isAllianceOp(d.op)) return alliance(db, who, d);
+  if (isFlagOp(d.op)) return flagOp(db, who, d);
   /* a message on a region's board: a nation on its own region's, or an admin, as the Edictum team (board.js teamMark),
      on any region's (from its region page, observing it or not), unpaced. With re, it replies to a message on the same
      board that is not itself a reply (board.js rmbParent) */

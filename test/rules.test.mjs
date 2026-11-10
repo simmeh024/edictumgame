@@ -1097,3 +1097,38 @@ test('the newspaper: press/ is read by everyone and written only by the server; 
   await assertFails(as('bob').doc('papers/meridian_' + (today - 8)).set(paper(today - 8, 'bob')));
   await assertSucceeds(as('mod', { admin: true }).doc(id).delete());
 });
+
+test('the flag competition: a month’s summary and its hall are public; the entries, whose they are and every rating are the server’s; nothing is written from a browser', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('flagc/2031-01').set({ n: 2, st: 'done', res: { top: [] } });
+    await db.doc('flagc/2031-01/hall/e1').set({ u: 'alice', nm: 'Aliceland', pl: 1 });
+    await db.doc('flagc/2031-01/flags/e1').set({ u: 'alice', fl: '{}', n: 0 });
+    await db.doc('flagc/2031-01/mine/alice').set({ e: 'e1' });
+    await db.doc('flagc/2031-01/votes/alice').set({ v: {} });
+    await db.doc('shopPrize/alice').set({ m: { 'fc-2031-01': 1 } });
+    await db.doc('flagcTest/clock').set({ skew: 0 });
+  });
+  await assertSucceeds(anon().doc('flagc/2031-01').get());
+  await assertSucceeds(anon().collection('flagc/2031-01/hall').get());
+  await assertSucceeds(as('bob').doc('flagc/2031-01/hall/e1').get());
+  for (const who of [anon(), as('alice'), as('bob'), as('mod', { admin: true })]) {
+    await assertFails(who.doc('flagc/2031-01/flags/e1').get());
+    await assertFails(who.collection('flagc/2031-01/flags').get());
+    await assertFails(who.doc('flagc/2031-01/mine/alice').get());
+    await assertFails(who.doc('flagc/2031-01/votes/alice').get());
+    await assertFails(who.doc('shopPrize/alice').get());
+    await assertFails(who.doc('flagcTest/clock').get());
+  }
+  for (const who of [as('alice'), as('mod', { admin: true })]) {
+    await assertFails(who.doc('flagc/2031-01').set({ n: 99 }, { merge: true }));
+    await assertFails(who.doc('flagc/2031-02').set({ n: 1 }));
+    await assertFails(who.doc('flagc/2031-01/hall/e1').set({ pl: 1 }, { merge: true }));
+    await assertFails(who.doc('flagc/2031-01/hall/e1').delete());
+    await assertFails(who.doc('flagc/2031-01/flags/e2').set({ u: 'alice', fl: '{}', n: 0 }));
+    await assertFails(who.doc('flagc/2031-01/votes/alice').set({ v: { e1: '55555' } }));
+    await assertFails(who.doc('flagc/2031-01/mine/alice').delete());
+    await assertFails(who.doc('shopPrize/alice').set({ m: { x: 1 } }));
+    await assertFails(who.doc('flagcTest/clock').set({ skew: 1 }));
+  }
+});

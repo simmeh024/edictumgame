@@ -400,3 +400,26 @@ test('the months behind the seals: a paid year from the 31st, a free membership 
   const g = entitlement({ txs: [tx('txn_g1', 'giftvip', { paid: at }), tx('txn_g2', 'giftvip', { paid: at + H })], now: at + DAY });
   assert.equal(g.vip.n, 2); assert.equal(g.vip.until, Date.UTC(2027, 2, 28));
 });
+
+test('months won in the game: a month from where the membership so far ends, never spent on days already covered', () => {
+  const t0 = Date.UTC(2026, 11, 13), m1 = addMonth(t0);
+  /* no membership: the month begins when it is won, and nothing renews */
+  let e = entitlement({ prizes: [t0], now: t0 + DAY });
+  assert.equal(e.vip.from, t0); assert.equal(e.vip.until, m1); assert.equal(e.vip.plan, 'gift'); assert.equal(e.vip.status, 'gift'); assert.equal(e.vip.renews, 0);
+  assert.equal(pickPeriod(e.vip, t0 + DAY).s, t0, 'with the month’s pick of the collection');
+  /* a paying member keeps it for later: it begins where the paid month ends, and again after each renewal */
+  const paid = [tx('txn_a', 'vip', { sub: 'sub_a', paid: t0 - 10 * DAY, period: { s: t0 - 10 * DAY, e: addMonth(t0 - 10 * DAY) } })];
+  e = entitlement({ txs: paid, subs: { sub_a: { status: 'active', firstTxn: 'txn_a', next: addMonth(t0 - 10 * DAY) } }, prizes: [t0], now: t0 + DAY });
+  assert.equal(e.vip.until, addMonth(addMonth(t0 - 10 * DAY)), 'one month after the paid one');
+  const renewed = [...paid, tx('txn_b', 'vip', { sub: 'sub_a', paid: addMonth(t0 - 10 * DAY), period: { s: addMonth(t0 - 10 * DAY), e: addMonth(addMonth(t0 - 10 * DAY)) } })];
+  e = entitlement({ txs: renewed, subs: { sub_a: { status: 'active', firstTxn: 'txn_a' } }, prizes: [t0], now: addMonth(t0) });
+  assert.equal(e.vip.until, addMonth(addMonth(addMonth(t0 - 10 * DAY))), 'a renewal pushes the won month back, whole');
+  assert.equal(e.vip.n, 3);
+  /* a free membership an admin granted counts as covered too */
+  e = entitlement({ comp: { at: t0 - DAY, until: t0 + 20 * DAY }, prizes: [t0], now: t0 + DAY });
+  assert.equal(e.vip.until, addMonth(t0 + 20 * DAY));
+  /* two wins: one month after the other; anything that is not a time is ignored */
+  e = entitlement({ prizes: [addMonth(t0) - DAY, t0, NaN, 0, 'x'], now: t0 + DAY });
+  assert.equal(e.vip.until, addMonth(m1)); assert.equal(e.vip.n, 2);
+  assert.equal(entitlement({ prizes: [] }).vip, null); assert.equal(entitlement({}).vip, null);
+});
