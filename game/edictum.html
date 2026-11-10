@@ -5636,6 +5636,7 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cb-au .nw-fl{width:64px;display:block}
 .cb-au-n{font-size:14.5px;overflow-wrap:anywhere}
 .cb-au .staff-pill,.cb-au .founder-pill{padding:2px 8px 2px 6px;font-size:10px}
+.cz-fixed{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 14px}.cz-fixed .hint{flex:1 1 220px;margin:0}
 .cb-au-r{color:var(--ink-3);font-size:12.5px}
 .cb-on{display:inline-flex;align-items:center;gap:5px;color:var(--ink-3)}
 .cb-on i{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
@@ -52916,7 +52917,7 @@ document.addEventListener('click',e=>{
 const SHOP_BRASS='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 .6 7.4 4.1 11.2 4.3 8.3 6.7 9.3 10.4 6 8.3 2.7 10.4 3.7 6.7.8 4.3 4.6 4.1Z" fill="currentColor"/></svg>';
 const FOUNDER_PILL=`<span class="founder-pill" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}Founding Supporter</span>`;
 const FOUNDER_DOT=`<span class="founder-pill sm" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}<span class="founder-sr">Founding Supporter</span></span>`;
-/* beside a name: only a badge the server vouches for (cz checks it), and only if its owner chose to wear it */
+/* beside a name: only a badge the server vouches for (cz checks it), and on every founder's nation (see cz below) */
 /* a founder's number: the player's own from shop/, anyone else's from their finery/ (both written by the server) */
 function founderNo(n){if(!n||typeof n!=='object'||n.npc)return 0;if(shopMine(n))return +(SHOP.doc&&SHOP.doc.fno)||0;const uid=flIdOf(n);return uid&&SHOP.fno?SHOP.fno.get(uid)||0:0;}
 const founderNoTxt=no=>'No. '+String(no).padStart(4,'0');
@@ -52924,6 +52925,12 @@ function founderPill(n,sm){const no=founderNo(n),mine=shopMine(n)?1:0,t='Foundin
   return sm?`<span class="founder-pill sm" role="button" tabindex="0" data-fno="${no}" data-mine="${mine}" title="${esc(t)}">${SHOP_BRASS}<span class="founder-sr">${esc(t)}</span></span>`
     :`<span class="founder-pill" role="button" tabindex="0" data-fno="${no}" data-mine="${mine}" title="${esc(t)}">${SHOP_BRASS}Founding Supporter${no?`<span class="founder-no">${founderNoTxt(no)}</span>`:''}</span>`;}
 function shopBadge(n,sm){let b='';try{b=n&&typeof n==='object'&&!n.npc?cz(n).bg:'';}catch(e){}return b==='bg-founder'?founderPill(n,sm):'';}
+/* a founder always wears the Founding Supporter badge: whoever holds it, by the server's word (the player's own shop/, or
+   finery/ for anyone else), shows it whatever Customise says, on the card, in the map's hover card, in Messages and in the
+   Assembly (the Community Board marks founders on the server). A preview in the Shop wears it only when it puts it on. */
+const FDR_SEEN=new WeakSet();/* each memoised look is checked once (cz() keeps one per nation until the finery changes) */
+cz=(f=>function(n){const v=f.apply(this,arguments);if(!v||!n||typeof n!=='object'||FDR_SEEN.has(v))return v;FDR_SEEN.add(v);
+  if(v.bg!=='bg-founder'&&!n.npc&&!SHOP.pvSet.has(n)&&czHolds(n,'bg-founder',n.cz))v.bg='bg-founder';return v;})(cz);
 hero=(f=>function(n){const h=f.apply(this,arguments),b=shopBadge(n);return b?h.replace(/(<span class="cat-pill">[^<]*<\/span>)/,'$1'+b):h;})(hero);
 asmWho=(f=>function(id){const h=f.apply(this,arguments);let x=null;try{x=asmRecs().find(r=>r.id===id);}catch(e){}return x?h+shopBadge(x.n,1):h;})(asmWho);
 /* the Chancery seal a nation shows: its player's choice, vouched for by the server (the player's own shop/, everyone
@@ -53366,7 +53373,7 @@ function shopFounder(n,t){
     else if(SHOP.pv==='land')pv=`<div class="shop-pv-land"><figure>${shopLandSVG(n,0,1)}<figcaption>Your land now</figcaption></figure><figure>${shopLandSVG(n,0)}<figcaption>With Founder’s Gilt</figcaption></figure></div>`;
     else pv=`<div class="shop-pv-hero" inert>${hero(pvN)}</div>`;
   }catch(e){pv='<p class="hint">The preview could not be drawn.</p>';}
-  const items=[['Founding Supporter badge','Beside your nation’s name on its page, on the region board and in the Assembly.'],['First Edition banner','Engraved security paper, printed in your flag’s own colours.'],
+  const items=[['Founding Supporter badge','Always beside your nation’s name: on its card, on the region board, in Messages and in the Assembly.'],['First Edition banner','Engraved security paper, printed in your flag’s own colours.'],
     ['Engraver’s flag frame','Fine hatching, a double rule and brass rosettes.'],['First Edition decision stamp','“Enacted · First Edition”, in brass, on every decision you enact.'],
     ['Founder’s capital marker','A brass medallion beside your capital on the world map.'],['Founder’s Gilt','A brass edge, fine hatching and a quiet shimmer on your land, seen by every player in your region. Your map colour stays your own.'],
     ['Two flag designs and two flag emblems','Founder’s Dawn, Charter Bordure, the Keystone and the Founder’s Rosette, for founders’ flags only, in the flag designer.'],
@@ -53895,6 +53902,8 @@ function shopFineryHTML(n){
   let body='';
   const anyHeld=Object.values(SHOP_IDS).flat().some(id=>mine.has(id));
   for(const [k,kind,title,hint] of rows){const ids=Object.values(SHOP_IDS).flat().filter(id=>UNLOCKS[id].k===kind);if(!ids.length)continue;
+    /* the founder's badge is always worn (cz): nothing to choose, so it says so */
+    if(k==='bg'&&mine.has('bg-founder')){body+=`<h3 class="sub-h">${title}</h3><p class="cz-fixed">${FOUNDER_PILL}<span class="hint">Always shown beside your nation’s name, as a thank-you for founding Edictum: on its card, in the map’s hover card, in Messages, on the region board and in the Assembly.</span></p>`;continue;}
     const none=k==='cd'?shopCardMini(n,''):k==='te'?shopLandSVG(n,1,1):'<span class="cz-none">None</span>';
     body+=`<h3 class="sub-h">${title}</h3><p class="hint">${hint}</p><div class="cz-grid cz-g-${k}">${czTile(k,'',c[k],true,false,none,k==='cd'?'Classic':'None')}${ids.map(id=>czTile(k,id,c[k],mine.has(id),false,shopArt(id,n),UNLOCKS[id].n)).join('')}</div>`;}
   const pre=preHTML(n),seals=shopVip()&&S.mode==='world'?clubSealHTML(n,shopNow()):'';
