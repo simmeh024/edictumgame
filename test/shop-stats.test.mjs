@@ -1,7 +1,7 @@
 // The Shop statistics page's counting (functions/shop-stats.js), on hand-made billing records: no emulator needed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shopSummary, DAY } from '../functions/shop-stats.js';
+import { shopSummary, founderGiftSummary, DAY } from '../functions/shop-stats.js';
 
 const NOW = Date.parse('2026-11-03T12:00:00Z');
 const tx = (id, product, o = {}) => ({ id, product, uid: 'u-' + id, status: 'completed', ck: true, paid: NOW - DAY / 2, cur: 'EUR', total: 999, env: 'live', ...o });
@@ -56,4 +56,16 @@ test('products, Club and checkouts', () => {
 
 test('without an environment every record counts', () => {
   assert.equal(shopSummary(records(), NOW).sold, 7);
+});
+
+test('the founders’ thank-you gift: choices by pack, against the founders there are now', () => {
+  const choices = [{ uid: 'f1', p: 'cbpack', at: NOW - DAY, fno: 1 }, { uid: 'f2', p: 'orpack', at: NOW - 2 * DAY, fno: 2 }, { uid: 'f3', p: 'cbpack', at: NOW - 3 * DAY, fno: 3 },
+    { uid: 'gone', p: 'sailpack', at: NOW - 4 * DAY, fno: 4 }];
+  const g = founderGiftSummary(choices, ['f1', 'f2', 'f3', 'f5', 'f6'], NOW);
+  assert.deepEqual(g.packs.map(x => [x.k, x.n]), [['cbpack', 2], ['sailpack', 1], ['orpack', 1]], 'in the order the pop-up offers them');
+  assert.equal(g.chosen, 4); assert.equal(g.founders, 5); assert.equal(g.waiting, 2, 'two founders have not chosen');
+  assert.equal(g.open, true); assert.equal(g.until, Date.parse('2026-12-01T00:00:00Z'));
+  assert.deepEqual(g.recent.map(r => r.uid), ['f1', 'f2', 'f3', 'gone'], 'newest first');
+  assert.equal(g.recent.find(r => r.uid === 'gone').founder, false, 'a refunded founder keeps the choice on the list, marked');
+  assert.equal(founderGiftSummary([], [], Date.parse('2026-12-01T00:00:00Z')).open, false, 'closed from 1 December');
 });
