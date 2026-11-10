@@ -138,3 +138,79 @@ test('a competition nobody closed in time is closed by the next visitor, and sta
   assert.ok((await db.doc('shopPrize/' + Q.uid).get()).get('m')['fc-2031-05']);
   await db.doc('flagcTest/clock').delete();
 });
+
+test('drafts follow a player; judges skip, change a score and report; the staff see every entry, judge and report', async () => {
+  const M2 = '2031-08', [P, Q, R, T] = await Promise.all(['Skipland', 'Reportedland', 'Removedland', 'Drivebyland'].map(n => player(n))), staff = await player('Deskland');
+  await auth.setCustomUserClaims(staff.uid, { admin: true });
+  const admin = { ...staff, token: (await sign('signInWithCustomToken', { token: await auth.createCustomToken(staff.uid, { admin: true }) })).token };
+  await clockTo(Date.UTC(2031, 7, 13));
+  /* the design in progress, kept on the server for the player's other devices */
+  assert.equal((await civic(P, { op: 'fcState' })).draft, undefined);
+  await rejects(civic(P, { op: 'fcDraft', fl: { x: '<b>' } }), 'INVALID_ARGUMENT');
+  assert.equal((await civic(P, { op: 'fcDraft', fl: flag(3) })).ok, true);
+  let st = await civic(P, { op: 'fcState' });
+  assert.equal(JSON.parse(st.draft.fl).c[2], '#152453'); assert.ok(st.draft.t > 0);
+  await civic(P, { op: 'fcDraft', fl: null });
+  assert.equal((await civic(P, { op: 'fcState' })).draft, undefined, 'forgotten when asked');
+  for (const [i, p] of [P, Q, R, T].entries()) await civic(p, { op: 'fcEnter', fl: flag(i) });
+  const eid = async p => (await db.doc(`flagc/${M2}/mine/${p.uid}`).get()).get('e');
+  const [eP, eQ, eR] = [await eid(P), await eid(Q), await eid(R)];
+  await clockTo(Date.UTC(2031, 7, 20));
+  assert.equal((await civic(P, { op: 'fcState' })).draft, undefined, 'drafts are only given while entries are open');
+  /* a skipped flag goes to the back, and scoring it later clears the skip */
+  const d1 = await civic(P, { op: 'fcNext' }), skipped = d1.flags.find(f => f.id !== eQ).id;
+  assert.equal(d1.flags.length, 3);
+  await rejects(civic(P, { op: 'fcSkip' }), 'INVALID_ARGUMENT');
+  assert.deepEqual(await civic(P, { op: 'fcSkip', e: skipped }), { ok: true });
+  const d2 = await civic(P, { op: 'fcNext' });
+  assert.equal(d2.flags.length, 3); assert.equal(d2.flags.at(-1).id, skipped, 'dealt last'); assert.equal(d2.flags.at(-1).sk, 1); assert.equal(d2.flags[0].sk, undefined);
+  assert.equal((await civic(P, { op: 'fcState' })).judged, 0, 'a skip is not a score');
+  const r1 = await civic(P, { op: 'fcRate', e: skipped, s: [4, 4, 4, 4, 4] });
+  assert.equal(r1.first, true); assert.equal(r1.judged, 1);
+  assert.deepEqual(Object.keys((await db.doc(`flagc/${M2}/votes/${P.uid}`).get()).get('k') || {}), [], 'scored, so no longer skipped');
+  /* a changed score: the same rating changed, not a second one */
+  const r2 = await civic(P, { op: 'fcRate', e: skipped, s: [2, 2, 2, 2, 3] });
+  assert.equal(r2.first, false); assert.equal(r2.judged, 1);
+  assert.equal((await db.doc(`flagc/${M2}/flags/${skipped}`).get()).get('n'), 1);
+  const mine = await civic(P, { op: 'fcMine' });
+  assert.deepEqual(mine.flags.map(f => [f.id, f.s]), [[skipped, [2, 2, 2, 2, 3]]]); assert.ok(JSON.parse(mine.flags[0].fl).p);
+  assert.deepEqual((await civic(Q, { op: 'fcMine' })).flags, []);
+  /* reports: a reason, never one's own flag, once per flag and judge */
+  await rejects(civic(P, { op: 'fcReport', e: eQ, why: 'ugly' }), 'INVALID_ARGUMENT');
+  await rejects(civic(P, { op: 'fcReport', e: eP, why: 'hate' }), 'fc_own');
+  await civic(P, { op: 'fcReport', e: eQ, why: 'hate', note: 'looks like <a> symbol' });
+  await civic(P, { op: 'fcReport', e: eQ, why: 'copy', note: 'the flag of Somewhere' });   // a second report from P replaces the first
+  await civic(R, { op: 'fcReport', e: eQ, why: 'other' });
+  assert.equal((await db.doc(`flagc/${M2}/flags/${eQ}`).get()).get('rp'), 2);
+  /* T scores only Q's flag, with five stars: a drive-by */
+  await civic(T, { op: 'fcRate', e: eQ, s: [5, 5, 5, 5, 5] });
+  /* the staff's page */
+  await rejects(civic(P, { op: 'fcAdmin' }), 'PERMISSION_DENIED');
+  const A = await civic(admin, { op: 'fcAdmin' });
+  assert.equal(A.id, M2); assert.equal(A.phase, 'judge'); assert.equal(A.entries.length, 4); assert.equal(A.duty, 3);
+  assert.equal(A.entries[0].e, eQ, 'reported flags first'); assert.equal(A.entries[0].nm, 'Reportedland'); assert.equal(A.entries[0].u, Q.uid); assert.equal(A.entries[0].rp, 2);
+  assert.equal(A.entries[0].n, 1); assert.equal(A.entries[0].sus, 1, 'its one rating is the drive-by'); assert.equal(A.entries[0].cn, 0);
+  assert.deepEqual(A.reports.map(r => r.why).sort(), ['copy', 'other']);
+  const rp = A.reports.find(r => r.why === 'copy'); assert.equal(rp.byNm, 'Skipland'); assert.equal(rp.note, 'the flag of Somewhere'); assert.equal(rp.e, eQ);
+  const J = new Map(A.judges.map(j => [j.uid, j]));
+  assert.deepEqual(J.get(T.uid).notes, ['drive']); assert.equal(J.get(T.uid).fav, eQ); assert.equal(J.get(T.uid).nm, 'Drivebyland'); assert.equal(J.get(T.uid).entered, true);
+  assert.equal(J.get(P.uid).n, 1);
+  /* dismissing reports, and taking a flag out, both kept in the audit log */
+  assert.equal((await civic(admin, { op: 'fcDismiss', e: eQ })).n, 2);
+  const A2 = await civic(admin, { op: 'fcAdmin' });
+  assert.equal(A2.reports.length, 0); assert.equal(A2.entries.find(e => e.e === eQ).rp, 0);
+  await rejects(civic(P, { op: 'fcRemove', e: eR }), 'PERMISSION_DENIED');
+  assert.deepEqual(await civic(admin, { op: 'fcRemove', e: eR, why: 'a test removal' }), { ok: true });
+  const log = (await db.collection('adminAudit').where('actor', '==', staff.uid).get()).docs.map(d => d.data());
+  assert.ok(log.some(a => a.action === 'flagc_remove' && a.target === R.uid && a.reason === 'a test removal' && a.comp === M2), JSON.stringify(log));
+  assert.ok(log.some(a => a.action === 'flagc_dismiss' && a.target === Q.uid && a.reports === 2));
+  assert.equal((await civic(admin, { op: 'fcAdmin' })).entries.length, 3);
+  await rejects(civic(P, { op: 'fcCloseNow' }), 'PERMISSION_DENIED');
+  assert.deepEqual(await civic(admin, { op: 'fcCloseNow' }), { ok: true });
+  assert.equal((await db.doc('flagc/' + M2).get()).get('st'), 'open', 'nothing closes while judging runs');
+  /* an earlier month, by its name */
+  const old = await civic(admin, { op: 'fcAdmin', id: '2031-05' });
+  assert.equal(old.id, '2031-05'); assert.equal(old.phase, 'done'); assert.equal(old.st, 'done'); assert.equal(old.entries.length, 2);
+  assert.equal((await civic(admin, { op: 'fcAdmin', id: '2099-01' })).id, M2, 'a month still to come is not a month to look at');
+  await db.doc('flagcTest/clock').delete();
+});
