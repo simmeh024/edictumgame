@@ -54,8 +54,12 @@ test('each resource shows its gain an hour, a day or both, as Settings › Displ
   assert.equal(rt('h'),'+0.14/h');assert.equal(rt('d'),'+3.3/day');assert.equal(rt('b'),'+3.3/day+0.14/h');
   assert.equal(rt(undefined),'+3.3/day+0.14/h','both, until the player chooses');assert.equal(rt('x'),'+3.3/day+0.14/h');
   assert.equal(rt('h','timber'),'Not growing+0');assert.equal(rt('h','oil'),'Full');
-  assert.match(load({rate:'b'}).c3Strip(N,1),/>\+3\.3<span class="stk-ad">\/day<\/span><span class="stk-rh">\+0\.14<span class="stk-ah">\/h<\/span><\/span><\/span>/,
-    'the hour on a line of its own; "/day" may go where columns are narrow, "/h" stays');
+  assert.match(load({rate:'b'}).c3Strip(N,1),/><span class="stk-rb"><span>\+3\.3<span class="stk-ad">\/day<\/span><\/span><span class="stk-rh">\+0\.14<span class="stk-ah">\/h<\/span><\/span><\/span><\/span>/,
+    'day and hour side by side, the hour wrapping below where the column is narrow; "/day" may go where columns are narrow, "/h" stays');
+  const css=cut('.stk-rb{','\n.stk-fill{');
+  assert.match(css,/^\.stk-rb\{display:flex;flex-wrap:wrap;column-gap:11px;overflow:hidden\}/,'one line, wrapping only when it must');
+  assert.match(css,/\.stk-rh::before,\.cx-g\+\.cx-g::before\{content:'';position:absolute;left:-6px;[^}]*width:1px/,'a thin divider in the gap, clipped when the hour starts a line');
+  assert(/\.cx-stk-r\{[^}]*display:flex;flex-wrap:wrap;column-gap:11px;overflow:hidden\}/.test(source),'Cities’ stockpile the same way');
   const G=load({rate:'b'});
   assert.deepEqual([1588.5,24,23.9,2,0.5,0.06].map(G.stkHr),['66.2','1','1','0.083','0.021','0.0025'],'an hour is a day’s gain over 24, to two figures below one');
   const cx=h=>h.split('<span class="cx-g">').slice(1).map(x=>x.replace(/<span class="cx-us">[^<]*/,'').replace(/<[^>]+>/g,''));
