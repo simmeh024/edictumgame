@@ -25793,7 +25793,8 @@ function idWatch(){
   if(!ID.io){if(typeof IntersectionObserver!=='function')return;ID.io=new IntersectionObserver(es=>{for(const e of es){if(e.isIntersecting)ID.vis.add(e.target);else ID.vis.delete(e.target);}idOriSync();idKick();},{rootMargin:'80px 0px'});}
   for(const el of ID.obs)if(!el.isConnected){ID.io.unobserve(el);ID.obs.delete(el);ID.vis.delete(el);}
   const fresh=[];
-  for(const el of document.querySelectorAll(ID_SEL)){if(ID.obs.has(el))continue;el._idt=idSheen(el);ID.obs.add(el);ID.io.observe(el);fresh.push(el);}
+  /* a card kept by a page drawn again in place keeps its sheen, unless the part that held it was drawn anew */
+  for(const el of document.querySelectorAll(ID_SEL)){if(ID.obs.has(el)){if(el._idt&&!el._idt.isConnected){el._idt=idSheen(el);fresh.push(el);}continue;}el._idt=idSheen(el);ID.obs.add(el);ID.io.observe(el);fresh.push(el);}
   if(fresh.length&&ID.src==='p'&&!ID.still)idApply(fresh);
   ID.zz=false;idOriSync();
 }
@@ -43771,8 +43772,11 @@ function rpNode(a,b){
   if(RP_WHOLE.has(a.localName)||!rpAttrsSame(a,b)){if(RPATCH.why)try{RPATCH.why(a,b);}catch(e){}a.replaceWith(b);return;}
   if(a.localName!=='canvas')rpKids(a,b);
 }
+/* children scripts put into a drawn element and keep track of themselves: the sheen of a card (idSheen, watched by
+   idWatch) and a map's effects overlay (mfxAfter). Left where they are and not compared */
+const rpOwn=x=>x.nodeType===1&&(x.classList.contains('id-sh')||x.classList.contains('map-fx'));
 function rpKids(p,q){
-  const o=[...p.childNodes],n=[...q.childNodes];
+  const o=[...p.childNodes].filter(x=>!rpOwn(x)),n=[...q.childNodes];
   if(o.length===n.length){for(let i=0;i<o.length;i++)rpNode(o[i],n[i]);return;}
   /* the children that still line up at either end are compared pair by pair; the run between is replaced */
   const ok=(a,b)=>a.nodeType===b.nodeType&&(a.nodeType!==1||a.localName===b.localName&&!RP_WHOLE.has(a.localName)&&rpAttrsSame(a,b));
@@ -43815,7 +43819,9 @@ function render(){if(fxRender())return;
   const navK=navBefore();
   const route=rpRoute();
   if(pageTranslated()){dismantle(app);RENDER_LAST.tr++;app.innerHTML=html;}
-  else if(route!==RENDER_LAST.route||!app.firstChild||!renderPatch(app,html))app.innerHTML=html;
+  /* idWatch (the cards' sheen) listens for #app's own children, which a patch keeps: it is told here */
+  else if(route===RENDER_LAST.route&&app.firstChild&&renderPatch(app,html)){try{idWatch();}catch(e){}}
+  else app.innerHTML=html;
   RENDER_LAST.k=same;RENDER_LAST.app=app.firstChild;RENDER_LAST.route=route;
   navAfter(navK);
   if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
