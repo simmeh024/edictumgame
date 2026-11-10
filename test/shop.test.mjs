@@ -259,7 +259,7 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   for (const m of src.matchAll(/\['(lp-i-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'paper');
   for (const id of CATALOGUE.products.idpack.grants.filter(id => id.startsWith('lp-'))) assert.ok(src.includes(`'${id}':{n:`), id + ' has its paper in LP_X');
   const block = src.slice(src.indexOf('const SHOP_NONE='), src.indexOf('/* the new places a cosmetic can go'));
-  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"]]) {
+  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"], ['tulippack', "'tulippack'"]]) {
     const ids = p === 'vip' ? CLUB_IDS : CATALOGUE.products[p].grants;
     for (const id of ids) { assert.ok(def.has(id), id + ' is drawn in the game'); assert.ok(block.includes(`'${id}'`), id); }
     assert.ok(block.includes(src2));
@@ -272,6 +272,12 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   for (const [id, re] of [['cn-deco', /pat:\{[^}]*deco:'cn-deco'/], ['cn-acanthus', /acanthus:'cn-acanthus'/], ['cm-patina', /patina:'cm-patina'/], ['cs-sqhole', /sqhole:'cs-sqhole'/], ['cx-window', /4:'cx-window'/]])
     assert.ok(CATALOGUE.products.cbpack.grants.includes(id) && re.test(src), id + ' is in CU_LOCK');
   assert.ok(src.includes("'lp-i-cheque':{n:"), 'the Bank Draft paper is in LP_X');
+  /* the Tulip Mania Pack: eleven pieces, its banknote engraving locked like the Central Bank Pack's, its shield sold in the Shop */
+  assert.equal(CATALOGUE.products.tulippack.amount, 299); assert.equal(CATALOGUE.products.tulippack.grants.length, 11);
+  assert.ok(CATALOGUE.products.tulippack.giftable && CATALOGUE.products.tulippack.optional, 'giftable, and offered once its price is set');
+  assert.ok(/pat:\{[^}]*tulip:'cn-tulip'/.test(src) && CATALOGUE.products.tulippack.grants.includes('cn-tulip'), 'cn-tulip is in CU_LOCK');
+  assert.ok(/CZ_SH_SHOP=\{[^}]*gable:'sh-gable'/.test(src), 'the Bell Gable shield is sold in the Shop');
+  assert.ok(src.includes("'lp-i-bulb':{n:") && src.includes("case 'tulip':return S(") && src.includes("'e-tulip':'tulip'") && src.includes("'pn-auction':'<path"), 'its paper, charge, emblem and marker are drawn');
 });
 
 test('the Chancery Club yearly: a paid year, picked from month by month without another word from Paddle', () => {
