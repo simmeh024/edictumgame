@@ -60485,8 +60485,23 @@ function nvxGet(n,now){
   nvxVisit(now);
   const m=NVX.memo,mu=NTF.mute.join();
   if(m&&m.n===n&&m.ver===NVX.ver&&m.mu===mu&&now>=m.at&&now-m.at<4000)return m.v;
+  if(!NVX.ready){nvxWarm();return {};}
   let v={};try{v=nvxCompute(n,now);}catch(e){v={};}
   NVX.memo={n,ver:NVX.ver,mu,at:now,v};return v;
+}
+/* The first count after the page loads (a returning player's first page, or founding) waits until that page is on
+   screen: on a slow phone it took over half a second (the page's first economy, the bell's first Dispatch), all
+   before anything was painted. The badges follow a moment later, drawn the way a timer's change draws them
+   (navSoft on the Nation page, the page again elsewhere); a tab opened in the background counts at the latest
+   after 2 s. Every later count is made at once, as before. */
+function nvxWarm(){
+  if(NVX.warm)return;NVX.warm=1;
+  const run=()=>{if(NVX.ready)return;NVX.ready=1;const n=S.nation;if(!n||n.npc||OBS)return;const now=Date.now();
+    let sig;try{sig=navSigOf(n,now);}catch(e){return;}if(sig===S.navSig)return;S.navSig=sig;
+    let v=null;try{v=syncInbox(n,now);}catch(e){}if(v&&navSoft(v,now)){try{nvxMark();}catch(e){}}else render();};
+  const later=()=>setTimeout(()=>{if(window.requestIdleCallback)requestIdleCallback(run,{timeout:600});else run();},0);
+  if(window.requestAnimationFrame&&!document.hidden)requestAnimationFrame(later);else later();
+  setTimeout(run,2000);
 }
 /* the tick draws the menu again when a page's figure changes */
 navSigOf=(f=>function(n,now){const s=f.apply(this,arguments);if(!n||n!==S.nation)return s;const x=nvxGet(n,now||Date.now());
