@@ -62,11 +62,32 @@ test('every page that spends the stockpile draws the strip',()=>{
   assert(!/function stockCard\(/.test(source),'the old stock card, drawn nowhere, is gone');
 });
 
-test('Space shows the strip under its header once the Moon is open, on every body',()=>{
+test('Space shows the strip under its header on every body, marking what the agency’s next step costs',()=>{
   const wrap=cut('VIEWS_EXT.space=(f=>now=>{const h=f(now),n=S.nation;','\nfunction btTabBtn(');
-  const run=(open,html)=>{const ctx={S:{nation:{id:'me'}},VIEWS_EXT:{space:()=>html},spAccess:(n,b)=>b==='moon'&&open,c3Strip:()=>'<STRIP>',Date};
-    vm.createContext(ctx);vm.runInContext(wrap,ctx);return ctx.VIEWS_EXT.space(1);};
+  const next={t:'Next: The first orbital pass.',cost:{oil:6,goods:8}};
+  const run=(html,{body='moon',agency=true,obs=false,nx=next}={})=>{const got=[];
+    const ctx={S:{nation:{id:'me',mc:{}},spBody:body},OBS:obs,VIEWS_EXT:{space:()=>html},mcOf:n=>n.mc?{a:agency?{nm:'Agency'}:null}:null,mcNextStep:()=>nx,
+      c3Strip:(n,now,o)=>{got.push(o&&o.need);return '<STRIP>';},Date};
+    vm.createContext(ctx);vm.runInContext(wrap,ctx);return {h:ctx.VIEWS_EXT.space(1),need:got[0]};};
   const page='<header class="vh"><h1>Space</h1></header><div class="stabs sp-tabs">tabs</div>';
-  assert.equal(run(true,page),'<header class="vh"><h1>Space</h1></header><STRIP><div class="stabs sp-tabs">tabs</div>');
-  assert.equal(run(false,page),page,'before the Moon opens, the teaser has nothing to spend');
+  const r=run(page);
+  assert.equal(r.h,'<header class="vh"><h1>Space</h1></header><STRIP><div class="stabs sp-tabs">tabs</div>','the strip, before the Moon opens too: the agency spends from it');
+  assert.deepEqual(r.need,{oil:6,goods:8},'the next mission’s cost is marked');
+  assert.equal(run(page,{body:'mars'}).need,null,'Mars has no agency card to pay for');
+  assert.equal(run(page,{agency:false}).need,null,'no agency yet, nothing marked');
+  assert.equal(run(page,{obs:true}).need,null,'not while observing');
+  assert.equal(run(page,{nx:{t:'The first image is on its way.',h:''}}).need,null,'a step without a cost marks nothing');
+  assert.equal(run('<p>no header</p>').h,'<p>no header</p>');
+});
+
+test('the Space page’s next step shows what it costs, and waits for the stockpile when it is short',()=>{
+  const step=fnBody('mcNextStep');
+  assert(/mcNextCost\(cost,st\)\+mcNextShort\(miss\)/.test(step),'a mission’s cost and shortfall sit beside its Start button');
+  assert(/data-act="mc-start" data-k="\$\{k\}"\$\{miss\.length\?' disabled':''\}/.test(step),'Start waits until the stockpile can pay');
+  assert(/data-act="mc-fund" data-t="\$\{M\.tm\}"\$\{miss\.length\?' disabled':''\}>Fund/.test(step),'so does funding a team');
+  const ctx={RES,resName:r=>r,list:a=>a.join(' and '),esc:s=>String(s)};vm.createContext(ctx);
+  vm.runInContext(cut('const mcCostHTML=','\n')+'\n'+cut('const mcNextCost=','\nfunction mcNextStep(').replace(/const /g,'var '),ctx);
+  assert.equal(ctx.mcNextCost({oil:6,goods:8},{oil:10,goods:6}),'<span class="mc-next-c"><span class="hint">Costs</span><span class="cost">6 oil</span><span class="cost short">8 goods</span></span>');
+  assert.match(ctx.mcNextShort(['2 goods']),/^<p class="hint mc-next-w">You need 2 goods more\. /);
+  assert.equal(ctx.mcNextShort([]),'');
 });
