@@ -208,7 +208,9 @@
     Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (OWN_KEYS[k] ? own : NX_KEYS[k] ? ext : pub)[k] = d[k]; });
     if (isObj(d.asm)) {
       ext.asmLocal = {};
-      ['h','d','st','cur'].forEach(function(k) { if (k in d.asm) ext.asmLocal[k] = d.asm[k]; });
+      /* the record's own part of the Assembly: past resolutions, terms, the lock, the resolutions it follows (f, fv)
+         and its attendance (vs); the rest is the server's (functions/civic.js) */
+      ['h','d','st','cur','f','fv','vs'].forEach(function(k) { if (k in d.asm) ext.asmLocal[k] = d.asm[k]; });
       delete pub.asm;
     }
     if (isObj(d.pp)) {

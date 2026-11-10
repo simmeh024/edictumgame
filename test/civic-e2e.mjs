@@ -116,7 +116,7 @@ await B.keyboard.press('Escape');
 await nav(B,'assembly');
 check('a young Registered Nation sees the 24-hour explanation',/24 hours/.test(await text(B,'main'))&&!await B.locator('[data-act="asm-rejoin"]').count());
 check('young Registered restrictions do not ask for Google linking again',await B.locator('[data-account-action] [data-act="acct-open"]').count()===0&&/24 hours/.test(await text(B,'[data-account-action="proposal"]')));
-await B.locator('[data-account-action="proposal"] [data-act="account-compare"]').click();await B.waitForSelector('#help-account-types');
+await B.click('#asmx-tab-prop');await B.locator('[data-account-action="proposal"] [data-act="account-compare"]').click();await B.waitForSelector('#help-account-types');
 check('restricted actions open the shared mobile account comparison',await B.locator('.account-types-table tbody tr').count()===13&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
 await nav(B,'nation');check('linking Google removes the post-charter linking suggestion',await B.locator('.account-link-card').count()===0);await nav(B,'assembly');
 await B.screenshot({path:path.join(OUT,'registered-young-assembly-mobile.png')});
@@ -129,6 +129,7 @@ await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/docume
 await B.evaluate(()=>window.dispatchEvent(new Event('edictum:linked')));
 check('server age unlocks Assembly participation',await until(()=>B.evaluate(()=>G.S.civic?.account.eligible)));
 check('eligible Registered Nations no longer see account restrictions',await until(async()=>await B.locator('[data-account-action]').count()===0));
+await B.click('#asmx-tab-vote');
 const vote=B.locator('[data-act="asm-vote"][data-v="1"]');
 check('an eligible player can vote using the existing Assembly screen',await vote.count()>0);
 if(await vote.count()){

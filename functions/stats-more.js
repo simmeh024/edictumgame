@@ -55,8 +55,8 @@ export async function gatherMore(db, now = Date.now()) {
     safe(db.collection('bugs').where('t', '>', q90).select('t', 'st', 'reg', 'often').get()),
     safe(db.collection('support').where('t', '>', q90).select('t', 'st', 'm', 'ct', 'reg').get()),
     // posts keep their time as a server timestamp (region boards, news comments) or in ms (the Community Board)
-    safe(db.collectionGroup('posts').where('t', '>', month).select('t').get()),
-    safe(db.collectionGroup('posts').where('t', '>', now - 30 * DAY).select('t').get()),
+    safe(db.collectionGroup('posts').where('t', '>', month).select('t', 'as').get()),
+    safe(db.collectionGroup('posts').where('t', '>', now - 30 * DAY).select('t', 'as').get()),
     safe(db.collection('alliances').select('reg', 'mem', 'npc', 't').get()),
   ]);
   const where = path => { const p = path.split('/'); return p[0] === 'boards' ? 'board:' + p[1] : p[0] === 'devnews' ? 'news' : p[0] === 'cboard' || p[0] === 'community' ? 'community' : p[0]; };
@@ -68,7 +68,8 @@ export async function gatherMore(db, now = Date.now()) {
       const m = arr(d.get('m')), team = m.find(x => x && x.a === 's');
       return { t: ms(d.get('t')), st: String(d.get('st') || ''), reg: String(d.get('reg') || ''), msgs: m.length, first: team ? num(team.t) : 0, closed: ms(d.get('ct')) };
     }),
-    posts: postsT.docs.concat(postsN.docs).map(d => ({ t: ms(d.get('t')), where: where(d.ref.path) })).filter(p => p.t),
+    // not the Assembly's debate topics (functions/civic.js, debateTopic): no player wrote them
+    posts: postsT.docs.concat(postsN.docs).filter(d => d.get('as') !== true).map(d => ({ t: ms(d.get('t')), where: where(d.ref.path) })).filter(p => p.t),
     alliances: alliances.docs.map(d => ({ reg: String(d.get('reg') || ''), mem: Object.keys(obj(d.get('mem')) || {}).length, npc: Object.keys(obj(d.get('npc')) || {}).length, t: ms(d.get('t')) || num(d.get('t')) })),
   };
 }
