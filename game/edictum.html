@@ -43738,16 +43738,17 @@ const renderKey=h=>h.replace(/\b(crt|cu[bcn]|cz[afps]|fgo|cm|fp|id[fs]|pp[a-z]{1
 const RPATCH={off:false,n:0,err:0,check:null,why:null};
 try{RPATCH.off=localStorage.getItem('edictum.patch')==='0';}catch(e){}
 const RP_WHOLE=new Set(['svg','math','dialog','iframe','video','audio','object','embed','select','textarea','input','option','template']);
-const RP_CV_SKIP=new Set(['width','height','data-hover','data-done']),RP_CV_CLASS=/(^|\s)(dragging|fl-hot|nws-hot)(?=\s|$)/g;
+const RP_CV_CLASS=/(^|\s)(dragging|fl-hot|nws-hot)(?=\s|$)/g;
 function rpRoute(){return (S.nation?'n':'f')+'|'+(OBS?'o':'')+(PV?'p':'')+'|'+S.view+'|'+(S.view==='visit'?S.visit||'':'');}
 function rpCls(el,name,v){return el.localName==='canvas'&&name==='class'?String(v).replace(RP_CV_CLASS,' ').replace(/ +/g,' ').trim():v;}
-/* the page column's style holds what pages measure onto it after drawing (--cz-dock-h, --sg-top …); a tile's
-   data-czid is added after drawing where the markup has none (czDom), always the same for the same tile */
-const RP_MAIN_SKIP=new Set(['style']),RP_EXTRA=new Set(['data-czid']);
+/* attributes scripts set on drawn elements, not differences where the new markup has none of its own: a canvas's
+   size and hover mark, what pages measure onto the page column (--cz-dock-h, --sg-top …), the tile ids czDom adds
+   (always the same for the same tile). A canvas drawn once and marked so (data-done) is drawn again, as before */
+const RP_CV_EXTRA=new Set(['width','height','data-hover']),RP_MAIN_EXTRA=new Set(['style']),RP_EXTRA=new Set(['data-czid']);
 function rpAttrsSame(a,b){
-  const skip=a.localName==='canvas'?RP_CV_SKIP:a.id==='main'?RP_MAIN_SKIP:null,A=a.attributes,B=b.attributes;let na=0,nb=0;
-  for(let i=0;i<B.length;i++){const x=B[i];if(skip&&skip.has(x.name))continue;nb++;const v=a.getAttribute(x.name);if(v===null||rpCls(a,x.name,v)!==rpCls(a,x.name,x.value))return false;}
-  for(let i=0;i<A.length;i++){const m=A[i].name;if(!(skip&&skip.has(m))&&!(RP_EXTRA.has(m)&&!b.hasAttribute(m)))na++;}
+  const ex=a.localName==='canvas'?RP_CV_EXTRA:a.id==='main'?RP_MAIN_EXTRA:null,A=a.attributes,B=b.attributes;let na=0,nb=0;
+  for(let i=0;i<B.length;i++){const x=B[i];nb++;const v=a.getAttribute(x.name);if(v===null||rpCls(a,x.name,v)!==rpCls(a,x.name,x.value))return false;}
+  for(let i=0;i<A.length;i++){const m=A[i].name;if(!b.hasAttribute(m)&&(RP_EXTRA.has(m)||ex&&ex.has(m)))continue;na++;}
   return na===nb;
 }
 /* What scripts add to a page after it is drawn, and add again after every draw, is taken off before the page is
