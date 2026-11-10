@@ -48,9 +48,10 @@ async function fcEnter(db, who, d) {
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who, { linked: true }), mineRef = db.doc(root(id) + '/mine/' + who.uid), mine = await tx.get(mineRef);
     const ref = mine.exists ? db.doc(root(id) + '/flags/' + mine.get('e')) : db.collection(root(id) + '/flags').doc();
+    const headRef = db.doc(root(id)), head = mine.exists ? null : await tx.get(headRef);   // first: no flag was in before this one
     tx.set(ref, { u: who.uid, nm: String(e.n.name || '').slice(0, 80), rg: String(e.n.reg || '').slice(0, 40), fl: text, t: now, n: 0 });
-    if (!mine.exists) { tx.set(mineRef, { e: ref.id, t: now }); tx.set(db.doc(root(id)), { n: FieldValue.increment(1), st: 'open' }, { merge: true }); }
-    return { ok: true, t: now };
+    if (!mine.exists) { tx.set(mineRef, { e: ref.id, t: now }); tx.set(headRef, { n: FieldValue.increment(1), st: 'open' }, { merge: true }); }
+    return { ok: true, t: now, first: !!head && !(head.get('n') > 0) };
   });
 }
 

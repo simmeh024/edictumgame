@@ -40,6 +40,44 @@ the others score it blind, and the best three take the prizes. A competition is 
 - The winner wears a rosette beside its flag (wherever the Founder pill and the Chancery seal show) until the next
   podium, and every podium hangs in the Hall of Flags tab.
 
+## Land credits for judging
+
+- Every 5 flags a nation scores earn it a land credit, 10 at most (`JUDGE_PER`, `JUDGE_LAND` in the page's
+  `FLC_RULES`). The count is the nation's lifetime tally of flags scored (`fcj`), over every competition, so the tenth
+  credit comes with the fiftieth flag. After that the scoring goes on as before, for no more land.
+- The credits earned are kept on the nation as `n.fcl` (shared half, so other players and the land check count them)
+  and added by a wrapper around `landEarned` and `earnedAt`. A toast of the `land` kind tells of each one, and the
+  judging page says how many are earned and how far the next is.
+- Like every other credit they are stored, not lost, while a nation has paused its land credit gains.
+
+## Achievements
+
+A category of its own, "The Flag Competition" (`flag`), with 17 achievements:
+
+| Id | Name | Tier | For |
+|---|---|---|---|
+| `fc-enter` | Colours to the Mast | bronze | entering a flag |
+| `fc-first` | First Up the Pole | bronze | being the first nation to enter in a competition (the server says so: `fcEnter` returns `first`) |
+| `fc-redo` | Back to the Drawing Board | bronze | replacing an entry with a new design |
+| `fc-enter3` | Regular at the Flagpole | silver | entering three competitions in a row (`n.fce`, the months entered) |
+| `fc-enter12` | A Flag for Every Season | gold | entering twelve competitions |
+| `fc-judge10` | An Eye for a Flag | bronze | scoring 10 flags |
+| `fc-judge50` | Seasoned Judge | silver | scoring 50 flags |
+| `fc-judge100` | Chief Vexillologist | gold | scoring 100 flags |
+| `fc-early` | Before the Ink Dries | bronze | scoring a flag on the first day of judging |
+| `fc-duty3` | Reliable Juror | silver | scoring a full share of flags in three competitions (`n.fcd`: the last month counted) |
+| `fc-all` | No Flag Left Unscored | silver | scoring every flag in a competition with at least five others (`n.fca`) |
+| `fc-podium` | A Flag on the Podium | silver | a place in the first three |
+| `fc-podium3` | A Habit of Podiums | gold | three podiums |
+| `fc-set` | The Whole Podium | gold | first, second and third place, each at least once |
+| `fc-win` | Best in Show | gold | winning |
+| `fc-ace` | By Acclamation | gold | winning with a score of 4.5 or more |
+| `fc-win3` | Flag of Flags | platinum | winning three competitions |
+
+None is paid for what the stars were: an achievement for a five-star or a one-star rating would bend the scores.
+A month entered counts once, however often its flag is withdrawn and entered again, and an entry the server holds is
+added to `n.fce` when the page loads, whichever device made it.
+
 ## Where things live
 
 - `functions/flagcomp-core.js`: the rules with no Firebase in them (calendar, ratings, dealing, scoring, ranking).

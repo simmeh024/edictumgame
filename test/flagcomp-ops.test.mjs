@@ -44,9 +44,11 @@ test('a month of the flag competition: enter, score blind, and the podium with i
   await rejects(civic(A, { op: 'fcEnter', fl: { x: '<svg onload=1>' } }), 'INVALID_ARGUMENT');
   await rejects(civic(A, { op: 'fcEnter' }), 'INVALID_ARGUMENT');
   await rejects(civic(A, { op: 'fcNext' }), 'fc_not_judging');
-  for (const [i, p] of [A, B, C, D, E, F].entries()) await civic(p, { op: 'fcEnter', fl: flag(i) });
+  const firsts = [];
+  for (const [i, p] of [A, B, C, D, E, F].entries()) firsts.push((await civic(p, { op: 'fcEnter', fl: flag(i) })).first);
+  assert.deepEqual(firsts, [true, false, false, false, false, false], 'the server says whose flag was the first one in');
   await civic(young, { op: 'fcEnter', fl: flag(7) });   // a new nation may enter; it may not judge
-  await civic(A, { op: 'fcEnter', fl: flag(9) });        // entering again replaces the design
+  assert.equal((await civic(A, { op: 'fcEnter', fl: flag(9) })).first, false);   // entering again replaces the design, and is nobody's first
   assert.deepEqual(await civic(F, { op: 'fcWithdraw' }), { ok: true });
   assert.deepEqual(await civic(F, { op: 'fcWithdraw' }), { ok: false });
   assert.deepEqual(await civic(young, { op: 'fcWithdraw' }), { ok: true });
