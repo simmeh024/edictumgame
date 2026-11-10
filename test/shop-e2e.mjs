@@ -168,15 +168,18 @@ const fno = await until(() => A.evaluate(() => G.SHOP.SHOP.doc && G.SHOP.SHOP.do
 check('the founder has a number', Number.isInteger(fno) && fno > 0, String(fno));
 check('and the Card Pack shows as included, not for sale', await A.evaluate(() => !document.querySelector('[data-act="shop-buy"][data-p="idpack"]')));
 
-/* ── wearing it ── */
+/* ── wearing it: the badge from the start, the rest chosen in Customise ── */
+await go(A, 'nation');await A.evaluate(() => scrollTo(0, 0));await sleep(400);
+check('the Founding Supporter badge is on the card without choosing it', await until(() => A.evaluate(() => !!document.querySelector('.hero .founder-pill') && !(G.S.nation.cz && G.S.nation.cz.bg)), 8000));
 await go(A, 'customise');
 /* only the open section is on the page: banner (b), decrees (s), finery (z) */
 const CZ_SEC_FOR = { p: 'b', f: 'b', pn: 'b', st: 's', bg: 'z', ins: 'z', te: 'z' };
-for (const id of ['cz-p-p-firsted', 'cz-f-f-engraver', 'cz-st-s-firsted', 'cz-pn-pn-founder', 'cz-bg-bg-founder', 'cz-ins-in-founder', 'cz-te-te-gilt']) {
+for (const id of ['cz-p-p-firsted', 'cz-f-f-engraver', 'cz-st-s-firsted', 'cz-pn-pn-founder', 'cz-ins-in-founder', 'cz-te-te-gilt']) {
   await czSection(A, CZ_SEC_FOR[id.split('-')[1]]);
   const ok = await until(() => A.evaluate(id => { const b = document.getElementById(id); if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); return document.getElementById(id)?.getAttribute('aria-pressed') === 'true'; }, id), 6000);
   if (!ok) check('equipped in Customise: ' + id, false);
 }
+check('Customise says the badge is always worn, with nothing to choose', /Always shown beside your nation’s name/.test(await txt(A, '#cz-sec-z .cz-fixed')) && !(await A.$('#cz-bg-bg-founder')));
 const worn = await A.evaluate(() => G.SHOP.cz(G.S.nation));
 check('all seven founder pieces equipped in Customise', worn.p === 'p-firsted' && worn.f === 'f-engraver' && worn.st === 's-firsted' && worn.pn === 'pn-founder' && worn.bg === 'bg-founder' && worn.ins === 'in-founder' && worn.te === 'te-gilt', JSON.stringify(worn));
 await go(A, 'nation');await A.evaluate(() => scrollTo(0, 0));await sleep(400);
