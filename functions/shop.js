@@ -13,6 +13,8 @@
                              (authConfig/paddle prices), bound to the caller; the page opens it in Paddle's checkout.
                              Only a Registered Nation (a linked sign-in) may buy, so purchases can follow the account
                              to any device. An open checkout for the same product is reused, so two tabs pay one bill.
+     checkout {products}   → {txn, env, token, products}: a basket, several one-off products for the caller's own nation in
+                             one transaction (one line each); each is checked as it would be on its own (basket below)
      refresh               asks Paddle about the caller's open checkouts and subscriptions, for anything its
                              notifications have not yet brought, and works out what the caller owns again
      portal                → {url, cancel, payment}: links into Paddle's customer portal (they expire; never stored)
@@ -32,8 +34,11 @@
                             shows them (a nation's own record cannot vouch for them); cl {s, u, m, f}, only once the player
                             has chosen a Chancery seal to show: which, and the membership's end and months that decide it;
                             bx, only once they box their newspaper advertisements (adbox): the membership's end
-     shopCheckouts/{txn}    {uid, product, at, env, price}: each checkout this server opened
-     shopTx/{txn}           a completed transaction: {uid, product, ok, ck, created, paid, period, sub, ctm, …}
+     shopCheckouts/{txn}    {uid, product, at, env, price}: each checkout this server opened; a basket's: {uid, product:
+                            'basket', products, prices, at, env}
+     shopTx/{txn}           a completed transaction: {uid, product, products, ok, ck, created, paid, period, sub, ctm, …};
+                            a basket's also items [{i: Paddle's line id, p, tot}] (product 'basket'), and refundItems
+                            {line id: {at, why}} for the lines this server asked Paddle to refund
      shopSubs/{sub}         a subscription: {uid, status, period, cancelAt, next, firstTxn, occ, …}
      shopAdj/{adj}          a refund or chargeback: {txn, sub, action, type, status, occ}
      shopAcct/{uid}         {ctm}: the player's Paddle customer; shopCustomers/{ctm} {uids}: the reverse
@@ -49,7 +54,7 @@ import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
 import { nationText } from './nationtext.js';
-import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
+import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, BASKET, BASKET_MAX, BASKETABLE, clubReleased, sealHeld, verifySignature, txFacts, txUnits, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
 const P0until = p => { const u = CATALOGUE.products[p] && CATALOGUE.products[p].until; const t = u ? Date.parse(u) : NaN; return isFinite(t) ? t : 0; };
 const GRANTS_V = Math.max(1, ...Object.values(CATALOGUE.products).map(p => p.grantsV || 1));
@@ -116,11 +121,12 @@ async function ingestTx(cfg, d) {
   /* a gift belongs to the nation it was given to; the Paddle customer stays the payer's */
   let uid = ck.exists ? ck.get('to') || ck.get('uid') : '';
   const payer = ck.exists ? ck.get('uid') : '', gift = !!(ck.exists && ck.get('to'));
-  if (ck.exists && ck.get('product') !== f.product) f.ok = false;
+  /* what was paid for is what the checkout was opened for: one product, or a basket's (in any order) */
+  if (ck.exists && [].concat(ck.get('products') || ck.get('product')).sort().join(',') !== [...f.products].sort().join(',')) f.ok = false;
   if (!uid && isId(f.sub, 'sub')) uid = (await db.doc('shopSubs/' + f.sub).get()).get('uid') || '';
   if (!uid && prev.exists) uid = prev.get('uid') || '';
-  await prev.ref.set({ uid, payer: payer || uid, gift, product: f.product, ok: f.ok, ck: ck.exists, created: ck.exists ? ck.get('at') : 0, paid: f.paid, period: f.period,
-    sub: f.sub, ctm: f.ctm, origin: f.origin, cur: f.cur, total: f.total, price: f.price, status: 'completed', env: cfg.env }, { merge: true });
+  await prev.ref.set({ uid, payer: payer || uid, gift, product: f.product, products: f.products, ok: f.ok, ck: ck.exists, created: ck.exists ? ck.get('at') : 0, paid: f.paid, period: f.period,
+    sub: f.sub, ctm: f.ctm, origin: f.origin, cur: f.cur, total: f.total, price: f.price, status: 'completed', env: cfg.env, ...(f.items ? { items: f.items } : {}) }, { merge: true });
   if (uid) await bindCustomer(payer || uid, f.ctm);
   if (uid && ck.exists && isId(f.sub, 'sub')) await db.doc('shopSubs/' + f.sub).set({ uid, firstTxn: f.id }, { merge: true });
   /* a one-off purchase this server never opened (Paddle's checkout opened by hand with the price): nobody to deliver to */
@@ -199,14 +205,18 @@ async function settle(cfg, uid) {
        before numbers existed is numbered at once, in the order they paid (shopFounderNo/<uid> holds each number). */
     const fWrites = [];
     let fno = Number(shop.get('fno')) || 0;
-    if (!fno && txs.some(t => t.product === 'founder' && t.status === 'completed')) {
+    if (!fno && txs.some(t => t.status === 'completed' && txUnits(t).some(u => u.p === 'founder'))) {
       const [counter, mine] = await tx.getAll(db.doc('shopMeta/founders'), db.doc('shopFounderNo/' + uid));
       if (mine.exists) fno = Number(mine.get('n')) || 0;
       else {
         let last = counter.exists ? Number(counter.get('last')) || 0 : 0;
         if (!counter.exists) {
           const seen = new Set();
-          for (const t of (await tx.get(db.collection('shopTx').where('product', '==', 'founder').where('status', '==', 'completed').orderBy('paid'))).docs) {
+          /* paid for on its own, or in a basket */
+          const paidF = [...(await tx.get(db.collection('shopTx').where('product', '==', 'founder').where('status', '==', 'completed').orderBy('paid'))).docs,
+            ...(await tx.get(db.collection('shopTx').where('products', 'array-contains', 'founder'))).docs.filter(t => t.get('product') === BASKET && t.get('status') === 'completed')]
+            .sort((a, b) => (a.get('paid') || 0) - (b.get('paid') || 0));
+          for (const t of paidF) {
             const u = t.get('uid');if (!u || seen.has(u)) continue;seen.add(u);last++;
             if (u === uid) fno = last;else fWrites.push([db.doc('shopFounderNo/' + u), { n: last, at: now0 }]);
           }
@@ -247,12 +257,24 @@ async function settle(cfg, uid) {
     else tx.delete(wall);
     return { e, txDocs, subMap };
   });
-  /* refunds and cancellations the rules call for, each asked once */
-  for (const r of e.refunds) {
-    const s = txDocs.get(r.txn);
+  /* refunds and cancellations the rules call for, each asked once: a whole transaction, or a basket's lines, all of one
+     transaction's in one request (Paddle takes no other refund on a transaction while one awaits its approval) */
+  const byTxn = new Map();
+  for (const r of e.refunds) byTxn.set(r.txn, [...(byTxn.get(r.txn) || []), r]);
+  for (const [txn, rs] of byTxn) {
+    const s = txDocs.get(txn);
     if (!s || s.get('refundAsked')) continue;
-    await api(cfg, 'POST', '/adjustments', { action: 'refund', type: 'full', transaction_id: r.txn, reason: REASON[r.why] || REASON.duplicate });
-    await s.ref.update({ refundAsked: Date.now(), refundWhy: r.why });
+    const whole = rs.find(r => !r.item);
+    if (whole) {
+      await api(cfg, 'POST', '/adjustments', { action: 'refund', type: 'full', transaction_id: txn, reason: REASON[whole.why] || REASON.duplicate });
+      await s.ref.update({ refundAsked: Date.now(), refundWhy: whole.why });
+      continue;
+    }
+    const asked = s.get('refundItems') || {}, lines = rs.filter(r => /^txnitm_[a-z0-9]{8,64}$/.test(r.item) && !asked[r.item]);
+    if (!lines.length) continue;
+    await api(cfg, 'POST', '/adjustments', { action: 'refund', type: 'partial', transaction_id: txn, reason: REASON[lines[0].why] || REASON.duplicate,
+      items: lines.map(r => ({ item_id: r.item, type: 'full' })) });
+    await s.ref.update(Object.fromEntries(lines.map(r => ['refundItems.' + r.item, { at: Date.now(), why: r.why, p: r.p || '' }])));
   }
   for (const c of e.cancels) {
     if (subMap[c.sub]?.cancelAsked) continue;
@@ -339,6 +361,56 @@ async function checkout(cfg, who, d) {
   return { txn: t.id, env: cfg.env, token: cfg.token, gift: !!to };
 }
 
+/* a basket: several one-off products for the caller's own nation, paid together in one checkout. Each is checked as it
+   would be bought on its own (on sale, not owned, not included in something owned); a gift and the Chancery Club are
+   bought on their own. Paddle keeps one line per product, so a line can be refunded without the rest (settle). */
+async function basket(cfg, who, d) {
+  const db = getFirestore(), uid = who.uid, list = d.products;
+  if (!list.length || list.length > BASKET_MAX || list.some(p => typeof p !== 'string' || !PRODUCTS.includes(p)) || new Set(list).size !== list.length)
+    throw new HttpsError('invalid-argument', 'Unknown product.');
+  if (typeof d.to === 'string' && d.to) throw new HttpsError('invalid-argument', 'A gift is paid for on its own, not in a basket.');
+  /* one product is an ordinary checkout, which a second tab with the same product then shares */
+  if (list.length === 1) return { ...await checkout(cfg, who, { product: list[0] }), products: list };
+  const products = [...list].sort((a, b) => PRODUCTS.indexOf(a) - PRODUCTS.indexOf(b)), name = p => CATALOGUE.products[p].name, now = clock(cfg);
+  for (const p of products) {
+    if (!BASKETABLE.includes(p)) refuse('basket_alone', `${name(p)} is bought on its own, not in a basket.`);
+    if (!cfg.prices[p]) refuse('not_on_sale', `${name(p)} is not on sale yet. Take it out of your basket.`);
+    if (p !== 'founder' && P0until(p) && now >= P0until(p)) refuse('sale_ended', `${name(p)} is no longer on sale. Take it out of your basket.`);
+    if (p === 'founder' && now >= FOUNDER_CUTOFF) refuse('sale_ended', 'The Founder’s Package is no longer on sale. The sale ended on 1 February 2027 at 23:59:59 UTC.');
+  }
+  /* the Founder's Package includes the Card Pack: both in one basket would pay for the card pack twice */
+  for (const p of products) for (const q of products) if (p !== q && (CATALOGUE.products[q].includes || []).includes(p))
+    refuse('basket_included', `The ${name(q)} already includes the ${name(p)}. Take the ${name(p)} out of your basket.`);
+  await db.runTransaction(tx => eligibility(tx, who));
+  const [shop, acct, open] = await Promise.all([db.doc('shop/' + uid).get(), db.doc('shopAcct/' + uid).get(), db.collection('shopCheckouts').where('uid', '==', uid).get()]);
+  const owns = shop.get('owns') || {};
+  for (const p of products) {
+    if (owns[p]) refuse('owned', `You already own the ${name(p)}. Take it out of your basket.`);
+    if (includedIn(p, owns)) refuse('owned', `Your Founder’s Package already includes the ${name(p)}. Take it out of your basket.`);
+  }
+  /* "a checkout was opened", for each product in it */
+  const pend = Object.fromEntries(products.map(p => [p, now])), key = products.join(',');
+  /* the same basket again, while Paddle still holds its checkout open */
+  const mine = open.docs.filter(s => s.get('product') === BASKET && [].concat(s.get('products') || []).join(',') === key && s.get('env') === cfg.env && now - s.get('at') < 20 * 3600000).sort((a, b) => b.get('at') - a.get('at'))[0];
+  if (mine) {
+    const t = await asked(() => api(cfg, 'GET', '/transactions/' + mine.id));
+    if (t && (t.status === 'draft' || t.status === 'ready')) {
+      await db.doc('shop/' + uid).set({ pend }, { merge: true });
+      return { txn: mine.id, env: cfg.env, token: cfg.token, products };
+    }
+    if (t && t.status === 'completed') { const owner = await ingestTx(cfg, t); if (owner) await settle(cfg, owner); return { done: true, products }; }
+  }
+  await pace(uid, 'n', 0, 12);
+  const prices = products.map(p => [].concat(cfg.prices[p])[0]);
+  const body = { items: prices.map(price_id => ({ price_id, quantity: 1 })), custom_data: { uid, product: BASKET, products }, collection_mode: 'automatic' };
+  if (isId(acct.get('ctm'), 'ctm')) body.customer_id = acct.get('ctm');
+  const t = await asked(() => api(cfg, 'POST', '/transactions', body));
+  if (!t || !isId(t.id, 'txn')) refuse('shop_unavailable', 'The payment service did not answer. Nothing was charged. Try again in a minute.');
+  await db.doc('shopCheckouts/' + t.id).set({ uid, product: BASKET, products, prices, at: now, env: cfg.env });
+  await db.doc('shop/' + uid).set({ pend }, { merge: true });
+  return { txn: t.id, env: cfg.env, token: cfg.token, products };
+}
+
 async function refresh(cfg, uid) {
   const db = getFirestore();
   await pace(uid, 'r', 15000);
@@ -349,7 +421,7 @@ async function refresh(cfg, uid) {
     for (const s of cks.docs) if (!have.has(s.id) && s.get('env') === cfg.env && now - s.get('at') < 7 * DAY) {
       const t = await api(cfg, 'GET', '/transactions/' + s.id);
       if (t && t.status === 'completed') { const o = await ingestTx(cfg, t); have.add(s.id); if (o && o !== uid) others.add(o); }
-      else if (t && ['paid', 'billed', 'past_due'].includes(t.status)) taken.add(s.get('product'));
+      else if (t && ['paid', 'billed', 'past_due'].includes(t.status)) for (const p of [].concat(s.get('products') || s.get('product'))) taken.add(p);
     }
     for (const s of subs.docs) {
       const sub = await api(cfg, 'GET', '/subscriptions/' + s.id);
@@ -501,7 +573,7 @@ export async function shopStep(uid, d) {
   const cfg = await settings(d.step !== 'closing');
   if (!cfg.on) return { ok: true };
   const who = await identity(uid);
-  if (d.step === 'checkout') return checkout(cfg, who, d);
+  if (d.step === 'checkout') return Array.isArray(d.products) ? basket(cfg, who, d) : checkout(cfg, who, d);
   if (d.step === 'refresh') return refresh(cfg, uid);
   if (d.step === 'portal') return portal(cfg, uid);
   if (d.step === 'resume') return resume(cfg, uid);

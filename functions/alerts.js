@@ -166,7 +166,8 @@ export async function runAlerts(db, { now = Date.now(), webhook = '', site = 'ht
     ...reportAlerts(reports, cfg, now), ...popAlerts(nations, cfg, now),
     ...errorAlerts(health.docs.map(d => ({ uid: d.get('uid'), status: d.get('status'), error: d.get('error') })), cfg, now),
     ...spikeAlerts({ hour, week }, cfg, now),
-    ...buyAlerts(fresh.map(d => ({ id: d.id, uid: d.get('uid'), payer: d.get('payer'), product: d.get('product'), gift: !!d.get('gift'),
+    /* a basket names what was in it */
+    ...buyAlerts(fresh.map(d => ({ id: d.id, uid: d.get('uid'), payer: d.get('payer'), product: d.get('product') === 'basket' ? [].concat(d.get('products') || []).join(' + ') : d.get('product'), gift: !!d.get('gift'),
       name: sums.get(d.get('uid'))?.name, payerName: sums.get(d.get('payer'))?.name })), cfg),
     ...w.alerts,
   ];

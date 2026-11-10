@@ -43,6 +43,21 @@ sets up (`set-paddle.mjs --check` compares the two).
   that the product is on sale and not already owned, and creates a Paddle transaction at its own price with the
   player's ID in it. The page opens that transaction in Paddle's overlay checkout (Paddle.js, loaded from
   `cdn.paddle.com` only then). An open checkout is reused, so two tabs pay one bill.
+- **The basket.** Several one-off packs can be paid for together: `step: 'checkout', products: [...]` makes one
+  Paddle transaction with a line per product (custom_data `{uid, product: 'basket', products}`; `shopCheckouts`
+  `{product: 'basket', products, prices}`). Each product is checked as it would be on its own (on sale, not owned,
+  not included in something owned), and a basket holds only `once` products (`BASKETABLE`: not the Club, not a
+  gifted month, not a gift for someone else; refused with `basket_alone`), at most 10, each once, and never the
+  Founder's Package with the Card Pack it includes (`basket_included`). One product is an ordinary checkout. The same
+  basket again reuses its open checkout. The completed `shopTx` keeps `product: 'basket'`, `products` and
+  `items [{i, p, tot}]`: Paddle's line id (`details.line_items[].id`, `txnitm_…`), the product and the line's
+  total. Every line is delivered, refunded and counted on its own (`txUnits`): a dashboard refund that gives back
+  one line in full (`adjFacts` keeps `full: [line ids]` and `all` for a whole-transaction adjustment) takes back
+  that product only; a chargeback takes back the whole basket. When the rules call for a refund of a line (a pack
+  already owned from another payment, the Founder's Package paid too late), the server asks Paddle for a partial
+  refund of just those lines, all of one transaction's in one request (Paddle takes no second refund while one awaits
+  approval), and records them in `shopTx.refundItems`. The page keeps the basket on the device
+  (`edictum.shop.bag`); see The Shop page below.
 - **Owning.** Only Paddle's signed notifications to the `paddle` function, and the server's own questions to
   Paddle's API (`refresh`, when the player checks back), decide what an account owns. Returning from the checkout
   grants nothing. Every notification is checked (HMAC-SHA256, `Paddle-Signature`), handled once (by event ID), and
@@ -236,6 +251,14 @@ previews, the full list, gifting, the Club's table, picks and seals. The drawer 
   Sections (Limited time, Cosmetics, Gifts, Bundles) appear once any of them holds two items; until then the cards share one grid.
 - The wishlist, Recently viewed and Hide owned are kept on the device (`localStorage`, `edictum.shop.*`), not on the account.
 - While a drawer is open, the cards behind it keep their prices but show no buttons, so each buy button exists once.
+- **The basket.** Every one-off pack on sale has an Add button beside Buy (on its card and in its drawer). While the
+  basket holds something, a bar stays at the foot of the Shop (above the tab bar on a phone) with the count, the sum in
+  the player's currency once Paddle has priced every item (`shim local()` returns `amounts` for this), Review and Pay.
+  Review opens the basket's drawer (`SHOP.dr = 'bag'`): each pack with its price and Remove, the sum, and one Pay
+  button. Adding the Founder's Package takes the Card Pack out (it is included); what is owned since, included or no
+  longer on sale drops out by itself. Paying asks a guest to link a sign-in first and then carries on. A paid basket
+  empties at once and waits, like any purchase, until every pack in it is confirmed. Analytics event:
+  `shop_basket_checkout` (`items`).
 
 **A pack that grows.** When a product's `grants` gain pieces, raise its `grantsV` in the catalogue. Each account's
 `shop/<uid>` keeps the `gv` it was settled under. The Shop's `status` step settles an owner again when their `gv` is

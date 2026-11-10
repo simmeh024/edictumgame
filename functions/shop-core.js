@@ -62,22 +62,49 @@ export function signature(raw, secret, ts = Math.floor(Date.now() / 1000)) {
   return 'ts=' + ts + ';h1=' + crypto.createHmac('sha256', secret).update(ts + ':').update(raw).digest('hex');
 }
 
+/* A basket: several one-off products for the player's own nation, paid together in one checkout (functions/shop.js,
+   basket). Paddle keeps each as its own line with its own id (details.line_items[].id, txnitm_…), and a refund can give
+   back one line in full without the others, so what a basket delivers is worked out line by line. */
+export const BASKET = 'basket';
+export const BASKET_MAX = 10;
+export const BASKETABLE = ONCE.filter(p => !CAT.products[p].giftOnly);
+/* the lines of a transaction as entitlement() counts them: a basket's own ({i: Paddle's line id, p: product, tot}), or
+   the transaction itself as one line (i ''), as every transaction before baskets was */
+export function txUnits(t) {
+  return Array.isArray(t.items) && t.items.length
+    ? t.items.map(x => ({ i: String(x && x.i || ''), p: String(x && x.p || ''), tot: Number(x && x.tot) || 0 }))
+    : [{ i: '', p: String(t.product || ''), tot: Number(t.total) || 0 }];
+}
+
 /* the facts kept from Paddle's entities */
 export function txFacts(d, prices) {
   const byPrice = Object.fromEntries(Object.entries(prices || {}).flatMap(([k, v]) => [].concat(v || []).map(id => [id, k])));
   const items = Array.isArray(d.items) ? d.items : [], one = items.length === 1 ? items[0] : null;
-  const price = one ? String(one.price?.id || one.price_id || '') : '';
-  const product = byPrice[price] || '';
   const pay = (Array.isArray(d.payments) ? d.payments : []).find(p => p && ms(p.captured_at));
   const bp = d.billing_period;
-  return {
-    id: String(d.id || ''), status: String(d.status || ''), product, price,
-    ok: !!product && !!one && (one.quantity == null || one.quantity === 1),
+  const out = {
+    id: String(d.id || ''), status: String(d.status || ''), product: '', products: [], price: '', ok: false,
     paid: ms(pay?.captured_at) || ms(d.billed_at) || ms(d.updated_at),
     period: bp && ms(bp.starts_at) && ms(bp.ends_at) > ms(bp.starts_at) ? { s: ms(bp.starts_at), e: ms(bp.ends_at) } : null,
     sub: typeof d.subscription_id === 'string' ? d.subscription_id : '', ctm: typeof d.customer_id === 'string' ? d.customer_id : '',
     origin: String(d.origin || ''), cur: String(d.currency_code || ''), total: Number(d.details?.totals?.total) || 0
   };
+  if (items.length > 1) {
+    /* a basket: each line by its id, product and total; delivered only if every line is a different one-off product, one of
+       each, and Paddle named every line */
+    const lines = Array.isArray(d.details?.line_items) ? d.details.line_items : [];
+    const units = lines.map(l => ({ i: typeof l?.id === 'string' ? l.id : '', p: byPrice[String(l?.price_id || l?.price?.id || '')] || '', q: l?.quantity, tot: Number(l?.totals?.total) || 0 }));
+    out.product = BASKET; out.products = units.map(u => u.p);
+    out.items = units.map(({ i, p, tot }) => ({ i, p, tot }));
+    out.ok = units.length === items.length && units.every(u => /^txnitm_[a-z0-9]{8,64}$/.test(u.i) && BASKETABLE.includes(u.p) && (u.q == null || u.q === 1))
+      && new Set(units.map(u => u.p)).size === units.length && new Set(units.map(u => u.i)).size === units.length;
+    return out;
+  }
+  out.price = one ? String(one.price?.id || one.price_id || '') : '';
+  out.product = byPrice[out.price] || '';
+  out.products = out.product ? [out.product] : [];
+  out.ok = !!out.product && !!one && (one.quantity == null || one.quantity === 1);
+  return out;
 }
 export function subFacts(d) {
   const bp = d.current_billing_period, sc = d.scheduled_change;
@@ -91,24 +118,32 @@ export function subFacts(d) {
   };
 }
 /* whole or not: a refund made in Paddle's dashboard comes as type 'partial' even when it gives back every item in full
-   (a live €2.99 refund did), so an adjustment whose items are each refunded in full is the whole transaction (the
-   shop's transactions have one item: txFacts) */
+   (a live €2.99 refund did), so for a transaction of one item an adjustment whose items are each refunded in full is the
+   whole transaction (type). A basket has several lines, so the adjustment also keeps whether Paddle adjusted the whole
+   transaction (all) and which lines it gave back in full (full: their ids) */
 export function adjFacts(d) {
   const items = Array.isArray(d.items) ? d.items : [];
   const whole = d.type !== 'partial' || (items.length > 0 && items.every(i => i && i.type === 'full'));
   return { id: String(d.id || ''), txn: String(d.transaction_id || ''), sub: typeof d.subscription_id === 'string' ? d.subscription_id : '',
-    action: String(d.action || ''), type: whole ? 'full' : 'partial', status: String(d.status || '') };
+    action: String(d.action || ''), type: whole ? 'full' : 'partial', status: String(d.status || ''),
+    all: d.type !== 'partial', full: items.filter(i => i && i.type === 'full' && typeof i.item_id === 'string').map(i => i.item_id).slice(0, 50) };
 }
 
-/* a refund of the whole transaction, as it stands: '' (none), 'pending', 'approved', 'rejected' */
-export function refundState(txn, adjs) {
-  const r = adjs.filter(a => a.txn === txn && a.action === 'refund' && a.type === 'full');
+/* whether an adjustment reaches a line (txUnits): a transaction of one item by its type, as always; a basket's line when
+   the whole transaction was adjusted, or that line was given back in full */
+const reaches = (a, u) => !u || !u.i ? a.type === 'full'
+  : a.all === true || (a.all == null && a.type === 'full') || (Array.isArray(a.full) && a.full.includes(u.i));
+/* a refund of the whole transaction (or, given a basket's line, of that line), as it stands: '' (none), 'pending',
+   'approved', 'rejected' */
+export function refundState(txn, adjs, u) {
+  const r = adjs.filter(a => a.txn === txn && a.action === 'refund' && reaches(a, u));
   return r.some(a => a.status === 'approved') ? 'approved' : r.some(a => a.status === 'pending_approval') ? 'pending'
     : r.some(a => a.status === 'rejected') ? 'rejected' : '';
 }
-/* the payment no longer counts: refunded in full, or charged back (and not won back) */
-export function voided(txn, adjs) {
-  if (refundState(txn, adjs) === 'approved') return true;
+/* the payment (or a basket's line) no longer counts: refunded in full, or charged back (and not won back): a chargeback
+   takes back the whole transaction */
+export function voided(txn, adjs, u) {
+  if (refundState(txn, adjs, u) === 'approved') return true;
   const mine = adjs.filter(a => a.txn === txn);
   return mine.some(a => a.action === 'chargeback' && a.status === 'approved') && !mine.some(a => a.action === 'chargeback_reverse' && a.status === 'approved');
 }
@@ -137,32 +172,40 @@ export function months(p) {
 }
 
 /* What an account owns, from its records:
-     txs   [{id, product, ok, ck, created, paid, period, sub, status, payer, gift}]: its completed transactions (created:
-           when this server opened the checkout; ck: it did; payer: who paid, when another account gave it as a gift)
-     adjs  [{txn, action, type, status}]: adjustments to them
+     txs   [{id, product, ok, ck, created, paid, period, sub, status, payer, gift, items?}]: its completed transactions (created:
+           when this server opened the checkout; ck: it did; payer: who paid, when another account gave it as a gift;
+           items: a basket's lines, each delivered, refunded and charged back on its own terms: txUnits)
+     adjs  [{txn, action, type, status, all?, full?}]: adjustments to them
      subs  {id: {status, period, cancelAt, next, firstTxn, dup}}: its subscriptions
      picks {periodStart: cosmetic}: the Chancery Club's monthly picks
      now   the server's time: which paid months to keep for picking (without it, the last three)
      comp  {at, until}: a membership an admin granted for free (shopComp/{uid}), counted like a paid one
      prizes [when]: months of the Club won in the game (shopPrize/{uid}: the flag competition), each when it was won
    → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n, m, f},
-      gifts: [{p, from, t, txn}], refunds: [{txn, why}], cancels: [{sub, why}], notes: [{k, txn, t}], cosmetics: [ids shown to other players]}
+      gifts: [{p, from, t, txn}], refunds: [{txn, why, item?, p?}], cancels: [{sub, why}], notes: [{k, txn, t, st, p?}], cosmetics: [ids shown to other players]}
    A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends; a month
    won begins the same way, after whatever is paid, given or granted, so it is never spent on days already covered. */
 export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null, prizes = [] }) {
   const out = { owns: {}, vip: null, gifts: [], refunds: [], cancels: [], notes: [], cosmetics: [] };
   /* a checkout this server opened, or a renewal of a subscription one of those started */
   const valid = txs.filter(t => t.status === 'completed' && t.ok && (t.ck || t.sub && subs[t.sub]));
-  const refund = (t, why) => { const st = refundState(t.id, adjs); if (!st) out.refunds.push({ txn: t.id, why }); out.notes.push({ k: why, txn: t.id, t: t.paid, st: st || 'asked' }); };
+  /* a refund the rules call for: of the whole transaction, or of one of a basket's lines (item: Paddle's line id), so the
+     rest of the basket stays delivered */
+  const refund = (t, why, u) => {
+    const line = u && u.i ? { item: u.i, p: u.p } : null, st = refundState(t.id, adjs, u);
+    if (!st) out.refunds.push({ txn: t.id, why, ...line });
+    out.notes.push({ k: why, txn: t.id, t: t.paid, st: st || 'asked', ...(line ? { p: u.p } : {}) });
+  };
   for (const p of ONCE) {
     let owner = null;
-    for (const t of valid.filter(t => t.product === p && t.ck && !voided(t.id, adjs)).sort((a, b) => a.paid - b.paid)) {
-      const turnedDown = refundState(t.id, adjs) === 'rejected';
+    const lines = valid.filter(t => t.ck).flatMap(t => txUnits(t).filter(u => u.p === p && !voided(t.id, adjs, u)).map(u => ({ t, u }))).sort((a, b) => a.t.paid - b.t.paid);
+    for (const { t, u } of lines) {
+      const st = refundState(t.id, adjs, u), turnedDown = st === 'rejected';
       /* money on its way back delivers nothing (a membership's month counts until its refund is made) */
-      if (refundState(t.id, adjs) === 'pending') { out.notes.push({ k: 'refund', txn: t.id, t: t.paid, st: 'pending' }); continue; }
-      if (p === 'founder' && !founderInTime(t) && !turnedDown) { refund(t, 'late'); continue; }
+      if (st === 'pending') { out.notes.push({ k: 'refund', txn: t.id, t: t.paid, st: 'pending', ...(u.i ? { p } : {}) }); continue; }
+      if (p === 'founder' && !founderInTime(t) && !turnedDown) { refund(t, 'late', u); continue; }
       if (!owner) owner = t;
-      else if (!turnedDown) refund(t, 'duplicate');
+      else if (!turnedDown) refund(t, 'duplicate', u);
     }
     if (owner) out.owns[p] = owner.paid;
   }

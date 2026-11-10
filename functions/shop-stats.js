@@ -3,8 +3,10 @@
    subscriptions and checkouts. Pure: admin.js reads the records and hands them in, so the tests need no emulator.
 
    Money: Paddle charges in the buyer's local currency (shopTx.cur, total in that currency's lowest unit), so takings
-   are kept apart per currency. "At list price" adds each sale's catalogue euro price instead, for one comparable sum. */
-import { CATALOGUE, refundState, voided } from './shop-core.js';
+   are kept apart per currency. "At list price" adds each sale's catalogue euro price instead, for one comparable sum.
+   A basket counts as one sale per product in it, each with its own line's total and its own refunds (shop-core.js,
+   txUnits); the latest sales list it once, with its products. */
+import { CATALOGUE, refundState, voided, txUnits } from './shop-core.js';
 
 export const DAY = 86400000;
 const dayKey = t => new Date(t).toISOString().slice(0, 10);
@@ -22,26 +24,32 @@ export function shopSummary({ txs = [], subs = [], adjs = [], cks = [] }, now = 
   const recent = [];
   for (const t of txs) {
     if (t.status && t.status !== 'completed') continue;
-    const p = products[t.product], gone = voided(t.id, adjs), rs = refundState(t.id, adjs), at = t.paid || 0;
-    sold++; if (p) p.sold++;
-    if (t.gift) { gifts++; if (p) p.gifts++; }
+    const at = t.paid || 0, units = txUnits(t), states = [];
     if (t.payer || t.uid) buyers.add(t.payer || t.uid);
-    if (gone) {
-      refunded++; if (p) p.refunded++;
-      if (t.cur) add(refundedMoney, t.cur, Number(t.total) || 0);
-    } else {
-      kept++; listKept += list(t.product);
-      if (p) { p.kept++; p.list += list(t.product); if (t.cur) add(p.money, t.cur, Number(t.total) || 0); }
-      if (t.cur) add(money, t.cur, Number(t.total) || 0);
+    if (at > now - 30 * DAY && (t.payer || t.uid)) buyers30.add(t.payer || t.uid);
+    for (const u of units) {
+      const p = products[u.p], gone = voided(t.id, adjs, u), rs = refundState(t.id, adjs, u), d = days[dayKey(at)];
+      states.push(gone ? 'refunded' : rs === 'pending' ? 'pending' : rs === 'rejected' ? 'rejected' : '');
+      sold++; if (p) p.sold++;
+      if (t.gift) { gifts++; if (p) p.gifts++; }
+      if (gone) {
+        refunded++; if (p) p.refunded++;
+        if (t.cur) add(refundedMoney, t.cur, u.tot);
+      } else {
+        kept++; listKept += list(u.p);
+        if (p) { p.kept++; p.list += list(u.p); if (t.cur) add(p.money, t.cur, u.tot); }
+        if (t.cur) add(money, t.cur, u.tot);
+      }
+      if (rs === 'pending') pendingRefunds++;
+      if (at > now - 30 * DAY) { sold30++; if (!gone) list30 += list(u.p); if (p) p.paid30++; }
+      if (at > now - 7 * DAY) sold7++;
+      if (at > now - DAY) sold1++;
+      if (d) { d.n++; if (!gone) d.list += list(u.p); }
     }
-    if (rs === 'pending') pendingRefunds++;
-    if (at > now - 30 * DAY) { sold30++; if (!gone) list30 += list(t.product); if (t.payer || t.uid) buyers30.add(t.payer || t.uid); if (p) p.paid30++; }
-    if (at > now - 7 * DAY) sold7++;
-    if (at > now - DAY) sold1++;
-    const d = days[dayKey(at)];
-    if (d) { d.n++; if (!gone) d.list += list(t.product); }
-    recent.push({ id: t.id, uid: t.uid || '', payer: t.payer || '', gift: !!t.gift, product: t.product || '', paid: at, cur: t.cur || '', total: Number(t.total) || 0,
-      refund: gone ? 'refunded' : rs === 'pending' ? 'pending' : rs === 'rejected' ? 'rejected' : '', renewal: !!t.sub && !t.ck });
+    /* a basket's lines refunded one by one: all of it, or part */
+    const refund = states.every(x => x === 'refunded') ? 'refunded' : states.includes('pending') ? 'pending' : states.includes('refunded') ? 'part refunded' : states.includes('rejected') ? 'rejected' : '';
+    recent.push({ id: t.id, uid: t.uid || '', payer: t.payer || '', gift: !!t.gift, product: t.product || '', ...(units.length > 1 ? { products: units.map(u => u.p) } : {}),
+      paid: at, cur: t.cur || '', total: Number(t.total) || 0, refund, renewal: !!t.sub && !t.ck });
   }
   for (const a of adjs) if (a.action === 'chargeback' && a.status === 'approved') chargebacks++;
   recent.sort((a, b) => b.paid - a.paid);
@@ -67,7 +75,7 @@ export function shopSummary({ txs = [], subs = [], adjs = [], cks = [] }, now = 
   let opened30 = 0, paid30 = 0;
   for (const c of cks) {
     if (!(c.at > now - 30 * DAY)) continue;
-    opened30++; if (products[c.product]) products[c.product].opened30++;
+    opened30++; for (const k of [].concat(c.products || c.product)) if (products[k]) products[k].opened30++;
     if (paidIds.has(c.id)) paid30++;
   }
 

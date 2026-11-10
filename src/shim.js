@@ -642,23 +642,27 @@
   }
   var shopApi = Object.freeze({
     request: function (data) { return A.frozen ? hang() : call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'shop' })); },
-    /* local({env, token, items: [pri_…]}) → {cur, prices: {pri_…: 'MX$209.39'}}: what Paddle charges where the player
-       is (it works the country out from their IP address), tax included, or null. In the emulators the tests answer
-       through window.__edictumPrices(items). */
+    /* local({env, token, items: [pri_…]}) → {cur, prices: {pri_…: 'MX$209.39'}, amounts: {pri_…: 20939}}: what Paddle
+       charges where the player is (it works the country out from their IP address), tax included, or null; amounts in the
+       currency's smallest unit (the basket adds them up). In the emulators the tests answer through
+       window.__edictumPrices(items). */
     local: function (o) {
       var items = isObj(o) && Array.isArray(o.items) ? o.items.filter(function (v) { return typeof v === 'string' && /^pri_[a-z0-9]{8,64}$/.test(v); }).slice(0, 10) : [];
       if (!items.length) return Promise.resolve(null);
       var tidy = function (r) {
         if (!isObj(r) || typeof r.cur !== 'string' || !isObj(r.prices)) return null;
-        var out = {};
-        items.forEach(function (id) { if (typeof r.prices[id] === 'string') out[id] = str(r.prices[id], 40); });
-        return { cur: str(r.cur, 3).toUpperCase(), prices: out };
+        var out = {}, am = {}, ra = isObj(r.amounts) ? r.amounts : {};
+        items.forEach(function (id) {
+          if (typeof r.prices[id] === 'string') out[id] = str(r.prices[id], 40);
+          var n = Number(ra[id]); if (typeof ra[id] !== 'boolean' && ra[id] !== '' && ra[id] != null && isFinite(n) && n >= 0 && n < 1e9) am[id] = Math.round(n);
+        });
+        return { cur: str(r.cur, 3).toUpperCase(), prices: out, amounts: am };
       };
       if (o.env === 'fake') return Promise.resolve(typeof window.__edictumPrices === 'function' ? tidy(window.__edictumPrices(items)) : null);
       return paddleReady(o).then(function (P) {
         return P.PricePreview({ items: items.map(function (id) { return { priceId: id, quantity: 1 }; }) });
       }).then(function (r) {
-        var d = r && r.data, cur = d && typeof d.currencyCode === 'string' ? d.currencyCode : '', prices = {};
+        var d = r && r.data, cur = d && typeof d.currencyCode === 'string' ? d.currencyCode : '', prices = {}, amounts = {};
         var lines = d && d.details && Array.isArray(d.details.lineItems) ? d.details.lineItems : [];
         /* Paddle writes pesos as "$209.39", which reads as dollars: written again from the amount (in the currency's
            smallest unit) with the currency named, "MX$209.39"; Paddle's own text if that fails */
@@ -668,8 +672,8 @@
             return isFinite(n) && amount !== '' && amount != null ? f.format(n / Math.pow(10, f.resolvedOptions().maximumFractionDigits)) : '';
           } catch (e) { return ''; }
         };
-        lines.forEach(function (l) { if (l && l.price && l.formattedTotals) prices[l.price.id] = named(l.totals && l.totals.total) || l.formattedTotals.total; });
-        return tidy({ cur: cur, prices: prices });
+        lines.forEach(function (l) { if (l && l.price && l.formattedTotals) { prices[l.price.id] = named(l.totals && l.totals.total) || l.formattedTotals.total; if (l.totals) amounts[l.price.id] = l.totals.total; } });
+        return tidy({ cur: cur, prices: prices, amounts: amounts });
       }).catch(function () { return null; });
     },
     checkout: function (o) {
