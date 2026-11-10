@@ -28,7 +28,7 @@
    when the hex was d's. s stays for builds older than that, which check only it. */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, FieldPath } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
 export { adminConsole } from './admin.js';
 export { accounts } from './accounts.js';
@@ -145,9 +145,12 @@ async function forget(uid) {
   if (account.exists) await account.ref.set({ generation: account.get('generation') || '', recoveryIssued: !!(account.get('recoveryIssued') || account.get('recoveryHash')), ...(account.get('hw') ? { hw: account.get('hw') } : {}) });
   await db.recursiveDelete(db.doc('nationPermits/' + uid));
   const [proposals, votes] = await Promise.all(['proposals','votes'].map(c => db.collectionGroup(c).where('uid','==',uid).get()));
+  /* the Book of Resolutions keeps each member's vote and reason (functions/civic.js, bookEntry): this account's go */
+  const books = await Promise.all(DATA.regions.map(r => db.collection('assemblyRegions/' + r.id + '/asmBook').where('vu', 'array-contains', uid).get()));
   const writer = db.bulkWriter();
   DATA.regions.forEach(r => writer.delete(db.doc('assemblyRegions/' + r.id + '/actors/' + uid)));
   proposals.docs.concat(votes.docs).forEach(s => writer.delete(s.ref));
+  for (const q of books) for (const s of q.docs) writer.update(s.ref, new FieldPath('vm', uid), FieldValue.delete(), new FieldPath('vx', uid), FieldValue.delete(), 'vu', FieldValue.arrayRemove(uid));
   await writer.close();
   return { ok: true };
 }

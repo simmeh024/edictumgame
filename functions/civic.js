@@ -7,7 +7,7 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact } from './board.js';
+import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
 import { flagOp, isFlagOp } from './flagcomp.js';
 import { pace, ipRule } from './pace.js';
@@ -161,9 +161,10 @@ async function renamed(db, who) {
 function civicRecord(reg, saved, account, actor, valid, hidden) {
   const generation = saved.createTime.toMillis(), born = account.get('nationGeneration') === generation ? account.get('nationAt') : generation;
   const a = actor?.get('generation') === generation ? actor.get('record') : { r: reg, e: [], s: [], v: [] };
-  const n = nationJSON(saved);
-  // Never import political decisions from a legacy, player-writable JSON record.
-  return { id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, asm: a }, generation, hidden };
+  const n = nationJSON(saved), ts = saved.get('ts'), lastSave = ts && typeof ts.toMillis === 'function' ? ts.toMillis() : saved.updateTime ? saved.updateTime.toMillis() : 0;
+  // Never import political decisions from a legacy, player-writable JSON record. lastSave, the server's time of its
+  // last save, tells an absent member (game/edictum.html asmAbsentAt)
+  return { id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, lastSave, asm: a }, generation, hidden };
 }
 
 /* the region's records as stored: every nation in it (dormant ones too: their endorsements and the computer
@@ -196,14 +197,22 @@ async function regionState(tx, db, reg, now) {
 }
 
 /* what the Assembly owes at `now`: cycles past their close to finalise and cycles to lock, as writes (pending),
-   also added to locks */
+   also added to locks. Cycles close in order, each keeping the rulebook as it leaves it (bk, bx) and its page in the
+   Book of Resolutions (book: asmBook/{c}); the cycle locked now opens its debate on the Community Board (debate) */
 function regionDue(reg, root, records, locks, now) {
   const engine = assemblyEngine(reg, records, locks), c = engine.cycle(now);
-  const pending = [];
-  // Cut over at the current cycle; only protected cycles can become binding results.
-  for (const L of locks) if (L.c < c && !L.f) {
-    const at = engine.t0(L.c + 1) - 1, D = engine.delegate(records, at).D, V = engine.tally(L, L.c, records, at, D);
+  const pending = [], book = [];
+  let debate = null;
+  const close = (L, eng) => {
+    const at = eng.t0(L.c + 1) - 1, D = eng.delegate(records, at).D, V = eng.tally(L, L.c, records, at, D);
     Object.assign(L, { y: V.y, n: V.n, ok: V.ok ? 1 : 0, f: now, r: reg });
+    const step = eng.bookStep(eng.book(L.c), L);
+    L.bk = step.bk; if (step.bx.length) L.bx = step.bx; else delete L.bx;
+    book.push([root.collection('asmBook').doc(String(L.c)), bookEntry(L, V, D)]);
+  };
+  // Cut over at the current cycle; only protected cycles can become binding results.
+  for (const L of locks.filter(L => L.c < c && !L.f).sort((a, b) => a.c - b.c)) {
+    close(L, engine);
     pending.push([root.collection('cycles').doc(String(L.c)), L]);
   }
   const last = locks.length ? Math.max(...locks.map(L=>L.c)) : c-1;
@@ -211,19 +220,52 @@ function regionDue(reg, root, records, locks, now) {
     const currentEngine=assemblyEngine(reg,records,locks),L=currentEngine.pick(next,new Set(locks.map(x=>x.k)));
     if(L){
       L.lt=now;
-      if(next<c){const at=currentEngine.t0(next+1)-1,D=currentEngine.delegate(records,at).D,V=currentEngine.tally(L,next,records,at,D);Object.assign(L,{y:V.y,n:V.n,ok:V.ok?1:0,f:now,r:reg});}
+      if(next<c)close(L,currentEngine);
+      else{L.dt=debateId(next);debate=L;}
       locks.push(L);pending.push([root.collection('cycles').doc(String(next)),L]);
     }
   }
-  return { pending, c, engine: assemblyEngine(reg, records, locks) };
+  return { pending, book, debate, c, engine: assemblyEngine(reg, records, locks) };
+}
+
+/* A finished cycle in the Book of Resolutions (assemblyRegions/{reg}/asmBook/{c}): the resolution and its count, with
+   how each player member voted (vm), the reasons they gave (vx), the computer nations' votes (nv), the player members
+   at the close (vu: also how an account's deletion finds its votes, functions/index.js) and the Delegate's weight (dl) */
+function bookEntry(L, V, D) {
+  const vm = {}, vx = {}, nv = {}, vu = [];
+  for (const r of V.rows) {
+    if (r.npc) { if (r.v !== null) nv[r.id] = r.v; continue; }
+    vu.push(r.id);
+    if (!r.t) continue;
+    vm[r.id] = r.v; if (r.x) vx[r.id] = r.x;
+  }
+  const { bk, ...rest } = L;
+  return { ...rest, vm, vx, nv, vu, ...(D ? { dl: { id: D.id, w: V.rows.find(r => r.id === D.id)?.w || 1 } } : {}) };
+}
+
+/* The debate of the resolution at the vote: a topic on its region's Community Board, opened by the Assembly's clerk
+   (functions/board.js; as: it shows as the Assembly, not as a nation or the Edictum team). Its id follows from the
+   cycle, so the lock names it (dt) and a second try writes the same topic. */
+export const debateId = c => 'AsmDebate' + String(c).padStart(11, '0');
+function debateTopic(reg, L, t1, now) {
+  const R = DATA.regions.find(r => r.id === reg), name = 'The ' + (R ? R.name : reg) + ' Assembly';
+  const when = new Date(t1).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+  const how = L.w === 'd' ? ', at the Delegate’s choosing' : L.w === 's' ? ', as the proposal with the most support' : '';
+  const first = L.w === 'n' ? `No member tabled a proposal in time, so ${L.bn} has put one of its own to the vote: “${L.ti}”.` : `${L.bn} has put “${L.ti}” to the vote${how}.`;
+  const x = [first, L.rp ? `It would repeal “${L.rt || 'a resolution in force'}” and lift its effects from every member.` : '', L.tx ? `“${L.tx}”` : '',
+    `The count closes at 00:00 UTC on ${when}. Cast your vote on the Assembly page, and make your case here.`].filter(Boolean).join('\n\n');
+  return { a: 'assembly', nm: name, rg: reg, as: true, rl: 'Clerk of the Assembly', ti: text(`Resolution No. ${L.c + 1}: ${L.ti}`, 120), x, tg: 'assembly', t: now, la: now, rc: 0 };
 }
 
 function output(ctx, uid, now, e) {
   const st = ctx.engine.state(now);
   const simpleD = D => D ? { id: D.id, k: D.k, by: D.by, np: D.np } : null;
+  // the rulebook travels with the latest finished cycle only: the game folds the rest in as the server does
+  const lastF = ctx.locks.reduce((m, L) => L.f && L.c > m ? L.c : m, -Infinity);
+  const locks = ctx.locks.map(L => { if (L.c === lastF || !L.bk) return L; const { bk, ...rest } = L; return rest; });
   return { c: st.c, t0: st.t0, t1: st.t1, now, reg: e.n.reg, cur: st.cur, D: simpleD(st.D),
-    recs: ctx.records.filter(r=>!r.hidden||r.id===uid), locks: ctx.locks, V: st.V ? { ...st.V, rows: st.V.rows.map(({ n, ...row }) => row) } : null,
-    info: [...st.DD.info].map(([id, v]) => [id, { k: v.k, by: v.by, np: v.np, reach: v.reach }]),
+    recs: ctx.records.filter(r=>!r.hidden||r.id===uid), locks, V: st.V ? { ...st.V, rows: st.V.rows.map(({ n, ...row }) => row) } : null,
+    info: [...st.DD.info].map(([id, v]) => [id, { k: v.k, by: v.by, np: v.np, reach: v.reach, ...(v.ab ? { ab: 1 } : {}) }]),
     npc: st.DD.npc.map(b => ({ id: b.x.id, player: b.r?.id || '', a: b.a })),
     account: { kind: e.kind, readyAt: e.readyAt, eligible: e.kind === 'registered' && now >= e.readyAt && !e.moderated, reason: e.moderated ? 'moderated' : '' },
     own: ctx.records.find(r => r.id === uid)?.n.asm || { r: e.n.reg, e: [], s: [], v: [] } };
@@ -283,6 +325,36 @@ async function observeView(db, who, reg) {
   return output({ records, locks, engine: due.engine }, '', now, { n: { reg }, kind: 'observer', readyAt: 0, moderated: false });
 }
 
+/* The Book of Resolutions: a region's finished cycles, newest first, a page at a time (before: the cycle to start
+   below), each with its count and how the members voted. Any nation reads its own region's; an admin observing
+   reads the one it observes. A cycle closed before the Book was kept (no asmBook/{c}) is written up once from its
+   lock and its votes, so the reads that takes happen only the first time. */
+export const BOOK_PAGE = 12;
+async function bookRead(db, who, d) {
+  let reg = '';
+  if (typeof d.obs === 'string' && d.obs) {
+    if (!who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can observe a region.');
+    reg = d.obs;
+  } else reg = (await db.runTransaction(tx => eligibility(tx, who, { linked: false, hidden: true }), { readOnly: true })).n.reg;
+  if (!regions.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
+  const root = db.doc('assemblyRegions/' + reg), before = Number.isSafeInteger(d.before) ? d.before : null;
+  let q = root.collection('cycles').orderBy('c', 'desc');
+  if (before !== null) q = q.where('c', '<', before);
+  const cycles = (await q.limit(BOOK_PAGE + 1).get()).docs.map(s => s.data()).filter(L => Number.isInteger(L.c));
+  const more = cycles.length > BOOK_PAGE, locks = cycles.slice(0, BOOK_PAGE).filter(L => L.f);
+  const kept = locks.length ? await db.getAll(...locks.map(L => root.collection('asmBook').doc(String(L.c)))) : [];
+  const out = [], late = [];
+  for (const [i, L] of locks.entries()) {
+    if (kept[i].exists) { out.push(kept[i].data()); continue; }
+    const vs = await root.collection('cycles').doc(String(L.c)).collection('votes').get(), vm = {}, vx = {};
+    for (const v of vs.docs) { const x = v.data(); if (x.key !== L.k || ![-1, 0, 1].includes(x.value)) continue; vm[v.id] = x.value; if (typeof x.why === 'string' && x.why) vx[v.id] = text(x.why, 100); }
+    const { bk, ...rest } = L, entry = { ...rest, vm, vx, nv: {}, vu: Object.keys(vm) };
+    out.push(entry); late.push([root.collection('asmBook').doc(String(L.c)), entry]);
+  }
+  if (late.length) { const b = db.batch(); for (const [ref, entry] of late) b.set(ref, entry); await b.commit().catch(() => {}); }
+  return { reg, list: out, more, next: cycles.length ? cycles[Math.min(cycles.length, BOOK_PAGE) - 1].c : null };
+}
+
 async function assembly(db, who, d) {
   if (d.op === 'state' && typeof d.obs === 'string' && d.obs) return observeView(db, who, d.obs);
   if (d.op === 'state') return await regionView(db, who) || assemblyTx(db, who, d);
@@ -316,10 +388,19 @@ async function assemblyTx(db, who, d) {
     const queued = k => queue.find(x => x.k === k && ctx.engine.cycle(x.p.t) >= ctx.c - 2 && !ctx.locks.some(L => L.k === k));
     if (op === 'vote') {
       if (![-1,0,1].includes(d.vote) || d.cycle !== ctx.c || d.key !== st.cur?.k) refuse('vote_closed', 'This vote has closed or changed. Refresh the Assembly.');
-      a.v = [...(a.v || []).filter(v => v.c >= ctx.c - 3 && v.c !== ctx.c), { c: ctx.c, k: st.cur.k, v: d.vote, t: now }];
+      /* the reason a member gives for its vote, shown beside it (up to 100 characters) */
+      const why = text(d.why, 100);
+      a.v = [...(a.v || []).filter(v => v.c >= ctx.c - 3 && v.c !== ctx.c), { c: ctx.c, k: st.cur.k, v: d.vote, t: now, ...(why ? { x: why } : {}) }];
     } else if (op === 'propose') {
       const ti = text(d.title, 60), body = text(d.body, 280);
-      if (ti.length < 4 || body.length < 10 || !own(ctx.engine.cats, d.category) || ![0,1].includes(d.strength)) throw new HttpsError('invalid-argument', 'Choose a category, title and proposal text.');
+      /* a repeal names a resolution in the rulebook, and takes its category and strength from it */
+      let category = d.category, strength = d.strength, repeal = null;
+      if (!d.edit && typeof d.repeal === 'string' && d.repeal) {
+        repeal = ctx.engine.book(ctx.c).find(x => x.k === d.repeal);
+        if (!repeal) refuse('repeal_gone', 'That resolution is no longer in the rulebook.');
+        category = repeal.cat; strength = repeal.g ? 1 : 0;
+      }
+      if (ti.length < 4 || body.length < 10 || !own(ctx.engine.cats, category) || ![0,1].includes(strength)) throw new HttpsError('invalid-argument', 'Choose a category, title and proposal text.');
       const current = a.p && queued(ctx.engine.key(who.uid, a.p));
       if (d.edit) {
         if (!current) refuse('proposal_locked', 'This proposal can no longer be edited.');
@@ -327,7 +408,7 @@ async function assemblyTx(db, who, d) {
       } else {
         if (current || (a.p && st.cur?.k === ctx.engine.key(who.uid,a.p))) refuse('proposal_exists', 'You already have a proposal before the Assembly.');
         if (a.pw && now - a.pw < 6 * 3600000) refuse('proposal_cooldown', 'Wait six hours after withdrawing a proposal.');
-        a.p = { t: now, ti, tx: body, c: d.category, g: d.strength };
+        a.p = { t: now, ti, tx: body, c: category, g: strength, ...(repeal ? { rp: repeal.k, rt: text(repeal.ti, 60) } : {}) };
       }
     } else if (op === 'withdraw') {
       if (!a.p || st.cur?.k === ctx.engine.key(who.uid, a.p)) refuse('proposal_locked', 'A proposal at the vote cannot be withdrawn.');
@@ -362,12 +443,18 @@ async function assemblyTx(db, who, d) {
       a.j = now;
     } else if (op !== 'state') throw new HttpsError('invalid-argument', 'Unknown political action.');
     // All reads precede writes. The region revision serializes boundary finalization, votes and elections.
+    const cbMeta = ctx.debate ? await tx.get(db.doc('cb/' + reg)) : null;
     for (const [ref, L] of ctx.pending) tx.set(ref, L);
+    for (const [ref, entry] of ctx.book) tx.set(ref, entry);
+    if (ctx.debate) {
+      tx.set(db.doc('cb/' + reg + '/posts/' + ctx.debate.dt), debateTopic(reg, ctx.debate, ctx.engine.t0(ctx.debate.c + 1), now));
+      tx.set(cbMeta.ref, cbCounted(cbMeta, now, { n: 1 }));
+    }
     if (paper) tx.set(paper.ref, paper.doc, { merge: true });
     if (action) {
       mine.n.asm = a;
       tx.set(ctx.root.collection('actors').doc(who.uid), { generation: e.generation, record: a, at: now });
-      if (op === 'vote') tx.set(ctx.root.collection('cycles').doc(String(ctx.c)).collection('votes').doc(who.uid), { uid: who.uid, cycle: ctx.c, key: st.cur.k, value: d.vote, at: now });
+      if (op === 'vote') { const v = a.v[a.v.length - 1]; tx.set(ctx.root.collection('cycles').doc(String(ctx.c)).collection('votes').doc(who.uid), { uid: who.uid, cycle: ctx.c, key: st.cur.k, value: d.vote, at: now, ...(v.x ? { why: v.x } : {}) }); }
       if (op === 'propose' || op === 'withdraw') {
         const p = a.p || previousProposal;
         if (p) tx.set(ctx.root.collection('proposals').doc(ctx.engine.key(who.uid,p)), { uid: who.uid, ...p, status: op === 'withdraw' ? 'withdrawn' : 'queued', at: now });
@@ -470,7 +557,7 @@ async function newsTally(db, who, d, kind) {
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
-  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', ...ASSEMBLY_ACTS]);
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', 'book', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
@@ -482,7 +569,9 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
   pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' ? [['cr:' + uid, 20, 1 / 4]] : []),
     // scoring a flag: a judge clicks through a batch of ten, then one every two seconds
-    ...(op === 'fcRate' ? [['fr:' + uid, 30, 1 / 2]] : [])]);
+    ...(op === 'fcRate' ? [['fr:' + uid, 30, 1 / 2]] : []),
+    // a page of the Book of Resolutions: ten at once, then one every five seconds
+    ...(op === 'book' ? [['cbk:' + uid, 10, 1 / 5]] : [])]);
   const db = getFirestore(), who = await identity(uid);
   if (d.op === 'authorizeSave') return permit(db, who, d);
   if (d.op === 'carryKey') return noteCarryKey(db, who, d);
@@ -498,6 +587,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'cbMod') return cbMod(db, who, d, regions);
   if (d.op === 'cbPost') return cbPost(db, who, d, regions);
   if (d.op === 'topicReact') return rmbReact(db, who, d);
+  if (d.op === 'book') return bookRead(db, who, d);
   if (isAllianceOp(d.op)) return alliance(db, who, d);
   if (isFlagOp(d.op)) return flagOp(db, who, d);
   /* a message on a region's board: a nation on its own region's, or an admin, as the Edictum team (board.js teamMark),

@@ -205,6 +205,8 @@ test('maintenance allows an administrator to save without granting political pri
 
 test('Community Board: any Registered Nation posts in any region; the server writes the author and the counts',async()=>{
   const g=await player(),r=await player(true),far=await player(true,false,'frostmarch');
+  // the board may already hold the Assembly's debate topics (functions/civic.js, debateTopic): count from here
+  const was=(await db.doc('cb/frostmarch').get()).data()||{},today=new Date().toISOString().slice(0,10);
   await rejects(civic(g,{op:'cbTopic',reg:'meridian',ti:'Guest topic',x:'Hello'}),'registration_required');
   await db.doc('shop/'+r.uid).set({owns:{founder:Date.now()}});
   const t=await civic(r,{op:'cbTopic',reg:'frostmarch',ti:'  Grain for steel  ',x:'Anyone <b>selling</b> steel?',tg:'trade',a:'forged',fd:false,st:'admin',rc:99});
@@ -214,7 +216,7 @@ test('Community Board: any Registered Nation posts in any region; the server wri
   await db.doc('cbPace/'+r.uid).delete();                                 // the pacing has a test of its own
   await civic(r,{op:'cbReply',reg:'frostmarch',topic:t.id,x:'Deal.'});
   assert.equal((await db.doc('cb/frostmarch/posts/'+t.id).get()).get('rc'),2);
-  const meta=(await db.doc('cb/frostmarch').get()).data();assert.equal(meta.n,1);assert.equal(meta.r,2);assert.equal(meta.dn,3);
+  const meta=(await db.doc('cb/frostmarch').get()).data();assert.equal(meta.n,(was.n||0)+1);assert.equal(meta.r,(was.r||0)+2);assert.equal(meta.dn,(was.dd===today?was.dn||0:0)+3);
   await assert.rejects(civic(r,{op:'cbEdit',reg:'frostmarch',topic:t.id,reply:rep.id,x:'Not mine'}),e=>e.status==='PERMISSION_DENIED');
   await civic(far,{op:'cbEdit',reg:'frostmarch',topic:t.id,reply:rep.id,x:'I have iron.'});
   assert.equal((await db.doc('cb/frostmarch/posts/'+t.id+'/posts/'+rep.id).get()).get('x'),'I have iron.');
@@ -225,6 +227,7 @@ test('Community Board: any Registered Nation posts in any region; the server wri
 
 test('Community Board: staff pin, lock, hide, move and delete from inside the board, with an audit trail',async()=>{
   const r=await player(true),o=await player(true),staff=await player(true);await auth.setCustomUserClaims(staff.uid,{admin:true});
+  const was=(await db.doc('cb/wildwood').get()).data()||{};
   const t=await civic(r,{op:'cbTopic',reg:'meridian',ti:'A rude topic',x:'Rude words'});
   const rep=await civic(o,{op:'cbReply',reg:'meridian',topic:t.id,x:'A reply'});
   const ref=db.doc('cb/meridian/posts/'+t.id);
@@ -241,7 +244,7 @@ test('Community Board: staff pin, lock, hide, move and delete from inside the bo
   const there=db.doc('cb/wildwood/posts/'+t.id);assert.equal((await there.get()).get('rc'),2);assert.equal((await there.collection('posts').doc(rep.id).get()).get('x'),'A reply');
   await civic(staff,{op:'cbDelete',reg:'wildwood',topic:t.id});
   assert.equal((await there.get()).exists,false);assert.equal((await there.collection('posts').get()).size,0);
-  const w=(await db.doc('cb/wildwood').get()).data();assert.equal(w.n,0);assert.equal(w.r,0);
+  const w=(await db.doc('cb/wildwood').get()).data();assert.equal(w.n,was.n||0);assert.equal(w.r,was.r||0);
   const log=await db.collection('adminAudit').where('topic','==',t.id).get();
   assert.deepEqual(new Set(log.docs.map(x=>x.get('action'))),new Set(['board_pin','board_lock','board_hide','board_unhide','board_move','board_delete']));
 });
@@ -573,4 +576,53 @@ test('An admin observing a region reads its Assembly without a seat; a player ca
   assert.equal(s.reg,'frostmarch');assert.ok(s.cur);assert.ok(s.recs.some(r=>r.id===f.uid));assert.ok(!s.recs.some(r=>r.id===a.uid));
   assert.equal(s.account.eligible,false);
   await assert.rejects(civic(fresh,{op:'state',obs:'atlantis'}),e=>e.status==='INVALID_ARGUMENT');
+});
+
+test('A vote carries its reason: kept with the vote and shown beside it, cut to 100 characters; an abstention is a vote on record',async()=>{
+  const r=await player(true,true,'gilded'), st=await civic(r,{op:'state'});
+  const out=await civic(r,{op:'vote',cycle:st.c,key:st.cur.k,vote:0,why:'  For the ducks,\n who cannot vote.  '+'x'.repeat(200)});
+  const mine=out.V.rows.find(x=>x.id===r.uid);
+  assert.equal(mine.v,0);assert.ok(mine.t>0);assert.ok(mine.x.startsWith('For the ducks, who cannot vote.'));assert.equal(mine.x.length,100);
+  assert.equal((await db.doc(`assemblyRegions/gilded/cycles/${st.c}/votes/${r.uid}`).get()).get('why'),mine.x);
+  const again=await civic(r,{op:'vote',cycle:st.c,key:st.cur.k,vote:1});
+  assert.equal(again.V.rows.find(x=>x.id===r.uid).x,undefined,'a vote cast with no reason has none');
+  assert.ok(again.recs.find(x=>x.id===r.uid).n.lastSave>Date.now()-60000,'each record says when its nation was last saved');
+});
+
+test('A repeal names a resolution in the rulebook and takes its category and strength; one no longer there is refused',async()=>{
+  const r=await player(true,true,'gilded'), st=await civic(r,{op:'state'}), c=st.c;
+  const entry={k:'npc~gilded~'+(c-1),c:c-1,ti:'The Happy Hen Convention',tx:'Cages are banned.',cat:'animals',g:1,by:'npc-x',bn:'X'};
+  await db.doc(`assemblyRegions/gilded/cycles/${c-1}`).set({...entry,w:'n',lt:st.t0-DAY,y:3,n:1,ok:1,f:Date.now()-1000,r:'gilded',bk:[entry]});
+  await db.doc('assemblyRegions/gilded').set({at:Date.now()},{merge:true});
+  const seen=(await civic(r,{op:'state'})).locks.find(L=>L.c===c-1);assert.deepEqual(seen.bk.map(x=>x.k),[entry.k],'the latest finished cycle carries the book');
+  await rejects(civic(r,{...proposal,repeal:'npc~gilded~1'}),'repeal_gone');
+  const out=await civic(r,{op:'propose',title:'Repeal of the Hens',body:'The hens have all gone home.',category:'trade',strength:0,repeal:entry.k});
+  assert.equal(out.own.p.rp,entry.k);assert.equal(out.own.p.c,'animals');assert.equal(out.own.p.g,1);assert.equal(out.own.p.rt,'The Happy Hen Convention');
+});
+
+test('Closing a count keeps it in the Book with every vote and reason, the next opens its debate on the Community Board, and a deleted account leaves the Book',async()=>{
+  const reg='lanterncoast', a=await player(true,true,reg), b=await player(true,true,reg);
+  await age(a,10*DAY);await age(b,10*DAY);
+  const st=await civic(a,{op:'state'}), c=st.c, t0=st.t0-3*DAY, root=`assemblyRegions/${reg}`;
+  await civic(a,{op:'vote',cycle:c,key:st.cur.k,vote:1});await civic(b,{op:'vote',cycle:c,key:st.cur.k,vote:1});
+  // the count before this one, still open, with both votes in it; this cycle's lock taken away so it is locked again
+  const L={c:c-1,k:'test~close',ti:'The Polite Chimney Accord',tx:'Clean smoke only.',cat:'env',g:0,by:a.uid,bn:a.uid,w:'s',lt:t0+1000};
+  await db.doc(`${root}/cycles/${c-1}`).set(L);await db.doc(`${root}/cycles/${c}`).delete();
+  for(const [p,v,x] of [[a,1,'Clean chimneys for all.'],[b,-1,'']]){const ref=db.doc(`${root}/actors/${p.uid}`),s=await ref.get();
+    await ref.set({...s.data(),record:{...s.get('record'),v:[{c:c-1,k:L.k,v,t:t0+5000,...(x?{x}:{})}]}});}
+  await db.doc(root).set({at:Date.now()},{merge:true});
+  const out=await civic(a,{op:'state'}),closed=out.locks.find(x=>x.c===c-1),open=out.locks.find(x=>x.c===c);
+  assert.ok(closed.f);assert.ok(Array.isArray(closed.bk));assert.equal(closed.bk.some(e=>e.k===L.k),!!closed.ok);
+  const page=(await db.doc(`${root}/asmBook/${c-1}`).get()).data();
+  assert.equal(page.vm[a.uid],1);assert.equal(page.vm[b.uid],-1);assert.equal(page.vx[a.uid],'Clean chimneys for all.');assert.ok(page.vu.includes(a.uid)&&page.vu.includes(b.uid));assert.ok(Object.keys(page.nv).length>0);
+  assert.equal(page.bk,undefined,'the Book page does not copy the rulebook');
+  assert.equal(open.dt,'AsmDebate'+String(c).padStart(11,'0'));
+  const topic=await db.doc(`cb/${reg}/posts/${open.dt}`).get();
+  assert.ok(topic.exists);assert.equal(topic.get('as'),true);assert.equal(topic.get('tg'),'assembly');assert.equal(topic.get('a'),'assembly');assert.ok(topic.get('ti').startsWith(`Resolution No. ${c+1}: `));
+  assert.ok((await db.doc(`cb/${reg}`).get()).get('n')>=1);
+  const book=await civic(b,{op:'book'});assert.equal(book.list[0].c,c-1);assert.equal(book.list[0].vm[b.uid],-1);
+  await assert.rejects(civic(b,{op:'book',obs:'meridian'}),e=>e.status==='PERMISSION_DENIED');
+  await db.doc('nations/'+b.uid).delete();await call(b,'referee',{op:'forget'});
+  const after=(await db.doc(`${root}/asmBook/${c-1}`).get()).data();
+  assert.equal(after.vm[b.uid],undefined);assert.equal(after.vu.includes(b.uid),false);assert.equal(after.vm[a.uid],1);
 });

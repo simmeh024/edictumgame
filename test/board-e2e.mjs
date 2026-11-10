@@ -23,7 +23,8 @@ const regs = await B.$$eval('.cb-reg:not([data-reg="chancery"])', l => l.map(s =
 const home = await B.evaluate(() => G.S.nation.reg);
 check('the own region comes first, highlighted and open', regs[0].reg === home && regs[0].mine && regs[0].open, JSON.stringify(regs[0]));
 check('every other region is collapsed', regs.length > 3 && regs.slice(1).every(r => !r.mine && !r.open), regs.length);
-check('an empty board says so', await until(async () => /No topics yet/.test(await text(B, '.cb-reg.mine'))));
+// a board with no player's topics: empty, or holding only the debate the Assembly opened for its resolution at the vote
+check('an empty board says so, or holds only the Assembly’s debate', await until(async () => { const t = await text(B, '.cb-reg.mine'); return /No topics yet/.test(t) || ((await B.$$('.cb-reg.mine .cb-row-m')).length === 1 && /Resolution No\. \d+/.test(t)); }));
 
 // B opens a topic on another region's board
 const far = regs[1].reg;
