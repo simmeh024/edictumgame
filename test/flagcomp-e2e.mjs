@@ -87,7 +87,8 @@ async function judge(p, me, max = 6) {
 }
 /* judging pays in land: a credit for every five flags scored, ten at most, and the scoring goes on after that. Aland
    comes with four flags scored in earlier months, Bland with forty-eight and nine credits */
-const seed = (p, k, l) => p.evaluate(([k, l]) => { const m = G.clone(G.S.nation); m.tly = Object.assign({}, m.tly, { fcj: k }); if (l) m.fcl = l; G.commit(m); }, [k, l]);
+/* (a commit alone does not redraw the page: the test draws it, as the game does after a score is sent) */
+const seed = (p, k, l) => p.evaluate(([k, l]) => { const m = G.clone(G.S.nation); m.tly = Object.assign({}, m.tly, { fcj: k }); if (l) m.fcl = l; G.commit(m); G.render(); }, [k, l]);
 const land = async p => JSON.stringify(await p.evaluate(() => { const n = G.S.nation, bare = G.clone(n); delete bare.fcl; return [n.fcl || 0, G.RK.landEarned(n) - G.RK.landEarned(bare), (n.tly || {}).fcj || 0]; }));
 const toasted = (p, re) => until(async () => re.test(await text(p, '#toast')), 30000);
 await seed(A, 4, 0); await seed(B, 48, 9);
