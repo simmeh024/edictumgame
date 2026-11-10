@@ -870,6 +870,14 @@ to 250 reporting sessions from the last day, not a guarantee that every player h
 Reports expire after seven days via the `saveHealth.expiresAt` TTL policy and are removed when
 the player deletes their account. Diagnostics never block a nation save.
 
+The same reports give the **online dot** on the Region page's Nations tab: `civic` (`op: 'online'`,
+`functions/presence.js`) answers `{reg, u: {uid: seconds since the last report}}` for every player of
+the region whose newest report is under 15 minutes old, and never the reports themselves. It reads
+the region once a minute per function instance however many players ask (index `saveHealth (reg, t)`),
+and the page asks at most every two minutes while it is in view. A player who unticks Settings ›
+Account › Online status (`dmx.on: 0`, the private half) sends `ho: true` with each report, and the
+server leaves them out.
+
 Region control uses the staff-only `adminConsole` Cloud Function. Missing `regionStatus/<id>`
 documents mean enabled. Disabling greys out the region on the founding page, blocks founding,
 moves and saves in the rules/adapter, and blocks battles in the referee. Connected and returning

@@ -133,6 +133,11 @@ test('session diagnostics are private, paced and limited to the reporting player
   await assertSucceeds(db.doc('saveHealth/with-page').set({ ...report, pg: 'edicts' }));
   await assertFails(db.doc('saveHealth/long-page').set({ ...report, pg: 'x'.repeat(41) }));
   await assertFails(db.doc('saveHealth/num-page').set({ ...report, pg: 7 }));
+  // ho: the player hides that they are online (functions/presence.js); a flag, nothing else
+  await assertSucceeds(db.doc('saveHealth/hidden').set({ ...report, ho: true }));
+  await assertSucceeds(db.doc('saveHealth/shown').set({ ...report, ho: false }));
+  await assertFails(db.doc('saveHealth/hidden-text').set({ ...report, ho: 'yes' }));
+  await assertFails(as('bob').collection('saveHealth').where('reg', '==', 'meridian').get());
   await assertFails(db.doc('saveHealth/alice-session').set(report));
   await assertSucceeds(as('mod', { admin: true }).collection('saveHealth').get());
   await assertSucceeds(db.doc('saveHealth/alice-session').delete());
