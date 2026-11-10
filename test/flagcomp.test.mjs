@@ -117,3 +117,31 @@ test('the game’s page repeats the server’s calendar and numbers', async () =
   assert.match(html, /FLAG_SCOPES\.fc=\{get:\(\)=>FLC\.draft/, 'the entry is designed on a draft of its own');
   assert.match(html, /if\(flcCanon\(e\)===flcCanon\(n\.flag\)\)\{toast\('That is your national flag/, 'and may not be the national flag');
 });
+
+test('judging pays in land: a credit for every five flags, ten at most; and the achievements have a category of their own', async () => {
+  const fs = await import('node:fs'), vm = await import('node:vm');
+  const html = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
+  const from = (start, end) => { const at = html.indexOf(start); assert.ok(at >= 0, start); return html.slice(at, html.indexOf(end, at) + end.length); };
+  const ctx = vm.createContext({});
+  vm.runInContext([from('const FLC_RULES=', '\n'), from('const flcLand=', '\n'), from('function flcStreak(n){', 'return best;}')].join('\n') + '\nthis.X={FLC_RULES,flcLand,flcStreak};', ctx);
+  const { FLC_RULES: R, flcLand, flcStreak } = ctx.X;
+  assert.equal(R.JUDGE_PER, 5); assert.equal(R.JUDGE_LAND, 10);
+  assert.equal(flcLand({ fcl: 3 }), 3); assert.equal(flcLand({ fcl: 10 }), 10); assert.equal(flcLand({ fcl: 99 }), 10, 'never more than ten');
+  for (const n of [null, {}, { fcl: 0 }, { fcl: -2 }, { fcl: 2.5 }, { fcl: '4' }, { fcl: 4, npc: true }]) assert.equal(flcLand(n), 0);
+  // the credit is counted wherever land is, for the nation itself and for those who look at it, and scoring is never stopped
+  assert.match(html, /\nlandEarned=\(f=>function\(n\)\{return f\.apply\(this,arguments\)\+flcLand\(n\);\}\)\(landEarned\);\n/);
+  assert.match(html, /\nearnedAt=\(f=>function\(n\)\{return f\.apply\(this,arguments\)\+flcLand\(n\);\}\)\(earnedAt\);\n/);
+  assert.match(html, /const due=Math\.min\(M,Math\.floor\(tallyOf\(m,'fcj'\)\/P\)\);if\(due>had\)m\.fcl=due;/);
+  // months entered one after another
+  assert.equal(flcStreak({ fce: ['2026-11', '2026-12', '2027-01'] }), 3, 'a run goes on over the new year');
+  assert.equal(flcStreak({ fce: ['2026-11', '2027-01', '2027-02', '2027-04'] }), 2);
+  assert.equal(flcStreak({ fce: ['2027-03', '2027-03', 'x', 7] }), 1); assert.equal(flcStreak({}), 0); assert.equal(flcStreak(null), 0);
+  // the achievements
+  const defs = [...html.matchAll(/^achDef\('flag','(fc-[a-z0-9]+)','([bsgp])','([^']+)','([^']+)'/gm)].map(m => ({ id: m[1], t: m[2], n: m[3], d: m[4] }));
+  assert.equal(defs.length, 17); assert.equal(new Set(defs.map(a => a.id)).size, 17);
+  const named = [...html.matchAll(/'[bsgpxo]','((?:[^'\\]|\\.)+)'/g)].map(m => m[1]);   // every achievement's name: a tier, then the name, in achDef calls and in rows
+  for (const a of defs) assert.equal(named.filter(x => x === a.n).length, 1, a.n + ' is the name of one achievement');
+  assert.ok(!defs.some(a => /stars? in every category/.test(a.d)), 'none is paid for what the stars were');
+  assert.match(html, /ACH_CATS\.splice\(ACH_CATS\.length-1,0,\['flag','The Flag Competition'\]\);ACH_CAT\.flag='The Flag Competition';/);
+  assert.doesNotMatch(html, /achDef\('odd','fc-/, 'none is left among the oddities');
+});

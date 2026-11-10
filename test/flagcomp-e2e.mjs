@@ -55,9 +55,11 @@ await Gp.click('#flc-enter'); await sleep(1500);
 const refused = await Gp.evaluate(async () => { try { await (await window.claude.use('civic')).request({ op: 'fcEnter', fl: { p: 'tri-h', c: ['#FFFFFF', '#C8102E', '#152450'], e: 'none', ec: '#C8102E' } }); return 'entered'; } catch (e) { return e.code; } });
 check('and the server refuses a guest’s entry', refused === 'registration_required' && !(await flc(Gp)).st.mine && (await restListAdmin(`flagc/${M}/flags`)).length === 4, refused);
 check('entering earns its achievement tally', await A.evaluate(() => (G.S.nation.tly || {}).fcin === 1));
+check('the first flag in, a second go at the design and the month itself are on the record', await A.evaluate(m => { const n = G.S.nation, t = n.tly || {}; return t.fcfirst === 1 && t.fcre === 1 && JSON.stringify(n.fce) === JSON.stringify([m]) && ['fc-enter', 'fc-first', 'fc-redo'].every(id => (n.ach || {})[id]); }, M)
+  && await B.evaluate(() => { const n = G.S.nation, t = n.tly || {}; return t.fcin === 1 && !t.fcfirst && !t.fcre && !(n.ach || {})['fc-first']; }), JSON.stringify(await A.evaluate(() => [G.S.nation.tly, G.S.nation.fce, Object.keys(G.S.nation.ach || {}).filter(k => /^fc-/.test(k))])));
 
 /* ── judging ── */
-await clockTo(Date.UTC(2031, 2, 20));
+await clockTo(Date.UTC(2031, 2, 19, 12));   // the first day of judging
 await fresh(A);
 check('judging opens on the same page', /Score the flags/.test(await text(A, '.flc-box')) && /Judging/.test(await text(A, '.flc-steps li.on')));
 await A.waitForSelector('.flc-judge', { timeout: 15000 });
@@ -70,8 +72,8 @@ await fresh(B);
 check('a nation with flags to score has a mark on the menu', await until(async () => /\S/.test(await text(B, '.nav [data-v="flagcomp"] .badge'))), await text(B, '.nav [data-v="flagcomp"]'));
 /* each judge scores every other flag: Bland's 5 stars, Cland's 4, Dland's 3, Aland's 2 */
 const worth = new Map([[uids[1], 5], [uids[2], 4], [uids[3], 3], [uids[0], 2]]);
-async function judge(p, me) {
-  for (let k = 0; k < 6; k++) {
+async function judge(p, me, max = 6) {
+  for (let k = 0; k < max; k++) {
     if (!(await until(async () => await p.locator('.flc-judge').count() === 1 || /scored every flag/.test(await text(p, '.flc-box')), 15000))) break;
     if (await p.locator('.flc-judge').count() === 0) break;
     const cur = (await flc(p)).deal[0];
@@ -83,13 +85,30 @@ async function judge(p, me) {
   }
   return 'ok';
 }
-const ran = [];
-for (const [i, p] of ps.entries()) { if (i > 1) await fresh(p); ran.push(await judge(p, uids[i])); }
+/* judging pays in land: a credit for every five flags scored, ten at most, and the scoring goes on after that. Aland
+   comes with four flags scored in earlier months, Bland with forty-eight and nine credits */
+const seed = (p, k, l) => p.evaluate(([k, l]) => { const m = G.clone(G.S.nation); m.tly = Object.assign({}, m.tly, { fcj: k }); if (l) m.fcl = l; G.commit(m); }, [k, l]);
+const land = async p => JSON.stringify(await p.evaluate(() => { const n = G.S.nation, bare = G.clone(n); delete bare.fcl; return [n.fcl || 0, G.RK.landEarned(n) - G.RK.landEarned(bare), (n.tly || {}).fcj || 0]; }));
+const toasted = (p, re) => until(async () => re.test(await text(p, '#toast')), 30000);
+await seed(A, 4, 0); await seed(B, 48, 9);
+check('the judging page says what scoring earns', await until(async () => /Every 5 flags you score earn a land credit, 10 at most: 0 earned so far, the next after 1 more flag\./.test(await text(A, '.flc-land'))), await text(A, '.flc-land'));
+const ran = [await judge(A, uids[0], 1)];
+check('the fifth flag scored earns a land credit, and says so', await toasted(A, /5 more flags scored: a land credit for your trouble \(1 of 10\)/) && await land(A) === '[1,1,5]', await land(A) + ' ' + await text(A, '#toast'));
+ran.push(await judge(A, uids[0]));
+ran.push(await judge(B, uids[1], 1));
+check('the forty-ninth flag earns none', await land(B) === '[9,9,49]', await land(B));
+ran.push(await judge(B, uids[1], 1));
+check('the fiftieth earns the tenth and last credit', await toasted(B, /50 flags scored: the last of the 10 land credits for judging is yours/) && await land(B) === '[10,10,50]', await land(B) + ' ' + await text(B, '#toast'));
+ran.push(await judge(B, uids[1]));
+check('after that the scoring goes on, for no more land', await land(B) === '[10,10,51]' && Object.keys((await admin(`flagc/${M}/votes/${uids[1]}`)).v.mapValue.fields).length === 3 && await until(async () => /You have earned all 10 land credits for judging/.test(await text(B, '.flc-land'))), await land(B) + ' ' + await text(B, '.flc-land'));
+check('fifty flags scored is an achievement', await until(async () => B.evaluate(() => !!(G.S.nation.ach || {})['fc-judge50'] && !(G.S.nation.ach || {})['fc-judge100'])));
+for (const i of [2, 3]) { await fresh(ps[i]); ran.push(await judge(ps[i], uids[i])); }
 check('nobody is dealt their own flag', ran.every(r => r === 'ok'), ran.join());
 check('when all are scored the page says so', await until(async () => /You have scored every flag/.test(await text(A, '.flc-box'))));
 const votesA = await admin(`flagc/${M}/votes/${uids[0]}`), mineA = [...owner].find(([e, u]) => u === uids[0])[0];
 check('a judge’s ratings are kept by the server: three flags, never their own', !!votesA && Object.keys(votesA.v.mapValue.fields).length === 3 && !votesA.v.mapValue.fields[mineA]);
-check('scoring counts toward its achievements', await A.evaluate(() => (G.S.nation.tly || {}).fcj === 3));
+check('scoring counts toward its achievements: the flags, the first day, a full share', await A.evaluate(m => { const n = G.S.nation, t = n.tly || {}; return t.fcj === 7 && t.fcearly === 3 && t.fcduty === 1 && n.fcd === m && !t.fcall && !!(n.ach || {})['fc-early']; }, M), JSON.stringify(await A.evaluate(() => [G.S.nation.tly, G.S.nation.fcd])));
+check('the competition has a category of its own among the achievements', await A.evaluate(() => G.RK.ACH.filter(a => a.c === 'flag').length === 17 && !G.RK.ACH.some(a => /^fc-/.test(a.id) && a.c !== 'flag')));
 check('with its share done, the mark leaves the menu', await until(async () => !/\S/.test(await text(B, '.nav [data-v="flagcomp"] .badge'))));
 check('nothing is published while judging runs', (await admin('flagc/' + M)).st.stringValue === 'open');
 
