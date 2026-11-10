@@ -21,13 +21,16 @@
                              pieces released by then; a month's choice stays open until PICK_GRACE after it ends
      seal {id}             the Chancery seal the player shows beside the nation's name ('' for none): the plain one
                              while a member, the others after so many months of membership (shop-core.js, SEALS)
+     fgift {p}             the founders' thank-you gift: a holder of the Founder's Package chooses one pack, once, free,
+                             before the offer ends (the catalogue's founderGift; shop-core.js, FOUNDER_GIFT)
      closing               cancels the caller's subscriptions before the account is deleted
 
    Storage (only this code writes it; see firestore.rules):
      authConfig/paddle      {env, apiKey, webhookSecret, clientToken, prices: {founder, idpack, vip}}
                             (tools/admin/set-paddle.mjs). Nobody reads it but this code.
      shop/{uid}             what the player owns, which only they read: {owns: {founder?, idpack?}, vip?: {until,
-                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, adbox?, pend, notes, reg}
+                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, adbox?, fg?, pend, notes, reg}
+                            (fg: the pack chosen as the founders' thank-you gift, whether or not it counts now)
      finery/{uid}           {c: [cosmetic ids], reg, cl?, bx?}: the shop cosmetics every other player's game checks before it
                             shows them (a nation's own record cannot vouch for them); cl {s, u, m, f}, only once the player
                             has chosen a Chancery seal to show: which, and the membership's end and months that decide it;
@@ -41,6 +44,8 @@
      shopLimits/{uid}       {n, at, r}: pacing of checkouts and refreshes
      shopComp/{uid}         {at, until, by, why}: a Club membership an admin granted for free (functions/admin.js, setComp)
      shopPrize/{uid}        {m: {key: when}}: months of the Club won in the game (grantPrizeMonth; key 'fc-2026-12')
+     shopFGift/{uid}        {p, at, reg, fno}: the pack a founder chose as the thank-you gift (step fgift), counted in the
+                            admin portal's Shop statistics
    Billing records stay when an account is deleted (accounting needs them); shop/ and finery/ go with it.
 
    In the emulators (FUNCTIONS_EMULATOR) authConfig/paddle may also carry api (a stand-in for Paddle's API that the
@@ -49,7 +54,7 @@ import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
 import { nationText } from './nationtext.js';
-import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
+import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, REQUIRED, FOUNDER_CUTOFF, FOUNDER_GIFT, CLUB_IDS, SEALS, clubReleased, sealHeld, verifySignature, txFacts, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
 const P0until = p => { const u = CATALOGUE.products[p] && CATALOGUE.products[p].until; const t = u ? Date.parse(u) : NaN; return isFinite(t) ? t : 0; };
 const GRANTS_V = Math.max(1, ...Object.values(CATALOGUE.products).map(p => p.grantsV || 1));
@@ -193,7 +198,7 @@ async function settle(cfg, uid) {
     for (let i = 0; i < ids.length; i += 30) adjs.push(...(await tx.get(db.collection('shopAdj').where('txn', 'in', ids.slice(i, i + 30)))).docs.map(s => s.data()));
     const txs = [...txDocs.values()].map(s => ({ ...s.data(), id: s.id }));
     const subMap = Object.fromEntries(subs.map(s => [s.id, s.data()]));
-    const [compDoc, shop, nation, prizeDoc] = await tx.getAll(db.doc('shopComp/' + uid), shopRef, db.doc('nations/' + uid), db.doc('shopPrize/' + uid)), now0 = clock(cfg);
+    const [compDoc, shop, nation, prizeDoc, fgDoc] = await tx.getAll(db.doc('shopComp/' + uid), shopRef, db.doc('nations/' + uid), db.doc('shopPrize/' + uid), db.doc('shopFGift/' + uid)), now0 = clock(cfg);
     /* the founder's number: given once from a counter (shopMeta/founders), so two numbers are never the same, and kept for
        good (a refund leaves a gap; a number never moves). The first time it is used, everyone who had paid for the package
        before numbers existed is numbered at once, in the order they paid (shopFounderNo/<uid> holds each number). */
@@ -217,7 +222,8 @@ async function settle(cfg, uid) {
     }
     const comp = compDoc.exists ? { at: compDoc.get('at'), until: compDoc.get('until') } : null;
     const prizes = prizeDoc.exists ? Object.values(prizeDoc.get('m') || {}).map(Number) : [];
-    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp, prizes });
+    const fgift = fgDoc.exists ? { p: fgDoc.get('p'), at: Number(fgDoc.get('at')) || 0 } : null;
+    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp, prizes, fgift });
     /* who gave what: the giving nation's name, as it is now */
     const from = [...new Set(e.gifts.map(g => g.from))], names = from.length ? Object.fromEntries((await tx.getAll(...from.map(u => db.doc('nations/' + u)))).map(s => [s.id, String(s.get('name') || '').slice(0, 60)])) : {};
     const reg = (nation.exists && nation.get('reg')) || shop.get('reg') || '';
@@ -225,6 +231,7 @@ async function settle(cfg, uid) {
     const pend = Object.fromEntries(Object.entries(shop.get('pend') || {}).filter(([p, t]) => now - t < 2 * 3600000 && !(CLUB.includes(p) ? e.vip && e.vip.until > now : e.owns[p])));
     const doc = { v: 1, owns: e.owns, picks, pend, notes: e.notes.slice(-10), reg, at: now, gv: GRANTS_V };
     if (fno) doc.fno = fno;
+    if (fgift && FOUNDER_GIFT.packs.includes(fgift.p)) doc.fg = fgift.p;
     const founder = !!e.owns.founder && fno > 0;
     if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
@@ -438,6 +445,26 @@ async function adbox(cfg, uid, d) {
   return { ok: true, adbox: d.on, until: e.vip ? e.vip.until : 0 };
 }
 
+/* the founders' thank-you gift: one of FOUNDER_GIFT's packs, chosen once by a holder of the Founder's Package before the
+   offer ends, and owned while the package is (entitlement, fgift). A pack already owned cannot be chosen. */
+async function founderGift(cfg, uid, d) {
+  const p = typeof d.p === 'string' ? d.p : '', name = k => (CATALOGUE.products[k] && CATALOGUE.products[k].name) || 'pack';
+  if (!FOUNDER_GIFT.packs.includes(p)) throw new HttpsError('invalid-argument', 'Choose one of the packs.');
+  const now = clock(cfg);
+  if (now >= FOUNDER_GIFT.until) refuse('fgift_ended', 'The founders’ thank-you gift has ended.');
+  await pace(uid, 's', 2000);
+  const db = getFirestore(), ref = db.doc('shopFGift/' + uid), shopRef = db.doc('shop/' + uid);
+  await db.runTransaction(async tx => {
+    const [g, s] = await tx.getAll(ref, shopRef), owns = s.get('owns') || {};
+    if (g.exists) refuse('fgift_chosen', `You have already chosen your thank-you gift: the ${name(g.get('p'))}.`);
+    if (!owns.founder) refuse('fgift_founders', 'The thank-you gift is for holders of the Founder’s Package.');
+    if (owns[p]) refuse('owned', `You already own the ${name(p)}. Choose another pack.`);
+    tx.set(ref, { p, at: now, reg: s.get('reg') || '', fno: Number(s.get('fno')) || 0 });
+  });
+  await settle(cfg, uid);
+  return { ok: true, p };
+}
+
 /* before the account is deleted (src/shim.js, doDelete): no subscription may go on billing an account that is gone */
 async function closing(cfg, uid) {
   const db = getFirestore();
@@ -453,7 +480,7 @@ export async function forgetShop(uid) {
   const db = getFirestore();
   if ((await db.collection('shopSubs').where('uid', '==', uid).get()).docs.some(s => s.get('status') !== 'canceled' && !s.get('closed')))
     { const cfg = await settings(false); if (cfg.on) await closing(cfg, uid); }
-  await Promise.all(['shop/', 'finery/', 'presets/', 'shopComp/', 'shopPrize/'].map(c => db.doc(c + uid).delete()));
+  await Promise.all(['shop/', 'finery/', 'presets/', 'shopComp/', 'shopPrize/', 'shopFGift/'].map(c => db.doc(c + uid).delete()));
   await db.recursiveDelete(db.doc('chron/' + uid));
 }
 
@@ -508,6 +535,7 @@ export async function shopStep(uid, d) {
   if (d.step === 'pick') return pick(cfg, uid, d);
   if (d.step === 'seal') return seal(cfg, uid, d);
   if (d.step === 'adbox') return adbox(cfg, uid, d);
+  if (d.step === 'fgift') return founderGift(cfg, uid, d);
   if (d.step === 'closing') return closing(cfg, uid);
   throw new HttpsError('invalid-argument', 'Unknown shop step.');
 }
