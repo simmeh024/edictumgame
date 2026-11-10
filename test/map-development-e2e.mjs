@@ -155,14 +155,16 @@ check('a double tap keeps the hex its first tap chose',tapped.first===tapped.a&&
 const held=await K.evaluate(async()=>{
   const cvOf=()=>document.querySelector('canvas[data-map="main"]'),cv=cvOf(),r=cv.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
   const ev=(c,t,id,dx)=>c.dispatchEvent(new PointerEvent(t,{pointerId:id,pointerType:'mouse',isPrimary:true,clientX:x+dx,clientY:y,bubbles:true}));
-  /* a page that must be drawn again: render leaves alone a page whose first node is the one it drew */
-  const redraw=()=>{document.getElementById('app').prepend(document.createComment('redraw'));G.render();};
+  /* a page that must be drawn again: render leaves alone a page whose first node is the one it drew. The comment put
+     in front goes with any draw, whole or in place (a draw in place keeps an unchanged canvas), so it says whether the
+     draw has happened */
+  const redraw=()=>{const c=document.createComment('redraw');document.getElementById('app').prepend(c);G.render();return c;};
   ev(cv,'pointerdown',51,0);for(let i=1;i<=6;i++)ev(cv,'pointermove',51,i*4);
-  redraw();const mid=cvOf()===cv;
-  ev(cv,'pointerup',51,24);const after=cvOf()!==cv;
+  const c1=redraw(),mid=c1.isConnected&&cvOf()===cv;
+  ev(cv,'pointerup',51,24);const after=!c1.isConnected;
   const cv2=cvOf();ev(cv2,'pointerdown',52,0);for(let i=1;i<=6;i++)ev(cv2,'pointermove',52,i*4);
-  redraw();const stuck=cvOf()===cv2;
-  await new Promise(r=>setTimeout(r,4500));const freed=cvOf()!==cv2;
+  const c2=redraw(),stuck=c2.isConnected;
+  await new Promise(r=>setTimeout(r,4500));const freed=!c2.isConnected;
   ev(cv2,'pointerup',52,24);
   return {mid,after,stuck,freed};});
 check('a page draw waits while the map is dragged, and comes when it is let go',held.mid&&held.after,JSON.stringify(held));
