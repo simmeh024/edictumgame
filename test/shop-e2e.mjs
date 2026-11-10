@@ -105,23 +105,24 @@ check('the items sit in a grid of cards, two to a row on a desktop', await A.eva
 await A.evaluate(() => scrollTo(0, 0));await A.screenshot({ path: path.join(OUT, 'shop-front.png'), fullPage: true });
 /* the Black Friday Pack: a limited card, and a drawer previewing the shield and the owl on the player's own arms and flag */
 check('the Black Friday Pack is on sale, with its end date', /Black Friday Pack/.test(await txt(A, '.shop-cd[data-p="bfpack"]')) && /Ends in|Last day/.test(await txt(A, '.shop-cd[data-p="bfpack"]')));
-await A.locator('.shop-cd[data-p="bfpack"]').screenshot({ path: path.join(OUT, 'shop-bf-card.png') });
+/* (shot retries: the local prices can redraw the card mid-shot) */
+await shot(A, '.shop-cd[data-p="bfpack"]', 'shop-bf-card.png');
 await openDr(A, 'bfpack');
 check('its drawer previews the Midnight Tag shield and the Night Owl', (await A.evaluate(() => document.querySelectorAll('.shop-bf-pv svg').length)) >= 4 && (await A.evaluate(() => document.querySelectorAll('.shop-bfpack .lp-i-receipt').length)) === 1 && (await A.evaluate(() => document.querySelectorAll('.shop-bf-cardpv .hero').length)) === 1 && /Bargain-Hunter/.test(await txt(A, '.shop-bfpack')) && /€1\.99|1\.99/.test(await txt(A, '#shop-bfpack-price')) && /30 November/.test(await txt(A, '.shop-bfpack')));
-await A.locator('.shop-dr .shop-bfpack').screenshot({ path: path.join(OUT, 'shop-bf-drawer.png') });
+await shot(A, '.shop-dr .shop-bfpack', 'shop-bf-drawer.png');
 /* the Old Republic Pack: a card, and a drawer previewing all ten pieces on the player's own nation */
 check('the Old Republic Pack is on sale', /Old Republic Pack/.test(await txt(A, '.shop-cd[data-p="orpack"]')));
 await openDr(A, 'orpack');
 check('its drawer previews the card, arms, flag, stamp, marker and paper', !!(await A.$('.shop-orpack .hero.cd-marble')) && (await A.evaluate(() => document.querySelectorAll('.shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-orpack-price')));
-await A.locator('.shop-dr .shop-orpack').screenshot({ path: path.join(OUT, 'shop-or-drawer.png') });
+await shot(A, '.shop-dr .shop-orpack', 'shop-or-drawer.png');
 check('the Age of Sail Pack is on sale', /Age of Sail Pack/.test(await txt(A, '.shop-cd[data-p="sailpack"]')));
 await openDr(A, 'sailpack');
 check('its drawer previews the chart card, arms, flag, stamp, lighthouse and log', !!(await A.$('.shop-sailpack .hero.cd-chart')) && (await A.evaluate(() => document.querySelectorAll('.shop-sailpack .shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-sailpack-price')));
-await A.locator('.shop-dr .shop-sailpack').screenshot({ path: path.join(OUT, 'shop-sail-drawer.png') });
+await shot(A, '.shop-dr .shop-sailpack', 'shop-sail-drawer.png');
 check('the Central Bank Pack is on sale', /Central Bank Pack/.test(await txt(A, '.shop-cd[data-p="cbpack"]')));
 await openDr(A, 'cbpack');
 check('its drawer previews the notes with the clear window, the coin, the card, stamp, bullion and paper', !!(await A.$('.shop-cbpack .hero.cd-treasury')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .cu-note').length)) === 2 && !!(await A.$('.shop-cbpack svg.cu-coin')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .shop-or-grid figure').length)) === 3 && /2\.49/.test(await txt(A, '#shop-cbpack-price')));
-await A.locator('.shop-dr .shop-cbpack').screenshot({ path: path.join(OUT, 'shop-cb-drawer.png') });
+await shot(A, '.shop-dr .shop-cbpack', 'shop-cb-drawer.png');
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
