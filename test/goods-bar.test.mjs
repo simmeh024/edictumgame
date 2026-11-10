@@ -11,13 +11,14 @@ const cut=(from,to)=>{const a=source.indexOf(from),b=source.indexOf(to,a);assert
 const fnBody=name=>cut(`function ${name}(`,'\n}\n');
 
 const RES=['food','timber','iron','oil','goods'];
-function load({stock={food:120,timber:30,iron:4,oil:400,goods:9.7},rates={food:3.25,timber:0,iron:1,oil:2,goods:0.5},cap=400}={}){
+function load({stock={food:120,timber:30,iron:4,oil:400,goods:9.7},rates={food:3.25,timber:0,iron:1,oil:2,goods:0.5},cap=400,rate}={}){
   const ctx={RES,RES_INFO:{food:['Food'],timber:['Timber'],iron:['Iron'],oil:['Oil'],goods:['Goods']},
     cellOf:l=>l==null?-1:l,STK_ICON:Object.fromEntries(RES.map(r=>[r,'<svg/>'])),stockNow:()=>({...stock}),stockRates:()=>({...rates}),stockCap:()=>cap,
     fmtStock:v=>String(Math.floor(v+1e-6)),fmtAmt:x=>{const v=Math.round(x*10)/10;return Number.isInteger(v)?String(v):v.toFixed(1);},
     esc:s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')};
+  if(rate!==undefined)ctx.CZ={disp:{rate}};
   vm.createContext(ctx);
-  vm.runInContext(fnBody('c3Strip')+'\n}',ctx);
+  vm.runInContext(cut('function stkRate(','\nfunction c3Strip(').replace(/const /g,'var ')+'\n'+fnBody('c3Strip')+'\n}',ctx);
   return ctx;
 }
 const items=h=>[...h.matchAll(/<button type="button" class="stk-i stk-\w+( stk-short)?(?: stk-full)?" data-act="res-bd" data-r="\w+"[^>]*><span class="stk-ic" aria-hidden="true"><svg\/><\/span><span class="stk-tx"><span class="stk-l">(\w+)<\/span><b data-live="stk3" data-r="(\w+)">(\d+)<\/b><span class="stk-rt(?: up)?">(.*?)<\/span><\/span><span class="stk-fill"[^>]*><i [^>]*><\/i><\/span><\/button>(?=<button|<\/div>)/g)]
@@ -28,7 +29,7 @@ test('the strip shows all five resources: what is held, and how it grows or that
   const h=load().c3Strip(N,1);
   assert.match(h,/^<div class="stk-strip" role="group" aria-label="Stockpile"><div class="stk-top"><span class="stk-strip-h">Stockpile<\/span>/);
   assert.deepEqual(items(h).map(x=>[x.label,x.v,x.rt,x.short]),[
-    ['Food','120','+3.3/day',false],['Timber','30','Not growing+0',false],['Iron','4','+1/day',false],['Oil','400','Full',false],['Goods','9','+0.5/day',false]]);
+    ['Food','120','+3.3/day+0.14/h',false],['Timber','30','Not growing+0',false],['Iron','4','+1/day+0.042/h',false],['Oil','400','Full',false],['Goods','9','+0.5/day+0.021/h',false]]);
   assert.match(h,/data-act="go" data-v="cities">Open Cities<\/button><\/div><div class="stk-row">/,'the full strip links to Cities');
 });
 
@@ -37,7 +38,7 @@ test('a page’s cost marks only the resources the player is short of, with what
   const it=items(h);
   assert.deepEqual(it.filter(x=>x.short).map(x=>[x.r,x.rt]),[['goods','Need 20']],'9.7 goods is short of 20; 30 timber is exactly enough');
   assert.equal(it.find(x=>x.r==='timber').rt,'Not growing+0');
-  assert.equal(it.find(x=>x.r==='food').rt,'+3.3/day');
+  assert.equal(it.find(x=>x.r==='food').rt,'+3.3/day+0.14/h');
   assert.equal(items(load().c3Strip(N,1,{need:null})).filter(x=>x.short).length,0,'no cost, nothing marked');
 });
 
@@ -46,6 +47,39 @@ test('the compact strip for side panels has five columns and no Cities link; a h
   assert.match(h,/^<div class="stk-strip stk-c" role="group" aria-label="Your stockpile"><div class="stk-top"><span class="stk-strip-h">Your stockpile<\/span><\/div>/);
   assert.match(h,/<span class="stk-nl">Not growing<\/span><span class="stk-ns">\+0<\/span>/,'"Not growing", or "+0" where columns are narrow (CSS picks)');
   assert(!h.includes('Open Cities'));
+});
+
+test('each resource shows its gain an hour, a day or both, as Settings › Display asks',()=>{
+  const rt=(rate,r='food')=>items(load({rate}).c3Strip(N,1)).find(x=>x.r===r).rt;
+  assert.equal(rt('h'),'+0.14/h');assert.equal(rt('d'),'+3.3/day');assert.equal(rt('b'),'+3.3/day+0.14/h');
+  assert.equal(rt(undefined),'+3.3/day+0.14/h','both, until the player chooses');assert.equal(rt('x'),'+3.3/day+0.14/h');
+  assert.equal(rt('h','timber'),'Not growing+0');assert.equal(rt('h','oil'),'Full');
+  assert.match(load({rate:'b'}).c3Strip(N,1),/>\+3\.3<span class="stk-ad">\/day<\/span><span class="stk-rh">\+0\.14<span class="stk-ah">\/h<\/span><\/span><\/span>/,
+    'the hour on a line of its own; "/day" may go where columns are narrow, "/h" stays');
+  const G=load({rate:'b'});
+  assert.deepEqual([1588.5,24,23.9,2,0.5,0.06].map(G.stkHr),['66.2','1','1','0.083','0.021','0.0025'],'an hour is a day’s gain over 24, to two figures below one');
+  const cx=h=>h.split('<span class="cx-g">').slice(1).map(x=>x.replace(/<span class="cx-us">[^<]*/,'').replace(/<[^>]+>/g,''));
+  assert.deepEqual(cx(G.stkGain(1588.5)),['+1588.5 a day','+66.2 an hour'],'on Cities, each figure kept whole, wrapping onto two lines when narrow');
+  assert.deepEqual(cx(load({rate:'h'}).stkGain(1588.5)),['+66.2 an hour']);
+  assert.deepEqual(cx(load({rate:'d'}).stkGain(1588.5)),['+1588.5 a day']);
+  assert.equal(G.stkGain(48),'<span class="cx-g">+48<span class="cx-ul"> a day</span><span class="cx-us">/day</span></span><span class="cx-g">+2<span class="cx-ul"> an hour</span><span class="cx-us">/h</span></span>','short units for phones, which CSS picks');
+  assert(/rt\[r\]>0\.05\?stkGain\(rt\[r\]\):'Not growing'/.test(fnBody('cxStock')),'the Cities stockpile shows it the same way');
+  assert(/stkRate\(\)==='h'\?`<b>\$\{stkHr\(P\.tot\)\}<\/b> an hour`/.test(fnBody('rbdHTML')),'so does the breakdown a resource opens');
+});
+
+test('the choice is kept on this device, in Settings › Display',()=>{
+  const ctx={localStorage:{v:null,getItem(){return this.v;},setItem(k,v){this.v=v;}},czU:()=>null,UNLOCKS:{}};vm.createContext(ctx);
+  vm.runInContext(fnBody('czLoadDisp')+'\n}\n'+fnBody('czDisp')+'\n}\nvar CZ={disp:czLoadDisp()};function czSaveDisp(){localStorage.setItem("k",JSON.stringify(CZ.disp));}function czApplyDisplay(){}function render(){}',ctx);
+  assert.equal(ctx.CZ.disp.rate,'b','both by default');
+  for(const [v,want] of [['h','h'],['d','d'],['b','b'],['nonsense','b']]){ctx.czDisp('rate',v);assert.equal(ctx.CZ.disp.rate,want);assert.equal(JSON.parse(ctx.localStorage.v).rate,want);}
+  ctx.localStorage.v=JSON.stringify({rate:'h'});assert.equal(ctx.czLoadDisp().rate,'h');
+  ctx.localStorage.v=JSON.stringify({rate:7});assert.equal(ctx.czLoadDisp().rate,'b');
+  const sg=fnBody('settingsView');
+  assert(sg.includes(`<section class="sg-card" id="set-rates"><h3 class="sg-ch">Stockpile</h3>`),'a Stockpile card in Settings');
+  assert(sg.includes(`czSeg('Resource gains','set-l-rt',[['h','Per hour'],['d','Per day'],['b','Both']],stkRate(),'cz-disp','rate')`),'per hour, per day or both');
+  const t={};vm.createContext(t);vm.runInContext(fnBody('sgTabOfId')+'\n}',t);
+  assert.equal(t.sgTabOfId('#set-rates'),'display');assert.equal(t.sgTabOfId('set-l-rt-h'),'display');
+  assert(/\{v:'focus:rates',l:'Resource gains per hour or per day',g:'Settings'[^}]*target:'#set-rates'\}/.test(source),'the settings search finds it');
 });
 
 test('no strip for a nation without land',()=>{

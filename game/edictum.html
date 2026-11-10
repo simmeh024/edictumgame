@@ -1380,7 +1380,8 @@ button.stk-i{padding:8px 10px 11px;border:1px solid var(--rule);border-radius:6p
 .stk-l{font-size:11.5px;color:var(--ink-3);line-height:1.1}
 .stk-i b{font-family:var(--f-display);font-weight:600;font-size:19px;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .stk-rt{font-size:11px;color:var(--ink-3);white-space:nowrap}.stk-rt.up{color:var(--up)}
-.stk-ad{opacity:.8}.stk-ns{display:none}
+.stk-ad,.stk-ah{opacity:.8}.stk-ns{display:none}
+.stk-rh{display:block}
 .stk-fill{position:absolute;left:0;right:0;bottom:0;height:3px;background:color-mix(in srgb,var(--rc) 14%,transparent)}
 .stk-fill i{display:block;height:100%;background:var(--rc);transition:width .6s}
 .stk-full .stk-rt{color:var(--rc);font-weight:600}
@@ -6389,7 +6390,8 @@ span.nw-tag{cursor:default}
 .cx-stk-v{font-family:var(--f-display);font-weight:600;font-size:17px;text-align:right;font-variant-numeric:tabular-nums}
 .cx-stk-v small{font:500 11px var(--f-body);color:var(--ink-3)}
 .cx-stk .bar{grid-column:1/-1;height:4px}
-.cx-stk-r{grid-column:1/-1;font-size:11.5px;color:var(--ink-3)}
+.cx-stk-r{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);display:flex;flex-wrap:wrap;column-gap:10px}
+.cx-g{white-space:nowrap}.cx-us{display:none}
 .cx-more{margin:10px 0 18px;font-size:14px}
 .cx-more summary{cursor:pointer;color:var(--ink-2);padding:6px 0;min-height:32px}
 .cx-more[open] summary{margin-bottom:6px}
@@ -6457,6 +6459,7 @@ span.nw-tag{cursor:default}
 @media (max-width:860px){
   .cx-stock{grid-template-columns:repeat(5,minmax(64px,1fr));overflow-x:auto}
   .cx-stk{padding:6px 8px;grid-template-columns:1fr}.cx-stk-v{text-align:left;font-size:15px}
+  .cx-ul{display:none}.cx-us{display:inline}
   .cx-wrap{grid-template-columns:1fr}
   .cx-list{flex-direction:row;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:3;background:var(--paper);padding:6px 0;margin:0 -2px}
   .cx-list::-webkit-scrollbar{display:none}
@@ -23067,11 +23070,23 @@ const STK_ICON=(()=>{const sv=b=>`<svg viewBox="0 0 24 24" width="20" height="20
   goods:sv('<path d="M3 8l9-4 9 4v9l-9 4-9-4z"/><path d="M3 8l9 4 9-4M12 12v9"/><path d="M7.5 6l9 4"/>')};})();
 /* a resource's icon in its colour, for any list of resources (sz: small, as in chips and tables) */
 function resIco(r,sz){return STK_ICON[r]?`<span class="r-ic stk-${r}${sz?' r-ic-'+sz:''}" aria-hidden="true">${STK_ICON[r]}</span>`:'';}
+/* a resource's daily gain as Settings › Display asks (CZ.disp.rate): 'h' an hour, 'd' a day, or 'b' both, the default.
+   s: the stockpile strip, whose "/day" goes where columns are narrow while "/h" stays; otherwise Cities' stockpile, which
+   says "a day" and "an hour", or "/day" and "/h" on a phone, each figure kept whole (cx-g). stkHr: an hour's share,
+   to two figures below one so a small trickle doesn't read as nothing */
+function stkRate(){const v=typeof CZ!=='undefined'&&CZ.disp?CZ.disp.rate:'';return v==='d'||v==='h'?v:'b';}
+const stkHr=d=>{const h=d/24;return h>=1?fmtAmt(h):String(+h.toPrecision(2));};
+function stkGain(d,s){
+  const m=stkRate(),u=(l,sh,c)=>s?`<span class="${c}">${sh}</span>`:`<span class="cx-ul">${l}</span><span class="cx-us">${sh}</span>`;
+  const day=`+${fmtAmt(d)}${u(' a day','/day','stk-ad')}`,hr=`+${stkHr(d)}${u(' an hour','/h','stk-ah')}`;
+  if(s)return m==='d'?day:m==='h'?hr:`${day}<span class="stk-rh">${hr}</span>`;
+  return (m==='h'?[hr]:m==='d'?[day]:[day,hr]).map(x=>`<span class="cx-g">${x}</span>`).join('');
+}
 function c3Strip(n,now,o){
   if(!n||cellOf(n.loc)<0)return '';
   o=o||{};now=now||Date.now();const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n),need=o.need||{},h=o.h||'Stockpile';
   return `<div class="stk-strip${o.compact?' stk-c':''}" role="group" aria-label="${esc(h)}"><div class="stk-top"><span class="stk-strip-h">${esc(h)}</span>${o.compact?'':'<button class="linkish small stk-go" data-act="go" data-v="cities">Open Cities</button>'}</div><div class="stk-row">${RES.map(r=>{const sh=need[r]>0&&st[r]+1e-6<need[r],full=st[r]>=cap,grow=rt[r]>0.05,pc=cap>0?Math.min(100,st[r]/cap*100):0;
-    return `<button type="button" class="stk-i stk-${r}${sh?' stk-short':''}${full?' stk-full':''}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="stk-ic" aria-hidden="true">${STK_ICON[r]}</span><span class="stk-tx"><span class="stk-l">${RES_INFO[r][0]}</span><b data-live="stk3" data-r="${r}">${fmtStock(st[r])}</b><span class="stk-rt${grow&&!sh&&!full?' up':''}">${sh?`Need ${need[r]}`:full?'Full':grow?'+'+fmtAmt(rt[r])+'<span class="stk-ad">/day</span>':'<span class="stk-nl">Not growing</span><span class="stk-ns">+0</span>'}</span></span><span class="stk-fill" title="${Math.round(pc)}% of storage"><i data-live="stk3f" data-r="${r}" style="width:${pc.toFixed(1)}%"></i></span></button>`;}).join('')}</div></div>`;
+    return `<button type="button" class="stk-i stk-${r}${sh?' stk-short':''}${full?' stk-full':''}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="stk-ic" aria-hidden="true">${STK_ICON[r]}</span><span class="stk-tx"><span class="stk-l">${RES_INFO[r][0]}</span><b data-live="stk3" data-r="${r}">${fmtStock(st[r])}</b><span class="stk-rt${grow&&!sh&&!full?' up':''}">${sh?`Need ${need[r]}`:full?'Full':grow?stkGain(rt[r],1):'<span class="stk-nl">Not growing</span><span class="stk-ns">+0</span>'}</span></span><span class="stk-fill" title="${Math.round(pc)}% of storage"><i data-live="stk3f" data-r="${r}" style="width:${pc.toFixed(1)}%"></i></span></button>`;}).join('')}</div></div>`;
 }
 
 /* computer nations freeze deals while they regard you as Hostile */
@@ -25229,7 +25244,7 @@ function czEmbLocked(f,scope){if(scope==='d'||!S.nation)return '';const m=czMine
 
 /* ── personal display, on this device only ── */
 function czLoadDisp(){let d={};try{d=JSON.parse(localStorage.getItem('statehood.display')||'{}')||{};}catch(e){d={};}
-  return {acc:typeof d.acc==='string'&&czU(d.acc)&&UNLOCKS[d.acc].k==='accent'?d.acc:'a-teal',size:d.size==='l'?'l':'n',dens:d.dens==='c'?'c':'n',rm:d.rm===1?1:0};}
+  return {acc:typeof d.acc==='string'&&czU(d.acc)&&UNLOCKS[d.acc].k==='accent'?d.acc:'a-teal',size:d.size==='l'?'l':'n',dens:d.dens==='c'?'c':'n',rm:d.rm===1?1:0,rate:d.rate==='d'||d.rate==='h'?d.rate:'b'};}
 function czSaveDisp(){try{localStorage.setItem(CZ_DKEY,JSON.stringify(CZ.disp));}catch(e){}}
 function czApplyDisplay(boot){
   const r=document.documentElement,d=CZ.disp;let acc=d.acc;
@@ -25284,7 +25299,7 @@ function czFlagSave(){
 function czDisp(f,v){
   const d=CZ.disp;
   if(f==='acc'){const u=czU(v);if(!u||u.k!=='accent')return false;if(czLocked(v)){toast('Locked. '+unlockHow(v));return false;}d.acc=v;}
-  else if(f==='size')d.size=v==='l'?'l':'n';else if(f==='dens')d.dens=v==='c'?'c':'n';else if(f==='rm')d.rm=v==='1'?1:0;else return false;
+  else if(f==='size')d.size=v==='l'?'l':'n';else if(f==='dens')d.dens=v==='c'?'c':'n';else if(f==='rm')d.rm=v==='1'?1:0;else if(f==='rate')d.rate=v==='d'||v==='h'?v:'b';else return false;
   czSaveDisp();czApplyDisplay();render();return true;
 }
 /* the symbols save as they are typed: when a box is left (k: which one, for its tick), or with Enter */
@@ -43411,7 +43426,7 @@ function sgTabOfId(id){
   id=String(id||'').replace(/^#/,'');
   if(/^(s-freq|away-|tp-|sg-topics|set-edicts)/.test(id))return 'edicts';
   if(/^(set-notif|ntf-|set-mail|ml-)/.test(id))return 'notif';
-  if(/^(set-appearance|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
+  if(/^(set-appearance|set-rates|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
   if(/^(set-acct|set-social|rc-|set-tut|set-danger|set-dissolve|set-restart|set-delete|dz-)/.test(id))return 'account';
   if(/^(set-nav|nv-)/.test(id))return 'nav';
   return 'nation';
@@ -43519,6 +43534,10 @@ function settingsView(){
         <div class="cz-drow"><span class="cz-dl" id="set-l-th">Theme</span><div class="seg" role="group" aria-labelledby="set-l-th">${[['auto','Automatic'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button type="button" class="seg-b${theme===v?' on':''}" data-act="theme" data-v="${v}" aria-pressed="${theme===v}">${l}</button>`).join('')}</div></div>
         ${czDispRows()}
       </div>
+    </section>
+    <section class="sg-card" id="set-rates"><h3 class="sg-ch">Stockpile</h3>
+      <div class="cz-disp">${czSeg('Resource gains','set-l-rt',[['h','Per hour'],['d','Per day'],['b','Both']],stkRate(),'cz-disp','rate')}</div>
+      <p class="hint sg-rt-h">How the stockpile bars on Cities and the other pages show what each resource gains.</p>
     </section>`;
   const account=`${sgHead('account','','')}
     ${OBS?'':`<section class="sg-card" id="set-acct"><h3 class="sg-ch">Sign-in</h3><p class="hint fs-hint">How you sign in, the accounts linked to ${esc(n.name)}, your recovery key and signing out are in the account panel.</p><button type="button" class="btn ghost" data-act="acct-open">Open the account panel</button></section>`}
@@ -46904,6 +46923,7 @@ const UX_SETTINGS=[
   {v:'focus:flag',l:'Flag layers and design',g:'Design',words:'flag emblem stripes border layers rotate',view:'customise',target:'[data-fgg="c:layers"]',setup:()=>{FG.open['c:layers']=true;}},
   {v:'focus:passport',l:'Passport designer',g:'Design',words:'passport cover pages stamp visas',view:'passport',target:'.pp-tabs',setup:()=>{PP.tab='design';}},
   {v:'focus:appearance',l:'Game appearance',g:'Settings',words:'theme accent colour color density font text size motion',view:'settings',target:'#set-appearance'},
+  {v:'focus:rates',l:'Resource gains per hour or per day',g:'Settings',words:'stockpile resources food timber iron oil goods gain growth rate hourly daily',view:'settings',target:'#set-rates'},
   {v:'focus:edicts',l:'Edict delivery and topics',g:'Settings',words:'frequency waiting edicts topics pace',view:'settings',target:'#s-freq'}
 ];
 function uxScore(query,label,words=''){const q=query.trim().toLowerCase(),l=label.toLowerCase();if(!q)return -1;if(l.startsWith(q))return .5;if(l.includes(q))return 2;if(q.split(/\s+/).every(w=>(l+' '+words.toLowerCase()).includes(w)))return 4;return -1;}
@@ -54416,7 +54436,7 @@ function rbdRows(a){return a.map(([l,v,sub])=>`<tr${sub?' class="rbd-sub"':''}><
 function rbdHTML(n,r){
   let P;try{P=rbdParts(n,r);}catch(e){P=null;}
   const nm=RES_INFO[r][0],now=Date.now(),cap=stockCap(n),st=stockNow(n,now)[r];
-  const body=P?`<p class="rbd-sum">${fmtStock(st)} of ${cap} in the stockpile, ${st>=cap?'which is full: nothing more is added until you spend some':`gaining <b>${fmtAmt(P.tot)}</b> a day`}.</p>
+  const body=P?`<p class="rbd-sum">${fmtStock(st)} of ${cap} in the stockpile, ${st>=cap?'which is full: nothing more is added until you spend some':`gaining ${stkRate()==='h'?`<b>${stkHr(P.tot)}</b> an hour`:`<b>${fmtAmt(P.tot)}</b> a day${stkRate()==='b'?`, ${stkHr(P.tot)} an hour`:''}`}`}.</p>
     <h3 class="rbd-sec">Made</h3><table class="rbd-t">${rbdRows(P.made)}<tr class="rbd-tot"><td>Made a day</td><td>${rbdNum(P.prod)}</td></tr></table>
     ${P.trade.length?`<h3 class="rbd-sec">Trade</h3><table class="rbd-t">${rbdRows(P.trade)}</table>`:''}
     <h3 class="rbd-sec">Used</h3><table class="rbd-t">${rbdRows(P.used)}<tr class="rbd-tot"><td>Left over a day</td><td>${rbdNum(P.left)}</td></tr></table>
@@ -55695,7 +55715,7 @@ function cxCatBar(n,ct){
 }
 function cxStock(n,now){
   const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n);
-  return `<section class="cx-stock" aria-label="Stockpile">${RES.map(r=>`<button type="button" class="cx-stk stk-${r}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="cx-stk-l">${resIco(r,'s')}${RES_INFO[r][0]}</span><span class="cx-stk-v"><span data-live="stock" data-r="${r}">${fmtStock(st[r])}</span><small> / ${cap}</small></span><span class="bar"><i data-live="stockbar" data-r="${r}" style="width:${Math.min(100,st[r]/cap*100).toFixed(1)}%"></i></span><span class="cx-stk-r">${st[r]>=cap?'Full':rt[r]>0.05?'+'+fmtAmt(rt[r])+' a day':'Not growing'}</span></button>`).join('')}</section>`;
+  return `<section class="cx-stock" aria-label="Stockpile">${RES.map(r=>`<button type="button" class="cx-stk stk-${r}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="cx-stk-l">${resIco(r,'s')}${RES_INFO[r][0]}</span><span class="cx-stk-v"><span data-live="stock" data-r="${r}">${fmtStock(st[r])}</span><small> / ${cap}</small></span><span class="bar"><i data-live="stockbar" data-r="${r}" style="width:${Math.min(100,st[r]/cap*100).toFixed(1)}%"></i></span><span class="cx-stk-r">${st[r]>=cap?'Full':rt[r]>0.05?stkGain(rt[r]):'Not growing'}</span></button>`).join('')}</section>`;
 }
 /* what needs the player in their cities, as [text, tab, city id, kind, the city, the matter / the empty blocks / the
    cities without a mayor]: the Cities page lists it, and the bell (section CA) tells it */
