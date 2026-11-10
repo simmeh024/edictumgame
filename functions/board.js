@@ -14,8 +14,10 @@ import { eligibility, refuse } from './eligibility.js';
    posted: its name, region, flag, a Founding Supporter mark (fd) and an Edictum staff mark (st).
    An admin may instead sign as the Edictum team (of: true, with a name and a role of their choosing, no flag or
    region): that needs no nation of their own, reaches a closed region's board too, and any admin may edit it.
-   cbPost, from the admin portal, opens the same topic on several boards (or all of them) at once. */
-export const CB_TAGS = ['general', 'trade', 'diplomacy', 'war', 'help', 'offtopic'];
+   cbPost, from the admin portal, opens the same topic on several boards (or all of them) at once.
+   The Assembly opens a debate topic for each resolution at the vote (functions/civic.js, debateTopic): signed by its
+   clerk (a: 'assembly', as: true): staff may lock, hide or delete it like any other. */
+export const CB_TAGS = ['general', 'trade', 'diplomacy', 'war', 'help', 'offtopic', 'assembly'];
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
 const body = (x, max) => typeof x === 'string' ? x.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max) : '';
@@ -76,6 +78,8 @@ async function signer(tx, db, who, d) {
   await eligibility(tx, who, TEAM_OK);
   return { a: who.uid, rg: '', ...teamMark(d) };
 }
+/* the board's counts with a post added (also the Assembly's debates, functions/civic.js) */
+export function cbCounted(meta, now, add) { return counted(meta, now, add); }
 function counted(meta, now, add) {
   const m = meta.exists ? meta.data() : {}, same = m.dd === day(now);
   return { n: (m.n || 0) + (add.n || 0), r: (m.r || 0) + (add.r || 0), la: add.n > 0 || add.r > 0 ? now : m.la || 0,

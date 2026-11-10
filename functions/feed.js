@@ -25,6 +25,8 @@ export function pingEvent(x) {
 /* a post, wherever it is: its path says which board it is on */
 export function postEvent(path, d) {
   const p = String(path).split('/'), t = ms(d.t), uid = sid(d.a), name = txt(d.nm, 40);
+  /* the Assembly's debate topics (functions/civic.js, debateTopic) are no player's doing */
+  if (d.as === true) return null;
   if (p[0] === 'cb' && p.length === 4) return { k: 'topic', t, uid, name, reg: p[1], x: txt(d.ti, 90) || txt(d.x, 90) };
   if (p[0] === 'cb' && p.length === 6) return { k: 'reply', t, uid, name, reg: p[1], x: txt(d.x, 90) };
   if (p[0] === 'boards' && p.length === 4) return { k: 'post', t, uid, name, reg: p[1], x: txt(d.x, 90) };

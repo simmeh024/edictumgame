@@ -6,7 +6,7 @@ export function assemblyEngine(region,records,protectedLocks=[]){
 const DAY=86400000,GAMES_EPOCH=Date.UTC(2026,0,5),REG={id:region},NPC_NATIONS=DATA.regions.find(r=>r.id===region)?.npcs.map(x=>({...x,npc:true,policies:Object.fromEntries(x.pol.map(p=>[p,1]))}))||[],NPC_BASE=Object.fromEntries(NPC_NATIONS.map(x=>[x.id,x])),npcAt=id=>NPC_NATIONS.find(x=>x.id===id),npcRev=0;
 const S={mode:'server',uid:'',nation:null,world:Object.fromEntries(records.map(r=>[r.id,r.n]))},myId=()=>'',clone=x=>structuredClone(x),conflictsOf=k=>DATA.conflicts.flatMap(([a,b])=>a===k?[b]:b===k?[a]:[]);
 const affinity=(a,b)=>Math.round(Math.max(0,Math.min(100,100-(['civil','econ','pol'].reduce((v,k)=>v+Math.abs((a.s[k]??50)-(b.s[k]??50)),0)/3)+(b.civicAffinity||0)+Math.max(-20,Math.min(20,Number(b.gw?.[a.id])||0)))));
-const ASM_EPOCH=GAMES_EPOCH,ASM_P=3*DAY,ASM_NPC_W=1/3,ASM_AFF=78,ASM_REJOIN=3*DAY,ASM_LAPSE=3,ASM_BACK=6,ASM_TOMB=4*DAY,ASM_REEND=DAY,ASM_MSG_GAP=3600e3,ASM_REDRAFT=6*3600e3,ASM_HMAX=10,ASM_HTX=4,ASM_EMAX=24,ASM_SMAX=12,ASM_TI=60,ASM_TX=280,ASM_MSG=100,ASM_OX=100;
+const ASM_EPOCH=GAMES_EPOCH,ASM_P=3*DAY,ASM_NPC_W=1/3,ASM_AFF=78,ASM_REJOIN=3*DAY,ASM_LAPSE=3,ASM_BACK=6,ASM_TOMB=4*DAY,ASM_REEND=DAY,ASM_MSG_GAP=3600e3,ASM_REDRAFT=6*3600e3,ASM_HMAX=10,ASM_HTX=4,ASM_EMAX=24,ASM_SMAX=12,ASM_TI=60,ASM_TX=280,ASM_MSG=100,ASM_OX=100,ASM_ABSENT=14*DAY,ASM_DCAP=4,ASM_BOOK=5,ASM_WHY=100;
 const asmCyc=t=>Math.floor((t-ASM_EPOCH)/ASM_P),asmT0=c=>ASM_EPOCH+c*ASM_P,asmNo=c=>c+1;
 /* sixteen kinds of resolution; m: mild, s: strong (p: a law the strong version makes, unless a member's own laws contradict it) */
 const ASM_CATS={
@@ -76,6 +76,10 @@ const asmArr=n=>Math.max((n&&n.founded)||0,(n&&n.mvAt)||0);
 const asmW=v=>{const r=Math.round(v*10)/10;return Number.isInteger(r)?String(r):r.toFixed(1);};
 const asmVotes=v=>asmW(v)+(Math.abs(v-1)<1e-9?' vote':' votes');
 const asmG=g=>g?'Strong':'Mild';
+/* absent at T: a player nation not saved for ASM_ABSENT (lastSave, the server's time of its last save) */
+const asmAbsentAt=(n,T)=>!!(n&&n.lastSave>0&&T-n.lastSave>=ASM_ABSENT);
+/* the weight of the Delegate's vote: 1 plus its endorsements, up to ASM_DCAP of them */
+const asmDW=k=>1+Math.min(Math.max(0,k||0),ASM_DCAP);
 function asmPerm(L,seed){const r=rng(seed),a=[...Array(L).keys()];for(let i=L-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
 /* a member at time T: arrived by then, and not resigned (or back after resigning) */
 function asmMemberAt(n,T){
@@ -117,17 +121,19 @@ function asmNpcBacks(x,mem,c){
   return {x,r:best&&ba>=ASM_AFF?best:null,a:ba,best};
 }
 /* the Delegate at time T: the player member with the most endorsements; a tie goes to whoever reached
-   that count first (computer nations' backing counts from the start of the cycle), then the older nation */
+   that count first (computer nations' backing counts from the start of the cycle), then the older nation.
+   An absent member (asmAbsentAt) is listed with the endorsements it holds (ab), but its own endorsements do
+   not count, no computer nation backs it, and it cannot hold the chair: the next in line takes it */
 function asmDelegateAt(recs,T){
-  const c=asmCyc(T),mem=recs.filter(r=>asmMemberAt(r.n,T));
-  const info=new Map(mem.map(r=>[r.id,{r,k:0,by:[],np:[],reach:0}]));
-  for(const r of mem){const a=asmA(r.n);if(!a||!a.e)continue;const seen=new Set();
+  const c=asmCyc(T),mem=recs.filter(r=>asmMemberAt(r.n,T)),here=mem.filter(r=>!asmAbsentAt(r.n,T));
+  const info=new Map(mem.map(r=>[r.id,{r,k:0,by:[],np:[],reach:0,ab:asmAbsentAt(r.n,T)}]));
+  for(const r of here){const a=asmA(r.n);if(!a||!a.e)continue;const seen=new Set();
     for(const e of a.e){if(e.i===r.id||seen.has(e.i)||!info.has(e.i)||e.t>T||(e.w&&e.w<=T))continue;seen.add(e.i);const o=info.get(e.i);o.k++;o.by.push(r.id);o.reach=Math.max(o.reach,e.t);}}
-  const npc=NPC_NATIONS.map(x=>asmNpcBacks(x,mem,c));
+  const npc=NPC_NATIONS.map(x=>asmNpcBacks(x,here,c));
   for(const b of npc)if(b.r){const o=info.get(b.r.id);o.k++;o.np.push(b.x.id);o.reach=Math.max(o.reach,asmT0(c));}
   for(const o of info.values()){o.by.sort(asmCmp);o.np.sort(asmCmp);}
   let best=null;
-  for(const o of info.values()){if(!o.k)continue;if(!best||o.k>best.k||(o.k===best.k&&(o.reach<best.reach||(o.reach===best.reach&&((o.r.n.founded||0)<(best.r.n.founded||0)||((o.r.n.founded||0)===(best.r.n.founded||0)&&asmCmp(o.r.id,best.r.id)<0))))))best=o;}
+  for(const o of info.values()){if(!o.k||o.ab)continue;if(!best||o.k>best.k||(o.k===best.k&&(o.reach<best.reach||(o.reach===best.reach&&((o.r.n.founded||0)<(best.r.n.founded||0)||((o.r.n.founded||0)===(best.r.n.founded||0)&&asmCmp(o.r.id,best.r.id)<0))))))best=o;}
   return {D:best?{id:best.r.id,r:best.r,k:best.k,by:best.by,np:best.np}:null,info,npc};
 }
 const asmDel=(recs,T)=>asmDelegateAt(recs,T).D;
@@ -141,7 +147,8 @@ function asmNpcScore(x,R,c){
   const cat=R.cat||R.c,C=ASM_CATS[cat];if(!C)return 0;const e=asmFx(cat,R.g),src=npcAt(x.id,asmT0(c))||x,B=NPC_BASE[x.id];let sc=0;
   for(const k of Object.keys(e)){if(k==='b'||!(k in src.s))continue;const w=(src.s[k]-50)/50;sc+=e[k]*(k==='tax'?w*0.5:w);}
   if(R.g&&C.p){const pl=B?B.pol:Object.keys(x.policies||{});if(pl.includes(C.p))sc+=1.5;else if(conflictsOf(C.p).some(q=>pl.includes(q)))sc-=2.5;}
-  return sc;
+  /* a repeal takes away what its resolution gave: a nation that liked the one dislikes the other */
+  return R.rp?-sc:sc;
 }
 function asmNpcRes(c){
   const L=ASM_RES.length;if(!L||!NPC_NATIONS.length)return null;
@@ -151,10 +158,13 @@ function asmNpcRes(c){
 }
 /* the resolution that goes to the vote in cycle c, computed from the records as they stood at its start */
 function asmPickRaw(c,recs,ex){
-  const t0=asmT0(c),cands=[];
+  const t0=asmT0(c),cands=[];let bk=null;
   for(const r of recs){const a=asmA(r.n),p=a&&a.p;if(!p||p.t>=t0)continue;const cp=asmCyc(p.t);if(cp<c-ASM_LAPSE||cp>=c||!asmMemberAt(r.n,t0))continue;
-    const k=asmPKey(r.id,p);if(ex.has(k))continue;cands.push({r,p,k});}
-  const res=(x,w)=>({c,k:x.k,ti:x.p.ti,tx:x.p.tx,cat:x.p.c,g:x.p.g,by:x.r.id,bn:x.r.n.name,w,lt:0});
+    const k=asmPKey(r.id,p);if(ex.has(k))continue;
+    /* a repeal whose resolution has already left the rulebook has nothing left to do */
+    if(p.rp){if(!bk)bk=asmBookAt(c,asmLocks(recs));if(!bk.some(e=>e.k===p.rp))continue;}
+    cands.push({r,p,k});}
+  const res=(x,w)=>Object.assign({c,k:x.k,ti:x.p.ti,tx:x.p.tx,cat:x.p.c,g:x.p.g,by:x.r.id,bn:x.r.n.name,w,lt:0},x.p.rp?{rp:x.p.rp,rt:x.p.rt||''}:{});
   if(!cands.length)return asmNpcRes(c);
   const D=asmDel(recs,t0),ag=D&&asmA(D.r.n)&&asmA(D.r.n).a;
   if(ag&&ag.c===c&&ag.t<t0){const hit=cands.find(x=>x.k===ag.k);if(hit)return res(hit,'d');}
@@ -170,7 +180,7 @@ function asmPickFor(c,recs,L){
   for(const cc of [c-2,c-1])if(!L.has(cc)){const p=asmPickRaw(cc,recs,ex);if(p)ex.add(p.k);}
   return asmPickRaw(c,recs,ex);
 }
-/* the count. Players vote with 1, the Delegate with 1 + endorsements, computer nations with a third each */
+/* the count. Players vote with 1, the Delegate with 1 + endorsements (up to ASM_DCAP), computer nations with a third each */
 function asmNpcVote(x,L,c){
   const r=rng(hash(x.id+':asmv:'+L.k)),at=asmT0(c)+3600e3+Math.floor(r()*ASM_P*0.8);
   if(L.by===x.id)return {v:1,t:asmT0(c)+600e3,sc:9};
@@ -180,10 +190,33 @@ function asmNpcVote(x,L,c){
 function asmTally(L,c,recs,T,D){
   const t0=asmT0(c),t1=asmT0(c+1),Tm=Math.min(T,t1-1),rows=[];let y=0,no=0,shown=0;
   for(const r of recs){if(!asmMemberAt(r.n,Tm))continue;const a=asmA(r.n),v=a&&a.v?a.v.find(x=>x.c===c&&x.k===L.k&&x.t>=t0&&x.t<t1&&x.t<=T):null;
-    const del=!!(D&&D.id===r.id),w=1+(del?D.k:0);rows.push({id:r.id,n:r.n,me:!!r.me,v:v?v.v:0,t:v?v.t:0,w,del});if(v){if(v.v>0)y+=w;else if(v.v<0)no+=w;}}
+    const del=!!(D&&D.id===r.id),w=del?asmDW(D.k):1,row={id:r.id,n:r.n,me:!!r.me,v:v?v.v:0,t:v?v.t:0,w,del};if(v&&v.x)row.x=asmClean(v.x,ASM_WHY);
+    rows.push(row);if(v){if(v.v>0)y+=w;else if(v.v<0)no+=w;}}
   for(const x of NPC_NATIONS){const nv=asmNpcVote(x,L,c),on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
   y=Math.round(y*100)/100;no=Math.round(no*100)/100;
   return {rows,y,n:no,ok:y>no,shown};
+}
+/* the rulebook: the resolutions in force, at most ASM_BOOK and one a category. A passed resolution enters it, and
+   pushes out one of the same category (s, superseded) and then, past ASM_BOOK, the oldest (o, retired); a passed repeal
+   takes its resolution out (r). A finished cycle's lock keeps the book as it left it (bk) and what went (bx). */
+function asmBookStep(bk,L){
+  let b=Array.isArray(bk)?bk.slice():[];const bx=[];
+  if(!L||!L.f||!L.ok||!L.k)return {bk:b,bx};
+  if(L.rp){const i=b.findIndex(e=>e.k===L.rp);if(i>=0){bx.push({k:b[i].k,ti:b[i].ti,w:'r'});b.splice(i,1);}return {bk:b,bx};}
+  for(const e of b)if(e.cat===L.cat)bx.push({k:e.k,ti:e.ti,w:'s'});
+  b=b.filter(e=>e.cat!==L.cat);
+  b.push({k:L.k,c:L.c,ti:L.ti,tx:L.tx||'',cat:L.cat,g:L.g?1:0,by:L.by,bn:L.bn||''});
+  while(b.length>ASM_BOOK){const e=b.shift();bx.push({k:e.k,ti:e.ti,w:'o'});}
+  return {bk:b,bx};
+}
+/* the book in force during cycle c (as cycle c-1 left it): the latest finished lock that keeps one, and the cycles
+   finished after it folded in. Before any lock kept one, the book starts from the outcomes the locks still hold. */
+function asmBookAt(c,L){
+  const F=[...L.values()].filter(x=>x&&x.f&&x.c<c).sort((a,b)=>a.c-b.c);
+  let i=F.length-1;while(i>=0&&!Array.isArray(F[i].bk))i--;
+  let bk=i>=0?F[i].bk.slice():[];
+  for(let j=i+1;j<F.length;j++)bk=asmBookStep(bk,F[j]).bk;
+  return bk;
 }
 /* the outcome of a finished cycle: the earliest recorded one, or the count from the records */
 function asmFinal(c){return protectedLocks.find(x=>x.c===c&&x.f)||null;}
@@ -201,5 +234,5 @@ function asmState(now,me){
   return v;
 }
 
-return {state:now=>asmState(now),pick:(c,exclude)=>asmPickRaw(c,records,exclude),tally:asmTally,delegate:asmDelegateAt,key:asmPKey,cycle:asmCyc,t0:asmT0,cats:ASM_CATS};
+return {state:now=>asmState(now),pick:(c,exclude)=>asmPickRaw(c,records,exclude),tally:asmTally,delegate:asmDelegateAt,key:asmPKey,cycle:asmCyc,t0:asmT0,cats:ASM_CATS,book:c=>asmBookAt(c,asmLocks()),bookStep:asmBookStep,absent:asmAbsentAt,weight:asmDW};
 }
