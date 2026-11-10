@@ -40155,12 +40155,15 @@ function mapMoveStart(cv){
 }
 function mapMoveEnd(cv){const mm=cv._mm;if(!mm)return;clearTimeout(mm.t);if(!mm.on)return;mm.on=false;if(cv.isConnected)schedule(cv);else{mm.plate=null;mfxHold(cv,false);}mapRenderFree();}
 /* Page draws held back (the outermost render, at the end of the script): n while found() runs (founding draws one
-   page), drag while a map is pressed, dragged, pinched or gliding. A page drawn again then (a timer: an edict arriving,
-   a figure in the menu) replaced the canvas under the pointer and ended the drag; it now waits until the map settles
-   or the pointer lets go (mapRenderFree). */
-const RENDER_HOLD={n:0,held:false,drag:false};
-function mapBusy(){for(const cv of document.querySelectorAll('canvas.map-cv'))if(cv.classList.contains('dragging')||mapMoving(cv))return true;return false;}
+   page), drag while a finger or the mouse is dragging or pinching a map (cv._drag, set once it has moved). A page
+   drawn again then (a timer: an edict arriving, a figure in the menu) replaced the canvas under the pointer and ended
+   the drag; it now waits until the pointer lets go (mapRenderFree). Only a real drag holds: a glide, the wheel, a
+   click or a press that has not moved draws at once, as before. A drag that has not moved for 2 s no longer holds
+   (a lost pointer-up must not freeze the page), and a held draw is tried again every 2 s. */
+const RENDER_HOLD={n:0,held:false,drag:false,t:0};
+function mapBusy(){const now=performance.now();for(const cv of document.querySelectorAll('canvas.map-cv'))if(cv._drag&&now-(cv._pt||0)<2000)return true;return false;}
 function mapRenderFree(){if(RENDER_HOLD.drag&&!RENDER_HOLD.n&&!mapBusy()){RENDER_HOLD.drag=false;render();}}
+function mapRenderLater(){RENDER_HOLD.drag=true;if(!RENDER_HOLD.t)RENDER_HOLD.t=setTimeout(()=>{RENDER_HOLD.t=0;mapRenderFree();if(RENDER_HOLD.drag)mapRenderLater();},2000);}
 function mapPlateDpr(cv){const d=mfxDpr(cv);if(d<=1)return d;const wrap=cv.parentElement,full=!!(wrap&&wrap.classList.contains('is-full'));return full||cv.clientWidth*cv.clientHeight*d*d>3.5e6?1:d;}
 function mapPlate(cv){
   const mm=cv._mm,cw=cv.clientWidth,ch=cv.clientHeight;
@@ -40262,10 +40265,10 @@ function bindMap(cv){
     const v=viewOf(kind,cv);
     if(pts.size===1){const s=mapScale(cv,v),[dx,dy]=mapDelta(cv,e,p);moved+=Math.abs(dx)+Math.abs(dy);v.cx-=dx/s;v.cy-=dy/s;p.x=e.clientX;p.y=e.clientY;if(tip&&moved>4)tip.hidden=true;
       /* a few pixels of jitter in a click move the view without a redraw; a real drag moves the plate */
-      if(moved>3){mapGlideStop(kind);mapMoveStart(cv);schedule(cv);}}
-    else if(pts.size===2){p.x=e.clientX;p.y=e.clientY;const d=spread(),a=[...pts.values()];if(pinchD>0){const [mx,my]=mapPos(cv,{clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2});zoomAt(cv,mx,my,d/pinchD);}pinchD=d;moved+=10;}
+      if(moved>3){cv._drag=1;cv._pt=performance.now();mapGlideStop(kind);mapMoveStart(cv);schedule(cv);}}
+    else if(pts.size===2){cv._drag=1;cv._pt=performance.now();p.x=e.clientX;p.y=e.clientY;const d=spread(),a=[...pts.values()];if(pinchD>0){const [mx,my]=mapPos(cv,{clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2});zoomAt(cv,mx,my,d/pinchD);}pinchD=d;moved+=10;}
   });
-  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}if(!pts.size)mapRenderFree();};
+  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}if(!pts.size){cv._drag=0;mapRenderFree();}};
   cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
   cv.addEventListener('pointerleave',()=>{if(pts.size)return;cv.dataset.hover='-1';if(tip)tip.hidden=true;mfxHover(cv)||schedule(cv);});
   /* Ctrl (or Cmd) and the wheel zoom; in full screen, where the page cannot scroll, the wheel alone does. Lines and pages of wheel are counted as pixels. */
@@ -62175,7 +62178,7 @@ document.addEventListener('keydown',e=>{
    was well over a second before the page the player sees. While found() and what follows it run, draws are held
    (RENDER_HOLD, the outermost render) and the last page is drawn once at the end, with the edict's heading focused
    as edictOpen focuses it. A refusal (a name taken, a full region) is drawn the same way, once. */
-render=(f=>function(){if(RENDER_HOLD.n){RENDER_HOLD.held=true;return;}if(mapBusy()){RENDER_HOLD.drag=true;return;}return f.apply(this,arguments);})(render);
+render=(f=>function(){if(RENDER_HOLD.n){RENDER_HOLD.held=true;return;}if(mapBusy()){mapRenderLater();return;}return f.apply(this,arguments);})(render);
 found=(f=>function(){
   const had=S.nation;RENDER_HOLD.n++;let r;
   try{r=f.apply(this,arguments);}finally{RENDER_HOLD.n--;}
