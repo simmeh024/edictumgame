@@ -5,6 +5,8 @@
 // names and the computer nations' capitals. Every entry is then decoded with the game's own bakedMap and
 // compared with the generated map, hex for hex and field by field; any difference stops the build. The
 // build bakes from the source it builds, so the maps can never be older than the generators.
+// Beside each map go two tables that follow from it alone ("the baked tables" in the game): the biomes and the
+// large iron deposits, worked out by the game's own code (TABLES) and checked the same way after decoding.
 //   node scripts/bake-maps.mjs < game-script.js > maps.js
 import {fileURLToPath} from 'node:url';
 
@@ -14,17 +16,31 @@ const PARTS=[
   ['/* hex geometry for a grid','/* older Meridian records (map version 2)'],
   ['const HEX_R=10,','\nconst MAP=bakedMap()'],
 ];
+// The game's code for the tables, run on the generated map: the climate, the resources and iron deposits, the
+// biomes (with the per-hex key, cellKey, taken as one line).
+const TABLES=[
+  ['function climateOf(cell){','\n/* figures the Statistics page'],
+  ['const CELL_RES=(()=>{','/* large iron deposits'],
+  ['/* large iron deposits','\nconst resName='],
+  ['const BIOME=','\nfunction terrName'],
+];
 function cut(source,a,b){
   const i=source.indexOf(a),j=i<0?-1:source.indexOf(b,i);
   if(i<0||j<0)throw new Error(`bake-maps: the game no longer has "${a}" … "${b}"; update PARTS in scripts/bake-maps.mjs`);
   return source.slice(i,j);
 }
 // A fresh copy of the generators, as the game would set them up in a browser whose saved nation lives in `region`.
-export function mapKit(source,region,win={}){
+// With tables, the map is generated once and the kit also holds its BIOME and IRON_DEP as the game works them out.
+export function mapKit(source,region,win={},tables=false){
   const hash=source.match(/^function hash\(str\)\{[^\n]+/m);
   if(!hash)throw new Error('bake-maps: the game no longer has function hash(str) on one line');
+  const key=source.match(/^function cellKey\(i\)\{[^\n]+/m);
+  if(tables&&!key)throw new Error('bake-maps: the game no longer has function cellKey(i) on one line');
+  const gen='REG_MER?embedLegacy(legacyMap()):genRegionMap(REG)';
   const code=PARTS.map(([a,b])=>cut(source,a,b)).join('\n')+'\n'+hash[0]+'\n'+
-    'return {REG,REG_MER,MAP_COLS,MAP_ROWS,ids:REGIONS.map(r=>r.id),generate:()=>REG_MER?embedLegacy(legacyMap()):genRegionMap(REG),bakedMap,mapLevels,mapUnpack,mapSum,genGeom};';
+    (tables?'const MAP='+gen+';\n'+key[0]+'\n'+TABLES.map(([a,b])=>cut(source,a,b)).join('\n')+'\n':'')+
+    'return {REG,REG_MER,MAP_COLS,MAP_ROWS,ids:REGIONS.map(r=>r.id),generate:()=>'+(tables?'MAP':gen)+
+    ',bakedMap,mapLevels,mapUnpack,mapSum,genGeom,mapBiomes,bakedTab'+(tables?',BIOME,IRON_DEP':'')+'};';
   const store={'statehood.nation.v1':JSON.stringify({name:'Baker',reg:region})};
   return new Function('localStorage','window',code)({getItem:k=>Object.prototype.hasOwnProperty.call(store,k)?store[k]:null},win);
 }
@@ -51,8 +67,8 @@ export function mapDiff(a,b,path='map'){
   return Object.is(a,b)?'':path;
 }
 // An adaptive binary range coder (as in LZMA): 11-bit probabilities that move an eighth of the way each time.
-function rangeEncoder(){
-  let low=0,range=0xFFFFFFFF,cache=0,pending=1;const out=[],P=new Uint16Array(4096).fill(1024);
+function rangeEncoder(np=4096){
+  let low=0,range=0xFFFFFFFF,cache=0,pending=1;const out=[],P=new Uint16Array(np).fill(1024);
   const shift=()=>{
     if(low<0xFF000000||low>=0x100000000){const carry=low>=0x100000000?1:0;let t=cache;do{out.push((t+carry)&255);t=255;}while(--pending);cache=Math.floor(low/0x1000000)&255;}
     pending++;low=(low%0x1000000)*256;
@@ -74,18 +90,30 @@ function bakeRegion(source,kit,m){
     if(T[i]>=2||m.T[i]>=2)throw new Error(`bake-maps: the land levels of ${id} do not decode at hex ${i}`);
     entry.x.push(i,m.T[i]);
   }
+  // the tables: the biomes through the range coder (4116 contexts, as bakedTab decodes them), the deposits as gaps
+  const B=Uint8Array.from(kit.BIOME),bc=rangeEncoder(4116);
+  kit.mapBiomes(m.T,m.nbr,m.coast,B,(k,b)=>bc.bit(k,b));
+  entry.b=bc.finish().toString('base64');entry.bh=kit.mapSum(kit.BIOME);
+  const dep=[];let last=0;
+  for(let i=0;i<kit.IRON_DEP.length;i++)if(kit.IRON_DEP[i]){dep.push((i-last).toString(36));last=i;}
+  entry.d=dep.join(',');
   return entry;
 }
+// The deposits' hexes in order, from an IRON_DEP table.
+const depList=a=>{const out=[];for(let i=0;i<a.length;i++)if(a[i])out.push(i);return out;};
 export function bakeMaps(source){
   const ids=mapKit(source,'meridian').ids,r={};
   for(const id of ids){
-    const kit=mapKit(source,id);
+    const kit=mapKit(source,id,{},true);
     if(kit.REG.id!==id)throw new Error(`bake-maps: could not set up region ${id}`);
     const m=kit.generate(),entry=bakeRegion(source,kit,m);
-    // the check: a fresh copy of the game, given only this entry, must build exactly the generated map
-    const back=mapKit(source,id,{__edictum:{maps:{v:1,r:{[id]:entry}}}}).bakedMap();
+    // the check: a fresh copy of the game, given only this entry, must build exactly the generated map and tables
+    const page=mapKit(source,id,{__edictum:{maps:{v:1,r:{[id]:entry}}}}),back=page.bakedMap();
     const diff=back?mapDiff(back,m):'no map';
     if(diff)throw new Error(`bake-maps: the baked map of ${id} differs from the generated one at ${diff}`);
+    const bio=page.bakedTab('b',back),dep=page.bakedTab('d',back);
+    const td=!bio?'the biomes do not decode':mapDiff(bio,kit.BIOME,'BIOME')||(!dep?'the deposits do not decode':mapDiff(dep,depList(kit.IRON_DEP),'IRON_DEP'));
+    if(td)throw new Error(`bake-maps: the baked tables of ${id} differ from the game's at ${td}`);
     r[id]=entry;
   }
   return {v:1,r};
