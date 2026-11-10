@@ -40070,7 +40070,7 @@ function drawMap(cv,P){
   if(first)M0=M;first=false;
   }
   if(P){P.v={s,ox:OX,oy,w,h};return;}
-  cv._mmf=draft?null:{cx:v.cx,cy:v.cy,s,fixed:M0?M0.fixed:[]};cv._mmcol=col;
+  cv._mmf=draft?null:{cx:v.cx,cy:v.cy,s,fixed:M0?M0.fixed:[]};cv._mmcol=col;if(!draft)cv._min=Math.floor(Date.now()/60000);
   mfxAfter(cv,kind,mapTerr(kind),s,OX,oy,w,h,dpr,col);
   if(!draft)mapPrewarm(cv);
 }
@@ -40093,7 +40093,14 @@ function mapMoveStart(cv){
   if(!mm.on){mm.on=true;mfxHold(cv,true);}
   clearTimeout(mm.t);mm.t=setTimeout(()=>mapMoveEnd(cv),MAP_SETTLE);
 }
-function mapMoveEnd(cv){const mm=cv._mm;if(!mm)return;clearTimeout(mm.t);if(!mm.on)return;mm.on=false;if(cv.isConnected)schedule(cv);else{mm.plate=null;mfxHold(cv,false);}}
+function mapMoveEnd(cv){const mm=cv._mm;if(!mm)return;clearTimeout(mm.t);if(!mm.on)return;mm.on=false;if(cv.isConnected)schedule(cv);else{mm.plate=null;mfxHold(cv,false);}mapRenderFree();}
+/* Page draws held back (the outermost render, at the end of the script): n while found() runs (founding draws one
+   page), drag while a map is pressed, dragged, pinched or gliding. A page drawn again then (a timer: an edict arriving,
+   a figure in the menu) replaced the canvas under the pointer and ended the drag; it now waits until the map settles
+   or the pointer lets go (mapRenderFree). */
+const RENDER_HOLD={n:0,held:false,drag:false};
+function mapBusy(){for(const cv of document.querySelectorAll('canvas.map-cv'))if(cv.classList.contains('dragging')||mapMoving(cv))return true;return false;}
+function mapRenderFree(){if(RENDER_HOLD.drag&&!RENDER_HOLD.n&&!mapBusy()){RENDER_HOLD.drag=false;render();}}
 function mapPlateDpr(cv){const d=mfxDpr(cv);if(d<=1)return d;const wrap=cv.parentElement,full=!!(wrap&&wrap.classList.contains('is-full'));return full||cv.clientWidth*cv.clientHeight*d*d>3.5e6?1:d;}
 function mapPlate(cv){
   const mm=cv._mm,cw=cv.clientWidth,ch=cv.clientHeight;
@@ -40102,8 +40109,14 @@ function mapPlate(cv){
     const q=P.c.getContext('2d');if(q){try{Object.defineProperty(q,'shadowColor',{configurable:true,get(){return 'rgba(0, 0, 0, 0)';},set(){}});}catch(e){}}}
   P.m=Math.round(clamp(0.4*Math.max(cw,ch),128,400));P.dpr=mapPlateDpr(cv);P.v=null;
   mapDraftOn=true;try{drawMap(cv,P);}finally{mapDraftOn=false;}
-  /* the full picture still on the canvas, at the same scale: laid over the middle of the plate */
-  const f=cv._mmf,V=P.v;
+  P.key=mapPlateKey(cv);P.at=Date.now();
+  mapPlatePaste(cv,P);
+}
+/* what a plate was drawn for: the full picture's view, the canvas's size and the plate's density and margin */
+function mapPlateKey(cv){const f=cv._mmf;return f?[f.cx,f.cy,f.s,cv.clientWidth,cv.clientHeight,mapPlateDpr(cv),Math.round(clamp(0.4*Math.max(cv.clientWidth,cv.clientHeight),128,400))].join(','):'';}
+/* the full picture still on the canvas, at the same scale: laid over the middle of the plate */
+function mapPlatePaste(cv,P){
+  const cw=cv.clientWidth,ch=cv.clientHeight,f=cv._mmf,V=P.v;
   if(f&&V&&Math.abs(f.s-V.s)<1e-9){const q=P.c.getContext('2d'),x=(f.cx-cw/2/f.s)*V.s+V.ox,y=(f.cy-ch/2/f.s)*V.s+V.oy,d=P.dpr;
     q.save();q.setTransform(1,0,0,1,0,0);q.imageSmoothingEnabled=true;
     /* the fixed items on the canvas stay behind: cut out of what is laid over the plate */
@@ -40130,7 +40143,11 @@ function mapCompose(cv){
 }
 function mapPrewarm(cv){
   if(cv.dataset.map==='mini'||cv._mmw)return;
-  const go=()=>{cv._mmw=0;if(!cv.isConnected||mapMoving(cv)||!cv._mmf)return;let mm=cv._mm;if(!mm)mm=cv._mm={on:false,plate:null,t:0};mapPlate(cv);};
+  /* drawn again at the same view (the clock's redraw), the plate keeps its margin and only its middle is laid over
+     afresh: a few milliseconds instead of a fifth of a second on a phone. The margin is redrawn after 5 minutes,
+     and whenever the view or the canvas changed */
+  const go=()=>{cv._mmw=0;if(!cv.isConnected||mapMoving(cv)||!cv._mmf)return;let mm=cv._mm;if(!mm)mm=cv._mm={on:false,plate:null,t:0};
+    const P=mm.plate;if(P&&P.v&&P.key&&P.key===mapPlateKey(cv)&&Date.now()-P.at<5*60e3){mapPlatePaste(cv,P);return;}mapPlate(cv);};
   cv._mmw=window.requestIdleCallback?requestIdleCallback(go,{timeout:2000}):setTimeout(go,300);
 }
 function mapMotionFrame(cv){
@@ -40188,7 +40205,7 @@ function bindMap(cv){
       if(moved>3){mapGlideStop(kind);mapMoveStart(cv);schedule(cv);}}
     else if(pts.size===2){p.x=e.clientX;p.y=e.clientY;const d=spread(),a=[...pts.values()];if(pinchD>0){const [mx,my]=mapPos(cv,{clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2});zoomAt(cv,mx,my,d/pinchD);}pinchD=d;moved+=10;}
   });
-  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}};
+  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}if(!pts.size)mapRenderFree();};
   cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
   cv.addEventListener('pointerleave',()=>{if(pts.size)return;cv.dataset.hover='-1';if(tip)tip.hidden=true;mfxHover(cv)||schedule(cv);});
   /* Ctrl (or Cmd) and the wheel zoom; in full screen, where the page cannot scroll, the wheel alone does. Lines and pages of wheel are counted as pixels. */
@@ -43889,7 +43906,11 @@ function tick(){
   const f=S.nation.freq*60000;
   document.querySelectorAll('[data-live="next"]').forEach(el=>{el.textContent=fmtDur(awayAdd(v,v.issueClock,f)-now);});
   if(S.view==='map'&&S.mpMode&&document.activeElement?.id!=='mp-net-kind'&&document.activeElement?.id!=='mp-net-from'&&document.activeElement?.id!=='mp-net-to')updateMapPanel();
-  redrawMaps();
+  /* the maps follow the clock (computer nations growing, convoys, the sea, explorers, the time-zone clocks) once a
+     minute, not on every tick: a map whose last full picture (cv._min) is from an earlier minute is drawn again. A
+     full picture costs a phone about a fifth of a second, and a drag started meanwhile stuttered. Whatever a player
+     or a save changes draws the maps at once, as before */
+  const mk=Math.floor(now/60000);document.querySelectorAll('canvas.map-cv').forEach(cv=>{if(cv._min!==mk)schedule(cv);});
 }
 
 /* ───────── the admin portal ─────────
@@ -62041,8 +62062,7 @@ document.addEventListener('keydown',e=>{
    was well over a second before the page the player sees. While found() and what follows it run, draws are held
    (RENDER_HOLD, the outermost render) and the last page is drawn once at the end, with the edict's heading focused
    as edictOpen focuses it. A refusal (a name taken, a full region) is drawn the same way, once. */
-const RENDER_HOLD={n:0,held:false};
-render=(f=>function(){if(RENDER_HOLD.n){RENDER_HOLD.held=true;return;}return f.apply(this,arguments);})(render);
+render=(f=>function(){if(RENDER_HOLD.n){RENDER_HOLD.held=true;return;}if(mapBusy()){RENDER_HOLD.drag=true;return;}return f.apply(this,arguments);})(render);
 found=(f=>function(){
   const had=S.nation;RENDER_HOLD.n++;let r;
   try{r=f.apply(this,arguments);}finally{RENDER_HOLD.n--;}
