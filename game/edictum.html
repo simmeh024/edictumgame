@@ -1373,15 +1373,17 @@ button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:fo
 .stk-food{--rc:#d39b2a}.stk-timber{--rc:#9a6b3f}.stk-iron{--rc:#7d8a99}.stk-oil{--rc:#5a6bd6}.stk-goods{--rc:#c0567a}
 :root[data-theme="dark"] .stk-timber{--rc:#c08a58}:root[data-theme="dark"] .stk-iron{--rc:#a7b4c2}:root[data-theme="dark"] .stk-oil{--rc:#8a98f0}:root[data-theme="dark"] .stk-goods{--rc:#e07a9c}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .stk-timber{--rc:#c08a58}:root:not([data-theme="light"]) .stk-iron{--rc:#a7b4c2}:root:not([data-theme="light"]) .stk-oil{--rc:#8a98f0}:root:not([data-theme="light"]) .stk-goods{--rc:#e07a9c}}
-.stk-i{position:relative;display:flex;align-items:center;gap:10px;min-width:0;padding:8px 10px 11px;border:1px solid var(--rule);border-radius:6px;font-size:12px;color:var(--ink-2);overflow:hidden}
-button.stk-i{padding:8px 10px 11px;border:1px solid var(--rule);border-radius:6px}
+.stk-i{position:relative;display:flex;align-items:center;gap:8px;min-width:0;padding:8px 8px 11px;border:1px solid var(--rule);border-radius:6px;font-size:12px;color:var(--ink-2);overflow:hidden}
+button.stk-i{padding:8px 8px 11px;border:1px solid var(--rule);border-radius:6px}
 .stk-ic{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;color:var(--rc);background:color-mix(in srgb,var(--rc) 16%,transparent)}
 .stk-tx{display:flex;flex-direction:column;min-width:0;gap:1px}
 .stk-l{font-size:11.5px;color:var(--ink-3);line-height:1.1}
 .stk-i b{font-family:var(--f-display);font-weight:600;font-size:19px;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .stk-rt{font-size:11px;color:var(--ink-3);white-space:nowrap}.stk-rt.up{color:var(--up)}
 .stk-ad,.stk-ah{opacity:.8}.stk-ns{display:none}
-.stk-rh{display:block}
+.stk-rb{display:flex;flex-wrap:wrap;column-gap:11px;overflow:hidden}
+.stk-rh,.cx-g+.cx-g{position:relative}
+.stk-rh::before,.cx-g+.cx-g::before{content:'';position:absolute;left:-6px;top:22%;bottom:18%;width:1px;background:currentColor;opacity:.4}
 .stk-fill{position:absolute;left:0;right:0;bottom:0;height:3px;background:color-mix(in srgb,var(--rc) 14%,transparent)}
 .stk-fill i{display:block;height:100%;background:var(--rc);transition:width .6s}
 .stk-full .stk-rt{color:var(--rc);font-weight:600}
@@ -6390,7 +6392,7 @@ span.nw-tag{cursor:default}
 .cx-stk-v{font-family:var(--f-display);font-weight:600;font-size:17px;text-align:right;font-variant-numeric:tabular-nums}
 .cx-stk-v small{font:500 11px var(--f-body);color:var(--ink-3)}
 .cx-stk .bar{grid-column:1/-1;height:4px}
-.cx-stk-r{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);display:flex;flex-wrap:wrap;column-gap:10px}
+.cx-stk-r{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);display:flex;flex-wrap:wrap;column-gap:11px;overflow:hidden}
 .cx-g{white-space:nowrap}.cx-us{display:none}
 .cx-more{margin:10px 0 18px;font-size:14px}
 .cx-more summary{cursor:pointer;color:var(--ink-2);padding:6px 0;min-height:32px}
@@ -23072,14 +23074,16 @@ const STK_ICON=(()=>{const sv=b=>`<svg viewBox="0 0 24 24" width="20" height="20
 function resIco(r,sz){return STK_ICON[r]?`<span class="r-ic stk-${r}${sz?' r-ic-'+sz:''}" aria-hidden="true">${STK_ICON[r]}</span>`:'';}
 /* a resource's daily gain as Settings › Display asks (CZ.disp.rate): 'h' an hour, 'd' a day, or 'b' both, the default.
    s: the stockpile strip, whose "/day" goes where columns are narrow while "/h" stays; otherwise Cities' stockpile, which
-   says "a day" and "an hour", or "/day" and "/h" on a phone, each figure kept whole (cx-g). stkHr: an hour's share,
-   to two figures below one so a small trickle doesn't read as nothing */
+   says "a day" and "an hour", or "/day" and "/h" on a phone. Both figures share a line with a thin divider between
+   them, each kept whole, and the hour wraps below where the column is too narrow (the divider, then at the start
+   of a line, falls outside the box and is clipped). stkHr: an hour's share, to two figures below one so a small
+   trickle doesn't read as nothing */
 function stkRate(){const v=typeof CZ!=='undefined'&&CZ.disp?CZ.disp.rate:'';return v==='d'||v==='h'?v:'b';}
 const stkHr=d=>{const h=d/24;return h>=1?fmtAmt(h):String(+h.toPrecision(2));};
 function stkGain(d,s){
   const m=stkRate(),u=(l,sh,c)=>s?`<span class="${c}">${sh}</span>`:`<span class="cx-ul">${l}</span><span class="cx-us">${sh}</span>`;
   const day=`+${fmtAmt(d)}${u(' a day','/day','stk-ad')}`,hr=`+${stkHr(d)}${u(' an hour','/h','stk-ah')}`;
-  if(s)return m==='d'?day:m==='h'?hr:`${day}<span class="stk-rh">${hr}</span>`;
+  if(s)return m==='d'?day:m==='h'?hr:`<span class="stk-rb"><span>${day}</span><span class="stk-rh">${hr}</span></span>`;
   return (m==='h'?[hr]:m==='d'?[day]:[day,hr]).map(x=>`<span class="cx-g">${x}</span>`).join('');
 }
 function c3Strip(n,now,o){
