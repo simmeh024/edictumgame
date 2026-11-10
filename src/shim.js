@@ -597,8 +597,9 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
-    if (pviewing() && !(name === 'civic' && op === 'state' && data.obs)) throw readOnly();
-    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) || name === 'accounts' && op === 'shop')) throw readOnly();
+    /* who of the region is online (op online) only reads, so it is asked observing as well */
+    if (pviewing() && !(name === 'civic' && (op === 'state' && data.obs || op === 'online'))) throw readOnly();
+    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) && op !== 'online' || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);
@@ -1471,11 +1472,15 @@
       var n = localNation(), h = E.saveHealth;
       if (!n || !h) return;
       healthLast = performance.now();
-      A.fs.doc('saveHealth/' + A.uid + '_' + healthSession).set({ uid: A.uid, reg: str(n.reg, 40) || 'meridian',
+      var report = { uid: A.uid, reg: str(n.reg, 40) || 'meridian',
         device: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop', status: E.syncStatus || 'saving',
         revision: revision(n), pending: !!n._dirty, error: str(h.error, 64), conflicts: Math.min(1000000, num(h.conflicts)), pg: (location.hash || '').slice(1).split('/')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40),
         t: serverTime(), expiresAt: A.fb.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000)
-      }).catch(function () { /* diagnostics must never interfere with saving the nation */ });
+      };
+      /* the player chose not to show the region when they are online (Settings › Account, the game's dmx.on):
+         the server then leaves them out of who is online (functions/presence.js) */
+      if (isObj(n.dmx) && n.dmx.on === 0) report.ho = true;
+      A.fs.doc('saveHealth/' + A.uid + '_' + healthSession).set(report).catch(function () { /* diagnostics must never interfere with saving the nation */ });
     }, Math.max(250, healthLast + 15000 - performance.now()));
   }
   window.addEventListener('edictum:sync', healthSoon);

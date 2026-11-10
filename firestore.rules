@@ -797,14 +797,17 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
-    // Client-reported session diagnostics, separate from the actual server-confirmed nation save.
+    // Client-reported session diagnostics, separate from the actual server-confirmed nation save. The server alone
+    // tells the region who of it is online from them (functions/presence.js): never the reports themselves.
     match /saveHealth/{sid} {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create, update: if signedIn() && request.resource.data.uid == request.auth.uid
         && (!exists(/databases/$(database)/documents/saveHealth/$(sid))
           || (resource.data.uid == request.auth.uid && request.time > resource.data.t + duration.value(10, 's')))
-        && request.resource.data.keys().hasOnly(['uid', 'reg', 'device', 'status', 'revision', 'pending', 'error', 'conflicts', 't', 'expiresAt', 'pg'])
+        && request.resource.data.keys().hasOnly(['uid', 'reg', 'device', 'status', 'revision', 'pending', 'error', 'conflicts', 't', 'expiresAt', 'pg', 'ho'])
         && (!('pg' in request.resource.data) || (request.resource.data.pg is string && request.resource.data.pg.size() <= 40))
+        // ho: the player chose not to show other players when they are online (functions/presence.js)
+        && (!('ho' in request.resource.data) || request.resource.data.ho is bool)
         && region(request.resource.data.reg)
         && request.resource.data.device in ['Desktop', 'Mobile']
         && request.resource.data.status in ['synced', 'saving', 'offline']

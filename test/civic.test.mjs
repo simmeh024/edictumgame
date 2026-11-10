@@ -626,3 +626,20 @@ test('Closing a count keeps it in the Book with every vote and reason, the next 
   const after=(await db.doc(`${root}/asmBook/${c-1}`).get()).data();
   assert.equal(after.vm[b.uid],undefined);assert.equal(after.vu.includes(b.uid),false);assert.equal(after.vm[a.uid],1);
 });
+
+test('Who is online: the region’s players seen in the last 15 minutes, by their newest save report, unless they hide it',async()=>{
+  const R='greywater',MIN=60000,now=Date.now(),a=await player(false,false,R);
+  const hp=(id,reg,ago,more={})=>db.doc('saveHealth/'+id).set({uid:id.split('_')[0],reg,device:'Desktop',status:'synced',revision:1,pending:false,error:'',conflicts:0,t:new Date(now-ago),expiresAt:new Date(now+DAY),...more});
+  await Promise.all([hp(a.uid+'_1',R,6*MIN),hp(a.uid+'_2',R,1*MIN),
+    hp('old_1',R,30*MIN),hp('hid_1',R,8*MIN),hp('hid_2',R,1*MIN,{ho:true}),hp('back_1',R,9*MIN,{ho:true}),hp('back_2',R,2*MIN,{ho:false}),
+    hp('away_1','meridian',1*MIN)]);
+  const r=await civic(a,{op:'online',reg:R});
+  assert.equal(r.reg,R);
+  assert.deepEqual(Object.keys(r.u).sort(),[a.uid,'back'].sort());
+  assert.ok(r.u[a.uid]>=50&&r.u[a.uid]<=90,JSON.stringify(r.u));
+  assert.ok(r.u.back>=110&&r.u.back<=150,JSON.stringify(r.u));
+  // nothing of the reports themselves
+  assert.deepEqual(Object.keys(r).sort(),['reg','u']);
+  await assert.rejects(civic(a,{op:'online',reg:'nowhere'}),e=>e.status==='INVALID_ARGUMENT');
+  await assert.rejects(civic(a,{op:'online'}),e=>e.status==='INVALID_ARGUMENT');
+});
