@@ -80,6 +80,29 @@ await A.screenshot({path:path.join(OUT,'ach-prismatic.png')});
 await nav(A,'achievements');await A.locator('.ach-ladder summary').click();
 check('the ranks list shows a border beside every rank',await A.locator('.ach-ladder li .id-bdsw').count()===info.ranks);
 await shot('.ach-ladder','rank-ladder.png');
+/* a border in the list opens larger: on a card with the nation's flag, with its rank and where the nation stands;
+   the arrows step through the borders, and closing returns to the list */
+const big=P=>P.evaluate(()=>{const d=document.querySelector('#bdz-root .bdz-modal');if(!d)return null;const sw=d.querySelector('.bdz-sw'),c=sw&&sw.querySelector('.id-bdsw-c'),r=sw?sw.getBoundingClientRect():null,nav=[...d.querySelectorAll('[data-act="bdz-go"]')],ae=document.activeElement;
+  return {h:d.querySelector('#bdz-h').textContent,sum:d.querySelector('.bdz-sum').textContent.replace(/\s+/g,' '),cls:c?c.className:'',w:r?Math.round(r.width):0,plate:((c&&c.querySelector('.id-bd-pl'))||{}).textContent||'',
+    flag:!!(c&&c.querySelector('.id-bdsw-f svg')),focus:ae?(ae.id||ae.dataset.d||''):'',off:nav.map(b=>b.disabled),cz:!!d.querySelector('.bdz-cz [data-v="customise"]'),fits:d.querySelector('.bdz-sheet').scrollWidth<=d.querySelector('.bdz-sheet').clientWidth+1};});
+const kin=await A.evaluate(()=>G.RK.ACH_RANKS.findIndex(r=>r[1]==='Kingmaker')),small=await A.evaluate(()=>Math.round(document.querySelector('.ach-ladder .id-bdsw').getBoundingClientRect().width));
+check('every border in the ranks list is a button',await A.locator('.ach-ladder button[data-act="bd-zoom"]').count()===info.ranks&&/Select a border to see it larger/.test(await A.locator('.ach-ladder-tip').textContent()));
+await A.locator(`.ach-ladder [data-act="bd-zoom"][data-i="${kin}"]`).click();
+let z=await big(A);
+check('selecting a border opens it larger, on a card with the nation’s flag',!!z&&z.h===await A.evaluate(i=>G.RK.ID_BD[i][1],kin)&&z.cls.includes('id-rk-'+looks[kin])&&z.plate==='Kingmaker'&&z.w>=small*3&&z.flag&&z.fits&&z.focus==='bdz-x',JSON.stringify([small,z]));
+check('it names the rank it belongs to, and says a border already earned can be worn',/The border of Kingmaker, at 4,000 prestige\. Yours to wear: choose it under Customise\./.test(z.sum)&&z.cz,z.sum);
+await shot('#bdz-root .bdz-sheet','border-large.png');
+await A.keyboard.press('ArrowRight');z=await big(A);
+check('the right arrow steps to the next border',z.plate===await A.evaluate(i=>G.RK.ACH_RANKS[i+1][1],kin)&&z.cls.includes('id-rk-'+looks[kin+1]),JSON.stringify(z));
+await A.click('#bdz-root [data-act="bdz-go"][data-d="-1"]');z=await big(A);
+check('and the button back to the one before, keeping the focus on that button',z.plate==='Kingmaker'&&z.focus==='-1',JSON.stringify(z));
+await A.keyboard.press('Escape');
+check('Escape closes it and returns to that border in the list',await A.evaluate(k=>!document.querySelector('#bdz-root .bdz-modal')&&document.activeElement&&document.activeElement.dataset.act==='bd-zoom'&&+document.activeElement.dataset.i===k,kin));
+await A.locator(`.ach-ladder [data-act="bd-zoom"][data-i="${info.ranks-1}"]`).click();z=await big(A);
+check('the top border is the one the card wears, and nothing comes after it',/Your card wears it now\./.test(z.sum)&&!z.cz&&z.off[0]===false&&z.off[1]===true&&z.plate===await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[1]),JSON.stringify(z));
+await shot('#bdz-root .bdz-sheet','border-large-top.png');
+await A.click('#bdz-x');
+check('the Close button closes it',await A.evaluate(()=>!document.querySelector('#bdz-root .bdz-modal')));
 
 /* the Census page's Hall of Honours lists the region's player nations by prestige, each in its border */
 await nav(A,'census');
@@ -134,7 +157,11 @@ check('its card wears that rank’s border and name',oc.cls.includes('id-rk-'+oc
 await nav(B,'achievements');await sleep(400);
 check('the Achievements page names the rank held and counts on to the next',/Eminence/.test(await B.locator('.ach-rank').first().textContent())&&/to Kingmaker at 4,000/.test((await B.locator('.ach-next').first().textContent()).replace(/\s+/g,' ')),await B.locator('.ach-hp').first().textContent());
 await B.locator('.ach-ladder summary').click();
-check('and its ranks list ticks every rank up to it',await B.locator('.ach-ladder li.done').count()===21,String(await B.locator('.ach-ladder li.done').count()));
+/* (the list is filled as the fold opens, and again after a redraw: wait for it) */
+check('and its ranks list ticks every rank up to it',await until(async()=>await B.locator('.ach-ladder li.done').count()===21),String(await B.locator('.ach-ladder li.done').count()));
+await B.locator('.ach-ladder [data-act="bd-zoom"][data-i="21"]').click();
+check('a border still ahead says how much prestige is to go',/The border of Kingmaker, at 4,000 prestige\. 660 prestige to go\./.test((await big(B)).sum)&&!(await big(B)).cz,JSON.stringify(await big(B)));
+await B.keyboard.press('Escape');
 /* the mark is kept by a reload, and the rank with it */
 await B.evaluate(()=>G.S.nation&&0);await sleep(2500);await B.reload();await B.waitForSelector('.layout',{timeout:30000});
 check('a reload keeps the rank',await until(()=>B.evaluate(()=>{const n=G.S&&G.S.nation;return !!n&&n.rkv===2&&n.rkh===20&&G.RK.achRankOf(n).i===20;}),15000),JSON.stringify(await B.evaluate(()=>({rkv:G.S.nation.rkv,rkh:G.S.nation.rkh,i:G.RK.achRankOf(G.S.nation).i}))));

@@ -280,6 +280,11 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   assert.ok(src.includes("'lp-i-bulb':{n:") && src.includes("case 'tulip':return S(") && src.includes("'e-tulip':'tulip'") && src.includes("'pn-auction':'<path"), 'its paper, charge, emblem and marker are drawn');
 });
 
+test('a founder always wears the Founding Supporter badge, by the server’s word, but a Shop preview only when it puts it on', () => {
+  assert.ok(src.includes("if(v.bg!=='bg-founder'&&!n.npc&&!SHOP.pvSet.has(n)&&czHolds(n,'bg-founder',n.cz))v.bg='bg-founder';"), 'cz() puts the badge on any nation that holds it, but not on a preview');
+  assert.ok(src.includes("if(k==='bg'&&mine.has('bg-founder'))"), 'Customise says so instead of offering None');
+});
+
 test('the Chancery Club yearly: a paid year, picked from month by month without another word from Paddle', () => {
   const t0 = Date.UTC(2026, 10, 3), y1 = Array.from({ length: 12 }).reduce(addMonth, t0);
   const subs = { sub_y: { status: 'active', next: y1, period: { s: t0, e: y1 }, firstTxn: 'txn_y' } };
