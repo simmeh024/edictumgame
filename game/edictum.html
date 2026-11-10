@@ -39719,7 +39719,9 @@ function mapClick(cv,cell,ev){
   updateMapPanel();schedule(cv);
   if(window.innerWidth<=1100){const pn=document.getElementById('map-panel');if(pn){const r=pn.getBoundingClientRect();if(r.top>window.innerHeight*0.72)window.scrollBy({top:r.top-window.innerHeight*0.5,behavior:'smooth'});}}
 }
-function centerMain(cell,z){if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};}
+/* jumping the map to a hex ends a glide still running there (a double tap's zoom, the home button): its remaining
+   frames would carry the view on to where the glide was going, over the place just chosen */
+function centerMain(cell,z){mapGlideStop('main');if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};}
 function openMapAt(id){const T=territory(),i=T.byId[id];if(i!==undefined){centerMain(T.list[i].cap,NEAR_Z);S.mapSel=T.list[i].me?null:id;}go('map');}
 function updateMapPanel(){const p=document.getElementById('map-panel');if(p)p.innerHTML=mapPanel();}
 function updateFoundLoc(){for(const k of ['found-loc','found-loc-fs']){const p=document.getElementById(k);if(p)p.innerHTML=foundLocHTML();}}

@@ -160,3 +160,16 @@ test('policy landscapes reflect the correct biome without changing terrain or re
  assert.ok(ctx.mpLandscape(n,c).includes('protected groves'));assert.ok(ctx.mpLandscape(n,c).includes('renewable energy transition'));ctx.BIOME[c]=3;assert.ok(!ctx.mpLandscape(n,c).includes('protected groves'));assert.equal(ctx.MAP.T[c],terrain);assert.equal(ctx.CELL_RES.food[c],food);
  n.policies={clearFelling:1};assert.equal(ctx.mpForestGlyphVisible(n,c),false);n.policies={};assert.equal(ctx.mpForestGlyphVisible(n,c),true);assert.ok(ctx.mpLandscape(n,c,true).includes('industrial development'));n.policies.emissions=1;assert.ok(!ctx.mpLandscape(n,c,true).includes('industrial development'));
 });
+
+// Jumping the map to a hex (My nation, Show on the map, a test's click on a hex) while a zoom was still gliding: the
+// glide's remaining frames wrote its own destination over the view just set, so the map ended up somewhere else.
+test('jumping the main map to a hex ends a glide still running on it',()=>{
+ const line=start=>{const at=src.indexOf(start);assert.ok(at>=0,start);return src.slice(at,src.indexOf('\n',at));},cancelled=[];
+ const ctx=vm.createContext({S:{},MAP:{cx:[0,10,20],cy:[0,5,9]},NEAR_Z:6,cancelAnimationFrame:id=>cancelled.push(id)});
+ vm.runInContext([line('const MAP_GLIDES={};'),line('function mapGlideStop('),line('function centerMain('),'this.X={MAP_GLIDES,centerMain};'].join('\n'),ctx);
+ ctx.X.MAP_GLIDES.main={raf:7};ctx.X.MAP_GLIDES.mini={raf:9};
+ ctx.X.centerMain(2,5);
+ assert.deepEqual(cancelled,[7],'the glide’s next frame is cancelled');assert.equal(ctx.X.MAP_GLIDES.main,undefined);assert.ok(ctx.X.MAP_GLIDES.mini,'another map’s glide is left alone');
+ assert.deepEqual({...ctx.S.mapViews.main},{z:5,cx:20,cy:9});
+ ctx.X.centerMain(1);assert.equal(ctx.S.mapViews.main.z,6);assert.deepEqual(cancelled,[7],'nothing to stop the second time');
+});
