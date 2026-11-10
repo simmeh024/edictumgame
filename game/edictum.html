@@ -62035,6 +62035,23 @@ document.addEventListener('keydown',e=>{
   const i=ASMX_TABS.findIndex(x=>x[0]===t.dataset.v),L=ASMX_TABS.length,j=e.key==='Home'?0:e.key==='End'?L-1:(i+d+L)%L;asmxSetTab(ASMX_TABS[j][0],true);
 });
 
+/* ── founding draws one page ──
+   Founding drew up to three pages in a row, each thrown away by the next: found() drew the Nation page, then the
+   founding edict went to the Edicts page and opened the edict (or the land office went to the Map). On a phone that
+   was well over a second before the page the player sees. While found() and what follows it run, draws are held
+   (RENDER_HOLD, the outermost render) and the last page is drawn once at the end, with the edict's heading focused
+   as edictOpen focuses it. A refusal (a name taken, a full region) is drawn the same way, once. */
+const RENDER_HOLD={n:0,held:false};
+render=(f=>function(){if(RENDER_HOLD.n){RENDER_HOLD.held=true;return;}return f.apply(this,arguments);})(render);
+found=(f=>function(){
+  const had=S.nation;RENDER_HOLD.n++;let r;
+  try{r=f.apply(this,arguments);}finally{RENDER_HOLD.n--;}
+  if(!RENDER_HOLD.n&&RENDER_HOLD.held){RENDER_HOLD.held=false;render();
+    if(S.nation&&S.nation!==had){window.scrollTo(0,0);
+      if(S.view==='issues'&&S.openIssue){const h=document.querySelector('.edict .h1');if(h){h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}}}}
+  return r;
+})(found);
+
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
