@@ -6794,6 +6794,9 @@ button[disabled] .gv-cost{opacity:.6}
 .mc-bar{display:block;margin-top:4px}
 .mc-next{margin:10px 0 14px;padding:12px 14px;border-left:3px solid var(--mc-gold);background:var(--sheet-2);border-radius:0 4px 4px 0}
 .mc-next-t{margin:0 0 8px}.mc-next-a{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.mc-next-c{display:inline-flex;flex-wrap:wrap;gap:5px;align-items:center}.mc-next-c .hint{margin-right:1px}
+.mc-next .cost:not(.short){background:var(--sheet);box-shadow:inset 0 0 0 1px var(--rule)}
+.mc-next-w{flex:1 1 100%;margin:0}
 .mc-mds{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin:10px 0}
 .mc-md{padding:12px 14px;border:1px dashed var(--mc-gold);border-radius:4px;background:var(--sheet)}
 .mc-md.used{border-style:solid;opacity:.85}
@@ -34541,10 +34544,15 @@ function btDrawVoy(cv){
 VIEWS_EXT.space=(f=>now=>{
   const n=S.nation;if(S.spBody==='belt'){if(n&&spAccess(n,'moon',now))return btView(now);S.spBody='moon';}
   let h=f(now);const a='<div class="stabs sp-tabs" role="tablist" aria-label="Bodies">',i=h.indexOf(a);if(i>=0){const j=h.indexOf('</div>',i);if(j>0)h=h.slice(0,j)+btTabBtn(false,now)+h.slice(j);}return h;})(VIEWS_EXT.space);
-/* the stockpile strip under the Space header once the Moon is open: landings, colony buildings, the Belt's launch and
-   its research all spend it. Before that, the Lunar Colony is built in Cities, which has its own. */
-VIEWS_EXT.space=(f=>now=>{const h=f(now),n=S.nation;if(!n||typeof h!=='string'||!spAccess(n,'moon',now||Date.now()))return h;
-  const i=h.indexOf('</header>');return i<0?h:h.slice(0,i+9)+c3Strip(n,now)+h.slice(i+9);})(VIEWS_EXT.space);
+/* the stockpile strip under the Space header, on every body: the agency's teams and missions, landings, colony
+   buildings, the Belt's launch and its research all spend it. What the agency's next step costs is marked on it. */
+VIEWS_EXT.space=(f=>now=>{const h=f(now),n=S.nation;if(!n||typeof h!=='string')return h;
+  const i=h.indexOf('</header>');return i<0?h:h.slice(0,i+9)+c3Strip(n,now,{need:spStripNeed(n,now||Date.now())})+h.slice(i+9);})(VIEWS_EXT.space);
+/* the cost of the space agency's next step, on the Moon tab where the agency is drawn (null when there is none) */
+function spStripNeed(n,now){
+  if(OBS||!n||n.npc||S.spBody==='mars'||S.spBody==='belt'||typeof mcOf!=='function')return null;
+  const w=mcOf(n);if(!w||!w.a)return null;try{const nx=mcNextStep(n,now);return nx&&nx.cost||null;}catch(e){return null;}
+}
 function btTabBtn(on,now){return `<button role="tab" class="stab${on?' on':''}" aria-selected="${on}" data-act="sp-tab" data-b="belt">The Belt${btReady(S.nation,now)?'':' <span class="chip">Locked</span>'}</button>`;}
 function btView(now){
   const n=S.nation,mars=spAccess(n,'mars',now),tab=S.btTab==='lab'?'lab':'map';
@@ -57724,18 +57732,23 @@ function mcBuildLink(n,k){
   return s.ct?`<button type="button" class="btn small-btn" data-act="mc-build" data-k="${k}" data-c="${esc(s.ct.id)}">Build ${esc(B.n)} in ${esc(s.ct.nm)}</button><span class="hint"> ${esc(costText(bCost(n,k)))}, ${bHours(n,k)} h</span>`
     :`<span class="hint">${esc(s.why)}</span> <button type="button" class="linkish small" data-act="go" data-v="cities">Open Cities</button>`;
 }
-/* the next step on the road to the Moon: one requirement, with the action that meets it */
+/* what the next step costs, beside its button: the resources the stockpile is short of in red, and why it waits */
+const mcNextCost=(cost,st)=>`<span class="mc-next-c"><span class="hint">Costs</span>${mcCostHTML(cost,st)}</span>`;
+const mcNextShort=miss=>miss.length?`<p class="hint mc-next-w">You need ${esc(list(miss))} more. Surplus collects in your stockpile every day.</p>`:'';
+/* the next step on the road to the Moon: one requirement, with the action that meets it and what it costs
+   (cost: the resources the stockpile strip at the top of the page marks when it is short of them) */
 function mcNextStep(n,now){
-  const w=mcOf(n),D=k=>mcDone(n,k,now),act=mcActive(n,now),busy=k=>act.some(m=>m.k===k);
+  const w=mcOf(n),D=k=>mcDone(n,k,now),act=mcActive(n,now),busy=k=>act.some(m=>m.k===k),st=stockNow(n,now);
   const msStep=k=>{const M=MC_MS[k];if(busy(k)||(w.ms[k]&&w.ms[k].d>now))return null;
-    if(!w.a.tm[M.tm])return {t:`${M.n} needs ${MC_TEAMS[M.tm].n}.`,h:`<button type="button" class="btn small-btn" data-act="mc-fund" data-t="${M.tm}">Fund ${esc(MC_TEAMS[M.tm].n)}</button>`};
-    for(const q of M.need||[]){const [a,b]=q.split(':');if(a==='b'&&!mcHas(n,b,now))return {t:`${M.n} needs ${BUILDINGS[b].n}.`,h:mcBuildLink(n,b),b};}
-    const p=mcStartProblem(n,k,now);return {t:`Next: ${M.n}.`,h:p?`<span class="hint">${esc(p)}</span>`:`<button type="button" class="btn small-btn" data-act="mc-start" data-k="${k}">Start: ${fmtDur(mcHours(n,k)*3600e3)}</button>`,rv:M.rv};};
+    if(!w.a.tm[M.tm]){const cost=MC_TEAMS[M.tm].cost,miss=lacking(cost,st);return {t:`${M.n} needs ${MC_TEAMS[M.tm].n}.`,h:`<button type="button" class="btn small-btn" data-act="mc-fund" data-t="${M.tm}"${miss.length?' disabled':''}>Fund ${esc(MC_TEAMS[M.tm].n)}</button>${mcNextCost(cost,st)}${mcNextShort(miss)}`,cost};}
+    for(const q of M.need||[]){const [a,b]=q.split(':');if(a==='b'&&!mcHas(n,b,now))return {t:`${M.n} needs ${BUILDINGS[b].n}.`,h:mcBuildLink(n,b),b,cost:bCost(n,b)};}
+    const p=mcStartProblem(n,k,now),cost=mcCost(n,k),miss=p?[]:lacking(cost,st);
+    return {t:`Next: ${M.n}.`,h:(p?`<span class="hint">${esc(p)}</span>`:`<button type="button" class="btn small-btn" data-act="mc-start" data-k="${k}"${miss.length?' disabled':''}>Start: ${fmtDur(mcHours(n,k)*3600e3)}</button>`)+mcNextCost(cost,st)+mcNextShort(miss),rv:M.rv,cost};};
   if(!mcImg(n,now)){const k=w.a.f==='sci'?'scope':w.a.f==='flt'?'cam':'trk';return msStep(k)||{t:'The first image is on its way.',h:''};}
-  for(const k of ['cam','orb','relay','polar','rover','cargo','hab','plan','prep']){if(D(k))continue;if(k==='relay'&&w.ms.relay&&w.ms.relay.d<=now)return {t:'The relay is in orbit, waiting for a station that can hear it.',h:mcBuildLink(n,'dsts'),b:'dsts'};
+  for(const k of ['cam','orb','relay','polar','rover','cargo','hab','plan','prep']){if(D(k))continue;if(k==='relay'&&w.ms.relay&&w.ms.relay.d<=now)return {t:'The relay is in orbit, waiting for a station that can hear it.',h:mcBuildLink(n,'dsts'),b:'dsts',cost:bCost(n,'dsts')};
     const s=msStep(k);if(s)return s;return null;}
   const cr=mcCr(n,now);
-  if(cr<1){const m=MILESTONES.find(m=>(m.b||[]).includes('lunar')),pop=popNow(n,now);return {t:'Next: build the Lunar Colony wonder.',h:m&&pop<m.p?`<span class="hint">It unlocks at ${fmtPopShort(m.p)} people. ${esc(n.name)} has ${fmtPop(pop)}.</span>`:mcBuildLink(n,'lunar')};}
+  if(cr<1){const m=MILESTONES.find(m=>(m.b||[]).includes('lunar')),pop=popNow(n,now),early=m&&pop<m.p;return {t:'Next: build the Lunar Colony wonder.',h:early?`<span class="hint">It unlocks at ${fmtPopShort(m.p)} people. ${esc(n.name)} has ${fmtPop(pop)}.</span>`:mcBuildLink(n,'lunar'),cost:early?null:bCost(n,'lunar')};}
   if(cr<2){const b=mcLunarBld(n);return {t:'The Lunar Colony is under construction.',h:b?`<span class="hint">Ready in ${fmtDur(b.d-now)}.</span>${mcLive(b.s,b.d)}`:''};}
   if(cr<3)return {t:'The Lunar Colony is complete: choose where to land.',h:'<span class="hint">Use the map below.</span>'};
   return null;
@@ -57894,10 +57907,14 @@ spClick=(f=>function(cv,c){
   if(!mcChartCv(cv))return f.apply(this,arguments);
   S.mcSec=c>=0?mcSecOf(c):null;render();
 })(spClick);
-/* the live parts of the Space page: time left on each job */
+/* the live parts of the Space page: time left on each job, and the next step's button once the stockpile can pay */
 setInterval(()=>{if(S.view!=='space'||document.hidden)return;const now=mcNow();
   document.querySelectorAll('[data-live="mc-left"]').forEach(el=>{el.textContent=fmtDur(Math.max(0,+el.dataset.d-now));});
-  const n=S.nation,w=mcOf(n);if(w&&w.a&&Object.values(w.ms).some(m=>m.d<=now&&m.d>now-2100)){const ae=document.activeElement;if(!(ae&&/^mc-/.test(ae.id||'')))render();}
+  const n=S.nation,w=mcOf(n);if(!w||!w.a)return;const ae=document.activeElement,typing=ae&&/^mc-/.test(ae.id||'');
+  if(Object.values(w.ms).some(m=>m.d<=now&&m.d>now-2100)){if(!typing)render();return;}
+  const wait=document.querySelector('.mc-next button[disabled][data-act^="mc-"]');
+  if(wait&&!typing){const k=wait.dataset.k,t=wait.dataset.t,cost=wait.dataset.act==='mc-start'&&k?mcCost(n,k):wait.dataset.act==='mc-fund'&&MC_TEAMS[t]?MC_TEAMS[t].cost:null;
+    if(cost&&!lacking(cost,stockNow(n,now)).length)render();}
 },2000);
 
 /* ── clicks and forms ── */
