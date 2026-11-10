@@ -1119,7 +1119,13 @@ test('the flag competition: a month’s summary and its hall are public; the ent
     await assertFails(who.doc('flagc/2031-01/votes/alice').get());
     await assertFails(who.doc('shopPrize/alice').get());
     await assertFails(who.doc('flagcTest/clock').get());
+    await assertFails(who.doc('flagc/2031-01/reps/e1~bob').get());
+    await assertFails(who.collection('flagc/2031-01/reps').get());
+    await assertFails(who.doc('fcDraft/alice').get());
   }
+  /* reports and drafts go through the civic ops only, even one's own */
+  await assertFails(as('alice').doc('fcDraft/alice').set({ fl: '{}', t: 1 }));
+  await assertFails(as('bob').doc('flagc/2031-01/reps/e1~bob').set({ e: 'e1', by: 'bob', why: 'hate' }));
   for (const who of [as('alice'), as('mod', { admin: true })]) {
     await assertFails(who.doc('flagc/2031-01').set({ n: 99 }, { merge: true }));
     await assertFails(who.doc('flagc/2031-02').set({ n: 1 }));

@@ -76,13 +76,60 @@ export function fcRank(entries, judges) {
 
 function hash(str) { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 /* the next flags for a judge: never their own, never one they have scored or may not score; the least-rated first, so
-   every flag gets its share, and in an order of the judge's own among equals. entries: [{id, n, skip}] */
-export function fcDeal(entries, seen, seed, k = FC.BATCH) {
-  const s = seen instanceof Set ? seen : new Set(seen || []);
+   every flag gets its share, and in an order of the judge's own among equals. A flag the judge skipped (later) comes
+   only after every other, so a skip sends it to the back instead of dealing it again at once. entries: [{id, n, skip}] */
+export function fcDeal(entries, seen, seed, k = FC.BATCH, later) {
+  const s = seen instanceof Set ? seen : new Set(seen || []), l = later instanceof Set ? later : new Set(later || []);
   return (entries || []).filter(e => e && !e.skip && !s.has(e.id))
-    .map(e => ({ id: e.id, n: e.n || 0, h: hash(String(seed) + ':' + e.id) }))
-    .sort((a, b) => a.n - b.n || a.h - b.h).slice(0, k).map(e => e.id);
+    .map(e => ({ id: e.id, n: e.n || 0, h: hash(String(seed) + ':' + e.id), l: l.has(e.id) ? 1 : 0 }))
+    .sort((a, b) => a.l - b.l || a.n - b.n || a.h - b.h).slice(0, k).map(e => e.id);
 }
+
+/* ratings that do not look like a judgement of the flag, for the staff's page (never applied to the results by
+   itself). votes: [{uid, v: {eid: [5 stars]}}]. A judge is marked
+     'drive': scored at most DRIVE flags and gave one of them FAV_HIGH or more: a visit to lift one flag;
+     'fav':   gave a flag FAV_GAP stars or more above what the other judges gave it (at least FAV_OTHERS of them):
+              a friend's flag lifted. Measured against the other judges, not the judge's own other scores, so a
+              judge who simply loves the best flag of the month is not marked;
+     'flat':  scored FLAT_MIN or more, every one within FLAT_BAND of the same mean: not judging at all.
+   The suspect ratings are the lifted flag's (drive, fav) or all of the judge's (flat). For each flag: how many of its
+   ratings are suspect, and its score without them. */
+export const FC_SUS = Object.freeze({ DRIVE: 2, FAV_HIGH: 4.6, FAV_GAP: 2, FAV_OTHERS: 2, FLAT_MIN: 5, FLAT_BAND: 0.4 });
+export function fcSuspect(votes) {
+  const J = [], per = new Map();   // per flag: [uid, stars, the judge's average]
+  for (const j of votes || []) {
+    const rows = Object.entries((j && j.v) || {}).map(([e, s]) => [e, fcStars(s)]).filter(x => x[1]).map(([e, s]) => [e, s, mean(s)]);
+    if (!rows.length) continue;
+    J.push({ uid: j.uid, rows });
+    for (const [e, s, a] of rows) { if (!per.has(e)) per.set(e, []); per.get(e).push([j.uid, s, a]); }
+  }
+  const judges = [], bad = new Map();
+  for (const { uid, rows } of J) {
+    const all = mean(rows.map(r => r[2])), notes = [], sus = new Set(), top = rows.reduce((a, b) => (b[2] > a[2] ? b : a));
+    if (rows.length <= FC_SUS.DRIVE && top[2] >= FC_SUS.FAV_HIGH) { notes.push('drive'); sus.add(top[0]); }
+    else {
+      let best = null;
+      for (const [e, , a] of rows) {
+        const others = per.get(e).filter(x => x[0] !== uid).map(x => x[2]);
+        if (others.length < FC_SUS.FAV_OTHERS) continue;
+        const gap = a - mean(others);
+        if (gap >= FC_SUS.FAV_GAP && (!best || gap > best[1])) best = [e, gap];
+      }
+      if (best) { notes.push('fav'); sus.add(best[0]); }
+    }
+    if (rows.length >= FC_SUS.FLAT_MIN && rows.every(r => Math.abs(r[2] - all) <= FC_SUS.FLAT_BAND)) { notes.push('flat'); for (const [e] of rows) sus.add(e); }
+    bad.set(uid, sus);
+    judges.push({ uid, n: rows.length, mean: round(all, 100), notes, ...(sus.size === 1 && !notes.includes('flat') ? { fav: [...sus][0] } : {}) });
+  }
+  const flags = {};
+  for (const [e, list] of per) {
+    const ok = list.filter(([u]) => !bad.get(u).has(e)).map(x => x[1]);
+    flags[e] = { sus: list.length - ok.length, clean: fcScore(ok).score, cn: ok.length };
+  }
+  return { judges, flags };
+}
+/* why a judge reports a flag */
+export const FC_REPORT = Object.freeze(['hate', 'copy', 'other']);
 
 /* a stored design is JSON of a plain object, small enough to keep, with no markup in its strings: the game's own
    flagNorm decides what is drawn, on every player's page, so the server only refuses what could not be a design */

@@ -14,6 +14,7 @@ This script turns it into a small page plus long-cached files, without changing 
     player downloads only the small page until the next deploy;
   - every region's map, made at build time by the game's own generators and checked against them
     (scripts/bake-maps.mjs), as /assets/maps.<hash>.js, so a page decodes its map instead of generating it;
+    its biomes and large iron deposits go with it, worked out and checked the same way;
   - the game's three typefaces (Bodoni Moda, Public Sans, IBM Plex Mono; SIL Open Font License),
     Latin and Latin Extended only, from the pinned Fontsource packages into /assets/fonts/, so no
     visitor's browser contacts Google for them;
