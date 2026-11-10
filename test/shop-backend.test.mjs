@@ -492,8 +492,8 @@ test('the Age of Sail Pack: €2.99 and all ten of its pieces held', async () =>
   await rejects(call(p, { step: 'checkout', product: 'sailpack' }), 'owned');
 });
 
-test('the Central Bank Pack: €2.99 and all ten of its pieces held', async () => {
-  assert.equal(CATALOGUE.products.cbpack.amount, 299);assert.equal(CATALOGUE.products.cbpack.grants.length, 10);
+test('the Central Bank Pack: €2.49 and all ten of its pieces held', async () => {
+  assert.equal(CATALOGUE.products.cbpack.amount, 249);assert.equal(CATALOGUE.products.cbpack.grants.length, 10);
   const p = await player(), c = await call(p, { step: 'checkout', product: 'cbpack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;

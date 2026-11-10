@@ -107,7 +107,7 @@ check('its drawer previews the chart card, arms, flag, stamp, lighthouse and log
 await A.locator('.shop-dr .shop-sailpack').screenshot({ path: path.join(OUT, 'shop-sail-drawer.png') });
 check('the Central Bank Pack is on sale', /Central Bank Pack/.test(await txt(A, '.shop-cd[data-p="cbpack"]')));
 await openDr(A, 'cbpack');
-check('its drawer previews the notes with the clear window, the coin, the card, stamp, bullion and paper', !!(await A.$('.shop-cbpack .hero.cd-treasury')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .cu-note').length)) === 2 && !!(await A.$('.shop-cbpack svg.cu-coin')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .shop-or-grid figure').length)) === 3 && /2\.99/.test(await txt(A, '#shop-cbpack-price')));
+check('its drawer previews the notes with the clear window, the coin, the card, stamp, bullion and paper', !!(await A.$('.shop-cbpack .hero.cd-treasury')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .cu-note').length)) === 2 && !!(await A.$('.shop-cbpack svg.cu-coin')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .shop-or-grid figure').length)) === 3 && /2\.49/.test(await txt(A, '#shop-cbpack-price')));
 await A.locator('.shop-dr .shop-cbpack').screenshot({ path: path.join(OUT, 'shop-cb-drawer.png') });
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
