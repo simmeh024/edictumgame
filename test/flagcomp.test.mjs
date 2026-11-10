@@ -2,7 +2,8 @@
 // trimmed score and the podium.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FC, fcId, fcIdOk, fcTimes, fcPhase, fcPrev, fcStars, fcScore, fcNeed, fcDuty, fcRank, fcDeal, fcFlagText } from '../functions/flagcomp-core.js';
+import { FC, FC_SUS, fcId, fcIdOk, fcTimes, fcPhase, fcPrev, fcStars, fcScore, fcNeed, fcDuty, fcRank, fcDeal, fcFlagText, fcSuspect } from '../functions/flagcomp-core.js';
+import { KINDS, fcWanted, fcLetter } from '../functions/mail-core.js';
 
 const DAY = 86400000;
 
@@ -144,4 +145,86 @@ test('judging pays in land: a credit for every five flags, ten at most; and the 
   assert.ok(!defs.some(a => /stars? in every category/.test(a.d)), 'none is paid for what the stars were');
   assert.match(html, /ACH_CATS\.splice\(ACH_CATS\.length-1,0,\['flag','The Flag Competition'\]\);ACH_CAT\.flag='The Flag Competition';/);
   assert.doesNotMatch(html, /achDef\('odd','fc-/, 'none is left among the oddities');
+});
+
+test('a skipped flag goes to the back of the judge’s queue, and comes again once the others are scored', () => {
+  const pool = [{ id: 'a', n: 0 }, { id: 'b', n: 0 }, { id: 'c', n: 1 }, { id: 'd', n: 2 }];
+  const plain = fcDeal(pool, [], 'judge', 10);
+  assert.equal(plain.length, 4);
+  const later = fcDeal(pool, [], 'judge', 10, new Set(['a']));
+  assert.equal(later[later.length - 1], 'a', 'the skipped flag is dealt last');
+  assert.deepEqual(later.slice(0, 3), plain.filter(x => x !== 'a'), 'the others keep their order');
+  assert.deepEqual(fcDeal(pool, ['b', 'c', 'd'], 'judge', 10, ['a']), ['a'], 'with every other flag scored it comes back');
+  assert.deepEqual(fcDeal(pool, [], 'judge', 2, ['a', 'b']), ['c', 'd'], 'a batch is filled with unskipped flags first');
+});
+
+test('the staff’s marks: a drive-by visit, a flag lifted far above the other judges’ view, the same score for everything', () => {
+  const s = x => [x, x, x, x, x];
+  const votes = [
+    { uid: 'drive', v: { f1: s(5) } },                                          // scored one flag, five stars
+    { uid: 'shy', v: { f2: s(3) } },                                            // one flag, an ordinary score: no mark
+    { uid: 'fav', v: { f1: s(2), f2: s(2), f3: s(5), f4: s(3) } },             // f3: five stars where the others give it two
+    { uid: 'flat', v: { f1: s(3), f2: s(3), f3: s(3), f4: s(3), f5: s(3) } },  // the same for all
+    { uid: 'fair', v: { f1: s(4), f2: s(2), f3: s(1), f4: s(4), f5: s(1) } },  // a judge who judges
+    { uid: 'fair2', v: { f1: s(4), f3: s(2), f5: s(2) } }
+  ];
+  const { judges, flags } = fcSuspect(votes), J = Object.fromEntries(judges.map(j => [j.uid, j]));
+  assert.deepEqual(J.drive.notes, ['drive']); assert.equal(J.drive.fav, 'f1');
+  assert.deepEqual(J.shy.notes, []); assert.deepEqual(J.fair.notes, []); assert.deepEqual(J.fair2.notes, []);
+  assert.deepEqual(J.fav.notes, ['fav']); assert.equal(J.fav.fav, 'f3');
+  assert.deepEqual(J.flat.notes, ['flat']); assert.equal(J.flat.fav, undefined);
+  assert.equal(flags.f1.sus, 2, 'f1: the drive-by and the flat judge'); assert.equal(flags.f1.cn, 3); assert.equal(flags.f1.clean, 3.3333);
+  assert.equal(flags.f3.sus, 2, 'f3: the lifted rating and the flat judge'); assert.equal(flags.f5.sus, 1);
+  assert.equal(J.fair.mean, 2.4);
+  /* a judge who loves the month's best flag, as everyone does, is not marked */
+  const best = fcSuspect([{ uid: 'a', v: { b: s(5), c: s(2), d: s(2) } }, { uid: 'b', v: { b: s(5), c: s(3), d: s(2) } }, { uid: 'c', v: { b: s(5), c: s(2), d: s(3) } }]);
+  assert.ok(best.judges.every(j => !j.notes.length), JSON.stringify(best.judges));
+  assert.deepEqual(fcSuspect([]), { judges: [], flags: {} });
+  assert.deepEqual(fcSuspect([{ uid: 'x', v: { f1: [9, 9, 9, 9, 9] } }]).judges, [], 'a broken rating is no rating');
+  assert.ok(FC_SUS.DRIVE >= 1 && FC_SUS.FAV_GAP > 0 && FC_SUS.FAV_OTHERS >= 1);
+});
+
+test('the reminder by post: who wants it, and what it says', () => {
+  assert.ok(KINDS.includes('fc'));
+  assert.equal(fcWanted({ msg: true, fc: false }), false, 'switched off');
+  assert.equal(fcWanted({ msg: false, fc: true }), true, 'switched on');
+  assert.equal(fcWanted({ msg: true, war: false }), true, 'an account from before the kind existed, still taking letters');
+  assert.equal(fcWanted({ msg: false, now: false, war: false, dip: false, news: false, away: false }), false, 'one that stopped every letter');
+  assert.equal(fcWanted({ now: true }), false); assert.equal(fcWanted(null), false);
+  const cfg = { site: 'https://example.test' }, close = Date.UTC(2026, 10, 24);
+  const a = fcLetter(cfg, { to: 'a@example.test', nation: 'Eternia <b>', left: 4, duty: 10, close, last: false, tok: 't1' });
+  assert.match(a.subject, /^Judging is open: your flag needs you to score 4 more flags$/);
+  assert.match(a.html, /10 flags<\/b> of the others/); assert.match(a.html, /#flagcomp/); assert.doesNotMatch(a.html, /Eternia <b>/, 'the name is escaped');
+  assert.match(a.html, /Tue, 24 Nov 2026 00:00 UTC/);
+  const b = fcLetter(cfg, { to: 'a@example.test', nation: 'Eternia', left: 1, duty: 3, close, last: true, tok: 't1' });
+  assert.equal(b.subject, 'Last day: score one more flag to keep your flag in');
+  assert.match(b.text, /mail\?t=t1/); assert.equal(b.unsub, 'https://example.test/mail?t=t1');
+});
+
+test('the page: a changed score adds nothing, a skip goes to the server, the draft follows the player, the desk task counts first scores', async () => {
+  const fs = await import('node:fs'), vm = await import('node:vm');
+  const html = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
+  const from = (start, end) => { const at = html.indexOf(start); assert.ok(at >= 0, start); return html.slice(at, html.indexOf(end, at) + end.length); };
+  // only a flag's first score moves the tally, and so land, achievements and the desk
+  const rate = from('async function flcRate(){', '\n}\n');
+  assert.match(rate, /const first=!\(r&&r\.first===false\);/);
+  assert.match(rate, /if\(first\)\{\n\s*const m=clone\(S\.nation\)[^]*gbBump\(m,'fcj',1,t\);/);
+  assert.match(from('async function flcSkip(){', '\n}\n'), /cbCall\(\{op:'fcSkip',e:cur\.id\}\)/);
+  // the server's ops, all reachable through civic
+  const core = fs.readFileSync(new URL('../functions/flagcomp.js', import.meta.url), 'utf8');
+  assert.match(core, /const OPS = \{ fcState, fcEnter, fcWithdraw, fcRemove, fcNext, fcRate, fcSkip, fcMine, fcReport, fcDraft, fcAdmin, fcDismiss, fcCloseNow \};/);
+  // this device's draft: the new {f, t}, or a bare design kept before, counted as old
+  const store = {}, ctx = vm.createContext({ localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } } });
+  vm.runInContext(from('const flcDraftKey=', '\n') + '\n' + from('function flcLocal(n){', 'return o.p?{f:o,t:0}:null;}catch(e){return null;}}') + '\nthis.X={flcDraftKey,flcLocal};', ctx);
+  const { flcDraftKey, flcLocal } = ctx.X, n = { seed: 7 };
+  assert.equal(flcLocal(n), null);
+  store[flcDraftKey(n)] = JSON.stringify({ p: 'bi-v', c: ['#000000', '#FFFFFF', '#FF0000'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(flcLocal(n))), { f: { p: 'bi-v', c: ['#000000', '#FFFFFF', '#FF0000'] }, t: 0 });
+  store[flcDraftKey(n)] = JSON.stringify({ f: { p: 'tri-h' }, t: 99 });
+  assert.equal(flcLocal(n).t, 99); assert.equal(flcLocal(n).f.p, 'tri-h');
+  store[flcDraftKey(n)] = '[1,2]'; assert.equal(flcLocal(n), null); store[flcDraftKey(n)] = '{'; assert.equal(flcLocal(n), null);
+  // the desk task: counted from the tally fcj, and kept through a reload
+  const desk = from('COMMIT_HOOKS.push((n,old,now)=>{\n  if(!n||n.npc||!n.name||!n.dd||!ddOn())return;', '\n});\n');
+  assert.match(desk, /tallyOf\(n,'fcj'\)-tallyOf\(base,'fcj'\)/);
+  assert.match(html, /NORM_HOOKS\.push\(\(n,d\)=>\{const F=d&&d\.dd&&d\.dd\.f;if\(n\.dd&&F&&d\.dd\.d===n\.dd\.d/);
 });

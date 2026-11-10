@@ -11,10 +11,14 @@
      war    wars declared on them, hexes seized, peace made
      dip    diplomacy: trade deals, alliances, matters raised, border hexes ceded
      news   new development news from the Edictum team
-     away   one reminder when their nation has gone unvisited for AWAY_DAYS */
+     away   one reminder when their nation has gone unvisited for AWAY_DAYS
+     fc     the flag competition: an entrant who has not yet scored the flags it must, when judging opens and on its
+            last day. An account saved before this kind existed has no fc: it counts as chosen unless every other
+            kind is off (fcWanted), which is how a "stop these letters" left it. */
 import crypto from 'node:crypto';
 
-export const KINDS = ['msg', 'now', 'war', 'dip', 'news', 'away'];
+export const KINDS = ['msg', 'now', 'war', 'dip', 'news', 'away', 'fc'];
+export const fcWanted = p => !!p && (typeof p.fc === 'boolean' ? p.fc : KINDS.some(k => k !== 'now' && k !== 'fc' && p[k]));
 export const AWAY_DAYS = 3;
 const SITE = 'https://edictumgame.com';
 const FROM = 'The Herald of Edictum <herald@edictumgame.com>';
@@ -73,7 +77,8 @@ const TONE = {
   urgent: { band: '#7d1d24', deep: '#5a1218', accent: '#a32a33', soft: '#fbe9ea', gold: '#f1c27b' },
   calm: { band: '#1f3d63', deep: '#142a47', accent: '#2c5a92', soft: '#e7eef8', gold: '#e2c46f' },
   news: { band: '#3b2a63', deep: '#281b47', accent: '#5a40a0', soft: '#efeaf9', gold: '#e9c97a' },
-  away: { band: '#6a4a14', deep: '#4a330c', accent: '#93661b', soft: '#f8f0e1', gold: '#f3d27c' }
+  away: { band: '#6a4a14', deep: '#4a330c', accent: '#93661b', soft: '#f8f0e1', gold: '#f3d27c' },
+  flag: { band: '#7a2433', deep: '#531824', accent: '#a8324a', soft: '#f9e8ec', gold: '#f0cf7e' }
 };
 function page(cfg, { tone, icon, kicker, title, lead, body, cta, foot }) {
   const t = TONE[tone];
@@ -181,6 +186,19 @@ export function newsLetter(cfg, { to, posts, tok }) {
   return { to, subject: title, unsub: `${cfg.site}/mail?t=${tok}`,
     html: page(cfg, { tone: 'news', icon: '&#x1F4E3;', kicker: 'Development news', title, lead: posts.map(x => x.ti).join(' · '), body, cta: { href: cfg.site + '/#news', label: 'Read it in the game' }, foot: footFor(cfg, tok) }),
     text: `${title}\n\n${posts.map(x => x.ti + '\n' + x.ex).join('\n\n')}\n\n${cfg.site}/#news\nStop these letters: ${cfg.site}/mail?t=${tok}` };
+}
+/* the flag competition: an entrant still short of the flags it must score. last: judging closes within a day */
+export function fcLetter(cfg, { to, nation, left, duty, close, last, tok }) {
+  const flags = left === 1 ? 'one more flag' : `${left} more flags`, when = new Date(close).toUTCString().replace(/:\d\d GMT$/, ' UTC');
+  const title = last ? `Last day: score ${flags} to keep your flag in` : `Judging is open: your flag needs you to score ${flags}`;
+  const body = p(last ? `Judging in the flag competition closes within a day, and the flag ${esc(nation || 'your nation')} entered is not yet safe.` : `Entries are closed and judging has begun in this month’s flag competition. ${esc(nation || 'Your nation')} has a flag in the running.`)
+    + rows('flag', [['&#x2B50;', `Every entrant scores <b>${duty} ${duty === 1 ? 'flag' : 'flags'}</b> of the others to stay in the running. You have <b>${flags}</b> to go.`],
+      ['&#x23F3;', `Judging closes on <b>${esc(when)}</b>. A flag whose entrant has not scored enough by then does not place, however well it did.`],
+      ['&#x1F5FA;&#xFE0F;', 'Every five flags you score also earn a land credit, ten at most.']])
+    + p('<span style="font-size:15px;color:#5d6f6b">The flags are shown without names, a few at a time. It takes a minute or two.</span>');
+  return { to, subject: title, unsub: `${cfg.site}/mail?t=${tok}`,
+    html: page(cfg, { tone: 'flag', icon: '&#x1F6A9;', kicker: last ? 'The flag competition · last day' : 'The flag competition', title, lead: `${flags} to score`, body, cta: { href: cfg.site + '/#flagcomp', label: 'Score the flags' }, foot: footFor(cfg, tok) }),
+    text: `${title}\n\nEvery entrant scores ${duty} flags of the others to stay in the running; you have ${flags} to go. Judging closes on ${when}.\n\n${cfg.site}/#flagcomp\nStop these letters: ${cfg.site}/mail?t=${tok}` };
 }
 export function awayLetter(cfg, { to, nation, days, tok }) {
   const title = `${nation || 'Your nation'} awaits its ${days > 6 ? 'long-lost' : 'absent'} leader`;

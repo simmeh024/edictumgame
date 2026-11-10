@@ -10,6 +10,8 @@
 //     Each account also keeps the time it was last sent news (mailAccounts/<uid>.nw), so a run that fails part of the
 //     way leaves the rest for the next run without sending anyone the same news twice.
 //  3. one reminder when a nation has not been visited for AWAY_DAYS (mailAccounts/<uid>.away remembers it).
+//  4. the flag competition: while judging is open, an entrant that has not scored the flags it must hears once when
+//     judging opens and once in its last day (mailAccounts/<uid>.fc remembers '<month>:open' or '<month>:last').
 //
 //   cd jobs/mail && npm ci
 //   GOOGLE_APPLICATION_CREDENTIALS=/path/outside/the/repo/key.json node run.mjs --project <project id>
@@ -22,7 +24,8 @@
 // the run stops there and fails: what was sent stays recorded, so nothing is sent twice, and what was not is sent next time.
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { mailConfig, send, digestLetter, newsLetter, awayLetter, PING_KIND, AWAY_DAYS } from '../../functions/mail-core.js';
+import { mailConfig, send, digestLetter, newsLetter, awayLetter, fcLetter, fcWanted, PING_KIND, AWAY_DAYS } from '../../functions/mail-core.js';
+import { fcId, fcTimes, fcPhase, fcDuty } from '../../functions/flagcomp-core.js';
 
 const args = process.argv.slice(2), opt = k => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
 const projectId = opt('--project') || process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID;
@@ -88,6 +91,24 @@ for (const [uid, a] of acc) {
   if (!t || now - t < AWAY_DAYS * DAY || (a.away || 0) > t) continue;
   add(awayLetter(cfg, { to: a.e, nation: s.name, days: Math.floor((now - t) / DAY), tok: a.tok }), uid, { away: now });
   report.away++;
+}
+
+// 4. the flag competition: entrants still short of their share of scoring, when judging opens and on its last day
+report.fc = 0;
+const fcNow = fcId(now), fcT = fcTimes(fcNow);
+if (fcPhase(fcNow, now) === 'judge') {
+  const stage = now >= fcT.close - DAY ? 'last' : 'open', key = fcNow + ':' + stage;
+  const [head, mine] = await Promise.all([db.doc('flagc/' + fcNow).get(), db.collection('flagc/' + fcNow + '/mine').get()]);
+  const duty = fcDuty(head.exists ? head.get('n') || 0 : 0);
+  for (const m of duty > 0 ? mine.docs : []) {
+    const uid = m.id, a = acc.get(uid);
+    if (!a || !fcWanted(a.p) || a.fc === key || (stage === 'open' && a.fc === fcNow + ':last')) continue;
+    const v = await db.doc('flagc/' + fcNow + '/votes/' + uid).get(), left = duty - (v.exists ? Object.keys(v.get('v') || {}).length : 0);
+    if (left <= 0) continue;
+    const s = await summary(uid);
+    add(fcLetter(cfg, { to: a.e, nation: s && s.name, left, duty, close: fcT.close, last: stage === 'last', tok: a.tok }), uid, { fc: key });
+    report.fc++;
+  }
 }
 
 // every ping read this run, but letters, for the Live feed (kept before any is deleted below): one document per hour, and none older than FEED_KEEP

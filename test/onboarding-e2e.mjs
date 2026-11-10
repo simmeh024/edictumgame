@@ -62,7 +62,7 @@ check('the territory counter grows with the claim',await held(A)>terr0&&(await A
 check('the first three hexes are celebrated',await until(async()=>/Your first three hexes!/.test(await toastText(A)),20000));
 check('a city and three real claims reveal transport and expansion planning',await A.locator('.mp-map-toolbar').count()===1);
 check('the first claim starts presence',await A.evaluate(()=>G.S.nation.stk?.n===1));
-await nav(A,'issues');check('the edicts page sets three tasks and a rare one for today, with presence below them',await A.locator('.dd .dd-t:not(.dd-rare)').count()===3&&await A.locator('.dd .dd-rare').count()===1&&/day 1/.test(await A.locator('.dd-stk').textContent()));
+await nav(A,'issues');check('the edicts page sets three tasks and a rare one for today, with presence below them',await A.locator('.dd .dd-t:not(.dd-rare):not(.dd-fc)').count()===3&&await A.locator('.dd .dd-rare').count()===1&&/day 1/.test(await A.locator('.dd-stk').textContent()));
 await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.locator('.dd').screenshot({path:OUT+'/daily-desk-1280.png'});await A.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
 await nav(A,'customise');await czSection(A,'e');check('the flag designer lives in Customise',await A.locator('#cz-sec-e #c-fgd').count()===1&&await A.locator('#c-flag-save').count()===1);
 await czSection(A,'s');check('the first day of presence unlocks the indigo stamp in Customise',await A.locator('#cz-st-s-indigo').count()===1);

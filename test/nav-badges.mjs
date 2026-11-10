@@ -122,6 +122,15 @@ try {
   check('and the More sheet shows the Museum’s badge', await until(() => page.evaluate(() => document.querySelector('#more-sheet [data-v="museum"] .badge')?.textContent === '1')));
   await page.screenshot({ path: path.join(OUT, 'nav-badges-phone.png') });
 
+  /* a reload draws the first page before it counts the badges (nvxWarm): they follow a moment later, on the menu
+     and on the page */
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  await page.waitForFunction(() => window.__game && window.__game.S.nation && document.querySelector('nav.nav [data-v="museum"]'));
+  check('after a reload the badges follow the first paint', await until(async () => String((await badges()).museum) === '1'), JSON.stringify(await badges()));
+  await go('museum');
+  check('and the page marks its tab as before', /^1\|.*crates to open/.test(await mark('.mu-tabs [data-h="digs"]') || ''), await mark('.mu-tabs [data-h="digs"]'));
+
   check('no errors in the page', errors.length === 0, errors.join(' | '));
 } catch (e) {
   console.log('FAIL the run stopped: ' + (e && e.stack || e)); failed++;

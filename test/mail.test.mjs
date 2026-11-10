@@ -42,14 +42,14 @@ test('an address is confirmed by its code, welcomed once, and every letter can b
   await assert.rejects(call(u, { step: 'prefs', p: { news: false } }), /Confirm your address/);
   await call(u, { step: 'verify', code });
   const st = await call(u, { step: 'status' });
-  assert.equal(st.ok, true); assert.equal(st.email, to); assert.deepEqual(st.p, { msg: true, now: false, war: true, dip: true, news: true, away: true });   // each letter right away: only when chosen
+  assert.equal(st.ok, true); assert.equal(st.email, to); assert.deepEqual(st.p, { msg: true, now: false, war: true, dip: true, news: true, away: true, fc: true });   // each letter right away: only when chosen
   const letters = await outbox(to); assert.equal(letters.length, 2); assert.match(letters[1].subject, /Welcome to the rolls, Herald Test Republic/);
   assert.equal((await call(u, { step: 'prefs', p: { news: false, bogus: true } })).p.news, false);
   const tok = (await get('mailAccounts/' + u.uid)).fields.tok.stringValue;
   assert.match(letters[1].html, new RegExp('/mail\\?t=' + tok));
   await assert.rejects(call(null, { step: 'unsub', t: 'nonsense-key-123' }), /no longer valid/);
   await call(null, { step: 'unsub', t: tok });
-  assert.deepEqual((await call(u, { step: 'status' })).p, { msg: false, now: false, war: false, dip: false, news: false, away: false });
+  assert.deepEqual((await call(u, { step: 'status' })).p, { msg: false, now: false, war: false, dip: false, news: false, away: false, fc: false });
   await call(u, { step: 'remove' });
   assert.equal((await call(u, { step: 'status' })).email, '');
   assert.equal(await get('mailTokens/' + tok), null);
@@ -119,4 +119,42 @@ test('a run the mail service stops part of the way sends nothing twice, and the 
   const total = (await sent()).flat().length;
   await job(now + 120000);
   assert.equal((await sent()).flat().length, total);
+});
+
+test('an entrant still short of its share of scoring hears once when judging opens and once on its last day', async () => {
+  const M = '2032-03', open = Date.UTC(2032, 2, 19), close = Date.UTC(2032, 2, 24);
+  const u = await user(), to = u.uid.toLowerCase() + '@example.test', other = await user(), to2 = other.uid.toLowerCase() + '@example.test';
+  for (const [x, addr, name] of [[u, to, 'Bannerholm'], [other, to2, 'Quietmere']]) {
+    await put('summaries/' + x.uid, { name, reg: 'meridian', pop: 5, t: open });
+    await call(x, { step: 'set', email: addr });
+    await call(x, { step: 'verify', code: (await outbox(addr))[0].subject.slice(0, 6) });
+  }
+  await call(other, { step: 'prefs', p: { fc: false } });
+  await put('flagc/' + M, { n: 3, st: 'open' });
+  await put(`flagc/${M}/mine/${u.uid}`, { e: 'entryofbannerholm00' }); await put(`flagc/${M}/mine/${other.uid}`, { e: 'entryofquietflag000' });
+  const votes = async (x, k) => { const r = await fetch(`${docs}/flagc/${M}/votes/${x.uid}`, { method: 'PATCH', headers, body: JSON.stringify({ fields: { v: { mapValue: { fields: Object.fromEntries(Array.from({ length: k }, (_, i) => ['e' + i, { stringValue: '33333' }])) } } } }) }); assert.equal(r.status, 200); };
+  await votes(u, 1);   // three flags: each entrant scores the two others, and Bannerholm has scored one
+  const fcMail = async addr => (await outbox(addr)).filter(l => /your flag/i.test(l.subject));   // the fake clock also brings away reminders
+  const before = (await fcMail(to)).length;
+  await job(open - 3600000);                 // entries still open: nothing
+  assert.equal((await fcMail(to)).length, before);
+  await job(open + 3600000);
+  let mine = (await fcMail(to)).slice(before);
+  assert.equal(mine.length, 1, 'one letter when judging opens'); assert.equal(mine[0].subject, 'Judging is open: your flag needs you to score one more flag');
+  assert.match(mine[0].html, /#flagcomp/);
+  assert.equal((await outbox(to2)).filter(l => /your flag/i.test(l.subject)).length, 0, 'not to one who switched these letters off');
+  await job(open + 7200000);
+  assert.equal((await fcMail(to)).length, before + 1, 'and not again in the same stage');
+  await job(close - 6 * 3600000);
+  mine = (await fcMail(to)).slice(before);
+  assert.equal(mine.length, 2); assert.equal(mine[1].subject, 'Last day: score one more flag to keep your flag in');
+  await job(close - 3600000);
+  assert.equal((await fcMail(to)).length, before + 2, 'the last day is told once');
+  /* one who has scored enough hears nothing */
+  const done = await user(), to3 = done.uid.toLowerCase() + '@example.test';
+  await put('summaries/' + done.uid, { name: 'Dutyland', reg: 'meridian', pop: 5, t: open });
+  await call(done, { step: 'set', email: to3 }); await call(done, { step: 'verify', code: (await outbox(to3))[0].subject.slice(0, 6) });
+  await put(`flagc/${M}/mine/${done.uid}`, { e: 'entryofdutyland0000' }); await votes(done, 2);
+  await job(close - 1800000);
+  assert.equal((await outbox(to3)).filter(l => /your flag/i.test(l.subject)).length, 0);
 });
