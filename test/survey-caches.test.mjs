@@ -82,6 +82,26 @@ test('the page is wired up: saved privately, kept by normalize, fixed at the fir
   assert.ok(src.includes("SVC:()=>({SVC,SVC_N,"), 'the test probe has SVC');
 });
 
+test('digging achievements: eight under Economy & trade, names nobody else uses, progress from the dig’s tallies', () => {
+  const block = cut("/* the caches' achievements", "\nachDef('eco','eco-svcq'") + src.slice(src.indexOf("\nachDef('eco','eco-svcq'"), src.indexOf('\n', src.indexOf("\nachDef('eco','eco-svcq'") + 1));
+  const A = vm.createContext({ ACH: [] });
+  vm.runInContext(vars([line('function tallyOf('), line('const achM='), line('const aT='), line('const aKeys='),
+    'function achDef(c,id,t,n,d,g,f){ACH.push({c,id,t,n,d,g,f});}', block].join('\n')), A);
+  const got = A.ACH.map(a => [a.id, a.t, a.g]);
+  assert.deepEqual(plain(got), [['eco-svc1', 'b', 1], ['eco-svc10', 's', 10], ['eco-svc50', 'g', 50], ['eco-svc200', 'p', 200],
+    ['eco-svcall', 'b', 1], ['eco-svcall7', 's', 7], ['eco-svcres', 's', 5], ['eco-svcq', 'g', 1000]]);
+  assert.ok(A.ACH.every(a => a.c === 'eco'));
+  for (const a of A.ACH) {
+    assert.equal(src.split(`'${a.n}'`).length - 1, 1, `${a.n} is named once in the game`);
+    assert.equal(src.split(`'${a.id}'`).length - 1, 1, `${a.id} is defined once`);
+  }
+  const x = { n: { tly: { svc: 12, svcq: 340.5, 'svcg:iron': 7, 'svcg:oil': 4, 'svcg:food': 1, svcall: 3, mkt: 9 } }, m: {} };
+  assert.deepEqual(plain(A.ACH.map(a => a.f(x))), [12, 12, 12, 12, 3, 3, 3, 340.5]);
+  assert.deepEqual(plain(A.ACH.map(a => a.f({ n: {}, m: {} }))), [0, 0, 0, 0, 0, 0, 0, 0], 'a nation that never dug has nothing');
+  // the dig keeps those tallies: each resource dug up, and a day with every cache dug up
+  assert.ok(src.includes("gbBump(n,'svcg:'+r,1,now);if(n.svc.c.every(x=>x[3]))gbBump(n,'svcall',1,now);"));
+});
+
 test('Help states the amounts the rules give', () => {
   const help = cut("HELP_EXT.push({k:'svc'", '`});');
   const at = (r, u) => svcAmt(r, u, GB_VAL, SVC_V);

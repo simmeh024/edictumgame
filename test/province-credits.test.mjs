@@ -27,6 +27,6 @@ test('peak is kept after a merge, so re-adding pays nothing more', () => {
   n.prov.on = 0; assert.equal(prvPeak(n), 5);
 });
 test('landEarned counts province credits and the achievements exist', () => {
-  assert.match(src, /achRankCredits\(n\)\+prvCredits\(n\)-/);
+  assert.match(src, /function landEarned\(n\)\{[^\n]*\+prvCredits\(n\)/);
   for (const id of ['prv-add1', 'prv-add4', 'prv-add8', 'prv-add15', 'prv-add23']) assert.ok(src.includes(`'${id}'`), id);
 });
