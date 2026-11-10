@@ -6985,6 +6985,11 @@ button[disabled] .gv-cost{opacity:.6}
 const NORM_HOOKS=[];
 (function(){
 'use strict';
+/* Numbers with a set count of decimals. toLocaleString with options builds a new formatter on every call, some 40
+   times the cost of a kept one (population and money are drawn on every page, and fxFmt runs on every frame of a
+   count-up), so each format the game uses is made once and kept. */
+const NUMF=new Map();
+function numFmt(v,loc,min,max,grp){const k=loc+min+'|'+max+(grp===false?'n':'');let f=NUMF.get(k);if(!f)NUMF.set(k,f=new Intl.NumberFormat(loc,{minimumFractionDigits:min,maximumFractionDigits:max,useGrouping:grp!==false}));return f.format(v);}
 /* ───────── the known world: regions ───────── */
 /* Every region has its own generated map (all the same size, twice the area of the first map), its own
    landmass names and its own computer-run nations. A nation lives in one region at a time (n.reg); the
@@ -9404,8 +9409,47 @@ function bakedMap(){
     const C=genComps(G,T,comps=>{b.n.forEach((nm,k)=>{if(comps[k])comps[k].name=nm;});});
     let leg=null;
     if(REG_MER){leg=new Int32Array(G.N).fill(-1);for(let r=LEG.oy;r<Math.min(G.ROWS,LEG.oy+LEG.or);r++)for(let c=LEG.ox;c<Math.min(G.COLS,LEG.ox+LEG.oc);c++)leg[r*G.COLS+c]=(r-LEG.oy)*LEG.oc+(c-LEG.ox);}
-    return {...G,T,...C,npcLoc:Object.assign({},b.p),leg};
+    MAP_BK=b;return {...G,T,...C,npcLoc:Object.assign({},b.p),leg};
   }catch(e){return null;}
+}
+/* ── the baked tables ──
+   Two of the map's tables come from the map alone, the same for every player in the region, yet cost a phone over
+   half a second on every load: the biomes (three noise fields, every hex; BIOME) and the large iron deposits (every
+   land hex hashed and ranked; IRON_DEP). The build works them out with this same code and bakes them beside the map:
+   b the biomes of the lowland and hills (mapBiomes, through the range coder), bh their checksum, d the deposits' hexes
+   (gaps between them, in base 36). They are used only with the baked map they were made for (MAP_BK); without them,
+   or with a damaged one, the page works them out as before. The build checks every region decodes to exactly the
+   tables the code makes. */
+let MAP_BK=null;
+/* each lowland or hill hex's biome foretold from its three coded neighbours (mountains are always 6, the sea 0) and how
+   near it lies to the sea; bit(k,b) as in mapLevels. A neighbour not yet coded (across the wrap) counts as sea */
+function mapBiomes(T,nbr,coast,B,bit){
+  const nb=(i,d)=>{const j=nbr[i*6+d];return j<0||T[j]<2?0:T[j]===4?6:j<i?B[j]:0;};
+  for(let i=0;i<T.length;i++){
+    const t=T[i];if(t<2||t>3)continue;
+    const k=((nb(i,3)*7+nb(i,4))*7+nb(i,5))*3+Math.min(2,Math.max(0,coast[i]));
+    if(t===3){B[i]=bit(k,B[i]===2)?2:5;continue;}
+    if(bit(1029+k,B[i]===1)){B[i]=1;continue;}
+    if(bit(2058+k,B[i]===2)){B[i]=2;continue;}
+    B[i]=bit(3087+k,B[i]===3)?3:4;
+  }
+}
+/* the decoding half of mapUnpack's binary range coder, over base64 s with np contexts: bit(k) */
+function mapBits(s,np){
+  const raw=atob(s),buf=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)buf[i]=raw.charCodeAt(i);
+  const P=new Uint16Array(np).fill(1024);let pos=1,code=0,range=0xFFFFFFFF;
+  for(let i=0;i<4;i++)code=(code*256+(buf[pos++]|0))>>>0;
+  return k=>{const p=P[k],bound=(range>>>11)*p;let v=0;if(code<bound){range=bound;P[k]=p+((2048-p)>>3);}else{code-=bound;range-=bound;P[k]=p-(p>>3);v=1;}
+    while(range<16777216){range=range*256>>>0;code=(code*256+(buf[pos++]|0))>>>0;}return v;};
+}
+/* a baked table for map M: 'b' the biomes, 'd' the deposits' hexes in order; null to work it out */
+function bakedTab(k,M){
+  const b=MAP_BK;if(!b||!M)return null;
+  try{
+    if(k==='b'&&typeof b.b==='string'){const B=new Uint8Array(M.N);for(let i=0;i<M.N;i++)if(M.T[i]===4)B[i]=6;mapBiomes(M.T,M.nbr,M.coast,B,mapBits(b.b,4116));return mapSum(B)===b.bh?B:null;}
+    if(k==='d'&&typeof b.d==='string'&&b.d){let p=0;const a=b.d.split(',').map(x=>p+=parseInt(x,36));return a.every((i,j)=>Number.isInteger(i)&&i<M.N&&M.T[i]>=2&&(j?i>a[j-1]:i>=0))?a:null;}
+  }catch(e){}
+  return null;
 }
 /* older Meridian records (map version 2) are moved into the larger map hex for hex */
 function remapLegacy(d){
@@ -17998,8 +18042,8 @@ function fill(t,n,x){
   return String(t).replace(/\{N\}’s/g,()=>poss(n.name)).replace(/\b([Aa]n?) (?=\{(NBCAP|NBD|NBL|NB|LAND|SITE|N|D|Cs|C|L|CAP|As|A|SPORT|DISH|LANG|FIN|DEF|FOR|INT|WRK|HEA|CUL|TN?:\w+)\})/g,(m,a,k)=>{const v=/^([aio]|e(?!u|w)|u(?!n[aeiou]|ni|s[aeiou]|r[aeiou]|k|t))/i.test(val(k));return (v?a.charAt(0)+'n':a.charAt(0))+' ';})
     .replace(/\{(NBCAP|NBD|NBL|NB|LAND|SITE|N|D|Cs|C|L|CAP|As|A|SPORT|DISH|LANG|FIN|DEF|FOR|INT|WRK|HEA|CUL|TN?:\w+)\}/g,(m,k)=>val(k)).replace(/(?:[Tt]he )?Meridian Reach/g,regText).replace(/\b([Tt])he (whole |entire )?Reach\b/g,b1Reach);
 }
-function fmtPop(p){if(p>=999500)return (p/1e6).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' trillion';if(p>=999.5){const b=p/1000;return (b<9.995?b.toFixed(2):b<99.95?b.toFixed(1):Math.round(b))+' billion';}return (p<9.995?p.toFixed(2):p<99.95?p.toFixed(1):Math.round(p))+' million';}
-function fmtBig(x){if(x>=999.95e12)return (x/1e15).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' quadrillion';if(x>=999.95e9)return (x/1e12).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' trillion';if(x>=999.95e6)return (x/1e9).toFixed(1)+' billion';if(x>=1e6)return (x/1e6).toFixed(1)+' million';return Math.round(x).toLocaleString('en-US');}
+function fmtPop(p){if(p>=999500)return numFmt(p/1e6,'en-US',2,2)+' trillion';if(p>=999.5){const b=p/1000;return (b<9.995?b.toFixed(2):b<99.95?b.toFixed(1):Math.round(b))+' billion';}return (p<9.995?p.toFixed(2):p<99.95?p.toFixed(1):Math.round(p))+' million';}
+function fmtBig(x){if(x>=999.95e12)return numFmt(x/1e15,'en-US',2,2)+' quadrillion';if(x>=999.95e9)return numFmt(x/1e12,'en-US',2,2)+' trillion';if(x>=999.95e6)return (x/1e9).toFixed(1)+' billion';if(x>=1e6)return (x/1e6).toFixed(1)+' million';return Math.round(x).toLocaleString('en-US');}
 function fmtDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
 /* a UTC day (a Chronicle row, kept by its UTC date) by its own date: fmtDate showed the day before west of UTC */
 function fmtDayUTC(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});}catch(e){return '';}}
@@ -19234,7 +19278,7 @@ function ironDepPick(T,oil,keyOf,h){
   const K=Math.min(land.length,Math.max(IRON_DEP_MIN,Math.min(IRON_DEP_MAX,Math.round(land.length/IRON_DEP_PER))));
   return land.map(i=>[((h('ore:'+keyOf(i))%1000003)+1)/IRON_DEP_W[T[i]],i]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).slice(0,K).map(x=>x[1]);
 }
-const IRON_DEP=(()=>{const a=new Uint8Array(MAP.N);for(const i of ironDepPick(MAP.T,CELL_RES.oil,cellKey,hash)){a[i]=1;CELL_RES.iron[i]+=IRON_DEP_YIELD;}return a;})();
+const IRON_DEP=(()=>{const a=new Uint8Array(MAP.N);for(const i of bakedTab('d',MAP)||ironDepPick(MAP.T,CELL_RES.oil,cellKey,hash)){a[i]=1;CELL_RES.iron[i]+=IRON_DEP_YIELD;}return a;})();
 const resName=r=>RES_INFO[r][0].toLowerCase();
 const fmtAmt=x=>{const v=Math.round(x*10)/10;return Number.isInteger(v)?String(v):v.toFixed(1);};
 const roundAmt=v=>clamp(Math.round((parseFloat(v)||0)*2)/2,0,100);
@@ -21250,7 +21294,7 @@ const STAT_TABS=[['overview','Overview'],['people','People'],['migration','Migra
 const LORE=[['history','History','How the nation came to be, its great moments and its old grudges.'],['geography','Geography & climate','Coasts, mountains, rivers, cities and the weather everyone complains about.'],['people','People & customs','What citizens eat, believe, celebrate and argue about.'],['government','Government & politics','How power works, who holds it and who would like to.'],['military','Armed forces','Traditions, famous regiments, victories and embarrassing defeats.'],['foreign','Foreign relations','Friends, rivals, treaties and the neighbour everyone avoids.']];
 const YEAR_MS=2*DAY;
 const fmt0=v=>Math.round(v).toLocaleString('en-US');
-const fmt1=v=>(Math.round(v*10)/10).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+const fmt1=v=>numFmt(Math.round(v*10)/10,'en-US',1,1);
 const pctS=v=>fmt1(v)+'%';
 const fmtCount=v=>v>=999.95e6?fmt1(v/1e9)+' billion':v>=999.95e3?fmt1(v/1e6)+' million':fmt0(v);
 const seedPick=(n,k,a)=>a[hash(String(n.seed||n.name)+':'+k)%a.length];
@@ -21583,7 +21627,7 @@ function lakeShore(c){
   for(let h=0;h<q.length&&h<LAKE_MAX+2;h++){const a=q[h];for(let d=0;d<6;d++){const j=MAP.nbr[a*6+d];if(j<0||seen.has(j))continue;if(MAP.T[j]>=2&&MAP.comp[j]>=0)return landName(j);seen.add(j);q.push(j);}}
   return landName(c);
 }
-const BIOME=(()=>{
+const BIOME=bakedTab('b',MAP)||(()=>{
   const N=MAP.N,b=new Uint8Array(N),h=(x,y,s)=>hash(s+':'+x+':'+y)/4294967296,sm=t=>t*t*(3-2*t);
   const vn=(x,y,s)=>{const ix=Math.floor(x),iy=Math.floor(y),fx=sm(x-ix),fy=sm(y-iy),a=h(ix,iy,s),c1=h(ix+1,iy,s),c2=h(ix,iy+1,s),d=h(ix+1,iy+1,s);return a+(c1-a)*fx+(c2-a)*fy+(a-c1-c2+d)*fx*fy;};
   const fn=(x,y,s)=>0.65*vn(x,y,s)+0.35*vn(x*2.1+5,y*2.1+3,s+'b');
@@ -26084,7 +26128,11 @@ let mfxEv=[],mfxRaf=0,mfxIO=null,mfxSeen=null,mfxRef=[0,0],mfxFrames=0,mfxCost=0
 function mfxPref(k){try{const v=localStorage.getItem('statehood.map.'+k);return v==null?k==='night':v==='1';}catch(e){return k==='night';}}
 function mfxSetPref(k,v){try{localStorage.setItem('statehood.map.'+k,v?'1':'0');}catch(e){}}
 let mfxTilt=mfxPref('tilt'),mfxNightOn=mfxPref('night');
-function mfxRM(){try{return document.documentElement.getAttribute('data-motion')==='reduce'||!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}}
+/* asked on every frame of the map's effects: the system's setting is read from one kept media query (it follows changes
+   by itself) rather than a new one each time; the game's own reduced-motion choice (CZ.disp.rm) is checked first, as
+   the matchMedia wrapper above would answer it */
+let mfxRMQ;
+function mfxRM(){try{if(document.documentElement.getAttribute('data-motion')==='reduce'||CZ.disp.rm)return true;if(mfxRMQ===undefined)mfxRMQ=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null;return !!(mfxRMQ&&mfxRMQ.matches);}catch(e){return false;}}
 let mfxPh=null,mfxFreeze=false;
 function mfxPhase(){return mfxPh!=null?mfxPh:(Date.now()/MFX_DAY)%1;}
 const mfxSm=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
@@ -26506,7 +26554,7 @@ function fxNum(s){const m=/^(\D{0,2}?)(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(\D.*)?$/s
   return {pre:m[1],v:parseFloat(m[2].replace(/,/g,'')+(m[3]||'')),dp:m[3]?m[3].length-1:0,grp:m[2].includes(','),suf:m[4]||''};}
 function fxFmt(c,v){
   if(c.f==='1')return v.toFixed(1);if(c.f==='1%')return v.toFixed(1)+'%';
-  const p=c.p;return p.pre+v.toLocaleString('en-US',{minimumFractionDigits:p.dp,maximumFractionDigits:p.dp,useGrouping:p.grp})+p.suf;
+  const p=c.p;return p.pre+numFmt(v,'en-US',p.dp,p.dp,p.grp)+p.suf;
 }
 function fxCount(el,delay,dur){
   if(fxReduced())return;
@@ -40205,7 +40253,7 @@ function drawMap(cv,P){
   if(first)M0=M;first=false;
   }
   if(P){P.v={s,ox:OX,oy,w,h};return;}
-  cv._mmf=draft?null:{cx:v.cx,cy:v.cy,s,fixed:M0?M0.fixed:[]};cv._mmcol=col;
+  cv._mmf=draft?null:{cx:v.cx,cy:v.cy,s,fixed:M0?M0.fixed:[]};cv._mmcol=col;if(!draft)cv._min=Math.floor(Date.now()/60000);
   mfxAfter(cv,kind,mapTerr(kind),s,OX,oy,w,h,dpr,col);
   if(!draft)mapPrewarm(cv);
 }
@@ -40228,7 +40276,17 @@ function mapMoveStart(cv){
   if(!mm.on){mm.on=true;mfxHold(cv,true);}
   clearTimeout(mm.t);mm.t=setTimeout(()=>mapMoveEnd(cv),MAP_SETTLE);
 }
-function mapMoveEnd(cv){const mm=cv._mm;if(!mm)return;clearTimeout(mm.t);if(!mm.on)return;mm.on=false;if(cv.isConnected)schedule(cv);else{mm.plate=null;mfxHold(cv,false);}}
+function mapMoveEnd(cv){const mm=cv._mm;if(!mm)return;clearTimeout(mm.t);if(!mm.on)return;mm.on=false;if(cv.isConnected)schedule(cv);else{mm.plate=null;mfxHold(cv,false);}mapRenderFree();}
+/* Page draws held back (the outermost render, at the end of the script): n while found() runs (founding draws one
+   page), drag while a finger or the mouse is dragging or pinching a map (cv._drag, set once it has moved). A page
+   drawn again then (a timer: an edict arriving, a figure in the menu) replaced the canvas under the pointer and ended
+   the drag; it now waits until the pointer lets go (mapRenderFree). Only a real drag holds: a glide, the wheel, a
+   click or a press that has not moved draws at once, as before. A drag that has not moved for 2 s no longer holds
+   (a lost pointer-up must not freeze the page), and a held draw is tried again every 2 s. */
+const RENDER_HOLD={n:0,held:false,drag:false,t:0};
+function mapBusy(){const now=performance.now();for(const cv of document.querySelectorAll('canvas.map-cv'))if(cv._drag&&now-(cv._pt||0)<2000)return true;return false;}
+function mapRenderFree(){if(RENDER_HOLD.drag&&!RENDER_HOLD.n&&!mapBusy()){RENDER_HOLD.drag=false;render();}}
+function mapRenderLater(){RENDER_HOLD.drag=true;if(!RENDER_HOLD.t)RENDER_HOLD.t=setTimeout(()=>{RENDER_HOLD.t=0;mapRenderFree();if(RENDER_HOLD.drag)mapRenderLater();},2000);}
 function mapPlateDpr(cv){const d=mfxDpr(cv);if(d<=1)return d;const wrap=cv.parentElement,full=!!(wrap&&wrap.classList.contains('is-full'));return full||cv.clientWidth*cv.clientHeight*d*d>3.5e6?1:d;}
 function mapPlate(cv){
   const mm=cv._mm,cw=cv.clientWidth,ch=cv.clientHeight;
@@ -40237,8 +40295,14 @@ function mapPlate(cv){
     const q=P.c.getContext('2d');if(q){try{Object.defineProperty(q,'shadowColor',{configurable:true,get(){return 'rgba(0, 0, 0, 0)';},set(){}});}catch(e){}}}
   P.m=Math.round(clamp(0.4*Math.max(cw,ch),128,400));P.dpr=mapPlateDpr(cv);P.v=null;
   mapDraftOn=true;try{drawMap(cv,P);}finally{mapDraftOn=false;}
-  /* the full picture still on the canvas, at the same scale: laid over the middle of the plate */
-  const f=cv._mmf,V=P.v;
+  P.key=mapPlateKey(cv);P.at=Date.now();
+  mapPlatePaste(cv,P);
+}
+/* what a plate was drawn for: the full picture's view, the canvas's size and the plate's density and margin */
+function mapPlateKey(cv){const f=cv._mmf;return f?[f.cx,f.cy,f.s,cv.clientWidth,cv.clientHeight,mapPlateDpr(cv),Math.round(clamp(0.4*Math.max(cv.clientWidth,cv.clientHeight),128,400))].join(','):'';}
+/* the full picture still on the canvas, at the same scale: laid over the middle of the plate */
+function mapPlatePaste(cv,P){
+  const cw=cv.clientWidth,ch=cv.clientHeight,f=cv._mmf,V=P.v;
   if(f&&V&&Math.abs(f.s-V.s)<1e-9){const q=P.c.getContext('2d'),x=(f.cx-cw/2/f.s)*V.s+V.ox,y=(f.cy-ch/2/f.s)*V.s+V.oy,d=P.dpr;
     q.save();q.setTransform(1,0,0,1,0,0);q.imageSmoothingEnabled=true;
     /* the fixed items on the canvas stay behind: cut out of what is laid over the plate */
@@ -40265,7 +40329,11 @@ function mapCompose(cv){
 }
 function mapPrewarm(cv){
   if(cv.dataset.map==='mini'||cv._mmw)return;
-  const go=()=>{cv._mmw=0;if(!cv.isConnected||mapMoving(cv)||!cv._mmf)return;let mm=cv._mm;if(!mm)mm=cv._mm={on:false,plate:null,t:0};mapPlate(cv);};
+  /* drawn again at the same view (the clock's redraw), the plate keeps its margin and only its middle is laid over
+     afresh: a few milliseconds instead of a fifth of a second on a phone. The margin is redrawn after 5 minutes,
+     and whenever the view or the canvas changed */
+  const go=()=>{cv._mmw=0;if(!cv.isConnected||mapMoving(cv)||!cv._mmf)return;let mm=cv._mm;if(!mm)mm=cv._mm={on:false,plate:null,t:0};
+    const P=mm.plate;if(P&&P.v&&P.key&&P.key===mapPlateKey(cv)&&Date.now()-P.at<5*60e3){mapPlatePaste(cv,P);return;}mapPlate(cv);};
   cv._mmw=window.requestIdleCallback?requestIdleCallback(go,{timeout:2000}):setTimeout(go,300);
 }
 function mapMotionFrame(cv){
@@ -40320,10 +40388,10 @@ function bindMap(cv){
     const v=viewOf(kind,cv);
     if(pts.size===1){const s=mapScale(cv,v),[dx,dy]=mapDelta(cv,e,p);moved+=Math.abs(dx)+Math.abs(dy);v.cx-=dx/s;v.cy-=dy/s;p.x=e.clientX;p.y=e.clientY;if(tip&&moved>4)tip.hidden=true;
       /* a few pixels of jitter in a click move the view without a redraw; a real drag moves the plate */
-      if(moved>3){mapGlideStop(kind);mapMoveStart(cv);schedule(cv);}}
-    else if(pts.size===2){p.x=e.clientX;p.y=e.clientY;const d=spread(),a=[...pts.values()];if(pinchD>0){const [mx,my]=mapPos(cv,{clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2});zoomAt(cv,mx,my,d/pinchD);}pinchD=d;moved+=10;}
+      if(moved>3){cv._drag=1;cv._pt=performance.now();mapGlideStop(kind);mapMoveStart(cv);schedule(cv);}}
+    else if(pts.size===2){cv._drag=1;cv._pt=performance.now();p.x=e.clientX;p.y=e.clientY;const d=spread(),a=[...pts.values()];if(pinchD>0){const [mx,my]=mapPos(cv,{clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2});zoomAt(cv,mx,my,d/pinchD);}pinchD=d;moved+=10;}
   });
-  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}};
+  const end=e=>{const had=pts.delete(e.pointerId);if(pts.size<2)pinchD=0;if(!pts.size)cv.classList.remove('dragging');if(e.pointerType!=='mouse'){if(tip)tip.hidden=true;cv.dataset.hover='-1';}if(had&&e.type==='pointerup'&&moved<6){mapMoveEnd(cv);mapClick(cv,cellFrom(e),e);}if(!pts.size){cv._drag=0;mapRenderFree();}};
   cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
   cv.addEventListener('pointerleave',()=>{if(pts.size)return;cv.dataset.hover='-1';if(tip)tip.hidden=true;mfxHover(cv)||schedule(cv);});
   /* Ctrl (or Cmd) and the wheel zoom; in full screen, where the page cannot scroll, the wheel alone does. Lines and pages of wheel are counted as pixels. */
@@ -44031,7 +44099,11 @@ function tick(){
   const f=S.nation.freq*60000;
   document.querySelectorAll('[data-live="next"]').forEach(el=>{el.textContent=fmtDur(awayAdd(v,v.issueClock,f)-now);});
   if(S.view==='map'&&S.mpMode&&document.activeElement?.id!=='mp-net-kind'&&document.activeElement?.id!=='mp-net-from'&&document.activeElement?.id!=='mp-net-to')updateMapPanel();
-  redrawMaps();
+  /* the maps follow the clock (computer nations growing, convoys, the sea, explorers, the time-zone clocks) once a
+     minute, not on every tick: a map whose last full picture (cv._min) is from an earlier minute is drawn again. A
+     full picture costs a phone about a fifth of a second, and a drag started meanwhile stuttered. Whatever a player
+     or a save changes draws the maps at once, as before */
+  const mk=Math.floor(now/60000);document.querySelectorAll('canvas.map-cv').forEach(cv=>{if(cv._min!==mk)schedule(cv);});
 }
 
 /* ───────── the admin portal ─────────
@@ -44756,7 +44828,7 @@ async function stLoad(refresh){
   catch(e){ADMST.err=e.message||'The statistics could not be counted.';}
   finally{ADMST.busy=false;if(S.view==='admin-stats')render();}
 }
-const stN=v=>v==null?'–':Number(v).toLocaleString('en-GB',{maximumFractionDigits:1});
+const stN=v=>v==null?'–':numFmt(Number(v),'en-GB',0,1);
 const stPc=(k,of)=>of?Math.round(k/of*100)+'%':'–';
 const stDay=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 const stTxt=(v,d)=>{try{return tutTxt(v,S.nation);}catch(e){return d;}};
@@ -60725,8 +60797,23 @@ function nvxGet(n,now){
   nvxVisit(now);
   const m=NVX.memo,mu=NTF.mute.join();
   if(m&&m.n===n&&m.ver===NVX.ver&&m.mu===mu&&now>=m.at&&now-m.at<4000)return m.v;
+  if(!NVX.ready){nvxWarm();return {};}
   let v={};try{v=nvxCompute(n,now);}catch(e){v={};}
   NVX.memo={n,ver:NVX.ver,mu,at:now,v};return v;
+}
+/* The first count after the page loads (a returning player's first page, or founding) waits until that page is on
+   screen: on a slow phone it took over half a second (the page's first economy, the bell's first Dispatch), all
+   before anything was painted. The badges follow a moment later, drawn the way a timer's change draws them
+   (navSoft on the Nation page, the page again elsewhere); a tab opened in the background counts at the latest
+   after 2 s. Every later count is made at once, as before. */
+function nvxWarm(){
+  if(NVX.warm)return;NVX.warm=1;
+  const run=()=>{if(NVX.ready)return;NVX.ready=1;const n=S.nation;if(!n||n.npc||OBS)return;const now=Date.now();
+    let sig;try{sig=navSigOf(n,now);}catch(e){return;}if(sig===S.navSig)return;S.navSig=sig;
+    let v=null;try{v=syncInbox(n,now);}catch(e){}if(v&&navSoft(v,now)){try{nvxMark();}catch(e){}}else render();};
+  const later=()=>setTimeout(()=>{if(window.requestIdleCallback)requestIdleCallback(run,{timeout:600});else run();},0);
+  if(window.requestAnimationFrame&&!document.hidden)requestAnimationFrame(later);else later();
+  setTimeout(run,2000);
 }
 /* the tick draws the menu again when a page's figure changes */
 navSigOf=(f=>function(n,now){const s=f.apply(this,arguments);if(!n||n!==S.nation)return s;const x=nvxGet(n,now||Date.now());
@@ -62462,6 +62549,22 @@ document.addEventListener('keydown',e=>{
   const d={ArrowRight:1,ArrowLeft:-1}[e.key];if(!d&&e.key!=='Home'&&e.key!=='End')return;e.preventDefault();
   const i=ASMX_TABS.findIndex(x=>x[0]===t.dataset.v),L=ASMX_TABS.length,j=e.key==='Home'?0:e.key==='End'?L-1:(i+d+L)%L;asmxSetTab(ASMX_TABS[j][0],true);
 });
+
+/* ── founding draws one page ──
+   Founding drew up to three pages in a row, each thrown away by the next: found() drew the Nation page, then the
+   founding edict went to the Edicts page and opened the edict (or the land office went to the Map). On a phone that
+   was well over a second before the page the player sees. While found() and what follows it run, draws are held
+   (RENDER_HOLD, the outermost render) and the last page is drawn once at the end, with the edict's heading focused
+   as edictOpen focuses it. A refusal (a name taken, a full region) is drawn the same way, once. */
+render=(f=>function(){if(RENDER_HOLD.n){RENDER_HOLD.held=true;return;}if(mapBusy()){mapRenderLater();return;}return f.apply(this,arguments);})(render);
+found=(f=>function(){
+  const had=S.nation;RENDER_HOLD.n++;let r;
+  try{r=f.apply(this,arguments);}finally{RENDER_HOLD.n--;}
+  if(!RENDER_HOLD.n&&RENDER_HOLD.held){RENDER_HOLD.held=false;render();
+    if(S.nation&&S.nation!==had){window.scrollTo(0,0);
+      if(S.view==='issues'&&S.openIssue){const h=document.querySelector('.edict .h1');if(h){h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}}}}
+  return r;
+})(found);
 
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}

@@ -10,7 +10,7 @@ import { mapKit } from '../scripts/bake-maps.mjs';
 
 const src = readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i >= 0 && j > i, `source has ${a} … ${b}`); return src.slice(i, j); };
-const LAKES = cut('/* ── lakes ──', 'const BIOME=(()=>{');
+const LAKES = cut('/* ── lakes ──', '\nconst BIOME=');
 const WRAP = cut('MAP.nbrFlat=MAP.nbr.slice();', '/* the shortest way across x');
 const line = k => { const i = src.indexOf('\n' + k) + 1; assert.ok(i > 0, `source has ${k}`); return src.slice(i, src.indexOf('\n', i)); };
 const HEAP = ['const hlt=', 'function hpush(', 'function hpop('].map(line).join('\n');

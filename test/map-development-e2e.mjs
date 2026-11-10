@@ -150,6 +150,23 @@ const tapped=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
   tap(x,y,41);const first=G.S.mapClaim&&G.S.mapClaim.c,hw=(G.MAP.cx[1]-G.MAP.cx[0])*s;tap(x+Math.min(24,1.6*hw),y,42);
   return {a,first,after:G.S.mapClaim&&G.S.mapClaim.c,hw};});
 check('a double tap keeps the hex its first tap chose',tapped.first===tapped.a&&tapped.after===tapped.a,JSON.stringify(tapped));
+/* a page draw asked for in the middle of a drag waits until the pointer lets go (it used to replace the canvas under
+   the pointer and end the drag); a drag whose pointer-up never comes holds the page for 2 s at most */
+const held=await K.evaluate(async()=>{
+  const cvOf=()=>document.querySelector('canvas[data-map="main"]'),cv=cvOf(),r=cv.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+  const ev=(c,t,id,dx)=>c.dispatchEvent(new PointerEvent(t,{pointerId:id,pointerType:'mouse',isPrimary:true,clientX:x+dx,clientY:y,bubbles:true}));
+  /* a page that must be drawn again: render leaves alone a page whose first node is the one it drew */
+  const redraw=()=>{document.getElementById('app').prepend(document.createComment('redraw'));G.render();};
+  ev(cv,'pointerdown',51,0);for(let i=1;i<=6;i++)ev(cv,'pointermove',51,i*4);
+  redraw();const mid=cvOf()===cv;
+  ev(cv,'pointerup',51,24);const after=cvOf()!==cv;
+  const cv2=cvOf();ev(cv2,'pointerdown',52,0);for(let i=1;i<=6;i++)ev(cv2,'pointermove',52,i*4);
+  redraw();const stuck=cvOf()===cv2;
+  await new Promise(r=>setTimeout(r,4500));const freed=cvOf()!==cv2;
+  ev(cv2,'pointerup',52,24);
+  return {mid,after,stuck,freed};});
+check('a page draw waits while the map is dragged, and comes when it is let go',held.mid&&held.after,JSON.stringify(held));
+check('a drag whose pointer-up is lost does not hold the page for good',held.stuck&&held.freed,JSON.stringify(held));
 await K.setViewportSize({width:1280,height:900});await nav(K,'nation');await nav(K,'map');
 /* a new nation holds more credits than most blocks have touching hexes, and its first claims earn more (the tutorial's
    land steps once took it from 4 to 14, past a fixed ten single claims): it spends them down to two, a whole block at a
