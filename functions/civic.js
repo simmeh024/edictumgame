@@ -11,6 +11,7 @@ import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, tea
 import { alliance, isAllianceOp } from './alliances.js';
 import { flagOp, isFlagOp } from './flagcomp.js';
 import { pace, ipRule } from './pace.js';
+import { regionOnline } from './presence.js';
 
 const regions = new Set(DATA.regions.map(r => r.id));
 const statKeys = Object.keys(DATA.regions[0].npcs[0].s);
@@ -557,7 +558,7 @@ async function newsTally(db, who, d, kind) {
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
-  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', 'book', ...ASSEMBLY_ACTS]);
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', 'book', 'online', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
@@ -573,7 +574,15 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     // the design in progress is kept as it is drawn (the page waits a few seconds between saves); reports are rarer still
     ...(op === 'fcDraft' ? [['fd:' + uid, 10, 1 / 3]] : []), ...(op === 'fcReport' ? [['fp:' + uid, 5, 1 / 10]] : []),
     // a page of the Book of Resolutions: ten at once, then one every five seconds
-    ...(op === 'book' ? [['cbk:' + uid, 10, 1 / 5]] : [])]);
+    ...(op === 'book' ? [['cbk:' + uid, 10, 1 / 5]] : []),
+    // who of a region is online (presence.js): the Region page asks every two minutes; six at once, then one in 20 s
+    ...(op === 'online' ? [['con:' + uid, 6, 1 / 20]] : [])]);
+  /* read-only and public (the green dot on the Region page), so asked before the account is looked up */
+  if (op === 'online') {
+    if (typeof d.reg !== 'string' || !regions.has(d.reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
+    try { return await regionOnline(getFirestore(), d.reg); }
+    catch { throw new HttpsError('unavailable', 'Who is online cannot be told just now.'); }
+  }
   const db = getFirestore(), who = await identity(uid);
   if (d.op === 'authorizeSave') return permit(db, who, d);
   if (d.op === 'carryKey') return noteCarryKey(db, who, d);
