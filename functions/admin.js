@@ -106,7 +106,9 @@ async function overview(db, uid, shared, acct, shop) {
   for (let i = 0; i < txIds.length; i += 30) adjs.push(...(await db.collection('shopAdj').where('txn', 'in', txIds.slice(i, i + 30)).get()).docs.map(a => a.data()));
   const purchases = {
     owns: shop.get('owns') || {}, ctm: ctm.get('ctm') || '', env: paddle.get('env') === 'live' ? 'live' : 'sandbox',
-    tx: few(txs, t => ({ id: t.id, product: t.get('product') || '', t: when(t.get('paid')) || when(t.get('created')), status: t.get('status') || '', ok: t.get('ok') === true, sub: t.get('sub') || '', gift: !!t.get('gift'), payer: t.get('payer') || '', refund: t.get('refundWhy') || '',
+    /* a basket: its products, and the lines this server asked Paddle to refund (refundItems) */
+    tx: few(txs, t => ({ id: t.id, product: t.get('product') || '', products: [].concat(t.get('products') || []), t: when(t.get('paid')) || when(t.get('created')), status: t.get('status') || '', ok: t.get('ok') === true, sub: t.get('sub') || '', gift: !!t.get('gift'), payer: t.get('payer') || '',
+      refund: t.get('refundWhy') || Object.values(t.get('refundItems') || {}).map(x => (x.p ? x.p + ': ' : '') + (x.why || '')).join(', '),
       adj: adjs.filter(a => a.txn === t.id).map(a => ({ action: a.action || '', status: a.status || '' })) }), 100) };
   const others = seen ? seen.docs.map(s => s.id).filter(id => id !== uid) : [];
   const names = others.length ? await db.getAll(...others.map(id => db.doc('summaries/' + id)), { fieldMask: ['name', 'reg', 't'] }) : [];

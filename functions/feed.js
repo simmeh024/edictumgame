@@ -37,7 +37,7 @@ export function postEvent(path, d) {
    shop are tests, as functions/shop-stats.js has it) */
 export function buyEvent(id, d, env) {
   if (d.ok !== true || (env && d.env && d.env !== env)) return null;
-  return { k: 'buy', t: ms(d.paid) || ms(d.created), uid: sid(d.uid), to: d.payer && d.payer !== d.uid ? sid(d.payer) : '', x: txt(d.product, 40), gift: !!d.gift, ref: id };
+  return { k: 'buy', t: ms(d.paid) || ms(d.created), uid: sid(d.uid), to: d.payer && d.payer !== d.uid ? sid(d.payer) : '', x: txt(d.product === 'basket' && Array.isArray(d.products) ? d.products.join(' + ') : d.product, 60), gift: !!d.gift, ref: id };
 }
 /* the newest first, at most `limit`, each once (a ping archived while still queued counts once) */
 export function mergeEvents(lists, since, limit = LIMIT) {

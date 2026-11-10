@@ -41,7 +41,7 @@ const server = http.createServer(async (req, res) => {
     const s = P.subs.get(m[1]);if (!s) return send(404, { error: { code: 'not_found' } });
     s.status = 'canceled'; s.canceled_at = new Date().toISOString(); s.updated_at = s.canceled_at; return send(200, { data: s });
   }
-  if (req.method === 'POST' && u.pathname === '/adjustments') { const a = { id: rid('adj'), action: b.action, type: b.type, transaction_id: b.transaction_id, status: 'pending_approval', reason: b.reason, updated_at: new Date().toISOString() }; P.adj.push(a); return send(201, { data: a }); }
+  if (req.method === 'POST' && u.pathname === '/adjustments') { const a = { id: rid('adj'), action: b.action, type: b.type || 'partial', transaction_id: b.transaction_id, status: 'pending_approval', reason: b.reason, items: b.items || [], updated_at: new Date().toISOString() }; P.adj.push(a); return send(201, { data: a }); }
   if (req.method === 'GET' && u.pathname === '/adjustments') { const ids = (u.searchParams.get('transaction_id') || '').split(','); return send(200, { data: P.adj.filter(a => ids.includes(a.transaction_id)) }); }
   if ((m = /^\/customers\/(ctm_\w+)\/portal-sessions$/.exec(u.pathname)) && req.method === 'POST')
     return send(201, { data: { id: 'cpls_1', customer_id: m[1], urls: { general: { overview: 'https://sandbox-customer-portal.paddle.com/cpl_test?action=overview&token=t' }, subscriptions: (b.subscription_ids || []).map(id => ({ id, cancel_subscription: 'https://sandbox-customer-portal.paddle.com/cpl_test?action=cancel&token=t', update_subscription_payment_method: 'https://sandbox-customer-portal.paddle.com/cpl_test?action=pay&token=t' })) } } });
@@ -67,7 +67,11 @@ async function hook(type, data, { occurred = new Date().toISOString(), id = rid(
 /* Paddle takes the payment: the transaction completes (and a subscription starts, for the Club) */
 function pay(txnId, { at = Date.now(), ctm = 'ctm_' + crypto.randomBytes(8).toString('hex'), sub = null, period = null } = {}) {
   const t = P.tx.get(txnId);
-  Object.assign(t, { status: 'completed', customer_id: ctm, billed_at: new Date(at).toISOString(), updated_at: new Date(at).toISOString(), payments: [{ status: 'captured', captured_at: new Date(at).toISOString() }], currency_code: 'EUR', details: { totals: { total: '999' } } });
+  /* each line by its own id, as Paddle names them (a basket's lines are refunded by these) */
+  const byPrice = Object.fromEntries(Object.entries(PRICES).map(([k, v]) => [v, k]));
+  const lines = t.items.map(i => ({ id: rid('txnitm'), price_id: i.price.id, quantity: i.quantity, totals: { total: String(CATALOGUE.products[byPrice[i.price.id]]?.amount || 999) } }));
+  Object.assign(t, { status: 'completed', customer_id: ctm, billed_at: new Date(at).toISOString(), updated_at: new Date(at).toISOString(), payments: [{ status: 'captured', captured_at: new Date(at).toISOString() }], currency_code: 'EUR',
+    details: { line_items: lines, totals: { total: String(lines.reduce((a, l) => a + Number(l.totals.total), 0)) } } });
   if (sub) { t.subscription_id = sub; t.billing_period = { starts_at: new Date(period.s).toISOString(), ends_at: new Date(period.e).toISOString() };
     if (!P.subs.has(sub)) P.subs.set(sub, { id: sub, status: 'active', customer_id: ctm, transaction_id: txnId, current_billing_period: t.billing_period, next_billed_at: t.billing_period.ends_at, scheduled_change: null, items: [{ price: { id: PRICES.vip } }], updated_at: new Date(at).toISOString() }); }
   return t;
@@ -499,6 +503,99 @@ test('the Central Bank Pack: €2.49 and all ten of its pieces held', async () =
   const f = (await finery(p.uid)).c;
   for (const id of CATALOGUE.products.cbpack.grants) assert.ok(f.includes(id), id + ' is held');
   await rejects(call(p, { step: 'checkout', product: 'cbpack' }), 'owned');
+});
+
+test('a basket: several packs in one checkout at the server’s prices, the same basket reused, each delivered, refusals named', async () => {
+  const p = await player();
+  const c = await call(p, { step: 'checkout', products: ['sailpack', 'orpack'], prices: [1] });
+  assert.match(c.txn, /^txn_/); assert.deepEqual(c.products, ['orpack', 'sailpack'], 'in the Shop’s order');
+  const made = P.calls.find(x => x.m === 'POST' && x.p === '/transactions' && x.b.custom_data.uid === p.uid);
+  assert.deepEqual(made.b.items, [{ price_id: PRICES.orpack, quantity: 1 }, { price_id: PRICES.sailpack, quantity: 1 }], 'one line each, the server’s prices');
+  assert.equal(made.b.custom_data.product, 'basket'); assert.deepEqual(made.b.custom_data.products, ['orpack', 'sailpack']);
+  assert.equal((await call(p, { step: 'checkout', products: ['orpack', 'sailpack'] })).txn, c.txn, 'two tabs, one bill');
+  const pend = (await shop(p.uid)).pend; assert.ok(pend.orpack && pend.sailpack, 'awaiting confirmation for each');
+  /* what a basket may not hold: refused before Paddle hears of it */
+  const n = P.calls.length;
+  await rejects(call(p, { step: 'checkout', products: ['orpack', 'vip'] }), 'basket_alone');
+  await rejects(call(p, { step: 'checkout', products: ['orpack', 'giftvip'] }), 'basket_alone');
+  await rejects(call(p, { step: 'checkout', products: ['founder', 'idpack'] }), 'basket_included');
+  for (const bad of [[], ['orpack', 'orpack'], ['orpack', 'gold-bars'], Array(11).fill('orpack')]) await assert.rejects(call(p, { step: 'checkout', products: bad }), e => e.status === 'INVALID_ARGUMENT', JSON.stringify(bad));
+  await assert.rejects(call(p, { step: 'checkout', products: ['orpack', 'sailpack'], to: p.uid }), e => e.status === 'INVALID_ARGUMENT', 'a gift is bought on its own');
+  await rejects(call(await player(false), { step: 'checkout', products: ['orpack', 'sailpack'] }), 'registration_required');
+  assert.equal(P.calls.length, n);
+  /* paid: everything in it is owned, and every game shows it */
+  await hook('transaction.completed', pay(c.txn));
+  const s = await shop(p.uid);
+  assert.ok(s.owns.orpack && s.owns.sailpack); assert.deepEqual(s.pend, {});
+  assert.deepEqual((await finery(p.uid)).c.sort(), [...CATALOGUE.products.orpack.grants, ...CATALOGUE.products.sailpack.grants].sort());
+  const rec = (await db.doc('shopTx/' + c.txn).get()).data();
+  assert.equal(rec.product, 'basket'); assert.deepEqual(rec.products, ['orpack', 'sailpack']); assert.equal(rec.items.length, 2); assert.equal(rec.total, 598);
+  /* something owned cannot go in a basket again, and is named */
+  await assert.rejects(call(p, { step: 'checkout', products: ['cbpack', 'sailpack'] }), e => e.code === 'owned' && /Age of Sail/.test(e.message));
+  /* one product is an ordinary checkout */
+  const one = await call(p, { step: 'checkout', products: ['cbpack'] });
+  assert.equal((await db.doc('shopCheckouts/' + one.txn).get()).get('product'), 'cbpack');
+});
+
+test('a basket refunded one line at a time: that line goes, the rest stays; the whole basket refunded takes all of it', async () => {
+  const p = await player(), c = await call(p, { step: 'checkout', products: ['orpack', 'cbpack'] }), t = pay(c.txn);
+  await hook('transaction.completed', t);
+  const [orLine, cbLine] = t.details.line_items;
+  /* shaped as Paddle's dashboard sends it: partial, the one line in full */
+  const a = { id: rid('adj'), action: 'refund', type: 'partial', status: 'pending_approval', transaction_id: c.txn, items: [{ id: rid('adjitm'), type: 'full', amount: '249', item_id: cbLine.id }] };
+  await hook('adjustment.created', a);
+  let s = await shop(p.uid);
+  assert.ok(s.owns.orpack && !s.owns.cbpack, 'the refunded line only');
+  await hook('adjustment.updated', { ...a, status: 'approved' });
+  s = await shop(p.uid);
+  assert.ok(s.owns.orpack && !s.owns.cbpack);
+  assert.ok(!(await finery(p.uid)).c.includes('cn-deco') && (await finery(p.uid)).c.includes('sh-scutum'));
+  /* the rest of it refunded too */
+  await hook('adjustment.created', { ...a, id: rid('adj'), status: 'approved', items: [{ id: rid('adjitm'), type: 'full', amount: '299', item_id: orLine.id }] });
+  assert.ok(!(await shop(p.uid)).owns?.orpack);
+  /* another basket, refunded whole */
+  const q = await player(), d = await call(q, { step: 'checkout', products: ['orpack', 'sailpack'] });
+  await hook('transaction.completed', pay(d.txn));
+  await hook('adjustment.created', { id: rid('adj'), action: 'refund', type: 'full', status: 'approved', transaction_id: d.txn });
+  s = await shop(q.uid);
+  assert.ok(!s.owns?.orpack && !s.owns?.sailpack); assert.equal(await finery(q.uid), undefined);
+});
+
+test('a pack paid twice, on its own and in a basket: only that line of the basket is refunded, the rest delivered', async () => {
+  const p = await player();
+  const single = await call(p, { step: 'checkout', product: 'orpack' }), bag = await call(p, { step: 'checkout', products: ['orpack', 'sailpack'] });
+  assert.notEqual(single.txn, bag.txn);
+  await hook('transaction.completed', pay(single.txn, { at: Date.now() - 60000 }));
+  const t = pay(bag.txn);
+  await hook('transaction.completed', t);
+  const orLine = t.details.line_items.find(l => l.price_id === PRICES.orpack);
+  const asked = await until(() => P.adj.find(x => x.transaction_id === bag.txn));
+  assert.equal(asked.action, 'refund'); assert.equal(asked.type, 'partial'); assert.deepEqual(asked.items, [{ item_id: orLine.id, type: 'full' }]);
+  assert.ok(!P.adj.some(x => x.transaction_id === single.txn), 'the first payment stands');
+  let s = await shop(p.uid);
+  assert.ok(s.owns.orpack && s.owns.sailpack, 'everything delivered');
+  assert.ok(s.notes.some(x => x.k === 'duplicate' && x.p === 'orpack'));
+  /* asked once: another report changes nothing */
+  const before = P.adj.length;
+  await hook('transaction.completed', t);
+  assert.equal(P.adj.length, before);
+  assert.equal(Object.values((await db.doc('shopTx/' + bag.txn).get()).get('refundItems')).length, 1);
+  /* Paddle approves the line's refund (as it reports it): the Old Republic Pack stays, from the first payment */
+  await hook('adjustment.updated', { ...asked, status: 'approved', items: [{ id: rid('adjitm'), type: 'full', amount: '299', item_id: orLine.id }] });
+  s = await shop(p.uid);
+  assert.equal(s.owns.orpack, Date.parse(P.tx.get(single.txn).billed_at)); assert.ok(s.owns.sailpack);
+});
+
+test('a basket closed without paying stops being awaited; paid and not yet completed, each of it is still awaited', async () => {
+  const p = await player();
+  await call(p, { step: 'checkout', products: ['orpack', 'cbpack'] });
+  await call(p, { step: 'refresh' });
+  assert.deepEqual((await shop(p.uid)).pend || {}, {});
+  const q = await player(), d = await call(q, { step: 'checkout', products: ['orpack', 'cbpack'] });
+  P.tx.get(d.txn).status = 'paid';
+  await call(q, { step: 'refresh' });
+  const pend = (await shop(q.uid)).pend;
+  assert.ok(pend.orpack && pend.cbpack);
 });
 
 test('the founders’ thank-you gift: a founder chooses one pack, once, while the offer runs; a pack owned or a non-founder is refused', async () => {

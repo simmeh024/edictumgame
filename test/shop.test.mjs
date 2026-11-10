@@ -31,7 +31,7 @@ test("Paddle's entities become facts: the product only from a known price, one i
   assert.equal(t.product, 'vip', 'an older price of a product still counts (renewals carry it)');
   assert.ok(t.ok); assert.equal(t.paid, Date.parse('2026-11-02T10:00:00Z')); assert.deepEqual(t.period, { s: Date.parse('2026-11-02T10:00:00Z'), e: Date.parse('2026-12-02T10:00:00Z') });
   assert.ok(!txFacts({ id: 'txn_2', items: [{ price: { id: 'pri_founder01' }, quantity: 2 }] }, prices).ok, 'two of them');
-  assert.ok(!txFacts({ id: 'txn_3', items: [{ price: { id: 'pri_founder01' } }, { price: { id: 'pri_idpack001' } }] }, prices).ok, 'two items');
+  assert.ok(!txFacts({ id: 'txn_3', items: [{ price: { id: 'pri_founder01' } }, { price: { id: 'pri_idpack001' } }] }, prices).ok, 'two items, and Paddle named no line');
   assert.ok(!txFacts({ id: 'txn_4', items: [{ price: { id: 'pri_unknown' } }] }, prices).ok, 'a price this game does not sell');
   const s = subFacts({ id: 'sub_1', status: 'active', scheduled_change: { action: 'cancel', effective_at: '2026-12-02T10:00:00Z' }, transaction_id: 'txn_1' });
   assert.equal(s.cancelAt, Date.parse('2026-12-02T10:00:00Z')); assert.equal(s.firstTxn, 'txn_1');
@@ -86,6 +86,63 @@ test('a second payment for something owned is refunded, whichever arrives first;
   assert.ok(!entitlement({ txs: [tx('txn_x', 'founder', { ck: false })] }).owns.founder, 'not opened by this server');
   assert.ok(!entitlement({ txs: [tx('txn_y', 'founder', { ok: false })] }).owns.founder, 'wrong item');
   assert.deepEqual(entitlement({ txs: [tx('txn_z', 'idpack')] }).cosmetics, CATALOGUE.products.idpack.grants);
+});
+
+test('a basket: each line by its own id; delivered line by line, refunded line by line, charged back as a whole', () => {
+  const prices = { founder: 'pri_founder01', idpack: 'pri_idpack001', orpack: 'pri_orpack001', sailpack: 'pri_sailpk001', vip: 'pri_vipnew01' };
+  const line = (id, price, total) => ({ id, price_id: price, quantity: 1, totals: { total: String(total) } });
+  const paddle = (lines, extra = {}) => ({ id: 'txn_bk', status: 'completed', items: lines.map(l => ({ price: { id: l.price_id }, quantity: 1 })), payments: [{ captured_at: '2026-11-10T10:00:00Z' }],
+    details: { line_items: lines, totals: { total: String(lines.reduce((a, l) => a + Number(l.totals.total), 0)) } }, customer_id: 'ctm_1', ...extra });
+  const f = txFacts(paddle([line('txnitm_or000001', 'pri_orpack001', 299), line('txnitm_sl000001', 'pri_sailpk001', 299)]), prices);
+  assert.ok(f.ok); assert.equal(f.product, 'basket'); assert.deepEqual(f.products, ['orpack', 'sailpack']); assert.equal(f.total, 598);
+  assert.deepEqual(f.items, [{ i: 'txnitm_or000001', p: 'orpack', tot: 299 }, { i: 'txnitm_sl000001', p: 'sailpack', tot: 299 }]);
+  const single = txFacts(paddle([line('txnitm_or000001', 'pri_orpack001', 299)]), prices);
+  assert.ok(single.ok); assert.equal(single.product, 'orpack'); assert.deepEqual(single.products, ['orpack']); assert.equal(single.items, undefined, 'one item: no basket');
+  assert.ok(!txFacts(paddle([line('txnitm_or000001', 'pri_orpack001', 299), line('txnitm_or000002', 'pri_orpack001', 299)]), prices).ok, 'the same product twice');
+  assert.ok(!txFacts(paddle([line('txnitm_or000001', 'pri_orpack001', 299), line('txnitm_vp000001', 'pri_vipnew01', 499)]), prices).ok, 'the Club is never in a basket');
+  assert.ok(!txFacts(paddle([line('txnitm_or000001', 'pri_orpack001', 299), line('', 'pri_sailpk001', 299)]), prices).ok, 'a line without its id');
+  assert.ok(!txFacts(paddle([line('txnitm_or000001', 'pri_orpack001', 299), line('txnitm_xx000001', 'pri_unknown', 299)]), prices).ok, 'a price this game does not sell');
+  assert.ok(!txFacts(paddle([line('txnitm_or000001', 'pri_orpack001', 299), { ...line('txnitm_sl000001', 'pri_sailpk001', 299), quantity: 2 }]), prices).ok, 'two of one');
+  /* an adjustment names the lines it gives back in full */
+  const a = adjFacts({ id: 'adj_b1', transaction_id: 'txn_bk', action: 'refund', type: 'partial', status: 'approved', items: [{ type: 'full', item_id: 'txnitm_sl000001' }, { type: 'partial', amount: '50', item_id: 'txnitm_or000001' }] });
+  assert.equal(a.all, false); assert.deepEqual(a.full, ['txnitm_sl000001']);
+  assert.equal(adjFacts({ id: 'adj_b2', transaction_id: 'txn_bk', action: 'refund', type: 'full', status: 'approved' }).all, true);
+
+  const basket = (o = {}) => tx('txn_bk', 'basket', { items: f.items, products: f.products, ...o });
+  let e = entitlement({ txs: [basket()] });
+  assert.ok(e.owns.orpack && e.owns.sailpack, 'everything in it');
+  assert.deepEqual(e.cosmetics.sort(), [...CATALOGUE.products.orpack.grants, ...CATALOGUE.products.sailpack.grants].sort());
+  /* one line refunded from the dashboard: only that one goes; asked or pending, it delivers nothing meanwhile */
+  const one = (status) => ({ txn: 'txn_bk', action: 'refund', type: 'full', status, all: false, full: ['txnitm_sl000001'] });
+  for (const st of ['approved', 'pending_approval']) { e = entitlement({ txs: [basket()], adjs: [one(st)] }); assert.ok(e.owns.orpack && !e.owns.sailpack, st); assert.equal(e.refunds.length, 0); }
+  assert.ok(entitlement({ txs: [basket()], adjs: [{ ...one('approved'), full: [] , type: 'partial' }] }).owns.sailpack, 'part of a line given back keeps it');
+  /* the whole basket refunded, or charged back: all of it goes; a won chargeback brings all of it back */
+  for (const x of [[{ txn: 'txn_bk', action: 'refund', type: 'full', status: 'approved', all: true, full: [] }], [adj('txn_bk', 'chargeback', 'approved')]]) {
+    e = entitlement({ txs: [basket()], adjs: x }); assert.ok(!e.owns.orpack && !e.owns.sailpack); }
+  assert.ok(entitlement({ txs: [basket()], adjs: [adj('txn_bk', 'chargeback', 'approved'), adj('txn_bk', 'chargeback_reverse', 'approved')] }).owns.orpack);
+  /* a line already owned from another payment: that line is refunded on its own, and the rest of the basket stays */
+  e = entitlement({ txs: [tx('txn_or', 'orpack', { paid: 100 }), basket({ paid: 200 })] });
+  assert.equal(e.owns.orpack, 100); assert.ok(e.owns.sailpack);
+  assert.deepEqual(e.refunds, [{ txn: 'txn_bk', why: 'duplicate', item: 'txnitm_or000001', p: 'orpack' }]);
+  assert.equal(e.notes[0].p, 'orpack');
+  /* the basket paid first: the single payment is the second, refunded whole */
+  e = entitlement({ txs: [tx('txn_or', 'orpack', { paid: 300 }), basket({ paid: 200 })] });
+  assert.deepEqual(e.refunds, [{ txn: 'txn_or', why: 'duplicate' }]);
+  /* the Founder's Package in a basket paid too late: only its line is refunded; turned down, it is delivered */
+  const fb = (o = {}) => tx('txn_fb', 'basket', { created: FOUNDER_CUTOFF - 1, paid: FOUNDER_CUTOFF + FOUNDER_GRACE + 1, items: [{ i: 'txnitm_fd000001', p: 'founder', tot: 999 }, { i: 'txnitm_or000009', p: 'orpack', tot: 299 }], ...o });
+  e = entitlement({ txs: [fb()] });
+  assert.ok(!e.owns.founder && e.owns.orpack); assert.deepEqual(e.refunds, [{ txn: 'txn_fb', why: 'late', item: 'txnitm_fd000001', p: 'founder' }]);
+  e = entitlement({ txs: [fb()], adjs: [{ txn: 'txn_fb', action: 'refund', type: 'full', status: 'rejected', all: false, full: ['txnitm_fd000001'] }] });
+  assert.ok(e.owns.founder && e.owns.orpack, 'nobody is charged without receiving it');
+  /* the founders' thank-you gift chosen first, then the same pack paid for in a basket: only that line is refunded */
+  e = entitlement({ txs: [tx('txn_fd', 'founder', { paid: 50 }), basket({ paid: 200 })], fgift: { p: 'orpack', at: 100 } });
+  assert.ok(e.owns.orpack && e.owns.sailpack && e.owns.founder); assert.equal(e.fgift, 'orpack');
+  assert.deepEqual(e.refunds, [{ txn: 'txn_bk', why: 'duplicate', item: 'txnitm_or000001', p: 'orpack' }]);
+  /* refundState and voided by line; a transaction of one item keeps its old meaning */
+  assert.equal(refundState('txn_bk', [one('approved')], { i: 'txnitm_sl000001' }), 'approved');
+  assert.equal(refundState('txn_bk', [one('approved')], { i: 'txnitm_or000001' }), '');
+  assert.ok(voided('txn_bk', [adj('txn_bk', 'chargeback', 'approved')], { i: 'txnitm_or000001' }));
+  assert.equal(refundState('txn_a', [adj('txn_a', 'refund', 'approved')]), 'approved');
 });
 
 test('the Chancery Club: paid months, renewals, a scheduled cancellation, a failed renewal and a refunded month', () => {

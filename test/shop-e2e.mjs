@@ -48,7 +48,9 @@ async function payFor(p, { sub = null, period = null } = {}) {
   if (!txn) return null;
   await p.evaluate(() => { window.__edictumCheckout.done = true; });
   const t = P.tx.get(txn), now = new Date().toISOString();
-  Object.assign(t, { status: 'completed', customer_id: 'ctm_e2e000000001', billed_at: now, payments: [{ captured_at: now }] });
+  const byPrice = Object.fromEntries(Object.entries(PRICES).map(([k, v]) => [v, k]));
+  const lines = t.items.map(i => ({ id: rid('txnitm'), price_id: i.price.id, quantity: 1, totals: { total: String(CATALOGUE.products[byPrice[i.price.id]]?.amount || 0) } }));
+  Object.assign(t, { status: 'completed', customer_id: 'ctm_e2e000000001', billed_at: now, payments: [{ captured_at: now }], currency_code: 'EUR', details: { line_items: lines, totals: { total: String(lines.reduce((a, l) => a + Number(l.totals.total), 0)) } } });
   if (sub) { t.subscription_id = sub; t.billing_period = { starts_at: new Date(period.s).toISOString(), ends_at: new Date(period.e).toISOString() };
     P.subs.set(sub, { id: sub, status: 'active', transaction_id: txn, customer_id: t.customer_id, current_billing_period: t.billing_period, next_billed_at: t.billing_period.ends_at, scheduled_change: null }); }
   await p.evaluate(() => window.__edictumCheckout.event('checkout.completed'));
@@ -80,35 +82,47 @@ await G.waitForSelector('[data-act="shop-buy"][data-p="founder"]', { timeout: 20
 await click(G, '[data-act="shop-buy"][data-p="founder"]');
 check('buying as a guest asks for a link instead', /link a sign-in first/i.test(await txt(G, '.shop-err')) && !(await G.evaluate(() => window.__edictumCheckout)));
 check('and remembers the purchase, to open its checkout once the sign-in is linked', await G.evaluate(() => !!(G.SHOP.SHOP.after && G.SHOP.SHOP.after.p === 'founder')) && /opens by itself/.test(await txt(G, '.shop-err')));
+await G.evaluate(() => { G.SHOP.SHOP.after = null; G.SHOP.SHOP.err = ''; G.render(); });
+/* (by script: the sign-in dialog the founder's button opened may still cover the page) */
+await G.evaluate(() => document.querySelector('.shop-cd [data-act="shop-bag"][data-p="orpack"]').click());await sleep(300);
+check('a guest can fill a basket', /1 item in your basket/.test(await txt(G, '.shop-bagbar')));
+await G.evaluate(() => document.querySelector('.shop-bagbar [data-act="shop-buy"][data-p="bag"]').click());await sleep(300);
+check('paying for it asks for a link first, and remembers the basket', /link a sign-in first/i.test(await txt(G, '.shop-err')) && await G.evaluate(() => !!(G.SHOP.SHOP.after && G.SHOP.SHOP.after.p === 'bag')) && !(await G.evaluate(() => window.__edictumCheckout)));
+await G.evaluate(() => { G.SHOP.SHOP.after = null; G.SHOP.SHOP.bag = []; G.render(); });
 check('without an answer from Paddle the prices stay in euros alone', !(await G.evaluate(() => document.querySelector('.shop-local'))) && /€9\.99/.test(await txt(G, '#shop-founder-tag')));
 
 /* ── a Registered Nation buys the Founder's Package ── */
 const A = await player('shop founder', { vp: { width: 1280, height: 1000 }, cap: 500 });const aUid = await open(A);await found(A, 'Gildmark');await register(A);
 /* Paddle answers in the player's own currency (here Mexican pesos), as it does for a player in Mexico */
-await A.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66' }; window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])) }); }, PRICES);
+/* (set again after a reload, before the Shop is next drawn) */
+const pesos = p => p.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66', [P.orpack]: 'MX$62.71', [P.sailpack]: 'MX$62.71', [P.cbpack]: 'MX$52.25' };
+  const N = { [P.founder]: 20939, [P.idpack]: 6271, [P.vip]: 10466, [P.orpack]: 6271, [P.sailpack]: 6271, [P.cbpack]: 5225 };
+  window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])), amounts: Object.fromEntries(items.filter(id => N[id]).map(id => [id, N[id]])) }); }, PRICES);
+await pesos(A);
 await go(A, 'shop');
 check('the Chancery Club leads the page, before the cards', await A.evaluate(() => { const c = document.querySelector('.shop-club'), g = document.querySelector('.shop-grid'); return !!c && !!g && !!(c.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING); }));
 check('the items sit in a grid of cards, two to a row on a desktop', await A.evaluate(() => { const g = document.querySelector('.shop-grid'); return !!g && getComputedStyle(g).gridTemplateColumns.split(' ').length >= 2 && document.querySelectorAll('.shop-cd').length >= 2; }));
 await A.evaluate(() => scrollTo(0, 0));await A.screenshot({ path: path.join(OUT, 'shop-front.png'), fullPage: true });
 /* the Black Friday Pack: a limited card, and a drawer previewing the shield and the owl on the player's own arms and flag */
 check('the Black Friday Pack is on sale, with its end date', /Black Friday Pack/.test(await txt(A, '.shop-cd[data-p="bfpack"]')) && /Ends in|Last day/.test(await txt(A, '.shop-cd[data-p="bfpack"]')));
-await A.locator('.shop-cd[data-p="bfpack"]').screenshot({ path: path.join(OUT, 'shop-bf-card.png') });
+/* (shot retries: the local prices can redraw the card mid-shot) */
+await shot(A, '.shop-cd[data-p="bfpack"]', 'shop-bf-card.png');
 await openDr(A, 'bfpack');
 check('its drawer previews the Midnight Tag shield and the Night Owl', (await A.evaluate(() => document.querySelectorAll('.shop-bf-pv svg').length)) >= 4 && (await A.evaluate(() => document.querySelectorAll('.shop-bfpack .lp-i-receipt').length)) === 1 && (await A.evaluate(() => document.querySelectorAll('.shop-bf-cardpv .hero').length)) === 1 && /Bargain-Hunter/.test(await txt(A, '.shop-bfpack')) && /€1\.99|1\.99/.test(await txt(A, '#shop-bfpack-price')) && /30 November/.test(await txt(A, '.shop-bfpack')));
-await A.locator('.shop-dr .shop-bfpack').screenshot({ path: path.join(OUT, 'shop-bf-drawer.png') });
+await shot(A, '.shop-dr .shop-bfpack', 'shop-bf-drawer.png');
 /* the Old Republic Pack: a card, and a drawer previewing all ten pieces on the player's own nation */
 check('the Old Republic Pack is on sale', /Old Republic Pack/.test(await txt(A, '.shop-cd[data-p="orpack"]')));
 await openDr(A, 'orpack');
 check('its drawer previews the card, arms, flag, stamp, marker and paper', !!(await A.$('.shop-orpack .hero.cd-marble')) && (await A.evaluate(() => document.querySelectorAll('.shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-orpack-price')));
-await A.locator('.shop-dr .shop-orpack').screenshot({ path: path.join(OUT, 'shop-or-drawer.png') });
+await shot(A, '.shop-dr .shop-orpack', 'shop-or-drawer.png');
 check('the Age of Sail Pack is on sale', /Age of Sail Pack/.test(await txt(A, '.shop-cd[data-p="sailpack"]')));
 await openDr(A, 'sailpack');
 check('its drawer previews the chart card, arms, flag, stamp, lighthouse and log', !!(await A.$('.shop-sailpack .hero.cd-chart')) && (await A.evaluate(() => document.querySelectorAll('.shop-sailpack .shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-sailpack-price')));
-await A.locator('.shop-dr .shop-sailpack').screenshot({ path: path.join(OUT, 'shop-sail-drawer.png') });
+await shot(A, '.shop-dr .shop-sailpack', 'shop-sail-drawer.png');
 check('the Central Bank Pack is on sale', /Central Bank Pack/.test(await txt(A, '.shop-cd[data-p="cbpack"]')));
 await openDr(A, 'cbpack');
 check('its drawer previews the notes with the clear window, the coin, the card, stamp, bullion and paper', !!(await A.$('.shop-cbpack .hero.cd-treasury')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .cu-note').length)) === 2 && !!(await A.$('.shop-cbpack svg.cu-coin')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .shop-or-grid figure').length)) === 3 && /2\.49/.test(await txt(A, '#shop-cbpack-price')));
-await A.locator('.shop-dr .shop-cbpack').screenshot({ path: path.join(OUT, 'shop-cb-drawer.png') });
+await shot(A, '.shop-dr .shop-cbpack', 'shop-cb-drawer.png');
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
@@ -344,6 +358,43 @@ await click(B, '[data-act="desk-hint-off"]');
 check('“Not now” puts it away', !(await B.$('.desk-hint')));
 check('a member’s desk shows no such line', !(await A.$('.desk-hint')));
 
+/* ── a basket: three packs in one checkout and one payment ── */
+await pesos(A);await go(A, 'shop');await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
+check('a pack on sale can go in the basket from its card', await A.evaluate(() => ['orpack', 'sailpack', 'cbpack'].every(p => document.querySelector(`.shop-cd [data-act="shop-bag"][data-p="${p}"]`))));
+check('nothing owned, included, given or joined can', await A.evaluate(() => ['founder', 'idpack', 'vip', 'vipyear', 'giftvip'].every(p => !document.querySelector(`[data-act="shop-bag"][data-p="${p}"]`))));
+check('no basket bar while the basket is empty', !(await A.$('.shop-bagbar')));
+await click(A, '.shop-cd [data-act="shop-bag"][data-p="orpack"]');await click(A, '.shop-cd [data-act="shop-bag"][data-p="sailpack"]');
+const bar = await txt(A, '.shop-bagbar');
+check('the bar counts two, with their sum in the player’s currency', /2 items in your basket · MX\$125\.42/.test(bar) && /Old Republic Pack, Age of Sail Pack/.test(bar), bar);
+check('a card in the basket says so, and its button takes it out again', /Added/.test(await txt(A, '.shop-cd[data-p="orpack"] .shop-bag-b')) && !!(await A.$('.shop-cd[data-p="orpack"] [data-act="shop-bag-del"]')));
+await shot(A, '.shop-bagbar', 'shop-basket-bar.png');
+await openDr(A, 'cbpack');await click(A, '.shop-dr [data-act="shop-bag"][data-p="cbpack"]');
+check('a drawer’s own button adds it too', /In your basket/.test(await txt(A, '.shop-dr .shop-bag-b')));
+check('the basket is kept on this device', JSON.stringify(await A.evaluate(() => JSON.parse(localStorage.getItem('edictum.shop.bag')))) === '["orpack","sailpack","cbpack"]');
+await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
+await click(A, '.shop-bagbar [data-act="shop-open"][data-p="bag"]');await A.waitForSelector('.shop-dr .shop-bag', { timeout: 8000 });
+const bag = await txt(A, '.shop-dr .shop-bag');
+check('the basket lists each pack with its price, and the sum', (await A.evaluate(() => document.querySelectorAll('.shop-dr .shop-bag-r').length)) === 3 && /MX\$177\.67/.test(bag) && /€8\.47/.test(bag), bag.slice(0, 300));
+check('while it is open, its button is the only one that pays', (await A.evaluate(() => document.querySelectorAll('[data-act="shop-buy"][data-p="bag"]').length)) === 1);
+await A.screenshot({ path: path.join(OUT, 'shop-basket.png') });
+await click(A, '.shop-dr [data-act="shop-bag-del"][data-p="cbpack"]');
+check('Remove takes one out', (await A.evaluate(() => document.querySelectorAll('.shop-dr .shop-bag-r').length)) === 2 && /MX\$125\.42/.test(await txt(A, '.shop-dr .shop-bag')));
+check('and the basket suggests it again', !!(await A.$('.shop-dr .shop-mini[data-p="cbpack"]')));
+await A.evaluate(() => document.querySelector('.shop-dr .shop-mini[data-p="cbpack"]').click());await sleep(300);
+await click(A, '.shop-dr [data-act="shop-bag"][data-p="cbpack"]');
+await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
+await click(A, '.shop-bagbar [data-act="shop-open"][data-p="bag"]');await A.waitForSelector('.shop-dr .shop-bag', { timeout: 8000 });
+await click(A, '.shop-dr [data-act="shop-buy"][data-p="bag"]');
+check('an opened basket is awaited on every device, for each pack in it', !!(await until(async () => { const pd = (await db.doc('shop/' + aUid).get()).get('pend') || {}; return pd.orpack && pd.sailpack && pd.cbpack; }, 6000)));
+const bTxn = await payFor(A);
+check('one checkout for all three, at the server’s prices', !!bTxn && P.tx.get(bTxn).items.map(i => i.price.id).join() === [PRICES.orpack, PRICES.sailpack, PRICES.cbpack].join() && P.tx.get(bTxn).custom_data.product === 'basket' && P.tx.get(bTxn).custom_data.uid === aUid);
+check('paid, the basket empties at once', await A.evaluate(() => G.SHOP.SHOP.bag.length === 0 && !document.querySelector('.shop-bagbar')));
+check('all three owned once Paddle confirms it', !!(await until(() => A.evaluate(() => ['orpack', 'sailpack', 'cbpack'].every(p => G.SHOP.SHOP.doc && G.SHOP.SHOP.doc.owns && G.SHOP.SHOP.doc.owns[p])), 10000)));
+check('their pieces are held, by the server’s word', await A.evaluate(ids => ids.every(id => G.SHOP.held().includes(id)), [...CATALOGUE.products.orpack.grants, ...CATALOGUE.products.sailpack.grants, ...CATALOGUE.products.cbpack.grants]));
+check('and nothing is awaited any more', !!(await until(() => A.evaluate(() => !G.SHOP.SHOP.wait && !document.querySelector('.shop-wait')), 8000)));
+check('owned packs can no longer go in a basket', await A.evaluate(() => ['orpack', 'sailpack', 'cbpack'].every(p => !document.querySelector(`[data-act="shop-bag"][data-p="${p}"]`))));
+await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
+
 /* ── in the dark theme ── */
 await A.emulateMedia({ colorScheme: 'dark' });await go(A, 'shop');await sleep(600);await A.evaluate(() => scrollTo(0, 0));
 await A.screenshot({ path: path.join(OUT, 'shop-dark.png') });
@@ -357,6 +408,15 @@ check('no sideways scrolling on a phone', await A.evaluate(() => document.docume
 await A.screenshot({ path: path.join(OUT, 'shop-phone.png'), fullPage: true });
 await openDr(A, 'idpack');await A.screenshot({ path: path.join(OUT, 'shop-phone-drawer.png') });
 check('the drawer is a bottom sheet on a phone, with no sideways scrolling', await A.evaluate(() => { const d = document.querySelector('.shop-dr').getBoundingClientRect(); return d.bottom >= innerHeight - 1 && d.top > 0 && document.documentElement.scrollWidth <= innerWidth + 1; }));
+/* the basket's bar on a phone: above the tab bar, no sideways scrolling */
+await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
+if (Date.now() < Date.parse(CATALOGUE.products.bfpack.until)) {
+  await click(A, '.shop-cd [data-act="shop-bag"][data-p="bfpack"]');
+  check('on a phone the basket’s bar sits above the tab bar, with no sideways scrolling', await A.evaluate(() => { const b = document.querySelector('.shop-bagbar'), t = document.querySelector('.tabbar'); if (!b) return false; const r = b.getBoundingClientRect();
+    return r.right <= innerWidth + 1 && r.left >= 0 && (!t || getComputedStyle(t).display === 'none' || r.bottom <= t.getBoundingClientRect().top + 1) && document.documentElement.scrollWidth <= innerWidth + 1; }));
+  await shot(A, '.shop-bagbar', 'shop-phone-basket-bar.png');
+  await A.evaluate(() => { G.SHOP.SHOP.bag = []; G.render(); });await sleep(200);
+}
 /* the wishlist and Hide owned are this device's own */
 await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
 await click(A, '[data-act="shop-wish"][data-p="idpack"]');await click(A, '[data-act="shop-f"][data-v="wish"]');

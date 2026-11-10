@@ -29,6 +29,7 @@ test('a purchase counts when it went through, in the shop\'s own environment', (
   assert.equal(buyEvent('t2', { ok: false, uid: 'u', paid: NOW }, 'live'), null);
   assert.equal(buyEvent('t3', { ok: true, uid: 'u', paid: NOW, env: 'sandbox' }, 'live'), null, 'a test purchase on a live shop');
   assert.equal(buyEvent('t4', { ok: true, uid: 'u', payer: 'u', created: NOW }, '').to, '', 'buying for oneself names no payer');
+  assert.equal(buyEvent('t5', { ok: true, uid: 'u', product: 'basket', products: ['orpack', 'sailpack'], paid: NOW }, '').x, 'orpack + sailpack', 'a basket names what was in it');
 });
 
 test('events are merged newest first, each once, and only those since the start', () => {

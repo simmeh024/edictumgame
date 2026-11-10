@@ -54,6 +54,21 @@ test('products, Club and checkouts', () => {
   assert.equal(s.recent.find(r => r.id === 'txn_c').refund, 'refunded');
 });
 
+test('a basket counts as a sale of each product in it, each line refunded on its own', () => {
+  const r = records();
+  r.txs.push(tx('txn_bk', 'basket', { total: 897, products: ['orpack', 'sailpack', 'cbpack'], items: [{ i: 'txnitm_or1', p: 'orpack', tot: 299 }, { i: 'txnitm_sl1', p: 'sailpack', tot: 299 }, { i: 'txnitm_cb1', p: 'cbpack', tot: 299 }] }));
+  r.adjs.push({ txn: 'txn_bk', action: 'refund', type: 'full', status: 'approved', all: false, full: ['txnitm_sl1'] });
+  r.cks.push({ id: 'txn_bk', product: 'basket', products: ['orpack', 'sailpack', 'cbpack'], at: NOW - DAY, env: 'live' });
+  const s = shopSummary(r, NOW, 'live'), by = Object.fromEntries(s.products.map(p => [p.k, p]));
+  assert.equal(s.sold, 6 + 3); assert.equal(s.kept, 5 + 2); assert.equal(s.refunded, 1 + 1);
+  assert.deepEqual(s.money, { EUR: 999 + 999 + 499 + 499 + 299 + 299, MXN: 6267 });
+  assert.deepEqual(s.refundedMoney, { EUR: 299 + 299 });
+  assert.equal(by.orpack.kept, 1); assert.equal(by.sailpack.refunded, 1); assert.deepEqual(by.cbpack.money, { EUR: 299 });
+  assert.equal(by.sailpack.opened30, 1);
+  const row = s.recent.find(x => x.id === 'txn_bk');
+  assert.deepEqual(row.products, ['orpack', 'sailpack', 'cbpack']); assert.equal(row.refund, 'part refunded'); assert.equal(row.total, 897);
+});
+
 test('without an environment every record counts', () => {
   assert.equal(shopSummary(records(), NOW).sold, 7);
 });

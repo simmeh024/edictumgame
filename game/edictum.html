@@ -6100,6 +6100,25 @@ span.nw-tag{cursor:default}
   .shop-dr-top{top:-14px;margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}}
 @media (prefers-reduced-motion:reduce){.shop-cd,.shop-dr{transition:none;animation:none}.thump .shop-granted{animation:none}}
 :root[data-motion="reduce"] .thump .shop-granted,:root[data-motion="reduce"] .shop-dr{animation:none}
+/* the basket: a button beside each pack's Buy, a bar that stays at the foot of the Shop while it holds something, and its drawer */
+.shop-bag-b{display:inline-flex;align-items:center;gap:5px}
+.shop-bag-b svg,.shop-bag-via svg{width:16px;height:16px;flex:none}
+.shop-bag-b.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.shop-bag-via{display:inline-flex;gap:5px;align-items:center;font-size:12px;color:var(--ink-3)}
+.shop-bagbar{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;align-items:center;gap:12px;margin:4px 0 18px;padding:10px 12px 10px 14px;background:var(--sheet);border:1px solid var(--ink);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+.u-tabs .shop-bagbar{bottom:calc(var(--u-tab,60px) + 10px + env(safe-area-inset-bottom,0px))}
+.shop-bagbar-i{position:relative;display:flex;flex:none;align-items:center;justify-content:center;width:34px;height:34px;color:var(--ink)}
+.shop-bagbar-i svg{width:26px;height:26px}
+.shop-bagbar-i b{position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--ink);color:var(--paper);font:600 11px/18px var(--f-mono);text-align:center}
+.shop-bagbar-t{display:grid;flex:1;min-width:0}
+.shop-bagbar-t .hint{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.shop-bagbar-a{display:flex;flex:none;gap:8px;align-items:center}
+.shop-bag-l{list-style:none;display:grid;gap:8px;margin:12px 0;padding:0}
+.shop-bag-r{display:grid;grid-template-columns:40px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:8px 10px 8px 8px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.shop-bag-n{display:grid;gap:2px;min-width:0}.shop-bag-n .hint{font-size:12px}
+.shop-bag-pr{font:500 13px var(--f-mono);white-space:nowrap;font-variant-numeric:tabular-nums}
+@media (max-width:640px){.shop-bagbar{flex-wrap:wrap}.shop-bagbar-a{width:100%;justify-content:flex-end}
+  .shop-bag-r{grid-template-columns:40px minmax(0,1fr) auto}.shop-bag-r>.linkish{grid-column:2/-1;justify-self:start}}
 .shop-ins-mini{display:block;padding:6px 8px;border:1px solid #b8933f;border-radius:3px;font:700 9px/1.4 Cinzel,Georgia,serif;letter-spacing:.1em;color:#7a5a17;text-align:center}
 :root[data-theme="dark"] .shop-ins-mini{color:#e2c27a}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .shop-ins-mini{color:#e2c27a}}
@@ -44328,7 +44347,9 @@ ${adminCards(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
 }
 /* the player page at a glance, and its panels (functions/admin.js, overview()) */
-const ADM_PRODUCT={founder:'Founder’s Package',idpack:'Identity Card Pack',vip:'Chancery Club, monthly',vipyear:'Chancery Club, yearly',giftvip:'Gifted Club month'};
+const ADM_PRODUCT={founder:'Founder’s Package',idpack:'Identity Card Pack',vip:'Chancery Club, monthly',vipyear:'Chancery Club, yearly',giftvip:'Gifted Club month',bfpack:'Black Friday Pack',orpack:'Old Republic Pack',sailpack:'Age of Sail Pack',cbpack:'Central Bank Pack'};
+/* a transaction's product, or a basket's products */
+const admProd=t=>Array.isArray(t.products)&&t.products.length>1?'Basket: '+t.products.map(k=>ADM_PRODUCT[k]||k).join(' + '):ADM_PRODUCT[t.product]||t.product;
 const admEdict=id=>{try{return (ISSUE_BY_ID[id]||{}).t||id;}catch(e){return id;}};
 function adminCards(p){
   const a=p.account,c=p.club||{},n=p.nation,now=Date.now(),R=p.reports||{},against=(R.against||[]).length,alts=(p.alts||[]).length;
@@ -44360,7 +44381,7 @@ function adminPurchases(p){
   const P=p.purchases;if(!P)return '';
   const owns=Object.keys(P.owns||{}).map(k=>ADM_PRODUCT[k]||k);
   const link=P.ctm?`<a href="https://${P.env==='live'?'':'sandbox-'}vendors.paddle.com/customers-v2/${encodeURIComponent(P.ctm)}" target="_blank" rel="noopener">Open customer in Paddle</a>`:'No Paddle customer yet';
-  return `<p>Owns: ${owns.length?esc(owns.join(', ')):'nothing'} · ${link}</p>${P.tx.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Paid</th><th>Product</th><th>Status</th><th>Transaction</th></tr></thead><tbody>${P.tx.map(t=>`<tr><td>${esc(adminTime(t.t))}</td><td>${esc(ADM_PRODUCT[t.product]||t.product)}${t.gift?'<br><span class="hint">gift'+(t.payer?' from <code>'+esc(t.payer)+'</code>':'')+'</span>':''}</td><td>${esc(t.status)}${t.ok?'':' · not delivered'}${t.refund?' · refund asked ('+esc(t.refund)+')':''}${t.adj.map(a=>'<br>'+esc(a.action+' '+a.status)).join('')}</td><td><code>${esc(t.id)}</code></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No transactions.</p>'}`;
+  return `<p>Owns: ${owns.length?esc(owns.join(', ')):'nothing'} · ${link}</p>${P.tx.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Paid</th><th>Product</th><th>Status</th><th>Transaction</th></tr></thead><tbody>${P.tx.map(t=>`<tr><td>${esc(adminTime(t.t))}</td><td>${esc(admProd(t))}${t.gift?'<br><span class="hint">gift'+(t.payer?' from <code>'+esc(t.payer)+'</code>':'')+'</span>':''}</td><td>${esc(t.status)}${t.ok?'':' · not delivered'}${t.refund?' · refund asked ('+esc(t.refund)+')':''}${t.adj.map(a=>'<br>'+esc(a.action+' '+a.status)).join('')}</td><td><code>${esc(t.id)}</code></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No transactions.</p>'}`;
 }
 function adminReports(p){
   const R=p.reports||{},why=x=>`<time>${esc(adminTime(x.t))}</time>${esc(REPORT_WHY[x.reason]||x.reason)}${x.note?': '+esc(x.note):''}`;
@@ -44375,7 +44396,7 @@ function adminTimeline(p){
   if(a){add(a.created,'Account created');add(a.lastSignIn,'Last sign-in');}
   if(p.nation){add(p.nation.founded,'Nation founded');for(const r of p.nation.rulings||[])add(r.t,'Ruled on '+esc(admEdict(r.id)));}
   for(const s of p.sessions||[])add(s.t,`Session report · ${esc(s.device||'device')} · ${esc(s.status||'')}`);
-  for(const t of (p.purchases||{}).tx||[])add(t.t,'Bought '+esc(ADM_PRODUCT[t.product]||t.product)+(t.adj.length?' · '+esc(t.adj.map(x=>x.action).join(', ')):''));
+  for(const t of (p.purchases||{}).tx||[])add(t.t,'Bought '+esc(admProd(t))+(t.adj.length?' · '+esc(t.adj.map(x=>x.action).join(', ')):''));
   const R=p.reports||{};
   for(const x of R.against||[])add(x.t,'Reported: '+esc(REPORT_WHY[x.reason]||x.reason));
   for(const x of R.by||[])add(x.t,'Filed a report about '+esc(x.name||x.target));
@@ -44787,7 +44808,7 @@ function adminShopView(){
       <h3 class="help-h3">Checkout to payment, by product (30 days)</h3><div class="adst-rows">${d.products.filter(p=>p.opened30).map(p=>stBar(esc(p.name),p.paid30,p.opened30,` paid of ${stN(p.opened30)} checkouts`)).join('')||'<p class="hint">No checkouts opened in the last 30 days.</p>'}</div>`):''}
     ${d.fgift?shFgift(d.fgift,nm):''}
     ${sec('Latest purchases','The 30 most recent payments.',d.recent.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Product</th><th>Nation</th><th>Paid</th><th>State</th><th>Player</th></tr></thead><tbody>
-      ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc((d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
+      ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc(Array.isArray(r.products)?'Basket: '+r.products.map(k=>(d.products.find(p=>p.k===k)||{}).name||k).join(' + '):(d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
   }
   return admShell('admin-shop',`<p class="eyebrow">Admin portal</p><h1 class="display">Shop statistics</h1>
     <p class="lede">What the Bureau of National Finery has sold${d&&d.env?` (Paddle ${esc(d.env)})`:''}: counted from the payments, refunds and subscriptions Paddle reported.${d?` Counted ${esc(rel(d.at))}.`:''} <button type="button" class="linkish" data-act="sh-refresh"${ADSH.busy?' disabled':''}>${ADSH.busy?'Counting…':'Count again'}</button></p>
@@ -52557,8 +52578,8 @@ function shopLocalPrices(){
   const ids=SHOP_PRODUCTS.map(p=>c.prices[p]).filter(Boolean);
   shopApiP().then(api=>api&&typeof api.local==='function'?api.local({env:c.env,token:c.token,items:ids}):null).then(r=>{
     if(!r||!r.cur||r.cur===((shopCat()||{}).currency||'EUR'))return;
-    const m={};for(const p of SHOP_PRODUCTS){const v=r.prices[c.prices[p]];if(v)m[p]=v;}
-    if(!Object.keys(m).length)return;SHOP.local={cur:r.cur,p:m};if(S.view==='shop'&&!document.hidden)render();}).catch(()=>{});
+    const m={},a={};for(const p of SHOP_PRODUCTS){const v=r.prices[c.prices[p]],x=r.amounts&&r.amounts[c.prices[p]];if(v)m[p]=v;if(Number.isFinite(x))a[p]=x;}
+    if(!Object.keys(m).length)return;SHOP.local={cur:r.cur,p:m,a};if(S.view==='shop'&&!document.hidden)render();}).catch(()=>{});
 }
 function shopLocal(t){try{return new Date(t).toLocaleString('en-GB',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'});}catch(e){return new Date(t).toString();}}
 function shopDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});}catch(e){return fmtDate(t);}}
@@ -52602,7 +52623,8 @@ function shopTake(d,cached){
     /* a nation founded in another region since: the server moves the public list with it */
     if(SHOP.doc.reg&&S.nation&&SHOP.doc.reg!==S.nation.reg)shopStatus(true);}
   if(!cached)shopGiftsArrived();
-  const w=SHOP.wait;if(w&&shopSettled(w.p)){SHOP.wait=null;SHOP.gr[/^vip/.test(w.p)?'vip':w.p]=Date.now();}
+  const w=SHOP.wait,wps=w?w.ps||[w.p]:[];if(w&&wps.every(shopSettled)){SHOP.wait=null;for(const q of wps)SHOP.gr[/^vip/.test(q)?'vip':q]=Date.now();
+    if(w.p==='bag')toast(`Your basket is paid for: ${shopAnd(wps.map(shopThe))} ${wps.length===1?'is':'are'} yours. Find ${wps.length===1?'it':'them'} in Customise.`);}
   /* the cached copy, then the server's (mostly the same): redraw only for a change, or a map being drawn loses its canvas */
   const sig=JSON.stringify(SHOP.doc);if(sig===SHOP.sig&&w===SHOP.wait){if(was&&!cached&&S.view==='shop'&&!document.hidden)render();return;}SHOP.sig=sig;
   shopBump();
@@ -52658,10 +52680,14 @@ function shopErr(e){
     shop_off:'The Bureau of National Finery is not open yet.',shop_unavailable:'The payment service did not answer. Nothing was charged. Try again in a minute.',
     unavailable:'The server could not be reached. Nothing was charged. Check your connection and try again.',nation_required:'Found and save your nation first.',
     banned:'This account is banned, so it cannot buy anything.',not_granted:'Sign in again, then try once more. Nothing was charged.'};
+  /* the server names the item for these, which matters in a basket */
+  if(m&&['owned','sale_ended','not_on_sale','basket_alone','basket_included'].includes(c))return m.replace(/\.?$/,'.')+(/Nothing was charged/.test(m)?'':' Nothing was charged.');
   return T[c]||m||'Something went wrong. Nothing was charged. Try again.';
 }
 async function shopBuy(p,to){
-  if(SHOP.busy||!SHOP_PRODUCTS.includes(p))return;
+  /* 'bag': what the basket holds that can be paid for now, in one checkout */
+  const ps=p==='bag'?shopBag():null;
+  if(SHOP.busy||(ps?!ps.length:!SHOP_PRODUCTS.includes(p)))return;
   SHOP.err='';
   if(S.mode!=='world'){SHOP.err='Reconnect to buy. Nothing was charged.';render();return;}
   /* a guest: link a sign-in, and the checkout opens by itself once it is linked (within ten minutes) */
@@ -52669,12 +52695,13 @@ async function shopBuy(p,to){
     const b=document.querySelector('.ed-acct-b');if(b)b.click();return;}
   SHOP.busy=p;render();
   try{
-    const r=await shopReq({step:'checkout',product:p,...(to?{to}:{})});
-    if(r&&r.done){toast(to?'That gift was already paid for. It is on its way.':'That purchase had already gone through. It is yours.');return;}
+    const r=await shopReq(ps?{step:'checkout',products:ps}:{step:'checkout',product:p,...(to?{to}:{})});
+    if(r&&r.done){if(ps)shopBagDrop(ps);toast(to?'That gift was already paid for. It is on its way.':ps?'That basket had already been paid for. Everything in it is yours.':'That purchase had already gone through. It is yours.');return;}
     const api=await shopApiP();if(!api)throw Object.assign(new Error(''),{code:'unavailable'});
-    SHOP.open={p,txn:r.txn,to:to||''};
-    await api.checkout({txn:r.txn,env:r.env,token:r.token,theme:shopDark()?'dark':'light',onEvent:e=>shopEvent(p,e,to)});
-    if(p==='founder')shopCutoffTimer();
+    SHOP.open={p,txn:r.txn,to:to||'',ps:ps||[p]};
+    if(ps)try{window.edictumStat&&window.edictumStat('shop_basket_checkout',{items:ps.length});}catch(e){}
+    await api.checkout({txn:r.txn,env:r.env,token:r.token,theme:shopDark()?'dark':'light',onEvent:e=>shopEvent(p,e,to,ps)});
+    if(p==='founder'||ps&&ps.includes('founder'))shopCutoffTimer();
   }catch(e){SHOP.open=null;SHOP.err=shopErr(e);}
   finally{SHOP.busy='';render();}
 }
@@ -52685,22 +52712,22 @@ const shopClub=p=>p==='vip'||p==='vipyear';
 const SHOP_WHAT={founder:'the Founder’s Package',idpack:'the Nation Identity Card Pack',giftvip:'a month of The Chancery Club'};
 /* the nation a purchase came from as a gift, if it did */
 function shopGiftFrom(p){const g=(SHOP.doc&&Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[]).filter(x=>x&&x.p===p);return g.length?g[g.length-1].name||'another nation':'';}
-function shopEvent(p,e,to){
-  if(!e)return;
+function shopEvent(p,e,to,ps){
+  if(!e)return;ps=ps||[p];
   /* a gift: nothing is awaited here, the server hands it to the other nation once Paddle confirms it */
   if(to){if(e.name==='checkout.completed'){SHOP.open=null;SHOP.gift=null;SHOP.sent={p,name:nameOf(to)};render();setTimeout(()=>shopCheck(true),6000);}
     else if(e.name==='checkout.closed'){SHOP.open=null;render();}
     else if(e.name==='checkout.error'){SHOP.err='The checkout reported a problem. Nothing is charged unless Paddle sends you a receipt. Try again.';render();}
     return;}
-  if(e.name==='checkout.completed'){SHOP.wait={p,t:Date.now()};SHOP.open=null;render();for(const ms of [5000,20000,60000])setTimeout(()=>{if(SHOP.wait&&SHOP.wait.p===p)shopCheck(true);},ms);}
+  if(e.name==='checkout.completed'){SHOP.wait={p,ps,t:Date.now()};SHOP.open=null;if(p==='bag')shopBagDrop(ps);render();for(const ms of [5000,20000,60000])setTimeout(()=>{if(SHOP.wait&&SHOP.wait.p===p)shopCheck(true);},ms);}
   /* closed without paying: no "checkout was opened" for it on this device, and the server is asked to drop it everywhere */
-  else if(e.name==='checkout.closed'){SHOP.open=null;if(!(SHOP.wait&&SHOP.wait.p===p)){SHOP.shut[p]=shopNow();shopCheck(true);}render();}
+  else if(e.name==='checkout.closed'){SHOP.open=null;if(!(SHOP.wait&&SHOP.wait.p===p)){for(const q of ps)SHOP.shut[q]=shopNow();shopCheck(true);}render();}
   else if(e.name==='checkout.error'){SHOP.err='The checkout reported a problem. Nothing is charged unless Paddle sends you a receipt. Try again.';render();}
 }
 /* the checkout cannot run past the end of the sale: it closes at the cutoff (a payment already made in time counts) */
 function shopCutoffTimer(){
   clearTimeout(SHOP.closeT);const ms=shopUntil()-shopNow();if(!(ms>0&&ms<2*DAY))return;
-  SHOP.closeT=setTimeout(async()=>{if(!SHOP.open||SHOP.open.p!=='founder')return;const api=await shopApiP();if(api)api.close();SHOP.open=null;
+  SHOP.closeT=setTimeout(async()=>{if(!SHOP.open||!(SHOP.open.ps||[SHOP.open.p]).includes('founder'))return;const api=await shopApiP();if(api)api.close();SHOP.open=null;
     SHOP.err='The Founder’s Package sale has ended, so the checkout was closed. A payment that went through before the end still counts.';render();},ms);
 }
 /* asks the server to look at Paddle again, for a payment its notifications have not brought yet */
@@ -52734,6 +52761,9 @@ document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='shop-small-d'
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="shop-"]');if(!el)return;const a=el.dataset.act;
   if(a==='shop-buy')shopBuy(el.dataset.p);
+  else if(a==='shop-bag')shopBagAdd(el.dataset.p);
+  else if(a==='shop-bag-del')shopBagDel(el.dataset.p);
+  else if(a==='shop-bag-clear'){SHOP.bag=[];shopBagSave();render();const d=document.querySelector('.shop-dr');if(d)d.focus({preventScroll:true});}
   else if(a==='shop-gift-open'){SHOP.gift=SHOP.gift&&SHOP.gift.p===el.dataset.p?null:{p:el.dataset.p,to:''};SHOP.sent=null;render();}
   else if(a==='shop-gift-buy'){const to=SHOP.gift&&SHOP.gift.to;if(!to){SHOP.err='Choose the nation the gift is for.';render();}else shopBuy(el.dataset.p,to);}
   else if(a==='shop-plan'){SHOP.plan=el.dataset.v==='year'?'year':'month';render();}
@@ -52746,7 +52776,7 @@ document.addEventListener('click',e=>{
   else if(a==='shop-pv'){SHOP.pv=el.dataset.v;render();}
   else if(a==='shop-cd'){SHOP.cd=el.dataset.v;render();}
   else if(a==='shop-dismiss'){SHOP.err='';render();}
-  else if(a==='shop-open'){const p=el.dataset.p;SHOP.drNew=!SHOP.dr;SHOP.dr=p;SHOP.rv=[p,...SHOP.rv.filter(x=>x!==p)].slice(0,6);shopLsSet('rv',SHOP.rv);render();requestAnimationFrame(()=>{const d=document.querySelector('.shop-dr');if(d){d.scrollTop=0;d.focus({preventScroll:true});}});}
+  else if(a==='shop-open'){const p=el.dataset.p;SHOP.drNew=!SHOP.dr;SHOP.dr=p;if(p!=='bag'){SHOP.rv=[p,...SHOP.rv.filter(x=>x!==p)].slice(0,6);shopLsSet('rv',SHOP.rv);}render();requestAnimationFrame(()=>{const d=document.querySelector('.shop-dr');if(d){d.scrollTop=0;d.focus({preventScroll:true});}});}
   else if(a==='shop-close')shopDrClose();
   else if(a==='shop-f'){SHOP.f=el.dataset.v||'all';render();}
   else if(a==='shop-wish'){const p=el.dataset.p;SHOP.wish.has(p)?SHOP.wish.delete(p):SHOP.wish.add(p);shopLsSet('wish',[...SHOP.wish]);render();}
@@ -53084,19 +53114,94 @@ function shopNotice(n){
   if(S.mode==='world'&&!shopLinked())out.push(`<div class="notice shop-note shop-link"><p><b>Purchases belong to your account</b>, so they need a linked sign-in: Google, Discord or an email address. Then they follow you to every device, and to any nation you found later.</p><div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${typeof accountCompareButton==='function'?accountCompareButton():''}</div></div>`);
   if(SHOP.err)out.push(`<div class="notice shop-note shop-err" role="alert"><p>${SHOP.err==='link'?'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.'+(SHOP.after?' Your checkout opens by itself as soon as it is linked.':''):esc(SHOP.err)}</p><div class="row">${SHOP.err==='link'?'<button type="button" class="btn" data-act="acct-open">Link a sign-in</button>':''}<button type="button" class="linkish small" data-act="shop-dismiss">Dismiss</button></div></div>`);
   if(SHOP.sent)out.push(`<div class="notice shop-note shop-sent" role="status"><p><b>Gift paid.</b> ${esc(cap1(SHOP_WHAT[SHOP.sent.p]||'your gift'))} goes to ${esc(SHOP.sent.name)} once Paddle confirms the payment, usually within seconds. They see your nation’s name with it.</p><div class="row"><button type="button" class="linkish small" data-act="shop-sent-ok">Done</button></div></div>`);
-  if(SHOP.wait){const p=SHOP.wait.p,nm=p==='founder'?'the Founder’s Package':p==='idpack'?'the Nation Identity Card Pack':'your Chancery Club membership';
+  if(SHOP.wait){const p=SHOP.wait.p,nm=p==='bag'?'your basket: '+shopAnd((SHOP.wait.ps||[]).map(shopThe)):shopClub(p)?'your Chancery Club membership':shopThe(p);
     out.push(`<div class="notice shop-note shop-wait" role="status"><p><b>Payment received by Paddle.</b> Waiting for confirmation of ${nm}; it usually takes a few seconds. You can leave this page: it arrives on every device once confirmed.</p><div class="row"><button type="button" class="btn ghost" data-act="shop-check"${SHOP.checking?' disabled':''}>${SHOP.checking?'Checking…':'Check again'}</button></div></div>`);}
-  else{const pend=SHOP.doc&&SHOP.doc.pend||{},open=Object.keys(pend).filter(p=>!shopSettled(p)&&!(SHOP.open&&SHOP.open.p===p)&&!(SHOP.shut[p]>=pend[p]));
+  else{const pend=SHOP.doc&&SHOP.doc.pend||{},open=Object.keys(pend).filter(p=>!shopSettled(p)&&!(SHOP.open&&(SHOP.open.ps||[SHOP.open.p]).includes(p))&&!(SHOP.shut[p]>=pend[p]));
     if(open.length&&S.mode==='world')out.push(`<div class="notice shop-note" role="status"><p>A checkout was opened in the last two hours. If you paid, it appears here once Paddle confirms it.</p><div class="row"><button type="button" class="btn ghost" data-act="shop-check"${SHOP.checking?' disabled':''}>${SHOP.checking?'Checking…':'Check for a payment'}</button></div></div>`);}
   const notes=(SHOP.doc&&Array.isArray(SHOP.doc.notes)?SHOP.doc.notes:[]).filter(x=>x&&x.k==='late');
   if(notes.length)out.push('<p class="notice shop-note">A Founder’s Package payment completed after the sale had ended, so it is being refunded in full. If the refund cannot be made, the package is delivered instead.</p>');
   return out.join('');
 }
-function shopCta(p,label){
-  const cfg=SHOP.cfg,on=!!(cfg&&cfg.on),busy=SHOP.busy===p,wait=SHOP.wait&&SHOP.wait.p===p,opened=SHOP.open&&SHOP.open.p===p&&!SHOP.open.to;
+function shopCta(p,label,card){
+  const cfg=SHOP.cfg,on=!!(cfg&&cfg.on),busy=SHOP.busy===p,wait=SHOP.wait&&(SHOP.wait.ps||[SHOP.wait.p]).includes(p),opened=SHOP.open&&SHOP.open.p===p&&!SHOP.open.to;
   if(wait)return `<span class="shop-state">Awaiting confirmation…</span>`;
   if(!on||S.mode!=='world')return `<button type="button" class="btn" disabled>${esc(label)}</button>${cfg&&!cfg.on?'<span class="hint">Not on sale yet.</span>':''}`;
-  return `<button type="button" class="btn shop-buy" data-act="shop-buy" data-p="${p}"${busy||SHOP.busy?' disabled':''} aria-describedby="shop-${p}-price">${busy?'Opening the checkout…':opened?'Checkout open: reopen it':esc(label)}</button>`;
+  return `<button type="button" class="btn shop-buy" data-act="shop-buy" data-p="${p}"${busy||SHOP.busy?' disabled':''} aria-describedby="shop-${p}-price">${busy?'Opening the checkout…':opened?'Checkout open: reopen it':esc(label)}</button>${shopBagBtn(p,card)}`;
+}
+/* ── the basket: one-off purchases for the player's own nation, paid together in one checkout (functions/shop.js,
+   basket). It is kept on this device (edictum.shop.bag); what is owned since, included in something owned or no longer
+   on sale leaves it by itself. Gifts and the Chancery Club are bought on their own. ── */
+const SHOP_BAG_MAX=10;
+const SHOP_BAG_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5h18l-1.7 8.8a2 2 0 0 1-2 1.7H6.7a2 2 0 0 1-2-1.7Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7.5 9.5 10.5 4M16.5 9.5 13.5 4M9 13v3.5M12 13v3.5M15 13v3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+const shopCatP=p=>{const c=shopCat();return c&&c.products&&c.products[p]||null;};
+function shopThe(p){const P=shopCatP(p);return SHOP_WHAT[p]||(P?'the '+P.name:p);}
+function shopAnd(a){return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];}
+/* included in something this account owns (the card pack in the Founder's Package) */
+function shopIncl(p){const c=shopCat();return !!c&&Object.entries(c.products).some(([k,P])=>k!==p&&shopOwns(k)&&Array.isArray(P.includes)&&P.includes.includes(p));}
+function shopBagOk(p){
+  const P=shopCatP(p),t=shopNow();if(!P||P.kind!=='once'||P.giftOnly||!shopSells(p)||shopOwns(p)||shopIncl(p))return false;
+  const u=Date.parse(P.until);return p==='founder'?t<shopUntil():!(isFinite(u)&&t>=u);
+}
+/* what the basket holds that can be paid for now, in the Shop's order */
+function shopBag(){return SHOP_PRODUCTS.filter(p=>SHOP.bag.includes(p)&&shopBagOk(p));}
+/* something in the basket that already includes p */
+function shopBagVia(p){return shopBag().find(q=>q!==p&&((shopCatP(q)||{}).includes||[]).includes(p))||'';}
+function shopBagSave(){shopLsSet('bag',SHOP.bag);}
+function shopBagDrop(ps){SHOP.bag=SHOP.bag.filter(q=>!ps.includes(q));shopBagSave();}
+function shopBagAdd(p){
+  if(!shopBagOk(p)||shopBag().includes(p))return;
+  const via=shopBagVia(p);if(via){toast(`${cap1(shopThe(via))} in your basket already includes ${shopThe(p)}.`);return;}
+  /* the Founder's Package brings the card pack with it: in one basket the card pack would be paid for twice */
+  const inc=(shopCatP(p).includes||[]).filter(q=>SHOP.bag.includes(q));
+  SHOP.bag=[...SHOP.bag.filter(q=>!inc.includes(q)&&q!==p),p].slice(-SHOP_BAG_MAX);shopBagSave();
+  if(inc.length)toast(`${cap1(shopThe(p))} includes ${shopAnd(inc.map(shopThe))}, so ${inc.length===1?'it':'they'} left your basket.`);
+  render();
+}
+function shopBagDel(p){
+  SHOP.bag=SHOP.bag.filter(q=>q!==p);shopBagSave();render();
+  /* the row (or button) is gone: keep the reader where they were */
+  requestAnimationFrame(()=>{const b=document.querySelector(`[data-act="shop-bag"][data-p="${p}"]`)||document.querySelector('.shop-dr');if(b)b.focus({preventScroll:true});});
+}
+function shopMoney(cur,minor){try{const f=new Intl.NumberFormat('en-IE',{style:'currency',currency:cur});return f.format(minor/Math.pow(10,f.resolvedOptions().maximumFractionDigits));}catch(e){return '';}}
+/* the basket's sum in euros, and in the player's own currency once Paddle has priced every item in it */
+function shopBagSum(ps){
+  const c=shopCat(),cur=c&&c.currency||'EUR',eur=shopMoney(cur,ps.reduce((a,p)=>a+((shopCatP(p)||{}).amount||0),0)),L=SHOP.local;
+  const loc=L&&L.a&&ps.every(p=>Number.isFinite(L.a[p]))?shopMoney(L.cur,ps.reduce((a,p)=>a+L.a[p],0)):'';
+  return {eur,loc,pay:loc||eur};
+}
+function shopBagBtn(p,card){
+  if(!shopBagOk(p))return '';
+  const via=shopBagVia(p),nm=(shopCatP(p)||{}).name||p;
+  if(via)return `<span class="shop-bag-via">${SHOP_BAG_SVG}${card?'With '+esc((shopCatP(via)||{}).name||via):'Comes with '+esc(shopThe(via))+' in your basket'}</span>`;
+  const on=shopBag().includes(p);
+  return `<button type="button" class="btn ghost${card?' sm':''} shop-bag-b${on?' on':''}" data-act="${on?'shop-bag-del':'shop-bag'}" data-p="${p}" aria-label="${on?'In your basket: take the '+esc(nm)+' out':'Add the '+esc(nm)+' to your basket'}"${SHOP.busy?' disabled':''}>${SHOP_BAG_SVG}<span>${on?(card?'Added':'In your basket'):(card?'Add':'Add to basket')}</span></button>`;
+}
+function shopBagCta(ps,label){
+  const cfg=SHOP.cfg,on=!!(cfg&&cfg.on),busy=SHOP.busy==='bag',opened=SHOP.open&&SHOP.open.p==='bag'&&(SHOP.open.ps||[]).join()===ps.join();
+  if(!on||S.mode!=='world')return `<button type="button" class="btn" disabled>${esc(label)}</button>`;
+  return `<button type="button" class="btn shop-buy" data-act="shop-buy" data-p="bag"${SHOP.busy?' disabled':''}>${busy?'Opening the checkout…':opened?'Checkout open: reopen it':esc(label)}</button>`;
+}
+/* at the foot of the Shop while the basket holds something (not behind an open drawer, whose own buttons are the only ones) */
+function shopBagBar(){
+  const ps=shopBag();if(!ps.length||SHOP.dr||SHOP.wait&&SHOP.wait.p==='bag')return '';
+  const n=ps.length,sum=shopBagSum(ps);
+  return `<div class="shop-bagbar" role="region" aria-label="Your basket"><span class="shop-bagbar-i" aria-hidden="true">${SHOP_BAG_SVG}<b>${n}</b></span>
+    <span class="shop-bagbar-t" aria-live="polite"><b>${n} item${n===1?'':'s'} in your basket · ${esc(sum.pay)}</b><span class="hint">${esc(ps.map(p=>(shopCatP(p)||{}).name||p).join(', '))}</span></span>
+    <span class="shop-bagbar-a"><button type="button" class="btn ghost sm" data-act="shop-open" data-p="bag">Review</button>${shopBagCta(ps,n===1?'Pay · '+sum.pay:'Pay for all '+n+' · '+sum.pay)}</span></div>`;
+}
+/* the basket's drawer: each item, its price and a way out, the sum, and one button for all of it */
+function shopBagSec(n,t){
+  const ps=shopBag(),cards=shopCards(n,t),sum=shopBagSum(ps),w=SHOP.wait&&SHOP.wait.p==='bag';
+  const row=p=>{const c=cards.find(x=>x.p===p),nm=(shopCatP(p)||{}).name||p;let a='';try{a=c?c.art():'';}catch(e){}
+    return `<li class="shop-bag-r"><span class="shop-mini-v" aria-hidden="true">${a}</span><span class="shop-bag-n"><b>${esc(nm)}</b>${c?`<span class="hint">${esc(c.pitch)}</span>`:''}</span><span class="shop-bag-pr">${esc(shopPay(p))}</span><button type="button" class="linkish small" data-act="shop-bag-del" data-p="${p}" aria-label="Take the ${esc(nm)} out of your basket">Remove</button></li>`;};
+  return `<section class="shop-item shop-bag" aria-labelledby="shop-bag-h">
+    <div class="shop-head"><div><p class="eyebrow">One checkout · one payment</p><h2 class="h2" id="shop-bag-h">Your basket</h2></div>${ps.length?`<p class="shop-price" id="shop-bag-price">${esc(sum.eur)}<span>in all</span>${sum.loc?`<span class="shop-local">${esc(sum.loc)} in your currency</span>`:''}</p>`:''}</div>
+    ${ps.length?`<p>Everything in your basket is paid for together, in one checkout. Each piece is yours for good, and if one of them is ever refunded, the others stay yours.</p>
+      <ul class="shop-bag-l">${ps.map(row).join('')}</ul>
+      <div class="row shop-row">${shopBagCta(ps,ps.length===1?'Pay · '+sum.pay:'Pay for all '+ps.length+' · '+sum.pay)}<button type="button" class="linkish small" data-act="shop-bag-clear">Empty the basket</button></div>`
+    :w?'':'<p class="hint">Your basket is empty. Choose “Add to basket” on any pack to pay for several in one checkout.</p>'}
+    <p class="hint">Gifts and the Chancery Club are bought on their own.</p>
+  </section>`;
 }
 function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=p==='cbpack'?shopCbWorn(n,c):p==='sailpack'?[c.a&&c.a.s==='rope'?'sh-rope':'',c.a&&c.a.c==='c-kraken'?'c-kraken':'',n.flag&&n.flag.e==='e-kraken'?'e-kraken':'',...SHOP_IDS.sailpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':'',...SHOP_IDS.bfpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='orpack'?[c.a&&c.a.s==='scutum'?'sh-scutum':'',c.a&&c.a.c==='c-aquila'?'c-aquila':'',n.flag&&n.flag.e==='e-aquila'?'e-aquila':'',...SHOP_IDS.orpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':''].filter(Boolean):SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
   const onCd=on.filter(id=>UNLOCKS[id].k==='card');
@@ -53229,6 +53334,7 @@ function shopVipSec(n,t){
 function shopSmall(){
   return `<section class="shop-small" aria-label="The small print"><h2 class="lbl-h">The small print</h2><ul>
     <li>Prices are set in euros and include VAT or sales tax where it applies. Paddle charges in your own currency where it can, at its exchange rate of the day: the Shop shows that amount once Paddle has worked out your country from your connection, and the checkout shows the exact amount before you pay. Paddle.com, our reseller and merchant of record, takes the payment, sends the receipt and answers billing questions.</li>
+    <li>Packs can go in your basket and be paid for together, in one checkout and one payment. Each is yours for good, and if one is refunded the others stay yours. Gifts and the Chancery Club are bought on their own.</li>
     <li>Purchases belong to your account (a linked sign-in), not to this device: they follow you to every device and to any nation you found later.</li>
     <li>The Founder’s Package is sold until 1 February 2027, 23:59:59 UTC, by the server’s clock. A checkout opened before then and paid within two hours of the end counts; a payment made later than that is refunded in full, and if the refund cannot be made the package is delivered. Nobody is charged without receiving it.</li>
     <li>The Chancery Club renews every month until you cancel. Cancel any time under Manage subscription: you keep the benefits until the end of the month you paid for. When a membership ends, every waiting edict stays on your desk and new ones arrive once fewer than five are waiting; your picks stay yours, presets still load, and the Chronicle becomes read-only.</li>
@@ -53239,7 +53345,7 @@ function shopSmall(){
 const SHOP_LS='edictum.shop.';
 function shopLs(k,d){try{const v=localStorage.getItem(SHOP_LS+k);return v==null?d:JSON.parse(v);}catch(e){return d;}}
 function shopLsSet(k,v){try{localStorage.setItem(SHOP_LS+k,JSON.stringify(v));}catch(e){}}
-SHOP.f='all';SHOP.dr='';SHOP.ho=!!shopLs('ho',false);SHOP.wish=new Set(shopLs('wish',[]));SHOP.rv=shopLs('rv',[]);SHOP.gr={};SHOP.grSeen=null;
+SHOP.f='all';SHOP.dr='';SHOP.ho=!!shopLs('ho',false);SHOP.bag=(a=>Array.isArray(a)?a.filter(p=>typeof p==='string'&&SHOP_PRODUCTS.includes(p)).slice(0,10):[])(shopLs('bag',[]));SHOP.wish=new Set(shopLs('wish',[]));SHOP.rv=shopLs('rv',[]);SHOP.gr={};SHOP.grSeen=null;
 const SHOP_FILTERS=[['all','All'],['club','Club'],['cosmetic','Cosmetics'],['gift','Gifts'],['limited','Limited time'],['wish','Wishlist']];
 const SHOP_SECS=[['limited','Limited time'],['cosmetic','Cosmetics'],['gift','Gifts'],['bundle','Bundles']];
 /* the items on sale, as cards; sec: where it sits, tags: which chips find it */
@@ -53274,7 +53380,7 @@ function shopCardHTML(c,pick){
   const lbls=[...(c.own?[['own','Owned']]:[]),...(c.own&&SHOP.doc&&SHOP.doc.fg===c.p?[['','Founder’s gift']]:[]),...c.lbls];
   /* while a drawer is open its buttons are the only ones: the cards behind the scrim keep their prices */
   const act=c.own?'<span class="shop-cd-own">In your wardrobe</span>':SHOP.dr?'':c.gift?`<button type="button" class="btn ghost sm" data-act="shop-open" data-p="${c.p}">Choose a nation</button>`
-    :c.sell?shopCta(c.p,'Buy'):'';
+    :c.sell?shopCta(c.p,'Buy',1):'';
   return `<article class="shop-cd${pick?' pick':''}${c.own?' owned':''}${g?' granted':''}${thump?' thump':''}" data-p="${c.p}" aria-labelledby="shop-cd-${c.p}">
     <button type="button" class="shop-cd-v" data-act="shop-open" data-p="${c.p}" tabindex="-1" aria-hidden="true">${art}</button>
     <div class="shop-cd-b">${pick?'<p class="shop-cd-pick">Bureau’s pick of the week</p>':''}
@@ -53366,7 +53472,7 @@ function shopCbPack(n){
     ${own?shopOwned('cbpack'):`<div class="row shop-row">${shopCta('cbpack','Buy the Central Bank Pack · '+shopPay('cbpack'))}</div>`}${shopGiftHTML('cbpack')}
   </section>`;
 }
-function shopDrawerBody(p,n,t){if(p==='cbpack')return shopCbPack(n);if(p==='sailpack')return shopSailPack(n);if(p==='orpack')return shopOrPack(n);return p==='vip'?shopVipSec(n,t):p==='founder'?shopFounder(n,t):p==='idpack'?shopIdPack(n):p==='giftvip'?shopGiftVip(n):p==='bfpack'?shopBfPack(n,t):'';}
+function shopDrawerBody(p,n,t){if(p==='bag')return shopBagSec(n,t);if(p==='cbpack')return shopCbPack(n);if(p==='sailpack')return shopSailPack(n);if(p==='orpack')return shopOrPack(n);return p==='vip'?shopVipSec(n,t):p==='founder'?shopFounder(n,t):p==='idpack'?shopIdPack(n):p==='giftvip'?shopGiftVip(n):p==='bfpack'?shopBfPack(n,t):'';}
 /* the Black Friday Pack: until the catalogue's date (the end of 30 November 2026, UTC) */
 function shopBfUntil(){const c=shopCat(),v=c&&c.products&&c.products.bfpack&&Date.parse(c.products.bfpack.until);return isFinite(v)?v:Date.UTC(2026,11,1);}
 function shopBfArts(n){const a=Object.assign({s:'heater',d:'plain',t:['sable','or'],c:'',ct:'or',m:0,on:1},cz(n).a||{});return {arms:czArmsSVG({...a,s:'midnight',c:'c-nowl',t:[a.t&&a.t[0]||'sable','or'],ct:'or'}),flag:flagSVG(Object.assign({},n.flag||{},{e:'e-nowl'}),'')};}
@@ -53396,16 +53502,17 @@ function shopGiftVip(n){
 function shopDrawer(n,t,cards){
   const p=SHOP.dr;if(!p)return '';
   const body=shopDrawerBody(p,n,t);if(!body){SHOP.dr='';return '';}
-  const nameOf=k=>k==='vip'?'The Chancery Club':(cards.find(c=>c.p===k)||{}).name||'';
+  const nameOf=k=>k==='vip'?'The Chancery Club':k==='bag'?'Your basket':(cards.find(c=>c.p===k)||{}).name||'';
   const mini=k=>{const c=cards.find(x=>x.p===k);let a='';try{a=c?c.art():'';}catch(e){}return `<li><button type="button" class="shop-mini" data-act="shop-open" data-p="${k}"><span class="shop-mini-v" aria-hidden="true">${k==='vip'?clubSealSVG('csl-member'):a}</span><span>${esc(nameOf(k))}</span></button></li>`;};
-  const pairs=['vip',...cards.map(c=>c.p)].filter(k=>k!==p&&!(cards.find(c=>c.p===k)||{}).own).slice(0,3);
+  /* the basket suggests what else could go in it */
+  const pairs=p==='bag'?cards.filter(c=>shopBagOk(c.p)&&!shopBag().includes(c.p)&&!shopBagVia(c.p)).map(c=>c.p).slice(0,4):['vip',...cards.map(c=>c.p)].filter(k=>k!==p&&!(cards.find(c=>c.p===k)||{}).own).slice(0,3);
   const rv=SHOP.rv.filter(k=>k!==p&&nameOf(k)).slice(0,4);
   const isNew=SHOP.drNew;SHOP.drNew=false;
   return `<div class="shop-scrim${isNew?' in':''}" data-act="shop-close"></div>
   <aside class="shop-dr${SHOP.drNew?' in':''}" role="dialog" aria-modal="true" aria-label="${esc(nameOf(p))}" tabindex="-1">
     <div class="shop-dr-top"><span class="eyebrow">Bureau of National Finery</span><button type="button" class="shop-dr-x" data-act="shop-close" aria-label="Close">×</button></div>
     ${shopNotice(n)}${body}
-    ${pairs.length?`<h3 class="shop-dr-h">Pairs well with</h3><ul class="shop-minis">${pairs.map(mini).join('')}</ul>`:''}
+    ${pairs.length?`<h3 class="shop-dr-h">${p==='bag'?'More that could go in it':'Pairs well with'}</h3><ul class="shop-minis">${pairs.map(mini).join('')}</ul>`:''}
     ${rv.length?`<h3 class="shop-dr-h">Recently viewed</h3><ul class="shop-minis">${rv.map(mini).join('')}</ul>`:''}
   </aside>`;
 }
@@ -53426,6 +53533,7 @@ function shopView(now){
   ${SHOP.dr?'':shopNotice(n)}${SHOP.dr?'':fgfBanner()}${f==='all'||f==='club'?shopClubBanner(n,t):''}
   <div class="shop-filters" role="group" aria-label="Show"><div class="shop-chips">${chips}</div><label class="shop-ho"><input type="checkbox" id="shop-ho" data-act="shop-ho"${SHOP.ho?' checked':''}> Hide owned</label></div>
   ${f==='club'?'':grid}
+  ${shopBagBar()}
   <details class="shop-small-d" id="shop-small-d"${SHOP.small?' open':''}><summary>Prices, payment and refunds</summary>${shopSmall()}</details>
   ${shopDrawer(n,t,cards)}`;
 }
