@@ -1419,6 +1419,7 @@ button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:fo
 .stk-strip{margin:0 0 26px;padding:12px 14px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
 .gb-why{margin:-4px 0 14px;padding:8px 12px;border:1px dashed var(--rule-2);border-radius:4px;font-size:13px;color:var(--ink-2)}
 .gb-why ul{margin:0 0 4px;padding-left:1.1em;display:grid;gap:3px}.gb-why .row{gap:12px;flex-wrap:wrap}
+.svc-card,.svc-box{margin:14px 0 4px;padding:12px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--stamp-soft)}.svc-k{margin:0 0 4px;font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}.svc-t{display:flex;align-items:center;gap:8px;margin:0 0 6px}.svc-card .btn{margin-top:10px}.svc-list{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}.svc-list li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.svc-list .svc-tx{flex:1 1 160px;min-width:0}
 .gb-mkt{margin:0 0 18px}.gb-mkt-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin:10px 0 4px}.gb-mkt-f .btn{justify-self:start}
 .stk-strip-h{font:500 10.5px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
 .stk-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
@@ -19966,7 +19967,7 @@ function hexPanel(T,cell){
   const prob=cityProblem(cell,T);
   if(!S.cityName||S.citySite!==cell){S.citySite=cell;S.cityName=cityNameIdea(cell);}
   const st=stockNow(n,Date.now()),miss=lacking(CITY_COST,st);
-  return headEl+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):lake?'Nothing':'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}
+  return headEl+svcHexHTML(cell)+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):lake?'Nothing':'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}
     ${prob?`<p class="hint" style="margin-top:12px">${esc(prob)}</p><div class="row" style="margin-top:12px">${back}</div>`:`<form id="mc-form" novalidate style="margin-top:14px"><label class="lbl" for="mc-name">Found a city here</label><div class="name-row" style="margin-top:6px"><input class="input" id="mc-name" data-bind="ctname" value="${esc(S.cityName)}" maxlength="30" autocomplete="off"><button class="btn" type="submit"${miss.length?' disabled':''}>Found</button></div><p class="hint" style="margin-top:6px">${miss.length?'You need '+esc(list(miss))+' more.':'Costs '+costText(CITY_COST)+'.'}</p></form><div class="row" style="margin-top:12px">${back}</div>`}`;
 }
 /* map markers: drawn after national labels, before capitals */
@@ -40239,6 +40240,7 @@ function drawMap(cv,P){
   const pick=kind==='found'?cellOf(S.draft&&S.draft.loc):(kind==='main'&&S.nation&&cellOf(S.nation.loc)<0&&S.mapPick!=null?S.mapPick:-1);
   if(pick>=0){const [px,py]=scr(pick);drawPin(g,px,py,col);}
   if(kind!=='found'&&kind!=='atlas')for(const r of activeSurveys()){const [px,py]=scr(r.c);if(off(px,py))continue;g.beginPath();g.arc(px,py,7,0,Math.PI*2);g.moveTo(px-13,py);g.lineTo(px-4,py);g.moveTo(px+4,py);g.lineTo(px+13,py);g.moveTo(px,py-13);g.lineTo(px,py-4);g.moveTo(px,py+4);g.lineTo(px,py+13);g.strokeStyle=col.stamp;g.lineWidth=2;g.stroke();}
+  if(kind==='main'&&!P)svcDraw(g,scr,off,col,s);
   if(kind==='main'&&S.mapMig)drawMigration(g,T,scr,col,s);
   M.scr=scr;M.off=off;ML('screen');
   const zf=clamp(0.8+0.3*s,0.9,1.4);
@@ -40530,6 +40532,7 @@ function mapPanel0(){
   return wm+`<p class="eyebrow">Your territory</p><div class="mp-nat"><span class="mflag">${flagSVG(n.flag,'Flag of '+n.name)}</span><h2 class="mp-h">${esc(n.name)}</h2></div>
     <dl class="mp-dl"><div><dt>Land area</dt><dd>${fmtArea(cnt)}</dd></div><div><dt>Hexes held</dt><dd>${cnt}</dd></div><div><dt>Population</dt><dd>${fmtPop(popNow(n))}</dd></div><div><dt>Location</dt><dd>${esc(cap1(landName(x.cap)))}</dd></div><div><dt>Borders</dt><dd>${nbLinks(mi)}</dd></div></dl>
     ${landBox(n)}
+    ${svcBoxHTML(n)}
     ${armyBlock(T,mi)}
     <div class="row" style="margin-top:14px"><button class="btn ghost" data-act="map-me">Centre on ${esc(n.name)}</button></div>`;
 }
@@ -54779,6 +54782,116 @@ document.addEventListener('input',e=>{const t=e.target;if(!t||!t.id)return;
 document.addEventListener('change',e=>{const t=e.target;if(!t||!t.id)return;if(t.id==='gb-give'||t.id==='gb-get'){MKT[t.id==='gb-give'?'give':'get']=t.value;if(MKT.give===MKT.get)MKT[t.id==='gb-give'?'get':'give']=RES.find(r=>r!==t.value);MKT.msg='';render();}});
 
 
+/* ───────── survey caches: a little of what the stores lack, dug up on your own land ─────────
+   Every day (UTC) SVC_N caches turn up on a settled nation's own land. Each holds the resource its stores are shortest of
+   (svcShort: stock plus two days' gain, against SVC_NEED, a useful amount of each), the first cache the shortest and the
+   next the one after, on a hex whose land yields it where the nation has one (goods: a hex in a city's district). A cache
+   is worth SVC_V in the Bureau's values (GB_VAL): 15 to 25 iron, oil or goods, 45 to 75 food, 38 to 63 timber. Tap the hex
+   on the map and dig it up: the amount goes into the stockpile, up to its cap. Caches left at the day's end are gone.
+   n.svc {d: UTC day, c: [[cell, resource, amount, dug 0|1], ...]} is in the private half (src/shim.js NX_KEYS). It is
+   fixed at the day's first save (a COMMIT hook), so the caches stay put while stocks change; until then the page shows
+   the same roll unsaved. */
+const SVC_N=2,SVC_V=[45,75],SVC_NEED={food:40,timber:40,iron:25,oil:15,goods:30};
+/* ── survey caches: pure ── */
+/* resources from the shortest to the best stocked: what is in the stores plus two days' gain, against a useful amount */
+function svcShort(st,rt,need){return Object.keys(need).map(r=>[r,(Math.max(0,+st[r]||0)+2*Math.max(0,+rt[r]||0))/need[r]]).sort((a,b)=>a[1]-b[1]||(a[0]<b[0]?-1:a[0]>b[0]?1:0)).map(x=>x[0]);}
+/* a cache's amount: a value between V[0] and V[1] (u in 0..1), in units of the resource */
+function svcAmt(r,u,val,V){return Math.max(1,Math.round((V[0]+(V[1]-V[0])*u)/val[r]));}
+/* the day's caches: o {seed, day, cells (the nation's land without its cities, in map order), yields(r, c), near(c) (in a
+   city's district), order (svcShort), val, V, n}; the same arguments always give the same caches */
+function svcRoll(o){
+  const out=[],used=new Set();
+  for(let k=0;k<o.n&&k<o.order.length;k++){
+    const r=o.order[k],R=rng(hash(String(o.seed)+':svc:'+o.day+':'+k)),free=o.cells.filter(c=>!used.has(c));if(!free.length)break;
+    const fit=free.filter(c=>r==='goods'?o.near(c):o.yields(r,c)>0),pool=fit.length?fit:free,c=pool[Math.floor(R()*pool.length)];
+    used.add(c);out.push([c,r,svcAmt(r,R(),o.val,o.V),0]);
+  }
+  return out;
+}
+/* ── survey caches: game ── */
+const SVC={memo:null};
+const svcDayOf=t=>Math.floor((t||Date.now())/DAY);
+NORM_HOOKS.push((n,d)=>{const v=d&&d.svc;if(v&&Number.isInteger(v.d)&&Array.isArray(v.c))n.svc={d:v.d,c:v.c.filter(x=>Array.isArray(x)&&Number.isInteger(x[0])&&x[0]>=0&&x[0]<MAP.N&&RES.includes(x[1])&&Number.isFinite(+x[2])&&x[2]>0).slice(0,SVC_N).map(x=>[x[0],x[1],Math.min(200,Math.round(+x[2])),x[3]?1:0])};});
+/* today's caches for the player's own nation: the saved ones, or the roll the next save will keep */
+function svcPlan(n,now){
+  try{
+    if(!n||n.npc||OBS||cellOf(n.loc)<0)return null;
+    const d=svcDayOf(now);if(n.svc&&n.svc.d===d)return n.svc;
+    const T=territory(),mi=T.byId[myId()];if(mi===undefined)return null;
+    if(SVC.memo&&SVC.memo.d===d&&SVC.memo.T===T&&SVC.memo.n===n)return SVC.memo.v;
+    const CS=cityState(T),near=new Set(),cells=[];
+    for(const ct of CS.all)if(T.owner[ct.c]===mi)for(const c of ct.dist||[])near.add(c);
+    for(let c=0;c<MAP.N;c++)if(T.owner[c]===mi&&MAP.T[c]>=2&&!CS.byCell.has(c))cells.push(c);
+    let rt={};try{rt=stockRates(S.nation);}catch(e){}
+    const v={d,c:svcRoll({seed:n.seed,day:d,cells,yields:(r,c)=>CELL_RES[r][c],near:c=>near.has(c),order:svcShort(stockNow(n,now),rt,SVC_NEED),val:GB_VAL,V:SVC_V,n:SVC_N})};
+    SVC.memo={d,T,n,v};return v;
+  }catch(e){return null;}
+}
+const svcOpen=(n,now)=>{const P=svcPlan(n,now);return P?P.c.filter(x=>!x[3]):[];};
+const svcNext=now=>(svcDayOf(now)+1)*DAY;
+COMMIT_HOOKS.push((n,old,now)=>{try{if(n&&!n.npc&&n.name&&!(n.svc&&n.svc.d===svcDayOf(now))){const v=svcPlan(S.nation,now);if(v&&v.c.length&&v.d===svcDayOf(now))n.svc={d:v.d,c:v.c.map(x=>x.slice())};}}catch(e){}return [];});
+/* how much of a cache fits in the stores now */
+function svcRoom(n,r,now){try{return Math.max(0,stockCap(n)-num0(stockNow(n,now)[r]));}catch(e){return 0;}}
+function svcDig(cell){
+  const n0=S.nation;if(!n0||OBS)return;const now=Date.now(),P=svcPlan(n0,now);if(!P)return;
+  const i=P.c.findIndex(x=>x[0]===cell&&!x[3]);if(i<0)return;
+  const [c,r,amt]=P.c[i];if(svcRoom(n0,r,now)<1){render();return;}
+  const n=clone(n0),st=stockNow(n,now),before=num0(st[r]);
+  st[r]=stockLimit(n,r,before+amt,st[r]);const got=Math.round((num0(st[r])-before)*10)/10;
+  n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  n.svc={d:P.d,c:P.c.map((x,j)=>j===i?[x[0],x[1],x[2],1]:x.slice())};
+  gbBump(n,'svc',1,now);if(got>0)gbBump(n,'svcq',got,now);
+  commit(n);try{saveSoon();}catch(e){}
+  try{NVX.ver++;}catch(e){}
+  toast({m:`Your surveyors dug up ${fmtAmt(got)} ${resName(r)} ${placePhrase(c)}.`,k:'rw'});
+  render();
+  try{window.edictumStat&&window.edictumStat('survey_cache',{r,q:got});}catch(e){}
+}
+/* the hex panel, when the chosen hex holds a cache */
+function svcHexHTML(cell){
+  try{
+    const n=S.nation,now=Date.now(),x=svcOpen(n,now).find(q=>q[0]===cell);if(!x)return '';
+    const [,r,amt]=x,room=svcRoom(n,r,now),full=room<1;
+    return `<div class="svc-card" id="svc-card"><p class="svc-k">Survey cache</p><p class="svc-t">${resIco(r)}<span><b>${amt} ${esc(resName(r))}</b> buried here</span></p>
+      <p class="hint">${full?`Your ${esc(resName(r))} stores are full. Spend some first: the cache waits until ${esc(fmtTime(svcNext(now)))}.`:room<amt?`Your stores hold ${fmtStock(room)} more ${esc(resName(r))}, so you would take ${fmtStock(room)}.`:`Your surveyors found it while mapping your land. Gone at ${esc(fmtTime(svcNext(now)))}.`}</p>
+      <button type="button" class="btn" data-act="svc-dig" data-c="${cell}"${full||OBS?' disabled':''}>Dig it up</button></div>`;
+  }catch(e){return '';}
+}
+/* the territory panel on the map: today's caches, each a button to its hex */
+function svcBoxHTML(n){
+  try{
+    const now=Date.now(),P=svcPlan(n,now);if(!P||!P.c.length)return '';
+    const open=P.c.filter(x=>!x[3]),at=esc(fmtTime(svcNext(now)));
+    return `<div class="svc-box" id="svc-box"><p class="svc-k">Survey caches today</p>${open.length?`<ul class="svc-list">${open.map(([c,r,amt])=>`<li>${resIco(r)}<span class="svc-tx"><b>${amt} ${esc(resName(r))}</b> ${esc(placePhrase(c))}</span><button type="button" class="linkish small" data-act="svc-go" data-c="${c}">Show</button></li>`).join('')}</ul><p class="hint">Tap a cache on the map and dig it up. New caches at ${at}.</p>`
+      :`<p class="hint">You dug up today’s caches. New ones at ${at}.</p>`}</div>`;
+  }catch(e){return '';}
+}
+/* on the main map: an X with a diamond in the resource's colour, over each cache not yet dug */
+const SVC_RC={food:'#d39b2a',timber:'#a7743f',iron:'#7d8a99',oil:'#5a6bd6',goods:'#c0567a'};
+function svcDraw(g,scr,off,col,s){
+  try{
+    const open=svcOpen(S.nation,Date.now());if(!open.length)return;
+    for(const [c,r] of open){
+      const [px,py]=scr(c);if(off(px,py))continue;const k=s*HEX_W<9?0.8:1;
+      g.beginPath();g.moveTo(px-8*k,py-8*k);g.lineTo(px+8*k,py+8*k);g.moveTo(px+8*k,py-8*k);g.lineTo(px-8*k,py+8*k);g.lineCap='round';g.lineWidth=3.2*k;g.strokeStyle=col.sheet;g.stroke();g.lineWidth=1.6*k;g.strokeStyle=col.ink;g.stroke();
+      g.beginPath();g.moveTo(px,py-5.5*k);g.lineTo(px+5.5*k,py);g.lineTo(px,py+5.5*k);g.lineTo(px-5.5*k,py);g.closePath();g.fillStyle=SVC_RC[r]||col.ink;g.fill();g.lineWidth=1.4*k;g.strokeStyle=col.sheet;g.stroke();
+    }
+    g.lineCap='butt';
+  }catch(e){}
+}
+nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{const k=svcOpen(n,now).filter(x=>svcRoom(n,x[1],now)>=1).length;
+  if(k>0){const x=out.map||(out.map={k:0,w:[],at:[],e:0,d:0}),w=k===1?'a survey cache to dig up':k+' survey caches to dig up';x.k+=k;x.w.push(w);x.at.push({sel:'.map-tabs [data-v="map"]',k,w});}}catch(e){}return out;})(nvxCompute);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act^="svc-"]');if(!el||!S.nation)return;const a=el.dataset.act,c=+el.dataset.c;
+  if(!Number.isSafeInteger(c)||c<0||c>=MAP.N)return;
+  if(a==='svc-dig')svcDig(c);
+  /* on the map already, the panel changes in place; from another page, go there first (the land office's first-claims
+     coach picks a block on arriving, lcPick), then choose the cache's hex */
+  else if(a==='svc-go'){const pick=()=>{S.mapSel=null;S.mapCell=c;S.mapTarget=null;S.mapClaim=null;S.mapSite=null;S.mapInspect=null;};
+    centerMain(c,NEAR_Z+1);pick();if(S.view!=='map'){go('map');pick();}updateMapPanel();redrawMaps();
+    const d=document.querySelector('#svc-card .btn');if(d)try{d.focus({preventScroll:true});}catch(e){}}});
+HELP_EXT.push({k:'svc',t:'Survey caches',body:()=>`<p>Every day your surveyors find <b>${SVC_N} caches</b> on your own land. Each holds whatever your stores are shortest of, the first cache the shortest and the second the next, and it lies on land that yields it where you have some: iron in the hills, oil on an oil field, food on farmland, goods beside a city.</p>
+  <p>Open the Map, tap a cache (an X with a coloured diamond) and choose <b>Dig it up</b>. A cache holds 15 to 25 iron, oil or goods, 45 to 75 food or 38 to 63 timber, and goes straight into your stockpile, up to what your stores hold. The Map’s menu number counts the caches waiting. Caches you leave are gone when the day ends (midnight UTC), and new ones turn up.</p>`});
+
 /* ───────── the fifth tier: Prismatic achievements (200 prestige), and more Platinum ─────────
    Very hard goals on the same measures the other achievements use: a lifetime of play, not a lucky week. */
 const aDesks=x=>x.npc?0:(Number.isInteger(x.n.ddc)?x.n.ddc:0);
@@ -60050,7 +60163,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
