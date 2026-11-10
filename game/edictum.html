@@ -2182,6 +2182,13 @@ button.stk-i{padding:8px 10px 11px;border:1px solid var(--rule);border-radius:6p
 .toast .reward-links{flex-direction:row;flex-wrap:wrap;gap:2px 14px;margin-top:6px}
 .toast .reward-links a{padding:6px 0;min-height:36px;font-size:13px}
 @media (min-width:960px){.toast{left:auto;right:24px;transform:none}}
+/* every toast has a small close button in its corner; it and a toast's own button take taps, the rest lets them through */
+.toast{padding-right:42px}
+.toast-x{position:absolute;top:5px;right:5px;display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:3px;background:transparent;color:inherit;opacity:.72;cursor:pointer;pointer-events:auto}
+.toast-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 16%,transparent)}
+.toast-x:focus-visible{opacity:1;outline:2px solid currentColor;outline-offset:-2px}
+.toast-go{display:block;margin:4px 0 0;padding:6px 0;min-height:36px;border:0;background:none;color:inherit;font:inherit;font-weight:650;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer;pointer-events:auto}
+.toast-go:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .bell-n.dot{min-width:10px;width:10px;height:10px;padding:0;border-radius:50%}
 .ntf-mute{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 16px}
 .nx-card{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
@@ -23123,10 +23130,20 @@ function toastNext(){
   clearTimeout(TOASTQ.t);const el=toastEl(),now=Date.now(),c=TOASTQ.cur;
   if(c){if(el.matches(':hover,:focus-within')){TOASTQ.t=setTimeout(toastNext,250);return;}const end=c.at+(TOASTQ.q.length?c.min:c.full);if(now<end){TOASTQ.t=setTimeout(toastNext,end-now);return;}TOASTQ.cur=null;}
   if(!TOASTQ.q.length){el.hidden=true;el.classList.remove('more');return;}
-  const item=TOASTQ.q.shift(),m=item.m,w=m.split(/\s+/).length;
-  TOASTQ.cur={m,links:item.links,at:now,min:clamp(1200+w*300,2500,8000),full:clamp(2000+w*330,4000,12000)};
-  el.innerHTML='<span>'+esc(m)+'</span>'+rewardLinksHTML(item.links)+(item.cf?toastConfetti():'');el.classList.toggle('more',TOASTQ.q.length>0);el.hidden=false;
+  const item=TOASTQ.q.shift(),m=item.m,w=m.split(/\s+/).length,go=item.go&&item.go.v?item.go:null;
+  /* a toast with a button of its own (go: {v: page, l: label}) stays at least ten seconds, so there is time to use it */
+  TOASTQ.cur={m,links:item.links,at:now,min:clamp(1200+w*300,2500,8000),full:Math.max(go?10000:0,clamp(2000+w*330,4000,12000))};
+  el.innerHTML='<span>'+esc(m)+'</span>'+rewardLinksHTML(item.links)+(go?`<button type="button" class="toast-go" data-act="go" data-v="${esc(go.v)}">${esc(go.l||'Open')} →</button>`:'')+(item.cf?toastConfetti():'')
+    +'<button type="button" class="toast-x" data-act="toast-x" aria-label="Close this notice"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>';
+  el.classList.toggle('more',TOASTQ.q.length>0);el.hidden=false;
   TOASTQ.t=setTimeout(toastNext,TOASTQ.q.length?TOASTQ.cur.min:TOASTQ.cur.full);
+}
+/* the close button ends the toast at once (the next one waiting shows); a toast's own button ends it as it goes
+   (both in the page's click handler: data-act toast-x, and go from inside #toast) */
+function toastClose(){
+  clearTimeout(TOASTQ.t);TOASTQ.cur=null;const el=toastEl(),ae=document.activeElement;
+  if(ae&&el.contains(ae))try{ae.blur();}catch(e){}
+  toastNext();
 }
 
 /* The bell: a standing item counts as new until the bell has been opened while it showed, and
@@ -43434,6 +43451,8 @@ function updatePreview(){clearTimeout(pvTimer);
 function toast(msg){
   if(typeof gamesLocal!=='function'){}else if(typeof msg==='string')msg=gamesLocal(msg);else if(msg&&typeof msg==='object'&&typeof msg.m==='string')msg={...msg,m:gamesLocal(msg.m)};
   const item={m:String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links:msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[],cf:!!(msg&&typeof msg==='object'&&msg.cf)};
+  /* k: the toast's kind when its words do not tell it (toastKind); go: a button to a page, {v, l} */
+  if(msg&&typeof msg==='object'){if(typeof msg.k==='string'&&msg.k)item.k=msg.k;if(msg.go&&typeof msg.go.v==='string')item.go={v:msg.go.v,l:String(msg.go.l||'')};}
   if(!item.m)return;
   const same=x=>x&&x.m===item.m&&JSON.stringify(x.links)===JSON.stringify(item.links);
   if(same(TOASTQ.cur)||TOASTQ.q.some(same))return;
@@ -43583,7 +43602,8 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act;
   if(a==='reward-open'){if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();rewardOpen(el.dataset.kind,el.dataset.id);return;}
-  if(a==='go'){go(el.dataset.v);return;}
+  if(a==='toast-x'){toastClose();return;}
+  if(a==='go'){if(el.closest('#toast'))toastClose();go(el.dataset.v);return;}
   if(a==='open'){edictOpen(el.dataset.id,el.dataset.at);return;}
   if(a==='edict-pin'){edictPin(el.dataset.id,el.dataset.at);return;}
   if(a==='edict-filter'){S.edictState=el.dataset.v;render();document.querySelector(`[data-act="edict-filter"][data-v="${S.edictState}"]`)?.focus({preventScroll:true});return;}
@@ -43739,6 +43759,7 @@ function tick(){
   /* the stand-in of an observing tab has no clock of its own: only the region's maps move on */
   if(OBS){redrawMaps();return;}
   const now=Date.now(),v=syncInbox(S.nation,now);
+  try{lcArrivalCheck(S.nation,now);}catch(e){}
   if(pgPulse(now))return;
   if(v.inbox.length!==S.lastCount){if(!navSoft(v,now))render();return;}
   if(gamesPending(S.nation,now)){commit(clone(S.nation));render();return;}
@@ -53838,9 +53859,9 @@ function ntfSave(){try{localStorage.setItem(NTF_KEY,JSON.stringify(NTF));}catch(
 const ntfMuted=k=>NTF.mute.some(g=>(NTF_GROUPS.find(x=>x[0]===g)||[,,[]])[2].includes(k));
 const ntfFirstHour=()=>!!(S.nation&&Date.now()-(S.nation.founded||0)<3600e3);
 const TOAST_RW=/^(Achievements? earned|Achievements recorded|\d+ achievements|New in the Museum|\d+ new artefacts|Sets? complete|Half of |.* collection is complete|The Museum of Progress has opened)/;
-function toastKind(item){if(item.links&&item.links.length||TOAST_RW.test(item.m))return 'rw';if(/^(Step done|List complete)/.test(item.m))return 'tut';return '';}
+function toastKind(item){if(item.k)return item.k;if(item.links&&item.links.length||TOAST_RW.test(item.m))return 'rw';if(/^(Step done|List complete)/.test(item.m))return 'tut';return '';}
 toast=(f=>function(msg){
-  const m=String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links=msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[],k=toastKind({m,links});
+  const m=String(msg&&typeof msg==='object'?msg.m:msg??'').trim(),links=msg&&typeof msg==='object'&&Array.isArray(msg.links)?msg.links:[],k=toastKind({m,links,k:msg&&typeof msg==='object'&&typeof msg.k==='string'?msg.k:''});
   if(k==='rw'&&(NTF.rw==='off'||NTF.rw==='auto'&&ntfFirstHour()))return;
   if(k==='tut'&&!NTF.tut)return;
   return f.apply(this,arguments);
@@ -61241,6 +61262,36 @@ function dspDom(){
   if(m)m.style.setProperty('--dsp-top',(navNarrow()&&sd&&getComputedStyle(sd).position==='sticky'?sd.offsetHeight:0)+'px');
 }
 navAfter=(f=>function(){const r=f.apply(this,arguments);try{dspDom();}catch(e){}return r;})(navAfter);
+
+
+/* ───────── land credits: a toast when one arrives ─────────
+   Milestones, cities, ranks and the tutorial tell of the credits they pay, but a credit from population growth used to
+   arrive with nothing but the number on Map. tick() now asks lcArrivalCheck: a credit grown while the game is open is
+   told by a toast with the way to the map, and credits grown since this device last looked are told once, on the
+   first tick of the next visit. What is counted is the growth part of landEarned (budgetOf at today's population, less
+   the core), kept per nation in this device's storage (LCT_KEY, the last 8 nations). The toast is of its own kind
+   ('land'), so the first hour's quiet for rewards does not hold it back. No toast for an observer, a nation not on the
+   map, one that spends new credits automatically (those claims show in the bell), one whose gains are paused, or when
+   nothing is left to spend. */
+const LCT_KEY='edictum.lct',LCT={sd:null,b:NaN};
+function lctGrown(n,now){return Math.max(0,budgetOf(popNow(n,now))-CORE_HEXES);}
+function lctLoad(){try{const o=JSON.parse(localStorage.getItem(LCT_KEY)||'null');return o&&typeof o==='object'&&!Array.isArray(o)?o:{};}catch(e){return {};}}
+function lctSave(sd,b){try{const o=lctLoad();delete o[sd];o[sd]=b;const ks=Object.keys(o);for(const k of ks.slice(0,Math.max(0,ks.length-8)))delete o[k];localStorage.setItem(LCT_KEY,JSON.stringify(o));}catch(e){}}
+function lctText(n,k,cr,away,onMap){
+  return `${k===1?'A land credit has':k+' land credits have'} arrived${away?' since your last visit':''}. ${n.name} has ${cr} to spend${onMap?': select a highlighted block next to your borders':''}.`;
+}
+function lcArrivalCheck(n,now){
+  if(!n||n.npc||OBS||S.mode==='readonly'||cellOf(n.loc)<0)return 0;
+  const sd=String(n.seed),b=lctGrown(n,now),first=LCT.sd!==sd;
+  if(first){const v=lctLoad()[sd];LCT.sd=sd;LCT.b=typeof v==='number'&&isFinite(v)?v:NaN;}
+  const k=b-LCT.b;
+  if(b!==LCT.b){LCT.b=b;lctSave(sd,b);}
+  if(!(k>0)||n.autoLand||lcPaused(n))return 0;
+  const cr=landCredits(n);if(cr<1)return 0;
+  const onMap=S.view==='map';
+  toast({m:lctText(n,k,cr,first,onMap),k:'land',go:onMap?null:{v:'map',l:'Open the map'}});
+  return k;
+}
 
 
 /* ───────── keeping small: land credit gains paused (Settings › Land, n.lcp) ─────────
