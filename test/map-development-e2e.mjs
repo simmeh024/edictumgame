@@ -120,6 +120,9 @@ await A.waitForTimeout(500);await A.evaluate(()=>document.querySelector('canvas[
 await A.click('[data-act="map-home"]');check('the home button returns to the capital',await until(()=>A.evaluate(()=>G.S.mapViews.main.z>=6)));
 check('the tools appear once, above the map',await A.locator('#map-panel [data-act="mp-mode"][data-v="plan"]').count()===0&&await A.locator('.mp-map-toolbar').count()===1);}
 await A.setViewportSize({width:390,height:844});await nav(A,'nation');await nav(A,'map');
+/* navigation memory brings the map back at the scroll the desktop steps left it (the canvas screenshot above scrolls
+   it), which on a phone puts the top of the map under the sticky bar: start from the top, as a player opening it does */
+await A.evaluate(()=>window.scrollTo({top:0,left:0,behavior:'instant'}));
 {const cv=A.locator('canvas[data-map="main"]'),bb=await cv.boundingBox();
 check('on a phone the details start folded',await A.evaluate(()=>!document.getElementById('map-panel').classList.contains('sheet-open')));
 await A.mouse.click(bb.x+bb.width/2,bb.y+60);check('a tap opens the details sheet',await until(()=>A.evaluate(()=>document.getElementById('map-panel').classList.contains('sheet-open'))));

@@ -330,6 +330,19 @@ test('earned designs: kept when held, the suggestion when not', () => {
   for (const [k, m] of Object.entries(C.CU_LOCK)) for (const id of Object.values(m)) assert.match(id, /^c[nmsx]-/, k);
   C.setHolds(null);
 });
+test('the Central Bank Pack: its designs are kept by a nation that holds them, and only then', () => {
+  const C = currencyHelpers();
+  const n = { name: 'Eternia', demonym: 'Eternian', currency: 'mark', cur: { note: { pat: 'deco', strip: 4 }, coin: { met: 'patina', shape: 'sqhole' } } };
+  assert.deepEqual({ ...C.cuClean(n.cur).note }, { pat: 'deco', strip: 4 }, 'the clear window is strip 4');
+  assert.deepEqual({ ...C.cuClean(n.cur).coin }, { met: 'patina', shape: 'sqhole' });
+  assert.equal(C.cuClean({ note: { strip: 5 } }), null, 'no strip past the window');
+  assert.equal(C.cuClean({ note: { pat: 'acanthus' } }).note.pat, 'acanthus');
+  C.setHolds((x, id) => ['cn-deco', 'cx-window', 'cm-patina', 'cs-sqhole'].includes(id));
+  let o = C.cuOf(n);assert.equal(o.note.pat, 'deco');assert.equal(o.note.strip, 4);assert.equal(o.coin.met, 'patina');assert.equal(o.coin.shape, 'sqhole');
+  C.setHolds(() => false);
+  o = C.cuOf(n);assert.equal(o.note.pat, 'guilloche');assert.equal(o.note.strip, 1);assert.equal(o.coin.met, 'bi');assert.equal(o.coin.shape, 'round');
+  C.setHolds(null);
+});
 
 test('amounts and rates: very large and very small, every number format, both symbol places', () => {
   const C = currencyHelpers();
