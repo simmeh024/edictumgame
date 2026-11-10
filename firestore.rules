@@ -435,6 +435,19 @@ service cloud.firestore {
     }
     // the Community Board's pacing of each player's posts (functions/board.js): only the server reads and writes it
     match /cbPace/{uid} { allow read, write: if false; }
+
+    // The flag competition (functions/flagcomp.js): a month's summary and, once judging has closed, its hall of every
+    // flag with its owner and score are public; the entries, whose they are and every rating stay with the server,
+    // so nobody sees whose flag they are scoring or a score before the end. Nothing is written from a browser.
+    match /flagc/{comp} {
+      allow read: if true;
+      allow write: if false;
+      match /hall/{eid} { allow read: if true; allow write: if false; }
+      match /flags/{eid} { allow read, write: if false; }
+      match /mine/{uid} { allow read, write: if false; }
+      match /votes/{uid} { allow read, write: if false; }
+    }
+    match /flagcTest/{id} { allow read, write: if false; }
     // @mentions in Community Board posts (functions/board.js): written only by the server; the player reads and clears their own
     match /mentions/{uid}/m/{id} {
       allow read, delete: if isSelf(uid);
@@ -823,6 +836,7 @@ service cloud.firestore {
     match /shopSubs/{id} { allow read, write: if false; }
     match /shopAdj/{id} { allow read, write: if false; }
     match /shopComp/{id} { allow read, write: if false; }
+    match /shopPrize/{id} { allow read, write: if false; }
     match /shopAcct/{uid} { allow read, write: if false; }
     match /shopCustomers/{id} { allow read, write: if false; }
     match /shopEvents/{id} { allow read, write: if false; }

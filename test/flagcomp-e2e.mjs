@@ -1,0 +1,151 @@
+// The flag competition in the browser, against the emulators: four nations enter a design made in the flag designer,
+// score each other's flags blind, and open the results; the podium's goods, the winner's Club month and rosette, the
+// Hall of Flags, the menu badge and the bell. The competition's clock is moved by flagcTest/clock (emulators only).
+//   npm run test:flagcomp-e2e
+import { player, open, ready, found, register, until, check, finish, text, nav, clearEmulators, sleep, restListAdmin, FS_HOST, PROJECT } from './lib.mjs';
+await clearEmulators();
+const doc = path => `http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`;
+const clockTo = t => fetch(doc('flagcTest/clock'), { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { skew: { integerValue: String(t - Date.now()) } } }) });
+const admin = async path => { const r = await fetch(doc(path), { headers: { authorization: 'Bearer owner' } }); return r.status === 200 ? (await r.json()).fields || {} : null; };
+const M = '2031-03', CATS = ['simple', 'colour', 'comp', 'orig', 'fly'];
+const page = async p => { await nav(p, 'flagcomp'); await p.waitForSelector('.flc-steps', { timeout: 15000 }); };
+const fresh = async p => { await p.reload(); await ready(p); await p.waitForSelector('.layout'); await page(p); };
+const flc = p => p.evaluate(() => { const F = G.FLC().FLC; return { st: F.st, deal: F.deal, draft: F.draft, tab: F.tab }; });
+const stock = p => p.evaluate(() => G.WH.stockNow(G.S.nation));
+// FC_SHOTS=<folder> keeps a picture of each phase
+const shot = async (p, name) => { if (process.env.FC_SHOTS) { await p.evaluate(() => { const t = document.getElementById('toast'); if (t) t.hidden = true; window.scrollTo(0, 0); }); await p.screenshot({ path: `${process.env.FC_SHOTS}/${name}.png`, fullPage: true }).catch(() => {}); } };
+
+await clockTo(Date.UTC(2031, 2, 5, 12));   // before the 12th: nothing is open yet
+const A = await player('a'), B = await player('b'), C = await player('c'), D = await player('d'), Gp = await player('guest');
+const names = ['Aland', 'Bland', 'Cland', 'Dland'], ps = [A, B, C, D], uids = [];
+for (const [i, p] of ps.entries()) { uids.push(await open(p)); await found(p, names[i]); }
+await open(Gp); await found(Gp, 'Guestland');
+for (const p of ps) await register(p, { old: true });
+
+/* ── entries ── */
+check('the Flag Competition sits under Abroad, after the Games', /Games\s*Flag Competition/.test(await text(A, '.side .nav-grp[data-g="abroad"]')), await text(A, '.side .nav-grp[data-g="abroad"]'));
+await page(A);
+check('before the 12th the page says when the next competition opens', /The next competition opens on 12 March/.test(await text(A, '.flc-wait')) && /12 March to 19 March/.test(await text(A, '.flc-steps')) && await A.locator('#flc-enter').count() === 0, await text(A, '.flc-steps'));
+await shot(A, 'fc-0-waiting');
+await clockTo(Date.UTC(2031, 2, 14, 12));
+await fresh(A);
+check('the page opens on this month’s entries', /Enter a flag for March 2031/.test(await text(A, '.flc-box')) && /Entries/.test(await text(A, '.flc-steps li.on')), await text(A, '.flc-steps'));
+check('no flag is in yet', /No flag is in yet/.test(await text(A, '.flc-box')));
+check('the entry has the flag designer, on a draft of its own', await A.locator('#fc-prev svg').count() === 1 && await A.locator('[id^="fc-p-"]').count() > 5);
+const national = await A.evaluate(() => JSON.stringify(G.S.nation.flag));
+const pick = async (p, i) => { const ids = await p.$$eval('[id^="fc-p-"]:not([data-ux-unlock])', l => l.filter(b => b.tagName === 'BUTTON' && b.getAttribute('aria-pressed') !== 'true').map(b => b.id)); await p.click('#' + ids[i % ids.length]); await sleep(150); return ids[i % ids.length].slice(5); };
+const pA = await pick(A, 1);
+check('choosing a pattern changes the draft and its preview, not the national flag', (await flc(A)).draft.p === pA && await A.evaluate(() => JSON.stringify(G.S.nation.flag)) === national, pA);
+// the national flag itself is refused: the judges must not know whose it is
+await A.evaluate(() => { const F = G.FLC().FLC; F.draft = G.FD.flagNorm(G.clone(G.S.nation.flag), G.S.nation); G.render(); });
+await A.click('#flc-enter');
+check('the national flag cannot be entered', await until(async () => /That is your national flag/.test(await text(A, '.toast,[class*="toast"]'))) && !(await flc(A)).st.mine);
+await pick(A, 2); await A.click('#flc-enter');
+check('entering a design files it with the server', await until(async () => !!(await flc(A)).st.mine && (await restListAdmin(`flagc/${M}/flags`)).length === 1));
+await shot(A, 'fc-1-enter');
+check('the page shows the entry and counts it', /Your flag is entered/.test(await text(A, '.flc-mine')) && /only flag in so far/.test(await text(A, '.flc-mine')));
+for (const [i, p] of [B, C, D].entries()) { await page(p); await pick(p, 3 + i * 2); await p.click('#flc-enter'); await until(async () => !!(await flc(p)).st.mine); }
+await pick(A, 9); await A.click('#flc-enter'); await sleep(900);
+const entries = await restListAdmin(`flagc/${M}/flags`), owner = new Map(entries.map(e => [e.id, e.fields.u.stringValue]));
+check('four nations, four flags: replacing an entry adds none', entries.length === 4 && new Set(owner.values()).size === 4, entries.length);
+check('each entry is a design of its own, not the nation’s flag', entries.every(e => { const f = JSON.parse(e.fields.fl.stringValue); return f && f.p && e.fields.fl.stringValue !== national; }));
+await page(Gp);
+check('a guest is told to link a sign-in', /Only Registered Nations enter and score flags/.test(await text(Gp, '.flc-box')));
+await Gp.click('#flc-enter'); await sleep(1500);
+const refused = await Gp.evaluate(async () => { try { await (await window.claude.use('civic')).request({ op: 'fcEnter', fl: { p: 'tri-h', c: ['#FFFFFF', '#C8102E', '#152450'], e: 'none', ec: '#C8102E' } }); return 'entered'; } catch (e) { return e.code; } });
+check('and the server refuses a guest’s entry', refused === 'registration_required' && !(await flc(Gp)).st.mine && (await restListAdmin(`flagc/${M}/flags`)).length === 4, refused);
+check('entering earns its achievement tally', await A.evaluate(() => (G.S.nation.tly || {}).fcin === 1));
+
+/* ── judging ── */
+await clockTo(Date.UTC(2031, 2, 20));
+await fresh(A);
+check('judging opens on the same page', /Score the flags/.test(await text(A, '.flc-box')) && /Judging/.test(await text(A, '.flc-steps li.on')));
+await A.waitForSelector('.flc-judge', { timeout: 15000 });
+check('a flag is shown without a name, with five categories of five stars', await A.locator('.flc-big svg').count() === 1 && await A.locator('.flc-cat').count() === 5 && await A.locator('.flc-st').count() === 25 && !/land/i.test(await text(A, '.flc-judge')));
+check('the score cannot be sent until every category has stars', await A.locator('#flc-rate').isDisabled());
+await A.click('#flc-st-simple-4'); await A.click('#flc-st-colour-3');
+await shot(A, 'fc-2-judge');
+check('still not with two of five', await A.locator('#flc-rate').isDisabled() && await A.locator('.flc-st.on').count() === 7);
+await fresh(B);
+check('a nation with flags to score has a mark on the menu', await until(async () => /\S/.test(await text(B, '.nav [data-v="flagcomp"] .badge'))), await text(B, '.nav [data-v="flagcomp"]'));
+/* each judge scores every other flag: Bland's 5 stars, Cland's 4, Dland's 3, Aland's 2 */
+const worth = new Map([[uids[1], 5], [uids[2], 4], [uids[3], 3], [uids[0], 2]]);
+async function judge(p, me) {
+  for (let k = 0; k < 6; k++) {
+    if (!(await until(async () => await p.locator('.flc-judge').count() === 1 || /scored every flag/.test(await text(p, '.flc-box')), 15000))) break;
+    if (await p.locator('.flc-judge').count() === 0) break;
+    const cur = (await flc(p)).deal[0];
+    if (owner.get(cur.id) === me) return 'own';
+    const v = worth.get(owner.get(cur.id));
+    for (const c of CATS) await p.click(`#flc-st-${c}-${v}`);
+    await p.click('#flc-rate');
+    await until(async () => { const d = (await flc(p)).deal; return !d || !d.length || d[0].id !== cur.id; }, 15000);
+  }
+  return 'ok';
+}
+const ran = [];
+for (const [i, p] of ps.entries()) { if (i > 1) await fresh(p); ran.push(await judge(p, uids[i])); }
+check('nobody is dealt their own flag', ran.every(r => r === 'ok'), ran.join());
+check('when all are scored the page says so', await until(async () => /You have scored every flag/.test(await text(A, '.flc-box'))));
+const votesA = await admin(`flagc/${M}/votes/${uids[0]}`), mineA = [...owner].find(([e, u]) => u === uids[0])[0];
+check('a judge’s ratings are kept by the server: three flags, never their own', !!votesA && Object.keys(votesA.v.mapValue.fields).length === 3 && !votesA.v.mapValue.fields[mineA]);
+check('scoring counts toward its achievements', await A.evaluate(() => (G.S.nation.tly || {}).fcj === 3));
+check('with its share done, the mark leaves the menu', await until(async () => !/\S/.test(await text(B, '.nav [data-v="flagcomp"] .badge'))));
+check('nothing is published while judging runs', (await admin('flagc/' + M)).st.stringValue === 'open');
+
+/* ── results ── */
+await clockTo(Date.UTC(2031, 2, 25));
+/* a place also earns achievements, and each achievement rank gained is a gift of 15 goods of its own (the game's
+   RANK_GIFT): the prize is checked net of the ranks gained since this moment */
+const rank = p => p.evaluate(() => G.RK.achRank(G.RK.achPoints(G.S.nation)).i);
+const before = await Promise.all(ps.map(stock)), rank0 = await Promise.all(ps.map(rank));
+await fresh(A);
+check('the results arrive sealed', await until(async () => /The results of March 2031 are in/.test(await text(A, '.flc-box')), 20000), (await text(A, '.flc-box')).slice(0, 160));
+check('a podium waiting to be seen marks the menu', /\S/.test(await text(A, '.nav [data-v="flagcomp"] .badge')));
+await A.click('#flc-reveal');
+await A.waitForSelector('.flc-podium');
+const pod = await A.$$eval('.flc-podium .flc-pod', l => l.map(e => ({ cls: e.className, nm: e.querySelector('.flc-nm').textContent, sc: e.querySelector('.flc-sc').textContent, flag: !!e.querySelector('.flc-fl svg') })));
+const first = pod.find(x => /flc-pod1/.test(x.cls)), second = pod.find(x => /flc-pod2/.test(x.cls)), third = pod.find(x => /flc-pod3/.test(x.cls));
+check('the podium: Bland, Cland, Dland', first && first.nm === 'Bland' && second.nm === 'Cland' && third.nm === 'Dland' && pod.every(x => x.flag), JSON.stringify(pod));
+await shot(A, 'fc-3-podium');
+check('with each flag’s score', /^5\.00/.test(first.sc) && /^4\.00/.test(second.sc) && /3 scores/.test(first.sc), first.sc);
+check('the nation that did not place sees where its flag came', await until(async () => /Your flag placed 4th of 4/.test(await text(A, '.flc-res .flc-mine'))), await text(A, '.flc-res'));
+await A.click('.flc-all summary');
+check('every flag entered is listed with its owner', await A.locator('.flc-grid li').count() === 4 && /Aland/.test(await text(A, '.flc-grid')));
+check('opening the envelope clears the mark', await until(async () => !/\S/.test(await text(A, '.nav [data-v="flagcomp"] .badge'))));
+/* the prizes: each podium nation adds its goods once; the winner's month of the Club is the server's */
+for (const p of [B, C, D]) await fresh(p);
+const want = async (p, i, amt) => before[i].goods + amt + 15 * Math.max(0, await rank(p) - rank0[i]);
+const prize = async (p, i, amt) => until(async () => { const s = await stock(p), w = await want(p, i, amt); return s.goods >= Math.min(399.5, w - 1) && s.goods <= w + 8; }, 15000);
+check('the winner is paid 300 goods', await prize(B, 1, 300), JSON.stringify([before[1].goods, (await stock(B)).goods, rank0[1], await rank(B)]));
+check('second place 150', await prize(C, 2, 150), JSON.stringify([before[2].goods, (await stock(C)).goods, rank0[2], await rank(C)]));
+check('third place 75', await prize(D, 3, 75), JSON.stringify([before[3].goods, (await stock(D)).goods, rank0[3], await rank(D)]));
+check('and each place is on the nation’s record', await B.evaluate(m => (G.S.nation.fcp || []).includes(m + '/1'), M) && await C.evaluate(m => (G.S.nation.fcp || []).includes(m + '/2'), M) && await D.evaluate(m => (G.S.nation.fcp || []).includes(m + '/3'), M));
+const gB = (await stock(B)).goods; await fresh(B); await sleep(1500);
+check('never twice', Math.abs((await stock(B)).goods - gB) < 5 && await B.evaluate(() => (G.S.nation.fcp || []).length === 1));
+check('fourth place is paid nothing, and the bell says the results are in', (await stock(A)).goods < await want(A, 0, 0) + 20 && await A.evaluate(() => (G.S.nation.log || []).some(l => l.k === 'fcres')) && !(await A.evaluate(() => G.S.nation.fcp)));
+check('the winner’s bell tells of first place', await B.evaluate(() => (G.S.nation.log || []).some(l => l.k === 'fcwin' && l.b === '1')));
+const won = await admin('shopPrize/' + uids[1]), vip = await admin('shop/' + uids[1]);
+check('the winner is given a month of the Chancery Club, by the server', !!won && !!won.m.mapValue.fields['fc-' + M] && vip && vip.vip && vip.vip.mapValue.fields.plan.stringValue === 'gift', JSON.stringify(vip && vip.vip));
+check('nobody else is', (await admin('shopPrize/' + uids[2])) === null);
+await nav(B, 'nation');
+check('the winner wears a rosette on its nation page', await until(async () => await B.locator('.hero .flc-ros').count() === 1) && /Winner of the March 2031 flag competition/.test(await B.locator('.hero .flc-ros').getAttribute('title')), (await text(B, '.hero')).slice(0, 160));
+await nav(C, 'nation');
+check('the runner-up does not', await C.locator('.hero .flc-ros').count() === 0);
+/* the hall */
+await page(A); await A.click('#flc-tab-hall');
+check('the Hall of Flags hangs the podium', await until(async () => /March 2031/.test(await text(A, '.flc-month')) && await A.locator('.flc-row li').count() === 3 && /Bland/.test(await text(A, '.flc-row'))), await text(A, '.flc-box'));
+await shot(A, 'fc-4-hall');
+await nav(A, 'help');
+check('How to play explains the competition', /The Flag Competition/.test(await text(A, '#help-flagcomp')) && /300 goods/.test(await text(A, '#help-flagcomp')));
+
+/* ── the next month, on a phone ── */
+await clockTo(Date.UTC(2031, 3, 13));
+const P = await player('phone', { vp: { width: 390, height: 844 } });
+await open(P); await found(P, 'Phoneland'); await register(P, { old: true });
+await P.evaluate(() => { location.hash = '#flagcomp'; }); await P.waitForSelector('.flc-steps', { timeout: 15000 });
+check('a new month opens for entries, with the last podium still in the Hall', /Enter a flag for April 2031/.test(await text(P, '.flc-box')));
+await shot(P, 'fc-5-phone-enter');
+check('the page fits a phone', await P.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), await P.evaluate(() => document.documentElement.scrollWidth + ' > ' + document.documentElement.clientWidth));
+await fetch(doc('flagcTest/clock'), { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
+await finish();

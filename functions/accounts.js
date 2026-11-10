@@ -9,6 +9,7 @@ import { mailStep, mailUnsub, forgetMail } from './mail.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
 import { rmbForget } from './board.js';
+import { fcForget } from './flagcomp.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
 import { supportStep } from './support.js';
@@ -123,6 +124,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await db.doc('alPace/' + uid).delete();
     // its reactions on the region boards (functions/board.js)
     await rmbForget(db, uid, DATA.regions.map(r => r.id));
+    // its flag in an open competition, its ratings, and its name in the halls (functions/flagcomp.js)
+    await fcForget(db, uid);
     // the region newspapers: a Delegate's signature on a paper's name (functions/civic.js, paper) and the account
     // that printed an edition into the archive (papers/, firestore.rules); the name and the editions stay
     const [named, printed] = await Promise.all([db.collection('press').where('by', '==', uid).get(), db.collection('papers').where('by', '==', uid).get()]);

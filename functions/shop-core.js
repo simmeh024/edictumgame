@@ -144,10 +144,12 @@ export function months(p) {
      picks {periodStart: cosmetic}: the Chancery Club's monthly picks
      now   the server's time: which paid months to keep for picking (without it, the last three)
      comp  {at, until}: a membership an admin granted for free (shopComp/{uid}), counted like a paid one
+     prizes [when]: months of the Club won in the game (shopPrize/{uid}: the flag competition), each when it was won
    → {owns: {founder?, idpack?: when paid}, vip: null | {until, from, runs: [{s, e}], per: [{s, e}], status, plan, cancelAt, renews, n, m, f},
       gifts: [{p, from, t, txn}], refunds: [{txn, why}], cancels: [{sub, why}], notes: [{k, txn, t}], cosmetics: [ids shown to other players]}
-   A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends. */
-export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null }) {
+   A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends; a month
+   won begins the same way, after whatever is paid, given or granted, so it is never spent on days already covered. */
+export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null, prizes = [] }) {
   const out = { owns: {}, vip: null, gifts: [], refunds: [], cancels: [], notes: [], cosmetics: [] };
   /* a checkout this server opened, or a renewal of a subscription one of those started */
   const valid = txs.filter(t => t.status === 'completed' && t.ok && (t.ck || t.sub && subs[t.sub]));
@@ -196,7 +198,14 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
     cover.push(g); kept.push(g);
   }
   /* a membership granted by an admin: from when it was granted to when it ends, alongside whatever is paid */
-  if (comp && Number.isFinite(comp.at) && Number.isFinite(comp.until) && comp.until > comp.at) kept.push({ s: comp.at, e: comp.until, sub: '', plan: 'comp' });
+  if (comp && Number.isFinite(comp.at) && Number.isFinite(comp.until) && comp.until > comp.at) { kept.push({ s: comp.at, e: comp.until, sub: '', plan: 'comp' }); cover.push({ s: comp.at, e: comp.until }); }
+  /* months won: like a gift, each begins where everything above ends (a member who pays keeps the month for later) */
+  for (const t of (Array.isArray(prizes) ? prizes : []).filter(x => Number.isFinite(x) && x > 0).sort((a, b) => a - b)) {
+    let s = t, c;
+    while ((c = cover.find(p => p.s <= s && s < p.e))) s = c.e;
+    const g = { s, e: addMonth(s), sub: '', plan: 'gift' };
+    cover.push(g); kept.push(g);
+  }
   if (kept.length) {
     /* a paid year in calendar months; a paid month stays as Paddle billed it (its end need not be a calendar month on) */
     const per = kept.flatMap(p => { const q = { s: p.s, e: p.e, sub: p.sub, plan: p.plan }; return p.plan === 'year' || p.plan === 'comp' ? months(q) : [q]; }).sort((a, b) => a.s - b.s), runs = [];

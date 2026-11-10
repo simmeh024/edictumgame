@@ -10,6 +10,7 @@ import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp } from './shop.js';
 import { cbDelete, rmbForget } from './board.js';
 import { alDrop } from './alliances.js';
+import { fcForget } from './flagcomp.js';
 import { shopSummary } from './shop-stats.js';
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
@@ -296,6 +297,7 @@ async function mutate(db, actor, data) {
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);
       const writer = db.bulkWriter(), writes = posts.docs.concat(reports.docs).map(d => writer.delete(d.ref)); await Promise.all([Promise.all(writes), writer.close()]);
       await rmbForget(db, target, REGIONS);
+      await fcForget(db, target);
     }
     // a reported comment on development news is news:<post>:<comment>; anything else is a region board post
     const news = action === 'delete_post' && /^news:([A-Za-z0-9]{20}):([A-Za-z0-9]{20})$/.exec(target);
