@@ -76,3 +76,17 @@ test('the book in force folds the finished cycles after the last one that kept i
  a.n.asm.p.rp='old';const p=assemblyEngine('meridian',[a],locks).pick(c,new Set(locks.map(x=>x.k)));
  assert.equal(p.by,'a');assert.equal(p.rp,'old');
 });
+
+test('a sway reaches up to two computer nations that have not voted yet, and the count follows it; a failed or late one changes nothing',()=>{
+ const a=record('a'),base=assemblyEngine('meridian',[a]),c=base.cycle(now),L={c,k:'res-sway',ti:'A resolution',cat:'trade',g:0,by:'a',lt:now},T0=base.t0(c),T1=base.t0(c+1)-1;
+ let v=1,np=base.swayPick(L,c,T0,v);if(!np.length){v=-1;np=base.swayPick(L,c,T0,v);}
+ assert.ok(np.length>=1&&np.length<=2,'someone to lean on');
+ const vote=(w,T=T1)=>{a.n.asm.w=w;return assemblyEngine('meridian',[a],[L]).tally(L,c,[a],T,null);};
+ const plain=vote(undefined),swayed=vote({c,k:L.k,v,t:T0,ok:1,ex:0,np});
+ for(const id of np){assert.notEqual(plain.rows.find(r=>r.id===id).v,v);assert.equal(swayed.rows.find(r=>r.id===id).v,v);assert.equal(swayed.rows.find(r=>r.id===id).sw,undefined,'unexposed: nobody is named');}
+ assert.equal(vote({c,k:L.k,v,t:T0,ok:1,ex:1,np}).rows.find(r=>r.id===np[0]).sw,'a','an exposed sway names its member');
+ assert.deepEqual(vote({c,k:L.k,v,t:T0,ok:0,ex:0,np}).rows.map(r=>r.v),plain.rows.map(r=>r.v),'a failed sway');
+ assert.deepEqual(vote({c,k:'other',v,t:T0,ok:1,ex:0,np}).rows.map(r=>r.v),plain.rows.map(r=>r.v),'another resolution');
+ assert.deepEqual(vote({c,k:L.k,v,t:T1,ok:1,ex:0,np}).rows.map(r=>r.v),plain.rows.map(r=>r.v),'too late: they had voted');
+ assert.deepEqual(base.swayPick(L,c,T1,v),[],'nobody left to lean on once all have voted');
+});
