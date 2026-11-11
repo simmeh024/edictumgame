@@ -28,6 +28,18 @@ test('one competition a month, from the 12th: a week of entries, five days of ju
   assert.equal(fcTimes('2027-02').end, Date.UTC(2027, 2, 12), 'February’s runs to 12 March');
   for (let t0 = Date.UTC(2026, 10, 1); t0 < Date.UTC(2028, 3, 1); t0 += 7 * 3600e3) { const id = fcId(t0), x = fcTimes(id); assert.ok(x.open <= t0 && t0 < x.end, 'every moment lies inside its own competition: ' + new Date(t0).toISOString()); }
   for (const ok of ['2026-12', '2031-01']) assert.ok(fcIdOk(ok));
+});
+
+test('November 2026 opened a day early, on the 11th: its judging and results kept their days, and December opens on the 12th', () => {
+  assert.deepEqual({ ...FC.EARLY }, { '2026-11': 11 });
+  assert.equal(fcId(Date.UTC(2026, 10, 10, 23, 59)), '2026-10');
+  assert.equal(fcId(Date.UTC(2026, 10, 11)), '2026-11', 'the 11th of November is already November’s');
+  assert.equal(fcPhase('2026-11', Date.UTC(2026, 10, 11)), 'enter');
+  assert.deepEqual(fcTimes('2026-11'), { open: Date.UTC(2026, 10, 11), judge: Date.UTC(2026, 10, 19), close: Date.UTC(2026, 10, 24), end: Date.UTC(2026, 11, 12) });
+  assert.equal(fcTimes('2026-10').end, Date.UTC(2026, 10, 11), 'October’s gives way a day sooner');
+  assert.equal(fcId(Date.UTC(2026, 11, 11, 23, 59)), '2026-11'); assert.equal(fcId(Date.UTC(2026, 11, 12)), '2026-12');
+  assert.equal(fcTimes('2026-12').open, Date.UTC(2026, 11, 12));
+  for (let id = '2026-09'; id < '2028-01'; id = fcId(fcTimes(id).end)) assert.equal(fcTimes(fcId(fcTimes(id).end)).open, fcTimes(id).end, 'no gap and no overlap after ' + id);
   for (const bad of ['2026-13', '2026-1', '1999-12', '', null, '2026-12x', 202612]) assert.ok(!fcIdOk(bad), String(bad));
 });
 
@@ -106,12 +118,13 @@ test('the game’s page repeats the server’s calendar and numbers', async () =
   const html = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
   const line = start => { const at = html.indexOf(start); assert.ok(at >= 0, start); return html.slice(at, html.indexOf('\n', at)); };
   const ctx = vm.createContext({ DAY });
-  vm.runInContext(['const FLC_RULES=', 'const FLC_CAT=', 'const flcId=', 'const flcTimes=', 'const flcPhase=', 'const flcPrev='].map(line).join('\n') + '\nthis.X={FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev};', ctx);
+  vm.runInContext(['const FLC_RULES=', 'const FLC_CAT=', 'const flcOpenAt=', 'const flcId=', 'const flcTimes=', 'const flcPhase=', 'const flcPrev='].map(line).join('\n') + '\nthis.X={FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev};', ctx);
   const X = ctx.X;
   assert.deepEqual([...X.FLC_RULES.CATS], [...FC.CATS]); assert.deepEqual([...X.FLC_RULES.PRIZES], [...FC.PRIZES]);
-  for (const k of ['ENTER_DAYS', 'JUDGE_DAYS', 'DUTY', 'CLUB_DAYS']) assert.equal(X.FLC_RULES[k], FC[k], k);
+  for (const k of ['START_DAY', 'ENTER_DAYS', 'JUDGE_DAYS', 'DUTY', 'CLUB_DAYS']) assert.equal(X.FLC_RULES[k], FC[k], k);
+  assert.deepEqual({ ...X.FLC_RULES.EARLY }, { ...FC.EARLY }, 'the same early openings');
   assert.deepEqual(Object.keys(X.FLC_CAT), [...FC.CATS], 'a name and a question for every category');
-  for (const t of [Date.UTC(2026, 10, 10), Date.UTC(2026, 10, 11, 23, 59), Date.UTC(2026, 10, 12), Date.UTC(2026, 10, 18, 23, 59), Date.UTC(2026, 10, 19), Date.UTC(2026, 10, 24), Date.UTC(2026, 11, 1), Date.UTC(2026, 11, 11, 23), Date.UTC(2026, 11, 12), Date.UTC(2027, 0, 31, 23), Date.UTC(2027, 1, 28, 12), Date.UTC(2027, 2, 5), Date.UTC(2028, 1, 29)]) {
+  for (const t of [Date.UTC(2026, 10, 10), Date.UTC(2026, 10, 10, 23, 59), Date.UTC(2026, 10, 11), Date.UTC(2026, 10, 11, 23, 59), Date.UTC(2026, 10, 12), Date.UTC(2026, 10, 18, 23, 59), Date.UTC(2026, 10, 19), Date.UTC(2026, 10, 24), Date.UTC(2026, 11, 1), Date.UTC(2026, 11, 11, 23), Date.UTC(2026, 11, 12), Date.UTC(2027, 0, 31, 23), Date.UTC(2027, 1, 28, 12), Date.UTC(2027, 2, 5), Date.UTC(2028, 1, 29)]) {
     const id = fcId(t);
     assert.equal(X.flcId(t), id); assert.deepEqual({ ...X.flcTimes(id) }, fcTimes(id)); assert.equal(X.flcPhase(id, t), fcPhase(id, t)); assert.equal(X.flcPrev(id), fcPrev(id));
   }

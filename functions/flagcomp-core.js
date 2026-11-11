@@ -4,12 +4,14 @@
 //
 // One competition a month, for every region together. It opens on the 12th (UTC): entries for a week, judging for the
 // five days after, and the results stand until the next one opens on the 12th of the month after. A competition is
-// named after the month it opens in. Judges give each flag one to five stars in five
+// named after the month it opens in. FC.EARLY lists the months that opened sooner (only their entries start earlier:
+// judging and the results keep their usual days). Judges give each flag one to five stars in five
 // categories; a flag's score is the mean of its judges' averages, with the kindest and the harshest judge left out once
 // there are enough of them, so one friend or one grudge moves nothing.
 export const FC = Object.freeze({
   CATS: Object.freeze(['simple', 'colour', 'comp', 'orig', 'fly']),
   START_DAY: 12,    // the day of the month a competition opens
+  EARLY: Object.freeze({ '2026-11': 11 }),   // months that opened on another day: November 2026's opened a day early
   ENTER_DAYS: 7, JUDGE_DAYS: 5,
   MIN_RATINGS: 5,   // ratings a flag needs to place (fewer when there are few judges: see fcNeed)
   TRIM_FROM: 5,     // from this many ratings on, the highest and the lowest judge are left out
@@ -20,17 +22,22 @@ export const FC = Object.freeze({
 });
 const DAY = 86400000;
 
+/* when the competition of a month opens: the START_DAY, or its day in EARLY (m may run past either end of the year) */
+function fcOpenAt(y, m) {
+  const d = new Date(Date.UTC(y, m, 1)), id = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), FC.EARLY[id] || FC.START_DAY);
+}
 /* the competition of a moment: '2026-12' from 12 December to 11 January (the days before the 12th belong to the
    month before) */
 export function fcId(now) {
-  const d = new Date(now), o = d.getUTCDate() < FC.START_DAY ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 15)) : d;
+  const d = new Date(now), o = d.getTime() < fcOpenAt(d.getUTCFullYear(), d.getUTCMonth()) ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 15)) : d;
   return o.getUTCFullYear() + '-' + String(o.getUTCMonth() + 1).padStart(2, '0');
 }
 export function fcIdOk(id) { return typeof id === 'string' && /^20\d\d-(0[1-9]|1[0-2])$/.test(id); }
 /* its calendar: entries from open, judging from judge, results from close, the next one at end */
 export function fcTimes(id) {
-  const y = +id.slice(0, 4), m = +id.slice(5, 7) - 1, open = Date.UTC(y, m, FC.START_DAY), judge = open + FC.ENTER_DAYS * DAY;
-  return { open, judge, close: judge + FC.JUDGE_DAYS * DAY, end: Date.UTC(y, m + 1, FC.START_DAY) };
+  const y = +id.slice(0, 4), m = +id.slice(5, 7) - 1, judge = Date.UTC(y, m, FC.START_DAY) + FC.ENTER_DAYS * DAY;
+  return { open: fcOpenAt(y, m), judge, close: judge + FC.JUDGE_DAYS * DAY, end: fcOpenAt(y, m + 1) };
 }
 export function fcPhase(id, now) { const t = fcTimes(id); return now < t.open ? 'soon' : now < t.judge ? 'enter' : now < t.close ? 'judge' : 'done'; }
 export function fcPrev(id) { const y = +id.slice(0, 4), m = +id.slice(5, 7) - 1; return fcId(Date.UTC(y, m - 1, 15)); }

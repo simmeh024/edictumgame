@@ -64538,17 +64538,18 @@ document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!S.na
    competition opens. A competition is named after the month it opens in. All of it is kept by
    the server (functions/flagcomp.js, civic ops fc*): this page only asks, and reads the public summary flagc/{month}
    and, once judging has closed, the hall of every flag. FLC_RULES and the calendar below repeat
-   functions/flagcomp-core.js (test/flagcomp.test.mjs holds them together).
+   functions/flagcomp-core.js (test/flagcomp.test.mjs holds them together); EARLY lists the months that opened sooner.
    The goods are added here, once, from the public podium (n.fcp: the places taken, 'YYYY-MM/1'); the winner's month of
    the Chancery Club is the server's to give. n.fcs is the last month whose results the bell has announced.
    Judging pays in land: a credit for every JUDGE_PER flags scored, JUDGE_LAND at most over a nation's life (n.fcl, in
    the shared half so every game counts it; the flags scored are the tally fcj). For the achievements: n.fce lists
    the competitions entered, n.fca is the last one whose every flag was scored and n.fcd the last one in which a full
    share was. None is paid for what the stars were, which would bend the scores. */
-const FLC_RULES={CATS:['simple','colour','comp','orig','fly'],START_DAY:12,ENTER_DAYS:7,JUDGE_DAYS:5,DUTY:10,PRIZES:[300,150,75],CLUB_DAYS:30,JUDGE_PER:5,JUDGE_LAND:10};
+const FLC_RULES={CATS:['simple','colour','comp','orig','fly'],START_DAY:12,EARLY:{'2026-11':11},ENTER_DAYS:7,JUDGE_DAYS:5,DUTY:10,PRIZES:[300,150,75],CLUB_DAYS:30,JUDGE_PER:5,JUDGE_LAND:10};
 const FLC_CAT={simple:['Simplicity','Could you draw it from memory?'],colour:['Colour','Do the colours work together?'],comp:['Composition','Is the layout balanced?'],orig:['Originality','Does it stand apart from other flags?'],fly:['Would you fly it?','The overall impression.']};
-const flcId=t=>{const d=new Date(t),o=d.getUTCDate()<FLC_RULES.START_DAY?new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-1,15)):d;return o.getUTCFullYear()+'-'+String(o.getUTCMonth()+1).padStart(2,'0');};
-const flcTimes=id=>{const y=+id.slice(0,4),m=+id.slice(5,7)-1,open=Date.UTC(y,m,FLC_RULES.START_DAY),judge=open+FLC_RULES.ENTER_DAYS*DAY;return {open,judge,close:judge+FLC_RULES.JUDGE_DAYS*DAY,end:Date.UTC(y,m+1,FLC_RULES.START_DAY)};};
+const flcOpenAt=(y,m)=>{const d=new Date(Date.UTC(y,m,1)),id=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0');return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),FLC_RULES.EARLY[id]||FLC_RULES.START_DAY);};
+const flcId=t=>{const d=new Date(t),o=d.getTime()<flcOpenAt(d.getUTCFullYear(),d.getUTCMonth())?new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-1,15)):d;return o.getUTCFullYear()+'-'+String(o.getUTCMonth()+1).padStart(2,'0');};
+const flcTimes=id=>{const y=+id.slice(0,4),m=+id.slice(5,7)-1,judge=Date.UTC(y,m,FLC_RULES.START_DAY)+FLC_RULES.ENTER_DAYS*DAY;return {open:flcOpenAt(y,m),judge,close:judge+FLC_RULES.JUDGE_DAYS*DAY,end:flcOpenAt(y,m+1)};};
 const flcPhase=(id,t)=>{const x=flcTimes(id);return t<x.open?'soon':t<x.judge?'enter':t<x.close?'judge':'done';};
 const flcPrev=id=>flcId(Date.UTC(+id.slice(0,4),+id.slice(5,7)-2,15));
 const flcMonth=id=>{try{return new Date(Date.UTC(+id.slice(0,4),+id.slice(5,7)-1,15)).toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'});}catch(e){return id;}};

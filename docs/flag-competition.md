@@ -2,8 +2,9 @@
 
 One competition a month, for every region together, opening on the 12th. Nations enter a flag made for the occasion,
 the others score it blind, and the best three take the prizes. A competition is named after the month it opens in:
-`2026-11` runs from 12 November to 11 December (`START_DAY` in `functions/flagcomp-core.js`, repeated in the page's
-`FLC_RULES`).
+`2026-12` runs from 12 December to 11 January (`START_DAY` in `functions/flagcomp-core.js`, repeated in the page's
+`FLC_RULES`). The first one, `2026-11`, opened a day early on 11 November (`EARLY`); its judging and results kept
+the usual days.
 
 ## How a month runs
 
