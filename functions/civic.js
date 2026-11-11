@@ -531,44 +531,96 @@ async function newsModerate(db, who, d) {
 }
 
 /* Reactions and poll votes on a post: the player's own choice is devnews/<post>/me/<uid> {e?, v?}, which only
-   they read, and the totals are devnewsStat/<post> {r: {kind: n}, v: [n, ...], n?: reads}, which everyone reads. Both are
-   written here, in one transaction, so a total always matches the choices behind it. */
+   they read, and the totals are devnewsStat/<post> {r: {kind: n}, v: [n, ...], vn, vr, n?: reads}, which everyone reads.
+   Both are written here, in one transaction, so a total always matches the choices behind it. A poll may let a voter
+   pick up to pl.m answers: their v is then a list, v counts each answer picked, vn the voters and vr each region's
+   votes ({reg: [n, ...]}, counted from 2026-11-11; earlier votes are only in v). */
 const NEWS_REACT = ['up', 'heart', 'party', 'think'];
+const pollVoted = v => Number.isInteger(v) || Array.isArray(v);
 async function newsTally(db, who, d, kind) {
   const post = newsId(d.post);
   if (!post) throw new HttpsError('invalid-argument', 'Choose a news post.');
   return db.runTransaction(async tx => {
     // anyone with a nation reacts; a vote, like a comment, needs a linked sign-in
-    await eligibility(tx, who, { linked: kind === 'v' });
+    const e = await eligibility(tx, who, { linked: kind === 'v' });
     const me = db.doc('devnews/' + post + '/me/' + who.uid), st = db.doc('devnewsStat/' + post);
     const [p, m, s] = await Promise.all([tx.get(db.doc('devnews/' + post)), tx.get(me), tx.get(st)]);
     if (!p.exists || p.get('pub') !== true) refuse('news_missing', 'This post is no longer published.');
     const mine = m.exists ? m.data() : {}, tot = s.exists ? s.data() : {}, r = { ...(tot.r || {}) }, v = Array.isArray(tot.v) ? tot.v.slice() : [];
+    let vn = Number.isInteger(tot.vn) ? tot.vn : v.reduce((a, b) => a + (Number(b) || 0), 0);
+    const vr = tot.vr && typeof tot.vr === 'object' ? { ...tot.vr } : {};
     if (kind === 'e') {
       const pick = NEWS_REACT.includes(d.e) && d.e !== mine.e ? d.e : '';
       if (mine.e) r[mine.e] = Math.max(0, (r[mine.e] || 0) - 1);
       if (pick) r[pick] = (r[pick] || 0) + 1;
       mine.e = pick; if (!pick) delete mine.e;
     } else {
-      const pl = p.get('pl'), n = pl && Array.isArray(pl.o) ? pl.o.length : 0, o = Number(d.o);
+      const pl = p.get('pl'), n = pl && Array.isArray(pl.o) ? pl.o.length : 0, most = pl && Number.isInteger(pl.m) ? Math.max(1, Math.min(n, pl.m)) : 1;
       if (!n) refuse('poll_missing', 'This post has no poll.');
       if (pl.end && Date.now() > pl.end) refuse('poll_closed', 'This poll has closed.');
-      if (!Number.isInteger(o) || o < 0 || o >= n) throw new HttpsError('invalid-argument', 'Choose one of the answers.');
-      if (Number.isInteger(mine.v)) refuse('poll_voted', 'Your nation has already voted in this poll.');
+      if (pollVoted(mine.v)) refuse('poll_voted', 'Your nation has already voted in this poll.');
+      const picks = most > 1 && Array.isArray(d.o) ? [...new Set(d.o.map(Number))] : [Number(d.o)];
+      if (!picks.length || picks.length > most || picks.some(o => !Number.isInteger(o) || o < 0 || o >= n))
+        throw new HttpsError('invalid-argument', most > 1 ? 'Choose one to ' + most + ' of the answers.' : 'Choose one of the answers.');
       while (v.length < n) v.push(0);
-      v[o]++; mine.v = o;
+      const reg = typeof e.n.reg === 'string' && /^[a-z]{2,40}$/.test(e.n.reg) ? e.n.reg : '', rv = reg && Array.isArray(vr[reg]) ? vr[reg].slice() : [];
+      while (rv.length < n) rv.push(0);
+      for (const o of picks) { v[o]++; rv[o]++; }
+      if (reg) vr[reg] = rv;
+      vn++;
+      mine.v = most > 1 ? picks.sort((a, b) => a - b) : picks[0];
     }
     // merged: the read count (n) beside them is written by the readers' browsers (see firestore.rules)
-    tx.set(st, { r, v }, { merge: true });
+    tx.set(st, kind === 'e' ? { r } : { r, v, vn, vr }, { merge: true });
     if (Object.keys(mine).length) tx.set(me, mine); else tx.delete(me);
-    return { r, v, e: mine.e || '', o: Number.isInteger(mine.v) ? mine.v : -1 };
+    return { r, v, vn, vr, e: mine.e || '', o: pollVoted(mine.v) ? mine.v : -1 };
+  });
+}
+/* A game link in a post ("Open the Trade page") was followed: counted once per player, post and page in
+   devnewsStat/<post>.g {page: n}, with the pages a player has followed in their me document (g). Admins' clicks
+   are not counted, as their reads are not. */
+async function newsClick(db, who, d) {
+  const post = newsId(d.post), go = typeof d.go === 'string' && /^[a-z][a-z0-9-]{1,30}$/.test(d.go) ? d.go : '';
+  if (!post || !go) throw new HttpsError('invalid-argument', 'Choose a link in a news post.');
+  if (who.admin) return { ok: true, counted: false };
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, { linked: false, hidden: true });
+    const me = db.doc('devnews/' + post + '/me/' + who.uid), st = db.doc('devnewsStat/' + post);
+    const [p, m] = await Promise.all([tx.get(db.doc('devnews/' + post)), tx.get(me)]);
+    if (!p.exists || p.get('pub') !== true) refuse('news_missing', 'This post is no longer published.');
+    const mine = m.exists ? m.data() : {}, g = Array.isArray(mine.g) ? mine.g.filter(x => typeof x === 'string') : [];
+    if (g.includes(go) || g.length >= 40) return { ok: true, counted: false };
+    tx.set(me, { ...mine, g: g.concat(go) });
+    tx.set(st, { g: { [go]: FieldValue.increment(1) } }, { merge: true });
+    return { ok: true, counted: true };
+  });
+}
+/* An upvote on a comment, or taking it back: the count is the comment's u, the comments a player upvoted are their
+   me document's u (the latest 300). Not on one's own comment. */
+async function newsUpvote(db, who, d) {
+  const post = newsId(d.post), id = newsId(d.comment);
+  if (!post || !id) throw new HttpsError('invalid-argument', 'Choose a comment.');
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, { linked: false });
+    const me = db.doc('devnews/' + post + '/me/' + who.uid), ref = db.doc('devnews/' + post + '/posts/' + id);
+    const [p, c, m] = await Promise.all([tx.get(db.doc('devnews/' + post)), tx.get(ref), tx.get(me)]);
+    if (!p.exists || p.get('pub') !== true) refuse('news_missing', 'This post is no longer published.');
+    if (!c.exists) refuse('news_comment_missing', 'That comment is no longer there.');
+    if (c.get('a') === who.uid) refuse('news_own', 'You cannot upvote your own comment.');
+    const mine = m.exists ? m.data() : {}, u = Array.isArray(mine.u) ? mine.u.filter(x => typeof x === 'string') : [], on = !u.includes(id);
+    const next = on ? u.concat(id).slice(-300) : u.filter(x => x !== id), count = Math.max(0, (Number(c.get('u')) || 0) + (on ? 1 : -1));
+    tx.update(ref, { u: count });
+    const out = { ...mine, u: next };
+    if (!next.length) delete out.u;
+    if (Object.keys(out).length) tx.set(me, out); else tx.delete(me);
+    return { u: count, on };
   });
 }
 
 /* what civic answers: anything else is refused before it reads a thing. An Assembly action reads every nation of the
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin', 'sway']);
-const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
+const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'newsClick', 'newsUpvote', 'renamed',
   'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', 'book', 'online', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
@@ -579,7 +631,9 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isFlagOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
   // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
-  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' ? [['cr:' + uid, 20, 1 / 4]] : []),
+  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' || op === 'newsUpvote' ? [['cr:' + uid, 20, 1 / 4]] : []),
+    // a game link followed in a news post: counted once per page, so a few at a time is plenty
+    ...(op === 'newsClick' ? [['nk:' + uid, 10, 1 / 3]] : []),
     // scoring a flag: a judge clicks through a batch of ten, then one every two seconds
     ...(op === 'fcRate' || op === 'fcSkip' ? [['fr:' + uid, 30, 1 / 2]] : []),
     // the design in progress is kept as it is drawn (the page waits a few seconds between saves); reports are rarer still
@@ -601,6 +655,8 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'newsModerate') return newsModerate(db, who, d);
   if (d.op === 'newsReact') return newsTally(db, who, d, 'e');
   if (d.op === 'newsVote') return newsTally(db, who, d, 'v');
+  if (d.op === 'newsClick') return newsClick(db, who, d);
+  if (d.op === 'newsUpvote') return newsUpvote(db, who, d);
   if (d.op === 'renamed') return renamed(db, who);
   if (d.op === 'cbTopic') return cbTopic(db, who, d, regions);
   if (d.op === 'cbReply') return cbReply(db, who, d, regions);

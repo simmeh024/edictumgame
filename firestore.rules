@@ -32,7 +32,7 @@ rules_version = '2';
 //   fxs/{reg}                the currency job's own state (smoothing, volatility, a lease)
 //   devnews/{id}             a development news post an admin wrote, {ti, h: its HTML, ex, as, by, nm, ...};
 //                            players read the published ones (pub == true), admins also the drafts
-//   devnews/{id}/posts/{id}  a comment on it, {a, t, x, nm, rg, fl?, st?}: written only by civic() (functions/),
+//   devnews/{id}/posts/{id}  a comment on it, {a, t, x, nm, rg, fl?, st?, re?, u?: upvotes}: written only by civic() (functions/),
 //                            like the region boards, so the same checks and pacing apply
 //   devnewsImg/{id}          an image in a post, {d: base64, m, w, h, by, t}, resized in the admin's browser
 //   devnewsMeta/latest       {p: [{i, t}]}: the latest published posts, which every game listens to for its count
@@ -518,7 +518,7 @@ service cloud.firestore {
     // admin's browser and again in every reader's before it is shown.
     function validNews(d) {
       return d.keys().hasAll(['ti', 'h', 'ex', 'as', 'by', 'nm', 'pub', 't'])
-        && d.keys().hasOnly(['ti', 'h', 'ex', 'as', 'by', 'nm', 'rl', 'fl', 'rg', 'pub', 't', 'ed', 'lk', 'im', 'tg', 'pn', 'pl'])
+        && d.keys().hasOnly(['ti', 'h', 'ex', 'as', 'by', 'nm', 'rl', 'fl', 'rg', 'pub', 't', 'ed', 'lk', 'im', 'tg', 'pn', 'pl', 'ip'])
         && d.ti is string && d.ti.size() > 0 && d.ti.size() <= 140
         && d.h is string && d.h.size() <= 100000
         && d.ex is string && d.ex.size() <= 300
@@ -533,8 +533,12 @@ service cloud.firestore {
         && (!('im' in d) || (d.im is list && d.im.size() <= 40))
         && (!('tg' in d) || d.tg in ['update', 'feature', 'balance', 'fix', 'event'])
         && (!('pn' in d) || d.pn is bool)
-        && (!('pl' in d) || (d.pl is map && d.pl.keys().hasOnly(['q', 'o', 'end']) && d.pl.q is string && d.pl.q.size() > 0 && d.pl.q.size() <= 200
-          && d.pl.o is list && d.pl.o.size() >= 2 && d.pl.o.size() <= 6 && (!('end' in d.pl) || d.pl.end is number)));
+        // an important post: a notification on every device that asked for them, and a pinned notice in the bell
+        && (!('ip' in d) || d.ip is bool)
+        // a poll; m is how many answers a voter may pick (one when it is missing)
+        && (!('pl' in d) || (d.pl is map && d.pl.keys().hasOnly(['q', 'o', 'end', 'm']) && d.pl.q is string && d.pl.q.size() > 0 && d.pl.q.size() <= 200
+          && d.pl.o is list && d.pl.o.size() >= 2 && d.pl.o.size() <= 6 && (!('end' in d.pl) || d.pl.end is number)
+          && (!('m' in d.pl) || (d.pl.m is int && d.pl.m >= 1 && d.pl.m <= d.pl.o.size()))));
     }
     match /devnews/{pid} {
       allow read: if resource.data.pub == true || isAdmin();
@@ -544,7 +548,8 @@ service cloud.firestore {
       match /posts/{cid} {
         allow delete: if signedIn() && (resource.data.a == request.auth.uid || isAdmin());
       }
-      // a player's own reaction and vote {e?, v?}: written through civic(), read only by them
+      // a player's own reaction, vote, upvoted comments and followed game links {e?, v?, u?, g?}: written through
+      // civic(), read only by them
       match /me/{uid} {
         allow read: if signedIn() && request.auth.uid == uid;
       }
@@ -564,8 +569,9 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/devnews/$(pid)/rd/$(request.auth.uid))
         && existsAfter(/databases/$(database)/documents/devnews/$(pid)/rd/$(request.auth.uid));
     }
-    // the totals on a post: reactions and votes {r, v}, written only by civic(), and reads {n}, one up with
-    // each first read (above)
+    // the totals on a post: reactions and votes {r, v, vn: voters, vr: votes by region}, link clicks {g}, written only
+    // by civic(); letters by post {m} (jobs/mail) and notifications {ps, pn, pt} (functions/letters.js), written by the
+    // server; and reads {n}, one up with each first read (above)
     match /devnewsStat/{pid} {
       allow read: if true;
       allow delete: if isAdmin();
