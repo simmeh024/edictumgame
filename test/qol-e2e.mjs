@@ -21,10 +21,13 @@ check('and a second click Z to A', Z[0] === N[N.length - 1] && await A.$eval('th
 
 // 2/3. older board posts and happenings are a click away
 // the region's live board can replace S.rmb at any moment, so the test posts go back in before each look
-const posts = () => A.evaluate(uid => { const t = Date.now(); G.S.rmb[uid] = { posts: Array.from({ length: 70 }, (_, i) => ({ id: 'q' + i, t: t - i * 60000, x: 'Post number ' + i })) }; G.render(); }, uidA);
+// with more, Show older posts is pressed in the same step, so no snapshot can land between the two
+const posts = more => A.evaluate(([uid, more]) => { const t = Date.now(); G.S.rmb[uid] = { posts: Array.from({ length: 70 }, (_, i) => ({ id: 'q' + i, t: t - i * 60000, x: 'Post number ' + i })) }; G.render();
+  if (!more) return true; const b = document.querySelector('[data-act="rmb-more"]'); if (!b) return false; b.click(); return true; }, [uidA, !!more]);
 await A.evaluate(() => { const n = G.clone(G.S.nation), t = Date.now(); for (let i = 0; i < 40; i++) n.log.push({ k: 'flag', t: t - i * 1000 }); G.commit(n); G.render(); });
 check('the board shows 50 posts with a way to older ones', await until(async () => { await posts(); return (await A.$$('.posts .post')).length === 50 && !!await A.$('[data-act="rmb-more"]'); }));
-await regionTab(A, 'board'); await A.click('[data-act="rmb-more"]');
+// a board snapshot replaces S.rmb and the button with it, so a separate click could wait for a button that never came back
+await regionTab(A, 'board'); await until(() => posts(true));
 check('and then all 70', await until(async () => { await posts(); return (await A.$$('.posts .post')).length === 70 && !await A.$('[data-act="rmb-more"]'); }));
 check('happenings stop at 30 with a way to older ones', (await A.$$('.haps li')).length === 30 && !!await A.$('[data-act="hap-more"]'));
 await regionTab(A, 'happenings'); await A.click('[data-act="hap-more"]');

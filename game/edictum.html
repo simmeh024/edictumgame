@@ -24663,6 +24663,10 @@ const UNLOCKS={
   /* ten more charges for the arms, the same ten as emblems for the flag; free to everyone */
   'c-acorn':{k:'charge',n:'Acorn',src:'free'},'c-torch':{k:'charge',n:'Torch',src:'free'},'c-scales':{k:'charge',n:'Scales',src:'free'},'c-hourglass':{k:'charge',n:'Hourglass',src:'free'},'c-quill':{k:'charge',n:'Quill',src:'free'},'c-helm':{k:'charge',n:'Ship’s wheel',src:'free'},'c-grapes':{k:'charge',n:'Grapes',src:'free'},'c-lighthouse':{k:'charge',n:'Lighthouse',src:'free'},'c-dove':{k:'charge',n:'Dove',src:'free'},'c-pine':{k:'charge',n:'Pine',src:'free'},'c-horseshoe':{k:'charge',n:'Horseshoe',src:'free'},'c-heart':{k:'charge',n:'Heart',src:'free'},'c-compass':{k:'charge',n:'Compass rose',src:'free'},'c-axe':{k:'charge',n:'Axe',src:'free'},
   'e-acorn':{k:'emblem',n:'Acorn',src:'free'},'e-torch':{k:'emblem',n:'Torch',src:'free'},'e-scales':{k:'emblem',n:'Scales',src:'free'},'e-hourglass':{k:'emblem',n:'Hourglass',src:'free'},'e-quill':{k:'emblem',n:'Quill',src:'free'},'e-helm':{k:'emblem',n:'Ship’s wheel',src:'free'},'e-grapes':{k:'emblem',n:'Grapes',src:'free'},'e-lighthouse':{k:'emblem',n:'Lighthouse',src:'free'},'e-dove':{k:'emblem',n:'Dove',src:'free'},'e-pine':{k:'emblem',n:'Pine',src:'free'},
+  /* five icons earned with an easy first-steps achievement: one achievement gives the charge and, through tw, the
+     same icon as a flag emblem (see the achievements' unlock source) */
+  'c-spyglass':{k:'charge',n:'Spyglass',src:'ach',tw:'e-spyglass'},'c-letter':{k:'charge',n:'Sealed letter',src:'ach',tw:'e-letter'},'c-candle':{k:'charge',n:'Candle',src:'ach',tw:'e-candle'},'c-spade':{k:'charge',n:'Spade',src:'ach',tw:'e-spade'},'c-mace':{k:'charge',n:'Mace',src:'ach',tw:'e-mace'},
+  'e-spyglass':{k:'emblem',n:'Spyglass',src:'ach'},'e-letter':{k:'emblem',n:'Sealed letter',src:'ach'},'e-candle':{k:'emblem',n:'Candle',src:'ach'},'e-spade':{k:'emblem',n:'Spade',src:'ach'},'e-mace':{k:'emblem',n:'Mace',src:'ach'},
   /* extra emblems for the flag designer */
   'e-crown':{k:'emblem',n:'Crown',src:'ach'},'e-eagle':{k:'emblem',n:'Eagle',src:'ach'},'e-gear':{k:'emblem',n:'Gear',src:'ach'},
   'e-anchor':{k:'emblem',n:'Anchor',src:'set'},'e-tree':{k:'emblem',n:'Tree',src:'set'},'e-wave':{k:'emblem',n:'Wave',src:'set'},
@@ -25362,7 +25366,9 @@ const ACH_RANKS=[[0,'Unregistered','Not yet in any ledger, though one clerk has 
   [23400,'The Blank Page','What comes next has not been written. You are holding the pen.']];
 const ACH_PRESTIGE={'a-gold':500,'f-stars':1000,'t-venerable':1500,'t-legendary':2500,'t-mythic':5000,'t-eternal':5500,...Object.fromEntries(ID_BD.slice(1).map(([id],i)=>[id,ACH_RANKS[i+1][0]]))};
 const ACH=[],ACH_BY_ID={},ACH_BY_U={};
-function achDef(c,id,t,n,d,g,f,o){const a=Object.assign({c,id,t,n,d,g,f},o||{});ACH.push(a);ACH_BY_ID[id]=a;if(a.u)ACH_BY_U[a.u]=a;return a;}
+function achDef(c,id,t,n,d,g,f,o){const a=Object.assign({c,id,t,n,d,g,f},o||{});ACH.push(a);ACH_BY_ID[id]=a;if(a.u){ACH_BY_U[a.u]=a;const tw=achTwin(a.u);if(tw)ACH_BY_U[tw]=a;}return a;}
+/* an unlock that comes with a twin: the charge and the same icon as a flag emblem, both from one achievement */
+function achTwin(u){const U=UNLOCKS[u];return U&&U.tw&&UNLOCKS[U.tw]?U.tw:'';}
 
 /* what a progress function sees: the record, its id and a memo for costly figures */
 function achCtx(n,id,now,me){return {n:n||{},id,now:now||Date.now(),me:!!me,npc:!!(n&&n.npc),m:{}};}
@@ -25574,7 +25580,7 @@ achDef('dip','dip-coalition','g','Grand Coalition','Belong to an alliance of 4 o
 achDef('dip','dip-join','b','Joiner','Join another player’s alliance.',1,x=>aT(x,'log:aljoin'),{mp:1});
 achDef('dip','dip-friend','b','Firm Friends','Build goodwill of 25 or more with another nation.',1,aFriends);
 achDef('dip','dip-friends3','g','The Diplomat','Be firm friends with 3 nations at once.',3,aFriends,{u:'t-diplomat'});
-achDef('dip','dip-dm1','b','Dear Sir or Madam','Send a letter to another nation.',1,x=>aT(x,'dm'));
+achDef('dip','dip-dm1','b','Dear Sir or Madam','Send a letter to another nation.',1,x=>aT(x,'dm'),{u:'c-letter'});
 achDef('dip','dip-dm30','s','Pen Pal','Send 30 letters.',30,x=>aT(x,'dm'));
 achDef('dip','dip-dm6','s','Address Book','Write to 6 different nations.',6,x=>aKeys(x,'dm:'));
 achDef('dip','dip-shared','b','A Word in Your Ear','Raise a matter with a neighbouring player.',1,x=>aT(x,'log:shared'),{mp:1});
@@ -25723,7 +25729,7 @@ function achEvalNew(n,id,now){
 }
 const achQ=s=>'‘'+s+'’';
 const achTierWord=t=>ACH_TIER[t].n.toLowerCase();
-function achUnlockWords(u){const U=UNLOCKS[u];if(!U)return '';const nm=U.n;return {title:`the title ‘${nm}’`,frame:`the ${nm} flag frame`,pattern:`the ${nm} banner pattern`,charge:`the ${nm} charge for the arms`,emblem:`the ${nm} flag emblem`,accent:`the ${nm} accent colour`,stamp:`the ${nm} decision stamp`,fpat:`the ${nm} flag pattern`,border:`the ${nm.replace(/^The /,'')} card border`}[U.k]||nm;}
+function achUnlockWords(u){const U=UNLOCKS[u];if(!U)return '';const nm=U.n;if(U.k==='charge'&&achTwin(u))return `the ${nm} charge for the arms and flag emblem`;return {title:`the title ‘${nm}’`,frame:`the ${nm} flag frame`,pattern:`the ${nm} banner pattern`,charge:`the ${nm} charge for the arms`,emblem:`the ${nm} flag emblem`,accent:`the ${nm} accent colour`,stamp:`the ${nm} decision stamp`,fpat:`the ${nm} flag pattern`,border:`the ${nm.replace(/^The /,'')} card border`}[U.k]||nm;}
 
 /* ───────── earning: in commit() ───────── */
 COMMIT_HOOKS.push((n,old,now)=>{
@@ -25782,7 +25788,7 @@ HAP_SOURCES.push((x,now)=>{
 
 /* ───────── rewards ───────── */
 UNLOCK_SOURCES.push({
-  earned:n=>{const out=[];if(!n||!n.ach)return out;for(const id of achEarnedIds(n)){const a=ACH_BY_ID[id];if(a.u)out.push(a.u);}const p=achPoints(n);for(const [u,t] of Object.entries(ACH_PRESTIGE))if(p>=t)out.push(u);
+  earned:n=>{const out=[];if(!n||!n.ach)return out;for(const id of achEarnedIds(n)){const a=ACH_BY_ID[id];if(a.u){out.push(a.u);const tw=achTwin(a.u);if(tw)out.push(tw);}}const p=achPoints(n);for(const [u,t] of Object.entries(ACH_PRESTIGE))if(p>=t)out.push(u);
     /* and the border of every rank held, also one kept from before the ladder was stretched */
     for(let i=1,rk=Math.min(ID_BD.length-1,achRankOf(n,p).i);i<=rk;i++)if(!out.includes(ID_BD[i][0]))out.push(ID_BD[i][0]);return out;},
   how:u=>{const a=ACH_BY_U[u];if(a)return `Earn the ${achTierWord(a.t)} achievement ${achQ(a.n)}.`;const t=ACH_PRESTIGE[u];if(t!=null){const r=ACH_RANKS.find(q=>q[0]===t);return `Reach ${fmt0(t)} prestige${r?`, the rank of ${r[1]}`:''}.`;}return null;}
@@ -25956,7 +25962,8 @@ const CZ_TINCT={or:['Or','#E2B13C'],argent:['Argent','#F2F1EA'],gules:['Gules','
 const CZ_METAL={or:1,argent:1};
 const CZ_DIVS={plain:'Plain',pale:'Per pale',fess:'Per fess',bend:'Per bend',bendsin:'Per bend sinister',quarterly:'Quarterly',perchev:'Per chevron',persalt:'Per saltire',chief:'Chief',fessb:'Fess',paleb:'Pale',bendb:'Bend',cross:'Cross',saltire:'Saltire',chevron:'Chevron',bordure:'Bordure',paly:'Paly',barry:'Barry',chequy:'Chequy',gyronny:'Gyronny',pile:'Pile'};
 const CZ_ORD={chief:'a chief',fessb:'a fess',paleb:'a pale',bendb:'a bend',cross:'a cross',saltire:'a saltire',chevron:'a chevron',bordure:'a bordure',pile:'a pile'};
-const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent',fleur:'a fleur-de-lis',mount:'a trimount',sword:'a sword erect',bell:'a bell',harp:'a harp',acorn:'an acorn slipped',torch:'a torch inflamed',scales:'a pair of scales',hourglass:'an hourglass',quill:'a quill pen',helm:'a ship’s wheel',grapes:'a bunch of grapes',lighthouse:'a lighthouse',dove:'a dove volant',pine:'a pine tree',horseshoe:'a horseshoe',heart:'a heart',compass:'a compass rose',axe:'an axe erect'};
+const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent',fleur:'a fleur-de-lis',mount:'a trimount',sword:'a sword erect',bell:'a bell',harp:'a harp',acorn:'an acorn slipped',torch:'a torch inflamed',scales:'a pair of scales',hourglass:'an hourglass',quill:'a quill pen',helm:'a ship’s wheel',grapes:'a bunch of grapes',lighthouse:'a lighthouse',dove:'a dove volant',pine:'a pine tree',horseshoe:'a horseshoe',heart:'a heart',compass:'a compass rose',axe:'an axe erect',
+  spyglass:'a spyglass bendwise',letter:'a letter sealed',candle:'a candle in a chamberstick',spade:'a spade erect',mace:'a mace of office'};
 const CZ_SYM=[['hol','National holiday',40,'Founding Day'],['flower','National flower',30,'Edelweiss'],['tree','National tree',30,'Silver birch'],['bird','National bird',30,'Kingfisher'],['inst','National instrument',30,'Hurdy-gurdy'],['col','National colours',40,'Green and gold'],['nick','Capital nickname',40,'The Old Lady']];
 /* National symbols open as the population grows (the holiday and its date from the start). Each opens once,
    with a notice and a gift of timber and iron; n.syu keeps the ones given, so a nation that shrinks keeps
@@ -26165,6 +26172,19 @@ function czCharge(k,c,d,flat){
     case 'heart':return S([['M50,90C30,74 10,58 10,36C10,20 22,12 33,12C42,12 48,18 50,25C52,18 58,12 67,12C78,12 90,20 90,36C90,58 70,74 50,90Z',0]],L('M24,30Q26,22 34,21',1.4));
     case 'compass':return S([[czStarPts(50,50,4,47,14,-90),0],[czStarPts(50,50,4,32,11,-45),0],[czCirc(50,50,22)+czCirc(50,50,18),0,'fill-rule="evenodd"']],L('M50,6V94M6,50H94',1)+D(50,50,3.5));
     case 'axe':return S([['M46,8H54V94H46Z',0],['M54,12C76,8 92,24 94,44C92,62 76,68 54,62Z',0],['M46,22L36,28L46,34Z',0]],L('M62,20Q82,30 86,44Q82,56 62,56',1.2)+L('M46,78H54M46,84H54',1));
+    /* five charges added on 2026-11-11, each earned with an easy first-steps achievement (also flag emblems) */
+    case 'spyglass':return `<g transform="rotate(-38 50 50)">${S([['M4,43H21V57H4Z',0],['M19,40H46V60H19Z',0],['M44,36.5H81V63.5H44Z',0],['M79,33H96V67H79Z',0],
+      ['M18,38H23.5V62H18Z',0],['M43,34.5H48.5V65.5H43Z',0]],L('M7,47H17M27,45H41M53,42H76',1.3)+L('M96,38V62',1.1))}</g>`;
+    case 'letter':return S([['M8,24H92V80H8Z',0]],L('M8,24L50,56L92,24',1.5)+L('M8,80L39,48M92,80L61,48',1.2)
+      +`<path d="${czStarPts(50,57,12,13,10.8,-90)}" fill="${d}" opacity=".7"/><path d="${czCirc(50,57,6.5)}" fill="none" stroke="${c}" stroke-width="1.3"/>`+L('M46,57H54M50,53V61',1.1));
+    case 'candle':return S([['M50,4C57,13 60,20 56,27Q54,31 50,31Q46,31 44,27C40,20 43,13 50,4Z',0],['M50,30V37',2.2],['M41,36H59V75H41Z',0],
+      ['M14,73H86Q84,84 50,84Q16,84 14,73Z',0],['M43,83H57L62,93H38Z',0],[czCirc(88,72,7.5)+czCirc(88,72,3.6),0,'fill-rule="evenodd"']],
+      L('M50,13Q45,21 50,28Q55,21 50,13',1.1)+L('M41,36H59M44,36V44M55,36V41',1.4)+L('M46,48V70',1)+L('M14,73H86',1.2)+L('M38,93H62',1));
+    case 'spade':return S([['M45,25L38,9H62L55,25',4.6],['M46.5,23H53.5V60H46.5Z',0],['M43,57H57V66H43Z',0],['M30,64H70L68,84Q63,94 50,97Q37,94 32,84Z',0]],
+      L('M50,28V55',1)+L('M43,61.5H57',1.1)+L('M31,69H69',1.3)+L('M50,72V91',1));
+    case 'mace':return S([['M48,2H52V13H48Z',0],['M44.5,5.5H55.5V9.5H44.5Z',0],[czCirc(50,17,5),0],['M32,40L28,22L40,29L50,20L60,29L72,22L68,40Z',0],[czCirc(28,20,3.6),0],[czCirc(72,20,3.6),0],
+      ['M29,39H71Q70,53 58,58H42Q30,53 29,39Z',0],[czEll(50,62,8,4.8,0),0],['M46,63H54V87H46Z',0],[czEll(50,75,6.5,3.6,0),0],['M43.5,86H56.5L53,97H47Z',0]],
+      L('M29,40H71',1.3)+L('M34,47H66',1)+D(40,33,1.7)+D(60,33,1.7)+L('M50,26V38',1)+L('M50,66V72M50,78V85',1));
     /* flag emblems only */
     case 'royal':{const pe=[];for(const [x,y] of [[27,50],[29,40],[34,32],[41,27.5],[59,27.5],[66,32],[71,40],[73,50],[50,38],[50,48]])pe.push([czCirc(x,y,2.6),0]);
       return S([['M27,62Q26,30 50,27Q74,30 73,62',5.5],['M50,27V62',5],['M20,60H80V78H20Z',0],['M20,60L15,50L28,56ZM80,60L85,50L72,56Z',0],...pe,[czCirc(50,20,6.5),0],['M48,3H52V15H48Z',0],['M44,6.5H56V10.5H44Z',0]],
@@ -26179,7 +26199,7 @@ function czCharge(k,c,d,flat){
 }
 /* the unlockable emblems on a flag, sized like the base ones (radius r round x,y) */
 function czEmblemSVG(e,x,y,r,col){
-  const k={'e-tulip':'tulip','e-kraken':'kraken','e-aquila':'aquila','e-nowl':'nowl','e-crown':'royal','e-eagle':'eagle','e-gear':'gear','e-anchor':'fouled','e-tree':'tree','e-wave':'wave','e-acorn':'acorn','e-torch':'torch','e-scales':'scales','e-hourglass':'hourglass','e-quill':'quill','e-helm':'helm','e-grapes':'grapes','e-lighthouse':'lighthouse','e-dove':'dove','e-pine':'pine'}[e];if(!k)return '';
+  const k={'e-tulip':'tulip','e-kraken':'kraken','e-aquila':'aquila','e-nowl':'nowl','e-crown':'royal','e-eagle':'eagle','e-gear':'gear','e-anchor':'fouled','e-tree':'tree','e-wave':'wave','e-acorn':'acorn','e-torch':'torch','e-scales':'scales','e-hourglass':'hourglass','e-quill':'quill','e-helm':'helm','e-grapes':'grapes','e-lighthouse':'lighthouse','e-dove':'dove','e-pine':'pine','e-spyglass':'spyglass','e-letter':'letter','e-candle':'candle','e-spade':'spade','e-mace':'mace'}[e];if(!k)return '';
   const s=r/40;return `<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(4)})">${czCharge(k,col,'rgba(0,0,0,.28)',1)}</g>`;
 }
 
@@ -41177,7 +41197,7 @@ const FG_EMB=Object.create(null);
 })();
 Object.assign(EMBLEMS,{bird:'Bird',lion:'Lion',fish:'Fish',sheaf:'Wheat sheaf',book:'Book',key:'Key',tower:'Tower',ship:'Ship',leaf:'Leaf',hand:'Hand',flower:'Flower',snowflake:'Snowflake',compass:'Compass star',
   'e-eye':'Eye','e-bolt':'Lightning bolt','e-wreath':'Laurel wreath','e-keystone':'Keystone','e-rosette':'Founder’s Rosette'});
-const FG_PLURAL={Grapes:'bunches of grapes',Scales:'pairs of scales',Hourglass:'hourglasses','Wheat sheaf':'wheat sheaves',Fish:'fish',Waves:'waves',Lozenge:'lozenges',Oak:'oaks'};
+const FG_PLURAL={Spyglass:'spyglasses',Grapes:'bunches of grapes',Scales:'pairs of scales',Hourglass:'hourglasses','Wheat sheaf':'wheat sheaves',Fish:'fish',Waves:'waves',Lozenge:'lozenges',Oak:'oaks'};
 /* unlocks: three patterns and three emblems, each tied to something the nation already does */
 Object.assign(UNLOCKS,{'fp-sunburst':{k:'fpat',n:'Sunburst',src:'ach'},'fp-checky':{k:'fpat',n:'Checky',src:'ach'},'fp-wavy':{k:'fpat',n:'Wavy fess',src:'ach'},
   'fp-gyronny':{k:'fpat',n:'Gyronny',src:'ach'},'fp-lozenge':{k:'fpat',n:'Lozenge',src:'ach'},
@@ -57492,7 +57512,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
 
 /* the caches' achievements, under Economy & trade: caches dug up (tally svc), units found (svcq), each resource found
    (svcg:<resource>), days with every cache dug up (svcall) */
-achDef('eco','eco-svc1','b','X Marks the Spot','Dig up your first survey cache on the Map.',1,x=>aT(x,'svc'));
+achDef('eco','eco-svc1','b','X Marks the Spot','Dig up your first survey cache on the Map.',1,x=>aT(x,'svc'),{u:'c-spade'});
 achDef('eco','eco-svc10','s','Spade in Hand','Dig up ten survey caches.',10,x=>aT(x,'svc'));
 achDef('eco','eco-svc50','g','Treasure Hunter','Dig up fifty survey caches.',50,x=>aT(x,'svc'));
 achDef('eco','eco-svc200','p','The Long Survey','Dig up two hundred survey caches.',200,x=>aT(x,'svc'));
@@ -57556,11 +57576,11 @@ const aViewed=(x,v)=>achYes(!x.npc&&fsSeen(x).has(v));
 achDef('found','fs-pages10','b','Finding Your Way','Open ten different pages of the game.',10,aPages);
 achDef('found','fs-pages20','b','Seen It All','Open twenty different pages of the game.',20,aPages);
 achDef('found','fs-stats','b','Census Taker','Open the Statistics page and see your nation in figures.',1,x=>aViewed(x,'stats'),{fm:'bool'});
-achDef('land','fs-map','b','Map Reader','Open the world map.',1,x=>aViewed(x,'map'),{fm:'bool'});
+achDef('land','fs-map','b','Map Reader','Open the world map.',1,x=>aViewed(x,'map'),{fm:'bool',u:'c-spyglass'});
 achDef('odd','fs-ach','b','Hall of Fame','Open the Achievements page.',1,x=>aViewed(x,'achievements'),{fm:'bool'});
-achDef('gov','fs-brief','b','First Briefing','Answer a daily briefing on the Government page.',1,x=>aT(x,'brf'));
+achDef('gov','fs-brief','b','First Briefing','Answer a daily briefing on the Government page.',1,x=>aT(x,'brf'),{u:'c-mace'});
 achDef('gov','fs-mandate','b','Spending Capital','Spend your mandate for the first time.',1,x=>aT(x,'mdt'));
-achDef('odd','fs-desk','b','On the Desk','Finish your first daily desk task on the Edicts page.',1,x=>aT(x,'ddt'));
+achDef('odd','fs-desk','b','On the Desk','Finish your first daily desk task on the Edicts page.',1,x=>aT(x,'ddt'),{u:'c-candle'});
 achDef('odd','fs-style','b','A Touch of Style','Change anything about your nation’s look in Customise.',1,x=>aT(x,'cz'));
 achDef('soc','fs-move','b','Making a Difference','Move any census score by 5 points from where it started.',5,x=>{if(x.npc||!x.n.tlx)return 0;let b=0;for(const k of STAT_KEYS){const r=x.n.tlx[k];if(Array.isArray(r))b=Math.max(b,r[1]-r[0]);}return Math.min(5,Math.floor(b));});
 achDef('found','fs-welcome','b','Welcome Aboard','Finish the first tutorial list, Welcome.',1,x=>{try{return achYes(x.me&&tutChOf(x.n).length>=1);}catch(e){return 0;}},{fm:'bool'});
