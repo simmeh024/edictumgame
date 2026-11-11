@@ -51804,11 +51804,19 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();cbMnPick(t,b.children[CB.mnSel].dataset.nm,b.children[CB.mnSel].dataset.u);}
   else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cbMnClose();}
 },true);
+/* the list is not part of the page drawing, so a redraw (a reply or the topic arriving, an author's presence) drops it
+   while render() keeps the box's text and focus (on a new box: the open list's aria-activedescendant makes the patch
+   replace it). Enter then broke the line instead of picking the name. Put the list back after every redraw while
+   its box still has the focus and an @name is being typed; the focusout below lets a redrawn box keep it. */
+render=(f=>function(){const r=f.apply(this,arguments);
+  if(CB.mnFor&&!document.getElementById('cb-mn')){const t=document.getElementById(CB.mnFor);if(t&&document.activeElement===t)cbMnSuggest(t,true);else{CB.mnFor=null;CB.mnSel=0;}}
+  return r;})(render);
 /* a mention in the bell opens its topic: set before the bell's own click handler goes to the board */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-cb]');if(!el)return;
   const m=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.cb);if(m){cbOpenSet().add(m[1]);CB.pend=[m[1],m[2]];}},true);
 document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#cb-mn li');if(!li)return;e.preventDefault();const t=document.getElementById(CB.mnFor);if(t)cbMnPick(t,li.dataset.nm,li.dataset.u);});
-document.addEventListener('focusout',e=>{if(e.target&&e.target.id&&e.target.id===CB.mnFor)setTimeout(()=>{if(document.activeElement!==e.target)cbMnClose();},0);});
+/* leaving the box closes the list; a redraw that swaps in a new box with the same id and focuses it is not leaving */
+document.addEventListener('focusout',e=>{const id=e.target&&e.target.id;if(id&&id===CB.mnFor)setTimeout(()=>{const a=document.activeElement;if(!a||a.id!==id)cbMnClose();},0);});
 /* the bell: mentions/{uid}/m, the newest 20; those older than 30 days are cleared */
 function cbMnListen(){
   if(!S.db||!S.uid||CB.mnUid===S.uid)return;
