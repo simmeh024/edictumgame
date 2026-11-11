@@ -1164,3 +1164,17 @@ test('a region chat is read by the nations of that region and by admins, and wri
   await assertFails(as('bob').doc('rcPace/bob').get());
   await assertFails(as('bob').doc('rcPace/bob').set({ p: [] }));
 });
+
+test('a chat silence is read by the silenced player and admins, and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('rcMute/bob').set({ until: Date.now() + 3600000, why: 'Spam', by: 'staff', t: 1, nm: 'Bobland', reg: 'meridian' });
+  });
+  await assertSucceeds(as('bob').doc('rcMute/bob').get());
+  await assertFails(as('carol').doc('rcMute/bob').get());
+  await assertFails(anon().doc('rcMute/bob').get());
+  await assertSucceeds(as('admin', { admin: true }).collection('rcMute').where('until', '>', Date.now()).orderBy('until').limit(200).get());
+  await assertFails(as('carol').collection('rcMute').limit(10).get());
+  await assertFails(as('bob').doc('rcMute/bob').delete());
+  await assertFails(as('bob').doc('rcMute/bob').update({ until: 0 }));
+  await assertFails(as('admin', { admin: true }).doc('rcMute/carol').set({ until: 1 }));
+});

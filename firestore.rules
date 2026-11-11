@@ -473,6 +473,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg;
     }
     match /rcPace/{uid} { allow read, write: if false; }
+    // rcMute/{uid} {until, perm?, why, by, t, nm, reg}: staff silenced this player in the region chats (functions/regionchat.js,
+    // rcMute). The player reads their own, so their game shows it in place of the writing box; admins read every one
+    // (the admin portal's Region chats page); only the server writes
+    match /rcMute/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+    }
     // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, only by the
     // server (functions/accounts.js, 'recruit': a Registered Nation, newer than the recruiter's); the recruiter reads
     // the ones naming them (each side pays itself the bonus)

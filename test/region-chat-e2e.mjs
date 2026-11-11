@@ -2,7 +2,8 @@
 // Registered Nations of the region write lines that reach every other nation of it at once, paced by the server; a
 // line naming a nation is marked and told; guests read only; a line's menu reports it (the moderators' queue, which
 // removes it), blocks its nation (its lines hidden, and its letters stopped) or deletes it; staff remove any line;
-// Settings › Letters turns the chat off.
+// Settings › Letters turns the chat off; staff read every region's chat in the admin portal, write as the Edictum
+// team and silence a player (and lift it).
 //   npm run test:region-chat
 import { player, open, ready, found, register, until, check, finish, setClaims, text, restListAdmin, clearEmulators, sleep, nav } from './lib.mjs';
 await clearEmulators();
@@ -176,5 +177,46 @@ check('turning the chat off removes the button and closes the drawer', await unt
 check('the setting is kept with the nation', await until(() => C.evaluate(() => G.S.nation.dmx?.rc === 0)));
 await C.check('#set-letters-chat [data-rgc="set-on"]');
 check('turning it on again brings the button back', await until(async () => !!(await C.$('.rgc-btn'))));
+
+/* ── 11. staff: the admin portal's Region chats, the team's lines, silencing and lifting ── */
+await sleep(1700);
+await say(B, 'Selling cheap iron!');
+await until(async () => (await lines()).some(l => l.x === 'Selling cheap iron!'));
+await A.keyboard.press('Escape'); await openChat(C);
+await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-chat"]');
+check('the admin portal has a Region chats page under Moderation', await until(async () => /Region chats/.test(await text(A, '.adm-main h1')) && /Region chats/.test(await text(A, '.adm-nav-group[aria-label="Moderation"]'))));
+check('it lists the regions, busiest first, with their newest line', await until(async () => /Selling cheap iron!/.test(await text(A, '#acx-regs li:first-child')) && (await A.$$('#acx-regs .acx-reg')).length > 20));
+check('the admin’s region is open, with its chat as it happens', await until(async () => /Selling cheap iron!/.test(await text(A, '#acx-log'))) && !!(await A.$('#acx-regs .acx-reg.on[aria-current="true"]')));
+await A.fill('#acx-x', 'Maintenance tonight at 22:00 UTC.'); await A.press('#acx-x', 'Enter');
+check('staff write as the Edictum team, and the region reads it at once', await until(async () => (await shown(B)).includes('Maintenance tonight at 22:00 UTC.'), 15000));
+const team = (await lines()).find(l => l.x === 'Maintenance tonight at 22:00 UTC.');
+check('the team’s line is signed Edictum team, by the staff member, with the team mark', team && team.nm === 'Edictum team' && team.a === uidA && team.st === 'admin', JSON.stringify(team));
+check('players see the team’s mark and name, with nothing to report or block', await B.$$eval('#rgc-list .rgc-l', l => { const li = l.find(x => x.querySelector('.rgc-x')?.textContent === 'Maintenance tonight at 22:00 UTC.'); return !!li && /Edictum team/.test(li.textContent) && !!li.querySelector('.rgc-tmfl') && !li.querySelector('.rgc-more'); }));
+const iron = await A.$$eval('#acx-log .acx-l', l => (l.find(li => /Selling cheap iron!/.test(li.textContent)) || {}).dataset?.id || '');
+await A.click(`#acx-log [data-act="acx-mute-ask"][data-id="${iron}"]`);
+check('Silence… asks how long and why, about the right nation', await until(async () => /Silence Chatterly in every region’s chat\?/.test(await text(A, '#acx-mute'))));
+await A.selectOption('#acx-mh', '24'); await A.fill('#acx-mw', 'Spam'); await A.check('#acx-mx');
+await A.click('#acx-mute-go');
+check('silencing says so, and takes the nation’s lines of the last day', await until(async () => /Chatterly is silenced in the region chat for 24 hours\. \d+ lines? (was|were) removed\./.test(await toasts(A)) && !(await shown(C)).includes('Selling cheap iron!'), 15000));
+check('the silenced players list it, with its reason and Lift', await until(async () => /Chatterly/.test(await text(A, '.acx-mt')) && /Spam/.test(await text(A, '.acx-mt')) && !!(await A.$(`.acx-mt [data-act="acx-lift"][data-id="${uidB}"]`))));
+check('the audit log keeps the silence', await until(async () => (await restListAdmin('adminAudit')).some(d => d.fields.action?.stringValue === 'chat_silence' && d.fields.target?.stringValue === uidB && d.fields.reason?.stringValue === 'Spam')));
+await B.keyboard.press('Escape'); await openChat(B);
+check('the silenced player sees why, and until when, in place of the writing box', await until(async () => /A moderator has silenced you in the region chat until .+\. Reason: Spam\./.test(await text(B, '#rgc-foot')) && !(await B.$('#rgc-x'))));
+const silenced = await civic(B, { op: 'rcPost', x: 'Let me speak' });
+check('the server refuses the silenced player too', !silenced.ok && silenced.code === 'rc_silenced', JSON.stringify(silenced));
+check('the silenced player still reads the chat', (await shown(B)).includes('Maintenance tonight at 22:00 UTC.'));
+await A.click(`.acx-mt [data-act="acx-lift"][data-id="${uidB}"]`);
+check('Lift ends the silence', await until(async () => /Nobody is silenced/.test(await text(A, '.adm-main'))));
+await B.keyboard.press('Escape'); await openChat(B);
+check('the player gets the writing box back', await until(async () => !!(await B.$('#rgc-x'))));
+await sleep(1700); await say(B, 'Sorry, everyone.');
+check('and writes again', await until(async () => (await shown(C)).includes('Sorry, everyone.') && (await lines()).some(l => l.x === 'Sorry, everyone.' && l.a === uidB)));
+await A.click('.adm-return'); await ready(A); await openChat(A);
+const sorry = await lineOf(A, 'Sorry, everyone.');
+await A.click(`#rgc-list .rgc-more[data-id="${sorry}"]`);
+check('in the chat itself, staff find Silence in a line’s menu', /Silence Chatterly…/.test(await text(A, '.rgc-menu')));
+await A.click('.rgc-menu [data-rgc="mute-ask"]');
+check('it asks how long and why there too', await until(async () => !!(await A.$('#rgc-list .rgc-mute select[data-rgc="mute-h"]')) && /Silence Chatterly in every region’s chat\?/.test(await text(A, '#rgc-list .rgc-mute'))));
+await A.keyboard.press('Escape');
 
 await finish();
