@@ -46,7 +46,7 @@ await nav(D,'nation');const otherProse=await text(D,'.overview > p:last-child');
 check('another nation has its own currency story',otherProse!==ownProse&&/Notelander Crown/.test(otherProse));
 
 await nav(C,'intel');await C.selectOption('#cv-tg',uidD);await C.click('[data-act="cv-k"][data-k="c"]');
-check('counterfeiting is offered with explicit cost, duration and limits',/24 hours/.test(await text(C,'.cv-fx'))&&/do not stack/.test(await text(C,'.cv-fx'))&&(await C.$$('.cv-k')).length===5);
+check('counterfeiting is offered with explicit cost, duration and limits',/24 hours/.test(await text(C,'.cv-fx'))&&/do not stack/.test(await text(C,'.cv-fx'))&&(await C.$$('.cv-k')).length===7);
 check('the operation displays its real resource cost',/10 timber/.test(await text(C,'.cv-odds'))&&/22 goods/.test(await text(C,'.cv-odds')));
 /* the Cat on the Note achievement (a clean counterfeit) earned beforehand, so a rank-up gift cannot move the stock below */
 await C.evaluate(()=>{const n=G.clone(G.S.nation);n.tly=Object.assign({},n.tly,{"cov:cclean":1});G.commit(n);});

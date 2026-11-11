@@ -187,12 +187,22 @@ function asmNpcVote(x,L,c){
   const sc=asmNpcScore(x,L,c)+(r()*2-1)*0.8;
   return {v:sc>=0.6?1:sc<=-0.6?-1:0,t:at,sc};
 }
+/* sways: members' agents leaning on computer nations (asm.w, kept by the server). The earliest successful sway of each
+   computer nation that had not voted yet decides its vote */
+function asmSways(recs,L,c){const m=new Map();for(const r of recs){const w=r.n&&r.n.asm&&r.n.asm.w;if(!w||w.c!==c||w.k!==L.k||!w.ok||![1,-1].includes(w.v)||!Array.isArray(w.np))continue;
+  for(const id of w.np.slice(0,2)){const o=m.get(id);if(!o||w.t<o.t)m.set(id,{v:w.v,t:w.t,by:r.id,ex:!!w.ex});}}return m;}
+/* the computer nations a sway at time T can reach: up to two that have not voted yet and would not vote that way, those
+   nearest to it first */
+function asmSwayPick(L,c,T,v){
+  return NPC_NATIONS.filter(x=>x.id!==L.by).map(x=>({x,nv:asmNpcVote(x,L,c)})).filter(o=>o.nv.t>T&&o.nv.v!==v)
+    .sort((a,b)=>v*(b.nv.sc-a.nv.sc)||(a.x.id<b.x.id?-1:1)).slice(0,2).map(o=>o.x.id);
+}
 function asmTally(L,c,recs,T,D){
-  const t0=asmT0(c),t1=asmT0(c+1),Tm=Math.min(T,t1-1),rows=[];let y=0,no=0,shown=0;
+  const t0=asmT0(c),t1=asmT0(c+1),Tm=Math.min(T,t1-1),rows=[],sw=asmSways(recs,L,c);let y=0,no=0,shown=0;
   for(const r of recs){if(!asmMemberAt(r.n,Tm))continue;const a=asmA(r.n),v=a&&a.v?a.v.find(x=>x.c===c&&x.k===L.k&&x.t>=t0&&x.t<t1&&x.t<=T):null;
     const del=!!(D&&D.id===r.id),w=del?asmDW(D.k):1,row={id:r.id,n:r.n,me:!!r.me,v:v?v.v:0,t:v?v.t:0,w,del};if(v&&v.x)row.x=asmClean(v.x,ASM_WHY);
     rows.push(row);if(v){if(v.v>0)y+=w;else if(v.v<0)no+=w;}}
-  for(const x of NPC_NATIONS){const nv=asmNpcVote(x,L,c),on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
+  for(const x of NPC_NATIONS){let nv=asmNpcVote(x,L,c);const s=sw.get(x.id);if(s&&s.t<nv.t)nv={...nv,v:s.v};const on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W,...(s&&s.ex&&s.t<nv.t?{sw:s.by}:{})});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
   y=Math.round(y*100)/100;no=Math.round(no*100)/100;
   return {rows,y,n:no,ok:y>no,shown};
 }
@@ -234,5 +244,5 @@ function asmState(now,me){
   return v;
 }
 
-return {state:now=>asmState(now),pick:(c,exclude)=>asmPickRaw(c,records,exclude),tally:asmTally,delegate:asmDelegateAt,key:asmPKey,cycle:asmCyc,t0:asmT0,cats:ASM_CATS,book:c=>asmBookAt(c,asmLocks()),bookStep:asmBookStep,absent:asmAbsentAt,weight:asmDW};
+return {state:now=>asmState(now),pick:(c,exclude)=>asmPickRaw(c,records,exclude),tally:asmTally,swayPick:asmSwayPick,delegate:asmDelegateAt,key:asmPKey,cycle:asmCyc,t0:asmT0,cats:ASM_CATS,book:c=>asmBookAt(c,asmLocks()),bookStep:asmBookStep,absent:asmAbsentAt,weight:asmDW};
 }

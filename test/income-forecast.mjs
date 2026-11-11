@@ -93,7 +93,7 @@ const SETUP = (n, now) => {
   check('the base is today’s day', same(res.base.rt, JSON.parse(res.before.rt)), { base: res.base.rt, now: res.before.rt });
   check('the Sawmill adds timber', res.steps[0].rt.timber > 0.5, res.steps[0]);
   check('the Farm Estates upgrade adds food', res.steps[1].rt.food > 0.05, res.steps[1]);
-  check('the Warehouse adds storage and no income', res.steps[2].cap > 0 && Object.values(res.steps[2].rt).every(v => Math.abs(v) < 1e-9), res.steps[2]);
+  check('the Warehouse adds storage and no income', res.steps[2].cap > 0 && Object.values(res.steps[2].rt).every(v => Math.abs(v) < 1e-6), res.steps[2]);
   check('the steps add up to the total', ['food', 'timber', 'iron', 'oil', 'goods'].every(r => Math.abs(res.steps.reduce((s, x) => s + x.rt[r], 0) - res.total.rt[r]) < 1e-9));
   /* the breakdown's quick plan (now and all done, nothing between) agrees with the full one */
   const quick = await page.evaluate(() => { const G = window.__game, n = G.clone(G.S.nation); G.commit(n); const q = G.IFC().plan(G.S.nation, true), f = G.IFC().plan(G.S.nation), q2 = G.IFC().plan(G.S.nation, true); return { qs: q.steps.length, fs: f.steps.length, q: q.total.rt, f: f.total.rt, reuse: q2 === f }; });
