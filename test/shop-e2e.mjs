@@ -17,7 +17,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), SECRET = 'pdl_ntfset_e2e', H = 36e5, DAY = 864e5;
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001', cartopack: 'pri_cartopack0001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001', cartopack: 'pri_cartopack0001', embpack: 'pri_embpack000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── Paddle, played by this test ── */
@@ -95,8 +95,8 @@ check('without an answer from Paddle the prices stay in euros alone', !(await G.
 const A = await player('shop founder', { vp: { width: 1280, height: 1000 }, cap: 500 });const aUid = await open(A);await found(A, 'Gildmark');await register(A);
 /* Paddle answers in the player's own currency (here Mexican pesos), as it does for a player in Mexico */
 /* (set again after a reload, before the Shop is next drawn) */
-const pesos = p => p.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66', [P.orpack]: 'MX$62.71', [P.sailpack]: 'MX$62.71', [P.cbpack]: 'MX$52.25', [P.tulippack]: 'MX$62.71', [P.cartopack]: 'MX$83.62' };
-  const N = { [P.founder]: 20939, [P.idpack]: 6271, [P.vip]: 10466, [P.orpack]: 6271, [P.sailpack]: 6271, [P.cbpack]: 5225, [P.tulippack]: 6271, [P.cartopack]: 8362 };
+const pesos = p => p.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66', [P.orpack]: 'MX$62.71', [P.sailpack]: 'MX$62.71', [P.cbpack]: 'MX$52.25', [P.tulippack]: 'MX$62.71', [P.cartopack]: 'MX$83.62', [P.embpack]: 'MX$52.25' };
+  const N = { [P.founder]: 20939, [P.idpack]: 6271, [P.vip]: 10466, [P.orpack]: 6271, [P.sailpack]: 6271, [P.cbpack]: 5225, [P.tulippack]: 6271, [P.cartopack]: 8362, [P.embpack]: 5225 };
   window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])), amounts: Object.fromEntries(items.filter(id => N[id]).map(id => [id, N[id]])) }); }, PRICES);
 await pesos(A);
 await go(A, 'shop');
@@ -131,6 +131,10 @@ check('the Cartographer’s Pack is on sale, thirteen pieces, in pesos too (the 
 await openDr(A, 'cartopack');
 check('its drawer shows the land in four finishes and three border lines, the colours, the wind rose and the poster', (await A.evaluate(() => document.querySelectorAll('.shop-cartopack .ctg-fig').length)) === 7 && (await A.evaluate(() => document.querySelectorAll('.shop-cartopack .ctg-mc').length)) === 3 && !!(await A.$('.shop-cartopack svg.ctg-pst')) && !!(await A.$('.shop-cartopack .ctg-hero svg.ctg-land')));
 await shot(A, '.shop-dr .shop-cartopack', 'shop-carto-drawer.png');
+check('Embassy Stationery is on sale, eleven pieces, in pesos', /Embassy Stationery/.test(await txt(A, '.shop-cd[data-p="embpack"]')) && /11 pieces/.test(await txt(A, '.shop-cd[data-p="embpack"]')) && /MX\$52\.25/.test(await txt(A, '.shop-cd[data-p="embpack"]')), await txt(A, '.shop-cd[data-p="embpack"]'));
+await openDr(A, 'embpack');
+check('its drawer shows three sealed, signed and stamped letters, the seals, the stamps and the epithet', (await A.evaluate(() => document.querySelectorAll('.shop-embpack .emb-letters .bub.has-pm .dm-pm').length)) === 3 && (await A.evaluate(() => document.querySelectorAll('.shop-embpack .emb-seals .dm-wax').length)) === 3 && (await A.evaluate(() => document.querySelectorAll('.shop-embpack .emb-stamps .dm-pm').length)) === 2 && !!(await A.$('.shop-embpack .emb-letters .lp-i-treaty .dm-sig.hc')));
+await shot(A, '.shop-dr .shop-embpack', 'shop-emb-drawer.png');
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
