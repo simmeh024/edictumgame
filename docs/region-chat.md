@@ -4,7 +4,7 @@ A live chat for each region: the nations of a region talk to each other in short
 
 ## What players get
 
-- **The Chat button** (a speech bubble) beside the bell. Its number counts the lines not yet read; lines from
+- **The Chat button** (a speech bubble) beside the bell and the search button. Its number counts the lines not yet read; lines from
   blocked nations are not counted.
 - **The drawer.** It opens on the right of any page (the whole screen on a phone) and shows the newest 60 lines of
   the region: each with its nation's flag, name (a link to its page) and time, the Edictum staff mark for staff, a

@@ -28,7 +28,7 @@ const lineOf = async (p, x) => p.$$eval('#rgc-list .rgc-l', (l, x) => (l.find(li
 const civic = (p, d) => p.evaluate(d => Promise.resolve(window.claude.use('civic')).then(api => api.request(d)).then(r => ({ ok: true, r }), e => ({ ok: false, code: e.details?.code || e.code, message: e.message })), d);
 
 /* ── 1. the button and the drawer ── */
-check('the Chat button sits beside the bell', !!(await B.$('.brand-actions .bell + .rgc-btn')) && /Region chat/.test(await B.getAttribute('.rgc-btn', 'aria-label')));
+check('the Chat button sits beside the bell and search', !!(await B.$('.brand-actions .bell + .ux-search-button + .rgc-btn')) && /Region chat/.test(await B.getAttribute('.rgc-btn', 'aria-label')));
 await nav(B, 'cities');
 await B.click('.rgc-btn');
 await B.waitForSelector('#rgc-dock:not([hidden])');
