@@ -30300,13 +30300,15 @@ const dspAbout=(E,id)=>E.all.filter(s=>s.who.includes(id));
 
 /* ───── the press: press/<region>, which only the server writes (functions/civic.js, paper; functions/admin.js):
    nm and mo, the paper's name and motto as the Assembly's Delegate chose them (by, bn, t), and x, the classified
-   advertisements the moderators struck out ({<player>_<ad id>: time}). Read on opening the paper, then every few
-   minutes while it is open. ───── */
+   advertisements the moderators struck out ({<player>_<ad id>: time}), and fk, the Flock peeps they removed
+   ({<player>_<peep time>: time}, functions/admin.js). Read on opening the paper or Flock, then every few minutes while
+   one is open. ───── */
 const PRESS={reg:'',d:null,at:0,busy:false,sig:'',rev:0};
 function pressClean(d){
-  const o={nm:'',mo:'',by:'',bn:'',t:0,x:new Set()};if(!d||typeof d!=='object')return o;
+  const o={nm:'',mo:'',by:'',bn:'',t:0,x:new Set(),fk:new Set()};if(!d||typeof d!=='object')return o;
   o.nm=dspClean(d.nm,DSP_NM_MAX);o.mo=dspClean(d.mo,DSP_MO_MAX);o.by=dspClean(d.by,128);o.bn=dspClean(d.bn,40);o.t=typeof d.t==='number'&&isFinite(d.t)?d.t:0;
   if(d.x&&typeof d.x==='object')for(const k of Object.keys(d.x).slice(0,4000))if(/^[\w-]{1,128}_[a-z0-9]{1,12}$/.test(k))o.x.add(k);
+  if(d.fk&&typeof d.fk==='object')for(const k of Object.keys(d.fk).slice(0,8000))if(/^[\w-]{1,128}_\d{10,16}$/.test(k))o.fk.add(k);
   return o;
 }
 function pressDoc(){return PRESS.reg===REG.id?PRESS.d:null;}
@@ -30315,8 +30317,8 @@ function pressLoad(force){
   if(!force&&PRESS.reg===REG.id&&Date.now()-PRESS.at<DSP_PRESS_TTL)return;
   const reg=REG.id;PRESS.busy=true;
   Promise.resolve().then(()=>S.db.doc('press/'+reg).get()).then(s=>{
-    const o=pressClean(s&&s.exists?s.data():null),sig=JSON.stringify([reg,o.nm,o.mo,o.bn,o.t,[...o.x].sort()]),ch=sig!==PRESS.sig;
-    Object.assign(PRESS,{reg,d:o,at:Date.now(),busy:false,sig});if(ch){PRESS.rev++;if(S.view==='dispatch'&&reg===REG.id)render();}
+    const o=pressClean(s&&s.exists?s.data():null),sig=JSON.stringify([reg,o.nm,o.mo,o.bn,o.t,[...o.x].sort(),[...o.fk].sort()]),ch=sig!==PRESS.sig;
+    Object.assign(PRESS,{reg,d:o,at:Date.now(),busy:false,sig});if(ch){PRESS.rev++;if(typeof fkStrikeSweep==='function')fkStrikeSweep();if((S.view==='dispatch'||S.view==='flock')&&reg===REG.id)render();}
   },()=>{if(PRESS.reg!==reg)PRESS.d=null;Object.assign(PRESS,{reg,at:Date.now(),busy:false});});
 }
 /* the paper's name: the Delegate's choice, or its own */
@@ -37476,7 +37478,7 @@ const FK_REPLY={
 };
 function fkLeaderPosts(C){
   const F=C.F,n=F.n;if(F.npc||!Array.isArray(n.flk))return;const L=fkAcc(C,'L');if(!L)return;
-  for(const q of n.flk){if(!q||!isFinite(q.t)||q.t<C.from-6*FK_HR||q.t>=C.to)continue;
+  for(const q of n.flk){if(!q||!isFinite(q.t)||q.t<C.from-6*FK_HR||q.t>=C.to||fkStruck(F.id,q.t))continue;
     const key='me:'+q.t,p=fkMk(C,{key,t:q.t,a:L,x:q.x,kind:'me',w:4,ugc:true,topic:''});C.ev.push({t:q.t,w:2});if(!p)continue;
     if(q.r)p.re=q.r;if(q.q)p.qt=q.q;if(q.m)p.mn=q.m;
     const s=fkStatsAt(F,q.t),ap=fkApproval(s)/100,low=q.x.toLowerCase(),V=fkVars(F,q.t);
@@ -37673,7 +37675,7 @@ function fkNpcPosts(x,from,to,now){
 }
 /* ── the feed: built per scope and window, memoised by the records and a ten-minute bucket ── */
 const fkNat=new Map(),fkFeeds=new Map();let fkLastMs=0,fkBuilds=0,fkFirst=null;
-function fkSig(){let s='';for(const x of allNations())if(!x.npc)s+=x.id+':'+(x.n.updatedAt||0)+'|';return s+(typeof npcRev!=='undefined'?npcRev:0)+'|'+(S.mode||'');}
+function fkSig(){let s='';for(const x of allNations())if(!x.npc)s+=x.id+':'+(x.n.updatedAt||0)+'|';return s+(typeof npcRev!=='undefined'?npcRev:0)+'|'+(S.mode||'')+'|'+fkStrikeSig();}
 function fkWin(days,now){const to=(Math.floor(now/FK_BUCKET)+1)*FK_BUCKET;return {from:to-days*DAY,to};}
 /* quick: without the tips and the finds turning up nearby (they need the whole map's fleeting grid), for the bell and the teaser */
 function fkNationBuild(x,from,to,lite,now,sig,quick){
@@ -37781,7 +37783,7 @@ function fkCard(p,now,o){
   const head=`<div class="fk-h"><span class="fk-h1"><button class="fk-nm" data-act="flk-who" data-k="${esc(fkWhoKey(a))}"><span>${esc(a.nm)}</span></button>${fkBadge(a)}<span class="fk-hd">@${esc(a.h)}</span><span class="fk-dot" aria-hidden="true">·</span><time datetime="${new Date(p.t).toISOString()}" title="${fkDay(p.t,1)+' '+fkTime(p.t)}">${fkRel(p.t,now)}</time></span>${o.chip?fkNatChip(p):''}</div>`;
   const q=p.q?`<div class="fk-q">${p.q.place?`<span class="fk-q-k">${esc(p.q.place)}${p.q.h?' · '+esc(p.q.h):''}</span>`:p.q.h?`<span class="fk-q-k">${esc(p.q.h)}</span>`:''}<p>${esc(p.q.b)}</p></div>`:'';
   const go=p.go?`<button class="fk-go" data-act="${esc(p.go.act)}"${p.go.v?` data-v="${esc(p.go.v)}"`:''}${p.go.id?` data-id="${esc(p.go.id)}"`:''}${p.go.k?` data-k="${esc(p.go.k)}"`:''}>${p.kind==='guide'?FK_IC.tip:''}<span>${esc(p.go.l)}</span><span aria-hidden="true">→</span></button>`:'';
-  const del=p.kind==='me'&&p.nid===myId()&&!o.reply?`<button class="fk-del linkish small" data-act="flk-del" data-t="${p.t}">Delete</button>`:'';
+  const del=p.kind==='me'&&p.nid===myId()&&!o.reply?`<button class="fk-del linkish small" data-act="flk-del" data-t="${p.t}">Delete</button>`:talk&&p.nid!==myId()?`<button class="fk-del linkish small" data-act="flk-report" data-id="${esc(p.id)}">Report</button>`:'';
   const acts=o.reply?'':`<div class="fk-acts">${talk?`<button class="fk-act fk-rp" data-act="flk-reply" data-id="${esc(p.id)}" title="Reply">${FK_IC.reply}<span class="fk-sr">Reply</span><b>${rc?fkK(rc):''}</b></button>`:`<span class="fk-act" title="Replies">${FK_IC.reply}<b>${rc?fkK(rc):''}</b></span>`}<button class="fk-act fk-rs${rs?' on':''}" data-act="flk-rs" data-id="${esc(p.id)}" aria-pressed="${rs}" title="Repeep">${FK_IC.rs}<b>${fkK(M.r+(rs?1:0))}</b></button>${talk?`<button class="fk-act fk-qb" data-act="flk-quote" data-id="${esc(p.id)}" title="Quote">${FK_IC.quote}<span class="fk-sr">Quote</span></button>`:''}<button class="fk-act fk-like${liked?' on':''}" data-act="flk-like" data-id="${esc(p.id)}" aria-pressed="${liked}" title="Like">${FK_IC.like}<b>${fkK(M.l+(liked?1:0))}</b></button><span class="fk-act fk-views" title="Views">${FK_IC.views}<b>${fkK(M.v)}</b></span>${del}</div>`;
   const vis=(p.rp||[]).concat(xr).filter(r=>r.t<=now).sort((x,y)=>x.t-y.t),open=S.flkOpen===p.id,show=open?vis:vis.slice(0,2);
   const th=!o.reply&&!o.teaser&&vis.length?`<ol class="fk-th">${show.map(r=>`<li>${fkCard(r,now,{reply:true})}</li>`).join('')}</ol>${vis.length>2?`<button class="fk-more-rp linkish small" data-act="flk-th" data-id="${esc(p.id)}">${open?'Show fewer replies':'Show '+(vis.length-2)+' more '+(vis.length-2===1?'reply':'replies')}</button>`:''}`:'';
@@ -37792,7 +37794,7 @@ function fkCard(p,now,o){
    Saved on the leader's own peep in n.flk: r {n, t} answers the peep of nation n made at t, q {n, t} quotes it, m lists the
    nations whose leaders it mentions (@handle). Nothing new is stored anywhere else: the other player's client finds them
    in the region's records, shows them in the thread, in Mentions and in the bell. */
-const FK_MN=5,FK_MENT_WIN=30*DAY,FK_MSEEN='statehood.flock.ment',FK_NID=/^[A-Za-z0-9_-]{1,128}$/;
+const FK_MN=5,FK_RM_KEEP=5,FK_MENT_WIN=30*DAY,FK_MSEEN='statehood.flock.ment',FK_NID=/^[A-Za-z0-9_-]{1,128}$/;
 var fkXR=null,fkMnSel=0,fkHmemo=null;
 function fkPid(r){return r.n+':me:'+r.t;}
 function fkBlocked(id){try{return typeof dmBlocked==='function'&&dmBlocked(id);}catch(e){return false;}}
@@ -37800,13 +37802,24 @@ function fkBlocked(id){try{return typeof dmBlocked==='function'&&dmBlocked(id);}
 function fkCanPeep(){return !!(S.nation&&S.nation.name)&&!OBS;}
 function fkCanTalk(p){return p.kind==='me'&&!p.npc&&!!p.nid&&fkCanPeep();}
 /* the peep a pointer names, from the region's records (so it shows even when it is older than the view) */
-function fkPeepAt(r){if(!r)return null;const x=findNation(r.n),e=x&&!x.npc&&x.n&&Array.isArray(x.n.flk)?x.n.flk.find(q=>q&&q.t===r.t):null;return e?{x,e}:null;}
+/* peeps the moderators removed (press/<region>.fk): hidden from everyone, and dropped from the author's own record */
+function fkStruck(nid,t){const d=typeof pressDoc==='function'?pressDoc():null;return !!(d&&d.fk&&d.fk.has(nid+'_'+t));}
+function fkStrikeSig(){const d=typeof pressDoc==='function'?pressDoc():null;return d&&d.fk?d.fk.size+':'+PRESS.rev:'0';}
+/* the strike list is read with the paper's (pressLoad, every few minutes at most), only where peeps of others show */
+function fkStrikeLoad(){try{if(typeof pressLoad==='function')pressLoad();}catch(e){}}
+function fkStrikeSweep(){
+  const n=S.nation;if(!n||!n.name||OBS||!Array.isArray(n.flk))return;const me=myId(),gone=n.flk.filter(q=>q&&fkStruck(me,q.t));if(!gone.length)return;
+  const m=clone(n),now=Date.now();m.flk=m.flk.filter(q=>!(q&&fkStruck(me,q.t)));if(!m.flk.length)delete m.flk;
+  m.flkRm=(Array.isArray(m.flkRm)?m.flkRm:[]).concat(gone.map(q=>({t:q.t,at:now}))).slice(-FK_RM_KEEP);
+  commit(m);saveSoon();toast(gone.length===1?'A moderator removed one of your peeps.':`A moderator removed ${gone.length} of your peeps.`);
+}
+function fkPeepAt(r){if(!r||fkStruck(r.n,r.t))return null;const x=findNation(r.n),e=x&&!x.npc&&x.n&&Array.isArray(x.n.flk)?x.n.flk.find(q=>q&&q.t===r.t):null;return e?{x,e}:null;}
 function fkLeaderOf(x){return Object.assign(fkLeaderAcc(x),{nid:x.id,nn:x.n.name,pal:(x.n.flag&&x.n.flag.c)||[],flag:x.n.flag});}
 function fkReLine(p){const x=findNation(p.re.n);if(!x||x.npc||!x.n)return '<p class="fk-to">Replying to a peep</p>';
   return `<p class="fk-to">Replying to <button type="button" class="fk-atb" data-act="flk-goto" data-id="${esc(fkPid(p.re))}" data-k="${esc(x.id+'|L')}">@${esc(fkLeaderH(x.n))}</button></p>`;}
 /* the quoted peep, small, under the quoting one; plain (no buttons) inside the composer */
 function fkQuoteBox(r,now,plain){
-  const f=fkPeepAt(r);if(!f)return '<div class="fk-qp fk-qp-gone">This peep has been deleted.</div>';
+  const f=fkPeepAt(r);if(!f)return `<div class="fk-qp fk-qp-gone">${fkStruck(r.n,r.t)?'A moderator removed this peep.':'This peep has been deleted.'}</div>`;
   const L=fkLeaderOf(f.x),nm=plain?`<b class="fk-nm"><span>${esc(L.nm)}</span></b>`:`<button type="button" class="fk-nm" data-act="flk-goto" data-id="${esc(fkPid(r))}" data-k="${esc(f.x.id+'|L')}"><span>${esc(L.nm)}</span></button>`;
   return `<div class="fk-qp"><div class="fk-qp-h">${fkAv(L,20)}${nm}<span class="fk-hd">@${esc(L.h)}</span><span class="fk-dot" aria-hidden="true">·</span><time datetime="${new Date(f.e.t).toISOString()}">${fkRel(f.e.t,now)}</time></div><p class="fk-qp-x">${plain?esc(fkClip(f.e.x,160)):fkText(f.e.x)}</p></div>`;
 }
@@ -37826,7 +37839,7 @@ function fkMentionIds(x){const H=fkHandles(),me=myId(),out=[];
 /* other leaders' peeps that answer, quote or mention the player's, newest first (none from a blocked nation) */
 function fkMentionRecs(now){const me=myId(),out=[];if(!S.nation||!S.nation.name)return out;
   for(const x of allNations()){if(x.me||x.npc||x.id===me||!x.n||!Array.isArray(x.n.flk)||fkBlocked(x.id))continue;
-    for(const q of x.n.flk){if(!q||q.t>now||now-q.t>FK_MENT_WIN)continue;const k=q.r&&q.r.n===me?'r':q.q&&q.q.n===me?'q':Array.isArray(q.m)&&q.m.includes(me)?'m':'';if(k)out.push({x,q,k,id:x.id+':me:'+q.t});}}
+    for(const q of x.n.flk){if(!q||q.t>now||now-q.t>FK_MENT_WIN||fkStruck(x.id,q.t))continue;const k=q.r&&q.r.n===me?'r':q.q&&q.q.n===me?'q':Array.isArray(q.m)&&q.m.includes(me)?'m':'';if(k)out.push({x,q,k,id:x.id+':me:'+q.t});}}
   return out.sort((a,b)=>b.q.t-a.q.t);}
 /* a leader's peep as a card, for one older than the feed's window */
 function fkLitePost(x,q){let a=null;try{a=fkAccByKey(x.id+'|L');}catch(e){}a=a||fkLeaderOf(x);
@@ -37891,7 +37904,7 @@ function fkProfile(a,now){
     <p class="fk-prof-m">${a.role?`<span>${esc(a.role)}</span>`:a.tp?`<span>${esc(FK_TNAME[a.tp])}</span>`:''}${h?`<span>Lives in ${esc(h.nm)}</span>`:''}${a.nn?`<span>${esc(a.nn)}</span>`:`<span>${esc(REG.name)}</span>`}<span><b>${fkK(a.fol)}</b> followers</span></p></div></section>`;
 }
 function flkView(now){
-  now=fkNow();const n=S.nation;try{localStorage.setItem(FK_SEEN,'1');}catch(e){}
+  now=fkNow();const n=S.nation;try{localStorage.setItem(FK_SEEN,'1');}catch(e){}fkStrikeLoad();
   const sc=fkScope(),tab=S.flkTab||'home',days=clamp(S.flkDays||2,2,7);
   const head=`<header class="fk-top"><span class="fk-logo">${FK_IC.bird}</span><span class="fk-word">Flock</span></header>`;
   const tabs=[['home','Timeline',FK_IC.home,'Timeline'],['trend','Trending',FK_IC.trend,'Trending'],['ment','Mentions',FK_IC.at,'Mentions'],['me','Your account',FK_IC.me,'You'],['people','Who’s who',FK_IC.people,'People']];
@@ -37975,6 +37988,8 @@ document.addEventListener('click',e=>{
   if(a==='flk-follow'){const k=el.dataset.k,F=fkLS().f;if(F[k])delete F[k];else F[k]=1;fkLSsave();document.querySelectorAll('.fk-fol[data-k="'+(window.CSS&&CSS.escape?CSS.escape(k):k)+'"]').forEach(b=>{const on=!!F[k];b.classList.toggle('on',on);b.textContent=on?'Following':'Follow';b.setAttribute('aria-pressed',on);});return;}
   if(a==='flk-reply'||a==='flk-quote'){const m=/^(.+):me:(\d+)$/.exec(el.dataset.id||'');if(!m||!fkCanPeep())return;const r={k:a==='flk-reply'?'r':'q',n:m[1],t:+m[2]};if(!fkPeepAt(r))return;
     S.flkRe=r;if(S.flkTab==='people')S.flkTab='home';render();fkFocusCompose();return;}
+  if(a==='flk-report'){const m=/^(.+):me:(\d+)$/.exec(el.dataset.id||''),f=m&&fkPeepAt({n:m[1],t:+m[2]});if(!f||f.x.me||!fkCanPeep())return;
+    Promise.resolve(window.claude&&window.claude.use?window.claude.use('report'):null).then(R=>{if(R)R.open({kind:'post',target:f.x.id,post:'flk:'+f.x.id+':'+f.e.t,reg:REG.id,name:f.x.n.name,x:String(f.e.x).slice(0,600)});else toast('Reporting needs a connection to the region.');}).catch(()=>{});return;}
   if(a==='flk-recancel'){S.flkRe=null;render();const t=document.getElementById('flk-text');if(t)t.focus();return;}
   if(a==='flk-goto'){const id=el.dataset.id;S.flkOpen=id;if(S.view!=='flock'||!document.getElementById('fk-'+fkHid(id))){S.flkWho=el.dataset.k;S.flkTab='who';S.flkN=FK_PAGE;S.view='flock';}render();fkFlash(id);return;}
   if(a==='flk-del'){const t=+el.dataset.t,n=clone(S.nation);n.flk=(n.flk||[]).filter(q=>q.t!==t);if(!n.flk.length)delete n.flk;commit(n);render();toast('Peep deleted.');return;}
@@ -38002,8 +38017,11 @@ document.addEventListener('focusout',e=>{if(e.target&&e.target.id==='flk-text')s
 /* the bell: another leader answered, quoted or mentioned the player; the notice opens Mentions at that peep */
 NOTIF_SOURCES.push((n,now)=>{
   if(!n||!n.name||OBS)return [];let R=[];try{R=fkMentionRecs(now);}catch(e){return [];}
-  return R.slice(0,20).map(r=>({t:r.q.t,k:'flock',kl:'Flock',go:'flock',fk:r.id,
-    txt:`${fkLeaderNm(r.x.n)}${r.x.n.ruler?' of '+r.x.n.name:''} ${r.k==='r'?'replied to your peep':r.k==='q'?'quoted your peep':'mentioned you'}: “${fkClip(String(r.q.x),120)}”`}));
+  if(R.length)fkStrikeLoad();
+  const rm=(Array.isArray(n.flkRm)?n.flkRm:[]).filter(r=>now-r.at<FK_MENT_WIN).map(r=>({t:r.at,k:'flock',kl:'Flock',go:'flock',
+    txt:`A moderator removed one of your peeps, from ${fkDay(r.t,1)} at ${fkTime(r.t)}. Peeps follow the same rules as everything else players write.`}));
+  return rm.concat(R.slice(0,20).map(r=>({t:r.q.t,k:'flock',kl:'Flock',go:'flock',fk:r.id,
+    txt:`${fkLeaderNm(r.x.n)}${r.x.n.ruler?' of '+r.x.n.name:''} ${r.k==='r'?'replied to your peep':r.k==='q'?'quoted your peep':'mentioned you'}: “${fkClip(String(r.q.x),120)}”`})));
 });
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-fk]');if(!el)return;
   S.flkTab='ment';S.flkN=FK_PAGE;S.flkTag=null;const id=el.dataset.fk;setTimeout(()=>fkFlash(id),120);},true);
@@ -38027,6 +38045,8 @@ function fkNorm(d){
   out.sort((a,b)=>a.t-b.t);return out.length?out.slice(-FK_KEEP):null;
 }
 NORM_HOOKS.push((n,d)=>{const v=fkNorm(d&&d.flk);if(v)n.flk=v;else delete n.flk;});
+/* n.flkRm: the player's peeps a moderator removed, [{t: the peep's time, at: when}], the last five, for the bell */
+NORM_HOOKS.push((n,d)=>{const L=(Array.isArray(d&&d.flkRm)?d.flkRm:[]).filter(r=>r&&typeof r==='object'&&Number.isFinite(r.t)&&Number.isFinite(r.at)&&r.t>=1.7e12&&r.at>=r.t).slice(-FK_RM_KEEP).map(r=>({t:Math.round(r.t),at:Math.round(r.at)}));if(L.length)n.flkRm=L;else delete n.flkRm;});
 /* ── the bell: “You’re trending” when a peep about your nation takes off (one in any twelve hours) ── */
 let fkBellAsk=0;
 /* the nation's own peeps (no newspaper, no neighbours): cheap enough for the bell and the teaser, built only when the browser is idle */
@@ -38062,7 +38082,7 @@ HELP_EXT.push({k:'flock',t:'Flock',body:n=>`<p><b>Flock</b> is the platform most
 <p><b>Who posts.</b> Every nation has thirty citizens of its own, with names in the flavour of its region and language, homes in its real cities, jobs and temperaments: grumblers, boosters, wits, experts, a conspiracy uncle, a gossip and a local reporter. The first seven post the most, so you will get to know them. Ministers post as themselves, and only while they hold office.</p>
 <p><b>When.</b> Within minutes of a decision, several people react: the reporter quotes the new law, the minister defends it, and others cheer, complain or make jokes. Bigger effects get more reactions. When nothing much happens, people still talk, just less; busy days and big nations are louder. About one post in ten, while it is true, is a citizen’s tip that points somewhere useful: food running short, land credits unspent, an edict left waiting a day, a vote about to close, a fleeting find in reach, a city with free building ${typeof blkOf==='function'?'blocks':'plots'}, idle explorers, tired troops at war or a sabotaged trade route.</p>
 <p><b>Nation, Region and All.</b> The switch at the top chooses whose peeps you see: your nation’s, the rest of ${esc(REG.the)} (other players’ citizens and leaders, the computer nations’ governments, the Assembly and the Dispatch), or both, with a badge on each peep showing where it comes from. Trending follows the same choice, and selecting a trend filters the timeline.</p>
-<p><b>Your voice.</b> You may peep as your head of government, up to ${FK_DAYMAX} times a day and ${FK_LEN} characters each. Citizens answer, warmly or not, depending on your government’s approval and what you said, and other players see your peeps in their region feed. Under another leader’s peep, <b>Reply</b> answers it (your reply shows under their peep) and <b>Quote</b> peeps it again with your comment; type @ to mention a leader of ${esc(REG.the)}. They hear of it in their bell and under <b>Mentions</b>, and so do you when they answer. Likes, repeeps and follows are kept on this device only, for fun.</p>
+<p><b>Your voice.</b> You may peep as your head of government, up to ${FK_DAYMAX} times a day and ${FK_LEN} characters each. Citizens answer, warmly or not, depending on your government’s approval and what you said, and other players see your peeps in their region feed. Under another leader’s peep, <b>Reply</b> answers it (your reply shows under their peep) and <b>Quote</b> peeps it again with your comment; type @ to mention a leader of ${esc(REG.the)}. They hear of it in their bell and under <b>Mentions</b>, and so do you when they answer. <b>Report</b>, under another leader’s peep, sends it to the moderators, who can remove it for everyone. Likes, repeeps and follows are kept on this device only, for fun.</p>
 <p><b>Everyone sees the same feed.</b> Peeps are worked out from the region’s records and the clock, so they stay put when you reload and other players see the same ones. The last two days show first; older peeps, back to a week, come with “Show older peeps”.</p>`});
 /* test hook */
 function fkDebug(o){o=o||{};if('t' in o)fkClock=o.t;if(o.clear){fkNat.clear();fkFeeds.clear();fkCastMemo.clear();}return {clock:fkClock,ms:fkLastMs,builds:fkBuilds,first:fkFirst};}
@@ -45380,7 +45400,7 @@ function adminView(v='admin'){
 function admReports(list){
   const n=list?list.length:0;
   /* every action on a ticket asks first: one stray click used to remove a post or hide a nation at once */
-  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const nm=`<b>${esc(r.name||'this nation')}</b>`,what=/^news:/.test(r.post||'')?'news comment':/^cb:/.test(r.post||'')?'Community Board message':/^ad:/.test(r.post||'')?'classified advertisement':'post';
+  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const nm=`<b>${esc(r.name||'this nation')}</b>`,what=/^news:/.test(r.post||'')?'news comment':/^cb:/.test(r.post||'')?'Community Board message':/^ad:/.test(r.post||'')?'classified advertisement':/^flk:/.test(r.post||'')?'Flock peep':'post';
     const t={'adm-ban':[`Ban the player of ${nm}? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a linked account cannot.`,'Yes, ban'],
       'adm-remove':[`Remove ${nm} for good? The nation and its posts are deleted; the player may found a new one.`,'Yes, remove'],
       'adm-delpost':[`Remove this ${what} by ${nm}? It is deleted for everyone, and the ticket is closed.`,'Yes, remove the '+what.split(' ').pop()],
@@ -45393,9 +45413,9 @@ function admReports(list){
     ${ADM.act?`<p class="hint">${esc(ADM.act)}</p>`:''}
     ${list==null?'<p class="err">The reports could not be loaded.</p>':!n?'<p class="hint">No open reports. When a player reports a post or a nation, a ticket appears here. Support tickets are under Help queries.</p>':
     `<ul class="adm-reps">${list.map(r=>{const post=r.kind==='post',hid=!!(S.mod&&S.mod[r.target]&&S.mod[r.target].hidden);
-      return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post&&/^news:/.test(r.post||'')?'News comment':post&&/^cb:/.test(r.post||'')?'Community Board':post&&/^ad:/.test(r.post||'')?'Classified ad':post?'Post':r.kind==='letter'?'Letter':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
+      return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post&&/^news:/.test(r.post||'')?'News comment':post&&/^cb:/.test(r.post||'')?'Community Board':post&&/^ad:/.test(r.post||'')?'Classified ad':post&&/^flk:/.test(r.post||'')?'Flock peep':post?'Post':r.kind==='letter'?'Letter':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
         ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,2500))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
-        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">Remove the post</button>`:''}${hid?`<span class="hint">${S.mod[r.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>${post||r.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(r.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button><button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button></div>${ask(r)}</li>`;}).join('')}</ul>`}`;
+        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">${/^flk:/.test(r.post||'')?'Remove the peep':'Remove the post'}</button>`:''}${hid?`<span class="hint">${S.mod[r.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>${post||r.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(r.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button><button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button></div>${ask(r)}</li>`;}).join('')}</ul>`}`;
 }
 function admHidden(){
   const ids=Object.keys(S.mod||{}).filter(id=>S.mod[id].hidden);

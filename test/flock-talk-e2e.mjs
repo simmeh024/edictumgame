@@ -1,12 +1,16 @@
 // Flock between leaders (emulators): one player's leader peeps; another replies to it, quotes it and mentions them
 // with @ (the picker offers the region's leaders). The reply shows under the first peep for both, the quote carries the
 // peep it quotes, and the first player hears of all three in the bell and under Mentions, whose notice opens at the peep.
-// A deleted peep leaves its quote saying so; blocking a nation in Letters silences its notices; a phone fits five tabs.
-import { OUT, check, finish, sleep, until, player, open, found, text, clearEmulators } from './lib.mjs';
+// A peep can be reported; the moderator removes it from the ticket, for everyone, and its author is told. A deleted peep
+// leaves its quote saying so; blocking a nation in Letters silences its notices; a phone fits five tabs.
+import { OUT, check, finish, sleep, until, player, open, ready, found, text, register, setClaims, restGet, restListAdmin, fieldsText, clearEmulators } from './lib.mjs';
 await clearEmulators();
 const A = await player('flock-a'), B = await player('flock-b');
 const uidA = await open(A); await found(A, 'Talkland');
 const uidB = await open(B); await found(B, 'Answerland');
+// A is a moderator too (the report queue is theirs)
+await register(A); await setClaims(uidA, { admin: true }); await A.reload(); await ready(A);
+await A.waitForFunction(() => window.G && G.S.nation && G.S.nation.name && G.S.isOwner, undefined, { timeout: 20000 });
 const flock = async (p, tab = 'home') => { await p.evaluate(t => { G.S.view = 'flock'; G.S.flkTab = t; G.S.flkScope = 'all'; G.render(); }, tab); await p.waitForSelector('.fk'); };
 const peep = async (p, x) => { await p.fill('#flk-text', x); await p.click('#flk-form .fk-pbtn'); await sleep(300); };
 const bell = p => p.evaluate(() => { const b = document.querySelector('.bell'); if (!b.classList.contains('on')) b.click(); return [...document.querySelectorAll('.nt-item')].map(e => e.textContent).join(' | '); });
@@ -20,6 +24,7 @@ const tA = await A.evaluate(() => G.S.nation.flk.at(-1).t), pid = uidA + ':me:' 
 await flock(B);
 const post = `.fk-feed > article[data-id="${pid}"]`;
 check('B sees A’s peep in the region feed, with Reply and Quote', await until(async () => { await B.evaluate(() => G.render()); return !!(await B.$(post + ' [data-act="flk-reply"]')) && !!(await B.$(post + ' [data-act="flk-quote"]')); }, 30000));
+check('nobody can report their own peep', !(await A.$(`article[data-id="${pid}"] [data-act="flk-report"]`)) && !!(await B.$(post + ' [data-act="flk-report"]')));
 check('citizens’ posts have no Reply button', await B.evaluate(() => [...document.querySelectorAll('.fk-feed > article')].filter(a => !/:me:/.test(a.dataset.id)).every(a => !a.querySelector('[data-act="flk-reply"]'))));
 await B.click(post + ' [data-act="flk-reply"]');
 check('the composer says whom it answers and takes the focus', await until(async () => /Replying to @/.test(await text(B, '.fk-ctx')) && await B.evaluate(() => document.activeElement && document.activeElement.id === 'flk-text')));
@@ -80,6 +85,39 @@ check('and the reply count includes it', await A.evaluate(p => { const b = docum
 await A.evaluate(id => { const b = document.querySelector(`.fk-feed > article[data-id="${id}"] .fk-to .fk-atb`); b.click(); }, rpid);
 check('Replying to @… opens the answered peep’s thread', await until(() => A.evaluate(p => G.S.flkOpen === p, pid)));
 await A.screenshot({ path: OUT + '/flock-thread.png' });
+
+// A reports B's peep that mentions them; as moderator, A removes it from the ticket
+const mpid = uidB + ':me:' + mB.t, reg = await A.evaluate(() => G.S.nation.reg);
+await A.evaluate(() => { G.S.flkTab = 'home'; G.S.flkTag = null; G.render(); });
+check('A sees Report under B’s peep', await until(async () => { await A.evaluate(() => G.render()); return !!(await A.$(`.fk-feed > article[data-id="${mpid}"] [data-act="flk-report"]`)); }));
+await A.click(`.fk-feed > article[data-id="${mpid}"] [data-act="flk-report"]`);
+await A.waitForSelector('dialog.ed-dlg[open] [data-ed="report-yes"]');
+check('Report opens the report dialog for a post', /Report this post\?/.test(await text(A, 'dialog.ed-dlg[open] #ed-dlg-h')));
+await A.click('[data-ed="report-yes"]');
+const rp = await until(async () => (await restListAdmin('reports')).find(r => r.fields.post && r.fields.post.stringValue === 'flk:' + uidB + ':' + mB.t), 15000);
+check('the report is a ticket naming the peep, with its words', !!rp && rp.fields.kind.stringValue === 'post' && rp.fields.target.stringValue === uidB && /Say hello to @/.test(rp.fields.x.stringValue), rp ? JSON.stringify(rp.fields) : '');
+await A.evaluate(() => { G.S.view = 'admin-reports'; G.render(); });
+await A.evaluate(() => { const b = document.querySelector('[data-act="admin-refresh"]'); if (b) b.click(); });
+const q = await until(async () => { const t = await text(A, '.adm-reps'); return /Flock peep/.test(t) && /Say hello to @/.test(t) ? t : ''; }, 20000);
+check('the ticket queue shows it as a Flock peep, with its words', !!q, (await text(A, '.adm')).slice(0, 400));
+check('and offers Remove the peep', /Remove the peep/.test(await text(A, '.adm-rep [data-act="adm-delpost"]')));
+await A.click('.adm-rep [data-act="adm-delpost"]');
+check('removing asks first', await until(async () => /Remove this Flock peep by/.test(await text(A, '.adm-rep .adm-ask'))));
+await A.click('.adm-rep [data-act="adm-delpost-yes"]');
+const struck = await until(async () => { const d = await restGet('press/' + reg); const f = d.status === 200 && d.body.fields && d.body.fields.fk && d.body.fields.fk.mapValue.fields; return f && f[uidB + '_' + mB.t] ? f : null; }, 15000);
+check('the peep is struck out in press/<region>.fk', !!struck);
+check('and its ticket is closed', await until(async () => !(await restListAdmin('reports')).some(r => r.fields.post && /^flk:/.test(r.fields.post.stringValue))));
+// B's game reads the list, drops the peep from its record and tells B
+await B.evaluate(() => G.DSP().pressLoad(true));
+check('B’s own record no longer holds the peep', await until(() => B.evaluate(t => !G.S.nation.flk.some(q => q.t === t) && G.S.nation.flkRm.some(r => r.t === t), mB.t)));
+check('the bell tells B a moderator removed it', await until(async () => /A moderator removed one of your peeps/.test(await bell(B))));
+await closeBell(B);
+check('the saved record keeps only the time, not the words', await until(async () => { const d = await restGet('nations/' + uidB), j = d.status === 200 ? fieldsText(d.body.fields) || '' : ''; return /"flkRm"/.test(j) && !/Say hello to @/.test(j); }, 20000));
+// and A no longer sees it anywhere
+await A.evaluate(() => G.DSP().pressLoad(true)); await flock(A, 'ment');
+check('Mentions drops the removed peep', await until(async () => { await A.evaluate(() => G.render()); return (await A.$$eval('.fk-feed > article', l => l.map(a => a.dataset.id))).join() === [qpid, rpid].join(); }));
+await flock(A);
+check('and so does the timeline', !(await A.$(`article[data-id="${mpid}"]`)));
 
 // a deleted peep leaves the quote saying so
 await A.evaluate(() => { G.S.flkTab = 'me'; G.render(); });
