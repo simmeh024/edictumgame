@@ -24,6 +24,19 @@ A live chat for each region: the nations of a region talk to each other in short
 - **Settings › Letters › Region chat**: turn the chat off (the button goes, and the game stops listening), and turn
   off the mention notice. The drawer's gear button opens it. The settings search finds it too.
 - An admin observing another region sees its chat read-only, with *Remove the line*.
+- **Silenced players** see, in place of the writing box, that a moderator silenced them, until when and why; they
+  still read the chat. Lines the **Edictum team** signs show the team's mark and name, never a nation's.
+
+## Staff tools
+
+- **Admin portal › Moderation › Region chats** (`#admin-chat`, admins): every region, busiest first, with its newest
+  line; the chosen region's chat as it happens (its newest 100 lines); a box to **write in it as the Edictum team**
+  (signed "Edictum team", with no nation needed there, in any region, open or closed); and on each line **Remove**,
+  **Silence…** and **Inspect**. Under the chat, the players silenced now, each with **Lift**.
+- **Silence** (from that page, or from a line's menu in the chat for admins and moderators): an hour, 24 hours,
+  7 days, 30 days or until lifted, in every region's chat, with a reason the player sees, and optionally removing the
+  player's lines of the last 24 hours in that region. Staff cannot be silenced. Silencing and lifting are in the audit
+  log (`chat_silence`, `chat_unsilence`) with the reason, the end and how many lines went.
 
 ## How it works
 
@@ -37,6 +50,12 @@ A live chat for each region: the nations of a region talk to each other in short
     minute and 150 in any hour (`rcWait`), and never the same words twice within two minutes (a hash of the words
     without spaces, punctuation or case). The callable's in-memory token bucket (`rc:` 15 at once, then one a second)
     stops a flood before it reads anything.
+  - `rcPost {team: true, reg, x}` (staff): a line signed by the team, `{tm: true, nm: 'Edictum team', a: <staff uid>}`,
+    in any region; the staff member's own pacing applies.
+  - `rcMute {uid, hours, why, reg?, wipe?}` (staff): `rcMute/{uid} {until, perm?, why, by, t, nm, reg}`; `hours` is one of
+    1, 24, 168, 720 or 0 (until lifted: `until` 1 Jan 2100 and `perm`). `wipe` deletes the player's lines of the last 24
+    hours in `reg` (their own region if not given). `rcPost` refuses a silenced player (`rc_silenced`, with `until`,
+    `perm` and `why` in the details). `rcUnmute {uid}` (staff) deletes it.
   - `rcDelete {reg, id, report?}`: the author deletes their own line; staff (admin or mod claim) any line, which
     writes an `adminAudit` entry `chat_delete` with the words and closes the report if one is named.
 - `functions/admin.js` `delete_post` takes `rc:<region>:<line>` from the Reports queue.
@@ -44,7 +63,8 @@ A live chat for each region: the nations of a region talk to each other in short
   (`functions/accounts.js`) or an admin removing or banning a nation (`functions/admin.js`) deletes them too;
   `rcPace/` goes with the account.
 - `firestore.rules`: a line is read by a signed-in player whose saved nation (`nations/{uid}.reg`) is in that region,
-  and by admins; nobody writes one but the server. `rcPace/` is the server's alone.
+  and by admins; nobody writes one but the server. `rcPace/` is the server's alone. `rcMute/{uid}` is read by that player and by
+  admins, and written only by the server; it goes with the account.
 - Reports are ordinary `post` reports (`src/shim.js` files kind `chat` as `post`, with `post: rc:<reg>:<line>`).
 - `game/edictum.html`, section "Region chat" (prefix `rgc`, state `RGC`): the button is drawn by `shell()`
   (`rgcButton`) and kept current between drawings by `rgcBadge`; the drawer is made once in `<body>`, outside
