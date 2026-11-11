@@ -47883,6 +47883,9 @@ Object.assign(UNLOCKS,{
   /* entry stamps: shapes, borders and inks */
   'ps-circle':{k:'ppshape',n:'Circle',src:'free'},'ps-oval':{k:'ppshape',n:'Oval',src:'free'},'ps-rect':{k:'ppshape',n:'Rectangle',src:'free'},'ps-ticket':{k:'ppshape',n:'Ticket',src:'free'},
   'ps-hex':{k:'ppshape',n:'Hexagon',src:'ach'},'ps-diamond':{k:'ppshape',n:'Diamond',src:'ach'},'ps-oct':{k:'ppshape',n:'Octagon',src:'set'},'ps-shield':{k:'ppshape',n:'Shield',src:'set'},
+  /* five easy ones from bronze passport achievements, and three ornate ones from gold (see the Passport & travel achievements) */
+  'ps-arch':{k:'ppshape',n:'Arch',src:'ach'},'ps-tag':{k:'ppshape',n:'Luggage tag',src:'ach'},'ps-banner':{k:'ppshape',n:'Banner',src:'ach'},'ps-scroll':{k:'ppshape',n:'Scroll',src:'ach'},'ps-scallop':{k:'ppshape',n:'Scalloped seal',src:'ach'},
+  'ps-post':{k:'ppshape',n:'Postage stamp',src:'ach'},'ps-laurel':{k:'ppshape',n:'Laurel wreath',src:'ach'},'ps-wings':{k:'ppshape',n:'Wings',src:'ach'},
   'pb-single':{k:'ppbord',n:'Single line',src:'free'},'pb-double':{k:'ppbord',n:'Double line',src:'free'},'pb-dashed':{k:'ppbord',n:'Dashed',src:'free'},'pb-thick':{k:'ppbord',n:'Heavy',src:'free'},
   'pb-dots':{k:'ppbord',n:'Dotted',src:'ach'},'pb-twin':{k:'ppbord',n:'Twin line',src:'ach'},
   'pi-violet':{k:'ppink',n:'Violet',src:'free'},'pi-red':{k:'ppink',n:'Red',src:'free'},'pi-blue':{k:'ppink',n:'Blue',src:'free'},'pi-green':{k:'ppink',n:'Green',src:'free'},'pi-black':{k:'ppink',n:'Black',src:'free'},
@@ -48123,12 +48126,36 @@ ${slots}${st}<text x="150" y="411" text-anchor="middle" font-family="Cinzel,Geor
 function ppSnap(e){return {sh:e[3],bd:e[4],ink:e[5],ic:e[6],t1:e[7],t2:e[8],nm:e[0],fn:e[9]||''};}
 const PP_INK={'pi-violet':'#5b2a86','pi-red':'#b0262b','pi-blue':'#1f4fa0','pi-green':'#1f6b3a','pi-black':'#262626','pi-teal':'#0f6c6a','pi-orange':'#c2571a','pi-brown':'#6b4423','pi-magenta':'#a3176f','pi-gold':'#a7801f'};
 function ppStampDate(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();}catch(e){return '';}}
+/* the drawn parts of the later stamp shapes: a seal's scalloped edge (n half-round bumps on a circle of radius R),
+   a postage stamp's perforated edge (half-round bites about every g units), and the laurel and the wings that
+   flank a round seal (left side drawn, right side mirrored about cx) */
+function ppScallop(cx,cy,R,n){const b=PP_Q(R*Math.sin(Math.PI/n)+.05),P=i=>`${PP_Q(cx+R*Math.cos(i/n*2*Math.PI))},${PP_Q(cy+R*Math.sin(i/n*2*Math.PI))}`;
+  let d='M'+P(0);for(let i=1;i<=n;i++)d+=`A${b},${b} 0 0,1 ${P(i)}`;return d+'Z';}
+function ppPerf(x0,y0,x1,y1,g,r){
+  const nx=Math.max(1,Math.round((x1-x0)/g)),ny=Math.max(1,Math.round((y1-y0)/g)),sx=(x1-x0)/nx,sy=(y1-y0)/ny,A=`A${r},${r} 0 0,0 `;let d=`M${x0},${y0}`;
+  for(let i=0;i<nx;i++){const c=x0+sx*(i+.5);d+=`H${PP_Q(c-r)}${A}${PP_Q(c+r)},${y0}`;}d+=`H${x1}`;
+  for(let i=0;i<ny;i++){const c=y0+sy*(i+.5);d+=`V${PP_Q(c-r)}${A}${x1},${PP_Q(c+r)}`;}d+=`V${y1}`;
+  for(let i=nx-1;i>=0;i--){const c=x0+sx*(i+.5);d+=`H${PP_Q(c+r)}${A}${PP_Q(c-r)},${y1}`;}d+=`H${x0}`;
+  for(let i=ny-1;i>=0;i--){const c=y0+sy*(i+.5);d+=`V${PP_Q(c+r)}${A}${x0},${PP_Q(c-r)}`;}return d+'Z';}
+function ppLaurel(cx,cy){
+  const D=Math.PI/180,E=t=>[cx+40*Math.cos(t*D),cy+30*Math.sin(t*D)],M=(x,m)=>PP_Q(m?2*cx-x:x);let o='';
+  for(const m of [0,1]){const [a,b]=[E(100),E(236)];o+=`<path d="M${M(a[0],m)},${PP_Q(a[1])}A40,30 0 0,${m?0:1} ${M(b[0],m)},${PP_Q(b[1])}" fill="none" stroke-width="1"/>`;
+    const leaf=(x,y,d)=>{const lx=x+3.6*Math.cos(d*D),ly=y+3.6*Math.sin(d*D),ra=m?180-d:d;return `<ellipse cx="${M(lx,m)}" cy="${PP_Q(ly)}" rx="4" ry="1.55" transform="rotate(${PP_Q(ra)} ${M(lx,m)} ${PP_Q(ly)})" stroke="none"/>`;};
+    for(let k=0;k<7;k++){const t=112+k*19,[x,y]=E(t),d=Math.atan2(30*Math.cos(t*D),-40*Math.sin(t*D))/D;o+=leaf(x,y,d-38)+leaf(x,y,d+38);}
+    const [x,y]=E(236),d=Math.atan2(30*Math.cos(236*D),-40*Math.sin(236*D))/D;o+=leaf(x,y,d);}
+  const [l]=E(100);return o+`<path d="M${PP_Q(l)},${PP_Q(cy+29.5)}Q${cx},${cy+35} ${M(l,1)},${PP_Q(cy+29.5)}" fill="none" stroke-width="1.2"/>`;}
+function ppWings(cx,cy){
+  /* five feathers a side, each a root on the seal's rim and a tip swept up and out */
+  const F=[[-11,-5,3,13],[-5,1,7,22],[1,7,12,31],[7,12,18,39],[12,16,25,46]];let o='';
+  for(const m of [0,1])for(const [a,b,tx,ty] of F){const X=x=>PP_Q(m?2*cx-x:x),rx=y=>cx-Math.sqrt(Math.max(0,28*28-y*y))+1.5;
+    o+=`<path d="M${X(rx(a))},${PP_Q(cy+a)}Q${X((rx(a)+tx)/2)},${PP_Q(cy+a-6+(tx-3)/5)} ${X(tx)},${PP_Q(ty)}Q${X((rx(b)+tx)/2+3)},${PP_Q((cy+b+ty)/2+1)} ${X(rx(b))},${PP_Q(cy+b)}" fill="none" stroke-width="1.05" stroke-linejoin="round"/>`;}
+  return o;}
 /* a stamp's drawing on a page (122 × 66 box); t is when it was stamped. Ink bleeds a little, pressure is
    uneven, and now and then the clerk struck twice; the same stamp always looks the same */
 function ppStampBody(s,t,id,dark){
   const ink=(dark&&s.ink==='pi-black')?'#e6e6e6':PP_INK[s.ink]||PP_INK['pi-violet'],cx=61,cy=33;
   const r=rng(hash(String(s.nm||s.t1||'')+':'+Math.floor((t||0)/DAY))),ang=Math.floor(r()*360),lo=.38+r()*.3,ghost=r()<.16,gx=PP_Q((r()-.5)*3.4),gy=PP_Q((r()-.5)*2.4);
-  let outline='',inner='',arc=false;
+  let outline='',inner='',arc=false,ar=22,extra='';
   switch(s.sh){
     case 'ps-oval':outline=czEll(cx,cy,56,31,0);inner=czEll(cx,cy,49,24.5,0);arc=true;break;
     case 'ps-rect':outline='M5,3H117V63H5Z';inner='M10,8H112V58H10Z';break;
@@ -48138,17 +48165,29 @@ function ppStampBody(s,t,id,dark){
     case 'ps-shield':outline='M18,3H104V30Q104,54 61,64Q18,54 18,30Z';inner='M24,9H98V30Q98,49 61,58Q24,49 24,30Z';break;
     case 'ps-diamond':outline='M61,1L119,33L61,65L3,33Z';inner='M61,9L106,33L61,57L16,33Z';break;
     case 'ps-star':outline=czStarPts(cx,cy,14,32.5,27,-90);inner=czCirc(cx,cy,24);arc=true;break;
+    case 'ps-arch':outline='M8,63V30A53,27 0 0,1 114,30V63Z';inner='M14,58V31A47,22 0 0,1 108,31V58Z';break;
+    case 'ps-tag':outline='M5,3H100L118,21V45L100,63H5Z';inner='M10,8H98L112,23V43L98,58H10Z';
+      extra='<circle cx="106" cy="33" r="3.4" fill="none" stroke-width="1.3"/><path d="M106,29.6C108,20 112,12 120,4" fill="none" stroke-width=".9"/>';break;
+    case 'ps-banner':outline='M3,3H119L110,33L119,63H3L12,33Z';inner='M9,8H112L105,33L112,58H9L16,33Z';break;
+    case 'ps-scroll':outline='M11,7H111M11,59H111M7,4H11V62H7A4,4 0 0,1 3,58V8A4,4 0 0,1 7,4ZM111,4H115A4,4 0 0,1 119,8V58A4,4 0 0,1 115,62H111Z';inner='M16,12H106V54H16Z';
+      extra='<path d="M3,11H11M3,55H11M111,11H119M111,55H119" fill="none" stroke-width=".8"/>';break;
+    case 'ps-scallop':outline=ppScallop(cx,cy,29,24);inner=czCirc(cx,cy,25.5);arc=true;ar=21.5;break;
+    case 'ps-post':outline=ppPerf(5,5,117,61,7,2.2);inner='M8.6,8.6H113.4V57.4H8.6Z';extra='<path d="M12,11H110V56H12Z" fill="none" stroke-width=".9"/>';break;
+    case 'ps-laurel':outline=czCirc(cx,cy,28);inner=czCirc(cx,cy,25);arc=true;ar=20;extra=ppLaurel(cx,cy);break;
+    case 'ps-wings':outline=czCirc(cx,cy,28);inner=czCirc(cx,cy,25);arc=true;ar=20;extra=ppWings(cx,cy);break;
     default:outline=czCirc(cx,cy,31);inner=czCirc(cx,cy,25.5);arc=true;
   }
   const W={'pb-thick':3.4,'pb-double':1.6,'pb-dashed':2,'pb-dots':2.6}[s.bd]||2,
     dash=s.bd==='pb-dashed'?' stroke-dasharray="5 2.6"':s.bd==='pb-dots'?' stroke-dasharray=".1 4.2" stroke-linecap="round"':'';
   let g=`<path d="${outline}" fill="none" stroke-width="${W}"${dash}/>`;
   if(s.bd==='pb-double'||s.bd==='pb-twin')g+=`<path d="${inner}" fill="none" stroke-width="${s.bd==='pb-twin'?.8:1.2}"/>`;
+  g+=extra;
   const fo=ppFont(s.fn,'pfn-plex'),cs=v=>fo.uc?String(v).toUpperCase():ppTitle(v);
   const t1=esc(cs(String(s.t1||s.nm||'')).slice(0,24)),t2=esc(cs(String(s.t2||'ADMITTED')).slice(0,20)),date=esc(ppStampDate(t));
-  const icon=s.ic&&/^(c|pk)-/.test(s.ic)?`<g transform="translate(${arc?cx-12:12},${arc?cy-23:20}) scale(${arc?.24:.26})">${ppDevice(s.ic,ink)}</g>`:'';
+  /* on a round stamp the device sits under the name; a smaller ring of text (ar) takes a smaller device, placed to match */
+  const k=ar/22,icon=s.ic&&/^(c|pk)-/.test(s.ic)?`<g transform="translate(${arc?(k===1?cx-12:PP_Q(cx-12*k)):12},${arc?(k===1?cy-23:PP_Q(cy-23*k)):20}) scale(${arc?(k===1?.24:+(.24*k).toFixed(3)):.26})">${ppDevice(s.ic,ink)}</g>`:'';
   let defs='';
-  if(arc){const rx=s.sh==='ps-oval'?43:22,ry=s.sh==='ps-oval'?19:22,fs=Math.max(4.6,Math.min(7.4,(s.sh==='ps-oval'?118:62)/(t1.length*.62+1)));
+  if(arc){const rx=s.sh==='ps-oval'?43:ar,ry=s.sh==='ps-oval'?19:ar,fs=Math.max(4.6,Math.min(7.4,(s.sh==='ps-oval'?118:62*ar/22)/(t1.length*.62+1)));
     defs=`<path id="${id}a" d="M${cx-rx},${cy}A${rx},${ry} 0 0,1 ${cx+rx},${cy}"/><path id="${id}b" d="M${cx-rx-3},${cy+2}A${rx+3},${ry+3} 0 0,0 ${cx+rx+3},${cy+2}"/>`;
     g+=`<text font-size="${PP_Q(fs)}" font-weight="700" letter-spacing=".6" stroke="none" text-anchor="middle"><textPath href="#${id}a" startOffset="50%">${t1}</textPath></text>`+
       `<text font-size="6" font-weight="700" letter-spacing="1.2" stroke="none" text-anchor="middle"><textPath href="#${id}b" startOffset="50%">${t2}</textPath></text>`+
@@ -48367,12 +48406,14 @@ function ppCount(n){return n&&n.pp&&n.pp.v?Object.keys(n.pp.v).length:0;}
 /* figures for achievements and the museum, memoised per record */
 const PP_STATS=new WeakMap();
 function ppStats(n,id){
-  if(!n||typeof n!=='object')return {n:0,full:0,pl:0,reg:0,here:0,titles:0,ds:0,day:0};
+  if(!n||typeof n!=='object')return {n:0,full:0,pl:0,reg:0,here:0,titles:0,ds:0,day:0,dd:0};
   const m=PP_STATS.get(n);if(m&&m.pp===n.pp)return m.v;
   const pp=n.pp||{},v=pp.v||{},ids=Object.keys(v),days={};let day=0;
   for(const k of ids){const d=Math.floor((v[k][2]||0)/DAY);days[d]=(days[d]||0)+1;if(days[d]>day)day=days[d];}
   const out={n:ids.length,full:(pp.p||[]).filter(r=>Array.isArray(r)&&r.filter(Boolean).length===PP_SLOTS).length,pl:ids.filter(k=>!/^npc-/.test(k)).length,
-    reg:new Set(ids.map(k=>v[k][1]).filter(Boolean)).size,here:NPC_NATIONS.filter(o=>v[o.id]).length,titles:(pp.l||[]).filter(Boolean).length,ds:pp.ds||0,day};
+    reg:new Set(ids.map(k=>v[k][1]).filter(Boolean)).size,here:NPC_NATIONS.filter(o=>v[o.id]).length,titles:(pp.l||[]).filter(Boolean).length,ds:pp.ds||0,day,
+    /* the different days on which a stamp was collected */
+    dd:Object.keys(days).filter(d=>+d>0).length};
   PP_STATS.set(n,{pp:n.pp,v:out});return out;
 }
 /* how many nations of this region carry this one's stamp (players only: computer nations' books are drawn) */
@@ -48437,7 +48478,19 @@ ACH_CATS.splice(ACH_CATS.length-1,0,['pass','Passport & travel']);ACH_CAT.pass='
   P('pass-titles','b','Curator of Travels','Give three pages of your passport a title.',3,x=>ppStats(x.n).titles,'pt-sand');
   P('pass-carried','s','Famous Seal','Have your stamp carried by 10 nations of your region.',10,x=>x.me?ppCarried(x.id):0,'ps-diamond',{mp:1});
   P('pass-carried50','g','Seal of Approval','Have your stamp carried by 50 nations of your region.',50,x=>x.me?ppCarried(x.id):0,'pi-gold',{mp:1});
+  /* eight more entry stamp shapes: five that come early, three that take a long friendship, a trading network or a month of travel */
+  P('pass-3','b','Weekend Away','Collect 3 entry stamps.',3,N,'ps-arch');
+  P('pass-cover','b','Cover Story','Change your passport’s cover: its colour, material, foil, ornament or emblem.',1,x=>ppStats(x.n).ds&1?1:0,'ps-banner');
+  P('pass-pl1','b','Fellow Traveller','Collect the stamp of a nation run by another player.',1,x=>ppStats(x.n).pl,'ps-tag',{mp:1});
+  P('pass-title1','b','Chapter One','Give a page of your passport a title.',1,x=>ppStats(x.n).titles,'ps-scroll');
+  P('pass-endo','b','Endorsed','Have a stamp endorsed: trade with, ally with or write a letter to a nation whose stamp you carry.',1,x=>ppEndo(x.n).any,'ps-scallop');
+  P('pass-visa10','g','Merchant Venturer','Carry 10 stamps with a trade visa: make a trade deal with 10 nations whose stamps you carry.',10,x=>ppEndo(x.n).trade,'ps-post');
+  P('pass-sworn','g','Sworn Friends','Carry 3 stamps that bear a trade visa, an alliance seal and a letters endorsement, all three.',3,x=>ppEndo(x.n).all,'ps-laurel',{mp:1});
+  P('pass-days30','g','Thirty Days on the Road','Collect new entry stamps on 30 different days.',30,x=>ppStats(x.n).dd,'ps-wings');
 }
+/* how many stamps bear an endorsement (war aside), a trade visa, or a trade visa, an alliance seal and a letters endorsement together (see PPR) */
+function ppEndo(n){const v=(n&&n.pp&&n.pp.v)||{},o={any:0,trade:0,all:0};
+  for(const k of Object.keys(v)){const e=v[k],b=Array.isArray(e)&&Number.isInteger(e[10])?e[10]&7:0;if(b)o.any++;if(b&1)o.trade++;if(b===7)o.all++;}return o;}
 UNLOCK_SOURCES.push({earned:n=>ppDiplomata(n)?Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].src==='bld'):[],how:id=>UNLOCKS[id]&&UNLOCKS[id].src==='bld'?'Build a Diplomata in one of your cities.':''});
 achUnlockWords=(f=>u=>{const U=UNLOCKS[u];if(!U)return '';const w={ppfont:`the ${U.n} typeface for the passport`,ppicon:`the ${U.n} device for the passport`,ppwm:`the ${U.n} watermark`,ppcol:`the ${U.n} passport cover`,pptex:`the ${U.n} cover material`,ppfoil:`${U.n} foil for the passport`,pporn:`the ${U.n} cover ornament`,ppemb:`the ${U.n} cover emblem`,
   pptint:`${U.n} passport pages`,pppat:`the ${U.n} page print`,ppshape:`the ${U.n} entry stamp shape`,ppbord:`the ${U.n} stamp border`,ppink:`${U.n} stamp ink`}[U.k];return w||f(u);})(achUnlockWords);
