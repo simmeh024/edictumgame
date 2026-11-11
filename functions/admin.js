@@ -312,19 +312,25 @@ async function mutate(db, actor, data) {
     // and a Community Board post is cb:<region>:<topic>[:<reply>] (functions/board.js keeps the counts right)
     const cb = action === 'delete_post' && /^cb:([a-z]{2,40}):([A-Za-z0-9]{20})(?::([A-Za-z0-9]{20}))?$/.exec(target);
     if (cb) await cbDelete(db, { uid: actor, admin: true }, { reg: cb[1], topic: cb[2], ...(cb[3] ? { reply: cb[3] } : {}), reason }, new Set([cb[1]]));
+    // a line of a region chat is rc:<region>:<line> (functions/regionchat.js); the audit entry below keeps who removed it
+    const rc = action === 'delete_post' && /^rc:([a-z]{2,40}):([A-Za-z0-9]{20})$/.exec(target);
+    if (rc) {
+      if (!REGIONS.has(rc[1])) throw new HttpsError('invalid-argument', 'Choose a region.');
+      await db.doc('rchat/' + rc[1] + '/chat/' + rc[2]).delete();
+    }
     // a classified advertisement in the region's newspaper is ad:<region>:<player>:<ad>. It lives in the player's own
     // record, which only their game writes, so it is struck out in press/<region>.x, which every reader of the paper
     // follows; entries older than the longest an advertisement is kept (12 days) go at the same time
-    const ad = action === 'delete_post' && !cb && !news && /^ad:([a-z]{2,40}):([\w-]{1,128}):([a-z0-9]{1,12})$/.exec(target);
+    const ad = action === 'delete_post' && !cb && !news && !rc && /^ad:([a-z]{2,40}):([\w-]{1,128}):([a-z0-9]{1,12})$/.exec(target);
     // a leader's Flock peep is flk:<player>:<time>, also in the player's own record: struck out in press/<region>.fk
-    const flk = action === 'delete_post' && !cb && !news && !ad && /^flk:([\w-]{1,128}):(\d{10,16})$/.exec(target);
+    const flk = action === 'delete_post' && !cb && !news && !rc && !ad && /^flk:([\w-]{1,128}):(\d{10,16})$/.exec(target);
     if (ad) {
       if (!REGIONS.has(ad[1])) throw new HttpsError('invalid-argument', 'Choose a region.');
       await adOff(db, ad[1], ad[2] + '_' + ad[3], now);
     } else if (flk) {
       if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.');
       await adOff(db, text(data.reg), flk[1] + '_' + flk[2], now, 'fk', FLK_KEEP);
-    } else if (action === 'delete_post' && !news && !cb) { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
+    } else if (action === 'delete_post' && !news && !cb && !rc) { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
     if (action === 'close_report') await db.doc('reports/' + target).delete();
     // the newspaper's name and motto as a Delegate chose them (functions/civic.js, paper): back to the paper's own
     if (action === 'press_reset') {

@@ -465,6 +465,14 @@ service cloud.firestore {
     }
     match /allyOf/{id} { allow read: if true; }
     match /alPace/{uid} { allow read, write: if false; }
+    // region chat (functions/regionchat.js): written only by the server; a region's own nations read its lines (a nation
+    // whose saved record is in that region), and admins any region's. rcPace/ (the pacing of each player's lines) is the
+    // server's alone
+    match /rchat/{reg}/chat/{id} {
+      allow read: if isAdmin() || signedIn() && region(reg)
+        && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg;
+    }
+    match /rcPace/{uid} { allow read, write: if false; }
     // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, only by the
     // server (functions/accounts.js, 'recruit': a Registered Nation, newer than the recruiter's); the recruiter reads
     // the ones naming them (each side pays itself the bonus)
