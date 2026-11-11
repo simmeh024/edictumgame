@@ -5588,6 +5588,12 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .dd-x{display:flex;flex-direction:column;min-width:0}
 .dd-x b{font-weight:650;font-size:14.5px;line-height:1.3}
 .dd-t.done .dd-x b{color:var(--ink-2);font-weight:550}
+.dd-t.dd-leg{margin-bottom:6px;padding:12px;border:2px solid #c99a1e;border-radius:6px;background:linear-gradient(90deg,rgba(212,165,42,.22),rgba(212,165,42,.05));box-shadow:0 0 12px rgba(212,165,42,.25)}
+.dd-leg .dd-i{border-color:#c99a1e}
+.dd-t.dd-leg.done .dd-i{background:#c99a1e;border-color:#c99a1e}
+.dd-leg-tag{display:inline-block;margin-right:6px;padding:1px 8px;border-radius:10px;background:#a87a10;color:#fff;font:700 10.5px/1.6 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;vertical-align:1px}
+:root[data-theme="dark"] .dd-leg-tag,:root[data-theme="dark"] .dd-t.dd-leg.done .dd-i{background:#f0c445;color:#2a1d00}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .dd-leg-tag,:root:not([data-theme="light"]) .dd-t.dd-leg.done .dd-i{background:#f0c445;color:#2a1d00}}
 .dd-t.dd-rare{margin-top:6px;padding:10px 12px;border:1px solid #8a5cd0;border-radius:6px;background:linear-gradient(90deg,rgba(138,92,208,.16),rgba(138,92,208,.04))}
 .dd-rare .dd-i{border-color:#8a5cd0}
 .dd-t.dd-rare.done .dd-i{background:#8a5cd0;border-color:#8a5cd0}
@@ -18742,7 +18748,8 @@ function auditNation(n,raw,id,now,keep){
     if(typeof raw._cl==='number'&&Array.isArray(n.claims)&&n.claims.length>raw._cl){why.push(`It holds ${n.claims.length} land claims; its save declared ${raw._cl}.`);n.claims=n.claims.slice().sort((a,b)=>a.t-b.t).slice(0,raw._cl);}
   }else if(ts>=AC_EPOCH)why.push('It was saved without the figures the rules check.');
   if(n.pr&&n.pr>RATE_MAX){why.push('Its growth rate is beyond what the game allows.');n.pr=RATE_MAX;}
-  if(n.stock){let over=false;for(const r of RES)if(num0(n.stock[r])>whLoadCap(n)){n.stock[r]=whLoadCap(n);over=true;}if(over)why.push(`Its stock is above its supported capacity of ${whLoadCap(n)}.`);}
+  /* above the storage limit by what rewards gave (n.xs) is allowed: the legendary task's, the fiftieth player's gift */
+  if(n.stock){const lim=whLoadCap(n)+xsOf(n);let over=false;for(const r of RES)if(num0(n.stock[r])>lim){n.stock[r]=lim;over=true;}if(over)why.push(`Its stock is above its supported capacity of ${lim}.`);}
   /* a computer nation asks at least 0.9 of the price ratio, and prices stay between 0.4 and 3 (npcVerdict()) */
   if(Array.isArray(n.deals)){const bad=n.deals.filter(x=>x&&!x.a&&NPC_SET.has(x.w)&&Array.isArray(x.g)&&Array.isArray(x.r)&&!(num0(x.g[1])>=0.12*num0(x.r[1])-1e-9));
     if(bad.length){why.push(`${bad.length===1?'It has a deal':`It has ${bad.length} deals`} with a computer nation on terms it would never accept.`);n.deals=n.deals.filter(x=>!bad.includes(x));}}
@@ -23808,8 +23815,8 @@ function stkGain(d,s){
 function c3Strip(n,now,o){
   if(!n||cellOf(n.loc)<0)return '';
   o=o||{};now=now||Date.now();const st=stockNow(n,now),rt=stockRates(n),cap=stockCap(n),need=o.need||{},h=o.h||'Stockpile';
-  return `<div class="stk-strip${o.compact?' stk-c':''}" role="group" aria-label="${esc(h)}"><div class="stk-top"><span class="stk-strip-h">${esc(h)}</span>${o.compact?'':'<button class="linkish small stk-go" data-act="go" data-v="cities">Open Cities</button>'}</div><div class="stk-row">${RES.map(r=>{const sh=need[r]>0&&st[r]+1e-6<need[r],full=st[r]>=cap,grow=rt[r]>0.05,pc=cap>0?Math.min(100,st[r]/cap*100):0;
-    return `<button type="button" class="stk-i stk-${r}${sh?' stk-short':''}${full?' stk-full':''}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="stk-ic" aria-hidden="true">${STK_ICON[r]}</span><span class="stk-tx"><span class="stk-l">${RES_INFO[r][0]}</span><b data-live="stk3" data-r="${r}">${fmtStock(st[r])}</b><span class="stk-rt${grow&&!sh&&!full?' up':''}">${sh?`Need ${need[r]}`:full?'Full':grow?stkGain(rt[r],1):'<span class="stk-nl">Not growing</span><span class="stk-ns">+0</span>'}</span></span><span class="stk-fill" title="${Math.round(pc)}% of storage"><i data-live="stk3f" data-r="${r}" style="width:${pc.toFixed(1)}%"></i></span></button>`;}).join('')}</div></div>`;
+  return `<div class="stk-strip${o.compact?' stk-c':''}" role="group" aria-label="${esc(h)}"><div class="stk-top"><span class="stk-strip-h">${esc(h)}</span>${o.compact?'':'<button class="linkish small stk-go" data-act="go" data-v="cities">Open Cities</button>'}</div><div class="stk-row">${RES.map(r=>{const sh=need[r]>0&&st[r]+1e-6<need[r],full=st[r]>=cap,over=st[r]>=cap+1,grow=rt[r]>0.05,pc=cap>0?Math.min(100,st[r]/cap*100):0;
+    return `<button type="button" class="stk-i stk-${r}${sh?' stk-short':''}${full?' stk-full':''}" data-act="res-bd" data-r="${r}" aria-haspopup="dialog" title="See where it comes from"><span class="stk-ic" aria-hidden="true">${STK_ICON[r]}</span><span class="stk-tx"><span class="stk-l">${RES_INFO[r][0]}</span><b data-live="stk3" data-r="${r}">${fmtStock(st[r])}</b><span class="stk-rt${grow&&!sh&&!full?' up':''}"${over&&!sh?` title="Over the storage limit of ${cap}: nothing more comes in until you use some, or a Warehouse makes room"`:''}>${sh?`Need ${need[r]}`:over?'Over storage':full?'Full':grow?stkGain(rt[r],1):'<span class="stk-nl">Not growing</span><span class="stk-ns">+0</span>'}</span></span><span class="stk-fill" title="${Math.round(pc)}% of storage"><i data-live="stk3f" data-r="${r}" style="width:${pc.toFixed(1)}%"></i></span></button>`;}).join('')}</div></div>`;
 }
 
 /* computer nations freeze deals while they regard you as Hostile */
@@ -36533,6 +36540,21 @@ HELP_EXT.push({k:'outfitters',t:'The outfitters and lost places',body:n=>`<p><b>
 <p><b>Buildings open the better blocks.</b> The grey block is open to everyone. Each block after it needs a building in one of your cities, or that building upgraded far enough: ${esc(list(XU_KEYS.filter(k=>k!=='team').map(k=>XU[k].n+' ('+XU[k].req.map((q,i)=>q?XU_COL[i]+': '+xuReqText(q):'').filter(Boolean).join('; ')+')')))}; and a second team needs ${esc(xuReqText(XU.team.req[0]))}, which needs an Outfitters’ Guild and a Map Room. Every building that opens a block says so on the Cities page.</p>
 <p><b>What they do.</b> Trekking gear adds 1 to the roll in more and more kinds of land, and 1 more everywhere at gold. Pack mules cut 6% off the journey for each block, Supply depots add 3 hexes of reach (for fleeting parties too), and Light rations take 8% off the food and oil. Field naturalists give each first find a 6% chance for every block of bringing home a curio for the Museum. Swift parties make fleeting parties quicker and their rest shorter, and add 1 to their roll at gold.</p>
 <p><b>Lost places.</b> Each region also hides ${LOST_ORDER.length*LOST_PER} lost places of ${LOST_ORDER.length} kinds (${esc(list(LOST_ORDER.map(k=>LOST_KINDS[k].n.toLowerCase()+'s')))}), harder to find (difficulty ${Math.min(...LOST_ORDER.map(k=>LOST_KINDS[k].dc))} to ${Math.max(...LOST_ORDER.map(k=>LOST_KINDS[k].dc))}) and worth more. Nobody sees one until their old maps show its kind: Old maps’ grey block (which needs a Map Room) shows pirate coves, and each block after it one more kind. Once somebody has found one, it is on every map under the name its finder gave it, and its finder always brings home its curio.</p>`});
+/* the daily desk: whether today may ask for an upgrade (one whose next block the nation's buildings allow, with the
+   workshop free), for a building or upgrade that opens a block, or for an expedition to a lost place */
+function xuDeskOk(n){const now=Date.now();if(n.xuw&&n.xuw.d>now)return false;return XU_KEYS.some(k=>{const L=xuLv(n,k,now);if(L>=xuMax(k))return false;const q=XU[k].req[L];return !q||!!xuHave(n,q,now);});}
+/* the buildings that would open the next block of a track and that the nation can start now: one it has built, to
+   upgrade (a block, or a Warehouse's level); otherwise one that one of its cities could put up today, but for the
+   materials or a builder busy with something else (coast, hills, one per nation, the buildings it needs first) */
+function xuNeeds(n){
+  const now=Date.now(),out=new Set();let mine=null;
+  const canBuild=b=>{try{if(!mine)mine=myCityStates().mine;const st=stockNow(n,now);return mine.some(ct=>{const p=buildProblem(n,ct,b,st);return !p||p.k==='cost'||p.k==='busy';});}catch(e){return false;}};
+  for(const k of XU_KEYS){const L=xuLv(n,k,now);if(L>=xuMax(k))continue;const q=XU[k].req[L];if(!q||xuHave(n,q,now))continue;
+    for(const b of q.k){if(!BUILDINGS[b]||out.has(b))continue;if((q.ug||q.wl)&&nationBuilt(n,b,now)){out.add(b);continue;}if(canBuild(b))out.add(b);}}
+  return [...out];
+}
+function xuLostOk(n){if(!expFree(n))return false;const T=territory(),mi=T.byId[myId()];if(mi===undefined)return false;const D=flDist(T,mi),rg=expRange(n),R=discoveries();
+  return SITES.some((st,si)=>st.lost&&!R.has(si)&&xpSeen(si,n)&&D[st.c]>=0&&D[st.c]<=rg);}
 /* the outfitters' card, above the small map */
 function xpOutfitters(n,now){
   const w=n.xuw&&n.xuw.d>now?n.xuw:null,have=xuAll(n,now),open=S.xuOpen!=null?S.xuOpen:!navNarrow();
@@ -48331,7 +48353,10 @@ writeClaims=(f=>function(cells,msg,auto,plan){
 /* ───────── the daily desk, the presence streak, and a quick first building ─────────
    Every day (the player's own calendar day) the edicts page sets three tasks, drawn from the ones the nation
    can do: answer edicts, visit another nation, send expeditions, vote in the Assembly, build roads, claim
-   hexes, write a letter, propose a trade or start a building. The draw comes from the nation's seed and the
+   hexes, write a letter, propose a trade, start a building, start an upgrade at the outfitters, or start a
+   building (or a building's upgrade) that opens a block there, send a party to a fleeting find, upgrade a
+   building, dig up a survey cache or send out a field dig. A task marked rare is drawn only as the rare one (a lost
+   place, a new city); one marked legend only as the week's legendary task (below). The draw comes from the nation's seed and the
    date, and is written into the record at the first save of the day (n.dd), so every device shows the same
    three. Each done task brings DD_GIFT of two resources; clearing all three brings a land credit (n.ddc counts
    them, and they add to landEarned like the tutorial's). Progress is counted save by save from the tallies
@@ -48354,7 +48379,8 @@ const ddOthers=()=>{try{return allNations().some(x=>!x.me);}catch(e){return fals
 /* the browser tests turn the desk off (test/lib.mjs) unless a suite asks for it, so its gifts never move the stock
    a test is counting on whatever three tasks the date happens to draw */
 const ddOn=()=>!window.EDICTUM_NO_DESK;
-/* key: {t: title for a target, go: [view, button], r: [lowest, highest target], ok: whether the nation can do it today} */
+/* key: {t: title for a target, go: [view, button], r: [lowest, highest target], ok: whether the nation can do it today,
+   rare: drawn only as the rare task, legend: only as the legendary one} */
 const DD_TASKS={
   iss:{t:k=>k===1?'Answer an edict':`Answer ${k} edicts`,go:null,r:[3,5],ok:()=>true},
   visit:{t:()=>'Visit another nation’s page',go:['region','Open the Region'],r:[1,1],ok:ddOthers},
@@ -48364,7 +48390,19 @@ const DD_TASKS={
   claim:{t:k=>k===1?'Claim a hex':`Claim ${k} hexes`,go:['map','Open the map'],r:[1,2],ok:n=>landCredits(n)>=2},
   dm:{t:k=>k>1?`Write ${k} letters to other nations`:'Write to another nation',go:['messages','Open Messages'],r:[1,1],ok:ddOthers},
   deal:{t:k=>k>1?`Propose ${k} trades`:'Propose a trade',go:['trade','Open Trade'],r:[1,1],ok:n=>cellOf(n.loc)>=0},
-  build:{t:k=>k>1?`Start ${k} buildings`:'Start a building',go:['cities','Open Cities'],r:[1,1],ok:n=>cellOf(n.loc)>=0}
+  build:{t:k=>k>1?`Start ${k} buildings`:'Start a building',go:['cities','Open Cities'],r:[1,1],ok:n=>cellOf(n.loc)>=0},
+  /* the outfitters (the Expeditions page): an upgrade into the workshop; a building, or a building's upgrade, of a kind
+     that opens a block there; and, as the rare task only, an expedition to a lost place the old maps show */
+  xu:{t:k=>k>1?`Start ${k} upgrades at the outfitters`:'Start an upgrade at the outfitters',go:['explore','Open the outfitters'],r:[1,1],ok:n=>cellOf(n.loc)>=0&&xuDeskOk(n)},
+  xpb:{t:k=>k>1?`Start ${k} buildings or upgrades that help your explorers`:'Start a building or upgrade that helps your explorers',go:['cities','Open Cities'],r:[1,1],ok:n=>cellOf(n.loc)>=0&&xuNeeds(n).length>0},
+  lost:{t:k=>k>1?`Send ${k} expeditions to lost places`:'Send an expedition to a lost place',go:['explore','Open expeditions'],r:[1,1],rare:1,ok:n=>cellOf(n.loc)>=0&&xuLostOk(n)},
+  fleet:{t:k=>k>1?`Send ${k} parties to fleeting finds`:'Send a party to a fleeting find',go:['explore','Open fleeting finds'],r:[1,1],ok:n=>cellOf(n.loc)>=0&&ddFleetOk(n)},
+  ugb:{t:k=>k>1?`Upgrade ${k} buildings in your cities`:'Upgrade a building in one of your cities',go:['cities','Open Cities'],r:[1,1],ok:n=>cellOf(n.loc)>=0&&ddUpOk(n)},
+  svc:{t:k=>k>1?`Dig up ${k} survey caches`:'Dig up a survey cache',go:['map','Open the map'],r:[1,2],ok:n=>cellOf(n.loc)>=0&&ddSvcLeft(n)>0},
+  dig:{t:k=>k>1?`Send out ${k} field digs`:'Send out a field dig from the Museum',go:['museum','Open the digs'],r:[1,1],ok:n=>cellOf(n.loc)>=0&&ddDigOk(n)},
+  city:{t:k=>k>1?`Found ${k} cities`:'Found a new city',go:['cities','Open Cities'],r:[1,1],rare:1,ok:n=>cellOf(n.loc)>=0&&ddCityOk(n)},
+  desk:{t:k=>`Clear your daily desk on ${k} days`,go:null,r:[5,5],legend:1,ok:()=>true},
+  first:{t:k=>k>1?`Discover ${k} sites first`:'Discover a site first',go:['explore','Open expeditions'],r:[2,2],legend:1,ok:n=>cellOf(n.loc)>=0&&ddRumourOk(n)}
 };
 function ddCanVote(n){
   try{const now=Date.now(),st=asmState(now);if(!st||!st.cur||!asmMemberAt(n,now))return false;const mine=st.V&&st.V.rows.find(r=>r.me);return !(mine&&(mine.v>0||mine.v<0));}catch(e){return false;}
@@ -48380,15 +48418,44 @@ function ddNextAt(now,D){const day=ddDay(now);if(!D||!D.d||!(D.d>day))return ddN
 /* the day's three tasks: [key, target, resource, resource] */
 function ddRoll(n,day){
   const r=rng(hash(String(n.seed)+':desk:'+day)),pick=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
-  const pool=pick(Object.keys(DD_TASKS)).filter(k=>{try{return !!DD_TASKS[k].ok(n);}catch(e){return false;}});
+  const pool=pick(Object.keys(DD_TASKS)).filter(k=>{try{return !DD_TASKS[k].rare&&!DD_TASKS[k].legend&&!!DD_TASKS[k].ok(n);}catch(e){return false;}});
   return pool.slice(0,3).map(k=>{const [lo,hi]=DD_TASKS[k].r;let v=lo+Math.floor(r()*(hi-lo+1));
-    if(k==='iss')v=Math.min(v,Math.max(1,Math.floor(1440/(n.freq||FREQ_DEF))));const [a,b]=pick(DD_RES);return [k,v,a,b];});
+    if(k==='iss')v=Math.min(v,Math.max(1,Math.floor(1440/(n.freq||FREQ_DEF))));if(k==='svc')v=Math.min(v,Math.max(1,ddSvcLeft(n)));const [a,b]=pick(DD_RES);return [k,v,a,b];});
 }
 /* the rare task: one more each day, a little harder than the three, paid in DD_RARE_GIFT and DD_RARE_CR land credits
    (counted in n.ddr, which adds to landEarned like n.ddc). It is drawn from a separate pool, avoiding the three's tasks
    where it can, and kept in n.dd.r {k, g, c, p}. */
 const DD_RARE_GIFT={iron:5,oil:10,timber:20,food:30},DD_RARE_CR=3,DD_RARE_MAX=STK_MAX;
-const DD_RARE={iss:[6,8],claim:[3,4],exp:[2,3],road:[2,3],build:[2,2],dm:[2,3],deal:[2,2]};
+const DD_RARE={iss:[6,8],claim:[3,4],exp:[2,3],road:[2,3],build:[2,2],dm:[2,3],deal:[2,2],xu:[2,2],xpb:[2,2],lost:[1,1],fleet:[2,3],ugb:[2,2],svc:[2,2],city:[1,1]};
+/* the legendary task: once a calendar week (Monday to Sunday, by the player's own clock), at a moment fixed by the
+   nation's seed and the week, a much bigger task appears on the desk, and stays seven days. Done in time, it pays
+   DD_LEG_CR land credits and DD_LEG_GIFT of every resource, even above the storage limit. Until it appears, and once
+   its seven days are up, there is nothing to see. One at a time: a week's task that falls while the last one is still
+   open waits until that one is done or gone. None in a nation's first week, which has its doubled desks. n.ddl {w: week, k, g, c, p, a: appeared, e: ends, d: done}; n.ddlc
+   counts those done (they add to landEarned like the desk's own credits). */
+const DD_LEG_CR=15,DD_LEG_GIFT=300,DD_LEG_MS=7*864e5,DD_LEG_MAX=STK_MAX;
+const DD_LEG={iss:[30,40],claim:[12,16],exp:[6,8],deal:[5,6],dm:[6,8],build:[5,6],road:[4,6],xu:[4,5],xpb:[3,4],fleet:[6,8],ugb:[4,5],svc:[8,10],desk:[5,5],first:[2,2]};
+const ddlcOf=n=>n&&Number.isInteger(n.ddlc)&&n.ddlc>0?Math.min(n.ddlc,DD_LEG_MAX):0;
+/* stock above the storage limit that a reward gave (the legendary task's, the fiftieth player's gift) stays: n.xs, the
+   most any resource is over, kept while one is over and shrinking as it is used. Income adds nothing to a resource
+   that is over (whAccrue) until some is used or a Warehouse raises the limit; the load check allows it (auditNation).
+   Never more than those rewards can have given. */
+function xsMax(n){return DD_LEG_GIFT*ddlcOf(n)+(n&&n.m50===1&&typeof M50_N==='number'?M50_N:0);}
+const xsOf=n=>n&&Number.isFinite(n.xs)&&n.xs>0?Math.min(n.xs,xsMax(n)):0;
+function xsOver(n,st,now){const cap=stockCap(n,now);let x=0;for(const r of RES)x=Math.max(x,num0(st[r])-cap);return Math.ceil(x);}
+function xsMark(n,st,now){const x=xsOver(n,st,now);if(x>0)n.xs=Math.max(Number.isFinite(n.xs)?n.xs:0,x);}
+/* the week a moment falls in: its Monday, as a day key and as the time at its midnight */
+function ddWeekOf(t){const d=new Date(t);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return {k:ddDay(d.getTime()),t:d.getTime()};}
+/* when the week's legendary task appears */
+function ddLegAt(n,W){return W.t+Math.floor(rng(hash(String(n.seed)+':legend:'+W.k))()*DD_LEG_MS);}
+function ddLegRoll(n,W,a){
+  const r=rng(hash(String(n.seed)+':legendk:'+W.k)),ok=k=>{try{if(k==='claim')return landCredits(n)>=4;return !!DD_TASKS[k].ok(n);}catch(e){return false;}};
+  const keys=Object.keys(DD_LEG).filter(ok);if(!keys.length)return null;const k=keys[Math.floor(r()*keys.length)],[lo,hi]=DD_LEG[k];let g=lo+Math.floor(r()*(hi-lo+1));
+  if(k==='iss')g=Math.min(g,Math.max(3,Math.floor(7*1440/(n.freq||FREQ_DEF)*0.6)));
+  return {w:W.k,k,g,c:0,p:0,a,e:a+DD_LEG_MS};
+}
+/* the legendary task to show at a moment: appeared and not yet over, or null */
+function ddLegOn(n,now){const L=n&&n.ddl;return L&&now>=L.a&&now<=L.e?L:null;}
 const ddrOf=n=>n&&Number.isInteger(n.ddr)&&n.ddr>0?Math.min(n.ddr,DD_RARE_MAX):0;
 function ddRare(n,day,q){
   const r=rng(hash(String(n.seed)+':rare:'+day)),ok=k=>{try{if(k==='claim')return landCredits(n)>=DD_RARE.claim[0];return !!DD_TASKS[k].ok(n);}catch(e){return false;}};
@@ -48408,11 +48475,29 @@ function ddDelta(n,old,k){
   if(k==='exp')return ['exp','exp2'].filter(f=>n[f]&&n[f].t0&&!(old[f]&&old[f].t0===n[f].t0)).length;
   if(k==='road'){const had=new Set((old.infra||[]).map(r=>r&&r.id));return (n.infra||[]).filter(r=>r&&r.k==='road'&&!had.has(r.id)).length;}
   if(k==='build'){const had=new Set();for(const c of old.cities||[])for(const b of c.b||[])had.add(c.id+'|'+b.k);let m=0;for(const c of n.cities||[])for(const b of c.b||[])if(!had.has(c.id+'|'+b.k))m++;return m;}
+  if(k==='xu')return n.xuw&&Number.isFinite(n.xuw.s)&&!(old.xuw&&old.xuw.s===n.xuw.s)?1:0;
+  if(k==='xpb'){const B=xuByB(),was=new Map();for(const c of old.cities||[])for(const b of c.b||[])was.set(c.id+'|'+b.k,b);let m=0;
+    for(const c of n.cities||[])for(const b of c.b||[]){if(!B[b.k])continue;const o=was.get(c.id+'|'+b.k);if(!o){m++;continue;}
+      const u=cxBldExtras(b).uu,ou=cxBldExtras(o).uu,w=whExtras(b).wu,ow=whExtras(o).wu;
+      if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;else if(w&&Number.isFinite(w.s)&&!(ow&&ow.s===w.s))m++;}return m;}
+  if(k==='lost')return ['exp','exp2'].filter(f=>n[f]&&n[f].t0&&!(old[f]&&old[f].t0===n[f].t0)&&SITES[n[f].s]&&SITES[n[f].s].lost).length;
+  if(k==='fleet'){const had=new Set((old.fl||[]).map(e=>e&&e.k+'|'+e.s));return (n.fl||[]).filter(e=>e&&!had.has(e.k+'|'+e.s)).length;}
+  if(k==='ugb'){const was=new Map();for(const c of old.cities||[])for(const b of c.b||[])was.set(c.id+'|'+b.k,b);let m=0;
+    for(const c of n.cities||[])for(const b of c.b||[]){const o=was.get(c.id+'|'+b.k);if(!o)continue;const u=cxBldExtras(b).uu,ou=cxBldExtras(o).uu;if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;}return m;}
+  if(k==='svc'){const a=n.svc,b=old.svc;if(!a||!Array.isArray(a.c))return 0;const same=!!b&&b.d===a.d&&Array.isArray(b.c);return a.c.filter((x,i)=>x&&x[3]===1&&!(same&&b.c[i]&&b.c[i][3]===1)).length;}
+  if(k==='dig'){const had=new Set((old.dig||[]).map(d=>d&&d.s+'|'+d.t0));return (n.dig||[]).filter(d=>d&&!had.has(d.s+'|'+d.t0)).length;}
+  if(k==='city')return tl('cities');
+  if(k==='desk')return Math.max(0,(Number.isInteger(n.ddc)?n.ddc:0)-(Number.isInteger(old.ddc)?old.ddc:0));
+  if(k==='first')return tl('first');
   return 0;
 }
 const stkDays=n=>n&&n.stk&&Number.isInteger(n.stk.n)?n.stk.n:0;
-landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n)+DD_RARE_CR*ddrOf(n);})(landEarned);
-earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n)+DD_RARE_CR*ddrOf(n);})(earnedAt);
+/* the allowance follows the stock down, and goes when nothing is over the limit */
+COMMIT_HOOKS.push((n,old,now)=>{if(!n||!n.xs)return [];const a=Math.min(xsOf(n),xsOver(n,stockNow(n,now),now));if(a>0)n.xs=a;else delete n.xs;return [];});
+/* the kinds of task a nation has ever finished on its desk (n.ddk), for Jack of All Trades */
+function ddKind(n,k){if(!DD_TASKS[k])return;const a=Array.isArray(n.ddk)?n.ddk:[];if(!a.includes(k))n.ddk=a.concat(k).slice(0,40);}
+landEarned=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n)+DD_RARE_CR*ddrOf(n)+DD_LEG_CR*ddlcOf(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+(n&&Number.isInteger(n.ddc)?n.ddc:0)+ddwOf(n)+DD_RARE_CR*ddrOf(n)+DD_LEG_CR*ddlcOf(n);})(earnedAt);
 UNLOCK_SOURCES.push({earned:n=>STK_UNLOCKS.slice(0,Math.min(STK_UNLOCKS.length,stkDays(n))),
   how:id=>{const i=STK_UNLOCKS.indexOf(id);return i<0?null:`Day ${i+1} of presence: answer an edict or claim a hex on ${i?i+1+' different days':'any day'}.`;}});
 const STK_NOTES=['the Enacted stamp in indigo ink is yours, under Decrees in Customise','a cartouche for your motto is yours, under Banner in Customise','a pennant over your capital on the map is yours, under Banner in Customise'],
@@ -48427,14 +48512,23 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}D.q.forEach(([k,goal,ra,rb],i)=>{
     if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
-    if(D.c[i]>=goal){D.p[i]=1;try{gbBump(n,'ddt',1,now);}catch(e){}gift(ra,ddGift(ra));gift(rb,ddGift(rb));out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${ddGift(ra)} ${resName(ra)} and +${ddGift(rb)} ${resName(rb)}.`);}
+    if(D.c[i]>=goal){D.p[i]=1;ddKind(n,k);try{gbBump(n,'ddt',1,now);}catch(e){}gift(ra,ddGift(ra));gift(rb,ddGift(rb));out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${ddGift(ra)} ${resName(ra)} and +${ddGift(rb)} ${resName(rb)}.`);}
   });
   if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;for(const r in DD_CLEAR)gift(r,DD_CLEAR[r]);out.push(`A clear desk: +${DD_CLEAR.iron} iron and +${DD_CLEAR.goods} goods.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
     else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
   const R=D.r;if(R&&!R.p){const dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
-    if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;for(const r in DD_RARE_GIFT)gift(r,DD_RARE_GIFT[r]);try{gbBump(n,'ddr',1,now);}catch(e){}
-      out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food and +${DD_RARE_CR} land credits.`);}}}
+    if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;ddKind(n,R.k);for(const r in DD_RARE_GIFT)gift(r,DD_RARE_GIFT[r]);try{gbBump(n,'ddr',1,now);}catch(e){}
+      out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food and +${DD_RARE_CR} land credits.`);}}
+  /* the legendary task: it appears when its moment comes (late, after the last one, if that one was still open), and
+     counts from then on */
+  {const W=ddWeekOf(now);let L=n.ddl;const open=L&&!L.p&&now<=L.e;
+    const grown=+(n.founded||0)>0&&now-n.founded>=DD_WEEK;
+    if(grown&&!open&&(!L||L.w!==W.k)){const a=Math.max(ddLegAt(n,W),L&&!L.p&&L.w!==W.k?Math.min(L.e,W.t+DD_LEG_MS):0);
+      if(now>=a&&now<W.t+DD_LEG_MS){const nl=ddLegRoll(n,W,a);if(nl){n.ddl=L=nl;out.push(`A legendary task is on your desk: ${DD_TASKS[nl.k].t(nl.g)}. You have seven days, for +${DD_LEG_CR} land credits and ${DD_LEG_GIFT} of every resource.`);}}}
+    if(L&&!L.p&&now>=L.a&&now<=L.e&&base){const dv=Math.max(0,ddDelta(n,base,L.k));if(dv)L.c=Math.min(L.g,(L.c||0)+dv);
+      if(L.c>=L.g){L.p=1;L.d=now;n.ddlc=ddlcOf(n)+1;ddKind(n,L.k);const st=stockNow(n,now);for(const r of RES)st[r]=num0(st[r])+DD_LEG_GIFT;xsMark(n,st,now);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;try{gbBump(n,'ddl',1,now);}catch(e){}
+        out.push(`Legendary task done: ${DD_TASKS[L.k].t(L.g)}. +${DD_LEG_GIFT} of every resource and +${DD_LEG_CR} land credits.${xsOf(n)?' Some of it is over your storage: those resources earn nothing more until you use some, or a Warehouse makes room.':''}`);}}}}
   if(base&&(!n.stk||ddLater(day,n.stk.d))&&(ddDelta(n,base,'iss')>0||ddDelta(n,base,'claim')>0)){
     const k=Math.min(STK_MAX,stkDays(n)+1);n.stk={n:k,d:day};if(k<=STK_NOTES.length)out.push(`Day ${k} of your presence: ${STK_NOTES[k-1]}.`);}
   /* the quick first building: its first cart, once, if it still stands */
@@ -48454,12 +48548,25 @@ NORM_HOOKS.push((n,d)=>{
   if(d&&Number.isInteger(d.ddc)&&d.ddc>0&&d.ddc<=STK_MAX)n.ddc=d.ddc;else delete n.ddc;
   if(d&&Number.isInteger(d.ddw)&&d.ddw>0&&d.ddw<=DD_WEEK_MAX)n.ddw=d.ddw;else delete n.ddw;
   if(d&&Number.isInteger(d.ddr)&&d.ddr>0&&d.ddr<=DD_RARE_MAX)n.ddr=d.ddr;else delete n.ddr;
+  if(d&&Number.isInteger(d.ddlc)&&d.ddlc>0&&d.ddlc<=DD_LEG_MAX)n.ddlc=d.ddlc;else delete n.ddlc;
+  {const v=d&&Number.isFinite(d.xs)&&d.xs>0?Math.min(Math.ceil(d.xs),xsMax(d)):0;if(v>0)n.xs=v;else delete n.xs;}
+  {const L=d&&d.ddl;if(L&&typeof L.w==='string'&&DD_KEY_RX.test(L.w)&&czHas(DD_LEG,L.k)&&Number.isInteger(L.g)&&L.g>=1&&L.g<=100&&Number.isFinite(L.a)&&Number.isFinite(L.e)&&L.e>L.a&&L.e-L.a<=DD_LEG_MS){
+    n.ddl={w:L.w,k:L.k,g:L.g,c:Number.isInteger(L.c)&&L.c>0?Math.min(L.c,L.g):0,p:L.p===1?1:0,a:L.a,e:L.e};if(Number.isFinite(L.d))n.ddl.d=L.d;}else delete n.ddl;}
+  if(d&&Array.isArray(d.ddk)){const v=[...new Set(d.ddk.filter(k=>typeof k==='string'&&czHas(DD_TASKS,k)))].slice(0,40);if(v.length)n.ddk=v;else delete n.ddk;}else delete n.ddk;
   if(d&&Number.isFinite(d.ddx)&&d.ddx>0&&d.ddx<=Date.now()+864e5)n.ddx=d.ddx;else delete n.ddx;
   const K=d&&d.stk;if(K&&Number.isInteger(K.n)&&K.n>0&&K.n<=STK_MAX&&typeof K.d==='string'&&DD_KEY_RX.test(K.d))n.stk={n:K.n,d:K.d};else delete n.stk;
   const F=d&&d.ffb;if(F&&FFB_KEYS.includes(F.k)&&typeof F.c==='string'&&F.c.length>0&&F.c.length<=40&&Number.isFinite(F.s)&&Number.isFinite(F.d)&&F.d>=F.s){n.ffb={k:F.k,c:F.c,s:F.s,d:F.d};if(F.p===1)n.ffb.p=1;}else delete n.ffb;
 });
 
+NOTIF_SOURCES.push((n,now)=>{const L=ddLegOn(n,now);if(!L||L.p||n.npc)return [];return [{t:L.a,k:'desk',kl:'Today’s desk',txt:`A legendary task is on your desk: ${DD_TASKS[L.k].t(L.g)}. ${fmtWait(L.e-now)} left, for +${DD_LEG_CR} land credits and ${DD_LEG_GIFT} of every resource.`,go:'issues'}];});
 /* ── the desk on the edicts page ── */
+/* whether a nation can do one of the desk's tasks today (DD_TASKS ok) */
+function ddFleetOk(n){try{const t=flNow();if(flOut(n,t)||flReady(n,t))return false;return flAlive(t).some(s=>{const P=flPlan(n,s,t);return !P.why||/^You need/.test(P.why);});}catch(e){return false;}}
+function ddUpOk(n){try{const now=Date.now();return cityList(n).some(c=>(c.b||[]).some(b=>{if(!(b.d<=now)||!cxUpgradable(b.k)||cxUps(b,now)>=5)return false;const u=cxBldExtras(b).uu;return !(u&&u.d>now);}));}catch(e){return false;}}
+function ddSvcLeft(n){try{return svcOpen(n,Date.now()).length;}catch(e){return 0;}}
+function ddDigOk(n){try{return DIG_SITES.some((x,k)=>{const P=digPlan(n,k);return !P.why||/^You need/.test(P.why);});}catch(e){return false;}}
+function ddCityOk(n){try{const T=territory(),i=T.byId[myId()];return i!==undefined&&cityList(n).length<maxCities(T,i)&&citySites(T).length>0;}catch(e){return false;}}
+function ddRumourOk(n){try{const T=territory(),mi=T.byId[myId()];if(mi===undefined)return false;const D=flDist(T,mi),rg=expRange(n),R=discoveries();return SITES.some((st,si)=>!R.has(si)&&xpSeen(si,n)&&D[st.c]>=0&&D[st.c]<=rg);}catch(e){return false;}}
 function ddMark(k){
   const n=S.nation;if(!n||n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;
   const day=ddDay(Date.now()),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:null,i=(D?D.q:ddRoll(n,day)).findIndex(q=>q[0]===k);
@@ -48468,11 +48575,13 @@ function ddMark(k){
 function ddCard(now){
   const n=S.nation;if(!n||n.npc||!ddOn())return '';
   const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),nx=STK_UNLOCKS[sk],wk=ddWeek(n,now);
+  const L=ddLegOn(n,now),leg=L?(()=>{const T=DD_TASKS[L.k],done=!!L.p,c=Math.min(L.g,L.c||0);
+    return `<li class="dd-t dd-leg${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-leg-tag">Legendary</span> ${esc(T.t(L.g))}</b><span class="hint">${done?'Done':`${c} of ${L.g} · <b data-live="ddnext" data-t="${L.e}">${esc(fmtWait(L.e-now))}</b> left`} · <b>+${DD_LEG_GIFT} of every resource, +${DD_LEG_CR} land credits</b></span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${L.k}">${esc(T.go[1])}</button>`:''}</li>`;})():'';
   const rows=D.q.map(([k,goal,ra,rb],i)=>{const T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0);
     return `<li class="dd-t${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'Done':`${c} of ${goal}`} · +${ddGift(ra)} ${esc(resName(ra))}, +${ddGift(rb)} ${esc(resName(rb))}</span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:''}</li>`;}).join('');
   const dots=`<span class="lc-dots" aria-hidden="true">${STK_UNLOCKS.map((x,i)=>`<i${i<sk?' class="on"':''}></i>`).join('')}</span>`;
   return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextAt(now,D)}">${esc(fmtWait(ddNextAt(now,D)-now))}</b></span></div>
-    <ol class="dd-l">${rows}${(()=>{const R=D.r||ddRare(n,D.d,D.q);if(!R)return '';const T=DD_TASKS[R.k],done=!!R.p,c=Math.min(R.g,R.c||0);
+    <ol class="dd-l">${leg}${rows}${(()=>{const R=D.r||ddRare(n,D.d,D.q);if(!R)return '';const T=DD_TASKS[R.k],done=!!R.p,c=Math.min(R.g,R.c||0);
       return `<li class="dd-t dd-rare${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-rare-tag">Rare</span> ${esc(T.t(R.g))}</b><span class="hint">${done?'Done':`${c} of ${R.g}`} · +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food, <b>+${DD_RARE_CR} land credits</b></span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${R.k}">${esc(T.go[1])}</button>`:''}</li>`;})()}</ol>
     <p class="dd-f">${D.w?(wk?'Your desk is clear: today’s two land credits are yours.':'Your desk is clear: today’s land credit is yours.'):wk?'Clear all three for <b>+2 land credits</b>, double in your first week.':'Clear all three for <b>+1 land credit</b>.'}</p>
     ${D.w&&S.mode!=='readonly'?(ddxReady(n,now)?'<div class="row dd-x-row"><button type="button" class="btn small-btn" data-act="dd-reset">Weekly reset: three new tasks now</button><span class="hint">Once every seven days: a fresh desk today, with its own land credit.</span></div>':`<p class="hint">Weekly reset ready again in <b>${esc(fmtWait(ddxAt(n)+DDX_GAP-now))}</b>.</p>`):''}
@@ -48481,7 +48590,8 @@ function ddCard(now){
 issuesView=(f=>function(v,now){const h=f.apply(this,arguments),c=ddCard(now||Date.now());return c?h.replace('</header>','</header>'+c):h;})(issuesView);
 asmVote=(f=>function(){const r=f.apply(this,arguments);Promise.resolve(r).then(ok=>{if(ok)ddMark('vote');},()=>{});return r;})(asmVote);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
-  if(a==='dd-go'){const T=DD_TASKS[el.dataset.k];if(!T||!T.go)return;go(T.go[0]);if(el.dataset.k==='road'&&pgAvailable(S.nation,'map')){S.mpMode='transport';render();}return;}
+  if(a==='dd-go'){const T=DD_TASKS[el.dataset.k];if(!T||!T.go)return;if(el.dataset.k==='xu'){S.xuOpen=true;S.xpTab='next';}if(el.dataset.k==='lost'){S.xpF='lost';S.xpTab='next';}if(el.dataset.k==='fleet'){S.xpF='fl';S.xpTab='next';}if(el.dataset.k==='dig'){S.museumFor=null;S.muHall='digs';S.colDetail=null;S.muRen=false;}go(T.go[0]);
+    if(el.dataset.k==='xu')requestAnimationFrame(()=>{const x=document.getElementById('xu');if(x){x.open=true;x.scrollIntoView({block:'start'});}});if(el.dataset.k==='road'&&pgAvailable(S.nation,'map')){S.mpMode='transport';render();}return;}
   if(a==='dd-reset'){const n=S.nation,now=Date.now();if(n.npc||!ddOn()||regBlocked()||S.mode==='readonly'||!ddxReady(n,now))return;
     const day=ddDay(now);if(!n.dd||ddLater(day,n.dd.d)||!n.dd.w)return;
     const m=clone(n);m.ddx=now;m.dd=ddFresh(m,day,':x'+now);commit(m);saveSoon();render();toast('Weekly reset: three new tasks on your desk.');return;}
@@ -49801,7 +49911,7 @@ function m50Show(){
 function m50Open(){
   const n=S.nation;if(!m50Due(n))return m50Close();
   const m=clone(n),now=Date.now(),st=stockNow(m,now);for(const r of RES)st[r]=num0(st[r])+M50_N;
-  m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;m.m50=1;commit(m);
+  m.m50=1;xsMark(m,st,now);m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;m.m50=1;commit(m);
   const o=document.getElementById('m50');if(o){o.classList.add('open');const l=document.getElementById('m50-later');if(l)l.remove();
     for(let i=0;i<24;i++){const c=document.createElement('i');c.className='m50-cf';c.style.cssText=`--x:${Math.round(Math.random()*300-150)}px;--y:${Math.round(-80-Math.random()*160)}px;--r:${Math.round(Math.random()*720)}deg;background:${['#E2B13C','#C0282D','#2457A6','#23804A','#743A8E'][i%5]}`;o.querySelector('.m50').appendChild(c);}
     setTimeout(()=>{const b=document.getElementById('m50-ok');if(b)b.focus();},700);}
@@ -55866,6 +55976,14 @@ achDef('found','obs-pop','o','The Uncountable','Reach a hundred trillion people.
 achDef('found','obs-age','o','Half a Millennium','Reach 500 years of age: a thousand real days in office.',500,x=>x.npc||!x.n.founded?0:Math.floor(Math.max(0,x.now-x.n.founded)/YEAR_MS),{fm:'yr',sec:OBS_HINT});
 achDef('law','obs-law','o','Infinite Statute','Make 5,000 decisions.',5000,aDec,{sec:OBS_HINT});
 achDef('land','obs-land','o','From Sea to Sea to Sea','Hold 2,500 hexes of land at once.',2500,aHexes,{sec:OBS_HINT});
+/* the daily desk: its rare and legendary tasks, and the kinds of task done */
+achDef('found','desk-compass','b','Desk and Compass','Finish a desk task at the outfitters, for a building that helps your explorers, or to a lost place.',1,x=>achYes((x.n.ddk||[]).some(k=>['xu','xpb','lost'].includes(k))),{fm:'bool'});
+achDef('found','desk-kinds12','s','Jack of All Trades','Finish desk tasks of 12 different kinds.',12,x=>(x.n.ddk||[]).length);
+achDef('found','desk-rare10','s','Rarer Still','Finish 10 rare desk tasks.',10,x=>ddrOf(x.n));
+achDef('found','desk-rare50','g','A Taste for the Rare','Finish 50 rare desk tasks.',50,x=>ddrOf(x.n));
+achDef('found','desk-leg1','g','The Stuff of Legend','Finish a legendary desk task within its seven days.',1,x=>ddlcOf(x.n));
+achDef('found','desk-leg5','p','Legend of the Desk','Finish 5 legendary desk tasks.',5,x=>ddlcOf(x.n));
+achDef('found','obs-desk','o','Myth and Minutes','Finish 25 legendary desk tasks.',25,x=>ddlcOf(x.n),{sec:OBS_HINT});
 achDef('war','obs-war','o','Empire Without End','Take 400 hexes in war.',400,x=>aT(x,'conq'),{sec:OBS_HINT});
 achDef('games','obs-games','o','The Eternal Games','Win 300 medals.',300,aMedals,{sec:OBS_HINT});
 achDef('odd','obs-desk','o','Two Years at the Desk','Clear your daily desk on 730 days.',730,aDesks,{sec:OBS_HINT});

@@ -170,7 +170,8 @@ try {
   await o.edit(n => { n.xu = Object.assign({}, n.xu, { maps: 1 }); });
   check('lost places: grey shows the pirate coves, and only them', await S(op, () => { const X = window.__game.XP(), L = X.SITES.map((s, i) => i).filter(i => X.SITES[i].lost); return L.every(i => X.xpSeen(i) === (X.SITES[i].k === 'cove')); }));
   check('lost places: a cove within reach is listed in gold, or the teaser counts the rest', await S(op, () => !!document.querySelector('.xp-item.xp-lost') || !!document.querySelector('.xp-tease') || !document.querySelector('.xp-list')));
-  await o.edit(n => { n.xu = Object.assign({}, n.xu, { team: 1 }); });
+  /* a second team, and supply depots at gold, so that wherever the test nation settled there are two places to go */
+  await o.edit(n => { n.xu = Object.assign({}, n.xu, { team: 1, depots: 5 }); });
   check('second team: the card names both teams', await S(op, () => /Your expeditions/.test(document.querySelector('.xp-exp .xp-hd').textContent) && !!document.querySelector('.xp-t2')));
   await op.click('.xp-exp .xp-acts [data-act="exp-send"]'); await sleep(300);
   check('second team: the first sets out, the second offers the next best', await S(op, () => !!window.__game.S.nation.exp && !!document.querySelector('.xp-t2 [data-act="exp-send"]')));
@@ -189,6 +190,45 @@ try {
   check('Cities: a building says what it opens at the outfitters', await S(op, () => [...document.querySelectorAll('.xp-bnote')].some(e => /For explorers: opens .* at the outfitters/.test(e.textContent))));
   check('outfitters: no script errors', o.errors.length === 0, o.errors);
   await o.ctx.close();
+
+  /* ── the daily desk: the outfitters' tasks, a button that opens them, and a task done by starting an upgrade ── */
+  const k = await start('dark', { width: 1280, height: 900 }), kp = k.page;
+  await k.edit(n => { const d = new Date(), day = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    n.dd = { d: day, q: [['xu', 1, 'timber', 'iron'], ['xpb', 1, 'oil', 'goods'], ['iss', 1, 'timber', 'goods']], c: [0, 0, 0], p: [0, 0, 0], r: { k: 'lost', g: 1, c: 0, p: 0 } };
+    n.stock = Object.assign({}, n.stock, { food: 400, timber: 400, iron: 400, goods: 400 }); n.stockAt = Date.now(); n._stockSet = true; });
+  await k.go('issues');
+  check('desk: the outfitters’ tasks are on today’s desk', await S(kp, () => { const t = document.querySelector('.dd') && document.querySelector('.dd').textContent; return !!t && /Start an upgrade at the outfitters/.test(t) && /Start a building or upgrade that helps your explorers/.test(t) && /Rare Send an expedition to a lost place/.test(t); }));
+  await k.act('dd-go', { k: 'xu' }); await sleep(600);
+  check('desk: its button opens the Expeditions page with the outfitters open', await S(kp, () => window.__game.S.view === 'explore' && !!document.getElementById('xu') && document.getElementById('xu').open));
+  await kp.click('[data-act="xu-up"][data-k="gear"]'); await sleep(400);
+  check('desk: starting an upgrade does the task', await S(kp, () => { const D = window.__game.S.nation.dd; return D.p[0] === 1 && D.p[1] === 0; }));
+  /* the week's legendary task, and three of the new everyday tasks */
+  await k.edit(n => { const now = Date.now(), d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    const w = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    n.founded = now - 30 * 864e5; n.ddl = { w, k: 'exp', g: 6, c: 2, p: 0, a: now - 3600e3, e: now - 3600e3 + 7 * 864e5 };
+    n.dd.q = [['fleet', 1, 'timber', 'iron'], ['ugb', 1, 'oil', 'goods'], ['dig', 1, 'timber', 'goods']]; n.dd.c = [0, 0, 0]; n.dd.p = [0, 0, 0]; delete n.dd.w; });
+  await k.go('issues');
+  check('desk: the legendary task heads the desk, with its time and its reward', await S(kp, () => { const r = document.querySelector('.dd .dd-leg'); return !!r && /Legendary/.test(r.textContent) && /Send 6 expeditions/.test(r.textContent) && /2 of 6/.test(r.textContent) && /left/.test(r.textContent) && /\+300 of every resource, \+15 land credits/.test(r.textContent); }));
+  check('desk: the new everyday tasks', await S(kp, () => { const t = document.querySelector('.dd').textContent; return /Send a party to a fleeting find/.test(t) && /Upgrade a building in one of your cities/.test(t) && /Send out a field dig from the Museum/.test(t); }));
+  await kp.evaluate(() => document.querySelector('.dd').scrollIntoView({ block: 'start' }));
+  await shot(kp, 'desk-legendary', false);
+  await k.act('dd-go', { k: 'dig' }); await sleep(500);
+  check('desk: the field dig task opens the Museum’s digs', await S(kp, () => window.__game.S.view === 'museum' && window.__game.S.muHall === 'digs'));
+  await k.edit(n => { n.ddl.e = Date.now() - 1000; n.ddl.a = n.ddl.e - 7 * 864e5; });
+  await k.go('issues');
+  check('desk: once its seven days are up the legendary task is gone', await S(kp, () => !document.querySelector('.dd .dd-leg')));
+  /* a legendary task done: its reward overflows the storage limit, and nothing more comes in while it is over */
+  await k.edit(n => { const now = Date.now(); n.ddl = Object.assign({}, n.ddl, { k: 'exp', g: 1, c: 0, p: 0, a: now - 3600e3, e: now - 3600e3 + 7 * 864e5 }); delete n.ddl.d;
+    n.stock = Object.assign({}, n.stock, { food: 390, timber: 390, iron: 390, oil: 390, goods: 390 }); n.stockAt = now; n._stockSet = true; delete n.exp; delete n.exp2; });
+  await k.go('explore');
+  await kp.click('.xp-list [data-act="exp-send"]'); await sleep(500);
+  const ov = await S(kp, () => { const G = window.__game, n = G.S.nation, GB = G.GB(), now = Date.now(), a = GB.stockNow(n, now), b = GB.stockNow(n, now + 3 * 3600e3);
+    return { done: n.ddl.p, ddlc: n.ddlc, xs: n.xs, cap: GB.stockCap(n), food: Math.round(a.food), goods: Math.round(a.goods), later: Math.round(b.goods), bar: [...document.querySelectorAll('.stk-i')].map(e => e.querySelector('.stk-rt').textContent).join('|') }; });
+  check('desk: the legendary reward lands over the storage limit', ov.done === 1 && ov.ddlc === 1 && ov.goods > ov.cap && ov.xs > 0, ov);
+  check('desk: an over-limit resource earns nothing more', ov.later === ov.goods, ov);
+  check('desk: the stockpile says so', /Over storage/.test(ov.bar), ov);
+  check('desk: no script errors', k.errors.length === 0, k.errors);
+  await k.ctx.close();
 
   /* ── a phone, dark: tabs, the party's line ── */
   const p = await start('dark', { width: 390, height: 844 }, { phone: true });
