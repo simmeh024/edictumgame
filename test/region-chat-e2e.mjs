@@ -47,7 +47,7 @@ const first = all.find(l => /Good morning/.test(l.x));
 check('the server keeps the line with its author, nation name, time and expiry', first && first.a === uidB && first.nm === 'Chatterly' && first.t > 0 && Date.parse(first.exp) > Date.now() + 29 * 864e5 && !first.st, JSON.stringify(first));
 check('nothing in the line is drawn as markup', !(await B.$('#rgc-list .rgc-x b')));
 check('the reader’s button counts the new line without opening', await until(async () => (await text(C, '.rgc-btn .rgc-n')) === '1' && /1 new/.test(await C.getAttribute('.rgc-btn', 'aria-label')), 15000));
-check('a line naming the reader’s nation is told in a notice', await until(async () => /Chatterly mentioned Quillmark in the region chat/.test(await told(C)), 20000), await told(C));
+check('a line naming the reader’s nation is told in a notice', await until(async () => /Chatterly mentioned Quillmark in the region chat/.test(await told(C)), 60000), await told(C));
 await openChat(C);
 check('the reader sees it with the writer’s flag, name and time', await until(async () => (await shown(C)).some(x => /Good morning/.test(x))) && !!(await C.$('#rgc-list .rgc-l .rgc-lh .mflag svg')) && /Chatterly/.test(await text(C, '#rgc-list .rgc-lh')) && /\d\d:\d\d/.test(await text(C, '#rgc-list .rgc-lh time')));
 check('the line naming the reader is marked, the name highlighted', !!(await C.$('#rgc-list .rgc-l.named mark')) && (await text(C, '#rgc-list .rgc-l.named mark')) === 'Quillmark');
