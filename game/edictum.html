@@ -5145,6 +5145,11 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-kpi{padding:14px 16px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
 .adm-kpi b{display:block;font:600 28px/1.1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
 .adm-kpi span{display:block;margin-top:4px;font-size:13px;line-height:1.35;color:var(--ink-2)}
+/* Shop statistics: the peso under the euro in tiles and tables, and a total's "as paid" under it */
+.adm-kpi b .adsh-alt{display:block;margin-top:3px;font:500 16px/1.2 var(--f-body);color:var(--ink-2)}
+.adsh-tbl .adsh-alt{display:block;font-size:12px;color:var(--ink-2)}
+.adsh-paid{display:block;font-size:12px}
+.adst-row.adsh-row{grid-template-columns:minmax(0,1fr) auto}
 .adm .h2{margin:30px 0 10px}
 .adm-bar{width:110px;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
 .adm-bar i{display:block;height:100%;background:var(--accent)}
@@ -47271,16 +47276,18 @@ const stN=v=>v==null?'–':numFmt(Number(v),'en-GB',0,1);
 const stPc=(k,of)=>of?Math.round(k/of*100)+'%':'–';
 const stDay=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 const stTxt=(v,d)=>{try{return tutTxt(v,S.nation);}catch(e){return d;}};
-/* a column per day, oldest first: rows [[label, value]] */
-function stCols(title,hint,rows,unit){
+/* a column per day, oldest first: rows [[label, value]]; alt {h, f} adds the value said another way (f(value)) to each
+   day's tip and a table column headed h (the Shop's euros in pesos) */
+function stCols(title,hint,rows,unit,alt){
   if(!rows.length)return '';
-  const max=Math.max(1,...rows.map(r=>r[1]||0)),last=rows[rows.length-1],def=`${last[0]}: ${stN(last[1])} ${unit}`;
+  const ax=v=>alt?' · '+alt.f(v):'';
+  const max=Math.max(1,...rows.map(r=>r[1]||0)),last=rows[rows.length-1],def=`${last[0]}: ${stN(last[1])} ${unit}${ax(last[1])}`;
   return `<figure class="adst-fig"><h3>${esc(title)}</h3>${hint?`<p class="hint">${hint}</p>`:''}
     <div class="adst-cols" role="img" aria-label="${esc(title)}: ${rows.length} days, from ${esc(rows[0][0])} to ${esc(last[0])}; most ${stN(max)}, latest ${stN(last[1])}"><span class="adst-max">${stN(max)}</span>
-      ${rows.map(([l,v,m])=>`<span class="adst-c${m&&m.length?' rel':''}" data-tip="${esc(l)}: ${stN(v)} ${esc(unit)}${m&&m.length?esc(' · ◆ '+m.join(' · ')):''}">${v?`<i style="height:${(v/max*100).toFixed(1)}%"></i>`:''}</span>`).join('')}</div>
+      ${rows.map(([l,v,m])=>`<span class="adst-c${m&&m.length?' rel':''}" data-tip="${esc(l)}: ${stN(v)} ${esc(unit)}${esc(ax(v))}${m&&m.length?esc(' · ◆ '+m.join(' · ')):''}">${v?`<i style="height:${(v/max*100).toFixed(1)}%"></i>`:''}</span>`).join('')}</div>
     <div class="adst-axis" aria-hidden="true"><span>${esc(rows[0][0])}</span><span>${esc(last[0])}</span></div>
     <p class="adst-tip">Latest: ${esc(def)}</p>
-    <details class="adst-tbl"><summary>Show as a table</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Day</th><th class="num">${esc(cap1(unit))}</th></tr></thead><tbody>${rows.slice().reverse().map(([l,v])=>`<tr><td>${esc(l)}</td><td class="num">${stN(v)}</td></tr>`).join('')}</tbody></table></div></details></figure>`;
+    <details class="adst-tbl"><summary>Show as a table</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Day</th><th class="num">${esc(cap1(unit))}</th>${alt?`<th class="num">${esc(alt.h)}</th>`:''}</tr></thead><tbody>${rows.slice().reverse().map(([l,v])=>`<tr><td>${esc(l)}</td><td class="num">${stN(v)}</td>${alt?`<td class="num">${esc(alt.f(v))}</td>`:''}</tr>`).join('')}</tbody></table></div></details></figure>`;
 }
 /* a share as a bar: k of `of` */
 const stBar=(label,k,of,note)=>`<div class="adst-row"><span class="adst-l">${label}</span><span class="adst-meter" aria-hidden="true"><i style="width:${of?Math.min(100,k/of*100).toFixed(1):0}%"></i></span><span class="adst-v">${stPc(k,of)} <span class="hint">${stN(k)}${note||''}</span></span></div>`;
@@ -47464,6 +47471,43 @@ function shMoney(v,cur){
   catch(e){return stN((Number(v)||0)/100)+' '+(cur||'');}
 }
 const shSums=(o,none)=>{const e=Object.entries(o||{}).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);return e.length?e.map(([c,v])=>shMoney(v,c)).join(' · '):(none||'–');};
+/* Euro and Mexican peso side by side: every amount shows in both, converted at the European Central Bank's reference
+   rates the server sends (d.fx.rates, units of each currency per euro: functions/admin.js euroRates). With no rates, an
+   amount shows in what it can (the euro list prices in euro, takings as paid). */
+const SH_TWO=['EUR','MXN'];
+const shDp=cur=>{try{return new Intl.NumberFormat('en-IE',{style:'currency',currency:cur}).resolvedOptions().maximumFractionDigits;}catch(e){return 2;}};
+/* v in cur's smallest unit, in to's smallest unit; null when either has no rate */
+function shTo(v,cur,to,fx){
+  v=Number(v)||0;if(cur===to)return v;
+  const R=(fx&&fx.rates)||{},a=cur==='EUR'?1:R[cur],b=to==='EUR'?1:R[to];
+  return a>0&&b>0?Math.round(v/Math.pow(10,shDp(cur))/a*b*Math.pow(10,shDp(to))):null;
+}
+/* one amount as euro · peso (stacked: one under the other, for tables and tiles) */
+function shTwo(v,cur,fx,stack){
+  const L=[];for(const c of SH_TWO){const x=shTo(v,cur,c,fx);if(x!=null)L.push(shMoney(x,c));}
+  if(!L.length)return shMoney(v,cur);
+  return stack?L[0]+(L[1]?`<span class="adsh-alt">${L[1]}</span>`:''):L.join(' · ');
+}
+/* a sum kept per currency paid in ({EUR:999, MXN:6267}) as one euro · peso total; a currency the ECB has no rate for
+   is added as paid */
+function shSumTwo(o,fx,none,stack){
+  const e=Object.entries(o||{}).filter(x=>x[1]);if(!e.length)return none||'–';
+  if(!(fx&&fx.rates&&fx.rates.MXN>0))return shSums(o,none);
+  const t={EUR:0,MXN:0},left={};
+  for(const [c,v] of e){const a=shTo(v,c,'EUR',fx),b=shTo(v,c,'MXN',fx);if(a==null||b==null)left[c]=v;else{t.EUR+=a;t.MXN+=b;}}
+  const n=Object.keys(left).length,both=n<e.length?(stack?`${shMoney(t.EUR,'EUR')}<span class="adsh-alt">${shMoney(t.MXN,'MXN')}</span>`:`${shMoney(t.EUR,'EUR')} · ${shMoney(t.MXN,'MXN')}`):'';
+  return both+(n?`${both?' + ':''}${shSums(left)} <span class="hint">(no ECB rate)</span>`:'');
+}
+/* "as paid", when that says more than the two totals: more than one currency, or one that is neither euro nor peso */
+const shAsPaid=o=>{const k=Object.keys(o||{}).filter(c=>o[c]);return k.length>1||(k.length===1&&!SH_TWO.includes(k[0]))?`<span class="hint adsh-paid">as paid: ${shSums(o)}</span>`:'';};
+/* one payment's amount in the two currencies it was not paid in, after the amount as paid */
+function shOther(v,cur,fx){const L=[];for(const c of SH_TWO)if(c!==cur){const x=shTo(v,cur,c,fx);if(x!=null)L.push(shMoney(x,c));}return L.length?` <span class="hint">≈ ${L.join(' · ')}</span>`:'';}
+/* where the peso figures come from */
+function shFxNote(fx){
+  if(!(fx&&fx.rates&&fx.rates.MXN>0))return '<p class="hint" id="adsh-fx">The exchange rates could not be fetched, so prices show in euro and takings in the currency each buyer paid.</p>';
+  let day=fx.date;try{day=new Date(fx.date+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});}catch(e){}
+  return `<p class="hint" id="adsh-fx">Amounts show in euro and Mexican peso, converted at the European Central Bank’s reference rate of ${esc(day)}: <b>€1 = ${shMoney(Math.round(fx.rates.MXN*100),'MXN')}</b>${fx.stale?' (the bank could not be reached just now, so these are the last rates fetched)':''}. Takings paid in other currencies are converted the same way. Today’s rate is used for every sale, old ones too.</p>`;
+}
 const SH_STATUS={active:'Active',trialing:'On trial',past_due:'Payment overdue',paused:'Paused',canceled:'Ended'};
 /* the founders' thank-you gift (November 2026): which pack each founder chose (functions/shop-stats.js, founderGiftSummary) */
 function shFgift(g,nm){
@@ -47485,23 +47529,25 @@ function adminShopView(){
   const nm=u=>u?(d.names[u]?esc(d.names[u]):`<code>${esc(u.slice(0,8))}…</code>`):'–';
   let body='';
   if(d){
-    const C=d.club,days=d.days,cur=d.currency,subsAll=Object.values(C.status).reduce((a,b)=>a+b,0);
+    const C=d.club,days=d.days,cur=d.currency,fx=d.fx,subsAll=Object.values(C.status).reduce((a,b)=>a+b,0);
+    const two=(v,c)=>shTwo(v,c||cur,fx,true),mx=v=>{const x=shTo(Math.round(v*100),'EUR','MXN',fx);return x==null?'':shMoney(x,'MXN');};
     body=`${d.on||d.sold?'':'<p class="err" role="status">The shop is not set up in this project (no authConfig/paddle), so there is nothing to count.</p>'}
     <div class="adm-kpis">
-      ${kpi(shMoney(d.listKept,cur),'taken at list price, refunds left out')}${kpi(shMoney(d.list30,cur),'of it in the last 30 days')}
+      ${kpi(two(d.listKept),'taken at list price, refunds left out')}${kpi(two(d.list30),'of it in the last 30 days')}
       ${kpi(d.kept,`purchases kept, of ${stN(d.sold)} paid`)}${kpi(d.buyers,'players who have paid')}
-      ${kpi(C.members,'Chancery Club members now')}${kpi(shMoney(C.monthlyList,cur),'a month from live subscriptions, at list price')}
+      ${kpi(C.members,'Chancery Club members now')}${kpi(two(C.monthlyList),'a month from live subscriptions, at list price')}
       ${kpi(d.refunded,`refunded or charged back${d.pendingRefunds?` (${stN(d.pendingRefunds)} waiting for Paddle)`:''}`)}${kpi(d.checkouts.opened30?stPc(d.checkouts.paid30,d.checkouts.opened30):'–',`of ${stN(d.checkouts.opened30)} checkouts opened in 30 days were paid`)}
     </div>
-    ${sec('Takings','What buyers paid, in the currency Paddle charged them (Paddle localises the price by country), before Paddle’s fee and the sales tax it pays.',`<div class="adst-rows">
-      <div class="adst-row"><span class="adst-l">Kept</span><span class="adst-v">${shSums(d.money)}</span></div>
-      <div class="adst-row"><span class="adst-l">Given back</span><span class="adst-v">${shSums(d.refundedMoney,'none')}</span></div></div>
+    ${shFxNote(fx)}
+    ${sec('Takings','What buyers paid, before Paddle’s fee and the sales tax it pays. Paddle charges each buyer in their own currency (it localises the price by country); the totals add those up in euro and in peso, and “as paid” lists them by currency.',`<div class="adst-rows">
+      <div class="adst-row adsh-row"><span class="adst-l">Kept</span><span class="adst-v">${shSumTwo(d.money,fx)} ${shAsPaid(d.money)}</span></div>
+      <div class="adst-row adsh-row"><span class="adst-l">Given back</span><span class="adst-v">${shSumTwo(d.refundedMoney,fx,'none')} ${shAsPaid(d.refundedMoney)}</span></div></div>
       <p class="hint">${stN(d.sold1)} sold in the last 24 hours, ${stN(d.sold7)} this week, ${stN(d.sold30)} in 30 days to ${stN(d.buyers30)} ${d.buyers30===1?'player':'players'}. ${stN(d.gifts)} ${d.gifts===1?'was a gift':'were gifts'}; ${stN(d.chargebacks)} ${d.chargebacks===1?'chargeback':'chargebacks'}.</p>`)}
     ${sec('Day by day','',`<div class="adst-grid">
       ${stCols('Purchases each day','Every payment of the last 60 days, renewals and refunded ones included, by the day it was paid (UTC).',days.map(x=>[stDay(x.d),x.n]),'purchases')}
-      ${stCols('Taken each day at list price','Euros at catalogue price, refunded payments left out.',days.map(x=>[stDay(x.d),x.list/100]),'euros')}</div>`)}
-    ${sec('By product','',`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th class="num">List price</th><th class="num">Paid</th><th class="num">Kept</th><th class="num">Refunded</th><th class="num">Gifts</th><th class="num">At list price</th><th>Takings</th><th class="num">Checkouts, 30 days</th><th class="num">Sold, 30 days</th></tr></thead><tbody>
-      ${d.products.map(p=>`<tr><td>${esc(p.name)}</td><td class="num">${shMoney(p.amount,cur)}</td><td class="num">${stN(p.sold)}</td><td class="num">${stN(p.kept)}</td><td class="num">${stN(p.refunded)}</td><td class="num">${stN(p.gifts)}</td><td class="num">${shMoney(p.list,cur)}</td><td>${shSums(p.money)}</td><td class="num">${stN(p.opened30)}</td><td class="num">${stN(p.paid30)}</td></tr>`).join('')}</tbody></table></div>
+      ${stCols('Taken each day at list price',`Euros at catalogue price, refunded payments left out${mx(1)?'; hover over a day for it in pesos':''}.`,days.map(x=>[stDay(x.d),x.list/100]),'euros',mx(1)?{h:'Pesos',f:mx}:null)}</div>`)}
+    ${sec('By product','',`<div class="tbl-wrap"><table class="tbl adsh-tbl"><thead><tr><th>Product</th><th class="num">List price</th><th class="num">Paid</th><th class="num">Kept</th><th class="num">Refunded</th><th class="num">Gifts</th><th class="num">At list price</th><th>Takings</th><th class="num">Checkouts, 30 days</th><th class="num">Sold, 30 days</th></tr></thead><tbody>
+      ${d.products.map(p=>`<tr><td>${esc(p.name)}</td><td class="num">${two(p.amount)}</td><td class="num">${stN(p.sold)}</td><td class="num">${stN(p.kept)}</td><td class="num">${stN(p.refunded)}</td><td class="num">${stN(p.gifts)}</td><td class="num">${p.list?two(p.list):'–'}</td><td>${shSumTwo(p.money,fx,'–',true)}${shAsPaid(p.money)}</td><td class="num">${stN(p.opened30)}</td><td class="num">${stN(p.paid30)}</td></tr>`).join('')}</tbody></table></div>
       <p class="hint">A Club subscription counts once per paid month or year: renewals are purchases too.</p>`)}
     ${sec('The Chancery Club',`${stN(C.members)} ${C.members===1?'member':'members'} with a live subscription; ${stN(C.canceling)} of them cancelled, ending with the paid period.`,subsAll?`<div class="adst-rows">${Object.entries(C.status).sort((a,b)=>b[1]-a[1]).map(([k,v])=>stBar(esc(SH_STATUS[k]||k),v,subsAll)).join('')}</div>`:'<p class="hint">No subscriptions yet.</p>')}
     ${d.timing&&d.timing.buyers?sec('Who buys, and when',`${stN(d.timing.buyers)} buyers. They first paid after ${stN(Math.round(d.timing.medianDays))} days of play, the median, having decided ${stN(d.timing.medianDecided)} edicts by now (the median). ${subsAll?`Club churn: ${stPc(C.status.canceled||0,subsAll)} of subscriptions ever started have ended.`:''}`,`<div class="adst-grid"><div class="adst-fig"><h3>Time to first purchase</h3><div class="adst-rows">${Object.entries(d.timing.bands).map(([k,v])=>stBar(esc(cap1(k)),v,d.timing.buyers)).join('')}</div></div>
@@ -47509,7 +47555,7 @@ function adminShopView(){
       <h3 class="help-h3">Checkout to payment, by product (30 days)</h3><div class="adst-rows">${d.products.filter(p=>p.opened30).map(p=>stBar(esc(p.name),p.paid30,p.opened30,` paid of ${stN(p.opened30)} checkouts`)).join('')||'<p class="hint">No checkouts opened in the last 30 days.</p>'}</div>`):''}
     ${d.fgift?shFgift(d.fgift,nm):''}
     ${sec('Latest purchases','The 30 most recent payments.',d.recent.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Product</th><th>Nation</th><th>Paid</th><th>State</th><th>Player</th></tr></thead><tbody>
-      ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc(Array.isArray(r.products)?'Basket: '+r.products.map(k=>(d.products.find(p=>p.k===k)||{}).name||k).join(' + '):(d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
+      ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc(Array.isArray(r.products)?'Basket: '+r.products.map(k=>(d.products.find(p=>p.k===k)||{}).name||k).join(' + '):(d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur)+shOther(r.total,r.cur,fx):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
   }
   return admShell('admin-shop',`<p class="eyebrow">Admin portal</p><h1 class="display">Shop statistics</h1>
     <p class="lede">What the Bureau of National Finery has sold${d&&d.env?` (Paddle ${esc(d.env)})`:''}: counted from the payments, refunds and subscriptions Paddle reported.${d?` Counted ${esc(rel(d.at))}.`:''} <button type="button" class="linkish" data-act="sh-refresh"${ADSH.busy?' disabled':''}>${ADSH.busy?'Counting…':'Count again'}</button></p>

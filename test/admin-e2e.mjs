@@ -259,9 +259,13 @@ const I = v => ({ integerValue: String(v) }), T = v => ({ stringValue: v });
 await seed('shopTx/txn_e2ea', { uid: T(uidA), payer: T(uidA), product: T('founder'), status: T('completed'), ck: { booleanValue: true }, paid: I(Date.now() - 60000), cur: T('MXN'), total: I(20939) });
 await seed('shopTx/txn_e2eb', { uid: T(uidA), payer: T(uidA), product: T('idpack'), status: T('completed'), ck: { booleanValue: true }, paid: I(Date.now() - 120000), cur: T('EUR'), total: I(299) });
 await seed('shopAdj/adj_e2ea', { txn: T('txn_e2eb'), action: T('refund'), type: T('full'), status: T('approved') });
+// the euro's rates as the ECB gave them, fetched just now, so the page converts without asking the bank: €1 = MX$20
+await seed('shopMeta/ecb', { date: T('2026-11-11'), at: I(Date.now()), rates: { mapValue: { fields: { MXN: { doubleValue: 20 }, USD: { doubleValue: 1.25 } } } } });
 await page('admin-shop');
 const shText = () => text(A, '.adm-main');
 check('Shop statistics counts the sales, the refund and the takings per currency', await until(async () => { const t = await shText(); return /purchases kept, of 2 paid/.test(t) && /MX\$209\.39|MXN\s?209\.39/.test(t) && /€2\.99/.test(t) && /Adminland/.test(t) && /Refunded/.test(t); }, 30000), (await shText()).slice(0, 600));
+check('and shows every amount in euro and Mexican peso, at the ECB rate it names', await until(async () => { const t = await shText(); return /€1 = MX\$20\.00/.test(t) && /11 November 2026/.test(t)
+  && /€10\.47 · MX\$209\.39/.test(t) && /€2\.99 · MX\$59\.80/.test(t) && /€9\.99\s*MX\$199\.80/.test(t) && /€2\.99\s*≈ MX\$59\.80/.test(t); }, 30000), (await shText()).slice(0, 900));
 await A.screenshot({ path: OUT + '/admin-shop.png', fullPage: true });
 await A.setViewportSize({ width: 390, height: 844 });
 check('and fits a phone without scrolling sideways', await until(async () => await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)));
