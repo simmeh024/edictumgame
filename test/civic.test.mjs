@@ -653,6 +653,8 @@ test('Swaying a vote: the server rolls it, keeps it in the member’s record onc
   assert.ok(w.ok?w.np.length>=1&&w.np.length<=2:w.np.length===0);assert.ok(w.t>Date.now()-60000);
   assert.deepEqual((await db.doc(`assemblyRegions/saffron/actors/${r.uid}`).get()).get('record').w,w);
   await rejects(civic(r,{op:'sway',cycle:state.c,key:state.cur.k,vote:-1}),'sway_used');
+});
+
 test('Region chat: a Registered Nation writes in its own region, paced and never twice the same; authors delete their own lines, staff any, audited',async()=>{
   const g=await player(),r=await player(true),o=await player(true),far=await player(true,false,'frostmarch');
   await rejects(civic(g,{op:'rcPost',x:'Hello'}),'registration_required');
