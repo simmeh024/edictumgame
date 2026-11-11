@@ -1385,6 +1385,20 @@ button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:fo
 .rbd-t .rbd-tot td{font-weight:600;border-bottom:0;border-top:2px solid var(--rule-2)}
 .rbd-neg{color:var(--stamp)}
 .rbd-note{font-size:12.5px;color:var(--ink-2);margin:10px 0 0}
+/* the income forecast: its line in the stockpile breakdown, and Statistics › Income forecast */
+.rbd-fc{font-size:12.5px;color:var(--ink-2);margin:12px 0 0;padding:8px 10px;background:var(--sheet-2);border-left:3px solid var(--accent);border-radius:4px}
+.rbd-fc b{color:var(--ink)}.rbd-fc .linkish{margin-left:2px}
+.ifc-up{color:var(--up)}.ifc-dn{color:var(--down)}.rbd-fc b.ifc-up{color:var(--up)}.rbd-fc b.ifc-dn{color:var(--down)}
+.ifc-l{list-style:none;margin:0;padding:0}
+.ifc-l li{display:grid;grid-template-columns:minmax(76px,104px) minmax(0,1fr);gap:2px 14px;padding:10px 0;border-top:1px solid var(--rule);align-items:baseline}
+.ifc-l li:first-child{border-top:0;padding-top:2px}
+.ifc-when time{display:block;font-weight:600;font-variant-numeric:tabular-nums}
+.ifc-when .hint,.ifc-what .hint{display:block;font-size:12.5px}
+.ifc-fx{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:13.5px}.ifc-fx .hint{font-size:12.5px}
+.ifc-a{white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums}.ifc-a .r-ic{margin-right:4px}.ifc-a.ifc-wrap{white-space:normal}
+.ifc-t th .r-ic{margin-right:6px}
+.ifc-go{margin-top:14px}
+.ifc-none .row{margin-top:14px}
 @media (max-width:560px){.rbd-modal{place-items:end center;padding:0}.rbd-sheet{width:100%;max-height:88vh;border-radius:10px 10px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px))}}
 /* the poster's dialog (above the full-screen map, which sits at 3000) */
 .pst-modal{position:fixed;inset:0;z-index:3100;display:grid;place-items:center;padding:16px}
@@ -56348,7 +56362,7 @@ function rbdHTML(n,r){
     ${P.trade.length?`<h3 class="rbd-sec">Trade</h3><table class="rbd-t">${rbdRows(P.trade)}</table>`:''}
     <h3 class="rbd-sec">Used</h3><table class="rbd-t">${rbdRows(P.used)}<tr class="rbd-tot"><td>Left over a day</td><td>${rbdNum(P.left)}</td></tr></table>
     <h3 class="rbd-sec">Into the stockpile</h3><table class="rbd-t">${rbdRows(P.stock)}<tr class="rbd-tot"><td>Stockpile gains a day</td><td>${rbdNum(P.tot)}</td></tr></table>
-    ${(()=>{const w=gbWhy(n,r);return w?`<p class="rbd-note">${esc(w)}</p>`:'';})()}`:`<p class="rbd-sum">Settle on the map first: your stockpile fills from the land you hold.</p>`;
+    ${(()=>{const w=gbWhy(n,r);return w?`<p class="rbd-note">${esc(w)}</p>`:'';})()}${ifcLine(n,r)}`:`<p class="rbd-sum">Settle on the map first: your stockpile fills from the land you hold.</p>`;
   return `<div class="rbd-modal" role="dialog" aria-modal="true" aria-labelledby="rbd-h"><button type="button" class="rbd-scrim" data-act="rbd-close" aria-label="Close" tabindex="-1"></button>
     <div class="rbd-sheet"><button type="button" class="rbd-x linkish small" data-act="rbd-close" id="rbd-x">Close</button>
     <p class="eyebrow">Stockpile</p><h2 class="rbd-h" id="rbd-h">${resIco(r)}${esc(nm)}</h2>${body}
@@ -57038,6 +57052,110 @@ document.addEventListener('click',e=>{
   else if(a==='sb-x')sbExport(v);else if(a==='sb-print')sbPrint();else if(a==='sb-png')sbPng();
 });
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.sb;if(!k)return;const v=e.target.value;if(k==='k1'&&SB_KEYS.includes(v))SB.k1=v;else if(k==='k2')SB.k2=SB_KEYS.includes(v)?v:'';else if(k==='ik'&&SB_IMP_KEYS.includes(v))SB.ik=v;else if(k==='tk'&&SB_KEYS.includes(v))SB.tk=v;render();});
+
+/* ───────── the income forecast (2026-11-11) ─────────
+   Statistics › Income forecast, free: what the works under way in the player's own cities (new buildings, building
+   upgrades, warehouse tiers, walls, roads and railways) add to the stockpile's day once they are done, one by one in
+   the order they finish, and in all. The stockpile breakdown links here, and says so when nothing is under way.
+   It runs the game's own sums again with each work finished in turn: the records are changed in place and put back
+   straight after, inside one synchronous call, with the economy's and the cities' memos set aside and restored, so the
+   figures match the stockpile breakdown to the decimal and nothing is saved. */
+const IFC_MAX=15;
+let ifcMemo={k:'',n:null,v:null};
+function ifcWorks(n,now){
+  const out=[];if(!n||n.npc)return out;
+  for(const c of cityList(n)){const nm=cityLabel(n,c);
+    for(const b of c.b||[]){if(!b||!BUILDINGS[b.k])continue;
+      if(b.d>now){out.push({t:'build',d:b.d,q:b.s>now,c,b,nm,k:b.k});continue;}
+      const e=cxBldExtras(b);if(e.uu&&e.uu.d>now)out.push({t:'up',d:e.uu.d,c,b,nm,k:b.k,u:e.uu.u});
+      const w=whExtras(b);if(w.wu&&w.wu.d>now)out.push({t:'wh',d:w.wu.d,c,b,nm,k:b.k,l:w.wu.l});}
+    const ce=cxCityExtras(c);if(ce.wu&&ce.wu.d>now)out.push({t:'wall',d:ce.wu.d,c,nm,l:ce.wu.l});}
+  for(const r of Array.isArray(n.infra)?n.infra:[]){const q=mpRouteShape(r);if(q&&q.reg===REG.id&&q.d>now)out.push({t:'road',d:q.d,r,k:q.k,a:q.a,b2:q.b});}
+  return out.sort((a,b)=>a.d-b.d);
+}
+/* finish one work on the record itself; gives back the way to put it as it was (every key, in its old order) */
+function ifcFinish(w,now){
+  const o=w.t==='wall'?w.c:w.t==='road'?w.r:w.b,was=Object.entries(o),undo=()=>{for(const k of Object.keys(o))delete o[k];for(const [k,v] of was)o[k]=v;};
+  const at=now-1;
+  if(w.t==='build'){const sh=at-o.d;o.d=at;if(Number.isFinite(o.s))o.s+=sh;}
+  else if(w.t==='up')cxUgPut(o,{ug:w.u});
+  else if(w.t==='wh'||w.t==='wall'){o.wl=w.l;delete o.wu;}
+  else if(w.t==='road'){const sh=at-o.d;o.d=at;o.t+=sh;}
+  return undo;
+}
+/* quick: only now and when all are done (two runs of the sums, for the breakdown's line), not each work in turn */
+function ifcPlan(n,quick){
+  if(!n||n.npc||OBS||n!==S.nation||cellOf(n.loc)<0)return null;
+  const now=Date.now(),works=ifcWorks(n,now),k=Math.floor(now/60000)+'|'+REG.id+'|'+works.map(w=>w.t+(w.k||'')+w.d).join(',');
+  if(ifcMemo.n===n&&ifcMemo.k===k&&(quick||!ifcMemo.q))return ifcMemo.v;
+  const groups=quick?(works.length?[works]:[]):works.length>IFC_MAX?works.slice(0,IFC_MAX-1).map(w=>[w]).concat([works.slice(IFC_MAX-1)]):works.map(w=>[w]);
+  const saved={e:econMemo,c:cityMemo},undo=[],steps=[];let base=null,prev=null,ok=true;
+  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};return {rt:{...stockRates(n)},cap:stockCap(n)};};
+  const diff=(a,b)=>Object.fromEntries(RES.map(r=>[r,a[r]-b[r]]));
+  try{
+    base=prev=fresh();
+    for(const g of groups){for(const w of g)undo.push(ifcFinish(w,now));const m=fresh();steps.push({works:g,d:g[g.length-1].d,rt:diff(m.rt,prev.rt),cap:m.cap-prev.cap});prev=m;}
+  }catch(e){ok=false;}
+  finally{for(let j=undo.length-1;j>=0;j--)undo[j]();econMemo=saved.e;cityMemo=saved.c;try{territory();}catch(e){}}
+  const v=ok&&base?{works,steps,base,after:prev,total:{rt:diff(prev.rt,base.rt),cap:prev.cap-base.cap},last:works.length?works[works.length-1].d:0}:null;
+  ifcMemo={k,n,q:!!quick,v};return v;
+}
+/* what is under way, in words: "2 building upgrades and a new building" */
+const IFC_KIND={up:['building upgrade','building upgrades'],build:['new building','new buildings'],wh:['warehouse upgrade','warehouse upgrades'],wall:['wall upgrade','wall upgrades'],road:['transport link','transport links']};
+function ifcWhat(works){
+  const by={};for(const w of works)by[w.t]=(by[w.t]||0)+1;
+  return list(Object.keys(IFC_KIND).filter(t=>by[t]).map(t=>`${by[t]===1?(/^[aeiou]/.test(IFC_KIND[t][0])?'an':'a'):by[t]} ${IFC_KIND[t][by[t]===1?0:1]}`));
+}
+function ifcLabel(w,n){
+  const B=BUILDINGS[w.k],place=c=>{const ct=cityList(n).find(x=>x.c===c);return ct?cityLabel(n,ct):landName(c);};
+  if(w.t==='up')return [`${B.n}, ${w.nm}`,`${cap1(CX_UG[w.u-1].c)} upgrade, ${w.u} of ${CX_UG_MAX}`];
+  if(w.t==='build')return [`${B.n}, ${w.nm}`,w.q?'New building, waiting its turn in the queue':'New building'];
+  if(w.t==='wh')return [`Warehouse, ${w.nm}`,`Tier ${w.l+1}`];
+  if(w.t==='wall')return [`Walls, ${w.nm}`,`Level ${w.l}`];
+  return [`${MP_TYPES[w.k]?MP_TYPES[w.k].n:'Connection'}, ${place(w.a)} to ${place(w.b2)}`,'Transport'];
+}
+/* a step's change to the day, as small coloured amounts; and why there is none */
+function ifcFx(rt,cap){
+  const bits=RES.filter(r=>Math.abs(rt[r])>=0.05).map(r=>`<span class="ifc-a ${rt[r]>0?'ifc-up':'ifc-dn'}">${resIco(r,'s')}${rt[r]>0?'+':'−'}${fmtAmt(Math.abs(rt[r]))} ${esc(resName(r))}</span>`);
+  if(cap>=0.5)bits.push(`<span class="ifc-a ifc-wrap ifc-up">+${fmt0(cap)} storage for each resource</span>`);
+  return bits.join(' ');
+}
+function ifcWhyNone(g){
+  const w=g[0];if(g.length>1)return 'No change to the stockpile’s day.';
+  if(w.t==='wall')return 'Defence only: no change to the stockpile’s day.';
+  const B=BUILDINGS[w.k]||{},on=[B.prosper&&'prosperity',B.army&&'the army',B.growth&&'growth'].filter(Boolean);
+  return on.length?`It works on ${list(on)}, not on the stockpile.`:'No change to the stockpile’s day.';
+}
+function ifcWhen(t,now){return `<time datetime="${new Date(t).toISOString()}">${esc(fmtTime(t)+dayTail(t,now))}</time><span class="hint">in ${esc(fmtDur(t-now))}</span>`;}
+/* the line in the stockpile breakdown */
+function ifcLine(n,r){
+  let P=null;try{P=ifcPlan(n,true);}catch(e){P=null;}if(!P)return '';
+  const go=`<button type="button" class="linkish small" data-act="ifc-go">See the income forecast</button>`;
+  if(!P.works.length)return `<p class="rbd-fc">No upgrades are under way, so nothing new is coming in from your cities. ${go}</p>`;
+  const v=P.total.rt[r]||0,now=Date.now(),what=ifcWhat(P.works),one=P.works.length===1;
+  return `<p class="rbd-fc">Under way: ${esc(what)}. ${Math.abs(v)>=0.05?`When ${one?'it is':'all are'} done, at ${esc(fmtTime(P.last)+dayTail(P.last,now))}, ${resName(r)} gains <b class="${v>0?'ifc-up':'ifc-dn'}">${v>0?'+':'−'}${fmtAmt(Math.abs(v))}</b> a day more.`:`${one?'It does not change':'None of them changes'} ${esc(resName(r))}.`} ${go}</p>`;
+}
+/* the Statistics tab */
+function ifcTab(x){
+  if(!x||!x.me||OBS)return `<div class="empty"><p class="empty-h">The forecast covers your own nation</p><p>Switch the nation above back to ${esc(S.nation?S.nation.name:'your nation')} to see what your works under way will add.</p></div>`;
+  const n=x.n,now=Date.now();let P=null;try{P=ifcPlan(n);}catch(e){P=null;}
+  if(!P)return `<div class="empty"><p class="empty-h">Nothing to forecast yet</p><p>Settle on the map first: your stockpile fills from the land you hold, and your cities build on it.</p></div>`;
+  const links=`<div class="row ifc-go"><button type="button" class="btn ghost" data-act="go" data-v="cities">Open Cities</button><button type="button" class="linkish small" data-act="gb-flows">See Budget &amp; flows</button></div>`;
+  const sgn=v=>Math.abs(v)<0.05?'0':(v>0?'+':'−')+fmtAmt(Math.abs(v));
+  if(!P.works.length)return `<div class="empty ifc-none"><p class="empty-h">No upgrades under way</p><p>Nothing is being built or upgraded in your cities right now, so your stockpile keeps gaining what it gains today. Start a building or an upgrade on the Cities page, and this page shows what it will add, and when.</p>${links}</div>
+    ${stCard('Your stockpile’s day now',`<table class="st-table st-cols ifc-t"><thead><tr><th scope="col">Resource</th><th scope="col">A day</th></tr></thead><tbody>${RES.map(r=>`<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td></tr>`).join('')}</tbody></table>`)}`;
+  const T=P.total,gains=RES.filter(r=>Math.abs(T.rt[r])>=0.05).map(r=>`${T.rt[r]>0?'+':'−'}${fmtAmt(Math.abs(T.rt[r]))} ${resName(r)}`),one=P.works.length===1;
+  const lede=`${cap1(ifcWhat(P.works))} ${one?'is':'are'} under way. When ${one?'it is':'the last is'} done, at ${fmtTime(P.last)+dayTail(P.last,now)}, ${gains.length?`your stockpile gains ${list(gains)} a day more than now`:'what your stockpile gains each day stays as it is'}${T.cap>=0.5?`, and each resource has ${fmt0(T.cap)} more storage`:''}.`;
+  const tab=`<div class="sb-flow-w"><table class="st-table st-cols ifc-t"><thead><tr><th scope="col">A day</th><th scope="col">Now</th><th scope="col">When done</th><th scope="col">Change</th></tr></thead><tbody>${RES.map(r=>{const d=T.rt[r];return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td><td>${sgn(P.after.rt[r])}</td><td class="${d>=0.05?'ifc-up':d<=-0.05?'ifc-dn':''}">${sgn(d)}</td></tr>`;}).join('')}${T.cap>=0.5?`<tr><th scope="row">Storage, each</th><td>${fmt0(P.base.cap)}</td><td>${fmt0(P.after.cap)}</td><td class="ifc-up">+${fmt0(T.cap)}</td></tr>`:''}</tbody></table></div>`;
+  const items=P.steps.map(s=>{const g=s.works,w=g[0],fx=ifcFx(s.rt,s.cap),[a,b]=g.length>1?[`${g.length} more works`,cap1(ifcWhat(g))]:ifcLabel(w,n);
+    return `<li><span class="ifc-when">${ifcWhen(s.d,now)}</span><span class="ifc-what"><b>${esc(a)}</b><span class="hint">${esc(b)}</span></span><span class="ifc-fx">${fx||`<span class="hint">${esc(ifcWhyNone(g))}</span>`}</span></li>`;}).join('');
+  return `<p class="sb-lede">${esc(lede)}</p><p class="hint">Worked out with today’s land, people, trade deals and policies. New land, edicts, deals or a change in a city’s mood before then will move these figures.</p>
+    <div class="st-grid">${stCard('Your stockpile’s day, now and when the works are done',tab)}
+    ${stCard('In the order they finish',`<ol class="ifc-l">${items}</ol><p class="hint">Each line is what that work adds on top of the ones that finish before it.</p>`)}</div>${links}`;
+}
+{const i=STAT_TABS.findIndex(t=>t[0]==='budget');STAT_TABS.splice(i<0?STAT_TABS.length:i+1,0,['forecast','Income forecast']);}
+fpStats=(f=>function(tab,body,x,A){if(tab==='forecast')return ifcTab(x);return f.apply(this,arguments);})(fpStats);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="ifc-go"]');if(!el||!S.nation)return;S.statsFor=null;S.statsTab='forecast';S.statsKeep=true;go('stats');});
 
 /* ───────── the map, easier: the map first, a sheet for details on a phone, and more ways to move ─────────
    The World map page leads with the map: one line of introduction (the rest folds away), the map as tall as the
@@ -61844,7 +61962,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
