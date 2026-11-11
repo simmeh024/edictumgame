@@ -91,6 +91,16 @@ export function shopSummary({ txs = [], subs = [], adjs = [], cks = [] }, now = 
   };
 }
 
+/* The euro's exchange rates, so the page can show every amount in euro and in Mexican peso: the European Central Bank's
+   daily reference rates (eurofxref-daily.xml, published on working days about 16:00 CET), as units of each currency per
+   euro. Null unless the file holds a day and a peso rate; a rate that is not a positive number is left out. */
+export const ECB_URL = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml';
+export function parseEcb(xml) {
+  const s = String(xml || ''), day = /time=['"](\d{4}-\d{2}-\d{2})['"]/.exec(s), rates = {};
+  for (const m of s.matchAll(/currency=['"]([A-Z]{3})['"]\s+rate=['"]([0-9.]+)['"]/g)) { const v = Number(m[2]); if (v > 0 && Number.isFinite(v)) rates[m[1]] = v; }
+  return day && rates.MXN ? { date: day[1], rates } : null;
+}
+
 /* The founders' thank-you gift: the pack each founder chose (shopFGift/{uid}: {p, at, fno}), against the founders there are
    now (founders/, the Founders' Wall's list, which a refunded package leaves). Those still to choose are the founders with
    no choice; once the offer has ended they are the ones who let it pass. */

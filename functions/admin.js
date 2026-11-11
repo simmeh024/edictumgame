@@ -12,7 +12,7 @@ import { cbDelete, rmbForget } from './board.js';
 import { rcForget } from './regionchat.js';
 import { alDrop } from './alliances.js';
 import { fcForget } from './flagcomp.js';
-import { shopSummary, founderGiftSummary } from './shop-stats.js';
+import { shopSummary, founderGiftSummary, parseEcb, ECB_URL } from './shop-stats.js';
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
 import DATA from './civic-data.json' with { type: 'json' };
@@ -221,8 +221,8 @@ async function statsExport(db) {
 /* The Shop statistics page (functions/shop-stats.js): the shop's billing records are few, so they are read whole
    each time; the latest sales name their nations. */
 async function shopStats(db) {
-  const [cfg, tx, sub, adj, ck, fg, fw] = await Promise.all([db.doc('authConfig/paddle').get(), db.collection('shopTx').get(), db.collection('shopSubs').get(),
-    db.collection('shopAdj').get(), db.collection('shopCheckouts').get(), db.collection('shopFGift').get(), db.collection('founders').select().get()]);
+  const [cfg, tx, sub, adj, ck, fg, fw, fx] = await Promise.all([db.doc('authConfig/paddle').get(), db.collection('shopTx').get(), db.collection('shopSubs').get(),
+    db.collection('shopAdj').get(), db.collection('shopCheckouts').get(), db.collection('shopFGift').get(), db.collection('founders').select().get(), euroRates(db)]);
   const all = q => q.docs.map(d => ({ id: d.id, ...d.data() }));
   const env = cfg.exists ? (cfg.get('env') === 'live' ? 'live' : cfg.get('env') || 'sandbox') : '';
   const out = shopSummary({ txs: all(tx), subs: all(sub), adjs: all(adj), cks: all(ck) }, Date.now(), env);
@@ -232,7 +232,21 @@ async function shopStats(db) {
   const names = {};
   if (uids.length) for (const n of await db.getAll(...uids.map(u => db.doc('nations/' + u)), { fieldMask: ['name'] })) if (n.exists) names[n.id] = text(n.get('name'), 80);
   if (!counted) await stats(db, {});
-  return { ...out, on: cfg.exists, names, timing: buyerTiming(all(tx), counted.rows) };
+  return { ...out, on: cfg.exists, names, timing: buyerTiming(all(tx), counted.rows), fx };
+}
+/* The page shows money in euro and Mexican peso: the ECB's rates (functions/shop-stats.js, parseEcb), fetched at most every
+   six hours and kept in shopMeta/ecb, so when the ECB cannot be reached the last rates still serve (marked stale). Null when
+   there have never been any. */
+async function euroRates(db) {
+  const ref = db.doc('shopMeta/ecb'), s = await ref.get(), have = s.exists ? s.data() : null, now = Date.now();
+  const out = (v, stale) => ({ date: v.date, rates: v.rates, at: v.at, ...(stale ? { stale: true } : {}) });
+  if (have && have.rates && now - (Number(have.at) || 0) < 6 * 3600000) return out(have);
+  try {
+    const r = await fetch(ECB_URL, { signal: AbortSignal.timeout(6000) }), got = r.ok ? parseEcb(await r.text()) : null;
+    if (got) { const v = { ...got, at: now }; await ref.set(v); return out(v); }
+    console.warn('ecb rates: the answer held no rates', r.status);
+  } catch (e) { console.warn('ecb rates:', e.message); }
+  return have && have.rates ? out(have, true) : null;
 }
 async function setRegion(db, actor, data) {
   const target = id(data.reg), reason = text(data.reason, 300);
