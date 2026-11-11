@@ -41219,7 +41219,7 @@ document.addEventListener('submit',e=>{const f=e.target;if(!f||f.id!=='prv-ren-f
 const FG_C4D='#FFFFFF',FG_RING=new Set(['star','disc','diamond','heart','flower','snowflake','compass']);
 const FG_SIZE={s:.7,l:1.3},FG_EP=['c','k','h','f'],FG_POS={c:[150,100,1],k:[72,50,.62],h:[52,100,.78],f:[228,100,.86]};
 /* where a pattern's own anchor already is a canton, a hoist or a fly, choosing that position keeps it */
-const FG_OWN={chev3:'f',canton:'k','bord-canton':'k','str-canton':'k','quart-cross':'k',chevron:'h',hoist:'h','hoist-s':'h',pall:'h',serrated:'f'};
+const FG_OWN={chev3:'f',peaks:'k',canton:'k','bord-canton':'k','str-canton':'k','quart-cross':'k',chevron:'h',hoist:'h','hoist-s':'h',pall:'h',serrated:'f'};
 const fgF=v=>v.toFixed(1);
 /* geometry worked out once */
 const FG_G=(()=>{
@@ -41231,6 +41231,10 @@ const FG_G=(()=>{
     saw:'0,0 80,0 106,20 80,40 106,60 80,80 106,100 80,120 106,140 80,160 106,180 80,200 0,200',
     gyr:'M150,100L150,0H300ZM150,100L300,100V200ZM150,100L150,200H0ZM150,100L0,100V0Z',
     wave2:'M0,58Q25,46 50,58T100,58T150,58T200,58T250,58T300,58V82Q275,94 250,82T200,82T150,82T100,82T50,82T0,82Z M0,118Q25,106 50,118T100,118T150,118T200,118T250,118T300,118V142Q275,154 250,142T200,142T150,142T100,142T50,142T0,142Z',
+    /* a wall of six merlons and five crenels, and the snow on three peaks (Embattled, Three peaks) */
+    batt:(()=>{let d='M0,200V78';for(let i=0;i<11;i++)d+=`H${q((i+1)*300/11)}`+(i<10?`V${i%2?78:104}`:'');return d+'V200Z';})(),
+    peaks:'0,160 52,112 88,140 172,40 226,110 258,86 300,124 300,200 0,200',
+    snow:'M52,112L67.4,124L61,130L55,123L47,130L39,124ZM172,40L196.7,72L184,82L171,72L158,82L145.1,72ZM258,86L271.3,98L264,104L257,97L249,104L242,98Z',
     /* thirteen rays from the dawn's centre (150,156), wide enough to read on a map */
     dawn:(()=>{let d='';for(let i=0;i<13;i++){const t=Math.PI+(i+.5)*Math.PI/13,w=.045,P=(r,u)=>q(150+r*Math.cos(u))+','+q(156+r*Math.sin(u));d+=`M${P(70,t-w*1.6)}L${P(330,t-w)}L${P(330,t+w)}L${P(70,t+w*1.6)}Z`;}return d;})()};
 })();
@@ -41259,6 +41263,9 @@ const FG_PAT=Object.assign(Object.create(null),{
   'pile':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<polygon points="70,0 230,0 150,170" fill="${b}"/>`,150,62,.7],
   'wave2':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G.wave2}" fill="${b}"/>`+R(0,170,300,30,c),150,100,.45],
   'chev3':(a,b,c,d,R)=>[R(0,0,300,200,a)+[[-40,b],[20,c],[80,b]].map(([x,k])=>`<path d="M${x},-12L${x+165},100L${x},212" fill="none" stroke="${k}" stroke-width="26"/>`).join(''),262,100,.5],
+  /* earned with silver achievements: a town wall with its gate, and a range of three snow-capped peaks */
+  'embattled':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G.batt}" fill="${b}"/><path d="M128,200V150A22,22 0 0 1 172,150V200Z" fill="${c}"/>`,150,42,.5],
+  'peaks':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<polygon points="${FG_G.peaks}" fill="${b}"/><path d="${FG_G.snow}" fill="${c}"/>`,64,48,.55],
   /* the Founder's Package: a dawn rising over the land, and a charter's bordure with rosettes at its corners */
   'fdawn':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G.dawn}" fill="${b}"/><circle cx="150" cy="156" r="62" fill="${b}"/>`+R(0,156,300,44,c),150,128,.5],
   'fcharter':(a,b,c,d,R)=>[R(0,0,300,200,b)+R(24,24,252,152,a)+`<rect x="34" y="34" width="232" height="132" fill="none" stroke="${c}" stroke-width="3"/>`+[[12,12],[288,12],[12,188],[288,188]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="8" fill="${c}"/><circle cx="${x}" cy="${y}" r="3.2" fill="${b}"/>`).join(''),150,100,.75]
@@ -41268,11 +41275,12 @@ Object.assign(PATTERNS,{'tri-w':['Wide-centre triband',3],'pall':['Pall',3],'hoi
   'quart-cross':['Quartered cross',3],'diag3':['Diagonal tricolour',3],'chief':['Chief',2],'saltire-b':['Saltire and bordure',3],'disc-band':['Disc on a band',3],
   'str-canton':['Stripes and canton',3],'per-saltire':['Per saltire',2],
   'gyronny':['Gyronny',2],'lozenge':['Lozenge',3],'pile':['Pile',2],'wave2':['Twin waves',3],'chev3':['Triple chevron',3],
+  'embattled':['Embattled',3],'peaks':['Three peaks',3],
   'fdawn':['Founder’s Dawn',3],'fcharter':['Charter Bordure',3]});
 const FG_C4P=new Set(['pall','quart-cross']);
 /* the colour under the emblem (index into c, -1 where two meet), for Surprise me */
 const FG_UNDER={'tri-h':1,'tri-v':1,'bi-h':-1,'bi-v':-1,cross:2,canton:2,chevron:2,diag:-1,saltire:2,border:0,quarters:-1,stripes:0,pale:1,centre:1,band:1,plain:0,
-  'tri-w':1,pall:0,hoist:1,'hoist-s':2,str7:1,str5t:2,checky:-1,sunburst:2,wavy:0,serrated:1,'bord-canton':2,'quart-cross':0,diag3:1,chief:0,'saltire-b':1,'disc-band':2,'str-canton':2,'per-saltire':-1,gyronny:-1,lozenge:2,pile:1,wave2:0,chev3:0,fdawn:1,fcharter:0};
+  'tri-w':1,pall:0,hoist:1,'hoist-s':2,str7:1,str5t:2,checky:-1,sunburst:2,wavy:0,serrated:1,'bord-canton':2,'quart-cross':0,diag3:1,chief:0,'saltire-b':1,'disc-band':2,'str-canton':2,'per-saltire':-1,gyronny:-1,lozenge:2,pile:1,wave2:0,chev3:0,embattled:0,peaks:0,fdawn:1,fcharter:0};
 /* the new emblems, drawn in a 100 × 100 box round the origin */
 const FG_EMB=Object.create(null);
 (()=>{
@@ -41312,8 +41320,9 @@ const FG_PLURAL={Spyglass:'spyglasses',Grapes:'bunches of grapes',Scales:'pairs 
 /* unlocks: three patterns and three emblems, each tied to something the nation already does */
 Object.assign(UNLOCKS,{'fp-sunburst':{k:'fpat',n:'Sunburst',src:'ach'},'fp-checky':{k:'fpat',n:'Checky',src:'ach'},'fp-wavy':{k:'fpat',n:'Wavy fess',src:'ach'},
   'fp-gyronny':{k:'fpat',n:'Gyronny',src:'ach'},'fp-lozenge':{k:'fpat',n:'Lozenge',src:'ach'},
+  'fp-embattled':{k:'fpat',n:'Embattled',src:'ach'},'fp-peaks':{k:'fpat',n:'Three peaks',src:'ach'},
   'e-eye':{k:'emblem',n:'Eye',src:'set'},'e-bolt':{k:'emblem',n:'Lightning bolt',src:'set'},'e-wreath':{k:'emblem',n:'Laurel wreath',src:'ach'}});
-const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy',gyronny:'fp-gyronny',lozenge:'fp-lozenge',fdawn:'fp-fdawn',fcharter:'fp-fcharter'},FG_PFB={sunburst:'plain',checky:'quarters',wavy:'tri-h',gyronny:'quarters',lozenge:'centre',fdawn:'chief',fcharter:'border'};
+const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy',gyronny:'fp-gyronny',lozenge:'fp-lozenge',embattled:'fp-embattled',peaks:'fp-peaks',fdawn:'fp-fdawn',fcharter:'fp-fcharter'},FG_PFB={sunburst:'plain',checky:'quarters',wavy:'tri-h',gyronny:'quarters',lozenge:'centre',embattled:'bi-h',peaks:'bi-h',fdawn:'chief',fcharter:'border'};
 /* emblems only a founder may fly: anyone else's flag shows none (the shop's ids, vouched for by the server's finery/) */
 const FG_EU=new Set(['e-keystone','e-rosette','e-nowl','e-aquila','e-kraken','e-tulip']);
 /* the Community Board's achievements: a visit, then visits on five different days (tally cbvisit; cbday is the last day counted) */
@@ -57666,7 +57675,7 @@ achDef('eco','eco-svc10','s','Spade in Hand','Dig up ten survey caches.',10,x=>a
 achDef('eco','eco-svc50','g','Treasure Hunter','Dig up fifty survey caches.',50,x=>aT(x,'svc'));
 achDef('eco','eco-svc200','p','The Long Survey','Dig up two hundred survey caches.',200,x=>aT(x,'svc'));
 achDef('eco','eco-svcall','b','Clean Sweep','Dig up every survey cache of a day before the day ends.',1,x=>aT(x,'svcall'));
-achDef('eco','eco-svcall7','s','A Week in the Field','Dig up every survey cache of the day on seven days.',7,x=>aT(x,'svcall'));
+achDef('eco','eco-svcall7','s','A Week in the Field','Dig up every survey cache of the day on seven days.',7,x=>aT(x,'svcall'),{u:'fp-peaks'});
 achDef('eco','eco-svcres','s','Five Kinds of Treasure','Dig up a survey cache of each of the five resources.',5,x=>aKeys(x,'svcg:'));
 achDef('eco','eco-svcq','g','Buried Riches','Dig up 1,000 units in all from survey caches.',1000,x=>aT(x,'svcq'));
 
@@ -57768,7 +57777,7 @@ achDef('land','tr-bridge','s','Mind the Gap','Finish a bridge.',1,x=>aInfra(x,'b
 achDef('land','tr-all','g','Every Road Leads Home','Have at least four cities, every one of them on a road.',1,x=>{const C=aMyCities(x);return achYes(C.length>=4&&C.every(ct=>cxRoadAt(ct.fn,ct.c,x.now,ct.tT)));},{fm:'bool'});
 /* mayors and city mood */
 achDef('land','my-1','b','Chain of Office','Appoint a mayor.',1,aMayors);
-achDef('land','my-all','s','A Mayor for Every Town','Have a mayor in every city, with at least four cities.',1,x=>{const c=(x.n.cities||[]).length;return achYes(c>=4&&aMayors(x)>=c);},{fm:'bool'});
+achDef('land','my-all','s','A Mayor for Every Town','Have a mayor in every city, with at least four cities.',1,x=>{const c=(x.n.cities||[]).length;return achYes(c>=4&&aMayors(x)>=c);},{fm:'bool',u:'fp-embattled'});
 achDef('land','md-thrive','s','City of Plenty','Have a city whose mood is Thriving.',1,x=>aMood(x,75));
 achDef('land','md-all','g','Content Nation','Have at least five cities, every one Content or better.',1,x=>{const C=aMyCities(x);return achYes(C.length>=5&&aMood(x,50)===C.length);},{fm:'bool'});
 achDef('land','md-10','p','Golden Age of Cities','Have ten Thriving cities at once.',10,x=>aMood(x,75));
