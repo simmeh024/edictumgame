@@ -38,7 +38,9 @@ test('every look brings every colour the map reads, so no poster borrows from th
     assert.equal(L.pal['--sheet'], L.paper, `${id}: names on the map sit on the sheet’s own paper`);
     assert.ok(L.veil > 0.3 && L.veil < 0.8, `${id}: other land is paled, not hidden`);
   }
-  assert.deepEqual(Object.keys(P.PST_LOOKS), ['atlas', 'antique', 'night']);
+  assert.deepEqual(Object.keys(P.PST_LOOKS), ['atlas', 'antique', 'night', 'blueprint']);
+  /* the Cartographer's Pack's look: tried by anyone, saved only with the piece; the three others are free */
+  assert.deepEqual(Object.entries(P.PST_LOOKS).filter(([, L]) => L.lock).map(([k, L]) => k + ':' + L.lock), ['blueprint:pl-blueprint']);
 });
 
 test('each sheet holds its parts inside its frame, clear of one another', () => {
