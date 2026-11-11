@@ -11,8 +11,11 @@ A live chat for each region: the nations of a region talk to each other in short
   divider for each day and a "New" divider before the first line not yet read when the drawer opened. Lines by one
   nation within five minutes run together under one heading. The header says how many nations of the region are
   online (the same count as the green dots on the Region page).
-- **Writing.** Registered Nations write lines of up to 300 characters: Enter sends. A line shows at once as
-  "Sending…" and is replaced by the server's copy. Guests read along and are offered a sign-in.
+- **Writing.** Every nation writes lines of up to 300 characters: Enter sends. A line shows at once as
+  "Sending…" and is replaced by the server's copy. A guest (a nation with no linked sign-in) writes 10 lines in any
+  hour: under the box the drawer says how many are left ("Guests can send 10 lines an hour: 7 are left."), and once
+  they are used, when the guest can write again, each time with a **Link a sign-in** button. A Registered Nation's
+  limit is 150 an hour, which no one is told of.
 - **Mentions.** A line that names the player's nation (as a word of its own, with or without @) is highlighted,
   and, with the drawer shut, told in a notice (at most one every 30 seconds).
 - **A line's menu** (⋯, on hover or focus):
@@ -62,14 +65,18 @@ A live chat for each region: the nations of a region talk to each other in short
 ## How it works
 
 - `functions/regionchat.js`, in the existing `civic` callable (CI cannot deploy a new public function):
-  - `rcPost {x, reg?}`: `eligibility()` (not banned, not under moderation, region open, a Registered Nation). The
+  - `rcPost {x, reg?}`: `eligibility()` (not banned, not under moderation, region open; a guest too). The
     region is the one in the player's saved record; a `reg` from the browser must match it. The server cleans the
     text (one line, no control characters, at most 300 characters) and writes
     `rchat/{reg}/chat/{id} {a, nm, x, t, exp, st?}`: the author's uid, their nation's name, the words, the server's
     time, `exp` 30 days on, and `st` 'admin' or 'mod' for staff. Nothing else from the browser is kept.
   - Pacing in the same transaction (`rcPace/{uid} {p, h}`): 1.5 seconds after the last line, at most 12 lines in any
     minute and 150 in any hour (`rcWait`), and never the same words twice within two minutes (a hash of the words
-    without spaces, punctuation or case). The callable's in-memory token bucket (`rc:` 15 at once, then one a second)
+    without spaces, punctuation or case). A guest writes `RC_GUEST_HOUR` (10) lines in any hour: the eleventh is
+    refused with `rc_guest {wait, max}` ("Guests can send 10 lines an hour. You can write again in 23 minutes, or link a
+    sign-in to chat freely."), and a guest's line comes back with `guest: true`, `left` (lines left this hour) and `gt`
+    (the times of their lines this hour), which the drawer counts from. A sign-in lifts the limit at once: the same
+    `rcPace` times count against 150. The callable's in-memory token bucket (`rc:` 15 at once, then one a second)
     stops a flood before it reads anything.
   - `rcPost {team: true, reg, x}` (staff): a line signed by the team, `{tm: true, nm: 'Edictum team', a: <staff uid>}`,
     in any region; the staff member's own pacing applies.

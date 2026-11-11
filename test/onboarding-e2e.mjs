@@ -48,7 +48,7 @@ await A.evaluate(()=>G.PG.sign());await nav(A,'nation');
 check('finishing the charter offers optional linking with the existing reward',await until(()=>A.locator('.account-link-card').isVisible())&&/10 land credits/.test(await A.locator('.account-link-card').textContent()));
 await A.locator('.account-link-card [data-act="account-compare"]').click();await A.waitForSelector('#help-account-types');
 await comparisonReady(A);
-check('comparison opens the permanent Help section',await A.locator('#help-account-types table tbody tr').count()===13&&await A.locator('.help-toc [href="#help-account-types"]').count()===1);
+check('comparison opens the permanent Help section',await A.locator('#help-account-types table tbody tr').count()===14&&await A.locator('.help-toc [href="#help-account-types"]').count()===1);
 await A.screenshot({path:OUT+'/account-types-1280.png'});
 await nav(A,'nation');check('new players see at most three next actions',await A.locator('.pg-first .stp-l>li').count()===3);
 await A.click('[data-act="account-hint-hide"]');await A.reload();await A.waitForSelector('.layout');

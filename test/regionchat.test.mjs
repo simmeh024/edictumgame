@@ -2,7 +2,7 @@
    RC_MINUTE lines in any minute and RC_HOUR in any hour, counted from the times kept in rcPace/<uid>. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rcWait, RC_GAP, RC_MINUTE, RC_HOUR, isRegionChatOp, rcSilence, RC_MUTE_HOURS } from '../functions/regionchat.js';
+import { rcWait, RC_GAP, RC_MINUTE, RC_HOUR, RC_GUEST_HOUR, isRegionChatOp, rcSilence, RC_MUTE_HOURS } from '../functions/regionchat.js';
 
 const NOW = 1_800_000_000_000, SEC = 1000;
 
@@ -28,6 +28,15 @@ test('an hour holds at most RC_HOUR lines', () => {
   const p = Array.from({ length: RC_HOUR }, (_, i) => NOW - 3500 * SEC + i * 20 * SEC);
   assert.ok(p[p.length - 1] < NOW - 2 * SEC);
   assert.equal(rcWait(p, NOW).wait, p[0] + 3600 * SEC - NOW);
+});
+
+test('a guest’s hour holds RC_GUEST_HOUR lines: the next waits until the oldest of them is an hour old', () => {
+  assert.equal(RC_GUEST_HOUR, 10);
+  const p = Array.from({ length: RC_GUEST_HOUR }, (_, i) => NOW - 3000 * SEC + i * 60 * SEC);
+  assert.equal(rcWait(p, NOW).wait, 0, 'a Registered Nation writes on');
+  assert.equal(rcWait(p, NOW, RC_GUEST_HOUR).wait, p[0] + 3600 * SEC - NOW);
+  assert.equal(rcWait(p.slice(1), NOW, RC_GUEST_HOUR).wait, 0, 'nine in the hour leave one more');
+  assert.equal(rcWait(p, p[0] + 3600 * SEC, RC_GUEST_HOUR).wait, 0, 'and the oldest an hour old frees one');
 });
 
 test('times from the future, of the wrong kind or over an hour old are left out of the count', () => {

@@ -656,8 +656,7 @@ test('Swaying a vote: the server rolls it, keeps it in the member’s record onc
 });
 
 test('Region chat: a Registered Nation writes in its own region, paced and never twice the same; authors delete their own lines, staff any, audited',async()=>{
-  const g=await player(),r=await player(true),o=await player(true),far=await player(true,false,'frostmarch');
-  await rejects(civic(g,{op:'rcPost',x:'Hello'}),'registration_required');
+  const r=await player(true),o=await player(true),far=await player(true,false,'frostmarch');
   await assert.rejects(civic(r,{op:'rcPost',x:'   '}),e=>e.status==='INVALID_ARGUMENT');
   // the author, name, staff mark and time are the server's, whatever the browser sends
   const a=await civic(r,{op:'rcPost',reg:'meridian',x:'  Hello\n  <b>region</b>   all ',a:'forged',nm:'Forged',st:'admin',t:1});
@@ -689,6 +688,26 @@ test('Region chat: a Registered Nation writes in its own region, paced and never
   const m=await civic(o,{op:'rcPost',x:'Be kind, everyone.'});
   assert.equal((await db.doc('rchat/meridian/chat/'+m.id).get()).get('st'),'mod');
   await db.doc('bans/'+r.uid).set({t:Date.now()});await rejects(civic(r,{op:'rcPost',x:'Banned'}),'banned');
+});
+
+test('Region chat guests: a guest writes too, ten lines in any hour, told how many are left; a sign-in lifts it',async()=>{
+  const g=await player(),r=await player(true),now=Date.now();
+  const first=await civic(g,{op:'rcPost',x:'Hello from a guest'});
+  assert.equal(first.ok,true);assert.equal(first.guest,true);assert.equal(first.left,9);assert.equal(first.gt.length,1);
+  const line=(await db.doc('rchat/meridian/chat/'+first.id).get()).data();assert.equal(line.a,g.uid);assert.equal(line.x,'Hello from a guest');
+  // eight more in the last hour (kept as the server keeps them): the tenth is the last
+  const p=Array.from({length:8},(_,i)=>now-50*60000+i*60000).concat(first.t);
+  await db.doc('rcPace/'+g.uid).set({p,h:'x'});
+  await new Promise(res=>setTimeout(res,1600));
+  const tenth=await civic(g,{op:'rcPost',x:'The tenth'});assert.equal(tenth.left,0);assert.equal(tenth.gt.length,10);
+  await new Promise(res=>setTimeout(res,1600));
+  await assert.rejects(civic(g,{op:'rcPost',x:'The eleventh'}),e=>{
+    assert.equal(e.code,'rc_guest');assert.match(e.message,/Guests can send 10 lines an hour\. You can write again in (9|10|11) minutes, or link a sign-in/);return true;});
+  // a Registered Nation with as many lines writes on, and is told nothing of a limit
+  await db.doc('rcPace/'+r.uid).set({p:Array.from({length:20},(_,i)=>now-50*60000+i*60000),h:'x'});
+  const reg=await civic(r,{op:'rcPost',x:'Still writing'});assert.equal(reg.ok,true);assert.equal(reg.guest,undefined);assert.equal(reg.left,undefined);
+  // a banned guest writes nothing
+  await db.doc('bans/'+g.uid).set({t:Date.now()});await rejects(civic(g,{op:'rcPost',x:'Banned guest'}),'banned');
 });
 
 test('Region chat staff: the team writes in any region, staff silence a player everywhere (and may take their last day of lines) and lift it, all audited',async()=>{

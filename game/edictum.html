@@ -7571,6 +7571,10 @@ button.rgc-nm{text-align:left}
 .rgc-msg:empty{display:none}
 .rgc-msg.err{color:var(--down)}
 .rgc-ro{margin:0 0 8px;font-size:13px;line-height:1.45;color:var(--ink-2)}
+.rgc-gq{margin:4px 2px 0;font-size:12.5px;line-height:1.45;color:var(--ink-3)}
+.rgc-gq b{color:var(--ink-2)}
+.rgc-gq.err{color:var(--down)}
+.rgc-gq .linkish{font-size:inherit;padding:0}
 .rgc-foot .row{gap:10px;align-items:center;flex-wrap:wrap}
 @media (max-width:600px){
   .rgc-dock{width:100vw;height:100dvh;bottom:auto;border-left:0;box-shadow:none}
@@ -39362,7 +39366,7 @@ const TUT_LISTS=[
      lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()},
     {k:'rch',t:'Say hi in the region chat',h:'Open the chat with the speech-bubble button beside the bell and write a line: a hello, a question or news of your nation. Everyone in the region who is playing reads it at once.',
      act:'tut-chat',b:'Open the chat',lc:2,gift:{food:5,timber:5,goods:5},
-     lock:n=>tutReg()?'':'Only Registered Nations write in the chat: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('h')||tutChatMine()},
+     f:(n,d)=>String(d||'').includes('h')||tutChatMine()},
     {k:'mdig',t:'Do a museum dig',h:'The Museum’s Field digs hall sends diggers to an old site. They come back hours later with finds for your collection.',
      act:'tut-dig',b:'Open the digs',lc:2,gift:{food:10,timber:10,iron:10,oil:10,goods:10},f:n=>(n.dig||[]).length>0||(n.digF||[]).length>0}]},
   {k:'mark',c:'m',eb:'Next steps',t:()=>`Make your mark in ${REGION}`,hk:'statehood.steps2.v1',
@@ -49539,7 +49543,7 @@ function accountLinkCard(n){
   return `<section class="paper account-link-card" aria-labelledby="account-link-heading"><p class="eyebrow">Your charter is complete</p><h2 class="h2" id="account-link-heading">Keep your nation on every device</h2><p>Link Google, Discord or an email address to become a Registered Nation and sign in on another browser or device. Registration opens community and political actions; Assembly participation also requires a nation at least 24 hours old.</p>${!n.glk?`<p class="hint">First sign-in link: +${GL_CREDITS} land credits, +${GL_GIFT.iron} iron, +${GL_GIFT.timber} timber, +${GL_GIFT.goods} goods and +${GL_GIFT.oil} oil.</p>`:''}<div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${accountCompareButton()}<button type="button" class="linkish small" data-act="account-hint-hide">Not now</button></div></section>`;
 }
 function accountTypesHelp(){
-  const rows=[['Found and grow a nation','Yes','Yes'],['Edicts, economy and construction','Yes','Yes'],['Hex claims and discoveries','Yes','Yes'],['Customisation and achievements','Yes','Yes'],['Read Assembly debates','Yes','Yes'],['Assembly voting','Unavailable','After 24 hours'],['Submit Assembly proposals','Unavailable','After 24 hours'],['Hold Assembly leadership','Unavailable','After 24 hours'],['Create community topics','Unavailable','Yes'],['Found an alliance','Unavailable','Yes*'],['Declare offensive wars on players','Unavailable','Yes*'],['Reports and support','Yes','Yes'],['Recover on another device','Recovery code only','Linked sign-in']];
+  const rows=[['Found and grow a nation','Yes','Yes'],['Edicts, economy and construction','Yes','Yes'],['Hex claims and discoveries','Yes','Yes'],['Customisation and achievements','Yes','Yes'],['Read Assembly debates','Yes','Yes'],['Assembly voting','Unavailable','After 24 hours'],['Submit Assembly proposals','Unavailable','After 24 hours'],['Hold Assembly leadership','Unavailable','After 24 hours'],['Create community topics','Unavailable','Yes'],['Write in the region chat','10 lines an hour','Yes'],['Found an alliance','Unavailable','Yes*'],['Declare offensive wars on players','Unavailable','Yes*'],['Reports and support','Yes','Yes'],['Recover on another device','Recovery code only','Linked sign-in']];
   return `<p>You can start and grow a Guest Nation without linking an account. Link Google, Discord or an email address whenever you are ready to become a Registered Nation.</p><div class="tbl-wrap"><table class="tbl account-types-table"><caption>What each account type can do</caption><thead><tr><th scope="col">Feature</th><th scope="col">Guest Nation</th><th scope="col">Registered Nation</th></tr></thead><tbody>${rows.map(([feature,guest,registered])=>`<tr><th scope="row">${feature}</th><td>${guest}</td><td>${registered}</td></tr>`).join('')}</tbody></table></div><p class="hint">* Population milestones, cooldowns, treaties and moderation restrictions still apply. Guest Nations can fight computer nations and defend themselves under the normal rules.</p><h3 class="help-h3">The Assembly’s 24-hour wait</h3><p>The 24 hours are counted from founding your nation. Linking a sign-in does not restart that wait. Voting, proposals, endorsements and leadership all require registration and a nation at least 24 hours old.</p><h3 class="help-h3">Keeping access to your nation</h3><p>A Guest Nation uses its latest recovery code to recover on another device. Save it outside this browser: a lost code cannot be retrieved. While a Guest session is active, choose Regenerate recovery key in the account panel to replace it. The previous key stops working, and signed-in devices keep their sessions. Without an active session or a working code, access cannot be recovered. After signing out of a Guest Nation, enter its most recently saved recovery code to sign back in. After linking, use your linked sign-in to recover your Registered Nation; the former guest code stops working.</p><h3 class="help-h3">First-link bonus</h3><p>Your first sign-in link awards ${GL_CREDITS} land credits, ${GL_GIFT.iron} iron, ${GL_GIFT.timber} timber and ${GL_GIFT.goods} goods, once per nation.</p>`;
 }
 HELP_EXT.push({k:'account-types',t:'Account types',top:true,body:accountTypesHelp});
@@ -65736,7 +65740,9 @@ document.addEventListener('keydown',e=>{
    is being typed in it. It shows the newest RGC_SHOW lines of rchat/<region>/chat, each with its nation's flag and name
    as the region has them now (the name the server stamped, for a nation no longer in the region). Lines by one nation
    within a few minutes run together under one heading, and a divider marks the first line not yet read.
-   Registered Nations write (RGC_TEXT characters, paced by the server); guests read. A line's menu reports it (a post
+   Every nation writes (RGC_TEXT characters, paced by the server); a guest RGC_GUEST lines an hour, counted under the
+   writing box with an offer to link a sign-in (RGC.gt: the times of their lines the server last told, RGC.gw: when the
+   server said they may write again). A line's menu reports it (a post
    rc:<region>:<line> in the moderators' queue), blocks its nation (the Letters block list, dmx.bl and lblock: its
    letters stop as well, and its lines are hidden) or deletes it (one's own; staff anyone's, which the audit log keeps).
    A line naming the player's nation is marked and, with the drawer shut, told in a notice. Settings › Letters turns
@@ -65745,8 +65751,8 @@ document.addEventListener('keydown',e=>{
    RGC keeps the state: the region followed, the lines, the newest line's time (top), the last line read (seen, in
    localStorage per region) and where the divider stands while the drawer is open (mark), lines on their way (pend),
    the open line menu and the question it asks (ask). */
-const RGC_SHOW=60,RGC_TEXT=300,RGC_RUN=5*60000,RGC_RETRY=30000,RGC_FRESH=5*60000;
-const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,open:false,busy:false,msg:'',menu:'',ask:null,pend:[],ready:false,toastAt:0,dock:null,foot:'',stick:true,draft:'',sil:null,silAt:0};
+const RGC_SHOW=60,RGC_TEXT=300,RGC_RUN=5*60000,RGC_RETRY=30000,RGC_FRESH=5*60000,RGC_GUEST=10;
+const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,open:false,busy:false,msg:'',menu:'',ask:null,pend:[],ready:false,toastAt:0,dock:null,foot:'',stick:true,draft:'',sil:null,silAt:0,gt:[],gw:0};
 /* the Edictum team's mark, in place of a flag on the lines the team signs */
 const RGC_TEAM_SVG='<svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/></svg>';
 const RGC_SVG='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
@@ -65760,8 +65766,21 @@ function rgcWrite(){
   if(q&&q.until>Date.now())return {why:`A moderator has silenced you in the region chat${q.perm?'':` until ${fmtDate(q.until)}, ${fmtTime(q.until)}`}${q.why?`. Reason: ${q.why}`:''}. You can still read along. If you think it is a mistake, write to the team from the Help page.`};
   const a=accountInfo();
   if(a&&a.reason==='moderated')return {why:'Writing in the chat is unavailable while this nation is under moderation.'};
-  if(a&&a.kind==='guest')return {why:'Writing in the region chat needs a Registered Nation. Link a sign-in account to join in; until then you can read along.',link:true};
   return null;
+}
+/* a guest writes RGC_GUEST lines an hour (functions/regionchat.js, RC_GUEST_HOUR) */
+function rgcGuest(){const a=accountInfo();return !OBS&&!!a&&a.kind==='guest';}
+/* the times of the guest's lines in the last hour: what the server last told, and their lines in the chat */
+function rgcGuestTimes(){
+  const now=Date.now(),me=myId(),s=new Set((RGC.gt||[]).filter(t=>t>now-3600000&&t<=now));
+  for(const m of RGC.list)if(m.a===me&&!m.tm&&m.t>now-3600000)s.add(m.t);
+  return [...s].sort((a,b)=>a-b);
+}
+function rgcGuestNote(){
+  const now=Date.now(),t=rgcGuestTimes(),full=t.length>=RGC_GUEST||RGC.gw>now,link='<button type="button" class="linkish" data-act="acct-open">Link a sign-in</button>';
+  if(!full){const left=RGC_GUEST-t.length;return `Guests can send ${RGC_GUEST} lines an hour: <b>${left}</b> ${left===1?'is':'are'} left. ${link} to chat freely.`;}
+  const at=Math.max(RGC.gw,t.length>=RGC_GUEST?t[t.length-RGC_GUEST]+3600000:0);
+  return `You have sent your ${RGC_GUEST} lines for this hour. You can write again at ${fmtTime(at)}. ${link} to chat freely.`;
 }
 function rgcConnect(){
   const reg=rgcOn()?REG.id:'',now=Date.now();
@@ -65970,11 +65989,11 @@ function rgcFoot(){
     const b=f.querySelector('#rgc-asend');if(b)b.disabled=RGC.abusy;
     return;
   }
-  const w=rgcWrite(),key=(w?'r:'+w.why:'w')+'|'+REGION;
+  const w=rgcWrite(),gq=!w&&rgcGuest(),key=(w?'r:'+w.why:'w')+'|'+REGION+'|'+(gq?'g':'');
   if(RGC.foot!==key){
     RGC.foot=key;RGC.mn=null;
     f.innerHTML=w?`<p class="rgc-ro">${esc(w.why)}</p>${w.link?'<div class="row"><button type="button" class="btn small" data-act="acct-open">Link a sign-in</button><button type="button" class="linkish small" data-act="account-compare">Compare account types</button></div>':''}`
-      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div><ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(rgcIn())}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(rgcIn())}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea><button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>`;
+      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div><ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(rgcIn())}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(rgcIn())}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea><button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>${gq?'<p class="rgc-gq" id="rgc-gq"></p>':''}`;
     const ta=f.querySelector('#rgc-x');if(ta){ta.value=RGC.draft;rgcGrow(ta);}
   }
   const rb=f.querySelector('#rgc-rebar');
@@ -65982,6 +66001,7 @@ function rgcFoot(){
   const msg=f.querySelector('#rgc-msg'),ta=f.querySelector('#rgc-x'),left=ta?RGC_TEXT-ta.value.length:RGC_TEXT;
   if(msg){msg.textContent=RGC.msg||(left<=60?`${left} ${left===1?'character':'characters'} left`:'');msg.classList.toggle('err',!!RGC.msg);}
   const b=f.querySelector('#rgc-send');if(b)b.disabled=RGC.busy;
+  const g=f.querySelector('#rgc-gq');if(g){const h=rgcGuestNote(),full=/^You have sent/.test(h);if(g.innerHTML!==h)g.innerHTML=h;g.classList.toggle('err',full);g.setAttribute('role',full?'alert':'note');}
 }
 /* the line that held the focus is gone: the writing box takes it, or the Close button for a reader */
 function rgcRefocus(){const d=RGC.dock;if(!d||d.hidden||d.contains(document.activeElement))return;const t=d.querySelector('#rgc-x')||d.querySelector('[data-rgc="close"]');if(t)t.focus({preventScroll:true});}
@@ -66014,12 +66034,14 @@ async function rgcSend(){
   try{
     const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{})});
     p.id=typeof r.id==='string'?r.id:'';
+    if(r.guest===true&&Array.isArray(r.gt))RGC.gt=r.gt.map(Number).filter(t=>t>0).slice(-RGC_GUEST);
     if(!p.id||RGC.list.some(m=>m.id===p.id))RGC.pend=RGC.pend.filter(q=>q!==p);
     if(!OBS)tutMark('h');
   }catch(e){
     RGC.pend=RGC.pend.filter(q=>q!==p);const d=e&&e.details;
     if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';RGC.draft=p.x;}
-    else{RGC.msg=alErrText(e);const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;RGC.draft=p.x;rgcGrow(t);}
+    else{RGC.msg=alErrText(e);if(d&&d.code==='rc_guest'){RGC.gw=Date.now()+Math.max(0,Number(d.wait)||0);RGC.msg='';}
+      const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;RGC.draft=p.x;rgcGrow(t);}
       if(reo&&!(d&&d.code==='rc_gone'))RGC.re=RGC.re||reo;}
   }finally{
     RGC.busy=false;rgcPaint();

@@ -146,7 +146,7 @@ test('saying hi in the region chat is a step of its own beside the board’s, pa
   const r=rewards(),L=r.ctx.lists.find(x=>x.k==='first'),ks=L.tasks.map(x=>x.k),s=L.tasks.find(x=>x.k==='rch');
   assert.ok(s,'in Welcome to Edictum, the second list');assert.equal(ks.indexOf('rch'),ks.indexOf('rmb')+1,'straight after Say hi on the board');
   assert.equal(s.t,'Say hi in the region chat');assert.equal(s.act,'tut-chat','its button opens the chat');
-  r.ctx.S.google=false;assert.match(s.lock({}),/Registered Nations write in the chat/,'a guest cannot write in the chat yet');r.ctx.S.google=true;assert.equal(s.lock({}),'');
+  assert.equal(s.lock,undefined,'a guest writes in the chat too');
   let n=nation({loc:3});r.save(n);n=r.reload(n);assert.ok(!n.tut.lc.includes('rch'),'not before a line is written');
   const before=r.ctx.credits(n),stock={...n.stock};
   r.ctx.DEVK='h';const m=r.save(n);

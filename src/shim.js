@@ -132,6 +132,8 @@
     var out = new Error((e && e.message) || raw);
     out.code = ERR[raw] || raw;
     out.firebaseCode = raw;
+    /* what the server added to a refusal (functions: HttpsError details), such as how long to wait */
+    if (e && e.details && typeof e.details === 'object' && !Array.isArray(e.details)) out.details = e.details;
     return out;
   }
   function num(v) { return typeof v === 'number' && isFinite(v) ? v : 0; }
@@ -610,7 +612,7 @@
     } catch (e) { throw mapError({ code: 'unavailable', message: (e && e.message) || 'the referee could not be reached' }); }
     if (r.ok && b && 'result' in b) return b.result;
     var e = (b && b.error) || {};
-    throw mapError({ code: (e.details && e.details.code) || String(e.status || (r.status === 429 ? 'resource-exhausted' : 'unavailable')).toLowerCase().replace(/_/g, '-'), message: e.message || 'HTTP ' + r.status });
+    throw mapError({ code: (e.details && e.details.code) || String(e.status || (r.status === 429 ? 'resource-exhausted' : 'unavailable')).toLowerCase().replace(/_/g, '-'), message: e.message || 'HTTP ' + r.status, details: e.details });
   }
   /* battles are rolled by the referee: battle({d, c, p, w, h}) → {ok, win, t, s?, p, r} or {ok: false, why, next?} */
   var refereeApi = Object.freeze({
