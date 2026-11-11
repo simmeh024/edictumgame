@@ -643,3 +643,39 @@ test('Who is online: the region’s players seen in the last 15 minutes, by thei
   await assert.rejects(civic(a,{op:'online',reg:'nowhere'}),e=>e.status==='INVALID_ARGUMENT');
   await assert.rejects(civic(a,{op:'online'}),e=>e.status==='INVALID_ARGUMENT');
 });
+
+test('Region chat: a Registered Nation writes in its own region, paced and never twice the same; authors delete their own lines, staff any, audited',async()=>{
+  const g=await player(),r=await player(true),o=await player(true),far=await player(true,false,'frostmarch');
+  await rejects(civic(g,{op:'rcPost',x:'Hello'}),'registration_required');
+  await assert.rejects(civic(r,{op:'rcPost',x:'   '}),e=>e.status==='INVALID_ARGUMENT');
+  // the author, name, staff mark and time are the server's, whatever the browser sends
+  const a=await civic(r,{op:'rcPost',reg:'meridian',x:'  Hello\n  <b>region</b>   all ',a:'forged',nm:'Forged',st:'admin',t:1});
+  assert.equal(a.reg,'meridian');
+  const line=(await db.doc('rchat/meridian/chat/'+a.id).get()).data();
+  assert.equal(line.a,r.uid);assert.equal(line.nm,r.uid);assert.equal(line.x,'Hello <b>region</b> all');assert.equal(line.st,undefined);
+  assert.ok(line.t>Date.now()-60000&&line.exp.toMillis()>Date.now()+29*DAY);
+  await rejects(civic(r,{op:'rcPost',x:'Too fast'}),'rc_paced');
+  await new Promise(res=>setTimeout(res,1600));
+  await rejects(civic(r,{op:'rcPost',x:'hello b REGION b, all!'}),'rc_same');
+  assert.equal((await civic(r,{op:'rcPost',x:'x'.repeat(400)})).ok,true);
+  assert.equal((await db.collection('rchat/meridian/chat').where('a','==',r.uid).get()).docs.map(d=>d.get('x')).sort((p,q)=>q.length-p.length)[0].length,300);
+  // a nation writes in its own region only
+  await rejects(civic(far,{op:'rcPost',reg:'meridian',x:'Wrong room'}),'rc_region');
+  const f=await civic(far,{op:'rcPost',x:'Frost here'});assert.equal(f.reg,'frostmarch');
+  // deleting: not another player's line; one's own; staff anyone's, with the words in the audit log
+  await assert.rejects(civic(o,{op:'rcDelete',reg:'meridian',id:a.id}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(o,{op:'rcDelete',reg:'atlantis',id:a.id}),e=>e.status==='INVALID_ARGUMENT');
+  await civic(far,{op:'rcDelete',reg:'frostmarch',id:f.id});
+  assert.equal((await db.doc('rchat/frostmarch/chat/'+f.id).get()).exists,false);
+  await auth.setCustomUserClaims(o.uid,{mod:true});
+  await civic(o,{op:'rcDelete',reg:'meridian',id:a.id});
+  assert.equal((await db.doc('rchat/meridian/chat/'+a.id).get()).exists,false);
+  const au=await db.collection('adminAudit').where('line','==',a.id).get();
+  assert.equal(au.size,1);assert.equal(au.docs[0].get('action'),'chat_delete');assert.equal(au.docs[0].get('actor'),o.uid);assert.equal(au.docs[0].get('target'),r.uid);assert.equal(au.docs[0].get('x'),'Hello <b>region</b> all');
+  assert.deepEqual(await civic(o,{op:'rcDelete',reg:'meridian',id:a.id}),{ok:true});
+  // a moderator's line carries the staff mark; a banned player writes nothing
+  await new Promise(res=>setTimeout(res,1600));
+  const m=await civic(o,{op:'rcPost',x:'Be kind, everyone.'});
+  assert.equal((await db.doc('rchat/meridian/chat/'+m.id).get()).get('st'),'mod');
+  await db.doc('bans/'+r.uid).set({t:Date.now()});await rejects(civic(r,{op:'rcPost',x:'Banned'}),'banned');
+});

@@ -110,7 +110,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     }
     await forgetShop(uid);
     // and the pacing of its posts, reports, tickets and bug reports, which players may not delete (firestore.rules)
-    await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/'].map(c => db.doc(c + uid).delete()));
+    await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
     // the counts, blocks and read receipts of its letters, and its devices' push subscriptions (functions/letters.js)
@@ -119,6 +119,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await alDrop(db, uid);
     // the @mentions waiting in its bell (functions/board.js)
     await db.recursiveDelete(db.collection('mentions/' + uid + '/m'));
+    // its lines in the alliance channels and the region chats (functions/regionchat.js)
     const chat = await db.collectionGroup('chat').where('a', '==', uid).get();
     if (!chat.empty) { const w = db.bulkWriter(); await Promise.all([Promise.all(chat.docs.map(c => w.delete(c.ref))), w.close()]); }
     await db.doc('alPace/' + uid).delete();
