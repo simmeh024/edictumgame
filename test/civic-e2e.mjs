@@ -117,7 +117,7 @@ await nav(B,'assembly');
 check('a young Registered Nation sees the 24-hour explanation',/24 hours/.test(await text(B,'main'))&&!await B.locator('[data-act="asm-rejoin"]').count());
 check('young Registered restrictions do not ask for Google linking again',await B.locator('[data-account-action] [data-act="acct-open"]').count()===0&&/24 hours/.test(await text(B,'[data-account-action="proposal"]')));
 await B.click('#asmx-tab-prop');await B.locator('[data-account-action="proposal"] [data-act="account-compare"]').click();await B.waitForSelector('#help-account-types');
-check('restricted actions open the shared mobile account comparison',await B.locator('.account-types-table tbody tr').count()===13&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+check('restricted actions open the shared mobile account comparison',await B.locator('.account-types-table tbody tr').count()===14&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
 await nav(B,'nation');check('linking Google removes the post-charter linking suggestion',await B.locator('.account-link-card').count()===0);await nav(B,'assembly');
 await B.screenshot({path:path.join(OUT,'registered-young-assembly-mobile.png')});
 const C=await player('Former code');await open(C);await openAccount(C);await C.click('[data-ed="recover"]');await C.fill('#ed-recovery-input',secret);await C.click('[data-ed="recover-yes"]');

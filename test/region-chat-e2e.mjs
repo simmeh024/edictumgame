@@ -1,6 +1,6 @@
 // Region chat (functions/regionchat.js), on the emulators: the Chat button beside the bell opens a drawer on any page;
 // Registered Nations of the region write lines that reach every other nation of it at once, paced by the server; a
-// line naming a nation is marked and told; guests read only; a line's menu reports it (the moderators' queue, which
+// line naming a nation is marked and told; guests write ten lines an hour; a line's menu reports it (the moderators' queue, which
 // removes it), blocks its nation (its lines hidden, and its letters stopped) or deletes it; staff remove any line;
 // Settings › Letters turns the chat off; staff read every region's chat in the admin portal, write as the Edictum
 // team and silence a player (and lift it); the drawer's tabs (Region, Alliance, Happenings with Welcome), @mentions,
@@ -79,12 +79,26 @@ check('a line written with the drawer open moves no divider', await until(async 
 check('another nation’s line starts a new heading', await until(async () => (await shown(B)).includes('I have steel. Twelve tons.')) && /Quillmark/.test(await B.$$eval('#rgc-list .rgc-l', l => l[l.length - 1].querySelector('.rgc-lh')?.textContent || '')));
 check('a long line is cut at 300 characters by the box', await B.getAttribute('#rgc-x', 'maxlength') === '300');
 
-/* ── 4. guests read only; the server refuses them too ── */
+/* ── 4. guests write ten lines an hour, counted under the box, with a sign-in offered ── */
 await openChat(G);
 check('a guest reads the chat', await until(async () => (await shown(G)).includes('We pay in grain.')));
-check('a guest has no writing box, and is offered a sign-in', !(await G.$('#rgc-x')) && /needs a Registered Nation/.test(await text(G, '#rgc-foot')) && !!(await G.$('#rgc-foot [data-act="acct-open"]')));
-const guest = await civic(G, { op: 'rcPost', x: 'Let me in' });
-check('the server refuses a guest’s line', !guest.ok && guest.code === 'registration_required', JSON.stringify(guest));
+check('a guest has a writing box, told of ten lines an hour and offered a sign-in', !!(await G.$('#rgc-x')) && /Guests can send 10 lines an hour: 10 are left\./.test(await text(G, '#rgc-gq')) && !!(await G.$('#rgc-gq [data-act="acct-open"]')), await text(G, '#rgc-foot'));
+check('a Registered Nation sees no such count', !(await B.$('#rgc-gq')));
+await G.fill('#rgc-x', 'A guest says hello.'); await G.press('#rgc-x', 'Enter');
+check('the guest’s line reaches the region', await until(async () => (await shown(C)).includes('A guest says hello.')));
+check('and the count goes down', await until(async () => /: 9 are left\./.test(await text(G, '#rgc-gq'))), await text(G, '#rgc-gq'));
+// the rest of the hour used up (rcPace, as the server keeps it): the next line is refused, and the box says when to write again
+await G.waitForTimeout(1600);
+const guest = await civic(G, { op: 'rcPost', x: 'One more' });
+check('the server tells a guest how many lines are left', guest.ok === true && guest.r.guest === true && guest.r.left === 8, JSON.stringify(guest));
+const gp = Array.from({ length: 10 }, (_, i) => Date.now() - 50 * 60000 + i * 60000);
+await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/rcPace/${await G.evaluate(() => G.S.uid)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
+  body: JSON.stringify({ fields: { p: { arrayValue: { values: gp.map(t => ({ integerValue: String(t) })) } }, h: { stringValue: 'x' } } }) });
+await G.fill('#rgc-x', 'The eleventh line.'); await G.press('#rgc-x', 'Enter');
+check('the eleventh line in an hour is refused: the count says the hour is used up, and when it frees', await until(async () => /You have sent your 10 lines for this hour\. You can write again at \d\d:\d\d\./.test(await text(G, '#rgc-gq'))), await text(G, '#rgc-gq'));
+check('said once, as an alert, not again above it', await G.$eval('#rgc-gq', e => e.classList.contains('err') && e.getAttribute('role') === 'alert') && await text(G, '#rgc-msg') === '', await text(G, '#rgc-msg'));
+check('the refused words stay in the box', await G.inputValue('#rgc-x') === 'The eleventh line.');
+await G.fill('#rgc-x', '');
 
 /* ── 5. a line's menu: report ── */
 const grain = await lineOf(C, 'We pay in grain.');

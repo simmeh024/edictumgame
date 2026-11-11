@@ -14,7 +14,7 @@ import { pushChatMention } from './letters.js';
                              server-only
    The lines are a 'chat' collection with the author in `a`, as the alliance channels are, so deleting an account or an
    admin removing or banning a nation takes them too (functions/accounts.js, functions/admin.js).
-   Any Registered Nation writes in its own region's chat; a guest reads it. Blocking a nation (lblock, Letters) hides
+   Any nation writes in its own region's chat: a Registered Nation RC_HOUR lines an hour, a guest RC_GUEST_HOUR. Blocking a nation (lblock, Letters) hides
    its lines in the blocker's game; the author is not told. A reported line is a 'post' report rc:<reg>:<id>, which the
    admin portal removes (functions/admin.js, delete_post).
    Staff (an admin or mod claim) also, from the admin portal's Region chats page or a line's menu:
@@ -30,7 +30,7 @@ import { pushChatMention } from './letters.js';
    the line answered, gets mentions/{uid}/m/{id} {k: 'chat', by, nm, reg, rc, x, t, rp?} for their bell, and a push
    notification when they are not in the game (functions/letters.js, pushChatMention). Reactions (rcReact): one of
    RC_REACT per nation per line, kept as rv {uid: kind} on the line; rcForget takes a nation's away with its account. */
-export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
+export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
 /* the same words, however they are spaced or capitalised, for the repeat check */
@@ -51,13 +51,13 @@ export function rcSilence(data, now) {
 const whenText = ms => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
 /* how long the player must wait before another line: a second and a half after the last, at most RC_MINUTE in any
-   minute and RC_HOUR in any hour. p: the times of their lines (ms), newest last */
-export function rcWait(p, now) {
+   minute and `hour` in any hour (RC_HOUR, or RC_GUEST_HOUR for a guest). p: the times of their lines (ms), newest last */
+export function rcWait(p, now, hour = RC_HOUR) {
   const recent = (Array.isArray(p) ? p : []).filter(t => typeof t === 'number' && t <= now && now - t < 3600000).sort((a, b) => a - b);
   let wait = recent.length ? recent[recent.length - 1] + RC_GAP - now : 0;
   const minute = recent.filter(t => now - t < 60000);
   if (minute.length >= RC_MINUTE) wait = Math.max(wait, minute[minute.length - RC_MINUTE] + 60000 - now);
-  if (recent.length >= RC_HOUR) wait = Math.max(wait, recent[recent.length - RC_HOUR] + 3600000 - now);
+  if (recent.length >= hour) wait = Math.max(wait, recent[recent.length - hour] + 3600000 - now);
   return { wait: Math.max(0, wait), recent };
 }
 
@@ -70,7 +70,7 @@ async function rcPost(db, who, d, regions) {
   let tell = [];
   const out = await db.runTransaction(async tx => {
     /* the team writes in any region, open or not, with no nation of its own there */
-    const e = await eligibility(tx, who, team ? { linked: false, nation: false, hidden: true, allowClosedRegion: true } : {});
+    const e = await eligibility(tx, who, team ? { linked: false, nation: false, hidden: true, allowClosedRegion: true } : { linked: false });
     const reg = team ? (typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '') : e.n.reg || e.saved.get('reg') || '';
     if (team && !reg) throw new HttpsError('invalid-argument', 'Choose a region.');
     if (!regions.has(reg)) refuse('rc_region', 'Your nation has no region to talk in.');
@@ -78,7 +78,13 @@ async function rcPost(db, who, d, regions) {
     const pace = db.doc('rcPace/' + who.uid), [ps, ms] = await tx.getAll(pace, db.doc('rcMute/' + who.uid)), now = Date.now();
     const sil = rcSilence(ms.exists ? ms.data() : null, now);
     if (sil) throw new HttpsError('failed-precondition', `You are silenced in the region chat${sil.perm ? '' : ' until ' + whenText(sil.until)}${sil.why ? ': ' + sil.why : ''}.`, { code: 'rc_silenced', until: sil.until, perm: sil.perm, why: sil.why });
-    const { wait, recent } = rcWait(ps.exists ? ps.get('p') : [], now);
+    /* a guest writes RC_GUEST_HOUR lines in any hour; a sign-in lifts it to RC_HOUR */
+    const guest = !team && e.kind === 'guest';
+    const { wait, recent } = rcWait(ps.exists ? ps.get('p') : [], now, guest ? RC_GUEST_HOUR : RC_HOUR);
+    if (guest && recent.length >= RC_GUEST_HOUR) {
+      const w = recent[recent.length - RC_GUEST_HOUR] + 3600000 - now, m = Math.max(1, Math.ceil(w / 60000));
+      throw new HttpsError('failed-precondition', `Guests can send ${RC_GUEST_HOUR} lines an hour. You can write again in ${m} ${m === 1 ? 'minute' : 'minutes'}, or link a sign-in to chat freely.`, { code: 'rc_guest', wait: w, max: RC_GUEST_HOUR });
+    }
     if (wait > 0) throw new HttpsError('failed-precondition', `Slow down a little. You can write again in ${Math.ceil(wait / 1000)} ${Math.ceil(wait / 1000) === 1 ? 'second' : 'seconds'}.`, { code: 'rc_paced', wait });
     const h = hash(sameKey(x)), last = recent.length ? recent[recent.length - 1] : 0;
     if (ps.exists && ps.get('h') === h && now - last < RC_SAME) refuse('rc_same', 'You just wrote that.');
@@ -105,7 +111,7 @@ async function rcPost(db, who, d, regions) {
       ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}) });
     for (const [u, rp] of toTell) tx.create(db.collection('mentions/' + u + '/m').doc(), { k: 'chat', by: who.uid, nm: me, reg, rc: ref.id, x: line(x, 160), t: now, ...(rp ? { rp: true } : {}) });
     tell = [...toTell].map(([u, rp]) => ({ u, rp, nm: me }));
-    return { ok: true, id: ref.id, reg, t: now, ...(Object.keys(mn).length ? { mn } : {}) };
+    return { ok: true, id: ref.id, reg, t: now, ...(Object.keys(mn).length ? { mn } : {}), ...(guest ? { guest: true, left: Math.max(0, RC_GUEST_HOUR - recent.length - 1), gt: recent.concat(now).slice(-RC_GUEST_HOUR) } : {}) };
   });
   /* a push notification for those not in the game; never holds the line up */
   if (tell.length) await Promise.all(tell.map(t => pushChatMention(db, t.u, who.uid, t.nm, t.rp).catch(() => 0)));
