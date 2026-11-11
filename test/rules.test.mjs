@@ -1143,3 +1143,38 @@ test('the flag competition: a month’s summary and its hall are public; the ent
     await assertFails(who.doc('flagcTest/clock').set({ skew: 1 }));
   }
 });
+
+test('a region chat is read by the nations of that region and by admins, and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('rchat/meridian/chat/l1').set({ a: 'bob', nm: 'Bobland', x: 'Hello', t: 1 });
+  });
+  await assertSucceeds(as('bob').collection('rchat/meridian/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('bob').doc('rchat/meridian/chat/l1').get());
+  await assertFails(as('carol').collection('rchat/meridian/chat').orderBy('t', 'desc').limit(60).get());
+  await assertFails(as('carol').doc('rchat/meridian/chat/l1').get());
+  await assertFails(as('nobody').collection('rchat/meridian/chat').limit(1).get());
+  await assertFails(anon().collection('rchat/meridian/chat').limit(1).get());
+  await assertFails(as('bob').doc('rchat/atlantis/chat/l1').get());
+  await assertSucceeds(as('admin', { admin: true }).collection('rchat/meridian/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('admin', { admin: true }).collection('rchat/frostmarch/chat').limit(1).get());
+  await assertFails(as('bob').doc('rchat/meridian/chat/l2').set({ a: 'bob', nm: 'Bobland', x: 'Forged', t: 2 }));
+  await assertFails(as('bob').doc('rchat/meridian/chat/l1').update({ x: 'Changed' }));
+  await assertFails(as('bob').doc('rchat/meridian/chat/l1').delete());
+  await assertFails(as('admin', { admin: true }).doc('rchat/meridian/chat/l1').delete());
+  await assertFails(as('bob').doc('rcPace/bob').get());
+  await assertFails(as('bob').doc('rcPace/bob').set({ p: [] }));
+});
+
+test('a chat silence is read by the silenced player and admins, and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('rcMute/bob').set({ until: Date.now() + 3600000, why: 'Spam', by: 'staff', t: 1, nm: 'Bobland', reg: 'meridian' });
+  });
+  await assertSucceeds(as('bob').doc('rcMute/bob').get());
+  await assertFails(as('carol').doc('rcMute/bob').get());
+  await assertFails(anon().doc('rcMute/bob').get());
+  await assertSucceeds(as('admin', { admin: true }).collection('rcMute').where('until', '>', Date.now()).orderBy('until').limit(200).get());
+  await assertFails(as('carol').collection('rcMute').limit(10).get());
+  await assertFails(as('bob').doc('rcMute/bob').delete());
+  await assertFails(as('bob').doc('rcMute/bob').update({ until: 0 }));
+  await assertFails(as('admin', { admin: true }).doc('rcMute/carol').set({ until: 1 }));
+});

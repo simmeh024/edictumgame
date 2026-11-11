@@ -654,3 +654,81 @@ test('Swaying a vote: the server rolls it, keeps it in the member’s record onc
   assert.deepEqual((await db.doc(`assemblyRegions/saffron/actors/${r.uid}`).get()).get('record').w,w);
   await rejects(civic(r,{op:'sway',cycle:state.c,key:state.cur.k,vote:-1}),'sway_used');
 });
+
+test('Region chat: a Registered Nation writes in its own region, paced and never twice the same; authors delete their own lines, staff any, audited',async()=>{
+  const g=await player(),r=await player(true),o=await player(true),far=await player(true,false,'frostmarch');
+  await rejects(civic(g,{op:'rcPost',x:'Hello'}),'registration_required');
+  await assert.rejects(civic(r,{op:'rcPost',x:'   '}),e=>e.status==='INVALID_ARGUMENT');
+  // the author, name, staff mark and time are the server's, whatever the browser sends
+  const a=await civic(r,{op:'rcPost',reg:'meridian',x:'  Hello\n  <b>region</b>   all ',a:'forged',nm:'Forged',st:'admin',t:1});
+  assert.equal(a.reg,'meridian');
+  const line=(await db.doc('rchat/meridian/chat/'+a.id).get()).data();
+  assert.equal(line.a,r.uid);assert.equal(line.nm,r.uid);assert.equal(line.x,'Hello <b>region</b> all');assert.equal(line.st,undefined);
+  assert.ok(line.t>Date.now()-60000&&line.exp.toMillis()>Date.now()+29*DAY);
+  await rejects(civic(r,{op:'rcPost',x:'Too fast'}),'rc_paced');
+  await new Promise(res=>setTimeout(res,1600));
+  await rejects(civic(r,{op:'rcPost',x:'hello b REGION b, all!'}),'rc_same');
+  assert.equal((await civic(r,{op:'rcPost',x:'x'.repeat(400)})).ok,true);
+  assert.equal((await db.collection('rchat/meridian/chat').where('a','==',r.uid).get()).docs.map(d=>d.get('x')).sort((p,q)=>q.length-p.length)[0].length,300);
+  // a nation writes in its own region only
+  await rejects(civic(far,{op:'rcPost',reg:'meridian',x:'Wrong room'}),'rc_region');
+  const f=await civic(far,{op:'rcPost',x:'Frost here'});assert.equal(f.reg,'frostmarch');
+  // deleting: not another player's line; one's own; staff anyone's, with the words in the audit log
+  await assert.rejects(civic(o,{op:'rcDelete',reg:'meridian',id:a.id}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(o,{op:'rcDelete',reg:'atlantis',id:a.id}),e=>e.status==='INVALID_ARGUMENT');
+  await civic(far,{op:'rcDelete',reg:'frostmarch',id:f.id});
+  assert.equal((await db.doc('rchat/frostmarch/chat/'+f.id).get()).exists,false);
+  await auth.setCustomUserClaims(o.uid,{mod:true});
+  await civic(o,{op:'rcDelete',reg:'meridian',id:a.id});
+  assert.equal((await db.doc('rchat/meridian/chat/'+a.id).get()).exists,false);
+  const au=await db.collection('adminAudit').where('line','==',a.id).get();
+  assert.equal(au.size,1);assert.equal(au.docs[0].get('action'),'chat_delete');assert.equal(au.docs[0].get('actor'),o.uid);assert.equal(au.docs[0].get('target'),r.uid);assert.equal(au.docs[0].get('x'),'Hello <b>region</b> all');
+  assert.deepEqual(await civic(o,{op:'rcDelete',reg:'meridian',id:a.id}),{ok:true});
+  // a moderator's line carries the staff mark; a banned player writes nothing
+  await new Promise(res=>setTimeout(res,1600));
+  const m=await civic(o,{op:'rcPost',x:'Be kind, everyone.'});
+  assert.equal((await db.doc('rchat/meridian/chat/'+m.id).get()).get('st'),'mod');
+  await db.doc('bans/'+r.uid).set({t:Date.now()});await rejects(civic(r,{op:'rcPost',x:'Banned'}),'banned');
+});
+
+test('Region chat staff: the team writes in any region, staff silence a player everywhere (and may take their last day of lines) and lift it, all audited',async()=>{
+  const r=await player(true),o=await player(true),staff=await player(true),far=await player(true,false,'frostmarch');
+  await auth.setCustomUserClaims(staff.uid,{mod:true});
+  // only staff sign as the team; the team writes in a region where it has no nation, and the line carries no nation
+  await assert.rejects(civic(r,{op:'rcPost',team:true,reg:'frostmarch',x:'Pretending'}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(staff,{op:'rcPost',team:true,x:'Where?'}),e=>e.status==='INVALID_ARGUMENT');
+  const tl=await civic(staff,{op:'rcPost',team:true,reg:'frostmarch',x:'Welcome, Frostmarch.'});
+  assert.equal(tl.reg,'frostmarch');
+  const t=(await db.doc('rchat/frostmarch/chat/'+tl.id).get()).data();
+  assert.equal(t.tm,true);assert.equal(t.nm,'Edictum team');assert.equal(t.a,staff.uid);assert.equal(t.st,'mod');
+  // a player's lines, then a day's silence that takes the lines of the last 24 hours with it
+  const l1=await civic(r,{op:'rcPost',x:'Buy my grain!'});
+  await db.doc('rchat/meridian/chat/old'+r.uid.slice(0,10)).set({a:r.uid,nm:'Old',x:'From last week',t:Date.now()-3*DAY});
+  await assert.rejects(civic(o,{op:'rcMute',uid:r.uid,hours:24}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(staff,{op:'rcMute',uid:r.uid,hours:5}),e=>e.status==='INVALID_ARGUMENT');
+  await assert.rejects(civic(staff,{op:'rcMute',uid:staff.uid,hours:24}),e=>e.status==='FAILED_PRECONDITION');
+  const mu=await civic(staff,{op:'rcMute',uid:r.uid,hours:24,why:'  Spam,\n spam  ',wipe:true});
+  assert.equal(mu.removed,1);assert.equal(mu.perm,false);
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).exists,false);
+  assert.equal((await db.doc('rchat/meridian/chat/old'+r.uid.slice(0,10)).get()).exists,true);
+  const m=(await db.doc('rcMute/'+r.uid).get()).data();
+  assert.equal(m.why,'Spam, spam');assert.equal(m.by,staff.uid);assert.equal(m.reg,'meridian');assert.ok(m.until>Date.now()+23*3600000&&m.until<Date.now()+25*3600000);
+  // a silenced player writes nothing, anywhere, and is told until when and why
+  await new Promise(res=>setTimeout(res,1600));
+  await assert.rejects(civic(r,{op:'rcPost',x:'Let me speak'}),e=>e.code==='rc_silenced'&&e.message.includes(new Date(m.until).toISOString().slice(0,16).replace('T',' ')+' UTC: Spam, spam.'));
+  // staff cannot be silenced; a silence until lifted
+  const s2=await player(true);await auth.setCustomUserClaims(s2.uid,{admin:true});
+  await rejects(civic(staff,{op:'rcMute',uid:s2.uid,hours:0}),'rc_staff');
+  const fm=await civic(staff,{op:'rcMute',uid:far.uid,hours:0,why:'Threats'});
+  assert.equal(fm.perm,true);assert.equal((await db.doc('rcMute/'+far.uid).get()).get('perm'),true);
+  // lifting: only staff; the player writes again
+  await assert.rejects(civic(o,{op:'rcUnmute',uid:r.uid}),e=>e.status==='PERMISSION_DENIED');
+  await civic(staff,{op:'rcUnmute',uid:r.uid});
+  assert.equal((await db.doc('rcMute/'+r.uid).get()).exists,false);
+  assert.equal((await civic(r,{op:'rcPost',x:'Sorry about that.'})).ok,true);
+  assert.deepEqual(await civic(staff,{op:'rcUnmute',uid:r.uid}),{ok:true});
+  const au=(await db.collection('adminAudit').where('target','==',r.uid).get()).docs.map(d=>d.data());
+  const sil=au.find(a=>a.action==='chat_silence'),un=au.find(a=>a.action==='chat_unsilence');
+  assert.ok(sil&&sil.actor===staff.uid&&sil.hours===24&&sil.removed===1&&sil.reason==='Spam, spam'&&sil.reg==='meridian');
+  assert.ok(un&&un.actor===staff.uid);
+});

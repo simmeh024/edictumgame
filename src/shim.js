@@ -734,7 +734,8 @@
     },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
-  /* the game opens the report dialog: open({kind:'post'|'nation', target:<uid>, post, reg, name, x}) */
+  /* the game opens the report dialog: open({kind:'post'|'letter'|'chat'|'nation', target:<uid>, post, reg, name, x}); a region
+     chat line ('chat') is filed as a post rc:<reg>:<line> */
   var reportApi = Object.freeze({ open: function (info) { if (isObj(info)) open('report', info); } });
   /* support tickets (see firestore.rules and functions/support.js): the player opens one with open({name, reg, onSent}),
      reads their own with mine() (each with fresh, the time they had read up to when the team has said something
@@ -1649,14 +1650,14 @@
         row('<button type="button" class="btn" data-ed="email-finish">Sign in here</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>') +
         '<p class="ed-fine">Meant to sign in on the other device? Open the link there instead. Or <button type="button" class="linkish" data-ed="email">send a new link to use on this one</button>.</p>';
     } else if (ui.view === 'report' && ui.report) {
-      var r = ui.report, post = r.kind === 'post' || r.kind === 'letter', reasons = REASONS.filter(function (x) { return post ? x[0] !== 'name' && x[0] !== 'cheating' : true; });
-      h = '<p class="eyebrow">Report</p><h2 class="ed-h" id="ed-dlg-h">' + (r.kind === 'letter' ? 'Report this letter?' : post ? 'Report this post?' : 'Report ' + quoted(r.name) + '?') + '</h2>' +
+      var r = ui.report, post = r.kind === 'post' || r.kind === 'letter' || r.kind === 'chat', reasons = REASONS.filter(function (x) { return post ? x[0] !== 'name' && x[0] !== 'cheating' : true; });
+      h = '<p class="eyebrow">Report</p><h2 class="ed-h" id="ed-dlg-h">' + (r.kind === 'letter' ? 'Report this letter?' : r.kind === 'chat' ? 'Report this chat message?' : post ? 'Report this post?' : 'Report ' + quoted(r.name) + '?') + '</h2>' +
         (post ? '<blockquote class="ed-quote">' + esc(str(r.x, 400)) + '</blockquote>' : '') +
         '<fieldset class="ed-reasons"><legend>What is wrong?</legend>' + reasons.map(function (x, i) {
-          return '<label><input type="radio" name="ed-reason" value="' + x[0] + '"' + (i ? '' : ' checked data-autofocus') + '> ' + esc(post && x[0] === 'content' ? (r.kind === 'letter' ? 'An offensive letter' : 'An offensive post') : x[1]) + '</label>';
+          return '<label><input type="radio" name="ed-reason" value="' + x[0] + '"' + (i ? '' : ' checked data-autofocus') + '> ' + esc(post && x[0] === 'content' ? (r.kind === 'letter' ? 'An offensive letter' : r.kind === 'chat' ? 'An offensive message' : 'An offensive post') : x[1]) + '</label>';
         }).join('') + '</fieldset>' +
         '<label class="ed-lbl2" for="ed-note">Anything else the moderators should know? (optional)</label><textarea class="input" id="ed-note" rows="3" maxlength="300"></textarea>' +
-        '<p class="ed-fine">Reports go to the game\'s moderators, not to the player' + (r.kind === 'letter' ? ', with the letter, so they can read it' : '') + '. You can send one every 30 seconds.</p>' +
+        '<p class="ed-fine">Reports go to the game\'s moderators, not to the player' + (r.kind === 'letter' ? ', with the letter, so they can read it' : r.kind === 'chat' ? ', with the message, so they can read it' : '') + '. You can send one every 30 seconds.</p>' +
         row('<button type="button" class="btn" data-ed="report-yes">Send report</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
     } else if (ui.view === 'support' && ui.support) {
       h = '<p class="eyebrow">Support</p><h2 class="ed-h" id="ed-dlg-h">Create a support ticket</h2>' +
@@ -1842,8 +1843,8 @@
     var r = ui.report, u = A.auth && A.auth.currentUser;
     if (!r || !u || ui.busy) return;
     var pick = ui.dlg.querySelector('input[name="ed-reason"]:checked'), note = ui.dlg.querySelector('#ed-note');
-    var doc = { by: u.uid, kind: r.kind === 'post' || r.kind === 'letter' ? r.kind : 'nation', target: str(r.target, 128), reg: str(r.reg, 40), reason: pick ? pick.value : 'other', t: serverTime() };
-    if ((r.kind === 'post' || r.kind === 'letter') && r.post) doc.post = str(r.post, r.kind === 'letter' ? 200 : 64);
+    var doc = { by: u.uid, kind: r.kind === 'post' || r.kind === 'letter' ? r.kind : r.kind === 'chat' ? 'post' : 'nation', target: str(r.target, 128), reg: str(r.reg, 40), reason: pick ? pick.value : 'other', t: serverTime() };
+    if ((r.kind === 'post' || r.kind === 'letter' || r.kind === 'chat') && r.post) doc.post = str(r.post, r.kind === 'letter' ? 200 : 64);
     if (note && note.value.trim()) doc.note = note.value.trim().slice(0, 300);
     if (r.name) doc.name = str(r.name, 160);
     if (r.x) doc.x = str(r.x, r.kind === 'letter' ? 2500 : 600);
