@@ -142,6 +142,20 @@ test('saying hi on the region board pays 3 land credits, 10 iron and oil, 5 of t
   r.ctx.DEVK='';n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('rmb'),'kept on reload, on any device');assert.ok(r.ctx.mapcOk(n,'#A347C8'));
 });
 
+test('saying hi in the region chat is a step of its own beside the board’s, paying 2 land credits and 5 food, timber and goods, once',()=>{
+  const r=rewards(),L=r.ctx.lists.find(x=>x.k==='first'),ks=L.tasks.map(x=>x.k),s=L.tasks.find(x=>x.k==='rch');
+  assert.ok(s,'in Welcome to Edictum, the second list');assert.equal(ks.indexOf('rch'),ks.indexOf('rmb')+1,'straight after Say hi on the board');
+  assert.equal(s.t,'Say hi in the region chat');assert.equal(s.act,'tut-chat','its button opens the chat');
+  r.ctx.S.google=false;assert.match(s.lock({}),/Registered Nations write in the chat/,'a guest cannot write in the chat yet');r.ctx.S.google=true;assert.equal(s.lock({}),'');
+  let n=nation({loc:3});r.save(n);n=r.reload(n);assert.ok(!n.tut.lc.includes('rch'),'not before a line is written');
+  const before=r.ctx.credits(n),stock={...n.stock};
+  r.ctx.DEVK='h';const m=r.save(n);
+  assert.equal(m.length,1,m.join(' | '));
+  assert.match(m[0],/^Step done: Say hi in the region chat\. \+2 land credits and 5 food, 5 timber, and 5 goods\./);
+  assert.equal(r.ctx.credits(n),before+2);for(const k of ['food','timber','goods'])assert.equal(n.stock[k],stock[k]+5,k);
+  r.ctx.DEVK='';n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('rch'),'kept on reload, on any device');
+});
+
 test('normalising keeps what the four lists save and drops the rest',()=>{
   const r=rewards();
   assert.deepEqual(JSON.parse(JSON.stringify(r.ctx.normalize({lc:['city','nope','city','fxd'],ch:'zdcq',v:25,p:1,w:24,g:'mq',x:1}))),{g:'m',lc:['city','fxd'],ch:'cd',v:25,p:1,w:24});

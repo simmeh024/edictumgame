@@ -54,7 +54,20 @@ async function choices(db, uid) {
   let o = null;
   try { o = s.exists && typeof s.get('j') === 'string' ? JSON.parse(s.get('j')) : null; } catch (e) { o = null; }
   const x = o && typeof o.dmx === 'object' && o.dmx ? o.dmx : {};
-  return { bl: new Set(Array.isArray(x.bl) ? x.bl.filter(isId) : []), mu: x.mu && typeof x.mu === 'object' ? x.mu : {}, news: x.np !== 0 };
+  return { bl: new Set(Array.isArray(x.bl) ? x.bl.filter(isId) : []), mu: x.mu && typeof x.mu === 'object' ? x.mu : {}, news: x.np !== 0, rc: x.rc, rcn: x.rcn };
+}
+/* a region chat line that mentions or answers a player who is not in the game (functions/regionchat.js): a push
+   notification, at most one every 10 minutes for each player (rcNote/{uid}, server-only), unless they blocked the writer
+   or turned the chat, or its mention notices, off (dmx.rc, dmx.rcn). It never says what the line says. */
+export async function pushChatMention(db, to, by, name, reply) {
+  const now = Date.now(), ref = db.doc('rcNote/' + to), s = await ref.get();
+  if (s.exists && now - (s.get('t') || 0) < NOTE_GAP) return 0;
+  const pres = await db.doc('presence/' + to).get();
+  if (pres.exists && now - ms(pres.get('t')) < ONLINE) return 0;
+  const c = await choices(db, to);
+  if (c.bl.has(by) || c.rc === 0 || c.rcn === 0) return 0;
+  await ref.set({ t: now });
+  return pushTo(db, to, { title: reply ? `${name} answered you in the region chat` : `${name} mentioned you in the region chat`, body: 'Open the chat to read it.', tag: 'chat', url: '/#chat' });
 }
 async function pushTo(db, uid, payload) {
   const ref = db.doc('pushSubs/' + uid), s = await ref.get(), subs = s.exists && Array.isArray(s.get('s')) ? s.get('s') : [];
