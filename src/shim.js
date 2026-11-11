@@ -203,6 +203,9 @@
   var OWN_KEYS = { dm: 1, seenDm: 1, dmx: 1 };
   /* the menu as its player arranged it (Settings › Navigation, n.nav) is for the private half too */
   NX_KEYS.nav = 1;
+  /* development news read and polls voted in, for the achievements (nwr, nwvn, nwd), and the polls whose results
+     the bell tells of when they close (nwp) */
+  NX_KEYS.nwr = NX_KEYS.nwvn = NX_KEYS.nwd = NX_KEYS.nwp = 1;
   function splitNation(d) {
     var pub = {}, ext = {}, own = {};
     Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (OWN_KEYS[k] ? own : NX_KEYS[k] ? ext : pub)[k] = d[k]; });
@@ -969,6 +972,11 @@
     notify: function (ids) {
       if (A.frozen || observing() || !Array.isArray(ids) || !ids.length) return Promise.resolve(false);
       return call('accounts', { op: 'letters', step: 'notify', ids: ids.filter(function (x) { return typeof x === 'string'; }).slice(0, 13) }).then(function () { return true; }, function () { return false; });
+    },
+    /* an admin's important development news post, told by notification once (functions/letters.js, newsPush) */
+    newsPush: function (post) {
+      if (A.frozen || observing() || typeof post !== 'string' || !/^[A-Za-z0-9]{20}$/.test(post)) return Promise.reject(new Error('no'));
+      return call('accounts', { op: 'letters', step: 'news', post: post });
     },
     push: function (step, data) {
       if (A.frozen || observing() || ['key', 'add', 'remove', 'status'].indexOf(step) < 0) return Promise.reject(new Error('no'));

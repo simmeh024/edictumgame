@@ -1,6 +1,9 @@
 // Development news: an admin writes a post with formatting and an image, players see a count in the menu, read
-// it and comment; moderators and admins remove comments, admins close comments and handle a report.
-import { OUT, player, open, ready, found, register, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators, sleep, errors } from './lib.mjs';
+// it and comment; moderators and admins remove comments, admins close comments and handle a report. Round three: an
+// important post (a notification and a pinned notice in the bell), game links and balance tables, the team's answers
+// and comment upvotes, polls of several answers with results by region and told when they close, the reading and
+// voting tallies, folded older posts with a contents for long ones, and the portal's reach, clicks and sent columns.
+import { OUT, player, open, ready, found, register, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators, sleep, errors, FS_HOST, PROJECT } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('player'), C = await player('guest'), M = await player('moderator');
 const uidA = await open(A); await found(A, 'Adminland');
@@ -30,6 +33,10 @@ await sleep(300);
 for (let i = errors.length; i-- > seen;) if (/^admin console: .*inline event handler/.test(errors[i])) errors.splice(i, 1);
 check('the sanitiser keeps headings, emphasis, lists, uploaded images and web links only',
   clean === '<h2>Title</h2><p>ok <strong>bold</strong> <em>it</em> plain</p><img data-img="AbCdEfGhIjKlMnOpQrSt" alt="A map">bad <a href="https://edictumgame.com" target="_blank" rel="noopener noreferrer">good</a><ul><li>one</li></ul>', clean);
+const clean2 = await A.evaluate(() => G.NEWS.nwClean('<table data-bt style="x"><thead><tr><th>Change</th><th>Before</th><th>After</th></tr></thead><tbody><tr><td>Farm <b>output</b></td><td>1,200</td><td>1,500</td></tr><tr><td>Cost</td><td>−5%</td><td>-8%</td></tr><tr><td>Same</td><td>3</td><td>3</td></tr><tr><td>…</td><td>…</td><td>…</td></tr></tbody></table><p>Go: <a data-go="trade" href="#trade" class="x">Open Trade</a> <a data-go="Bad Page">no</a></p>'));
+check('a balance table keeps its cells, marks each row up, down or the same, and drops the empty rows',
+  clean2.startsWith('<table data-bt=""><thead><tr><th>Change</th><th>Before</th><th>After</th></tr></thead><tbody><tr class="bt-up"><td>Farm <strong>output</strong></td><td>1,200</td><td>1,500</td></tr><tr class="bt-dn">') && /<tr class="bt-eq"><td>Same<\/td>/.test(clean2) && (clean2.match(/<tr/g) || []).length === 4, clean2);
+check('a game link becomes a button to that page, and nothing else on it survives', /<p>Go: <a class="nw-go" data-go="trade" href="#trade">Open Trade<\/a> no<\/p>$/.test(clean2), clean2);
 
 // the admin writes a post in the portal
 await A.waitForSelector('.side-who .adm-pill'); await A.click('.side-who .adm-pill');
@@ -151,10 +158,22 @@ await A.click('[data-act="nwe-draft"]');
 check('a draft is saved for admins only', await until(async () => /draft is saved/.test(await text(A, '.nwe-msg'))) && (await restGet('devnews/' + await A.evaluate(() => G.NEWS.NWE.id))).status !== 200);
 await go(C, 'nation'); await sleep(2000);
 check('a draft adds nothing to the count', await badge(C) === '');
+/* a player away from the game who asked for notifications (the emulators write them to pushOutbox) */
+await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/pushSubs/offline-player`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
+  body: JSON.stringify({ fields: { s: { arrayValue: { values: [{ mapValue: { fields: { e: { stringValue: 'https://push.example/x' }, k: { mapValue: { fields: { p256dh: { stringValue: 'k' }, auth: { stringValue: 'a' } } } }, at: { integerValue: '1' } } } }] } } } }) });
+await A.check('#nwe-ip');
 await A.click('[data-act="nwe-pub"]');
 check('publishing it counts one new post for a player who read the first', await until(async () => await badge(C) === '1', 15000));
+check('an important post pops up as important', await until(async () => /Important development news: “A word from Adminland”/.test(await text(C, '#toast')), 15000));
+check('and waits pinned in the bell until it is read', await until(() => C.evaluate(() => G.NEWS.bell().pin.some(x => x.k === 'nwip' && /A word from Adminland/.test(x.txt)))));
+check('publishing it sends its notification once, to the devices that asked and are not in the game', await until(async () => /A notification went to 1 player \(1 device\)/.test(await text(A, '.nwe-msg')), 15000)
+  && (await restListAdmin('pushOutbox')).some(d => d.fields?.to?.stringValue === 'offline-player' && /A word from Adminland/.test(d.fields?.payload?.mapValue?.fields?.title?.stringValue || '')), await text(A, '.nwe-msg'));
+await C.click('[data-act="notif"]'); await C.waitForSelector('.notif-pop [data-nw]'); await C.click('.notif-pop [data-nw]');
+check('the bell’s notice opens that post on its own', await until(async () => /A word from Adminland/.test(await text(C, '.nw-ti')) && (await C.$$('.nw-post')).length === 1 && /All development news/.test(await text(C, '.main'))));
+check('once read, the notice leaves the bell', await until(() => C.evaluate(() => !G.NEWS.bell().pin.some(x => x.k === 'nwip'))));
 await go(B, 'nation'); await go(B, 'devnews');
 check('the nation’s post shows its flag and name', await until(async () => /Adminland/.test(await text(B, '.nw-post:first-child .nw-by')) && !!await B.$('.nw-post:first-child .nw-by .nw-fl svg')));
+check('and its Important mark', /Important/.test(await text(B, '.nw-post:first-child .nw-date')));
 
 // a pinned feature post with patch notes and a poll; the guest, on another page, gets a pop-up
 await go(C, 'nation');
@@ -162,6 +181,16 @@ await A.click('[data-act="nwe-back"]'); await A.waitForSelector('[data-act="nwe-
 await A.fill('#nwe-ti', 'Patch 1.1: the poll'); await A.selectOption('#nwe-tg', 'feature'); await A.check('#nwe-pn');
 await A.click('#nwe-body'); await A.keyboard.type('What changed. ');
 await A.click('.nwe-b[data-nwc="patch"]');
+await A.click('.nwe-b[data-nwc="btable"]');
+check('Table puts a balance table in the text', (await A.$$('#nwe-body table[data-bt] tbody tr')).length === 3);
+await A.evaluate(() => { const r = document.querySelector('#nwe-body table[data-bt]').tBodies[0].rows; [['Farm output', '100', '120'], ['Fort cost', '50', '40']].forEach((v, i) => v.forEach((x, j) => { r[i].cells[j].textContent = x; }));
+  const g = document.createRange(); g.selectNodeContents(r[0].cells[0]); const s = getSelection(); s.removeAllRanges(); s.addRange(g); });
+await A.click('.nwe-b[data-nwc="btable"]');
+check('with the caret in it, Table adds a row', (await A.$$('#nwe-body table[data-bt] tbody tr')).length === 4);
+await A.evaluate(() => { const ed = document.getElementById('nwe-body'), p = document.createElement('p'); p.textContent = 'Try it: '; ed.appendChild(p); const g = document.createRange(); g.selectNodeContents(p); g.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(g); });
+await A.click('.nwe-b[data-nwc="golink"]');
+await A.waitForSelector('#nwe-gp:visible'); await A.selectOption('#nwe-gp', 'trade'); await A.fill('#nwe-gl', 'Open the Trade page'); await A.click('[data-act="nwe-go-ok"]');
+check('Game link puts a button to a page in the text', await until(async () => /Open the Trade page/.test(await text(A, '#nwe-body a[data-go="trade"]'))));
 await A.click('.nwe-poll summary'); await A.fill('#nwe-pq', 'Which region next?'); await A.fill('#nwe-po', 'Terra\nThe North\nThe Isles');
 await A.click('[data-act="nwe-pub"]');
 check('the pinned post with a poll publishes', await until(async () => /is published/.test(await text(A, '.nwe-msg'))));
@@ -173,6 +202,8 @@ check('a bad link address is refused, and says why', await until(async () => /A 
 await A.click('[data-act="nwe-back"]'); if (await A.$('[data-act="nwe-leave-yes"]')) await A.click('[data-act="nwe-leave-yes"]');
 check('the post list loads after it, without the link message', await until(async () => /Patch 1\.1: the poll/.test(await text(A, '.nwe-tbl'))) && !/A link needs an address/.test(await text(A, '.adm')));
 check('the post keeps its kind, pin, poll and patch notes', d2.tg?.stringValue === 'feature' && d2.pn?.booleanValue === true && d2.pl?.mapValue?.fields?.o?.arrayValue?.values?.length === 3 && /<ul data-pn="add">/.test(d2.h?.stringValue || ''), d2.h?.stringValue);
+check('and its balance table, rows marked and the empty ones dropped, and its game link', /<table data-bt=""><thead><tr><th>Change<\/th><th>Before<\/th><th>After<\/th><\/tr><\/thead><tbody><tr class="bt-up"><td>Farm output<\/td><td>100<\/td><td>120<\/td><\/tr><tr class="bt-dn"><td>Fort cost<\/td><td>50<\/td><td>40<\/td><\/tr><\/tbody><\/table>/.test(d2.h?.stringValue || '')
+  && /<a class="nw-go" data-go="trade" href="#trade">Open the Trade page<\/a>/.test(d2.h.stringValue), d2.h?.stringValue);
 check('a player elsewhere in the game gets a pop-up for it', await until(async () => /New development news: “Patch 1\.1: the poll”/.test(await text(C, '#toast')), 15000));
 await go(C, 'settings'); await C.click('#sg-tab-notif'); await C.click('[data-act="ntf"][data-f="nwc"][data-v="0"]');
 const G_unread = await C.evaluate(() => G.NEWS.nwUnread());
@@ -184,6 +215,14 @@ check('the archive lists every published post', arc.length === 3, arc.length);
 await go(B, 'nation'); await go(B, 'devnews');
 check('the pinned post leads the page with its kind', await until(async () => /Pinned/.test(await text(B, '.nw-post:first-child .nw-date')) && /New feature/.test(await text(B, '.nw-post:first-child .nw-date')) && /min read/.test(await text(B, '.nw-post:first-child .nw-date'))));
 check('its patch notes show as Added, Changed and Fixed', (await B.$$('.nw-post:first-child .nw-body ul[data-pn]')).length === 3 && /Added/.test(await text(B, '.nw-post:first-child .nw-body')));
+check('a long post opens with its contents', /In this post/.test(await text(B, '.nw-post:first-child .nw-toc')) && (await B.$$('.nw-post:first-child .nw-toc button')).length === 3 && /Added \(1\)/.test(await text(B, '.nw-post:first-child .nw-toc')));
+await B.click('.nw-post:first-child .nw-toc button[data-t$="-2"]');
+check('a contents entry takes the reader to its part of the post', await until(() => B.evaluate(() => !!document.activeElement?.matches?.('ul[data-pn="fix"]'))));
+check('the balance table shows which way each number went', !!await B.$('.nw-post:first-child .nw-body tr.bt-up') && !!await B.$('.nw-post:first-child .nw-body tr.bt-dn'));
+await B.click('.nw-post:first-child .nw-body a.nw-go[data-go="trade"]');
+check('a game link opens its page', await until(() => B.evaluate(() => G.S.view === 'trade')));
+check('and counts once, on the server', await until(async () => (await restGet('devnewsStat/' + pid2)).body?.fields?.g?.mapValue?.fields?.trade?.integerValue === '1', 15000));
+await go(B, 'devnews');
 
 // reactions (beside the read count, which they leave alone)
 await until(async () => await reads(pid2) >= 1, 15000);
@@ -202,6 +241,11 @@ await B.click(`[data-act="nw-vote"][data-id="${pid2}"][data-v="1"]`);
 check('a vote shows the results with the nation’s choice', await until(async () => /The North.*Your vote/.test(await text(B, '.nw-post:first-child .nw-pl')) && /100%/.test(await text(B, '.nw-post:first-child .nw-pl')), 15000));
 const vt = (await restGet('devnewsStat/' + pid2)).body.fields?.v?.arrayValue?.values?.map(x => x.integerValue);
 check('the server counts the vote once', JSON.stringify(vt) === '["0","1","0"]', vt);
+const vf = (await restGet('devnewsStat/' + pid2)).body.fields || {}, vr = Object.values(vf.vr?.mapValue?.fields || {}).map(r => JSON.stringify(r.arrayValue?.values?.map(x => x.integerValue)));
+check('and once in its region, with one voter', vf.vn?.integerValue === '1' && vr.length === 1 && vr[0] === '["0","1","0"]', vr);
+check('the nation counts the vote for its achievements', await B.evaluate(() => G.S.nation.nwvn === 1 && G.S.nation.nwv === 1));
+await B.click(`[data-act="nw-pl-reg"][data-id="${pid2}"]`);
+check('the results open region by region', await until(async () => /100%/.test(await text(B, `#nw-${pid2} .nw-pl-rt tbody`)) && (await B.$$(`#nw-${pid2} .nw-pl-rt tbody tr`)).length === 1));
 await go(C, 'devnews');
 check('a guest is told voting needs a Registered Nation', await until(async () => /Voting needs a Registered Nation/.test(await text(C, '.nw-post:first-child .nw-pl'))) && await C.$eval(`[data-act="nw-vote"][data-id="${pid2}"]`, b => b.disabled));
 
@@ -216,6 +260,15 @@ check('replying says to whom', /Replying to Playerland/.test(await text(A, `#nw-
 await A.fill('#nw-ct-' + pid2, 'Terra is next.'); await A.click(`#nw-cf-${pid2} button[type="submit"]`);
 check('a reply sits under its comment, marked as from the developer', await until(async () => /Terra is next/.test(await text(B, `#nw-cm-${pid2} .nw-re`)) && /Developer/.test(await text(B, `#nw-cm-${pid2} .nw-re`)), 15000));
 check('a reply has no Reply button of its own', !await B.$(`#nw-cm-${pid2} .nw-re [data-act="nw-c-re"]`));
+check('the developer’s reply is the team’s answer, and the comment it answers says so', /Team answer/.test(await text(B, `#nw-cm-${pid2} .nw-re`)) && /Answered by the team/.test(await text(B, `#nw-cm-${pid2} .nw-cl > .nw-c > .nw-c-h`)));
+const terra = await B.$$eval(`#nw-cm-${pid2} .nw-c`, li => li.find(x => /Terra please/.test(x.querySelector('.post-x')?.textContent || ''))?.id.slice(4));
+const upvotes = async () => (await restListAdmin('devnews/' + pid2 + '/posts')).find(d => d.id === terra)?.fields?.u?.integerValue || '0';
+check('a player cannot upvote their own comment', await B.$eval(`[data-act="nw-up"][data-id="${terra}"]`, b => b.disabled));
+await C.waitForSelector(`[data-act="nw-up"][data-id="${terra}"]:not([disabled])`); await C.click(`[data-act="nw-up"][data-id="${terra}"]`);
+check('another nation’s upvote counts on the comment, for everyone', await until(async () => await upvotes() === '1' && /1/.test(await text(B, `[data-act="nw-up"][data-id="${terra}"]`)), 15000));
+await C.waitForSelector(`[data-act="nw-up"][data-id="${terra}"][aria-pressed="true"]:not([disabled])`); await C.click(`[data-act="nw-up"][data-id="${terra}"]`);
+check('a second click takes it back', await until(async () => await upvotes() === '0', 15000));
+check('the comments can be ordered by upvotes', !!await B.$(`#nw-cm-${pid2} [data-act="nw-sort"][data-v="top"]`) || (await B.$$(`#nw-cm-${pid2} .nw-cl:not(.nw-re) > .nw-c`)).length < 2);
 
 // an unsent comment survives a reload
 await B.fill('#nw-ct-' + pid2, 'Half a thought');
@@ -237,6 +290,10 @@ await B.goto(await B.evaluate(() => location.href.split('#')[0]) + '#devnews/' +
 check('a shared link opens that post', await until(async () => /Patch 1\.1/.test(await text(B, '.nw-ti')) && /All development news/.test(await text(B, '.main'))));
 await B.click('[data-act="nw-all"]');
 check('and goes back to all the news', await until(async () => (await B.$$('.nw-post')).length === 3));
+check('an older post folds to a card with its opening words', await until(async () => !!await B.$(`#nw-${pid}.nw-fold`) && /Hello players/.test(await text(B, `#nw-${pid} .nw-ex`)) && !await B.$(`#nw-${pid} .nw-body`)));
+await B.click(`#nw-${pid} .nw-fold-a [data-act="nw-unfold"]`);
+check('Read the post opens it in full', await until(async () => !await B.$(`#nw-${pid}.nw-fold`) && !!await B.$(`#nw-${pid} .nw-body`)));
+await B.evaluate(() => window.scrollTo(0, 0));   // the pinned post back on screen, for the reads below
 
 // a read counts once per player, even from a browser that forgot it counted (another device)
 check('the pinned post was read by the player and the guest', await until(async () => { const r = await readers(pid2); return r.includes(uidB) && r.includes(uidC); }, 15000), await readers(pid2));
@@ -244,12 +301,46 @@ const once = await reads(pid2);
 await B.evaluate(() => { localStorage.removeItem('edictum.newsRead'); G.NEWS.NWR.done = null; });
 check('reading it again from a fresh browser is refused, and the count stays', await until(async () => B.evaluate(id => !!G.NEWS.NWR.done?.p?.has(id), pid2), 15000) && await reads(pid2) === once, [once, await reads(pid2)]);
 check('an admin’s own reading is not counted', !(await readers(pid)).includes(uidA) && !(await readers(pid2)).includes(uidA));
+check('the reader’s tally counts the posts read, and one read on the day it came out', await B.evaluate(() => G.S.nation.nwr >= 2 && G.S.nation.nwd === 1), await B.evaluate(() => [G.S.nation.nwr, G.S.nation.nwd]));
+
+// a poll of several answers that closes tomorrow: a ballot, then the results, and the bell tells its voter when it closes
+await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-news"]'); await A.waitForSelector('[data-act="nwe-new"]'); await A.click('[data-act="nwe-new"]');
+await A.fill('#nwe-ti', 'Patch 1.2: pick two'); await A.click('#nwe-body'); await A.keyboard.type('Which should come first?');
+await A.click('.nwe-poll summary'); await A.fill('#nwe-pq', 'What should we build?'); await A.fill('#nwe-po', 'Roads\nRails\nCanals');
+await A.selectOption('#nwe-pm', '2');
+const tomorrow = await A.evaluate(() => { const d = new Date(Date.now() + 86400000), z = v => String(v).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); });
+await A.fill('#nwe-pend', tomorrow);
+await A.click('[data-act="nwe-pub"]');
+check('a poll of several answers publishes', await until(async () => /is published/.test(await text(A, '.nwe-msg'))));
+const pid4 = await A.evaluate(() => G.NEWS.NWE.id);
+check('it keeps how many answers a nation may pick', (await restGet('devnews/' + pid4)).body?.fields?.pl?.mapValue?.fields?.m?.integerValue === '2');
+await A.click('[data-act="nwe-back"]'); await A.waitForSelector('[data-act="nwe-new"]'); await A.click('.adm-return');
+await go(B, 'nation'); await go(B, 'devnews');
+await B.waitForSelector(`[data-act="nw-pick"][data-id="${pid4}"]`);
+await B.click(`[data-act="nw-pick"][data-id="${pid4}"][data-v="0"]`); await B.click(`[data-act="nw-pick"][data-id="${pid4}"][data-v="2"]`);
+check('with two answers ticked, the third cannot be', await B.$eval(`[data-act="nw-pick"][data-id="${pid4}"][data-v="1"]`, b => b.disabled));
+await B.click(`[data-act="nw-vote-m"][data-id="${pid4}"]`);
+check('the ballot counts both answers and one voter', await until(async () => { const f = (await restGet('devnewsStat/' + pid4)).body?.fields || {}; return JSON.stringify(f.v?.arrayValue?.values?.map(x => x.integerValue)) === '["1","0","1"]' && f.vn?.integerValue === '1'; }, 15000));
+check('the results show both choices, as shares of the voters', await until(async () => { const t = await text(B, `#nw-${pid4} .nw-pl`); return /Roads Your vote\s*100%/.test(t) && /Canals Your vote\s*100%/.test(t) && /1 voter/.test(t); }), await text(B, `#nw-${pid4} .nw-pl`));
+check('the nation counts its second vote, and waits for the results', await B.evaluate(id => G.S.nation.nwvn === 2 && !!G.S.nation.nwp?.some(x => x.i === id), pid4));
+await B.evaluate(id => { const n = G.clone(G.S.nation); n.nwp = n.nwp.map(x => x.i === id ? { ...x, e: Date.now() - 1000 } : x); G.commit(n); for (const p of G.NEWS.NW.posts) if (p.id === id) p.pl.end = Date.now() - 1000; G.render(); }, pid4);
+check('a closed poll says the results are in', await until(async () => /The results are in: a tie between “Roads” and “Canals”/.test(await text(B, `#nw-${pid4} .nw-pl-res`)) && /Final results/.test(await text(B, `#nw-${pid4} .nw-pl`))));
+check('and the bell tells the nation that voted', await B.evaluate(id => G.NEWS.bell().ev.some(x => x.k === 'nwpoll' && x.nw === id && /The results are in: “What should we build\?”/.test(x.txt)), pid4));
+
+// Settings › Letters: notifications for important news can be turned off
+await go(C, 'settings'); await C.click('#sg-tab-letters');
+await C.waitForSelector('[data-act="sl-np"]'); await C.uncheck('[data-act="sl-np"]');
+check('Settings › Letters turns off notifications for important news', await until(() => C.evaluate(() => G.S.nation.dmx?.np === 0)));
 
 // the portal's totals: reactions, votes and reads
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-news"]'); await A.waitForSelector('[data-act="nwe-new"]');
 check('the portal shows the reactions and votes', await until(async () => /Poll: 1 vote/.test(await text(A, '.nwe-tbl'))));
 check('and how many players read each post', await until(async () => { const n = await reads(pid2);
   return n > 0 && await A.$$eval('.nwe-tbl tbody tr', (tr, n) => tr.some(r => /Patch 1\.1/.test(r.textContent) && r.querySelector('.nwe-rd')?.textContent.trim() === String(n)), n); }), await A.$$eval('.nwe-rd', c => c.map(x => x.textContent)));
+check('the portal shows reach, comments, link clicks and what was sent', await until(async () => { const h = await text(A, '.nwe-tbl thead'); return /Reach/.test(h) && /Comments/.test(h) && /Link clicks/.test(h) && /Sent/.test(h); }));
+const row = t => A.$$eval('.nwe-tbl tbody tr', (tr, t) => { const r = tr.find(x => x.cells[0].textContent.includes(t)); return r ? [...r.cells].map(x => x.textContent.trim()) : null; }, t);
+check('reach is a share of the week’s players, and the patch post counts its link click', await until(async () => { const c = await row('Patch 1.1'); return !!c && /^\d+%$/.test(c[4]) && c[6] === '1'; }, 30000), await row('Patch 1.1'));
+check('the important post shows the notification it sent', await until(async () => { const c = await row('A word from Adminland'); return !!c && /Important/.test(c[0]) && /1 notification/.test(c[7]); }), await row('A word from Adminland'));
 await A.screenshot({ path: OUT + '/devnews-admin.png', fullPage: true });
 await B.screenshot({ path: OUT + '/devnews-page.png', fullPage: true });
 const phone = await player('phone', { vp: { width: 390, height: 844 } });

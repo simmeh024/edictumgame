@@ -6,6 +6,11 @@
    accounts({op: 'letters', step: 'add', sub})          → {ok: true}: keeps this device's push subscription (five a player)
    accounts({op: 'letters', step: 'remove', endpoint})  → {ok: true}
    accounts({op: 'letters', step: 'status', endpoint})  → {on}: whether that subscription is kept
+   accounts({op: 'letters', step: 'news', post})        → {ok: true, n, players}: an admin's important development news
+       post (devnews/<post> published with ip), told once by a notification on every device of every player who
+       asked for notifications, unless they are in the game just now or turned news off in Settings › Letters (their
+       own half, dmx.np = 0). devnewsStat/<post> keeps when (pt) and how many were sent (ps, to pn players), so a
+       second call sends nothing.
    accounts({op: 'letters', step: 'notify', ids})       → {ok: true, n}: the caller's letters just delivered
        (letters/<id>, written by the caller in the last 15 minutes). Each reader who is not in the game just now hears
        of them, at most once per writer every 10 minutes, unless they blocked or muted the writer (their own half,
@@ -20,6 +25,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import webpush from 'web-push';
 import { mailConfig, send, nowLetter } from './mail-core.js';
+import { identity } from './eligibility.js';
 
 const NOTE_GAP = 10 * 60000, FRESH = 15 * 60000, ONLINE = 3 * 60000, SUBS_MAX = 5, NOW_DAY = 40, DAY = 86400000;
 const emulated = () => process.env.FUNCTIONS_EMULATOR === 'true' || !!process.env.FIRESTORE_EMULATOR_HOST;
@@ -48,7 +54,7 @@ async function choices(db, uid) {
   let o = null;
   try { o = s.exists && typeof s.get('j') === 'string' ? JSON.parse(s.get('j')) : null; } catch (e) { o = null; }
   const x = o && typeof o.dmx === 'object' && o.dmx ? o.dmx : {};
-  return { bl: new Set(Array.isArray(x.bl) ? x.bl.filter(isId) : []), mu: x.mu && typeof x.mu === 'object' ? x.mu : {}, rc: x.rc, rcn: x.rcn };
+  return { bl: new Set(Array.isArray(x.bl) ? x.bl.filter(isId) : []), mu: x.mu && typeof x.mu === 'object' ? x.mu : {}, news: x.np !== 0, rc: x.rc, rcn: x.rcn };
 }
 /* a region chat line that mentions or answers a player who is not in the game (functions/regionchat.js): a push
    notification, at most one every 10 minutes for each player (rcNote/{uid}, server-only), unless they blocked the writer
@@ -83,6 +89,41 @@ async function pushTo(db, uid, payload) {
   return sent;
 }
 
+/* an important development news post, told by notification (see the top of this file) */
+const NEWS_SUBS = 3000, NEWS_AT_ONCE = 12;
+async function newsPush(db, uid, d, now) {
+  const who = await identity(uid);
+  if (!who.admin) throw new HttpsError('permission-denied', 'Only admins can announce development news.');
+  const post = typeof d.post === 'string' && /^[A-Za-z0-9]{20}$/.test(d.post) ? d.post : '';
+  if (!post) throw new HttpsError('invalid-argument', 'Choose a news post.');
+  const p = await db.doc('devnews/' + post).get();
+  if (!p.exists || p.get('pub') !== true || p.get('ip') !== true) throw new HttpsError('failed-precondition', 'Only a published post marked important is announced.');
+  const st = db.doc('devnewsStat/' + post);
+  /* claimed first, so two calls at once cannot both send */
+  const fresh = await db.runTransaction(async tx => {
+    const s = await tx.get(st);
+    if (s.exists && typeof s.get('pt') === 'number') return false;
+    tx.set(st, { pt: now }, { merge: true });
+    return true;
+  });
+  if (!fresh) { const s = await st.get(); return { ok: true, again: true, n: s.get('ps') || 0, players: s.get('pn') || 0 }; }
+  const ti = String(p.get('ti') || '').slice(0, 120), ex = String(p.get('ex') || '').replace(/\s+/g, ' ').trim();
+  const payload = { title: 'Edictum news: ' + ti, body: ex.length > 140 ? ex.slice(0, 138) + '…' : ex || 'An important post from the Edictum team.', tag: 'news-' + post, url: '/#devnews/' + post };
+  const subs = await db.collection('pushSubs').limit(NEWS_SUBS).get();
+  let sent = 0, players = 0;
+  const one = async id => {
+    if (!isId(id)) return;
+    const [pres, c] = await Promise.all([db.doc('presence/' + id).get(), choices(db, id)]);
+    if (!c.news || (pres.exists && now - ms(pres.get('t')) < ONLINE)) return;
+    const k = await pushTo(db, id, payload);
+    if (k) { sent += k; players++; }
+  };
+  const ids = subs.docs.map(x => x.id);
+  for (let i = 0; i < ids.length; i += NEWS_AT_ONCE) await Promise.all(ids.slice(i, i + NEWS_AT_ONCE).map(id => one(id).catch(() => {})));
+  await st.set({ ps: sent, pn: players }, { merge: true });
+  return { ok: true, n: sent, players };
+}
+
 export async function forgetLetters(uid) {
   const db = getFirestore();
   const q = await Promise.all([
@@ -114,6 +155,7 @@ export async function lettersStep(uid, d) {
     if (subs.some(o => o.e === e)) await ref.set({ s: subs.filter(o => o.e !== e) });
     return { ok: true };
   }
+  if (d.step === 'news') return newsPush(db, uid, d, now);
   if (d.step !== 'notify') throw new HttpsError('invalid-argument', 'Unknown step.');
   const ids = Array.isArray(d.ids) ? [...new Set(d.ids.filter(x => typeof x === 'string'))].slice(0, 13) : [];
   const fresh = [];
