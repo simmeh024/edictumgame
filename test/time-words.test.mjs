@@ -45,7 +45,7 @@ test('west of UTC too', () => {
 });
 
 test('the retaliation and truce banners name the day with dayTail', () => {
-  assert.match(html, /Until \$\{fmtTime\(o\.e\.op\.t\+CV_RV\)\}\$\{dayTail\(o\.e\.op\.t\+CV_RV,now\)\}/);
+  assert.match(html, /Until \$\{fmtTime\(o\.e\.rt\+CV_RV\)\}\$\{dayTail\(o\.e\.rt\+CV_RV,now\)\}/);
   assert.match(html, /A truce holds until \$\{fmtTime\(ws\.truceUntil\)\}\$\{dayTail\(ws\.truceUntil,now\)\}/);
   assert.doesNotMatch(html, /toDateString\(\)\?' tomorrow'/, 'no banner calls any other day "tomorrow"');
 });
