@@ -50,8 +50,12 @@ await C.waitForSelector('#cb-r-x');
 // C mentions B: typing @ offers the nations on the board, Enter picks one
 await C.fill('#cb-r-x', 'Steel for sale, ten tons. '); await C.focus('#cb-r-x'); await C.keyboard.type('@Play');
 check('typing @ offers matching nations', await until(async () => /@Playerland/.test(await text(C, '#cb-mn'))));
+// a reply or the topic arriving redraws the page at any moment; the list must outlive it, or Enter breaks the line instead
+await C.evaluate(() => G.render()); await sleep(150);
+check('a redraw keeps the list open on the box, still focused', /@Playerland/.test(await text(C, '#cb-mn')) && await C.evaluate(() => document.activeElement && document.activeElement.id === 'cb-r-x'));
 await C.keyboard.press('Enter');
-check('picking one writes the full name', /ten tons\. @Playerland $/.test(await C.$eval('#cb-r-x', t => t.value)) && !(await C.$('#cb-mn')));
+const afterPick = await C.evaluate(() => ({ v: document.getElementById('cb-r-x').value, list: !!document.getElementById('cb-mn'), at: document.activeElement && document.activeElement.id }));
+check('picking one writes the full name', /ten tons\. @Playerland $/.test(afterPick.v) && !afterPick.list, JSON.stringify(afterPick));
 await C.keyboard.type('interested?'); await C.click('#cb-rf button[type="submit"]');
 check('the reply appears for everyone', await until(async () => /ten tons/.test(await text(B, '.cb-reps'))));
 check('the mention is marked in the post', await until(async () => /@Playerland/.test(await text(B, '.cb-reps .cb-at.me'))));
