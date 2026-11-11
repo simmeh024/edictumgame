@@ -22,6 +22,7 @@ const FAMS=['rep','crn','imp','sul','the','peo','col','bor'],OLD=40,MIN=60000,DA
 function game(){
   const ctx=vm.createContext({console});
   vm.runInContext(`
+    const SP_POP_PREP=0.02;let spLandBonus=()=>null;
     const CAP_BASE=5,CAP_VIP=10,EDICT_KEEP=CAP_VIP,DAY=864e5,STAT_KEYS=${JSON.stringify(STAT_KEYS)};const MONARCH_PRE=${literal('MONARCH_PRE')};const MONARCH_LEADER=${literal('MONARCH_LEADER')};
     const LVL=v=>v<36?0:v>64?2:1,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),clone=o=>JSON.parse(JSON.stringify(o));
     let VIP_RUNS=[];${src.match(/function edictCapAt\(t\) \{[^\n]*\}/)[0]}${fn('hash')}${fn('rng')}
@@ -70,7 +71,7 @@ function game(){
     this.G={S,ISSUES,ISSUE_BY_ID,ISSUES_RANDOM,NORM_HOOKS,COMMIT_HOOKS,toasts,syncInbox,answer,dismiss,commit,fill,
       MC_STORY,MC_IDS,MC_TITLES,MC_FACTS,MC_MS,MC_CHAIN,MC_AT,MC_GATE,mcGate,MC_ODDS,MC_GUAR,MC_SEC,MC_MD,MD_COST,MC_TEAM_KEYS,WS_FAMS,
       mcOf,mcNorm,mcBlank,mcCtx,mcCtxNorm,mcLetter,mcOutcome,mcVariant,mcReveal,mcReady,mcNext,mcRoll,mcDone,mcDoneAt,mcHas,mcSlots,mcActive,mcStartProblem,mcHours,mcCost,mcManifest,mcCond,mcDsl,mcCr,mcMdState,mcSpend,mcSiteSecs,mcCrew,
-      mdCost,mdNow,wsOf,fdFam,SPX_AT,SPX_AGAIN,SPX_ID,SPX_TEAM,spOpen,spPreDue,spPre,spPreAt,mcVet,setRuns:r=>{VIP_RUNS=r;}};`,ctx);
+      mdCost,mdNow,wsOf,fdFam,SPX_AT,SPX_AGAIN,SPX_ID,SPX_TEAM,spOpen,spPreDue,spPre,spPreAt,mcVet,mcPrepFlown,MC_FX,landBonus:(n,b,t)=>spLandBonus(n,b,t),setRuns:r=>{VIP_RUNS=r;}};`,ctx);
   return ctx.G;
 }
 const G0=game();
@@ -173,11 +174,15 @@ test('missions: buildings and earlier missions come first, one per team, two slo
   assert.equal(G.mcStartProblem(n,'cam',now),'');assert.match(G.mcStartProblem(n,'scope',now),/Fund the Science & Survey team/);
   assert.match(G.mcStartProblem(n,'orb',now),/Mission Control/,'the orbital pass needs Mission Control');
   n.mc.ms.cam={s:now-3600e3,d:now-60e3};assert.match(G.mcStartProblem(n,'orb',now),/Mission Control/);
-  bld(n,'mctrl');assert.equal(G.mcStartProblem(n,'orb',now),'');assert.equal(G.mcSlots(n,now),2,'Mission Control adds a slot');
+  bld(n,'mctrl');assert.match(G.mcStartProblem(n,'orb',now),/Something Came Back/,'the orbital pass waits for letter III, which asks how to fly it');assert.equal(G.mcSlots(n,now),2,'Mission Control adds a slot');
+  const letters=k=>Array.from({length:k},()=>({o:0,f:'rep',b:'111',t:1,x:''}));
+  n.mc.c=letters(3);assert.equal(G.mcStartProblem(n,'orb',now),'','letter III answered: the pass may fly');
   n.mc.ms.orb={s:now-60e3,d:now+3600e3};assert.match(G.mcStartProblem(n,'relay',now),/orbital pass/);
   n.mc.a.tm.sci=now;assert.match(G.mcStartProblem(n,'polar',now),/Deep Space Tracking Station/);
-  /* the relay waits for a station to hear it */
-  n.mc.ms.orb.d=now-60e3;n.mc.ms.relay={s:now-7200e3,d:now-60e3,v:'dom'};assert.equal(G.mcDone(n,'relay',now),false,'no station, no data');
+  /* the relay waits for letter IV (alone or with a partner), then for a station to hear it */
+  n.mc.ms.orb.d=now-60e3;assert.match(G.mcStartProblem(n,'relay',now),/The Missing Eleven Minutes/);
+  n.mc.c=letters(4);assert.equal(G.mcStartProblem(n,'relay',now),'');
+  n.mc.ms.relay={s:now-7200e3,d:now-60e3,v:'dom'};assert.equal(G.mcDone(n,'relay',now),false,'no station, no data');
   bld(n,'dsts',now-30e3);assert.equal(G.mcDone(n,'relay',now),true);assert.equal(G.mcDoneAt(n,'relay',now),now-30e3,'received when the station opened');
   /* chapter III needs Mission Control and the flight test; chapter V the station and the relay */
   assert.equal(G.mcReady(n,2,now),true);assert.equal(G.mcReady(n,4,now),true);
@@ -208,7 +213,7 @@ test('a veto files the proposal as failed, the story goes on, and the mission ca
   const v=after(G,G.S.nation,1);assert.deepEqual(J(mcOn(v).map(x=>x.id)),['mc-2']);
   const L=G.mcLetter(v.inbox.find(isMc).mc);assert.match(L.paras[0],/did not pass/);
   /* a vetoed chapter III leaves the pass at its default; the mission is flown with ordinary funding all the same */
-  const m=ready(G,10);agency(m,'flt',{cam:DAY});bld(m,'mctrl');assert.equal(G.mcStartProblem(m,'orb',now),'');
+  const m=ready(G,10);agency(m,'flt',{cam:DAY});bld(m,'mctrl');m.mc.c=[0,0,-1].map(o=>({o,f:'rep',b:'111',t:1,x:''}));assert.equal(G.mcStartProblem(m,'orb',now),'');
 });
 
 test('one letter on the desk at a time, and a nation that is ahead catches up through ordinary slots',()=>{
@@ -270,16 +275,27 @@ test('veterans: a wonder under way, a wonder finished or a colony landed credits
   const w=ready(G,MC0);w.cities[0].b.push({k:'lunar',s:now-DAY,d:now+DAY});assert.equal(G.mcCr(w,now),1);
   assert.ok(G.MC_CHAIN.filter(k=>k!=='prep').every(k=>G.mcDone(w,k,now)),'every mission before the wonder is credited');assert.equal(G.mcDone(w,'prep',now),false);
   assert.ok([1,2,3,4,5,6,7,8,9,10,11].every(k=>G.mcReady(w,k,now)),'chapters II to XII may arrive');assert.equal(G.mcReady(w,12,now),false);
-  const d=ready(G,MC0);d.cities[0].b.push({k:'lunar',s:now-5*DAY,d:now-DAY});assert.equal(G.mcCr(d,now),2);assert.equal(G.mcDone(d,'prep',now),true);assert.equal(G.mcReady(d,12,now),true);
-  const c=ready(G,MC0);c.cities[0].b.push({k:'lunar',s:now-50*DAY,d:now-40*DAY});c.sp={moon:{t:now-30*DAY,c:4242,k:'',b:'',p:3,pa:now,e:9}};assert.equal(G.mcCr(c,now),3);assert.equal(G.mcReady(c,13,now),true);
+  /* the launch preparation is never credited before a colony stands: it can still be flown for its settlers */
+  const d=ready(G,MC0);d.cities[0].b.push({k:'lunar',s:now-5*DAY,d:now-DAY});assert.equal(G.mcCr(d,now),2);assert.equal(G.mcDone(d,'prep',now),false);assert.equal(G.mcReady(d,12,now),true);
+  agency(d,'flt');assert.equal(G.mcStartProblem(d,'prep',now),'','the preparation can be flown once the wonder is complete');
+  const c=ready(G,MC0);c.cities[0].b.push({k:'lunar',s:now-50*DAY,d:now-40*DAY});c.sp={moon:{t:now-30*DAY,c:4242,k:'',b:'',p:3,pa:now,e:9}};assert.equal(G.mcCr(c,now),3);assert.equal(G.mcReady(c,13,now),true);assert.equal(G.mcDone(c,'prep',now),true,'credited once landed');
   /* their letters still come one at a time, at the normal pace */
   c.mc.r=11;G.S.nation=after(G,c,4);assert.equal(mcOn(G.S.nation).length,1);
   /* an old colony gets no landing bonus: the agency did not prepare that landing */
   const v=ready(G,10);v.sp={moon:{t:now-30*DAY,c:4242,e:9}};G.S.nation=v;G.commit(JSON.parse(JSON.stringify(v)));assert.equal(G.S.nation.sp.moon.e,9);assert.ok(!G.S.nation.mc.ld,'no agency, no crewed-landing record');
-  /* a landing prepared by the agency: two points, once, and gone with the colony if the landing is lost */
-  const p=ready(G,10);agency(p,'flt');p.mc.ms.prep={s:now-5*DAY,d:now-DAY};G.S.nation=p;const q=JSON.parse(JSON.stringify(p));q.sp={moon:{t:now,c:777,e:3}};G.commit(q);
+  /* a landing prepared by the agency: the crew lands with 20,000 settlers and two more points (given at the landing,
+     never again by the save hook), recorded once, and gone with the colony if the landing is lost */
+  const p=ready(G,10);agency(p,'flt');p.mc.ms.prep={s:now-5*DAY,d:now-DAY};
+  assert.deepEqual(J(G.landBonus(p,{id:'moon'},now)),{p:0.02,e:2});assert.equal(G.landBonus(p,{id:'mars'},now),null,'the Moon only');
+  assert.equal(G.landBonus(v,{id:'moon'},now),null,'no agency, no bonus');
+  const late=ready(G,10);agency(late,'flt');late.mc.ms.prep={s:now-DAY,d:now+DAY};assert.equal(G.landBonus(late,{id:'moon'},now),null,'not before it is flown');
+  /* the credited preparation of a nation that is already landed is not a flown one */
+  const cr=ready(G,10);agency(cr,'flt');cr.cities[0].b.push({k:'lunar',s:now-9*DAY,d:now-5*DAY});cr.sp={moon:{t:now-DAY,c:5,e:3}};assert.equal(G.mcDone(cr,'prep',now),true);assert.equal(G.mcPrepFlown(cr,now),false);
+  G.S.nation=p;const q=JSON.parse(JSON.stringify(p));q.sp={moon:{t:now,c:777,p:0.02,e:5}};G.commit(q);
   assert.equal(G.S.nation.sp.moon.e,5);assert.equal(G.S.nation.mc.ld.p,1);G.commit(JSON.parse(JSON.stringify(G.S.nation)));assert.equal(G.S.nation.sp.moon.e,5,'once');
   const lost=JSON.parse(JSON.stringify(G.S.nation));delete lost.sp;G.commit(lost);assert.ok(!G.S.nation.mc.ld);
+  /* an unprepared landing is recorded without the flag, and gets nothing */
+  const u=ready(G,10);agency(u,'flt');G.S.nation=u;const uq=JSON.parse(JSON.stringify(u));uq.sp={moon:{t:now,c:778,e:3}};G.commit(uq);assert.equal(G.S.nation.mc.ld.p,0);assert.equal(G.S.nation.sp.moon.e,3);
 });
 
 test('stored records are checked: damage is dropped, a letter that is not next leaves the desk, and nothing is guessed',()=>{
@@ -338,10 +354,12 @@ test('two devices: a mission, a mandate spend, a letter or a landing is never ap
   cloud={...rbase(),updatedAt:2,sp:{moon:{t:9,c:8,e:3}},stock:{food:50,timber:50,iron:50,oil:50,goods:50}};assert.equal(g.rebase(cloud),null);
 });
 
-test('every letter also waits for its gate of enacted edicts: 50, 100, 200, 400, 800, 1,000, 1,300, 1,800, then 2,000',()=>{
+test('every letter also waits for its gate of enacted edicts: 50, 100, 200, 300, 450, 600, 800 … 1,600',()=>{
   const G=game(),now=Date.now();
-  assert.deepEqual(J(G.MC_GATE),[50,100,200,400,800,1000,1300,1800,2000]);
-  assert.deepEqual(J(Array.from({length:14},(x,k)=>G.mcGate(k))),[50,100,200,400,800,1000,1300,1800,2000,2000,2000,2000,2000,2000],'letters X to XIV keep the last gate');
+  assert.deepEqual(J(G.MC_GATE),[50,100,200,300,450,600,800,1000,1200,1400,1600]);
+  assert.deepEqual(J(Array.from({length:14},(x,k)=>G.mcGate(k))),[50,100,200,300,450,600,800,1000,1200,1400,1600,1600,1600,1600],'letters XII to XIV keep the last gate');
+  /* evenly spaced: no gap between two letters more than 200 edicts (13 days at 15 a day) */
+  assert.ok(G.MC_GATE.every((g,i)=>!i||g-G.MC_GATE[i-1]<=200));
   assert.equal(G.MC_AT,G.MC_GATE[0]);
   /* a nation far ahead: the Lunar Colony landed, so every chapter's mission is credited; only the gates hold it back */
   const ahead=(e,k)=>{const n=ready(G,e);n.cities[0].b.push({k:'lunar',s:now-50*DAY,d:now-40*DAY});n.sp={moon:{t:now-30*DAY,c:4242,k:'',b:'',p:3,pa:now,e:9}};
@@ -358,6 +376,14 @@ test('every letter also waits for its gate of enacted edicts: 50, 100, 200, 400,
   assert.equal(G.S.nation.ws.e,100,'a letter answered is not an enacted edict');G.S.nation=after(G,G.S.nation,1);assert.deepEqual(J(mcOn(G.S.nation).map(x=>x.id)),['mc-2']);
   G.answer('mc-2',0);bld(G.S.nation,'mctrl');G.S.nation=after(G,G.S.nation,3);assert.equal(mcOn(G.S.nation).length,0,'letter III waits for 200 edicts');
   clearDesk(G);assert.equal(G.S.nation.ws.e,103,'three ordinary edicts enacted');
+});
+
+test('a letter weighs like an ordinary edict: its stat changes count twice, its laws once',()=>{
+  const G=game();assert.equal(G.MC_FX,2);
+  const n=ready(G,MC0,{seed:'fx'});n.mc.r=11;agency(n,'flt',{cam:DAY});G.S.nation=after(G,n,1);
+  const ent=mcOn(G.S.nation)[0];assert.ok(ent,'letter I is on the desk');const e=G.mcVariant(ent.mc).o[0].e,before={...G.S.nation.s};
+  const keys=Object.keys(e).filter(k=>typeof e[k]==='number'&&k in before);assert.ok(keys.length>0,'the answer moves some stats');
+  G.answer(ent.id,0);for(const k of keys)assert.equal(G.S.nation.s[k],Math.max(0,Math.min(100,before[k]+2*e[k])),k);
 });
 
 /* ── the prelude: the edict that opens the Space page ── */
