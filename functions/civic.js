@@ -438,6 +438,17 @@ async function assemblyTx(db, who, d) {
         if (a.m && now - a.m.t < 3600000 && a.m.x !== x) refuse('message_cooldown', 'The Delegate can change the message once an hour.');
         a.m = { x, t: now };
       }
+    } else if (op === 'sway') {
+      /* a member's agents lean on up to two computer nations that have not voted yet (the Intelligence page). The roll is
+         made here: 45% to succeed, plus the agent's bonus (at most 14); 40% to be exposed, less diplomatic cover (at most 10).
+         The result stays in the member's record (a.w), which the count reads; one sway a member a vote */
+      if (![-1, 1].includes(d.vote) || d.cycle !== ctx.c || !st.cur || d.key !== st.cur.k) refuse('vote_closed', 'This vote has closed or changed. Refresh the Assembly.');
+      if (a.w && a.w.c === ctx.c && a.w.k === st.cur.k) refuse('sway_used', 'Your agents have already leaned on this vote.');
+      const np = ctx.engine.swayPick(st.cur, ctx.c, now, d.vote);
+      if (!np.length) refuse('sway_none', 'Every computer nation has voted already, or already means to vote your way.');
+      const bonus = Number.isInteger(d.bonus) ? Math.max(0, Math.min(14, d.bonus)) : 0, cover = Number.isInteger(d.cover) ? Math.max(0, Math.min(10, d.cover)) : 0;
+      const ok = Math.random() < (45 + bonus) / 100, ex = Math.random() < (40 - cover) / 100;
+      a.w = { c: ctx.c, k: st.cur.k, v: d.vote, t: now, ok: ok ? 1 : 0, ex: ex ? 1 : 0, np: ok ? np : [] };
     } else if (op === 'resign') { a.o = now; a.ox = text(d.reason, 100); delete a.a;
     } else if (op === 'rejoin') {
       if (!a.o || now - a.o < 3 * DAY) refuse('rejoin_cooldown', 'Wait three days after resigning before rejoining.');
@@ -556,7 +567,7 @@ async function newsTally(db, who, d, kind) {
 
 /* what civic answers: anything else is refused before it reads a thing. An Assembly action reads every nation of the
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
-const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin']);
+const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin', 'sway']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'renamed',
   'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', 'book', 'online', ...ASSEMBLY_ACTS]);
 

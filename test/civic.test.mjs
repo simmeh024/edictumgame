@@ -643,3 +643,14 @@ test('Who is online: the region’s players seen in the last 15 minutes, by thei
   await assert.rejects(civic(a,{op:'online',reg:'nowhere'}),e=>e.status==='INVALID_ARGUMENT');
   await assert.rejects(civic(a,{op:'online'}),e=>e.status==='INVALID_ARGUMENT');
 });
+
+test('Swaying a vote: the server rolls it, keeps it in the member’s record once a vote, and refuses stale or repeated sways',async()=>{
+  const r=await player(true,true,'saffron'), state=await civic(r,{op:'state'});
+  await rejects(civic(r,{op:'sway',cycle:state.c-1,key:state.cur.k,vote:1}),'vote_closed');
+  await rejects(civic(r,{op:'sway',cycle:state.c,key:state.cur.k,vote:3}),'vote_closed');
+  let res;try{res=await civic(r,{op:'sway',cycle:state.c,key:state.cur.k,vote:1,bonus:999,cover:-5});}catch(e){if(e.code==='sway_none')return;throw e;}
+  const w=res.own.w;assert.equal(w.c,state.c);assert.equal(w.k,state.cur.k);assert.equal(w.v,1);assert.ok([0,1].includes(w.ok)&&[0,1].includes(w.ex));
+  assert.ok(w.ok?w.np.length>=1&&w.np.length<=2:w.np.length===0);assert.ok(w.t>Date.now()-60000);
+  assert.deepEqual((await db.doc(`assemblyRegions/saffron/actors/${r.uid}`).get()).get('record').w,w);
+  await rejects(civic(r,{op:'sway',cycle:state.c,key:state.cur.k,vote:-1}),'sway_used');
+});
