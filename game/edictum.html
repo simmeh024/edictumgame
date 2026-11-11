@@ -54461,6 +54461,8 @@ const WND_PH=[
   ['The raised edict','A scroll held aloft, carved with the first law of the region in letters large enough to read from the hills.',{iron:160,goods:200,oil:100}],
   ['The gilding','Gold leaf, laid on by hand, by brush, on what turned out to be a windy week.',{goods:260,oil:160}],
   ['The unveiling','A cloth the size of a city, a brass band, fireworks and a feast for everyone who carried a bucket.',{food:300,goods:200,oil:100}]];
+/* gifts kept one by one for the happenings, and how close together two must be to count as one */
+const WND_HAP_N=10,WND_HAP_JOIN=3600e3;
 const WND_N=WND_PH.length,WND_CUM=[];{const s={};for(const p of WND_PH){for(const r of RES)s[r]=(s[r]||0)+(p[2][r]||0);WND_CUM.push({...s});}}
 const wndName=()=>regText('The Great Statue of the Meridian Reach');
 const wndMine=n=>!!(n&&n.wnd&&n.wnd.r===REG.id);
@@ -54502,9 +54504,15 @@ function wndGive(r,amt){
   w.c[r]=Math.round((num0(w.c[r])+give)*10)/10;if(!w.t0)w.t0=w.t||now;w.t=now;
   /* and against the phase it went to (n.wnd.p), which it counts towards whoever else has left the region since */
   w.p=Object.assign({},w.p);const pd=w.p[W.done]=Object.assign({},w.p[W.done]);pd[r]=Math.round((num0(pd[r])+give)*10)/10;
-  w.g=[...new Set((w.g||[]).concat(W.done))].sort((a,b)=>a-b);n.wnd=w;
+  w.g=[...new Set((w.g||[]).concat(W.done))].sort((a,b)=>a-b);
+  /* and on the record's short list of gifts (n.wnd.h, newest first) for the region's happenings: a gift to the same phase
+     within the hour joins the one before, so a few resources given in a row make one happening */
+  const h=(Array.isArray(w.h)?w.h:[]).map(e=>({...e,c:{...e.c}})),top=h[0];
+  if(top&&!top.f&&top.d===W.done&&now-top.t<WND_HAP_JOIN){top.c[r]=Math.round((num0(top.c[r])+give)*10)/10;top.t=now;}
+  else h.unshift({t:now,d:W.done,c:{[r]:give}});
+  w.h=h.slice(0,WND_HAP_N);n.wnd=w;
   commit(n);const after=wndState();
-  if(after.done>W.done){const m=clone(S.nation),got=wndRaise(m,after.done,now);commit(m);
+  if(after.done>W.done){const m=clone(S.nation),got=wndRaise(m,after.done,now);if(m.wnd.h&&m.wnd.h[0])m.wnd.h[0].f=1;commit(m);
     toast((after.done>=WND_N?`${wndName()} is finished, and ${n.name} helped build it. Your nation may now style itself “the Patron”, in Customise.`:`Phase ${after.done} of ${WND_N} is complete: ${WND_PH[after.done-1][0].toLowerCase()}. Next: ${WND_PH[after.done][0].toLowerCase()}.`)+(got.length?' '+got.map(wndPart).join(' '):''));}
   else toast(`${n.name} gave ${give} ${resName(r)} to ${wndName().replace(/^The /,'the ')}.`);
   render();
@@ -54520,6 +54528,19 @@ NORM_HOOKS.push((n,d)=>{
     const a={};for(const r of RES){const v=Number(o[r]);if(Number.isFinite(v)&&v>0)a[r]=Math.min(v,50000);}if(Object.keys(a).length)p[i]=a;}if(Object.keys(p).length)n.wnd.p=p;}
   /* the phases given to; a record from before they were kept gave to the phase it had reached */
   n.wnd.g=Array.isArray(w.g)?[...new Set(w.g.filter(i=>Number.isInteger(i)&&i>=0&&i<WND_N))].sort((a,b)=>a-b):Object.keys(c).length?[Math.min(n.wnd.ph,WND_N-1)]:[];
+  /* the latest gifts, newest first: when, what, the phase they went to, and whether one finished it */
+  if(Array.isArray(w.h)){const h=[];for(const e of w.h.slice(0,WND_HAP_N)){if(!e||typeof e!=='object'||!(typeof e.t==='number'&&isFinite(e.t)&&e.t>0))continue;
+    const g={};for(const r of RES){const v=Number(e.c&&e.c[r]);if(Number.isFinite(v)&&v>0)g[r]=Math.min(v,50000);}if(!Object.keys(g).length)continue;
+    const o={t:e.t,d:Number.isInteger(e.d)?clamp(e.d,0,WND_N-1):0,c:g};if(e.f===1)o.f=1;h.push(o);}
+    if(h.length)n.wnd.h=h;}
+});
+/* each gift in the region's happenings (Region › Happenings and the region chat's): who gave what, and whether it finished
+   a phase. A record from before gifts were kept one by one shows its last gift, without the amounts */
+HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!wndMine(n)||!wndGave(n.wnd))return [];
+  const nm=nationLink(x.id,n.name,x.me),st=`<button type="button" class="linkish" data-act="go" data-v="wonder">${esc(wndName().replace(/^The /,'the '))}</button>`;
+  const H=Array.isArray(n.wnd.h)?n.wnd.h:[];
+  if(!H.length)return n.wnd.t>0&&n.wnd.t<=now?[{t:n.wnd.t,txt:`${nm} gave to ${st}.`}]:[];
+  return H.filter(e=>e.t<=now).map(e=>({t:e.t,txt:`${nm} gave ${list(RES.filter(r=>e.c[r]>0).map(r=>fmt0(e.c[r])+' '+resName(r)))} to ${st}.${e.f&&WND_PH[e.d]?(e.d===WND_N-1?' That finished the statue.':` That finished phase ${e.d+1} of ${WND_N}: ${esc(WND_PH[e.d][0].toLowerCase())}.`):''}`}));
 });
 NORM_HOOKS.push((n,d)=>{
   const x=d&&d.wnx;if(!x||typeof x!=='object')return;
