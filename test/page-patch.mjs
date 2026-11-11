@@ -55,8 +55,9 @@ async function run(width) {
       const norm = h => h.replace(/<canvas\b[^>]*>/g, t => t.replace(/\s(width|height|data-hover|data-done)="[^"]*"/g, '')
         .replace(/class="([^"]*)"/, (m, c) => 'class="' + c.replace(/(^|\s)(dragging|fl-hot|nws-hot)(?=\s|$)/g, ' ').replace(/ +/g, ' ').trim() + '"'))
         .replace(/<main\b[^>]*>/g, t => t.replace(/\sstyle="[^"]*"/, '')).replace(/\sdata-czid="[^"]*"/g, '')
-        /* and what scripts put in and keep: a card's sheen, a map's effects overlay */
-        .replace(/<span class="id-sh"[^>]*><i><\/i><\/span>/g, '').replace(/<canvas class="map-fx"[^>]*><\/canvas>/g, '');
+        /* and what scripts put in and keep: a card's sheen (lit or not: once the pointer has moved, idApply sets the
+           light on its <i>), a map's effects overlay */
+        .replace(/<span class="id-sh"[^>]*>(?:<i\b[^>]*><\/i>)*<\/span>/g, '').replace(/<canvas class="map-fx"[^>]*><\/canvas>/g, '');
       window.__bad = [];
       G.RPATCH.check = (want, got) => { const a = norm(want), b = norm(got); if (a !== b) { let i = 0; while (i < a.length && a[i] === b[i]) i++; window.__bad.push({ view: G.S.view, want: a.slice(Math.max(0, i - 100), i + 100), got: b.slice(Math.max(0, i - 100), i + 100) }); } };
     });
