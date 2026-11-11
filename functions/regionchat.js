@@ -3,6 +3,7 @@ import { FieldValue, FieldPath, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { eligibility, refuse } from './eligibility.js';
 import { pushChatMention } from './letters.js';
+import DATA from './civic-data.json' with { type: 'json' };
 
 /* Region chat: one live channel per region, where the region's nations talk in short lines. Written only here (civic
    ops rcPost, rcDelete), so every line carries the author the server knows; read only by the region's own nations and
@@ -29,14 +30,17 @@ import { pushChatMention } from './letters.js';
    follows an @ in the words, who have not blocked the writer, as mn {uid: name}). Each one mentioned, and the author of
    the line answered, gets mentions/{uid}/m/{id} {k: 'chat', by, nm, reg, rc, x, t, rp?} for their bell, and a push
    notification when they are not in the game (functions/letters.js, pushChatMention). Reactions (rcReact): one of
-   RC_REACT per nation per line, kept as rv {uid: kind} on the line; rcForget takes a nation's away with its account. */
+   RC_REACT per nation per line, kept as rv {uid: kind} on the line; rcForget takes a nation's away with its account.
+   A nation founded a moment ago is welcomed in its region's chat (rcHello, which its game asks once the new record is
+   saved): a line {a: the new nation's uid, nm, x, t, exp, sys: 'found'} that the game draws as an announcement with a
+   Welcome button (see rcHello for when it is written). */
 export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
 /* the same words, however they are spaced or capitalised, for the repeat check */
 const sameKey = x => line(x, RC_TEXT).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
-export const RC_OPS = ['rcPost', 'rcDelete', 'rcMute', 'rcUnmute', 'rcReact'];
+export const RC_OPS = ['rcPost', 'rcDelete', 'rcMute', 'rcUnmute', 'rcReact', 'rcHello'];
 export const RC_MN = 5, RC_REACT = ['hear', 'ha', 'bravo', 'shame'], RC_RV_MAX = 300;
 export const isRegionChatOp = op => RC_OPS.includes(op);
 /* how long a silence lasts, in hours: 0 is until lifted (kept as a far-off until, with perm) */
@@ -206,7 +210,37 @@ async function rcUnmute(db, who, d) {
   return { ok: true };
 }
 
-const OPS = { rcPost, rcDelete, rcMute, rcUnmute, rcReact };
+/* "X has been founded, welcome to #Region!": written once for a nation whose record Firestore created in the last
+   RC_HELLO_AGE (its birth as functions/eligibility.js knows it, never the founding time the record claims), once a day for an account (rcHello/{uid} {g: the
+   record's birth, t}, so founding again and again names no one), once a day for a name in a region (a nation carried
+   into another account on signing in is saved anew there) and at most RC_HELLO_HOUR a region an hour (rcHello/~{reg}
+   {w: [{t, k}]}, the welcomes of the last day), and never for an account silenced in the chat. Otherwise it answers
+   {ok: true, skip} and writes no line, so the game asks no more. */
+export const RC_HELLO_AGE = 3600000, RC_HELLO_GAP = 86400000, RC_HELLO_HOUR = 20;
+const REG_NAME = new Map(DATA.regions.map(r => [r.id, String(r.name || r.id)]));
+export const rcHelloText = (nm, reg) => `${nm} has been founded, welcome to #${(REG_NAME.get(reg) || reg).replace(/^The /, '')}!`;
+async function rcHello(db, who, d, regions) {
+  return db.runTransaction(async tx => {
+    const e = await eligibility(tx, who, { linked: false }), now = Date.now();
+    const reg = e.n.reg || e.saved.get('reg') || '', nm = line(e.saved.get('name'), 80);
+    if (!regions.has(reg) || !nm) return { ok: true, skip: 'region' };
+    if (now - e.born > RC_HELLO_AGE) return { ok: true, skip: 'old' };
+    const mine = db.doc('rcHello/' + who.uid), area = db.doc('rcHello/~' + reg);
+    const [hs, rs, ms] = await tx.getAll(mine, area, db.doc('rcMute/' + who.uid));
+    if (hs.exists && now - Number(hs.get('t') || 0) < RC_HELLO_GAP) return { ok: true, skip: 'done' };
+    const k = sameKey(nm), w = (Array.isArray(rs.get('w')) ? rs.get('w') : []).filter(x => x && Number(x.t) > now - RC_HELLO_GAP && Number(x.t) <= now);
+    const skip = rcSilence(ms.exists ? ms.data() : null, now) ? 'silenced' : w.some(x => x.k === k) ? 'again'
+      : w.filter(x => x.t > now - 3600000).length >= RC_HELLO_HOUR ? 'busy' : '';
+    tx.set(mine, { g: e.generation, t: now });
+    if (skip) return { ok: true, skip };
+    const ref = db.collection('rchat/' + reg + '/chat').doc();
+    tx.set(area, { w: w.concat({ t: now, k }).slice(-100) });
+    tx.create(ref, { a: who.uid, nm, x: rcHelloText(nm, reg), t: now, exp: Timestamp.fromMillis(now + RC_KEEP), sys: 'found' });
+    return { ok: true, id: ref.id, reg, t: now };
+  });
+}
+
+const OPS = { rcPost, rcDelete, rcMute, rcUnmute, rcReact, rcHello };
 export function regionChat(db, who, d, regions) {
   return OPS[d.op](db, who, d, regions);
 }

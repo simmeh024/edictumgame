@@ -6,7 +6,7 @@
 // team and silence a player (and lift it); the drawer's tabs (Region, Alliance, Happenings with Welcome), @mentions,
 // answers, reactions, the badges beside a name, docking beside the page, and the tutorial's Say hi in the region chat.
 //   npm run test:region-chat
-import { player, open, ready, found, register, until, check, finish, setClaims, text, restListAdmin, clearEmulators, sleep, nav, nationDoc, FS_HOST, PROJECT } from './lib.mjs';
+import { player, open, ready, found, register, until, check, finish, setClaims, text, restListAdmin, clearEmulators, sleep, nav, nationDoc, FS_HOST, PROJECT, OUT } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('writer'), C = await player('reader'), G = await player('guest'), P = await player('phone', { vp: { width: 390, height: 800 } });
 const uidA = await open(A); await found(A, 'Adminland');
@@ -28,6 +28,17 @@ const say = async (p, x) => { await openChat(p); await p.fill('#rgc-x', x); awai
 const shown = p => p.$$eval('#rgc-list .rgc-l:not(.pend) .rgc-x', l => l.map(x => x.textContent));
 const lineOf = async (p, x) => p.$$eval('#rgc-list .rgc-l', (l, x) => (l.find(li => li.querySelector('.rgc-x')?.textContent === x) || {}).dataset?.id || '', x);
 const civic = (p, d) => p.evaluate(d => Promise.resolve(window.claude.use('civic')).then(api => api.request(d)).then(r => ({ ok: true, r }), e => ({ ok: false, code: e.details?.code || e.code, message: e.message })), d);
+
+/* ── 0. each nation founded is welcomed in the chat (functions/regionchat.js, rcHello); the setup's welcomes are cleared
+   for the checks that follow, and section 13 looks at one in the drawer ── */
+const welcomes = async () => (await restListAdmin(`rchat/${reg}/chat`)).filter(d => d.fields.sys?.stringValue === 'found');
+const founded = ['Adminland', 'Chatterly', 'Quillmark', 'Guestonia', 'Pocketland'];
+const hello = await until(async () => { const w = await welcomes(); return w.length >= founded.length ? w : null; }, 30000);
+check('each nation founded is welcomed once in its region’s chat, guests too', !!hello && hello.length === founded.length
+  && founded.every(nm => hello.some(d => d.fields.nm?.stringValue === nm && d.fields.x?.stringValue === `${nm} has been founded, welcome to #Meridian Reach!`)), JSON.stringify(hello && hello.map(d => d.fields.x?.stringValue)));
+check('the welcome carries the new nation as its author, so it goes with the account', hello?.find(d => d.fields.nm?.stringValue === 'Chatterly')?.fields.a?.stringValue === uidB);
+for (const d of hello || []) await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/rchat/${reg}/chat/${d.id}`, { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
+check('the welcomes count as new lines for the others until they go', await until(async () => (await welcomes()).length === 0 && await C.$eval('.rgc-btn .rgc-n', n => n.hidden), 15000));
 
 /* ── 1. the button and the drawer ── */
 check('the Chat button sits beside the bell and search', !!(await B.$('.brand-actions .bell + .ux-search-button + .rgc-btn')) && /Region chat/.test(await B.getAttribute('.rgc-btn', 'aria-label')));
@@ -318,5 +329,30 @@ check('and floats over the page again', await until(() => A.evaluate(() => !docu
 check('a phone has no dock button', (await openChat(P), !(await P.isVisible('[data-rgc="dock"]'))));
 // the tutorial: Say hi in the region chat
 check('Say hi in the region chat is a step of the tutorial, done by a first line', await until(() => B.evaluate(() => (G.S.nation.tut?.lc || []).includes('rch')), 20000));
+
+/* ── 13. a nation founded now: its welcome line in the drawer, Welcome from the others, Say hello from itself ── */
+const W = await player('welcomed'), uidW = await open(W); await found(W, 'Welcomia');
+const sysLi = `#rgc-list .rgc-l.rgc-sys`;
+check('a nation founded now is welcomed in the open chat at once', await until(async () => /Welcomia has been founded, welcome to #Meridian Reach!/.test(await text(B, sysLi + ' .rgc-x')), 30000), await text(B, '#rgc-list'));
+check('drawn as an announcement of a new nation, not a line of its own', /New nation/.test(await text(B, sysLi + ' .rgc-sh')) && !(await B.$(sysLi + ' .rgc-lh')));
+check('the others get a Welcome button', !!(await B.$(`${sysLi} [data-rgc="welcome"][data-id="${uidW}"]`)));
+await B.locator(sysLi).screenshot({ path: OUT + '/chat-welcome-line.png' });
+const sysId = await B.$eval(sysLi, li => li.dataset.id);
+await B.click(`#rgc-list .rgc-more[data-id="${sysId}"]`);
+const sysMenu = await B.$$eval('.rgc-menu button', l => l.map(b => b.getAttribute('aria-label') || b.textContent));
+check('its menu reacts and reports, and answers or blocks nothing', sysMenu.includes('Bravo') && sysMenu.includes('Report to the moderators') && !sysMenu.includes('Answer') && !sysMenu.some(x => /^Block/.test(x)), JSON.stringify(sysMenu));
+await B.click(`#rgc-list .rgc-more[data-id="${sysId}"]`); await sleep(1700);
+await B.click(`${sysLi} [data-rgc="welcome"]`);
+check('Welcome starts a line that greets the new nation', await until(async () => (await B.inputValue('#rgc-x')) === 'Welcome to the Meridian Reach, @Welcomia!'));
+await B.press('#rgc-x', 'Enter');
+check('once greeted, the Welcome button goes', await until(async () => (await lines()).some(l => l.a === uidB && l.x === 'Welcome to the Meridian Reach, @Welcomia!') && !(await B.$(`${sysLi} [data-rgc="welcome"]`)), 15000));
+await openChat(W);
+check('the new nation sees its own welcome with Say hello, not Welcome', await until(async () => !!(await W.$(`${sysLi}.me [data-rgc="hello"]`)) && !(await W.$(`${sysLi} [data-rgc="welcome"]`)), 15000));
+check('its own welcome is not a line of its own: the guest still has all ten', await until(async () => /: 10 are left/.test(await text(W, '#rgc-gq'))), await text(W, '#rgc-gq'));
+await W.click(`${sysLi} [data-rgc="hello"]`);
+check('Say hello starts a first line', await until(async () => (await W.inputValue('#rgc-x')) === 'Hello, everyone!'));
+await W.press('#rgc-x', 'Enter');
+check('and goes once it is said', await until(async () => (await lines()).some(l => l.a === uidW && l.x === 'Hello, everyone!') && !(await W.$(`${sysLi} [data-rgc="hello"]`)), 15000));
+check('a reload asks for no second welcome', (await W.reload(), await ready(W), await sleep(4000), (await welcomes()).filter(d => d.fields.a?.stringValue === uidW).length === 1));
 
 await finish();

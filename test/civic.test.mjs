@@ -690,6 +690,35 @@ test('Region chat: a Registered Nation writes in its own region, paced and never
   await db.doc('bans/'+r.uid).set({t:Date.now()});await rejects(civic(r,{op:'rcPost',x:'Banned'}),'banned');
 });
 
+test('Region chat welcome: a nation founded in the last hour is welcomed once in its region’s chat, never again, never when old, renamed alike, silenced or in a busy hour',async()=>{
+  const g=await player(),now=Date.now();
+  const h=await civic(g,{op:'rcHello',reg:'frostmarch',nm:'Forged',x:'Forged words'});
+  assert.equal(h.ok,true);assert.equal(h.reg,'meridian');assert.ok(h.id);
+  const line=(await db.doc('rchat/meridian/chat/'+h.id).get()).data();
+  assert.equal(line.a,g.uid);assert.equal(line.nm,g.uid);assert.equal(line.sys,'found');assert.equal(line.x,g.uid+' has been founded, welcome to #Meridian Reach!');
+  assert.ok(line.t>=now-60000&&line.exp.toMillis()>Date.now()+29*DAY);assert.equal(line.st,undefined);assert.equal(line.tm,undefined);
+  // once: asked again (another device, a reload), nothing more is written
+  assert.deepEqual(await civic(g,{op:'rcHello'}),{ok:true,skip:'done'});
+  assert.equal((await db.collection('rchat/meridian/chat').where('a','==',g.uid).get()).size,1);
+  // a welcome is no line of the player's own: their pacing is untouched
+  assert.equal((await db.doc('rcPace/'+g.uid).get()).exists,false);
+  // a nation older than an hour (its birth as the server knows it) is not welcomed
+  const o=await player(true,true);assert.deepEqual(await civic(o,{op:'rcHello'}),{ok:true,skip:'old'});
+  // the same name in the same region within a day (a nation carried into another account) is not welcomed twice
+  const twin=await player();await db.doc('nations/'+twin.uid).update({name:g.uid.toUpperCase()});
+  assert.deepEqual(await civic(twin,{op:'rcHello'}),{ok:true,skip:'again'});
+  // a player silenced in the chat is not announced
+  const s=await player();await db.doc('rcMute/'+s.uid).set({until:Date.now()+3600000,why:'spam',by:'x',t:Date.now()});
+  assert.deepEqual(await civic(s,{op:'rcHello'}),{ok:true,skip:'silenced'});
+  // at most twenty a region an hour
+  await db.doc('rcHello/~frostmarch').set({w:Array.from({length:20},(_,i)=>({t:Date.now()-i*60000,k:'busy'+i}))});
+  const f=await player(false,false,'frostmarch');assert.deepEqual(await civic(f,{op:'rcHello'}),{ok:true,skip:'busy'});
+  assert.equal((await db.collection('rchat/frostmarch/chat').where('a','==',f.uid).get()).size,0);
+  // a nation is needed, and a banned one gets nothing
+  const none=await sign('signUp',{});await rejects(civic(none,{op:'rcHello'}),'nation_required');
+  const b=await player();await db.doc('bans/'+b.uid).set({t:Date.now()});await rejects(civic(b,{op:'rcHello'}),'banned');
+});
+
 test('Region chat guests: a guest writes too, ten lines in any hour, told how many are left; a sign-in lifts it',async()=>{
   const g=await player(),r=await player(true),now=Date.now();
   const first=await civic(g,{op:'rcPost',x:'Hello from a guest'});
