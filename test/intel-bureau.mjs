@@ -95,7 +95,10 @@ try {
   check('the case file: a stamp, the agent, the target’s flag clipped on', !!card && /Clean|Exposed/.test(card.stamp) && /^Agent /.test(card.by) && card.clip, card);
   check('the stamp drops in once, not again on the next redraw', await until(() => S(page, () => { window.__game.render(); const c = document.querySelector('#cv-result .ib-case'); return !!c && !c.classList.contains('ib-new'); }), 4000));
   check('the file on them has their army, stockpile and cabinet', await S(page, id => { const f = window.__game.S.nation.ifl && window.__game.S.nation.ifl[id]; return !!(f && f.a && f.s && f.c && f.t); }, tg));
-  check('the agent rests afterwards, and has experience', await S(page, () => { const G = window.__game, n = G.S.nation, o = n.cov[0], a = G.IB().agRoster(n).find(q => q.i === o.ai); return a.x >= 1 && G.IB().agStatus(n, a, Date.now()).k === 'rest'; }));
+  // success and exposure are rolled apart (cvRoll), so a successful operation can still be exposed: its agent is then
+  // held abroad rather than resting
+  const rested = await S(page, () => { const G = window.__game, n = G.S.nation, o = n.cov[0], a = G.IB().agRoster(n).find(q => q.i === o.ai); return { x: a.x, k: G.IB().agStatus(n, a, Date.now()).k, ex: G.IB().cvRoll(o).ex }; });
+  check('the agent rests afterwards (or is held, when the operation was exposed), and has experience', rested.x >= 1 && rested.k === (rested.ex ? 'held' : 'rest'), rested);
   check('heat with the target shows on the planner and the board', await S(page, () => /Heat with/.test(document.querySelector('.ib-heat').textContent) && +document.querySelector('.ib-heat b').textContent > 0 && document.querySelectorAll('.ib-ring').length === 1));
   check('the next operation waits: the gap is on the button', await S(page, () => document.querySelector('[data-act="cv-launch"]').disabled));
   await shot(page, 'desktop-case');
