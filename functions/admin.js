@@ -249,15 +249,18 @@ async function setRegion(db, actor, data) {
   return { ok: true };
 }
 const AD_KEEP = 12 * 86400000;
-async function adOff(db, reg, key, now) {
+async function adOff(db, reg, key, now, field = 'x', keep = AD_KEEP) {
   const ref = db.doc('press/' + reg);
   await db.runTransaction(async tx => {
-    const s = await tx.get(ref), x = { ...(s.get('x') || {}) };
-    for (const k of Object.keys(x)) if (!(Number(x[k]) > now - AD_KEEP)) delete x[k];
+    const s = await tx.get(ref), x = { ...(s.get(field) || {}) };
+    for (const k of Object.keys(x)) if (!(Number(x[k]) > now - keep)) delete x[k];
     x[key] = now;
-    tx.set(ref, { x }, { mergeFields: ['x'] });
+    tx.set(ref, { [field]: x }, { mergeFields: [field] });
   });
 }
+// a removed Flock peep stays struck out this long: its author's game drops it from their record when it next reads
+// the list, and a peep older than this only shows inside an old quote
+const FLK_KEEP = 180 * 86400000;
 async function mutate(db, actor, data) {
   const action = text(data.action, 40), target = id(data.target), reason = text(data.reason, 300) || 'Admin console action';
   const allowed = ['hide', 'rename', 'unhide', 'remove', 'ban', 'unban', 'delete_post', 'close_report', 'press_reset', 'support_reply', 'support_answer', 'support_close', 'support_reopen', 'support_delete'];
@@ -313,9 +316,14 @@ async function mutate(db, actor, data) {
     // record, which only their game writes, so it is struck out in press/<region>.x, which every reader of the paper
     // follows; entries older than the longest an advertisement is kept (12 days) go at the same time
     const ad = action === 'delete_post' && !cb && !news && /^ad:([a-z]{2,40}):([\w-]{1,128}):([a-z0-9]{1,12})$/.exec(target);
+    // a leader's Flock peep is flk:<player>:<time>, also in the player's own record: struck out in press/<region>.fk
+    const flk = action === 'delete_post' && !cb && !news && !ad && /^flk:([\w-]{1,128}):(\d{10,16})$/.exec(target);
     if (ad) {
       if (!REGIONS.has(ad[1])) throw new HttpsError('invalid-argument', 'Choose a region.');
       await adOff(db, ad[1], ad[2] + '_' + ad[3], now);
+    } else if (flk) {
+      if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.');
+      await adOff(db, text(data.reg), flk[1] + '_' + flk[2], now, 'fk', FLK_KEEP);
     } else if (action === 'delete_post' && !news && !cb) { if (!REGIONS.has(text(data.reg))) throw new HttpsError('invalid-argument', 'Choose a region.'); await db.doc('boards/' + data.reg + '/posts/' + target).delete(); }
     if (action === 'close_report') await db.doc('reports/' + target).delete();
     // the newspaper's name and motto as a Delegate chose them (functions/civic.js, paper): back to the paper's own
