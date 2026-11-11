@@ -254,12 +254,12 @@ test('months of membership and the Chancery seals', () => {
 test('the game sells what the server sells: every cosmetic in the catalogue is in the game, from the right source', () => {
   assert.ok(src.includes('/*SHOP_CATALOGUE*/null'), 'build.py puts the catalogue here');
   const def = new Map();
-  for (const m of src.matchAll(/\['([a-z]{1,3}(?:-[a-z])?-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|title|accent|fpat|emblem|shield|charge|card|paper|cunote|cumetal|cushape|custrip)','[^']+'\]/g)) def.set(m[1], m[2]);
+  for (const m of src.matchAll(/\['([a-z]{1,3}(?:-[a-z])?-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|boundary|mapcol|poster|title|accent|fpat|emblem|shield|charge|card|paper|cunote|cumetal|cushape|custrip)','[^']+'\]/g)) def.set(m[1], m[2]);
   for (const m of src.matchAll(/\['(cd-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'card');
   for (const m of src.matchAll(/\['(lp-i-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'paper');
   for (const id of CATALOGUE.products.idpack.grants.filter(id => id.startsWith('lp-'))) assert.ok(src.includes(`'${id}':{n:`), id + ' has its paper in LP_X');
   const block = src.slice(src.indexOf('const SHOP_NONE='), src.indexOf('/* the new places a cosmetic can go'));
-  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"], ['tulippack', "'tulippack'"]]) {
+  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"], ['tulippack', "'tulippack'"], ['cartopack', "'cartopack'"]]) {
     const ids = p === 'vip' ? CLUB_IDS : CATALOGUE.products[p].grants;
     for (const id of ids) { assert.ok(def.has(id), id + ' is drawn in the game'); assert.ok(block.includes(`'${id}'`), id); }
     assert.ok(block.includes(src2));
@@ -278,6 +278,16 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   assert.ok(/pat:\{[^}]*tulip:'cn-tulip'/.test(src) && CATALOGUE.products.tulippack.grants.includes('cn-tulip'), 'cn-tulip is in CU_LOCK');
   assert.ok(/CZ_SH_SHOP=\{[^}]*gable:'sh-gable'/.test(src), 'the Bell Gable shield is sold in the Shop');
   assert.ok(src.includes("'lp-i-bulb':{n:") && src.includes("case 'tulip':return S(") && src.includes("'e-tulip':'tulip'") && src.includes("'pn-auction':'<path"), 'its paper, charge, emblem and marker are drawn');
+  /* the Cartographer's Pack: thirteen pieces for the land on the map, a border line slot of its own, three map colours, a poster look */
+  const ctg = CATALOGUE.products.cartopack;
+  assert.equal(ctg.amount, 399); assert.equal(ctg.grants.length, 13); assert.ok(ctg.giftable && ctg.optional, 'giftable, and offered once its price is set');
+  assert.ok(/Object\.assign\(CZ_KIND,\{[^}]*tb:'boundary'/.test(src), 'the border line has a slot of its own');
+  const listOf = re => (src.match(re) || ['', ''])[1];
+  for (const id of ctg.grants.filter(id => /^te-/.test(id))) assert.ok(listOf(/CTG_TE=\[([^\]]*)\]/).includes(`'${id}'`), id + ' is a finish');
+  for (const id of ctg.grants.filter(id => /^tb-/.test(id))) assert.ok(listOf(/CTG_TB=\[([^\]]*)\]/).includes(`'${id}'`), id + ' is a border line');
+  for (const id of ctg.grants.filter(id => /^hx-/.test(id))) assert.ok(listOf(/CTG_MC=\{([^}]*)\}/).includes(`['${id}'`), id + ' is a map colour');
+  assert.ok(src.includes("blueprint:{n:'Blueprint',lock:'pl-blueprint'") && ctg.grants.includes('pl-blueprint'), 'the Blueprint poster look opens with the pack');
+  assert.ok(src.includes("'pn-windrose':'<g") && src.includes("pin!=='pn-windrose'"), 'the Wind Rose is drawn in the Shop and on the map');
 });
 
 test('a founder always wears the Founding Supporter badge, by the server’s word, but a Shop preview only when it puts it on', () => {

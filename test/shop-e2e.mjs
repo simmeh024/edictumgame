@@ -17,7 +17,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), SECRET = 'pdl_ntfset_e2e', H = 36e5, DAY = 864e5;
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001', cartopack: 'pri_cartopack0001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── Paddle, played by this test ── */
@@ -95,8 +95,8 @@ check('without an answer from Paddle the prices stay in euros alone', !(await G.
 const A = await player('shop founder', { vp: { width: 1280, height: 1000 }, cap: 500 });const aUid = await open(A);await found(A, 'Gildmark');await register(A);
 /* Paddle answers in the player's own currency (here Mexican pesos), as it does for a player in Mexico */
 /* (set again after a reload, before the Shop is next drawn) */
-const pesos = p => p.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66', [P.orpack]: 'MX$62.71', [P.sailpack]: 'MX$62.71', [P.cbpack]: 'MX$52.25', [P.tulippack]: 'MX$62.71' };
-  const N = { [P.founder]: 20939, [P.idpack]: 6271, [P.vip]: 10466, [P.orpack]: 6271, [P.sailpack]: 6271, [P.cbpack]: 5225, [P.tulippack]: 6271 };
+const pesos = p => p.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66', [P.orpack]: 'MX$62.71', [P.sailpack]: 'MX$62.71', [P.cbpack]: 'MX$52.25', [P.tulippack]: 'MX$62.71', [P.cartopack]: 'MX$83.62' };
+  const N = { [P.founder]: 20939, [P.idpack]: 6271, [P.vip]: 10466, [P.orpack]: 6271, [P.sailpack]: 6271, [P.cbpack]: 5225, [P.tulippack]: 6271, [P.cartopack]: 8362 };
   window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])), amounts: Object.fromEntries(items.filter(id => N[id]).map(id => [id, N[id]])) }); }, PRICES);
 await pesos(A);
 await go(A, 'shop');
@@ -127,6 +127,10 @@ check('the Tulip Mania Pack is on sale, eleven pieces', /Tulip Mania Pack/.test(
 await openDr(A, 'tulippack');
 check('its drawer previews the Delftware card, the tulip banknote, arms, flag, stamp, auction house and contract', !!(await A.$('.shop-tulippack .hero.cd-delft')) && !!(await A.$('.shop-tulippack .shop-cb-cur svg')) && (await A.evaluate(() => document.querySelectorAll('.shop-tulippack .shop-or-grid figure').length)) === 5 && (await A.evaluate(() => document.querySelectorAll('.shop-tulippack .lp-i-bulb').length)) === 1 && /2\.99/.test(await txt(A, '#shop-tulippack-price')));
 await shot(A, '.shop-dr .shop-tulippack', 'shop-tulip-drawer.png');
+check('the Cartographer’s Pack is on sale, thirteen pieces, in pesos too (the Shop’s eleventh product)', /Cartographer’s Pack/.test(await txt(A, '.shop-cd[data-p="cartopack"]')) && /13 pieces/.test(await txt(A, '.shop-cd[data-p="cartopack"]')) && /MX\$83\.62/.test(await txt(A, '.shop-cd[data-p="cartopack"]')), await txt(A, '.shop-cd[data-p="cartopack"]'));
+await openDr(A, 'cartopack');
+check('its drawer shows the land in four finishes and three border lines, the colours, the wind rose and the poster', (await A.evaluate(() => document.querySelectorAll('.shop-cartopack .ctg-fig').length)) === 7 && (await A.evaluate(() => document.querySelectorAll('.shop-cartopack .ctg-mc').length)) === 3 && !!(await A.$('.shop-cartopack svg.ctg-pst')) && !!(await A.$('.shop-cartopack .ctg-hero svg.ctg-land')));
+await shot(A, '.shop-dr .shop-cartopack', 'shop-carto-drawer.png');
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
