@@ -645,10 +645,10 @@
     request: function (data) { return A.frozen ? hang() : call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'shop' })); },
     /* local({env, token, items: [pri_…]}) → {cur, prices: {pri_…: 'MX$209.39'}, amounts: {pri_…: 20939}}: what Paddle
        charges where the player is (it works the country out from their IP address), tax included, or null; amounts in the
-       currency's smallest unit (the basket adds them up). In the emulators the tests answer through
-       window.__edictumPrices(items). */
+       currency's smallest unit (the basket adds them up). At most 40 prices (the Shop sells 11 products; it was capped
+       at 10, which left the 11th in euros). In the emulators the tests answer through window.__edictumPrices(items). */
     local: function (o) {
-      var items = isObj(o) && Array.isArray(o.items) ? o.items.filter(function (v) { return typeof v === 'string' && /^pri_[a-z0-9]{8,64}$/.test(v); }).slice(0, 10) : [];
+      var items = isObj(o) && Array.isArray(o.items) ? o.items.filter(function (v) { return typeof v === 'string' && /^pri_[a-z0-9]{8,64}$/.test(v); }).slice(0, 40) : [];
       if (!items.length) return Promise.resolve(null);
       var tidy = function (r) {
         if (!isObj(r) || typeof r.cur !== 'string' || !isObj(r.prices)) return null;

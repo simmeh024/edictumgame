@@ -2059,7 +2059,7 @@ button.stk-i{padding:8px 8px 11px;border:1px solid var(--rule);border-radius:6px
 .cz-lv-i{color:var(--ink-3);font-size:13px}
 .cz-lv-map{position:relative;width:min(100%,300px)}
 .cz-lv-map>svg{display:block;width:100%;height:auto}
-.cz-lv-pin{position:absolute;left:50%;top:50%;width:46%;transform:translate(-50%,-56%)}
+.cz-lv-pin{position:absolute;left:50%;top:50%;width:46%;transform:translate(-50%,-76.7%)}
 .cz-lv-pin svg{display:block;width:100%;height:auto}
 .cz-lv-note{width:min(100%,380px)}
 .cz-lv-note svg{display:block;width:100%;height:auto}
@@ -6268,6 +6268,21 @@ span.nw-tag{cursor:default}
 .hero.cd-delft .czp,.hero.cd-delft .id-guill{opacity:.2;color:#2b4c7e}
 .shop-cm.cd-delft{background:radial-gradient(circle,rgba(43,76,126,.32) 0 2px,transparent 2.5px) -9px -9px/18px 18px,linear-gradient(90deg,rgba(43,76,126,.18) 1px,transparent 1px) -9px 0/18px 18px,linear-gradient(rgba(43,76,126,.18) 1px,transparent 1px) 0 -9px/18px 18px,#f7f8fb;color:#14284b;border:3px solid #2b4c7e}.shop-cm.cd-delft b{font-family:'IM Fell English',Georgia,serif;color:#2b4c7e}
 .shop-cd[data-p="tulippack"]{background:linear-gradient(90deg,#c8283c 0 5px,transparent 5px),var(--sheet)}
+.shop-cd[data-p="cartopack"]{background:linear-gradient(90deg,#2b4c7e 0 5px,transparent 5px),var(--sheet)}
+/* the Cartographer's Pack: land pictures, the drawer's figures, the try-on note on the map, the poster's lock */
+.ctg-land{display:block;width:240px;max-width:100%;height:auto;border-radius:4px}.ctg-land.mini{width:88px}.ctg-land.big{width:480px}
+.ctg-land .shop-shim{stroke-dasharray:28 260;animation:shopShim 9s linear infinite}
+@media (prefers-reduced-motion:reduce){.ctg-land .shop-shim{animation:none;opacity:0}}
+.ctg-hero{display:flex;justify-content:center}
+.ctg-figs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:8px 0 16px}
+.ctg-fig{margin:0;display:grid;gap:6px;justify-items:center;text-align:center}.ctg-fig .ctg-land{width:100%}.ctg-fig figcaption{display:grid;gap:2px;font-size:13px}
+.ctg-mcs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}.ctg-mc{display:grid;justify-items:center;gap:3px;font-size:12px;line-height:1.2;max-width:58px;text-align:center}.ctg-mc .ctg-land{width:52px}
+.ctg-pst{width:78px;height:auto;display:block;margin:0 auto;box-shadow:0 4px 10px -6px rgba(0,0,0,.6);border-radius:2px}
+.shop-ctg-art .ctg-land{width:104px}
+.ctg-try{border:1px dashed var(--rule-2);border-radius:6px;padding:8px 10px;margin:0 0 10px;background:var(--sheet-2,var(--sheet));font-size:14px}.ctg-try p{margin:0}
+.ctg-try .ctg-try-b{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}
+.pst-opt .cz-lock{width:9px;height:11px;margin-left:5px;vertical-align:-1px}
+.pst-lockn{margin:0;flex:1 1 260px;font-size:13px}.pst-lockn .cz-lock{width:9px;height:11px;vertical-align:-1px}
 .shop-cb-art{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%}.shop-cb-art .cu-note{width:84px;border-radius:3px;box-shadow:0 4px 8px -5px rgba(18,41,42,.6)}.shop-cb-art .cu-coin{width:30px;height:auto}
 .shop-cb-cur{display:grid;gap:10px;justify-items:center}.shop-cb-cur .shop-cb-n1{max-width:380px}.shop-cb-row{display:flex;align-items:center;justify-content:center;gap:14px;width:100%}.shop-cb-row .shop-cb-n2{max-width:220px;flex:1 1 auto;min-width:0}.shop-cb-row .cu-coin{width:96px;flex:none;height:auto}
 .cu-seg .cu-try,.cz-seg .cu-try{border-style:dashed}.cu-try-note{margin:8px 0 0;padding:8px 10px;border:1px dashed var(--rule-2);border-radius:6px;font-size:13px;background:var(--sheet-2,var(--sheet))}
@@ -18717,7 +18732,10 @@ function cellAt(x,y){
 }
 function landName(i){const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?c.name:'a remote islet';}
 function placePhrase(i){if(isLake(i))return 'on a lake in '+lakeShore(i);const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?placeIn(i)+' '+c.name:'on a remote islet';}
-function nationColor(n){return safeColor(n&&n.mapc,'')||mapColor(n&&n.flag);}
+/* the Cartographer's Pack's map colours (UNLOCKS hx-…, see the pack): a nation shows one only while it holds it */
+const CTG_MC={'#2B4C7E':['hx-prussian','Prussian Blue'],'#A3243B':['hx-carmine','Carmine'],'#6B7F2A':['hx-sap','Sap Green']};
+function ctgMcOk(n,c){const m=CTG_MC[c];if(!m)return true;try{return !!czHolds(n,m[0],n&&n.cz);}catch(e){return false;}}
+function nationColor(n){const c=safeColor(n&&n.mapc,'');return (c&&ctgMcOk(n,c)?c:'')||mapColor(n&&n.flag);}
 function mapColor(f){
   const cs=(f&&Array.isArray(f.c))?f.c:DEF_FLAG.c;
   for(const c of cs){const v=safeColor(c,'');if(!v)continue;const l=(0.2126*parseInt(v.slice(1,3),16)+0.7152*parseInt(v.slice(3,5),16)+0.0722*parseInt(v.slice(5,7),16))/255;if(l>0.16&&l<0.9)return v;}
@@ -23953,7 +23971,7 @@ function helpBody(n){
     npc:`<p>${Num(NPC_NATIONS.length)} computer-run nations share ${REGION}. Each passes one law a day, choosing what suits its founding character, then drifts 12% of the way back to that character, so its values stay recognisable.</p>
       <p>They have half the people their founding papers promised and hold half the land those people would give a player, so most of the map is left free for players. They grow slowly, trade when the terms suit them and answer your letters within a minute or two. A hawkish one may declare war on a hostile neighbour every ${hrs(WAR_SLOT)}, offers peace after a day or two of fighting, and leaves your alliance if your values drift apart.</p>`,
     track:`<p>The bell lists what happened while you were away: wars, peace offers, trade, messages, finished buildings, milestones and changes in your cabinet. Standing items, such as land credits to spend, stay at the top until they are dealt with, but count as new only until you have seen them.</p>
-      <p>The World map can make a poster of your nation: your land with its cities, roads and rivers, under your name, flag and arms, in three looks and three shapes. Use the Poster button in the map’s tools, or the picture button among the map’s controls. The picture is made in your browser and saved to your device, to keep or to share.</p>
+      <p>The World map can make a poster of your nation: your land with its cities, roads and rivers, under your name, flag and arms, in three looks and three shapes (a fourth look, Blueprint, comes with the Cartographer’s Pack in the Shop, and can be tried here first). It shows your land as others see it, with any finish or border line you wear. Use the Poster button in the map’s tools, or the picture button among the map’s controls. The picture is made in your browser and saved to your device, to keep or to share.</p>
       <p>The Region page has five tabs: an overview of ${REGION} (its Assembly, its Great Statue, its leading nations, its wars and the nations new this week, each with a welcome letter to send), every nation in it with a quick look at each, its happenings, its message board, where you can reply to a message or react to it, and its alliances, with the way to join one. A reply to one of your messages rings the bell. Statistics keeps your nation’s history, its factbook and hundreds of figures.</p>`
   };
   const SECS=HELP_EXT.filter(h=>h.top).map(h=>[h.k,h.t]).concat(HELP_SECS,HELP_EXT.filter(h=>!h.top).map(h=>[h.k,h.t]));for(const h of HELP_EXT){try{body[h.k]=h.body(n);}catch(e){body[h.k]='';}}
@@ -44538,8 +44556,8 @@ function settingsView(){
         <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
       </fieldset>
       <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
-        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
-        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}</div>
+        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||(CTG_MC[st.mapc]||[])[1]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
+        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}</div>
       </fieldset>
       <div class="save-bar${dirty?' is-dirty':''}${SG.leave?' sg-leaving':''}" id="sg-save">${save}</div>
     </form>`;
@@ -44848,7 +44866,7 @@ function saveSettings(){
   n.pretitle=t(st.pretitle,40,n.pretitle);n.motto=String(st.motto||'').trim().slice(0,80);n.capital=t(st.capital,40,n.capital);n.leader=t(st.leader,40,n.leader);
   n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);
   for(const [k,max] of [['ruler',40],['lang',30],['faith',50],['sport',30],['dish',40],['anthem',60],['about',280]])n[k]=String(st[k]||'').trim().slice(0,max);
-  {const mc=safeColor(st.mapc,'');n.mapc=tutMapcOk(n,mc)?mc:n.mapc||'';}
+  {const mc=safeColor(st.mapc,'');n.mapc=tutMapcOk(n,mc)&&ctgMcOk(n,mc)?mc:n.mapc||'';}
   commit(n);S.settings=settingsFrom(n);render();toast('Changes saved.');return true;
 }
 /* Edicts: the pace and the topics apply at once, and the tab says so for a moment */
@@ -45602,7 +45620,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Moderation</h3>${adminModActions(p)}</section>`;
 }
 /* the player page at a glance, and its panels (functions/admin.js, overview()) */
-const ADM_PRODUCT={founder:'Founder’s Package',idpack:'Identity Card Pack',vip:'Chancery Club, monthly',vipyear:'Chancery Club, yearly',giftvip:'Gifted Club month',bfpack:'Black Friday Pack',orpack:'Old Republic Pack',sailpack:'Age of Sail Pack',cbpack:'Central Bank Pack',tulippack:'Tulip Mania Pack'};
+const ADM_PRODUCT={founder:'Founder’s Package',idpack:'Identity Card Pack',vip:'Chancery Club, monthly',vipyear:'Chancery Club, yearly',giftvip:'Gifted Club month',bfpack:'Black Friday Pack',orpack:'Old Republic Pack',sailpack:'Age of Sail Pack',cbpack:'Central Bank Pack',tulippack:'Tulip Mania Pack',cartopack:'Cartographer’s Pack'};
 /* a transaction's product, or a basket's products */
 const admProd=t=>Array.isArray(t.products)&&t.products.length>1?'Basket: '+t.products.map(k=>ADM_PRODUCT[k]||k).join(' + '):ADM_PRODUCT[t.product]||t.product;
 const admEdict=id=>{try{return (ISSUE_BY_ID[id]||{}).t||id;}catch(e){return id;}};
@@ -48618,7 +48636,7 @@ uxUnlockInfo=(f=>function(id){return UNLOCKS[id]&&UNLOCKS[id].src==='streak'?{la
 czStampArt=(f=>function(s){return s==='s-indigo'?'<span class="cz-enx cz-enx-ind">Enacted</span>':f.apply(this,arguments);})(czStampArt);
 hero=(f=>function(n){const h=f.apply(this,arguments);let m='';try{m=cz(n).m;}catch(e){}return m?h.replace('<p class="hero-motto">',`<p class="hero-motto mf-${m.slice(2)}">`):h;})(hero);
 function pnSVG(id,n){
-  const col=safeColor(n&&n.mapc,'')||mapColor(n&&n.flag),pen=id==='pn-pennant'?`<path d="M45,46V16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M45,16L66,22L45,28Z" fill="${col}" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="45" cy="16" r="2" fill="currentColor"/>`:'';
+  const col=nationColor(n),pen=id==='pn-pennant'?`<path d="M45,46V16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M45,16L66,22L45,28Z" fill="${col}" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="45" cy="16" r="2" fill="currentColor"/>`:'';
   return `<svg class="cz-pn" viewBox="0 0 80 60" aria-hidden="true"><path d="M14,40L28,32L44,36L62,30L70,42L54,52L30,54Z" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="1.5"/><circle cx="40" cy="46" r="6" fill="var(--sheet)"/><circle cx="40" cy="46" r="4.2" fill="currentColor"/>${pen}</svg>`;
 }
 /* on top of the city drawings, lower right of the capital, and moved down clear of any name label */
@@ -53871,6 +53889,12 @@ const SHOP_NONE=new Set();
   /* the Tulip Mania Pack: eleven pieces of bulb fever, for arms, flag, card, money, decrees, banner, map, letters, name and colour */
   for(const [id,k,n] of [['sh-gable','shield','Stepped Gable shield'],['c-tulip','charge','Flamed Tulip'],['e-tulip','emblem','Flamed Tulip'],['cd-delft','card','Delftware'],['cn-tulip','cunote','Tulips'],['s-onebulb','stamp','Sold for One Bulb'],
     ['p-tulips','pattern','Tulip Rows'],['pn-auction','pin','Bulb Auction House'],['lp-i-bulb','paper','Bulb Futures Contract'],['t-speculator','title','the Speculator'],['a-delft','accent','Delft Blue']])add(id,k,n,'tulippack');
+  /* the Cartographer's Pack: how the land looks on the world map (four finishes, three border lines, three map colours,
+     the Wind Rose beside the capital), an epithet and the Blueprint look for the poster */
+  for(const [id,k,n] of [['te-hatch','territory','Engraver’s Hatching'],['te-stipple','territory','Stippled Ink'],['te-wash','territory','Hand-Coloured'],['te-grid','territory','Survey Grid'],
+    ['tb-survey','boundary','Surveyor’s Line'],['tb-pearl','boundary','String of Pearls'],['tb-ribbon','boundary','Ribboned Border'],
+    ['hx-prussian','mapcol','Prussian Blue'],['hx-carmine','mapcol','Carmine'],['hx-sap','mapcol','Sap Green'],
+    ['pn-windrose','pin','Wind Rose'],['t-surveyor','title','the Surveyor'],['pl-blueprint','poster','Blueprint']])add(id,k,n,'cartopack');
   for(const [id,n] of [['cd-ledger','Diplomatic Ledger'],['cd-atlas','Atlas Edition'],['cd-civic','Civic Modern'],['cd-embassy','Embassy Vellum'],['cd-telegram','Telegram'],['cd-holo','Holographic Seal'],['cd-starlit','Starlit Charter']])add(id,'card',n,'idpack');
   /* the pack's two letter papers (drawn by LP_X with the others) */
   for(const [id,n] of [['lp-i-embassy','Embassy Letterhead'],['lp-i-telegram','Telegram Form']])add(id,'paper',n,'idpack');
@@ -53882,9 +53906,9 @@ const SHOP_NONE=new Set();
     ['s-dispatch','stamp','By dispatch'],['t-unhurried','title','the Unhurried'],['p-trellis','pattern','Trellis'],['a-sage','accent','Sage']])add(id,k,n,'vip');
 }
 /* the new places a cosmetic can go: a badge beside the name, the card's design, the passport's inscription, the land */
-Object.assign(CZ_KIND,{bg:'badge',cd:'card',ins:'inscription',te:'territory'});
-Object.assign(CZ_DEF,{bg:'',cd:'',ins:'',te:''});
-const SHOP_IDS={founder:[],idpack:[],vip:[],bfpack:[],orpack:[],sailpack:[],cbpack:[],tulippack:[]};
+Object.assign(CZ_KIND,{bg:'badge',cd:'card',ins:'inscription',te:'territory',tb:'boundary'});
+Object.assign(CZ_DEF,{bg:'',cd:'',ins:'',te:'',tb:''});
+const SHOP_IDS={founder:[],idpack:[],vip:[],bfpack:[],orpack:[],sailpack:[],cbpack:[],tulippack:[],cartopack:[]};
 EMBLEMS['e-nowl']='Night Owl';if(!CZ_EMBS.includes('e-nowl'))CZ_EMBS.push('e-nowl');EMBLEMS['e-aquila']='Aquila';if(!CZ_EMBS.includes('e-aquila'))CZ_EMBS.push('e-aquila');EMBLEMS['e-kraken']='Kraken';if(!CZ_EMBS.includes('e-kraken'))CZ_EMBS.push('e-kraken');EMBLEMS['e-tulip']='Flamed Tulip';if(!CZ_EMBS.includes('e-tulip'))CZ_EMBS.push('e-tulip');
 for(const id of Object.getOwnPropertyNames(UNLOCKS)){const u=UNLOCKS[id];if(u&&SHOP_IDS[u.src])SHOP_IDS[u.src].push(id);}
 const shopIs=id=>!!(UNLOCKS[id]&&SHOP_IDS[UNLOCKS[id].src]);
@@ -53939,7 +53963,7 @@ function shopMember(t){const v=shopVip();return !!v&&(t==null?shopNow():t)<v.unt
 function shopHeld(n){
   const d=SHOP.doc;
   if(!d){const u=n&&n.cz&&Array.isArray(n.cz.u)?n.cz.u:[];return u.filter(shopIs);}
-  const out=[];if(shopOwns('founder'))out.push(...SHOP_IDS.founder,...SHOP_IDS.idpack);if(shopOwns('idpack'))out.push(...SHOP_IDS.idpack);if(shopOwns('bfpack'))out.push(...SHOP_IDS.bfpack);if(shopOwns('orpack'))out.push(...SHOP_IDS.orpack);if(shopOwns('sailpack'))out.push(...SHOP_IDS.sailpack);if(shopOwns('cbpack'))out.push(...SHOP_IDS.cbpack);if(shopOwns('tulippack'))out.push(...SHOP_IDS.tulippack);
+  const out=[];if(shopOwns('founder'))out.push(...SHOP_IDS.founder,...SHOP_IDS.idpack);if(shopOwns('idpack'))out.push(...SHOP_IDS.idpack);if(shopOwns('bfpack'))out.push(...SHOP_IDS.bfpack);if(shopOwns('orpack'))out.push(...SHOP_IDS.orpack);if(shopOwns('sailpack'))out.push(...SHOP_IDS.sailpack);if(shopOwns('cbpack'))out.push(...SHOP_IDS.cbpack);if(shopOwns('tulippack'))out.push(...SHOP_IDS.tulippack);if(shopOwns('cartopack'))out.push(...SHOP_IDS.cartopack);
   for(const k of Object.values(d.picks||{}))if(SHOP_IDS.vip.includes(k))out.push(k);
   return out;
 }
@@ -53948,7 +53972,7 @@ const shopMine=n=>!!n&&!n.npc&&(n===S.nation||!!(S.nation&&n.seed!=null&&n.seed=
 UNLOCK_SOURCES.push({earned:n=>shopMine(n)?shopHeld(n):[],
   how:id=>{const u=UNLOCKS[id];if(!u||!SHOP_IDS[u.src])return '';
     return u.src==='founder'?(shopNow()<shopUntil()?'Part of the Founder’s Package in the Shop.':'Came with the Founder’s Package, which is no longer on sale.')
-      :u.src==='idpack'?'Part of the Nation Identity Card Pack in the Shop.':u.src==='orpack'?'Part of the Old Republic Pack in the Shop.':u.src==='sailpack'?'Part of the Age of Sail Pack in the Shop.':u.src==='tulippack'?'Part of the Tulip Mania Pack in the Shop.':u.src==='cbpack'?'Part of the Central Bank Pack in the Shop.':u.src==='bfpack'?(shopNow()<shopBfUntil()?'Part of the Black Friday Pack in the Shop, until 30 November.':'Came with the Black Friday Pack, which is no longer on sale.'):'A monthly pick for members of the Chancery Club, in the Shop.';}});
+      :u.src==='idpack'?'Part of the Nation Identity Card Pack in the Shop.':u.src==='orpack'?'Part of the Old Republic Pack in the Shop.':u.src==='sailpack'?'Part of the Age of Sail Pack in the Shop.':u.src==='tulippack'?'Part of the Tulip Mania Pack in the Shop.':u.src==='cartopack'?'Part of the Cartographer’s Pack in the Shop.':u.src==='cbpack'?'Part of the Central Bank Pack in the Shop.':u.src==='bfpack'?(shopNow()<shopBfUntil()?'Part of the Black Friday Pack in the Shop, until 30 November.':'Came with the Black Friday Pack, which is no longer on sale.'):'A monthly pick for members of the Chancery Club, in the Shop.';}});
 function shopFin(uid){return SHOP.fin.get(uid)||SHOP_NONE;}
 /* another player's nation shows a shop cosmetic only on the server's list; a preview on the Shop page shows them all */
 czHolds=(f=>function(n,id,raw){
@@ -54052,7 +54076,7 @@ async function shopBuy(p,to){
   }catch(e){SHOP.open=null;SHOP.err=shopErr(e);}
   finally{SHOP.busy='';render();}
 }
-const SHOP_PRODUCTS=['founder','idpack','vip','vipyear','giftvip','bfpack','orpack','sailpack','cbpack','tulippack'];
+const SHOP_PRODUCTS=['founder','idpack','vip','vipyear','giftvip','bfpack','orpack','sailpack','cbpack','tulippack','cartopack'];
 /* an optional product (the Club yearly, a month of it as a gift) is offered once the server has its price */
 function shopSells(p){const c=SHOP.cfg;return !!(c&&c.on&&c.prices&&c.prices[p]);}
 const shopClub=p=>p==='vip'||p==='vipyear';
@@ -54297,7 +54321,8 @@ czFrameArt=(f=>function(fr,H,id){
     `<path d="M150,${q(H-6)}l-14,10l2,-12zM150,${q(H-6)}l14,10l-2,-12z" fill="#f3d9a0"/><circle cx="150" cy="${q(H-6)}" r="5" fill="#a8344f" stroke="#f3d9a0" stroke-width="1.2"/>`];
   return f.apply(this,arguments);
 })(czFrameArt);
-const SHOP_PIN={'pn-auction':'<path d="M50,46V26C50,22 53,22 54,19C55,15 58,15 58,12H62C62,15 65,15 66,19C67,22 70,22 70,26V46Z" fill="#a8452f" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M54,30H58V35H54ZM62,30H66V35H62ZM58,46V39H62V46ZM58.6,19H61.4V23H58.6Z" fill="#f4efe4" stroke="currentColor" stroke-width=".7"/><path d="M76,46V35M76,42Q72,40 71,36" fill="none" stroke="#3f7d3a" stroke-width="1.3" stroke-linecap="round"/><path d="M72.5,28C72,33 73.6,35.6 76,35.8C78.4,35.6 80,33 79.5,28L77.8,30.4L76,26.6L74.2,30.4Z" fill="#c8283c" stroke="currentColor" stroke-width=".7" stroke-linejoin="round"/>',
+const SHOP_PIN={'pn-windrose':'<g transform="translate(62 25)"><path d="M5.3,-5.3L2,0L5.3,5.3L0,2L-5.3,5.3L-2,0L-5.3,-5.3L0,-2Z" fill="#c9b48a" stroke="currentColor" stroke-width=".7" stroke-linejoin="round"/><path d="M0,-13L2.6,-2.6L13,0L2.6,2.6L0,13L-2.6,2.6L-13,0L-2.6,-2.6Z" fill="#f4efe4" stroke="currentColor" stroke-width=".9" stroke-linejoin="round"/><path d="M13,0L2.6,2.6L0,0ZM0,13L-2.6,2.6L0,0ZM-13,0L-2.6,-2.6L0,0Z" fill="#2b4c7e"/><path d="M0,-13L2.6,-2.6L0,0Z" fill="#b3302a"/><circle r="1.4" fill="currentColor"/></g>',
+  'pn-auction':'<path d="M50,46V26C50,22 53,22 54,19C55,15 58,15 58,12H62C62,15 65,15 66,19C67,22 70,22 70,26V46Z" fill="#a8452f" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M54,30H58V35H54ZM62,30H66V35H62ZM58,46V39H62V46ZM58.6,19H61.4V23H58.6Z" fill="#f4efe4" stroke="currentColor" stroke-width=".7"/><path d="M76,46V35M76,42Q72,40 71,36" fill="none" stroke="#3f7d3a" stroke-width="1.3" stroke-linecap="round"/><path d="M72.5,28C72,33 73.6,35.6 76,35.8C78.4,35.6 80,33 79.5,28L77.8,30.4L76,26.6L74.2,30.4Z" fill="#c8283c" stroke="currentColor" stroke-width=".7" stroke-linejoin="round"/>',
   'pn-bullion':'<path d="M50,46L52,39H62L64,46Z" fill="#e3b341" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/><path d="M64,46L66,39H76L78,46Z" fill="#e3b341" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/><path d="M57,39L59,32H69L71,39Z" fill="#f0c95a" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/><path d="M53.5,40.6H60.5M67.5,40.6H74.5M60.5,33.6H67.5" stroke="#fff4c2" stroke-width="1"/>',
   'pn-light':'<path d="M52,46L55,22H63L66,46Z" fill="#f4efe4" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M53.6,34H64.4M54.4,28H63.6" stroke="#b3122a" stroke-width="2.6"/><path d="M54,22V16H64V22Z" fill="#ffd76a" stroke="currentColor" stroke-width="1"/><path d="M53,16L59,11L65,16Z" fill="currentColor"/><path d="M64,18L80,12V24Z" fill="#ffd76a" opacity=".55"/>',
   'pn-tag':'<path d="M45,46V24" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M45,24Q52,14 58,16" stroke="currentColor" stroke-width="1" fill="none"/><path d="M58,12L72,12L76,20L72,28L58,28Z" fill="#0b0b0b" stroke="#c9a54a" stroke-width="1.2" stroke-linejoin="round"/><circle cx="61" cy="20" r="1.6" fill="#c9a54a"/><text x="68" y="22.4" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="5.6" font-weight="700" fill="#ecd48c">%</text>',
@@ -54309,9 +54334,15 @@ pnSVG=(f=>function(id){const h=f.apply(this,arguments);return SHOP_PIN[id]?h.rep
 /* on the map: the medallion or the quill beside the capital, clear of the name label (as the pennant does) */
 MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
   const g=M.g,T=M.T,u=clamp(0.85+0.1*M.s,0.9,1.5),boxes=M.boxes||[];g.lineCap='round';g.lineJoin='round';
-  T.list.forEach((x,i)=>{if(!T.count[i]||x.npc)return;let pin='';try{pin=cz(x.n).pn;}catch(e){}if(pin!=='pn-founder'&&pin!=='pn-quill'&&pin!=='pn-inkwell'&&pin!=='pn-forum'&&pin!=='pn-tag'&&pin!=='pn-light'&&pin!=='pn-bullion'&&pin!=='pn-auction')return;
+  T.list.forEach((x,i)=>{if(!T.count[i]||x.npc)return;let pin='';try{pin=cz(x.n).pn;}catch(e){}if(pin!=='pn-founder'&&pin!=='pn-quill'&&pin!=='pn-inkwell'&&pin!=='pn-forum'&&pin!=='pn-tag'&&pin!=='pn-light'&&pin!=='pn-bullion'&&pin!=='pn-auction'&&pin!=='pn-windrose')return;
     const [px,py]=M.scr(x.cap);if(M.off(px,py))return;const bx=px+12*u;let by=py+9*u,top=by-18*u;
     for(let k=0;k<4&&boxes.some(q=>q.x<bx+16*u&&bx-3<q.x+q.w&&q.y<by&&top-3<q.y+q.h);k++){by+=6;top+=6;}
+    if(pin==='pn-windrose'){/* the Cartographer's Pack's wind rose: the Shop's drawing, scaled to the marker's room */
+      const k=0.62*u;g.save();g.translate(bx+6*u,by-8*u);g.scale(k,k);
+      const minor=new Path2D('M5.3,-5.3L2,0L5.3,5.3L0,2L-5.3,5.3L-2,0L-5.3,-5.3L0,-2Z'),major=new Path2D('M0,-13L2.6,-2.6L13,0L2.6,2.6L0,13L-2.6,2.6L-13,0L-2.6,-2.6Z');
+      g.strokeStyle=M.col.sheet;g.lineWidth=5/k;g.stroke(major);g.stroke(minor);g.fillStyle='#c9b48a';g.fill(minor);g.fillStyle='#f4efe4';g.fill(major);
+      g.fillStyle='#2b4c7e';g.fill(new Path2D('M13,0L2.6,2.6L0,0ZM0,13L-2.6,2.6L0,0ZM-13,0L-2.6,-2.6L0,0Z'));g.fillStyle='#b3302a';g.fill(new Path2D('M0,-13L2.6,-2.6L0,0Z'));
+      g.strokeStyle=M.col.ink;g.lineWidth=1.1/k;g.stroke(minor);g.stroke(major);g.beginPath();g.arc(0,0,1.5,0,2*Math.PI);g.fillStyle=M.col.ink;g.fill();g.restore();return;}
     if(pin==='pn-auction'){/* a canal house with a bell gable, and a tulip by its door */
       const x0=bx,y0=by,H=new Path2D();H.moveTo(x0-4*u,y0);H.lineTo(x0-4*u,y0-10*u);H.quadraticCurveTo(x0-4*u,y0-11.6*u,x0-2.6*u,y0-12.6*u);H.quadraticCurveTo(x0-1.4*u,y0-14*u,x0-1.4*u,y0-16.5*u);
       H.lineTo(x0+1.4*u,y0-16.5*u);H.quadraticCurveTo(x0+1.4*u,y0-14*u,x0+2.6*u,y0-12.6*u);H.quadraticCurveTo(x0+4*u,y0-11.6*u,x0+4*u,y0-10*u);H.lineTo(x0+4*u,y0);H.closePath();
@@ -54369,6 +54400,165 @@ MFX_LAYERS.push({
     gr.addColorStop(0,'rgba(255,240,190,0)');gr.addColorStop(.5,'rgba(255,240,190,.8)');gr.addColorStop(1,'rgba(255,240,190,0)');
     g.strokeStyle=gr;g.lineWidth=1.5/f.s;g.stroke(P);}
 });
+/* ───────── the Cartographer's Pack: the nation's land as every player in the region sees it ─────────
+   Four finishes for the land (cz te, where the Founder's Gilt sits), three lines for its border (cz tb), three map
+   colours (n.mapc, chosen in Settings among the others: CTG_MC, beside nationColor), the Wind Rose beside the capital
+   (a pin), the epithet "the Surveyor" and the Blueprint look for the poster (PST_LOOKS.blueprint: anyone may try it in
+   the poster dialog, saving it needs the pack). Other players' maps show a piece only while the server's finery list
+   has it (czHolds). Under a lens the land keeps the lens's plain colours. A finish or a border line can be tried on
+   the player's own world map from the Shop (CTG.try): only they see it there, the poster leaves it out, and nothing
+   is saved. */
+const CTG={try:null},CTG_TE=['te-hatch','te-stipple','te-wash','te-grid'],CTG_TB=['tb-survey','tb-pearl','tb-ribbon'];
+/* three sets of dots for the stippled finish, in hex radii from a hex's centre; each hex takes one of them */
+const CTG_DOTS=[[-.42,-.3,.12,-.52,.5,-.12,-.18,.18,.34,.4,-.5,.36,.02,-.08],[.36,-.36,-.3,-.46,-.02,.3,.52,.16,-.48,.08,.16,.56,-.22,-.12],[-.08,-.5,.44,-.3,-.44,-.12,.22,.12,-.2,.46,.5,.42,-.04,.04]];
+/* a colour mixed toward black (f < 0) or toward white (f > 0) */
+function ctgMix(hex,f){const c=safeColor(hex,'#57A6DE');return '#'+[1,3,5].map(i=>{const x=parseInt(c.slice(i,i+2),16),y=Math.round(f<0?x*(1+f):x+(255-x)*f);return Math.max(0,Math.min(255,y)).toString(16).padStart(2,'0');}).join('');}
+/* a dark paper (the dark theme, the Night and Blueprint posters): border lines are then drawn light */
+function ctgDark(hex){const c=safeColor(hex,'');if(!c)return false;return (0.2126*parseInt(c.slice(1,3),16)+0.7152*parseInt(c.slice(3,5),16)+0.0722*parseInt(c.slice(5,7),16))/255<0.4;}
+/* the finish and the border line a nation on the map wears (cz: held, or tried on by the player on their own map). The
+   map's territory is kept while borders stay put, with the nation records it was made from: the current record is read
+   instead, so a change of look shows at the next drawing. */
+function ctgLook(x){let c=null;try{c=cz(x.me&&S.nation?S.nation:(S.world&&S.world[x.id])||x.n);}catch(e){c=null;}return {te:c&&CTG_TE.includes(c.te)?c.te:'',tb:c&&CTG_TB.includes(c.tb)?c.tb:''};}
+/* a finish over a nation's land: only its hexes in view (cells), clipped to them */
+function ctgFinish(g,M,o,cells,te,col){
+  const s=M.s,T=M.T,out=(i,j)=>j<0||T.owner[j]!==o;
+  g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.4);g.clip();
+  if(te==='te-wash'){/* the map colourist's way: the colour laid on deep along the border, paling inward */
+    g.beginPath();edgeList(g,cells,out);g.lineJoin='round';g.lineCap='round';g.strokeStyle=col;
+    g.globalAlpha=0.3;g.lineWidth=HEX_R*1.6;g.stroke();g.globalAlpha=0.5;g.lineWidth=HEX_R*0.75;g.stroke();return;}
+  if(M.draft||s*HEX_W<7)return;
+  let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;for(const i of cells){const x=MAP.cx[i],y=MAP.cy[i];if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  x0-=HEX_R;x1+=HEX_R;y0-=HEX_R;y1+=HEX_R;const ink=ctgMix(col,ctgDark(M.col.sheet)?0.55:-0.5);g.lineCap='butt';
+  if(te==='te-hatch'){/* the engraver's cross-hatching, in a deep shade of the land's own colour, lined up across the region */
+    const sp=HEX_R*0.5,h=y1-y0;g.beginPath();for(let x=Math.floor((x0-h)/sp)*sp;x<x1;x+=sp){g.moveTo(x,y1);g.lineTo(x+h,y0);}
+    g.globalAlpha=0.42;g.strokeStyle=ink;g.lineWidth=0.7/s;g.stroke();
+    if(s*HEX_W>=12){g.beginPath();for(let x=Math.floor((x0-h)/(2*sp))*2*sp;x<x1;x+=2*sp){g.moveTo(x,y0);g.lineTo(x+h,y1);}g.globalAlpha=0.3;g.stroke();}}
+  else if(te==='te-stipple'){/* stippled ink, dot by dot: the same dots in a hex every time */
+    const r=Math.max(0.5,0.7/s);g.beginPath();
+    for(const i of cells){const x=MAP.cx[i],y=MAP.cy[i],D=CTG_DOTS[i%3];for(let k=0;k<D.length;k+=2){const px=x+D[k]*HEX_R,py=y+D[k+1]*HEX_R;g.moveTo(px+r,py);g.arc(px,py,r,0,2*Math.PI);}}
+    g.globalAlpha=0.55;g.fillStyle=ink;g.fill();}
+  else if(te==='te-grid'){/* a surveyor's grid, a hex's width to a square, lined up across the region, with a cross where lines meet */
+    const sp=HEX_W,gx0=Math.floor(x0/sp)*sp,gy0=Math.floor(y0/sp)*sp;g.beginPath();
+    for(let x=gx0;x<=x1;x+=sp){g.moveTo(x,y0);g.lineTo(x,y1);}for(let y=gy0;y<=y1;y+=sp){g.moveTo(x0,y);g.lineTo(x1,y);}
+    g.globalAlpha=0.34;g.strokeStyle=ink;g.lineWidth=0.6/s;g.stroke();
+    if(s*HEX_W>=16){const c=sp*0.14;g.beginPath();for(let x=gx0;x<=x1;x+=sp)for(let y=gy0;y<=y1;y+=sp){g.moveTo(x-c,y);g.lineTo(x+c,y);g.moveTo(x,y-c);g.lineTo(x,y+c);}g.globalAlpha=0.6;g.lineWidth=1.1/s;g.stroke();}}
+}
+/* a border line round a nation's land (mine: the player's own on their own map, a little bolder). The dash lengths are
+   map units, so the pattern fits a hex's side: each side starts it again and ends where the next begins. */
+function ctgBorder(g,M,o,cells,tb,col,mine){
+  const s=M.s,T=M.T,R=HEX_R,dk=ctgDark(M.col.sheet),line=ctgMix(col,dk?0.6:-0.58),edges=()=>{g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);};
+  g.lineJoin='round';
+  if(tb==='tb-ribbon'){/* a ribbon just inside the border: the colour deep, a pale thread and a dark one, then the line */
+    g.save();g.beginPath();for(const i of cells)hexFill(g,i,R+0.4);g.clip();edges();g.lineCap='butt';
+    g.strokeStyle=ctgMix(col,-0.45);g.lineWidth=R*0.8;g.stroke();g.strokeStyle=M.col.sheet;g.lineWidth=R*0.62;g.stroke();g.strokeStyle=col;g.lineWidth=R*0.48;g.stroke();g.restore();
+    edges();g.lineCap='round';g.strokeStyle=line;g.lineWidth=(mine?2.4:1.6)/s;g.stroke();return;}
+  edges();g.lineCap='round';g.strokeStyle=M.col.sheet;g.globalAlpha=0.8;g.lineWidth=(mine?4.4:3.4)/s;g.stroke();g.globalAlpha=1;
+  if(tb==='tb-survey'){/* the map-maker's mark for a frontier: dash, dot, dash */
+    g.setLineDash([R*0.68,R*0.16,0.001,R*0.16]);g.lineDashOffset=R*0.34;g.strokeStyle=line;g.lineWidth=(mine?2.6:1.9)/s;g.stroke();g.setLineDash([]);g.lineDashOffset=0;return;}
+  /* pearls strung along the border on a fine thread, three to a side */
+  g.strokeStyle=ctgMix(col,dk?0.4:-0.4);g.lineWidth=1/s;g.stroke();
+  g.setLineDash([0.001,R/3]);g.strokeStyle=ctgMix(col,-0.62);g.lineWidth=Math.max(R*0.32,(mine?4:3.4)/s);g.stroke();
+  g.strokeStyle=ctgMix(col,0.85);g.lineWidth=Math.max(R*0.2,(mine?2.6:2.1)/s);g.stroke();g.setLineDash([]);
+}
+/* the finishes go on with the land, under the borders; the border lines over them */
+MAP_LAYERS.push({stage:'land',kinds:['main','visit'],draw:M=>{
+  if(lensOn(M.kind))return;const g=M.g,T=M.T;
+  for(const [o,cells] of M.byO){const x=T.list[o];if(!x||x.npc||!cells.length)continue;const te=ctgLook(x).te;if(!te)continue;
+    g.save();try{ctgFinish(g,M,o,cells,te,x.col);}finally{g.restore();}}
+}});
+MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
+  if(lensOn(M.kind))return;const g=M.g,T=M.T;
+  for(const [o,cells] of M.byO){const x=T.list[o];if(!x||x.npc||!cells.length)continue;const tb=ctgLook(x).tb;if(!tb)continue;
+    /* a poster draws its own nation's border itself, over the band of its colour (see the poster) */
+    if(PST.run&&o===PST.run.mi)continue;
+    g.save();try{ctgBorder(g,M,o,cells,tb,x.col,!!x.me&&M.kind==='main');}finally{g.restore();}}
+}});
+/* a nation with a border line of its own has no plain one under it */
+lensEdge=(f=>function(T,o,kind){const x=T.list[o];if(x&&!x.npc&&(kind==='main'||kind==='visit')&&!lensOn(kind)&&ctgLook(x).tb)return 'rgba(0,0,0,0)';return f.apply(this,arguments);})(lensEdge);
+/* leaving the map takes off what was being tried on there */
+go=(f=>function(v){if(CTG.try&&v!=='map'){CTG.try=null;czVer++;}return f.apply(this,arguments);})(go);
+/* the note of what is being tried on, right above the world map (the map's panel is a closed sheet on a phone) */
+mapBox=(f=>function(kind){const h=f.apply(this,arguments);return kind==='main'?ctgTryNote()+h:h;})(mapBox);
+function ctgTryNote(){const t=CTG.try,u=t&&czU(t.id);if(!u||S.view!=='map')return '';
+  return `<div class="ctg-try" role="status"><p><b>Trying on: ${esc(u.n)}.</b> Only you see it, on your own map, and nothing is saved.</p><p class="ctg-try-b"><button type="button" class="btn sm" data-act="ctg-shop">Back to the pack</button><button type="button" class="linkish small" data-act="ctg-try-off">Take it off</button></p></div>`;}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="ctg-"]');if(!el)return;const a=el.dataset.act,n=S.nation,placed=!!n&&cellOf(n.loc)>=0;
+  if(a==='ctg-shop'){e.preventDefault();if(PST.open)pstHide();if(CTG.try){CTG.try=null;czVer++;}SHOP.dr='cartopack';SHOP.drNew=true;go('shop');}
+  else if(a==='ctg-try'){const id=el.dataset.id,u=czU(id),k=u&&u.k==='territory'?'te':u&&u.k==='boundary'?'tb':'';if(!k||!placed)return;
+    CTG.try={k,id};czVer++;go('map');toast(`Trying on ${u.n}: only you see it, on your own map.`);}
+  else if(a==='ctg-try-off'){CTG.try=null;czVer++;render();redrawMaps();}
+  else if(a==='ctg-poster'){if(!placed)return;PST.look='blueprint';go('map');setTimeout(()=>{PST.back=null;pstShow();},80);}
+  else if(a==='ctg-mc-set'){SG.tab='nation';uxOpen('settings',null,'.mapc-row');}
+});
+/* held map colours and the poster look are chosen elsewhere: Customise's search sends the player there */
+czShow=(f=>function(id){const u=czU(id);
+  if(u&&u.k==='mapcol'){SG.tab='nation';uxOpen('settings',null,'.mapc-row');return;}
+  if(u&&u.k==='poster'){if(!S.nation||cellOf(S.nation.loc)<0)return;PST.look='blueprint';go('map');setTimeout(()=>{PST.back=null;pstShow();},80);return;}
+  return f.apply(this,arguments);})(czShow);
+/* the pack's map colours in Settings, after the tutorial's: chosen like the others once held, locked (a way to the
+   Shop) while the pack is on sale, left out otherwise */
+function ctgMcSw(n,st){
+  const sell=shopSells('cartopack')||shopOwns('cartopack');
+  return Object.keys(CTG_MC).map(c=>{const nm=CTG_MC[c][1];
+    if(ctgMcOk(n,c))return `<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${nm}, from the Cartographer’s Pack" title="${nm}, from the Cartographer’s Pack"></button>`;
+    return sell?`<button type="button" class="sw sw-lock" style="--sw:${c}" data-act="ctg-shop" aria-label="Map colour: ${nm}, locked. Part of the Cartographer’s Pack in the Shop." title="${nm}: part of the Cartographer’s Pack in the Shop">${CZ_LOCK}</button>`:'';}).join('');
+}
+/* land in a picture, for the Shop and Customise: the player's own hexes round their capital when the nation is on
+   the map (opts.big: a wider ring), otherwise a small made-up patch (always for opts.mini); in a finish (te), with a
+   border line (tb), in a colour (col, else the nation's). Stroke widths are given in pixels at the picture's width (px). */
+const CTG_PATCH=[[0,0],[1,0],[2,0],[-1,1],[0,1],[1,1],[2,1],[0,2],[1,2]];
+function ctgCells(n,r){
+  try{if(!n||n!==S.nation||cellOf(n.loc)<0)return null;const T=territory(),mi=T.list.findIndex(x=>x.me);if(mi<0)return null;
+    const cap=T.list[mi].cap,X=MAP.cx[cap],Y=MAP.cy[cap],out=[];let own=0;
+    for(const [c] of ringCells(cap,r)){const o=T.owner[c];if(o===mi)own++;out.push({x:wrapNear(MAP.cx[c],X)-X,y:MAP.cy[c]-Y,own:o===mi,col:o>=0&&o!==mi?T.list[o].col:'',sea:MAP.T[c]<2});}
+    return own>=4?out:null;}catch(e){return null;}
+}
+function ctgLandSVG(n,o){
+  o=o||{};const mini=!!o.mini,col=safeColor(o.col,'')||nationColor(n),te=o.te||'',tb=o.tb||'',id='ctg'+(++czSeq),q=v=>(+v).toFixed(2),R=HEX_R;
+  let cells=mini?null:ctgCells(n,o.big?4:3);const real=!!cells;
+  if(!cells)cells=CTG_PATCH.map(([c,r])=>({x:(c+(r%2?.5:0))*HEX_W,y:r*R*1.5,own:true,col:'',sea:false}));
+  let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;for(const c of cells){x0=Math.min(x0,c.x);x1=Math.max(x1,c.x);y0=Math.min(y0,c.y);y1=Math.max(y1,c.y);}
+  x0-=HEX_W*0.75;x1+=HEX_W*0.75;y0-=R*1.25;y1+=R*1.25;const W=x1-x0,H=y1-y0,px=mini?88:o.big?480:240,u=W/px;
+  const hx=c=>'M'+[0,1,2,3,4,5].map(k=>q(c.x+HCX[k]*R)+','+q(c.y+HCY[k]*R)).join('L')+'Z',own=cells.filter(c=>c.own),ownD=own.map(hx).join('');
+  /* the border: every side of an own hex that no other own hex shares */
+  const sides=new Map(),pt=(c,k)=>[c.x+HCX[k]*R,c.y+HCY[k]*R],kk=p=>Math.round(p[0]*4)+','+Math.round(p[1]*4);
+  for(const c of own)for(let k=0;k<6;k++){const a=pt(c,k),b=pt(c,(k+1)%6),ka=kk(a),kb=kk(b),key=ka<kb?ka+'|'+kb:kb+'|'+ka;sides.set(key,sides.has(key)?null:[a,b]);}
+  const edge=[...sides.values()].filter(Boolean).map(([a,b])=>`M${q(a[0])},${q(a[1])}L${q(b[0])},${q(b[1])}`).join('');
+  const ink=ctgMix(col,-0.5),line=ctgMix(col,-0.58),S2=(d,stroke,w,x)=>`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${q(w)}"${x||''}/>`;
+  let b=`<rect x="${q(x0)}" y="${q(y0)}" width="${q(W)}" height="${q(H)}" fill="var(--${real?'sea':'land'})"/>`;
+  if(real){const land=cells.filter(c=>!c.own&&!c.sea).map(hx).join('');if(land)b+=`<path d="${land}" fill="var(--land)"/>`;
+    const by=new Map();for(const c of cells)if(!c.own&&c.col){if(!by.has(c.col))by.set(c.col,[]);by.get(c.col).push(hx(c));}
+    for(const [c,ds] of by)b+=`<path d="${ds.join('')}" fill="${c}" fill-opacity=".45"/>`+S2(ds.join(''),c,0.9*u,' stroke-opacity=".5"');}
+  b+=`<path d="${ownD}" fill="var(--land)"/><path d="${ownD}" fill="${col}" fill-opacity=".55"/>`;
+  /* the finish, clipped to the land */
+  let f='';
+  if(te==='te-hatch'){const sp=R*0.5;let d1='',d2='';for(let x=Math.floor((x0-H)/sp)*sp;x<x1;x+=sp)d1+=`M${q(x)},${q(y1)}L${q(x+H)},${q(y0)}`;for(let x=Math.floor((x0-H)/(2*sp))*2*sp;x<x1;x+=2*sp)d2+=`M${q(x)},${q(y0)}L${q(x+H)},${q(y1)}`;
+    f=S2(d1,ink,0.7*u,' stroke-opacity=".45"')+S2(d2,ink,0.7*u,' stroke-opacity=".3"');}
+  else if(te==='te-stipple'){let d='';const r=Math.max(0.5,0.7*u);own.forEach((c,i)=>{const D=CTG_DOTS[i%3];for(let k=0;k<D.length;k+=2){const x=c.x+D[k]*R,y=c.y+D[k+1]*R;d+=`M${q(x-r)},${q(y)}a${q(r)},${q(r)} 0 1 0 ${q(2*r)},0a${q(r)},${q(r)} 0 1 0 ${q(-2*r)},0`;}});f=`<path d="${d}" fill="${ink}" fill-opacity=".55"/>`;}
+  else if(te==='te-wash')f=S2(edge,col,R*1.6,' stroke-opacity=".3" stroke-linecap="round" stroke-linejoin="round"')+S2(edge,col,R*0.75,' stroke-opacity=".5" stroke-linecap="round" stroke-linejoin="round"');
+  else if(te==='te-grid'){const sp=HEX_W;let d='';for(let x=Math.floor(x0/sp)*sp;x<=x1;x+=sp)d+=`M${q(x)},${q(y0)}V${q(y1)}`;for(let y=Math.floor(y0/sp)*sp;y<=y1;y+=sp)d+=`M${q(x0)},${q(y)}H${q(x1)}`;f=S2(d,ink,0.6*u,' stroke-opacity=".4"');}
+  else if(te==='te-gilt'){let d='';for(let x=x0-H;x<x1;x+=R*.42)d+=`M${q(x)},${q(y1)}L${q(x+H)},${q(y0)}`;f=S2(d,'rgba(150,112,36,.5)',0.7*u);}
+  if(f)b+=`<defs><clipPath id="${id}"><path d="${ownD}"/></clipPath></defs><g clip-path="url(#${id})">${f}</g>`;
+  /* the line round it */
+  const rnd=' stroke-linecap="round" stroke-linejoin="round"';
+  if(te==='te-gilt'&&!tb)b+=S2(edge,'#6b4e12',3.6*u,rnd)+S2(edge,'#d6b25c',1.7*u,rnd)+`<defs><linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff0be" stop-opacity="0"/><stop offset=".5" stop-color="#fff0be" stop-opacity=".9"/><stop offset="1" stop-color="#fff0be" stop-opacity="0"/></linearGradient></defs>`+S2(edge,`url(#${id}s)`,1.7*u,' class="shop-shim"');
+  else if(tb==='tb-survey')b+=S2(edge,'var(--sheet)',3.4*u,rnd+' stroke-opacity=".8"')+S2(edge,line,1.9*u,` stroke-linecap="round" stroke-dasharray="${q(R*.68)} ${q(R*.16)} 0.01 ${q(R*.16)}" stroke-dashoffset="${q(R*.34)}"`);
+  else if(tb==='tb-pearl')b+=S2(edge,'var(--sheet)',3.4*u,rnd+' stroke-opacity=".8"')+S2(edge,ctgMix(col,-0.4),u,rnd)+S2(edge,ctgMix(col,-0.62),Math.max(R*.32,3.4*u),` stroke-linecap="round" stroke-dasharray="0.01 ${q(R/3)}"`)+S2(edge,ctgMix(col,0.85),Math.max(R*.2,2.1*u),` stroke-linecap="round" stroke-dasharray="0.01 ${q(R/3)}"`);
+  else if(tb==='tb-ribbon')b+=`<defs><clipPath id="${id}r"><path d="${ownD}"/></clipPath></defs><g clip-path="url(#${id}r)">${S2(edge,ctgMix(col,-0.45),R*.8)}${S2(edge,'var(--sheet)',R*.62)}${S2(edge,col,R*.48)}</g>`+S2(edge,line,1.6*u,rnd);
+  else b+=S2(edge,col,1.4*u,rnd);
+  /* the capital, at the middle of the player's own land */
+  if(real&&o.cap!==0)b+=`<circle r="${q(2.6*u+1.2)}" fill="var(--ink)" stroke="var(--sheet)" stroke-width="${q(1.4*u)}"/>`;
+  return `<svg class="ctg-land${mini?' mini':o.big?' big':''}" viewBox="${q(x0)} ${q(y0)} ${q(W)} ${q(H)}" aria-hidden="true">${b}</svg>`;
+}
+/* the Blueprint poster, small: the sheet, its grid, a patch of land and the name */
+function ctgPosterMini(n){
+  const L=PST_LOOKS.blueprint,q=v=>(+v).toFixed(2),k=0.62,ox=12,oy=27;let grid='',land='';
+  for(let x=7;x<54;x+=4)grid+=`M${x},19V59`;for(let y=19;y<60;y+=4)grid+=`M6,${y}H54`;
+  for(const [c,r] of CTG_PATCH){const cx=ox+(c+(r%2?.5:0))*HEX_W*k,cy=oy+r*HEX_R*1.5*k;land+='M'+[0,1,2,3,4,5].map(j=>q(cx+HCX[j]*HEX_R*k)+','+q(cy+HCY[j]*HEX_R*k)).join('L')+'Z';}
+  return `<svg class="ctg-pst" viewBox="0 0 60 80" aria-hidden="true"><rect width="60" height="80" fill="${L.paper}"/><rect x="2.5" y="2.5" width="55" height="75" fill="none" stroke="${L.ink}" stroke-width=".6"/>
+<text x="30" y="13" text-anchor="middle" font-family="Georgia,serif" font-size="5.6" fill="${L.ink}">${esc(String(n&&n.name||'Your nation').slice(0,18))}</text><path d="${grid}" stroke="${L.ink}" stroke-opacity=".16" stroke-width=".3"/><rect x="6" y="19" width="48" height="40" fill="none" stroke="${L.ink}" stroke-width=".5"/>
+<path d="${land}" fill="${nationColor(n)}" fill-opacity=".5" stroke="${L.ink}" stroke-width=".45"/><path d="M8,66H52M8,70.5H38" stroke="${L.ink2}" stroke-width="1.2"/></svg>`;
+}
 /* the passport's last page carries the inscription in brass, inside an engraved border; the page's text stays as it was */
 ppObsSVG=(f=>function(n,d){
   const h=f.apply(this,arguments);let ins='';try{ins=n?cz(n).ins:'';}catch(e){}if(ins!=='in-founder')return h;
@@ -54472,7 +54662,10 @@ function shopArt(id,n){
     case 'badge':return FOUNDER_PILL;
     case 'card':return shopCardMini(n,id);
     case 'inscription':return '<span class="shop-ins-mini">Founding Supporter<br>· First Edition ·</span>';
-    case 'territory':return shopLandSVG(n,1);
+    case 'territory':return ctgLandSVG(n,{mini:1,te:id});
+    case 'boundary':return ctgLandSVG(n,{mini:1,tb:id});
+    case 'mapcol':return ctgLandSVG(n,{mini:1,col:Object.keys(CTG_MC).find(c=>CTG_MC[c][0]===id)});
+    case 'poster':return ctgPosterMini(n);
   }
   return '';
 }
@@ -54575,7 +54768,7 @@ function shopBagSec(n,t){
     <p class="hint">Gifts and the Chancery Club are bought on their own.</p>
   </section>`;
 }
-function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=p==='tulippack'?shopTlWorn(n,c):p==='cbpack'?shopCbWorn(n,c):p==='sailpack'?[c.a&&c.a.s==='rope'?'sh-rope':'',c.a&&c.a.c==='c-kraken'?'c-kraken':'',n.flag&&n.flag.e==='e-kraken'?'e-kraken':'',...SHOP_IDS.sailpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':'',...SHOP_IDS.bfpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='orpack'?[c.a&&c.a.s==='scutum'?'sh-scutum':'',c.a&&c.a.c==='c-aquila'?'c-aquila':'',n.flag&&n.flag.e==='e-aquila'?'e-aquila':'',...SHOP_IDS.orpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':''].filter(Boolean):SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
+function shopWorn(p){const n=S.nation;if(!n)return '';const c=cz(n),on=p==='cartopack'?shopCtgWorn(n,c):p==='tulippack'?shopTlWorn(n,c):p==='cbpack'?shopCbWorn(n,c):p==='sailpack'?[c.a&&c.a.s==='rope'?'sh-rope':'',c.a&&c.a.c==='c-kraken'?'c-kraken':'',n.flag&&n.flag.e==='e-kraken'?'e-kraken':'',...SHOP_IDS.sailpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':'',...SHOP_IDS.bfpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='orpack'?[c.a&&c.a.s==='scutum'?'sh-scutum':'',c.a&&c.a.c==='c-aquila'?'c-aquila':'',n.flag&&n.flag.e==='e-aquila'?'e-aquila':'',...SHOP_IDS.orpack.filter(id=>Object.values(c).includes(id))].filter(Boolean):p==='bfpack'?[c.a&&c.a.s==='midnight'?'sh-midnight':'',c.a&&c.a.c==='c-nowl'?'c-nowl':'',n.flag&&n.flag.e==='e-nowl'?'e-nowl':''].filter(Boolean):SHOP_IDS[p].filter(id=>Object.values(c).includes(id));
   const onCd=on.filter(id=>UNLOCKS[id].k==='card');
   return p==='idpack'?(onCd.length?` You are using the ${esc(UNLOCKS[onCd[0]].n)} card.`:' Not in use: you have the classic card.'):on.length?` You are wearing ${on.length===SHOP_IDS[p].length?'all '+on.length:on.length+' of '+SHOP_IDS[p].length} pieces.`:' None of it is in use yet.';}
 function shopOwned(p,extra){const at=SHOP.doc&&SHOP.doc.owns&&SHOP.doc.owns[p];return `<p class="shop-owned"><span class="chip ok">Owned</span> since ${esc(shopDate(at))}.${shopGiftFrom(p)?' A gift from '+esc(shopGiftFrom(p))+'.':''}${SHOP.doc&&SHOP.doc.fg===p?' Your founder’s thank-you gift.':''}${shopWorn(p)}${SHOP.cached?' <span class="hint">(as this device last saw it)</span>':''}</p><div class="row shop-row">${extra||''}<button type="button" class="btn ghost" data-act="go" data-v="customise">Equip in Customise</button></div>`;}
@@ -54732,6 +54925,8 @@ function shopCards(n,t){
   {const bu=shopBfUntil(),bOpen=t<bu&&shopSells('bfpack'),bOwn=shopOwns('bfpack');if(bOpen||bOwn){const d=Math.max(0,Math.ceil((bu-t)/DAY));
     out.push({p:'bfpack',sec:'limited',tags:['limited','cosmetic','gift'],name:'Black Friday Pack',pitch:'Ten pieces of midnight sale: the Midnight Tag shield, the Night Owl, a black-and-gold card, SOLD stamp, barcode, receipt and more. Only until 30 November.',
       art:()=>shopBfArt(n,true),price:'bfpack',per:'once',own:bOwn,sell:bOpen,lbls:[...(bOpen&&!bOwn?[['end',d<=1?'Last day':'Ends in '+d+' d'],['','Black Friday']]:[]),...(shopGiftFrom('bfpack')?[['','A gift']]:[])]});}}
+  if(shopSells('cartopack')||shopOwns('cartopack'))out.push({p:'cartopack',sec:'cosmetic',tags:['cosmetic','gift'],name:'Cartographer’s Pack',pitch:'Your land as every neighbour sees it on the map: four finishes, three border lines, three map colours, a wind rose by your capital, “the Surveyor” and a Blueprint poster.',
+    art:()=>shopCtgArt(n),price:'cartopack',per:'once',own:shopOwns('cartopack'),sell:shopSells('cartopack'),lbls:[['','13 pieces'],...(shopGiftFrom('cartopack')?[['','A gift']]:[])]});
   if(shopSells('tulippack')||shopOwns('tulippack'))out.push({p:'tulippack',sec:'cosmetic',tags:['cosmetic','gift'],name:'Tulip Mania Pack',pitch:'Eleven pieces of bulb fever: a stepped-gable shield and the Flamed Tulip, a Delftware card, tulip banknotes, an auction house on the map and more.',
     art:()=>shopTlArt(n),price:'tulippack',per:'once',own:shopOwns('tulippack'),sell:shopSells('tulippack'),lbls:[['','11 pieces'],...(shopGiftFrom('tulippack')?[['','A gift']]:[])]});
   if(shopSells('cbpack')||shopOwns('cbpack'))out.push({p:'cbpack',sec:'cosmetic',tags:['cosmetic','gift'],name:'Central Bank Pack',pitch:'Ten pieces for your money: Art Deco and Acanthus engravings, a clear window in your notes, patina and square-holed coins, a Treasury Note card, bullion on the map and more.',
@@ -54823,6 +55018,28 @@ function shopSailPack(n){
 }
 /* the Tulip Mania Pack: the arms and the flag, the card, the nation's own banknote in tulips, then the stamp, marker and paper */
 function shopTlArms(n){const a=Object.assign({s:'heater',d:'plain',t:['argent','azure'],c:'',ct:'gules',m:0,on:1},cz(n).a||{});return czArmsSVG({...a,s:'gable',c:'c-tulip',t:['argent','azure'],ct:'gules',d:'plain'});}
+/* the Cartographer's Pack: the player's own land in each finish and border line, with a way to try one on their map */
+function shopCtgArt(n){try{return `<span class="shop-ctg-art">${ctgLandSVG(n,{mini:1,te:'te-hatch',tb:'tb-survey'})}</span>`;}catch(e){return '';}}
+function shopCtgWorn(n,c){return [CTG_TE.includes(c.te)?c.te:'',CTG_TB.includes(c.tb)?c.tb:'',c.pn==='pn-windrose'?'pn-windrose':'',c.t==='t-surveyor'?'t-surveyor':'',(CTG_MC[safeColor(n.mapc,'')]||[])[0]||''].filter(Boolean);}
+function shopCtgPack(n){
+  const own=shopOwns('cartopack'),placed=cellOf(n.loc)>=0,tryB=id=>!own&&placed?`<button type="button" class="linkish small" data-act="ctg-try" data-id="${id}">Try it on your map</button>`:'';
+  const fig=(id,o)=>`<figure class="ctg-fig">${ctgLandSVG(n,o)}<figcaption><b>${esc(UNLOCKS[id].n)}</b>${tryB(id)}</figcaption></figure>`;
+  const fins=[['te-hatch','the engraver’s cross-hatching, in a deep shade of your colour'],['te-stipple','your land stippled in ink, dot by dot'],['te-wash','your colour laid on deep along the borders and paling inward, the way old maps were coloured by hand'],['te-grid','a surveyor’s grid, lined up across the whole region']];
+  const bds=[['tb-survey','dash, dot, dash: the map-maker’s mark for a frontier'],['tb-pearl','pearls strung along your border'],['tb-ribbon','a ribbon of colour just inside the line']];
+  const mcs=Object.keys(CTG_MC).map(c=>`<span class="ctg-mc">${ctgLandSVG(n,{mini:1,col:c})}<span>${esc(CTG_MC[c][1])}</span></span>`).join('');
+  const pin=`<svg viewBox="44 6 40 44" class="shop-or-pin">${SHOP_PIN['pn-windrose']}</svg>`;
+  const items=[...fins,...bds].map(([id,t])=>[UNLOCKS[id].n,t]).concat([['Prussian Blue, Carmine and Sap Green','three more colours for your land on the map, chosen in Settings with the others'],['Wind Rose','a compass rose beside your capital on the map'],['“the Surveyor”','an epithet after your nation’s name'],['Blueprint','a fourth look for your poster: white lines on blueprint blue, over a surveyor’s grid']]);
+  return `<section class="shop-item shop-cartopack" aria-labelledby="shop-ctg-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · thirteen pieces</p><h2 class="h2" id="shop-ctg-h">Cartographer’s Pack</h2></div><p class="shop-price" id="shop-cartopack-price">${esc(shopPrice('cartopack'))}<span>once</span>${shopLocalTag('cartopack')}</p></div>
+    <p>The world map is where everyone sees ${esc(n.name)}. This pack changes how your land looks there, for every player in your region: its finish, the line round it, its colour and the mark beside your capital. Wear one piece or mix them.</p>
+    <div class="shop-pv-box"><p class="shop-pv-l">${placed?`Your land round ${esc(n.capital)}, in Engraver’s Hatching with the Surveyor’s Line`:'Engraver’s Hatching with the Surveyor’s Line'}</p><div class="ctg-hero">${ctgLandSVG(n,{big:1,te:'te-hatch',tb:'tb-survey'})}</div></div>
+    <h3 class="sub-h">Four finishes for your land</h3><div class="ctg-figs">${fins.map(([id])=>fig(id,{te:id})).join('')}</div>
+    <h3 class="sub-h">Three lines for your border</h3><div class="ctg-figs">${bds.map(([id])=>fig(id,{tb:id})).join('')}</div>
+    <div class="shop-or-grid"><figure><span class="ctg-mcs">${mcs}</span><figcaption>Three map colours</figcaption></figure><figure>${pin}<figcaption>Wind Rose beside your capital</figcaption></figure>
+      <figure>${ctgPosterMini(n)}<figcaption>The Blueprint poster${placed?' <button type="button" class="linkish small" data-act="ctg-poster">Try it</button>':''}</figcaption></figure></div>
+    <ul class="shop-list">${items.map(([a,b])=>`<li><b>${esc(a)}</b>: ${esc(b)}.</li>`).join('')}</ul>
+    ${own?shopOwned('cartopack','<button type="button" class="btn ghost" data-act="ctg-mc-set">Map colours in Settings</button>'):`<div class="row shop-row">${shopCta('cartopack','Buy the Cartographer’s Pack · '+shopPay('cartopack'))}</div>`}${shopGiftHTML('cartopack')}
+  </section>`;
+}
 function shopTlArt(n){try{return `<span class="shop-bf-art mini">${shopTlArms(n)}</span>`;}catch(e){return '';}}
 function shopTlWorn(n,c){let k={};try{k=cuOf(n);}catch(e){}const N=k.note||{};
   return [c.a&&c.a.s==='gable'?'sh-gable':'',c.a&&c.a.c==='c-tulip'?'c-tulip':'',n.flag&&n.flag.e==='e-tulip'?'e-tulip':'',N.pat==='tulip'?'cn-tulip':'',...SHOP_IDS.tulippack.filter(id=>Object.values(c).includes(id))].filter(Boolean);}
@@ -54871,7 +55088,7 @@ function shopCbPack(n){
     ${own?shopOwned('cbpack'):`<div class="row shop-row">${shopCta('cbpack','Buy the Central Bank Pack · '+shopPay('cbpack'))}</div>`}${shopGiftHTML('cbpack')}
   </section>`;
 }
-function shopDrawerBody(p,n,t){if(p==='bag')return shopBagSec(n,t);if(p==='tulippack')return shopTlPack(n);if(p==='cbpack')return shopCbPack(n);if(p==='sailpack')return shopSailPack(n);if(p==='orpack')return shopOrPack(n);return p==='vip'?shopVipSec(n,t):p==='founder'?shopFounder(n,t):p==='idpack'?shopIdPack(n):p==='giftvip'?shopGiftVip(n):p==='bfpack'?shopBfPack(n,t):'';}
+function shopDrawerBody(p,n,t){if(p==='bag')return shopBagSec(n,t);if(p==='cartopack')return shopCtgPack(n);if(p==='tulippack')return shopTlPack(n);if(p==='cbpack')return shopCbPack(n);if(p==='sailpack')return shopSailPack(n);if(p==='orpack')return shopOrPack(n);return p==='vip'?shopVipSec(n,t):p==='founder'?shopFounder(n,t):p==='idpack'?shopIdPack(n):p==='giftvip'?shopGiftVip(n):p==='bfpack'?shopBfPack(n,t):'';}
 /* the Black Friday Pack: until the catalogue's date (the end of 30 November 2026, UTC) */
 function shopBfUntil(){const c=shopCat(),v=c&&c.products&&c.products.bfpack&&Date.parse(c.products.bfpack.until);return isFinite(v)?v:Date.UTC(2026,11,1);}
 function shopBfArts(n){const a=Object.assign({s:'heater',d:'plain',t:['sable','or'],c:'',ct:'or',m:0,on:1},cz(n).a||{});return {arms:czArmsSVG({...a,s:'midnight',c:'c-nowl',t:[a.t&&a.t[0]||'sable','or'],ct:'or'}),flag:flagSVG(Object.assign({},n.flag||{},{e:'e-nowl'}),'')};}
@@ -55118,13 +55335,13 @@ function preHTML(n){
 function shopFineryHTML(n){
   shopEnum();
   const c=cz(n),mine=czMine(),rows=[['bg','badge','Badge','Shown beside your nation’s name: on its page, the region board and in the Assembly.'],['cd','card','Card design','The look of your nation card. Your rank’s border stays.'],
-    ['ins','inscription','Passport inscription','On the last page of your passport.'],['te','territory','Land','How your land looks on the world map to every player in the region.']];
+    ['ins','inscription','Passport inscription','On the last page of your passport.'],['te','territory','Land','How your land looks on the world map to every player in the region.'],['tb','boundary','Border on the map','The line round your land on the world map, as every player in the region sees it.']];
   let body='';
   const anyHeld=Object.values(SHOP_IDS).flat().some(id=>mine.has(id));
   for(const [k,kind,title,hint] of rows){const ids=Object.values(SHOP_IDS).flat().filter(id=>UNLOCKS[id].k===kind);if(!ids.length)continue;
     /* the founder's badge is always worn (cz): nothing to choose, so it says so */
     if(k==='bg'&&mine.has('bg-founder')){body+=`<h3 class="sub-h">${title}</h3><p class="cz-fixed">${FOUNDER_PILL}<span class="hint">Always shown beside your nation’s name, as a thank-you for founding Edictum: on its card, in the map’s hover card, in Messages, on the region board and in the Assembly.</span></p>`;continue;}
-    const none=k==='cd'?shopCardMini(n,''):k==='te'?shopLandSVG(n,1,1):'<span class="cz-none">None</span>';
+    const none=k==='cd'?shopCardMini(n,''):k==='te'||k==='tb'?ctgLandSVG(n,{mini:1}):'<span class="cz-none">None</span>';
     body+=`<h3 class="sub-h">${title}</h3><p class="hint">${hint}</p><div class="cz-grid cz-g-${k}">${czTile(k,'',c[k],true,false,none,k==='cd'?'Classic':'None')}${ids.map(id=>czTile(k,id,c[k],mine.has(id),false,shopArt(id,n),UNLOCKS[id].n)).join('')}</div>`;}
   const pre=preHTML(n),seals=shopVip()&&S.mode==='world'?clubSealHTML(n,shopNow()):'';
   return `<section class="cz-sec" id="cz-sec-z"><h2 class="fs-l"><span class="fs-n">III</span>Finery</h2><p class="hint fs-hint">${anyHeld?'Finery from the Bureau of National Finery, yours to wear or not. Try on the rest: only you see it, and nothing is saved.':'Badges, card designs, a gilt edge for your land and more are in the Shop. Try any of them on here: only you see it, and nothing is saved. None of it adds prestige or power.'} <button type="button" class="linkish small" data-act="go" data-v="shop">Visit the Shop</button></p>${body}${seals}${pre}</section>`;
@@ -55134,7 +55351,7 @@ function shopFineryHTML(n){
 
 /* ── trying finery on in Customise: the Shop's pieces appear among the locked ones, and a click shows one on the
    player's own nation, on this page only and saved nowhere, until it is taken off or the page is left ── */
-const SHOP_FROM={founder:'the Founder’s Package',idpack:'the Nation Identity Card Pack',vip:'The Chancery Club’s collection',bfpack:'the Black Friday Pack',orpack:'the Old Republic Pack',sailpack:'the Age of Sail Pack',tulippack:'the Tulip Mania Pack',cbpack:'the Central Bank Pack'};
+const SHOP_FROM={founder:'the Founder’s Package',idpack:'the Nation Identity Card Pack',vip:'The Chancery Club’s collection',bfpack:'the Black Friday Pack',orpack:'the Old Republic Pack',sailpack:'the Age of Sail Pack',tulippack:'the Tulip Mania Pack',cbpack:'the Central Bank Pack',cartopack:'the Cartographer’s Pack'};
 czTile=(f=>function(k,id,cur,ok,isNew,inner,label,cls){
   if(ok||!shopIs(id)||!CZ_KIND[k])return f.apply(this,arguments);
   const on=!!(SHOP.tryOn&&SHOP.tryOn.id===id);
@@ -55146,6 +55363,9 @@ cz=(f=>function(n){
   if(S.view!=='customise'){SHOP.tryOn=null;CZ.hov=null;return v;}
   return n===S.nation?czTryApply(v,t,n):v;
 })(cz);
+/* a finish or border line tried on from the Cartographer's Pack shows on the player's own world map, and only there:
+   not on a poster, and gone once they leave the map (see the pack) */
+cz=(f=>function(n){const v=f(n),t=CTG.try;if(!t||n!==S.nation||S.view!=='map'||PST.run)return v;return {...v,[t.k]:t.id};})(cz);
 /* saving reads the look as cz() gives it: it takes the piece being tried on off first, so it is never saved */
 czSave=(f=>function(fn){if(SHOP.tryOn){SHOP.tryOn=null;czVer++;}return f.apply(this,arguments);})(czSave);
 preSave=(f=>function(k){if(SHOP.tryOn){SHOP.tryOn=null;czVer++;}return f.apply(this,arguments);})(preSave);
@@ -55166,11 +55386,11 @@ document.addEventListener('click',e=>{
 const CZ_TABS=[['id','Identity',['t','e','a','y','v']],['look','Presentation',['b','s','z']],['money','Money',['c']]];
 const CZ_SECS=[['t','Epithet','epithet title name'],['e','Flag','flag emblem stripes layers colours'],['a','Coat of arms','arms shield charge heraldry tincture blazon'],['y','National symbols','holiday flower tree bird instrument colours nickname symbols'],
   ['v','Provinces','provinces states counties cantons governor divisions'],['b','Banner','banner border card frame pattern motto marker pin capital'],['s','Decrees','decree stamp seal signed'],['z','Finery','finery shop badge card inscription land presets'],['c','Currency','currency money banknote coin note symbol code']];
-const CZ_SEC_OF={title:'t',emblem:'e',charge:'a',border:'b',frame:'b',pattern:'b',motto:'b',pin:'b',stamp:'s',badge:'z',card:'z',inscription:'z',territory:'z'};
-const CZ_KW={title:'Epithet',emblem:'Flag emblem',charge:'Charge',border:'Card border',frame:'Flag frame',pattern:'Banner pattern',motto:'Motto frame',pin:'Capital marker',stamp:'Stamp',accent:'Accent colour',badge:'Badge',card:'Card design',inscription:'Passport inscription',territory:'Land'};
+const CZ_SEC_OF={title:'t',emblem:'e',charge:'a',border:'b',frame:'b',pattern:'b',motto:'b',pin:'b',stamp:'s',badge:'z',card:'z',inscription:'z',territory:'z',boundary:'z',mapcol:'z',poster:'z'};
+const CZ_KW={title:'Epithet',emblem:'Flag emblem',charge:'Charge',border:'Card border',frame:'Flag frame',pattern:'Banner pattern',motto:'Motto frame',pin:'Capital marker',stamp:'Stamp',accent:'Accent colour',badge:'Badge',card:'Card design',inscription:'Passport inscription',territory:'Land',boundary:'Map border',mapcol:'Map colour',poster:'Poster look'};
 const CZ_LB={t:'the epithet',f:'the flag frame',p:'the banner pattern',st:'the stamp',m:'the motto frame',pn:'the capital marker',bd:'the card border',bg:'the badge',cd:'the card design',ins:'the passport inscription',te:'the land'};
 /* a preview in the place each thing is seen; pointing at a marker or a stamp shows it where it lives */
-const CZ_CTX=[['card','Card'],['side','Sidebar'],['region','Region'],['map','Map'],['note','Banknote'],['decree','Decree']],CZ_CTX_K={pin:'map',territory:'map',stamp:'decree'};
+const CZ_CTX=[['card','Card'],['side','Sidebar'],['region','Region'],['map','Map'],['note','Banknote'],['decree','Decree']],CZ_CTX_K={pin:'map',territory:'map',boundary:'map',stamp:'decree'};
 const CZ_RESET={t:['t'],a:['a'],y:['sy'],b:['bd','f','p','m','pn'],s:['st','ds'],z:['bg','cd','ins','te']};
 const czLs=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}return null;};
 Object.assign(CZ,{tab:CZ_TABS.some(t=>t[0]===czLs('statehood.cz.tab'))?czLs('statehood.cz.tab'):'id',ctx:CZ_CTX.some(c=>c[0]===czLs('statehood.cz.ctx'))?czLs('statehood.cz.ctx'):'card',
@@ -55219,7 +55439,7 @@ function czLiveBody(n){
   let h='';
   if(ctx==='side')h=`<div class="cz-lv-side"><span class="mflag">${flagSVG(n.flag,'')}</span><span class="cz-lv-sn"><span class="side-pre">The ${esc(n.pretitle)} of</span><b>${esc(n.name)}</b>${shopBadge(n,1)}${ep?`<i>${esc(ep)}</i>`:''}</span></div>`;
   else if(ctx==='region')h=`<div class="cz-lv-reg"><span class="cz-lv-i num">1</span><span class="mflag">${flagSVG(n.flag,'')}</span><span class="cz-lv-rn"><b>${esc(n.name)}</b>${shopBadge(n,1)}${czEpiRow(n)}</span><span class="chip you">You</span></div>`;
-  else if(ctx==='map')h=`<div class="cz-lv-map">${shopLandSVG(n,0,!c.te)}<span class="cz-lv-pin">${pnSVG(c.pn,n)}</span></div>`;
+  else if(ctx==='map')h=`<div class="cz-lv-map">${ctgLandSVG(n,{te:c.te,tb:c.tb,cap:0})}<span class="cz-lv-pin">${pnSVG(c.pn,n).replace(/<path d="M14,40[^>]*\/>/,'')}</span></div>`;
   else if(ctx==='note'){let cu=null;try{cu=CU.d?cuDraftCur(n,CU.d)[1]:cuOf(n);}catch(e){cu=null;}h=cu?`<div class="cz-lv-note">${cuNoteSVG(n,cu,{})}</div>`:'<p class="hint">Your currency appears here once it has a design.</p>';}
   else if(ctx==='decree')h=`<div class="cz-lv-dec"><p class="eyebrow">Enacted</p><p class="cz-lv-dt">${esc(chamberOf(n).decree(n.name))}, it is ordered as follows.</p>${czStamp(n)}</div>`;
   else h=`<div class="cz-lv-card">${hero(n)}</div>`;
@@ -60899,7 +61119,8 @@ function start(data){
    the sheet is drawn by drawMap itself, as a visitor sees it (no planning marks, no lens, no time zones), zoomed to
    fit the nation, with the land of others paled so the nation stands out. Round it: the name with the arms and the
    flag, a compass, a scale bar, where the nation lies in its region, six facts and a key. Three looks (Atlas: the
-   game's own light map colours whatever the player's theme; Antique; Night) and three shapes. Nothing is stored
+   game's own light map colours whatever the player's theme; Antique; Night), a fourth sold in the Shop (Blueprint,
+   the Cartographer's Pack's: tried by anyone, saved only with the piece), and three shapes. Nothing is stored
    or sent: the picture is made in the browser, and saved or shared from there. */
 const PST_LOOKS={
   atlas:{n:'Atlas',paper:'#f8fbf9',ink:'#12292a',ink2:'#45605c',accent:'#1d6a5c',veil:0.5,ol:'#262626',
@@ -60907,8 +61128,17 @@ const PST_LOOKS={
   antique:{n:'Antique',paper:'#efe3c6',ink:'#3d2a17',ink2:'#6b5235',accent:'#8a3b22',veil:0.5,ol:'#3d2a17',hatch:true,
     pal:{'--sea':'#ddd3b0','--sea-2':'#e6dcbc','--land':'#ead9a8','--hill':'#dcc393','--mount':'#c2a577','--forest':'#cdc88f','--marsh':'#d2d2a8','--arid':'#ecd08f','--polder':'#e3dc9c','--coast':'#7a6442','--terr-a':'.42','--ink':'#3d2a17','--sheet':'#efe3c6','--stamp':'#6b3f73','--down':'#9c3b22','--accent':'#8a3b22'}},
   night:{n:'Night',paper:'#0f1c22',ink:'#ece2c6',ink2:'#b3a37a',accent:'#d9b765',veil:0.55,ol:'#ece2c6',
-    pal:{'--sea':'#0a1b1f','--sea-2':'#142e36','--land':'#2b3324','--hill':'#3b3430','--mount':'#55504a','--forest':'#183d24','--marsh':'#173f37','--arid':'#46391c','--polder':'#3a4a1d','--coast':'#416660','--terr-a':'.55','--ink':'#ece2c6','--sheet':'#0f1c22','--stamp':'#b59cf5','--down':'#ff8577','--accent':'#d9b765'}}
+    pal:{'--sea':'#0a1b1f','--sea-2':'#142e36','--land':'#2b3324','--hill':'#3b3430','--mount':'#55504a','--forest':'#183d24','--marsh':'#173f37','--arid':'#46391c','--polder':'#3a4a1d','--coast':'#416660','--terr-a':'.55','--ink':'#ece2c6','--sheet':'#0f1c22','--stamp':'#b59cf5','--down':'#ff8577','--accent':'#d9b765'}},
+  /* the Cartographer's Pack's (lock: the piece that opens it): white lines on blueprint blue, over a surveyor's grid */
+  blueprint:{n:'Blueprint',lock:'pl-blueprint',paper:'#1c3d63',ink:'#eef4fb',ink2:'#a9c3e0',accent:'#ffd479',veil:0.5,ol:'#eef4fb',grid:true,
+    pal:{'--sea':'#17375a','--sea-2':'#1f4672','--land':'#2b5a88','--hill':'#30608f','--mount':'#3a6c9c','--forest':'#2b5d82','--marsh':'#295c80','--arid':'#336390','--polder':'#2e5e8b','--coast':'#d6e6f6','--terr-a':'.42','--ink':'#eef4fb','--sheet':'#1c3d63','--stamp':'#ffd479','--down':'#ff9b8a','--accent':'#ffd479'}}
 };
+/* a look sold in the Shop: anyone may try it in the dialog, and saving it needs the piece; offered while held or on sale */
+function pstLocked(k){const L=PST_LOOKS[k];if(!L||!L.lock)return false;try{return !(S.nation&&czHolds(S.nation,L.lock,S.nation.cz));}catch(e){return true;}}
+function pstOffered(k){const L=PST_LOOKS[k];return !!L&&(!L.lock||!pstLocked(k)||shopSells('cartopack'));}
+/* a look being tried carries a band across it, so a picture of it is not taken for the real thing */
+function pstMark(g,W,H){g.save();g.translate(W/2,H/2);g.rotate(-Math.atan2(H,W)*0.8);const w=Math.hypot(W,H);g.fillStyle='rgba(255,212,121,.92)';g.fillRect(-w/2,-16,w,32);
+  g.fillStyle='#1c3d63';g.font='600 13px '+PST_BODY;g.textAlign='center';g.textBaseline='middle';g.fillText('PREVIEW  ·  THE BLUEPRINT LOOK COMES WITH THE CARTOGRAPHER’S PACK',0,1);g.restore();}
 /* the sheets, in their own units (a picture is k times as many pixels): the map's frame, the name block (tw: the
    room the name may take), the rule under it, the facts, the rule over the key, the key and the foot */
 const PST_SHAPES={
@@ -60951,13 +61181,21 @@ MAP_LAYERS.push({stage:'terrain',kinds:['visit'],draw:M=>{
   g.setTransform(M.dpr,0,0,M.dpr,0,0);g.beginPath();for(let y=2.5;y<M.h;y+=5){g.moveTo(0,y);g.lineTo(M.w,y);}
   g.globalAlpha=0.42;g.strokeStyle=M.col.coast;g.lineWidth=0.5;g.stroke();
 }});
+/* the Blueprint look's grid (the Cartographer's Pack): fine lines every 12 sheet units and bolder ones every 60, under the land's colours */
+MAP_LAYERS.push({stage:'terrain',kinds:['visit'],draw:M=>{
+  const R=PST.run;if(!R||!R.L.grid||!M.first)return;const g=M.g;g.setTransform(M.dpr,0,0,M.dpr,0,0);g.strokeStyle=M.col.coast;
+  for(const [st,a,lw] of [[12,0.14,0.5],[60,0.28,0.9]]){g.beginPath();for(let x=0.5;x<M.w;x+=st){g.moveTo(x,0);g.lineTo(x,M.h);}for(let y=0.5;y<M.h;y+=st){g.moveTo(0,y);g.lineTo(M.w,y);}g.globalAlpha=a;g.lineWidth=lw;g.stroke();}
+}});
 MAP_LAYERS.push({stage:'over',kinds:['visit'],draw:M=>{
   const R=PST.run;if(!R)return;const g=M.g,T=M.T,mi=R.mi,rest=[];
   for(const t of [2,3,4])for(const i of M.byT[t])if(T.owner[i]!==mi)rest.push(i);
   if(rest.length){g.beginPath();for(const i of rest)hexFill(g,i,HEX_R+0.5);g.globalAlpha=R.L.veil;g.fillStyle=M.col.sheet;g.fill();g.globalAlpha=1;}
   const own=M.byO.get(mi);if(!own)return;
   g.lineJoin='round';g.lineCap='round';g.beginPath();edgeList(g,own,(i,j)=>j<0||T.owner[j]!==mi);
-  g.globalAlpha=0.3;g.strokeStyle=R.band;g.lineWidth=7/M.s;g.stroke();g.globalAlpha=1;g.strokeStyle=M.col.ink;g.lineWidth=2.3/M.s;g.stroke();
+  g.globalAlpha=0.3;g.strokeStyle=R.band;g.lineWidth=7/M.s;g.stroke();g.globalAlpha=1;
+  /* the Cartographer's Pack's border line, when the nation wears one, in place of the plain line */
+  const tb=ctgLook(T.list[mi]).tb;if(tb){g.save();try{ctgBorder(g,M,mi,own,tb,T.list[mi].col,true);}finally{g.restore();}return;}
+  g.strokeStyle=M.col.ink;g.lineWidth=2.3/M.s;g.stroke();
 }});
 /* the map itself: drawMap onto a canvas of its own, through a hidden canvas that only lends its size, with the
    view, the map's options and the colours set for the picture and put back at once */
@@ -61158,6 +61396,7 @@ async function pstRender(lookKey,shapeKey){
   const ft=Sh.foot,day='Surveyed '+fmtDate(Date.now());
   if(ft.two){pstText(g,day,ft.x,ft.y,{size:13,fam:PST_BODY,fill:L.ink2});pstText(g,'edictumgame.com',ft.x,ft.y+18,{size:13,w:500,fam:PST_BODY,fill:L.accent});}
   else pstText(g,day+'  ·  edictumgame.com',ft.x,ft.y,{size:13,fam:PST_BODY,fill:L.ink2,a:ft.a});
+  if(pstLocked(lookKey))pstMark(g,W,H);
   return cv;
 }
 
@@ -61165,15 +61404,20 @@ async function pstRender(lookKey,shapeKey){
 function pstCanShare(){try{return !!(navigator.share&&navigator.canShare&&typeof File==='function'&&navigator.canShare({files:[new File([new Uint8Array(1)],'p.png',{type:'image/png'})]}));}catch(e){return false;}}
 function pstFile(n){return shopSlug(n.name)+'-poster-'+PST.look+'-'+PST.shape+'.png';}
 function pstHTML(n){
-  const seg=(act,cur,list,lab)=>`<div class="pst-grp"><span class="pst-lab" id="pst-l-${act}">${lab}</span><div class="pst-seg" role="group" aria-labelledby="pst-l-${act}">${Object.keys(list).map(k=>`<button type="button" class="pst-opt" data-act="pst-${act}" data-v="${k}" aria-pressed="${k===cur}">${list[k].n}</button>`).join('')}</div></div>`;
+  const seg=(act,cur,list,lab)=>`<div class="pst-grp"><span class="pst-lab" id="pst-l-${act}">${lab}</span><div class="pst-seg" role="group" aria-labelledby="pst-l-${act}">${Object.keys(list).filter(k=>act!=='look'||pstOffered(k)).map(k=>`<button type="button" class="pst-opt" data-act="pst-${act}" data-v="${k}" aria-pressed="${k===cur}">${list[k].n}${act==='look'&&pstLocked(k)?CZ_LOCK:''}</button>`).join('')}</div></div>`;
   return `<div class="pst-modal" role="dialog" aria-modal="true" aria-labelledby="pst-h"><button type="button" class="pst-scrim" data-act="pst-close" aria-label="Close" tabindex="-1"></button>
     <div class="pst-sheet"><button type="button" class="pst-x linkish small" data-act="pst-close" id="pst-x">Close</button>
     <p class="eyebrow">World map</p><h2 class="pst-h" id="pst-h">Poster of ${esc(n.name)}</h2>
     <p class="pst-sum">Your nation as a map to keep or to share. The picture is made here in your browser.</p>
     <div class="pst-ctl">${seg('look',PST.look,PST_LOOKS,'Look')}${seg('shape',PST.shape,PST_SHAPES,'Shape')}</div>
     <div class="pst-stage" id="pst-stage" aria-live="polite"></div>
-    <div class="row pst-acts"><button type="button" class="btn" data-act="pst-save" id="pst-save" disabled>Save picture</button>${pstCanShare()?'<button type="button" class="btn ghost" data-act="pst-share" id="pst-share" disabled>Share</button>':''}</div>
+    <div class="row pst-acts" id="pst-acts">${pstActs()}</div>
     <p class="pst-note" id="pst-note" role="status"></p></div></div>`;
+}
+/* Save and Share; for a look being tried, the way to the pack instead */
+function pstActs(){
+  if(pstLocked(PST.look))return `<p class="pst-lockn">${CZ_LOCK} The ${esc(PST_LOOKS[PST.look].n)} look is part of the Cartographer’s Pack. Try it here as often as you like; saving it needs the pack.</p><button type="button" class="btn" data-act="ctg-shop">See the Cartographer’s Pack</button>`;
+  return `<button type="button" class="btn" data-act="pst-save" id="pst-save"${PST.blob?'':' disabled'}>Save picture</button>${pstCanShare()?`<button type="button" class="btn ghost" data-act="pst-share" id="pst-share"${PST.blob?'':' disabled'}>Share</button>`:''}`;
 }
 function pstNote(t){const e=document.getElementById('pst-note');if(e)e.textContent=t||'';}
 function pstReady(on){for(const id of ['pst-save','pst-share']){const b=document.getElementById(id);if(b)b.disabled=!on;}}
@@ -61192,7 +61436,7 @@ function pstDraw(){
   },20));
 }
 function pstShow(){
-  const n=S.nation;if(!n||cellOf(n.loc)<0)return;
+  const n=S.nation;if(!n||cellOf(n.loc)<0)return;if(!pstOffered(PST.look))PST.look='atlas';
   let el=document.getElementById('pst-root');if(!el){el=document.createElement('div');el.id='pst-root';document.body.appendChild(el);}
   PST.open=true;el.innerHTML=pstHTML(n);const x=document.getElementById('pst-x');if(x)x.focus();pstDraw();
 }
@@ -61201,12 +61445,12 @@ function pstHide(){
   const b=PST.back;PST.back=null;const to=b&&b.isConnected?b:document.querySelector('[data-act="poster-open"]');if(to)to.focus();
 }
 function pstSave(){
-  const n=S.nation,b=PST.blob;if(!n||!b)return;const name=pstFile(n),a=document.createElement('a');
+  const n=S.nation,b=PST.blob;if(!n||!b||pstLocked(PST.look))return;const name=pstFile(n),a=document.createElement('a');
   a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
   pstNote('Saved as '+name+'.');pstStat('poster_saved');
 }
 function pstShare(){
-  const n=S.nation,b=PST.blob;if(!n||!b)return;
+  const n=S.nation,b=PST.blob;if(!n||!b||pstLocked(PST.look))return;
   try{navigator.share({files:[new File([b],pstFile(n),{type:'image/png'})],title:'Map of '+n.name,text:n.name+' on Edictum · edictumgame.com'}).then(()=>pstStat('poster_shared'),e=>{if(!e||e.name!=='AbortError')pstNote('Sharing did not work here. Save the picture instead.');});}
   catch(e){pstNote('Sharing did not work here. Save the picture instead.');}
 }
@@ -61219,6 +61463,7 @@ document.addEventListener('click',e=>{
     const v=el.dataset.v;if(a==='pst-look'&&PST_LOOKS[v])PST.look=v;if(a==='pst-shape'&&PST_SHAPES[v])PST.shape=v;
     document.querySelectorAll('#pst-root .pst-opt').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===(b.dataset.act==='pst-look'?PST.look:PST.shape))));
     try{localStorage.setItem('statehood.poster',PST.look+'/'+PST.shape);}catch(err){}
+    {const ac=document.getElementById('pst-acts');if(ac)ac.innerHTML=pstActs();}
     pstDraw();
   }
   else if(a==='pst-save')pstSave();
