@@ -7542,6 +7542,47 @@ button.rgc-nm{text-align:left}
 .acx-mh{margin-top:6px}
 .acx-mb{display:flex;gap:10px;align-items:center;white-space:nowrap}
 @media (max-width:600px){.acx-l{grid-template-columns:40px minmax(0,1fr)}.acx-b{grid-column:2;grid-row:auto;flex-wrap:wrap}}
+/* region chat, round two: tabs, answers, @mentions, reactions, badges beside names, happenings, docked beside the page */
+.rgc-tabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--rule)}
+.rgc-tab{position:relative;display:inline-flex;align-items:center;gap:6px;padding:9px 10px 8px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--ink-2);font-size:13.5px;font-weight:500;cursor:pointer}
+.rgc-tab:hover{color:var(--ink)}
+.rgc-tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.rgc-tn{min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 10.5px/17px var(--f-mono);text-align:center}
+.rgc-q{display:block;max-width:100%;margin:1px 0 2px 31px;padding:2px 8px;border:0;border-left:2px solid var(--rule-2);background:var(--sheet-2);color:var(--ink-2);font-size:12.5px;line-height:1.4;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:0 4px 4px 0}
+.rgc-q:hover{border-left-color:var(--accent);color:var(--ink)}
+.rgc-qn{font-weight:600;color:var(--ink)}
+.rgc-l.flash{animation:rgc-flash 2.2s ease-out}
+@keyframes rgc-flash{0%,30%{background:var(--accent-soft)}}
+@media (prefers-reduced-motion:reduce){.rgc-l.flash{animation:none;background:var(--accent-soft)}}
+.rgc-at{font-weight:600;color:var(--accent)}
+.rgc-at.me{padding:0 2px;border-radius:2px;background:var(--stamp-soft);color:var(--stamp)}
+.rgc-rxs{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 2px 31px}
+.rgc-rx{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border:1px solid var(--rule-2);border-radius:999px;background:var(--sheet);color:var(--ink-2);font:500 12px/1.6 var(--f-body);cursor:pointer}
+.rgc-rx:hover{border-color:var(--ink-3)}
+.rgc-rx.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.rgc-rxp{display:flex;gap:2px;padding:2px 2px 6px;margin-bottom:4px;border-bottom:1px solid var(--rule)}
+.rgc-menu .rgc-rxp button{flex:1;padding:4px 0;text-align:center;font-size:17px;line-height:1.2}
+.rgc-menu .rgc-rxp button[aria-pressed="true"]{background:var(--accent-soft)}
+.rgc-rk{flex:none;width:9px;height:9px;border-radius:2px;transform:rotate(45deg);background:var(--bd-plate,var(--bd-2,var(--ink-3)));box-shadow:inset 0 0 0 1px var(--bd-3,transparent)}
+.rgc-al{flex:none;padding:0 5px;border-radius:3px;background:color-mix(in srgb,var(--alc) 18%,var(--sheet));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--alc) 55%,transparent);color:var(--ink);font:600 10px/16px var(--f-mono);letter-spacing:.04em}
+.rgc-lh .founder-pill{flex:none;padding:1px 7px 1px 6px;font-size:9.5px}
+.rgc-l.ally .rgc-x{white-space:pre-wrap}
+.rgc-hap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start;padding:8px 6px;border-bottom:1px solid var(--rule);font-size:13.5px;line-height:1.45}
+.rgc-hpt{grid-column:1/-1;font:500 11px/1.3 var(--f-mono);color:var(--ink-3)}
+.rgc-hx{min-width:0;overflow-wrap:anywhere}
+.rgc-wel{align-self:center}
+.rgc-rebar{display:flex;align-items:center;gap:6px;margin:0 0 6px;padding:4px 4px 4px 10px;border-left:2px solid var(--accent);background:var(--sheet-2);font-size:12.5px;color:var(--ink-2)}
+.rgc-reb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rgc-rebar[hidden]{display:none}
+.rgc-rebar .rgc-hb{width:26px;height:26px}
+.rgc-mn{list-style:none;margin:0 0 6px;padding:4px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet);box-shadow:var(--shadow)}
+.rgc-mn[hidden]{display:none}
+.rgc-mn li{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;font-size:13.5px;cursor:pointer}
+.rgc-mn li.on,.rgc-mn li:hover{background:var(--accent-soft)}
+.rgc-dockb{display:none}
+@media (min-width:1100px){.rgc-dockb{display:grid}.rgc-dockb[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}}
+html.rgc-docked body{padding-right:400px}
+html.rgc-docked .rgc-dock{box-shadow:none;animation:none}
 @media print{.rgc-dock,.rgc-btn{display:none!important}}
 </style>
 
@@ -21839,7 +21880,7 @@ function bellButton(now){const c=notifCount(now);return `<button class="bell${S.
 function notifPanel(now){
   if(!S.notifOpen)return '';
   const {pin,ev}=notifItems(now),prev=S.notifPrev||0;
-  const row=(x,pinned)=>`<li class="nt-item${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}"><button class="nt" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"${x.cb?` data-cb="${esc(x.cb)}"`:''}${x.fk?` data-fk="${esc(x.fk)}"`:''}${x.cx?` data-cx="${esc(x.cx)}" data-cxt="${esc(x.tab||'')}" data-cxa="${esc(x.at||'')}"`:''}><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
+  const row=(x,pinned)=>`<li class="nt-item${pinned?' pin':''}${(pinned?!!(S.notifPin&&S.notifPin.has(pinSig(x))):x.t>prev&&!x.read)?' new':''}"><button class="nt" data-act="nt-go" data-v="${x.go}" data-peer="${esc(x.peer||'')}"${x.cb?` data-cb="${esc(x.cb)}"`:''}${x.rc?` data-rc="${esc(x.rc)}"`:''}${x.fk?` data-fk="${esc(x.fk)}"`:''}${x.cx?` data-cx="${esc(x.cx)}" data-cxt="${esc(x.tab||'')}" data-cxa="${esc(x.at||'')}"`:''}><span class="nt-k">${NOTIF_K[x.k]||x.kl||'Notice'}${pinned?'':' · '+rel(x.t)}</span><span class="nt-x">${esc(x.txt)}</span></button>${rewardLinksHTML(x.links)}</li>`;
   return `<div class="notif-pop" role="dialog" aria-label="Notifications"><div class="np-h"><b>Notifications</b><button class="linkish small" data-act="notif">Close</button></div>
     ${pin.length?`<ul class="nts">${pin.map(x=>row(x,true)).join('')}</ul>`:''}
     ${ev.length?`<ul class="nts">${ev.map(x=>row(x,false)).join('')}</ul>`:(pin.length?'':'<p class="hint np-empty">Nothing yet. Wars, trade, messages, matters in your cities, milestones and finished buildings will appear here.</p>')}
@@ -38998,7 +39039,7 @@ function tutDevGet(){
 }
 function tutMark(c){
   if(!S.nation)return;const k=tutDevGet();if(k.includes(c))return;TUT.dev+=c;
-  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcub]/g,'')}));}catch(e){}
+  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcubh]/g,'')}));}catch(e){}
   tutLcSoon();
 }
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
@@ -39020,6 +39061,8 @@ const tutCharterLock=n=>pgAvailable(n,'charter')?'':'Finish your charter first: 
 const tutSettleLock=n=>cellOf(n.loc)<0?'Settle on the map first: your first edict asks where.':'';
 /* a message of this player's nation (or a reply) among the region board's latest, not one signed by the Edictum team */
 const tutRmbMine=()=>{try{const m=S.rmb&&S.uid&&!OBS?S.rmb[S.uid]:null;return !!m&&m.posts.some(p=>!p.of);}catch(e){return false;}};
+/* a line of the player's own in the region chat (the newest lines the chat holds), for Say hi in the region chat */
+const tutChatMine=()=>{try{const me=S.uid;return !!me&&!OBS&&RGC.list.some(m=>m.a===me&&!m.tm);}catch(e){return false;}};
 const tutCapCity=n=>{try{const c=cellOf(n.loc);return c<0?null:cityList(n).find(x=>x.c===c)||null;}catch(e){return null;}};
 const tutPrvT2=()=>{try{return prvT2(S.nation);}catch(e){return 'Provinces';}},tutPrvOn=()=>{try{return prvOnRec(S.nation);}catch(e){return false;}};
 function tutLandHint(n){
@@ -39062,6 +39105,9 @@ const TUT_LISTS=[
     {k:'rmb',t:()=>`Say hi to ${REGION}`,h:'Leave a message on the region’s board: a hello, a question or news of your nation. Every player in the region reads it.',
      v:'region',to:'rmb-text',b:'Open the board',lc:3,gift:{food:5,timber:5,iron:10,oil:10,goods:5},mapc:'#A347C8',mapcN:'Orchid',
      lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()},
+    {k:'rch',t:'Say hi in the region chat',h:'Open the chat with the speech-bubble button beside the bell and write a line: a hello, a question or news of your nation. Everyone in the region who is playing reads it at once.',
+     act:'tut-chat',b:'Open the chat',lc:2,gift:{food:5,timber:5,goods:5},
+     lock:n=>tutReg()?'':'Only Registered Nations write in the chat: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('h')||tutChatMine()},
     {k:'mdig',t:'Do a museum dig',h:'The Museum’s Field digs hall sends diggers to an old site. They come back hours later with finds for your collection.',
      act:'tut-dig',b:'Open the digs',lc:2,gift:{food:10,timber:10,iron:10,oil:10,goods:10},f:n=>(n.dig||[]).length>0||(n.digF||[]).length>0}]},
   {k:'mark',c:'m',eb:'Next steps',t:()=>`Make your mark in ${REGION}`,hk:'statehood.steps2.v1',
@@ -45249,10 +45295,9 @@ function rmbBoardHTML(){
   return `${canPost?`<form class="rmb-form" id="rmb-form">${as}<label class="lbl" for="rmb-text">${teamOk?'Your message':`Post as ${esc(fullName(S.nation))}`}</label><textarea class="input" id="rmb-text" data-bind="rmb" maxlength="400" rows="3" placeholder="Address the region…">${esc(S.rmbDraft)}</textarea><div class="rmb-bar"><span class="hint" id="rmb-count">${S.rmbDraft.length} / 400</span><button class="btn" type="submit">Post message</button></div></form>`:`<div class="info" style="margin-bottom:16px">${S.mode==='world'?`Guest Nations can read the board and react to messages.${accountActionHint('topic')}`:'You have view-only access, so you can read the board but not post.'}</div>`}
     ${tops.length?`<ul class="posts">${tops.slice(0,N).map(o=>rmbItem(o,{canReply:canPost&&!o.p.re,kids:kids.get(o.p.id)||[],orphan:!!o.p.re})).join('')}</ul>${tops.length>N?`<p class="more-row"><button type="button" class="btn ghost small" data-act="rmb-more">Show older posts</button> <span class="hint">${Math.min(N,tops.length)} of ${tops.length}</span></p>`:''}`:`<div class="empty"><p class="empty-h">No messages yet</p><p>Post the first message to ${REGION}. Every player who opens this page will see it.</p></div>`}`;
 }
-function regionView(now){
-  const all=allNations().sort((a,b)=>popNow(b.n,now)-popNow(a.n,now));
-  const players=all.filter(x=>!x.npc).length,npcs=all.length-players;
-  /* happenings */
+/* the region's happenings, newest first [{t, l, x, txt}] (txt is HTML): the Region page's Happenings tab and the
+   region chat's (rgcHaps) */
+function regionHaps(all,now){
   const haps=[];
   for(const x of all){if(x.npc){for(const l of x.n.laws||[])if(l.t<=now&&now-l.t<36*3600e3)haps.push({t:l.t,l:{k:'issue',fx:l.fx},x});continue;}for(const l of x.n.log)if(l.k!=='issue'&&l.t>=(x.n.mvAt||0))haps.push({t:l.t,l,x});for(const a of x.n.answered||[])if(a.o>=0&&a.fx&&a.t>=(x.n.mvAt||0))haps.push({t:a.t,l:{k:'issue',fx:a.fx},x});}
   for(const x of all){if(x.npc)continue;for(const h of runHooks(HAP_SOURCES,x,now))if(h.t>=(x.n.mvAt||0))haps.push({t:h.t,l:{k:'_ext',html:h.txt},x});}
@@ -45307,6 +45352,13 @@ function regionView(now){
     return '';};
   for(const h of haps)h.txt=hapText(h.l,h.x);
   const hapsOk=haps.filter(h=>h.txt);
+  return hapsOk;
+}
+function regionView(now){
+  const all=allNations().sort((a,b)=>popNow(b.n,now)-popNow(a.n,now));
+  const players=all.filter(x=>!x.npc).length,npcs=all.length-players;
+  /* happenings */
+  const hapsOk=regionHaps(all,now);
   const hapsHTML=`<section aria-labelledby="rgn-hap-h"><h2 class="h2 sr" id="rgn-hap-h">Happenings</h2>${hapsOk.length?`<ul class="haps">${hapsOk.slice(0,S.hapN||30).map(h=>`<li><span class="hap-t">${rel(h.t)}</span><span>${h.txt}</span></li>`).join('')}</ul>${hapsOk.length>(S.hapN||30)?'<p class="more-row"><button type="button" class="btn ghost small" data-act="hap-more">Show older happenings</button></p>':''}`:`<div class="empty"><p>Nothing has happened yet.</p></div>`}</section>`;
   const t=RGN_TABS.some(x=>x[0]===RGN.tab)?RGN.tab:'overview';RGN.tab=t;
   let alN=0;try{alN=[...politics().al.values()].filter(A=>A.srv&&A.members.length).length;}catch(e){}
@@ -51219,7 +51271,9 @@ function cbMnListen(){
   CB.mnUid=S.uid;CB.mns=[];
   CB.mnOff=S.db.collection('mentions/'+S.uid+'/m').orderBy('t','desc').limit(20).onSnapshot(qs=>{
     const old=Date.now()-30*DAY;
-    CB.mns=qs.docs.map(d=>({id:d.id,...d.data()})).filter(m=>typeof m.t==='number'&&typeof m.reg==='string'&&CB_ID.test(m.tid||''));
+    const all=qs.docs.map(d=>({id:d.id,...d.data()})).filter(m=>typeof m.t==='number'&&typeof m.reg==='string');
+    /* the board's (a topic) and the region chat's (k chat, a line rc) */
+    CB.mns=all.filter(m=>CB_ID.test(m.tid||''));CB.mnAll=all;
     for(const d of qs.docs)if(((d.data()||{}).t||0)<old&&d.ref)Promise.resolve().then(()=>d.ref.delete()).catch(()=>{});
     if(typeof fkBellRefresh==='function')fkBellRefresh();},()=>{});}
 NOTIF_SOURCES.push((n,now)=>{cbMnListen();
@@ -63510,6 +63564,7 @@ function alChatConnect(){
   if(!aid||!S.db)return;
   try{C.unsub=S.db.collection('alliances/'+aid+'/chat').orderBy('t','desc').limit(60).onSnapshot(qs=>{
     C.list=qs.docs.map(d=>{const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,1000),t:Number(v.t)||0};}).sort((a,b)=>a.t-b.t);C.err='';
+    try{if(typeof rgcAllyHeard==='function')rgcAllyHeard();}catch(e){}
     if(OBS){if(S.view==='alliance'&&!alTyping())quietRender();return;}
     if(S.view==='diplomacy'&&AL.tab==='alliance'&&AL.sub==='channel'){alChatSeen();if(!alTyping())quietRender();}else NVX.ver++;
   },e=>{C.err='The channel could not be loaded.';});}catch(e){}
@@ -65195,7 +65250,10 @@ function rgcConnect(){
 function rgcHear(reg,qs){
   if(RGC.reg!==reg)return;
   const me=myId(),first=!RGC.ready,top=RGC.top;
-  RGC.list=qs.docs.map(d=>{const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true};})
+  RGC.list=qs.docs.map(d=>{const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
+    return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,
+      r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true}:null,
+      mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null};})
     .sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
   /* new lines: since the last snapshot; on the first, those of the last few minutes not yet read (the chat may have
      connected a little after the game, while a nation founded a moment ago was still being saved) */
@@ -65205,7 +65263,7 @@ function rgcHear(reg,qs){
      line of ours with the same words */
   if(RGC.pend.length){const ids=new Set(RGC.list.map(m=>m.id));RGC.pend=RGC.pend.filter(p=>p.id?!ids.has(p.id):!RGC.list.some(m=>m.a===me&&m.x===p.x&&m.t>p.top));}
   rgcNamed(fresh);
-  if(RGC.open&&!document.hidden){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=`${rgcName(m)}: ${m.x}`;}}
+  if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=`${rgcName(m)}: ${m.x}`;}}
   rgcBadge();rgcPaint();
 }
 function rgcName(m){if(m.tm)return 'Edictum team';const x=findNation(m.a);return x?x.n.name:m.nm;}
@@ -65219,7 +65277,16 @@ function rgcNameRe(){
   return RGC_NRE.re;
 }
 function rgcNames(x){const re=rgcNameRe();if(!re)return false;re.lastIndex=0;return re.test(x);}
-function rgcText(x){
+/* the words of a line: the nations it @mentions (mn) marked, and the player's own nation's name highlighted */
+function rgcText(x,mn){
+  const me=myId(),names=mn&&typeof mn==='object'?Object.entries(mn).filter(([,n])=>typeof n==='string'&&n).map(([u,n])=>({u,n})).sort((a,b)=>b.n.length-a.n.length):[];
+  if(!names.length)return rgcHi(x);
+  let re;try{re=new RegExp('@('+names.map(o=>o.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')(?![\\p{L}\\p{N}])','giu');}catch(e){return rgcHi(x);}
+  let out='',i=0,m;
+  while((m=re.exec(x))){const o=names.find(q=>q.n.toLowerCase()===m[1].toLowerCase());out+=rgcHi(x.slice(i,m.index))+`<span class="rgc-at${o&&o.u===me?' me':''}">@${esc(m[1])}</span>`;i=m.index+m[0].length;if(!m[0].length)re.lastIndex++;}
+  return out+rgcHi(x.slice(i));
+}
+function rgcHi(x){
   const re=rgcNameRe();if(!re)return esc(x);
   re.lastIndex=0;let out='',i=0,m;
   while((m=re.exec(x))){const s=m.index+m[1].length;out+=esc(x.slice(i,s))+'<mark>'+esc(m[2])+'</mark>';i=s+m[2].length;if(!m[0].length)re.lastIndex++;}
@@ -65227,22 +65294,24 @@ function rgcText(x){
 }
 function rgcNamed(fresh){
   if(OBS||!S.nation||dmx(S.nation).rcn===0||!fresh.length)return;
-  const hit=fresh.filter(m=>rgcNames(m.x));if(!hit.length||RGC.open&&!document.hidden)return;
+  const me=myId(),hit=fresh.filter(m=>rgcNames(m.x)||m.mn&&m.mn[me]||m.r&&m.r.a===me);if(!hit.length||RGC.open&&!document.hidden&&rgcTab()==='region')return;
   const now=Date.now();if(now-RGC.toastAt<30000)return;RGC.toastAt=now;
-  toast(`${rgcName(hit[hit.length-1])} mentioned ${S.nation.name} in the region chat.`);
+  const m=hit[hit.length-1];
+  toast(m.r&&m.r.a===me&&!(m.mn&&m.mn[me])?`${rgcName(m)} answered you in the region chat.`:`${rgcName(m)} mentioned ${S.nation.name} in the region chat.`);
 }
 /* the Chat button beside the bell; between drawings rgcBadge keeps its number */
 function rgcLabel(c){return 'Region chat'+(c?`, ${c} new`:'');}
 function rgcButton(){
-  if(!rgcOn())return '';const c=rgcUnread();
+  if(!rgcOn())return '';const c=rgcCount();
   return `<button type="button" class="rgc-btn${RGC.open?' on':''}" data-rgc="toggle" aria-expanded="${RGC.open}" aria-controls="rgc-dock" aria-label="${rgcLabel(c)}" title="Region chat">${RGC_SVG}<span class="rgc-n"${c?'':' hidden'}>${c?(c>99?'99+':c):''}</span></button>`;
 }
 function rgcBadge(){
-  const c=rgcUnread(),t=c>99?'99+':String(c);
+  const c=rgcCount(),t=c>99?'99+':String(c);
   for(const b of document.querySelectorAll('.rgc-btn')){
     b.classList.toggle('on',RGC.open);b.setAttribute('aria-expanded',String(RGC.open));b.setAttribute('aria-label',rgcLabel(c));
     const n=b.querySelector('.rgc-n');if(n){n.hidden=!c;n.textContent=c?t:'';}
   }
+  if(RGC.open)rgcTabsPaint();
 }
 /* the drawer, made once and kept in <body> */
 function rgcDock(){
@@ -65250,14 +65319,16 @@ function rgcDock(){
   const d=document.createElement('aside');
   d.id='rgc-dock';d.className='rgc-dock';d.hidden=true;d.setAttribute('role','dialog');d.setAttribute('aria-labelledby','rgc-h');
   d.innerHTML=`<div class="rgc-head"><div class="rgc-ht"><p class="eyebrow">Region chat</p><h2 class="rgc-h" id="rgc-h"></h2><p class="rgc-sub" id="rgc-sub"></p></div>
+    <button type="button" class="rgc-hb rgc-dockb" data-rgc="dock" aria-pressed="false" aria-label="Dock beside the page" title="Dock beside the page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="currentColor" stroke-width="1.6"/><path d="M16.6 8.5h2M16.6 11h2M16.6 13.5h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="settings" aria-label="Chat settings" title="Chat settings"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="close" aria-label="Close the chat" title="Close (Esc)"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button></div>
-    <div class="rgc-body" id="rgc-body"><ol class="rgc-list" id="rgc-list"></ol><button type="button" class="rgc-jump" data-rgc="jump" hidden>Latest lines ↓</button></div>
+    <div class="rgc-tabs" id="rgc-tabs" role="tablist" aria-label="Chat"></div>
+    <div class="rgc-body" id="rgc-body" role="tabpanel"><ol class="rgc-list" id="rgc-list"></ol><button type="button" class="rgc-jump" data-rgc="jump" hidden>Latest lines ↓</button></div>
     <p class="sr" id="rgc-live" aria-live="polite"></p>
     <div class="rgc-foot" id="rgc-foot"></div>`;
   document.body.appendChild(d);RGC.dock=d;
   const body=d.querySelector('#rgc-body');
-  body.addEventListener('scroll',()=>{const s=body.scrollHeight-body.scrollTop-body.clientHeight<48;if(s!==RGC.stick){RGC.stick=s;const j=d.querySelector('.rgc-jump');if(j)j.hidden=s;}},{passive:true});
+  body.addEventListener('scroll',()=>{const s=body.scrollHeight-body.scrollTop-body.clientHeight<48;if(s!==RGC.stick){RGC.stick=s;const j=d.querySelector('.rgc-jump');if(j)j.hidden=s||rgcTab()==='haps';}},{passive:true});
   return d;
 }
 const rgcIn=()=>REG.the||REGION;
@@ -65286,52 +65357,94 @@ function rgcAsk(m,nm,mine){
     :mine?'Delete this line? It goes for everyone.':`Remove this line by <b>${esc(nm)}</b>? It goes for everyone, and the audit log keeps it.`;
   return `<div class="rgc-ask" role="alert"><p>${t}</p><div class="row"><button type="button" class="btn small danger solid" data-rgc="${blk?'block':'del'}" data-id="${esc(m.id)}">${blk?'Block':mine?'Delete':'Remove'}</button><button type="button" class="btn ghost small" data-rgc="ask-no">Cancel</button></div></div>`;
 }
-function rgcLine(m,run,by,me,mod){
-  /* a line the Edictum team signed (tm): the team's mark and name, never a nation's, and nothing to report or block */
-  const x=m.tm?null:by.get(m.a),mine=m.a===me&&!m.tm,nm=m.tm?'Edictum team':x?x.n.name:m.nm,named=!mine&&rgcNames(m.x),when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`;
+function rgcLine(m,run,by,me,mod,memo){
+  /* a line the Edictum team signed (tm): the team's mark and name, never a nation's, and nothing to report or block;
+     a line of the alliance channel (ally): Delete for its writer and the alliance's officers, nothing else */
+  const ally=!!m.ally,i=esc(m.id);
+  const x=m.tm?null:by.get(m.a),mine=m.a===me&&!m.tm,nm=m.tm?'Edictum team':x?x.n.name:m.nm,named=!mine&&(rgcNames(m.x)||!!(m.mn&&m.mn[me])||!!(m.r&&m.r.a===me)),when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`;
   const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:mine?`<b class="rgc-nm">${esc(nm)}</b>`:x&&!x.npc?`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(m.a)}">${esc(nm)}</button>`:`<b class="rgc-nm">${esc(nm)}</b>`;
   const pill=m.tm?'':m.st==='mod'?'<span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'||isStaff(m.a)?STAFF_PILL:'';
   const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):''}</span>`;
-  const head=run?'':`<p class="rgc-lh">${fl}${who}${pill}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
+  const head=run?'':`<p class="rgc-lh">${fl}${who}${x&&!x.npc?rgcBadges(x,memo):''}${pill}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
-  const can={rep:!mine&&!OBS&&!m.tm,blk:!mine&&!OBS&&!staff&&!dmBlocked(m.a),mute:mod&&!mine&&!staff,del:mine||mod},open=RGC.menu===m.id;
-  const menu=can.rep||can.blk||can.mute||can.del?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${esc(m.id)}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${can.rep?`<button type="button" role="menuitem" data-rgc="report" data-id="${esc(m.id)}">Report to the moderators</button>`:''}${can.blk?`<button type="button" role="menuitem" data-rgc="block-ask" data-id="${esc(m.id)}">Block ${esc(nm)}</button>`:''}${can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${esc(m.id)}">Silence ${esc(nm)}…</button>`:''}${can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="del-ask" data-id="${esc(m.id)}">${mine?'Delete':'Remove the line'}</button>`:''}</div>`:''}</div>`:'';
-  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}" data-id="${esc(m.id)}">${head}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}<p class="rgc-x">${rgcText(m.x)}</p>${menu}</div>${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
+  let can;
+  if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
+  else can={rx:!OBS,re:!OBS&&!rgcWrite(),rep:!mine&&!OBS&&!m.tm,blk:!mine&&!OBS&&!staff&&!dmBlocked(m.a),mute:mod&&!mine&&!staff,del:mine||mod};
+  const open=RGC.menu===m.id,myRx=m.rv&&m.rv[me]||'';
+  const items=(can.rx?`<div class="rgc-rxp" role="group" aria-label="React">${RGC_RX.map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
+    +(can.re?`<button type="button" role="menuitem" data-rgc="reply" data-id="${i}">Answer</button>`:'')
+    +(can.rep?`<button type="button" role="menuitem" data-rgc="report" data-id="${i}">Report to the moderators</button>`:'')
+    +(can.blk?`<button type="button" role="menuitem" data-rgc="block-ask" data-id="${i}">Block ${esc(nm)}</button>`:'')
+    +(can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${i}">Silence ${esc(nm)}…</button>`:'')
+    +(can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="${ally?'ally-del':'del-ask'}" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
+  const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
+  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}<p class="rgc-x">${rgcText(m.x,m.mn)}</p>${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
 }
 function rgcPaint(){
   const d=RGC.dock;if(!d||d.hidden)return;
-  rgcHead();rgcFoot();
+  const tab=rgcTab(),turned=RGC.lastTab!==tab;RGC.lastTab=tab;
+  rgcHead();rgcTabsPaint();rgcFoot();
+  if(tab!=='haps')try{RGC.whoSig=rgcWhoSig();}catch(e){}
   const body=d.querySelector('#rgc-body'),list=d.querySelector('#rgc-list');if(!body||!list)return;
-  const me=myId(),mod=rgcMod(),by=new Map(allNations().map(x=>[x.id,x])),vis=RGC.list.filter(m=>m.a===me||!dmBlocked(m.a)),hid=RGC.list.length-vis.length;
-  let h=`<li class="rgc-intro">Everyone in ${esc(rgcIn())} can read this chat. Be kind. A line’s menu reports it to the moderators or blocks its nation.${hid?` <span class="rgc-hid">${hid} ${hid===1?'line from a nation you blocked is':'lines from nations you blocked are'} hidden.</span>`:''}</li>`;
-  let prev=null,day='',fresh=false;
-  for(const m of vis){
-    const k=rgcDay(m.t);if(k!==day){day=k;h+=`<li class="rgc-day" role="separator"><span>${esc(rgcDayWords(m.t))}</span></li>`;prev=null;}
-    if(!fresh&&RGC.mark&&m.t>RGC.mark&&m.t<=RGC.markTop&&m.a!==me){fresh=true;h+='<li class="rgc-new" role="separator"><span>New</span></li>';prev=null;}
-    h+=rgcLine(m,!!prev&&prev.a===m.a&&!prev.tm===!m.tm&&m.t-prev.t<RGC_RUN,by,me,mod);prev=m;
+  body.setAttribute('aria-labelledby','rgc-tab-'+tab);
+  let h='';
+  if(tab==='haps')h=rgcHapsHTML();
+  else{
+    const me=myId(),mod=rgcMod(),by=new Map(allNations().map(x=>[x.id,x])),memo=new Map(),A=tab==='ally'?rgcAllyOn():null;
+    const src=tab==='ally'?rgcAllyLines():RGC.list,vis=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis.length;
+    const hidTxt=hid?` <span class="rgc-hid">${hid} ${hid===1?'line from a nation you blocked is':'lines from nations you blocked are'} hidden.</span>`:'';
+    h=tab==='ally'?`<li class="rgc-intro">Only the members of ${esc(A?A.name:'your alliance')} read this channel.${hidTxt}</li>`
+      :`<li class="rgc-intro">Everyone in ${esc(rgcIn())} can read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.${hidTxt}</li>`;
+    let prev=null,day='',fresh=false;
+    for(const m of vis){
+      const k=rgcDay(m.t);if(k!==day){day=k;h+=`<li class="rgc-day" role="separator"><span>${esc(rgcDayWords(m.t))}</span></li>`;prev=null;}
+      if(tab==='region'&&!fresh&&RGC.mark&&m.t>RGC.mark&&m.t<=RGC.markTop&&m.a!==me){fresh=true;h+='<li class="rgc-new" role="separator"><span>New</span></li>';prev=null;}
+      h+=rgcLine(m,!!prev&&prev.a===m.a&&!prev.tm===!m.tm&&!m.r&&m.t-prev.t<RGC_RUN,by,me,mod,memo);prev=m;
+    }
+    if(tab==='region')for(const p of RGC.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw"><p class="rgc-x">${esc(p.x)}</p><span class="rgc-wait">Sending…</span></div></li>`;
+    const err=tab==='ally'?(AL.chat&&AL.chat.err)||'':RGC.err;
+    if(!vis.length&&(tab!=='region'||!RGC.pend.length))h+=`<li class="rgc-empty">${err?esc(err):tab==='ally'?'No messages yet. Say hello to your allies.':RGC.ready?`No lines yet. Say hello to ${esc(rgcIn())}.`:'Opening the chat…'}</li>`;
+    else if(err)h+=`<li class="rgc-empty err">${esc(err)}</li>`;
   }
-  for(const p of RGC.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw"><p class="rgc-x">${esc(p.x)}</p><span class="rgc-wait">Sending…</span></div></li>`;
-  if(!vis.length&&!RGC.pend.length)h+=`<li class="rgc-empty">${RGC.err?esc(RGC.err):RGC.ready?`No lines yet. Say hello to ${esc(rgcIn())}.`:'Opening the chat…'}</li>`;
-  else if(RGC.err)h+=`<li class="rgc-empty err">${esc(RGC.err)}</li>`;
-  /* a control of a line that held the focus (its menu button, its nation's name) holds it again once drawn anew */
+  /* a control of a line that held the focus (its menu button, its nation's name, a field of its form) holds it again,
+     caret and all, once drawn anew */
   let caret=null;try{const f=document.activeElement;if(f&&typeof f.selectionStart==='number')caret=[f.selectionStart,f.selectionEnd];}catch(e){}
-  const y=body.scrollTop,fa=document.activeElement,keep=fa&&list.contains(fa)&&fa.dataset?{rgc:fa.dataset.rgc||'',act:fa.dataset.act||'',id:fa.dataset.id||''}:null;
+  const y=body.scrollTop,fa=document.activeElement,keep=fa&&list.contains(fa)&&fa.dataset?{rgc:fa.dataset.rgc||'',act:fa.dataset.act||'',id:fa.dataset.id||'',k:fa.dataset.k||''}:null;
   list.innerHTML=h;
-  if(RGC.stick)body.scrollTop=body.scrollHeight;else body.scrollTop=y;
-  const j=d.querySelector('.rgc-jump');if(j)j.hidden=RGC.stick;
-  if(keep&&keep.id){const sel=keep.rgc?`[data-rgc="${CSS.escape(keep.rgc)}"]`:keep.act?`[data-act="${CSS.escape(keep.act)}"]`:'';const b=sel&&list.querySelector(sel+`[data-id="${CSS.escape(keep.id)}"]`);if(b){b.focus({preventScroll:true});if(caret&&b.setSelectionRange)try{b.setSelectionRange(caret[0],caret[1]);}catch(e){}}}
+  if(tab==='haps'){if(turned)body.scrollTop=0;else body.scrollTop=y;}
+  else if(RGC.goto){const g=list.querySelector(`.rgc-l[data-id="${CSS.escape(RGC.goto)}"]`);if(g){RGC.stick=false;g.scrollIntoView({block:'center'});}}
+  else if(RGC.stick)body.scrollTop=body.scrollHeight;else body.scrollTop=y;
+  const j=d.querySelector('.rgc-jump');if(j)j.hidden=RGC.stick||tab==='haps';
+  if(keep&&(keep.id||keep.act)){const sel=keep.rgc?`[data-rgc="${CSS.escape(keep.rgc)}"]`:keep.act?`[data-act="${CSS.escape(keep.act)}"]`:'';
+    const b=sel&&list.querySelector(sel+(keep.id?`[data-id="${CSS.escape(keep.id)}"]`:'')+(keep.k?`[data-k="${CSS.escape(keep.k)}"]`:''));
+    if(b){b.focus({preventScroll:true});if(caret&&b.setSelectionRange)try{b.setSelectionRange(caret[0],caret[1]);}catch(e){}}}
   if(RGC.menu){const b=list.querySelector('.rgc-menu button'),f=document.activeElement;if(b&&!(f&&f.closest&&f.closest('.rgc-menu')))b.focus({preventScroll:true});}
 }
 /* the writing box is drawn again only when what may be written changes, so a draft and the caret stay put */
 function rgcFoot(){
   const f=RGC.dock&&RGC.dock.querySelector('#rgc-foot');if(!f)return;
+  const tab=rgcTab();
+  if(tab==='haps'){if(RGC.foot!=='haps'){RGC.foot='haps';f.innerHTML='';}f.hidden=true;return;}
+  f.hidden=false;
+  if(tab==='ally'){
+    const A=rgcAllyOn(),reg=civicRegistered(),key='ally|'+(A?A.id:'')+'|'+reg;
+    if(RGC.foot!==key){RGC.foot=key;
+      f.innerHTML=!A?'':reg?`<form class="rgc-f" id="rgc-aform" novalidate><label class="sr" for="rgc-ax">Write to ${esc(A.name)}</label><textarea class="input" id="rgc-ax" rows="1" maxlength="1000" placeholder="Write to ${esc(A.name)}…" enterkeyhint="send" autocomplete="off" spellcheck="true"></textarea><button class="btn" type="submit" id="rgc-asend">Send</button></form><p class="rgc-msg" id="rgc-amsg" role="status"></p>`
+        :'<p class="rgc-ro">Writing in the alliance channel needs a Registered Nation. Link a sign-in to join in.</p>';
+      const ta=f.querySelector('#rgc-ax');if(ta){ta.value=RGC.adraft;rgcGrow(ta);}}
+    const m=f.querySelector('#rgc-amsg');if(m){m.textContent=RGC.amsg;m.classList.toggle('err',!!RGC.amsg);}
+    const b=f.querySelector('#rgc-asend');if(b)b.disabled=RGC.abusy;
+    return;
+  }
   const w=rgcWrite(),key=(w?'r:'+w.why:'w')+'|'+REGION;
   if(RGC.foot!==key){
-    RGC.foot=key;
+    RGC.foot=key;RGC.mn=null;
     f.innerHTML=w?`<p class="rgc-ro">${esc(w.why)}</p>${w.link?'<div class="row"><button type="button" class="btn small" data-act="acct-open">Link a sign-in</button><button type="button" class="linkish small" data-act="account-compare">Compare account types</button></div>':''}`
-      :`<form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(rgcIn())}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(rgcIn())}…" enterkeyhint="send" autocomplete="off" spellcheck="true"></textarea><button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>`;
+      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div><ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(rgcIn())}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(rgcIn())}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea><button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>`;
     const ta=f.querySelector('#rgc-x');if(ta){ta.value=RGC.draft;rgcGrow(ta);}
   }
+  const rb=f.querySelector('#rgc-rebar');
+  if(rb){const r=RGC.re;rb.hidden=!r;rb.innerHTML=r?`<span class="rgc-reb">Answering <b>${esc(r.nm)}</b>: ${esc(r.x)}</span><button type="button" class="rgc-hb" data-rgc="re-no" aria-label="Stop answering" title="Stop answering"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button>`:'';}
   const msg=f.querySelector('#rgc-msg'),ta=f.querySelector('#rgc-x'),left=ta?RGC_TEXT-ta.value.length:RGC_TEXT;
   if(msg){msg.textContent=RGC.msg||(left<=60?`${left} ${left===1?'character':'characters'} left`:'');msg.classList.toggle('err',!!RGC.msg);}
   const b=f.querySelector('#rgc-send');if(b)b.disabled=RGC.busy;
@@ -65346,7 +65459,7 @@ function rgcOpen(on,quiet){
     /* the divider stands before the first line not yet read when the drawer opened; lines that come in while it is
        open are read as they come */
     if(!was){RGC.mark=RGC.seen;RGC.markTop=RGC.top;RGC.stick=true;RGC.foot='';}
-    d.hidden=false;document.documentElement.classList.add('rgc-on');rgcConnect();rgcPaint();if(!document.hidden)rgcSeen();rgcBadge();rgcSilLoad(!was);
+    d.hidden=false;document.documentElement.classList.add('rgc-on');rgcConnect();rgcPaint();if(!document.hidden&&rgcTab()==='region')rgcSeen();rgcBadge();rgcSilLoad(!was);
     Promise.resolve().then(()=>onlRefresh()).then(rgcHead,()=>{});
     if(!quiet)requestAnimationFrame(()=>{const t=document.getElementById('rgc-x')||d.querySelector('[data-rgc="close"]');if(t)t.focus({preventScroll:true});});
   }else{
@@ -65362,16 +65475,18 @@ async function rgcCivic(d){
 async function rgcSend(){
   const ta=document.getElementById('rgc-x');if(!ta||RGC.busy||!RGC.reg)return;
   const x=ta.value.replace(/\s+/g,' ').trim();if(!x)return;
-  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:RGC.top,id:''},reg=RGC.reg;
-  RGC.busy=true;RGC.msg='';RGC.pend.push(p);ta.value='';RGC.draft='';rgcGrow(ta);RGC.stick=true;rgcPaint();
+  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:RGC.top,id:''},reg=RGC.reg,reo=RGC.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
+  RGC.busy=true;RGC.msg='';RGC.pend.push(p);ta.value='';RGC.draft='';RGC.re=null;rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
   try{
-    const r=await rgcCivic({op:'rcPost',reg,x:p.x});
+    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{})});
     p.id=typeof r.id==='string'?r.id:'';
     if(!p.id||RGC.list.some(m=>m.id===p.id))RGC.pend=RGC.pend.filter(q=>q!==p);
+    if(!OBS)tutMark('h');
   }catch(e){
     RGC.pend=RGC.pend.filter(q=>q!==p);const d=e&&e.details;
     if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';RGC.draft=p.x;}
-    else{RGC.msg=alErrText(e);const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;RGC.draft=p.x;rgcGrow(t);}}
+    else{RGC.msg=alErrText(e);const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;RGC.draft=p.x;rgcGrow(t);}
+      if(reo&&!(d&&d.code==='rc_gone'))RGC.re=RGC.re||reo;}
   }finally{
     RGC.busy=false;rgcPaint();
     const t=document.getElementById('rgc-x'),f=document.activeElement;if(t&&RGC.open&&(!f||f===document.body||RGC.dock.contains(f)))t.focus({preventScroll:true});
@@ -65441,9 +65556,9 @@ document.addEventListener('keydown',e=>{
   if(e.key!=='Escape'||document.querySelector('dialog[open]'))return;
   if(RGC.ask||RGC.menu){const k=(RGC.ask&&RGC.ask.id)||RGC.menu;RGC.ask=null;RGC.menu='';rgcPaint();const b=k&&document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(k)}"]`);if(b)b.focus();e.preventDefault();return;}
   /* from inside the drawer, or with nothing focused (a line just blocked or deleted), or on a phone, where it covers the page */
-  if(RGC.dock&&(RGC.dock.contains(t)||!t||t===document.body||navNarrow())){e.preventDefault();rgcOpen(false);}
+  if(RGC.dock&&(RGC.dock.contains(t)||(!t||t===document.body)&&!document.documentElement.classList.contains('rgc-docked')||navNarrow())){e.preventDefault();rgcOpen(false);}
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&RGC.open){rgcSeen();rgcBadge();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&RGC.open){const t=rgcTab();if(t==='region')rgcSeen();else if(t==='ally')try{alChatSeen();}catch(e){}rgcBadge();}});
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{rgcConnect();}catch(e){}return r;})(connect);
 /* keeps the chat following the region as the game connects, changes region or turns the chat off, drops lines that
    never came back from the server, and keeps the drawer's count of who is online */
@@ -65455,6 +65570,195 @@ setInterval(()=>{try{
   if(RGC.pend.length){const now=Date.now(),n=RGC.pend.length;RGC.pend=RGC.pend.filter(p=>now-p.t<20000);if(RGC.pend.length!==n)rgcPaint();}
   if(RGC.open&&!document.hidden)Promise.resolve().then(()=>onlRefresh()).then(rgcHead,()=>{});
 }catch(e){}},4000);
+/* ── the chat, round two: tabs (Region, Alliance, Happenings), answers, @mentions, reactions, badges, docking ──
+   Region is the region chat. Alliance (for a member of a player alliance) is the alliance's channel, the same one as
+   on the Diplomacy page (AL.chat, civic ops alPost and alPostDel). Happenings is the region's happenings, as on the
+   Region page (regionHaps), newest first, with Welcome beside a nation founded this week: it starts a line in the
+   region chat that @mentions it. Each tab counts what is new in it; the Chat button counts the Region and Alliance tabs.
+   A line's menu reacts (RGC_RX, one per nation, rcReact) and answers it (re: the answer quotes it, and its writer is
+   told); typing @ offers the region's nations, and the server tells each nation named after an @ (mn). Beside a
+   nation's name: its rank's colour, its alliance's initials and the Founding Supporter badge it wears (the Chancery
+   Club is not shown: a membership is private). On a wide screen the drawer can be docked beside the page (the page
+   makes room for it) instead of lying over it; the choice is kept in this browser. */
+const RGC_RX=[['hear','👍','Hear, hear'],['ha','😄','Ha!'],['bravo','👏','Bravo'],['shame','👎','Shame']];
+const RGC_HAPS=40,RGC_WIDE=typeof window.matchMedia==='function'?window.matchMedia('(min-width:1100px)'):null;
+function rgcLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,String(v));}catch(e){}return null;}
+Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:'',abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
+function rgcAllyOn(){if(OBS)return null;try{const A=alMine();return A&&A.srv?A:null;}catch(e){return null;}}
+function rgcTabs(){const t=[['region','Region']];if(rgcAllyOn())t.push(['ally','Alliance']);t.push(['haps','Happenings']);return t;}
+function rgcTab(){if(!rgcTabs().some(x=>x[0]===RGC.tab))RGC.tab='region';return RGC.tab;}
+function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){return 0;}}
+function rgcCount(){return rgcUnread()+rgcAllyUnread();}
+function rgcAllyLines(){const C=AL.chat;return (C&&C.list||[]).map(m=>({id:m.id,a:m.a,nm:m.nm,x:m.x,t:m.t,st:'',ally:true}));}
+/* the alliance channel's listener (alChatConnect) calls this with every snapshot */
+function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{alChatSeen();}catch(e){}rgcPaint();}rgcBadge();}
+function rgcTabsPaint(){
+  const el=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(!el)return;const cur=rgcTab();
+  const n={region:cur==='region'?0:rgcUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};
+  const h=rgcTabs().map(([k,l])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${l}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
+  if(el.innerHTML!==h){const f=document.activeElement,had=f&&el.contains(f)?f.dataset.v:'';el.innerHTML=h;if(had){const b=document.getElementById('rgc-tab-'+had);if(b)b.focus({preventScroll:true});}}
+}
+function rgcSetTab(v,focus){
+  if(!rgcTabs().some(x=>x[0]===v))return;
+  RGC.tab=v;rgcLS('edictum.rgc.tab',v);Object.assign(RGC,{menu:'',ask:null,stick:v!=='haps',goto:''});
+  if(v==='region'&&!document.hidden)rgcSeen();
+  if(v==='ally')try{alChatSeen();}catch(e){}
+  if(v==='haps')rgcHapRead();
+  rgcPaint();rgcBadge();
+  if(focus){const b=document.getElementById('rgc-tab-'+v);if(b)b.focus({preventScroll:true});}
+}
+/* the region's happenings, worked out at most every 15 seconds while the drawer wants them */
+function rgcHaps(){
+  const now=Date.now(),M=RGC.hapMemo,k=REG.id+'|'+allNations().length;
+  if(M.k===k&&now-M.at<15000)return M.list;
+  let list=[];try{list=regionHaps(allNations(),now).slice(0,RGC_HAPS);}catch(e){}
+  Object.assign(M,{at:now,k,list});return list;
+}
+const rgcHapKey=()=>'edictum.rgc.haps.'+REG.id;
+/* happenings since the player last looked; the first look counts as read, so a new player is not shown the region's whole past */
+function rgcHapNew(){if(!RGC.open)return 0;const L=rgcHaps(),seen=Number(rgcLS(rgcHapKey()))||0;if(!seen){if(L.length)rgcLS(rgcHapKey(),L[0].t);return 0;}return L.filter(h=>h.t>seen&&!(h.x&&h.x.me)).length;}
+function rgcHapRead(){const L=rgcHaps();if(L.length)rgcLS(rgcHapKey(),L[0].t);}
+function rgcHapsHTML(){
+  const L=rgcHaps(),now=Date.now(),can=!OBS&&!rgcWrite()&&!!RGC.reg;
+  if(!L.length)return `<li class="rgc-empty">Nothing has happened in ${esc(rgcIn())} yet.</li>`;
+  return `<li class="rgc-intro">What the nations of ${esc(rgcIn())} have been doing lately. A nation’s name opens its page.</li>`+L.map(hp=>{
+    const w=can&&hp.l&&hp.l.k==='found'&&hp.x&&!hp.x.me&&!hp.x.npc&&now-hp.t<7*DAY;
+    return `<li class="rgc-hap"><time class="rgc-hpt" datetime="${new Date(hp.t).toISOString()}" title="${esc(fmtDate(hp.t)+', '+fmtTime(hp.t))}">${esc(rel(hp.t))}</time><span class="rgc-hx">${hp.txt}</span>${w?`<button type="button" class="btn ghost small rgc-wel" data-rgc="welcome" data-id="${esc(hp.x.id)}">Welcome</button>`:''}</li>`;}).join('');
+}
+/* the line a line answers: its writer and a few of its words; a click shows it */
+function rgcQuote(r){
+  const blocked=r.a&&r.a!==myId()&&dmBlocked(r.a),nm=r.tm?'Edictum team':rgcName({a:r.a,nm:r.nm});
+  return `<button type="button" class="rgc-q" data-rgc="goto" data-id="${esc(r.id)}" title="Show the line it answers"><span class="rgc-qn">${esc(nm)}</span> ${blocked?'<i>a line from a nation you blocked</i>':esc(r.x)}</button>`;
+}
+function rgcRxs(m,me){
+  const rv=m.rv;if(!rv)return '';const by={};
+  for(const [u,k] of Object.entries(rv))if(RGC_RX.some(x=>x[0]===k))(by[k]=by[k]||[]).push(u);
+  const h=RGC_RX.filter(([k])=>by[k]).map(([k,e,l])=>{const us=by[k],mine=us.includes(me),names=us.slice(0,8).map(u=>u===me?'you':rgcName({a:u,nm:'a nation'})).join(', ')+(us.length>8?` and ${us.length-8} more`:'');
+    return `<button type="button" class="rgc-rx${mine?' on':''}" data-rgc="react" data-id="${esc(m.id)}" data-k="${k}" aria-pressed="${mine}" title="${esc(l+': '+names)}"${OBS?' disabled':''}><span aria-hidden="true">${e}</span><span class="sr">${esc(l)},</span> ${us.length}</button>`;}).join('');
+  return h?`<div class="rgc-rxs">${h}</div>`:'';
+}
+/* beside a nation's name: its rank's colour, its alliance's initials, the Founding Supporter badge it wears */
+const rgcTag=nm=>{const w=String(nm||'').replace(/^the\s+/i,'').split(/\s+/).filter(Boolean);return (w.length>1?w.map(s=>s.charAt(0)).join(''):w[0]||'').slice(0,4).toUpperCase();};
+function rgcBadges(x,memo){
+  if(memo&&memo.has(x.id))return memo.get(x.id);
+  let h='';
+  try{const r=achRankOf(x.n),i=Math.min(ID_BD.length-1,r.i);if(i>0)h+=`<i class="rgc-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(r.name)}" title="Rank: ${esc(r.name)}"></i>`;}catch(e){}
+  try{const A=allianceOf(x.id);if(A&&!A.npc&&A.name){const col=safeColor((A.doc&&A.doc.col)||A.col,'#3A8FD1');h+=`<span class="rgc-al" style="--alc:${esc(col)}" title="A member of ${esc(A.name)}" aria-label="A member of ${esc(A.name)}">${esc(rgcTag(A.name))}</span>`;}}catch(e){}
+  try{h+=shopBadge(x.n,1);}catch(e){}
+  if(memo)memo.set(x.id,h);return h;
+}
+/* @mentions: the word being typed after an @ offers the region's nations; the server keeps those named after an @ */
+function rgcMnFind(ta){const v=ta.value,c=typeof ta.selectionStart==='number'?ta.selectionStart:v.length,m=/(^|\s)@([^\s@]{0,40})$/.exec(v.slice(0,c));return m?{q:m[2],start:c-m[2].length-1,end:c}:null;}
+function rgcMnShow(ta){
+  const ul=document.getElementById('rgc-mn');if(!ul||!ta)return;const t=document.activeElement===ta?rgcMnFind(ta):null;
+  const q=t?t.q.toLowerCase():'',me=myId(),items=t?allNations().filter(x=>!x.npc&&!x.me&&x.id!==me&&!dmBlocked(x.id)&&x.n.name.toLowerCase().startsWith(q)).sort((a,b)=>a.n.name.localeCompare(b.n.name)).slice(0,6):[];
+  if(!items.length){RGC.mn=null;ul.hidden=true;ul.innerHTML='';ta.setAttribute('aria-expanded','false');ta.removeAttribute('aria-activedescendant');return;}
+  const sel=RGC.mn&&RGC.mn.q===q?Math.min(RGC.mn.sel,items.length-1):0;
+  RGC.mn={...t,q,sel,items:items.map(x=>({id:x.id,nm:x.n.name,fl:x.n.flag}))};
+  ul.innerHTML=RGC.mn.items.map((o,k)=>`<li role="option" id="rgc-mn-${k}" class="${k===sel?'on':''}" aria-selected="${k===sel}" data-k="${k}"><span class="mflag sm">${flagSVG(o.fl,'')}</span>@${esc(o.nm)}</li>`).join('');
+  ul.hidden=false;ta.setAttribute('aria-expanded','true');ta.setAttribute('aria-activedescendant','rgc-mn-'+sel);
+}
+function rgcMnPick(ta,k){
+  const M=RGC.mn;if(!M||!M.items[k])return;const o=M.items[k],v=ta.value,ins='@'+o.nm+' ';
+  ta.value=(v.slice(0,M.start)+ins+v.slice(M.end)).slice(0,RGC_TEXT);const c=Math.min(ta.value.length,M.start+ins.length);
+  ta.focus();try{ta.setSelectionRange(c,c);}catch(e){}RGC.draft=ta.value;RGC.mn=null;rgcGrow(ta);rgcMnShow(ta);rgcFoot();
+}
+function rgcMnIds(x){
+  const low=x.toLowerCase(),me=myId(),out=[];
+  for(const n of allNations().filter(n=>!n.npc&&!n.me&&n.id!==me).sort((a,b)=>b.n.name.length-a.n.name.length)){
+    const at='@'+n.n.name.toLowerCase();let i=low.indexOf(at);
+    while(i>=0){const nx=low.charAt(i+at.length);if(!nx||!/[\p{L}\p{N}]/u.test(nx)){out.push(n.id);break;}i=low.indexOf(at,i+1);}
+    if(out.length>=5)break;
+  }
+  return out;
+}
+/* a reaction shows at once; the server's answer (and the next snapshot) settles it */
+async function rgcReact(m,k){
+  if(OBS||!m)return;const me=myId(),had=m.rv&&m.rv[me]||'',rv={...(m.rv||{})};
+  if(had===k)delete rv[me];else rv[me]=k;m.rv=rv;rgcPaint();
+  try{await rgcCivic({op:'rcReact',reg:RGC.reg,id:m.id,k});}
+  catch(e){const r={...(m.rv||{})};if(had)r[me]=had;else delete r[me];m.rv=r;rgcPaint();toast(alErrText(e));}
+}
+async function rgcAllySend(){
+  const ta=document.getElementById('rgc-ax'),A=rgcAllyOn();if(!ta||!A||RGC.abusy)return;
+  const x=ta.value.trim();if(!x)return;
+  RGC.abusy=true;RGC.amsg='';rgcFoot();
+  try{await alReq({op:'alPost',aid:A.id,x});ta.value='';RGC.adraft='';rgcGrow(ta);RGC.stick=true;}
+  catch(e){RGC.amsg=alErrText(e);}
+  finally{RGC.abusy=false;rgcFoot();const t=document.getElementById('rgc-ax');if(t&&RGC.open)t.focus({preventScroll:true});}
+}
+/* docked: on a wide screen the page makes room for the drawer (html.rgc-docked) */
+function rgcDockApply(){
+  const on=RGC.open&&RGC.docked&&!!(RGC_WIDE&&RGC_WIDE.matches),root=document.documentElement,was=root.classList.contains('rgc-docked');
+  root.classList.toggle('rgc-docked',on);
+  const d=RGC.dock;if(d){d.setAttribute('role',on?'complementary':'dialog');const b=d.querySelector('[data-rgc="dock"]');if(b){const t=RGC.docked?'Float over the page':'Dock beside the page';b.setAttribute('aria-pressed',String(!!RGC.docked));b.title=t;b.setAttribute('aria-label',t);}}
+  if(was!==on)try{window.dispatchEvent(new Event('resize'));}catch(e){}
+}
+if(RGC_WIDE)try{RGC_WIDE.addEventListener('change',rgcDockApply);}catch(e){}
+/* show a line of the chat (an answer's quote, a mention in the bell), flashed for a moment */
+function rgcGoto(id){
+  RGC.goto=id;if(rgcTab()!=='region'){RGC.tab='region';rgcLS('edictum.rgc.tab','region');}
+  if(!RGC.open)rgcOpen(true,true);else rgcPaint();
+  if(RGC.open&&!RGC.list.some(m=>m.id===id))toast('That line is no longer among the newest lines of the chat.');
+  setTimeout(()=>{if(RGC.goto===id){RGC.goto='';const li=document.querySelector(`#rgc-list .rgc-l[data-id="${CSS.escape(id)}"]`);if(li)li.classList.remove('flash');}},2400);
+}
+rgcOpen=(f=>function(on){
+  const was=RGC.open,r=f.apply(this,arguments);
+  if(on&&RGC.open&&!was){const t=rgcTab();if(t==='ally')try{alChatSeen();}catch(e){}if(t==='haps')rgcHapRead();rgcBadge();}
+  rgcDockApply();return r;})(rgcOpen);
+document.addEventListener('click',e=>{
+  const t=e.target,el=t.closest&&t.closest('[data-rgc]');if(!el||el.tagName==='INPUT')return;
+  const a=el.dataset.rgc,id=el.dataset.id||'',m=RGC.list.find(x=>x.id===id);
+  if(a==='tab')rgcSetTab(el.dataset.v,true);
+  else if(a==='dock'){RGC.docked=!RGC.docked;rgcLS('edictum.rgc.dock',RGC.docked?'1':'0');rgcDockApply();}
+  else if(a==='reply'&&m){RGC.menu='';RGC.re={id:m.id,nm:rgcName(m),x:m.x.slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
+  else if(a==='re-no'){RGC.re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
+  else if(a==='react'&&m){if(RGC.menu){RGC.menu='';}rgcReact(m,el.dataset.k);const b=document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(id)}"]`);if(b&&!document.activeElement.closest('.rgc-rxs'))b.focus({preventScroll:true});}
+  else if(a==='goto')rgcGoto(id);
+  else if(a==='welcome'){const x=findNation(id);if(!x)return;RGC.draft=`Welcome to ${rgcIn()}, @${x.n.name}!`;RGC.foot='';RGC.stick=true;rgcSetTab('region');const f=document.getElementById('rgc-x');if(f){f.focus();try{f.setSelectionRange(f.value.length,f.value.length);}catch(e){}}}
+  else if(a==='ally-del'){const A=rgcAllyOn();if(!A)return;RGC.menu='';rgcPaint();alReq({op:'alPostDel',aid:A.id,pid:id}).then(()=>toast('The message was deleted.'),err=>toast(alErrText(err)));}
+});
+/* what the lines in view show of their nations (name, flag, rank, alliance, badge): when another nation renames itself,
+   rises a rank or joins an alliance, the drawer draws its lines again (rgcPaint keeps it in RGC.whoSig) */
+function rgcWhoSig(){
+  const src=rgcTab()==='ally'?rgcAllyLines():RGC.list,by=new Map(allNations().map(x=>[x.id,x])),seen=new Set(),out=[];
+  for(const m of src){if(m.tm||seen.has(m.a))continue;seen.add(m.a);const x=by.get(m.a);if(!x){out.push(m.a);continue;}
+    let rk=0,al='';try{rk=achRankOf(x.n).i;}catch(e){}try{const A=allianceOf(x.id);al=A&&!A.npc?A.id+A.name:'';}catch(e){}
+    out.push(m.a+'|'+x.n.name+'|'+rk+'|'+al+'|'+(x.n.flag?hash(JSON.stringify(x.n.flag)):0)+'|'+shopBadge(x.n,1).length);}
+  return rgcTab()+'#'+out.join(';');
+}
+/* the tutorial's Say hi in the region chat */
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="tut-chat"]');if(!el)return;
+  if(rgcOn()){RGC.tab='region';rgcOpen(true);if(RGC.tab!=='region')rgcSetTab('region');return;}
+  toast(S.nation&&dmx(S.nation).rc===0?'Turn the region chat on first: Settings › Letters › Region chat.':'The region chat needs a connection to the region.');});
+/* a mention in the bell opens the chat at its line */
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-rc]');if(!el)return;
+  const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2]);},0);},true);
+NOTIF_SOURCES.push((n,now)=>(CB.mnAll||[]).filter(m=>m.k==='chat'&&typeof m.rc==='string'&&/^[A-Za-z0-9]{20}$/.test(m.rc)&&now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:S.view||'nation',rc:m.reg+'/'+m.rc,
+  txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in the region chat: ${String(m.x||'').slice(0,120)}`})));
+document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#rgc-mn li');if(!li)return;e.preventDefault();const ta=document.getElementById('rgc-x');if(ta)rgcMnPick(ta,Number(li.dataset.k));});
+document.addEventListener('focusout',e=>{if(e.target&&e.target.id==='rgc-x')setTimeout(()=>{const ta=document.getElementById('rgc-x');if(ta&&document.activeElement!==ta)rgcMnShow(ta);},0);});
+document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x')rgcMnShow(el);else if(el.id==='rgc-ax'){RGC.adraft=el.value;rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
+document.addEventListener('submit',e=>{if(e.target&&e.target.id==='rgc-aform'){e.preventDefault();rgcAllySend();}});
+/* before the drawer's own keys: the @ list, leaving an answer, the alliance's Enter, the tabs' arrows */
+document.addEventListener('keydown',e=>{
+  if(!RGC.open)return;const t=e.target;if(!t)return;
+  if(t.id==='rgc-x'&&RGC.mn&&!e.isComposing){const M=RGC.mn,n=M.items.length;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();e.stopPropagation();M.sel=(M.sel+(e.key==='ArrowDown'?1:n-1))%n;rgcMnShow(t);return;}
+    if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();rgcMnPick(t,M.sel);return;}
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();RGC.mn=null;const ul=document.getElementById('rgc-mn');if(ul){ul.hidden=true;ul.innerHTML='';}t.setAttribute('aria-expanded','false');return;}}
+  if(t.id==='rgc-x'&&e.key==='Escape'&&RGC.re){e.preventDefault();e.stopPropagation();RGC.re=null;rgcFoot();return;}
+  if(t.id==='rgc-ax'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();e.stopPropagation();rgcAllySend();return;}
+  if(t.dataset&&t.dataset.rgc==='tab'&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const T=rgcTabs().map(x=>x[0]),i=T.indexOf(t.dataset.v),L=T.length;
+    rgcSetTab(T[e.key==='Home'?0:e.key==='End'?L-1:(i+(e.key==='ArrowRight'?1:L-1))%L],true);}
+},true);
+/* #chat (a push notification's link) opens the drawer once the game is in the region */
+uxHashView=(f=>function(h){if(h==='chat'){RGC.want=true;return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
+if(location.hash==='#chat')RGC.want=true;
+setInterval(()=>{try{
+  if(RGC.want&&rgcOn()){RGC.want=false;rgcOpen(true);}
+  if(RGC.open&&!document.hidden){if(rgcTab()==='haps'){if(Date.now()-RGC.hapMemo.at>30000)rgcPaint();}else if(rgcWhoSig()!==RGC.whoSig)rgcPaint();else rgcTabsPaint();}
+}catch(e){}},5000);
 dmxClean=(f=>function(x){const o=f.apply(this,arguments);if(!x||typeof x!=='object')return o;const r=o||{};if(x.rc===0)r.rc=0;if(x.rcn===0)r.rcn=0;return Object.keys(r).length?r:null;})(dmxClean);
 dmSettingsPane=(f=>function(n){const x=dmx(n);return f.apply(this,arguments)+`<section class="sg-card" id="set-letters-chat"><h3 class="sg-ch">Region chat</h3>
     <label class="tog"><input type="checkbox" data-rgc="set-on"${x.rc===0?'':' checked'}> Show the region chat (the speech-bubble button beside the bell)</label>

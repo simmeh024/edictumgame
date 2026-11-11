@@ -3,16 +3,17 @@
 // line naming a nation is marked and told; guests read only; a line's menu reports it (the moderators' queue, which
 // removes it), blocks its nation (its lines hidden, and its letters stopped) or deletes it; staff remove any line;
 // Settings › Letters turns the chat off; staff read every region's chat in the admin portal, write as the Edictum
-// team and silence a player (and lift it).
+// team and silence a player (and lift it); the drawer's tabs (Region, Alliance, Happenings with Welcome), @mentions,
+// answers, reactions, the badges beside a name, docking beside the page, and the tutorial's Say hi in the region chat.
 //   npm run test:region-chat
-import { player, open, ready, found, register, until, check, finish, setClaims, text, restListAdmin, clearEmulators, sleep, nav } from './lib.mjs';
+import { player, open, ready, found, register, until, check, finish, setClaims, text, restListAdmin, clearEmulators, sleep, nav, nationDoc, FS_HOST, PROJECT } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('writer'), C = await player('reader'), G = await player('guest'), P = await player('phone', { vp: { width: 390, height: 800 } });
 const uidA = await open(A); await found(A, 'Adminland');
 const uidB = await open(B); await found(B, 'Chatterly');
 const uidC = await open(C); await found(C, 'Quillmark');
 await open(G); await found(G, 'Guestonia');
-await open(P); await found(P, 'Pocketland');
+const uidP = await open(P); await found(P, 'Pocketland');
 await register(A); await register(B); await register(C); await register(P);
 await setClaims(uidA, { admin: true }); await A.reload(); await ready(A);
 const reg = await B.evaluate(() => G.S.nation.reg);
@@ -191,7 +192,11 @@ await A.fill('#acx-x', 'Maintenance tonight at 22:00 UTC.'); await A.press('#acx
 check('staff write as the Edictum team, and the region reads it at once', await until(async () => (await shown(B)).includes('Maintenance tonight at 22:00 UTC.'), 15000));
 const team = (await lines()).find(l => l.x === 'Maintenance tonight at 22:00 UTC.');
 check('the team’s line is signed Edictum team, by the staff member, with the team mark', team && team.nm === 'Edictum team' && team.a === uidA && team.st === 'admin', JSON.stringify(team));
-check('players see the team’s mark and name, with nothing to report or block', await B.$$eval('#rgc-list .rgc-l', l => { const li = l.find(x => x.querySelector('.rgc-x')?.textContent === 'Maintenance tonight at 22:00 UTC.'); return !!li && /Edictum team/.test(li.textContent) && !!li.querySelector('.rgc-tmfl') && !li.querySelector('.rgc-more'); }));
+check('players see the team’s mark and name', await B.$$eval('#rgc-list .rgc-l', l => { const li = l.find(x => x.querySelector('.rgc-x')?.textContent === 'Maintenance tonight at 22:00 UTC.'); return !!li && /Edictum team/.test(li.textContent) && !!li.querySelector('.rgc-tmfl'); }));
+const teamLine = await lineOf(B, 'Maintenance tonight at 22:00 UTC.');
+await B.click(`#rgc-list .rgc-more[data-id="${teamLine}"]`);
+check('the team’s line can be answered or reacted to, but not reported or blocked', await until(async () => { const t = await text(B, '.rgc-menu'); return /Answer/.test(t) && !/Report|Block/.test(t); }));
+await B.keyboard.press('Escape');
 const iron = await A.$$eval('#acx-log .acx-l', l => (l.find(li => /Selling cheap iron!/.test(li.textContent)) || {}).dataset?.id || '');
 await A.click(`#acx-log [data-act="acx-mute-ask"][data-id="${iron}"]`);
 check('Silence… asks how long and why, about the right nation', await until(async () => /Silence Chatterly in every region’s chat\?/.test(await text(A, '#acx-mute'))));
@@ -218,5 +223,86 @@ check('in the chat itself, staff find Silence in a line’s menu', /Silence Chat
 await A.click('.rgc-menu [data-rgc="mute-ask"]');
 check('it asks how long and why there too', await until(async () => !!(await A.$('#rgc-list .rgc-mute select[data-rgc="mute-h"]')) && /Silence Chatterly in every region’s chat\?/.test(await text(A, '#rgc-list .rgc-mute'))));
 await A.keyboard.press('Escape');
+
+/* ── 12. tabs, Happenings and Welcome, @mentions, answers, reactions, badges, the Alliance tab, docking, the tutorial ── */
+const docUrl = p => `http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${p}`, owner = { 'content-type': 'application/json', authorization: 'Bearer owner' };
+const bell = async p => { await p.evaluate(() => document.querySelector('.bell').click()); await sleep(300); const t = await p.evaluate(() => [...document.querySelectorAll('.nt-item')].map(e => e.textContent).join(' | ')); await p.evaluate(() => document.querySelector('.bell').click()); return t; };
+await openChat(B);
+check('the drawer has a Region and a Happenings tab, and no Alliance tab outside an alliance', JSON.stringify(await B.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'Happenings']));
+await B.click('#rgc-tab-haps');
+check('Happenings lists what the region’s nations did, and hides the writing box', await until(async () => /Pocketland was founded in/.test(await text(B, '#rgc-list'))) && await B.$eval('#rgc-foot', f => f.hidden) && await B.getAttribute('#rgc-tab-haps', 'aria-selected') === 'true');
+check('a nation founded this week has a Welcome button', !!(await B.$(`#rgc-list [data-rgc="welcome"][data-id="${uidP}"]`)));
+await sleep(1700);
+await B.click(`#rgc-list [data-rgc="welcome"][data-id="${uidP}"]`);
+check('Welcome starts a line in the region chat that mentions the nation', await until(async () => await B.getAttribute('#rgc-tab-region', 'aria-selected') === 'true' && (await B.inputValue('#rgc-x')) === 'Welcome to the Meridian Reach, @Pocketland!'));
+await B.press('#rgc-x', 'Enter');
+const welcome = await until(async () => (await lines()).find(l => l.x === 'Welcome to the Meridian Reach, @Pocketland!'), 15000);
+const wdoc = welcome && (await restListAdmin(`rchat/${reg}/chat`)).find(d => d.id === welcome.id);
+check('the server keeps the mention on the line', wdoc && wdoc.fields.mn?.mapValue?.fields?.[uidP]?.stringValue === 'Pocketland', JSON.stringify(wdoc && wdoc.fields.mn));
+check('the mention is marked in the line', await until(async () => /@Pocketland/.test(await text(B, '#rgc-list .rgc-at'))));
+check('the nation mentioned finds it in its bell', await until(async () => /Chatterly mentioned you in the region chat: Welcome to the Meridian Reach/.test(await bell(P)), 15000));
+// @ offers the region's nations as one types; Enter picks one
+await openChat(C); await sleep(1700);
+await C.fill('#rgc-x', ''); await C.focus('#rgc-x'); await C.keyboard.type('@Chat');
+check('typing @ offers the matching nations of the region', await until(async () => /@Chatterly/.test(await text(C, '#rgc-mn')) && !(await C.$eval('#rgc-mn', u => u.hidden))));
+await C.keyboard.press('Enter');
+check('Enter picks it and writes the full name', (await C.inputValue('#rgc-x')) === '@Chatterly ' && await C.$eval('#rgc-mn', u => u.hidden));
+await C.keyboard.type('how much for the iron?'); await C.keyboard.press('Enter');
+check('the line goes out with its mention', await until(async () => (await lines()).some(l => l.x === '@Chatterly how much for the iron?'), 15000));
+// answering a line quotes it and tells its writer
+await sleep(1700);
+const wid = await lineOf(C, 'Welcome to the Meridian Reach, @Pocketland!');
+await C.click(`#rgc-list .rgc-more[data-id="${wid}"]`); await C.click('.rgc-menu [data-rgc="reply"]');
+check('Answer shows what is being answered above the box', /Answering Chatterly: Welcome to the Meridian Reach/.test(await text(C, '#rgc-rebar')) && await C.evaluate(() => document.activeElement?.id === 'rgc-x'));
+await C.fill('#rgc-x', 'Seconded!'); await C.press('#rgc-x', 'Enter');
+check('the answer quotes the line it answers', await until(async () => await B.$$eval('#rgc-list .rgc-l', l => { const li = l.find(x => x.querySelector('.rgc-x')?.textContent === 'Seconded!'); return !!li && /Chatterly/.test(li.querySelector('.rgc-q')?.textContent || ''); }), 15000));
+check('and its writer is told in the bell', await until(async () => /Quillmark answered you in the region chat: Seconded!/.test(await bell(B)), 15000));
+const sec = await lineOf(C, 'Seconded!');
+await C.click(`#rgc-list .rgc-l[data-id="${sec}"] .rgc-q`);
+check('a click on the quote shows the line it answers', await until(async () => !!(await C.$(`#rgc-list .rgc-l.flash[data-id="${wid}"]`))));
+// reactions: one per nation, shown under the line, taken back with a second click
+await B.click(`#rgc-list .rgc-more[data-id="${sec}"]`);
+check('a line’s menu offers four reactions', (await B.$$('.rgc-menu .rgc-rxp button')).length === 4);
+await B.click('.rgc-menu .rgc-rxp [data-k="hear"]');
+check('a reaction shows under the line for everyone', await until(async () => /1/.test(await text(C, `#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`)) && await B.getAttribute(`#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`, 'aria-pressed') === 'true', 15000));
+check('the server keeps one reaction for the nation', await until(async () => (await restListAdmin(`rchat/${reg}/chat`)).find(d => d.id === sec)?.fields.rv?.mapValue?.fields?.[uidB]?.stringValue === 'hear'));
+await C.click(`#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`);
+check('another nation adds its own to the count', await until(async () => / 2$/.test((await text(B, `#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`)).trim())));
+await B.click(`#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`);
+check('clicking one’s own reaction again takes it back', await until(async () => / 1$/.test((await text(C, `#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`)).trim()) && await B.getAttribute(`#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`, 'aria-pressed') === 'false'));
+// badges beside a name: the rank's colour, and the alliance's initials
+await B.evaluate(() => { const R = G.RK, n = G.clone(G.S.nation), ach = { ...(n.ach || {}) }, lo = R.ACH_RANKS[2][0]; let p = R.achPoints({ ach });
+  for (const a of R.ACH.slice().sort((x, y) => R.ACH_TIER[y.t].p - R.ACH_TIER[x.t].p)) { if (p >= lo) break; if (ach[a.id]) continue; ach[a.id] = Date.now(); p += R.ACH_TIER[a.t].p; } n.ach = ach; G.commit(n); });
+check('a nation’s rank shows as a coloured mark beside its name', await until(async () => !!(await C.$(`#rgc-list .rgc-lh:has(button[data-id="${uidB}"]) .rgc-rk`)), 25000));
+for (let i = 0; i < 5; i++) {
+  await fetch(docUrl('nations/' + uidB) + '?updateMask.fieldPaths=pop', { method: 'PATCH', headers: owner, body: JSON.stringify({ fields: { pop: { doubleValue: 12 } } }) });
+  await B.evaluate(() => { const n = G.clone(G.S.nation); n.pop = 12; n.popAt = Date.now(); G.commit(n); });
+  if (await until(async () => { const d = await nationDoc(uidB); return d && d.rec && d.rec.pop >= 11.9; }, 8000)) break;
+}
+const made = await civic(B, { op: 'alFound', name: 'The Chat Pact', ty: 'def', acc: 'open' });
+const aid = made.ok ? (made.r.aid || made.r.id || made.r.data?.aid) : '';
+check('an alliance is founded for the next checks', made.ok, JSON.stringify(made));
+const joined = await civic(C, { op: 'alRequest', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id) });
+check('and the other nation joins it', joined.ok, JSON.stringify(joined));
+check('a member gets the Alliance tab', await until(async () => JSON.stringify(await C.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'Alliance', 'Happenings']), 20000));
+check('the alliance’s initials show beside a member’s name', await until(async () => /CP/.test(await text(C, `#rgc-list .rgc-lh:has(button[data-id="${uidB}"]) .rgc-al`)), 20000));
+await C.click('#rgc-tab-ally');
+check('the Alliance tab is the alliance’s channel, for its members only', await until(async () => /Only the members of The Chat Pact read this channel/.test(await text(C, '#rgc-list')) && !!(await C.$('#rgc-ax'))));
+await C.fill('#rgc-ax', 'Allies, to the iron mines!'); await C.press('#rgc-ax', 'Enter');
+check('a message there reaches the other members, counted on their Alliance tab', await until(async () => /1/.test(await text(B, '#rgc-tab-ally .rgc-tn')), 20000));
+await B.click('#rgc-tab-ally');
+check('and it reads there', await until(async () => /Allies, to the iron mines!/.test(await text(B, '#rgc-list'))) && !(await B.$('#rgc-tab-ally .rgc-tn')));
+await B.click('#rgc-tab-region');
+// docked beside the page on a wide screen, and floating again
+await openChat(A);
+check('on a wide screen the drawer offers to dock', await A.isVisible('[data-rgc="dock"]'));
+await A.click('[data-rgc="dock"]');
+check('docked, the page makes room for the drawer', await until(() => A.evaluate(() => document.documentElement.classList.contains('rgc-docked') && getComputedStyle(document.body).paddingRight === '400px' && document.querySelector('.main').getBoundingClientRect().right <= innerWidth - 399)));
+check('docked, the drawer stays as the pages change', (await nav(A, 'cities'), await A.isVisible('#rgc-dock')));
+await A.click('[data-rgc="dock"]');
+check('and floats over the page again', await until(() => A.evaluate(() => !document.documentElement.classList.contains('rgc-docked') && getComputedStyle(document.body).paddingRight === '0px')));
+check('a phone has no dock button', (await openChat(P), !(await P.isVisible('[data-rgc="dock"]'))));
+// the tutorial: Say hi in the region chat
+check('Say hi in the region chat is a step of the tutorial, done by a first line', await until(() => B.evaluate(() => (G.S.nation.tut?.lc || []).includes('rch')), 20000));
 
 await finish();

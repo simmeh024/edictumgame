@@ -27,6 +27,27 @@ A live chat for each region: the nations of a region talk to each other in short
 - **Silenced players** see, in place of the writing box, that a moderator silenced them, until when and why; they
   still read the chat. Lines the **Edictum team** signs show the team's mark and name, never a nation's.
 
+- **Tabs** in the drawer: **Region** (the region chat), **Alliance** (for a member of a player alliance: the alliance's
+  channel, the same one as on the Diplomacy page) and **Happenings** (the region's happenings, as on the Region page,
+  newest first). Each tab counts what is new in it; the Chat button counts Region and Alliance. Happenings counts from
+  the player's first look, so a new player is not shown the region's whole past.
+- **Welcome**: beside a nation founded in the last week, in Happenings. It starts a line in the region chat that
+  @mentions the nation ("Welcome to the Meridian Reach, @Pocketland!"), ready to send.
+- **@mentions**: typing @ offers the region's nations (arrows and Enter or Tab pick one, Escape closes the list). The
+  nation mentioned gets a notice in its bell ("… mentioned you in the region chat"), and a push notification when it is
+  not in the game.
+- **Answer** (a line's menu): the answer quotes the line it answers (a click on the quote shows it), and the line's writer
+  is told in their bell ("… answered you in the region chat").
+- **Reactions** (a line's menu, or a click on a reaction under a line): 👍 Hear, hear, 😄 Ha!, 👏 Bravo, 👎 Shame. One per
+  nation per line; the same again takes it back. Hovering a reaction names who gave it.
+- **Badges beside a name**: the rank's colour (a small diamond in the colour of the rank's card border), the alliance's
+  initials, and the Founding Supporter badge the nation wears. The Chancery Club is not shown: the privacy notice keeps
+  a membership private.
+- **Docked** (a wide screen, 1100 pixels or more): the drawer's dock button puts it beside the page, which makes room for
+  it, instead of over it; it stays as the pages change. The choice is kept in the browser.
+- **The tutorial**: "Say hi in the region chat" (list 2, Welcome to Edictum, after "Say hi" on the board): 2 land credits
+  and 5 food, timber and goods for a first line. Its button opens the chat.
+
 ## Staff tools
 
 - **Admin portal › Moderation › Region chats** (`#admin-chat`, admins): every region, busiest first, with its newest
@@ -52,6 +73,16 @@ A live chat for each region: the nations of a region talk to each other in short
     stops a flood before it reads anything.
   - `rcPost {team: true, reg, x}` (staff): a line signed by the team, `{tm: true, nm: 'Edictum team', a: <staff uid>}`,
     in any region; the staff member's own pacing applies.
+  - `rcPost` also takes `re` (a line of the same chat to answer: the line keeps `r {id, a, nm, x}` with up to 90
+    characters of it, `rc_gone` if it is no longer there) and `mn` (up to 5 uids the writer's game picked: the server
+    keeps those of the region whose saved name follows an @ in the words and who have not blocked the writer, as
+    `mn {uid: name}`). Each one mentioned, and the writer of the line answered, gets `mentions/{uid}/m/{id}
+    {k: 'chat', by, nm, reg, rc, x, t, rp?}` (the bell, beside the Community Board's mentions), and
+    `pushChatMention` (functions/letters.js) sends a push notification to one not in the game, at most once every ten
+    minutes a player (`rcNote/{uid}`, server-only), unless they blocked the writer or turned the chat or its notices off.
+  - `rcReact {reg, id, k}`: one of `hear`, `ha`, `bravo`, `shame` per nation per line, kept as `rv {uid: kind}` on the
+    line (a guest of the region may react too). `rcForget` takes a nation's reactions away with its account or its
+    removal by an admin.
   - `rcMute {uid, hours, why, reg?, wipe?}` (staff): `rcMute/{uid} {until, perm?, why, by, t, nm, reg}`; `hours` is one of
     1, 24, 168, 720 or 0 (until lifted: `until` 1 Jan 2100 and `perm`). `wipe` deletes the player's lines of the last 24
     hours in `reg` (their own region if not given). `rcPost` refuses a silenced player (`rc_silenced`, with `until`,

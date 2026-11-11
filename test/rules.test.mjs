@@ -1163,6 +1163,9 @@ test('a region chat is read by the nations of that region and by admins, and wri
   await assertFails(as('admin', { admin: true }).doc('rchat/meridian/chat/l1').delete());
   await assertFails(as('bob').doc('rcPace/bob').get());
   await assertFails(as('bob').doc('rcPace/bob').set({ p: [] }));
+  await assertFails(as('bob').doc('rcNote/bob').get());
+  await assertFails(as('bob').doc('rcNote/bob').set({ t: 1 }));
+  await assertFails(as('bob').doc('rchat/meridian/chat/l1').update({ rv: { bob: 'hear' } }));
 });
 
 test('a chat silence is read by the silenced player and admins, and written only by the server', async () => {

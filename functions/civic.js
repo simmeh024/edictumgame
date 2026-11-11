@@ -588,7 +588,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     // a page of the Book of Resolutions: ten at once, then one every five seconds
     ...(op === 'book' ? [['cbk:' + uid, 10, 1 / 5]] : []),
     // a line in the region chat: the transaction paces it exactly (regionchat.js); this only stops a flood before it reads
-    ...(isRegionChatOp(op) ? [['rc:' + uid, 15, 1]] : []),
+    ...(isRegionChatOp(op) ? [['rc:' + uid, 15, 1]] : []), ...(op === 'rcReact' ? [['rcr:' + uid, 20, 1 / 2]] : []),
     // who of a region is online (presence.js): the Region page asks every two minutes; six at once, then one in 20 s
     ...(op === 'online' ? [['con:' + uid, 6, 1 / 20]] : [])]);
   /* read-only and public (the green dot on the Region page), so asked before the account is looked up */

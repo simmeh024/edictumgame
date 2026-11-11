@@ -9,6 +9,7 @@ import { mailStep, mailUnsub, forgetMail } from './mail.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
 import { rmbForget } from './board.js';
+import { rcForget } from './regionchat.js';
 import { fcForget } from './flagcomp.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
@@ -110,7 +111,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     }
     await forgetShop(uid);
     // and the pacing of its posts, reports, tickets and bug reports, which players may not delete (firestore.rules)
-    await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/'].map(c => db.doc(c + uid).delete()));
+    await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/', 'rcNote/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
     // the counts, blocks and read receipts of its letters, and its devices' push subscriptions (functions/letters.js)
@@ -125,6 +126,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await db.doc('alPace/' + uid).delete();
     // its reactions on the region boards (functions/board.js)
     await rmbForget(db, uid, DATA.regions.map(r => r.id));
+    // and in the region chats (functions/regionchat.js)
+    await rcForget(db, uid, DATA.regions.map(r => r.id));
     // its flag in an open competition, its ratings, and its name in the halls (functions/flagcomp.js)
     await fcForget(db, uid);
     // the region newspapers: a Delegate's signature on a paper's name (functions/civic.js, paper) and the account

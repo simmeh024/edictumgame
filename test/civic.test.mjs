@@ -732,3 +732,47 @@ test('Region chat staff: the team writes in any region, staff silence a player e
   assert.ok(sil&&sil.actor===staff.uid&&sil.hours===24&&sil.removed===1&&sil.reason==='Spam, spam'&&sil.reg==='meridian');
   assert.ok(un&&un.actor===staff.uid);
 });
+
+test('Region chat: answers quote their line and tell its writer, @mentions tell the nations of the region named, reactions are one per nation, and go with the account',async()=>{
+  const r=await player(true),o=await player(true),far=await player(true,false,'frostmarch'),g=await player();
+  const l1=await civic(r,{op:'rcPost',x:'Grain for sale, cheap.'});
+  // an answer that mentions its writer, and a nation of another region: only the writer of this region is mentioned
+  await db.doc('pushSubs/'+r.uid).set({s:[{e:'https://push.example/one',k:{p256dh:'p',auth:'a'},at:Date.now()}]});
+  const a1=await civic(o,{op:'rcPost',re:l1.id,mn:[r.uid,far.uid,'npc-x','bad/id'],x:`@${r.uid} deal, and @${far.uid} too`});
+  const L=(await db.doc('rchat/meridian/chat/'+a1.id).get()).data();
+  assert.deepEqual(L.r,{id:l1.id,a:r.uid,nm:r.uid,x:'Grain for sale, cheap.'});
+  assert.deepEqual(L.mn,{[r.uid]:r.uid});
+  const told=async u=>(await db.collection('mentions/'+u+'/m').get()).docs.map(d=>d.data());
+  let mr=await told(r.uid);assert.equal(mr.length,1);assert.equal(mr[0].k,'chat');assert.equal(mr[0].rc,a1.id);assert.equal(mr[0].by,o.uid);assert.equal(mr[0].reg,'meridian');assert.equal(mr[0].rp,undefined);
+  assert.equal((await told(far.uid)).length,0,'a nation of another region is not told');
+  const out=(await db.collection('pushOutbox').where('to','==',r.uid).get()).docs.map(d=>d.data());
+  assert.equal(out.length,1);assert.match(out[0].payload.title,/mentioned you in the region chat/);assert.equal(out[0].payload.url,'/#chat');
+  // an answer with no mention tells its writer as an answer; a second push within ten minutes is held back
+  await new Promise(res=>setTimeout(res,1600));
+  const a2=await civic(o,{op:'rcPost',re:l1.id,x:'Still selling?'});
+  mr=await told(r.uid);assert.equal(mr.length,2);assert.equal(mr.find(m=>m.rc===a2.id).rp,true);
+  assert.equal((await db.collection('pushOutbox').where('to','==',r.uid).get()).size,1,'one push every ten minutes at most');
+  // a line gone, or not a line at all
+  await new Promise(res=>setTimeout(res,1600));
+  await rejects(civic(o,{op:'rcPost',re:'A'.repeat(20),x:'Hello?'}),'rc_gone');
+  await assert.rejects(civic(o,{op:'rcPost',re:'nope',x:'Hello?'}),e=>e.status==='INVALID_ARGUMENT');
+  // a nation that blocked the writer is not told
+  await db.doc('lblock/'+r.uid+'~'+o.uid).set({b:r.uid,x:o.uid,t:new Date()});
+  const a3=await civic(o,{op:'rcPost',mn:[r.uid],x:`@${r.uid} are you there?`});
+  assert.equal((await db.doc('rchat/meridian/chat/'+a3.id).get()).get('mn'),undefined);assert.equal((await told(r.uid)).length,2);
+  // reactions: one per nation, the same again takes it back, another replaces it; guests react; not in another region
+  await civic(o,{op:'rcReact',reg:'meridian',id:l1.id,k:'hear'});
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).get('rv')[o.uid],'hear');
+  await civic(o,{op:'rcReact',reg:'meridian',id:l1.id,k:'ha'});
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).get('rv')[o.uid],'ha');
+  await civic(o,{op:'rcReact',reg:'meridian',id:l1.id,k:'ha'});
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).get('rv')[o.uid],undefined);
+  assert.deepEqual(await civic(g,{op:'rcReact',reg:'meridian',id:l1.id,k:'bravo'}),{ok:true,k:'bravo'});
+  await assert.rejects(civic(o,{op:'rcReact',reg:'meridian',id:l1.id,k:'love'}),e=>e.status==='INVALID_ARGUMENT');
+  await assert.rejects(civic(far,{op:'rcReact',reg:'meridian',id:l1.id,k:'hear'}),e=>e.status==='PERMISSION_DENIED');
+  await rejects(civic(o,{op:'rcReact',reg:'meridian',id:'B'.repeat(20),k:'hear'}),'rc_gone');
+  // a deleted account's reactions go with it (functions/accounts.js calls rcForget)
+  const { rcForget } = await import('../functions/regionchat.js');
+  assert.equal(await rcForget(db,g.uid,['meridian','frostmarch']),1);
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).get('rv')[g.uid],undefined);
+});
