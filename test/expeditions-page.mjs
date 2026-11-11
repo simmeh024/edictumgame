@@ -169,7 +169,15 @@ try {
   check('lost places: hidden until the old maps show their kind', await S(op, () => { const X = window.__game.XP(), L = X.SITES.map((s, i) => i).filter(i => X.SITES[i].lost); return L.length > 0 && L.every(i => !X.xpSeen(i)); }));
   await o.edit(n => { n.xu = Object.assign({}, n.xu, { maps: 1 }); });
   check('lost places: grey shows the pirate coves, and only them', await S(op, () => { const X = window.__game.XP(), L = X.SITES.map((s, i) => i).filter(i => X.SITES[i].lost); return L.every(i => X.xpSeen(i) === (X.SITES[i].k === 'cove')); }));
-  check('lost places: a cove within reach is listed in gold, or the teaser counts the rest', await S(op, () => !!document.querySelector('.xp-item.xp-lost') || !!document.querySelector('.xp-tease') || !document.querySelector('.xp-list')));
+  /* the list shows the six nearest places until "Show more", and where the test nation settled is random: a cove within
+     reach can be seventh, with nothing else hidden nearby for a teaser. So the whole list is opened, and a cove in gold is
+     expected whenever one lies within reach (the page's own measure: the plan's distance against the reach + 15) */
+  await S(op, () => { window.__game.S.xpMore = true; window.__game.render(); });
+  check('lost places: a cove within reach is listed in gold, once the whole list is open', await S(op, () => {
+    const X = window.__game.XP(), n = window.__game.S.nation, rg = X.expRange(n), lost = !!document.querySelector('.xp-item.xp-lost');
+    const coves = X.SITES.map((s, i) => i).filter(i => X.SITES[i].lost && X.SITES[i].k === 'cove' && X.xpSeen(i) && X.expPlan(n, i).d <= rg + 15);
+    return coves.length ? lost : true; }));
+  await S(op, () => { window.__game.S.xpMore = false; window.__game.render(); });
   /* a second team, and supply depots at gold, so that wherever the test nation settled there are two places to go */
   await o.edit(n => { n.xu = Object.assign({}, n.xu, { team: 1, depots: 5 }); });
   check('second team: the card names both teams', await S(op, () => /Your expeditions/.test(document.querySelector('.xp-exp .xp-hd').textContent) && !!document.querySelector('.xp-t2')));

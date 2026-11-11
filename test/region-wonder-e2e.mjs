@@ -1,5 +1,5 @@
 // The Great Statue, field digs and gifts between two player nations in one region (emulators).
-import { OUT, PROJECT, check, finish, sleep, until, player, open, found, nav, localNation, clearEmulators } from './lib.mjs';
+import { OUT, PROJECT, check, finish, sleep, until, player, open, found, nav, localNation, clearEmulators, regionTab, text } from './lib.mjs';
 if (!PROJECT.startsWith('demo-')) throw Error('Region wonder tests require demo emulators');
 await clearEmulators();
 const A = await player('wonder A'), uidA = await open(A); await found(A, 'Statuaria');
@@ -41,6 +41,16 @@ check('the next phase’s keepsake waits for that phase', !rA.next && !rB.next);
 await until(() => C.evaluate(() => G.allNations().filter(x => x.n && x.n.wnd).length >= 2), 20000);
 const rC = await reward(C);
 check('a nation that gave nothing gets neither', rC.land === 0 && !rC.keep && !rC.log);
+
+/* every gift is a happening of the region, seen by the nation that gave nothing: a few in a row by one nation are one */
+const haps = /Statuaria gave 50 timber to the Great Statue of the Meridian Reach\./, hapsB = /Bronzeholm gave 70 timber and 60 iron to the Great Statue of the Meridian Reach\. That finished phase 1 of 10: foundations\./;
+await regionTab(C, 'happenings');
+check('the Region page’s happenings list each gift to the statue, and the gift that finished a phase says so', await until(async () => { await C.evaluate(() => G.render()); const t = await text(C, '#rgn-p-happenings'); return haps.test(t) && hapsB.test(t); }, 30000), (await text(C, '#rgn-p-happenings')).slice(0, 500));
+await C.click('#rgn-p-happenings [data-act="go"][data-v="wonder"]');
+check('the statue’s name there opens the statue', await until(async () => await C.evaluate(() => G.S.view) === 'wonder'));
+await C.click('.rgc-btn'); await C.waitForSelector('#rgc-dock:not([hidden])'); await C.click('#rgc-tab-haps');
+check('and the region chat’s Happenings tab lists them too', await until(async () => { const t = await text(C, '#rgc-list'); return haps.test(t) && hapsB.test(t); }, 30000), (await text(C, '#rgc-list')).slice(0, 500));
+await C.locator('#rgc-list').screenshot({ path: OUT + '/statue-happenings.png' });
 check('the statue page marks the reward as the giver’s', await A.evaluate(() => { G.render(); return /Yours/.test(document.querySelector('.wd-ph .wd-ph-r')?.textContent || ''); }));
 await A.locator('.wd-phs').screenshot({ path: OUT + '/wonder-rewards.png' });
 
