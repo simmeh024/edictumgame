@@ -2,7 +2,7 @@
    RC_MINUTE lines in any minute and RC_HOUR in any hour, counted from the times kept in rcPace/<uid>. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rcWait, RC_GAP, RC_MINUTE, RC_HOUR, isRegionChatOp } from '../functions/regionchat.js';
+import { rcWait, RC_GAP, RC_MINUTE, RC_HOUR, isRegionChatOp, rcSilence, RC_MUTE_HOURS } from '../functions/regionchat.js';
 
 const NOW = 1_800_000_000_000, SEC = 1000;
 
@@ -36,7 +36,19 @@ test('times from the future, of the wrong kind or over an hour old are left out 
   assert.deepEqual(recent, [NOW - 30 * SEC]);
 });
 
-test('only the chat’s two operations are its own', () => {
-  assert.ok(isRegionChatOp('rcPost') && isRegionChatOp('rcDelete'));
-  assert.ok(!isRegionChatOp('cbTopic') && !isRegionChatOp('rcMute') && !isRegionChatOp(''));
+test('the chat’s operations are its own: writing, deleting, silencing and lifting', () => {
+  assert.ok(['rcPost', 'rcDelete', 'rcMute', 'rcUnmute'].every(isRegionChatOp));
+  assert.ok(!isRegionChatOp('cbTopic') && !isRegionChatOp('rcBan') && !isRegionChatOp('') && !isRegionChatOp('constructor'));
+});
+
+test('a silence runs until its end; one that has ended, or has no end, is none', () => {
+  assert.deepEqual(rcSilence({ until: NOW + 1000, why: 'Spam' }, NOW), { until: NOW + 1000, perm: false, why: 'Spam' });
+  assert.deepEqual(rcSilence({ until: NOW + 1000, perm: true }, NOW), { until: NOW + 1000, perm: true, why: '' });
+  assert.equal(rcSilence({ until: NOW, why: 'Spam' }, NOW), null);
+  assert.equal(rcSilence({ until: 'soon' }, NOW), null);
+  assert.equal(rcSilence(null, NOW), null);
+});
+
+test('a silence lasts an hour, a day, a week, 30 days or until lifted', () => {
+  assert.deepEqual(RC_MUTE_HOURS, [1, 24, 168, 720, 0]);
 });
