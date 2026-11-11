@@ -14,7 +14,7 @@ const { getAuth } = require('firebase-admin/auth');
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-edictum', AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099', FN = process.env.FUNCTIONS_EMULATOR_HOST || '127.0.0.1:5001';
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), auth = getAuth(), DAY = 864e5, H = 36e5, SECRET = 'pdl_ntfset_test_secret';
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001', cartopack: 'pri_cartopack0001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001', cartopack: 'pri_cartopack0001', embpack: 'pri_embpack000001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── the stand-in for Paddle ── */
@@ -614,6 +614,15 @@ test('the Cartographer’s Pack: €3.99 and all thirteen of its pieces held', a
   const f = (await finery(p.uid)).c;
   for (const id of CATALOGUE.products.cartopack.grants) assert.ok(f.includes(id), id + ' is held');
   await rejects(call(p, { step: 'checkout', product: 'cartopack' }), 'owned');
+});
+
+test('Embassy Stationery: €2.49 and all eleven of its pieces held', async () => {
+  assert.equal(CATALOGUE.products.embpack.amount, 249);assert.equal(CATALOGUE.products.embpack.grants.length, 11);
+  const p = await player(), c = await call(p, { step: 'checkout', product: 'embpack' });
+  await hook('transaction.completed', pay(c.txn));
+  const f = (await finery(p.uid)).c;
+  for (const id of CATALOGUE.products.embpack.grants) assert.ok(f.includes(id), id + ' is held');
+  await rejects(call(p, { step: 'checkout', product: 'embpack' }), 'owned');
 });
 
 test('the founders’ thank-you gift: a founder chooses one pack, once, while the offer runs; a pack owned or a non-founder is refused', async () => {
