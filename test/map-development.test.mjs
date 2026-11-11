@@ -94,10 +94,23 @@ test('claim application is atomic when a saved plan is stale or unaffordable',()
  credits=2;assert.equal(ctx.writeClaims([b,c],'',false,true),true);assert.equal(commits,1);assert.equal(ctx.S.nation.claims.length,2);assert.equal(ctx.S.nation.mapPlan,undefined);
 });
 test('a full claim record cannot silently discard existing territory',()=>{
- const {ctx,n,world,cell}=fixture(),a=cell(2,4),b=cell(3,4);world.owner.fill(-1);world.owner[a]=0;n.claims=Array.from({length:600},()=>({c:a,t:1}));let commits=0;
+ const {ctx,n,world,cell}=fixture(),a=cell(2,4),b=cell(3,4);world.owner.fill(-1);world.owner[a]=0;let commits=0;
  Object.assign(ctx,{territory:()=>world,landCredits:()=>5,render:()=>{},commit:()=>commits++});
  vm.runInContext(src.slice(src.indexOf('function writeClaims('),src.indexOf('function claimBlock(')),ctx);
- assert.equal(ctx.writeClaims([b],'',false,true),false);assert.equal(commits,0);assert.equal(n.claims.length,600);
+ const max=vm.runInContext('CLAIM_MAX',ctx);assert.equal(max,3000);n.claims=Array.from({length:max},()=>({c:a,t:1}));
+ assert.equal(ctx.writeClaims([b],'',false,true),false);assert.equal(commits,0);assert.equal(n.claims.length,max);
+ assert.match(ctx.S.mapMsg,/land record is full: a nation keeps at most 3,000 claims/);
+});
+test('a record past the old 600 claims still takes new land, as far as its room and credits go',()=>{
+ const {ctx,n,world,cell}=fixture(),a=cell(2,4),b=cell(3,4),c=cell(4,4);world.owner.fill(-1);world.owner[a]=0;let commits=0,credits=2;
+ Object.assign(ctx,{territory:()=>world,landCredits:()=>credits,clone:structuredClone,commit:x=>{ctx.S.nation=x;commits++;},render:()=>{},toast:()=>{}});
+ vm.runInContext(src.slice(src.indexOf('function writeClaims('),src.indexOf('function claimBlock(')),ctx);
+ const max=vm.runInContext('CLAIM_MAX',ctx);
+ n.claims=Array.from({length:max-1},()=>({c:a,t:1}));                                     // room for one more
+ assert.equal(ctx.writeClaims([b,c],'',false),false);assert.equal(commits,0);assert.match(ctx.S.mapMsg,/room for 1 more hex: a nation keeps at most 3,000/);
+ credits=1;n.claims=Array.from({length:600},()=>({c:a,t:1}));                           // the old limit, which refused this
+ assert.equal(ctx.writeClaims([b,c],'',false),false);assert.equal(commits,0);assert.match(ctx.S.mapMsg,/takes 2 land credits, and you have 1/);
+ assert.equal(ctx.writeClaims([b],'',false),true);assert.equal(commits,1);assert.equal(ctx.S.nation.claims.length,601);
 });
 test('transport normalization rejects loops, invalid steps, instant completion and wrong regions',()=>{
  const {ctx,n,world,cell}=fixture(),path=ctx.mpLandPath(world,0,cell(2,4),cell(5,4)),good=route(ctx,[...path]);

@@ -118,12 +118,14 @@ service cloud.firestore {
     }
     // The headline numbers beside the record, which every player's game holds the record to (the rules
     // cannot read the JSON): population in millions, army strength, and land claimed. Army and land are
-    // bounded by the population, far above what the game produces. Land also counts what is earned apart from the
-    // population: rank credits (10 a rank, 280 at the top rank), bonus credits (at least 30) and milestones: 400 more.
+    // bounded by the population, far above what the game produces. Land (cl, the claims on record) also counts what is
+    // earned apart from the population: rank credits (10 a rank), tier achievements, provinces, bonus credits and
+    // milestones, about 1,500 in all, and claims lost in war stay on record; the game keeps at most 3,000 (CLAIM_MAX in
+    // game/edictum.html), so a full record always saves.
     function headline(d) {
       return d.pop is number && d.pop >= 0 && d.pop <= 10000000
         && d.army is number && d.army >= 0 && d.army <= 60 * math.sqrt(d.pop + 0.1) + 1
-        && d.cl is int && d.cl >= 0 && d.cl <= 600 + 6 * math.sqrt(d.pop) + d.pop / 100.0;
+        && d.cl is int && d.cl >= 0 && d.cl <= 3000 + 6 * math.sqrt(d.pop) + d.pop / 100.0;
     }
     // ...and the population grows no faster than the game can make it since the last save: x1.35 a day
     // (its fastest growth is about x1.1), plus 3 million a day of migrants. A record that had none yet (from

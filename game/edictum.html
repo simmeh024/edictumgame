@@ -21244,22 +21244,34 @@ function autoPlan(T,k){
 }
 function writeClaims(cells,msg,auto,plan){
   if(!cells.length)return false;
-  const checked=mpClaimSequence(territory(),cells);if(checked.blocked.length||checked.cost>landCredits(S.nation)||(S.nation.claims||[]).length+checked.cost>600){if(!auto){S.mapMsg=checked.blocked[0]?.why||'Not enough land credits or room in your land record.';S.mpMsg=S.mapMsg;render();}return false;}cells=checked.cells;if(!cells.length)return false;
+  const checked=mpClaimSequence(territory(),cells),cr=landCredits(S.nation),room=claimRoom(S.nation);if(checked.blocked.length||checked.cost>cr||checked.cost>room){if(!auto){S.mapMsg=checked.blocked[0]?.why||claimShortWhy(checked.cost,cr,room);S.mpMsg=S.mapMsg;render();}return false;}cells=checked.cells;if(!cells.length)return false;
   const now=Date.now(),n=clone(S.nation);
   n.claims=(n.claims||[]).concat(cells.map((c,k)=>({c,t:now+k})));if(plan)delete n.mapPlan;if(auto)autoLog(n,cells,now);
   commit(n);S.mapClaim=null;render();
   if(msg)toast(msg);return true;
 }
+/* the land record: the most claims one nation's record keeps (normNation keeps the latest CLAIM_MAX, so a claim past
+   it would push out an old one and lose that land). It was 600 until the rank ladder, tier achievements and province
+   credits let a nation earn more: all of them together come to about 1,500, and a claim lost in war stays on record.
+   firestore.rules bounds the headline cl (claims.length) at CLAIM_MAX or more, so a full record still saves. */
+const CLAIM_MAX=3000;
+const claimRoom=n=>Math.max(0,CLAIM_MAX-((n&&n.claims)||[]).length);
+function claimShortWhy(cost,cr,room){
+  if(cost>room)return room?`Your land record has room for ${room} more ${room===1?'hex':'hexes'}: a nation keeps at most ${CLAIM_MAX.toLocaleString('en-US')} claims.`:`Your land record is full: a nation keeps at most ${CLAIM_MAX.toLocaleString('en-US')} claims.`;
+  return `This claim takes ${cost} land ${cost===1?'credit':'credits'}, and you have ${cr}.`;
+}
 function claimBlock(one){
   const T=territory(),cl=S.mapClaim;if(!cl)return;
   const cr=landCredits(S.nation);if(cr<1){S.mapClaim=null;updateMapPanel();redrawMaps();return;}
-  const cells=one?(claimFrontier(T).has(cl.c)?[cl.c]:[]):blockPlan(T,cl.b,cl.c).slice(0,cr);
+  /* at least one hex is tried, so a full record says so (writeClaims) rather than that the land is gone */
+  const cells=one?(claimFrontier(T).has(cl.c)?[cl.c]:[]):blockPlan(T,cl.b,cl.c).slice(0,Math.max(1,Math.min(cr,claimRoom(S.nation))));
   if(!cells.length){S.mapMsg='That land is no longer free.';S.mapClaim=null;updateMapPanel();redrawMaps();return;}
   writeClaims(cells,`${S.nation.name} has claimed ${cells.length===1?'a hex':cells.length+' hexes'} ${placePhrase(cells[0])}.`);
 }
 function claimAuto(quiet){
   const T=territory(),cr=landCredits(S.nation);if(cr<1)return false;
-  const cells=autoPlan(T,cr);
+  const room=claimRoom(S.nation);if(room<1){if(!quiet){S.mapMsg=claimShortWhy(1,cr,0);S.mpMsg=S.mapMsg;render();}return false;}
+  const cells=autoPlan(T,Math.min(cr,room));
   return writeClaims(cells,quiet?'':`${S.nation.name} spread into ${cells.length===1?'one new hex':cells.length+' new hexes'}.`,!!quiet);
 }
 /* convert a nation from automatic growth: every hex it holds now becomes a claim */
@@ -21280,11 +21292,15 @@ function blockFacts(cells){
 function claimPanel(T){
   const cl=S.mapClaim,n=S.nation,cr=landCredits(n),plan=blockPlan(T,cl.b,cl.c);
   if(!plan.length||cr<1){S.mapClaim=null;return '';}
-  const take=plan.slice(0,cr),f=blockFacts(take),adj=claimFrontier(T).has(cl.c),reach=plan.indexOf(cl.c)+1;
+  /* what the claim can take: the credits, and no more than the land record has room for */
+  const room=claimRoom(n),can=Math.min(cr,room);
+  if(can<1)return `<p class="eyebrow">Land office</p><h2 class="mp-h">${isLake(cl.c)?`A free lake in ${esc(lakeShore(cl.c))}`:`Free land on ${esc(landName(cl.c))}`}</h2>
+    <p class="err" style="margin-top:12px">${esc(claimShortWhy(1,cr,0))}</p><div class="row" style="margin-top:16px"><button class="btn ghost" data-act="lc-cancel">Cancel</button></div>`;
+  const take=plan.slice(0,can),f=blockFacts(take),adj=claimFrontier(T).has(cl.c),reach=plan.indexOf(cl.c)+1;
   return `<p class="eyebrow">Land office</p><h2 class="mp-h">${isLake(cl.c)?`A free lake in ${esc(lakeShore(cl.c))}`:`Free land on ${esc(landName(cl.c))}`}</h2>
     <dl class="mp-dl"><div><dt>Free hexes in this block</dt><dd>${plan.length}</dd></div><div><dt>Terrain</dt><dd>${esc(list(f.terr))}</dd></div><div><dt>Yields a day</dt><dd>${esc(list(f.y))||'Little'}</dd></div><div><dt>Your land credits</dt><dd><b>${cr}</b></dd></div></dl>
     <div class="row" style="margin-top:16px"><button class="btn" data-act="lc-block">${take.length===plan.length?`Claim the block (${plan.length} ${plan.length===1?'credit':'credits'})`:take.length===1&&take[0]===cl.c?'Claim this hex (1 credit)':`Claim ${take.length} of its hexes (${take.length} ${take.length===1?'credit':'credits'})`}</button>${adj&&plan.length>1&&!(take.length===1&&take[0]===cl.c)?`<button class="btn ghost" data-act="lc-one">Only this hex (1 credit)</button>`:''}<button class="btn ghost" data-act="lc-cancel">Cancel</button></div>
-    ${reach>cr?`<p class="hint mp-reach">The hex you chose is ${reach} hexes in from your land, so it takes ${reach} credits to reach: ${take.length===1?'this claim is the first step':`these ${take.length} hexes lead towards it`}.</p>`:''}
+    ${room<cr?`<p class="hint">${esc(claimShortWhy(cr,cr,room))}</p>`:''}${reach>can?`<p class="hint mp-reach">The hex you chose is ${reach} hexes in from your land, so it takes ${reach} credits to reach: ${take.length===1?'this claim is the first step':`these ${take.length} hexes lead towards it`}.</p>`:''}
     <p class="hint" style="margin-top:10px">Claimed land is yours for good, unless it is taken in war. Changed your mind? You can release a claim within 24 hours and get the credit back.</p>`;
 }
 function landBox(n){
@@ -42730,7 +42746,7 @@ function normalizeBase(d){
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
-    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-600).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d)+xsOf(d))])),stockAt:num(d.stockAt,now),
+    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-CLAIM_MAX).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d)+xsOf(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
