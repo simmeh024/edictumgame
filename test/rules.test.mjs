@@ -576,8 +576,9 @@ test('the headline numbers beside a nation are bounded, and grow no faster than 
   const fresh = (uid, extra) => { const n = nation('Head ' + uid, extra); return save(as(uid), uid, n); };
   await assertSucceeds(fresh('k1', {}));
   await assertFails(fresh('k2', { army: 60 * Math.sqrt(1200) + 50 }));                        // an army no population raises
-  await assertFails(fresh('k3', { cl: 2000 }));                                                // more land than 1,200 million claim
+  await assertFails(fresh('k3', { cl: 4000 }));                                                // more land than any record holds
   await assertSucceeds(fresh('k3b', { pop: 14.4273, army: 0, cl: 265 }));                      // land from rank credits beyond the population's share
+  await assertSucceeds(fresh('k3c', { pop: 20, army: 0, cl: 3000 }));                          // a full land record (CLAIM_MAX) still saves
   await assertFails(fresh('k4', { pop: 2e7 }));
   await assertFails(fresh('k5', { cl: 2.5 }));
   const bare = nation('Head k6'); delete bare.pop; delete bare.army; delete bare.cl;
