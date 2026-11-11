@@ -4063,9 +4063,12 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .blk-m i.wip{background:repeating-linear-gradient(135deg,var(--accent) 0 2px,transparent 2px 4px)}
 .blk-m i.over{background:var(--down);border-color:var(--down)}
 .blk-over{margin:8px 0 0}
-.blk-nx,.blk-src{margin:6px 0 0;line-height:1.45}
+.blk-nx,.blk-src,.blk-ms{margin:6px 0 0;line-height:1.45}
 .blk-nx b{color:var(--ink-2);font-weight:600}
-.blk-src{color:var(--ink-2)}
+.blk-src,.blk-ms{color:var(--ink-2)}
+.blk-mx{margin:8px 0 0}
+.blk-mx summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-2)}
+.blk-ml li span{line-height:1.45}.blk-ml li b{flex:none;white-space:nowrap;color:var(--ink-3);font-weight:600}
 .cl-p{display:block;margin-top:3px;font-size:12.5px;color:var(--ink-3)}
 .blk-help{margin:10px 0 12px}
 .blk-help summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-2)}
@@ -20175,7 +20178,7 @@ const BUILDINGS={
   market:{n:'Market Hall',c:'soc',d:'Your economy +3% and one more trade deal slot.',cost:{timber:12,goods:12},h:3,prosper:0.03},
   university:{n:'University',c:'soc',d:'Education +4 and Science +3 when completed, then goods +1 a day.',cost:{timber:15,goods:20},h:6,res:{goods:[0,1]},once:{edu:4,sci:3}},
   hospital:{n:'Hospital',c:'soc',d:'Public Health +4 when completed. Population growth +5%.',cost:{timber:12,goods:15},h:4,growth:0.05,once:{health:4}},
-  housing:{n:'Housing Estates',c:'soc',d:'Population growth +8%. Uses 1 food a day.',cost:{timber:20,goods:5},h:3,growth:0.08,up:{food:1}},
+  housing:{n:'Housing Estates',c:'soc',d:'Population growth +8%. Uses 1 food a day. Upgraded to gold, its high-rise flats give the city one more building block.',cost:{timber:20,goods:5},h:3,growth:0.08,up:{food:1}},
   theatre:{n:'Theatre',c:'soc',d:'Culture +4, Happiness +2 and Tourism +1 when completed.',cost:{timber:10,goods:15},h:3,once:{culture:4,happy:2,tour:1}},
   barracks:{n:'Barracks',c:'def',d:'Army strength +6%. Uses 1 food and 0.5 iron a day.',cost:{timber:15,iron:10},h:4,army:0.06,up:{food:1,iron:0.5}},
   fortress:{n:'Fortress',c:'def',d:'Your hexes within 3 of the city are 30% harder to take. Uses 0.5 iron a day.',cost:{timber:10,iron:20},h:6,fort:0.3,up:{iron:0.5}},
@@ -20516,7 +20519,7 @@ function citiesSection(id,n){
   const T=territory(),i=T.byId[id];if(i===undefined)return '';
   const CS=cityState(T),cs=cpSorted(CS.all.filter(c=>c.active&&c.hi===i),T);if(!cs.length)return '';
   const me=T.list[i].me;
-  return `<section class="section"><h2 class="h2">Cities</h2><ul class="city-list">${cs.map(ct=>`<li><span class="cl-n"><b>${esc(ct.nm)}</b>${ct.cap?' <span class="chip">Capital</span>':''}${ct.fid!==id?` <span class="chip">Taken from ${esc(ct.fn.name)}</span>`:''}${cpListPop(ct,T)}</span><span class="cl-b">${ct.done.length?esc(list(ct.done.map(k=>BUILDINGS[k].n))):'No buildings yet'}</span></li>`).join('')}</ul>${me?`<div style="margin-top:14px"><button class="btn ghost" data-act="go" data-v="cities">Manage your cities</button></div>`:''}</section>`;
+  return `<section class="section"><h2 class="h2">Cities</h2><ul class="city-list">${cs.map(ct=>`<li><span class="cl-n"><b>${esc(ct.nm)}</b>${ct.cap?' <span class="chip">Capital</span>':''}${ct.rec&&blkTi(ct.rec)?' '+blkTiChip(ct.rec):''}${ct.fid!==id?` <span class="chip">Taken from ${esc(ct.fn.name)}</span>`:''}${cpListPop(ct,T)}</span><span class="cl-b">${ct.done.length?esc(list(ct.done.map(k=>BUILDINGS[k].n))):'No buildings yet'}</span></li>`).join('')}</ul>${me?`<div style="margin-top:14px"><button class="btn ghost" data-act="go" data-v="cities">Manage your cities</button></div>`:''}</section>`;
 }
 /* map panel for a hex of your own land */
 function hexPanel(T,cell){
@@ -23925,7 +23928,7 @@ document.addEventListener('click',e=>{
   if(a==='lc-release'){const T=territory();releaseClaims(el.dataset.c!=null?[+el.dataset.c]:claimBatches(recentClaims(T)).filter(b=>b.t===+el.dataset.t).flatMap(b=>b.cells));return;}
   if((a==='lc-cancel'||a==='lc-block'||a==='lc-one')&&S.lcBack!=null){const b=S.lcBack;S.lcBack=null;setTimeout(()=>{const x=document.querySelector(`[data-act="lc-pick"][data-b="${b}"]`)||document.querySelector('[data-act="lc-pick"]')||document.querySelector('.lc-list[data-keep="lcOpen"] summary')||document.querySelector('[data-act="map-me"]');if(x)x.focus();},0);}
 });
-document.addEventListener('toggle',e=>{const d=e.target,k=d&&d.dataset&&d.dataset.keep;if(k==='lcOpen'||k==='relOpen'||k==='lhOpen')S[k]=d.open;},true);
+document.addEventListener('toggle',e=>{const d=e.target,k=d&&d.dataset&&d.dataset.keep;if(k==='lcOpen'||k==='relOpen'||k==='lhOpen'||k==='blkMx')S[k]=d.open;},true);
 
 /* ───────── Round 3 (C): city management, build queue, Games bids, spy reports, stockpile strip ───────── */
 /* Cities can be renamed, and any city but the capital abandoned. Buildings ordered while the builders
@@ -37498,17 +37501,73 @@ document.addEventListener('click',e=>{
    buildings, a coast or a river, and their age. Shares are worked out per cityState, set of records and
    minute (cpState), so every viewer gets the same figures; a city's population is its share times its
    holder's population. Computer-run nations' cities follow the same rule.
-   Building blocks grow with a city's own population on an exponential scale: every block needs 1.6 times
-   the people of the one before (BLK_NEED), up to 25. A capital always has at least 6 and any other city
-   4. Rare issues add permanent bonuses through the `blk` effect (n.blk, for every city and for the
-   capital, each between −4 and +8). A city with more buildings than blocks keeps them all and builds
-   nothing new until it has room again. Computer-run cities get blocks by the same rule, for display. */
-const BLK_MAX=25,BLK_LO=-4,BLK_HI=8,BLK_R=1.6,BLK_CAP0=6,BLK_CITY0=4;
+   Building blocks grow with a city's own population on an exponential scale: every block needs 1.45 times
+   the people of the one before (BLK_NEED; 1.6 until 2026-11-11), up to 25. A capital always has at least 6
+   and any other city 4. Rare issues add permanent bonuses through the `blk` effect (n.blk, for every city
+   and for the capital, each between −4 and +8). Milestones add more (blkMs): the city's age, its buildings
+   upgraded to gold, gold Housing Estates, its titles, and for the capital the edicts its nation has decided.
+   A city with more buildings than blocks keeps them all and builds nothing new until it has room again.
+   Computer-run cities get blocks by the population rule, for display. */
+const BLK_MAX=25,BLK_LO=-4,BLK_HI=8,BLK_R=1.45,BLK_CAP0=6,BLK_CITY0=4;
 /* BLK_NEED[b]: the people (millions) a city needs for b blocks on the curve, 2 significant figures */
 const BLK_NEED=[0];for(let b=1;b<=BLK_MAX;b++)BLK_NEED.push(+(2*Math.pow(BLK_R,b-6)).toPrecision(2));
 function blkCurve(pop){let b=0;while(b<BLK_MAX&&pop>=BLK_NEED[b+1]-1e-9)b++;return b;}
 function blkBase(pop,cap){return Math.max(cap?BLK_CAP0:BLK_CITY0,blkCurve(pop));}
 function blkBonus(n){const b=n&&n.blk,v=k=>b&&typeof b==='object'?clamp(Math.round(+b[k]||0),BLK_LO,BLK_HI):0;return {all:v('all'),cap:v('cap')};}
+
+/* ── milestone blocks (2026-11-11), on top of the curve and the edicts' bonus, all within BLK_MAX. Worked out from the
+   records each time, so the only thing saved is a city's title (record field ti, 1–3, which only ever goes up):
+   - age: +1 when a city has stood 5, 15 and 45 years (10, 30 and 90 days); a capital counts from its nation's founding
+   - gold: +1 for every 3 of its buildings upgraded to gold, at most +2
+   - high-rise flats: +1 while its Housing Estates are upgraded to gold
+   - titles: Town, Great City and Metropolis, +1 each, earned by a save that finds a finished building on every block,
+     and at least 6, 10 or 15 of them (blkTiDue and the commit hook after it)
+   - edicts, for the capital only: +1 at 250, 500, 1,000 and 2,000 edicts decided
+   Computer-run cities, which have no records, get none. ── */
+const BLK_AGE=[5,15,45],BLK_GOLD=3,BLK_GOLD_MAX=2,BLK_DEC=[250,500,1000,2000];
+const BLK_TI=[{n:'Town',at:6},{n:'Great City',at:10},{n:'Metropolis',at:15}];
+/* a city record's title, 0 (none) to 3 */
+const blkTi=rec=>rec&&Number.isInteger(rec.ti)&&rec.ti>0?Math.min(3,rec.ti):0;
+/* when a city was founded: its record's t, or its nation's founding for a capital and for a record without one */
+function blkBorn(ct){
+  const r=ct&&ct.rec,f=ct&&ct.fn&&Number.isFinite(ct.fn.founded)?ct.fn.founded:0;if(!r)return 0;
+  return ct.cap||!(r.t>0)?f||r.t||0:r.t;
+}
+/* one city's milestones: v, the blocks they add; for each kind, g the blocks it gives, have the figure it counts and
+   nx the next step (a time for age, a count for gold and edicts, a title) */
+function blkMs(ct,doc,now){
+  now=now||Date.now();const o={v:0,age:null,gold:null,high:null,ti:null,dec:null};if(!ct||ct.npc||!ct.rec)return o;
+  const t0=blkBorn(ct);
+  if(t0>0){const y=Math.max(0,(now-t0)/YEAR_MS),g=BLK_AGE.filter(a=>y>=a).length;o.age={g,have:y,nx:g<BLK_AGE.length?t0+BLK_AGE[g]*YEAR_MS:null};}
+  const ug=ct.ug||{},done=ct.done||[],gold=done.filter(k=>ug[k]>=5).length,gg=Math.min(BLK_GOLD_MAX,Math.floor(gold/BLK_GOLD));
+  o.gold={g:gg,have:gold,nx:gg<BLK_GOLD_MAX?(gg+1)*BLK_GOLD:null};
+  const hs=done.includes('housing');o.high={g:hs&&ug.housing>=5?1:0,have:hs?ug.housing||0:-1};
+  const ti=blkTi(ct.rec);o.ti={g:ti,have:ti,nx:ti<BLK_TI.length?BLK_TI[ti]:null};
+  if(ct.cap){const d=doc?decisions(doc):0,g=BLK_DEC.filter(a=>d>=a).length;o.dec={g,have:d,nx:g<BLK_DEC.length?BLK_DEC[g]:null};}
+  for(const k of ['age','gold','high','ti','dec'])if(o[k])o.v+=o[k].g;
+  return o;
+}
+/* what the milestones have given, in a few words each: '5 years standing', 'the title Town' */
+function blkMsGot(ms){
+  const out=[];if(!ms)return out;
+  if(ms.age&&ms.age.g)out.push(`${BLK_AGE[ms.age.g-1]} years standing`);
+  if(ms.gold&&ms.gold.g)out.push(`${ms.gold.g*BLK_GOLD} buildings in gold`);
+  if(ms.high&&ms.high.g)out.push('high-rise flats');
+  if(ms.ti&&ms.ti.g)out.push(ms.ti.g===1?'the title Town':`the titles ${list(BLK_TI.slice(0,ms.ti.g).map(t=>t.n))}`);
+  if(ms.dec&&ms.dec.g)out.push(`${fmt0(BLK_DEC[ms.dec.g-1])} edicts decided`);
+  return out;
+}
+const blkYrDays=y=>Math.round(y*YEAR_MS/DAY);
+/* every milestone with how far the city has come, for the details under its blocks: [text, blocks given, at most] */
+function blkMsRows(ct,ms){
+  const rows=[],nm=ct.nm,n=v=>v===1?'one':String(v);
+  if(ms.age){const a=ms.age,y=Math.floor(a.have);rows.push([`Age: +1 at ${list(BLK_AGE.map(String))} years (${list(BLK_AGE.map(v=>String(blkYrDays(v))))} days). ${nm} is ${y} ${y===1?'year':'years'} old${a.nx?`; the next block comes on ${fmtDate(a.nx)}`:''}.`,a.g,BLK_AGE.length]);}
+  if(ms.gold){const g=ms.gold;rows.push([`Buildings in gold: +1 for every ${BLK_GOLD} upgraded to gold, up to +${BLK_GOLD_MAX}. ${g.have?`${cap1(n(g.have))} so far`:'None yet'}${g.nx?`; the next block comes at ${g.nx} in gold`:''}.`,g.g,BLK_GOLD_MAX]);}
+  if(ms.high){const h=ms.high;rows.push([`High-rise flats: +1 while the Housing Estates here are upgraded to gold. ${h.have<0?'No Housing Estates yet.':h.g?'Done.':`${h.have?`${h.have} of 5 upgrades so far`:'Not upgraded yet'}.`}`,h.g,1]);}
+  if(ms.ti){const t=ms.ti;rows.push([`Titles: ${list(BLK_TI.map(q=>q.n))}, +1 each. A city earns the next when a finished building stands on every block, with at least ${list(BLK_TI.map(q=>String(q.at)))} buildings. ${t.nx?`Next: ${t.nx.n}, with at least ${t.nx.at} buildings.`:`${nm} holds every title.`}`,t.g,BLK_TI.length]);}
+  if(ms.dec){const d=ms.dec;rows.push([`Edicts decided, for the capital: +1 at ${list(BLK_DEC.map(v=>fmt0(v)))}. ${fmt0(d.have)} so far.`,d.g,BLK_DEC.length]);}
+  return rows;
+}
 
 /* a city population, in millions, in words: 842,000, 3.2 million, 1.4 billion */
 function cpFmt(v){
@@ -37590,8 +37649,8 @@ function cpSorted(cs,T){const M=cpState(T),k=ct=>{const e=M.by.get(cpKey(ct));re
 /* the founder's record as it is now (cityState keeps the record it was built from) */
 function cpDoc(ct,T){const M=cpState(T),i=M.T.byId[ct.fid],x=i===undefined?null:M.T.list[i];return x?x.n:ct.fn;}
 function blkOf(ct,T){
-  const pop=cpPop(ct,T),cap=!!ct.cap,base=blkBase(pop,cap),bo=blkBonus(cpDoc(ct,T)),add=bo.all+(cap?bo.cap:0),n=clamp(base+add,1,BLK_MAX);
-  return {n,base,add,pop,cap,bo,next:n<BLK_MAX&&base<BLK_MAX?BLK_NEED[base+1]:null};
+  const pop=cpPop(ct,T),cap=!!ct.cap,base=blkBase(pop,cap),doc=cpDoc(ct,T),bo=blkBonus(doc),add=bo.all+(cap?bo.cap:0),ms=blkMs(ct,doc),n=clamp(base+add+ms.v,1,BLK_MAX);
+  return {n,base,add,ms,pop,cap,bo,next:n<BLK_MAX&&base<BLK_MAX?BLK_NEED[base+1]:null};
 }
 function blkUsed(ct){return ct.done.length+ct.prog.length;}
 function blkFullText(ct,busy,T){
@@ -37619,12 +37678,14 @@ function blkMeter(n,u,q){
 }
 function blkCard(ct,T,used,slots){
   if(!ct.active)return `<p class="hint city-slots">${used} of ${slots} blocks used</p>`;
-  const b=blkOf(ct,T),q=ct.prog.length,src=blkSrc(cpDoc(ct,T),ct.cap);
+  const b=blkOf(ct,T),q=ct.prog.length,src=blkSrc(cpDoc(ct,T),ct.cap),got=blkMsGot(b.ms),rows=blkMsRows(ct,b.ms);
   return `<div class="blk-box city-slots">
     <p class="blk-h"><span class="blk-l">Blocks <b>${used} of ${b.n}</b></span>${blkMeter(b.n,used,q)}</p>
     ${used>b.n?`<p class="err blk-over">${used} of ${b.n} blocks used: no room to build until the city grows.</p>`:''}
     <p class="hint blk-nx">${b.n>=BLK_MAX?`${esc(ct.nm)} has the most blocks a city can have.`:b.next?`The next block comes at <b>${cpFmt(b.next)}</b> people${b.pop>0?` (${cpFmt(b.pop)} now)`:''}.`:''}${q?' Queued buildings take a block too.':''}</p>
+    ${got.length?`<p class="hint blk-ms">+${b.ms.v} from milestones: ${esc(list(got))}.</p>`:''}
     ${src.length?`<p class="hint blk-src">${esc(src.join(' · '))}</p>`:''}
+    ${rows.length?`<details class="blk-mx" data-keep="blkMx"${S.blkMx?' open':''}><summary>More blocks for ${esc(ct.nm)}</summary><ul class="cx-parts blk-ml">${rows.map(([t,g,mx])=>`<li><span>${esc(t)}</span><b class="${g>=mx?'up':''}">+${g} of ${mx}</b></li>`).join('')}</ul></details>`:''}
   </div>`;
 }
 function cpCardPop(ct,T){if(!ct.active)return '';const p=cpPop(ct,T);return p>0?`<p class="city-pop"><b>${cpFmt(p)}</b> people</p>`:'';}
@@ -37695,6 +37756,27 @@ NORM_HOOKS.push((n,d)=>{
   if(a||c||h.length)n.blk={all:a,cap:c,h};
 });
 
+/* city titles: a save that finds a finished building on every block of one of the player's own cities, held by them,
+   with at least as many buildings as the next title asks for, gives the city that title (record field ti, kept by
+   cxCityExtras). One step a save, so the block a title adds has to be filled before the next. */
+function blkTiDue(n,T,now){
+  const out=[];if(!n||n.npc||!n.name||!Array.isArray(n.cities)||cellOf(n.loc)<0)return out;
+  const me=myId(),hi=T.byId[me];if(hi===undefined)return out;const CS=cityState(T);
+  for(const c of n.cities){
+    const ti=blkTi(c);if(ti>=BLK_TI.length)continue;
+    const fin=(c.b||[]).filter(b=>BUILDINGS[b.k]&&b.d<=now).length;if(fin<BLK_TI[ti].at)continue;
+    const ct=CS.all.find(q=>q.fid===me&&q.id===c.id);if(!ct||!ct.active||ct.hi!==hi)continue;
+    if(fin>=blkOf(ct,T).n)out.push({c,ti:ti+1});
+  }
+  return out;
+}
+COMMIT_HOOKS.push((n,old,now)=>{
+  let due=[];try{due=blkTiDue(n,territory(),now);}catch(e){return [];}
+  return due.map(({c,ti})=>{c.ti=ti;return `${cityLabel(n,c)} is now a ${BLK_TI[ti-1].n}: a finished building stands on every block, and the title adds one more.`;});
+});
+/* a city's title as a chip, for its card and the Nation page's list of cities */
+function blkTiChip(rec){const ti=blkTi(rec);return ti?`<span class="chip blk-ti" title="A city title: one more building block">${BLK_TI[ti-1].n}</span>`:'';}
+
 /* the achievement No Vacancies: every block of the capital in use, whatever the capital's size */
 function blkAchParts(x){
   const c=(x.n.cities||[])[0];if(!c||cellOf(x.n.loc)<0)return [['Settle your nation and fill its capital',false]];
@@ -37708,6 +37790,7 @@ function blkHelp(){
   const at=b=>cpFmt(BLK_NEED[b]),iss=ISSUES.filter(i=>!i.fo&&!/\{/.test(i.t)&&i.o.some(o=>o.e&&o.e.blk)).map(i=>'‘'+i.t+'’').slice(0,3);
   return `Every city has its own population: your cities hold the share of your people that lives in towns and cities, the capital the largest part and the others by the land and yields around them, their buildings (housing, a harbour, a market or a university draw people most), a coast or a river, and their age. The rest live in the countryside.</p>
       <p>A city has a building block for each building, and its blocks grow with its own population: a capital always has at least ${BLK_CAP0} and a new city ${BLK_CITY0}, and each block beyond needs about ${BLK_R} times as many people as the one before: ${BLK_CAP0+1} blocks at ${at(BLK_CAP0+1)} people, 10 at ${at(10)}, 14 at ${at(14)}, 20 at ${at(20)}, and the most a city can have, ${BLK_MAX}, at ${at(BLK_MAX)}. Some rare edicts add or take away blocks for good${iss.length?`, such as ${list(iss)}`:''}, either for every city (new ones included) or for the capital alone, up to +${BLK_HI} or down to −${-BLK_LO} each. A city with more buildings than blocks, after its people leave or a decision takes blocks away, keeps every building but can’t start another until it has room again.</p>
+      <p>Cities earn more blocks with milestones too: +1 when a city has stood ${list(BLK_AGE.map(String))} years (${list(BLK_AGE.map(v=>String(blkYrDays(v))))} days; a capital counts from your founding); +1 for every ${BLK_GOLD} of its buildings upgraded to gold, up to +${BLK_GOLD_MAX}; +1 while its Housing Estates are upgraded to gold, for their high-rise flats; the titles ${list(BLK_TI.map(t=>t.n))}, +1 each, which a city earns when a finished building stands on every block, with at least ${list(BLK_TI.map(t=>String(t.at)))} buildings; and for the capital, +1 at ${list(BLK_DEC.map(v=>fmt0(v)))} edicts decided. Under each city’s blocks, “More blocks” shows how far it has come.</p>
       <details class="blk-help"><summary>Blocks by population</summary><div class="blk-tbl">${Array.from({length:BLK_MAX-BLK_CITY0},(_,j)=>j+BLK_CITY0+1).map(b=>`<span><b>${b}</b> ${at(b)}</span>`).join('')}</div></details><p>`;
 }
 
@@ -58206,6 +58289,8 @@ function cxCityExtras(c){
   if(Number.isFinite(c.ne))o.ne=c.ne;
   if(c.cr&&typeof c.cr==='object'){const a=czCleanArms(c.cr,null);if(a)o.cr={s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};}
   const mb=c.mb;if(mb&&typeof mb==='object'&&Number.isFinite(mb.v)&&Number.isFinite(mb.u)&&mb.v)o.mb={v:clamp(Math.round(mb.v),-15,15),u:mb.u};
+  /* ti: the city's title (Town, Great City, Metropolis), 1–3; a literal 3, as normCities may run before BLK_TI is set */
+  if(Number.isInteger(c.ti)&&c.ti>0)o.ti=Math.min(3,c.ti);
   return o;
 }
 function cxUps(b,now){const e=cxBldExtras(b);return e.uu&&e.uu.d<=now?e.uu.u:e.ug||0;}
@@ -58386,9 +58471,9 @@ function cxLvBits(ct,k,mine,now){
   const b=ct.rec.b.find(x=>x.k===k);if(!b||b.d>now)return '';
   const e=cxBldExtras(b);
   if(e.uu&&e.uu.d>now)return `<span class="cx-lv">Fitting the ${CX_UG[e.uu.u-1].c} upgrade, ${e.uu.u} of ${CX_UG_MAX}: <span data-live="build" data-d="${e.uu.d}">${fmtDur(e.uu.d-now)}</span> left. <button class="linkish small" data-act="cx-up-no" data-id="${esc(ct.id)}" data-k="${k}">Stop</button></span>`;
-  const g=cxUps(b,now);if(g>=CX_UG_MAX)return `<span class="cx-lv">All five upgrades done: it works at double strength.</span>`;
+  const g=cxUps(b,now);if(g>=CX_UG_MAX)return `<span class="cx-lv">All five upgrades done: it works at double strength${k==='housing'?', and its high-rise flats give the city one more block':''}.</span>`;
   const U=CX_UG[g],st=stockNow(S.nation,now),q=cxUpQuote(S.nation,ct,k,g+1),p=cxUpProblem(S.nation,ct,k,st,now);
-  return `<span class="cx-lv"><button class="linkish small" data-act="cx-up" data-id="${esc(ct.id)}" data-k="${k}"${p?' disabled':''}><i class="ugb-dot ugb-${U.c}" aria-hidden="true"></i>Upgrade to ${U.c}</button> <span class="cx-lv-c">${g+1} of ${CX_UG_MAX}, ${U.r} · ${esc(costText(q.cost))} · ${q.hours} h · +${Math.round(U.fx*100)}% of its base effect${p&&!/^You need/.test(p)?' · '+esc(p):''}</span></span>`;
+  return `<span class="cx-lv"><button class="linkish small" data-act="cx-up" data-id="${esc(ct.id)}" data-k="${k}"${p?' disabled':''}><i class="ugb-dot ugb-${U.c}" aria-hidden="true"></i>Upgrade to ${U.c}</button> <span class="cx-lv-c">${g+1} of ${CX_UG_MAX}, ${U.r} · ${esc(costText(q.cost))} · ${q.hours} h · +${Math.round(U.fx*100)}% of its base effect${k==='housing'&&g+1===CX_UG_MAX?' and one more building block':''}${p&&!/^You need/.test(p)?' · '+esc(p):''}</span></span>`;
 }
 function cxCatBar(n,ct){
   const cur=S.cxCat||'all';
@@ -58488,7 +58573,7 @@ function cityCard(ct,T,n,st,now){
   }
   return `<article class="city cx-detail" id="city-${esc(ct.id)}">
     <div class="city-h"><div class="cc-head">${ct.rec&&ct.fn?ccSVG(ct,'cc-h'):''}<div><p class="eyebrow">${ct.cap?'Capital':'City'} · ${esc(cap1(placePhrase(ct.c).replace(/^in the |^on /,'')))}</p><h3 class="city-n">${esc(ct.nm)}</h3>${cpCardPop(ct,T)}</div></div>
-      <div class="city-tags">${band?`<span class="chip cx-mood-t ${band[3]}" title="Mood ${ct.mood} of 100">${band[1]}</span>`:''}${my?`<span class="chip">Mayor ${esc(my.nm)}</span>`:''}${facts.map(f=>`<span class="chip">${esc(f)}</span>`).join('')}${!mine?`<span class="chip">From ${esc(ct.fn.name)}</span>`:''}</div></div>
+      <div class="city-tags">${ct.rec?blkTiChip(ct.rec):''}${band?`<span class="chip cx-mood-t ${band[3]}" title="Mood ${ct.mood} of 100">${band[1]}</span>`:''}${my?`<span class="chip">Mayor ${esc(my.nm)}</span>`:''}${facts.map(f=>`<span class="chip">${esc(f)}</span>`).join('')}${!mine?`<span class="chip">From ${esc(ct.fn.name)}</span>`:''}</div></div>
     ${occupied?`<p class="err">Occupied by ${esc(holder?holder.n.name:'an enemy')}. Its buildings now work for them. Win it back to restore them.</p>`:''}
     ${!mine&&ct.active?`<p class="muted">Captured from ${esc(ct.fn.name)}. Its buildings work for you, but only its founder can build here.</p>`:''}
     ${tabs.length>1?`<div class="stabs cx-tabs" role="tablist" aria-label="${esc(ct.nm)}">${tabs.map(tabBtn).join('')}</div>`:''}
