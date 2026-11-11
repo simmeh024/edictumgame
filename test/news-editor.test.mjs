@@ -22,7 +22,7 @@ test('a message in the link field does not stop the post list loading, nor show 
   const ctx = vm.createContext({ listed: [] });
   vm.runInContext(`
     const NWE={node:null,list:null,lbusy:false,lerr:'',lkErr:'',lask:''},NW={stat:{}};
-    const document={getElementById:()=>null},admShell=(v,h)=>h,esc=s=>String(s),NW_READS_TIP='',nweList=()=>listed.push(1);
+    const document={getElementById:()=>null},admShell=(v,h)=>h,esc=s=>String(s),NW_READS_TIP='',nweList=()=>listed.push(1),nwReachLoad=()=>{};
     ${fn('nweLinkErr')}
     ${fn('nwAdminView')}
     nweLinkErr('A link needs an address starting with https:// or mailto:.');

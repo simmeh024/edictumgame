@@ -1,5 +1,6 @@
-/* Edictum's push notifications for letters (functions/letters.js sends them; Settings › Letters turns them on).
-   This worker does nothing else: no caching, no fetch handler. A notification says who wrote, never what. */
+/* Edictum's push notifications for letters and important development news (functions/letters.js sends them;
+   Settings › Letters turns them on). This worker does nothing else: no caching, no fetch handler. A letter's
+   notification says who wrote, never what. */
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('push', e => {
