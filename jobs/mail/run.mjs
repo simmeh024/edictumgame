@@ -8,7 +8,8 @@
 //     which keeps them FEED_KEEP and then deletes them.
 //  2. development news published since the last run (mailState/news {at}); the very first run only notes the time.
 //     Each account also keeps the time it was last sent news (mailAccounts/<uid>.nw), so a run that fails part of the
-//     way leaves the rest for the next run without sending anyone the same news twice.
+//     way leaves the rest for the next run without sending anyone the same news twice. Each post counts the letters
+//     that carried it in devnewsStat/<post>.m, for the admin portal's list.
 //  3. one reminder when a nation has not been visited for AWAY_DAYS (mailAccounts/<uid>.away remembers it).
 //  4. the flag competition: while judging is open, an entrant that has not scored the flags it must hears once when
 //     judging opens and once in its last day (mailAccounts/<uid>.fc remembers '<month>:open' or '<month>:last').
@@ -51,7 +52,7 @@ async function summary(uid) {
 const report = { confirmed: acc.size, digests: 0, news: 0, away: 0, pingsDeleted: 0, pingsKept: 0 };
 /* every letter with what it settles once sent: fields for its account, and pings it handled */
 const items = [], drop = [];
-const add = (letter, uid, fields, pings) => items.push({ letter, uid, fields, pings: pings || [] });
+const add = (letter, uid, fields, pings, news) => items.push({ letter, uid, fields, pings: pings || [], news: news || [] });
 
 // 1. pings
 const q = await db.collection('mailQ').limit(5000).get(), byTo = new Map();
@@ -75,12 +76,12 @@ const st = db.doc('mailState/news'), stS = await st.get();
 if (!stS.exists) await st.set({ at: now });
 else {
   const since = stS.get('at') || now;
-  const posts = (await db.collection('devnews').where('pub', '==', true).get()).docs.map(d => ({ ...d.data(), t: ms(d.get('t')) }))
+  const posts = (await db.collection('devnews').where('pub', '==', true).get()).docs.map(d => ({ ...d.data(), id: d.id, t: ms(d.get('t')) }))
     .filter(x => x.t > since && x.t <= now).sort((x, y) => x.t - y.t);
   if (posts.length) for (const [uid, a] of acc) {
     if (!a.p || !a.p.news) continue;
-    const mine = posts.filter(x => x.t > (a.nw || 0)).map(x => ({ ti: x.ti, ex: x.ex || '' }));
-    if (mine.length) { add(newsLetter(cfg, { to: a.e, posts: mine, tok: a.tok }), uid, { nw: now }); report.news++; }
+    const mine = posts.filter(x => x.t > (a.nw || 0));
+    if (mine.length) { add(newsLetter(cfg, { to: a.e, posts: mine.map(x => ({ ti: x.ti, ex: x.ex || '' })), tok: a.tok }), uid, { nw: now }, [], mine.map(x => x.id)); report.news++; }
   }
 }
 
@@ -136,6 +137,10 @@ for (let i = 0; i < items.length; i += CHUNK) {
   for (const x of chunk) fields.set(x.uid, Object.assign(fields.get(x.uid) || {}, x.fields));
   const pings = chunk.flatMap(x => x.pings);
   await writeAll([...[...fields].map(([uid, u]) => [db.doc('mailAccounts/' + uid), u]), ...pings.map(r => [r, null])]);
+  /* the letters each news post went out in */
+  const per = new Map();
+  for (const x of chunk) for (const id of x.news) per.set(id, (per.get(id) || 0) + 1);
+  for (const [id, k] of per) await db.doc('devnewsStat/' + id).set({ m: FieldValue.increment(k) }, { merge: true });
   report.pingsDeleted += pings.length;
 }
 if (!failed && stS.exists) await st.set({ at: now });

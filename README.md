@@ -926,6 +926,18 @@ in Firestore, `devnewsImg/`), signed with a name and role or as their nation. Pl
 **Development news** page under **Other** in the menu, which shows a count of new posts until they open it.
 On the page, admins can edit, delete or close the comments of a post, and remove a comment, hide its nation
 or ban its player; reported comments arrive in the Reports queue as *News comment*.
+The editor's toolbar also inserts a **game link** (a button that opens a page of the game; each player's first
+click per page counts in `devnewsStat/<post>.g`) and a **balance table** (Change, Before, After: each row is
+marked as going up or down; press Table again inside one to add a row). A post marked **Important** sends a
+notification once, when it is published, to every device of every player who turned notifications on in
+Settings › Letters and is not in the game just then (accounts `{op: 'letters', step: 'news'}`,
+`functions/letters.js`; a player can turn these off there), and stays pinned in their bell until they read it.
+A poll can let a nation pick up to six answers; its results show region by region, and once it closes the post
+names the winner and the bell tells each voter. Comments can be upvoted and sorted by upvotes, and a reply from
+the team is marked as its answer. Older posts fold to a card; a long post opens with its contents. Reading posts
+and voting in polls count towards six achievements (never commenting). The portal's list shows each post's
+reads, reach (reads as a share of the nations that played in the week after it came out), comments, link
+clicks, and the letters by post and notifications that carried it.
 
 **Report a bug.** Players report bugs on the **Report a bug** page under **Other**: a title, what happened,
 where in the game, how often, and a screenshot if they like (chosen or pasted; made at most 1600 pixels wide
