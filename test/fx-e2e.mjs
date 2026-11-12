@@ -191,7 +191,8 @@ await T.ctx.close();
 
 /* ── on a phone, in the dark ── */
 const B = await player('FX-B', { vp: { width: 390, height: 844 }, dark: true });
-await open(B); await found(B, 'Bvland');
+const uidB = await open(B); await found(B, 'Bvland');
+await until(() => nationDoc(uidB), 15000); // the job reads the saved records: Bvland's first save must have landed, as Aldoria's had
 job(now + DAY);
 await B.evaluate(() => localStorage.removeItem('edictum.fx.v1')); // the test publishes tomorrow's rates today
 await open(B);
