@@ -44,7 +44,12 @@ const bigSeats = await A.evaluate(() => { const n = G.clone(G.S.nation); n.pop =
 check('a nation of five billion has a far larger parliament', bigSeats > 1500 && bigSeats <= 3001);
 await setPol(A, { proportionalRep: false });
 
-// the address opens a tab after a reload; Statistics count the same seats
+// the address opens a tab after a reload; Statistics count the same seats. The toggles above must reach the server
+// first: a reload drops a save still waiting, and the next save then meets the older server copy and replays only
+// this page's actions onto it, so the policies toggled above (Second Chamber among them) vanish from "Repealed this
+// week" (seen on CI: the restore below took 18 s, and the check after it failed)
+const savedA = await until(async () => { const n = await localNation(A); return !!n && n._rev > 0 && !n._dirty; }, 15000);
+check('the policy toggles are saved before the reload', savedA, savedA ? '' : JSON.stringify(await localNation(A))?.slice(0, 300));
 await A.evaluate(() => { location.hash = '#government/laws'; }); await A.reload(); await ready(A); await A.waitForSelector('#gv');
 check('#government/laws opens the Laws tab after a reload', await tab(A) === 'laws' && await shown(A, '#gov-pols'));
 await A.evaluate(() => { G.S.statsTab = 'government'; }); await nav(A, 'stats');
