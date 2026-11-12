@@ -51,8 +51,11 @@ check('city cards explain their population-based production reach',/3-hex reach/
 await nav(A,'map');
 check('map tools expose expansion, transport and optional visual layers',await A.locator('.mp-map-toolbar').count()===1&&await A.locator('[data-mp-opt]').count()===4);
 check('a finished harbour adds the Harbour reach layer, off by default',await A.locator('[data-mp-opt="reach"]:not(:checked)').count()===1);
+/* the view is read after the map has drawn: drawing keeps it inside the map (clampView), which moves a view centred near
+   the top or bottom edge, and a click placed by the view before that landed elsewhere whenever the draw came first */
 const clickCell=async(p,c)=>{
  await p.evaluate(c=>{G.MD.centerMain(c,5);G.render();},c);const cv=p.locator('canvas[data-map="main"]');await cv.scrollIntoViewIfNeeded();
+ await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  const pos=await p.evaluate(c=>{const cv=document.querySelector('canvas[data-map="main"]'),v=G.MD.viewOf('main',cv),s=G.MD.mapScale(cv,v);return {x:cv.clientWidth/2+(G.MAP.cx[c]-v.cx)*s,y:cv.clientHeight/2+(G.MAP.cy[c]-v.cy)*s};},c);
  await cv.click({position:pos});
 };
