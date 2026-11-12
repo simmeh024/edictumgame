@@ -160,7 +160,9 @@ await B.locator('.ach-ladder summary').click();
 /* (the list is filled as the fold opens, and again after a redraw: wait for it) */
 check('and its ranks list ticks every rank up to it',await until(async()=>await B.locator('.ach-ladder li.done').count()===21),String(await B.locator('.ach-ladder li.done').count()));
 await B.locator('.ach-ladder [data-act="bd-zoom"][data-i="21"]').click();
-check('a border still ahead says how much prestige is to go',/The border of Kingmaker, at 4,000 prestige\. 660 prestige to go\./.test((await big(B)).sum)&&!(await big(B)).cz,JSON.stringify(await big(B)));
+/* 660 to go, or 650 once a save has written down the first visit to this page (Hall of Fame, a bronze, 10): whether a
+   save comes while the page is open is a matter of timing */
+check('a border still ahead says how much prestige is to go',/The border of Kingmaker, at 4,000 prestige\. 6[56]0 prestige to go\./.test((await big(B)).sum)&&!(await big(B)).cz,JSON.stringify(await big(B)));
 await B.keyboard.press('Escape');
 /* the mark is kept by a reload, and the rank with it */
 await B.evaluate(()=>G.S.nation&&0);await sleep(2500);await B.reload();await B.waitForSelector('.layout',{timeout:30000});

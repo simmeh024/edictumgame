@@ -1,6 +1,7 @@
 // The ranks of prestige (ACH_RANKS in game/edictum.html) and the rule that keeps a rank once held.
 // On 10 November 2026 the ranks from Elder Statesman up were moved further apart and two were added above The Last
 // Word; a nation that held a rank on the old ladder keeps it (n.rkh, written at its first save under the new one).
+// On 12 November 2026 six more were added above The Blank Page, 600 apart as before (adding at the top needs no floor).
 //   node --test test/rank-ladder.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,13 +20,14 @@ const { ACH_RANKS: R, ACH_RANKS_V1: V1, ACH_RANKS_VER: VER, achRank, achRankOf }
 const at = Array.from(R, r => r[0]), name = i => R[i][1];   // (Array.from: an array of this realm, so deepEqual compares it)
 const marked = (pts, rkh) => Object.assign({ pts, rkv: VER }, rkh ? { rkh } : {});
 
-test('the ladder: 53 ranks, each further than the last, with a name and a line of its own', () => {
-  assert.equal(R.length, 53);
+test('the ladder: 59 ranks, each further than the last, with a name and a line of its own', () => {
+  assert.equal(R.length, 59);
   for (let i = 1; i < R.length; i++) assert.ok(at[i] > at[i - 1], name(i));
   assert.equal(new Set(R.map(r => r[1])).size, R.length); assert.ok(R.every(r => typeof r[2] === 'string' && r[2].length > 10));
   assert.equal(at[0], 0); assert.equal(name(0), 'Unregistered');
   assert.deepEqual([name(50), name(51), name(52)], ['The Last Word', 'Postscript', 'The Blank Page']);
-  assert.deepEqual(at.slice(50), [22200, 22800, 23400]);
+  assert.deepEqual(Array.from(R.slice(53), r => r[1]), ['The First Line', 'Second Edition', 'Required Reading', 'The Canon', 'Illuminated Manuscript', 'The Library of Everything']);
+  assert.deepEqual(at.slice(50), [22200, 22800, 23400, 24000, 24600, 25200, 25800, 26400, 27000]);
 });
 
 test('what moved: nothing below Elder Statesman, every rank from there up is further away, none is nearer', () => {
@@ -34,7 +36,7 @@ test('what moved: nothing below Elder Statesman, every rank from there up is fur
   assert.equal(name(19), 'Elder Statesman');
   for (let i = 19; i <= 50; i++) assert.ok(at[i] > V1[i], name(i));
   assert.deepEqual(at.slice(19, 34), [3000, 3500, 4000, 4500, 5000, 5500, 6000, 6750, 7500, 8250, 9000, 9750, 10500, 11250, 12000]);
-  for (let i = 34; i < 53; i++) assert.equal(at[i] - at[i - 1], 600, name(i));
+  for (let i = 34; i < R.length; i++) assert.equal(at[i] - at[i - 1], 600, name(i));
   // two ranks' worth of the middle went up: 2,500 to 12,000 held 17 ranks, now 15
   assert.equal(at.filter(v => v > 2500 && v <= 12000).length, 15); assert.equal([...V1].filter(v => v > 2500 && v <= 12000).length, 17);
   // the rewards given at a fixed prestige still fall on a rank, so the ranks list can show them
@@ -83,8 +85,9 @@ test('the floor is never more than the points justified on the old ladder, and t
 test('every rank has a border, and every reader of a nation’s rank goes through the same function', () => {
   const bd = from('const ID_BD=[', ']];');
   assert.equal([...bd.matchAll(/\['b-[a-z0-9]+','/g)].length, R.length);
-  assert.match(bd, /\['b-postscript','Afterglow','afterglow','cstar',2\],\['b-blankpage','The blank page','blank','prism',2\]\];$/);
-  for (const look of ['afterglow', 'blank']) {
+  assert.match(bd, /\['b-postscript','Afterglow','afterglow','cstar',2\],\['b-blankpage','The blank page','blank','prism',2\],/);
+  assert.match(bd, /\['b-canon','Marble and laurel','marble','laurel',2\],\['b-illum','Illuminated capitals','illum','lap',2\],\['b-library','Every spine on the shelf','spines','prism',2\]\];$/);
+  for (const look of ['afterglow', 'blank', 'ink', 'gilt', 'lamp', 'marble', 'illum', 'spines']) {
     assert.match(html, new RegExp(`\\n\\.id-rk-${look}\\{--bd-1:`)); assert.match(html, new RegExp(`\\n\\.id-bd-${look} \\.id-bd-r\\{--bd-w:\\d+px;background:[^\\n]*animation:idBdSpin [^\\n]*idBdGlow`));
     assert.match(html, new RegExp(`[,{ ]${look}:\\['#`), 'and colours for the card’s picture');
   }
