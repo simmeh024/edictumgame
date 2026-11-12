@@ -204,7 +204,8 @@ check('the card pack offers seven designs and two letter papers', (await A.evalu
 check('the animated cards move, and say so', await A.evaluate(() => { const h = document.querySelector('.shop-idpack .hero.cd-starlit'); return !!h && getComputedStyle(h, '::before').animationName === 'cdTwinkle' && document.querySelectorAll('.shop-idpack .shop-anim').length === 2; }));
 const dr = await A.evaluate(async () => { const d = document.querySelector('.shop-dr'); d.scrollTop = 300; const top = d.scrollTop; document.querySelector('[data-act="shop-cd"][data-v="cd-atlas"]').click(); await new Promise(r => setTimeout(r, 300)); const e = document.querySelector('.shop-dr'), nm = e.querySelector('.shop-pv-hero .hero-name'); return [e.scrollTop > top - 60, !e.classList.contains('in'), !!nm && nm.getBoundingClientRect().width > 150, top, e.scrollTop, nm && nm.getBoundingClientRect().width]; }); check('a click inside the drawer keeps its scroll, and the card preview is not squeezed', dr.slice(0, 3).every(Boolean), JSON.stringify(dr));
 await go(A, 'map');await sleep(1200);
-check('Founder’s Gilt drawn on the player’s own land', !!(await until(() => A.evaluate(() => !!document.querySelector('canvas[data-map="main"]')?._gilt), 6000)));
+// the map draws after the page is shown: on a busy CI runner the gilt has come more than seven seconds in
+check('Founder’s Gilt drawn on the player’s own land', !!(await until(() => A.evaluate(() => !!document.querySelector('canvas[data-map="main"]')?._gilt), 20000)));
 await A.evaluate(() => { const t = document.querySelector('.toast'); if (t) t.remove(); });await shot(A, 'canvas[data-map="main"]', 'shop-map-gilt.png');
 await A.evaluate(() => G.PG.saveSoon());await sleep(2500);
 

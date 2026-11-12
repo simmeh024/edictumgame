@@ -359,9 +359,19 @@ await until(() => busyAt.length >= 1, 15000); await sleep(100);
 await C3.evaluate(() => window.dispatchEvent(new Event('focus')));
 const gaps = () => busyAt.slice(1).map((t, i) => t - busyAt[i]);
 check('a rate-limited save is tried again at growing gaps', await until(() => busyAt.length >= 3, 20000) && gaps()[0] >= 900 && gaps()[1] >= 1900, JSON.stringify(gaps()));
-/* the notice comes with the third refusal, and toasts show one at a time: an achievement the edit earned (with a new
-   rank, a long toast of eight seconds or more) can stand before it */
-check('the player hears the region is busy, not that its storage is full', await until(async () => /region is busy/.test(await toasts(C3)), 40000) && !/storage is full/.test(await toasts(C3)), await toasts(C3));
+/* the notice comes with the third refusal, and toasts show one at a time: any other that stands before it (an achievement
+   the edit earned, a title it unlocked: ten seconds or more, and held while the pointer is over it) is closed as it shows.
+   None of the toasts heard may say the storage is full */
+const busyToasts = [];
+const busyHeard = await until(async () => {
+  const t = await C3.evaluate(() => { const el = document.getElementById('toast'); return el && !el.hidden ? el.textContent : ''; });
+  if (!t) return false;
+  if (!busyToasts.includes(t)) busyToasts.push(t);
+  if (/region is busy/.test(t)) return true;
+  await C3.evaluate(() => { const x = document.querySelector('#toast .toast-x'); if (x) x.click(); });
+  return false;
+}, 40000);
+check('the player hears the region is busy, not that its storage is full', !!busyHeard && !busyToasts.some(t => /storage is full/.test(t)), busyToasts.join(' | ').slice(0, 400));
 await C3.unroute('**/europe-west1/civic', busy);
 check('and the save lands once the region has room', await until(async () => await motto() === 'Sent once the region has room', 20000));
 

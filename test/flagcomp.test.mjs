@@ -152,7 +152,8 @@ test('judging pays in land: a credit for every five flags, ten at most; and the 
   assert.equal(flcStreak({ fce: ['2027-03', '2027-03', 'x', 7] }), 1); assert.equal(flcStreak({}), 0); assert.equal(flcStreak(null), 0);
   // the achievements
   const defs = [...html.matchAll(/^achDef\('flag','(fc-[a-z0-9]+)','([bsgp])','([^']+)','([^']+)'/gm)].map(m => ({ id: m[1], t: m[2], n: m[3], d: m[4] }));
-  assert.equal(defs.length, 17); assert.equal(new Set(defs.map(a => a.id)).size, 17);
+  // 17, and two Platinum ones from 12 November 2026 (fc-judge300, fc-podium10)
+  assert.equal(defs.length, 19); assert.equal(new Set(defs.map(a => a.id)).size, 19);
   const named = [...html.matchAll(/'[bsgpxo]','((?:[^'\\]|\\.)+)'/g)].map(m => m[1]);   // every achievement's name: a tier, then the name, in achDef calls and in rows
   for (const a of defs) assert.equal(named.filter(x => x === a.n).length, 1, a.n + ' is the name of one achievement');
   assert.ok(!defs.some(a => /stars? in every category/.test(a.d)), 'none is paid for what the stars were');
