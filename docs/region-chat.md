@@ -34,6 +34,12 @@ A live chat for each region: the nations of a region talk to each other in short
   channel, the same one as on the Diplomacy page) and **Happenings** (the region's happenings, as on the Region page,
   newest first). Each tab counts what is new in it; the Chat button counts Region and Alliance. Happenings counts from
   the player's first look, so a new player is not shown the region's whole past.
+- **A new nation is welcomed in the chat**: when a nation is founded, the region chat shows "Welcomia has been founded,
+  welcome to #Meridian Reach!" as an announcement (a "New nation" label, the nation's flag and a link to its page), with
+  a **Welcome** button for the others for a week, until they have greeted it, and **Say hello** ("Hello, everyone!") for
+  the new nation itself until it has written a line. The line counts as new on the Chat button like any other; it is
+  not the new nation's own line (no guest line counted, no tutorial step done). Its menu reacts to it and reports it;
+  the nation itself deletes it and staff remove it.
 - **Welcome**: beside a nation founded in the last week, in Happenings. It starts a line in the region chat that
   @mentions the nation ("Welcome to the Meridian Reach, @Pocketland!"), ready to send.
 - **@mentions**: typing @ offers the region's nations (arrows and Enter or Tab pick one, Escape closes the list). The
@@ -94,6 +100,15 @@ A live chat for each region: the nations of a region talk to each other in short
     1, 24, 168, 720 or 0 (until lifted: `until` 1 Jan 2100 and `perm`). `wipe` deletes the player's lines of the last 24
     hours in `reg` (their own region if not given). `rcPost` refuses a silenced player (`rc_silenced`, with `until`,
     `perm` and `why` in the details). `rcUnmute {uid}` (staff) deletes it.
+  - `rcHello {}`: the game asks it once a new nation's record is saved (`edictum:saved`, within the hour of founding,
+    once per nation: `localStorage` `edictum.rgc.hello.<uid>`). The server writes `rchat/{reg}/chat/{id} {a: the new
+    nation's uid, nm, x: "<name> has been founded, welcome to #<region>!", t, exp, sys: 'found'}` only for a nation whose
+    birth (`eligibility()`, the record's creation, never `founded`) is within `RC_HELLO_AGE` (an hour); once a day an
+    account (`rcHello/{uid} {g, t}`), so founding again and again names no one; once a day a name in a region (a nation
+    carried into another account on signing in is saved anew there); at most `RC_HELLO_HOUR` (20) a region an hour
+    (`rcHello/~{reg} {w: [{t, k}]}`); never for a silenced account. Otherwise it answers `{ok: true, skip}`
+    (`done`, `old`, `again`, `busy`, `silenced`) and writes nothing. `rcHello/` is server-only and goes with the
+    account. No new Cloud Function: it is a `civic` op like the others.
   - `rcDelete {reg, id, report?}`: the author deletes their own line; staff (admin or mod claim) any line, which
     writes an `adminAudit` entry `chat_delete` with the words and closes the report if one is named.
 - `functions/admin.js` `delete_post` takes `rc:<region>:<line>` from the Reports queue.
@@ -135,8 +150,10 @@ repo's `firestore.indexes.json` leaves TTL out, so deploys leave the policy alon
 ## Tests
 
 - `test/regionchat.test.mjs` (in `test:fx`): the pacing.
-- `test/civic.test.mjs`: writing, pacing, repeats, the region check, deleting, staff removal and its audit, bans.
+- `test/civic.test.mjs`: writing, pacing, repeats, the region check, deleting, staff removal and its audit, bans; the
+  welcome of a new nation and each case that writes none.
 - `test/rules.test.mjs`: who reads a region's chat; nobody writes it.
 - `test/region-chat-e2e.mjs` (`npm run test:region-chat`, CI suite "Region chat"): the button and drawer, two
   players writing, the count, the mention notice, runs and dividers, guests, the menu, reporting and removal from the
-  Reports queue, blocking and unblocking, deleting, staff removal, a phone, and the setting.
+  Reports queue, blocking and unblocking, deleting, staff removal, a phone, and the setting; every nation founded is
+  welcomed once, and a nation founded later shows its welcome line with Welcome and Say hello.

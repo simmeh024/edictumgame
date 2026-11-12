@@ -65,7 +65,9 @@ test('the rulebook: a resolution enters, replaces one on its subject, pushes out
  assert.deepEqual(e.bookStep(r.bk,{f:1,ok:0,c:8,k:'k8',cat:'env'}).bk.length,4,'a failed count changes nothing');
 });
 test('the book in force folds the finished cycles after the last one that kept it, and a repeal of a resolution no longer in it is passed over',()=>{
- const a=record('a'),c=assemblyEngine('meridian',[a]).cycle(now);
+ /* a member since well before this cycle opened: two days of membership fall short on a cycle's third day, when its
+    proposal would not count */
+ const a=record('a',{founded:now-12*DAY,civicAt:now-10*DAY}),c=assemblyEngine('meridian',[a]).cycle(now);
  const L=(x,more)=>({c:x,k:'k'+x,ti:'R'+x,tx:'',cat:['env','trade','rights'][x%3],g:0,by:'npc-vellmark',bn:'Vellmark',w:'n',lt:1,y:2,n:0,ok:1,f:1,r:'meridian',...more});
  const locks=[L(c-3,{bk:[{k:'old',c:c-9,ti:'Old',tx:'',cat:'sci',g:0,by:'x',bn:''}]}),L(c-2),L(c-1,{ok:0})];
  const e=assemblyEngine('meridian',[a],locks);

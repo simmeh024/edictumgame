@@ -1,7 +1,9 @@
 // The Shop statistics page's counting (functions/shop-stats.js), on hand-made billing records: no emulator needed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shopSummary, founderGiftSummary, DAY } from '../functions/shop-stats.js';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { shopSummary, founderGiftSummary, parseEcb, DAY } from '../functions/shop-stats.js';
 
 const NOW = Date.parse('2026-11-03T12:00:00Z');
 const tx = (id, product, o = {}) => ({ id, product, uid: 'u-' + id, status: 'completed', ck: true, paid: NOW - DAY / 2, cur: 'EUR', total: 999, env: 'live', ...o });
@@ -83,4 +85,43 @@ test('the founders’ thank-you gift: choices by pack, against the founders ther
   assert.deepEqual(g.recent.map(r => r.uid), ['f1', 'f2', 'f3', 'gone'], 'newest first');
   assert.equal(g.recent.find(r => r.uid === 'gone').founder, false, 'a refunded founder keeps the choice on the list, marked');
   assert.equal(founderGiftSummary([], [], Date.parse('2026-12-01T00:00:00Z')).open, false, 'closed from 1 December');
+});
+
+test('the ECB’s reference rates: a day and each currency per euro, or nothing without a peso rate', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><gesmes:Envelope><Cube><Cube time='2026-11-11'>
+    <Cube currency='USD' rate='1.1127'/><Cube currency='JPY' rate='177.18'/><Cube currency='MXN' rate='20.7623'/><Cube currency='XXX' rate='0'/></Cube></Cube></gesmes:Envelope>`;
+  assert.deepEqual(parseEcb(xml), { date: '2026-11-11', rates: { USD: 1.1127, JPY: 177.18, MXN: 20.7623 } }, 'a rate that is not positive is left out');
+  assert.equal(parseEcb(xml.replace("<Cube currency='MXN' rate='20.7623'/>", '')), null);
+  assert.equal(parseEcb('<html>Service unavailable</html>'), null);
+  assert.equal(parseEcb(undefined), null);
+});
+
+/* the page's own money helpers (game/edictum.html), run on their own */
+function pageMoney() {
+  const src = readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
+  const a = src.indexOf('function shMoney('), b = src.indexOf('/* where the peso figures come from */', a);
+  assert.ok(a > 0 && b > a);
+  const ctx = vm.createContext({ stN: v => String(v), Intl });
+  vm.runInContext(src.slice(a, b) + ';this.T={shTo,shTwo,shSumTwo,shAsPaid,shOther};', ctx);
+  return ctx.T;
+}
+test('every amount in euro and peso, converted at the ECB rate; what has no rate stays as paid', () => {
+  const T = pageMoney(), fx = { date: '2026-11-11', rates: { MXN: 20, USD: 1.25, JPY: 160 } };
+  assert.equal(T.shTo(999, 'EUR', 'MXN', fx), 19980);
+  assert.equal(T.shTo(20939, 'MXN', 'EUR', fx), 1047, 'MX$209.39 is €10.47 (rounded to the cent)');
+  assert.equal(T.shTo(1000, 'USD', 'MXN', fx), 16000, '$10 is €8, so MX$160');
+  assert.equal(T.shTo(1600, 'JPY', 'EUR', fx), 1000, 'yen have no smaller unit');
+  assert.equal(T.shTo(500, 'ARS', 'EUR', fx), null, 'no ECB rate');
+  assert.equal(T.shTwo(999, 'EUR', fx), '€9.99 · MX$199.80');
+  assert.equal(T.shTwo(999, 'EUR', fx, true), '€9.99<span class="adsh-alt">MX$199.80</span>');
+  assert.equal(T.shTwo(999, 'EUR', null), '€9.99', 'no rates: euro only');
+  assert.equal(T.shSumTwo({ EUR: 299, MXN: 20939, USD: 1000 }, fx), '€21.46 · MX$429.19', '2.99 + 10.47 + 8.00 euro; 59.80 + 209.39 + 160.00 peso');
+  assert.match(T.shSumTwo({ EUR: 299, ARS: 50000 }, fx), /^€2\.99 · MX\$59\.80 \+ ARS.*500\.00 <span class="hint">\(no ECB rate\)<\/span>$/);
+  assert.equal(T.shSumTwo({}, fx, 'none'), 'none');
+  assert.equal(T.shSumTwo({ EUR: 299, MXN: 20939 }, null), 'MX$209.39 · €2.99', 'no rates: by currency, as before');
+  assert.equal(T.shAsPaid({ MXN: 20939 }), '', 'one currency of the two says nothing more');
+  assert.match(T.shAsPaid({ EUR: 299, MXN: 20939 }), /as paid: MX\$209\.39 · €2\.99/);
+  assert.match(T.shAsPaid({ USD: 1000 }), /as paid: US\$10\.00/);
+  assert.equal(T.shOther(299, 'EUR', fx), ' <span class="hint">≈ MX$59.80</span>');
+  assert.equal(T.shOther(1000, 'USD', fx), ' <span class="hint">≈ €8.00 · MX$160.00</span>');
 });
