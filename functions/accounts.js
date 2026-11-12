@@ -5,7 +5,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { identity, eligibility, refuse, registered, nationJSON, banMarks, DAY } from './eligibility.js';
 import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
-import { mailStep, mailUnsub, forgetMail } from './mail.js';
+import { mailStep, mailUnsub, forgetMail, recoveryMail } from './mail.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
 import { rmbForget, cbForget } from './board.js';
@@ -144,6 +144,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   }
   const who = await identity(uid);
   if (d.op === 'recruit') return recruit(db, who, d.by);
+  // a guest's recovery code by email (functions/mail.js)
+  if (d.op === 'recoveryMail') return recoveryMail(db, who, d, String(req.rawRequest?.ip || ''));
   if (d.op === 'status') {
     const [a, n] = await Promise.all([db.doc('accountIdentity/' + uid).get(), db.doc('nations/' + uid).get()]);
     return { kind: who.registered ? 'registered' : 'guest', hasNation: n.exists, recoveryIssued: a.get('generation') === who.generation && !!(a.get('recoveryIssued') || a.get('recoveryHash')), recoveryVersion: a.get('generation') === who.generation ? a.get('recoveryVersion') || 0 : 0 };

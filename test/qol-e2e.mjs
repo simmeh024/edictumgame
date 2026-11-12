@@ -45,7 +45,10 @@ await A.waitForSelector('#dm-q');
 const target = await A.$$eval('#dm-new option', o => o.filter(x => x.value).at(-1).textContent.replace(/ \(.*\)$/, ''));
 await A.fill('#dm-q', target);
 const shownOpts = () => A.$$eval('#dm-new option', o => [o.filter(x => x.value && !x.hidden).length, o.filter(x => x.value).length]);
-check('typing narrows the list of nations', await until(async () => { const [v, all] = await shownOpts(); return v >= 1 && v < all; }), JSON.stringify(await shownOpts()));
+/* The guest's recovery-code dialog opens a few seconds after founding and takes the focus. Opening while the name was
+   being typed, it took the keys and the list stayed whole (CI, PR #306). lib.mjs dismisses it before each action, so the
+   name is typed again until the list narrows: a filter that does not work still fails. */
+check('typing narrows the list of nations', await until(async () => { const [v, all] = await shownOpts(); if (v >= 1 && v < all) return true; await A.fill('#dm-q', target); return false; }), JSON.stringify(await shownOpts()));
 await A.press('#dm-q', 'Enter');
 check('and Enter opens the first one found', await until(async () => /Message to/.test(await text(A, '#dm-form'))));
 

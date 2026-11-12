@@ -22,12 +22,12 @@
    A code goes only to a player with a nation, and its letter names no nation: the address's owner never asked for
    it, so it carries no words a player chose. */
 import { HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
 import { refuse } from './eligibility.js';
-import { mailConfig, send, verifyLetter, welcomeLetter, digest, token, validEmail, cleanPrefs, defaultPrefs } from './mail-core.js';
+import { mailConfig, send, verifyLetter, welcomeLetter, recoveryLetter, digest, token, validEmail, cleanPrefs, defaultPrefs } from './mail-core.js';
 
-const DAY = 86400000, CODE_MS = 30 * 60000, IP_DAY = 30, VERIFY_DAY = 500;
+const DAY = 86400000, CODE_MS = 30 * 60000, IP_DAY = 30, VERIFY_DAY = 500, RECOVERY_DAY = 300;
 
 async function who(db, uid) {
   const s = await db.doc('summaries/' + uid).get(), n = s.exists ? s.get('name') : '';
@@ -48,6 +48,40 @@ export async function forgetMail(uid) {
   if (!s.exists) return;
   if (s.get('tok')) await db.doc('mailTokens/' + s.get('tok')).delete();
   await ref.delete();
+}
+
+/* accounts({op: 'recoveryMail', email, code}) → {ok: true}: a guest's recovery code, mailed once to the address it
+   typed (src/shim.js, mailRecovery). Only the code the account holds now (its hash in accountIdentity, for this
+   sign-in's generation: functions/accounts.js, issue) can go, so the letter carries nothing else a player chose.
+   Neither the code nor the address is kept: only the limits, per account (recoveryLimits/m_{uid}, which expires),
+   per address and per IP address (mailAddr, mailIp, shared with the confirmation codes) and the day's total
+   (mailState/recovery). */
+export async function recoveryMail(db, who, d, ip = '') {
+  const now = Date.now(), e = String(d.email || '').trim().toLowerCase(), code = typeof d.code === 'string' ? d.code.toUpperCase().replace(/[\s-]/g, '') : '';
+  if (!validEmail(e)) throw new HttpsError('invalid-argument', 'That does not look like an email address.');
+  if (!/^EDC[A-F0-9]{40}$/.test(code)) throw new HttpsError('invalid-argument', 'That is not a recovery code.');
+  if (who.registered) refuse('already_registered', 'Registered Nations recover through their linked sign-in.');
+  const mine = db.doc('recoveryLimits/m_' + who.uid), addr = db.doc('mailAddr/' + digest(e)), from = db.doc('mailIp/' + digest('ip:' + (ip || 'unknown')));
+  const total = db.doc('mailState/recovery'), today = Math.floor(now / DAY);
+  await db.runTransaction(async tx => {
+    const [a, m, ad, f, g] = await tx.getAll(db.doc('accountIdentity/' + who.uid), mine, addr, from, total);
+    if (!a.exists || a.get('generation') !== who.generation || a.get('recoveryHash') !== digest(code))
+      refuse('recovery_not_current', 'That is not your current recovery code. Regenerate your key to get a new one.');
+    const recent = s => (s.exists && s.get('n') || []).filter(t => now - t < DAY);
+    const mN = recent(m), aN = recent(ad), fN = recent(f), gN = g.exists && g.get('d') === today ? g.get('n') || 0 : 0;
+    if (mN.length && now - mN.at(-1) < 60000) throw new HttpsError('resource-exhausted', 'Wait a minute before sending it again.');
+    if (mN.length >= 3) throw new HttpsError('resource-exhausted', 'That is enough letters for today. Copy or download the code instead.');
+    if (aN.length >= 3) throw new HttpsError('resource-exhausted', 'That address has had enough letters for today. Try again tomorrow.');
+    if (fN.length >= IP_DAY || gN >= RECOVERY_DAY) throw new HttpsError('resource-exhausted', 'The Herald has sent all the letters it can for today. Copy or download the code instead.');
+    tx.set(mine, { n: mN.concat(now), exp: Timestamp.fromMillis(now + DAY) });
+    tx.set(addr, { n: aN.concat(now) });
+    tx.set(from, { n: fN.concat(now) });
+    tx.set(total, { d: today, n: gN + 1 });
+  });
+  const cfg = await mailConfig(db);
+  try { await send(db, [recoveryLetter(cfg, { to: e, code })], cfg); }
+  catch (err) { if (err.code === 'mail_off') refuse('mail_off', err.message); throw new HttpsError('unavailable', 'The Herald could not send the letter. Try again in a while.'); }
+  return { ok: true };
 }
 
 export async function mailStep(uid, d, ip = '') {
