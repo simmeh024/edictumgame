@@ -67637,6 +67637,49 @@ achDef('flag','fc-win','g','Best in Show','Win the flag competition.',1,x=>achYe
 achDef('flag','fc-ace','g','By Acclamation','Win a competition with a score of 4.5 or more.',1,x=>aT(x,'fcace'));
 achDef('flag','fc-win3','p','Flag of Flags','Win three flag competitions.',3,x=>flcPlaces(x).filter(p=>/\/1$/.test(p)).length);
 
+/* ───────── achievements, the high tiers: 20 Platinum, 10 Prismatic and 2 Obsidian (12 November 2026) ─────────
+   Long hauls on counts the game already keeps, a step or two above their Gold: chat lines and board posts (aTP,
+   aCbPosts, from round four), the Assembly, the museum, expeditions, trade, spies and covert operations (one at most
+   every CV_GAP, eight hours, so 1,500 is more than a year's work), gold medals, Flock, the passport, the flag
+   competition, briefings, land claims and rare desk tasks. Here, after the alliance and flag sections, so alDays and
+   flcPlaces exist. Each pays land credits of its own (ACH_TIER_LC) as well as prestige; the Obsidian ones are secret
+   until earned (OBS_HINT), as every Obsidian is. */
+/* Platinum */
+achDef('dip','dip-ch5000','p','Voice of the Region','Send 5,000 lines in the chat. People know your typing from the next room.',5000,x=>aTP(x,'rch'));
+achDef('dip','dip-cbp500','p','Leader Writer','Write 500 posts on the Community Board, topics and replies together.',500,aCbPosts);
+achDef('dip','dip-old365','p','Through Thick and Thin','Stay 365 days in the same alliance.',365,alDays,{mp:1});
+achDef('dip','asm-vote120','p','Worn Green Leather','Vote in 120 Assembly counts. The bench has your shape now.',120,x=>aT(x,'asm:vote'));
+achDef('dip','asm-mine15','p','Lawgiver of the Reach','See fifteen resolutions you proposed pass the Assembly.',15,x=>aT(x,'asm:mine'));
+achDef('mus','mus-tk250','p','Record Attendance','Collect the museum’s takings on 250 days.',250,x=>aTP(x,'mw:takings'));
+achDef('mus','mus-yr100','p','Star of the Guidebook','Lead your region’s museums on 100 days.',100,x=>aMw(x)?aMw(x).yr:0);
+achDef('exp','exp-100','p','No Blank Spaces','Send 100 expeditions. The mapmakers have run out of sea serpents to draw.',100,x=>Math.max(aT(x,'exp'),(x.n.disc||[]).length));
+achDef('exp','exp-first25','p','Named After You','Make 25 first discoveries.',25,aFirst);
+achDef('eco','eco-trade100','p','Merchant Prince','Sign 100 trade deals.',100,x=>aT(x,'log:trade'));
+achDef('spy','spy-300','p','The Old Firm','Send 300 spies. Some of them have retired into your other spies.',300,x=>aT(x,'spy'));
+achDef('spy','cov-200','p','Station Director','Carry out 200 covert operations.',200,x=>aT(x,'cov'));
+achDef('games','games-g40','p','Golden Generation','Win 40 gold medals.',40,aGolds);
+achDef('soc','flk-1000','p','Thought Leader','Post 1,000 peeps on Flock. Your followers have followers.',1000,x=>aT(x,'flk'));
+achDef('pass','pass-days100','p','A Hundred Days Abroad','Collect new entry stamps on 100 different days.',100,x=>ppStats(x.n).dd);
+achDef('flag','fc-judge300','p','Flag Connoisseur','Score 300 flags in the flag competition.',300,x=>aT(x,'fcj'));
+achDef('flag','fc-podium10','p','Podium Furniture','Finish in the first three of ten flag competitions.',10,x=>flcPlaces(x).length);
+achDef('gov','brf-250','p','Briefed to the Eyeballs','Answer 250 daily briefings.',250,x=>aT(x,'brf'));
+achDef('land','land-claim150','p','Claims Commissioner','Claim 150 hexes with land credits.',150,aClaims);
+achDef('found','desk-rare200','p','Rarer Than Rare','Finish 200 rare desk tasks.',200,x=>ddrOf(x.n));
+/* Prismatic */
+achDef('dip','dip-ch20000','x','The Region’s Wireless','Send 20,000 lines in the chat. Somewhere a transmitter mast is named after you.',20000,x=>aTP(x,'rch'));
+achDef('dip','dip-cbp1500','x','Fourth Estate','Write 1,500 posts on the Community Board.',1500,aCbPosts);
+achDef('dip','asm-vote200','x','Two Hundred Divisions','Vote in 200 Assembly counts.',200,x=>aT(x,'asm:vote'));
+achDef('mus','mus-yr365','x','Museum of the Age','Lead your region’s museums on 365 days.',365,x=>aMw(x)?aMw(x).yr:0);
+achDef('spy','cov-600','x','The Long Shadow','Carry out 600 covert operations.',600,x=>aT(x,'cov'));
+achDef('games','games-g100','x','A Hundred Anthems','Win 100 gold medals. The band can play yours in its sleep.',100,aGolds);
+achDef('soc','flk-5000','x','The Whole Flock Follows','Post 5,000 peeps on Flock.',5000,x=>aT(x,'flk'));
+achDef('gov','brf-500','x','Nothing Gets Past You','Answer 500 daily briefings.',500,x=>aT(x,'brf'));
+achDef('eco','eco-svc600','x','Every Stone Turned','Dig up six hundred survey caches.',600,x=>aT(x,'svc'));
+achDef('eco','eco-trade300','x','Merchant Republic','Sign 300 trade deals.',300,x=>aT(x,'log:trade'));
+/* Obsidian */
+achDef('mus','obs-mus','o','The Eternal Exhibition','Lead your region’s museums on 730 days. The guidebooks have stopped listing anyone else.',730,x=>aMw(x)?aMw(x).yr:0,{sec:OBS_HINT});
+achDef('spy','obs-cov','o','The Shadow State','Carry out 1,500 covert operations. Nobody can prove any of them.',1500,x=>aT(x,'cov'),{sec:OBS_HINT});
+
 /* ── the staff's page: admin portal › Game content › Flag competition (view admin-flagc) ──
    Every entry of a month with its nation, live score and reports; every judge with what looks odd about their scores
    (functions/flagcomp-core.js fcSuspect: a drive-by visit to lift one flag, one flag far above the judge's others, the
