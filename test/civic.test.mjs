@@ -418,6 +418,101 @@ test('A recruit counts once, as a Registered Nation founded in the last 30 days 
   assert.deepEqual(await account(empty,{op:'recruit',by:recruiter.uid}),{ok:false,why:'nation_required'});
 });
 
+test('Community Board: authors and repliers follow a topic, each reply counts on the other followers’ copies, and muting stops it',async()=>{
+  const a=await player(true),b=await player(true),c=await player(true),g=await player(),staff=await player(true);await auth.setCustomUserClaims(staff.uid,{admin:true});
+  const t=await civic(a,{op:'cbTopic',reg:'meridian',ti:'Iron for oil?',x:'Who trades?'});
+  const w=(p,id=t.id)=>db.doc('cbWatch/'+p.uid+'/t/'+id).get().then(s=>s.exists?s.data():null),subs=()=>db.doc('cbSubs/'+t.id).get();
+  let wa=await w(a);assert.equal(wa.f,1);assert.equal(wa.n,0);assert.equal(wa.reg,'meridian');assert.equal(wa.ti,'Iron for oil?');
+  assert.deepEqual((await subs()).get('f'),{[a.uid]:1});
+  await civic(b,{op:'cbReply',reg:'meridian',topic:t.id,x:'I do.'});
+  wa=await w(a);assert.equal(wa.n,1);assert.equal(wa.nm,b.uid);assert.ok(wa.nt>Date.now()-60000);
+  let wb=await w(b);assert.equal(wb.f,1);assert.equal(wb.n,0);
+  // anyone who reads the board may follow, a guest too
+  assert.deepEqual(await civic(g,{op:'cbFollow',reg:'meridian',topic:t.id,on:true}),{ok:true,f:1});assert.equal((await w(g)).f,1);
+  await civic(c,{op:'cbReply',reg:'meridian',topic:t.id,x:'Me too.'});
+  wa=await w(a);assert.equal(wa.n,2);assert.equal(wa.nm,c.uid);assert.equal((await w(b)).n,1);assert.equal((await w(g)).n,1);assert.equal((await w(c)).n,0);
+  // b mutes it: replying again does not follow it again
+  await civic(b,{op:'cbFollow',reg:'meridian',topic:t.id,on:false});wb=await w(b);assert.equal(wb.f,0);assert.equal(wb.n,0);
+  await db.doc('cbPace/'+b.uid).delete();
+  await civic(b,{op:'cbReply',reg:'meridian',topic:t.id,x:'Still here.'});
+  assert.equal((await w(b)).f,0);assert.equal((await w(b)).n,0);assert.equal((await subs()).get('f')[b.uid],0);assert.equal((await w(a)).n,3);
+  // a topic from before following began: its author follows it from the first reply
+  const old=db.collection('cb/meridian/posts').doc();await old.set({a:c.uid,nm:c.uid,rg:'meridian',ti:'An old topic',x:'Old words',tg:'general',t:Date.now()-DAY,la:Date.now()-DAY,rc:0});
+  await db.doc('cbPace/'+a.uid).delete();await civic(a,{op:'cbReply',reg:'meridian',topic:old.id,x:'Late answer'});
+  assert.equal((await w(c,old.id)).n,1);assert.equal((await w(a,old.id)).f,1);
+  // a hidden topic's title leaves the copies and comes back; moved, they follow it; deleted, they go
+  await civic(staff,{op:'cbMod',act:'hide',reg:'meridian',topic:t.id});assert.equal((await w(a)).ti,'');
+  await civic(staff,{op:'cbMod',act:'unhide',reg:'meridian',topic:t.id});assert.equal((await w(a)).ti,'Iron for oil?');
+  await civic(staff,{op:'cbMod',act:'move',reg:'meridian',topic:t.id,to:'wildwood'});assert.equal((await w(a)).reg,'wildwood');assert.equal((await subs()).get('reg'),'wildwood');
+  await civic(staff,{op:'cbDelete',reg:'wildwood',topic:t.id});
+  assert.equal(await w(a),null);assert.equal(await w(b),null);assert.equal(await w(g),null);assert.equal((await subs()).exists,false);
+  await rejects(civic(a,{op:'cbFollow',reg:'wildwood',topic:t.id,on:true}),'cb_missing');
+  await assert.rejects(civic(a,{op:'cbFollow',reg:'wildwood',topic:'nope',on:true}),e=>e.status==='INVALID_ARGUMENT');
+});
+
+test('Community Board: one reaction per nation on each post, the same again takes it back; a reply quotes a post under its own topic',async()=>{
+  const a=await player(true),b=await player(true),g=await player(),x=await player(true),staff=await player(true);await auth.setCustomUserClaims(staff.uid,{admin:true});
+  const t=await civic(a,{op:'cbTopic',reg:'meridian',ti:'React to me',x:'Words'});
+  const r1=await civic(b,{op:'cbReply',reg:'meridian',topic:t.id,x:'A reply'});
+  const ref=db.doc('cb/meridian/posts/'+t.id),rref=ref.collection('posts').doc(r1.id),la=(await ref.get()).get('la');
+  assert.deepEqual(await civic(g,{op:'cbReact',reg:'meridian',topic:t.id,e:'heart'}),{e:'heart'});
+  await civic(b,{op:'cbReact',reg:'meridian',topic:t.id,e:'up'});
+  assert.deepEqual((await ref.get()).get('rv'),{[g.uid]:'heart',[b.uid]:'up'});
+  await civic(g,{op:'cbReact',reg:'meridian',topic:t.id,e:'party'});assert.equal((await ref.get()).get('rv')[g.uid],'party');
+  assert.deepEqual(await civic(g,{op:'cbReact',reg:'meridian',topic:t.id,e:'party'}),{e:''});assert.equal((await ref.get()).get('rv')[g.uid],undefined);
+  assert.equal((await ref.get()).get('la'),la);
+  await civic(a,{op:'cbReact',reg:'meridian',topic:t.id,reply:r1.id,e:'think'});assert.deepEqual((await rref.get()).get('rv'),{[a.uid]:'think'});
+  assert.deepEqual((await db.doc('cbRx/'+a.uid).get()).get('p'),['meridian/'+t.id+'/'+r1.id]);
+  await assert.rejects(civic(a,{op:'cbReact',reg:'meridian',topic:t.id,e:'angry'}),e=>e.status==='INVALID_ARGUMENT');
+  // quotes: a reply under the same topic, or the topic itself; never another topic's post
+  await db.doc('cbPace/'+a.uid).delete();
+  const q1=await civic(a,{op:'cbReply',reg:'meridian',topic:t.id,x:'Quoting you',q:r1.id});assert.equal((await ref.collection('posts').doc(q1.id).get()).get('q'),r1.id);
+  await db.doc('cbPace/'+a.uid).delete();
+  const q2=await civic(a,{op:'cbReply',reg:'meridian',topic:t.id,x:'Quoting the topic',q:t.id});assert.equal((await ref.collection('posts').doc(q2.id).get()).get('q'),t.id);
+  const other=await civic(x,{op:'cbTopic',reg:'meridian',ti:'Another topic',x:'Elsewhere'});
+  await db.doc('cbPace/'+a.uid).delete();
+  await rejects(civic(a,{op:'cbReply',reg:'meridian',topic:t.id,x:'Wrong topic',q:other.id}),'cb_quote_missing');
+  await assert.rejects(civic(a,{op:'cbReply',reg:'meridian',topic:t.id,x:'Bad id',q:'nope'}),e=>e.status==='INVALID_ARGUMENT');
+  // a hidden reply is neither quoted nor reacted to
+  await civic(staff,{op:'cbMod',act:'hide',reg:'meridian',topic:t.id,reply:r1.id});
+  await rejects(civic(a,{op:'cbReply',reg:'meridian',topic:t.id,x:'Quoting the hidden',q:r1.id}),'cb_quote_missing');
+  await rejects(civic(g,{op:'cbReact',reg:'meridian',topic:t.id,reply:r1.id,e:'up'}),'cb_missing');
+  // the account closes: its reactions, the topics it followed and its profile go with it
+  await db.doc('nations/'+a.uid).delete();await account(a,{op:'close'});
+  assert.equal(((await rref.get()).get('rv')||{})[a.uid],undefined);
+  assert.equal((await db.doc('cbRx/'+a.uid).get()).exists,false);assert.equal((await db.doc('cbUser/'+a.uid).get()).exists,false);
+  assert.equal((await db.collection('cbWatch/'+a.uid+'/t').get()).size,0);assert.equal(((await db.doc('cbSubs/'+t.id).get()).get('f')||{})[a.uid],undefined);
+});
+
+test('Community Board: a nation’s board profile counts its posts and carries its rank, alliance, marks and signature',async()=>{
+  const a=await player(true),b=await player(true),staff=await player(true);await auth.setCustomUserClaims(staff.uid,{admin:true});
+  // posts from before profiles are counted once, at the next post
+  const old=db.collection('cb/meridian/posts').doc();await old.set({a:a.uid,nm:a.uid,rg:'meridian',ti:'Older',x:'x',tg:'general',t:1,la:1,rc:1});
+  await old.collection('posts').doc().set({a:a.uid,nm:a.uid,rg:'meridian',x:'An older reply',t:2});
+  await db.doc('shop/'+a.uid).set({owns:{founder:Date.now()},vip:{until:Date.now()+DAY}});
+  await db.doc('alliances/al-'+a.uid).set({name:'The Iron Pact',col:'#aa3311',reg:'meridian',mem:{[a.uid]:{t:1}}});await db.doc('allyOf/'+a.uid).set({a:'al-'+a.uid,reg:'meridian',t:1});
+  const t=await civic(a,{op:'cbTopic',reg:'meridian',ti:'My profile',x:'Hello',rk:7});
+  let u=(await db.doc('cbUser/'+a.uid).get()).data();
+  assert.equal(u.n,3);assert.equal(u.rk,7);assert.deepEqual(u.al,{n:'The Iron Pact',c:'#AA3311'});assert.equal(u.cl,true);assert.equal(u.fd,true);assert.equal(u.nm,a.uid);assert.equal(u.rg,'meridian');
+  await db.doc('cbPace/'+a.uid).delete();await db.doc('allyOf/'+a.uid).delete();await db.doc('shop/'+a.uid).set({owns:{founder:1}});
+  const r=await civic(a,{op:'cbReply',reg:'meridian',topic:t.id,x:'Again',rk:500});
+  u=(await db.doc('cbUser/'+a.uid).get()).data();assert.equal(u.n,4);assert.equal(u.rk,undefined);assert.equal(u.al,undefined);assert.equal(u.cl,undefined);assert.equal(u.fd,true);
+  // the signature: the player's own line; a guest has none; staff take one away
+  assert.deepEqual(await civic(a,{op:'cbSig',sg:'  Long   live the Pact!  '}),{ok:true,sg:'Long live the Pact!'});assert.equal((await db.doc('cbUser/'+a.uid).get()).get('sg'),'Long live the Pact!');
+  await rejects(civic(await player(),{op:'cbSig',sg:'A guest'}),'registration_required');
+  await assert.rejects(civic(b,{op:'cbMod',act:'nosig',reg:'meridian',topic:t.id,reply:r.id}),e=>e.status==='PERMISSION_DENIED');
+  await civic(staff,{op:'cbMod',act:'nosig',reg:'meridian',topic:t.id,reply:r.id,reason:'Rude'});assert.equal((await db.doc('cbUser/'+a.uid).get()).get('sg'),undefined);
+  const log=await db.collection('adminAudit').where('topic','==',t.id).where('action','==','board_nosig').get();assert.equal(log.size,1);assert.equal(log.docs[0].get('x'),'Long live the Pact!');
+  await civic(a,{op:'cbSig',sg:'Peace'});await civic(a,{op:'cbSig',sg:''});assert.equal((await db.doc('cbUser/'+a.uid).get()).get('sg'),undefined);
+  // a post deleted lowers its author's count; a topic deleted takes its replies' counts too
+  await civic(b,{op:'cbReply',reg:'meridian',topic:t.id,x:'A reply of b'});assert.equal((await db.doc('cbUser/'+b.uid).get()).get('n'),1);
+  await civic(a,{op:'cbDelete',reg:'meridian',topic:t.id,reply:r.id});assert.equal((await db.doc('cbUser/'+a.uid).get()).get('n'),3);
+  await civic(staff,{op:'cbDelete',reg:'meridian',topic:t.id});
+  assert.equal((await db.doc('cbUser/'+a.uid).get()).get('n'),2);assert.equal((await db.doc('cbUser/'+b.uid).get()).get('n'),0);
+  // the Edictum team's posts are nobody's
+  await civic(staff,{op:'cbTopic',reg:'meridian',ti:'Team news',x:'Hello all',as:'team'});assert.equal((await db.doc('cbUser/'+staff.uid).get()).exists,false);
+});
+
 test('Community Board posts are paced: one every 30 seconds, 20 an hour, 5 of them topics; staff are not',async()=>{
   const r=await player(true),now=Date.now(),ago=(k,ms)=>Array.from({length:k},(_,i)=>now-(i+1)*ms);
   const topic=(p,i)=>civic(p,{op:'cbTopic',reg:'meridian',ti:'Topic number '+i,x:'Some words',tg:'general'});

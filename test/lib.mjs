@@ -110,7 +110,7 @@ export const nav = async (p, v) => { await p.evaluate(v => document.querySelecto
    first (from anywhere: it opens the Region page when it is not open) */
 export const regionTab = async (p, t = 'nations') => { if (!(await p.$('#rgn-tab-' + t))) await nav(p, 'region'); await p.click('#rgn-tab-' + t); await sleep(120); };
 /* Customise shows one section at a time: open one by its key (t e a y v b s z c), through its address */
-const CZ_SLUGS = { t: 'epithet', e: 'flag', a: 'arms', y: 'symbols', v: 'provinces', b: 'banner', s: 'decrees', z: 'finery', c: 'currency', l: 'stationery' };
+const CZ_SLUGS = { t: 'epithet', e: 'flag', a: 'arms', y: 'symbols', v: 'provinces', b: 'banner', s: 'decrees', z: 'finery', c: 'currency', l: 'stationery', n: 'nationpage', w: 'board' };
 export async function czSection(p, k) {
   await p.evaluate(h => { if (location.hash !== h) location.hash = h; else window.dispatchEvent(new PopStateEvent('popstate')); }, '#customise/' + CZ_SLUGS[k]);
   await p.waitForSelector('#cz-sec-' + k, { state: 'visible', timeout: 15000 }); await sleep(150);

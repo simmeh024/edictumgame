@@ -12,8 +12,8 @@ await settle(A);
 
 const r = await A.evaluate(() => { const g = G.GB(), n = G.S.nation, rt = g.stockRates(n), E = g.economy(), i = E.byDoc.get(n);
   return { rt, prod: Object.fromEntries(Object.keys(rt).map(k => [k, E.prod[k][i]])), dem: Object.fromEntries(Object.keys(rt).map(k => [k, E.dem[k][i]])),
-    orepit: !!g.BUILDINGS.orepit, factoryIron: g.BUILDINGS.factory.cost.iron, ironDemand: g.DEMAND.iron, mine: g.MILESTONES.find(m => (m.b || []).includes('mine')), share: g.GB.SHARE }; });
-check('every resource with any production grows: the state keeps a share', ['food', 'timber', 'iron', 'goods'].every(k => r.rt[k] >= r.share * r.prod[k] - 1e-9 && r.rt[k] > 0), JSON.stringify(r.rt));
+    orepit: !!g.BUILDINGS.orepit, factoryIron: g.BUILDINGS.factory.cost.iron, ironDemand: g.DEMAND.iron, mine: g.MILESTONES.find(m => (m.b || []).includes('mine')), share: g.GB.SHARE, spoil: g.FOOD_SPOIL }; });
+check('every resource with any production grows: the state keeps a share (less the food that spoils)', ['food', 'timber', 'iron', 'goods'].every(k => r.rt[k] >= r.share * r.prod[k] * (k === 'food' ? 1 - r.spoil : 1) - 1e-9 && r.rt[k] > 0), JSON.stringify(r.rt));
 check('goods gain the population’s share on top', r.rt.goods > r.share * r.prod.goods, JSON.stringify({ g: r.rt.goods, p: r.prod.goods }));
 check('Ore Pits exist and open with the Iron Mine', r.orepit && r.mine && r.mine.b.includes('orepit'));
 check('the Factory costs 6 iron, and a nation uses less iron', r.factoryIron === 6 && r.ironDemand === 0.45);

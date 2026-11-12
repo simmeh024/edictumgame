@@ -1024,6 +1024,32 @@ test('a player reads and clears only their own @mentions; nobody writes them', a
   await assertSucceeds(as('bob').doc('mentions/bob/m/m1').delete());
 });
 
+test('a player reads their own copies of the topics they follow and only marks them read; board profiles are public and server-written', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('cbWatch/bob/t/t1').set({ reg: 'meridian', ti: 'Iron for oil?', f: 1, n: 3, t: 5, nt: 5, nm: 'Aliceland', s: 1 });
+    await db.doc('cbSubs/t1').set({ reg: 'meridian', f: { bob: 1 } });
+    await db.doc('cbRx/bob').set({ p: ['meridian/t1'] });
+    await db.doc('cbUser/bob').set({ n: 4, t: 5, nm: 'Bobland', rg: 'meridian', sg: 'Hello' });
+  });
+  await assertSucceeds(as('bob').collection('cbWatch/bob/t').orderBy('t', 'desc').limit(100).get());
+  await assertFails(as('alice').doc('cbWatch/bob/t/t1').get());
+  await assertFails(anon().doc('cbWatch/bob/t/t1').get());
+  // reading the topic: n back to 0 and the time it was read, nothing else
+  await assertSucceeds(as('bob').doc('cbWatch/bob/t/t1').set({ n: 0, s: Date.now() }, { merge: true }));
+  await assertFails(as('bob').doc('cbWatch/bob/t/t1').set({ n: 5 }, { merge: true }));
+  await assertFails(as('bob').doc('cbWatch/bob/t/t1').set({ f: 0 }, { merge: true }));
+  await assertFails(as('bob').doc('cbWatch/bob/t/t1').set({ n: 0, s: 'now' }, { merge: true }));
+  await assertFails(as('bob').doc('cbWatch/bob/t/t2').set({ reg: 'meridian', ti: 'Mine', f: 1, n: 0, t: 1 }));
+  await assertFails(as('alice').doc('cbWatch/bob/t/t1').set({ n: 0, s: 1 }, { merge: true }));
+  await assertFails(as('bob').doc('cbWatch/bob/t/t1').delete());
+  for (const path of ['cbSubs/t1', 'cbRx/bob']) { await assertFails(as('bob').doc(path).get()); await assertFails(as('bob').doc(path).set({})); }
+  await assertSucceeds(anon().doc('cbUser/bob').get());
+  await assertFails(as('bob').doc('cbUser/bob').set({ n: 999 }, { merge: true }));
+  await assertFails(as('bob').doc('cbUser/bob').delete());
+  await assertFails(as('alice').doc('cbUser/alice').set({ n: 1, sg: 'Forged' }));
+});
+
 test('a mail ping is one per sender, nation and kind, under the sender\'s saved name, to its own region, and paced', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();
