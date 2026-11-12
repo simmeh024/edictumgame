@@ -20575,7 +20575,7 @@ function tradeView(){
   offers.sort((a,b)=>a.need-b.need||b.spare-a.spare);
   /* one click to fix a shortage: the partner with the most to spare (computer nations first, as they answer at once) */
   const shortBtns=RES.filter(r=>E.ratio[r][i]<0.9).map(r=>{const o=offers.filter(q=>q.r===r).sort((a,b)=>(b.x.npc?1:0)-(a.x.npc?1:0)||b.spare-a.spare)[0],gap=Math.max(0.5,Math.ceil((E.dem[r][i]-E.sup[r][i])*2)/2);
-    return o?`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${r}" data-a="${Math.max(0.5,Math.min(gap,Math.floor(o.spare*2)/2,8))}">Fix ${resName(r)} shortage · ${esc(o.x.n.name)}</button>`:`<span class="chip">No one has ${resName(r)} to spare</span>`;}).join('');
+    return o?`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${r}" data-a="${Math.max(0.5,Math.min(gap,Math.floor(o.spare*2)/2,8))}">Fix ${resName(r)} shortage · ${esc(o.x.n.name)}</button>`:`<button type="button" class="chip-btn" data-act="gb-market" data-r="${r}">No one has ${resName(r)} to spare · try the Bureau’s market</button>`;}).join('');
   const fav=(n.trFav||[]).filter(id=>partners.some(p=>p.id===id));
   const pOrder=partners.slice().sort((a,b)=>(fav.includes(b.id)?1:0)-(fav.includes(a.id)?1:0));
   const ally=id=>alSame(me,id),af=alFx(me),mf=S.trade.mf||'',mAll=!!S.trade.mAll;
@@ -20613,7 +20613,7 @@ function tradeView(){
       </form>
       ${offers.length?`<h3 class="lbl-h" style="margin-top:24px">World market</h3><p class="hint" style="margin-bottom:10px">Nations with spare resources you could use. Select one to fill in the form.${af.tariffFree?' Allies in your trade bloc pay no tariffs.':''}</p>
       <div class="market tr-mf" role="group" aria-label="Filter by resource"><button type="button" class="chip-btn${mf?'':' on'}" data-act="tr-mf" data-v="" aria-pressed="${!mf}">All</button>${RES.map(r=>`<button type="button" class="chip-btn${mf===r?' on':''}" data-act="tr-mf" data-v="${r}" aria-pressed="${mf===r}">${resIco(r,'s')}${RES_INFO[r][0]}</button>`).join('')}</div>
-      <div class="market">${shown.slice(0,mAll?60:12).map(o=>`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${o.r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(o.spare*2)/2))}">${fav.includes(o.x.id)?'★ ':''}${esc(o.x.n.name)}${ally(o.x.id)?' (ally'+(af.tariffFree?', no tariff':'')+')':''} · ${resName(o.r)} +${fmtAmt(o.spare)}</button>`).join('')||'<p class="hint">Nobody has this to spare right now.</p>'}</div>
+      <div class="market">${shown.slice(0,mAll?60:12).map(o=>`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${o.r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(o.spare*2)/2))}">${fav.includes(o.x.id)?'★ ':''}${esc(o.x.n.name)}${ally(o.x.id)?' (ally'+(af.tariffFree?', no tariff':'')+')':''} · ${resName(o.r)} +${fmtAmt(o.spare)}</button>`).join('')||`<p class="hint">Nobody has this to spare right now. <button type="button" class="linkish small" data-act="gb-market"${mf?` data-r="${mf}"`:''}>Try the Bureau’s market</button></p>`}</div>
       ${shown.length>12?`<p><button type="button" class="linkish small" data-act="tr-mall">${mAll?'Show fewer':`Show all ${Math.min(60,shown.length)}`}</button></p>`:''}`:''}
     </section>
   </div>`;
@@ -59076,7 +59076,7 @@ wrDrawSoon=function(){if(wrQ)return;wrQ=true;requestAnimationFrame(function step
       square root of the population. 5. A resource below the price of the cheapest thing it buys gains at least
       GB.TRICKLE a day. (3: plains iron, iron demand and the Ore Pits; 4: the cheaper Factory; 7: the desk and ranks are
       in their own places above.) 6. The Bureau's market on the Trade page. 8. The goods bar says why a resource is slow. */
-const GB={SHARE:0.3,POP_K:0.35,TRICKLE:1,MKT_DAY:120,MKT_HI:0.7,MKT_LO:0.4};
+const GB={SHARE:0.3,POP_K:0.35,TRICKLE:1,MKT_DAY:220,MKT_HI:0.7,MKT_LO:0.4};
 const GB_VAL={food:1,timber:1.2,iron:3,oil:3,goods:3};
 const GB_MIN=(()=>{const o={};for(const r of RES){let m=Infinity;for(const c of [CITY_COST,...Object.values(BUILDINGS).map(b=>b.cost||{})])if(c[r]>0&&c[r]<m)m=c[r];o[r]=m;}return o;})();
 const gbPopGoods=n=>{try{return GB.POP_K*Math.sqrt(Math.max(0,popNow(n)));}catch(e){return 0;}};
@@ -59188,10 +59188,13 @@ const MKT={give:'food',get:'goods',q:'',msg:''};
 const gbDay=t=>Math.floor((t||Date.now())/DAY);
 NORM_HOOKS.push((n,d)=>{const m=d&&d.mkt;if(m&&Number.isInteger(m.d)&&typeof m.q==='number'&&isFinite(m.q))n.mkt={d:m.d,q:clamp(m.q,0,GB.MKT_DAY)};});
 function gbSold(n,now){const m=n&&n.mkt;return m&&m.d===gbDay(now)?m.q:0;}
+/* the market opens afresh at midnight UTC: said in the player's own time, so a full day never reads as stuck */
+const gbOpens=now=>fmtTime((gbDay(now)+1)*DAY);
+const gbClosed=now=>`The Bureau’s market has taken all it will today. It opens again at ${gbOpens(now)}, your time.`;
 function gbQuote(n,give,get,q,now){
   if(!RES.includes(give)||!RES.includes(get)||give===get)return {err:'Choose two different resources.'};
   q=Math.floor(+q||0);if(q<1)return {err:'Choose how much to hand over.'};
-  const sold=gbSold(n,now),left=Math.max(0,GB.MKT_DAY-sold);if(left<1)return {err:'The Bureau’s market has taken all it will today. It opens again tomorrow.'};
+  const sold=gbSold(n,now),left=Math.max(0,GB.MKT_DAY-sold);if(left<1)return {err:gbClosed(now)};
   if(q>left)return {err:`The market takes ${left} more today.`};
   const st=stockNow(n,now);if(q>st[give]+1e-6)return {err:`You have ${fmtStock(st[give])} ${resName(give)}.`};
   /* the price at the middle of this sale: from GB.MKT_HI for the day's first unit down to GB.MKT_LO for its last */
@@ -59207,7 +59210,7 @@ achDef('eco','eco-mkt1','b','A Fair Exchange','Make your first exchange at the B
 achDef('eco','eco-mkt10','s','Regular at the Counter','Make ten exchanges at the Bureau’s market.',10,x=>aT(x,'mkt'));
 achDef('eco','eco-mkt500','g','Merchant of the Bureau','Hand over 500 units in all at the Bureau’s market.',500,x=>aT(x,'mktq'));
 achDef('eco','eco-mktall','s','Something of Everything','Receive each of the five resources from the Bureau’s market.',5,x=>RES.filter(r=>aT(x,'mktg:'+r)>0).length);
-achDef('eco','eco-mktfull','b','Closing Time','Use up a whole day’s market: 120 units in one day.',1,x=>aT(x,'mktfull'));
+achDef('eco','eco-mktfull','b','Closing Time',`Use up a whole day’s market: ${GB.MKT_DAY} units in one day.`,1,x=>aT(x,'mktfull'));
 function gbTrade(){
   const n0=S.nation;if(!n0||OBS)return;const now=Date.now(),Q=gbQuote(n0,MKT.give,MKT.get,MKT.q,now);
   if(Q.err){MKT.msg=Q.err;render();return;}
@@ -59225,12 +59228,12 @@ function gbMarketHTML(n){
   const Q=MKT.q?gbQuote(n,MKT.give,MKT.get,MKT.q,now):null,rateNow=GB.MKT_HI-(GB.MKT_HI-GB.MKT_LO)*clamp(sold/GB.MKT_DAY,0,1);
   const per=GB_VAL[MKT.give]/GB_VAL[MKT.get]*rateNow;
   return `<section class="paper gb-mkt" id="gb-mkt" aria-labelledby="gb-mkt-h"><p class="eyebrow">Open every day</p><h2 class="h2" id="gb-mkt-h">The Bureau’s market</h2>
-    <p>Hand over a surplus and take what you are short of. The first units of the day fetch the best price; the market takes ${GB.MKT_DAY} units a day in all${sold?`, and ${left} more today`:''}. Trade deals with other nations pay better.</p>
+    <p>Hand over a surplus and take what you are short of. The first units of the day fetch the best price; the market takes ${GB.MKT_DAY} units a day in all${sold?`, and ${left<1?'none':left} more today`:''}, and opens afresh at ${gbOpens(now)} your time. Trade deals with other nations pay better.</p>
     <div class="gb-mkt-f"><label class="field"><span class="cz-flab">Hand over</span><select class="input" id="gb-give">${opt(MKT.give,MKT.get)}</select></label>
       <label class="field"><span class="cz-flab">Amount</span><input class="input" id="gb-q" type="number" min="1" max="${left}" step="1" inputmode="numeric" value="${esc(String(MKT.q))}" placeholder="e.g. 30"></label>
       <label class="field"><span class="cz-flab">Receive</span><select class="input" id="gb-get">${opt(MKT.get,MKT.give)}</select></label>
       <button type="button" class="btn" data-act="gb-trade"${!Q||Q.err||OBS?' disabled':''}>Exchange</button></div>
-    <p class="hint" id="gb-mkt-q" aria-live="polite">${Q&&!Q.err?`You hand over ${Q.q} ${esc(resName(MKT.give))} and receive ${esc(fmtAmt(Q.out))} ${esc(resName(MKT.get))}.`:Q&&Q.err?esc(Q.err):`Today: 1 ${esc(resName(MKT.give))} fetches about ${esc(fmtAmt(per))} ${esc(resName(MKT.get))}.`}</p>
+    <p class="hint" id="gb-mkt-q" aria-live="polite">${Q&&!Q.err?`You hand over ${Q.q} ${esc(resName(MKT.give))} and receive ${esc(fmtAmt(Q.out))} ${esc(resName(MKT.get))}.`:Q&&Q.err?esc(Q.err):left<1?esc(gbClosed(now)):`Today: 1 ${esc(resName(MKT.give))} fetches about ${esc(fmtAmt(per))} ${esc(resName(MKT.get))}.`}</p>
     ${MKT.msg?`<p class="notice" role="status">${esc(MKT.msg)}</p>`:''}</section>`;
 }
 tradeView=(f=>function(){const h=f.apply(this,arguments),m=gbMarketHTML(S.nation);if(!m)return h;
@@ -59239,7 +59242,7 @@ tradeView=(f=>function(){const h=f.apply(this,arguments),m=gbMarketHTML(S.nation
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act^="gb-"]');if(!el||!S.nation)return;const a=el.dataset.act;
   if(a==='gb-trade')gbTrade();
   else if(a==='gb-flows'){S.statsFor=null;S.statsTab='budget';S.statsKeep=true;go('stats');}
-  else if(a==='gb-market'){go('trade');requestAnimationFrame(()=>{const m=document.getElementById('gb-mkt');if(m)m.scrollIntoView({block:'start'});});}});
+  else if(a==='gb-market'){if(RES.includes(el.dataset.r)){MKT.get=el.dataset.r;if(MKT.give===MKT.get)MKT.give=RES.find(r=>r!==MKT.get);MKT.msg='';}go('trade');requestAnimationFrame(()=>{const m=document.getElementById('gb-mkt');if(m)m.scrollIntoView({block:'start'});});}});
 document.addEventListener('input',e=>{const t=e.target;if(!t||!t.id)return;
   if(t.id==='gb-q'){MKT.q=t.value;MKT.msg='';const n=S.nation,q=document.getElementById('gb-mkt-q'),b=document.querySelector('[data-act="gb-trade"]');if(!n||!q)return;const Q=gbQuote(n,MKT.give,MKT.get,MKT.q,Date.now());
     q.textContent=Q.err||`You hand over ${Q.q} ${resName(MKT.give)} and receive ${fmtAmt(Q.out)} ${resName(MKT.get)}.`;if(b)b.disabled=!!Q.err;}});

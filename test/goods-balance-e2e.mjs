@@ -35,7 +35,14 @@ const ach = await until(() => A.evaluate(() => { const n = G.S.nation; return n.
 check('the first exchange earns “A Fair Exchange” and counts toward the rest', !!ach && ach.t.mkt === 1 && ach.t.mktq === 30 && ach.t['mktg:goods'] === 1, JSON.stringify(ach));
 check('the market’s five achievements are on the Achievements page', await A.evaluate(() => ['eco-mkt1', 'eco-mkt10', 'eco-mkt500', 'eco-mktall', 'eco-mktfull'].every(id => G.RK.ACH.some(a => a.id === id))));
 check('the price falls as the day’s sales grow', await A.evaluate(() => { const g = G.GB(), n = G.S.nation, a = g.gbQuote(Object.assign({}, n, { mkt: null }), 'food', 'goods', 10, Date.now()), b = g.gbQuote(Object.assign({}, n, { mkt: { d: Math.floor(Date.now() / 864e5), q: 100 } }), 'food', 'goods', 10, Date.now()); return a.out > b.out; }));
-check('and stops at the day’s limit', await A.evaluate(() => /all it will today|takes \d+ more today/.test(G.GB().gbQuote(Object.assign({}, G.S.nation, { mkt: { d: Math.floor(Date.now() / 864e5), q: 120 } }), 'food', 'goods', 10, Date.now()).err || '')));
+check('the market takes 220 units a day', await A.evaluate(() => G.GB().GB.MKT_DAY === 220) && /takes 220 units a day/.test(await text(A, '#gb-mkt')));
+check('and stops at the day’s limit, saying when it opens again in the player’s own time', await A.evaluate(() => { const g = G.GB(), d = Math.floor(Date.now() / 864e5), at = n => Object.assign({}, G.S.nation, { mkt: { d, q: n } });
+  return /takes 20 more today/.test(g.gbQuote(at(200), 'food', 'goods', 30, Date.now()).err || '') && /all it will today\. It opens again at \d\d:\d\d, your time/.test(g.gbQuote(at(g.GB.MKT_DAY), 'food', 'goods', 10, Date.now()).err || '')
+    && !g.gbQuote(Object.assign({}, G.S.nation, { mkt: { d: d - 3, q: g.GB.MKT_DAY } }), 'food', 'goods', 10, Date.now()).err; }));
+/* a shortage nobody can fill by trade points to the market, set to receive what is short */
+await A.evaluate(() => { const b = document.createElement('button'); b.id = 'gb-probe'; b.dataset.act = 'gb-market'; b.dataset.r = 'iron'; document.body.appendChild(b); });
+await A.click('#gb-probe'); await sleep(400);
+check('“try the Bureau’s market” opens it set to receive the resource that is short', (await A.$eval('#gb-get', e => e.value).catch(() => '')) === 'iron');
 await A.evaluate(() => scrollTo(0, 0));await A.screenshot({ path: path.join(OUT, 'goods-market.png'), fullPage: false });
 
 /* the goods bar says why a resource is slow */
