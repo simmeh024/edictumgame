@@ -22162,11 +22162,14 @@ function rewardInfo(kind,id){
   if(kind==='achievement'){const a=Object.hasOwn(ACH_BY_ID,id)&&ACH_BY_ID[id];return a?{kind,id,label:a.n,page:'achievements',href:'#achievements/'+id}:null;}
   if(kind==='artefact'){const a=Object.hasOwn(COL_BY_ID,id)&&COL_BY_ID[id];return a?{kind,id,label:colName(a,S.nation||{}),page:'museum',href:'#museum/artefact/'+id}:null;}
   if(kind==='set'){const a=Object.hasOwn(COL_SET_BY_ID,id)&&COL_SET_BY_ID[id];return a?{kind,id,label:a.n,page:'museum',href:'#museum/set/'+id}:null;}
+  /* something for Customise, the passport or Settings: the link opens it where it is chosen (unlockTarget) */
+  if(kind==='unlock'){const u=typeof czU==='function'&&czU(id),t=u&&unlockTarget(id);return t?{kind,id,label:u.n,page:t.view,href:t.href}:null;}
   return null;
 }
 function rewardLinksHTML(refs){
   if(!Array.isArray(refs))return '';
-  const links=refs.map(r=>r&&rewardInfo(r.kind,r.id)).filter(Boolean);
+  /* each once, in the order given: achievements, then what they unlocked */
+  const seen=new Set(),links=refs.map(r=>r&&rewardInfo(r.kind,r.id)).filter(r=>r&&!seen.has(r.kind+':'+r.id)&&seen.add(r.kind+':'+r.id));
   return links.length?`<span class="reward-links" aria-label="View unlocks">${links.map(r=>`<a href="${esc(r.href)}" data-act="reward-open" data-kind="${r.kind}" data-id="${esc(r.id)}">View ${esc(r.label)} →</a>`).join('')}</span>`:'';
 }
 function rewardRoute(hash){
@@ -22192,6 +22195,7 @@ function rewardFocus(r){
   if(el){if(r.kind!=='artefact')el.setAttribute('tabindex','-1');el.scrollIntoView({block:'center',behavior:'auto'});el.focus({preventScroll:true});}
 }
 function rewardOpen(kind,id,push=true){
+  if(kind==='unlock')return unlockShow(id);
   const r=rewardInfo(kind,id);if(!rewardPrepare(r))return false;
   S.rewardFocus=r;S.noPush=!push;go(r.page);history.replaceState(null,'',r.href);S.rewardHash=r.href;rewardFocus(r);return true;
 }
@@ -25828,7 +25832,9 @@ achDef('bld','bld-factory','g','Dark Satanic Mills','Have a Factory standing in 
 /* iron deposits, harbours and the stockpile (goods and iron balance) */
 function aDeps(x){return achM(x,'deps',()=>{try{const T=territory(),i=T.byId[x.id];if(i===undefined)return 0;let k=0;for(let c=0;c<MAP.N;c++)if(IRON_DEP[c]&&T.owner[c]===i)k++;return k;}catch(e){return 0;}});}
 function aLode(x){return achM(x,'lode',()=>{try{const T=territory(),i=T.byId[x.id];if(i===undefined)return 0;return cityState(T).all.some(ct=>ct.hi===i&&ct.active&&ct.done.includes('mine')&&ct.dist.some(c=>IRON_DEP[c]))?1:0;}catch(e){return 0;}});}
-const aRate=(x,r)=>{try{return x.n.npc?0:Math.floor(stockRates(x.n)[r]||0);}catch(e){return 0;}};
+/* the stockpile's day comes from the economy, which knows the live record (S.nation) and not commit()'s copy of it: read
+   from the copy it was 0, so the page showed these achievements as done and the next decision never recorded them */
+const aRate=(x,r)=>{try{if(x.n.npc)return 0;const n=x.me&&S.nation&&x.n!==S.nation?S.nation:x.n;return Math.floor(stockRates(n)[r]||0);}catch(e){return 0;}};
 const aHave=(x,r)=>{try{return x.n.npc?0:Math.floor(stockNow(x.n,x.now)[r]||0);}catch(e){return 0;}};
 achDef('land','land-ore1','b','Strike It Rich','Hold a hex with a large iron deposit.',1,aDeps);
 achDef('land','land-ore5','s','Seams of Iron','Hold 5 large iron deposits at once.',5,aDeps);
@@ -26076,7 +26082,7 @@ NOTIF_SOURCES.push((n,now)=>{
     const nm=a=>a.sec?'a secret achievement':achQ(a.n);
     let txt=g.as.length===1?`Achievement earned: ${nm(g.as[0])} (${achTierWord(g.as[0].t)}, ${pts} prestige).`:g.as.length<=3?`Achievements earned: ${list(g.as.map(nm))} (+${pts} prestige).`:`${g.as.length} achievements recorded, worth ${fmt0(pts)} prestige, among them ${nm(g.as[0])}.`;
     if(r1.i>r0.i)txt+=` Your rank rose to ${r1.name}.`;
-    out.push({t:g.t,k:'ach',kl:'Honours',txt,go:'achievements',links:rewardRefs('achievement',g.as)});}
+    out.push({t:g.t,k:'ach',kl:'Honours',txt,go:'achievements',links:rewardRefs('achievement',g.as).concat(g.as.filter(a=>a.u&&UNLOCKS[a.u]).map(a=>({kind:'unlock',id:a.u})))});}
   return out;
 });
 HAP_SOURCES.push((x,now)=>{
@@ -36049,8 +36055,39 @@ NATION_SECTIONS.push((x,now)=>{const n=x&&x.n;if(!n||n.npc)return '';const L=spL
 vsAdd('sp',(x,now)=>{if(!x||x.npc||!x.n||!x.n.sp)return '';const L=spLine(x,now);return L.length?`<section class="sp-visit"><p class="eyebrow">In space</p>${L.join('')}</section>`:'';});
 /* honours */
 const spMileHit=(n,id,i)=>!!(n&&n.sp&&n.sp[id]&&n.sp[id].ml&&n.sp[id].ml[i]);
+/* the road to the Moon: Mission Control's agency, its first picture, the rover, the chart, the letters and the crew it
+   prepared. Those functions live in the Mission Control section further down; a goal runs only when a record is checked. */
+const achMc=x=>x.npc?null:mcOf(x.n);
+achDef('exp','mc-agency','b','Ground Control','Found your space agency at Mission Control.',1,x=>achYes(achMc(x)&&achMc(x).a),{fm:'bool'});
+achDef('exp','mc-photo','b','Holiday Snaps','Bring home your agency’s first picture of the Moon.',1,x=>achYes(achMc(x)&&mcImg(x.n,x.now)),{fm:'bool'});
+achDef('exp','mc-rover','s','Wheels on the Ground','Land a rover on the Moon.',1,x=>achYes(achMc(x)&&mcDone(x.n,'rover',x.now)),{fm:'bool'});
+achDef('exp','mc-chart','g','Selenographer','Chart 80 of the Moon’s 160 sectors in full at Mission Control.',80,x=>{if(!achMc(x))return 0;let k=0;for(const v of mcReveal(x.n,x.now))if(v>=2)k++;return k;});
+achDef('exp','mc-letters','g','Dear Dr. Okafor','Answer all fourteen letters from Mission Control.',14,x=>{const w=achMc(x);return w?w.c.length:0;});
+achDef('exp','mc-prep','g','Well Prepared','Land on the Moon with a crew that flew Mission Control’s launch preparation.',1,x=>{const o=!x.npc&&x.n.sp&&x.n.sp.moon;return achYes(o&&achMc(x)&&mcPrepFlown(x.n,o.t));},{fm:'bool'});
+/* the colony on the Moon: the record's own colony, and the tiles it holds on the shared Moon */
+const achMoon=x=>achM(x,'sp:moon',()=>{const o=!x.npc&&x.n.sp&&x.n.sp.moon;return o?spColony(SPB.moon,o):null;});
+const achMoonC=x=>achM(x,'sp:moonC',()=>{if(!achMoon(x))return null;const C=spWorld(SPB.moon).byId[x.me?myId():x.id];return C&&C.ok?C:null;});
+const achMoonRun=(x,k,t)=>{const col=achMoon(x);return col?col.blds.filter(b=>b.k===k&&b.d<=x.now&&(t==null||spT(SPB.moon,b.c)===t)).length:0;};
+const SP_LUNAR_DAY=29.53*DAY;
 achDef('exp','sp-moon','g','One Small Step','Land a colony on the Moon.',1,x=>achYes(!x.npc&&x.n.sp&&x.n.sp.moon),{fm:'bool'});
+/* first on the Moon: landings are replayed by the minute, ties going to the lower nation id (as in spReplay) */
+achDef('exp','sp-moon-first','p','First on the Moon','Land the first colony on the Moon, before every nation of every region.',1,x=>{const C=achMoonC(x);if(!C)return 0;const m=c=>Math.floor((c.land-SP_EP)/SP_MIN);
+  return achYes(spWorld(SPB.moon).cols.every(o=>o===C||!o.ok||m(o)>m(C)||(m(o)===m(C)&&o.id>C.id)));},{fm:'bool'});
+achDef('exp','sp-moon1','b','A Million Moonwalkers','Grow your lunar colony to a million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'moon',0)),{fm:'bool'});
+achDef('exp','sp-moon10','s','Ten Million Under Glass','Grow your lunar colony to ten million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'moon',1)),{fm:'bool'});
 achDef('exp','sp-moon100','p','A Hundred Million Lunatics','Grow your lunar colony to 100 million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'moon',2)),{fm:'bool'});
+achDef('exp','sp-moon-t50','s','Lunar Real Estate','Hold 50 tiles on the Moon.',50,x=>{const C=achMoonC(x);return C?C.held.length:0;});
+achDef('exp','sp-moon-t300','g','The Treaty Limit',`Hold ${SP_TILES} tiles on the Moon, as many as one colony may.`,SP_TILES,x=>{const C=achMoonC(x);return C?C.held.length:0;});
+achDef('exp','sp-moon-ground','g','Field Geology','Hold all eight kinds of lunar ground, from the maria and the rilles to the polar ice.',SP_MOON_T.length,x=>{const C=achMoonC(x);return C?new Set(C.held.map(c=>spT(SPB.moon,c)).filter(t=>t>=0)).size:0;});
+achDef('exp','sp-moon-ice','s','Water in the Dark','Run an Ice Mine in a crater on the Moon that never sees the Sun.',1,x=>achYes(achMoonRun(x,'im')),{fm:'bool'});
+achDef('exp','sp-moon-sun','s','Midnight Sun','Run a Solar Array on the lunar polar uplands, where the Sun never sets.',1,x=>achYes(achMoonRun(x,'sa',7)),{fm:'bool'});
+achDef('exp','sp-moon-he8','s','Helium Rush','Run eight Helium-3 Extractors in your lunar colony.',8,x=>achMoonRun(x,'he'));
+achDef('exp','sp-moon-obs','s','The Quiet Side','Build an Observatory on the Moon.',1,x=>achYes(achMoonRun(x,'ob')),{fm:'bool'});
+achDef('exp','sp-moon-md','s','Lunar Express','Build a Mass Driver on the Moon, and ship goods home by rail.',1,x=>achYes(achMoonRun(x,'md')),{fm:'bool'});
+achDef('exp','sp-moon-port','g','Next Stop, Mars','Open a Starport on the Moon.',1,x=>achYes(achMoonRun(x,'sp')),{fm:'bool'});
+achDef('exp','sp-moon-all','g','One of Everything','Run one of every kind of lunar building in your colony.',Object.keys(SP_BLDS.moon).length,x=>Object.keys(SP_BLDS.moon).filter(k=>achMoonRun(x,k)).length);
+achDef('exp','sp-moon-nb','s','Over the Garden Wall','Have the colonies of three other nations border yours on the Moon.',3,x=>{const C=achMoonC(x);return C?spNbrs(SPB.moon,C).length:0;});
+achDef('exp','sp-moon-year','g','Twelve Lunar Days','Keep a colony on the Moon for twelve lunar days, nearly a year at home.',12,x=>{const o=!x.npc&&x.n.sp&&x.n.sp.moon;return o?Math.min(12,Math.floor((x.now-o.t)/SP_LUNAR_DAY)):0;});
 achDef('exp','sp-mars','p','Red Letter Day','Land a colony on Mars.',1,x=>achYes(!x.npc&&x.n.sp&&x.n.sp.mars),{fm:'bool'});
 achDef('exp','sp-te4','g','Weather Makers','Keep four Terraforming Engines running in your Mars colony.',1,x=>{if(x.npc||!x.n.sp||!x.n.sp.mars)return 0;try{const col=spColony(SPB.mars,x.n.sp.mars,x.n.sp.tf);return achYes(!!col&&col.blds.filter(b=>b.k==='te'&&b.d<=x.now).length>=SP_TF_MAX);}catch(e){return 0;}},{fm:'bool'});
 achDef('exp','sp-blue','p','Blue Mars','Keep a Terraforming Engine running until the canyons of Mars fill into seas.',1,x=>{if(x.npc||!x.n.sp||!x.n.sp.mars)return 0;try{const col=spColony(SPB.mars,x.n.sp.mars,x.n.sp.tf);return achYes(col&&col.blds.some(b=>b.k==='te'&&b.d<=x.now)&&(x.n.sp.tf||0)>=0.7);}catch(e){return 0;}},{fm:'bool'});
@@ -37190,7 +37227,7 @@ NATION_SECTIONS.push((x,now)=>{const L=btLine(x,now);return L?`<section class="s
 vsAdd('sp',(x,now)=>{if(!x||x.npc||!x.n||!x.n.belt)return '';const L=btLine(x,now);return L?`<section class="sp-visit bt-visit"><p class="eyebrow">In the belt</p>${L}</section>`:'';});
 /* honours */
 const btWho=x=>{try{const W=btWorld(x.now);return W.byId[x.me?myId():x.id]||null;}catch(e){return null;}};
-achDef('exp','bt-arrive','g','Five Months Out','Reach the asteroid belt.',1,x=>achYes(!x.npc&&x.n.belt&&x.now>=btArr(x.n.belt)),{fm:'bool'});
+achDef('exp','bt-arrive','g','Three Months Out','Reach the asteroid belt.',1,x=>achYes(!x.npc&&x.n.belt&&x.now>=btArr(x.n.belt)),{fm:'bool'});
 achDef('exp','bt-first','p','First in the Belt','Found the first station in the belt, before every nation of every region.',1,x=>{if(x.npc||!x.n.belt||!(x.n.belt.st>=0))return 0;const a=btWho(x);if(!a)return 0;const W=btWorld(x.now);return achYes(W.nats.every(o=>o===a||!(o.bt.st>=0)||o.bt.sa>a.bt.sa||(o.bt.sa===a.bt.sa&&o.id>a.id)));},{fm:'bool'});
 achDef('exp','bt-plat','p','Platinum Fever','Strike platinum in the asteroid belt.',1,x=>{if(x.npc||!x.n.belt)return 0;const a=btWho(x);return achYes(a&&a.strikes.length);},{fm:'bool'});
 achDef('exp','bt-branch','s','Master of One Trade','Finish a whole branch of mining research.',1,x=>achYes(!x.npc&&x.n.belt&&[0,1,2,3,4,5].some(b=>BT_RS.filter(R=>R.b===b).every(R=>btHas(x.n.belt.rd,R.i)))),{fm:'bool'});
@@ -43329,7 +43366,7 @@ function commit(n){if(OBS||PV||tabPassive||regBlocked())return;const act=actReco
   if(!n.lcfx&&cellOf(n.loc)>=0){const k=coreRepair(n);n.lcfx=1;if(k)setTimeout(()=>{const c=landCredits(S.nation);toast(`The land you held when land credits arrived is now paid for: all ${k} ${k===1?'hex stays':'hexes stay'} yours and no longer count against your credits. You have ${c} land ${c===1?'credit':'credits'} to spend.`);},0);}
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
-  if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now).map(t=>lcPauseMsg(n,t));if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
+  if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now).map(t=>lcPauseMsg(n,t));unlockQueue(unlockFresh(n,S.nation));if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
   const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote(act&&performance.now()-lastInput<5000);}
 function queueRemote(player){
   if(OBS||PV||tabPassive)return;
@@ -46545,7 +46582,7 @@ document.addEventListener('click',e=>{
   if(S.notifOpen&&!e.target.closest('.notif-pop')&&!e.target.closest('.bell')){S.notifOpen=false;render();}
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act;
-  if(a==='reward-open'){if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();rewardOpen(el.dataset.kind,el.dataset.id);return;}
+  if(a==='reward-open'){if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();const inToast=!!el.closest('#toast');rewardOpen(el.dataset.kind,el.dataset.id);if(inToast)toastClose();return;}
   if(a==='toast-x'){toastClose();return;}
   if(a==='go'){if(el.closest('#toast'))toastClose();go(el.dataset.v);return;}
   if(a==='open'){edictOpen(el.dataset.id,el.dataset.at);return;}
@@ -55057,7 +55094,7 @@ earnedAt=(f=>function(n){return f.apply(this,arguments)+wndLand(n);})(earnedAt);
 UNLOCK_SOURCES.push({earned:n=>n&&!n.npc?[...new Set(wndRewarded(n).concat((n.wnx&&n.wnx.u)||[]))].map(i=>WND_KEEP[i]):[],
   how:id=>{const i=WND_KEEP.indexOf(id);return i<0?null:`Give to phase ${i+1} of your region’s Great Statue (${WND_PH[i][0].toLowerCase()}), and see that phase finished.`;}});
 uxUnlockInfo=(f=>function(id){return UNLOCKS[id]&&UNLOCKS[id].src==='wonder'?{label:'Visit the statue',view:'wonder',target:'.wd-phs'}:f.apply(this,arguments);})(uxUnlockInfo);
-NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>l.k==='wndr'&&WND_KEEP[+l.a]).map(l=>({t:l.t,k:'wndr',kl:'The Great Statue',txt:wndRewardText(+l.a),go:'wonder'})));
+NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>l.k==='wndr'&&WND_KEEP[+l.a]).map(l=>({t:l.t,k:'wndr',kl:'The Great Statue',txt:wndRewardText(+l.a),go:'wonder',links:[{kind:'unlock',id:WND_KEEP[+l.a]}]})));
 
 /* the keepsakes' art: hoarding planks, dressed stone, a bronze stamp, a raised arm, a scroll, gold leaf and a
    little statue over the capital (drapery and verdigris are in the styles) */
@@ -56406,7 +56443,7 @@ async function shopSeal(id){
 }
 async function shopPick(id){
   if(SHOP.busy||!SHOP_IDS.vip.includes(id))return;SHOP.busy='pick';SHOP.err='';render();
-  try{await shopReq({step:'pick',key:id});toast(`${cap1(UNLOCKS[id].n)} is yours to keep. Find it in Customise.`);}catch(e){SHOP.err=shopErr(e);}finally{SHOP.busy='';render();}
+  try{await shopReq({step:'pick',key:id});toast({m:`${cap1(UNLOCKS[id].n)} is yours to keep. Find it in Customise.`,links:[{kind:'unlock',id}]});}catch(e){SHOP.err=shopErr(e);}finally{SHOP.busy='';render();}
 }
 function shopDrClose(){if(!SHOP.dr)return;const p=SHOP.dr;SHOP.dr='';if(SHOP.gift&&SHOP.gift.p===p)SHOP.gift=null;render();requestAnimationFrame(()=>{const b=document.querySelector(`.shop-cd-open[data-p="${p}"]`)||document.querySelector('[data-act="shop-open"][data-p="'+p+'"]');if(b)b.focus({preventScroll:true});});}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&SHOP.dr&&S.view==='shop'){e.preventDefault();shopDrClose();}});
@@ -57864,6 +57901,72 @@ function czShow(id){
   const k=CZ_SEC_OF[u.k];if(!k)return;czTabFor('cz-sec-'+k);
   uxOpen('customise',null,u.k==='emblem'?'#cz-sec-e':`#cz-sec-${k} [data-czid="${id}"]`);
 }
+/* ── where an unlocked thing is chosen, for the links in toasts and the bell (rewardInfo, kind 'unlock') ──
+   A Customise tile in its own section (data-czid), a flag emblem in the flag designer, a design in the currency
+   designer, a tile on the passport's Design tab, or an accent colour in Settings. The jump lands on the thing itself
+   and makes it pulse. */
+const UNLOCK_PP_TAB={ppcol:'c',pptex:'c',ppfoil:'c',pporn:'c',ppemb:'c',ppicon:'c',ppfont:'c',pptint:'g',pppat:'g',ppwm:'g',ppshape:'s',ppbord:'s',ppink:'s'};
+const UNLOCK_CZ_SEC={fpat:'e',paper:'l',seal:'l',sign:'l',cunote:'c',cumetal:'c',cushape:'c',custrip:'c'};
+const UNLOCK_CU_ROW={pat:'cu-l-pat',strip:'cu-l-st',met:'cu-l-met',shape:'cu-l-sh'};
+function unlockTarget(id){
+  const u=czU(id);if(!u)return null;
+  if(u.k==='accent')return {view:'settings',href:'#settings',target:'#cz-acc-'+id.slice(2)};
+  const pt=UNLOCK_PP_TAB[u.k];
+  if(pt)return {view:'passport',href:'#passport',setup:()=>{PP.tab='design';PP.dtab=pt;},target:`[data-act="pp-set"][data-f^="${pt}."][data-v="${id}"]`};
+  const k=CZ_SEC_OF[u.k]||UNLOCK_CZ_SEC[u.k];if(!k)return null;
+  let target=u.k==='emblem'?`#cz-sec-e [data-act="flag"][data-f="e"][data-val="${id}"]`:`#cz-sec-${k} [data-czid="${id}"]`;
+  if(k==='c')for(const [g,row] of Object.entries(CU_LOCK))for(const [v,uid] of Object.entries(row))if(uid===id&&UNLOCK_CU_ROW[g])target='#'+UNLOCK_CU_ROW[g]+'-'+v;
+  return {view:'customise',href:'#customise'+(CZ_SLUG[k]?'/'+CZ_SLUG[k]:''),sec:k,target};
+}
+function unlockShow(id){
+  const t=unlockTarget(id);if(!t||!S.nation)return false;
+  S.notifOpen=false;S.openIssue=null;S.result=null;if(t.sec)czTabFor('cz-sec-'+t.sec);
+  UXP.pulse=t.target;uxOpen(t.view,t.setup||null,t.target);
+  /* a thing not drawn where it was expected (a designer folded away) still lands in its section, not at the top */
+  setTimeout(()=>{if(S.view===t.view&&!document.querySelector(t.target)){const s=t.sec?'#cz-sec-'+t.sec:t.view==='passport'?'.pp-tabs':null;if(s)uxJump(s);}},400);
+  return true;
+}
+/* the thing a link jumped to pulses, wherever it is (Customise tiles already do) */
+uxJump=(f=>function(target){
+  const r=f.apply(this,arguments);
+  if(r&&typeof target==='string'&&target===UXP.pulse){UXP.pulse=null;const el=document.querySelector(target);if(el&&!el.dataset.czid){el.classList.remove('cz-pulse');void el.offsetWidth;el.classList.add('cz-pulse');setTimeout(()=>el.classList.remove('cz-pulse'),2600);}}
+  return r;})(uxJump);
+/* ── a toast that tells of an unlock links to it ──
+   commit() hands over what the save unlocked (unlockFresh: the record before against the record after, both read at
+   that moment, so a Shop purchase or a change in the region between saves counts on neither side). The first toast
+   that names a thing takes its link; one about a reward in Customise takes any left over; whatever no toast has named
+   after a moment and a half gets a toast of its own. */
+const ULK={ids:[],t:null};
+function unlockFresh(n,old){
+  if(!n||!old||!old.name||n.npc)return [];
+  let a,b;try{a=unlocksOf(old);b=unlocksOf(n);}catch(e){return [];}
+  const out=[];for(const id of b)if(!a.has(id)&&UNLOCKS[id]&&UNLOCKS[id].src!=='free'&&unlockTarget(id))out.push(id);
+  /* dozens at once is a record catching up (an old save, a repair), not news */
+  return out.length>12?[]:out;
+}
+function unlockQueue(ids){
+  if(!ids||!ids.length)return;for(const id of ids)if(!ULK.ids.includes(id))ULK.ids.push(id);
+  clearTimeout(ULK.t);ULK.t=setTimeout(unlockFlush,1500);
+}
+const unlockNamed=(low,id)=>{const nm=String(UNLOCKS[id].n||'').toLowerCase();if(nm.length<3)return false;const i=low.indexOf(nm);return i>=0&&!/[a-z]/.test(low[i-1]||'')&&!/[a-z]/.test(low[i+nm.length]||'');};
+function unlockAttach(msg){
+  if(!ULK.ids.length||msg==null)return msg;
+  const m=String(typeof msg==='object'?msg.m:msg).trim();if(!m)return msg;
+  const low=m.toLowerCase(),named=ULK.ids.filter(id=>unlockNamed(low,id)),take=named.length?named:/\bin Customise\b|\bUnlocked\b|\bkeepsake/i.test(m)?ULK.ids.slice():[];
+  if(!take.length)return msg;
+  const o=typeof msg==='object'?{...msg,links:(Array.isArray(msg.links)?msg.links:[]).slice()}:{m,links:[]};
+  /* a tutorial step or a plain notice keeps its own kind, so its own setting still decides whether it shows */
+  if(!o.k){const k0=toastKind({m,links:[]});if(k0)o.k=k0;}
+  for(const id of take)if(!o.links.some(l=>l&&l.kind==='unlock'&&l.id===id))o.links.push({kind:'unlock',id});
+  ULK.ids=ULK.ids.filter(id=>!take.includes(id));if(!ULK.ids.length)clearTimeout(ULK.t);
+  return o;
+}
+function unlockFlush(){
+  const ids=ULK.ids.filter(id=>UNLOCKS[id]);ULK.ids=[];if(!ids.length)return;
+  const words=ids.slice(0,3).map(id=>achUnlockWords(id)||UNLOCKS[id].n);
+  toast({m:`New for ${S.nation?S.nation.name:'your nation'}: ${list(words)}${ids.length>3?`, and ${ids.length-3} more`:''}.`,links:ids.slice(0,4).map(id=>({kind:'unlock',id})),k:'rw'});
+}
+toast=(f=>function(msg){return f.call(this,unlockAttach(msg));})(toast);
 uxJump=(f=>function(target){
   if(S.view==='customise'){const el=typeof target==='string'?document.querySelector(target):target,s=el&&el.closest&&el.closest('.cz-sec');if(s)czTabFor(s.id);}
   const r=f.apply(this,arguments);
@@ -58046,7 +58149,7 @@ toast=(f=>function(msg){
 toastNext=(f=>function(){
   const c=TOASTQ.cur,q=TOASTQ.q;
   if(!c&&q.length>1&&toastKind(q[0])==='rw'){const more=q.slice(1).filter(x=>toastKind(x)==='rw');
-    if(more.length){TOASTQ.q=[{...q[0],m:q[0].m+` And ${more.length===1?'one more reward':more.length+' more rewards'}: open the bell to see ${more.length===1?'it':'them'}.`,links:(q[0].links||[]).slice(0,2)}].concat(q.slice(1).filter(x=>toastKind(x)!=='rw'));}}
+    if(more.length){TOASTQ.q=[{...q[0],m:q[0].m+` And ${more.length===1?'one more reward':more.length+' more rewards'}: open the bell to see ${more.length===1?'it':'them'}.`,links:(q[0].links||[]).concat(...more.map(x=>x.links||[])).slice(0,6)}].concat(q.slice(1).filter(x=>toastKind(x)!=='rw'));}}
   return f.apply(this,arguments);
 })(toastNext);
 /* the bell: muted kinds are left out, and the number is what needs you */
@@ -58529,7 +58632,7 @@ achDef('found','desk-rare10','s','Rarer Still','Finish 10 rare desk tasks.',10,x
 achDef('found','desk-rare50','g','A Taste for the Rare','Finish 50 rare desk tasks.',50,x=>ddrOf(x.n));
 achDef('found','desk-leg1','g','The Stuff of Legend','Finish a legendary desk task within its seven days.',1,x=>ddlcOf(x.n));
 achDef('found','desk-leg5','p','Legend of the Desk','Finish 5 legendary desk tasks.',5,x=>ddlcOf(x.n));
-achDef('found','obs-desk','o','Myth and Minutes','Finish 25 legendary desk tasks.',25,x=>ddlcOf(x.n),{sec:OBS_HINT});
+achDef('found','desk-leg25','o','Myth and Minutes','Finish 25 legendary desk tasks.',25,x=>ddlcOf(x.n),{sec:OBS_HINT});
 achDef('war','obs-war','o','Empire Without End','Take 400 hexes in war.',400,x=>aT(x,'conq'),{sec:OBS_HINT});
 achDef('games','obs-games','o','The Eternal Games','Win 300 medals.',300,aMedals,{sec:OBS_HINT});
 achDef('odd','obs-desk','o','Two Years at the Desk','Clear your daily desk on 730 days.',730,aDesks,{sec:OBS_HINT});
@@ -64226,7 +64329,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
