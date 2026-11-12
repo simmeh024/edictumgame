@@ -126,6 +126,23 @@ export function verifyLetter(cfg, { to, code }) {
     text: `${title}\n\nYour code: ${code}\n\nConfirm in one click: ${link}\nOr enter it in Settings, under Letters by post, within 30 minutes. If you never asked for this, ignore this letter.` };
 }
 
+/* a guest's recovery code (functions/mail.js, recoveryMail), shown as the game shows it (EDC-XXXXXXXX-…). No nation's
+   name: the address is whatever the player typed. */
+export function recoveryLetter(cfg, { to, code }) {
+  const title = 'Your recovery code', t = TONE.seal, shown = 'EDC-' + String(code).slice(3).match(/.{1,8}/g).join('-');
+  const body = p('You asked the Herald to send the recovery code of a Guest Nation in Edictum to this address. It brings the nation back on another browser or device.')
+    + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 6px"><tr><td align="center" style="background:${t.soft};border:2px dashed ${t.accent};border-radius:14px;padding:20px 12px">
+<div style="font:700 12px/1 ${SANS};letter-spacing:.18em;text-transform:uppercase;color:${t.accent};margin-bottom:12px">Recovery code</div>
+<div style="font:700 17px/1.5 ui-monospace,'SF Mono',Consolas,'Courier New',monospace;letter-spacing:.04em;color:#12403c;word-break:break-all;-webkit-user-select:all;user-select:all">${esc(shown)}</div>
+<div style="font:13px/1.4 ${SANS};color:#5d6f6b;margin-top:12px">Tap the code to select it, then copy</div></td></tr></table>`
+    + p('<span style="font-size:15px;color:#5d6f6b">To use it, open the game, choose <b>Recover with a code</b> in the account panel and enter the code. If a new key is made in the game, this code stops working.</span>')
+    + p('<b>Anyone who reads this letter can take over the nation.</b> Keep it private, or delete it once the code is stored somewhere safe.');
+  return { to, subject: 'Your Edictum recovery code',
+    html: page(cfg, { tone: 'seal', icon: '&#x1F511;', kicker: 'From the chancery', title, lead: 'Keep this letter private', body, cta: { href: cfg.site + '/', label: 'Open Edictum' },
+      foot: 'Never asked for this? Delete this letter: someone typed your address by mistake. We keep no copy of it.' }),
+    text: `${title}\n\nRecovery code: ${shown}\n\nTo use it, open ${cfg.site}, choose Recover with a code in the account panel and enter the code. If a new key is made in the game, this code stops working.\n\nAnyone who reads this letter can take over the nation: keep it private. If you never asked for this, delete this letter.` };
+}
+
 const TIPS = [
   ['&#x1F4DC;', 'Decide, then decide again.', 'Edicts arrive at the pace you choose in Settings. Every answer moves your economy, liberties and mood. There is no wrong answer, only a different nation.'],
   ['&#x1F5FA;&#xFE0F;', 'Claim your land early.', 'Land credits wait on the Map. Spend them beside your capital before a neighbour takes the hex you were eyeing.'],

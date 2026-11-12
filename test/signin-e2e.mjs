@@ -361,4 +361,20 @@ await S.goto(pasted);
 check('pasted into the browser that asked, it links the nation there', await until(async () => (await ready(S)) === uidS) && await until(async () => /sel@example\.com/.test(await text(S, '.ed-acct-b')), 15000) && await registered(S) && (await sideName(S)) === 'Selbourne');
 /* a plain sign-in link (asked for by a guest without a nation) still works in any browser: section 2 */
 
+/* ── 17. a new guest emails itself its recovery code ────────────────────────── */
+const V = await player('V', { recovery: true });   // keep the recovery-code dialog open (lib.mjs dismisses it otherwise)
+const uidV = await open(V);
+await found(V, 'Velmora', { newPlayer: true });   // no settling: the recovery dialog, left open here, would cover the map
+await until(() => nationDoc(uidV));
+await V.waitForSelector('[data-ed="recovery-saved"]', { timeout: 20000 });
+const shownV = (await text(V, '#ed-recovery-code')).trim();
+await V.click('[data-ed="recovery-mail-open"]');
+await V.fill('#ed-rc-email', 'vel@example.com');
+await V.click('[data-ed="recovery-mail"]');
+check('the recovery code can be emailed from its dialog', await until(async () => /Sent to vel@example\.com/.test(await text(V, '.ed-msg')), 15000), await text(V, '.ed-msg'));
+const letterV = await until(async () => (await restListAdmin('mailOutbox')).map(d => d.fields).find(f => f.to?.stringValue === 'vel@example.com'));
+check('and the letter holds that code, naming no nation', !!letterV && /^EDC-/.test(shownV) && letterV.text.stringValue.includes(shownV) && !/Velmora/.test(letterV.html.stringValue));
+check('the dialog still asks the player to confirm they saved it', await V.isVisible('[data-ed="recovery-saved"]'));
+await V.click('[data-ed="recovery-saved"]');
+
 await finish();

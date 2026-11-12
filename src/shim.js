@@ -1613,7 +1613,13 @@
         '<p>This code restores your nation on another browser or device. Keep it somewhere private, outside this browser.</p>' +
         '<p class="ed-quote" style="overflow-wrap:anywhere"><code id="ed-recovery-code">' + esc(pending || '') + '</code></p>' +
         '<p><b>A lost code cannot be retrieved.</b> You can regenerate a key while this Guest session is active. Without an active session or a working code, access cannot be recovered. Anyone with the code can access your nation.</p>' +
-        row('<button type="button" class="btn ghost" data-ed="recovery-copy">Copy code</button><button type="button" class="btn ghost" data-ed="recovery-download">Download code</button>') +
+        row('<button type="button" class="btn ghost" data-ed="recovery-copy">Copy code</button><button type="button" class="btn ghost" data-ed="recovery-download">Download code</button>' +
+          (ui.rcMail ? '' : '<button type="button" class="btn ghost" data-ed="recovery-mail-open">Email code</button>')) +
+        /* the code by email (functions/mail.js, recoveryMail): sent once, with no copy of it or the address kept */
+        (ui.rcMail ? '<div class="ed-rcmail"><label class="ed-lbl2" for="ed-rc-email">Email the code to</label>' +
+          '<input class="input" id="ed-rc-email" type="email" maxlength="200" autocomplete="email" spellcheck="false" data-enter="recovery-mail" value="' + esc(ui.rcEmail || '') + '">' +
+          '<p class="ed-fine">We send it once and keep neither the code nor the address. Anyone who can read that inbox can take over your nation.</p>' +
+          row('<button type="button" class="btn ghost" data-ed="recovery-mail">' + (ui.rcMailed ? 'Send it again' : 'Send the code') + '</button>') + '</div>' : '') +
         row('<button type="button" class="btn" data-ed="recovery-saved" data-autofocus>I saved my recovery code</button>');
     } else if (ui.view === 'regenerate') {
       h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Regenerate recovery key?</h2>' +
@@ -1729,6 +1735,8 @@
     if (a === 'recover-yes') { recoverNation(); return; }
     if (a === 'guest-session') { resumeGuest(); return; }
     if (a === 'recovery-saved') { var rotation=recoveryRotation(A.uid);if(rotation&&ui.recoveryCode!==rotation.code){setMsg('Finish regenerating and save your new recovery key first.',true);return;}clearRecovery(A.uid); recoveryChecked = A.uid; ui.view = 'main'; ui.dlg.close(); return; }
+    if (a === 'recovery-mail-open') { ui.rcMail = true; setMsg(''); draw(); var mi = ui.dlg.querySelector('#ed-rc-email'); if (mi) mi.focus(); return; }
+    if (a === 'recovery-mail') { mailRecovery(); return; }
     if (a === 'recovery-copy' || a === 'recovery-download') {
       var code = pendingRecoveryCode(); if (!code) return;
       if (a === 'recovery-copy') { navigator.clipboard.writeText(code).then(function(){setMsg('Copied. Store it somewhere private.');},function(){setMsg('Select and copy the code above.',true);}); }
@@ -1775,11 +1783,25 @@
     try { var value=JSON.parse(L.get('edictum.recovery.rotation.'+uid)||'null');return value&&/^EDC-(?:[A-F0-9]{8}-){4}[A-F0-9]{8}$/.test(value.code)&&Number.isSafeInteger(value.version)&&value.version>=0?value:null; }catch(e){return null;}
   }
   function pendingRecoveryCode() { return ui.recoveryCode||L.get('edictum.recovery.pending.'+A.uid)||''; }
-  function clearRecovery(uid) { recoveryEpoch++;L.set('edictum.recovery.pending.'+uid,null);L.set('edictum.recovery.rotation.'+uid,null);if(uid===A.uid)ui.recoveryCode=''; }
+  /* the recovery code shown now, emailed to an address the player types: the server sends only this account's current
+     code (functions/mail.js, recoveryMail), and the letter names no nation */
+  async function mailRecovery() {
+    var code = pendingRecoveryCode(), input = ui.dlg && ui.dlg.querySelector('#ed-rc-email'), email = input ? input.value.trim() : '';
+    if (!code || ui.busy) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) { setMsg(authMessage({ code: 'auth/invalid-email' }), true); if (input) input.focus(); return; }
+    ui.rcEmail = email;
+    setBusy('Sending your code…');
+    try {
+      await call('accounts', { op: 'recoveryMail', email: email, code: code });
+      setBusy(''); ui.rcMailed = true; draw();
+      setMsg('Sent to ' + email + '. It can take a minute or two to arrive: look in spam too. Keep the letter private.');
+    } catch (e) { setBusy(''); setMsg(e.message || 'The code could not be sent. Try again in a while.', true); }
+  }
+  function clearRecovery(uid) { recoveryEpoch++;L.set('edictum.recovery.pending.'+uid,null);L.set('edictum.recovery.rotation.'+uid,null);if(uid===A.uid){ui.recoveryCode='';ui.rcMail=false;ui.rcMailed=false;} }
   async function finishRecoveryRotation(uid, intent, epoch) {
     await call('accounts',{op:'regenerate',code:intent.code,version:intent.version});
     if(epoch!==recoveryEpoch||A.uid!==uid||linkedUser(A.auth.currentUser)||A.leaving)return false;
-    ui.recoveryCode=intent.code;
+    ui.recoveryCode=intent.code;ui.rcMailed=false;
     if(L.set('edictum.recovery.pending.'+uid,intent.code))L.set('edictum.recovery.rotation.'+uid,null);
     recoveryChecked=uid;return true;
   }

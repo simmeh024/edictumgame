@@ -2,6 +2,7 @@
 //   npm run test:mail
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -59,6 +60,35 @@ test('a code goes only to a player with a nation', async () => {
   const u = await user(), to = u.uid.toLowerCase() + '@example.test';
   await assert.rejects(call(u, { step: 'set', email: to }), e => e.status === 'FAILED_PRECONDITION');
   assert.equal((await outbox(to)).length, 0);
+});
+
+/* a guest's recovery code by email (functions/mail.js, recoveryMail): only the code the account holds now */
+async function recoveryMail(u, data) {
+  const r = await fetch(functions + 'accounts', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + u.token }, body: JSON.stringify({ data: { op: 'recoveryMail', ...data } }) });
+  const b = await r.json(); if (b.error) throw Object.assign(new Error(b.error.message), { status: b.error.status }); return b.result;
+}
+test('a guest can mail itself its current recovery code, and nothing else', async () => {
+  const u = await user(), to = u.uid.toLowerCase() + '@example.test';
+  const code = 'EDC-' + crypto.randomBytes(20).toString('hex').toUpperCase().match(/.{8}/g).join('-');   // as src/shim.js makes them
+  const hash = crypto.createHash('sha256').update(code.replace(/-/g, '')).digest('hex');
+  const lookup = await (await fetch(auth + `/identitytoolkit.googleapis.com/v1/projects/${project}/accounts:lookup`, { method: 'POST', headers, body: JSON.stringify({ localId: [u.uid] }) })).json();
+  const generation = new Date(Number(lookup.users[0].createdAt)).toUTCString();   // the Admin SDK's metadata.creationTime
+  await assert.rejects(recoveryMail(u, { email: to, code }), e => e.status === 'FAILED_PRECONDITION');   // no code issued yet
+  await put('accountIdentity/' + u.uid, { generation, recoveryHash: hash, recoveryIssued: true });
+  await assert.rejects(recoveryMail(u, { email: 'not an address', code }), e => e.status === 'INVALID_ARGUMENT');
+  await assert.rejects(recoveryMail(u, { email: to, code: 'EDC-' + '0'.repeat(40) }), e => e.status === 'FAILED_PRECONDITION');   // not this account's code
+  assert.equal((await outbox(to)).length, 0);
+  assert.deepEqual(await recoveryMail(u, { email: to.toUpperCase(), code: code.toLowerCase() }), { ok: true });
+  const [letter] = await outbox(to);
+  assert.equal(letter.subject, 'Your Edictum recovery code');
+  assert.ok(letter.html.includes(code) && letter.text.includes(code), 'the letter holds the code as the game shows it');
+  assert.match(letter.text, /Recover with a code/);
+  await assert.rejects(recoveryMail(u, { email: to, code }), e => e.status === 'RESOURCE_EXHAUSTED');   // a minute between letters
+  assert.equal((await outbox(to)).length, 1);
+  assert.equal(await get('mailAccounts/' + u.uid), null, 'the address is not kept with the account');
+  // a code from an older sign-in of the account (another generation) is not its current one
+  await put('accountIdentity/' + u.uid, { generation: 'Thu, 01 Jan 2026 00:00:00 GMT', recoveryHash: hash, recoveryIssued: true });
+  await assert.rejects(recoveryMail(u, { email: 'other.' + to, code }), e => e.status === 'FAILED_PRECONDITION');
 });
 
 test('the hourly job sends one digest of unseen pings, then waits; and one away reminder', async () => {
