@@ -43775,6 +43775,10 @@ async function flushRemote(){
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
   /* offline, nothing is sent: the online event (resumeNation) sends the pending save */
   if(navigator.onLine===false){publishSync();return;}
+  /* a busy region (saveBusy) is not asked again before the retry step, whoever asks: a timer set before it said so, or
+     the tab coming back into focus (resumeNation). The online event clears saveBusy first, so it still sends at once */
+  if(saveBusy&&saveStreak){const at=remoteLast+SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1];
+    if(performance.now()<at-5){remoteDue=at;remoteTimer=setTimeout(flushRemote,at-performance.now());publishSync();return;}}
   remoteBusy=true;remoteDirty=false;remoteSoon=false;remoteLast=performance.now();
   publishSync();
   try{await writeRemote();}finally{remoteBusy=false;publishSync();}
