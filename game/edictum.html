@@ -974,6 +974,21 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .g-cer::backdrop{background:rgba(10,16,20,.6)}
 .gc-in{padding:22px 22px 18px}
 .gc-in h2{font-family:var(--f-display);font-size:26px;margin:2px 0 14px}
+.dwb{border:none;border-radius:12px;padding:0;width:min(640px,calc(100vw - 24px));max-height:calc(100vh - 32px);background:var(--sheet);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.dwb::backdrop{background:rgba(10,16,20,.6)}
+.dwb-in{padding:24px 24px 20px}
+.dwb-in h2{font-family:var(--f-display);font-size:26px;line-height:1.15;margin:2px 0 12px;outline:none}
+.dwb-in>p{margin:0 0 10px}
+.dwb-opts{display:grid;gap:12px;margin-top:16px}
+.dwb-opt{border:1px solid var(--rule);border-radius:8px;padding:14px 16px}
+.dwb-opt h3{font-size:15px;margin:0 0 4px}
+.dwb-opt>.hint{margin:0 0 10px}
+.dwb-regs{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.dwb-regs li{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap}
+.dwb-rn{display:flex;flex-direction:column;min-width:0}
+.dwb-rn .hint{margin:0}
+.dwb-again{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
+.dwb-again .hint{margin:0 0 8px}
 .gc-evs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}
 .gc-ev{opacity:0;animation:gcIn .5s ease-out forwards;animation-delay:calc(var(--d)*.55s + .15s)}
 .gc-ev h3{font-size:14px;margin:0 0 8px;text-align:center}
@@ -19470,7 +19485,7 @@ function refFlag(id){
    RACE.rev counts each batch). While none of these has changed, the last reading of them still holds, so
    territory() no longer gathers, sorts and hashes every claim in the region each time it is asked. */
 let recRev=0;
-const recStamp=at=>[S.nation,S.world,recRev,S.mode,S.uid,!!S.db,REF.ok.size,RACE.rev,RACE.t.size,at];
+const recStamp=at=>[S.nation,S.world,HIDN.w,recRev,S.mode,S.uid,!!S.db,REF.ok.size,RACE.rev,RACE.t.size,at];
 const sameStamp=(a,b)=>!!a&&a.length===b.length&&a.every((v,i)=>v===b[i]);
 const ccMemo=[null,null];
 function collectConquests(at){
@@ -19482,10 +19497,11 @@ function readConquests(at){
   const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)add(id,S.world[id]);
+  if(S.mode!=='local')for(const id of Object.keys(HIDN.w))if(id!==S.uid&&!S.world[id])add(id,HIDN.w[id]);
   if(at!=null){const keep=out.filter(e=>e.t<=at);out.length=0;out.push(...keep);}
   /* a hex claimed by two nations: the server's times decide (raceT) */
   const by=new Map();for(const e of out)if(e.claim){const z=by.get(e.c);if(z)z.add(e.src);else by.set(e.c,new Set([e.src]));}
-  for(const e of out)if(e.claim&&by.get(e.c).size>1)e.t=raceT(e.src,'c'+e.c,e.t,e.src===myId()?S.nation:S.world[e.src]);
+  for(const e of out)if(e.claim&&by.get(e.c).size>1)e.t=raceT(e.src,'c'+e.c,e.t,e.src===myId()?S.nation:S.world[e.src]||hidDoc(e.src));
   out.sort((a,b)=>a.t-b.t||(a.src<b.src?-1:a.src>b.src?1:0)||a.c-b.c);
   let h=out.length;for(const e of out)h=Math.imul(h^hash((e.claim?'k':'')+e.o+':'+e.c+':'+e.t),16777619);
   return {list:out,sig:out.length+'/'+(h>>>0)};
@@ -19513,11 +19529,30 @@ function grow(list,over){
    edict can come hours later. A claim made before then stays, even within 2 hexes of the capital; the later of the
    two counts, so a record cannot date its capital back before its founding. */
 const capSince=n=>Math.max(n.founded||0,n.capAt||0);
+/* Hidden nations (mod/<uid> hidden, by a moderator): their records stay out of S.world, so they leave every page,
+   list, ranking, war and trade, but not the map. HIDN.w keeps them for the land alone: territory() draws each as a
+   grey "Hidden nation" (hidMask: no name, flag, colour, badge, city or province names), so nobody can claim, settle
+   or found a city on its land while it is hidden, and nothing has to move back when it is shown again. One that falls
+   dormant lets its land go like any other (sharedNow). Nobody can attack it, and it attacks nobody, until then. */
+var HIDN={w:{}};
+const HID_NAME='Hidden nation',HID_FLAG={p:'tri-h',c:['#8C9196','#B4B8BC','#8C9196'],e:'none',ec:'#B4B8BC'},hidMemo=new WeakMap();
+function hidMask(n){
+  let m=hidMemo.get(n);if(m)return m;
+  m={...n,name:HID_NAME,pretitle:'Nation',capital:'Capital',demonym:'',motto:'',flag:HID_FLAG,_hid:1};
+  delete m.mapc;delete m.cz;delete m.prov;
+  m.cities=(Array.isArray(n.cities)?n.cities:[]).map(c=>({...c,nm:'A city'}));
+  hidMemo.set(n,m);return m;
+}
+function hidDoc(id){return (typeof id==='string'&&HIDN.w[id])||null;}
+/* this player's own nation is hidden: it plays on, but goes to war with nobody until it is shown again */
+function iAmHidden(){return !OBS&&!!S.uid&&!!(S.mod&&S.mod[S.uid]&&S.mod[S.uid].hidden);}
+const HID_WAR='Your nation is hidden while the moderators look into a report, so its army stays at home until it is shown again.';
 const terrCache=new Map();
 function territory(extra){
   syncReclaims();
   const now=Date.now(),list=[];
   for(const x of allNations()){if(extra&&x.me)continue;if(TERR_AT!=null&&!x.npc&&(x.n.founded||0)>TERR_AT)continue;const cap=cellOf(x.n.loc);if(cap<0)continue;list.push({id:x.id,n:x.n,cap,pop:popNow(x.n,now),me:!!x.me,npc:!!x.npc});}
+  if(S.mode!=='local')for(const id of Object.keys(HIDN.w)){if(id===S.uid)continue;const n=hidMask(HIDN.w[id]);if(TERR_AT!=null&&(n.founded||0)>TERR_AT)continue;const cap=cellOf(n.loc);if(cap<0)continue;list.push({id,n,cap,pop:popNow(n,now),me:false,hid:true});}
   if(extra){const cap=cellOf(extra.loc);if(cap>=0)list.push({id:extra.id,n:extra.n,cap,pop:extra.pop,me:true});}
   list.sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
   for(const x of list){x.cm=!x.npc&&(x.id==='draft'||Array.isArray(x.n.claims));x.budget=x.cm?CORE_HEXES:x.npc?npcLand(x.pop):budgetOf(x.pop);x.w=x.npc?npcWeight(x.pop):weightOf(x.pop);x.col=nationColor(x.n);}
@@ -19685,9 +19720,9 @@ function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(i
    beyond across unclaimed land or shallow sea. Allied land is open; other nations' land blocks. */
 let frontMemo={T:null,k:'',res:null};
 function frontier(T){
-  const mi=T.byId[myId()];if(mi===undefined)return new Map();
+  const mi=T.byId[myId()];if(mi===undefined||iAmHidden())return new Map();
   const en=new Set(),al=new Set();
-  T.list.forEach((x,i)=>{if(x.me)return;if(sameAlliance(myId(),x.id))al.add(i);else{const w=warWith(x.id);if(w.war&&!w.iOffered)en.add(i);}});
+  T.list.forEach((x,i)=>{if(x.me||x.hid)return;if(sameAlliance(myId(),x.id))al.add(i);else{const w=warWith(x.id);if(w.war&&!w.iOffered)en.add(i);}});
   const k=[...en].join(',')+'|'+[...al].join(',');
   if(frontMemo.T===T&&frontMemo.k===k)return frontMemo.res;
   const res=new Map();
@@ -19746,6 +19781,7 @@ function dedupeConq(arr){const m=new Map();for(const e of arr){m.delete(e.c);m.s
    and a victory's conquest carries the server's time and the seal. In this browser alone it rolls here. */
 async function attack(){
   const cell=S.mapTarget;if(cell==null||!S.nation||S.attacking)return;
+  if(iAmHidden()){S.mapTarget=null;S.warMsg=HID_WAR;updateMapPanel();redrawMaps();return;}
   const T=territory(),fr=frontier(T),mi=T.byId[myId()];
   if(mi===undefined||!fr.has(cell)){S.mapTarget=null;S.warMsg='That hex can no longer be attacked.';updateMapPanel();redrawMaps();return;}
   let now=Date.now();
@@ -19762,7 +19798,7 @@ async function attack(){
     if(!res||!res.ok){
       const why=res&&res.why;
       if(why==='ready'){const n=clone(S.nation),ms=readyMs(n);n.ready=0;n.readyAt=Date.now()+clamp(Number(res.next)||ms,0,ms)-ms;commit(n);}
-      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
+      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
       S.mapTarget=null;updateMapPanel();redrawMaps();return;
     }
     win=!!res.win;t=Number(res.t)||Date.now();seal=typeof res.s==='string'?res.s:null;seal2=typeof res.s2==='string'?res.s2:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
@@ -19788,6 +19824,7 @@ async function attack(){
 function declareWar(id){
   if(!String(id).startsWith('npc-')&&!civicRegistered()){toast('A Registered Nation is required for offensive wars against players. Link a sign-in account in your account menu.');return;}
   const x=findNation(id);if(!x||x.me||!S.nation)return;
+  if(iAmHidden()){toast(HID_WAR);return;}
   if(pol(S.nation).pacifistConstitution){toast('Your pacifist constitution forbids declaring war.');return;}
   if(!canFeature(S.nation,'war')){toast('Declaring war unlocks at '+fmtPopShort(featureAt('war'))+' people.');return;}
   if(!x.npc&&!canFeature(x.n,'war')){toast(x.n.name+' has fewer than '+fmtPopShort(featureAt('war'))+' people and is protected from war.');return;}
@@ -19866,6 +19903,7 @@ function warControls(x){
     }
     return `<div class="war-box"><p class="war-k">${ws.direct?'At war':'Alliance war'} since ${fmtDate(ws.since)}${relDays(ws.since)}</p>${body}</div>`;
   }
+  if(iAmHidden())return `<div class="war-box calm"><p>${esc(HID_WAR)}</p></div>`;
   if(!x.npc&&!civicRegistered())return `<div class="war-box calm"><button class="btn danger" disabled aria-describedby="account-war-requirement">Declare war</button>${accountActionHint('war')}<p class="hint">War also requires ${fmtPopShort(featureAt('war'))} people and the normal treaty and protection requirements.</p></div>`;
   if(pol(S.nation).pacifistConstitution)return `<div class="war-box calm"><p>Your pacifist constitution forbids declaring war. An edict may give you the chance to change it.</p></div>`;
   if(ws.truceUntil&&ws.truceUntil>now)return `<div class="war-box calm"><p>A truce holds until ${fmtTime(ws.truceUntil)}${dayTail(ws.truceUntil,now)}.</p></div>`;
@@ -22697,6 +22735,7 @@ function geoProfile(id){
     for(let d=0;d<6;d++){const j=MAP.nbr[a*6+d];if(j>=0&&dist[j]<0){dist[j]=da+1;q.push(j);}}
   }
   const cap=T.list[i].cap,k=MAP.comp[cap];
+  for(const o of [...near.keys()])if(T.list[o].hid)near.delete(o);/* a hidden nation is nobody's neighbour in an edict */
   const nb=[...near].sort((a,b)=>a[1]-b[1]||(edge.get(b[0])||0)-(edge.get(a[0])||0)||(T.list[a[0]].id<T.list[b[0]].id?-1:1)).slice(0,NB_MAX).map(([o,dd])=>({id:T.list[o].id,d:dd,e:edge.get(o)||0}));
   const P={tot,cnt,coast,isl:k>=0&&MAP.comps[k].size<=150,nb};
   geoMemo.m.set(id,P);return P;
@@ -23665,7 +23704,7 @@ function decisions(n){return n.dec!=null?n.dec:((n&&n.answered)||[]).filter(a=>a
    covered that moment: the current war in both records, or a past war kept in n.wh. */
 function warCovers(a,b,t){
   if(!a||!b||a===b)return false;
-  const A=docOf(a),B=docOf(b);if(!A||!B)return false;
+  const A=docOf(a)||hidDoc(a),B=docOf(b)||hidDoc(b);if(!A||!B)return false;
   const na=NPC_SET.has(a),nb=NPC_SET.has(b);
   let dA=(!na&&A.wars&&A.wars[b]&&A.wars[b].t)||0,dB=(!nb&&B.wars&&B.wars[a]&&B.wars[a].t)||0;
   const decl=Math.max(dA,dB);
@@ -28431,13 +28470,16 @@ function movePlan(n){
   return {back,left,held,earned,lose,cap:(n.cities||[]).find(c=>c.c===capC)||null,wars:enemies().length,al:allianceOf(myId()),deals:(()=>{try{const me=myId();return economy().active.filter(d=>d.a===me||d.b===me).length;}catch(e){return 0;}})()};
 }
 let moveBusy=false;
-async function moveTo(rid){
+/* wake: the free move a nation just woken may make before it settles (dormFresh): its land is already gone, so it
+   loses no land credits, waits for nothing, and keeps the capital's buildings that waking packed up (n.mvCap) */
+async function moveTo(rid,wake){
   const R=REG_BY_ID[rid],n0=S.nation;if(OBS||!R||!n0||rid===REG.id||moveBusy)return;
   if(regDisabled(rid)||regBlocked()||S.mode==='world'&&!RCTRL.ready){toast(regionMessage(regDisabled(rid)?rid:REG.id));return;}
-  const now=Date.now();if(moveWait(n0,now)>0){toast('You moved too recently. The next move is possible in '+fmtWait(moveWait(n0,now))+'.');return;}
-  moveBusy=true;const P=movePlan(n0),n=clone(n0);
+  wake=!!wake&&dormFresh(n0);
+  const now=Date.now();if(!wake&&moveWait(n0,now)>0){toast('You moved too recently. The next move is possible in '+fmtWait(moveWait(n0,now))+'.');return;}
+  moveBusy=true;const P=movePlan(n0),n=clone(n0);if(wake)P.lose=0;
   const st=stockNow(n0,now);for(const r of RES)st[r]=stockLimit(n0,r,(st[r]||0)+(P.back[r]||0),st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  if(P.cap){const o=clone(P.cap);delete o.c;n.mvCap=o;}else delete n.mvCap;
+  if(P.cap){const o=clone(P.cap);delete o.c;n.mvCap=o;}else if(!wake)delete n.mvCap;
   n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.cv=MAP_VER;
   for(const id of Object.keys(n.wars||{}))if(n.wars[id]&&n.wars[id].t)n.wh=(n.wh||[]).concat({w:id,a:n.wars[id].t,b:now}).slice(-40);
   n.wars={};n.peace={};delete n.pterm;
@@ -28825,14 +28867,65 @@ function dormWake(){
   if(isDormant(S.nation))return false;
   dormSetTries(n0,0);DORM.msg='';DORM.draft='';
   const free=dormOffer(true),cap=S.nation.capital;go('map');
-  toast(`${fullName(S.nation)} stirs after ${days} days, blinks at the light and asks what it missed. ${free?`The hex where ${cap} stood is still free, and is marked on the map: settle there again, or choose anywhere else.`:oldCap>=0?`The hex where ${cap} stood is no longer free, so choose a new place to begin.`:'Choose where it begins.'}`);
+  if(!dormWelcome({days,free,old:oldCap>=0}))toast(`${fullName(S.nation)} stirs after ${days} days, blinks at the light and asks what it missed. ${free?`The hex where ${cap} stood is still free, and is marked on the map: settle there again, or choose anywhere else.`:oldCap>=0?`The hex where ${cap} stood is no longer free, so choose a new place to begin.`:'Choose where it begins.'}`);
   return true;
 }
+/* Just woken, and not yet settled or moved since: the land went back to the wild while the nation slept, so it begins
+   again, here or (dormWelcome) in a quieter region, a move that costs nothing (moveTo's wake: no land credits lost, no
+   wait, the capital's packed buildings kept) */
+function dormFresh(n){
+  const e=n&&!n.npc&&Array.isArray(n.dorm)&&n.dorm[n.dorm.length-1];
+  return !!e&&cellOf(n.loc)<0&&!((n.mvAt||0)>e.b)&&!(n.log||[]).some(l=>(l.k==='settle'||l.k==='move')&&l.t>e.b);
+}
+/* open regions with fewer active nations than this one, quietest first (counted from summaries: regStatsSoon) */
+function dormQuiet(){
+  const here=regCount(REG.id);
+  return REGIONS.filter(R=>R.id!==REG.id&&!regDisabled(R.id)&&!regFull(R.id)&&RSTAT.n[R.id]!=null&&RSTAT.n[R.id]<here).sort((a,b)=>RSTAT.n[a.id]-RSTAT.n[b.id]||REGIONS.indexOf(a)-REGIONS.indexOf(b)).slice(0,3);
+}
+function dormRegsHTML(){
+  const L=dormQuiet(),k=id=>{const v=RSTAT.n[id];return `${v} active ${v===1?'nation':'nations'}`;};
+  if(!L.length)return `<p class="hint">${S.mode!=='world'||!S.db?'Other regions can only be counted online.':RSTAT.at?'No open region is quieter than this one just now.':'Counting the other regions…'}</p>`;
+  return `<ul class="dwb-regs">${L.map(R=>`<li><span class="dwb-rn"><b>${esc(R.name)}</b><span class="hint">${esc(regClimate(R))} · ${k(R.id)}</span></span><button class="btn ghost small-btn" data-act="dwb-move" data-id="${esc(R.id)}">Move to ${esc(R.name)}</button></li>`).join('')}</ul>`;
+}
+function dormWelcomeHTML(o){
+  const n=S.nation,cap=esc(n.capital),here=regCount(REG.id),room=regCap(REG.id),days=Math.max(0,o.days|0);
+  const land=o.free?`The hex where ${cap} stood is still free, and is marked on the map if you want it back.`:o.old?`Others have settled where ${cap} stood, so it needs a new home.`:`${cap} needs a place to stand.`;
+  return `<div class="dwb-in"><p class="eyebrow">Office of dormant nations</p>
+    <h2 id="dwb-h" tabindex="-1">Welcome back, ${esc(fullName(n))}</h2>
+    <p class="dwb-lede">${days.toLocaleString('en-US')} ${days===1?'day has':'days have'} passed since we last heard from you. Your people, laws, cabinet, treasury, honours and land credits are as you left them.</p>
+    <p>While you slept, your land went back to the wild and the neighbours were free to claim it. ${land}</p>
+    <div class="dwb-opts">
+      <section class="dwb-opt"><h3>Begin again in ${esc(REG.name)}</h3><p class="hint">${here} active ${here===1?'nation':'nations'}, room for ${room}.</p><div class="row"><button class="btn" data-act="dwb-stay">Choose a place on the map</button></div></section>
+      <section class="dwb-opt"><h3>Or start afresh somewhere quieter</h3><p class="hint">Moving now costs nothing: no land credits lost and no wait. Your capital’s buildings come with you either way.</p><div id="dwb-regs">${dormRegsHTML()}</div></section>
+    </div></div>`;
+}
+/* the welcome back, as a dialog: on waking (o from dormWake), or again from the map panel while dormFresh */
+function dormWelcome(o){
+  const n=S.nation;if(OBS||!n||!dormFresh(n))return false;
+  if(!o){const e=n.dorm[n.dorm.length-1];let free=false;if(Number.isInteger(e.c))try{free=!pickProblem(e.c,territory());}catch(err){}o={days:Math.floor((e.b-e.a)/DAY),free,old:Number.isInteger(e.c)};}
+  regStatsSoon(1);
+  let d=document.getElementById('dorm-wb');if(d)d.remove();
+  d=document.createElement('dialog');if(typeof d.showModal!=='function')return false;
+  d.id='dorm-wb';d.className='dwb';d.setAttribute('aria-labelledby','dwb-h');d.innerHTML=dormWelcomeHTML(o);
+  document.body.appendChild(d);d.addEventListener('close',()=>d.remove(),{once:true});
+  d.addEventListener('click',ev=>{if(ev.target===d)d.close();});
+  d.showModal();try{d.querySelector('#dwb-h').focus({preventScroll:true});}catch(err){}
+  /* the other regions' counts arrive a moment later: fill them in while the dialog is open */
+  const t0=RSTAT.at;let k=0;const tick=()=>{const box=document.getElementById('dwb-regs');if(!box||!d.open)return;if(RSTAT.at!==t0){box.innerHTML=dormRegsHTML();return;}if(++k<30)setTimeout(tick,500);else box.innerHTML=dormRegsHTML();};setTimeout(tick,500);
+  return true;
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='dwb-stay'){const d=document.getElementById('dorm-wb');if(d)d.close();if(S.view!=='map')go('map');return;}
+  if(a==='dwb-move'){const id=el.dataset.id,d=document.getElementById('dorm-wb');if(d)d.close();moveTo(id,true);return;}
+  if(a==='dorm-welcome'){dormWelcome();return;}
+});
 /* the unsettled flow (“Where does X begin?”) proposes the old capital's hex while it is still free */
 function dormOffer(force){
   DORM.offered=true;const n=S.nation;if(!n||cellOf(n.loc)>=0||S.mapPick!=null)return false;
   const e=Array.isArray(n.dorm)&&n.dorm[n.dorm.length-1];if(!e||!Number.isInteger(e.c)||e.c<0||e.c>=MAP.N)return false;
   if(!force&&(n.log||[]).some(l=>l.k==='settle'&&l.t>e.b))return false;
+  if((n.mvAt||0)>e.b)return false;/* moved region since waking: the old capital's hex is another map's */
   let ok=false;try{ok=!pickProblem(e.c,territory());}catch(err){}
   if(ok){S.mapPick=e.c;S.mapMsg='';S.mapSel=null;centerMain(e.c,NEAR_Z);}
   return ok;
@@ -28840,7 +28933,9 @@ function dormOffer(force){
 /* the proposal names the old capital when it is the hex on offer */
 mapPanel=(f=>function(){
   const h=f.apply(this,arguments),n=S.nation,e=n&&Array.isArray(n.dorm)&&n.dorm[n.dorm.length-1];
-  return e&&S.mapPick!=null&&S.mapPick===e.c&&cellOf(n.loc)<0?h.replace('<p class="eyebrow">Proposed location</p>',`<p class="eyebrow">Where ${esc(n.capital)} stood before the long sleep</p>`):h;
+  const out=e&&S.mapPick!=null&&S.mapPick===e.c&&cellOf(n.loc)<0?h.replace('<p class="eyebrow">Proposed location</p>',`<p class="eyebrow">Where ${esc(n.capital)} stood before the long sleep</p>`):h;
+  /* until it settles, a nation just woken may still take the free move to a quieter region */
+  return !OBS&&n&&dormFresh(n)?out+`<div class="dwb-again"><p class="hint">Back from a long sleep: until ${esc(n.capital)} stands somewhere, you may still begin in a quieter region at no cost.</p><button class="btn ghost small-btn" data-act="dorm-welcome">Quieter regions…</button></div>`:out;
 })(mapPanel);
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='dorm-name'){DORM.draft=e.target.value;}});
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='dorm-form'){e.preventDefault();const i=document.getElementById('dorm-name');dormTry(i?i.value:DORM.draft);}});
@@ -42956,6 +43051,8 @@ function hoverAt(cv,cell,e,tip){
 /* a founder's land says so on the map */
 MAP_TIP.push(({kind,cell})=>{if(kind!=='main'||cell<0)return '';const T=mapTerr(kind),o=T.owner[cell];if(!(o>=0))return '';const n=T.list[o].n;let b='';try{b=cz(n).bg;}catch(e){}
   if(b!=='bg-founder')return '';const no=founderNo(n);return '★ Founding Supporter'+(no?' '+founderNoTxt(no):'');});
+/* a hidden nation's land says why it cannot be had */
+MAP_TIP.push(({kind,cell})=>{if(cell<0)return '';const T=mapTerr(kind),o=T.owner[cell];return o>=0&&T.list[o]&&T.list[o].hid?'Held while the moderators review it':'';});
 function mapShowTip(cv,e,tip,head,sub){
   tip.textContent='';const b=document.createElement('b');b.textContent=head;tip.appendChild(b);
   if(sub){tip.appendChild(document.createElement('br'));tip.appendChild(document.createTextNode(sub));}
@@ -43047,6 +43144,10 @@ function mapPanel0(){
   if(S.mapSite!=null&&SITES[S.mapSite])return wm+sitePanel(S.mapSite);
   if(S.mapSel!=null&&T.byId[S.mapSel]!==undefined){
     const i=T.byId[S.mapSel],x=T.list[i];
+    if(x.hid)return wm+`<p class="eyebrow">Held land</p><div class="mp-nat"><span class="mflag">${flagSVG(HID_FLAG,'')}</span><h2 class="mp-h">${HID_NAME}</h2></div>
+      <p class="muted">The moderators have hidden this nation while they look into a report. Its land stays its own: nobody can claim it, settle on it or attack it until the nation is shown again.</p>
+      <dl class="mp-dl"><div><dt>Land area</dt><dd>${fmtArea(T.count[i])}</dd></div><div><dt>Location</dt><dd>${esc(cap1(landName(x.cap)))}</dd></div></dl>
+      <div class="row" style="margin-top:16px"><button class="btn ghost" data-act="map-desel">Back to ${esc(n.name)}</button></div>`;
     return wm+`<p class="eyebrow">${x.npc?'Computer-run nation':'Player nation'}</p><div class="mp-nat"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><h2 class="mp-h">${esc(x.n.name)}</h2></div>
       <p class="muted">${esc(fullName(x.n))} · ${esc(classify(x.n.s))}</p>
       <dl class="mp-dl"><div><dt>Population</dt><dd>${fmtPop(popNow(x.n))}</dd></div><div><dt>Land area</dt><dd>${fmtArea(T.count[i])}</dd></div><div><dt>Army</dt><dd>${brig(x.n)}</dd></div><div><dt>Alliance</dt><dd>${esc(allianceName(x.id))}</dd></div><div><dt>Location</dt><dd>${esc(cap1(landName(x.cap)))}</dd></div><div><dt>Borders</dt><dd>${nbLinks(i)}</dd></div></dl>
@@ -44668,8 +44769,10 @@ async function connect(){
     const w={},all={};
     for(const d of spQS.docs){const raw=d.data();if(!raw||!REG_BY_ID[raw.reg]||hidden(d.id))continue;
       all[d.id]={reg:raw.reg,name:String(raw.name||'').slice(0,40),pop:0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);}
-    let mineHere=false;
-    for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;if(hidden(d.id)){if(d.id===S.uid)mineHere=true;continue;}
+    let mineHere=false;const hw={};
+    /* a hidden nation leaves the region's records but keeps its land (HIDN), unless it has fallen dormant */
+    for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;if(hidden(d.id)){if(d.id===S.uid)mineHere=true;
+        const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now(),false);if(!isDormant(n))hw[d.id]=n;}continue;}
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
       if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
     /* this record left the region from another device: follow it there */
@@ -44678,7 +44781,7 @@ async function connect(){
     hadMine=mineHere;
     dormSift(w,all);
     S.worldAll=all;
-    S.world=w;
+    S.world=w;HIDN.w=hw;
     /* saved from another device: the region has only its shared half, so load it whole */
     if(PV){if(w[S.uid]&&(w[S.uid].updatedAt||0)>(S.nation&&S.nation.updatedAt||0))pvLoad(S.db).catch(()=>{});}else{ownLatest=w[S.uid]||ownLatest;syncOwnNation();}
     if(!S.nation||S.view==='map')quietRender(()=>{updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();});
@@ -64356,7 +64459,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)

@@ -135,7 +135,9 @@ in the `region()` list in `firestore.rules`. The map, its size and the player co
 **Moderation.** Players report a nation (its page) or a post (the region board), choosing a reason
 and adding a note; one report every 30 seconds. Each report is a ticket in the admin portal's queue,
 where an admin can remove the post, hide the nation (it leaves everyone else's view; its owner is
-told why and can still play), ask for a new name (the nation is hidden the same way until its
+told why and can still play; its land stays on everyone's map as a grey, nameless "Hidden nation" that
+nobody can claim, settle near or attack, and it attacks nobody, the referee refusing both, so nothing moves
+when it is shown again: `HIDN` in the game), ask for a new name (the nation is hidden the same way until its
 player saves it under another name), remove the nation (it and its posts are deleted; the player may found
 a new one), ban the player (the nation is removed and the account can no longer save, post or
 report), or simply close the ticket. Hidden nations and banned players are listed in the portal
@@ -220,6 +222,15 @@ skips the holiday, so edicts carry on afterwards as if it had not happened rathe
 once, and the time away does not count towards going dormant. It can be ended early. `n.away` is in the
 shared half, so every player works out the same dormancy, and the summary's `e` carries it into other
 regions' counts.
+
+**Dormant nations.** A player nation unsaved for 250 days (not counting a holiday) falls dormant: every other
+player's game leaves it out, and its land is open to anyone with land credits. Its owner finds the Office of
+dormant nations and wakes it by typing its name. Waking keeps everything but the land, which starts again: a
+**welcome back** (`dormWelcome`) says how long it slept and that its land went back to the wild, and offers two
+ways on: choose a place on this region's map (the old capital's hex is proposed while it is still free), or
+start afresh in one of up to three open regions with fewer active nations, quietest first. Until it settles
+(`dormFresh`), that move costs nothing: no land credits lost, no 14-day wait, and the capital's packed
+buildings come along (`moveTo(rid, true)`). The map panel keeps a "Quieter regions…" button until then.
 
 **Letters from Willow Street.** A citizen storyline told through eight letters from Mara Bell, of number
 fourteen, Willow Street, in the capital: a broken streetlight, then the bakery she tries to open, the fight
@@ -627,6 +638,7 @@ npm run test:admin-e2e     # admin console, region access and maintenance messag
 npm run test:devnews       # development news: the editor, images, the menu's count, comments and moderation
 npm run test:buildings     # the later buildings: plans, completion, city effects, edict boosts, the Central Bank
 npm run test:bugs          # Report a bug: the form, screenshots, pacing, the admin page, notes, deleting
+npm run test:hidden-land   # a hidden nation keeps its land; a woken nation's welcome back and free move
 npm run test:edict-inbox   # edict topics, read and pinned states, follow-up recaps
 npm run test:willow        # Letters from Willow Street: a milestone, a change of government, reloads, a second device
 npm run test:mission-control # Mission Control: the agency, the chart, the mandate, a landing, the gold letters
