@@ -141,9 +141,11 @@ await shot('.hero.id-sec','rank-top-desktop-light.png');
    A nation from before the change has no mark yet; its first save writes down the rank it had. */
 const B=await player('old hand',{vp:{width:412,height:900},dpr:2,dark:true});await open(B);await found(B,'Oldland');
 const old=await B.evaluate(()=>{
-  const R=G.RK,n=G.clone(G.S.nation),ach={},t=Date.now()-86400000;let p=0;
+  /* Hall of Fame (open the Achievements page) is earned as this test opens that page, and recorded a moment later,
+     sometimes before the border dialog below is read and sometimes after: count it in from the start */
+  const R=G.RK,n=G.clone(G.S.nation),t=Date.now()-86400000,ach={'fs-ach':t};let p=R.ACH_TIER[R.ACH.find(a=>a.id==='fs-ach').t].p;
   const c=G.clone(R.cabOf(n));for(const k in c)Object.assign(c[k],{tr:['honest'],sk:3,lo:60});n.cab=c;
-  for(const a of R.ACH.slice().sort((x,y)=>R.ACH_TIER[y.t].p-R.ACH_TIER[x.t].p)){if(a.id.startsWith('cab-'))continue;const v=R.ACH_TIER[a.t].p;if(p+v<=3300){ach[a.id]=t;p+=v;}if(p>=3300)break;}
+  for(const a of R.ACH.slice().sort((x,y)=>R.ACH_TIER[y.t].p-R.ACH_TIER[x.t].p)){if(a.id.startsWith('cab-')||ach[a.id])continue;const v=R.ACH_TIER[a.t].p;if(p+v<=3300){ach[a.id]=t;p+=v;}if(p>=3300)break;}
   delete n.rkv;delete n.rkh;n.ach=ach;const before=R.achRankOf(n).i;G.commit(n);G.render();const m=G.S.nation,r=R.achRankOf(m);
   return {p:R.achPoints(m),before,rkv:m.rkv,rkh:m.rkh,i:r.i,name:r.name,held:!!r.held,next:r.next&&r.next.at,bare:R.achRank(R.achPoints(m)).i,credits:R.achRankCredits(m),bd:R.idBdIndex(m),
     fresh:R.achRankOf({ach:m.ach,rkv:2}).i,later:[R.achRankOf(m,3600).i,R.achRankOf(m,4000).i],has:G.WND.unlocks(m).includes(R.ID_BD[20][0]),hasNext:G.WND.unlocks(m).includes(R.ID_BD[21][0])};});
@@ -160,7 +162,7 @@ await B.locator('.ach-ladder summary').click();
 /* (the list is filled as the fold opens, and again after a redraw: wait for it) */
 check('and its ranks list ticks every rank up to it',await until(async()=>await B.locator('.ach-ladder li.done').count()===21),String(await B.locator('.ach-ladder li.done').count()));
 await B.locator('.ach-ladder [data-act="bd-zoom"][data-i="21"]').click();
-check('a border still ahead says how much prestige is to go',/The border of Kingmaker, at 4,000 prestige\. 660 prestige to go\./.test((await big(B)).sum)&&!(await big(B)).cz,JSON.stringify(await big(B)));
+check('a border still ahead says how much prestige is to go',new RegExp(`The border of Kingmaker, at 4,000 prestige\\. ${4000-old.p} prestige to go\\.`).test((await big(B)).sum)&&!(await big(B)).cz,JSON.stringify({p:old.p,...await big(B)}));
 await B.keyboard.press('Escape');
 /* the mark is kept by a reload, and the rank with it */
 await B.evaluate(()=>G.S.nation&&0);await sleep(2500);await B.reload();await B.waitForSelector('.layout',{timeout:30000});
