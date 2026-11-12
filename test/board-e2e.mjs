@@ -1,7 +1,7 @@
 // The Community Board: every region's board under Other, the player's own first and open, the rest collapsed;
 // Registered Nations open topics and reply anywhere; posts show the author's flag, name, online state and badges;
 // staff pin, lock, hide and delete from inside the board, and guests read only.
-import { player, open, ready, found, register, until, check, finish, setClaims, text, clearEmulators, sleep, FS_HOST, PROJECT } from './lib.mjs';
+import { player, open, ready, found, register, until, check, finish, setClaims, text, clearEmulators, sleep, FS_HOST, PROJECT, OUT } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('player'), C = await player('reader'), G = await player('guest');
 const uidA = await open(A); await found(A, 'Adminland');
@@ -38,6 +38,8 @@ check('the author column shows the flag, name, online state and the Founder badg
 check('line breaks survive', await B.$eval('.cb-post .cb-x', e => e.innerHTML.includes('<br>')));
 check('the topic has its own link', /^#community\/[a-z]+\/[A-Za-z0-9]{20}$/.test(await B.evaluate(() => location.hash)));
 await B.waitForSelector('#cb-r-x'); await B.fill('#cb-r-x', 'And iron, too.'); await B.click('#cb-rf button[type="submit"]');
+// a toast under the pointer stays until the pointer leaves it, and the next one waits behind it: move it off
+await B.mouse.move(2, 2);
 check('posting again at once is paced, and says when it can', await until(async () => /Slow down a little\. You can post again in \d+ seconds/.test(await B.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '))), 30000));
 
 // C, from their own region, finds it on the other board and replies
@@ -141,4 +143,83 @@ check('typing @ finds a nation in any region, named with its region', await unti
 await C.keyboard.press('Enter');
 await C.fill('#cb-f-ti', 'Far away'); await C.click('#cb-nf button[type="submit"]');
 check('picking it mentions that nation', await until(async () => /@Zephyria/.test(await text(C, '.cb-post .cb-at'))));
+// ── following a topic, reply notices and what is new; reactions, quotes, formatting; the author column and signature ──
+const unpace = uid => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/cbPace/${uid}`, { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
+const bellText = p => p.evaluate(() => [...document.querySelectorAll('.nt-item')].map(e => e.textContent).join(' | '));
+const badge = p => p.evaluate(() => { const b = document.querySelector('.nav [data-v="community"] .badge'); return b ? b.textContent.trim() : ''; });
+await unpace(uidB); await unpace(uidC);
+await go(B, 'community'); if (await B.$('[data-act="cb-back"]')) await B.click('[data-act="cb-back"]');
+await B.waitForSelector('.cb-start [data-act="cb-new"]'); await B.click('.cb-start [data-act="cb-new"]');
+await B.selectOption('#cb-f-reg', home);
+await B.fill('#cb-f-ti', 'Trade fair');
+await B.fill('#cb-f-x', `Come to the **great** fair, with *music*.\n- grain\n- steel\nAsk #visit/${uidC} for the way.`);
+await B.click('[data-act="cb-pv"][data-for="cb-f-x"]');
+check('Preview shows the post as it will read: bold, italic, a list and the linked nation as a card', await until(() => B.evaluate(() => {
+  const p = document.getElementById('cb-f-x-pv'), c = p && p.querySelector('.cb-card');
+  return !!p && p.querySelector('b')?.textContent === 'great' && p.querySelector('i')?.textContent === 'music' && p.querySelectorAll('ul.cb-ls li').length === 2 && !!c && /Readerland/.test(c.textContent) && document.getElementById('cb-f-x').hidden; })));
+await B.click('[data-act="cb-pv"][data-for="cb-f-x"]');
+await B.evaluate(() => { const t = document.getElementById('cb-f-x'); t.focus(); t.setSelectionRange(t.value.length, t.value.length); });
+await B.click('[data-act="cb-fmt"][data-v="b"][data-for="cb-f-x"]');
+check('the Bold button puts marks round new words, ready to type over', await B.$eval('#cb-f-x', t => /\*\*bold words\*\*$/.test(t.value) && t.value.slice(t.selectionStart, t.selectionEnd) === 'bold words'));
+await B.evaluate(() => { const t = document.getElementById('cb-f-x'); t.value = t.value.replace(/\*\*bold words\*\*$/, ''); t.dispatchEvent(new Event('input', { bubbles: true })); });
+await B.click('#cb-nf button[type="submit"]');
+check('the topic shows its formatting, with the nation card', await until(() => B.evaluate(() => { const x = document.querySelector('.cb-post .cb-x'); return !!x && x.querySelector('b')?.textContent === 'great' && x.querySelectorAll('li').length === 2 && !!x.querySelector('.cb-card[data-act="visit"]'); })));
+check('the author follows their own topic', await until(async () => /Following/.test(await text(B, '.cb-fw'))));
+check('the author column counts the author’s posts', await until(async () => /\d+ posts?/.test(await text(B, '.cb-post .cb-au'))), await text(B, '.cb-post .cb-au'));
+const fair = await B.evaluate(() => location.href);
+await B.click('[data-act="cb-back"]');
+check('the topics the player follows are listed above the boards', await until(async () => /Topics you follow.*Trade fair/.test(await text(B, '.cb-fwl'))));
+
+// a topic the player has never opened is New on its board
+await go(A, 'community'); if (await A.$('[data-act="cb-back"]')) await A.click('[data-act="cb-back"]');
+check('a topic the player never opened is marked New on its board', await until(async () => /New\s*Trade fair/.test(await text(A, `.cb-reg[data-reg="${home}"]`))), await text(A, `.cb-reg[data-reg="${home}"]`));
+
+// C opens it, reacts, quotes it and replies
+await C.goto(fair); await ready(C); await C.waitForSelector('.cb-post .cb-x');
+check('the card names the linked nation and opens its page', /Readerland/.test(await text(C, '.cb-post .cb-card')) && await C.$eval('.cb-post .cb-card', a => a.getAttribute('href').startsWith('#visit/')));
+await C.click('.cb-post [data-act="cb-rx-pick"]'); await C.click('.cb-post [data-act="cb-rx"][data-v="heart"]');
+check('a reaction shows at once, pressed, with its count', await until(() => C.evaluate(() => { const b = document.querySelector('.cb-post .cb-rx [data-v="heart"]'); return !!b && b.getAttribute('aria-pressed') === 'true' && /1/.test(b.textContent); })));
+await C.click('.cb-post [data-act="cb-quote"]');
+check('Quote puts the post above the reply box', await until(async () => /Quoting Playerland/.test(await text(C, '.cb-rq'))));
+await C.fill('#cb-r-x', 'Count me in.'); await C.click('#cb-rf button[type="submit"]');
+check('the reply carries the quote', await until(async () => /Playerland wrote.*great fair/.test(await text(C, '.cb-reps .cb-qt'))));
+
+// B, on the boards, hears of it: the bell, the menu, the list of followed topics and the topic's row
+check('the menu counts the followed topic with a new reply', await until(async () => (await badge(B)) === '1', 15000), await badge(B));
+check('the list of followed topics says 1 new', /1 new/.test(await text(B, '.cb-fwl')));
+check('the topic’s row on its board says 1 new', await until(async () => /1 new\s*Trade fair/.test(await text(B, `.cb-reg[data-reg="${home}"]`))));
+await B.evaluate(() => document.querySelector('.bell').click());
+check('the bell says who replied, and where', await until(async () => /Community Board.*Readerland replied on “Trade fair”/.test(await bellText(B))), await bellText(B));
+await B.evaluate(() => [...document.querySelectorAll('.nt-item .nt')].find(e => /Trade fair/.test(e.textContent)).click());
+check('the notice opens the topic at a New line before the reply', await until(() => B.evaluate(() => { const l = document.getElementById('cb-newl'), n = l && l.nextElementSibling; return !!n && /Count me in/.test(n.textContent); })));
+check('the reaction is there for the author too, naming who', await until(() => B.evaluate(() => { const b = document.querySelector('.cb-post .cb-rx [data-v="heart"]'); return !!b && /Readerland/.test(b.title); })));
+check('reading the topic clears the count', await until(async () => (await badge(B)) === ''));
+await B.click('.cb-reps .cb-qt [data-act="cb-jump"]');
+check('the quote jumps to the quoted post', await until(() => B.evaluate(() => document.querySelector('.cb-post.cb-flash') !== null)));
+
+// B mutes it: C's next reply brings nothing
+await B.click('[data-act="cb-follow"]');
+check('stopping mutes the topic', await until(async () => /Muted/.test(await text(B, '.cb-fw')) && !/Following/.test(await text(B, '.cb-fw-b'))));
+await B.click('[data-act="cb-back"]');
+await unpace(uidC); await C.fill('#cb-r-x', 'See you there.'); await C.click('#cb-rf button[type="submit"]');
+await until(async () => /See you there/.test(await text(C, '.cb-reps')));
+await sleep(2500);
+check('a muted topic brings no news', (await badge(B)) === '' && !/See you there/.test(await bellText(B)));
+
+// C writes a signature in Customise; it shows under C's posts, and staff may take it away
+await C.evaluate(() => { location.hash = '#customise/board'; });
+await C.waitForSelector('#cz-sec-w', { state: 'visible', timeout: 15000 });
+check('Customise has a Community Board section with the author column as readers see it', /Readerland/.test(await text(C, '#cz-sec-w .cbs-post')) && /No signature yet/.test(await text(C, '#cbs-pv')));
+await C.fill('#cbs-x', 'Steel never sleeps.');
+check('the preview follows the typing', /Steel never sleeps\./.test(await text(C, '#cbs-pv')));
+await C.click('#cbs-form button[type="submit"]');
+check('the signature is saved', await until(async () => /signature is saved/.test(await C.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ')))));
+await C.goto(fair); await ready(C); await C.waitForSelector('.cb-reps .cb-post');
+check('it shows under the player’s posts', await until(async () => /Steel never sleeps\./.test(await text(C, '.cb-reps .cb-sig'))));
+// a reader who has not seen this profile in the last few minutes (the page keeps each one for five): a fresh page
+await A.goto(fair); await A.reload(); await ready(A);
+check('another reader sees it, and staff may remove it', await until(async () => /Steel never sleeps\./.test(await text(A, '.cb-reps .cb-sig')) && !!(await A.$('.cb-reps [data-act="cb-mod"][data-v="nosig"]'))));
+await A.click('.cb-reps [data-act="cb-mod"][data-v="nosig"]');
+check('removed, it is gone', await until(async () => !(await A.$('.cb-reps .cb-sig'))));
+await B.screenshot({ path: OUT + '/board-following.png' });
 await finish();

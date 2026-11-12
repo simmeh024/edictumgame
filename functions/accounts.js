@@ -8,7 +8,7 @@ import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail } from './mail.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
-import { rmbForget } from './board.js';
+import { rmbForget, cbForget } from './board.js';
 import { rcForget } from './regionchat.js';
 import { fcForget } from './flagcomp.js';
 import DATA from './civic-data.json' with { type: 'json' };
@@ -126,6 +126,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await db.doc('alPace/' + uid).delete();
     // its reactions on the region boards (functions/board.js)
     await rmbForget(db, uid, DATA.regions.map(r => r.id));
+    // and on the Community Board: its reactions, the topics it followed and its board profile
+    await cbForget(db, uid);
     // and in the region chats (functions/regionchat.js)
     await rcForget(db, uid, DATA.regions.map(r => r.id));
     // its flag in an open competition, its ratings, and its name in the halls (functions/flagcomp.js)
