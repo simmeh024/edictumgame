@@ -1642,7 +1642,8 @@
     } else if (ui.view === 'email-sent') {
       h = '<p class="eyebrow">Check your email</p><h2 class="ed-h" id="ed-dlg-h">Open the link we sent</h2>' +
         '<p>We sent a sign-in link to <b>' + esc(ui.email) + '</b>. Open it <b>in this browser</b> to finish.</p>' +
-        '<ul class="ed-perks"><li>It can take a minute or two to arrive.</li><li>Not there? Look in your spam or promotions folder for a message from Edictum.</li><li>Each link works once and expires after a while.</li></ul>' +
+        '<ul class="ed-perks"><li>It can take a minute or two to arrive.</li><li>Not there? Look in your spam or promotions folder for a message from Edictum.</li><li>Each link works once and expires after a while.</li>' +
+        (ui.emailKeeps ? '<li>If your email app opens links in its own browser, copy the link into this one instead.</li>' : '') + '</ul>' +
         row('<button type="button" class="btn" data-ed="close" data-autofocus>Done</button><button type="button" class="btn ghost" data-ed="email-resend" id="ed-resend"' + (resendLeft() ? ' disabled' : '') + '>' + resendLabel() + '</button>') +
         row('<button type="button" class="linkish" data-ed="email">Wrong address? Use another one</button>');
     } else if (ui.view === 'email-finish') {
@@ -1651,6 +1652,12 @@
         '<label class="ed-lbl2" for="ed-email">Email address</label><input class="input" id="ed-email" type="email" maxlength="200" autocomplete="email" spellcheck="false" data-enter="email-finish" data-autofocus>' +
         row('<button type="button" class="btn" data-ed="email-finish">Sign in here</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>') +
         '<p class="ed-fine">Meant to sign in on the other device? Open the link there instead. Or <button type="button" class="linkish" data-ed="email">send a new link to use on this one</button>.</p>';
+    } else if (ui.view === 'email-elsewhere') {
+      h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Open this link where your nation is</h2>' +
+        '<p>This link keeps a nation with your email address, and that nation is in another browser' + (webview() ? ' (this looks like your email app\'s own browser)' : '') + '. Used here, it would start a separate, empty account instead, so nothing has changed yet.</p>' +
+        '<p>Copy the link and paste it into the address bar of the browser where you play. It still works, once.</p>' +
+        '<label class="ed-lbl2" for="ed-link">Your sign-in link</label><input class="input" id="ed-link" readonly spellcheck="false" value="' + esc(ui.emailLink || '') + '">' +
+        row('<button type="button" class="btn" data-ed="link-copy" data-autofocus>Copy the link</button><button type="button" class="btn ghost" data-ed="close">Close</button>');
     } else if (ui.view === 'report' && ui.report) {
       var r = ui.report, post = r.kind === 'post' || r.kind === 'letter' || r.kind === 'chat', reasons = REASONS.filter(function (x) { return post ? x[0] !== 'name' && x[0] !== 'cheating' : true; });
       h = '<p class="eyebrow">Report</p><h2 class="ed-h" id="ed-dlg-h">' + (r.kind === 'letter' ? 'Report this letter?' : r.kind === 'chat' ? 'Report this chat message?' : post ? 'Report this post?' : 'Report ' + quoted(r.name) + '?') + '</h2>' +
@@ -1744,6 +1751,12 @@
     if (a === 'email-resend') { if (!resendLeft() && ui.email) sendLinkTo(ui.email, ui.emailMode).then(function () { setMsg('Sent again. Use the newest link.'); }, function () {}); return; }
     if (a === 'copy-url') { var url = location.origin + location.pathname; try { navigator.clipboard.writeText(url).then(function () { setMsg('Link copied. Paste it into Safari or Chrome.'); }, function () { setMsg(url); }); } catch (e) { setMsg(url); } return; }
     if (a === 'email-finish') { var typed = ui.dlg.querySelector('#ed-email'); finishEmailLink(ui.emailLink, typed ? typed.value.trim() : ''); return; }
+    if (a === 'link-copy') {
+      var lk = ui.emailLink || '', field = ui.dlg.querySelector('#ed-link');
+      var by = function () { if (field) { field.focus(); field.select(); } setMsg('Select the link above and copy it.', true); };
+      try { navigator.clipboard.writeText(lk).then(function () { setMsg('Link copied. Paste it into the browser where you play.'); }, by); } catch (e) { by(); }
+      return;
+    }
     if (a === 'switch') { doSwitch(); return; }
     if (a === 'signout') { ui.view = 'signout'; setMsg(''); draw(); return; }
     if (a === 'signout-yes') { doSignOut(); return; }
@@ -2112,12 +2125,35 @@
       if (!resendLeft()) clearInterval(resendTimer);
     }, 1000);
   }
+  /* A link that is to keep something (a guest's nation, or a Registered Nation adding the address) names the account
+     that asked for it, as a short tag in the page address it comes back to (?elk=). Opened in another browser, such
+     as an email app's own, it would otherwise sign in there and make a separate, empty account for the address: the
+     nation it was meant to keep stays a guest in the first browser (finishEmailLink sends the player back there). A
+     plain sign-in, from a guest without a nation, carries no tag and works in any browser. The tag is no secret and
+     proves nothing: it only tells the two cases apart. */
+  function linkTag(uid) {
+    var h = 0x811c9dc5, s = String(uid || '');
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ('0000000' + h.toString(16)).slice(-8);
+  }
+  /* the tag a link carries: in the address itself, or in the continue URL Firebase nests in it */
+  function linkTagOf(href) {
+    for (var depth = 0; href && depth < 4; depth++) {
+      var q;
+      try { q = new URL(href, location.origin).searchParams; } catch (e) { return ''; }
+      var t = q.get('elk');
+      if (t && /^[0-9a-f]{8}$/.test(t)) return t;
+      href = q.get('continueUrl') || q.get('link') || q.get('deep_link_id') || '';
+    }
+    return '';
+  }
   function sendLinkTo(email, mode) {
     setBusy('Sending the link…');
-    return A.auth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname, handleCodeInApp: true }).then(function () {
+    var u = A.auth.currentUser, tag = u && (linkedUser(u) || localNation()) ? linkTag(u.uid) : '';
+    return A.auth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname + (tag ? '?elk=' + tag : ''), handleCodeInApp: true }).then(function () {
       ui.sentAt = Date.now(); setTimeout(resendTick, 0);
       L.set(LS_EMAIL, JSON.stringify({ email: email, mode: mode || '' }));
-      ui.email = email; ui.emailMode = mode || ''; setBusy(''); ui.view = 'email-sent'; setMsg(''); draw();
+      ui.email = email; ui.emailMode = mode || ''; ui.emailKeeps = !!tag; setBusy(''); ui.view = 'email-sent'; setMsg(''); draw();
     }, function (e) { setBusy(''); setMsg(authMessage(e), true); throw e; });
   }
   function sendEmailLink() {
@@ -2127,8 +2163,11 @@
   }
   async function finishEmailLink(href, typed) {
     var pending = parse(L.get(LS_EMAIL)), email = typed || (isObj(pending) && typeof pending.email === 'string' ? pending.email : '');
-    var u = A.auth.currentUser, mode = isObj(pending) && !typed ? pending.mode : '';
+    var u = A.auth.currentUser, mode = isObj(pending) && !typed ? pending.mode : '', tag = linkTagOf(href);
     ui.emailLink = href;
+    /* a link asked for by another account, to keep its nation: used here it would make a separate account, so the
+       player is sent back to the browser that asked for it, with the link to paste there (it is still unused) */
+    if (tag && u && tag !== linkTag(u.uid)) { open('email-elsewhere'); return; }
     if (!email) { open('email-finish'); return; }
     if (!href || !u || ui.busy) return;
     ui.email = email;

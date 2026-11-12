@@ -17,6 +17,13 @@ async function emailLink(email) {
   const codes = ((await r.json()).oobCodes || []).filter(c => c.email === email && c.requestType === 'EMAIL_SIGNIN');
   return codes.length ? BASE + '/' + new URL(codes[codes.length - 1].oobLink).search : null;
 }
+// whether any account holds this address (the Auth emulator's admin lookup)
+async function emailHasAccount(email) {
+  const r = await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:lookup`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ email: [email] })
+  });
+  return ((await r.json().catch(() => ({}))).users || []).length > 0;
+}
 // A guest's first save brings the recovery-code dialog once; dismiss it before using the account dialog, which
 // it would otherwise replace mid-step.
 async function founded(p, name) {
@@ -331,5 +338,27 @@ check('Q switches into the account without a nation, taking Quayside along', awa
 /* the new account answers ready() as soon as the sign-in lands, before leave() reloads the page: wait for that unload */
 check('the write at unload did run', await until(async () => await Q.evaluate(() => sessionStorage.getItem('test.unloadWrote')) === '1', 20000), JSON.stringify({ switchedAtOnce: await switchedQ, unloads: await Q.evaluate(() => JSON.parse(sessionStorage.getItem('test.unloadSeen') || '[]')) }));
 check('and a write at unload did not replace the moved copy', (await localNation(Q))?.motto !== 'Written at unload' && await until(async () => (await nationDoc(uidR))?.rec?.name === 'Quayside', 20000) && (await nationDoc(uidR)).rec.motto !== 'Written at unload');
+
+/* ── 16. a link to keep a nation, opened in another browser (an email app's own) ── */
+// It must not sign in there: that made a separate, empty account for the address while the nation stayed a guest in
+// the first browser. The other browser shows the link to paste where the nation is, and there it links as usual.
+const S = await player('S');
+const uidS = await open(S);
+await founded(S, 'Selbourne');
+const linkS = await sendLink(S, 'sel@example.com');
+check('a link to keep a nation names the account that asked', /elk(=|%3D)[0-9a-f]{8}/.test(linkS));
+check('and the sent page says to copy it over from an email app’s browser', /copy the link into this one/.test(await text(S, 'dialog.ed-dlg')));
+const T = await player('T');
+const uidT0 = await open(T);
+await T.goto(linkS);
+await T.waitForSelector('#ed-link', { timeout: 15000 });
+check('opened in another browser, it says to open it where the nation is', /where your nation is/.test(await heading(T)));
+const pasted = await T.inputValue('#ed-link');
+check('and holds the link to paste there', /oobCode=/.test(pasted));
+check('it signs nobody in there', (await ready(T)) === uidT0 && await T.evaluate(() => G.S.civic?.account.kind) !== 'registered');
+check('and makes no account for the address', !(await emailHasAccount('sel@example.com')));
+await S.goto(pasted);
+check('pasted into the browser that asked, it links the nation there', await until(async () => (await ready(S)) === uidS) && await until(async () => /sel@example\.com/.test(await text(S, '.ed-acct-b')), 15000) && await registered(S) && (await sideName(S)) === 'Selbourne');
+/* a plain sign-in link (asked for by a guest without a nation) still works in any browser: section 2 */
 
 await finish();
