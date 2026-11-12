@@ -25,7 +25,11 @@ const ASM_CATS={
   culture:{n:'A culture fund',m:{culture:2,tax:1},s:{culture:3,tour:2,tax:1},p:'artsCouncil'},
   holiday:{n:'A public holiday',m:{happy:2,econ:-1},s:{happy:3,culture:1,econ:-2},p:'holidayEntitlement'},
   metric:{n:'Metric everything',m:{sci:1,weird:-1},s:{sci:2,edu:1,weird:2,cons:-1},p:'decimalTime'},
-  health:{n:'Public health',m:{health:2,happy:-1},s:{health:3,happy:-1,tax:1,b:{health:1}},p:'junkFoodTax'}
+  health:{n:'Public health',m:{health:2,happy:-1},s:{health:3,happy:-1,tax:1,b:{health:1}},p:'junkFoodTax'},
+  /* two that name one nation of the region instead (tg: c commends it, x condemns it): no effect on the members, never
+     in the rulebook; a passed one marks the nation named for a week (asmMarks) */
+  commend:{n:'A commendation',m:{},s:{},tg:'c'},
+  condemn:{n:'A condemnation',m:{},s:{},tg:'x'}
 };
 /* what a computer nation tables when no member has proposed anything */
 const ASM_RES=[
@@ -107,6 +111,56 @@ function asmLawNote(cat,pn){const C=ASM_CATS[cat];if(!C||!C.p||!pn)return '';con
   if(pn==='law')return `${L} is now law.`;if(pn==='had')return `${L} was already law.`;
   if(pn.startsWith('x:')){const q=POLICIES[pn.slice(2)];return `${L} did not pass into law: your ${q?q[0]:'own laws'} stands in its way.`;}return '';}
 
+/* ── commendations and condemnations: a resolution that names one nation of the region (tg on the proposal and its
+   lock, tn its name then). A passed one marks that nation for ASM_MARK from the close of its count: a laurel or a
+   censure. Its effects (city mood, computer nations' terms of trade) are the game's, worked out from the finished locks
+   every player of the region receives (asmMarks), so every viewer sees the same. A condemnation needs two votes for
+   every one against, and may not name a nation in its first fortnight or one not seen for a fortnight (ASM_MK_NEW);
+   no nation can be named again for what it already wears. Computer nations vote by how much they like the nation
+   named, and now and then one tables a commendation of the member it admires most (asmNpcLaud) */
+const ASM_MARK=7*DAY,ASM_MK_NEW=14*DAY,ASM_NPC_LAUD=6;
+const asmTg=cat=>{const C=ASM_CATS[cat];return C&&C.tg||'';};
+const asmNpcOf=id=>NPC_NATIONS.find(x=>x.id===id)||null;
+/* the marks in force at T, from the finished counts */
+function asmMarks(L,T){
+  const out=[];
+  for(const x of L.values()){const m=x&&x.f&&x.ok&&x.tg?asmTg(x.cat):'';if(!m)continue;const a=asmT0(x.c+1),b=a+ASM_MARK;
+    if(T>=a&&T<b)out.push({k:x.k,c:x.c,m,tg:x.tg,tn:x.tn||'',ti:x.ti,by:x.by,bn:x.bn||'',a,b});}
+  return out.sort((p,q)=>p.a-q.a||asmCmp(p.k,q.k));
+}
+/* the nation named, as a record: a computer nation of the region, or a player nation in it */
+function asmTgRec(id,recs){const x=asmNpcOf(id);if(x)return {id,n:x,npc:true};return recs.find(r=>r.id===id)||null;}
+/* why a resolution may not name nation id for mark m at time T (by: its proposer); '' when it may */
+function asmTgWhy(id,m,recs,T,by,L){
+  if(!asmIdOk(id))return 'Choose the nation the resolution names.';
+  if(id===by)return 'A resolution cannot name the nation that proposes it.';
+  const r=asmTgRec(id,recs);if(!r||r.hidden)return 'That nation is not in the region.';
+  const nm=r.n.name||'That nation';
+  if(m==='x'&&!r.npc){
+    if(T-(r.n.founded||0)<ASM_MK_NEW)return `${nm} is in its first fortnight, so it cannot be condemned yet.`;
+    if(asmAbsentAt(r.n,T))return `${nm} has not been seen for a fortnight, so it could not answer a condemnation.`;
+  }
+  if(asmMarks(L,T).some(x=>x.tg===id&&x.m===m))return m==='c'?`${nm} already wears the Assembly’s laurel.`:`${nm} is already under the Assembly’s censure.`;
+  return '';
+}
+/* a computer nation's commendation of the player member it likes best, in about one cycle in ASM_NPC_LAUD that no
+   member has proposed anything for: the nation and the member with the highest affinity (at least ASM_AFF) */
+const ASM_LAUD=[
+  ['In Praise of {N}','{B} moves that the Assembly thank {N} for being a good neighbour, a fair trader and an excellent host at receptions.'],
+  ['A Vote of Thanks to {N}','{B} asks the chamber to recognise {N}’s steady conduct, and to send it a modest wreath and a strongly worded compliment.'],
+  ['Laurels for {N}','{B} proposes that {N} be crowned with the Assembly’s laurel, on the grounds that nobody has complained about it all month.']
+];
+function asmNpcLaud(c,recs){
+  if(!recs||!NPC_NATIONS.length||hash(REG.id+':asmlaud:'+c)%ASM_NPC_LAUD)return null;
+  const t0=asmT0(c),mem=recs.filter(r=>!r.hidden&&asmMemberAt(r.n,t0)&&!asmAbsentAt(r.n,t0));if(!mem.length)return null;
+  const L=asmLocks(recs);let best=null;
+  for(const x of NPC_NATIONS){const b=asmNpcBacks(x,mem,c);if(!b.r||asmTgWhy(b.r.id,'c',recs,t0,x.id,L))continue;
+    if(!best||b.a>best.a||(b.a===best.a&&asmCmp(x.id,best.x.id)<0))best=b;}
+  if(!best)return null;
+  const T=ASM_LAUD[hash(REG.id+':laudt:'+c)%ASM_LAUD.length],N=best.r.n.name,put=s=>s.split('{N}').join(N).split('{B}').join(best.x.name);
+  return {c,k:'npc~'+REG.id+'~'+c,ti:asmClean(put(T[0]),ASM_TI),tx:asmClean(put(T[1]),ASM_TX),cat:'commend',g:0,by:best.x.id,bn:best.x.name,w:'n',lt:0,tg:best.r.id,tn:asmClean(N,40)};
+}
+
 /* ── the records of the region ── */
 function asmRecs(me){
   const my=me===undefined?S.nation:me,out=[];
@@ -145,13 +199,18 @@ function asmSupAt(recs,k,author,T){
 /* the computer nations' ready-made resolution for a cycle, tabled by the nation it suits best */
 function asmNpcScore(x,R,c){
   const cat=R.cat||R.c,C=ASM_CATS[cat];if(!C)return 0;const e=asmFx(cat,R.g),src=npcAt(x.id,asmT0(c))||x,B=NPC_BASE[x.id];let sc=0;
+  /* a resolution naming a nation: by how much this one likes it (the nation named defends itself). Most like their
+     neighbours well enough (affinity about 75), so a commendation of one leans for and a condemnation against */
+  if(C.tg){if(R.tg===x.id)return C.tg==='c'?9:-9;const t=asmNpcOf(R.tg)||(S.world&&S.world[R.tg]);if(!t||!t.s)return 0;
+    let a=70;try{a=affinity(src,t);}catch(err){a=70;}return C.tg==='c'?(a-70)/8:(62-a)/8;}
   for(const k of Object.keys(e)){if(k==='b'||!(k in src.s))continue;const w=(src.s[k]-50)/50;sc+=e[k]*(k==='tax'?w*0.5:w);}
   if(R.g&&C.p){const pl=B?B.pol:Object.keys(x.policies||{});if(pl.includes(C.p))sc+=1.5;else if(conflictsOf(C.p).some(q=>pl.includes(q)))sc-=2.5;}
   /* a repeal takes away what its resolution gave: a nation that liked the one dislikes the other */
   return R.rp?-sc:sc;
 }
-function asmNpcRes(c){
+function asmNpcRes(c,recs){
   const L=ASM_RES.length;if(!L||!NPC_NATIONS.length)return null;
+  const lau=asmNpcLaud(c,recs);if(lau)return lau;
   const b=Math.floor(c/L),R=ASM_RES[asmPerm(L,hash(REG.id+':asmres:'+b))[c-b*L]];
   let by=NPC_NATIONS[0],bs=-Infinity;for(const x of NPC_NATIONS){const s=asmNpcScore(x,R,c);if(s>bs){bs=s;by=x;}}
   return {c,k:'npc~'+REG.id+'~'+c,ti:R.ti,tx:R.tx,cat:R.c,g:R.g,by:by.id,bn:by.name,w:'n',lt:0};
@@ -163,9 +222,11 @@ function asmPickRaw(c,recs,ex){
     const k=asmPKey(r.id,p);if(ex.has(k))continue;
     /* a repeal whose resolution has already left the rulebook has nothing left to do */
     if(p.rp){if(!bk)bk=asmBookAt(c,asmLocks(recs));if(!bk.some(e=>e.k===p.rp))continue;}
+    /* nor one naming a nation it may no longer name: gone from the region, or already wearing that mark */
+    if(asmTg(p.c)&&asmTgWhy(p.tg,asmTg(p.c),recs,t0,r.id,asmLocks(recs)))continue;
     cands.push({r,p,k});}
-  const res=(x,w)=>Object.assign({c,k:x.k,ti:x.p.ti,tx:x.p.tx,cat:x.p.c,g:x.p.g,by:x.r.id,bn:x.r.n.name,w,lt:0},x.p.rp?{rp:x.p.rp,rt:x.p.rt||''}:{});
-  if(!cands.length)return asmNpcRes(c);
+  const res=(x,w)=>Object.assign({c,k:x.k,ti:x.p.ti,tx:x.p.tx,cat:x.p.c,g:x.p.g,by:x.r.id,bn:x.r.n.name,w,lt:0},x.p.rp?{rp:x.p.rp,rt:x.p.rt||''}:{},x.p.tg?{tg:x.p.tg,tn:x.p.tn||''}:{});
+  if(!cands.length)return asmNpcRes(c,recs);
   const D=asmDel(recs,t0),ag=D&&asmA(D.r.n)&&asmA(D.r.n).a;
   if(ag&&ag.c===c&&ag.t<t0){const hit=cands.find(x=>x.k===ag.k);if(hit)return res(hit,'d');}
   for(const x of cands)x.sup=asmSupAt(recs,x.k,x.r.id,t0).length;
@@ -184,6 +245,7 @@ function asmPickFor(c,recs,L){
 function asmNpcVote(x,L,c){
   const r=rng(hash(x.id+':asmv:'+L.k)),at=asmT0(c)+3600e3+Math.floor(r()*ASM_P*0.8);
   if(L.by===x.id)return {v:1,t:asmT0(c)+600e3,sc:9};
+  if(L.tg===x.id&&asmTg(L.cat)){const v=asmTg(L.cat)==='c'?1:-1;return {v,t:asmT0(c)+600e3,sc:9*v};}
   const sc=asmNpcScore(x,L,c)+(r()*2-1)*0.8;
   return {v:sc>=0.6?1:sc<=-0.6?-1:0,t:at,sc};
 }
@@ -204,14 +266,15 @@ function asmTally(L,c,recs,T,D){
     rows.push(row);if(v){if(v.v>0)y+=w;else if(v.v<0)no+=w;}}
   for(const x of NPC_NATIONS){let nv=asmNpcVote(x,L,c);const s=sw.get(x.id);if(s&&s.t<nv.t)nv={...nv,v:s.v};const on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W,...(s&&s.ex&&s.t<nv.t?{sw:s.by}:{})});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
   y=Math.round(y*100)/100;no=Math.round(no*100)/100;
-  return {rows,y,n:no,ok:y>no,shown};
+  /* a condemnation needs two votes for every one against */
+  return {rows,y,n:no,ok:asmTg(L.cat)==='x'?y>no&&y>=2*no:y>no,shown};
 }
 /* the rulebook: the resolutions in force, at most ASM_BOOK and one a category. A passed resolution enters it, and
    pushes out one of the same category (s, superseded) and then, past ASM_BOOK, the oldest (o, retired); a passed repeal
    takes its resolution out (r). A finished cycle's lock keeps the book as it left it (bk) and what went (bx). */
 function asmBookStep(bk,L){
   let b=Array.isArray(bk)?bk.slice():[];const bx=[];
-  if(!L||!L.f||!L.ok||!L.k)return {bk:b,bx};
+  if(!L||!L.f||!L.ok||!L.k||asmTg(L.cat))return {bk:b,bx};
   if(L.rp){const i=b.findIndex(e=>e.k===L.rp);if(i>=0){bx.push({k:b[i].k,ti:b[i].ti,w:'r'});b.splice(i,1);}return {bk:b,bx};}
   for(const e of b)if(e.cat===L.cat)bx.push({k:e.k,ti:e.ti,w:'s'});
   b=b.filter(e=>e.cat!==L.cat);
@@ -244,5 +307,5 @@ function asmState(now,me){
   return v;
 }
 
-return {state:now=>asmState(now),pick:(c,exclude)=>asmPickRaw(c,records,exclude),tally:asmTally,swayPick:asmSwayPick,delegate:asmDelegateAt,key:asmPKey,cycle:asmCyc,t0:asmT0,cats:ASM_CATS,book:c=>asmBookAt(c,asmLocks()),bookStep:asmBookStep,absent:asmAbsentAt,weight:asmDW};
+return {state:now=>asmState(now),pick:(c,exclude)=>asmPickRaw(c,records,exclude),tally:asmTally,swayPick:asmSwayPick,delegate:asmDelegateAt,key:asmPKey,cycle:asmCyc,t0:asmT0,cats:ASM_CATS,book:c=>asmBookAt(c,asmLocks()),bookStep:asmBookStep,absent:asmAbsentAt,weight:asmDW,marks:T=>asmMarks(asmLocks(),T),named:(id,m,T,by)=>asmTgWhy(id,m,records,T,by,asmLocks()),target:id=>asmTgRec(id,records),mark:asmTg};
 }

@@ -254,7 +254,9 @@ function debateTopic(reg, L, t1, now) {
   const when = new Date(t1).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
   const how = L.w === 'd' ? ', at the Delegate’s choosing' : L.w === 's' ? ', as the proposal with the most support' : '';
   const first = L.w === 'n' ? `No member tabled a proposal in time, so ${L.bn} has put one of its own to the vote: “${L.ti}”.` : `${L.bn} has put “${L.ti}” to the vote${how}.`;
-  const x = [first, L.rp ? `It would repeal “${L.rt || 'a resolution in force'}” and lift its effects from every member.` : '', L.tx ? `“${L.tx}”` : '',
+  const tn = L.tn || 'a nation of the region';
+  const named = !L.tg ? '' : L.cat === 'condemn' ? `It would condemn ${tn} for a week, and ${tn} may answer it here. A condemnation passes only with two votes for every one against.` : `It would commend ${tn} for a week.`;
+  const x = [first, L.rp ? `It would repeal “${L.rt || 'a resolution in force'}” and lift its effects from every member.` : '', named, L.tx ? `“${L.tx}”` : '',
     `The count closes at 00:00 UTC on ${when}. Cast your vote on the Assembly page, and make your case here.`].filter(Boolean).join('\n\n');
   return { a: 'assembly', nm: name, rg: reg, as: true, rl: 'Clerk of the Assembly', ti: text(`Resolution No. ${L.c + 1}: ${L.ti}`, 120), x, tg: 'assembly', t: now, la: now, rc: 0 };
 }
@@ -396,7 +398,7 @@ async function assemblyTx(db, who, d) {
     } else if (op === 'propose') {
       const ti = text(d.title, 60), body = text(d.body, 280);
       /* a repeal names a resolution in the rulebook, and takes its category and strength from it */
-      let category = d.category, strength = d.strength, repeal = null;
+      let category = d.category, strength = d.strength, repeal = null, named = null;
       if (!d.edit && typeof d.repeal === 'string' && d.repeal) {
         repeal = ctx.engine.book(ctx.c).find(x => x.k === d.repeal);
         if (!repeal) refuse('repeal_gone', 'That resolution is no longer in the rulebook.');
@@ -410,7 +412,14 @@ async function assemblyTx(db, who, d) {
       } else {
         if (current || (a.p && st.cur?.k === ctx.engine.key(who.uid,a.p))) refuse('proposal_exists', 'You already have a proposal before the Assembly.');
         if (a.pw && now - a.pw < 6 * 3600000) refuse('proposal_cooldown', 'Wait six hours after withdrawing a proposal.');
-        a.p = { t: now, ti, tx: body, c: category, g: strength, ...(repeal ? { rp: repeal.k, rt: text(repeal.ti, 60) } : {}) };
+        /* a commendation or a condemnation names one nation of the region (game/edictum.html asmTgWhy), always mild */
+        const mark = repeal ? '' : ctx.engine.mark(category);
+        if (mark) {
+          const target = typeof d.target === 'string' ? d.target : '', why = ctx.engine.named(target, mark, now, who.uid);
+          if (why) refuse('invalid_target', why);
+          named = { tg: target, tn: text(ctx.engine.target(target).n.name, 40) }; strength = 0;
+        }
+        a.p = { t: now, ti, tx: body, c: category, g: strength, ...(repeal ? { rp: repeal.k, rt: text(repeal.ti, 60) } : {}), ...(named || {}) };
       }
     } else if (op === 'withdraw') {
       if (!a.p || st.cur?.k === ctx.engine.key(who.uid, a.p)) refuse('proposal_locked', 'A proposal at the vote cannot be withdrawn.');

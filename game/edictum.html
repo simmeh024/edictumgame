@@ -3235,6 +3235,22 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .asm-fx li.up{color:var(--up);border-color:var(--up)}
 .asm-fx li.down{color:var(--down);border-color:var(--down)}
 .asm-fx li.law{color:var(--stamp);border-color:var(--stamp)}
+/* commendations and condemnations: the laurel (c) and the censure (x) */
+.asm-mkb{display:flex;align-items:flex-start;gap:10px;margin:10px 0 0;padding:10px 12px;border:1px solid var(--rule);border-left:3px solid var(--up);border-radius:3px;background:var(--sheet-2)}
+.asm-mkb.x{border-left-color:var(--down)}
+.asm-mkb p{margin:0}.asm-mkb p+p{margin-top:3px}
+.asm-mki{flex:none;width:26px;height:26px;color:var(--up)}
+.asm-mki.x{color:var(--down)}
+.asm-tgl{align-items:center;font-size:15px}
+.asm-tgl .mflag{margin-right:6px}
+.asm-mkl{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.asm-mkl .asm-mkb{margin:0}
+.asm-mkfx.c{border-left:3px solid var(--up)}
+.asm-mkfx.x{border-left:3px solid var(--down)}
+.chip.asm-mkc.c{color:var(--up);border-color:var(--up)}
+.chip.asm-mkc.x{color:var(--down);border-color:var(--down)}
+.asm-mk-tr{display:flex;align-items:center;gap:8px}
+.asm-mk-tr .asm-mki{width:22px;height:22px}
 .asm-tally{margin-top:22px}
 .asm-tn{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px;margin-bottom:8px;font-size:14px;color:var(--ink-2)}
 .asm-tn b{font-family:var(--f-display);font-weight:650;font-size:26px;color:var(--ink)}
@@ -20350,7 +20366,7 @@ function npcVerdict(id,g,r){
   const spare=E.sup[r[0]][j]-E.dem[r[0]][j];
   if(spare<r[1]-1e-9)return {ok:false,why:spare<0.05?`${nm} has no ${resName(r[0])} to spare.`:`${nm} can spare only ${fmtAmt(spare)} ${resName(r[0])} a day.`};
   if(E.ratio[g[0]][j]>1.3)return {ok:false,why:`${nm} already has more ${resName(g[0])} than it needs.`};
-  const want=Math.ceil(r[1]*E.price[r[0]]*0.9/E.price[g[0]]*cuTradeQuote(myId(),id).factor*2)/2;
+  const want=Math.ceil(r[1]*E.price[r[0]]*0.9/E.price[g[0]]*cuTradeQuote(myId(),id).factor*(typeof asmMarkTrade==='function'?asmMarkTrade(myId()):1)*2)/2;
   if(g[1]<want-1e-9)return {ok:false,why:`${nm} wants at least ${fmtAmt(want)} ${resName(g[0])} a day for that.`};
   return {ok:true,why:`${nm} would accept this deal.`};
 }
@@ -20463,7 +20479,7 @@ const TR_DAY=864e5,TR_ENDS=[[0,'No end date'],[7,'7 days'],[30,'30 days']];
 const TR_X_COST=40,TR_X_MAX=2,TR_X_DAYS=7;
 function trXSlots(n,now){now=now||Date.now();return ((n&&n.trX)||[]).filter(t=>Number.isFinite(t)&&t>now);}
 function trEndsIn(e){const d=Math.max(0,Math.ceil((e-Date.now())/TR_DAY));return d<=1?'ends within a day':`ends in ${d} days`;}
-function npcWant(id,g,r){const E=economy();return Math.ceil(r[1]*E.price[r[0]]*0.9/E.price[g[0]]*cuTradeQuote(myId(),id).factor*2)/2;}
+function npcWant(id,g,r){const E=economy();return Math.ceil(r[1]*E.price[r[0]]*0.9/E.price[g[0]]*cuTradeQuote(myId(),id).factor*(typeof asmMarkTrade==='function'?asmMarkTrade(myId()):1)*2)/2;}
 function rentSlot(){
   const n=clone(S.nation),now=Date.now(),st=stockNow(n,now),x=trXSlots(n,now);
   if(x.length>=TR_X_MAX){S.tradeMsg=`You already rent ${TR_X_MAX} extra slots.`;render();return;}
@@ -20517,7 +20533,7 @@ function tradeView(){
   const n=S.nation,E=economy(),me=myId(),i=E.T.byId[me];
   const head=`<header class="vh"><p class="eyebrow">Board of Trade</p><h1>Trade</h1><p>Your land yields food, timber, iron and oil, and your industry makes goods. Swap what you have spare for what you lack. Shortages slow growth, weaken your army and cost your economy, and land taken in war adds to what you produce.</p></header>`;
   if(i===undefined)return head+`<div class="empty"><p class="empty-h">Nothing to trade yet</p><p>Settle ${esc(n.name)} on the map and its land will start producing resources.</p><div style="margin-top:14px"><button class="btn" data-act="go" data-v="map">Choose a location</button></div></div>`;
-  const msg=S.tradeMsg?`<p class="war-msg">${esc(S.tradeMsg)}</p>`:'';
+  const msg=(S.tradeMsg?`<p class="war-msg">${esc(S.tradeMsg)}</p>`:'')+asmMarkTradeNote(me);
   const rows=RES.map(r=>{
     const p=E.prod[r][i],net=E.imp[r][i]-E.exp[r][i],s=E.sup[r][i],d=E.dem[r][i],q=E.ratio[r][i],st=q>=1.1?['up','Surplus']:q>=0.9?['','Balanced']:['down','Shortage'];
     return `<div class="res-row"><div class="res-n"><b>${resIco(r)}${RES_INFO[r][0]}</b><span>${RES_INFO[r][1]}</span></div><div class="res-v"><span class="lbl">Produced</span><span class="num">${fmtAmt(p)}</span></div><div class="res-v"><span class="lbl">Traded</span><span class="num">${net>0.05?'+':net<-0.05?'−':''}${fmtAmt(Math.abs(net))}</span></div><div class="res-bar"><span class="sbar ${st[0]}" role="img" aria-label="${RES_INFO[r][0]}: ${fmtAmt(s)} available against ${fmtAmt(d)} needed"><i style="width:${(clamp(q,0,1.5)/1.5*100).toFixed(1)}%"></i><b></b></span><span class="res-sd">${fmtAmt(s)} of ${fmtAmt(d)} needed a day</span></div><span class="pill ${st[0]}">${st[1]}</span></div>`;
@@ -24937,7 +24953,8 @@ function tallyScan(n,old,now){
   /* the Regional Assembly: sessions on record, the player's own motions passed, terms as Delegate */
   {const hs=h=>h.r+'|'+h.c,oh=sigs(old&&old.asm&&old.asm.h,hs),me=myId();
    for(const h of (n.asm&&n.asm.h)||[]){if(oh.has(hs(h)))continue;bump('asm:res',h.f);if(h.ok&&h.by===me)bump('asm:mine',h.f);
-     if(h.mv!==undefined){bump('asm:vote',h.f);if(h.mx)bump('asm:why',h.f);if(h.ok&&h.mv===-1)bump('asm:opp',h.f);}if(h.ok&&h.rp&&h.by===me)bump('asm:rep',h.f);}
+     if(h.mv!==undefined){bump('asm:vote',h.f);if(h.mx)bump('asm:why',h.f);if(h.ok&&h.mv===-1)bump('asm:opp',h.f);}if(h.ok&&h.rp&&h.by===me)bump('asm:rep',h.f);
+     if(h.ok&&h.tg&&asmTg(h.cat)){const c=asmTg(h.cat)==='c';if(h.tg===me)bump(c?'asm:lau':'asm:cen',h.f);if(h.by===me)bump(c?'asm:prs':'asm:reb',h.f);}}
    const ds=d=>d.t+'|'+d.r,od=sigs(old&&old.asm&&old.asm.d,ds);for(const d of (n.asm&&n.asm.d)||[])if(d.on&&!od.has(ds(d)))bump('asm:del',d.t);}
   /* decisions, by topic */
   const asig=a=>a.t+'|'+a.id,oldA=sigs(old&&old.answered,asig);
@@ -29239,7 +29256,11 @@ const ASM_CATS={
   culture:{n:'A culture fund',m:{culture:2,tax:1},s:{culture:3,tour:2,tax:1},p:'artsCouncil'},
   holiday:{n:'A public holiday',m:{happy:2,econ:-1},s:{happy:3,culture:1,econ:-2},p:'holidayEntitlement'},
   metric:{n:'Metric everything',m:{sci:1,weird:-1},s:{sci:2,edu:1,weird:2,cons:-1},p:'decimalTime'},
-  health:{n:'Public health',m:{health:2,happy:-1},s:{health:3,happy:-1,tax:1,b:{health:1}},p:'junkFoodTax'}
+  health:{n:'Public health',m:{health:2,happy:-1},s:{health:3,happy:-1,tax:1,b:{health:1}},p:'junkFoodTax'},
+  /* two that name one nation of the region instead (tg: c commends it, x condemns it): no effect on the members, never
+     in the rulebook; a passed one marks the nation named for a week (asmMarks) */
+  commend:{n:'A commendation',m:{},s:{},tg:'c'},
+  condemn:{n:'A condemnation',m:{},s:{},tg:'x'}
 };
 for(const k of Object.keys(ASM_CATS))if(ASM_CATS[k].p&&!POLICIES[ASM_CATS[k].p])delete ASM_CATS[k].p;
 /* what a computer nation tables when no member has proposed anything */
@@ -29322,6 +29343,56 @@ function asmLawNote(cat,pn){const C=ASM_CATS[cat];if(!C||!C.p||!pn)return '';con
   if(pn==='law')return `${L} is now law.`;if(pn==='had')return `${L} was already law.`;
   if(pn.startsWith('x:')){const q=POLICIES[pn.slice(2)];return `${L} did not pass into law: your ${q?q[0]:'own laws'} stands in its way.`;}return '';}
 
+/* ── commendations and condemnations: a resolution that names one nation of the region (tg on the proposal and its
+   lock, tn its name then). A passed one marks that nation for ASM_MARK from the close of its count: a laurel or a
+   censure. Its effects (city mood, computer nations' terms of trade) are the game's, worked out from the finished locks
+   every player of the region receives (asmMarks), so every viewer sees the same. A condemnation needs two votes for
+   every one against, and may not name a nation in its first fortnight or one not seen for a fortnight (ASM_MK_NEW);
+   no nation can be named again for what it already wears. Computer nations vote by how much they like the nation
+   named, and now and then one tables a commendation of the member it admires most (asmNpcLaud) */
+const ASM_MARK=7*DAY,ASM_MK_NEW=14*DAY,ASM_NPC_LAUD=6;
+const asmTg=cat=>{const C=ASM_CATS[cat];return C&&C.tg||'';};
+const asmNpcOf=id=>NPC_NATIONS.find(x=>x.id===id)||null;
+/* the marks in force at T, from the finished counts */
+function asmMarks(L,T){
+  const out=[];
+  for(const x of L.values()){const m=x&&x.f&&x.ok&&x.tg?asmTg(x.cat):'';if(!m)continue;const a=asmT0(x.c+1),b=a+ASM_MARK;
+    if(T>=a&&T<b)out.push({k:x.k,c:x.c,m,tg:x.tg,tn:x.tn||'',ti:x.ti,by:x.by,bn:x.bn||'',a,b});}
+  return out.sort((p,q)=>p.a-q.a||asmCmp(p.k,q.k));
+}
+/* the nation named, as a record: a computer nation of the region, or a player nation in it */
+function asmTgRec(id,recs){const x=asmNpcOf(id);if(x)return {id,n:x,npc:true};return recs.find(r=>r.id===id)||null;}
+/* why a resolution may not name nation id for mark m at time T (by: its proposer); '' when it may */
+function asmTgWhy(id,m,recs,T,by,L){
+  if(!asmIdOk(id))return 'Choose the nation the resolution names.';
+  if(id===by)return 'A resolution cannot name the nation that proposes it.';
+  const r=asmTgRec(id,recs);if(!r||r.hidden)return 'That nation is not in the region.';
+  const nm=r.n.name||'That nation';
+  if(m==='x'&&!r.npc){
+    if(T-(r.n.founded||0)<ASM_MK_NEW)return `${nm} is in its first fortnight, so it cannot be condemned yet.`;
+    if(asmAbsentAt(r.n,T))return `${nm} has not been seen for a fortnight, so it could not answer a condemnation.`;
+  }
+  if(asmMarks(L,T).some(x=>x.tg===id&&x.m===m))return m==='c'?`${nm} already wears the Assembly’s laurel.`:`${nm} is already under the Assembly’s censure.`;
+  return '';
+}
+/* a computer nation's commendation of the player member it likes best, in about one cycle in ASM_NPC_LAUD that no
+   member has proposed anything for: the nation and the member with the highest affinity (at least ASM_AFF) */
+const ASM_LAUD=[
+  ['In Praise of {N}','{B} moves that the Assembly thank {N} for being a good neighbour, a fair trader and an excellent host at receptions.'],
+  ['A Vote of Thanks to {N}','{B} asks the chamber to recognise {N}’s steady conduct, and to send it a modest wreath and a strongly worded compliment.'],
+  ['Laurels for {N}','{B} proposes that {N} be crowned with the Assembly’s laurel, on the grounds that nobody has complained about it all month.']
+];
+function asmNpcLaud(c,recs){
+  if(!recs||!NPC_NATIONS.length||hash(REG.id+':asmlaud:'+c)%ASM_NPC_LAUD)return null;
+  const t0=asmT0(c),mem=recs.filter(r=>!r.hidden&&asmMemberAt(r.n,t0)&&!asmAbsentAt(r.n,t0));if(!mem.length)return null;
+  const L=asmLocks(recs);let best=null;
+  for(const x of NPC_NATIONS){const b=asmNpcBacks(x,mem,c);if(!b.r||asmTgWhy(b.r.id,'c',recs,t0,x.id,L))continue;
+    if(!best||b.a>best.a||(b.a===best.a&&asmCmp(x.id,best.x.id)<0))best=b;}
+  if(!best)return null;
+  const T=ASM_LAUD[hash(REG.id+':laudt:'+c)%ASM_LAUD.length],N=best.r.n.name,put=s=>s.split('{N}').join(N).split('{B}').join(best.x.name);
+  return {c,k:'npc~'+REG.id+'~'+c,ti:asmClean(put(T[0]),ASM_TI),tx:asmClean(put(T[1]),ASM_TX),cat:'commend',g:0,by:best.x.id,bn:best.x.name,w:'n',lt:0,tg:best.r.id,tn:asmClean(N,40)};
+}
+
 /* ── the records of the region ── */
 function asmRecs(me){
   const my=me===undefined?S.nation:me,out=[];
@@ -29360,13 +29431,18 @@ function asmSupAt(recs,k,author,T){
 /* the computer nations' ready-made resolution for a cycle, tabled by the nation it suits best */
 function asmNpcScore(x,R,c){
   const cat=R.cat||R.c,C=ASM_CATS[cat];if(!C)return 0;const e=asmFx(cat,R.g),src=npcAt(x.id,asmT0(c))||x,B=NPC_BASE[x.id];let sc=0;
+  /* a resolution naming a nation: by how much this one likes it (the nation named defends itself). Most like their
+     neighbours well enough (affinity about 75), so a commendation of one leans for and a condemnation against */
+  if(C.tg){if(R.tg===x.id)return C.tg==='c'?9:-9;const t=asmNpcOf(R.tg)||(S.world&&S.world[R.tg]);if(!t||!t.s)return 0;
+    let a=70;try{a=affinity(src,t);}catch(err){a=70;}return C.tg==='c'?(a-70)/8:(62-a)/8;}
   for(const k of Object.keys(e)){if(k==='b'||!(k in src.s))continue;const w=(src.s[k]-50)/50;sc+=e[k]*(k==='tax'?w*0.5:w);}
   if(R.g&&C.p){const pl=B?B.pol:Object.keys(x.policies||{});if(pl.includes(C.p))sc+=1.5;else if(conflictsOf(C.p).some(q=>pl.includes(q)))sc-=2.5;}
   /* a repeal takes away what its resolution gave: a nation that liked the one dislikes the other */
   return R.rp?-sc:sc;
 }
-function asmNpcRes(c){
+function asmNpcRes(c,recs){
   const L=ASM_RES.length;if(!L||!NPC_NATIONS.length)return null;
+  const lau=asmNpcLaud(c,recs);if(lau)return lau;
   const b=Math.floor(c/L),R=ASM_RES[asmPerm(L,hash(REG.id+':asmres:'+b))[c-b*L]];
   let by=NPC_NATIONS[0],bs=-Infinity;for(const x of NPC_NATIONS){const s=asmNpcScore(x,R,c);if(s>bs){bs=s;by=x;}}
   return {c,k:'npc~'+REG.id+'~'+c,ti:R.ti,tx:R.tx,cat:R.c,g:R.g,by:by.id,bn:by.name,w:'n',lt:0};
@@ -29378,9 +29454,11 @@ function asmPickRaw(c,recs,ex){
     const k=asmPKey(r.id,p);if(ex.has(k))continue;
     /* a repeal whose resolution has already left the rulebook has nothing left to do */
     if(p.rp){if(!bk)bk=asmBookAt(c,asmLocks(recs));if(!bk.some(e=>e.k===p.rp))continue;}
+    /* nor one naming a nation it may no longer name: gone from the region, or already wearing that mark */
+    if(asmTg(p.c)&&asmTgWhy(p.tg,asmTg(p.c),recs,t0,r.id,asmLocks(recs)))continue;
     cands.push({r,p,k});}
-  const res=(x,w)=>Object.assign({c,k:x.k,ti:x.p.ti,tx:x.p.tx,cat:x.p.c,g:x.p.g,by:x.r.id,bn:x.r.n.name,w,lt:0},x.p.rp?{rp:x.p.rp,rt:x.p.rt||''}:{});
-  if(!cands.length)return asmNpcRes(c);
+  const res=(x,w)=>Object.assign({c,k:x.k,ti:x.p.ti,tx:x.p.tx,cat:x.p.c,g:x.p.g,by:x.r.id,bn:x.r.n.name,w,lt:0},x.p.rp?{rp:x.p.rp,rt:x.p.rt||''}:{},x.p.tg?{tg:x.p.tg,tn:x.p.tn||''}:{});
+  if(!cands.length)return asmNpcRes(c,recs);
   const D=asmDel(recs,t0),ag=D&&asmA(D.r.n)&&asmA(D.r.n).a;
   if(ag&&ag.c===c&&ag.t<t0){const hit=cands.find(x=>x.k===ag.k);if(hit)return res(hit,'d');}
   for(const x of cands)x.sup=asmSupAt(recs,x.k,x.r.id,t0).length;
@@ -29403,6 +29481,7 @@ function asmPickFor(c,recs,L){
 function asmNpcVote(x,L,c){
   const r=rng(hash(x.id+':asmv:'+L.k)),at=asmT0(c)+3600e3+Math.floor(r()*ASM_P*0.8);
   if(L.by===x.id)return {v:1,t:asmT0(c)+600e3,sc:9};
+  if(L.tg===x.id&&asmTg(L.cat)){const v=asmTg(L.cat)==='c'?1:-1;return {v,t:asmT0(c)+600e3,sc:9*v};}
   const sc=asmNpcScore(x,L,c)+(r()*2-1)*0.8;
   return {v:sc>=0.6?1:sc<=-0.6?-1:0,t:at,sc};
 }
@@ -29423,14 +29502,15 @@ function asmTally(L,c,recs,T,D){
     rows.push(row);if(v){if(v.v>0)y+=w;else if(v.v<0)no+=w;}}
   for(const x of NPC_NATIONS){let nv=asmNpcVote(x,L,c);const s=sw.get(x.id);if(s&&s.t<nv.t)nv={...nv,v:s.v};const on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W,...(s&&s.ex&&s.t<nv.t?{sw:s.by}:{})});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
   y=Math.round(y*100)/100;no=Math.round(no*100)/100;
-  return {rows,y,n:no,ok:y>no,shown};
+  /* a condemnation needs two votes for every one against */
+  return {rows,y,n:no,ok:asmTg(L.cat)==='x'?y>no&&y>=2*no:y>no,shown};
 }
 /* the rulebook: the resolutions in force, at most ASM_BOOK and one a category. A passed resolution enters it, and
    pushes out one of the same category (s, superseded) and then, past ASM_BOOK, the oldest (o, retired); a passed repeal
    takes its resolution out (r). A finished cycle's lock keeps the book as it left it (bk) and what went (bx). */
 function asmBookStep(bk,L){
   let b=Array.isArray(bk)?bk.slice():[];const bx=[];
-  if(!L||!L.f||!L.ok||!L.k)return {bk:b,bx};
+  if(!L||!L.f||!L.ok||!L.k||asmTg(L.cat))return {bk:b,bx};
   if(L.rp){const i=b.findIndex(e=>e.k===L.rp);if(i>=0){bx.push({k:b[i].k,ti:b[i].ti,w:'r'});b.splice(i,1);}return {bk:b,bx};}
   for(const e of b)if(e.cat===L.cat)bx.push({k:e.k,ti:e.ti,w:'s'});
   b=b.filter(e=>e.cat!==L.cat);
@@ -29475,7 +29555,7 @@ function asmQueue(st){
   const all=[],bk=asmBookAt(c,L);
   for(const r of recs){const a=asmA(r.n),p=a&&a.p;if(!p)continue;const k=asmPKey(r.id,p),cp=asmCyc(p.t);
     /* moot: a repeal whose resolution has left the rulebook (asmPickRaw passes it over) */
-    const status=cur&&cur.k===k?'vote':done.has(k)?'done':cp<c+1-ASM_LAPSE?'lapsed':!asmMemberAt(r.n,now)?'out':p.rp&&!bk.some(e=>e.k===p.rp)?'moot':'queue';
+    const status=cur&&cur.k===k?'vote':done.has(k)?'done':cp<c+1-ASM_LAPSE?'lapsed':!asmMemberAt(r.n,now)?'out':p.rp&&!bk.some(e=>e.k===p.rp)?'moot':asmTg(p.c)&&asmTgWhy(p.tg,asmTg(p.c),recs,now,r.id,st.L)?'moot':'queue';
     all.push({r,p,k,cp,status,sup:asmSupAt(recs,k,r.id,now+1)});}
   const ag=D&&asmA(D.r.n)&&asmA(D.r.n).a,pick=ag&&ag.c===c+1&&all.some(x=>x.k===ag.k&&x.status==='queue')?ag.k:'';
   const q=all.filter(x=>x.status==='queue').sort((a,b)=>(b.k===pick)-(a.k===pick)||b.sup.length-a.sup.length||a.p.t-b.p.t||asmCmp(a.r.id,b.r.id));
@@ -29518,10 +29598,11 @@ function asmPrune(a,now,c){
   if(a.a&&a.a.c<c)delete a.a;
   for(const k of ['e','s','v','f'])if(Array.isArray(a[k])&&!a[k].length)delete a[k];
 }
-const asmLockOf=(L,now)=>Object.assign({c:L.c,k:L.k,ti:L.ti,tx:L.tx,cat:L.cat,g:L.g?1:0,by:L.by,bn:L.bn,w:L.w,lt:L.lt||now},L.rp?{rp:L.rp,rt:L.rt||''}:{},L.dt?{dt:L.dt}:{});
+const asmLockOf=(L,now)=>Object.assign({c:L.c,k:L.k,ti:L.ti,tx:L.tx,cat:L.cat,g:L.g?1:0,by:L.by,bn:L.bn,w:L.w,lt:L.lt||now},L.rp?{rp:L.rp,rt:L.rt||''}:{},L.tg?{tg:L.tg,tn:L.tn||''}:{},L.dt?{dt:L.dt}:{});
 /* what a member reads once a resolution is decided */
 function asmResultText(h,n,bound){
   const t=`“${h.ti}”`,sc=`${asmVotes(h.ok?h.y:h.n)} to ${asmW(h.ok?h.n:h.y)}`;
+  if(h.tg&&asmTg(h.cat))return asmMarkResult(h,n);
   if(!h.ok)return `The Assembly rejected ${t}, ${sc}. Nothing changes.`;
   if(h.rp)return `The Assembly passed ${t}, ${sc}: “${h.rt||'the resolution'}” leaves the rulebook${h.m?`, and what it asked of ${n.name} is lifted`:''}.`;
   if(!h.m)return `The Assembly passed ${t}, ${sc}. ${n.name} is not a member, so it is not bound.`;
@@ -29586,6 +29667,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
     const mem=asmMemberAt(n,asmT0(c+1)-1),mv=mem?(a.v||[]).find(v=>v.c===c&&v.k===O.k):null;
     const e={c,r:REG.id,k:O.k,ti:O.ti,tx:O.tx||'',cat:O.cat,g:O.g?1:0,by:O.by,bn:O.bn,w:O.w||'n',lt:O.lt||now,y:O.y,n:O.n,ok:O.ok?1:0,f:O.f||now,at:now,m:mem?1:0};
     if(O.rp){e.rp=O.rp;if(O.rt)e.rt=asmClean(O.rt,ASM_TI);}
+    if(O.tg&&asmTg(O.cat)){e.tg=O.tg;e.tn=asmClean(O.tn,40);}
     if(mv&&[-1,0,1].includes(mv.v)){e.mv=mv.v;if(mv.x)e.mx=1;}
     asmCount(a,c,mem,!!mv);
     a.h.push(e);a.h.sort((x,y)=>x.c-y.c);rec.push(e);
@@ -29634,6 +29716,7 @@ NORM_HOOKS.push((n,d)=>{
   const res=(x,needLt)=>{if(!x||typeof x!=='object'||!int(x.c)||(needLt&&!asmKeyOk(x.k))||!ASM_CATS[x.cat])return null;const ti=asmClean(x.ti,ASM_TI);if(!ti)return null;
     const o={c:x.c,k:x.k,ti,tx:asmClean(x.tx,ASM_TX),cat:x.cat,g:x.g?1:0,by:asmIdOk(x.by)?x.by:'',bn:asmClean(x.bn,40),w:['d','s','n'].includes(x.w)?x.w:'n',lt:tm(x.lt)?x.lt:0};
     if(asmKeyOk(x.rp)){o.rp=x.rp;const rt=asmClean(x.rt,ASM_TI);if(rt)o.rt=rt;}
+    if(asmTg(o.cat)&&asmIdOk(x.tg)){o.tg=x.tg;o.tn=asmClean(x.tn,40);}
     if(typeof x.dt==='string'&&/^[A-Za-z0-9]{20}$/.test(x.dt))o.dt=x.dt;
     if(needLt&&(o.lt<asmT0(o.c)||o.lt>=asmT0(o.c+1)))return null;if(!o.by)return null;return o;};
   const o={};
@@ -29661,7 +29744,7 @@ NORM_HOOKS.push((n,d)=>{
     if(Array.isArray(a.e)){const e=a.e.filter(x=>x&&asmIdOk(x.i)&&tm(x.t)).slice(-ASM_EMAX).map(x=>{const r={i:x.i,t:x.t};if(tm(x.w)&&x.w>=x.t)r.w=x.w;return r;});if(e.length)o.e=e;}
     if(Array.isArray(a.s)){const s=a.s.filter(x=>x&&asmKeyOk(x.k)&&tm(x.t)).slice(-ASM_SMAX).map(x=>{const r={k:x.k,t:x.t};if(tm(x.w)&&x.w>=x.t)r.w=x.w;return r;});if(s.length)o.s=s;}
     if(Array.isArray(a.v)){const now=Date.now(),c0=asmCyc(now);const v=a.v.filter(x=>x&&int(x.c)&&x.c>=c0-6&&x.c<=c0+1&&asmKeyOk(x.k)&&[-1,0,1].includes(x.v)&&tm(x.t)&&x.t>=asmT0(x.c)&&x.t<asmT0(x.c+1)).slice(-5).map(x=>{const r={c:x.c,k:x.k,v:x.v,t:x.t},w=asmClean(x.x,ASM_WHY);if(w)r.x=w;return r;});if(v.length)o.v=v;}
-    const p=a.p;if(p&&typeof p==='object'&&tm(p.t)&&ASM_CATS[p.c]){const ti=asmClean(p.ti,ASM_TI);if(ti){o.p={t:p.t,c:p.c,g:p.g?1:0,ti,tx:asmClean(p.tx,ASM_TX)};if(tm(p.ed))o.p.ed=p.ed;if(asmKeyOk(p.rp)){o.p.rp=p.rp;const rt=asmClean(p.rt,ASM_TI);if(rt)o.p.rt=rt;}}}
+    const p=a.p;if(p&&typeof p==='object'&&tm(p.t)&&ASM_CATS[p.c]){const ti=asmClean(p.ti,ASM_TI);if(ti){o.p={t:p.t,c:p.c,g:p.g?1:0,ti,tx:asmClean(p.tx,ASM_TX)};if(tm(p.ed))o.p.ed=p.ed;if(asmKeyOk(p.rp)){o.p.rp=p.rp;const rt=asmClean(p.rt,ASM_TI);if(rt)o.p.rt=rt;}if(asmTg(p.c)&&asmIdOk(p.tg)){o.p.tg=p.tg;o.p.tn=asmClean(p.tn,40);}}}
     if(tm(a.pw))o.pw=a.pw;
     if(a.a&&typeof a.a==='object'&&int(a.a.c)&&asmKeyOk(a.a.k)&&tm(a.a.t))o.a={c:a.a.c,k:a.a.k,t:a.a.t};
     if(a.m&&typeof a.m==='object'&&tm(a.m.t)){const x=asmClean(a.m.x,ASM_MSG);if(x)o.m={x,t:a.m.t};}
@@ -29683,6 +29766,7 @@ function asmVote(v){
 }
 function asmDraftProblem(d){
   if(!d.rp&&!ASM_CATS[d.cat])return 'Choose a category.';
+  if(!d.rp&&asmTg(d.cat)&&!S.asmEdit){if(!d.tg)return 'Choose the nation the resolution names.';const st=asmState(),why=asmTgWhy(d.tg,asmTg(d.cat),st.recs,Date.now(),myId(),st.L);if(why)return why;}
   const ti=asmClean(d.ti,ASM_TI),tx=asmClean(d.tx,ASM_TX);
   if(ti.length<4)return 'Give the proposal a title of at least four characters.';
   if(tx.length<10)return 'Write a sentence or two on what the resolution does.';
@@ -29690,7 +29774,8 @@ function asmDraftProblem(d){
 }
 function asmSubmit(){
   const d=S.asmDraft||{},problem=asmDraftProblem(d);if(problem){S.asmErr=problem;render();return;}
-  return civicAction(Object.assign({op:'propose',title:d.ti,body:d.tx,category:d.cat,strength:d.g?1:0,edit:!!S.asmEdit},d.rp&&!S.asmEdit?{repeal:d.rp}:{})).then(ok=>{if(ok){S.asmDraft=null;S.asmEdit=false;S.asmErr='';render();}});
+  const mk=!d.rp&&asmTg(d.cat);
+  return civicAction(Object.assign({op:'propose',title:d.ti,body:d.tx,category:d.cat,strength:d.g&&!mk?1:0,edit:!!S.asmEdit},d.rp&&!S.asmEdit?{repeal:d.rp}:{},mk&&!S.asmEdit?{target:d.tg}:{})).then(ok=>{if(ok){S.asmDraft=null;S.asmEdit=false;S.asmErr='';render();}});
 }
 function asmWithdraw(){return civicAction({op:'withdraw'});}
 function asmAgenda(k){return civicAction({op:'agenda',key:k});}
@@ -29707,9 +29792,13 @@ document.addEventListener('click',e=>{
   if(act==='asm-vote'){asmVote(+el.dataset.v||0);return;}
   if(act==='asm-pick'){asmAgenda(el.dataset.k);return;}
   if(act==='asm-g'){S.asmDraft=Object.assign(asmDraftNow(),{g:+el.dataset.g?1:0});asmPreview();return;}
+  if(act==='asm-idea'&&asmTg(asmDraftNow().cat)){const d=asmDraftNow(),m=asmTg(d.cat),st=asmState(),t=d.tg&&asmTgRec(d.tg,st.recs);
+    if(!t){S.asmErr='Choose the nation first, then borrow an idea.';render();return;}
+    const pool=ASM_MK_IDEAS[m],i=(pool.findIndex(r=>asmClean(r[0].split('{N}').join(t.n.name),ASM_TI)===d.ti)+1)%pool.length,put=x=>x.split('{N}').join(t.n.name);
+    Object.assign(d,{ti:asmClean(put(pool[i][0]),ASM_TI),tx:asmClean(put(pool[i][1]),ASM_TX),g:0});S.asmErr='';render();return;}
   if(act==='asm-idea'){const d=asmDraftNow(),pool=ASM_RES.filter(r=>r.c===d.cat),i=(pool.findIndex(r=>r.ti===d.ti)+1)%Math.max(1,pool.length),R=pool[i]||ASM_RES[0];S.asmDraft=Object.assign(d,{ti:R.ti,tx:R.tx,g:R.g});S.asmErr='';render();return;}
   if(act==='asm-withdraw'){asmWithdraw();return;}
-  if(act==='asm-edit'){const m=asmQueue(asmState()).mine;if(m){S.asmEdit=true;S.asmDraft=Object.assign({cat:m.p.c,g:m.p.g,ti:m.p.ti,tx:m.p.tx},m.p.rp?{rp:m.p.rp,rt:m.p.rt||''}:{});S.asmErr='';render();asmRefocus('#asm-ti');}return;}
+  if(act==='asm-edit'){const m=asmQueue(asmState()).mine;if(m){S.asmEdit=true;S.asmDraft=Object.assign({cat:m.p.c,g:m.p.g,ti:m.p.ti,tx:m.p.tx},m.p.rp?{rp:m.p.rp,rt:m.p.rt||''}:{},m.p.tg?{tg:m.p.tg,tn:m.p.tn||''}:{});S.asmErr='';render();asmRefocus('#asm-ti');}return;}
   /* the reason beside a vote already cast: the same vote again, with the new reason */
   if(act==='asm-why-save'){const st=asmState(),m=st.V&&st.V.rows.find(r=>r.me);if(m&&m.t)asmVote(m.v);return;}
   /* the repeal of a resolution in the rulebook: a draft on the Proposals tab, its title begun */
@@ -29730,9 +29819,9 @@ document.addEventListener('click',e=>{
 });
 function asmDraftNow(){if(!S.asmDraft)S.asmDraft={cat:'env',g:0,ti:'',tx:''};return S.asmDraft;}
 function asmPreview(){
-  const d=asmDraftNow(),pv=document.getElementById('asm-fx-prev');if(pv)pv.innerHTML=asmFxList(d.cat,d.g);
+  const d=asmDraftNow(),pv=document.getElementById('asm-fx-prev');if(pv)pv.innerHTML=asmTg(d.cat)?asmMarkPrev(d):asmFxList(d.cat,d.g);
   /* a resolution on a subject the rulebook already covers would replace the one in force */
-  const rp=document.getElementById('asm-fx-rep');if(rp){const st=asmState(),on=asmBookAt(st.c,st.L).some(e=>e.cat===d.cat);rp.hidden=!on;rp.textContent=on?'The rulebook already holds a resolution on this subject: this one would replace it.':'';}
+  const rp=document.getElementById('asm-fx-rep');if(rp){const st=asmState(),on=!asmTg(d.cat)&&asmBookAt(st.c,st.L).some(e=>e.cat===d.cat);rp.hidden=!on;rp.textContent=on?'The rulebook already holds a resolution on this subject: this one would replace it.':'';}
   document.querySelectorAll('[data-act="asm-g"]').forEach(b=>{const on=+b.dataset.g===(d.g?1:0);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false');});
 }
 document.addEventListener('input',e=>{
@@ -29740,9 +29829,11 @@ document.addEventListener('input',e=>{
   if(f==='msg'){S.asmMsgDraft=el.value;return;}
   if(f==='ox'){S.asmOx=el.value;return;}
   if(f==='why'){S.asmWhy=el.value;const b=document.querySelector('[data-act="asm-why-save"]');if(b){const st=asmState(),m=st.V&&st.V.rows.find(r=>r.me);b.disabled=asmClean(el.value,ASM_WHY)===((m&&m.x)||'');}return;}
-  const d=asmDraftNow();d[f]=el.value;S.asmErr='';
+  const d=asmDraftNow(),was=asmTg(d.cat);d[f]=el.value;S.asmErr='';
   if(f==='tx'){const c=document.getElementById('asm-tx-n');if(c)c.textContent=el.value.length+' / '+ASM_TX;}
-  if(f==='cat')asmPreview();
+  /* to or from a resolution naming a nation, the form changes its fields */
+  if(f==='cat'){if(asmTg(d.cat)!==was){delete d.tg;delete d.tn;if(asmTg(d.cat))d.g=0;render();asmRefocus('#asm-cat');}else asmPreview();}
+  if(f==='tg')asmPreview();
 });
 document.addEventListener('submit',e=>{
   const id=e.target&&e.target.id;if(id!=='asm-form'&&id!=='asm-msg-form')return;e.preventDefault();
@@ -29843,17 +29934,18 @@ function asmVoteCard(st,now){
   /* a player who abstained has a vote on record (t); one who has not voted has none */
   const vw=r=>r.v===null?'<span class="chip">Undeclared</span>':r.v>0?'<span class="chip ok">For</span>':r.v<0?'<span class="chip war">Against</span>':r.npc||r.t?'<span class="chip">Abstains</span>':'<span class="chip">Not yet</span>';
   const pl=V.rows.filter(r=>!r.npc),np=V.rows.filter(r=>r.npc),away=id=>{const o=st.DD.info.get(id);return !!(o&&o.ab);};
-  const fx=L.rp?`<div class="asm-fxbox"><p class="lbl">If it passes, “${esc(L.rt||'the resolution')}” leaves the rulebook, and every member loses what it gave</p>${asmUndoList(L.cat,L.g)}<p class="hint">A law it made stays on the books.</p></div>`
+  const mk=asmTg(L.cat),fx=mk?asmMarkFx(mk,L.tg,`If it passes, ${esc(L.tn||'the nation named')}`):L.rp?`<div class="asm-fxbox"><p class="lbl">If it passes, “${esc(L.rt||'the resolution')}” leaves the rulebook, and every member loses what it gave</p>${asmUndoList(L.cat,L.g)}<p class="hint">A law it made stays on the books.</p></div>`
     :`<div class="asm-fxbox"><p class="lbl">If it passes, it enters the rulebook, and every member</p>${asmFxList(L.cat,L.g)}${L.g&&ASM_CATS[L.cat].p?'<p class="hint">The law is skipped in a nation whose own laws contradict it.</p>':''}</div>`;
   const had=(mine&&mine.x)||'',why=S.asmWhy!=null?S.asmWhy:had;
   const reason=mem?`<div class="asm-why-f"><label class="lbl" for="asm-why">Your reason <span class="asm-opt">optional, shown beside your vote</span></label><div class="name-row"><input class="input" id="asm-why" data-asm="why" maxlength="${ASM_WHY}" value="${esc(why)}" placeholder="For the ducks, who cannot vote for themselves." autocomplete="off">${cast?`<button class="btn ghost" type="button" data-act="asm-why-save"${why===had?' disabled':''}>Save reason</button>`:''}</div>${cast?'':'<p class="hint">It goes with your vote when you choose For, Against or Abstain.</p>'}</div>`:'';
-  return `<section class="asm-vote paper"><p class="form-code">At the vote · Resolution No. ${asmNo(st.c)} · ${L.rp?'Repeal':esc(ASM_CATS[L.cat].n)}${L.rp?'':' · '+asmG(L.g)}</p>
+  return `<section class="asm-vote paper"><p class="form-code">At the vote · Resolution No. ${asmNo(st.c)} · ${L.rp?'Repeal':mk?ASM_MK[mk].n:esc(ASM_CATS[L.cat].n)}${L.rp||mk?'':' · '+asmG(L.g)}</p>
     <h2 class="asm-res-t">${esc(L.ti)}</h2><p class="asm-by">Proposed by ${asmWho(L.by,L.bn)}. ${asmWhy(L)}</p>
+    ${mk?`<p class="asm-tgl asm-mkb ${mk}">${asmMarkIcon(mk)}<span>${mk==='c'?'Commends':'Condemns'} ${asmFlag((asmTgRec(L.tg,st.recs)||{}).n)}${asmWho(L.tg,L.tn)}${L.tg===myId()?' <span class="chip you">You</span>':''}</span></p>`:''}
     ${L.tx?`<p class="asm-tx">${esc(L.tx)}</p>`:''}${L.dt?asmDebateLink(L.dt):''}
     ${fx}
     <div class="asm-tally"><div class="asm-tn"><span class="asm-y"><b class="num">${asmW(V.y)}</b> for</span><span class="asm-n"><b class="num">${asmW(V.n)}</b> against</span><span class="asm-left">Closes in <b data-live="asmclose" data-t="${st.t1}">${esc(fmtWait(st.t1-now))}</b></span></div>
       <div class="asm-bar" role="img" aria-label="${asmW(V.y)} for, ${asmW(V.n)} against">${tot?`<i class="y" style="width:${py.toFixed(1)}%"></i><i class="n" style="width:${(100-py).toFixed(1)}%"></i>`:''}</div>
-      <p class="hint">${tot?(V.ok?'Passing as things stand.':V.y===V.n?'Tied: a tie fails.':'Failing as things stand.'):'No votes yet.'} The count closes at ${esc(fmtTime(st.t1))} on ${esc(fmtDate(st.t1))}.</p>
+      <p class="hint">${tot?(V.ok?'Passing as things stand.':V.y===V.n?'Tied: a tie fails.':mk==='x'&&V.y>V.n?'Short as things stand: a condemnation needs two votes for every one against.':'Failing as things stand.'):'No votes yet.'} The count closes at ${esc(fmtTime(st.t1))} on ${esc(fmtDate(st.t1))}.</p>
       ${asmChamber(st)}</div>
     <div class="asm-my"><span class="lbl">${mem?'Your vote':'Members only'}</span><div class="seg" role="group" aria-label="Your vote">${vb(1,'For')}${vb(-1,'Against')}${vb(0,'Abstain')}</div>${mine&&mine.del?`<span class="hint">As Delegate your vote counts ${asmW(mine.w)} times.</span>`:''}</div>${reason}${accountActionHint('vote',true)}
     <div class="asm-voters"><div><p class="lbl-h">Players</p><ul class="asm-vl">${pl.map(r=>`<li>${asmFlag(r.n)}<span class="asm-vn">${r.me?'<b>'+esc(r.n.name)+'</b>':nationLink(r.id,r.n.name,false)}${r.del?' <span class="chip">Delegate</span>':''}${away(r.id)?' <span class="chip">Absent</span>':''}${r.x&&(r.t||r.v)?`<q class="asm-vx">${esc(r.x)}</q>`:''}</span>${vw(r)}<span class="asm-vw num">×${asmW(r.w)}</span></li>`).join('')||'<li class="hint">No player members.</li>'}</ul></div>
@@ -29870,7 +29962,7 @@ function asmCeremony(st){
   const L=st.L.get(h.c),gone=((L&&L.bx)||[]),tot=h.y+h.n,py=tot?h.y/tot*100:0;
   const my=h.mv===undefined?(h.m?'You did not vote in this count.':`${esc(n.name)} had no seat in this count.`):`You voted ${h.mv>0?'for':h.mv<0?'against':'to abstain'}${h.mv&&(h.mv>0)===!!h.ok?', and your side carried the day':h.mv?', and lost the count':''}.`;
   const why={r:'repealed',s:'replaced',o:'retired as the oldest'};
-  const book=h.ok?(h.rp?`<li>“${esc(h.rt||'The resolution')}” leaves the rulebook.</li>`:`<li>“${esc(h.ti)}” enters the rulebook.</li>`)+gone.filter(g=>g.w!=='r').map(g=>`<li>“${esc(g.ti||'A resolution')}” leaves it, ${why[g.w]||'retired'}.</li>`).join(''):'<li>The rulebook stays as it was.</li>';
+  const mk=h.tg&&asmTg(h.cat),book=mk?(h.ok?`<li>${esc(h.tn||'The nation named')} is ${ASM_MK[mk].verb} until ${esc(fmtDate(asmT0(h.c+1)+ASM_MARK))}.</li>`:`<li>${esc(h.tn||'The nation named')} is not ${ASM_MK[mk].verb}.</li>`)+'<li>The rulebook stays as it was.</li>':h.ok?(h.rp?`<li>“${esc(h.rt||'The resolution')}” leaves the rulebook.</li>`:`<li>“${esc(h.ti)}” enters the rulebook.</li>`)+gone.filter(g=>g.w!=='r').map(g=>`<li>“${esc(g.ti||'A resolution')}” leaves it, ${why[g.w]||'retired'}.</li>`).join(''):'<li>The rulebook stays as it was.</li>';
   const dx=(h.dx||[]).filter(x=>STATS[x[0]]).map(([k,a,b])=>`<li><span>${esc(STATS[k].n)}</span><b class="num">${asmF1(a)} → ${asmF1(b)}</b><span class="${b>a?'up':'down'}">${b>a?'+':'−'}${asmF1(Math.abs(b-a))}</span></li>`).join('');
   const anim=ASMX.cerAnim!==h.c;ASMX.cerAnim=h.c;
   return `<section class="asm-cer${h.ok?' ok':' no'}${anim?' anim':''}" aria-labelledby="asm-cer-h">
@@ -29887,21 +29979,22 @@ function asmCeremony(st){
 }
 function asmQueueSec(st,now){
   const Q=asmQueue(st),n=S.nation,me=myId(),mem=asmMemberAt(n,now),isD=!!(st.D&&st.D.id===me),a=asmA(n)||{};
-  const fxw=x=>x.p.rp?`Repeals “${esc(x.p.rt||'a resolution')}”: ${esc(asmUndoItems(x.p.c,x.p.g).map(i=>i.t).join(', '))}.`:esc(cap1(asmFxWords(x.p.c,x.p.g)))+'.';
+  const fxw=x=>asmTg(x.p.c)?`Names ${esc(x.p.tn||'a nation')}: ${esc(asmMarkWords(asmTg(x.p.c),!!asmNpcOf(x.p.tg)))}.`:x.p.rp?`Repeals “${esc(x.p.rt||'a resolution')}”: ${esc(asmUndoItems(x.p.c,x.p.g).map(i=>i.t).join(', '))}.`:esc(cap1(asmFxWords(x.p.c,x.p.g)))+'.';
   const row=(x,i)=>{const sup=x.sup.includes(me),own=x.r.me,next=i===0;
-    return `<li class="asm-p${next?' next':''}"><div class="asm-p-h">${x.p.rp?'<span class="chip war">Repeal</span>':`<span class="chip">${esc(ASM_CATS[x.p.c].n)}</span><span class="chip">${asmG(x.p.g)}</span>`}${next?`<span class="chip ok">${x.k===Q.pick?'Delegate’s choice':'Next to the vote'}</span>`:''}${x.k===Q.pick&&!next?'<span class="chip ok">Delegate’s choice</span>':''}</div>
+    return `<li class="asm-p${next?' next':''}"><div class="asm-p-h">${asmKindChips(x.p)}${next?`<span class="chip ok">${x.k===Q.pick?'Delegate’s choice':'Next to the vote'}</span>`:''}${x.k===Q.pick&&!next?'<span class="chip ok">Delegate’s choice</span>':''}</div>
       <p class="asm-p-t">${esc(x.p.ti)}</p>${x.p.tx?`<p class="asm-p-x">${esc(x.p.tx)}</p>`:''}
       <p class="hint">Proposed by ${own?'you':nationLink(x.r.id,x.r.n.name,false)+shopBadge(x.r.n,1)} · ${x.sup.length} ${x.sup.length===1?'supporter':'supporters'} · if not chosen, lapses after Resolution No. ${asmNo(x.cp+ASM_LAPSE)}</p>
       <p class="hint asm-p-fx">${fxw(x)}</p>
       <div class="row">${own?`<button class="btn ghost small-btn" data-act="asm-edit">Edit wording</button><button class="btn ghost small-btn" data-act="asm-withdraw">Withdraw</button>`:mem?(sup?`<button class="btn small-btn" data-act="asm-unsup" data-k="${esc(x.k)}" aria-pressed="true">Supported · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-sup" data-k="${esc(x.k)}" aria-pressed="false">Support</button>`):''}${isD?`<button class="btn ghost small-btn" data-act="asm-pick" data-k="${esc(x.k)}" aria-pressed="${x.k===Q.pick}">${x.k===Q.pick?'Your choice · undo':'Choose for the next vote'}</button>`:''}</div></li>`;};
-  const nextNpc=asmNpcRes(st.c+1);
-  const lead=Q.q.length?(Q.pick?`The Delegate has chosen what goes next.`:`Unless the Delegate chooses, the proposal with the most support goes next.`):`Nothing is waiting. Unless a member tables a proposal before the cycle ends, ${esc(nextNpc?nextNpc.bn:'a computer nation')} will table “${esc(nextNpc?nextNpc.ti:'something')}”.`;
+  const nextNpc=asmNpcRes(st.c+1),laud=NPC_NATIONS.length&&!(hash(REG.id+':asmlaud:'+(st.c+1))%ASM_NPC_LAUD);
+  const lead=Q.q.length?(Q.pick?`The Delegate has chosen what goes next.`:`Unless the Delegate chooses, the proposal with the most support goes next.`):`Nothing is waiting. Unless a member tables a proposal before the cycle ends, ${esc(nextNpc?nextNpc.bn:'a computer nation')} will table “${esc(nextNpc?nextNpc.ti:'something')}”${laud?`, or a computer nation will propose to commend the member it admires most`:''}.`;
   const m=Q.mine;let own='';
   if(m&&m.status==='vote')own=`<p class="info">Your proposal “${esc(m.p.ti)}” is at the vote now. It can no longer be edited or withdrawn.</p>`;
+  else if(m&&m.status==='moot'&&asmTg(m.p.c))own=`<p class="info">Your proposal naming ${esc(m.p.tn||'a nation')} cannot go to the vote: ${esc(asmTgWhy(m.p.tg,asmTg(m.p.c),st.recs,now,myId(),st.L))} <button class="linkish small" data-act="asm-withdraw">Clear it away</button></p>`;
   else if(m&&m.status==='moot')own=`<p class="info">Your repeal of “${esc(m.p.rt||'a resolution')}” has nothing left to do: that resolution has already left the rulebook. <button class="linkish small" data-act="asm-withdraw">Clear it away</button></p>`;
   else if(m&&(m.status==='lapsed'||m.status==='done'))own=`<p class="info">${m.status==='lapsed'?`Your proposal “${esc(m.p.ti)}” waited three cycles without reaching the vote, and has lapsed.`:`Your proposal “${esc(m.p.ti)}” has been voted on.`} You can table a new one. <button class="linkish small" data-act="asm-withdraw">Clear it away</button></p>`;
   const canDraft=mem&&(!m||!['queue','vote','moot'].includes(m.status)||S.asmEdit);
-  return `<section class="section asm-qs"><h2 class="h2">Proposals</h2><p class="muted">${lead} A proposal waits for at most three cycles. To repeal a resolution in force, open it in the Rulebook.</p>
+  return `<section class="section asm-qs"><h2 class="h2">Proposals</h2><p class="muted">${lead} A proposal waits for at most three cycles. To repeal a resolution in force, open it in the Rulebook; to commend or condemn a nation, choose that kind of resolution below.</p>
     ${Q.q.length?`<ul class="asm-q">${Q.q.map(row).join('')}</ul>`:''}${own}${canDraft?asmDraftForm(a,now,st):!mem?(accountActionHint('proposal',true)||'<p class="hint" style="margin-top:12px">Rejoin the Assembly to table and support proposals.</p>'):''}</section>`;
 }
 function asmDraftForm(a,now,st){
@@ -29918,12 +30011,13 @@ function asmDraftForm(a,now,st){
       ${S.asmErr?`<p class="err" role="alert">${esc(S.asmErr)}</p>`:''}
       <div class="row"><button class="btn" type="submit">${ed?'Save the wording':'Table the repeal'}</button><button type="button" class="btn ghost" data-act="${ed?'asm-edit-no':'asm-rp-no'}">Cancel</button></div></form>`;
   }
+  const mk=asmTg(d.cat),catOpt=k=>`<option value="${k}"${k===d.cat?' selected':''}>${esc(ASM_CATS[k].n)}</option>`,ks=Object.keys(ASM_CATS);
   return `<form id="asm-form" class="asm-form" novalidate><p class="lbl-h">${ed?'Edit your proposal':'Table a proposal'}</p>
-    <div class="fields"><div class="field"><label for="asm-cat">Category</label><select class="input" id="asm-cat" data-asm="cat"${ed?' disabled':''}>${Object.keys(ASM_CATS).map(k=>`<option value="${k}"${k===d.cat?' selected':''}>${esc(ASM_CATS[k].n)}</option>`).join('')}</select></div>
-      <div class="field"><span class="flabel" id="asm-g-l">Strength</span><div class="seg" role="group" aria-labelledby="asm-g-l">${[0,1].map(g=>`<button type="button" class="seg-b${(d.g?1:0)===g?' on':''}" data-act="asm-g" data-g="${g}" aria-pressed="${(d.g?1:0)===g}"${ed?' disabled':''}>${asmG(g)}</button>`).join('')}</div></div>
-      <div class="field full"><label for="asm-ti">Title</label><input class="input" id="asm-ti" data-asm="ti" maxlength="${ASM_TI}" value="${esc(d.ti)}" placeholder="The Polite Chimney Accord" autocomplete="off"></div>
-      <div class="field full"><label for="asm-tx">What it does</label><textarea class="input" id="asm-tx" data-asm="tx" maxlength="${ASM_TX}" rows="3" placeholder="Factory chimneys may emit only clean, well-mannered smoke.">${esc(d.tx)}</textarea><span class="hint" id="asm-tx-n">${String(d.tx||'').length} / ${ASM_TX}</span></div></div>
-    <div class="asm-fxbox"><p class="lbl">${ed?'Its effects stay as they are':'If it passes, it enters the rulebook, and every member'}</p><div id="asm-fx-prev">${asmFxList(d.cat,d.g)}</div>${asmBookAt(st.c,st.L).some(e=>e.cat===d.cat)?`<p class="hint" id="asm-fx-rep">The rulebook already holds a resolution on this subject: this one would replace it.</p>`:'<p class="hint" id="asm-fx-rep" hidden></p>'}</div>
+    <div class="fields"><div class="field"><label for="asm-cat">Category</label><select class="input" id="asm-cat" data-asm="cat"${ed?' disabled':''}><optgroup label="A law for every member">${ks.filter(k=>!asmTg(k)).map(catOpt).join('')}</optgroup><optgroup label="Name one nation">${ks.filter(k=>asmTg(k)).map(catOpt).join('')}</optgroup></select></div>
+      ${mk?`<div class="field"><label for="asm-tg">${mk==='c'?'The nation to commend':'The nation to condemn'}</label><select class="input" id="asm-tg" data-asm="tg"${ed?' disabled':''}>${asmTgOptions(d,st,now)}</select></div>`:`<div class="field"><span class="flabel" id="asm-g-l">Strength</span><div class="seg" role="group" aria-labelledby="asm-g-l">${[0,1].map(g=>`<button type="button" class="seg-b${(d.g?1:0)===g?' on':''}" data-act="asm-g" data-g="${g}" aria-pressed="${(d.g?1:0)===g}"${ed?' disabled':''}>${asmG(g)}</button>`).join('')}</div></div>`}
+      <div class="field full"><label for="asm-ti">Title</label><input class="input" id="asm-ti" data-asm="ti" maxlength="${ASM_TI}" value="${esc(d.ti)}" placeholder="${mk==='c'?'A Vote of Thanks':mk==='x'?'A Strongly Worded Letter':'The Polite Chimney Accord'}" autocomplete="off"></div>
+      <div class="field full"><label for="asm-tx">${mk?'Why':'What it does'}</label><textarea class="input" id="asm-tx" data-asm="tx" maxlength="${ASM_TX}" rows="3" placeholder="${mk==='c'?'For keeping the peace, paying its dues and lending us its snowploughs.':mk==='x'?'For annexing a lighthouse on the grounds that it looked lonely.':'Factory chimneys may emit only clean, well-mannered smoke.'}">${esc(d.tx)}</textarea><span class="hint" id="asm-tx-n">${String(d.tx||'').length} / ${ASM_TX}</span></div></div>
+    ${mk?`<div class="asm-fxbox asm-mkfx ${mk}"><p class="lbl">If it passes, the nation named</p><div id="asm-fx-prev">${asmMarkPrev(d)}</div></div>`:`<div class="asm-fxbox"><p class="lbl">${ed?'Its effects stay as they are':'If it passes, it enters the rulebook, and every member'}</p><div id="asm-fx-prev">${asmFxList(d.cat,d.g)}</div>${asmBookAt(st.c,st.L).some(e=>e.cat===d.cat)?`<p class="hint" id="asm-fx-rep">The rulebook already holds a resolution on this subject: this one would replace it.</p>`:'<p class="hint" id="asm-fx-rep" hidden></p>'}</div>`}
     ${S.asmErr?`<p class="err" role="alert">${esc(S.asmErr)}</p>`:''}
     <div class="row">${ed?`<button class="btn" type="submit">Save the wording</button><button type="button" class="btn ghost" data-act="asm-edit-no">Cancel</button>`:`<button class="btn" type="submit">Table the proposal</button><button type="button" class="linkish small" data-act="asm-idea">Borrow an idea</button>`}</div></form>`;
 }
@@ -30002,18 +30096,107 @@ function asmRecSec(st,now){
   const list=[...byC.values()].sort((a,b)=>b.c-a.c),mineH=new Map(((n&&n.asm&&n.asm.h)||[]).filter(h=>h.r===REG.id).map(h=>[h.c,h]));
   const you=h=>{const v=h.vm&&me in h.vm?h.vm[me]:mineH.has(h.c)?mineH.get(h.c).mv:undefined,my=mineH.get(h.c);
     return v!==undefined?`You voted ${v>0?'for':v<0?'against':'to abstain'}.`:my?(my.m?'You did not vote.':`${esc(n.name)} had no seat.`):'';};
-  const rows=list.map(h=>{const y=you(h),C=ASM_CATS[h.cat];return `<li><span class="when">No. ${asmNo(h.c)}<br>${esc(fmtDate(asmT0(h.c+1)))}</span><span><b class="asm-h-t">${esc(h.ti)}</b> <span class="pill ${h.ok?'up':'down'}">${h.ok?'Passed':'Failed'}</span>${h.rp?' <span class="chip war">Repeal</span>':''}<br><span class="hint">${asmW(h.y)} for, ${asmW(h.n)} against · ${h.rp?`repeal of “${esc(h.rt||'a resolution')}”`:esc(C?C.n:'')+', '+asmG(h.g).toLowerCase()} · proposed by ${asmWho(h.by,h.bn)}</span>${y?`<br><span class="hint">${y}</span>`:''}${asmVotersHTML(st,h)}</span></li>`;}).join('');
+  const rows=list.map(h=>{const y=you(h),C=ASM_CATS[h.cat];return `<li><span class="when">No. ${asmNo(h.c)}<br>${esc(fmtDate(asmT0(h.c+1)))}</span><span><b class="asm-h-t">${esc(h.ti)}</b> <span class="pill ${h.ok?'up':'down'}">${h.ok?'Passed':'Failed'}</span>${h.rp?' <span class="chip war">Repeal</span>':''}<br><span class="hint">${asmW(h.y)} for, ${asmW(h.n)} against · ${h.rp?`repeal of “${esc(h.rt||'a resolution')}”`:C?esc(asmKindText(h)):''} · proposed by ${asmWho(h.by,h.bn)}</span>${y?`<br><span class="hint">${y}</span>`:''}${asmVotersHTML(st,h)}</span></li>`;}).join('');
   const tail=A.busy?'<p class="hint">Opening the Book…</p>':A.err?`<p class="err">${esc(A.err)} <button class="linkish small" data-act="asm-arc-retry">Try again</button></p>`:A.more?`<p><button class="btn ghost small" data-act="asm-arc-more">Older resolutions</button></p>`:'';
   return `<section class="section"><h2 class="h2">Your attendance</h2>
     <div class="figs asm-figs"><div class="fig"><span class="lbl">Counts in a row</span><span class="fig-v num">${fmt0(vs.s||0)}</span><span class="hint">${vs.s?'Votes in every count since your last miss':'Vote in the next count to start a run'}</span></div><div class="fig"><span class="lbl">Best run</span><span class="fig-v num">${fmt0(vs.b||0)}</span></div><div class="fig"><span class="lbl">Votes cast</span><span class="fig-v num">${fmt0(vs.n||0)}</span><span class="hint">${vs.n?'An abstention is a vote cast':'Counted from the next count to close'}</span></div></div>
     ${asmRecordHTML(me,list,n?n.name:'',true)}</section>
   <section class="section"><h2 class="h2">The Book of Resolutions</h2><p class="muted">Every count the Assembly has closed, newest first, with how each member voted and the reasons they gave.</p>${rows?`<ul class="legis asm-hist">${rows}</ul>`:'<div class="empty"><p class="empty-h">No resolutions yet</p><p>The first count comes at the end of this cycle.</p></div>'}${tail}</section>`;
 }
+/* ── commendations and condemnations, in the game: the marks in force (from the finished counts the server sends every
+   player of the region, so all of them agree), what each does, and how it reads. A laurel lifts the mood of every city
+   of the nation named and gets it better terms from computer nations; a censure does the opposite, more gently. A
+   computer nation named wears the mark, and that is all ── */
+const ASM_MK={c:{n:'Commendation',w:'laurel',verb:'commended',mood:5,trade:0.9},x:{n:'Condemnation',w:'censure',verb:'condemned',mood:-3,trade:1.15}};
+const ASM_MK_IDEAS={
+  c:[['A Vote of Thanks to {N}','The Assembly thanks {N} for its good conduct, its fair dealing and the excellent biscuits at its embassy.'],
+    ['Laurels for {N}','{N} is crowned with the Assembly’s laurel for keeping the peace, paying its dues and never once reading the minutes aloud.'],
+    ['In Praise of {N}','The chamber recognises {N} as a model neighbour, and asks the other members to take notes.']],
+  x:[['A Censure of {N}','The Assembly condemns {N} for conduct unbecoming a member, and asks it to sit quietly at the back for a week.'],
+    ['A Strongly Worded Letter to {N}','The chamber deplores {N}’s recent behaviour and will write to it in very formal language, on the good paper.'],
+    ['A Wagging Finger at {N}','{N} is formally tutted at by the whole Assembly, and its delegates must stand in the corridor during lunch.']]
+};
+let asmMkMemo={c:null,m:-1,v:[]};
+function asmMarksNow(now){
+  now=now||Date.now();const c=S.civic&&S.civic.reg===REG.id&&Array.isArray(S.civic.locks)?S.civic:null;if(!c)return [];
+  const mm=Math.floor(now/60000);if(asmMkMemo.c===c&&asmMkMemo.m===mm)return asmMkMemo.v;
+  let v=[];try{v=asmMarks(new Map(c.locks.map(L=>[L.c,L])),now);}catch(e){v=[];}
+  asmMkMemo={c,m:mm,v};return v;
+}
+const asmMarkOn=(id,now)=>asmMarksNow(now).filter(m=>m.tg===id);
+/* city mood, and the factor on what computer nations ask in trade */
+function asmMarkMood(id,now){let d=0;for(const m of asmMarkOn(id,now))d+=ASM_MK[m.m].mood;return d;}
+function asmMarkTrade(id,now){let k=1;for(const m of asmMarkOn(id,now))k*=ASM_MK[m.m].trade;return k;}
+const asmPct=k=>Math.round(Math.abs(k-1)*100);
+function asmMarkItems(m,npc){
+  const M=ASM_MK[m],days=Math.round(ASM_MARK/DAY);
+  const out=[{t:m==='c'?`Wears the Assembly’s laurel for ${days} days`:`Is under the Assembly’s censure for ${days} days`,up:m==='c'}];
+  if(npc)out.push({t:m==='c'?'A computer nation: the honour is all it gets':'A computer nation: only its pride is hurt',up:m==='c'});
+  else out.push({t:`${M.mood>0?'+':'−'}${Math.abs(M.mood)} mood in each of its cities`,up:M.mood>0},
+    {t:m==='c'?`Computer nations ask ${asmPct(M.trade)}% less of it in trade`:`Computer nations ask ${asmPct(M.trade)}% more of it in trade`,up:M.trade<1});
+  return out;
+}
+const asmMarkWords=(m,npc)=>asmMarkItems(m,npc).map(x=>x.t.charAt(0).toLowerCase()+x.t.slice(1)).join(', ');
+function asmMarkList(m,npc){return `<ul class="asm-fx">${asmMarkItems(m,npc).map(x=>`<li class="${x.up?'up':'down'}">${esc(x.t)}</li>`).join('')}</ul>`;}
+/* what a resolution naming a nation does, in its box: lead, the effects, and the rules for it */
+function asmMarkFx(m,tg,lead){
+  return `<div class="asm-fxbox asm-mkfx ${m}"><p class="lbl">${lead}</p>${asmMarkList(m,!!asmNpcOf(tg))}<p class="hint">${m==='x'?'A condemnation passes only with two votes for every one against. ':''}It never enters the rulebook, and asks nothing of the members.</p></div>`;
+}
+/* the result of a count that named a nation, in words, for the nation reading it (n) */
+function asmMarkResult(h,n){
+  const m=asmTg(h.cat),M=ASM_MK[m],me=h.tg===myId(),tn=me?n.name:(h.tn||'the nation named'),t=`“${h.ti}”`;
+  if(!h.ok){const short=m==='x'&&h.y>h.n;
+    return `The Assembly ${short?'did not pass':'rejected'} ${t}, ${asmW(h.y)} for and ${asmW(h.n)} against${short?': a condemnation needs two votes for every one against':''}. ${tn} is not ${M.verb}.`;}
+  const until=fmtDate(asmT0(h.c+1)+ASM_MARK),sc=`${asmVotes(h.y)} to ${asmW(h.n)}`;
+  return `The Assembly passed ${t}, ${sc}: ${tn} is ${M.verb} until ${until}.${me?' '+cap1(asmMarkWords(m,false))+'.':''}`;
+}
+/* the kind of a resolution: in a line of text, and as chips (x: a proposal, a lock or an outcome) */
+function asmKindText(x){const cat=x.cat||x.c,C=ASM_CATS[cat];if(!C)return '';return C.tg?`${C.n} of ${x.tn||'a nation'}`:`${C.n}, ${asmG(x.g).toLowerCase()}`;}
+function asmKindChips(x){const cat=x.cat||x.c,m=asmTg(cat);
+  if(x.rp)return '<span class="chip war">Repeal</span>';
+  if(m)return `<span class="chip asm-mkc ${m}">${ASM_MK[m].n}</span><span class="chip">${esc(x.tn||'a nation')}</span>`;
+  return `<span class="chip">${esc(ASM_CATS[cat]?ASM_CATS[cat].n:cat)}</span><span class="chip">${asmG(x.g)}</span>`;}
+/* the laurel and the censure's seal, drawn */
+function asmMarkIcon(m){
+  return m==='c'?`<svg class="asm-mki c" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 27C8 25 5 18 6 9M16 27c8-2 11-9 10-18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>${[[7,12,-40],[7.5,17,-25],[10,21.5,-10],[25,12,40],[24.5,17,25],[22,21.5,10]].map(([x,y,r])=>`<ellipse cx="${x}" cy="${y}" rx="1.9" ry="3.6" transform="rotate(${r} ${x} ${y})" fill="currentColor"/>`).join('')}<circle cx="16" cy="27" r="1.6" fill="currentColor"/></svg>`
+    :`<svg class="asm-mki x" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="8.5" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2"/><path d="M11 11l10 10M21 11L11 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+}
+/* a nation's marks in force, on its page */
+function asmMarkHTML(id,now){
+  const ms=asmMarkOn(id,now);if(!ms.length)return '';const npc=!!asmNpcOf(id);
+  return ms.map(x=>`<div class="asm-mkb ${x.m}">${asmMarkIcon(x.m)}<div><p><b>${x.m==='c'?'Commended':'Condemned'} by the ${esc(REG.name)} Assembly</b> until ${esc(fmtDate(x.b))}</p><p class="hint">“${esc(x.ti)}”, Resolution No. ${asmNo(x.c)}, proposed by ${asmWho(x.by,x.bn)}. ${esc(cap1(asmMarkWords(x.m,npc)))}.</p></div></div>`).join('');
+}
+/* the Rulebook tab: the laurels and censures in force */
+function asmMarksSec(st,now){
+  const ms=asmMarks(st.L,now);
+  return `<section class="section asm-mks"><h2 class="h2">Laurels and censures</h2><p class="muted">A commendation or a condemnation names one nation of the region. It never enters the rulebook: once passed, it marks that nation for ${Math.round(ASM_MARK/DAY)} days.</p>
+    ${ms.length?`<ul class="asm-mkl">${ms.map(x=>`<li class="asm-mkb ${x.m}">${asmMarkIcon(x.m)}<div><p><b>${asmWho(x.tg,x.tn)}</b> · ${ASM_MK[x.m].verb} until ${esc(fmtDate(x.b))}</p><p class="hint">“${esc(x.ti)}”, Resolution No. ${asmNo(x.c)}, proposed by ${asmWho(x.by,x.bn)}.</p></div></li>`).join('')}</ul>`:'<p class="hint">No nation is commended or condemned just now.</p>'}</section>`;
+}
+/* the Trade page: what a mark does to this nation's terms with computer nations */
+function asmMarkTradeNote(id){
+  const ms=asmMarkOn(id);if(!ms.length)return '';
+  return ms.map(x=>`<p class="info asm-mk-tr ${x.m}">${asmMarkIcon(x.m)} ${x.m==='c'?`The Assembly’s laurel: computer nations ask ${asmPct(ASM_MK.c.trade)}% less of you`:`The Assembly’s censure: computer nations ask ${asmPct(ASM_MK.x.trade)}% more of you`} until ${esc(fmtDate(x.b))}.</p>`).join('');
+}
+/* the proposal form: the nations a resolution may name, those it may not shown but closed, with why in brief */
+const asmTgShort=w=>/first fortnight/.test(w)?'in its first fortnight':/not been seen/.test(w)?'away':/laurel/.test(w)?'already commended':/censure/.test(w)?'already condemned':'not now';
+function asmTgOptions(d,st,now){
+  const m=asmTg(d.cat),me=myId(),opt=(id,name)=>{const why=asmTgWhy(id,m,st.recs,now,me,st.L);return `<option value="${esc(id)}"${id===d.tg?' selected':''}${why?' disabled':''}>${esc(name)}${why?' · '+asmTgShort(why):''}</option>`;};
+  const pl=st.recs.filter(r=>r.id!==me).sort((a,b)=>String(a.n.name).localeCompare(String(b.n.name))).map(r=>opt(r.id,r.n.name)).join('');
+  const np=NPC_NATIONS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(x=>opt(x.id,x.name)).join('');
+  return `<option value="">Choose a nation…</option>${pl?`<optgroup label="Players">${pl}</optgroup>`:''}${np?`<optgroup label="Computer nations">${np}</optgroup>`:''}`;
+}
+/* what a draft naming a nation would do, or why it cannot */
+function asmMarkPrev(d){
+  const m=asmTg(d.cat);if(!m)return '';if(!d.tg)return `<p class="hint">Choose the nation to ${m==='c'?'commend':'condemn'}.</p>`;
+  const st=asmState(),why=S.asmEdit?'':asmTgWhy(d.tg,m,st.recs,Date.now(),myId(),st.L);
+  return asmMarkList(m,!!asmNpcOf(d.tg))+(why?`<p class="err">${esc(why)}</p>`:'')+`<p class="hint">${m==='x'?'A condemnation passes only with two votes for every one against. ':''}It never enters the rulebook, and asks nothing of the members.</p>`;
+}
 function asmRules(){
   return `<details class="asm-rules-d"><summary>How the count works</summary><div class="info asm-rules"><ul>
     <li>A resolution comes to the vote every three days, at 00:00 UTC, and the count closes three days later. A vote cast after the close does not count; until then you can change it, and the reason you give with it.</li>
     <li>Each player member votes with 1. The Delegate votes with 1 plus its endorsements, up to ${asmDW(ASM_DCAP)} in all. Each computer nation casts a third of a vote, so three players voting together outweigh all of them.</li>
     <li>More votes for than against passes it; a tie fails. Abstaining counts as attending, but not for either side.</li>
+    <li>A commendation or a condemnation names one nation of the region, and never enters the rulebook. Passed, it marks that nation for ${Math.round(ASM_MARK/DAY)} days: a laurel gives its cities +${ASM_MK.c.mood} mood and better terms from computer nations; a censure gives them ${ASM_MK.x.mood} mood and worse terms. A condemnation needs two votes for every one against, and cannot name a nation in its first fortnight or one not seen for a fortnight.</li>
     <li>A passed resolution enters the rulebook, which holds ${ASM_BOOK}, and binds every member while it is there. Mild ones move two or three census figures by 1 or 2; strong ones move three or four figures by up to 4, nudge a budget line, and may make a law.</li></ul></div></details>`;
 }
 function asmView(now){
@@ -30024,7 +30207,7 @@ function asmView(now){
   const badge={vote:owe?'<span class="gv-dot" title="You have not voted yet"></span>':'',prop:Q.q.length?`<span class="asmx-n">${Q.q.length}</span>`:'',book:`<span class="asmx-n">${bk.length}</span>`};
   const out=!mem&&S.civic&&S.civic.reg===REG.id&&S.civic.account.eligible?`<p class="info asm-out">${esc(n.name)} has no seat in the Assembly. <button class="linkish" data-act="asm-tab" data-v="mem">Rejoin on the Members tab</button></p>`:'';
   const panes={vote:()=>asmCeremony(st)+out+asmVoteCard(st,now)+asmRules(),
-    prop:()=>asmQueueSec(st,now),mem:()=>asmSeat(st,now)+asmEndSec(st,now),book:()=>asmBookSec(st,now,bk),rec:()=>asmRecSec(st,now)};
+    prop:()=>asmQueueSec(st,now),mem:()=>asmSeat(st,now)+asmEndSec(st,now),book:()=>asmBookSec(st,now,bk)+asmMarksSec(st,now),rec:()=>asmRecSec(st,now)};
   return `<header class="vh"><p class="eyebrow">Regional Assembly</p><h1>The ${esc(REG.name)} Assembly</h1><p>Every nation in ${REGION} has a seat: ${pl===1?'one run by a player':pl+' run by players'} and ${np} by the computer. A resolution comes to the vote every three days; once passed, it enters the rulebook and binds every member. The member with the most endorsements is Delegate.</p></header>
   ${S.asmMsg?`<p class="war-msg" role="status">${esc(S.asmMsg)}</p>`:''}
   ${asmDelBanner(st,now)}
@@ -30158,15 +30341,15 @@ function asmRecLine(x){
 NATION_SECTIONS.unshift((x,now)=>{
   if(!x||!x.n||x.n.npc)return '';
   const L=asmNationLine(x,now),h=asmHonours(x.n,L.isD);
-  return `<section class="asm-nsec${L.isD?' del':''}">${L.isD?'<span class="asm-seal sm" aria-hidden="true">Delegate</span>':''}<p class="eyebrow">Regional Assembly</p><p class="asm-line">${L.line}</p>${h?`<p class="hint">${h}</p>`:''}${asmRecLine(x)}<button class="linkish small" data-act="go" data-v="assembly">Open the Assembly</button></section>`;
+  return `<section class="asm-nsec${L.isD?' del':''}">${L.isD?'<span class="asm-seal sm" aria-hidden="true">Delegate</span>':''}<p class="eyebrow">Regional Assembly</p><p class="asm-line">${L.line}</p>${h?`<p class="hint">${h}</p>`:''}${asmMarkHTML(x.id,now)}${asmRecLine(x)}<button class="linkish small" data-act="go" data-v="assembly">Open the Assembly</button></section>`;
 });
 vsAdd('asm',(x,now)=>{
   if(!x||!x.n||x.me||!S.nation)return '';
   const st=asmState(now),me=myId();
   if(x.npc){const b=st.DD.npc.find(q=>q.x.id===x.id);if(!b)return '';const mine=st.recs.find(r=>r.me);let af=0;try{af=mine?affinity(npcAt(x.id,st.t0)||x.n,mine.n):0;}catch(e){}
-    return `<section class="asm-visit"><p class="eyebrow">Regional Assembly</p><p>${b.r?`${esc(x.n.name)} backs <b>${esc(b.r.n.name)}</b> for Delegate (affinity ${b.a}).`:`${esc(x.n.name)} backs nobody for Delegate yet.`} ${mine&&(!b.r||b.r.id!==me)?`Its affinity with you is ${af}; it backs a player at ${ASM_AFF} or more, choosing the one it likes best.`:b.r&&b.r.id===me?'That is you.':''}</p></section>`;}
+    return `<section class="asm-visit"><p class="eyebrow">Regional Assembly</p>${asmMarkHTML(x.id,now)}<p>${b.r?`${esc(x.n.name)} backs <b>${esc(b.r.n.name)}</b> for Delegate (affinity ${b.a}).`:`${esc(x.n.name)} backs nobody for Delegate yet.`} ${mine&&(!b.r||b.r.id!==me)?`Its affinity with you is ${af}; it backs a player at ${ASM_AFF} or more, choosing the one it likes best.`:b.r&&b.r.id===me?'That is you.':''}</p></section>`;}
   const L=asmNationLine(x,now),h=asmHonours(x.n,L.isD),a=asmA(S.nation),on=!!(a&&a.e&&a.e.some(e=>e.i===x.id&&!e.w)),can=asmMemberAt(S.nation,now)&&L.mem;
-  return `<section class="asm-visit${L.isD?' del':''}">${L.isD?'<span class="asm-seal sm" aria-hidden="true">Delegate</span>':''}<p class="eyebrow">Regional Assembly</p><p class="asm-line">${L.line}</p>${h?`<p class="hint">${h}</p>`:''}${asmRecLine(x)}
+  return `<section class="asm-visit${L.isD?' del':''}">${L.isD?'<span class="asm-seal sm" aria-hidden="true">Delegate</span>':''}<p class="eyebrow">Regional Assembly</p><p class="asm-line">${L.line}</p>${h?`<p class="hint">${h}</p>`:''}${asmMarkHTML(x.id,now)}${asmRecLine(x)}
     ${can?`<div class="row" style="margin-top:10px">${on?`<button class="btn small-btn" data-act="asm-unend" data-id="${esc(x.id)}" aria-pressed="true">Endorsed · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-end" data-id="${esc(x.id)}" aria-pressed="false">Endorse for Delegate</button>`}</div>`:''}</section>`;
 });
 NOTIF_SOURCES.push((n,now)=>{
@@ -30176,6 +30359,7 @@ NOTIF_SOURCES.push((n,now)=>{
     out.push({t:Math.max(st.t0+1,asmArr(n)),k:'asm',kl,txt:`The Assembly is voting on “${L.ti}”${L.by===me?', your proposal':''}. The count closes in ${fmtWait(st.t1-now)}.`,go});
     if(L.by===me)out.push({t:Math.max(st.t0+2,asmArr(n)),k:'asm',kl,txt:`Your proposal “${L.ti}” has gone to the vote.`,go});
   }
+  if(L&&L.tg===me&&asmTg(L.cat))out.push({t:Math.max(st.t0+3,asmArr(n)),k:'asm',kl,txt:`The Assembly is voting on whether to ${asmTg(L.cat)==='c'?'commend':'condemn'} ${n.name}: “${L.ti}”, proposed by ${L.bn||'a member'}. The count closes in ${fmtWait(st.t1-now)}${asmTg(L.cat)==='x'?', and its debate is open for your answer':''}.`,go});
   for(const h of ((n.asm&&n.asm.h)||[]).filter(h=>h.r===REG.id).slice(-4))out.push({t:h.at||h.f,k:'asm',kl,txt:asmResultText(h,n),go});
   for(const d of ((n.asm&&n.asm.d)||[]).filter(d=>d.r===REG.id).slice(-4))out.push({t:d.t,k:'asm',kl,txt:d.on?`${n.name} is now the Delegate of the ${REGION} Assembly.`:`${n.name} is no longer the Delegate.`,go});
   for(const r of st.recs){if(r.me)continue;const a=asmA(r.n);if(!a||!a.e)continue;for(const e of a.e){if(e.i!==me||now-e.t>7*DAY)continue;out.push({t:e.t,k:'asm',kl,txt:`${r.n.name} endorsed ${n.name} for Delegate.`,go});if(e.w)out.push({t:e.w,k:'asm',kl,txt:`${r.n.name} withdrew its endorsement of ${n.name}.`,go});}}
@@ -30207,6 +30391,8 @@ const ASM_HL={
   out:['{P} storms out of the Assembly','{P} quits the Assembly','Empty seat: {P} resigns from the Assembly','Rebellion in the chamber as {P} walks out'],
   back:['{P} returns to the Assembly, sheepishly','Prodigal {P} takes its seat again'],
   prop:['{P} drafts “{T}”','New in the in-tray: “{T}”'],
+  lau:['Laurels for {P}','Assembly commends {P}','{P} wins the chamber’s praise','A wreath for {P}'],
+  cen:['Assembly condemns {P}','{P} censured by the Assembly','Chamber wags its finger at {P}','A week in the corridor for {P}'],
   rep:['Assembly repeals “{T}”','“{T}” struck from the rulebook','Out it goes: “{T}” repealed {A} to {B}','Second thoughts on “{T}”']
 };
 function asmHl(kind,key,v){const a=ASM_HL[kind];let s=a[hash(key)%a.length];for(const k of Object.keys(v))s=s.split('{'+k+'}').join(v[k]);return s;}
@@ -30220,7 +30406,10 @@ DISPATCH_SOURCES.push(ctx=>{
     if(te>=from&&te<=to&&asmT0(c+1)<=now&&c<st.c){const O=asmFinal(c,st.recs,st.L);if(O){const k='asm:res:'+REG.id+':'+c,m=Math.abs(O.y-O.n),A=asmW(Math.max(O.y,O.n)),B=asmW(Math.min(O.y,O.n)),V=O.ok?'passes':'fails',T=O.ti;
       const kind=m<1&&O.y+O.n>0?'close':(Math.min(O.y,O.n)===0&&Math.max(O.y,O.n)>=2)?'land':O.ok?'pass':'fail';
       const by=nm(O.by)||O.bn,fx=asmFxWords(O.cat,O.g);
-      if(O.ok&&O.rp){const RT=O.rt||'a resolution';out.push({t:te,sec:'politics',h:asmHl('rep',k,{T:RT,A,B}),b:`The ${R} Assembly voted to repeal “${RT}”, by ${A} ${A==='1'?'vote':'votes'} to ${B}, on a motion by ${by}. It leaves the rulebook, and what it asked of every member is lifted.`,who:pid(O.by),w:6,k});}
+      const mk=O.tg&&asmTg(O.cat);
+      if(mk&&O.ok){const P=nm(O.tg)||O.tn||'a nation',npc=!!asmNpcOf(O.tg);out.push({t:te,sec:'politics',h:asmHl(mk==='c'?'lau':'cen',k,{P}),b:`The ${R} Assembly has ${ASM_MK[mk].verb} ${P}, by ${A} ${A==='1'?'vote':'votes'} to ${B}, on a motion by ${by}: “${T}”. ${npc?`A computer nation, ${P} wears the ${ASM_MK[mk].w} for ${Math.round(ASM_MARK/DAY)} days, and that is all.`:mk==='c'?`For ${Math.round(ASM_MARK/DAY)} days its cities are in fine spirits, and computer nations ask ${asmPct(ASM_MK.c.trade)}% less of it in trade.`:`For ${Math.round(ASM_MARK/DAY)} days its cities sulk, and computer nations ask ${asmPct(ASM_MK.x.trade)}% more of it in trade.`}`,who:pid(O.tg).concat(pid(O.by)),w:mk==='x'?7:6,k});}
+      else if(mk){const P=nm(O.tg)||O.tn||'a nation';out.push({t:te,sec:'politics',h:asmHl(kind,k,{T,A,B,V}),b:`The ${R} Assembly declined to ${mk==='c'?'commend':'condemn'} ${P}: “${T}”, proposed by ${by}, drew ${asmW(O.y)} ${O.y===1?'vote':'votes'} for and ${asmW(O.n)} against${mk==='x'&&O.y>O.n?', short of the two-to-one a condemnation needs':''}.`,who:pid(O.tg).concat(pid(O.by)),w:kind==='close'?7:5,k});}
+      else if(O.ok&&O.rp){const RT=O.rt||'a resolution';out.push({t:te,sec:'politics',h:asmHl('rep',k,{T:RT,A,B}),b:`The ${R} Assembly voted to repeal “${RT}”, by ${A} ${A==='1'?'vote':'votes'} to ${B}, on a motion by ${by}. It leaves the rulebook, and what it asked of every member is lifted.`,who:pid(O.by),w:6,k});}
       else out.push({t:te,sec:'politics',h:asmHl(kind,k,{T,A,B,V}),b:O.ok?`The ${R} Assembly passed “${T}”, proposed by ${by}, by ${A} ${A==='1'?'vote':'votes'} to ${B}. It enters the rulebook, and every member nation follows it: ${fx}.`:`The ${R} Assembly rejected “${T}”, proposed by ${by}, by ${A} ${A==='1'?'vote':'votes'} to ${B}. Nothing changes, and ${by} is said to be taking it well.`,who:pid(O.by),w:kind==='close'?8:kind==='land'?5:6,k});}}
     const tt=asmT0(c)+120000;
     if(tt>=from&&tt<=to&&tt<=now&&c<=st.c){const L=c===st.c?st.cur:asmPickFor(c,st.recs,st.L);if(L){const k='asm:tab:'+REG.id+':'+c,by=nm(L.by)||L.bn;
@@ -30231,7 +30420,7 @@ DISPATCH_SOURCES.push(ctx=>{
     if(!a)continue;
     if(a.o&&a.o>=from&&a.o<=to){const k='asm:out:'+r.id+':'+a.o;out.push({t:a.o,sec:'politics',h:asmHl('out',k,{P}),b:a.ox?`${P} has resigned from the ${R} Assembly. Its parting words: “${a.ox}”`:`${P} has resigned from the ${R} Assembly, taking its seat cushion with it. No resolution binds it now.`,who:[r.id],w:5,k});}
     if(a.j&&a.o&&a.j>a.o&&a.j>=from&&a.j<=to){const k='asm:in:'+r.id+':'+a.j;out.push({t:a.j,sec:'politics',h:asmHl('back',k,{P}),b:`${P} has taken its seat in the ${R} Assembly again, and is bound by its resolutions once more.`,who:[r.id],w:2,k});}
-    if(a.p&&a.p.t>=from&&a.p.t<=to){const k='asm:prop:'+asmPKey(r.id,a.p);out.push({t:a.p.t,sec:'politics',h:asmHl('prop',k,{P,T:a.p.ti}),b:`${P} has tabled “${a.p.ti}” in the ${R} Assembly. ${cap1(asmFxWords(a.p.c,a.p.g))}, if it passes.`,who:[r.id],w:2,k});}
+    if(a.p&&a.p.t>=from&&a.p.t<=to){const k='asm:prop:'+asmPKey(r.id,a.p);out.push({t:a.p.t,sec:'politics',h:asmHl('prop',k,{P,T:a.p.ti}),b:`${P} has tabled “${a.p.ti}” in the ${R} Assembly. ${asmTg(a.p.c)?`It would ${asmTg(a.p.c)==='c'?'commend':'condemn'} ${a.p.tn||'a nation of the region'} for ${Math.round(ASM_MARK/DAY)} days.`:cap1(asmFxWords(a.p.c,a.p.g))+', if it passes.'}`,who:[r.id],w:2,k});}
   }
   return out;
 });
@@ -30242,6 +30431,7 @@ HELP_EXT.push({k:'assembly',t:'The Regional Assembly',body:n=>`<p>Every region h
   <p><b>Effects.</b> Mild resolutions move two or three census figures by 1 or 2. Strong ones move three or four figures by up to 4, may nudge a budget line, and some make a law, unless one of your own laws contradicts it. The proposal shows its effects in full.</p>
   <p><b>The count.</b> Each player member votes with 1, the Delegate with 1 plus its endorsements (up to ${asmDW(ASM_DCAP)} in all), and each computer nation with a third of a vote, by its character. More for than against passes; a tie fails. The result card on the vote tab shows how it went and what changed in your nation; the Book of Resolutions on the Records tab keeps every count, with how each member voted, and your attendance.</p>
   <p><b>Endorsements and the Delegate.</b> Endorse as many members as you like, and withdraw whenever you wish; after withdrawing you can endorse the same nation again after a day. Each computer nation backs the player member it likes best once its affinity reaches ${ASM_AFF}: shared values, your cabinet and goodwill all count. The member with the most endorsements is Delegate; a tie goes to whoever reached that count first. The Delegate chooses which proposal goes next, names the region’s newspaper and may post a message of up to ${ASM_MSG} characters, changed at most once an hour.</p>
+  <p><b>Commendations and condemnations.</b> Two kinds of resolution name one nation of the region instead of asking something of every member. They never enter the rulebook. A passed commendation crowns the nation named with the Assembly’s laurel for ${Math.round(ASM_MARK/DAY)} days: +${ASM_MK.c.mood} mood in each of its cities, and computer nations ask ${asmPct(ASM_MK.c.trade)}% less of it in trade. A passed condemnation puts it under the Assembly’s censure for as long: ${ASM_MK.x.mood} mood in each of its cities, and computer nations ask ${asmPct(ASM_MK.x.trade)}% more. A condemnation needs two votes for every one against, cannot name a nation in its first fortnight or one not seen for a fortnight, and its debate is open to the nation named. No nation can be named again for a mark it already wears. Computer nations vote by how much they like the nation named, and now and then one proposes to commend the member it admires most. A computer nation can be named too: it wears the mark, and that is all.</p>
   <p><b>Absent members.</b> A nation not saved for ${Math.round(ASM_ABSENT/DAY)} days keeps its seat and its vote, but its endorsements stop counting, no computer nation backs it and it cannot hold the chair: the next in line becomes Delegate until it returns.</p>
   <p><b>Resigning.</b> A nation outside the Assembly has no say and no obligations: nothing in the rulebook binds it. It can rejoin ${fmtWait(ASM_REJOIN)} after resigning. Moving to another region leaves your endorsements, votes and proposal behind, and the old region’s rulebook is lifted; your record of past resolutions goes with you.</p>`});
 
@@ -59269,6 +59459,12 @@ achDef('land','md-10','p','Golden Age of Cities','Have ten Thriving cities at on
 achDef('dip','asm-why5','b','For the Record','Give a reason with your vote in 5 Assembly counts.',5,x=>aT(x,'asm:why'));
 achDef('dip','asm-opp5','s','Loyal Opposition','Vote against 5 resolutions that pass anyway.',5,x=>aT(x,'asm:opp'));
 achDef('dip','asm-repeal','s','Second Thoughts','See a repeal you proposed pass the Assembly.',1,x=>aT(x,'asm:rep'));
+/* commendations and condemnations: wearing the laurel or the censure, and proposing one that passes */
+[['asm-laurel','s','Laurel Wreath',1,'Be commended by your region’s Assembly.'],['asm-laurel3','g','Garlanded',3,'Be commended by the Assembly three times.']]
+  .forEach(([id,t,n,g,d])=>achDef('dip',id,t,n,d,g,x=>aT(x,'asm:lau')));
+achDef('dip','asm-censured','b','Strongly Worded','Be condemned by your region’s Assembly. It happens to the best of nations.',1,x=>aT(x,'asm:cen'));
+achDef('dip','asm-praise','b','Kind Words','See a commendation you proposed pass the Assembly.',1,x=>aT(x,'asm:prs'));
+achDef('dip','asm-rebuke','s','Public Rebuke','See a condemnation you proposed pass the Assembly.',1,x=>aT(x,'asm:reb'));
 /* elections and parliament */
 achDef('gov','gv-alone','s','Governing Alone','Have one party govern with a majority of its own.',1,x=>{const P=aParl(x);return achYes(!!P&&P.sys!=='none'&&P.gov.length===1&&P.govSeats>=P.maj);},{fm:'bool'});
 achDef('gov','gv-coal','b','Coalition of the Willing','Have three or more parties govern together.',1,x=>{const P=aParl(x);return achYes(!!P&&P.gov.length>=3);},{fm:'bool'});
@@ -60286,6 +60482,7 @@ function cxMood(ct,now){
   const my=rec&&cxCityExtras(rec).my;if(my){add(3,'Has a mayor');if(my.tr==='populist')add(12,'A crowd-pleasing mayor');}
   if(cxRoadAt(ct.fn,ct.c,now,ct.tT))add(5,'A road to the rest of the nation');
   const mb=rec&&rec.mb;if(mb&&mb.u>now&&mb.v)add(clamp(Math.round(mb.v),-15,15),'How its last matter went');
+  {const d=asmMarkMood(ct.fid,now);if(d)add(d,d>0?'The Assembly’s laurel':'The Assembly’s censure');}
   return {v:clamp(Math.round(v),0,100),parts};
 }
 function cxBand(v){return CX_BANDS.find(b=>v>=b[0]);}

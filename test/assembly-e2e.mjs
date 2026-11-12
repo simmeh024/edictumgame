@@ -1,8 +1,8 @@
 // The Assembly in five tabs (emulators): the vote with its chamber, a reason beside a vote and an abstention shown as
 // one; the tabs in the address and on the arrow keys; the debate the Assembly opens on the Community Board; the rulebook,
 // a resolution in it bound to a member's nation and a repeal proposed from it; the result card of a closed count; the
-// Records tab's attendance, Book of Resolutions and voting record, also on the nation page; and an absent member, who
-// keeps its seat but not the chair.
+// Records tab's attendance, Book of Resolutions and voting record, also on the nation page; a commendation tabled
+// from the form and a passed one's laurel; and an absent member, who keeps its seat but not the chair.
 import { createRequire } from 'node:module';
 import { check, finish, until, sleep, player, open, ready, found, nav, text, clearEmulators, register, OUT, PROJECT } from './lib.mjs';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
@@ -101,6 +101,47 @@ check('the voting record, and attendance in three figures', /1 for, 0 against/.t
 await shot(A, 'records');
 await nav(A, 'nation');
 check('the nation page shows its voting record', await until(async () => /Your last count: 1 for/.test(await text(A, '.asm-nsec'))));
+
+/* ── 6b. commendations and condemnations: naming a nation in the form, the proposal in the queue, and a passed
+   commendation marking its nation: the Rulebook tab, the nation page, its cities' mood and the Trade page ── */
+await nav(B, 'assembly'); await B.click('#asmx-tab-prop'); await B.waitForSelector('#asm-cat');
+await B.selectOption('#asm-cat', 'condemn');
+check('choosing a condemnation swaps the strength for the nation to name', await until(() => shown(B, '#asm-tg')) && !await B.$('[data-act="asm-g"]') && /The nation to condemn/.test(await text(B, '#asm-form')));
+check('a nation in its first fortnight is listed but cannot be condemned', await B.$eval(`#asm-tg option[value="${ua}"]`, o => o.disabled && /first fortnight/.test(o.textContent)));
+check('computer nations can be named too', await B.$$eval('#asm-tg optgroup[label="Computer nations"] option', o => o.length > 0 && o.every(x => !x.disabled)));
+await B.selectOption('#asm-cat', 'commend');
+check('a newcomer may be commended', await until(() => B.$eval(`#asm-tg option[value="${ua}"]`, o => !o.disabled).catch(() => false)));
+await B.selectOption('#asm-tg', ua);
+check('the box says what a commendation does to the nation named', await until(async () => /\+5 mood in each of its cities/.test(await text(B, '#asm-fx-prev')) && /never enters the rulebook/.test(await text(B, '#asm-fx-prev'))));
+await B.click('[data-act="asm-idea"]');
+check('borrowing an idea writes the nation’s name into it', await until(async () => /Aldmere/.test(await B.inputValue('#asm-ti') + ' ' + await B.inputValue('#asm-tx'))));
+await B.click('#asm-form [type="submit"]');
+check('the commendation is tabled, naming Aldmere', await until(() => B.evaluate(id => G.S.civic?.own.p?.c === 'commend' && G.S.civic.own.p.tg === id && G.S.civic.own.p.tn === 'Aldmere', ua)));
+check('it waits in the queue as a commendation of Aldmere', await until(async () => { const t = await text(B, '#asmx-p-prop .asm-q'); return /Commendation/i.test(t) && /Names Aldmere/.test(t); }));
+await shot(B, 'commend-queue');
+
+/* a commendation of Aldmere passed two counts ago: its laurel runs for seven days from that close */
+await root.collection('cycles').doc(String(c - 2)).set({ c: c - 2, k: 'test~laurel', ti: 'Laurels for Aldmere', tx: 'For its hens.', cat: 'commend', g: 0, by: ub, bn: 'Brackwater', w: 's', lt: t0 - 5 * DAY, y: 2, n: 0, ok: 1, f: t0 - 3 * DAY + 1000, r: reg, tg: ua, tn: 'Aldmere' });
+await root.set({ at: Date.now() }, { merge: true });
+await refresh(A);
+check('the server sends the laurel with the counts', await until(() => A.evaluate(() => G.S.civic?.locks.some(L => L.k === 'test~laurel')), 15000));
+await nav(A, 'assembly'); await A.click('#asmx-tab-book');
+check('the Rulebook tab lists Aldmere under laurels and censures, not in the rulebook', await until(async () => /Laurels and censures/.test(await text(A, '#asmx-p-book')) && /Aldmere · commended until/.test(await text(A, '#asmx-p-book .asm-mkl')) && /1 of at most 5/.test(await text(A, '#asmx-p-book'))));
+await shot(A, 'laurels');
+check('each of Aldmere’s cities is in better spirits for it', await until(() => A.evaluate(() => { const cs = G.CX.cityState(G.territory()), mine = cs.all.filter(ct => ct.fid === G.S.uid && !ct.npc); return mine.length > 0 && mine.every(ct => G.CX.mood(ct, Date.now()).parts.some(([d, t]) => d === 5 && /laurel/.test(t))); })));
+await nav(A, 'nation');
+check('the nation page wears the laurel', await until(async () => /Commended by the .+ Assembly/.test(await text(A, '.asm-nsec')) && /Laurels for Aldmere/.test(await text(A, '.asm-nsec'))));
+await nav(A, 'trade');
+check('the Trade page says computer nations ask less of it', await until(async () => /laurel: computer nations ask 10% less of you/.test(await text(A, '.main'))));
+await refresh(B); await nav(B, 'assembly'); await B.click('#asmx-tab-book');
+check('and Brackwater sees the same laurel', await until(async () => /Aldmere · commended until/.test(await text(B, '#asmx-p-book')), 15000));
+/* the count now open turns out to condemn Brackwater: the vote card names it and its rule; Brackwater hears of it */
+await root.collection('cycles').doc(String(c)).set({ cat: 'condemn', tg: ub, tn: 'Brackwater' }, { merge: true });
+await root.set({ at: Date.now() }, { merge: true }); await refresh(A); await refresh(B);
+await nav(A, 'assembly'); await A.click('#asmx-tab-vote');
+check('a condemnation at the vote names its nation and needs two votes to one', await until(async () => { const t = await text(A, '#asmx-p-vote .asm-vote'); return /Condemnation/.test(t) && /Condemns\s*Brackwater/.test(t) && /two votes for every one against/.test(t) && /−3 mood in each of its cities/.test(t); }, 15000));
+await shot(A, 'condemn-vote');
+check('and the bell tells Brackwater', await until(() => B.evaluate(() => { const b = G.NEWS.bell(Date.now()); return [...b.pin, ...b.ev].some(x => /whether to condemn Brackwater/.test(x.txt)); }), 15000));
 
 /* ── 7. the debate topic on the Community Board ── */
 await nav(A, 'assembly'); await A.click('#asmx-tab-vote');
