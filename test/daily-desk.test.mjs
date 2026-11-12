@@ -319,8 +319,10 @@ test('none in a nation’s first week',()=>{
 
 test('the desk’s new achievements, with one obsidian',()=>{
   const A=[...source.matchAll(/achDef\('found','((?:desk|obs-desk)[a-z0-9-]*)','([bsgpxo])'/g)].map(m=>[m[1],m[2]]);
-  assert.deepEqual(A,[['desk-compass','b'],['desk-kinds12','s'],['desk-rare10','s'],['desk-rare50','g'],['desk-leg1','g'],['desk-leg5','p'],['obs-desk','o']]);
-  assert.match(source,/achDef\('found','obs-desk','o','Myth and Minutes','Finish 25 legendary desk tasks\.',25,x=>ddlcOf\(x\.n\),\{sec:OBS_HINT\}\);/);
+  assert.deepEqual(A,[['desk-compass','b'],['desk-kinds12','s'],['desk-rare10','s'],['desk-rare50','g'],['desk-leg1','g'],['desk-leg5','p'],['desk-leg25','o']]);
+  /* its own id: 'obs-desk' is Two Years at the Desk, and a shared id marked both as earned */
+  assert.match(source,/achDef\('found','desk-leg25','o','Myth and Minutes','Finish 25 legendary desk tasks\.',25,x=>ddlcOf\(x\.n\),\{sec:OBS_HINT\}\);/);
+  assert.equal(source.split("achDef('odd','obs-desk','o','Two Years at the Desk'").length,2);
 });
 
 // ── over the storage limit: a reward may overflow it; income adds nothing more until there is room ──

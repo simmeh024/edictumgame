@@ -35998,8 +35998,39 @@ NATION_SECTIONS.push((x,now)=>{const n=x&&x.n;if(!n||n.npc)return '';const L=spL
 vsAdd('sp',(x,now)=>{if(!x||x.npc||!x.n||!x.n.sp)return '';const L=spLine(x,now);return L.length?`<section class="sp-visit"><p class="eyebrow">In space</p>${L.join('')}</section>`:'';});
 /* honours */
 const spMileHit=(n,id,i)=>!!(n&&n.sp&&n.sp[id]&&n.sp[id].ml&&n.sp[id].ml[i]);
+/* the road to the Moon: Mission Control's agency, its first picture, the rover, the chart, the letters and the crew it
+   prepared. Those functions live in the Mission Control section further down; a goal runs only when a record is checked. */
+const achMc=x=>x.npc?null:mcOf(x.n);
+achDef('exp','mc-agency','b','Ground Control','Found your space agency at Mission Control.',1,x=>achYes(achMc(x)&&achMc(x).a),{fm:'bool'});
+achDef('exp','mc-photo','b','Holiday Snaps','Bring home your agency’s first picture of the Moon.',1,x=>achYes(achMc(x)&&mcImg(x.n,x.now)),{fm:'bool'});
+achDef('exp','mc-rover','s','Wheels on the Ground','Land a rover on the Moon.',1,x=>achYes(achMc(x)&&mcDone(x.n,'rover',x.now)),{fm:'bool'});
+achDef('exp','mc-chart','g','Selenographer','Chart 80 of the Moon’s 160 sectors in full at Mission Control.',80,x=>{if(!achMc(x))return 0;let k=0;for(const v of mcReveal(x.n,x.now))if(v>=2)k++;return k;});
+achDef('exp','mc-letters','g','Dear Dr. Okafor','Answer all fourteen letters from Mission Control.',14,x=>{const w=achMc(x);return w?w.c.length:0;});
+achDef('exp','mc-prep','g','Well Prepared','Land on the Moon with a crew that flew Mission Control’s launch preparation.',1,x=>{const o=!x.npc&&x.n.sp&&x.n.sp.moon;return achYes(o&&achMc(x)&&mcPrepFlown(x.n,o.t));},{fm:'bool'});
+/* the colony on the Moon: the record's own colony, and the tiles it holds on the shared Moon */
+const achMoon=x=>achM(x,'sp:moon',()=>{const o=!x.npc&&x.n.sp&&x.n.sp.moon;return o?spColony(SPB.moon,o):null;});
+const achMoonC=x=>achM(x,'sp:moonC',()=>{if(!achMoon(x))return null;const C=spWorld(SPB.moon).byId[x.me?myId():x.id];return C&&C.ok?C:null;});
+const achMoonRun=(x,k,t)=>{const col=achMoon(x);return col?col.blds.filter(b=>b.k===k&&b.d<=x.now&&(t==null||spT(SPB.moon,b.c)===t)).length:0;};
+const SP_LUNAR_DAY=29.53*DAY;
 achDef('exp','sp-moon','g','One Small Step','Land a colony on the Moon.',1,x=>achYes(!x.npc&&x.n.sp&&x.n.sp.moon),{fm:'bool'});
+/* first on the Moon: landings are replayed by the minute, ties going to the lower nation id (as in spReplay) */
+achDef('exp','sp-moon-first','p','First on the Moon','Land the first colony on the Moon, before every nation of every region.',1,x=>{const C=achMoonC(x);if(!C)return 0;const m=c=>Math.floor((c.land-SP_EP)/SP_MIN);
+  return achYes(spWorld(SPB.moon).cols.every(o=>o===C||!o.ok||m(o)>m(C)||(m(o)===m(C)&&o.id>C.id)));},{fm:'bool'});
+achDef('exp','sp-moon1','b','A Million Moonwalkers','Grow your lunar colony to a million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'moon',0)),{fm:'bool'});
+achDef('exp','sp-moon10','s','Ten Million Under Glass','Grow your lunar colony to ten million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'moon',1)),{fm:'bool'});
 achDef('exp','sp-moon100','p','A Hundred Million Lunatics','Grow your lunar colony to 100 million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'moon',2)),{fm:'bool'});
+achDef('exp','sp-moon-t50','s','Lunar Real Estate','Hold 50 tiles on the Moon.',50,x=>{const C=achMoonC(x);return C?C.held.length:0;});
+achDef('exp','sp-moon-t300','g','The Treaty Limit',`Hold ${SP_TILES} tiles on the Moon, as many as one colony may.`,SP_TILES,x=>{const C=achMoonC(x);return C?C.held.length:0;});
+achDef('exp','sp-moon-ground','g','Field Geology','Hold all eight kinds of lunar ground, from the maria and the rilles to the polar ice.',SP_MOON_T.length,x=>{const C=achMoonC(x);return C?new Set(C.held.map(c=>spT(SPB.moon,c)).filter(t=>t>=0)).size:0;});
+achDef('exp','sp-moon-ice','s','Water in the Dark','Run an Ice Mine in a crater on the Moon that never sees the Sun.',1,x=>achYes(achMoonRun(x,'im')),{fm:'bool'});
+achDef('exp','sp-moon-sun','s','Midnight Sun','Run a Solar Array on the lunar polar uplands, where the Sun never sets.',1,x=>achYes(achMoonRun(x,'sa',7)),{fm:'bool'});
+achDef('exp','sp-moon-he8','s','Helium Rush','Run eight Helium-3 Extractors in your lunar colony.',8,x=>achMoonRun(x,'he'));
+achDef('exp','sp-moon-obs','s','The Quiet Side','Build an Observatory on the Moon.',1,x=>achYes(achMoonRun(x,'ob')),{fm:'bool'});
+achDef('exp','sp-moon-md','s','Lunar Express','Build a Mass Driver on the Moon, and ship goods home by rail.',1,x=>achYes(achMoonRun(x,'md')),{fm:'bool'});
+achDef('exp','sp-moon-port','g','Next Stop, Mars','Open a Starport on the Moon.',1,x=>achYes(achMoonRun(x,'sp')),{fm:'bool'});
+achDef('exp','sp-moon-all','g','One of Everything','Run one of every kind of lunar building in your colony.',Object.keys(SP_BLDS.moon).length,x=>Object.keys(SP_BLDS.moon).filter(k=>achMoonRun(x,k)).length);
+achDef('exp','sp-moon-nb','s','Over the Garden Wall','Have the colonies of three other nations border yours on the Moon.',3,x=>{const C=achMoonC(x);return C?spNbrs(SPB.moon,C).length:0;});
+achDef('exp','sp-moon-year','g','Twelve Lunar Days','Keep a colony on the Moon for twelve lunar days, nearly a year at home.',12,x=>{const o=!x.npc&&x.n.sp&&x.n.sp.moon;return o?Math.min(12,Math.floor((x.now-o.t)/SP_LUNAR_DAY)):0;});
 achDef('exp','sp-mars','p','Red Letter Day','Land a colony on Mars.',1,x=>achYes(!x.npc&&x.n.sp&&x.n.sp.mars),{fm:'bool'});
 achDef('exp','sp-te4','g','Weather Makers','Keep four Terraforming Engines running in your Mars colony.',1,x=>{if(x.npc||!x.n.sp||!x.n.sp.mars)return 0;try{const col=spColony(SPB.mars,x.n.sp.mars,x.n.sp.tf);return achYes(!!col&&col.blds.filter(b=>b.k==='te'&&b.d<=x.now).length>=SP_TF_MAX);}catch(e){return 0;}},{fm:'bool'});
 achDef('exp','sp-blue','p','Blue Mars','Keep a Terraforming Engine running until the canyons of Mars fill into seas.',1,x=>{if(x.npc||!x.n.sp||!x.n.sp.mars)return 0;try{const col=spColony(SPB.mars,x.n.sp.mars,x.n.sp.tf);return achYes(col&&col.blds.some(b=>b.k==='te'&&b.d<=x.now)&&(x.n.sp.tf||0)>=0.7);}catch(e){return 0;}},{fm:'bool'});
@@ -37139,7 +37170,7 @@ NATION_SECTIONS.push((x,now)=>{const L=btLine(x,now);return L?`<section class="s
 vsAdd('sp',(x,now)=>{if(!x||x.npc||!x.n||!x.n.belt)return '';const L=btLine(x,now);return L?`<section class="sp-visit bt-visit"><p class="eyebrow">In the belt</p>${L}</section>`:'';});
 /* honours */
 const btWho=x=>{try{const W=btWorld(x.now);return W.byId[x.me?myId():x.id]||null;}catch(e){return null;}};
-achDef('exp','bt-arrive','g','Five Months Out','Reach the asteroid belt.',1,x=>achYes(!x.npc&&x.n.belt&&x.now>=btArr(x.n.belt)),{fm:'bool'});
+achDef('exp','bt-arrive','g','Three Months Out','Reach the asteroid belt.',1,x=>achYes(!x.npc&&x.n.belt&&x.now>=btArr(x.n.belt)),{fm:'bool'});
 achDef('exp','bt-first','p','First in the Belt','Found the first station in the belt, before every nation of every region.',1,x=>{if(x.npc||!x.n.belt||!(x.n.belt.st>=0))return 0;const a=btWho(x);if(!a)return 0;const W=btWorld(x.now);return achYes(W.nats.every(o=>o===a||!(o.bt.st>=0)||o.bt.sa>a.bt.sa||(o.bt.sa===a.bt.sa&&o.id>a.id)));},{fm:'bool'});
 achDef('exp','bt-plat','p','Platinum Fever','Strike platinum in the asteroid belt.',1,x=>{if(x.npc||!x.n.belt)return 0;const a=btWho(x);return achYes(a&&a.strikes.length);},{fm:'bool'});
 achDef('exp','bt-branch','s','Master of One Trade','Finish a whole branch of mining research.',1,x=>achYes(!x.npc&&x.n.belt&&[0,1,2,3,4,5].some(b=>BT_RS.filter(R=>R.b===b).every(R=>btHas(x.n.belt.rd,R.i)))),{fm:'bool'});
@@ -58190,7 +58221,7 @@ achDef('found','desk-rare10','s','Rarer Still','Finish 10 rare desk tasks.',10,x
 achDef('found','desk-rare50','g','A Taste for the Rare','Finish 50 rare desk tasks.',50,x=>ddrOf(x.n));
 achDef('found','desk-leg1','g','The Stuff of Legend','Finish a legendary desk task within its seven days.',1,x=>ddlcOf(x.n));
 achDef('found','desk-leg5','p','Legend of the Desk','Finish 5 legendary desk tasks.',5,x=>ddlcOf(x.n));
-achDef('found','obs-desk','o','Myth and Minutes','Finish 25 legendary desk tasks.',25,x=>ddlcOf(x.n),{sec:OBS_HINT});
+achDef('found','desk-leg25','o','Myth and Minutes','Finish 25 legendary desk tasks.',25,x=>ddlcOf(x.n),{sec:OBS_HINT});
 achDef('war','obs-war','o','Empire Without End','Take 400 hexes in war.',400,x=>aT(x,'conq'),{sec:OBS_HINT});
 achDef('games','obs-games','o','The Eternal Games','Win 300 medals.',300,aMedals,{sec:OBS_HINT});
 achDef('odd','obs-desk','o','Two Years at the Desk','Clear your daily desk on 730 days.',730,aDesks,{sec:OBS_HINT});
