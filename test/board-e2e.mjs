@@ -213,7 +213,9 @@ check('Customise has a Community Board section with the author column as readers
 await C.fill('#cbs-x', 'Steel never sleeps.');
 check('the preview follows the typing', /Steel never sleeps\./.test(await text(C, '#cbs-pv')));
 await C.click('#cbs-form button[type="submit"]');
-check('the signature is saved', await until(async () => /signature is saved/.test(await C.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ')))));
+// the toast waits its turn: C's first topic and mention earn achievements (Open Letter, Name-Dropper), and the
+// Customise step of the tutorial is done, so two toasts may stand before it, ten seconds or so
+check('the signature is saved', await until(async () => /signature is saved/.test(await C.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '))), 25000));
 await C.goto(fair); await ready(C); await C.waitForSelector('.cb-reps .cb-post');
 check('it shows under the player’s posts', await until(async () => /Steel never sleeps\./.test(await text(C, '.cb-reps .cb-sig'))));
 // a reader who has not seen this profile in the last few minutes (the page keeps each one for five): a fresh page
