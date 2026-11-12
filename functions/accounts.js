@@ -6,6 +6,7 @@ import { identity, eligibility, refuse, registered, nationJSON, banMarks, DAY } 
 import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail, recoveryMail } from './mail.js';
+import { noteGone, forgetGone } from './gone.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
 import { rmbForget, cbForget } from './board.js';
@@ -87,6 +88,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (d.op === 'shop') return shopStep(uid, d);
   if (d.op === 'mail') return mailStep(uid, d, String(req.rawRequest?.ip || ''));
   if (d.op === 'letters') return lettersStep(uid, d);
+  // a nation about to be dissolved by its own browser: a copy for the admins' Recently dissolved (functions/gone.js)
+  if (d.op === 'gone') return noteGone(db, uid, d);
   // the player's side of a support ticket (functions/support.js); before identity(), so a banned player can still
   // write back about their appeal
   if (d.op === 'support') return supportStep(db, uid, d);
@@ -114,6 +117,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/', 'rcNote/', 'rcHello/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
+    // copies of nations it dissolved (functions/gone.js)
+    await forgetGone(db, uid);
     // the counts, blocks and read receipts of its letters, and its devices' push subscriptions (functions/letters.js)
     await forgetLetters(uid);
     // its place in an alliance (functions/alliances.js), and the pacing of its alliance channel posts
