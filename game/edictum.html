@@ -7693,6 +7693,17 @@ button.rgc-nm{text-align:left}
 .rgc-reb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rgc-rebar[hidden]{display:none}
 .rgc-rebar .rgc-hb{width:26px;height:26px}
+/* region chat: a new nation's welcome line */
+.rgc-l.rgc-sys,.rgc-l.rgc-sys:hover,.rgc-l.rgc-sys:focus-within{margin:10px 0 8px;padding:8px 8px 8px 10px;border:1px solid var(--rule);border-left:3px solid var(--accent);background:var(--sheet-2)}
+.rgc-sh{display:flex;align-items:center;gap:8px;margin:0 0 5px;font:500 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.rgc-sh time{letter-spacing:0;text-transform:none;color:var(--ink-3)}
+.rgc-sw{display:flex;align-items:flex-start;gap:7px}
+.rgc-sw .mflag{flex:none;width:24px;margin-top:2px}
+.rgc-sx .rgc-nm{display:inline;white-space:normal;overflow:visible;padding:0;font-size:inherit}
+.rgc-ch{font-weight:600;color:var(--accent);overflow-wrap:anywhere}
+.rgc-sb{margin:6px 0 1px 31px}
+.rgc-sys .rgc-rxs{margin-left:31px}
+.acx-sys{margin-left:4px}
 .rgc-mn{list-style:none;margin:0 0 6px;padding:4px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet);box-shadow:var(--shadow)}
 .rgc-mn[hidden]{display:none}
 .rgc-mn li{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;font-size:13.5px;cursor:pointer}
@@ -39541,7 +39552,7 @@ const tutSettleLock=n=>cellOf(n.loc)<0?'Settle on the map first: your first edic
 /* a message of this player's nation (or a reply) among the region board's latest, not one signed by the Edictum team */
 const tutRmbMine=()=>{try{const m=S.rmb&&S.uid&&!OBS?S.rmb[S.uid]:null;return !!m&&m.posts.some(p=>!p.of);}catch(e){return false;}};
 /* a line of the player's own in the region chat (the newest lines the chat holds), for Say hi in the region chat */
-const tutChatMine=()=>{try{const me=S.uid;return !!me&&!OBS&&RGC.list.some(m=>m.a===me&&!m.tm);}catch(e){return false;}};
+const tutChatMine=()=>{try{const me=S.uid;return !!me&&!OBS&&RGC.list.some(m=>m.a===me&&!m.tm&&!m.sys);}catch(e){return false;}};
 const tutCapCity=n=>{try{const c=cellOf(n.loc);return c<0?null:cityList(n).find(x=>x.c===c)||null;}catch(e){return null;}};
 const tutPrvT2=()=>{try{return prvT2(S.nation);}catch(e){return 'Provinces';}},tutPrvOn=()=>{try{return prvOnRec(S.nation);}catch(e){return false;}};
 function tutLandHint(n){
@@ -66540,7 +66551,7 @@ function rgcGuest(){const a=accountInfo();return !OBS&&!!a&&a.kind==='guest';}
 /* the times of the guest's lines in the last hour: what the server last told, and their lines in the chat */
 function rgcGuestTimes(){
   const now=Date.now(),me=myId(),s=new Set((RGC.gt||[]).filter(t=>t>now-3600000&&t<=now));
-  for(const m of RGC.list)if(m.a===me&&!m.tm&&m.t>now-3600000)s.add(m.t);
+  for(const m of RGC.list)if(m.a===me&&!m.tm&&!m.sys&&m.t>now-3600000)s.add(m.t);
   return [...s].sort((a,b)=>a-b);
 }
 function rgcGuestNote(){
@@ -66571,7 +66582,7 @@ function rgcHear(reg,qs){
   if(RGC.reg!==reg)return;
   const me=myId(),first=!RGC.ready,top=RGC.top;
   RGC.list=qs.docs.map(d=>{const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
-    return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,
+    return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':'',
       r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true}:null,
       mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null};})
     .sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
@@ -66581,9 +66592,9 @@ function rgcHear(reg,qs){
   RGC.top=Math.max(top,last);RGC.err='';RGC.ready=true;RGC.retry=0;RGC.fails=0;
   /* a line on its way leaves once it is back from the server: by its id, or, before the server has answered, as a new
      line of ours with the same words */
-  if(RGC.pend.length){const ids=new Set(RGC.list.map(m=>m.id));RGC.pend=RGC.pend.filter(p=>p.id?!ids.has(p.id):!RGC.list.some(m=>m.a===me&&m.x===p.x&&m.t>p.top));}
+  if(RGC.pend.length){const ids=new Set(RGC.list.map(m=>m.id));RGC.pend=RGC.pend.filter(p=>p.id?!ids.has(p.id):!RGC.list.some(m=>m.a===me&&!m.sys&&m.x===p.x&&m.t>p.top));}
   rgcNamed(fresh);
-  if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=`${rgcName(m)}: ${m.x}`;}}
+  if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=m.sys?m.x:`${rgcName(m)}: ${m.x}`;}}
   rgcBadge();rgcPaint();
 }
 function rgcName(m){if(m.tm)return 'Edictum team';const x=findNation(m.a);return x?x.n.name:m.nm;}
@@ -66614,7 +66625,7 @@ function rgcHi(x){
 }
 function rgcNamed(fresh){
   if(OBS||!S.nation||dmx(S.nation).rcn===0||!fresh.length)return;
-  const me=myId(),hit=fresh.filter(m=>rgcNames(m.x)||m.mn&&m.mn[me]||m.r&&m.r.a===me);if(!hit.length||RGC.open&&!document.hidden&&rgcTab()==='region')return;
+  const me=myId(),hit=fresh.filter(m=>!m.sys&&(rgcNames(m.x)||m.mn&&m.mn[me]||m.r&&m.r.a===me));if(!hit.length||RGC.open&&!document.hidden&&rgcTab()==='region')return;
   const now=Date.now();if(now-RGC.toastAt<30000)return;RGC.toastAt=now;
   const m=hit[hit.length-1];
   toast(m.r&&m.r.a===me&&!(m.mn&&m.mn[me])?`${rgcName(m)} answered you in the region chat.`:`${rgcName(m)} mentioned ${S.nation.name} in the region chat.`);
@@ -66678,6 +66689,7 @@ function rgcAsk(m,nm,mine){
   return `<div class="rgc-ask" role="alert"><p>${t}</p><div class="row"><button type="button" class="btn small danger solid" data-rgc="${blk?'block':'del'}" data-id="${esc(m.id)}">${blk?'Block':mine?'Delete':'Remove'}</button><button type="button" class="btn ghost small" data-rgc="ask-no">Cancel</button></div></div>`;
 }
 function rgcLine(m,run,by,me,mod,memo){
+  if(m.sys)return rgcSysLine(m,by,me,mod);
   /* a line the Edictum team signed (tm): the team's mark and name, never a nation's, and nothing to report or block;
      a line of the alliance channel (ally): Delete for its writer and the alliance's officers, nothing else */
   const ally=!!m.ally,i=esc(m.id);
@@ -66700,6 +66712,43 @@ function rgcLine(m,run,by,me,mod,memo){
   const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
   return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}<p class="rgc-x">${rgcText(m.x,m.mn)}</p>${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
 }
+/* a new nation's welcome line (sys 'found': functions/regionchat.js, rcHello), drawn as an announcement: its flag and
+   name, "has been founded, welcome to #Region!" and, for a week, a Welcome button that starts a line greeting it (Say
+   hello, for the new nation itself) until the player has greeted it. Its menu reacts to it and reports it; the nation
+   itself and staff remove it */
+const rgcChan=()=>String(REGION||'').replace(/^The /,'');
+function rgcSysLine(m,by,me,mod){
+  const i=esc(m.id),x=by.get(m.a),mine=m.a===me,nm=x?x.n.name:m.nm,when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`,low='@'+nm.toLowerCase();
+  const who=x&&!x.npc&&!mine?`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(m.a)}">${esc(nm)}</button>`:`<b class="rgc-nm">${esc(nm)}</b>`;
+  const after=l=>l.a===me&&!l.sys&&!l.tm&&l.t>m.t;
+  const done=mine?RGC.list.some(after)||RGC.pend.length>0
+    :RGC.list.some(l=>after(l)&&(!!(l.mn&&l.mn[m.a])||l.x.toLowerCase().includes(low)))||RGC.pend.some(p=>p.x.toLowerCase().includes(low));
+  const can=!OBS&&!rgcWrite()&&!!RGC.reg&&!done&&Date.now()-m.t<7*DAY;
+  const btn=can?`<div class="rgc-sb"><button type="button" class="btn ghost small rgc-wel" data-rgc="${mine?'hello':'welcome'}" data-id="${esc(m.a)}" data-nm="${esc(nm)}">${mine?'Say hello':'Welcome'}</button></div>`:'';
+  const open=RGC.menu===m.id,myRx=m.rv&&m.rv[me]||'';
+  const items=(!OBS?`<div class="rgc-rxp" role="group" aria-label="React">${RGC_RX.map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
+    +(!mine&&!OBS?`<button type="button" role="menuitem" data-rgc="report" data-id="${i}">Report to the moderators</button>`:'')
+    +(mine||mod?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="del-ask" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
+  const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for the welcome of ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
+  return `<li class="rgc-l rgc-sys${mine?' me':''}${RGC.goto===m.id?' flash':''}" data-id="${i}"><p class="rgc-sh"><span>New nation</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`
+    +`<div class="rgc-sw"><span class="mflag sm${x?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):''}</span><p class="rgc-x rgc-sx">${who} has been founded, welcome to <b class="rgc-ch">#${esc(rgcChan())}</b>!</p>${menu}</div>`
+    +`${btn}${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
+}
+/* a nation founded a moment ago asks, once its record is saved, to be welcomed in its region's chat: once for each
+   nation (localStorage edictum.rgc.hello.<uid>, the founding time), within the hour; the server decides (rcHello) and
+   answers the same whether it wrote the line or not. A refusal is final; a lost connection tries again at a save a
+   minute or more later */
+const RGC_HELLO=3600000;
+function rgcHello(){
+  try{
+    const n=S.nation,me=S.uid,now=Date.now();if(!n||!me||S.mode!=='world'||OBS||PV||!S.db||RGC.helloBusy||now-(RGC.helloAt||0)<60000)return;
+    const f=Number(n.founded)||0,k='edictum.rgc.hello.'+me;
+    if(!f||now-f>RGC_HELLO||rgcLS(k)===String(f))return;
+    RGC.helloBusy=true;RGC.helloAt=now;
+    rgcCivic({op:'rcHello'}).then(()=>rgcLS(k,f),e=>{if(e&&e.details&&e.details.code)rgcLS(k,f);}).finally(()=>{RGC.helloBusy=false;});
+  }catch(e){RGC.helloBusy=false;}
+}
+window.addEventListener('edictum:saved',()=>setTimeout(rgcHello,0));
 function rgcPaint(){
   const d=RGC.dock;if(!d||d.hidden)return;
   const tab=rgcTab(),turned=RGC.lastTab!==tab;RGC.lastTab=tab;
@@ -66719,7 +66768,7 @@ function rgcPaint(){
     for(const m of vis){
       const k=rgcDay(m.t);if(k!==day){day=k;h+=`<li class="rgc-day" role="separator"><span>${esc(rgcDayWords(m.t))}</span></li>`;prev=null;}
       if(tab==='region'&&!fresh&&RGC.mark&&m.t>RGC.mark&&m.t<=RGC.markTop&&m.a!==me){fresh=true;h+='<li class="rgc-new" role="separator"><span>New</span></li>';prev=null;}
-      h+=rgcLine(m,!!prev&&prev.a===m.a&&!prev.tm===!m.tm&&!m.r&&m.t-prev.t<RGC_RUN,by,me,mod,memo);prev=m;
+      h+=rgcLine(m,!!prev&&prev.a===m.a&&!prev.tm===!m.tm&&!prev.sys&&!m.sys&&!m.r&&m.t-prev.t<RGC_RUN,by,me,mod,memo);prev=m;
     }
     if(tab==='region')for(const p of RGC.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw"><p class="rgc-x">${esc(p.x)}</p><span class="rgc-wait">Sending…</span></div></li>`;
     const err=tab==='ally'?(AL.chat&&AL.chat.err)||'':RGC.err;
@@ -67038,7 +67087,8 @@ document.addEventListener('click',e=>{
   else if(a==='re-no'){RGC.re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='react'&&m){if(RGC.menu){RGC.menu='';}rgcReact(m,el.dataset.k);const b=document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(id)}"]`);if(b&&!document.activeElement.closest('.rgc-rxs'))b.focus({preventScroll:true});}
   else if(a==='goto')rgcGoto(id);
-  else if(a==='welcome'){const x=findNation(id);if(!x)return;RGC.draft=`Welcome to ${rgcIn()}, @${x.n.name}!`;RGC.foot='';RGC.stick=true;rgcSetTab('region');const f=document.getElementById('rgc-x');if(f){f.focus();try{f.setSelectionRange(f.value.length,f.value.length);}catch(e){}}}
+  else if(a==='welcome'||a==='hello'){const x=findNation(id),nm=x?x.n.name:String(el.dataset.nm||'');if(a==='welcome'&&!nm)return;
+    RGC.draft=a==='hello'?'Hello, everyone!':`Welcome to ${rgcIn()}, @${nm}!`;RGC.foot='';RGC.stick=true;rgcSetTab('region');const f=document.getElementById('rgc-x');if(f){f.focus();try{f.setSelectionRange(f.value.length,f.value.length);}catch(e){}}}
   else if(a==='ally-del'){const A=rgcAllyOn();if(!A)return;RGC.menu='';rgcPaint();alReq({op:'alPostDel',aid:A.id,pid:id}).then(()=>toast('The message was deleted.'),err=>toast(alErrText(err)));}
 });
 /* what the lines in view show of their nations (name, flag, rank, alliance, badge): when another nation renames itself,
@@ -67102,7 +67152,7 @@ const ACX_SHOW=100,ACX_HOURS=[[1,'1 hour'],[24,'24 hours'],[168,'7 days'],[720,'
 const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:''};
 ADM_ICONS['admin-chat']=NAV_SVG('<path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6"/>');
 const rgcHours=h=>h===1?'an hour':h===24?'24 hours':h===168?'7 days':h===720?'30 days':h+' hours';
-function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true};}
+function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'};}
 /* the newest line of every region: one small query a region, when the page opens and on Fetch again */
 async function acxRegsLoad(){
   if(!S.db)return;const n=++ACX.lseq;ACX.lbusy=true;ACX.lerr='';
@@ -67148,7 +67198,7 @@ function acxLogHTML(){
   const sil=new Set((ACX.mutes||[]).map(x=>x.uid));let day='';
   return ACX.list.map(m=>{
     const k=rgcDay(m.t),d=k!==day?(day=k,`<li class="acx-day" role="separator">${esc(rgcDayWords(m.t))}</li>`):'',staff=m.tm||!!m.st,ask=ACX.ask&&ACX.ask.id===m.id;
-    const pill=m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
+    const pill=m.sys?' <span class="chip acx-sys">Welcome line</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
     const acts=ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">Remove</button>${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
     return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}</span><span class="acx-b">${acts}</span></li>`;

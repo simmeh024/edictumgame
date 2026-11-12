@@ -1167,6 +1167,11 @@ test('a region chat is read by the nations of that region and by admins, and wri
   await assertFails(as('bob').doc('rcNote/bob').get());
   await assertFails(as('bob').doc('rcNote/bob').set({ t: 1 }));
   await assertFails(as('bob').doc('rchat/meridian/chat/l1').update({ rv: { bob: 'hear' } }));
+  // when a new nation was welcomed in the chat (functions/regionchat.js, rcHello): the server's alone
+  await assertFails(as('bob').doc('rcHello/bob').get());
+  await assertFails(as('bob').doc('rcHello/bob').set({ g: 1, t: 1 }));
+  await assertFails(as('bob').doc('rcHello/~meridian').get());
+  await assertFails(as('bob').doc('rchat/meridian/chat/l3').set({ a: 'bob', nm: 'Bobland', x: 'Bobland has been founded', t: 3, sys: 'found' }));
 });
 
 test('a chat silence is read by the silenced player and admins, and written only by the server', async () => {
