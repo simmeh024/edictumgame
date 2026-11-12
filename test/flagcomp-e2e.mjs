@@ -142,7 +142,8 @@ check('when all are scored the page says so', await until(async () => /You have 
 const votesA = await admin(`flagc/${M}/votes/${uids[0]}`), mineA = [...owner].find(([e, u]) => u === uids[0])[0];
 check('a judge’s ratings are kept by the server: three flags, never their own', !!votesA && Object.keys(votesA.v.mapValue.fields).length === 3 && !votesA.v.mapValue.fields[mineA]);
 check('scoring counts toward its achievements: the flags, the first day, a full share', await A.evaluate(m => { const n = G.S.nation, t = n.tly || {}; return t.fcj === 7 && t.fcearly === 3 && t.fcduty === 1 && n.fcd === m && !t.fcall && !!(n.ach || {})['fc-early']; }, M), JSON.stringify(await A.evaluate(() => [G.S.nation.tly, G.S.nation.fcd])));
-check('the competition has a category of its own among the achievements', await A.evaluate(() => G.RK.ACH.filter(a => a.c === 'flag').length === 17 && !G.RK.ACH.some(a => /^fc-/.test(a.id) && a.c !== 'flag')));
+// 17, and two Platinum ones from 12 November 2026 (Flag Connoisseur, Podium Furniture)
+check('the competition has a category of its own among the achievements', await A.evaluate(() => G.RK.ACH.filter(a => a.c === 'flag').length === 19 && !G.RK.ACH.some(a => /^fc-/.test(a.id) && a.c !== 'flag')));
 check('with its share done, the mark leaves the menu', await until(async () => !/\S/.test(await text(B, '.nav [data-v="flagcomp"] .badge'))));
 check('and the bell lets it go', !/Judging is open/.test(await bell(B)));
 /* a score can be changed until judging closes, with the keyboard too; a changed score counts for nothing new */

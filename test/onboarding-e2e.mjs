@@ -104,9 +104,11 @@ check('a signed trade reveals finance and persists the milestone',await until(()
 await nav(A,'exchange');check('the Bureau reveals prestige after the first signed trade',await A.locator('.cu-pre').isVisible()&&await A.locator('.cu-rank').count()===1);
 await nav(A,'intel');check('counterfeiting appears while normal intelligence rules remain',await A.locator('[data-act="cv-k"][data-k="c"]').count()===1&&await A.locator('[data-act="cv-launch"]').isDisabled());
 await saved();await A.reload();await A.waitForSelector('.layout');
-check('all revealed features survive reload',await A.evaluate(()=>G.PG.keys.every(k=>G.S.nation.onb.u.includes(k))));
+/* read once the nation has loaded: right after the layout shows, the page may still be taking up the saved record */
+const allOn=p=>until(()=>p.evaluate(()=>G.PG.keys.every(k=>G.S.nation&&G.S.nation.onb&&G.S.nation.onb.u.includes(k))),15000),onbOf=p=>p.evaluate(()=>JSON.stringify(G.S.nation&&G.S.nation.onb));
+check('all revealed features survive reload',await allOn(A),await onbOf(A));
 const C=await player('returning new player phone',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});await quiet(C);await open(C);await C.waitForSelector('.layout');
-check('the same reveals follow the account to another device',await C.evaluate(()=>G.PG.keys.every(k=>G.S.nation.onb.u.includes(k))));
+check('the same reveals follow the account to another device',await allOn(C),await onbOf(C));
 const B=await player('new player phone',{vp:{width:390,height:844},recovery:true});await quiet(B);await open(B);await B.waitForSelector('#d-pretitle');await B.selectOption('#d-pretitle','Kingdom');await found(B,'Smallsteps',{newPlayer:true});
 await B.waitForSelector('#ed-recovery-code',{timeout:25000});await B.click('[data-ed="recovery-saved"]');
 check('a kingdom’s first edict reads as a kingdom’s, and fits a phone',(await B.locator('.edict .h1').textContent())==='Where Shall the Throne Be Set Down?'&&/Privy Council/.test(await B.locator('.edict .form-code').textContent())&&await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
