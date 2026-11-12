@@ -11,7 +11,7 @@ function fixture(){
  const ctx=vm.createContext({MAP:{N,nbr,T,comp},RECL:{sig:'one'},S:{nation:n},REG:{id:'meridian'},REG_BY_ID:{meridian:{}},CITY_DISTRICT:2,YEAR_MS:2*DAY,DAY,Date:FixedDate,
   CELL_RES:{food:new Float64Array(N).fill(2),timber:new Float64Array(N).fill(1),iron:new Float64Array(N).fill(.5),oil:new Float64Array(N).fill(.1)},
   NORM_HOOKS:[],RES:['food','timber','iron','oil','goods'],BUILDINGS:{farm:{},harbour:{},rail:{}},BIOME:new Uint8Array(N).fill(1),PAINT_COL:[],paintOf:()=>0,hash:()=>1,
-  myId:()=> 'me',pol:n=>n.policies||{},clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),cityList:n=>n.cities||[],npcCities:()=>[],cityLabel:(n,c)=>c.nm||'Capital',
+  myId:()=> 'me',landWait:()=>'',landWaitMsg:()=>'still loading',landOffMsg:()=>'offline',pol:n=>n.policies||{},clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),cityList:n=>n.cities||[],npcCities:()=>[],cityLabel:(n,c)=>c.nm||'Capital',
   freeCell:(t,c)=>Number.isInteger(c)&&c>=0&&c<N&&T[c]>=2&&t.owner[c]===-1&&!t.isCap[c]&&!t.protected?.has(c),
   cityState:()=>{throw Error('Population must not recurse into cityState');}});
  vm.runInContext(src.slice(src.indexOf('const ringMemo='),src.indexOf('function cityList('))+'\n'+src.match(/function isCoastal\(c\)\{[^\n]+/)[0]+'\n'+src.slice(src.indexOf('const CP_BLD='),src.indexOf('let cpM={')),ctx);
@@ -100,6 +100,15 @@ test('a full claim record cannot silently discard existing territory',()=>{
  const max=vm.runInContext('CLAIM_MAX',ctx);assert.equal(max,3000);n.claims=Array.from({length:max},()=>({c:a,t:1}));
  assert.equal(ctx.writeClaims([b],'',false,true),false);assert.equal(commits,0);assert.equal(n.claims.length,max);
  assert.match(ctx.S.mapMsg,/land record is full: a nation keeps at most 3,000 claims/);
+});
+test('no claim is written before the other nations’ land is known (landWait)',()=>{
+ const {ctx,n,world,cell}=fixture(),a=cell(2,4),b=cell(3,4);world.owner.fill(-1);world.owner[a]=0;n.claims=[];let commits=0;
+ Object.assign(ctx,{territory:()=>world,landCredits:()=>5,clone:structuredClone,commit:x=>{ctx.S.nation=x;commits++;},render:()=>{},toast:()=>{}});
+ vm.runInContext(src.slice(src.indexOf('function writeClaims('),src.indexOf('function claimBlock(')),ctx);
+ ctx.landWait=()=>'wait';assert.equal(ctx.writeClaims([b],''),false);assert.equal(commits,0);assert.equal(ctx.S.mapMsg,'still loading');
+ ctx.landWait=()=>'off';ctx.S.mapMsg='';assert.equal(ctx.writeClaims([b],'',true),false);assert.equal(ctx.S.mapMsg,'','automatic spending says nothing');
+ assert.equal(ctx.writeClaims([b],''),false);assert.equal(ctx.S.mapMsg,'offline');assert.equal(commits,0);
+ ctx.landWait=()=>'';assert.equal(ctx.writeClaims([b],''),true);assert.equal(commits,1);
 });
 test('a record past the old 600 claims still takes new land, as far as its room and credits go',()=>{
  const {ctx,n,world,cell}=fixture(),a=cell(2,4),b=cell(3,4),c=cell(4,4);world.owner.fill(-1);world.owner[a]=0;let commits=0,credits=2;

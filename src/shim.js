@@ -1243,9 +1243,44 @@
   function goOffline(why, err) {
     if (A.online) return;
     A.why = why;
+    /* the game reads why before it lets anyone settle or claim land (game/edictum.html, landWait): with no server
+       configured it keeps its own map, otherwise it waits for one */
+    E.off = true; E.why = why;
     console.warn('[edictum] Playing in this browser only: ' + why + '.', err ? (err.code || err.message || err) : '');
     E.settle(apiFor(false));
     mount();
+    if (why === 'anonymous sign-in failed') signInLater(0);
+  }
+  /* The game began in this browser only, and the account is signed in now (start-up finished after the 60 s src/stub.js
+     gives it, or a later sign-in worked): a reload starts it in the region. Whatever was played meanwhile is saved in
+     this browser and goes up with the first save. Never while the player is typing, and at most twice in ten minutes,
+     or a start that is always this slow would reload for ever. Before this (2026-11-12) such a visit stayed offline
+     until the player reloaded, with no other nation on its map. */
+  var LATE_RELOAD = 'edictum.lateReload';
+  function lateOnline() {
+    var now = Date.now(), v = [];
+    try { v = JSON.parse(SS.get(LATE_RELOAD) || '[]').filter(function (t) { return now - t < 600000; }); } catch (e) { v = []; }
+    if (v.length >= 2 || A.leaving) return;
+    var waited = 0;
+    (function go() {
+      if (A.leaving) return;
+      if (typing() && waited++ < 120) { setTimeout(go, 5000); return; }
+      v.push(Date.now()); SS.set(LATE_RELOAD, JSON.stringify(v));
+      toast('Connected. Edictum is reloading to join your region.');
+      setTimeout(function () { if (!A.leaving) location.reload(); }, 1200);
+    })();
+  }
+  /* a guest sign-in that failed is tried again in the background (a phone between networks, a slow line), up to ten
+     times, further apart each time; once it works, lateOnline */
+  function signInLater(n) {
+    if (n >= 10 || A.leaving || !A.auth) return;
+    setTimeout(function () {
+      if (A.leaving) return;
+      if (navigator.onLine === false) { signInLater(n + 1); return; }
+      var u = A.auth.currentUser;
+      within(u ? Promise.resolve(u) : A.auth.signInAnonymously().then(function (r) { return r && r.user; }), 15000)
+        .then(function (user) { if (user) lateOnline(); else signInLater(n + 1); }, function () { signInLater(n + 1); });
+    }, 20000 * Math.min(6, n + 1));
   }
   function fetchConfig() {
     return within(fetch('/__/firebase/init.json', { credentials: 'same-origin', cache: 'no-cache' }), 8000)
@@ -1386,7 +1421,7 @@
     A.uid = user.uid;
     try { await within(readClaims(user), 5000); } catch (e) { /* read again when the token changes */ }
     A.online = E.settle(apiFor(true));
-    if (!A.online) { A.why = 'start-up took too long'; mount(); return; }
+    if (!A.online) { A.why = E.why || 'start-up took too long'; mount(); lateOnline(); return; }
     /* start-up in steps, from the moment the page was asked for: the page and the scripts (downloaded and run),
        waiting for the page, Firebase's configuration, starting Firebase, sign-in, and the account's checks */
     var t4 = performance.now();
