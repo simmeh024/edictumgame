@@ -29,7 +29,7 @@ await move(A,'map');await A.evaluate(()=>{Object.assign(G.S.mapViews.main,{z:6,c
 const mapBefore=await A.evaluate(()=>({...G.S.mapViews.main}));await A.goBack();await view(A,'customise');
 check('browser Back restores the previous scroll position',await A.evaluate(y=>Math.abs(window.scrollY-y)<10,position));
 await move(A,'map');check('map zoom and centre are preserved across navigation',await A.evaluate(v=>Math.abs(G.S.mapViews.main.z-v.z)<.001&&Math.abs(G.S.mapViews.main.cx-v.cx)<.001&&Math.abs(G.S.mapViews.main.cy-v.cy)<.001,mapBefore));
-await move(A,'stats');await A.click('[data-act="st-tab"][data-k="economy"]');await move(A,'cities');await A.goBack();await view(A,'stats');
+await move(A,'stats');await A.click('[data-act="st-grp"][data-g="eco"]');await A.click('[data-act="st-tab"][data-k="economy"]');await move(A,'cities');await A.goBack();await view(A,'stats');
 check('browser Back restores the selected statistics tab',await A.evaluate(()=>G.S.statsTab==='economy'));
 const B=await player('navigation neighbour'),uidB=await open(B);await found(B,'OtherHarbor');await until(()=>A.evaluate(id=>G.allNations().some(n=>n.id===id),uidB));
 await search(A,'OtherHarbor');check('known nations appear in search',await result(A,'nation:'+uidB).count()===1);await result(A,'nation:'+uidB).click();await view(A,'visit');
