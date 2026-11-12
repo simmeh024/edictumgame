@@ -22,6 +22,8 @@ This script turns it into a small page plus long-cached files, without changing 
   - the Firebase compat SDK (app, auth, firestore), copied from node_modules into
     public/vendor/firebase/<version>/ so the site needs no CDN;
   - src/shim.js after the game: the Firebase-backed window.claude and the account control;
+  - Firebase Performance Monitoring as /assets/perf.<hash>.js, edited so it reports no player IDs (PERF_EDITS),
+    which the shim loads only for a player who allowed visit statistics;
   - the build, a hash of the page, in its meta edictum-build and in /version.json, by which an open tab
     learns that a newer one has been deployed (src/shim.js reloads it);
   - description, theme colour, Open Graph tags, icons and schema.org data for search engines;
@@ -48,6 +50,18 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 GAME = os.path.join(ROOT, 'game', 'edictum.html')
 SRC = os.path.join(ROOT, 'src')
 SDK = ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js']
+# Firebase Performance Monitoring, as /assets/perf.<hash>.js: src/shim.js loads it only for a player who allowed visit
+# statistics. It reports the address of the page and of everything the page downloads, so two edits keep player IDs
+# out of what it sends: the page's address loses its #hash (#visit/<id>), and every other address goes through
+# src/perf-url.js, which keeps only the host of other sites and blanks the IDs in Firebase's paths (nations/<uid>).
+# A newer Firebase that changes either line stops the build here, rather than sending addresses unmasked.
+PERF_SDK = 'firebase-performance-compat.js'
+PERF_EDITS = [
+    ('getUrl(){return this.windowLocation.href.split("?")[0]}',
+     'getUrl(){return this.windowLocation.href.split(/[?#]/)[0]}'),
+    ('url:a.name&&a.name.split("?")[0],',
+     'url:a.name&&self.edictumPerfUrl(a.name),'),
+]
 APP_MARK = '<div id="app"></div>'
 BUILD_MARK = '__EDICTUM_BUILD__'  # the page's own build, filled in once the page is complete
 # (package, its CSS files, the family name the game's styles use)
@@ -274,6 +288,21 @@ def hashed(out, name, ext, data):
     return '/assets/' + fn
 
 
+def perf_js(minify):
+    """src/perf-url.js, then the Performance Monitoring SDK with PERF_EDITS made, as one script."""
+    p = os.path.join(ROOT, 'node_modules', 'firebase', PERF_SDK)
+    if not os.path.exists(p):
+        fail('node_modules/firebase/%s is missing' % PERF_SDK)
+    sdk = read(p)
+    for old, new in PERF_EDITS:
+        if sdk.count(old) != 1:
+            fail('%s no longer has %r exactly once: find that line in this Firebase version and update PERF_EDITS, '
+                 'so its reports keep leaving player IDs out' % (PERF_SDK, old))
+        sdk = sdk.replace(old, new)
+    sdk = re.sub(r'\s*//# sourceMappingURL=\S+\s*$', '', sdk)
+    return inline_js(os.path.join(SRC, 'perf-url.js'), minify) + '\n' + sdk.strip() + '\n'
+
+
 def split_content(script):
     """Acorn extracts only literal text in static catalogs, leaving their closures in the game."""
     try:
@@ -385,7 +414,10 @@ def main():
     # every region's map, long-cached on its own: it changes only when the generators or the regions do
     maps_url = hashed(out, 'maps', 'js', bake_maps(script))
     # the Firebase adapter runs after the game, so it is a deferred file of its own (an inline script cannot wait)
-    shim_url = hashed(out, 'shim', 'js', inflate_js() + '\n' + inline_js(os.path.join(SRC, 'shim.js'), minify))
+    # speed statistics, which the shim loads for a player who allowed visit statistics (PERF_SDK); it learns the address here
+    perf_url = hashed(out, 'perf', 'js', perf_js(minify))
+    shim_url = hashed(out, 'shim', 'js', inflate_js() + '\n' + 'self.edictumPerfSdk=%s;\n' % json.dumps(perf_url) +
+                      inline_js(os.path.join(SRC, 'shim.js'), minify))
 
     a = lambda path: (site + path) if site else path
     e = lambda s: html.escape(s, quote=True)

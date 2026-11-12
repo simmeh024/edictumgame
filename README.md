@@ -506,6 +506,24 @@ title, never with a player ID or a nation; advertising storage, Google signals a
 off. `test/analytics-e2e.mjs` checks all this with a stand-in for `gtag.js` (`window.EDICTUM_ANALYTICS_ID`
 supplies a measurement ID on the emulators).
 
+**Speed statistics.** Firebase Performance Monitoring, with the same answer (`src/shim.js`, "speed
+statistics"). Only after **Allow** does the shim load `/assets/perf.<hash>.js` (the SDK's compat build
+from `node_modules`, about 40 KB, after start-up has finished); it then reports the page load (first and
+largest contentful paint, layout shift, interaction delay), each download's time and three of the
+game's own traces: `game_start` (from the first byte to playing, with `script_ms`, `wait_ms`,
+`config_ms`, `firebase_ms`, `sign_in_ms` and `account_ms`, and whether the player is a `guest` or
+`linked` on a `first` or `returning` visit), `nation_load` (the first read of the player's own nation)
+and `nation_save` (each save, with its `result`: `saved`, `conflict` or `failed`). The SDK reports the
+address of the page and of every download, so `build.py` edits two of its lines (`PERF_EDITS`; a newer
+Firebase that changes them stops the build): the page's address loses its `#hash` (`#visit/<id>`), and
+download addresses go through `src/perf-url.js`, which keeps only the host of other sites and turns
+anything ID-like in this site's and Firebase's paths into `*` (`documents/nations/*`). Turning
+statistics off stops it, and on the next page load deletes its settings and the browser's Firebase
+installation ID (`firebase-installations-database`); the privacy notice does the same. Off on `localhost`
+and `demo-` projects, unless a test sets `window.EDICTUM_PERF`. `test/perf-e2e.mjs` checks it with
+stand-ins for Google's installation, configuration and logging calls, and reads the logs the page posts;
+`test/perf-url.test.mjs` checks the masking.
+
 **The front page.** A visitor without a nation lands on the founding page, which is also the front
 page. Besides the charter it says what Edictum is (`HOME_FEATS` in the game), offers a sample edict
 to try, worded for the nation being drafted (`HOME_TRY`; nothing chosen there counts), and shows the
@@ -1005,6 +1023,23 @@ Optional: without it the site never asks (see Visit statistics). `edictum-b30de`
    automatic page views (`send_page_view: false`), which also stops the history-based ones, and sends
    its own with the cleaned address, which it also sets (`gtag('set')`) for the tag's other events
    (scrolls, outbound links, downloads).
+
+### 9c1. Performance Monitoring (speed statistics)
+
+Nothing to switch on: the dashboard is in the Firebase console under **Performance**, and fills once
+players who allowed visit statistics have played on a deployed build (the first numbers can take up to
+a day). Custom traces are `game_start`, `nation_load` and `nation_save` (see Speed statistics).
+
+1. If the **Browser key** (Google Cloud console → **APIs & Services** → **Credentials**) has API
+   restrictions, add **Firebase Installations API** and **Firebase Remote Config API** to them. Without
+   the first nothing is sent; without the second the SDK falls back to its default settings. A key
+   without restrictions needs nothing.
+2. Optional: pin the custom traces to the Performance dashboard's metrics board, and set alerts on them
+   or on page load time from the same dashboard.
+
+The privacy notice states Google's retention for it: 30 days for events linked to an IP address,
+60 days for those linked to an installation ID or de-identified (<https://firebase.google.com/support/privacy>,
+checked 12 November 2026).
 
 ### 9c2. The Statistics page and its nightly record
 
