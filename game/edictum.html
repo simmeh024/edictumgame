@@ -28318,10 +28318,10 @@ function fpDrawMap(T,t){
   const col={sea:C('--sea'),sea2:C('--sea-2'),land:C('--land'),hill:C('--hill'),mount:C('--mount'),forest:C('--forest'),marsh:C('--marsh'),arid:C('--arid'),polder:C('--polder'),coast:C('--coast'),ink:C('--ink'),sheet:C('--sheet'),accent:C('--accent'),a:parseFloat(C('--terr-a'))||0.5};
   const tf=()=>g.setTransform(dpr*s,0,0,dpr*s,-F.x0*s*dpr,-F.y0*s*dpr);
   /* land and sea, drawn once per frame size and theme */
-  const bk=[PW,PH,F.x0,F.y0,F.w,col.sea,col.sea2,col.land,col.hill,col.mount,col.forest,col.coast,RECL.sig].join('|');
-  if(fpBase.k!==bk){const b=document.createElement('canvas');b.width=PW;b.height=PH;const q=b.getContext('2d');q.fillStyle=col.sea;q.fillRect(0,0,PW,PH);q.setTransform(dpr*s,0,0,dpr*s,-F.x0*s*dpr,-F.y0*s*dpr);
-    const byP=PAINT_COL.map(()=>[]);for(const c of R.cells)byP[paintOf(c)].push(c);
-    byP.forEach((cells,pp)=>{if(!pp||!cells.length)return;q.beginPath();for(const c of cells)hexFill(q,c,HEX_R+0.4);q.fillStyle=col[PAINT_COL[pp]]||col.land;q.fill();});
+  const bk=[PW,PH,F.x0,F.y0,F.w,col.sea,col.sea2,col.land,col.hill,col.mount,col.forest,col.coast,RECL.sig,sfKey()].join('|');
+  if(fpBase.k!==bk){const b=document.createElement('canvas');b.width=PW;b.height=PH;const q=b.getContext('2d');q.fillStyle=sfDeep(col);q.fillRect(0,0,PW,PH);q.setTransform(dpr*s,0,0,dpr*s,-F.x0*s*dpr,-F.y0*s*dpr);
+    const byP=PAINT_COL.map(()=>[]);for(const c of R.cells)byP[paintOf(c)].push(c);sfUnder(q,col);
+    byP.forEach((cells,pp)=>{if(pp===2)sfOver(q,col,1/s,F.x0,F.y0,F.x0+F.w,F.y0+F.h);if(!pp||!cells.length)return;q.beginPath();for(const c of cells)hexFill(q,c,HEX_R+0.4);q.fillStyle=col[PAINT_COL[pp]]||col.land;q.fill();});
     q.beginPath();edgeList(q,R.cells.filter(c=>MAP.T[c]>=2),(i,j)=>j<0||MAP.T[j]<2);q.strokeStyle=col.coast;q.lineWidth=1/s;q.stroke();fpBase={k:bk,c:b};}
   g.setTransform(1,0,0,1,0,0);g.drawImage(fpBase.c,0,0);tf();
   const by=new Map();for(const c of R.cells){const o=T.owner[c];if(o<0)continue;let a=by.get(o);if(!a)by.set(o,a=[]);a.push(c);}
@@ -42734,16 +42734,190 @@ function fillHeld(g,cells,style,rad){
 }
 function edgeList(g,cells,test){for(const i of cells){const x=MAP.cx[i],y=MAP.cy[i];for(let d=0;d<6;d++){if(!test(i,MAP.nbr[i*6+d]))continue;const k=(d+1)%6;g.moveTo(x+HCX[d]*HEX_R,y+HCY[d]*HEX_R);g.lineTo(x+HCX[k]*HEX_R,y+HCY[k]*HEX_R);}}}
 function drawPin(g,x,y,col){g.beginPath();g.arc(x,y-12,7.5,Math.PI*0.8,Math.PI*0.2,false);g.lineTo(x,y);g.closePath();g.fillStyle=col.stamp;g.fill();g.lineWidth=1.6;g.strokeStyle=col.sheet;g.stroke();g.beginPath();g.arc(x,y-12,2.8,0,Math.PI*2);g.fillStyle=col.sheet;g.fill();}
+/* ── the sea, charted ──
+   A field over the whole map: each point's distance in map units from the nearest land, on a grid of about 5 units,
+   measured exactly to the land hexes' own outlines within SF_EXACT of a coast, and negative just inside the land.
+   Worked out in small idle slices (again when land is reclaimed) and kept, as the relief is. From it:
+   - depth bands: the water pales in steps toward the land (SF_DL), a fine contour where each step ends, and the open
+     sea beyond the last a little deeper than --sea;
+   - the land's shadow on the water, a little down and to the right (SF_SH: offset x and y, then where it starts and
+     where it has faded, in map units from the land);
+   - water lining: fine lines echoing the coast that fade out to sea (SF_WL at SF_WA), as on engraved charts.
+   The bands lie under the shallows' hexes, the shadow and the lines over them, all of it under the land. Baked into
+   the terrain picture and its tiles; close up drawn per frame, the lines from bins of SF_BIN units (those in view).
+   Until the field is ready the map is drawn as it always was. */
+const SF_WL=[2.6,6.2,10.8,16.5],SF_WA=[0.5,0.36,0.24,0.13],SF_DL=[55,100,160],SF_LV=SF_WL.concat(SF_DL),SF_SH=[2.6,3.6,-1,7.5],SF_EXACT=26,SF_BIN=480,SF_RAMP=8,SF_BLUR=5,SF_VER=2;
+let sfF=null,sfJob=null,sfV=0,sfImg=null,sfImgK='',sfPalV=null,sfLoad=null;
+function sfRGB(s){
+  s=String(s||'').trim();let m=/^#([0-9a-f]{3})$/i.exec(s);if(m)return m[1].split('').map(h=>parseInt(h+h,16));
+  m=/^#([0-9a-f]{6})/i.exec(s);if(m){const v=parseInt(m[1],16);return [v>>16,(v>>8)&255,v&255];}
+  m=/rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(s);return m?[+m[1],+m[2],+m[3]].map(Math.round):[179,207,216];
+}
+/* how far a point lies outside hex h (0 inside), across the globe's seam where that is nearer */
+function sfHexOut(x,y,h){
+  let dx=x-MAP.cx[h];if(dx>MAP_PW/2)dx-=MAP_PW;else if(dx<-MAP_PW/2)dx+=MAP_PW;
+  const R=HEX_R,ri=HEX_W/2,ax=dx<0?-dx:dx,dy0=y-MAP.cy[h],ay=dy0<0?-dy0:dy0;
+  if(ax<=ri&&ax*0.5+ay*SQ3/2<=ri)return 0;
+  /* the nearer of the upright edge (ri, 0 to R/2) and the sloping one from (ri, R/2) to (0, R) */
+  const ux=ax-ri,uy=ay>R/2?ay-R/2:0,ex=-ri,ey=R/2,t=Math.max(0,Math.min(1,(ux*ex+(ay-R/2)*ey)/(ex*ex+ey*ey))),vx=ux-t*ex,vy=ay-R/2-t*ey;
+  return Math.sqrt(Math.min(ux*ux+uy*uy,vx*vx+vy*vy));
+}
+/* one row of the distance sweep (dir -1: looking at the row above, then back along the row; 1: the row below).
+   Each point keeps the grid position of the nearest land point found so far (fx, fy) and its squared distance. */
+function sfSweep(J,y,dir){
+  const W=J.W,fx=J.fx,fy=J.fy,d2=J.d2,gx=J.gx,gy=J.gy,o=y*W,on=(y+dir)*W,has=y+dir>=0&&y+dir<J.ny;
+  const rx=(p,q,x)=>{const qx=fx[q];if(qx<0)return;const dx=(qx-x)*gx,dy=(fy[q]-y)*gy,d=dx*dx+dy*dy;if(d<d2[p]){d2[p]=d;fx[p]=qx;fy[p]=fy[q];}};
+  if(dir<0){for(let x=0;x<W;x++){const p=o+x;if(x>0)rx(p,p-1,x);if(has){if(x>0)rx(p,on+x-1,x);rx(p,on+x,x);if(x<W-1)rx(p,on+x+1,x);}}for(let x=W-2;x>=0;x--)rx(o+x,o+x+1,x);}
+  else{for(let x=W-1;x>=0;x--){const p=o+x;if(x<W-1)rx(p,p+1,x);if(has){if(x<W-1)rx(p,on+x+1,x);rx(p,on+x,x);if(x>0)rx(p,on+x-1,x);}}for(let x=1;x<W;x++)rx(o+x,o+x-1,x);}
+}
+/* marching squares: which cell edges a level crosses for each corner pattern (the saddles, 5 and 10, by the middle) */
+const SF_MS=[[],[3,0],[0,1],[3,1],[1,2],null,[0,2],[3,2],[2,3],[0,2],null,[1,2],[1,3],[0,1],[3,0],[]];
+function sfCell(J,l,v,x,y,a,b,c,d){
+  const i=(a>v?1:0)|(b>v?2:0)|(c>v?4:0)|(d>v?8:0);let s=SF_MS[i];
+  if(!s){const m=(a+b+c+d)/4>v;s=(i===5)===m?[0,1,2,3]:[3,0,1,2];}
+  const gx=J.gx,gy=J.gy,P=e=>e===0?[x+(v-a)/(b-a),y]:e===1?[x+1,y+(v-b)/(c-b)]:e===2?[x+(v-d)/(c-d),y+1]:[x,y+(v-a)/(d-a)];
+  for(let k=0;k<s.length;k+=2){const p=P(s[k]),q=P(s[k+1]),X=p[0]*gx,Y=p[1]*gy,key=l*65536+Math.floor(Y/SF_BIN)*256+Math.floor(X/SF_BIN);
+    let A=J.seg.get(key);if(!A)J.seg.set(key,A=[]);A.push(X,Y,q[0]*gx,q[1]*gy);}
+}
+const SF_STAGES=[
+  /* the hex under each point (cellAt, worked inline), and the land among them; the job's grid runs K points past
+     each side, wrapped round the globe, so the sweeps need not wrap */
+  (J,y0,y1)=>{const nx=J.nx,K=J.K,W=J.W,hx=J.hx,gx=J.gx,C=MAP.COLS,R=MAP.ROWS,T=MAP.T,fx=J.fx,fy=J.fy,d2=J.d2;
+    for(let y=y0;y<y1;y++){const o=y*nx,fr=(y*J.gy-HEX_R)/(1.5*HEX_R);
+      for(let x=0;x<nx;x++){
+        const fq=(x*gx-HEX_W/2)/HEX_W-fr/2,fs=-fq-fr;let q=Math.round(fq),r=Math.round(fr);const sq=Math.round(fs),dq=Math.abs(q-fq),dr=Math.abs(r-fr),ds=Math.abs(sq-fs);
+        if(dq>dr&&dq>ds)q=-r-sq;else if(dr>ds)r=-q-sq;
+        if(r<0||r>=R){hx[o+x]=-1;continue;}let c=q+((r-(r&1))>>1);if(c<0)c+=C;else if(c>=C)c-=C;hx[o+x]=r*C+c;}
+      for(let j=0,p=y*W;j<W;j++,p++){const x=j<K?nx-K+j:j<K+nx?j-K:j-K-nx,h=hx[o+x];if(h>=0&&T[h]>=2){fx[p]=j;fy[p]=y;d2[p]=0;}}}},
+  (J,y0,y1)=>{for(let y=y0;y<y1;y++)sfSweep(J,y,-1);},
+  (J,y0,y1)=>{for(let y=J.ny-1-y0;y>J.ny-1-y1;y--)sfSweep(J,y,1);},
+  /* exact near the coasts: the nearest land point's hex and its neighbours, measured to their outlines; inside the
+     land, minus the distance to the nearest sea hex round it */
+  (J,y0,y1)=>{const nx=J.nx,K=J.K,W=J.W,hx=J.hx,D=J.D,gx=J.gx,T=MAP.T,nb=MAP.nbr,E2=SF_EXACT*SF_EXACT;
+    for(let y=y0;y<y1;y++){const Y=y*J.gy;for(let x=0;x<nx;x++){const k=y*nx+x,h=hx[k],X=x*gx;
+      if(h>=0&&T[h]>=2){let m=Infinity;for(let e=0;e<6;e++){const j=nb[h*6+e];if(j>=0&&T[j]<2){const v=sfHexOut(X,Y,j);if(v<m)m=v;}}D[k]=m<Infinity?-m:-2*gx;continue;}
+      const p=y*W+x+K,qx=J.fx[p];if(qx<0){D[k]=1e4;continue;}
+      const dd=J.d2[p];if(dd>=E2){D[k]=Math.sqrt(dd);continue;}
+      let px=qx-K;if(px<0)px+=nx;else if(px>=nx)px-=nx;
+      const hf=hx[J.fy[p]*nx+px];let m=sfHexOut(X,Y,hf);
+      for(let e=0;e<6;e++){const j=nb[hf*6+e];if(j>=0&&T[j]>=2){const v=sfHexOut(X,Y,j);if(v<m)m=v;}}
+      D[k]=Math.min(m,Math.sqrt(dd));}}},
+  /* out at sea the field is blurred (a box SF_BLUR points each way, along the rows and then down them), so the
+     deep contours round off where two coasts' distances meet instead of meeting in a point; near the coast it stays exact */
+  (J,y0,y1)=>{const nx=J.nx,D=J.D,H=J.H||(J.H=new Float32Array(nx*J.ny)),r=SF_BLUR,n=2*r+1;
+    for(let y=y0;y<y1;y++){const o=y*nx;let sum=0;for(let k=-r;k<=r;k++)sum+=D[o+(k+nx)%nx];
+      for(let x=0;x<nx;x++){H[o+x]=sum/n;sum+=D[o+(x+r+1)%nx]-D[o+(x-r+nx)%nx];}}},
+  (J,y0,y1)=>{const nx=J.nx,ny=J.ny,D=J.D,H=J.H,r=SF_BLUR,n=2*r+1;
+    for(let y=y0;y<y1;y++)for(let x=0;x<nx;x++){const k=y*nx+x,d=D[k];if(d<=32)continue;
+      let sum=0;for(let q=-r;q<=r;q++)sum+=H[Math.max(0,Math.min(ny-1,y+q))*nx+x];
+      const t=d>=80?1:(d-32)/48,w=t*t*(3-2*t);D[k]=d+(sum/n-d)*w;}},
+  (J,y0,y1)=>{const nx=J.nx,D=J.D,L=SF_LV,lo=L[0],hi=L[L.length-1];
+    for(let y=y0;y<Math.min(y1,J.ny-1);y++)for(let x=0;x<nx;x++){
+      const x1=x+1===nx?0:x+1,a=D[y*nx+x],b=D[y*nx+x1],c=D[(y+1)*nx+x1],d=D[(y+1)*nx+x],mn=Math.min(a,b,c,d),mx=Math.max(a,b,c,d);
+      if(mx<=lo||mn>hi)continue;
+      for(let l=0;l<L.length;l++){const v=L[l];if(mn<=v&&mx>v)sfCell(J,l,v,x,y,a,b,c,d);}}}];
+const SF_CONTOUR=SF_STAGES.length-1;
+function sfGrid(){const g0=Math.max(5,Math.sqrt(MAP_PW*MAP.H/8e5)),nx=Math.round(MAP_PW/g0);return {nx,gx:MAP_PW/nx,gy:g0,ny:Math.ceil(MAP.H/g0)+1};}
+function sfStart(){
+  if((sfJob&&sfJob.sig===RECL.sig)||typeof Path2D!=='function')return;
+  const G=sfGrid(),nx=G.nx,ny=G.ny,K=Math.min(nx,Math.ceil((SF_DL[SF_DL.length-1]+12)/G.gx)),W=nx+2*K,N=W*ny;
+  sfJob={sig:RECL.sig,...G,K,W,hx:new Int32Array(nx*ny),fx:new Int32Array(N).fill(-1),fy:new Int32Array(N),d2:new Float32Array(N).fill(Infinity),D:new Float32Array(nx*ny),seg:new Map(),st:0,y:0,work:0,slices:0,sm:[],fresh:true};
+  setTimeout(sfRun,0);
+}
+function sfRun(){
+  const J=sfJob;if(!J)return;if(J.sig!==RECL.sig){sfJob=null;sfStart();return;}
+  const t0=performance.now();J.slices++;
+  while(performance.now()-t0<5){const y1=Math.min(J.ny,J.y+16),t1=performance.now();SF_STAGES[J.st](J,J.y,y1);J.sm[J.st]=(J.sm[J.st]||0)+performance.now()-t1;J.y=y1;
+    if(J.y>=J.ny){J.st++;J.y=0;if(J.st===SF_CONTOUR)J.hx=J.fx=J.fy=J.d2=J.H=null;
+      if(J.st>=SF_STAGES.length){J.work+=performance.now()-t0;sfFinish(J);sfJob=null;if(J.fresh)sfStore(sfF);redrawMaps();return;}}}
+  J.work+=performance.now()-t0;setTimeout(sfRun,0);
+}
+/* the segments as one path per level and bin */
+function sfFinish(J){
+  const bins=new Map();
+  for(const [key,A] of J.seg){const l=key>>16,bk=key&65535;let B=bins.get(bk);
+    if(!B){const bx=bk&255,by=bk>>8;bins.set(bk,B={x0:bx*SF_BIN-8,y0:by*SF_BIN-8,x1:(bx+1)*SF_BIN+8,y1:(by+1)*SF_BIN+8,p:[]});}
+    const p=new Path2D();for(let i=0;i<A.length;i+=4){p.moveTo(A[i],A[i+1]);p.lineTo(A[i+2],A[i+3]);}B.p[l]=p;}
+  sfF={sig:J.sig,v:++sfV,nx:J.nx,ny:J.ny,gx:J.gx,gy:J.gy,D:J.D,bins:[...bins.values()],ms:J.work,slices:J.slices,sm:J.sm.map(x=>Math.round(x||0)),cached:!J.fresh};
+}
+/* kept in the relief's IndexedDB store per region, land and version (in 16ths of a map unit), so a returning
+   player's page only traces the contours again */
+const sfDBKey=()=>[SF_VER,REG.id,MAP.N,MAP.W,MAP.H,RECL.sig].join('|');
+function sfStore(F){rlfDB().then(db=>{const Q=new Int16Array(F.D.length);for(let i=0;i<Q.length;i++)Q[i]=Math.max(-32767,Math.min(32767,Math.round(F.D[i]*16)));
+  db.transaction('kv','readwrite').objectStore('kv').put({k:sfDBKey(),nx:F.nx,ny:F.ny,Q},'sf:'+REG.id);}).catch(()=>{});}
+function sfCached(){
+  if(sfLoad)return sfLoad;const key=sfDBKey(),G=sfGrid();
+  return sfLoad=rlfDB().then(db=>new Promise(ok=>{const q=db.transaction('kv').objectStore('kv').get('sf:'+REG.id);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null);}))
+    .catch(()=>null).then(v=>{
+      if(!v||v.k!==key||v.k!==sfDBKey()||v.nx!==G.nx||v.ny!==G.ny||!(v.Q instanceof Int16Array)||v.Q.length!==G.nx*G.ny||sfF||sfJob)return false;
+      const D=new Float32Array(v.Q.length);for(let i=0;i<D.length;i++)D[i]=v.Q[i]/16;
+      sfJob={sig:RECL.sig,...G,D,seg:new Map(),st:SF_CONTOUR,y:0,work:0,slices:0,sm:[],fresh:false};setTimeout(sfRun,0);return true;});
+}
+/* the field (an older one while land reclaimed since is worked in), or null before the first is ready; the first
+   call looks for a kept copy before working one out */
+function sfField(){if(!sfF||sfF.sig!==RECL.sig){if(!sfLoad)sfCached().then(hit=>{sfLoad.done=1;if(!hit)sfStart();});else if(sfLoad.done)sfStart();}return sfF;}
+const sfKey=()=>{const F=sfField();return F?F.v:0;};
+/* the colours, from the theme's (or a poster's) sea, shallows and coast */
+function sfPal(col){
+  const k=[col.sea,col.sea2,col.coast,col.land].join('|');if(sfPalV&&sfPalV.k===k)return sfPalV;
+  const S=sfRGB(col.sea),S2=sfRGB(col.sea2),C=sfRGB(col.coast),dk=rlfDark(col),mx=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t)),css=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const deep=mx(S,dk?[0,5,8]:[52,108,140],dk?0.45:0.22);
+  return sfPalV={k,dk,bands:[mx(S,S2,0.5),mx(S,S2,0.24),S,deep],deep:css(deep,1),
+    sh:dk?[0,0,0]:[20,44,58],shA:dk?0.5:0.27,wl:SF_WA.map(a=>css(C,Math.min(0.9,a*(dk?1.25:1)).toFixed(3))),dl:css(C,dk?0.5:0.42)};
+}
+/* the open sea's colour: deeper than --sea once the bands are there to lead into it */
+const sfDeep=col=>sfField()?sfPal(col).deep:col.sea;
+/* the bands and the shadow as two pictures of one pixel per field point */
+function sfImages(F,col){
+  const P=sfPal(col),key=F.v+'|'+P.k;if(sfImg&&sfImgK===key)return sfImg;
+  const nx=F.nx,ny=F.ny,D=F.D,mk=()=>{const c=document.createElement('canvas');c.width=nx;c.height=ny;return c;},bc=mk(),sc=mk(),bg=bc.getContext('2d'),sg=sc.getContext('2d');if(!bg||!sg)return null;
+  const bi=bg.createImageData(nx,ny),si=sg.createImageData(nx,ny),bd=bi.data,sd=si.data,B=P.bands,ox=SF_SH[0]/F.gx,oy=SF_SH[1]/F.gy,s0=SF_SH[2],s1=SF_SH[3],sa=P.shA*255,sh=P.sh,near=s1+Math.hypot(SF_SH[0],SF_SH[1])+F.gx;
+  for(let y=0,k=0;y<ny;y++){
+    const fy=y-oy,ya=Math.max(0,Math.min(ny-1,Math.floor(fy))),yb=Math.min(ny-1,ya+1),ty=Math.max(0,Math.min(1,fy-ya));
+    for(let x=0;x<nx;x++,k++){
+      /* each step a short ramp (SF_RAMP either side), so the picture stays smooth however far it is enlarged */
+      const d=D[k],j=k*4;let r=B[0][0],g=B[0][1],b=B[0][2];
+      for(let q=0;q<3;q++){const e=SF_DL[q];if(d<=e-SF_RAMP)break;const t=d>=e+SF_RAMP?1:(d-e+SF_RAMP)/(2*SF_RAMP),w=t*t*(3-2*t),c=B[q+1];r+=(c[0]-r)*w;g+=(c[1]-g)*w;b+=(c[2]-b)*w;}
+      bd[j]=r;bd[j+1]=g;bd[j+2]=b;bd[j+3]=255;
+      if(d>=near)continue;
+      const fx=x-ox,xf=Math.floor(fx),tx=fx-xf,xa=(xf%nx+nx)%nx,xb=xa+1===nx?0:xa+1;
+      const v=(D[ya*nx+xa]*(1-tx)+D[ya*nx+xb]*tx)*(1-ty)+(D[yb*nx+xa]*(1-tx)+D[yb*nx+xb]*tx)*ty;
+      if(v<s1){const t=Math.max(0,(v-s0)/(s1-s0));sd[j]=sh[0];sd[j+1]=sh[1];sd[j+2]=sh[2];sd[j+3]=(1-t*t*(3-2*t))*sa;}
+    }
+  }
+  bg.putImageData(bi,0,0);sg.putImageData(si,0,0);sfImgK=key;return sfImg={band:bc,shadow:sc};
+}
+/* a field picture over the map (map-space transform), with the start of the next turn of the globe past MAP_PW */
+function sfDrawImg(g,F,c){
+  const sm=g.imageSmoothingEnabled,h=F.ny*F.gy,ex=Math.min(F.nx,Math.ceil((MAP.W-MAP_PW)/F.gx)+2);g.imageSmoothingEnabled=true;
+  g.drawImage(c,-F.gx/2,-F.gy/2,F.nx*F.gx,h);g.drawImage(c,0,0,ex,F.ny,MAP_PW-F.gx/2,-F.gy/2,ex*F.gx,h);g.imageSmoothingEnabled=sm;
+}
+/* under the shallows' hexes: the bands */
+function sfUnder(g,col){const F=sfField();if(!F)return;const I=sfImages(F,col);if(I)sfDrawImg(g,F,I.band);}
+/* over the shallows, under the land: the shadow, the contours and the water lines. u: map units per pixel of the
+   picture drawn; x0..y1: the map units it shows */
+function sfOver(g,col,u,x0,y0,x1,y1){
+  const F=sfField();if(!F)return;const P=sfPal(col),I=sfImages(F,col);if(I)sfDrawImg(g,F,I.shadow);
+  const shifts=[0];if(x1>MAP_PW-8)shifts.push(MAP_PW);if(x0<8)shifts.push(-MAP_PW);
+  g.lineCap='round';g.lineJoin='round';
+  const stroke=(l,style,w)=>{const p=new Path2D();let any=false;
+    for(const sx of shifts)for(const B of F.bins){const q=B.p[l];if(!q||B.x1+sx<x0||B.x0+sx>x1||B.y1<y0||B.y0>y1)continue;
+      try{if(sx)p.addPath(q,new DOMMatrix([1,0,0,1,sx,0]));else p.addPath(q);any=true;}catch(e){}}
+    if(any){g.strokeStyle=style;g.lineWidth=w*u;g.stroke(p);}};
+  for(let l=SF_WL.length;l<SF_LV.length;l++)stroke(l,P.dl,0.85);
+  /* zoomed far out the lines would run together: every other one */
+  for(let l=u>1.4?1:0;l<SF_WL.length;l+=u>1.4?2:1)stroke(l,P.wl[l],0.75);
+}
 /* the zoomed-out terrain picture: at most about 5.4 million pixels, whatever the region's size (phones cap canvases) */
 const TBMP_SCALE=Math.min(0.8,Math.sqrt(5.4e6/(MAP.W*MAP.H)));let tbmp=null,tbmpKey='';
 function terrainBitmap(col){
-  const key=[col.sea,col.sea2,col.land,col.hill,col.mount,col.coast,col.forest,col.marsh,col.arid,col.polder,RECL.sig].join('|');
+  const key=[col.sea,col.sea2,col.land,col.hill,col.mount,col.coast,col.forest,col.marsh,col.arid,col.polder,RECL.sig,sfKey()].join('|');
   if(tbmp&&tbmpKey===key)return tbmp;
   const c=document.createElement('canvas');c.width=Math.ceil(MAP.W*TBMP_SCALE);c.height=Math.ceil(MAP.H*TBMP_SCALE);
   const g=c.getContext('2d');g.setTransform(TBMP_SCALE,0,0,TBMP_SCALE,0,0);
-  g.fillStyle=col.sea;g.fillRect(0,0,MAP.W,MAP.H);
+  g.fillStyle=sfDeep(col);g.fillRect(0,0,MAP.W,MAP.H);sfUnder(g,col);
   const byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]);for(let i=0;i<MAP.N;i++){byT[MAP.T[i]].push(i);byP[paintOf(i)].push(i);}
-  byP.forEach((cells,p)=>{if(!p||!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=col[PAINT_COL[p]];g.fill();});
+  byP.forEach((cells,p)=>{if(p===2)sfOver(g,col,1/TBMP_SCALE,0,0,MAP.W,MAP.H);if(!p||!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=col[PAINT_COL[p]];g.fill();});
   g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1.3/TBMP_SCALE;g.stroke();
   rlfFacetsBaked(g,byP[4],col,TBMP_SCALE);tbmp=c;tbmpKey=key;return c;
 }
@@ -42755,18 +42929,18 @@ let ttKey='',ttPx=0;const ttCache=new Map();
 function terrainTile(col,tx,ty){
   const c=document.createElement('canvas');c.width=TT_PX;c.height=TT_PX;const g=c.getContext('2d');if(!g)return null;
   const X0=tx*TT_U,Y0=ty*TT_U,RR=1.5*HEX_R;g.setTransform(TT_SCALE,0,0,TT_SCALE,-X0*TT_SCALE,-Y0*TT_SCALE);
-  g.fillStyle=col.sea;g.fillRect(X0,Y0,TT_U,TT_U);
+  g.fillStyle=sfDeep(col);g.fillRect(X0,Y0,TT_U,TT_U);sfUnder(g,col);
   const byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]);
   const c0=Math.max(0,Math.floor(X0/HEX_W)-2),c1=Math.min(MAP.COLS-1,Math.ceil((X0+TT_U)/HEX_W)+1),r0=Math.max(0,Math.floor((Y0-HEX_R)/RR)-2),r1=Math.min(MAP.ROWS-1,Math.ceil((Y0+TT_U-HEX_R)/RR)+2);
   for(let r=r0;r<=r1;r++)for(let q=c0,i=r*MAP.COLS+c0;q<=c1;q++,i++){byT[MAP.T[i]].push(i);byP[paintOf(i)].push(i);}
-  byP.forEach((cells,p)=>{if(!p||!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=col[PAINT_COL[p]];g.fill();});
+  byP.forEach((cells,p)=>{if(p===2)sfOver(g,col,1/TT_SCALE,X0,Y0,X0+TT_U,Y0+TT_U);if(!p||!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=col[PAINT_COL[p]];g.fill();});
   g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1.3/TT_SCALE;g.stroke();
   rlfFacetsBaked(g,byP[4],col,TT_SCALE);return c;
 }
 /* the tiles under the view, drawn in device pixels at whole-pixel edges so no seams show; false when the
    view needs more tiles than the budget holds (the caller draws hexes instead) */
 function terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,cv){
-  const key=[col.sea,col.land,col.hill,col.mount,col.coast,col.forest,col.marsh,col.arid,col.polder,RECL.sig].join('|');
+  const key=[col.sea,col.sea2,col.land,col.hill,col.mount,col.coast,col.forest,col.marsh,col.arid,col.polder,RECL.sig,sfKey()].join('|');
   if(key!==ttKey){ttCache.clear();ttPx=0;ttKey=key;}
   const tx0=Math.max(0,Math.floor(Math.max(0,x0)/TT_U)),tx1=Math.floor(Math.min(MAP.W,x1)/TT_U),ty0=Math.max(0,Math.floor(Math.max(0,y0)/TT_U)),ty1=Math.floor(Math.min(MAP.H,y1)/TT_U);
   const n=(tx1-tx0+1)*(ty1-ty0+1);if(n*TT_PX*TT_PX>TT_BUDGET)return false;
@@ -42804,7 +42978,7 @@ function drawMap(cv,P){
   /* a plate may bring its own colours (P.pal, by CSS variable name): the poster's looks */
   const cs=getComputedStyle(document.documentElement),PAL=P&&P.pal,C=k=>PAL&&PAL[k]!=null?PAL[k]:cs.getPropertyValue(k).trim();
   const col={sea:C('--sea'),sea2:C('--sea-2'),land:C('--land'),hill:C('--hill'),mount:C('--mount'),forest:C('--forest'),marsh:C('--marsh'),arid:C('--arid'),polder:C('--polder'),coast:C('--coast'),ink:C('--ink'),sheet:C('--sheet'),stamp:C('--stamp'),down:C('--down'),accent:C('--accent')};
-  g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=col.sea;g.fillRect(0,0,w,h);
+  g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=sfDeep(col);g.fillRect(0,0,w,h);
   /* once for each turn of the globe on screen (see the globe), the one nearest the view's centre first: it wins
      the room for names, and only it draws the layers fixed to the screen and leaves state for the overlay */
   const boxes=[];let first=true,M0=null;
@@ -42822,7 +42996,7 @@ function drawMap(cv,P){
   const fillCells=(cells,style)=>{if(!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=style;g.fill();};
   const useBmp=s*dpr<=TBMP_SCALE*1.05,useTiles=!useBmp&&s*dpr<=TT_MAX&&terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,P?null:cv),baked=useBmp||useTiles;
   if(useBmp){g.setTransform(dpr,0,0,dpr,0,0);g.imageSmoothingEnabled=true;g.drawImage(terrainBitmap(col),ox,oy,MAP.W*s,MAP.H*s);g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);}
-  else if(!useTiles){byP.forEach((cells,p)=>{if(p)fillCells(cells,col[PAINT_COL[p]]);});if(!draft)rlfFacets(g,byP[4],col);}
+  else if(!useTiles){sfUnder(g,col);byP.forEach((cells,p)=>{if(p===2)sfOver(g,col,1/s,x0,y0,x1,y1);if(p)fillCells(cells,col[PAINT_COL[p]]);});if(!draft)rlfFacets(g,byP[4],col);}
   if(baked&&kind==='atlas'&&RECL.time.size){const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
   /* layers marked fixed sit at one place on the screen (the season badge): never on a plate, which moves */
   const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp:baked,draft,fixed:[],first},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||((P||!first)&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
