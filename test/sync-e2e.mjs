@@ -354,9 +354,14 @@ const busy = route => {
 };
 await C3.route('**/europe-west1/civic', busy);
 await edit(C3, 'Sent once the region has room');
+/* the tab coming back into focus (resumeNation) while the region is busy waits for the retry step too */
+await until(() => busyAt.length >= 1, 15000); await sleep(100);
+await C3.evaluate(() => window.dispatchEvent(new Event('focus')));
 const gaps = () => busyAt.slice(1).map((t, i) => t - busyAt[i]);
 check('a rate-limited save is tried again at growing gaps', await until(() => busyAt.length >= 3, 20000) && gaps()[0] >= 900 && gaps()[1] >= 1900, JSON.stringify(gaps()));
-check('the player hears the region is busy, not that its storage is full', await until(async () => /region is busy/.test(await toasts(C3)), 15000) && !/storage is full/.test(await toasts(C3)), await toasts(C3));
+/* the notice comes with the third refusal, and toasts show one at a time: an achievement the edit earned (with a new
+   rank, a long toast of eight seconds or more) can stand before it */
+check('the player hears the region is busy, not that its storage is full', await until(async () => /region is busy/.test(await toasts(C3)), 40000) && !/storage is full/.test(await toasts(C3)), await toasts(C3));
 await C3.unroute('**/europe-west1/civic', busy);
 check('and the save lands once the region has room', await until(async () => await motto() === 'Sent once the region has room', 20000));
 
