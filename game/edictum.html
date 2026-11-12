@@ -42966,18 +42966,23 @@ function sfDrawImg(g,F,c){
 /* under the shallows' hexes: the bands */
 function sfUnder(g,col){const F=sfField();if(!F)return;const I=sfImages(F,col);if(I)sfDrawImg(g,F,I.band);}
 /* over the shallows, under the land: the shadow, the contours and the water lines. u: map units per pixel of the
-   picture drawn; x0..y1: the map units it shows */
+   picture drawn; x0..y1: the map units it shows.
+   Every picture of a view must show the same lines at the same weight: while the map moves, frames are cut from a
+   plate drawn at another density (in full screen at 1x), often by another path (the zoomed-out picture or the tiles
+   where the settled view is drawn close up), and any difference shows as the lines jumping when the map starts and
+   stops moving. So all the lines are always drawn, as wide in map units (SF_LW) whatever the picture's density, and
+   only close up (where plate and view take the same path) are they kept from growing past SF_LWMAX pixels. */
+const SF_LW=[0.9,1],SF_LWMAX=[1.1,1.2];
 function sfOver(g,col,u,x0,y0,x1,y1){
   const F=sfField();if(!F)return;const P=sfPal(col),I=sfImages(F,col);if(I)sfDrawImg(g,F,I.shadow);
   const shifts=[0];if(x1>MAP_PW-8)shifts.push(MAP_PW);if(x0<8)shifts.push(-MAP_PW);
   g.lineCap='round';g.lineJoin='round';
-  const stroke=(l,style,w)=>{const p=new Path2D();let any=false;
+  const stroke=(l,style,k)=>{const p=new Path2D();let any=false;
     for(const sx of shifts)for(const B of F.bins){const q=B.p[l];if(!q||B.x1+sx<x0||B.x0+sx>x1||B.y1<y0||B.y0>y1)continue;
       try{if(sx)p.addPath(q,new DOMMatrix([1,0,0,1,sx,0]));else p.addPath(q);any=true;}catch(e){}}
-    if(any){g.strokeStyle=style;g.lineWidth=w*u;g.stroke(p);}};
-  for(let l=SF_WL.length;l<SF_LV.length;l++)stroke(l,P.dl,0.85);
-  /* zoomed far out the lines would run together: every other one */
-  for(let l=u>1.4?1:0;l<SF_WL.length;l+=u>1.4?2:1)stroke(l,P.wl[l],0.75);
+    if(any){g.strokeStyle=style;g.lineWidth=Math.min(SF_LW[k],SF_LWMAX[k]*u);g.stroke(p);}};
+  for(let l=SF_WL.length;l<SF_LV.length;l++)stroke(l,P.dl,1);
+  for(let l=0;l<SF_WL.length;l++)stroke(l,P.wl[l],0);
 }
 /* the zoomed-out terrain picture: at most about 5.4 million pixels, whatever the region's size (phones cap canvases) */
 const TBMP_SCALE=Math.min(0.8,Math.sqrt(5.4e6/(MAP.W*MAP.H)));let tbmp=null,tbmpKey='';
