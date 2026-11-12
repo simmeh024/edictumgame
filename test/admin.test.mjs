@@ -475,3 +475,51 @@ test('admins list who a player writes to and read one conversation only with a r
   const read = log.find(e => e.action === 'letters_read');
   assert.ok(read && read.actor === a.uid && read.with === q.uid && read.reason === 'Report 42: harassment' && !JSON.stringify(read).includes('timber'));
 });
+
+test('a dissolved nation is filed with a copy, listed for the admins, and restored exactly as it was saved', async () => {
+  const a = await user(true), p = await user(), q = await user(), o = await user();
+  const nation = async (u, name, cells, extra = {}) => {
+    const rec = { name, reg: 'meridian', pop: 6.5, founded: Date.now() - 3600000, claims: cells.map(c => ({ c, t: Date.now() })), cities: [{ id: 'c1', c: cells[0], nm: name + ' City' }] };
+    await put('nations/' + u.uid, { name, reg: 'meridian', pop: 6, rev: 12, ts: new Date(), j: JSON.stringify(rec), ...extra });   // put() writes whole numbers
+    await put('summaries/' + u.uid, { name, reg: 'meridian', pop: 6, t: Date.now() });
+    await put('nationx/' + u.uid, { j: '{"private":"kept"}' });
+  };
+  // the player's browser files the nation just before deleting it (src/shim.js, dropNation)
+  await nation(p, 'Restorland', [900101, 900102]);
+  const before = { n: await get('nations/' + p.uid), x: await get('nationx/' + p.uid), s: await get('summaries/' + p.uid) };
+  assert.deepEqual(await call(p, { op: 'gone', how: 'dissolve' }, 'accounts'), { ok: true });
+  for (const c of ['nations/', 'nationx/', 'summaries/']) await del(c + p.uid);
+  assert.deepEqual(await call(p, { op: 'gone' }, 'accounts'), { ok: false }, 'with no nation there is nothing to file');
+  await assert.rejects(call(p, { op: 'gone' }), e => e.status === 'PERMISSION_DENIED');   // only admins list them
+  const row = (await call(a, { op: 'gone' })).rows.find(r => r.uid === p.uid);
+  assert.ok(row && row.name === 'Restorland' && row.reg === 'meridian' && row.how === 'dissolve' && row.rev === 12 && row.copy === true, JSON.stringify(row));
+  assert.equal(row.now, null); assert.equal(row.account, 'guest'); assert.equal(row.docs, undefined, 'the list carries no copies');
+  await assert.rejects(call(p, { op: 'restore', id: row.id }), e => e.status === 'PERMISSION_DENIED');
+  // put back: the same documents, field for field, and the account's founding follows the new nations/ document
+  assert.deepEqual(await call(a, { op: 'restore', id: row.id, reason: 'Dissolved by mistake' }), { ok: true, uid: p.uid, name: 'Restorland' });
+  const after = { n: await get('nations/' + p.uid), x: await get('nationx/' + p.uid), s: await get('summaries/' + p.uid) };
+  for (const k of ['n', 'x', 's']) assert.deepEqual(after[k].fields, before[k].fields, k + ' comes back as it was saved');
+  const ai = (await get('accountIdentity/' + p.uid)).fields;
+  assert.equal(Number(ai.nationGeneration.integerValue), Math.floor(Date.parse(after.n.createTime)));
+  assert.ok(Number(ai.nationAt.integerValue) < Date.now() - 3000000, 'the nation keeps its own founding time');
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  assert.ok(log.some(e => e.action === 'restore' && e.outcome === 'completed' && e.actor === a.uid && e.reason === 'Dissolved by mistake'));
+  await assert.rejects(call(a, { op: 'restore', id: row.id }), e => e.status === 'FAILED_PRECONDITION');   // once
+  assert.ok((await call(a, { op: 'gone' })).rows.find(r => r.id === row.id).restoredAt > 0);
+  // land taken since, or a nation there again: refused, saying what stands in the way
+  await nation(q, 'Quayborne', [900201, 900202]);
+  await call(q, { op: 'gone', how: 'restart' }, 'accounts');
+  for (const c of ['nations/', 'nationx/', 'summaries/']) await del(c + q.uid);
+  await nation(o, 'Overreach', [900202, 900203]);
+  const qrow = (await call(a, { op: 'gone' })).rows.find(r => r.uid === q.uid);
+  assert.equal(qrow.how, 'restart');
+  await assert.rejects(call(a, { op: 'restore', id: qrow.id }), e => e.status === 'FAILED_PRECONDITION' && /Overreach \(1 hex\)/.test(e.message));
+  await del('nations/' + o.uid);
+  await nation(q, 'Quayborne the Second', [900301]);
+  await assert.rejects(call(a, { op: 'restore', id: qrow.id }), e => e.status === 'FAILED_PRECONDITION' && /holds a nation again/.test(e.message));
+  // and the copies go with the account
+  for (const c of ['nations/', 'nationx/', 'summaries/']) await del(c + q.uid);
+  await call(q, { op: 'close' }, 'accounts');
+  assert.equal(await get('gone/' + qrow.id), null);
+  assert.equal((await call(a, { op: 'gone' })).rows.some(r => r.uid === q.uid), false);
+});

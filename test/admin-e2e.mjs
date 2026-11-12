@@ -1,4 +1,4 @@
-import { BASE, OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators } from './lib.mjs';
+import { BASE, OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators, nav } from './lib.mjs';
 const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
 await clearEmulators();
 const A = await player('admin'), B = await player('player');
@@ -306,5 +306,24 @@ check('the Live feed fits a phone without scrolling sideways', await until(async
 await A.click('#adm-menu-toggle'); await A.click('.adm-nav [data-v="admin-watch"]');
 check('and so does Watchlist & alerts', await until(async () => /Kindland/.test(await text(A, '.adm-main')) && await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)));
 await A.screenshot({ path: OUT + '/admin-watch-phone.png', fullPage: true }); await A.setViewportSize(wide);
-await C.ctx.close(); await D.ctx.close(); await R.ctx.close();
+
+// Recently dissolved: a nation dissolved from Settings is filed with a copy of its last save, and put back from the portal
+const E = await player('dissolved'); const uidE = await open(E); await found(E, 'Mistakeland');
+await until(async () => { const n = await localNation(E); return n?._rev > 0 && !n._dirty; }, 15000);
+const savedE = await nationDoc(uidE);
+await nav(E, 'settings'); await E.click('#sg-tab-account'); await E.click('[data-act="dissolve-ask"]');
+await E.fill('#dz-type', 'Mistakeland'); await E.click('[data-act="dissolve-confirm"]');
+check('dissolving from Settings files the nation with a copy before it goes', await until(async () => (await restGet('nations/' + uidE)).status === 404
+  && (await restListAdmin('gone')).some(d => d.fields.uid?.stringValue === uidE && d.fields.how?.stringValue === 'dissolve' && d.fields.copy?.booleanValue === true), 15000));
+await page('admin-gone');
+check('Recently dissolved lists it, with how it went and that it can be restored', await until(async () => { const t = await text(A, '.adm-main'); return /Mistakeland/.test(t) && /Dissolved/.test(t) && /Can be restored/.test(t); }));
+await A.click('tr:has(.agn-nm:text-is("Mistakeland")) [data-act="agn-ask"]');
+check('Restore asks why first, for the audit log', await until(async () => await A.evaluate(() => document.activeElement?.id === 'agn-why')));
+await A.fill('#agn-why', 'Dissolved by mistake'); await A.click('[data-act="agn-yes"]');
+check('and puts the nation back as it was last saved', await until(async () => { const n = await nationDoc(uidE); return n?.rec?.name === 'Mistakeland' && n.rec.updatedAt === savedE.rec.updatedAt; }, 15000)
+  && await until(async () => /Restored/.test(await text(A, 'tr:has(.agn-nm:text-is("Mistakeland"))'))), JSON.stringify(await nationDoc(uidE).catch(() => null))?.slice(0, 200));
+await A.screenshot({ path: OUT + '/admin-gone.png', fullPage: true });
+await E.reload(); await ready(E);
+check('its player finds it again on their next visit', await until(async () => (await localNation(E))?.name === 'Mistakeland', 15000));
+await C.ctx.close(); await D.ctx.close(); await R.ctx.close(); await E.ctx.close();
 await finish();

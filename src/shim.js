@@ -403,10 +403,17 @@
     (Array.isArray(d.disc) ? d.disc : []).forEach(function (e) { if (e && num(e.t) > since && (e.o === 'found' || e.o === 'great') && Number.isInteger(e.s) && e.s >= 0) out.push('s' + e.s); });
     return out.filter(function (k, i, a) { return a.indexOf(k) === i && k.length <= 7; }).slice(0, 200);
   }
-  function dropNation(uid) {
-    var b = A.fs.batch();
-    ['nations/', 'nationx/', 'nationp/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
-    return b.commit().then(function () { delete A.raceAt[uid]; });
+  /* how: 'dissolve', 'restart' (Start over) or 'switch' (doSwitch). The player's own nation is first filed with the
+     server, which keeps a copy of its last save for the admins' Recently dissolved (functions/gone.js), so a mistaken
+     dissolve can be put back; that never holds the deletion up for long, nor stops it when it fails. */
+  function dropNation(uid, how) {
+    var u = A.auth && A.auth.currentUser;
+    var filed = u && u.uid === uid ? within(call('accounts', { op: 'gone', how: how || 'dissolve' }), 6000).catch(function () {}) : Promise.resolve();
+    return filed.then(function () {
+      var b = A.fs.batch();
+      ['nations/', 'nationx/', 'nationp/', 'summaries/', 'space/'].forEach(function (c) { b.delete(A.fs.doc(c + uid)); });
+      return b.commit();
+    }).then(function () { delete A.raceAt[uid]; });
   }
   /* a nation with its private half joined in */
   function getNation(uid) {
@@ -449,11 +456,12 @@
         if (nation) return Promise.reject(mapError({ code: 'invalid-argument' }));
         return ref.set(encode(col, data), { merge: true }).then(function () {}, function (e) { throw mapError(e); });
       },
-      delete: function () {
+      /* opts.how, for a nation: why it goes (dropNation) */
+      delete: function (opts) {
         if (A.frozen) return hang();
         if (shut()) return Promise.reject(readOnly());
         if (A.admin && col === 'boards' && p.length === 4) return adminApi.request({ op: 'moderate', action: 'delete_post', target: p[3], reg: p[1], reason: 'Removed from the region board' });
-        return (nation ? dropNation(p[1]) : ref.delete()).then(function () {}, function (e) { throw mapError(e); });
+        return (nation ? dropNation(p[1], opts && opts.how) : ref.delete()).then(function () {}, function (e) { throw mapError(e); });
       },
       onSnapshot: function (next, error) {
         return ref.onSnapshot(function (s) { next(snapOf(s)); }, function (e) { if (typeof error === 'function') error(mapError(e)); });
@@ -2226,7 +2234,7 @@
       if (sw.ready && guest && anon && !linkedUser(anon)) {
         /* only this guest sign-in can remove the guest nation from the region, so do it now (with a pop-up
            still to open, that waits: the pop-up must open while the click counts) */
-        await within(dropNation(anon.uid), 8000).then(function () { cleared = true; }, function () {});
+        await within(dropNation(anon.uid, 'switch'), 14000).then(function () { cleared = true; }, function () {});
       }
       res = await sw.signIn();
     } catch (e) {
