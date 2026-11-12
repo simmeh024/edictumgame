@@ -417,6 +417,8 @@
   }
   /* a nation with its private half joined in */
   function getNation(uid) {
+    var t0 = performance.now(), first = uid === A.uid && !PF.read; /* the first read of one's own nation: speed statistics */
+    if (first) PF.read = true;
     /* Own saves must use a coherent, server-confirmed pair. Separate gets can combine the shared half
        before another device's save with its private half afterwards (and cached reads can be stale). */
     var read = uid === A.uid ? A.fs.runTransaction(async function (tx) {
@@ -426,6 +428,7 @@
       pviewing() && SS.get(SS_PVIEW).split('|')[0] === uid ? A.fs.doc('nationp/' + uid).get().catch(function () { return null; }) : null]);
     return read.then(function (r) {
       var s = snapOf(r[0]), x = r[1] && r[1].exists ? r[1].data() : null, o = r[2] && r[2].exists ? r[2].data() : null;
+      if (first) perfTrace('nation_load', t0, performance.now() - t0, {}, { found: s.exists ? 'yes' : 'no' });
       /* the player's own record, as saved: its claims and finds were stamped with that save */
       if (uid === A.uid && s.exists) { var own = s.data(); A.raceAt[uid] = isObj(own) ? num(own.updatedAt) : 0; }
       if (!s.exists || (!x && !o)) return s;
@@ -445,7 +448,8 @@
         if (nation) {
           if (!A.auth.currentUser || A.auth.currentUser.uid !== p[1]) return Promise.reject(mapError({ code: 'permission-denied' }));
           try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
-          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { return r; }, function (e) { throw mapError(e); });
+          var t0 = performance.now(), took = function (how) { perfTrace('nation_save', t0, performance.now() - t0, {}, { result: how }); };
+          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { took('saved'); return r; }, function (e) { took(e && e.code === 'save_conflict' ? 'conflict' : 'failed'); throw mapError(e); });
         }
         return ref.set(encode(col, data)).then(function () {}, function (e) { throw mapError(e); });
       },
@@ -1156,15 +1160,16 @@
     v = v || statsChoice();
     if (v && GA.card) { GA.card.remove(); GA.card = null; }
     if (v === 'y') statsStart(); else if (v === 'n') statsStop();
+    perfApply(v);
   }
   function statsSet(v) { L.set(LS_STATS, v); statsApply(v); }
   /* answered in another tab, or on the privacy notice */
-  window.addEventListener('storage', function (e) { if (e.key === LS_STATS && GA.id) statsApply(); });
+  window.addEventListener('storage', function (e) { if (e.key === LS_STATS) statsApply(); });
   function statsAsk() {
     if (!GA.id || statsChoice() || GA.card) return;
     var c = document.createElement('section');
     c.className = 'ed-stats'; c.setAttribute('aria-label', 'Visit statistics');
-    c.innerHTML = '<p><b>Help us see how Edictum is played?</b> With your permission, Google Analytics counts visits: the pages you open, your type of device and browser, and roughly where you are. It sets cookies. Nothing about your nation or your messages is sent. <a href="/privacy#analytics" target="_blank" rel="noopener">Privacy</a></p>' +
+    c.innerHTML = '<p><b>Help us see how Edictum is played?</b> With your permission, Google Analytics counts visits (the pages you open, your type of device and browser, and roughly where you are) and Firebase measures how fast the game loads and saves. They set cookies and keep a random ID in this browser. Nothing about your nation or your messages is sent. <a href="/privacy#analytics" target="_blank" rel="noopener">Privacy</a></p>' +
       '<div class="ed-row"><button type="button" class="btn" data-ed="stats-y">Allow</button><button type="button" class="btn ghost" data-ed="stats-n">No thanks</button></div>';
     c.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('[data-ed]') : null;
@@ -1181,6 +1186,58 @@
     GA.card.style.bottom = r && r.height && r.top < innerHeight ? Math.round(innerHeight - r.top + 12) + 'px' : '';
   }
   window.addEventListener('resize', statsLift);
+
+  /* ───────── speed statistics: Firebase Performance Monitoring, with the same answer ─────────
+     A player who allows visit statistics also sends how fast the game is for them: how the page loaded (first
+     and largest paint, layout shifts, how long a tap waits for the screen), how long each download took, and three
+     of the game's own steps (perfTrace): start-up, reading the player's nation and saving it. Its script
+     (self.edictumPerfSdk, from build.py) loads only then, and stops sending when visit statistics are turned off.
+     Addresses go without player IDs: build.py's PERF_EDITS and src/perf-url.js. Off on this machine's emulators,
+     unless a test sets EDICTUM_PERF. */
+  var PF = { app: null, perf: null, loading: false, queue: [], read: false, shim: performance.now() };
+  function perfAllowed() {
+    return !!(PF.app && PF.app.options && PF.app.options.appId && self.edictumPerfSdk && statsChoice() === 'y' &&
+      (window.EDICTUM_PERF || !localHost() && !/^demo-/.test(String(PF.app.options.projectId))));
+  }
+  function perfApply(v) {
+    v = v || statsChoice();
+    if (v === 'y') perfStart(); else if (v === 'n') perfStop();
+  }
+  function perfStart() {
+    if (!perfAllowed()) return;
+    if (PF.perf) { PF.perf.dataCollectionEnabled = true; PF.perf.instrumentationEnabled = true; return; }
+    if (PF.loading) return;
+    PF.loading = true;
+    var s = document.createElement('script');
+    s.async = true; s.src = self.edictumPerfSdk;
+    s.onload = function () {
+      try { PF.perf = window.firebase.performance(PF.app); } catch (e) { console.warn('[edictum] Speed statistics did not start.', e && (e.code || e.message)); return; }
+      if (statsChoice() !== 'y') { perfStop(); return; } /* turned off while it loaded */
+      PF.queue.splice(0).forEach(function (f) { f(); });
+    };
+    s.onerror = function () { PF.loading = false; s.remove(); };
+    document.head.appendChild(s);
+  }
+  function perfStop() {
+    PF.queue = [];
+    if (PF.perf) { PF.perf.instrumentationEnabled = false; PF.perf.dataCollectionEnabled = false; return; }
+    /* like Google's cookies: its settings and this browser's Firebase installation ID go too. Not while it runs in
+       this tab, whose open database would hold the deletion (and a later Allow) up until the tab closes */
+    try { localStorage.removeItem('@firebase/performance/config'); localStorage.removeItem('@firebase/performance/configexpire'); } catch (e) {}
+    try { indexedDB.deleteDatabase('firebase-installations-database'); } catch (e) {}
+  }
+  /* one of the game's own steps, from start (performance.now()) for ms: numbers and fixed words only, never an ID or a
+     name. Steps before the script loads wait for it (a few), and are dropped if the answer is no */
+  function perfTrace(name, start, ms, metrics, attrs) {
+    if (!(ms >= 0) || statsChoice() === 'n') return;
+    var go = function () {
+      if (!PF.perf || statsChoice() !== 'y') return;
+      var m = {};
+      Object.keys(metrics || {}).forEach(function (k) { if (metrics[k] >= 0) m[k] = Math.round(metrics[k]); });
+      try { PF.perf.trace(name).record((performance.timeOrigin || BOOT_AT - PF.shim) + start, Math.max(1, Math.round(ms)), { metrics: m, attributes: attrs || {} }); } catch (e) {}
+    };
+    if (PF.perf) go(); else if (PF.queue.length < 20) PF.queue.push(go);
+  }
 
   /* ───────── start-up ───────── */
   function goOffline(why, err) {
@@ -1288,10 +1345,11 @@
     } catch (e) { strayAt = 0; return ''; /* asked again by a later refused save */ }
   };
   async function boot() {
-    var fb = window.firebase;
+    var fb = window.firebase, t0 = performance.now();
     if (!fb || typeof fb.initializeApp !== 'function' || typeof fb.auth !== 'function' || typeof fb.firestore !== 'function') return goOffline('the Firebase scripts did not load');
     var cfg = window.EDICTUM_FIREBASE_CONFIG || await fetchConfig();
     if (!isObj(cfg) || !cfg.apiKey || !cfg.projectId) return goOffline('there is no Firebase configuration');
+    var t1 = performance.now();
     GA.id = statsId(cfg);
     statsApply(); statsAsk();
     /* on our own domain, Google sign-in runs through it (Hosting serves /__/auth/ there too), so
@@ -1310,6 +1368,7 @@
       try { await within(fs.enablePersistence({ synchronizeTabs: true }), 5000); } catch (e) { /* no cache */ }
     }
     A.fb = fb; A.auth = auth; A.fs = fs; A.projectId = String(cfg.projectId);
+    var t2 = performance.now(), fresh = false;
     A.rest = emu && emu.firestore ? 'http://' + String(emu.firestore) + '/v1' : 'https://firestore.googleapis.com/v1';
     A.fn = emu && emu.functions ? 'http://' + String(emu.functions) + '/' + A.projectId + '/' + FN_REGION : 'https://' + FN_REGION + '-' + A.projectId + '.cloudfunctions.net';
     /* opened from an emailed sign-in link: finish it once the page is up, and keep the code out of the address bar */
@@ -1318,21 +1377,28 @@
     var user = null;
     try {
       user = await within(firstUser(auth), 10000);
-      if (!user) user = (await within(auth.signInAnonymously(), 15000)).user;
+      if (!user) { fresh = true; user = (await within(auth.signInAnonymously(), 15000)).user; }
     } catch (e) { return goOffline('anonymous sign-in failed', e); }
     if (!user) return goOffline('anonymous sign-in failed');
+    var t3 = performance.now();
     if (await guard(user) || unpark(user)) return;
     L.set(LS_UID, user.uid); L.set(LS_OUT, null);
     A.uid = user.uid;
     try { await within(readClaims(user), 5000); } catch (e) { /* read again when the token changes */ }
     A.online = E.settle(apiFor(true));
     if (!A.online) { A.why = 'start-up took too long'; mount(); return; }
+    /* start-up in steps, from the moment the page was asked for: the page and the scripts (downloaded and run),
+       waiting for the page, Firebase's configuration, starting Firebase, sign-in, and the account's checks */
+    var t4 = performance.now();
+    perfTrace('game_start', 0, t4, { script_ms: PF.shim, wait_ms: t0 - PF.shim, config_ms: t1 - t0, firebase_ms: t2 - t1, sign_in_ms: t3 - t2, account_ms: t4 - t3 },
+      { account: linkedUser(user) ? 'linked' : 'guest', visit: fresh ? 'first' : 'returning' });
     auth.onIdTokenChanged(function (u) {
       if (A.leaving) return;
       if (!u || u.uid !== A.uid) { leave({}); return; } /* signed in or out in another tab */
       readClaims(u).then(paint, paint);
     });
     mount();
+    PF.app = app; perfApply(); /* after start-up, which its download would only slow */
     if (emailLink) finishEmailLink(emailLink);
     else setTimeout(googleReturn, 0);
     setTimeout(supportCheck, 6000);
@@ -1726,7 +1792,7 @@
       if (w.uid && n) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
       if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>') + '</div>';
       if (w.kind !== 'local' && n) h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
-      if (GA.id) h += '<p class="ed-fine ed-stats-set">Visit statistics (Google Analytics): ' + (statsChoice() === 'y' ? 'allowed. <button type="button" class="linkish" data-ed="stats-n">Turn off</button>' : 'off. <button type="button" class="linkish" data-ed="stats-y">Allow</button>') + '</p>';
+      if (GA.id) h += '<p class="ed-fine ed-stats-set">Visit statistics (Google Analytics and Firebase speed): ' + (statsChoice() === 'y' ? 'allowed. <button type="button" class="linkish" data-ed="stats-n">Turn off</button>' : 'off. <button type="button" class="linkish" data-ed="stats-y">Allow</button>') + '</p>';
       if (w.kind !== 'guest') h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
     }
     ui.inn.innerHTML = h;
