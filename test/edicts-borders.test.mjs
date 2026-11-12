@@ -17,7 +17,8 @@ function load(){
   const a=source.indexOf(START),b=source.indexOf(END,a+START.length);
   assert(a>source.indexOf('for(const is of SHOW_ISSUES)'),'after the spectacle edicts, so no number moves');
   assert(b<=source.indexOf('/* ───────── the browser tab'));
-  assert.equal(source.indexOf('ISSUES.push(',b),-1,'no edict is added after this section');
+  const chn='for(const is of CHN_ISSUES){';
+  assert.equal(source.indexOf('ISSUES.push(',b),source.indexOf(chn)+chn.length,'only the chain edicts come after this section');
   vm.runInContext(source.slice(a,b)+'\nthis.J=JSON.stringify({X:BRD_ISSUES,R:BRD_ISSUES.map(is=>ISSUES_RANDOM.includes(is))});',ctx);
   return JSON.parse(ctx.J);
 }
