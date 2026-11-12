@@ -164,6 +164,22 @@ test('a banned account cannot fight', async () => {
   assert.deepEqual(await battle(g), { ok: false, why: 'banned' });
 });
 
+test('a nation a moderator has hidden fights nobody, and nobody fights it, until it is shown again', async () => {
+  const g = await guest(), foe = await guest();
+  await nation(g.uid);
+  await nation(foe.uid, { wars: { [g.uid]: { t: Date.now() } } }, 5);
+  const hide = uid => doc('mod/' + uid, { method: 'PATCH', body: JSON.stringify({ fields: { hidden: { booleanValue: true }, t: { integerValue: '1' }, by: { stringValue: 'admin' } } }) });
+  await hide(foe.uid);
+  assert.deepEqual(await battle(g, { d: foe.uid }), { ok: false, why: 'hidden' }, 'its land cannot be attacked');
+  assert.equal((await battle(g)).ok, true, 'the attacker may still fight a computer nation');
+  await del('mod/' + foe.uid);
+  assert.equal((await battle(g, { d: foe.uid })).ok, true, 'shown again, it can be fought');
+  await hide(g.uid);
+  assert.deepEqual(await battle(g), { ok: false, why: 'hidden' }, 'a hidden attacker stays at home');
+  await del('mod/' + g.uid);
+  assert.equal((await battle(g)).ok, true, 'and goes to war again once shown');
+});
+
 test('a player deleting their account clears their army, but only once the nation is gone', async () => {
   const g = await guest();
   await nation(g.uid);

@@ -13,7 +13,7 @@
      → {ok: true, win, t, s?, s2?, d, p, r}: t the server's time (the conquest's), s and s2 the seals of a victory,
        d the defender they name, p the odds used, r the readiness left; or {ok: false, why, next?}: why 'ready'
        (next: ms until the next point), 'nation' (no saved nation yet), 'gone' (no such defender in the
-       attacker's region) or 'banned'
+       attacker's region), 'banned', or 'hidden' (a moderator has hidden the attacker or the defender)
    referee({op: 'forget'}): a player deleting their account clears their army's record, once the nation is
      gone (before that, clearing it would refill the army)
 
@@ -100,6 +100,9 @@ async function battle(uid, data) {
     const alliances = (await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id)))).map(s => s.exists && typeof s.get('a') === 'string' ? s.get('a') : '');
     if (ban.exists) return { ok: false, why: 'banned' };
     if (!me.exists) return { ok: false, why: 'nation' };
+    /* a nation a moderator has hidden (mod/<uid> hidden) keeps its land and fights nobody, either way, until it is shown again */
+    const [modMe, modFoe] = await tx.getAll(db.doc('mod/' + uid), db.doc('mod/' + (npc ? uid : d)));
+    if (modMe.get('hidden') === true || (!npc && modFoe.get('hidden') === true)) return { ok: false, why: 'hidden' };
     const foe = npc ? null : rest.shift(), mine = record(me), now = Date.now();
     /* the defender is a nation of the attacker's own region: one of its computer nations, or a player whose nation
        is saved there (an id made up, or one from elsewhere, would have no army to hold the odds to) */
