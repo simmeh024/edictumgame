@@ -28,6 +28,15 @@ check('the bar under the masthead names every part of the paper', ['Front page',
 await A.click('.dsp-bar-b[data-to="dsp-cls"]');
 check('a part of the paper is a click away', await until(async () => await A.evaluate(() => { const e = document.getElementById('dsp-cls'), r = e.getBoundingClientRect(); return document.activeElement === e && r.top >= 0 && r.top < innerHeight - 100; }), 3000));
 check('the stars always read the reader’s own horoscope', /Inkhaven/.test(await text(A, '#dsp-p-stars')));
+/* the paper's pictures: halftone plates, each named and captioned, printed through the screen's SVG filter */
+const pics = await A.evaluate(() => { const g = document.querySelector('article.dsp g.dsp-ht'), plates = [...document.querySelectorAll('article.dsp .dsp-plate')];
+  return { n: document.querySelectorAll('article.dsp .dsp-pic').length, named: plates.every(s => s.getAttribute('role') === 'img' && /\S/.test(s.getAttribute('aria-label') || '') && !!s.querySelector('g.dsp-ht')),
+    caps: [...document.querySelectorAll('article.dsp .dsp-cap')].every(c => /\S/.test(c.textContent)), defs: !!document.querySelector('.dsp-defs #dsp-ht-l') && !!document.querySelector('.dsp-defs #dsp-htd-s'), filter: g ? getComputedStyle(g).filter : '' }; });
+check('the front page prints pictures in halftone, each named and captioned', pics.n > 0 && pics.named && pics.caps && pics.defs && /url\(.*#dsp-ht/.test(pics.filter), JSON.stringify(pics));
+const loc = await A.evaluate(() => { const D = G.DSP(), me = G.myId(), byId = new Map(G.allNations().map(x => [x.id, x])), st = kick => ({ who: [me], kick, h: 'x', go: '' });
+  const m = D.dspPic(st('New nation'), 'l', byId), f = D.dspPic(st('Politics'), 'l', byId);
+  return { map: /<image href="data:image\/png;base64,/.test(m) && /dsp-ht-m/.test(m), cap: /Inkhaven, printed solid, and the land around it\. The dot marks /.test(m), flag: /The flag of /.test(f) && /dsp-ht-l/.test(f) }; });
+check('a story about land prints a locator map of the nation, with its capital; any other its flag', loc.map && loc.cap && loc.flag, JSON.stringify(loc));
 await A.click(`.dsp-ed[data-no="${today() - 1}"]`);
 check('an edition lives in the address', await A.evaluate(() => location.hash) === '#dispatch/' + (today() - 1));
 await A.reload(); await A.waitForSelector('.dsp-bar'); const TA = Date.now();
