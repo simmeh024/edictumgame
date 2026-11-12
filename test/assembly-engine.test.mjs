@@ -92,3 +92,60 @@ test('a sway reaches up to two computer nations that have not voted yet, and the
  assert.deepEqual(vote({c,k:L.k,v,t:T1,ok:1,ex:0,np}).rows.map(r=>r.v),plain.rows.map(r=>r.v),'too late: they had voted');
  assert.deepEqual(base.swayPick(L,c,T1,v),[],'nobody left to lean on once all have voted');
 });
+
+/* ── commendations and condemnations: resolutions that name one nation ── */
+const veteran=(id,more={})=>record(id,{founded:now-40*DAY,civicAt:now-39*DAY,lastSave:now-1000,...more});
+const npcOf=reg=>DATA.regions.find(r=>r.id===reg).npcs;
+test('a commendation or condemnation never enters the rulebook, and a passed one marks the nation named for seven days',()=>{
+ const e=assemblyEngine('meridian',[]),bk=[{k:'k0',c:0,ti:'R0',tx:'',cat:'env',g:0,by:'x',bn:''}];
+ for(const cat of ['commend','condemn']){const r=e.bookStep(bk,{f:1,ok:1,g:0,by:'x',c:1,k:'n1',ti:'Named',cat,tg:'a',tn:'A'});assert.deepEqual(r.bk,bk);assert.deepEqual(r.bx,[]);}
+ const a=veteran('a'),c=e.cycle(now),t=e.t0(c);
+ const L=(x,cat,more)=>({c:x,k:'m'+x,ti:'Named '+x,tx:'',cat,g:0,by:'npc-vellmark',bn:'Vellmark',w:'n',lt:1,y:3,n:0,ok:1,f:1,r:'meridian',tg:'a',tn:'a',...more});
+ const eng=assemblyEngine('meridian',[a],[L(c-1,'commend'),L(c-2,'condemn',{ok:0}),L(c-4,'condemn')]);
+ assert.deepEqual(eng.marks(now).map(m=>[m.m,m.tg,m.c]),[['c','a',c-1]],'the passed commendation of the last count: the failed condemnation marks nobody, and the one four counts ago has run out');
+ assert.equal(eng.marks(t).length,1,'from the close of its count');assert.equal(eng.marks(t-1).length,0,'not before');
+ assert.equal(eng.marks(t+7*DAY-1).length,1);assert.equal(eng.marks(t+7*DAY).length,0,'gone after seven days');
+ assert.equal(eng.mark('commend'),'c');assert.equal(eng.mark('condemn'),'x');assert.equal(eng.mark('trade'),'');
+});
+test('a condemnation needs two votes for every one against; a commendation a simple majority',()=>{
+ const ps=['a','b','c','d','e'].map(id=>veteran(id)),e=assemblyEngine('meridian',ps),c=e.cycle(now),t0=e.t0(c),T=t0+60000;
+ const count=(cat,yes,no)=>{ps.forEach((p,i)=>{p.n.asm.v=i<yes?[{c,k:'nm',v:1,t:t0+1000}]:i<yes+no?[{c,k:'nm',v:-1,t:t0+1000}]:[];});
+   const L={c,k:'nm',ti:'Named',cat,g:0,by:'npc-vellmark',lt:t0,tg:'npc-karvesk',tn:'Karvesk'};return assemblyEngine('meridian',ps,[L]).tally(L,c,ps,T,null);};
+ assert.equal(count('condemn',2,1).ok,true,'two to one carries');
+ assert.equal(count('condemn',3,2).ok,false,'three to two falls short');
+ assert.equal(count('commend',3,2).ok,true,'a commendation needs only more for than against');
+ assert.equal(count('commend',2,2).ok,false,'a tie fails');
+});
+test('a computer nation named votes for its own commendation and against its own condemnation, before the others',()=>{
+ const a=veteran('a'),e=assemblyEngine('meridian',[a]),c=e.cycle(now),t0=e.t0(c),x=npcOf('meridian')[0].id;
+ for(const [cat,v] of [['commend',1],['condemn',-1]]){
+  const L={c,k:'nm-'+cat,ti:'Named',cat,g:0,by:'a',lt:t0,tg:x,tn:'X'},V=assemblyEngine('meridian',[a],[L]).tally(L,c,[a],t0+700000,null);
+  assert.equal(V.rows.find(r=>r.id===x).v,v);assert.ok(V.rows.filter(r=>r.npc&&r.id!==x).every(r=>r.v===null),'the others take their time');}
+});
+test('who a resolution may name: no newcomer or absentee condemned, never its proposer, nobody twice for the same mark',()=>{
+ const a=veteran('a'),fresh=veteran('fresh',{founded:now-3*DAY}),away=veteran('away',{lastSave:now-20*DAY}),hid={...veteran('hid'),hidden:true},x=npcOf('meridian')[0].id;
+ const e=assemblyEngine('meridian',[a,fresh,away,hid]),why=(id,m,by='a',eng=e)=>eng.named(id,m,now,by);
+ assert.equal(why(x,'x'),'','a computer nation may be condemned');assert.equal(why('away','c'),'','an absent nation may still be commended');
+ assert.match(why('fresh','x'),/first fortnight/);assert.equal(why('fresh','c'),'','a newcomer may be commended');
+ assert.match(why('away','x'),/not been seen/);assert.match(why('a','c'),/proposes/);
+ assert.match(why('hid','c'),/not in the region/);assert.match(why('nobody','c'),/not in the region/);assert.match(why('','c'),/Choose/);
+ const c=e.cycle(now),done={c:c-1,k:'m',ti:'Laurels for A',cat:'commend',g:0,by:'npc-vellmark',bn:'Vellmark',w:'n',lt:1,y:3,n:0,ok:1,f:1,r:'meridian',tg:'away',tn:'away'};
+ const e2=assemblyEngine('meridian',[a,fresh,away,hid],[done]);
+ assert.match(why('away','c','a',e2),/laurel/,'already commended');assert.equal(why(x,'c','a',e2),'');
+ assert.equal(e.target(x).npc,true);assert.equal(e.target('a').n.name,'a');
+});
+test('a proposal naming a nation that already wears the mark is passed over; one that may name it goes to the vote with it',()=>{
+ const a=veteran('a'),b=veteran('b'),base=assemblyEngine('meridian',[a,b]),c=base.cycle(now);
+ a.n.asm.p={t:base.t0(c-1)+1000,ti:'Laurels for b',tx:'For being b, steadily.',c:'commend',g:0,tg:'b',tn:'b'};
+ const p=assemblyEngine('meridian',[a,b]).pick(c,new Set());assert.equal(p.by,'a');assert.equal(p.tg,'b');assert.equal(p.tn,'b');assert.equal(p.cat,'commend');
+ const done={c:c-1,k:'m',ti:'Earlier laurels',cat:'commend',g:0,by:'npc-vellmark',bn:'Vellmark',w:'n',lt:1,y:3,n:0,ok:1,f:1,r:'meridian',tg:'b',tn:'b'};
+ const q=assemblyEngine('meridian',[a,b],[done]).pick(c,new Set(['m']));assert.notEqual(q.by,'a','b already wears the laurel: a computer nation tables something instead');
+});
+test('now and then a computer nation proposes to commend the member it likes best, when nobody has proposed anything',()=>{
+ const x=npcOf('meridian')[0],fan=veteran('fan',{s:{...x.s},lastSave:0}),e=assemblyEngine('meridian',[fan]),c=e.cycle(now);
+ const picks=[...Array(60)].map((_,i)=>e.pick(c+1+i,new Set())),laud=picks.filter(p=>p.cat==='commend');
+ assert.ok(laud.length>=4&&laud.length<=20,'about one cycle in six: '+laud.length);
+ for(const p of laud){assert.equal(p.tg,'fan');assert.ok(p.by.startsWith('npc-'));assert.match(p.ti,/fan/);assert.equal(p.w,'n');}
+ const gone=veteran('gone',{s:{...x.s},lastSave:now-30*DAY}),away=assemblyEngine('meridian',[gone]);
+ assert.ok([...Array(60)].map((_,i)=>away.pick(c+1+i,new Set())).every(p=>p.cat!=='commend'),'never a member who has not been seen for a fortnight');
+});

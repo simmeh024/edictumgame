@@ -919,3 +919,23 @@ test('Region chat: answers quote their line and tell its writer, @mentions tell 
   assert.equal(await rcForget(db,g.uid,['meridian','frostmarch']),1);
   assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).get('rv')[g.uid],undefined);
 });
+
+test('A commendation or a condemnation names one nation of the region, checked at the backend',async()=>{
+  const reg='jadeterraces', a=await player(true,true,reg), b=await player(true,true,reg), c=await player(true,true,reg);
+  const x=JSON.parse(fs.readFileSync(new URL('../functions/civic-data.json',import.meta.url),'utf8')).regions.find(r=>r.id===reg).npcs[0];
+  const named={op:'propose',title:'Laurels for a neighbour',body:'For keeping the peace and lending us its snowploughs.',category:'commend',strength:1};
+  await rejects(civic(a,named),'invalid_target');
+  await rejects(civic(a,{...named,target:a.uid}),'invalid_target');
+  await rejects(civic(a,{...named,target:'nobody-here'}),'invalid_target');
+  await rejects(civic(a,{...named,category:'condemn',target:b.uid}),'invalid_target');
+  const out=await civic(a,{...named,target:b.uid});
+  assert.equal(out.own.p.c,'commend');assert.equal(out.own.p.tg,b.uid);assert.equal(out.own.p.tn,b.uid);assert.equal(out.own.p.g,0,'always mild');
+  const kept=(await db.doc(`assemblyRegions/${reg}/proposals/${a.uid}~${Math.round(out.own.p.t).toString(36)}`).get());assert.equal(kept.get('tg'),b.uid);
+  const cx=await civic(c,{...named,title:'A Censure',category:'condemn',target:x.id});assert.equal(cx.own.p.tg,x.id);assert.equal(cx.own.p.tn,x.name);
+  /* a nation already wearing the laurel cannot be commended again until it runs out */
+  const st=await civic(b,{op:'state'});
+  await db.doc(`assemblyRegions/${reg}/cycles/${st.c-1}`).set({c:st.c-1,k:'test~laurel',ti:'Earlier laurels',tx:'',cat:'commend',g:0,by:x.id,bn:x.name,w:'n',lt:1,y:2,n:0,ok:1,f:Date.now(),r:reg,tg:a.uid,tn:a.uid});
+  await db.doc('assemblyRegions/'+reg).set({at:Date.now()},{merge:true});
+  await assert.rejects(civic(b,{...named,target:a.uid}),e=>e.code==='invalid_target'&&/laurel/.test(e.message));
+  const seen=await civic(b,{op:'state'});assert.ok(seen.locks.some(L=>L.k==='test~laurel'&&L.tg===a.uid),'every player of the region receives the mark with the counts');
+});
