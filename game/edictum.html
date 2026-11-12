@@ -46656,7 +46656,7 @@ async function dissolve(draft){
     /* founding again waits for this (found: S.dissolving), so a new nation never meets the old one's record */
     S.dissolving=true;
     try{clearTimeout(remoteTimer);remoteTimer=0;remoteDirty=false;while(remoteBusy)await sleep(100);
-      try{await db.doc('nations/'+uid).delete();}catch(e){}}
+      try{await db.doc('nations/'+uid).delete({how:again?'restart':'dissolve'});}catch(e){}}
     finally{S.dissolving=false;if(!S.nation&&S.foundErr===DISSOLVING_MSG){S.foundErr='';render();}}
   }
 }
@@ -47269,7 +47269,7 @@ function admShell(v,body){
       <nav class="adm-nav" aria-label="Admin portal">
         ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
-        ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n))}
+        ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-gone','Recently dissolved'))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0))}
         ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}
       </nav>
@@ -67871,6 +67871,69 @@ shell=(f=>function(){if(S.view==='admin-chat'&&S.isOwner)return acxView();return
 go=(f=>function(v){
   if(v==='admin-chat'&&S.view!=='admin-chat')Object.assign(ACX,{last:null,lerr:'',mutes:null,merr:'',ask:null,mute:null,msg:''});
   const r=f.apply(this,arguments);if(S.view!=='admin-chat')acxListen();return r;})(go);
+
+/* ── Admin › Recently dissolved (functions/gone.js) ──
+   Nations whose players dissolved them, started over, or left them behind by switching to another account, in the
+   last GONE_DAYS, newest first, each with a copy of its last save. Restore… asks why (for the audit log) and puts the
+   nation back for its player as it was saved; the server refuses when its account is gone, holds a nation again, or
+   another nation of the region has taken its land or its name since, and says which. */
+const AGN={d:null,busy:false,err:'',ask:'',why:'',run:'',fail:''};
+const AGN_HOW={dissolve:'Dissolved',restart:'Started over',switch:'Left by an account switch'};
+const AGN_ACCOUNT={guest:'Guest',registered:'Registered',deleted:'Deleted'};
+ADM_ICONS['admin-gone']=NAV_SVG('<path d="M4.6 13.5a7.6 7.6 0 1 0 1.9-6.6"/><path d="M4.2 3.8v4.6h4.6"/><path d="M12 8.2v4.1l2.7 1.7"/>');
+async function agnLoad(){
+  if(AGN.busy)return;AGN.busy=true;AGN.err='';if(S.view==='admin-gone')render();
+  try{AGN.d=await adminRequest({op:'gone'});}catch(e){AGN.err=e.message||'The list could not be fetched.';}
+  AGN.busy=false;if(S.view==='admin-gone')render();
+}
+function agnNow(r){
+  if(r.restoredAt)return `Restored ${esc(adminTime(r.restoredAt))}`;
+  if(r.account==='deleted')return 'Account deleted';
+  if(r.now)return `Holds ${esc(r.now.name||'a nation')} now`;
+  if(!r.copy)return 'No copy kept';
+  return '<span class="hint">Can be restored</span>';
+}
+function agnAct(r){
+  if(r.restoredAt||r.account==='deleted'||r.now||!r.copy)return '';
+  if(AGN.ask!==r.id)return `<button type="button" class="btn ghost small" data-act="agn-ask" data-id="${esc(r.id)}">Restore…</button>`;
+  return `<div class="adm-ask agn-ask"><label class="admh-lbl" for="agn-why">Why, for the audit log</label>
+    <input class="input" id="agn-why" maxlength="300" value="${esc(AGN.why)}" placeholder="e.g. The player asked: dissolved by mistake" autocomplete="off">
+    ${AGN.fail?`<p class="err" role="alert">${esc(AGN.fail)}</p>`:''}
+    <div class="row"><button type="button" class="btn small" data-act="agn-yes" data-id="${esc(r.id)}"${AGN.run?' disabled':''}>${AGN.run===r.id?'Restoring…':'Restore '+esc(r.name||'it')}</button><button type="button" class="btn ghost small" data-act="agn-no">Cancel</button></div></div>`;
+}
+function agnView(){
+  const days=AGN.d?AGN.d.days:8;
+  const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Recently dissolved</h1>
+    <p class="lede">Nations whose players dissolved them, started over, or left them behind by switching to another account, in the last ${days} days, newest first. Each keeps a copy of its last save for ${days} days. <b>Restore</b> puts it back for its player exactly as it was saved, if the account still exists, holds no nation now, and no nation of the region has taken its land or its name since. An alliance it left is not rejoined. Every restore goes in the audit log.</p>
+    <div class="row"><button type="button" class="btn ghost small" data-act="agn-reload"${AGN.busy?' disabled':''}>${AGN.busy?'Fetching…':'Fetch again'}</button>${AGN.d?`<span class="hint">Checked ${esc(adminTime(AGN.d.at))}</span>`:''}</div>`;
+  if(!AGN.d&&!AGN.busy&&!AGN.err)setTimeout(agnLoad,0);
+  const rows=AGN.d?AGN.d.rows:[];
+  const body=AGN.err?`<p class="err" role="alert">${esc(AGN.err)}</p>`:!AGN.d?'<p class="hint">Fetching the list…</p>':!rows.length?`<p class="hint">No nation was dissolved in the last ${days} days.</p>`
+    :`<div class="tbl-wrap"><table class="tbl agn-t"><thead><tr><th>When</th><th>Nation</th><th>How</th><th>Population</th><th>Account</th><th>Now</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${rows.map(r=>`<tr data-id="${esc(r.id)}">
+      <td>${esc(adminTime(r.at))}</td>
+      <td><b class="agn-nm">${esc(r.name||'Unnamed')}</b><br><span class="hint">${esc(r.reg?regName(r.reg):'')}${r.founded?' · founded '+esc(new Date(r.founded).toLocaleString()):''}</span></td>
+      <td>${esc(AGN_HOW[r.how]||r.how||'')}</td><td>${r.pop?esc(fmtPop(r.pop)):'—'}</td>
+      <td>${esc(AGN_ACCOUNT[r.account]||r.account)}${r.account!=='deleted'?` <button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect</button>`:''}</td>
+      <td>${agnNow(r)}</td><td>${agnAct(r)}</td></tr>`).join('')}</tbody></table></div>`;
+  return admShell('admin-gone',head+body);
+}
+document.addEventListener('click',async e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act,id=el.dataset.id||'';
+  if(!/^agn-/.test(a))return;
+  if(a==='agn-reload'){agnLoad();return;}
+  if(a==='agn-ask'){AGN.ask=id;AGN.why='';AGN.fail='';render();const f=document.getElementById('agn-why');if(f)f.focus();return;}
+  if(a==='agn-no'){const k=AGN.ask;AGN.ask='';AGN.fail='';render();const b=k&&document.querySelector(`[data-act="agn-ask"][data-id="${CSS.escape(k)}"]`);if(b)b.focus({preventScroll:true});return;}
+  if(a==='agn-yes'&&!AGN.run){
+    const r=AGN.d&&AGN.d.rows.find(x=>x.id===id);AGN.run=id;AGN.fail='';render();
+    try{const res=await adminRequest({op:'restore',id,reason:AGN.why.trim()});AGN.ask='';toast(`${res.name||'The nation'} is back${r&&r.reg?' in '+regName(r.reg):''}, as it was last saved. Its player finds it there on their next visit.`);AGN.run='';agnLoad();}
+    catch(err){AGN.fail=err.message||'The nation could not be restored.';AGN.run='';render();}
+  }
+});
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='agn-why')AGN.why=e.target.value.slice(0,300);});
+document.addEventListener('keydown',e=>{if(e.target&&e.target.id==='agn-why'&&e.key==='Enter'&&!e.isComposing){e.preventDefault();const b=document.querySelector('[data-act="agn-yes"]');if(b&&!b.disabled)b.click();}});
+ADM_VIEWS.push('admin-gone');
+shell=(f=>function(){if(S.view==='admin-gone'&&S.isOwner)return agnView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){if(v==='admin-gone'&&S.view!=='admin-gone')Object.assign(AGN,{d:null,err:'',ask:'',why:'',fail:''});return f.apply(this,arguments);})(go);
 
 /* ── founding draws one page ──
    Founding drew up to three pages in a row, each thrown away by the next: found() drew the Nation page, then the

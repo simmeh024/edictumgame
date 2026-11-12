@@ -15,6 +15,7 @@ import { fcForget } from './flagcomp.js';
 import { shopSummary, founderGiftSummary, parseEcb, ECB_URL } from './shop-stats.js';
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
+import { goneList, goneRestore } from './gone.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 /* every region, from the same list the save permit checks (civic-data.json): a list of its own here missed Terra */
@@ -480,5 +481,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'feed') return feedOp(db, d);
   if (d.op === 'watch') return watchOp(db, actor, d);
   if (d.op === 'alerts') return alertsOp(db, actor, d);
+  // Recently dissolved, and putting one back (functions/gone.js)
+  if (d.op === 'gone') return goneList(db);
+  if (d.op === 'restore') { const r = await goneRestore(db, actor, d); directoryAt = 0; return r; }
   throw new HttpsError('invalid-argument', 'Unknown console request.');
 });
