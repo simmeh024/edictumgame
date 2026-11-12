@@ -43029,7 +43029,7 @@ function drawPin(g,x,y,col){g.beginPath();g.arc(x,y-12,7.5,Math.PI*0.8,Math.PI*0
 /* ── the sea, charted ──
    A field over the whole map: each point's distance in map units from the nearest land, on a grid of about 5 units,
    measured exactly to the land hexes' own outlines within SF_EXACT of a coast, and negative just inside the land.
-   Worked out in small idle slices (again when land is reclaimed) and kept, as the relief is. From it:
+   Worked out in idle time only (again when land is reclaimed) and kept, as the relief is. From it:
    - depth bands: the water pales in steps toward the land (SF_DL), a fine contour where each step ends, and the open
      sea beyond the last a little deeper than --sea;
    - the land's shadow on the water, a little down and to the right (SF_SH: offset x and y, then where it starts and
@@ -43114,15 +43114,21 @@ function sfStart(){
   if((sfJob&&sfJob.sig===RECL.sig)||typeof Path2D!=='function')return;
   const G=sfGrid(),nx=G.nx,ny=G.ny,K=Math.min(nx,Math.ceil((SF_DL[SF_DL.length-1]+12)/G.gx)),W=nx+2*K,N=W*ny;
   sfJob={sig:RECL.sig,...G,K,W,hx:new Int32Array(nx*ny),fx:new Int32Array(N).fill(-1),fy:new Int32Array(N),d2:new Float32Array(N).fill(Infinity),D:new Float32Array(nx*ny),seg:new Map(),st:0,y:0,work:0,slices:0,sm:[],fresh:true};
-  setTimeout(sfRun,0);
+  sfLater(sfRun);
 }
-function sfRun(){
+/* The job only ever runs when the page is idle (requestIdleCallback, within the time it offers; where there is none,
+   short slices with a pause between): back to back it kept the main thread busy for a second or more just as a new
+   nation's first saves and sign-in were being settled. A page never idle still gets a 6 ms slice a second. Paths, the
+   kept copy and the redraw that bakes the sea into the terrain picture each wait for an idle moment of their own. */
+const sfLater=f=>window.requestIdleCallback?requestIdleCallback(f,{timeout:1000}):setTimeout(f,60);
+function sfRun(d){
   const J=sfJob;if(!J)return;if(J.sig!==RECL.sig){sfJob=null;sfStart();return;}
-  const t0=performance.now();J.slices++;
-  while(performance.now()-t0<5){const y1=Math.min(J.ny,J.y+16),t1=performance.now();SF_STAGES[J.st](J,J.y,y1);J.sm[J.st]=(J.sm[J.st]||0)+performance.now()-t1;J.y=y1;
+  const t0=performance.now(),more=d&&typeof d.timeRemaining==='function'&&!d.didTimeout?()=>d.timeRemaining()>2:()=>performance.now()-t0<6;J.slices++;
+  do{const y1=Math.min(J.ny,J.y+16),t1=performance.now();SF_STAGES[J.st](J,J.y,y1);J.sm[J.st]=(J.sm[J.st]||0)+performance.now()-t1;J.y=y1;
     if(J.y>=J.ny){J.st++;J.y=0;if(J.st===SF_CONTOUR)J.hx=J.fx=J.fy=J.d2=J.H=null;
-      if(J.st>=SF_STAGES.length){J.work+=performance.now()-t0;sfFinish(J);sfJob=null;if(J.fresh)sfStore(sfF);redrawMaps();return;}}}
-  J.work+=performance.now()-t0;setTimeout(sfRun,0);
+      if(J.st>=SF_STAGES.length){J.work+=performance.now()-t0;sfLater(()=>{if(sfJob!==J)return;sfFinish(J);sfJob=null;sfLater(()=>{if(J.fresh&&sfF&&sfF.sig===J.sig)sfStore(sfF);redrawMaps();});});return;}}}
+  while(more());
+  J.work+=performance.now()-t0;sfLater(sfRun);
 }
 /* the segments as one path per level and bin */
 function sfFinish(J){
@@ -43143,7 +43149,7 @@ function sfCached(){
     .catch(()=>null).then(v=>{
       if(!v||v.k!==key||v.k!==sfDBKey()||v.nx!==G.nx||v.ny!==G.ny||!(v.Q instanceof Int16Array)||v.Q.length!==G.nx*G.ny||sfF||sfJob)return false;
       const D=new Float32Array(v.Q.length);for(let i=0;i<D.length;i++)D[i]=v.Q[i]/16;
-      sfJob={sig:RECL.sig,...G,D,seg:new Map(),st:SF_CONTOUR,y:0,work:0,slices:0,sm:[],fresh:false};setTimeout(sfRun,0);return true;});
+      sfJob={sig:RECL.sig,...G,D,seg:new Map(),st:SF_CONTOUR,y:0,work:0,slices:0,sm:[],fresh:false};sfLater(sfRun);return true;});
 }
 /* the field (an older one while land reclaimed since is worked in), or null before the first is ready; the first
    call looks for a kept copy before working one out */
@@ -43187,18 +43193,23 @@ function sfDrawImg(g,F,c){
 /* under the shallows' hexes: the bands */
 function sfUnder(g,col){const F=sfField();if(!F)return;const I=sfImages(F,col);if(I)sfDrawImg(g,F,I.band);}
 /* over the shallows, under the land: the shadow, the contours and the water lines. u: map units per pixel of the
-   picture drawn; x0..y1: the map units it shows */
+   picture drawn; x0..y1: the map units it shows.
+   Every picture of a view must show the same lines at the same weight: while the map moves, frames are cut from a
+   plate drawn at another density (in full screen at 1x), often by another path (the zoomed-out picture or the tiles
+   where the settled view is drawn close up), and any difference shows as the lines jumping when the map starts and
+   stops moving. So all the lines are always drawn, as wide in map units (SF_LW) whatever the picture's density, and
+   only close up (where plate and view take the same path) are they kept from growing past SF_LWMAX pixels. */
+const SF_LW=[0.9,1],SF_LWMAX=[1.1,1.2];
 function sfOver(g,col,u,x0,y0,x1,y1){
   const F=sfField();if(!F)return;const P=sfPal(col),I=sfImages(F,col);if(I)sfDrawImg(g,F,I.shadow);
   const shifts=[0];if(x1>MAP_PW-8)shifts.push(MAP_PW);if(x0<8)shifts.push(-MAP_PW);
   g.lineCap='round';g.lineJoin='round';
-  const stroke=(l,style,w)=>{const p=new Path2D();let any=false;
+  const stroke=(l,style,k)=>{const p=new Path2D();let any=false;
     for(const sx of shifts)for(const B of F.bins){const q=B.p[l];if(!q||B.x1+sx<x0||B.x0+sx>x1||B.y1<y0||B.y0>y1)continue;
       try{if(sx)p.addPath(q,new DOMMatrix([1,0,0,1,sx,0]));else p.addPath(q);any=true;}catch(e){}}
-    if(any){g.strokeStyle=style;g.lineWidth=w*u;g.stroke(p);}};
-  for(let l=SF_WL.length;l<SF_LV.length;l++)stroke(l,P.dl,0.85);
-  /* zoomed far out the lines would run together: every other one */
-  for(let l=u>1.4?1:0;l<SF_WL.length;l+=u>1.4?2:1)stroke(l,P.wl[l],0.75);
+    if(any){g.strokeStyle=style;g.lineWidth=Math.min(SF_LW[k],SF_LWMAX[k]*u);g.stroke(p);}};
+  for(let l=SF_WL.length;l<SF_LV.length;l++)stroke(l,P.dl,1);
+  for(let l=0;l<SF_WL.length;l++)stroke(l,P.wl[l],0);
 }
 /* the zoomed-out terrain picture: at most about 5.4 million pixels, whatever the region's size (phones cap canvases) */
 const TBMP_SCALE=Math.min(0.8,Math.sqrt(5.4e6/(MAP.W*MAP.H)));let tbmp=null,tbmpKey='';
