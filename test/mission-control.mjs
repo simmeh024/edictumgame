@@ -121,7 +121,7 @@ try {
   check('no page errors on the Space page', !t.errors.length, t.errors);
 
   /* ── a veteran: the Lunar Colony complete, the landing at the preferred site, the first night ── */
-  await t.edit((n, now) => { const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'lunar').concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 }); n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 }; n.stockAt = now; n._stockSet = true; n.mc.xn = 'Lamplight One'; });
+  await t.edit((n, now) => { const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'lunar').concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 }); n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 }; n.stockAt = now; n._stockSet = true; n.mc.xn = 'Lamplight One'; n.mc.ms.prep = { s: now - 4 * 864e5, d: now - 3 * 864e5 }; });
   await t.go('space');
   check('with the wonder complete, the full settlement map replaces the chart', await page.evaluate(() => !!document.querySelector('canvas.sp-cv:not([data-mode])') && !document.querySelector('canvas.sp-cv[data-mode="chart"]')));
   const land = await page.evaluate(() => (document.querySelector('.mc-land') || {}).innerText || '');
@@ -132,8 +132,14 @@ try {
   const landBtn = await page.$('[data-act="sp-land"]');
   check('the ordinary “Land here” button follows, checked as usual', !!landBtn);
   if (landBtn) { await landBtn.evaluate(el => el.click()); await until(() => page.evaluate(() => !!(window.__game.S.nation.sp && window.__game.S.nation.sp.moon))); }
-  const col = await page.evaluate(() => { const n = window.__game.S.nation; return n.sp && n.sp.moon ? { nm: n.sp.moon.nm, e: n.sp.moon.e, ld: n.mc.ld } : null; });
-  check('landed: the colony takes the expedition’s name and the prepared cargo’s two points, recorded once', !!col && col.nm === 'Lamplight One' && col.e === 5 && !!col.ld && col.ld.p === 1, col);
+  const col = await page.evaluate(() => { const n = window.__game.S.nation; return n.sp && n.sp.moon ? { nm: n.sp.moon.nm, e: n.sp.moon.e, p: n.sp.moon.p, ld: n.mc.ld } : null; });
+  check('landed: the colony takes the expedition’s name, and the prepared crew’s 20,000 settlers and two points, recorded once', !!col && col.nm === 'Lamplight One' && col.e >= 5 && col.e < 5.1 && Math.abs(col.p - 0.02) < 0.001 && !!col.ld && col.ld.p === 1, col);
+  /* the Moon achievements: the next save records the landing ones, and nothing the colony has not done yet */
+  await t.edit(() => {});
+  const ach = await page.evaluate(() => Object.keys(window.__game.S.nation.ach || {}));
+  const want = ['mc-agency', 'mc-photo', 'mc-prep', 'sp-moon', 'sp-moon-first'], not = ['sp-moon1', 'sp-moon-t50', 'sp-moon-year', 'mc-letters', 'sp-moon-port'];
+  check('the landing earns Ground Control, Holiday Snaps, Well Prepared, One Small Step and First on the Moon', want.every(id => ach.includes(id)), want.filter(id => !ach.includes(id)));
+  check('and none of the colony’s later ones yet', not.every(id => !ach.includes(id)), not.filter(id => ach.includes(id)));
   await t.go('nation'); await t.go('space');
   check('the first night: the lit habitat, the log and the Gazette', await page.evaluate(() => !!document.querySelector('.mc-night .mc-hab') && /Lunar Gazette/.test(document.querySelector('.mc-night').textContent)));
   await page.evaluate(() => document.querySelector('.mc-night').scrollIntoView({ block: 'center' })); await sleep(300);
