@@ -47560,6 +47560,8 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawAllGu
    again after a minute, or sooner once its credits or claims change */
 let autoLandMiss=null;
 function autoLandTry(now){
+  /* not a miss while the other nations' land is still loading (landWait): it tries again on the next tick */
+  if(landWait())return false;
   const k=landCredits(S.nation)+'|'+(S.nation.claims||[]).length;
   if(autoLandMiss&&autoLandMiss.k===k&&now-autoLandMiss.t<60000)return false;
   if(claimAuto(true)){autoLandMiss=null;return true;}
