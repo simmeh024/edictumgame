@@ -7,7 +7,7 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
+import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, cbFollow, cbReact, cbSig, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
 import { flagOp, isFlagOp } from './flagcomp.js';
 import { pace, ipRule } from './pace.js';
@@ -622,7 +622,7 @@ async function newsUpvote(db, who, d) {
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin', 'sway']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'newsClick', 'newsUpvote', 'renamed',
-  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'topic', 'topicReact', 'state', 'book', 'online', ...ASSEMBLY_ACTS]);
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'cbFollow', 'cbReact', 'cbSig', 'topic', 'topicReact', 'state', 'book', 'online', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
@@ -632,7 +632,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isFlagOp(op) && !isRegionChatOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
   // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
-  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' || op === 'newsUpvote' ? [['cr:' + uid, 20, 1 / 4]] : []),
+  pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' || op === 'cbReact' || op === 'newsUpvote' ? [['cr:' + uid, 20, 1 / 4]] : []),
     // a game link followed in a news post: counted once per page, so a few at a time is plenty
     ...(op === 'newsClick' ? [['nk:' + uid, 10, 1 / 3]] : []),
     // scoring a flag: a judge clicks through a batch of ten, then one every two seconds
@@ -667,6 +667,9 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'cbDelete') return cbDelete(db, who, d, regions);
   if (d.op === 'cbMod') return cbMod(db, who, d, regions);
   if (d.op === 'cbPost') return cbPost(db, who, d, regions);
+  if (d.op === 'cbFollow') return cbFollow(db, who, d, regions);
+  if (d.op === 'cbReact') return cbReact(db, who, d, regions);
+  if (d.op === 'cbSig') return cbSig(db, who, d);
   if (d.op === 'topicReact') return rmbReact(db, who, d);
   if (d.op === 'book') return bookRead(db, who, d);
   if (isAllianceOp(d.op)) return alliance(db, who, d);

@@ -8,7 +8,7 @@ import { gather, summarize, nationRow, saveEngage, loadEngage } from './stats.js
 import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp } from './shop.js';
-import { cbDelete, rmbForget } from './board.js';
+import { cbDelete, rmbForget, cbForget } from './board.js';
 import { rcForget } from './regionchat.js';
 import { alDrop } from './alliances.js';
 import { fcForget } from './flagcomp.js';
@@ -319,6 +319,7 @@ async function mutate(db, actor, data) {
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);
       const writer = db.bulkWriter(), writes = posts.docs.concat(reports.docs).map(d => writer.delete(d.ref)); await Promise.all([Promise.all(writes), writer.close()]);
       await rmbForget(db, target, REGIONS);
+      await cbForget(db, target);
       await rcForget(db, target, REGIONS);
       await fcForget(db, target);
     }
