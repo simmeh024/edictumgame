@@ -39,17 +39,17 @@ await A.evaluate(id => G.S.visit = id, other); await A.evaluate(() => { G.S.view
 await A.waitForSelector('[data-act="visit-link"]'); await A.click('[data-act="visit-link"]');
 check('Copy link puts the nation’s address on the clipboard', await until(async () => (await A.evaluate(() => navigator.clipboard.readText())).endsWith('#visit/' + other)));
 
-// 4. the message list finds a nation by typing
+// 4. the message list finds a nation by typing (one picker since the UX polish of 2026-11-12)
 await A.evaluate(() => { G.S.view = 'messages'; G.render(); });
-await A.waitForSelector('#dm-q');
-const target = await A.$$eval('#dm-new option', o => o.filter(x => x.value).at(-1).textContent.replace(/ \(.*\)$/, ''));
-await A.fill('#dm-q', target);
-const shownOpts = () => A.$$eval('#dm-new option', o => [o.filter(x => x.value && !x.hidden).length, o.filter(x => x.value).length]);
+await A.waitForSelector('#dm-to');
+const target = await A.evaluate(() => G.UXP2().dmOthers().at(-1).n.name);
+await A.fill('#dm-to', target);
+const shownOpts = () => A.evaluate(() => [document.querySelectorAll('#dm-pk-l .dm-pk-o').length, G.UXP2().dmOthers().length]);
 /* The guest's recovery-code dialog opens a few seconds after founding and takes the focus. Opening while the name was
    being typed, it took the keys and the list stayed whole (CI, PR #306). lib.mjs dismisses it before each action, so the
    name is typed again until the list narrows: a filter that does not work still fails. */
-check('typing narrows the list of nations', await until(async () => { const [v, all] = await shownOpts(); if (v >= 1 && v < all) return true; await A.fill('#dm-q', target); return false; }), JSON.stringify(await shownOpts()));
-await A.press('#dm-q', 'Enter');
+check('typing narrows the list of nations', await until(async () => { const [v, all] = await shownOpts(); if (v >= 1 && v < all) return true; await A.fill('#dm-to', target); return false; }), JSON.stringify(await shownOpts()));
+await A.press('#dm-to', 'Enter');
 check('and Enter opens the first one found', await until(async () => /Message to/.test(await text(A, '#dm-form'))));
 
 // 5. closing an edict returns to the same place in the list

@@ -16,8 +16,10 @@ const ownerSet = (p, fields) => owner(p, { method: 'PATCH', body: JSON.stringify
 const letters = async () => (await restListAdmin('letters')).map(d => ({ id: d.id, by: d.fields.by?.stringValue, to: d.fields.to?.stringValue, x: d.fields.x?.stringValue, k: d.fields.k?.stringValue,
   a: d.fields.a?.mapValue?.fields, r: d.fields.r?.mapValue?.fields, g: d.fields.g?.mapValue?.fields, exp: d.fields.exp?.timestampValue }));
 const find = async (by, to, x) => (await letters()).find(l => l.by === by && l.to === to && (typeof x === 'string' ? l.x === x : x.test(l.x)));
-const hasOption = (p, id) => until(() => p.$(`#dm-new option[value="${id}"]`), 20000);
-const write = async (p, peer, x) => { await nav(p, 'messages'); await hasOption(p, peer); await p.selectOption('#dm-new', peer); await p.waitForSelector('#dm-text'); await p.fill('#dm-text', x); await p.click('#dm-form button[type="submit"]'); };
+const hasOption = (p, id) => until(() => p.evaluate(id => G.allNations().some(y => y.id === id), id), 20000);
+/* a letter's addressee is chosen in the one picker (UX polish, 2026-11-12): open it, then click the nation */
+const pickPeer = async (p, id) => { const o = `#dm-pk-l .dm-pk-o[data-id="${id}"]`; await until(async () => { if (await p.$(o)) return true; await p.focus('#dm-to'); await p.press('#dm-to', 'ArrowDown'); return !!await p.$(o); }, 20000); await p.click(o); };
+const write = async (p, peer, x) => { await nav(p, 'messages'); await hasOption(p, peer); await pickPeer(p, peer); await p.waitForSelector('#dm-text'); await p.fill('#dm-text', x); await p.click('#dm-form button[type="submit"]'); };
 const openThread = async (p, id) => { await nav(p, 'messages'); await until(() => p.$(`[data-act="dm-peer"][data-id="${id}"]`), 25000); await p.click(`[data-act="dm-peer"][data-id="${id}"]`); await sleep(300); };
 const clickJs = (p, sel) => p.evaluate(s => { const el = document.querySelector(s); if (el) el.click(); return !!el; }, sel);
 const bubbleText = p => p.$$eval('.bub p:not(.dm-note-h):not(.dm-att-k):not(.dm-att-t)', ps => ps.map(x => x.textContent));
@@ -45,17 +47,17 @@ await A.locator('#cz-sec-l').screenshot({ path: path.join(OUT, 'letters-statione
 
 /* ── 2. each conversation keeps its own half-written letter ── */
 await nav(A, 'messages'); await hasOption(A, uidB); await hasOption(A, uidC);
-await A.selectOption('#dm-new', uidB); await A.fill('#dm-text', 'half a letter to Postland');
-await A.selectOption('#dm-new', uidC); await A.waitForSelector('#dm-text');
+await pickPeer(A, uidB); await A.fill('#dm-text', 'half a letter to Postland');
+await pickPeer(A, uidC); await A.waitForSelector('#dm-text');
 check('another conversation starts with an empty letter', (await A.inputValue('#dm-text')) === '');
-await A.selectOption('#dm-new', uidB); await A.waitForSelector('#dm-text');
+await pickPeer(A, uidB); await A.waitForSelector('#dm-text');
 check('and the first keeps its half-written letter', (await A.inputValue('#dm-text')) === 'half a letter to Postland');
 
 /* ── 3. a formal note with a trade offer attached; it arrives with a notice ── */
 await nav(A, 'trade'); await A.selectOption('#tr-w', uidB); await A.selectOption('#tr-gr', 'food'); await A.selectOption('#tr-rr', 'iron'); await A.fill('#tr-ga', '2'); await A.fill('#tr-ra', '1'); await A.click('#deal-form button[type="submit"]');
 check('A offers B a deal', await until(() => A.evaluate(uid => (G.S.nation.deals || []).some(d => d.w === uid && !d.a), uidB)));
 await nav(B, 'nation');
-await nav(A, 'messages'); await A.selectOption('#dm-new', uidB); await A.waitForSelector('#dm-text');
+await nav(A, 'messages'); await pickPeer(A, uidB); await A.waitForSelector('#dm-text');
 await A.selectOption('#dm-kind', 'friend'); await A.fill('#dm-text', 'Shall our nations be friends? A small trade to begin.');
 check('the composer offers the trade offer as an attachment', await until(() => A.$('.dm-att [data-act="dm-attmenu"]')));
 await A.click('.dm-att [data-act="dm-attmenu"]'); await A.click('.dm-att-p [data-act="dm-attach"]');
