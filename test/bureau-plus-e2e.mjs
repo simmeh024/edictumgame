@@ -7,7 +7,7 @@ import { OUT, check, finish, sleep, until, player, open, found, nav, text } from
 
 const DAY = 864e5;
 const noScroll = p => p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-const tab = async (p, k) => { await p.waitForSelector(`[data-act="st-tab"][data-k="${k}"]`); await p.evaluate(k => document.querySelector(`[data-act="st-tab"][data-k="${k}"]`).click(), k); await sleep(500); };
+const tab = async (p, k) => { await p.waitForSelector(`[data-act="st-tab"][data-k="${k}"]`, { state: 'attached' }); await p.evaluate(k => document.querySelector(`[data-act="st-tab"][data-k="${k}"]`).click(), k); await sleep(500); };
 const sub = async (p, k) => { await p.waitForSelector(`[data-act="sb-sub"][data-v="${k}"]`); await p.evaluate(k => document.querySelector(`[data-act="sb-sub"][data-v="${k}"]`).click(), k); await sleep(500); };
 const shot = (p, sel, f) => p.locator(sel).first().screenshot({ path: path.join(OUT, f) }).catch(e => check('screenshot ' + f, false, e.message));
 

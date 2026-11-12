@@ -72,7 +72,7 @@ const SETUP = (n, now) => {
   check('the food breakdown shows the line', modal0 && /No upgrades are under way/.test(modal0), modal0);
   await page.click('#rbd-root [data-act="ifc-go"]');
   await until(() => page.evaluate(() => window.__game.S.view === 'stats' && window.__game.S.statsTab === 'forecast'));
-  const empty = await page.evaluate(() => ({ view: window.__game.S.view, tab: window.__game.S.statsTab, modal: document.getElementById('rbd-root').innerHTML, on: (document.querySelector('.stab.on') || {}).textContent, h: (document.querySelector('.ifc-none .empty-h') || {}).textContent, now: document.querySelectorAll('.ifc-t tbody tr').length }));
+  const empty = await page.evaluate(() => ({ view: window.__game.S.view, tab: window.__game.S.statsTab, modal: document.getElementById('rbd-root').innerHTML, on: (document.querySelector('.st-tabs .stab.on') || {}).textContent, h: (document.querySelector('.ifc-none .empty-h') || {}).textContent, now: document.querySelectorAll('.ifc-t tbody tr').length }));
   check('the link opens Statistics › Income forecast and closes the breakdown', empty.view === 'stats' && empty.tab === 'forecast' && empty.on === 'Income forecast' && empty.modal === '', empty);
   check('…which says no upgrades are under way, and shows the day now', empty.h === 'No upgrades under way' && empty.now === 5, empty);
   await page.screenshot({ path: path.join(OUT, 'income-forecast-none.png'), fullPage: false });
