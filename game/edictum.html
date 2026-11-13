@@ -3587,6 +3587,18 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 
 /* ───────── round 9 (b): the Daily Dispatch ───────── */
 .dsp-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-bottom:14px}
+.dsp-rg{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--rule-2)}
+.dsp-rg-b{flex:0 1 auto;max-width:30%;display:inline-flex;align-items:center;gap:8px;min-height:40px;min-width:44px;padding:6px 12px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);color:var(--ink-2);font:500 11.5px/1.2 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.dsp-rg-n{justify-content:flex-end}
+.dsp-rg-b:hover{border-color:var(--accent);color:var(--ink)}
+.dsp-rg-a{flex:none;font:400 24px/1 var(--f-display);margin-top:-3px;color:var(--ink)}
+.dsp-rg-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsp-rg-c{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.dsp-rg-sel{width:auto;max-width:100%;min-height:36px;padding:4px 8px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);color:var(--ink);font:650 16px/1.2 var(--f-display);text-align:center;cursor:pointer}
+.dsp-rg-sel:hover{border-color:var(--accent)}
+.dsp-rg-s{font:500 10.5px/1.4 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.dsp-rg-s .linkish{font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--accent)}
+@media (max-width:640px){.dsp-rg-nm{display:none}.dsp-rg-b{padding:6px 12px}.dsp-rg-sel{font-size:15px}}
 .dsp-eds{display:flex;flex-wrap:wrap;gap:6px}
 .dsp-ed{padding:6px 10px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);color:var(--ink-2);font:500 11.5px/1.2 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
 .dsp-ed:hover{border-color:var(--accent);color:var(--ink)}
@@ -21630,6 +21642,11 @@ function achTierCredits(n){try{if(!n||n.npc||!n.ach)return 0;let k=0;for(const i
 const PRV_CREDITS=3;
 function prvPeak(n){try{if(!n||n.npc)return 0;const k=n.prov&&n.prov.on&&Array.isArray(n.prov.l)?n.prov.l.length:0;if(k>(n.prpk||0))n.prpk=k;return n.prpk||0;}catch(e){return 0;}}
 function prvCredits(n){return PRV_CREDITS*Math.max(0,prvPeak(n)-1);}
+/* the peak is part of the record, so a reload or another device keeps it. Until 2026-11-13 every load dropped it, and
+   the next visit after a merge took the merged provinces' credits back (The Wandering Isles lost 54 that way). Never
+   more than the most provinces a nation can hold (PRV_MAXL, 48: test/province-credits.test.mjs holds the two equal). */
+const PRV_PEAK_MAX=48;
+NORM_HOOKS.push((n,d)=>{const k=d&&d.prpk;if(Number.isInteger(k)&&k>0)n.prpk=Math.min(k,PRV_PEAK_MAX);});
 function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
@@ -32100,9 +32117,10 @@ const dspAdOff=(uid,i)=>{const d=pressDoc();return !!(d&&d.x.has(uid+'_'+i));};
    Classified advertisements are not filed: they come from the records while they are kept (DSP_AD_KEEP), so one the
    moderators strike out goes from every edition. ───── */
 const PAPERS=new Map(),DSP_T0=Date.now();
-const dspPaperKey=no=>REG.id+'#'+no;
-function dspFrozen(no){const c=PAPERS.get(dspPaperKey(no));return c&&c.st==='ok'?c.E:null;}
-function dspPaperState(no){const c=PAPERS.get(dspPaperKey(no));return c?c.st:'';}
+/* reg: another region's paper, read from its archive (dspShown); this region's when left out */
+const dspPaperKey=(no,reg)=>(reg||REG.id)+'#'+no;
+function dspFrozen(no,reg){const c=PAPERS.get(dspPaperKey(no,reg));return c&&c.st==='ok'?c.E:null;}
+function dspPaperState(no,reg){const c=PAPERS.get(dspPaperKey(no,reg));return c?c.st:'';}
 function dspPackSt(s){return {k:String(s.k).slice(0,120),t:s.t,sec:s.sec,kick:s.kick||'',h:s.h,b:s.b||'',who:(s.who||[]).slice(0,8),go:s.go||'',place:s.place||'',...(s.bur?{bur:1}:{})};}
 function dspPack(E){
   const m={};for(const s of E.all)for(const id of s.who)m[id]=(m[id]||0)+1;const P=pressDoc();
@@ -32131,20 +32149,21 @@ function dspThaw(d,no){
     figs:{rows,deals:Math.max(0,Math.round(+F.deals)||0),market:str(F.market,300),prices:null},wx,scopes,letters:arr(o.letters,l=>l&&typeof l==='object'&&str(l.x,600)?{x:str(l.x,600),by:str(l.by,160)}:null,2),
     view:{h:str(o.view&&o.view.h,160),x:str(o.view&&o.view.x,600)},fix:str(o.fix,400),m};
 }
-function dspFetchPaper(no){
-  const k=dspPaperKey(no),c=PAPERS.get(k),now=Date.now();
+function dspFetchPaper(no,reg){
+  reg=reg||REG.id;const away=reg!==REG.id,k=dspPaperKey(no,reg),c=PAPERS.get(k),now=Date.now();
   /* known missing, and this page may file it now: file it (if another reader got there first, the write is refused and it is read again) */
-  if(c&&c.st==='none'&&!c.tried&&dspCanFreeze(no,now)){dspFreeze(no,now);return;}
+  if(!away&&c&&c.st==='none'&&!c.tried&&dspCanFreeze(no,now)){dspFreeze(no,now);return;}
   if(c&&(c.st==='ok'||c.st==='loading'||now-(c.at||0)<DSP_PAPER_RETRY))return;
   if(!S.db||S.mode==='local'){PAPERS.set(k,{st:'none',at:now,tried:1});return;}
-  PAPERS.set(k,{st:'loading',at:now,tried:c&&c.tried});
-  const reg=REG.id;
+  PAPERS.set(k,{st:'loading',at:now,tried:c&&c.tried,was:c?c.st:''});
+  /* only the paper on the page draws it again: another region's that the reader has paged past does not */
+  const shown=()=>S.view==='dispatch'&&(away?dspRegShown().id===reg:reg===REG.id);
   Promise.resolve().then(()=>S.db.doc('papers/'+reg+'_'+no).get()).then(s=>{
     const d=s&&s.exists?s.data():null,E=d&&d.r===reg&&d.no===no?dspThaw(d,no):null,prev=PAPERS.get(k)||{};
     PAPERS.set(k,E?{st:'ok',E,at:Date.now()}:{st:'none',at:Date.now(),tried:prev.tried});
-    if(!E&&reg===REG.id)dspFreeze(no,Date.now());
-    if(S.view==='dispatch'&&reg===REG.id)render();
-  },()=>{PAPERS.set(k,{st:'err',at:Date.now()});if(S.view==='dispatch'&&reg===REG.id)render();});
+    if(!E&&!away&&reg===REG.id)dspFreeze(no,Date.now());
+    if(shown())render();
+  },()=>{PAPERS.set(k,{st:'err',at:Date.now()});if(shown())render();});
 }
 /* filing: only a player of this region (the rules check), never while observing, once the page has had time to hear
    the region's records, and only an edition that closed at least DSP_LAG ago (saves can land a little late) */
@@ -32161,9 +32180,40 @@ function dspFreeze(no,now){
     ()=>{const x=PAPERS.get(k);if(x&&x.st==='none')x.at=Date.now()-DSP_PAPER_RETRY+8000;});
 }
 /* an admin sends an edition back, to be filed again from the records */
-function dspReprint(no){
-  if(!S.isOwner||!S.db)return;
-  Promise.resolve().then(()=>S.db.doc('papers/'+REG.id+'_'+no).delete()).then(()=>{PAPERS.delete(dspPaperKey(no));toast('The edition will be filed again from the records.');render();},()=>toast('The edition could not be sent back.'));
+function dspReprint(no,reg){
+  if(!S.isOwner||!S.db)return;reg=reg&&REG_BY_ID[reg]?reg:REG.id;
+  Promise.resolve().then(()=>S.db.doc('papers/'+reg+'_'+no).delete()).then(()=>{PAPERS.delete(dspPaperKey(no,reg));toast(reg===REG.id?'The edition will be filed again from the records.':`The edition will be filed again by the next reader in ${REG_BY_ID[reg].the}.`);render();},()=>toast('The edition could not be sent back.'));
+}
+
+/* ───── the other regions' papers: the arrows at the top of the page go round every open region's newspaper. Only the
+   reader's own region prints today's edition, worked out from the records this page holds; another region's paper is
+   read from its archive (papers/), the edition the reader chose or else the newest one filed in the last week. ───── */
+function dspRegs(){return REGIONS.filter(R=>R.id===REG.id||!regDisabled(R.id));}
+const dspAwayOk=()=>!!S.db&&S.mode!=='local';
+function dspRegShown(){const id=S.dspReg;return id&&id!==REG.id&&REG_BY_ID[id]&&dspAwayOk()&&!regDisabled(id)?REG_BY_ID[id]:REG;}
+/* the paper on the page: {R, away, no}; auto when away and the reader chose no edition */
+function dspShown(now){
+  const today=dspNoOf(now),R=dspRegShown(),away=R!==REG,n=S.dspNo;
+  if(Number.isInteger(n)&&n<today&&n>=today-DSP_KEEP&&n>=1)return {R,away,no:n};
+  if(!away)return {R,away,no:today};
+  /* the newest on file, fetched one day at a time: an edition nobody filed is passed over, one still being read waits */
+  for(let k=today-1;k>=Math.max(1,today-DSP_BACK);k--){const c=PAPERS.get(dspPaperKey(k,R.id));if(c&&(c.st==='none'||c.st==='loading'&&c.was==='none'))continue;return {R,away,no:k,auto:true};}
+  return {R,away,no:Math.max(1,today-1),auto:true,none:true};
+}
+function dspRegNav(R){
+  const L=dspRegs();if(L.length<2||!dspAwayOk())return '';
+  const i=Math.max(0,L.indexOf(R)),prev=L[(i-1+L.length)%L.length],next=L[(i+1)%L.length],home=R===REG;
+  const arrow=(Q,d)=>`<button type="button" class="dsp-rg-b dsp-rg-${d}" data-act="dsp-rg" data-v="${esc(Q.id)}" aria-label="${d==='p'?'Previous':'Next'} region: the newspaper of ${esc(Q.the)}" title="${esc(Q.name)}">${d==='p'?'<span class="dsp-rg-a" aria-hidden="true">‹</span>':''}<span class="dsp-rg-nm">${esc(Q.name)}</span>${d==='n'?'<span class="dsp-rg-a" aria-hidden="true">›</span>':''}</button>`;
+  const opts=L.map(Q=>`<option value="${esc(Q.id)}"${Q===R?' selected':''}>${esc(Q.name)}${Q===REG?(OBS?' (observing)':' (your region)'):''}</option>`).join('');
+  return `<nav class="dsp-rg" aria-label="The regions’ newspapers">${arrow(prev,'p')}
+    <div class="dsp-rg-c"><label class="u-sr" for="dsp-rg-sel">The newspaper of</label><select id="dsp-rg-sel" class="dsp-rg-sel">${opts}</select>
+      <span class="dsp-rg-s">${home?(OBS?'The region you observe':'Your region'):`<button type="button" class="linkish small" data-act="dsp-rg" data-v="${esc(REG.id)}">Back to ${esc(OBS?REG.name:'your region')}</button>`} · ${i+1} of ${L.length}</span></div>
+    ${arrow(next,'n')}</nav>`;
+}
+/* after a switch the focus stays on the control that made it */
+function dspRegGo(id,focus){
+  S.dspReg=id&&id!==REG.id&&REG_BY_ID[id]?id:'';S.dspMineI=0;S.dspCat='';render();dspHash();
+  const el=focus&&document.querySelector(focus);if(el)el.focus();
 }
 
 /* ───── the page ───── */
@@ -32369,30 +32419,36 @@ async function dspNameSave(){
   finally{S.dspNmBusy=false;render();}
 }
 
-function dspHash(){if(S.view!=='dispatch')return;const today=dspNoOf(Date.now()),no=Number.isInteger(S.dspNo)&&S.dspNo<today?S.dspNo:0,h='#dispatch'+(no?'/'+no:'');try{if(location.hash!==h)history.replaceState(history.state,'',h);}catch(e){}}
+function dspHash(){if(S.view!=='dispatch')return;const today=dspNoOf(Date.now()),R=dspRegShown(),no=Number.isInteger(S.dspNo)&&S.dspNo<today?S.dspNo:0,h='#dispatch'+(R!==REG?'/'+R.id:'')+(no?'/'+no:'');try{if(location.hash!==h)history.replaceState(history.state,'',h);}catch(e){}}
 function dspView(now){
   const n=S.nation,today=dspNoOf(now),me=myId(),hid=dspHidden(),narrow=dspNarrow();
-  const no=Number.isInteger(S.dspNo)&&S.dspNo<today&&S.dspNo>=today-DSP_KEEP?S.dspNo:today,deep=no<today-DSP_BACK;
+  const V=dspShown(now),{R,away,no}=V,deep=no<today-DSP_BACK,reg=R.id;
   pressLoad(false);
-  /* yesterday's paper is filed by whoever reads first; a past edition is shown from its filed copy when there is one */
+  /* yesterday's paper is filed by whoever reads first; a past edition is shown from its filed copy when there is one.
+     Another region's paper only ever comes from its archive, and its newest is looked for again now and then */
   if(today-1>=1)dspFetchPaper(today-1);
-  if(no<today)dspFetchPaper(no);
-  let E=no<today?dspFrozen(no):null;if(!E&&!deep)E=dspEdition(no,now);
-  const pst=dspPaperState(no);
-  S.dspShown=dspShownSig(no,now);dspMarkRead(today);dspFrontCheck(now);
-  const cur=dspClean(n.currency,30)||'crown';
-  const eds=[];for(let k=today;k>=today-DSP_BACK;k--)eds.push(`<button class="dsp-ed${k===no?' on':''}" id="dsp-ed-${k}" data-act="dsp-ed" data-no="${k}" aria-pressed="${k===no}" title="${dspDate(k)}" aria-label="${k===today?'Today, ':''}${dspDate(k)}">${k===today?'Today':dspShort(k).replace(/ \w+$/,'')}</button>`);
+  if(away&&V.auto&&today-1>=1)dspFetchPaper(today-1,reg);
+  if(no<today)dspFetchPaper(no,reg);
+  let E=no<today?dspFrozen(no,reg):null;if(!E&&!deep&&!away)E=dspEdition(no,now);
+  const pst=dspPaperState(no,reg);
+  S.dspShown=dspShownSig(V,now);dspMarkRead(today);dspFrontCheck(now);
+  const cur=dspClean(n.currency,30)||'crown',rgNav=dspRegNav(R);
+  const eds=[];for(let k=away?today-1:today;k>=Math.max(1,today-DSP_BACK);k--)eds.push(`<button class="dsp-ed${k===no?' on':''}" id="dsp-ed-${k}" data-act="dsp-ed" data-no="${k}" aria-pressed="${k===no}" title="${dspDate(k)}" aria-label="${k===today?'Today, ':''}${dspDate(k)}">${k===today?'Today':dspShort(k).replace(/ \w+$/,'')}</button>`);
   const back=[];for(let k=today-DSP_BACK-1;k>=Math.max(1,today-DSP_KEEP);k--)back.push(`<option value="${k}"${k===no?' selected':''}>${dspDate(k)}</option>`);
-  const backSel=back.length?`<label class="dsp-bk"><span class="lbl">Back issues</span><select id="dsp-bk" class="input"><option value="">${deep?'Today':'Choose a date'}</option>${back.join('')}</select></label>`:'';
+  const backSel=back.length?`<label class="dsp-bk"><span class="lbl">Back issues</span><select id="dsp-bk" class="input"><option value="">${!deep?'Choose a date':away?'The newest on file':'Today'}</option>${back.join('')}</select></label>`:'';
   if(!E){
-    const msg=pst==='loading'||!pst?'Fetching the edition from the archive…':pst==='err'?'The archive could not be reached. Try again in a minute.':`The edition of ${dspDate(no)} was not kept. The archive keeps an edition once a reader has opened the paper in the week after it came out.`;
-    return `<div class="dsp-top"><nav class="dsp-eds" aria-label="Editions">${eds.join('')}</nav>${backSel}</div><div class="dsp dsp-arch"><p class="dsp-reg">${esc(cap1(REG.the))}</p><p class="dsp-title">${esc(dspTitle())}</p><p class="hint" role="status">${esc(msg)}</p></div>`;
+    const msg=V.none?`No edition of ${R.the}’s newspaper from the past week is on file. An edition is filed once a reader in ${R.the} opens the paper, an hour or more after it goes to press.`
+      :pst==='loading'||!pst?'Fetching the edition from the archive…':pst==='err'?'The archive could not be reached. Try again in a minute.'
+      :away?`${cap1(R.the)} has no edition of ${dspDate(no)} on file. An edition is filed once a reader in ${R.the} opens the paper in the week after it came out.`
+      :`The edition of ${dspDate(no)} was not kept. The archive keeps an edition once a reader has opened the paper in the week after it came out.`;
+    return `${rgNav}<div class="dsp-top"><nav class="dsp-eds" aria-label="Editions">${eds.join('')}</nav>${backSel}</div><div class="dsp dsp-arch"><p class="dsp-reg">${esc(cap1(R.the))}</p>${away?'':`<p class="dsp-title">${esc(dspTitle())}</p>`}<p class="hint" role="status">${esc(msg)}</p></div>`;
   }
-  const byId=new Map(allNations().map(x=>[x.id,x])),P=pressDoc();
+  /* another region's paper names nations this page does not hold: no links to them, and no pictures (they are drawn from the records) */
+  const byId=away?new Map():new Map(allNations().map(x=>[x.id,x])),P=pressDoc(),pic=away?()=>'':dspPic;
   const title=E.frozen?E.title:dspTitle(),motto=E.frozen?(E.motto||''):(P&&P.mo?P.mo:E.motto);
   const price=['one','two','three'][E.price-1]+' '+(E.price===1?cur:plural(cur));
   const mineN=E.frozen?(E.m[me]||0):dspAbout(E,me).length;
-  const AD=no>=today-Math.ceil(DSP_AD_KEEP/DAY)?dspAdsFor(no,now):{ads:[],jokes:[]};
+  const AD=!away&&no>=today-Math.ceil(DSP_AD_KEEP/DAY)?dspAdsFor(no,now):{ads:[],jokes:[]};
   const ads=AD.ads.filter(a=>!hid.has(a.key)),hidden=AD.ads.length-ads.length,cats=S.dspCat&&DSP_AD_CAT.has(S.dspCat)?S.dspCat:'';
   const allAds=ads.concat(AD.jokes),shown=allAds.filter(a=>!cats||a.c===cats);
   const myLive=dspMyAds(n,now),draft=S.dspDraft||'',M={i:0};
@@ -32407,7 +32463,7 @@ function dspView(now){
   const member=(()=>{try{return shopMember();}catch(e){return false;}})(),acat=DSP_AD_CAT.has(S.dspAdCat)?S.dspAdCat:'sale';
   const pv={x:draft||'Your advertisement, as the readers will see it.',by:n.name,c:acat,bx:!!S.dspBx,boxOk:member,me:1};
   const formOpen=S.dspForm||!!draft;
-  const form=!live?(E.live?'':`<p class="hint">This edition has gone to press. New advertisements go into today’s paper.</p>`)
+  const form=!live?(E.live||away?'':`<p class="hint">This edition has gone to press. New advertisements go into today’s paper.</p>`)
     :!formOpen?`<div class="row dsp-adopen"><button type="button" class="btn ghost" data-act="dsp-adopen"${myLive.length>=DSP_AD_MAX?' disabled':''}>Place an advertisement</button><span class="hint">${esc(costText(DSP_AD_COST))} · runs 3 days · ${myLive.length} of ${DSP_AD_MAX} running</span></div>`
     :`${c3Strip(n,now,{compact:true,need:myLive.length<DSP_AD_MAX?DSP_AD_COST:null})}<form class="dsp-adf" id="dsp-ad-form" novalidate>
       <fieldset class="dsp-adc"><legend class="lbl">Section</legend>${DSP_AD_CATS.map(([k,l])=>`<label class="dsp-adc-o"><input type="radio" name="dsp-adc" value="${k}"${k===acat?' checked':''}><span>${esc(l)}</span></label>`).join('')}</fieldset>
@@ -32420,7 +32476,7 @@ function dspView(now){
       <div class="row"><button class="btn" type="submit"${myLive.length>=DSP_AD_MAX?' disabled':''}>Place it for ${esc(costText(DSP_AD_COST))}</button><button type="button" class="btn ghost" data-act="dsp-adclose">Cancel</button><span class="hint"><span id="dsp-ad-n">${draft.length}</span>/${DSP_AD_LEN} characters · runs 3 days · ${myLive.length} of ${DSP_AD_MAX} running</span></div>
     </form>`;
   /* the features: a column on a wide screen, tabs on a phone */
-  const F=E.figs,side=S.dspSide&&['view','wx','figs','stars','fix'].includes(S.dspSide)?S.dspSide:'view',scopes=dspScopesFor(E);
+  const F=E.figs,side=S.dspSide&&['view','wx','figs','stars','fix'].includes(S.dspSide)?S.dspSide:'view',scopes=away?E.scopes:dspScopesFor(E);
   const box=(k,h,id,inner)=>`<section class="dsp-box${narrow&&k===side?' on':''}" id="dsp-p-${k}" aria-labelledby="${id}"${narrow?` role="tabpanel"`:''}><h2 class="dsp-sh" id="${id}">${h}</h2>${inner}</section>`;
   const boxes=[['view','Our view',box('view','Our view','dsp-vw-h',`<h3 class="dsp-vh">${esc(E.view.h)}</h3><p>${esc(E.view.x)}</p>`)],
     ['wx','Weather',box('wx','Weather'+(E.wx.season?' · '+esc(E.wx.season):''),'dsp-wx-h',`<ul class="dsp-list">${E.wx.map(w=>`<li><b>${esc(w.p)}:</b> ${esc(w.c)}. <span class="dsp-deg">${w.d}°</span></li>`).join('')}</ul>`)],
@@ -32434,22 +32490,22 @@ function dspView(now){
   const secHTML=q=>{const shut=narrow&&!open.has(q.k),hd=narrow?`<h2 class="dsp-sh dsp-sec-h" id="dsp-s-${q.k}"><button type="button" class="dsp-sec-t" data-act="dsp-sec" data-k="${q.k}" aria-expanded="${!shut}" aria-controls="dsp-si-${q.k}">${esc(q.l)} <span>${q.st.length===1?'one story':q.st.length+' stories'}</span></button></h2>`:`<h2 class="dsp-sh" id="dsp-s-${q.k}">${esc(q.l)}</h2>`;
     /* a section of two stories or more prints one picture, with its first story that names a nation */
     let pd=q.st.length<2;
-    return `<section class="dsp-sec${shut?' shut':''}" aria-labelledby="dsp-s-${q.k}">${hd}<div class="dsp-sec-in" id="dsp-si-${q.k}">${q.st.map(s=>{const pic=pd?'':dspPic(s,'s',byId);if(pic)pd=true;return dspStory(s,'h3','',byId,M,pic);}).join('')}</div></section>`;};
+    return `<section class="dsp-sec${shut?' shut':''}" aria-labelledby="dsp-s-${q.k}">${hd}<div class="dsp-sec-in" id="dsp-si-${q.k}">${q.st.map(s=>{const p=pd?'':pic(s,'s',byId);if(p)pd=true;return dspStory(s,'h3','',byId,M,p);}).join('')}</div></section>`;};
   /* the bar: every part of the paper, and the stories about you */
   const bar=[['dsp-front','Front page',0]].concat(E.secs.map(q=>['dsp-s-'+q.k,q.l,q.st.length]),[['dsp-side','Features',0],['dsp-cls','Classifieds',shown.filter(a=>!a.joke).length],['dsp-letters','Letters',0]]);
-  const leadH=E.lead?dspStory(E.lead,'h2','dsp-lead',byId,M,dspPic(E.lead,'l',byId)):'',secondH=E.second.map(s=>dspStory(s,'h2','dsp-2nd',byId,M,dspPic(s,'s',byId))).join('');
+  const leadH=E.lead?dspStory(E.lead,'h2','dsp-lead',byId,M,pic(E.lead,'l',byId)):'',secondH=E.second.map(s=>dspStory(s,'h2','dsp-2nd',byId,M,pic(s,'s',byId))).join('');
   const briefH=E.brief.map(s=>{const m=s.who.includes(me);return `<li${m?` class="mine" id="dsp-m-${M.i++}"`:''}><b>${esc(s.h)}.</b>${m?' <span class="chip you">You</span>':''}</li>`;}).join('');
   const secsH=E.secs.map(secHTML).join('');
   /* the stories about the reader that the edition prints, which You steps through */
   const printed=M.i,mineBtn=printed?`<button type="button" class="dsp-bar-b dsp-bar-me" data-act="dsp-mine" aria-label="Go to the ${printed===1?'story':'stories'} about ${esc(n.name)}">You <span class="dsp-bar-n">${printed}</span></button>`:'';
-  const status=E.live?`<i aria-hidden="true"></i>Live edition · updated ${fmtTime(now)}`:E.frozen?'Final edition · from the archive':'Final edition';
-  return `<div class="dsp-top"><nav class="dsp-eds" aria-label="Editions">${eds.join('')}</nav>${backSel}
-    <p class="dsp-live">${status}${mineN?` · ${printed?`<button type="button" class="linkish dsp-live-me" data-act="dsp-mine">`:''}${mineN===1?'one story mentions':mineN+' stories mention'} you${printed?'</button>':''}`:''}${S.isOwner&&E.frozen?` · <button type="button" class="linkish small" data-act="dsp-reprint" data-no="${no}">Reprint from the records</button>`:''}</p></div>
+  const status=E.live?`<i aria-hidden="true"></i>Live edition · updated ${fmtTime(now)}`:E.frozen?'Final edition · from the archive'+(V.auto?' · the newest on file':''):'Final edition';
+  return `${rgNav}<div class="dsp-top"><nav class="dsp-eds" aria-label="Editions">${eds.join('')}</nav>${backSel}
+    <p class="dsp-live">${status}${mineN?` · ${printed?`<button type="button" class="linkish dsp-live-me" data-act="dsp-mine">`:''}${mineN===1?'one story mentions':mineN+' stories mention'} you${printed?'</button>':''}`:''}${S.isOwner&&E.frozen?` · <button type="button" class="linkish small" data-act="dsp-reprint" data-no="${no}" data-reg="${esc(reg)}">Reprint from the records</button>`:''}</p></div>
   ${live?dspPoHTML(E,now):''}
   <article class="dsp" aria-labelledby="dsp-title">${dspHtDefs()}
     <header class="dsp-mast">
       <div class="dsp-ears"><p class="dsp-ear"><span class="lbl">Weather</span>${E.wx[0]?esc(E.wx[0].p+': '+E.wx[0].c+'.'):''}</p><span class="dsp-dev" aria-hidden="true">${DSP_DEVICE}</span><p class="dsp-ear dsp-ear-r"><span class="lbl">${E.live?'Late edition':'Final edition'}</span>${E.live?'Stories fill in as the day goes on.':'As it went to press at midnight.'}</p></div>
-      <p class="dsp-reg"><span>${esc(cap1(REG.the))}</span></p>
+      <p class="dsp-reg"><span>${esc(cap1(R.the))}</span></p>
       <h1 class="dsp-title" id="dsp-title">${esc(title)}</h1>
       ${motto?`<p class="dsp-motto">“${esc(motto)}”</p>`:''}
       <p class="dsp-strip"><span>No. ${E.no}</span><span>${dspDate(E.no)}</span><span>Price: ${esc(price)}</span></p>
@@ -32467,19 +32523,19 @@ function dspView(now){
     <div class="dsp-bottom">
       <section class="dsp-cls" id="dsp-cls" aria-labelledby="dsp-cl-h"><h2 class="dsp-sh" id="dsp-cl-h">Classified advertisements</h2>
         ${chips}
-        ${shown.length?`<ul class="dsp-ads">${shown.map(a=>adHTML(a,false)).join('')}</ul>`:`<p class="hint">${AD.ads.length||AD.jokes.length?'No advertisements in this section today.':'The classified advertisements of this edition are no longer kept.'}</p>`}
+        ${shown.length?`<ul class="dsp-ads">${shown.map(a=>adHTML(a,false)).join('')}</ul>`:`<p class="hint">${away?`The classified advertisements are printed only in the copies sold in ${esc(R.the)}.`:AD.ads.length||AD.jokes.length?'No advertisements in this section today.':'The classified advertisements of this edition are no longer kept.'}</p>`}
         ${hidden?`<p class="hint">${hidden===1?'One advertisement':hidden+' advertisements'} hidden on this device. <button class="linkish small" data-act="dsp-unhide">Show again</button></p>`:''}
         ${form}
       </section>
       <section class="dsp-letters" id="dsp-letters" aria-labelledby="dsp-lt-h"><h2 class="dsp-sh" id="dsp-lt-h">Letters to the editor</h2>${E.letters.map(l=>`<blockquote class="dsp-letter"><p>${esc(l.x)}</p><footer>${esc(l.by)}</footer></blockquote>`).join('')}</section>
     </div>
     ${dspNameHTML(E)}
-    <p class="dsp-foot">Written from what the nations of ${esc(REG.the)} actually did on ${dspDate(E.no)}, UTC. Every reader in the region gets the same paper.</p>
+    <p class="dsp-foot">Written from what the nations of ${esc(R.the)} actually did on ${dspDate(E.no)}, UTC. Every reader in the region gets the same paper.${away?` Today’s edition of ${esc(R.the)} is filed in its archive once it has gone to press.`:''}</p>
   </article>`;
 }
 VIEWS_EXT.dispatch=now=>dspView(now);
 /* what the page shows, to know when to draw it again: the edition (or its filed copy), the press and the archive */
-function dspShownSig(no,now){return (dspFrozen(no)?'f:':'')+(no>=dspNoOf(now)-DSP_BACK?dspKey(no,now):'')+'|'+dspSig()+'|'+PRESS.rev+'|'+dspPaperState(no)+'|'+(SHOP.bx?SHOP.bx.size:0);}
+function dspShownSig(V,now){const {no,R,away}=V;return R.id+'#'+no+'|'+(dspFrozen(no,R.id)?'f:':'')+(!away&&no>=dspNoOf(now)-DSP_BACK?dspKey(no,now):'')+'|'+dspSig()+'|'+PRESS.rev+'|'+dspPaperState(no,R.id)+'|'+(SHOP.bx?SHOP.bx.size:0);}
 
 /* ───── posting, answering and hiding advertisements ───── */
 function dspPost(){
@@ -32541,9 +32597,10 @@ function dspPreview(){
 }
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
-  if((a==='go'||a==='nt-go')&&el.dataset.v==='dispatch'){S.dspNo=null;S.dspMsg='';S.dspMineI=0;return;}
+  if((a==='go'||a==='nt-go')&&el.dataset.v==='dispatch'){S.dspNo=null;S.dspReg='';S.dspMsg='';S.dspMineI=0;return;}
   if(a==='dsp-ed'){const k=+el.dataset.no;S.dspNo=Number.isInteger(k)?k:null;S.dspMineI=0;render();dspHash();return;}
-  if(a==='dsp-open'){const k=+el.dataset.no;S.dspNo=Number.isInteger(k)?k:null;S.dspMineI=0;go('dispatch');return;}
+  if(a==='dsp-open'){const k=+el.dataset.no;S.dspNo=Number.isInteger(k)?k:null;S.dspReg='';S.dspMineI=0;go('dispatch');return;}
+  if(a==='dsp-rg'){const d=el.classList.contains('dsp-rg-p')?'.dsp-rg-p':el.classList.contains('dsp-rg-n')?'.dsp-rg-n':'#dsp-rg-sel';dspRegGo(el.dataset.v,d);return;}
   if(a==='dsp-hide'){const h=dspHidden();h.add(el.dataset.id);dspSetHidden(h);render();return;}
   if(a==='dsp-unhide'){dspSetHidden(new Set());render();return;}
   if(a==='dsp-wd'){dspWithdraw(el.dataset.id);return;}
@@ -32557,7 +32614,7 @@ document.addEventListener('click',e=>{
   if(a==='dsp-sec'){const k=el.dataset.k,sec=el.closest('.dsp-sec'),open=dspOpenSet(),on=!open.has(k);if(on)open.add(k);else open.delete(k);if(sec)sec.classList.toggle('shut',!on);el.setAttribute('aria-expanded',String(on));return;}
   if(a==='dsp-side'){const k=el.dataset.k;S.dspSide=k;const w=document.getElementById('dsp-side');if(w){for(const b of w.querySelectorAll('.dsp-tab')){const on=b.dataset.k===k;b.classList.toggle('on',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}for(const p of w.querySelectorAll('.dsp-box'))p.classList.toggle('on',p.id==='dsp-p-'+k);}return;}
   if(a==='dsp-po'){dspPoAct(el.dataset.k,el.dataset.key);return;}
-  if(a==='dsp-reprint'){dspReprint(+el.dataset.no);return;}
+  if(a==='dsp-reprint'){dspReprint(+el.dataset.no,el.dataset.reg);return;}
   if(a==='dsp-nm-reset'){if(!S.isOwner)return;adminRequest({op:'moderate',action:'press_reset',target:REG.id,reason:'Paper name reset from the newspaper'}).then(()=>{pressLoad(true);toast('The paper has its own name back.');},er=>toast((er&&er.message)||'The name could not be reset.'));return;}
 });
 /* arrow keys move along the feature tabs on a phone */
@@ -32572,6 +32629,7 @@ document.addEventListener('change',e=>{
   const t=e.target;if(!t)return;
   if(t.name==='dsp-adc'){S.dspAdCat=t.value;dspPreview();}
   else if(t.id==='dsp-ad-bx'){S.dspBx=t.checked;dspPreview();}
+  else if(t.id==='dsp-rg-sel'){dspRegGo(t.value,'#dsp-rg-sel');}
   else if(t.id==='dsp-bk'){const k=+t.value;S.dspNo=t.value&&Number.isInteger(k)?k:null;S.dspMineI=0;render();dspHash();const s=document.getElementById('dsp-bk');if(s)s.focus();}
 });
 document.addEventListener('submit',e=>{
@@ -32579,8 +32637,8 @@ document.addEventListener('submit',e=>{
   else if(e.target&&e.target.id==='dsp-nm-form'){e.preventDefault();dspNameSave();}
 });
 /* the page follows the region: redraw when the records, the computer nations, the press, the archive or the day move on */
-setInterval(()=>{if(!S.nation||S.view!=='dispatch'||S.notifOpen||document.hidden)return;pressLoad(false);const now=Date.now(),today=dspNoOf(now);if(today>1)dspFetchPaper(today-1);const no=Number.isInteger(S.dspNo)&&S.dspNo<today&&S.dspNo>=today-DSP_KEEP?S.dspNo:today;
-  const a=document.activeElement;if(a&&/^(dsp-ad|dsp-nm|dsp-mo)$/.test(a.id))return;if(dspShownSig(no,now)!==S.dspShown)render();},10000);
+setInterval(()=>{if(!S.nation||S.view!=='dispatch'||S.notifOpen||document.hidden)return;pressLoad(false);const now=Date.now(),today=dspNoOf(now);if(today>1)dspFetchPaper(today-1);const V=dspShown(now);if(V.away&&V.auto&&today>1)dspFetchPaper(today-1,V.R.id);
+  const a=document.activeElement;if(a&&/^(dsp-ad|dsp-nm|dsp-mo)$/.test(a.id))return;if(dspShownSig(V,now)!==S.dspShown)render();},10000);
 
 /* ───── saved fields ───── */
 NORM_HOOKS.push((n,d)=>{
@@ -32630,7 +32688,7 @@ NATION_SECTIONS.push((x,now)=>{
   return `<section class="section dsp-tz" aria-labelledby="dsp-tz-h"><div class="dsp-tz-in"><p class="eyebrow">In the news · ${esc(dspTitle())}, ${hit.no===today?'today':'yesterday'}</p><h2 class="dsp-tz-h" id="dsp-tz-h">${esc(hit.s.h)}</h2><button class="btn ghost" data-act="dsp-open" data-no="${hit.no}">Read the ${esc(dspTitleShort())}</button></div></section>`;
 });
 HELP_EXT.push({k:'dispatch',t:'The Daily Dispatch',body:n=>`<p>${esc(cap1(REG.the))} has a newspaper. A new edition comes out every day at midnight UTC and covers that day: the edicts players decide, wars, peace, alliances, trade, cities, discoveries, the Games, museum finds and honours, the laws the computer nations pass, and news from the Assembly and the intelligence services. Each player’s first ${DSP_PER} decisions of the day make the paper.</p>
-  <p>Every reader in the region gets the same paper. Today’s edition fills in as the day goes on. An hour after an edition closes, the first reader to open the paper files it in the archive, and from then on everyone reads that copy; back issues stay on file for ${DSP_KEEP} days. The bar under the masthead jumps to each part of the paper, and “You” to each story about your nation; the address of a past edition (#dispatch/ and its number) opens that edition. Stories about your nation carry a “You” marker, and the bell tells you once a day when the paper mentions you, or when you have not read it for two days.</p>
+  <p>Every reader in the region gets the same paper. Today’s edition fills in as the day goes on. An hour after an edition closes, the first reader to open the paper files it in the archive, and from then on everyone reads that copy; back issues stay on file for ${DSP_KEEP} days. The arrows at the top of the page go round the newspapers of the other regions, read from their archives: the newest edition on file, or the date you pick. The bar under the masthead jumps to each part of the paper, and “You” to each story about your nation; the address of a past edition (#dispatch/ and its number) opens that edition. Stories about your nation carry a “You” marker, and the bell tells you once a day when the paper mentions you, or when you have not read it for two days.</p>
   <p><b>Your press office.</b> Once a day it can lean on the editor about one story in today’s paper that mentions your nation: push it up the paper for ${MD_COST.dspPush||2} mandate, or try to bury it for ${MD_COST.dspBury||3} mandate and ${DSP_BURY_CORRUPT} points of corruption. The editor buries a story at the back of the paper about two times in three; otherwise the paper prints, on the front page, that you asked.</p>
   <p><b>Classified advertisements</b> cost ${esc(costText(DSP_AD_COST))} and run for 3 days, in a section of your choice (${DSP_AD_CATS.map(c=>c[1].toLowerCase()).join(', ')}). You can have ${DSP_AD_MAX} running at a time and place ${DSP_AD_DAY} a day, ${DSP_AD_LEN} characters each, signed with your nation’s name. Members of the Chancery Club can print theirs boxed. Answer one with Reply, which starts a letter to the advertiser. Anyone can hide an advertisement on their own device, and Report sends it to the moderators, who can remove it for everyone.</p>
   <p><b>The paper’s name.</b> The Delegate of the Regional Assembly may give the paper a new name and motto, once every six hours; they appear from the next edition on.</p>${n?`<p class="help-go"><button class="linkish small" data-act="go" data-v="dispatch">Read the Dispatch →</button></p>`:''}`});
@@ -45358,6 +45416,10 @@ async function connect(){
   const none={docs:[]};
   listen(db.collection('nations').where('reg','==',REG.id),qs=>{regQS=qs;if(!qs.fromCache)regionHeardAt=Date.now();shared();},()=>{regQS=regQS||none;shared();});
   listen(db.collection('space'),qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
+  /* the region read once more, straight from the server, for settling and claiming (landWait) when its feed has not
+     delivered a while after start: a feed that stalls (seen in the core suite on 13 Nov 2026) left a new nation's
+     capital waiting for good. The space feed, if it has not come either, counts as empty until it does. */
+  landKick=()=>db.collection('nations').where('reg','==',REG.id).get().then(qs=>{if(!qs)return;regQS=qs;if(!qs.fromCache)regionHeardAt=Date.now();if(!spQS)spQS=none;shared();},()=>{});
   let boardQS=none;
   const board=()=>{
     const r={};
@@ -45408,8 +45470,23 @@ go=(f=>function(){const r=f.apply(this,arguments);ownCheck();return r;})(go);
    keeps its own map, as before, and so does one on this computer (development and the tests, which play offline on
    purpose; EDICTUM_LAND_STRICT gives them the live site's rule). */
 const LAND_LOCAL='there is no Firebase configuration',LAND_DEV=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)&&!window.EDICTUM_LAND_STRICT;
+/* Online, the wait is bounded: after LAND_KICK_MS the region is read again directly (landKick, in connect), and after
+   LAND_WAIT_MS settling and claiming go ahead on what the page has. A capital that comes down on land claimed first is
+   still taken off the map and its player asked to move (capWrong, capLift); a region that never arrives must not keep
+   a new player from placing one at all. */
+const LAND_KICK_MS=5000,LAND_WAIT_MS=Math.max(1000,Number(window.EDICTUM_LAND_WAIT_MS)||20000);
+let landKick=null,landWaitFrom=0,landKickAt=0;
 function landWait(){
   if(OBS||PV)return '';
+  const w=landWaitWhy();if(w!=='wait')return w;
+  /* every wait is bounded, the region's as much as the start-up's (connect still under way after the sign-in: seen in the
+     core suite on CI, 13 Nov 2026); only 'off', a game the server never reached, waits for a reload */
+  const now=Date.now();if(!landWaitFrom)landWaitFrom=now;
+  if(now-landWaitFrom<LAND_WAIT_MS)return 'wait';
+  if(landWaitFrom>0){landWaitFrom=-1;console.warn('[edictum] The region did not load; settling and claiming go ahead without it.');}
+  return '';
+}
+function landWaitWhy(){
   if(S.mode==='world')return worldHeardAt?'':'wait';
   if(S.mode!=='local')return '';
   const E=window.__edictum;if(!E||typeof E!=='object')return '';
@@ -45450,7 +45527,12 @@ function capLift(){
   capNote();render();
   return true;
 }
-function landTick(){if(OBS||PV||tabPassive)return;try{landQueued();}catch(e){}try{capLift();}catch(e){}}
+function landTick(){
+  if(OBS||PV||tabPassive)return;
+  /* the region still not in a while after start: read it again directly, at most every LAND_KICK_MS */
+  try{const now=Date.now();if(S.mode==='world'&&!worldHeardAt&&landKick&&landWaitFrom>0&&now-landWaitFrom>=LAND_KICK_MS&&now-landKickAt>=LAND_KICK_MS){landKickAt=now;landKick();}}catch(e){}
+  try{landQueued();}catch(e){}try{capLift();}catch(e){}
+}
 setInterval(landTick,1500);
 NORM_HOOKS.push((n,d)=>{
   const r=d&&d.rsx;if(!r||typeof r!=='object'||typeof r.t!=='number'||!isFinite(r.t))return;
@@ -65498,7 +65580,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -67438,8 +67520,9 @@ achDef('press','press-bury','g','Buried on Page Nine','Have your press office bu
 achDef('press','press-streisand','b','The Story They Tried to Bury','Have the editor print that you asked for a story to be buried.',1,x=>aT(x,'dsp:buryx'),{sec:'Some stories only grow when you sit on them.'});
 achDef('press','press-name','g','Paper of Record','As Delegate of the Regional Assembly, give the newspaper a new name.',1,x=>aT(x,'dsp:name'));
 
-/* #dispatch/<edition> opens that edition; plain #dispatch today's */
-uxHashView=(f=>function(h){if(h==='dispatch'){S.dspNo=null;return 'dispatch';}const m=/^dispatch\/(\d{1,6})$/.exec(h||'');if(m){S.dspNo=+m[1];S.dspMineI=0;return 'dispatch';}return f.apply(this,arguments);})(uxHashView);
+/* #dispatch/<edition> opens that edition; plain #dispatch today's; #dispatch/<region>[/<edition>] another region's paper */
+uxHashView=(f=>function(h){if(h==='dispatch'){S.dspNo=null;S.dspReg='';return 'dispatch';}const m=/^dispatch\/(?:([a-z][a-z0-9-]{1,40})(?:\/|$))?(\d{1,6})?$/.exec(h||'');
+  if(m&&(m[1]?!!REG_BY_ID[m[1]]:!!m[2])){S.dspReg=m[1]&&m[1]!==REG.id?m[1]:'';S.dspNo=m[2]?+m[2]:null;S.dspMineI=0;return 'dispatch';}return f.apply(this,arguments);})(uxHashView);
 go=(f=>function(v){const r=f.apply(this,arguments);if(S.view==='dispatch')dspHash();return r;})(go);
 /* on a phone the bar under the masthead sticks under the top bar, when that bar sticks */
 function dspDom(){
