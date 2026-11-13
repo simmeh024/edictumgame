@@ -156,6 +156,24 @@ test('saying hi in the region chat is a step of its own beside the board’s, pa
   r.ctx.DEVK='';n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('rch'),'kept on reload, on any device');
 });
 
+test('Look round the Shop opens Welcome to Edictum, the list after the charter, and a visit pays 2 land credits and 20 of each resource, once',()=>{
+  const r=rewards(),L=r.ctx.lists,F=L.find(x=>x.k==='first'),s=F.tasks[0];
+  assert.equal(L.indexOf(F),L.findIndex(x=>x.k==='charter')+1,'the list straight after the charter');
+  assert.equal(s.k,'shop','the first task of Welcome to Edictum');assert.equal(s.t,'Look round the Shop');assert.equal(s.v,'shop','its button opens the Shop');
+  assert.equal(s.lock,undefined,'open to guests and new nations alike');
+  assert.equal(s.lc,2);assert.deepEqual({...s.gift},{food:20,timber:20,iron:20,oil:20,goods:20});
+  let n=nation({loc:3});r.save(n);n=r.reload(n);assert.ok(!n.tut.lc.includes('shop'),'not before the Shop is opened');
+  const before=r.ctx.credits(n),stock={...n.stock};
+  r.ctx.DEVK='s';const m=r.save(n);
+  assert.equal(m.length,1,m.join(' | '));
+  assert.match(m[0],/^Step done: Look round the Shop\. \+2 land credits and 20 food, 20 timber, 20 iron, 20 oil,? and 20 goods\. Spend them on the map\.$/);
+  assert.equal(r.ctx.credits(n),before+2);for(const k of ['food','timber','iron','oil','goods'])assert.equal(n.stock[k],stock[k]+20,k);
+  r.ctx.DEVK='';n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('shop'),'kept on reload, on any device');
+  // opening the Shop page sets the device mark, and the mark survives the device's own store
+  assert.match(source,/VIEWS_EXT\.shop=\(f=>function\(\)\{if\(S\.nation&&!S\.nation\.npc&&!OBS&&!tutDevGet\(\)\.includes\('s'\)\)setTimeout\(\(\)=>tutMark\('s'\),0\);/);
+  assert.match(source,/k:\(k\+c\)\.replace\(\/\[\^ilwxcubhs\]\/g,''\)/);
+});
+
 test('normalising keeps what the four lists save and drops the rest',()=>{
   const r=rewards();
   assert.deepEqual(JSON.parse(JSON.stringify(r.ctx.normalize({lc:['city','nope','city','fxd'],ch:'zdcq',v:25,p:1,w:24,g:'mq',x:1}))),{g:'m',lc:['city','fxd'],ch:'cd',v:25,p:1,w:24});
