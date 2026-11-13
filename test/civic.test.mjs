@@ -560,8 +560,12 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
   assert.equal((await db.doc('allyOf/' + f.uid).get()).get('a'), aid);
   await rejects(civic(g, { op: 'alFound', name: name.toUpperCase() }), 'al_name');
   await rejects(civic(f, { op: 'alFound', name: name + ' II' }), 'al_member');
-  await db.doc('nations/' + g.uid).update({ pop: 9 });
+  /* founding opens at 7.5 million */
+  await db.doc('nations/' + g.uid).update({ pop: 7.4 });
   await rejects(civic(g, { op: 'alFound', name: 'Too small' }), 'al_small');
+  await db.doc('nations/' + g.uid).update({ pop: 7.5 });
+  const big = await civic(g, { op: 'alFound', name: 'Just big enough ' + crypto.randomUUID().slice(0, 8) });
+  await civic(g, { op: 'alLeave', aid: big.aid, disband: true });
   /* asking: a note waits for an officer; a guest may ask too */
   await civic(b, { op: 'alRequest', aid, x: 'We share a river.' });
   await civic(c, { op: 'alRequest', aid });
