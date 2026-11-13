@@ -431,7 +431,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .sg-ts{font-size:12.5px;line-height:1.3;color:var(--ink-3)}
 .sg-tab.dirty .sg-ts{color:var(--stamp);font-weight:600}
 .sg-pane{display:none;min-width:0}
-.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="nav"] #sg-p-nav,.sg[data-tab="account"] #sg-p-account,.sg[data-tab="letters"] #sg-p-letters,.sg[data-tab="land"] #sg-p-land{display:block}
+.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="sound"] #sg-p-sound,.sg[data-tab="nav"] #sg-p-nav,.sg[data-tab="account"] #sg-p-account,.sg[data-tab="letters"] #sg-p-letters,.sg[data-tab="land"] #sg-p-land{display:block}
 .sg-head{margin:0 0 18px}
 .sg-hrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .sg-h{margin:0;font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1;font-variation-settings:"opsz" 48}
@@ -47167,7 +47167,7 @@ function foundView(){
    once; Account holds sign-in, recruiting, the tutorial and dissolving. Every pane is drawn and CSS shows the open one
    (.sg[data-tab]), so a jump from anywhere (a tutorial step, search, "Name your leader") only has to pick the tab
    (sgShow, from the wiring near the end of the script). The open tab is in the address as #settings/<tab>. */
-const SG_TABS=[['nation','Your nation'],['edicts','Edicts'],['notif','Notifications'],['display','Display'],['nav','Navigation'],['account','Account']];
+const SG_TABS=[['nation','Your nation'],['edicts','Edicts'],['notif','Notifications'],['display','Display'],['sound','Sound'],['nav','Navigation'],['account','Account']];
 const SG={tab:'nation',saved:null,leave:null,leaveOK:false};
 const SG_CULT=['lang','faith','sport','dish','anthem','about'];
 function sgTabOfId(id){
@@ -47177,6 +47177,7 @@ function sgTabOfId(id){
   if(/^(set-appearance|set-rates|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
   if(/^(set-acct|set-social|set-online|rc-|set-tut|set-danger|set-dissolve|set-restart|set-delete|dz-)/.test(id))return 'account';
   if(/^(set-nav|nv-)/.test(id))return 'nav';
+  if(/^set-sound/.test(id))return 'sound';
   return 'nation';
 }
 function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,animal:n.animal,demonym:n.demonym,
@@ -47192,6 +47193,7 @@ function sgTabSub(k,n){
   if(k==='notif')return 'Pop-ups, the bell and letters';
   if(k==='display'){const t=themePref();return (t==='auto'?'Automatic':t==='light'?'Light':'Dark')+' theme, this device';}
   if(k==='nav')return navSub();
+  if(k==='sound')return (sfxOn()?'Sounds on':'Sounds off')+', this device';
   return 'Sign-in, recruiting, the tutorial';
 }
 function sgHead(k,scope,lead){
@@ -47286,8 +47288,8 @@ function settingsView(){
     <section class="sg-card" id="set-rates"><h3 class="sg-ch">Stockpile</h3>
       <div class="cz-disp">${czSeg('Resource gains','set-l-rt',[['h','Per hour'],['d','Per day'],['b','Both']],stkRate(),'cz-disp','rate')}</div>
       <p class="hint sg-rt-h">How the stockpile bars on Cities and the other pages show what each resource gains.</p>
-    </section>
-    ${sfxSection()}`;
+    </section>`;
+  const sound=`${sgHead('sound','This device only','Applies at once. Nobody else hears it.')}${sfxSection()}`;
   const account=`${sgHead('account','','')}
     ${OBS?'':`<section class="sg-card" id="set-acct"><h3 class="sg-ch">Sign-in</h3><p class="hint fs-hint">How you sign in, the accounts linked to ${esc(n.name)}, your recovery key and signing out are in the account panel.</p><button type="button" class="btn ghost" data-act="acct-open">Open the account panel</button></section>`}
     ${rcSection()}
@@ -47297,7 +47299,7 @@ function settingsView(){
     <section class="sg-card" id="set-tut"><h3 class="sg-ch">Tutorial</h3>${stepsReset()||`<p class="hint">Every tutorial list you have not finished is on your Nation page. <button type="button" class="linkish small" data-act="go" data-v="help">How to play</button></p>`}</section>
     ${sgDanger(n)}`;
   return `<header class="vh"><p class="eyebrow">Office of the ${esc(n.leader)}</p><h1>Settings</h1><p>The name ${esc(n.name)} is permanent. Everything else can change here.</p></header>
-  <div class="sg" id="sg" data-tab="${t}">${rail}<div class="sg-body">${pane('nation',nation)}${pane('edicts',edicts)}${pane('notif',notif)}${pane('display',display)}${pane('nav',navSettings())}${pane('account',account)}</div></div>`;
+  <div class="sg" id="sg" data-tab="${t}">${rail}<div class="sg-body">${pane('nation',nation)}${pane('edicts',edicts)}${pane('notif',notif)}${pane('display',display)}${pane('sound',sound)}${pane('nav',navSettings())}${pane('account',account)}</div></div>`;
 }
 /* ── the danger zone: Start over, Dissolve, Delete nation and account ──
    Start over and Dissolve ask for the nation's name to be typed (S.dzType) before their last button works.
@@ -50885,6 +50887,7 @@ const UX_SETTINGS=[
   {v:'focus:flag',l:'Flag layers and design',g:'Design',words:'flag emblem stripes border layers rotate',view:'customise',target:'[data-fgg="c:layers"]',setup:()=>{FG.open['c:layers']=true;}},
   {v:'focus:passport',l:'Passport designer',g:'Design',words:'passport cover pages stamp visas',view:'customise',target:'#cz-sec-p'},
   {v:'focus:appearance',l:'Game appearance',g:'Settings',words:'theme accent colour color density font text size motion',view:'settings',target:'#set-appearance'},
+  {v:'focus:sound',l:'Sound effects',g:'Settings',words:'sound sounds audio mute quiet silent volume seal stamp dice vibrate buzz',view:'settings',target:'#set-sound'},
   {v:'focus:rates',l:'Resource gains per hour or per day',g:'Settings',words:'stockpile resources food timber iron oil goods gain growth rate hourly daily',view:'settings',target:'#set-rates'},
   {v:'focus:edicts',l:'Edict delivery and topics',g:'Settings',words:'frequency waiting edicts topics pace',view:'settings',target:'#s-freq'}
 ];
@@ -66093,12 +66096,13 @@ function sfx(kind,ms=0){
 /* reduced motion: no sequence, but a decision still sounds */
 function sfxQuiet(r){sfx('stamp',0);if(r&&r.gm)sfx(r.gm.ok?'win':'lose',350);}
 function sfxSection(){
-  return `<section class="sg-card" id="set-sound"><h3 class="sg-ch">Sound</h3>
+  return `<section class="sg-card" id="set-sound"><h3 class="sg-ch">Sound effects</h3>
       <label class="tog"><input type="checkbox" data-act="sg-sfx"${sfxOn()?' checked':''}> Play sounds when you decide an edict</label>
       <p class="hint">The thump of your seal, and the roll of the dice on a gamble. On a phone, a short buzz as well.</p>
     </section>`;
 }
-document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.act!=='sg-sfx')return;try{localStorage.setItem(SFX.key,t.checked?'1':'0');}catch(err){}if(t.checked)sfx('stamp',0);});
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.act!=='sg-sfx')return;try{localStorage.setItem(SFX.key,t.checked?'1':'0');}catch(err){}if(t.checked)sfx('stamp',0);
+  const s=document.querySelector('[data-sg-sub="sound"]');if(s)s.textContent=sgTabSub('sound',S.nation);});
 
 /* ───────── the browser tab: what is waiting, at a glance ─────────
    The tab's title counts what waits for the player, as "(3) Edicts · Edictum": unread edicts, unread letters,
