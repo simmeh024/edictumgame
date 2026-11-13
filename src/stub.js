@@ -6,9 +6,13 @@
   'use strict';
   var settled = false, resolveApi;
   var ready = new Promise(function (r) { resolveApi = r; });
-  function settle(api) {
+  /* why: when there is no api, the reason the game plays in this browser only (off and why on window.__edictum, which
+     the game reads before it lets anyone settle or claim land: game/edictum.html, landWait) */
+  function settle(api, why) {
     if (settled) return false;
     settled = true;
+    var E = window.__edictum;
+    if (E) { E.state = 'done'; if (!api) { E.off = true; if (!E.why) E.why = why || 'start-up did not finish'; } }
     resolveApi(api || null);
     return true;
   }
@@ -25,7 +29,7 @@
     painted();
     document.querySelectorAll('.boot-load').forEach(function (p) { p.textContent = 'The game files could not be downloaded. Reload the page to try again.'; p.setAttribute('role', 'alert'); });
   }
-  window.__edictum = { settle: settle, ready: ready, started: false, hostTheme: hostTheme, painted: painted, bootError: bootError };
+  window.__edictum = { settle: settle, ready: ready, started: false, hostTheme: hostTheme, painted: painted, bootError: bootError, state: 'wait', off: false, why: '' };
   window.claude = Object.freeze({
     use: function (name) {
       return ready.then(function (api) {
@@ -39,6 +43,9 @@
   /* Safety nets: if the shim never ran, or start-up hangs, the game plays in this browser only. */
   /* (build.py adds the game's scripts after the first frame, or at the latest on load, and marks them `loading`:
      scripts added before load hold it back, so by then the shim has run; the check waits a moment for that) */
-  window.addEventListener('load', function () { setTimeout(function () { if (!window.__edictum.started && !window.__edictum.loading) settle(null); }, 0); });
-  setTimeout(function () { settle(null); }, 30000);
+  window.addEventListener('load', function () { setTimeout(function () { if (!window.__edictum.started && !window.__edictum.loading) settle(null, 'the game scripts did not start'); }, 0); });
+  /* 60 s: a phone on a slow connection needs more than the 30 it once had (the scripts, then Firebase's own waits of up
+     to 10 + 15 s for a sign-in): past it, the game had begun on its own and stayed there for the visit (2026-11-12).
+     A start that finishes later still reloads into the region (src/shim.js, lateOnline). */
+  setTimeout(function () { settle(null, 'start-up took too long'); }, 60000);
 })();
