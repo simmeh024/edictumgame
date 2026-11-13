@@ -119,6 +119,26 @@ async function run(width) {
     check(`${width}px: the map canvas is kept when its page is drawn again`, map.same, JSON.stringify(map));
     check(`${width}px: and a 40 px drag moves the map 40 px (its listeners were not bound twice)`, Math.abs(map.moved - 40) <= 2, JSON.stringify(map));
 
+    /* a click on a map that edits it (a border on the Provinces page) draws the page again with the pointer over a hex
+       (data-hover) and the "Drag to move" hint gone (taken off at the press). The canvas is still kept, and the map keeps
+       one effects overlay: a replaced canvas left its overlay behind, each with its last night shade and hover ring,
+       so the map grew darker with every edit. A canvas a redraw does replace (here its label changed) leaves one too */
+    const fx = await page.evaluate(async () => {
+      const G = window.__game, S = G.S, app = document.getElementById('app'), wait = ms => new Promise(r => setTimeout(r, ms));
+      S.view = 'map'; G.render(); await wait(500);
+      const cvOf = () => document.querySelector('canvas.map-cv[data-map="main"]'), cv = cvOf();
+      const state = () => { const c = cvOf(), w = c.parentElement; return { n: w.querySelectorAll('.map-fx').length, next: !!(c.nextElementSibling && c.nextElementSibling.classList.contains('map-fx')) }; };
+      const press = c => { const h = c.parentElement.querySelector('.map-hint'); if (h) h.remove(); c.dataset.hover = String(G.MAP.N >> 1); };
+      const out = { start: state() };
+      for (let i = 0; i < 3; i++) { press(cvOf()); app.prepend(document.createComment('again')); G.render(); await wait(100); }
+      out.hovered = { ...state(), same: cvOf() === cv };
+      for (let i = 0; i < 3; i++) { const c = cvOf(); press(c); c.setAttribute('aria-label', 'Changed by hand ' + i); app.prepend(document.createComment('again')); G.render(); await wait(100); }
+      out.replaced = { ...state(), same: cvOf() === cv };
+      return out;
+    });
+    check(`${width}px: a redraw after a press on the map keeps its canvas and one overlay`, fx.start.n === 1 && fx.hovered.same && fx.hovered.n === 1 && fx.hovered.next, JSON.stringify(fx));
+    check(`${width}px: a map canvas replaced by a redraw leaves one overlay, right after it`, !fx.replaced.same && fx.replaced.n === 1 && fx.replaced.next, JSON.stringify(fx));
+
     /* typing into a number field while the page is drawn again (in play, the region's saves redraw it every few seconds)
        keeps the caret after what was typed: 100 typed into the Bureau's market stays 100, it used to become 001 */
     const toTrade = () => page.evaluate(async () => { const G = window.__game; G.S.view = 'trade'; G.render(); await new Promise(r => setTimeout(r, 300)); return !!document.getElementById('gb-q'); });

@@ -27973,7 +27973,11 @@ function mfxPersp(wrap){if(!wrap)return;const v=Math.round(Math.max(300,wrap.cli
 function mfxAfter(cv,kind,T,s,ox,oy,w,h,dpr,col){
   for(const q of MFX)if(!q.cv.isConnected)mfxDrop(q);
   if(kind==='mini')return;
-  let ov=cv.nextElementSibling;if(!ov||!ov.classList.contains('map-fx')){ov=document.createElement('canvas');ov.className='map-fx';ov.setAttribute('aria-hidden','true');cv.after(ov);}
+  let ov=cv.nextElementSibling;if(!ov||!ov.classList.contains('map-fx')){ov=document.createElement('canvas');ov.className='map-fx';ov.setAttribute('aria-hidden','true');cv.after(ov);
+    /* any other overlay in the frame belonged to a canvas that a redraw replaced (the page patch leaves overlays where
+       they are): left there with its last frame, the night and a hover ring, it darkened the map, one more with each
+       edit of the Provinces page's borders */
+    if(cv.parentElement)for(const x of cv.parentElement.querySelectorAll(':scope>canvas.map-fx'))if(x!==ov)x.remove();}
   let f=cv._mfx;if(!f||f.ov!==ov){f={cv,ov,kind,vis:true,gl:[],sf:null,mig:null,lights:[],hov:-1,hovA:1,prev:-1,prevA:0,last:0,lt:0};cv._mfx=f;MFX.add(f);mfxObserve(f);}
   if(ov.width!==cv.width||ov.height!==cv.height){ov.width=cv.width;ov.height=cv.height;}
   Object.assign(f,{s,ox,oy,w,h,dpr,col,dk:rlfDark(col)});
@@ -47500,11 +47504,14 @@ function rpRoute(){return (S.nation?'n':'f')+'|'+(OBS?'o':'')+(PV?'p':'')+'|'+S.
 function rpCls(el,name,v){return el.localName==='canvas'&&name==='class'?String(v).replace(RP_CV_CLASS,' ').replace(/ +/g,' ').trim():v;}
 /* attributes scripts set on drawn elements, not differences where the new markup has none of its own: a canvas's
    size and hover mark, what pages measure onto the page column (--cz-dock-h, --sg-top …), the tile ids czDom adds
-   (always the same for the same tile). A canvas drawn once and marked so (data-done) is drawn again, as before */
+   (always the same for the same tile). A canvas drawn once and marked so (data-done) is drawn again, as before.
+   The hover mark is no difference either where the new markup has its own (mapBox writes data-hover="-1"): the
+   hex under the pointer is the canvas's, not the drawing's. Counted as one, the click that edits a map (a border on
+   the Provinces page) had the canvas replaced, and with it the map's state and its place before the overlay */
 const RP_CV_EXTRA=new Set(['width','height','data-hover']),RP_MAIN_EXTRA=new Set(['style']),RP_EXTRA=new Set(['data-czid']);
 function rpAttrsSame(a,b){
   const ex=a.localName==='canvas'?RP_CV_EXTRA:a.id==='main'?RP_MAIN_EXTRA:null,A=a.attributes,B=b.attributes;let na=0,nb=0;
-  for(let i=0;i<B.length;i++){const x=B[i];nb++;const v=a.getAttribute(x.name);if(v===null||rpCls(a,x.name,v)!==rpCls(a,x.name,x.value))return false;}
+  for(let i=0;i<B.length;i++){const x=B[i];nb++;const v=a.getAttribute(x.name);if(v===null)return false;if(ex===RP_CV_EXTRA&&x.name==='data-hover')continue;if(rpCls(a,x.name,v)!==rpCls(a,x.name,x.value))return false;}
   for(let i=0;i<A.length;i++){const m=A[i].name;if(!b.hasAttribute(m)&&(RP_EXTRA.has(m)||ex&&ex.has(m)))continue;na++;}
   return na===nb;
 }
