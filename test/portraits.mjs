@@ -76,6 +76,17 @@ try {
       const d = s => (s.match(/ d="[^"]+"/g) || []).join('');return d(a) === d(b); });
     check('the medallion without a look has the same paths', medSame);
 
+    /* the charter's task: Customise your leader, with its reward, opening Portraits on the head of government */
+    await go('nation');
+    const row = await page.evaluate(() => { const li = document.querySelector('.tut-l-charter li[data-k="portrait"]'); return li ? { tag: (li.querySelector('.tut-lc') || {}).textContent || '', btn: !!li.querySelector('[data-act="tut-go"][data-to="cz-sec-r"]') } : null; });
+    check('the charter asks to customise the leader, for 5 land credits, 25 goods, 25 food and 50 timber', !!row && /\+5 land · 25 goods · 25 food · 50 timber/.test(row.tag) && row.btn, row);
+    await page.evaluate(() => { const l = document.querySelector('.tut-l-charter'); if (l) l.scrollIntoView(); });
+    await page.screenshot({ path: OUT + '/portraits-charter-1280.png' });
+    if (row && row.btn) {
+      await page.click('.tut-l-charter li[data-k="portrait"] [data-act="tut-go"]');
+      check('its button opens Customise › Portraits on the leader', await until(() => page.evaluate(() => location.hash === '#customise/portraits' && !!document.querySelector('#cz-sec-r #pt-p-lead.on'))));
+    }
+
     /* the Cabinet tab: an Edit portrait for the leader and each minister */
     await go('government/cabinet');
     check('Edit portrait on the leader and every minister', await until(() => page.evaluate(() => document.querySelectorAll('[data-act="pt-edit"]').length === 8)));
@@ -117,6 +128,7 @@ try {
     await page.click('#pt-save');
     n = await nation();
     check('the leader’s look, ink and ring are saved', n.rpt && n.rpt.l && n.rpt.l.w === 2 && n.rpt.l.e === 1 && n.rpt.i === 'navy' && n.rpt.r === 1 && !!n.rpt.b, n.rpt);
+    check('saving it ticks the charter’s Customise your leader', (n.tut && n.tut.lc || []).includes('portrait'), n.tut);
     await page.screenshot({ path: OUT + '/portraits-leader-1280.png' });
 
     /* the Cabinet tab shows it: the ink, the ring, the caption */

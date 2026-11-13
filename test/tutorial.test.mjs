@@ -171,7 +171,7 @@ function withCust(r){
 test('“Customise your nation” pays, and with it the charter list’s bonus and “the Founder”',()=>{
   const r=withCust(rewards());r.ctx.DEVK='c';
   assert.ok(r.ctx.lists[0].tasks.some(s=>s.k==='cust'));
-  let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1}});
+  let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},rpt:{l:{w:4}}});
   r.save(n);
   assert.ok(!n.tut.lc.includes('cust'),'not before Customise is opened');assert.ok(!(n.tut.ch||'').includes('c'),'nor the list');
   r.ctx.DEVK='cu';n=r.reload(n);const m=r.save(n);
@@ -180,6 +180,26 @@ test('“Customise your nation” pays, and with it the charter list’s bonus a
   assert.equal(n.tut.ch,'c');assert.deepEqual([...r.ctx.unlocks[0].earned(n)],['t-founder']);
   n=r.reload(n);assert.ok(n.tut.lc.includes('cust'),'and it is kept on reload');assert.deepEqual(r.save(n),[]);
   const pub=JSON.parse(JSON.stringify(n));delete pub.tut;assert.equal(r.ctx.credits(pub),r.ctx.credits(n),'another player’s game counts all of it');
+});
+
+test('“Customise your leader” pays 5 land credits, 25 goods, 25 food and 50 timber once, and the charter waits for it',()=>{
+  const r=withCust(rewards());r.ctx.DEVK='cu';
+  const L=r.ctx.lists[0],ks=[...L.tasks.map(s=>s.k)],s=L.tasks.find(s=>s.k==='portrait');
+  assert.ok(s,'in the charter');assert.equal(ks.indexOf('portrait'),ks.indexOf('ruler')+1,'straight after Name your leader');assert.equal(ks[ks.length-1],'charter','Finish your charter stays last');
+  assert.equal(s.t,'Customise your leader');assert.equal(s.v,'customise');assert.equal(s.to,'cz-sec-r','its button opens Customise › Portraits');
+  let n=nation({loc:3,capital:'Harbourtown',ruler:'Ada',sport:'hurling',onb:{v:1,u:['charter']},tly:{'log:flag':1},rpt:{s:'leader:one',b:'Harbourtown'}});
+  r.save(n);
+  assert.ok(!n.tut.lc.includes('portrait'),'a face kept through a rename is not yet a portrait');assert.ok(!(n.tut.ch||'').includes('c'),'and the charter waits for it');
+  n=r.reload(n);const before=r.ctx.credits(n),stock={...n.stock};
+  n.rpt={...n.rpt,l:{e:1,w:4}};const m=r.save(n);
+  assert.ok(n.tut.lc.includes('portrait'),m.join(' | '));
+  assert.ok(m.some(x=>/^Step done: Customise your leader\. \+5 land credits and 25 goods, 25 food, and 50 timber\./.test(x)),m.join(' | '));
+  assert.ok(m.some(x=>/^List complete: Your nation starts here\./.test(x)),'the last step open, so the charter is complete: '+m.join(' | '));
+  assert.equal(r.ctx.credits(n),before+5+3,'5 for the step and 3 for the list');
+  assert.equal(n.stock.goods,stock.goods+25);assert.equal(n.stock.food,stock.food+25+10);assert.equal(n.stock.timber,stock.timber+50+10);
+  n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.ok(n.tut.lc.includes('portrait'),'kept on reload');
+  /* an ink, a ring or a nickname saved alone counts too */
+  for(const rp of [{i:'navy'},{r:2},{k:'builder'}]){const r2=withCust(rewards()),x=nation({loc:3,rpt:rp});r2.save(x);assert.ok(x.tut.lc.includes('portrait'),JSON.stringify(rp));}
 });
 
 test('back pay: once, Welcome tasks already paid get 5 iron and 5 oil each, the Google step 5 oil, and credits count afresh',()=>{

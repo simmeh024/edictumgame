@@ -389,6 +389,9 @@ dress and one detail. The head of government also picks an ink, a ring and a nic
   painter's edict). Anyone can try them on; saving waits until they are earned. No shop pack.
 - *The court painter.* `PT_ISSUES` (one edict, after the crises and gambles): as they are, in the manner of the
   old emperors (laurel, ermine and a laurel ring, earned at once) or the whole cabinet; the Dispatch reports it.
+- *The charter.* "Customise your leader" (tutorial key `portrait`, right after Name your leader, so Finish your
+  charter waits for it) pays 5 land credits, 25 goods, 25 food and 50 timber once the leader's portrait is saved with a
+  look, an ink, a ring or a nickname; its button opens Portraits on the head of government.
 - Tests: `test/portraits.test.mjs` (in `test:fx`) and `npm run test:portraits` (looks, the dress code, earned
   pieces, a rename, a succession, the Museum, banknotes, the edict and a reload, on a desktop and a phone in both
   themes).

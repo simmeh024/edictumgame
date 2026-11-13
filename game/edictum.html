@@ -52081,6 +52081,11 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
    once the list's other tasks are done, and signing it completes the list */
 pgEligible=(f=>function(n,k){return k==='charter'?!!n:f.apply(this,arguments);})(pgEligible);
 {const L=TUT_LISTS.find(L=>L.k==='charter'),i=L.tasks.findIndex(s=>s.k==='charter'),ch=L.tasks.splice(i,1)[0];
+  /* Customise your leader (Customise › Portraits), straight after naming them: done once the head of government's
+     portrait is saved with a look, an ink, a ring or a nickname (n.rpt; a seed pinned by a rename alone does not count) */
+  const j=L.tasks.findIndex(s=>s.k==='ruler');
+  L.tasks.splice(j>=0?j+1:L.tasks.length,0,{k:'portrait',lc:5,t:'Customise your leader',h:n=>`Give your ${String(n.leader||'leader').toLowerCase()} a face of their own: hair, a beard, a hat, their dress. The portrait hangs in the cabinet and the Museum, and is engraved on your banknotes.`,
+    v:'customise',to:'cz-sec-r',b:'Open Portraits',gift:{goods:25,food:25,timber:50},f:n=>{const r=n&&n.rpt;return !!r&&(!!(r.l&&Object.keys(r.l).length)||!!r.i||!!r.r||!!r.k);}});
   L.tasks.push({k:'cust',lc:2,t:'Customise your nation',h:'Customise holds your flag layers, coat of arms, epithets, stamps and the design of your money. Have a look around.',v:'customise',b:'Open Customise',gift:{goods:3},f:(n,d)=>String(d||'').includes('u')},ch);}
 tutRebuild();
 /* a visit to Customise ticks its task (after the page is drawn: the mark saves, which draws again) */
@@ -71252,6 +71257,8 @@ CZ_SECS.push(['r','Portraits','portraits portrait face faces beard moustache hat
 CZ_SLUG.r='portraits';CZ_SEC_SUB.r='Faces of the leader and cabinet';
 {const base=VIEWS_EXT.customise;VIEWS_EXT.customise=now=>{const h=base(now);if(!S.nation||typeof h!=='string'||h.includes('id="cz-sec-r"')||!h.includes('id="cz-dock"'))return h;
   const sec=ptCzSec(S.nation),j=h.indexOf('<section class="cz-sec" id="cz-sec-b"');return j>=0?h.slice(0,j)+sec+h.slice(j):h+sec;};}
+/* the charter's "Customise your leader" opens the section on the head of government */
+tutGo=(f=>function(v,b,to){if(to==='cz-sec-r')PT.who='lead';return f.apply(this,arguments);})(tutGo);
 UX_SETTINGS.push({v:'focus:cz-sec-r',l:'Portraits of the government',g:'Design',words:'portrait face beard moustache hat crown wig dress leader minister cabinet dress code nickname ink ring',view:'customise',target:'#cz-sec-r'});
 function ptDraft(n,who){if(!PT.dr[who]){const c=ptSaved(n,who);PT.dr[who]={l:Object.assign({},c.l),i:c.i,r:c.r,k:c.k};}return PT.dr[who];}
 /* a draft back to what is saved is no longer a draft */
