@@ -40377,7 +40377,7 @@ function tutSoc(){try{return typeof SOC_PAGE==='object'&&SOC_PAGE&&typeof SOC_PA
 function tutCall(f,d){try{const v=f();return v==null?d:v;}catch(e){return d;}}
 
 /* ── device marks: i a tile inspected, l a lens tried, w the World page visited, x the Foreign Exchange Bureau visited,
-   u the Customise page visited, c the charter signed, b a message posted on the region's board (each task pays once, and
+   u the Customise page visited, s the Shop visited, c the charter signed, b a message posted on the region's board (each task pays once, and
    the payment is kept on the record) ── */
 function tutDevGet(){
   const n=S.nation,seed=n?String(n.seed):'';if(TUT.devSeed!==seed){TUT.devSeed=seed;TUT.dev='';}
@@ -40385,7 +40385,7 @@ function tutDevGet(){
 }
 function tutMark(c){
   if(!S.nation)return;const k=tutDevGet();if(k.includes(c))return;TUT.dev+=c;
-  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcubh]/g,'')}));}catch(e){}
+  try{localStorage.setItem(TUT_DEV_KEY,JSON.stringify({s:String(S.nation.seed),k:(k+c).replace(/[^ilwxcubhs]/g,'')}));}catch(e){}
   tutLcSoon();
 }
 MAP_CLICK.push(ctx=>{try{if(ctx.kind==='main'&&ctx.cell>=0&&S.mapInspect===ctx.cell)tutMark('i');}catch(e){}return false;});
@@ -40432,6 +40432,8 @@ const TUT_LISTS=[
   {k:'first',c:'f',eb:'First steps',t:()=>'Welcome to Edictum',hk:'statehood.steps.v1',
    lede:'The daily round of a nation: edicts, land and buildings, the map, your cabinet and your neighbours.',
    bonus:{lc:2,gift:{goods:10},u:'t-steward'},tasks:[
+    {k:'shop',lc:2,gift:{food:20,timber:20,iron:20,oil:20,goods:20},t:'Look round the Shop',h:'Badges, card designs, a gilt edge for your land and more, from the Bureau of National Finery. None of it adds prestige or power, and looking is free.',
+     v:'shop',b:'Open the Shop',f:(n,d)=>String(d||'').includes('s')},
     {k:'issue',lc:2,gift:{iron:5,oil:5},t:'Answer three edicts',h:'Every decision moves your census: freedoms, economy, health, happiness and dozens more.',v:'issues',b:'Open edicts',f:n=>decisions(n)>=3},
     {k:'land',lc:2,gift:{iron:5,oil:5},t:'Spend a land credit',h:tutLandHint,v:'map',b:'Open the map',f:n=>(Array.isArray(n.claims)&&n.claims.length>0)||tallyOf(n,'claim')>0},
     {k:'build',lc:2,gift:{iron:5,oil:5,timber:TUT_BUILD_TIMBER},t:'Start a building',h:'Each city has building blocks. Put a farm, a sawmill or a market on one: your first building opens a second city.',v:'cities',b:'Open cities',lock:tutSettleLock,
@@ -59295,6 +59297,8 @@ EXT_PAGES.push('shop','chronicle');NAV_LABELS.shop='Shop';NAV_LABELS.chronicle='
 NAV_WORDS.shop='shop store buy finery founder package cosmetics card pack chancery club membership subscription vip seal';
 NAV_WORDS.chronicle='chronicle history record decisions snapshots export csv json print chancery club';
 VIEWS_EXT.shop=now=>shopView(now);
+/* a visit to the Shop ticks its tutorial task, Look round the Shop (after the page is drawn: the mark saves, which draws again) */
+VIEWS_EXT.shop=(f=>function(){if(S.nation&&!S.nation.npc&&!OBS&&!tutDevGet().includes('s'))setTimeout(()=>tutMark('s'),0);return f.apply(this,arguments);})(VIEWS_EXT.shop);
 /* a purchase begun as a guest carries on once the sign-in is linked: at the next redraw, on any page */
 render=(f=>function(){const r=f.apply(this,arguments);const a=SHOP.after;
   if(a&&(Date.now()-a.t>10*60000||S.mode!=='world'))SHOP.after=null;

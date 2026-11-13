@@ -120,6 +120,9 @@ try {
   await fresh(d); await d.go('intel'); await page.click('[data-act="ib-tab"][data-t="ops"]'); await sleep(100);
   await page.click('[data-act="cv-k"][data-k="w"]'); await sleep(150);
   check('a military mission shows the die and its table', await S(page, () => !!document.querySelector('.ib-die #die') && document.querySelectorAll('.odds li').length === 8 && !!document.querySelector('[data-act="ib-mil"]')));
+  /* the die (sendSpy's first Math.random) rolls 2 to 20 here: a natural 1 is caught, and a caught agent is held with no
+     Home duty button, which failed the home-duty steps below whenever the mission sent agent 2 (1 run in 20 or so) */
+  await page.evaluate(() => { const r = Math.random; Math.random = () => { Math.random = r; return 0.05 + r() * 0.95; }; });
   await page.click('[data-act="ib-mil"]');
   check('the mission is rolled and reported', !!(await until(() => S(page, () => !window.__game.S.spyRolling && !!document.querySelector('#cv-result .report')), 8000)));
   check('the military report keeps the agent, and a dossier goes into the file', await S(page, () => { const G = window.__game, r = G.S.nation.intel[0]; return Number.isInteger(r.ai) && (!r.d || !!(G.S.nation.ifl && G.S.nation.ifl[r.tg] && G.S.nation.ifl[r.tg].a)); }));
