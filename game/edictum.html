@@ -19545,6 +19545,40 @@ function raceT(src,key,t,n){
   if(v===undefined){RACE.want.add(k);raceSoon();}
   return t;
 }
+/* raceT's server time for an entry, or null while it is still being read (or could not be read): for a rule that
+   should act only on a time it is sure of */
+function raceKnown(src,key,t,n){
+  if(!(t>=AC_EPOCH)||S.mode!=='world')return t;
+  const k=key+':'+src,v=RACE.t.get(k);
+  if(typeof v==='number')return v;
+  if(v===null)return Math.max(t,(n&&n._ts)||t);
+  if(v===undefined){RACE.want.add(k);raceSoon();}
+  return null;
+}
+/* ── a capital on land already claimed ──
+   A game that cannot reach the server plays on its own, with no other nation on its map. On 12 Nov 2026 a new
+   nation founded that way put its capital on a hex Eternia had claimed two weeks before, and its first save, once
+   the game got through, brought it all into the region. Such a capital does not stand: the nation is left off the
+   map, as if it had not settled, until it settles again somewhere free (its own game asks it to: capLift). The claim
+   counts from the server's time of it, the capital from the time it took its place (capSince); while the claim's
+   time is still being read, the capital stands. */
+const capClaimsMemo=new WeakMap();
+function capClaimsAt(ev){let m=capClaimsMemo.get(ev);if(m)return m;m=new Map();for(const e of ev.list)if(e.claim){const a=m.get(e.c);if(a)a.push(e);else m.set(e.c,[e]);}capClaimsMemo.set(ev,m);return m;}
+/* id → the entry (list item) of the nation whose earlier claim the capital stands on */
+function capWrong(list,ev){
+  const out=new Map();if(!ev||!ev.list.length)return out;
+  const at=capClaimsAt(ev);let by=null;
+  for(const x of list){
+    if(x.npc||x.id==='draft')continue;const es=at.get(x.cap);if(!es)continue;const since=capSince(x.n);
+    if(!by)by=new Map(list.map(z=>[z.id,z]));
+    for(const e of es){
+      const y=by.get(e.src);if(!y||y===x||y.npc||!Array.isArray(y.n.claims)||!(e.t<since)||!inReach(y,e.c))continue;
+      const t=raceKnown(e.src,'c'+e.c,e.t,y.n);
+      if(t!=null&&t<since){out.set(x.id,y);break;}
+    }
+  }
+  return out;
+}
 function raceSoon(){if(!RACE.busy&&RACE.want.size&&S.db){RACE.busy=true;setTimeout(raceFetch,60);}}
 async function raceFetch(){
   const ks=[...RACE.want].slice(0,40);for(const k of ks)RACE.want.delete(k);
@@ -19684,8 +19718,11 @@ function territory(extra){
   list.sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
   for(const x of list){x.cm=!x.npc&&(x.id==='draft'||Array.isArray(x.n.claims));x.budget=x.cm?CORE_HEXES:x.npc?npcLand(x.pop):budgetOf(x.pop);x.w=x.npc?npcWeight(x.pop):weightOf(x.pop);x.col=nationColor(x.n);}
   const ev=collectConquests(TERR_AT);
+  /* a capital on another nation's earlier claim does not stand: that nation is off the map until it settles again */
+  const wrong=capWrong(list,ev);
+  if(wrong.size)for(let i=list.length-1;i>=0;i--)if(wrong.has(list[i].id))list.splice(i,1);
   const csig=list.map(x=>x.npc||!Array.isArray(x.n.cities)?'':x.n.cities.map(c=>c.c).join('.')).join(',');
-  const key=list.map(x=>x.id+'@'+x.cap+'#'+x.budget+'~'+x.w.toFixed(2)+x.col+(x.me?'*':'')+(x.cm?'c':'')).join('|')+'|'+ev.sig+'|'+csig+(TERR_AT==null?'':'@'+TERR_AT);
+  const key=list.map(x=>x.id+'@'+x.cap+'#'+x.budget+'~'+x.w.toFixed(2)+x.col+(x.me?'*':'')+(x.cm?'c':'')).join('|')+'|'+ev.sig+'|'+csig+(TERR_AT==null?'':'@'+TERR_AT)+(wrong.size?'|w'+[...wrong.keys()].join('.'):'');
   const TC=TERR_AT==null?terrCache:atlasCache,hit=TC.get(key);
   if(hit){hit.list.forEach((x,i)=>{x.n=list[i].n;x.pop=list[i].pop;});return hit;}
   const N=MAP.N,L=list.length,byId=Object.fromEntries(list.map((x,i)=>[x.id,i]));
@@ -19727,7 +19764,7 @@ function territory(extra){
   for(let c=0;c<N;c++){const o=owner[c];if(o>=0){sx[o]+=MAP.cx[c];sy[o]+=MAP.cy[c];}}
   const label=list.map(x=>x.cap),bd=list.map(()=>Infinity);
   for(let c=0;c<N;c++){const o=owner[c];if(o<0)continue;const d=(MAP.cx[c]-sx[o]/count[o])**2+(MAP.cy[c]-sy[o]/count[o])**2;if(d<bd[o]){bd[o]=d;label[o]=c;}}
-  const res={list,owner,count,grown:fin.grown,occ,lost,isCap,label,byId,claimUsed:used,orig};
+  const res={list,owner,count,grown:fin.grown,occ,lost,isCap,label,byId,claimUsed:used,orig,wrong};
   if(TC.size>(TERR_AT==null?8:400))TC.delete(TC.keys().next().value);
   TC.set(key,res);
   return res;
@@ -21639,6 +21676,8 @@ function autoPlan(T,k){
 }
 function writeClaims(cells,msg,auto,plan){
   if(!cells.length)return false;
+  /* claims read the other nations' land, so none is written before it is known (landWait) */
+  {const w=landWait();if(w){if(!auto){S.mapMsg=w==='wait'?landWaitMsg():landOffMsg();S.mpMsg=S.mapMsg;render();}return false;}}
   const checked=mpClaimSequence(territory(),cells),cr=landCredits(S.nation),room=claimRoom(S.nation);if(checked.blocked.length||checked.cost>cr||checked.cost>room){if(!auto){S.mapMsg=checked.blocked[0]?.why||claimShortWhy(checked.cost,cr,room);S.mpMsg=S.mapMsg;render();}return false;}cells=checked.cells;if(!cells.length)return false;
   const now=Date.now(),n=clone(S.nation);
   n.claims=(n.claims||[]).concat(cells.map((c,k)=>({c,t:now+k})));if(plan)delete n.mapPlan;if(auto)autoLog(n,cells,now);
@@ -43069,7 +43108,7 @@ function drawPin(g,x,y,col){g.beginPath();g.arc(x,y-12,7.5,Math.PI*0.8,Math.PI*0
 /* ── the sea, charted ──
    A field over the whole map: each point's distance in map units from the nearest land, on a grid of about 5 units,
    measured exactly to the land hexes' own outlines within SF_EXACT of a coast, and negative just inside the land.
-   Worked out in small idle slices (again when land is reclaimed) and kept, as the relief is. From it:
+   Worked out in idle time only (again when land is reclaimed) and kept, as the relief is. From it:
    - depth bands: the water pales in steps toward the land (SF_DL), a fine contour where each step ends, and the open
      sea beyond the last a little deeper than --sea;
    - the land's shadow on the water, a little down and to the right (SF_SH: offset x and y, then where it starts and
@@ -43154,15 +43193,21 @@ function sfStart(){
   if((sfJob&&sfJob.sig===RECL.sig)||typeof Path2D!=='function')return;
   const G=sfGrid(),nx=G.nx,ny=G.ny,K=Math.min(nx,Math.ceil((SF_DL[SF_DL.length-1]+12)/G.gx)),W=nx+2*K,N=W*ny;
   sfJob={sig:RECL.sig,...G,K,W,hx:new Int32Array(nx*ny),fx:new Int32Array(N).fill(-1),fy:new Int32Array(N),d2:new Float32Array(N).fill(Infinity),D:new Float32Array(nx*ny),seg:new Map(),st:0,y:0,work:0,slices:0,sm:[],fresh:true};
-  setTimeout(sfRun,0);
+  sfLater(sfRun);
 }
-function sfRun(){
+/* The job only ever runs when the page is idle (requestIdleCallback, within the time it offers; where there is none,
+   short slices with a pause between): back to back it kept the main thread busy for a second or more just as a new
+   nation's first saves and sign-in were being settled. A page never idle still gets a 6 ms slice a second. Paths, the
+   kept copy and the redraw that bakes the sea into the terrain picture each wait for an idle moment of their own. */
+const sfLater=f=>window.requestIdleCallback?requestIdleCallback(f,{timeout:1000}):setTimeout(f,60);
+function sfRun(d){
   const J=sfJob;if(!J)return;if(J.sig!==RECL.sig){sfJob=null;sfStart();return;}
-  const t0=performance.now();J.slices++;
-  while(performance.now()-t0<5){const y1=Math.min(J.ny,J.y+16),t1=performance.now();SF_STAGES[J.st](J,J.y,y1);J.sm[J.st]=(J.sm[J.st]||0)+performance.now()-t1;J.y=y1;
+  const t0=performance.now(),more=d&&typeof d.timeRemaining==='function'&&!d.didTimeout?()=>d.timeRemaining()>2:()=>performance.now()-t0<6;J.slices++;
+  do{const y1=Math.min(J.ny,J.y+16),t1=performance.now();SF_STAGES[J.st](J,J.y,y1);J.sm[J.st]=(J.sm[J.st]||0)+performance.now()-t1;J.y=y1;
     if(J.y>=J.ny){J.st++;J.y=0;if(J.st===SF_CONTOUR)J.hx=J.fx=J.fy=J.d2=J.H=null;
-      if(J.st>=SF_STAGES.length){J.work+=performance.now()-t0;sfFinish(J);sfJob=null;if(J.fresh)sfStore(sfF);redrawMaps();return;}}}
-  J.work+=performance.now()-t0;setTimeout(sfRun,0);
+      if(J.st>=SF_STAGES.length){J.work+=performance.now()-t0;sfLater(()=>{if(sfJob!==J)return;sfFinish(J);sfJob=null;sfLater(()=>{if(J.fresh&&sfF&&sfF.sig===J.sig)sfStore(sfF);redrawMaps();});});return;}}}
+  while(more());
+  J.work+=performance.now()-t0;sfLater(sfRun);
 }
 /* the segments as one path per level and bin */
 function sfFinish(J){
@@ -43183,7 +43228,7 @@ function sfCached(){
     .catch(()=>null).then(v=>{
       if(!v||v.k!==key||v.k!==sfDBKey()||v.nx!==G.nx||v.ny!==G.ny||!(v.Q instanceof Int16Array)||v.Q.length!==G.nx*G.ny||sfF||sfJob)return false;
       const D=new Float32Array(v.Q.length);for(let i=0;i<D.length;i++)D[i]=v.Q[i]/16;
-      sfJob={sig:RECL.sig,...G,D,seg:new Map(),st:SF_CONTOUR,y:0,work:0,slices:0,sm:[],fresh:false};setTimeout(sfRun,0);return true;});
+      sfJob={sig:RECL.sig,...G,D,seg:new Map(),st:SF_CONTOUR,y:0,work:0,slices:0,sm:[],fresh:false};sfLater(sfRun);return true;});
 }
 /* the field (an older one while land reclaimed since is worked in), or null before the first is ready; the first
    call looks for a kept copy before working one out */
@@ -43227,18 +43272,23 @@ function sfDrawImg(g,F,c){
 /* under the shallows' hexes: the bands */
 function sfUnder(g,col){const F=sfField();if(!F)return;const I=sfImages(F,col);if(I)sfDrawImg(g,F,I.band);}
 /* over the shallows, under the land: the shadow, the contours and the water lines. u: map units per pixel of the
-   picture drawn; x0..y1: the map units it shows */
+   picture drawn; x0..y1: the map units it shows.
+   Every picture of a view must show the same lines at the same weight: while the map moves, frames are cut from a
+   plate drawn at another density (in full screen at 1x), often by another path (the zoomed-out picture or the tiles
+   where the settled view is drawn close up), and any difference shows as the lines jumping when the map starts and
+   stops moving. So all the lines are always drawn, as wide in map units (SF_LW) whatever the picture's density, and
+   only close up (where plate and view take the same path) are they kept from growing past SF_LWMAX pixels. */
+const SF_LW=[0.9,1],SF_LWMAX=[1.1,1.2];
 function sfOver(g,col,u,x0,y0,x1,y1){
   const F=sfField();if(!F)return;const P=sfPal(col),I=sfImages(F,col);if(I)sfDrawImg(g,F,I.shadow);
   const shifts=[0];if(x1>MAP_PW-8)shifts.push(MAP_PW);if(x0<8)shifts.push(-MAP_PW);
   g.lineCap='round';g.lineJoin='round';
-  const stroke=(l,style,w)=>{const p=new Path2D();let any=false;
+  const stroke=(l,style,k)=>{const p=new Path2D();let any=false;
     for(const sx of shifts)for(const B of F.bins){const q=B.p[l];if(!q||B.x1+sx<x0||B.x0+sx>x1||B.y1<y0||B.y0>y1)continue;
       try{if(sx)p.addPath(q,new DOMMatrix([1,0,0,1,sx,0]));else p.addPath(q);any=true;}catch(e){}}
-    if(any){g.strokeStyle=style;g.lineWidth=w*u;g.stroke(p);}};
-  for(let l=SF_WL.length;l<SF_LV.length;l++)stroke(l,P.dl,0.85);
-  /* zoomed far out the lines would run together: every other one */
-  for(let l=u>1.4?1:0;l<SF_WL.length;l+=u>1.4?2:1)stroke(l,P.wl[l],0.75);
+    if(any){g.strokeStyle=style;g.lineWidth=Math.min(SF_LW[k],SF_LWMAX[k]*u);g.stroke(p);}};
+  for(let l=SF_WL.length;l<SF_LV.length;l++)stroke(l,P.dl,1);
+  for(let l=0;l<SF_WL.length;l++)stroke(l,P.wl[l],0);
 }
 /* the zoomed-out terrain picture: at most about 5.4 million pixels, whatever the region's size (phones cap canvases) */
 const TBMP_SCALE=Math.min(0.8,Math.sqrt(5.4e6/(MAP.W*MAP.H)));let tbmp=null,tbmpKey='';
@@ -43592,6 +43642,9 @@ function updateMapPanel(){const p=document.getElementById('map-panel');if(p)p.in
 function updateFoundLoc(){for(const k of ['found-loc','found-loc-fs']){const p=document.getElementById(k);if(p)p.innerHTML=foundLocHTML();}}
 function settle(){
   const cell=S.mapPick;if(cell==null||!S.nation)return;
+  /* not before the other nations' land is known: waited for (landTick settles then), or refused while offline */
+  {const w=landWait();if(w){if(w==='wait'){S.landQ=cell;S.mapMsg=landWaitMsg();}else{S.landQ=null;S.mapPick=null;S.mapMsg=landOffMsg();}updateMapPanel();redrawMaps();return;}}
+  S.landQ=null;
   const prob=pickProblem(cell,territory());
   if(prob){S.mapMsg=prob;S.mapPick=null;updateMapPanel();redrawMaps();return;}
   const n=clone(S.nation),now=Date.now();
@@ -45292,6 +45345,10 @@ async function connect(){
     dormSift(w,all);
     S.worldAll=all;
     S.world=w;HIDN.w=hw;
+    /* the region's nations are in (from the server, or this browser's copy of them, which Firestore only shows when it
+       holds some: a listener is not told when the server merely confirms that copy), not the empty stand-in for an
+       error: settling and claiming may go ahead (landWait) */
+    if(regQS!==none&&(regQS.fromCache===false||regQS.docs.length>0)&&!worldHeardAt){worldHeardAt=Date.now();setTimeout(landTick,0);}
     /* saved from another device: the region has only its shared half, so load it whole */
     if(PV){if(w[S.uid]&&(w[S.uid].updatedAt||0)>(S.nation&&S.nation.updatedAt||0))pvLoad(S.db).catch(()=>{});}else{ownLatest=w[S.uid]||ownLatest;syncOwnNation();}
     if(!S.nation||S.view==='map')quietRender(()=>{updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();});
@@ -45330,7 +45387,7 @@ async function connect(){
    without an error (a connection that died while the phone slept). So while the player is here, unless that
    listener has brought news from the server in the last OWN_CHECK, the page asks the server for its nation's
    revision alone (src/shim.js, revision) at most every OWN_CHECK and on changing page, and loads a save it missed. */
-const OWN_CHECK=Math.max(1000,Number(window.EDICTUM_OWN_CHECK)||60000);let ownCheckAt=0,regionHeardAt=0;
+const OWN_CHECK=Math.max(1000,Number(window.EDICTUM_OWN_CHECK)||60000);let ownCheckAt=0,regionHeardAt=0,worldHeardAt=0;
 async function ownCheck(){
   if(S.mode!=='world'||!S.db||!S.uid||!S.nation||document.hidden||QUIET.off||ownSyncBusy||remoteBusy||remoteDirty||conflictPending)return;
   const now=Date.now();if(now-ownCheckAt<OWN_CHECK||now-regionHeardAt<OWN_CHECK)return;
@@ -45340,6 +45397,108 @@ async function ownCheck(){
 }
 setInterval(ownCheck,5000);
 go=(f=>function(){const r=f.apply(this,arguments);ownCheck();return r;})(go);
+
+/* ───────── land only on a known map (2026-11-12) ─────────
+   Settling and claiming read the other nations' land. A page that has not yet heard its region from the server, or
+   that plays in this browser only because the server could not be reached (src/stub.js and src/shim.js: a slow
+   start, a failed sign-in), has none of it on its map: a capital chosen there could come down on another nation's
+   land once the game got through, as Neverfall's did on Eternia's. landWait() says what settling and claiming wait
+   for: '' (nothing), 'wait' (the region is still loading: a chosen spot is kept and settled once it is in) or 'off'
+   (this browser only: reload when the connection is better). A game with no server at all (no Firebase configuration)
+   keeps its own map, as before, and so does one on this computer (development and the tests, which play offline on
+   purpose; EDICTUM_LAND_STRICT gives them the live site's rule). */
+const LAND_LOCAL='there is no Firebase configuration',LAND_DEV=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)&&!window.EDICTUM_LAND_STRICT;
+function landWait(){
+  if(OBS||PV)return '';
+  if(S.mode==='world')return worldHeardAt?'':'wait';
+  if(S.mode!=='local')return '';
+  const E=window.__edictum;if(!E||typeof E!=='object')return '';
+  if(E.off)return E.why===LAND_LOCAL||LAND_DEV?'':'off';
+  return 'wait';
+}
+function landWaitMsg(){return `One moment: the map of ${REGION} is still loading the other nations’ land.`;}
+function landOffMsg(){return `Your game can’t reach the other players just now, so it can’t see whose land is whose. Reload the page when your connection is better to place your capital or claim land.`;}
+/* the spot chosen while the region loaded, settled once it is in (if it is still free) */
+function landQueued(){
+  const c=S.landQ,n=S.nation;if(c==null||landWait())return;S.landQ=null;
+  if(!n||cellOf(n.loc)>=0)return;
+  const p=pickProblem(c,territory());
+  if(p){S.mapMsg=p;toast(`${n.capital} could not go up where you chose. ${p} Choose another place on the Map page.`);render();return;}
+  S.mapPick=c;S.mapMsg='';settle();
+}
+/* This nation's capital stands on land another nation had claimed first (capWrong in territory(): the map leaves it
+   off already). Its game takes the nation off the map for good, so the land is free again for everyone (cities,
+   claims and conquests go; the capital's buildings are packed to go up again, half the materials of any other
+   building come back, and every land credit spent is free to spend again), and asks the player, in plain words,
+   to settle again: free, as settling always is. n.rsx keeps who and when until the capital stands again. */
+let capLiftAt=0;
+function capLift(){
+  const n0=S.nation;if(!n0||n0.npc||OBS||PV||tabPassive||S.moving||S.mode!=='world'||!worldHeardAt||regBlocked())return false;
+  if(cellOf(n0.loc)<0)return false;
+  const T=territory(),y=T.wrong&&T.wrong.get(myId());if(!y)return false;
+  const now=Date.now();if(now-capLiftAt<10000)return false;capLiftAt=now;
+  let P;try{P=movePlan(n0);}catch(e){P={back:{},cap:null};}
+  const n=clone(n0),st=stockNow(n0,now);
+  for(const r of RES)st[r]=stockLimit(n0,r,(st[r]||0)+(P.back[r]||0),st[r]);
+  n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  if(P.cap){const o=clone(P.cap);delete o.c;n.mvCap=o;}
+  const cap=cellOf(n0.loc);
+  n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.cv=MAP_VER;delete n.mapPlan;
+  n.rsx={t:now,c:cap,by:String(y.n.name||'').slice(0,40)};
+  commit(n);
+  S.mapPick=null;S.mapSel=null;S.landQ=null;S.mapMsg='';
+  capNote();render();
+  return true;
+}
+function landTick(){if(OBS||PV||tabPassive)return;try{landQueued();}catch(e){}try{capLift();}catch(e){}}
+setInterval(landTick,1500);
+NORM_HOOKS.push((n,d)=>{
+  const r=d&&d.rsx;if(!r||typeof r!=='object'||typeof r.t!=='number'||!isFinite(r.t))return;
+  n.rsx={t:Math.round(r.t),c:Number.isInteger(r.c)?r.c:-1,by:typeof r.by==='string'?r.by.replace(/[\u0000-\u001f<>]/g,'').slice(0,40):''};
+});
+COMMIT_HOOKS.push(n=>{if(n&&n.rsx&&cellOf(n.loc)>=0)delete n.rsx;});
+/* the note, in plain words: once when the capital is lifted, again from the map */
+const CPL_SEEN='edictum.rsx.seen';
+function capNoteHTML(){
+  const n=S.nation,r=n.rsx||{},cap=esc(n.capital),by=esc(r.by||'another nation');
+  return `<div class="dwb-in"><p class="eyebrow">Office of land and borders</p>
+    <h2 id="cpl-h" tabindex="-1">Please choose a new home for ${cap}</h2>
+    <p class="dwb-lede">When you started, your game could not connect to the other players, so it showed you a map without their land. Without knowing it, you put ${cap} on land that ${by} had already claimed.</p>
+    <p>So that nobody’s land is taken by mistake, ${esc(n.name)} has left the map until ${cap} stands somewhere free. Nothing else is lost: your people, laws and treasury are as they were, ${cap}’s buildings go up again wherever you settle, and every land credit you spent is yours to spend again.</p>
+    <p>Choose a new place for ${cap} on the map. Settling costs nothing.</p>
+    <div class="row"><button class="btn" data-act="cpl-map">Choose a new place</button></div></div>`;
+}
+let capNoteT=0;
+function capNote(){
+  const n=S.nation;if(OBS||!n||!n.rsx||cellOf(n.loc)>=0)return false;
+  /* never on top of another dialog (a guest's recovery code, say): it waits until that one is closed */
+  clearTimeout(capNoteT);
+  if([...document.querySelectorAll('dialog[open]')].some(d=>d.id!=='cap-lift')){capNoteT=setTimeout(capNote,1000);return false;}
+  try{localStorage.setItem(CPL_SEEN,String(n.rsx.t));}catch(e){}
+  let d=document.getElementById('cap-lift');if(d)d.remove();
+  d=document.createElement('dialog');if(typeof d.showModal!=='function')return false;
+  d.id='cap-lift';d.className='dwb';d.setAttribute('aria-labelledby','cpl-h');d.innerHTML=capNoteHTML();
+  document.body.appendChild(d);d.addEventListener('close',()=>d.remove(),{once:true});
+  d.addEventListener('click',ev=>{if(ev.target===d)d.close();});
+  d.showModal();try{d.querySelector('#cpl-h').focus({preventScroll:true});}catch(err){}
+  return true;
+}
+/* a later visit before it settles again: the note once more, if this browser has not shown it */
+setTimeout(()=>{const n=S.nation;if(!n||!n.rsx||cellOf(n.loc)>=0)return;let seen='';try{seen=localStorage.getItem(CPL_SEEN)||'';}catch(e){}if(seen!==String(n.rsx.t))capNote();},2500);
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='cpl-map'){const d=document.getElementById('cap-lift');if(d)d.close();if(S.view!=='map')go('map');return;}
+  if(a==='cpl-why'){capNote();return;}
+});
+/* the map's panel, while the capital waits: why it had to move, and what settling waits for */
+mapPanel=(f=>function(){
+  const h=f.apply(this,arguments),n=S.nation;if(OBS||!n||cellOf(n.loc)>=0)return h;
+  const w=landWait(),why=n.rsx?`<div class="dwb-again cpl-again"><p class="hint">${esc(n.capital)} had to move: it stood on land ${esc(n.rsx.by||'another nation')} had claimed first. Choose a new place; settling costs nothing.</p><button class="btn ghost small-btn" data-act="cpl-why">What happened?</button></div>`:'';
+  return h+why+(w&&!S.mapMsg?`<p class="hint land-wait" role="status">${w==='wait'?landWaitMsg():landOffMsg()}</p>`:'');
+})(mapPanel);
+/* offline, the quick places for a new capital give way to why they wait (they were found on a map without the others) */
+fdChoices=(f=>function(n,cls){return landWait()==='off'?`<p class="hint land-wait fd-off" role="status">${landOffMsg()}</p>`:f.apply(this,arguments);})(fdChoices);
+fdCard=(f=>function(n){const h=f.apply(this,arguments);return h&&n&&n.rsx?h.replace(/(<p class="muted">)/,`$1${esc(n.capital)} had to move: it stood on land ${esc(n.rsx.by||'another nation')} had claimed first. `):h;})(fdCard);
 /* A safety valve for a machine-translated page (see pageTranslated): the translator still keeps its own copy of
    every piece of text it translated, so a long translated session grows by a few megabytes a page. After
    TR_RELOAD pages drawn while translated, the next page the player opens is saved and the tab reloads itself
@@ -47187,11 +47346,13 @@ function found(){
   /* Start over (Settings › Account › Danger zone): the old nation's culture and look come along under the same name */
   const rs=sgCarry();if(rs&&nameFold(rs.name)===nameFold(name)&&rs.keep&&typeof rs.keep==='object')for(const f of SG_CARRY)if(f in rs.keep)n[f]=clone(rs.keep[f]);
   sgCarry(null);
-  const cell=cellOf(d.loc),lost=cell>=0&&!!pickProblem(cell,territory());
+  /* the spot waits until the other nations' land is known (landWait): settled then, if still free, or never offline */
+  const pick=cellOf(d.loc),held=pick>=0?landWait():'',cell=held?-1:pick,lost=cell>=0&&!!pickProblem(cell,territory());
   if(cell>=0&&!lost){n.loc=locOf(cell);n.log.unshift({t:now,k:'settle',a:landName(cell)});centerMain(cell,NEAR_Z);}
   commit(normalize(n));
+  if(held==='wait')S.landQ=pick;
   S.view='nation';S.mapMsg='';render();window.scrollTo(0,0);
-  toast(lost?fullName(n)+' has been founded, but its chosen location was just taken. Choose another on the Map page.':fullName(n)+' has been founded.');
+  toast(held==='off'?fullName(n)+' has been founded. '+landOffMsg():held?fullName(n)+' has been founded. Its capital goes up as soon as the map of '+REGION+' has loaded.':lost?fullName(n)+' has been founded, but its chosen location was just taken. Choose another on the Map page.':fullName(n)+' has been founded.');
 }
 function answer(id,o){
   const now=Date.now();
@@ -47450,6 +47611,8 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawAllGu
    again after a minute, or sooner once its credits or claims change */
 let autoLandMiss=null;
 function autoLandTry(now){
+  /* not a miss while the other nations' land is still loading (landWait): it tries again on the next tick */
+  if(landWait())return false;
   const k=landCredits(S.nation)+'|'+(S.nation.claims||[]).length;
   if(autoLandMiss&&autoLandMiss.k===k&&now-autoLandMiss.t<60000)return false;
   if(claimAuto(true)){autoLandMiss=null;return true;}
@@ -50276,6 +50439,7 @@ function swapFromWhy(T,c){
 function swapCheck(from,to){
   const n=S.nation,T=territory(),mi=T.byId[myId()];
   const why=swapFromWhy(T,from);if(why)return {why};
+  {const lw=landWait();if(lw)return {why:lw==='wait'?landWaitMsg():landOffMsg()};}
   const w=swapWait(n);if(w>0)return {why:`You can swap one hex a day. The next swap is possible in ${fmtDur(w)}.`};
   if(to===from||T.owner[to]===mi)return {why:'Choose free land to take instead, not land you already hold.'};
   if(!(to>=0&&to<MAP.N)||!claimLand(to))return {why:'Open sea can’t be claimed. Choose free land or a lake.'};
@@ -51497,6 +51661,8 @@ mapFsBar=(f=>function(kind){return kind==='found'&&S.nation?`<div class="map-fs-
 /* an answer settles the capital at its pin, if the pin is still free */
 answer=(f=>function(id,o){
   const n0=S.nation;if(id!==FD_ID||!n0||cellOf(n0.loc)>=0)return f.apply(this,arguments);
+  /* offline, the edict stays open: its pins were drawn on a map without the other nations' land */
+  if(landWait()==='off'){toast(landOffMsg());return;}
   const T=territory(),c=fdSites(n0,T)[o];
   if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that pin. The advisors have moved their pins: choose again.');return;}
   const r=f.apply(this,arguments);S.mapPick=c;settle();return r;
@@ -51545,6 +51711,7 @@ nationView=(f=>function(v){return fdCard(S.nation)+f.apply(this,arguments);})(na
 issuesView=(f=>function(v){return fdCard(S.nation)+f.apply(this,arguments);})(issuesView);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-pick"]');if(!el||!S.nation)return;
   const n=S.nation,k=+el.dataset.o;if(cellOf(n.loc)>=0)return;
+  if(landWait()==='off'){toast(landOffMsg());return;}
   if((n.inbox||[]).some(x=>x.id===FD_ID)){answer(FD_ID,k);if(cellOf(S.nation.loc)>=0&&S.view!=='issues'){S.result=null;go('map');}return;}
   const T=territory(),c=fdSites(n,T)[k];
   if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that place. Choose again.');return;}
@@ -65331,7 +65498,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
