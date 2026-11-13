@@ -26353,10 +26353,16 @@ COMMIT_HOOKS.push((n,old,now)=>{
     txt+=` Your rank is now ${r1.name}, worth ${k*ACH_RANK_CREDITS} land credits, ${k*RANK_GIFT.iron} iron and ${k*RANK_GIFT.goods} goods.`;}
   return [{m:txt,links:rewardRefs('achievement',got)}];
 });
+/* An achievement this build does not know (a newer build's) is kept as it was, never counted or shown here
+   (achEarnedIds and every walker skip it): an older tab dropped Eternia's new Claims Commissioner, and the land credits
+   it pays, when it saved on 13 Nov 2026. ACH_KEEP_EXTRA bounds how many such ids a record can carry. */
+const ACH_KEEP_EXTRA=400,ACH_ID_RE=/^[a-z0-9][a-z0-9-]{0,47}$/;
 NORM_HOOKS.push((n,d)=>{
   const a=d&&d.ach;if(!a||typeof a!=='object'||Array.isArray(a))return;
-  const o={},lim=Date.now()+DAY;let k=0;
-  for(const id of Object.keys(a).slice(0,ACH.length*2)){const t=a[id];if(ACH_BY_ID[id]&&typeof t==='number'&&isFinite(t)&&t>0){o[id]=Math.min(t,lim);if(++k>=ACH.length)break;}}
+  const o={},lim=Date.now()+DAY,keys=Object.keys(a).slice(0,5000),ok=t=>typeof t==='number'&&isFinite(t)&&t>0;let k=0,x=0;
+  /* the known ones first, so unknown ones can never push one out */
+  for(const id of keys){if(!ACH_BY_ID[id]||k>=ACH.length||!ok(a[id]))continue;o[id]=Math.min(a[id],lim);k++;}
+  for(const id of keys){if(ACH_BY_ID[id]||x>=ACH_KEEP_EXTRA||!ACH_ID_RE.test(id)||!ok(a[id]))continue;o[id]=Math.min(a[id],lim);x++;}
   n.ach=o;
 });
 
@@ -28708,7 +28714,29 @@ NORM_HOOKS.push((n,d)=>{
     if(X>=0){const r=normCities({loc:locOf(X),cv:MAP_VER,cities:[{...d.mvCap,c:X}]});if(r.length){const o={...r[0]};delete o.c;n.mvCap=o;}}}
   if(Array.isArray(d.discArc))n.discArc=d.discArc.filter(e=>e&&num(e.t)&&['lost','traces','found','great'].includes(e.o)).slice(-200).map(e=>({t:e.t,o:e.o,f:e.f?1:0,k:typeof e.k==='string'&&SITE_KINDS[e.k]?e.k:'',nm:typeof e.nm==='string'?e.nm.replace(/[\u0000-\u001f<>]/g,'').slice(0,40):'',reg:typeof e.reg==='string'&&REG_BY_ID[e.reg]?e.reg:'meridian'}));
 });
-function normalize(d){return normalizeR2(remapLegacy(d));}
+/* Forward compatibility (2026-11-13). A record can carry fields from a newer build than this tab's (a tab stays on the
+   build it loaded, for days on a phone). A field no code here reads at load was dropped, and this tab's next save wiped
+   it: a new achievement, a province peak written back by hand. Now loading watches which fields it reads; one it never
+   touches is kept exactly as it was and listed in n._fk, and the save puts those in the private half (src/shim.js,
+   splitNation), so a newer build's private field never turns public by way of an older tab. A field this build reads and
+   leaves out (a value it refuses) stays left out. Bounded: FWD_MAX fields, FWD_SIZE characters in all. */
+/* FWD_NEVER: names that are never data, the shim's own fold of the Assembly (asmLocal), and apw, which every save of
+   this build writes again (commit) and loading never needs: the only field the live records showed as unread (13 Nov) */
+const FWD_MAX=60,FWD_SIZE=120000,FWD_NEVER=new Set(['__proto__','constructor','prototype','asmLocal','apw']);
+function normalize(d){
+  const r=remapLegacy(d);if(!r||typeof r!=='object'||Array.isArray(r))return normalizeR2(r);
+  const seen=new Set(),px=new Proxy(r,{get(t,k,rv){if(typeof k==='string')seen.add(k);return Reflect.get(t,k,rv);},has(t,k){if(typeof k==='string')seen.add(k);return Reflect.has(t,k);}});
+  const n=normalizeR2(px);if(!n||typeof n!=='object')return n;
+  const fk=[];let size=0;
+  for(const k of Object.keys(r)){
+    if(seen.has(k)||k in n||k[0]==='_'||FWD_NEVER.has(k)||fk.length>=FWD_MAX)continue;
+    let s;try{s=JSON.stringify(r[k]);}catch(e){continue;}
+    if(s===undefined||size+s.length>FWD_SIZE)continue;
+    size+=s.length;n[k]=JSON.parse(s);fk.push(k);
+  }
+  if(fk.length)n._fk=fk;else delete n._fk;
+  return n;
+}
 
 /* ───────── moving ───────── */
 /* A move keeps the nation: people, laws, cabinet, treasury, history, honours and museum. The land starts
@@ -43963,7 +43991,7 @@ const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Obje
    the start of commit() before the background work: paths set or removed, arrays of objects matched by id, other
    arrays as sets, and resources as what the action spent or gained beyond what accrued. Background work (growth,
    buildings finishing, milestones) is not replayed: the other device's save already holds it. */
-const ACT_SKIP=new Set(['pop','popAt','stock','stockAt','updatedAt','gm','apw','_rev','_dirty','_stockSet']);
+const ACT_SKIP=new Set(['pop','popAt','stock','stockAt','updatedAt','gm','apw','_rev','_dirty','_stockSet','_fk']);
 let ownActs=[],ownActsBroken=0,sentLog=[];
 const actClone=v=>v===undefined?undefined:clone(v);
 const actKey=v=>JSON.stringify(v);
