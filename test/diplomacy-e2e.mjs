@@ -1,7 +1,8 @@
-// The Diplomacy page in five tabs and alliances kept by the server (emulators): what waits for the player with its own
+// The Diplomacy page in six tabs and alliances kept by the server (emulators): what waits for the player with its own
 // buttons; an alliance founded from the page with a type, a banner and a map colour; a request with a note, approved
 // by the leader; an officer; the members' channel; a pledge to the treasury credited once the nation saves, and a
-// project built from it; the Relations tab with the reasons goodwill moved; a gift; the charter edited; the Diplomacy
+// project built from it; the Relations tab with the reasons goodwill moved; a gift; treaties offered, accepted,
+// signed by a computer nation and broken; the charter edited and the alliance's relations; the Diplomacy
 // and Alliances map lenses; the public alliance page and the Region's ranking; a call to arms answered and shown in
 // the war room; the leader leaving and the officer taking over; tabs that live in the address.
 import { check, finish, sleep, until, player, open, found, nav, text, errors, clearEmulators, ready, register, nationDoc, restGet, FS_HOST, PROJECT, OUT } from './lib.mjs';
@@ -32,9 +33,9 @@ const ub = await open(B); await found(B, 'Bramblemoor');
 await register(A, { old: true }); await register(B, { old: true });
 check('the first nation reaches 12 million', await grow(A, ua));
 
-// the page: five tabs, the Overview first, nothing waiting, the spy die gone to Intelligence
+// the page: six tabs, the Overview first, nothing waiting, the spy die gone to Intelligence
 await nav(A, 'diplomacy'); await A.waitForSelector('#dp');
-check('Diplomacy has five tabs', JSON.stringify(await A.$$eval('.dp-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Alliance', 'Relations', 'Wars', 'Gifts']));
+check('Diplomacy has six tabs', JSON.stringify(await A.$$eval('.dp-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Alliance', 'Relations', 'Treaties', 'Wars', 'Gifts']));
 check('it opens on the Overview, one pane at a time', await tab(A) === 'overview' && await shown(A, '#dp-p-overview .dp-cards') && !await shown(A, '#dp-p-relations .dp-rel-top'));
 check('the strip says nothing is waiting', /Nothing is waiting for you/.test(await text(A, '.dp-wait')));
 check('the spy die is no longer on this page', !await A.$('#dp #spy-form'));
@@ -119,6 +120,40 @@ check('Why? says the gift raised goodwill', await until(async () => /\+3\s*You s
 await shot(A, 'relations');
 check('the other player is asked to answer the gift', await until(async () => /sent you/.test(await text(B, '.dp-wait')), 10000));
 
+// treaties: one offered to a player from the Relations tab and accepted from the strip; a computer nation signs at once;
+// a non-aggression pact bars war until it is broken, which costs goodwill and goes on the record
+await A.click('#dp-tab-relations'); await A.click(`[data-act="dp-relf"][data-v="all"]`);
+await A.click(`[data-act="dp-ty-go"][data-id="${ub}"]`);
+check('Treaty opens the Treaties tab with that nation chosen', await until(async () => await tab(A) === 'treaties' && await A.inputValue('#dpt-to') === ub));
+await A.click('[data-act="dp-ty-offer"]');
+const tidAB = 'nap_' + [ua, ub].sort().join('_'), tst = async tid => (await adminGet('treaties/' + tid))?.fields?.st?.stringValue;
+check('the offer reaches the server', await until(async () => await tst(tidAB) === 'offered', 10000));
+await nav(B, 'diplomacy');
+check('the other player sees it waiting, with its buttons', await until(async () => /offers you a non-aggression pact/.test(await text(B, '.dp-wait')), 10000));
+await B.click(`.dp-wait [data-act="dp-ty-yes"][data-id="${tidAB}"]`);
+check('accepted, it is in force for both', await until(async () => await tst(tidAB) === 'active', 10000) && await until(() => A.evaluate(ub => !!G.TYX().tyOf(G.myId(), ub, 'nap'), ub), 10000));
+check('the Relations tab marks it', await until(async () => { await A.click('#dp-tab-relations'); return /Non-aggression/.test(await text(A, '.dp-rels')); }, 8000));
+/* a computer nation with values close to ours (not the one that will attack later): signed at once */
+const tnpc = await A.evaluate(() => { const P = G.ALX().politics(), skip = G.allNations().find(x => x.npc && !P.of.get(x.id))?.id;
+  return G.allNations().filter(x => x.npc && x.id !== skip).map(x => ({ id: x.id, nm: x.n.name, af: G.TYX().affinity(x.n, G.S.nation) })).sort((a, b) => b.af - a.af)[0]; });
+check('a computer nation would sign a non-aggression pact', tnpc && tnpc.af >= 35, JSON.stringify(tnpc));
+await A.click('#dp-tab-treaties'); await A.selectOption('#dpt-to', tnpc.id);
+check('the form says it would sign', await until(async () => /would sign/.test(await text(A, '.dpt-note'))));
+await A.click('[data-act="dp-ty-offer"]');
+const tidN = 'nap_' + [ua, tnpc.id].sort().join('_');
+check('it signs at once', await until(async () => await tst(tidN) === 'active', 10000));
+check('In force lists both treaties', await until(async () => { const t = await text(A, '#dp-p-treaties'); return t.includes(tnpc.nm) && /Bramblemoor/.test(t); }, 10000));
+check('declaring war on it is refused, and says why', /non-aggression pact with/.test(await A.evaluate(id => G.TYX().tyWarBlock(id), tnpc.id)));
+const gw0 = await A.evaluate(id => (G.S.nation.gw || {})[id] || 0, tnpc.id);
+await A.click(`[data-act="dp-ty-brk-ask"][data-id="${tidN}"]`);
+check('breaking asks first, saying what it costs', /Break your non-aggression pact/.test(await text(A, '.dpt-brk')));
+await shot(A, 'treaties');
+await A.click(`[data-act="dp-ty-brk"][data-id="${tidN}"]`);
+check('broken on the server', await until(async () => await tst(tidN) === 'broken', 10000));
+check('goodwill falls, and Why? would say it was the broken treaty', await until(() => A.evaluate(([id, g]) => ((G.S.nation.gw || {})[id] || 0) <= Math.max(-40, g - 15) && (G.S.nation.gwl || []).some(e => e.i === id && /broke your treaty/.test(e.w)), [tnpc.id, gw0]), 8000));
+check('the record says so', await until(async () => /Your record/.test(await text(A, '#dp-p-treaties')) && /You broke your non-aggression pact/.test(await text(A, '#dp-p-treaties'))));
+check('and war may be declared again', await A.evaluate(id => G.TYX().tyWarBlock(id), tnpc.id) === '');
+
 // the charter: a new motto, a new type
 await A.click('#dp-tab-alliance'); await A.click('[data-act="dp-sub"][data-v="charter"]');
 await A.fill('#al-ed-mo', 'One for all'); await A.click('[data-act="dp-ty"][data-pre="ed"][data-v="def"]');
@@ -126,6 +161,9 @@ await A.click('#al-charter button[type="submit"]');
 await shot(A, 'charter');
 check('the charter is saved and shown', await until(async () => /One for all/.test(await text(A, '.al-head')) && /Defence pact/.test(await text(A, '.al-head')), 10000));
 check('a defence pact makes members’ land harder to take', await A.evaluate(ub => G.ALX().alFx(ub).def === 0.1, ub));
+/* relations with other alliances: none here yet, so the list says so */
+await A.click('[data-act="dp-sub"][data-v="relations"]');
+check('the alliance’s Relations say there is no other alliance yet, and what pacts and rivals do', await until(async () => /No other alliance in this region yet/.test(await text(A, '#al-pane-relations')) && /A pact: no member/.test(await text(A, '#al-pane-relations'))));
 
 // the map lenses
 await A.click('#dp-tab-relations'); await A.click('#dp-p-relations [data-act="dp-lens"][data-v="dip"]');

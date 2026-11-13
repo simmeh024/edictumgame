@@ -1106,6 +1106,18 @@ test('alliances and the allyOf index are read by everyone and written only by th
   await assertSucceeds(as('bob').collectionGroup('posts').where('a', '==', 'bob').get());
 });
 
+test('treaties are read by everyone and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('treaties/nap_alice_bob').set({ k: 'nap', reg: 'meridian', p: ['alice', 'bob'], a: 'alice', b: 'bob', st: 'active', t: 1, at: 1 });
+  });
+  await assertSucceeds(anon().doc('treaties/nap_alice_bob').get());
+  await assertSucceeds(anon().collection('treaties').where('reg', '==', 'meridian').get());
+  await assertSucceeds(as('carol').collection('treaties').where('p', 'array-contains', 'bob').get());
+  await assertFails(as('alice').doc('treaties/nap_alice_bob').update({ st: 'broken', by: 'bob' }));
+  await assertFails(as('alice').doc('treaties/trade_alice_bob').set({ k: 'trade', reg: 'meridian', p: ['alice', 'bob'], a: 'alice', b: 'bob', st: 'active', t: 1 }));
+  await assertFails(as('bob').doc('treaties/nap_alice_bob').delete());
+});
+
 test('the newspaper: press/ is read by everyone and written only by the server; an edition is filed once, by a player of its region, a week at most after it closed', async () => {
   const EPOCH = Date.UTC(2026, 0, 1), DAYMS = 86400000, today = Math.floor((Date.now() - EPOCH) / DAYMS) + 1;
   const paper = (no, by, extra = {}) => ({ r: 'meridian', no, by, v: 1, j: '{"v":1}', t: NOW(), ...extra });

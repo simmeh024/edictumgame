@@ -9,6 +9,7 @@ import { mailStep, mailUnsub, forgetMail, recoveryMail } from './mail.js';
 import { noteGone, forgetGone } from './gone.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
+import { trDrop } from './treaties.js';
 import { rmbForget, cbForget } from './board.js';
 import { rcForget } from './regionchat.js';
 import { fcForget } from './flagcomp.js';
@@ -123,6 +124,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await forgetLetters(uid);
     // its place in an alliance (functions/alliances.js), and the pacing of its alliance channel posts
     await alDrop(db, uid);
+    // the treaties it was party to (functions/treaties.js)
+    await trDrop(db, uid);
     // the @mentions waiting in its bell (functions/board.js)
     await db.recursiveDelete(db.collection('mentions/' + uid + '/m'));
     // its lines in the alliance channels and the region chats (functions/regionchat.js)
