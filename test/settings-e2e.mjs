@@ -139,7 +139,9 @@ check('and closing it deletes nothing', !await A.$('dialog.ed-dlg[open]') && (aw
 await A.click('#sg-tab-account'); await A.keyboard.press('ArrowUp');
 check('arrow keys move between tabs', await tab(A) === 'nav' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-nav');
 await A.keyboard.press('ArrowUp');
-check('and on to the one before', await tab(A) === 'display' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-display');
+check('and on to the one before', await tab(A) === 'sound' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-sound');
+await A.keyboard.press('ArrowUp');
+check('and the one before that', await tab(A) === 'display' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-display');
 await A.screenshot({ path: OUT + '/settings-display-1366.png' });
 
 // Start over: the founding page with the same name, the culture, look and edict settings carried, the rest afresh
