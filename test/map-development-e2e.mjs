@@ -177,23 +177,38 @@ const held=await K.evaluate(async()=>{
 check('a page draw waits while the map is dragged, and comes when it is let go',held.mid&&held.after,JSON.stringify(held));
 check('a drag whose pointer-up is lost does not hold the page for good',held.stuck&&held.freed,JSON.stringify(held));
 await K.setViewportSize({width:1280,height:900});await nav(K,'nation');await nav(K,'map');
+/* tutorial rewards the game pays by a save of their own (tutLcSoon), a moment after the task is done, rather than in
+   the save that did it: none may be waiting while the credits are counted out below */
+const tutSettled=()=>until(()=>K.evaluate(()=>{const p=G.TUTL.pend(G.S.nation);return !p.add.length&&!p.chAdd.length;}),8000);
+/* the first click on the map ticks the tutorial's "Inspect a tile on the map", and its two land credits come 150 ms
+   later. Inspect a tile now, so they are spent down with the rest: done first by the click on the chosen hex below,
+   they arrived between that click and the claim whenever the runner was slow, the panel offered "Claim the block
+   (4 credits)" and the claim took all four hexes */
+await clickCell(K,await K.evaluate(()=>{const T=G.territory(),mi=T.byId[G.myId()],cap=T.list[mi].cap,cs=new Set((G.S.nation.cities||[]).map(c=>c.c));
+  for(let c=0;c<G.MAP.N;c++)if(T.owner[c]===mi&&c!==cap&&!cs.has(c))return c;return cap;}));
+check('inspecting a tile pays the tutorial its land credits before the claims',await until(()=>K.evaluate(()=>((G.S.nation.tut||{}).lc||[]).includes('insp')),8000)&&!!await tutSettled(),
+  JSON.stringify(await K.evaluate(()=>({lc:(G.S.nation.tut||{}).lc,pend:G.TUTL.pend(G.S.nation).add}))));
+await K.evaluate(()=>{G.S.mapInspect=null;G.S.mapCell=null;G.render();});
 /* a new nation holds more credits than most blocks have touching hexes, and its first claims earn more (the tutorial's
    land steps once took it from 4 to 14, past a fixed ten single claims): it spends them down to two, a whole block at a
    time while that leaves two or more, then single hexes. Only land the game lets it claim (mpClaimSequence: not within
-   2 hexes of another capital, nor too far) */
+   2 hexes of another capital, nor too far). Each claim is waited for by the claims on record, not by the credits: the
+   first claim pays the tutorial's "Spend a land credit" in the same save, so a claim of two hexes leaves the count as
+   it was */
 const tried=[];
 for(let i=0;i<40;i++){
-  const st=await K.evaluate(tried=>{const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<=2)return {cr};
+  const st=await K.evaluate(tried=>{const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation),k=(G.S.nation.claims||[]).length;if(cr<=2)return {cr};
     const ok=c=>fr.has(c)&&!tried.includes(c)&&!D.mpClaimSequence(T,[c]).blocked.length;
     for(const b of D.claimableBlocks(T)){const plan=D.blockPlan(T,b),c=plan.find(ok);if(c==null||plan.length<2)continue;
       const whole=cr-plan.length>=2&&!D.mpClaimSequence(T,plan).blocked.length;
-      G.S.mapClaim={b,c};G.render();return {cr,c,act:whole?'lc-block':'lc-one'};}
+      G.S.mapClaim={b,c};G.render();return {cr,k,c,act:whole?'lc-block':'lc-one'};}
     return {cr,none:1};},tried);
   if(st.cr<=2||st.none)break;
   tried.push(st.c);
   await K.locator(`#map-panel [data-act="${st.act}"]`).click();
-  await until(()=>K.evaluate(cr=>G.MD.landCredits(G.S.nation)!==cr,st.cr),8000);
+  await until(()=>K.evaluate(k=>(G.S.nation.claims||[]).length>k,st.k),8000);
 }
+await tutSettled();
 /* the claims just made can still pay out a moment later (a new rank, an achievement's land credits: 8 → 15 → 8 → 5 → 4 →
    3 → 4 in one run), so wait until the credits hold still before choosing the hex for that many */
 {let last=null,same=0;await until(async()=>{const v=await K.evaluate(()=>G.MD.landCredits(G.S.nation));same=v===last?same+1:0;last=v;return same>=6;},20000,250);}
@@ -209,11 +224,12 @@ check('clicking a hex chooses that hex',await until(()=>K.evaluate(a=>G.S.mapCla
 check('and the claim on offer starts with it',await K.evaluate(([a,b,cr])=>{const p=G.MD.blockPlan(G.territory(),b,a).slice(0,cr);return p.length===cr&&p[0]===a;},[pick.a,pick.b,pick.cr]));
 check('the panel offers the claim of that many hexes',(pick.cr===1?/Claim this hex/:new RegExp('Claim '+pick.cr+' of its hexes')).test(await text(K,'#map-panel')),await text(K,'#map-panel'));
 const before=new Set(((await localNation(K))?.claims||[]).map(e=>e.c));
-/* what the claim may spend is the credits at the click (one can still arrive after the panel was drawn) */
-const atClick=await K.evaluate(([a,b])=>({cr:G.MD.landCredits(G.S.nation),len:G.MD.blockPlan(G.territory(),b,a).length}),[pick.a,pick.b]);
+/* the claim spends the credits counted at the pick, fewer than the block holds: the check stays at that many, and the
+   credits the game holds as the claim is clicked go on record, should one still arrive late */
+await K.evaluate(()=>document.addEventListener('click',e=>{if(window.crAtClaim==null&&e.target.closest&&e.target.closest('#map-panel [data-act="lc-block"]'))window.crAtClaim=G.MD.landCredits(G.S.nation);},true));
 await K.locator('#map-panel [data-act="lc-block"]').click();
 const got=async()=>((await localNation(K))?.claims||[]).map(e=>e.c).filter(c=>!before.has(c));
 check('claiming takes the hex that was clicked',await until(async()=>(await got()).includes(pick.a),10000),JSON.stringify({pick,claimed:await got()}));
-check('and as many as the credits allow',(await got()).length===Math.min(atClick.cr,atClick.len),JSON.stringify({atClick,claimed:await got()}));
+check('and as many as the credits allow',(await got()).length===pick.cr,JSON.stringify({pick,claimed:await got(),creditsAtClaim:await K.evaluate(()=>window.crAtClaim)}));
 await K.ctx.close();
 await A.ctx.close();check('no page errors',!errors.length,errors.join(' | '));await finish();

@@ -739,8 +739,15 @@ check('the control shows the Google account', await until(async () => /alice@exa
 check('the dialog says the nation is kept with the account', /Linked/.test(await text(A, '.ed-msg')));
 await A.keyboard.press('Escape');
 const glA1 = await until(async () => { const n = await localNation(A); return n && n.glk === 1 ? n : null; }, 10000);
-const glGain = r => glA1.stock[r] - glA0.stock[r];
-check('linking completes the first step, once, with 5 iron, 5 timber and 5 goods', !!glA1 && ['iron', 'timber', 'goods'].every(r => glGain(r) > 4.9 && glGain(r) < 6), JSON.stringify(glA1 && [glA0.stock, glA1.stock]));
+/* the step's own gift, net of a new achievement rank in the same save (15 iron and 15 goods, the game's RANK_GIFT, as
+   rankGift below): an achievement paid by whichever save comes next can land in the linking save. Pride of the Region
+   (mus-yr1, 25 points) comes with the first save in which A leads the region's museums, where every nation scores a
+   handful of points and a tie goes by player id, so the save it lands in changes from run to run; on CI it once
+   brought a rank, and 20 iron and 20 goods instead of 5 */
+const glRanks = glA1 ? await A.evaluate(([a, b]) => Math.max(0, G.RK.achRankOf(b).i - G.RK.achRankOf(a).i), [glA0, glA1]) : 0;
+const glGain = r => glA1.stock[r] - glA0.stock[r] - (r === 'iron' || r === 'goods' ? 15 * glRanks : 0);
+check('linking completes the first step, once, with 5 iron, 5 timber and 5 goods', !!glA1 && ['iron', 'timber', 'goods'].every(r => glGain(r) > 4.9 && glGain(r) < 6),
+  JSON.stringify(glA1 && { before: glA0.stock, after: glA1.stock, ranks: glRanks, achievements: Object.keys(glA1.ach || {}).filter(k => !(glA0.ach || {})[k]) }));
 check('and says so, with its 10 land credits', await until(async () => /kept with your linked sign-in\. \+10 land credits/.test(await toasts(A)), 40000)); // behind the battles' toasts
 
 // b. a new device signs in to that account from the founding screen
