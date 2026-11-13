@@ -207,6 +207,13 @@ await go(A, 'map');await sleep(1200);
 // the map draws after the page is shown: on a busy CI runner the gilt has come more than seven seconds in
 check('Founder’s Gilt drawn on the player’s own land', !!(await until(() => A.evaluate(() => !!document.querySelector('canvas[data-map="main"]')?._gilt), 20000)));
 await A.evaluate(() => { const t = document.querySelector('.toast'); if (t) t.remove(); });await shot(A, 'canvas[data-map="main"]', 'shop-map-gilt.png');
+/* the map is drawn once for each turn of the globe on screen, the nearest first: zoomed right out, where several are,
+   a later turn must not wipe the gilt the nearest one found (it did whenever the view reached the seam, so the check
+   above failed or passed by where the nation happened to be founded); waits for the draw at the new scale (cv._mmf) */
+const wide = await A.evaluate(() => { const cv = document.querySelector('canvas[data-map="main"]'), v = G.MD.viewOf('main', cv), z = v.z; v.z = 1; cv._gilt = null; G.render(); const s = G.MD.mapScale(cv, v); return { z, s, w: cv.clientWidth, globe: Math.round(G.MAP.W * s) }; });
+const wideDrawn = !!(await until(() => A.evaluate(s => { const cv = document.querySelector('canvas[data-map="main"]'); return !!(cv && cv._mmf && Math.abs(cv._mmf.s - s) < 1e-6); }, wide.s), 15000));
+check('zoomed out, with the globe drawn more than once, the gilt stays found', wideDrawn && await A.evaluate(() => !!document.querySelector('canvas[data-map="main"]')?._gilt), JSON.stringify({ ...wide, wideDrawn }));
+await A.evaluate(z => { G.MD.viewOf('main', document.querySelector('canvas[data-map="main"]')).z = z; G.render(); }, wide.z);
 await A.evaluate(() => G.PG.saveSoon());await sleep(2500);
 
 /* ── a neighbour sees it; a forger's own record does not count ── */

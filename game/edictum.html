@@ -19543,7 +19543,9 @@ function hpop(h){const top=h[0],last=h.pop();if(h.length){h[0]=last;let i=0;for(
    the founder it has joined, and membership counts only when both agree. */
 const NPC_SET=new Set(NPC_NATIONS.map(n=>n.id));
 const NPC_BY_ID=Object.fromEntries(NPC_NATIONS.map(n=>[n.id,n]));
-const READY_BASE=6,MAX_READY=8,TRUCE_MS=12*3600000,TERR_DEF=[1,1,1,1.25,1.6],AGENT_MS=30*60000,ALLY_MIN=65;
+/* TRUCE_MS: after peace, neither side may declare war again for 72 hours; PEACE_AUTO_MS: a peace offer the other
+   side leaves unanswered for 30 hours takes effect on its own (jobs/fx/engine.mjs PEACE_AUTO_MS matches) */
+const READY_BASE=6,MAX_READY=8,TRUCE_MS=72*3600000,PEACE_AUTO_MS=30*3600000,TERR_DEF=[1,1,1,1.25,1.6],AGENT_MS=30*60000,ALLY_MIN=65;
 const NPC_BLOCS=[{id:'bloc-iron',name:'The Iron Compact',members:['npc-vellmark','npc-karvesk']},{id:'bloc-league',name:'The Meridian League',members:['npc-lucanto','npc-ilsund','npc-marrowmere']}];
 const WAR_POLICIES=['conscription','militaryAcademy','militaryCorruption','obsoleteEquipment','drones','mercenaries','lowMorale','fortifications','borderWall','nuclearArsenal','coastalBatteries','pacifistConstitution','navalFleet','mountainTroops','reservists','rapidMobilisation','spyAgency','counterIntel'];
 function myId(){return S.uid||'me';}
@@ -19921,8 +19923,13 @@ function pairWar(a,b){
   let pA=(!na&&A.peace&&A.peace[b])||0,pB=(!nb&&B.peace&&B.peace[a])||0;
   if(na)pA=pB;if(nb)pB=pA;
   if(pA>decl&&pB>decl){const at=Math.max(pA,pB);return {war:false,peaceAt:at,truceUntil:at+TRUCE_MS};}
-  const aFirst=dA&&(!dB||dA<=dB),by=aFirst?!!(nb&&A.wars[b].by):!!(na&&B.wars[a].by),now=Date.now();
-  return {war:true,since:decl,agg:aFirst?(by?b:a):(by?a:b),offA:pA>decl||(na&&now-decl>=npcPeaceWait(a)),offB:pB>decl||(nb&&now-decl>=npcPeaceWait(b))};
+  /* an offer the other side leaves unanswered for PEACE_AUTO_MS takes effect on its own (only one side has offered
+     here, and a computer nation's peace is its opponent's, so this is always a player's offer to a player);
+     auto names the side whose offer it was, ends when it takes effect */
+  const now=Date.now(),off=pA>decl?pA:pB>decl?pB:0,ends=off?off+PEACE_AUTO_MS:0;
+  if(off&&now>=ends)return {war:false,peaceAt:ends,truceUntil:ends+TRUCE_MS,auto:pA>decl?a:b};
+  const aFirst=dA&&(!dB||dA<=dB),by=aFirst?!!(nb&&A.wars[b].by):!!(na&&B.wars[a].by);
+  return {war:true,since:decl,agg:aFirst?(by?b:a):(by?a:b),offA:pA>decl||(na&&now-decl>=npcPeaceWait(a)),offB:pB>decl||(nb&&now-decl>=npcPeaceWait(b)),ends};
 }
 function atWar(a,b){
   if(a===b||sameAlliance(a,b))return null;
@@ -19934,8 +19941,8 @@ function atWar(a,b){
 function warWith(id){
   if(!S.nation)return {war:false};
   const me=myId(),w=atWar(me,id);
-  if(w)return w.direct?{war:true,direct:true,since:w.since,byMe:w.agg===me,iOffered:w.offA,theyOffered:w.offB}:{war:true,direct:false,since:w.since,defending:w.defending,attacker:w.attacker};
-  const d=pairWar(me,id);return {war:false,truceUntil:d.truceUntil};
+  if(w)return w.direct?{war:true,direct:true,since:w.since,byMe:w.agg===me,iOffered:w.offA,theyOffered:w.offB,ends:w.ends}:{war:true,direct:false,since:w.since,defending:w.defending,attacker:w.attacker};
+  const d=pairWar(me,id);return {war:false,truceUntil:d.truceUntil,peaceAt:d.peaceAt,auto:d.auto};
 }
 function enemies(){const out=[];if(!S.nation)return out;for(const x of allNations()){if(!x.me&&warWith(x.id).war)out.push(x);}return out;}
 function nameOf(id){if(isOffice(id))return OFFICES[id].name;const x=findNation(id)||(typeof XN!=='undefined'&&XN.get(id));return x?x.n.name:'a former nation';}
@@ -20081,10 +20088,12 @@ function offerPeace(id,terms){
   n.peace={...(n.peace||{}),[id]:now};n.pterm={...(n.pterm||{}),[id]:terms};
   S.nation=n;const after=pairWar(me,id);S.nation=prev;
   const back=terms==='return'?` Your troops withdrew from ${hexWord(mine.length)} of ${x.n.name}’s land.`:'';
-  if(!after.war){applyEffects(n,{happy:2});n.log.unshift({t:now,k:'peace',a:id,b:x.n.name,fx:terms});n.log=n.log.slice(0,60);S.warMsg=`The war with ${x.n.name} is over.${back} A truce now holds for 12 hours${x.npc?`, and ${x.n.name} will not join an alliance with you for three days`:''}.`;}
-  else S.warMsg=`You offered peace to ${x.n.name}.${back} Your army holds its fire while the offer stands; the war ends when they accept.`;
+  if(!after.war){applyEffects(n,{happy:2});n.log.unshift({t:now,k:'peace',a:id,b:x.n.name,fx:terms});n.log=n.log.slice(0,60);S.warMsg=`The war with ${x.n.name} is over.${back} A truce now holds for ${TRUCE_MS/3600000} hours${x.npc?`, and ${x.n.name} will not join an alliance with you for three days`:''}.`;}
+  else S.warMsg=`You offered peace to ${x.n.name}.${back} Your army holds its fire while the offer stands; the war ends when they accept${after.ends?`, or by itself at ${peaceWhen(after.ends,now)} if they have not answered by then`:''}.`;
   commit(n);toast(after.war?'Peace offered to '+x.n.name+'.':'Peace with '+x.n.name+'.');done();
 }
+/* when an unanswered peace offer takes effect: "14:30 tomorrow" */
+function peaceWhen(t,now){return fmtTime(t)+dayTail(t,now||Date.now());}
 const OUT_OF_REACH='None of their hexes are within reach yet. Your army can strike up to 3 hexes beyond your border or your allies’ borders, and your border moves outward each time you spend land credits on the map.';
 function reachableFrom(T,id){const bi=T.byId[id];if(bi===undefined)return 0;let k=0;for(const c of frontier(T).keys())if(T.owner[c]===bi)k++;return k;}
 function warNotice(){
@@ -20120,8 +20129,8 @@ function warControls(x){
       const T=territory(),mi=T.byId[me],ei=T.byId[x.id],mine=occupiedFrom(T,mi,ei).length,theirs=occupiedFrom(T,ei,mi).length;
       const held=(mine?`You hold ${hexWord(mine)} of their land. `:'')+(theirs?`They hold ${hexWord(theirs)} of yours. `:'');
       const pt=x.npc?null:((x.n.pterm||{})[me]),mt=(S.nation.pterm||{})[x.id];
-      if(ws.iOffered)body=`<p>You offered peace${mt==='return'?' and withdrew from their land':''}. Your army holds its fire while the offer stands; the war ends when ${nm} accepts. ${held}</p>`;
-      else if(ws.theyOffered)body=`<p>${nm} has offered peace${pt==='return'?' and withdrawn from your land':x.npc?' on current lines: its generals are tired of the war':''}. ${held}</p>`;
+      if(ws.iOffered)body=`<p>You offered peace${mt==='return'?' and withdrew from their land':''}. Your army holds its fire while the offer stands; the war ends when ${nm} accepts${ws.ends?`, or by itself at ${peaceWhen(ws.ends,now)} if ${nm} has not answered by then`:''}. ${held}</p>`;
+      else if(ws.theyOffered)body=`<p>${nm} has offered peace${pt==='return'?' and withdrawn from your land':x.npc?' on current lines: its generals are tired of the war':''}.${ws.ends?` Unless you answer first, the peace takes effect by itself at ${peaceWhen(ws.ends,now)}.`:''} ${held}</p>`;
       else body=`<p>${ws.byMe?'You declared this war.':`${nm} declared war on you.`} ${held}${reachableFrom(T,x.id)?'Select one of their hexes outlined in red to plan an attack.':esc(OUT_OF_REACH)}${x.npc?(mine?` ${nm} will not make peace while you hold its land, unless you withdraw or the war drags on.`:''):' They can strike back whenever they play.'}</p>`;
       body+=`<div class="row">${peaceButtons(x,ws,false)}</div>`;
     }
@@ -22256,8 +22265,9 @@ function dmAttCard(a,from,mine,peer){
   if(a.k==='idea')return box(`They give ${amt(a.g)} for ${amt(a.r)} of yours`,'A suggestion from their Board of Trade, not yet an offer.',`<button type="button" class="btn small" data-act="dm-idea" data-id="${esc(a.id||from)}" data-g="${esc(a.g[0])}" data-ga="${a.g[1]}" data-r="${esc(a.r[0])}" data-ra="${a.r[1]}">Open on the Trade page</button>`);
   if(a.k==='peace'){const other=mine?peer:from,w=warWith(other);
     if(!w.war)return box('Peace holds','There is no war between you now.','');
-    if(!mine&&w.theyOffered&&!w.iOffered)return box(`${esc(nameOf(other))} offers peace on current lines`,'',`<button type="button" class="btn small" data-act="peace" data-id="${esc(other)}" data-terms="keep">Accept peace</button>`);
-    return box(mine?'You offered peace on current lines':'Peace was offered',w.iOffered&&!w.theyOffered?'Waiting for an answer.':'','');}
+    const by=w.ends?`It takes effect by itself at ${peaceWhen(w.ends)}.`:'';
+    if(!mine&&w.theyOffered&&!w.iOffered)return box(`${esc(nameOf(other))} offers peace on current lines`,by,`<button type="button" class="btn small" data-act="peace" data-id="${esc(other)}" data-terms="keep">Accept peace</button>`);
+    return box(mine?'You offered peace on current lines':'Peace was offered',w.iOffered&&!w.theyOffered?('Waiting for an answer. '+by).trim():'','');}
   if(a.k==='ally'){const A=politics().al.get(a.id);if(!A)return box('An alliance that no longer exists','','');
     if(A.members.includes(me))return box(`${esc(A.name)}`,mine?'Your alliance.':'You are a member.','');
     if(A.invited.includes(me))return box(`Join ${esc(A.name)}`,`${A.members.length} ${A.members.length===1?'member':'members'}.`,`<button type="button" class="btn small" data-act="al-join" data-id="${esc(a.id)}">Join</button><button type="button" class="btn ghost small" data-act="go" data-v="diplomacy">Diplomacy</button>`);
@@ -22491,13 +22501,18 @@ function notifItems(now){
   if(inc.length)pin.push({k:'trade',txt:`${list([...new Set(inc.map(p=>nameOf(p.from)))])} ${inc.length===1?'offers you a trade deal':'offer you trade deals'}.`,go:'trade'});
   const P=politics();for(const A of P.al.values())if(!A.npc&&A.invited.includes(me)&&!A.members.includes(me))pin.push({k:'alli',txt:`${A.name} has invited you to join.`,go:'diplomacy'});
   const mine=alMine();if(mine&&alCan(mine,me,'o')&&mine.pending.length)pin.push({k:'alli',txt:`${list(mine.pending.map(nameOf))} ${mine.pending.length===1?'wants':'want'} to join ${mine.name}.`,go:'diplomacy'});
-  for(const x of enemies()){const w=warWith(x.id);if(w.direct&&w.theyOffered&&!w.iOffered)pin.push({k:'war',txt:`${x.n.name} has offered peace.`,go:'map'});}
+  for(const x of enemies()){const w=warWith(x.id);if(w.direct&&w.theyOffered&&!w.iOffered)pin.push({k:'war',txt:`${x.n.name} has offered peace.${w.ends?` Unless you answer first, it takes effect by itself at ${fmtTime(w.ends)} on ${fmtDate(w.ends)}.`:''}`,go:'map'});}
   const MY={resign:l=>`${l.b} resigned as ${l.a}. ${l.fx} takes over.`,npcwar:l=>`${l.b} declared war on ${n.name}.`,retire:l=>l.b?`${l.b} retired as ${l.a}. ${l.fx} takes over.`:`Your ${l.a} retired. ${l.fx} takes over.`,npcleft:l=>`${l.b} left ${l.fx}: its values have drifted too far from yours.`,autoland:l=>`${l.a==='1'?'A land credit was':l.a+' land credits were'} spent automatically, around ${l.fx}.`,lost:l=>`${l.b} seized a hex of ${l.fx} from you.`,games:l=>`The results of ${l.a} are in. See how your team did.`,gres:l=>`The results of ${l.a} are in. See how your team did.`,host:l=>`You hosted ${l.a}.`,hostwin:l=>`You will host ${l.a}.`,mile:l=>`${n.name} passed ${l.a} people${l.b?' and is now a '+l.b:''}. Unlocked: ${l.fx}.`,mile0:l=>`Growth milestones have arrived. ${n.name} has already passed ${l.a} of them, with bonus land credits to spend.`};
   const GO={resign:'government',npcwar:'map',retire:'government',npcleft:'diplomacy',autoland:'map',lost:'map',games:'games',gres:'games',host:'games',hostwin:'games',mile:'nation',mile0:'nation'};
   for(const l of n.log)if(MY[l.k])ev.push({t:l.t,k:l.k,txt:MY[l.k](l),go:GO[l.k]});
   const THEY={war:(x,l)=>`${x.n.name} declared war on you.`,peace:(x,l)=>`${x.n.name} made peace with you${l.fx==='return'?' and withdrew from your land':''}.`,aljoin:(x,l)=>`${x.n.name} joined ${l.b}.`,alleave:(x,l)=>`${x.n.name} left ${l.b}.`,alremove:(x,l)=>`${x.n.name} removed you from ${l.fx}.`,tradeno:(x,l)=>`${x.n.name} declined your trade offer.`,reply:(x,l)=>`${x.n.name} answered the matter you raised${l.fx?': '+l.fx:''}.`,conq:(x,l)=>`${x.n.name} seized a hex of ${l.fx} from you.`,trade:(x,l)=>`${x.n.name} signed a trade deal with you.`,tradeend:(x,l)=>`${x.n.name} ended a trade deal with you.`,aladmit:(x,l)=>`${x.n.name} admitted you to ${l.fx||'its alliance'}.`,caught:(x,l)=>`A spy from ${x.n.name} was caught in ${n.name}.`,cede:(x,l)=>`${x.n.name} ceded a border hex on ${l.fx} to you.`,shared:(x,l)=>`${x.n.name} has raised a matter with you. It is waiting on your desk.`,incident:(x,l)=>`Explorers from ${x.n.name} went tramping across ${l.fx}, on your land.`};
   const TGO={aljoin:'diplomacy',alleave:'diplomacy',alremove:'diplomacy',tradeno:'trade',reply:'diplomacy',war:'map',peace:'map',conq:'map',trade:'trade',tradeend:'trade',aladmit:'diplomacy',caught:'diplomacy',cede:'map',shared:'issues',incident:'explore'};
-  for(const x of allNations()){if(x.npc||x.me)continue;for(const l of x.n.log||[])if(l.a===me&&THEY[l.k]&&l.t>=(n.founded||0))ev.push({t:l.t,k:l.k,txt:THEY[l.k](x,l),go:TGO[l.k]});}
+  for(const x of allNations()){if(x.npc||x.me)continue;for(const l of x.n.log||[])if(l.a===me&&THEY[l.k]&&l.t>=(n.founded||0))ev.push({t:l.t,k:l.k,txt:THEY[l.k](x,l),go:TGO[l.k]});
+    /* a peace that came by itself: an offer left unanswered for PEACE_AUTO_MS (pairWar); nobody logs it, so it is told here */
+    if((n.wars&&n.wars[x.id])||(x.n.wars&&x.n.wars[me])){const d=pairWar(me,x.id),hrsW=ms=>ms/3600000+' hours',cool=` Neither of you may declare war again for ${hrsW(TRUCE_MS)}.`;
+      if(!d.war&&d.auto&&d.peaceAt<=now&&now-d.peaceAt<14*DAY&&d.peaceAt>=(n.founded||0))ev.push({t:d.peaceAt,k:'peace',go:'map',txt:d.auto===me
+        ?`${x.n.name} did not answer your peace offer within ${hrsW(PEACE_AUTO_MS)}, so the peace took effect.${cool}`
+        :`You did not answer ${x.n.name}’s peace offer within ${hrsW(PEACE_AUTO_MS)}, so the peace took effect${(x.n.pterm||{})[me]==='return'?' and its troops withdrew from your land':''}.${cool}`});}}
   ev.push(...allianceEvents(n,me));
   ev.push(...runHooks(NOTIF_SOURCES,n,now));
   for(const c of n.cities||[])for(const b of c.b)if(b.d<=now&&now-b.d<14*DAY&&BUILDINGS[b.k])ev.push({t:b.d,k:'build',txt:`${BUILDINGS[b.k].w?'The ':''}${BUILDINGS[b.k].n} in ${cityLabel(n,c)} is complete.`,go:'cities'});
@@ -24898,8 +24913,8 @@ function helpBody(n){
       <h3 class="help-h3">Alliance wars</h3>
       <p>Attack a member of an alliance and its allies are at war with you too. When someone attacks your ally, you are at war with the attacker. Allied troops join each other’s attacks and defences, at half strength and less with distance.</p>
       <h3 class="help-h3">Making peace</h3>
-      <p>Offer peace on current lines, where everyone keeps what they hold, or withdraw from the land you took. While your offer stands your army holds its fire, so offering peace stops your own attacks; you can take the offer back. The war ends when both sides have offered. A computer nation makes peace at once unless you hold its land, and after a day or two of fighting it offers peace on current lines itself.</p>
-      <p>Once peace is made, a truce of ${hrs(TRUCE_MS)} stops either side declaring war again, and a computer nation will not join your alliance for three days.</p>
+      <p>Offer peace on current lines, where everyone keeps what they hold, or withdraw from the land you took. While your offer stands your army holds its fire, so offering peace stops your own attacks; you can take the offer back. The war ends when both sides have offered, or ${hrs(PEACE_AUTO_MS)} after an offer the other side has not answered: silence counts as yes. A computer nation makes peace at once unless you hold its land, and after a day or two of fighting it offers peace on current lines itself.</p>
+      <p>Once peace is made, however it came, a truce of ${hrs(TRUCE_MS)} stops either side declaring war again, and a computer nation will not join your alliance for three days.</p>
       <h3 class="help-h3">When computer nations attack</h3>
       <p>Every ${hrs(WAR_SLOT)}, a hawkish computer nation that shares a border with you may declare war if it dislikes you: low goodwill, very different values, or you hold its land. None will in your first ${NPC_GRACE/DAY} days, or within ${NPC_COOL/DAY} days of making peace with you. At war, it may seize a border hex every ${hrs(WAR_SLOT)}.</p>${G(go('diplomacy','Open diplomacy'))}`,
     alli:`<p>Founding an alliance unlocks at ${fp('alli')} people; you can join one at any size, when invited or by asking. Allies defend each other and join each other’s attacks, and when one is attacked the others get a call to arms.</p>
@@ -58325,9 +58340,13 @@ MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
   });
 }});
 /* Founder's Gilt: the land keeps its own colour, with a brass edge, a fine hatching and, while the map is on screen
-   and motion is allowed, a slow light along the edge. Drawn from the map's current owners, so it follows the land. */
+   and motion is allowed, a slow light along the edge. Drawn from the map's current owners, so it follows the land.
+   drawMap runs the layers once for each turn of the globe on screen, the nearest first: only that first turn starts
+   the light's path afresh, and each later one adds its own edges to it (the path is in map units, and the light is
+   drawn on every turn), so a turn without gilt land no longer wipes what the nearest one found. */
 MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
-  const g=M.g,T=M.T,s=M.s;M.cv._gilt=null;const P=typeof Path2D==='function'?new Path2D():null;let any=false;
+  const g=M.g,T=M.T,s=M.s,lead=M.first!==false;if(lead)M.cv._gilt=null;
+  const P=typeof Path2D==='function'?(!lead&&M.cv._gilt)||new Path2D():null;let any=false;
   for(const [o,cells] of M.byO){const x=T.list[o];if(!x||x.npc||!cells.length)continue;let te='';try{te=cz(x.n).te;}catch(e){}if(te!=='te-gilt')continue;any=true;
     if(!M.draft&&s*HEX_W>=7){g.save();g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.4);g.clip();
       let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;for(const i of cells){x0=Math.min(x0,MAP.cx[i]);x1=Math.max(x1,MAP.cx[i]);y0=Math.min(y0,MAP.cy[i]);y1=Math.max(y1,MAP.cy[i]);}
