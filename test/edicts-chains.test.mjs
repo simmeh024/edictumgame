@@ -18,7 +18,8 @@ function load(){
   const a=source.indexOf(START),b=source.indexOf(END,a+START.length);
   assert(a>source.indexOf('for(const is of BRD_ISSUES)'),'after the border edicts, so no number moves');
   assert(b<=source.indexOf('/* ───────── the browser tab'),'before the browser tab’s section');
-  assert.equal(source.indexOf('ISSUES.push(',b),-1,'no edict is added after this section');
+  const later=source.indexOf('ISSUES.push(',b),crises=source.indexOf('/* ───────── crises and gambles');
+  assert(crises>b&&(later===-1||later>crises),'only the crises and gambles (their own test) are added after this section');
   vm.runInContext(source.slice(a,b)+'\nthis.J=JSON.stringify({X:CHN_ISSUES,R:CHN_ISSUES.map(is=>ISSUES_RANDOM.includes(is)),Q:CHN_ISSUES.map(is=>is.req?String(is.req):"")});',ctx);
   return JSON.parse(ctx.J);
 }
