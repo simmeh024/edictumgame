@@ -7,6 +7,8 @@ export const AL_RES = ['food', 'timber', 'iron', 'oil', 'goods'];
 /* renown needed for each level: level 1 at 0, level 10 at 7,500 */
 export const AL_LEVELS = [0, 100, 250, 500, 900, 1500, 2400, 3600, 5200, 7500];
 export const AL_OFFICERS = 5;
+/* founding an alliance needs this many million people (the saved pop); the game's FEATURE_AT.alli says the same */
+export const AL_FOUND_POP = 7.5;
 /* projects: the most levels, the alliance level each one needs, and what each costs from the treasury */
 export const AL_PROJECTS = {
   hall: { max: 3, lv: [1, 3, 5], cost: [{ timber: 40, goods: 30 }, { timber: 80, goods: 60 }, { timber: 140, goods: 100 }] },

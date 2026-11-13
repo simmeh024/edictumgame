@@ -28,6 +28,16 @@ test('the game and the server share the levels, officers, projects and renown ru
   assert.deepEqual(Object.keys(constOf('AL_ACCESS')), R.AL_ACCESS);
 });
 
+test('founding an alliance opens at 7.5 million people, in the game and on the server', () => {
+  assert.equal(R.AL_FOUND_POP, 7.5);
+  const fa = vm.runInNewContext('(' + html.match(/const FEATURE_AT=(\{[^}]*\})/)[1] + ')');
+  assert.equal(fa.alli, R.AL_FOUND_POP);
+  /* no milestone claims it any more: the 10 million one still opens war, and no milestone moved */
+  assert.match(html, /\{p:10,c:3,b:\['oilwell','fortress'\],war:1\},/);
+  assert.doesNotMatch(html, /alli:1\}/);
+  assert.match(html, /function featureAt\(f\)\{if\(FEATURE_AT\[f\]\)return FEATURE_AT\[f\];/);
+});
+
 test('levels and member places agree at every renown and Hall level', () => {
   const src = html.match(/const alLevel=xp=>\{[^\n]*?\};\nconst alPlaces=D=>[^\n]*?;\n/);
   assert.ok(src, 'alLevel and alPlaces are found');

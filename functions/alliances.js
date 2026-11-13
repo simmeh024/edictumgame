@@ -2,7 +2,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { eligibility, refuse, nationJSON, DAY } from './eligibility.js';
 import { cabinetAffinity } from './affinity.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, alLevel, alPlaces } from './alliance-rules.js';
+import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, AL_FOUND_POP, alLevel, alPlaces } from './alliance-rules.js';
 
 /* Alliances, written only here (civic ops al*), so that an alliance outlives the nation that founded it.
      alliances/{aid}        {v, reg, name, mo, em, col, ty, acc, t, fd, ld, tyAt, mem, npc, iv, rq, xp, tt, tr, dn, pj, log}
@@ -116,7 +116,7 @@ async function alFound(db, who, d) {
   let aid = '';
   await db.runTransaction(async tx => {
     const e = await eligibility(tx, who), reg = regOf(e);
-    if ((Number(e.saved.get('pop')) || 0) < 10 - 1e-6) refuse('al_small', 'Founding an alliance unlocks at 10 million people. You can still join one.');
+    if ((Number(e.saved.get('pop')) || 0) < AL_FOUND_POP - 1e-6) refuse('al_small', `Founding an alliance unlocks at ${AL_FOUND_POP} million people. You can still join one.`);
     const [mine, same] = await Promise.all([belongs(tx, db, who.uid), tx.get(db.collection('alliances').where('reg', '==', reg))]);
     if (mine && !mine.stale) refuse('al_member', 'Leave your current alliance first.');
     if (same.docs.some(s => fold(s.get('name')) === fold(name))) refuse('al_name', 'Another alliance in this region already has that name.');

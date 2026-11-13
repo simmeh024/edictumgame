@@ -21732,7 +21732,7 @@ const MILESTONES=[
   {p:6,t:'Small State',c:2,b:['mine','harbour']},
   {p:7,c:2,b:['hospital','barracks'],city:1},
   {p:8.5,t:'Nation',c:3,b:['university','factory'],city:1},
-  {p:10,c:3,b:['oilwell','fortress'],war:1,alli:1},
+  {p:10,c:3,b:['oilwell','fortress'],war:1},
   {p:12.5,c:4,city:1},
   {p:15,t:'Regional Power',c:4,host:1},
   {p:20,c:5,b:['cathedral','wall']},
@@ -21745,6 +21745,10 @@ const MILESTONES=[
   {p:500,t:'Hegemon',c:15},
   {p:1000,t:'World Power',c:20}
 ];
+/* what unlocks between milestones, apart from them (their places, and so the land credits counted by place, stay as
+   they are): founding an alliance at 7.5 million (AL_FOUND_POP in functions/alliance-rules.js). The milestone just
+   below each tells of it. */
+const FEATURE_AT={alli:7.5},FEATURE_WORDS={alli:'founding alliances'};
 const fmtPopShort=p=>p>=1e6?(p/1e6)+' trillion':p>=1000?(p/1000)+' billion':p+' million';
 function milesReached(pop){return MILESTONES.filter(m=>pop>=m.p-1e-9);}
 function mileOf(n){
@@ -21753,7 +21757,7 @@ function mileOf(n){
 }
 function bldUnlockAt(key){const m=MILESTONES.find(m=>(m.b||[]).includes(key));return m?m.p:5;}
 function bldUnlocked(n,key){if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return false;return popNow(n)>=bldUnlockAt(key)-1e-9||cvBlueOk(n,key);}
-function featureAt(f){return (MILESTONES.find(m=>m[f])||MILESTONES[0]).p;}
+function featureAt(f){if(FEATURE_AT[f])return FEATURE_AT[f];return (MILESTONES.find(m=>m[f])||MILESTONES[0]).p;}
 function canFeature(n,f){return !!n&&popNow(n)>=featureAt(f)-1e-9;}
 function mileUnlocks(m,n){
   n=n||S.nation;const mc=mileCredit(n,MILESTONES.indexOf(m));
@@ -21762,6 +21766,7 @@ function mileUnlocks(m,n){
   if(m.city)u.push('another city');
   if(m.war)u.push('declaring war');
   if(m.alli)u.push('founding alliances');
+  for(const [f,p] of Object.entries(FEATURE_AT))if(MILESTONES.filter(x=>x.p<=p).pop()===m)u.push(FEATURE_WORDS[f]+(p===m.p?'':' at '+fmtPopShort(p)));
   if(m.host)u.push('bidding to host the Games');
   if(mc)u.push(mc===1?'a bonus land credit':mc+' bonus land credits');
   return u;
