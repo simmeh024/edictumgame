@@ -370,6 +370,29 @@ Logistics) or the army range's sounding rockets (Flight Operations).
 - Tests: four more in `test/mission-control.test.mjs`, and `npm run test:space-gate` (the closed page, the
   gold edict, an answer, the tour step by step, a veto, on a desktop and a phone in both themes).
 
+**Portraits of the government.** The cabinet's medallions (`cvMed`, a bust in profile in one ink) can be dressed
+in Customise › Portraits, which "Edit portrait" on every cabinet card also opens. A face without a look is drawn
+exactly as before (`ptBust` makes the same draws as `cvBust`); a look overrides hair (ten kinds, with a
+powdered wig, a tied queue, a topknot and a braid), nose, chin and brow, facing, grey hair, facial hair, headwear,
+dress and one detail. The head of government also picks an ink, a ring and a nickname earned in office
+(`PT_NICKS`, from the tallies since the term began, `n.ptz`), and a caption is written from the records.
+- *The record.* Shared, so visitors see it: `n.rpt` (the leader: `s` the seed the face first came from, pinned
+  when the leader is renamed so the face stays; `l` look, `i` ink, `r` ring, `k` nickname, `f` the portfolio
+  they held, `b` birthplace), `n.cpt` (each minister's own look, with their name; dropped when the post changes
+  hands) and `n.cdc` (the cabinet's dress code, worn by every minister and candidate under their own choices).
+  Private: `n.ptu` (pieces earned in play, `PT_LOCK`) and `n.ptz`. A minister who takes over brings their face
+  and look; the leader who leaves keeps their portrait in `n.cuS[].p`, so the Museum's Former leaders and the
+  old banknote series show them as they were.
+- *Earned pieces.* The laurel wreath (a Games gold), crown (30 days in office), bicorne (land taken in a war),
+  liberty cap and mortarboard (Civil Rights or Education at 80), toga (a wonder), ermine robe (60 days), chain of
+  office (10 cities), order star (100 achievements), medal (any Games medal) and the laurel ring (the court
+  painter's edict). Anyone can try them on; saving waits until they are earned. No shop pack.
+- *The court painter.* `PT_ISSUES` (one edict, after the crises and gambles): as they are, in the manner of the
+  old emperors (laurel, ermine and a laurel ring, earned at once) or the whole cabinet; the Dispatch reports it.
+- Tests: `test/portraits.test.mjs` (in `test:fx`) and `npm run test:portraits` (looks, the dress code, earned
+  pieces, a rename, a succession, the Museum, banknotes, the edict and a reload, on a desktop and a phone in both
+  themes).
+
 **The banner's stamps.** A nation's banner carries ink stamps for its highest seat in the region's
 Assembly (the Delegate's chair, or else a member's seat: every player nation unless it resigned, and
 every computer nation) and its alliance, if it has one.
@@ -661,6 +684,7 @@ npm run test:edict-inbox   # edict topics, read and pinned states, follow-up rec
 npm run test:willow        # Letters from Willow Street: a milestone, a change of government, reloads, a second device
 npm run test:mission-control # Mission Control: the agency, the chart, the mandate, a landing, the gold letters
 npm run test:space-gate      # the Space page: closed until its edict at 25, the edict, a veto, the tour
+npm run test:portraits       # portraits of the government: looks, dress code, earned pieces, rename, Museum, edict
 npm run test:unlock-links  # achievement and museum notifications link to each unlock
 npm run test:map-development # city production areas, networks, saved plans and island annexation
 npm run test:flag-layers   # flag layers, touch and keyboard editing, Undo and shared designs

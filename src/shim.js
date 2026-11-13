@@ -205,6 +205,9 @@
   var OWN_KEYS = { dm: 1, seenDm: 1, dmx: 1 };
   /* the menu as its player arranged it (Settings › Navigation, n.nav) is for the private half too */
   NX_KEYS.nav = 1;
+  /* the portraits' pieces earned in play (ptu) and the current leader's term (ptz, for the nicknames): the looks
+     themselves (rpt, cpt, cdc) stay shared, since visitors see the cabinet */
+  NX_KEYS.ptu = NX_KEYS.ptz = 1;
   /* development news read and polls voted in, for the achievements (nwr, nwvn, nwd), and the polls whose results
      the bell tells of when they close (nwp) */
   NX_KEYS.nwr = NX_KEYS.nwvn = NX_KEYS.nwd = NX_KEYS.nwp = 1;
