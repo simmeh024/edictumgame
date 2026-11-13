@@ -47,7 +47,8 @@ export async function until(fn, ms = 8000, step = 150) {
 //       block (a RegExp of requests to fail), tag (a name for error reports),
 //       cap (players per region before founding steers elsewhere; the game's default otherwise),
 //       saveGap (defaults to 1500; use 60000 to exercise the normal production interval),
-//       desk (true keeps the daily desk; it is off otherwise, so its gifts never move a stock a test counts)
+//       desk (true keeps the daily desk; it is off otherwise, so its gifts never move a stock a test counts),
+//       crisis (true lets crises arrive by their weekly clock; off otherwise, so no crisis lands on a desk a test counts)
 // Most tests shorten the background save interval; timing regressions use the production value.
 // Every conquest needs the referee's seal (REF_EPOCH is set back to January 2026). window.G is the
 // game's probe: its state S and a few of its functions (EDICTUM_PROBE in game/edictum.html).
@@ -55,12 +56,12 @@ export async function player(tag, opts = {}) {
   const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, deviceScaleFactor: opts.dpr || 1, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
-  await ctx.addInitScript(([cap, gap, desk]) => {
-    window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); window.EDICTUM_SEAL2_AT = Date.UTC(2026, 0, 2); /* conquests checked by the seal that names the defender */ if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true;
+  await ctx.addInitScript(([cap, gap, desk, crisis]) => {
+    window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); window.EDICTUM_SEAL2_AT = Date.UTC(2026, 0, 2); /* conquests checked by the seal that names the defender */ if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true; if (!crisis) window.EDICTUM_NO_CRISIS = true;
     window.EDICTUM_PROBE = g => { window.G = g; };
     // reward pop-ups as they always were; the quiet first hour has tests of its own
     try { if (!localStorage.getItem('statehood.notif')) localStorage.setItem('statehood.notif', JSON.stringify({ rw: 'on' })); } catch (e) {}
-  }, [opts.cap || 0, opts.saveGap ?? 1500, !!opts.desk]);
+  }, [opts.cap || 0, opts.saveGap ?? 1500, !!opts.desk, !!opts.crisis]);
   if (opts.inject !== false) await ctx.addInitScript(([c, e]) => { window.EDICTUM_FIREBASE_CONFIG = c; window.EDICTUM_EMULATORS = e; }, [CONFIG, EMULATORS]);
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(tag + ' PAGEERROR ' + e.message));

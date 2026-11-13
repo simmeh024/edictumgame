@@ -197,7 +197,7 @@
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cvJ', 'mh', 'ifl', 'cuJournal', 'exp', 'exp2', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws', 'cuS', 'ws', 'svc', 'atl',
-    'mdt', 'pso', 'rpl', 'brf', 'aph', 'ldr', 'gwl', 'mc'].forEach(function (k) { NX_KEYS[k] = 1; });
+    'mdt', 'pso', 'rpl', 'brf', 'aph', 'ldr', 'crt', 'crz', 'crl', 'crd', 'gmb', 'gwl', 'mc'].forEach(function (k) { NX_KEYS[k] = 1; });
   /* The own half: what nobody but the player may read, not even on opening the nation's pages: the letters (dm),
      which reach the nations they are written to as letters/ documents (lettersApi) */
   /* … and what only the player needs to know about them: which conversations they have read (seenDm) and their
