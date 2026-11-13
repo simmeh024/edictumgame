@@ -2240,6 +2240,20 @@ button.stk-i{padding:8px 8px 11px;border:1px solid var(--rule);border-radius:6px
 @media (max-width:760px){.wd-grid{grid-template-columns:1fr}.wd-fig{position:static;max-width:340px;margin-inline:auto;width:100%}}
 .wd-ph-r{font-size:12.5px;color:var(--ink-3)}
 .wd-ph-r b{color:var(--ink-2);font-weight:600}
+/* the Great Lighthouse: gold, silver and bronze on the plaque, its rules, and the past projects below */
+.wd-who li.wd-m1,.wd-who li.wd-m2,.wd-who li.wd-m3{padding-inline:6px;border-radius:4px}
+.wd-who li.wd-m1{background:linear-gradient(90deg,rgba(226,177,60,.22),transparent 75%)}
+.wd-who li.wd-m2{background:linear-gradient(90deg,rgba(160,168,178,.24),transparent 75%)}
+.wd-who li.wd-m3{background:linear-gradient(90deg,rgba(184,115,51,.2),transparent 75%)}
+.wd-mt{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;font:600 11px/1.6 var(--f-mono);letter-spacing:.04em;text-transform:uppercase;vertical-align:1px;color:#2b2212}
+.wd-mt1{background:#e8c25a}.wd-mt2{background:#cfd4da}.wd-mt3{background:#d69a63}
+.lt-rl{margin:0;padding-left:18px;display:grid;gap:6px}
+.lt-share,.lt-hands{margin:0 0 6px}
+.wd-pp{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;align-items:start}
+.wd-pp-fig .wd-svg{border:1px solid var(--rule);border-radius:4px}
+.wd-pp-b .h3{margin:0 0 4px}.wd-pp-b p{margin:0 0 8px}
+.wd-pd{margin-top:8px}.wd-pd summary{cursor:pointer;font-weight:600}.wd-pd>.wd-who,.wd-pd>.wd-phl{margin-top:10px}
+@media (max-width:520px){.wd-pp{grid-template-columns:1fr}.wd-pp-fig{max-width:160px}}
 /* the statue's keepsakes: a bronze stamp, drapery round the motto and a verdigris accent */
 .cz-enx.cz-enx-cast{color:#3f6b58;border:2px solid #3f6b58;border-radius:1px;letter-spacing:.24em;transform:none;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #3f6b58}
 :root[data-theme="dark"] .cz-enx.cz-enx-cast{color:#8fc3a9;border-color:#8fc3a9;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #8fc3a9}
@@ -19140,11 +19154,12 @@ function applyEffects(n,e){
     if(k==='blk'){blkApply(n,v);continue;}if(k==='cab'){cabEffect(n,v);continue;}
     if(k==='lead'){succeed(n,v);continue;}
     if(k==='pre'){if(MONARCH_PRE.includes(v)){if(!n.policies.monarchy){n.policies.monarchy=true;for(const c of conflictsOf('monarchy'))delete n.policies[c];}setMonarchy(n,true);if(REPUBLIC_PRE.includes(n.pretitle))n.pretitle=v;}else if(REPUBLIC_PRE.includes(n.pretitle))n.pretitle=v;continue;}
-    /* a figure moves by v times the room it has left in that direction (room/45, at most 1.3), so it eases off near
-       either end. Prosperity is gentler at the top: output grows with its square (income), so a rich nation lost about
-       5% of its output to a 2-point cut and gained under 1% from a 2-point rise. Its cuts are never scaled past 1, and
-       its rises keep at least 0.4 */
-    if(k in n.s){if(v>0&&(k==='tax'||k==='weird'))v*=0.6;const cur=n.s[k];const room=v>0?100-cur:cur;let f=Math.min(1.3,room/45);if(k==='wealth')f=v>0?Math.max(0.4,f):Math.min(1,f);n.s[k]=clamp(cur+v*f,0,100);}
+    /* a figure moves by v times the room it has left in that direction (room/45), so it eases off near either end.
+       A rise is scaled by up to 1.3 when the figure has a long way to go; a fall is never scaled past 1, so a high
+       figure no longer loses more than the edict says (a nation near the top saw rises of 0.2 and falls of 2.6 from
+       the same 2 points, and its edicts did nothing or did harm). Prosperity's rises also keep at least 0.4, since
+       output grows with its square (income) */
+    if(k in n.s){if(v>0&&(k==='tax'||k==='weird'))v*=0.6;const cur=n.s[k];const room=v>0?100-cur:cur;let f=Math.min(v>0?1.3:1,room/45);if(k==='wealth'&&v>0)f=Math.max(0.4,f);n.s[k]=clamp(cur+v*f,0,100);}
   }
 }
 function pickIssue(n){
@@ -24851,7 +24866,7 @@ function helpBody(n){
       <p>The game runs in real time and keeps going while you are away. Other players see your nation, and ${num(NPC_NATIONS.length)} computer-run nations share the region with you.</p>
       <ol class="help-ol"><li>Answer the edicts waiting on your desk.</li><li>Settle on the map, if you skipped it when founding.</li><li>Spend land credits as they arrive, to grow your borders.</li><li>Put up buildings in your capital and found more cities.</li><li>Trade spare resources, write to your neighbours and send explorers.</li></ol>`,
     issues:`<p>Each edict sets out a matter before your government (a Senate in a republic, the Crown’s council in a kingdom, and so on), and its speakers argue for several motions. Choosing one changes your census figures, and some also enact or repeal a policy, shift the budget, move a minister’s loyalty or change how a neighbour sees you. The result page shows every change, and how far a change in Prosperity moved your economic output. A veto dismisses the edict and leaves your nation as it was.</p>
-      <p>A figure moves less the closer it is to the end it is heading for, and up to 30% more when it has a long way to go, so a high figure rises slowly and falls quickly. Prosperity is gentler at the top, because economic output follows its square: a rise there keeps at least 40% of its size, and a fall is never made bigger.</p>
+      <p>A figure moves less the closer it is to the end it is heading for, so a high figure rises slowly and a low one falls slowly. A rise goes up to 30% further when the figure has a long way to go, but a fall is never made bigger than the edict says. Prosperity is gentler at the top, because economic output follows its square: a rise there keeps at least 40% of its size.</p>
       ${issHelp()}
       <p>A new edict arrives ${pace}${n?'':' by default'}. You can change the pace in Settings, from ${FREQS[0][1].toLowerCase()} to ${FREQS[FREQS.length-1][1].toLowerCase()}. Up to ${CAP_BASE} edicts wait on your desk (${CAP_VIP} for members of the Chancery Club, while the membership is paid); while it is full, no new ones arrive, and an edict that would have arrived is not kept for later.</p>
       <p>Some stories continue: a follow-up can arrive some hours after your decision. Edicts often draw on your land, your coast and your neighbours, and players next door can raise a matter with you that lands on your desk. In Settings you can ask for more or fewer edicts on each topic.</p>
@@ -25097,6 +25112,7 @@ function tallyScan(n,old,now){
   const fresh=!n.tly||typeof n.tly!=='object';
   if(fresh){n.tly={};n.tlf={};n.tlx={};old=null;}
   const T=n.tly,F=n.tlf,bump=(k,t,by)=>{if(Object.keys(T).length>=TALLY_MAX&&!(k in T))return;T[k]=(T[k]||0)+(by||1);if(!F[k])F[k]=t||now;};
+  const put=(k,v)=>{if(Object.keys(T).length>=TALLY_MAX&&!(k in T))return;T[k]=v;};   /* a running count (a streak), set rather than added to */
   const sigs=(arr,f)=>new Set((arr||[]).map(f));
   /* the event log */
   const lsig=l=>l.t+'|'+l.k+'|'+(l.a||'')+'|'+(l.b||'')+'|'+(l.fx||''),oldL=sigs(old&&old.log,lsig);
@@ -25109,7 +25125,7 @@ function tallyScan(n,old,now){
    const ds=d=>d.t+'|'+d.r,od=sigs(old&&old.asm&&old.asm.d,ds);for(const d of (n.asm&&n.asm.d)||[])if(d.on&&!od.has(ds(d)))bump('asm:del',d.t);}
   /* decisions, by topic */
   const asig=a=>a.t+'|'+a.id,oldA=sigs(old&&old.answered,asig);
-  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];const isp=/^(pgt|fwk|scd)-/.test(a.id)?a.id.slice(0,3):'';if(a.o<0){bump('dismiss',a.t);if(isp==='scd')bump('dismiss:scd',a.t);continue;}bump('iss',a.t);if(isp)bump('isp:'+isp,a.t);{const d=new Date(a.t);if(d.getMonth()===0&&d.getDate()===1)bump('iss:ny',a.t);}if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);}}
+  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];const isp=/^(pgt|fwk|scd)-/.test(a.id)?a.id.slice(0,3):'';if(a.o<0){bump('dismiss',a.t);if(isp==='scd')bump('dismiss:scd',a.t);continue;}bump('iss',a.t);if(isp)bump('isp:'+isp,a.t);{const d=new Date(a.t);if(d.getMonth()===0&&d.getDate()===1)bump('iss:ny',a.t);}if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);crsTally(a,is,old,T,bump,put);}}
   /* spies */
   const isig=r=>r.t+'|'+r.tg+'|'+r.k,oldI=sigs(old&&old.intel,isig);
   for(const r of n.intel||[]){if(oldI.has(isig(r)))continue;bump('spy',r.t);bump('spy:'+r.k,r.t);}
@@ -26369,10 +26385,16 @@ COMMIT_HOOKS.push((n,old,now)=>{
     txt+=` Your rank is now ${r1.name}, worth ${k*ACH_RANK_CREDITS} land credits, ${k*RANK_GIFT.iron} iron and ${k*RANK_GIFT.goods} goods.`;}
   return [{m:txt,links:rewardRefs('achievement',got)}];
 });
+/* An achievement this build does not know (a newer build's) is kept as it was, never counted or shown here
+   (achEarnedIds and every walker skip it): an older tab dropped Eternia's new Claims Commissioner, and the land credits
+   it pays, when it saved on 13 Nov 2026. ACH_KEEP_EXTRA bounds how many such ids a record can carry. */
+const ACH_KEEP_EXTRA=400,ACH_ID_RE=/^[a-z0-9][a-z0-9-]{0,47}$/;
 NORM_HOOKS.push((n,d)=>{
   const a=d&&d.ach;if(!a||typeof a!=='object'||Array.isArray(a))return;
-  const o={},lim=Date.now()+DAY;let k=0;
-  for(const id of Object.keys(a).slice(0,ACH.length*2)){const t=a[id];if(ACH_BY_ID[id]&&typeof t==='number'&&isFinite(t)&&t>0){o[id]=Math.min(t,lim);if(++k>=ACH.length)break;}}
+  const o={},lim=Date.now()+DAY,keys=Object.keys(a).slice(0,5000),ok=t=>typeof t==='number'&&isFinite(t)&&t>0;let k=0,x=0;
+  /* the known ones first, so unknown ones can never push one out */
+  for(const id of keys){if(!ACH_BY_ID[id]||k>=ACH.length||!ok(a[id]))continue;o[id]=Math.min(a[id],lim);k++;}
+  for(const id of keys){if(ACH_BY_ID[id]||x>=ACH_KEEP_EXTRA||!ACH_ID_RE.test(id)||!ok(a[id]))continue;o[id]=Math.min(a[id],lim);x++;}
   n.ach=o;
 });
 
@@ -28724,7 +28746,29 @@ NORM_HOOKS.push((n,d)=>{
     if(X>=0){const r=normCities({loc:locOf(X),cv:MAP_VER,cities:[{...d.mvCap,c:X}]});if(r.length){const o={...r[0]};delete o.c;n.mvCap=o;}}}
   if(Array.isArray(d.discArc))n.discArc=d.discArc.filter(e=>e&&num(e.t)&&['lost','traces','found','great'].includes(e.o)).slice(-200).map(e=>({t:e.t,o:e.o,f:e.f?1:0,k:typeof e.k==='string'&&SITE_KINDS[e.k]?e.k:'',nm:typeof e.nm==='string'?e.nm.replace(/[\u0000-\u001f<>]/g,'').slice(0,40):'',reg:typeof e.reg==='string'&&REG_BY_ID[e.reg]?e.reg:'meridian'}));
 });
-function normalize(d){return normalizeR2(remapLegacy(d));}
+/* Forward compatibility (2026-11-13). A record can carry fields from a newer build than this tab's (a tab stays on the
+   build it loaded, for days on a phone). A field no code here reads at load was dropped, and this tab's next save wiped
+   it: a new achievement, a province peak written back by hand. Now loading watches which fields it reads; one it never
+   touches is kept exactly as it was and listed in n._fk, and the save puts those in the private half (src/shim.js,
+   splitNation), so a newer build's private field never turns public by way of an older tab. A field this build reads and
+   leaves out (a value it refuses) stays left out. Bounded: FWD_MAX fields, FWD_SIZE characters in all. */
+/* FWD_NEVER: names that are never data, the shim's own fold of the Assembly (asmLocal), and apw, which every save of
+   this build writes again (commit) and loading never needs: the only field the live records showed as unread (13 Nov) */
+const FWD_MAX=60,FWD_SIZE=120000,FWD_NEVER=new Set(['__proto__','constructor','prototype','asmLocal','apw']);
+function normalize(d){
+  const r=remapLegacy(d);if(!r||typeof r!=='object'||Array.isArray(r))return normalizeR2(r);
+  const seen=new Set(),px=new Proxy(r,{get(t,k,rv){if(typeof k==='string')seen.add(k);return Reflect.get(t,k,rv);},has(t,k){if(typeof k==='string')seen.add(k);return Reflect.has(t,k);}});
+  const n=normalizeR2(px);if(!n||typeof n!=='object')return n;
+  const fk=[];let size=0;
+  for(const k of Object.keys(r)){
+    if(seen.has(k)||k in n||k[0]==='_'||FWD_NEVER.has(k)||fk.length>=FWD_MAX)continue;
+    let s;try{s=JSON.stringify(r[k]);}catch(e){continue;}
+    if(s===undefined||size+s.length>FWD_SIZE)continue;
+    size+=s.length;n[k]=JSON.parse(s);fk.push(k);
+  }
+  if(fk.length)n._fk=fk;else delete n._fk;
+  return n;
+}
 
 /* ───────── moving ───────── */
 /* A move keeps the nation: people, laws, cabinet, treasury, history, honours and museum. The land starts
@@ -32368,6 +32412,8 @@ function dspLocator(x){
 function dspPic(s,size,byId){
   if(!s)return '';
   const fig=(cls,plate,cap)=>`<figure class="dsp-pic dsp-pic-${cls}">${plate}<figcaption class="dsp-cap">${cap}</figcaption></figure>`;
+  if(/Great Lighthouse/.test(s.kick||'')){try{const L=lthState(),nm=lthName(),d=Math.min(L.done,LTH_N);
+    return fig(size==='l'?'p':'s',dspPlate(size==='l'?'p':'s',dspFit(lthSVG(L.done,L.frac,{}),...DSP_PLATE[size==='l'?'p':'s']),nm),`${esc(nm)}${d>=LTH_N?', lit.':`, at phase ${d+1} of ${LTH_N}: ${esc(LTH_PH[d][0].toLowerCase())}.`}`);}catch(e){return '';}}
   if(s.go==='wonder'||/Great Statue/.test(s.kick||'')){try{const W=wndState(),nm=wndName(),done=Math.min(W.done,WND_N);
     return fig(size==='l'?'p':'s',dspPlate(size==='l'?'p':'s',dspFit(wndSVG(W.done,W.frac,{}),...DSP_PLATE[size==='l'?'p':'s']),nm),`${esc(nm)}${done>=WND_N?', finished.':`, at stage ${done+1} of ${WND_N}: ${esc(WND_PH[done][0].toLowerCase())}.`}`);}catch(e){return '';}}
   const x=s.who.map(id=>byId.get(id)).find(y=>y&&y.n&&y.n.name);if(!x)return '';
@@ -43756,8 +43802,8 @@ function updateFoundLoc(){for(const k of ['found-loc','found-loc-fs']){const p=d
 function settle(){
   const cell=S.mapPick;if(cell==null||!S.nation)return;
   /* not before the other nations' land is known: waited for (landTick settles then), or refused while offline */
-  {const w=landWait();if(w){if(w==='wait'){S.landQ=cell;S.mapMsg=landWaitMsg();}else{S.landQ=null;S.mapPick=null;S.mapMsg=landOffMsg();}updateMapPanel();redrawMaps();return;}}
-  S.landQ=null;
+  {const w=landWait();if(w){S.landQk=null;if(w==='wait'){S.landQ=cell;S.mapMsg=landWaitMsg();}else{S.landQ=null;S.mapPick=null;S.mapMsg=landOffMsg();}updateMapPanel();redrawMaps();return;}}
+  S.landQ=null;S.landQk=null;
   const prob=pickProblem(cell,territory());
   if(prob){S.mapMsg=prob;S.mapPick=null;updateMapPanel();redrawMaps();return;}
   const n=clone(S.nation),now=Date.now();
@@ -43979,7 +44025,7 @@ const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Obje
    the start of commit() before the background work: paths set or removed, arrays of objects matched by id, other
    arrays as sets, and resources as what the action spent or gained beyond what accrued. Background work (growth,
    buildings finishing, milestones) is not replayed: the other device's save already holds it. */
-const ACT_SKIP=new Set(['pop','popAt','stock','stockAt','updatedAt','gm','apw','_rev','_dirty','_stockSet']);
+const ACT_SKIP=new Set(['pop','popAt','stock','stockAt','updatedAt','gm','apw','_rev','_dirty','_stockSet','_fk']);
 let ownActs=[],ownActsBroken=0,sentLog=[];
 const actClone=v=>v===undefined?undefined:clone(v);
 const actKey=v=>JSON.stringify(v);
@@ -45550,13 +45596,17 @@ function landWaitWhy(){
 }
 function landWaitMsg(){return `One moment: the map of ${REGION} is still loading the other nations’ land.`;}
 function landOffMsg(){return `Your game can’t reach the other players just now, so it can’t see whose land is whose. Reload the page when your connection is better to place your capital or claim land.`;}
-/* the spot chosen while the region loaded, settled once it is in (if it is still free) */
+/* the spot chosen while the region loaded, settled once it is in (if it is still free). One of the founding edict's
+   places (S.landQk: by the sea, on farmland, in the hills) was found on a map without the others' land: if it turns out
+   taken, the advisors' place of the same kind on the map now takes its place (seen in the core suite, 13 Nov 2026: the
+   capital never went up). A place picked by hand is only ever told it is taken. */
 function landQueued(){
-  const c=S.landQ,n=S.nation;if(c==null||landWait())return;S.landQ=null;
+  const c=S.landQ,n=S.nation,k=S.landQk;if(c==null||landWait())return;S.landQ=null;S.landQk=null;
   if(!n||cellOf(n.loc)>=0)return;
-  const p=pickProblem(c,territory());
+  const T=territory();let at=c,p=pickProblem(c,T);
+  if(p&&k!=null){const c2=fdSites(n,T)[k];if(c2>=0&&!pickProblem(c2,T)){at=c2;p='';}}
   if(p){S.mapMsg=p;toast(`${n.capital} could not go up where you chose. ${p} Choose another place on the Map page.`);render();return;}
-  S.mapPick=c;S.mapMsg='';settle();
+  S.mapPick=at;S.mapMsg='';settle();
 }
 /* This nation's capital stands on land another nation had claimed first (capWrong in territory(): the map leaves it
    off already). Its game takes the nation off the map for good, so the land is free again for everyone (cities,
@@ -47363,11 +47413,24 @@ function rpStrip(app){
 }
 function rpField(f){return f.localName==='select'?[...f.options].every(o=>o.selected===o.defaultSelected):f.localName==='textarea'?f.value===f.defaultValue:f.type==='checkbox'||f.type==='radio'?f.checked===f.defaultChecked:f.value===f.defaultValue;}
 function rpClean(el){if(/^(input|select|textarea)$/.test(el.localName))return rpField(el);for(const f of el.querySelectorAll('input,select,textarea'))if(!rpField(f))return false;return true;}
+/* The field being typed in, when the new drawing holds just what it holds now (the game keeps what is typed in its
+   state, so a full draw would put the same back): kept, with the new drawing's attributes, so the caret and the typing
+   stay where they are. Replacing it and focusing the copy put the caret at the start of a number field, which cannot
+   say or set where its caret is: with the region's saves redrawing the page every few seconds, 100 typed into the
+   Bureau's market became 001, too little to exchange, and its Exchange button stayed grey. */
+function rpKeepField(a,b){
+  const ty=(a.getAttribute('type')||'').toLowerCase();
+  if(a!==document.activeElement||/^(checkbox|radio|file)$/.test(ty)||ty!==(b.getAttribute('type')||'').toLowerCase()||a.value!==(b.getAttribute('value')||''))return false;
+  for(const x of [...a.attributes])if(!b.hasAttribute(x.name))a.removeAttribute(x.name);
+  for(const x of b.attributes)if(a.getAttribute(x.name)!==x.value)a.setAttribute(x.name,x.value);
+  return true;
+}
 function rpNode(a,b){
   const t=a.nodeType;
   if(t!==b.nodeType){a.replaceWith(b);return;}
   if(t===3||t===8){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return;}
   if(t!==1||a.localName!==b.localName){a.replaceWith(b);return;}
+  if(a.localName==='input'&&b.localName==='input'&&rpKeepField(a,b))return;
   if(a.isEqualNode(b)){if(!rpClean(a))a.replaceWith(b);return;}
   if(RP_WHOLE.has(a.localName)||!rpAttrsSame(a,b)){if(RPATCH.why)try{RPATCH.why(a,b);}catch(e){}a.replaceWith(b);return;}
   if(a.localName!=='canvas')rpKids(a,b);
@@ -47424,7 +47487,9 @@ function render(){if(fxRender())return;
   else app.innerHTML=html;
   RENDER_LAST.k=same;RENDER_LAST.app=app.firstChild;RENDER_LAST.route=route;
   navAfter(navK);
-  if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
+  if(fidFocus){const el=document.getElementById(fidFocus);if(el&&el!==ae){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);
+    /* a new copy of a field with no caret to set (a number field): the caret goes after what is in it, where the typing was */
+    else if(!sel&&el.localName==='input'&&el.value&&el.selectionStart==null){const v=el.value;el.value='';el.value=v;}}catch(e){}}}
   drawAllGuill();
   initMaps();
   const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
@@ -47490,7 +47555,7 @@ function found(){
   const pick=cellOf(d.loc),held=pick>=0?landWait():'',cell=held?-1:pick,lost=cell>=0&&!!pickProblem(cell,territory());
   if(cell>=0&&!lost){n.loc=locOf(cell);n.log.unshift({t:now,k:'settle',a:landName(cell)});centerMain(cell,NEAR_Z);}
   commit(normalize(n));
-  if(held==='wait')S.landQ=pick;
+  if(held==='wait'){S.landQ=pick;S.landQk=null;}
   S.view='nation';S.mapMsg='';render();window.scrollTo(0,0);
   toast(held==='off'?fullName(n)+' has been founded. '+landOffMsg():held?fullName(n)+' has been founded. Its capital goes up as soon as the map of '+REGION+' has loaded.':lost?fullName(n)+' has been founded, but its chosen location was just taken. Choose another on the Map page.':fullName(n)+' has been founded.');
 }
@@ -51812,7 +51877,7 @@ answer=(f=>function(id,o){
   if(landWait()==='off'){toast(landOffMsg());return;}
   const T=territory(),c=fdSites(n0,T)[o];
   if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that pin. The advisors have moved their pins: choose again.');return;}
-  const r=f.apply(this,arguments);S.mapPick=c;settle();return r;
+  const r=f.apply(this,arguments);S.mapPick=c;settle();if(S.landQ===c)S.landQk=o;return r;
 })(answer);
 resultView=(f=>function(){const h=f.apply(this,arguments);return S.result&&S.result.id===FD_ID&&S.nation?h.replace('<div class="row">',`<div class="row"><button class="btn" data-act="go" data-v="map">See ${esc(S.nation.name)} on the map</button>`).replace('<button class="btn" data-act="open"','<button class="btn ghost" data-act="open"'):h;})(resultView);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
@@ -51862,7 +51927,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
   if((n.inbox||[]).some(x=>x.id===FD_ID)){answer(FD_ID,k);if(cellOf(S.nation.loc)>=0&&S.view!=='issues'){S.result=null;go('map');}return;}
   const T=territory(),c=fdSites(n,T)[k];
   if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that place. Choose again.');return;}
-  S.mapPick=c;settle();if(cellOf(S.nation.loc)>=0)go('map');
+  S.mapPick=c;settle();if(S.landQ===c)S.landQk=k;if(cellOf(S.nation.loc)>=0)go('map');
 });
 /* with the first building: name the capital. Port Alder is only a placeholder, so as soon as the quick first
    building is started, a box under it points to the task on the Nation page's list ("Name your first city"),
@@ -56273,7 +56338,7 @@ HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!wndMine(n)||!wndGave(n.
   const nm=nationLink(x.id,n.name,x.me),st=`<button type="button" class="linkish" data-act="go" data-v="wonder">${esc(wndName().replace(/^The /,'the '))}</button>`;
   const H=Array.isArray(n.wnd.h)?n.wnd.h:[];
   if(!H.length)return n.wnd.t>0&&n.wnd.t<=now?[{t:n.wnd.t,txt:`${nm} gave to ${st}.`}]:[];
-  return H.filter(e=>e.t<=now).map(e=>({t:e.t,txt:`${nm} gave ${list(RES.filter(r=>e.c[r]>0).map(r=>fmt0(e.c[r])+' '+resName(r)))} to ${st}.${e.f&&WND_PH[e.d]?(e.d===WND_N-1?' That finished the statue.':` That finished phase ${e.d+1} of ${WND_N}: ${esc(WND_PH[e.d][0].toLowerCase())}.`):''}`}));
+  return H.filter(e=>e.t<=now).map(e=>({t:e.t,txt:`${nm} gave ${list(RES.filter(r=>e.c[r]>0).map(r=>fmt0(e.c[r])+' '+resName(r)))} to ${st}.${e.f&&WND_PH[e.d]?(e.d===WND_N-1?' That finished the statue, and work may begin on the Great Lighthouse.':` That finished phase ${e.d+1} of ${WND_N}: ${esc(WND_PH[e.d][0].toLowerCase())}.`):''}`}));
 });
 NORM_HOOKS.push((n,d)=>{
   const x=d&&d.wnx;if(!x||typeof x!=='object')return;
@@ -56425,14 +56490,11 @@ function wndSVG(done,frac,o){
 function wndView(now){
   const n=S.nation;if(!n)return '';const W=wndState(),fin=W.done>=WND_N,st=stockNow(n,now),mine=W.who.find(x=>x.me);
   const gave=wndMine(n)?n.wnd.g||[]:[];
-  const ph=WND_PH.map(([t,d,c],i)=>{const s=i<W.done?'done':i===W.done?'now':'later';
-    const rw=`<span class="wd-ph-r">For every nation that gives to it: ${WND_LAND} land credits and ${esc(achUnlockWords(WND_KEEP[i]))}${gave.includes(i)?i<W.done?' · <b>Yours</b>':' · <b>Yours once it is finished</b>':''}</span>`;
-    return `<li class="wd-ph ${s}"><span class="wd-ph-n num" aria-hidden="true">${i<W.done?'✓':i+1}</span><span class="wd-ph-b"><b>${esc(t)}</b><span class="hint">${esc(d)}</span><span class="wd-ph-c">${esc(costText(c))}</span>${rw}${s==='now'?`<span class="bar" role="img" aria-label="${Math.floor(W.frac*100)}% built"><i style="width:${(W.frac*100).toFixed(1)}%"></i></span>`:''}</span></li>`;}).join('');
+  const ph=wndPhList(W,gave);
   const give=fin?'':RES.filter(r=>(W.need[r]||0)>0).map(r=>{const left=W.need[r],have=Math.floor(st[r]),b=(k,l)=>{const v=Math.min(k,left,have);return `<button type="button" class="btn ${k===Infinity?'':'ghost '}sm" data-act="wd-give" data-r="${r}" data-v="${k===Infinity?'max':k}"${v<1?' disabled':''}>${l}</button>`;};
     return `<div class="wd-give"><span class="wd-gr"><b>${esc(cap1(resName(r)))}</b><span class="hint">${fmtAmt(left)} still needed · you have ${have}</span></span><span class="wd-gb">${b(10,'Give 10')}${b(50,'Give 50')}${b(Infinity,'Give what I can')}</span></div>`;}).join('');
-  const plaque=W.who.length?`<ol class="wd-who">${W.who.slice(0,12).map(x=>`<li class="${x.me?'me':''}"><span>${nationLink(x.id,x.name,x.me)}</span><span class="hint">${esc(costText(Object.fromEntries(RES.filter(r=>x.c[r]>0).map(r=>[r,Math.round(x.c[r])]))))}</span></li>`).join('')}</ol>${W.who.length>12?`<p class="hint">And ${W.who.length-12} more.</p>`:''}`
-    :'<p class="hint">No nation has given anything yet. The first gift puts your name at the top of the plaque.</p>';
-  return `<header class="vh"><p class="eyebrow">A wonder of ${esc(REG.the)}</p><h1>${esc(wndName())}</h1><p>A statue at the heart of ${esc(REG.the)}, raised by its player nations together. Every phase needs resources from all of you; give what you can spare, and watch it rise. Computer nations, as usual, have sent their apologies.</p></header>${fin?'':c3Strip(n,now)}
+  const plaque=wndPlaque(W);
+  return `<header class="vh"><p class="eyebrow">A wonder of ${esc(REG.the)}</p><h1>${esc(wndName())}</h1><p>A statue at the heart of ${esc(REG.the)}, raised by its player nations together. Every phase needs resources from all of you; give what you can spare, and watch it rise. Computer nations, as usual, have sent their apologies. Once it is finished, work begins on a Great Lighthouse on the coast.</p></header>${fin?'':c3Strip(n,now)}
   <div class="wd-grid">
     <figure class="wd-fig paper">${wndSVG(W.done,W.frac,{cls:'wd-big'})}<figcaption><span class="lbl">${fin?'Finished':`Phase ${W.done+1} of ${WND_N}`}</span><b>${esc(fin?'Unveiled, gilded and much photographed':WND_PH[W.done][0])}</b>${fin?'':`<span class="hint">${Math.floor(W.frac*100)}% of this phase is built.</span>`}</figcaption></figure>
     <div class="wd-side">
@@ -56443,6 +56505,17 @@ function wndView(now){
     </div>
   </div>
   <section class="wd-box wd-phs"><h2 class="h2">Ten phases</h2><ol class="wd-phl">${ph}</ol></section>`;
+}
+/* the statue's ten phases as a list, with what each pays and whether it is this nation's, and its plaque (the page, and its
+   place under Past projects once the lighthouse has taken over the page) */
+function wndPhList(W,gave){
+  return WND_PH.map(([t,d,c],i)=>{const s=i<W.done?'done':i===W.done?'now':'later';
+    const rw=`<span class="wd-ph-r">For every nation that gives to it: ${WND_LAND} land credits and ${esc(achUnlockWords(WND_KEEP[i]))}${gave.includes(i)?i<W.done?' · <b>Yours</b>':' · <b>Yours once it is finished</b>':''}</span>`;
+    return `<li class="wd-ph ${s}"><span class="wd-ph-n num" aria-hidden="true">${i<W.done?'✓':i+1}</span><span class="wd-ph-b"><b>${esc(t)}</b><span class="hint">${esc(d)}</span><span class="wd-ph-c">${esc(costText(c))}</span>${rw}${s==='now'?`<span class="bar" role="img" aria-label="${Math.floor(W.frac*100)}% built"><i style="width:${(W.frac*100).toFixed(1)}%"></i></span>`:''}</span></li>`;}).join('');
+}
+function wndPlaque(W){
+  return W.who.length?`<ol class="wd-who">${W.who.slice(0,12).map(x=>`<li class="${x.me?'me':''}"><span>${nationLink(x.id,x.name,x.me)}</span><span class="hint">${esc(costText(Object.fromEntries(RES.filter(r=>x.c[r]>0).map(r=>[r,Math.round(x.c[r])]))))}</span></li>`).join('')}</ol>${W.who.length>12?`<p class="hint">And ${W.who.length-12} more.</p>`:''}`
+    :'<p class="hint">No nation has given anything yet. The first gift puts your name at the top of the plaque.</p>';
 }
 EXT_PAGES.push('wonder');NAV_LABELS.wonder='Great Statue';NAV_WORDS.wonder='wonder statue great monument build pool resources region together';
 (()=>{const g=NAV_GROUPS.find(x=>x.k==='abroad');if(g&&!g.v.includes('wonder'))g.v.splice(g.v.indexOf('world')+1||g.v.length,0,'wonder');})();
@@ -56525,6 +56598,351 @@ const WND_ISSUES=[
  {t:'“Give every schoolchild a miniature, free,” says teacher Baptiste Imlay. “They will remember who built it, and the lamp will at least keep them reading.”',e:{happy:2,edu:1,econ:-1},fx:'every {D} schoolchild has a miniature Great Statue, and most of them are lamps'}]}
 ];
 for(const is of WND_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;ISSUES_RANDOM.push(is);}
+
+/* ───────── the Great Lighthouse: the region's second wonder, begun once its Great Statue is finished ─────────
+   Built like the statue, from what every player nation keeps in its own record: n.lth = {r: region id, p: {phase: {resource:
+   amount}} what it gave to each phase, ph: phases it has seen finished, t: last gift, t0: first gift, h: its latest gifts for
+   the happenings, fx: {phase: time} the phases its own gift finished, k: 1-3 when it was among the three biggest givers as the
+   lamp was lit}. Harder than the statue: twelve phases and twice the resources. No nation may give more than LTH_CAP of a
+   phase, so every phase takes at least LTH_HANDS nations, and a finished phase pays LTH_LAND land credits only to the nations
+   that gave at least LTH_SHARE of it. The three biggest givers when it is lit are named in gold, silver and bronze on the
+   plaque and receive the Keeper's Beam pattern for their nation card, which nothing else gives. The page stays 'wonder':
+   once the statue is finished, its menu link, map marker and region card become the lighthouse's, and the statue moves to
+   the page's past projects. */
+const LTH_PH=[
+  ['The causeway','A causeway of dressed stone out across the shallows to the rock, wide enough for two carts and one argument.',{timber:200,iron:80,food:60}],
+  ['The foundations','Footings cut into the living rock, pinned with iron as thick as a wrist. The sea has been asked to stay out.',{timber:160,iron:160,goods:80}],
+  ['The keeper’s cottage','Two rooms, a stove and a logbook, for a keeper who will see nobody for weeks and write about the weather every hour.',{timber:140,goods:160,food:140}],
+  ['The base course','Granite blocks dovetailed together, so that every wave which hits one of them hits them all.',{iron:160,goods:300,food:80}],
+  ['The lower tower','Courses of white stone with a broad red band, so that sailors can tell it from the lighthouses of other regions.',{iron:180,goods:300,food:60}],
+  ['The stair','Two hundred and forty cast-iron steps in a spiral. Every nation of the region has been told that its step is the one in the middle.',{iron:260,oil:60,goods:200}],
+  ['The upper tower','The tower climbs above the gulls, and a second red band goes on at a height the painters prefer not to discuss.',{iron:200,goods:320,food:80}],
+  ['The gallery','An iron balcony round the top, for cleaning the windows and for looking out to sea dramatically.',{iron:240,oil:80,goods:300,food:80}],
+  ['The lantern room','Twelve panes of thick glass in a bronze frame, to be polished daily by a keeper who has already started complaining about it.',{timber:100,iron:160,goods:400}],
+  ['The great lens','A beehive of glass prisms taller than a person, ground to throw the light of one lamp thirty miles out to sea.',{iron:120,oil:160,goods:420}],
+  ['The lamp and clockwork','A lamp with three wicks, and a clockwork that turns the lens once every ten seconds, if somebody remembers to wind it.',{iron:190,oil:220,goods:270}],
+  ['The first lighting','A feast on the causeway at dusk, a brass band, and a keeper with a very long match.',{oil:180,goods:100,food:600}]];
+const LTH_N=LTH_PH.length,LTH_LAND=4,LTH_SHARE=0.05,LTH_CAP=0.4,LTH_HANDS=3,LTH_HAP_N=10,LTH_MEDAL=['gold','silver','bronze'];
+const lthTot=d=>RES.reduce((s,r)=>s+(LTH_PH[d][2][r]||0),0);
+/* the least a nation gives to a phase to share its reward, and the most it may give to it */
+const lthShareOf=d=>Math.ceil(lthTot(d)*LTH_SHARE),lthCapOf=d=>Math.floor(lthTot(d)*LTH_CAP);
+const lthName=()=>regText('The Great Lighthouse of the Meridian Reach');
+const lthMine=n=>!!(n&&n.lth&&n.lth.r===REG.id);
+const lthGave=(w,d)=>{const o=w&&w.p&&w.p[d];return o?RES.reduce((s,r)=>s+num0(o[r]),0):0;};
+const lthSum=w=>w&&w.p?Object.keys(w.p).reduce((s,k)=>s+lthGave(w,k),0):0;
+const lthRes=w=>{const c={};if(w&&w.p)for(const o of Object.values(w.p))for(const r of RES){const v=num0(o&&o[r]);if(v>0)c[r]=(c[r]||0)+v;}return c;};
+/* the region's lighthouse, from every player nation's gifts: phase by phase, as each gift is kept against its phase */
+let lthMemo={k:'',v:null};
+function lthState(){
+  const L=allNations().filter(x=>!x.npc&&x.n&&lthMine(x.n));
+  const key=REG.id+'|'+L.map(x=>x.id+':'+x.n.lth.t+':'+(x.n.lth.ph||0)).join(',');if(lthMemo.k===key)return lthMemo.v;
+  const P=Array.from({length:LTH_N},()=>({})),H=Array.from({length:LTH_N},()=>0),who=[];let floor=0,start=0,end=0;
+  for(const x of L){const w=x.n.lth;floor=Math.max(floor,w.ph||0);let sum=0;
+    for(let i=0;i<LTH_N;i++){const o=w.p&&w.p[i];if(!o)continue;let s=0;for(const r of RES){const v=num0(o[r]);if(v>0){P[i][r]=(P[i][r]||0)+v;s+=v;}}if(s>0){H[i]++;sum+=s;}}
+    if(sum>0){const t0=w.t0||w.t||0;who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c:lthRes(w),t0});if(t0>0&&(!start||t0<start))start=t0;end=Math.max(end,num0(w.t));}}
+  /* a phase is finished once it has all it needs from at least LTH_HANDS nations; finished phases stay finished (floor) */
+  const full=d=>H[d]>=LTH_HANDS&&RES.every(r=>(P[d][r]||0)+1e-6>=(LTH_PH[d][2][r]||0));
+  let done=Math.min(LTH_N,floor);while(done<LTH_N&&full(done))done++;
+  const need={},cur=done<LTH_N?LTH_PH[done][2]:{};let want=0,have=0;
+  for(const r of RES){const q=cur[r]||0;if(!q)continue;const got=Math.min(q,P[done][r]||0);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
+  who.sort((a,b)=>b.sum-a.sum||a.t0-b.t0||(a.id<b.id?-1:1));
+  lthMemo={k:key,v:{done,need,frac:want?have/want:1,hands:done<LTH_N?H[done]:0,who,start,end:done>=LTH_N?end:0}};return lthMemo.v;
+}
+/* when the statue was finished: no gift can follow the last one, so the latest gift of the region's givers */
+function wndEndAt(){try{if(wndState().done<WND_N)return 0;let t=0;for(const x of allNations())if(!x.npc&&x.n&&wndMine(x.n))t=Math.max(t,num0(x.n.wnd.t));return t;}catch(e){return 0;}}
+/* the lighthouse opens once the region's statue is finished (or someone has already given to it). Once open it stays open,
+   and a closed answer is asked again a moment later: the menu asks on every render */
+let lthOpenMemo={r:'',v:false,t:0};
+function lthOpen(){
+  const now=Date.now();if(lthOpenMemo.r===REG.id&&(lthOpenMemo.v||now-lthOpenMemo.t<1500))return lthOpenMemo.v;
+  let v=false;try{v=wndState().done>=WND_N||lthState().who.length>0;}catch(e){v=false;}
+  lthOpenMemo={r:REG.id,v,t:now};return v;
+}
+const lthOpenAt=()=>{const a=wndEndAt();if(a)return a;try{return lthState().start;}catch(e){return 0;}};
+/* give to the phase in progress: never more than it still needs, nor more than the nation's LTH_CAP of it */
+function lthGive(r,amt){
+  const n0=S.nation;if(!n0||n0.npc||OBS||!RES.includes(r))return;
+  if(!lthOpen()){toast('The Great Lighthouse waits until the Great Statue is finished.');return;}
+  const W=lthState(),d=W.done;if(d>=LTH_N){toast('The lighthouse is already lit.');return;}
+  const left=W.need[r]||0;if(left<=0){toast(`This phase needs no more ${resName(r)}.`);return;}
+  const room=lthCapOf(d)-(lthMine(n0)?lthGave(n0.lth,d):0);
+  if(room<1){toast(`${n0.name} has given all it may to this phase: no nation may give more than ${Math.round(LTH_CAP*100)}% of one. The rest must come from other nations.`);return;}
+  const now=Date.now(),st=stockNow(n0,now),give=Math.floor(Math.min(amt,left,room,st[r]));if(give<1){toast(`You have no ${resName(r)} to spare.`);return;}
+  const n=clone(n0);
+  /* the first gift to another region's lighthouse: what was earned at the old one is kept (n.lthx) */
+  if(n.lth&&!lthMine(n)){const x=n.lthx||{l:0},k=Math.min(x.k||9,n.lth.k||9);n.lthx={l:(x.l||0)+LTH_LAND*lthRewarded(n).length};if(k<=3)n.lthx.k=k;}
+  const w=lthMine(n)?clone(n.lth):{r:REG.id,p:{},ph:0,t:0};
+  st[r]-=give;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  w.p=Object.assign({},w.p);const pd=w.p[d]=Object.assign({},w.p[d]);pd[r]=Math.round((num0(pd[r])+give)*10)/10;
+  if(!w.t0)w.t0=now;w.t=now;
+  /* the record's short list of gifts for the happenings, as the statue's: a gift to the same phase within the hour joins the one before */
+  const h=(Array.isArray(w.h)?w.h:[]).map(e=>({...e,c:{...e.c}})),top=h[0];
+  if(top&&!top.f&&top.d===d&&now-top.t<WND_HAP_JOIN){top.c[r]=Math.round((num0(top.c[r])+give)*10)/10;top.t=now;}
+  else h.unshift({t:now,d,c:{[r]:give}});
+  w.h=h.slice(0,LTH_HAP_N);n.lth=w;
+  commit(n);const after=lthState();
+  if(after.done>d){const m=clone(S.nation);if(m.lth.h&&m.lth.h[0])m.lth.h[0].f=1;m.lth.fx=Object.assign({},m.lth.fx,{[d]:now});const got=lthRaise(m,after.done,now);commit(m);
+    toast(after.done>=LTH_N?`${lthName()} is lit, and ${n.name} lit it.${got.length?' '+got.join(' '):''}`:`Phase ${after.done} of ${LTH_N} of the lighthouse is finished: ${LTH_PH[d][0].toLowerCase()}. Next: ${LTH_PH[after.done][0].toLowerCase()}.${got.length?' '+got.join(' '):''}`);}
+  else{const mine=lthGave(n.lth,d),sh=lthShareOf(d);
+    toast(`${n.name} gave ${give} ${resName(r)} to ${lthName().replace(/^The /,'the ')}.${mine>=sh?'':` Give ${fmt0(sh-mine)} more to this phase to share its reward.`}`);}
+  render();
+}
+/* a record sees phases finish (ph rises): those it gave its share to pay their land credits, noted in its log; at the
+   lighting, its place among the three biggest givers is kept in the record (k) */
+function lthRaise(n,d,now){
+  const w=n.lth,was=w.ph||0;if(!(d>was))return [];
+  w.ph=d;const out=[],t=now||Date.now();n.log=n.log||[];
+  for(let i=was;i<d&&i<LTH_N;i++)if(lthGave(w,i)>=lthShareOf(i)){n.log.unshift({t,k:'lthr',a:String(i)});out.push(lthRewardText(i));}
+  if(d>=LTH_N&&!w.k){let i=-1;try{i=lthState().who.findIndex(x=>x.me);}catch(e){}if(i>=0&&i<3){w.k=i+1;n.log.unshift({t,k:'lthk',a:String(i+1)});out.push(lthTopText(i+1));}}
+  n.log=n.log.slice(0,60);return out;
+}
+const lthRewardText=i=>`Phase ${i+1} of ${LTH_N} of ${lthName().replace(/^The /,'the ')} is finished. For your part: ${LTH_LAND} land credits.`;
+const lthTopText=k=>`${lthName()} is lit, and your nation gave the ${['most','second most','third most'][k-1]} towards it: its name is in ${LTH_MEDAL[k-1]} on the plaque, and the Keeper’s Beam pattern is yours in Customise.`;
+const lthRewarded=n=>{const w=n&&!n.npc&&n.lth;if(!w)return [];const o=[];for(let i=0;i<Math.min(w.ph||0,LTH_N);i++)if(lthGave(w,i)>=lthShareOf(i))o.push(i);return o;};
+const lthLand=n=>n&&!n.npc?LTH_LAND*lthRewarded(n).length+(n.lthx&&Number.isInteger(n.lthx.l)?n.lthx.l:0):0;
+const lthTop=n=>{if(!n||n.npc)return 0;const a=n.lth&&n.lth.k,b=n.lthx&&n.lthx.k;return Math.min(a>=1&&a<=3?a:9,b>=1&&b<=3?b:9)%9;};
+landEarned=(f=>function(n){return f.apply(this,arguments)+lthLand(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+lthLand(n);})(earnedAt);
+COMMIT_HOOKS.push((n,prev,now)=>{if(!lthMine(n)||n.npc)return [];try{return lthRaise(n,lthState().done,now);}catch(e){return [];}});
+NORM_HOOKS.push((n,d)=>{
+  const w=d&&d.lth;if(!w||typeof w!=='object'||typeof w.r!=='string'||w.r.length>40)return;
+  const tm=v=>typeof v==='number'&&isFinite(v)&&v>0?v:0,amts=o=>{const a={};for(const r of RES){const v=Number(o&&o[r]);if(Number.isFinite(v)&&v>0)a[r]=Math.min(v,50000);}return a;};
+  const o={r:w.r,p:{},ph:Number.isInteger(w.ph)?clamp(w.ph,0,LTH_N):0,t:tm(w.t)};
+  if(w.p&&typeof w.p==='object'&&!Array.isArray(w.p))for(const [k,v] of Object.entries(w.p)){const i=+k;if(!Number.isInteger(i)||i<0||i>=LTH_N||!v||typeof v!=='object')continue;const a=amts(v);if(Object.keys(a).length)o.p[i]=a;}
+  if(tm(w.t0))o.t0=w.t0;
+  if(Array.isArray(w.h)){const h=[];for(const e of w.h.slice(0,LTH_HAP_N)){if(!e||typeof e!=='object'||!tm(e.t))continue;const g=amts(e.c);if(!Object.keys(g).length)continue;
+    const x={t:e.t,d:Number.isInteger(e.d)?clamp(e.d,0,LTH_N-1):0,c:g};if(e.f===1)x.f=1;h.push(x);}if(h.length)o.h=h;}
+  if(w.fx&&typeof w.fx==='object'&&!Array.isArray(w.fx)){const fx={};for(const [k,v] of Object.entries(w.fx)){const i=+k;if(Number.isInteger(i)&&i>=0&&i<LTH_N&&tm(v))fx[i]=v;}if(Object.keys(fx).length)o.fx=fx;}
+  if(Number.isInteger(w.k)&&w.k>=1&&w.k<=3)o.k=w.k;
+  n.lth=o;
+});
+NORM_HOOKS.push((n,d)=>{const x=d&&d.lthx;if(!x||typeof x!=='object')return;n.lthx={l:Number.isInteger(x.l)?clamp(x.l,0,999):0};if(Number.isInteger(x.k)&&x.k>=1&&x.k<=3)n.lthx.k=x.k;});
+
+/* ── the Keeper's Beam: a card pattern for the three biggest givers, earned no other way ── */
+UNLOCKS['p-beam']={k:'pattern',n:'Keeper’s beam',src:'wonder'};
+UNLOCK_SOURCES.push({earned:n=>lthTop(n)?['p-beam']:[],how:id=>id==='p-beam'?'Be one of the three nations that gave the most to your region’s Great Lighthouse when it is lit.':null});
+uxUnlockInfo=(f=>function(id){return id==='p-beam'?{label:'Visit the lighthouse',view:'wonder',target:'.wd-who'}:f.apply(this,arguments);})(uxUnlockInfo);
+czPatSVG=(f=>function(p,seed,mini){
+  if(p!=='p-beam')return f.apply(this,arguments);
+  /* a lighthouse on its rock at the right, two beams sweeping left across the card, and the swell below */
+  let w='';for(let x=0;x<880;x+=40)w+=`M${x},300q10,-7 20,0t20,0`;for(let x=20;x<820;x+=56)w+=`M${x},280q9,-6 18,0t18,0`;
+  return `<svg class="czp${mini?' mini':''}" viewBox="0 0 1000 320" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round">`
+    +`<path d="M928,118L0,26L0,96Z" fill="currentColor" fill-opacity=".1" stroke="none"/><path d="M928,124L0,150L0,214Z" fill="currentColor" fill-opacity=".07" stroke="none"/>`
+    +`<path d="M928,118L0,26M928,124L0,214" stroke-opacity=".35"/>`
+    +`<path d="M892,320L900,296Q928,286 958,296L968,320"/><path d="M912,296L918,150H938L944,296Z"/><path d="M914.5,240H941.5M913.2,262H942.8M916.5,190H939.5M915.6,210H940.4"/>`
+    +`<path d="M908,150V143H948V150ZM910,143V136M916,143V136M922,143V136M928,143V136M934,143V136M940,143V136M946,143V136M909,136H947"/>`
+    +`<path d="M917,136V108H939V136ZM924,136V108M932,136V108"/><circle cx="928" cy="121" r="4" fill="currentColor" fill-opacity=".5"/><path d="M914,108L928,94L942,108ZM928,94V86"/>`
+    +`<path d="${w}" stroke-opacity=".6"/></g></svg>`;
+})(czPatSVG);
+
+/* ── drawing: the lighthouse, phase by phase (in a 240 × 320 box), like the statue: a finished part is solid, the one being
+   built rises behind scaffolding as its phase fills, later ones are faint outlines. Eleven parts for the first eleven phases;
+   the twelfth is the lighting, at dusk. m: s stone, w the white tower (with its red bands, r), m iron, g glass, l the lens ── */
+const LTH_PARTS=[
+  {y:[290,300],x:[0,76],m:'s',d:'M0,290H76V300H0Z',j:'M12,290V300M26,290V300M40,290V300M54,290V300M68,290V300M0,295H76'},
+  {y:[272,282],x:[78,168],m:'s',d:'M80,282V273H166V282Z',j:'M96,273V282M114,273V282M132,273V282M150,273V282'},
+  {y:[238,273],x:[134,178],m:'s',d:'M140,273V252H172V273ZM135,252L156,238L177,252Z',j:'M152,273V264H158V273M144,257H149V262H144ZM163,257H168V262H163Z'},
+  {y:[256,273],x:[90,130],m:'s',d:'M92,273V256H128V273Z',j:'M92,264.5H128M101,256V264.5M110,264.5V273M119,256V264.5'},
+  {y:[206,256],x:[94,126],m:'w',d:'M95,256L98,206H122L125,256Z',r:'M96.7,232L97.3,222H122.7L123.3,232Z'},
+  {y:[208,256],x:[100,120],m:'m',d:'M106,256V246A4,4 0 0 1 114,246V256ZM108,236H112V241H108ZM108,212H112V217H108Z'},
+  {y:[160,206],x:[96,124],m:'w',d:'M98,206L101,160H119L122,206Z',r:'M99.4,186L100,176H120L120.6,186Z',j:'M108,194H112V199H108Z'},
+  {y:[146,160],x:[92,128],m:'m',d:'M94,160V154H126V160Z',j:'M95,154V146M101,154V146M107,154V146M113,154V146M119,154V146M125,154V146M94.5,146H125.5'},
+  {y:[128,154],x:[98,122],m:'g',d:'M101,154V128H119V154Z',j:'M107,154V128M113,154V128M101,141H105M115,141H119'},
+  {y:[131,151],x:[102,118],m:'l',d:'M110,131C113.5,131 115,136 115,141C115,146 113.5,151 110,151C106.5,151 105,146 105,141C105,136 106.5,131 110,131Z',j:'M106,136H114M105.3,141H114.7M106,146H114'},
+  {y:[103,128],x:[96,124],m:'m',d:'M99,128L110,116L121,128ZM108,116A2,2 0 1 1 112,116A2,2 0 1 1 108,116Z',j:'M110,114V104M110,105L116,107L110,109'}];
+function lthSVG(done,frac,o){
+  o=o||{};const id='lt'+(++czSeq),lit=done>=LTH_N,dusk=lit?1:done===LTH_N-1?frac:0;
+  const M={s:[`url(#${id}s)`,'#7d715a'],w:[`url(#${id}w)`,'#7d7a70'],m:['#3a4644','#1f2726'],g:[lit?'#ffe9a3':'#cfe3ea','#3a4644'],l:[lit?'#fff6c8':`url(#${id}l)`,'#8a6a1c']};
+  const shape=(p,cls)=>{const m=M[p.m];return `<g class="wd-p ${cls}"><path d="${p.d}" fill="${m[0]}" stroke="${m[1]}"/>${p.r?`<path d="${p.r}" fill="#b8443a" stroke="#7e2a22" stroke-width=".8"/>`:''}${p.j?`<path d="${p.j}" class="wd-ln" stroke="${m[1]}"/>`:''}</g>`;};
+  let body='';
+  LTH_PARTS.forEach((p,i)=>{
+    if(i<done)body+=shape(p,'wd-on');
+    else if(i===done){const cut=p.y[1]-(p.y[1]-p.y[0])*frac;
+      body+=`<path d="${p.d}" class="wd-ghost"/><clipPath id="${id}c${i}"><rect x="0" y="${cut.toFixed(1)}" width="240" height="320"/></clipPath><g clip-path="url(#${id}c${i})">${shape(p,'wd-on')}</g>`;}
+    else body+=`<path d="${p.d}" class="wd-ghost"/>`;});
+  /* scaffolding round the part being built, and a crane once there is height to lift to */
+  let scaf='';
+  if(done<LTH_PARTS.length){const p=LTH_PARTS[done],x0=p.x[0]-5,x1=p.x[1]+5,y1=done<2?300:Math.min(p.y[1],273),y0=Math.max(96,p.y[0]-8);let s='';
+    for(let x=x0;x<=x1+0.1;x+=(x1-x0)/3)s+=`M${x.toFixed(1)},${y1}V${y0}`;
+    for(let y=y1-12;y>y0;y-=20)s+=`M${x0-3},${y}H${x1+3}`;
+    scaf=`<g class="wd-scaf"><path d="${s}"/></g>`;
+    if(p.y[0]<240){const hook=p.y[0]+4;scaf+=`<g class="wd-crane"><path d="M206,274V30M199,274H213M206,34H${(p.x[0]+p.x[1])/2-6}M206,34L190,50M198,34L206,46M${(p.x[0]+p.x[1])/2},34V${hook}"/><rect x="${(p.x[0]+p.x[1])/2-4}" y="${hook}" width="8" height="6"/><rect x="200" y="38" width="12" height="9"/></g>`;}}
+  /* the lighting: dusk falls and a crowd gathers on the causeway as its phase fills; lit, the beams sweep out over the sea */
+  let crowd='';const ppl=lit?16:done===LTH_N-1?Math.round(16*frac):0;
+  for(let i=0;i<ppl;i++){const x=6+(i*29%66),h=6+(i*7%4);crowd+=`<g class="wd-ppl" transform="translate(${x},${290-h})"><circle cx="0" cy="0" r="2"/><path d="M-2.5,${h}C-2.5,3 2.5,3 2.5,${h}Z"/></g>`;}
+  let beams='',stars='';
+  if(lit){beams=`<path d="M110,138L0,92L0,124Z" fill="#fff3b0" opacity=".42"/><path d="M110,140L240,116L240,150Z" fill="#fff3b0" opacity=".3"/><circle cx="110" cy="141" r="16" fill="#fff3b0" opacity=".35"/>`
+    +[[30,40,'#e2b13c'],[208,62,'#c0282d'],[58,20,'#2457a6'],[180,24,'#e2b13c']].map(([x,y,c],i)=>`<g class="wd-fw" style="--d:${i*0.5}s;color:${c}" transform="translate(${x},${y})">${Array.from({length:8},(_,k)=>`<path d="M0,-3V-9" transform="rotate(${k*45})"/>`).join('')}<circle r="1.4"/></g>`).join('');
+    stars=[[18,70],[44,58],[150,40],[226,84],[132,18],[86,30],[196,100],[12,112]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r=".9" fill="#fdf6dc"/>`).join('');}
+  const mix=(a,b)=>{const h=s=>[1,3,5].map(i=>parseInt(s.slice(i,i+2),16)),A=h(a),B=h(b);return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*dusk).toString(16).padStart(2,'0')).join('');};
+  const lab=o.label||`${lthName()}: ${lit?'lit':`phase ${done+1} of ${LTH_N}, ${Math.floor(frac*100)}% built`}`;
+  return `<svg class="wd-svg${o.cls?' '+o.cls:''}" viewBox="0 0 240 320" role="img" aria-label="${esc(lab)}"><defs>
+    <linearGradient id="${id}sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix('#cfe2ec','#1f2b47')}"/><stop offset="1" stop-color="${mix('#f3f1ea','#e7a868')}"/></linearGradient>
+    <linearGradient id="${id}sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix('#8fb6c6','#41607a')}"/><stop offset="1" stop-color="${mix('#5f8fa6','#22384d')}"/></linearGradient>
+    <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e3dac4"/><stop offset="1" stop-color="#b9ad94"/></linearGradient>
+    <linearGradient id="${id}w" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fbfaf5"/><stop offset=".6" stop-color="#ebe8de"/><stop offset="1" stop-color="#cdc9bd"/></linearGradient>
+    <linearGradient id="${id}l" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbe7a1"/><stop offset="1" stop-color="#b8861c"/></linearGradient></defs>
+    <rect width="240" height="320" fill="url(#${id}sky)"/>${stars}
+    <rect y="282" width="240" height="38" fill="url(#${id}sea)"/>
+    <path d="M0,306q8,-4 16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0M8,314q8,-4 16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0t16,0" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width=".8"/>
+    <path d="M62,300L72,284Q92,272 124,272Q170,272 194,282L212,300Z" fill="#8f8573" stroke="#5e5646" stroke-width="1"/><path d="M84,288L98,282M150,284L170,290M120,292L136,296" stroke="#5e5646" stroke-width=".8" fill="none"/>
+    ${beams}${body}${scaf}${crowd}</svg>`;
+}
+
+/* ── the page: the lighthouse being built, its rules, the plaque, and the region's past projects below ── */
+const lthMedal=k=>k>=1&&k<=3?`<span class="wd-mt wd-mt${k}">${cap1(LTH_MEDAL[k-1])}</span>`:'';
+function lthPlaque(L,lit){
+  if(!L.who.length)return '<p class="hint">No nation has given anything yet. The first gift puts your name at the top of the plaque.</p>';
+  return `<ol class="wd-who">${L.who.slice(0,12).map((x,i)=>`<li class="${x.me?'me ':''}${i<3?'wd-m'+(i+1):''}"><span>${nationLink(x.id,x.name,x.me)}${i<3?' '+lthMedal(i+1):''}</span><span class="hint">${esc(costText(Object.fromEntries(RES.filter(r=>x.c[r]>0).map(r=>[r,Math.round(x.c[r])]))))}</span></li>`).join('')}</ol>${L.who.length>12?`<p class="hint">And ${L.who.length-12} more.</p>`:''}
+    <p class="hint">${lit?'The three biggest givers when the lamp was lit are named in gold, silver and bronze, and have the Keeper’s Beam pattern for their nation card.':'When the lamp is lit, the three biggest givers are named in gold, silver and bronze, and receive the Keeper’s Beam pattern for their nation card, which nothing else gives.'}</p>`;
+}
+function lthView(now){
+  const n=S.nation;if(!n)return '';const L=lthState(),lit=L.done>=LTH_N,d=L.done,st=stockNow(n,now),mine=L.who.find(x=>x.me);
+  const my=i=>lthMine(n)?lthGave(n.lth,i):0;
+  const ph=LTH_PH.map(([t,ds,c],i)=>{const s=i<d?'done':i===d?'now':'later',g=my(i),sh=lthShareOf(i);
+    const yours=g>=sh?(i<d?' · <b>Yours</b>':' · <b>Yours once it is finished</b>'):g>0?` · You gave ${fmt0(g)} of the ${fmt0(sh)} it takes`:'';
+    const rw=`<span class="wd-ph-r">For every nation that gives at least ${fmt0(sh)} to it: ${LTH_LAND} land credits${yours}</span>`;
+    return `<li class="wd-ph ${s}"><span class="wd-ph-n num" aria-hidden="true">${i<d?'✓':i+1}</span><span class="wd-ph-b"><b>${esc(t)}</b><span class="hint">${esc(ds)}</span><span class="wd-ph-c">${esc(costText(c))}</span>${rw}${s==='now'?`<span class="bar" role="img" aria-label="${Math.floor(L.frac*100)}% built"><i style="width:${(L.frac*100).toFixed(1)}%"></i></span>`:''}</span></li>`;}).join('');
+  let give='';
+  if(!lit&&!OBS){const g=my(d),sh=lthShareOf(d),cap=lthCapOf(d),room=Math.max(0,cap-g);
+    const rows=RES.filter(r=>(L.need[r]||0)>0).map(r=>{const left=L.need[r],have=Math.floor(st[r]),b=(k,l)=>{const v=Math.min(k,left,have,room);return `<button type="button" class="btn ${k===Infinity?'':'ghost '}sm" data-act="lt-give" data-r="${r}" data-v="${k===Infinity?'max':k}"${v<1?' disabled':''}>${l}</button>`;};
+      return `<div class="wd-give"><span class="wd-gr"><b>${esc(cap1(resName(r)))}</b><span class="hint">${fmtAmt(left)} still needed · you have ${have}</span></span><span class="wd-gb">${b(10,'Give 10')}${b(50,'Give 50')}${b(Infinity,'Give what I can')}</span></div>`;}).join('');
+    give=`<section class="wd-box"><h2 class="h2">Give to this phase</h2>
+      <p class="hint lt-share">You have given ${fmt0(g)} to this phase. ${g>=sh?'That is your share: its reward is yours once it is finished.':`Give ${fmt0(sh-g)} more to share its reward.`} ${room>0?`You may give ${fmt0(room)} more; no nation may give more than ${fmt0(cap)}.`:'That is all one nation may give to it; the rest must come from other nations.'}</p>
+      <p class="hint lt-hands">${L.hands?`${L.hands===1?'One nation has':`${L.hands} nations have`} given to this phase`:'No nation has given to this phase yet'}${L.hands<LTH_HANDS?`: it needs at least ${LTH_HANDS} before it can be finished`:''}.</p>${rows}</section>`;}
+  else if(!lit)give=`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. Observing, you see the lighthouse as they do.</p></section>`;
+  const k=lthTop(n),fin=lit?`<section class="wd-box"><h2 class="h2">Lit</h2><p>The lighthouse stands on the coast of ${esc(REG.the)}, and its beam can be seen thirty miles out. ${mine?`${esc(n.name)} is on the plaque${k?`, in ${LTH_MEDAL[k-1]}, and the Keeper’s Beam pattern is in Customise`:''}.`:'Your nation gave nothing towards it, which the keeper mentions to every visitor.'}</p></section>`:'';
+  const got=lthRewarded(n).length;
+  return `<header class="vh"><p class="eyebrow">A wonder of ${esc(REG.the)}</p><h1>${esc(lthName())}</h1><p>With the Great Statue finished, the Office of Monuments has turned to the coast. The lighthouse is twice the size of the statue, and no nation can build it alone: no nation may give more than ${Math.round(LTH_CAP*100)}% of a phase, so every phase needs at least ${LTH_HANDS} nations.</p></header>${lit?'':c3Strip(n,now)}
+  <div class="wd-grid">
+    <figure class="wd-fig paper">${lthSVG(d,L.frac,{cls:'wd-big'})}<figcaption><span class="lbl">${lit?'Lit':`Phase ${d+1} of ${LTH_N}`}</span><b>${esc(lit?'Lit, and turning every ten seconds':LTH_PH[d][0])}</b>${lit?'':`<span class="hint">${Math.floor(L.frac*100)}% of this phase is built.</span>`}</figcaption></figure>
+    <div class="wd-side">
+      ${fin}${give}
+      <section class="wd-box lt-rules"><h2 class="h2">How it is built</h2><ul class="lt-rl">
+        <li>Twelve phases, from the causeway to the first lighting: about twice what the statue took.</li>
+        <li>No nation may give more than ${Math.round(LTH_CAP*100)}% of a phase, so it takes at least ${LTH_HANDS} nations to finish one.</li>
+        <li>A finished phase pays ${LTH_LAND} land credits to every nation that gave at least ${Math.round(LTH_SHARE*100)}% of it.${got?` ${esc(n.name)} has earned ${LTH_LAND*got} so far.`:''}</li>
+        <li>When the lamp is lit, the three biggest givers are named in gold, silver and bronze, and receive the Keeper’s Beam pattern for their nation card.</li></ul></section>
+      <section class="wd-box"><h2 class="h2">The plaque</h2>${lthPlaque(L,lit)}</section>
+    </div>
+  </div>
+  <section class="wd-box wd-phs"><h2 class="h2">Twelve phases</h2><ol class="wd-phl">${ph}</ol></section>
+  ${wndPast(n)}`;
+}
+/* the region's finished wonders: the statue, with its plaque and its phases folded away */
+function wndPast(n){
+  let W;try{W=wndState();}catch(e){return '';}if(W.done<WND_N)return '';
+  const mine=W.who.find(x=>x.me),end=wndEndAt(),rew=n&&wndMine(n)?wndRewarded(n).length:0;
+  return `<section class="wd-box wd-past" id="wd-past"><h2 class="h2">Past projects</h2>
+    <article class="wd-pp"><div class="wd-pp-fig">${wndSVG(WND_N,1,{label:`${wndName()}: finished`})}</div><div class="wd-pp-b">
+      <h3 class="h3">${esc(wndName())}</h3><p class="hint">Finished${end?' on '+fmtDate(end):''} · ${WND_N} phases · ${W.who.length===1?'one nation':W.who.length+' nations'} on the plaque.</p>
+      <p>${mine?`${esc(n.name)} gave ${esc(costText(Object.fromEntries(RES.filter(r=>mine.c[r]>0).map(r=>[r,Math.round(mine.c[r])]))))}${rew?`, which earned it ${WND_LAND*rew} land credits and ${rew===1?'a keepsake':rew+' keepsakes'}`:''}, and may style itself “the Patron”.`:'Your nation gave nothing towards it.'}</p>
+      <details class="wd-pd"><summary>The plaque</summary>${wndPlaque(W)}</details>
+      <details class="wd-pd"><summary>The ten phases</summary><ol class="wd-phl">${wndPhList(W,n&&wndMine(n)?n.wnd.g||[]:[])}</ol></details>
+    </div></article></section>`;
+}
+VIEWS_EXT.wonder=now=>lthOpen()?lthView(now):wndView(now);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="lt-give"]');if(!el||!S.nation)return;lthGive(el.dataset.r,el.dataset.v==='max'?Infinity:+el.dataset.v);});
+/* the menu link, its icon, the Dispatch's links and the office's letters follow the region's current wonder */
+const LTH_ICON=NAV_SVG('<path d="M9.4 20.5 10.3 10h3.4l.9 10.5Z"/><path d="M9.6 15.6h4.8"/><path d="M9.2 10h5.6V8.6H9.2Z"/><path d="M10.2 8.6V6h3.6v2.6"/><path d="M9.8 6 12 3.8 14.2 6"/><path d="M15.4 6.6 20.5 5M15.4 7.6l5.1 1.6M8.6 6.6 3.5 5M8.6 7.6 3.5 9.2"/><path d="M6 20.5h12"/>'),WND_ICON=NAV_ICONS.wonder;
+Object.defineProperty(NAV_LABELS,'wonder',{get:()=>lthOpen()?'Great Lighthouse':'Great Statue',enumerable:true,configurable:true,set(){}});
+Object.defineProperty(NAV_ICONS,'wonder',{get:()=>lthOpen()?LTH_ICON:WND_ICON,enumerable:true,configurable:true,set(){}});
+NAV_WORDS.wonder+=' lighthouse beacon lamp coast keeper';
+Object.defineProperty(OFFICES['office-monuments'],'go',{get:()=>['wonder',lthOpen()?'Visit the lighthouse':'Visit the statue'],enumerable:true,configurable:true,set(){}});
+/* the region's overview card shows the wonder being built */
+rgnStatueCard=(f=>function(){
+  if(!lthOpen())return f.apply(this,arguments);let L;try{L=lthState();}catch(e){return '';}
+  const lit=L.done>=LTH_N,pct=Math.max(0,Math.min(100,Math.round((L.done+(lit?0:L.frac))/LTH_N*100))),link=!OBS&&!!S.nation&&pgAvailable(S.nation,'wonder');
+  return `<section class="rgn-card" aria-labelledby="rgn-st-h"><p class="eyebrow">Region wonder</p><h2 class="h3" id="rgn-st-h">${esc(lthName())}</h2>
+    <p>${lit?'Lit, and turning every ten seconds.':`Phase ${L.done+1} of ${LTH_N}: ${esc(LTH_PH[L.done][0].replace(/^The /,'the '))}.`}</p>
+    <div class="rgn-bar" role="progressbar" aria-label="How far the lighthouse has risen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
+    <p class="hint">${pct}% built${L.who.length?` · ${L.who.length} ${L.who.length===1?'nation has':'nations have'} given towards it`:' · no nation has given towards it yet'}. The Great Statue is finished.</p>
+    ${link?`<button type="button" class="linkish small" data-act="go" data-v="wonder">${lit?'See the Great Lighthouse':'Give towards it'}</button>`:''}</section>`;
+})(rgnStatueCard);
+
+/* ── on the map: the lighthouse stands on the coast nearest the statue, at least three hexes from it, so the two never share
+   a spot (the statue itself may stand by the water) ── */
+let lthCellMemo={m:null,c:-1};
+function lthCell(){
+  if(lthCellMemo.m===MAP)return lthCellMemo.c;const s=wndCell();let best=-1,bd=Infinity;
+  const near=new Set(s>=0?[s]:[]);for(let k=0,ring=[s];k<2&&s>=0;k++){const nx=[];for(const a of ring)for(let e=0;e<6;e++){const j=MAP.nbr[a*6+e];if(j>=0&&!near.has(j)){near.add(j);nx.push(j);}}ring=nx;}
+  if(s>=0)for(let c=0;c<MAP.N;c++){const t=MAP.T[c];if(t<2||t===4||near.has(c))continue;let sea=false;
+    for(let k=0;k<6&&!sea;k++){const j=MAP.nbr[c*6+k];if(j>=0&&MAP.T[j]<2&&!isLake(j))sea=true;}
+    if(!sea)continue;const dd=(MAP.cx[c]-MAP.cx[s])**2+(MAP.cy[c]-MAP.cy[s])**2;if(dd<bd){bd=dd;best=c;}}
+  lthCellMemo={m:MAP,c:best};return best;
+}
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+  if(!lthOpen())return;const c=lthCell();if(c<0)return;const [x,y]=M.scr(c);if(x<-60||y<-50||x>M.w+60||y>M.h+30)return;
+  const L=lthState(),lit=L.done>=LTH_N,g=M.g,H=6+20*Math.min(1,L.done/(LTH_N-1));
+  g.save();g.translate(x,y);g.lineJoin='round';g.strokeStyle=M.col.ink;g.lineWidth=1;
+  if(lit){g.fillStyle='rgba(255,226,120,.32)';g.beginPath();g.moveTo(0,-H-1);g.lineTo(-54,-H-16);g.lineTo(-54,-H+10);g.closePath();g.fill();
+    g.beginPath();g.moveTo(0,-H);g.lineTo(46,-H-8);g.lineTo(46,-H+12);g.closePath();g.fill();}
+  g.fillStyle=M.col.sheet;g.beginPath();g.rect(-7,-4,14,5);g.fill();g.stroke();
+  if(L.done>=4){g.fillStyle='#f4f1e8';g.beginPath();g.moveTo(-4,-4);g.lineTo(4,-4);g.lineTo(2.6,-H+4);g.lineTo(-2.6,-H+4);g.closePath();g.fill();g.stroke();
+    g.fillStyle='#b8443a';g.fillRect(-3.4,-4-(H-8)*0.55,6.8,3);g.strokeRect(-3.4,-4-(H-8)*0.55,6.8,3);
+    if(L.done>=8){g.fillStyle=lit?'#ffe27a':'#cfe3ea';g.beginPath();g.rect(-2.6,-H-1,5.2,5);g.fill();g.stroke();
+      if(L.done>=10){g.fillStyle='#3a4644';g.beginPath();g.moveTo(-3.4,-H-1);g.lineTo(0,-H-4.5);g.lineTo(3.4,-H-1);g.closePath();g.fill();g.stroke();}}}
+  if(!lit){g.globalAlpha=0.55;g.beginPath();g.moveTo(-7,-4);g.lineTo(-7,-H-2);g.moveTo(7,-4);g.lineTo(7,-H-2);g.moveTo(-7,-H+6);g.lineTo(7,-H+6);g.stroke();g.globalAlpha=1;}
+  /* its name on the side away from the statue, whose own name sits under it */
+  if(M.s*HEX_W>=13){const sc=wndCell(),dir=sc>=0&&MAP.cx[c]<MAP.cx[sc]?-1:1;g.font='italic 600 11.5px '+MAP_FONT;g.textAlign=dir<0?'right':'left';g.fillStyle=M.col.ink;g.fillText(lit?'The Great Lighthouse':`The Great Lighthouse · ${L.done}/${LTH_N}`,dir*10,-H/2+2);}
+  g.restore();
+}});
+MAP_TIP.push(ctx=>ctx.cell>=0&&(ctx.kind==='main'||ctx.kind==='visit')&&lthOpen()&&ctx.cell===lthCell()?(()=>{const d=lthState().done;return `${lthName()} · ${d>=LTH_N?'lit':`phase ${d+1} of ${LTH_N}`}`;})():null);
+MAP_PANEL.push(ctx=>{if(ctx.cell==null||!lthOpen()||ctx.cell!==lthCell())return '';const L=lthState();
+  return `<div class="wd-pn"><p class="eyebrow">A wonder of the region</p><p><b>${esc(lthName())}</b>: ${L.done>=LTH_N?'lit.':`phase ${L.done+1} of ${LTH_N}, ${Math.floor(L.frac*100)}% built.`}</p><div class="row"><button type="button" class="btn ghost" data-act="go" data-v="wonder">Visit the lighthouse</button></div></div>`;});
+MAP_LEGEND.push(()=>lthOpen()?`<span class="lg"><svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><rect x="2" y="13" width="10" height="2.5" fill="var(--sheet)" stroke="currentColor"/><path d="M5 13h4l-.8-8.5H5.8Z" fill="#f4f1e8" stroke="currentColor" stroke-width=".8"/><path d="M5.4 9h3.2v1.6H5.4Z" fill="#b8443a"/><path d="M5.6 4.5h2.8V2.4H5.6Z" fill="#e2b13c" stroke="currentColor" stroke-width=".6"/></svg>The Great Lighthouse</span>`:'');
+
+/* ── notices: each rewarded phase and the place on the plaque (dated in the log), and a phase finished (as the statue's) ── */
+NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>(l.k==='lthr'&&LTH_PH[+l.a])||(l.k==='lthk'&&+l.a>=1&&+l.a<=3)).map(l=>l.k==='lthr'?{t:l.t,k:'lthr',kl:'The Great Lighthouse',txt:lthRewardText(+l.a),go:'wonder'}
+  :{t:l.t,k:'lthk',kl:'The Great Lighthouse',txt:lthTopText(+l.a),go:'wonder',links:[{kind:'unlock',id:'p-beam'}]}));
+NOTIF_SOURCES.push(n=>{if(!lthMine(n))return [];const L=lthState();return L.done>(n.lth.ph||0)?[{t:Date.now(),k:'lth',kl:'The Great Lighthouse',txt:L.done>=LTH_N?`${lthName()} is lit.`:`Phase ${L.done} of ${LTH_N} of ${lthName().replace(/^The /,'the ')} is finished.`,go:'wonder'}]:[];});
+/* each gift in the region's happenings, as the statue's */
+HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!lthMine(n)||!Array.isArray(n.lth.h))return [];
+  const nm=nationLink(x.id,n.name,x.me),st=`<button type="button" class="linkish" data-act="go" data-v="wonder">${esc(lthName().replace(/^The /,'the '))}</button>`;
+  return n.lth.h.filter(e=>e.t<=now).map(e=>({t:e.t,txt:`${nm} gave ${list(RES.filter(r=>e.c[r]>0).map(r=>fmt0(e.c[r])+' '+resName(r)))} to ${st}.${e.f&&LTH_PH[e.d]?(e.d===LTH_N-1?' That lit the lighthouse.':` That finished phase ${e.d+1} of ${LTH_N}: ${esc(LTH_PH[e.d][0].toLowerCase())}.`):''}`}));
+});
+/* the Office of Monuments writes to every nation of the region when the statue is finished, to begin the lighthouse,
+   and again when the lamp is lit */
+DM_SOURCES.push(n=>{
+  if(!lthOpen())return [];const t0=lthOpenAt();if(!t0)return [];const L=lthState(),the=REG.the,nm=lthName().replace(/^The /,'the ');
+  const out=[{peer:'office-monuments',t:t0,x:`To every nation of ${the},
+
+${cap1(wndName().replace(/^The /,'the '))} is finished, and this office thanks every nation that carried a bucket. It now turns to the coast.
+
+Work begins on ${nm}, on the shore nearest the statue. It is twice the size of the statue and built in twelve phases, from a causeway across the shallows to the first lighting of its lamp.
+
+It cannot be built by a few: no nation may give more than ${Math.round(LTH_CAP*100)}% of any phase, so every phase needs at least ${LTH_HANDS} nations. A finished phase pays ${LTH_LAND} land credits to every nation that gave at least ${Math.round(LTH_SHARE*100)}% of it.
+
+When the lamp is lit, the three nations that gave the most will have their names on the plaque in gold, silver and bronze, and the Keeper’s Beam for their nation card, which this office will not give for anything else.
+
+Give what your stores can spare on the Great Lighthouse page, under Abroad.
+
+The Office of Monuments and Public Works, ${REG.name}`}];
+  if(L.done>=LTH_N&&L.end){const top=L.who.slice(0,3);
+    out.push({peer:'office-monuments',t:L.end,x:`To every nation of ${the},
+
+${cap1(nm)} is lit. The keeper struck the match at dusk, the lens turned, and the beam crossed the water for the first time while the brass band played something nobody could identify.
+
+${L.who.length} nations gave towards it.${top.length?` The plaque names ${list(top.map((x,i)=>`${x.name} in ${LTH_MEDAL[i]}`))}.`:''}
+
+This office is now studying plans for the region’s next wonder, and will write when it has chosen one.
+
+The Office of Monuments and Public Works, ${REG.name}`});}
+  return out;
+});
+HELP_EXT.push({k:'lighthouse',t:'The Great Lighthouse',body:()=>`<p>Once a region’s Great Statue is finished, its player nations begin a second wonder: the Great Lighthouse, on the coast nearest the statue. The <button type="button" class="linkish" data-act="go" data-v="wonder">same page</button> under Abroad then shows the lighthouse, with the statue under Past projects, and the Office of Monuments writes to every nation of the region. The lighthouse has twelve phases and needs about twice the statue’s resources. No nation may give more than ${Math.round(LTH_CAP*100)}% of a phase, so each phase needs at least ${LTH_HANDS} nations. A finished phase pays ${LTH_LAND} land credits to every nation that gave at least ${Math.round(LTH_SHARE*100)}% of it. When the lamp is lit, the three nations that gave the most are named in gold, silver and bronze on the plaque, and receive the Keeper’s Beam pattern for their nation card.</p>`});
+
+/* ── achievements: both wonders, a big gift, the gift that finishes a phase, and a place among the top three ── */
+const aLth=x=>achM(x,'lth',()=>lthSum(x.n&&x.n.lth));
+const aLastStone=x=>achM(x,'lthfx',()=>{const n=x.n||{},a=n.lth&&n.lth.fx?Object.keys(n.lth.fx).length:0,b=n.wnd&&Array.isArray(n.wnd.h)?n.wnd.h.filter(e=>e&&e.f===1).length:0;return a+b;});
+achDef('bld','bld-wonders2','s','Statue and Signal','Give to both your region’s Great Statue and its Great Lighthouse.',1,x=>achYes(aGifts(x)>0&&aLth(x)>0),{fm:'bool'});
+achDef('bld','bld-lth1000','g','Keeper of the Flame','Give 1,000 resources towards the Great Lighthouse.',1000,aLth);
+achDef('bld','bld-laststone','s','The Last Stone','Finish a phase of a region wonder with your own gift.',1,x=>achYes(aLastStone(x)>0),{fm:'bool'});
+achDef('bld','bld-lthtop','g','Top of the Plaque','Be one of the three nations that gave the most when your region’s Great Lighthouse is lit.',1,x=>achYes(lthTop(x.n)>0),{fm:'bool'});
+
+/* the browser tests' window into the lighthouse (EDICTUM_PROBE, LTH) */
+const lthProbe=()=>({state:lthState,give:lthGive,open:lthOpen,openAt:lthOpenAt,land:n=>lthLand(n),rewarded:n=>lthRewarded(n),top:n=>lthTop(n),PH:LTH_PH,N:LTH_N,share:lthShareOf,cap:lthCapOf,
+  cell:lthCell,wcell:wndCell,svg:lthSVG,pat:p=>czPatSVG(p,1),reopen:()=>{lthOpenMemo.t=0;lthOpenMemo.v=false;},wndEndAt,reg:()=>REG.id});
 
 /* ───────── field digs: the museum's own expeditions, and two collections about the region's past ─────────
    A dig (n.dig: [{s: site, t0, t1, r: d20}]) sets out from the Museum's Field digs hall and comes back hours later
@@ -59358,7 +59776,7 @@ VIEWS_EXT.chronicle=now=>chrView(now);
 const NTF_KEY='statehood.notif';
 const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum finds and digs',['museum','dig']],['build','Finished buildings',['build']],['city','City reminders: empty blocks, mayors, room for a city',['cxtodo']],['mile','Population milestones',['mile','mile0']],
   ['games','The Games',['games','gres','host','hostwin']],['news','The Dispatch and Flock',['dispatch','flock']],['space','Space and the belt',['space','belt']],['gift','Gifts',['gift']],
-  ['wnd','The Great Statue',['wnd']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']],['rmbre','Replies to your messages on the region board',['rmbre']],['cbre','Replies on Community Board topics you follow',['cbre']],['devnews','Results of development news polls you voted in',['nwpoll']]];
+  ['wnd','The Great Statue and the Great Lighthouse',['wnd','lth']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']],['rmbre','Replies to your messages on the region board',['rmbre']],['cbre','Replies on Community Board topics you follow',['cbre']],['devnews','Results of development news polls you voted in',['nwpoll']]];
 const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
 const NTF=(()=>{let d={};try{d=JSON.parse(localStorage.getItem(NTF_KEY)||'{}')||{};}catch(e){d={};}
   return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,nvd:d.nvd===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
@@ -65604,6 +66022,71 @@ function gmbReveal(gb,hit,an){
   return r0-hit+roll+380;
 }
 
+/* ───────── achievements for crises and gambles (13 November 2026) ─────────
+   What the tally keeps of them (crsTally, called from tallyScan for each new ruling): crises decided by the player
+   (crs, by topic crs:c:<topic>, by crisis crs:i:<id>), those the cabinet signed (crs:cab, the clock running out or
+   "Leave it to the cabinet"), the run of crises decided in a row without the cabinet (crs:run, best crs:best), those
+   decided within ten minutes of reaching the desk (crs:fast) or in the last hour on the clock (crs:late; both read the
+   crisis's arrival from the record before the ruling). Gambles: won and lost by their odds (gmb:w:<pct>, gmb:l:<pct>),
+   won during a crisis (gmb:crs), and the runs of wins and losses (gmb:ws, gmb:ls; best gmb:wb, gmb:lb). Wins and
+   losses overall are n.gmb. Where the last 80 rulings can show it too (answered keeps g and c), the larger count. */
+function crsTally(a,is,old,T,bump,put){
+  if(is.crs){
+    if(a.c===1){bump('crs:cab',a.t);put('crs:run',0);}
+    else{
+      bump('crs',a.t);bump('crs:c:'+is.c,a.t);bump('crs:i:'+a.id,a.t);
+      const r=(T['crs:run']||0)+1;put('crs:run',r);if(r>(T['crs:best']||0))put('crs:best',r);
+      const x=old&&Array.isArray(old.inbox)?old.inbox.find(e=>e&&e.cr&&e.id===a.id&&Number.isFinite(e.at)):null;
+      if(x){if(a.t-x.at<=600e3)bump('crs:fast',a.t);const end=crsDeadline(old,x);if(a.t<=end&&end-a.t<=3600e3)bump('crs:late',a.t);}
+    }
+  }
+  if(a.g===0||a.g===1){
+    const w=a.g===1,k=gmbPct(is,a.o);
+    if(k)bump('gmb:'+(w?'w':'l')+':'+k,a.t);if(w&&is.crs)bump('gmb:crs',a.t);
+    const run=w?'gmb:ws':'gmb:ls',best=w?'gmb:wb':'gmb:lb',r=(T[run]||0)+1;put(run,r);put(w?'gmb:ls':'gmb:ws',0);if(r>(T[best]||0))put(best,r);
+  }
+}
+/* a gamble's odds in a hundred (25, 33, 50, 67, 75 or 80), from the motion that was chosen */
+function gmbPct(is,o){const op=is&&Array.isArray(is.o)?is.o[o]:null;return op&&op.g?Math.round(op.g.p*100):0;}
+const GMB_PCT=Object.keys(GMB_ODDS).map(p=>Math.round(p*100));
+const aCrsRul=a=>!!(ISSUE_BY_ID[a.id]||{}).crs;
+const aCrs=x=>Math.max(x.n.crd|0,aT(x,'crs'),aAns(x,a=>a.o>=0&&a.c!==1&&aCrsRul(a)));
+const aCrsCab=x=>Math.max(aT(x,'crs:cab'),aAns(x,a=>a.c===1&&aCrsRul(a)));
+const aGw=x=>Math.max((x.n.gmb&&x.n.gmb.w)|0,aAns(x,a=>a.g===1)),aGl=x=>Math.max((x.n.gmb&&x.n.gmb.l)|0,aAns(x,a=>a.g===0));
+const aGodds=(x,w,k)=>Math.max(aT(x,'gmb:'+(w?'w':'l')+':'+k),aAns(x,a=>a.g===(w?1:0)&&gmbPct(ISSUE_BY_ID[a.id],a.o)===k));
+/* the longest run of gambles won (w) or lost in a row: the tally's, or the last 80 rulings' */
+function aGrun(x,w){let b=0,r=0;for(const a of x.n.answered||[]){if(a.g!==0&&a.g!==1)continue;r=a.g===(w?1:0)?r+1:0;if(r>b)b=r;}return Math.max(b,aT(x,w?'gmb:wb':'gmb:lb'));}
+/* crises decided by the player: how many of the crises there are, and how many of the ten topics */
+function aCrsMine(x){const s=new Set();for(const a of x.n.answered||[])if(a.o>=0&&a.c!==1&&aCrsRul(a))s.add(a.id);return s;}
+const aCrsSeen=x=>{const s=aCrsMine(x);return CRS_ISSUES.filter(i=>s.has(i.id)||aT(x,'crs:i:'+i.id)>0).length;};
+const aCrsTopics=x=>{const s=new Set([...aCrsMine(x)].map(id=>ISSUE_BY_ID[id].c));return ISSUE_TOPICS.filter(([k])=>s.has(k)||aT(x,'crs:c:'+k)>0).length;};
+achDef('law','cri-1','b','Crisis Management','Decide a crisis yourself before its clock runs out.',1,aCrs);
+achDef('law','cri-10','s','Cool Head','Decide 10 crises yourself.',10,aCrs);
+achDef('law','cri-30','g','Eye of the Storm','Decide 30 crises yourself.',30,aCrs);
+achDef('law','cri-75','p','Weathered Every Storm','Decide 75 crises yourself.',75,aCrs);
+achDef('law','cri-150','x','The Unflappable','Decide 150 crises yourself. Nothing surprises you any more, least of all the weather.',150,aCrs);
+achDef('law','cri-fast','b','Rapid Response','Decide a crisis within ten minutes of it reaching your desk.',1,x=>aT(x,'crs:fast'));
+achDef('law','cri-fast10','s','First on the Scene','Decide 10 crises within ten minutes of them reaching your desk.',10,x=>aT(x,'crs:fast'));
+achDef('law','cri-late','b','Down to the Wire','Decide a crisis in the last hour on its clock.',1,x=>aT(x,'crs:late'),{sec:'Some decisions are best made with the cabinet already reaching for the pen.'});
+achDef('law','cri-topics','s','Every Kind of Trouble','Decide a crisis yourself in each of the ten topics.',ISSUE_TOPICS.length,aCrsTopics);
+achDef('law','cri-all','p','Seen It All Before','Decide every one of the '+CRS_ISSUES.length+' crises yourself at least once.',CRS_ISSUES.length,aCrsSeen);
+achDef('law','cri-run20','g','Never Off Duty','Decide 20 crises in a row yourself, without the cabinet signing one in your name.',20,x=>aT(x,'crs:best'));
+achDef('law','cri-cab','b','The Cabinet Will See to It','Let the cabinet sign a crisis in your name.',1,aCrsCab);
+achDef('law','cri-cab10','s','Government by Committee','Let the cabinet sign 10 crises in your name.',10,aCrsCab,{sec:'Delegation is a skill. Some ministers say it is your only one.'});
+achDef('law','gam-1','b','Fortune Favours the Bold','Win a gamble.',1,aGw);
+achDef('law','gam-10','s','Born Lucky','Win 10 gambles.',10,aGw);
+achDef('law','gam-30','g','Fortune’s Favourite','Win 30 gambles.',30,aGw);
+achDef('law','gam-75','p','The Luck of Nations','Win 75 gambles. The statisticians have asked to see the dice.',75,aGw);
+achDef('law','gam-lose','b','The House Always Wins','Lose a gamble.',1,aGl);
+achDef('law','gam-lose10','s','Good Loser','Lose 10 gambles, and keep a straight face at every one.',10,aGl);
+achDef('law','gam-long','s','Against the Odds','Win a one-in-four gamble.',1,x=>aGodds(x,1,25));
+achDef('law','gam-sure','b','A Sure Thing','Lose a four-in-five gamble.',1,x=>aGodds(x,0,80),{sec:'Even the safest bet goes wrong now and then. It only has to happen to you.'});
+achDef('law','gam-hot','s','Hot Hand','Win three gambles in a row.',3,x=>aGrun(x,1));
+achDef('law','gam-hot5','g','Can’t Lose','Win five gambles in a row.',5,x=>aGrun(x,1));
+achDef('law','gam-cold','s','Snake Eyes','Lose three gambles in a row.',3,x=>aGrun(x,0),{sec:'Luck can turn its back on you more than once in a row.'});
+achDef('law','gam-odds','g','Every Kind of Luck','Win a gamble at each of the six odds, from one in four to four in five.',GMB_PCT.length,x=>GMB_PCT.filter(k=>aGodds(x,1,k)>0).length);
+achDef('law','gam-crs','s','Double or Nothing','Win a gamble in the middle of a crisis.',1,x=>Math.max(aT(x,'gmb:crs'),aAns(x,a=>a.g===1&&aCrsRul(a))));
+
 /* ── the sound of a decision ── */
 const SFX={ctx:null,key:'edictum.sfx'};
 function sfxOn(){try{return localStorage.getItem(SFX.key)!=='0';}catch(e){return true;}}
@@ -66067,7 +66550,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,LTH:()=>lthProbe(),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -66950,7 +67433,7 @@ function nvxCompute(n,now){
   each(()=>{const s=nvxSeen(),{ev}=notifItems(now);
     /* the statue's "phase complete" is dated each time it is asked (until the next save raises the phase), so it is left
        out: its rewards ('wndr') are dated */
-    for(const x of ev){if(!x||x.read||!x.go||!(x.t<=now)||x.k==='wnd')continue;const v=NAV_PARENT[x.go]||x.go;if(v===cur||x.t<=Math.max(s.t0,s.p[v]||0))continue;
+    for(const x of ev){if(!x||x.read||!x.go||!(x.t<=now)||x.k==='wnd'||x.k==='lth')continue;const v=NAV_PARENT[x.go]||x.go;if(v===cur||x.t<=Math.max(s.t0,s.p[v]||0))continue;
       if(BELL_ACT.has(x.k)){if(!NVX_STATE.has(x.k))o(v).e++;}else o(v).d++;}});
   for(const x of Object.values(out))if(x.e)x.w.push(x.e===1?'1 new report':x.e+' new reports');
   return out;
@@ -67936,7 +68419,31 @@ DISPATCH_SOURCES.push(ctx=>{
   else if(joins.length>1)out.push({k:'wnd:joins',t:joins[0].t,sec:'culture',kick:'The Great Statue',h:`${joins.length} nations join the work on ${name}`,b:`New names on the hoarding today: ${list(joins.slice(0,6).map(j=>j.nm))}${joins.length>6?' and more':''}.`,who:joins.slice(0,6).map(j=>j.id),w:4,go:'wonder'});
   for(const [i,g] of ph){const P=WND_PH[i],last=i===WND_N-1;
     out.push({k:'wnd:ph:'+i,t:g.t,sec:last?'front':'culture',kick:'The Great Statue',h:last?`${cap1(name)} is unveiled`:`The Great Statue reaches stage ${i+1} of ${WND_N}: ${P[0].toLowerCase()}`,
-      b:`${P[1]} ${g.who.length===1?'One nation':g.who.length+' nations'} gave to this stage.`,who:g.who.slice(0,8),w:last?9:5,go:'wonder'});}
+      b:`${P[1]} ${g.who.length===1?'One nation':g.who.length+' nations'} gave to this stage.${last?' Next, says the Office of Monuments, the region builds a Great Lighthouse on its coast.':''}`,who:g.who.slice(0,8),w:last?9:5,go:'wonder'});}
+  return out;
+});
+
+/* the Great Lighthouse: work begun, nations joining, each phase finished (the earliest finishing gift, n.lth.fx, or the
+   earliest 'lthr' entry of that phase across the region) and, on the front page, the lighting with its top three */
+Object.defineProperty(DSP_GO,'wonder',{get:()=>lthOpen()?'The Great Lighthouse':'The Great Statue',enumerable:true,configurable:true,set(){}});
+DISPATCH_SOURCES.push(ctx=>{
+  if(!ctx||ctx.reg!==REG.id)return [];
+  const players=allNations().filter(x=>!x.npc&&x.n&&x.n.name&&lthMine(x.n));if(!players.length)return [];
+  const out=[],inW=t=>typeof t==='number'&&t>=ctx.from&&t<ctx.to&&t<=ctx.now,ph=new Map(),joins=[],name=lthName(),kick='The Great Lighthouse';
+  for(const x of players){const w=x.n.lth,mv=x.n.mvAt||0;
+    const seen=(i,t)=>{if(!Number.isInteger(i)||i<0||i>=LTH_N||!inW(t)||t<mv)return;const g=ph.get(i);ph.set(i,{t:g?Math.min(g.t,t):t});};
+    for(const [k,t] of Object.entries(w.fx||{}))seen(+k,t);
+    for(const l of x.n.log||[])if(l&&l.k==='lthr')seen(+l.a,l.t);
+    if(inW(w.t0)&&w.t0>=mv)joins.push({id:x.id,t:w.t0,nm:dspClean(x.n.name,40)});}
+  joins.sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
+  let L=null;try{L=lthState();}catch(e){}
+  if(L&&inW(L.start)&&joins.length&&joins[0].t===L.start){const j=joins.shift();out.push({k:'lth:begun',t:j.t,sec:'culture',kick,h:`Work begins on ${name}`,b:`${j.nm} has sent the first cartloads down to the shore nearest the Great Statue, where ${name.replace(/^The /,'the ')} is to stand. Every phase needs at least ${LTH_HANDS} nations, so the Office of Monuments is asking everyone.`,who:[j.id],w:6,go:'wonder'});}
+  if(joins.length===1)out.push({k:'lth:join:'+joins[0].id,t:joins[0].t,sec:'culture',kick,h:`${joins[0].nm} joins the work on ${name}`,b:`${joins[0].nm} has sent its first gift to the lighthouse. The keeper has written its name in the logbook, under the weather.`,who:[joins[0].id],w:3,go:'wonder'});
+  else if(joins.length>1)out.push({k:'lth:joins',t:joins[0].t,sec:'culture',kick,h:`${joins.length} nations join the work on ${name}`,b:`New names in the keeper’s logbook today: ${list(joins.slice(0,6).map(j=>j.nm))}${joins.length>6?' and more':''}.`,who:joins.slice(0,6).map(j=>j.id),w:4,go:'wonder'});
+  for(const [i,g] of ph){const P=LTH_PH[i],last=i===LTH_N-1,who=players.filter(x=>lthGave(x.n.lth,i)>0).map(x=>x.id);
+    const top=last&&L?L.who.slice(0,3):[];
+    out.push({k:'lth:ph:'+i,t:g.t,sec:last?'front':'culture',kick,h:last?`${cap1(name)} is lit`:`The Great Lighthouse reaches phase ${i+1} of ${LTH_N}: ${P[0].toLowerCase()}`,
+      b:`${P[1]} ${who.length===1?'One nation':who.length+' nations'} gave to this phase.${top.length?` The plaque names ${list(top.map((x,k)=>`${dspClean(x.name,40)} in ${LTH_MEDAL[k]}`))}.`:''}`,who:(top.length?top.map(x=>x.id):who).slice(0,8),w:last?9:5,go:'wonder'});}
   return out;
 });
 

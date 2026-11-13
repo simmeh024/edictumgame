@@ -887,7 +887,7 @@ await FS.keyboard.press('Escape');
 check('Esc leaves full screen', await until(async () => !(await FS.$('.map-wrap.is-full')) && !(await FS.evaluate(() => document.documentElement.classList.contains('map-full-open')))));
 await FS.click('[data-act="answer"][data-id="fd-settle"][data-o="0"]'); await FS.waitForSelector('.result'); await establish(FS); await nav(FS, 'nation');
 /* the capital goes up once the region is known (landWait, bounded): if the map never comes, say what the page was waiting for */
-if (!(await until(() => FS.$('.map-fs-mini'), 30000))) console.log('mini map missing', JSON.stringify(await FS.evaluate(() => ({ mode: G.S.mode, loc: G.S.nation.loc, wait: G.LAND().landWait(), world: Object.keys(G.S.world || {}).length, start: window.__edictum && { state: window.__edictum.state, off: window.__edictum.off, why: window.__edictum.why } }))));
+if (!(await until(() => FS.$('.map-fs-mini'), 30000))) console.log('mini map missing', JSON.stringify(await FS.evaluate(() => ({ mode: G.S.mode, loc: G.S.nation.loc, wait: G.LAND().landWait(), q: G.LAND().landQ(), msg: G.S.mapMsg, world: Object.keys(G.S.world || {}).length, start: window.__edictum && { state: window.__edictum.state, off: window.__edictum.off, why: window.__edictum.why } }))));
 await FS.click('.map-fs-mini');
 check('a nation page’s territory map opens full screen, as a map you can move and zoom', await until(async () => !!(await FS.$('.map-wrap.is-full canvas[data-map="visit"]')) && !!(await FS.$('.map-wrap.is-full [data-act="map-zoom"]')) && await fills()));
 check('its bar names the nation', /Fullview/.test(await text(FS, '.map-fs-bar')));

@@ -1,7 +1,8 @@
 // How far an edict moves a census figure (game/edictum.html, applyEffects): v times the room left in that direction
-// (room/45, at most 1.3). Prosperity (wealth) is gentler at the top, since output follows its square (income): a rich
-// nation lost about 5% of its output to a 2-point cut and gained under 1% from a 2-point rise. Its cuts are never
-// scaled past 1 and its rises keep at least 0.4; every other figure moves as before.
+// (room/45). A rise is scaled by up to 1.3 when the figure has a long way to go; a fall is never scaled past 1, so a
+// high figure no longer loses more than the edict says (Ertastan, 13 Nov 2026: near the top a 2-point rise moved 0.2
+// and a 2-point fall moved 2.6, so edicts did nothing or did harm). Prosperity (wealth) is gentler still at the top,
+// since output follows its square (income): its rises keep at least 0.4.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -22,10 +23,12 @@ vm.runInContext(functions.get('applyEffects') + '\n' + functions.get('income') +
 const after = (k, cur, v) => { const n = {s: {[k]: cur}, policies: {}, budget: {}}; ctx.apply(n, {[k]: v}); return n.s[k]; };
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-9, `${msg}: ${a} vs ${b}`);
 const outPct = (cur, v) => (ctx.income({wealth: after('wealth', cur, v)}) / ctx.income({wealth: cur}) - 1) * 100;
+const FIGURES = ['civil', 'econ', 'pol', 'wealth', 'equal', 'health', 'edu', 'safety', 'crime', 'env', 'relig', 'cons', 'happy', 'mil', 'corrupt', 'tax', 'culture', 'tour', 'sci', 'weird'];
 
 test('a Prosperity cut near the top is not scaled up', () => {
   near(after('wealth', 90, -2), 88, 'cut at 90');
   near(after('wealth', 60, -3), 57, 'cut at 60');
+  near(after('wealth', 100, -2), 98, 'cut at 100');
 });
 test('a Prosperity rise near the top keeps at least 0.4 of its size', () => {
   near(after('wealth', 90, 2), 90.8, 'rise at 90');
@@ -36,11 +39,25 @@ test('Prosperity lower down moves as before', () => {
   near(after('wealth', 30, 2), 32.6, 'rise at 30');
   near(after('wealth', 70, 2), 70 + 2 * 30 / 45, 'rise at 70');
 });
-test('every other figure moves as before', () => {
-  near(after('econ', 90, -2), 87.4, 'econ cut at 90');
-  near(after('econ', 90, 2), 90 + 2 * 10 / 45, 'econ rise at 90');
+test('no figure falls further than the edict says', () => {
+  for (const k of FIGURES) for (const cur of [46, 60, 80, 95, 100]) for (const v of [-1, -2, -3, -5]) {
+    const moved = after(k, cur, v) - cur;
+    assert.ok(moved >= v - 1e-9, `${k} at ${cur}, ${v}: moved ${moved}`);
+  }
+  near(after('econ', 90, -2), 88, 'econ cut at 90 (was 87.4)');
+  near(after('sci', 96, -3), 93, 'science cut at 96 (was 92.1)');
+  near(after('corrupt', 80, -4), 76, 'corruption cut at 80 (was 74.8)');
+});
+test('a fall still eases off near the bottom', () => {
   near(after('happy', 20, -3), 20 - 3 * 20 / 45, 'happy cut at 20');
+  near(after('econ', 45, -2), 43, 'econ cut at 45 is exactly its size');
+  near(after('crime', 9, -2), 9 - 2 * 9 / 45, 'crime cut at 9');
+});
+test('rises move as before', () => {
+  near(after('econ', 90, 2), 90 + 2 * 10 / 45, 'econ rise at 90');
+  near(after('happy', 20, 2), 22.6, 'happy rise at 20 (1.3)');
   near(after('tax', 50, 2), 50 + 2 * 0.6 * 50 / 45, 'tax rises are 0.6');
+  near(after('weird', 10, 2), 10 + 2 * 0.6 * 1.3, 'weirdness rises are 0.6, up to 1.3');
 });
 test('at Prosperity 90 output falls less and rises more than it did', () => {
   const cut = outPct(90, -2), rise = outPct(90, 2);

@@ -208,9 +208,12 @@
   /* development news read and polls voted in, for the achievements (nwr, nwvn, nwd), and the polls whose results
      the bell tells of when they close (nwp) */
   NX_KEYS.nwr = NX_KEYS.nwvn = NX_KEYS.nwd = NX_KEYS.nwp = 1;
+  /* fields this build's game kept without knowing them (a newer build's: game/edictum.html, normalize, d._fk) go to the
+     private half, so a newer build's private field never turns public by way of an older tab; _fk itself is not saved */
   function splitNation(d) {
-    var pub = {}, ext = {}, own = {};
-    Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty') (OWN_KEYS[k] ? own : NX_KEYS[k] ? ext : pub)[k] = d[k]; });
+    var pub = {}, ext = {}, own = {}, fwd = {};
+    if (Array.isArray(d._fk)) d._fk.forEach(function (k) { if (typeof k === 'string') fwd[k] = 1; });
+    Object.keys(d).forEach(function (k) { if (k !== '_rev' && k !== '_dirty' && k !== '_fk') (OWN_KEYS[k] ? own : NX_KEYS[k] || fwd[k] ? ext : pub)[k] = d[k]; });
     if (isObj(d.asm)) {
       ext.asmLocal = {};
       /* the record's own part of the Assembly: past resolutions, terms, the lock, the resolutions it follows (f, fv)
