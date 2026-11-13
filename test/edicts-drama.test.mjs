@@ -31,7 +31,8 @@ test('thirty crises and twenty-four gambles, numbered after every older edict, i
   const a=source.indexOf(START);
   assert(a>source.indexOf('for(const is of CHN_ISSUES)'),'after the chains, so no number moves');
   assert(source.indexOf(END,a+START.length)<=source.indexOf('/* ───────── the browser tab'),'before the browser tab');
-  assert.equal(source.indexOf('ISSUES.push(',source.indexOf(END,a+START.length)),-1,'no edict is added after this section');
+  const later=source.indexOf('ISSUES.push(',source.indexOf(END,a+START.length)),pt=source.indexOf('/* ───────── portraits of state: the court painter');
+  assert(later===-1||(pt>a&&later>pt),'only the court painter’s edict (its own test) is added after this section');
   assert.deepEqual(R,G.map(x=>x.id),'gambles are drawn at random; crises only come by their own clock');
   const split=readFileSync(new URL('../scripts/split-content.mjs',import.meta.url),'utf8');
   assert(/'CRS_ISSUES'/.test(split)&&/'GMB_ISSUES'/.test(split),'the content split carries them');
