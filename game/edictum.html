@@ -45385,13 +45385,16 @@ const LAND_KICK_MS=5000,LAND_WAIT_MS=Math.max(1000,Number(window.EDICTUM_LAND_WA
 let landKick=null,landWaitFrom=0,landKickAt=0;
 function landWait(){
   if(OBS||PV)return '';
-  if(S.mode==='world'){
-    if(worldHeardAt)return '';
-    const now=Date.now();if(!landWaitFrom)landWaitFrom=now;
-    if(now-landWaitFrom<LAND_WAIT_MS)return 'wait';
-    if(landWaitFrom>0){landWaitFrom=-1;console.warn('[edictum] The region did not load; settling and claiming go ahead without it.');}
-    return '';
-  }
+  const w=landWaitWhy();if(w!=='wait')return w;
+  /* every wait is bounded, the region's as much as the start-up's (connect still under way after the sign-in: seen in the
+     core suite on CI, 13 Nov 2026); only 'off', a game the server never reached, waits for a reload */
+  const now=Date.now();if(!landWaitFrom)landWaitFrom=now;
+  if(now-landWaitFrom<LAND_WAIT_MS)return 'wait';
+  if(landWaitFrom>0){landWaitFrom=-1;console.warn('[edictum] The region did not load; settling and claiming go ahead without it.');}
+  return '';
+}
+function landWaitWhy(){
+  if(S.mode==='world')return worldHeardAt?'':'wait';
   if(S.mode!=='local')return '';
   const E=window.__edictum;if(!E||typeof E!=='object')return '';
   if(E.off)return E.why===LAND_LOCAL||LAND_DEV?'':'off';

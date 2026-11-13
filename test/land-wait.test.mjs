@@ -30,9 +30,15 @@ test('online: never for good — after LAND_WAIT_MS it goes ahead, once warned',
   assert.equal(k.warned.length, 1);
   assert.ok(k.ctx.LAND_KICK_MS < k.ctx.LAND_WAIT_MS, 'the region is read again before the wait ends');
 });
-test('offline on the live site: refused until a reload; still starting up: waits', () => {
-  assert.equal(kit({ mode: 'local', E: { off: true, why: 'start-up took too long' } }).wait(), 'off');
-  assert.equal(kit({ mode: 'local', E: { state: 'wait', off: false } }).wait(), 'wait');
+test('offline on the live site: refused until a reload, however long', () => {
+  const k = kit({ mode: 'local', E: { off: true, why: 'start-up took too long' } });
+  assert.equal(k.wait(), 'off'); k.later(10 * k.ctx.LAND_WAIT_MS); assert.equal(k.wait(), 'off');
+});
+test('still starting up (or connecting after the sign-in): waits, but not for good', () => {
+  for (const E of [{ state: 'wait', off: false }, { state: 'done', off: false }]) {
+    const k = kit({ mode: 'local', E }); assert.equal(k.wait(), 'wait', JSON.stringify(E));
+    k.later(k.ctx.LAND_WAIT_MS); assert.equal(k.wait(), '', JSON.stringify(E));
+  }
 });
 test('no server at all, or this computer: its own map, as before', () => {
   assert.equal(kit({ mode: 'local', E: { off: true, why: 'there is no Firebase configuration' } }).wait(), '');
