@@ -68530,6 +68530,70 @@ function dspDom(){
 navAfter=(f=>function(){const r=f.apply(this,arguments);try{dspDom();}catch(e){}return r;})(navAfter);
 
 
+/* ───────── land credits for deeds: crises, gambles, city titles, gold upgrades and trade deals (13 November 2026) ─────────
+   Five kinds of deed pay land credits of their own:
+   - a crisis the player decides in time (not one the cabinet signs): DL_CRS, and DL_CRS_BEST more when a gamble
+     in the crisis came off (the gamble is also a gamble won, below);
+   - a gamble won: DL_GMB, and DL_LONG more when its odds were one in four;
+   - a city title (Town, Great City, Metropolis; see "Round 11, K"): DL_TITLE each;
+   - a building upgraded to gold, its fifth upgrade: DL_GOLD each, for up to DL_GOLD_MAX buildings. The Warehouse has
+     its own track and its own two credits (whLc), and cxUpgradable leaves it out;
+   - trade deals signed: DL_TRADE pays at 10, 50, 100 and 250.
+   The counts come from what the record already keeps for life (dlCount): crises from n.crd and the tally's crs,
+   gambles won from n.gmb.w and the tally's gmb:w:*, crisis gambles won from gmb:crs, wins at one in four from
+   gmb:w:25, signed deals from log:trade; titles from every city's ti and gold from cxUps. n.dlc {c,b,g,l,t,u,r}
+   keeps the most ever paid of each, so a city lost in war, a building pulled down or a tally that runs out of room
+   takes nothing back, and nothing pays twice. A commit hook raises n.dlc and tells of it in one toast; the first time
+   it runs on a record (no n.dlc yet), it pays for everything done before this build, as back pay. */
+const DL_CRS=1,DL_CRS_BEST=1,DL_GMB=1,DL_LONG=2,DL_TITLE=2,DL_GOLD=2,DL_GOLD_MAX=50,DL_TRADE=[[10,2],[50,3],[100,5],[250,10]];
+const DL_KEYS=['c','b','g','l','t','u','r'],DL_TOP={c:100000,b:100000,g:100000,l:100000,t:1000,u:DL_GOLD_MAX,r:DL_TRADE.length};
+function dlOf(n){const o=n&&n.dlc&&typeof n.dlc==='object'?n.dlc:{},r={};for(const k of DL_KEYS)r[k]=Number.isInteger(o[k])&&o[k]>0?Math.min(o[k],DL_TOP[k]):0;return r;}
+/* what the record shows today, each count clamped like n.dlc */
+function dlCount(n,now){
+  const T=(n&&n.tly)||{},tl=k=>Number.isFinite(T[k])&&T[k]>0?Math.floor(T[k]):0;
+  let gw=0;for(const k of Object.keys(T))if(k.startsWith('gmb:w:'))gw+=tl(k);
+  let t=0,u=0;
+  for(const c of (n&&n.cities)||[]){t+=blkTi(c);for(const b of c.b||[]){try{if(b.d<=now&&cxUpgradable(b.k)&&cxUps(b,now)>=CX_UG_MAX)u++;}catch(e){}}}
+  const tr=tl('log:trade'),o={c:Math.max(n.crd|0,tl('crs')),b:tl('gmb:crs'),g:Math.max((n.gmb&&n.gmb.w)|0,gw),l:tl('gmb:w:25'),t,u,r:DL_TRADE.filter(([at])=>tr>=at).length};
+  for(const k of DL_KEYS)o[k]=Math.max(0,Math.min(o[k],DL_TOP[k]));
+  return o;
+}
+function dlValue(o){return DL_CRS*o.c+DL_CRS_BEST*o.b+DL_GMB*o.g+DL_LONG*o.l+DL_TITLE*o.t+DL_GOLD*o.u+DL_TRADE.slice(0,o.r).reduce((s,x)=>s+x[1],0);}
+function deedCredits(n){return !n||n.npc?0:dlValue(dlOf(n));}
+landEarned=(f=>function(n){return f.apply(this,arguments)+deedCredits(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+deedCredits(n);})(earnedAt);
+NORM_HOOKS.push((n,d)=>{const o=d&&d.dlc;if(o&&typeof o==='object'&&!Array.isArray(o)){const r=dlOf({dlc:o});n.dlc={};for(const k of DL_KEYS)if(r[k])n.dlc[k]=r[k];}else delete n.dlc;});
+/* the words for what was paid: a crisis settled by a gamble that came off is told once, with its gamble */
+function dlWhy(a,b){
+  const d={};for(const k of DL_KEYS)d[k]=b[k]-a[k];
+  const P=[],cg=Math.max(0,Math.min(d.c,d.b,d.g)),cgl=Math.min(cg,d.l),og=d.g-cg,ol=d.l-cgl,at4=(x,of)=>x<=0?'':x>=of?' at one in four':`, ${x} at one in four`;
+  if(d.c-cg>0)P.push(`${d.c-cg===1?'a crisis':(d.c-cg)+' crises'} decided in time`);
+  if(cg>0)P.push(`${cg===1?'a crisis':cg+' crises'} decided in time with a gamble that came off${at4(cgl,cg)}`);
+  if(d.b-cg>0)P.push(`${d.b-cg===1?'a crisis gamble':(d.b-cg)+' crisis gambles'} that came off`);
+  if(og>0)P.push(`${og===1?'a gamble':og+' gambles'} won${at4(ol,og)}`);else if(ol>0)P.push(`${ol===1?'a gamble':ol+' gambles'} won at one in four`);
+  if(d.t>0)P.push(d.t===1?'a new city title':d.t+' city titles');
+  if(d.u>0)P.push(d.u===1?'a building upgraded to gold':d.u+' buildings upgraded to gold');
+  if(d.r>0)P.push(`${DL_TRADE[b.r-1][0]} trade deals signed`);
+  return P;
+}
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||!n.name)return [];
+  const first=!n.dlc||typeof n.dlc!=='object',had=dlOf(n),got=dlCount(n,now),next={};
+  for(const k of DL_KEYS)next[k]=Math.max(had[k],got[k]);
+  n.dlc={};for(const k of DL_KEYS)if(next[k])n.dlc[k]=next[k];
+  const add=dlValue(next)-dlValue(had);if(add<=0)return [];
+  const why=list(dlWhy(had,next)),it=add===1?'it':'them',paused=typeof lcPaused==='function'&&lcPaused(n);
+  const m=first?`Back pay for deeds done before they earned land: ${add===1?'a land credit':add+' land credits'} for ${why}. Spend ${it} on the map.`
+    :`${add===1?'A land credit':add+' land credits'} for ${why}. Spend ${it} on the map.`;
+  return [{m,k:'land',go:paused||S.view==='map'?null:{v:'map',l:'Open the map'}}];
+});
+/* Help: the deeds, beside the other ways to earn land */
+function dlHelp(){
+  return `<p><b>Deeds.</b> A crisis you decide in time earns ${DL_CRS} land credit, and ${DL_CRS_BEST} more when a gamble in it comes off. A gamble won earns ${DL_GMB}, or ${DL_GMB+DL_LONG} at odds of one in four. Every city title (Town, Great City, Metropolis) earns ${DL_TITLE}, and every building upgraded to gold earns ${DL_GOLD}, for up to ${DL_GOLD_MAX} buildings. Signing trade deals earns ${list(DL_TRADE.map(([at,k])=>`${k} at ${at}`))}. A city lost or a building pulled down takes none of these back.</p>`;
+}
+landHelp=(f=>function(n){const h=f.apply(this,arguments),i=h.indexOf('<p><b>Lakes.</b>');return i<0?h:h.slice(0,i)+dlHelp()+'\n    '+h.slice(i);})(landHelp);
+
+
 /* ───────── land credits: a toast when one arrives ─────────
    Milestones, cities, ranks and the tutorial tell of the credits they pay, but a credit from population growth used to
    arrive with nothing but the number on Map. tick() now asks lcArrivalCheck: a credit grown while the game is open is
