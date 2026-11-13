@@ -26355,10 +26355,16 @@ COMMIT_HOOKS.push((n,old,now)=>{
     txt+=` Your rank is now ${r1.name}, worth ${k*ACH_RANK_CREDITS} land credits, ${k*RANK_GIFT.iron} iron and ${k*RANK_GIFT.goods} goods.`;}
   return [{m:txt,links:rewardRefs('achievement',got)}];
 });
+/* An achievement this build does not know (a newer build's) is kept as it was, never counted or shown here
+   (achEarnedIds and every walker skip it): an older tab dropped Eternia's new Claims Commissioner, and the land credits
+   it pays, when it saved on 13 Nov 2026. ACH_KEEP_EXTRA bounds how many such ids a record can carry. */
+const ACH_KEEP_EXTRA=400,ACH_ID_RE=/^[a-z0-9][a-z0-9-]{0,47}$/;
 NORM_HOOKS.push((n,d)=>{
   const a=d&&d.ach;if(!a||typeof a!=='object'||Array.isArray(a))return;
-  const o={},lim=Date.now()+DAY;let k=0;
-  for(const id of Object.keys(a).slice(0,ACH.length*2)){const t=a[id];if(ACH_BY_ID[id]&&typeof t==='number'&&isFinite(t)&&t>0){o[id]=Math.min(t,lim);if(++k>=ACH.length)break;}}
+  const o={},lim=Date.now()+DAY,keys=Object.keys(a).slice(0,5000),ok=t=>typeof t==='number'&&isFinite(t)&&t>0;let k=0,x=0;
+  /* the known ones first, so unknown ones can never push one out */
+  for(const id of keys){if(!ACH_BY_ID[id]||k>=ACH.length||!ok(a[id]))continue;o[id]=Math.min(a[id],lim);k++;}
+  for(const id of keys){if(ACH_BY_ID[id]||x>=ACH_KEEP_EXTRA||!ACH_ID_RE.test(id)||!ok(a[id]))continue;o[id]=Math.min(a[id],lim);x++;}
   n.ach=o;
 });
 
@@ -28710,7 +28716,29 @@ NORM_HOOKS.push((n,d)=>{
     if(X>=0){const r=normCities({loc:locOf(X),cv:MAP_VER,cities:[{...d.mvCap,c:X}]});if(r.length){const o={...r[0]};delete o.c;n.mvCap=o;}}}
   if(Array.isArray(d.discArc))n.discArc=d.discArc.filter(e=>e&&num(e.t)&&['lost','traces','found','great'].includes(e.o)).slice(-200).map(e=>({t:e.t,o:e.o,f:e.f?1:0,k:typeof e.k==='string'&&SITE_KINDS[e.k]?e.k:'',nm:typeof e.nm==='string'?e.nm.replace(/[\u0000-\u001f<>]/g,'').slice(0,40):'',reg:typeof e.reg==='string'&&REG_BY_ID[e.reg]?e.reg:'meridian'}));
 });
-function normalize(d){return normalizeR2(remapLegacy(d));}
+/* Forward compatibility (2026-11-13). A record can carry fields from a newer build than this tab's (a tab stays on the
+   build it loaded, for days on a phone). A field no code here reads at load was dropped, and this tab's next save wiped
+   it: a new achievement, a province peak written back by hand. Now loading watches which fields it reads; one it never
+   touches is kept exactly as it was and listed in n._fk, and the save puts those in the private half (src/shim.js,
+   splitNation), so a newer build's private field never turns public by way of an older tab. A field this build reads and
+   leaves out (a value it refuses) stays left out. Bounded: FWD_MAX fields, FWD_SIZE characters in all. */
+/* FWD_NEVER: names that are never data, the shim's own fold of the Assembly (asmLocal), and apw, which every save of
+   this build writes again (commit) and loading never needs: the only field the live records showed as unread (13 Nov) */
+const FWD_MAX=60,FWD_SIZE=120000,FWD_NEVER=new Set(['__proto__','constructor','prototype','asmLocal','apw']);
+function normalize(d){
+  const r=remapLegacy(d);if(!r||typeof r!=='object'||Array.isArray(r))return normalizeR2(r);
+  const seen=new Set(),px=new Proxy(r,{get(t,k,rv){if(typeof k==='string')seen.add(k);return Reflect.get(t,k,rv);},has(t,k){if(typeof k==='string')seen.add(k);return Reflect.has(t,k);}});
+  const n=normalizeR2(px);if(!n||typeof n!=='object')return n;
+  const fk=[];let size=0;
+  for(const k of Object.keys(r)){
+    if(seen.has(k)||k in n||k[0]==='_'||FWD_NEVER.has(k)||fk.length>=FWD_MAX)continue;
+    let s;try{s=JSON.stringify(r[k]);}catch(e){continue;}
+    if(s===undefined||size+s.length>FWD_SIZE)continue;
+    size+=s.length;n[k]=JSON.parse(s);fk.push(k);
+  }
+  if(fk.length)n._fk=fk;else delete n._fk;
+  return n;
+}
 
 /* ───────── moving ───────── */
 /* A move keeps the nation: people, laws, cabinet, treasury, history, honours and museum. The land starts
@@ -43742,8 +43770,8 @@ function updateFoundLoc(){for(const k of ['found-loc','found-loc-fs']){const p=d
 function settle(){
   const cell=S.mapPick;if(cell==null||!S.nation)return;
   /* not before the other nations' land is known: waited for (landTick settles then), or refused while offline */
-  {const w=landWait();if(w){if(w==='wait'){S.landQ=cell;S.mapMsg=landWaitMsg();}else{S.landQ=null;S.mapPick=null;S.mapMsg=landOffMsg();}updateMapPanel();redrawMaps();return;}}
-  S.landQ=null;
+  {const w=landWait();if(w){S.landQk=null;if(w==='wait'){S.landQ=cell;S.mapMsg=landWaitMsg();}else{S.landQ=null;S.mapPick=null;S.mapMsg=landOffMsg();}updateMapPanel();redrawMaps();return;}}
+  S.landQ=null;S.landQk=null;
   const prob=pickProblem(cell,territory());
   if(prob){S.mapMsg=prob;S.mapPick=null;updateMapPanel();redrawMaps();return;}
   const n=clone(S.nation),now=Date.now();
@@ -43965,7 +43993,7 @@ const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Obje
    the start of commit() before the background work: paths set or removed, arrays of objects matched by id, other
    arrays as sets, and resources as what the action spent or gained beyond what accrued. Background work (growth,
    buildings finishing, milestones) is not replayed: the other device's save already holds it. */
-const ACT_SKIP=new Set(['pop','popAt','stock','stockAt','updatedAt','gm','apw','_rev','_dirty','_stockSet']);
+const ACT_SKIP=new Set(['pop','popAt','stock','stockAt','updatedAt','gm','apw','_rev','_dirty','_stockSet','_fk']);
 let ownActs=[],ownActsBroken=0,sentLog=[];
 const actClone=v=>v===undefined?undefined:clone(v);
 const actKey=v=>JSON.stringify(v);
@@ -45536,13 +45564,17 @@ function landWaitWhy(){
 }
 function landWaitMsg(){return `One moment: the map of ${REGION} is still loading the other nations’ land.`;}
 function landOffMsg(){return `Your game can’t reach the other players just now, so it can’t see whose land is whose. Reload the page when your connection is better to place your capital or claim land.`;}
-/* the spot chosen while the region loaded, settled once it is in (if it is still free) */
+/* the spot chosen while the region loaded, settled once it is in (if it is still free). One of the founding edict's
+   places (S.landQk: by the sea, on farmland, in the hills) was found on a map without the others' land: if it turns out
+   taken, the advisors' place of the same kind on the map now takes its place (seen in the core suite, 13 Nov 2026: the
+   capital never went up). A place picked by hand is only ever told it is taken. */
 function landQueued(){
-  const c=S.landQ,n=S.nation;if(c==null||landWait())return;S.landQ=null;
+  const c=S.landQ,n=S.nation,k=S.landQk;if(c==null||landWait())return;S.landQ=null;S.landQk=null;
   if(!n||cellOf(n.loc)>=0)return;
-  const p=pickProblem(c,territory());
+  const T=territory();let at=c,p=pickProblem(c,T);
+  if(p&&k!=null){const c2=fdSites(n,T)[k];if(c2>=0&&!pickProblem(c2,T)){at=c2;p='';}}
   if(p){S.mapMsg=p;toast(`${n.capital} could not go up where you chose. ${p} Choose another place on the Map page.`);render();return;}
-  S.mapPick=c;S.mapMsg='';settle();
+  S.mapPick=at;S.mapMsg='';settle();
 }
 /* This nation's capital stands on land another nation had claimed first (capWrong in territory(): the map leaves it
    off already). Its game takes the nation off the map for good, so the land is free again for everyone (cities,
@@ -47476,7 +47508,7 @@ function found(){
   const pick=cellOf(d.loc),held=pick>=0?landWait():'',cell=held?-1:pick,lost=cell>=0&&!!pickProblem(cell,territory());
   if(cell>=0&&!lost){n.loc=locOf(cell);n.log.unshift({t:now,k:'settle',a:landName(cell)});centerMain(cell,NEAR_Z);}
   commit(normalize(n));
-  if(held==='wait')S.landQ=pick;
+  if(held==='wait'){S.landQ=pick;S.landQk=null;}
   S.view='nation';S.mapMsg='';render();window.scrollTo(0,0);
   toast(held==='off'?fullName(n)+' has been founded. '+landOffMsg():held?fullName(n)+' has been founded. Its capital goes up as soon as the map of '+REGION+' has loaded.':lost?fullName(n)+' has been founded, but its chosen location was just taken. Choose another on the Map page.':fullName(n)+' has been founded.');
 }
@@ -51798,7 +51830,7 @@ answer=(f=>function(id,o){
   if(landWait()==='off'){toast(landOffMsg());return;}
   const T=territory(),c=fdSites(n0,T)[o];
   if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that pin. The advisors have moved their pins: choose again.');return;}
-  const r=f.apply(this,arguments);S.mapPick=c;settle();return r;
+  const r=f.apply(this,arguments);S.mapPick=c;settle();if(S.landQ===c)S.landQk=o;return r;
 })(answer);
 resultView=(f=>function(){const h=f.apply(this,arguments);return S.result&&S.result.id===FD_ID&&S.nation?h.replace('<div class="row">',`<div class="row"><button class="btn" data-act="go" data-v="map">See ${esc(S.nation.name)} on the map</button>`).replace('<button class="btn" data-act="open"','<button class="btn ghost" data-act="open"'):h;})(resultView);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
@@ -51848,7 +51880,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act="fd-p
   if((n.inbox||[]).some(x=>x.id===FD_ID)){answer(FD_ID,k);if(cellOf(S.nation.loc)>=0&&S.view!=='issues'){S.result=null;go('map');}return;}
   const T=territory(),c=fdSites(n,T)[k];
   if(!(c>=0)||pickProblem(c,T)){S.fdSites=null;render();toast('Another nation has just settled or claimed land near that place. Choose again.');return;}
-  S.mapPick=c;settle();if(cellOf(S.nation.loc)>=0)go('map');
+  S.mapPick=c;settle();if(S.landQ===c)S.landQk=k;if(cellOf(S.nation.loc)>=0)go('map');
 });
 /* with the first building: name the capital. Port Alder is only a placeholder, so as soon as the quick first
    building is started, a box under it points to the task on the Nation page's list ("Name your first city"),
@@ -66114,7 +66146,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
