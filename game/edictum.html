@@ -25096,6 +25096,7 @@ function tallyScan(n,old,now){
   const fresh=!n.tly||typeof n.tly!=='object';
   if(fresh){n.tly={};n.tlf={};n.tlx={};old=null;}
   const T=n.tly,F=n.tlf,bump=(k,t,by)=>{if(Object.keys(T).length>=TALLY_MAX&&!(k in T))return;T[k]=(T[k]||0)+(by||1);if(!F[k])F[k]=t||now;};
+  const put=(k,v)=>{if(Object.keys(T).length>=TALLY_MAX&&!(k in T))return;T[k]=v;};   /* a running count (a streak), set rather than added to */
   const sigs=(arr,f)=>new Set((arr||[]).map(f));
   /* the event log */
   const lsig=l=>l.t+'|'+l.k+'|'+(l.a||'')+'|'+(l.b||'')+'|'+(l.fx||''),oldL=sigs(old&&old.log,lsig);
@@ -25108,7 +25109,7 @@ function tallyScan(n,old,now){
    const ds=d=>d.t+'|'+d.r,od=sigs(old&&old.asm&&old.asm.d,ds);for(const d of (n.asm&&n.asm.d)||[])if(d.on&&!od.has(ds(d)))bump('asm:del',d.t);}
   /* decisions, by topic */
   const asig=a=>a.t+'|'+a.id,oldA=sigs(old&&old.answered,asig);
-  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];const isp=/^(pgt|fwk|scd)-/.test(a.id)?a.id.slice(0,3):'';if(a.o<0){bump('dismiss',a.t);if(isp==='scd')bump('dismiss:scd',a.t);continue;}bump('iss',a.t);if(isp)bump('isp:'+isp,a.t);{const d=new Date(a.t);if(d.getMonth()===0&&d.getDate()===1)bump('iss:ny',a.t);}if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);}}
+  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];const isp=/^(pgt|fwk|scd)-/.test(a.id)?a.id.slice(0,3):'';if(a.o<0){bump('dismiss',a.t);if(isp==='scd')bump('dismiss:scd',a.t);continue;}bump('iss',a.t);if(isp)bump('isp:'+isp,a.t);{const d=new Date(a.t);if(d.getMonth()===0&&d.getDate()===1)bump('iss:ny',a.t);}if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);crsTally(a,is,old,T,bump,put);}}
   /* spies */
   const isig=r=>r.t+'|'+r.tg+'|'+r.k,oldI=sigs(old&&old.intel,isig);
   for(const r of n.intel||[]){if(oldI.has(isig(r)))continue;bump('spy',r.t);bump('spy:'+r.k,r.t);}
@@ -65953,6 +65954,71 @@ function gmbReveal(gb,hit,an){
   sfx(won?'win':'lose',r0+roll+40);
   return r0-hit+roll+380;
 }
+
+/* ───────── achievements for crises and gambles (13 November 2026) ─────────
+   What the tally keeps of them (crsTally, called from tallyScan for each new ruling): crises decided by the player
+   (crs, by topic crs:c:<topic>, by crisis crs:i:<id>), those the cabinet signed (crs:cab, the clock running out or
+   "Leave it to the cabinet"), the run of crises decided in a row without the cabinet (crs:run, best crs:best), those
+   decided within ten minutes of reaching the desk (crs:fast) or in the last hour on the clock (crs:late; both read the
+   crisis's arrival from the record before the ruling). Gambles: won and lost by their odds (gmb:w:<pct>, gmb:l:<pct>),
+   won during a crisis (gmb:crs), and the runs of wins and losses (gmb:ws, gmb:ls; best gmb:wb, gmb:lb). Wins and
+   losses overall are n.gmb. Where the last 80 rulings can show it too (answered keeps g and c), the larger count. */
+function crsTally(a,is,old,T,bump,put){
+  if(is.crs){
+    if(a.c===1){bump('crs:cab',a.t);put('crs:run',0);}
+    else{
+      bump('crs',a.t);bump('crs:c:'+is.c,a.t);bump('crs:i:'+a.id,a.t);
+      const r=(T['crs:run']||0)+1;put('crs:run',r);if(r>(T['crs:best']||0))put('crs:best',r);
+      const x=old&&Array.isArray(old.inbox)?old.inbox.find(e=>e&&e.cr&&e.id===a.id&&Number.isFinite(e.at)):null;
+      if(x){if(a.t-x.at<=600e3)bump('crs:fast',a.t);const end=crsDeadline(old,x);if(a.t<=end&&end-a.t<=3600e3)bump('crs:late',a.t);}
+    }
+  }
+  if(a.g===0||a.g===1){
+    const w=a.g===1,k=gmbPct(is,a.o);
+    if(k)bump('gmb:'+(w?'w':'l')+':'+k,a.t);if(w&&is.crs)bump('gmb:crs',a.t);
+    const run=w?'gmb:ws':'gmb:ls',best=w?'gmb:wb':'gmb:lb',r=(T[run]||0)+1;put(run,r);put(w?'gmb:ls':'gmb:ws',0);if(r>(T[best]||0))put(best,r);
+  }
+}
+/* a gamble's odds in a hundred (25, 33, 50, 67, 75 or 80), from the motion that was chosen */
+function gmbPct(is,o){const op=is&&Array.isArray(is.o)?is.o[o]:null;return op&&op.g?Math.round(op.g.p*100):0;}
+const GMB_PCT=Object.keys(GMB_ODDS).map(p=>Math.round(p*100));
+const aCrsRul=a=>!!(ISSUE_BY_ID[a.id]||{}).crs;
+const aCrs=x=>Math.max(x.n.crd|0,aT(x,'crs'),aAns(x,a=>a.o>=0&&a.c!==1&&aCrsRul(a)));
+const aCrsCab=x=>Math.max(aT(x,'crs:cab'),aAns(x,a=>a.c===1&&aCrsRul(a)));
+const aGw=x=>Math.max((x.n.gmb&&x.n.gmb.w)|0,aAns(x,a=>a.g===1)),aGl=x=>Math.max((x.n.gmb&&x.n.gmb.l)|0,aAns(x,a=>a.g===0));
+const aGodds=(x,w,k)=>Math.max(aT(x,'gmb:'+(w?'w':'l')+':'+k),aAns(x,a=>a.g===(w?1:0)&&gmbPct(ISSUE_BY_ID[a.id],a.o)===k));
+/* the longest run of gambles won (w) or lost in a row: the tally's, or the last 80 rulings' */
+function aGrun(x,w){let b=0,r=0;for(const a of x.n.answered||[]){if(a.g!==0&&a.g!==1)continue;r=a.g===(w?1:0)?r+1:0;if(r>b)b=r;}return Math.max(b,aT(x,w?'gmb:wb':'gmb:lb'));}
+/* crises decided by the player: how many of the crises there are, and how many of the ten topics */
+function aCrsMine(x){const s=new Set();for(const a of x.n.answered||[])if(a.o>=0&&a.c!==1&&aCrsRul(a))s.add(a.id);return s;}
+const aCrsSeen=x=>{const s=aCrsMine(x);return CRS_ISSUES.filter(i=>s.has(i.id)||aT(x,'crs:i:'+i.id)>0).length;};
+const aCrsTopics=x=>{const s=new Set([...aCrsMine(x)].map(id=>ISSUE_BY_ID[id].c));return ISSUE_TOPICS.filter(([k])=>s.has(k)||aT(x,'crs:c:'+k)>0).length;};
+achDef('law','cri-1','b','Crisis Management','Decide a crisis yourself before its clock runs out.',1,aCrs);
+achDef('law','cri-10','s','Cool Head','Decide 10 crises yourself.',10,aCrs);
+achDef('law','cri-30','g','Eye of the Storm','Decide 30 crises yourself.',30,aCrs);
+achDef('law','cri-75','p','Weathered Every Storm','Decide 75 crises yourself.',75,aCrs);
+achDef('law','cri-150','x','The Unflappable','Decide 150 crises yourself. Nothing surprises you any more, least of all the weather.',150,aCrs);
+achDef('law','cri-fast','b','Rapid Response','Decide a crisis within ten minutes of it reaching your desk.',1,x=>aT(x,'crs:fast'));
+achDef('law','cri-fast10','s','First on the Scene','Decide 10 crises within ten minutes of them reaching your desk.',10,x=>aT(x,'crs:fast'));
+achDef('law','cri-late','b','Down to the Wire','Decide a crisis in the last hour on its clock.',1,x=>aT(x,'crs:late'),{sec:'Some decisions are best made with the cabinet already reaching for the pen.'});
+achDef('law','cri-topics','s','Every Kind of Trouble','Decide a crisis yourself in each of the ten topics.',ISSUE_TOPICS.length,aCrsTopics);
+achDef('law','cri-all','p','Seen It All Before','Decide every one of the '+CRS_ISSUES.length+' crises yourself at least once.',CRS_ISSUES.length,aCrsSeen);
+achDef('law','cri-run20','g','Never Off Duty','Decide 20 crises in a row yourself, without the cabinet signing one in your name.',20,x=>aT(x,'crs:best'));
+achDef('law','cri-cab','b','The Cabinet Will See to It','Let the cabinet sign a crisis in your name.',1,aCrsCab);
+achDef('law','cri-cab10','s','Government by Committee','Let the cabinet sign 10 crises in your name.',10,aCrsCab,{sec:'Delegation is a skill. Some ministers say it is your only one.'});
+achDef('law','gam-1','b','Fortune Favours the Bold','Win a gamble.',1,aGw);
+achDef('law','gam-10','s','Born Lucky','Win 10 gambles.',10,aGw);
+achDef('law','gam-30','g','Fortune’s Favourite','Win 30 gambles.',30,aGw);
+achDef('law','gam-75','p','The Luck of Nations','Win 75 gambles. The statisticians have asked to see the dice.',75,aGw);
+achDef('law','gam-lose','b','The House Always Wins','Lose a gamble.',1,aGl);
+achDef('law','gam-lose10','s','Good Loser','Lose 10 gambles, and keep a straight face at every one.',10,aGl);
+achDef('law','gam-long','s','Against the Odds','Win a one-in-four gamble.',1,x=>aGodds(x,1,25));
+achDef('law','gam-sure','b','A Sure Thing','Lose a four-in-five gamble.',1,x=>aGodds(x,0,80),{sec:'Even the safest bet goes wrong now and then. It only has to happen to you.'});
+achDef('law','gam-hot','s','Hot Hand','Win three gambles in a row.',3,x=>aGrun(x,1));
+achDef('law','gam-hot5','g','Can’t Lose','Win five gambles in a row.',5,x=>aGrun(x,1));
+achDef('law','gam-cold','s','Snake Eyes','Lose three gambles in a row.',3,x=>aGrun(x,0),{sec:'Luck can turn its back on you more than once in a row.'});
+achDef('law','gam-odds','g','Every Kind of Luck','Win a gamble at each of the six odds, from one in four to four in five.',GMB_PCT.length,x=>GMB_PCT.filter(k=>aGodds(x,1,k)>0).length);
+achDef('law','gam-crs','s','Double or Nothing','Win a gamble in the middle of a crisis.',1,x=>Math.max(aT(x,'gmb:crs'),aAns(x,a=>a.g===1&&aCrsRul(a))));
 
 /* ── the sound of a decision ── */
 const SFX={ctx:null,key:'edictum.sfx'};
