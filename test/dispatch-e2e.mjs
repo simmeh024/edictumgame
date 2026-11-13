@@ -2,7 +2,8 @@
 // reader; the address of an edition; classified advertisements in sections, with a preview, Reply by letter, Report to
 // the moderators, a removal the whole region follows and a Club box the server vouches for; the press office pushing a
 // story up the paper for every reader; an edition filed in the archive (papers/) and read back from it; the
-// Delegate's name and motto (press/); the phone layout; and the press achievements.
+// Delegate's name and motto (press/); the other regions' papers, round the arrows at the top; the phone layout; and
+// the press achievements.
 //   npm run test:dispatch
 import { check, finish, sleep, until, player, open, found, nav, text, errors, clearEmulators, FS_HOST, PROJECT, OUT, nationDoc } from './lib.mjs';
 const shot = (p, name) => p.screenshot({ path: OUT + '/dispatch-' + name + '.png' }).catch(() => {});
@@ -126,6 +127,38 @@ await B.selectOption('#dsp-bk', String(today() - 30));
 check('a back issue nobody filed says so', await until(async () => /was not kept/.test(await text(B, '.dsp-arch')), 8000));
 check('and the address follows', await B.evaluate(() => location.hash) === '#dispatch/' + (today() - 30));
 
+/* ── 5b. the other regions' papers: an arrow at each end of the top goes round them, read from their archives ── */
+const fmNo = today() - 1;
+const fm = { v: 1, title: 'The Fjord Courier', motto: 'Cold news, hot coffee', price: 2, real: 2,
+  lead: { k: 'fm:lead', t: Date.now(), sec: 'politics', kick: 'Exclusive', h: 'Brimvik bans engines on Sundays', b: 'The High Jarldom says the fjords need a day of rest.', who: ['npc-frostmarch-brimvik'], go: 'map', place: 'HJALMHAVN' },
+  second: [], brief: [{ k: 'fm:b1', sec: 'politics', h: 'Herring prices hold', who: [] }], notes: [], secs: [], figs: { rows: [], deals: 0, market: 'Quiet.' },
+  wx: { l: [{ p: 'Hjalmhavn', c: 'Sleet', d: -3 }], season: '' }, scopes: [], letters: [], view: { h: 'On engines', x: 'We like boats.' }, fix: '', m: {} };
+await put(`papers/frostmarch_${fmNo}`, { r: S('frostmarch'), no: I(fmNo), by: S('someone-in-the-frostmarch'), v: I(1), j: S(JSON.stringify(fm)) });
+const rg = await B.evaluate(() => { const n = document.querySelector('.dsp-rg'), p = n && n.querySelector('.dsp-rg-p'), x = n && n.querySelector('.dsp-rg-n'), r = e => e.getBoundingClientRect();
+  return n && p && x ? { left: Math.abs(r(p).left - r(n).left) < 2, right: Math.abs(r(x).right - r(n).right) < 2, top: r(n).bottom <= r(document.querySelector('.dsp-top')).top, prev: p.dataset.v, next: x.dataset.v, named: /Frostmarch/.test(x.textContent) } : null; });
+check('the top of the paper has an arrow at each end, to the regions either side', !!rg && rg.left && rg.right && rg.top && rg.next === 'frostmarch' && !!rg.prev && rg.prev !== 'meridian' && rg.named, JSON.stringify(rg));
+await B.click('.dsp-rg-n');
+check('the focus stays on the arrow', await B.evaluate(() => !!document.activeElement && document.activeElement.classList.contains('dsp-rg-n')));
+check('› opens the next region’s paper on the date the reader was reading', await until(async () => /has no edition of .+ on file/.test(await text(B, '.dsp-arch')), 8000) && await B.evaluate(() => location.hash) === `#dispatch/frostmarch/${today() - 30}`, await text(B, 'main'));
+await B.selectOption('#dsp-bk', '');
+check('another region’s paper comes from its archive: the newest edition on file', await until(async () => await text(B, '#dsp-title') === 'The Fjord Courier', 10000) && /the newest on file/.test(await text(B, '.dsp-live')), (await text(B, 'main')).slice(0, 400));
+check('under that region’s name', /Frostmarch/.test(await text(B, '.dsp-reg')) && await B.$eval('#dsp-rg-sel', s => s.value) === 'frostmarch' && /Back to your region/.test(await text(B, '.dsp-rg-s')));
+check('with no Today button, no press office and no advertisements to place', !(await B.$(`.dsp-ed[data-no="${today()}"]`)) && !(await B.$('.dsp-po')) && !(await B.$('[data-act="dsp-adopen"]')) && /printed only in the copies sold in the Frostmarch/.test(await text(B, '.dsp-cls')));
+check('its stories name nations this page does not hold, without links or pictures', !(await B.$('.dsp-lead [data-act]')) && !(await B.$('article.dsp .dsp-pic')));
+check('and the address names the region', await B.evaluate(() => location.hash) === '#dispatch/frostmarch');
+await shot(B, 'away');
+await B.reload(); await B.waitForSelector('.dsp-rg');
+check('a reload opens that region’s paper again', await until(async () => await text(B, '#dsp-title') === 'The Fjord Courier', 10000));
+await B.click('.dsp-rg-n');
+check('a region with no paper on file says so', await until(async () => /from the past week is on file/.test(await text(B, '.dsp-arch')), 20000), (await text(B, 'main')).slice(0, 300));
+await B.click('.dsp-rg-p');
+check('‹ goes back the other way', await until(async () => await text(B, '#dsp-title') === 'The Fjord Courier', 8000));
+await B.selectOption('#dsp-rg-sel', 'meridian');
+check('the list beside the arrows goes straight to a region', await until(async () => await text(B, '#dsp-title') === 'The Meridian Messenger' && /Live edition/.test(await text(B, '.dsp-live')), 8000) && await B.evaluate(() => location.hash) === '#dispatch');
+await B.click('.dsp-rg-n'); await until(async () => await text(B, '#dsp-title') === 'The Fjord Courier', 8000);
+await B.click('.dsp-rg-s .linkish');
+check('“Back to your region” returns to the reader’s own paper', await until(async () => await text(B, '#dsp-title') === 'The Meridian Messenger' && !!(await B.$('[data-act="dsp-adopen"]')), 8000) && await B.evaluate(() => location.hash) === '#dispatch');
+
 /* ── 6. a phone ── */
 await B.setViewportSize({ width: 390, height: 844 }); await B.click(`.dsp-ed[data-no="${today()}"]`); await sleep(400);
 const secs = await B.$$eval('.dsp-sec', l => l.map(s => s.classList.contains('shut')));
@@ -136,6 +169,11 @@ if (folded.length) { await B.click(`.dsp-bar-b[data-to="dsp-s-${folded[0]}"]`);
   check('the bar opens a folded section on the way', await B.$eval(`#dsp-s-${folded[0]}`, h => !h.closest('.dsp-sec').classList.contains('shut'))); }
 check('nothing on the page is wider than the phone', await B.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 await shot(B, 'phone');
+await B.evaluate(() => window.scrollTo(0, 0)); await sleep(200);
+const rgPhone = await B.evaluate(() => { const n = document.querySelector('.dsp-rg'), p = n.querySelector('.dsp-rg-p'), x = n.querySelector('.dsp-rg-n'), r = e => e.getBoundingClientRect(), nm = e => getComputedStyle(e.querySelector('.dsp-rg-nm')).display;
+  return { ends: Math.abs(r(p).left - r(n).left) < 2 && Math.abs(r(x).right - r(n).right) < 2, row: Math.abs(r(p).top - r(x).top) < 2, big: r(p).width >= 40 && r(p).height >= 40, names: nm(p) + '/' + nm(x) }; });
+check('on a phone the arrows keep to the two ends, without the region names', rgPhone.ends && rgPhone.row && rgPhone.big && rgPhone.names === 'none/none', JSON.stringify(rgPhone));
+await shot(B, 'phone-top');
 
 /* ── 7. the press achievements ── */
 check('placing an advertisement and pushing a story earn their achievements', await until(() => A.evaluate(() => !!(G.S.nation.ach && G.S.nation.ach['press-ad'] && G.S.nation.ach['press-spin'])), 15000));
