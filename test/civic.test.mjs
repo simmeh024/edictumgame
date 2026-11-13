@@ -876,6 +876,54 @@ test('Region chat staff: the team writes in any region, staff silence a player e
   assert.ok(un&&un.actor===staff.uid);
 });
 
+test('Region chat pictures: only an admin posts one, with words or alone, the picture kept beside the line and gone with it',async()=>{
+  const r=await player(true),mod=await player(true),staff=await player(true);
+  await auth.setCustomUserClaims(mod.uid,{mod:true});await auth.setCustomUserClaims(staff.uid,{admin:true});
+  const b64=(head,n)=>Buffer.concat([Buffer.from(head),Buffer.alloc(n-head.length,7)]).toString('base64');
+  const th='data:image/webp;base64,'+b64([...Buffer.from('RIFF'),1,2,3,4,...Buffer.from('WEBPVP8 ')],2000);
+  const full='data:image/jpeg;base64,'+b64([0xff,0xd8,0xff,0xe0],600*1024);
+  const pic={th,w:440,h:248,d:full,fw:1920,fh:1080};
+  // a player or a moderator cannot; an admin can, as their nation, with no words
+  await assert.rejects(civic(r,{op:'rcPost',x:'Look',pic}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(mod,{op:'rcPost',team:true,reg:'meridian',x:'Look',pic}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(staff,{op:'rcPost',pic:{...pic,d:'data:image/svg+xml;base64,PHN2Zy8+'}}),e=>e.code==='rc_pic'&&e.status==='INVALID_ARGUMENT');
+  await assert.rejects(civic(staff,{op:'rcPost',pic:{...pic,d:'data:image/jpeg;base64,'+b64([0xff,0xd8,0xff,0xe0],701*1024)}}),e=>e.code==='rc_pic');
+  const a=await civic(staff,{op:'rcPost',x:'   ',pic});
+  const line=(await db.doc('rchat/meridian/chat/'+a.id).get()).data(),kept=(await db.doc('rcimg/meridian/chat/'+a.id).get()).data();
+  assert.equal(line.x,'');assert.equal(line.st,'admin');assert.equal(line.a,staff.uid);
+  assert.deepEqual(line.im,{s:th,w:440,h:248,fw:1920,fh:1080,k:'jpeg'});
+  assert.equal(kept.d,full);assert.equal(kept.a,staff.uid);assert.equal(kept.k,'jpeg');assert.equal(kept.t,line.t);assert.equal(kept.exp.toMillis(),line.exp.toMillis());
+  // the same picture again at once is a repeat; with other words it is not
+  await new Promise(res=>setTimeout(res,1600));
+  await rejects(civic(staff,{op:'rcPost',pic}),'rc_same');
+  const b=await civic(staff,{op:'rcPost',x:'The new harbour, as promised.',pic});
+  assert.equal((await db.doc('rchat/meridian/chat/'+b.id).get()).get('x'),'The new harbour, as promised.');
+  // an answer to a picture says it was one; a mention of it in the bell names a picture
+  await new Promise(res=>setTimeout(res,1600));
+  const ans=await civic(r,{op:'rcPost',x:'Lovely!',re:a.id});
+  const rr=(await db.doc('rchat/meridian/chat/'+ans.id).get()).get('r');assert.equal(rr.im,true);assert.equal(rr.x,'');
+  await new Promise(res=>setTimeout(res,1600));
+  const c=await civic(staff,{op:'rcPost',re:ans.id,pic});
+  const mn=(await db.collection('mentions/'+r.uid+'/m').where('rc','==',c.id).get()).docs[0];
+  assert.ok(mn&&mn.get('x')==='📷 A picture'&&mn.get('rp')===true);
+  // as the team, in another region
+  await new Promise(res=>setTimeout(res,1600));
+  const tl=await civic(staff,{op:'rcPost',team:true,reg:'frostmarch',x:'Frostmarch from above',pic});
+  assert.equal((await db.doc('rcimg/frostmarch/chat/'+tl.id).get()).get('a'),staff.uid);
+  // removed by its writer, by staff, or from the Reports queue: the picture goes with the line, and the audit log says it had one
+  await civic(staff,{op:'rcDelete',reg:'meridian',id:a.id});
+  assert.equal((await db.doc('rchat/meridian/chat/'+a.id).get()).exists,false);assert.equal((await db.doc('rcimg/meridian/chat/'+a.id).get()).exists,false);
+  await civic(mod,{op:'rcDelete',reg:'frostmarch',id:tl.id});
+  assert.equal((await db.doc('rcimg/frostmarch/chat/'+tl.id).get()).exists,false);
+  const au=(await db.collection('adminAudit').where('line','==',tl.id).get()).docs[0];assert.equal(au.get('pic'),true);assert.equal(au.get('x'),'Frostmarch from above');
+  const console2=await sign('signInWithCustomToken',{token:await auth.createCustomToken(staff.uid,{admin:true})});
+  await call(console2,'adminConsole',{op:'moderate',action:'delete_post',target:'rc:meridian:'+b.id,reg:'meridian',reason:'Spam or advertising'});
+  assert.equal((await db.doc('rchat/meridian/chat/'+b.id).get()).exists,false);assert.equal((await db.doc('rcimg/meridian/chat/'+b.id).get()).exists,false);
+  // and with the account: the picture is a 'chat' document with its author
+  const gone=(await db.collectionGroup('chat').where('a','==',staff.uid).get()).docs.map(d=>d.ref.path);
+  assert.ok(gone.includes('rcimg/meridian/chat/'+c.id),gone.join());
+});
+
 test('Region chat: answers quote their line and tell its writer, @mentions tell the nations of the region named, reactions are one per nation, and go with the account',async()=>{
   const r=await player(true),o=await player(true),far=await player(true,false,'frostmarch'),g=await player();
   const l1=await civic(r,{op:'rcPost',x:'Grain for sale, cheap.'});

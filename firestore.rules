@@ -489,6 +489,12 @@ service cloud.firestore {
       allow read: if isAdmin() || signedIn() && region(reg)
         && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg;
     }
+    // the picture an admin's line carries (rcimg/{reg}/chat/{line} {a, d, k, t, exp}): read as its line is, written only by
+    // the server
+    match /rcimg/{reg}/chat/{id} {
+      allow read: if isAdmin() || signedIn() && region(reg)
+        && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg;
+    }
     match /rcPace/{uid} { allow read, write: if false; }
     // rcNote/{uid} {t}: when the player was last sent a push about a chat mention (functions/letters.js), server-only
     match /rcNote/{uid} { allow read, write: if false; }

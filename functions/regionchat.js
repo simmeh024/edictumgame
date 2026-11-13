@@ -33,7 +33,11 @@ import DATA from './civic-data.json' with { type: 'json' };
    RC_REACT per nation per line, kept as rv {uid: kind} on the line; rcForget takes a nation's away with its account.
    A nation founded a moment ago is welcomed in its region's chat (rcHello, which its game asks once the new record is
    saved): a line {a: the new nation's uid, nm, x, t, exp, sys: 'found'} that the game draws as an announcement with a
-   Welcome button (see rcHello for when it is written). */
+   Welcome button (see rcHello for when it is written).
+   An admin's line may carry a picture (rcPost pic, see rcPicIn): the line keeps a small copy for the chat to show,
+   im {s, w, h, fw, fh, k}, and the picture itself is rcimg/{reg}/chat/{id} {a, d, k, t, exp} under the line's id, read
+   only when a reader opens it. rcimg's collection is a 'chat' collection too, with the author in `a` and the same `exp`,
+   so the time-to-live policy, an account's deletion and an admin's removal of a nation take it with the lines. */
 export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -54,6 +58,37 @@ export function rcSilence(data, now) {
 }
 const whenText = ms => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
+/* pictures (admins only). The game draws each picture anew on a canvas (nothing of a camera's metadata goes with it)
+   and sends two data URLs: th, the small copy the line shows (JPEG, PNG or WebP, at most RC_THUMB_MAX bytes and
+   RC_THUMB_SIDE pixels a side), and d, the picture (those or a GIF, kept as sent so it still moves; at most RC_PIC_MAX
+   bytes, which with base64 keeps its document under Firestore's 1 MiB, and RC_PIC_SIDE pixels a side). The server checks
+   each is what it says it is, by its first bytes, and keeps the sizes the game measured only to lay the picture out. */
+export const RC_IMG_KINDS = ['jpeg', 'png', 'webp', 'gif'], RC_THUMB_MAX = 48 * 1024, RC_PIC_MAX = 700 * 1024, RC_THUMB_SIDE = 640, RC_PIC_SIDE = 4096;
+const MAGIC = {
+  jpeg: b => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  png: b => b.length > 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  gif: b => b.length > 6 && /^GIF8[79]a$/.test(b.subarray(0, 6).toString('latin1')),
+  webp: b => b.length > 12 && b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP'
+};
+/* a data URL of a picture of one of `kinds`, at most `max` bytes, whose bytes are that kind: {kind, size}, or null */
+export function rcPicData(s, max, kinds = RC_IMG_KINDS) {
+  if (typeof s !== 'string' || s.length > Math.ceil(max / 3) * 4 + 40) return null;
+  const m = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/.exec(s);
+  if (!m || !kinds.includes(m[1]) || m[2].length % 4) return null;
+  const b = Buffer.from(m[2], 'base64');
+  return b.length && b.length <= max && MAGIC[m[1]](b) ? { kind: m[1], size: b.length } : null;
+}
+const px = (v, max) => Number.isInteger(v) && v >= 1 && v <= max ? v : 0;
+/* the picture a line carries, from rcPost's pic {th, w, h, d, fw, fh}: {im, d, kind} or, for anything else, a refusal */
+export function rcPicIn(p) {
+  const bad = () => { throw new HttpsError('invalid-argument', 'That picture cannot be posted. Choose a PNG, JPEG, WebP or GIF picture.', { code: 'rc_pic' }); };
+  if (!p || typeof p !== 'object' || Array.isArray(p)) bad();
+  const th = rcPicData(p.th, RC_THUMB_MAX, ['jpeg', 'png', 'webp']), full = rcPicData(p.d, RC_PIC_MAX);
+  const w = px(p.w, RC_THUMB_SIDE), h = px(p.h, RC_THUMB_SIDE), fw = px(p.fw, RC_PIC_SIDE), fh = px(p.fh, RC_PIC_SIDE);
+  if (!th || !full || !w || !h || !fw || !fh) bad();
+  return { im: { s: p.th, w, h, fw, fh, k: full.kind }, d: p.d, kind: full.kind };
+}
+
 /* how long the player must wait before another line: a second and a half after the last, at most RC_MINUTE in any
    minute and `hour` in any hour (RC_HOUR, or RC_GUEST_HOUR for a guest). p: the times of their lines (ms), newest last */
 export function rcWait(p, now, hour = RC_HOUR) {
@@ -67,7 +102,10 @@ export function rcWait(p, now, hour = RC_HOUR) {
 
 async function rcPost(db, who, d, regions) {
   const x = line(d.x, RC_TEXT), team = d.team === true, re = d.re ? id20(d.re) : '';
-  if (!x) throw new HttpsError('invalid-argument', 'Write something first.');
+  /* a picture: an admin's alone, with or without words */
+  if (d.pic != null && !who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can post pictures in the chat.');
+  const pic = d.pic != null ? rcPicIn(d.pic) : null;
+  if (!x && !pic) throw new HttpsError('invalid-argument', 'Write something first.');
   if (team) staffOnly(who);
   if (d.re && !re) throw new HttpsError('invalid-argument', 'Choose a line to answer.');
   const asked = [...new Set(Array.isArray(d.mn) ? d.mn.map(uidOf).filter(u => u && u !== who.uid) : [])].slice(0, RC_MN);
@@ -90,14 +128,16 @@ async function rcPost(db, who, d, regions) {
       throw new HttpsError('failed-precondition', `Guests can send ${RC_GUEST_HOUR} lines an hour. You can write again in ${m} ${m === 1 ? 'minute' : 'minutes'}, or link a sign-in to chat freely.`, { code: 'rc_guest', wait: w, max: RC_GUEST_HOUR });
     }
     if (wait > 0) throw new HttpsError('failed-precondition', `Slow down a little. You can write again in ${Math.ceil(wait / 1000)} ${Math.ceil(wait / 1000) === 1 ? 'second' : 'seconds'}.`, { code: 'rc_paced', wait });
-    const h = hash(sameKey(x)), last = recent.length ? recent[recent.length - 1] : 0;
+    /* the same words again, or the same picture with the same words */
+    const h = hash(sameKey(x) + (pic ? '#' + pic.im.s.length + pic.im.s.slice(-48) : '')), last = recent.length ? recent[recent.length - 1] : 0;
     if (ps.exists && ps.get('h') === h && now - last < RC_SAME) refuse('rc_same', 'You just wrote that.');
     /* the line answered: in the same chat, still there */
     let r = null;
     if (re) {
       const rs = await tx.get(db.doc('rchat/' + reg + '/chat/' + re));
       if (!rs.exists) refuse('rc_gone', 'That line is no longer in the chat.');
-      r = { id: re, a: line(rs.get('a'), 128), nm: rs.get('tm') === true ? 'Edictum team' : line(rs.get('nm'), 80) || 'A nation', x: line(rs.get('x'), 90), ...(rs.get('tm') === true ? { tm: true } : {}) };
+      r = { id: re, a: line(rs.get('a'), 128), nm: rs.get('tm') === true ? 'Edictum team' : line(rs.get('nm'), 80) || 'A nation', x: line(rs.get('x'), 90),
+        ...(rs.get('tm') === true ? { tm: true } : {}), ...(rs.get('im') ? { im: true } : {}) };
     }
     /* the nations mentioned: of this region, named after an @, not blocking the writer; and the author answered */
     const low = x.toLowerCase(), mn = {}, toTell = new Map();
@@ -111,9 +151,11 @@ async function rcPost(db, who, d, regions) {
     });
     const ref = db.collection('rchat/' + reg + '/chat').doc(), me = team ? 'Edictum team' : line(e.saved.get('name'), 80) || 'A nation';
     tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), h });
-    tx.create(ref, { a: who.uid, nm: me, x, t: now, exp: Timestamp.fromMillis(now + RC_KEEP),
-      ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}) });
-    for (const [u, rp] of toTell) tx.create(db.collection('mentions/' + u + '/m').doc(), { k: 'chat', by: who.uid, nm: me, reg, rc: ref.id, x: line(x, 160), t: now, ...(rp ? { rp: true } : {}) });
+    const exp = Timestamp.fromMillis(now + RC_KEEP);
+    tx.create(ref, { a: who.uid, nm: me, x, t: now, exp,
+      ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(pic ? { im: pic.im } : {}) });
+    if (pic) tx.create(db.doc('rcimg/' + reg + '/chat/' + ref.id), { a: who.uid, d: pic.d, k: pic.kind, t: now, exp });
+    for (const [u, rp] of toTell) tx.create(db.collection('mentions/' + u + '/m').doc(), { k: 'chat', by: who.uid, nm: me, reg, rc: ref.id, x: line(x, 160) || '📷 A picture', t: now, ...(rp ? { rp: true } : {}) });
     tell = [...toTell].map(([u, rp]) => ({ u, rp, nm: me }));
     return { ok: true, id: ref.id, reg, t: now, ...(Object.keys(mn).length ? { mn } : {}), ...(guest ? { guest: true, left: Math.max(0, RC_GUEST_HOUR - recent.length - 1), gt: recent.concat(now).slice(-RC_GUEST_HOUR) } : {}) };
   });
@@ -158,9 +200,10 @@ export async function rcDelete(db, who, d, regions) {
   if (s.get('a') !== who.uid && !staff) throw new HttpsError('permission-denied', 'You can only delete your own lines.');
   const b = db.batch();
   b.delete(ref);
+  if (s.get('im')) b.delete(db.doc('rcimg/' + reg + '/chat/' + id));
   if (s.get('a') !== who.uid) {
     b.create(db.collection('adminAudit').doc(), { actor: who.uid, action: 'chat_delete', outcome: 'completed', at: FieldValue.serverTimestamp(),
-      target: line(s.get('a'), 128), name: line(s.get('nm'), 80), reg, line: id, x: line(s.get('x'), RC_TEXT), reason: line(d.reason, 300) || 'Removed from the region chat' });
+      target: line(s.get('a'), 128), name: line(s.get('nm'), 80), reg, line: id, x: line(s.get('x'), RC_TEXT), ...(s.get('im') ? { pic: true } : {}), reason: line(d.reason, 300) || 'Removed from the region chat' });
     const report = typeof d.report === 'string' && /^[\w-]{1,128}$/.test(d.report) ? d.report : '';
     if (report) b.delete(db.doc('reports/' + report));
   }
@@ -186,8 +229,13 @@ async function rcMute(db, who, d, regions) {
   let removed = 0;
   if (d.wipe === true && reg) {
     const qs = await db.collection('rchat/' + reg + '/chat').where('a', '==', uid).get();
-    const old = qs.docs.filter(s => Number(s.get('t')) > now - RC_WIPE && s.get('tm') !== true).slice(0, 450);
-    if (old.length) { const b = db.batch(); old.forEach(s => b.delete(s.ref)); await b.commit(); removed = old.length; }
+    /* one batch: a line with a picture is two deletes */
+    const old = []; let writes = 0;
+    for (const s of qs.docs) {
+      if (!(Number(s.get('t')) > now - RC_WIPE && s.get('tm') !== true)) continue;
+      const k = s.get('im') ? 2 : 1; if (writes + k > 450) break; old.push(s); writes += k;
+    }
+    if (old.length) { const b = db.batch(); old.forEach(s => { b.delete(s.ref); if (s.get('im')) b.delete(db.doc('rcimg/' + reg + '/chat/' + s.id)); }); await b.commit(); removed = old.length; }
   }
   const b = db.batch();
   b.set(db.doc('rcMute/' + uid), { until, ...(hours ? {} : { perm: true }), why, by: who.uid, t: now, nm, reg: home });
