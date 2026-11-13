@@ -23,6 +23,7 @@ test('the game and the server share the levels, officers, projects and renown ru
   assert.equal(G.officers, R.AL_OFFICERS);
   assert.deepEqual(G.projects, R.AL_PROJECTS);
   assert.deepEqual(G.xp, R.AL_XP);
+  assert.equal(G.places, R.AL_PLACES);
   assert.deepEqual(Object.keys(constOf('AL_TYPES')), R.AL_TYPES);
   assert.deepEqual(Object.keys(constOf('AL_ACCESS')), R.AL_ACCESS);
 });
@@ -38,8 +39,36 @@ test('levels and member places agree at every renown and Hall level', () => {
       assert.equal(ctx.alPlaces({ xp, pj: { hall } }), R.alPlaces(xp, { hall }), `places at ${xp} with a Hall of ${hall}`);
     }
   assert.equal(R.alLevel(7500), 10);
-  assert.equal(R.alPlaces(0, {}), 6);
-  assert.equal(R.alPlaces(7500, { hall: 3 }), 30);
+  /* fifteen nations from the start, players and computer nations alike */
+  assert.equal(R.alPlaces(0, {}), 15);
+  assert.equal(R.alPlaces(7500, { hall: 3 }), 39);
+});
+
+test('the three later buildings: Beacon Towers, the Alliance Academy and the Hall of Chronicles', () => {
+  for (const k of ['beacon', 'academy', 'chronicle']) {
+    assert.ok(R.AL_PROJECTS[k], k + ' is a project');
+    assert.equal(R.AL_PROJECTS[k].max, 3, k);
+    assert.ok(R.AL_PROJECTS[k].lv[0] >= 2, k + ' waits for a grown alliance');
+  }
+  /* every project has a name and a line in the game */
+  const PJ = vm.runInNewContext('(' + html.slice(html.indexOf('{', html.indexOf('const AL_PJ=')), html.indexOf('};', html.indexOf('const AL_PJ=')) + 1) + ')');
+  assert.deepEqual(Object.keys(PJ).sort(), Object.keys(R.AL_PROJECTS).sort());
+  for (const [k, v] of Object.entries(PJ)) assert.ok(v[0] && v[1], k);
+  /* what each does for a member, through the game's alFx */
+  const at = html.indexOf('let alFxMemo='), end = html.indexOf('\n}\n', html.indexOf('function alFx(')) + 3;
+  assert.ok(at > 0 && end > at, 'alFx is found');
+  const fxOf = (ty, pj) => {
+    const D = { ty, pj }, A = { srv: true, members: ['me'], doc: D };
+    const ctx = vm.createContext({ AL_RULES: G, AL: { rev: 0 }, polMemo: { k: Math.random() }, allianceOf: () => A, num0: v => Number(v) || 0, clamp: (v, a, b) => Math.max(a, Math.min(b, v)) });
+    vm.runInContext(html.slice(at, end).replace(/^(const|let) /gm, 'var '), ctx);
+    return ctx.alFx('me');
+  };
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const none = fxOf('culture', {}), b2 = fxOf('culture', { beacon: 2 }), a3 = fxOf('culture', { academy: 3 }), over = fxOf('culture', { beacon: 9, academy: 9 });
+  assert.ok(near(b2.def - none.def, 0.08) && near(b2.defHelp - none.defHelp, 0.4), 'Beacon Towers: 4% and a fifth a level');
+  assert.ok(near(a3.prosper - none.prosper, 0.045), 'the Academy: 1.5% prosperity a level');
+  assert.ok(near(over.def - none.def, 0.12) && near(over.prosper - none.prosper, 0.045), 'never past the last level');
+  assert.ok(near(fxOf('def', { beacon: 1 }).def, 0.14), 'on top of a defence pact');
 });
 
 test('each project can be built level by level, and asks for no more than the levels allow', () => {

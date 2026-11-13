@@ -19,13 +19,20 @@ check('the admin’s own nation is saved in the Meridian Reach', await saved(A) 
 const raw = p => p.evaluate(() => localStorage.getItem('statehood.nation.v1'));
 const doc = path => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { headers: { authorization: 'Bearer owner' } }).then(r => r.json());
 const stamp = async uid => { const [s, x] = await Promise.all([doc('nations/' + uid), doc('nationx/' + uid)]); return JSON.stringify([s.updateTime, s.fields?.rev, x.updateTime]); };
+/* which fields of two stored copies differ, to say what changed when a check fails */
+const changed = (a, b) => { try { const x = JSON.parse(a || '{}'), y = JSON.parse(b || '{}'); return [...new Set([...Object.keys(x), ...Object.keys(y)])].filter(k => JSON.stringify(x[k]) !== JSON.stringify(y[k])).join(',') || 'none'; } catch (e) { return 'unreadable'; } };
 
 // In from Region control
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-regions"]');
 check('Region control offers to observe another region, not the admin’s own', await until(async () => !!await A.$('[data-act="obs-go"][data-id="frostmarch"]')) && !await A.$('[data-act="obs-go"][data-id="meridian"]'));
-const before = await raw(A), beforeRev = (await localNation(A))._rev, beforeServer = await stamp(uidA);
+const beforeRev = (await localNation(A))._rev, beforeServer = await stamp(uidA);
 check('both halves of the record are on the server', !/undefined|null/.test(beforeServer), beforeServer);
 await Promise.all([A.waitForEvent('load'), A.click('[data-act="obs-go"][data-id="frostmarch"]')]); await ready(A);
+/* The page that was left may still have kept a change of its own as it closed (a commit not yet sent; obsEnter only
+   sends a pending save). From here on, observing, nothing may write this browser's copy, which is still the admin's own
+   nation at the same revision, not the stand-in. */
+const before = await raw(A), kept = JSON.parse(before || 'null');
+check('this browser still keeps the admin’s own nation, at the same revision', kept?.name === 'Adminland' && kept?._rev === beforeRev, JSON.stringify([kept?.name, kept?._rev, beforeRev]));
 const bar = () => text(A, '.obs-bar');
 check('a bar says which region is observed, read-only, with the way back', await until(async () => /Observing Frostmarch — read-only/.test(await bar()) && /Return to my nation/.test(await bar()), 15000), await bar());
 check('the page is the Frostmarch’s, opened on its map', await until(async () => await A.evaluate(() => G.S.view === 'map' && G.MAP && document.querySelector('.brand-sub')?.textContent.includes('Frostmarch'))));
@@ -75,7 +82,7 @@ const tries = await A.evaluate(async uid => {
 }, uidA);
 check('the save adapter refuses a nation save, a board post, the Assembly and other writes', tries === 'read_only,read_only,read_only,read_only', tries);
 await sleep(11000); // a clock tick or two
-check('this browser’s copy of the admin’s nation is untouched while observing', await raw(A) === before);
+{ const now = await raw(A); check('this browser’s copy of the admin’s nation is untouched while observing', now === before, changed(before, now)); }
 check('and so is the server’s record', await stamp(uidA) === beforeServer, await stamp(uidA));
 check('nothing was posted on the region’s board', (await restGet('boards/frostmarch/posts')).body?.documents == null);
 
@@ -91,7 +98,7 @@ check('the region’s players see it with the team’s initial and staff badge, 
 check('the admin’s nation, which is elsewhere, is not named on it', !/Adminland/.test(await text(B, '.posts')));
 await A.click('.post.rmb-team [data-act="del-post"]'); await A.click('[data-act="del-post-yes"]');
 check('the observing admin removes a message from the board', await until(async () => (await restGet('boards/frostmarch/posts')).body?.documents == null && !/Welcome to the Frostmarch/.test(await text(B, '#rgn-p-board'))));
-check('and the admin’s nation is still untouched', await raw(A) === before && await stamp(uidA) === beforeServer, await stamp(uidA));
+{ const now = await raw(A), st = await stamp(uidA); check('and the admin’s nation is still untouched', now === before && st === beforeServer, changed(before, now) + ' ' + st); }
 await A.screenshot({ path: OUT + '/observe-portal.png', fullPage: true });
 
 // Back home

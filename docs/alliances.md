@@ -31,6 +31,13 @@ asking, leaving and giving work for guests too.
   pays renown for each member who played, each trade deal between members, each gift between members, each battle
   fought in an ally's war and each call to arms answered. It also removes members whose nations are gone and computer
   members whose values drifted from the leader's. Joining and giving also earn renown.
+- **Places.** An alliance starts with 15 member places (players and computer nations alike), two more for each level of
+  renown and two more for each level of the Alliance Hall: at most 39.
+- **Projects.** Alliance Hall (places), Shared Granary (growth), Common Market (deal flow and a slot), Joint Fleet (attacks
+  across the sea), Arsenal of the Alliance (army), Embassy Row (gift goodwill), and three later ones: Beacon Towers
+  (levels 2/4/6: members' land 4% harder to take a level, defending allies count a fifth more a level), Alliance Academy
+  (levels 3/5/8: prosperity +1.5% a level) and Hall of Chronicles (levels 2/4/7: the daily tally earns 10% more renown a
+  level, `parts.chron` in the tally's log). The game applies the members' effects in `alFx`; the server only the tally's.
 - **Rules shared with the game.** `functions/alliance-rules.js` holds levels, places, projects and renown values; the game
   keeps a copy in `AL_RULES`. `test/alliances.test.mjs` fails if they differ.
 

@@ -398,7 +398,7 @@ async function alPostDel(db, who, d) {
    member who played, each trade deal between members, each gift between members, each battle fought in an ally's war
    and each call to arms answered since the last tally (at most two days back). Members whose nations are gone leave,
    computer nations whose values have drifted from the leader's leave, and a leader away for 7 days hands over to the
-   longest-serving officer or member who has played in that time. */
+   longest-serving officer or member who has played in that time. A Hall of Chronicles adds a tenth a level. */
 async function alTally(db, who, d) {
   return db.runTransaction(async tx => {
     await eligibility(tx, who, { linked: false });
@@ -435,6 +435,9 @@ async function alTally(db, who, d) {
     }
     const L = recs.get(A.ld);
     if (L) for (const id of Object.keys(A.npc)) if (npcAffinity(id, L) < AL_ALLY_MIN - 10) { delete A.npc[id]; tx.delete(ix(db, id)); logged(A, { k: 'npcleft', a: id, b: NPC.get(id)?.name || id }); }
+    /* the Hall of Chronicles: a tenth more a level, rounded */
+    const chron = Math.round(xp * AL_XP.chron * clamp(Number(A.pj.chronicle) || 0, 0, AL_PROJECTS.chronicle.max));
+    if (chron > 0) { xp += chron; parts.chron = chron; }
     A.xp = (A.xp || 0) + xp; A.tt = now;
     if (xp) logged(A, { k: 'tally', x: String(xp), b: JSON.stringify(parts) });
     tx.update(ref, { mem: A.mem, npc: A.npc, ld: A.ld, xp: A.xp, tt: A.tt, log: A.log });
