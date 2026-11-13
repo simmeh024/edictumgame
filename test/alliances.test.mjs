@@ -36,6 +36,9 @@ test('founding an alliance opens at 7.5 million people, in the game and on the s
   assert.match(html, /\{p:10,c:3,b:\['oilwell','fortress'\],war:1\},/);
   assert.doesNotMatch(html, /alli:1\}/);
   assert.match(html, /function featureAt\(f\)\{if\(FEATURE_AT\[f\]\)return FEATURE_AT\[f\];/);
+  /* the Diplomacy guide names each threshold on its own: war still opens at 10 million */
+  assert.match(html, /Founding an alliance opens at \$\{fmtPopShort\(goal\)\} people, and declaring war at \$\{fmtPopShort\(featureAt\('war'\)\)\}\./);
+  assert.doesNotMatch(html, /Founding an alliance and declaring war open at/);
 });
 
 test('levels and member places agree at every renown and Hall level', () => {
