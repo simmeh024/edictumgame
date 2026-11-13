@@ -8096,6 +8096,16 @@ button.rgc-pic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pti-claret:#ec9aa6;--pti-navy:#9db7ee;--pti-forest:#7cc49c;--pti-violet:#c3a9f2;--pti-slate:#b4bfcc;--pti-copper:#eba071}}
 :root[data-theme="dark"]{--pti-claret:#ec9aa6;--pti-navy:#9db7ee;--pti-forest:#7cc49c;--pti-violet:#c3a9f2;--pti-slate:#b4bfcc;--pti-copper:#eba071}
 .cv-bw .F{fill:var(--sheet)}
+.cv-bw .s{stroke:currentColor;stroke-width:.7;stroke-linejoin:round}
+.cv-bw .m{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.cv-bw .n{fill:none;stroke:currentColor;stroke-linecap:round}
+.pt-o{position:relative;flex:1;min-width:0}
+.pt-o output{display:block;font-weight:500}
+.pt-o output::after{content:"\25BE";margin-left:6px;color:var(--ink-3);font-size:11px}
+.pt-o:hover output{color:var(--accent)}
+.pt-sel{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;border:0}
+.pt-o:has(.pt-sel:focus-visible){outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.pt-skin.pt-eng{background:repeating-linear-gradient(-45deg,var(--sw) 0 2px,var(--sheet) 2px 4px)}
 .cv-med.pt-big{width:168px;height:168px}
 .pt-nk{font-style:italic;font-weight:500;color:var(--ink-2)}
 .pt-cap{margin-top:6px;font-size:13.5px;color:var(--ink-2)}
@@ -8122,7 +8132,7 @@ button.rgc-pic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pt-row:last-child{border-bottom:0}
 .pt-rl{font-weight:600;font-size:13.5px}
 .pt-step{display:flex;align-items:center;gap:10px;min-width:0}
-.pt-step output{flex:1;min-width:0;font-weight:500}
+.pt-step>output{flex:1;min-width:0;font-weight:500}
 .pt-arw{flex:none;width:32px;height:32px;border:1px solid var(--rule-2);border-radius:50%;background:var(--sheet);cursor:pointer;font:600 17px/1 var(--f-body);color:var(--ink-2)}
 .pt-arw:hover{border-color:var(--accent);color:var(--accent)}
 .pt-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;background:var(--sheet-2);color:var(--ink-3);font:600 10.5px/1.5 var(--f-body);letter-spacing:.03em;vertical-align:1px;white-space:nowrap}
@@ -70777,8 +70787,8 @@ HELP_EXT.push({k:'nationpage',t:'Your nation page, as others see it',body:n=>`<p
 /* ───────── portraits of state: the faces of the government, as the player wants them (13 November 2026) ─────────
    The Government page's medallions (cvMed) stay what they were: a bust in profile in one ink, cut with paper-coloured
    lines, inside a guilloche ring. A saved look only overrides what the sitter's name draws (ptBust; an empty look is
-   the same face as before): hair (ten kinds, four of them new), nose, chin and brow, facing, grey hair, facial hair,
-   headwear, dress and one detail. The head of government also chooses an ink, a ring and an earned nickname.
+   the same face as before): skin (engraved in the one ink, or a skin colour), hair (twenty kinds, fourteen of them
+   new), nose, chin and brow, facing, grey hair, facial hair, headwear, dress and one detail. The head of government also chooses an ink, a ring and an earned nickname.
    Customise › Portraits edits them (and "Edit portrait" on every cabinet card opens it there). The record:
      n.rpt  the head of government {s: the seed the face was first drawn from, pinned when the leader is renamed so
             the face stays; l: look; i: ink (PT_INKS); r: ring (PT_RING_N); k: nickname (PT_NICKS); f: the portfolio
@@ -70788,10 +70798,11 @@ HELP_EXT.push({k:'nationpage',t:'Your nation page, as others see it',body:n=>`<p
      n.ptu  pieces earned in play (PT_LOCK), private
      n.ptz  the current leader's term: the tallies when it began and the nicknames earned since, private
      n.cuS  each past leader also keeps p, their portrait on their last day in office, for the Museum
-   A look's keys (PT_ROWS): h hair, n nose, c chin, b brow, f facing, g grey hair, e facial hair, w headwear, d dress,
+   A look's keys (PT_ROWS): s skin (PT_SKIN; 0 is the engraving in one ink), h hair, n nose, c chin, b brow, f facing, g grey hair, e facial hair, w headwear, d dress,
    x detail. h and d default to what the name draws; the others to 0. */
 const PT_ROWS=[
-  ['h','Hair',['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided']],
+  ['s','Skin',['Engraved','Pale','Fair','Light','Golden','Olive','Tan','Brown','Deep brown']],
+  ['h','Hair',['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided','Bald','Curly','Ponytail','Bob','Pompadour','Receding','Locs','Long waves','Cornrows','Long plait']],
   ['n','Nose',['As drawn','Small','Straight','Bold','Roman']],
   ['c','Chin',['As drawn','Soft','Even','Firm']],
   ['b','Brow',['As drawn','Flat','Even','Heavy']],
@@ -70799,9 +70810,11 @@ const PT_ROWS=[
   ['g','Grey hair',['With age','Early','Always','Never']],
   ['e','Facial hair',['None','Full beard','Chin beard','Moustache','Waxed moustache','Mutton chops']],
   ['w','Headwear',['None','Laurel wreath','Crown','Bicorne','Top hat','Military cap','Turban','Beret','Plumed hat','Liberty cap','Mortarboard']],
-  ['d','Dress',['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office']],
+  ['d','Dress',['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office','Sash of state','White tie','Mandarin collar','Wrap robe','Breastplate']],
   ['x','Detail',['None','Monocle','Spectacles','Earring','Scar','Order star','Medal']]];
 const PT_ROW_BY=Object.fromEntries(PT_ROWS.map(r=>[r[0],r]));
+/* skin colours: [the skin, the engraver's lines on it]. The same in both themes, as skin is */
+const PT_SKIN=[null,['#f3dccb','#a3705a'],['#eac4a4','#94603f'],['#deae88','#87543a'],['#d29b6a','#7a4824'],['#bf9a6b','#6a4f2e'],['#a77349','#5a3519'],['#87532f','#2c1406'],['#5c3722','#120602']];
 /* tall headwear shrinks the bust a little, so the hat stays inside the ring */
 const PT_HAT_S=[1,1,.92,.9,.82,.96,.92,1,.88,.92,.95];
 const PT_RING_N=['Guilloche','Fine guilloche','Laurel','Beaded','Plain'];
@@ -70877,36 +70890,91 @@ const ptCuts=(list,w,o)=>list.map(a=>ptTp(a[0],a[1],a[2],a[3],a[4],a[5],a[6]||w,
 const ptCut=(list,w,op,o)=>`<path class="f" d="${ptCuts(list,w,o)}"${op?` fill-opacity="${op}"`:''}/>`;
 const PT_RT={root:1};
 const PT_BUSTS=new Map();
+/* a stretch of cvSmooth's outline, from point i0 to point i1 (going round), drawn exactly as the whole outline draws it */
+function ptSeg(P,i0,i1){const n=P.length,q=i=>P[((i%n)+n)%n];let s='';
+  for(let i=i0,k=0;((i%n)+n)%n!==i1&&k<n;i++,k++){const a=q(i-1),b=q(i),c=q(i+1),e=q(i+2);
+    s+=`C${cvF(b[0]+(c[0]-a[0])/6)} ${cvF(b[1]+(c[1]-a[1])/6)} ${cvF(c[0]-(e[0]-b[0])/6)} ${cvF(c[1]-(e[1]-b[1])/6)} ${cvF(c[0])} ${cvF(c[1])}`;}
+  return s;}
+const ptPt=p=>cvF(p[0])+' '+cvF(p[1]);
+/* lines in the skin's own darker tone, and lines in the ink (metal on the skin) */
+const ptM=(d,c,w,a)=>`<path class="m" d="${d}" stroke="${c}" stroke-width="${w}" stroke-opacity="${a==null?.8:a}"/>`;
+const ptN=(d,w,a)=>`<path class="n" d="${d}" stroke-width="${w}" stroke-opacity="${a==null?.9:a}"/>`;
+/* the curls of curly hair, where the hair is (not over the face or the ear) */
+const PT_CURLS=(()=>{const o=[];for(let r=0,y=19.4;y<56;y+=2.5,r++)for(let x=29.6+(r%2)*1.4;x<63;x+=2.8){
+  const dd=Math.hypot(x-46.6,y-33.6),back=x<41&&y>=36&&y<=55&&x>=32.6+(y-40)*.12;
+  if(!(dd<14.2||back)||x>54.2&&y>26.2||y>38.4&&x>43.6-(y-44)*.3||y>36&&x>51)continue;const j=o.length*2.399;o.push([cvF(x-.6+Math.sin(j)*.55),cvF(y+Math.cos(j*1.7)*.5),o.length%3===1]);}return o;})();
+/* a braid: lobes tilted one way and the other along a curve (points from ptQ), w(t) its half-width */
+function ptBraid(Q,w){let d='';Q.forEach((p,i)=>{const t=i/(Q.length-1),ww=w(t),sd=i%2?1:-1,a=p.a+sd*38,r=a*Math.PI/180,c=Math.cos(r),sn=Math.sin(r),rx=ww*.92,ry=ww*.44;
+  const x=p.x-p.ty*sd*ww*.4,y=p.y+p.tx*sd*ww*.4;d+=`M${cvF(x-rx*c)} ${cvF(y-rx*sn)}A${cvF(rx)} ${cvF(ry)} ${cvF(a)} 1 0 ${cvF(x+rx*c)} ${cvF(y+rx*sn)}A${cvF(rx)} ${cvF(ry)} ${cvF(a)} 1 0 ${cvF(x-rx*c)} ${cvF(y-rx*sn)}Z`;});return d;}
+/* the ten newer kinds of hair (10 to 19): the crown and back of the outline, the hair's own outline, and cover: the hair
+   hides the ear */
+function ptHairNew(hair,bk,nk){
+  const SB=[[24.4,75.4],[37.4+nk*.3,69.6],[39+nk*.3,62.2],[35.6+bk,55],[33.4+bk,45]],SH=[[38.8,61],[35.6+bk,55],[33.4+bk,45]];
+  const HL=[[60,31.2],[57.4,33.6],[55.4,37.6],[54.6,43.4],[52.8,42.4],[50.2,40.2],[47.2,40.4],[45.6,43.6],[45.2,49],[43.4,54.8],[40.8,59.8]];
+  const sleek=[[35.6+bk,34.8],[40.6,27.8],[48.5,24.4],[56.4,25.9],[61.2,30.8]],tight=[[35.6+bk,35],[40.8,28.4],[48.5,25.3],[56,27.2],[61,31.6]],full=[[33.4+bk,33.6],[39,25.4],[48.5,21.8],[57.6,23.6],[61.8,29.6]];
+  if(hair===10){const crown=[[35.8+bk,35.4],[40.4,28.8],[48.2,25.6],[55.8,26.8],[60.6,31.2]];
+    return {crown,back:SB,hp:[...SH,[34.2+bk,39.4],[38.4,38],[43,39],[46.8,40.4],[45.6,43.6],[45.2,49],[43.4,54.8],[40.8,59.8]]};}
+  if(hair===11){const c=[];for(let i=0;i<=12;i++){const a=(165+i*170/12)*Math.PI/180,r=15.8+(i%2?-.8:.5);c.push([46.6+r*Math.cos(a),33.6+r*Math.sin(a)]);}c.push([62.4,31.4]);
+    const back=[[24.4,75.4],[37.4+nk*.3,69.6],[39+nk*.3,62.2],[34.4+bk,56.6],[31.2+bk*.6,48.4]];
+    return {crown:c,back,hp:[[38.6,61.4],[34.4+bk,56.6],[31.2+bk*.6,48.4],...c,[61.6,31.8],[58.6,33.6],[56.4,37.6],[55.6,43],[53,42.6],[50.4,40.4],[47.2,40.6],[45.4,43.6],[45,49],[43.2,55],[40.6,60.2]]};}
+  if(hair===12||hair===19)return {crown:sleek,back:SB,hp:[...SH,...sleek,...HL]};
+  if(hair===13){const crown=[[33.4+bk,34.4],[38.6,25.8],[48.5,21.8],[57.8,23.4],[62.6,28.6],[63.8,33.6]];
+    const back=[[24.4,75.4],[37.4+nk*.3,69.6],[39.6+nk*.3,63.4],[39.4,60.4],[32.8+bk*.6,59.4],[31+bk*.8,48]];
+    return {crown,back,cover:1,hp:[[32.8+bk*.6,59.4],[31+bk*.8,48],...crown,[63.2,34.8],[60.4,35],[57.6,35.8],[56.2,38.8],[55.6,43.4],[55.2,48.4],[54.6,53.4],[53.4,58.4],[47,60],[40,60.4]]};}
+  if(hair===14){const crown=[[35.6+bk,34.6],[39.8,27.4],[46.6,22.6],[54.4,18.6],[61.4,17.8],[65.2,21.2],[64.4,26],[61.2,30.4]];return {crown,back:SB,hp:[...SH,...crown,...HL]};}
+  if(hair===15)return {crown:tight,back:SB,hp:[...SH,tight[0],tight[1],[47.6,25.5],[52,26.1],[51,30],[51.2,34],[53.4,38.4],[54.6,43.4],...HL.slice(4)]};
+  if(hair===16){const back=[[22.6,77.2],[30.2,73.4],[29.4,64.4],[30.4,55.2],[32+bk*.6,45.4]];
+    return {crown:full,back,hp:[[30.2,73.4],[29.4,64.4],[30.4,55.2],[32+bk*.6,45.4],...full,...HL.slice(0,8),[45,49.6],[43,56],[40.2,62.6],[37,69],[33.4,73.4]]};}
+  if(hair===17){const crown=[[33+bk,33.4],[38.6,25],[48.5,21.4],[57.8,23.2],[62,29.4]],back=[[20.6,79.6],[27.4,77.6],[25.6,68.4],[28.8,60.6],[27.6,52.6],[31.6+bk*.6,44.6]];
+    return {crown,back,cover:1,hp:[[27.4,77.6],[25.6,68.4],[28.8,60.6],[27.6,52.6],[31.6+bk*.6,44.6],...crown,[60,31.2],[57,34],[55,38.6],[54.4,44],[52.6,49.6],[50.6,55.4],[48.6,60.6],[45.2,65.6],[42.8,71.4],[38,76.2],[31.6,79]]};}
+  return {crown:tight,back:SB,hp:[...SH,...tight,...HL]};
+}
 /* the bust as layers in drawing order: class k ink, g silver hair, l paper lines, f paper cuts, F paper.
    old: grey hair (the caller decides it from the age and the look's g). Returns {lay, s: the hat's scale, f: facing,
    d: the silhouette, h: the hair} */
 function ptBust(seed,look,old){
   const L=look||{},key=String(seed)+'|'+JSON.stringify(L)+'|'+(old?1:0);if(PT_BUSTS.has(key))return PT_BUSTS.get(key);
-  const B=ptBase(seed),bk=B.bk,nk=B.nk,hair=L.h!=null?L.h:B.hair,D=L.d!=null?L.d:B.col,H=L.w||0,X=L.x||0,E=L.e||0;
+  const B=ptBase(seed),bk=B.bk,nk=B.nk,hair=L.h!=null?L.h:B.hair,D=L.d!=null?L.d:B.col,H=L.w||0,X=L.x||0,E=L.e||0,SK=L.s?PT_SKIN[L.s]:null;
   let nose=B.nose,chin=B.chin,brow=B.brow,bridge=0,tipY=0;
   if(L.n){nose=[0,-1.5,0,1.6,1.3][L.n];if(L.n===4){bridge=1.6;tipY=.8;}}
   if(L.c)chin=[0,-1.3,0,1.5][L.c];
   if(L.b)brow=[0,-.9,0,1.2][L.b];
-  const ch=[0,1,2,3,4,5,3,0,4,0][hair];
-  const crown={
+  const NH=hair>=10?ptHairNew(hair,bk,nk):null,ch=NH?-1:[0,1,2,3,4,5,3,0,4,0][hair];
+  const crown=NH?NH.crown:{
     0:[[35.5+bk,34.5],[40.5,27.5],[48.5,24],[56.5,25.6],[61.3,30.6]],
     1:[[35.2+bk,34.8],[40.5,27.6],[48.5,24.2],[56.5,25.8],[61.3,30.6]],
     2:[[34.4+bk,34],[40,27],[48.5,23.6],[56.8,25.3],[61.4,30.4]],
     3:[[33.4+bk,33.6],[39,25.4],[48.5,21.8],[57.6,23.6],[61.8,29.6]],
     4:[[35.6+bk,35],[40.8,28.4],[48.5,25.3],[56,27.2],[61,31.6]],
     5:[[35.3+bk,34.6],[40.4,27.3],[48.8,23.4],[57.8,23.4],[62.4,28.8]]}[ch];
-  const back=ch===2?[[23,76.4],[31,72.6],[30.6,64.5],[31.4,55.5],[32.6+bk*.6,45.5]]:[[24.4,75.4],[37.4+nk*.3,69.6],[39+nk*.3,62.2],[35.6+bk,55],[33.4+bk,45]];
+  const back=NH?NH.back:ch===2?[[23,76.4],[31,72.6],[30.6,64.5],[31.4,55.5],[32.6+bk*.6,45.5]]:[[24.4,75.4],[37.4+nk*.3,69.6],[39+nk*.3,62.2],[35.6+bk,55],[33.4+bk,45]];
   const face=[[63.6+brow,37],[62.9+bridge,40.2],[67.4+nose,45.5+tipY],[64.2,47.6],[64.9,49.7],[63.9,51],[64.5,52.5],[62.8,54.3],[63.6+chin,57.2],[60.2,60],[56.6+nk*.3,61],[56.4+nk*.3,66.5],[60,71.6],[72.6,77],[90,85.6],[98,101],[2,101],[8,85.4]];
-  let d=cvSmooth([...back,...crown,...face]);
+  const PP=[...back,...crown,...face];let d=cvSmooth(PP);
   const bun=`M${cvF(35.2+bk-5.2)} 32.4A5.2 5.2 0 1 1 ${cvF(35.2+bk+5.2)} 32.4A5.2 5.2 0 1 1 ${cvF(35.2+bk-5.2)} 32.4Z`;
   if(hair===1)d+=bun;
   const hl=ch===2?[[60,31.2],[57.2,34],[55.2,38.6],[54.2,44],[53.2,50],[51,56.2],[46.6,63],[40.6,68.6],[34.6,71.2]]:[[60,31.2],[57.4,33.6],[55.4,37.6],[54.6,43.4],[52.8,42.4],[50.2,40.2],[47.2,40.4],[45.6,43.6],[45.2,49],[43.4,54.8],[40.8,59.8]];
-  const hp=ch===4?[[36.2+bk,38.6],[33.4+bk,45],[35.6+bk,55],[39,61],[40.8,57.4],[39.2,50],[38.8,43.4]]:[...(ch===2?[[30.8,72],[30.6,64.5],[31.4,55.5],[32.6+bk*.6,45.5]]:[[38.8,61],[35.6+bk,55],[33.4+bk,45]]),...crown,...hl];
+  const hp=NH?NH.hp:ch===4?[[36.2+bk,38.6],[33.4+bk,45],[35.6+bk,55],[39,61],[40.8,57.4],[39.2,50],[38.8,43.4]]:[...(ch===2?[[30.8,72],[30.6,64.5],[31.4,55.5],[32.6+bk*.6,45.5]]:[[38.8,61],[35.6+bk,55],[33.4+bk,45]]),...crown,...hl];
   let h=cvSmooth(hp);if(hair===1)h+=bun;
-  const wig=hair===6,grey=!!old||wig,HR=grey?ptG:ptK,lay=[ptK(d)];
-  if(grey)lay.push(ptG(h));
+  const wig=hair===6,grey=!!old||wig,HR=grey?ptG:ptK,lay=[ptK(d)],earOn=NH?!NH.cover:ch!==2&&!wig;
+  if(SK){
+    /* a skin colour: the bust in the skin, outlined in the ink; the face's features in the skin's darker tone; then
+       the clothes (the outline below the neckline, drawn exactly as the bust draws it) and the hair in the ink */
+    const fi=back.length+crown.length,fr=D===2||D===12?fi+13:fi+11,end=ptPt(PP[fr]);
+    const neck=D===2?`Q52 86 ${end}`:D===12?`Q46 73 62 79.6L${end}`:`Q47 72.8 ${end}`;
+    const ink=SK[1],br=brow*.4;
+    lay.push(`<path class="s" d="${d}" fill="${SK[0]}"/>`,
+      ptM(`M57.8 38.9Q60.2 37.5 ${cvF(62.6+br)} 38.4`,ink,.8,.9),
+      `<path d="M59.1 41.5Q60.5 40.4 61.9 41.2Q60.6 42.3 59.1 41.5Z" fill="#f7f0e6" fill-opacity=".92"/><path d="${ptC(61,41.35,.52)}" fill="${ink}"/>`,
+      ptM('M58.9 41.5Q60.5 40.2 62 41.1',ink,.62,.95),ptM('M59.3 42Q60.5 42.6 61.7 41.8',ink,.35,.5),ptM('M63.1 46.3Q63.8 47.3 64.9 46.7',ink,.45,.75),ptM('M61.3 51.5Q62.6 51.7 63.9 51.1',ink,.55,.85),
+      ptM('M47.4 51.8Q51.4 57.6 57.6 60.5',ink,.45,.35),ptM('M44.8 56.8Q46.4 62 46.2 67.6',ink,.4,.3),
+      `<path class="c" d="M${end}${ptSeg(PP,fr,1)}${neck}Z"/>`);
+    /* cropped hair is only the back in silver; in the skin colour it covers the crown */
+    const hs=ch===4?cvSmooth([[38.8,61],[35.6+bk,55],[33.4+bk,45],...crown,[60,31.2],[57.4,33.6],[55.4,37.6],[54.6,43.4],[52.8,42.4],[50.2,40.2],[47.2,40.4],[45.6,43.6],[45.2,49],[43.4,54.8],[40.8,59.8]]):h;
+    lay.push(grey?ptG(hs):`<path class="c" d="${hs}"/>`);
+  }
+  else if(grey)lay.push(ptG(h));
   /* the ear, unless the hair covers it */
-  if(ch!==2&&!wig)lay.push(ptL('M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2',.9));
+  if(earOn)lay.push(SK?ptM('M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2',SK[1],.85,.85)+ptM('M48.7 44.4c1.1-.1 1.5.8 1.3 1.7',SK[1],.45,.6):ptL('M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2',.9));
   /* hair: the powdered wig's side curls and combing, a tied queue, a topknot, a braid over the crown */
   if(wig){
     const spi=(x,y)=>`M${x} ${y}m-1.5 0a1.5 1.5 0 1 1 1.5 1.5a.9.9 0 1 1 .2-1.2`;
@@ -70928,6 +70996,41 @@ function ptBust(seed,look,old){
       if(i<P.length-1){const sd=i%2?1:-1;pl+=ptLeaf(p.x-p.ty*sd*.55-p.tx*1.5,p.y+p.tx*sd*.55-p.ty*1.5,p.a+sd*38,3.6,1.25);}});
     lay.push(ptL(e1+e2,.35,.45),ptL(pl,.55,.9));
   }
+  /* the newer hair: a bald pate's shine, curls, a ponytail, a bob's strands, a pompadour's sweep, a receding hairline, locs,
+     waves, cornrows and a long plait */
+  if(hair===10){lay.push(ptL('M41.4 30.8Q47 27.4 53.8 28.6',.8,.3));if(!SK&&!grey)lay.push(ptL(`M${cvF(34.4+bk)} 39.6Q40 36.6 46.6 40.4`,.4,.35));}
+  if(hair===11){let cu='';for(const [x,y,t] of PT_CURLS)cu+=t?`M${x} ${y}a1.05 1.05 0 1 0 1.4 -.8`:`M${x} ${y}a1.1 1.1 0 1 1 1.5 .9`;lay.push(ptL(cu,.42,.55));}
+  if(hair===12){const b=bk*.8,X=x=>cvF(x+b);
+    lay.push(HR(`M${X(37.8)} 31.2C${X(31.2)} 31.2 ${X(26.6)} 36.6 ${X(25.8)} 44.4C${X(25.2)} 50.8 ${X(26.8)} 56.8 ${X(29.8)} 61.2C${X(30.2)} 55.8 ${X(30.8)} 50.4 ${X(32.6)} 45.4C${X(33.8)} 41.8 ${X(35.8)} 38.8 ${X(38.2)} 36.6Z`),
+      ptCut([[36.2+b,32.8,29.6+b,36.4,27.8+b,45],[36.6+b,34.6,30.8+b,39.6,28.8+b,51],[37+b,36,31.6+b,43,29.8+b,57]],.42,.85,PT_RT),
+      ptL(`M${X(37)} 30.8Q${X(38.8)} 33.6 ${X(38.2)} 36.8`,1.2,.9),ptCut([[58.4,28.8,49,24.8,39.4,31.4],[57.6,32.6,48,28.6,39,34.6]],.3,.5));}
+  if(hair===13)lay.push(ptCut([[36.4,29.4,33.8,42,35,57],[41.6,25.6,39.2,40,40,57.8],[47.4,23.6,45.8,40,46.4,58.2],[52.8,24.4,51,40,51.4,58]],.4,.55),
+    ptCut([[60.8,25.6,62.6,29.8,62.8,33.8],[57.8,24.4,59.4,29.6,59.6,34.6],[54.6,24.2,55.6,30,55.6,35.6]],.32,.7));
+  if(hair===14)lay.push(ptCut([[38.8,33.2,46.4,25.4,58.8,20.2],[40.8,35.8,49.4,28.6,62.2,23.2],[44.4,37.8,52.4,31.6,61.8,27.6]],.34,.6),ptCut([[57.4,19.6,63.6,18.8,64.4,23.6]],.3,.8));
+  if(hair===15&&!SK&&!grey)lay.push(ptL('M52 26.2Q50.8 30.2 51.2 34Q51.8 36.8 53.4 38.6',.45,.4));
+  if(hair===16){
+    const ropes=[[34.6+bk*.6,46,27.2,58,25.6,70.6],[36.6+bk*.6,38.4,28.6,52,26.8,76.2],[38.8,41,31.6,55,30,79.6],[41.4,43.6,35.4,58,34,81.2],[43.8,47.6,39.2,61,38.2,81.8],[45.6,52.6,42.4,64,42.2,78.6],[37,33.4,30.6,44,30.2,63.4]];
+    let body='',tw='',ed='';
+    for(const [x0,y0,cx,cy,x1,y1] of ropes){const Q=ptQ([x0,y0],[cx,cy],[x1,y1],19),A=[],Z=[];
+      Q.forEach((p,i)=>{const t=i/(Q.length-1),w=1.12*Math.min(1,.35+t*5.5)*(t>.84?Math.sqrt(Math.max(.12,(1-t)/.16)):1),nx=-p.ty,ny=p.tx;
+        A.push(ptR2(p.x+nx*w)+' '+ptR2(p.y+ny*w));Z.push(ptR2(p.x-nx*w)+' '+ptR2(p.y-ny*w));
+        if(i>2&&i<Q.length-2)tw+=`M${cvF(p.x+nx*w*.92)} ${cvF(p.y+ny*w*.92)}Q${cvF(p.x+p.tx*.45)} ${cvF(p.y+p.ty*.45)} ${cvF(p.x-nx*w*.92+p.tx*1.15)} ${cvF(p.y-ny*w*.92+p.ty*1.15)}`;});
+      body+='M'+A.join('L')+'L'+Z.slice().reverse().join('L')+'Z';ed+='M'+A.slice(3).join('L')+'M'+Z.slice(3).join('L');}
+    lay.push(HR(body),ptL(ed,.3,.45),ptL(tw,.32,.55));
+  }
+  if(hair===17)lay.push(ptL('M41 25.6C33.6 34 35.4 44 31.4 51.6C28.4 57.6 31.6 63 30.2 70M47 23.6C40.2 32.6 41.2 43 37.4 50.6C34.8 56.6 38.2 63.4 36.4 72.4M53.2 24C47.4 33 47.6 42.4 44.6 50C42.6 55.4 45 61.2 43.2 67.4M36.4 30C31.4 37.6 31.8 44.6 29.6 50.4',.5,.55));
+  if(hair===18){
+    const rows=[[[58.4,30.2],[48.4,21.6],[36.6+bk,36.4]],[[56.6,33.2],[47,25.6],[35.4+bk,43.6]],[[54.8,37.2],[45.8,30.4],[36.4+bk,50.6]]];let pl='';
+    for(const [a,c,b] of rows)pl+=ptBraid(ptQ(a,c,b,15),()=>1.05);
+    lay.push(ptL(pl,.4,.8),ptL(`M59.2 31.9Q48 23.2 ${cvF(35+bk)} 40M57.1 35.4Q46.6 28 ${cvF(35.2+bk)} 47.2`,.35,.45));
+  }
+  if(hair===19){
+    const wf=t=>2.35-.85*t,Q=ptQ([36.8+bk*.6,42],[26.8,58],[29,80],24),A=[],Z=[];
+    Q.forEach((p,i)=>{const w=wf(i/(Q.length-1)),nx=-p.ty,ny=p.tx;A.push(ptR2(p.x+nx*w)+' '+ptR2(p.y+ny*w));Z.push(ptR2(p.x-nx*w)+' '+ptR2(p.y-ny*w));});
+    const e=Q[Q.length-1],tuft=ptCuts([[e.x,e.y,e.x-.6,e.y+2.2,e.x-1.8,e.y+4.6],[e.x,e.y,e.x+.2,e.y+2.4,e.x+.4,e.y+5],[e.x,e.y,e.x+1,e.y+2,e.x+2.4,e.y+4.2]],.75,PT_RT);
+    const pl='M'+A.join('L')+'L'+Z.slice().reverse().join('L')+'Z';
+    lay.push(HR(pl+tuft),ptL(pl,.4,.7),ptL(ptBraid(Q.slice(0,-1),t=>wf(t*.96)),.42,.85),ptL(`M${A[A.length-1]}L${Z[Z.length-1]}`,1.1,.9));
+  }
   /* facial hair: a shaped mass with a lobed edge, and tapered strands cut into it */
   const mous='M60.6 48.2C62.4 47 65.6 46.9 67.4 48.4C68.2 49.6 67.8 51.2 66.8 52.2C65.8 51 64.2 50.6 62.4 50.8C61.4 50.6 60.8 49.6 60.6 48.2Z';
   if(E===1)lay.push(HR('M52 40C53 44.4 55.6 48.4 59.4 50.2L61.4 51.2C62.8 51.8 64.2 52 65.2 52.6C66.8 53.4 67.6 55.4 67.2 57.4C67.8 59 67.4 61 66.2 62.2C66.2 64 64.6 65.8 62.6 66.4C61.2 67.8 59 68.2 57.6 67.4C56.4 66.6 55.8 65.2 55.6 63.8C53.6 62.4 52 59.6 51.4 56.4C50.8 53 50.8 49.6 51 46.4C51.2 44 51.4 42 52 40Z'),
@@ -70943,9 +71046,9 @@ function ptBust(seed,look,old){
     ptCut([[62.4,48.3,63.4,49.3,63.9,50.3],[64.6,48.3,65.5,49.2,66.2,49.8]],.28,0,PT_RT),ptCut([[67.4,49.7,69,48.8,69.3,46.4]],.16,.8),ptCut([[61.2,48.1,63.4,47.5,65.6,47.9]],.2,.5));
   /* dress: the three collars the name draws (with the engraved contours on the shoulders), then the rest */
   const contours=ptL('M18 87Q30 78.5 44 77.6M17 92Q31 83 46 82.4M19 97Q33 88.2 49 87.6',.55,.2);
-  if(D===0||D===8)lay.push('<path class="f" d="M56.6 65.6L61.6 72.2 58 73.6 54.8 67Z"/>',ptL('M58.4 73.8Q62.6 79 64 86',.9));
+  if(D===0||D===8||D===9)lay.push('<path class="f" d="M56.6 65.6L61.6 72.2 58 73.6 54.8 67Z"/>',ptL('M58.4 73.8Q62.6 79 64 86',.9));
   if(D===1)lay.push(ptL('M37.6 68.4Q47 72.8 57.2 66.4',2.2));
-  if(D===2)lay.push(ptL('M30 76.2Q45 84.4 63.4 73.8',1.2));
+  if(D===2)lay.push(SK?ptL('M37.8 71.4Q52 87.8 72 78.6',.9,.7):ptL('M30 76.2Q45 84.4 63.4 73.8',1.2));
   lay.push(contours);
   if(D===3){
     lay.push(ptK('M38.6 63.4Q48 62.6 58.4 61.2L58.8 67.6Q48 69.6 38.2 70.6Z'),ptL('M38.6 63.4Q48 62.6 58.4 61.2',.8,.9),ptL('M38.2 70.6Q48 69.6 58.8 67.6',1,.9),ptL('M38.5 66.9Q48 65.9 58.6 64.3',.45,.6),
@@ -70976,11 +71079,29 @@ function ptBust(seed,look,old){
       lk+=`M${cvF(p.x-rx*c)} ${cvF(p.y-rx*s)}A${rx} ${ry} ${cvF(a)} 1 0 ${cvF(p.x+rx*c)} ${cvF(p.y+rx*s)}A${rx} ${ry} ${cvF(a)} 1 0 ${cvF(p.x-rx*c)} ${cvF(p.y-rx*s)}Z`;});
     lay.push(ptL(lk,.6,.9),`<path class="F" d="${ptC(58.4,81.4,2.5)}"/>`,ptK(ptC(58.4,81.4,1.5)),`<path class="F" d="${ptC(58.4,81.4,.55)}"/>`);
   }
+  /* the newer dress: a sash of state, white tie, a mandarin collar, a wrap robe, a breastplate */
+  if(D===9){const sb='M53.4 70.6Q40 74.2 24.8 80.2L27.4 86Q42.6 79.6 59.2 73.6Z';
+    let st='';for(let i=0;i<16;i++){const a=i/16*Math.PI*2-Math.PI/2,r=i%2?1.2:3;st+=(i?'L':'M')+cvF(43.4+r*Math.cos(a))+' '+cvF(77.6+r*Math.sin(a));}
+    lay.push(`<path class="F" d="${sb}"/>`,`<path class="k" d="${ptTp(56.8,72,41.4,76.8,25.4,83.6,.6)}"/>`,ptL(sb,.45,.7),
+      `<path class="k" d="${st}Z"/>`,ptL(st+'Z',.4,.85),`<path class="F" d="${ptC(43.4,77.6,.8)}"/>`);}
+  if(D===10){const col='M38.2 66.8Q47.6 71.2 57 65.6L57.8 68.6Q48 74.4 37.8 70ZM56.8 65.6L60.8 67L57.8 68.8Z',shirt='M57.8 68.8Q59.6 71.4 61.2 72.4Q66 75.4 70.8 77.8Q66.4 80.4 63 86Q58.6 78 57.8 68.8Z';
+    const bow='M59.4 69.2C60.6 66.4 64 65.4 65.2 66.8C65.2 68.8 62 69.8 59.4 69.2ZM59.4 69.2C61.4 70.6 63.6 73 63.2 74.4C61.4 74.4 59.6 71.8 59.4 69.2Z';
+    lay.push(`<path class="F" d="${col}${shirt}"/>`,ptL('M57.8 68.8Q58.6 78 63 86',.8,.9),ptK(bow),ptL(bow,.45,.8),ptK(ptC(59.6,69.4,1)),`<path class="F" d="${ptC(62.4,78.6,.55)+ptC(63.6,82.4,.55)}"/>`);}
+  if(D===11){const band='M38.8 64.4Q48 64.2 56.4 62.4Q58.6 62.8 58.8 65L58.8 67.8Q48 70.4 38.4 70.8Z';
+    lay.push(ptK(band),ptL('M39 65.6Q48 65.4 56.6 63.6Q57.8 63.8 57.9 65.2L57.9 67.2',.45,.85),ptL('M38.4 70.8Q48 70.4 58.8 67.8',.9,.9),ptL('M58.8 67.8Q58 76 52.6 81.4Q47.6 86 40.4 88.4',.8,.85));
+    let fk='';[[57.6,72.6,-70],[55,78,-48],[50,83,-30]].forEach(([x,y,a])=>{fk+=ptLeaf(x-1.8*Math.cos(a*Math.PI/180+1.4),y-1.8*Math.sin(a*Math.PI/180+1.4),a+80,3.6,.75)+ptC(x,y,.65);});
+    lay.push(`<path class="F" d="${fk}"/>`);}
+  if(D===12){const bd='M37.4 69.6Q46 73 62 79.6L72.6 77L74.6 80.2L62.8 83.8Q45 76.8 36.4 73.4Z';
+    lay.push(`<path class="f" d="${bd}"/>`,ptL('M36.9 71.5Q45.6 74.9 62.4 81.7L73.6 78.6',.45,.7),ptL('M36.4 73.4Q45 76.8 62.8 83.8L74.6 80.2',.7,.9));}
+  if(D===13){const gg='M38.6 64.6Q48 66.2 57.4 63.2L59.8 69.2Q48 73.6 37.8 71.6Z';
+    lay.push(ptK(gg),ptL('M38.6 64.6Q48 66.2 57.4 63.2',.7,.9),ptL('M37.8 71.6Q48 73.6 59.8 69.2',.9,.95),ptL('M38.2 68.2Q48 70 58.6 66.2',.4,.6),
+      ptL('M23.6 79.4Q33 72.6 45.4 73.8M22.2 84.6Q33 77.6 47.2 78.8M21.4 89.8Q33.4 82.6 48.8 83.8',.8,.85),ptCut([[61.4,74.4,68.6,80.6,73.4,93]],.75,.75),ptCut([[64.2,76.6,69.6,82.2,71.8,90]],.3,.5));
+    let rv='';[[40.6,70.4],[46,71.6],[51.6,71],[56.8,69],[28.4,76.6],[35,74.6],[41.6,74.4],[27.4,81.8],[34.6,79.6],[42,79.4]].forEach(([x,y])=>{rv+=ptC(x,y,.55);});lay.push(`<path class="F" d="${rv}"/>`);}
   /* details */
-  if(X===1)lay.push(ptL(ptC(60.3,40.9,2.5),.8,.95),ptCut([[58.5,40.4,58.7,39.1,59.8,38.7]],.32,.9),ptL('M59.4 43.3Q55 52 57.4 62',.4,.7));
-  if(X===2)lay.push('<path class="l" d="M61.4 39.1a1.5 2.1 0 1 0 .01 0Z" stroke-width=".7" stroke-opacity=".95"/>',ptL('M60 40.6L50.6 42.2',.55,.9));
-  if(X===3&&ch!==2&&!wig)lay.push(ptL(ptC(48.4,50.4,.8),.5,.95),`<path class="F" d="${ptC(48.4,52.6,1.15)}"/>`);
-  if(X===4)lay.push(ptL('M55.4 42.6L59.6 48.8',.7,.95),ptL('M56.2 44.8l1.5-1M57.2 46.3l1.5-1M58.2 47.8l1.5-1',.4,.85));
+  if(X===1){if(SK)lay.push(ptN(ptC(60.3,40.9,2.5),.75),ptN('M59.4 43.3Q55 52 57.4 62',.35,.75));else lay.push(ptL(ptC(60.3,40.9,2.5),.8,.95),ptCut([[58.5,40.4,58.7,39.1,59.8,38.7]],.32,.9),ptL('M59.4 43.3Q55 52 57.4 62',.4,.7));}
+  if(X===2){if(SK)lay.push(ptN('M61.4 39.1a1.5 2.1 0 1 0 .01 0Z',.65),ptN('M60 40.6L50.6 42.2',.5));else lay.push('<path class="l" d="M61.4 39.1a1.5 2.1 0 1 0 .01 0Z" stroke-width=".7" stroke-opacity=".95"/>',ptL('M60 40.6L50.6 42.2',.55,.9));}
+  if(X===3&&earOn){if(SK)lay.push(ptN(ptC(48.4,50.4,.8),.5),`<path class="c" d="${ptC(48.4,52.6,1.15)}"/>`);else lay.push(ptL(ptC(48.4,50.4,.8),.5,.95),`<path class="F" d="${ptC(48.4,52.6,1.15)}"/>`);}
+  if(X===4){if(SK)lay.push(ptM('M55.4 42.6L59.6 48.8',SK[1],.7,.95),ptM('M56.2 44.8l1.5-1M57.2 46.3l1.5-1M58.2 47.8l1.5-1',SK[1],.4,.85));else lay.push(ptL('M55.4 42.6L59.6 48.8',.7,.95),ptL('M56.2 44.8l1.5-1M57.2 46.3l1.5-1M58.2 47.8l1.5-1',.4,.85));}
   if(X===5){let s='';for(let i=0;i<16;i++){const a=i/16*Math.PI*2-Math.PI/2,r=i%2?1.4:3.6;s+=(i?'L':'M')+cvF(50.4+r*Math.cos(a))+' '+cvF(75.8+r*Math.sin(a));}
     lay.push(`<path class="F" d="${s}Z"/>`,ptK(ptC(50.4,75.8,.9)));}
   if(X===6)lay.push('<path class="F" d="M53.6 70.8h3.2l-.2 4.2h-2.8Z"/>',ptK('M54.7 70.8h1v4.2h-1Z'),`<path class="F" d="${ptC(55.2,77,1.9)}"/>`,ptK(ptC(55.2,77,1)));
@@ -71110,13 +71231,15 @@ function ptBustArt(id,b,ink,cx,top,s,m,grey){
     +cuEngrave(id+'h',inner[0]+hair+inner[1],ink,[0,0,100,104],grey?{ang:58,gap:1.8,w:.34,tint:.04,lit:'r',fade:.5}:{ang:58,gap:1,w:.5,tint:.3,cross:1,lit:'r',fade:.55})
     +`${inner[0]}${edge}${lines}${inner[1]}</g>`;
 }
+/* what a note prints: the look without its skin colour, as a note is engraved in one ink (null when nothing is left) */
+function ptPrint(look){const L=ptLookNorm(look);if(!L||L.s==null)return L;const o=Object.assign({},L);delete o.s;return Object.keys(o).length?o:null;}
 cuBustArt=(f=>function(id,seed,ink,cx,top,s,m,old,look){
-  const L=ptLookNorm(look);if(!L)return f.apply(this,arguments);
+  const L=ptPrint(look);if(!L)return f.call(this,id,seed,ink,cx,top,s,m,old);
   const b=ptBust(seed,L,!!old);return ptBustArt(id,b,ink,cx,top,s,m,!!old||L.h===6);
 })(cuBustArt);
 /* the plain silhouette (a thumbnail note, the watermark): the bust's ink and silver shapes in one colour */
 function ptSilhouette(sub,fill,op){
-  const L=ptLookNorm(sub&&sub.look);if(!L)return `<path d="${cvBust(sub.seed).d}" fill="${fill}"${op?` opacity="${op}"`:''}/>`;
+  const L=ptPrint(sub&&sub.look);if(!L)return `<path d="${cvBust(sub.seed).d}" fill="${fill}"${op?` opacity="${op}"`:''}/>`;
   const b=ptBust(sub.seed,L,!!sub.old),sh=b.list.filter(x=>/^<path class="[kg]"/.test(x)).map(x=>x.replace(/class="[kg]"/,`fill="${fill}"`)).join('');
   return `<g${op?` opacity="${op}"`:''}>${b.s!==1?`<g transform="translate(50 92) scale(${b.s}) translate(-50 -92)">${sh}</g>`:sh}</g>`;
 }
@@ -71214,6 +71337,8 @@ function ptMed(n,who,cur,cls,big){
   if(who==='lead'){const ink=ptInk(n,cur.i);if(ink)o.ink=ink;if(big&&cur.r)o.ring=cur.r;}
   return cvMed(o);
 }
+/* the hair that covers the ear (and so an earring): long, the powdered wig, the bob, long waves */
+const PT_EAR_HID=[2,6,13,17];
 function ptLockWords(id){const l=PT_LOCK[id];return l?l[0]:'';}
 const ptLc=s=>s.charAt(0).toLowerCase()+s.slice(1);
 function ptCzSec(n){
@@ -71231,12 +71356,15 @@ function ptCzSec(n){
     <div class="pt-acts"><button type="button" class="btn ghost small-btn" id="pt-rand" data-act="pt-rand">Draw again</button><button type="button" class="btn ghost small-btn" id="pt-reset" data-act="pt-reset">Back to original</button></div>
     <div class="pt-acts"><button type="button" class="btn" id="pt-save" data-act="pt-save"${!dirty||locked.length?' disabled':''}>Save portrait</button>${dirty?'<button type="button" class="linkish small" id="pt-undo" data-act="pt-undo">Discard changes</button>':''}</div></div>`;
   const rows=PT_ROWS.map(([k,label,names])=>{
+    if(k==='s'){const v=L.s||0;
+      return `<div class="pt-row"><span class="pt-rl" id="pt-l-s">${esc(label)}</span><div class="pt-sw" role="group" aria-labelledby="pt-l-s">${names.map((nm,i)=>`<button type="button" class="pt-ink pt-skin${i?'':' pt-eng'}" id="pt-s-${i}" data-act="pt-skin" data-v="${i}" aria-pressed="${v===i}" title="${esc(nm)}" aria-label="${esc(nm)}" style="--sw:${i?PT_SKIN[i][0]:pc}"></button>`).join('')}</div><p class="pt-note">${esc(names[v])}${v?'. Banknotes stay engraved in one ink.':': in one ink, like an engraving.'}</p></div>`;}
     const own=cur.l[k]!=null,byCode=!own&&who!=='lead'&&code&&code[2][k]!=null,v=L[k]!=null?L[k]:k==='h'?base.hair:k==='d'?base.col:0,drawn=!own&&!byCode&&(k==='h'||k==='d');
     const id=k+v,lock=PT_LOCK[id]&&!ptHas(n,id);
     let note=lock?'Earned: '+ptLockWords(id)+'.':'';
     if(k==='g'){const on=[s.age>=62,s.age>=50,true,false][v];note=(note?note+' ':'')+`Age ${s.age}: ${on?'grey':'not grey'} with this setting.`;}
-    if(k==='x'&&v===3){const hh=L.h!=null?L.h:base.hair;if(hh===2||hh===6)note='Hidden: the hair covers the ear.';}
-    return `<div class="pt-row"><span class="pt-rl" id="pt-l-${k}">${esc(label)}</span><div class="pt-step"><button type="button" class="pt-arw" id="pt-${k}-p" data-act="pt-step" data-k="${k}" data-d="-1" aria-label="Previous: ${esc(label.toLowerCase())}">‹</button><output aria-labelledby="pt-l-${k}" aria-live="polite">${esc(names[v])}${drawn?'<span class="pt-tag">as drawn</span>':byCode?'<span class="pt-tag">dress code</span>':''}${lock?'<span class="pt-tag pt-earn">Earned</span>':''}</output><button type="button" class="pt-arw" id="pt-${k}-n" data-act="pt-step" data-k="${k}" data-d="1" aria-label="Next: ${esc(label.toLowerCase())}">›</button></div>${note?`<p class="pt-note">${esc(note)}</p>`:''}</div>`;}).join('');
+    if(k==='x'&&v===3){const hh=L.h!=null?L.h:base.hair;if(PT_EAR_HID.includes(hh))note='Hidden: the hair covers the ear.';}
+    const opts=names.map((nm,i)=>`<option value="${i}"${i===v?' selected':''}>${esc(nm)}${PT_LOCK[k+i]&&!ptHas(n,k+i)?' (earned in play)':''}</option>`).join('');
+    return `<div class="pt-row"><span class="pt-rl" id="pt-l-${k}">${esc(label)}</span><div class="pt-step"><button type="button" class="pt-arw" id="pt-${k}-p" data-act="pt-step" data-k="${k}" data-d="-1" aria-label="Previous: ${esc(label.toLowerCase())}">‹</button><span class="pt-o"><output aria-labelledby="pt-l-${k}" aria-live="polite">${esc(names[v])}${drawn?'<span class="pt-tag">as drawn</span>':byCode?'<span class="pt-tag">dress code</span>':''}${lock?'<span class="pt-tag pt-earn">Earned</span>':''}</output><select class="pt-sel" id="pt-${k}-s" data-k="${k}" aria-label="${esc(label)}: all ${names.length}">${opts}</select></span><button type="button" class="pt-arw" id="pt-${k}-n" data-act="pt-step" data-k="${k}" data-d="1" aria-label="Next: ${esc(label.toLowerCase())}">›</button></div>${note?`<p class="pt-note">${esc(note)}</p>`:''}</div>`;}).join('');
   let lead='';
   if(who==='lead'){
     const inkN=(PT_INKS.find(x=>x[0]===cur.i)||PT_INKS[0])[1],rl=PT_LOCK['r'+cur.r]&&!ptHas(n,'r'+cur.r),z=n.ptz||{k:[]},earned=PT_NICKS.filter(x=>z.k.includes(x[0])),todo=PT_NICKS.filter(x=>!z.k.includes(x[0]));
@@ -71250,16 +71378,16 @@ function ptCzSec(n){
     <p class="pt-note">${code?esc(code[3]):'Every minister keeps the look drawn from their name.'}</p>
     ${PT_CODES.map(([k,l,set])=>{const lk=ptCodeLocks(n,set);return lk.length?`<p class="pt-note pt-cl" id="pt-c-${k}-w">${esc(l)} needs ${esc(list(lk.map(id=>'the '+ptPieceName(id)+' ('+ptLc(ptLockWords(id))+')')))}.</p>`:'';}).join('')}</div>`;
   return `<section class="cz-sec pt-czsec" id="cz-sec-r"><h2 class="fs-l"><span class="fs-n">VI</span>Portraits</h2>
-    <p class="hint fs-hint">The faces of your government, as they hang on the Government page, in the Museum and on your banknotes, and as visitors see them. Everything stays in the engraved style; some pieces are earned in play.</p>
+    <p class="hint fs-hint">The faces of your government, as they hang on the Government page, in the Museum and on your banknotes, and as visitors see them. Everything stays in the engraved style, in one ink or with a skin colour; some pieces are earned in play. Click a part’s name to pick from the whole list.</p>
     ${whoRow}<div class="pt-sheet">${prev}<div class="pt-rows">${rows}${lead}</div></div>${codes}</section>`;
 }
-CZ_SECS.push(['r','Portraits','portraits portrait face faces beard moustache hat crown wig dress leader minister cabinet dress code nickname ink ring']);CZ_TABS.find(t=>t[0]==='id')[2].push('r');
+CZ_SECS.push(['r','Portraits','portraits portrait face faces skin colour color hair hairstyle beard moustache hat crown wig dress leader minister cabinet dress code nickname ink ring']);CZ_TABS.find(t=>t[0]==='id')[2].push('r');
 CZ_SLUG.r='portraits';CZ_SEC_SUB.r='Faces of the leader and cabinet';
 {const base=VIEWS_EXT.customise;VIEWS_EXT.customise=now=>{const h=base(now);if(!S.nation||typeof h!=='string'||h.includes('id="cz-sec-r"')||!h.includes('id="cz-dock"'))return h;
   const sec=ptCzSec(S.nation),j=h.indexOf('<section class="cz-sec" id="cz-sec-b"');return j>=0?h.slice(0,j)+sec+h.slice(j):h+sec;};}
 /* the charter's "Customise your leader" opens the section on the head of government */
 tutGo=(f=>function(v,b,to){if(to==='cz-sec-r')PT.who='lead';return f.apply(this,arguments);})(tutGo);
-UX_SETTINGS.push({v:'focus:cz-sec-r',l:'Portraits of the government',g:'Design',words:'portrait face beard moustache hat crown wig dress leader minister cabinet dress code nickname ink ring',view:'customise',target:'#cz-sec-r'});
+UX_SETTINGS.push({v:'focus:cz-sec-r',l:'Portraits of the government',g:'Design',words:'portrait face skin colour hair hairstyle beard moustache hat crown wig dress leader minister cabinet dress code nickname ink ring',view:'customise',target:'#cz-sec-r'});
 function ptDraft(n,who){if(!PT.dr[who]){const c=ptSaved(n,who);PT.dr[who]={l:Object.assign({},c.l),i:c.i,r:c.r,k:c.k};}return PT.dr[who];}
 /* a draft back to what is saved is no longer a draft */
 function ptTidy(n,who){const d=PT.dr[who];if(d&&JSON.stringify(ptLookNorm(d.l)||{})===JSON.stringify(ptLookNorm(ptSaved(n,who).l)||{})&&(who!=='lead'||(d.i===ptSaved(n,who).i&&d.r===ptSaved(n,who).r&&d.k===ptSaved(n,who).k)))delete PT.dr[who];}
@@ -71274,6 +71402,15 @@ function ptSave(){
   delete PT.dr[who];commit(n);render();
   toast(who==='lead'?`The portrait of the ${n.leader||'leader'} is saved. It shows on the Government page, in the Museum and on your banknotes.`:`${cabOf(n)[who].nm}’s portrait is saved.`);
 }
+function ptSetPart(n,who,k,v){
+  const row=PT_ROW_BY[k];if(!row||!Number.isInteger(v)||v<0||v>=row[2].length)return;
+  const d=ptDraft(n,who),base=ptBase(ptSitter(n,who).seed);d.l[k]=v;
+  if(who==='lead'&&!d.l[k]&&k!=='h'&&k!=='d')delete d.l[k];
+  if(who==='lead'&&(k==='h'&&d.l.h===base.hair||k==='d'&&d.l.d===base.col))delete d.l[k];
+  /* no dress code sets the skin, so "Engraved" is simply no choice */
+  if(k==='s'&&!v)delete d.l.s;
+  ptTidy(n,who);render();
+}
 function ptRandom(n,who){
   const r=Math.random,pick=k=>{const ok=PT_ROW_BY[k][2].map((_,i)=>i).filter(i=>ptHas(n,k+i));return ok[Math.floor(r()*ok.length)];};
   const L={h:pick('h'),d:pick('d')};if(r()<.5)L.n=1+Math.floor(r()*4);if(r()<.4)L.c=1+Math.floor(r()*3);if(r()<.3)L.b=1+Math.floor(r()*3);if(r()<.2)L.f=1;
@@ -71284,22 +71421,24 @@ document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="pt-"]');if(!el||!S.nation||el.disabled)return;const a=el.dataset.act,n=S.nation,who=PT.who;
   if(a==='pt-edit'){PT.who=el.dataset.v||'lead';czSecSet('r');if(S.view==='customise'){render();czSecTop();}else go('customise');return;}
   if(a==='pt-who'){PT.who=el.dataset.v;render();return;}
-  if(a==='pt-step'){const k=el.dataset.k,row=PT_ROW_BY[k];if(!row)return;const d=ptDraft(n,who),s=ptSitter(n,who),base=ptBase(s.seed),L=ptShown(n,who,d);
-    const v=L[k]!=null?L[k]:k==='h'?base.hair:k==='d'?base.col:0,m=row[2].length;d.l[k]=(v+(+el.dataset.d)+m)%m;
-    if(who==='lead'&&!d.l[k]&&k!=='h'&&k!=='d')delete d.l[k];
-    if(who==='lead'&&(k==='h'&&d.l.h===base.hair||k==='d'&&d.l.d===base.col))delete d.l[k];
-    ptTidy(n,who);render();return;}
+  if(a==='pt-step'){const k=el.dataset.k,row=PT_ROW_BY[k];if(!row)return;const s=ptSitter(n,who),base=ptBase(s.seed),L=ptShown(n,who,ptCur(n,who));
+    const v=L[k]!=null?L[k]:k==='h'?base.hair:k==='d'?base.col:0,m=row[2].length;ptSetPart(n,who,k,(v+(+el.dataset.d)+m)%m);return;}
+  if(a==='pt-skin'){ptSetPart(n,who,'s',+el.dataset.v);return;}
   if(a==='pt-ink'){ptDraft(n,who).i=el.dataset.v;ptTidy(n,who);render();return;}
   if(a==='pt-ring'){const d=ptDraft(n,who);d.r=(d.r+(+el.dataset.d)+PT_RING_N.length)%PT_RING_N.length;ptTidy(n,who);render();return;}
   if(a==='pt-nick'){ptDraft(n,who).k=el.dataset.v;ptTidy(n,who);render();return;}
-  if(a==='pt-rand'){ptDraft(n,who).l=ptRandom(n,who);ptTidy(n,who);render();return;}
+  if(a==='pt-rand'){const d=ptDraft(n,who),sk=d.l.s;d.l=ptRandom(n,who);if(sk)d.l.s=sk;ptTidy(n,who);render();return;}
   if(a==='pt-reset'){ptDraft(n,who).l={};ptTidy(n,who);render();return;}
   if(a==='pt-undo'){delete PT.dr[who];render();return;}
   if(a==='pt-save'){ptSave();return;}
   if(a==='pt-code'){const v=el.dataset.v,c=v?PT_CODES.find(x=>x[0]===v):null;if(c&&ptCodeLocks(n,c[2]).length)return;const x=clone(n);if(c)x.cdc=v;else delete x.cdc;commit(x);render();
     toast(c?`The cabinet now dresses ${c[1].toLowerCase()} style.`:'Every minister is back to the look drawn from their name.');return;}
 });
-HELP_EXT.push({k:'portraits',t:'Portraits of the government',body:n=>`<p>The head of government and every minister has a portrait: a bust in profile, engraved in one ink. It is drawn from their name, and you can change it in <b>Customise › Portraits</b>, or with <b>Edit portrait</b> on a cabinet card: hair, nose, chin and brow, which way they face, grey hair, a beard or moustache, a hat, their dress and one detail. Pick a part with the arrows and save.</p>
+document.addEventListener('change',e=>{
+  const el=e.target;if(!el||!el.classList||!el.classList.contains('pt-sel')||!S.nation)return;
+  ptSetPart(S.nation,PT.who,el.dataset.k,+el.value);
+});
+HELP_EXT.push({k:'portraits',t:'Portraits of the government',body:n=>`<p>The head of government and every minister has a portrait: a bust in profile, engraved in one ink. It is drawn from their name, and you can change it in <b>Customise › Portraits</b>, or with <b>Edit portrait</b> on a cabinet card: a skin colour (or the one ink of an engraving), twenty kinds of hair, nose, chin and brow, which way they face, grey hair, a beard or moustache, a hat, fourteen kinds of dress and one detail. Pick a part with the arrows, or click its name for the whole list, and save. Banknotes stay engraved in one ink.</p>
 <p>The head of government also has an ink, a ring and a nickname. Nicknames are earned in office, such as “the Builder” for 25 buildings finished or “the Wise” for 100 edicts decided. A new leader starts without one. A leader who is renamed keeps their face, and a minister who takes over brings theirs.</p>
 <p>The <b>cabinet dress code</b> dresses every minister at once, and new ministers arrive dressed to it. A few pieces are earned in play: the crown and the ermine robe by keeping a leader in office, the laurel wreath with a gold medal at the Meridian Games, the bicorne by taking land in a war, and more. You can try any of them on before you have them.</p>
 <p>Portraits show on the Government page, in the Museum (where past leaders hang as they looked on their last day), on visits and on your banknotes.</p>`});

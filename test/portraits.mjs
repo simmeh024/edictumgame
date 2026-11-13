@@ -1,6 +1,6 @@
 // Portraits of state: the faces of the head of government and the cabinet, edited in Customise › Portraits and
 // opened from "Edit portrait" on every cabinet card. A face without a look is the one the name drew before; a look
-// adds hair, facial hair, headwear, dress and a detail; the head of government also has an ink, a ring and an earned
+// adds a skin colour, hair, facial hair, headwear, dress and a detail; the head of government also has an ink, a ring and an earned
 // nickname. Also: the cabinet's dress code, pieces earned in play (tried on before, saved only once earned), a renamed
 // leader keeping the face, a minister who takes over bringing theirs, the Museum's former leaders, banknotes, and the
 // court painter's edict. On a desktop and a phone, in the light and dark themes.
@@ -185,6 +185,33 @@ try {
     check('the emperors’ answer paints a laurel wreath and an ermine robe in a laurel ring', n.rpt.l.w === 1 && n.rpt.l.d === 7 && n.rpt.r === 2, n.rpt);
     check('and earns all three', ['w1', 'd7', 'r2'].every(k => (n.ptu || []).includes(k)), n.ptu);
     check('the sitting is filed for the Dispatch', (n.log || []).some(l => l.k === 'portrait' && l.a === 'emperor'));
+
+    /* more hair and dress, and a skin colour, all open from the start; picked from the list or the swatches */
+    await go('customise/portraits');
+    await page.click('#pt-p-lead');
+    const open = await page.evaluate(() => ({ h: document.querySelectorAll('#pt-h-s option').length, d: document.querySelectorAll('#pt-d-s option').length, s: document.querySelectorAll('#cz-sec-r .pt-skin').length,
+      shut: [...document.querySelectorAll('#pt-h-s option, #pt-d-s option')].filter(o => +o.value >= (o.parentNode.id === 'pt-h-s' ? 10 : 9) && /earned/.test(o.textContent)).length }));
+    check('twenty kinds of hair, fourteen of dress and nine skins (the engraving and eight colours), the new ones open', open.h === 20 && open.d === 14 && open.s === 9 && open.shut === 0, open);
+    await page.selectOption('#pt-h-s', '11');
+    check('picking from the list sets the part', await until(() => page.evaluate(() => /^Curly/.test(document.querySelector('#pt-h-s').closest('.pt-o').querySelector('output').textContent))));
+    await page.click('#pt-s-3');
+    check('a skin swatch is chosen', await page.evaluate(() => document.getElementById('pt-s-3').getAttribute('aria-pressed') === 'true' && /Light/.test(document.getElementById('pt-l-s').parentNode.textContent)));
+    await page.click('#pt-rand');
+    check('Draw again keeps the skin colour', await page.evaluate(() => window.__game.PT().PT.dr.lead.l.s === 3));
+    await page.selectOption('#pt-h-s', '16'); await page.selectOption('#pt-d-s', '12');
+    await page.click('#pt-save');
+    n = await nation();
+    check('the skin, the hair and the dress are saved', n.rpt.l.s === 3 && n.rpt.l.h === 16 && n.rpt.l.d === 12, n.rpt.l);
+    await go('government/cabinet');
+    const face = await page.evaluate(() => { const m = document.querySelector('.cv-lead>.cv-med'); return { skin: !!m.querySelector('path.s[fill="#deae88"]'), eye: !!m.querySelector('path.m'), clothes: !!m.querySelector('path.c') }; });
+    check('the medallion is drawn in the skin colour, with the face’s features, and the clothes and hair in the ink', face.skin && face.eye && face.clothes, face);
+    /* the same note, but for the ids each drawing numbers afresh */
+    const plain = await page.evaluate(() => { const X = window.__game.PT(), n = window.__game.S.nation, c = X.cuOf(n), l = Object.assign({}, n.rpt.l), q = s => s.replace(/(id="|#)([a-zA-Z]+)\d+/g, '$1$2'); delete l.s;
+      return q(X.cuNoteSVG(n, c)) === q(X.cuNoteSVG(Object.assign({}, n, { rpt: Object.assign({}, n.rpt, { l }) }), c)); });
+    check('the banknote stays engraved in one ink', plain);
+    const all = await page.evaluate(() => { const X = window.__game.PT(), out = []; for (let h = 0; h < 20; h++) for (const s of [0, 4]) out.push(X.ptBust('Mirela Oduya', { h, s, d: h % 14 }, h % 3 === 0).lay.length > 500); return out.every(Boolean); });
+    check('every kind of hair and dress draws, engraved and in a skin colour', all);
+    await page.screenshot({ path: OUT + '/portraits-skin-1280.png' });
 
     /* a saved look survives a reload */
     await page.reload(); await page.waitForFunction(() => window.__game && window.__game.S.nation);

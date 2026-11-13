@@ -372,10 +372,17 @@ Logistics) or the army range's sounding rockets (Flight Operations).
 
 **Portraits of the government.** The cabinet's medallions (`cvMed`, a bust in profile in one ink) can be dressed
 in Customise › Portraits, which "Edit portrait" on every cabinet card also opens. A face without a look is drawn
-exactly as before (`ptBust` makes the same draws as `cvBust`); a look overrides hair (ten kinds, with a
-powdered wig, a tied queue, a topknot and a braid), nose, chin and brow, facing, grey hair, facial hair, headwear,
-dress and one detail. The head of government also picks an ink, a ring and a nickname earned in office
-(`PT_NICKS`, from the tallies since the term began, `n.ptz`), and a caption is written from the records.
+exactly as before (`ptBust` makes the same draws as `cvBust`); a look overrides the skin (`s`: 0 is the engraving
+in one ink, 1–8 the colours in `PT_SKIN`), hair (twenty kinds: the six a name draws, then a powdered wig, a tied
+queue, a topknot, a braid, bald, curly, a ponytail, a bob, a pompadour, receding, locs, long waves, cornrows and a
+long plait; the newer ten in `ptHairNew`), nose, chin and brow, facing, grey hair, facial hair, headwear, dress
+(fourteen kinds, the last five a sash of state, white tie, a mandarin collar, a wrap robe and a breastplate) and
+one detail. Every part's name in the editor opens the whole list (a native select over the stepper). With a skin
+colour the bust is filled in the skin and outlined in the ink, the face gets its features in the skin's darker
+tone, and the clothes (the outline below the neckline, cut from the same curve with `ptSeg`) and hair stay in the
+ink; banknotes always engrave the look without the skin (`ptPrint`). The head of government also picks an ink, a
+ring and a nickname earned in office (`PT_NICKS`, from the tallies since the term began, `n.ptz`), and a caption
+is written from the records.
 - *The record.* Shared, so visitors see it: `n.rpt` (the leader: `s` the seed the face first came from, pinned
   when the leader is renamed so the face stays; `l` look, `i` ink, `r` ring, `k` nickname, `f` the portfolio
   they held, `b` birthplace), `n.cpt` (each minister's own look, with their name; dropped when the post changes

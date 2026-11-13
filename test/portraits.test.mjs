@@ -27,6 +27,24 @@ test('the court painter’s edict: one edict, numbered after every older one, be
   assert(/'PT_ISSUES'/.test(readFileSync(new URL('../scripts/split-content.mjs',import.meta.url),'utf8')),'the content split carries it');
 });
 
+test('twenty kinds of hair, fourteen of dress and eight skin colours, the new ones open to all; notes print without the skin',()=>{
+  const i=source.indexOf('const PT_ROWS=['),rows=vm.runInNewContext(source.slice(i+'const PT_ROWS='.length,source.indexOf(';',i)));
+  const by=Object.fromEntries(rows.map(r=>[r[0],r[2]]));
+  assert.equal(rows[0][0],'s','the skin comes first');assert.equal(by.s.length,9);assert.equal(by.s[0],'Engraved','0 is the engraving in one ink');
+  assert.equal(by.h.length,20);assert.equal(by.d.length,14);
+  assert.deepEqual([...by.h.slice(0,10)],['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided'],'the older hair keeps its numbers');
+  assert.deepEqual([...by.d.slice(0,9)],['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office'],'the older dress keeps its numbers');
+  const SK=vm.runInNewContext(source.match(/const PT_SKIN=(\[[^;]+\]);/)[1]);
+  assert.equal(SK.length,by.s.length);assert.equal(SK[0],null);
+  for(const t of SK.slice(1))assert(t.length===2&&t.every(c=>/^#[0-9a-f]{6}$/.test(c)),'a skin and its line colour: '+t);
+  const a=source.indexOf('const PT_LOCK={'),lk=source.slice(a,source.indexOf('};',a));
+  for(let h=10;h<20;h++)assert(!new RegExp('\\bh'+h+':').test(lk),'hair '+h+' is open');
+  for(let d=9;d<14;d++)assert(!new RegExp('\\bd'+d+':').test(lk),'dress '+d+' is open');
+  assert(!/\bs\d:/.test(lk),'every skin is open');
+  assert(/cuBustArt=\(f=>function\(id,seed,ink,cx,top,s,m,old,look\)\{\n  const L=ptPrint\(look\)/.test(source),'banknotes engrave the look without the skin');
+  assert(/function ptSilhouette\(sub,fill,op\)\{\n  const L=ptPrint\(/.test(source),'and so do their silhouettes');
+});
+
 test('the portraits section: its record keys, its private fields, and the wrappers it relies on',()=>{
   const i=source.indexOf('/* ───────── portraits of state: the faces of the government');assert(i>0);
   const sec=source.slice(i,source.indexOf('\nconst hot=window.claude&&window.claude.hot;',i));
