@@ -23934,9 +23934,10 @@ function protectedNow(id){const x=findNation(id);return !!x&&!x.npc&&!canFeature
 function spareOf(E,id,res){const j=E.T.byId[id];return j===undefined?0:Math.max(0,E.sup[res][j]-E.dem[res][j]);}
 
 /* ───────── land credits: when the next one comes ───────── */
-/* the credits earned at population p: everything landEarned counts at today's population, rank credits included (and the
-   dig credits below), so the next credit's population is reckoned from the same total */
-function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)-(n.mvl||0);}
+/* the credits earned at population p: everything landEarned counts at today's population, rank and province credits
+   included (and the dig credits below), so the next credit's population is reckoned from the same total. Province credits
+   were once left out here, and a nation with 25 provinces was told its next credit came at 286 million instead of 35. */
+function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+prvCredits(n)+achRankCredits(n)+achTierCredits(n)-(n.mvl||0);}
 function nextCreditPop(n){
   const T=territory(),i=T.byId[myId()],used=i===undefined?0:claimsUsed(n,T,i),need=used+1,p0=popNow(n);
   if(earnedAt(n,p0)>=need)return p0;let lo=p0,hi=p0;
