@@ -46,3 +46,27 @@ test('no server at all, or this computer: its own map, as before', () => {
   assert.equal(kit({ mode: 'local', E: undefined }).wait(), '');
   assert.equal(kit({ mode: 'readonly' }).wait(), '');
 });
+
+/* landQueued: the spot queued while the region loaded (13 Nov 2026: a founding-edict place drawn before the region
+   was in turned out taken, and the capital never went up in the core suite) */
+function queued({ taken = [], sites = [7, 8, 9], k = null, q = 5 } = {}) {
+  const i = src.indexOf('function landQueued('), j = src.indexOf('\n}', i) + 2;
+  const out = { settled: null, toast: '' };
+  const S = { landQ: q, landQk: k, nation: { capital: 'Port Alder', loc: null }, mapMsg: '', mapPick: null };
+  const ctx = vm.createContext({ S, landWait: () => '', cellOf: l => (l ? 1 : -1), territory: () => ({}),
+    pickProblem: c => (taken.includes(c) ? 'Too close to Eastmere.' : ''), fdSites: () => sites,
+    settle: () => { out.settled = S.mapPick; }, toast: m => { out.toast = m; }, render: () => {} });
+  vm.runInContext(src.slice(i, j), ctx); ctx.landQueued();
+  return { ...out, S };
+}
+test('a queued spot still free goes up where it was chosen', () => {
+  assert.equal(queued({ k: 0 }).settled, 5);
+});
+test('a founding-edict place found taken: the advisors\' place of the same kind instead', () => {
+  const r = queued({ taken: [5], k: 1 });
+  assert.equal(r.settled, 8); assert.equal(r.toast, ''); assert.equal(r.S.landQk, null);
+});
+test('a spot picked by hand, or with no free place of its kind, is only told it is taken', () => {
+  const a = queued({ taken: [5] }); assert.equal(a.settled, null); assert.match(a.toast, /could not go up where you chose/);
+  const b = queued({ taken: [5, 8], k: 1 }); assert.equal(b.settled, null); assert.match(b.toast, /Too close to Eastmere/);
+});
