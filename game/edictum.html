@@ -21651,6 +21651,11 @@ function achTierCredits(n){try{if(!n||n.npc||!n.ach)return 0;let k=0;for(const i
 const PRV_CREDITS=3;
 function prvPeak(n){try{if(!n||n.npc)return 0;const k=n.prov&&n.prov.on&&Array.isArray(n.prov.l)?n.prov.l.length:0;if(k>(n.prpk||0))n.prpk=k;return n.prpk||0;}catch(e){return 0;}}
 function prvCredits(n){return PRV_CREDITS*Math.max(0,prvPeak(n)-1);}
+/* the peak is part of the record, so a reload or another device keeps it. Until 2026-11-13 every load dropped it, and
+   the next visit after a merge took the merged provinces' credits back (The Wandering Isles lost 54 that way). Never
+   more than the most provinces a nation can hold (PRV_MAXL, 48: test/province-credits.test.mjs holds the two equal). */
+const PRV_PEAK_MAX=48;
+NORM_HOOKS.push((n,d)=>{const k=d&&d.prpk;if(Number.isInteger(k)&&k>0)n.prpk=Math.min(k,PRV_PEAK_MAX);});
 function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
@@ -45410,6 +45415,10 @@ async function connect(){
   const none={docs:[]};
   listen(db.collection('nations').where('reg','==',REG.id),qs=>{regQS=qs;if(!qs.fromCache)regionHeardAt=Date.now();shared();},()=>{regQS=regQS||none;shared();});
   listen(db.collection('space'),qs=>{spQS=qs;shared();},()=>{spQS=spQS||none;shared();});
+  /* the region read once more, straight from the server, for settling and claiming (landWait) when its feed has not
+     delivered a while after start: a feed that stalls (seen in the core suite on 13 Nov 2026) left a new nation's
+     capital waiting for good. The space feed, if it has not come either, counts as empty until it does. */
+  landKick=()=>db.collection('nations').where('reg','==',REG.id).get().then(qs=>{if(!qs)return;regQS=qs;if(!qs.fromCache)regionHeardAt=Date.now();if(!spQS)spQS=none;shared();},()=>{});
   let boardQS=none;
   const board=()=>{
     const r={};
@@ -45460,8 +45469,23 @@ go=(f=>function(){const r=f.apply(this,arguments);ownCheck();return r;})(go);
    keeps its own map, as before, and so does one on this computer (development and the tests, which play offline on
    purpose; EDICTUM_LAND_STRICT gives them the live site's rule). */
 const LAND_LOCAL='there is no Firebase configuration',LAND_DEV=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)&&!window.EDICTUM_LAND_STRICT;
+/* Online, the wait is bounded: after LAND_KICK_MS the region is read again directly (landKick, in connect), and after
+   LAND_WAIT_MS settling and claiming go ahead on what the page has. A capital that comes down on land claimed first is
+   still taken off the map and its player asked to move (capWrong, capLift); a region that never arrives must not keep
+   a new player from placing one at all. */
+const LAND_KICK_MS=5000,LAND_WAIT_MS=Math.max(1000,Number(window.EDICTUM_LAND_WAIT_MS)||20000);
+let landKick=null,landWaitFrom=0,landKickAt=0;
 function landWait(){
   if(OBS||PV)return '';
+  const w=landWaitWhy();if(w!=='wait')return w;
+  /* every wait is bounded, the region's as much as the start-up's (connect still under way after the sign-in: seen in the
+     core suite on CI, 13 Nov 2026); only 'off', a game the server never reached, waits for a reload */
+  const now=Date.now();if(!landWaitFrom)landWaitFrom=now;
+  if(now-landWaitFrom<LAND_WAIT_MS)return 'wait';
+  if(landWaitFrom>0){landWaitFrom=-1;console.warn('[edictum] The region did not load; settling and claiming go ahead without it.');}
+  return '';
+}
+function landWaitWhy(){
   if(S.mode==='world')return worldHeardAt?'':'wait';
   if(S.mode!=='local')return '';
   const E=window.__edictum;if(!E||typeof E!=='object')return '';
@@ -45502,7 +45526,12 @@ function capLift(){
   capNote();render();
   return true;
 }
-function landTick(){if(OBS||PV||tabPassive)return;try{landQueued();}catch(e){}try{capLift();}catch(e){}}
+function landTick(){
+  if(OBS||PV||tabPassive)return;
+  /* the region still not in a while after start: read it again directly, at most every LAND_KICK_MS */
+  try{const now=Date.now();if(S.mode==='world'&&!worldHeardAt&&landKick&&landWaitFrom>0&&now-landWaitFrom>=LAND_KICK_MS&&now-landKickAt>=LAND_KICK_MS){landKickAt=now;landKick();}}catch(e){}
+  try{landQueued();}catch(e){}try{capLift();}catch(e){}
+}
 setInterval(landTick,1500);
 NORM_HOOKS.push((n,d)=>{
   const r=d&&d.rsx;if(!r||typeof r!=='object'||typeof r.t!=='number'||!isFinite(r.t))return;
