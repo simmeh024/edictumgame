@@ -57922,9 +57922,13 @@ MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
   });
 }});
 /* Founder's Gilt: the land keeps its own colour, with a brass edge, a fine hatching and, while the map is on screen
-   and motion is allowed, a slow light along the edge. Drawn from the map's current owners, so it follows the land. */
+   and motion is allowed, a slow light along the edge. Drawn from the map's current owners, so it follows the land.
+   drawMap runs the layers once for each turn of the globe on screen, the nearest first: only that first turn starts
+   the light's path afresh, and each later one adds its own edges to it (the path is in map units, and the light is
+   drawn on every turn), so a turn without gilt land no longer wipes what the nearest one found. */
 MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
-  const g=M.g,T=M.T,s=M.s;M.cv._gilt=null;const P=typeof Path2D==='function'?new Path2D():null;let any=false;
+  const g=M.g,T=M.T,s=M.s,lead=M.first!==false;if(lead)M.cv._gilt=null;
+  const P=typeof Path2D==='function'?(!lead&&M.cv._gilt)||new Path2D():null;let any=false;
   for(const [o,cells] of M.byO){const x=T.list[o];if(!x||x.npc||!cells.length)continue;let te='';try{te=cz(x.n).te;}catch(e){}if(te!=='te-gilt')continue;any=true;
     if(!M.draft&&s*HEX_W>=7){g.save();g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.4);g.clip();
       let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;for(const i of cells){x0=Math.min(x0,MAP.cx[i]);x1=Math.max(x1,MAP.cx[i]);y0=Math.min(y0,MAP.cy[i]);y1=Math.max(y1,MAP.cy[i]);}
