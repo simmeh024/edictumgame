@@ -133,10 +133,20 @@ test('deals count only when both sides hold them (or the partner is computer-run
   assert.deepEqual([...T.get('a').partners].sort(), ['b', 'npc-1']);
   assert.equal(T.get('b').volume, 8);
   assert.equal(T.get('c'), undefined, 'an offer not accepted is no deal');
-  const W = E.warsOf(recs, new Set(['npc-1']));
+  const W = E.warsOf(recs, new Set(['npc-1']), 300);
   assert.equal(W.get('a'), 1, 'only one side has made peace');
+  assert.equal(E.warsOf(recs, new Set(), 200 + E.PEACE_AUTO_MS - 1).get('a'), 1, 'the offer still stands');
+  assert.equal(E.warsOf(recs, new Set(), 200 + E.PEACE_AUTO_MS).get('c'), undefined, 'an offer left unanswered for 30 hours ends the war');
   recs.get('a').peace = { c: 300 };
-  assert.equal(E.warsOf(recs, new Set()).get('a'), undefined, 'both made peace');
+  assert.equal(E.warsOf(recs, new Set(), 400).get('a'), undefined, 'both made peace');
+});
+
+test('the engine and the game agree on how long a peace offer waits for an answer', () => {
+  const m = /PEACE_AUTO_MS=(\d+)\*3600000/.exec(GAME);
+  assert.ok(m, 'the game declares PEACE_AUTO_MS');
+  assert.equal(Number(m[1]) * 3600000, E.PEACE_AUTO_MS);
+  assert.equal(E.PEACE_AUTO_MS, 30 * 3600000);
+  assert.match(GAME, /TRUCE_MS=72\*3600000/, 'and a truce of 72 hours follows peace');
 });
 
 test('a malformed acceptance is no deal, and never stops the region’s run', () => {

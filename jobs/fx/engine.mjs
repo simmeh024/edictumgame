@@ -112,9 +112,12 @@ export function tradeOf(recs, npcIds) {
   }
   return out;
 }
+/* a peace offer the other side leaves unanswered this long takes effect on its own (the game's PEACE_AUTO_MS) */
+export const PEACE_AUTO_MS = 30 * 3600000;
 /* direct wars: declared by either side and not yet ended by both (a computer-run nation's peace is its
-   opponent's), as the game's pairWar() has it. Returns id → number of wars. */
-export function warsOf(recs, npcIds) {
+   opponent's), nor by one side's offer left unanswered for PEACE_AUTO_MS, as the game's pairWar() has it.
+   Returns id → number of wars. */
+export function warsOf(recs, npcIds, now = Date.now()) {
   const out = new Map(), pairs = new Set();
   const add = id => out.set(id, (out.get(id) || 0) + 1);
   for (const [a, A] of recs) {
@@ -125,6 +128,8 @@ export function warsOf(recs, npcIds) {
       if (!decl) continue;
       let pA = num(isObj(A.peace) ? A.peace[b] : 0, 0), pB = nb ? pA : num(isObj(B.peace) ? B.peace[a] : 0, 0);
       if (pA > decl && pB > decl) continue;
+      const off = pA > decl ? pA : pB > decl ? pB : 0;
+      if (off && now >= off + PEACE_AUTO_MS) continue;
       add(a); add(b);
     }
   }

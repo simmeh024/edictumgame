@@ -116,7 +116,7 @@ export async function runRegion(db, region, { now, day, world, mod, runId }) {
   const kept = id => !again.has(id) || (prevState[id] && prevState[id].fd === again.get(id));
   const newer = [...again.keys()].filter(id => !kept(id)), since = Object.fromEntries(newer.map(id => [id, dayNum(again.get(id))]));
   const prevKept = Object.fromEntries(Object.entries(prevState).filter(([id]) => kept(id)));
-  const npcIds = new Set(region.npcs.map(x => x.id)), trade = tradeOf(recs, npcIds), wars = warsOf(recs, npcIds);
+  const npcIds = new Set(region.npcs.map(x => x.id)), trade = tradeOf(recs, npcIds), wars = warsOf(recs, npcIds, now);
   const forged = counterfeitsOf(new Map([...region.npcs.map(x => [x.id, x]), ...recs]), now, region.id);
   const nations = [];
   for (const x of region.npcs) nations.push({ id: x.id, I: indicators(x.id, x, now, { npc: true, npcPop: world.npcPop, npcEpoch: world.npcEpoch, trade: trade.get(x.id), wars: wars.get(x.id), counterfeit: forged.get(x.id) }) });
