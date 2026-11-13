@@ -35,6 +35,16 @@ const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
    player's population by naming their account. Never from a banned account. */
 const FOUND_POP = 20, HW_STEP = 1.05, HW_EVERY = 6 * 3600000, CARRY_MS = 7 * DAY;
 const grown = (pop, at, now) => { const days = Math.max(0, (now - at) / DAY); return pop * Math.pow(1.35, days) + 3 * days; };
+/* An update's headline population, for a client that asks (d.cap): held to what the rules (grows) will allow by the
+   server's clock since the last save, which only grows by the time the save lands. The game counts growth by the
+   device's clock: one running ahead of the last device's sends a population "from the future". Held only within what
+   a clock up to an hour ahead explains; beyond, sent as it is, for the rules to refuse (a forged jump). The record
+   (j) keeps the game's number, and every game holds it to this one (auditNation). */
+export const SKEW_MS = 3600000;
+export function heldPop(pop, saved, at, now) {
+  if (!(pop > grown(saved, at, now) + 1e-4) || pop > grown(saved, at, now + SKEW_MS) + 1e-4) return pop;
+  return Math.max(saved, Math.floor(grown(saved, at, now) * 1e4) / 1e4);
+}
 const hwOf = s => { const h = s && s.exists ? s.get('hw') : null; return h && Number.isFinite(h.pop) && Number.isFinite(h.at) ? h : null; };
 /* a carry key as the server keeps it: never the key itself */
 export const carryHash = k => typeof k === 'string' && /^[0-9a-f]{32,64}$/.test(k) ? createHash('sha256').update('carry:' + k).digest('hex') : '';
@@ -98,16 +108,21 @@ async function permit(db, who, d) {
     // Invalid NPC-looking strings must not evade registration requirements.
     if (actor.exists && actor.get('generation') === e.generation) n.asm = actor.get('record');
     else n.asm = { r: p.reg, e: [], s: [], v: [] };
-    /* the population: a create held to createCap; an update only noted, at no more than the rules will let it save */
+    /* the population: a create held to createCap; an update noted at no more than the rules will let it save, and, for
+       a client that asks (cap), saved at no more (heldPop) */
     const now = Date.now();
-    let most = Infinity;
+    let most = Infinity, pop = p.pop;
     if (!e.saved.exists) {
       const c = await createCap(tx, db, who, e, p, d.from, carryHash(d.fk), now);
       if (p.pop > c.cap + 1e-4) refuse('population_limit', 'This nation is larger than a new record can start. Sign in to the account that held it.');
       if (c.carry) tx.set(c.carry, { hw: { ...c.fh, to: who.uid } }, { mergeFields: ['hw'] });
-    } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) most = grown(e.saved.get('pop'), e.saved.get('ts').toMillis(), now) + 1e-4;
+    } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) {
+      const sp = e.saved.get('pop'), st = e.saved.get('ts').toMillis();
+      most = grown(sp, st, now) + 1e-4;
+      if (d.cap === 1) pop = heldPop(p.pop, sp, st, now);
+    }
     /* a guest's carry key (src/shim.js, carryKey), noted with its last save so only its own browser can carry it */
-    const hw = hwOf(e.account), noted = Math.min(p.pop, most), ck = who.registered ? '' : carryHash(d.ck), k = ck || (hw && typeof hw.k === 'string' ? hw.k : '');
+    const hw = hwOf(e.account), noted = Math.min(pop, most), ck = who.registered ? '' : carryHash(d.ck), k = ck || (hw && typeof hw.k === 'string' ? hw.k : '');
     if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to || (ck && hw.k !== ck)) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now, ...(k ? { k } : {}) } }, { mergeFields: ['hw'] });
     /* letters a game from before letters were private left in the shared record (dm, now in the own half: src/shim.js):
        when the record is first saved without them, those to players become letters/ documents, so their readers
@@ -118,7 +133,7 @@ async function permit(db, who, d) {
     if (Array.isArray(before.dm) && !own(n, 'dm')) for (const m of before.dm.slice(-80))
       if (m && !m.i && isId(m.w) && m.w !== who.uid && !npcIds.has(m.w) && !/^(npc|office)-/.test(m.w) && typeof m.x === 'string' && m.x.trim() && Number.isSafeInteger(m.t) && m.t > 0)
         tx.set(db.doc('letters/' + who.uid + '~' + m.w + '~' + m.t), { by: who.uid, to: m.w, x: m.x.slice(0, 500), t: m.t, ts: FieldValue.serverTimestamp(), exp: Timestamp.fromMillis(now + 365 * DAY) });
-    const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop: p.pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: d.rev + 1 };
+    const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: d.rev + 1 };
     const ref = db.collection('nationPermits/' + who.uid + '/requests').doc(), sk = raceKeys(n, before);
     /* the text deflated as well (z): a client that asks (zip) saves that instead of j, and the rules compare it with
        this permit's z; a build from before saves j as it always did */
