@@ -41213,7 +41213,10 @@ function navQjOpen(){
 }
 function navQjClose(back){
   const m=NAVU.qj;if(!m)return;NAVU.qj=null;m.remove();
-  const r=NAVU.ret;NAVU.ret=null;if(back&&r&&r.isConnected&&r!==document.body)try{r.focus({preventScroll:true});}catch(e){}
+  /* the page may have been drawn again while the search was open (a snapshot, a server's answer): the field the player
+     came from is then a new element with the same id, holding the same draft */
+  let r=NAVU.ret;NAVU.ret=null;if(r&&!r.isConnected&&r.id)r=document.getElementById(r.id);
+  if(back&&r&&r.isConnected&&r!==document.body)try{r.focus({preventScroll:true});}catch(e){}
 }
 function navQjGo(v){navQjClose(false);if(!v)return;if(v===S.view&&!S.openIssue&&!S.result){navFocusMain();return;}go(v);navFocusMain();}
 document.addEventListener('keydown',e=>{
