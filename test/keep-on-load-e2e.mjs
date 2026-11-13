@@ -13,11 +13,20 @@ const A = await player('keep');
 const uid = await open(A); await found(A, 'Keepsake');
 check('the nation is saved', !!(await until(() => shared(uid), 15000)));
 
-/* a newer build's save, as the emulator's owner writes it: a field and an achievement this build has never heard of */
-const raw = await restGet('nations/' + uid), f = raw.body.fields, rec = JSON.parse(fieldsText(f)), at = Date.now() - 60e3;
-rec.zzFuture = { tier: 3, notes: ['kept'] }; rec.ach = { ...(rec.ach || {}), 'zz-future-medal': at };
-delete f.z; f.v = { integerValue: '1' }; f.j = { stringValue: JSON.stringify(rec) }; f.rev = { integerValue: String(Number(f.rev.integerValue) + 1) };
-const w = await fetch(`${DOCS}/nations/${uid}`, { method: 'PATCH', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ fields: f }) });
+/* a newer build's save, as the emulator's owner writes it: a field and an achievement this build has never heard of.
+   Written once the game's own first saves are done (same rev for 3 s): a write while the game saves the record gets a 409
+   from the emulator (seen in CI, 13 Nov 2026), so a clash is retried on a fresh copy. */
+let last = -1, same = 0;
+await until(async () => { const s = await shared(uid); const r = s ? s.rev : -1; same = r === last ? same + 1 : 0; last = r; return same >= 6; }, 30000, 500);
+let w = null, at = 0;
+for (let i = 0; i < 6 && !(w && w.ok); i++) {
+  if (i) await sleep(700);
+  const raw = await restGet('nations/' + uid), f = raw.body.fields, rec = JSON.parse(fieldsText(f));
+  at = Date.now() - 60e3;
+  rec.zzFuture = { tier: 3, notes: ['kept'] }; rec.ach = { ...(rec.ach || {}), 'zz-future-medal': at };
+  delete f.z; f.v = { integerValue: '1' }; f.j = { stringValue: JSON.stringify(rec) }; f.rev = { integerValue: String(Number(f.rev.integerValue) + 1) };
+  w = await fetch(`${DOCS}/nations/${uid}`, { method: 'PATCH', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ fields: f }) });
+}
 check('the newer save is in place', w.ok, String(w.status));
 
 await A.reload(); await A.waitForSelector('.layout', { timeout: 30000 });
