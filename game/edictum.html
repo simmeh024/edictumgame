@@ -47349,11 +47349,24 @@ function rpStrip(app){
 }
 function rpField(f){return f.localName==='select'?[...f.options].every(o=>o.selected===o.defaultSelected):f.localName==='textarea'?f.value===f.defaultValue:f.type==='checkbox'||f.type==='radio'?f.checked===f.defaultChecked:f.value===f.defaultValue;}
 function rpClean(el){if(/^(input|select|textarea)$/.test(el.localName))return rpField(el);for(const f of el.querySelectorAll('input,select,textarea'))if(!rpField(f))return false;return true;}
+/* The field being typed in, when the new drawing holds just what it holds now (the game keeps what is typed in its
+   state, so a full draw would put the same back): kept, with the new drawing's attributes, so the caret and the typing
+   stay where they are. Replacing it and focusing the copy put the caret at the start of a number field, which cannot
+   say or set where its caret is: with the region's saves redrawing the page every few seconds, 100 typed into the
+   Bureau's market became 001, too little to exchange, and its Exchange button stayed grey. */
+function rpKeepField(a,b){
+  const ty=(a.getAttribute('type')||'').toLowerCase();
+  if(a!==document.activeElement||/^(checkbox|radio|file)$/.test(ty)||ty!==(b.getAttribute('type')||'').toLowerCase()||a.value!==(b.getAttribute('value')||''))return false;
+  for(const x of [...a.attributes])if(!b.hasAttribute(x.name))a.removeAttribute(x.name);
+  for(const x of b.attributes)if(a.getAttribute(x.name)!==x.value)a.setAttribute(x.name,x.value);
+  return true;
+}
 function rpNode(a,b){
   const t=a.nodeType;
   if(t!==b.nodeType){a.replaceWith(b);return;}
   if(t===3||t===8){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return;}
   if(t!==1||a.localName!==b.localName){a.replaceWith(b);return;}
+  if(a.localName==='input'&&b.localName==='input'&&rpKeepField(a,b))return;
   if(a.isEqualNode(b)){if(!rpClean(a))a.replaceWith(b);return;}
   if(RP_WHOLE.has(a.localName)||!rpAttrsSame(a,b)){if(RPATCH.why)try{RPATCH.why(a,b);}catch(e){}a.replaceWith(b);return;}
   if(a.localName!=='canvas')rpKids(a,b);
@@ -47410,7 +47423,9 @@ function render(){if(fxRender())return;
   else app.innerHTML=html;
   RENDER_LAST.k=same;RENDER_LAST.app=app.firstChild;RENDER_LAST.route=route;
   navAfter(navK);
-  if(fidFocus){const el=document.getElementById(fidFocus);if(el){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);}catch(e){}}}
+  if(fidFocus){const el=document.getElementById(fidFocus);if(el&&el!==ae){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);
+    /* a new copy of a field with no caret to set (a number field): the caret goes after what is in it, where the typing was */
+    else if(!sel&&el.localName==='input'&&el.value&&el.selectionStart==null){const v=el.value;el.value='';el.value=v;}}catch(e){}}}
   drawAllGuill();
   initMaps();
   const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
