@@ -7328,7 +7328,7 @@ button[disabled] .gv-cost{opacity:.6}
 .nav-rail .nav .nav-btn .badge.dot{min-width:0;width:8px;height:8px;padding:0;top:4px;right:10px}
 /* the Diplomacy page in five tabs, and alliances (AL) */
 .dp-pane{display:none}
-.dp[data-tab="overview"]>#dp-p-overview,.dp[data-tab="alliance"]>#dp-p-alliance,.dp[data-tab="relations"]>#dp-p-relations,.dp[data-tab="wars"]>#dp-p-wars,.dp[data-tab="gifts"]>#dp-p-gifts{display:block}
+.dp[data-tab="overview"]>#dp-p-overview,.dp[data-tab="alliance"]>#dp-p-alliance,.dp[data-tab="relations"]>#dp-p-relations,.dp[data-tab="treaties"]>#dp-p-treaties,.dp[data-tab="wars"]>#dp-p-wars,.dp[data-tab="gifts"]>#dp-p-gifts{display:block}
 .dp-wait{margin:0 0 26px;padding:14px 16px;border:1px solid var(--rule);border-left:3px solid var(--stamp);border-radius:4px;background:var(--sheet)}
 .dp-wait.none{border-left-color:var(--rule-2);background:none;padding:10px 14px}
 .dp-wait-h{font:600 15px/1.3 var(--f-body);margin:0;display:flex;align-items:center;gap:8px}
@@ -7439,6 +7439,20 @@ button[disabled] .gv-cost{opacity:.6}
 .al-log{list-style:none;padding:0;margin:0;font-size:14px}.al-log li{padding:6px 0;border-top:1px solid var(--rule)}
 .al-ch-dl{margin-top:4px}
 .al-rank-n{display:inline-flex;align-items:center;gap:8px}
+.dpt-l{list-style:none;margin:0;padding:0}
+.dpt-i{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;border-top:1px solid var(--rule);padding:10px 0}
+.dpt-n{display:inline-flex;align-items:center;gap:8px;min-width:200px}
+.dpt-k{flex:1 1 220px}
+.dpt-a{display:flex;flex-wrap:wrap;gap:6px}
+.dpt-brk{display:block;flex-basis:100%}
+.dpt-brk .btn{margin:6px 6px 0 0}
+.dpt-form{display:grid;gap:12px;max-width:680px}
+.dpt-kinds{border:0;margin:0;padding:0;display:grid;gap:8px}
+.dpt-kind{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:start;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer}
+.dpt-kind input{grid-row:span 2;margin-top:3px}
+.dpt-kind.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.dpt-how{margin:0 0 8px;padding-left:18px}
+.al-rels .dp-rel-a{margin-left:0}
 .alp .vh .eyebrow .linkish{font:inherit;letter-spacing:inherit;text-transform:inherit}
 .alp-act{margin:0 0 20px}
 @media (max-width:600px){.al-head{gap:12px}.al-ban.lg{width:58px}.al-name{font-size:23px}.dp-rel-a,.dp-rel-x{margin-left:0}.dp-rel-tools{margin-left:0}.dp-search .input{min-width:0;width:100%}.dp-search{flex:1 1 100%}.al-ban-f{flex-direction:column}.al-cands,.al-cards2{grid-template-columns:1fr}.al-msg{max-width:100%}}
@@ -19984,11 +19998,17 @@ let polMemo={k:'',v:null};
 /* the alliances of this region as the server keeps them (alliances/{aid}, functions/alliances.js), kept up to date by
    alConnect (in "alliances rebuilt", near the end of the script). rev counts snapshots, so politics() knows to look again */
 const AL={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:'',tab:'overview',sub:'members',chat:{aid:'',list:[],unsub:null,err:'',seen:0},tried:{},view:''};
+/* treaties between two nations: the server's rules (functions/treaty-rules.js; test/treaties.test.mjs checks that they
+   match), and the region's treaties as the server keeps them (treaties/, functions/treaties.js), kept up to date by
+   tyConnect ("treaties between nations", near the end). rev counts snapshots, so politics() and the economy look again */
+const TY_RULES={kinds:['nap','trade','research'],max:{nap:8,trade:3,research:3},notice:3*86400000,record:30*86400000,reoffer:7*86400000,
+  npcMin:{nap:35,trade:50,research:60},breakGw:{other:15,all:5},fx:{flow:0.1,research:0.01,researchMax:3}};
+const TY={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:'',to:'',k:'nap',brk:''};
 function politics(){
   const docs=[];if(S.nation)docs.push([myId(),S.nation]);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)docs.push([id,S.world[id]]);
   const srv=S.mode==='local'?null:AL.docs;
-  const k=npcRev+'#'+(srv?AL.rev:'-')+'#'+docs.map(([id,d])=>id+':'+(d.updatedAt||0)).join('|');
+  const k=npcRev+'#'+(srv?AL.rev:'-')+'#'+TY.rev+'#'+docs.map(([id,d])=>id+':'+(d.updatedAt||0)).join('|');
   if(polMemo.k===k&&polMemo.v)return polMemo.v;
   const al=new Map(),of=new Map(),byDoc=new Map(docs),claims=[];
   for(const b of NPC_BLOCS){const A={id:b.id,name:b.name,founder:null,npc:true,members:b.members.slice(),pending:[],invited:[],inv:[]};al.set(b.id,A);for(const m of b.members)of.set(m,A);}
@@ -20144,7 +20164,7 @@ async function attack(){
     if(!res||!res.ok){
       const why=res&&res.why;
       if(why==='ready'){const n=clone(S.nation),ms=readyMs(n);n.ready=0;n.readyAt=Date.now()+clamp(Number(res.next)||ms,0,ms)-ms;commit(n);}
-      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
+      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='pact'?'The referee refused the battle: a pact binds the two sides. It must be ended or broken first.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
       S.mapTarget=null;updateMapPanel();redrawMaps();return;
     }
     win=!!res.win;t=Number(res.t)||Date.now();seal=typeof res.s==='string'?res.s:null;seal2=typeof res.s2==='string'?res.s2:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
@@ -20175,6 +20195,7 @@ function declareWar(id){
   if(!canFeature(S.nation,'war')){toast('Declaring war unlocks at '+fmtPopShort(featureAt('war'))+' people.');return;}
   if(!x.npc&&!canFeature(x.n,'war')){toast(x.n.name+' has fewer than '+fmtPopShort(featureAt('war'))+' people and is protected from war.');return;}
   if(sameAlliance(myId(),id))return;
+  {const tb=tyWarBlock(id);if(tb){toast(tb);return;}}
   const ws=warWith(id),now=Date.now();if(ws.war||(ws.truceUntil&&ws.truceUntil>now))return;
   const n=clone(S.nation);
   if(n.wars&&n.wars[id]&&n.wars[id].t)n.wh=(n.wh||[]).concat({w:id,a:n.wars[id].t,b:(n.peace&&n.peace[id])||now}).slice(-40);
@@ -20257,6 +20278,7 @@ function warControls(x){
   if(ws.truceUntil&&ws.truceUntil>now)return `<div class="war-box calm"><p>A truce holds until ${fmtTime(ws.truceUntil)}${dayTail(ws.truceUntil,now)}.</p></div>`;
   if(!canFeature(S.nation,'war'))return `<div class="war-box calm"><p>Declaring war unlocks at ${fmtPopShort(featureAt('war'))} people. Until then, grow, trade and make friends.</p></div>`;
   if(!x.npc&&!canFeature(x.n,'war'))return `<div class="war-box calm"><p>${nm} has fewer than ${fmtPopShort(featureAt('war'))} people, so it is protected from war.</p></div>`;
+  {const tb=tyWarBlock(x.id);if(tb)return `<div class="war-box calm"><p>${esc(tb)}</p><div class="row"><button type="button" class="btn ghost sm" data-act="dp-ty-go" data-id="${esc(x.id)}">Treaties</button></div></div>`;}
   if(S.confirmWar===x.id){const def=alliesOf(x.id).map(nameOf);return `<div class="war-box"><p class="war-k">Declare war on ${nm}?</p><p>Your army can then attack their hexes within reach. Every attack costs money and morale${x.npc?`, and ${nm} will strike back`:''}.${def.length?` ${def.length===1?'Its ally':'Its allies'} ${esc(list(def))} will defend it.`:''}</p><div class="row"><button class="btn danger solid" data-act="war-declare" data-id="${esc(x.id)}">Declare war</button><button class="btn ghost" data-act="war-cancel">Cancel</button></div></div>`;}
   return `<div class="row" style="margin-top:16px"><button class="btn danger" data-act="war-ask" data-id="${esc(x.id)}">Declare war…</button></div>`;
 }
@@ -20600,9 +20622,10 @@ function economy(){
   for(const d of active){
     if(d.sus)continue;
     const ai=T.byId[d.a],bi=T.byId[d.b];d.fa=fac(d.ag[0],ai);d.fb=fac(d.bg[0],bi);
-    const am=alSame(d.a,d.b),fx=am?alFx(d.a):null,ff=Math.min(d.fa,d.fb)*trFlow(d,T,active)*(am?1+fx.flow:1),qa=d.ag[1]*ff,qb=d.bg[1]*ff;
-    /* a trade bloc's members pay no import tariffs on each other's goods (impF: imports free of them) */
-    if(am&&fx.tariffFree){impF[d.ag[0]][bi]+=qa;impF[d.bg[0]][ai]+=qb;}
+    const am=alSame(d.a,d.b),fx=am?alFx(d.a):null,ta=!!tyOf(d.a,d.b,'trade'),ff=Math.min(d.fa,d.fb)*trFlow(d,T,active)*(am?1+fx.flow:1)*(ta?1+TY_RULES.fx.flow:1),qa=d.ag[1]*ff,qb=d.bg[1]*ff;
+    /* a trade bloc's members, and the two sides of a trade agreement, pay no import tariffs on each other's goods (impF:
+       imports free of them) */
+    if((am&&fx.tariffFree)||ta){impF[d.ag[0]][bi]+=qa;impF[d.bg[0]][ai]+=qb;}
     exp[d.ag[0]][ai]+=qa;imp[d.ag[0]][bi]+=qa;exp[d.bg[0]][bi]+=qb;imp[d.bg[0]][ai]+=qb;
   }
   const price={};
@@ -24260,6 +24283,8 @@ function warIn(n,id){const w=n.wars&&n.wars[id];return !!(w&&w.t&&!(((n.peace&&n
 function npcPeaceWait(id){return DAY*(1+2*(NPC_HAWK[id]||0));}
 function npcWarTick(n,now){
   const out=[];if(!n||n.npc||cellOf(n.loc)<0||S.mode==='readonly')return out;
+  /* online, the region's treaties first: a computer nation under a non-aggression pact never attacks (the roll waits) */
+  if(S.mode==='world'&&!TY.ready)return out;
   const cur=Math.floor(now/WAR_SLOT);
   if(!Number.isInteger(n.wck)||n.wck>cur){n.wck=cur;return out;}
   if(n.wck===cur)return out;
@@ -24270,7 +24295,7 @@ function npcWarTick(n,now){
   for(let k=Math.max(n.wck+1,cur-7);k<=cur;k++){
     const ts=k*WAR_SLOT+hash(n.seed+':slot:'+k)%WAR_SLOT;if(ts>now)break;n.wck=k;
     for(const x of NPC_NATIONS){
-      const id=x.id,ni=T.byId[id];if(ni===undefined||sameAlliance(myId(),id))continue;
+      const id=x.id,ni=T.byId[id];if(ni===undefined||sameAlliance(myId(),id)||tyOf(myId(),id,'nap'))continue;
       const roll=rng(hash(n.seed+':'+id+':'+k))();
       if(warIn(n,id)){
         const ct=npcCounter(T,ni);if(!ct||taken.has(ct.cell))continue;
@@ -24344,6 +24369,9 @@ function relationCard(x){
   if(!x.npc){const th=gwOf(x.n,me);rows.push(['Their record with you',`${gwWord(th)} (${th>0?'+':''}${th})`]);}
   if(x.npc){const af=affinity(x.n,n),bloc=NPC_BLOCS.find(b=>b.members.includes(x.id));rows.push(['Affinity',`${af} of 100${bloc?'':` · ${af>=ALLY_MIN?'would join your alliance':'an alliance needs '+ALLY_MIN}`}`]);}
   {const B=allianceOf(x.id);rows.push(['Alliance',B?(B.srv?`<button type="button" class="linkish" data-act="al-page" data-id="${esc(B.id)}">${esc(B.name)}</button>`:esc(B.name)):'None']);}
+  {const tl=TY_RULES.kinds.filter(k=>tyOf(me,x.id,k)).map(k=>TY_K[k][0]);rows.push(['Treaties with you',tl.length?esc(list(tl)):'None']);
+    const bk=tyList(x.id).filter(T=>T.st==='broken'&&T.by===x.id&&now-T.bt<TY_RULES.record);
+    if(bk.length)rows.push(['Treaties broken',esc(list(bk.map(T=>`a ${TY_K[T.k][0].toLowerCase()} with ${nameOf(T.p[0]===x.id?T.p[1]:T.p[0])} on ${fmtDate(T.bt)}`)))]);}
   let deals=0,held=0;try{for(const d of economy().active)if((d.a===me&&d.b===x.id)||(d.b===me&&d.a===x.id)){if(d.sus)held++;else deals++;}}catch(e){}
   rows.push(['Trade deals with you',deals||held?`${deals} active${held?`, ${held} on hold`:''}`:'None']);
   const past=(n.wh||[]).filter(w=>w.w===x.id).length+(ws.war&&ws.direct?1:0)+(!ws.war&&ws.peaceAt?1:0);
@@ -25041,6 +25069,8 @@ function helpBody(n){
       <p>An alliance has a leader, up to ${AL_RULES.officers} officers and its members. The leader writes the charter (name, motto, banner, map colour, type and who may join) and gives out roles; officers invite and admit nations. If the leader leaves or has not played for 7 days, the longest-serving officer or member who still plays takes over, so an alliance outlives its founder.</p>
       <p>Its type adds a bonus for every member: ${Object.values(AL_TYPES).map(t=>t.n.toLowerCase()+' ('+t.d.replace(/\.$/,'').toLowerCase()+')').join('; ')}.</p>
       <p>Members earn the alliance renown each day by playing, trading with each other, sending each other gifts, fighting in each other’s wars and answering calls to arms, and by giving to its treasury. An alliance starts with ${AL_RULES.places} member places, and each level adds two more and new banner designs. The leader and officers spend the treasury on projects: ${Object.values(AL_PJ).map(p=>p[0]).join(', ')}. Members also share a private channel.</p>
+      <p>Two nations may sign treaties on the Diplomacy page’s Treaties tab: ${TY_RULES.kinds.map(k=>TY_K[k][0].toLowerCase()+' ('+TY_K[k][1].replace(/\.$/,'').toLowerCase()+')').join('; ')}. Either side ends one with ${TY_RULES.notice/DAY} days’ notice, or breaks it at once, which costs goodwill and stays on its record for ${TY_RULES.record/DAY} days.</p>
+      <p>Alliances may sign pacts with each other, so that no member of either attacks a member of the other, and name rivals: each battle won against a rival’s member earns renown. Only an alliance’s leader makes pacts and names rivals.</p>
       <p>A computer nation joins when its affinity with you is ${ALLY_MIN} or more out of 100. Affinity compares civil rights, the economy and political freedom, adjusted by your cabinet and your goodwill. If your values drift apart and affinity falls below ${ALLY_MIN-10}, it leaves. Two computer blocs, ${list(blocs)}, join no other alliance.</p>`,
     spies:`<p>You have ${agentsMax({})} named agents, ${agentsMax({})+1} with a Foreign Intelligence Service and more from the bureau’s recruitment office. Each mission uses one, which rests ${mins(AGENT_MS)} afterwards; a scout and an experienced agent roll higher. One caught is held abroad for a few hours.</p>
       <p>Your agent rolls a twenty-sided die. High science and education add up to 2, and a Foreign Intelligence Service adds 2. Their Counter-Intelligence Bureau takes off 2, mass surveillance 1 and strong security forces 1. A natural 1 is always caught and a natural 20 is always a masterstroke.</p>
@@ -66707,7 +66737,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,PT:()=>ptProbe(),LTH:()=>lthProbe(),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,PT:()=>ptProbe(),LTH:()=>lthProbe(),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -67575,7 +67605,9 @@ function nvxCompute(n,now){
     add('diplomacy',w.inv,w.inv===1?'an alliance invitation':w.inv+' alliance invitations');
     add('diplomacy',w.req,w.req===1?'a nation asking to join your alliance':w.req+' nations asking to join your alliance');
     add('diplomacy',w.calls,w.calls===1?'a call to arms':w.calls+' calls to arms');
-    add('diplomacy',w.chat,w.chat===1?'a message in your alliance’s channel':w.chat+' messages in your alliance’s channel');});
+    add('diplomacy',w.chat,w.chat===1?'a message in your alliance’s channel':w.chat+' messages in your alliance’s channel');
+    add('diplomacy',w.tr,w.tr===1?'a treaty offered to you':w.tr+' treaties offered to you');
+    add('diplomacy',w.pact,w.pact===1?'a pact offered to your alliance':w.pact+' pacts offered to your alliance');});
   each(()=>{const k=gfIncoming().filter(g=>!g.reply).length;add('diplomacy',k,k===1?'a gift to answer':k+' gifts to answer');});
   each(()=>{const k=economy().pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).length;add('trade',k,k===1?'a trade offer':k+' trade offers','.tr-in-h');});
   each(()=>{const k=enemies().filter(x=>{const w=warWith(x.id);return w.direct&&w.theyOffered&&!w.iOffered;}).length;add('map',k,k===1?'an offer of peace':k+' offers of peace','.map-tabs [data-v="map"]');});
@@ -67671,8 +67703,8 @@ const AL_RULES={levels:[0,100,250,500,900,1500,2400,3600,5200,7500],officers:5,
     beacon:{max:3,lv:[2,4,6],cost:[{timber:50,iron:40},{timber:100,iron:80},{timber:160,iron:130}]},
     academy:{max:3,lv:[3,5,8],cost:[{goods:70,oil:30},{goods:140,oil:60},{goods:220,oil:100}]},
     chronicle:{max:3,lv:[2,4,7],cost:[{goods:40,food:50},{goods:90,food:100},{goods:150,food:170}]}},
-  places:15,
-  xp:{active:3,deal:2,gift:2,giftCap:5,battle:5,battleCap:10,call:5,callCap:3,join:10,donatePer:10,donateDay:50,chron:0.1}};
+  places:15,rel:{pact:4,rival:2},relNotice:3*86400000,
+  xp:{active:3,deal:2,gift:2,giftCap:5,battle:5,battleCap:10,call:5,callCap:3,join:10,donatePer:10,donateDay:50,chron:0.1,rival:4,rivalCap:10,pactBreak:100}};
 const AL_PJ={hall:['Alliance Hall','Two more member places for each level.'],granary:['Shared Granary','Population growth +2% a level, for every member.'],
   market:['Common Market','Trade deals between members flow 10% more a level, and one more deal slot at level 2.'],
   fleet:['Joint Fleet','Attacks across the sea lose 10 points less of their strength a level.'],
@@ -67699,7 +67731,7 @@ function alNorm(id,d){
   const num=src=>{const r={};for(const [k,v] of Object.entries(o(src)))if(typeof v==='number'&&isFinite(v))r[k]=v;return r;};
   const dn={};for(const [k,v] of Object.entries(o(d.dn))){dn[k]={};for(const r of RES)dn[k][r]=n(o(v)[r]);dn[k].lt=n(o(v).lt);}
   return {id,reg:str(d.reg,40),name:str(d.name,40)||'An alliance',mo:str(d.mo,80),em:alEmOf(o(d.em)),col:safeColor(d.col,'#3A8FD1'),ty:AL_TYPES[d.ty]?d.ty:'def',acc:AL_ACCESS[d.acc]?d.acc:'apply',
-    t:n(d.t),fd:str(d.fd,128),ld:str(d.ld,128),tyAt:n(d.tyAt),mem,npc:num(d.npc),iv:num(d.iv),rq,xp:n(d.xp),tt:n(d.tt),tr:Object.fromEntries(RES.map(r=>[r,n(o(d.tr)[r])])),dn,pj:num(d.pj),
+    t:n(d.t),fd:str(d.fd,128),ld:str(d.ld,128),tyAt:n(d.tyAt),mem,npc:num(d.npc),iv:num(d.iv),rq,xp:n(d.xp),tt:n(d.tt),tr:Object.fromEntries(RES.map(r=>[r,n(o(d.tr)[r])])),dn,pj:num(d.pj),rel:alRelNorm(d.rel),
     log:(Array.isArray(d.log)?d.log:[]).filter(e=>e&&typeof e==='object').slice(0,40).map(e=>({t:n(e.t),k:str(e.k,12),a:str(e.a,128),b:str(e.b,400),x:str(e.x,200)}))};
 }
 
@@ -67783,6 +67815,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
   if(out.length)n.gwl=(Array.isArray(n.gwl)?n.gwl:[]).concat(out).slice(-80);
 });
 function alGwWhy(n,old,id,d){
+  if(n._trb)return n._trb===id?'You broke your treaty with them':'You broke a treaty';
   const grew=(k,f)=>{const was=new Set((old[k]||[]).map(e=>JSON.stringify(e)));return (n[k]||[]).some(e=>f(e)&&!was.has(JSON.stringify(e)));};
   if(grew('gft',e=>e&&e.to===id))return 'You sent them a gift';
   if(grew('gfr',e=>e&&e.f===id))return 'You thanked them for a gift';
@@ -67862,8 +67895,8 @@ function alWarHelp(w,e,since){
 }
 
 /* ── the Diplomacy page ── */
-const DP_TABS=[['overview','Overview'],['alliance','Alliance'],['relations','Relations'],['wars','Wars'],['gifts','Gifts']];
-const DP_SUBS=[['members','Members'],['channel','Channel'],['treasury','Treasury'],['invite','Invite'],['charter','Charter'],['history','History']];
+const DP_TABS=[['overview','Overview'],['alliance','Alliance'],['relations','Relations'],['treaties','Treaties'],['wars','Wars'],['gifts','Gifts']];
+const DP_SUBS=[['members','Members'],['channel','Channel'],['treasury','Treasury'],['invite','Invite'],['charter','Charter'],['relations','Relations'],['history','History']];
 const alBusy=op=>AL.busy===op?' disabled aria-busy="true"':AL.busy?' disabled':'';
 const alFlag=x=>`<span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>`;
 const alAgo=t=>{if(!t)return 'never';const d=Date.now()-t;return d<3600e3?'in the last hour':d<DAY?'today':d<2*DAY?'yesterday':Math.floor(d/DAY)+' days ago';};
@@ -67886,13 +67919,16 @@ function dpWaiting(now){
     items.push({k:'cta',h:`${alFlag(e)}<span><b>Call to arms.</b> ${esc(e.n.name)} attacked your ally ${esc(a.n.name)} ${relDays(c.since).replace(/^ ?\(|\)$/g,'')||'recently'}.</span>`,b:`<button type="button" class="btn danger sm" data-act="dp-cta" data-w="${esc(c.w)}" data-e="${esc(c.e)}">Answer the call</button><button type="button" class="btn ghost sm" data-act="dp-tab" data-v="wars">War room</button>`});}
   const gifts=gfIncoming().filter(g=>!g.reply);
   if(gifts.length)items.push({k:'gift',h:`<span class="al-wi-g" aria-hidden="true">✉</span><span>${gifts.length===1?`<b>${esc(gifts[0].from.n.name)}</b> sent you ${esc(fill(GF_KINDS[gifts[0].k][1],gifts[0].from.n))}.`:`${gifts.length} gifts are waiting for your thanks.`}</span>`,b:`<button type="button" class="btn sm" data-act="dp-tab" data-v="gifts">Answer</button>`});
+  for(const T of tyIncoming())items.push({k:'treaty',h:`<span class="al-wi-g" aria-hidden="true">§</span><span><b>${esc(nameOf(T.a))}</b> offers you a ${esc(TY_K[T.k][0].toLowerCase())}.</span>`,b:`<button type="button" class="btn sm" data-act="dp-ty-yes" data-id="${esc(T.id)}">Accept</button><button type="button" class="btn ghost sm" data-act="dp-ty-no" data-id="${esc(T.id)}">Decline</button>`});
+  if(A&&A.srv&&alPactAsks(A)){const P=politics();for(const [bid,r] of Object.entries(A.doc.rel)){const B=P.al.get(bid);if(r.k!=='pact'||r.st!=='asked'||!B||!B.srv)continue;
+    items.push({k:'pact',h:`${alBanner(B.doc,'sm')}<span><b>${esc(B.name)}</b> offers ${esc(A.name)} a pact.</span>`,b:`<button type="button" class="btn sm" data-act="dp-ar-yes" data-id="${esc(bid)}">Accept</button><button type="button" class="btn ghost sm" data-act="dp-ar-no" data-id="${esc(bid)}">Decline</button>`});}}
   if(A&&A.srv&&alChatUnread())items.push({k:'chat',h:`${alBanner(A.doc,'sm')}<span>${alChatUnread()===1?'A new message':alChatUnread()+' new messages'} in ${esc(A.name)}’s channel.</span>`,b:`<button type="button" class="btn ghost sm" data-act="dp-sub" data-v="channel">Read</button>`});
   return items;
 }
 function dpWaitingHTML(now){
   const it=dpWaiting(now);
   return `<section class="dp-wait${it.length?'':' none'}" aria-labelledby="dp-wait-h"><h2 class="dp-wait-h" id="dp-wait-h">${it.length?`Waiting for you <span class="chip">${it.length}</span>`:'Nothing is waiting for you'}</h2>
-    ${it.length?`<ul class="dp-wl">${it.map(x=>`<li class="dp-wi k-${x.k}"><span class="dp-wt">${x.h}</span><span class="dp-wb">${x.b}</span></li>`).join('')}</ul>`:'<p class="hint">Invitations, requests to join, offers of peace, calls to arms and gifts appear here as they arrive.</p>'}</section>`;
+    ${it.length?`<ul class="dp-wl">${it.map(x=>`<li class="dp-wi k-${x.k}"><span class="dp-wt">${x.h}</span><span class="dp-wb">${x.b}</span></li>`).join('')}</ul>`:'<p class="hint">Invitations, requests to join, treaties offered, offers of peace, calls to arms and gifts appear here as they arrive.</p>'}</section>`;
 }
 
 /* the relations: every nation the player deals with */
@@ -67932,10 +67968,11 @@ function dpRelations(){
   const body=rows.map(r=>{const x=r.x,id=esc(r.id),open=AL.relOpen===r.id,why=gwl.filter(e=>e.i===r.id).slice(-8).reverse();
     const acts=[`<button type="button" class="btn ghost sm" data-act="dp-gift" data-id="${id}">Gift</button>`,
       r.st!=='war'?`<button type="button" class="btn ghost sm" data-act="trade-go" data-id="${id}">Trade</button>`:'',
+      r.st!=='war'?`<button type="button" class="btn ghost sm" data-act="dp-ty-go" data-id="${id}">Treaty</button>`:'',
       canInv&&!allianceOf(r.id)&&r.st!=='war'&&!A.invited.includes(r.id)?`<button type="button" class="btn ghost sm" data-act="al-invite" data-id="${id}">Invite</button>`:'',
       `<button type="button" class="btn ghost sm" data-act="spy-go" data-id="${id}">Spy</button>`,
       `<button type="button" class="btn ghost sm" data-act="map-open" data-id="${id}">Map</button>`].join('');
-    return `<li class="dp-rel${open?' open':''}"><div class="dp-rel-h">${alFlag(x)}<span class="dp-rel-n">${nationLink(x.id,x.n.name,false)}${x.npc?'<span class="chip">Computer</span>':''}${chip[r.st]}${allianceOf(r.id)&&!r.ally?`<span class="hint">${esc(allianceName(r.id))}</span>`:''}</span>
+    return `<li class="dp-rel${open?' open':''}"><div class="dp-rel-h">${alFlag(x)}<span class="dp-rel-n">${nationLink(x.id,x.n.name,false)}${x.npc?'<span class="chip">Computer</span>':''}${chip[r.st]}${tyChips(r.id)}${allianceOf(r.id)&&!r.ally?`<span class="hint">${esc(allianceName(r.id))}</span>`:''}</span>
       <span class="dp-rel-f"><span>${gw(r.mine,x.npc?'How they regard you':'Your record with them')}${r.theirs!=null?` · ${gw(r.theirs,'Their record with you')}`:''}</span>
       <span class="hint">${x.npc?`Affinity ${r.aff}`:`Likes you ${r.aff??'–'} of 100`} · ${r.border?'Shares a border':r.dist!=null?r.dist+(r.dist===1?' hex':' hexes')+' away':'Not on the map'}${r.deals?` · ${r.deals} ${r.deals===1?'deal':'deals'}`:''}</span></span>
       <button type="button" class="linkish small dp-why" data-act="dp-why" data-id="${id}" aria-expanded="${open}">${open?'Hide':'Why?'}</button></div>
@@ -68108,7 +68145,7 @@ const AL_LOG={found:e=>`${e.b?esc(e.b):'A nation'} founded ${esc(e.x||'the allia
   leader:e=>`${esc(nameOf(e.a))} became the leader${e.x==='away'?', the last leader having been away for a week':e.x==='left'?', the last leader having left':e.x==='gone'?', the last leader’s nation being gone':''}.`,
   role:e=>`${esc(nameOf(e.a))} ${e.x==='o'?'became an officer':'is no longer an officer'}.`,edit:e=>`${esc(nameOf(e.a))} revised the charter.`,type:e=>`${esc(nameOf(e.a))} made it a ${esc((AL_TYPES[e.x]||{n:'new kind of alliance'}).n.toLowerCase())}.`,
   donate:e=>`${esc(e.b||nameOf(e.a))} gave ${esc(e.x)} to the treasury.`,build:e=>{const [k,l]=String(e.x).split(':');return `${esc(nameOf(e.a))} built ${esc(AL_PJ[k]?AL_PJ[k][0]:k)}${+l>1?' to level '+esc(l):''}.`;},
-  tally:e=>{let p={};try{p=JSON.parse(e.b||'{}')||{};}catch(err){}const bits=[[p.active,'played','played'],[p.deals,'trade deal','trade deals'],[p.gifts,'gift','gifts'],[p.battles,'battle for an ally','battles for allies'],[p.calls,'call answered','calls answered']].filter(b=>b[0]>0).map(b=>b[1]==='played'?`${b[0]} ${b[0]===1?'member':'members'} played`:`${b[0]} ${b[0]===1?b[1]:b[2]}`);if(p.chron>0)bits.push(`${p.chron} more from the Hall of Chronicles`);return `The alliance earned ${esc(e.x)} renown${bits.length?': '+esc(list(bits)):''}.`;}};
+  tally:e=>{let p={};try{p=JSON.parse(e.b||'{}')||{};}catch(err){}const bits=[[p.active,'played','played'],[p.deals,'trade deal','trade deals'],[p.gifts,'gift','gifts'],[p.battles,'battle for an ally','battles for allies'],[p.calls,'call answered','calls answered'],[p.rival,'battle against a rival','battles against rivals']].filter(b=>b[0]>0).map(b=>b[1]==='played'?`${b[0]} ${b[0]===1?'member':'members'} played`:`${b[0]} ${b[0]===1?b[1]:b[2]}`);if(p.chron>0)bits.push(`${p.chron} more from the Hall of Chronicles`);return `The alliance earned ${esc(e.x)} renown${bits.length?': '+esc(list(bits)):''}.`;}};
 function alHistoryHTML(A){const L=A.doc.log;return L.length?`<ol class="al-log">${L.map(e=>`<li><span class="hint">${esc(fmtDate(e.t))}</span> ${(AL_LOG[e.k]||(()=>'Something happened.'))(e)}</li>`).join('')}</ol>`:'<p class="muted">Nothing yet.</p>';}
 
 function dpAlliance(now){
@@ -68118,9 +68155,9 @@ function dpAlliance(now){
   if(A&&A.srv){
     S.alForm=null;
     const sub=DP_SUBS.some(s=>s[0]===AL.sub)?AL.sub:'members',un=alChatUnread();
-    const pane={members:()=>alMembersHTML(A,true)+alRequestsHTML(A)+alLeaveHTML(A),channel:()=>alChannelHTML(A),treasury:()=>alTreasuryHTML(A),invite:()=>alInviteHTML(A),charter:()=>alCharterHTML(A),history:()=>alHistoryHTML(A)}[sub]();
+    const pane={members:()=>alMembersHTML(A,true)+alRequestsHTML(A)+alLeaveHTML(A),channel:()=>alChannelHTML(A),treasury:()=>alTreasuryHTML(A),invite:()=>alInviteHTML(A),charter:()=>alCharterHTML(A),relations:()=>alRelationsHTML(A),history:()=>alHistoryHTML(A)}[sub]();
     const req=alCan(A,me,'o')?A.pending.length:0;
-    return `${msg}${alHead(A)}<div class="al-subs" role="tablist" aria-label="${esc(A.name)}">${DP_SUBS.map(([k,l])=>`<button type="button" role="tab" class="al-sub${k===sub?' on':''}" data-act="dp-sub" data-v="${k}" aria-selected="${k===sub}">${l}${k==='channel'&&un?` <span class="badge">${un}</span>`:''}${k==='members'&&req?` <span class="badge">${req}</span>`:''}</button>`).join('')}</div>
+    return `${msg}${alHead(A)}<div class="al-subs" role="tablist" aria-label="${esc(A.name)}">${DP_SUBS.map(([k,l])=>`<button type="button" role="tab" class="al-sub${k===sub?' on':''}" data-act="dp-sub" data-v="${k}" aria-selected="${k===sub}">${l}${k==='channel'&&un?` <span class="badge">${un}</span>`:''}${k==='members'&&req?` <span class="badge">${req}</span>`:''}${k==='relations'&&alPactAsks(A)?` <span class="badge">${alPactAsks(A)}</span>`:''}</button>`).join('')}</div>
       <div class="al-pane" id="al-pane-${sub}">${pane}</div>`;
   }
   /* not in an alliance: invitations, a request on its way, the alliances to join, founding one */
@@ -68154,17 +68191,18 @@ function dpAlliance(now){
 /* the page itself */
 function dpView(now){
   now=now||Date.now();const t=DP_TABS.some(x=>x[0]===AL.tab)?AL.tab:'overview',A=alMine(),me=myId();
-  const badge={alliance:(()=>{let k=0;const P=politics();for(const B of P.al.values())if(B.srv&&B.invited.includes(me))k++;if(A&&A.srv&&alCan(A,me,'o'))k+=A.pending.length;k+=A&&A.srv?alChatUnread():0;return k;})(),
-    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length};
+  const badge={alliance:(()=>{let k=0;const P=politics();for(const B of P.al.values())if(B.srv&&B.invited.includes(me))k++;if(A&&A.srv&&alCan(A,me,'o'))k+=A.pending.length;k+=A&&A.srv?alChatUnread()+alPactAsks(A):0;return k;})(),
+    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length,treaties:tyIncoming().length};
   const tabs=`<div class="gv-tabs dp-tabs" role="tablist" aria-label="Diplomacy">${DP_TABS.map(([k,l])=>`<button type="button" role="tab" id="dp-tab-${k}" class="gv-tab dp-tab${k===t?' on':''}" data-act="dp-tab" data-v="${k}" aria-selected="${k===t}" aria-controls="dp-p-${k}" tabindex="${k===t?0:-1}">${l}${badge[k]?` <span class="gv-tab-n">${badge[k]}</span>`:''}</button>`).join('')}</div>`;
   const pane=(k,h)=>`<section class="dp-pane" id="dp-p-${k}" role="tabpanel" aria-labelledby="dp-tab-${k}" data-dp="${k}">${h}</section>`;
   const safe=f=>{try{return f();}catch(e){return `<div class="empty"><p class="empty-h">This part could not be drawn</p><p>${esc(e.message)}</p></div>`;}};
-  return `<header class="vh"><p class="eyebrow">Foreign office</p><h1>Diplomacy</h1><p>Your alliance, your relations with every nation, your wars and your gifts.</p></header>
+  return `<header class="vh"><p class="eyebrow">Foreign office</p><h1>Diplomacy</h1><p>Your alliance, your relations and treaties with every nation, your wars and your gifts.</p></header>
     ${safe(()=>dpWaitingHTML(now))}
     <div class="dp" id="dp" data-tab="${t}">${tabs}
       ${pane('overview',safe(()=>dpOverview(now)))}
       ${pane('alliance',safe(()=>dpAlliance(now)))}
       ${pane('relations',safe(()=>dpRelations()))}
+      ${pane('treaties',safe(()=>dpTreaties(now)))}
       ${pane('wars',safe(()=>`<div class="dip-grid"><div class="dip-col">${warsSection()}</div><div class="dip-col">${dpWarRoom(now)}</div></div>`))}
       ${pane('gifts',safe(()=>dpGifts(now)))}</div>`;
 }
@@ -68182,7 +68220,7 @@ function alPageView(now){
   return `<div class="alp"><header class="vh"><p class="eyebrow"><button type="button" class="linkish" data-act="go" data-v="diplomacy">Diplomacy</button> · Alliance</p><h1>${esc(A.name)}</h1></header>
     ${alHead(A,true)}${act?`<div class="row alp-act">${act}</div>`:''}
     <div class="dip-grid"><div class="dip-col"><section class="dip-sec"><h2 class="h2">Members</h2>${alMembersHTML(A,false)}</section></div>
-    <div class="dip-col"><section class="dip-sec"><h2 class="h2">Charter</h2><dl class="mp-dl al-ch-dl"><div><dt>Type</dt><dd>${esc(AL_TYPES[D.ty].n)}: ${esc(AL_TYPES[D.ty].d)}</dd></div><div><dt>Who may join</dt><dd>${esc(AL_ACCESS[D.acc][1])}</dd></div><div><dt>Projects</dt><dd>${pjs.length?pjs.map(([k,v])=>esc(AL_PJ[k][0])+(AL_RULES.projects[k].max>1?' '+v:'')).join(', '):'None yet'}</dd></div><div><dt>Combined population</dt><dd>${fmtPop(alPopOf(A))}</dd></div></dl></section>
+    <div class="dip-col"><section class="dip-sec"><h2 class="h2">Charter</h2><dl class="mp-dl al-ch-dl"><div><dt>Type</dt><dd>${esc(AL_TYPES[D.ty].n)}: ${esc(AL_TYPES[D.ty].d)}</dd></div><div><dt>Who may join</dt><dd>${esc(AL_ACCESS[D.acc][1])}</dd></div><div><dt>Projects</dt><dd>${pjs.length?pjs.map(([k,v])=>esc(AL_PJ[k][0])+(AL_RULES.projects[k].max>1?' '+v:'')).join(', '):'None yet'}</dd></div><div><dt>Combined population</dt><dd>${fmtPop(alPopOf(A))}</dd></div>${alRelFacts(A)}</dl></section>
     <section class="dip-sec"><h2 class="h2">History</h2>${alHistoryHTML(A)}</section></div></div></div>`;
 }
 /* not a menu page (EXT_PAGES would file it under Other): drawn here, opened by links and by its address */
@@ -68238,7 +68276,7 @@ function alRanking(){
     return '';};
   return `<section class="section al-rank" id="al-rank">${head}<p class="hint">${rows.length===1?'One alliance.':rows.length+' alliances, the most populous first.'} ${open?(open===rows.length?(rows.length===1?'It takes':'All of them take'):`${open} of them take`)+' new members.':'None takes new members just now.'}${mine?` You belong to ${esc(mine.name)}.`:''}</p>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Alliance</th><th>Members</th><th>People</th><th>Land</th><th>Level</th><th>Joining</th></tr></thead><tbody>
-    ${rows.map((r,i)=>{const [ak,al2]=access(r.A),a=act(r.A);return `<tr class="${r.A===mine?'me':''}"><td>${i+1}</td><td><span class="al-rank-n">${alBanner(r.A.doc,'sm')}<button type="button" class="linkish" data-act="al-page" data-id="${esc(r.A.id)}">${esc(r.A.name)}</button>${r.A===mine?'<span class="chip you">Yours</span>':''}</span></td><td class="c-pop">${r.A.members.length} of ${alPlaces(r.A.doc)}</td><td class="c-pop">${fmtPop(r.pop)}</td><td class="c-pop">${fmtArea(r.land)}</td><td class="c-pop">${alLevel(r.A.doc.xp)}</td><td><span class="al-join"><span class="al-acc al-acc-${ak}">${esc(al2)}</span>${a}</span></td></tr>`;}).join('')}</tbody></table></div>
+    ${rows.map((r,i)=>{const [ak,al2]=access(r.A),a=act(r.A);return `<tr class="${r.A===mine?'me':''}"><td>${i+1}</td><td><span class="al-rank-n">${alBanner(r.A.doc,'sm')}<button type="button" class="linkish" data-act="al-page" data-id="${esc(r.A.id)}">${esc(r.A.name)}</button>${r.A===mine?'<span class="chip you">Yours</span>':''}${alRelChip(mine,r.A)}</span></td><td class="c-pop">${r.A.members.length} of ${alPlaces(r.A.doc)}</td><td class="c-pop">${fmtPop(r.pop)}</td><td class="c-pop">${fmtArea(r.land)}</td><td class="c-pop">${alLevel(r.A.doc.xp)}</td><td><span class="al-join"><span class="al-acc al-acc-${ak}">${esc(al2)}</span>${a}</span></td></tr>`;}).join('')}</tbody></table></div>
     ${found}</section>`;
 }
 /* ── achievements ── */
@@ -68259,13 +68297,15 @@ function alWaitCount(){
   const me=myId(),P=politics(),A=alMine();let inv=0,req=0;
   for(const B of P.al.values())if(B.srv&&B.invited.includes(me)&&!B.members.includes(me))inv++;
   if(A&&A.srv&&alCan(A,me,'o'))req=A.pending.length;
-  return {inv,req,chat:A&&A.srv?alChatUnread():0,calls:alCalls(Date.now()).filter(c=>!c.ans).length};
+  return {inv,req,chat:A&&A.srv?alChatUnread():0,calls:alCalls(Date.now()).filter(c=>!c.ans).length,tr:tyIncoming().length,pact:A&&A.srv?alPactAsks(A):0};
 }
 allianceNotice=function(){
   if(!S.nation)return '';const w=alWaitCount(),bits=[];
   if(w.inv)bits.push(w.inv===1?'An alliance has invited you to join':`${w.inv} alliances have invited you to join`);
   if(w.req)bits.push(w.req===1?'A nation asks to join your alliance':`${w.req} nations ask to join your alliance`);
   if(w.calls)bits.push(w.calls===1?'An ally is under attack: a call to arms':`${w.calls} calls to arms from your allies`);
+  if(w.tr)bits.push(w.tr===1?'A nation offers you a treaty':`${w.tr} nations offer you treaties`);
+  if(w.pact)bits.push(w.pact===1?'An alliance offers yours a pact':`${w.pact} alliances offer yours a pact`);
   if(!bits.length)return '';
   return `<button class="notice" data-act="go" data-v="diplomacy"><span class="notice-k">Foreign office</span><span>${esc(bits.join('. '))}.</span><span class="notice-go">Open diplomacy →</span></button>`;
 };
@@ -68365,6 +68405,176 @@ tutGo=(f=>function(v,b,to){if(v==='diplomacy'){AL.tab=to?dpTabOfSel(to)||'allian
 go=(f=>function(v){const r=f.apply(this,arguments);if(S.view==='diplomacy'){dpHash();if(AL.tab==='alliance'&&AL.sub==='channel')alChatSeen();}if(S.view==='alliance'&&AL.view){try{const h='#alliance/'+AL.view;if(location.hash!==h)history.replaceState(history.state,'',h);}catch(e){}}return r;})(go);
 /* links from elsewhere that name a tab: the bell's alliance news opens Alliance, gifts open Gifts */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-v="diplomacy"],[data-dp-tab]');if(!el)return;const t=el.dataset.dpTab||'';if(DP_TABS.some(x=>x[0]===t))AL.tab=t;},true);
+
+/* ───────── treaties between nations, and relations between alliances (13 November 2026) ─────────
+   Treaties are the server's (treaties/{k}_{lo}_{hi}, functions/treaties.js; TY_RULES beside AL is its rules' copy): a
+   non-aggression pact, a trade agreement or a research pact between two nations. tyConnect keeps the region's in
+   TY.docs. A non-aggression pact stops either side declaring war on the other or on the other's alliance (tyWarBlock;
+   the referee refuses the battle too), and no computer nation under one attacks; a trade agreement's deals flow more
+   and pay no import tariffs (economy()); a research pact adds prosperity (below). Relations between alliances are in
+   each alliance's record (rel, functions/alliances.js): pacts, kept like a non-aggression pact between all their
+   members, and rivalries, whose battles earn renown in the daily tally. The helpers are function declarations, as the
+   economy calls them before this part of the script has run. */
+const TY_K={nap:['Non-aggression pact','Neither side may declare war on the other, or on an alliance the other belongs to; a computer nation under one never attacks.','non-aggression pacts','Non-aggression'],
+  trade:['Trade agreement','Deals between the two flow 10% more and pay no import tariffs.','trade agreements','Trade agreement'],
+  research:['Research pact','Prosperity +1% for each side, for each pact (three count at most).','research pacts','Research pact']};
+function tyId(k,a,b){return k+'_'+(a<b?a+'_'+b:b+'_'+a);}
+function tyLive(T,now){return !!T&&(T.st==='active'||(T.st==='ending'&&now<T.end));}
+/* a nation founded again since it signed is not bound (the server's trVoid): f holds each player's nation as it signed */
+function tyVoid(T){for(const id of Object.keys(T.f||{})){const f=T.f[id],d=f?docOf(id):null,b=d?Number(d.founded):0;if(b>0&&b!==f)return true;}return false;}
+function tyOf(a,b,k){if(!a||!b||a===b||!TY.docs.size)return null;const T=TY.docs.get(tyId(k,a,b));return T&&tyLive(T,Date.now())&&!tyVoid(T)?T:null;}
+function tyList(id){const out=[];for(const T of TY.docs.values())if(T.p.includes(id)&&!tyVoid(T))out.push(T);return out;}
+function tyIncoming(){const me=myId();return tyList(me).filter(T=>T.st==='offered'&&T.b===me);}
+function tyNorm(id,d){
+  const n=v=>typeof v==='number'&&isFinite(v)?v:0,s=v=>typeof v==='string'?v.slice(0,128):'';
+  const k=TY_RULES.kinds.includes(d.k)?d.k:'',p=Array.isArray(d.p)?d.p.filter(x=>typeof x==='string').slice(0,2):[];
+  if(!k||p.length!==2)return null;
+  const f={};if(d.f&&typeof d.f==='object')for(const [u,v] of Object.entries(d.f))if(typeof v==='number'&&isFinite(v))f[u]=v;
+  return {id,k,p,a:s(d.a),b:s(d.b),st:['offered','active','ending','broken'].includes(d.st)?d.st:'',t:n(d.t),at:n(d.at),end:n(d.end),bt:n(d.bt),by:s(d.by),f,npc:!!d.npc};
+}
+function tyConnect(){
+  if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;
+  const reg=REG.id;if(TY.reg===reg&&TY.unsub)return;
+  if(TY.unsub)try{TY.unsub();}catch(e){}
+  TY.reg=reg;TY.ready=false;
+  try{TY.unsub=S.db.collection('treaties').where('reg','==',reg).onSnapshot(qs=>{
+    const m=new Map();for(const d of qs.docs){try{const T=tyNorm(d.id,d.data()||{});if(T)m.set(d.id,T);}catch(e){}}
+    TY.docs=m;TY.rev++;TY.ready=true;TY.err='';polMemo.k='';NVX.ver++;
+    if(['diplomacy','visit','alliance'].includes(S.view)&&!alTyping())quietRender();else if(S.view==='map')redrawMaps();
+  },e=>{TY.err=(e&&e.message)||'unavailable';TY.ready=true;});}catch(e){TY.ready=true;}
+}
+connect=(f=>async function(){const r=await f.apply(this,arguments);try{tyConnect();}catch(e){}return r;})(connect);
+async function tyAct(op,d,done){
+  if(OBS){toast('Observing: nothing can be changed.');return null;}
+  if(S.mode!=='world'){toast('Treaties need the online game.');return null;}
+  if(TY.busy)return null;TY.busy=op;TY.msg='';render();
+  try{const r=(await alReq(Object.assign({op},d)))||{};if(done)done(r);return r;}
+  catch(e){TY.msg=alErrText(e);toast(TY.msg);return null;}
+  finally{TY.busy='';render();}
+}
+/* why declaring war on id is barred by a pact, or '' */
+function tyWarBlock(id){
+  const me=myId(),x=findNation(id);if(!x)return '';const nm=x.n.name;
+  if(tyOf(me,id,'nap'))return `You have a non-aggression pact with ${nm}. End it with notice, or break it, on the Diplomacy page’s Treaties tab before you declare war.`;
+  for(const y of alliesOf(id))if(tyOf(me,y,'nap'))return `${nameOf(y)}, an ally of ${nm}, has a non-aggression pact with you, and war on ${nm} is war on its allies. End or break that pact first.`;
+  const A=alMine(me),B=allianceOf(id);if(alPactLive(A,B))return `${A.name} has a pact with ${B.name}, so no member of either may attack the other’s. Only your alliance’s leader can end it.`;
+  return '';
+}
+/* breaking: goodwill lost with the other side, and with every computer nation and every nation it has a record with */
+function tyPenalty(other){
+  if(!S.nation)return;const n=clone(S.nation),G=TY_RULES.breakGw,gw={...(n.gw||{})};
+  for(const x of allNations()){if(x.me)continue;const cur=gw[x.id]||0;if(x.id===other)gw[x.id]=clamp(cur-G.other,-GW_MAX,GW_MAX);else if(x.npc||cur)gw[x.id]=clamp(cur-G.all,-GW_MAX,GW_MAX);}
+  n.gw=gw;n._trb=other||'*';commit(n);
+}
+COMMIT_HOOKS.push(n=>{if(n)delete n._trb;});
+/* a research pact's prosperity, for every nation that holds one (three count at most) */
+economy=(f=>function(){const v=f.apply(this,arguments);if(v&&!v._ty){v._ty=true;try{if(TY.docs.size){const now=Date.now(),c=new Map();
+  for(const T of TY.docs.values())if(T.k==='research'&&tyLive(T,now)&&!tyVoid(T))for(const id of T.p)c.set(id,(c.get(id)||0)+1);
+  v.T.list.forEach((x,i)=>{const k=c.get(x.id),e=v.eff[i];if(k&&e)e.prosper*=1+TY_RULES.fx.research*Math.min(k,TY_RULES.fx.researchMax);});}}catch(e){}}return v;})(economy);
+function tyChips(id){const me=myId();return TY_RULES.kinds.filter(k=>tyOf(me,id,k)).map(k=>`<span class="chip ok">${esc(TY_K[k][3])}</span>`).join('');}
+
+/* the Treaties tab: what is in force, offers either way, a new one to propose, and the player's own record */
+function dpTreaties(now){
+  if(S.mode!=='world')return '<p class="muted">Treaties belong to the online game.</p>';
+  const me=myId(),L=tyList(me),msg=TY.msg?`<p class="war-msg">${esc(TY.msg)}</p>`:'',busy=TY.busy?' disabled':'';
+  const oth=T=>T.p[0]===me?T.p[1]:T.p[0],kn=k=>TY_K[k][0];
+  const who=id=>{const x=findNation(id);return x?`${alFlag(x)}${nationLink(id,x.n.name,false)}${x.npc?'<span class="chip">Computer</span>':''}`:esc(nameOf(id));};
+  const inc=L.filter(T=>T.st==='offered'&&T.b===me),out=L.filter(T=>T.st==='offered'&&T.a===me),live=L.filter(T=>tyLive(T,now));
+  const bro=L.filter(T=>T.st==='broken'&&T.by===me&&now-T.bt<TY_RULES.record);
+  const row=(T,acts,extra)=>`<li class="dpt-i"><span class="dpt-n">${who(oth(T))}</span><span class="dpt-k"><b>${esc(kn(T.k))}</b>${extra?` <span class="hint">${extra}</span>`:''}</span><span class="dpt-a">${acts}</span></li>`;
+  const offers=inc.length||out.length?`<section class="section"><h2 class="h2">Offers</h2><ul class="dpt-l">${inc.map(T=>row(T,`<button type="button" class="btn sm" data-act="dp-ty-yes" data-id="${esc(T.id)}"${busy}>Accept</button><button type="button" class="btn ghost sm" data-act="dp-ty-no" data-id="${esc(T.id)}"${busy}>Decline</button>`,'offered to you '+esc(fmtDate(T.t)))).join('')}${out.map(T=>row(T,`<button type="button" class="btn ghost sm" data-act="dp-ty-cancel" data-id="${esc(T.id)}"${busy}>Withdraw</button>`,'offered by you '+esc(fmtDate(T.t)))).join('')}</ul></section>`:'';
+  const force=`<section class="section"><h2 class="h2">In force</h2>${live.length?`<ul class="dpt-l">${live.map(T=>{const o=esc(nameOf(oth(T)));
+      if(TY.brk===T.id)return `<li class="dpt-i dpt-brk"><p><b>Break your ${esc(kn(T.k).toLowerCase())} with ${o} now?</b> It ends at once. You lose ${TY_RULES.breakGw.other} goodwill with ${o} and ${TY_RULES.breakGw.all} with every computer nation and every nation you have a record with, it stays on your record for ${TY_RULES.record/DAY} days, and no computer nation signs a treaty with you until then.</p><div class="row"><button type="button" class="btn danger sm" data-act="dp-ty-brk" data-id="${esc(T.id)}"${busy}>Break the treaty</button><button type="button" class="btn ghost sm" data-act="dp-ty-brk-no">Keep it</button></div></li>`;
+      const extra=T.st==='ending'?'ends '+esc(fmtDate(T.end)):'since '+esc(fmtDate(T.at||T.t));
+      const acts=(T.st==='ending'?'':`<button type="button" class="btn ghost sm" data-act="dp-ty-end" data-id="${esc(T.id)}"${busy}>End with ${TY_RULES.notice/DAY} days’ notice</button>`)+`<button type="button" class="btn ghost sm" data-act="dp-ty-brk-ask" data-id="${esc(T.id)}">${T.st==='ending'?'Break now…':'Break…'}</button>`;
+      return row(T,acts,extra);}).join('')}</ul>`:'<p class="muted">No treaty is in force yet.</p>'}</section>`;
+  const pick=allNations().filter(x=>!x.me&&!warWith(x.id).war).sort((a,b)=>a.n.name.localeCompare(b.n.name));
+  const to=pick.some(x=>x.id===TY.to)?TY.to:'',k=TY_RULES.kinds.includes(TY.k)?TY.k:'nap';
+  const held=L.filter(T=>T.k===k&&(tyLive(T,now)||(T.st==='offered'&&T.a===me))).length;
+  let note='',stop=false;
+  if(to){const x=findNation(to),nm=esc(x.n.name),T=TY.docs.get(tyId(k,me,to)),ok=T&&!tyVoid(T);
+    if(ok&&tyLive(T,now)){note=`A ${esc(kn(k).toLowerCase())} with ${nm} is already in force.`;stop=true;}
+    else if(ok&&T.st==='offered'){note=T.a===me?'You have offered it. It waits for their answer.':`${nm} has offered you this. Proposing it accepts theirs.`;stop=T.a===me;}
+    else if(x.npc){const af=affinity(x.n,S.nation),need=TY_RULES.npcMin[k];note=bro.length?`${nm} signs nothing with a nation that broke a treaty in the last ${TY_RULES.record/DAY} days.`:`${nm} ${af>=need?'would sign':'would decline'}: its affinity with you is ${af}, and a ${esc(kn(k).toLowerCase())} needs ${need}.`;}
+    else note=`${nm} decides whether to accept.`;}
+  const form=`<section class="section dpt-new"><h2 class="h2">Propose a treaty</h2><div class="dpt-form">
+    <label class="field"><span class="cz-flab">With</span><select class="input" id="dpt-to"><option value="">Choose a nation…</option>${pick.map(x=>`<option value="${esc(x.id)}"${x.id===to?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':''}</option>`).join('')}</select></label>
+    <fieldset class="dpt-kinds"><legend class="cz-flab">Kind</legend>${TY_RULES.kinds.map(q=>`<label class="dpt-kind${q===k?' on':''}"><input type="radio" name="dpt-k" value="${q}"${q===k?' checked':''}><b>${esc(TY_K[q][0])}</b><span class="hint">${esc(TY_K[q][1])}</span></label>`).join('')}</fieldset>
+    ${note?`<p class="hint dpt-note">${note}</p>`:''}
+    <div class="row"><button type="button" class="btn" data-act="dp-ty-offer"${!to||stop||!civicRegistered()||TY.busy?' disabled':''}>Propose</button><span class="hint">You hold ${held} of ${TY_RULES.max[k]} ${esc(TY_K[k][2])}.</span></div>
+    ${civicRegistered()?'':'<p class="hint">Treaties need a Registered Nation. Link a sign-in account in your account menu.</p>'}</div></section>`;
+  const rec=bro.length?`<section class="section"><h2 class="h2">Your record</h2><ul class="dpt-l">${bro.map(T=>`<li class="dpt-i"><span>You broke your ${esc(kn(T.k).toLowerCase())} with ${esc(nameOf(oth(T)))} on ${esc(fmtDate(T.bt))}. It stays on your record until ${esc(fmtDate(T.bt+TY_RULES.record))}.</span></li>`).join('')}</ul></section>`:'';
+  const how=`<section class="section"><h3 class="lbl-h">How treaties work</h3><ul class="dpt-how">${TY_RULES.kinds.map(q=>`<li><b>${esc(TY_K[q][0])}.</b> ${esc(TY_K[q][1])} A nation holds at most ${TY_RULES.max[q]}.</li>`).join('')}</ul>
+    <p class="hint">A player accepts or declines your offer; a computer nation answers at once, by its affinity with you. Either side may end a treaty with ${TY_RULES.notice/DAY} days’ notice, or break it at once, which costs goodwill and stays on the breaker’s record for ${TY_RULES.record/DAY} days.</p></section>`;
+  return `${msg}${offers}${force}${form}${rec}${how}`;
+}
+
+/* relations between alliances: a pact in force, its offers, and rivalries */
+function alRelNorm(rel){
+  const out={};if(!rel||typeof rel!=='object'||Array.isArray(rel))return out;
+  const n=x=>typeof x==='number'&&isFinite(x)?x:0;
+  for(const [id,v] of Object.entries(rel)){if(!v||typeof v!=='object')continue;
+    if(v.k==='pact'&&['offered','asked','active','ending'].includes(v.st))out[id]={k:'pact',st:v.st,t:n(v.t),at:n(v.at),end:n(v.end),by:typeof v.by==='string'?v.by.slice(0,128):''};
+    else if(v.k==='rival'&&(v.me||v.them))out[id]={k:'rival',me:!!v.me,them:!!v.them,t:n(v.t)};}
+  return out;
+}
+function alRel(D,bid,now){const r=D&&D.rel?D.rel[bid]:null;if(!r)return null;if(r.k==='pact'&&r.st==='ending'&&(now||Date.now())>=r.end)return null;return r;}
+function alRelLiveG(r,now){return !!r&&r.k==='pact'&&(r.st==='active'||(r.st==='ending'&&(now||Date.now())<r.end));}
+function alPactLive(A,B){return !!(A&&B&&A.srv&&B.srv&&A!==B&&alRelLiveG(A.doc.rel[B.id]));}
+function alPactAsks(A){if(!A||!A.srv||alRoleOf(A,myId())!=='ld')return 0;const P=politics();return Object.entries(A.doc.rel).filter(([id,r])=>r.k==='pact'&&r.st==='asked'&&P.al.has(id)&&P.al.get(id).srv).length;}
+function alRelChip(mine,B){if(!mine||!mine.srv||!B||mine===B)return '';const r=alRel(mine.doc,B.id);if(alRelLiveG(r))return '<span class="chip ok">Pact</span>';if(r&&r.k==='rival')return '<span class="chip war">Rival</span>';return '';}
+function alRelFacts(A){
+  const P=politics(),now=Date.now(),nm=id=>{const B=P.al.get(id);return B&&B.srv?`<button type="button" class="linkish" data-act="al-page" data-id="${esc(id)}">${esc(B.name)}</button>`:'';};
+  const pacts=Object.entries(A.doc.rel).filter(([,r])=>alRelLiveG(r,now)).map(([id])=>nm(id)).filter(Boolean),rivals=Object.entries(A.doc.rel).filter(([,r])=>r.k==='rival').map(([id])=>nm(id)).filter(Boolean);
+  return (pacts.length?`<div><dt>Pacts</dt><dd>${pacts.join(', ')}</dd></div>`:'')+(rivals.length?`<div><dt>Rivals</dt><dd>${rivals.join(', ')}</dd></div>`:'');
+}
+function alRelationsHTML(A){
+  const D=A.doc,me=myId(),lead=alRoleOf(A,me)==='ld',now=Date.now(),busy=AL.busy?' disabled':'';
+  const others=[...politics().al.values()].filter(B=>B.srv&&B.id!==A.id).sort((a,b)=>a.name.localeCompare(b.name));
+  const pk=Object.values(D.rel).filter(r=>r.k==='pact'&&r.st!=='asked'&&(r.st!=='ending'||now<r.end)).length,rv=Object.values(D.rel).filter(r=>r.k==='rival'&&r.me).length;
+  const b=(act,id,txt,cls,on)=>`<button type="button" class="btn ${cls||'ghost'} sm" data-act="${act}" data-id="${esc(id)}"${on!=null?` data-on="${on}"`:''}${busy}>${txt}</button>`;
+  const brk=B=>`<span class="dpt-brk"><b>Break the pact with ${esc(B.name)} at once?</b> ${esc(A.name)} loses ${AL_RULES.xp.pactBreak} renown, and both alliances’ histories say who broke it. ${b('dp-ar-brk',B.id,'Break the pact','danger')}<button type="button" class="btn ghost sm" data-act="dp-ar-brk-no">Keep it</button></span>`;
+  const rows=others.map(B=>{const r=alRel(D,B.id,now);let st='',acts='';
+    if(r&&r.k==='pact'){
+      if(r.st==='active'){st=`<span class="chip ok">Pact</span><span class="hint">since ${esc(fmtDate(r.at||r.t))}</span>`;acts=AL.pbrk===B.id?brk(B):b('dp-ar-end',B.id,`End with ${AL_RULES.relNotice/DAY} days’ notice`)+b('dp-ar-brk-ask',B.id,'Break…');}
+      else if(r.st==='ending'){st=`<span class="chip">Pact</span><span class="hint">ends ${esc(fmtDate(r.end))}</span>`;acts=AL.pbrk===B.id?brk(B):b('dp-ar-brk-ask',B.id,'Break now…');}
+      else if(r.st==='offered'){st='<span class="chip">Pact offered</span>';acts=b('dp-ar-no',B.id,'Withdraw the offer');}
+      else{st='<span class="chip">Offers you a pact</span>';acts=b('dp-ar-yes',B.id,'Accept','')+b('dp-ar-no',B.id,'Decline');}
+    }else if(r&&r.k==='rival'){st=`<span class="chip war">${r.me&&r.them?'Rivals':r.me?'Your rival':'Names you its rival'}</span>`;acts=r.me?b('dp-ar-rival',B.id,'Withdraw the rivalry',null,0):b('dp-ar-rival',B.id,'Name them rivals too',null,1);}
+    else acts=b('dp-ar-pact',B.id,'Offer a pact')+b('dp-ar-rival',B.id,'Name as rival',null,1);
+    return `<li class="dp-rel"><div class="dp-rel-h">${alBanner(B.doc,'sm')}<span class="dp-rel-n"><button type="button" class="linkish" data-act="al-page" data-id="${esc(B.id)}">${esc(B.name)}</button>${st}</span><span class="hint">${B.members.length} ${B.members.length===1?'member':'members'} · level ${alLevel(B.doc.xp)}</span></div>${lead&&acts?`<div class="dp-rel-a">${acts}</div>`:''}</li>`;}).join('');
+  return `<p class="hint">A pact: no member of either alliance may attack a member of the other, and the referee holds both to it. ${esc(A.name)} holds ${pk} of ${AL_RULES.rel.pact}. A rival: each battle a member wins against a rival’s member earns ${AL_RULES.xp.rival} renown in the daily tally (up to ${AL_RULES.xp.rivalCap} battles a member). ${esc(A.name)} names ${rv} of ${AL_RULES.rel.rival}.${lead?'':' Only the leader makes pacts and names rivals.'}</p>
+    ${others.length?`<ul class="dp-rels al-rels">${rows}</ul>`:'<p class="muted">No other alliance in this region yet.</p>'}`;
+}
+Object.assign(AL_LOG,{
+  pact:e=>`A pact with ${esc(e.b||'another alliance')} was signed.`,pactoffer:e=>`${esc(nameOf(e.a))} offered ${esc(e.b||'another alliance')} a pact.`,
+  pactask:e=>`${esc(e.b||'Another alliance')} offered a pact.`,pactend:e=>`The pact with ${esc(e.b||'another alliance')} ends with notice.`,
+  pactbrk:e=>`The pact with ${esc(e.b||'another alliance')} was broken by ${esc(nameOf(e.a))}.`,rival:e=>`${esc(nameOf(e.a))} named ${esc(e.b||'another alliance')} a rival.`,
+  rivaled:e=>`${esc(e.b||'Another alliance')} named this alliance its rival.`,rivalx:e=>`${esc(nameOf(e.a))} withdrew the rivalry with ${esc(e.b||'another alliance')}.`});
+
+/* clicks: treaties (dp-ty-…) and relations between alliances (dp-ar-…); the Diplomacy page's own handler passes them by */
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="dp-ty-"],[data-act^="dp-ar-"]');if(!el||!S.nation)return;
+  const a=el.dataset.act,id=el.dataset.id||'',A=alMine(),an=bid=>{const B=politics().al.get(bid);return B?B.name:'that alliance';};
+  if(a==='dp-ty-go'){TY.to=id;AL.tab='treaties';if(S.view!=='diplomacy')go('diplomacy');else render();return;}
+  if(a==='dp-ty-offer'){const k=TY.k,to=TY.to;if(to)tyAct('trOffer',{id:to,k},r=>toast(r.signed?`${TY_K[k][0]} signed with ${nameOf(to)}.`:`${TY_K[k][0]} offered to ${nameOf(to)}.`));return;}
+  if(a==='dp-ty-yes'){tyAct('trAnswer',{tid:id,yes:true},r=>{if(r.signed)toast('The treaty is signed.');});return;}
+  if(a==='dp-ty-no'){tyAct('trAnswer',{tid:id,yes:false});return;}
+  if(a==='dp-ty-cancel'){tyAct('trCancel',{tid:id});return;}
+  if(a==='dp-ty-end'){tyAct('trEnd',{tid:id},r=>{if(r.end)toast(`The treaty ends on ${fmtDate(r.end)}.`);});return;}
+  if(a==='dp-ty-brk-ask'){TY.brk=id;render();return;}
+  if(a==='dp-ty-brk-no'){TY.brk='';render();return;}
+  if(a==='dp-ty-brk'){TY.brk='';tyAct('trEnd',{tid:id,now:true},r=>{if(r.broken){tyPenalty(r.other);toast('The treaty is broken.');}});return;}
+  if(!A||!A.srv)return;
+  if(a==='dp-ar-pact')alAct('alPact',{aid:A.id,to:id},r=>toast(r.signed?`A pact with ${an(id)} is signed.`:`A pact is offered to ${an(id)}.`));
+  else if(a==='dp-ar-yes'||a==='dp-ar-no')alAct('alPactAnswer',{aid:A.id,to:id,yes:a==='dp-ar-yes'},r=>{if(r.signed)toast(`A pact with ${an(id)} is signed.`);});
+  else if(a==='dp-ar-end')alAct('alPactEnd',{aid:A.id,to:id},r=>{if(r.end)toast(`The pact with ${an(id)} ends on ${fmtDate(r.end)}.`);});
+  else if(a==='dp-ar-brk-ask'){AL.pbrk=id;render();}
+  else if(a==='dp-ar-brk-no'){AL.pbrk='';render();}
+  else if(a==='dp-ar-brk'){AL.pbrk='';alAct('alPactEnd',{aid:A.id,to:id,now:true},r=>{if(r.broken)toast(`The pact is broken. ${A.name} lost ${r.xp} renown.`);});}
+  else if(a==='dp-ar-rival')alAct('alRival',{aid:A.id,to:id,on:el.dataset.on==='1'});
+});
+document.addEventListener('change',e=>{const t=e.target;if(!t)return;if(t.id==='dpt-to'){TY.to=t.value;render();}else if(t.name==='dpt-k'){TY.k=t.value;render();}});
 
 /* ───────── cities that need you, in the bell (CA) ─────────
    What the Cities page lists under "Needs your attention" also goes in the bell as pinned notices: a matter waiting for an

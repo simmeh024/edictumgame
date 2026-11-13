@@ -38,6 +38,8 @@ import { identity, eligibility, refuse, regionClosed } from './eligibility.js';
 import { nationText } from './nationtext.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
+import { trId, trLive, trVoid } from './treaty-rules.js';
+import { alRelLive } from './alliance-rules.js';
 
 initializeApp();
 const db = getFirestore();
@@ -98,6 +100,9 @@ async function battle(uid, data) {
     help.forEach(id => refs.push(db.doc('nations/' + id)));
     const [me, st, ban, ...rest] = await tx.getAll(...refs);
     const alliances = (await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id)))).map(s => s.exists && typeof s.get('a') === 'string' ? s.get('a') : '');
+    /* a non-aggression pact between the two (functions/treaties.js), and the defender's alliance (for a pact between
+       the two alliances, functions/alliances.js) */
+    const [nap, dIx] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('allyOf/' + d));
     if (ban.exists) return { ok: false, why: 'banned' };
     if (!me.exists) return { ok: false, why: 'nation' };
     /* a nation a moderator has hidden (mod/<uid> hidden) keeps its land and fights nobody, either way, until it is shown again */
@@ -122,6 +127,14 @@ async function battle(uid, data) {
        help, could make them against the defender's, both as their last saves declared */
     /* an alliance is the server's (allyOf/, functions/alliances.js); one not yet moved there, its founder's record's */
     const al = alliances[0] || allianceOf(uid, mine);
+    /* no battle while a non-aggression pact binds the two, or a pact binds their alliances: a side that means to fight
+       ends it with notice or breaks it first (a nation founded again since it signed is not bound) */
+    if (nap.exists && trLive(nap.data(), now) && !trVoid(nap.data(), { [uid]: mine, ...(npc ? {} : { [d]: record(foe) }) })) return { ok: false, why: 'pact' };
+    const aD = dIx.exists && typeof dIx.get('a') === 'string' ? dIx.get('a') : '';
+    if (al && aD && al !== aD) {
+      const as = await tx.get(db.doc('alliances/' + al)), rel = as.exists ? as.get('rel') : null;
+      if (rel && typeof rel === 'object' && alRelLive(rel[aD], now)) return { ok: false, why: 'pact' };
+    }
     let att = army(me);
     rest.forEach((s, i) => { if (al && (alliances[i + 1] || allianceOf(help[i], record(s))) === al) att += 0.5 * army(s); });
     /* held to the armies whenever the defender has one: an attacker with none gets no odds at all, not the best */
