@@ -4,7 +4,8 @@
 // removes it), blocks its nation (its lines hidden, and its letters stopped) or deletes it; staff remove any line;
 // Settings › Letters turns the chat off; staff read every region's chat in the admin portal, write as the Edictum
 // team and silence a player (and lift it); the drawer's tabs (Region, Alliance, Happenings with Welcome), @mentions,
-// answers, reactions, the badges beside a name, docking beside the page, and the tutorial's Say hi in the region chat.
+// answers, reactions, the badges beside a name, docking beside the page, the tutorial's Say hi in the region chat, and
+// an admin's pictures (a small copy in the line, the picture over the page on a click).
 //   npm run test:region-chat
 import { player, open, ready, found, register, until, check, finish, setClaims, text, restListAdmin, clearEmulators, sleep, nav, nationDoc, FS_HOST, PROJECT, OUT } from './lib.mjs';
 await clearEmulators();
@@ -357,5 +358,76 @@ check('Say hello starts a first line', await until(async () => (await W.inputVal
 await W.press('#rgc-x', 'Enter');
 check('and goes once it is said', await until(async () => (await lines()).some(l => l.a === uidW && l.x === 'Hello, everyone!') && !(await W.$(`${sysLi} [data-rgc="hello"]`)), 15000));
 check('a reload asks for no second welcome', (await W.reload(), await ready(W), await sleep(4000), (await welcomes()).filter(d => d.fields.a?.stringValue === uidW).length === 1));
+
+/* ── 14. pictures: an admin adds one to a line (the picture button, a paste, the team's box), everyone sees a small copy, a click shows it ── */
+// a picture drawn in the page: a gradient, a word and some lines, as a PNG
+const pngOf = (p, w, h, hue) => p.evaluate(([w, h, hue]) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, w, h);
+  gr.addColorStop(0, `hsl(${hue},60%,45%)`); gr.addColorStop(1, `hsl(${hue + 60},70%,75%)`); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.font = `bold ${Math.round(h / 6)}px sans-serif`; g.fillText('Harbour', w / 10, h / 2);
+  for (let i = 0; i < 60; i++) { g.strokeStyle = `hsla(${(hue + i * 9) % 360},80%,40%,.6)`; g.lineWidth = 3; g.beginPath(); g.moveTo((i * 97) % w, (i * 53) % h); g.lineTo((i * 31) % w, (i * 71) % h); g.stroke(); }
+  return c.toDataURL('image/png').split(',')[1]; }, [w, h, hue]).then(b => Buffer.from(b, 'base64'));
+const paste = (p, b64, name) => p.evaluate(([b64, name]) => { const u = Uint8Array.from(atob(b64), c => c.charCodeAt(0)), dt = new DataTransfer(); dt.items.add(new File([u], name, { type: 'image/png' }));
+  document.getElementById('rgc-x').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }, [b64, name]);
+await openChat(B); await openChat(C); await openChat(A);
+// the reader was left on its Alliance tab (section 12)
+await C.click('#rgc-tab-region');
+check('a player has no picture button', !(await B.$('#rgc-foot [data-pic="pick"]')) && !(await B.$('#rgc-file')));
+check('an admin has one beside Send', await A.isVisible('#rgc-foot [data-pic="pick"]'));
+await A.setInputFiles('#rgc-file', { name: 'harbour.png', mimeType: 'image/png', buffer: await pngOf(A, 1600, 900, 200) });
+check('a picture chosen is prepared and shown above the box, with its size', await until(async () => /Picture added/.test(await text(A, '#rgc-picbar')) && /1600 × 900/.test(await text(A, '#rgc-picbar')) && !(await A.$eval('#rgc-picbar', e => e.hidden)), 15000), await text(A, '#rgc-foot'));
+await sleep(1700);
+await A.fill('#rgc-x', 'The new harbour, as promised.'); await A.press('#rgc-x', 'Enter');
+const picLine = await until(async () => (await restListAdmin(`rchat/${reg}/chat`)).find(d => d.fields.x?.stringValue === 'The new harbour, as promised.'), 15000);
+const im = picLine?.fields.im?.mapValue?.fields;
+check('the line keeps a small copy, at most 440 × 360, with the picture’s own size', !!im && /^data:image\/(webp|jpeg);base64,/.test(im.s.stringValue) && Number(im.w.integerValue) === 440 && Number(im.h.integerValue) === 248
+  && Number(im.fw.integerValue) === 1600 && Number(im.fh.integerValue) === 900 && im.s.stringValue.length < 70000, JSON.stringify(im && { w: im.w, h: im.h, fw: im.fw, fh: im.fh, n: im.s?.stringValue?.length }));
+const kept = picLine && (await restListAdmin(`rcimg/${reg}/chat`)).find(d => d.id === picLine.id);
+check('and the picture itself beside it, under the line’s id, with the same expiry', !!kept && /^data:image\/(webp|jpeg);base64,/.test(kept.fields.d.stringValue) && kept.fields.a.stringValue === uidA && kept.fields.exp.timestampValue === picLine.fields.exp.timestampValue);
+check('the box and the bar empty once it is sent', (await A.inputValue('#rgc-x')) === '' && await until(() => A.$eval('#rgc-picbar', e => e.hidden)));
+const pli = `#rgc-list .rgc-l[data-id="${picLine?.id}"]`;
+check('the others see the words and the small copy under them', await until(async () => (await text(C, `${pli} .rgc-x`)) === 'The new harbour, as promised.' && !!(await C.$(`${pli} button.rgc-pic img`)), 15000));
+check('the small copy is laid out at its size before it is drawn', await C.$eval(`${pli} .rgc-pic img`, i => i.getAttribute('width') === '240' && i.getAttribute('height') === '135'));
+await C.locator('#rgc-dock').screenshot({ path: OUT + '/chat-picture-line.png' });
+await C.click(`${pli} button.rgc-pic`);
+check('a click shows the picture over the page, fetched at its full size', await until(() => C.$eval('#rgc-lb', d => d.open && d.classList.contains('full') && d.querySelector('#rgc-lb-img').naturalWidth === 1600).catch(() => false), 15000));
+check('with who posted it, when, and its words', /Adminland/.test(await text(C, '#rgc-lb-h')) && (await text(C, '#rgc-lb .rgc-lbx')) === 'The new harbour, as promised.');
+await C.locator('#rgc-lb').screenshot({ path: OUT + '/chat-picture-open.png' });
+await C.click('#rgc-lb-img');
+check('a click on it shows it at its own size', await until(() => C.$eval('#rgc-lb', d => d.classList.contains('zoom') && Math.round(d.querySelector('#rgc-lb-img').getBoundingClientRect().width) === 1600)));
+await C.keyboard.press('Escape');
+check('Escape closes it, and the drawer stays open', await until(async () => !(await C.$('#rgc-lb')) && !!(await C.$('#rgc-dock:not([hidden])'))));
+// pasted into the box, it is taken too; it may be taken away again, and goes with no words
+const tall = (await pngOf(A, 900, 1200, 20)).toString('base64');
+await paste(A, tall, 'tall.png');
+check('a picture pasted into the box is taken too', await until(async () => /900 × 1200/.test(await text(A, '#rgc-picbar')), 15000), await text(A, '#rgc-foot'));
+await A.click('#rgc-picbar [data-pic="no"]');
+check('and can be taken away again', await until(() => A.$eval('#rgc-picbar', e => e.hidden)));
+await paste(A, tall, 'tall.png');
+await until(async () => /900 × 1200/.test(await text(A, '#rgc-picbar')), 15000);
+await sleep(1700); await A.focus('#rgc-x'); await A.press('#rgc-x', 'Enter');
+const alone = await until(async () => (await restListAdmin(`rchat/${reg}/chat`)).find(d => d.fields.im && !d.fields.x?.stringValue && d.fields.a?.stringValue === uidA), 15000);
+check('a picture goes with no words', !!alone && Number(alone.fields.im.mapValue.fields.fh.integerValue) === 1200, JSON.stringify(alone?.fields?.x));
+const ali = `#rgc-list .rgc-l[data-id="${alone?.id}"]`;
+check('drawn as the picture alone', await until(async () => !!(await C.$(`${ali} button.rgc-pic`)) && !(await C.$(`${ali} .rgc-x`)), 15000));
+check('a phone fits it in the drawer', await until(async () => !!(await P.$(`${ali} button.rgc-pic`)), 15000) && await P.$eval(`${ali} button.rgc-pic`, b => b.getBoundingClientRect().right <= innerWidth));
+await C.click(`#rgc-list .rgc-more[data-id="${alone?.id}"]`); await C.click('.rgc-menu [data-rgc="reply"]');
+check('answering a picture says so above the box', /Answering Adminland: 📷 A picture/.test(await text(C, '#rgc-rebar')), await text(C, '#rgc-rebar'));
+await C.keyboard.press('Escape');
+const fake = 'data:image/png;base64,' + Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]).toString('base64');
+const refused = await civic(B, { op: 'rcPost', x: 'Me too', pic: { th: fake, w: 1, h: 1, d: fake, fw: 1, fh: 1 } });
+check('the server refuses a picture from anyone but an admin', !refused.ok && refused.code === 'not_granted' && /Only Edictum admins can post pictures/.test(refused.message), JSON.stringify(refused));
+// the admin portal: the small copies in the log, a picture as a region's newest line, and a picture from the team's box
+await A.keyboard.press('Escape');
+await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-chat"]');
+check('the admin portal’s Region chats shows the small copies', await until(async () => !!(await A.$(`#acx-log .acx-l[data-id="${picLine?.id}"] button.rgc-pic img`)), 15000));
+check('and a picture as a region’s newest line', await until(async () => /📷 A picture/.test(await text(A, '#acx-regs .acx-reg.on')), 15000), await text(A, '#acx-regs .acx-reg.on'));
+await A.setInputFiles('#acx-file', { name: 'map.png', mimeType: 'image/png', buffer: await pngOf(A, 800, 600, 120) });
+check('the team’s box takes a picture too', await until(async () => /800 × 600/.test(await text(A, '#acx-picbar')), 15000));
+await sleep(1700);
+await A.fill('#acx-x', 'Tonight’s map of the region.'); await A.press('#acx-x', 'Enter');
+check('the team’s picture reaches the region, signed Edictum team', await until(() => C.$$eval('#rgc-list .rgc-l', l => { const li = l.find(x => x.querySelector('.rgc-x')?.textContent === 'Tonight’s map of the region.'); return !!li && !!li.querySelector('.rgc-team') && !!li.querySelector('button.rgc-pic'); }), 15000));
+await A.click(`#acx-log [data-act="acx-del"][data-id="${picLine?.id}"]`); await A.click(`#acx-log [data-act="acx-del-yes"][data-id="${picLine?.id}"]`);
+check('removing a line takes its picture with it', await until(async () => !(await restListAdmin(`rcimg/${reg}/chat`)).some(d => d.id === picLine?.id) && !(await restListAdmin(`rchat/${reg}/chat`)).some(d => d.id === picLine?.id), 15000));
+check('and it goes from the drawers', await until(async () => !(await C.$(pli))));
+await A.click('.adm-return'); await ready(A);
 
 await finish();

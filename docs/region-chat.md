@@ -57,12 +57,22 @@ A live chat for each region: the nations of a region talk to each other in short
 - **The tutorial**: "Say hi in the region chat" (list 2, Welcome to Edictum, after "Say hi" on the board): 2 land credits
   and 5 food, timber and goods for a first line. Its button opens the chat.
 
+- **Pictures from admins.** An admin's line may carry a picture: the picture button beside Send (a PNG, JPEG, WebP or
+  GIF), a picture pasted into the writing box, or one dropped on the drawer. It is prepared at once (a bar above the box
+  shows a small copy, its size and an × to take it away) and goes with the words, or alone. Everyone sees a small copy
+  under the line's words (at most 240 × 200 pixels on the page); a click shows the picture over the page, fitted to the
+  window, with who posted it, when and its words, and a click on it shows it at its own size. Escape or a click beside it
+  closes it. Players, moderators and guests have no picture button, and the server refuses theirs. Answering a picture
+  quotes it as "📷 A picture"; a mention in a line with only a picture reads the same in the bell.
+
 ## Staff tools
 
 - **Admin portal › Moderation › Region chats** (`#admin-chat`, admins): every region, busiest first, with its newest
   line; the chosen region's chat as it happens (its newest 100 lines); a box to **write in it as the Edictum team**
   (signed "Edictum team", with no nation needed there, in any region, open or closed); and on each line **Remove**,
   **Silence…** and **Inspect**. Under the chat, the players silenced now, each with **Lift**.
+  The team's box takes a picture as the drawer does (its picture button, a paste or a drop), and the log shows each
+  line's small copy, which opens the picture.
 - **Silence** (from that page, or from a line's menu in the chat for admins and moderators): an hour, 24 hours,
   7 days, 30 days or until lifted, in every region's chat, with a reason the player sees, and optionally removing the
   player's lines of the last 24 hours in that region. Staff cannot be silenced. Silencing and lifting are in the audit
@@ -93,6 +103,22 @@ A live chat for each region: the nations of a region talk to each other in short
     {k: 'chat', by, nm, reg, rc, x, t, rp?}` (the bell, beside the Community Board's mentions), and
     `pushChatMention` (functions/letters.js) sends a push notification to one not in the game, at most once every ten
     minutes a player (`rcNote/{uid}`, server-only), unless they blocked the writer or turned the chat or its notices off.
+  - `rcPost` also takes `pic {th, w, h, d, fw, fh}` from an **admin** (an admin claim; a moderator is refused with
+    `permission-denied`), with words or with none. The game draws the picture anew on a canvas, so nothing of a camera's
+    metadata goes with it: `d` is the picture, at most 1920 pixels a side and 690 KB as WebP (JPEG where the browser
+    cannot write WebP), or a GIF of at most 690 KB kept as it is so it still moves; `th` is a small copy of at most
+    440 × 360 pixels and 46 KB. The server (`rcPicIn`, `rcPicData`) takes only `data:image/…;base64,` URLs of those
+    kinds (no GIF for the small copy, never SVG), checks each one's first bytes are what it claims, and refuses more than
+    48 KB for the small copy or 700 KB for the picture (which keeps its document under Firestore's 1 MiB) or a side over
+    640 (small copy) or 4096 pixels (`rc_pic`). The line keeps `im {s, w, h, fw, fh, k}` (the small copy, its size, the
+    picture's size and kind), which every reader of the chat gets with the line; the picture is
+    `rcimg/{reg}/chat/{line} {a, d, k, t, exp}`, read only when someone opens it. `rcimg`'s collection is named `chat` on
+    purpose: the time-to-live policy on the `chat` group's `exp` deletes it after 30 days with its line, and an account's
+    deletion or an admin removing a nation (both delete the `chat` documents whose `a` is theirs) take it too.
+    `rcDelete`, the Reports queue's `delete_post` and a silence's wipe delete it with its line; the audit entry of a
+    removed line says `pic: true`. A repeat check counts the picture with the words. An answer to a picture keeps
+    `r.im: true`; a mention of a line with no words reads "📷 A picture". `firestore.indexes.json` exempts `chat`'s `im`
+    and `d` from indexing.
   - `rcReact {reg, id, k}`: one of `hear`, `ha`, `bravo`, `shame` per nation per line, kept as `rv {uid: kind}` on the
     line (a guest of the region may react too). `rcForget` takes a nation's reactions away with its account or its
     removal by an admin.
@@ -116,7 +142,8 @@ A live chat for each region: the nations of a region talk to each other in short
   (`functions/accounts.js`) or an admin removing or banning a nation (`functions/admin.js`) deletes them too;
   `rcPace/` goes with the account.
 - `firestore.rules`: a line is read by a signed-in player whose saved nation (`nations/{uid}.reg`) is in that region,
-  and by admins; nobody writes one but the server. `rcPace/` is the server's alone. `rcMute/{uid}` is read by that player and by
+  and by admins; nobody writes one but the server. A line's picture (`rcimg/{reg}/chat/{id}`) is read the same way, and written
+  only by the server. `rcPace/` is the server's alone. `rcMute/{uid}` is read by that player and by
   admins, and written only by the server; it goes with the account.
 - Reports are ordinary `post` reports (`src/shim.js` files kind `chat` as `post`, with `post: rc:<reg>:<line>`).
 - `game/edictum.html`, section "Region chat" (prefix `rgc`, state `RGC`): the button is drawn by `shell()`
@@ -129,7 +156,8 @@ A live chat for each region: the nations of a region talk to each other in short
 
 ## Costs
 
-Every open game of the region listens to the newest 60 lines: opening the game reads up to 60 documents, and each new
+A line with a picture weighs up to about 65 KB more (its small copy) for every reader; the picture itself (up to about
+930 KB) is one read, and only for whoever opens it. Every open game of the region listens to the newest 60 lines: opening the game reads up to 60 documents, and each new
 line is one read for every player of the region with the game open (a region holds at most 250 or 300 nations). A
 player who turns the chat off reads nothing. Each line is one callable call, one transaction (the player's record,
 ban, moderation and account documents, the region's status and the pacing document) and two writes.
@@ -149,11 +177,18 @@ repo's `firestore.indexes.json` leaves TTL out, so deploys leave the policy alon
 
 ## Tests
 
-- `test/regionchat.test.mjs` (in `test:fx`): the pacing.
+- `test/regionchat.test.mjs` (in `test:fx`): the pacing; which pictures the server takes (kinds, first bytes, sizes).
 - `test/civic.test.mjs`: writing, pacing, repeats, the region check, deleting, staff removal and its audit, bans; the
   welcome of a new nation and each case that writes none.
-- `test/rules.test.mjs`: who reads a region's chat; nobody writes it.
+- `test/rules.test.mjs`: who reads a region's chat and its pictures; nobody writes them.
+- `test/civic.test.mjs`, pictures: only an admin posts one, with words or alone; refused kinds and sizes; repeats;
+  answers and mentions of a picture; the team's picture in another region; removal by staff or the Reports queue takes
+  the picture; it is a `chat` document of its author.
 - `test/region-chat-e2e.mjs` (`npm run test:region-chat`, CI suite "Region chat"): the button and drawer, two
   players writing, the count, the mention notice, runs and dividers, guests, the menu, reporting and removal from the
   Reports queue, blocking and unblocking, deleting, staff removal, a phone, and the setting; every nation founded is
-  welcomed once, and a nation founded later shows its welcome line with Welcome and Say hello.
+  welcomed once, and a nation founded later shows its welcome line with Welcome and Say hello. Pictures: only an admin has the
+  picture button; a picture chosen, pasted, taken away and sent with words or alone; the small copy in the others'
+  drawers and on a phone; opening it (fetched at full size, then at its own size) and closing it; answering it; the
+  server refusing a player's; the admin portal's log, its newest-line preview and the team's picture; removing a line
+  takes its picture.

@@ -7961,6 +7961,42 @@ button.rgc-nm{text-align:left}
 @media (min-width:1100px){.rgc-dockb{display:grid}.rgc-dockb[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}}
 html.rgc-docked body{padding-right:400px}
 html.rgc-docked .rgc-dock{box-shadow:none;animation:none}
+/* region chat: pictures (admins post them): the small copy in a line, the bar above the writing box, the picture over the page */
+.rgc-xc{flex:1;min-width:0}
+.rgc-xc .rgc-x{margin-bottom:3px}
+.rgc-pic{position:relative;display:inline-block;max-width:100%;margin:2px 0 3px;padding:0;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet-2);overflow:hidden;line-height:0;vertical-align:top}
+button.rgc-pic{cursor:zoom-in}
+button.rgc-pic:hover{border-color:var(--ink-3)}
+button.rgc-pic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rgc-pic img{display:block;max-width:100%;height:auto}
+.rgc-gif{position:absolute;left:5px;bottom:5px;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.62);color:#fff;font:700 9.5px/1.5 var(--f-mono);letter-spacing:.06em}
+.rgc-l.pend .rgc-pic{opacity:.6}
+.rgc-picbar{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:4px 4px 4px 6px;border:1px solid var(--rule);border-left:2px solid var(--accent);border-radius:4px;background:var(--sheet-2);font-size:12.5px;line-height:1.35;color:var(--ink-2)}
+.rgc-picbar[hidden]{display:none}
+.rgc-pbi{flex:none;border-radius:3px;object-fit:cover}
+.rgc-pbt{flex:1;min-width:0}
+.rgc-pbt b{display:block;color:var(--ink);font-weight:600}
+.rgc-pbs{color:var(--ink-3)}
+.rgc-pbt.err{color:var(--down)}
+.rgc-picbar .rgc-hb{width:28px;height:28px}
+.rgc-f .rgc-picb{margin-bottom:3px}
+.acx-x .rgc-pic{display:block;width:max-content;margin-top:4px}
+.acx-picbar{margin:4px 0 6px}
+.acx-fr .rgc-picb{margin-bottom:6px}
+.rgc-lb{width:auto;max-width:min(96vw,1440px);max-height:96vh;padding:0;border:1px solid var(--rule-2);border-radius:8px;background:var(--sheet);color:var(--ink);box-shadow:var(--shadow);overflow:hidden}
+.rgc-lb[open]{display:flex;flex-direction:column}
+.rgc-lb::backdrop{background:rgba(10,18,20,.74)}
+.rgc-lbh{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border-bottom:1px solid var(--rule)}
+.rgc-lbt{flex:1;min-width:0;margin:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rgc-lbt time{margin-left:6px;font:500 11.5px/1 var(--f-mono);color:var(--ink-3)}
+.rgc-lbi{flex:1;min-height:0;display:grid;place-items:center;padding:10px;overflow:auto;background:var(--sheet-2)}
+.rgc-lbi img{display:block;width:min(var(--fw),calc(92vw - 22px),calc((96vh - 150px) * var(--ar)));height:auto;aspect-ratio:var(--ar);border-radius:2px}
+.rgc-lb.full .rgc-lbi img{cursor:zoom-in}
+.rgc-lb.zoom .rgc-lbi{place-items:start}
+.rgc-lb.zoom .rgc-lbi img{width:var(--fw);max-width:none;cursor:zoom-out}
+.rgc-lbx{margin:0;padding:8px 14px;border-top:1px solid var(--rule);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.rgc-lbs{margin:0;padding:6px 14px 8px;font-size:12.5px;color:var(--ink-3)}
+.rgc-lbs:empty{display:none}
 @media print{.rgc-dock,.rgc-btn{display:none!important}}
 /* ── the nation page other players see: section index, preview, classified topics (vs-, cls-), and its editor in Customise (vl-) ── */
 .vs-page{min-width:0}
@@ -69435,7 +69471,7 @@ document.addEventListener('keydown',e=>{
    localStorage per region) and where the divider stands while the drawer is open (mark), lines on their way (pend),
    the open line menu and the question it asks (ask). */
 const RGC_SHOW=60,RGC_TEXT=300,RGC_RUN=5*60000,RGC_RETRY=30000,RGC_FRESH=5*60000,RGC_GUEST=10;
-const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,open:false,busy:false,msg:'',menu:'',ask:null,pend:[],ready:false,toastAt:0,dock:null,foot:'',stick:true,draft:'',sil:null,silAt:0,gt:[],gw:0};
+const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,open:false,busy:false,msg:'',menu:'',ask:null,pend:[],ready:false,toastAt:0,dock:null,foot:'',stick:true,draft:'',sil:null,silAt:0,gt:[],gw:0,pic:null,picErr:''};
 /* the Edictum team's mark, in place of a flag on the lines the team signs */
 const RGC_TEAM_SVG='<svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/></svg>';
 const RGC_SVG='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
@@ -69488,7 +69524,7 @@ function rgcHear(reg,qs){
   const me=myId(),first=!RGC.ready,top=RGC.top;
   RGC.list=qs.docs.map(d=>{const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
     return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':'',
-      r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true}:null,
+      r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true,im:r.im===true}:null,im:rgcImOf(v.im),
       mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null};})
     .sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
   /* new lines: since the last snapshot; on the first, those of the last few minutes not yet read (the chat may have
@@ -69497,9 +69533,9 @@ function rgcHear(reg,qs){
   RGC.top=Math.max(top,last);RGC.err='';RGC.ready=true;RGC.retry=0;RGC.fails=0;
   /* a line on its way leaves once it is back from the server: by its id, or, before the server has answered, as a new
      line of ours with the same words */
-  if(RGC.pend.length){const ids=new Set(RGC.list.map(m=>m.id));RGC.pend=RGC.pend.filter(p=>p.id?!ids.has(p.id):!RGC.list.some(m=>m.a===me&&!m.sys&&m.x===p.x&&m.t>p.top));}
+  if(RGC.pend.length){const ids=new Set(RGC.list.map(m=>m.id));RGC.pend=RGC.pend.filter(p=>p.id?!ids.has(p.id):!RGC.list.some(m=>m.a===me&&!m.sys&&m.x===p.x&&!!m.im===!!p.im&&m.t>p.top));}
   rgcNamed(fresh);
-  if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=m.sys?m.x:`${rgcName(m)}: ${m.x}`;}}
+  if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=m.sys?m.x:`${rgcName(m)}: ${m.im?'(a picture) ':''}${m.x}`;}}
   rgcBadge();rgcPaint();
 }
 function rgcName(m){if(m.tm)return 'Edictum team';const x=findNation(m.a);return x?x.n.name:m.nm;}
@@ -69615,7 +69651,7 @@ function rgcLine(m,run,by,me,mod,memo){
     +(can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${i}">Silence ${esc(nm)}…</button>`:'')
     +(can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="${ally?'ally-del':'del-ask'}" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
   const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
-  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}<p class="rgc-x">${rgcText(m.x,m.mn)}</p>${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
+  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
 }
 /* a new nation's welcome line (sys 'found': functions/regionchat.js, rcHello), drawn as an announcement: its flag and
    name, "has been founded, welcome to #Region!" and, for a week, a Welcome button that starts a line greeting it (Say
@@ -69675,7 +69711,7 @@ function rgcPaint(){
       if(tab==='region'&&!fresh&&RGC.mark&&m.t>RGC.mark&&m.t<=RGC.markTop&&m.a!==me){fresh=true;h+='<li class="rgc-new" role="separator"><span>New</span></li>';prev=null;}
       h+=rgcLine(m,!!prev&&prev.a===m.a&&!prev.tm===!m.tm&&!prev.sys&&!m.sys&&!m.r&&m.t-prev.t<RGC_RUN,by,me,mod,memo);prev=m;
     }
-    if(tab==='region')for(const p of RGC.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw"><p class="rgc-x">${esc(p.x)}</p><span class="rgc-wait">Sending…</span></div></li>`;
+    if(tab==='region')for(const p of RGC.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw">${p.im?`<div class="rgc-xc">${p.x?`<p class="rgc-x">${esc(p.x)}</p>`:''}${rgcPicHTML(p.im,'',S.nation?S.nation.name:'')}</div>`:`<p class="rgc-x">${esc(p.x)}</p>`}<span class="rgc-wait">Sending…</span></div></li>`;
     const err=tab==='ally'?(AL.chat&&AL.chat.err)||'':RGC.err;
     if(!vis.length&&(tab!=='region'||!RGC.pend.length))h+=`<li class="rgc-empty">${err?esc(err):tab==='ally'?'No messages yet. Say hello to your allies.':RGC.ready?`No lines yet. Say hello to ${esc(rgcIn())}.`:'Opening the chat…'}</li>`;
     else if(err)h+=`<li class="rgc-empty err">${esc(err)}</li>`;
@@ -69710,15 +69746,17 @@ function rgcFoot(){
     const b=f.querySelector('#rgc-asend');if(b)b.disabled=RGC.abusy;
     return;
   }
-  const w=rgcWrite(),gq=!w&&rgcGuest(),key=(w?'r:'+w.why:'w')+'|'+REGION+'|'+(gq?'g':'');
+  const w=rgcWrite(),gq=!w&&rgcGuest(),pk=!w&&rgcPicCan(),key=(w?'r:'+w.why:'w')+'|'+REGION+'|'+(gq?'g':'')+(pk?'p':'');
   if(RGC.foot!==key){
     RGC.foot=key;RGC.mn=null;
+    if(!pk){RGC.pic=null;RGC.picErr='';}
     f.innerHTML=w?`<p class="rgc-ro">${esc(w.why)}</p>${w.link?'<div class="row"><button type="button" class="btn small" data-act="acct-open">Link a sign-in</button><button type="button" class="linkish small" data-act="account-compare">Compare account types</button></div>':''}`
-      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div><ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(rgcIn())}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(rgcIn())}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea><button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>${gq?'<p class="rgc-gq" id="rgc-gq"></p>':''}`;
+      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div>${pk?'<div class="rgc-picbar" id="rgc-picbar" hidden></div>':''}<ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(rgcIn())}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(rgcIn())}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea>${pk?rgcPicPicker('rgc'):''}<button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>${gq?'<p class="rgc-gq" id="rgc-gq"></p>':''}`;
     const ta=f.querySelector('#rgc-x');if(ta){ta.value=RGC.draft;rgcGrow(ta);}
   }
   const rb=f.querySelector('#rgc-rebar');
   if(rb){const r=RGC.re;rb.hidden=!r;rb.innerHTML=r?`<span class="rgc-reb">Answering <b>${esc(r.nm)}</b>: ${esc(r.x)}</span><button type="button" class="rgc-hb" data-rgc="re-no" aria-label="Stop answering" title="Stop answering"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button>`:'';}
+  rgcPicBarPaint(f.querySelector('#rgc-picbar'),RGC,'rgc');
   const msg=f.querySelector('#rgc-msg'),ta=f.querySelector('#rgc-x'),left=ta?RGC_TEXT-ta.value.length:RGC_TEXT;
   if(msg){msg.textContent=RGC.msg||(left<=60?`${left} ${left===1?'character':'characters'} left`:'');msg.classList.toggle('err',!!RGC.msg);}
   const b=f.querySelector('#rgc-send');if(b)b.disabled=RGC.busy;
@@ -69749,17 +69787,21 @@ async function rgcCivic(d){
 }
 async function rgcSend(){
   const ta=document.getElementById('rgc-x');if(!ta||RGC.busy||!RGC.reg)return;
-  const x=ta.value.replace(/\s+/g,' ').trim();if(!x)return;
-  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:RGC.top,id:''},reg=RGC.reg,reo=RGC.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
-  RGC.busy=true;RGC.msg='';RGC.pend.push(p);ta.value='';RGC.draft='';RGC.re=null;rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
+  /* an admin's picture goes with the words, or alone */
+  if(RGC.pic&&RGC.pic.busy){RGC.msg='The picture is still being prepared. Send it in a moment.';rgcFoot();return;}
+  const P=RGC.pic&&rgcPicCan()?RGC.pic:null;
+  const x=ta.value.replace(/\s+/g,' ').trim();if(!x&&!P)return;
+  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:RGC.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{})},reg=RGC.reg,reo=RGC.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
+  RGC.busy=true;RGC.msg='';RGC.pend.push(p);ta.value='';RGC.draft='';RGC.re=null;RGC.pic=null;RGC.picErr='';rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
   try{
-    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{})});
+    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{})});
     p.id=typeof r.id==='string'?r.id:'';achPend('rch');if(re)achPend('rchr');if(mn.length)achPend('mnt');
     if(r.guest===true&&Array.isArray(r.gt))RGC.gt=r.gt.map(Number).filter(t=>t>0).slice(-RGC_GUEST);
     if(!p.id||RGC.list.some(m=>m.id===p.id))RGC.pend=RGC.pend.filter(q=>q!==p);
     if(!OBS)tutMark('h');
   }catch(e){
     RGC.pend=RGC.pend.filter(q=>q!==p);const d=e&&e.details;
+    if(P&&!RGC.pic)RGC.pic=P;
     if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';RGC.draft=p.x;}
     else{RGC.msg=alErrText(e);if(d&&d.code==='rc_guest'){RGC.gw=Date.now()+Math.max(0,Number(d.wait)||0);RGC.msg='';}
       const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;RGC.draft=p.x;rgcGrow(t);}
@@ -69789,7 +69831,7 @@ async function rgcDel(m){
 }
 function rgcReport(m){
   Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('report'):null).then(r=>{
-    if(r&&typeof r.open==='function')r.open({kind:'chat',target:m.a,post:'rc:'+RGC.reg+':'+m.id,reg:RGC.reg,name:rgcName(m),x:m.x});
+    if(r&&typeof r.open==='function')r.open({kind:'chat',target:m.a,post:'rc:'+RGC.reg+':'+m.id,reg:RGC.reg,name:rgcName(m),x:m.im?('(a picture) '+m.x).trim():m.x});
     else toast('Reporting needs a connection to the region.');
   },()=>toast('Reporting needs a connection to the region.'));
 }
@@ -69905,7 +69947,7 @@ function rgcHapsHTML(){
 /* the line a line answers: its writer and a few of its words; a click shows it */
 function rgcQuote(r){
   const blocked=r.a&&r.a!==myId()&&dmBlocked(r.a),nm=r.tm?'Edictum team':rgcName({a:r.a,nm:r.nm});
-  return `<button type="button" class="rgc-q" data-rgc="goto" data-id="${esc(r.id)}" title="Show the line it answers"><span class="rgc-qn">${esc(nm)}</span> ${blocked?'<i>a line from a nation you blocked</i>':esc(r.x)}</button>`;
+  return `<button type="button" class="rgc-q" data-rgc="goto" data-id="${esc(r.id)}" title="Show the line it answers"><span class="rgc-qn">${esc(nm)}</span> ${blocked?'<i>a line from a nation you blocked</i>':r.im?`📷 ${esc(r.x||'A picture')}`:esc(r.x)}</button>`;
 }
 function rgcRxs(m,me){
   const rv=m.rv;if(!rv)return '';const by={};
@@ -69988,7 +70030,7 @@ document.addEventListener('click',e=>{
   const a=el.dataset.rgc,id=el.dataset.id||'',m=RGC.list.find(x=>x.id===id);
   if(a==='tab')rgcSetTab(el.dataset.v,true);
   else if(a==='dock'){RGC.docked=!RGC.docked;rgcLS('edictum.rgc.dock',RGC.docked?'1':'0');rgcDockApply();}
-  else if(a==='reply'&&m){RGC.menu='';RGC.re={id:m.id,nm:rgcName(m),x:m.x.slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
+  else if(a==='reply'&&m){RGC.menu='';RGC.re={id:m.id,nm:rgcName(m),x:(m.im?(m.x?'📷 '+m.x:'📷 A picture'):m.x).slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='re-no'){RGC.re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='react'&&m){if(RGC.menu){RGC.menu='';}rgcReact(m,el.dataset.k);const b=document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(id)}"]`);if(b&&!document.activeElement.closest('.rgc-rxs'))b.focus({preventScroll:true});}
   else if(a==='goto')rgcGoto(id);
@@ -70044,6 +70086,145 @@ dmSettingsPane=(f=>function(n){const x=dmx(n);return f.apply(this,arguments)+`<s
     <p class="hint">Every nation of your region can read the chat. Blocking a nation, from a line’s menu or in Messages, hides its lines as well as its letters.</p></section>`;})(dmSettingsPane);
 UX_SETTINGS.push({v:'focus:set-letters-chat',l:'Region chat',g:'Settings',words:'chat region talk live messages mention block hide turn off',view:'settings',target:'#set-letters-chat'});
 
+/* ── the chat, pictures (admins) ──
+   An admin adds a picture to a line, in the drawer or as the Edictum team on the admin portal's Region chats page: the
+   picture button beside Send, a picture pasted into the writing box, or one dropped on it. The game draws it anew on a
+   canvas (so nothing of a camera's metadata goes with it): a copy of at most RGC_PIC_SIDE pixels a side and RGC_PIC_MAX
+   bytes (a GIF small enough goes as it is, so it still moves) and a small one, RGC_TH_W × RGC_TH_H at most, which the line
+   shows. The server checks both (functions/regionchat.js, rcPicIn) and keeps the picture beside the line,
+   rcimg/<region>/chat/<line>, which a reader fetches only on opening it: a click on the small copy shows it over the page,
+   fitted to the window, and a click on it shows it at its own size. The words are optional with a picture. */
+const RGC_PIC_SIDE=1920,RGC_PIC_MAX=690*1024,RGC_TH_W=440,RGC_TH_H=360,RGC_TH_MAX=46*1024,RGC_PIC_IN=30*1024*1024,RGC_PIC_ACCEPT='image/png,image/jpeg,image/webp,image/gif';
+const RGC_PIC_SVG='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.7" fill="currentColor"/><path d="m4.5 17.5 5-5 3.4 3.4 2.6-2.6 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+const RGC_X_SVG='<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+function rgcPicCan(){return !!S.isOwner&&!PV&&!OBS&&!!S.db;}
+/* the small copy a line carries, as the server wrote it: im {s, w, h, fw, fh, k} */
+function rgcImOf(v){
+  if(!v||typeof v!=='object'||typeof v.s!=='string'||!/^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/]/.test(v.s))return null;
+  const n=(x,M)=>Number.isInteger(x)&&x>0&&x<=M?x:0,w=n(v.w,1000),h=n(v.h,1000);if(!w||!h)return null;
+  return {s:v.s,w,h,fw:n(v.fw,8192)||w,fh:n(v.fh,8192)||h,k:['jpeg','png','webp','gif'].includes(v.k)?v.k:''};
+}
+const rgcPicFit=(w,h,W,H)=>{const s=Math.min(1,W/w,H/h);return [Math.max(1,Math.round(w*s)),Math.max(1,Math.round(h*s))];};
+/* the small copy in a line: a button that opens the picture (attrs), or, for a line on its way, the copy alone */
+function rgcPicHTML(im,attrs,nm,small){
+  const [w,h]=rgcPicFit(im.w,im.h,small?180:240,small?140:200),g=im.k==='gif'?'<span class="rgc-gif" aria-hidden="true">GIF</span>':'';
+  const img=`<img src="${esc(im.s)}" width="${w}" height="${h}" alt="" decoding="async">`;
+  return attrs?`<button type="button" class="rgc-pic" ${attrs} aria-label="Open the picture${nm?' from '+esc(nm):''}" title="Open the picture">${img}${g}</button>`:`<span class="rgc-pic">${img}${g}</span>`;
+}
+/* the words of a line, and its picture under them */
+function rgcBody(m,nm){
+  const p=`<p class="rgc-x">${rgcText(m.x,m.mn)}</p>`;if(!m.im)return p;
+  return `<div class="rgc-xc">${m.x?p:''}${rgcPicHTML(m.im,`data-pic="open" data-box="rgc" data-id="${esc(m.id)}"`,nm)}</div>`;
+}
+const rgcPicBox=pre=>pre==='rgc'?RGC:pre==='acx'?ACX:null;
+const rgcPicOut=P=>({th:P.th,w:P.w,h:P.h,d:P.d,fw:P.fw,fh:P.fh});
+function rgcPicPicker(pre){
+  return `<button type="button" class="rgc-hb rgc-picb" data-pic="pick" data-box="${pre}" aria-label="Add a picture" title="Add a picture (PNG, JPEG, WebP or GIF; or paste one)">${RGC_PIC_SVG}</button><input type="file" class="rgc-file" id="${pre}-file" data-box="${pre}" accept="${RGC_PIC_ACCEPT}" tabindex="-1" aria-hidden="true" hidden>`;
+}
+/* the bar above the writing box: the picture being prepared, the picture to go, or why it cannot */
+function rgcPicBarHTML(box,pre){
+  const P=box.pic,no=`<button type="button" class="rgc-hb" data-pic="no" data-box="${pre}" aria-label="Remove the picture" title="Remove the picture">${RGC_X_SVG}</button>`;
+  if(P&&P.busy)return '<span class="rgc-pbt" role="status">Preparing the picture…</span>';
+  if(P){const [w,h]=rgcPicFit(P.w,P.h,64,48);return `<img class="rgc-pbi" src="${esc(P.th)}" width="${w}" height="${h}" alt=""><span class="rgc-pbt"><b>Picture added</b><span class="rgc-pbs">${P.fw} × ${P.fh}, ${P.kb} KB${P.gif?', a moving GIF':''}. Words are optional.</span></span>${no}`;}
+  if(box.picErr)return `<span class="rgc-pbt err" role="alert">${esc(box.picErr)}</span>${no}`;
+  return '';
+}
+function rgcPicBarPaint(el,box,pre){
+  if(!el)return;const P=box.pic,sig=(P?P.busy?'busy':P.th.length+':'+P.kb:'')+'|'+(box.picErr||'');
+  if(el.dataset.sig===sig)return;el.dataset.sig=sig;const h=rgcPicBarHTML(box,pre);el.innerHTML=h;el.hidden=!h;
+}
+function rgcPicRepaint(pre){if(pre==='rgc')rgcFoot();else rgcPicBarPaint(document.getElementById('acx-picbar'),ACX,'acx');}
+/* making the two copies */
+const rgcBlob=(c,type,q)=>new Promise(ok=>{try{c.toBlob(b=>ok(b),type,q);}catch(e){ok(null);}});
+const rgcDataURL=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result));r.onerror=()=>no(r.error);r.readAsDataURL(b);});
+function rgcCanvas(src,w,h,opaque){
+  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');
+  if(opaque){g.fillStyle='#fff';g.fillRect(0,0,w,h);}g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(src,0,0,w,h);return c;
+}
+async function rgcDecode(file){
+  if(typeof createImageBitmap==='function')try{const b=await createImageBitmap(file);return {src:b,w:b.width,h:b.height,done:()=>{try{b.close();}catch(e){}}};}catch(e){}
+  const u=URL.createObjectURL(file),im=new Image();
+  try{im.src=u;await im.decode();}catch(e){URL.revokeObjectURL(u);throw Object.assign(new Error('That file could not be read as a picture.'),{rgc:true});}
+  return {src:im,w:im.naturalWidth,h:im.naturalHeight,done:()=>URL.revokeObjectURL(u)};
+}
+/* fitted in bw × bh, as WebP (JPEG where the browser cannot write WebP), at most max bytes: less quality, then smaller */
+async function rgcEncode(src,W,H,bw,bh,max,q){
+  let s=Math.min(1,bw/W,bh/H),jpeg=false;
+  for(let k=0;k<10;k++){
+    const w=Math.max(1,Math.round(W*s)),h=Math.max(1,Math.round(H*s));let c=null;
+    for(const qq of [q,q-.1,q-.2,q-.3]){
+      let b=null;
+      if(!jpeg){c=c||rgcCanvas(src,w,h,false);b=await rgcBlob(c,'image/webp',qq);if(!b||b.type!=='image/webp'){jpeg=true;b=null;c=null;}}
+      if(jpeg){c=c||rgcCanvas(src,w,h,true);b=await rgcBlob(c,'image/jpeg',qq);}
+      if(b&&b.size<=max&&/^image\/(webp|jpeg)$/.test(b.type))return {b,w,h};
+    }
+    s*=.75;
+  }
+  throw Object.assign(new Error('That picture could not be made small enough to post.'),{rgc:true});
+}
+async function rgcPicMake(file){
+  if(!file||!/^image\/(png|jpeg|webp|gif)$/.test(file.type))throw Object.assign(new Error('Choose a picture: a PNG, JPEG, WebP or GIF file.'),{rgc:true});
+  if(file.size>RGC_PIC_IN)throw Object.assign(new Error('That picture is too large: choose one under 30 MB.'),{rgc:true});
+  const D=await rgcDecode(file);
+  try{
+    if(!D.w||!D.h)throw Object.assign(new Error('That file could not be read as a picture.'),{rgc:true});
+    const keep=file.type==='image/gif'&&file.size<=RGC_PIC_MAX&&D.w<=4096&&D.h<=4096;
+    const full=keep?{b:file,w:D.w,h:D.h}:await rgcEncode(D.src,D.w,D.h,RGC_PIC_SIDE,RGC_PIC_SIDE,RGC_PIC_MAX,.88);
+    const th=await rgcEncode(D.src,D.w,D.h,RGC_TH_W,RGC_TH_H,RGC_TH_MAX,.8);
+    return {th:await rgcDataURL(th.b),w:th.w,h:th.h,d:await rgcDataURL(full.b),fw:full.w,fh:full.h,gif:keep,kb:Math.max(1,Math.round(full.b.size/1024))};
+  }finally{D.done();}
+}
+async function rgcPicTake(file,pre){
+  const box=rgcPicBox(pre);if(!box||!rgcPicCan()||!file)return;
+  const tk={busy:true};box.pic=tk;box.picErr='';rgcPicRepaint(pre);
+  let out=null,err='';
+  try{out=await rgcPicMake(file);}catch(e){err=e&&e.rgc?e.message:'That picture could not be read. Try another one.';}
+  if(box.pic!==tk)return;
+  box.pic=out;box.picErr=err;
+  if(out&&/still being prepared/.test(box.msg||'')){box.msg='';if(pre==='acx'&&S.view==='admin-chat'){render();return;}}
+  rgcPicRepaint(pre);
+}
+/* the picture over the page: the small copy at once, the picture itself once fetched */
+async function rgcPicOpen(reg,m,from){
+  if(!m||!m.im||!reg||!S.db)return;
+  let d=document.getElementById('rgc-lb');if(d){try{d.close();}catch(e){}d.remove();}
+  d=document.createElement('dialog');if(typeof d.showModal!=='function')return;
+  const im=m.im,nm=m.tm?'Edictum team':rgcName(m),when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`;
+  d.id='rgc-lb';d.className='rgc-lb';d.setAttribute('aria-labelledby','rgc-lb-h');
+  d.innerHTML=`<div class="rgc-lbh"><p class="rgc-lbt" id="rgc-lb-h"><b>${esc(nm)}</b> <time datetime="${new Date(m.t).toISOString()}">${esc(when)}</time></p><button type="button" class="rgc-hb" data-pic="close" aria-label="Close the picture" title="Close (Esc)">${RGC_X_SVG}</button></div>
+    <div class="rgc-lbi"><img id="rgc-lb-img" src="${esc(im.s)}" width="${im.fw}" height="${im.fh}" style="--fw:${im.fw}px;--ar:${(im.fw/im.fh).toFixed(5)}" alt="${esc(m.x||'A picture from '+nm)}"></div>
+    ${m.x?`<p class="rgc-lbx">${esc(m.x)}</p>`:''}<p class="rgc-lbs" id="rgc-lb-s" role="status">Loading the picture…</p>`;
+  document.body.appendChild(d);
+  d.addEventListener('close',()=>{d.remove();if(from&&from.isConnected)try{from.focus({preventScroll:true});}catch(e){}},{once:true});
+  d.addEventListener('click',ev=>{const t=ev.target;if(t===d||t.classList&&t.classList.contains('rgc-lbi'))d.close();else if(t.id==='rgc-lb-img'&&d.classList.contains('full'))d.classList.toggle('zoom');});
+  d.showModal();try{d.querySelector('[data-pic="close"]').focus({preventScroll:true});}catch(e){}
+  const st=()=>d.querySelector('#rgc-lb-s');
+  try{
+    const s=await S.db.doc('rcimg/'+reg+'/chat/'+m.id).get(),v=s&&s.exists?s.data()||{}:null;
+    const src=v&&typeof v.d==='string'&&/^data:image\/(webp|jpeg|png|gif);base64,/.test(v.d)?v.d:'';
+    if(!d.isConnected)return;
+    if(!src){const p=st();if(p)p.textContent=v?'This picture cannot be shown.':'This picture is no longer kept.';return;}
+    const img=d.querySelector('#rgc-lb-img');img.src=src;try{await img.decode();}catch(e){}
+    d.classList.add('full');const p=st();if(p)p.textContent='';
+  }catch(e){const p=st();if(p&&d.isConnected)p.textContent='The picture could not be fetched. Check the connection and try again.';}
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-pic]');if(!el)return;
+  const a=el.dataset.pic,pre=el.dataset.box||'',box=rgcPicBox(pre);
+  if(a==='close'){const d=el.closest('dialog');if(d)d.close();return;}
+  if(!box)return;
+  if(a==='open'){const m=(box.list||[]).find(x=>x.id===el.dataset.id);if(m)rgcPicOpen(pre==='acx'?ACX.reg:RGC.reg,m,el);}
+  else if(a==='pick'){const f=document.getElementById(pre+'-file');if(f){f.value='';f.click();}}
+  else if(a==='no'){box.pic=null;box.picErr='';rgcPicRepaint(pre);const t=document.getElementById(pre+'-x');if(t)t.focus({preventScroll:true});}
+});
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.classList||!t.classList.contains('rgc-file'))return;const f=t.files&&t.files[0];if(f)rgcPicTake(f,t.dataset.box);});
+/* a picture pasted into the writing box, or dropped on the drawer or the team's form */
+const rgcPicFile=dt=>{if(!dt)return null;for(const f of dt.files||[])if(/^image\//.test(f.type))return f;for(const it of dt.items||[])if(it.kind==='file'&&/^image\//.test(it.type)){const f=it.getAsFile();if(f)return f;}return null;};
+document.addEventListener('paste',e=>{const t=e.target;if(!t||(t.id!=='rgc-x'&&t.id!=='acx-x')||!rgcPicCan())return;const f=rgcPicFile(e.clipboardData);if(!f)return;e.preventDefault();rgcPicTake(f,t.id==='rgc-x'?'rgc':'acx');});
+const rgcDropAt=t=>!rgcPicCan()||!t||!t.closest?'':t.closest('#rgc-dock')&&document.getElementById('rgc-file')?'rgc':t.closest('#acx-f')?'acx':'';
+document.addEventListener('dragover',e=>{if(rgcDropAt(e.target)&&e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files')){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
+document.addEventListener('drop',e=>{const pre=rgcDropAt(e.target);if(!pre)return;const f=rgcPicFile(e.dataTransfer);if(!f)return;e.preventDefault();rgcPicTake(f,pre);});
+
 /* ── Admin portal: Region chats ──
    Every region's chat for the admins (functions/regionchat.js): the regions, busiest first, with their newest line; the
    chosen region's chat as it happens (its newest ACX_SHOW lines); a box to write in it as the Edictum team (rcPost
@@ -70054,10 +70235,10 @@ UX_SETTINGS.push({v:'focus:set-letters-chat',l:'Region chat',g:'Settings',words:
    The chat and the region list are drawn in place as lines come in (acxPaint), so the team's draft and the silence form
    are never drawn over while being typed in. */
 const ACX_SHOW=100,ACX_HOURS=[[1,'1 hour'],[24,'24 hours'],[168,'7 days'],[720,'30 days'],[0,'Until lifted']];
-const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:''};
+const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:'',pic:null,picErr:''};
 ADM_ICONS['admin-chat']=NAV_SVG('<path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6"/>');
 const rgcHours=h=>h===1?'an hour':h===24?'24 hours':h===168?'7 days':h===720?'30 days':h+' hours';
-function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'};}
+function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found',im:rgcImOf(v.im)};}
 /* the newest line of every region: one small query a region, when the page opens and on Fetch again */
 async function acxRegsLoad(){
   if(!S.db)return;const n=++ACX.lseq;ACX.lbusy=true;ACX.lerr='';
@@ -70093,7 +70274,7 @@ function acxListen(){
 function acxRegsHTML(){
   const L=ACX.last,regs=regionsByAvail().map((R,i)=>[R,i]).sort((a,b)=>(L&&L[b[0].id]?L[b[0].id].t:0)-(L&&L[a[0].id]?L[a[0].id].t:0)||a[1]-b[1]).map(x=>x[0]);
   return regs.map(R=>{const l=L&&L[R.id],on=ACX.reg===R.id,md=regMode(R.id);
-    return `<li><button type="button" class="acx-reg${on?' on':''}" data-act="acx-reg" data-v="${R.id}"${on?' aria-current="true"':''}><span class="acx-rn">${esc(R.name)}${md!=='enabled'?` <span class="chip">${md==='coming_soon'?'Coming soon':'Maintenance'}</span>`:''}</span>${l?`<span class="acx-rt">${esc(rel(l.t))}</span>`:''}<span class="acx-rl">${!L?'…':l?`<b>${esc(l.nm)}</b>: ${esc(l.x.slice(0,70))}`:'No lines yet'}</span></button></li>`;}).join('');
+    return `<li><button type="button" class="acx-reg${on?' on':''}" data-act="acx-reg" data-v="${R.id}"${on?' aria-current="true"':''}><span class="acx-rn">${esc(R.name)}${md!=='enabled'?` <span class="chip">${md==='coming_soon'?'Coming soon':'Maintenance'}</span>`:''}</span>${l?`<span class="acx-rt">${esc(rel(l.t))}</span>`:''}<span class="acx-rl">${!L?'…':l?`<b>${esc(l.nm)}</b>: ${l.im?'📷 ':''}${esc((l.x||(l.im?'A picture':'')).slice(0,70))}`:'No lines yet'}</span></button></li>`;}).join('');
 }
 function acxLogHTML(){
   if(!ACX.reg)return '<li class="hint acx-none">Choose a region to read its chat.</li>';
@@ -70106,7 +70287,7 @@ function acxLogHTML(){
     const pill=m.sys?' <span class="chip acx-sys">Welcome line</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
     const acts=ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">Remove</button>${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
-    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}</span><span class="acx-b">${acts}</span></li>`;
+    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
   }).join('');
 }
 /* the chat and the region list again, in place */
@@ -70140,7 +70321,7 @@ function acxView(){
     ${ACX.lerr?`<p class="err">${esc(ACX.lerr)}</p>`:''}<ul class="acx-regs" id="acx-regs">${acxRegsHTML()}</ul></section>`;
   const chat=`<section class="acx-chat" aria-labelledby="acx-ch"><h2 class="h3" id="acx-ch">${R?esc(R.name):'No region chosen'}</h2>
     <ol class="acx-log" id="acx-log">${acxLogHTML()}</ol>${ACX.mute?acxMuteHTML():''}
-    ${R?`<form class="acx-f" id="acx-f" novalidate><label class="lbl" for="acx-x">Write to ${esc(R.the||R.name)} as the Edictum team</label><div class="acx-fr"><textarea class="input" id="acx-x" rows="2" maxlength="${RGC_TEXT}" placeholder="Players see it at once, signed Edictum team">${esc(ACX.x)}</textarea><button class="btn" type="submit" id="acx-go"${ACX.busy?' disabled':''}>${ACX.busy?'Sending…':'Send'}</button></div>${ACX.msg?`<p class="err" role="alert">${esc(ACX.msg)}</p>`:''}</form>`:''}</section>`;
+    ${R?(()=>{const pk=rgcPicCan(),pb=pk?rgcPicBarHTML(ACX,'acx'):'';return `<form class="acx-f" id="acx-f" novalidate><label class="lbl" for="acx-x">Write to ${esc(R.the||R.name)} as the Edictum team</label><div class="rgc-picbar acx-picbar" id="acx-picbar"${pb?'':' hidden'}>${pb}</div><div class="acx-fr"><textarea class="input" id="acx-x" rows="2" maxlength="${RGC_TEXT}" placeholder="Players see it at once, signed Edictum team.${pk?' Paste or drop a picture to add one.':''}">${esc(ACX.x)}</textarea>${pk?rgcPicPicker('acx'):''}<button class="btn" type="submit" id="acx-go"${ACX.busy?' disabled':''}>${ACX.busy?'Sending…':'Send'}</button></div>${ACX.msg?`<p class="err" role="alert">${esc(ACX.msg)}</p>`:''}</form>`;})():''}</section>`;
   const M=ACX.mutes,mutes=`<h2 class="h3 acx-mh">Silenced players</h2>${ACX.merr?`<p class="err">${esc(ACX.merr)}</p>`:!M?'<p class="hint">Fetching them…</p>':!M.length?'<p class="hint">Nobody is silenced.</p>'
     :`<div class="tbl-wrap"><table class="tbl acx-mt"><thead><tr><th>Nation</th><th>Region</th><th>Until</th><th>Reason</th><th>Since</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${M.map(x=>`<tr data-uid="${esc(x.uid)}"><td>${esc(x.nm||'A nation')}</td><td>${esc(x.reg?regName(x.reg):'—')}</td><td>${x.perm?'Until lifted':esc(fmtDate(x.until)+', '+fmtTime(x.until))}</td><td>${esc(x.why||'—')}</td><td>${esc(rel(x.t))}</td><td class="acx-mb"><button type="button" class="btn ghost small" data-act="acx-lift" data-id="${esc(x.uid)}">Lift</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(x.uid)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`}`;
   return admShell('admin-chat',head+`<div class="acx">${regs}${chat}</div>`+mutes);
@@ -70170,9 +70351,10 @@ document.addEventListener('change',e=>{const t=e.target;if(!t||!ACX.mute)return;
 document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='acx-x'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();const f=document.getElementById('acx-f');if(f)f.requestSubmit();}});
 document.addEventListener('submit',async e=>{
   if(!e.target||e.target.id!=='acx-f')return;e.preventDefault();
-  const x=ACX.x.replace(/\s+/g,' ').trim();if(!x||ACX.busy||!ACX.reg||!S.isOwner)return;
+  if(ACX.pic&&ACX.pic.busy){ACX.msg='The picture is still being prepared. Send it in a moment.';render();return;}
+  const P=ACX.pic&&rgcPicCan()?ACX.pic:null,x=ACX.x.replace(/\s+/g,' ').trim();if((!x&&!P)||ACX.busy||!ACX.reg||!S.isOwner)return;
   ACX.busy=true;ACX.msg='';render();
-  try{await rgcCivic({op:'rcPost',team:true,reg:ACX.reg,x});ACX.x='';}catch(err){ACX.msg=alErrText(err);}
+  try{await rgcCivic({op:'rcPost',team:true,reg:ACX.reg,x,...(P?{pic:rgcPicOut(P)}:{})});ACX.x='';if(ACX.pic===P){ACX.pic=null;ACX.picErr='';}}catch(err){ACX.msg=alErrText(err);}
   ACX.busy=false;render();
   const f=document.getElementById('acx-x');if(f)f.focus({preventScroll:true});const l=document.getElementById('acx-log');if(l)l.scrollTop=l.scrollHeight;
 });

@@ -2,7 +2,7 @@
    RC_MINUTE lines in any minute and RC_HOUR in any hour, counted from the times kept in rcPace/<uid>. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rcWait, RC_GAP, RC_MINUTE, RC_HOUR, RC_GUEST_HOUR, isRegionChatOp, rcSilence, RC_MUTE_HOURS } from '../functions/regionchat.js';
+import { rcWait, RC_GAP, RC_MINUTE, RC_HOUR, RC_GUEST_HOUR, isRegionChatOp, rcSilence, RC_MUTE_HOURS, rcPicData, rcPicIn, RC_THUMB_MAX, RC_PIC_MAX } from '../functions/regionchat.js';
 
 const NOW = 1_800_000_000_000, SEC = 1000;
 
@@ -60,4 +60,50 @@ test('a silence runs until its end; one that has ended, or has no end, is none',
 
 test('a silence lasts an hour, a day, a week, 30 days or until lifted', () => {
   assert.deepEqual(RC_MUTE_HOURS, [1, 24, 168, 720, 0]);
+});
+
+/* pictures (admins): rcPicData takes a data URL only of an allowed kind, of at most `max` bytes, whose bytes are that kind */
+const bytes = (head, n = 64) => Buffer.concat([Buffer.from(head), Buffer.alloc(Math.max(0, n - head.length), 7)]);
+const PNG = bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), JPEG = bytes([0xff, 0xd8, 0xff, 0xe0]), GIF = bytes([...Buffer.from('GIF89a')]);
+const WEBP = bytes([...Buffer.from('RIFF'), 1, 2, 3, 4, ...Buffer.from('WEBPVP8 ')]);
+const url = (kind, b) => `data:image/${kind};base64,` + b.toString('base64');
+
+test('a picture is taken by what its bytes are, of the kinds allowed', () => {
+  assert.deepEqual(rcPicData(url('png', PNG), 1000), { kind: 'png', size: 64 });
+  assert.deepEqual(rcPicData(url('jpeg', JPEG), 1000), { kind: 'jpeg', size: 64 });
+  assert.deepEqual(rcPicData(url('webp', WEBP), 1000), { kind: 'webp', size: 64 });
+  assert.deepEqual(rcPicData(url('gif', GIF), 1000), { kind: 'gif', size: 64 });
+  assert.equal(rcPicData(url('gif', GIF), 1000, ['jpeg', 'png', 'webp']), null, 'a kind not allowed');
+  assert.equal(rcPicData(url('jpeg', PNG), 1000), null, 'a PNG called a JPEG');
+  assert.equal(rcPicData(url('png', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>')), 1000), null, 'not a picture at all');
+  assert.equal(rcPicData('data:image/svg+xml;base64,' + Buffer.from('<svg/>').toString('base64'), 1000), null, 'no SVG');
+  assert.equal(rcPicData('data:text/html;base64,' + PNG.toString('base64'), 1000), null);
+  assert.equal(rcPicData(url('png', PNG).replace('base64,', 'base64, '), 1000), null, 'not plain base64');
+  assert.equal(rcPicData(url('png', PNG) + '"onerror="x', 1000), null);
+  assert.equal(rcPicData('https://example.com/a.png', 1000), null, 'no addresses');
+  assert.equal(rcPicData(url('png', Buffer.alloc(0)), 1000), null);
+  assert.equal(rcPicData(null, 1000), null);
+  assert.equal(rcPicData({ toString: () => url('png', PNG) }, 1000), null);
+});
+
+test('a picture is no bigger than allowed', () => {
+  const big = bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], RC_THUMB_MAX + 1);
+  assert.equal(rcPicData(url('png', big), RC_THUMB_MAX), null);
+  assert.ok(rcPicData(url('png', big.subarray(0, RC_THUMB_MAX)), RC_THUMB_MAX));
+  assert.ok(rcPicData(url('png', bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], RC_PIC_MAX)), RC_PIC_MAX));
+  assert.equal(rcPicData(url('png', bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], RC_PIC_MAX + 3)), RC_PIC_MAX), null);
+  // the picture's document stays under Firestore's 1 MiB with room to spare, and a line with its small copy is small
+  assert.ok(Math.ceil(RC_PIC_MAX / 3) * 4 + 30 + 4096 < 1048576);
+  assert.ok(Math.ceil(RC_THUMB_MAX / 3) * 4 < 70000);
+});
+
+test('a line’s picture: a small copy (no GIF) and the picture, with their sizes; anything else is refused', () => {
+  const ok = { th: url('webp', WEBP), w: 440, h: 248, d: url('gif', GIF), fw: 1920, fh: 1080 };
+  assert.deepEqual(rcPicIn(ok), { im: { s: ok.th, w: 440, h: 248, fw: 1920, fh: 1080, k: 'gif' }, d: ok.d, kind: 'gif' });
+  const refused = p => assert.throws(() => rcPicIn(p), e => e.code === 'invalid-argument' && e.details?.code === 'rc_pic', JSON.stringify(p).slice(0, 80));
+  refused(null); refused('x'); refused([]);
+  refused({ ...ok, th: url('gif', GIF) });
+  refused({ ...ok, d: 'data:image/svg+xml;base64,PHN2Zy8+' });
+  refused({ ...ok, w: 0 }); refused({ ...ok, h: 641 }); refused({ ...ok, fw: 4097 }); refused({ ...ok, fh: 1.5 }); refused({ ...ok, fw: '1920' });
+  const { th, ...noThumb } = ok; refused(noThumb);
 });

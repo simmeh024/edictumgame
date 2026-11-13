@@ -1200,6 +1200,21 @@ test('a region chat is read by the nations of that region and by admins, and wri
   await assertFails(as('bob').doc('rchat/meridian/chat/l3').set({ a: 'bob', nm: 'Bobland', x: 'Bobland has been founded', t: 3, sys: 'found' }));
 });
 
+test('the picture an admin’s chat line carries is read as the line is, and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('rcimg/meridian/chat/l1').set({ a: 'admin', d: 'data:image/png;base64,iVBORw0KGgo=', k: 'png', t: 1 });
+  });
+  await assertSucceeds(as('bob').doc('rcimg/meridian/chat/l1').get());
+  await assertFails(as('carol').doc('rcimg/meridian/chat/l1').get());
+  await assertFails(as('nobody').doc('rcimg/meridian/chat/l1').get());
+  await assertFails(anon().doc('rcimg/meridian/chat/l1').get());
+  await assertFails(as('bob').doc('rcimg/atlantis/chat/l1').get());
+  await assertSucceeds(as('admin', { admin: true }).doc('rcimg/meridian/chat/l1').get());
+  await assertFails(as('admin', { admin: true }).doc('rcimg/meridian/chat/l2').set({ a: 'admin', d: 'data:image/png;base64,iVBORw0KGgo=', t: 2 }));
+  await assertFails(as('bob').doc('rcimg/meridian/chat/l1').update({ d: 'data:image/png;base64,AAAA' }));
+  await assertFails(as('bob').doc('rcimg/meridian/chat/l1').delete());
+});
+
 test('a chat silence is read by the silenced player and admins, and written only by the server', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     await ctx.firestore().doc('rcMute/bob').set({ until: Date.now() + 3600000, why: 'Spam', by: 'staff', t: 1, nm: 'Bobland', reg: 'meridian' });

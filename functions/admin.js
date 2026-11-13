@@ -330,11 +330,14 @@ async function mutate(db, actor, data) {
     // and a Community Board post is cb:<region>:<topic>[:<reply>] (functions/board.js keeps the counts right)
     const cb = action === 'delete_post' && /^cb:([a-z]{2,40}):([A-Za-z0-9]{20})(?::([A-Za-z0-9]{20}))?$/.exec(target);
     if (cb) await cbDelete(db, { uid: actor, admin: true }, { reg: cb[1], topic: cb[2], ...(cb[3] ? { reply: cb[3] } : {}), reason }, new Set([cb[1]]));
-    // a line of a region chat is rc:<region>:<line> (functions/regionchat.js); the audit entry below keeps who removed it
+    // a line of a region chat is rc:<region>:<line> (functions/regionchat.js), with the picture it may carry; the audit
+    // entry below keeps who removed it
     const rc = action === 'delete_post' && /^rc:([a-z]{2,40}):([A-Za-z0-9]{20})$/.exec(target);
     if (rc) {
       if (!REGIONS.has(rc[1])) throw new HttpsError('invalid-argument', 'Choose a region.');
-      await db.doc('rchat/' + rc[1] + '/chat/' + rc[2]).delete();
+      const b = db.batch();
+      b.delete(db.doc('rchat/' + rc[1] + '/chat/' + rc[2])); b.delete(db.doc('rcimg/' + rc[1] + '/chat/' + rc[2]));
+      await b.commit();
     }
     // a classified advertisement in the region's newspaper is ad:<region>:<player>:<ad>. It lives in the player's own
     // record, which only their game writes, so it is struck out in press/<region>.x, which every reader of the paper
