@@ -634,6 +634,11 @@ test('Alliances: pledges are credited once, projects need the level and the trea
   await civic(b, { op: 'alTally', aid });
   A = await allianceOf(aid); assert.equal(A.ld, b.uid); assert.ok(A.mem[f.uid], 'the old leader stays a member');
   assert.ok(A.log.some(e => e.k === 'leader' && e.x === 'away'));
+  /* a Hall of Chronicles of level 2: a fifth more renown, rounded, and named in the tally */
+  await db.doc('alliances/' + aid).update({ tt: now - 21 * 3600e3, 'pj.chronicle': 2 });
+  const xp0 = (await allianceOf(aid)).xp, t3 = await civic(b, { op: 'alTally', aid }), base = t3.xp - t3.parts.chron;
+  assert.ok(base > 0 && t3.parts.chron === Math.round(base * 0.2), JSON.stringify(t3));
+  assert.equal((await allianceOf(aid)).xp, xp0 + t3.xp);
 });
 
 test('Alliances: computer nations join by affinity with the leader, and an alliance from before moves over under its founder', async () => {

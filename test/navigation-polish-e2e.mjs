@@ -67,7 +67,14 @@ check('the phone section menu reveals and focuses its destination',!await legis.
 /* Settings has tabs of its own instead of the section menu */
 await move(C,'settings');check('Settings has no section menu or fold controls',!await C.$('#ux-section-select')&&!await C.$('.ux-fold-toggle'));
 await C.click('#sg-tab-nation');await C.fill('#s-lang','Finderlish');await C.keyboard.press('Control+k');await C.waitForSelector('#qj-in');await C.keyboard.press('Escape');
-check('search can open from an editor and return without losing its draft',await C.inputValue('#s-lang')==='Finderlish'&&await C.evaluate(()=>document.activeElement?.id==='s-lang')&&!(await localNation(C)).lang);
+const draftBack=async()=>({value:await C.inputValue('#s-lang'),focus:await C.evaluate(()=>document.activeElement?.id||document.activeElement?.tagName),saved:(await localNation(C)).lang||''});
+{const d=await draftBack();check('search can open from an editor and return without losing its draft',d.value==='Finderlish'&&d.focus==='s-lang'&&!d.saved,JSON.stringify(d));}
+/* the page drawn again while the search is open (a snapshot or a server's answer landing) puts a new field in place of
+   the one the player came from: focus goes back to the new one (once lost on CI, when a civic answer redrew Settings) */
+await C.keyboard.press('Control+k');await C.waitForSelector('#qj-in');
+await C.evaluate(()=>{const o=document.getElementById('s-lang'),c=o.cloneNode(true);c.value=o.value;o.replaceWith(c);});
+await C.keyboard.press('Escape');
+{const d=await draftBack();check('and so it does when the page was drawn again meanwhile',d.value==='Finderlish'&&d.focus==='s-lang'&&!d.saved,JSON.stringify(d));}
 await C.evaluate(()=>{document.querySelector('#toast')?.style.setProperty('visibility','hidden');document.activeElement?.blur();});await C.screenshot({path:OUT+'/navigation-sections-390.png'});
 check('navigation controls fit a phone',await C.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));
 await search(C,'currency',true);await C.screenshot({path:OUT+'/navigation-search-390.png'});await C.keyboard.press('Escape');

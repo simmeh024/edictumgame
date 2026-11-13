@@ -21,12 +21,16 @@ const shot=async(sel,file)=>{for(let k=0;;k++){try{return await A.locator(sel).s
 
 /* record achievements until the nation's prestige sits inside rank i (never past the next one) */
 const reach=i=>A.evaluate(i=>{
-  const n=G.clone(G.S.nation),R=G.RK,lo=R.ACH_RANKS[i][0],hi=R.ACH_RANKS[i+1]?R.ACH_RANKS[i+1][0]:Infinity,ach=Object.assign({},n.ach||{});
-  /* the random founding cabinet can already earn honours (Rogues' Gallery, Resident Genius) and lift a new nation
-     past the first rank: give it a plain cabinet, which earns none */
+  const n=G.clone(G.S.nation),R=G.RK,lo=R.ACH_RANKS[i][0],hi=R.ACH_RANKS[i+1]?R.ACH_RANKS[i+1][0]:Infinity,ach=Object.assign({},n.ach||{}),t=Date.now();
+  /* what the commit below awards by itself counts as well: take it in first (commit() runs the same achEvalNew) */
+  const due=()=>{for(const a of R.achEvalNew(Object.assign(G.clone(n),{ach}),G.myId(),t))ach[a.id]=t;};
+  due();
+  /* the random founding cabinet can already earn honours (Rogues' Gallery, Resident Genius; a Gold is 50, the whole
+     first rank), recorded or still due, and lift a new nation past the first rank: give it a plain cabinet, which
+     earns none */
   if(R.achPoints({ach})>=hi){const c=G.clone(R.cabOf(n));for(const k in c)Object.assign(c[k],{tr:['honest'],sk:3,lo:60});n.cab=c;
-    for(const a of R.ACH)if(a.id.startsWith('cab-'))delete ach[a.id];}
-  let p=R.achPoints({ach});const t=Date.now();
+    for(const a of R.ACH)if(a.id.startsWith('cab-'))delete ach[a.id];due();}
+  let p=R.achPoints({ach});
   for(const a of R.ACH.slice().sort((x,y)=>R.ACH_TIER[y.t].p-R.ACH_TIER[x.t].p)){if(p>=lo)break;if(ach[a.id])continue;const v=R.ACH_TIER[a.t].p;if(p+v<hi){ach[a.id]=t;p+=v;}}
   n.ach=ach;G.commit(n);G.render();return R.achPoints(G.S.nation);
 },i);

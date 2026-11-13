@@ -57,7 +57,7 @@ const D0 = await alDoc(aid);
 check('the record holds the charter: leader, type, access, motto', D0 && D0.ld.stringValue === ua && D0.ty.stringValue === 'trade' && D0.acc.stringValue === 'apply' && D0.mo.stringValue === 'Strength in numbers');
 check('the index names the alliance for the referee', (await adminGet('allyOf/' + ua))?.fields?.a?.stringValue === aid);
 check('the leader’s record marks the alliance, and its log the founding', await until(async () => { const d = await nationDoc(ua); return d && d.rec.alm === aid && d.rec.log.some(l => l.k === 'alfound'); }, 25000));
-check('the head shows the level, the renown and the places', /Level 1/.test(await text(A, '.al-head')) && /of 6 places/.test(await text(A, '.al-head')));
+check('the head shows the level, the renown and the places', /Level 1/.test(await text(A, '.al-head')) && /of 15 places/.test(await text(A, '.al-head')));
 
 // a request with a note, from the other nation's Alliance tab
 await nav(B, 'diplomacy'); await B.click('#dp-tab-alliance');
@@ -101,7 +101,9 @@ check('and earns the alliance renown', await until(async () => Number((await alD
 await until(() => shown(A, '[data-act="dp-build"][data-v="hall"]:not([disabled])'), 10000);
 await A.click('[data-act="dp-build"][data-v="hall"]');
 await shot(A, 'treasury');
-check('the Alliance Hall is built, and adds two places', await until(async () => /of 8 places/.test(await text(A, '.al-head')), 10000) && Number((await alDoc(aid))?.pj?.mapValue?.fields?.hall?.integerValue) === 1);
+check('the Alliance Hall is built, and adds two places', await until(async () => /of 17 places/.test(await text(A, '.al-head')), 10000) && Number((await alDoc(aid))?.pj?.mapValue?.fields?.hall?.integerValue) === 1);
+check('the later buildings are listed, each waiting for its alliance level', await until(async () => { const t = await text(A, '.al-pjs'); return /Beacon Towers[\s\S]*needs alliance level 2/.test(t) && /Alliance Academy[\s\S]*needs alliance level 3/.test(t) && /Hall of Chronicles[\s\S]*needs alliance level 2/.test(t); }, 10000)
+  && await A.evaluate(() => ['beacon', 'academy', 'chronicle'].every(k => document.querySelector(`[data-act="dp-build"][data-v="${k}"]`)?.disabled)));
 
 // relations: the ally, with the reasons goodwill moved; a gift from the Relations tab
 await A.click('#dp-tab-relations');
