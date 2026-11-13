@@ -5,6 +5,9 @@ await clearEmulators();
 const settle=p=>p.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
 const A=await player('map development desktop'),uid=await open(A);
 await A.waitForSelector('#d-name');await A.fill('#d-name','Coastland');
+/* the spot is chosen on the region's map, so only once the other nations' land is in (landWait): founded before
+   that, the capital waits to go up until it is */
+if(!await until(()=>A.evaluate(()=>G.LAND().landWait()===''),20000))throw Error('The region did not load');
 const coast=await A.evaluate(()=>{
  const T=G.territory(),M=G.MAP,D=G.MD;
  for(let c=0;c<M.N;c++){
@@ -136,6 +139,7 @@ await A.screenshot({path:OUT+'/map-sheet-390.png'});await A.click('.mp-grab');ch
    cramped coast, with no block of free land to choose from (CI once found none) */
 const K=await player('claim choice',{vp:{width:390,height:844}}),uidK=await open(K);
 await K.waitForSelector('#d-name');await K.fill('#d-name','Claimland');
+if(!await until(()=>K.evaluate(()=>G.LAND().landWait()===''),20000))throw Error('The region did not load');
 const home=await K.evaluate(()=>{const T=G.territory(),M=G.MAP,D=G.MD;
   for(let c=0;c<M.N;c++){
     if(M.T[c]<2||T.owner[c]>=0||M.coast[c]<4||D.pickProblem(c,T))continue;
@@ -190,6 +194,9 @@ for(let i=0;i<40;i++){
   await K.locator(`#map-panel [data-act="${st.act}"]`).click();
   await until(()=>K.evaluate(cr=>G.MD.landCredits(G.S.nation)!==cr,st.cr),8000);
 }
+/* the claims just made can still pay out a moment later (a new rank, an achievement's land credits: 8 → 15 → 8 → 5 → 4 →
+   3 → 4 in one run), so wait until the credits hold still before choosing the hex for that many */
+{let last=null,same=0;await until(async()=>{const v=await K.evaluate(()=>G.MD.landCredits(G.S.nation));same=v===last?same+1:0;last=v;return same>=6;},20000,250);}
 /* a hex past the first ones by number, whose claim (the path to it, then the rest) the game allows */
 const pick=await K.evaluate(()=>{G.S.mapClaim=null;G.render();
   const T=G.territory(),D=G.MD,fr=D.claimFrontier(T),cr=D.landCredits(G.S.nation);if(cr<1)return {cr};
@@ -202,9 +209,11 @@ check('clicking a hex chooses that hex',await until(()=>K.evaluate(a=>G.S.mapCla
 check('and the claim on offer starts with it',await K.evaluate(([a,b,cr])=>{const p=G.MD.blockPlan(G.territory(),b,a).slice(0,cr);return p.length===cr&&p[0]===a;},[pick.a,pick.b,pick.cr]));
 check('the panel offers the claim of that many hexes',(pick.cr===1?/Claim this hex/:new RegExp('Claim '+pick.cr+' of its hexes')).test(await text(K,'#map-panel')),await text(K,'#map-panel'));
 const before=new Set(((await localNation(K))?.claims||[]).map(e=>e.c));
+/* what the claim may spend is the credits at the click (one can still arrive after the panel was drawn) */
+const atClick=await K.evaluate(([a,b])=>({cr:G.MD.landCredits(G.S.nation),len:G.MD.blockPlan(G.territory(),b,a).length}),[pick.a,pick.b]);
 await K.locator('#map-panel [data-act="lc-block"]').click();
 const got=async()=>((await localNation(K))?.claims||[]).map(e=>e.c).filter(c=>!before.has(c));
 check('claiming takes the hex that was clicked',await until(async()=>(await got()).includes(pick.a),10000),JSON.stringify({pick,claimed:await got()}));
-check('and as many as the credits allow',(await got()).length===pick.cr);
+check('and as many as the credits allow',(await got()).length===Math.min(atClick.cr,atClick.len),JSON.stringify({atClick,claimed:await got()}));
 await K.ctx.close();
 await A.ctx.close();check('no page errors',!errors.length,errors.join(' | '));await finish();

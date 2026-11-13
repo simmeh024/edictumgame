@@ -26,6 +26,19 @@ test('peak is kept after a merge, so re-adding pays nothing more', () => {
   n.prov.l.push({ id: 10 }); assert.equal(prvCredits(n), 12);
   n.prov.on = 0; assert.equal(prvPeak(n), 5);
 });
+test('a loaded record keeps its peak (it was dropped on every load until 13 Nov 2026)', () => {
+  const hook = src.match(/const PRV_PEAK_MAX=(\d+);\nNORM_HOOKS\.push\([^\n]*\);/);
+  assert.ok(hook, 'the peak has a NORM hook beside prvCredits');
+  assert.equal(Number(hook[1]), Number(src.match(/PRV_MAXL=(\d+)/)[1]), 'the cap is the most provinces a nation can hold');
+  const k = vm.createContext({ NORM_HOOKS: [] }); vm.runInContext(hook[0], k);
+  const load = d => { const n = {}; for (const h of k.NORM_HOOKS) h(n, d); return n; };
+  assert.equal(load({ prpk: 24 }).prpk, 24, 'The Wandering Isles: 24 provinces at its peak, 6 now');
+  assert.equal(load({ prpk: 999 }).prpk, 48, 'a doctored peak is held to the cap');
+  for (const bad of [{}, { prpk: 0 }, { prpk: -3 }, { prpk: 2.5 }, { prpk: '24' }]) assert.equal(load(bad).prpk, undefined, JSON.stringify(bad));
+  const n = { ...load({ prpk: 24 }), prov: nat(6).prov };
+  assert.equal(prvCredits(n), 69, 'credits are paid on the kept peak, not the 6 held now');
+  assert.match(src, /for\(const h of NORM_HOOKS\)\{try\{h\(n,d\);\}catch\(e\)\{\}\}/, 'normalize runs the hooks');
+});
 test('landEarned counts province credits and the achievements exist', () => {
   assert.match(src, /function landEarned\(n\)\{[^\n]*\+prvCredits\(n\)/);
   for (const id of ['prv-add1', 'prv-add4', 'prv-add8', 'prv-add15', 'prv-add23']) assert.ok(src.includes(`'${id}'`), id);
