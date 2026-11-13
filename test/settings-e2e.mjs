@@ -1,4 +1,4 @@
-// Settings in eight tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
+// Settings in nine tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
 // the address; a jump from elsewhere opens the right tab; leaving with unsaved changes asks first; a phone gets a row of
 // tabs that sticks under the top bar (emulators).
 import { OUT, check, finish, sleep, until, player, open, found, nav, text, localNation, nationDoc, errors, clearEmulators } from './lib.mjs';
@@ -12,7 +12,7 @@ await A.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await A.click(
 
 // the page: six tabs, one pane at a time, Your nation first
 await nav(A, 'settings'); await A.waitForSelector('#sg');
-check('Settings has eight tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Land', 'Notifications', 'Letters', 'Display', 'Navigation', 'Account']));
+check('Settings has nine tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Land', 'Notifications', 'Letters', 'Display', 'Sound', 'Navigation', 'Account']));
 check('it opens on Your nation, with the other panes hidden', await tab(A) === 'nation' && await shown(A, '#s-motto') && !await shown(A, '#s-freq') && !await shown(A, '#set-notif') && !await shown(A, '#set-appearance'));
 check('on a wide screen the tabs are a list down the side', await A.$eval('.sg-rail', e => getComputedStyle(e).flexDirection) === 'column');
 check('the old section menu and fold controls are gone', !await A.$('#ux-section-select') && !await A.$('.ux-fold-toggle'));
@@ -61,6 +61,15 @@ check('and it is gone when Settings opens again', await A.$eval('#s-animal', e =
 // the address opens a tab, and plain #settings opens Your nation
 await A.evaluate(() => { location.hash = '#settings/display'; }); await sleep(400);
 check('#settings/display opens Display', await tab(A) === 'display' && await shown(A, '#set-appearance'));
+check('and sound is no longer part of Display', !await shown(A, '#set-sound'));
+await A.click('#sg-tab-sound');
+check('Sound is a tab of its own, in the address', await tab(A) === 'sound' && await shown(A, '#set-sound') && !await shown(A, '#set-appearance') && await A.evaluate(() => location.hash) === '#settings/sound');
+check('sounds are on at first, and the tab line says so', await A.$eval('[data-act="sg-sfx"]', e => e.checked) && /Sounds on/.test(await text(A, '[data-sg-sub="sound"]')));
+await A.click('[data-act="sg-sfx"]');
+check('turning them off is kept on this device, and the tab line follows', await A.evaluate(() => localStorage.getItem('edictum.sfx')) === '0' && /Sounds off/.test(await text(A, '[data-sg-sub="sound"]')));
+await A.click('[data-act="sg-sfx"]');
+check('and on again', await A.evaluate(() => localStorage.getItem('edictum.sfx')) === '1' && /Sounds on/.test(await text(A, '[data-sg-sub="sound"]')));
+await A.click('#sg-tab-display');
 await A.reload(); await A.waitForSelector('#sg');
 check('and still does after a reload', await tab(A) === 'display' && await shown(A, '[data-act="theme"][data-v="dark"]'));
 await A.evaluate(() => { location.hash = '#nation'; }); await sleep(300); await A.evaluate(() => { location.hash = '#settings'; }); await sleep(400);
@@ -130,7 +139,9 @@ check('and closing it deletes nothing', !await A.$('dialog.ed-dlg[open]') && (aw
 await A.click('#sg-tab-account'); await A.keyboard.press('ArrowUp');
 check('arrow keys move between tabs', await tab(A) === 'nav' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-nav');
 await A.keyboard.press('ArrowUp');
-check('and on to the one before', await tab(A) === 'display' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-display');
+check('and on to the one before', await tab(A) === 'sound' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-sound');
+await A.keyboard.press('ArrowUp');
+check('and the one before that', await tab(A) === 'display' && await A.evaluate(() => document.activeElement?.id) === 'sg-tab-display');
 await A.screenshot({ path: OUT + '/settings-display-1366.png' });
 
 // Start over: the founding page with the same name, the culture, look and edict settings carried, the rest afresh
