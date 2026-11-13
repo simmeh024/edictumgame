@@ -21606,6 +21606,11 @@ function achTierCredits(n){try{if(!n||n.npc||!n.ach)return 0;let k=0;for(const i
 const PRV_CREDITS=3;
 function prvPeak(n){try{if(!n||n.npc)return 0;const k=n.prov&&n.prov.on&&Array.isArray(n.prov.l)?n.prov.l.length:0;if(k>(n.prpk||0))n.prpk=k;return n.prpk||0;}catch(e){return 0;}}
 function prvCredits(n){return PRV_CREDITS*Math.max(0,prvPeak(n)-1);}
+/* the peak is part of the record, so a reload or another device keeps it. Until 2026-11-13 every load dropped it, and
+   the next visit after a merge took the merged provinces' credits back (The Wandering Isles lost 54 that way). Never
+   more than the most provinces a nation can hold (PRV_MAXL, 48: test/province-credits.test.mjs holds the two equal). */
+const PRV_PEAK_MAX=48;
+NORM_HOOKS.push((n,d)=>{const k=d&&d.prpk;if(Number.isInteger(k)&&k>0)n.prpk=Math.min(k,PRV_PEAK_MAX);});
 function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
