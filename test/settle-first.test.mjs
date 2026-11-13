@@ -87,7 +87,7 @@ test('the map tabs reach the cities and the states, which can be switched on the
 test('Customise is open from the start, and Finish your charter waits at the end of the list for the others',()=>{
   const {T,S}=section();
   assert.equal(T.pgEligible({},'charter'),true);assert.equal(T.pgEligible({},'map'),false);
-  assert.deepEqual([...T.TL[1].tasks.map(s=>s.k)],['flag','cust','charter'],'Customise your nation, then the charter, come last');
+  assert.deepEqual([...T.TL[1].tasks.map(s=>s.k)],['flag','portrait','cust','charter'],'Customise your leader (after Name your leader where the list has it), Customise your nation, then the charter, come last');
   const n=nation({capital:'Port Alder'});
   assert.equal(T.tutRow(n,{k:'charter',ok:false}),'','hidden while the naming task is open');
   n.capital='Estport';assert.equal(T.tutRow(n,{k:'charter',ok:false}),'ROW','shown once the others are done');
