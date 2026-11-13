@@ -187,7 +187,15 @@ export async function googlePopup(p, clickSelector, email) {
   }
   await pop.waitForEvent('close', { timeout: 10000 }).catch(() => {});
 }
-export const openAccount = async p => { await p.click('.ed-acct-b'); await p.waitForSelector('dialog.ed-dlg[open]'); };
+/* a notice can come down over the account button just then (a medal from the museum, seen in the core suite on 13 Nov
+   2026), and a notice stays while the pointer is on it, so the click would wait behind it for good: close it and try again */
+export const openAccount = async p => {
+  for (let i = 0; ; i++) {
+    try { await p.click('.ed-acct-b', { timeout: i < 6 ? 4000 : 30000 }); break; }
+    catch (e) { if (i >= 6) throw e; await p.locator('#toast .toast-x').first().click({ timeout: 2000 }).catch(() => {}); }
+  }
+  await p.waitForSelector('dialog.ed-dlg[open]');
+};
 
 // Explicit Registered fixtures for community/political tests, without the Google-specific tutorial gift.
 export async function register(p,{old=false}={}){

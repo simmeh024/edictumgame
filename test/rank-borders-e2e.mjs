@@ -159,10 +159,14 @@ check('the Achievements page names the rank held and counts on to the next',/Emi
 await B.locator('.ach-ladder summary').click();
 /* (the list is filled as the fold opens, and again after a redraw: wait for it) */
 check('and its ranks list ticks every rank up to it',await until(async()=>await B.locator('.ach-ladder li.done').count()===21),String(await B.locator('.ach-ladder li.done').count()));
+const ptsB=()=>B.evaluate(()=>G.RK.achPoints(G.S.nation)),p0=await ptsB();
 await B.locator('.ach-ladder [data-act="bd-zoom"][data-i="21"]').click();
-/* 660 to go, or 650 once a save has written down the first visit to this page (Hall of Fame, a bronze, 10): whether a
-   save comes while the page is open is a matter of timing */
-check('a border still ahead says how much prestige is to go',/The border of Kingmaker, at 4,000 prestige\. 6[56]0 prestige to go\./.test((await big(B)).sum)&&!(await big(B)).cz,JSON.stringify(await big(B)));
+/* what is left to Kingmaker, from the nation's own prestige: about 650, but what a new nation earns by itself when it
+   is founded differs from run to run (a silver more on CI on 13 Nov 2026: 3,365 at the first save, 3,340 here), and a
+   save may write down the first visit to this page while it is open, so the prestige before the click or now */
+const togo=async()=>{const m=/The border of Kingmaker, at 4,000 prestige\. (\d+) prestige to go\./.exec((await big(B)).sum);return m?+m[1]:-1;};
+const left=await togo(),p1=await ptsB();
+check('a border still ahead says how much prestige is to go',left>=500&&left<=700&&(left===4000-p0||left===4000-p1)&&!(await big(B)).cz,JSON.stringify({left,p0,p1,big:await big(B)}));
 await B.keyboard.press('Escape');
 /* the mark is kept by a reload, and the rank with it */
 await B.evaluate(()=>G.S.nation&&0);await sleep(2500);await B.reload();await B.waitForSelector('.layout',{timeout:30000});
