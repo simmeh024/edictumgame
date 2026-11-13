@@ -119,6 +119,25 @@ async function run(width) {
     check(`${width}px: the map canvas is kept when its page is drawn again`, map.same, JSON.stringify(map));
     check(`${width}px: and a 40 px drag moves the map 40 px (its listeners were not bound twice)`, Math.abs(map.moved - 40) <= 2, JSON.stringify(map));
 
+    /* typing into a number field while the page is drawn again (in play, the region's saves redraw it every few seconds)
+       keeps the caret after what was typed: 100 typed into the Bureau's market stays 100, it used to become 001 */
+    const toTrade = () => page.evaluate(async () => { const G = window.__game; G.S.view = 'trade'; G.render(); await new Promise(r => setTimeout(r, 300)); return !!document.getElementById('gb-q'); });
+    for (let i = 0; i < 4 && !(await toTrade()); i++) {
+      await page.evaluate(async () => { const G = window.__game; G.S.view = 'map'; G.render(); await new Promise(r => setTimeout(r, 800)); });
+      await page.click('[data-act="map-suggest"]', { timeout: 3000 }).catch(() => {}); await page.click('[data-act="settle"]', { timeout: 3000 }).catch(() => {}); await page.waitForTimeout(700);
+    }
+    /* stores enough to hand over 100 food */
+    await page.evaluate(() => { const G = window.__game, n = G.clone(G.S.nation); n.stock = Object.assign({}, n.stock, { food: 300 }); n.stockAt = Date.now(); n._stockSet = true; G.commit(n); });
+    for (const whole of [false, true]) {
+      await page.evaluate(async whole => { const G = window.__game; G.RPATCH.off = whole; G.S.view = 'trade'; G.render(); await new Promise(r => setTimeout(r, 300)); }, whole);
+      if (!(await page.$('#gb-q'))) { check(`${width}px: the Bureau's market is on the Trade page to type into`, false, await page.evaluate(() => JSON.stringify({ loc: window.__game.S.nation.loc, cities: (window.__game.S.nation.cities || []).length }))); break; }
+      await page.click('#gb-q');
+      for (const k of '100') { await page.keyboard.type(k); await page.evaluate(() => { document.getElementById('app').prepend(document.createComment('again')); window.__game.render(); }); }
+      const t = await page.evaluate(() => { const q = document.getElementById('gb-q'), b = document.querySelector('[data-act="gb-trade"]'); return { value: q && q.value, focused: document.activeElement === q, exchange: b && !b.disabled, hint: (document.getElementById('gb-mkt-q') || {}).textContent }; });
+      check(`${width}px: a number typed while the page is drawn again ${whole ? 'whole' : 'in place'} reads as typed, and Exchange opens`, t.value === '100' && t.focused && t.exchange, JSON.stringify(t));
+      await page.evaluate(() => { const q = document.getElementById('gb-q'); if (q) { q.value = ''; q.dispatchEvent(new Event('input', { bubbles: true })); } window.__game.RPATCH.off = false; });
+    }
+
     /* another page is drawn whole */
     const other = await page.evaluate(async () => {
       const G = window.__game, S = G.S, side = document.querySelector('aside.side'), n0 = G.RPATCH.n;

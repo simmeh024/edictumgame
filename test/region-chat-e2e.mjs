@@ -227,7 +227,10 @@ await A.click(`#acx-log [data-act="acx-mute-ask"][data-id="${iron}"]`);
 check('Silence… asks how long and why, about the right nation', await until(async () => /Silence Chatterly in every region’s chat\?/.test(await text(A, '#acx-mute'))));
 await A.selectOption('#acx-mh', '24'); await A.fill('#acx-mw', 'Spam'); await A.check('#acx-mx');
 await A.click('#acx-mute-go');
-check('silencing says so, and takes the nation’s lines of the last day', await until(async () => /Chatterly is silenced in the region chat for 24 hours\. \d+ lines? (was|were) removed\./.test(await toasts(A)) && !(await shown(C)).includes('Selling cheap iron!'), 15000));
+check('silencing takes the nation’s lines of the last day', await until(async () => !(await shown(C)).includes('Selling cheap iron!') && !(await lines()).some(l => l.x === 'Selling cheap iron!'), 15000));
+/* and says so: toasts take turns, and the admin's own rewards of a moment ago (Hello, Neighbours, the tutorial's Say hi,
+   up to 8 s each) can be shown first, so the notice is waited for apart from the lines, long enough for them to pass */
+check('and says so, with how many lines were removed', await until(async () => /Chatterly is silenced in the region chat for 24 hours\. \d+ lines? (was|were) removed\./.test(await toasts(A)), 45000), await toasts(A));
 check('the silenced players list it, with its reason and Lift', await until(async () => /Chatterly/.test(await text(A, '.acx-mt')) && /Spam/.test(await text(A, '.acx-mt')) && !!(await A.$(`.acx-mt [data-act="acx-lift"][data-id="${uidB}"]`))));
 check('the audit log keeps the silence', await until(async () => (await restListAdmin('adminAudit')).some(d => d.fields.action?.stringValue === 'chat_silence' && d.fields.target?.stringValue === uidB && d.fields.reason?.stringValue === 'Spam')));
 await B.keyboard.press('Escape'); await openChat(B);
