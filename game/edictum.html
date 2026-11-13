@@ -25025,7 +25025,7 @@ function helpBody(n){
     alli:`<p>Founding an alliance unlocks at ${fp('alli')} people; you can join one at any size, when invited or by asking. Allies defend each other and join each other’s attacks, and when one is attacked the others get a call to arms.</p>
       <p>An alliance has a leader, up to ${AL_RULES.officers} officers and its members. The leader writes the charter (name, motto, banner, map colour, type and who may join) and gives out roles; officers invite and admit nations. If the leader leaves or has not played for 7 days, the longest-serving officer or member who still plays takes over, so an alliance outlives its founder.</p>
       <p>Its type adds a bonus for every member: ${Object.values(AL_TYPES).map(t=>t.n.toLowerCase()+' ('+t.d.replace(/\.$/,'').toLowerCase()+')').join('; ')}.</p>
-      <p>Members earn the alliance renown each day by playing, trading with each other, sending each other gifts, fighting in each other’s wars and answering calls to arms, and by giving to its treasury. Each level adds two member places and new banner designs. The leader and officers spend the treasury on projects: ${Object.values(AL_PJ).map(p=>p[0]).join(', ')}. Members also share a private channel.</p>
+      <p>Members earn the alliance renown each day by playing, trading with each other, sending each other gifts, fighting in each other’s wars and answering calls to arms, and by giving to its treasury. An alliance starts with ${AL_RULES.places} member places, and each level adds two more and new banner designs. The leader and officers spend the treasury on projects: ${Object.values(AL_PJ).map(p=>p[0]).join(', ')}. Members also share a private channel.</p>
       <p>A computer nation joins when its affinity with you is ${ALLY_MIN} or more out of 100. Affinity compares civil rights, the economy and political freedom, adjusted by your cabinet and your goodwill. If your values drift apart and affinity falls below ${ALLY_MIN-10}, it leaves. Two computer blocs, ${list(blocs)}, join no other alliance.</p>`,
     spies:`<p>You have ${agentsMax({})} named agents, ${agentsMax({})+1} with a Foreign Intelligence Service and more from the bureau’s recruitment office. Each mission uses one, which rests ${mins(AGENT_MS)} afterwards; a scout and an experienced agent roll higher. One caught is held abroad for a few hours.</p>
       <p>Your agent rolls a twenty-sided die. High science and education add up to 2, and a Foreign Intelligence Service adds 2. Their Counter-Intelligence Bureau takes off 2, mass surveillance 1 and strong security forces 1. A natural 1 is always caught and a natural 20 is always a masterstroke.</p>
@@ -67640,20 +67640,27 @@ const AL_RULES={levels:[0,100,250,500,900,1500,2400,3600,5200,7500],officers:5,
     market:{max:2,lv:[2,4],cost:[{goods:60,food:40},{goods:120,food:80}]},
     fleet:{max:2,lv:[2,5],cost:[{iron:50,timber:40},{iron:100,timber:80}]},
     arsenal:{max:3,lv:[3,5,7],cost:[{iron:60,oil:30},{iron:120,oil:60},{iron:190,oil:100}]},
-    embassy:{max:1,lv:[2],cost:[{goods:50,timber:50}]}},
-  xp:{active:3,deal:2,gift:2,giftCap:5,battle:5,battleCap:10,call:5,callCap:3,join:10,donatePer:10,donateDay:50}};
+    embassy:{max:1,lv:[2],cost:[{goods:50,timber:50}]},
+    beacon:{max:3,lv:[2,4,6],cost:[{timber:50,iron:40},{timber:100,iron:80},{timber:160,iron:130}]},
+    academy:{max:3,lv:[3,5,8],cost:[{goods:70,oil:30},{goods:140,oil:60},{goods:220,oil:100}]},
+    chronicle:{max:3,lv:[2,4,7],cost:[{goods:40,food:50},{goods:90,food:100},{goods:150,food:170}]}},
+  places:15,
+  xp:{active:3,deal:2,gift:2,giftCap:5,battle:5,battleCap:10,call:5,callCap:3,join:10,donatePer:10,donateDay:50,chron:0.1}};
 const AL_PJ={hall:['Alliance Hall','Two more member places for each level.'],granary:['Shared Granary','Population growth +2% a level, for every member.'],
   market:['Common Market','Trade deals between members flow 10% more a level, and one more deal slot at level 2.'],
   fleet:['Joint Fleet','Attacks across the sea lose 10 points less of their strength a level.'],
   arsenal:['Arsenal of the Alliance','Army strength +3% a level, for every member.'],
-  embassy:['Embassy Row','Gifts between members raise goodwill twice as much, and up to 25.']};
+  embassy:['Embassy Row','Gifts between members raise goodwill twice as much, and up to 25.'],
+  beacon:['Beacon Towers','Members’ land is 4% harder to take a level, and allies who help defend it count a fifth more a level.'],
+  academy:['Alliance Academy','Prosperity +1.5% a level, for every member.'],
+  chronicle:['Hall of Chronicles','The daily tally earns the alliance 10% more renown a level.']};
 const AL_COLS=Object.entries(MAP_COLORS);
 /* banner designs open up with renown: patterns and emblems by alliance level */
 const AL_PAT_LV={plain:1,'bi-h':1,'bi-v':1,'tri-h':1,'tri-v':1,cross:3,canton:3,chevron:3,diag:3,pale:3,saltire:5,border:5,quarters:5,stripes:5,centre:5,band:5};
 const AL_EMB_LV={none:1,star:1,disc:1,sun:1,crescent:1,diamond:1,crown:2,tree:2,mountain:2,anchor:4,cog:4,heart:4};
 const AL_DEF_EM={p:'bi-h',c:['#1C4D9E','#F2C230','#FFFFFF'],e:'star',ec:'#FFFFFF'};
 const alLevel=xp=>{let l=1;AL_RULES.levels.forEach((v,i)=>{if((xp||0)>=v)l=i+1;});return l;};
-const alPlaces=D=>6+2*(alLevel(D.xp)-1)+2*Math.max(0,Math.min(3,num0(D.pj&&D.pj.hall)));
+const alPlaces=D=>AL_RULES.places+2*(alLevel(D.xp)-1)+2*Math.max(0,Math.min(3,num0(D.pj&&D.pj.hall)));
 function alCount(A){return A.srv?Object.keys(A.doc.mem).length+Object.keys(A.doc.npc).length:A.members.length;}
 function alFull(A){return !!(A&&A.srv&&alCount(A)>=alPlaces(A.doc));}
 function alEmOf(f){const c=Array.isArray(f&&f.c)&&f.c.length===3?f.c:AL_DEF_EM.c;return {p:czHas(PATTERNS,f&&f.p)?f.p:AL_DEF_EM.p,c:c.map((x,i)=>safeColor(x,AL_DEF_EM.c[i])),e:czHas(EMBLEMS,f&&f.e)?f.e:AL_DEF_EM.e,ec:safeColor(f&&f.ec,AL_DEF_EM.ec)};}
@@ -67716,7 +67723,8 @@ function alFx(id){
     else if(D.ty==='trade'){fx.tariffFree=true;fx.flow+=0.15;fx.slots+=2;fx.prosper+=0.02;}
     else if(D.ty==='culture'){fx.growth+=0.03;fx.prosper+=0.02;}
     else if(D.ty==='research'){fx.prosper+=0.03;fx.spy+=1;}
-    fx.growth+=0.02*pj('granary');fx.flow+=0.1*pj('market');fx.slots+=pj('market')>=2?1:0;fx.sea+=0.1*pj('fleet');fx.army+=0.03*pj('arsenal');fx.gift=pj('embassy')>0;}}catch(e){fx=AL_FX0;}
+    fx.growth+=0.02*pj('granary');fx.flow+=0.1*pj('market');fx.slots+=pj('market')>=2?1:0;fx.sea+=0.1*pj('fleet');fx.army+=0.03*pj('arsenal');fx.gift=pj('embassy')>0;
+    const lv=k=>clamp(pj(k),0,AL_RULES.projects[k].max);fx.def+=0.04*lv('beacon');fx.defHelp+=0.2*lv('beacon');fx.prosper+=0.015*lv('academy');}}catch(e){fx=AL_FX0;}
   alFxMemo.m.set(id,fx);return fx;
 }
 /* the record a figure belongs to, for the functions that are given a nation's record rather than its id */
@@ -67941,7 +67949,7 @@ function dpOverview(now){
     <p><b>Defence.</b> Attack one member and you are at war with all of them: their armies join each other’s attacks and defend each other’s land. When a member is attacked, the others get a call to arms.</p>
     <p><b>Leader and officers.</b> The leader decides the charter and roles; officers invite and admit nations. If the leader leaves or is away for 7 days, the longest-serving officer or member takes over.</p>
     <p><b>Types.</b> ${Object.values(AL_TYPES).map(t=>`<b>${esc(t.n)}:</b> ${esc(t.d)}`).join(' ')}</p>
-    <p><b>Renown and level.</b> Members earn renown by playing, trading with each other, sending each other gifts, fighting in each other’s wars, answering calls and giving to the treasury. Each level adds two member places and new banner designs.</p>
+    <p><b>Renown and level.</b> Members earn renown by playing, trading with each other, sending each other gifts, fighting in each other’s wars, answering calls and giving to the treasury. An alliance starts with ${AL_RULES.places} member places (computer members count), and each level adds two more and new banner designs.</p>
     <p><b>Treasury and projects.</b> Members give resources; the leader and officers spend them on projects that help every member.</p></div>`:''}</section>`;
   return `<div class="dp-cards">${alCard}${warCard}${relCard}${giftCard}</div>${guide}${how}`;
 }
@@ -68073,7 +68081,7 @@ const AL_LOG={found:e=>`${e.b?esc(e.b):'A nation'} founded ${esc(e.x||'the allia
   leader:e=>`${esc(nameOf(e.a))} became the leader${e.x==='away'?', the last leader having been away for a week':e.x==='left'?', the last leader having left':e.x==='gone'?', the last leader’s nation being gone':''}.`,
   role:e=>`${esc(nameOf(e.a))} ${e.x==='o'?'became an officer':'is no longer an officer'}.`,edit:e=>`${esc(nameOf(e.a))} revised the charter.`,type:e=>`${esc(nameOf(e.a))} made it a ${esc((AL_TYPES[e.x]||{n:'new kind of alliance'}).n.toLowerCase())}.`,
   donate:e=>`${esc(e.b||nameOf(e.a))} gave ${esc(e.x)} to the treasury.`,build:e=>{const [k,l]=String(e.x).split(':');return `${esc(nameOf(e.a))} built ${esc(AL_PJ[k]?AL_PJ[k][0]:k)}${+l>1?' to level '+esc(l):''}.`;},
-  tally:e=>{let p={};try{p=JSON.parse(e.b||'{}')||{};}catch(err){}const bits=[[p.active,'played','played'],[p.deals,'trade deal','trade deals'],[p.gifts,'gift','gifts'],[p.battles,'battle for an ally','battles for allies'],[p.calls,'call answered','calls answered']].filter(b=>b[0]>0).map(b=>b[1]==='played'?`${b[0]} ${b[0]===1?'member':'members'} played`:`${b[0]} ${b[0]===1?b[1]:b[2]}`);return `The alliance earned ${esc(e.x)} renown${bits.length?': '+esc(list(bits)):''}.`;}};
+  tally:e=>{let p={};try{p=JSON.parse(e.b||'{}')||{};}catch(err){}const bits=[[p.active,'played','played'],[p.deals,'trade deal','trade deals'],[p.gifts,'gift','gifts'],[p.battles,'battle for an ally','battles for allies'],[p.calls,'call answered','calls answered']].filter(b=>b[0]>0).map(b=>b[1]==='played'?`${b[0]} ${b[0]===1?'member':'members'} played`:`${b[0]} ${b[0]===1?b[1]:b[2]}`);if(p.chron>0)bits.push(`${p.chron} more from the Hall of Chronicles`);return `The alliance earned ${esc(e.x)} renown${bits.length?': '+esc(list(bits)):''}.`;}};
 function alHistoryHTML(A){const L=A.doc.log;return L.length?`<ol class="al-log">${L.map(e=>`<li><span class="hint">${esc(fmtDate(e.t))}</span> ${(AL_LOG[e.k]||(()=>'Something happened.'))(e)}</li>`).join('')}</ol>`:'<p class="muted">Nothing yet.</p>';}
 
 function dpAlliance(now){
