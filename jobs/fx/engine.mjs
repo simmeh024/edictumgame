@@ -159,8 +159,25 @@ export function hasCentralBank(rec, now) {
   return Array.isArray(rec && rec.cities) && rec.cities.some(c => isObj(c) && Array.isArray(c.b)
     && c.b.some(b => isObj(b) && b.k === 'cbank' && Number.isFinite(b.d) && b.d <= now));
 }
-/* how much of a forgery's damage gets through: a Central Bank halves it, holographic banknotes take a further quarter */
-export const forgeryMult = I => (I.bank ? (I.holo ? 0.375 : 0.5) : 1);
+/* the city upgrades of the best finished Central Bank in a record, 0 to 5, as the game's cxUps reads a building:
+   its ug, or the upgrade under way ({u, s, d}) once its time is up (a building's b.ug / b.uu, saved with the city) */
+export function centralBankUps(rec, now) {
+  let best = 0;
+  for (const c of Array.isArray(rec && rec.cities) ? rec.cities : []) {
+    if (!isObj(c) || !Array.isArray(c.b)) continue;
+    for (const b of c.b) {
+      if (!isObj(b) || b.k !== 'cbank' || !Number.isFinite(b.d) || b.d > now) continue;
+      let g = Number.isInteger(b.ug) && b.ug >= 1 && b.ug <= 5 ? b.ug : 0;
+      const u = b.uu;
+      if (isObj(u) && u.u === g + 1 && u.u <= 5 && Number.isFinite(u.d) && u.d <= now) g = u.u;
+      best = Math.max(best, g);
+    }
+  }
+  return best;
+}
+/* how much of a forgery's damage gets through: a Central Bank halves it and each of its upgrades lets 5 points
+   less through (a quarter at gold), holographic banknotes take a further quarter; the game's nbForgeryMult agrees */
+export const forgeryMult = I => (I.bank ? Math.round((0.5 - 0.05 * Math.min(5, Math.max(0, I.ug | 0))) * 100) / 100 * (I.holo ? 0.75 : 1) : 1);
 
 /* ── indicators: one nation's real figures, read from its record ───────── */
 /* rec is a player's shared record or, with npc set, a computer-run nation's definition. Every figure comes
@@ -198,13 +215,13 @@ export function indicators(id, rec, now, ctx) {
   const debt = debtOf(n, s, p), ind = industries(n).slice(0, 5), tot = ind.reduce((a, c) => a + Math.max(0, c[1]), 0) || 1;
   /* diversification: how evenly the five largest industries share the economy (1 = evenly) */
   const div = -ind.reduce((a, c) => { const q = Math.max(0, c[1]) / tot; return a + (q > 0 ? q * Math.log(q) : 0); }, 0) / Math.log(5);
-  const tr = ctx.trade || { partners: new Set(), volume: 0 }, bank = !npc && hasCentralBank(rec, now), holo = !!p.bankHolograms;
+  const tr = ctx.trade || { partners: new Set(), volume: 0 }, bank = !npc && hasCentralBank(rec, now), holo = !!p.bankHolograms, bankUg = bank ? centralBankUps(rec, now) : 0;
   return {
     npc, gpc, out, pop, prosper, gOut: clamp(num(gOut, 0), -50, 50), gPc: clamp(num(gPc, 0), -50, 50), span, outVol: clamp(num(outVol, 0), 0, 100),
     approval: govApproval(s), law: lawOf(s), safety: s.safety, corrupt: s.corrupt, sci: s.sci, edu: s.edu, econ: s.econ, div: clamp(div, 0, 1),
     infl: inflOf(s, p), debt, credit: creditOf(debt, s), unemp: unempOf(s, p),
     cbi: !!p.centralBankIndependence, pbank: !!p.peoplesBank, oilFund: !!p.oilFund, tariffs: !!p.importTariffs,
-    bank, holo, counterfeit: ctx.counterfeit > now ? (p.counterIntel ? 4 : 8) * forgeryMult({ bank, holo }) : 0,
+    bank, holo, counterfeit: ctx.counterfeit > now ? (p.counterIntel ? 4 : 8) * forgeryMult({ bank, holo, ug: bankUg }) : 0,
     wars: clamp(num(ctx.wars, 0), 0, 20), partners: tr.partners.size, volume: clamp(tr.volume, 0, 10000),
     days: npc ? Infinity : Math.max(0, (now - num(rec.founded, now)) / DAY)
   };
