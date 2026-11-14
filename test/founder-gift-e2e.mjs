@@ -66,7 +66,7 @@ await A.evaluate(() => document.querySelector('.shop-dr-x')?.click()).catch(() =
 const pop = await text(A, '#fgf .fgf');
 check('it thanks the founder by number and runs until 30 November', /Thank you, Founder No\. \d+/.test(pop) && /until 30 November/.test(pop), pop.slice(0, 200));
 check('it offers the three packs, in the catalogue’s order, with what each is worth', (await A.evaluate(() => [...document.querySelectorAll('#fgf .fgf-pk')].map(b => b.dataset.fgf).join())) === CATALOGUE.founderGift.packs.join()
-  && /Central Bank Pack/.test(pop) && /Age of Sail Pack/.test(pop) && /Old Republic Pack/.test(pop) && /10 pieces · worth €2\.49/.test(pop) && /worth €2\.99/.test(pop), pop);
+  && /Central Bank Pack/.test(pop) && /Age of Sail Pack/.test(pop) && /Old Republic Pack/.test(pop) && /12 pieces · worth €2\.49/.test(pop) && /worth €2\.99/.test(pop), pop);
 check('each pack shows a picture', await A.evaluate(() => [...document.querySelectorAll('#fgf .fgf-art')].every(a => !!a.querySelector('svg'))));
 check('nothing can be taken before a pack is chosen', await A.evaluate(() => document.getElementById('fgf-ok').disabled));
 await sleep(300); await A.screenshot({ path: path.join(OUT, 'fgift-popup-desktop.png') });

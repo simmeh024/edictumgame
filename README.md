@@ -383,9 +383,11 @@ tone, and the clothes (the outline below the neckline, cut from the same curve w
 ink; banknotes always engrave the look without the skin (`ptPrint`). The head of government also picks an ink, a
 ring and a nickname earned in office (`PT_NICKS`, from the tallies since the term began, `n.ptz`), and a caption
 is written from the records. The Shop's Mayan Pack sells twelve more pieces (`PT_SHOP`: hair 20–21, headwear 11–13,
-dress 14–16, details 7–8, ring 5 and the jade ink), held as any Shop cosmetic is (`czHolds`): left out of the lists
-unless held or on sale, tried on by anyone, saved once held, and dropped from another nation's portrait by `ptKeep`
-unless its finery has them.
+dress 14–16, details 7–8, ring 5 and the jade ink), and every other pack two (headwear 14–17, dress 17–19, details
+9–13, rings 6–9, the Tyrian and Hologram inks; the pack is the piece's UNLOCKS `src`, `ptPackOf`). They are held as
+any Shop cosmetic is (`czHolds`): left out of the lists unless held or their pack is on sale (`ptPackSells`), tried on
+by anyone, saved once held, and dropped from another nation's portrait by `ptKeep` unless its finery has them. The
+flag lapel pin prints the nation's flag and the Microprint ring its name (`ptNat`, read by `ptMedHTML`).
 - *The record.* Shared, so visitors see it: `n.rpt` (the leader: `s` the seed the face first came from, pinned
   when the leader is renamed so the face stays; `l` look, `i` ink, `r` ring, `k` nickname, `f` the portfolio
   they held, `b` birthplace), `n.cpt` (each minister's own look, with their name; dropped when the post changes
@@ -571,8 +573,11 @@ gives way to the form. `build.py` writes the page's heading, lede and features (
 `HOME_LEDE`, `HOME_FEATS` and `HOME_FREE`) into the page itself, so a newcomer sees them while the
 game's script downloads; a returning player (a nation saved in the browser, which `src/stub.js`
 checks) gets a loading screen only if startup lasts more than 350 milliseconds. The saved theme is
-applied in the page head, preventing a light/dark flash. Content and code are preloaded ahead of
-the Firebase SDK; slow or failed downloads retain visible feedback. `npm run test:startup` checks
+applied in the page head, preventing a light/dark flash. Slow or failed downloads retain visible
+feedback. Until the first paint only the page and its stylesheet download: the Firebase SDK waits for
+the first frame like the game's scripts (and runs first of them, so it compiles while the game is still
+downloading), and the first screen's two fonts are preloaded only when the browser does not reckon the
+connection slow (2G, 3G or Data Saver). On a 3G line that brings the first paint from about 7 s to under 3. `npm run test:startup` checks
 the real browser cache across a simulated code update, saved themes, phones and failure handling.
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.

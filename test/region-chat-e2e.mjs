@@ -1,8 +1,8 @@
-// Region chat (functions/regionchat.js), on the emulators: the Chat button beside the bell opens a drawer on any page;
+// Region chat (functions/regionchat.js), on the emulators: the Chat button beside the bell (or floating) opens a drawer on any page;
 // Registered Nations of the region write lines that reach every other nation of it at once, paced by the server; a
 // line naming a nation is marked and told; guests write ten lines an hour; a line's menu reports it (the moderators' queue, which
 // removes it), blocks its nation (its lines hidden, and its letters stopped) or deletes it; staff remove any line;
-// Settings › Letters turns the chat off; staff read every region's chat in the admin portal, write as the Edictum
+// Settings › Chat turns the chat off and puts the button beside the bell, floating (dragged to either side) or both; staff read every region's chat in the admin portal, write as the Edictum
 // team and silence a player (and lift it); the drawer's tabs (Region, Alliance, Happenings with Welcome), @mentions,
 // answers, reactions, the badges beside a name, docking beside the page, the tutorial's Say hi in the region chat, and
 // an admin's pictures (a small copy in the line, the picture over the page on a click), and an admin's system message
@@ -43,12 +43,19 @@ for (const d of hello || []) await fetch(`http://${FS_HOST}/v1/projects/${PROJEC
 check('the welcomes count as new lines for the others until they go', await until(async () => (await welcomes()).length === 0 && await C.$eval('.rgc-btn .rgc-n', n => n.hidden), 15000));
 
 /* ── 1. the button and the drawer ── */
-check('the Chat button sits beside the bell and search', !!(await B.$('.brand-actions .bell + .ux-search-button + .rgc-btn')) && /Region chat/.test(await B.getAttribute('.rgc-btn', 'aria-label')));
+const fabAt = p => p.evaluate(() => { const b = document.querySelector('.rgc-fab'); if (!b) return null; const r = b.getBoundingClientRect(), t = document.querySelector('.tabbar'); return { l: Math.round(r.left), r: Math.round(innerWidth - r.right), b: Math.round(innerHeight - r.bottom), t: Math.round(r.top), w: Math.round(r.width), shown: !!b.getClientRects().length && getComputedStyle(b).display !== 'none', tab: t && t.getClientRects().length ? Math.round(t.getBoundingClientRect().top) : null }; });
+check('the Chat button sits beside the bell and search, and nothing floats', !!(await B.$('.brand-actions .bell + .ux-search-button + .rgc-btn')) && !(await B.$('.rgc-fab')) && /Region chat/.test(await B.getAttribute('.rgc-btn', 'aria-label')));
+await nav(B, 'settings'); await B.click('#sg-tab-chat'); await B.click('#rgcs-p-f');
+check('floated in Settings › Chat, it leaves the top bar for the bottom-right corner', await until(async () => { const f = await fabAt(B); return f && f.shown && f.w === 52 && Math.abs(f.r - 16 - (await B.evaluate(() => innerWidth - document.documentElement.clientWidth))) <= 1 && f.b === 22; }) && !(await B.$('.brand-actions .rgc-btn')) && /Region chat/.test(await B.getAttribute('.rgc-fab', 'aria-label')), JSON.stringify(await fabAt(B)));
+const clearOfToast = p => p.evaluate(() => { const f = document.querySelector('.rgc-fab'), t = document.getElementById('toast'); if (!f || !t || t.hidden) return null; const a = f.getBoundingClientRect(), b = t.getBoundingClientRect(); return a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top; });
+await B.evaluate(() => G.UX.toast('A notice while the chat button floats in the corner.'));
+check('a notice stands to the left of it, not over it', await until(async () => await clearOfToast(B) === true));
 await nav(B, 'cities');
 await B.click('.rgc-btn');
 await B.waitForSelector('#rgc-dock:not([hidden])');
 check('it opens a drawer over any page, which names the region and says who reads it', await until(async () => (await text(B, '#rgc-h')).length > 2 && /Everyone in .+ can read this chat/.test(await text(B, '.rgc-intro')) && /online|Talk with the nations of/.test(await text(B, '#rgc-sub'))) && await B.evaluate(() => G.S.view) === 'cities');
 check('the button says it is open', await B.getAttribute('.rgc-btn', 'aria-expanded') === 'true');
+check('with the drawer open on a wide screen, the button moves beside it', await until(async () => { const f = await fabAt(B), d = await B.$eval('#rgc-dock', d => Math.round(d.getBoundingClientRect().left)); return f && f.shown && f.l + f.w <= d - 10; }), JSON.stringify(await fabAt(B)));
 check('the writing box takes the focus', await until(() => B.evaluate(() => document.activeElement?.id === 'rgc-x')));
 check('an empty chat says so', await until(async () => /No lines yet\. Say hello to/.test(await text(B, '#rgc-list'))));
 
@@ -161,7 +168,7 @@ await sleep(2500);
 check('new lines from the blocked nation are not counted, nor shown', await C.$eval('.rgc-btn .rgc-n', n => n.hidden) && (await openChat(C), await sleep(300), !(await shown(C)).includes('Is anyone there?')));
 await C.keyboard.press('Escape');
 await nav(C, 'settings'); await C.click('#sg-tab-letters');
-check('Settings › Letters lists the blocked nation and has a Region chat card', await until(async () => /Chatterly/.test(await text(C, '#set-letters-bl')) && /Show the region chat/.test(await text(C, '#set-letters-chat'))));
+check('Settings › Letters lists the blocked nation; the chat’s switches have a tab of their own', await until(async () => /Chatterly/.test(await text(C, '#set-letters-bl')) && !(await C.$('#set-letters-chat')) && /Show the region chat/.test(await text(C, '#sg-p-chat #set-chat-on'))));
 await C.click('#set-letters-bl [data-act="dm-block"][data-off="1"]');
 await openChat(C);
 check('unblocking shows its lines again', await until(async () => (await shown(C)).includes('Is anyone there?')));
@@ -188,22 +195,62 @@ await sleep(1700);
 await say(A, 'Welcome, everyone. Be kind.');
 check('a staff line carries the staff mark', await until(async () => /Edictum staff/.test(await B.$$eval('#rgc-list .rgc-l', l => l.map(li => li.textContent).join(' | ')))) && (await lines()).some(l => l.x === 'Welcome, everyone. Be kind.' && l.st === 'admin'));
 
-/* ── 9. a phone: the drawer fills the screen; a nation's name opens its page ── */
-await P.click('.rgc-btn'); await P.waitForSelector('#rgc-dock:not([hidden])');
+/* ── 9. a phone: the button floats above the tab bar, steps up over the save bar and hides while typing; the drawer
+   fills the screen; a nation's name opens its page ── */
+await nav(P, 'settings'); await P.click('#sg-tab-chat'); await P.click('#rgcs-p-f');
+check('on a phone the button floats above the tab bar, on the right', await until(async () => { const f = await fabAt(P); return f && f.shown && f.r === 16 && f.tab != null && Math.abs(f.t + f.w - (f.tab - 12)) <= 1; }), JSON.stringify(await fabAt(P)));
+await P.evaluate(() => G.UX.toast('A notice while the chat button floats above the tab bar.'));
+check('on a phone a notice stands above it, not over it', await until(async () => await clearOfToast(P) === true));
+await P.click('#sg-tab-nation');
+await P.fill('#s-motto', 'Small but chatty');
+check('it hides while the player types in the page', await until(async () => !(await fabAt(P)).shown));
+await P.evaluate(() => document.activeElement?.blur());
+const clear = async () => { const f = await fabAt(P), s = await P.$eval('.save-bar.is-dirty', e => { const r = e.getBoundingClientRect(); return { t: r.top, b: r.bottom }; }); return f && f.shown && (f.t + f.w <= s.t - 9 || f.t >= s.b); };
+check('typing done, it comes back, clear of the bar of unsaved changes', await until(clear), JSON.stringify(await fabAt(P)));
+await P.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+check('the bar scrolled up the page, it goes back down above the tab bar', await until(async () => { const f = await fabAt(P); return f && f.shown && Math.abs(f.t + f.w - (f.tab - 12)) <= 1; }), JSON.stringify(await fabAt(P)));
+await P.click('[data-act="reset-settings"]');
+await P.click('.rgc-fab'); await P.waitForSelector('#rgc-dock:not([hidden])');
 const fills = () => P.$eval('#rgc-dock', d => { const r = d.getBoundingClientRect(); return { left: r.left, w: Math.round(r.width), h: Math.round(r.height), iw: innerWidth, ih: innerHeight }; });
 check('on a phone the drawer fills the screen', await until(async () => { const r = await fills(); return r.left === 0 && r.w === r.iw && r.h >= r.ih - 1; }), JSON.stringify(await fills()));
 check('the page behind it does not scroll', await P.evaluate(() => getComputedStyle(document.body).overflow === 'hidden'));
 await until(async () => (await shown(P)).includes('Welcome, everyone. Be kind.'));
 check('the page has no sideways scroll with the drawer open', await P.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+check('the floating button hides under the drawer', !(await fabAt(P)).shown);
 await P.click(`#rgc-list button.rgc-nm[data-id="${uidA}"]`);
 check('a nation’s name opens its page and the drawer steps aside', await until(async () => await P.evaluate(() => G.S.view) === 'visit' && !!(await P.$('#rgc-dock[hidden]'))));
 
-/* ── 10. Settings › Letters turns the chat off ── */
-await nav(C, 'settings'); await C.click('#sg-tab-letters');
-await C.uncheck('#set-letters-chat [data-rgc="set-on"]');
+/* ── 10. Settings › Chat: where the button sits, dragging it, and turning the chat off ── */
+if (await C.$('#rgc-dock:not([hidden])')) await C.click('#rgc-dock [data-rgc="close"]');
+await nav(C, 'settings'); await C.click('#sg-tab-chat');
+check('Settings › Chat is in the address and says the button sits beside the bell, the default', await until(async () => await C.evaluate(() => location.hash) === '#settings/chat' && /Button beside the bell · mentions on/.test(await text(C, '[data-sg-sub="chat"]')) && await C.getAttribute('#rgcs-p-h', 'aria-pressed') === 'true') && !(await C.$('#rgcs-home')) && !(await C.$('.rgc-fab')));
+await C.click('#rgcs-p-b');
+check('Both: one beside the bell and one floating', await until(async () => !!(await C.$('.brand-actions .rgc-btn')) && (await fabAt(C))?.shown && (await C.$$('.rgc-btn')).length === 2));
+await C.click('#rgcs-p-f');
+check('Floating: the button leaves the top bar and floats, kept on this device', await until(async () => !(await C.$('.brand-actions .rgc-btn')) && (await fabAt(C))?.shown) && await C.evaluate(() => localStorage.getItem('edictum.rgc.place')) === 'f' && /Floating button/.test(await text(C, '[data-sg-sub="chat"]')) && await C.isDisabled('#rgcs-home'));
+{ const f = await fabAt(C), x = f.l + 26, y = f.t + 26;
+  await C.mouse.move(x, y); await C.mouse.down(); await C.mouse.move(x - 300, y - 200, { steps: 6 }); await C.mouse.move(200, 380, { steps: 6 }); await C.mouse.up(); }
+check('dragged, it snaps to the nearer side and keeps its height', await until(async () => { const f = await fabAt(C); return f && f.l === 16 && Math.abs(f.t - 354) <= 2; }), JSON.stringify(await fabAt(C)));
+check('the drag opens nothing', !(await C.$('#rgc-dock:not([hidden])')));
+check('the place is kept on this device', await C.evaluate(() => { const o = JSON.parse(localStorage.getItem('edictum.rgc.fab') || '{}'); return o.s === 'l' && o.b > 0.5 && o.b < 0.6; }));
+await sleep(500); await C.click('.rgc-fab');
+check('a click still opens the chat', await until(async () => !!(await C.$('#rgc-dock:not([hidden])'))));
+/* the drawer takes the focus a frame after it opens (rgcOpen); an Escape before that lands on the button, outside the
+   drawer, and is left alone, so wait as a player would */
+check('the open chat takes the focus', await until(async () => await C.evaluate(() => !!document.activeElement?.closest('#rgc-dock'))));
+await C.keyboard.press('Escape');
+check('and the focus comes back to it', await until(async () => await C.evaluate(() => document.activeElement?.classList.contains('rgc-fab'))));
+await C.reload(); await ready(C);
+check('after a reload it is where it was left', await until(async () => { const f = await fabAt(C); return f && f.shown && f.l === 16 && Math.abs(f.t - 354) <= 2; }), JSON.stringify(await fabAt(C)));
+await nav(C, 'settings'); await C.click('#sg-tab-chat');
+await C.click('#rgcs-home');
+check('Put it back in the corner', await until(async () => { const f = await fabAt(C); return f && f.b === 22 && f.r <= 32 && f.l > 600; }) && await C.evaluate(() => localStorage.getItem('edictum.rgc.fab')) === null, JSON.stringify(await fabAt(C)));
+await C.click('#rgcs-p-h');
+check('Beside the bell again: the button goes back to the top bar, and the floating one goes', await until(async () => !!(await C.$('.brand-actions .bell + .ux-search-button + .rgc-btn')) && !(await C.$('.rgc-fab'))) && await C.evaluate(() => localStorage.getItem('edictum.rgc.place')) === 'h');
+await C.uncheck('#set-chat-on [data-rgc="set-on"]');
 check('turning the chat off removes the button and closes the drawer', await until(async () => !(await C.$('.rgc-btn')) && !(await C.$('#rgc-dock:not([hidden])'))));
 check('the setting is kept with the nation', await until(() => C.evaluate(() => G.S.nation.dmx?.rc === 0)));
-await C.check('#set-letters-chat [data-rgc="set-on"]');
+await C.check('#set-chat-on [data-rgc="set-on"]');
 check('turning it on again brings the button back', await until(async () => !!(await C.$('.rgc-btn'))));
 
 /* ── 11. staff: the admin portal's Region chats, the team's lines, silencing and lifting ── */

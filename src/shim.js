@@ -2078,6 +2078,9 @@
         bugs.docs.slice(m, m + 200).forEach(function (d) { bb.delete(d.ref); if (d.get('img') === true) bb.delete(A.fs.doc('bugImg/' + d.id)); });
         await bb.commit();
       }
+      /* a line naming the nation for the admins' Recently dissolved, with no copy of it (functions/gone.js): it never
+         holds the deletion up for long, nor stops it when it fails */
+      await within(call('accounts', { op: 'gone', how: 'delete' }), 6000).catch(function () {});
       var b = A.fs.batch();
       /* the pacing documents (limits/, rlimits/, slimits/, blimits/) are the server's to remove with the account */
       ['nations/', 'nationx/', 'nationp/', 'summaries/', 'space/', 'staff/', 'presence/'].forEach(function (c) { b.delete(A.fs.doc(c + u.uid)); });

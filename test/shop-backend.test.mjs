@@ -479,7 +479,7 @@ test('the Black Friday Pack: €1.99, its three pieces held, gifts allowed, and 
 });
 
 test('the Old Republic Pack: €2.99 and all ten of its pieces held', async () => {
-  assert.equal(CATALOGUE.products.orpack.amount, 299);assert.equal(CATALOGUE.products.orpack.grants.length, 10);
+  assert.equal(CATALOGUE.products.orpack.amount, 299);assert.equal(CATALOGUE.products.orpack.grants.length, 12);
   const p = await player(), c = await call(p, { step: 'checkout', product: 'orpack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;
@@ -488,7 +488,7 @@ test('the Old Republic Pack: €2.99 and all ten of its pieces held', async () =
 });
 
 test('the Age of Sail Pack: €2.99 and all ten of its pieces held', async () => {
-  assert.equal(CATALOGUE.products.sailpack.amount, 299);assert.equal(CATALOGUE.products.sailpack.grants.length, 10);
+  assert.equal(CATALOGUE.products.sailpack.amount, 299);assert.equal(CATALOGUE.products.sailpack.grants.length, 12);
   const p = await player(), c = await call(p, { step: 'checkout', product: 'sailpack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;
@@ -497,7 +497,7 @@ test('the Age of Sail Pack: €2.99 and all ten of its pieces held', async () =>
 });
 
 test('the Central Bank Pack: €2.49 and all ten of its pieces held', async () => {
-  assert.equal(CATALOGUE.products.cbpack.amount, 249);assert.equal(CATALOGUE.products.cbpack.grants.length, 10);
+  assert.equal(CATALOGUE.products.cbpack.amount, 249);assert.equal(CATALOGUE.products.cbpack.grants.length, 12);
   const p = await player(), c = await call(p, { step: 'checkout', product: 'cbpack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;
@@ -599,7 +599,7 @@ test('a basket closed without paying stops being awaited; paid and not yet compl
 });
 
 test('the Tulip Mania Pack: €2.99 and all eleven of its pieces held', async () => {
-  assert.equal(CATALOGUE.products.tulippack.amount, 299);assert.equal(CATALOGUE.products.tulippack.grants.length, 11);
+  assert.equal(CATALOGUE.products.tulippack.amount, 299);assert.equal(CATALOGUE.products.tulippack.grants.length, 13);
   const p = await player(), c = await call(p, { step: 'checkout', product: 'tulippack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;
@@ -608,7 +608,7 @@ test('the Tulip Mania Pack: €2.99 and all eleven of its pieces held', async ()
 });
 
 test('the Cartographer’s Pack: €3.99 and all thirteen of its pieces held', async () => {
-  assert.equal(CATALOGUE.products.cartopack.amount, 399);assert.equal(CATALOGUE.products.cartopack.grants.length, 13);
+  assert.equal(CATALOGUE.products.cartopack.amount, 399);assert.equal(CATALOGUE.products.cartopack.grants.length, 15);
   const p = await player(), c = await call(p, { step: 'checkout', product: 'cartopack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;
@@ -617,7 +617,7 @@ test('the Cartographer’s Pack: €3.99 and all thirteen of its pieces held', a
 });
 
 test('Embassy Stationery: €2.49 and all eleven of its pieces held', async () => {
-  assert.equal(CATALOGUE.products.embpack.amount, 249);assert.equal(CATALOGUE.products.embpack.grants.length, 11);
+  assert.equal(CATALOGUE.products.embpack.amount, 249);assert.equal(CATALOGUE.products.embpack.grants.length, 13);
   const p = await player(), c = await call(p, { step: 'checkout', product: 'embpack' });
   await hook('transaction.completed', pay(c.txn));
   const f = (await finery(p.uid)).c;

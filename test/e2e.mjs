@@ -645,14 +645,18 @@ const fight = async cell => {
   await A.click('#map-panel [data-act="attack"]');
   return until(() => A.evaluate(() => /Victory|held the line|not ready|could not be reached/.test(G.S.warMsg || '') ? G.S.warMsg : ''), 20000);
 };
+/* up to six attacks, all the page's readiness (the referee keeps one more): at odds of 70% or better, four tries all
+   repelled left one run in 120 to 360 without a victory (four at 77%, CI, 14 Nov 2026); six leave one in 1,400 to 7,000 */
 let fights = 0, won = null, msg = '';
-while (fights < 4 && won == null) { const tg = await pick(); if (!tg) break; fights++; msg = await fight(tg.cell); if (/^Victory/.test(msg || '')) won = tg.cell; }
+while (fights < 6 && won == null) { const tg = await pick(); if (!tg) break; fights++; msg = await fight(tg.cell); if (/^Victory/.test(msg || '')) won = tg.cell; }
 check('an attack from the war map is rolled by the referee, and a victory takes the hex', won != null, msg);
 const army = await ownerFields('armies/' + uidA);
 check('the referee keeps the battles and the army’s readiness', army.n && Number(army.n.integerValue) === fights && Number(army.r.integerValue) === 7 - fights, JSON.stringify(army));
 const own = await A.evaluate(c => { const e = (G.S.nation.conq || []).find(x => x.c === c); return e ? { e, ok: G.REF.ok.get(G.refK(G.myId(), e)), ready: G.readiness(G.S.nation, Date.now()).r } : null; }, won);
 check('the conquest carries the server’s time and the referee’s seal', own && typeof own.e.s === 'string' && own.e.s.length > 80 && typeof own.e.s2 === 'string' && own.e.s2.length > 80 && own.e.d === war.npc && own.ok === true && own.ready === 6 - fights, JSON.stringify(own));
-check('and another player’s game counts it, having checked the seal', await until(() => B.evaluate(([c, a]) => { const T = G.territory(); return T.owner[c] === T.byId[a]; }, [won, uidA]), 20000));
+check('and another player’s game counts it, having checked the seal', won != null && await until(() => B.evaluate(([c, a]) => { const T = G.territory(); return T.owner[c] === T.byId[a]; }, [won, uidA]), 20000));
+// the conquest's seal, copied onto hexes it was not made for below; with no victory there is none, and those checks fail
+const sealed = own ? own.e : {};
 await A.screenshot({ path: path.join(OUT, 'referee-victory.png') });
 // Keep the sender from overwriting the administrator's tamper fixture during the observer assertion.
 await A.evaluate(()=>{G.S.mode='readonly';G.render();});
@@ -660,7 +664,7 @@ await A.evaluate(()=>{G.S.mode='readonly';G.render();});
 await sleep(2500);
 const spare = await A.evaluate(npc => { const T = G.territory(), out = []; for (const [cell] of G.frontier(T)) { const o = T.list[T.owner[cell]]; if (o && o.id === npc) out.push(cell); } return out.slice(0, 2); }, war.npc);
 const fA = await ownerFields('nations/' + uidA), recA = JSON.parse(fieldsText(fA)), at = Date.now();
-recA.conq = recA.conq.concat({ c: spare[0], t: at - 2000 }, { c: spare[1], t: at - 1000, d: own.e.d, s: own.e.s, s2: own.e.s2 }); recA.updatedAt = at;
+recA.conq = (recA.conq || []).concat({ c: spare[0], t: at - 2000 }, { c: spare[1], t: at - 1000, d: sealed.d, s: sealed.s, s2: sealed.s2 }); recA.updatedAt = at;
 await ownerDoc('nations/' + uidA, { method: 'PATCH', body: JSON.stringify({ fields: { ...fA, j: { stringValue: JSON.stringify(recA) }, updatedAt: { integerValue: String(at) }, ts: { timestampValue: new Date().toISOString() } } }) });
 check('another player’s game counts neither, and says why', spare.length === 2 && await until(() => B.evaluate(([a, at, cs]) => {
   const x = G.S.world[a]; if (!x || x.updatedAt !== at) return false;
@@ -687,6 +691,9 @@ check('a sealed conquest naming another defender does not take the hex', !!(odd 
 await A.evaluate(()=>{G.S.mode='world';G.render();});
 // the referee's count of readiness is the one that holds: spent elsewhere, the page's next attack is refused
 const drained = await A.evaluate(async npc => { const api = await window.claude.use('referee'); for (let i = 0; i < 9; i++) { const r = await api.battle({ d: npc, c: 0, p: 0.05 }); if (!r.ok) return r.why; } return 'never'; }, war.npc);
+// six attacks above spend the page's own readiness too, and its Attack button waits for a point: give the page one, as a
+// page out of step with the referee would count, so that its attack goes to the referee and is refused there
+await A.evaluate(() => { if (G.readiness(G.S.nation, Date.now()).r >= 1) return; const n = G.clone(G.S.nation); n.ready = 1; n.readyAt = Date.now(); G.S.nation = n; G.saveLocal(n); });
 const tg = await pick();
 msg = tg ? await fight(tg.cell) : '';
 check('with the referee’s readiness spent, an attack is refused and the page shows none left', drained === 'ready' && /not ready/.test(msg || '') && await A.evaluate(() => G.readiness(G.S.nation, Date.now()).r === 0), `${drained}: ${msg}`);
@@ -704,7 +711,7 @@ check('a save that grows a nation tenfold since its last is refused', forged !==
 const cheatRec = JSON.parse(fieldsText((await restGet('nations/' + uidB)).body.fields));
 Object.assign(cheatRec, { name: 'Cheatonia', pop: 900, popAt: Date.now(), founded: Date.now() - 2 * 864e5, updatedAt: Date.now(), stock: { food: 60, timber: 9999, iron: 25, oil: 10, goods: 40 } });
 for (const k of ['loc', 'claims', 'conq', 'cities', 'alli', 'allyOf', 'wars', 'peace', 'asm', 'dm', 'pp']) delete cheatRec[k];
-cheatRec.conq = [{ c: 5, t: Date.now() - 60000 }, { c: 6, t: Date.now() - 30000, d: own.e.d, s: own.e.s, s2: own.e.s2 }];  // no seal, and another's
+cheatRec.conq = [{ c: 5, t: Date.now() - 60000 }, { c: 6, t: Date.now() - 30000, d: sealed.d, s: sealed.s, s2: sealed.s2 }];  // no seal, and another's
 await ownerDoc('nations/cheat-1', { method: 'PATCH', body: JSON.stringify({ fields: { v: { integerValue: '1' }, j: { stringValue: JSON.stringify(cheatRec) }, reg: { stringValue: 'meridian' }, name: { stringValue: 'Cheatonia' },
   updatedAt: { integerValue: String(cheatRec.updatedAt) }, ts: { timestampValue: new Date().toISOString() }, pop: { doubleValue: 10 }, army: { doubleValue: 1 }, cl: { integerValue: '0' } } }) });
 await nav(A, 'region');

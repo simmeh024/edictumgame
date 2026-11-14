@@ -32,7 +32,20 @@ const check = (name, ok, info) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(f, ms = 10000) { const t = Date.now(); for (;;) { let v; try { v = await f(); } catch (e) { v = false; } if (v || Date.now() - t > ms) return v; await sleep(150); } }
 
+/* The capital goes on a random free spot (map-suggest), and about one spot in thirty has no rumour within the 45-hex
+   reach, or only one (CI, 12-14 Nov 2026: "at base camp, the card offers the best odds within reach :: null", and a
+   30 s wait for any Send). The checks below send up to two teams at once, so settle again elsewhere until at least
+   two rumours can be sent to. */
 async function start(theme, viewport, opt = {}) {
+  for (let tries = 1; ; tries++) {
+    const s = await settled(theme, viewport, opt);
+    const open = await s.page.evaluate(() => { const G = window.__game, X = G.XP(), n = G.S.nation; return X.SITES.filter((st, si) => !X.expPlan(n, si).why).length; });
+    if (open >= 2 || tries >= 8) return s;
+    console.log(`note settled again: ${open} rumour${open === 1 ? '' : 's'} within reach of the first spot`);
+    await s.ctx.close();
+  }
+}
+async function settled(theme, viewport, opt = {}) {
   const ctx = await browser.newContext({ viewport, colorScheme: theme, acceptDownloads: true, ...(opt.phone ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}) }), page = await ctx.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => { window.EDICTUM_PROBE = g => { window.__game = g; }; });
