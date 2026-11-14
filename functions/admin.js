@@ -17,6 +17,7 @@ import { shopSummary, founderGiftSummary, parseEcb, ECB_URL } from './shop-stats
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
 import { goneList, goneRestore } from './gone.js';
+import { letterStats } from './letter-stats.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 /* every region, from the same list the save permit checks (civic-data.json): a list of its own here missed Terra */
@@ -482,6 +483,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'moderate') return mutate(db, actor, d);
   if (d.op === 'note') return note(db, actor, d);
   if (d.op === 'letters') return lettersOp(db, actor, d);
+  // how players use letters, in counts (functions/letter-stats.js): never the words, never who writes to whom
+  if (d.op === 'letterStats') return letterStats(db, d);
   if (d.op === 'club') return club(db, actor, d);
   if (d.op === 'feed') return feedOp(db, d);
   if (d.op === 'watch') return watchOp(db, actor, d);
