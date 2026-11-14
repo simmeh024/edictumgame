@@ -272,15 +272,15 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   for (const [id, re] of [['cn-deco', /pat:\{[^}]*deco:'cn-deco'/], ['cn-acanthus', /acanthus:'cn-acanthus'/], ['cm-patina', /patina:'cm-patina'/], ['cs-sqhole', /sqhole:'cs-sqhole'/], ['cx-window', /4:'cx-window'/]])
     assert.ok(CATALOGUE.products.cbpack.grants.includes(id) && re.test(src), id + ' is in CU_LOCK');
   assert.ok(src.includes("'lp-i-cheque':{n:"), 'the Bank Draft paper is in LP_X');
-  /* the Tulip Mania Pack: eleven pieces, its banknote engraving locked like the Central Bank Pack's, its shield sold in the Shop */
-  assert.equal(CATALOGUE.products.tulippack.amount, 299); assert.equal(CATALOGUE.products.tulippack.grants.length, 11);
+  /* the Tulip Mania Pack: thirteen pieces (two of them for portraits), its banknote engraving locked like the Central Bank Pack's, its shield sold in the Shop */
+  assert.equal(CATALOGUE.products.tulippack.amount, 299); assert.equal(CATALOGUE.products.tulippack.grants.length, 13);
   assert.ok(CATALOGUE.products.tulippack.giftable && CATALOGUE.products.tulippack.optional, 'giftable, and offered once its price is set');
   assert.ok(/pat:\{[^}]*tulip:'cn-tulip'/.test(src) && CATALOGUE.products.tulippack.grants.includes('cn-tulip'), 'cn-tulip is in CU_LOCK');
   assert.ok(/CZ_SH_SHOP=\{[^}]*gable:'sh-gable'/.test(src), 'the Bell Gable shield is sold in the Shop');
   assert.ok(src.includes("'lp-i-bulb':{n:") && src.includes("case 'tulip':return S(") && src.includes("'e-tulip':'tulip'") && src.includes("'pn-auction':'<path"), 'its paper, charge, emblem and marker are drawn');
-  /* the Cartographer's Pack: thirteen pieces for the land on the map, a border line slot of its own, three map colours, a poster look */
+  /* the Cartographer’s Pack: fifteen pieces (two of them for portraits) for the land on the map, a border line slot of its own, three map colours, a poster look */
   const ctg = CATALOGUE.products.cartopack;
-  assert.equal(ctg.amount, 399); assert.equal(ctg.grants.length, 13); assert.ok(ctg.giftable && ctg.optional, 'giftable, and offered once its price is set');
+  assert.equal(ctg.amount, 399); assert.equal(ctg.grants.length, 15); assert.ok(ctg.giftable && ctg.optional, 'giftable, and offered once its price is set');
   assert.ok(/Object\.assign\(CZ_KIND,\{[^}]*tb:'boundary'/.test(src), 'the border line has a slot of its own');
   const listOf = re => (src.match(re) || ['', ''])[1];
   for (const id of ctg.grants.filter(id => /^te-/.test(id))) assert.ok(listOf(/CTG_TE=\[([^\]]*)\]/).includes(`'${id}'`), id + ' is a finish');
@@ -288,9 +288,9 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   for (const id of ctg.grants.filter(id => /^hx-/.test(id))) assert.ok(listOf(/CTG_MC=\{([^}]*)\}/).includes(`['${id}'`), id + ' is a map colour');
   assert.ok(src.includes("blueprint:{n:'Blueprint',lock:'pl-blueprint'") && ctg.grants.includes('pl-blueprint'), 'the Blueprint poster look opens with the pack');
   assert.ok(src.includes("'pn-windrose':'<g") && src.includes("pin!=='pn-windrose'"), 'the Wind Rose is drawn in the Shop and on the map');
-  /* Embassy Stationery: eleven pieces for letters; its papers in LP_X, a postage-stamp slot of its own, its seals and signatures drawn */
+  /* Embassy Stationery: thirteen pieces (two of them for portraits) for letters; its papers in LP_X, a postage-stamp slot of its own, its seals and signatures drawn */
   const emb = CATALOGUE.products.embpack;
-  assert.equal(emb.amount, 249); assert.equal(emb.grants.length, 11); assert.ok(emb.giftable && emb.optional, 'giftable, and offered once its price is set');
+  assert.equal(emb.amount, 249); assert.equal(emb.grants.length, 13); assert.ok(emb.giftable && emb.optional, 'giftable, and offered once its price is set');
   for (const id of emb.grants.filter(id => /^lp-/.test(id))) assert.ok(src.includes(`'${id}':{n:`), id + ' has its paper in LP_X');
   for (const id of emb.grants.filter(id => /^ls-/.test(id))) assert.ok(src.includes(`.dm-wax.${id}{`), id + ' has its wax');
   for (const id of emb.grants.filter(id => /^(lg|lm)-/.test(id))) assert.ok(src.split(`'${id}'`).length - 1 >= 2, id + ' is drawn (named in the Shop and in its drawing)');

@@ -383,9 +383,11 @@ tone, and the clothes (the outline below the neckline, cut from the same curve w
 ink; banknotes always engrave the look without the skin (`ptPrint`). The head of government also picks an ink, a
 ring and a nickname earned in office (`PT_NICKS`, from the tallies since the term began, `n.ptz`), and a caption
 is written from the records. The Shop's Mayan Pack sells twelve more pieces (`PT_SHOP`: hair 20–21, headwear 11–13,
-dress 14–16, details 7–8, ring 5 and the jade ink), held as any Shop cosmetic is (`czHolds`): left out of the lists
-unless held or on sale, tried on by anyone, saved once held, and dropped from another nation's portrait by `ptKeep`
-unless its finery has them.
+dress 14–16, details 7–8, ring 5 and the jade ink), and every other pack two (headwear 14–17, dress 17–19, details
+9–13, rings 6–9, the Tyrian and Hologram inks; the pack is the piece's UNLOCKS `src`, `ptPackOf`). They are held as
+any Shop cosmetic is (`czHolds`): left out of the lists unless held or their pack is on sale (`ptPackSells`), tried on
+by anyone, saved once held, and dropped from another nation's portrait by `ptKeep` unless its finery has them. The
+flag lapel pin prints the nation's flag and the Microprint ring its name (`ptNat`, read by `ptMedHTML`).
 - *The record.* Shared, so visitors see it: `n.rpt` (the leader: `s` the seed the face first came from, pinned
   when the leader is renamed so the face stays; `l` look, `i` ink, `r` ring, `k` nickname, `f` the portfolio
   they held, `b` birthplace), `n.cpt` (each minister's own look, with their name; dropped when the post changes
