@@ -48692,7 +48692,7 @@ document.addEventListener('click',e=>{
 
 /* ───────── staff operations ───────── */
 setInterval(()=>{if(S.isOwner&&S.view==='admin-online'&&!document.hidden&&!ADMX.busy)adminExtraLoad('admin-online');},30000);
-const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:''};
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:'',packP:'',packWhy:'',packBusy:false,packMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
@@ -48773,6 +48773,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists?pvBtn(p.reg,p.uid):''}${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
+    <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Letters with other players</h3>${adminLetters(p)}
     <h3 class="help-h3">Watchlist</h3>${adminWatch(p)}
@@ -48856,6 +48857,33 @@ async function adminClubSet(uid,on){
   try{const r=await adminRequest({op:'club',uid,days:on?ADMX.clubDays:0,reason});p.club=r.club;ADMX.clubWhy='';ADMX.clubMsg=on?'The Club is enabled for this player.':'The free membership is switched off.';}
   catch(e){ADMX.clubMsg='That did not work: '+(e.message||e.code||'unknown error');}
   ADMX.clubBusy=false;render();
+}
+/* the Shop's packs: which the player owns and how, and a pack an admin gives for free or takes back (functions/admin.js,
+   pack(); functions/shop.js, setGrant). The Founder's Package is not given here, and the Club has its own switch above. */
+function adminPacks(p){
+  const L=Array.isArray(p.packs)?p.packs:[],busy=ADMX.packBusy?' disabled':'';
+  if(!L.length)return '<p class="hint">The pack list could not be read.</p>';
+  const free=L.filter(k=>!k.owned&&!k.incl&&!k.given),pick=free.some(k=>k.p===ADMX.packP)?ADMX.packP:(free[0]||{}).p||'';
+  const who=g=>g.by===S.uid?'you':`<code>${esc(g.by)}</code>`;
+  const how=k=>k.given?`<span class="chip ok">Given</span> by ${who(k.given)} ${esc(rel(k.given.at))}${k.given.why?': '+esc(k.given.why):''}`
+    :k.fg?'<span class="chip ok">Owned</span> the founders’ thank-you gift':k.incl?'<span class="chip ok">Owned</span> in the Founder’s Package':k.owned?`<span class="chip ok">Owned</span> bought ${esc(adminTime(k.owned))}`:'<span class="chip">Not owned</span>';
+  return `<div class="tbl-wrap"><table class="tbl" id="admin-packs"><thead><tr><th>Pack</th><th>This player</th><th></th></tr></thead><tbody>
+    ${L.map(k=>`<tr data-pack="${esc(k.p)}"><td>${esc(k.name)}</td><td>${how(k)}</td><td>${k.given?`<button type="button" class="btn ghost small adm-danger" data-act="admin-pack" data-v="off" data-p="${esc(k.p)}" data-id="${esc(p.uid)}"${busy}>Take back</button>`:''}</td></tr>`).join('')}</tbody></table></div>
+    <div class="field"><label for="admin-pack-why">Reason (kept in the audit log)</label><input class="input" id="admin-pack-why" maxlength="500" value="${esc(ADMX.packWhy)}" placeholder="e.g. Contest prize, tester, support goodwill"></div>
+    ${free.length?`<div class="row"><select class="input" id="admin-pack-p" aria-label="Which pack">${free.map(k=>`<option value="${esc(k.p)}"${k.p===pick?' selected':''}>${esc(k.name)}</option>`).join('')}</select><button type="button" class="btn small" data-act="admin-pack" data-v="on" data-id="${esc(p.uid)}"${busy}>Give this pack</button></div>`:'<p class="hint">This player owns every pack.</p>'}
+    <p class="hint">A given pack is theirs at once, like a bought one: every piece in Customise, shown to other players. Their Shop calls it a gift from the Edictum team and tells them once. Nothing is charged, and Shop statistics list it apart from sales. Taking it back takes its pieces off. The reason is for the audit log only; the player never sees it.</p>${ADMX.packMsg?`<p class="hint" aria-live="polite">${esc(ADMX.packMsg)}</p>`:''}`;
+}
+async function adminPackSet(uid,pk,on){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.packBusy)return;
+  const L=Array.isArray(p.packs)?p.packs:[];
+  if(on&&!L.some(k=>k.p===pk&&!k.owned&&!k.incl&&!k.given))pk=(L.find(k=>!k.owned&&!k.incl&&!k.given)||{}).p||'';
+  if(!pk){ADMX.packMsg='Choose a pack.';render();return;}
+  const reason=ADMX.packWhy.trim();if(!reason){ADMX.packMsg='Write a reason first.';render();document.getElementById('admin-pack-why')?.focus();return;}
+  const name=(L.find(k=>k.p===pk)||{}).name||pk;
+  ADMX.packBusy=true;ADMX.packMsg='';render();
+  try{const r=await adminRequest({op:'pack',uid,p:pk,on,reason});p.packs=r.packs;ADMX.packWhy='';ADMX.packP='';ADMX.packMsg=on?`The ${name} is theirs now.`:`The ${name} is taken back.`;}
+  catch(e){ADMX.packMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  ADMX.packBusy=false;render();
 }
 /* the staff's private notes on a player (functions/admin.js, note()): one text, which the player never sees */
 function adminNotes(p){
@@ -48947,7 +48975,7 @@ function adminExtraView(v){
   }
   return admShell(v,`<p class="eyebrow">Admin portal</p><h1 class="display">${title}</h1>${body}${ADMX.busy?'<p class="hint" role="status">Loading…</p>':''}${ADMX.err?`<p class="err" role="alert">${esc(ADMX.err)}</p>`:''}`);
 }
-document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.id==='admin-club-why')ADMX.clubWhy=t.value;if(t.id==='admin-club-days')ADMX.clubDays=Number(t.value);if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.id==='admin-club-why')ADMX.clubWhy=t.value;if(t.id==='admin-club-days')ADMX.clubDays=Number(t.value);if(t.id==='admin-pack-why')ADMX.packWhy=t.value;if(t.id==='admin-pack-p')ADMX.packP=t.value;if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
 document.addEventListener('change',e=>{const t=e.target;
   /* the column filters search as soon as they change; the name filter on Enter or Search */
   if(t.id==='admin-reg'||t.id==='admin-act'||t.id==='admin-onlyon'||t.id==='admin-eng'||t.id==='admin-sort'){if(t.id==='admin-eng')ADMX.eng=t.value;if(t.id==='admin-sort')ADMX.sort=t.value;if(t.id==='admin-reg')ADMX.reg=t.value;if(t.id==='admin-act')ADMX.act=t.value;if(t.id==='admin-onlyon')ADMX.act=t.checked?'online':'';if(S.isOwner&&S.view==='admin-players')adminExtraLoad('admin-players');return;}
@@ -48978,8 +49006,9 @@ document.addEventListener('click',async e=>{
   if(a==='admin-mod-no'){ADMX.mod=null;ADMX.modMsg='';render();return;}
   if(a==='admin-note-save'){adminNoteSave(id);return;}
   if(a==='admin-club'){adminClubSet(id,el.dataset.v==='on');return;}
+  if(a==='admin-pack'){adminPackSet(id,el.dataset.v==='on'?ADMX.packP:el.dataset.p,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';
+    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }
@@ -49247,6 +49276,15 @@ function shFgift(g,nm){
       ${g.recent.map(r=>`<tr><td>${r.at?esc(rel(r.at)):'–'}</td><td>${nm(r.uid)}${r.founder?'':' <span class="hint">no longer a founder (refunded)</span>'}</td><td class="num">${r.fno?stN(r.fno):'–'}</td><td>${esc(pk(r.p))}</td><td><button type="button" class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button></td></tr>`).join('')}</tbody></table></div>
     ${g.chosen>g.recent.length?`<p class="hint">The latest ${stN(g.recent.length)} choices.</p>`:''}`:'<p class="hint">No founder has chosen yet.</p>'}</section>`;
 }
+/* the packs admins gave for free (functions/shop-stats.js, grantSummary): never counted as sales */
+function shGiven(g,nm){
+  const pk=k=>(g.packs.find(p=>p.k===k)||{}).name||k||'–';
+  return `<section class="adst-sec" id="adsh-given"><h2 class="h2">Packs given by admins</h2><p class="hint">Packs given for free from a player’s page in Players (Shop packs). ${stN(g.total)} ${g.total===1?'pack':'packs'} to ${stN(g.players)} ${g.players===1?'player':'players'}; none of them is in the sales above.</p>
+    ${g.total?`<div class="adm-kpis">${g.packs.map(p=>`<div class="adm-kpi"><b>${stN(p.n)}</b><span>${esc(p.name)}</span></div>`).join('')}</div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Nation</th><th>Pack</th><th>Given by</th><th>Reason</th><th>Player</th></tr></thead><tbody>
+      ${g.recent.map(r=>`<tr><td>${r.at?esc(rel(r.at)):'–'}</td><td>${nm(r.uid)}</td><td>${esc(pk(r.p))}</td><td>${r.by===S.uid?'you':`<code>${esc(r.by.slice(0,8))}</code>`}</td><td>${esc(r.why)}</td><td><button type="button" class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button></td></tr>`).join('')}</tbody></table></div>
+    ${g.total>g.recent.length?`<p class="hint">The latest ${stN(g.recent.length)}.</p>`:''}`:'<p class="hint">No admin has given a pack yet.</p>'}</section>`;
+}
 function adminShopView(){
   const d=ADSH.d;
   if(!d&&!ADSH.busy&&!ADSH.err)setTimeout(shLoad,0);
@@ -49280,6 +49318,7 @@ function adminShopView(){
       <div class="adst-fig"><h3>First thing bought</h3><div class="adst-rows">${Object.entries(d.timing.firstProduct).sort((a,b)=>b[1]-a[1]).map(([k,v])=>stBar(esc((d.products.find(p=>p.k===k)||{}).name||k||'–'),v,d.timing.buyers)).join('')}</div></div></div>
       <h3 class="help-h3">Checkout to payment, by product (30 days)</h3><div class="adst-rows">${d.products.filter(p=>p.opened30).map(p=>stBar(esc(p.name),p.paid30,p.opened30,` paid of ${stN(p.opened30)} checkouts`)).join('')||'<p class="hint">No checkouts opened in the last 30 days.</p>'}</div>`):''}
     ${d.fgift?shFgift(d.fgift,nm):''}
+    ${d.given?shGiven(d.given,nm):''}
     ${sec('Latest purchases','The 30 most recent payments.',d.recent.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Product</th><th>Nation</th><th>Paid</th><th>State</th><th>Player</th></tr></thead><tbody>
       ${d.recent.map(r=>`<tr><td>${r.paid?esc(rel(r.paid)):'–'}</td><td>${esc(Array.isArray(r.products)?'Basket: '+r.products.map(k=>(d.products.find(p=>p.k===k)||{}).name||k).join(' + '):(d.products.find(p=>p.k===r.product)||{}).name||r.product||'Unknown price')}${r.renewal?' <span class="hint">renewal</span>':''}</td><td>${nm(r.uid)}${r.gift?` <span class="hint">gift from ${nm(r.payer)}</span>`:''}</td><td>${r.cur?shMoney(r.total,r.cur)+shOther(r.total,r.cur,fx):'–'}</td><td>${r.refund==='refunded'?'Refunded':r.refund==='pending'?'Refund waiting':r.refund==='rejected'?'Refund refused':'Kept'}</td><td>${r.uid?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect player</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No purchases yet.</p>')}`;
   }
@@ -58387,12 +58426,18 @@ function shopTake(d,cached){
 }
 /* a gift that has just come: said once on each device that sees it */
 function shopGiftsArrived(){
-  const g=SHOP.doc&&Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[];if(!g.length||!SHOP.uid)return;
+  if(!SHOP.doc||!SHOP.uid)return;
+  /* from another nation (gifts), or a pack from the Edictum team (ag {pack: when}: functions/admin.js, pack) */
+  const g=Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[],ag=shopAg();if(!g.length&&!ag.length)return;
   const key='edictum.giftsSeen.'+SHOP.uid;let seen=[];try{seen=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}if(!Array.isArray(seen))seen=[];
-  const fresh=g.filter(x=>x&&x.txn&&!seen.includes(x.txn));if(!fresh.length)return;
-  try{localStorage.setItem(key,JSON.stringify(seen.concat(fresh.map(x=>x.txn)).slice(-30)));}catch(e){}
-  for(const x of fresh.slice(-2))toast(`A gift from ${x.name||'another nation'}: ${SHOP_WHAT[x.p]||'something from the Shop'}. It is yours.`);
+  const fresh=g.filter(x=>x&&x.txn&&!seen.includes(x.txn)).map(x=>({id:x.txn,t:`A gift from ${x.name||'another nation'}: ${SHOP_WHAT[x.p]||'something from the Shop'}. It is yours.`}))
+    .concat(ag.filter(([p,t])=>!seen.includes('ag:'+p+':'+t)).map(([p,t])=>({id:'ag:'+p+':'+t,t:`A gift from the Edictum team: ${shopThe(p)}. It is yours: find its pieces in Customise.`})));
+  if(!fresh.length)return;
+  try{localStorage.setItem(key,JSON.stringify(seen.concat(fresh.map(x=>x.id)).slice(-30)));}catch(e){}
+  for(const x of fresh.slice(-2))toast(x.t);
 }
+/* the packs the Edictum team gave this player that count now: [[pack, when]] */
+function shopAg(){const a=SHOP.doc&&SHOP.doc.ag;return a&&typeof a==='object'&&!Array.isArray(a)?Object.entries(a).filter(([p,t])=>typeof t==='number'&&t>0&&SHOP_PRODUCTS.includes(p)):[];}
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='shop-gift-to'&&SHOP.gift)SHOP.gift.to=e.target.value;});
 function shopConnect(){
   if(!S.db||!S.uid)return;
@@ -58467,7 +58512,7 @@ function shopSells(p){const c=SHOP.cfg;return !!(c&&c.on&&c.prices&&c.prices[p])
 const shopClub=p=>p==='vip'||p==='vipyear';
 const SHOP_WHAT={founder:'the Founder’s Package',idpack:'the Nation Identity Card Pack',giftvip:'a month of The Chancery Club'};
 /* the nation a purchase came from as a gift, if it did */
-function shopGiftFrom(p){const g=(SHOP.doc&&Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[]).filter(x=>x&&x.p===p);return g.length?g[g.length-1].name||'another nation':'';}
+function shopGiftFrom(p){if(shopAg().some(([k])=>k===p))return 'the Edictum team';const g=(SHOP.doc&&Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[]).filter(x=>x&&x.p===p);return g.length?g[g.length-1].name||'another nation':'';}
 function shopEvent(p,e,to,ps){
   if(!e)return;ps=ps||[p];
   /* a gift: nothing is awaited here, the server hands it to the other nation once Paddle confirms it */

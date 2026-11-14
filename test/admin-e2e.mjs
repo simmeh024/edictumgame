@@ -12,7 +12,7 @@ await setClaims(uidA, { admin: true }); await A.reload(); await ready(A);
 await A.waitForSelector('.side-who .adm-pill'); await A.click('.side-who .adm-pill');
 const page = async view => { await A.click(`.adm-nav [data-v="${view}"]`); await until(async () => !await A.$('.adm-main [role="status"]')); };
 await page('admin-players'); await A.fill('#admin-q', 'PLAYERLAND'); await A.click('#admin-search button[type="submit"], #admin-search button:not([type])');
-check('search finds a nation regardless of capitalization', await until(async () => !await A.$('.adm-main [role="status"]') && /Playerland/.test(await text(A, '.adm-main .tbl')) && !/Adminland/.test(await text(A, '.adm-main .tbl'))));
+check('search finds a nation regardless of capitalization', await until(async () => !await A.$('.adm-main [role="status"]') && /Playerland/.test(await text(A, '.adm-main .adm-ptbl')) && !/Adminland/.test(await text(A, '.adm-main .adm-ptbl'))));
 await A.click(`[data-act="admin-inspect"][data-id="${uidB}"]`);
 check('player details show the UID and independently confirmed save revision', await until(async () => { const d = await text(A, '.adm-detail'); return d.includes(uidB) && /Last confirmed save/.test(d) && /Server revision/.test(d) && !/No confirmed save/.test(d); }));
 const detail = () => text(A, '.adm-detail');
@@ -29,21 +29,21 @@ check('its player is told why', await until(async () => /moderator has hidden Pl
 await A.click(`[data-act="admin-mod"][data-a="unhide"][data-id="${uidB}"]`);
 check('Unhide in the details makes it visible again', await until(async () => (await restGet('mod/' + uidB)).status === 404 && !!await A.$(`[data-act="admin-mod"][data-a="hide"][data-id="${uidB}"]`), 15000));
 await A.fill('#admin-q', uidB); await A.click('#admin-search button:not([type])');
-check('an exact player ID can be searched', await until(async () => !await A.$('.adm-main [role="status"]') && /Playerland/.test(await text(A, '.adm-main .tbl'))));
+check('an exact player ID can be searched', await until(async () => !await A.$('.adm-main [role="status"]') && /Playerland/.test(await text(A, '.adm-main .adm-ptbl'))));
 await A.fill('#admin-q', 'no-such-player-zzzz'); await A.click('#admin-search button:not([type])');
 check('search explains when there are no matches', await until(async () => /No matching players/.test(await text(A, '.adm-main'))));
 await A.click('[data-act="admin-filter-clear"]');
-check('Clear filters empties every column filter', await until(async () => await A.inputValue('#admin-q') === '' && /Playerland/.test(await text(A, '.adm-main .tbl'))));
+check('Clear filters empties every column filter', await until(async () => await A.inputValue('#admin-q') === '' && /Playerland/.test(await text(A, '.adm-main .adm-ptbl'))));
 await A.selectOption('#admin-act', 'online');
-check('the activity column filters to players online now, each marked with the online icon', await until(async () => { const t = await text(A, '.adm-main .tbl'); return /Playerland/.test(t) && !!await A.$(`tr:has([data-id="${uidB}"]) .adm-on`) && await A.isChecked('#admin-onlyon'); }, 20000));
+check('the activity column filters to players online now, each marked with the online icon', await until(async () => { const t = await text(A, '.adm-main .adm-ptbl'); return /Playerland/.test(t) && !!await A.$(`tr:has([data-id="${uidB}"]) .adm-on`) && await A.isChecked('#admin-onlyon'); }, 20000));
 check('the count of players online is shown', /\d+ online now/.test(await text(A, '.adm-main')));
 await A.selectOption('#admin-act', 'old30');
-check('a nation active today is not quiet for 30 days', await until(async () => /No matching players/.test(await text(A, '.adm-main .tbl'))));
-await A.selectOption('#admin-act', ''); await until(async () => /Playerland/.test(await text(A, '.adm-main .tbl')));
+check('a nation active today is not quiet for 30 days', await until(async () => /No matching players/.test(await text(A, '.adm-main .adm-ptbl'))));
+await A.selectOption('#admin-act', ''); await until(async () => /Playerland/.test(await text(A, '.adm-main .adm-ptbl')));
 await A.selectOption('#admin-reg', 'frostmarch');
-check('the region column filters by region', await until(async () => /No matching players/.test(await text(A, '.adm-main .tbl'))));
+check('the region column filters by region', await until(async () => /No matching players/.test(await text(A, '.adm-main .adm-ptbl'))));
 await A.click('[data-act="admin-filter-clear"]');
-await until(async () => /Playerland/.test(await text(A, '.adm-main .tbl')));
+await until(async () => /Playerland/.test(await text(A, '.adm-main .adm-ptbl')));
 await A.screenshot({ path: OUT + '/admin-player-search.png', fullPage: true });
 
 await page('admin-health');
@@ -189,6 +189,17 @@ check('and shown again on inspecting the player, with who saved them', await unt
 check('the player cannot read them', await R.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 check('nor can an admin’s browser outside the console', await A.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 await A.screenshot({ path: OUT + '/admin-player-notes.png', fullPage: true });
+// Shop packs: an admin gives one for free from the player's page; the player's Shop calls it a gift from the Edictum team.
+await inspect(uidB);
+check('the player page lists the Shop packs, none owned', await until(async () => /Mayan Pack\s*Not owned/.test(await text(A, '#admin-packs')) && !/Founder/.test(await text(A, '#admin-packs'))), await text(A, '#admin-packs'));
+await A.selectOption('#admin-pack-p', 'mayapack'); await A.click(`[data-act="admin-pack"][data-v="on"][data-id="${uidB}"]`);
+check('giving a pack asks for a reason first', await until(async () => /Write a reason first/.test(await detail())) && !(await restListAdmin('shopGrant')).some(d => d.id === uidB));
+await A.fill('#admin-pack-why', 'Contest prize'); await A.click(`[data-act="admin-pack"][data-v="on"][data-id="${uidB}"]`);
+check('a given pack is theirs, and the page says who gave it', await until(async () => /The Mayan Pack is theirs now/.test(await detail()) && /Mayan Pack\s*Given by you.*Contest prize/.test(await text(A, '#admin-packs')), 20000), await text(A, '#admin-packs'));
+check('and it is no longer offered to give', !(await A.locator('#admin-pack-p option').allTextContents()).includes('Mayan Pack'));
+check('the player is told it is a gift from the Edictum team', await until(async () => /A gift from the Edictum team: the Mayan Pack/.test(await toasts(B)), 45000), await toasts(B));
+check('and owns it', await B.evaluate(() => { const d = G.SHOP.SHOP.doc; return !!(d && d.owns && d.owns.mayapack && d.ag && d.ag.mayapack); }));
+await A.screenshot({ path: OUT + '/admin-player-packs.png', fullPage: true });
 // Letters between players: the console lists who a player writes to, and opens one conversation only with a reason.
 { const lt = Date.now() - 600000, put = (by, to, t, x) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/letters/${by}~${to}~${t}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
     body: JSON.stringify({ fields: { by: { stringValue: by }, to: { stringValue: to }, x: { stringValue: x }, t: { integerValue: String(t) }, ts: { timestampValue: new Date(t).toISOString() }, exp: { timestampValue: new Date(Date.now() + 365 * 86400000).toISOString() } } }) });
@@ -253,7 +264,8 @@ check('the page fits a phone without scrolling sideways', await until(async () =
 await A.screenshot({ path: OUT + '/admin-stats-phone.png', fullPage: true }); await A.setViewportSize(wide);
 await A.click(`.adst-sec [data-act="admin-inspect"][data-id="${uidA}"]`);
 check('and a nation’s player is a click away', await until(async () => await A.evaluate(() => G.S.view) === 'admin-players' && (await detail()).includes(uidA)));
-// Shop statistics: a purchase and a refund that Paddle reported, counted and named
+// Shop statistics: a purchase and a refund that Paddle reported, counted and named (Playerland was banned above, so the
+// pack given to it is listed under its player ID)
 const seed = (path, f) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: f }) });
 const I = v => ({ integerValue: String(v) }), T = v => ({ stringValue: v });
 await seed('shopTx/txn_e2ea', { uid: T(uidA), payer: T(uidA), product: T('founder'), status: T('completed'), ck: { booleanValue: true }, paid: I(Date.now() - 60000), cur: T('MXN'), total: I(20939) });
@@ -266,6 +278,7 @@ const shText = () => text(A, '.adm-main');
 check('Shop statistics counts the sales, the refund and the takings per currency', await until(async () => { const t = await shText(); return /purchases kept, of 2 paid/.test(t) && /MX\$209\.39|MXN\s?209\.39/.test(t) && /€2\.99/.test(t) && /Adminland/.test(t) && /Refunded/.test(t); }, 30000), (await shText()).slice(0, 600));
 check('and shows every amount in euro and Mexican peso, at the ECB rate it names', await until(async () => { const t = await shText(); return /€1 = MX\$20\.00/.test(t) && /11 November 2026/.test(t)
   && /€10\.47 · MX\$209\.39/.test(t) && /€2\.99 · MX\$59\.80/.test(t) && /€9\.99\s*MX\$199\.80/.test(t) && /€2\.99\s*≈ MX\$59\.80/.test(t); }, 30000), (await shText()).slice(0, 900));
+check('Shop statistics list the pack an admin gave, apart from the sales', await until(async () => { const t = await text(A, '#adsh-given'); return /1 pack to 1 player/.test(t) && t.includes(uidB.slice(0, 8)) && /Mayan Pack/.test(t) && /Contest prize/.test(t); }, 30000), await text(A, '#adsh-given'));
 await A.screenshot({ path: OUT + '/admin-shop.png', fullPage: true });
 await A.setViewportSize({ width: 390, height: 844 });
 check('and fits a phone without scrolling sideways', await until(async () => await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)));

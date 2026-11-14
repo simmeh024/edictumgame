@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { shopSummary, founderGiftSummary, parseEcb, DAY } from '../functions/shop-stats.js';
+import { shopSummary, founderGiftSummary, grantSummary, parseEcb, DAY } from '../functions/shop-stats.js';
 
 const NOW = Date.parse('2026-11-03T12:00:00Z');
 const tx = (id, product, o = {}) => ({ id, product, uid: 'u-' + id, status: 'completed', ck: true, paid: NOW - DAY / 2, cur: 'EUR', total: 999, env: 'live', ...o });
@@ -124,4 +124,18 @@ test('every amount in euro and peso, converted at the ECB rate; what has no rate
   assert.match(T.shAsPaid({ USD: 1000 }), /as paid: US\$10\.00/);
   assert.equal(T.shOther(299, 'EUR', fx), ' <span class="hint">≈ MX$59.80</span>');
   assert.equal(T.shOther(1000, 'USD', fx), ' <span class="hint">≈ €8.00 · MX$160.00</span>');
+});
+
+test('packs admins gave: counted per pack and per player, newest first, never anything that is not a pack', () => {
+  const g = grantSummary([
+    { uid: 'u1', p: { mayapack: { at: 300, by: 'adm1', why: 'Contest prize' }, cbpack: { at: 100, by: 'adm2', why: 'Tester' } } },
+    { uid: 'u2', p: { mayapack: { at: 200, by: 'adm1', why: 'x'.repeat(400) }, founder: { at: 400 }, nope: { at: 500 } } },
+    { uid: 'u3' }, null, { p: { orpack: { at: 1 } } }
+  ]);
+  assert.equal(g.total, 3); assert.equal(g.players, 2);
+  assert.deepEqual(g.packs.map(p => [p.k, p.n]).sort(), [['cbpack', 1], ['mayapack', 2]]);
+  assert.equal(g.packs.find(p => p.k === 'mayapack').name, 'Mayan Pack');
+  assert.deepEqual(g.recent.map(r => [r.uid, r.p, r.at]), [['u1', 'mayapack', 300], ['u2', 'mayapack', 200], ['u1', 'cbpack', 100]]);
+  assert.equal(g.recent[0].by, 'adm1'); assert.equal(g.recent[0].why, 'Contest prize'); assert.equal(g.recent[1].why.length, 200);
+  assert.deepEqual(grantSummary([]), { total: 0, players: 0, packs: [], recent: [] });
 });
