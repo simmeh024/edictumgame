@@ -727,6 +727,49 @@ test('Treaties: offered and accepted, limited, ended with notice or broken; a co
   await rejects(civic(e2, { op: 'trOffer', id: a.uid, k: 'research' }), 'tr_max');
 });
 
+test('Supply Caches: a Registered Nation’s cache its saved record holds is filed once, three a day, to a player of the region; that nation, guest or not, opens it once', async () => {
+  /* a and young are Registered Nations (a linked sign-in); the guests g, b and far are not */
+  const a = await player(true, true), g = await player(false, true), b = await player(), far = await player(false, true, 'frostmarch'), young = await player(true), now = Date.now();
+  const packed = async (p, scx) => { const s = await db.doc('nations/' + p.uid).get(), n = JSON.parse(s.get('j')); n.scx = scx; await s.ref.update({ j: JSON.stringify(n) }); };
+  const e = (id, to, r, t = now) => ({ id, to, r, t });
+  await packed(g, [e('gggg0001', b.uid, { goods: 10 })]);
+  await rejects(civic(g, { op: 'scSend', id: 'gggg0001' }), 'registration_required');
+  assert.equal((await db.collection('supply').where('f', '==', g.uid).get()).size, 0);
+  await assert.rejects(civic(a, { op: 'scSend', id: 'BAD' }));
+  await rejects(civic(a, { op: 'scSend', id: 'aaaa0001' }), 'sc_none');
+  await packed(young, [e('yyyy0001', a.uid, { goods: 10 })]);
+  await rejects(civic(young, { op: 'scSend', id: 'yyyy0001' }), 'sc_young');
+  await packed(a, [e('aaaa0001', b.uid, { goods: 200, iron: 100 }), e('aaaa0002', b.uid, { goods: 301 }), e('aaaa0003', far.uid, { food: 5 }), e('aaaa0004', a.uid, { food: 5 }),
+    e('aaaa0005', b.uid, { food: 5 }), e('aaaa0006', b.uid, { food: 6 }), e('aaaa0007', b.uid, { food: 7 }), e('aaaa0008', b.uid, { food: 8 }, now - 8 * DAY), e('aaaa0009', 'npc-vellmark', { food: 5 })]);
+  assert.equal((await civic(a, { op: 'scSend', id: 'aaaa0001', m: '  Welcome to the region!\u0007  ' })).ok, true);
+  const doc = await db.doc(`supply/${a.uid}_aaaa0001`).get();
+  assert.deepEqual(doc.get('r'), { goods: 200, iron: 100 }); assert.equal(doc.get('q'), 300);
+  assert.equal(doc.get('f'), a.uid); assert.equal(doc.get('to'), b.uid); assert.equal(doc.get('reg'), 'meridian');
+  assert.equal(doc.get('m'), 'Welcome to the region!'); assert.equal(doc.get('o'), 0);
+  assert.ok(doc.get('exp').toMillis() > now + 29 * DAY); assert.equal(doc.get('x'), doc.get('exp').toMillis());
+  // asked again (an answer lost on the way): the same document, unchanged
+  assert.equal((await civic(a, { op: 'scSend', id: 'aaaa0001', m: 'changed' })).dup, true);
+  assert.equal((await db.doc(`supply/${a.uid}_aaaa0001`).get()).get('m'), 'Welcome to the region!');
+  await rejects(civic(a, { op: 'scSend', id: 'aaaa0002' }), 'sc_bad');
+  for (const id of ['aaaa0003', 'aaaa0004', 'aaaa0009']) await rejects(civic(a, { op: 'scSend', id }), 'sc_target');
+  await rejects(civic(a, { op: 'scSend', id: 'aaaa0008' }), 'sc_old');
+  await civic(a, { op: 'scSend', id: 'aaaa0005' }); await civic(a, { op: 'scSend', id: 'aaaa0006' });
+  await rejects(civic(a, { op: 'scSend', id: 'aaaa0007' }), 'sc_day');
+  assert.equal((await db.collection('supply').where('f', '==', a.uid).get()).size, 3);
+  // only the nation it is for opens it, and only the first opening says so
+  const id = `${a.uid}_aaaa0001`;
+  await rejects(civic(far, { op: 'scOpen', id }), 'sc_gone');
+  await rejects(civic(a, { op: 'scOpen', id }), 'sc_gone');
+  const o1 = await civic(b, { op: 'scOpen', id });
+  assert.equal(o1.first, true); assert.deepEqual(o1.r, { goods: 200, iron: 100 }); assert.equal(o1.f, a.uid); assert.equal(o1.m, 'Welcome to the region!');
+  const o2 = await civic(b, { op: 'scOpen', id });
+  assert.equal(o2.first, false); assert.equal(o2.o, o1.o);
+  assert.equal((await db.doc('supply/' + id).get()).get('o'), o1.o);
+  // a deleted account takes the caches it sent and received with it
+  await db.doc('nations/' + b.uid).delete(); await account(b, { op: 'close' });
+  assert.equal((await db.collection('supply').where('to', '==', b.uid).get()).size, 0);
+});
+
 test('Alliances: pacts are offered and signed by leaders, ended with notice or broken at a cost; rivals earn renown for battles won against each other', async () => {
   const L1 = await player(true, true), L2 = await player(true, true), m2 = await player(true, true), L3 = await player(true, true), now = Date.now();
   const A1 = (await civic(L1, { op: 'alFound', name: 'North ' + crypto.randomUUID().slice(0, 8), acc: 'open' })).aid;

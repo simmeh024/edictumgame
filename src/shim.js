@@ -211,6 +211,8 @@
   /* development news read and polls voted in, for the achievements (nwr, nwvn, nwd), and the polls whose results
      the bell tells of when they close (nwp) */
   NX_KEYS.nwr = NX_KEYS.nwvn = NX_KEYS.nwd = NX_KEYS.nwp = 1;
+  /* the Supply Caches the nation opened and was paid for (sco: game/edictum.html, the section "Supply Caches") */
+  NX_KEYS.sco = 1;
   /* fields this build's game kept without knowing them (a newer build's: game/edictum.html, normalize, d._fk) go to the
      private half, so a newer build's private field never turns public by way of an older tab; _fk itself is not saved */
   function splitNation(d) {
