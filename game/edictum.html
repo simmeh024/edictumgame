@@ -7990,10 +7990,16 @@ button.rgc-nm{text-align:left}
 .rgc-sys .rgc-rxs{margin-left:31px}
 .acx-sys{margin-left:4px}
 /* region chat: the Edictum team's system message to every region, and the admin portal's box that sends it */
-.rgc-l.rgc-cast,.rgc-l.rgc-cast:hover,.rgc-l.rgc-cast:focus-within{border-left-color:var(--stamp);background:var(--stamp-soft)}
-.rgc-cast .rgc-sh{color:var(--stamp)}
-.rgc-cast .rgc-sw .rgc-tmfl{display:inline-grid;place-items:center;background:var(--stamp);border-color:var(--stamp)}
-.acx-cast{margin:0 0 26px;padding:14px 16px;border:1px solid var(--rule);border-left:3px solid var(--stamp);border-radius:6px;background:var(--sheet)}
+.rgc-cast,.acx-cast,.acx-cast-chip{--cast:#7d5800;--cast-bd:#d4a017;--cast-soft:#fdf4d3;--cast-rule:#ead48c}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) :is(.rgc-cast,.acx-cast,.acx-cast-chip){--cast:#f2cc5a;--cast-bd:#e0b330;--cast-soft:#2b2510;--cast-rule:#5c4b17}}
+:root[data-theme="dark"] :is(.rgc-cast,.acx-cast,.acx-cast-chip){--cast:#f2cc5a;--cast-bd:#e0b330;--cast-soft:#2b2510;--cast-rule:#5c4b17}
+.rgc-l.rgc-cast,.rgc-l.rgc-cast:hover,.rgc-l.rgc-cast:focus-within{border-color:var(--cast-rule);border-left-color:var(--cast-bd);background:var(--cast-soft)}
+.rgc-cast .rgc-sh{color:var(--cast)}
+/* the system's flag: gold, with a gearwheel */
+.rgc-sw .rgc-gearfl{display:inline-grid;place-items:center;background:linear-gradient(135deg,#f6d77f,#d4a017 55%,#a5770b);border-color:#a5770b}
+.rgc-gearfl svg{width:12px;height:12px;color:#3a2706}
+.acx-cast-chip{background:var(--cast-soft);color:var(--cast);border-color:var(--cast-rule)}
+.acx-cast{margin:0 0 26px;padding:14px 16px;border:1px solid var(--rule);border-left:3px solid var(--cast-bd);border-radius:6px;background:var(--sheet)}
 .acx-cast .h3{margin:0 0 4px}
 .acx-cast .hint{margin:0 0 10px}
 .acx-cask{margin:10px 0 0;border-color:var(--stamp);background:var(--stamp-soft)}
@@ -70076,24 +70082,25 @@ function rgcSysLine(m,by,me,mod){
     +`<div class="rgc-sw"><span class="mflag sm${x?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):''}</span><p class="rgc-x rgc-sx">${who} has been founded, welcome to <b class="rgc-ch">#${esc(rgcChan())}</b>!</p>${menu}</div>`
     +`${btn}${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
 }
-/* an admin's system message to every region (sys 'all': functions/regionchat.js, rcCast), drawn as a notice from the
-   Edictum team: its mark, "Edictum team · To every region", the time and the words. Its menu reacts to it; staff remove
+/* an admin's system message to every region (sys 'all': functions/regionchat.js, rcCast), drawn as a yellow notice from
+   the system: a gold flag with a gearwheel, "System · To every region", the time and the words. Its menu reacts to it; staff remove
    it from this region's chat (the admin portal's Region chats takes it out of every region). A player who is not reading
    the chat when it arrives is shown it as a notice too (rgcCastNote) */
+const RGC_GEAR_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M19.43 9.03L22.27 9.81L22.27 14.19L19.43 14.97L19.35 15.16L20.81 17.71L17.71 20.81L15.16 19.35L14.97 19.43L14.19 22.27L9.81 22.27L9.03 19.43L8.84 19.35L6.29 20.81L3.19 17.71L4.65 15.16L4.57 14.97L1.73 14.19L1.73 9.81L4.57 9.03L4.65 8.84L3.19 6.29L6.29 3.19L8.84 4.65L9.03 4.57L9.81 1.73L14.19 1.73L14.97 4.57L15.16 4.65L17.71 3.19L20.81 6.29L19.35 8.84ZM15.6 12a3.6 3.6 0 1 0-7.2 0a3.6 3.6 0 1 0 7.2 0Z"/></svg>';
 function rgcCastLine(m,me,mod){
   const i=esc(m.id),when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`,open=RGC.menu===m.id,myRx=m.rv&&m.rv[me]||'';
   const items=(!OBS?`<div class="rgc-rxp" role="group" aria-label="React">${RGC_RX.map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
     +(mod?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="del-ask" data-id="${i}">Remove the line</button>`:'');
-  const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for the Edictum team’s message"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
-  return `<li class="rgc-l rgc-sys rgc-cast${RGC.goto===m.id?' flash':''}" data-id="${i}"><p class="rgc-sh"><span>Edictum team · To every region</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`
-    +`<div class="rgc-sw"><span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span><p class="rgc-x rgc-sx">${rgcText(m.x,null)}</p>${menu}</div>`
-    +`${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,'Edictum team',false):''}</li>`;
+  const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for the system message"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
+  return `<li class="rgc-l rgc-sys rgc-cast${RGC.goto===m.id?' flash':''}" data-id="${i}"><p class="rgc-sh"><span>System · To every region</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`
+    +`<div class="rgc-sw"><span class="mflag sm rgc-gearfl" aria-hidden="true">${RGC_GEAR_SVG}</span><p class="rgc-x rgc-sx">${rgcText(m.x,null)}</p>${menu}</div>`
+    +`${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,'System',false):''}</li>`;
 }
 /* the newest system message that arrived while the player was not reading the region's chat, as a notice */
 function rgcCastNote(fresh){
   if(OBS||!S.nation||RGC.open&&!document.hidden&&rgcTab()==='region')return;
   const c=fresh.filter(m=>m.sys==='all');if(!c.length)return;
-  toast({m:`Edictum team, to every region: ${c[c.length-1].x}`,k:'cast'});
+  toast({m:`System · To every region: ${c[c.length-1].x}`,k:'cast'});
 }
 /* a nation founded a moment ago asks, once its record is saved, to be welcomed in its region's chat: once for each
    nation (localStorage edictum.rgc.hello.<uid>, the founding time), within the hour; the server decides (rcHello) and
@@ -70705,7 +70712,7 @@ function acxLogHTML(){
   const sil=new Set((ACX.mutes||[]).map(x=>x.uid));let day='';
   return ACX.list.map(m=>{
     const k=rgcDay(m.t),d=k!==day?(day=k,`<li class="acx-day" role="separator">${esc(rgcDayWords(m.t))}</li>`):'',staff=m.tm||!!m.st,ask=ACX.ask&&ACX.ask.id===m.id,all=m.sys==='all';
-    const pill=m.sys==='found'?' <span class="chip acx-sys">Welcome line</span>':all?' <span class="staff-pill rgc-pill">Team</span> <span class="chip acx-sys">To every region</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
+    const pill=m.sys==='found'?' <span class="chip acx-sys">Welcome line</span>':all?' <span class="chip acx-sys acx-cast-chip">System · To every region</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
     /* a system message is removed from this region alone or, with its own question, from every region */
     const acts=ask&&ACX.ask.all?`<button type="button" class="btn danger small" data-act="acx-uncast-yes" data-id="${esc(m.id)}">Remove everywhere</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
@@ -70735,7 +70742,7 @@ function acxMuteHTML(){
 function acxCastHTML(){
   const n=REGIONS.length,lock=ACX.cask||ACX.cbusy;
   return `<section class="acx-cast" aria-labelledby="acx-cast-h"><h2 class="h3" id="acx-cast-h">To every region</h2>
-    <p class="hint">A system message in all ${n} region chats at once, signed Edictum team and marked To every region. Players who are in the game when it arrives see it as a notice too. To take it back, choose Remove from every region beside it in any region’s chat above.</p>
+    <p class="hint">A system message in all ${n} region chats at once, in yellow with a gold gearwheel flag and marked System · To every region. Players who are in the game when it arrives see it as a notice too. To take it back, choose Remove from every region beside it in any region’s chat above.</p>
     <form class="acx-f" id="acx-cf" novalidate><label class="lbl" for="acx-cx">Message</label><div class="acx-fr"><textarea class="input" id="acx-cx" rows="2" maxlength="${RGC_TEXT}" placeholder="For example: the game restarts at 22:00 UTC for a few minutes."${lock?' readonly':''}>${esc(ACX.cx)}</textarea>${ACX.cask?'':`<button class="btn" type="submit" id="acx-cgo">Send to every region</button>`}</div>
     ${ACX.cask?`<div class="adm-ask acx-cask"><p>Send this to all ${n} regions? It appears in every region’s chat at once.</p><div class="row"><button type="button" class="btn small" id="acx-cyes" data-act="acx-cast-yes"${ACX.cbusy?' disabled':''}>${ACX.cbusy?'Sending…':`Send to ${n} regions`}</button><button type="button" class="btn ghost small" data-act="acx-cast-no"${ACX.cbusy?' disabled':''}>Cancel</button></div></div>`:''}
     ${ACX.cmsg?`<p class="err" role="alert">${esc(ACX.cmsg)}</p>`:''}</form></section>`;
