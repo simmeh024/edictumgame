@@ -7,13 +7,13 @@ import { nationText } from './nationtext.js';
 import { gather, summarize, nationRow, saveEngage, loadEngage } from './stats.js';
 import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
-import { setComp } from './shop.js';
+import { setComp, setGrant, packState } from './shop.js';
 import { cbDelete, rmbForget, cbForget } from './board.js';
 import { rcForget } from './regionchat.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
 import { fcForget } from './flagcomp.js';
-import { shopSummary, founderGiftSummary, parseEcb, ECB_URL } from './shop-stats.js';
+import { shopSummary, founderGiftSummary, grantSummary, parseEcb, ECB_URL } from './shop-stats.js';
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
 import { goneList, goneRestore } from './gone.js';
@@ -87,9 +87,9 @@ async function account(db, uid) {
   return { kind: registered(u) ? 'registered' : 'guest', linked, admin: claims.admin === true, disabled: u.disabled, created: at(u.metadata.creationTime), lastSignIn: at(u.metadata.lastSignInTime), lastRefresh: at(u.metadata.lastRefreshTime), ip: s.get('ip') || '', ipAt: s.get('at') || 0 };
 }
 async function player(db, uid) {
-  const [n, ban, mod, sessions, acct, notes, shop, comp, watch] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get(), db.doc('shop/' + uid).get(), db.doc('shopComp/' + uid).get(), db.doc('watch/' + uid).get()]);
+  const [n, ban, mod, sessions, acct, notes, shop, comp, watch, grant] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get(), db.doc('shop/' + uid).get(), db.doc('shopComp/' + uid).get(), db.doc('watch/' + uid).get(), db.doc('shopGrant/' + uid).get()]);
   const d = n.data() || {}, more = await overview(db, uid, d, acct, shop);
-  return { ...more, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), watch: watchState(watch), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  return { ...more, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), packs: packState(shop, grant), watch: watchState(watch), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
 }
 /* The rest of a player's page: their nation at a glance, what they bought, other accounts seen from their address,
    reports and tickets by and about them, and the admin actions on them (the page builds its timeline from these) */
@@ -144,6 +144,22 @@ async function club(db, actor, data) {
   }
   const [shop, comp] = await db.getAll(db.doc('shop/' + target), db.doc('shopComp/' + target));
   return { club: clubState(shop, comp) };
+}
+/* A Shop pack given to a player for free, or taken back (functions/shop.js, setGrant): only a pack the player does not own
+   yet, with a reason for the audit log. The player's Shop calls it a gift from the Edictum team. */
+async function pack(db, actor, data) {
+  const target = id(data.uid), p = text(data.p, 40), on = data.on === true, reason = text(data.reason, 500);
+  if (!reason) throw new HttpsError('invalid-argument', 'A reason is required.');
+  const name = text((await db.doc('nations/' + target).get()).get('name'), 80), event = db.collection('adminAudit').doc();
+  const common = { actor, action: on ? 'pack_given' : 'pack_taken_back', target, pack: p, reason: p + ': ' + reason, ...(name ? { name } : {}), operation: event.id };
+  try {
+    const packs = await setGrant(target, p, on, actor, reason);
+    await event.create({ ...common, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    return { packs };
+  } catch (e) {
+    await event.create({ ...common, outcome: 'failed', error: text(e.code || 'unknown', 64), at: FieldValue.serverTimestamp() });
+    throw e;
+  }
 }
 /* The staff's private notes on a player: one text per player in staffNotes/{uid} {text, at, by}, read and written
    only here (the rules refuse every client) and never shown to the player. The audit log records each change, not
@@ -224,14 +240,17 @@ async function statsExport(db) {
 /* The Shop statistics page (functions/shop-stats.js): the shop's billing records are few, so they are read whole
    each time; the latest sales name their nations. */
 async function shopStats(db) {
-  const [cfg, tx, sub, adj, ck, fg, fw, fx] = await Promise.all([db.doc('authConfig/paddle').get(), db.collection('shopTx').get(), db.collection('shopSubs').get(),
-    db.collection('shopAdj').get(), db.collection('shopCheckouts').get(), db.collection('shopFGift').get(), db.collection('founders').select().get(), euroRates(db)]);
+  const [cfg, tx, sub, adj, ck, fg, fw, fx, gr] = await Promise.all([db.doc('authConfig/paddle').get(), db.collection('shopTx').get(), db.collection('shopSubs').get(),
+    db.collection('shopAdj').get(), db.collection('shopCheckouts').get(), db.collection('shopFGift').get(), db.collection('founders').select().get(), euroRates(db),
+    db.collection('shopGrant').get()]);
   const all = q => q.docs.map(d => ({ id: d.id, ...d.data() }));
   const env = cfg.exists ? (cfg.get('env') === 'live' ? 'live' : cfg.get('env') || 'sandbox') : '';
   const out = shopSummary({ txs: all(tx), subs: all(sub), adjs: all(adj), cks: all(ck) }, Date.now(), env);
   /* the founders' thank-you gift: which pack each founder chose */
   out.fgift = founderGiftSummary(fg.docs.map(d => ({ uid: d.id, ...d.data() })), fw.docs.map(d => d.id), Date.now());
-  const uids = [...new Set([...out.recent.flatMap(r => [r.uid, r.payer]), ...out.fgift.recent.map(r => r.uid)].filter(Boolean))];
+  /* the packs admins gave for free */
+  out.given = grantSummary(gr.docs.map(d => ({ uid: d.id, p: d.get('p') })));
+  const uids = [...new Set([...out.recent.flatMap(r => [r.uid, r.payer]), ...out.fgift.recent.map(r => r.uid), ...out.given.recent.map(r => r.uid)].filter(Boolean))];
   const names = {};
   if (uids.length) for (const n of await db.getAll(...uids.map(u => db.doc('nations/' + u)), { fieldMask: ['name'] })) if (n.exists) names[n.id] = text(n.get('name'), 80);
   if (!counted) await stats(db, {});
@@ -486,6 +505,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   // how players use letters, in counts (functions/letter-stats.js): never the words, never who writes to whom
   if (d.op === 'letterStats') return letterStats(db, d);
   if (d.op === 'club') return club(db, actor, d);
+  if (d.op === 'pack') return pack(db, actor, d);
   if (d.op === 'feed') return feedOp(db, d);
   if (d.op === 'watch') return watchOp(db, actor, d);
   if (d.op === 'alerts') return alertsOp(db, actor, d);

@@ -189,6 +189,17 @@ check('and shown again on inspecting the player, with who saved them', await unt
 check('the player cannot read them', await R.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 check('nor can an admin’s browser outside the console', await A.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 await A.screenshot({ path: OUT + '/admin-player-notes.png', fullPage: true });
+// Shop packs: an admin gives one for free from the player's page; the player's Shop calls it a gift from the Edictum team.
+await inspect(uidB);
+check('the player page lists the Shop packs, none owned', await until(async () => /Mayan Pack\s*Not owned/.test(await text(A, '#admin-packs')) && !/Founder/.test(await text(A, '#admin-packs'))), await text(A, '#admin-packs'));
+await A.selectOption('#admin-pack-p', 'mayapack'); await A.click(`[data-act="admin-pack"][data-v="on"][data-id="${uidB}"]`);
+check('giving a pack asks for a reason first', await until(async () => /Write a reason first/.test(await detail())) && !(await restListAdmin('shopGrant')).some(d => d.id === uidB));
+await A.fill('#admin-pack-why', 'Contest prize'); await A.click(`[data-act="admin-pack"][data-v="on"][data-id="${uidB}"]`);
+check('a given pack is theirs, and the page says who gave it', await until(async () => /The Mayan Pack is theirs now/.test(await detail()) && /Mayan Pack\s*Given by you.*Contest prize/.test(await text(A, '#admin-packs')), 20000), await text(A, '#admin-packs'));
+check('and it is no longer offered to give', !(await A.locator('#admin-pack-p option').allTextContents()).includes('Mayan Pack'));
+check('the player is told it is a gift from the Edictum team', await until(async () => /A gift from the Edictum team: the Mayan Pack/.test(await toasts(B)), 45000), await toasts(B));
+check('and owns it', await B.evaluate(() => { const d = G.SHOP.SHOP.doc; return !!(d && d.owns && d.owns.mayapack && d.ag && d.ag.mayapack); }));
+await A.screenshot({ path: OUT + '/admin-player-packs.png', fullPage: true });
 // Letters between players: the console lists who a player writes to, and opens one conversation only with a reason.
 { const lt = Date.now() - 600000, put = (by, to, t, x) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/letters/${by}~${to}~${t}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
     body: JSON.stringify({ fields: { by: { stringValue: by }, to: { stringValue: to }, x: { stringValue: x }, t: { integerValue: String(t) }, ts: { timestampValue: new Date(t).toISOString() }, exp: { timestampValue: new Date(Date.now() + 365 * 86400000).toISOString() } } }) });
@@ -253,7 +264,8 @@ check('the page fits a phone without scrolling sideways', await until(async () =
 await A.screenshot({ path: OUT + '/admin-stats-phone.png', fullPage: true }); await A.setViewportSize(wide);
 await A.click(`.adst-sec [data-act="admin-inspect"][data-id="${uidA}"]`);
 check('and a nation’s player is a click away', await until(async () => await A.evaluate(() => G.S.view) === 'admin-players' && (await detail()).includes(uidA)));
-// Shop statistics: a purchase and a refund that Paddle reported, counted and named
+// Shop statistics: a purchase and a refund that Paddle reported, counted and named (Playerland was banned above, so the
+// pack given to it is listed under its player ID)
 const seed = (path, f) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: f }) });
 const I = v => ({ integerValue: String(v) }), T = v => ({ stringValue: v });
 await seed('shopTx/txn_e2ea', { uid: T(uidA), payer: T(uidA), product: T('founder'), status: T('completed'), ck: { booleanValue: true }, paid: I(Date.now() - 60000), cur: T('MXN'), total: I(20939) });
@@ -266,6 +278,7 @@ const shText = () => text(A, '.adm-main');
 check('Shop statistics counts the sales, the refund and the takings per currency', await until(async () => { const t = await shText(); return /purchases kept, of 2 paid/.test(t) && /MX\$209\.39|MXN\s?209\.39/.test(t) && /€2\.99/.test(t) && /Adminland/.test(t) && /Refunded/.test(t); }, 30000), (await shText()).slice(0, 600));
 check('and shows every amount in euro and Mexican peso, at the ECB rate it names', await until(async () => { const t = await shText(); return /€1 = MX\$20\.00/.test(t) && /11 November 2026/.test(t)
   && /€10\.47 · MX\$209\.39/.test(t) && /€2\.99 · MX\$59\.80/.test(t) && /€9\.99\s*MX\$199\.80/.test(t) && /€2\.99\s*≈ MX\$59\.80/.test(t); }, 30000), (await shText()).slice(0, 900));
+check('Shop statistics list the pack an admin gave, apart from the sales', await until(async () => { const t = await text(A, '#adsh-given'); return /1 pack to 1 player/.test(t) && t.includes(uidB.slice(0, 8)) && /Mayan Pack/.test(t) && /Contest prize/.test(t); }, 30000), await text(A, '#adsh-given'));
 await A.screenshot({ path: OUT + '/admin-shop.png', fullPage: true });
 await A.setViewportSize({ width: 390, height: 844 });
 check('and fits a phone without scrolling sideways', await until(async () => await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)));
