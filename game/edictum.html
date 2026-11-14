@@ -8281,6 +8281,13 @@ button.rgc-pic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .pt-row{grid-template-columns:minmax(0,1fr);gap:6px}
   .pt-note{grid-column:1}
 }
+/* edict works, jobs and unemployment: the adviser's forecast on the result page, and the works in a city card */
+.edw-fc{margin:0 0 26px;padding:12px 16px;border-left:3px solid var(--accent);background:var(--sheet-2);border-radius:3px}
+.edw-fc-h{margin:0 0 6px;font-size:14px}
+.edw-fc ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5}
+.edw-fc li+li{margin-top:3px}
+.edw-city{margin-top:14px}
+.edw-city .lbl-h{margin-bottom:6px}
 </style>
 
 <div id="app"></div>
@@ -71527,6 +71534,286 @@ ibFileDetail=(f=>function(n,id,now){let h=f.apply(this,arguments);try{
 HELP_EXT.push({k:'nationpage',t:'Your nation page, as others see it',body:n=>`<p>Other players open your nation from the Region page, the map and the board. You choose how that page is laid out in Customise, under Nation page: the card, the overview and the factbook always come first, and every section below them goes in the order you set. Drag a section by its handle or move it with the arrows. <b>Preview your page</b> shows it as a visitor sees it.</p>
   <p><b>Classified.</b> You may classify up to ${CLS_BASE} topics: your armed forces, economy, trade, cities, provinces, legislation, cabinet, currency or space programme. The Counter-Intelligence Bureau and a listening post at level 3 each allow one more. A visitor sees a classified topic blacked out, on your page and in your statistics, until their agents read it. A successful covert operation reads the topics that go with it (stealing blueprints reads your cities, bribing a minister your cabinet and economy, a military mission your army), and gathering intelligence reads them all. What a nation’s agents read stays open to it for ${CLS_READ/DAY} days, and is listed in its file on you. Region rankings and the Census still list every nation.</p>`});
 
+/* ───────── edict works, jobs and unemployment (14 November 2026) ─────────
+   Edicts whose outcome builds something (a shipyard, a factory, a port, a mine, a resort) put it in one of the nation's
+   cities. It opens a week after the edict; the Ministry of Public Works writes when it does and sends a first delivery,
+   and from then on it adds to that city's output and gives people work. Unemployment is a real figure: the census
+   estimate (unempOf, which the daily currency job shares, so it stays as it is), the laws that put people to work, the
+   works that employ them and the edicts that hire or lay off (a nudge that fades over about two months). It moves
+   Happiness a little each day and makes a nation more or less attractive to migrants. After an edict, the adviser who
+   proposed the answer says what to expect, in numbers.
+   Shared record (every player's economy counts the works):
+     ew [{k,nm,c,t,d,p}]  k 'issue:option' (EDW_OPTS), nm its name, c the city's cell (one no longer held means the
+                          capital), t when decided, d when it opens, p 1 once the opening's delivery is paid
+     jb {v,t}            the edicts' hiring nudge in points of unemployment (minus: fewer out of work), as it stood at t
+     unh                 when Happiness last felt unemployment */
+const EDW_OPEN=7*DAY,EDW_MAX=30,EDW_FADE=0.98,UN_REF=6,EDW_LABOUR=0.5;
+/* what each kind of works makes once open, the people it employs (points of unemployment), its first delivery, and the
+   Ministry's words for the opening */
+const EDW_KINDS={
+  yard:{n:'Shipyard',res:{goods:3},jobs:0.5,gift:{goods:15},open:'The first hull slid down the slipway this morning',at:'the yard'},
+  plant:{n:'Factory',res:{goods:3},jobs:0.5,gift:{goods:15},open:'The first crates left the loading bay this morning',at:'the works'},
+  port:{n:'Port',res:{goods:2},prosper:0.01,jobs:0.4,gift:{goods:10},open:'The first cargo came ashore this morning',at:'the quays'},
+  mine:{n:'Mine',res:{iron:2},jobs:0.4,gift:{iron:12},open:'The first ore train left the pithead this morning',at:'the pits'},
+  rig:{n:'Oil field',res:{oil:1.5},jobs:0.3,gift:{oil:8},open:'The first barrels came up this morning',at:'the rigs'},
+  power:{n:'Power works',res:{goods:1,oil:1},jobs:0.3,gift:{oil:8},open:'The switch was thrown this morning, and the lights stayed on',at:'the plant'},
+  farm:{n:'Farm works',res:{food:3},jobs:0.3,gift:{food:15},open:'The first harvest went to market this morning',at:'the farm'},
+  leisure:{n:'Resort',prosper:0.015,jobs:0.4,gift:{goods:10},open:'The gates opened to the public this morning',at:'the resort'},
+  lab:{n:'Research works',res:{goods:1},prosper:0.01,jobs:0.2,gift:{goods:10},open:'The first team moved in this morning',at:'the labs'}
+};
+/* the answers that build one: [kind, name ({A} {DISH} {CAP} {D} filled when decided), 'coast' for a coastal city, people
+   employed if not the kind's] */
+const EDW_OPTS={
+  'n03-free-port:2':['yard','Puddingstone Shipyard','coast'],'w2-navy:0':['yard','Naval Dockyard','coast'],
+  'g1-naval-isle:0':['yard','Island Naval Base','coast'],'w2-second-carrier:0':['yard','Carrier Yard','coast'],
+  'ch-ferry-2:0':['yard','Skerrimore Ferry Yard','coast'],
+  'n03-buy-local:1':['plant','{A} Toy Factory'],'n03-last-factory:0':['plant','Brackenford Bell Works'],
+  'n03-pot-guild:1':['plant','National Pottery Works'],'dish-name:2':['plant','{DISH} Cannery'],
+  'fertiliser-cutoff:1':['plant','State Fertiliser Plant'],'fake-souvenirs:2':['plant','Souvenir Factory'],
+  'demob-jobs:2':['plant','Old Munitions Tractor Works'],'f2-games-mascot:0':['plant','Champ Toy Factory'],
+  'g5-sock-tariff:3':['plant','National Sock Works'],'g5-commute-r:2':['plant','New Brackenford Factory'],
+  'x1-meteor-2:2':['plant','Element Works'],'rob-dark-factory:0':['plant','Wexmoor Dark Factory','',0.1],
+  'rob-dark-factory:1':['plant','Wexmoor Factory','',0.2],'soc-viral-animal:2':['plant','Plush {A} Factory'],
+  'trd-final-screw:0':['plant','Bicycle Factories'],'tbx-spec-zone:0':['plant','Grindwell Factories'],
+  'tbx-spec-zone:1':['plant','Grindwell Factories'],'tbx-spec-zone:2':['plant','Grindwell Bicycle Works'],
+  'net-chip-fab:0':['plant','Microchip Fab'],'ch-typer-2:0':['plant','State Typewriter Factory'],
+  'ch-bread-1:2':['plant','National Bread Factory'],'ch-fog-5:1':['plant','Brinewick Fog Net Factory'],
+  'nrg-leakage:1':['plant','Dunmore Steelworks'],'nrg-leakage:3':['plant','Dunmore Steelworks'],
+  'n03-free-port:0':['port','Puddingstone Free Port','coast'],'cruise:1':['port','{CAP} Cruise Port','coast'],
+  'g1-pilot-guild:2':['port','Port Ardley Quay','coast'],'g4-canal-1:0':['port','Grand Canal'],
+  'g4-canal-1:1':['port','Canal Zone'],'g4-canal-2:0':['port','Widened Grand Canal'],
+  'trd-megaport:0':['port','Megaport','coast'],'tbx-port-1:2':['port','Gullhaven Deep Harbour','coast'],
+  'trd-duty-free:1':['port','{CAP} Airport Free Zone'],'dem-shrinking-city:2':['port','Graybridge Free Zone'],
+  'w2-carrier-port:0':['port','{CAP} Deep-Water Harbour','coast'],
+  'n03-iron-hills:2':['mine','Sallow Hills Deep Mine'],'g2-quarry-lake:2':['mine','Carrow Hill Quarry'],
+  'g7-slide-3:0':['mine','Wending Hill Iron Mine'],'trd-fund-1:1':['mine','Open-Cast Mines'],
+  'n16-sanctions:3':['mine','Open-Cast Iron Mines'],'net-lithium:0':['mine','Saltmere Lithium Mine'],
+  'net-lithium:1':['mine','Saltmere Lithium Workings'],
+  'g1-energy-isle:2':['rig','Offshore Drilling Rigs','coast'],
+  'nuke:0':['power','Nuclear Power Stations'],'nrg-smr:0':['power','Small Reactor Works'],'eco-solar-sheep:2':['power','Solar Farm'],
+  'vertical-farm:3':['farm','Vertical Farm'],'pirate-village:2':['farm','Port Skerrow Fish Market','coast'],
+  'mammoth:2':['leisure','Prehistoric Theme Park'],'old-airport:3':['leisure','Airport World'],
+  'mountain-cheese:2':['leisure','Summit Barracks Resort'],'g6-isle-1:2':['leisure','Pike Holm Resort','coast'],
+  'rx-sun-sutures:0':['leisure','Azure Mend Resort','coast'],'vice-casino-ship:0':['leisure','Lady Luck Casino Ship','coast'],
+  'ski-resort:2':['leisure','Indoor Ski Slope'],'theme-park:0':['leisure','{D}land'],
+  'park-boundary:2':['leisure','Varrow Hills Golf Course'],'g3-fairytale:0':['leisure','Enchanted Forest of Gretchenwald'],
+  'rx-sanatorium:1':['leisure','Highrest Ski Hotel'],'mnr-sacred-peak:2':['leisure','Mount Tarrow Chairlifts'],
+  'casino:0':['leisure','{CAP} Casinos'],
+  'ai-data-centre:0':['lab','National Data Centre'],'spc-launch-site:0':['lab','Gullhaven Launch Pad','coast']
+};
+/* answers that hire (minus) or lay off (plus) at once, in points of unemployment; the nudge fades by 2% a day */
+const EDW_JOBS={
+  'job-guarantee:0':-1.2,'job-guarantee:1':-0.4,'job-guarantee:2':-0.5,'yth-experience:0':-0.8,'yth-experience:1':-0.5,
+  'yth-experience:3':-0.5,'n03-free-port:0':-0.3,'n03-free-port:2':-0.4,'n03-iron-hills:2':-0.3,'n03-dock-strike:0':-0.2,
+  'tbx-spec-zone:0':-0.4,'tbx-spec-zone:1':-0.3,'tbx-spec-zone:2':-0.4,'theme-park:0':-0.4,'casino:0':-0.3,
+  'street-food:0':-0.3,'g3-charcoal:0':-0.2,'g3-fairytale:0':-0.2,'rx-sanatorium:1':-0.2,'park-boundary:2':-0.2,
+  'ghost-battalion:2':-0.2,'eternal-intern:2':-0.2,'txa-hiring-freeze:2':-0.2,'epi-cough-1:1':-0.2,
+  'ter-security-lobby:1':-0.2,'net-lithium:0':-0.2,'net-lithium:1':-0.3,'her-carpark:1':-0.2,'mnr-sacred-peak:2':-0.2,
+  'blk-mall:0':-0.3,'nrg-leakage:1':-0.3,'nrg-leakage:3':-0.3,'g5-commute-r:2':-0.3,
+  'n03-dock-strike:1':0.4,'call-centre-ai:1':0.5,'robots:1':0.5,'rob-tax:1':0.2,'wrk-mill-buyout:1':0.3,
+  'net-chip-fab:1':0.2,'soc-moderators:2':0.2,'txa-hiring-freeze:0':0.2
+};
+/* laws that put people to work, for as long as they stand (points of unemployment) */
+const EDW_LAW_JOBS={industrialStrategy:-0.4,youthGuarantee:-0.6,conscription:-0.3};
+
+function edwKind(w){const o=w&&EDW_OPTS[w.k];return o?EDW_KINDS[o[0]]:null;}
+function edwJobs(w){const o=w&&EDW_OPTS[w.k];return o?(o[3]!=null?o[3]:EDW_KINDS[o[0]].jobs):0;}
+function edwList(n){return n&&!n.npc&&Array.isArray(n.ew)?n.ew.filter(w=>w&&EDW_OPTS[w.k]&&Number.isFinite(w.d)):[];}
+function edwOpenList(n,now){return edwList(n).filter(w=>w.d<=now);}
+function jbNow(n,now){const j=n&&!n.npc&&n.jb;if(!j||!Number.isFinite(j.v)||!Number.isFinite(j.t))return 0;return j.v*Math.pow(EDW_FADE,Math.max(0,now-j.t)/DAY);}
+/* unemployment in percent: the census estimate, laws, open works and the edicts' fading nudge (s: the stats to read,
+   so the Statistics page can pass the faded ones it shows) */
+function unempNow(n,now,s){
+  if(!n||!n.s)return 0;now=now||Date.now();const p=pol(n);let u=unempOf(s||n.s,p);
+  for(const k in EDW_LAW_JOBS)if(p[k])u+=EDW_LAW_JOBS[k];
+  u+=jbNow(n,now);for(const w of edwOpenList(n,now))u-=edwJobs(w);
+  return clamp(u,0.8,30);
+}
+/* Happiness a day from unemployment: up below 6%, down above it; a larger welfare budget softens the fall */
+function unHappyRate(n,u){const d=(UN_REF-u)*0.012,c=d<0?1-clamp((bpOf(n,'welfare')-5)/30,0,0.5):1;return clamp(d*c,-0.06,0.06);}
+const edwPct=v=>+(v*100).toFixed(1)+'%';
+function edwOutText(K){
+  const a=Object.entries(K.res||{}).map(([r,v])=>`${RES_INFO[r][0].toLowerCase()} +${v}`),parts=[];
+  if(a.length)parts.push(list(a)+' a day');if(K.prosper)parts.push(`your economy +${edwPct(K.prosper)}`);return list(parts);
+}
+/* the same in a sentence: "3 goods a day and 1.5% to your economy" */
+function edwAddText(K){
+  const a=Object.entries(K.res||{}).map(([r,v])=>`${v} ${RES_INFO[r][0].toLowerCase()}`),parts=[];
+  if(a.length)parts.push(list(a)+' a day');if(K.prosper)parts.push(`${edwPct(K.prosper)} to your economy`);return list(parts);
+}
+function edwGiftText(K){return list(Object.entries(K.gift||{}).map(([r,v])=>`${v} ${RES_INFO[r][0].toLowerCase()}`));}
+/* the people a works employs: its points of the labour force (about half the population) */
+function edwPeople(n,pts){
+  const v=Math.max(0,popNow(n)*1e6*EDW_LABOUR*pts/100);if(v<50)return 'a few dozen people';
+  const m=Math.pow(10,Math.max(0,Math.floor(Math.log10(v))-1));return 'about '+fmt0(Math.round(v/m)*m)+' people';
+}
+/* where a new works goes: the capital if it suits (a coastal one for a yard or a port), else the first city that does */
+function edwCity(n,need){
+  const cs=cityList(n);if(!cs.length)return -1;const cap=cellOf(n.loc),ok=c=>need!=='coast'||isCoastal(c.c);
+  const capC=cs.find(c=>c.c===cap);if(capC&&ok(capC))return capC.c;
+  const alt=cs.find(ok);return alt?alt.c:(capC?capC.c:cs[0].c);
+}
+function edwCityName(n,c){const ct=cityList(n).find(x=>x.c===c);return ct?cityLabel(n,ct):(n.capital||'the capital');}
+/* the works of one city: those placed there, and at the capital those whose city the nation no longer has */
+function edwOfCity(ct,L){
+  if(!ct||ct.npc||!ct.fn||!L.length)return [];const cells=new Set(cityList(ct.fn).map(c=>c.c));
+  return L.filter(w=>w.c===ct.c||(ct.cap&&!cells.has(w.c)));
+}
+cxCityAgg=(f=>function(a,ct){
+  f.apply(this,arguments);
+  try{const L=edwOfCity(ct,edwOpenList(ct&&ct.fn,Date.now()));if(!L.length)return;const out={};
+    for(const w of L){const K=edwKind(w);for(const r in K.res||{}){a.add[r]+=K.res[r];out[r]=(out[r]||0)+K.res[r];}if(K.prosper)a.prosper+=K.prosper;}
+    ct.edw=out;}catch(e){}
+})(cxCityAgg);
+/* the stockpile's breakdown names each works on a line of its own, out of its city's buildings */
+rbdParts=(f=>function(n,r){
+  const P=f.apply(this,arguments);
+  try{if(!P)return P;const E=economy(),i=E.byDoc.get(n);if(i===undefined)return P;const now=Date.now();
+    for(const ct of cityState(E.T).all){if(!ct.active||ct.hi!==i||!ct.edw||!ct.edw[r])continue;
+      const row=P.made.find(m=>m[0]===`${ct.nm}${ct.cap?' (capital)':''}: buildings`);
+      if(row){row[1]-=ct.edw[r];if(Math.abs(row[1])<0.05)P.made.splice(P.made.indexOf(row),1);}
+      for(const w of edwOfCity(ct,edwOpenList(ct.fn,now))){const K=edwKind(w);if(K.res&&K.res[r])P.made.push([`${w.nm}, ${ct.nm} (from an edict)`,K.res[r],1]);}}
+  }catch(e){}
+  return P;
+})(rbdParts);
+/* the edict decided: an answer that builds puts its works on the list; one that hires or lays off moves the nudge */
+geoAfter=(f=>function(n,opt,ent,now,prior){
+  const notes=f.apply(this,arguments)||[];
+  try{const is=prior&&ISSUE_BY_ID[prior.id],o=is?is.o.indexOf(opt):-1;if(o<0||!n||n.npc)return notes;const k=prior.id+':'+o,W=EDW_OPTS[k];
+    if(W){const L=Array.isArray(n.ew)?n.ew.slice():[];if(L.length<EDW_MAX){const c=edwCity(n,W[2]),nm=String(fill(W[1],n,ent)).slice(0,60);
+      L.push({k,nm,c,t:now,d:now+EDW_OPEN});n.ew=L;notes.push(['Works',`${nm} opens near ${edwCityName(n,c)} on ${fmtDate(now+EDW_OPEN)}`]);}}
+    const j=EDW_JOBS[k];if(j)n.jb={v:Math.round((jbNow(n,now)+j)*1000)/1000,t:now};
+  }catch(e){}
+  return notes;
+})(geoAfter);
+/* the result page keeps unemployment before and after, the works begun and who proposed the answer. The game draws the
+   page inside answer, so these are filled in when it is first drawn (edwFinal), from what answer noted (EDW_ANS). A
+   commit that also moved Happiness for unemployment (UNH_LAST) leaves that out of the edict's own change. */
+let UNH_LAST=null,EDW_ANS=null;
+function edwFinal(){
+  const A=EDW_ANS,R=S.result,n=S.nation;if(!A||!R||R.id!==A.id||R.jobs||!n||n===A.n0)return;
+  const now=R.t||Date.now();
+  if(UNH_LAST&&UNH_LAST.n===n&&R.before&&Number.isFinite(R.before.happy))R.before.happy+=UNH_LAST.d;
+  const w=edwList(n).find(x=>!A.had.has(x.k)&&x.t>=A.t0);
+  R.jobs={a:A.u0,b:unempNow(n,now)};
+  if(w){const o=EDW_OPTS[w.k];R.edw={k:w.k,nm:w.nm,city:edwCityName(n,w.c),d:w.d,kd:o[0],jobs:edwJobs(w)};R.jobs.c=unempNow(n,w.d);}
+}
+answer=(f=>function(id){
+  const n0=S.nation,t0=Date.now();EDW_ANS=null;UNH_LAST=null;
+  try{if(n0)EDW_ANS={id,n0,t0,u0:unempNow(n0,t0),had:new Set(edwList(n0).map(w=>w.k))};}catch(e){}
+  try{return f.apply(this,arguments);}
+  finally{try{edwFinal();}catch(e){}EDW_ANS=null;UNH_LAST=null;}
+})(answer);
+/* who speaks an answer: the words after its quotation (“…,” says Harbourmaster Agnes Moreau. “…”), the name when a
+   comma sets it apart (the town’s oldest resident, Winifred Pask), else what comes before the comma */
+const EDW_VERBS='says|asks|urges|insists|suggests|warns|argues|proposes|demands|admits|declares|growls|smiles|replies|counters|snaps|adds|explains|notes|pleads|offers|agrees|shrugs|fumes|beams|sighs|laughs|shouts|whispers|writes|recommends|cries|grumbles|muses|announces|retorts|concedes|claims|maintains|cautions|reckons|vows|boasts|protests|objects|predicts|answers|thunders|sniffs|grins|scoffs|mutters|booms|chirps|declaims|confides|begs|calls|points out|chimes in';
+const EDW_WHO=new RegExp('”\\s*,?\\s*(?:'+EDW_VERBS+')\\s+([^“]+?)(?:[.!?]\\s*“|,\\s*“|\\s+“|[.!?]\\s*$)');
+function optWho(t){
+  const m=EDW_WHO.exec(String(t||''));if(!m)return '';let w=m[1].trim().replace(/[.,;:]+$/,'');
+  if(w.includes(', ')){const parts=w.split(', '),last=parts[parts.length-1];w=/^[A-Z]/.test(last)&&!/^(?:The|A|An|In|On|At|With|From)\b/.test(last)?last:parts[0];}
+  return w.length>2&&w.length<90?w:'';
+}
+/* what the adviser expects: output, the yield of a law, the works and when it opens, unemployment and what it does to
+   Happiness, and a tax rise easing back */
+function edwForecast(R,n){
+  const is=ISSUE_BY_ID[R.id],opt=is&&is.o[R.o];if(!opt)return '';const L=[];
+  const op=R.out?(R.out.b/R.out.a-1)*100:0;
+  if(Math.abs(op)>=0.05)L.push(op>0?`Output a year rises ${op.toFixed(1)}% now, and stays up: Prosperity sets what each person earns.`:`Output a year falls ${Math.abs(op).toFixed(1)}% now, and stays down until Prosperity recovers.`);
+  const yieldOf=p=>list(Object.entries(RES_POL[p]).map(([r,m])=>`${RES_INFO[r][0].toLowerCase()} ${m>1?'+':'−'}${Math.round(Math.abs(m-1)*100)}%`));
+  for(const p of R.enacted||[])if(RES_POL[p]&&POLICIES[p])L.push(`${POLICIES[p][0]}: ${yieldOf(p)} from today.`);
+  for(const p of R.repealed||[])if(RES_POL[p]&&POLICIES[p])L.push(`${POLICIES[p][0]} ends: its ${yieldOf(p)} goes with it.`);
+  const W=R.edw,K=W&&EDW_KINDS[W.kd];
+  if(K)L.push(`${W.nm} opens near ${W.city} on ${fmtDate(W.d)}: ${edwOutText(K)}, and work for ${edwPeople(n,W.jobs)}. The Ministry of Public Works will write.`);
+  const J=R.jobs;
+  if(J&&(Math.abs(J.b-J.a)>=0.05||K)){
+    L.push(`Unemployment ${pctS(J.a)} → ${pctS(J.b)} now${K&&Number.isFinite(J.c)?`, and about ${pctS(J.c)} once ${W.nm} opens`:''}.`);
+    const hr=unHappyRate(n,Number.isFinite(J.c)&&K?J.c:J.b)*30;if(Math.abs(hr)>=0.1)L.push(`At that level, unemployment ${hr>0?'lifts':'lowers'} Happiness by about ${Math.abs(hr).toFixed(1)} a month.`);
+  }
+  if(R.after&&R.before&&R.after.tax-R.before.tax>=0.5)L.push(`Income tax eases back toward ${DRIFT_TO.tax}% over the coming weeks.`);
+  if(!L.length)return '';
+  const who=optWho(fill(opt.t,n,R.ctx));
+  return `<section class="edw-fc" aria-label="What to expect"><p class="edw-fc-h">${who?`<b>${esc(cap1(who))}</b> expects:`:'Your advisers expect:'}</p><ul>${L.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></section>`;
+}
+resultView=(f=>function(){
+  try{edwFinal();}catch(e){}
+  let h=f.apply(this,arguments);
+  try{const R=S.result,n=S.nation;if(!R||!n)return h;const J=R.jobs;
+    const r1=v=>Math.round(v*10)/10;
+    if(J&&Math.abs(r1(J.b)-r1(J.a))>=0.05){const i=h.indexOf('<ul class="deltas">');if(i>=0){const j=h.indexOf('</ul>',i),d=r1(J.b)-r1(J.a),c=d<0?'up':'down';
+      h=h.slice(0,j)+`<li class="d-${c} edw-un"><span class="d-name">Unemployment</span><span class="d-vals">${pctS(J.a)} → ${pctS(J.b)}</span><span class="d-chg ${c}">${d>0?'▲':'▼'} ${Math.abs(d).toFixed(1)}</span></li>`+h.slice(j);}}
+    const fc=edwForecast(R,n);if(fc)h=h.replace('<h2 class="lbl-h">Census changes</h2>',fc+'<h2 class="lbl-h">Census changes</h2>');
+  }catch(e){}
+  return h;
+})(resultView);
+/* the city card's Buildings tab lists the works there: building (opens on a day, with a bar) or open (what it adds) */
+function edwRows(ct,now){
+  return edwOfCity(ct,edwList(ct&&ct.fn)).map(w=>{const K=edwKind(w);
+    if(w.d>now){const p=clamp((now-w.t)/Math.max(1,w.d-w.t)*100,0,100);
+      return `<li class="bld prog edw-row"><span class="bld-cat cat-prod">${esc(K.n)}</span><span class="bld-n">${esc(w.nm)}</span><span class="bld-e">Opens on ${esc(fmtDate(w.d))}, then ${esc(edwOutText(K))}.</span><span class="bar bld-bar"><i style="width:${p.toFixed(1)}%"></i></span></li>`;}
+    return `<li class="bld edw-row"><span class="bld-cat cat-prod">${esc(K.n)}</span><span class="bld-n">${esc(w.nm)}</span><span class="bld-e">${esc(cap1(edwOutText(K)))}, and work for ${esc(edwPeople(ct.fn,edwJobs(w)))}. Open since ${esc(fmtDate(w.d))}.</span></li>`;}).join('');
+}
+cityCard=(f=>function(ct,T,n,st,now){
+  const h=f.apply(this,arguments);
+  try{if(/class="stab on"/.test(h)&&!/class="stab on"[^>]*data-k="b"/.test(h))return h;const rows=edwRows(ct,now||Date.now());if(!rows)return h;
+    return h.replace('<div class="row cx-foot">',`<div class="edw-city"><p class="lbl-h">From your edicts</p><ul class="blds">${rows}</ul></div><div class="row cx-foot">`);}catch(e){return h;}
+})(cityCard);
+/* the Statistics page, its rankings and every other reader of the almanac show the full figure */
+almanac=(f=>function(x){const A=f.apply(this,arguments);try{if(A&&x&&x.n)A.unemp=unempNow(x.n,A.now,A.s);}catch(e){}return A;})(almanac);
+/* migrants weigh the chance of work: 0.35 of appeal for each point of unemployment either side of 6% */
+migAppeal=(f=>function(x){const a=f.apply(this,arguments);try{return a-0.35*(unempNow(x.n,Date.now())-UN_REF);}catch(e){return a;}})(migAppeal);
+/* on a save: Happiness feels unemployment (at most 14 days at a time, and only after an hour, so a quick run of edicts
+   is not nudged), and a works that has opened sends its first delivery */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||!n.name||n.npc||!n.s)return [];
+  if(!Number.isFinite(n.unh)||n.unh>now){n.unh=now;return [];}
+  const dt=(now-n.unh)/DAY;if(dt<1/24)return [];n.unh=now;
+  const r=unHappyRate(n,unempNow(n,now)),h=n.s.happy;if(!Number.isFinite(h)||!r)return [];
+  const v=r>0?(h<90?Math.min(90,h+r*Math.min(dt,14)):h):(h>10?Math.max(10,h+r*Math.min(dt,14)):h);
+  if(v!==h){n.s.happy=v;UNH_LAST={n,d:v-h};}
+  return [];
+});
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||!n.name||n.npc||!Array.isArray(n.ew))return [];
+  const due=n.ew.filter(w=>w&&!w.p&&EDW_OPTS[w.k]&&Number.isFinite(w.d)&&w.d<=now);if(!due.length)return [];
+  n.ew=n.ew.map(w=>due.includes(w)?Object.assign({},w,{p:1}):w);
+  let st=null;const out=[];
+  for(const w of due){const K=edwKind(w);
+    if(K.gift){st=st||stockNow(n,now);for(const r in K.gift)st[r]=stockLimit(n,r,num0(st[r])+K.gift[r],st[r]);}
+    out.push(`${w.nm} has opened near ${edwCityName(n,w.c)}: ${edwOutText(K)}. The Ministry of Public Works has written.`);}
+  if(st){n.stock=roundStock(st);n.stockAt=now;}
+  return out;
+});
+NORM_HOOKS.push((n,d)=>{
+  if(!d)return;
+  const L=[].concat(d.ew||[]).filter(w=>w&&typeof w==='object'&&typeof w.k==='string'&&w.k.length<=80&&Number.isFinite(w.t)&&Number.isFinite(w.d)&&w.d>=w.t)
+    .slice(-EDW_MAX).map(w=>{const o={k:w.k,nm:String(w.nm||'').slice(0,60),c:Number.isInteger(w.c)?w.c:-1,t:w.t,d:w.d};if(w.p)o.p=1;return o;});
+  if(L.length)n.ew=L;
+  const j=d.jb;if(j&&typeof j==='object'&&Number.isFinite(j.v)&&Number.isFinite(j.t)&&Math.abs(j.v)<=10)n.jb={v:j.v,t:j.t};
+  if(Number.isFinite(d.unh))n.unh=d.unh;
+});
+/* the Ministry of Public Works writes on the day a works opens */
+OFFICES['office-works']={name:'The Ministry of Public Works',go:['cities','Open Cities'],about:'Writes when a works from one of your edicts opens.',
+  seal:dmSeal('#ece4d6','#5b4426','<path d="M3 20h18M5 20v-8l7-5 7 5v8M10 20v-5h4v5"/>')};
+function edwLetter(n,w){
+  const K=edwKind(w),is=ISSUE_BY_ID[String(w.k).split(':')[0]],cab=cabOf(n),m=cab&&cab.wrk;
+  return `To the government of ${n.name},
+
+${w.nm} opened today near ${edwCityName(n,w.c)}. ${K.open}, and ${edwPeople(n,edwJobs(w))} now work at ${K.at}.
+
+From today it adds ${edwAddText(K)}. As a first delivery it has sent ${edwGiftText(K)} to your stockpile, and unemployment is down ${edwJobs(w).toFixed(1)} points.${is?`
+
+It came of your edict “${fill(is.t,n,null)}”, decided on ${fmtDate(w.t)}.`:''}
+
+${m&&m.nm?m.nm+', ':''}Minister of Public Works`;
+}
+DM_SOURCES.push((n,now)=>edwList(n).filter(w=>w.d<=now).slice(-EDW_MAX).map(w=>({peer:'office-works',t:w.d,x:edwLetter(n,w)})));
+/* Help › Works, jobs and unemployment: how it works, with the player's own figures */
+HELP_EXT.push({k:'works',t:'Works, jobs and unemployment',body:n=>{
+  const now=Date.now(),L=n?edwList(n):[],p=n?pol(n):{},laws=Object.keys(EDW_LAW_JOBS).filter(k=>p[k]&&POLICIES[k]);
+  const mine=n&&n.s?`<p>For ${esc(n.name)} now: unemployment <b>${pctS(unempNow(n,now))}</b>. From the census ${pctS(unempOf(n.s,p))}${laws.length?`, laws ${list(laws.map(k=>POLICIES[k][0]+' −'+Math.abs(EDW_LAW_JOBS[k]).toFixed(1)))}`:''}${Math.abs(jbNow(n,now))>=0.05?`, recent edicts ${jbNow(n,now)>0?'+':'−'}${Math.abs(jbNow(n,now)).toFixed(1)}`:''}${L.some(w=>w.d<=now)?`, works −${L.filter(w=>w.d<=now).reduce((a,w)=>a+edwJobs(w),0).toFixed(1)}`:''}.</p>${L.length?`<ul>${L.map(w=>`<li><b>${esc(w.nm)}</b>, near ${esc(edwCityName(n,w.c))}: ${w.d>now?'opens on '+esc(fmtDate(w.d)):esc(edwOutText(edwKind(w)))}.</li>`).join('')}</ul>`:''}`:'';
+  return `<p>Some edicts build something: a shipyard, a factory, a port, a mine, a power station or a resort. The works goes to one of your cities (a coastal one for yards and ports) and opens a week after the edict. The Ministry of Public Works writes on the day, with a first delivery for your stockpile. From then on it adds to that city’s output, which the stockpile’s breakdown lists on a line of its own, and gives people work.</p>
+<p><b>Unemployment</b> starts from the census: more Prosperity and Economic Freedom mean fewer out of work, and a minimum wage a few more. Industrial Strategy, the Youth Guarantee and conscription put people to work for as long as they stand. Each open works employs some (about 0.2 to 0.5 points). Edicts that hire or lay off move it at once, and that nudge fades by 2% a day.</p>
+<p>Below 6%, unemployment lifts Happiness a little each day; above it, it lowers it, by up to 1.8 a month, less with a larger welfare budget. Migrants weigh it too: high unemployment sends people abroad. After each edict, the adviser who proposed your answer says what to expect.</p>${mine}`;}});
 /* ───────── portraits of state: the faces of the government, as the player wants them (13 November 2026) ─────────
    The Government page's medallions (cvMed) stay what they were: a bust in profile in one ink, cut with paper-coloured
    lines, inside a guilloche ring. A saved look only overrides what the sitter's name draws (ptBust; an empty look is
