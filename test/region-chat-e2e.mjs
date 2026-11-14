@@ -452,14 +452,15 @@ const elsewhere = async id => (await Promise.all(['frostmarch', 'terra'].map(g =
 check('one line, signed Edictum team by the admin, under one id in every region', !!cast && cast.fields.nm?.stringValue === 'Edictum team' && cast.fields.a?.stringValue === uidA && cast.fields.tm?.booleanValue === true
   && (await elsewhere(cast.id)).every(Boolean), JSON.stringify(cast?.fields));
 const cli = `#rgc-list .rgc-l[data-id="${cast?.id}"]`;
-check('a player reading the chat sees it as a notice from the team, marked To every region', await until(async () => !!(await B.$(`${cli}.rgc-cast .rgc-tmfl`)) && /Edictum team · To every region/.test(await text(B, `${cli} .rgc-sh`)) && (await text(B, `${cli} .rgc-x`)) === castWords, 15000), await text(B, cli));
+check('a player reading the chat sees it as a system notice, marked System · To every region, with the gold gearwheel flag', await until(async () => !!(await B.$(`${cli}.rgc-cast .rgc-gearfl svg`)) && /^System · To every region/.test(await text(B, `${cli} .rgc-sh`)) && (await text(B, `${cli} .rgc-x`)) === castWords, 15000), await text(B, cli));
+check('drawn in yellow, not the team’s purple', await B.$eval(cli, li => { const c = getComputedStyle(li).backgroundColor.match(/\d+/g).map(Number); return c[0] > c[2] + 20 && c[1] > c[2] + 10; }), await B.$eval(cli, li => getComputedStyle(li).backgroundColor));
 await B.locator('#rgc-dock').screenshot({ path: `${OUT}/chat-cast-line.png` });
-check('a player not reading it is shown it as a notice', await until(async () => (await told(C)).includes(`Edictum team, to every region: ${castWords}`), 45000), await told(C));
+check('a player not reading it is shown it as a notice', await until(async () => (await told(C)).includes(`System · To every region: ${castWords}`), 45000), await told(C));
 await B.click(`#rgc-list .rgc-more[data-id="${cast?.id}"]`);
 check('its menu reacts to it, with nothing to answer, report or block', await until(async () => !!(await B.$('.rgc-menu [data-rgc="react"]')) && !/Answer|Report|Block|Remove/.test(await text(B, '.rgc-menu'))), await text(B, '.rgc-menu'));
 await B.keyboard.press('Escape');
 check('Region chats marks it To every region, with Remove here and Remove from every region', await until(async () => {
-  const t = await text(A, `#acx-log .acx-l[data-id="${cast?.id}"]`); return /To every region/.test(t) && /Remove here/.test(t) && /Remove from every region/.test(t); }, 15000));
+  const t = await text(A, `#acx-log .acx-l[data-id="${cast?.id}"]`); return /System · To every region/.test(t) && /Remove here/.test(t) && /Remove from every region/.test(t); }, 15000));
 await A.click(`#acx-log [data-act="acx-uncast"][data-id="${cast?.id}"]`);
 check('Remove from every region asks first', await until(async () => !!(await A.$(`#acx-log [data-act="acx-uncast-yes"][data-id="${cast?.id}"]`))));
 await A.click(`#acx-log [data-act="acx-uncast-yes"][data-id="${cast?.id}"]`);
