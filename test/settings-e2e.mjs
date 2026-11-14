@@ -79,6 +79,9 @@ check('#settings opens Your nation', await tab(A) === 'nation');
 const lh = () => A.evaluate(() => { const L = G.LH(), n = G.S.nation; return { paused: L.paused(n), stored: L.stored(n), credits: L.credits(n) }; });
 await A.click('#sg-tab-land');
 check('the Land tab shows its own pane, in the address', await tab(A) === 'land' && await shown(A, '#lh-pause') && !await shown(A, '#s-freq') && await A.evaluate(() => location.hash) === '#settings/land');
+// the credits count only once the map knows this nation's land: read right after the reload above, on CI they were
+// still 0 one time, and every Land check after it failed
+await until(async () => (await lh()).credits > 0, 15000);
 const lh0 = await lh();
 check('gains are on at first, with credits to spend', !lh0.paused && lh0.credits > 0 && !await A.$eval('#lh-pause', e => e.checked) && /Gains on/.test(await text(A, '[data-sg-sub="land"]')));
 await A.click('#lh-pause');
