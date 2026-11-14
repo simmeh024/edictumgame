@@ -93,7 +93,7 @@ check('its button closes the dialog and opens the capital’s rename form on the
 await A.fill('#c3-ren','Firstharbour');await A.press('#c3-ren','Enter');
 check('naming the capital pays 8 land credits and 10 goods, and says so',await until(()=>A.evaluate(()=>G.S.nation.capital==='Firstharbour'&&(G.S.nation.tut?.lc||[]).includes('city')))
   &&await A.evaluate(([g,c])=>G.TUTL.credits(G.S.nation)===c+8&&G.S.nation.stock.goods>=g+9.9,[goods0,credits0])&&await until(async()=>/Name your first city\. \+8 land credits and 10 goods/.test(await toastText(A)),40000));
-await nav(A,'help');check('How to play shows every group, the ledger of ambitions with them',await A.locator('#help-tut .tut-hl-l').count()===4&&await A.locator('#help-tut .tut-en[data-k="res"]').count()===1);
+await nav(A,'help');check('How to play shows every group, the Bonus tasks and the ledger of ambitions with them',await A.locator('#help-tut .tut-hl-l').count()===5&&await A.locator('#help-tut .tut-hl-l li[data-k="bnws"]').count()===1&&await A.locator('#help-tut .tut-en[data-k="res"]').count()===1);
 await saved();
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..');execFileSync(process.execPath,[path.join(ROOT,'jobs/fx/run.mjs'),'--project',PROJECT,'--region','meridian'],{env:{...process.env,FIRESTORE_EMULATOR_HOST:FS_HOST},encoding:'utf8'});
 await A.evaluate(()=>localStorage.removeItem('edictum.fx.v1'));await open(A);await nav(A,'exchange');await A.waitForSelector('.cu-conv');

@@ -51,14 +51,15 @@ const V25={settle:[2,{goods:3}],city:[4,{goods:5}],ruler:[2,{goods:3}],portrait:
   ug5:[5,{food:100,timber:100,iron:100,oil:100,goods:100}],road:[3,{timber:10}],prov:[3,{goods:10}],repeal:[3,{goods:10}],bid:[3,{iron:10}],lore:[3,{goods:10}],world:[3,{oil:10}]};
 const V25_BONUS={c:[3,{food:10,timber:10}],f:[2,{goods:10}],m:[3,{iron:10}],d:[5,{goods:20}]};
 const dbl=g=>Object.fromEntries(Object.entries(g).map(([k,v])=>[k,v*2]));
+const BONUS=['bcen','bach','batl','bwsl','bnam','bwnd','barm','bmus','bspy','bpst','bddr','bnws'];
 
-test('five groups: the main path, Build your future, the region, Make it your own and the ledger; every earlier key is kept',()=>{
+test('six groups: the main path, Build your future, the region, Make it your own, Bonus tasks and the ledger; every earlier key is kept',()=>{
   const r=rewards(),L=r.ctx.lists;
-  assert.deepEqual([...L].map(x=>x.k),['establish','future','region','own','ambitions']);
-  assert.deepEqual([...L].map(x=>x.c),['c','f','m','','d'],'the four letters of the lists before Version 26, so a bonus paid then is never paid again; Make it your own has none');
+  assert.deepEqual([...L].map(x=>x.k),['establish','future','region','own','bonus','ambitions']);
+  assert.deepEqual([...L].map(x=>x.c),['c','f','m','','','d'],'the four letters of the lists before Version 26, so a bonus paid then is never paid again; Make it your own has none');
   const keys=L.flatMap(x=>x.tasks.map(s=>s.k));assert.equal(new Set(keys).size,keys.length);
   for(const k of [...Object.keys(V25),'charter','google'])assert.ok(keys.includes(k),'an earlier key is kept: '+k);
-  assert.equal(keys.length,Object.keys(V25).length+2,'and no task is lost or added');
+  assert.equal(keys.length,Object.keys(V25).length+2+BONUS.length,'no task is lost, and the bonus tasks are the only ones added');
   assert.deepEqual([...L.flatMap(x=>x.tasks.filter(s=>s.own).map(s=>s.k))],['google']);
   assert.deepEqual([...G(r,'establish').tasks.map(s=>s.k)],['settle','land','build','issue','charter'],'settle, claim, build, three edicts, then the charter');
   assert.deepEqual([...G(r,'future').tasks.map(s=>s.k)],['city2','trade','exp','stamp']);assert.equal(G(r,'future').need,2);
@@ -357,4 +358,50 @@ test('hidden guidance stays hidden: the old lists’ choice carries over, and th
 test('the card is drawn from the real group code, so the probe and the page agree',()=>{
   assert.match(source,/TUTL:\{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard\(n\),phase:n=>tutPhase\(n\),picks:/);
   assert.match(source,/function pgGuided\(n\)\{return pgNew\(n\)&&!tutHid\(n\)&&!tutEstDone\(n\);\}/,'the banners come back once the main path is done, never held by cosmetics');
+});
+
+/* ── Bonus tasks ── */
+test('Bonus tasks: twelve corners of the game, each paying 1 land credit, 5 goods, 5 oil and 10 timber, with no letter and no bonus',()=>{
+  const r=rewards(),B=G(r,'bonus');
+  assert.deepEqual([...B.tasks.map(s=>s.k)],BONUS);assert.equal(B.c,'');assert.equal(B.bonus,null);assert.equal(B.opt,1);
+  assert.deepEqual([...B.unl],['c-lantern','e-lantern','t-thorough','a-lamplight']);
+  for(const s of B.tasks){assert.equal(s.lc,1,s.k);assert.deepEqual({...s.gift},{goods:5,oil:5,timber:10},s.k);assert.ok(!s.own,s.k);}
+  assert.notEqual(B.tasks[0].gift,B.tasks[1].gift,'each task has a gift of its own, so nothing shared is changed by accident');
+  for(const s of B.tasks)assert.ok(!s.lock||/settle|charter/i.test(s.lock.toString()),'no bonus task needs a sign-in, so a guest can finish them all: '+s.k);
+});
+
+test('each bonus task ticks itself off from the record and pays once, on any device',()=>{
+  const r=rewards();let n=nation({loc:3});r.save(n);n=r.reload(n);
+  const st={...n.stock},cr=r.ctx.credits(n);
+  Object.assign(n,{tly:{'view:census':1,spy:1,ddr:1,pst:1,'mw:takings':1},disc:[{s:1,f:1,nm:'Mount Pell'}],cz:{a:{on:1}},nwr:2,ach:{'fs-ach':1,'soc-ws1':1},wnx:{u:[1],l:5}});
+  const m=r.save(n);
+  for(const k of ['bcen','bach','bwsl','bnam','bwnd','barm','bmus','bspy','bpst','bddr','bnws'])assert.ok(n.tut.lc.includes(k),k+' '+m.join(' | '));
+  assert.ok(!n.tut.lc.includes('batl'),'the Atlas, not opened, waits');
+  assert.ok(n.tut.lc.includes('exp'),'a discovery also means an expedition was sent, which pays its own step');
+  assert.equal(r.ctx.credits(n),cr+11+4);assert.equal(n.stock.goods,st.goods+55);assert.equal(n.stock.oil,st.oil+55+10);assert.equal(n.stock.timber,st.timber+110);
+  const st2={...n.stock};n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.deepEqual(n.stock,st2,'never twice, on reload');
+});
+
+test('every bonus task done unlocks the Lantern charge and emblem, the Thorough and the Lamplight accent, and not one before',()=>{
+  const r=rewards(),src=r.ctx.unlocks.find(u=>u.how('t-thorough'));assert.ok(src,'the bonus tasks have an unlock source of their own');
+  assert.match(src.how('c-lantern'),/Bonus tasks/);assert.equal(src.how('t-founder'),null);
+  const n=nation({tut:{v:26,b:1,b2:1,lc:BONUS.slice(0,-1)}});assert.deepEqual([...src.earned(n)],[],'eleven of twelve unlock nothing');
+  n.tut.lc=BONUS.slice();assert.deepEqual([...src.earned(n)],['c-lantern','e-lantern','t-thorough','a-lamplight']);
+  for(const id of ['c-lantern','e-lantern','t-thorough','a-lamplight'])assert.equal(r.ctx.UNLOCKS[id].src,'tut',id);
+  assert.deepEqual([...src.earned({...n,npc:1})],[],'computer nations earn none');
+  /* the art and the blazon exist for the new charge */
+  assert.match(source,/case 'lantern':return S\(/);assert.match(source,/lantern:'a lantern'/);assert.match(source,/'e-lantern':'lantern'/);
+  assert.match(source,/:root\[data-accent="lamplight"\]\{--accent:#ad420f/);assert.match(source,/\.cz-asw\[data-a="lamplight"\]/);
+});
+
+test('the card offers a bonus task once the main path is done, and only one the nation can do now',()=>{
+  const {X,ctx}=card();ctx.DEVK='c';
+  const done=['city2','trade','exp','stamp','dsp','rch','dm','games','city','ruler','portrait','culture','flag','cust'];
+  const n=settled({dec:3,claims:[{c:1}],cities:[{id:'c1',b:[{k:'farm',s:1,d:2}]}],tut:{b:1,b2:1,v:26,lc:['settle','land','build','issue','charter',...done]}});ctx.S.nation=n;
+  const ks=X.tutPicks(n,'next').map(x=>x.k);
+  assert.ok(ks.length&&ks.every(k=>BONUS.includes(k)),'bonus tasks come next: '+ks);
+  assert.ok(!ks.includes('bnam'),'not naming a discovery before there is one to name');
+  assert.ok(!ks.includes('bwsl'),'nor a Willow Street letter before the first has come');
+  const h=X.tutCard(n);assert.match(h,/Bonus tasks · 0 of 12/,'and the group has its own button');
+  const est=settled();ctx.S.nation=est;assert.ok(!X.tutPicks(est,'est').some(x=>BONUS.includes(x.k)),'never before the main path is done');
 });
