@@ -10,11 +10,17 @@ const fn = name => { const i = src.indexOf('function ' + name + '('), j = src.in
 const line = start => { const i = src.indexOf(start), j = src.indexOf('\n', i); assert.ok(i >= 0, start); return src.slice(i, j); };
 const ctx = vm.createContext({});
 vm.runInContext(`${line('const DM_PEER_KEEP=')}
+${line('const DM_LABELS=')}
 ${line('const dmUid=')}
+${line('const esc = ')}
+${line('const DM_B=')}
+${line('const DM_BUL=')}
+${line('function dmInline(')}
+${line('function dmPlain(')}
 function num0(v){return typeof v==='number'&&isFinite(v)?v:0;}
-${fn('dmNorm')}${fn('dmxClean')}${fn('dmTrim')}
-this.api={dmNorm,dmxClean,dmTrim,DM_PEER_KEEP,DM_ALL_KEEP,DM_MAX,DM_CHARS};`, ctx);
-const { dmNorm, dmxClean, dmTrim, DM_PEER_KEEP, DM_ALL_KEEP, DM_MAX, DM_CHARS } = ctx.api;
+${fn('dmNorm')}${fn('dmxClean')}${fn('dmTrim')}${fn('dmRich')}
+this.api={dmNorm,dmxClean,dmTrim,dmRich,dmPlain,DM_PEER_KEEP,DM_ALL_KEEP,DM_MAX,DM_CHARS};`, ctx);
+const { dmNorm, dmxClean, dmTrim, dmRich, dmPlain, DM_PEER_KEEP, DM_ALL_KEEP, DM_MAX, DM_CHARS } = ctx.api;
 const plain = o => JSON.parse(JSON.stringify(o));
 
 test('the own copy keeps a letter’s note, answer, attachment and group, and nothing else', () => {
@@ -73,4 +79,34 @@ test('the own copy keeps every letter not yet sent, the last of each conversatio
   const few = { dm: [{ w: 'bob', t: 1, x: 'a' }] };
   dmTrim(few);
   assert.equal(few.dmx, undefined);
+});
+
+/* formatting (Messages ideas, 2026-11-14): **bold**, *italic* or _italic_, "- " and "1. " lists, blank lines between
+   paragraphs. The words are escaped first, so nothing else becomes markup */
+test('a letter’s marks become bold, italic, paragraphs and lists, and nothing else becomes markup', () => {
+  assert.equal(dmRich('Hello'), '<p>Hello</p>');
+  assert.equal(dmRich('**Grain** for *iron*, _now_.'), '<p><b>Grain</b> for <i>iron</i>, <i>now</i>.</p>');
+  assert.equal(dmRich('<b>hi</b> & "you"'), '<p>&lt;b&gt;hi&lt;/b&gt; &amp; &quot;you&quot;</p>');
+  assert.equal(dmRich('- <img src=x onerror=alert(1)>'), '<ul><li>&lt;img src=x onerror=alert(1)&gt;</li></ul>');
+  assert.equal(dmRich('Dear friends,\nwe propose:\n\n- grain\n- **iron**\n\n1. first\n2. second\nYours'),
+    '<p>Dear friends,\nwe propose:</p><ul><li>grain</li><li><b>iron</b></li></ul><ol><li>first</li><li>second</li></ol><p>Yours</p>');
+  assert.equal(dmRich('3. third\n4) fourth'), '<ol start="3"><li>third</li><li>fourth</li></ol>');
+  assert.equal(dmRich('* one\n• two'), '<ul><li>one</li><li>two</li></ul>');
+  // not marks: sums, names with underscores, a lone star, spaces inside
+  assert.equal(dmRich('2*3*4 = 24, snake_case_name, 5 * 3, ** not bold**, * not italic*'), '<p>2*3*4 = 24, snake_case_name, 5 * 3, ** not bold**, * not italic*</p>');
+  assert.equal(dmRich('-5 degrees\n2024. A year'), '<p>-5 degrees\n2024. A year</p>');
+  assert.equal(dmRich(''), '<p></p>');
+});
+
+test('the same letter without its marks, for the list of conversations, search and quotes', () => {
+  assert.equal(dmPlain('**Grain** for *iron*, _now_.'), 'Grain for iron, now.');
+  assert.equal(dmPlain('Terms:\n- grain\n* iron'), 'Terms:\n• grain\n• iron');
+  assert.equal(dmPlain('2*3*4 and snake_case'), '2*3*4 and snake_case');
+});
+
+test('conversation labels are kept as known letters in a fixed order, for conversations of a sensible id', () => {
+  const x = dmxClean({ lb: { bob: 'wtt', dan: 'zz', eve: '', 'gr:abc-3': 'ia', [ 'x'.repeat(91) ]: 't', fred: 7, gus: 'twafiTWAFI' } });
+  assert.deepEqual(plain(x), { lb: { bob: 'tw', 'gr:abc-3': 'ai' } });
+  assert.equal(dmxClean({ lb: { bob: 'q' } }), null);
+  assert.equal(dmxClean({ lb: 'tw' }), null);
 });

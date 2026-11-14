@@ -669,6 +669,42 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .dm-quoting{display:flex;align-items:flex-start;gap:8px}
 .dm-quoting .dm-q{flex:1;margin:0}
 .dm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+/* a formatted letter: paragraphs, lists, bold and italic; the writing box's formatting bar and preview */
+.dm-x p+p,.dm-x p+ul,.dm-x p+ol,.dm-x ul+p,.dm-x ol+p,.dm-x ul+ol,.dm-x ol+ul{margin-top:7px}
+.dm-x ul,.dm-x ol{margin:0;padding-left:20px;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.dm-x li{white-space:pre-wrap}
+.dm-x li+li{margin-top:2px}
+.dm-x b{font-weight:700}
+.dm-lblrow{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dm-lblrow .lbl{margin-bottom:0}
+.dm-fmt{display:flex;gap:2px;margin-bottom:4px}
+.dm-fmt-b{display:grid;place-items:center;min-width:30px;height:28px;padding:0 6px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet);color:var(--ink-2);font:600 13px/1 var(--f-body);cursor:pointer}
+.dm-fmt-b:hover{border-color:var(--ink-3);color:var(--ink)}
+.dm-fmt-b i{font-family:Georgia,serif;font-weight:400;font-size:14px}
+.dm-fmt-p{margin-left:6px;font-size:12px;font-weight:500}
+.dm-fmt-p[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.dm-prev{margin:8px 0 2px;max-width:none}
+.dm-prev[hidden]{display:none}
+.dm-prev-h{margin:0 0 4px!important;font:500 10.5px/1.2 var(--f-mono)!important;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.dm-fmt-h{font-size:12px}
+@media (max-width:600px){.dm-fmt-h{display:none}}
+/* labels on conversations: a dot in the list, a pill in the conversation's head, a chip to filter by */
+.dm-lb-t{--lbc:var(--series-1)}.dm-lb-w{--lbc:var(--down)}.dm-lb-a{--lbc:var(--stamp)}.dm-lb-f{--lbc:var(--up)}.dm-lb-i{--lbc:var(--series-4)}
+.dm-dot{display:inline-block;flex:none;width:8px;height:8px;border-radius:50%;background:var(--lbc)}
+.dm-lbds{display:inline-flex;gap:3px;align-items:center;margin-left:6px;vertical-align:middle}
+.dm-lbp{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;border:1px solid var(--lbc);background:color-mix(in srgb,var(--lbc) 14%,var(--sheet));color:var(--ink);font-size:11.5px;font-weight:600;line-height:1.5;white-space:nowrap}
+.dm-lbf{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.dm-lbc{display:inline-flex;align-items:center;gap:5px}
+.dm-lbc.on,.dm-lbc[aria-pressed="true"]{border-color:var(--lbc,var(--accent));background:color-mix(in srgb,var(--lbc,var(--accent)) 16%,var(--sheet));color:var(--ink)}
+.dm-lbc .dm-dot{width:7px;height:7px}
+.dm-lbn{margin-left:2px;font:500 11px/1 var(--f-mono);color:var(--ink-3)}
+.dm-af{display:flex;align-items:center;gap:6px}
+.dm-af .input{width:auto;flex:1;min-width:0;padding:4px 8px;font-size:12.5px}
+.dm-menu-lb{display:grid;gap:6px;padding-bottom:8px;border-bottom:1px solid var(--rule)}
+.dm-menu-lbs{display:flex;flex-wrap:wrap;gap:5px}
+.dm-menu-lbs .chip-btn{padding:3px 8px;font-size:12px}
+.als-bar{gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 18px}
+.als-t td{vertical-align:top}
 .dm-kind{width:auto;max-width:230px;padding:5px 8px;font-size:13px}
 .dm-att{position:relative}
 .dm-att-p{position:absolute;left:0;top:calc(100% + 6px);z-index:8;display:grid;gap:8px;min-width:260px;padding:12px 14px;background:var(--sheet);border:1px solid var(--rule-2);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.14)}
@@ -22059,6 +22095,10 @@ const DM_NOTES={congrats:['Note of Congratulation','On behalf of the people of {
   treaty:['Proposal of Treaty','{ME} proposes a treaty with {THEM} on the following terms: ']};
 const DM_ATT={deal:'Trade offer',peace:'Peace',ally:'Alliance invitation',city:'A city',ach:'An achievement',idea:'A trade idea'};
 const DM_FILTERS=[['all','All'],['unread','Unread'],['players','Players'],['computer','Computer'],['offices','Offices'],['groups','Groups'],['archived','Archived']];
+/* labels a player puts on conversations (dmx.lb {peer: the labels' letters}), only for themselves; and the filter by
+   what the letters carry, where an offer still open counts and one settled does not */
+const DM_LABELS=[['t','Trade'],['w','War'],['a','Alliance'],['f','Friends'],['i','Important']];
+const DM_AF=[['','Any letters'],['deal','Open trade offers'],['peace','Open peace offers'],['ally','Open alliance invitations'],['city','Cities'],['ach','Achievements']];
 const dmIsGroup=id=>typeof id==='string'&&/^(gr|al):/.test(id);
 const dmUid=v=>typeof v==='string'&&/^[\w-]{1,128}$/.test(v);
 const dmDay=()=>Math.floor(Date.now()/864e5);
@@ -22067,6 +22107,52 @@ const dmRR=()=>dmx(S.nation).rr!==0;
 const dmBlocked=id=>(dmx(S.nation).bl||[]).includes(id);
 const dmMuted=id=>!!(dmx(S.nation).mu||{})[id];
 const dmOff=id=>!!(dmx(S.nation).off||{})[id];
+/* a player's letter may be formatted, as typed: **bold**, *italic* (or _italic_), a line starting with "- " (or "* ",
+   "• ") for a bulleted list and "1. " for a numbered one; a blank line starts a new paragraph. The words are escaped
+   first, so nothing typed becomes markup but these. Offices and computer-run nations write plain letters. */
+const DM_B=/\*\*(?=\S)([^\n]*?\S)\*\*/g,DM_I=/(^|[^\w*])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?![\w*])/g,DM_U=/(^|[^\w_])_(?=[^\s_])([^_\n]*?[^\s_])_(?![\w_])/g;
+const DM_BUL=/^\s*[-*•]\s+(.*)$/,DM_NUM=/^\s*(\d{1,3})[.)]\s+(.*)$/;
+function dmInline(s){return s.replace(DM_B,'<b>$1</b>').replace(DM_I,'$1<i>$2</i>').replace(DM_U,'$1<i>$2</i>');}
+function dmRich(x){
+  const out=[];let para=[],list=null;
+  const endP=()=>{if(para.length){out.push(`<p>${dmInline(esc(para.join('\n')))}</p>`);para=[];}};
+  const endL=()=>{if(list){out.push(`<${list.t}${list.t==='ol'&&list.s!==1?` start="${list.s}"`:''}>${list.i.map(t=>`<li>${dmInline(esc(t))}</li>`).join('')}</${list.t}>`);list=null;}};
+  for(const ln of String(x).split('\n')){
+    const b=DM_BUL.exec(ln),o=b?null:DM_NUM.exec(ln);
+    if(b||o){endP();const t=b?'ul':'ol';if(!list||list.t!==t){endL();list={t,s:o?Math.max(1,+o[1]):1,i:[]};}list.i.push(b?b[1]:o[2]);continue;}
+    endL();if(!ln.trim()){endP();continue;}para.push(ln);
+  }
+  endP();endL();return out.join('')||'<p></p>';
+}
+/* the same letter without its marks: for the list of conversations, search, and the words an answer quotes */
+function dmPlain(x){return String(x).replace(DM_B,'$1').replace(DM_I,'$1$2').replace(DM_U,'$1$2').replace(/^\s*[-*•]\s+/gm,'• ');}
+/* the writing box's formatting buttons: they put the marks around the selection (or the word being typed) or before
+   each chosen line; Ctrl+B and Ctrl+I do the same. Preview shows the letter as it will look */
+const DM_FMT=[['b','Bold','<b>B</b>','Ctrl+B'],['i','Italic','<i>I</i>','Ctrl+I'],['ul','Bulleted list','<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5" cy="7" r="1.6" fill="currentColor"/><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="5" cy="17" r="1.6" fill="currentColor"/><path d="M9.5 7h10M9.5 12h10M9.5 17h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',''],
+  ['ol','Numbered list','<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 5.5h1.5v4M4 9.5h3M3.8 13.6c.4-.6 1-.9 1.6-.9.8 0 1.4.5 1.4 1.2 0 1.2-3 2-3 3.6h3.2M9.5 7h10M9.5 12h10M9.5 17h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>','']];
+function dmFmtBar(){
+  return `<div class="dm-fmt" role="toolbar" aria-label="Formatting" aria-controls="dm-text">${DM_FMT.map(([k,l,ic,key])=>`<button type="button" class="dm-fmt-b" data-act="dm-fmt" data-k="${k}" aria-label="${l}" title="${l}${key?' ('+key+')':''}">${ic}</button>`).join('')}<button type="button" class="dm-fmt-b dm-fmt-p" data-act="dm-prev" aria-pressed="${!!S.dmPrev}" title="Show how the letter will look">Preview</button></div>`;
+}
+function dmFmtApply(ta,k){
+  const v=ta.value,a=ta.selectionStart,b=ta.selectionEnd;let out,s0,s1;
+  if(k==='b'||k==='i'){
+    const mk=k==='b'?'**':'*';let st=a,en=b;
+    if(st===en){while(st>0&&/\S/.test(v[st-1]))st--;while(en<v.length&&/\S/.test(v[en]))en++;}
+    const sel=v.slice(st,en);
+    /* marked already: the marks come off */
+    if(sel.length>=2*mk.length&&sel.startsWith(mk)&&sel.endsWith(mk)&&!(k==='i'&&sel.startsWith('**'))){out=v.slice(0,st)+sel.slice(mk.length,-mk.length)+v.slice(en);s0=st;s1=en-2*mk.length;}
+    else{out=v.slice(0,st)+mk+sel+mk+v.slice(en);s0=st+mk.length;s1=s0+sel.length;}
+  }else{
+    const ls=v.lastIndexOf('\n',a-1)+1,le0=v.indexOf('\n',Math.max(a,b-1)),le=le0<0?v.length:le0,lines=v.slice(ls,le).split('\n');
+    const re=k==='ul'?DM_BUL:DM_NUM,all=lines.every(l=>re.test(l));
+    const nl=lines.map((l,i)=>all?l.replace(k==='ul'?/^\s*[-*•]\s+/:/^\s*\d{1,3}[.)]\s+/,''):(k==='ul'?'- ':(i+1)+'. ')+l.replace(/^\s*([-*•]|\d{1,3}[.)])\s+/,'')).join('\n');
+    out=v.slice(0,ls)+nl+v.slice(le);s0=ls;s1=ls+nl.length;
+  }
+  if(out.length>DM_MAX){toast(`A letter holds ${fmt0(DM_MAX)} characters.`);return;}
+  ta.value=out;ta.focus();try{ta.setSelectionRange(s0,s1);}catch(e){}
+  ta.dispatchEvent(new Event('input',{bubbles:true}));
+}
+function dmPrevPaint(){const p=document.getElementById('dm-prev');if(!p)return;const x=String(S.msgDraft||'');p.hidden=!S.dmPrev||!x.trim();const d=p.querySelector('.dm-x');if(d&&S.dmPrev)d.innerHTML=dmRich(x);}
 /* the record's own copy, as normalize keeps it */
 function dmNorm(m){
   const o={w:String(m.w).slice(0,90),t:num0(m.t),x:String(m.x).slice(0,DM_MAX+100)};
@@ -22088,6 +22174,8 @@ function dmxClean(x){
   for(const k of ['mu','pin','off']){const m=map(x[k],v=>v===1);if(Object.keys(m).length)o[k]=m;}
   for(const k of ['arc','del','cut']){const m=map(x[k],v=>typeof v==='number'&&isFinite(v));if(Object.keys(m).length)o[k]=m;}
   for(const k of ['nl','nw'])if(typeof x[k]==='number'&&isFinite(x[k]))o[k]=x[k];
+  const lb=map(x.lb,v=>typeof v==='string'&&v.length<=8);for(const k of Object.keys(lb)){const v=DM_LABELS.map(l=>l[0]).filter(c=>lb[k].includes(c)).join('');if(v)lb[k]=v;else delete lb[k];}
+  if(Object.keys(lb).length)o.lb=lb;
   return Object.keys(o).length?o:null;
 }
 NORM_HOOKS.push((n,d)=>{const x=dmxClean(d&&d.dmx);if(x)n.dmx=x;});
@@ -22407,7 +22495,7 @@ function dmSetPeer(id){
 function dmGroupTo(id){const me=myId(),g=dmGroupMeta(id);return g.m.filter(x=>x!==me&&!NPC_SET.has(x)&&findNation(x)&&!dmBlocked(x));}
 function dmNoteText(k,peer){const n=S.nation,t=DM_NOTES[k];return t?t[1].replace('{ME}',n.name).replace('{THEM}',dmIsGroup(peer)?'its friends':nameOf(peer)):'';}
 function sendDm(){
-  const peer=S.msgPeer,x=String(S.msgDraft||'').trim().replace(/\s+\n/g,'\n').slice(0,DM_MAX),c=S.dmCompose||{};
+  const peer=S.msgPeer,x=String(S.msgDraft||'').trim().replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').slice(0,DM_MAX),c=S.dmCompose||{};
   const grp=dmIsGroup(peer);
   if(!peer||(!grp&&!dmFind(peer))){S.msgErr='Choose who to write to.';render();return;}
   if(isOffice(peer))return;
@@ -22441,7 +22529,7 @@ function dmBlock(id,on){
 /* delete a conversation for us: our copy, the letters to us on the server, and anything older than now */
 function dmDelete(peer){
   const me=myId(),ids=LT.list.filter(l=>(l.g?l.g.id:l.by)===peer).map(l=>l.id).concat((LT.older[peer]||[]).filter(l=>l.by!==me).map(l=>l.id));
-  dmSet((x,n)=>{const d=x.del||(x.del={});d[peer]=Date.now();n.dm=(n.dm||[]).filter(m=>m.w!==peer||m.q);if(x.pin)delete x.pin[peer];if(x.arc)delete x.arc[peer];},false);
+  dmSet((x,n)=>{const d=x.del||(x.del={});d[peer]=Date.now();n.dm=(n.dm||[]).filter(m=>m.w!==peer||m.q);if(x.pin)delete x.pin[peer];if(x.arc)delete x.arc[peer];if(x.lb)delete x.lb[peer];},false);
   ltForget(l=>(l.g?l.g.id:l.by)===peer);delete LT.older[peer];
   if(ids.length&&S.mode==='world')ltApi().then(api=>api&&typeof api.remove==='function'&&api.remove(ids)).catch(()=>{});
   const d=dmDrafts();delete d[peer];S.msgPeer=null;S.msgDraft='';S.dmCompose={};S.dmConfirm=null;dmDraftKeep();render();toast('The conversation is deleted.');
@@ -22493,6 +22581,22 @@ function dmAttOptions(peer){
   const ach=achEarnedIds(n).sort((a,b)=>num0(n.ach[b])-num0(n.ach[a])).slice(0,5);for(const id of ach)out.push([{k:'ach',id},`Achievement: ${ACH_BY_ID[id].n}`]);
   return out;
 }
+/* a conversation's labels, and the marks that show them */
+const dmLabels=id=>String((dmx(S.nation).lb||{})[id]||'');
+const dmLabelName=k=>(DM_LABELS.find(l=>l[0]===k)||[k,k])[1];
+function dmLabel(id,k){dmSet(x=>{const m=x.lb||(x.lb={}),cur=String(m[id]||'');m[id]=cur.includes(k)?cur.replace(k,''):cur+k;if(!m[id])delete m[id];});}
+function dmLabelDots(id){const c=dmLabels(id);if(!c)return '';const names=[...c].map(dmLabelName);
+  return `<span class="dm-lbds" title="${esc(names.join(', '))}">${[...c].map(k=>`<i class="dm-dot dm-lb-${k}" aria-hidden="true"></i>`).join('')}<span class="sr">Labels: ${esc(names.join(', '))}</span></span>`;}
+const dmLabelPills=id=>[...dmLabels(id)].map(k=>`<span class="dm-lbp dm-lb-${k}">${esc(dmLabelName(k))}</span>`).join('');
+/* a letter's attachment still waiting on someone: a trade offer not yet answered, a war a peace offer could still end,
+   an invitation not yet taken up. A city or an achievement always counts */
+function dmAttOpen(a,m,peer,E){
+  if(!a)return false;const me=myId();
+  if(a.k==='deal'){const p=(E||economy()).pending.find(d=>d.id===a.id);return !!p&&!p.declined;}
+  if(a.k==='peace'){try{return !!warWith(m.mine?peer:m.from).war;}catch(e){return false;}}
+  if(a.k==='ally'){const A=politics().al.get(a.id);if(!A)return false;return m.mine?!A.members.includes(peer):!A.members.includes(me)&&A.invited.includes(me);}
+  return a.k==='city'||a.k==='ach';
+}
 
 /* ── the page ── */
 const dmDayLabel=t=>{const d=new Date(t),s=new Date();s.setHours(0,0,0,0);const y=new Date(s.getTime()-DAY);return t>=s.getTime()?'Today':t>=y.getTime()?'Yesterday':fmtDate(t);};
@@ -22533,20 +22637,23 @@ function messagesView(){
   if(S.view==='messages'&&typeof cuLoad==='function')try{cuLoad();}catch(e){}
   /* the alliance's own conversation is always listed, even before its first letter */
   const al=dmAlliance();if(al&&!th.has(al.id)&&!(x.del&&x.del[al.id]))th.set(al.id,[]);
-  const F=S.dmF||'all',q=String(S.dmS||'').trim().toLowerCase(),pin=x.pin||{};
+  const F=S.dmF||'all',q=String(S.dmS||'').trim().toLowerCase(),pin=x.pin||{},LF=DM_LABELS.some(l=>l[0]===S.dmL)?S.dmL:'',AF=DM_AF.some(o=>o[0]===S.dmA)?S.dmA:'',E=AF==='deal'?economy():null;
   for(const id of th.keys())xnLoad(id);
   const peers=[...th.keys()].filter(id=>dmFind(id)||isOffice(id)||dmIsGroup(id)).filter(id=>{
-    const a=th.get(id),arc=dmArchived(id,a);if(F==='archived')return arc;if(arc)return false;
+    const a=th.get(id),arc=dmArchived(id,a);
+    if(LF&&!dmLabels(id).includes(LF))return false;
+    if(AF&&!a.some(m=>m.a&&m.a.k===AF&&dmAttOpen(m.a,m,id,E)))return false;
+    if(F==='archived')return arc;if(arc)return false;
     if(F==='unread')return dmUnreadIn(id,a,seen)>0;if(F!=='all'&&dmKind(id)!==F)return false;
-    if(q)return nameOf(id).toLowerCase().includes(q)||a.some(m=>m.x.toLowerCase().includes(q));return true;
+    if(q)return nameOf(id).toLowerCase().includes(q)||a.some(m=>dmPlain(m.x).toLowerCase().includes(q));return true;
   }).sort((a,b)=>(pin[b]?1:0)-(pin[a]?1:0)||((th.get(b).slice(-1)[0]||{t:0}).t-(th.get(a).slice(-1)[0]||{t:0}).t));
   const others=allNations().filter(y=>!y.me).sort((a,b)=>(a.npc?1:0)-(b.npc?1:0)||a.n.name.localeCompare(b.n.name));
   const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,grp=dmIsGroup(peer),px=peer&&!po&&!grp?dmFind(peer):null,all=peer?(th.get(peer)||[]):[];
   const shown=DM_SHOW*((LT.more[peer]||0)+1),thread=all.slice(-shown),hidden=all.length-thread.length;
   const lastMine=[...thread].reverse().find(m=>m.mine&&!m.q),peerSeen=px&&!px.npc&&!grp&&dmRR()?Math.max(num0(LT.seen[peer]),num0(px.n.seenDm&&px.n.seenDm[me])):0;
-  const snip=(a)=>{if(!q)return '';const m=[...a].reverse().find(m=>m.x.toLowerCase().includes(q));if(!m)return '';const i=m.x.toLowerCase().indexOf(q),s=Math.max(0,i-24);return `<span class="dm-hit">${s?'…':''}${esc(m.x.slice(s,i))}<mark>${esc(m.x.slice(i,i+q.length))}</mark>${esc(m.x.slice(i+q.length,i+q.length+40))}</span>`;};
+  const snip=(a)=>{if(!q)return '';const m=[...a].reverse().find(m=>dmPlain(m.x).toLowerCase().includes(q));if(!m)return '';const x=dmPlain(m.x),i=x.toLowerCase().indexOf(q),s=Math.max(0,i-24);return `<span class="dm-hit">${s?'…':''}${esc(x.slice(s,i))}<mark>${esc(x.slice(i,i+q.length))}</mark>${esc(x.slice(i+q.length,i+q.length+40))}</span>`;};
   const conv=peers.map(id=>{const a=th.get(id),last=a[a.length-1],un=dmUnreadIn(id,a,seen),mu=dmMuted(id);
-    return `<li><button class="conv${id===peer?' on':''}${un&&!mu?' un':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${dmFace(id)}</span><span class="conv-t"><b>${pin[id]?'<span class="dm-pin" title="Pinned">📌</span>':''}${esc(nameOf(id))}${!dmIsGroup(id)&&isStaff(id)?STAFF_PILL:''}${!dmIsGroup(id)?dmFounder(id):''}${mu?'<span class="dm-mu" title="Muted">🔕</span>':''}</b><span>${last?`${last.mine?'You: ':dmIsGroup(id)?esc(nameOf(last.from))+': ':''}${esc(last.x.slice(0,60))}`:'No letters yet. Write to every member at once.'}</span>${snip(a)}</span><span class="conv-m">${last?rel(last.t):''}${un?`<span class="badge${mu?' quiet':''}" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
+    return `<li><button class="conv${id===peer?' on':''}${un&&!mu?' un':''}" data-act="dm-peer" data-id="${esc(id)}"><span class="mflag">${dmFace(id)}</span><span class="conv-t"><b>${pin[id]?'<span class="dm-pin" title="Pinned">📌</span>':''}${esc(nameOf(id))}${!dmIsGroup(id)&&isStaff(id)?STAFF_PILL:''}${!dmIsGroup(id)?dmFounder(id):''}${mu?'<span class="dm-mu" title="Muted">🔕</span>':''}${dmLabelDots(id)}</b><span>${last?`${last.mine?'You: ':dmIsGroup(id)?esc(nameOf(last.from))+': ':''}${esc(dmPlain(last.x).replace(/\s+/g,' ').slice(0,60))}`:'No letters yet. Write to every member at once.'}</span>${snip(a)}</span><span class="conv-m">${last?rel(last.t):''}${un?`<span class="badge${mu?' quiet':''}" aria-label="${un} unread">${un}</span>`:''}</span></button></li>`;}).join('');
   const pst=!!px&&!px.npc&&isStaff(px.id);
   /* the letters, with a line for each day, and the tools of each letter */
   let day='';
@@ -22555,15 +22662,17 @@ function messagesView(){
     const st=!m.mine&&(pst||isStaff(m.from))&&!m.npc,P=m.mine?dmPaper(me):!m.npc&&!isOffice(m.from)?dmPaper(m.from):{lp:'',ls:'',lg:'',lm:''};
     const status=m.b?' · Not delivered: this nation does not accept your letters':m.h==='cap'?` · Waiting for a reply: you have written ${DM_CAP} letters in a row`:m.h==='day'?' · Waits until tomorrow: 150 letters a day':m.q?(Array.isArray(m.to)?` · Delivered to ${(m.qd||[]).length} of ${m.to.length}`:' · Not sent yet'):m===lastMine&&peerSeen>=m.t?' · Seen':'';
     const note=m.k&&DM_NOTES[m.k]?`<p class="dm-note-h">${esc(DM_NOTES[m.k][0])}</p>`:'';
-    const quote=m.r?`<blockquote class="dm-q">${esc(m.r.x)}</blockquote>`:'';
+    const quote=m.r?`<blockquote class="dm-q">${esc(dmPlain(m.r.x))}</blockquote>`:'';
     const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}${dmFounder(m.from)}</span>`:'';
     const tools=po?'':`<span class="bub-tools">${m.q&&m.mine?`<button type="button" class="linkish small" data-act="dm-withdraw" data-t="${m.t}">Withdraw</button>`:`<button type="button" class="linkish small" data-act="dm-reply" data-t="${m.t}" data-from="${esc(m.from)}">Reply</button>`}${!m.mine&&!m.npc&&!isOffice(m.from)&&S.mode==='world'?`<button type="button" class="linkish small" data-act="dm-report" data-t="${m.t}" data-from="${esc(m.from)}">Report</button>`:''}</span>`;
-    return `${sep}<li class="bub${m.mine?' mine':''}${st?' staff':''}${P.lp?' '+lpClass(P.lp):''}${m.k?' note':''}${P.lm?' has-pm':''}"${lpGlyph(P.lp)}>${P.lm?dmStamp(m.mine?me:m.from,P.lm,m.t):''}${st?'<span class="bub-staff">Edictum staff</span>':''}${who}${note}${quote}<p>${esc(m.x)}</p>${m.a?dmAttCard(m.a,m.from,m.mine,peer):''}${dmSign(m.mine?me:m.from,m.npc?'':P.lg)}${dmWax(m.mine?me:m.from,P.ls)}<span class="bub-t" title="${esc(dmClock(m.t))}">${rel(m.t)}${status}</span>${tools}</li>`;
+    return `${sep}<li class="bub${m.mine?' mine':''}${st?' staff':''}${P.lp?' '+lpClass(P.lp):''}${m.k?' note':''}${P.lm?' has-pm':''}"${lpGlyph(P.lp)}>${P.lm?dmStamp(m.mine?me:m.from,P.lm,m.t):''}${st?'<span class="bub-staff">Edictum staff</span>':''}${who}${note}${quote}${m.npc||isOffice(m.from)?`<p>${esc(m.x)}</p>`:`<div class="dm-x">${dmRich(m.x)}</div>`}${m.a?dmAttCard(m.a,m.from,m.mine,peer):''}${dmSign(m.mine?me:m.from,m.npc?'':P.lg)}${dmWax(m.mine?me:m.from,P.ls)}<span class="bub-t" title="${esc(dmClock(m.t))}">${rel(m.t)}${status}</span>${tools}</li>`;
   }).join('');
   const more=hidden>0||(px&&!px.npc&&S.mode==='world'&&!LT.olderEnd[peer]&&all.length>=Math.min(DM_SHOW,8))?`<li class="dm-more"><button type="button" class="linkish small" data-act="dm-older"${S.dmBusy?' disabled':''}>${S.dmBusy?'Fetching earlier letters…':'Show earlier letters'}</button></li>`:'';
   /* the conversation's own menu: pin, mute, archive, delete, block */
   const mOpen=S.dmMenu===peer,mBtn=`<button type="button" class="linkish small dm-menu-b" data-act="dm-menu" aria-expanded="${mOpen}" aria-label="Conversation options">Options</button>`;
+  const lbHave=peer?dmLabels(peer):'';
   const menu=peer&&!po?`<div class="dm-menu">${mBtn}${mOpen?`<div class="dm-menu-p">
+      <div class="dm-menu-lb" role="group" aria-label="Labels"><span class="hint">Labels, only for you</span><div class="dm-menu-lbs">${DM_LABELS.map(([k,l])=>`<button type="button" class="chip-btn dm-lbc dm-lb-${k}${lbHave.includes(k)?' on':''}" data-act="dm-label" data-id="${esc(peer)}" data-v="${k}" aria-pressed="${lbHave.includes(k)}"><i class="dm-dot dm-lb-${k}" aria-hidden="true"></i>${l}</button>`).join('')}</div></div>
       <button type="button" class="linkish small" data-act="dm-pin" data-id="${esc(peer)}">${pin[peer]?'Unpin':'Pin to the top'}</button>
       <button type="button" class="linkish small" data-act="dm-mute" data-id="${esc(peer)}">${dmMuted(peer)?'Unmute':'Mute: no notices, no badge'}</button>
       <button type="button" class="linkish small" data-act="dm-arc" data-id="${esc(peer)}">${dmArchived(peer,all)?'Move back to the inbox':'Archive'}</button>
@@ -22574,20 +22683,23 @@ function messagesView(){
   const c=S.dmCompose||{},opts=peer&&!po?dmAttOptions(peer):[];
   const unans=px&&!px.npc?(()=>{let k=0;for(let i=all.length-1;i>=0;i--){if(!all[i].mine)break;k++;}return k;})():0;
   const comp=peer&&!po?`<form id="dm-form" class="dm-form" novalidate>
-      ${c.r?`<div class="dm-quoting"><blockquote class="dm-q">${esc(c.r.x)}</blockquote><button type="button" class="linkish small" data-act="dm-unquote" aria-label="Stop answering that letter">×</button></div>`:''}
+      ${c.r?`<div class="dm-quoting"><blockquote class="dm-q">${esc(dmPlain(c.r.x))}</blockquote><button type="button" class="linkish small" data-act="dm-unquote" aria-label="Stop answering that letter">×</button></div>`:''}
       <div class="dm-tools"><label class="cz-sr" for="dm-kind">Kind of letter</label><select class="input dm-kind" id="dm-kind" data-bind="dmkind"><option value="">A letter</option>${Object.entries(DM_NOTES).map(([k,v])=>`<option value="${k}"${c.k===k?' selected':''}>${esc(v[0])}</option>`).join('')}</select>
         ${opts.length?`<div class="dm-att"><button type="button" class="btn ghost small dm-att-b" data-act="dm-attmenu" aria-expanded="${!!S.dmAttOpen}">Attach</button>${S.dmAttOpen?`<div class="dm-att-p">${opts.map(([a,l],i)=>`<button type="button" class="linkish small" data-act="dm-attach" data-i="${i}">${esc(l)}</button>`).join('')}</div>`:''}</div>`:''}
         ${!grp&&px&&!px.npc&&!px.far?`<button type="button" class="linkish small" data-act="go" data-v="trade" data-dm-trade="${esc(peer)}">Propose a deal</button>`:''}</div>
       ${c.a?`<div class="dm-att-chip"><span>${esc(DM_ATT[c.a.k]||'Attachment')}: ${esc((opts.find(o=>JSON.stringify(o[0])===JSON.stringify(c.a))||[0,c.a.nm||''])[1])}</span><button type="button" class="linkish small" data-act="dm-unattach" aria-label="Remove the attachment">×</button></div>`:''}
-      <label class="lbl" for="dm-text">${grp?`Letter to ${esc(nameOf(peer))}`:`Message to ${esc(px.n.name)}`}</label><textarea class="input" id="dm-text" data-bind="dm" maxlength="${DM_MAX}" rows="4" placeholder="${grp?'Dear friends…':'Your Excellency…'}">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}
+      <div class="dm-lblrow"><label class="lbl" for="dm-text">${grp?`Letter to ${esc(nameOf(peer))}`:`Message to ${esc(px.n.name)}`}</label>${dmFmtBar()}</div><textarea class="input" id="dm-text" data-bind="dm" maxlength="${DM_MAX}" rows="4" placeholder="${grp?'Dear friends…':'Your Excellency…'}" aria-describedby="dm-fmt-h">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}
+      <div class="dm-prev bub"${S.dmPrev&&String(S.msgDraft||'').trim()?'':' hidden'} id="dm-prev" aria-live="polite"><p class="dm-prev-h">Preview</p><div class="dm-x">${S.dmPrev?dmRich(S.msgDraft||''):''}</div></div>
       ${unans>=DM_CAP-2&&!isStaff(me)?`<p class="hint dm-warn">${unans>=DM_CAP?`You have written ${DM_CAP} letters in a row. The next waits until ${esc(px.n.name)} answers.`:`You have written ${unans} letters in a row; after ${DM_CAP}, the next waits for an answer.`}</p>`:''}
-      <div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / ${fmt0(DM_MAX)}</span><span class="hint dm-keys">Ctrl+Enter sends</span></div></form>`:'';
+      <div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / ${fmt0(DM_MAX)}</span><span class="hint dm-keys">Ctrl+Enter sends</span><span class="hint dm-fmt-h" id="dm-fmt-h">**bold**, *italic*, “- ” or “1. ” starts a list</span></div></form>`:'';
   const office=po?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${po.seal}</span><b>${esc(po.name)}</b><span class="chip">Office of ${esc(REG.the)}</span>${po.go?`<button class="linkish small" data-act="go" data-v="${po.go[0]}">${esc(po.go[1])}</button>`:''}${menu}</div>${confirm}
       <ol class="bubs">${more}${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.</p>`:'';
   const gm=grp?dmGroupMeta(peer):null;
-  const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span><span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
-    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
-  const filters=`<div class="dm-filters" role="group" aria-label="Show">${DM_FILTERS.map(([k,l])=>`<button type="button" class="chip-btn${F===k?' on':''}" data-act="dm-filter" data-v="${k}" aria-pressed="${F===k}">${l}</button>`).join('')}</div>`;
+  const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span>${dmLabelPills(peer)}<span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
+    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}${dmLabelPills(peer)}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
+  const filters=`<div class="dm-filters" role="group" aria-label="Show">${DM_FILTERS.map(([k,l])=>`<button type="button" class="chip-btn${F===k?' on':''}" data-act="dm-filter" data-v="${k}" aria-pressed="${F===k}">${l}</button>`).join('')}</div>`
+    +`<div class="dm-lbf"><div class="dm-filters dm-lbs" role="group" aria-label="Labels">${DM_LABELS.map(([k,l])=>{const c=[...th.keys()].filter(id=>dmLabels(id).includes(k)).length;return `<button type="button" class="chip-btn dm-lbc dm-lb-${k}${LF===k?' on':''}" data-act="dm-lfilter" data-v="${k}" aria-pressed="${LF===k}"><i class="dm-dot dm-lb-${k}" aria-hidden="true"></i>${l}${c?`<span class="dm-lbn">${c}</span>`:''}</button>`;}).join('')}</div>`
+    +`<label class="dm-af"><span class="hint">With</span><select class="input" id="dm-af" aria-label="Show the conversations whose letters carry">${DM_AF.map(([k,l])=>`<option value="${k}"${AF===k?' selected':''}>${l}</option>`).join('')}</select></label></div>`;
   const pick=S.dmGroupPick?`<div class="dm-gpick"><p class="lbl">A letter to several nations (up to ${DM_GROUP_MAX})</p><input class="input" id="dm-gname" maxlength="60" placeholder="A name for the conversation (optional)" value="${esc(S.dmGName||'')}" data-bind="dmgname"><div class="dm-gl">${others.filter(y=>!y.npc&&!dmBlocked(y.id)).map(y=>`<label><input type="checkbox" data-act="dm-gsel" value="${esc(y.id)}"${(S.dmGSel||[]).includes(y.id)?' checked':''}> ${esc(y.n.name)}</label>`).join('')||'<p class="hint">No other player nations in the region yet.</p>'}</div><div class="row"><button type="button" class="btn small" data-act="dm-gstart"${(S.dmGSel||[]).length<2?' disabled':''}>Start writing</button><button type="button" class="btn ghost small" data-act="dm-gcancel">Cancel</button></div></div>`:'';
   return `<header class="vh dm-head"><div><p class="eyebrow">Diplomatic bag</p><h1>Messages</h1><p>Write to any nation in ${REGION}. Letters to players arrive at once, wherever they are; computer-run nations answer within a minute or two, and sometimes write first.</p></div>
     <div class="dm-head-b"><button type="button" class="btn ghost small" data-act="go" data-v="settings" data-sg-tab="letters">Settings</button><button type="button" class="btn ghost small" data-act="dm-cz">Customise</button></div></header>
@@ -22596,7 +22708,7 @@ function messagesView(){
       ${S.mode==='world'?`<button type="button" class="linkish small dm-gnew" data-act="dm-gpick">${S.dmGroupPick?'':'Write to several nations at once'}</button>`:''}${pick}
       ${S.isOwner&&S.mode==='world'?`<form class="dm-xn" id="dm-xn-form" style="margin-top:8px"><label class="lbl" for="dm-xn">Any region (admin)</label><div style="display:flex;gap:6px"><input type="search" class="input" id="dm-xn" placeholder="Exact nation name" autocomplete="off" value="${esc(XNF.q)}"><button type="submit" class="btn ghost small" style="white-space:nowrap;flex:none"${XNF.busy?' disabled':''}>${XNF.busy?'Finding…':'Find'}</button></div>${XNF.err?`<p class="hint">${esc(XNF.err)}</p>`:XNF.res?(XNF.res.length?`<ul class="conv-list">${XNF.res.map(x=>{const R=REGIONS.find(R=>R.id===x.reg);return `<li><button type="button" class="linkish small" data-act="dm-xn-pick" data-id="${esc(x.id)}">${esc(x.n.name)} <span class="hint">· ${esc(R?R.name:x.reg)}</span></button></li>`;}).join('')}</ul>`:`<p class="hint">No nation is called “${esc(XNF.q)}”. Names must match exactly.</p>`):''}</form>`:''}
       <input type="search" class="input dm-s" id="dm-s" placeholder="Search letters…" aria-label="Search your letters" autocomplete="off" value="${esc(S.dmS||'')}">${filters}
-      ${peers.length?`<ul class="conv-list">${conv}</ul>`:`<p class="hint" style="margin-top:14px">${q?'No letters match.':F==='all'?'No conversations yet.':F==='archived'?'Nothing archived.':'None here.'}</p>`}</aside>
+      ${peers.length?`<ul class="conv-list">${conv}</ul>`:`<p class="hint" style="margin-top:14px">${q?'No letters match.':LF||AF?`No conversation ${LF?`labelled ${esc(dmLabelName(LF))}`:''}${LF&&AF?' and ':''}${AF?`with ${esc(DM_AF.find(o=>o[0]===AF)[1].toLowerCase())}`:''}${F!=='all'?' here':''}.${LF||AF?` <button type="button" class="linkish small" data-act="dm-fclear">Show all</button>`:''}`:F==='all'?'No conversations yet.':F==='archived'?'Nothing archived.':'None here.'}</p>`}</aside>
     <section class="thread">${office||(head?`${head}${confirm}
       ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs">${more}${bubbles||`<li class="hint">${grp?'No letters yet. What you write here goes to every member.':'No messages yet. Say hello.'}</li>`}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(nameOf(peer))} is drafting a reply…</p></li>`:''}</ol>
       ${dmBlocked(peer)?`<p class="hint">You have blocked ${esc(nameOf(peer))}. <button type="button" class="linkish small" data-act="dm-block" data-id="${esc(peer)}" data-off="1">Unblock</button></p>`:comp}`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p>${dmSuggestHTML(others)}</div>`)}
@@ -22609,6 +22721,11 @@ document.addEventListener('click',e=>{
   if(a==='dm-cz'){czSecSet('l');go('customise');return;}
   if(!/^dm-/.test(a))return;
   if(a==='dm-filter'){S.dmF=el.dataset.v;render();}
+  else if(a==='dm-lfilter'){S.dmL=S.dmL===el.dataset.v?'':el.dataset.v;render();const b=document.querySelector(`[data-act="dm-lfilter"][data-v="${CSS.escape(el.dataset.v)}"]`);if(b)b.focus({preventScroll:true});}
+  else if(a==='dm-fclear'){S.dmL='';S.dmA='';render();}
+  else if(a==='dm-label'){const k=el.dataset.v;if(!DM_LABELS.some(l=>l[0]===k))return;dmLabel(id,k);const b=document.querySelector(`[data-act="dm-label"][data-v="${CSS.escape(k)}"]`);if(b)b.focus({preventScroll:true});}
+  else if(a==='dm-fmt'){const ta=document.getElementById('dm-text');if(ta)dmFmtApply(ta,el.dataset.k);}
+  else if(a==='dm-prev'){S.dmPrev=!S.dmPrev;el.setAttribute('aria-pressed',String(S.dmPrev));dmPrevPaint();}
   else if(a==='dm-menu'){S.dmMenu=S.dmMenu===S.msgPeer?null:S.msgPeer;S.dmAttOpen=false;render();const b=document.querySelector('.dm-menu-p button');if(b)b.focus();}
   else if(a==='dm-attmenu'){S.dmAttOpen=!S.dmAttOpen;S.dmMenu=null;render();const b=document.querySelector('.dm-att-p button');if(b)b.focus();}
   else if(a==='dm-pin'){S.dmMenu=null;dmToggle('pin',id,!(dmx(S.nation).pin||{})[id]);}
@@ -22622,7 +22739,7 @@ document.addEventListener('click',e=>{
   else if(a==='dm-block'){S.dmConfirm=null;dmBlock(id,!el.dataset.off);if(!el.dataset.off&&S.msgPeer===id)S.msgPeer=null;render();}
   else if(a==='dm-older')dmOlder(S.msgPeer);
   else if(a==='dm-reply'){const m=(dmThreads(Date.now()).get(S.msgPeer)||[]).find(x=>String(x.t)===el.dataset.t&&x.from===el.dataset.from);if(!m)return;
-    S.dmCompose={...(S.dmCompose||{}),r:{t:m.t,x:m.x.slice(0,160),...(m.mine?{m:1}:{})}};dmDraftKeep();render();const ta=document.getElementById('dm-text');if(ta)ta.focus();}
+    S.dmCompose={...(S.dmCompose||{}),r:{t:m.t,x:dmPlain(m.x).slice(0,160),...(m.mine?{m:1}:{})}};dmDraftKeep();render();const ta=document.getElementById('dm-text');if(ta)ta.focus();}
   else if(a==='dm-unquote'){const c={...(S.dmCompose||{})};delete c.r;S.dmCompose=c;dmDraftKeep();render();}
   else if(a==='dm-attach'){const o=dmAttOptions(S.msgPeer)[+el.dataset.i];if(!o)return;S.dmCompose={...(S.dmCompose||{}),a:o[0]};S.dmAttOpen=false;dmDraftKeep();render();}
   else if(a==='dm-unattach'){const c={...(S.dmCompose||{})};delete c.a;S.dmCompose=c;dmDraftKeep();render();}
@@ -22640,14 +22757,17 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{const t=e.target;if(!t||!S.nation)return;
   if(t.dataset&&t.dataset.act==='dm-gsel'){const s=new Set(S.dmGSel||[]);if(t.checked&&s.size<DM_GROUP_MAX)s.add(t.value);else s.delete(t.value);S.dmGSel=[...s];render();}
+  else if(t.id==='dm-af'){S.dmA=DM_AF.some(o=>o[0]===t.value)?t.value:'';render();const f=document.getElementById('dm-af');if(f)f.focus({preventScroll:true});}
   else if(t.id==='dm-kind'){const k=DM_NOTES[t.value]?t.value:'';S.dmCompose={...(S.dmCompose||{}),k};if(k&&!String(S.msgDraft||'').trim())S.msgDraft=dmNoteText(k,S.msgPeer);dmDraftKeep();render();const ta=document.getElementById('dm-text');if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}}
 });
 document.addEventListener('input',e=>{const t=e.target;if(!t)return;
   if(t.id==='dm-s'){S.dmS=t.value.slice(0,60);const p=t.selectionStart;render();const i=document.getElementById('dm-s');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(er){}}}
   else if(t.id==='dm-gname')S.dmGName=t.value.slice(0,60);
-  else if(t.id==='dm-text'){clearTimeout(DMF.dt);DMF.dt=setTimeout(dmDraftKeep,600);}
+  else if(t.id==='dm-text'){clearTimeout(DMF.dt);DMF.dt=setTimeout(dmDraftKeep,600);S.msgDraft=t.value;if(S.dmPrev)dmPrevPaint();}
 });
-document.addEventListener('keydown',e=>{const t=e.target;if(!t||t.id!=='dm-text'||e.key!=='Enter'||!(e.ctrlKey||e.metaKey))return;e.preventDefault();S.msgDraft=t.value;sendDm();});
+document.addEventListener('keydown',e=>{const t=e.target;if(!t||t.id!=='dm-text'||!(e.ctrlKey||e.metaKey)||e.altKey)return;
+  const k=e.key.toLowerCase();if(k==='b'||k==='i'){e.preventDefault();dmFmtApply(t,k);return;}
+  if(e.key!=='Enter')return;e.preventDefault();S.msgDraft=t.value;sendDm();});
 /* a click anywhere else closes an open menu */
 document.addEventListener('click',e=>{if(!S.dmMenu&&!S.dmAttOpen)return;const t=e.target;if(t.closest&&t.closest('.dm-menu,.dm-att'))return;S.dmMenu=null;S.dmAttOpen=false;if(S.view==='messages')render();},true);
 /* the Trade page, opened from a letter, has that nation chosen */
@@ -48497,7 +48617,7 @@ function admShell(v,body){
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
-        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
+        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-gone','Recently dissolved'))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0))}
@@ -71018,6 +71138,59 @@ document.addEventListener('keydown',e=>{if(e.target&&e.target.id==='agn-why'&&e.
 ADM_VIEWS.push('admin-gone');
 shell=(f=>function(){if(S.view==='admin-gone'&&S.isOwner)return agnView();return f.apply(this,arguments);})(shell);
 go=(f=>function(v){if(v==='admin-gone'&&S.view!=='admin-gone')Object.assign(AGN,{d:null,err:'',ask:'',why:'',fail:''});return f.apply(this,arguments);})(go);
+
+/* ── Admin › Letter statistics (functions/letter-stats.js, op letterStats) ──
+   How players use the Messages page, in counts: letters each day for 30 days, the last 24 hours, 7 and 30 days, and for
+   the chosen window (7 or 30 days) the writers, readers, conversations, group letters, formal notes and attachments,
+   letters by region, the busiest writers and the nations that get the most, the letter reports waiting and the blocks.
+   Never a letter's words, and no pairs of correspondents: who a player writes to is on their page (Inspect › Letters),
+   behind a reason the audit log keeps. Each window is fetched once and kept until Fetch again. */
+const ALS={d:{},days:7,busy:false,err:''};
+const ALS_REASON={name:'Name or flag',content:'Offensive',harassment:'Harassment',spam:'Spam',cheating:'Cheating',other:'Something else'};
+ADM_ICONS['admin-letters']=NAV_SVG('<rect x="3.5" y="5.5" width="17" height="13" rx="1.6"/><path d="m4.2 7 7.8 6 7.8-6"/>');
+async function alsLoad(){
+  if(ALS.busy)return;ALS.busy=true;ALS.err='';if(S.view==='admin-letters')render();
+  const days=ALS.days;
+  try{ALS.d[days]=await adminRequest({op:'letterStats',days});}catch(e){ALS.err=e.message||'The letter statistics could not be fetched.';}
+  ALS.busy=false;if(S.view==='admin-letters')render();
+}
+function alsView(){
+  const d=ALS.d[ALS.days];if(!d&&!ALS.busy&&!ALS.err)setTimeout(alsLoad,0);
+  const kpi=(v,l)=>`<div class="adm-kpi"><b>${typeof v==='string'?v:stN(v)}</b><span>${l}</span></div>`;
+  const sec=(t,hint,body)=>`<section class="adst-sec"><h2 class="h2">${t}</h2>${hint?`<p class="hint">${hint}</p>`:''}${body}</section>`;
+  const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Letter statistics</h1>
+    <p class="lede">How players use the Messages page, in counts. No letter’s words are read here, and no pairs of correspondents are listed: who a player writes to is on their page (Inspect, then Letters), behind a reason the audit log keeps.</p>
+    <div class="row als-bar"><div class="dm-filters" role="group" aria-label="Window">${[7,30].map(n=>`<button type="button" class="chip-btn${ALS.days===n?' on':''}" data-act="als-days" data-v="${n}" aria-pressed="${ALS.days===n}">Last ${n} days</button>`).join('')}</div>
+      <button type="button" class="btn ghost small" data-act="als-reload"${ALS.busy?' disabled':''}>${ALS.busy?'Counting…':'Fetch again'}</button>${d?`<span class="hint">Counted ${esc(adminTime(d.at))}</span>`:''}</div>`;
+  if(ALS.err)return admShell('admin-letters',head+`<p class="err" role="alert">${esc(ALS.err)}</p>`);
+  if(!d)return admShell('admin-letters',head+'<p class="hint">Counting the letters…</p>');
+  const W=d.window,win=`the last ${d.days} days`,who=r=>`<b>${esc(r.name||'A nation no longer in the game')}</b>${r.reg?`<br><span class="hint">${esc(regName(r.reg))}</span>`:''}`;
+  const insp=u=>`<button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(u)}">Inspect</button>`;
+  const kinds=(o,names)=>{const e=Object.entries(o||{}).sort((a,b)=>b[1]-a[1]);return e.length?`<div class="adst-rows">${e.map(([k,n])=>stBar(esc(names(k)),n,W.letters,` of ${stN(W.letters)}`)).join('')}</div>`:'<p class="hint">None.</p>';};
+  const body=`<div class="adm-kpis">
+      ${kpi(d.total.d1,'letters delivered in the last 24 hours')}${kpi(d.total.d7,'in the last 7 days')}${kpi(d.total.d30,'in the last 30 days')}
+      ${kpi(W.letters,`letters written in ${win}`)}${kpi(W.writers,'nations wrote them')}${kpi(W.readers,'nations received letters')}
+      ${kpi(W.pairs,'conversations between two nations')}${kpi(stPc(W.group,W.letters),'of letters went to a group')}${kpi(W.writers?(W.letters/W.writers).toFixed(1):'–','letters per writer')}
+    </div>
+    ${d.limited?`<p class="hint">Counted from the newest ${stN(W.copies)} delivered copies of ${win}: the busiest days may be missing a few letters below.</p>`:''}
+    ${sec('Day by day','',`<div class="adst-grid">${stCols('Letters delivered each day','Days in UTC. A group letter counts once for each member who got it.',d.perDay.map(x=>[stDay(x.d),x.n||0]),'letters')}</div>`)}
+    ${sec('Who writes most',`The ${d.top.length} nations that wrote the most letters in ${win}. A group letter counts once.`,d.top.length?`<div class="tbl-wrap"><table class="tbl als-t"><thead><tr><th>Nation</th><th>Letters</th><th>Readers</th><th>To groups</th><th>Last letter</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${d.top.map(r=>`<tr><td>${who(r)}</td><td>${stN(r.sent)}</td><td>${stN(r.readers)}</td><td>${stN(r.groups)}</td><td>${esc(rel(r.last))}</td><td>${insp(r.uid)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No letters were written.</p>')}
+    ${sec('Who gets the most letters',`Letters received in ${win}, group letters included.`,d.most.length?`<div class="tbl-wrap"><table class="tbl als-t"><thead><tr><th>Nation</th><th>Letters received</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${d.most.map(r=>`<tr><td>${who(r)}</td><td>${stN(r.got)}</td><td>${insp(r.uid)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No letters were received.</p>')}
+    ${sec('By region',`Letters written in ${win}, by the writer’s region now.`,W.regions.length?`<div class="adst-rows">${W.regions.map(x=>stBar(esc(x.reg?regName(x.reg):'No region'),x.n,W.letters,` of ${stN(W.letters)}`)).join('')}</div>`:'<p class="hint">None.</p>')}
+    ${sec('Formal notes',`Letters written as a formal note in ${win}.`,kinds(W.notes,k=>DM_NOTES[k]?DM_NOTES[k][0]:k))}
+    ${sec('Attachments',`Letters that carried an attachment in ${win}.`,kinds(W.att,k=>DM_ATT[k]||k))}
+    ${sec('Reports and blocks','',`<div class="adm-kpis">${kpi(d.reports.n,'letter reports waiting in the queue')}${kpi(d.blocks.all,'blocks in force (letters and chat)')}${kpi(d.blocks.recent,`new blocks in ${win}`)}</div>
+      ${d.reports.recent.length?`<div class="tbl-wrap"><table class="tbl als-t"><thead><tr><th>Reported</th><th>Nation</th><th>Reason</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${d.reports.recent.map(r=>`<tr><td>${esc(r.t?rel(r.t):'')}</td><td><b>${esc(r.name||'A nation no longer in the game')}</b></td><td>${esc(ALS_REASON[r.reason]||r.reason||'')}</td><td>${r.target?insp(r.target):''}</td></tr>`).join('')}</tbody></table></div>
+      <div class="row"><a class="btn ghost small" href="#admin-reports" data-act="adm-tab" data-v="admin-reports">Open the Reports queue</a></div>`:''}`)}`;
+  return admShell('admin-letters',head+body);
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='als-reload')alsLoad();
+  else if(a==='als-days'){const n=+el.dataset.v;if(n!==7&&n!==30)return;ALS.days=n;ALS.err='';render();if(!ALS.d[n])alsLoad();}
+});
+ADM_VIEWS.push('admin-letters');
+shell=(f=>function(){if(S.view==='admin-letters'&&S.isOwner)return alsView();return f.apply(this,arguments);})(shell);
 
 /* ── founding draws one page ──
    Founding drew up to three pages in a row, each thrown away by the next: found() drew the Nation page, then the
