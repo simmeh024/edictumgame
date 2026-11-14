@@ -17,14 +17,17 @@ const PLACEHOLDERS=new Set(['N','D','C','Cs','L','CAP','A','As','SPORT','DISH','
 /* the section in a context of its own; agg is what bldAggOf returns for any nation */
 function load(){
   const ctx={agg:null,MILESTONES:[6,7,8.5,10,12.5,15,25].map(p=>({p})),POLICIES:{},DC_GLYPH:{},DC_GEO:{},ISSUES:new Array(1892).fill(null).map((x,i)=>({id:'old'+i})),ISSUE_BY_ID:{},ISSUES_RANDOM:[],
-    BUILDINGS:{factory:{n:'Factory',up:{oil:1}},power:{n:'Power Station',up:{oil:1,iron:1}},lunar:{n:'Lunar Colony',h:96},spaceport:{n:'Space Port',h:24},market:{n:'Market Hall',h:3}},
+    BUILDINGS:{factory:{n:'Factory',up:{oil:1}},power:{n:'Power Station',up:{oil:1,iron:1}},lunar:{n:'Lunar Colony',h:96},spaceport:{n:'Space Port',h:24},market:{n:'Market Hall',h:3},diplo:{n:'Diplomata',one:1,mig:0.03}},
     bldEffectsX:()=>[],bHours:(n,k)=>ctx.BUILDINGS[k].h,bldTop:()=>'<p>top</p>',cuCounterfeit:(id,n)=>n.hit?{until:1,risk:n.policies.counterIntel?0.02:0.04,penalty:n.policies.counterIntel?4:8}:null,
-    fmtAmt:v=>String(Math.round(v*10)/10),esc:s=>String(s),dcRoof(){},dcTree(){},dcArc:()=>[]};
+    fmtAmt:v=>String(Math.round(v*10)/10),esc:s=>String(s),clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),dcRoof(){},dcTree(){},dcArc:()=>[]};
   ctx.bldAggOf=()=>ctx.agg;
   vm.createContext(ctx);
   const a=source.indexOf(START),b=source.indexOf(END,a);
   assert(a>0&&b>a,'the section is where the tests expect it');
-  vm.runInContext(source.slice(a,b)+'\nthis.NB_BOOST=NB_BOOST;this.NB_ISSUES=NB_ISSUES;this.NB_SPACE=NB_SPACE;',ctx);
+  /* the city upgrades' table (CX_UG, CX_UG_MAX, CX_LV), which the upgrades of the Bank and the Observatory read */
+  const u=source.indexOf('/* the five upgrade blocks'),v=source.indexOf('const CX_WALL=',u);
+  assert(u>0&&v>u,'the upgrade blocks are where the tests expect them');
+  vm.runInContext(source.slice(u,v)+source.slice(a,b)+'\nthis.NB_BOOST=NB_BOOST;this.NB_ISSUES=NB_ISSUES;this.NB_SPACE=NB_SPACE;this.CX_LV=CX_LV;this.nbBankLeft=nbBankLeft;',ctx);
   return ctx;
 }
 const works=(c,...keys)=>{c.agg={has:new Set(keys)};};
@@ -94,6 +97,51 @@ test('a Central Bank halves a forgery’s premium and penalty, holograms take a 
   assert.match(c.nbCfNote(n),/Central Bank halves them, and holographic banknotes/);
 });
 
+/* the Intelligence Bureau's last blocks ask for a Central Bank, Observatory or Diplomata upgraded, so they take the
+   five city upgrades (ugx), each doing its own thing */
+test('the Central Bank, Observatory and Diplomata take city upgrades, and the best one a nation holds counts',()=>{
+  const c=load();
+  for(const k of ['cbank','observ'])assert.equal(c.BUILDINGS[k].ugx,1,k);
+  assert.match(source,/diplo:\{n:'Diplomata',c:'soc',one:1,ugx:1,/,'the Diplomata too');
+  let a=agg();c.nbCity(a,{done:['cbank','observ'],ug:{cbank:2,observ:1}},holder(),()=>0);
+  assert.deepEqual({...a.nbUg},{cbank:2,observ:1});
+  c.nbCity(a,{done:['observ'],ug:{observ:4}},holder(),()=>0);c.nbCity(a,{done:['observ']},holder(),()=>0);
+  assert.equal(a.nbUg.observ,4,'a second Observatory counts only if it is better');
+  a=agg();c.nbCity(a,{done:['court']},holder(),()=>0);assert.equal(a.nbUg,undefined,'none held, none recorded');
+  /* bldAgg has counted the Diplomata's +3% once; its upgrades add their share of it */
+  for(const order of [[2,5],[5,2]]){
+    a={...agg(),mig:0.03};for(const u of order)c.nbCity(a,{done:['diplo'],ug:{diplo:u}},holder(),()=>0);
+    assert(Math.abs(a.mig-0.06)<1e-9,`gold doubles it to +6% (${order})`);}
+  a={...agg(),mig:0.03};c.nbCity(a,{done:['diplo'],ug:{diplo:1}},holder(),()=>0);assert(Math.abs(a.mig-0.033)<1e-9,'grey adds a tenth');
+  a={...agg(),mig:0.03};c.nbCity(a,{done:['diplo']},holder(),()=>0);assert.equal(a.mig,0.03,'unupgraded, as before');
+});
+
+test('Observatory upgrades speed space projects further: 10% up to 20%, 15% up to 30% under the Dark-Sky Law',()=>{
+  const c=load(),n={policies:{}};
+  c.agg={has:new Set(['observ']),nbUg:{observ:0}};assert.equal(c.bHours(n,'lunar'),86.4,'none fitted, as before');
+  c.agg.nbUg.observ=1;assert.equal(c.bHours(n,'lunar'),85.4);
+  c.agg.nbUg.observ=5;assert.equal(c.bHours(n,'lunar'),76.8);assert.equal(c.bHours(n,'market'),3);
+  n.policies.obsDarkSky=true;assert.equal(c.bHours(n,'lunar'),67.2);
+  assert.equal(c.nbUgLine('observ',2,{}),'space projects build 12.5% faster');
+  assert.equal(c.nbUgLine('observ',5,{obsDarkSky:true}),'space projects build 30% faster');
+  assert.equal(c.nbUgLine('diplo',1),'immigration +3.3%');assert.equal(c.nbUgLine('diplo',5),'immigration +6%');
+  assert.equal(c.nbUgLine('court',3),'','other buildings keep the usual words');
+});
+
+test('each Central Bank upgrade lets 5 points less of a forgery through: a quarter at gold, as the currency job reckons',()=>{
+  const c=load(),n={hit:true,policies:{}};
+  assert.deepEqual([0,1,2,3,4,5].map(g=>c.nbBankLeft(g)),[0.5,0.45,0.4,0.35,0.3,0.25]);
+  c.agg={has:new Set(['cbank']),nbUg:{cbank:5}};
+  assert.deepEqual([c.cuCounterfeit('me',n,0).risk,c.cuCounterfeit('me',n,0).penalty,c.cuCfPct(n)],[0.01,2,1]);
+  assert.match(c.nbCfNote(n),/Central Bank lets only 25% of them through\./);
+  n.policies.bankHolograms=true;assert.equal(c.cuCounterfeit('me',n,0).penalty,1.5);
+  assert.equal(c.nbUgLine('cbank',5,n.policies),'forged notes do 18.8% of their damage');
+  assert.equal(c.nbUgLine('cbank',1,{}),'forged notes do 45% of their damage');
+  for(const holo of [false,true])for(let g=0;g<=5;g++){
+    c.agg.nbUg.cbank=g;n.policies.bankHolograms=holo;
+    assert(Math.abs(c.nbForgeryMult(n)-E.forgeryMult({bank:true,holo,ug:g}))<1e-12,`the game and the job agree at ${g}${holo?' with holograms':''}`);}
+});
+
 test('the catalogue names the boosts a building has',()=>{
   const c=load();
   assert.equal(c.bldTop('court',{policies:{}}),'<p>top</p>');
@@ -150,6 +198,17 @@ test('the currency job: a Central Bank halves the daily move and the forgery pen
   const holo=E.indicators('a',rec({cities:[{c:1,b:[bank]}],policies:{bankHolograms:true}}),now,{counterfeit:now+DAY});
   assert.deepEqual([plain.counterfeit,banked.counterfeit,holo.counterfeit],[8,4,3]);
   assert.equal(E.indicators('npc',{s:[],pol:[],pop:10,room:1.5},now,{npc:true,npcPop:1,npcEpoch:now-DAY}).bank,false);
+  /* the bank's city upgrades, read as the game reads them: ug, or an upgrade under way once its time is up */
+  const ups=(...b)=>E.centralBankUps(rec({cities:[{c:1,b}]}),now);
+  assert.equal(ups(bank),0);assert.equal(ups({...bank,ug:3}),3);
+  assert.equal(ups({...bank,ug:3,uu:{u:4,s:now-DAY,d:now-1}}),4,'a fourth fitted when its time is up');
+  assert.equal(ups({...bank,ug:3,uu:{u:4,s:now-DAY,d:now+DAY}}),3,'not before');
+  assert.equal(ups({...bank,ug:3,uu:{u:5,s:now-DAY,d:now-1}}),3,'an upgrade may not skip a block');
+  assert.equal(ups({...bank,ug:9}),0,'nonsense counts for nothing');
+  assert.equal(ups({...bank,ug:5,d:now+DAY},{...bank,ug:2}),2,'the best finished bank');
+  const gold=E.indicators('a',rec({cities:[{c:1,b:[{...bank,ug:5}]}]}),now,{counterfeit:now+DAY});
+  const goldHolo=E.indicators('a',rec({cities:[{c:1,b:[{...bank,ug:5}]}],policies:{bankHolograms:true}}),now,{counterfeit:now+DAY});
+  assert.deepEqual([gold.counterfeit,goldHolo.counterfeit],[2,1.5],'a gold bank lets a quarter through');
   const prev={S:20,P:50,t:2,vv:0,n:10,hv:[1],hp:[50],hd:day-1,w:0,le:{}};
   const S0=E.stepNation('a',prev,plain,day).S,S1=E.stepNation('a',prev,banked,day).S;
   assert(S0>20,'strength rises toward its level');

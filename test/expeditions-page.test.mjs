@@ -162,7 +162,7 @@ test('what each block needs, in words',()=>{
   assert.equal(q('gear',4),'an Outfitters’ Guild upgraded to green');
   assert.equal(q('mules',1),'Farm Estates');
   assert.equal(q('mules',4),'a Caravanserai upgraded to blue');
-  assert.equal(q('depots',4),'a Warehouse at level 3');
+  assert.equal(q('depots',4),'a Warehouse at Tier 3');
   assert.equal(q('nat',1),'a University');
   assert.equal(q('maps',4),'a Map Room upgraded to purple');
   assert.equal(q('swift',4),'an Airport');
@@ -173,9 +173,20 @@ test('a requirement is met by a finished building, upgraded far enough, in any c
   const X=outfit({cities:[c1,c2],now});
   assert.equal(X.xuHave({},X.XU.gear.req[1],now).c.id,'a','a Sawmill in the first city');
   assert.equal(X.xuHave({},X.XU.gear.req[4],now),null,'a Guild at grey is not green, and one still being built does not count');
-  assert.equal(X.xuHave({},X.XU.depots.req[4],now).c.id,'b','a Warehouse at level 3');
+  assert.equal(X.xuHave({},X.XU.depots.req[4],now).c.id,'b','a Warehouse at Tier 4 is past Tier 3');
   assert.equal(X.xuHave({},X.XU.gear.req[2],now),null,'no mine');
   assert.deepEqual({...X.xuHave({},null,now)},{},'no requirement');
+});
+
+/* the Cities page shows a Warehouse's tier as whLevel + 1 ("Tier 3 · +2400 storage" is whLevel 2), and the gold block
+   of Supply depots says "a Warehouse at Tier 3": the one the page calls Tier 3 must open it (it took Tier 4 before) */
+test('a Warehouse opens the gold Supply depots at the tier the Cities page shows, not one later',()=>{
+  const at=wl=>{const X=outfit({cities:[{id:'w',b:[{k:'warehouse',d:NOW-1,wl}]}]});return X.xuHave({},X.XU.depots.req[4],NOW);};
+  assert.equal(at(1),null,'Tier 2 is not enough');
+  assert.equal(at(2).c.id,'w','Tier 3 opens it');
+  assert.equal(at(4).c.id,'w','and so does the last tier');
+  const X=outfit();
+  for(const k of X.XU_KEYS)for(const q of X.XU[k].req)if(q&&q.wl)assert.ok(q.wl>=2&&q.wl<=5,`${k}: a tier a Warehouse can reach`);
 });
 
 test('blocks fitted, and one whose time in the workshop is up',()=>{

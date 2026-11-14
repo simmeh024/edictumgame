@@ -166,6 +166,22 @@ try {
   await o.go('explore');
   check('outfitters: the card sits above the small map', await S(op, () => { const s = document.querySelector('.xp-side'); return !!s && s.firstElementChild.id === 'xu' && !!s.querySelector('canvas[data-xp]'); }));
   check('outfitters: every requirement named in it is a real building', await S(op, () => { const X = window.__game.XP(); return X.XU_KEYS.every(k => X.XU[k].req.every(q => !q || q.k.every(b => !!X.BUILDINGS[b]))); }));
+  /* a block that asks for a building upgraded must name one that takes upgrades (the Intelligence Bureau's last blocks
+     once asked for a Central Bank, Observatory and Diplomata upgraded, which none could be), and a Warehouse tier
+     must be one a Warehouse reaches */
+  const gates = await S(op, () => { const G = window.__game, X = G.XP(), I = G.IB(), bad = [];
+    for (const [T, K, who] of [[X.XU, X.XU_KEYS, 'outfitters'], [I.BU, I.BU_KEYS, 'bureau']]) for (const k of K) T[k].req.forEach((q, i) => { if (!q) return;
+      for (const b of q.k) { if (!X.BUILDINGS[b] || (q.ug && !G.CX.upgradable(b))) bad.push(`${who} ${k} ${i}: ${b}`); }
+      if (q.wl && (!q.k.every(b => b === 'warehouse') || q.wl < 2 || q.wl > 5)) bad.push(`${who} ${k} ${i}: tier ${q.wl}`); });
+    return bad; });
+  check('outfitters and bureau: every block can be opened (an upgraded building takes upgrades, a Warehouse tier exists)', gates.length === 0, gates);
+  /* the tier the Cities page shows (whLevel + 1) is the one the outfitters count: Tier 3 opens the gold Supply depots */
+  const tier = await S(op, () => { const G = window.__game, X = G.XP(), now = Date.now(), at = wl => { const n = G.clone(G.S.nation); n.cities = [{ ...n.cities[0], b: [{ k: 'warehouse', s: now - 7200e3, d: now - 3600e3, wl }] }]; return !!X.xuHave(n, X.XU.depots.req[4], now); };
+    return [at(1), at(2), at(4)]; });
+  check('outfitters: a Warehouse at Tier 3 opens the gold Supply depots, Tier 2 does not', tier.join() === 'false,true,true', tier);
+  const bureau = await S(op, () => { const G = window.__game, X = G.XP(), I = G.IB(), now = Date.now(), at = (k, ug) => { const n = G.clone(G.S.nation); n.cities = [{ ...n.cities[0], b: [{ k, s: now - 7200e3, d: now - 3600e3, ...(ug ? { ug } : {}) }] }]; return !!X.xuHave(n, I.BU[k === 'cbank' ? 'forge' : k === 'observ' ? 'listen' : 'cover'].req[4], now); };
+    return [at('cbank', 2), at('cbank', 3), at('observ', 3), at('diplo', 3), at('diplo', 4)]; });
+  check('bureau: a Central Bank or Observatory at blue, and a Diplomata at purple, open the last blocks', bureau.join() === 'false,true,true,false,true', bureau);
   check('outfitters: eight upgrades, the grey of trekking gear open to everyone', await S(op, () => { const rows = document.querySelectorAll('.xu-row'); const b = document.querySelector('[data-act="xu-up"][data-k="gear"]'); return rows.length === 8 && !!b && b.getAttribute('aria-disabled') !== 'true'; }));
   check('outfitters: Old maps needs a Map Room, and says so', await S(op, () => { const b = document.querySelector('[data-act="xu-up"][data-k="maps"]'); const row = b && b.closest('.xu-row'); return !!b && b.getAttribute('aria-disabled') === 'true' && /Needs a Map Room/.test(row.textContent); }));
   await op.click('[data-act="xu-up"][data-k="gear"]'); await sleep(300);
