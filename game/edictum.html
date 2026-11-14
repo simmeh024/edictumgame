@@ -19709,12 +19709,14 @@ function pol(n){return (n&&n.policies)||{};}
      more conquests in a day than the territory replay counts, a save without the headline numbers.
    - A conquest since the referee began (REF_EPOCH) needs its seal; see the referee below.
    Records saved before AC_EPOCH carry no headline numbers, and are not flagged for it. */
-const AC_EPOCH=Date.UTC(2026,9,28),RATE_MAX=0.3,AUDIT=new Map();
+const AC_EPOCH=Date.UTC(2026,9,28),RATE_MAX=0.3,AUDIT=new Map(),POP_SKEW=Math.pow(1.35,1/24);
 function auditNation(n,raw,id,now,keep){
   if(!n||n.npc||!raw||id===S.uid)return [];
   const why=[],ts=Number(raw._ts)||0;if(ts)n._ts=ts;
   if(typeof raw._pop==='number'){
-    if(n.pop>raw._pop*1.001+0.001)why.push(`Its record claims ${fmtPop(n.pop)} people; its save declared ${fmtPop(raw._pop)}.`);
+    /* an honest save's headline can be held below its record by what an hour of clock difference explains (functions/
+       civic.js, heldPop; pages from before it, src/shim.js): held to it all the same, but not listed for it */
+    if(n.pop>raw._pop*POP_SKEW+3/24+0.001)why.push(`Its record claims ${fmtPop(n.pop)} people; its save declared ${fmtPop(raw._pop)}.`);
     n.pop=Math.min(n.pop,raw._pop);
     if(typeof raw._army==='number')n._armyK=raw._army/Math.sqrt(Math.max(0.1,raw._pop));
     if(typeof raw._cl==='number'&&Array.isArray(n.claims)&&n.claims.length>raw._cl){why.push(`It holds ${n.claims.length} land claims; its save declared ${raw._cl}.`);n.claims=n.claims.slice().sort((a,b)=>a.t-b.t).slice(0,raw._cl);}
@@ -44450,9 +44452,20 @@ window.addEventListener('offline',publishSync);
 window.addEventListener('online',resumeNation);
 window.addEventListener('focus',resumeNation);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeNation();});
+/* A save that goes out well after the action it carries (a phone asleep or offline in between, its page frozen) brings
+   the population up to the moment it is sent. The rules count growth from the server's time of the last save, so a
+   record that arrived with a population from long before held the next save's headline below its record until the
+   allowance caught up, and every game's fair-play check (auditNation) listed an honest player as suspicious (13 Nov: a
+   decision made at 18:51 was saved at 19:34). Only the population: the action keeps its own time (updatedAt), and the
+   local copy is left as it is (the same curve, from an earlier point on it). */
+const POP_FRESH=60000;
+function popFresh(n,now){
+  if(n&&!n.npc&&typeof n.pop==='number'&&n.popAt>0&&now-n.popAt>POP_FRESH){n.pop=popNow(n,now);n.popAt=now;}
+  return n;
+}
 async function writeRemote(){
   if(OBS||PV||tabPassive||!S.nation)return;
-  const ref=S.db.doc('nations/'+S.uid),sent=clone(S.nation),sentC=commitNo;
+  const ref=S.db.doc('nations/'+S.uid),sent=popFresh(clone(S.nation),Date.now()),sentC=commitNo;
   sentLog.push({t:sent.updatedAt,c:sentC});if(sentLog.length>20)sentLog.shift();
   /* a save past SAVE_LIMIT is given up on here, yet may still land: its revision is then taken up as below, and a
      later save it races is refused and replayed onto it (rebaseActs, sentLog) */

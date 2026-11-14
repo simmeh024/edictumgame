@@ -243,8 +243,35 @@ try {
   check('and the reloaded page says why', await until(async () => /updated while you were away/.test((await B.locator('.ed-toast').allTextContents()).join(' ')), 8000));
 } finally { fs.writeFileSync(VERSION, built); }
 
+// A save that waited (a phone asleep or offline) goes out with the population of the moment it is sent, not of its
+// action (game/edictum.html, popFresh), and the server holds the headline by its own clock (functions/civic.js, heldPop).
+// The rules count growth from the server's time of the last save: a record arriving with an old population held the
+// next save's headline below its record, and every game listed the player as suspicious (13 Nov 2026).
+{
+  const settled = () => until(async () => { const n = await localNation(B); return n && !n._dirty && n._rev === await rev(); }, 15000);
+  const head = async () => { const f = (await restGet('nations/' + uid)).body.fields.pop; return Number(f.doubleValue ?? f.integerValue); };
+  const tsAgo = async () => Date.now() - Date.parse((await restGet('nations/' + uid)).body.fields.ts.timestampValue);
+  /* this page saved moments ago by its own clock (performance.now() stands still while a phone sleeps), but 50 minutes
+     ago by the server's (the page's listener takes that change in first); the action waiting to be sent was made 44
+     minutes ago */
+  await edit(B, 'Before a late save'); await saved(B); await until(async () => await motto() === 'Before a late save', 15000);
+  await settled(); await sleep(1500); await settled();
+  await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/nations/${uid}?updateMask.fieldPaths=ts`, { method: 'PATCH',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { ts: { timestampValue: new Date(Date.now() - 50 * 60000).toISOString() } } }) });
+  await sleep(2500); await settled();
+  if (await tsAgo() < 45 * 60000) throw new Error('a save came in between: the test needs the last save to look 50 minutes old');
+  const wait = await B.evaluate(() => { const n = G.S.nation; n.popAt -= 44 * 60000; n._dirty = true; G.saveLocal(n); G.PG.saveSoon(); return { pop: n.pop, at: Date.now(), grown: G.RK.popNow(n) }; });
+  await until(async () => ((await nationDoc(uid))?.rec?.popAt || 0) >= wait.at, 15000);
+  const rec = (await nationDoc(uid)).rec, h = await head();
+  check('a save that waited goes out with the population of the moment it is sent', rec.popAt >= wait.at && rec.pop > wait.pop + 0.005 && Math.abs(rec.pop - wait.grown) < 0.001, JSON.stringify({ wait, pop: rec.pop, popAt: rec.popAt }));
+  check('and its headline is the record’s', Math.abs(h - rec.pop) < 0.0002, JSON.stringify({ head: h, rec: rec.pop }));
+  await edit(B, 'After a late save'); await saved(B); await until(async () => await motto() === 'After a late save', 15000);
+  const rec2 = (await nationDoc(uid)).rec, h2 = await head();
+  check('the next save’s headline is its record’s too: nothing for the fair-play check to list', Math.abs(h2 - rec2.pop) < 0.0002, JSON.stringify({ head: h2, rec: rec2.pop }));
+}
+
 // A device whose clock runs ahead counts more growth than the server's clock allows between saves seconds apart (rules:
-// grows). Its saves must still be accepted: the headline population is held within the allowance (src/shim.js, popBase).
+// grows). Its saves must still be accepted: the server holds the headline population within the allowance by its own clock (functions/civic.js, permit cap).
 const F = await player('fast clock', { storageState: await A.ctx.storageState({ indexedDB: true }) });
 await F.ctx.addInitScript(() => { const skew = 20 * 60000, N = Date.now; Date.now = () => N() + skew; const O = Date; window.Date = class extends O { constructor(...a) { if (a.length) super(...a); else super(N() + skew); } static now() { return N() + skew; } }; });
 await open(F); await F.waitForSelector('.layout');

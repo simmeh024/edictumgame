@@ -91,6 +91,20 @@ test('Ordinary saves cannot inject politics, found Guest alliances or declare Gu
   await rejects(civic(r,{op:'authorizeSave',record:{...record,name:r.uid,j:JSON.stringify({...n,name:r.uid})},rev:0}),'save_conflict');
 });
 
+test('A save that asks (cap) has its headline population held to what the rules allow by the server clock',async()=>{
+  /* the last save 30 minutes ago at 10 million: the rules then allow about 10.125 (x1.35 a day plus 3 million a day) */
+  const g=await player(),at=Date.now()-30*60000;await db.doc('nations/'+g.uid).update({ts:new Date(at)});
+  const save=(pop,extra={})=>civic(g,{op:'authorizeSave',record:{reg:'meridian',name:g.uid,pop,army:1,cl:0,updatedAt:Date.now(),j:JSON.stringify({reg:'meridian',name:g.uid,pop})},rev:1,...extra});
+  const permitPop=async r=>(await db.doc('nationPermits/'+g.uid+'/requests/'+r.permit).get()).get('pop');
+  const held=await save(10.2,{cap:1}),most=d=>10*Math.pow(1.35,d)+3*d;
+  assert.ok(held.pop<10.2&&held.pop>=most(30/1440)-0.0002&&held.pop<=most((Date.now()-at)/864e5)+0.0001,String(held.pop));
+  assert.equal(await permitPop(held),held.pop,'the permit names the held number, the one the rules compare');
+  assert.equal(JSON.parse(held.j).pop,10.2,'the record keeps the game’s number');
+  assert.equal((await save(10.05,{cap:1})).pop,10.05,'within the allowance: as sent');
+  assert.equal((await save(100,{cap:1})).pop,100,'beyond an hour of clock difference: as sent, for the rules to refuse');
+  const old=await save(10.2);assert.equal(old.pop,10.2,'a page from before (no cap): as sent');assert.equal(await permitPop(old),10.2);
+});
+
 test('An initially issued hashed code recovers the original Guest UID, never registration',async()=>{
   const g=await player(), visitor=await player(), secret=code();
   assert.equal((await account(g,{op:'status'})).recoveryIssued,false);
