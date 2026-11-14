@@ -431,7 +431,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .sg-ts{font-size:12.5px;line-height:1.3;color:var(--ink-3)}
 .sg-tab.dirty .sg-ts{color:var(--stamp);font-weight:600}
 .sg-pane{display:none;min-width:0}
-.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="sound"] #sg-p-sound,.sg[data-tab="nav"] #sg-p-nav,.sg[data-tab="account"] #sg-p-account,.sg[data-tab="letters"] #sg-p-letters,.sg[data-tab="land"] #sg-p-land{display:block}
+.sg[data-tab="nation"] #sg-p-nation,.sg[data-tab="edicts"] #sg-p-edicts,.sg[data-tab="notif"] #sg-p-notif,.sg[data-tab="display"] #sg-p-display,.sg[data-tab="sound"] #sg-p-sound,.sg[data-tab="nav"] #sg-p-nav,.sg[data-tab="account"] #sg-p-account,.sg[data-tab="letters"] #sg-p-letters,.sg[data-tab="chat"] #sg-p-chat,.sg[data-tab="land"] #sg-p-land{display:block}
 .sg-head{margin:0 0 18px}
 .sg-hrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .sg-h{margin:0;font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1;font-variation-settings:"opsz" 48}
@@ -7992,6 +7992,21 @@ button.rgc-nm{text-align:left}
 @media (min-width:1100px){.rgc-dockb{display:grid}.rgc-dockb[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}}
 html.rgc-docked body{padding-right:400px}
 html.rgc-docked .rgc-dock{box-shadow:none;animation:none}
+/* region chat: the floating Chat button (Settings › Chat), placed by rgcFabPlace; it glides only when it snaps */
+.rgc-fab{position:fixed;z-index:45;width:52px;height:52px;border-color:var(--rule-2);background:var(--sheet);color:var(--ink);box-shadow:0 6px 18px -6px rgba(18,41,42,.45),0 1px 3px rgba(18,41,42,.18);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.rgc-fab svg{width:24px;height:24px}
+.rgc-fab .rgc-n{top:-4px;right:-4px}
+.rgc-fab.snap{transition:left .22s ease,top .22s ease}
+.rgc-fab.drag{cursor:grabbing;scale:1.06;box-shadow:0 14px 30px -8px rgba(18,41,42,.55)}
+.rgc-fab:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.rgc-fab.snap{transition:none}.rgc-fab.drag{scale:none}}
+@media (max-width:600px){html.rgc-on .rgc-fab{display:none}}
+@media (max-width:959px){html.rgcf-typing .rgc-fab{display:none}}
+html.map-full-open .rgc-fab,html.u-lock .rgc-fab{display:none}
+/* notices stand clear of the floating button when it sits low: above it on a phone, to its left on a wide screen */
+@media (max-width:600px){html.rgcf-low:not(.rgcf-typing):not(.rgc-on) .toast{bottom:var(--rgcf-clear)}}
+@media (min-width:601px) and (max-width:959px){html.rgcf-low:not(.rgcf-typing) .toast{bottom:var(--rgcf-clear)}}
+@media (min-width:960px){html.rgcf-lowr .toast{right:84px}html.rgcf-lowr.rgc-on .toast{right:484px}}
 /* region chat: pictures (admins post them): the small copy in a line, the bar above the writing box, the picture over the page */
 .rgc-xc{flex:1;min-width:0}
 .rgc-xc .rgc-x{margin-bottom:3px}
@@ -40505,7 +40520,7 @@ const TUT_LISTS=[
     {k:'rmb',t:()=>`Say hi to ${REGION}`,h:'Leave a message on the region’s board: a hello, a question or news of your nation. Every player in the region reads it.',
      v:'region',to:'rmb-text',b:'Open the board',lc:3,gift:{food:5,timber:5,iron:10,oil:10,goods:5},mapc:'#A347C8',mapcN:'Orchid',
      lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()},
-    {k:'rch',t:'Say hi in the region chat',h:'Open the chat with the speech-bubble button beside the bell and write a line: a hello, a question or news of your nation. Everyone in the region who is playing reads it at once.',
+    {k:'rch',t:'Say hi in the region chat',h:'Open the chat with the round speech-bubble button (it floats at the bottom right, unless you have put it beside the bell) and write a line: a hello, a question or news of your nation. Everyone in the region who is playing reads it at once.',
      act:'tut-chat',b:'Open the chat',lc:2,gift:{food:5,timber:5,goods:5},
      f:(n,d)=>String(d||'').includes('h')||tutChatMine()},
     {k:'mdig',t:'Do a museum dig',h:'The Museum’s Field digs hall sends diggers to an old site. They come back hours later with finds for your collection.',
@@ -69788,7 +69803,7 @@ document.addEventListener('keydown',e=>{
    server said they may write again). A line's menu reports it (a post
    rc:<region>:<line> in the moderators' queue), blocks its nation (the Letters block list, dmx.bl and lblock: its
    letters stop as well, and its lines are hidden) or deletes it (one's own; staff anyone's, which the audit log keeps).
-   A line naming the player's nation is marked and, with the drawer shut, told in a notice. Settings › Letters turns
+   A line naming the player's nation is marked and, with the drawer shut, told in a notice. Settings › Chat turns
    the chat off for the nation (dmx.rc 0) or those notices (dmx.rcn 0). An admin observing a region reads its chat,
    and may remove lines, but writes nothing.
    RGC keeps the state: the region followed, the lines, the newest line's time (top), the last line read (seen, in
@@ -70101,7 +70116,7 @@ function rgcOpen(on,quiet){
     if(!quiet)requestAnimationFrame(()=>{const t=document.getElementById('rgc-x')||d.querySelector('[data-rgc="close"]');if(t)t.focus({preventScroll:true});});
   }else{
     d.hidden=true;Object.assign(RGC,{menu:'',ask:null,mark:0,markTop:0});document.documentElement.classList.remove('rgc-on');rgcBadge();
-    if(was&&!quiet){const b=document.querySelector('.rgc-btn');if(b)b.focus({preventScroll:true});}
+    if(was&&!quiet){const o=RGC.opener,b=o&&o.isConnected&&o.getClientRects().length?o:[...document.querySelectorAll('.rgc-btn')].find(x=>x.getClientRects().length);if(b)b.focus({preventScroll:true});}
   }
 }
 async function rgcCivic(d){
@@ -70171,7 +70186,7 @@ document.addEventListener('click',e=>{
   const a=el.dataset.rgc,id=el.dataset.id||'',m=RGC.list.find(x=>x.id===id);
   if(a==='toggle')rgcOpen(!RGC.open);
   else if(a==='close')rgcOpen(false);
-  else if(a==='settings'){if(navNarrow())rgcOpen(false,true);uxOpen('settings',null,'#set-letters-chat');}
+  else if(a==='settings'){if(navNarrow())rgcOpen(false,true);uxOpen('settings',null,'#set-chat-btn');}
   else if(a==='jump'){RGC.stick=true;rgcPaint();}
   else if(a==='menu'){RGC.menu=RGC.menu===id?'':id;RGC.ask=null;rgcPaint();if(!RGC.menu){const b=document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(id)}"]`);if(b)b.focus();}}
   else if(a==='report'&&m){RGC.menu='';rgcPaint();rgcReport(m);}
@@ -70185,7 +70200,7 @@ document.addEventListener('click',e=>{
 /* the Silence form inside a line keeps what is chosen and typed, so a line coming in does not lose it */
 document.addEventListener('input',e=>{const el=e.target,q=RGC.ask;if(!el||!el.dataset||!q||q.k!=='mute')return;if(el.dataset.rgc==='mute-why')q.why=el.value.slice(0,200);});
 document.addEventListener('change',e=>{const el=e.target,q=RGC.ask;if(!el||!el.dataset||!q||q.k!=='mute')return;if(el.dataset.rgc==='mute-h')q.hours=Number(el.value);else if(el.dataset.rgc==='mute-wipe')q.wipe=el.checked;});
-/* Settings › Letters › Region chat: the two switches are checkboxes, read once they have changed */
+/* Settings › Chat › Region chat: the two switches are checkboxes, read once they have changed */
 document.addEventListener('change',e=>{
   const el=e.target;if(!el||!el.dataset||!S.nation)return;const a=el.dataset.rgc;
   if(a==='set-on'){const on=el.checked;if(!on&&RGC.open)rgcOpen(false,true);dmSet(x=>{if(on)delete x.rc;else x.rc=0;});rgcConnect();}
@@ -70374,7 +70389,7 @@ function rgcWhoSig(){
 /* the tutorial's Say hi in the region chat */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="tut-chat"]');if(!el)return;
   if(rgcOn()){RGC.tab='region';rgcOpen(true);if(RGC.tab!=='region')rgcSetTab('region');return;}
-  toast(S.nation&&dmx(S.nation).rc===0?'Turn the region chat on first: Settings › Letters › Region chat.':'The region chat needs a connection to the region.');});
+  toast(S.nation&&dmx(S.nation).rc===0?'Turn the region chat on first: Settings › Chat.':'The region chat needs a connection to the region.');});
 /* a mention in the bell opens the chat at its line */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-rc]');if(!el)return;
   const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2]);},0);},true);
@@ -70404,11 +70419,127 @@ setInterval(()=>{try{
   if(RGC.open&&!document.hidden){if(rgcTab()==='haps'){if(Date.now()-RGC.hapMemo.at>30000)rgcPaint();}else if(rgcWhoSig()!==RGC.whoSig)rgcPaint();else rgcTabsPaint();}
 }catch(e){}},5000);
 dmxClean=(f=>function(x){const o=f.apply(this,arguments);if(!x||typeof x!=='object')return o;const r=o||{};if(x.rc===0)r.rc=0;if(x.rcn===0)r.rcn=0;return Object.keys(r).length?r:null;})(dmxClean);
-dmSettingsPane=(f=>function(n){const x=dmx(n);return f.apply(this,arguments)+`<section class="sg-card" id="set-letters-chat"><h3 class="sg-ch">Region chat</h3>
-    <label class="tog"><input type="checkbox" data-rgc="set-on"${x.rc===0?'':' checked'}> Show the region chat (the speech-bubble button beside the bell)</label>
-    <label class="tog"><input type="checkbox" data-rgc="set-named"${x.rcn===0?'':' checked'}${x.rc===0?' disabled':''}> Tell me when a line in the chat mentions ${esc(n.name)}</label>
-    <p class="hint">Every nation of your region can read the chat. Blocking a nation, from a line’s menu or in Messages, hides its lines as well as its letters.</p></section>`;})(dmSettingsPane);
-UX_SETTINGS.push({v:'focus:set-letters-chat',l:'Region chat',g:'Settings',words:'chat region talk live messages mention block hide turn off',view:'settings',target:'#set-letters-chat'});
+/* ── Settings › Chat, and the floating Chat button ──
+   Settings › Chat (after Letters) holds where the Chat button sits on this device, and the two switches kept with the
+   nation (dmx.rc, dmx.rcn; until 14 November 2026 in Settings › Letters). The button floats over the page (the
+   default), sits beside the bell, or both: edictum.rgc.place 'f', 'h' or 'b', in this browser. The floating one
+   (RGCF.el, .rgc-fab) lives in <body> outside #app, like the drawer, and is a .rgc-btn, so rgcBadge counts on it too.
+   It starts in the bottom-right corner, above the tab bar on a phone. Dragged, it snaps to the nearer side and keeps
+   its height (edictum.rgc.fab: s 'l' or 'r', b its bottom edge as a share of the window's height, null for the
+   corner; Settings puts it back). rgcFabPlace sets its left and top: above a bar at the foot of the page (unsaved
+   changes, the shop's basket, the map's panel on a phone), beside the open drawer on a wider screen. On a phone it
+   hides under the open drawer, and while the player types in the page. */
+const RGC_PLACES=[['f','Floating'],['h','Beside the bell'],['b','Both']];
+const RGC_PLACE_HINT={f:'A round button floats over the page, in the bottom-right corner (above the tab bar on a phone). Drag it to the other side, or up and down: it stays where you leave it.',
+  h:'The button sits in the top bar, beside the bell and the search button.',b:'The floating button, and one beside the bell as well.'};
+const RGCF={el:null,drag:null,quiet:0,raf:0,snap:0,clear:''};
+function rgcPlace(){const v=rgcLS('edictum.rgc.place');return v==='h'||v==='b'?v:'f';}
+function rgcFabPos(){let o=null;try{o=JSON.parse(rgcLS('edictum.rgc.fab')||'null');}catch(e){}
+  return o&&(o.s==='l'||o.s==='r')?{s:o.s,b:typeof o.b==='number'&&o.b>=0&&o.b<=1?o.b:null}:{s:'r',b:null};}
+function rgcFabMoved(){const p=rgcFabPos();return p.s!=='r'||p.b!=null;}
+rgcButton=(f=>function(){return rgcPlace()==='f'?'':f.apply(this,arguments);})(rgcButton);
+/* made, or taken away, as the chat and the choice allow; rgcBadge calls it before counting */
+function rgcFab(){
+  const want=rgcOn()&&rgcPlace()!=='h',R=document.documentElement;
+  if(!want){if(RGCF.el){RGCF.el.remove();RGCF.el=null;RGCF.drag=null;}R.classList.remove('rgcf-on','rgcf-low','rgcf-lowr');return null;}
+  if(!RGCF.el||!RGCF.el.isConnected){
+    const b=document.createElement('button');b.type='button';b.className='rgc-btn rgc-fab';b.dataset.rgc='toggle';
+    b.setAttribute('aria-controls','rgc-dock');b.setAttribute('aria-expanded',String(RGC.open));b.setAttribute('aria-label',rgcLabel(0));b.title='Region chat (drag to move it)';
+    b.innerHTML=RGC_SVG+'<span class="rgc-n" hidden></span>';
+    b.addEventListener('pointerdown',rgcFabDown);b.addEventListener('pointermove',rgcFabMove);b.addEventListener('pointerup',rgcFabUp);b.addEventListener('pointercancel',rgcFabUp);
+    /* the click that ends a drag opens nothing */
+    b.addEventListener('click',e=>{if(Date.now()-RGCF.quiet<450){e.stopPropagation();e.preventDefault();}},true);
+    RGCF.el=b;rgcFabPlace();document.body.appendChild(b);
+  }
+  R.classList.add('rgcf-on');rgcFabPlace();return RGCF.el;
+}
+rgcBadge=(f=>function(){try{rgcFab();}catch(e){}return f.apply(this,arguments);})(rgcBadge);
+/* the lowest the button sits (above the phone's tab bar), and the room it leaves at the top (under the phone's top bar) */
+function rgcFabFloor(H){const t=document.querySelector('.tabbar');if(t){const r=t.getBoundingClientRect();if(r.height&&r.bottom>=H-2)return Math.round(H-r.top)+12;}return 22;}
+function rgcFabRoof(){const s=navNarrow()&&document.querySelector('.side');if(s){const r=s.getBoundingClientRect();if(r.bottom>0)return Math.round(r.bottom)+10;}return 12;}
+const RGCF_AVOID='.save-bar.is-dirty,.shop-bagbar';
+function rgcFabPlace(){
+  const b=RGCF.el;if(!b||RGCF.drag&&RGCF.drag.on)return;
+  const p=rgcFabPos(),W=document.documentElement.clientWidth||window.innerWidth||1280,H=window.innerHeight||800,sz=b.offsetWidth||52;
+  const lo=rgcFabFloor(H),hi=Math.max(lo,H-rgcFabRoof()-sz);
+  /* beside the open drawer (on a phone the drawer covers the page and the button hides) */
+  const d=RGC.open&&RGC.dock&&!RGC.dock.hidden?RGC.dock.getBoundingClientRect().width:0;
+  const x=p.s==='l'?16:Math.max(16,W-16-sz-(d&&d<W-sz-32?d:0));
+  let y=p.b==null?lo:Math.min(hi,Math.max(lo,Math.round(p.b*H)));
+  /* a bar at the foot of the page under the button: it stands above it */
+  const av=[...document.querySelectorAll(RGCF_AVOID)];if(navNarrow())av.push(...document.querySelectorAll('.map-layout:not(.ml-full)>.map-panel'));
+  for(const el of av){const r=el.getBoundingClientRect();
+    if(!r.width||!r.height||r.right<=x||r.left>=x+sz||r.bottom<=H-y-sz-8||r.top>=H-y+8)continue;
+    const ny=Math.round(H-r.top)+10;if(ny>y&&ny<=hi)y=ny;}
+  b.style.left=x+'px';b.style.top=(H-y-sz)+'px';b.dataset.side=p.s;
+  /* low on the screen, notices stand clear of it: above it on a phone, beside it on a wide screen (to its left) */
+  const R=document.documentElement,low=y<200,c=(y+sz+10)+'px';R.classList.toggle('rgcf-low',low);R.classList.toggle('rgcf-lowr',low&&p.s!=='l');
+  if(RGCF.clear!==c){RGCF.clear=c;R.style.setProperty('--rgcf-clear',c);}
+}
+function rgcFabSoon(){if(RGCF.raf)return;RGCF.raf=requestAnimationFrame(()=>{RGCF.raf=0;try{rgcFab();}catch(e){}});}
+window.addEventListener('scroll',()=>{if(RGCF.el)rgcFabSoon();},{passive:true});
+window.addEventListener('resize',rgcFabSoon);
+render=(f=>function(){const r=f.apply(this,arguments);rgcFabSoon();return r;})(render);
+/* dragging: a press that moves more than a few pixels carries the button; let go, it snaps to the nearer side */
+function rgcFabDown(e){
+  if(e.pointerType==='mouse'&&e.button!==0)return;const b=RGCF.el;if(!b)return;const r=b.getBoundingClientRect();
+  RGCF.drag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:e.clientX-r.left,dy:e.clientY-r.top,on:false};
+  try{b.setPointerCapture(e.pointerId);}catch(err){}
+}
+function rgcFabMove(e){
+  const g=RGCF.drag,b=RGCF.el;if(!g||!b||g.id!==e.pointerId)return;
+  if(!g.on){if(Math.hypot(e.clientX-g.x,e.clientY-g.y)<8)return;g.on=true;b.classList.remove('snap');b.classList.add('drag');}
+  e.preventDefault();
+  const W=document.documentElement.clientWidth||window.innerWidth,H=window.innerHeight,sz=b.offsetWidth;
+  b.style.left=Math.min(W-sz-4,Math.max(4,e.clientX-g.dx))+'px';b.style.top=Math.min(H-sz-4,Math.max(4,e.clientY-g.dy))+'px';
+}
+function rgcFabUp(e){
+  const g=RGCF.drag,b=RGCF.el;if(!g||g.id!==e.pointerId)return;RGCF.drag=null;
+  try{if(b)b.releasePointerCapture(e.pointerId);}catch(err){}
+  if(!g.on||!b)return;
+  const r=b.getBoundingClientRect(),W=document.documentElement.clientWidth||window.innerWidth,H=window.innerHeight;
+  RGCF.quiet=Date.now();b.classList.remove('drag');
+  rgcLS('edictum.rgc.fab',JSON.stringify({s:r.left+r.width/2<W/2?'l':'r',b:Math.round(Math.max(0,Math.min(1,(H-r.bottom)/H))*1000)/1000}));
+  rgcFabSnap();
+}
+/* glides to its place: after a drag, and when Settings puts it back */
+function rgcFabSnap(){const b=RGCF.el;if(!b)return;b.classList.add('snap');rgcFabPlace();clearTimeout(RGCF.snap);RGCF.snap=setTimeout(()=>{if(RGCF.el)RGCF.el.classList.remove('snap');},300);}
+/* on a phone the button keeps out of the way of typing in the page */
+const rgcTypes=t=>!!(t&&t.matches&&!(t.closest&&t.closest('#rgc-dock'))&&t.matches('textarea,select,[contenteditable="true"],input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]):not([type="color"]):not([type="file"])'));
+document.addEventListener('focusin',e=>document.documentElement.classList.toggle('rgcf-typing',rgcTypes(e.target)));
+document.addEventListener('focusout',()=>setTimeout(()=>{if(!rgcTypes(document.activeElement))document.documentElement.classList.remove('rgcf-typing');rgcFabSoon();},0));
+/* a bar at the foot of the page comes and goes without a redraw (a change typed in Settings): looked at now and then */
+document.addEventListener('input',()=>{if(RGCF.el)rgcFabSoon();},true);
+setInterval(()=>{if(RGCF.el&&!document.hidden)rgcFabSoon();},1500);
+/* the drawer's focus goes back to the button that opened it */
+document.addEventListener('click',e=>{const el=e.target&&e.target.closest&&e.target.closest('[data-rgc="toggle"]');if(el)RGC.opener=el;},true);
+
+SG_TABS.splice((i=>i<0?SG_TABS.length-1:i+1)(SG_TABS.findIndex(t=>t[0]==='letters')),0,['chat','Chat']);
+sgTabOfId=(f=>function(id){return /^#?(set-chat|rgcs-)/.test(String(id||''))?'chat':f.apply(this,arguments);})(sgTabOfId);
+sgTabSub=(f=>function(k,n){if(k!=='chat')return f.apply(this,arguments);const x=dmx(n);if(x.rc===0)return 'The chat is off';
+  return `${{f:'Floating button',h:'Button beside the bell',b:'Two buttons'}[rgcPlace()]} · mentions ${x.rcn===0?'off':'on'}`;})(sgTabSub);
+function rgcSetPane(n){
+  const x=dmx(n),off=x.rc===0,pl=rgcPlace();
+  return `${sgHead('chat','Applies at once','The region chat, where the nations of your region talk to each other from any page of the game.')}
+  <section class="sg-card" id="set-chat-btn"><h3 class="sg-ch">Chat button</h3>
+    <div class="cz-disp"><div class="cz-drow"><span class="cz-dl" id="set-l-chat">Where it sits</span><div class="seg" role="group" aria-labelledby="set-l-chat">${RGC_PLACES.map(([v,l])=>`<button type="button" class="seg-b${pl===v?' on':''}" id="rgcs-p-${v}" data-rgc="place" data-v="${v}" aria-pressed="${pl===v}"${off?' disabled':''}>${l}</button>`).join('')}</div></div></div>
+    <p class="hint">${off?'The chat is off, so there is no button. Turn it on below.':RGC_PLACE_HINT[pl]} This is kept on this device.</p>
+    ${pl!=='h'&&!off?`<p><button type="button" class="btn ghost small" id="rgcs-home" data-rgc="fab-home"${rgcFabMoved()?'':' disabled'}>Put it back in the corner</button></p>`:''}</section>
+  <section class="sg-card" id="set-chat-on"><h3 class="sg-ch">Region chat</h3>
+    <label class="tog"><input type="checkbox" data-rgc="set-on"${off?'':' checked'}> Show the region chat</label>
+    <label class="tog"><input type="checkbox" data-rgc="set-named"${x.rcn===0?'':' checked'}${off?' disabled':''}> Tell me when a line in the chat mentions ${esc(n.name)}</label>
+    <p class="hint">Every nation of your region can read the chat. Blocking a nation, from a line’s menu or in Messages, hides its lines as well as its letters: <button type="button" class="linkish small" data-act="sg-tab" data-v="letters">Blocked nations</button></p></section>`;
+}
+settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<div class="sg-pane" id="sg-p-display"');if(i<0||!S.nation)return h;
+  return h.slice(0,i)+`<div class="sg-pane" id="sg-p-chat" data-sg="chat" role="tabpanel" aria-labelledby="sg-tab-chat">${rgcSetPane(S.nation)}</div>`+h.slice(i);})(settingsView);
+document.addEventListener('click',e=>{
+  const el=e.target&&e.target.closest&&e.target.closest('[data-rgc="place"],[data-rgc="fab-home"]');if(!el||el.disabled)return;
+  if(el.dataset.rgc==='place'){const v=el.dataset.v;if(!RGC_PLACES.some(p=>p[0]===v)||v===rgcPlace())return;rgcLS('edictum.rgc.place',v);rgcFab();render();rgcBadge();
+    const b=document.getElementById('rgcs-p-'+v);if(b)b.focus({preventScroll:true});}
+  else{try{localStorage.removeItem('edictum.rgc.fab');}catch(err){}rgcFabSnap();render();const b=document.getElementById('rgcs-p-'+rgcPlace());if(b)b.focus({preventScroll:true});toast('The chat button is back in the corner.');}
+});
+UX_SETTINGS.push({v:'focus:set-chat-on',l:'Region chat',g:'Settings',words:'chat region talk live messages mention block hide turn off',view:'settings',target:'#set-chat-on'},
+  {v:'focus:set-chat-btn',l:'Chat button',g:'Settings',words:'chat button floating float bubble move drag corner bell top bar where place',view:'settings',target:'#set-chat-btn'});
 
 /* ── the chat, pictures (admins) ──
    An admin adds a picture to a line, in the drawer or as the Edictum team on the admin portal's Region chats page: the
