@@ -405,3 +405,9 @@ test('the card offers a bonus task once the main path is done, and only one the 
   const h=X.tutCard(n);assert.match(h,/Bonus tasks · 0 of 12/,'and the group has its own button');
   const est=settled();ctx.S.nation=est;assert.ok(!X.tutPicks(est,'est').some(x=>BONUS.includes(x.k)),'never before the main path is done');
 });
+
+test('a page visit or a pending tally shows a bonus task done but never makes a save of its own (achievements wait for the next decision)',()=>{
+  assert.match(source,/let p;TUT\.noPend=true;try\{p=tutPend\(n\);\}finally\{TUT\.noPend=false;\}/,'the background check that saves for the tutorial ignores what still waits');
+  assert.match(source,/const tutViewed=\(n,v\)=>\{try\{if\(tallyOf\(n,'view:'\+v\)>0\)return true;\}catch\(e\)\{\}try\{return !TUT\.noPend&&FS_PEND\.has\(v\);/);
+  assert.match(source,/const tutTly=\(n,k\)=>\{try\{if\(tallyOf\(n,k\)>0\)return true;\}catch\(e\)\{\}try\{return !TUT\.noPend&&\(ACH_PEND\.get\(k\)\|\|0\)>0;/);
+});

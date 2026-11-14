@@ -240,7 +240,8 @@ game; the card is `tutCard`, its phase `tutPhase`):
   a poster, the desk's rare task, the development news). Each pays 1 land credit, 5 goods, 5 oil and 10 timber. None
   needs a sign-in, and every one done unlocks four designs (`TUT_BONUS_U`): the **Lantern** charge for the arms with
   its twin flag emblem, the epithet *the Thorough* and the **Lamplight** accent colour. A page visit counts from
-  the `view:<page>` tally the first-steps achievements already keep.
+  the `view:<page>` tally the first-steps achievements already keep: it shows the task done at once and is paid in the
+  next ordinary save, never in a save of its own, so achievements shown as done still wait for the next decision.
 
 The card shows at most three next steps, only ones the nation can do now (`tutPicks`: never a locked task, a task
 that must wait, `ready`, or a later discovery, `after`), the clock of a building or expedition under way, what is

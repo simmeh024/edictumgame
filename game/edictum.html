@@ -40946,9 +40946,11 @@ const tutChatMine=()=>{try{const me=S.uid;return !!me&&!OBS&&RGC.list.some(m=>m.
 const tutCapCity=n=>{try{const c=cellOf(n.loc);return c<0?null:cityList(n).find(x=>x.c===c)||null;}catch(e){return null;}};
 const tutPrvT2=()=>{try{return prvT2(S.nation);}catch(e){return 'Provinces';}},tutPrvOn=()=>{try{return prvOnRec(S.nation);}catch(e){return false;}};
 /* the bonus tasks' records: a page opened (the tally view:<page>, written at the next save, or still waiting in FS_PEND),
-   a tally that may still wait in ACH_PEND, an achievement (never taken back) */
-const tutViewed=(n,v)=>{try{if(tallyOf(n,'view:'+v)>0)return true;}catch(e){}try{return FS_PEND.has(v);}catch(e){return false;}};
-const tutTly=(n,k)=>{try{if(tallyOf(n,k)>0)return true;}catch(e){}try{return (ACH_PEND.get(k)||0)>0;}catch(e){return false;}};
+   a tally that may still wait in ACH_PEND, an achievement (never taken back). What still waits shows the task done and
+   is paid in the next ordinary save, which writes it; it never makes a save of its own (TUT.noPend, set by tutLcCheck),
+   for that save would record achievements shown as done before the player's next decision. */
+const tutViewed=(n,v)=>{try{if(tallyOf(n,'view:'+v)>0)return true;}catch(e){}try{return !TUT.noPend&&FS_PEND.has(v);}catch(e){return false;}};
+const tutTly=(n,k)=>{try{if(tallyOf(n,k)>0)return true;}catch(e){}try{return !TUT.noPend&&(ACH_PEND.get(k)||0)>0;}catch(e){return false;}};
 const tutAch=(n,id)=>!!(n&&n.ach&&n.ach[id]);
 const tutWsWait=n=>{try{const w=wsOf(n);if(!w||w.c.length||(n.inbox||[]).some(x=>wsK(x.id)>=0))return '';const need=WS_AT[0];return w.e<need?`The first letter comes after ${need} edicts: ${Math.min(w.e,need)} of ${need} so far.`:'';}catch(e){return '';}};
 function tutLandHint(n){
@@ -41403,8 +41405,7 @@ function tutSheetSync(force){
 /* a button in the dialog that leads elsewhere closes it first */
 document.addEventListener('click',e=>{const d=document.getElementById('tut-dlg');if(!d||!d.open)return;const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!d.contains(el))return;
   if(!['tut-sec','tut-sheet','tut-sheet-x'].includes(el.dataset.act))d.close();},true);
-render=(f=>function(){const r=f.apply(this,arguments);try{tutSheetSync();}catch(e){}
-  try{const k={census:'bcen',achievements:'bach',atlas:'batl'}[S.view];if(k&&S.nation&&!S.nation.npc&&!tutLcOf(S.nation).includes(k))tutLcSoon();}catch(e){}return r;})(render);
+render=(f=>function(){const r=f.apply(this,arguments);try{tutSheetSync();}catch(e){}return r;})(render);
 /* Settings: the tasks hidden on this device, brought back */
 function stepsReset(){
   const n=S.nation;if(!n||n.npc||!tutHid(n)||tutAllDone(n))return '';
@@ -41518,7 +41519,7 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
    ordinary save writes it into n.tut. Each is tried once a session, so nothing saves on every render. */
 function tutLcSoon(){if(!TUT.lcT)TUT.lcT=setTimeout(tutLcCheck,150);}
 function tutLcCheck(){
-  TUT.lcT=0;const n=S.nation;if(!n||n.npc||!n.name)return;const seed=String(n.seed),p=tutPend(n);
+  TUT.lcT=0;const n=S.nation;if(!n||n.npc||!n.name)return;const seed=String(n.seed);let p;TUT.noPend=true;try{p=tutPend(n);}finally{TUT.noPend=false;}
   const pend=p.add.concat(p.chAdd.map(L=>'ch:'+L.c)).filter(k=>!TUT.lcTry.has(seed+':'+k));if(!pend.length)return;
   pend.forEach(k=>TUT.lcTry.add(seed+':'+k));commit(clone(n));
   const a=document.activeElement,typing=a&&(a.tagName==='TEXTAREA'||a.isContentEditable||(a.tagName==='INPUT'&&!/^(checkbox|radio|button|submit|range)$/i.test(a.type||'')));
