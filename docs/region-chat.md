@@ -61,8 +61,8 @@ A live chat for each region: the nations of a region talk to each other in short
   a membership private.
 - **Docked** (a wide screen, 1100 pixels or more): the drawer's dock button puts it beside the page, which makes room for
   it, instead of over it; it stays as the pages change. The choice is kept in the browser.
-- **The tutorial**: "Say hi in the region chat" (list 2, Welcome to Edictum, after "Say hi" on the board): 2 land credits
-  and 5 food, timber and goods for a first line. Its button opens the chat.
+- **The tutorial**: "Say hello in the region chat" (Take your place in the region, an optional group): 4 land credits
+  and 10 food, timber and goods for a first line. Its button opens the chat. A guest nation may do it too.
 
 - **Pictures from admins.** An admin's line may carry a picture: the picture button beside Send (a PNG, JPEG, WebP or
   GIF), a picture pasted into the writing box, or one dropped on the drawer. It is prepared at once (a bar above the box
