@@ -17,6 +17,9 @@ const watch = p => p.ctx.addInitScript(() => { window.__toasts = []; addEventLis
    so up to 90 seconds; it returns as soon as the notice shows */
 const toastHas = (p, re) => until(() => p.evaluate(src => (window.__toasts || []).some(t => new RegExp(src).test(t)), re.source), 90000);
 const why = (p, id) => p.evaluate(id => G.SC().scWhyNot(id, Date.now()), id);
+/* the notice queue keeps the newest five, so a burst of reward notices (linking an account brings several) can push out
+   one shown just before it: wait until no notice has shown for two seconds before a click whose notice is checked */
+const quiet = async p => { for (let calm = 0, end = Date.now() + 90000; calm < 2 && Date.now() < end; await sleep(1000)) calm = await p.evaluate(() => { const t = document.getElementById('toast'); return !t || t.hidden; }) ? calm + 1 : 0; };
 
 const A = await player('sender'), B = await player('recipient');
 await watch(A); await watch(B);
@@ -32,7 +35,7 @@ await visit(B, uidB).catch(() => {});
 check('not on one’s own page, nor on a computer nation’s', await B.evaluate(() => !document.querySelector('[data-act="sc-send-open"]'))
   && await A.evaluate(() => { const npc = G.allNations().find(x => x.npc); G.S.visit = npc.id; G.render(); return !document.querySelector('[data-act="sc-send-open"]'); }));
 // a Guest Nation: the button is locked, and says why
-await visit(A, uidB);
+await visit(A, uidB); await quiet(A);
 check('a Guest Nation sees the button locked', await A.evaluate(() => !!document.querySelector('[data-act="sc-send-open"] .sc-lock')));
 await A.click('[data-act="sc-send-open"]');
 check('the reason is that it is a guest', /sent by Registered Nations/.test(await why(A, uidB)));
@@ -126,7 +129,7 @@ await watch(C);
 await open(C); await found(C, 'Youngland'); await register(C);
 await until(() => C.evaluate(() => G.SC().linked()), 20000);
 check('the young nation sees the recipient', await sees(C, uidB));
-await visit(C, uidB); await C.click('[data-act="sc-send-open"]');
+await visit(C, uidB); await quiet(C); await C.click('[data-act="sc-send-open"]');
 check('a Registered Nation founded today may not send yet', /a day after its founding/.test(await why(C, uidB)) && await C.evaluate(() => !document.getElementById('sc-dlg')));
 check('and is told to wait a day', await toastHas(C, /a day after its founding/) && await C.evaluate(() => !document.getElementById('sc-dlg')));
 
