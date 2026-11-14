@@ -484,6 +484,11 @@ service cloud.firestore {
     // treaties between two nations (functions/treaties.js): written only by the server, read by everyone, as the
     // game shows each nation's treaties and the referee keeps to their non-aggression pacts
     match /treaties/{tid} { allow read: if true; }
+    // Supply Caches (functions/supply.js): written only by the server; read by the nation that sent one and the nation
+    // it is for (a message may be in it), and by admins
+    match /supply/{id} {
+      allow read: if isAdmin() || signedIn() && (resource.data.to == request.auth.uid || resource.data.f == request.auth.uid);
+    }
     match /alPace/{uid} { allow read, write: if false; }
     // region chat (functions/regionchat.js): written only by the server; a region's own nations read its lines (a nation
     // whose saved record is in that region), and admins any region's. rcPace/ (the pacing of each player's lines) is the

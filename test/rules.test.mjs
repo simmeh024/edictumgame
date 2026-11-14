@@ -1082,6 +1082,22 @@ test('recruits are filed only by the server; a recruiter reads the ones naming t
   await assertFails(as('alice').doc('recruits/carol').get());
 });
 
+test('Supply Caches are written only by the server; the nation that sent one and the nation it is for read it', async () => {
+  const x = Date.now() + 86400000;
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('supply/alice_abc12345').set({ f: 'alice', to: 'bob', r: { goods: 5 }, q: 5, m: 'Welcome!', x, o: 0 });
+  });
+  await assertSucceeds(as('alice').doc('supply/alice_abc12345').get());
+  await assertSucceeds(as('bob').doc('supply/alice_abc12345').get());
+  await assertFails(as('carol').doc('supply/alice_abc12345').get());
+  await assertSucceeds(as('bob').collection('supply').where('to', '==', 'bob').where('x', '>', Date.now()).get());
+  await assertSucceeds(as('alice').collection('supply').where('f', '==', 'alice').where('x', '>', Date.now()).get());
+  await assertFails(as('carol').collection('supply').where('to', '==', 'bob').get());
+  await assertFails(as('bob').doc('supply/bob_abc12345').set({ f: 'bob', to: 'alice', r: { goods: 300 }, q: 300, m: '', x, o: 0 }));
+  await assertFails(as('bob').doc('supply/alice_abc12345').update({ o: 1 }));
+  await assertFails(as('alice').doc('supply/alice_abc12345').delete());
+});
+
 test('alliances and the allyOf index are read by everyone and written only by the server; only members read the channel', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();
