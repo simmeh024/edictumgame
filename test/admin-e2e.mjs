@@ -1,4 +1,4 @@
-import { BASE, OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators, nav } from './lib.mjs';
+import { BASE, OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, restListAdmin, clearEmulators, nav, openAccount, accountExists } from './lib.mjs';
 const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
 await clearEmulators();
 const A = await player('admin'), B = await player('player');
@@ -322,8 +322,20 @@ check('Restore asks why first, for the audit log', await until(async () => await
 await A.fill('#agn-why', 'Dissolved by mistake'); await A.click('[data-act="agn-yes"]');
 check('and puts the nation back as it was last saved', await until(async () => { const n = await nationDoc(uidE); return n?.rec?.name === 'Mistakeland' && n.rec.updatedAt === savedE.rec.updatedAt; }, 15000)
   && await until(async () => /Restored/.test(await text(A, 'tr:has(.agn-nm:text-is("Mistakeland"))'))), JSON.stringify(await nationDoc(uidE).catch(() => null))?.slice(0, 200));
-await A.screenshot({ path: OUT + '/admin-gone.png', fullPage: true });
 await E.reload(); await ready(E);
 check('its player finds it again on their next visit', await until(async () => (await localNation(E))?.name === 'Mistakeland', 15000));
-await C.ctx.close(); await D.ctx.close(); await R.ctx.close(); await E.ctx.close();
+// deleted with its account (Settings › Delete my nation and account): a line naming it, with no copy, and nothing to restore
+const G = await player('deleted'); const uidG = await open(G); await found(G, 'Farewellia');
+await until(async () => { const n = await localNation(G); return n?._rev > 0 && !n._dirty; }, 15000);
+await openAccount(G); await G.click('[data-ed="delete"]');
+await Promise.all([G.waitForNavigation({ timeout: 20000 }), G.click('[data-ed="delete-yes"]')]);
+const lineG = async () => (await restListAdmin('gone')).find(d => d.fields.uid?.stringValue === uidG);
+check('deleting the nation and account files a line naming it, with no copy', await until(async () => { const d = await lineG(); return !(await accountExists(uidG))
+  && d?.fields.how?.stringValue === 'delete' && d.fields.name?.stringValue === 'Farewellia' && d.fields.copy?.booleanValue === false && !d.fields.docs; }, 15000), JSON.stringify((await lineG())?.fields || null).slice(0, 300));
+await A.click('[data-act="agn-reload"]');
+const rowG = 'tr:has(.agn-nm:text-is("Farewellia"))';
+check('Recently dissolved lists it as deleted with its account, with nothing to restore', await until(async () => { const t = await text(A, rowG).catch(() => ''); return /Deleted with its account/.test(t) && /Account deleted/.test(t); })
+  && !await A.$(rowG + ' [data-act="agn-ask"]') && !await A.$(rowG + ' [data-act="admin-inspect"]'));
+await A.screenshot({ path: OUT + '/admin-gone.png', fullPage: true });
+await C.ctx.close(); await D.ctx.close(); await R.ctx.close(); await E.ctx.close(); await G.ctx.close();
 await finish();
