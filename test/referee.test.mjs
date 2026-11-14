@@ -191,3 +191,26 @@ test('a player deleting their account clears their army, but only once the natio
   assert.equal(await read('armies/' + g.uid), null);
   assert.equal((await list(`armies/${g.uid}/log`)).length, 0);
 });
+
+test('a non-aggression pact, or a pact between the two alliances, stops the battle until it is ended or broken', async () => {
+  const a = await guest(), b = await guest();
+  /* a guest may fight a player only in a war that player declared: b declared one on a */
+  await nation(a.uid); await nation(b.uid, { wars: { [a.uid]: { t: 1 } } });
+  const tid = 'nap_' + [a.uid, b.uid].sort().join('_'), put = (path, fields) => doc(path, { method: 'PATCH', body: JSON.stringify({ fields }) });
+  const v = x => typeof x === 'string' ? { stringValue: x } : typeof x === 'boolean' ? { booleanValue: x } : Number.isInteger(x) ? { integerValue: String(x) } : Array.isArray(x) ? { arrayValue: { values: x.map(v) } } : { mapValue: { fields: Object.fromEntries(Object.entries(x).map(([k, y]) => [k, v(y)])) } };
+  const fields = o => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, v(x)]));
+  await put('treaties/' + tid, fields({ k: 'nap', reg: 'meridian', p: [a.uid, b.uid].sort(), a: a.uid, b: b.uid, st: 'active', t: 1, at: 1 }));
+  const r1 = await battle(a, { d: b.uid, p: 0.5 });
+  assert.equal(r1.ok, false); assert.equal(r1.why, 'pact');
+  await put('treaties/' + tid, fields({ k: 'nap', reg: 'meridian', p: [a.uid, b.uid].sort(), a: a.uid, b: b.uid, st: 'broken', t: 1, at: 1, bt: Date.now(), by: a.uid }));
+  assert.equal((await battle(a, { d: b.uid, p: 0.5 })).ok, true, 'a broken pact binds no longer');
+  /* a pact between their alliances */
+  await put('allyOf/' + a.uid, fields({ a: 'al-n', reg: 'meridian', t: 1 }));
+  await put('allyOf/' + b.uid, fields({ a: 'al-s', reg: 'meridian', t: 1 }));
+  await put('alliances/al-n', fields({ reg: 'meridian', name: 'North', mem: { [a.uid]: { t: 1 } }, rel: { 'al-s': { k: 'pact', st: 'active', t: 1, at: 1 } } }));
+  const r2 = await battle(a, { d: b.uid, p: 0.5 });
+  assert.equal(r2.ok, false); assert.equal(r2.why, 'pact');
+  await put('alliances/al-n', fields({ reg: 'meridian', name: 'North', mem: { [a.uid]: { t: 1 } }, rel: { 'al-s': { k: 'rival', me: true, them: false, t: 1 } } }));
+  assert.equal((await battle(a, { d: b.uid, p: 0.5 })).ok, true, 'rivals fight');
+  for (const p of ['treaties/' + tid, 'allyOf/' + a.uid, 'allyOf/' + b.uid, 'alliances/al-n']) await del(p);
+});

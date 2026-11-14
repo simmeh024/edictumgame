@@ -574,8 +574,12 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
   assert.equal((await db.doc('allyOf/' + f.uid).get()).get('a'), aid);
   await rejects(civic(g, { op: 'alFound', name: name.toUpperCase() }), 'al_name');
   await rejects(civic(f, { op: 'alFound', name: name + ' II' }), 'al_member');
-  await db.doc('nations/' + g.uid).update({ pop: 9 });
+  /* founding opens at 7.5 million */
+  await db.doc('nations/' + g.uid).update({ pop: 7.4 });
   await rejects(civic(g, { op: 'alFound', name: 'Too small' }), 'al_small');
+  await db.doc('nations/' + g.uid).update({ pop: 7.5 });
+  const big = await civic(g, { op: 'alFound', name: 'Just big enough ' + crypto.randomUUID().slice(0, 8) });
+  await civic(g, { op: 'alLeave', aid: big.aid, disband: true });
   /* asking: a note waits for an officer; a guest may ask too */
   await civic(b, { op: 'alRequest', aid, x: 'We share a river.' });
   await civic(c, { op: 'alRequest', aid });
@@ -666,6 +670,109 @@ test('Alliances: computer nations join by affinity with the leader, and an allia
   assert.equal((await db.doc('allyOf/' + m.uid).get()).get('a'), L.uid);
   assert.equal((await civic(L, { op: 'alMigrate', f: L.uid })).aid, L.uid, 'asked again, it is already there');
   await civic(L, { op: 'alLeave', aid: L.uid, disband: true });
+});
+
+test('Treaties: offered and accepted, limited, ended with notice or broken; a computer nation answers by affinity and shuns a breaker', async () => {
+  const data = JSON.parse(fs.readFileSync(new URL('../functions/civic-data.json', import.meta.url), 'utf8'));
+  const npc = data.regions.find(r => r.id === 'meridian').npcs.find(n => !BLOCS.includes(n.id));
+  const a = await player(true, true), b = await player(true, true), g = await player(), now = Date.now();
+  const tid = k => k + '_' + [a.uid, b.uid].sort().join('_'), treaty = async id => (await db.doc('treaties/' + id).get()).data();
+  await rejects(civic(g, { op: 'trOffer', id: a.uid, k: 'nap' }), 'registration_required');
+  await assert.rejects(civic(a, { op: 'trOffer', id: a.uid, k: 'nap' }));
+  await assert.rejects(civic(a, { op: 'trOffer', id: b.uid, k: 'alliance' }));
+  /* offered, then accepted */
+  assert.equal((await civic(a, { op: 'trOffer', id: b.uid, k: 'nap' })).signed, false);
+  let T = await treaty(tid('nap')); assert.equal(T.st, 'offered'); assert.equal(T.a, a.uid); assert.deepEqual(T.p, [a.uid, b.uid].sort());
+  await rejects(civic(a, { op: 'trOffer', id: b.uid, k: 'nap' }), 'tr_offered');
+  await rejects(civic(a, { op: 'trAnswer', tid: tid('nap'), yes: true }), 'tr_gone');
+  assert.equal((await civic(b, { op: 'trAnswer', tid: tid('nap'), yes: true })).signed, true);
+  T = await treaty(tid('nap')); assert.equal(T.st, 'active'); assert.ok(T.at >= now);
+  await rejects(civic(b, { op: 'trOffer', id: a.uid, k: 'nap' }), 'tr_exists');
+  /* offering what the other side already offered signs it */
+  await civic(a, { op: 'trOffer', id: b.uid, k: 'trade' });
+  assert.equal((await civic(b, { op: 'trOffer', id: a.uid, k: 'trade' })).signed, true);
+  assert.equal((await treaty(tid('trade'))).st, 'active');
+  /* declined, and withdrawn */
+  await civic(a, { op: 'trOffer', id: b.uid, k: 'research' });
+  await civic(b, { op: 'trAnswer', tid: tid('research'), yes: false });
+  assert.equal(await treaty(tid('research')), undefined);
+  await civic(b, { op: 'trOffer', id: a.uid, k: 'research' });
+  await civic(b, { op: 'trCancel', tid: tid('research') });
+  assert.equal(await treaty(tid('research')), undefined);
+  /* ended with notice: in force until it runs out */
+  const e = await civic(a, { op: 'trEnd', tid: tid('trade') });
+  assert.ok(e.end > now + 2.9 * DAY && e.end < now + 3.1 * DAY);
+  T = await treaty(tid('trade')); assert.equal(T.st, 'ending'); assert.equal(T.by, a.uid);
+  /* broken at once: on the breaker's record, and no computer nation signs with it for a while */
+  const br = await civic(b, { op: 'trEnd', tid: tid('nap'), now: true });
+  assert.equal(br.broken, true); assert.equal(br.other, a.uid);
+  T = await treaty(tid('nap')); assert.equal(T.st, 'broken'); assert.equal(T.by, b.uid);
+  await rejects(civic(a, { op: 'trOffer', id: b.uid, k: 'nap' }), 'tr_wait');
+  await rejects(civic(b, { op: 'trEnd', tid: tid('nap') }), 'tr_gone');
+  await record(b, { s: { civil: npc.s.civil, econ: npc.s.econ, pol: npc.s.pol }, gw: {} });
+  await rejects(civic(b, { op: 'trOffer', id: npc.id, k: 'nap' }), 'tr_breaker');
+  /* a computer nation: declines when values are far apart, signs at once when they are close, never at war */
+  const far = k => ((npc.s[k] ?? 50) >= 50 ? 0 : 100);
+  await record(a, { s: { civil: far('civil'), econ: far('econ'), pol: far('pol') }, gw: {} });
+  await rejects(civic(a, { op: 'trOffer', id: npc.id, k: 'research' }), 'tr_npc');
+  await record(a, { s: { civil: npc.s.civil, econ: npc.s.econ, pol: npc.s.pol } });
+  assert.equal((await civic(a, { op: 'trOffer', id: npc.id, k: 'research' })).signed, true);
+  const nt = await treaty('research_' + [a.uid, npc.id].sort().join('_')); assert.equal(nt.st, 'active'); assert.equal(nt.npc, true);
+  await record(a, { wars: { [npc.id]: { t: now - 1000 } } });
+  await rejects(civic(a, { op: 'trOffer', id: npc.id, k: 'nap' }), 'tr_war');
+  /* the most of a kind: three research pacts */
+  const c = await player(true, true), d2 = await player(true, true), e2 = await player(true, true);
+  for (const p of [c, d2]) { await civic(a, { op: 'trOffer', id: p.uid, k: 'research' }); await civic(p, { op: 'trAnswer', tid: 'research_' + [a.uid, p.uid].sort().join('_'), yes: true }); }
+  await rejects(civic(a, { op: 'trOffer', id: e2.uid, k: 'research' }), 'tr_max');
+  await rejects(civic(e2, { op: 'trOffer', id: a.uid, k: 'research' }), 'tr_max');
+});
+
+test('Alliances: pacts are offered and signed by leaders, ended with notice or broken at a cost; rivals earn renown for battles won against each other', async () => {
+  const L1 = await player(true, true), L2 = await player(true, true), m2 = await player(true, true), L3 = await player(true, true), now = Date.now();
+  const A1 = (await civic(L1, { op: 'alFound', name: 'North ' + crypto.randomUUID().slice(0, 8), acc: 'open' })).aid;
+  const A2 = (await civic(L2, { op: 'alFound', name: 'South ' + crypto.randomUUID().slice(0, 8), acc: 'open' })).aid;
+  const A3 = (await civic(L3, { op: 'alFound', name: 'East ' + crypto.randomUUID().slice(0, 8), acc: 'open' })).aid;
+  await civic(m2, { op: 'alRequest', aid: A2 });
+  await assert.rejects(civic(m2, { op: 'alPact', aid: A2, to: A1 }), e => e.code === 'permission-denied' || /leader/i.test(e.message));
+  /* offered by one leader, accepted by the other */
+  assert.equal((await civic(L1, { op: 'alPact', aid: A1, to: A2 })).signed, false);
+  let a1 = await allianceOf(A1), a2 = await allianceOf(A2);
+  assert.equal(a1.rel[A2].st, 'offered'); assert.equal(a2.rel[A1].st, 'asked');
+  await rejects(civic(L1, { op: 'alPactAnswer', aid: A1, to: A2, yes: true }), 'al_no_offer');
+  assert.equal((await civic(L2, { op: 'alPactAnswer', aid: A2, to: A1, yes: true })).signed, true);
+  a1 = await allianceOf(A1); a2 = await allianceOf(A2);
+  assert.equal(a1.rel[A2].st, 'active'); assert.equal(a2.rel[A1].st, 'active');
+  assert.ok(a2.log.some(e => e.k === 'pact'));
+  await rejects(civic(L1, { op: 'alRival', aid: A1, to: A2, on: true }), 'al_pact');
+  /* ended with notice: in force until it runs out */
+  const end = (await civic(L2, { op: 'alPactEnd', aid: A2, to: A1 })).end;
+  assert.ok(end > now + 2.9 * DAY);
+  a1 = await allianceOf(A1); assert.equal(a1.rel[A2].st, 'ending'); assert.equal(a1.rel[A2].end, end);
+  /* broken at once: gone from both, and the breaker loses renown */
+  await db.doc('alliances/' + A1).update({ xp: 150 });
+  const br = await civic(L1, { op: 'alPactEnd', aid: A1, to: A2, now: true });
+  assert.equal(br.broken, true);
+  a1 = await allianceOf(A1); a2 = await allianceOf(A2);
+  assert.equal(a1.rel[A2], undefined); assert.equal(a2.rel[A1], undefined); assert.equal(a1.xp, 50);
+  assert.ok(a2.log.some(e => e.k === 'pactbrk' && e.a === L1.uid));
+  /* a rivalry: named by one, seen by both; the other may name it back; withdrawn by the one that named it */
+  await civic(L1, { op: 'alRival', aid: A1, to: A2, on: true });
+  a1 = await allianceOf(A1); a2 = await allianceOf(A2);
+  assert.deepEqual([a1.rel[A2].me, a1.rel[A2].them, a2.rel[A1].me, a2.rel[A1].them], [true, false, false, true]);
+  await rejects(civic(L2, { op: 'alPact', aid: A2, to: A1 }), 'al_rival');
+  await civic(L1, { op: 'alRival', aid: A1, to: A3, on: true });
+  const A4 = (await civic(m2, { op: 'alLeave', aid: A2 }), (await civic(m2, { op: 'alFound', name: 'West ' + crypto.randomUUID().slice(0, 8) })).aid);
+  await rejects(civic(L1, { op: 'alRival', aid: A1, to: A4, on: true }), 'al_rivals');
+  /* the tally: a battle won by a member of North against a member of East (its rival) earns renown */
+  await record(L1, { conq: [{ c: 7, t: now - 2000, d: L3.uid }, { c: 8, t: now - 1500, d: 'npc-x' }] });
+  await db.doc('alliances/' + A1).update({ tt: now - 21 * 3600e3 });
+  const t = await civic(L1, { op: 'alTally', aid: A1 });
+  assert.equal(t.parts.rival, 1);
+  assert.equal(t.xp, 3 + 4);
+  await civic(L1, { op: 'alRival', aid: A1, to: A2, on: false });
+  a1 = await allianceOf(A1); a2 = await allianceOf(A2);
+  assert.equal(a1.rel[A2], undefined); assert.equal(a2.rel[A1], undefined);
+  for (const [p, aid] of [[L1, A1], [L2, A2], [L3, A3], [m2, A4]]) await civic(p, { op: 'alLeave', aid, disband: true });
 });
 
 test('The Delegate names the region’s newspaper; nobody else can, and the same Delegate waits six hours',async()=>{

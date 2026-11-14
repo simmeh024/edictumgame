@@ -9,6 +9,7 @@ import { assemblyEngine } from './assembly-engine.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, cbFollow, cbReact, cbSig, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
+import { treaty, isTreatyOp } from './treaties.js';
 import { flagOp, isFlagOp } from './flagcomp.js';
 import { pace, ipRule } from './pace.js';
 import { regionOnline } from './presence.js';
@@ -653,7 +654,7 @@ const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsMode
 export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 60 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const d = req.data && typeof req.data === 'object' ? req.data : {}, uid = req.auth.uid, op = typeof d.op === 'string' ? d.op : '';
-  if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isFlagOp(op) && !isRegionChatOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
+  if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isTreatyOp(op) && !isFlagOp(op) && !isRegionChatOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
   // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
   pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' || op === 'cbReact' || op === 'newsUpvote' ? [['cr:' + uid, 20, 1 / 4]] : []),
@@ -697,6 +698,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (d.op === 'topicReact') return rmbReact(db, who, d);
   if (d.op === 'book') return bookRead(db, who, d);
   if (isAllianceOp(d.op)) return alliance(db, who, d);
+  if (isTreatyOp(d.op)) return treaty(db, who, d);
   if (isFlagOp(d.op)) return flagOp(db, who, d);
   if (isRegionChatOp(d.op)) return regionChat(db, who, d, regions);
   /* a message on a region's board: a nation on its own region's, or an admin, as the Edictum team (board.js teamMark),

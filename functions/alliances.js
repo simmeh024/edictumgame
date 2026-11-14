@@ -2,7 +2,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { eligibility, refuse, nationJSON, DAY } from './eligibility.js';
 import { cabinetAffinity } from './affinity.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, alLevel, alPlaces } from './alliance-rules.js';
+import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, AL_FOUND_POP, AL_REL_MAX, AL_REL_NOTICE, alLevel, alPlaces, alRelLive } from './alliance-rules.js';
 
 /* Alliances, written only here (civic ops al*), so that an alliance outlives the nation that founded it.
      alliances/{aid}        {v, reg, name, mo, em, col, ty, acc, t, fd, ld, tyAt, mem, npc, iv, rq, xp, tt, tr, dn, pj, log}
@@ -11,6 +11,9 @@ import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_M
                             xp renown and tt its last daily tally; tr the treasury and dn {uid: {res totals, lt, xd, xq}}
                             the donations credited from each member's pledges (alp in their record); pj {project: level}
                             log the last 40 events [{t, k, a, b?, x?}]
+                            rel {aid: …} its relations with other alliances: a pact {k:'pact', st, t, at?, end?, by}
+                            (st 'offered' by this one, 'asked' of it, 'active', 'ending' until end) or a rivalry
+                            {k:'rival', me (this one named the other), them (the other named this one), t}
      alliances/{aid}/chat/{id}   the members' channel {a, nm, x, t}, which only members read (firestore.rules); not
                             'posts', which every player may read (the rule for deleting one's own posts)
      allyOf/{id}            {a, reg, t, npc?}: the alliance a nation (or a computer nation) belongs to, for the referee
@@ -18,7 +21,7 @@ import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_M
    Alliances founded before this kept their founder's id as their own (alMigrate), so a legacy record's allyOf and the
    referee's allyOf/ agree while a region moves over. Every member of an alliance defends the others; its type adds a
    bonus, and its renown (xp) levels, member places and projects follow functions/alliance-rules.js. */
-const NPC = new Map(DATA.regions.flatMap(r => r.npcs.map(n => [n.id, { ...n, reg: r.id }])));
+export const NPC = new Map(DATA.regions.flatMap(r => r.npcs.map(n => [n.id, { ...n, reg: r.id }])));
 /* the computer nations' own alliances (NPC_BLOCS in the game): their members cannot be invited */
 const BLOC = new Set(['npc-vellmark', 'npc-karvesk', 'npc-lucanto', 'npc-ilsund', 'npc-marrowmere']);
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -54,13 +57,13 @@ const count = A => Object.keys(A.mem || {}).length + Object.keys(A.npc || {}).le
 function roomFor(A) { if (count(A) >= alPlaces(A.xp, A.pj)) refuse('al_full', `This alliance has no place left: ${alPlaces(A.xp, A.pj)} at its level. More places come with renown and an Alliance Hall.`); }
 const regOf = e => e.n.reg || e.saved.get('reg') || '';
 /* how a computer nation regards a player, as the game's affinity(): political distance, the cabinet, goodwill */
-function npcAffinity(id, rec) {
+export function npcAffinity(id, rec) {
   const npc = NPC.get(id); if (!npc) return 0;
   const s = npc.s || {}, b = rec.s || {}, d = ['civil', 'econ', 'pol'].reduce((v, k) => v + Math.abs((s[k] ?? 50) - (b[k] ?? 50)), 0) / 3;
   return Math.round(clamp(100 - d + cabinetAffinity(rec) + clamp(Number(rec.gw?.[id]) || 0, -20, 20), 0, 100));
 }
 /* a war between a record and a computer nation: declared later than any peace either side made */
-function warWithNpc(rec, id) { const w = rec.wars?.[id]?.t || 0, p = rec.peace?.[id] || 0; return w > 0 && w > p; }
+export function warWithNpc(rec, id) { const w = rec.wars?.[id]?.t || 0, p = rec.peace?.[id] || 0; return w > 0 && w > p; }
 
 /* the alliance being acted on, read in the action's transaction */
 async function load(tx, db, d) {
@@ -69,7 +72,7 @@ async function load(tx, db, d) {
   const ref = db.doc('alliances/' + aid), s = await tx.get(ref);
   if (!s.exists) refuse('al_missing', 'This alliance no longer exists.');
   const A = s.data();
-  for (const k of ['mem', 'npc', 'iv', 'rq', 'tr', 'dn', 'pj']) if (!A[k] || typeof A[k] !== 'object') A[k] = {};
+  for (const k of ['mem', 'npc', 'iv', 'rq', 'tr', 'dn', 'pj', 'rel']) if (!A[k] || typeof A[k] !== 'object') A[k] = {};
   return { aid, ref, A };
 }
 /* whether a nation already belongs to an alliance: its allyOf/ entry, checked against the alliance it names */
@@ -116,7 +119,7 @@ async function alFound(db, who, d) {
   let aid = '';
   await db.runTransaction(async tx => {
     const e = await eligibility(tx, who), reg = regOf(e);
-    if ((Number(e.saved.get('pop')) || 0) < 10 - 1e-6) refuse('al_small', 'Founding an alliance unlocks at 10 million people. You can still join one.');
+    if ((Number(e.saved.get('pop')) || 0) < AL_FOUND_POP - 1e-6) refuse('al_small', `Founding an alliance unlocks at ${AL_FOUND_POP} million people. You can still join one.`);
     const [mine, same] = await Promise.all([belongs(tx, db, who.uid), tx.get(db.collection('alliances').where('reg', '==', reg))]);
     if (mine && !mine.stale) refuse('al_member', 'Leave your current alliance first.');
     if (same.docs.some(s => fold(s.get('name')) === fold(name))) refuse('al_name', 'Another alliance in this region already has that name.');
@@ -409,6 +412,10 @@ async function alTally(db, who, d) {
     const recs = new Map(), at = new Map();
     /* a nation founded again since it joined (the same account, a new nation) is not the member that joined */
     snaps.forEach((s, i) => { const g = A.mem[ids[i]].g; if (s.exists && !(g && s.createTime.toMillis() !== g)) { recs.set(ids[i], nationJSON(s)); at.set(ids[i], Number(s.get('updatedAt')) || 0); } });
+    /* the members of its rivals (named by it, or naming it): battles against them earn renown */
+    const rv = Object.keys(A.rel).filter(id => isAid(id) && A.rel[id] && A.rel[id].k === 'rival' && (A.rel[id].me || A.rel[id].them)).slice(0, 8);
+    const foes = new Set();
+    if (rv.length) (await tx.getAll(...rv.map(id => db.doc('alliances/' + id)))).forEach(s => { if (s.exists) Object.keys(s.get('mem') || {}).forEach(id => foes.add(id)); });
     const w0 = Math.max(A.tt || A.t || 0, now - TALLY_WINDOW), inWin = t => Number.isFinite(t) && t > w0 && t <= now;
     const mem = new Set(recs.keys()), all = new Set([...mem, ...Object.keys(A.npc)]);
     let xp = 0;
@@ -425,6 +432,8 @@ async function alTally(db, who, d) {
       const c = (Array.isArray(n.cta) ? n.cta : []).filter(x => x && all.has(x.w) && inWin(x.t)).length;
       xp += Math.min(g, AL_XP.giftCap) * AL_XP.gift + Math.min(b, AL_XP.battleCap) * AL_XP.battle + Math.min(c, AL_XP.callCap) * AL_XP.call;
       parts.gifts += g; parts.battles += b; parts.calls += c;
+      const rb = foes.size ? (Array.isArray(n.conq) ? n.conq : []).filter(x => x && foes.has(x.d) && inWin(x.t)).length : 0;
+      if (rb) { xp += Math.min(rb, AL_XP.rivalCap) * AL_XP.rival; parts.rival = (parts.rival || 0) + rb; }
     }
     for (const id of ids) if (!recs.has(id)) { delete A.mem[id]; tx.delete(ix(db, id)); logged(A, { k: 'leave', a: id, x: 'gone' }); }
     if (!Object.keys(A.mem).length) { dissolve(tx, db, ref, A); return { ok: true, dissolved: true }; }
@@ -442,6 +451,114 @@ async function alTally(db, who, d) {
     if (xp) logged(A, { k: 'tally', x: String(xp), b: JSON.stringify(parts) });
     tx.update(ref, { mem: A.mem, npc: A.npc, ld: A.ld, xp: A.xp, tt: A.tt, log: A.log });
     return { ok: true, xp, parts };
+  });
+}
+
+/* ── relations between alliances ──
+   A pact: one leader offers it (rel[to] {k:'pact', st:'offered'} here, rel[aid] {st:'asked'} there) and the other's
+   leader accepts. While it is in force no member of either may attack a member of the other (the game refuses the
+   declaration, and the referee the battle). It ends with notice, or at once at a cost in renown. A rivalry: one leader
+   names another alliance (me here, them there); battles against a rival's members earn renown in the daily tally,
+   whichever side named the other. A pact and a rivalry between the same two cannot stand together. */
+const relOf = (A, id, now) => { const r = A.rel[id]; if (!r || typeof r !== 'object') return null; if (r.k === 'pact' && r.st === 'ending' && now >= (Number(r.end) || 0)) return null; return r; };
+async function loadPair(tx, db, d, uid) {
+  const L = await load(tx, db, d); need(L.A, uid, 'ld');
+  const to = isAid(d.to) ? d.to : '';
+  if (!to || to === L.aid) throw new HttpsError('invalid-argument', 'Choose another alliance.');
+  const oref = db.doc('alliances/' + to), os = await tx.get(oref);
+  if (!os.exists) refuse('al_missing', 'That alliance no longer exists.');
+  const B = os.data(); if (!B.rel || typeof B.rel !== 'object') B.rel = {};
+  if (B.reg !== L.A.reg) refuse('al_region', 'That alliance is in another region.');
+  return { ...L, to, oref, B };
+}
+/* pacts in force or offered by it, and rivals it named */
+const pactsOf = (A, now) => Object.keys(A.rel).filter(id => { const r = relOf(A, id, now); return r && r.k === 'pact' && r.st !== 'asked'; }).length;
+const rivalsOf = A => Object.values(A.rel).filter(r => r && r.k === 'rival' && r.me).length;
+function relWrite(tx, P) {
+  tx.update(P.ref, { rel: P.A.rel, log: P.A.log, xp: P.A.xp || 0 });
+  tx.update(P.oref, { rel: P.B.rel, log: Array.isArray(P.B.log) ? P.B.log : [] });
+}
+function signPact(P, r, uid, now) {
+  const { A, B, aid, to } = P, s = { k: 'pact', st: 'active', t: Number(r.t) || now, at: now, by: r.by || '' };
+  A.rel[to] = { ...s }; B.rel[aid] = { ...s };
+  logged(A, { k: 'pact', a: uid, b: B.name, x: to }); logged(B, { k: 'pact', a: uid, b: A.name, x: aid });
+}
+async function alPact(db, who, d) {
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who);
+    const P = await loadPair(tx, db, d, who.uid), { A, B, aid, to } = P, now = Date.now();
+    const r = relOf(A, to, now), q = relOf(B, aid, now);
+    if ((r && r.k === 'rival') || (q && q.k === 'rival')) refuse('al_rival', 'The two alliances are rivals. The rivalry must be withdrawn before a pact.');
+    if (alRelLive(r, now)) refuse('al_pact_exists', 'The two alliances already have a pact.');
+    if (r && r.k === 'pact' && r.st === 'offered') return { ok: true, signed: false };
+    if (pactsOf(A, now) >= AL_REL_MAX.pact) refuse('al_pacts', `An alliance holds at most ${AL_REL_MAX.pact} pacts, in force or offered.`);
+    /* they had offered one: proposing it is accepting theirs */
+    if (r && r.k === 'pact' && r.st === 'asked') { signPact(P, r, who.uid, now); relWrite(tx, P); return { ok: true, signed: true }; }
+    if (pactsOf(B, now) >= AL_REL_MAX.pact) refuse('al_pacts_them', `${line(B.name, AL_NAME)} already holds ${AL_REL_MAX.pact} pacts.`);
+    A.rel[to] = { k: 'pact', st: 'offered', t: now, by: who.uid }; B.rel[aid] = { k: 'pact', st: 'asked', t: now, by: who.uid };
+    logged(A, { k: 'pactoffer', a: who.uid, b: B.name, x: to }); logged(B, { k: 'pactask', a: who.uid, b: A.name, x: aid });
+    relWrite(tx, P);
+    return { ok: true, signed: false };
+  });
+}
+/* the answer to an offer (yes signs it, no declines it), or the offer taken back (no, from the side that made it) */
+async function alPactAnswer(db, who, d) {
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, d.yes ? {} : { linked: false });
+    const P = await loadPair(tx, db, d, who.uid), { A, B, aid, to } = P, now = Date.now(), r = relOf(A, to, now);
+    if (!r || r.k !== 'pact' || (r.st !== 'asked' && r.st !== 'offered')) refuse('al_no_offer', 'That offer is no longer there.');
+    if (d.yes) {
+      if (r.st !== 'asked') refuse('al_no_offer', 'Only the other alliance can accept your offer.');
+      if (pactsOf(A, now) >= AL_REL_MAX.pact) refuse('al_pacts', `An alliance holds at most ${AL_REL_MAX.pact} pacts, in force or offered.`);
+      signPact(P, r, who.uid, now); relWrite(tx, P);
+      return { ok: true, signed: true };
+    }
+    delete A.rel[to]; if (B.rel[aid] && B.rel[aid].k === 'pact') delete B.rel[aid];
+    relWrite(tx, P);
+    return { ok: true };
+  });
+}
+/* a pact ended with notice (in force until it runs out), or broken at once, which costs the breaker renown */
+async function alPactEnd(db, who, d) {
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, { linked: false });
+    const P = await loadPair(tx, db, d, who.uid), { A, B, aid, to } = P, now = Date.now(), r = relOf(A, to, now);
+    if (!alRelLive(r, now)) refuse('al_no_pact', 'The two alliances have no pact in force.');
+    if (d.now) {
+      delete A.rel[to]; if (B.rel[aid] && B.rel[aid].k === 'pact') delete B.rel[aid];
+      A.xp = Math.max(0, (A.xp || 0) - AL_XP.pactBreak);
+      logged(A, { k: 'pactbrk', a: who.uid, b: B.name, x: to }); logged(B, { k: 'pactbrk', a: who.uid, b: A.name, x: aid });
+      relWrite(tx, P);
+      return { ok: true, broken: true, xp: AL_XP.pactBreak };
+    }
+    if (r.st === 'ending') return { ok: true, end: r.end };
+    const end = now + AL_REL_NOTICE;
+    A.rel[to] = { ...r, st: 'ending', end }; B.rel[aid] = { ...(B.rel[aid] && B.rel[aid].k === 'pact' ? B.rel[aid] : r), st: 'ending', end };
+    logged(A, { k: 'pactend', a: who.uid, b: B.name, x: to }); logged(B, { k: 'pactend', a: who.uid, b: A.name, x: aid });
+    relWrite(tx, P);
+    return { ok: true, end };
+  });
+}
+/* naming another alliance a rival (on), or withdrawing it */
+async function alRival(db, who, d) {
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, d.on ? {} : { linked: false });
+    const P = await loadPair(tx, db, d, who.uid), { A, B, aid, to } = P, now = Date.now(), r = relOf(A, to, now), q = relOf(B, aid, now);
+    if (d.on) {
+      if ((r && r.k === 'pact') || (q && q.k === 'pact')) refuse('al_pact', 'The two alliances have a pact, or one is offered. It must end before they can be rivals.');
+      if (r && r.k === 'rival' && r.me) return { ok: true };
+      if (rivalsOf(A) >= AL_REL_MAX.rival) refuse('al_rivals', `An alliance names at most ${AL_REL_MAX.rival} rivals.`);
+      A.rel[to] = { k: 'rival', me: true, them: !!(r && r.k === 'rival' && r.them), t: now };
+      B.rel[aid] = { k: 'rival', me: !!(q && q.k === 'rival' && q.me), them: true, t: now };
+      logged(A, { k: 'rival', a: who.uid, b: B.name, x: to }); logged(B, { k: 'rivaled', a: who.uid, b: A.name, x: aid });
+    } else {
+      if (!r || r.k !== 'rival' || !r.me) return { ok: true };
+      if (r.them) A.rel[to] = { ...r, me: false }; else delete A.rel[to];
+      if (q && q.k === 'rival') { if (q.me) B.rel[aid] = { ...q, them: false }; else delete B.rel[aid]; }
+      logged(A, { k: 'rivalx', a: who.uid, b: B.name, x: to });
+    }
+    relWrite(tx, P);
+    return { ok: true };
   });
 }
 
@@ -506,6 +623,6 @@ export async function alDrop(db, uid) {
   } catch (e) { console.warn('alDrop', uid, e && e.message); }
 }
 
-const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alPostDel, alTally, alMigrate };
+const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alPostDel, alTally, alMigrate, alPact, alPactAnswer, alPactEnd, alRival };
 export const isAllianceOp = op => Object.prototype.hasOwnProperty.call(OPS, op);
 export function alliance(db, who, d) { return OPS[d.op](db, who, d); }

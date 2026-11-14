@@ -254,12 +254,12 @@ test('months of membership and the Chancery seals', () => {
 test('the game sells what the server sells: every cosmetic in the catalogue is in the game, from the right source', () => {
   assert.ok(src.includes('/*SHOP_CATALOGUE*/null'), 'build.py puts the catalogue here');
   const def = new Map();
-  for (const m of src.matchAll(/\['([a-z]{1,3}(?:-[a-z])?-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|boundary|mapcol|poster|seal|sign|postmark|title|accent|fpat|emblem|shield|charge|card|paper|cunote|cumetal|cushape|custrip)','[^']+'\]/g)) def.set(m[1], m[2]);
+  for (const m of src.matchAll(/\['([a-z]{1,3}(?:-[a-z])?-[a-z]+)','(badge|pattern|frame|stamp|pin|inscription|territory|boundary|mapcol|poster|seal|sign|postmark|title|accent|fpat|emblem|shield|charge|card|paper|cunote|cumetal|cushape|custrip|portrait)','[^']+'\]/g)) def.set(m[1], m[2]);
   for (const m of src.matchAll(/\['(cd-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'card');
   for (const m of src.matchAll(/\['(lp-i-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'paper');
   for (const id of CATALOGUE.products.idpack.grants.filter(id => id.startsWith('lp-'))) assert.ok(src.includes(`'${id}':{n:`), id + ' has its paper in LP_X');
   const block = src.slice(src.indexOf('const SHOP_NONE='), src.indexOf('/* the new places a cosmetic can go'));
-  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"], ['tulippack', "'tulippack'"], ['cartopack', "'cartopack'"], ['embpack', "'embpack'"]]) {
+  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"], ['tulippack', "'tulippack'"], ['cartopack', "'cartopack'"], ['embpack', "'embpack'"], ['mayapack', "'mayapack'"]]) {
     const ids = p === 'vip' ? CLUB_IDS : CATALOGUE.products[p].grants;
     for (const id of ids) { assert.ok(def.has(id), id + ' is drawn in the game'); assert.ok(block.includes(`'${id}'`), id); }
     assert.ok(block.includes(src2));
@@ -295,6 +295,13 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   for (const id of emb.grants.filter(id => /^ls-/.test(id))) assert.ok(src.includes(`.dm-wax.${id}{`), id + ' has its wax');
   for (const id of emb.grants.filter(id => /^(lg|lm)-/.test(id))) assert.ok(src.split(`'${id}'`).length - 1 >= 2, id + ' is drawn (named in the Shop and in its drawing)');
   assert.ok(/Object\.assign\(CZ_KIND,\{[^}]*lm:'postmark'/.test(src), 'the postage stamp has a slot of its own');
+  /* the Mayan Pack: twelve portrait pieces (PT_SHOP), a land finish, a card and a banknote engraving */
+  const maya = CATALOGUE.products.mayapack;
+  assert.equal(maya.amount, 399); assert.equal(maya.grants.length, 15); assert.ok(maya.giftable && maya.optional, 'giftable, and offered once its price is set');
+  for (const id of maya.grants.filter(id => /^rp-/.test(id))) assert.equal(def.get(id), 'portrait', id + ' is a portrait piece');
+  assert.ok(listOf(/CTG_TE=\[([^\]]*)\]/).includes("'te-fret'") && src.includes("te==='te-fret'"), 'the Stepped Fret is a finish, drawn on the map');
+  assert.ok(/pat:\{[^}]*numerals:'cn-numerals'/.test(src) && src.includes("case 'numerals':"), 'Dots and Bars is in CU_LOCK, and engraved');
+  assert.ok(src.includes('.hero.cd-stela{') && src.includes('.shop-cm.cd-stela{'), 'the Limestone Stela card is drawn, full size and small');
 });
 
 test('a founder always wears the Founding Supporter badge, by the server’s word, but a Shop preview only when it puts it on', () => {

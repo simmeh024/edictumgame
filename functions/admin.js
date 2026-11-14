@@ -11,6 +11,7 @@ import { setComp } from './shop.js';
 import { cbDelete, rmbForget, cbForget } from './board.js';
 import { rcForget } from './regionchat.js';
 import { alDrop } from './alliances.js';
+import { trDrop } from './treaties.js';
 import { fcForget } from './flagcomp.js';
 import { shopSummary, founderGiftSummary, parseEcb, ECB_URL } from './shop-stats.js';
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
@@ -315,6 +316,7 @@ async function mutate(db, actor, data) {
       ['nations', 'nationx', 'nationp', 'summaries', 'space'].forEach(c => b.delete(db.doc(c + '/' + target)));
       await b.commit();
       await alDrop(db, target);
+      await trDrop(db, target);
       const chat = await db.collectionGroup('chat').where('a', '==', target).get();
       if (!chat.empty) { const w = db.bulkWriter(); await Promise.all([Promise.all(chat.docs.map(d => w.delete(d.ref))), w.close()]); }
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);

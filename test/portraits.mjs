@@ -213,6 +213,29 @@ try {
     check('every kind of hair and dress draws, engraved and in a skin colour', all);
     await page.screenshot({ path: OUT + '/portraits-skin-1280.png' });
 
+    /* the Mayan Pack's pieces: left out while the pack is not on sale, tried on while it is, saved once held, and shown on
+       another nation's portrait only while the Shop says that nation holds them */
+    await go('customise/portraits'); await page.click('#pt-p-lead');
+    const hid = await page.evaluate(() => ({ h: [...document.querySelectorAll('#pt-h-s option')].some(o => +o.value >= 20), w: [...document.querySelectorAll('#pt-w-s option')].some(o => +o.value >= 11), ink: !!document.getElementById('pt-i-jade') }));
+    check('the Mayan Pack’s pieces stay out of the lists while the pack is not on sale', !hid.h && !hid.w && !hid.ink, hid);
+    await page.evaluate(() => { window.__game.SHOP.SHOP.cfg = { on: true, env: 'live', token: '', prices: { mayapack: 'pri_x' }, now: Date.now(), until: Date.UTC(2027, 1, 2) }; window.__game.render(); });
+    await sleep(300);
+    const offer = await page.evaluate(() => ({ w: [...document.querySelectorAll('#pt-w-s option')].filter(o => /\(Mayan Pack\)/.test(o.textContent)).map(o => +o.value), h: [...document.querySelectorAll('#pt-h-s option')].filter(o => /\(Mayan Pack\)/.test(o.textContent)).map(o => +o.value), ink: !!document.querySelector('#pt-i-jade.pt-ink-s') }));
+    check('on sale, they join the lists to be tried on: three headdresses, two hairstyles, the jade ink', canon(offer.w) === canon([11, 12, 13]) && canon(offer.h) === canon([20, 21]) && offer.ink, offer);
+    await page.selectOption('#pt-w-s', '11'); await sleep(200); await page.click('#pt-i-jade'); await sleep(200);
+    const tryOn = await page.evaluate(() => ({ save: document.getElementById('pt-save').disabled, shop: !!document.querySelector('.pt-warn-s #pt-shop'), ring: !!document.querySelector('.pt-prev .cv-med') }));
+    check('tried on, the quetzal headdress and the jade ink cannot be saved yet, and the pack is a click away', tryOn.save && tryOn.shop, tryOn);
+    await edit(n => { const c = n.cz || {}; n.cz = Object.assign({}, c, { u: [...new Set([...(c.u || []), 'rp-quetzal', 'rp-jaguar', 'rp-headband', 'rp-crest', 'rp-jadetail', 'rp-collar', 'rp-cape', 'rp-mantle', 'rp-spools', 'rp-nosebead', 'rp-fretring', 'rp-jade', 'te-fret', 'cd-stela', 'cn-numerals'])] }); });
+    await sleep(300);
+    check('once the pack is held, the same look can be saved', await until(() => page.evaluate(() => !document.getElementById('pt-save').disabled && !document.querySelector('.pt-warn-s'))));
+    await page.click('#pt-save');
+    n = await nation();
+    check('the headdress and the ink are saved', n.rpt.l.w === 11 && n.rpt.i === 'jade', n.rpt);
+    const seen = await page.evaluate(() => { const X = window.__game.PT(), me = window.__game.S.nation, other = JSON.parse(JSON.stringify(me)); other.seed = 'another nation';
+      return { mine: X.ptLead(me).look.w, ink: !!X.ptInk(me), theirs: X.ptLead(other).look.w, theirInk: X.ptInk(other) }; });
+    check('another nation’s record shows them only while its finery has them', seen.mine === 11 && seen.ink && seen.theirs === undefined && seen.theirInk === null, seen);
+    await page.evaluate(() => { window.__game.SHOP.SHOP.cfg = null; });
+
     /* a saved look survives a reload */
     await page.reload(); await page.waitForFunction(() => window.__game && window.__game.S.nation);
     const n2 = await nation();

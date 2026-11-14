@@ -18,7 +18,7 @@ the server credits), `cta` (calls to arms answered) and, in the private half (`N
 ## Ops
 
 `alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild,
-alPost, alPostDel, alTally, alMigrate`. Founding needs a Registered Nation of 10 million (the saved `pop`). Joining,
+alPost, alPostDel, alTally, alMigrate`. Founding needs a Registered Nation of 7.5 million (the saved `pop`, `AL_FOUND_POP`; the game's `FEATURE_AT.alli`). Joining,
 asking, leaving and giving work for guests too.
 
 - **Roles.** The leader edits the charter and gives out roles (at most 5 officers). Officers invite, admit and remove
