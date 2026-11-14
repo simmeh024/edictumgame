@@ -10,7 +10,17 @@ const html=readFileSync(path.join(root,'index.html'),'utf8');
 const core=html.match(/"(\/assets\/game\.[0-9a-f]+\.js)"/)[1],content=html.match(/\/assets\/content\.[a-f0-9]+\.js/)[0];
 /* the front page paints before the game's scripts run: they are preloaded, then added in order after the first frame */
 const list=JSON.parse(html.match(/var L=(\[\[.*?\]\])[,;]/)[1]).map(x=>x[0].split('/').pop().split('.')[0]);
-check('the game scripts load after the first paint, in order',list.join()==='maps,content,game,shim'&&!/<script[^>]+src="\/assets\//.test(html),list.join());
+check('the game scripts load after the first paint, in order',list.join()==='firebase-app-compat,firebase-auth-compat,firebase-firestore-compat,maps,content,game,shim'&&!/<script[^>]+src="\/(assets|vendor)\//.test(html),list.join());
+/* until the first paint only the page and its stylesheet download: the fonts are preloaded unless the line is slow
+   (the game's scripts are kept out, so these pages only look) */
+{const fonts=async connection=>{const P=await player('startup-fonts',{block:/\/assets\/(maps|content|game|shim)\.|\/vendor\/firebase\//});
+   await P.addInitScript(c=>Object.defineProperty(navigator,'connection',{value:c||undefined,configurable:true}),connection);  // null: no estimate, as in Safari
+   await P.goto(BASE,{waitUntil:'domcontentloaded'});
+   const r=await P.evaluate(()=>[...document.querySelectorAll('link[rel="preload"][as="font"]')].filter(l=>l.crossOrigin==='anonymous'&&/\/assets\/fonts\/.+\.woff2$/.test(l.href)).length);
+   await P.ctx.close();return r;};
+ const fast=await fonts({effectiveType:'4g',saveData:false}),none=await fonts(null),slow=await fonts({effectiveType:'3g',saveData:false}),saver=await fonts({effectiveType:'4g',saveData:true});
+ check('the first screen’s fonts are preloaded on a fast line and where the browser makes no estimate',fast===2&&none===2,`${fast} ${none}`);
+ check('but not on 3G or with Data Saver, where they would slow the stylesheet',slow===0&&saver===0,`${slow} ${saver}`);}
 const A=await player('startup-desktop');await A.ctx.unrouteAll();
 await open(A);await found(A,'Quickland');
 await until(async()=>{const n=await localNation(A);return n?._rev>0&&!n._dirty;},15000);

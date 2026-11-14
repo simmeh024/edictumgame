@@ -20,7 +20,7 @@ This script turns it into a small page plus long-cached files, without changing 
     visitor's browser contacts Google for them;
   - src/stub.js in <head>: defines window.claude.use() before the game's script runs;
   - the Firebase compat SDK (app, auth, firestore), copied from node_modules into
-    public/vendor/firebase/<version>/ so the site needs no CDN;
+    public/vendor/firebase/<version>/ so the site needs no CDN, and loaded after the first paint (game_loader);
   - src/shim.js after the game: the Firebase-backed window.claude and the account control;
   - Firebase Performance Monitoring as /assets/perf.<hash>.js, edited so it reports no player IDs (PERF_EDITS),
     which the shim loads only for a player who allowed visit statistics;
@@ -171,6 +171,16 @@ def game_loader(scripts):
             'var f=d.fonts&&d.fonts.ready?Promise.race([d.fonts.ready,new Promise(function(r){setTimeout(r,1500)})]):Promise.resolve();'
             'f.then(function(){frame(go)});setTimeout(go,3000);window.addEventListener("load",go)}})();'
             % json.dumps([[u, bool(f)] for u, f in scripts]))
+
+
+def font_preloader(urls):
+    """An inline script that preloads the first screen's fonts, unless the browser reckons the connection slow (2G or
+    3G, or Data Saver on). There the fonts would share the line with the stylesheet that holds the first paint back:
+    on a 3G line they cost it about 1.5 s. They still come, a moment later, when the stylesheet asks for them
+    (font-display: swap). A browser that makes no estimate (Safari, Firefox) preloads them, as every browser did."""
+    return ('(function(){var c=navigator.connection;if(c&&(c.saveData||/^(slow-2g|2g|3g)$/.test(c.effectiveType)))return;'
+            '%s.forEach(function(u){var l=document.createElement("link");l.rel="preload";l.as="font";l.type="font/woff2";'
+            'l.crossOrigin="anonymous";l.href=u;document.head.appendChild(l)})})();' % json.dumps(urls))
 
 
 def fail(msg):
@@ -464,11 +474,9 @@ def main():
         '[hidden]{display:none!important}'
         '.ed-boot-pending .boot,.ed-boot-pending .home-static .boot-load{visibility:hidden}</style>',
         '<script>\n%s\n</script>' % inline_js(os.path.join(SRC, 'stub.js'), minify),
-    ] + ['<link rel="preconnect" href="%s" crossorigin>' % u for u in PRECONNECT] + [
-        '<script defer src="%s%s" fetchpriority="low"></script>' % (vendor, n) for n in SDK] + meta + [
+    ] + ['<link rel="preconnect" href="%s" crossorigin>' % u for u in PRECONNECT] + meta + [
         game_head,
-    ] + ['<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' % u for u in preload] + [
-
+        '<script>\n%s\n</script>' % font_preloader(preload),
         '<link rel="stylesheet" href="%s">' % css_url,
         '</head>',
         '<body>',
@@ -476,8 +484,13 @@ def main():
         # The front page above (BOOT) paints first, with its fonts: the game's scripts download from the first
         # frame and run after it, in this order, the adapter (shim) last (see game_loader). Run as plain or
         # deferred scripts, compiling 3.5 MB of game held the first paint back by seconds on a phone.
-        # Without the maps (a failed download) the game generates its map, as it can.
-        '<script>\n%s\n</script>' % game_loader([(maps_url, False)] + ([(content_url, True)] if content_url else []) +
+        # Without the maps (a failed download) the game generates its map, as it can. The Firebase SDK (180 KB
+        # compressed) waits for the first frame too: as deferred scripts in the head it downloaded alongside the
+        # stylesheet, which on a 3G line held the first paint back by about 3 s. It goes first, so it compiles
+        # while the game is still downloading rather than after it; only the shim uses it. Without it (a failed
+        # download) the shim plays offline, as it always has.
+        '<script>\n%s\n</script>' % game_loader([(vendor + n, False) for n in SDK] + [(maps_url, False)] +
+                                                ([(content_url, True)] if content_url else []) +
                                                 [(js_url, True), (shim_url, False)]),
         '</body>',
         '</html>',
