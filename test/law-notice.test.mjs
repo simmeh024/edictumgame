@@ -32,6 +32,8 @@ test('the People’s Bank and an independent central bank may stand together; th
   assert.deepEqual(plain(X.lawsEnded({policies:{centralBankIndependence:true}},{p:{peoplesBank:1}})),[],'the People’s Bank ends nothing now');
   assert(/\+ \(I\.cbi \? 12 : 0\) - \(I\.pbank \? 8 : 0\)/.test(readFileSync(new URL('../jobs/fx/engine.mjs',import.meta.url),'utf8')),'the currency job scores both at once');
   assert(source.includes("+(p.centralBankIndependence?12:0)-(p.peoplesBank?8:0)"),'and so does the game');
+  const civic=JSON.parse(readFileSync(new URL('../functions/civic-data.json',import.meta.url),'utf8')).conflicts.map(p=>p.join('+'));
+  assert.deepEqual(civic,pairs,'the server’s copy (functions/civic-data.json) matches: node tools/build-civic.mjs');
 });
 
 test('the laws held now that an answer would end, and why',()=>{
