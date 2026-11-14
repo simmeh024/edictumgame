@@ -40530,7 +40530,7 @@ const TUT_LISTS=[
     {k:'rmb',t:()=>`Say hi to ${REGION}`,h:'Leave a message on the region’s board: a hello, a question or news of your nation. Every player in the region reads it.',
      v:'region',to:'rmb-text',b:'Open the board',lc:3,gift:{food:5,timber:5,iron:10,oil:10,goods:5},mapc:'#A347C8',mapcN:'Orchid',
      lock:n=>tutReg()?'':'Only Registered Nations post on the board: link a sign-in to your nation first.',f:(n,d)=>String(d||'').includes('b')||tutRmbMine()},
-    {k:'rch',t:'Say hi in the region chat',h:'Open the chat with the round speech-bubble button (it floats at the bottom right, unless you have put it beside the bell) and write a line: a hello, a question or news of your nation. Everyone in the region who is playing reads it at once.',
+    {k:'rch',t:'Say hi in the region chat',h:'Open the chat with the speech-bubble button beside the bell (or the floating one, if you chose it in Settings › Chat) and write a line: a hello, a question or news of your nation. Everyone in the region who is playing reads it at once.',
      act:'tut-chat',b:'Open the chat',lc:2,gift:{food:5,timber:5,goods:5},
      f:(n,d)=>String(d||'').includes('h')||tutChatMine()},
     {k:'mdig',t:'Do a museum dig',h:'The Museum’s Field digs hall sends diggers to an old site. They come back hours later with finds for your collection.',
@@ -70462,19 +70462,19 @@ setInterval(()=>{try{
 dmxClean=(f=>function(x){const o=f.apply(this,arguments);if(!x||typeof x!=='object')return o;const r=o||{};if(x.rc===0)r.rc=0;if(x.rcn===0)r.rcn=0;return Object.keys(r).length?r:null;})(dmxClean);
 /* ── Settings › Chat, and the floating Chat button ──
    Settings › Chat (after Letters) holds where the Chat button sits on this device, and the two switches kept with the
-   nation (dmx.rc, dmx.rcn; until 14 November 2026 in Settings › Letters). The button floats over the page (the
-   default), sits beside the bell, or both: edictum.rgc.place 'f', 'h' or 'b', in this browser. The floating one
+   nation (dmx.rc, dmx.rcn; until 14 November 2026 in Settings › Letters). The button sits beside the bell (the
+   default), floats over the page, or both: edictum.rgc.place 'h', 'f' or 'b', in this browser. The floating one
    (RGCF.el, .rgc-fab) lives in <body> outside #app, like the drawer, and is a .rgc-btn, so rgcBadge counts on it too.
    It starts in the bottom-right corner, above the tab bar on a phone. Dragged, it snaps to the nearer side and keeps
    its height (edictum.rgc.fab: s 'l' or 'r', b its bottom edge as a share of the window's height, null for the
    corner; Settings puts it back). rgcFabPlace sets its left and top: above a bar at the foot of the page (unsaved
    changes, the shop's basket, the map's panel on a phone), beside the open drawer on a wider screen. On a phone it
    hides under the open drawer, and while the player types in the page. */
-const RGC_PLACES=[['f','Floating'],['h','Beside the bell'],['b','Both']];
+const RGC_PLACES=[['h','Beside the bell'],['f','Floating'],['b','Both']];
 const RGC_PLACE_HINT={f:'A round button floats over the page, in the bottom-right corner (above the tab bar on a phone). Drag it to the other side, or up and down: it stays where you leave it.',
   h:'The button sits in the top bar, beside the bell and the search button.',b:'The floating button, and one beside the bell as well.'};
 const RGCF={el:null,drag:null,quiet:0,raf:0,snap:0,clear:''};
-function rgcPlace(){const v=rgcLS('edictum.rgc.place');return v==='h'||v==='b'?v:'f';}
+function rgcPlace(){const v=rgcLS('edictum.rgc.place');return v==='f'||v==='b'?v:'h';}
 function rgcFabPos(){let o=null;try{o=JSON.parse(rgcLS('edictum.rgc.fab')||'null');}catch(e){}
   return o&&(o.s==='l'||o.s==='r')?{s:o.s,b:typeof o.b==='number'&&o.b>=0&&o.b<=1?o.b:null}:{s:'r',b:null};}
 function rgcFabMoved(){const p=rgcFabPos();return p.s!=='r'||p.b!=null;}
