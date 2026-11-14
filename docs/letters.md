@@ -15,6 +15,20 @@ sets up once.
 - **Tools**: a draft per conversation (kept in the browser), Ctrl+Enter to send, day dividers and full times,
   search across letters, filters (Unread, Players, Computer, Offices, Groups, Archived), pin, mute, archive,
   delete, block, report, "Show earlier letters".
+- **Formatting**: a player's letter may have **bold** (`**words**`), *italic* (`*words*` or `_words_`), bulleted lists
+  (lines starting with `- `, `* ` or `• `), numbered lists (`1. `, `2) `) and paragraphs (a blank line). The writing box
+  has buttons for each (Bold, Italic, Bulleted list, Numbered list: they put the marks around the chosen words or
+  before each chosen line, and take them off again), Ctrl+B and Ctrl+I, and **Preview**, which shows the letter as it
+  will look. The letter is sent and kept as typed, marks and all; the game draws them (`dmRich`), after escaping the
+  words, so nothing else typed becomes markup. A sum like `2*3*4` or a name like `snake_case` stays as it is. The list
+  of conversations, search and the words an answer quotes use the letter without its marks (`dmPlain`). Letters from
+  offices and computer-run nations are drawn as plain text.
+- **Labels**: Trade, War, Alliance, Friends and Important, put on a conversation from its Options menu, only for the
+  player (`dmx.lb {conversation: the labels' letters t, w, a, f, i}` in the private half). A conversation shows its
+  labels as coloured dots in the list and as pills in its head. Under the filters, a chip for each label (with how
+  many conversations carry it) shows only those, and **With** shows the conversations whose letters carry an open trade
+  offer (not yet answered), an open peace offer (the war goes on), an open alliance invitation (not yet taken up), a
+  city or an achievement. Both work with the other filters and search; deleting a conversation forgets its labels.
 - **Notices**: a pop-up in the game when a letter arrives, push notifications on a device that asked for them,
   and Letters by post, hourly or right away (see [mail.md](mail.md)). None of them carries the letter's words.
 - **Settings › Letters** (the Messages page's Settings button): which offices write, read receipts, the notice,
@@ -25,6 +39,18 @@ sets up once.
   Chancery Club. "Papers of your government" has one paper for each of the Bureau's 27 classifications: a nation
   earns one the first time it is classed that way and keeps it (govCatsHeld). These 32 are drawn from one table
   (LP_X), whose variables a stylesheet injected at start-up turns into classes (.lpx).
+
+## Admin portal › Letter statistics
+
+Under World (`admin-letters`, `functions/letter-stats.js`, admin console op `letterStats {days: 7 | 30}`): letters
+delivered in the last 24 hours, 7 and 30 days and on each of the last 30 days (count queries on `letters.ts`); for the
+chosen window, the letters written (a group letter once), the nations that wrote and received them, the conversations
+between two nations, the share sent to groups, letters per writer, letters by the writer's region now, formal notes
+and attachments by kind; the 15 nations that wrote the most (letters, readers, letters to groups, the last one) and the
+15 that received the most, each with Inspect; the letter reports waiting, the newest ten (who was reported and why) and
+a link to the Reports queue; blocks in force and new in the window. It reads at most the newest 20,000 copies of the
+window (and says so when it stops there). It never reads a letter's words, and it lists no pairs of correspondents:
+who a player writes to stays on their admin page (op `letters`), behind a reason the audit log keeps.
 
 ## How it works
 

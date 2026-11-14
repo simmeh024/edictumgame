@@ -2,10 +2,11 @@
 // drafts kept per conversation, formal notes, answers, attachments with the buttons of their own page, a notice when a
 // letter arrives, read receipts, ten unanswered letters, blocking, reporting, group letters, muting, searching,
 // archiving, deleting, the offices' switches, stationery, push notifications and letters by post told right away
-// (functions/letters.js), and the computer nations' letters.
+// (functions/letters.js), the computer nations' letters, formatting (bold, italic, lists, preview), labels and the
+// attachment filter, and the admin portal's Letter statistics.
 //   npm run test:letters
 import path from 'node:path';
-import { player, open, found, until, check, finish, nav, text, restListAdmin, clearEmulators, sleep, OUT, FS_HOST, PROJECT, czSection, nationDoc } from './lib.mjs';
+import { player, open, found, until, check, finish, nav, text, restListAdmin, clearEmulators, sleep, OUT, FS_HOST, PROJECT, czSection, nationDoc, setClaims, ready } from './lib.mjs';
 await clearEmulators();
 const A = await player('A'), B = await player('B'), C = await player('C');
 const uidA = await open(A); await found(A, 'Inkwell');
@@ -204,5 +205,84 @@ check('Settings › Letters can stop the letters they write unasked', await unti
 const quiet = await A.evaluate(id => { const n = G.clone(G.S.nation), now = Date.now(); n.log.unshift({ t: now + 1, k: 'peace', a: id, b: 'x' }); n.log = n.log.slice(0, 60); G.commit(n); return (G.S.nation.dm || []).filter(m => m.i && m.w === id && /guns are silent/.test(m.x)).length; }, npc);
 check('after which a peace brings no letter', quiet === 0);
 check('and, about once a week, the closest one proposes a trade', await A.evaluate(() => { const m = G.LTR().npcIdea(G.S.nation, Date.now()); return !!m && m.a.k === 'idea' && m.i === 1; }));
+
+/* ── 14. formatting, labels, the attachment filter, and the admin's Letter statistics ── */
+await nav(A, 'messages'); await pickPeer(A, uidB); await A.waitForSelector('#dm-text'); await sleep(3200);
+check('the writing box has Bold, Italic, two lists and Preview', (await A.$$eval('.dm-fmt [data-act="dm-fmt"]', b => b.map(x => x.dataset.k).join())) === 'b,i,ul,ol' && !!(await A.$('.dm-fmt [data-act="dm-prev"]')) && /\*\*bold\*\*/.test(await text(A, '#dm-fmt-h')));
+await A.fill('#dm-text', 'Our terms');
+await A.evaluate(() => document.getElementById('dm-text').setSelectionRange(4, 9)); await A.click('.dm-fmt [data-k="b"]');
+check('Bold puts the marks around the chosen words', (await A.inputValue('#dm-text')) === 'Our **terms**');
+await A.evaluate(() => { const t = document.getElementById('dm-text'); t.focus(); t.setSelectionRange(0, 3); }); await A.keyboard.press('Control+i');
+check('Ctrl+I makes them italic', (await A.inputValue('#dm-text')) === '*Our* **terms**');
+await A.fill('#dm-text', '*Our* **terms**:\n\ngrain for iron\nopen borders');
+await A.evaluate(() => { const t = document.getElementById('dm-text'); t.setSelectionRange(t.value.indexOf('grain'), t.value.length); }); await A.click('.dm-fmt [data-k="ul"]');
+const terms = '*Our* **terms**:\n\n- grain for iron\n- open borders';
+check('the list button starts each chosen line with a dash', (await A.inputValue('#dm-text')) === terms, JSON.stringify(await A.inputValue('#dm-text')));
+await A.click('.dm-fmt [data-act="dm-prev"]');
+check('Preview shows the letter as it will look', await until(async () => !(await A.$eval('#dm-prev', e => e.hidden)) && (await text(A, '#dm-prev .dm-x b')) === 'terms' && (await A.$$('#dm-prev .dm-x ul li')).length === 2));
+await A.click('#dm-form button[type="submit"]');
+check('the letter is sent with its marks, as typed', !!(await until(() => find(uidA, uidB, terms), 30000)));
+await openThread(B, uidA);
+const fm = '.bub:not(.mine) .dm-x';
+check('the reader sees it bold, italic and as a list', await until(async () => (await text(B, `${fm} b`)) === 'terms' && (await text(B, `${fm} i`)) === 'Our' && (await B.$$eval(`${fm} ul li`, l => l.map(x => x.textContent).join('|'))) === 'grain for iron|open borders', 20000));
+check('and no mark is shown as a star or a dash', !/\*|^- /m.test(await B.$eval(fm, e => e.innerText)));
+check('the list of conversations shows the words without the marks', /Our terms:/.test(await text(B, `[data-act="dm-peer"][data-id="${uidA}"] .conv-t`)));
+await B.locator('.thread').screenshot({ path: path.join(OUT, 'letters-format.png') }).catch(() => {});
+// labels: from a conversation's Options, only for the player
+await B.click('.thread-h [data-act="dm-menu"]');
+check('Options offers five labels', (await B.$$eval('.dm-menu-lb [data-act="dm-label"]', b => b.map(x => x.textContent.trim()).join())) === 'Trade,War,Alliance,Friends,Important');
+await B.click('.dm-menu-lb [data-v="t"]'); await B.click('.dm-menu-lb [data-v="f"]');
+check('a label chosen is pressed, kept in the player’s own record, and shown on the conversation', await until(async () => await B.evaluate(u => (G.S.nation.dmx.lb || {})[u] === 'tf', uidA)
+  && await B.getAttribute('.dm-menu-lb [data-v="t"]', 'aria-pressed') === 'true'
+  && (await B.$$(`[data-act="dm-peer"][data-id="${uidA}"] .dm-lbds .dm-dot`)).length === 2
+  && (await B.$$eval('.thread-h .dm-lbp', l => l.map(x => x.textContent).join())) === 'Trade,Friends'));
+await B.keyboard.press('Escape'); await B.click('.dm-head');
+const convIds = p => p.$$eval('.conv-list [data-act="dm-peer"]', l => l.map(b => b.dataset.id));
+await B.click('[data-act="dm-lfilter"][data-v="t"]');
+check('the Trade chip shows only the conversations labelled Trade, and counts them', await until(async () => JSON.stringify(await convIds(B)) === JSON.stringify([uidA])) && /Trade\s*1/.test(await text(B, '[data-act="dm-lfilter"][data-v="t"]')));
+await B.click('[data-act="dm-lfilter"][data-v="w"]');
+check('a label on no conversation says so, with Show all', await until(async () => /No conversation labelled War/.test(await text(B, '.convs')) && !!(await B.$('[data-act="dm-fclear"]'))));
+await B.click('[data-act="dm-fclear"]');
+check('Show all brings them back', await until(async () => (await convIds(B)).length >= 2));
+// the attachment filter: an open trade offer counts until it is answered
+await nav(B, 'trade'); await B.selectOption('#tr-w', uidA); await B.selectOption('#tr-gr', 'food'); await B.selectOption('#tr-rr', 'iron'); await B.fill('#tr-ga', '2'); await B.fill('#tr-ra', '1'); await B.click('#deal-form button[type="submit"]');
+check('B offers A another deal', await until(() => B.evaluate(uid => (G.S.nation.deals || []).some(d => d.w === uid && !d.a), uidA)), await B.evaluate(() => G.S.tradeMsg || ''));
+await nav(B, 'messages'); await pickPeer(B, uidA); await B.waitForSelector('#dm-text'); await sleep(3200);
+await B.selectOption('#dm-kind', 'treaty');
+await B.click('.dm-att [data-act="dm-attmenu"]'); await B.click('.dm-att-p [data-act="dm-attach"]');
+await B.fill('#dm-text', 'An offer, while we talk.'); await B.click('#dm-form button[type="submit"]');
+check('a letter goes with the trade offer, as a Proposal of Treaty', !!(await until(async () => { const l = await find(uidB, uidA, 'An offer, while we talk.'); return l && l.a?.k?.stringValue === 'deal' && l.k === 'treaty' ? l : null; }, 30000)));
+await nav(A, 'messages');
+await until(async () => /An offer, while we talk/.test(await text(A, `[data-act="dm-peer"][data-id="${uidB}"]`)), 30000);
+await A.selectOption('#dm-af', 'deal');
+check('With: Open trade offers shows the conversation the offer came in, not one whose offer was settled', await until(async () => JSON.stringify(await convIds(A)) === JSON.stringify([uidB])), JSON.stringify(await convIds(A)));
+await A.selectOption('#dm-af', 'peace');
+check('With: Open peace offers shows none', await until(async () => (await convIds(A)).length === 0 && /No conversation with open peace offers/.test(await text(A, '.convs'))));
+await A.selectOption('#dm-af', '');
+await openThread(A, uidB); await until(() => A.$('.bub:not(.mine) .dm-att-c [data-act="tr-accept"]'), 20000); await A.click('.bub:not(.mine) .dm-att-c [data-act="tr-accept"]');
+check('accepting it in the letter settles it', await until(async () => !(await A.$('.bub:not(.mine) .dm-att-c [data-act="tr-accept"]')), 20000));
+await A.selectOption('#dm-af', 'deal');
+check('once accepted, the offer is no longer open', await until(async () => (await convIds(A)).length === 0));
+await A.selectOption('#dm-af', '');
+// the admin's Letter statistics: counts only
+await setClaims(uidB, { admin: true }); await B.reload(); await ready(B);
+await B.waitForSelector('.side-who .adm-pill', { timeout: 45000 }); await B.click('.side-who .adm-pill');
+check('the admin portal lists Letter statistics under World', await until(async () => /Letter statistics/.test(await text(B, '.adm-nav-group[aria-label="World"]'))));
+await B.click('.adm-nav [data-v="admin-letters"]');
+const all = await letters(), sent = new Set(all.map(l => l.by + '~' + l.id.split('~')[2])).size;
+const kpi = async l => B.evaluate(l => { const k = [...document.querySelectorAll('.adm-kpi')].find(x => x.querySelector('span').textContent === l); return k ? k.querySelector('b').textContent.replace(/\D/g, '') : null; }, l);
+check('it counts the letters of the week, a group letter once', await until(async () => (await kpi('letters written in the last 7 days')) === String(sent), 30000), `${await kpi('letters written in the last 7 days')} vs ${sent}`);
+check('and every copy delivered in the last 7 days', (await kpi('in the last 7 days')) === String(all.length), `${await kpi('in the last 7 days')} vs ${all.length}`);
+const perWriter = {}; for (const l of all) (perWriter[l.by] = perWriter[l.by] || new Set()).add(l.id.split('~')[2]);
+const most = Math.max(...Object.values(perWriter).map(x => x.size));
+check('it lists the busiest writer first, with Inspect', await B.$eval('.als-t tbody tr', r => r.cells[1].textContent.trim()) === String(most) && !!(await B.$('.als-t tbody tr [data-act="admin-inspect"]')), `${await B.$eval('.als-t tbody tr', r => r.textContent)} vs ${most}`);
+check('it counts the letter reports waiting and the blocks', Number(await kpi('letter reports waiting in the queue')) >= 1 && (await kpi('blocks in force (letters and chat)')) !== null);
+check('it draws the letters of each day', !!(await B.$('.adst-cols .adst-c i')));
+const secText = h => B.evaluate(h => { const s = [...document.querySelectorAll('.adst-sec')].find(x => x.querySelector('h2')?.textContent === h); return s ? s.textContent : ''; }, h);
+check('it counts the formal notes and the attachments, each under its own heading', /Proposal of Treaty/.test(await secText('Formal notes')) && /Trade offer/.test(await secText('Attachments')), (await secText('Formal notes')) + ' | ' + (await secText('Attachments')));
+check('it shows no letter’s words', !/Our terms|An offer, while we talk|Hello, all of you/.test(await text(B, '.adm-main')));
+await B.click('[data-act="als-days"][data-v="30"]');
+check('the window can be 30 days', await until(async () => (await kpi('letters written in the last 30 days')) === String(sent), 30000));
+await B.locator('.adm-main').screenshot({ path: path.join(OUT, 'letters-admin-stats.png') }).catch(() => {});
 
 await finish();
