@@ -69,7 +69,10 @@ try {
     check('a click on the suggested name selects it, so typing replaces it', await page.inputValue('#d-name') === 'Polishia', [sug, await page.inputValue('#d-name')]);
     await page.click('#d-motto'); await page.click('#d-name'); await page.keyboard.type('x');
     check('a name the player typed is not selected again', await page.inputValue('#d-name') === 'Polishiax');
-    await page.click('[data-act="suggest-name"]'); const s2 = await page.inputValue('#d-name');
+    /* a press whose release the page lost (once on CI, 14 Nov 2026: the box still read "Polishiax" right after the
+       click) is pressed again: what is checked is that the new suggestion is selected */
+    await page.click('[data-act="suggest-name"]');
+    const s2 = await until(async () => { const v = await page.inputValue('#d-name'); if (v !== 'Polishiax') return v; await page.click('[data-act="suggest-name"]'); return ''; }, 5000) || 'Polishiax';
     await page.click('#d-motto'); await page.click('#d-name'); await page.keyboard.type('Ostmark');
     check('after Suggest, the new suggestion is selected again', s2 !== 'Polishiax' && await page.inputValue('#d-name') === 'Ostmark', s2);
     check('the form has four sections: the region is no longer section V', await page.$$eval('.found-form .fs-l', l => l.map(x => x.textContent.replace(/Optional/, '').trim().replace(/^[IVX]+/, '')).join('|')) === 'Name|Particulars|Flag|Founding principles');

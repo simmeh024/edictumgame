@@ -89,7 +89,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (d.op === 'shop') return shopStep(uid, d);
   if (d.op === 'mail') return mailStep(uid, d, String(req.rawRequest?.ip || ''));
   if (d.op === 'letters') return lettersStep(uid, d);
-  // a nation about to be dissolved by its own browser: a copy for the admins' Recently dissolved (functions/gone.js)
+  // a nation about to be dissolved by its own browser: a copy for the admins' Recently dissolved (functions/gone.js),
+  // or, deleted with its account, a line naming it
   if (d.op === 'gone') return noteGone(db, uid, d);
   // the player's side of a support ticket (functions/support.js); before identity(), so a banned player can still
   // write back about their appeal
@@ -118,7 +119,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await Promise.all(['accountSeen/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/', 'rcNote/', 'rcHello/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
-    // copies of nations it dissolved (functions/gone.js)
+    // copies of nations it dissolved (functions/gone.js); their lines, naming them, stay until they expire
     await forgetGone(db, uid);
     // the counts, blocks and read receipts of its letters, and its devices' push subscriptions (functions/letters.js)
     await forgetLetters(uid);

@@ -517,9 +517,31 @@ test('a dissolved nation is filed with a copy, listed for the admins, and restor
   await del('nations/' + o.uid);
   await nation(q, 'Quayborne the Second', [900301]);
   await assert.rejects(call(a, { op: 'restore', id: qrow.id }), e => e.status === 'FAILED_PRECONDITION' && /holds a nation again/.test(e.message));
-  // and the copies go with the account
+  // and the copies go with the account, leaving the line that names the nation until it expires
   for (const c of ['nations/', 'nationx/', 'summaries/']) await del(c + q.uid);
   await call(q, { op: 'close' }, 'accounts');
-  assert.equal(await get('gone/' + qrow.id), null);
-  assert.equal((await call(a, { op: 'gone' })).rows.some(r => r.uid === q.uid), false);
+  const left = (await get('gone/' + qrow.id)).fields;
+  assert.equal(left.docs, undefined, 'no copy is kept once the account is deleted');
+  assert.equal(left.copy.booleanValue, false); assert.equal(left.name.stringValue, 'Quayborne');
+  const qgone = (await call(a, { op: 'gone' })).rows.find(r => r.id === qrow.id);
+  assert.ok(qgone && qgone.account === 'deleted' && qgone.copy === false && qgone.how === 'restart', JSON.stringify(qgone));
+  await assert.rejects(call(a, { op: 'restore', id: qrow.id }), e => e.status === 'FAILED_PRECONDITION');
+});
+
+test('a nation deleted with its account is listed by name only, with no copy, and cannot be restored', async () => {
+  const a = await user(true), p = await user();
+  const rec = { name: 'Farewellia', reg: 'meridian', pop: 5, founded: Date.now() - 600000, claims: [{ c: 900401, t: Date.now() }] };
+  await put('nations/' + p.uid, { name: 'Farewellia', reg: 'meridian', pop: 5, rev: 3, ts: new Date(), j: JSON.stringify(rec) });
+  await put('nationx/' + p.uid, { j: '{"private":"never kept"}' });
+  await put('summaries/' + p.uid, { name: 'Farewellia', reg: 'meridian', pop: 5, t: Date.now() });
+  // the browser files it just before deleting it (src/shim.js, doDelete), then closes the account
+  assert.deepEqual(await call(p, { op: 'gone', how: 'delete' }, 'accounts'), { ok: true });
+  const filed = (await call(a, { op: 'gone' })).rows.find(r => r.uid === p.uid);
+  assert.ok(filed && filed.name === 'Farewellia' && filed.reg === 'meridian' && filed.how === 'delete' && filed.copy === false && filed.pop === 5, JSON.stringify(filed));
+  assert.equal((await get('gone/' + filed.id)).fields.docs, undefined, 'nothing of the nation is copied');
+  for (const c of ['nations/', 'nationx/', 'summaries/']) await del(c + p.uid);
+  await call(p, { op: 'close' }, 'accounts');
+  const row = (await call(a, { op: 'gone' })).rows.find(r => r.uid === p.uid);
+  assert.ok(row && row.name === 'Farewellia' && row.account === 'deleted' && row.now === null, 'the line stays once the account is gone: ' + JSON.stringify(row));
+  await assert.rejects(call(a, { op: 'restore', id: row.id }), e => e.status === 'FAILED_PRECONDITION' && /deleted with its account/.test(e.message));
 });

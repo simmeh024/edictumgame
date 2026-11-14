@@ -6,12 +6,15 @@
    could only be explained and undone by hand. Just before the deletion, the browser now files it here
    (accounts({op: 'gone', how})), and the server keeps a copy of the nation's last save in gone/{uid}_{created}:
 
-     {uid, name, reg, founded, pop, rev, how: dissolve|restart|switch, at (ms), exp (Timestamp, GONE_DAYS on),
+     {uid, name, reg, founded, pop, rev, how: dissolve|restart|switch|delete, at (ms), exp (Timestamp, GONE_DAYS on),
       created (ms, the nations/ createTime), docs: {nations, nationx, nationp, summaries, space} as saved, copy}
 
-   Firestore deletes it GONE_DAYS after it was filed (TTL on exp; firestore.indexes.json, which also keeps docs out
-   of the indexes). Deleting the account (accounts close) deletes it at once. Only the server reads or writes it
-   (firestore.rules). The copy is the last save the server holds, as dissolve() waits for any save on its way.
+   A player who deletes their nation with their account (src/shim.js, doDelete; how 'delete') asked for all of it to
+   go, so that files a line only: the name, region, population and founding, with no copy (copy false, no docs), so
+   the admins can still see where the nation went. Deleting the account (accounts close) deletes the copies of its
+   other nations at once and leaves their lines the same way. Firestore deletes a record GONE_DAYS after it was
+   filed (TTL on exp; firestore.indexes.json, which also keeps docs out of the indexes). Only the server reads or
+   writes it (firestore.rules). The copy is the last save the server holds, as dissolve() waits for any save on its way.
 
    The admin portal (functions/admin.js) lists them (goneList) and restores one (goneRestore): the documents go back
    exactly as they were saved, for the same account, if that account still exists, holds no nation now, and no
@@ -23,7 +26,7 @@ import { nationText } from './nationtext.js';
 import { registered } from './eligibility.js';
 
 export const GONE_DAYS = 8;
-export const GONE_HOW = ['dissolve', 'restart', 'switch'];
+export const GONE_HOW = ['dissolve', 'restart', 'switch', 'delete'];
 const DAY = 86400000, PARTS = ['nations', 'nationx', 'nationp', 'summaries', 'space'];
 /* a document holds at most 1 MiB: a copy larger than this is filed without its documents (copy false) */
 const COPY_MAX = 900000;
@@ -47,8 +50,9 @@ export async function noteGone(db, uid, d) {
   const nation = snaps[0];
   if (!nation.exists) return { ok: false };
   const n = record(nation.data()) || {}, created = nation.createTime.toMillis(), now = Date.now();
-  const docs = Object.fromEntries(PARTS.map((c, i) => [c, snaps[i].exists ? snaps[i].data() : null]).filter(([, v]) => v));
-  const copy = size(docs) <= COPY_MAX;
+  /* deleted with its account: the line alone */
+  const docs = how === 'delete' ? {} : Object.fromEntries(PARTS.map((c, i) => [c, snaps[i].exists ? snaps[i].data() : null]).filter(([, v]) => v));
+  const copy = how !== 'delete' && size(docs) <= COPY_MAX;
   /* one record per founding: a second call for the same nation (a retry) files its latest copy in the same place */
   await db.doc(`gone/${uid}_${created}`).set({
     uid, name: text(nation.get('name') || n.name, 80), reg: text(nation.get('reg') || n.reg, 40), founded: Number(n.founded) || 0,
@@ -58,10 +62,11 @@ export async function noteGone(db, uid, d) {
   return { ok: true };
 }
 
-/* the account's records go with the account (functions/accounts.js, close) */
+/* the account's copies go with the account (functions/accounts.js, close); their lines stay until they expire */
 export async function forgetGone(db, uid) {
   const qs = await db.collection('gone').where('uid', '==', uid).get();
-  if (!qs.empty) { const b = db.batch(); qs.docs.forEach(d => b.delete(d.ref)); await b.commit(); }
+  const held = qs.docs.filter(d => d.get('copy') !== false || d.get('docs') !== undefined);
+  if (held.length) { const b = db.batch(); held.forEach(d => b.update(d.ref, { copy: false, docs: FieldValue.delete() })); await b.commit(); }
 }
 
 /* the admin page's list: the last GONE_DAYS, newest first, each with what its account holds now */
@@ -86,12 +91,13 @@ export async function goneRestore(db, actor, d) {
   const id = text(d?.id, 200);
   if (!/^[\w-]{6,128}_\d{10,16}$/.test(id)) throw new HttpsError('invalid-argument', 'Choose a dissolved nation.');
   const ref = db.doc('gone/' + id), g = await ref.get();
-  if (!g.exists) throw new HttpsError('not-found', 'That record has expired or was deleted with its account.');
+  if (!g.exists) throw new HttpsError('not-found', 'That record has expired.');
   const { uid, name, reg } = g.data();
   if (g.get('restoredAt')) throw new HttpsError('failed-precondition', `${name} was restored already.`);
-  if (!g.get('copy') || !g.get('docs')?.nations) throw new HttpsError('failed-precondition', `No copy of ${name} was kept (it was too large), so it cannot be restored here.`);
+  if (g.get('how') === 'delete') throw new HttpsError('failed-precondition', `${name} was deleted with its account at its player's request, so no copy was kept.`);
   const account = await getAuth().getUser(uid).catch(e => { if (e.code === 'auth/user-not-found') return null; throw e; });
   if (!account) throw new HttpsError('failed-precondition', `The account behind ${name} was deleted, so there is nobody to restore it for.`);
+  if (!g.get('copy') || !g.get('docs')?.nations) throw new HttpsError('failed-precondition', `No copy of ${name} was kept (it was too large), so it cannot be restored here.`);
   const docs = g.get('docs'), n = record(docs.nations) || {};
   const now = await db.doc('nations/' + uid).get();
   if (now.exists) throw new HttpsError('failed-precondition', `This account holds a nation again (${text(now.get('name'), 80) || 'unnamed'}). Restoring would replace it.`);

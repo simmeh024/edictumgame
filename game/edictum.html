@@ -70955,12 +70955,14 @@ go=(f=>function(v){
   const r=f.apply(this,arguments);if(S.view!=='admin-chat')acxListen();return r;})(go);
 
 /* ── Admin › Recently dissolved (functions/gone.js) ──
-   Nations whose players dissolved them, started over, or left them behind by switching to another account, in the
-   last GONE_DAYS, newest first, each with a copy of its last save. Restore… asks why (for the audit log) and puts the
-   nation back for its player as it was saved; the server refuses when its account is gone, holds a nation again, or
-   another nation of the region has taken its land or its name since, and says which. */
+   Nations whose players dissolved them, started over, left them behind by switching to another account, or deleted
+   them with their account, in the last GONE_DAYS, newest first. Each keeps a copy of its last save, except one
+   deleted with its account, which is a line naming it (and an account's other copies go when it is deleted).
+   Restore… asks why (for the audit log) and puts the nation back for its player as it was saved; the server refuses
+   when its account is gone, holds a nation again, or another nation of the region has taken its land or its name
+   since, and says which. */
 const AGN={d:null,busy:false,err:'',ask:'',why:'',run:'',fail:''};
-const AGN_HOW={dissolve:'Dissolved',restart:'Started over',switch:'Left by an account switch'};
+const AGN_HOW={dissolve:'Dissolved',restart:'Started over',switch:'Left by an account switch',delete:'Deleted with its account'};
 const AGN_ACCOUNT={guest:'Guest',registered:'Registered',deleted:'Deleted'};
 ADM_ICONS['admin-gone']=NAV_SVG('<path d="M4.6 13.5a7.6 7.6 0 1 0 1.9-6.6"/><path d="M4.2 3.8v4.6h4.6"/><path d="M12 8.2v4.1l2.7 1.7"/>');
 async function agnLoad(){
@@ -70986,7 +70988,7 @@ function agnAct(r){
 function agnView(){
   const days=AGN.d?AGN.d.days:8;
   const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Recently dissolved</h1>
-    <p class="lede">Nations whose players dissolved them, started over, or left them behind by switching to another account, in the last ${days} days, newest first. Each keeps a copy of its last save for ${days} days. <b>Restore</b> puts it back for its player exactly as it was saved, if the account still exists, holds no nation now, and no nation of the region has taken its land or its name since. An alliance it left is not rejoined. Every restore goes in the audit log.</p>
+    <p class="lede">Nations whose players dissolved them, started over, left them behind by switching to another account, or deleted them with their account, in the last ${days} days, newest first. Each keeps a copy of its last save for ${days} days, except a nation deleted with its account: its player asked for all of it to go, so only its name, region and population are listed, and it cannot be restored (the copies of an account's other nations go with it too). <b>Restore</b> puts it back for its player exactly as it was saved, if the account still exists, holds no nation now, and no nation of the region has taken its land or its name since. An alliance it left is not rejoined. Every restore goes in the audit log.</p>
     <div class="row"><button type="button" class="btn ghost small" data-act="agn-reload"${AGN.busy?' disabled':''}>${AGN.busy?'Fetching…':'Fetch again'}</button>${AGN.d?`<span class="hint">Checked ${esc(adminTime(AGN.d.at))}</span>`:''}</div>`;
   if(!AGN.d&&!AGN.busy&&!AGN.err)setTimeout(agnLoad,0);
   const rows=AGN.d?AGN.d.rows:[];
