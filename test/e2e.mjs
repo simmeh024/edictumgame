@@ -57,7 +57,7 @@ const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].ma
 // toasts show one at a time, and founding queued several: allow for the queue
 check('a second post within 20 seconds waits, and the player is told', await until(async () => /every 20 seconds/.test(await toasts(A)), 40000) && (await A.inputValue('#rmb-text')) === 'Too soon');
 await A.fill('#rmb-text', '');
-check('the post ticks “Say hi” in Welcome to Edictum, kept in the saved record', await until(async () => await A.evaluate(() => (G.S.nation.tut?.lc || []).includes('rmb')) && ((await localNation(A))?.tut?.lc || []).includes('rmb')));
+check('the post ticks “Say hi” in the ledger of ambitions, kept in the saved record', await until(async () => await A.evaluate(() => (G.S.nation.tut?.lc || []).includes('rmb')) && ((await localNation(A))?.tut?.lc || []).includes('rmb')));
 
 // the decisions page is called Edicts, at #edicts; an old #issues link still opens it
 await nav(A, 'issues');
@@ -730,11 +730,10 @@ await A.evaluate(() => { location.hash = '#nation'; }); await sleep(300);
 await B.evaluate(async()=>{await firebase.auth().currentUser.unlink('password');await firebase.auth().currentUser.reload();window.dispatchEvent(new Event('edictum:linked'));});
 check('the unlinked fixture returns to Guest eligibility',await until(()=>B.evaluate(()=>G.S.civic?.account.kind==='guest')));
 /* ── 8. Google sign-in (Auth emulator) ──────────────────────────────────── */
-// Welcome to Edictum offers it, with what it pays; the button opens the account dialog
-await nav(B, 'nation');
-if (await B.$('.tut-l-charter')) { await B.click('.tut-l-charter [data-act="tut-hide"]'); await sleep(300); }
-check('a guest’s Welcome to Edictum list offers linking to Google, for 10 land credits', /Keep your nation on every device\s*\+10 land/.test(await text(B, '.tut-l-first')),JSON.stringify(await B.evaluate(()=>({name:G.S.nation?.name,onb:G.S.nation?.onb,glk:G.S.nation?.glk,google:G.S.google,account:G.S.civic?.account,view:G.S.view,steps:[...document.querySelectorAll('.stp')].map(e=>e.textContent.trim().slice(0,160))}))));
-await B.click('.tut-l-first [data-act="acct-open"]');
+// the ledger of ambitions offers it, with what it pays; the button opens the account dialog
+await nav(B, 'help');
+check('a guest’s ledger of ambitions offers linking to Google, for 10 land credits', /Keep your nation on every device[\s\S]*\+10 land/.test(await text(B, '#help-tut [data-k="google"]')),JSON.stringify(await B.evaluate(()=>({name:G.S.nation?.name,onb:G.S.nation?.onb,glk:G.S.nation?.glk,google:G.S.google,account:G.S.civic?.account,view:G.S.view,steps:[...document.querySelectorAll('.stp')].map(e=>e.textContent.trim().slice(0,160))}))));
+await B.click('#help-tut [data-k="google"] [data-act="acct-open"]');
 check('its button opens the account dialog', !!(await until(() => B.$('dialog.ed-dlg[open] [data-ed="google"]'))));
 await B.keyboard.press('Escape');
 // a. A guest with a nation links Google: same uid

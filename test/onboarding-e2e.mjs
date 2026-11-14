@@ -36,9 +36,10 @@ await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibi
 await nav(A,'nation');
 const saved=async()=>{if(!await until(async()=>{const n=await localNation(A),d=await nationDoc(uid);return n&&!n._dirty&&d?.rec.onb&&JSON.stringify(d.rec.onb)===JSON.stringify(n.onb);},15000))throw Error('Intro save did not settle');};
 await saved();
-check('Customise is open from the start, and Finish your charter waits for the rest of the list',await A.locator('.nav [data-v="customise"]').count()===1&&await A.locator('.tut-l-charter li[data-k="charter"]').count()===0);
+check('Customise is open from the start, and the charter waits for the main path',await A.locator('.nav [data-v="customise"]').count()===1&&await A.locator('.tut-c li[data-k="charter"]').count()===0);
 check('the linking suggestion waits for Finish charter',await A.locator('.account-link-card').count()===0);
-check('the initial guidance contains one compact charter card',await A.locator('.stp.tut-l').count()===1);
+check('the initial guidance is one card: the main path, with its four seals',await A.locator('.stp.tut-c').count()===1&&await A.locator('.tut-c .tut-seals .tut-seal').count()===4);
+check('no cosmetic task stands in its way',await A.locator('.tut-c .tut-pk-r').evaluateAll(l=>l.every(x=>!['city','ruler','portrait','culture','flag','cust'].includes(x.dataset.k)))&&await A.locator('.tut-c .tut-pk-r').count()>=1);
 check('introductory guidance replaces duplicate edict and land banners',await A.locator('#main>.wrap>.notice[data-v="issues"],#main>.wrap>.notice[data-v="map"]').count()===0);
 check('new-player reveal state is private',(await nationDoc(uid)).rec.onb.v===1&&!Object.hasOwn((await nationDoc(uid)).shared,'onb'));
 await A.screenshot({path:OUT+'/onboarding-charter-1280.png'});
@@ -50,7 +51,7 @@ await A.locator('.account-link-card [data-act="account-compare"]').click();await
 await comparisonReady(A);
 check('comparison opens the permanent Help section',await A.locator('#help-account-types table tbody tr').count()===14&&await A.locator('.help-toc [href="#help-account-types"]').count()===1);
 await A.screenshot({path:OUT+'/account-types-1280.png'});
-await nav(A,'nation');check('new players see at most three next actions',await A.locator('.pg-first .stp-l>li').count()===3);
+await nav(A,'nation');check('new players see at most three next actions, one of them recommended',await A.locator('.tut-c .tut-pk-r').count()<=3&&await A.locator('.tut-c .tut-pk-r').count()>=1&&await A.locator('.tut-c .tut-pk-r.is-rec').count()===1);
 await A.click('[data-act="account-hint-hide"]');await A.reload();await A.waitForSelector('.layout');
 check('Not now keeps the linking suggestion dismissed after reload',await A.locator('.account-link-card').count()===0);
 await nav(A,'customise');check('flag layers become available after Finish charter',await A.locator('[data-fgg="c:layers"]').count()===1);
@@ -81,17 +82,18 @@ await A.evaluate(()=>{const n=G.clone(G.S.nation);n.stock.food=280;n.stockAt=Dat
 check('reaching 280 reveals the Warehouse',await A.locator('[data-act="ct-build"][data-k="warehouse"]').count()===1);
 await A.evaluate(()=>{const n=G.clone(G.S.nation);n.stock.food=20;n.stockAt=Date.now();n._stockSet=true;G.commit(n);G.render();});
 check('spending resources never hides a revealed Warehouse',await A.locator('[data-act="ct-build"][data-k="warehouse"]').count()===1);
-// the tutorial's four lists, late in the suite: the rename's toasts and the capital left open on Cities would
+// the tutorial's groups, late in the suite: the rename's toasts and the capital left open on Cities would
 // otherwise stand in the way of the checks above
 await nav(A,'nation');
-check('the charter is the first of four tutorial lists, with Name your first city among its next tasks',/list 1 of 4/.test(await A.locator('.tut-l-charter').textContent())&&await A.locator('.tut-l-charter li[data-k="city"] [data-act="tut-city"]').count()===1&&await A.locator('.tut-l-charter li[data-k="charter"]').count()===0);
+await A.click('.tut-oth [data-act="tut-sheet"][data-l="own"]');
+check('Make the nation your own opens from Other things to try, with Name your first city in it',await until(()=>A.evaluate(()=>!!document.getElementById('tut-dlg')?.open))&&await A.locator('#tut-dlg li[data-k="city"] [data-act="tut-city"]').count()===1);
 const goods0=await A.evaluate(()=>G.S.nation.stock.goods),credits0=await A.evaluate(()=>G.TUTL.credits(G.S.nation));
-await A.click('.tut-l-charter [data-act="tut-city"]');
-check('its button opens the capital’s rename form on the Cities page',await until(()=>A.evaluate(()=>G.S.view==='cities'&&document.activeElement?.id==='c3-ren')));
+await A.click('#tut-dlg li[data-k="city"] [data-act="tut-city"]');
+check('its button closes the dialog and opens the capital’s rename form on the Cities page',await A.locator('#tut-dlg').count()===0&&await until(()=>A.evaluate(()=>G.S.view==='cities'&&document.activeElement?.id==='c3-ren')));
 await A.fill('#c3-ren','Firstharbour');await A.press('#c3-ren','Enter');
-check('naming the capital pays 4 land credits and 5 goods, and says so',await until(()=>A.evaluate(()=>G.S.nation.capital==='Firstharbour'&&(G.S.nation.tut?.lc||[]).includes('city')))
-  &&await A.evaluate(([g,c])=>G.TUTL.credits(G.S.nation)===c+4&&G.S.nation.stock.goods>=g+4.9,[goods0,credits0])&&await until(async()=>/Name your first city\. \+4 land credits and 5 goods/.test(await toastText(A)),40000));
-await nav(A,'help');check('How to play shows all four lists, with every task',await A.locator('#help-tut .tut-hl-l').count()===4&&await A.locator('#help-tut .tut-hl-l li[data-k="res"]').count()===1);
+check('naming the capital pays 8 land credits and 10 goods, and says so',await until(()=>A.evaluate(()=>G.S.nation.capital==='Firstharbour'&&(G.S.nation.tut?.lc||[]).includes('city')))
+  &&await A.evaluate(([g,c])=>G.TUTL.credits(G.S.nation)===c+8&&G.S.nation.stock.goods>=g+9.9,[goods0,credits0])&&await until(async()=>/Name your first city\. \+8 land credits and 10 goods/.test(await toastText(A)),40000));
+await nav(A,'help');check('How to play shows every group, the ledger of ambitions with them',await A.locator('#help-tut .tut-hl-l').count()===4&&await A.locator('#help-tut .tut-en[data-k="res"]').count()===1);
 await saved();
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..');execFileSync(process.execPath,[path.join(ROOT,'jobs/fx/run.mjs'),'--project',PROJECT,'--region','meridian'],{env:{...process.env,FIRESTORE_EMULATOR_HOST:FS_HOST},encoding:'utf8'});
 await A.evaluate(()=>localStorage.removeItem('edictum.fx.v1'));await open(A);await nav(A,'exchange');await A.waitForSelector('.cu-conv');
@@ -121,12 +123,12 @@ check('Not now puts the land card away',await B.locator('#lc-coach').count()===0
 await nav(B,'nation');await nav(B,'map');
 check('and it stays away on later visits, leaving the land unpicked',await B.locator('#lc-coach').count()===0&&await B.evaluate(()=>!G.S.mapClaim));
 await nav(B,'nation');
-check('a new phone player sees the compact charter',await B.locator('.tut-l-charter.pg-first').count()===1);
+check('a new phone player sees the main path',await B.locator('.tut-c-est').count()===1);
 await B.screenshot({path:OUT+'/onboarding-charter-390.png'});
 await B.evaluate(()=>{const n=G.clone(G.S.nation);n.founded=Date.now()-7*864e5;G.commit(n);G.PG.saveSoon();G.render();});
 check('week one reveals finance even without any trade',await B.evaluate(()=>G.S.nation.onb.u.includes('finance')&&G.S.nation.deals.length===0));
-check('a week of age does not silently finish the charter',await B.locator('.tut-l-charter').count()===1);
-await B.evaluate(()=>G.PG.sign());check('phone guidance stays at three next actions',await B.locator('.pg-first .stp-l>li').count()===3);
+check('a week of age does not finish the main path by itself',await B.locator('.tut-c-est').count()===1);
+await B.evaluate(()=>G.PG.sign());check('phone guidance stays at three next actions at most',await B.locator('.tut-c .tut-pk-r').count()<=3&&await B.locator('.tut-c .tut-pk-r').count()>=1);
 check('the introductory layout fits a phone',await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
 await B.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await B.screenshot({path:OUT+'/onboarding-next-actions-390.png'});
 await B.locator('.account-link-card [data-act="account-compare"]').click();await B.waitForSelector('#help-account-types');

@@ -16,7 +16,7 @@ function section(store={}){
     esc:s=>String(s),cellOf:l=>l?l.c:-1,territory:()=>({}),fdSites:()=>[11,-1,33],landName:c=>'Isle '+c,
     issueView:()=>'<h1>x</h1><p class="issue-q">Q</p>',nationView:()=>'NATION',issuesView:()=>'DESK',go:v=>{},mapTabs:()=>'<div class="stabs">TABS</div>',prvT2:()=>'States',prvLow:s=>s.toLowerCase(),prvOnRec:n=>!!n.prov,
     ffbCard:()=>'FFB',VIEWS_EXT:{customise:()=>'CZ'},tutDevGet:()=>'',tutMark:()=>{},tutRebuild:()=>{},pgEligible:()=>false,tutRow:()=>'ROW',navBadges:()=>({}),TUT_CAP0:'Port Alder',REGION:'Testland',tutCapCity:n=>n.cities?.[0],
-    TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]},{k:'charter',tasks:[{k:'charter'},{k:'flag'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),
+    TUT_LISTS:[{k:'welcome',tasks:[{k:'city'},{k:'leader'}]},{k:'charter',tasks:[{k:'charter'},{k:'flag'}]}],tutTasks:L=>L.tasks,tutCur:n=>({k:'welcome'}),tutHid:()=>false,tutPhase:n=>'est',tutPicks:n=>n.capital==='Port Alder'?[{k:'city'}]:[],tutGroup:()=>({core:[]}),tutL:k=>null,
     tutState:(n,L)=>[{k:'city',ok:n.capital!=='Port Alder',lock:''},{k:'leader',ok:true,lock:''}]});
   vm.runInContext(source.slice(start,end)+';this.T={TL:TUT_LISTS,pgEligible:(...a)=>pgEligible(...a),tutRow:(...a)=>tutRow(...a),go:v=>go(v),mapTabs:()=>mapTabs("map"),fdCard,ffbCard:()=>ffbCard(),navBadges:()=>navBadges(),issueView:(...a)=>issueView(...a),nationView:(...a)=>nationView(...a),issuesView:(...a)=>issuesView(...a)};',ctx);
   return {T:ctx.T,S:ctx.S,sent,hooks,store};
@@ -65,7 +65,7 @@ test('a started first building brings a box that points to the naming task, unti
   S.nation=nation({loc:{c:5},cities:[{id:'c1'}],capital:'Port Alder'});
   assert.equal(T.ffbCard(),'FFB','no box before the first building is started');
   S.nation.ffb={k:'saw',s:1,d:2};
-  const h=T.ffbCard();assert.match(h,/Name your first city/);assert.match(h,/data-act="tut-go" data-v="nation" data-to="tut-h-welcome"/);
+  const h=T.ffbCard();assert.match(h,/Name your first city/);assert.match(h,/data-act="tut-city">Name it</,'it opens the rename form itself');assert.match(h,/data-act="tut-go" data-v="nation" data-to="tut-h"/);
   S.nation.capital='Estport';assert.equal(T.ffbCard(),'FFB');
 });
 
@@ -84,11 +84,9 @@ test('the map tabs reach the cities and the states, which can be switched on the
   S.nation.prov={on:1};h=T.mapTabs();assert.match(h,/data-v="provinces">States</);assert.doesNotMatch(h,/fd-prv-on/);
 });
 
-test('Customise is open from the start, and Finish your charter waits at the end of the list for the others',()=>{
+test('Customise is open from the start, and nothing cosmetic is spliced in front of the charter any more',()=>{
   const {T,S}=section();
   assert.equal(T.pgEligible({},'charter'),true);assert.equal(T.pgEligible({},'map'),false);
-  assert.deepEqual([...T.TL[1].tasks.map(s=>s.k)],['flag','portrait','cust','charter'],'Customise your leader (after Name your leader where the list has it), Customise your nation, then the charter, come last');
-  const n=nation({capital:'Port Alder'});
-  assert.equal(T.tutRow(n,{k:'charter',ok:false}),'','hidden while the naming task is open');
-  n.capital='Estport';assert.equal(T.tutRow(n,{k:'charter',ok:false}),'ROW','shown once the others are done');
+  assert.deepEqual([...T.TL[1].tasks.map(s=>s.k)],['charter','flag'],'the groups are left as they are defined');
+  assert.equal(T.tutRow(nation({capital:'Port Alder'}),{k:'charter',ok:false}),'ROW','and the charter row is not hidden behind other tasks');
 });

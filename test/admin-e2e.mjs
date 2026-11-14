@@ -263,7 +263,7 @@ check('and the forced rename, the player’s new name and the notes, without the
 // Statistics: how players use the game, for the whole world and then for one region, whose nations it lists
 await page('admin-stats');
 const stText = () => text(A, '.adm-main');
-check('Statistics counts the players, their edicts, the tutorial and every region', await until(async () => { const t = await stText(); return /active today/.test(t) && /Coming back/.test(t) && /Getting started/.test(t) && /Choose where your capital stands/.test(t) && /Meridian Reach/.test(t) && /Sign-ins/.test(t); }, 30000), (await stText()).slice(0, 400));
+check('Statistics counts the players, their edicts, the tutorial and every region', await until(async () => { const t = await stText(); return /active today/.test(t) && /Coming back/.test(t) && /Getting started/.test(t) && /Settle your capital/.test(t) && /Meridian Reach/.test(t) && /Sign-ins/.test(t); }, 30000), (await stText()).slice(0, 400));
 check('a chart names the day and its count under the pointer', await (async () => { await A.hover('.adst-cols .adst-c:last-child'); return await until(async () => /^\d+ \w+: \d+ nations$/.test(await A.evaluate(() => { const t = document.getElementById('vtip'); return t && !t.hidden ? t.textContent : ''; }))); })());
 await A.screenshot({ path: OUT + '/admin-stats.png', fullPage: true });
 check('Statistics shows content use, regions and social, and operations', await until(async () => { const t = await stText(); return /Content use/.test(t) && /Edicts in force/.test(t) && /Achievement rarity/.test(t) && /Region fill and growth/.test(t) && /Operations/.test(t) && /Pages visited/.test(t); }, 30000), (await stText()).slice(0, 400));

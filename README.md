@@ -223,6 +223,31 @@ once, and the time away does not count towards going dormant. It can be ended ea
 shared half, so every player works out the same dormancy, and the summary's `e` carries it into other
 regions' counts.
 
+**The tutorial** (since Version 26) is five groups on one card at the top of the Nation page (`TUT_LISTS` in the
+game; the card is `tutCard`, its phase `tutPhase`):
+- *Establish your nation*, the main path: settle the capital, claim land, start a building (the three-minute first
+  building counts), answer three edicts. Then the **founding charter** records what was founded; signing it pays 10
+  land credits and 6 goods and finishes the path. Later puts it aside on that device, as a next step.
+- *Build your future*: any two of a second city, a trade, an expedition and a passport stamp. Two finish it; the
+  other two stay open and still pay their own reward.
+- *Take your place in the region* (optional, any three of five: the Dispatch, the chat, a letter, the Games, the
+  Assembly) and *Make the nation your own* (optional, no bonus: the capital's name, the leader, the portrait, the
+  culture, the flag, Customise), both open from the start.
+- The *ledger of ambitions*: every other task, in five sections (building, exploration, government, diplomacy,
+  identity). The Shop's task waits there until the main path is done.
+
+The card shows at most three next steps, only ones the nation can do now (`tutPicks`: never a locked task, a task
+that must wait, `ready`, or a later discovery, `after`), the clock of a building or expedition under way, what is
+coming (the next Willow Street letter, another city, the next land credit) and "Other things to try", a dialog (a
+sheet on a phone) with the other groups and the ledger. While a new nation walks its main path, the banners that say
+the same thing wait (`pgGuided`); they come back when the four steps are done. Every task ticks itself off from
+what the nation has done, wherever it did it, and pays once (`n.tut.lc`). A group's bonus is kept by letter in
+`n.tut.ch` (`c f m d`, the letters of the four lists before Version 26, so nothing is paid twice after the
+regrouping). Version 26 also doubled every reward: a nation paid before is given the other half of each gift once
+(the mark is `n.tut.v` reaching 26, which an older open tab keeps), and its credits count double by themselves.
+The card can be hidden on a device (`statehood.tutcard.v1`); a device that had hidden every list it had left
+before Version 26 starts with it hidden. Tests: `test/tutorial.test.mjs` and `npm run test:onboarding`.
+
 **Dormant nations.** A player nation unsaved for 250 days (not counting a holiday) falls dormant: every other
 player's game leaves it out, and its land is open to anyone with land credits. Its owner finds the Office of
 dormant nations and wakes it by typing its name. Waking keeps everything but the land, which starts again: a
@@ -401,8 +426,8 @@ flag lapel pin prints the nation's flag and the Microprint ring its name (`ptNat
   painter's edict). Anyone can try them on; saving waits until they are earned. No shop pack.
 - *The court painter.* `PT_ISSUES` (one edict, after the crises and gambles): as they are, in the manner of the
   old emperors (laurel, ermine and a laurel ring, earned at once) or the whole cabinet; the Dispatch reports it.
-- *The charter.* "Customise your leader" (tutorial key `portrait`, right after Name your leader, so Finish your
-  charter waits for it) pays 5 land credits, 25 goods, 25 food and 50 timber once the leader's portrait is saved with a
+- *The tutorial.* "Customise your leader" (tutorial key `portrait`, in Make the nation your own) pays 10 land
+  credits, 50 goods, 50 food and 100 timber once the leader's portrait is saved with a
   look, an ink, a ring or a nickname; its button opens Portraits on the head of government.
 - Tests: `test/portraits.test.mjs` (in `test:fx`) and `npm run test:portraits` (looks, the dress code, earned
   pieces, a rename, a succession, the Museum, banknotes, the edict and a reload, on a desktop and a phone in both
@@ -427,8 +452,8 @@ Each passport is issued to a random citizen of the nation (a name in its naming 
 place of birth, a drawn passport photo, a ghost image, a signature and a matching machine-readable
 zone); the owner can issue it to another citizen (`pp.hs`). The book opens and turns in 3D, its foil catches the pointer, stamps are inked, and a **UV lamp**
 shows the pages' fluorescent print. Every 20 stamps earn a land credit (10 for a full book; `pp.cr`
-keeps the most paid, so a stamp removed and collected again does not pay twice). Two steps of the
-tutorial's second checklist, a first stamp and a passport design, pay a land credit each.
+keeps the most paid, so a stamp removed and collected again does not pay twice). In the tutorial, a first stamp is
+one of the four ways to Build your future, and a passport design an entry in the ledger of ambitions.
 
 **Passport edicts.** Ten edicts are about passports (visas, golden passports, pet passports, the queue
 at the Passport Office, the passport index…). Five of them come only to players who hold a stamp, and one
@@ -505,10 +530,9 @@ holographic and gold-foil security strips (UNLOCKS kinds `cunote`, `cumetal`, `c
 museum's seven-artefact **National Mint** set (`mint`) adds the Filigree engraving, an eight-sided coin and
 the epithet *the Treasurer*. Prestige milestones count from the nation's history (`k: 'fxm'`), and on the
 player's own screen from the day's rating too. As with every cosmetic, other players see an earned design
-only when the record lists it (`n.cz.u`); otherwise it shows the suggestion (`CU_HOLDS`). Once the Next steps
-are done or hidden, a third checklist, **Treasury steps: Money of your own**, offers visiting the Bureau and
-designing the currency, each worth `CU_STEP_CREDITS` (2) land credits and `CU_STEP_GIFT` (5 oil), paid once:
-the steps join `n.tut.lc` with the others.
+only when the record lists it (`n.cz.u`); otherwise it shows the suggestion (`CU_HOLDS`). The tutorial's ledger
+of ambitions (Identity) has visiting the Bureau and designing the currency, 6 land credits and 10 oil each, paid
+once (keys `fxv` and `fxd` in `n.tut.lc`).
 
 **Support.** The Help page (and the founding page's help) has **Create a support ticket**: a topic,
 a message and, if the player wants, an email address. A ticket is a conversation: their tickets are listed
@@ -591,10 +615,10 @@ none, since a guest who signed out would lose the nation). Signing out starts a 
 Above Sign out, a small status shows **Synced** after server confirmation, **Saving** while changes
 are queued or in flight, and **Offline** when synchronization is unavailable. Guests with a nation
 see the same status. Its text is announced to screen readers when it changes.
-Linking is also one of the First steps: it pays 5 land credits and 5 iron, 5 timber and 5 goods,
-once (`n.glk`). The step after it, **Say hi**, needs the linked sign-in, because only a Registered
-Nation may post on the region's board: a message or a reply there pays 2 land credits, 5 of each
-resource and Orchid, a thirteenth map colour (`mapc` on the task), which Settings shows locked until then.
+Linking is also an entry in the tutorial's ledger of ambitions: it pays 10 land credits and 5 iron, 5 timber,
+5 goods and 5 oil, once (`n.glk`). **Say hi** on the board, in the same section, needs the linked sign-in,
+because only a Registered Nation may post there: a message or a reply pays 6 land credits, its gift and Orchid,
+a thirteenth map colour (`mapc` on the task), which Settings shows locked until then.
 
 - **Google** is Firebase's own provider (`linkWithPopup`).
 - **Email** sends a one-time sign-in link (Firebase's email-link sign-in, a `password` provider without
@@ -709,7 +733,7 @@ npm run test:flag-layers   # flag layers, touch and keyboard editing, Undo and s
 npm run test:rank-borders  # every rank of prestige and the border it puts round the nation card
 npm run test:warehouse     # timed storage upgrades, rewards, persistence and warehouse edicts
 npm run test:ux-polish     # search, Back/Forward, remembered sections and requirements links
-npm run test:onboarding    # charter, gradual feature reveals and saved progress
+npm run test:onboarding    # the main path, the charter, Other things to try, gradual reveals and saved progress
 npm ci --prefix jobs/fx    # once, for the next two: they run the currency job as production does
 npm run test:fx-e2e        # the currency: the job publishing four days, the Bureau, the designer, a phone
 npm run test:currency-gameplay # trade, policy confidence, currency prose and counterfeiting
