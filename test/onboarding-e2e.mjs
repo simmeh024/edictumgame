@@ -86,10 +86,10 @@ check('spending resources never hides a revealed Warehouse',await A.locator('[da
 // otherwise stand in the way of the checks above
 await nav(A,'nation');
 await A.click('.tut-oth [data-act="tut-sheet"][data-l="own"]');
-check('Make the nation your own opens from Other things to try, with Name your first city in it',await until(()=>A.evaluate(()=>!!document.getElementById('tut-sheet')?.open))&&await A.locator('#tut-sheet li[data-k="city"] [data-act="tut-city"]').count()===1);
+check('Make the nation your own opens from Other things to try, with Name your first city in it',await until(()=>A.evaluate(()=>!!document.getElementById('tut-dlg')?.open))&&await A.locator('#tut-dlg li[data-k="city"] [data-act="tut-city"]').count()===1);
 const goods0=await A.evaluate(()=>G.S.nation.stock.goods),credits0=await A.evaluate(()=>G.TUTL.credits(G.S.nation));
-await A.click('#tut-sheet li[data-k="city"] [data-act="tut-city"]');
-check('its button closes the dialog and opens the capital’s rename form on the Cities page',await A.locator('#tut-sheet').count()===0&&await until(()=>A.evaluate(()=>G.S.view==='cities'&&document.activeElement?.id==='c3-ren')));
+await A.click('#tut-dlg li[data-k="city"] [data-act="tut-city"]');
+check('its button closes the dialog and opens the capital’s rename form on the Cities page',await A.locator('#tut-dlg').count()===0&&await until(()=>A.evaluate(()=>G.S.view==='cities'&&document.activeElement?.id==='c3-ren')));
 await A.fill('#c3-ren','Firstharbour');await A.press('#c3-ren','Enter');
 check('naming the capital pays 8 land credits and 10 goods, and says so',await until(()=>A.evaluate(()=>G.S.nation.capital==='Firstharbour'&&(G.S.nation.tut?.lc||[]).includes('city')))
   &&await A.evaluate(([g,c])=>G.TUTL.credits(G.S.nation)===c+8&&G.S.nation.stock.goods>=g+9.9,[goods0,credits0])&&await until(async()=>/Name your first city\. \+8 land credits and 10 goods/.test(await toastText(A)),40000));
