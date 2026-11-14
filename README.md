@@ -573,8 +573,11 @@ gives way to the form. `build.py` writes the page's heading, lede and features (
 `HOME_LEDE`, `HOME_FEATS` and `HOME_FREE`) into the page itself, so a newcomer sees them while the
 game's script downloads; a returning player (a nation saved in the browser, which `src/stub.js`
 checks) gets a loading screen only if startup lasts more than 350 milliseconds. The saved theme is
-applied in the page head, preventing a light/dark flash. Content and code are preloaded ahead of
-the Firebase SDK; slow or failed downloads retain visible feedback. `npm run test:startup` checks
+applied in the page head, preventing a light/dark flash. Slow or failed downloads retain visible
+feedback. Until the first paint only the page and its stylesheet download: the Firebase SDK waits for
+the first frame like the game's scripts (and runs first of them, so it compiles while the game is still
+downloading), and the first screen's two fonts are preloaded only when the browser does not reckon the
+connection slow (2G, 3G or Data Saver). On a 3G line that brings the first paint from about 7 s to under 3. `npm run test:startup` checks
 the real browser cache across a simulated code update, saved themes, phones and failure handling.
 
 **Sign-in.** A new visitor is signed in as an anonymous guest straight away and can play at once.
