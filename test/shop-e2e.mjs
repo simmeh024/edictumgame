@@ -110,7 +110,7 @@ await shot(A, '.shop-cd[data-p="bfpack"]', 'shop-bf-card.png');
 await openDr(A, 'bfpack');
 check('its drawer previews the Midnight Tag shield and the Night Owl', (await A.evaluate(() => document.querySelectorAll('.shop-bf-pv svg').length)) >= 4 && (await A.evaluate(() => document.querySelectorAll('.shop-bfpack .lp-i-receipt').length)) === 1 && (await A.evaluate(() => document.querySelectorAll('.shop-bf-cardpv .hero').length)) === 1 && /Bargain-Hunter/.test(await txt(A, '.shop-bfpack')) && /€1\.99|1\.99/.test(await txt(A, '#shop-bfpack-price')) && /30 November/.test(await txt(A, '.shop-bfpack')));
 await shot(A, '.shop-dr .shop-bfpack', 'shop-bf-drawer.png');
-/* the Old Republic Pack: a card, and a drawer previewing all ten pieces on the player's own nation */
+/* the Old Republic Pack: a card, and a drawer previewing all twelve pieces on the player's own nation */
 check('the Old Republic Pack is on sale', /Old Republic Pack/.test(await txt(A, '.shop-cd[data-p="orpack"]')));
 await openDr(A, 'orpack');
 check('its drawer previews the card, arms, flag, stamp, marker and paper', !!(await A.$('.shop-orpack .hero.cd-marble')) && (await A.evaluate(() => document.querySelectorAll('.shop-or-grid figure').length)) === 5 && /2\.99/.test(await txt(A, '#shop-orpack-price')));
@@ -123,15 +123,15 @@ check('the Central Bank Pack is on sale', /Central Bank Pack/.test(await txt(A, 
 await openDr(A, 'cbpack');
 check('its drawer previews the notes with the clear window, the coin, the card, stamp, bullion and paper', !!(await A.$('.shop-cbpack .hero.cd-treasury')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .cu-note').length)) === 2 && !!(await A.$('.shop-cbpack svg.cu-coin')) && (await A.evaluate(() => document.querySelectorAll('.shop-cbpack .shop-or-grid figure').length)) === 3 && /2\.49/.test(await txt(A, '#shop-cbpack-price')));
 await shot(A, '.shop-dr .shop-cbpack', 'shop-cb-drawer.png');
-check('the Tulip Mania Pack is on sale, eleven pieces', /Tulip Mania Pack/.test(await txt(A, '.shop-cd[data-p="tulippack"]')) && /11 pieces/.test(await txt(A, '.shop-cd[data-p="tulippack"]')));
+check('the Tulip Mania Pack is on sale, thirteen pieces', /Tulip Mania Pack/.test(await txt(A, '.shop-cd[data-p="tulippack"]')) && /13 pieces/.test(await txt(A, '.shop-cd[data-p="tulippack"]')));
 await openDr(A, 'tulippack');
 check('its drawer previews the Delftware card, the tulip banknote, arms, flag, stamp, auction house and contract', !!(await A.$('.shop-tulippack .hero.cd-delft')) && !!(await A.$('.shop-tulippack .shop-cb-cur svg')) && (await A.evaluate(() => document.querySelectorAll('.shop-tulippack .shop-or-grid figure').length)) === 5 && (await A.evaluate(() => document.querySelectorAll('.shop-tulippack .lp-i-bulb').length)) === 1 && /2\.99/.test(await txt(A, '#shop-tulippack-price')));
 await shot(A, '.shop-dr .shop-tulippack', 'shop-tulip-drawer.png');
-check('the Cartographer’s Pack is on sale, thirteen pieces, in pesos too (the Shop’s eleventh product)', /Cartographer’s Pack/.test(await txt(A, '.shop-cd[data-p="cartopack"]')) && /13 pieces/.test(await txt(A, '.shop-cd[data-p="cartopack"]')) && /MX\$83\.62/.test(await txt(A, '.shop-cd[data-p="cartopack"]')), await txt(A, '.shop-cd[data-p="cartopack"]'));
+check('the Cartographer’s Pack is on sale, fifteen pieces, in pesos too (the Shop’s eleventh product)', /Cartographer’s Pack/.test(await txt(A, '.shop-cd[data-p="cartopack"]')) && /15 pieces/.test(await txt(A, '.shop-cd[data-p="cartopack"]')) && /MX\$83\.62/.test(await txt(A, '.shop-cd[data-p="cartopack"]')), await txt(A, '.shop-cd[data-p="cartopack"]'));
 await openDr(A, 'cartopack');
 check('its drawer shows the land in four finishes and three border lines, the colours, the wind rose and the poster', (await A.evaluate(() => document.querySelectorAll('.shop-cartopack .ctg-fig').length)) === 7 && (await A.evaluate(() => document.querySelectorAll('.shop-cartopack .ctg-mc').length)) === 3 && !!(await A.$('.shop-cartopack svg.ctg-pst')) && !!(await A.$('.shop-cartopack .ctg-hero svg.ctg-land')));
 await shot(A, '.shop-dr .shop-cartopack', 'shop-carto-drawer.png');
-check('Embassy Stationery is on sale, eleven pieces, in pesos', /Embassy Stationery/.test(await txt(A, '.shop-cd[data-p="embpack"]')) && /11 pieces/.test(await txt(A, '.shop-cd[data-p="embpack"]')) && /MX\$52\.25/.test(await txt(A, '.shop-cd[data-p="embpack"]')), await txt(A, '.shop-cd[data-p="embpack"]'));
+check('Embassy Stationery is on sale, thirteen pieces, in pesos', /Embassy Stationery/.test(await txt(A, '.shop-cd[data-p="embpack"]')) && /13 pieces/.test(await txt(A, '.shop-cd[data-p="embpack"]')) && /MX\$52\.25/.test(await txt(A, '.shop-cd[data-p="embpack"]')), await txt(A, '.shop-cd[data-p="embpack"]'));
 await openDr(A, 'embpack');
 check('its drawer shows three sealed, signed and stamped letters, the seals, the stamps and the epithet', (await A.evaluate(() => document.querySelectorAll('.shop-embpack .emb-letters .bub.has-pm .dm-pm').length)) === 3 && (await A.evaluate(() => document.querySelectorAll('.shop-embpack .emb-seals .dm-wax').length)) === 3 && (await A.evaluate(() => document.querySelectorAll('.shop-embpack .emb-stamps .dm-pm').length)) === 2 && !!(await A.$('.shop-embpack .emb-letters .lp-i-treaty .dm-sig.hc')));
 await shot(A, '.shop-dr .shop-embpack', 'shop-emb-drawer.png');
@@ -139,6 +139,14 @@ check('the Mayan Pack is on sale, fifteen pieces, in pesos', /Mayan Pack/.test(a
 await openDr(A, 'mayapack');
 check('its drawer shows the leader in four looks of the pack, the land in the Stepped Fret, the Stela card and a Dots and Bars note', (await A.evaluate(() => document.querySelectorAll('.shop-mayapack .shop-maya-pt .cv-med.cv-rg5').length)) === 4 && !!(await A.$('.shop-mayapack .shop-maya-land svg.ctg-land')) && !!(await A.$('.shop-mayapack .hero.cd-stela')) && !!(await A.$('.shop-mayapack .shop-cb-cur svg')) && (await A.evaluate(() => document.querySelectorAll('.shop-mayapack .shop-list li').length)) === 15 && /3\.99/.test(await txt(A, '#shop-mayapack-price')));
 await shot(A, '.shop-dr .shop-mayapack', 'shop-maya-drawer.png');
+/* every other pack: its two portrait pieces on the player's own head of government (the Founder's Package with the card
+   pack's two), in its list too; the Microprint ring with the nation's name, the flag lapel pin with its flag */
+{ const want = { bfpack: 2, orpack: 2, sailpack: 2, cbpack: 2, tulippack: 2, cartopack: 2, embpack: 2, idpack: 2, founder: 4 }, got = {};
+  for (const p of Object.keys(want)) { await openDr(A, p); got[p] = await A.evaluate(p => ({ meds: document.querySelectorAll(`.shop-dr .shop-${p} .shop-pt-row .cv-med`).length, try: !!document.querySelector(`.shop-dr #shop-pt-try-${p}[data-act="pt-edit"]`),
+    mp: !!document.querySelector(`.shop-dr .shop-${p} .shop-pt-row .cv-rg7 .pt-mp textPath`), pin: !!document.querySelector(`.shop-dr .shop-${p} .shop-pt-row .cv-bw image`), holo: !!document.querySelector(`.shop-dr .shop-${p} .shop-pt-row .cv-med.pt-holo`) }), p);
+    if (p === 'cartopack') await shot(A, '.shop-dr .shop-cartopack .shop-pt', 'shop-pt-carto.png'); }
+  check('every pack’s drawer shows its portrait pieces on the player’s own leader, with a way to try them on', Object.entries(want).every(([p, k]) => got[p].meds === k && got[p].try), JSON.stringify(got));
+  check('the Identity Card Pack’s Microprint ring carries the nation’s name and its Hologram ink shimmers; Embassy Stationery’s pin carries the flag', got.idpack.mp && got.idpack.holo && got.founder.mp && got.embpack.pin, JSON.stringify(got)); }
 await openDr(A, 'founder');
 const page = await txt(A, '.shop-founder');
 check('the Founder’s Package is priced in euros', /€9\.99/.test(page), page.slice(0, 120));
@@ -175,7 +183,7 @@ await click(A, '[data-act="shop-buy"][data-p="founder"]');
 const fTxn = await payFor(A);
 check('the checkout was opened for a transaction the server made', !!fTxn && P.tx.get(fTxn).custom_data.uid === aUid && P.tx.get(fTxn).items[0].price.id === PRICES.founder);
 check('owned once Paddle confirms it', !!(await until(() => A.evaluate(() => /Owned/.test(document.querySelector('.shop-founder')?.textContent || '')), 10000)));
-check('the founder cosmetics are held, by the server’s word, with the whole Card Pack and the flag pieces', (await A.evaluate(() => G.SHOP.held().length)) === 20);
+check('the founder cosmetics are held, by the server’s word, with the whole Card Pack, the flag pieces and the four portrait pieces', (await A.evaluate(() => G.SHOP.held().length)) === 24);
 const fno = await until(() => A.evaluate(() => G.SHOP.SHOP.doc && G.SHOP.SHOP.doc.fno), 8000);
 check('the founder has a number', Number.isInteger(fno) && fno > 0, String(fno));
 check('and the Card Pack shows as included, not for sale', await A.evaluate(() => !document.querySelector('[data-act="shop-buy"][data-p="idpack"]')));

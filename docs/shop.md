@@ -21,6 +21,18 @@ adds prestige, rank, resources or strength.
 | The Chancery Club, yearly | `vipyear` | €49.99 a year | subscription, optional | the same membership, paid for a year (two months free); one cosmetic pick each calendar month of the paid year |
 | A month of the Club, as a gift | `giftvip` | €4.99 | one payment, gift only, optional | a month of membership for another nation, from when it is paid or from where its paid membership ends |
 
+**Portrait pieces in every pack (14 November 2026).** Each pack besides the Mayan Pack also grants two portrait pieces
+(kind `portrait`, PT_SHOP in the game maps each to its part), at the same price: Founder's Package `rp-keystone` (Keystone
+ring, r6) and `rp-rosette` (Founder's rosette, x9); Identity Card Pack `rp-microprint` (Microprint ring, r7, with the
+nation's name) and `rp-holo` (Hologram ink), which the Founder's Package grants too; Black Friday Pack `rp-nightcap` (w14)
+and `rp-pricetag` (x10); Old Republic Pack `rp-galea` (Legionary helmet, w15) and `rp-tyrian` (Tyrian purple ink); Age of
+Sail Pack `rp-tricorne` (w16) and `rp-captain` (Captain's coat, d17); Central Bank Pack `rp-acanthus` (Acanthus ring, r8)
+and `rp-waistcoat` (Waistcoat and watch chain, d18); Tulip Mania Pack `rp-burgher` (Burgher's hat, w17) and `rp-tulip`
+(Tulip buttonhole, x11); Cartographer's Pack `rp-compass` (Compass ring, r9) and `rp-pencil` (Pencil behind the ear,
+x12); Embassy Stationery `rp-courtcoat` (Embroidered court coat, d19) and `rp-lapelpin` (Flag lapel pin, x13, in the
+nation's own flag). Those nine products went to `grantsV` 6 (one above the highest before, the Black Friday Pack’s 5), so owners who bought before are settled again and other
+players see the new pieces on their portraits.
+
 **Optional products.** The shop opens with the first three. `vipyear` and `giftvip` are offered only once their Paddle price is
 set (`set-paddle.mjs` asks for them and accepts an empty answer), so adding them never closes the shop.
 

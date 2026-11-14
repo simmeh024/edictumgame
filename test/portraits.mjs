@@ -234,6 +234,26 @@ try {
     const seen = await page.evaluate(() => { const X = window.__game.PT(), me = window.__game.S.nation, other = JSON.parse(JSON.stringify(me)); other.seed = 'another nation';
       return { mine: X.ptLead(me).look.w, ink: !!X.ptInk(me), theirs: X.ptLead(other).look.w, theirInk: X.ptInk(other) }; });
     check('another nation’s record shows them only while its finery has them', seen.mine === 11 && seen.ink && seen.theirs === undefined && seen.theirInk === null, seen);
+    /* the other packs' two pieces each: offered while their own pack sells (not the Mayan Pack's), named after it, and the
+       Founder's Package brings the Identity Card Pack's two */
+    await page.evaluate(() => { window.__game.SHOP.SHOP.cfg = { on: true, env: 'live', token: '', prices: { orpack: 'pri_o', cartopack: 'pri_c' }, now: Date.now(), until: Date.UTC(2027, 1, 2) }; window.__game.render(); });
+    await sleep(300);
+    const other = await page.evaluate(() => { const o = s => [...document.querySelectorAll(s + ' option')].map(x => [+x.value, x.textContent]);
+      return { w: o('#pt-w-s').filter(([v]) => v >= 14), x: o('#pt-x-s').filter(([v]) => v >= 9), tyr: !!document.querySelector('#pt-i-tyrian.pt-ink-s'), holo: !!document.getElementById('pt-i-holo') }; });
+    check('on sale, the Old Republic Pack offers its helmet and Tyrian ink, the Cartographer’s Pack its pencil; packs not on sale offer nothing',
+      canon(other.w) === canon([[15, 'Legionary helmet (Old Republic Pack)']]) && canon(other.x) === canon([[12, 'Pencil behind the ear (Cartographer’s Pack)']]) && other.tyr && !other.holo, other);
+    const rings = []; for (let i = 0; i < 12; i++) { await page.click('#pt-r-n'); await sleep(60); rings.push(await page.textContent('#pt-l-r + .pt-step output')); }
+    check('the ring steps through the Compass ring but not the Keystone, Microprint or Acanthus rings', rings.some(r => /^Compass/.test(r)) && !rings.some(r => /^(Keystone|Microprint|Acanthus)/.test(r)), rings);
+    await page.selectOption('#pt-w-s', '15'); await sleep(200);
+    const warn = await page.evaluate(() => { const w = document.querySelector('.pt-warn-s'); return { t: w && w.textContent, p: w && [...w.querySelectorAll('[data-act="pt-shop"]')].map(b => b.dataset.p), save: document.getElementById('pt-save').disabled }; });
+    check('tried on, the helmet names its own pack and the button goes there', /Old Republic Pack/.test(warn.t || '') && canon(warn.p) === canon(['orpack']) && warn.save, warn);
+    await page.click('#pt-shop'); await sleep(300);
+    check('which opens the Old Republic Pack in the Shop, showing the helmet on the leader', await until(() => page.evaluate(() => document.querySelectorAll('.shop-dr .shop-orpack .shop-pt-row .cv-med').length === 2)));
+    await go('customise/portraits'); await page.click('#pt-p-lead'); if (await page.$('#pt-undo')) await page.click('#pt-undo');
+    await page.evaluate(() => { window.__game.SHOP.SHOP.cfg = { on: true, env: 'live', token: '', prices: { founder: 'pri_f' }, now: Date.now(), until: Date.UTC(2027, 1, 2) }; window.__game.render(); });
+    await sleep(300);
+    const fnd = await page.evaluate(() => ({ holo: !!document.querySelector('#pt-i-holo.pt-ink-s'), x9: [...document.querySelectorAll('#pt-x-s option')].some(o => o.value === '9' && /Founder’s Package/.test(o.textContent)) }));
+    check('the Founder’s Package on sale offers its rosette, and the card pack’s Hologram ink with it', fnd.holo && fnd.x9, fnd);
     await page.evaluate(() => { window.__game.SHOP.SHOP.cfg = null; });
 
     /* a saved look survives a reload */
