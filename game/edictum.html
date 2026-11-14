@@ -72427,6 +72427,109 @@ HELP_EXT.push({k:'portraits',t:'Portraits of the government',body:n=>`<p>The hea
 ${ptHelpShop()}
 <p>Portraits show on the Government page, in the Museum (where past leaders hang as they looked on their last day), on visits and on your banknotes.</p>`});
 
+/* ───────── achievements, round five (14 November 2026): treaties, alliance pacts and projects, diplomatic gifts,
+   letters and goodwill, city titles and walls, war, portraits, Mars and the belt, field digs, and moving region ─────────
+   54 achievements for parts of the game that had few or none. Most read what the record or the region already holds:
+   treaties and alliance relations as the server keeps them (TY.docs, the alliance's rel and pj), a city's title (c.ti)
+   and walls, the portrait records (rpt, cpt, cdc, ptu), the colonies in space and the dig collections. Two things leave
+   no lasting trace, so the tally keeps them, in a hook that runs before the honours office looks (as the tally itself
+   does): diplomatic gifts sent (gft, gft:k:<kind>, gft:to:<nation>) and answered (gfr), whose lists keep only the last
+   sixty days, and a treaty broken at once (tybrk), which tyPenalty marks on the save it makes (n._trb, dropped by its
+   own hook later in the same save). A record whose gifts were never counted (no gfv) counts the gifts it still holds.
+   It sits here, at the end, because its goals and words read constants from all over the script (PT_LOCK, AL_PJ). */
+COMMIT_HOOKS.unshift((n,old,now)=>{
+  if(!n||n.npc||!n.name||!n.tly||typeof n.tly!=='object')return [];
+  const T=n.tly,bump=(k,t)=>gbBump(n,k,1,t||now);
+  let all=false;if(!T.gfv){if(Object.keys(T).length>=TALLY_MAX)return [];T.gfv=1;all=true;}
+  const os=new Set(all?[]:gfSent(old).map(g=>g.id)),or=new Set(all?[]:gfReplies(old).map(r=>r.id));
+  for(const g of gfSent(n))if(!os.has(g.id)){bump('gft',g.t);bump('gft:k:'+g.k,g.t);bump('gft:to:'+g.to,g.t);}
+  for(const r of gfReplies(n))if(!or.has(r.id))bump('gfr',r.t);
+  if(n._trb)bump('tybrk',now);
+  return [];
+});
+/* treaties between nations: those in force now (an ending one counts until its notice runs out) */
+const aTyLive=x=>achM(x,'ty',()=>{try{const id=x.me?myId():x.id;return tyList(id).filter(T=>tyLive(T,x.now));}catch(e){return [];}});
+const aTyK=(x,k)=>aTyLive(x).filter(T=>T.k===k).length;
+const TY_ALL=TY_RULES.kinds.reduce((s,k)=>s+TY_RULES.max[k],0);
+achDef('dip','dip-ty1','b','Signed and Sealed','Have a treaty in force with another nation: a non-aggression pact, a trade agreement or a research pact.',1,x=>aTyLive(x).length);
+achDef('dip','dip-tyall','s','Belt and Braces','Have a non-aggression pact, a trade agreement and a research pact in force at once.',TY_RULES.kinds.length,x=>new Set(aTyLive(x).map(T=>T.k)).size);
+achDef('dip','dip-tynap4','s','Live and Let Live','Have 4 non-aggression pacts in force at once.',4,x=>aTyK(x,'nap'));
+achDef('dip','dip-tytr3','s','Most Favoured Nation',`Have ${TY_RULES.max.trade} trade agreements in force at once, as many as a nation may.`,TY_RULES.max.trade,x=>aTyK(x,'trade'));
+achDef('dip','dip-tyrs3','s','Republic of Letters',`Have ${TY_RULES.max.research} research pacts in force at once, as many as a nation may.`,TY_RULES.max.research,x=>aTyK(x,'research'));
+achDef('dip','dip-tyfull','g','Every Seal Affixed',`Fill every place for treaties at once: ${TY_RULES.max.nap} non-aggression pacts, ${TY_RULES.max.trade} trade agreements and ${TY_RULES.max.research} research pacts.`,TY_ALL,x=>TY_RULES.kinds.reduce((s,k)=>s+Math.min(aTyK(x,k),TY_RULES.max[k]),0));
+achDef('dip','dip-tyold','s','Pacta Sunt Servanda','Keep a treaty in force for 30 days.',30,x=>Math.floor(aTyLive(x).reduce((m,T)=>Math.max(m,T.at>0?(x.now-T.at)/DAY:0),0)));
+achDef('dip','dip-tybrk','b','A Scrap of Paper','Break a treaty at once, without giving notice.',1,x=>aT(x,'tybrk'),{sec:'Some promises are written in pencil.'});
+/* alliances: their pacts and rivalries with other alliances, and their projects */
+const aAlSrv=x=>{try{const A=allianceOf(x.id);return A&&A.srv?A:null;}catch(e){return null;}};
+const AL_PJ_ALL=Object.values(AL_RULES.projects).reduce((s,p)=>s+p.max,0);
+achDef('dip','dip-alpact','s','Entente Cordiale','Belong to an alliance that has a pact with another alliance.',1,x=>{const A=aAlSrv(x);return achYes(A&&Object.values(A.doc.rel||{}).some(r=>alRelLiveG(r,x.now)));},{fm:'bool',mp:1});
+achDef('dip','dip-alrival','b','Needle Match','Belong to an alliance with a rival: another alliance it has named, or one that has named it.',1,x=>{const A=aAlSrv(x);return achYes(A&&Object.values(A.doc.rel||{}).some(r=>r&&r.k==='rival'));},{fm:'bool',mp:1});
+achDef('dip','dip-alnew','g','Beacons, Books and Chronicles',`Belong to an alliance that has built ${AL_PJ.beacon[0]}, an ${AL_PJ.academy[0]} and a ${AL_PJ.chronicle[0]}.`,3,x=>{const A=aAlSrv(x);return A?['beacon','academy','chronicle'].filter(k=>num0(A.doc.pj&&A.doc.pj[k])>0).length:0;},{mp:1});
+achDef('dip','dip-alpjall','g','Built to Last',`Belong to an alliance that has built every one of its ${Object.keys(AL_RULES.projects).length} projects to the last level.`,AL_PJ_ALL,x=>{const A=aAlSrv(x);return A?Object.entries(AL_RULES.projects).reduce((s,[k,p])=>s+Math.min(num0(A.doc.pj&&A.doc.pj[k]),p.max),0):0;},{mp:1});
+/* diplomatic gifts (the tally above) */
+achDef('dip','dip-gf1','b','A Small Token','Send another nation a diplomatic gift: a postcard, a banknote or the national dish.',1,x=>aT(x,'gft'));
+achDef('dip','dip-gfkinds','b','Something for Everyone','Send every kind of diplomatic gift: a postcard, a banknote and the national dish.',Object.keys(GF_KINDS).length,x=>aKeys(x,'gft:k:'));
+achDef('dip','dip-gf25','s','Hamper Season','Send 25 diplomatic gifts.',25,x=>aT(x,'gft'));
+achDef('dip','dip-gfto10','s','On Everyone’s List','Send diplomatic gifts to 10 different nations.',10,x=>aKeys(x,'gft:to:'));
+achDef('dip','dip-gf100','g','Generous to a Fault','Send 100 diplomatic gifts. The post office has opened a counter just for you.',100,x=>aT(x,'gft'));
+achDef('dip','dip-gfthx','b','Thank-You Note','Answer a diplomatic gift that another player sent you.',1,x=>aT(x,'gfr'),{mp:1});
+achDef('dip','dip-gfthx25','s','Gracious Recipient','Answer 25 diplomatic gifts.',25,x=>aT(x,'gfr'),{mp:1});
+/* letters, and goodwill */
+achDef('dip','dip-dm15','s','The Diplomatic Bag','Write to 15 different nations.',15,x=>aKeys(x,'dm:'));
+achDef('dip','dip-dm100','g','Prolific Correspondent','Send 100 letters.',100,x=>aT(x,'dm'));
+achDef('dip','dip-gw40','s','Thick as Thieves',`Build goodwill of ${GW_MAX} with another nation, the most there is.`,GW_MAX,x=>Math.max(0,...Object.values(x.n.gw||{}).filter(v=>typeof v==='number'&&isFinite(v))));
+/* city titles (BLK_TI: a finished building on every block, and at least so many blocks) */
+const aTitles=x=>(x.n.cities||[]).map(c=>{try{return blkTi(c);}catch(e){return 0;}});
+const tiWords=i=>`a finished building on every block, and at least ${BLK_TI[i].at} blocks`;
+achDef('land','land-ti1','b','Town Charter',`Have a city earn the title of ${BLK_TI[0].n}: ${tiWords(0)}.`,1,x=>aTitles(x).filter(t=>t>=1).length);
+achDef('land','land-ti2','s','Civic Ambition',`Have a city earn the title of ${BLK_TI[1].n}: ${tiWords(1)}.`,1,x=>aTitles(x).filter(t=>t>=2).length);
+achDef('land','land-ti3','g','The Big Smoke',`Have a city earn the title of ${BLK_TI[2].n}: ${tiWords(2)}.`,1,x=>aTitles(x).filter(t=>t>=3).length);
+achDef('land','land-ti3x3','p','Bright Lights',`Have three cities with the title of ${BLK_TI[2].n}.`,3,x=>aTitles(x).filter(t=>t>=3).length);
+achDef('land','land-tiall','g','Chartered Realm','Have at least five cities, every one of them with a title.',1,x=>{const t=aTitles(x);return achYes(t.length>=5&&t.every(v=>v>0));},{fm:'bool'});
+/* city walls */
+const aWalls=x=>(x.n.cities||[]).map(c=>{try{return cxWallLv(c,x.now);}catch(e){return 0;}});
+const WALL_TOP=CX_WALL.length-1;
+achDef('war','war-wall1','b','Stone by Stone','Build walls around a city.',1,x=>aWalls(x).filter(v=>v>=1).length);
+achDef('war','war-wall3','s','Curtain Wall',`Raise a city’s walls to level ${WALL_TOP}, the highest.`,1,x=>aWalls(x).filter(v=>v>=WALL_TOP).length);
+achDef('war','war-wall5','g','Ring of Stone',`Have walls at level ${WALL_TOP} around five cities.`,5,x=>aWalls(x).filter(v=>v>=WALL_TOP).length);
+/* war */
+const aFoes=x=>achM(x,'foes',()=>{const s=new Set();for(const k of Object.keys(x.n.tly||{}))if(/^(war|npcwar):/.test(k))s.add(k.split(':').slice(1).join(':'));for(const k of Object.keys(x.n.wars||{}))s.add(k);return s.size;});
+achDef('war','war-declare5','s','Habitual Belligerent','Declare war 5 times.',5,x=>aT(x,'log:war'));
+achDef('war','war-fronts3','g','Three Fronts','Be at war with three nations at once.',3,aFronts);
+achDef('war','war-foes8','g','Enemies Everywhere','Fight wars against 8 different nations.',8,aFoes);
+achDef('war','war-lost10','s','Tactical Retreat','Lose 10 hexes in war.',10,x=>aT(x,'lostc'),{sec:'Somebody else is redrawing your border, one hex at a time.'});
+/* portraits of state */
+const aPtLocks=x=>Array.isArray(x.n.ptu)?new Set(x.n.ptu.filter(id=>PT_LOCK[id])).size:0;
+const PT_LOCK_N=Object.keys(PT_LOCK).length;
+achDef('cab','cab-pt1','b','A Good Likeness','Give your head of government a face of their own in Customise › Portraits.',1,x=>{const r=!x.npc&&x.n.rpt;return achYes(!!r&&(!!(r.l&&Object.keys(r.l).length)||!!r.i||!!r.r||!!r.k));},{fm:'bool'});
+achDef('cab','cab-ptcab','s','The Group Portrait',`Give every one of your ${PF_KEYS.length} ministers a look of their own in Customise › Portraits.`,PF_KEYS.length,x=>{if(x.npc)return 0;const c=cabOf(x.n),p=x.n.cpt||{};return PF_KEYS.filter(k=>c[k]&&p[k]&&p[k].n===c[k].nm).length;});
+achDef('cab','cab-ptcode','b','Dress Code','Choose a dress code for your cabinet in Customise › Portraits.',1,x=>achYes(!x.npc&&!!ptCodeOf(x.n)),{fm:'bool'});
+achDef('cab','cab-ptnick','s','Known to the People','Give your head of government a nickname they earned in office.',1,x=>achYes(!x.npc&&!!ptNick(x.n)),{fm:'bool'});
+achDef('cab','cab-ptsit','b','Sitting for the Painter','Answer the court painter’s edict, whatever you ask to have painted.',1,x=>aAns(x,a=>a.o>=0&&a.id===PT_ISSUES[0].id));
+achDef('cab','cab-ptlock5','s','Earned Finery','Earn 5 of the portrait pieces that only deeds unlock: hats, dress, rings and details.',5,aPtLocks);
+achDef('cab','cab-ptlock','g','The Painter’s Favourite',`Earn every one of the ${PT_LOCK_N} portrait pieces that deeds unlock.`,PT_LOCK_N,aPtLocks);
+/* Mars, as the Moon's honours read the Moon */
+const achMars=x=>achM(x,'sp:mars',()=>{const o=!x.npc&&x.n.sp&&x.n.sp.mars;return o?spColony(SPB.mars,o,x.n.sp.tf):null;});
+const achMarsC=x=>achM(x,'sp:marsC',()=>{if(!achMars(x))return null;const C=spWorld(SPB.mars).byId[x.me?myId():x.id];return C&&C.ok?C:null;});
+const achMarsRun=(x,k)=>{const col=achMars(x);return col?col.blds.filter(b=>b.k===k&&b.d<=x.now).length:0;};
+achDef('exp','sp-mars1','b','A Million Martians','Grow your Mars colony to a million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'mars',0)),{fm:'bool'});
+achDef('exp','sp-mars10','s','Ten Million Under Red Skies','Grow your Mars colony to ten million people.',1,x=>achYes(!x.npc&&spMileHit(x.n,'mars',1)),{fm:'bool'});
+achDef('exp','sp-mars-t50','s','Red Acres','Hold 50 tiles on Mars.',50,x=>{const C=achMarsC(x);return C?C.held.length:0;});
+achDef('exp','sp-mars-cm8','s','Canyon Country',`Run ${SP_BLDS.mars.cm.max} Canyon Mines in your Mars colony.`,SP_BLDS.mars.cm.max,x=>achMarsRun(x,'cm'));
+achDef('exp','sp-mars-os','g','Olympus Calling','Open the Olympus Spaceport on the slopes of a Martian volcano.',1,x=>achYes(achMarsRun(x,'os')),{fm:'bool'});
+achDef('exp','sp-mars-all','g','A Second Home','Run one of every kind of building in your Mars colony.',Object.keys(SP_BLDS.mars).length,x=>Object.keys(SP_BLDS.mars).filter(k=>achMarsRun(x,k)).length);
+achDef('exp','sp-mars-nb','s','Martian Neighbours','Have the colonies of two other nations border yours on Mars.',2,x=>{const C=achMarsC(x);return C?spNbrs(SPB.mars,C).length:0;});
+/* the asteroid belt */
+achDef('exp','bt-rs-all','g','The Whole Syllabus',`Finish all ${BT_RS.length} nodes of mining research for the belt.`,BT_RS.length,x=>!x.npc&&x.n.belt?btCount(x.n.belt.rd):0);
+achDef('exp','bt-plat3','g','Thrice Struck','Strike platinum three times in the asteroid belt.',3,x=>{if(x.npc||!x.n.belt)return 0;const a=btWho(x);return a?a.strikes.length:0;});
+/* the Museum's field digs */
+const aDigs=x=>{try{return DIG_SETS.map(sid=>[digHeld(x.n,sid),digSet(sid).items.length]);}catch(e){return [];}};
+achDef('mus','mus-dig1','b','Trowel and Brush','Bring back an artefact from a field dig.',1,x=>aDigs(x).reduce((s,[h])=>s+h,0));
+achDef('mus','mus-dighalf','s','Halfway Down the Trench','Find half of either field dig collection.',1,x=>achYes(aDigs(x).some(([h,L])=>L>0&&h*2>=L)),{fm:'bool'});
+achDef('mus','mus-digall','g','Down to Bedrock','Complete both field dig collections, every artefact the diggers can find.',DIG_SETS.length,x=>aDigs(x).filter(([h,L])=>L>0&&h>=L).length);
+/* moving region */
+achDef('odd','odd-move','b','New Horizons','Move your nation to another region.',1,x=>Math.max(aT(x,'log:move'),x.npc?0:num0(x.n.mvN)));
+
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
