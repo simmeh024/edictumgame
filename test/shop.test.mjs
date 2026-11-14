@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth, addMonths, months,
-  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
+  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, GRANTABLE, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
 
 const DAY = 864e5, H = 36e5, src = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const tx = (id, product, o = {}) => ({ id, product, ok: true, ck: true, status: 'completed', created: Date.UTC(2026, 10, 1), paid: Date.UTC(2026, 10, 1, 1), period: null, sub: '', ...o });
@@ -549,6 +549,53 @@ test('the founders’ thank-you gift: one pack, free, owned while the Founder’
   /* a refund Paddle turned down: the payment stands */
   e = entitlement({ txs: [f, later], adjs: [adj('txn_s', 'refund', 'rejected')], fgift: { p: 'sailpack', at } });
   assert.equal(e.owns.sailpack, at + H); assert.deepEqual(e.refunds, []);
+});
+
+test('packs an admin gives: owned from then and shown to other players; a later payment for one is refunded, an earlier one stands', () => {
+  assert.ok(!GRANTABLE.includes('founder'), 'the Founder’s Package comes only with a payment');
+  assert.ok(['idpack', 'orpack', 'cbpack', 'mayapack'].every(p => GRANTABLE.includes(p)));
+  for (const p of GRANTABLE) assert.equal(CATALOGUE.products[p].kind, 'once', p);
+  const at = Date.UTC(2026, 10, 14);
+  let e = entitlement({ grants: { mayapack: at, cbpack: at + H } });
+  assert.equal(e.owns.mayapack, at); assert.equal(e.owns.cbpack, at + H);
+  assert.deepEqual(e.granted, { mayapack: at, cbpack: at + H });
+  for (const id of CATALOGUE.products.mayapack.grants) assert.ok(e.cosmetics.includes(id), id + ' is shown to other players');
+  assert.equal(e.vip, null); assert.deepEqual(e.refunds, []);
+  /* nothing that is not a pack an admin may give, or not a time */
+  e = entitlement({ grants: { founder: at, vip: at, giftvip: at, nope: at, orpack: 0, sailpack: NaN, tulippack: 'x' } });
+  assert.deepEqual(e.owns, {}); assert.deepEqual(e.granted, {}); assert.equal(e.vip, null);
+  assert.deepEqual(entitlement({ grants: null }).owns, {});
+  /* paid for after it was given (a checkout left open): the payment is the second one, and refunded */
+  const later = tx('txn_m', 'mayapack', { paid: at + H });
+  e = entitlement({ txs: [later], grants: { mayapack: at } });
+  assert.equal(e.owns.mayapack, at); assert.deepEqual(e.refunds, [{ txn: 'txn_m', why: 'duplicate' }]);
+  /* its refund on its way: the gift still holds, nothing asked twice */
+  e = entitlement({ txs: [later], adjs: [adj('txn_m', 'refund', 'pending_approval')], grants: { mayapack: at } });
+  assert.equal(e.owns.mayapack, at); assert.deepEqual(e.refunds, []);
+  /* paid for before (the admin page refuses then, but a race): the purchase stands, the gift adds nothing */
+  const before = tx('txn_m', 'mayapack', { paid: at - H });
+  e = entitlement({ txs: [before], grants: { mayapack: at } });
+  assert.equal(e.owns.mayapack, at - H); assert.deepEqual(e.granted, {}); assert.deepEqual(e.refunds, []);
+  /* the founders' gift gave the same pack: owned through that, and a later payment refunded once */
+  const f = tx('txn_f', 'founder'), sail = tx('txn_s', 'sailpack', { paid: at + 2 * H });
+  e = entitlement({ txs: [f, sail], fgift: { p: 'sailpack', at }, grants: { sailpack: at + H } });
+  assert.equal(e.fgift, 'sailpack'); assert.equal(e.owns.sailpack, at); assert.deepEqual(e.granted, {});
+  assert.deepEqual(e.refunds, [{ txn: 'txn_s', why: 'duplicate' }]);
+});
+
+test('the admin page gives packs, and the Shop says they came from the Edictum team', () => {
+  assert.match(src, /adminRequest\(\{op:'pack',uid,p:pk,on,reason\}\)/);
+  assert.match(src, /<h3 class="help-h3">Shop packs<\/h3>\$\{adminPacks\(p\)\}/);
+  assert.match(src, /function shopGiftFrom\(p\)\{if\(shopAg\(\)\.some\(\(\[k\]\)=>k===p\)\)return 'the Edictum team';/);
+  assert.match(src, /A gift from the Edictum team: \$\{shopThe\(p\)\}/);
+  assert.match(src, /\$\{d\.given\?shGiven\(d\.given,nm\):''\}/);
+  /* the Edictum Team writes a letter for each pack given or taken back, and taking back is also said on screen */
+  assert.match(src, /OFFICES\['office-team'\]=\{name:'The Edictum Team',chip:'The people who make Edictum'/);
+  assert.match(src, /DM_SOURCES\.push\(n=>shopAgl\(\)\.map\(x=>\(\{peer:'office-team',t:x\.t,x:shopAgLetter\(n,x\)\}\)\)\)/);
+  assert.match(src, /<span class="chip">\$\{esc\(po\.chip\|\|'Office of '\+REG\.the\)\}<\/span>/);
+  assert.match(src, /note:'The Edictum Team writes only to you, about your own account/);
+  assert.match(src, /dm-note">\$\{esc\(po\.note\|\|'Offices write to every nation/);
+  assert.match(src, /The Edictum team has taken back \$\{shopThe\(x\.p\)\}\. Their letter is in Messages\./);
 });
 
 test('the founders’ gift in the game: the pop-up offers the catalogue’s packs, asks once, and is kept by the nation’s record', () => {

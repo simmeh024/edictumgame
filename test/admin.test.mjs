@@ -208,6 +208,59 @@ test('an admin turns a free Chancery Club membership on and off, audited, and th
   assert.ok(log.some(e => e.action === 'club_granted' && e.name === 'Clubland' && e.outcome === 'completed'));
   assert.ok(log.some(e => e.action === 'club_revoked' && e.reason === 'Prize withdrawn'));
 });
+test('an admin gives a Shop pack for free and takes it back, audited; the player’s shop follows, and a pack already owned is refused', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Packland');
+  const before = (await call(a, { op: 'player', uid: p.uid })).packs;
+  assert.ok(before.length >= 9 && !before.some(k => k.p === 'founder') && before.every(k => !k.owned && !k.given && !k.incl), JSON.stringify(before));
+  assert.equal(before.find(k => k.p === 'mayapack').name, 'Mayan Pack');
+  await assert.rejects(call(p, { op: 'pack', uid: p.uid, p: 'mayapack', on: true, reason: 'Me' }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(a, { op: 'pack', uid: p.uid, p: 'mayapack', on: true }), e => e.status === 'INVALID_ARGUMENT');
+  for (const bad of ['founder', 'vip', 'nope', ''])
+    await assert.rejects(call(a, { op: 'pack', uid: p.uid, p: bad, on: true, reason: 'Odd' }), e => e.status === 'INVALID_ARGUMENT', bad);
+  const on = (await call(a, { op: 'pack', uid: p.uid, p: 'mayapack', on: true, reason: 'Contest prize' })).packs.find(k => k.p === 'mayapack');
+  assert.ok(on.owned > 0); assert.equal(on.given.by, a.uid); assert.equal(on.given.why, 'Contest prize');
+  const shop = (await get('shop/' + p.uid)).fields;
+  assert.ok(+shop.owns.mapValue.fields.mayapack.integerValue > 0); assert.ok(shop.ag.mapValue.fields.mayapack);
+  assert.ok((await get('finery/' + p.uid)).fields.c.arrayValue.values.length >= 15, 'every piece is shown to other players');
+  const notes = f => f.agl.arrayValue.values.map(v => v.mapValue.fields);
+  assert.deepEqual(notes(shop).map(x => [x.p.stringValue, x.on.booleanValue]), [['mayapack', true]], 'noted for the player’s letter');
+  await assert.rejects(call(a, { op: 'pack', uid: p.uid, p: 'mayapack', on: true, reason: 'Again' }), e => e.status === 'FAILED_PRECONDITION');
+  /* a bought pack: shown as bought, and not given */
+  await put('shopTx/txn_pk' + p.uid.slice(0, 10).toLowerCase(), { uid: p.uid, product: 'orpack', status: 'completed', ok: true, ck: true, created: Date.now() - 6e5, paid: Date.now() - 6e5 });
+  const two = (await call(a, { op: 'pack', uid: p.uid, p: 'cbpack', on: true, reason: 'Tester' })).packs;
+  assert.ok(two.find(k => k.p === 'orpack').owned > 0 && !two.find(k => k.p === 'orpack').given);
+  assert.ok(two.find(k => k.p === 'cbpack').given && two.find(k => k.p === 'mayapack').given);
+  await assert.rejects(call(a, { op: 'pack', uid: p.uid, p: 'orpack', on: true, reason: 'Bought already' }), e => e.status === 'FAILED_PRECONDITION');
+  /* taken back: the pack goes, the other gift stays; nothing to take back twice */
+  const off = (await call(a, { op: 'pack', uid: p.uid, p: 'mayapack', on: false, reason: 'Given by mistake' })).packs;
+  assert.equal(off.find(k => k.p === 'mayapack').owned, 0); assert.equal(off.find(k => k.p === 'mayapack').given, null);
+  assert.ok(off.find(k => k.p === 'cbpack').given);
+  const after = (await get('shop/' + p.uid)).fields;
+  assert.ok(!after.owns.mapValue.fields.mayapack && after.owns.mapValue.fields.cbpack && !after.ag.mapValue.fields.mayapack);
+  /* each gift and taking back is noted for the player's letters from the Edictum Team, oldest first, without who or why */
+  assert.deepEqual(notes(after).map(x => [x.p.stringValue, x.on.booleanValue]), [['mayapack', true], ['cbpack', true], ['mayapack', false]]);
+  assert.ok(notes(after).every(x => +x.t.integerValue > 0 && Object.keys(x).sort().join() === 'on,p,t'), JSON.stringify(notes(after)));
+  await assert.rejects(call(a, { op: 'pack', uid: p.uid, p: 'mayapack', on: false, reason: 'Twice' }), e => e.status === 'FAILED_PRECONDITION');
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).packs, off);
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  assert.ok(log.some(e => e.action === 'pack_given' && e.name === 'Packland' && e.reason === 'mayapack: Contest prize' && e.outcome === 'completed'));
+  assert.ok(log.some(e => e.action === 'pack_given' && e.reason === 'orpack: Bought already' && e.outcome === 'failed'));
+  assert.ok(log.some(e => e.action === 'pack_taken_back' && e.reason === 'mayapack: Given by mistake' && e.outcome === 'completed'));
+  /* the Shop statistics list what was given */
+  const given = (await call(a, { op: 'shopStats' })).given;
+  assert.ok(given.recent.some(r => r.uid === p.uid && r.p === 'cbpack' && r.by === a.uid && r.why === 'Tester'));
+  assert.ok(!given.recent.some(r => r.uid === p.uid && r.p === 'mayapack'));
+  /* the last given pack taken back: the record stays for the notes, and counts no pack */
+  await call(a, { op: 'pack', uid: p.uid, p: 'cbpack', on: false, reason: 'Tester done' });
+  const last = (await get('shop/' + p.uid)).fields;
+  assert.ok(!last.ag && !last.owns.mapValue.fields.cbpack && notes(last).length === 4 && notes(last)[3].on.booleanValue === false);
+  assert.ok(await get('shopGrant/' + p.uid));
+  assert.ok(!(await call(a, { op: 'shopStats' })).given.recent.some(r => r.uid === p.uid));
+  /* and the record goes with the account */
+  for (const path of ['nations/', 'nationx/', 'summaries/']) await del(path + p.uid);
+  await call(p, { op: 'close' }, 'accounts');
+  assert.equal(await get('shopGrant/' + p.uid), null);
+});
 test('the player page brings the nation, purchases, same-address accounts, reports and admin actions', async () => {
   const a = await user(true), p = await user(), q = await user(); await seed(p.uid, 'Overviewland'); await seed(q.uid, 'Neighbourland');
   await put('accountSeen/' + p.uid, { ip: '203.0.113.9', at: Date.now() }); await put('accountSeen/' + q.uid, { ip: '203.0.113.9', at: Date.now() });

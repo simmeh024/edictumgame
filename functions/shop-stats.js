@@ -6,7 +6,7 @@
    are kept apart per currency. "At list price" adds each sale's catalogue euro price instead, for one comparable sum.
    A basket counts as one sale per product in it, each with its own line's total and its own refunds (shop-core.js,
    txUnits); the latest sales list it once, with its products. */
-import { CATALOGUE, FOUNDER_GIFT, refundState, voided, txUnits } from './shop-core.js';
+import { CATALOGUE, FOUNDER_GIFT, GRANTABLE, refundState, voided, txUnits } from './shop-core.js';
 
 export const DAY = 86400000;
 const dayKey = t => new Date(t).toISOString().slice(0, 10);
@@ -111,4 +111,20 @@ export function founderGiftSummary(choices = [], founders = [], now = Date.now()
     .map(c => ({ uid: c.uid, p: String(c.p || ''), at: Number(c.at) || 0, fno: Number(c.fno) || 0, founder: fs.has(c.uid) }));
   return { until: FOUNDER_GIFT.until, open: now < FOUNDER_GIFT.until, chosen: chose.size, founders: fs.size, waiting: [...fs].filter(u => !chose.has(u)).length,
     packs: FOUNDER_GIFT.packs.map(k => ({ k, name: CATALOGUE.products[k].name, n: packs[k] })), recent };
+}
+
+/* The packs admins gave for free (shopGrant/{uid}: {p: {pack: {at, by, why}}}): how many of each, to how many players, and
+   the latest, each with who gave it and why */
+export function grantSummary(docs = []) {
+  const packs = Object.fromEntries(GRANTABLE.map(k => [k, 0])), all = [];
+  for (const d of docs) {
+    if (!d || !d.uid || !d.p || typeof d.p !== 'object') continue;
+    for (const [p, g] of Object.entries(d.p)) {
+      if (!Object.hasOwn(packs, p)) continue;
+      packs[p]++;
+      all.push({ uid: d.uid, p, at: Number(g && g.at) || 0, by: String((g && g.by) || ''), why: String((g && g.why) || '').slice(0, 200) });
+    }
+  }
+  return { total: all.length, players: new Set(all.map(r => r.uid)).size, packs: GRANTABLE.map(k => ({ k, name: CATALOGUE.products[k].name, n: packs[k] })).filter(p => p.n),
+    recent: all.sort((a, b) => b.at - a.at).slice(0, 100) };
 }
