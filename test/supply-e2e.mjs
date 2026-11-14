@@ -13,7 +13,10 @@ const sees = (p, id) => until(() => p.evaluate(id => G.allNations().some(x => x.
 const docs = async () => (await restListAdmin('supply')).map(d => ({ id: d.id, f: d.fields.f?.stringValue, to: d.fields.to?.stringValue, m: d.fields.m?.stringValue, q: Number(d.fields.q?.integerValue || 0), o: Number(d.fields.o?.integerValue || d.fields.o?.doubleValue || 0) }));
 /* every notice shown, in order (they queue: a reward's can come first), as the notices suite records them */
 const watch = p => p.ctx.addInitScript(() => { window.__toasts = []; addEventListener('DOMContentLoaded', () => new MutationObserver(() => { const t = document.getElementById('toast'); if (t && !t.hidden) window.__toasts.push(t.textContent); }).observe(document.body, { subtree: true, childList: true, characterData: true })); });
-const toastHas = (p, re) => until(() => p.evaluate(src => (window.__toasts || []).some(t => new RegExp(src).test(t)), re.source), 30000);
+/* a notice can wait behind several others (linking an account brings a handful of reward notices, each shown for seconds),
+   so up to 90 seconds; it returns as soon as the notice shows */
+const toastHas = (p, re) => until(() => p.evaluate(src => (window.__toasts || []).some(t => new RegExp(src).test(t)), re.source), 90000);
+const why = (p, id) => p.evaluate(id => G.SC().scWhyNot(id, Date.now()), id);
 
 const A = await player('sender'), B = await player('recipient');
 await watch(A); await watch(B);
@@ -32,6 +35,7 @@ check('not on one’s own page, nor on a computer nation’s', await B.evaluate(
 await visit(A, uidB);
 check('a Guest Nation sees the button locked', await A.evaluate(() => !!document.querySelector('[data-act="sc-send-open"] .sc-lock')));
 await A.click('[data-act="sc-send-open"]');
+check('the reason is that it is a guest', /sent by Registered Nations/.test(await why(A, uidB)));
 check('and is told to link a sign-in account first', await toastHas(A, /sent by Registered Nations\. Link a sign-in account/) && await A.evaluate(() => !document.getElementById('sc-dlg')));
 // linked, and two days old to the server (its founding, as accountIdentity keeps it)
 await register(A, { old: true });
@@ -53,13 +57,16 @@ check('the total adds up as it is typed', (await text(A, '#sc-tot')) === String(
 await A.screenshot({ path: path.join(OUT, 'supply-dialog.png') });
 /* the materials leave in the click itself (the commit comes before any wait): read the stockpile on either side of it, as a
    reward from elsewhere (a tutorial task, the desk) can land a few seconds later */
-const aPre = await stock(A);
+/* a save can also complete an achievement rank that was due, which pays 15 iron and 15 goods a rank (RANK_GIFT): read the
+   rank on either side as well */
+const rank = p => p.evaluate(() => { const n = G.S.nation; return G.RK.achRankOf(n, G.RK.achPoints(n)).i; });
+const aPre = await stock(A), r0 = await rank(A);
 await A.click('#sc-send');
-const a1 = await stock(A);
+const a1 = await stock(A), up = (await rank(A)) - r0, gift = { iron: 15 * up, goods: 15 * up };
 check('sending closes the dialog and says it is on its way', await until(() => A.evaluate(() => !document.getElementById('sc-dlg')), 30000) && await toastHas(A, /on its way to Receivia|is packed/));
 check('the server files it, with the message', await until(async () => (await docs()).some(d => d.f === uidA && d.to === uidB && d.q === total && d.m === 'Welcome to the region, neighbour!'), 30000), JSON.stringify(await docs()));
 check('the sender’s record marks it filed, without the message', await until(() => A.evaluate(() => (G.S.nation.scx || []).length === 1 && G.S.nation.scx[0].k === 1 && !JSON.stringify(G.S.nation.scx).includes('neighbour')), 20000));
-check('the materials left the sender’s stockpile', Object.entries(give).every(([k, v]) => aPre[k] - a1[k] >= v - 1 && aPre[k] - a1[k] <= v + 1), JSON.stringify([aPre, a1, give]));
+check('the materials left the sender’s stockpile', Object.entries(give).every(([k, v]) => { const d = aPre[k] - a1[k] + (gift[k] || 0); return d >= v - 1 && d <= v + 1; }), JSON.stringify([aPre, a1, give, { ranksUp: up }]));
 check('Special Delivery is earned', await until(() => A.evaluate(() => !!(G.S.nation.ach && G.S.nation.ach['dip-sc1'])), 20000));
 
 // the recipient
@@ -104,7 +111,7 @@ const sendOne = async (r) => { await visit(A, uidB); await A.click('[data-act="s
 await sendOne(1); await sendOne(2);
 check('three caches filed today', await until(async () => (await docs()).filter(d => d.f === uidA).length === 3, 30000));
 await visit(A, uidB); await A.click('[data-act="sc-send-open"]');
-check('a fourth is refused until the day ends', await toastHas(A, /You have sent 3 Supply Caches today/) && await A.evaluate(() => !document.getElementById('sc-dlg')));
+check('a fourth is refused until the day ends', /You have sent 3 Supply Caches today/.test(await why(A, uidB)) && await toastHas(A, /You have sent 3 Supply Caches today/) && await A.evaluate(() => !document.getElementById('sc-dlg')));
 check('Full Manifest is earned', await until(() => A.evaluate(() => !!(G.S.nation.ach && G.S.nation.ach['dip-scday'])), 20000));
 
 // a cache the server refuses comes back (one packed for a nation not in the region)
@@ -120,6 +127,7 @@ await open(C); await found(C, 'Youngland'); await register(C);
 await until(() => C.evaluate(() => G.SC().linked()), 20000);
 check('the young nation sees the recipient', await sees(C, uidB));
 await visit(C, uidB); await C.click('[data-act="sc-send-open"]');
-check('a Registered Nation founded today is told to wait a day', await toastHas(C, /a day after its founding/) && await C.evaluate(() => !document.getElementById('sc-dlg')));
+check('a Registered Nation founded today may not send yet', /a day after its founding/.test(await why(C, uidB)) && await C.evaluate(() => !document.getElementById('sc-dlg')));
+check('and is told to wait a day', await toastHas(C, /a day after its founding/) && await C.evaluate(() => !document.getElementById('sc-dlg')));
 
 await finish();
