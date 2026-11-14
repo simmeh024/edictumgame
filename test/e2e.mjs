@@ -561,7 +561,7 @@ check('the 20th stamp earns a land credit', await until(async () => { const n = 
 check('and the player is told', await until(async () => /20 stamps in your passport: a land credit/.test(await toasts(C)), 40000));
 // the Diplomata: one per nation, and it unlocks more passport designs
 await nav(C, 'cities'); await until(() => C.$('[data-act="ct-open"]')); await C.click('[data-act="ct-open"]');
-check('a city can build a Diplomata, one per nation', await until(async () => { const t = await text(C, '#app'); return /Diplomata/.test(t) && /Immigration \+3%\. One per nation\./.test(t); }));
+check('a city can build a Diplomata, one per nation', await until(async () => { const t = await text(C, '#app'); return /Diplomata/.test(t) && /Immigration \+3%, up to \+6% with its upgrades\. One per nation\./.test(t); }));
 await C.evaluate(() => { const k = 'statehood.nation.v1', n = JSON.parse(localStorage.getItem(k)); n.cities[0].b = (n.cities[0].b || []).concat([{ k: 'diplo', s: 1, d: 2, a: 1 }]); localStorage.setItem(k, JSON.stringify(n)); });
 await C.reload(); await ready(C);
 await nav(C, 'passport'); await C.click('[data-act="pp-tab"][data-v="design"]');
