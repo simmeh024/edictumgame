@@ -4,8 +4,12 @@ A live chat for each region: the nations of a region talk to each other in short
 
 ## What players get
 
-- **The Chat button** (a speech bubble) beside the bell and the search button. Its number counts the lines not yet read; lines from
-  blocked nations are not counted.
+- **The Chat button** (a speech bubble). Its number counts the lines not yet read; lines from blocked nations are not
+  counted. By default it sits beside the bell and the search button. Settings › Chat can make it float over the page
+  instead (or show both): a round button in the bottom-right corner (above the tab bar on a phone). Dragged, it snaps
+  to the nearer side and keeps its height, and it stays there on that device. It steps up over a bar at the foot of
+  the page (unsaved changes, the shop's basket, the map's panel on a phone), moves beside the open drawer on a wide
+  screen, and on a phone hides under the drawer and while the player types in the page. Notices step aside for it.
 - **The drawer.** It opens on the right of any page (the whole screen on a phone) and shows the newest 60 lines of
   the region: each with its nation's flag, name (a link to its page) and time, the Edictum staff mark for staff, a
   divider for each day and a "New" divider before the first line not yet read when the drawer opened. Lines by one
@@ -24,8 +28,11 @@ A live chat for each region: the nations of a region talk to each other in short
   - *Block (nation)*: the same block as in Messages. Its lines are hidden (the drawer says how many) and its letters
     stop. The blocked nation is not told. Unblocking is in Settings › Letters.
   - *Delete* one's own line; staff see *Remove the line* on every line, which the audit log keeps with its words.
-- **Settings › Letters › Region chat**: turn the chat off (the button goes, and the game stops listening), and turn
-  off the mention notice. The drawer's gear button opens it. The settings search finds it too.
+- **Settings › Chat** (its own tab, after Letters; `#settings/chat`): where the Chat button sits on this device
+  (Beside the bell, the default; Floating; or Both, and *Put it back in the corner* after a drag; localStorage `edictum.rgc.place`
+  and `edictum.rgc.fab`), turning the chat off (the button goes, and the game stops listening) and the mention notice
+  (both kept with the nation, `dmx.rc` and `dmx.rcn`). The drawer's gear button opens it. The settings search finds
+  both cards ("Chat button", "Region chat").
 - An admin observing another region sees its chat read-only, with *Remove the line*.
 - **Silenced players** see, in place of the writing box, that a moderator silenced them, until when and why; they
   still read the chat. Lines the **Edictum team** signs show the team's mark and name, never a nation's.
