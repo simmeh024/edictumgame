@@ -8288,6 +8288,8 @@ button.rgc-pic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .edw-fc li+li{margin-top:3px}
 .edw-city{margin-top:14px}
 .edw-city .lbl-h{margin-bottom:6px}
+/* an answer that would end a law the nation holds says so under its speech */
+.opt-ends{width:fit-content;max-width:100%;margin:-4px 0 14px;padding:6px 10px;border-left:3px solid var(--down);background:var(--down-soft);border-radius:3px;font-size:14px;color:var(--ink)}
 </style>
 
 <div id="app"></div>
@@ -24412,7 +24414,7 @@ let migBusy=false;
 function npcMig(id){if(migBusy)return 0;migBusy=true;try{const p=migration().byId.get(id);return p?p.i-p.o:0;}catch(e){return 0;}finally{migBusy=false;}}
 
 /* ───────── laws that cannot stand together ───────── */
-const POLICY_CONFLICTS=[['stateReligion','secularism'],['blasphemy','secularism'],['surveillance','dataPrivacy'],['fourDay','sevenDay'],['noElections','directDemocracy'],['noElections','compulsoryVoting'],['noElections','proportionalRep'],['noElections','votesAt16'],['noElections','termLimits'],['noElections','sortition'],['openBorders','borderWall'],['sealedBorders','openBorders'],['sealedBorders','freeMovement'],['sealedBorders','exitTax'],['sealedBorders','skilledVisas'],['freeMovement','borderWall'],['freeMovement','exitTax'],['freeMovement','openBorders'],['pacifistConstitution','conscription'],['pacifistConstitution','nuclearArsenal'],['pacifistConstitution','mercenaries'],['oilDrilling','fossilPhaseOut'],['clearFelling','forestProtection'],['openCastMining','miningMoratorium'],['centralBankIndependence','peoplesBank'],['monarchy','termLimits'],['censorship','whistleblowerProtection']].filter(([a,b])=>POLICIES[a]&&POLICIES[b]);
+const POLICY_CONFLICTS=[['stateReligion','secularism'],['blasphemy','secularism'],['surveillance','dataPrivacy'],['fourDay','sevenDay'],['noElections','directDemocracy'],['noElections','compulsoryVoting'],['noElections','proportionalRep'],['noElections','votesAt16'],['noElections','termLimits'],['noElections','sortition'],['openBorders','borderWall'],['sealedBorders','openBorders'],['sealedBorders','freeMovement'],['sealedBorders','exitTax'],['sealedBorders','skilledVisas'],['freeMovement','borderWall'],['freeMovement','exitTax'],['freeMovement','openBorders'],['pacifistConstitution','conscription'],['pacifistConstitution','nuclearArsenal'],['pacifistConstitution','mercenaries'],['oilDrilling','fossilPhaseOut'],['clearFelling','forestProtection'],['openCastMining','miningMoratorium'],['monarchy','termLimits'],['censorship','whistleblowerProtection']].filter(([a,b])=>POLICIES[a]&&POLICIES[b]);
 function conflictsOf(pk){const out=[];for(const [a,b] of POLICY_CONFLICTS){if(a===pk)out.push(b);else if(b===pk)out.push(a);}return out;}
 
 /* ───────── crowns ───────── */
@@ -71722,6 +71724,7 @@ function edwForecast(R,n){
   const yieldOf=p=>list(Object.entries(RES_POL[p]).map(([r,m])=>`${RES_INFO[r][0].toLowerCase()} ${m>1?'+':'−'}${Math.round(Math.abs(m-1)*100)}%`));
   for(const p of R.enacted||[])if(RES_POL[p]&&POLICIES[p])L.push(`${POLICIES[p][0]}: ${yieldOf(p)} from today.`);
   for(const p of R.repealed||[])if(RES_POL[p]&&POLICIES[p])L.push(`${POLICIES[p][0]} ends: its ${yieldOf(p)} goes with it.`);
+  for(const p of R.repealed||[]){const by=lawEndedBy(p,R.enacted);if(by&&POLICIES[p])L.push(`${POLICIES[p][0]} ends, because it cannot stand beside ${POLICIES[by][0]}.`);}
   const W=R.edw,K=W&&EDW_KINDS[W.kd];
   if(K)L.push(`${W.nm} opens near ${W.city} on ${fmtDate(W.d)}: ${edwOutText(K)}, and work for ${edwPeople(n,W.jobs)}. The Ministry of Public Works will write.`);
   const J=R.jobs;
@@ -71814,6 +71817,47 @@ HELP_EXT.push({k:'works',t:'Works, jobs and unemployment',body:n=>{
   return `<p>Some edicts build something: a shipyard, a factory, a port, a mine, a power station or a resort. The works goes to one of your cities (a coastal one for yards and ports) and opens a week after the edict. The Ministry of Public Works writes on the day, with a first delivery for your stockpile. From then on it adds to that city’s output, which the stockpile’s breakdown lists on a line of its own, and gives people work.</p>
 <p><b>Unemployment</b> starts from the census: more Prosperity and Economic Freedom mean fewer out of work, and a minimum wage a few more. Industrial Strategy, the Youth Guarantee and conscription put people to work for as long as they stand. Each open works employs some (about 0.2 to 0.5 points). Edicts that hire or lay off move it at once, and that nudge fades by 2% a day.</p>
 <p>Below 6%, unemployment lifts Happiness a little each day; above it, it lowers it, by up to 1.8 a month, less with a larger welfare budget. Migrants weigh it too: high unemployment sends people abroad. After each edict, the adviser who proposed your answer says what to expect.</p>${mine}`;}});
+/* ───────── laws an answer would end, said before and after (14 November 2026) ─────────
+   Some laws cannot stand beside each other (POLICY_CONFLICTS): enacting one ends the other. A player chose the People's
+   Bank and lost the Independent Central Bank with no word beforehand and only a bare "Repealed" after. Now an answer that
+   would end a law the nation holds says so under its speech on the desk ("Ends a law you have"), and the result page and
+   the adviser's forecast say why a law went. The People's Bank and an independent central bank may now stand together. */
+/* the laws held now that an answer's effects would end: {k, by} with by the law it enacts that k cannot stand beside
+   ('' when the answer repeals k itself) */
+function lawsEnded(n,e){
+  const held=(n&&n.policies)||{},out=[];if(!e)return out;
+  const p=e.p||{},add=(k,by)=>{if(POLICIES[k]&&!out.some(o=>o.k===k))out.push({k,by});};
+  for(const k of Object.keys(p)){
+    if(!POLICIES[k])continue;
+    if(!p[k]){if(held[k])add(k,'');continue;}
+    if(held[k])continue;
+    for(const c of conflictsOf(k))if(held[c]&&!p[c])add(c,k);
+  }
+  if(e.pre&&MONARCH_PRE.includes(e.pre)&&!held.monarchy&&!('monarchy' in p))for(const c of conflictsOf('monarchy'))if(held[c])add(c,'monarchy');
+  return out;
+}
+/* the law enacted alongside that a repealed law could not stand beside */
+function lawEndedBy(k,enacted){return (enacted||[]).find(x=>POLICIES[x]&&conflictsOf(x).includes(k))||'';}
+function lawEndsNote(L){
+  const by=[...new Set(L.map(o=>o.by))],t=by.map(b=>{const k=list(L.filter(o=>o.by===b).map(o=>POLICIES[o.k][0]));return b&&POLICIES[b]?`${k}, which cannot stand beside ${POLICIES[b][0]}`:k;});
+  return `<p class="opt-ends"><b>Ends ${L.length>1?'laws':'a law'} you have:</b> ${esc(t.join('; '))}.</p>`;
+}
+/* on the desk: under the speech, beside a gamble's odds */
+gmbOdds=(f=>function(o,n,x){
+  const h=f.apply(this,arguments);
+  try{const L=lawsEnded(n,o&&o.e);if(L.length)return h+lawEndsNote(L);}catch(e){}
+  return h;
+})(gmbOdds);
+/* on the result page: a law that went because of another says which */
+resultView=(f=>function(){
+  let h=f.apply(this,arguments);
+  try{const R=S.result;if(!R||!Array.isArray(R.repealed))return h;
+    for(const k of R.repealed){const by=lawEndedBy(k,R.enacted);if(!by||!POLICIES[k])continue;
+      const chip=`<span><b>Repealed</b> · ${esc(POLICIES[k][0])}</span>`;
+      h=h.replace(chip,`<span><b>Repealed</b> · ${esc(POLICIES[k][0])}, which cannot stand beside ${esc(POLICIES[by][0])}</span>`);}
+  }catch(e){}
+  return h;
+})(resultView);
 /* ───────── portraits of state: the faces of the government, as the player wants them (13 November 2026) ─────────
    The Government page's medallions (cvMed) stay what they were: a bust in profile in one ink, cut with paper-coloured
    lines, inside a guilloche ring. A saved look only overrides what the sitter's name draws (ptBust; an empty look is
