@@ -74,9 +74,10 @@ A live chat for each region: the nations of a region talk to each other in short
   The team's box takes a picture as the drawer does (its picture button, a paste or a drop), and the log shows each
   line's small copy, which opens the picture.
 - **To every region** (same page, admins): one system message in every region's chat at once (all of them, open,
-  coming soon or in maintenance), signed "Edictum team" and drawn in the chat as a notice marked "To every region".
+  coming soon or in maintenance), signed "Edictum team" and drawn in the chat as a yellow system notice: a gold flag with a
+  gearwheel, marked "System · To every region".
   Send asks once more ("Send this to all 27 regions?"). Players who are in the game when it arrives, but not reading the
-  chat, also see it as a notice. In the log it is marked **To every region**, with **Remove here** (that region's copy)
+  chat, also see it as a notice ("System · To every region: …"). In the log it is marked **System · To every region**, with **Remove here** (that region's copy)
   and **Remove from every region** (all copies at once). Both are in the audit log (`chat_broadcast`,
   `chat_broadcast_delete`) with the words and how many regions. Words only: no picture, mention or answer.
 - **Silence** (from that page, or from a line's menu in the chat for admins and moderators): an hour, 24 hours,
