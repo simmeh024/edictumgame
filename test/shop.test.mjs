@@ -589,6 +589,13 @@ test('the admin page gives packs, and the Shop says they came from the Edictum t
   assert.match(src, /function shopGiftFrom\(p\)\{if\(shopAg\(\)\.some\(\(\[k\]\)=>k===p\)\)return 'the Edictum team';/);
   assert.match(src, /A gift from the Edictum team: \$\{shopThe\(p\)\}/);
   assert.match(src, /\$\{d\.given\?shGiven\(d\.given,nm\):''\}/);
+  /* the Edictum Team writes a letter for each pack given or taken back, and taking back is also said on screen */
+  assert.match(src, /OFFICES\['office-team'\]=\{name:'The Edictum Team',chip:'The people who make Edictum'/);
+  assert.match(src, /DM_SOURCES\.push\(n=>shopAgl\(\)\.map\(x=>\(\{peer:'office-team',t:x\.t,x:shopAgLetter\(n,x\)\}\)\)\)/);
+  assert.match(src, /<span class="chip">\$\{esc\(po\.chip\|\|'Office of '\+REG\.the\)\}<\/span>/);
+  assert.match(src, /note:'The Edictum Team writes only to you, about your own account/);
+  assert.match(src, /dm-note">\$\{esc\(po\.note\|\|'Offices write to every nation/);
+  assert.match(src, /The Edictum team has taken back \$\{shopThe\(x\.p\)\}\. Their letter is in Messages\./);
 });
 
 test('the founders’ gift in the game: the pop-up offers the catalogue’s packs, asks once, and is kept by the nation’s record', () => {

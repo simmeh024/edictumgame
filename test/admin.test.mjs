@@ -222,6 +222,8 @@ test('an admin gives a Shop pack for free and takes it back, audited; the player
   const shop = (await get('shop/' + p.uid)).fields;
   assert.ok(+shop.owns.mapValue.fields.mayapack.integerValue > 0); assert.ok(shop.ag.mapValue.fields.mayapack);
   assert.ok((await get('finery/' + p.uid)).fields.c.arrayValue.values.length >= 15, 'every piece is shown to other players');
+  const notes = f => f.agl.arrayValue.values.map(v => v.mapValue.fields);
+  assert.deepEqual(notes(shop).map(x => [x.p.stringValue, x.on.booleanValue]), [['mayapack', true]], 'noted for the player’s letter');
   await assert.rejects(call(a, { op: 'pack', uid: p.uid, p: 'mayapack', on: true, reason: 'Again' }), e => e.status === 'FAILED_PRECONDITION');
   /* a bought pack: shown as bought, and not given */
   await put('shopTx/txn_pk' + p.uid.slice(0, 10).toLowerCase(), { uid: p.uid, product: 'orpack', status: 'completed', ok: true, ck: true, created: Date.now() - 6e5, paid: Date.now() - 6e5 });
@@ -235,6 +237,9 @@ test('an admin gives a Shop pack for free and takes it back, audited; the player
   assert.ok(off.find(k => k.p === 'cbpack').given);
   const after = (await get('shop/' + p.uid)).fields;
   assert.ok(!after.owns.mapValue.fields.mayapack && after.owns.mapValue.fields.cbpack && !after.ag.mapValue.fields.mayapack);
+  /* each gift and taking back is noted for the player's letters from the Edictum Team, oldest first, without who or why */
+  assert.deepEqual(notes(after).map(x => [x.p.stringValue, x.on.booleanValue]), [['mayapack', true], ['cbpack', true], ['mayapack', false]]);
+  assert.ok(notes(after).every(x => +x.t.integerValue > 0 && Object.keys(x).sort().join() === 'on,p,t'), JSON.stringify(notes(after)));
   await assert.rejects(call(a, { op: 'pack', uid: p.uid, p: 'mayapack', on: false, reason: 'Twice' }), e => e.status === 'FAILED_PRECONDITION');
   assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).packs, off);
   const log = (await call(a, { op: 'audit', target: p.uid })).events;
@@ -245,6 +250,12 @@ test('an admin gives a Shop pack for free and takes it back, audited; the player
   const given = (await call(a, { op: 'shopStats' })).given;
   assert.ok(given.recent.some(r => r.uid === p.uid && r.p === 'cbpack' && r.by === a.uid && r.why === 'Tester'));
   assert.ok(!given.recent.some(r => r.uid === p.uid && r.p === 'mayapack'));
+  /* the last given pack taken back: the record stays for the notes, and counts no pack */
+  await call(a, { op: 'pack', uid: p.uid, p: 'cbpack', on: false, reason: 'Tester done' });
+  const last = (await get('shop/' + p.uid)).fields;
+  assert.ok(!last.ag && !last.owns.mapValue.fields.cbpack && notes(last).length === 4 && notes(last)[3].on.booleanValue === false);
+  assert.ok(await get('shopGrant/' + p.uid));
+  assert.ok(!(await call(a, { op: 'shopStats' })).given.recent.some(r => r.uid === p.uid));
   /* and the record goes with the account */
   for (const path of ['nations/', 'nationx/', 'summaries/']) await del(path + p.uid);
   await call(p, { op: 'close' }, 'accounts');

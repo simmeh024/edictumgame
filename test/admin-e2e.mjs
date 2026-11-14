@@ -200,6 +200,21 @@ check('and it is no longer offered to give', !(await A.locator('#admin-pack-p op
 check('the player is told it is a gift from the Edictum team', await until(async () => /A gift from the Edictum team: the Mayan Pack/.test(await toasts(B)), 45000), await toasts(B));
 check('and owns it', await B.evaluate(() => { const d = G.SHOP.SHOP.doc; return !!(d && d.owns && d.owns.mayapack && d.ag && d.ag.mayapack); }));
 await A.screenshot({ path: OUT + '/admin-player-packs.png', fullPage: true });
+// the Edictum Team writes them a letter, in Messages, for a pack given and for one taken back; never the reason
+const teamLetters = () => B.evaluate(() => (G.LTR().dmThreads(Date.now()).get('office-team') || []).map(m => m.x).join(' | '));
+check('the Edictum Team writes the player a letter about the gift', await until(async () => /We have given you the Mayan Pack, with our compliments/.test(await teamLetters()), 20000), await teamLetters());
+check('unread until they open it', await B.evaluate(() => { const a = G.LTR().dmThreads(Date.now()).get('office-team') || [], s = (G.S.nation.seenDm || {})['office-team'] || 0; return a.some(m => m.t > s); }));
+await A.fill('#admin-pack-why', 'Test over'); await A.click(`[data-act="admin-pack"][data-v="off"][data-p="mayapack"][data-id="${uidB}"]`);
+check('Take back takes a given pack away, and says the player is told', await until(async () => /The Mayan Pack is taken back\. A letter from the Edictum Team tells them/.test(await detail()) && /Mayan Pack\s*Not owned/.test(await text(A, '#admin-packs')), 20000), await text(A, '#admin-packs'));
+check('the player is told on screen and by a second letter', await until(async () => /The Edictum team has taken back the Mayan Pack/.test(await toasts(B)) && /We have taken back the Mayan Pack/.test(await teamLetters()), 45000), await toasts(B));
+check('neither letter gives the admin’s reason', !/Contest prize|Test over/.test(await teamLetters()));
+check('and the pack is theirs no more', await until(() => B.evaluate(() => { const d = G.SHOP.SHOP.doc; return !!d && !(d.owns && d.owns.mayapack); })));
+await nav(B, 'messages'); await B.click('.conv-list [data-id="office-team"]');
+check('Messages shows the Edictum Team’s letters, as the team’s and not the region’s office', await until(async () => /The Edictum Team/.test(await text(B, '.thread-h')) && /The people who make Edictum/.test(await text(B, '.thread-h')) && /We have taken back the Mayan Pack/.test(await text(B, '.thread')) && /writes only to you/.test(await text(B, '.dm-note'))), await text(B, '.thread-h'));
+await B.screenshot({ path: OUT + '/player-team-letters.png', fullPage: true });
+// given again, for the Shop statistics below
+await A.fill('#admin-pack-why', 'Contest prize'); await A.selectOption('#admin-pack-p', 'mayapack'); await A.click(`[data-act="admin-pack"][data-v="on"][data-id="${uidB}"]`);
+await until(async () => /Mayan Pack\s*Given by you/.test(await text(A, '#admin-packs')), 20000);
 // Letters between players: the console lists who a player writes to, and opens one conversation only with a reason.
 { const lt = Date.now() - 600000, put = (by, to, t, x) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/letters/${by}~${to}~${t}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
     body: JSON.stringify({ fields: { by: { stringValue: by }, to: { stringValue: to }, x: { stringValue: x }, t: { integerValue: String(t) }, ts: { timestampValue: new Date(t).toISOString() }, exp: { timestampValue: new Date(Date.now() + 365 * 86400000).toISOString() } } }) });

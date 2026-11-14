@@ -22398,7 +22398,8 @@ function dmNpcHook(n,old,now){
 }
 
 /* ── the offices of the region: letters worked out in every game from what is public. OFFICES[id] = {name, seal: an
-   SVG for the flag's place, go?: [page, button label], about: one line for Settings}; a source in DM_SOURCES gives
+   SVG for the flag's place, go?: [page, button label], about: one line for Settings, chip?: whose office it is, when not
+   the region's, note?: the line under its letters, when not the regional offices' one}; a source in DM_SOURCES gives
    [{peer: an office id, t, x}]. Offices take no replies, and each can be switched off (dmx.off). ── */
 const OFFICES={},DM_SOURCES=[];
 const isOffice=id=>typeof id==='string'&&Object.hasOwn(OFFICES,id);
@@ -22720,8 +22721,8 @@ function messagesView(){
       <div class="dm-prev bub"${S.dmPrev&&String(S.msgDraft||'').trim()?'':' hidden'} id="dm-prev" aria-live="polite"><p class="dm-prev-h">Preview</p><div class="dm-x">${S.dmPrev?dmRich(S.msgDraft||''):''}</div></div>
       ${unans>=DM_CAP-2&&!isStaff(me)?`<p class="hint dm-warn">${unans>=DM_CAP?`You have written ${DM_CAP} letters in a row. The next waits until ${esc(px.n.name)} answers.`:`You have written ${unans} letters in a row; after ${DM_CAP}, the next waits for an answer.`}</p>`:''}
       <div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / ${fmt0(DM_MAX)}</span><span class="hint dm-keys">Ctrl+Enter sends</span><span class="hint dm-fmt-h" id="dm-fmt-h">**bold**, *italic*, “- ” or “1. ” starts a list</span></div></form>`:'';
-  const office=po?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${po.seal}</span><b>${esc(po.name)}</b><span class="chip">Office of ${esc(REG.the)}</span>${po.go?`<button class="linkish small" data-act="go" data-v="${po.go[0]}">${esc(po.go[1])}</button>`:''}${menu}</div>${confirm}
-      <ol class="bubs">${more}${bubbles}</ol><p class="hint dm-note">Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.</p>`:'';
+  const office=po?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${po.seal}</span><b>${esc(po.name)}</b><span class="chip">${esc(po.chip||'Office of '+REG.the)}</span>${po.go?`<button class="linkish small" data-act="go" data-v="${po.go[0]}">${esc(po.go[1])}</button>`:''}${menu}</div>${confirm}
+      <ol class="bubs">${more}${bubbles}</ol><p class="hint dm-note">${esc(po.note||'Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.')}</p>`:'';
   const gm=grp?dmGroupMeta(peer):null;
   const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span>${dmLabelPills(peer)}<span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
     :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}${dmLabelPills(peer)}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
@@ -48871,7 +48872,7 @@ function adminPacks(p){
     ${L.map(k=>`<tr data-pack="${esc(k.p)}"><td>${esc(k.name)}</td><td>${how(k)}</td><td>${k.given?`<button type="button" class="btn ghost small adm-danger" data-act="admin-pack" data-v="off" data-p="${esc(k.p)}" data-id="${esc(p.uid)}"${busy}>Take back</button>`:''}</td></tr>`).join('')}</tbody></table></div>
     <div class="field"><label for="admin-pack-why">Reason (kept in the audit log)</label><input class="input" id="admin-pack-why" maxlength="500" value="${esc(ADMX.packWhy)}" placeholder="e.g. Contest prize, tester, support goodwill"></div>
     ${free.length?`<div class="row"><select class="input" id="admin-pack-p" aria-label="Which pack">${free.map(k=>`<option value="${esc(k.p)}"${k.p===pick?' selected':''}>${esc(k.name)}</option>`).join('')}</select><button type="button" class="btn small" data-act="admin-pack" data-v="on" data-id="${esc(p.uid)}"${busy}>Give this pack</button></div>`:'<p class="hint">This player owns every pack.</p>'}
-    <p class="hint">A given pack is theirs at once, like a bought one: every piece in Customise, shown to other players. Their Shop calls it a gift from the Edictum team and tells them once. Nothing is charged, and Shop statistics list it apart from sales. Taking it back takes its pieces off. The reason is for the audit log only; the player never sees it.</p>${ADMX.packMsg?`<p class="hint" aria-live="polite">${esc(ADMX.packMsg)}</p>`:''}`;
+    <p class="hint">A given pack is theirs at once, like a bought one: every piece in Customise, shown to other players. Their Shop calls it a gift from the Edictum team. The Edictum Team writes them a letter in Messages when you give a pack and when you take one back, with a short message on screen. Nothing is charged, and Shop statistics list it apart from sales. Taking it back takes its pieces off. The reason is for the audit log only; the player never sees it.</p>${ADMX.packMsg?`<p class="hint" aria-live="polite">${esc(ADMX.packMsg)}</p>`:''}`;
 }
 async function adminPackSet(uid,pk,on){
   const p=ADMX.player;if(!p||p.uid!==uid||ADMX.packBusy)return;
@@ -48881,7 +48882,7 @@ async function adminPackSet(uid,pk,on){
   const reason=ADMX.packWhy.trim();if(!reason){ADMX.packMsg='Write a reason first.';render();document.getElementById('admin-pack-why')?.focus();return;}
   const name=(L.find(k=>k.p===pk)||{}).name||pk;
   ADMX.packBusy=true;ADMX.packMsg='';render();
-  try{const r=await adminRequest({op:'pack',uid,p:pk,on,reason});p.packs=r.packs;ADMX.packWhy='';ADMX.packP='';ADMX.packMsg=on?`The ${name} is theirs now.`:`The ${name} is taken back.`;}
+  try{const r=await adminRequest({op:'pack',uid,p:pk,on,reason});p.packs=r.packs;ADMX.packWhy='';ADMX.packP='';ADMX.packMsg=on?`The ${name} is theirs now. A letter from the Edictum Team tells them.`:`The ${name} is taken back. A letter from the Edictum Team tells them.`;}
   catch(e){ADMX.packMsg='That did not work: '+(e.message||e.code||'unknown error');}
   ADMX.packBusy=false;render();
 }
@@ -58428,16 +58429,41 @@ function shopTake(d,cached){
 function shopGiftsArrived(){
   if(!SHOP.doc||!SHOP.uid)return;
   /* from another nation (gifts), or a pack from the Edictum team (ag {pack: when}: functions/admin.js, pack) */
-  const g=Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[],ag=shopAg();if(!g.length&&!ag.length)return;
+  const g=Array.isArray(SHOP.doc.gifts)?SHOP.doc.gifts:[],ag=shopAg(),back=shopAgl().filter(x=>!x.on&&Date.now()-x.t<3*864e5);if(!g.length&&!ag.length&&!back.length)return;
   const key='edictum.giftsSeen.'+SHOP.uid;let seen=[];try{seen=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}if(!Array.isArray(seen))seen=[];
   const fresh=g.filter(x=>x&&x.txn&&!seen.includes(x.txn)).map(x=>({id:x.txn,t:`A gift from ${x.name||'another nation'}: ${SHOP_WHAT[x.p]||'something from the Shop'}. It is yours.`}))
-    .concat(ag.filter(([p,t])=>!seen.includes('ag:'+p+':'+t)).map(([p,t])=>({id:'ag:'+p+':'+t,t:`A gift from the Edictum team: ${shopThe(p)}. It is yours: find its pieces in Customise.`})));
+    .concat(ag.filter(([p,t])=>!seen.includes('ag:'+p+':'+t)).map(([p,t])=>({id:'ag:'+p+':'+t,t:`A gift from the Edictum team: ${shopThe(p)}. It is yours: find its pieces in Customise.`})))
+    .concat(back.filter(x=>!seen.includes('agx:'+x.p+':'+x.t)).map(x=>({id:'agx:'+x.p+':'+x.t,t:`The Edictum team has taken back ${shopThe(x.p)}. Their letter is in Messages.`})));
   if(!fresh.length)return;
   try{localStorage.setItem(key,JSON.stringify(seen.concat(fresh.map(x=>x.id)).slice(-30)));}catch(e){}
   for(const x of fresh.slice(-2))toast(x.t);
 }
 /* the packs the Edictum team gave this player that count now: [[pack, when]] */
 function shopAg(){const a=SHOP.doc&&SHOP.doc.ag;return a&&typeof a==='object'&&!Array.isArray(a)?Object.entries(a).filter(([p,t])=>typeof t==='number'&&t>0&&SHOP_PRODUCTS.includes(p)):[];}
+/* each pack the Edictum team gave this player (on) or took back, oldest first: [{p, on, t}] (functions/shop.js, setGrant) */
+function shopAgl(){const a=SHOP.doc&&SHOP.doc.agl;return Array.isArray(a)?a.filter(x=>x&&typeof x.t==='number'&&x.t>0&&SHOP_PRODUCTS.includes(x.p)).map(x=>({p:x.p,on:x.on===true,t:x.t})):[];}
+/* the Edictum Team writes a letter for each: a pack given is the player's from then, a pack taken back is not. Never the
+   reason the admin wrote, which is for the audit log. */
+OFFICES['office-team']={name:'The Edictum Team',chip:'The people who make Edictum',go:['customise','Open Customise'],
+  note:'The Edictum Team writes only to you, about your own account, and does not answer letters. To write to the team, use the Help page.',
+  about:'Writes when the team gives you a pack from the Shop, or takes one back.',
+  seal:dmSeal('#f1e4e4','#7a2e2e','<path d="M4 11h16v9H4zM3 8h18v3H3zM12 8v12M12 8c-1.5-3.5-6-3.5-5 0M12 8c1.5-3.5 6-3.5 5 0"/>')};
+function shopAgLetter(n,x){
+  return x.on?`To the government of ${n.name},
+
+We have given you ${shopThe(x.p)}, with our compliments. It is yours now, as if you had bought it, and nothing is charged.
+
+Its pieces are waiting in Customise. Whatever you choose to wear, other nations will see too.
+
+The Edictum Team`:`To the government of ${n.name},
+
+We have taken back ${shopThe(x.p)} that we gave you. Its pieces are no longer yours to use in Customise.
+
+If you think this is a mistake, write to us from the Help page.
+
+The Edictum Team`;
+}
+DM_SOURCES.push(n=>shopAgl().map(x=>({peer:'office-team',t:x.t,x:shopAgLetter(n,x)})));
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='shop-gift-to'&&SHOP.gift)SHOP.gift.to=e.target.value;});
 function shopConnect(){
   if(!S.db||!S.uid)return;

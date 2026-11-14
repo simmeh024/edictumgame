@@ -31,9 +31,11 @@
      authConfig/paddle      {env, apiKey, webhookSecret, clientToken, prices: {founder, idpack, vip}}
                             (tools/admin/set-paddle.mjs). Nobody reads it but this code.
      shop/{uid}             what the player owns, which only they read: {owns: {founder?, idpack?}, vip?: {until,
-                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, adbox?, fg?, ag?, pend, notes, reg}
+                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, adbox?, fg?, ag?, agl?, pend, notes, reg}
                             (fg: the pack chosen as the founders' thank-you gift, whether or not it counts now; ag {p: when}:
-                            the packs an admin gave that count now, which the Shop calls a gift from the Edictum team)
+                            the packs an admin gave that count now, which the Shop calls a gift from the Edictum team;
+                            agl [{p, on, t}]: each pack an admin gave (on) or took back, of which the Edictum Team writes
+                            the player a letter in the game, oldest first)
      finery/{uid}           {c: [cosmetic ids], reg, cl?, bx?}: the shop cosmetics every other player's game checks before it
                             shows them (a nation's own record cannot vouch for them); cl {s, u, m, f}, only once the player
                             has chosen a Chancery seal to show: which, and the membership's end and months that decide it;
@@ -52,8 +54,9 @@
      shopPrize/{uid}        {m: {key: when}}: months of the Club won in the game (grantPrizeMonth; key 'fc-2026-12')
      shopFGift/{uid}        {p, at, reg, fno}: the pack a founder chose as the thank-you gift (step fgift), counted in the
                             admin portal's Shop statistics
-     shopGrant/{uid}        {p: {pack: {at, by, why}}}: packs an admin gave the player for free (functions/admin.js, pack;
-                            setGrant below), listed in the admin portal's Shop statistics
+     shopGrant/{uid}        {p: {pack: {at, by, why}}, n: [{p, on, t}]}: packs an admin gave the player for free
+                            (functions/admin.js, pack; setGrant below), listed in the admin portal's Shop statistics; n, the
+                            last GRANT_NOTES gifts and takings back, which settle copies to shop/{uid}.agl for the letters
    Billing records stay when an account is deleted (accounting needs them); shop/ and finery/ go with it.
 
    In the emulators (FUNCTIONS_EMULATOR) authConfig/paddle may also carry api (a stand-in for Paddle's API that the
@@ -65,6 +68,9 @@ import { nationText } from './nationtext.js';
 import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, GRANTABLE, REQUIRED, FOUNDER_CUTOFF, FOUNDER_GIFT, CLUB_IDS, SEALS, BASKET, BASKET_MAX, BASKETABLE, clubReleased, sealHeld, verifySignature, txFacts, txUnits, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
 const P0until = p => { const u = CATALOGUE.products[p] && CATALOGUE.products[p].until; const t = u ? Date.parse(u) : NaN; return isFinite(t) ? t : 0; };
+/* the gifts and takings back of packs that the player's letters keep (shopGrant n, shop agl) */
+const GRANT_NOTES = 20;
+const grantNotes = v => (Array.isArray(v) ? v : []).filter(x => x && GRANTABLE.includes(x.p) && Number(x.t) > 0).map(x => ({ p: x.p, on: x.on === true, t: Number(x.t) })).slice(-GRANT_NOTES);
 const GRANTS_V = Math.max(1, ...Object.values(CATALOGUE.products).map(p => p.grantsV || 1));
 /* a product another one the account owns already includes (the Founder's Package includes the Card Pack) */
 const includedIn = (product, owns) => Object.entries(CATALOGUE.products).some(([k, p]) => owns[k] && Array.isArray(p.includes) && p.includes.includes(product));
@@ -247,6 +253,8 @@ async function settle(cfg, uid) {
     if (fno) doc.fno = fno;
     if (fgift && FOUNDER_GIFT.packs.includes(fgift.p)) doc.fg = fgift.p;
     if (Object.keys(e.granted).length) doc.ag = e.granted;
+    const agl = grantDoc.exists ? grantNotes(grantDoc.get('n')) : [];
+    if (agl.length) doc.agl = agl;
     const founder = !!e.owns.founder && fno > 0;
     if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
@@ -575,19 +583,22 @@ export async function setComp(uid, until, by, why) {
 
 /* an admin gives a player one of the packs for free (on), or takes back a pack an admin gave (off), and the player's shop is
    worked out again. A pack the player already owns (bought, the founders' gift, or inside the Founder's Package) is not
-   given; a bought pack is Paddle's to refund. Works while the shop is closed. → {packs: what the admin page shows} */
+   given; a bought pack is Paddle's to refund. Works while the shop is closed. Each is noted (n, with the real time) for the
+   player's letter from the Edictum Team; the record stays for those notes when the last given pack is taken back.
+   → {packs: what the admin page shows} */
 export async function setGrant(uid, p, on, by, why) {
   const db = getFirestore(), cfg = await settings(false), ref = db.doc('shopGrant/' + uid);
   if (!GRANTABLE.includes(p)) throw new HttpsError('invalid-argument', 'Choose a pack.');
   await db.runTransaction(async tx => {
     const [g, shop] = await tx.getAll(ref, db.doc('shop/' + uid)), given = g.exists ? g.get('p') || {} : {}, owns = shop.exists ? shop.get('owns') || {} : {};
+    const note = () => grantNotes([...(g.exists ? grantNotes(g.get('n')) : []), { p, on: !!on, t: Date.now() }]);
     if (on) {
       if (given[p]) throw new HttpsError('failed-precondition', 'An admin has already given this player the ' + CATALOGUE.products[p].name + '.');
       if (owns[p] || includedIn(p, owns)) throw new HttpsError('failed-precondition', 'This player already owns the ' + CATALOGUE.products[p].name + '.');
-      tx.set(ref, { p: { [p]: { at: clock(cfg), by, why } } }, { merge: true });
+      tx.set(ref, { p: { [p]: { at: clock(cfg), by, why } }, n: note() }, { merge: true });
     } else {
       if (!given[p]) throw new HttpsError('failed-precondition', 'No admin has given this player the ' + CATALOGUE.products[p].name + '.');
-      if (Object.keys(given).length > 1) tx.update(ref, { ['p.' + p]: FieldValue.delete() }); else tx.delete(ref);
+      tx.update(ref, { ['p.' + p]: FieldValue.delete(), n: note() });
     }
   });
   await settle(cfg, uid);
