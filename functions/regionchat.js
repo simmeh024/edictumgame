@@ -37,14 +37,17 @@ import DATA from './civic-data.json' with { type: 'json' };
    An admin's line may carry a picture (rcPost pic, see rcPicIn): the line keeps a small copy for the chat to show,
    im {s, w, h, fw, fh, k}, and the picture itself is rcimg/{reg}/chat/{id} {a, d, k, t, exp} under the line's id, read
    only when a reader opens it. rcimg's collection is a 'chat' collection too, with the author in `a` and the same `exp`,
-   so the time-to-live policy, an account's deletion and an admin's removal of a nation take it with the lines. */
+   so the time-to-live policy, an account's deletion and an admin's removal of a nation take it with the lines.
+   An admin also writes a system message to every region at once (rcCast): the same line, {a, nm 'Edictum team', x, t,
+   exp, st 'admin', tm: true, sys: 'all'}, in each region's chat under one id, which the game draws as a notice from the
+   team; rcUncast takes it out of every region again. A game from before draws it as an ordinary Edictum team line. */
 export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
 /* the same words, however they are spaced or capitalised, for the repeat check */
 const sameKey = x => line(x, RC_TEXT).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
-export const RC_OPS = ['rcPost', 'rcDelete', 'rcMute', 'rcUnmute', 'rcReact', 'rcHello'];
+export const RC_OPS = ['rcPost', 'rcDelete', 'rcMute', 'rcUnmute', 'rcReact', 'rcHello', 'rcCast', 'rcUncast'];
 export const RC_MN = 5, RC_REACT = ['hear', 'ha', 'bravo', 'shame'], RC_RV_MAX = 300;
 export const isRegionChatOp = op => RC_OPS.includes(op);
 /* how long a silence lasts, in hours: 0 is until lifted (kept as a far-off until, with perm) */
@@ -288,7 +291,47 @@ async function rcHello(db, who, d, regions) {
   });
 }
 
-const OPS = { rcPost, rcDelete, rcMute, rcUnmute, rcReact, rcHello };
+/* a system message to every region: one line in each region's chat (open, coming soon or closed for maintenance), all
+   with the same id. Admins only. Paced like the admin's own lines (rcPace), so a second click on Send, the same words
+   within RC_SAME, is refused rather than sent twice. The audit log keeps the words and how many regions had it */
+const castOnly = who => { if (!who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can write to every region at once.'); };
+async function rcCast(db, who, d, regions) {
+  castOnly(who);
+  const x = line(d.x, RC_TEXT), regs = [...regions];
+  if (!x) throw new HttpsError('invalid-argument', 'Write something first.');
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, { linked: false, nation: false, hidden: true, allowClosedRegion: true });
+    const pace = db.doc('rcPace/' + who.uid), ps = await tx.get(pace), now = Date.now();
+    const { wait, recent } = rcWait(ps.exists ? ps.get('p') : [], now);
+    if (wait > 0) throw new HttpsError('failed-precondition', `Slow down a little. You can write again in ${Math.ceil(wait / 1000)} ${Math.ceil(wait / 1000) === 1 ? 'second' : 'seconds'}.`, { code: 'rc_paced', wait });
+    const h = hash(sameKey(x)), last = recent.length ? recent[recent.length - 1] : 0;
+    if (ps.exists && ps.get('h') === h && now - last < RC_SAME) refuse('rc_same', 'You just sent that.');
+    const id = db.collection('rchat/' + regs[0] + '/chat').doc().id, exp = Timestamp.fromMillis(now + RC_KEEP);
+    tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), h });
+    for (const reg of regs) tx.create(db.doc('rchat/' + reg + '/chat/' + id), { a: who.uid, nm: 'Edictum team', x, t: now, exp, st: 'admin', tm: true, sys: 'all' });
+    tx.create(db.collection('adminAudit').doc(), { actor: who.uid, action: 'chat_broadcast', outcome: 'completed', at: FieldValue.serverTimestamp(),
+      line: id, x, regions: regs.length, reason: 'A system message to every region’s chat' });
+    return { ok: true, id, t: now, regions: regs.length };
+  });
+}
+/* the system message out of every region's chat it is still in (a region's copy an admin or the time-to-live policy
+   already took is skipped); only lines that are system messages, so an id can never take anything else */
+async function rcUncast(db, who, d, regions) {
+  castOnly(who);
+  const id = id20(d.id);
+  if (!id) throw new HttpsError('invalid-argument', 'Choose a system message.');
+  const got = await db.getAll(...[...regions].map(reg => db.doc('rchat/' + reg + '/chat/' + id)));
+  const lines = got.filter(s => s.exists && s.get('sys') === 'all');
+  if (!lines.length) return { ok: true, removed: 0 };
+  const b = db.batch();
+  lines.forEach(s => b.delete(s.ref));
+  b.create(db.collection('adminAudit').doc(), { actor: who.uid, action: 'chat_broadcast_delete', outcome: 'completed', at: FieldValue.serverTimestamp(),
+    line: id, x: line(lines[0].get('x'), RC_TEXT), removed: lines.length, reason: line(d.reason, 300) || 'Removed from every region’s chat' });
+  await b.commit();
+  return { ok: true, removed: lines.length };
+}
+
+const OPS = { rcPost, rcDelete, rcMute, rcUnmute, rcReact, rcHello, rcCast, rcUncast };
 export function regionChat(db, who, d, regions) {
   return OPS[d.op](db, who, d, regions);
 }

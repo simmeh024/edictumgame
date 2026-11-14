@@ -7984,6 +7984,14 @@ button.rgc-nm{text-align:left}
 .rgc-sb{margin:6px 0 1px 31px}
 .rgc-sys .rgc-rxs{margin-left:31px}
 .acx-sys{margin-left:4px}
+/* region chat: the Edictum team's system message to every region, and the admin portal's box that sends it */
+.rgc-l.rgc-cast,.rgc-l.rgc-cast:hover,.rgc-l.rgc-cast:focus-within{border-left-color:var(--stamp);background:var(--stamp-soft)}
+.rgc-cast .rgc-sh{color:var(--stamp)}
+.rgc-cast .rgc-sw .rgc-tmfl{display:inline-grid;place-items:center;background:var(--stamp);border-color:var(--stamp)}
+.acx-cast{margin:0 0 26px;padding:14px 16px;border:1px solid var(--rule);border-left:3px solid var(--stamp);border-radius:6px;background:var(--sheet)}
+.acx-cast .h3{margin:0 0 4px}
+.acx-cast .hint{margin:0 0 10px}
+.acx-cask{margin:10px 0 0;border-color:var(--stamp);background:var(--stamp-soft)}
 .rgc-mn{list-style:none;margin:0 0 6px;padding:4px;border:1px solid var(--rule-2);border-radius:6px;background:var(--sheet);box-shadow:var(--shadow)}
 .rgc-mn[hidden]{display:none}
 .rgc-mn li{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;font-size:13.5px;cursor:pointer}
@@ -69860,7 +69868,7 @@ function rgcHear(reg,qs){
   if(RGC.reg!==reg)return;
   const me=myId(),first=!RGC.ready,top=RGC.top;
   RGC.list=qs.docs.map(d=>{const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
-    return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':'',
+    return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':v.sys==='all'&&v.tm===true?'all':'',
       r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true,im:r.im===true}:null,im:rgcImOf(v.im),
       mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null};})
     .sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
@@ -69871,8 +69879,8 @@ function rgcHear(reg,qs){
   /* a line on its way leaves once it is back from the server: by its id, or, before the server has answered, as a new
      line of ours with the same words */
   if(RGC.pend.length){const ids=new Set(RGC.list.map(m=>m.id));RGC.pend=RGC.pend.filter(p=>p.id?!ids.has(p.id):!RGC.list.some(m=>m.a===me&&!m.sys&&m.x===p.x&&!!m.im===!!p.im&&m.t>p.top));}
-  rgcNamed(fresh);
-  if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=m.sys?m.x:`${rgcName(m)}: ${m.im?'(a picture) ':''}${m.x}`;}}
+  rgcNamed(fresh);rgcCastNote(fresh);
+  if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=m.sys==='found'?m.x:`${rgcName(m)}: ${m.im?'(a picture) ':''}${m.x}`;}}
   rgcBadge();rgcPaint();
 }
 function rgcName(m){if(m.tm)return 'Edictum team';const x=findNation(m.a);return x?x.n.name:m.nm;}
@@ -69967,6 +69975,7 @@ function rgcAsk(m,nm,mine){
   return `<div class="rgc-ask" role="alert"><p>${t}</p><div class="row"><button type="button" class="btn small danger solid" data-rgc="${blk?'block':'del'}" data-id="${esc(m.id)}">${blk?'Block':mine?'Delete':'Remove'}</button><button type="button" class="btn ghost small" data-rgc="ask-no">Cancel</button></div></div>`;
 }
 function rgcLine(m,run,by,me,mod,memo){
+  if(m.sys==='all')return rgcCastLine(m,me,mod);
   if(m.sys)return rgcSysLine(m,by,me,mod);
   /* a line the Edictum team signed (tm): the team's mark and name, never a nation's, and nothing to report or block;
      a line of the alliance channel (ally): Delete for its writer and the alliance's officers, nothing else */
@@ -70011,6 +70020,25 @@ function rgcSysLine(m,by,me,mod){
   return `<li class="rgc-l rgc-sys${mine?' me':''}${RGC.goto===m.id?' flash':''}" data-id="${i}"><p class="rgc-sh"><span>New nation</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`
     +`<div class="rgc-sw"><span class="mflag sm${x?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):''}</span><p class="rgc-x rgc-sx">${who} has been founded, welcome to <b class="rgc-ch">#${esc(rgcChan())}</b>!</p>${menu}</div>`
     +`${btn}${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}</li>`;
+}
+/* an admin's system message to every region (sys 'all': functions/regionchat.js, rcCast), drawn as a notice from the
+   Edictum team: its mark, "Edictum team · To every region", the time and the words. Its menu reacts to it; staff remove
+   it from this region's chat (the admin portal's Region chats takes it out of every region). A player who is not reading
+   the chat when it arrives is shown it as a notice too (rgcCastNote) */
+function rgcCastLine(m,me,mod){
+  const i=esc(m.id),when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`,open=RGC.menu===m.id,myRx=m.rv&&m.rv[me]||'';
+  const items=(!OBS?`<div class="rgc-rxp" role="group" aria-label="React">${RGC_RX.map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
+    +(mod?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="del-ask" data-id="${i}">Remove the line</button>`:'');
+  const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for the Edictum team’s message"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
+  return `<li class="rgc-l rgc-sys rgc-cast${RGC.goto===m.id?' flash':''}" data-id="${i}"><p class="rgc-sh"><span>Edictum team · To every region</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`
+    +`<div class="rgc-sw"><span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span><p class="rgc-x rgc-sx">${rgcText(m.x,null)}</p>${menu}</div>`
+    +`${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,'Edictum team',false):''}</li>`;
+}
+/* the newest system message that arrived while the player was not reading the region's chat, as a notice */
+function rgcCastNote(fresh){
+  if(OBS||!S.nation||RGC.open&&!document.hidden&&rgcTab()==='region')return;
+  const c=fresh.filter(m=>m.sys==='all');if(!c.length)return;
+  toast({m:`Edictum team, to every region: ${c[c.length-1].x}`,k:'cast'});
 }
 /* a nation founded a moment ago asks, once its record is saved, to be welcomed in its region's chat: once for each
    nation (localStorage edictum.rgc.hello.<uid>, the founding time), within the hour; the server decides (rcHello) and
@@ -70572,10 +70600,11 @@ document.addEventListener('drop',e=>{const pre=rgcDropAt(e.target);if(!pre)retur
    The chat and the region list are drawn in place as lines come in (acxPaint), so the team's draft and the silence form
    are never drawn over while being typed in. */
 const ACX_SHOW=100,ACX_HOURS=[[1,'1 hour'],[24,'24 hours'],[168,'7 days'],[720,'30 days'],[0,'Until lifted']];
-const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:'',pic:null,picErr:''};
+const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:'',pic:null,picErr:'',
+  cx:'',cask:false,cbusy:false,cmsg:''};
 ADM_ICONS['admin-chat']=NAV_SVG('<path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6"/>');
 const rgcHours=h=>h===1?'an hour':h===24?'24 hours':h===168?'7 days':h===720?'30 days':h+' hours';
-function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found',im:rgcImOf(v.im)};}
+function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':v.sys==='all'&&v.tm===true?'all':'',im:rgcImOf(v.im)};}
 /* the newest line of every region: one small query a region, when the page opens and on Fetch again */
 async function acxRegsLoad(){
   if(!S.db)return;const n=++ACX.lseq;ACX.lbusy=true;ACX.lerr='';
@@ -70620,10 +70649,12 @@ function acxLogHTML(){
   if(!ACX.list.length)return '<li class="hint acx-none">No lines in this chat yet.</li>';
   const sil=new Set((ACX.mutes||[]).map(x=>x.uid));let day='';
   return ACX.list.map(m=>{
-    const k=rgcDay(m.t),d=k!==day?(day=k,`<li class="acx-day" role="separator">${esc(rgcDayWords(m.t))}</li>`):'',staff=m.tm||!!m.st,ask=ACX.ask&&ACX.ask.id===m.id;
-    const pill=m.sys?' <span class="chip acx-sys">Welcome line</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
-    const acts=ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
-      :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">Remove</button>${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
+    const k=rgcDay(m.t),d=k!==day?(day=k,`<li class="acx-day" role="separator">${esc(rgcDayWords(m.t))}</li>`):'',staff=m.tm||!!m.st,ask=ACX.ask&&ACX.ask.id===m.id,all=m.sys==='all';
+    const pill=m.sys==='found'?' <span class="chip acx-sys">Welcome line</span>':all?' <span class="staff-pill rgc-pill">Team</span> <span class="chip acx-sys">To every region</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
+    /* a system message is removed from this region alone or, with its own question, from every region */
+    const acts=ask&&ACX.ask.all?`<button type="button" class="btn danger small" data-act="acx-uncast-yes" data-id="${esc(m.id)}">Remove everywhere</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
+      :ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
+      :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">${all?'Remove here':'Remove'}</button>${all?`<button type="button" class="linkish small" data-act="acx-uncast" data-id="${esc(m.id)}">Remove from every region</button>`:''}${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
     return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
   }).join('');
 }
@@ -70645,9 +70676,18 @@ function acxMuteHTML(){
     ${q.err?`<p class="err" role="alert">${esc(q.err)}</p>`:''}
     <div class="row"><button type="button" class="btn danger small" id="acx-mute-go" data-act="acx-mute-yes"${q.busy?' disabled':''}>${q.busy?'Silencing…':'Silence'}</button><button type="button" class="btn ghost small" data-act="acx-mute-no">Cancel</button></div></div>`;
 }
+/* a system message to every region at once (rcCast): written here, and asked about once more before it goes */
+function acxCastHTML(){
+  const n=REGIONS.length,lock=ACX.cask||ACX.cbusy;
+  return `<section class="acx-cast" aria-labelledby="acx-cast-h"><h2 class="h3" id="acx-cast-h">To every region</h2>
+    <p class="hint">A system message in all ${n} region chats at once, signed Edictum team and marked To every region. Players who are in the game when it arrives see it as a notice too. To take it back, choose Remove from every region beside it in any region’s chat above.</p>
+    <form class="acx-f" id="acx-cf" novalidate><label class="lbl" for="acx-cx">Message</label><div class="acx-fr"><textarea class="input" id="acx-cx" rows="2" maxlength="${RGC_TEXT}" placeholder="For example: the game restarts at 22:00 UTC for a few minutes."${lock?' readonly':''}>${esc(ACX.cx)}</textarea>${ACX.cask?'':`<button class="btn" type="submit" id="acx-cgo">Send to every region</button>`}</div>
+    ${ACX.cask?`<div class="adm-ask acx-cask"><p>Send this to all ${n} regions? It appears in every region’s chat at once.</p><div class="row"><button type="button" class="btn small" id="acx-cyes" data-act="acx-cast-yes"${ACX.cbusy?' disabled':''}>${ACX.cbusy?'Sending…':`Send to ${n} regions`}</button><button type="button" class="btn ghost small" data-act="acx-cast-no"${ACX.cbusy?' disabled':''}>Cancel</button></div></div>`:''}
+    ${ACX.cmsg?`<p class="err" role="alert">${esc(ACX.cmsg)}</p>`:''}</form></section>`;
+}
 function acxView(){
   const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Region chats</h1>
-    <p class="lede">Read any region’s chat as it happens, write in it as the Edictum team, and silence players who break the rules. A silence holds in every region’s chat: the player can still read along, and sees the reason. Removing a line and silencing are kept in the audit log.</p>`;
+    <p class="lede">Read any region’s chat as it happens, write in it as the Edictum team or to every region at once, and silence players who break the rules. A silence holds in every region’s chat: the player can still read along, and sees the reason. Removing a line, a message to every region and silencing are kept in the audit log.</p>`;
   if(!S.db)return admShell('admin-chat',head+'<div class="info">The chats need a connection. This page works once the game is connected.</div>');
   if(!ACX.reg)ACX.reg=REG_BY_ID[REG.id]?REG.id:REGIONS[0].id;
   if(!ACX.last&&!ACX.lbusy&&!ACX.lerr)acxRegsLoad();
@@ -70661,7 +70701,7 @@ function acxView(){
     ${R?(()=>{const pk=rgcPicCan(),pb=pk?rgcPicBarHTML(ACX,'acx'):'';return `<form class="acx-f" id="acx-f" novalidate><label class="lbl" for="acx-x">Write to ${esc(R.the||R.name)} as the Edictum team</label><div class="rgc-picbar acx-picbar" id="acx-picbar"${pb?'':' hidden'}>${pb}</div><div class="acx-fr"><textarea class="input" id="acx-x" rows="2" maxlength="${RGC_TEXT}" placeholder="Players see it at once, signed Edictum team.${pk?' Paste or drop a picture to add one.':''}">${esc(ACX.x)}</textarea>${pk?rgcPicPicker('acx'):''}<button class="btn" type="submit" id="acx-go"${ACX.busy?' disabled':''}>${ACX.busy?'Sending…':'Send'}</button></div>${ACX.msg?`<p class="err" role="alert">${esc(ACX.msg)}</p>`:''}</form>`;})():''}</section>`;
   const M=ACX.mutes,mutes=`<h2 class="h3 acx-mh">Silenced players</h2>${ACX.merr?`<p class="err">${esc(ACX.merr)}</p>`:!M?'<p class="hint">Fetching them…</p>':!M.length?'<p class="hint">Nobody is silenced.</p>'
     :`<div class="tbl-wrap"><table class="tbl acx-mt"><thead><tr><th>Nation</th><th>Region</th><th>Until</th><th>Reason</th><th>Since</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${M.map(x=>`<tr data-uid="${esc(x.uid)}"><td>${esc(x.nm||'A nation')}</td><td>${esc(x.reg?regName(x.reg):'—')}</td><td>${x.perm?'Until lifted':esc(fmtDate(x.until)+', '+fmtTime(x.until))}</td><td>${esc(x.why||'—')}</td><td>${esc(rel(x.t))}</td><td class="acx-mb"><button type="button" class="btn ghost small" data-act="acx-lift" data-id="${esc(x.uid)}">Lift</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(x.uid)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`}`;
-  return admShell('admin-chat',head+`<div class="acx">${regs}${chat}</div>`+mutes);
+  return admShell('admin-chat',head+`<div class="acx">${regs}${chat}</div>`+acxCastHTML()+mutes);
 }
 document.addEventListener('click',async e=>{
   const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act,id=el.dataset.id||'';
@@ -70670,9 +70710,20 @@ document.addEventListener('click',async e=>{
   if(a==='acx-reg'){if(ACX.reg!==el.dataset.v){ACX.reg=el.dataset.v;ACX.ask=null;ACX.mute=null;ACX.msg='';acxListen();}render();}
   else if(a==='acx-reload'){acxRegsLoad();acxMutesLoad();render();}
   else if(a==='acx-del'&&m){ACX.ask={id};acxPaint();const b=document.querySelector('#acx-log [data-act="acx-del-yes"]');if(b)b.focus({preventScroll:true});}
-  else if(a==='acx-ask-no'){const k=ACX.ask&&ACX.ask.id;ACX.ask=null;acxPaint();const b=k&&document.querySelector(`#acx-log [data-act="acx-del"][data-id="${CSS.escape(k)}"]`);if(b)b.focus({preventScroll:true});}
+  else if(a==='acx-ask-no'){const q=ACX.ask;ACX.ask=null;acxPaint();const b=q&&document.querySelector(`#acx-log [data-act="${q.all?'acx-uncast':'acx-del'}"][data-id="${CSS.escape(q.id)}"]`);if(b)b.focus({preventScroll:true});}
   else if(a==='acx-del-yes'&&m){ACX.ask=null;acxPaint();
     try{await rgcCivic({op:'rcDelete',reg:ACX.reg,id});ACX.list=ACX.list.filter(x=>x.id!==id);acxPaint();toast('The line was removed from the chat.');}catch(err){toast(alErrText(err));}}
+  /* a system message, out of every region's chat at once */
+  else if(a==='acx-uncast'&&m){ACX.ask={id,all:true};acxPaint();const b=document.querySelector('#acx-log [data-act="acx-uncast-yes"]');if(b)b.focus({preventScroll:true});}
+  else if(a==='acx-uncast-yes'&&m){ACX.ask=null;acxPaint();
+    try{const r=await rgcCivic({op:'rcUncast',id});ACX.list=ACX.list.filter(x=>x.id!==id);acxPaint();
+      toast(r&&r.removed?`The message was removed from ${r.removed} ${r.removed===1?'region':'regions'}.`:'The message was already gone from every region.');acxRegsLoad();}
+    catch(err){toast(alErrText(err));}}
+  else if(a==='acx-cast-no'&&!ACX.cbusy){ACX.cask=false;render();const f=document.getElementById('acx-cx');if(f)f.focus();}
+  else if(a==='acx-cast-yes'&&ACX.cask&&!ACX.cbusy){const x=ACX.cx.replace(/\s+/g,' ').trim();if(!x){ACX.cask=false;render();return;}
+    ACX.cbusy=true;ACX.cmsg='';render();
+    try{const r=await rgcCivic({op:'rcCast',x});ACX.cx='';toast(`Sent to ${r&&r.regions||REGIONS.length} regions.`);acxRegsLoad();}catch(err){ACX.cmsg=alErrText(err);}
+    ACX.cbusy=false;ACX.cask=false;render();const f=document.getElementById('acx-cx');if(f)f.focus({preventScroll:true});}
   else if(a==='acx-mute-ask'&&m){ACX.mute={uid:m.a,nm:m.nm,reg:ACX.reg,hours:24,why:'',wipe:false,busy:false,err:''};render();const f=document.getElementById('acx-mw');if(f)f.focus();}
   else if(a==='acx-mute-no'){ACX.mute=null;render();}
   else if(a==='acx-mute-yes'&&ACX.mute&&!ACX.mute.busy){const q=ACX.mute;q.busy=true;q.err='';render();
@@ -70683,9 +70734,18 @@ document.addEventListener('click',async e=>{
   else if(a==='acx-lift'){el.disabled=true;
     try{await rgcCivic({op:'rcUnmute',uid:id});toast('The silence is lifted.');acxMutesLoad();}catch(err){el.disabled=false;toast(alErrText(err));}}
 });
-document.addEventListener('input',e=>{const t=e.target;if(!t)return;if(t.id==='acx-x'){if(/\n/.test(t.value))t.value=t.value.replace(/\n+/g,' ');ACX.x=t.value;if(ACX.msg){ACX.msg='';const p=t.closest('form').querySelector('.err');if(p)p.remove();}}else if(t.id==='acx-mw'&&ACX.mute)ACX.mute.why=t.value.slice(0,200);});
+document.addEventListener('input',e=>{const t=e.target;if(!t)return;
+  if(t.id==='acx-cx'){if(/\n/.test(t.value))t.value=t.value.replace(/\n+/g,' ');ACX.cx=t.value;if(ACX.cmsg){ACX.cmsg='';const p=t.closest('form').querySelector('.err');if(p)p.remove();}return;}
+  if(t.id==='acx-x'){if(/\n/.test(t.value))t.value=t.value.replace(/\n+/g,' ');ACX.x=t.value;if(ACX.msg){ACX.msg='';const p=t.closest('form').querySelector('.err');if(p)p.remove();}}else if(t.id==='acx-mw'&&ACX.mute)ACX.mute.why=t.value.slice(0,200);});
 document.addEventListener('change',e=>{const t=e.target;if(!t||!ACX.mute)return;if(t.id==='acx-mh')ACX.mute.hours=Number(t.value);else if(t.id==='acx-mx')ACX.mute.wipe=t.checked;});
-document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='acx-x'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();const f=document.getElementById('acx-f');if(f)f.requestSubmit();}});
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&(t.id==='acx-x'||t.id==='acx-cx')&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();const f=document.getElementById(t.id==='acx-x'?'acx-f':'acx-cf');if(f)f.requestSubmit();}});
+/* Send to every region asks once more (acx-cast-yes sends it) */
+document.addEventListener('submit',e=>{
+  if(!e.target||e.target.id!=='acx-cf')return;e.preventDefault();
+  if(ACX.cask||ACX.cbusy||!S.isOwner)return;
+  if(!ACX.cx.replace(/\s+/g,' ').trim()){ACX.cmsg='Write the message first.';render();const f=document.getElementById('acx-cx');if(f)f.focus();return;}
+  ACX.cask=true;ACX.cmsg='';render();const b=document.getElementById('acx-cyes');if(b)b.focus({preventScroll:true});
+});
 document.addEventListener('submit',async e=>{
   if(!e.target||e.target.id!=='acx-f')return;e.preventDefault();
   if(ACX.pic&&ACX.pic.busy){ACX.msg='The picture is still being prepared. Send it in a moment.';render();return;}

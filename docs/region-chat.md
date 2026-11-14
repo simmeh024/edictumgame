@@ -73,6 +73,12 @@ A live chat for each region: the nations of a region talk to each other in short
   **Silence…** and **Inspect**. Under the chat, the players silenced now, each with **Lift**.
   The team's box takes a picture as the drawer does (its picture button, a paste or a drop), and the log shows each
   line's small copy, which opens the picture.
+- **To every region** (same page, admins): one system message in every region's chat at once (all of them, open,
+  coming soon or in maintenance), signed "Edictum team" and drawn in the chat as a notice marked "To every region".
+  Send asks once more ("Send this to all 27 regions?"). Players who are in the game when it arrives, but not reading the
+  chat, also see it as a notice. In the log it is marked **To every region**, with **Remove here** (that region's copy)
+  and **Remove from every region** (all copies at once). Both are in the audit log (`chat_broadcast`,
+  `chat_broadcast_delete`) with the words and how many regions. Words only: no picture, mention or answer.
 - **Silence** (from that page, or from a line's menu in the chat for admins and moderators): an hour, 24 hours,
   7 days, 30 days or until lifted, in every region's chat, with a reason the player sees, and optionally removing the
   player's lines of the last 24 hours in that region. Staff cannot be silenced. Silencing and lifting are in the audit
@@ -135,6 +141,12 @@ A live chat for each region: the nations of a region talk to each other in short
     (`rcHello/~{reg} {w: [{t, k}]}`); never for a silenced account. Otherwise it answers `{ok: true, skip}`
     (`done`, `old`, `again`, `busy`, `silenced`) and writes nothing. `rcHello/` is server-only and goes with the
     account. No new Cloud Function: it is a `civic` op like the others.
+  - `rcCast {x}` (admin claim only): `rchat/{reg}/chat/{id} {a, nm: 'Edictum team', x, t, exp, st: 'admin', tm: true,
+    sys: 'all'}` in every region, all under one `id`, in one transaction with the admin's `rcPace` (the same gap and
+    repeat check as `rcPost`, so a double click sends it once: `rc_same`), and an `adminAudit` entry `chat_broadcast`
+    `{line, x, regions}`. Answers `{ok, id, t, regions}`. A game from before this draws the line as an ordinary Edictum
+    team line. `rcUncast {id}` (admin claim only) deletes the copies still there, only lines with `sys: 'all'`, and
+    writes `chat_broadcast_delete` `{line, x, removed}`; answers `{ok, removed}`.
   - `rcDelete {reg, id, report?}`: the author deletes their own line; staff (admin or mod claim) any line, which
     writes an `adminAudit` entry `chat_delete` with the words and closes the report if one is named.
 - `functions/admin.js` `delete_post` takes `rc:<region>:<line>` from the Reports queue.
@@ -181,6 +193,9 @@ repo's `firestore.indexes.json` leaves TTL out, so deploys leave the policy alon
 - `test/civic.test.mjs`: writing, pacing, repeats, the region check, deleting, staff removal and its audit, bans; the
   welcome of a new nation and each case that writes none.
 - `test/rules.test.mjs`: who reads a region's chat and its pictures; nobody writes them.
+- `test/civic.test.mjs`, to every region: only an admin (not a moderator or a player) sends one; one line in every region
+  under one id, marked `sys: 'all'`; the same words again are refused; removal takes every copy and nothing else; both
+  audited.
 - `test/civic.test.mjs`, pictures: only an admin posts one, with words or alone; refused kinds and sizes; repeats;
   answers and mentions of a picture; the team's picture in another region; removal by staff or the Reports queue takes
   the picture; it is a `chat` document of its author.
