@@ -988,6 +988,42 @@ test('Region chat staff: the team writes in any region, staff silence a player e
   assert.ok(un&&un.actor===staff.uid);
 });
 
+test('Region chat to every region: only an admin sends one line to every region at once, under one id; the same words again are refused; removing it takes every copy and nothing else, all audited',async()=>{
+  const r=await player(true),mod=await player(true),staff=await sign('signUp',{});
+  await auth.setCustomUserClaims(mod.uid,{mod:true});await auth.setCustomUserClaims(staff.uid,{admin:true});
+  const regs=JSON.parse(fs.readFileSync(new URL('../functions/civic-data.json',import.meta.url),'utf8')).regions.map(x=>x.id);
+  // a player and a moderator cannot; an admin with no nation of their own can, with words
+  await assert.rejects(civic(r,{op:'rcCast',x:'Hello everyone'}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(mod,{op:'rcCast',x:'Hello everyone'}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(staff,{op:'rcCast',x:'   '}),e=>e.status==='INVALID_ARGUMENT');
+  const words='The game restarts at 22:00 UTC for a few minutes.';
+  const c=await civic(staff,{op:'rcCast',x:'  The game restarts at 22:00 UTC\n for a few minutes.  '});
+  assert.equal(c.regions,regs.length);assert.match(c.id,/^[A-Za-z0-9]{20}$/);
+  const got=await Promise.all(regs.map(g=>db.doc(`rchat/${g}/chat/${c.id}`).get()));
+  got.forEach((s,i)=>{assert.ok(s.exists,regs[i]);const v=s.data();
+    assert.deepEqual({a:v.a,nm:v.nm,x:v.x,t:v.t,st:v.st,tm:v.tm,sys:v.sys},{a:staff.uid,nm:'Edictum team',x:words,t:c.t,st:'admin',tm:true,sys:'all'},regs[i]);
+    assert.ok(v.exp.toMillis()>c.t+29*DAY,'kept as long as any line');});
+  // a second click, or the same words a moment later, sends nothing twice
+  await new Promise(res=>setTimeout(res,1600));
+  await rejects(civic(staff,{op:'rcCast',x:words}),'rc_same');
+  // a player of a region reacts to it as to any line
+  assert.equal((await civic(r,{op:'rcReact',reg:'meridian',id:c.id,k:'hear'})).k,'hear');
+  // staff take one region's copy (rcDelete); an admin then takes the rest from every region at once, and only a system message
+  await civic(mod,{op:'rcDelete',reg:'frostmarch',id:c.id});
+  const own=await civic(r,{op:'rcPost',x:'Noted, thanks.'});
+  await assert.rejects(civic(mod,{op:'rcUncast',id:c.id}),e=>e.status==='PERMISSION_DENIED');
+  assert.deepEqual(await civic(staff,{op:'rcUncast',id:own.id}),{ok:true,removed:0},'an ordinary line is never taken this way');
+  assert.equal((await db.doc('rchat/meridian/chat/'+own.id).get()).exists,true);
+  assert.deepEqual(await civic(staff,{op:'rcUncast',id:c.id}),{ok:true,removed:regs.length-1});
+  for(const g of regs)assert.equal((await db.doc(`rchat/${g}/chat/${c.id}`).get()).exists,false,g);
+  assert.deepEqual(await civic(staff,{op:'rcUncast',id:c.id}),{ok:true,removed:0},'gone already');
+  // the audit log keeps both, with the words
+  const au=(await db.collection('adminAudit').where('line','==',c.id).get()).docs.map(d=>d.data());
+  const sent=au.find(a=>a.action==='chat_broadcast'),gone=au.find(a=>a.action==='chat_broadcast_delete');
+  assert.ok(sent&&sent.actor===staff.uid&&sent.x===words&&sent.regions===regs.length,JSON.stringify(sent));
+  assert.ok(gone&&gone.actor===staff.uid&&gone.x===words&&gone.removed===regs.length-1,JSON.stringify(gone));
+});
+
 test('Region chat pictures: only an admin posts one, with words or alone, the picture kept beside the line and gone with it',async()=>{
   const r=await player(true),mod=await player(true),staff=await player(true);
   await auth.setCustomUserClaims(mod.uid,{mod:true});await auth.setCustomUserClaims(staff.uid,{admin:true});
