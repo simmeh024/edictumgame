@@ -183,4 +183,6 @@ test('the wiring: a button on the nation page, the Gifts tab, the probe, the pri
   assert.match(civic, /isSupplyOp\(d\.op\)\) return supply\(db, who, d\)/);
   assert.match(accounts, /await scForget\(db, uid\);/);
   for (const k of ['to', 'f']) assert.ok(indexes.indexes.some(i => i.collectionGroup === 'supply' && i.fields.map(f => f.fieldPath).join() === k + ',x'), 'index ' + k + ',x');
+  /* the 30 days the privacy page promises: the deploy switches on Firestore's TTL on supply.exp */
+  assert.ok(indexes.fieldOverrides.some(o => o.collectionGroup === 'supply' && o.fieldPath === 'exp' && o.ttl === true), 'TTL on supply.exp');
 });
