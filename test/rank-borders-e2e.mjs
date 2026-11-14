@@ -32,6 +32,14 @@ const reach=i=>A.evaluate(i=>{
     for(const a of R.ACH)if(a.id.startsWith('cab-'))delete ach[a.id];due();}
   let p=R.achPoints({ach});
   for(const a of R.ACH.slice().sort((x,y)=>R.ACH_TIER[y.t].p-R.ACH_TIER[x.t].p)){if(p>=lo)break;if(ach[a.id])continue;const v=R.ACH_TIER[a.t].p;if(p+v<hi){ach[a.id]=t;p+=v;}}
+  /* a founding's own honours come to 40 (Year Zero, A Place on the Map, Map Reader, First Exhibit), and chance can add
+     more that no cabinet takes away: the suggested land may hold a large iron deposit (Strike It Rich) and the nation may
+     lead its region's museums (Pride of the Region), so even with a plain cabinet it can start at the second rank. Any
+     commit records them again, so show this rank on the tab's own copy without them (nothing is saved); the next rank's
+     commit takes them in */
+  if(p>=hi){const pt=id=>{const a=R.ACH.find(x=>x.id===id);return a?R.ACH_TIER[a.t].p:0;};
+    for(const id of Object.keys(ach).sort((x,y)=>pt(y)-pt(x))){if(p<hi)break;p-=pt(id);delete ach[id];}
+    n.ach=ach;G.S.nation=n;G.render();return R.achPoints(G.S.nation);}
   n.ach=ach;G.commit(n);G.render();return R.achPoints(G.S.nation);
 },i);
 const card=()=>A.evaluate(()=>{const h=document.querySelector('.hero.id-sec'),b=h&&h.querySelector('.id-bd');

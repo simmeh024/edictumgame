@@ -5,7 +5,8 @@
 // Settings › Chat turns the chat off and puts the button beside the bell, floating (dragged to either side) or both; staff read every region's chat in the admin portal, write as the Edictum
 // team and silence a player (and lift it); the drawer's tabs (Region, Alliance, Happenings with Welcome), @mentions,
 // answers, reactions, the badges beside a name, docking beside the page, the tutorial's Say hi in the region chat, and
-// an admin's pictures (a small copy in the line, the picture over the page on a click).
+// an admin's pictures (a small copy in the line, the picture over the page on a click), and an admin's system message
+// to every region at once (a notice in each region's chat, and on screen for a player not reading it).
 //   npm run test:region-chat
 import { player, open, ready, found, register, until, check, finish, setClaims, text, restListAdmin, clearEmulators, sleep, nav, nationDoc, FS_HOST, PROJECT, OUT } from './lib.mjs';
 await clearEmulators();
@@ -469,6 +470,44 @@ check('the team’s picture reaches the region, signed Edictum team', await unti
 await A.click(`#acx-log [data-act="acx-del"][data-id="${picLine?.id}"]`); await A.click(`#acx-log [data-act="acx-del-yes"][data-id="${picLine?.id}"]`);
 check('removing a line takes its picture with it', await until(async () => !(await restListAdmin(`rcimg/${reg}/chat`)).some(d => d.id === picLine?.id) && !(await restListAdmin(`rchat/${reg}/chat`)).some(d => d.id === picLine?.id), 15000));
 check('and it goes from the drawers', await until(async () => !(await C.$(pli))));
+await A.click('.adm-return'); await ready(A);
+
+/* ── 15. to every region: an admin's system message in every region's chat at once, drawn as a notice from the team,
+   shown as a notice to a player not reading the chat, and taken out of every region again ── */
+if (await C.$('#rgc-dock:not([hidden])')) await C.click('[data-rgc="close"]');
+check('the reader has the chat closed', await until(async () => !(await C.$('#rgc-dock:not([hidden])'))));
+await record(C); await openChat(B); await sleep(1700);
+await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-chat"]');
+check('Region chats has a box to write to every region', await until(async () => /To every region/.test(await text(A, '.acx-cast')) && !!(await A.$('#acx-cx'))));
+const castWords = 'The game restarts at 22:00 UTC for a few minutes.';
+await A.fill('#acx-cx', castWords); await A.press('#acx-cx', 'Enter');
+check('Send asks once more, naming how many regions', await until(async () => /Send this to all \d+ regions\?/.test(await text(A, '.acx-cask'))) && await A.$eval('#acx-cx', t => t.readOnly));
+check('and sends nothing yet', !(await lines()).some(l => l.x === castWords));
+await A.locator('.acx-cast').screenshot({ path: `${OUT}/chat-cast-admin.png` });
+await A.click('[data-act="acx-cast-no"]');
+check('Cancel goes back to the message, as it was', await until(async () => !(await A.$('.acx-cask')) && await A.$eval('#acx-cx', t => !t.readOnly && t.value === 'The game restarts at 22:00 UTC for a few minutes.')));
+await A.click('#acx-cgo'); await A.click('#acx-cyes');
+check('sent, it says how many regions had it, and empties the box', await until(async () => /Sent to \d+ regions\./.test(await toasts(A)) && await A.$eval('#acx-cx', t => t.value === ''), 45000), await toasts(A));
+const cast = await until(async () => (await restListAdmin(`rchat/${reg}/chat`)).find(d => d.fields.x?.stringValue === castWords && d.fields.sys?.stringValue === 'all'), 15000);
+const elsewhere = async id => (await Promise.all(['frostmarch', 'terra'].map(g => restListAdmin(`rchat/${g}/chat`)))).map(l => l.some(d => d.id === id && d.fields.sys?.stringValue === 'all'));
+check('one line, signed Edictum team by the admin, under one id in every region', !!cast && cast.fields.nm?.stringValue === 'Edictum team' && cast.fields.a?.stringValue === uidA && cast.fields.tm?.booleanValue === true
+  && (await elsewhere(cast.id)).every(Boolean), JSON.stringify(cast?.fields));
+const cli = `#rgc-list .rgc-l[data-id="${cast?.id}"]`;
+check('a player reading the chat sees it as a notice from the team, marked To every region', await until(async () => !!(await B.$(`${cli}.rgc-cast .rgc-tmfl`)) && /Edictum team · To every region/.test(await text(B, `${cli} .rgc-sh`)) && (await text(B, `${cli} .rgc-x`)) === castWords, 15000), await text(B, cli));
+await B.locator('#rgc-dock').screenshot({ path: `${OUT}/chat-cast-line.png` });
+check('a player not reading it is shown it as a notice', await until(async () => (await told(C)).includes(`Edictum team, to every region: ${castWords}`), 45000), await told(C));
+await B.click(`#rgc-list .rgc-more[data-id="${cast?.id}"]`);
+check('its menu reacts to it, with nothing to answer, report or block', await until(async () => !!(await B.$('.rgc-menu [data-rgc="react"]')) && !/Answer|Report|Block|Remove/.test(await text(B, '.rgc-menu'))), await text(B, '.rgc-menu'));
+await B.keyboard.press('Escape');
+check('Region chats marks it To every region, with Remove here and Remove from every region', await until(async () => {
+  const t = await text(A, `#acx-log .acx-l[data-id="${cast?.id}"]`); return /To every region/.test(t) && /Remove here/.test(t) && /Remove from every region/.test(t); }, 15000));
+await A.click(`#acx-log [data-act="acx-uncast"][data-id="${cast?.id}"]`);
+check('Remove from every region asks first', await until(async () => !!(await A.$(`#acx-log [data-act="acx-uncast-yes"][data-id="${cast?.id}"]`))));
+await A.click(`#acx-log [data-act="acx-uncast-yes"][data-id="${cast?.id}"]`);
+check('and takes it out of every region’s chat', await until(async () => !(await restListAdmin(`rchat/${reg}/chat`)).some(d => d.id === cast?.id) && (await elsewhere(cast?.id)).every(x => !x), 15000));
+check('and out of the drawers', await until(async () => !(await B.$(cli)), 15000));
+check('the audit log keeps both, with the words', await until(async () => { const a = await restListAdmin('adminAudit');
+  return a.some(d => d.fields.action?.stringValue === 'chat_broadcast' && d.fields.x?.stringValue === castWords) && a.some(d => d.fields.action?.stringValue === 'chat_broadcast_delete' && d.fields.line?.stringValue === cast?.id); }));
 await A.click('.adm-return'); await ready(A);
 
 await finish();
