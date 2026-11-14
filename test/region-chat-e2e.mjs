@@ -235,6 +235,9 @@ check('the drag opens nothing', !(await C.$('#rgc-dock:not([hidden])')));
 check('the place is kept on this device', await C.evaluate(() => { const o = JSON.parse(localStorage.getItem('edictum.rgc.fab') || '{}'); return o.s === 'l' && o.b > 0.5 && o.b < 0.6; }));
 await sleep(500); await C.click('.rgc-fab');
 check('a click still opens the chat', await until(async () => !!(await C.$('#rgc-dock:not([hidden])'))));
+/* the drawer takes the focus a frame after it opens (rgcOpen); an Escape before that lands on the button, outside the
+   drawer, and is left alone, so wait as a player would */
+check('the open chat takes the focus', await until(async () => await C.evaluate(() => !!document.activeElement?.closest('#rgc-dock'))));
 await C.keyboard.press('Escape');
 check('and the focus comes back to it', await until(async () => await C.evaluate(() => document.activeElement?.classList.contains('rgc-fab'))));
 await C.reload(); await ready(C);
