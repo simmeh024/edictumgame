@@ -2,7 +2,8 @@
 // On 10 November 2026 the ranks from Elder Statesman up were moved further apart and two were added above The Last
 // Word; a nation that held a rank on the old ladder keeps it (n.rkh, written at its first save under the new one).
 // On 12 November 2026 six more were added above The Blank Page, 600 apart as before (adding at the top needs no floor),
-// and on 13 November eight more above The Library of Everything, up to Once Upon a Time at 31,800.
+// on 13 November eight more above The Library of Everything, up to Once Upon a Time at 31,800, and on 14 November five
+// more above that, up to Back to Page One at 34,800.
 //   node --test test/rank-ladder.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,15 +22,16 @@ const { ACH_RANKS: R, ACH_RANKS_V1: V1, ACH_RANKS_VER: VER, achRank, achRankOf }
 const at = Array.from(R, r => r[0]), name = i => R[i][1];   // (Array.from: an array of this realm, so deepEqual compares it)
 const marked = (pts, rkh) => Object.assign({ pts, rkv: VER }, rkh ? { rkh } : {});
 
-test('the ladder: 67 ranks, each further than the last, with a name and a line of its own', () => {
-  assert.equal(R.length, 67);
+test('the ladder: 72 ranks, each further than the last, with a name and a line of its own', () => {
+  assert.equal(R.length, 72);
   for (let i = 1; i < R.length; i++) assert.ok(at[i] > at[i - 1], name(i));
   assert.equal(new Set(R.map(r => r[1])).size, R.length); assert.ok(R.every(r => typeof r[2] === 'string' && r[2].length > 10));
   assert.equal(at[0], 0); assert.equal(name(0), 'Unregistered');
   assert.deepEqual([name(50), name(51), name(52)], ['The Last Word', 'Postscript', 'The Blank Page']);
   assert.deepEqual(Array.from(R.slice(53, 59), r => r[1]), ['The First Line', 'Second Edition', 'Required Reading', 'The Canon', 'Illuminated Manuscript', 'The Library of Everything']);
-  assert.deepEqual(Array.from(R.slice(59), r => r[1]), ['Read Aloud', 'Translated into Everything', 'Quoted Out of Context', 'Proverbial', 'Mother Tongue', 'The Alphabet', 'Written in the Stars', 'Once Upon a Time']);
-  assert.deepEqual(at.slice(50), [22200, 22800, 23400, 24000, 24600, 25200, 25800, 26400, 27000, 27600, 28200, 28800, 29400, 30000, 30600, 31200, 31800]);
+  assert.deepEqual(Array.from(R.slice(59, 67), r => r[1]), ['Read Aloud', 'Translated into Everything', 'Quoted Out of Context', 'Proverbial', 'Mother Tongue', 'The Alphabet', 'Written in the Stars', 'Once Upon a Time']);
+  assert.deepEqual(Array.from(R.slice(67), r => r[1]), ['Told and Retold', 'The Moral of the Story', 'Legend Has It', 'Happily Ever After', 'Back to Page One']);
+  assert.deepEqual(at.slice(50), [22200, 22800, 23400, 24000, 24600, 25200, 25800, 26400, 27000, 27600, 28200, 28800, 29400, 30000, 30600, 31200, 31800, 32400, 33000, 33600, 34200, 34800]);
 });
 
 test('what moved: nothing below Elder Statesman, every rank from there up is further away, none is nearer', () => {
@@ -89,8 +91,9 @@ test('every rank has a border, and every reader of a nation’s rank goes throug
   assert.equal([...bd.matchAll(/\['b-[a-z0-9]+','/g)].length, R.length);
   assert.match(bd, /\['b-postscript','Afterglow','afterglow','cstar',2\],\['b-blankpage','The blank page','blank','prism',2\],/);
   assert.match(bd, /\['b-canon','Marble and laurel','marble','laurel',2\],\['b-illum','Illuminated capitals','illum','lap',2\],\['b-library','Every spine on the shelf','spines','prism',2\],/);
-  assert.match(bd, /\['b-starwrit','Written in starlight','astral','cstar',2\],\['b-onceupon','Gold-leaf storybook','story','prism',2\]\];$/);
-  const looks = ['afterglow', 'blank', 'ink', 'gilt', 'lamp', 'marble', 'illum', 'spines', 'candle', 'scripts', 'quote', 'sampler', 'argent', 'type', 'astral', 'story'];
+  assert.match(bd, /\['b-starwrit','Written in starlight','astral','cstar',2\],\['b-onceupon','Gold-leaf storybook','story','prism',2\],/);
+  assert.match(bd, /\['b-retold','Fireside tale','hearth','sun',2\],\['b-moral','Fable woodcut','woodcut','fleur',2\],\['b-legend','Woven tapestry','tapestry','laurel',2\],\s*\['b-everafter','Storybook dusk','dusk','cstar',2\],\['b-pageone','Every page at once','pages','prism',2\]\];$/);
+  const looks = ['afterglow', 'blank', 'ink', 'gilt', 'lamp', 'marble', 'illum', 'spines', 'candle', 'scripts', 'quote', 'sampler', 'argent', 'type', 'astral', 'story', 'hearth', 'woodcut', 'tapestry', 'dusk', 'pages'];
   for (const look of looks) {
     assert.match(html, new RegExp(`\\n\\.id-rk-${look}\\{--bd-1:`)); assert.match(html, new RegExp(`\\n\\.id-bd-${look} \\.id-bd-r\\{--bd-w:\\d+px;background:[^\\n]*animation:idBdSpin [^\\n]*idBdGlow`));
     assert.match(html, new RegExp(`[,{ ]${look}:\\['#`), 'and colours for the card’s picture');
