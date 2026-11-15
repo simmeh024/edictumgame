@@ -28,7 +28,7 @@ await register(A, { old: true }); await register(B, { old: true });
 
 /* ── 1. the tabs, and the Overview ── */
 await nav(A, 'region'); await A.waitForSelector('#rgn');
-check('the Region page has five tabs', JSON.stringify(await A.$$eval('.rgn-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Nations', 'Happenings', 'Board', 'Alliances']));
+check('the Region page has six tabs', JSON.stringify(await A.$$eval('.rgn-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Nations', 'Happenings', 'Board', 'Alliances', 'Invite']));
 check('it opens on the Overview, one pane at a time', await tab(A) === 'overview' && await shown(A, '#rgn-p-overview .rgn-cards') && !await shown(A, '#rgn-p-nations .rgn-tbl'));
 check('the Overview lists the newest nations, with a welcome for each', await until(async () => /Brackwater/.test(await text(A, '.rgn-new')) && !!await A.$(`.rgn-new [data-act="rgn-welcome"][data-id="${ub}"]`), 15000));
 check('but not the reader’s own nation', !/Aldmere/.test(await text(A, '.rgn-new')));
@@ -41,7 +41,7 @@ check('a tab shows its pane, and the address says which', await tab(A) === 'nati
 await A.focus('#rgn-tab-nations'); await A.keyboard.press('ArrowRight');
 check('the arrow keys move along the tabs', await tab(A) === 'happenings' && await A.evaluate(() => document.activeElement?.id) === 'rgn-tab-happenings');
 await A.keyboard.press('End'); const atEnd = await tab(A); await A.keyboard.press('Home');
-check('End and Home go to the last and the first', atEnd === 'alliances' && await tab(A) === 'overview' && await A.evaluate(() => location.hash) === '#region');
+check('End and Home go to the last and the first', atEnd === 'invite' && await tab(A) === 'overview' && await A.evaluate(() => location.hash) === '#region');
 await A.evaluate(() => { location.hash = '#region/board'; }); await A.reload(); await ready(A);
 check('a reload at #region/board opens the Board', await until(async () => await tab(A) === 'board' && await shown(A, '#rmb-form')));
 

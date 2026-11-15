@@ -44,6 +44,7 @@ test('the game and the server share the rules: 3 caches a day, 300 materials eac
   assert.deepEqual(plain(G.SC_RULES.res), R.SC_RES);
   assert.equal(G.SC_RULES.day, R.SC_DAY); assert.equal(G.SC_RULES.max, R.SC_MAX); assert.equal(G.SC_RULES.msg, R.SC_MSG);
   assert.equal(G.SC_RULES.age, R.SC_AGE); assert.equal(G.SC_RULES.old, R.SC_OLD); assert.equal(G.SC_RULES.keep, R.SC_KEEP);
+  assert.equal(G.SC_RULES.sponsor, R.SC_SPONSOR); assert.equal(G.SC_RULES.sponsorMs, R.SC_SPONSOR_MS);
   assert.equal(G.SC_ID.source, R.SC_ID.source); assert.equal(G.SC_DOC.source, R.SC_DOC.source);
   assert.equal(R.SC_DAY, 3); assert.equal(R.SC_MAX, 300);
   assert.deepEqual(R.SC_RES, plain(vm.runInNewContext(line('const RES=').replace(/^const RES=/, '').replace(/;$/, ''))));

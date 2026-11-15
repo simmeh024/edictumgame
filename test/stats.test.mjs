@@ -118,9 +118,20 @@ test('recruiting: who came through a link and stayed a week, beside everyone els
   assert.equal(R.n, 2, 'a recruit with no nation now is left out'); assert.equal(R.recruiters, 1);
   assert.equal(R.of, 1); assert.equal(R.kept, 0, 'Cirrus left in its first hour; Borvia is too young to tell');
   assert.deepEqual(R.others, { of: 1, kept: 1 }, 'Aldoria');
-  assert.deepEqual(R.list, [{ r: 'a', n: 2, of: 1, kept: 0, a7: 1, last: NOW - 5 * 3600000, name: 'Aldoria', reg: 'meridian' }]);
+  assert.deepEqual(R.list, [{ r: 'a', o: 0, f: 2, n: 2, of: 1, kept: 0, a7: 1, last: NOW - 5 * 3600000, name: 'Aldoria', reg: 'meridian' }]);
   assert.equal(summarize(g, 'meridian').recruits.n, 1, 'only recruits living in the region');
   assert.equal(summarize(world()).recruits.n, 0);
+});
+
+test('recruiting funnel: opened the link, founded through it, linked an account', () => {
+  const g = world(); g.recruits = [{ id: 'b', r: 'a', t: NOW - 5 * 3600000 }];
+  /* b opened, founded and was filed; c opened and founded as a guest; a stranger only opened it; and one opened
+     someone else's link */
+  g.trail = [{ id: 'b', r: 'a', o: NOW - DAY, f: NOW - DAY }, { id: 'c', r: 'a', o: NOW - 2 * DAY, f: NOW - 2 * DAY }, { id: 'zz', r: 'a', o: NOW - 3600000, f: 0 }, { id: 'yy', r: 'c', o: NOW, f: 0 }];
+  const R = summarize(g).recruits, a = R.list.find(p => p.r === 'a');
+  assert.deepEqual([a.o, a.f, a.n], [3, 2, 1], 'three opened, two founded, one linked an account');
+  assert.equal(R.opens, 4); assert.equal(R.founded, 2);
+  assert.equal(R.list.find(p => p.r === 'c').o, 1, 'a link opened but not yet followed through still lists its recruiter');
 });
 
 test('releases, engagement bands and the most engaged for the page; feature use in the nightly record', () => {

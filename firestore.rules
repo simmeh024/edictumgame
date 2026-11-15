@@ -522,6 +522,11 @@ service cloud.firestore {
       allow read: if isSelf(uid) || isAdmin() || (signedIn() && resource.data.r == request.auth.uid);
       allow delete: if isAdmin();
     }
+    // recruitTrail/{uid} {r, o?, f?, l?}: when this account opened a recruiting link, founded through it and was
+    // filed (functions/accounts.js); written only by the server, for the admins' recruiting funnel
+    match /recruitTrail/{uid} {
+      allow read: if isAdmin();
+    }
     // presence/{uid} {t}: the player's game is open, refreshed every few minutes while it is, so the board can show
     // who is online; only the player writes it, always with the server's time
     match /presence/{uid} {
