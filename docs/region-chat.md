@@ -72,6 +72,30 @@ A live chat for each region: the nations of a region talk to each other in short
   closes it. Players, moderators and guests have no picture button, and the server refuses theirs. Answering a picture
   quotes it as "📷 A picture"; a mention in a line with only a picture reads the same in the bell.
 
+## World chat
+
+- **The World tab** (after Region): one chat that the nations of every region read and write in, beside the region's own.
+  Its header says "World chat · Every region" and how many regions wrote there in the last day. Everything the region
+  chat does works there too: writing (300 characters, Enter sends), runs, the day and New dividers, answers, reactions,
+  reporting, blocking, deleting one's own line, staff removal and silences, an admin's pictures, and the writing box keeps
+  its own draft and answer. Guests write there within the same 10 lines an hour as in the region chat.
+- **Who wrote it**: each line shows its nation's flag, name and badges and, beside them, its region. A nation of the
+  player's own region is drawn from the region's data, as in the region chat, with its name a link to its page; one of
+  another region from what its line carries (the server stamps its region, flag, rank, alliance and Founding Supporter
+  mark on the line), with no link.
+- **Counts**: the World tab counts its new lines. The Chat button counts only the world lines that mention the player's
+  nation, name it or answer it, so a busy world chat does not keep the button lit; those also show a notice ("Frostia
+  mentioned Chatterly in the world chat."), a bell entry that opens the World tab at the line, and a push notification
+  (to `/#chat/world`, which opens the tab) for a player not in the game.
+- **@mentions**: typing @ on the World tab offers the region's nations and the nations that wrote in the world chat lately,
+  of any region; the server keeps a mention of any nation, of any region.
+- **Settings › Chat › World chat** (`#set-chat-world`): a switch for the World tab, kept with the nation (`dmx.rw` 0: no
+  tab, no listening, no push for world lines).
+- No welcome lines and no messages to every region go to the world chat.
+- **Admin portal › Region chats** lists **World chat** first: its lines (with each writer's region), the team's box, and
+  Remove, Silence… (whose "remove its lines of the last 24 hours" then means the world chat) and Inspect. A report of a world
+  line reads "World chat" in the Reports queue and is filed as `rc:world:<line>` under its writer's region.
+
 ## Staff tools
 
 - **Admin portal › Moderation › Region chats** (`#admin-chat`, admins): every region, busiest first, with its newest
@@ -93,6 +117,27 @@ A live chat for each region: the nations of a region talk to each other in short
   log (`chat_silence`, `chat_unsilence`) with the reason, the end and how many lines went.
 
 ## How it works
+
+- The world chat is `rchat/world/chat/{id}` (`RC_WORLD`), the same ops with `reg: 'world'`:
+  - `rcPost {reg: 'world', x, re?, mn?, rk?, pic?}`: any nation whose saved region is one of the game's (`rc_region`
+    otherwise). The line is `{a, nm, x, t, exp, rg, fl?, rk?, al?, fd?, st?, r?, mn?, im?}`: besides what a region line
+    keeps, the author's region (`rg`), flag (`fl`, as JSON, up to 4,000 characters), rank (`rk`, the index the game sends,
+    0 to 99, as the Community Board takes it), alliance (`al {n, c?}`, from `allyOf/` and `alliances/` when the nation is a
+    member) and Founding Supporter mark (`fd`, from `shop/`). A team line (`team: true`) has none of these. Mentions keep
+    any nation named after an @ who has not blocked the writer, of any region; the bell's mention is `{k: 'chat', reg:
+    'world', rc, …}` and the push says "in the world chat" and opens `/#chat/world` (not sent when the player turned the
+    World tab off, `dmx.rw` 0).
+  - Pacing: a world line counts in the player's hour and minute with their region lines (`rcPace p`), and comes at most
+    one every `RC_WORLD_GAP` (4 seconds, `rcPace w`); the repeat check is its own (`rcPace wh`), so the same words in the
+    region chat and the world chat are not a repeat. `rcPace` is written with merge, so neither chat's fields wipe the other's.
+  - `rcReact`, `rcDelete` (audited as "Removed from the world chat") and `rcMute`'s `wipe` take `reg: 'world'`; any nation
+    reacts there. `rcForget` always takes the world chat's reactions with an account. `functions/admin.js` `delete_post`
+    takes `rc:world:<line>`.
+  - `firestore.rules`: the world chat's lines and pictures are read by any signed-in player with a saved nation, and by
+    admins; nobody writes them but the server.
+  - Game: `RGW` (beside `RGC`) keeps its lines, listener (`rgwConnect`, `rgwHear`), last line read (`localStorage`
+    `edictum.rgc.world`), divider, lines on their way, draft and answer; `rgcCh()` is the shown tab's chat, and a line's
+    menu acts in the line's own chat (`m.w`).
 
 - `functions/regionchat.js`, in the existing `civic` callable (CI cannot deploy a new public function):
   - `rcPost {x, reg?}`: `eligibility()` (not banned, not under moderation, region open; a guest too). The
@@ -176,6 +221,9 @@ A live chat for each region: the nations of a region talk to each other in short
 
 ## Costs
 
+The world chat: every open game (with the World tab on) listens to its newest 60 lines, so each world line is one read for
+every player in the game, of every region; a world line's transaction also reads the player's shop and alliance records.
+
 A line with a picture weighs up to about 65 KB more (its small copy) for every reader; the picture itself (up to about
 930 KB) is one read, and only for whoever opens it. Every open game of the region listens to the newest 60 lines: opening the game reads up to 60 documents, and each new
 line is one read for every player of the region with the game open (a region holds at most 250 or 300 nations). A
@@ -207,6 +255,15 @@ repo's `firestore.indexes.json` leaves TTL out, so deploys leave the policy alon
 - `test/civic.test.mjs`, pictures: only an admin posts one, with words or alone; refused kinds and sizes; repeats;
   answers and mentions of a picture; the team's picture in another region; removal by staff or the Reports queue takes
   the picture; it is a `chat` document of its author.
+- `test/civic.test.mjs`, world chat: lines from two regions with the author's marks; the world gap and its own repeat
+  check; answers and mentions across regions, with the bell and push; reactions, deletion, the Reports queue, the team's
+  line, a silence's wipe; a nation with no region.
+- `test/rules.test.mjs`: the world chat is read by players with a nation of any region, not without one, and written by
+  nobody.
+- `test/world-chat-e2e.mjs` (`npm run test:world-chat`, CI suite "World chat"): two nations of two regions; the World tab,
+  its count and the Chat button's; the writer's flag, name and region; drafts per chat; @, the notice and the bell; answers,
+  reactions, a report and its removal; the admin portal's world chat and the team's line; the setting; `#chat/world` and a
+  guest on a phone.
 - `test/region-chat-e2e.mjs` (`npm run test:region-chat`, CI suite "Region chat"): the button and drawer, two
   players writing, the count, the mention notice, runs and dividers, guests, the menu, reporting and removal from the
   Reports queue, blocking and unblocking, deleting, staff removal, a phone, and the setting; every nation founded is
