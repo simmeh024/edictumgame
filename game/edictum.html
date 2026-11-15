@@ -11356,6 +11356,9 @@ const PRETITLES = ['Republic','Kingdom','Commonwealth','Federation','Free Land',
 /* how often a new edict arrives, in minutes. A nation saved with a pace no longer offered (2 or 10 minutes)
    loads at the default. */
 const FREQS = [[30,'Every 30 minutes'],[60,'Every hour'],[240,'Every 4 hours'],[480,'Every 8 hours'],[720,'Every 12 hours'],[1440,'Once a day']],FREQ_DEF=30;
+/* a new nation's first timed edict (its fourth, after the founding edict and the two on the desk) comes EDICT_FIRST
+   minutes after founding rather than a whole slot later; the clock then keeps the nation's own pace (found) */
+const EDICT_FIRST=10;
 function freqLabel(m){return (FREQS.find(x=>x[0]===m)||FREQS.find(x=>x[0]===FREQ_DEF))[1];}
 const NAME_IDEAS = ['Corvania','Halveth','Estmoor','Tirrasol','Quellan','Ardenvale','Mirozia','Sobrenna','Kestria','Varrowind','Belcaro','Ostravel','Lunmark','Dravenhal','Norvellia','Pallinor','Cassivane','Eldermoor'];
 
@@ -25468,7 +25471,7 @@ function helpBody(n){
     issues:`<p>Each edict sets out a matter before your government (a Senate in a republic, the Crown’s council in a kingdom, and so on), and its speakers argue for several motions. Choosing one changes your census figures, and some also enact or repeal a policy, shift the budget, move a minister’s loyalty or change how a neighbour sees you. The result page shows every change, and how far a change in Prosperity moved your economic output. A veto dismisses the edict and leaves your nation as it was.</p>
       <p>A figure moves less the closer it is to the end it is heading for, so a high figure rises slowly and a low one falls slowly. A rise goes up to 30% further when the figure has a long way to go, but a fall is never made bigger than the edict says. Prosperity is gentler at the top, because economic output follows its square: a rise there keeps at least 40% of its size.</p>
       ${issHelp()}
-      <p>A new edict arrives ${pace}${n?'':' by default'}. You can change the pace in Settings, from ${FREQS[0][1].toLowerCase()} to ${FREQS[FREQS.length-1][1].toLowerCase()}. Up to ${CAP_BASE} edicts wait on your desk (${CAP_VIP} for members of the Chancery Club, while the membership is paid); while it is full, no new ones arrive, and an edict that would have arrived is not kept for later.</p>
+      <p>A new edict arrives ${pace}${n?'':' by default'}. A new nation’s fourth edict comes sooner, ${EDICT_FIRST} minutes after founding. You can change the pace in Settings, from ${FREQS[0][1].toLowerCase()} to ${FREQS[FREQS.length-1][1].toLowerCase()}. Up to ${CAP_BASE} edicts wait on your desk (${CAP_VIP} for members of the Chancery Club, while the membership is paid); while it is full, no new ones arrive, and an edict that would have arrived is not kept for later.</p>
       <p>Some stories continue: a follow-up can arrive some hours after your decision. Edicts often draw on your land, your coast and your neighbours, and players next door can raise a matter with you that lands on your desk. In Settings you can ask for more or fewer edicts on each topic.</p>
       <p><b>Crises.</b> One to three times a week, at a random hour of your day, a crisis lands on your desk, even a full one. It has a clock of twelve hours (a holiday stops it). Decide in time and it is an edict like any other; when the clock runs out, the minister it names signs the cabinet’s motion in your name, and the bell tells you what they chose. A crisis cannot be vetoed, but you can leave it to the cabinet at once. Crises start once your nation is two days old and has made ten decisions.</p>
       <p><b>Gambles.</b> Some motions show their odds, such as “Two in three: the levee holds”. Choose one and the result page rolls a number from 1 to 100: at the odds or under, it comes off and goes better than a safe motion would; above, it goes worse. Each roll is fixed when the edict arrives, so trying again later changes nothing. Settings › Display turns the sound of a decision on or off.</p>${G(go('issues','Open edicts'))}`,
@@ -48566,6 +48569,8 @@ function found(){
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
     log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1,onb:{v:1,u:[]}};
   for(let i=0;i<2;i++){n.inbox.push({id:pickIssue(n),at:now});n.issueSeq++;}
+  /* the clock as if the last edict came a slot less EDICT_FIRST ago: the next one arrives ten minutes in, then every 30 */
+  n.issueClock=now-(FREQ_DEF-EDICT_FIRST)*60000;
   /* Start over (Settings › Account › Danger zone): the old nation's culture and look come along under the same name */
   const rs=sgCarry();if(rs&&nameFold(rs.name)===nameFold(name)&&rs.keep&&typeof rs.keep==='object')for(const f of SG_CARRY)if(f in rs.keep)n[f]=clone(rs.keep[f]);
   sgCarry(null);
