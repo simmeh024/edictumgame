@@ -171,7 +171,12 @@ check('and then no more today', /You have sent 4 Supply Caches today/.test(await
 
 // the phone
 await A.setViewportSize({ width: 390, height: 844 }); await nav(A, 'region'); await A.click('#rgn-tab-invite'); await sleep(800);
-check('on a phone the Invite tab fits without scrolling sideways', await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+/* what sticks out past the right edge, named when the check fails */
+const wide = () => A.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: window.innerWidth, out: [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.right > window.innerWidth + 1 && getComputedStyle(e).position !== 'fixed'; }).slice(0, 6).map(e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '') + ' ' + Math.round(e.getBoundingClientRect().right)) }));
+/* the page may still be settling into the phone layout just after the resize, so give it a few seconds */
+let fit = await wide();
+const fits = await until(async () => { fit = await wide(); return fit.sw <= fit.w + 1; }, 5000);
+check('on a phone the Invite tab fits without scrolling sideways', fits, JSON.stringify(fit));
 await A.screenshot({ path: OUT + '/recruit-invite-phone.png', fullPage: true });
 
 await finish();

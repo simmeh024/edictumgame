@@ -3,7 +3,7 @@
 // line naming a nation is marked and told; guests write ten lines an hour; a line's menu reports it (the moderators' queue, which
 // removes it), blocks its nation (its lines hidden, and its letters stopped) or deletes it; staff remove any line;
 // Settings › Chat turns the chat off and puts the button beside the bell, floating (dragged to either side) or both; staff read every region's chat in the admin portal, write as the Edictum
-// team and silence a player (and lift it); the drawer's tabs (Region, Alliance, Happenings with Welcome), @mentions,
+// team and silence a player (and lift it); the drawer's tabs (Region, World, Alliance, Happenings with Welcome), @mentions,
 // answers, reactions, the badges beside a name, docking beside the page, the tutorial's Say hi in the region chat, and
 // an admin's pictures (a small copy in the line, the picture over the page on a click), and an admin's system message
 // to every region at once (a notice in each region's chat, and on screen for a player not reading it).
@@ -260,7 +260,7 @@ await until(async () => (await lines()).some(l => l.x === 'Selling cheap iron!')
 await A.keyboard.press('Escape'); await openChat(C);
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-chat"]');
 check('the admin portal has a Region chats page under Moderation', await until(async () => /Region chats/.test(await text(A, '.adm-main h1')) && /Region chats/.test(await text(A, '.adm-nav-group[aria-label="Moderation"]'))));
-check('it lists the regions, busiest first, with their newest line', await until(async () => /Selling cheap iron!/.test(await text(A, '#acx-regs li:first-child')) && (await A.$$('#acx-regs .acx-reg')).length > 20));
+check('it lists the world chat, then the regions, busiest first, with their newest line', await until(async () => (await A.getAttribute('#acx-regs li:first-child .acx-reg', 'data-v')) === 'world' && /Selling cheap iron!/.test(await text(A, '#acx-regs li:nth-child(2)')) && (await A.$$('#acx-regs .acx-reg')).length > 20));
 check('the admin’s region is open, with its chat as it happens', await until(async () => /Selling cheap iron!/.test(await text(A, '#acx-log'))) && !!(await A.$('#acx-regs .acx-reg.on[aria-current="true"]')));
 await A.fill('#acx-x', 'Maintenance tonight at 22:00 UTC.'); await A.press('#acx-x', 'Enter');
 check('staff write as the Edictum team, and the region reads it at once', await until(async () => (await shown(B)).includes('Maintenance tonight at 22:00 UTC.'), 15000));
@@ -305,7 +305,7 @@ await A.keyboard.press('Escape');
 const docUrl = p => `http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${p}`, owner = { 'content-type': 'application/json', authorization: 'Bearer owner' };
 const bell = async p => { await p.evaluate(() => document.querySelector('.bell').click()); await sleep(300); const t = await p.evaluate(() => [...document.querySelectorAll('.nt-item')].map(e => e.textContent).join(' | ')); await p.evaluate(() => document.querySelector('.bell').click()); return t; };
 await openChat(B);
-check('the drawer has a Region and a Happenings tab, and no Alliance tab outside an alliance', JSON.stringify(await B.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'Happenings']));
+check('the drawer has a Region, a World and a Happenings tab, and no Alliance tab outside an alliance', JSON.stringify(await B.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'World', 'Happenings']));
 await B.click('#rgc-tab-haps');
 check('Happenings lists what the region’s nations did, and hides the writing box', await until(async () => /Pocketland was founded in/.test(await text(B, '#rgc-list'))) && await B.$eval('#rgc-foot', f => f.hidden) && await B.getAttribute('#rgc-tab-haps', 'aria-selected') === 'true');
 check('a nation founded this week has a Welcome button', !!(await B.$(`#rgc-list [data-rgc="welcome"][data-id="${uidP}"]`)));
@@ -361,7 +361,7 @@ const aid = made.ok ? (made.r.aid || made.r.id || made.r.data?.aid) : '';
 check('an alliance is founded for the next checks', made.ok, JSON.stringify(made));
 const joined = await civic(C, { op: 'alRequest', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id) });
 check('and the other nation joins it', joined.ok, JSON.stringify(joined));
-check('a member gets the Alliance tab', await until(async () => JSON.stringify(await C.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'Alliance', 'Happenings']), 20000));
+check('a member gets the Alliance tab', await until(async () => JSON.stringify(await C.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'World', 'Alliance', 'Happenings']), 20000));
 check('the alliance’s initials show beside a member’s name', await until(async () => /CP/.test(await text(C, `#rgc-list .rgc-lh:has(button[data-id="${uidB}"]) .rgc-al`)), 20000));
 await C.click('#rgc-tab-ally');
 check('the Alliance tab is the alliance’s channel, for its members only', await until(async () => /Only the members of The Chat Pact read this channel/.test(await text(C, '#rgc-list')) && !!(await C.$('#rgc-ax'))));

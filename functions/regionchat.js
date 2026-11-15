@@ -40,7 +40,17 @@ import DATA from './civic-data.json' with { type: 'json' };
    so the time-to-live policy, an account's deletion and an admin's removal of a nation take it with the lines.
    An admin also writes a system message to every region at once (rcCast): the same line, {a, nm 'Edictum team', x, t,
    exp, st 'admin', tm: true, sys: 'all'}, in each region's chat under one id, which the game draws as a notice from the
-   team; rcUncast takes it out of every region again. A game from before draws it as an ordinary Edictum team line. */
+   team; rcUncast takes it out of every region again. A game from before draws it as an ordinary Edictum team line.
+   The world chat is one more channel beside the regions' (RC_WORLD, rchat/world/chat/{id}): every nation, of any region,
+   reads it and writes in it, with the same ops (rcPost, rcReact, rcDelete, rcMute's wipe) given reg 'world'. A line there
+   also carries what readers in other regions cannot look up, as the Community Board's posts do: the author's region
+   (rg), flag (fl, as JSON), rank (rk, the index the author's game sends), alliance (al {n, c?}) and Founding Supporter
+   mark (fd). Mentions there name any nation, of any region. Its lines count in the player's hour with their region lines
+   (rcPace p), and come at most one every RC_WORLD_GAP; the repeat check is its own (rcPace w, wh: the time and words of
+   the player's last world line). No welcome lines and no messages to every region go there. */
+export const RC_WORLD = 'world', RC_WORLD_GAP = 4000, RC_RANKS = 99;
+/* a chat the browser names: a region of the game or the world chat, or '' */
+const chatOf = (d, regions) => typeof d.reg === 'string' && (regions.has(d.reg) || d.reg === RC_WORLD) ? d.reg : '';
 export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -104,7 +114,7 @@ export function rcWait(p, now, hour = RC_HOUR) {
 }
 
 async function rcPost(db, who, d, regions) {
-  const x = line(d.x, RC_TEXT), team = d.team === true, re = d.re ? id20(d.re) : '';
+  const x = line(d.x, RC_TEXT), team = d.team === true, re = d.re ? id20(d.re) : '', world = d.reg === RC_WORLD;
   /* a picture: an admin's alone, with or without words */
   if (d.pic != null && !who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can post pictures in the chat.');
   const pic = d.pic != null ? rcPicIn(d.pic) : null;
@@ -116,13 +126,17 @@ async function rcPost(db, who, d, regions) {
   const out = await db.runTransaction(async tx => {
     /* the team writes in any region, open or not, with no nation of its own there */
     const e = await eligibility(tx, who, team ? { linked: false, nation: false, hidden: true, allowClosedRegion: true } : { linked: false });
-    const reg = team ? (typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '') : e.n.reg || e.saved.get('reg') || '';
+    const home = team ? '' : e.n.reg || e.saved.get('reg') || '';
+    const reg = world ? RC_WORLD : team ? (typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '') : home;
     if (team && !reg) throw new HttpsError('invalid-argument', 'Choose a region.');
-    if (!regions.has(reg)) refuse('rc_region', 'Your nation has no region to talk in.');
-    if (!team && typeof d.reg === 'string' && d.reg && d.reg !== reg) refuse('rc_region', 'Your nation is in another region now. Reload the game to join its chat.');
-    const pace = db.doc('rcPace/' + who.uid), [ps, ms] = await tx.getAll(pace, db.doc('rcMute/' + who.uid)), now = Date.now();
+    if (!world && !regions.has(reg)) refuse('rc_region', 'Your nation has no region to talk in.');
+    if (world && !team && !regions.has(home)) refuse('rc_region', 'Your nation has no region to talk from.');
+    if (!world && !team && typeof d.reg === 'string' && d.reg && d.reg !== reg) refuse('rc_region', 'Your nation is in another region now. Reload the game to join its chat.');
+    /* in the world chat, the author's marks: their shop (the Founding Supporter mark) and alliance, read with the pacing */
+    const extra = world && !team ? [db.doc('shop/' + who.uid), db.doc('allyOf/' + who.uid)] : [];
+    const pace = db.doc('rcPace/' + who.uid), [ps, ms, shop, ally] = await tx.getAll(pace, db.doc('rcMute/' + who.uid), ...extra), now = Date.now();
     const sil = rcSilence(ms.exists ? ms.data() : null, now);
-    if (sil) throw new HttpsError('failed-precondition', `You are silenced in the region chat${sil.perm ? '' : ' until ' + whenText(sil.until)}${sil.why ? ': ' + sil.why : ''}.`, { code: 'rc_silenced', until: sil.until, perm: sil.perm, why: sil.why });
+    if (sil) throw new HttpsError('failed-precondition', `You are silenced in the ${world ? 'chats' : 'region chat'}${sil.perm ? '' : ' until ' + whenText(sil.until)}${sil.why ? ': ' + sil.why : ''}.`, { code: 'rc_silenced', until: sil.until, perm: sil.perm, why: sil.why });
     /* a guest writes RC_GUEST_HOUR lines in any hour; a sign-in lifts it to RC_HOUR */
     const guest = !team && e.kind === 'guest';
     const { wait, recent } = rcWait(ps.exists ? ps.get('p') : [], now, guest ? RC_GUEST_HOUR : RC_HOUR);
@@ -130,10 +144,12 @@ async function rcPost(db, who, d, regions) {
       const w = recent[recent.length - RC_GUEST_HOUR] + 3600000 - now, m = Math.max(1, Math.ceil(w / 60000));
       throw new HttpsError('failed-precondition', `Guests can send ${RC_GUEST_HOUR} lines an hour. You can write again in ${m} ${m === 1 ? 'minute' : 'minutes'}, or link a sign-in to chat freely.`, { code: 'rc_guest', wait: w, max: RC_GUEST_HOUR });
     }
-    if (wait > 0) throw new HttpsError('failed-precondition', `Slow down a little. You can write again in ${Math.ceil(wait / 1000)} ${Math.ceil(wait / 1000) === 1 ? 'second' : 'seconds'}.`, { code: 'rc_paced', wait });
-    /* the same words again, or the same picture with the same words */
-    const h = hash(sameKey(x) + (pic ? '#' + pic.im.s.length + pic.im.s.slice(-48) : '')), last = recent.length ? recent[recent.length - 1] : 0;
-    if (ps.exists && ps.get('h') === h && now - last < RC_SAME) refuse('rc_same', 'You just wrote that.');
+    /* the world chat: one line every RC_WORLD_GAP at most */
+    const wLast = world && ps.exists ? Number(ps.get('w')) || 0 : 0, slow = Math.max(wait, wLast && wLast <= now ? wLast + RC_WORLD_GAP - now : 0);
+    if (slow > 0) throw new HttpsError('failed-precondition', `Slow down a little. You can write again in ${Math.ceil(slow / 1000)} ${Math.ceil(slow / 1000) === 1 ? 'second' : 'seconds'}.`, { code: 'rc_paced', wait: slow });
+    /* the same words again, or the same picture with the same words (the world chat's on their own) */
+    const h = hash(sameKey(x) + (pic ? '#' + pic.im.s.length + pic.im.s.slice(-48) : '')), last = world ? wLast : recent.length ? recent[recent.length - 1] : 0;
+    if (ps.exists && ps.get(world ? 'wh' : 'h') === h && now - last < RC_SAME) refuse('rc_same', 'You just wrote that.');
     /* the line answered: in the same chat, still there */
     let r = null;
     if (re) {
@@ -142,20 +158,31 @@ async function rcPost(db, who, d, regions) {
       r = { id: re, a: line(rs.get('a'), 128), nm: rs.get('tm') === true ? 'Edictum team' : line(rs.get('nm'), 80) || 'A nation', x: line(rs.get('x'), 90),
         ...(rs.get('tm') === true ? { tm: true } : {}), ...(rs.get('im') ? { im: true } : {}) };
     }
-    /* the nations mentioned: of this region, named after an @, not blocking the writer; and the author answered */
+    /* the nations mentioned: of this region (of any, in the world chat), named after an @, not blocking the writer; and
+       the author answered */
     const low = x.toLowerCase(), mn = {}, toTell = new Map();
     const ask = asked.concat(r && !r.tm && r.a !== who.uid && !asked.includes(r.a) ? [r.a] : []);
     const got = ask.length ? await tx.getAll(...ask.flatMap(u => [db.doc('nations/' + u), db.doc('lblock/' + u + '~' + who.uid)])) : [];
     ask.forEach((u, i) => {
       const n = got[2 * i], block = got[2 * i + 1], nm = n.exists ? line(n.get('name'), 80) : '';
-      if (!nm || block.exists || n.get('reg') !== reg) return;
+      if (!nm || block.exists || (!world && n.get('reg') !== reg)) return;
       if (asked.includes(u) && low.includes('@' + nm.toLowerCase())) { mn[u] = nm; toTell.set(u, false); }
       else if (r && u === r.a) toTell.set(u, true);
     });
     const ref = db.collection('rchat/' + reg + '/chat').doc(), me = team ? 'Edictum team' : line(e.saved.get('name'), 80) || 'A nation';
-    tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), h });
+    /* the author as a reader in another region sees them: region, flag, rank, alliance, Founding Supporter mark */
+    let marks = {};
+    if (extra.length) {
+      const aid = ally.exists && typeof ally.get('a') === 'string' && /^[\w-]{1,128}$/.test(ally.get('a')) ? ally.get('a') : '';
+      const al = aid ? await tx.get(db.doc('alliances/' + aid)) : null, mem = al && al.exists && al.get('mem') && typeof al.get('mem') === 'object' ? al.get('mem') : {};
+      const an = al && al.exists && mem[who.uid] ? line(al.get('name'), 40) : '', col = an && /^#[0-9a-fA-F]{6}$/.test(al.get('col') || '') ? al.get('col').toUpperCase() : '';
+      const flag = e.n.flag && typeof e.n.flag === 'object' ? JSON.stringify(e.n.flag) : '', rk = Number.isInteger(d.rk) && d.rk >= 0 && d.rk <= RC_RANKS ? d.rk : null;
+      marks = { rg: home, ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(rk != null ? { rk } : {}), ...(an ? { al: { n: an, ...(col ? { c: col } : {}) } } : {}),
+        ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}) };
+    }
+    tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), ...(world ? { w: now, wh: h } : { h }) }, { merge: true });
     const exp = Timestamp.fromMillis(now + RC_KEEP);
-    tx.create(ref, { a: who.uid, nm: me, x, t: now, exp,
+    tx.create(ref, { a: who.uid, nm: me, x, t: now, exp, ...marks,
       ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(pic ? { im: pic.im } : {}) });
     if (pic) tx.create(db.doc('rcimg/' + reg + '/chat/' + ref.id), { a: who.uid, d: pic.d, k: pic.kind, t: now, exp });
     for (const [u, rp] of toTell) tx.create(db.collection('mentions/' + u + '/m').doc(), { k: 'chat', by: who.uid, nm: me, reg, rc: ref.id, x: line(x, 160) || '📷 A picture', t: now, ...(rp ? { rp: true } : {}) });
@@ -163,17 +190,17 @@ async function rcPost(db, who, d, regions) {
     return { ok: true, id: ref.id, reg, t: now, ...(Object.keys(mn).length ? { mn } : {}), ...(guest ? { guest: true, left: Math.max(0, RC_GUEST_HOUR - recent.length - 1), gt: recent.concat(now).slice(-RC_GUEST_HOUR) } : {}) };
   });
   /* a push notification for those not in the game; never holds the line up */
-  if (tell.length) await Promise.all(tell.map(t => pushChatMention(db, t.u, who.uid, t.nm, t.rp).catch(() => 0)));
+  if (tell.length) await Promise.all(tell.map(t => pushChatMention(db, t.u, who.uid, t.nm, t.rp, world).catch(() => 0)));
   return out;
 }
 
 /* a reaction: the same one again takes it back; another replaces it */
 async function rcReact(db, who, d, regions) {
-  const reg = typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '', id = id20(d.id), kind = RC_REACT.includes(d.k) ? d.k : '';
+  const reg = chatOf(d, regions), id = id20(d.id), kind = RC_REACT.includes(d.k) ? d.k : '';
   if (!reg || !id || !kind) throw new HttpsError('invalid-argument', 'Choose a line and a reaction.');
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who, { linked: false });
-    if (!(who.admin || who.mod) && (e.n.reg || e.saved.get('reg')) !== reg) throw new HttpsError('permission-denied', 'React in your own region’s chat.');
+    if (reg !== RC_WORLD && !(who.admin || who.mod) && (e.n.reg || e.saved.get('reg')) !== reg) throw new HttpsError('permission-denied', 'React in your own region’s chat.');
     const ref = db.doc('rchat/' + reg + '/chat/' + id), s = await tx.get(ref);
     if (!s.exists) refuse('rc_gone', 'That line is no longer in the chat.');
     const rv = s.get('rv') && typeof s.get('rv') === 'object' ? s.get('rv') : {}, had = rv[who.uid] || '', pick = had === kind ? '' : kind;
@@ -185,7 +212,7 @@ async function rcReact(db, who, d, regions) {
 /* a nation's reactions go with its account (functions/accounts.js) or its removal by an admin (functions/admin.js) */
 export async function rcForget(db, uid, regs) {
   if (!uidOf(uid)) return 0;
-  const found = await Promise.all([...regs].map(reg => db.collection('rchat/' + reg + '/chat').where(new FieldPath('rv', uid), 'in', RC_REACT).get().catch(() => ({ docs: [] }))));
+  const found = await Promise.all([...new Set([...regs, RC_WORLD])].map(reg => db.collection('rchat/' + reg + '/chat').where(new FieldPath('rv', uid), 'in', RC_REACT).get().catch(() => ({ docs: [] }))));
   const docs = found.flatMap(q => q.docs);
   if (!docs.length) return 0;
   const w = db.bulkWriter();
@@ -195,7 +222,7 @@ export async function rcForget(db, uid, regs) {
 
 /* the author deletes their own line; staff delete anyone's, which the audit log keeps (with the words) */
 export async function rcDelete(db, who, d, regions) {
-  const reg = typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '', id = id20(d.id);
+  const reg = chatOf(d, regions), id = id20(d.id);
   if (!reg || !id) throw new HttpsError('invalid-argument', 'Choose a line.');
   const ref = db.doc('rchat/' + reg + '/chat/' + id), s = await ref.get();
   if (!s.exists) return { ok: true };
@@ -206,7 +233,7 @@ export async function rcDelete(db, who, d, regions) {
   if (s.get('im')) b.delete(db.doc('rcimg/' + reg + '/chat/' + id));
   if (s.get('a') !== who.uid) {
     b.create(db.collection('adminAudit').doc(), { actor: who.uid, action: 'chat_delete', outcome: 'completed', at: FieldValue.serverTimestamp(),
-      target: line(s.get('a'), 128), name: line(s.get('nm'), 80), reg, line: id, x: line(s.get('x'), RC_TEXT), ...(s.get('im') ? { pic: true } : {}), reason: line(d.reason, 300) || 'Removed from the region chat' });
+      target: line(s.get('a'), 128), name: line(s.get('nm'), 80), reg, line: id, x: line(s.get('x'), RC_TEXT), ...(s.get('im') ? { pic: true } : {}), reason: line(d.reason, 300) || (reg === RC_WORLD ? 'Removed from the world chat' : 'Removed from the region chat') });
     const report = typeof d.report === 'string' && /^[\w-]{1,128}$/.test(d.report) ? d.report : '';
     if (report) b.delete(db.doc('reports/' + report));
   }
@@ -214,8 +241,8 @@ export async function rcDelete(db, who, d, regions) {
   return { ok: true };
 }
 
-/* staff silence a player in every region's chat; with wipe, their lines of the last 24 hours in `reg` (their own region
-   if not given) go too. The audit log keeps who, why, until when and how many lines went */
+/* staff silence a player in every region's chat and the world chat; with wipe, their lines of the last 24 hours in `reg`
+   (a region or the world chat; their own region if not given) go too. The audit log keeps who, why, until when and how many lines went */
 async function rcMute(db, who, d, regions) {
   staffOnly(who);
   const uid = uidOf(d.uid), hours = Number(d.hours), why = line(d.why, 200);
@@ -227,7 +254,7 @@ async function rcMute(db, who, d, regions) {
   if (target && (target.customClaims?.admin === true || target.customClaims?.mod === true)) refuse('rc_staff', 'Edictum staff cannot be silenced.');
   const nation = await db.doc('nations/' + uid).get(), now = Date.now();
   const nm = line(nation.get('name'), 80), home = line(nation.get('reg'), 40);
-  const reg = typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : regions.has(home) ? home : '';
+  const reg = chatOf(d, regions) || (regions.has(home) ? home : '');
   const until = hours ? now + hours * 3600000 : RC_FOREVER;
   let removed = 0;
   if (d.wipe === true && reg) {

@@ -1173,6 +1173,78 @@ test('Region chat: answers quote their line and tell its writer, @mentions tell 
   assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).get('rv')[g.uid],undefined);
 });
 
+test('World chat: every nation writes in it from its own region, the line carrying the author’s region, flag, rank, alliance and marks; paced on its own; mentions, answers and reactions cross regions; removal, reports and silences reach it',async()=>{
+  const m=await player(true),f=await player(true,false,'frostmarch'),g=await player(),o=await player(true);
+  const sleep=ms=>new Promise(res=>setTimeout(res,ms));
+  // what readers in other regions cannot look up: the author's flag, alliance and Founding Supporter mark
+  await record(m,{flag:{c:['#112233','#445566'],p:'h2'}});
+  await db.doc('shop/'+m.uid).set({owns:{founder:true}});
+  const aid='alw'+m.uid.slice(0,8);
+  await db.doc('alliances/'+aid).set({name:'The Northern Accord',col:'#3366cc',mem:{[m.uid]:{r:'l'}}});
+  await db.doc('allyOf/'+m.uid).set({a:aid});
+  const a=await civic(m,{op:'rcPost',reg:'world',x:'Hello, every region!',rk:7,nm:'Forged',rg:'gilded',a:'forged',st:'admin'});
+  assert.equal(a.reg,'world');
+  const L=(await db.doc('rchat/world/chat/'+a.id).get()).data();
+  assert.equal(L.a,m.uid);assert.equal(L.nm,m.uid);assert.equal(L.x,'Hello, every region!');assert.equal(L.st,undefined);
+  assert.equal(L.rg,'meridian');assert.equal(L.rk,7);assert.equal(L.fd,true);
+  assert.deepEqual(L.al,{n:'The Northern Accord',c:'#3366CC'});assert.deepEqual(JSON.parse(L.fl),{c:['#112233','#445566'],p:'h2'});
+  assert.ok(L.exp.toMillis()>Date.now()+29*DAY);
+  // from the Frostmarch, into the same chat: no marks it does not have, and a rank out of bounds is left out
+  const b=await civic(f,{op:'rcPost',reg:'world',x:'Greetings from the north.',rk:500});
+  const B=(await db.doc('rchat/world/chat/'+b.id).get()).data();
+  assert.equal(B.rg,'frostmarch');assert.equal(B.rk,undefined);assert.equal(B.al,undefined);assert.equal(B.fd,undefined);
+  // a guest writes there too, within its ten lines an hour
+  const gl=await civic(g,{op:'rcPost',reg:'world',x:'A guest waves.'});assert.equal(gl.guest,true);assert.equal(gl.left,9);
+  // a world line every four seconds at most; the region chat is not held up by it, and the same words there are no repeat
+  await sleep(1600);
+  await assert.rejects(civic(m,{op:'rcPost',reg:'world',x:'Again so soon'}),e=>e.code==='rc_paced'&&/Slow down a little/.test(e.message));
+  const r1=await civic(m,{op:'rcPost',x:'Hello, every region!'});assert.equal(r1.reg,'meridian');
+  await sleep(2700);
+  await rejects(civic(m,{op:'rcPost',reg:'world',x:'hello EVERY region'}),'rc_same');
+  // answers and @mentions cross regions: f (the Frostmarch) answers m and names o (the Meridian Reach)
+  await db.doc('pushSubs/'+o.uid).set({s:[{e:'https://push.example/world',k:{p256dh:'p',auth:'a'},at:Date.now()}]});
+  const c=await civic(f,{op:'rcPost',reg:'world',re:a.id,mn:[o.uid,'npc-x'],x:`@${o.uid} come and see`});
+  const C=(await db.doc('rchat/world/chat/'+c.id).get()).data();
+  assert.deepEqual(C.r,{id:a.id,a:m.uid,nm:m.uid,x:'Hello, every region!'});assert.deepEqual(C.mn,{[o.uid]:o.uid});
+  const told=async u=>(await db.collection('mentions/'+u+'/m').get()).docs.map(d=>d.data());
+  const to=await told(o.uid),tm=await told(m.uid);
+  assert.equal(to.length,1);assert.equal(to[0].reg,'world');assert.equal(to[0].rc,c.id);assert.equal(to[0].rp,undefined);
+  assert.equal(tm.length,1);assert.equal(tm[0].reg,'world');assert.equal(tm[0].rp,true);
+  const out=(await db.collection('pushOutbox').where('to','==',o.uid).get()).docs.map(d=>d.data());
+  assert.equal(out.length,1);assert.match(out[0].payload.title,/mentioned you in the world chat/);assert.equal(out[0].payload.url,'/#chat/world');
+  // a line of the world chat answers only a line of the world chat
+  await sleep(4100);
+  await rejects(civic(f,{op:'rcPost',reg:'world',re:r1.id,x:'Which line?'}),'rc_gone');
+  // reactions from any region, a guest's too; not in a chat that does not exist
+  await civic(o,{op:'rcReact',reg:'world',id:b.id,k:'hear'});
+  assert.deepEqual(await civic(g,{op:'rcReact',reg:'world',id:b.id,k:'bravo'}),{ok:true,k:'bravo'});
+  assert.deepEqual((await db.doc('rchat/world/chat/'+b.id).get()).get('rv'),{[o.uid]:'hear',[g.uid]:'bravo'});
+  await assert.rejects(civic(o,{op:'rcReact',reg:'atlantis',id:b.id,k:'hear'}),e=>e.status==='INVALID_ARGUMENT');
+  const { rcForget } = await import('../functions/regionchat.js');
+  assert.equal(await rcForget(db,g.uid,['meridian']),1,'a deleted account’s reactions in the world chat go too');
+  // deleting: not another's line; one's own; staff anyone's, audited as the world chat's
+  await assert.rejects(civic(o,{op:'rcDelete',reg:'world',id:a.id}),e=>e.status==='PERMISSION_DENIED');
+  await civic(f,{op:'rcDelete',reg:'world',id:c.id});assert.equal((await db.doc('rchat/world/chat/'+c.id).get()).exists,false);
+  await auth.setCustomUserClaims(o.uid,{mod:true});
+  await civic(o,{op:'rcDelete',reg:'world',id:a.id});assert.equal((await db.doc('rchat/world/chat/'+a.id).get()).exists,false);
+  const au=(await db.collection('adminAudit').where('line','==',a.id).get()).docs[0];
+  assert.equal(au.get('action'),'chat_delete');assert.equal(au.get('reg'),'world');assert.equal(au.get('reason'),'Removed from the world chat');
+  // the Reports queue removes a world line (rc:world:<line>)
+  const admin=await player(true);await auth.setCustomUserClaims(admin.uid,{admin:true});
+  const console2=await sign('signInWithCustomToken',{token:await auth.createCustomToken(admin.uid,{admin:true})});
+  await call(console2,'adminConsole',{op:'moderate',action:'delete_post',target:'rc:world:'+gl.id,reg:'meridian',reason:'Spam or advertising'});
+  assert.equal((await db.doc('rchat/world/chat/'+gl.id).get()).exists,false);
+  // the team writes there; a silence holds there and may take the player's world lines of the last day
+  const t=await civic(admin,{op:'rcPost',team:true,reg:'world',x:'Welcome, all of you.'});
+  const T=(await db.doc('rchat/world/chat/'+t.id).get()).data();assert.equal(T.tm,true);assert.equal(T.nm,'Edictum team');assert.equal(T.rg,undefined);
+  const s=await civic(o,{op:'rcMute',uid:f.uid,hours:1,why:'Shouting',reg:'world',wipe:true});assert.equal(s.removed,1);
+  assert.equal((await db.doc('rchat/world/chat/'+b.id).get()).exists,false);
+  await assert.rejects(civic(f,{op:'rcPost',reg:'world',x:'Let me speak'}),e=>e.code==='rc_silenced'&&/silenced in the chats/.test(e.message));
+  // a nation with no region to speak from is refused
+  const lost=await player(true);await db.doc('nations/'+lost.uid).update({reg:'atlantis',j:JSON.stringify({reg:'atlantis',name:lost.uid,pop:10,s:{civil:50,econ:50,pol:50}})});
+  await rejects(civic(lost,{op:'rcPost',reg:'world',x:'Hello?'}),'rc_region');
+});
+
 test('A commendation or a condemnation names one nation of the region, checked at the backend',async()=>{
   const reg='jadeterraces', a=await player(true,true,reg), b=await player(true,true,reg), c=await player(true,true,reg);
   const x=JSON.parse(fs.readFileSync(new URL('../functions/civic-data.json',import.meta.url),'utf8')).regions.find(r=>r.id===reg).npcs[0];
