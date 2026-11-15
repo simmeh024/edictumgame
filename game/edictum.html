@@ -74002,7 +74002,7 @@ resultView=(f=>function(){
 /* ───────── portraits of state: the faces of the government, as the player wants them (13 November 2026) ─────────
    The Government page's medallions (cvMed) stay what they were: a bust in profile in one ink, cut with paper-coloured
    lines, inside a guilloche ring. A saved look only overrides what the sitter's name draws (ptBust; an empty look is
-   the same face as before): skin (engraved in the one ink, or a skin colour), hair (twenty-two kinds), nose, chin and
+   the same face as before): skin (engraved in the one ink, or a skin colour), hair (twenty-six kinds), nose, chin and
    brow, facing, grey hair, facial hair, headwear, dress and one detail. The head of government also chooses an ink, a ring and an earned nickname.
    A piece is open to all, earned in play (PT_LOCK) or sold in a Shop pack (PT_SHOP: twelve in the Mayan Pack, two in
    each other pack; tried on by anyone, saved once held, shown in the lists only while held or on sale).
@@ -74019,21 +74019,21 @@ resultView=(f=>function(){
    x detail. h and d default to what the name draws; the others to 0. */
 const PT_ROWS=[
   ['s','Skin',['Engraved','Pale','Fair','Light','Golden','Olive','Tan','Brown','Deep brown']],
-  ['h','Hair',['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided','Bald','Curly','Ponytail','Bob','Pompadour','Receding','Locs','Long waves','Cornrows','Long plait','Tied crest','Jade-bound hair']],
+  ['h','Hair',['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided','Bald','Curly','Ponytail','Bob','Pompadour','Receding','Locs','Long waves','Cornrows','Long plait','Tied crest','Jade-bound hair','Afro','Side part','Chignon','Mohawk']],
   ['n','Nose',['As drawn','Small','Straight','Bold','Roman']],
   ['c','Chin',['As drawn','Soft','Even','Firm']],
   ['b','Brow',['As drawn','Flat','Even','Heavy']],
   ['f','Facing',['Right','Left']],
   ['g','Grey hair',['With age','Early','Always','Never']],
-  ['e','Facial hair',['None','Full beard','Chin beard','Moustache','Waxed moustache','Mutton chops']],
-  ['w','Headwear',['None','Laurel wreath','Crown','Bicorne','Top hat','Military cap','Turban','Beret','Plumed hat','Liberty cap','Mortarboard','Quetzal headdress','Jaguar headdress','Jade headband','Nightcap','Legionary helmet','Tricorne','Burgher’s hat']],
-  ['d','Dress',['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office','Sash of state','White tie','Mandarin collar','Wrap robe','Breastplate','Jade collar','Jaguar cape','Feather mantle','Captain’s coat','Waistcoat and watch chain','Embroidered court coat']],
-  ['x','Detail',['None','Monocle','Spectacles','Earring','Scar','Order star','Medal','Jade ear spools','Nose bead','Founder’s rosette','Price tag','Tulip buttonhole','Pencil behind the ear','Flag lapel pin']]];
+  ['e','Facial hair',['None','Full beard','Chin beard','Moustache','Waxed moustache','Mutton chops','Goatee','Van Dyke','Long beard','Stubble']],
+  ['w','Headwear',['None','Laurel wreath','Crown','Bicorne','Top hat','Military cap','Turban','Beret','Plumed hat','Liberty cap','Mortarboard','Quetzal headdress','Jaguar headdress','Jade headband','Nightcap','Legionary helmet','Tricorne','Burgher’s hat','Fez','Bowler','Fedora','Pith helmet','Fur hat','Head wrap','Tiara']],
+  ['d','Dress',['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office','Sash of state','White tie','Mandarin collar','Wrap robe','Breastplate','Jade collar','Jaguar cape','Feather mantle','Captain’s coat','Waistcoat and watch chain','Embroidered court coat','Turtleneck','Fur-collared coat','Cloak and brooch','Double-breasted coat','Gown and pearls']],
+  ['x','Detail',['None','Monocle','Spectacles','Earring','Scar','Order star','Medal','Jade ear spools','Nose bead','Founder’s rosette','Price tag','Tulip buttonhole','Pencil behind the ear','Flag lapel pin','Eyepatch','Pipe','Pocket square','Ribbon bar','Freckles']]];
 const PT_ROW_BY=Object.fromEntries(PT_ROWS.map(r=>[r[0],r]));
 /* skin colours: [the skin, the engraver's lines on it]. The same in both themes, as skin is */
 const PT_SKIN=[null,['#f3dccb','#a3705a'],['#eac4a4','#94603f'],['#deae88','#87543a'],['#d29b6a','#7a4824'],['#bf9a6b','#6a4f2e'],['#a77349','#5a3519'],['#87532f','#2c1406'],['#5c3722','#120602']];
 /* tall headwear shrinks the bust a little, so the hat stays inside the ring */
-const PT_HAT_S=[1,1,.92,.9,.82,.96,.92,1,.88,.92,.95,.8,.9,1,.92,.86,.92,.84];
+const PT_HAT_S=[1,1,.92,.9,.82,.96,.92,1,.88,.92,.95,.8,.9,1,.92,.86,.92,.84,.92,.96,.95,.9,.9,.9,1];
 const PT_RING_N=['Guilloche','Fine guilloche','Laurel','Beaded','Plain','Stepped fret','Keystone','Microprint','Acanthus','Compass'];
 const PT_INKS=[['gold','Gold','var(--cv-lead)'],['claret','Claret','var(--pti-claret)'],['navy','Navy','var(--pti-navy)'],['forest','Forest','var(--pti-forest)'],['violet','Violet','var(--pti-violet)'],['slate','Slate','var(--pti-slate)'],['copper','Copper','var(--pti-copper)'],['jade','Jade','var(--pti-jade)'],['tyrian','Tyrian purple','var(--pti-tyrian)'],['holo','Hologram','var(--pti-holo)'],['flag','From the flag','']];
 /* pieces sold in the Shop's packs: the piece (row key and number, r a ring, i an ink) and the Shop's own id for it, whose
@@ -74143,6 +74143,8 @@ const PT_CURLS=(()=>{const o=[];for(let r=0,y=19.4;y<56;y+=2.5,r++)for(let x=29.
 /* a braid: lobes tilted one way and the other along a curve (points from ptQ), w(t) its half-width */
 function ptBraid(Q,w){let d='';Q.forEach((p,i)=>{const t=i/(Q.length-1),ww=w(t),sd=i%2?1:-1,a=p.a+sd*38,r=a*Math.PI/180,c=Math.cos(r),sn=Math.sin(r),rx=ww*.92,ry=ww*.44;
   const x=p.x-p.ty*sd*ww*.4,y=p.y+p.tx*sd*ww*.4;d+=`M${cvF(x-rx*c)} ${cvF(y-rx*sn)}A${cvF(rx)} ${cvF(ry)} ${cvF(a)} 1 0 ${cvF(x+rx*c)} ${cvF(y+rx*sn)}A${cvF(rx)} ${cvF(ry)} ${cvF(a)} 1 0 ${cvF(x-rx*c)} ${cvF(y-rx*sn)}Z`;});return d;}
+/* whether a point is inside a polygon of [x, y] points (an afro's coils, a stubble's dots) */
+const ptInP=(P,x,y)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;};
 /* the ten newer kinds of hair (10 to 19): the crown and back of the outline, the hair's own outline, and cover: the hair
    hides the ear */
 function ptHairNew(hair,bk,nk){
@@ -74167,6 +74169,15 @@ function ptHairNew(hair,bk,nk){
     return {crown:full,back,hp:[[30.2,73.4],[29.4,64.4],[30.4,55.2],[32+bk*.6,45.4],...full,...HL.slice(0,8),[45,49.6],[43,56],[40.2,62.6],[37,69],[33.4,73.4]]};}
   if(hair===17){const crown=[[33+bk,33.4],[38.6,25],[48.5,21.4],[57.8,23.2],[62,29.4]],back=[[20.6,79.6],[27.4,77.6],[25.6,68.4],[28.8,60.6],[27.6,52.6],[31.6+bk*.6,44.6]];
     return {crown,back,cover:1,hp:[[27.4,77.6],[25.6,68.4],[28.8,60.6],[27.6,52.6],[31.6+bk*.6,44.6],...crown,[60,31.2],[57,34],[55,38.6],[54.4,44],[52.6,49.6],[50.6,55.4],[48.6,60.6],[45.2,65.6],[42.8,71.4],[38,76.2],[31.6,79]]};}
+  /* the hair of 15 November 2026: an afro (a broad round crown, the ear showing), a side part, a chignon (sleek hair to a
+     bun at the nape, which ptBust adds) and a mohawk (the bald head, the crest drawn by ptBust) */
+  if(hair===22){const c=[];for(let i=0;i<=16;i++){const a=(150+i*190/16)*Math.PI/180,r=1+(i%2?-.022:.02);c.push([45.2+18.4*r*Math.cos(a),35.4+17.8*r*Math.sin(a)]);}c.push([62.6,31.6]);
+    const back=[[24.4,75.4],[37.4+nk*.3,69.6],[39+nk*.3,62.2],[34+bk*.5,57.4],[30.4+bk*.5,50.6]];
+    return {crown:c,back,hp:[[38.6,61.4],[34+bk*.5,57.4],[30.4+bk*.5,50.6],...c,[61.8,32],[58.8,34],[56.6,37.6],[55.8,43],[53,42.6],[50.4,40.4],[47.2,40.6],[45.4,43.6],[45,49],[43.2,55],[40.6,60.2]]};}
+  if(hair===23){const crown=[[35.4+bk,34.6],[40.4,27.6],[48.4,24],[56.4,25.6],[61.2,30.6]];return {crown,back:SB,hp:[...SH,...crown,...HL]};}
+  if(hair===24)return {crown:sleek,back:SB,hp:[...SH,...sleek,...HL]};
+  if(hair===25){const crown=[[35.8+bk,35.4],[40.4,28.8],[48.2,25.6],[55.8,26.8],[60.6,31.2]];
+    return {crown,back:SB,hp:[[38.4,31.8],[42.4,27.6],[48.2,25.2],[54.6,25.8],[59.4,28.8],[58.2,30.4],[54,28.4],[48.2,28],[43.4,29.8],[39.8,33.2]]};}
   return {crown:tight,back:SB,hp:[...SH,...tight,...HL]};
 }
 /* the bust as layers in drawing order: class k ink, g silver hair, l paper lines, f paper cuts, F paper.
@@ -74192,15 +74203,19 @@ function ptBust(seed,look,old){
   const PP=[...back,...crown,...face];let d=cvSmooth(PP);
   const bun=`M${cvF(35.2+bk-5.2)} 32.4A5.2 5.2 0 1 1 ${cvF(35.2+bk+5.2)} 32.4A5.2 5.2 0 1 1 ${cvF(35.2+bk-5.2)} 32.4Z`;
   if(hair===1)d+=bun;
+  /* the chignon: a bun at the nape */
+  const chig=hair===24?(()=>{const x=32.6+bk*.8,y=51.4;return `M${cvF(x-4.6)} ${y}A4.6 4 0 1 1 ${cvF(x+4.6)} ${y}A4.6 4 0 1 1 ${cvF(x-4.6)} ${y}Z`;})():'';
+  if(chig)d+=chig;
   const hl=ch===2?[[60,31.2],[57.2,34],[55.2,38.6],[54.2,44],[53.2,50],[51,56.2],[46.6,63],[40.6,68.6],[34.6,71.2]]:[[60,31.2],[57.4,33.6],[55.4,37.6],[54.6,43.4],[52.8,42.4],[50.2,40.2],[47.2,40.4],[45.6,43.6],[45.2,49],[43.4,54.8],[40.8,59.8]];
   const hp=NH?NH.hp:ch===4?[[36.2+bk,38.6],[33.4+bk,45],[35.6+bk,55],[39,61],[40.8,57.4],[39.2,50],[38.8,43.4]]:[...(ch===2?[[30.8,72],[30.6,64.5],[31.4,55.5],[32.6+bk*.6,45.5]]:[[38.8,61],[35.6+bk,55],[33.4+bk,45]]),...crown,...hl];
-  let h=cvSmooth(hp);if(hair===1)h+=bun;
+  let h=cvSmooth(hp);if(hair===1)h+=bun;if(chig)h+=chig;
   const wig=hair===6,grey=!!old||wig,HR=grey?ptG:ptK,lay=[ptK(d)],earOn=NH?!NH.cover:ch!==2&&!wig;
   if(SK){
     /* a skin colour: the bust in the skin, outlined in the ink; the face's features in the skin's darker tone; then
        the clothes (the outline below the neckline, drawn exactly as the bust draws it) and the hair in the ink */
-    const fi=back.length+crown.length,fr=D===2||D===12?fi+13:fi+11,end=ptPt(PP[fr]);
-    const neck=D===2?`Q52 86 ${end}`:D===12?`Q46 73 62 79.6L${end}`:`Q47 72.8 ${end}`;
+    /* a turtleneck rises to the throat; a gown's neckline is low */
+    const fi=back.length+crown.length,fr=D===2||D===12||D===24?fi+13:D===20?fi+10:fi+11,end=ptPt(PP[fr]);
+    const neck=D===2?`Q52 86 ${end}`:D===12?`Q46 73 62 79.6L${end}`:D===24?`Q50 89 ${end}`:D===20?`L${cvF(38.6+nk*.3)} 63.2Q48 65.2 ${end}`:`Q47 72.8 ${end}`;
     const ink=SK[1],br=brow*.4;
     lay.push(`<path class="s" d="${d}" fill="${SK[0]}"/>`,
       ptM(`M57.8 38.9Q60.2 37.5 ${cvF(62.6+br)} 38.4`,ink,.8,.9),
@@ -74284,6 +74299,22 @@ function ptBust(seed,look,old){
       tb+=`M${C(-h,w)}L${C(h,w)}L${C(h,-w)}L${C(-h,-w)}Z`;gr+=`M${C(-h*.4,w)}L${C(-h*.4,-w)}M${C(h*.4,w)}L${C(h*.4,-w)}`;}
     lay.push(HR(pl+tuft),ptL('M'+A.join('L'),.35,.5),ptL(Q.slice(1,-1).map((p,i)=>(i?'L':'M')+cvF(p.x+.5*-p.ty)+' '+cvF(p.y+.5*p.tx)).join(''),.32,.45),`<path class="F" d="${tb}"/>`,ptN(tb,.4,.9),ptN(gr,.3,.7));
   }
+  /* the hair of 15 November 2026: an afro's coils and the light on its rim, a side part and the hair combed from it, a
+     chignon's twists, and a mohawk's crest of spikes swept back along the bald head */
+  if(hair===22){const R=rng(hash('afro')),A=NH.hp;let cu='',row=0;
+    for(let y=19.4;y<59;y+=2.1,row++)for(let x=27.6+(row%2)*1.2;x<63;x+=2.4){const jx=x+(R()-.5)*.9,jy=y+(R()-.5)*.8;
+      if(!ptInP(A,jx,jy)||!ptInP(A,jx+1.4,jy-.9)||!ptInP(A,jx+.7,jy+1))continue;cu+=R()<.5?`M${cvF(jx)} ${cvF(jy)}a.95 .95 0 1 0 1.3 -.7`:`M${cvF(jx)} ${cvF(jy)}a1 1 0 1 1 1.35 .8`;}
+    lay.push(ptL(cu,.4,.5),ptCut([[33,30.4,37,23,45.4,20.2]],.32,.35));}
+  if(hair===23)lay.push(ptL('M58.8 28.6Q50.4 26.4 41.6 29',.7,.85),ptCut([[59.4,26.8,52,23.8,43.8,25.6]],.32,.55),
+    ptCut([[57.4,31.4,48,29.6,38.8,34.8],[56.2,34.8,47.2,33.2,37.8,40.8],[55,38,47.4,37.2,38.8,47.4]],.36,.5));
+  if(hair===24){const x=32.6+bk*.8,y=51.4,P=(u,v)=>cvF(x+u)+' '+cvF(y+v);
+    lay.push(ptCut([[58.4,28.8,47,25.8,36.4,33.4],[57.4,32.4,46.6,30.4,36.8,41.6],[55.6,36.4,46.4,35.4,36.6,47]],.3,.5),
+      ptL(`M${P(-3,-1.6)}Q${P(0,-4.2)} ${P(3.4,-1)}M${P(-3.8,.8)}Q${P(-.4,-2.2)} ${P(3.9,1.2)}M${P(-2.8,2.8)}Q${P(.6,.4)} ${P(3,3)}`,.45,.75),ptL(chig,.4,.6));}
+  if(hair===25){const Q=ptQ([37.6,32.8],[47.6,21.2],[59.6,29.2],10),inn=[],cuts=[];let sp='';
+    Q.forEach((p,i)=>{const nx=p.ty,ny=-p.tx;inn.push(ptR2(p.x-nx*1.3)+' '+ptR2(p.y-ny*1.3));sp+=(i?'L':'M')+ptR2(p.x)+' '+ptR2(p.y);
+      if(i<Q.length-1){const q=Q[i+1],t=(i+.5)/(Q.length-1),mx=(p.x+q.x)/2,my=(p.y+q.y)/2,hh=1.6+4.2*Math.pow(Math.sin(Math.PI*t),.6),tx=mx+nx*hh-p.tx*1.4,ty=my+ny*hh-p.ty*1.4;
+        sp+=`L${ptR2(tx)} ${ptR2(ty)}`;cuts.push([mx-nx*.6,my-ny*.6,mx+nx*hh*.5-p.tx*.5,my+ny*hh*.5-p.ty*.5,tx,ty]);}});
+    lay.push(HR(sp+'L'+inn.slice().reverse().join('L')+'Z'),ptCut(cuts,.3,.6,PT_RT),ptL('M'+inn.join('L'),.3,.4));}
   /* facial hair: a shaped mass with a lobed edge, and tapered strands cut into it */
   const mous='M60.6 48.2C62.4 47 65.6 46.9 67.4 48.4C68.2 49.6 67.8 51.2 66.8 52.2C65.8 51 64.2 50.6 62.4 50.8C61.4 50.6 60.8 49.6 60.6 48.2Z';
   if(E===1)lay.push(HR('M52 40C53 44.4 55.6 48.4 59.4 50.2L61.4 51.2C62.8 51.8 64.2 52 65.2 52.6C66.8 53.4 67.6 55.4 67.2 57.4C67.8 59 67.4 61 66.2 62.2C66.2 64 64.6 65.8 62.6 66.4C61.2 67.8 59 68.2 57.6 67.4C56.4 66.6 55.8 65.2 55.6 63.8C53.6 62.4 52 59.6 51.4 56.4C50.8 53 50.8 49.6 51 46.4C51.2 44 51.4 42 52 40Z'),
@@ -74293,9 +74324,21 @@ function ptBust(seed,look,old){
     ptCut([[53.2,53.4,53.6,57.6,55.4,60.8],[56.4,55.4,57,60,59,63.4],[59.8,56,60.6,60.4,61.8,64],[63,55.8,64.4,58.8,64.2,62.4,.38]],.46,0,PT_RT),ptCut([[51.4,50.9,56,55.5,62.8,55.7]],.24,.55));
   if(E===5){const mc='M52 40C53 43.6 54.8 46.6 57.4 48.6C58.8 49.6 60.2 49.6 61 49C61.4 51.2 60.4 52.8 59 54C57.8 55.6 58 58.2 59.6 60.4C57.2 62 54 62.2 51.8 60.4C50.8 56 50.8 47.6 51.2 44C51.4 42.4 51.6 41.2 52 40Z';
     lay.push(HR(mc),ptCut([[52.8,43.4,52.6,50,54,56.8],[55.2,47.6,55,53.4,56.4,59.8],[57.8,50.4,57.2,54,57.6,58.2,.36]],.46,0,PT_RT),ptCut([[61,49.6,58.6,54.4,59.4,60.2]],.3,.8),ptCut([[52.2,40.8,53.6,45,57.4,48.2]],.22,.45));}
-  if(E===1||E===3||E===5)lay.push(HR(mous),ptCut([[62.2,48.2,62.9,49.4,63.4,50.4],[64.2,47.8,65,49.2,65.3,50.5],[66.1,48.2,66.9,49.5,66.7,51]],.32,0,PT_RT),ptCut([[60.8,48.1,62.4,47.3,64.3,47.5]],.2,.5));
+  /* the facial hair of 15 November 2026: a goatee (a rounded tuft on the chin, joined to the moustache), a Van Dyke (a
+     pointed beard under a waxed moustache) and stubble (dots over the jaw and the upper lip). The long beard is drawn
+     after the dress, which it falls over */
+  const cn=chin;
+  if(E===6)lay.push(HR(`M61 52.4C62.4 52.8 63.6 53 64.4 53.6C65.4 54.6 ${cvF(65.4+cn)} 56.4 ${cvF(65.2+cn)} 58.2C${cvF(65+cn)} 60.2 63.8 61.8 62 62.4C60.6 62.8 59.2 62.2 58.8 61C58.4 59.2 59.2 57.4 59.6 55.8C59.9 54.4 60.3 53.2 61 52.4ZM60.4 49.4C60 50.6 60.2 51.8 61 52.8L61.8 52.4C61.4 51.4 61.4 50.4 61.6 49.6Z`),
+    ptCut([[61.2,54,60.8,57.4,60.4,60.6],[62.6,54.2,62.6,57.6,62.2,61.4],[64,55,64.4,58,63.8,60.8,.36]],.42,0,PT_RT),ptCut([[59.6,57,60.2,59.8,61.8,61.6],[63,57.6,63.4,59.8,62.8,61.6]],.26,.75,PT_RT));
+  if(E===7)lay.push(HR(`M61 52.6C62.4 53 63.6 53.2 64.4 53.8C65.4 55 ${cvF(65.8+cn)} 57 ${cvF(65.6+cn)} 59C${cvF(65.4+cn)} 61.6 64.8 64.4 64.4 67.6C62.8 65.6 61.2 63.6 60 61.8C59.2 60.4 59.4 58.4 59.8 56.6C60.1 55 60.4 53.6 61 52.6Z`),
+    ptCut([[61,54.4,61.4,59.6,63.6,66.2],[62.6,54.4,63.2,59.6,64.1,65.8],[64.2,55.2,64.8,59.6,64.3,64.6,.36]],.42,0,PT_RT),ptCut([[60.4,57.4,61.2,60.6,63.4,64.4]],.24,.75,PT_RT));
+  if(E===9){const R=rng(hash('stubble')),SP=[[51.6,40.4],[53.4,45.2],[56.8,48.4],[60.4,48.6],[64,47.9],[66.2,48.8],[66.4,49.8],[63.6,50.6],[61.8,51.2],[62.6,53.2],[64.2,54],[65.2+cn,57.2],[63.6,60],[60.2,61.2],[56.4,60.6],[53.2,58],[51.2,53.6],[50.6,46.6]];
+    let dt='',row=0;for(let y=40.6;y<61.4;y+=1.05,row++)for(let x=50.6+(row%2)*.55;x<66.6;x+=1.1){const jx=x+(R()-.5)*.6,jy=y+(R()-.5)*.6;
+      if(!ptInP(SP,jx,jy)||!ptInP(PP,jx-.5,jy)||!ptInP(PP,jx+.5,jy)||!ptInP(PP,jx,jy+.5))continue;dt+=ptC(jx,jy,.26);}
+    lay.push(SK?`<path class="${grey?'g':'k'}" d="${dt}" fill-opacity=".7"/>`:`<path class="${grey?'g':'f'}" d="${dt}" fill-opacity=".55"/>`);}
+  if(E===1||E===3||E===5||E===6)lay.push(HR(mous),ptCut([[62.2,48.2,62.9,49.4,63.4,50.4],[64.2,47.8,65,49.2,65.3,50.5],[66.1,48.2,66.9,49.5,66.7,51]],.32,0,PT_RT),ptCut([[60.8,48.1,62.4,47.3,64.3,47.5]],.2,.5));
   if(E===1)lay.push(ptCut([[61.6,51.5,63.6,51.7,65.9,52.5]],.26,.85));
-  if(E===4)lay.push(HR('M61 48C63.4 47.5 65.6 47.9 66.4 48.9C67.8 48.5 69 47.2 69.3 45.2C70.3 47.2 69.8 49.6 67.9 50.6C66.4 51.3 64.6 50.9 63 50.5Z'),
+  if(E===4||E===7)lay.push(HR('M61 48C63.4 47.5 65.6 47.9 66.4 48.9C67.8 48.5 69 47.2 69.3 45.2C70.3 47.2 69.8 49.6 67.9 50.6C66.4 51.3 64.6 50.9 63 50.5Z'),
     ptCut([[62.4,48.3,63.4,49.3,63.9,50.3],[64.6,48.3,65.5,49.2,66.2,49.8]],.28,0,PT_RT),ptCut([[67.4,49.7,69,48.8,69.3,46.4]],.16,.8),ptCut([[61.2,48.1,63.4,47.5,65.6,47.9]],.2,.5));
   /* dress: the three collars the name draws (with the engraved contours on the shoulders), then the rest */
   const contours=ptL('M18 87Q30 78.5 44 77.6M17 92Q31 83 46 82.4M19 97Q33 88.2 49 87.6',.55,.2);
@@ -74404,6 +74447,36 @@ function ptBust(seed,look,old){
       else lv+=ptLeaf(p.x,p.y,p.a+sd*46,4,1.3);});
     lay.push(ptK(band),ptL('M38.6 63.6Q48 63.2 56.6 61.2Q58.6 61.6 58.8 63.8',.55,.9),ptL('M38.2 71.6Q48 71.6 59.2 68.6',.85,.95),ptL('M59.2 68.6Q60.4 77.4 63.4 86',.75,.9),
       `<path class="F" d="${lv}"/>`,`<path class="F" d="${ac}"/>`,ptL('M39.4 67.6Q48 67.8 58.2 65.4M59.4 69.4Q60.6 77.4 63.4 85',.3,.6),`<path class="F" d="${ptC(57.4,73.6,.6)+ptC(58.2,77.6,.6)+ptC(59.4,81.6,.6)}"/>`);}
+  /* the dress of 15 November 2026: a turtleneck (rolled up the neck, ribbed), a coat with a fur collar round the
+     shoulders, a cloak with a high back and a round brooch at the collarbone, a double-breasted coat (broad lapels, two
+     rows of buttons) and an evening gown with a string of pearls */
+  if(D===20){const a=ptQ([39.4+nk*.3,66],[48,68],[56.6,64.8],8),b=ptQ([38.4,69],[47.6,71.2],[57.6,67.8],8);
+    lay.push(ptL(`M${cvF(38.6+nk*.3)} 63.2Q48 65.2 ${cvF(56.6+nk*.3)} 61`,.75,.9),ptL(`M${cvF(39.4+nk*.3)} 66Q48 68 56.6 64.8`,.45,.7),ptL('M38.4 69Q47.6 71.2 57.6 67.8',.8,.9),
+      ptL(a.slice(1,-1).map((p,i)=>`M${cvF(p.x)} ${cvF(p.y+.5)}L${cvF(b[i+1].x)} ${cvF(b[i+1].y-.5)}`).join(''),.3,.45));}
+  if(D===21){const inn=ptQ([37.6,68.2],[47.4,73.2],[57.8,66.8],10),out=ptQ([64.6,77.6],[46,85.6],[25,77.6],24);let fd='M'+inn.map(p=>cvF(p.x)+' '+cvF(p.y)).join('L');
+    out.forEach((p,i)=>{const b=.35+.75*Math.abs(Math.sin(i*1.9)),nx=p.ty,ny=-p.tx;fd+='L'+cvF(p.x+nx*b)+' '+cvF(p.y+ny*b);});fd+='Z';
+    const R=rng(hash('fur-collar'));let tf='';
+    for(let i=0;i<46;i++){const t=R(),u=.15+R()*.75,a=inn[Math.round(t*(inn.length-1))],o=out[out.length-1-Math.round(t*(out.length-1))],x=a.x+(o.x-a.x)*u,y=a.y+(o.y-a.y)*u,l=Math.hypot(o.x-a.x,o.y-a.y)||1,dx=(o.x-a.x)/l,dy=(o.y-a.y)/l;
+      tf+=ptTp(x,y,x+dx*.9+.3,y+dy*.9,x+dx*1.8+(R()-.5)*.6,y+dy*1.8,.28);}
+    lay.push(`<path class="F" d="${fd}"/>`,`<path class="k" d="${tf}" fill-opacity=".8"/>`,ptL('M63.6 79.6Q65.4 86 66.6 96',.8,.9),`<path class="F" d="${ptC(64.6,84.4,.7)+ptC(65.6,89.4,.7)}"/>`);}
+  if(D===22){const bx=58.6,by=73.4;
+    lay.push(ptK('M38.6 71C35.4 69 33.8 65.4 34.2 61.4C36 62.2 37.6 63.4 39 64.8Z'),ptL('M38.6 71C35.4 69 33.8 65.4 34.2 61.4',.5,.85),
+      ptL('M38 69.8Q47.4 74 57.2 70.2',.85,.9),ptCut([[56.6,75.2,48,83,40.6,98],[55.6,73.6,44,79,30.4,93],[57.8,76.8,53.4,87,51,99],[54,71.8,40.4,75.6,22.4,86.4]],.75,.6),
+      ptL(`M${bx+1.4} ${by+2}Q64 84 66.4 97`,.85,.9),
+      `<path class="F" d="${ptC(bx,by,2.7)}"/>`,ptK(ptC(bx,by,1.9)),`<path class="F" d="${ptC(bx,by,.95)}"/>`,ptN(ptC(bx,by,2.7),.3,SK?.85:.5),ptN(`M${bx-3.6} ${by+1.8}L${bx+3.4} ${by-1.6}`,.45,.95));}
+  if(D===23){const shirt='M56.4 65.8L60.4 66.8L62.2 72.6L60.2 75.6Q57.6 70.8 56.4 65.8Z',tie='M57.9 66.6L59.5 66.8L60.4 70.6L59.5 74.4L58.6 70.6Z';
+    const lap='M55.4 66.8Q55.4 71.4 57.4 74.2L54.6 75.4L58.4 76.6L60.2 75.6M60.4 66.8Q63.2 70.4 63.6 73.4L66 72.4L64.4 75.4L60.2 75.6';
+    lay.push(`<path class="F" d="${shirt}"/>`,ptK(tie),`<path class="f" d="M55.4 66.8Q55.4 71.4 57.4 74.2L54.6 75.4L58.4 76.6L60.2 75.6L56.4 65.8ZM60.4 66.8Q63.2 70.4 63.6 73.4L66 72.4L64.4 75.4L60.2 75.6L62.2 72.6Z" fill-opacity=".32"/>`,
+      ptL(lap,.8,.95),ptL('M60.2 75.6Q61.6 80 62.6 86',.55,.7),`<path class="F" d="${ptC(57.2,78.6,.72)+ptC(57.8,81.8,.72)+ptC(61.8,77.8,.72)+ptC(62.3,81,.72)}"/>`);}
+  if(D===24){const P=ptQ([39.8,67.2],[46.6,80],[58.4,68.8],14);let pr='';P.forEach((p,i)=>{if(i&&i<P.length-1)pr+=ptC(p.x,p.y,.8);});
+    const drop='M58 70.2C58.9 71.2 59.2 72.4 58.6 73.2C58 73.8 57.2 73.6 57 72.8C56.8 72 57.2 71 58 70.2Z';
+    if(!SK)lay.push(ptL(`M${cvF(37.6+nk*.3)} 70.6Q50 89 72.2 77.4`,1.1,.85));
+    lay.push(`<path class="F" d="${pr+drop}"/>`,ptN(pr+drop,.28,SK?.8:.4));}
+  /* the long beard, over the dress, its moustache with it */
+  if(E===8)lay.push(HR('M52 40C53 44.4 55.6 48.4 59.4 50.2L61.4 51.2C62.8 51.8 64.2 52 65.2 52.6C66.8 53.4 67.6 55.4 67.2 57.4C67.8 59.4 67.6 61.4 67 63.6C67.6 66.8 66.8 70.2 65.4 73.2C64.6 76.6 62.8 79.8 60 82.2C58.6 79.4 57.2 76.6 55.4 74.2C53.6 71.4 52.6 68 52 64.6C51 61 50.8 57 51 53C51 48.6 51.2 44 52 40Z'),
+    ptCut([[52.7,43.4,52.3,48.8,53.6,54.6],[55,48.2,54.4,56,56.4,64],[57.8,51.2,56.8,60,58.6,70],[60.9,53.2,59.8,62,60.8,74],[63.5,54.6,63.4,63,62.6,72.6],[65.5,56.2,66.2,62,64.4,69,.36]],.46,0,PT_RT),
+    ptCut([[54.6,60,55.4,66,57.6,71.4],[57.4,66,58.4,72.4,59.6,78.6],[61.2,70.4,61.8,75,60.8,79.2],[63.8,66.4,64.4,70.4,63.4,74.8]],.3,.8,PT_RT),ptCut([[52.2,40.8,53.6,45.8,58.8,49.9]],.22,.45),
+    HR(mous),ptCut([[62.2,48.2,62.9,49.4,63.4,50.4],[64.2,47.8,65,49.2,65.3,50.5],[66.1,48.2,66.9,49.5,66.7,51]],.32,0,PT_RT),ptCut([[60.8,48.1,62.4,47.3,64.3,47.5]],.2,.5),ptCut([[61.6,51.5,63.6,51.7,65.9,52.5]],.26,.85));
   /* details */
   if(X===1){if(SK)lay.push(ptN(ptC(60.3,40.9,2.5),.75),ptN('M59.4 43.3Q55 52 57.4 62',.35,.75));else lay.push(ptL(ptC(60.3,40.9,2.5),.8,.95),ptCut([[58.5,40.4,58.7,39.1,59.8,38.7]],.32,.9),ptL('M59.4 43.3Q55 52 57.4 62',.4,.7));}
   if(X===2){if(SK)lay.push(ptN('M61.4 39.1a1.5 2.1 0 1 0 .01 0Z',.65),ptN('M60 40.6L50.6 42.2',.5));else lay.push('<path class="l" d="M61.4 39.1a1.5 2.1 0 1 0 .01 0Z" stroke-width=".7" stroke-opacity=".95"/>',ptL('M60 40.6L50.6 42.2',.55,.9));}
@@ -74442,6 +74515,20 @@ function ptBust(seed,look,old){
     if(earOn){const ear='M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2Z';lay.push(SK?`<path d="${ear}" fill="${SK[0]}"/>`+ptM('M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2',SK[1],.85,.85)+ptM('M48.7 44.4c1.1-.1 1.5.8 1.3 1.7',SK[1],.45,.6):ptK(ear)+ptL('M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2',.9));}}
   if(X===13){const pin='M52.4 70.6h5.4v3.6h-5.4Z';
     lay.push(`<path class="F" d="${pin}"/>`,ptN('M52.4 71.8h5.4M52.4 73h5.4',.28,.45),ptN(pin,.34,.95));}
+  /* the details of 15 November 2026: an eyepatch on its strap, a bent pipe with a wisp of smoke, a pocket square, a bar of
+     medal ribbons and freckles */
+  if(X===14){const pa='M59.2 39.6C60.8 38.8 62.6 39.2 63 40.8C63.4 42.6 62.4 44 60.9 44.2C59.6 44.2 58.6 43 58.6 41.6C58.6 40.8 58.8 40.1 59.2 39.6Z',st='M59.4 39.8Q53.4 36.4 46.8 36.2Q40.4 36 34.6 39.6';
+    if(SK)lay.push(ptN(st,.8,.95),ptL(st,.22,.55),ptK(pa),ptL('M59.6 40.4Q61.2 39.8 62.4 40.6',.3,.6));else lay.push(ptL(st,.65,.9),ptL(pa,.55,.95));}
+  if(X===15){const bowl='M66.8 54.2L71.6 53.6L71.4 58.4C71.2 60.6 69.8 61.6 68.4 61.4C67.2 61.2 66.6 60 66.7 58.4Z';
+    lay.push(`<path class="k" d="${ptTp(67.6,55.2,65.4,52.6,63.2,51.2,.7,PT_RT)}"/>`,ptK(bowl),ptL('M67.4 55.4L67.5 58.6',.35,.6),ptL('M66.9 54.3L71.5 53.7',.4,.8),
+      ptN('M69.4 52.6Q67.6 50.2 69.6 48Q71.4 45.8 69.8 43.2',.4,.3));}
+  if(X===16){const sq='M51.8 79.4L52.6 76.4L53.8 78.2L55.2 75.6L56.2 77.8L57.4 76.2L57.8 78.8Z';
+    lay.push(`<path class="F" d="${sq}"/>`,ptN(sq,.3,SK?.85:.45),ptL('M51.2 79.6L58.4 78.6',.7,.9));}
+  if(X===17){let rb='',st='';for(let r=0;r<2;r++)for(let c=0;c<3;c++){const x=49.8+c*2.5-r*.3,y=73.4+r*2,w=2.3,h=1.7,k=(r*3+c)%3;rb+=`M${cvF(x)} ${cvF(y)}h${w}v${h}h-${w}Z`;
+      st+=k===0?`M${cvF(x+w/2)} ${cvF(y)}v${h}`:k===1?`M${cvF(x+.6)} ${cvF(y)}v${h}M${cvF(x+w-.6)} ${cvF(y)}v${h}`:`M${cvF(x+.45)} ${cvF(y)}v${h}M${cvF(x+w/2)} ${cvF(y)}v${h}M${cvF(x+w-.45)} ${cvF(y)}v${h}`;}
+    lay.push(`<path class="F" d="${rb}"/>`,ptN(st,.42,.85),ptN(rb,.24,SK?.85:.5));}
+  if(X===18){let fk='';for(const [x,y,r] of [[57.4,44.6,.34],[58.6,45.8,.3],[59.8,44.4,.32],[60.6,46.2,.28],[57.8,46.8,.26],[59.2,47.4,.3],[61.6,45,.26],[62.6,43.4,.28],[63.4,44.6,.26],[56.6,45.6,.24],[61,47.8,.24],[58.2,43.4,.22]])fk+=ptC(x,y,r);
+    lay.push(SK?`<path d="${fk}" fill="${SK[1]}" fill-opacity=".6"/>`:`<path class="f" d="${fk}" fill-opacity=".7"/>`);}
   /* headwear, over everything */
   const hat=(sil,lines)=>lay.push(ptK(sil),...lines);
   if(H===1){
@@ -74546,6 +74633,39 @@ function ptBust(seed,look,old){
       [ptCut([[55.2,15,56.2,22,56.6,28]],.75,.4),ptCut([[42.2,15.4,41.6,21,41.8,27]],.3,.3),ptL('M39 27.6L58.5 26.2',.6,.85),ptL('M38.8 30.2L58.7 28.8',.6,.85),
         `<path class="f" d="M50.4 26.6h3.8l.1 3h-3.8Z"/>`,ptK('M51.4 27.4h1.8v1.4h-1.8Z'),ptL('M40.2 13.6Q48.6 10.8 57.2 13.2',.4,.6),
         ptL('M25.2 35.6Q30.8 36 40.2 34.6L58.2 33.4Q69 34.6 74 31.6',.85,.95),ptL('M30 33.4Q35 32 40 32.2L57.8 30.8Q66 30.2 70.6 31.6',.35,.55)]);
+  }
+  /* the headwear of 15 November 2026: a fez with its tassel, a bowler, a fedora (creased, pinched, the brim snapped down
+     in front), a pith helmet, a tall fur hat, a head wrap knotted at the front, and a tiara of pearl-tipped points */
+  if(H===18){
+    hat('M36.4 37.8L41.2 18.4Q49.6 15.6 58 16.4L61 33.6Q48.6 34.8 36.4 37.8Z',[ptL('M36.4 37.8Q48.6 34.8 61 33.6',.9,.95),ptL('M41.2 18.4Q49.6 15.6 58 16.4',.4,.55),ptCut([[56,19.4,57.4,26,58.4,31.6]],.6,.4),ptCut([[42,22,40.6,28,39.4,33.6]],.3,.3),ptL('M49.8 16.6Q44.6 16.4 41.4 18.6',.5,.9)]);
+    lay.push(ptN('M41.2 18.8Q37.6 20.4 36 24',.55,.95),`<path class="k" d="${ptCuts([[36,23.8,34.8,26.6,33.6,30],[36,23.8,35.6,26.8,35.2,30.6],[36,23.8,36.6,26.8,37,30.2]],.75,PT_RT)}"/>`,ptK(ptC(36,24,.95)),ptCut([[35.7,25.6,35.3,27.6,35.2,29.6]],.18,.6));
+  }
+  if(H===19)hat('M38.6 33.4C37.8 25.8 42.2 20 49.2 19.6C56.2 19.4 60.8 24.6 60.4 31.8ZM31.2 34.6C32.4 35.8 35 36.4 38.2 35.8L60.4 32.8C63.6 32.4 66 31.8 67.2 30.2C67.6 32.2 65.4 34.2 61 35L38.4 38C34.4 38.4 31.6 37 31.2 34.6Z',
+    [ptL('M38.5 31.4Q49 29.6 60.4 29.8',.75,.85),ptL('M38.5 33.2Q49 31.6 60.4 31.4',.3,.5),ptCut([[55.8,22.4,58.6,26.2,59,29.4]],.65,.4),ptCut([[42.4,23.4,40.2,26.6,39.6,29.6]],.3,.3),ptL('M31.2 34.6C31.6 37 34.4 38.4 38.4 38L61 35C65.4 34.2 67.6 32.2 67.2 30.2',.85,.95)]);
+  if(H===20)hat('M38.8 32.6C38.4 27 39.6 22.4 42.6 21C45 19.8 47.4 21.4 49.6 21.2C52.6 20.8 56 20.2 57.8 22.2C59.4 24 59.8 27.8 59.4 31.2ZM28.6 32.4Q33 33.4 38.4 32.6L59.4 30.8Q65.8 30.2 71.2 33.4Q66.2 35.4 59.8 34.4L38.8 35.8Q32.6 36.2 28.6 32.4Z',
+    [ptL('M38.7 29.4Q49 27.6 59.6 28',.45,.65),ptL('M38.8 31.6Q49 29.8 59.5 30.2',.3,.5),ptL('M42.6 21.4Q46.4 24 50.6 22.8',.4,.55),ptCut([[56.2,22.4,55.2,24.8,55.6,27.2]],.45,.6),ptCut([[44,22.6,41.4,25.4,40.8,28.6]],.3,.3),ptL('M28.6 32.4Q32.6 36.2 38.8 35.8L59.8 34.4Q66.2 35.4 71.2 33.4',.85,.95)]);
+  if(H===21)hat('M37.6 34C36.6 24.4 42 17.8 49.4 17.4C57 17.2 62.2 23.4 61.4 32.6ZM27.4 40.8C30.8 37.6 35.4 35.6 40 34.8Q49 33.4 58 32.4C63.2 32 68 33.4 71.4 36.2C67.8 36.6 63.2 35.4 58.4 35.8Q49 36.6 40.4 38C36 38.8 31.4 40 27.4 40.8Z'+ptC(49.4,16.4,1.5),
+    [ptL('M37.7 31.6Q49 29.6 61.5 30.2',.85,.8),ptL('M37.6 29.6Q49 27.6 61.6 28.2',.35,.6),ptL('M49.4 17.8Q54.8 21.8 56.8 28.6M49.4 17.8Q44 21.8 42.4 29.8',.32,.45),ptCut([[57.2,21.6,59.6,25.4,60,28.6]],.6,.4),ptL(ptC(49.4,16.4,1.5),.35,.8),
+      ptL('M27.4 40.8C31.4 40 36 38.8 40.4 38Q49 36.6 58.4 35.8C63.2 35.4 67.8 36.6 71.4 36.2',.85,.95)]);
+  if(H===22){const C4=[[37.4,20.2],[49,16],[60.6,17.6],[61.8,33.8],[48.6,36],[35.6,38.4]],E4=[[[37.4,20.2],[49,15.6],[60.6,17.6]],[[60.6,17.6],[61.3,25.7],[61.8,33.8]],[[61.8,33.8],[48.6,35.4],[35.6,38.4]],[[35.6,38.4],[36.4,29.3],[37.4,20.2]]];let fz='';
+    E4.forEach(([a,c,b],e)=>{ptQ(a,c,b,e%2?9:13).forEach((p,i)=>{if(e&&!i)return;const off=(e===2?.25:.45)+.55*Math.abs(Math.sin((i+e*7)*2.1)),nx=p.ty,ny=-p.tx;fz+=(fz?'L':'M')+cvF(p.x+nx*off)+' '+cvF(p.y+ny*off);});});
+    /* astrakhan: tight curls all over */
+    const R=rng(hash('fur-hat'));let cu='';for(let y=19.2,row=0;y<37;y+=1.9,row++)for(let x=37.4+(row%2)*1.1;x<61.6;x+=2.2){const jx=x+(R()-.5)*.8,jy=y+(R()-.5)*.6;
+      if(!ptInP(C4,jx,jy)||!ptInP(C4,jx+1.2,jy-.7)||!ptInP(C4,jx+.6,jy+.9))continue;cu+=R()<.5?`M${cvF(jx)} ${cvF(jy)}a.85 .85 0 1 0 1.2 -.65`:`M${cvF(jx)} ${cvF(jy)}a.9 .9 0 1 1 1.25 .7`;}
+    hat(fz+'Z',[ptL(cu,.42,.62),ptL('M35.6 38.4Q48.6 35.4 61.8 33.8',.8,.9),ptCut([[58.4,20.4,59.8,26,60,31.6]],.5,.3)]);
+  }
+  if(H===23){const lp='M56.6 20.4C55 15.8 57.8 12.8 61.2 14.6C62 17.4 60.4 19.8 58.4 21ZM59.6 21.2C63 18.6 66.6 19.4 66.8 22.6C65 24.6 62.4 24 60.2 22.6Z';
+    hat('M33.4 44.2C31.2 34.4 33.4 24.8 41.2 20.2C47.8 16.6 55.8 17.2 60.6 21.6C62.8 23.8 63.6 27.6 62.8 31.8C58.8 32.4 54.6 33.8 50.8 35.8C45.8 38.6 40.2 42 33.4 44.2Z'+lp+ptC(59.2,21.6,2.1),
+      [ptCut([[34.6,41.2,40.8,30,57,22.6],[37.8,40.6,45.4,31.6,61.6,27.6],[34,33.6,39.2,24,53,19.4]],.55,.7),ptCut([[58,24.6,47.6,27.6,36.4,37.8]],.4,.5),
+       ptL(lp,.4,.85),ptL(ptC(59.2,21.6,2.1),.45,.9),ptL('M57.6 19.8Q58.4 16.4 60.4 15.4M61 22Q63.8 20.6 65.8 22.2',.3,.6),ptL('M33.4 44.2C40.2 42 45.8 38.6 50.8 35.8C54.6 33.8 58.8 32.4 62.8 31.8',.8,.95)]);
+  }
+  /* the tiara rides on the hair: raised as far as a tall crown of hair (an afro, curls) rises above the plain one */
+  if(H===24){const c51=(()=>{for(let i=0;i<crown.length-1;i++){const [x0,y0]=crown[i],[x1,y1]=crown[i+1];if(x0<=51&&x1>=51)return y0+(y1-y0)*(51-x0)/((x1-x0)||1);}return 24.3;})(),up=Math.min(0,c51-24.3);
+    const P=ptQ([43.2,28.8+up*.6],[51.2,21.4+up],[60.6,29.4+up*.6],11),hs=[1.6,2.6,1.8,3.6,5.2,3.6,1.8,2.6,1.6];
+    const bd='M'+P.map(p=>cvF(p.x+p.ty*.55)+' '+cvF(p.y-p.tx*.55)).join('L')+'L'+P.slice().reverse().map(p=>cvF(p.x-p.ty*.55)+' '+cvF(p.y+p.tx*.55)).join('L')+'Z';
+    let pk='',pe='',gm='';P.forEach((p,i)=>{if(i&&i<P.length-1)gm+=ptC(p.x,p.y,.34);if(!i||i===P.length-1)return;const h=hs[i-1],a=Math.atan2(-p.tx,p.ty)*180/Math.PI,x=p.x+p.ty*.4,y=p.y-p.tx*.4;
+      pk+=ptLeaf(x,y,a,h,.5+h*.12);pe+=ptC(x+p.ty*h,y-p.tx*h,.42+h*.06);});
+    lay.push(ptK(pk),ptL(pk,.3,.8),ptK(bd),ptL(bd,.3,.85),`<path class="F" d="${gm+pe}"/>`);
   }
   const o={lay:lay.join(''),s:PT_HAT_S[H]||1,f:L.f===1?1:0,d,h,list:lay};
   if(PT_BUSTS.size>600)PT_BUSTS.clear();
@@ -74922,7 +75042,7 @@ function ptHelpShop(){
   const ps=Object.keys(PT_PACK_N).filter(p=>by[p]&&(ptPackSells(p)||shopOwns(p)||(p==='idpack'&&shopOwns('founder'))));if(!ps.length)return '';
   const maya=ps.includes('mayapack'),rest=ps.filter(p=>p!=='mayapack');
   return `<p>Packs in the Shop add pieces too.${maya?' The <b>Mayan Pack</b> adds three headdresses, two hairstyles, three kinds of dress, jade ear spools, a nose bead, a stepped-fret ring and a jade ink.':''}${rest.length?' '+(maya?'Each of the others adds two. ':'')+rest.map(p=>`<b>${esc(PT_PACK_N[p])}</b>: ${esc(list(by[p]))}`).join('; ')+'.':''} You can try them on here; saving needs the pack. Other players see them on your portraits once the pack is yours.</p>`;}
-HELP_EXT.push({k:'portraits',t:'Portraits of the government',body:n=>`<p>The head of government and every minister has a portrait: a bust in profile, engraved in one ink. It is drawn from their name, and you can change it in <b>Customise › Portraits</b>, or with <b>Edit portrait</b> on a cabinet card: a skin colour (or the one ink of an engraving), twenty kinds of hair, nose, chin and brow, which way they face, grey hair, a beard or moustache, a hat, fourteen kinds of dress and one detail. Pick a part with the arrows, or click its name for the whole list, and save. Banknotes stay engraved in one ink.</p>
+HELP_EXT.push({k:'portraits',t:'Portraits of the government',body:n=>`<p>The head of government and every minister has a portrait: a bust in profile, engraved in one ink. It is drawn from their name, and you can change it in <b>Customise › Portraits</b>, or with <b>Edit portrait</b> on a cabinet card: a skin colour (or the one ink of an engraving), twenty-four kinds of hair, nose, chin and brow, which way they face, grey hair, a beard, moustache or stubble, a hat, nineteen kinds of dress and one detail. Pick a part with the arrows, or click its name for the whole list, and save. Banknotes stay engraved in one ink.</p>
 <p>The head of government also has an ink, a ring and a nickname. Nicknames are earned in office, such as “the Builder” for 25 buildings finished or “the Wise” for 100 edicts decided. A new leader starts without one. A leader who is renamed keeps their face, and a minister who takes over brings theirs.</p>
 <p>The <b>cabinet dress code</b> dresses every minister at once, and new ministers arrive dressed to it. A few pieces are earned in play: the crown and the ermine robe by keeping a leader in office, the laurel wreath with a gold medal at the Meridian Games, the bicorne by taking land in a war, and more. You can try any of them on before you have them.</p>
 ${ptHelpShop()}

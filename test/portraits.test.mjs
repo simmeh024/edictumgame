@@ -28,11 +28,11 @@ test('the court painter’s edict: one edict, numbered after every older one, be
   assert(/'PT_ISSUES'/.test(readFileSync(new URL('../scripts/split-content.mjs',import.meta.url),'utf8')),'the content split carries it');
 });
 
-test('twenty-two kinds of hair, twenty of dress and eight skin colours, the ten newer ones open to all; notes print without the skin',()=>{
+test('twenty-six kinds of hair, twenty-five of dress and eight skin colours, the newer ones open to all; notes print without the skin',()=>{
   const i=source.indexOf('const PT_ROWS=['),rows=vm.runInNewContext(source.slice(i+'const PT_ROWS='.length,source.indexOf(';',i)));
   const by=Object.fromEntries(rows.map(r=>[r[0],r[2]]));
   assert.equal(rows[0][0],'s','the skin comes first');assert.equal(by.s.length,9);assert.equal(by.s[0],'Engraved','0 is the engraving in one ink');
-  assert.equal(by.h.length,22);assert.equal(by.d.length,20);assert.equal(by.w.length,18);assert.equal(by.x.length,14);
+  assert.equal(by.h.length,26);assert.equal(by.d.length,25);assert.equal(by.w.length,25);assert.equal(by.x.length,19);assert.equal(by.e.length,10);
   assert.deepEqual([...by.h.slice(0,10)],['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided'],'the older hair keeps its numbers');
   assert.deepEqual([...by.h.slice(10,20)],['Bald','Curly','Ponytail','Bob','Pompadour','Receding','Locs','Long waves','Cornrows','Long plait'],'and so does the hair added after it');
   assert.deepEqual([...by.d.slice(0,9)],['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office'],'the older dress keeps its numbers');
@@ -108,4 +108,24 @@ test('the portraits section: its record keys, its private fields, and the wrappe
   assert(source.includes('.cz-dock[data-sec="r"]~.cz-sec:not(#cz-sec-r)'),'Customise hides the section when another is open');
   /* the banknotes' past series keep the portrait of their last day */
   assert(/p=ptSnapNorm\(x\.p\);if\(p\)o\.p=p;return o;/.test(source),'n.cuS keeps p');
+});
+
+test('the 25 pieces of 15 November 2026: named after every older one, open to all, and each drawn cleanly in every manner',()=>{
+  const i=source.indexOf('const PT_ROWS=['),rows=vm.runInNewContext(source.slice(i+'const PT_ROWS='.length,source.indexOf(';',i))),by=Object.fromEntries(rows.map(r=>[r[0],r[2]]));
+  const want={h:[22,['Afro','Side part','Chignon','Mohawk']],e:[6,['Goatee','Van Dyke','Long beard','Stubble']],w:[18,['Fez','Bowler','Fedora','Pith helmet','Fur hat','Head wrap','Tiara']],
+    d:[20,['Turtleneck','Fur-collared coat','Cloak and brooch','Double-breasted coat','Gown and pearls']],x:[14,['Eyepatch','Pipe','Pocket square','Ribbon bar','Freckles']]};
+  const a=source.indexOf('const PT_LOCK={'),lk=source.slice(a,source.indexOf('};',a)),PS=vm.runInNewContext('('+source.match(/const PT_SHOP=(\{[^}]+\});/)[1]+')');
+  let n=0;
+  for(const [k,[from,names]] of Object.entries(want)){assert.deepEqual([...by[k].slice(from)],names,k+': the new pieces come after every older one');
+    names.forEach((_,j)=>{const id=k+(from+j);n++;assert(!new RegExp('\\b'+id+':').test(lk),id+' is not earned');assert(!PS[id],id+' is not sold');});}
+  assert.equal(n,25);
+  /* the renderer on its own: every piece engraved, with a skin, grey and facing left, and worn together */
+  const line=s=>{const j=source.indexOf(s);return source.slice(j,source.indexOf('\n',j));},cut=(s,e)=>{const j=source.indexOf(s);return source.slice(j,source.indexOf(e,j));};
+  const ctx=vm.createContext({});
+  vm.runInContext([line('function hash(str){'),line('function rng(seed){'),'let cvMed=function(){return "";};',cut('const cvF=v=>Math.round(v*10)/10;','function cvBust(seed){'),cut('const PT_ROWS=[','/* ── whose face:'),'this.ptBust=ptBust;'].join('\n'),ctx);
+  const plain=ctx.ptBust('Ottoline Varga',{},false).lay;
+  for(const [k,[from,names]] of Object.entries(want))names.forEach((nm,j)=>{const v=from+j;
+    for(const [look,old] of [[{[k]:v},false],[{[k]:v,s:5},false],[{[k]:v,s:2,f:1},true],[Object.assign({h:22,e:8,w:24,d:24,x:15,s:7},{[k]:v}),true]]){
+      const b=ctx.ptBust('Ottoline Varga',look,old);
+      assert(!/NaN|undefined|Infinity/.test(b.lay),nm+' draws cleanly: '+JSON.stringify(look));assert.notEqual(b.lay,plain,nm+' changes the bust');}});
 });
