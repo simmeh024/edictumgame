@@ -4636,6 +4636,7 @@ button.fk-rp:hover,button.fk-qb:hover{color:var(--accent)}
 .tut-req-go{margin-top:4px}
 /* coming up */
 .tut-up{margin:14px 0 0;padding:10px 14px 12px;background:var(--sheet-2);border-radius:4px}
+.tut-now{border-left:3px solid var(--accent)}.tut-now .tut-up-x .linkish{align-self:flex-start}
 .tut-up>.eyebrow{margin:0 0 6px}
 .tut-up-l{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px 16px}
 .tut-up-l li{display:flex;gap:10px;align-items:flex-start}
@@ -10910,10 +10911,15 @@ const REGION_MER={id:'meridian',name:'Meridian Reach',the:'the Meridian Reach',s
   outer:['Farhaven','the Brine Marches','Corvel','Sundermark','the Wending Isles','Halloway','Estmere','Greyhallow','the Ninefold Isles','Kestrel Point','Morrow Land','Ashby Reach','Tallowmere','the Outer Shoals','Pellam','Dunraven','Ostermoor','Wyke','the Gannet Rocks','Saltmarrow','Fennick Major','the Lees of Aire']};
 const REGIONS=[REGION_MER].concat(REGIONS_EXTRA);
 const REG_BY_ID=Object.fromEntries(REGIONS.map(r=>[r.id,r]));
-/* the region this browser's nation lives in (only its reg is read here), or the one chosen for founding */
+/* the region a newcomer who has chosen none starts in, and the first in the founding lists (the owner, 15 Nov 2026:
+   the Sunken Kingdoms rather than the crowded Meridian Reach); Meridian on local test hosts, where the browser suites
+   expect it, and wherever there is no location (the map bake) */
+const FIRST_REG=(()=>{try{if(REG_BY_ID.sunkenkingdoms&&!/^(127\.0\.0\.1|localhost)$/.test(location.hostname))return 'sunkenkingdoms';}catch(e){}return 'meridian';})();
+/* the region this browser's nation lives in (only its reg is read here; a nation saved before regions has none and
+   lives in Meridian), or the one chosen for founding, or FIRST_REG */
 const HOME_REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('statehood.nation.v1'),d=raw&&JSON.parse(raw);
   if(d&&typeof d==='object'&&d.name){if(typeof d.reg==='string'&&REG_BY_ID[d.reg])id=d.reg;}
-  else{const r=localStorage.getItem('statehood.region');if(r&&REG_BY_ID[r])id=r;}}catch(e){}return REG_BY_ID[id];})();
+  else{const r=localStorage.getItem('statehood.region');id=r&&REG_BY_ID[r]?r:FIRST_REG;}}catch(e){}return REG_BY_ID[id];})();
 /* Observer mode (admins only): this tab shows the region OBS names, read-only, as if the admin lived there. The
    key lives in this tab's sessionStorage (set by obsEnter, cleared by obsExit). While it is set the admin's own
    nation is never read, normalised, committed or saved here: S.nation is a stand-in with no land (obsNation),
@@ -29663,7 +29669,8 @@ function regMode(id){if(!regDisabled(id))return 'enabled';const s=RCTRL.states[i
 /* the regions in the order players see them: open first, then those under maintenance, then those coming soon */
 /* until 12 Nov 2026 the founding lists put open regions with the fewest active players first, to spread new nations out */
 const QUIET_FIRST_UNTIL=Date.UTC(2026,10,12);
-function regionsForFounding(){const L=regionsByAvail();if(Date.now()>=QUIET_FIRST_UNTIL||!Object.keys(RSTAT.n).length)return L;const rk=R=>({enabled:0,maintenance:1,coming_soon:2})[regMode(R.id)]+(regFull(R.id)?0.5:0);return L.map((R,i)=>[R,i]).sort((a,b)=>rk(a[0])-rk(b[0])||(rk(a[0])===0?(RSTAT.n[a[0].id]||0)-(RSTAT.n[b[0].id]||0):0)||a[1]-b[1]).map(x=>x[0]);}
+/* the founding lists: open regions first, FIRST_REG at the top while it is open */
+function regionsForFounding(){const L=regionsByAvail(),i=L.findIndex(R=>R.id===FIRST_REG);if(i>0&&regMode(FIRST_REG)==='enabled')L.unshift(L.splice(i,1)[0]);return L;}
 function regionsByAvail(){const rk=R=>({enabled:0,maintenance:1,coming_soon:2})[regMode(R.id)];return REGIONS.map((R,i)=>[R,i]).sort((a,b)=>rk(a[0])-rk(b[0])||a[1]-b[1]).map(x=>x[0]);}
 /* the room a region has for active nations: its own cap, or the usual one (tests set EDICTUM_REGION_CAP for all) */
 function regCap(id){const R=REG_BY_ID[id];return window.EDICTUM_REGION_CAP||!(R&&R.cap>0)?REGION_CAP:R.cap;}
@@ -29866,7 +29873,7 @@ function foundRegionBox(){
     <details class="fr-more"${full||regDisabled(REG.id)||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${regionsForFounding().map(R=>{const f=R.id!==REG.id&&regFull(R.id),disabled=regDisabled(R.id);return `<li class="${disabled?'region-disabled':''}"><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f||disabled?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}${disabled?` <span class="chip">${regLabel(R.id)}</span>`:''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details>
     <p class="fr-maps"><button type="button" class="linkish" data-act="found-browse" aria-expanded="${!!S.frBrowse}">${S.frBrowse?'Hide the regions’ maps':'See every region on its map'}</button></p>
     ${S.frBrowse?foundRegionBrowser():''}
-    <p class="muted fr-first">Where in ${esc(REG.name)} your capital stands is your first edict: three advisors, three pins on the map, one choice.</p></div>`;
+    <p class="muted fr-first">Where in ${esc(REG.the||REG.name)} your capital stands is your first edict: three advisors, three pins on the map, one choice.</p></div>`;
 }
 
 /* ───────── Round 9 (E): dormant nations ─────────
@@ -41492,7 +41499,21 @@ function tutPick(n,x,first,busy){
   return `<li class="tut-pk-r${first?' is-rec':''}" data-k="${s.k}"><span class="tut-ic tut-ic-${L.k}" aria-hidden="true">${tutIco(s,L)}</span><span class="tut-pk-x"><span class="tut-grp${first?' is-rec':''}">${esc(lbl)}</span><b>${esc(tutTxt(s.t,n))}</b><span class="hint">${esc(tutTxt(s.h,n)||'')}</span>${tutRw(s)}</span>${tutBtn(n,s,'',first)}</li>`;
 }
 const tutPickList=(n,picks,busy)=>picks.length?`<div class="tut-next"><p class="eyebrow">Next for ${esc(n.name)}</p><ol class="tut-pk">${picks.map((x,i)=>tutPick(n,x,i===0,busy)).join('')}</ol></div>`:'';
-const tutFoot=()=>`<div class="stp-f"><button type="button" class="linkish small" data-act="tut-go" data-v="help" data-to="help-tut">Every task, in How to play</button><button type="button" class="linkish small" data-act="tut-hide">Hide these tasks</button></div>`;
+const tutFoot=done=>`<div class="stp-f"><button type="button" class="linkish small" data-act="tut-go" data-v="help" data-to="help-tut">Every task, in How to play</button><button type="button" class="linkish small" data-act="tut-hide">${done?'Hide this card':'Hide these tasks'}</button></div>`;
+/* with every task done the card stays, as What's next: the edicts on the desk (or when the next one comes) and today's
+   desk, above Coming up, so the Nation page always says what to do now. Each part is skipped if it cannot be worked out. */
+function tutNow(n){
+  const it=[],now=Date.now();
+  try{const v=syncInbox(n,now),k=deskN(v.inbox);
+    if(k)it.push({ic:'scroll',t:k===1?'An edict waits on your desk':`${k} edicts wait on your desk`,d:'Every answer moves your census.',go:['issues','','Open edicts']});
+    else if(awayOn(n,now))it.push({ic:'clock',t:'On holiday',d:`No new edicts until ${awayWhen(n.away.b)}.`});
+    else it.push({ic:'clock',t:'The next edict',d:`arrives in <b data-live="next">${esc(fmtDur(awayAdd(v,v.issueClock,(v.freq||FREQ_DEF)*60000)-now))}</b>`,raw:1});}catch(e){}
+  try{if(ddOn()){const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),done=D.q.filter((q,i)=>D.p[i]).length,cr=ddWeek(n,now)?2:1,at=ddNextAt(now,D);
+    it.push(D.w?{ic:'check',t:'Today’s desk is clear',d:`new tasks in <b data-live="ddnext" data-t="${at}">${esc(fmtWait(at-now))}</b>`,raw:1}
+      :{ic:'check',t:'Today’s desk',d:`${done} of ${D.q.length} done · clear ${D.q.length===3?'all three':'them'} for ${cr} land ${cr===1?'credit':'credits'}`,go:['issues','dd-h','Open the desk']});}}catch(e){}
+  if(!it.length)return '';
+  return `<div class="tut-up tut-now"><p class="eyebrow">Now</p><ul class="tut-up-l">${it.map(x=>`<li><span class="tut-up-i">${TUT_SVG(TUT_PATH[x.ic],20)}</span><span class="tut-up-x"><b>${esc(x.t)}</b><span class="hint">${x.raw?x.d:esc(x.d)}</span>${x.go?`<button type="button" class="linkish small" data-act="tut-go" data-v="${x.go[0]}" data-to="${x.go[1]}">${esc(x.go[2])}</button>`:''}</span></li>`).join('')}</ul></div>`;
+}
 /* the capital not placed yet: one line, under the card that places it */
 function tutFoldCard(n){
   const E=tutEst(n,true);
@@ -41531,10 +41552,10 @@ function tutCard(n){
   if(ph==='fut'){const F=tutGroup(n,tutL('future')),E=tutEst(n,true),ch=E.st.find(x=>x.s.ack&&!x.ok);
     return `<section class="stp tut-c tut-c-fut" data-ph="fut" aria-labelledby="tut-h"><div class="stp-h"><div><p class="eyebrow">Build your future</p><h2 class="stp-t" id="tut-h" tabindex="-1">Choose any two</h2></div><span class="tut-pips" role="img" aria-label="${Math.min(F.done,F.need)} of ${F.need} chosen">${[...Array(F.need)].map((_,i)=>`<i class="${i<F.done?'on':''}"></i>`).join('')}<span class="stp-n">${Math.min(F.done,F.need)} of ${F.need} chosen</span></span></div>
       <p class="tut-lede">${esc(F.L.lede)}</p>${strip}${ch?`<ol class="tut-pk">${tutPick(n,{...ch,L:E.L},false,busy)}</ol>`:''}${tutTiles(n,F)}${tutBonusLine(n,F.L)}${tutComing(n)}${tutOthers(n,ph)}${tutFoot()}</section>`;}
-  const picks=tutPicks(n,ph),oth=tutOthers(n,ph);if(!picks.length&&!oth)return '';
+  const picks=tutPicks(n,ph),oth=tutOthers(n,ph),done=!picks.length&&!oth;
   const tc=tutCredits(n);
-  return `<section class="stp tut-c tut-c-next" data-ph="next" aria-labelledby="tut-h"><div class="stp-h"><div><p class="eyebrow">Your tasks</p><h2 class="stp-t" id="tut-h" tabindex="-1">Next for ${esc(n.name)}</h2></div>${tc?`<span class="stp-n">${tc} land credits earned from tasks</span>`:''}</div>
-    ${strip}${picks.length?`<ol class="tut-pk">${picks.map((x,i)=>tutPick(n,x,i===0,busy)).join('')}</ol>`:''}${tutComing(n)}${oth}${tutFoot()}</section>`;
+  return `<section class="stp tut-c tut-c-next${done?' tut-c-done':''}" data-ph="next" aria-labelledby="tut-h"><div class="stp-h"><div><p class="eyebrow">What’s next</p><h2 class="stp-t" id="tut-h" tabindex="-1">Next for ${esc(n.name)}</h2></div>${done?`<span class="stp-n">Every task done${tc?` · ${tc} land credits earned`:''}</span>`:tc?`<span class="stp-n">${tc} land credits earned from tasks</span>`:''}</div>
+    ${done?`<p class="tut-lede">Every task is done. Here is what waits for you now, and what comes next.</p>`:''}${strip}${picks.length?`<ol class="tut-pk">${picks.map((x,i)=>tutPick(n,x,i===0,busy)).join('')}</ol>`:''}${done?tutNow(n):''}${tutComing(n)}${oth}${tutFoot(done)}</section>`;
 }
 
 /* ── Other things to try: a dialog on the page's body, so redraws of the page leave it be (a sheet on a phone) ── */
@@ -41581,10 +41602,6 @@ document.addEventListener('click',e=>{const d=document.getElementById('tut-dlg')
   if(!['tut-sec','tut-sheet','tut-sheet-x'].includes(el.dataset.act))d.close();},true);
 render=(f=>function(){const r=f.apply(this,arguments);try{tutSheetSync();}catch(e){}return r;})(render);
 /* Settings: the tasks hidden on this device, brought back */
-function stepsReset(){
-  const n=S.nation;if(!n||n.npc||!tutHid(n)||tutAllDone(n))return '';
-  return `<div class="row" style="margin-top:14px"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show the tutorial again</button><span class="hint">Your tasks return to your Nation page.</span></div>`;
-}
 function tutBlocks(){
   if(typeof blkOf!=='function')return false;const T=territory(),i=T.list.findIndex(x=>x.me);if(i<0)return false;
   return cityState(T).all.some(ct=>{if(!ct.active||ct.hi!==i)return false;const b=blkOf(ct,T);return ct.done.length>=b.n||b.n>(ct.cap?BLK_CAP0:BLK_CITY0);});
@@ -41953,7 +41970,7 @@ function tutHelp(n){
   return `<p>Your Nation page shows a short main path first: settle your capital, claim land, start a building and answer three edicts, then sign the founding charter. After it, Build your future asks for any two of four ways to grow. Your region, Make the nation your own and the Bonus tasks are optional and open from the start, and the ledger of ambitions keeps everything else for the long game. Every bonus task done unlocks four designs for Customise. The page suggests at most three things at a time, and only things your nation can do now.</p>
     <p>Every task ticks itself off from what your nation has actually done, wherever you did it, and pays the first time: land credits to spend on the map and, for most, a gift of resources. A task keeps its reward even if it later comes undone. A finished part pays a bonus once, and an epithet for your nation under Epithet in Customise.</p>
     <p>Some tasks wait on your nation: a second city opens with your first building, alliances at ${fmtPopShort(featureAt('alli'))}, bids for the Games at ${fmtPopShort(featureAt('host'))}, and the Assembly to Registered Nations a day old. Until then the task says what it waits for.</p>
-    ${me&&tutHid(n)&&!tutAllDone(n)?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show my tasks again</button><span class="hint">They are hidden on this device.</span></div>`:''}${groups}
+    ${me&&tutHid(n)?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show What’s next again</button><span class="hint">It is hidden on this device. Settings › Display has the same switch.</span></div>`:''}${groups}
     <h3 class="help-h3">Space guides</h3>
     <p>Space has guides of its own. The first time you open the Space page, a tour shows you round it: the space agency, its missions, the survey chart and what to do first. The first time the Moon opens to you, then Mars, then the asteroid belt, and again when your ship reaches the belt, a short guide walks through what is new, pointing at the Space page as it goes. Each appears once for your nation, on whichever device you play, and never while you are in the middle of something. Each body’s tab also keeps a checklist of its first five tasks, with a “?” that reopens its guide.</p>
     ${me?`<div class="tut-hb">${[...TUT_GS].map(g=>`<button type="button" class="btn ghost small-btn" data-act="tut-guide" data-g="${g}"><span class="tut-qi" aria-hidden="true">?</span>${esc(TUT_GUIDES[g].bt)}</button>`).join('')}</div>`:''}`;
@@ -41982,9 +41999,9 @@ document.addEventListener('click',e=>{
   if(a==='tut-g-next'){tutStep(1,true);return;}
   if(a==='tut-g-back'){tutStep(-1,true);return;}
   if(a==='tut-g-there'){tutThere();return;}
-  if(a==='tut-hide'){tutHide(true);render();toast('Your tasks are hidden on this device. How to play › Tutorial, or Settings, brings them back.');
+  if(a==='tut-hide'){tutHide(true);render();toast('What’s next is hidden on this device. Settings › Display, or How to play, brings it back.');
     const h=document.querySelector('#main h1,.hero h1');if(h)try{if(!h.hasAttribute('tabindex'))h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}catch(e){}return;}
-  if(a==='tut-show'||a==='tut-restore'){tutHide(false);tutGo('nation','','tut-h');toast('Your tasks are back on your Nation page.');return;}
+  if(a==='tut-show'||a==='tut-restore'){tutHide(false);tutGo('nation','','tut-h');toast('What’s next is back on your Nation page.');return;}
   if(a==='tut-later'){try{if(S.nation)localStorage.setItem(TUT_LATER,String(S.nation.seed));}catch(e){}render();const h=document.getElementById('tut-h');if(h)try{h.focus({preventScroll:true});}catch(e){}return;}
   if(a==='tut-sheet'){e.preventDefault();const d=document.getElementById('tut-dlg');if(d&&d.open){d.dataset.l=el.dataset.l||'region';tutSheetSync(true);d.scrollTop=0;try{d.querySelector('#tut-sh-h').focus({preventScroll:true});}catch(x){}return;}tutSheetOpen(el.dataset.l||'region',el);return;}
   if(a==='tut-sheet-x'){const d=document.getElementById('tut-dlg');if(d)d.close();return;}
@@ -48376,8 +48393,8 @@ function sgTabOfId(id){
   id=String(id||'').replace(/^#/,'');
   if(/^(s-freq|away-|tp-|sg-topics|set-edicts)/.test(id))return 'edicts';
   if(/^(set-notif|ntf-|set-mail|ml-)/.test(id))return 'notif';
-  if(/^(set-appearance|set-rates|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
-  if(/^(set-acct|set-social|set-online|rc-|set-tut|set-danger|set-dissolve|set-restart|set-delete|dz-)/.test(id))return 'account';
+  if(/^(set-appearance|set-rates|set-tasks|set-l-|cz-acc-|cz-l-)/.test(id))return 'display';
+  if(/^(set-acct|set-social|set-online|rc-|set-danger|set-dissolve|set-restart|set-delete|dz-)/.test(id))return 'account';
   if(/^(set-nav|nv-)/.test(id))return 'nav';
   if(/^set-sound/.test(id))return 'sound';
   return 'nation';
@@ -48490,7 +48507,10 @@ function settingsView(){
     <section class="sg-card" id="set-rates"><h3 class="sg-ch">Stockpile</h3>
       <div class="cz-disp">${czSeg('Resource gains','set-l-rt',[['h','Per hour'],['d','Per day'],['b','Both']],stkRate(),'cz-disp','rate')}</div>
       <p class="hint sg-rt-h">How the stockpile bars on Cities and the other pages show what each resource gains.</p>
-    </section>`;
+    </section>
+    ${OBS?'':`<section class="sg-card" id="set-tasks"><h3 class="sg-ch">Nation page</h3>
+      <label class="tog"><input type="checkbox" data-act="sg-tut"${tutHid(n)?'':' checked'}> Show What’s next on the Nation page</label>
+      <p class="hint">Your tasks while any are left, what is under way, and what comes next, even once every task is done. The card’s own Hide button turns it off too.</p></section>`}`;
   const sound=`${sgHead('sound','This device only','Applies at once. Nobody else hears it.')}${sfxSection()}`;
   const account=`${sgHead('account','','')}
     ${OBS?'':`<section class="sg-card" id="set-acct"><h3 class="sg-ch">Sign-in</h3><p class="hint fs-hint">How you sign in, the accounts linked to ${esc(n.name)}, your recovery key and signing out are in the account panel.</p><button type="button" class="btn ghost" data-act="acct-open">Open the account panel</button></section>`}
@@ -48498,7 +48518,6 @@ function settingsView(){
     ${OBS?'':`<section class="sg-card" id="set-online"><h3 class="sg-ch">Online status</h3>
       <label class="tog"><input type="checkbox" data-act="sg-online"${dmx(n).on===0?'':' checked'}> Show other players when I am online</label>
       <p class="hint">On the Region page, a green dot on your flag tells the nations of ${esc(REGION)} you have been in the game in the last 15 minutes. Switched off, the dot is gone for everyone within a few minutes. You still see who else is online.</p></section>`}
-    <section class="sg-card" id="set-tut"><h3 class="sg-ch">Tutorial</h3>${stepsReset()||`<p class="hint">Every tutorial list you have not finished is on your Nation page. <button type="button" class="linkish small" data-act="go" data-v="help">How to play</button></p>`}</section>
     ${sgDanger(n)}`;
   return `<header class="vh"><p class="eyebrow">Office of the ${esc(n.leader)}</p><h1>Settings</h1><p>The name ${esc(n.name)} is permanent. Everything else can change here.</p></header>
   <div class="sg" id="sg" data-tab="${t}">${rail}<div class="sg-body">${pane('nation',nation)}${pane('edicts',edicts)}${pane('notif',notif)}${pane('display',display)}${pane('sound',sound)}${pane('nav',navSettings())}${pane('account',account)}</div></div>`;
@@ -68516,6 +68535,9 @@ document.addEventListener('input',e=>{const t=e.target;if(!t||t.id!=='dz-type')r
 document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.id==='dz-type'&&e.key==='Enter'&&sgDzOk()){e.preventDefault();const b=document.getElementById('dz-go');if(b)b.click();}});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="sg-rs-drop"]');if(!el)return;sgCarry(null);S.draft=newDraft();draftKeep();render();});
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='s-freq'&&S.nation){const f=parseInt(t.value,10);if(FREQS.some(x=>x[0]===f))sgApply(n=>{n.freq=f;});}});
+/* Settings › Display: What's next on the Nation page, on or off on this device (the card's own Hide button, the same key) */
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.act!=='sg-tut'||!S.nation)return;tutHide(!t.checked);render();
+  toast(t.checked?'What’s next is back on your Nation page.':'What’s next is hidden on this device. Switch it back on here, or in How to play.');});
 document.addEventListener('keydown',e=>{
   const t=e.target;if(!t||!t.classList||!t.classList.contains('sg-tab'))return;
   const d={ArrowDown:1,ArrowRight:1,ArrowUp:-1,ArrowLeft:-1}[e.key];if(!d&&e.key!=='Home'&&e.key!=='End')return;e.preventDefault();
@@ -68533,7 +68555,7 @@ UX_SETTINGS.push(
   {v:'focus:set-notif',l:'Notifications and pop-ups',g:'Settings',words:'notifications pop-ups popups toasts bell badge alerts',view:'settings',target:'#set-notif'},
   {v:'focus:set-mail',l:'Letters by post (email)',g:'Settings',words:'email e-mail mail letters digest newsletter',view:'settings',target:'#set-mail'},
   {v:'focus:set-social',l:'Recruit a player',g:'Settings',words:'recruit invite friend referral link share',view:'settings',target:'#set-social'},
-  {v:'focus:set-tut',l:'Show the tutorial again',g:'Settings',words:'tutorial lists restore help steps',view:'settings',target:'#set-tut'},
+  {v:'focus:set-tasks',l:'Show What’s next',g:'Settings',words:'tutorial tasks next steps what’s next whats next card nation page restore hide show',view:'settings',target:'#set-tasks'},
   {v:'focus:set-restart',l:'Start over (danger zone)',g:'Settings',words:'start over restart reset begin again new game danger zone',view:'settings',target:'#set-restart'},
   {v:'focus:set-dissolve',l:'Dissolve nation (danger zone)',g:'Settings',words:'dissolve quit end nation danger zone',view:'settings',target:'#set-dissolve'},
   {v:'focus:set-delete',l:'Delete nation and account (danger zone)',g:'Settings',words:'delete account erase data privacy remove me gdpr danger zone',view:'settings',target:'#set-delete'}
