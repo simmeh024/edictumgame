@@ -1,7 +1,7 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
 import { eligibility, refuse, nationJSON } from './eligibility.js';
-import { SC_DAY, SC_MAX, SC_MSG, SC_AGE, SC_OLD, SC_KEEP, SC_ID, SC_DOC, scDay, scContents, scTotal } from './supply-rules.js';
+import { SC_DAY, SC_MAX, SC_MSG, SC_AGE, SC_OLD, SC_KEEP, SC_ID, SC_DOC, SC_SPONSOR, SC_SPONSOR_MS, scDay, scContents, scTotal } from './supply-rules.js';
 
 /* Supply Caches between players, written only here (civic ops sc*; functions/supply-rules.js holds the rules).
      supply/{uid}_{id}  {f, fn, to, tn, reg, r, q, m, t, d, x, exp, o}: from f (its nation's name fn) to (tn), in region
@@ -37,10 +37,13 @@ async function scSend(db, who, d) {
     if (!r) refuse('sc_bad', `A Supply Cache holds 1 to ${SC_MAX} materials.`);
     const to = isUid(c.to) && c.to !== who.uid ? c.to : '';
     if (!to) refuse('sc_target', 'Choose another player’s nation in your region.');
-    const [other, ban] = await tx.getAll(db.doc('nations/' + to), db.doc('bans/' + to));
+    const [other, ban, rec] = await tx.getAll(db.doc('nations/' + to), db.doc('bans/' + to), db.doc('recruits/' + to));
     if (!other.exists || (other.get('reg') || '') !== reg || ban.exists) refuse('sc_target', 'That nation is no longer in your region.');
+    /* a sponsor sends SC_SPONSOR more a day to the new nation that came through their recruiting link */
+    const filed = rec.exists && rec.get('r') === who.uid ? rec.get('t') : null, filedAt = filed && filed.toMillis ? filed.toMillis() : Number(filed) || 0;
+    const limit = SC_DAY + (filedAt && now - filedAt <= SC_SPONSOR_MS ? SC_SPONSOR : 0);
     const today = scDay(now), sent = await tx.get(db.collection('supply').where('f', '==', who.uid).where('d', '==', today));
-    if (sent.size >= SC_DAY) refuse('sc_day', `You have sent ${SC_DAY} Supply Caches today. More after midnight UTC.`);
+    if (sent.size >= limit) refuse('sc_day', `You have sent ${limit} Supply Caches today. More after midnight UTC.`);
     const x = now + SC_KEEP;
     tx.create(ref, { f: who.uid, fn: nameOf(e.n), to, tn: nameOf(nationJSON(other)), reg, r, q: scTotal(r), m, t: now, d: today, x, exp: Timestamp.fromMillis(x), o: 0 });
     return { ok: true, t: now };

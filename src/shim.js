@@ -1013,8 +1013,20 @@
       var u = A.auth && A.auth.currentUser;
       if (!u || observing()) return Promise.resolve([]);
       return A.fs.collection('recruits').where('r', '==', u.uid).limit(200).get().then(function (q) {
-        return q.docs.map(function (d) { var t = d.get('t'); return { id: d.id, t: t && t.toMillis ? t.toMillis() : 0 }; });
+        return q.docs.map(function (d) { var t = d.get('t'); return { id: d.id, t: t && t.toMillis ? t.toMillis() : 0, m: num(d.get('m')) }; });
       }, function () { return null; });
+    },
+    /* the visitor opened another player's recruiting link: on the admins' funnel (functions/accounts.js, recruitTrail) */
+    open: function (by) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || typeof by !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(by) || by === u.uid) return Promise.resolve(false);
+      return call('accounts', { op: 'recruitOpen', by: by }).then(function (r) { return !!(r && r.ok); }, function () { return false; });
+    },
+    /* the recruit's later steps, as the server reads them from the saved nation: 2 a week of play, 4 a second city */
+    step: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing()) return Promise.resolve(null);
+      return call('accounts', { op: 'recruitStep' }).then(function (r) { return r && r.ok ? num(r.m) : null; }, function () { return null; });
     }
   });
   /* bug reports (see firestore.rules): the game's Report a bug page sends one with send(report, screenshot?)
