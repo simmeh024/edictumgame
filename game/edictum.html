@@ -3919,6 +3919,8 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .rv-pn{margin-top:16px;padding-top:14px;border-top:1px solid var(--rule)}
 .rv-pn .rv-l{margin-top:4px}
 .rv-pn .hint{margin-top:8px}
+.rvn-form{margin-top:12px}.rvn-lab{display:block;font-family:var(--f-display);font-size:18px;font-weight:600}
+.rvn-form .name-row{margin-top:8px}.rvn-acts{margin-top:6px;gap:14px}
 
 /* round 10 (c): seasons and weather */
 .wx-tog{margin-top:4px}
@@ -23637,7 +23639,7 @@ function logLine(l,n,id){
     case 'war':return `War was declared on ${tg()}.`;case 'peace':return `Peace was made with ${tg()}.`;case 'conq':return `A hex of ${l.fx} was taken from ${tg()}.`;case 'lost':return `${tg()} seized a hex of ${l.fx}.`;
     case 'alfound':return `The alliance ${l.b} was founded.`;case 'aljoin':return `${n.name} joined ${l.b}.`;case 'alleave':return `${n.name} left ${l.b}.`;
     case 'trade':return `A trade deal was signed with ${tg()}.`;case 'tradeend':return `A trade deal with ${tg()} ended.`;
-    case 'cityren':return `The city of ${l.b} was renamed ${l.a}.`;case 'cityab':return `The city of ${l.a} on ${l.fx} was abandoned.`;case 'bidoff':return `The bid to host ${l.a} was withdrawn.`;
+    case 'cityren':return `The city of ${l.b} was renamed ${l.a}.`;case 'rvren':return l.b?`${cap1(l.b)} was renamed ${l.a}.`:`A river was named ${l.a}.`;case 'cityab':return `The city of ${l.a} on ${l.fx} was abandoned.`;case 'bidoff':return `The bid to host ${l.a} was withdrawn.`;
     case 'city':return `The city of ${l.a} was founded on ${l.fx}.`;case 'wonder':return `The ${l.b} was completed in ${l.a}.`;
     case 'sack':return `The ${l.a}, ${l.b}, was sacked.`;case 'leader':return `${l.a} ${l.b} took office as leader.`;
     case 'games':return `The national team won ${l.fx} at ${l.a}.`;case 'host':return `${n.name} hosted ${l.a}.`;case 'hostwin':return `${n.name} won the right to host ${l.a}.`;
@@ -32978,6 +32980,7 @@ const DSP_LOG={
   disc:{sec:'culture',w:6,kick:'Exploration',go:'explore',h:['{D} explorers find {FX}','Discovery: {FX}'],b:'An expedition from {N} has discovered {FX}. Tour operators are already printing postcards.'},
   incident:{sec:'world',w:4,kick:'Exploration',go:'explore',h:['{D} explorers stray onto {X} land'],b:'Explorers from {N} were found on {X} soil near {FX}, holding the map upside down.'},
   city:{sec:'society',w:5,kick:'Cities',go:'cities',h:['{N} founds the city of {A1}','A new city rises: {A1}'],b:'{N} has founded {A1} on {FX}. Its first bylaw concerns parking.'},
+  rvren:{sec:'society',w:3,kick:'Rivers',go:'map',h:['{N} names a river {A1}','A river in {N} is now {A1}'],b:'Cartographers in {CAP} have put a new name on the map: {A1}. Their colleagues across the region are reaching for the eraser.'},
   cityren:{sec:'society',w:3,kick:'Cities',go:'cities',h:['{B} becomes {A1}'],b:'{N} has renamed the city of {B} to {A1}. Residents have until Friday to update their letterheads.'},
   cityab:{sec:'society',w:4,kick:'Cities',go:'cities',h:['{N} abandons {A1}'],b:'The last resident of {A1}, on {FX}, turned off the lights on the way out.'},
   wonder:{sec:'culture',w:7,kick:'Wonders',go:'cities',h:['{N} completes the {B}','A wonder for {N}: the {B}'],b:'The {B} in {A1} is finished at last. Visitors are asked not to touch it, lean on it or ask how much it cost.'},
@@ -33846,7 +33849,8 @@ HELP_EXT.push({k:'dispatch',t:'The Daily Dispatch',body:n=>`<p>${esc(cap1(REG.th
      RIVERS() → {list, lakes, at, lake, lakeAt, crossing(a,b), stream(a,b), bonus}, or null for a moment after load
        while the network is being made in idle time (the maps redraw when it is ready); RIVERS(true) makes it at once
        list[k] = {id, name, kind:'main'|'river'|'stream', cls 3|2|1, parent, verts, pts [[x,y] map units,
-                 upstream first], w [width per edge, map units], cells (bank hexes, downstream order), len, acc}
+                 upstream first], w [width per edge, map units], bk [the two bank hexes of each edge], cells (bank
+                 hexes, downstream order), len, acc}; the names players give are on them after rvSync(T)
        lakes[k] = {id, name, cells, x, y, path (Path2D, map units), loop (outline points), river, tarn}
        at: Map(cell → river id, the most important river on its banks; streams included)
        lake: Set of lake hexes; lakeAt: Map(cell → lake id)
@@ -34039,12 +34043,12 @@ function* rvAssembleIt(X,R){
   const {G,VV,acc,par,pk,segs,seed}=X,{N,nbr}=G,T=G.T,geo=R.geo,wn=X.wn;
   const wOf=a=>Math.min(4.2,0.45+0.17*Math.sqrt(a)),E6=new Int32Array(N*6),atI=new Int32Array(N).fill(-1),atW=new Float32Array(N),bank=new Int8Array(N),stamp=new Int32Array(N).fill(-1);
   const list=segs.map(sg=>{
-    const vs=sg.verts,pts=[],w=[],cells=[],eh=[];
+    const vs=sg.verts,pts=[],w=[],cells=[],eh=[],bk=[];
     for(let j=0;j<vs.length;j++){const v=vs[j];pts.push([rvVX(G,v),rvVY(G,v)]);if(j===vs.length-1)break;
-      const u=par[v],k=pk[v],p=rvEdgeP(nbr,u,k),d=rvEdgeD(u,k),q=nbr[p*6+d],sc=sg.cls*1e5+acc[v];w.push(wOf(acc[v]));eh.push(p*6+d);
+      const u=par[v],k=pk[v],p=rvEdgeP(nbr,u,k),d=rvEdgeD(u,k),q=nbr[p*6+d],sc=sg.cls*1e5+acc[v];w.push(wOf(acc[v]));eh.push(p*6+d);bk.push(p,q);
       E6[p*6+d]=E6[q*6+(d+3)%6]=sg.id+1;
       for(let z=0;z<2;z++){const h=z?q:p;if(stamp[h]!==sg.id){stamp[h]=sg.id;cells.push(h);}if(sc>atW[h]){atW[h]=sc;atI[h]=sg.id;}if(sg.cls>bank[h])bank[h]=sg.cls;}}
-    return {id:sg.id,name:'',kind:sg.cls===3?'main':sg.cls===2?'river':'stream',cls:sg.cls,parent:sg.parent,verts:vs,pts,w,eh,cells,len:vs.length-1,acc:acc[vs[vs.length-2]]||0,end:sg.end,mouth:sg.parent<0};
+    return {id:sg.id,name:'',kind:sg.cls===3?'main':sg.cls===2?'river':'stream',cls:sg.cls,parent:sg.parent,verts:vs,pts,w,eh,bk,cells,len:vs.length-1,acc:acc[vs[vs.length-2]]||0,end:sg.end,mouth:sg.parent<0};
   });
   yield;
   /* drawn smoother than the corners it follows: two passes of a 1-2-1 average, ends fixed */
@@ -34112,6 +34116,8 @@ function rvFinish(A){
   for(let i=0;i<MAP.N;i++)if(RV.bonus[i])CELL_RES.food[i]+=RV.bonus[i];
   econMemo.v=null;cityMemo.v=null;
   for(const L of RV.lakes)L.path=rvLoopPath(L.loop,1,L.x,L.y);
+  /* the names the map made, kept apart from the ones players give (rvSync), and each river's key */
+  RV.byKey=new Map();for(const r of RV.list){r.name0=r.name;r.by=null;RV.byKey.set(rvKey(r),r.id);}
   RVAPI={list:RV.list,lakes:RV.lakes,at:RV.at,lake:RV.lake,lakeAt:RV.lakeAt,bonus:RV.bonus,
     crossing:(a,b)=>{const id=rvEdge(a,b);return id>=0&&RV.list[id].cls>=2?id:null;},
     stream:(a,b)=>{const id=rvEdge(a,b);return id>=0?id:null;}};
@@ -34131,6 +34137,151 @@ function rvLabel(r){
   let p=RV.list[r.parent],k=0;while(p&&!p.name&&k++<40)p=RV.list[p.parent];
   return r.cls>=2?(p?'a tributary of '+p.name:'an unnamed river'):(p?'a stream that feeds '+p.name:'a stream');
 }
+
+/* River names chosen by players. Every nation that holds a stretch of a river or stream may give it a name of its
+   own, which goes on the stretches in its land, so a river shared by several nations can carry a different name in
+   each. A stretch is an edge of the river's course with the nation's land on both banks, or on one bank with
+   unclaimed land across the water. The nation holding most of a river (more than half the hexes on its banks) names
+   it across the region: its name is the river's name everywhere but on the stretches other nations have named.
+   The names are kept in each namer's own record, n.rvn = [{r: region, v: key, n: name, t: when}], the key being the
+   river's lowest corner (the one just above its mouth or the river it feeds), and they follow the land: lose your
+   stretches and your name goes with them, and comes back with them. A hidden nation's names are not shown.
+   After rvSync(T), each river has: name (its name across the region), by (who gave that name, or null: the map's
+   own), name0 (the map's own name, '' if none), nm (Map nation id → name, of every name that shows), and sn / sb
+   (per edge of its course, the name there and who gave it; null while every edge carries the river's own name). */
+const RVN_MAX=40,RVN_LEN=32;
+function rvKey(r){return r.verts[r.verts.length-2];}
+function rvHeld(T,r,i){let k=0;for(const c of r.cells)if(T.owner[c]===i)k++;return k;}
+/* who holds edge j of a river: the nation on both banks, or on one bank with unclaimed land across; -1 if nobody */
+function rvEdgeHolder(T,r,j){const a=T.owner[r.bk[2*j]],b=T.owner[r.bk[2*j+1]];return a===b?(a>=0?a:-1):a<0?b:b<0?a:-1;}
+function rvStretch(T,r,i){let k=0;for(let j=0;j<r.len;j++)if(rvEdgeHolder(T,r,j)===i)k++;return k;}
+function rvMost(T,r,i){return i!==undefined&&i>=0&&r.cells.length>0&&rvHeld(T,r,i)*2>r.cells.length;}
+NORM_HOOKS.push((n,d)=>{
+  const a=Array.isArray(d.rvn)?d.rvn:[],seen=new Map();
+  for(const e of a){if(!e||typeof e!=='object'||typeof e.r!=='string'||!REG_BY_ID[e.r]||!Number.isInteger(e.v)||e.v<0)continue;
+    const nm=c3CleanName(e.n,RVN_LEN);if(nm.length<2)continue;const k=e.r+':'+e.v;seen.delete(k);seen.set(k,{r:e.r,v:e.v,n:nm,t:typeof e.t==='number'&&isFinite(e.t)?e.t:0});}
+  const out=[...seen.values()].slice(-RVN_MAX);if(out.length)n.rvn=out;else delete n.rvn;
+});
+/* the names players gave, put on the rivers for the land as it stands in T (memoised: T is the same object while
+   the land is unchanged, and saves arrive as new S.nation / S.world objects) */
+let rvNmK=null;
+function rvSync(T){
+  if(!RV||!T||!T.list||!T.owner)return;const K=rvNmK;
+  if(K&&K[0]===T&&K[1]===S.nation&&K[2]===S.world&&K[3]===HIDN.w&&K[4]===RV)return;
+  rvNmK=[T,S.nation,S.world,HIDN.w,RV];
+  for(const r of RV.list){r.name=r.name0;r.by=null;r.nm=null;r.sn=null;r.sb=null;}
+  const want=new Map();
+  T.list.forEach((x,i)=>{if(x.npc||x.hid||!x.n||!Array.isArray(x.n.rvn))return;
+    for(const e of x.n.rvn){if(e.r!==REG.id)continue;const id=RV.byKey.get(e.v);if(id===undefined)continue;let a=want.get(id);if(!a)want.set(id,a=new Map());if(!a.has(i))a.set(i,e.n);}});
+  for(const [id,a] of want){const r=RV.list[id],hold=new Set();for(let j=0;j<r.len;j++){const h=rvEdgeHolder(T,r,j);if(h>=0)hold.add(h);}
+    let maj=-1;for(const i of a.keys())if(rvMost(T,r,i)){maj=i;break;}
+    const nm=new Map();for(const [i,n] of a)if(i===maj||hold.has(i))nm.set(i,n);if(!nm.size)continue;
+    if(maj>=0){r.name=nm.get(maj);r.by=T.list[maj].id;}
+    const sn=new Array(r.len),sb=new Array(r.len);let own=false;
+    for(let j=0;j<r.len;j++){const h=rvEdgeHolder(T,r,j),mine=h>=0&&h!==maj&&nm.has(h);sn[j]=mine?nm.get(h):r.name;sb[j]=mine?T.list[h].id:r.by;if(mine)own=true;}
+    if(own){r.sn=sn;r.sb=sb;}
+    r.nm=new Map([...nm].map(([i,n])=>[T.list[i].id,n]));}
+}
+/* the name a river has at one of its bank hexes, and who gave it: a stretch's own name where the hex is on one */
+function rvAt(r,c){
+  if(!r)return {nm:'',by:null};if(!r.sn||c==null||c<0)return {nm:r.name,by:r.by};
+  let j0=-1;for(let j=0;j<r.len;j++){if(r.bk[2*j]!==c&&r.bk[2*j+1]!==c)continue;if(j0<0)j0=j;if(r.sb[j]!==r.by){j0=j;break;}}
+  return j0<0?{nm:r.name,by:r.by}:{nm:r.sn[j0],by:r.sb[j0]};
+}
+function rvNameAt(r,c){return rvAt(r,c).nm;}
+/* rvLabel, but for a place: what the river is called at hex c */
+function rvLabelAt(r,c){const nm=rvNameAt(r,c);return nm||rvLabel(r);}
+/* the stretches of a river's drawn course (point indices a..b of n) that carry one name, and who gave it */
+function rvParts(r,n){
+  if(!r.sn)return [{a:0,b:n-1,nm:r.name,by:r.by}];
+  const out=[];for(let j=0;j<r.len;j++){const nm=r.sn[j],by=r.sb[j],L=out[out.length-1];if(L&&L.nm===nm&&L.by===by)L.b=j+1;else out.push({a:j,b:j+1,nm,by});}
+  if(out.length)out[out.length-1].b=n-1;return out;
+}
+/* why a name will not do, or '' (names are unique among the region's rivers and lakes, old names included; nations
+   sharing one river may give it the same name) */
+const rvFold=v=>nameFold(String(v||'').replace(/^the\s+/i,''));
+function rvNameProblem(r,nm){
+  if(nm.length<2||!/\p{L}/u.test(nm))return 'Give the river a name of at least two characters, with a letter in it.';
+  const f=rvFold(nm);
+  for(const o of RV.list){if(o===r)continue;const hit=[o.name,o.name0].concat(o.nm?[...o.nm.values()]:[]).find(x=>x&&rvFold(x)===f);if(hit)return `There is already a river called ${cap1(hit)} in ${REGION}.`;}
+  for(const L of RV.lakes)if(rvFold(L.name)===f)return `${L.name} is a lake in ${REGION} already.`;
+  return '';
+}
+/* a name as typed, with a leading “The” written as the map writes it: “the Silverflow” */
+function rvTidy(v){return c3CleanName(v,RVN_LEN).replace(/^the\s+/i,'the ');}
+/* one line in the nation's history for a run of renames of one river within six hours (other lines written in
+   between, by a save's own hooks, do not split the run); back where it began, no line at all */
+function rvLog(n,nm,old,now){
+  const j=n.log.findIndex((l,i)=>i<12&&l&&l.k==='rvren'&&l.a===old&&now-l.t<6*3600e3);
+  if(j>=0){const l=n.log.splice(j,1)[0];if((l.b||'')!==nm)n.log.unshift({...l,a:nm,t:now});return;}
+  if(!nm)return;n.log.unshift({t:now,k:'rvren',a:nm,b:old});n.log=n.log.slice(0,60);
+}
+/* where this nation stands on a river: its name for it (mine), what its stretches show without that name (back),
+   and whether it holds most of the river (most) */
+function rvMineOf(T,r,mi){const me=myId(),most=rvMost(T,r,mi);return {most,mine:(r.nm&&r.nm.get(me))||'',back:most?r.name0||'':r.name||'',st:rvStretch(T,r,mi)};}
+/* the river with this key, if this nation holds a stretch of it or most of it: [T, river] or a reason */
+function rvMine(key){
+  if(!S.nation||!rvData())return 'The rivers are not ready yet.';const T=territory(),mi=T.byId[myId()],id=RV.byKey.get(key),r=id===undefined?null:RV.list[id];
+  if(!r)return 'That river is not on this map.';if(mi===undefined||!(rvStretch(T,r,mi)>0||rvMost(T,r,mi)))return 'You can name a river only where it runs through your land.';
+  rvSync(T);return [T,r];
+}
+function rvRename(key,raw){
+  const m=rvMine(key);if(typeof m==='string'){S.rvnErr=m;updateMapPanel();return false;}
+  const [T,r]=m,{most,mine,back}=rvMineOf(T,r,T.byId[myId()]),old=mine||back,nm=rvTidy(raw),what=r.cls>=2?'river':'stream';
+  if(nm===old){S.rvnEdit=null;S.rvnVal=null;S.rvnErr='';updateMapPanel();return false;}
+  if(back&&nm===back)return rvReset(key);
+  const why=rvNameProblem(r,nm);if(why){S.rvnVal=nm;S.rvnErr=why;updateMapPanel();return false;}
+  const n=clone(S.nation),now=Date.now();
+  n.rvn=(Array.isArray(n.rvn)?n.rvn:[]).filter(e=>!(e.r===REG.id&&e.v===key)).concat({r:REG.id,v:key,n:nm,t:now}).slice(-RVN_MAX);
+  rvLog(n,nm,old,now);commit(n);
+  S.rvnEdit=null;S.rvnVal=null;S.rvnErr='';rvSync(territory());updateMapPanel();redrawMaps();
+  const was=old?cap1(old):'The '+what;
+  toast(most?`${was} is now called ${nm}. Most of it runs through your land, so every map in ${REGION} uses the new name.`:`${was} is now called ${nm} where it runs through your land. Every player in ${REGION} sees the new name there.`);return true;
+}
+/* this nation's name goes, and its stretches show what they would without it */
+function rvReset(key){
+  const m=rvMine(key);if(typeof m==='string'){S.rvnErr=m;updateMapPanel();return false;}
+  const [T,r]=m,{most,mine,back}=rvMineOf(T,r,T.byId[myId()]),n=clone(S.nation),now=Date.now(),what=r.cls>=2?'river':'stream',where=most?'':' in your land';
+  const left=(Array.isArray(n.rvn)?n.rvn:[]).filter(e=>!(e.r===REG.id&&e.v===key));if(left.length)n.rvn=left;else delete n.rvn;
+  rvLog(n,back,mine,now);commit(n);
+  S.rvnEdit=null;S.rvnVal=null;S.rvnErr='';rvSync(territory());updateMapPanel();redrawMaps();
+  toast(back?`${cap1(mine||back)} is ${back} again${where}.`:`The ${what} has no name again${where}.`);return true;
+}
+/* the river's other names, with the nations that gave them: “the Goldrun in Brask and the Ostra” */
+function rvOtherNames(T,r,shown){
+  if(!r.nm)return '';const out=[],seen=new Set([shown]);
+  for(const [id,nm] of r.nm){if(seen.has(nm))continue;seen.add(nm);const i=T.byId[id],who=i===undefined?'':T.list[i].n.name;out.push(esc(nm)+(who?' in '+esc(who):''));}
+  if(r.name&&!seen.has(r.name))out.push(esc(r.name));
+  return list(out.slice(0,4));
+}
+/* the side panel's part for hex c: who named the river here, its other names, and naming it on your own land */
+function rvnPanel(T,r,mi,mine,c){
+  const what=r.cls>=2?'river':'stream',me=myId(),here=rvAt(r,c);let h='';
+  if(here.by&&here.by!==me){const i=T.byId[here.by],nm=i===undefined?'':T.list[i].n.name;if(nm)h+=`<p class="hint rvn-by">Named by ${esc(nm)}${r.name0&&here.nm!==r.name0?`; on the old maps, ${esc(r.name0)}`:''}.</p>`;}
+  const aka=rvOtherNames(T,r,here.nm);if(aka)h+=`<p class="hint rvn-aka">Also called ${aka}.</p>`;
+  if(!mine||mi===undefined)return h;
+  const k=rvKey(r),held=rvHeld(T,r,mi),all=r.cells.length,M=rvMineOf(T,r,mi);
+  if(!M.st&&!M.most)return h+`<p class="hint rvn-why">To name this ${what}, hold a stretch of it: your land on both banks, or on one bank with unclaimed land across the water.</p>`;
+  if(S.rvnEdit===k){const val=S.rvnVal!=null?S.rvnVal:(M.mine||M.back);
+    return h+`<form id="rvn-form" class="rvn-form" data-k="${k}" novalidate><label class="rvn-lab" for="rvn-name">${M.mine||M.back?'Rename':'Name'} the ${what}</label>
+      <p class="hint">${M.most?`Most of it runs through your land, so the name goes on every map in ${esc(REGION)}, except on stretches other nations have named.`:`The name goes on the stretches in your land, for every player in ${esc(REGION)} to see.`} Write it as you would say it: “the Silverflow”, “Miller’s Creek”.</p>
+      <div class="name-row"><input class="input" id="rvn-name" maxlength="${RVN_LEN}" value="${esc(val)}" autocomplete="off" spellcheck="false"><button class="btn" type="submit">Name it</button></div>
+      <div class="row rvn-acts"><button type="button" class="linkish small" data-act="rvn-cancel">Cancel</button>${M.mine?`<button type="button" class="linkish small" data-act="rvn-reset" data-k="${k}">${M.back?'Bring back '+esc(M.back):'Take the name away'}</button>`:''}</div>
+      ${S.rvnErr?`<p class="err">${esc(S.rvnErr)}</p>`:''}</form>`;}
+  const you=M.mine?`You call it ${esc(M.mine)}${M.back&&M.back!==M.mine?`, not ${esc(M.back)}`:''}. `:'';
+  const how=M.most?`Most of this ${what} runs through your land (${held} of ${all} hexes on its banks), so your name for it is used across the region, except on stretches other nations have named.`
+    :`Your name for this ${what} goes on the stretches in your land (${held} of ${all} hexes on its banks are yours). Hold most of it and your name is used across the region.`;
+  return h+`<p class="hint rvn-own">${you}${how}</p>
+    <div class="row" style="margin-top:8px"><button class="btn ghost" data-act="rvn-edit" data-k="${k}">${M.mine||M.back?'Rename':'Name'} the ${what}</button></div>`;
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act^="rvn-"]');if(!el)return;const a=el.dataset.act;
+  if(a==='rvn-edit'){S.rvnEdit=parseInt(el.dataset.k,10);S.rvnVal=null;S.rvnErr='';updateMapPanel();
+    const i=document.getElementById('rvn-name');if(i){i.focus();try{i.select();}catch(x){}}return;}
+  if(a==='rvn-cancel'){S.rvnEdit=null;S.rvnVal=null;S.rvnErr='';updateMapPanel();return;}
+  if(a==='rvn-reset')rvReset(parseInt(el.dataset.k,10));
+});
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='rvn-name')S.rvnVal=e.target.value;});
+document.addEventListener('submit',e=>{if(!e.target||e.target.id!=='rvn-form')return;e.preventDefault();const i=document.getElementById('rvn-name');rvRename(parseInt(e.target.dataset.k,10),i?i.value:S.rvnVal||'');});
 
 /* drawing: Path2Ds per class, width step and square tile of the map, in map units, built once and reused at
    every view. Only the tiles on screen are stroked; they are joined back into one path per class and width
@@ -34197,29 +34348,37 @@ const rvGW=new Map();
 function rvGlyphW(g,font,ch){const k=font+ch;let w=rvGW.get(k);if(w===undefined){w=g.measureText(ch).width;rvGW.set(k,w);}return w;}
 function rvHit(boxes,b){return boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h);}
 function rvNames(M){
-  const G=rvGeom();if(!G)return;const {g,s,ox,oy,w,h,boxes,col}=M,hx=s*HEX_W;if(hx<11)return;
+  const G=rvGeom();if(!G)return;rvSync(M.T);const {g,s,ox,oy,w,h,boxes,col}=M,hx=s*HEX_W;if(hx<11)return;
   const C=rvCols(col),fs=hx>=26?13:12,font='italic 600 '+fs+'px '+MAP_FONT,sp=1.2;g.font=font;g.textAlign='left';g.textBaseline='alphabetic';g.lineJoin='round';
   const placed=[],avoid=[];
   for(const L of RV.lakes){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let k=0;k<L.loop.length;k+=2){const x=L.loop[k]*s+ox,y=L.loop[k+1]*s+oy;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}if(x1>0&&x0<w&&y1>0&&y0<h)avoid.push({x:x0-2,y:y0-2,w:x1-x0+4,h:y1-y0+4});}
-  const list=RV.list.filter(r=>r.name&&r._g&&(r.cls===3||hx>=20)).sort((a,b)=>b.cls-a.cls||b.acc-a.acc);
+  const list=RV.list.filter(r=>r._g&&(r.name||r.sn)&&(r.cls===3||hx>=20)).sort((a,b)=>b.cls-a.cls||b.acc-a.acc);
   for(const r of list){const {P,cum,bb}=r._g;if(bb[2]*s+ox<0||bb[0]*s+ox>w||bb[3]*s+oy<0||bb[1]*s+oy>h)continue;
     const X=P.map(p=>p[0]*s+ox),Y=P.map(p=>p[1]*s+oy),n=X.length,cs=cum.map(c=>c*s);
-    const ws=[...r.name].map(ch=>rvGlyphW(g,font,ch)),tl=ws.reduce((a,b)=>a+b,0)+sp*(ws.length-1),need=tl+fs*1.2;
-    /* visible runs of the path, inset from the edges of the map */
-    const runs=[];let a=-1;for(let k=0;k<=n;k++){const ok=k<n&&X[k]>8&&X[k]<w-8&&Y[k]>fs+6&&Y[k]<h-8;if(ok&&a<0)a=k;if(!ok&&a>=0){if(cs[k-1]-cs[a]>=need)runs.push([a,k-1]);a=-1;}}
-    let count=0;
-    for(const [ra,rb] of runs){const len=cs[rb]-cs[ra],two=len>Math.max(need*5,720),tries=two?[0.24,0.76,0.5,0.12,0.88]:[0.5,0.32,0.68,0.18,0.82];
-      for(const f of tries){if(count>=(two?2:1))break;const mid=cs[ra]+len*f,d0=mid-tl/2,d1=mid+tl/2;if(d0<cs[ra]+fs*0.6||d1>cs[rb]-fs*0.6)continue;
-        if(placed.some(q=>q.r===r.id&&Math.abs(q.m-mid)<Math.max(need*2.5,360)))continue;
-        const at=d=>{let k=ra;while(k<rb-1&&cs[k+1]<d)k++;const t=(d-cs[k])/((cs[k+1]-cs[k])||1);return [X[k]+(X[k+1]-X[k])*t,Y[k]+(Y[k+1]-Y[k])*t,Math.atan2(Y[k+1]-Y[k],X[k+1]-X[k])];};
-        const A=at(d0),B=at(d1),chord=Math.hypot(B[0]-A[0],B[1]-A[1]);if(chord<tl*0.86)continue;
-        const rev=B[0]<A[0],off=(r.w[Math.min(r.w.length-1,Math.floor(r.w.length*(mid/cs[n-1])))]||1)*s/2+3;
-        const gl=[];let d=rev?d1:d0;for(let i=0;i<ws.length;i++){const c=rev?d-ws[i]/2:d+ws[i]/2,[x,y,an]=at(c),a2=rev?an+Math.PI:an,nx=Math.sin(a2),ny=-Math.cos(a2);gl.push([x+nx*off,y+ny*off,a2]);d=rev?d-ws[i]-sp:d+ws[i]+sp;}
-        const bx=[];for(let i=0;i<gl.length;i+=4){const part=gl.slice(i,i+4);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const [x,y] of part){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}bx.push({x:x0-fs*0.6,y:y0-fs*0.9,w:x1-x0+fs*1.2,h:y1-y0+fs*1.15});}
-        if(bx.some(b=>rvHit(boxes,b)||rvHit(avoid,b)))continue;
-        for(const pass of [0,1])for(let i=0;i<gl.length;i++){const [x,y,an]=gl[i],ch=r.name[i];g.setTransform(M.dpr,0,0,M.dpr,0,0);g.translate(x,y);g.rotate(an);
-          if(!pass){g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(ch,-ws[i]/2,fs*0.32);g.globalAlpha=1;}else{g.fillStyle=C.i;g.fillText(ch,-ws[i]/2,fs*0.32);}}
-        g.setTransform(M.dpr,0,0,M.dpr,0,0);boxes.push(...bx);placed.push({r:r.id,m:mid});count++;}}
+    /* one name for each stretch that carries one: the whole river, unless nations have named their own stretches */
+    for(const pt of rvParts(r,n)){if(!pt.nm)continue;const chs=[...pt.nm],pk=r.id+':'+pt.a;
+      const ws=chs.map(ch=>rvGlyphW(g,font,ch)),tl=ws.reduce((a,b)=>a+b,0)+sp*(ws.length-1),need=tl+fs*1.2;
+      /* visible runs of the path, inset from the edges of the map */
+      const runs=[];let a=-1;for(let k=pt.a;k<=pt.b+1;k++){const ok=k<=pt.b&&X[k]>8&&X[k]<w-8&&Y[k]>fs+6&&Y[k]<h-8;if(ok&&a<0)a=k;if(!ok&&a>=0){if(cs[k-1]-cs[a]>=need)runs.push([a,k-1]);a=-1;}}
+      let count=0;
+      for(const [ra,rb] of runs){const len=cs[rb]-cs[ra],two=len>Math.max(need*5,720),tries=two?[0.24,0.76,0.5,0.12,0.88]:[0.5,0.32,0.68,0.18,0.82];
+        for(const f of tries){if(count>=(two?2:1))break;const mid=cs[ra]+len*f,d0=mid-tl/2,d1=mid+tl/2;if(d0<cs[ra]+fs*0.6||d1>cs[rb]-fs*0.6)continue;
+          if(placed.some(q=>q.r===pk&&Math.abs(q.m-mid)<Math.max(need*2.5,360)))continue;
+          const at=d=>{let k=ra;while(k<rb-1&&cs[k+1]<d)k++;const t=(d-cs[k])/((cs[k+1]-cs[k])||1);return [X[k]+(X[k+1]-X[k])*t,Y[k]+(Y[k+1]-Y[k])*t,Math.atan2(Y[k+1]-Y[k],X[k+1]-X[k])];};
+          const A=at(d0),B=at(d1),chord=Math.hypot(B[0]-A[0],B[1]-A[1]);if(chord<tl*0.86)continue;
+          const rev=B[0]<A[0],off=(r.w[Math.min(r.w.length-1,Math.floor(r.w.length*(mid/cs[n-1])))]||1)*s/2+3;
+          const gl=[];let d=rev?d1:d0;for(let i=0;i<ws.length;i++){const c=rev?d-ws[i]/2:d+ws[i]/2,[x,y,an]=at(c),a2=rev?an+Math.PI:an,nx=Math.sin(a2),ny=-Math.cos(a2);gl.push([x+nx*off,y+ny*off,a2]);d=rev?d-ws[i]-sp:d+ws[i]+sp;}
+          const bx=[];for(let i=0;i<gl.length;i+=4){const part=gl.slice(i,i+4);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const [x,y] of part){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}bx.push({x:x0-fs*0.6,y:y0-fs*0.9,w:x1-x0+fs*1.2,h:y1-y0+fs*1.15});}
+          if(bx.some(b=>rvHit(boxes,b)||rvHit(avoid,b)))continue;
+          for(const pass of [0,1])for(let i=0;i<gl.length;i++){const [x,y,an]=gl[i],ch=chs[i];g.setTransform(M.dpr,0,0,M.dpr,0,0);g.translate(x,y);g.rotate(an);
+            if(!pass){g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(ch,-ws[i]/2,fs*0.32);g.globalAlpha=1;}else{g.fillStyle=C.i;g.fillText(ch,-ws[i]/2,fs*0.32);}}
+          g.setTransform(M.dpr,0,0,M.dpr,0,0);boxes.push(...bx);placed.push({r:pk,m:mid});count++;}}
+      /* a stretch too short for its name to follow it (one a player named) has the name written level above its middle */
+      if(!count&&pt.by&&pt.b>pt.a){const half=(cs[pt.a]+cs[pt.b])/2;let k=pt.a;while(k<pt.b-1&&cs[k+1]<half)k++;const t=(half-cs[k])/((cs[k+1]-cs[k])||1),mx=X[k]+(X[k+1]-X[k])*t,my=Y[k]+(Y[k+1]-Y[k])*t;
+        const tw=g.measureText(pt.nm).width,y=my-fs*0.75,b={x:mx-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
+        if(mx-tw/2>4&&mx+tw/2<w-4&&y-fs>4&&my<h-8&&!rvHit(boxes,b)&&!rvHit(avoid,b)){g.setTransform(M.dpr,0,0,M.dpr,0,0);g.textAlign='center';
+          g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(pt.nm,mx,y);g.globalAlpha=1;g.fillStyle=C.i;g.fillText(pt.nm,mx,y);g.textAlign='left';boxes.push(b);placed.push({r:pk,m:half});}}
+    }
   }
   /* lake names, close up */
   if(hx<20)return;g.font='italic 600 '+(fs-1)+'px '+MAP_FONT;g.textAlign='center';
@@ -34274,12 +34433,12 @@ function rvBuildBridge(c){
   for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   n.brg=(n.brg||[]).filter(b=>b.r===REG.id&&T.owner[b.c]===mi).concat({c,r:REG.id,s:now,d:now+ms}).slice(-BRIDGE_MAX);
   commit(n);S.rvMsg='';const rv=RV.list[RV.E6[c*6+rvBridgeEdge(c)]-1];
-  render();toast(`Work has started on a bridge over ${rvLabel(rv)}. It will be ready in ${fmtDur(ms)}.`);return true;
+  render();toast(`Work has started on a bridge over ${rvLabelAt(rv,c)}. It will be ready in ${fmtDur(ms)}.`);return true;
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="rv-bridge"]');if(!el)return;rvBuildBridge(parseInt(el.dataset.c,10));});
 /* a bridge that opened since the last save is announced once */
 COMMIT_HOOKS.push((n,old,now)=>{if(!Array.isArray(n.brg))return [];const out=[];
-  for(const b of n.brg){if(b.o||b.d>now||b.r!==REG.id)continue;b.o=1;const d=rvBridgeEdge(b.c);if(d<0)continue;const r=RV.list[RV.E6[b.c*6+d]-1];out.push(`The bridge over ${rvLabel(r)} ${placePhrase(b.c)} is open. Attacks across the river from or into that hex lose nothing to the crossing.`);}
+  for(const b of n.brg){if(b.o||b.d>now||b.r!==REG.id)continue;b.o=1;const d=rvBridgeEdge(b.c);if(d<0)continue;const r=RV.list[RV.E6[b.c*6+d]-1];out.push(`The bridge over ${rvLabelAt(r,b.c)} ${placePhrase(b.c)} is open. Attacks across the river from or into that hex lose nothing to the crossing.`);}
   return out.slice(0,2);});
 /* drawn where the river meets the hex: a small deck with rails across the water, scaffolding while it is built */
 function rvDrawBridges(M){
@@ -34308,7 +34467,8 @@ function rvBattle(T,cell,ai,bi){
   const rivers=new Set();let adj=0;
   for(let d=0;d<6;d++){const nb=MAP.nbr[cell*6+d];if(nb<0||!side.has(T.owner[nb]))continue;adj++;const id=RV.E6[cell*6+d]-1;if(id<0||RV.list[id].cls<2)return null;rivers.add(id);}
   if(!adj)return null;
-  const names=[...rivers].map(id=>rvLabel(RV.list[id])),nm=names[0],br=rvBridges(T);
+  try{rvSync(T);}catch(e){}
+  const names=[...rivers].map(id=>rvLabelAt(RV.list[id],cell)),nm=names[0],br=rvBridges(T);
   const here=br.find(b=>b.done&&(b.c===cell||(side.has(b.i)&&MAP.nbr.slice(cell*6,cell*6+6).includes(b.c))));
   if(here)return {att:1,note:`A bridge ${here.c===cell?'on this hex':'beside it'} carries the assault over ${nm}, so the crossing costs nothing.`};
   const far=br.find(b=>b.done&&b.i===ai&&rivers.has(b.river)&&hexDist(b.c,cell)<=RV_BRIDGE_REACH);
@@ -34321,30 +34481,33 @@ BATTLE_MODS.push(rvBattle);
 function rvHexText(cell){
   if(!rvData()||cell<0||MAP.T[cell]<2)return '';const li=RV.lakeAt.get(cell),r=riverOf(cell),bn=RV.bonus[cell];
   if(li!==undefined)return RV.lakes[li].name+(bn>0?' · fertile':'');
-  if(!r)return '';return 'On '+rvLabel(r)+(bn>0?' · fertile':'');
+  if(!r)return '';return 'On '+rvLabelAt(r,cell)+(bn>0?' · fertile':'');
 }
-MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||ctx.cell<0)return null;const t=rvHexText(ctx.cell);if(!t)return null;
+MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||ctx.cell<0)return null;try{if(rvData())rvSync(mapTerr(ctx.kind));}catch(e){}const t=rvHexText(ctx.cell);if(!t)return null;
   try{const br=rvBridges(mapTerr(ctx.kind)).find(b=>b.c===ctx.cell);if(br)return t+(br.done?' · bridge':' · bridge being built');}catch(e){}return t;});
 MAP_PANEL.push(ctx=>{
   const c=ctx.cell;if(c==null||c<0||!rvData()||MAP.T[c]<2)return '';const li=RV.lakeAt.get(c),r=riverOf(c),bn=RV.bonus[c];if(li===undefined&&!r)return '';
   const T=territory(),mi=T.byId[myId()],mine=mi!==undefined&&T.owner[c]===mi&&S.mapCell===c,food=bn>0?` Fertile: +${fmtAmt(bn)} food a day.`:'';
-  let h=`<div class="rv-pn"><p class="eyebrow">${li!==undefined?'Lake':r.cls>=2?'River':'Stream'}</p><p class="rv-l"><b>${esc(li!==undefined?RV.lakes[li].name:cap1(rvLabel(r)))}</b>${li!==undefined&&r?' · fed by '+esc(rvLabel(r)):''}.${food}</p>`;
+  rvSync(T);
+  let h=`<div class="rv-pn"><p class="eyebrow">${li!==undefined?'Lake':r.cls>=2?'River':'Stream'}</p><p class="rv-l"><b>${esc(li!==undefined?RV.lakes[li].name:cap1(rvLabelAt(r,c)))}</b>${li!==undefined&&r?' · fed by '+esc(rvLabelAt(r,c)):''}.${food}</p>`;
   const dir=rvBridgeEdge(c);
   if(dir>=0){const b=rvBridges(T).find(x=>x.c===c),rv=RV.list[RV.E6[c*6+dir]-1];
-    if(b&&b.done)h+=`<p class="hint">A bridge crosses ${esc(rvLabel(rv))} here. Attacks across the river from or into this hex lose nothing to the crossing.</p>`;
+    if(b&&b.done)h+=`<p class="hint">A bridge crosses ${esc(rvLabelAt(rv,c))} here. Attacks across the river from or into this hex lose nothing to the crossing.</p>`;
     else if(b)h+=`<p class="hint">A bridge is being built here: ready in ${esc(fmtDur(b.d-Date.now()))}.</p>`;
     else if(mine){const st=stockNow(S.nation,Date.now()),p=rvBridgeProblem(T,c,st),cap=rvBridgeCap(S.nation,T),n=rvBridges(T).filter(x=>x.id===myId()).length;
-      h+=`<p class="hint">Armies attacking across a river lose ${Math.round((1-RV_CROSS)*100)}% of their strength. A bridge here removes that for attacks from or into this hex, and helps your attacks over ${esc(rvLabel(rv))} within ${RV_BRIDGE_REACH} hexes.</p>
+      h+=`<p class="hint">Armies attacking across a river lose ${Math.round((1-RV_CROSS)*100)}% of their strength. A bridge here removes that for attacks from or into this hex, and helps your attacks over ${esc(rvLabelAt(rv,c))} within ${RV_BRIDGE_REACH} hexes.</p>
         <div class="row" style="margin-top:10px"><button class="btn ghost" data-act="rv-bridge" data-c="${c}"${p?' disabled':''}>Build a bridge</button></div>
         <p class="hint" style="margin-top:6px">${esc(p||`Costs ${costText(rvBridgeCost(S.nation))} and takes ${fmtDur(rvBridgeHours(S.nation)*3600e3)}. You have ${n} of ${cap} ${cap===1?'bridge':'bridges'} (one for every ${BRIDGE_PER} hexes).`)}</p>${S.rvMsg?`<p class="err">${esc(S.rvMsg)}</p>`:''}`;}
-    else h+=`<p class="hint">Armies attacking across ${esc(rvLabel(rv))} lose ${Math.round((1-RV_CROSS)*100)}% of their strength unless a bridge carries them.</p>`;}
+    else h+=`<p class="hint">Armies attacking across ${esc(rvLabelAt(rv,c))} lose ${Math.round((1-RV_CROSS)*100)}% of their strength unless a bridge carries them.</p>`;}
+  if(li===undefined&&r)h+=rvnPanel(T,r,mi,mine,c);
   return h+'</div>';
 });
 MAP_LEGEND.push(()=>`<span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M1 3c5 0 4 9 9 9s5-6 9-7" style="fill:none;stroke:var(--river-bank);stroke-width:3.2;stroke-linecap:round"/><path d="M1 3c5 0 4 9 9 9s5-6 9-7" style="fill:none;stroke:var(--river);stroke-width:1.8;stroke-linecap:round"/></svg>River, named at middle zoom</span><span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M4 7c0-4 6-5 9-3s4 6 0 8-9 0-9-5z" style="fill:var(--river);stroke:var(--river-bank)"/></svg>Lake</span><span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M10 0v15" style="stroke:var(--river);stroke-width:5"/><rect x="4" y="5.5" width="12" height="4" style="fill:var(--sheet);stroke:var(--ink);stroke-width:.9"/></svg>Bridge</span>`);
 HELP_EXT.push({k:'rivers',t:'Rivers and lakes',body:()=>`<p>Rivers run from the hills and mountains to the sea along the edges between hexes, and lakes lie where they pool or rise. Main rivers show on the whole map, smaller rivers from middle zoom, and streams close up.</p>
   <p><b>Fertile valleys.</b> Flat land on the bank of a river yields <b>+1 food</b> a day, hills on a river <b>+0.5</b>, and a lake hex <b>+1</b>. Streams, which show only close up, add nothing.</p>
   <p><b>Crossings.</b> When every hex your side holds next to a target lies across a river from it, the attack is <b>${Math.round((1-RV_CROSS)*100)}% weaker</b>. Streams do not count.</p>
-  <p><b>Bridges.</b> Select a river hex of your own on the map to build one: ${costText(BRIDGE_COST)}, ${BRIDGE_H} hours, and one for every ${BRIDGE_PER} hexes you hold. A bridge removes the penalty for attacks from or into its hex, and for your attacks over the same river within ${RV_BRIDGE_REACH} hexes. It stands while you hold the hex; lose the hex and the bridge is lost too. Bridges on the target hex help an attacker as well, so choose where you build.</p>`});
+  <p><b>Bridges.</b> Select a river hex of your own on the map to build one: ${costText(BRIDGE_COST)}, ${BRIDGE_H} hours, and one for every ${BRIDGE_PER} hexes you hold. A bridge removes the penalty for attacks from or into its hex, and for your attacks over the same river within ${RV_BRIDGE_REACH} hexes. It stands while you hold the hex; lose the hex and the bridge is lost too. Bridges on the target hex help an attacker as well, so choose where you build.</p>
+  <p><b>Names.</b> Every nation holding a stretch of a river or stream (its land on both banks, or on one bank with unclaimed land across) may give it a name of its own, which goes on the stretches in its land, so a river shared by several nations can carry a different name in each. The nation holding most of a river, more than half the hexes on its banks, names it across the region, except on stretches others have named. Select a hex of a river in your land and choose Name or Rename. Names follow the land: lose your stretch and your name goes with it until you win it back.</p>`});
 
 /* the overlay: a few slow glints drift downstream on the rivers in view (none with reduced motion) */
 MFX_LAYERS.push({
@@ -40200,7 +40363,8 @@ function fkFacts0(x,T,now){
   if(typeof cpPop==='function')for(const c of F.cities){try{c.pop=c.cs?cpPop(c.cs,T):0;}catch(e){c.pop=0;}}
   F.cap=F.cities.find(c=>c.cap)||F.cities[0]||null;
   F.rv=fkRiversReady();
-  if(F.rv)for(const c of F.cities){let best=null;for(const [q,d] of ringCells(c.c,1)){const r=riverOf(q);if(r&&r.name&&(!best||r.cls>best.cls))best=r;}c.river=best?best.name:'';}
+  if(F.rv)try{rvSync(T);}catch(e){}
+  if(F.rv)for(const c of F.cities){let best=null,bn='';for(const [q,d] of ringCells(c.c,1)){const r=riverOf(q),nm=r?rvNameAt(r,q):'';if(nm&&(!best||r.cls>best.cls)){best=r;bn=nm;}}c.river=bn;}
   F.rail=!x.npc&&(()=>{try{return trRail(n);}catch(e){return false;}})();
   if(F.cities.some(c=>c.b.some(b=>b.k==='rail'&&b.d<=now)))F.rail=true;
   F.pop=(()=>{try{return popNow(n,now);}catch(e){return 5;}})();
@@ -45185,7 +45349,11 @@ function mapClick(cv,cell,ev){
    frames would carry the view on to where the glide was going, over the place just chosen */
 function centerMain(cell,z){mapGlideStop('main');if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};}
 function openMapAt(id){const T=territory(),i=T.byId[id];if(i!==undefined){centerMain(T.list[i].cap,NEAR_Z);S.mapSel=T.list[i].me?null:id;}go('map');}
-function updateMapPanel(){const p=document.getElementById('map-panel');if(p)p.innerHTML=mapPanel();}
+function updateMapPanel(){const p=document.getElementById('map-panel');if(!p)return;
+  /* a field being typed in keeps the focus and the caret when the panel is drawn again */
+  const a=document.activeElement,fid=a&&a.id&&a.tagName==='INPUT'&&p.contains(a)?a.id:null,sel=fid?[a.selectionStart,a.selectionEnd]:null;
+  p.innerHTML=mapPanel();
+  if(fid){const b=document.getElementById(fid);if(b&&p.contains(b)){b.focus({preventScroll:true});try{if(sel[0]!=null)b.setSelectionRange(sel[0],sel[1]);}catch(e){}}}}
 function updateFoundLoc(){for(const k of ['found-loc','found-loc-fs']){const p=document.getElementById(k);if(p)p.innerHTML=foundLocHTML();}}
 function settle(){
   const cell=S.mapPick;if(cell==null||!S.nation)return;
@@ -48470,6 +48638,7 @@ function regionHaps(all,now){
     if(l.k==='hostwin')return `${nm} won the right to host ${esc(l.a)}.`;
     if(l.k==='bid')return `${nm} bid to host ${esc(l.a)}.`;
     if(l.k==='cityren')return `${nm} renamed the city of ${esc(l.b)} to ${esc(l.a)}.`;
+    if(l.k==='rvren')return l.b?`${nm} renamed ${esc(l.b)} to ${esc(l.a)}.`:`${nm} named a river ${esc(l.a)}.`;
     if(l.k==='cityab')return `${nm} abandoned the city of ${esc(l.a)} on ${esc(l.fx)}.`;
     if(l.k==='bidoff')return `${nm} withdrew its bid to host ${esc(l.a)}.`;
     if(l.k==='city')return `${nm} founded the city of ${esc(l.a)} on ${esc(l.fx)}.`;
@@ -68723,7 +68892,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
