@@ -169,9 +169,14 @@ await sendOne(uidB);
 check('the server files the sponsor’s fourth', await until(async () => (await filed()).filter(t => t === uidB).length === 1, 100000), JSON.stringify(await filed()));
 check('and then no more today', /You have sent 4 Supply Caches today/.test(await why(uidB)), await why(uidB));
 
-// the phone
-await A.setViewportSize({ width: 390, height: 844 }); await nav(A, 'region'); await A.click('#rgn-tab-invite'); await sleep(800);
-check('on a phone the Invite tab fits without scrolling sideways', await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+// the phone. The page's width is watched every frame, not only at the end: the Invite tab's badge (a new recruit)
+// lies past the edge of the tab row until the row scrolls to it, and its screen-reader words, absolutely placed, once
+// widened the page by 65 px for about a second, which a single look after a pause caught only on a slow machine
+await A.setViewportSize({ width: 390, height: 844 });
+await A.evaluate(() => { window.__wide = 0; const look = () => { window.__wide = Math.max(window.__wide, document.documentElement.scrollWidth - window.innerWidth); window.__wideRaf = requestAnimationFrame(look); }; look(); });
+await nav(A, 'region'); await A.click('#rgn-tab-invite'); await sleep(800);
+const wider = await A.evaluate(() => { cancelAnimationFrame(window.__wideRaf); return window.__wide; });
+check('on a phone the Invite tab fits without scrolling sideways', wider <= 1 && await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `at most ${wider}px wider than the screen`);
 await A.screenshot({ path: OUT + '/recruit-invite-phone.png', fullPage: true });
 
 await finish();
