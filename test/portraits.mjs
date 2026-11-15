@@ -2,8 +2,8 @@
 // opened from "Edit portrait" on every cabinet card. A face without a look is the one the name drew before; a look
 // adds a skin colour, hair, facial hair, headwear, dress and a detail; the head of government also has an ink, a ring and an earned
 // nickname. Also: the cabinet's dress code, pieces earned in play (tried on before, saved only once earned), a renamed
-// leader keeping the face, a minister who takes over bringing theirs, the Museum's former leaders, banknotes, and the
-// court painter's edict. On a desktop and a phone, in the light and dark themes.
+// leader keeping the face, a minister who takes over bringing theirs, the Museum's former leaders, banknotes, the
+// court painter's edict, and the cities' mayors, edited there too. On a desktop and a phone, in the light and dark themes.
 //   python3 build.py
 //   node test/portraits.mjs
 // It serves public/ itself, so the game runs in its local mode (no emulators), and drives the nation through the test
@@ -297,6 +297,51 @@ try {
     const n2 = await nation();
     check('looks, code and earned pieces survive a reload', canon(n2.rpt) === canon(n.rpt) && n2.cdc === 'military' && canon(n2.cpt) === canon(n.cpt) && (n2.ptu || []).length === (n.ptu || []).length, { a: n2.rpt, b: n.rpt });
     check('desktop: no page errors', t.errors.length === 0, t.errors);
+    await t.ctx.close();
+  }
+  /* ── mayors, in a nation of their own with a capital settled ── */
+  {
+    const t = await start('light', { width: 1280, height: 900 }), { page, edit, nation, go } = t;
+    /* mayors sit too: a row of their own under the cabinet, the look kept on the mayor's record and drawn on the city's
+       page, and an Edit portrait there that opens the editor on them */
+    await go('nation');
+    await page.click('text=Settle by the sea'); await until(() => page.evaluate(() => (window.__game.S.nation.cities || []).length > 0), 8000);
+    const recov = await page.$('[data-ed="recovery-saved"]'); if (recov) await recov.click().catch(() => {});
+    await go('customise/portraits');
+    check('with no mayor, the editor says where mayors come from', await page.evaluate(() => !!document.querySelector('#cz-sec-r .pt-my-none') && !document.querySelector('.pt-who-my')));
+    const cid = await page.evaluate(() => { const n = window.__game.S.nation; return Array.isArray(n.cities) && n.cities[0] ? n.cities[0].id : null; });
+    check('the nation has a city for a mayor', !!cid, cid);
+    await edit((n, now, G, id) => { n.cities.find(x => x.id === id).my = { nm: 'Ottoline Brack', tr: 'builder', t: now }; }, cid);
+    await go('customise/portraits');
+    const myRow = await page.evaluate(id => { const b = document.getElementById('pt-p-my-' + id); return b ? { on: b.classList.contains('on'), row: !!b.closest('.pt-who-my'), med: !!b.querySelector('svg') } : null; }, cid);
+    check('a mayor gets a place, with a face, in the Mayors row', !!myRow && myRow.row && myRow.med && !myRow.on, myRow);
+    const mayorMed = id => page.evaluate(id => { const X = window.__game.PT(), n = window.__game.S.nation, c = n.cities.find(x => x.id === id); return X.cxMayorMed({ id, fn: n }, X.cxCityExtras(c).my, 'x'); }, id);
+    const med0 = await mayorMed(cid);
+    await page.click('#pt-p-my-' + cid);
+    const sheet = await page.evaluate(() => ({ pf: document.querySelector('#cz-sec-r .pt-pf').textContent, nm: document.querySelector('#cz-sec-r .pt-nm').textContent, cp: document.querySelector('#cz-sec-r .pt-cp').textContent,
+      lead: !!document.querySelector('#cz-sec-r [data-act="pt-ink"], #cz-sec-r [data-act="pt-ring"], #cz-sec-r .pt-nicks') }));
+    check('the sheet names the mayor, the city and the trait, without the leader’s ink, ring and nickname', /^Mayor of ./.test(sheet.pf) && sheet.nm === 'Ottoline Brack' && /Master builder · in office since/.test(sheet.cp) && !sheet.lead, sheet);
+    await page.selectOption('#pt-h-s', '12'); await page.selectOption('#pt-e-s', '1');
+    check('the mayor’s draft is marked in the row', await page.evaluate(id => /Unsaved/.test(document.getElementById('pt-p-my-' + id).textContent), cid));
+    await page.click('#pt-save');
+    const n = await nation();
+    const rec = n.cities.find(c => c.id === cid);
+    check('the look is saved on the mayor’s record', !!rec && !!rec.my && !!rec.my.l && rec.my.l.h === 12 && rec.my.l.e === 1 && rec.my.nm === 'Ottoline Brack', rec && rec.my);
+    check('a toast says where it shows', await until(() => page.evaluate(() => window.__game.PT().toasts().some(m => /Ottoline Brack’s portrait is saved\. It shows on .+’s page/.test(m)))));
+    const plainIds = s => s.replace(/(id="|#)([a-zA-Z]+)\d+/g, '$1$2');
+    check('the city’s page draws the mayor in that look', plainIds(med0) !== plainIds(await mayorMed(cid)));
+    await page.evaluate(() => document.querySelector('#cz-sec-r .pt-who').scrollIntoView());
+    await page.screenshot({ path: OUT + '/portraits-mayor-1280.png' });
+    const kept = await page.evaluate(() => window.__game.PT().cxCityExtras({ id: 'c1', my: { nm: 'Ada Brack', tr: 'builder', t: 5, l: { h: 3, e: 1.5, w: 99, Q: 2, x: -1, zz: 1 } } }).my);
+    check('a look survives the city record’s checks, and nothing else in it does', JSON.stringify(kept.l) === '{"h":3}', kept);
+    await go('cities');
+    await page.evaluate(id => { const G = window.__game; G.S.cxSel = id; G.S.cxTab = 'ppl'; G.S.cityOpen = null; G.render(); }, cid);
+    check('the city’s People tab has Edit portrait on the mayor', await until(() => page.evaluate(id => !!document.getElementById('pt-edit-my-' + id), cid)));
+    await page.click('#pt-edit-my-' + cid);
+    check('it opens Customise › Portraits on that mayor', await until(() => page.evaluate(id => location.hash === '#customise/portraits' && !!document.querySelector('#pt-p-my-' + id + '.on'), cid)));
+    await edit((n, now, G, id) => { delete n.cities.find(x => x.id === id).my; }, cid);
+    check('a mayor who leaves takes the look along, and the editor goes back to the head of government', await until(() => page.evaluate(() => !!document.querySelector('#pt-p-lead.on') && !!document.querySelector('#cz-sec-r .pt-my-none'))));
+    check('mayors: no page errors', t.errors.length === 0, t.errors);
     await t.ctx.close();
   }
   /* ── a phone, light and dark: the section fits and works ── */

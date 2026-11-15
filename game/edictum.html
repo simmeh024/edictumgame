@@ -8698,6 +8698,10 @@ button.rgc-pic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pt-p.on{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 9%,transparent);color:var(--ink);font-weight:600}
 .pt-p:disabled{cursor:default;opacity:.6}
 .pt-p small{font-size:10.5px;color:var(--ink-3);font-weight:500}
+.pt-who-my{margin-top:-10px}
+.pt-who-h{flex:none;align-self:center;width:58px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.pt-my-none{margin:-8px 0 14px}
+.cx-my-id .pt-edit-my{margin-top:4px}
 .pt-p .pt-dot{color:var(--stamp)}
 .pt-sheet{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:28px;align-items:start}
 .pt-prev{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;min-width:0;position:sticky;top:calc(var(--cz-dock-h,0px) + 12px)}
@@ -63314,9 +63318,12 @@ function elExtras(b){
   return o;
 }
 function cxUgPut(b,e){delete b.lv;delete b.lu;delete b.ug;delete b.uu;if(e.ug)b.ug=e.ug;if(e.uu)b.uu=e.uu;}
+/* a mayor's portrait (Customise › Portraits): the look's parts as small whole numbers, checked without the portrait
+   tables, which are set up later than the cities are first read */
+function cxMyLook(v){if(!v||typeof v!=='object'||Array.isArray(v))return null;const o={};for(const k of Object.keys(v))if(/^[a-z]$/.test(k)&&Number.isInteger(v[k])&&v[k]>=0&&v[k]<64)o[k]=v[k];return Object.keys(o).length?o:null;}
 function cxCityExtras(c){
   const o={};if(!c||typeof c!=='object')return o;
-  const m=c.my;if(m&&typeof m==='object'&&typeof m.nm==='string'&&Object.hasOwn(CX_TRAITS,m.tr)&&Number.isFinite(m.t))o.my={nm:c3CleanName(m.nm,40),tr:m.tr,t:m.t};
+  const m=c.my;if(m&&typeof m==='object'&&typeof m.nm==='string'&&Object.hasOwn(CX_TRAITS,m.tr)&&Number.isFinite(m.t)){o.my={nm:c3CleanName(m.nm,40),tr:m.tr,t:m.t};const l=cxMyLook(m.l);if(l)o.my.l=l;}
   if(Number.isInteger(c.wl)&&c.wl>0)o.wl=clamp(c.wl,0,3);
   const u=c.wu,wl=o.wl||0;if(u&&typeof u==='object'&&u.l===wl+1&&u.l<=3&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=3*DAY){o.wu={l:u.l,s:u.s,d:u.d};const p=paidClean(u.p,cxWallList(u.l));if(p)o.wu.p=p;}
   if(Number.isFinite(c.ne))o.ne=c.ne;
@@ -63563,7 +63570,7 @@ function cxPeople(ct,T,n,st,now,ok){
   let mayor;
   if(my){const fire=S.cxFire===ct.id,L=CX_LETTERS[my.tr],lead=({Thriving:'The city is in fine spirits.',Content:'The city is calm.',Uneasy:'There is grumbling in the market.',Restless:'I will be frank: the people are unhappy.'})[band[1]];
     const wk=Math.floor(now/(7*DAY));
-    mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><div class="cx-mayor"><div class="cx-my">${cxMayorMed(ct,my,'cx-my-med')}<div class="cx-my-id"><p><b>${esc(my.nm)}</b> <span class="chip">${esc(CX_TRAITS[my.tr][0])}</span></p><p class="hint">${esc(CX_TRAITS[my.tr][1])} In office since ${fmtDate(my.t)}.</p></div></div>
+    mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><div class="cx-mayor"><div class="cx-my">${cxMayorMed(ct,my,'cx-my-med')}<div class="cx-my-id"><p><b>${esc(my.nm)}</b> <span class="chip">${esc(CX_TRAITS[my.tr][0])}</span></p><p class="hint">${esc(CX_TRAITS[my.tr][1])} In office since ${fmtDate(my.t)}.</p>${ok&&/^[\w-]{1,40}$/.test(ct.id)?`<button type="button" class="linkish small pt-edit-my" id="pt-edit-my-${esc(ct.id)}" data-act="pt-edit" data-v="my-${esc(ct.id)}">Edit portrait</button>`:''}</div></div>
       <figure class="cx-lt"><figcaption class="cx-lt-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<span>The Mayor’s office, ${esc(ct.nm)}</span><span class="cx-lt-d">${fmtDate(Math.max(wk*7*DAY,my.t||0))}</span></figcaption><blockquote class="cx-letter"><p>${esc(lead)} ${esc(L[hash(ct.id+':'+wk)%L.length])}</p><footer>${esc(my.nm)}, Mayor of ${esc(ct.nm)}</footer></blockquote></figure>
       ${ok?(fire?`<div class="row"><span class="hint">Dismiss ${esc(my.nm)}? A new mayor costs ${esc(costText(CX_MAYOR_COST))}.</span><button class="btn danger small-btn" data-act="cx-fire" data-id="${esc(ct.id)}">Dismiss</button><button class="linkish small" data-act="cx-fire-no">Keep</button></div>`:`<button class="linkish small" data-act="cx-fire-ask" data-id="${esc(ct.id)}">Dismiss the mayor…</button>`):''}</div></section>`;}
   else mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><p class="hint">${esc(ct.nm)} has no mayor. Appointing one costs ${esc(costText(CX_MAYOR_COST))}, lifts the city’s mood by 3 and brings one trait. New candidates come forward every week.</p>${ok?`<ul class="cx-cands">${cxCands(ct,now).map((c,i)=>`<li class="opt cx-cand">${cxMayorMed(ct,c,'cx-cand-med')}<div class="opt-h"><b>${esc(c.nm)}</b></div><p class="opt-d"><span class="chip">${esc(CX_TRAITS[c.tr][0])}</span> ${esc(CX_TRAITS[c.tr][1])}</p><button class="btn" data-act="cx-mayor" data-id="${esc(ct.id)}" data-i="${i}"${lacking(CX_MAYOR_COST,st).length?' disabled':''}>Appoint</button></li>`).join('')}</ul>`:''}</section>`;
@@ -74455,7 +74462,7 @@ function ptFormerHTML(x){
     return `<figure style="--pc:${ink||'var(--cv-lead)'}">${cvMed(o)}<figcaption><b>${esc([e.l,e.r].filter(Boolean).join(' ')||'A leader whose name is not on record')}${nk?` <i>${esc(nk)}</i>`:''}</b>${muDateS(e.a)} – ${muDateS(e.b)}</figcaption></figure>`;}).join('')}</div></section>`;
 }
 /* for the tests (EDICTUM_PROBE's PT) */
-function ptProbe(){return {cvBust,cvMed,succeed,cabOf,cuOf,cuNoteSVG,leaderAge,PT,PT_ROWS,PT_LOCK,PT_CODES,PT_NICKS,PT_ISSUES,ptBust,ptBase,ptLead,ptMin,ptMinLook,ptCand,ptCaption,ptCommit,ptLookNorm,ptSnap,ptSnapNorm,ptLeadSeed,ptHas,ptInk,ptSilhouette,ptBustArt,ptFormerHTML,ptCzSec,ptOld};}
+function ptProbe(){return {toasts:()=>[TOASTQ.cur].concat(TOASTQ.q).filter(Boolean).map(x=>x.m),ptIsMy,ptMyOf,ptMyList,cxMayorMed,cxCityExtras,cvBust,cvMed,succeed,cabOf,cuOf,cuNoteSVG,leaderAge,PT,PT_ROWS,PT_LOCK,PT_CODES,PT_NICKS,PT_ISSUES,ptBust,ptBase,ptLead,ptMin,ptMinLook,ptCand,ptCaption,ptCommit,ptLookNorm,ptSnap,ptSnapNorm,ptLeadSeed,ptHas,ptInk,ptSilhouette,ptBustArt,ptFormerHTML,ptCzSec,ptOld};}
 
 /* ── the banknote's engraving of a sitter with a look: the bust hatched, the silver hair crossed lightly, the cuts
    printed as ink lines (like cuBustArt's), paper-coloured pieces (ermine, a star) left unprinted ── */
@@ -74566,10 +74573,17 @@ DSP_LOG.portraitc={sec:'culture',w:3,kick:'Arts',go:'nation',h:['The cabinet of 
 const PT={who:'lead',dr:{}};
 function ptSaved(n,who){
   if(who==='lead'){const r=n.rpt||{};return {l:Object.assign({},r.l||{}),i:r.i||'gold',r:r.r||0,k:r.k||''};}
+  if(ptIsMy(who)){const q=ptMyOf(n,who);return {l:Object.assign({},q&&q.my.l||{})};}
   const m=cabOf(n)[who],c=n.cpt&&n.cpt[who];return {l:Object.assign({},m&&c&&c.n===m.nm?c.l:{})};
 }
+/* mayors sit for the editor too, by city: who is 'my-' and the city's id. The look lives on the mayor's own record
+   (c.my.l), so it leaves office with them; the age is the one the city's page has always drawn them at */
+const ptIsMy=who=>typeof who==='string'&&who.startsWith('my-');
+function ptMyOf(n,who){if(!ptIsMy(who)||!n)return null;const id=who.slice(3),c=(Array.isArray(n.cities)?n.cities:[]).find(x=>x&&x.id===id),my=c&&cxCityExtras(c).my;return my?{c,my}:null;}
+const ptMyAge=(c,my)=>38+hash(c.id+':'+my.nm)%30;
+function ptMyList(n){return (Array.isArray(n&&n.cities)?n.cities:[]).filter(c=>c&&typeof c.id==='string'&&/^[\w-]{1,40}$/.test(c.id)&&cxCityExtras(c).my).map(c=>'my-'+c.id);}
 const ptCur=(n,who)=>PT.dr[who]||ptSaved(n,who);
-function ptSitter(n,who){const m=who==='lead'?null:cabOf(n)[who];return m?{seed:m.nm,age:cvMinAge(m,Date.now()),m}:{seed:ptLeadSeed(n),age:(()=>{try{return leaderAge(n);}catch(e){return 50;}})()};}
+function ptSitter(n,who){if(ptIsMy(who)){const q=ptMyOf(n,who);if(q)return {seed:q.my.nm,age:ptMyAge(q.c,q.my),my:q.my,c:q.c};}const m=who==='lead'||ptIsMy(who)?null:cabOf(n)[who];return m?{seed:m.nm,age:cvMinAge(m,Date.now()),m}:{seed:ptLeadSeed(n),age:(()=>{try{return leaderAge(n);}catch(e){return 50;}})()};}
 /* the look as shown: the dress code under a minister's own choices */
 function ptShown(n,who,cur){if(who==='lead')return cur.l;const code=ptCodeOf(n);return Object.assign({},code?code[2]:{},cur.l);}
 function ptLockedIn(n,who,cur){const L=ptShown(n,who,cur),ids=Object.keys(L).map(k=>k+L[k]).filter(id=>(PT_LOCK[id]||PT_SHOP[id])&&!ptHas(n,id));if(who==='lead'&&cur.r&&!ptHas(n,'r'+cur.r))ids.push('r'+cur.r);
@@ -74579,6 +74593,7 @@ function ptLockedIn(n,who,cur){const L=ptShown(n,who,cur),ids=Object.keys(L).map
 function ptMed(n,who,cur,cls,big){
   const s=ptSitter(n,who),L=ptShown(n,who,cur),o={seed:s.seed,look:L,old:ptOld(L,s.age),cls,...ptNat(n)};
   if(who==='lead'){const ink=ptInk(n,cur.i,1);if(ink)o.ink=ink;if(big&&cur.r)o.ring=cur.r;}
+  else if(ptIsMy(who))o.ink='var(--accent)';
   return cvMed(o);
 }
 /* the hair that covers the ear (and so an earring): long, the powdered wig, the bob, long waves */
@@ -74592,15 +74607,19 @@ function ptShopWarn(ids){const by=new Map();for(const id of ids){const p=ptPackO
 function ptStepTo(n,k,v,d){const m=k==='r'?PT_RING_N.length:PT_ROW_BY[k][2].length;let x=v;for(let i=0;i<m;i++){x=(x+d+m)%m;if(ptOffered(n,k+x))return x;}return v;}
 const ptLc=s=>s.charAt(0).toLowerCase()+s.slice(1);
 function ptCzSec(n){
-  const cab=cabOf(n),who=PT.who=PT.who==='lead'||cab[PT.who]?PT.who:'lead',cur=ptCur(n,who),s=ptSitter(n,who),L=ptShown(n,who,cur),base=ptBase(s.seed),code=ptCodeOf(n),dirty=!!PT.dr[who];
+  const cab=cabOf(n),who=PT.who=PT.who==='lead'||(!ptIsMy(PT.who)&&cab[PT.who])||ptMyOf(n,PT.who)?PT.who:'lead',cur=ptCur(n,who),s=ptSitter(n,who),L=ptShown(n,who,cur),base=ptBase(s.seed),code=ptCodeOf(n),dirty=!!PT.dr[who];
   const people=[['lead',n.leader||'Leader']].concat(PF_KEYS.map(pf=>[pf,cvDept(pf)]));
   const whoRow=`<div class="pt-who" role="group" aria-label="Whose portrait">${people.map(([k,l])=>{const m=k==='lead'?null:cab[k];if(k!=='lead'&&!m)return `<button type="button" class="pt-p" disabled style="--pc:var(--cv-${k})">${cvMed({cls:'cv-med-s',vac:1})}<span>${esc(l)}</span><small>Vacant</small></button>`;
     const c=ptCur(n,k);return `<button type="button" class="pt-p${k===who?' on':''}" id="pt-p-${k}" data-act="pt-who" data-v="${k}" aria-pressed="${k===who}" style="--pc:${k==='lead'?ptInk(n,c.i)||'var(--cv-lead)':'var(--cv-'+k+')'}">${ptMed(n,k,c,'cv-med-s')}<span>${esc(l)}</span>${PT.dr[k]?'<small class="pt-dot">Unsaved</small>':''}</button>`;}).join('')}</div>`;
-  const nm=who==='lead'?`${esc(n.leader||'Leader')}${n.ruler?' '+esc(n.ruler):''}`:esc(s.m.nm),nick=who==='lead'&&cur.k&&PT_NICK_BY[cur.k]?PT_NICK_BY[cur.k][1]:'';
-  const pc=who==='lead'?ptInk(n,cur.i,1)||'var(--cv-lead)':'var(--cv-'+who+')',locked=ptLockedIn(n,who,cur),lkE=locked.filter(id=>!PT_SHOP[id]),lkS=locked.filter(id=>PT_SHOP[id]);
+  const my=ptIsMy(who)?s.my:null,mys=ptMyList(n);
+  const myRow=mys.length?`<div class="pt-who pt-who-my" role="group" aria-label="Mayors"><span class="pt-who-h">Mayors</span>${mys.map(k=>{const q=ptMyOf(n,k),c=ptCur(n,k);
+    return `<button type="button" class="pt-p${k===who?' on':''}" id="pt-p-${k}" data-act="pt-who" data-v="${k}" aria-pressed="${k===who}" style="--pc:var(--accent)">${ptMed(n,k,c,'cv-med-s')}<span>${esc(cityLabel(n,q.c))}</span>${PT.dr[k]?'<small class="pt-dot">Unsaved</small>':''}</button>`;}).join('')}</div>`
+    :`<p class="hint pt-my-none">Your cities’ mayors sit here too, once a city has one. Appoint them on a city’s People tab.</p>`;
+  const nm=who==='lead'?`${esc(n.leader||'Leader')}${n.ruler?' '+esc(n.ruler):''}`:esc((my||s.m).nm),nick=who==='lead'&&cur.k&&PT_NICK_BY[cur.k]?PT_NICK_BY[cur.k][1]:'';
+  const pc=who==='lead'?ptInk(n,cur.i,1)||'var(--cv-lead)':my?'var(--accent)':'var(--cv-'+who+')',locked=ptLockedIn(n,who,cur),lkE=locked.filter(id=>!PT_SHOP[id]),lkS=locked.filter(id=>PT_SHOP[id]);
   const prev=`<div class="pt-prev" style="--pc:${pc}">${ptMed(n,who,cur,who==='lead'?'cv-med-l pt-big':'pt-big',1)}
-    <p class="pt-pf">${who==='lead'?'Head of government':esc(PF[who][2])}</p><p class="pt-nm">${nm}${nick?` <em class="pt-nk">${esc(nick)}</em>`:''}</p>
-    <p class="pt-cp">${who==='lead'?esc(ptCaption(n)):`Age ${s.age}${s.m.t?' · in office since '+esc(cvDay(s.m.t)):''}`}</p>
+    <p class="pt-pf">${who==='lead'?'Head of government':my?'Mayor of '+esc(cityLabel(n,s.c)):esc(PF[who][2])}</p><p class="pt-nm">${nm}${nick?` <em class="pt-nk">${esc(nick)}</em>`:''}</p>
+    <p class="pt-cp">${who==='lead'?esc(ptCaption(n)):my?`Age ${s.age} · ${esc(CX_TRAITS[my.tr][0])} · in office since ${esc(cvDay(my.t))}`:`Age ${s.age}${s.m.t?' · in office since '+esc(cvDay(s.m.t)):''}`}</p>
     <div class="pt-sizes" aria-hidden="true">${ptMed(n,who,cur,'cv-med-m')}${ptMed(n,who,cur,'cv-med-s')}</div>
     ${lkE.length?`<p class="pt-warn">Not yet earned: ${esc(list(lkE.map(id=>'the '+ptPieceName(id)+' ('+ptLc(ptLockWords(id))+')')))}. You can try ${lkE.length===1?'it':'them'} on, and save once earned.</p>`:''}
     ${lkS.length?ptShopWarn(lkS):''}
@@ -74625,21 +74644,21 @@ function ptCzSec(n){
       <div class="pt-row pt-nicks"><span class="pt-rl">Nickname</span><div class="pt-nk-l" role="group" aria-label="Nickname"><button type="button" class="pt-nkb" id="pt-k-" data-act="pt-nick" data-v="" aria-pressed="${!cur.k}">None</button>${earned.map(([k,w])=>`<button type="button" class="pt-nkb" id="pt-k-${k}" data-act="pt-nick" data-v="${k}" aria-pressed="${cur.k===k}">${esc(w)}</button>`).join('')}</div>
         <p class="pt-note">${earned.length?'Earned by this leader in office.':'This leader has not earned a nickname yet.'}</p>${todo.length?`<details class="pt-note pt-todo"><summary>How nicknames are earned (${todo.length} still to earn)</summary><ul>${todo.map(([k,w,how])=>`<li><i>${esc(w)}</i>: ${esc(how.charAt(0).toLowerCase()+how.slice(1))}</li>`).join('')}</ul></details>`:''}</div>`;
   }
-  const codes=`<div class="pt-code"><h3 class="pt-h3">Cabinet dress code</h3><p class="hint">One choice dresses every minister, and new ministers arrive dressed to it. A minister’s own choices still win. The head of government dresses apart.</p>
+  const codes=`<div class="pt-code"><h3 class="pt-h3">Cabinet dress code</h3><p class="hint">One choice dresses every minister and mayor, and new ones arrive dressed to it. Their own choices still win. The head of government dresses apart.</p>
     <div class="pt-codes" role="group" aria-label="Dress code"><button type="button" class="pt-cd" id="pt-c-none" data-act="pt-code" data-v="" aria-pressed="${!code}">As drawn</button>${PT_CODES.map(([k,l,set])=>{const lk=ptCodeLocks(n,set);return `<button type="button" class="pt-cd" id="pt-c-${k}" data-act="pt-code" data-v="${k}" aria-pressed="${code&&code[0]===k}"${lk.length?` disabled aria-describedby="pt-c-${k}-w"`:''}>${esc(l)}</button>`;}).join('')}</div>
     <p class="pt-note">${code?esc(code[3]):'Every minister keeps the look drawn from their name.'}</p>
     ${PT_CODES.map(([k,l,set])=>{const lk=ptCodeLocks(n,set);return lk.length?`<p class="pt-note pt-cl" id="pt-c-${k}-w">${esc(l)} needs ${esc(list(lk.map(id=>'the '+ptPieceName(id)+' ('+ptLc(ptLockWords(id))+')')))}.</p>`:'';}).join('')}</div>`;
   return `<section class="cz-sec pt-czsec" id="cz-sec-r"><h2 class="fs-l"><span class="fs-n">VI</span>Portraits</h2>
-    <p class="hint fs-hint">The faces of your government, as they hang on the Government page, in the Museum and on your banknotes, and as visitors see them. Everything stays in the engraved style, in one ink or with a skin colour; some pieces are earned in play. Click a part’s name to pick from the whole list.</p>
-    ${whoRow}<div class="pt-sheet">${prev}<div class="pt-rows">${rows}${lead}</div></div>${codes}</section>`;
+    <p class="hint fs-hint">The faces of your government, as they hang on the Government page, in the Museum and on your banknotes, and your cities’ mayors, as they appear on each city’s page; visitors see them too. Everything stays in the engraved style, in one ink or with a skin colour; some pieces are earned in play. Click a part’s name to pick from the whole list.</p>
+    ${whoRow}${myRow}<div class="pt-sheet">${prev}<div class="pt-rows">${rows}${lead}</div></div>${codes}</section>`;
 }
-CZ_SECS.push(['r','Portraits','portraits portrait face faces skin colour color hair hairstyle beard moustache hat crown wig dress leader minister cabinet dress code nickname ink ring']);CZ_TABS.find(t=>t[0]==='id')[2].push('r');
-CZ_SLUG.r='portraits';CZ_SEC_SUB.r='Faces of the leader and cabinet';
+CZ_SECS.push(['r','Portraits','portraits portrait face faces skin colour color hair hairstyle beard moustache hat crown wig dress leader minister cabinet mayor mayors city dress code nickname ink ring']);CZ_TABS.find(t=>t[0]==='id')[2].push('r');
+CZ_SLUG.r='portraits';CZ_SEC_SUB.r='Faces of the leader, cabinet and mayors';
 {const base=VIEWS_EXT.customise;VIEWS_EXT.customise=now=>{const h=base(now);if(!S.nation||typeof h!=='string'||h.includes('id="cz-sec-r"')||!h.includes('id="cz-dock"'))return h;
   const sec=ptCzSec(S.nation),j=h.indexOf('<section class="cz-sec" id="cz-sec-b"');return j>=0?h.slice(0,j)+sec+h.slice(j):h+sec;};}
 /* the charter's "Customise your leader" opens the section on the head of government */
 tutGo=(f=>function(v,b,to){if(to==='cz-sec-r')PT.who='lead';return f.apply(this,arguments);})(tutGo);
-UX_SETTINGS.push({v:'focus:cz-sec-r',l:'Portraits of the government',g:'Design',words:'portrait face skin colour hair hairstyle beard moustache hat crown wig dress leader minister cabinet dress code nickname ink ring',view:'customise',target:'#cz-sec-r'});
+UX_SETTINGS.push({v:'focus:cz-sec-r',l:'Portraits of the government',g:'Design',words:'portrait face skin colour hair hairstyle beard moustache hat crown wig dress leader minister cabinet mayor dress code nickname ink ring',view:'customise',target:'#cz-sec-r'});
 function ptDraft(n,who){if(!PT.dr[who]){const c=ptSaved(n,who);PT.dr[who]={l:Object.assign({},c.l),i:c.i,r:c.r,k:c.k};}return PT.dr[who];}
 /* a draft back to what is saved is no longer a draft */
 function ptTidy(n,who){const d=PT.dr[who];if(d&&JSON.stringify(ptLookNorm(d.l)||{})===JSON.stringify(ptLookNorm(ptSaved(n,who).l)||{})&&(who!=='lead'||(d.i===ptSaved(n,who).i&&d.r===ptSaved(n,who).r&&d.k===ptSaved(n,who).k)))delete PT.dr[who];}
@@ -74650,9 +74669,10 @@ function ptSave(){
   if(who==='lead'){const r=Object.assign({},n.rpt||{}),l=ptLookNorm(d.l);if(l)r.l=l;else delete r.l;
     if(d.i&&d.i!=='gold')r.i=d.i;else delete r.i;if(d.r)r.r=d.r;else delete r.r;if(d.k)r.k=d.k;else delete r.k;if(!r.b)r.b=ptBorn(n,ptLeadSeed(n));
     if(Object.keys(r).length)n.rpt=r;else delete n.rpt;}
+  else if(ptIsMy(who)){const q=ptMyOf(n,who);if(!q||!q.c.my)return;const l=ptLookNorm(d.l);if(l)q.c.my.l=l;else delete q.c.my.l;}
   else{const m=cabOf(n)[who];if(!m)return;const c=Object.assign({},n.cpt||{}),l=ptLookNorm(d.l);if(l)c[who]={n:m.nm,l};else delete c[who];if(Object.keys(c).length)n.cpt=c;else delete n.cpt;}
-  delete PT.dr[who];commit(n);render();
-  toast(who==='lead'?`The portrait of the ${n.leader||'leader'} is saved. It shows on the Government page, in the Museum and on your banknotes.`:`${cabOf(n)[who].nm}’s portrait is saved.`);
+  const myQ=ptMyOf(n,who);delete PT.dr[who];commit(n);render();
+  toast(who==='lead'?`The portrait of the ${n.leader||'leader'} is saved. It shows on the Government page, in the Museum and on your banknotes.`:myQ?`${myQ.my.nm}’s portrait is saved. It shows on ${cityLabel(n,myQ.c)}’s page.`:`${cabOf(n)[who].nm}’s portrait is saved.`);
 }
 function ptSetPart(n,who,k,v){
   const row=PT_ROW_BY[k];if(!row||!Number.isInteger(v)||v<0||v>=row[2].length)return;
@@ -74934,8 +74954,10 @@ function cxMoodParts(parts){
   const mx=Math.max(10,...parts.map(([d])=>Math.abs(d)));
   return parts.map(([d,t])=>`<li><span class="cx-mp-t">${esc(t)}</span><span class="cx-mp-bar" aria-hidden="true"><i class="${d>0?'up':'down'}" style="width:${(Math.abs(d)/mx*50).toFixed(1)}%"></i></span><b class="${d>0?'up':'down'}">${d>0?'+':'−'}${Math.abs(d)}</b></li>`).join('');
 }
-/* a mayor's face: the Government page's medallion, in the cabinet's dress code, of an age fixed by the name */
-function cxMayorMed(ct,x,cls){try{return cvMed(ptCand(ct.fn||S.nation,{nm:x.nm},38+hash(ct.id+':'+x.nm)%30,{cls,small:1,ink:'var(--accent)'}));}catch(e){return '';}}
+/* a mayor's face: the Government page's medallion, in the cabinet's dress code under the mayor's own look (chosen in
+   Customise › Portraits, x.l), of an age fixed by the name */
+function cxMayorMed(ct,x,cls){try{const age=38+hash(ct.id+':'+x.nm)%30,o=ptCand(ct.fn||S.nation,{nm:x.nm},age,{cls,small:1,ink:'var(--accent)'}),l=x.l&&ptLookNorm(x.l);
+  if(l){o.look=Object.assign({},o.look,l);o.old=ptOld(o.look,age);}return cvMed(o);}catch(e){return '';}}
 
 /* ── the Defence tab: the city's defence in all, and its walls as rings ── */
 function cxDefTotal(ct,T){if(!(ct.hi>=0))return 1;let m=1;try{m*=cityDefMult(T,ct.hi,ct.c);}catch(e){}try{m*=cxDefAt(T,ct.hi,ct.c).m;}catch(e){}return m;}
