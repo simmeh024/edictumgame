@@ -29,6 +29,20 @@ export const STAT_KEYS = ['civil', 'econ', 'pol', 'wealth', 'equal', 'health', '
 export const BUDGET_KEYS = ['admin', 'defence', 'edu', 'env', 'health', 'commerce', 'aid', 'law', 'transport', 'equality', 'spirit', 'welfare'];
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export function income(s) { const w = s.wealth; return 4000 + 90 * w + 6.5 * w * w; }
+/* growth without a ceiling (the game's section of that name): income follows the same curve past Prosperity 100 (the
+   record's wb), and output per person is multiplied by Productivity, kept as a log (pd) that grows a little each day
+   from Education, Science and Economic Freedom on the clock gcAt (computer nations from GC_EPOCH). History snapshots
+   carry w (beyond 100) and q (Productivity). test/fx.test.mjs checks these against the game's own. */
+export const PD_DAY = 0.01, PD_FROM = 40, PD_DAMP = 1, GC_EPOCH = Date.UTC(2026, 10, 15);
+export function incomeW(w) { return 4000 + 90 * w + 6.5 * w * w; }
+export function gcRate(v, from, top) { return top * clamp((v - from) / (100 - from), 0, 1); }
+export function pdRateOf(s) { return s ? gcRate(((+s.edu || 0) + (+s.sci || 0) + (+s.econ || 0)) / 3, PD_FROM, PD_DAY) : 0; }
+export function gcStep(x, a, b, dt) { x = Math.max(0, +x || 0); if (!(a > 0) || !(dt > 0)) return x; return (Math.sqrt((1 + b * x) * (1 + b * x) + 2 * b * a * dt) - 1) / b; }
+export function prodAt(rec, s, now, npc) {
+  const at = Number(rec && rec.gcAt), from = npc ? GC_EPOCH : (at > 0 ? at : Math.max(GC_EPOCH, Number(rec && rec.founded) || 0));
+  return Math.exp(gcStep(npc ? 0 : Number(rec && rec.pd) || 0, pdRateOf(s), PD_DAMP, Math.max(0, (now - from) / DAY)));
+}
+const histW = h => clamp(Number(h && h.w) || 0, 0, 1e4), histQ = h => Math.max(1, Number(h && h.q) || 1);
 export function govApproval(s) { return clamp(s.happy * 0.45 + (100 - s.corrupt) * 0.25 + s.pol * 0.1 + s.civil * 0.05 + (s.wealth - 50) * 0.15 + 10, 3, 97); }
 export function inflOf(s, p) { return clamp(1.2 + Math.abs(s.econ - 55) * 0.05 + s.corrupt * 0.03 - (p.priceCaps ? 0.6 : 0) + (p.cashless ? -0.3 : 0), 0.2, 25); }
 export function bpOf(n, k) { const tot = BUDGET_KEYS.reduce((a, q) => a + (n.budget[q] || 0), 0) || 1; return (n.budget[k] || 0) / tot * 100; }
@@ -192,16 +206,16 @@ export function indicators(id, rec, now, ctx) {
     const P0 = Math.max(0.1, num(rec.pop, 5)), dt = Math.max(0, now - num(rec.popAt, now)) / DAY, K = num(rec.pk, 0) || Math.max(50, P0 * 1.5), r = num(rec.pr, 0) || rateOf({ s, gm: num(rec.gm, 1), pop: P0 });
     pop = Math.max(0.1, logistic(P0, K, r, Math.min(dt, 3650)));
   }
-  const gpc = income(s) * prosper, out = gpc * pop * 1e6;
+  const wb = npc ? 0 : clamp(num(rec.wb, 0), 0, 1e4), prod = prodAt(rec, s, now, npc), gpc = incomeW(s.wealth + wb) * prosper * prod, out = gpc * pop * 1e6;
   /* growth: output now against output about a week ago (at least a day back), per day, in percent */
   let gOut = 0, gPc = 0, span = 0;
   if (npc) {
     const t0 = Math.max(ctx.npcEpoch, now - 7 * DAY); span = (now - t0) / DAY;
-    if (span >= 1) gOut = Math.log(pop / npcPopAt(rec, t0, ctx)) / span * 100;
+    if (span >= 1) { gPc = Math.log(prod / prodAt(rec, s, t0, true)) / span * 100; gOut = Math.log(pop / npcPopAt(rec, t0, ctx)) / span * 100 + gPc; }
   } else {
     let b = null; for (const h of hist) { if (now - h.t < DAY) continue; if (!b || Math.abs(now - 7 * DAY - h.t) < Math.abs(now - 7 * DAY - b.t)) b = h; }
     if (b) {
-      const s0 = statsOf(b.s), g0 = income(s0) * clamp(num(b.e, prosper), 0.3, 3), o0 = g0 * b.p * 1e6; span = (now - b.t) / DAY;
+      const s0 = statsOf(b.s), g0 = incomeW(s0.wealth + histW(b)) * clamp(num(b.e, prosper), 0.3, 3) * histQ(b), o0 = g0 * b.p * 1e6; span = (now - b.t) / DAY;
       if (o0 > 0 && g0 > 0) { gOut = Math.log(out / o0) / span * 100; gPc = Math.log(gpc / g0) / span * 100; }
     }
   }
@@ -209,7 +223,7 @@ export function indicators(id, rec, now, ctx) {
   let outVol = 0;
   const recent = hist.filter(h => now - h.t <= 14 * DAY);
   if (recent.length >= 3) {
-    const xs = recent.map(h => Math.log(income(statsOf(h.s)) * clamp(num(h.e, prosper), 0.3, 3))), m = xs.reduce((a, v) => a + v, 0) / xs.length;
+    const xs = recent.map(h => Math.log(incomeW(statsOf(h.s).wealth + histW(h)) * clamp(num(h.e, prosper), 0.3, 3) * histQ(h))), m = xs.reduce((a, v) => a + v, 0) / xs.length;
     outVol = Math.sqrt(xs.reduce((a, v) => a + (v - m) * (v - m), 0) / xs.length) * 100;
   }
   const debt = debtOf(n, s, p), ind = industries(n).slice(0, 5), tot = ind.reduce((a, c) => a + Math.max(0, c[1]), 0) || 1;

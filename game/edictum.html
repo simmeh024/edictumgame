@@ -250,6 +250,19 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .d-chg.up{color:var(--up)} .d-chg.down{color:var(--down)}
 /* the edict's effect on economic output: a full-width row under the census figures; on a phone the figures wrap under the name */
 .deltas li.d-out{grid-column:1/-1;flex-wrap:wrap;row-gap:6px}
+/* growth without a ceiling: what limits output (Nation › Growth), land from the sea (Territory), economy levels */
+.gc-lim{margin:22px 0 26px;padding:18px 20px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
+.gc-lim-h{font-family:var(--f-display);font-weight:600;font-size:19px;line-height:1.25;margin:0 0 4px}
+.gc-lim>.hint{margin:0 0 12px}
+.gc-lim-l{margin:0;display:grid;gap:0}
+.gc-lim-l>div{display:grid;grid-template-columns:minmax(120px,170px) 1fr;gap:4px 16px;padding:10px 0;border-top:1px solid var(--rule)}
+.gc-lim-l dt{font-weight:600}
+.gc-lim-l dd{margin:0;display:flex;flex-direction:column;gap:3px}
+.gc-lim-l dd span{color:var(--ink-2);font-size:14px;line-height:1.5}
+@media (max-width:560px){.gc-lim{padding:14px}.gc-lim-l>div{grid-template-columns:1fr}}
+.recw{margin-top:20px;padding-top:14px;border-top:1px solid var(--rule)}
+.recw .h3{font-family:var(--f-display);font-weight:600;font-size:18px;line-height:1.25;margin:0 0 6px}
+.el-lv{display:block}.el-chip{margin-left:6px}
 @media (max-width:560px){.d-out .d-vals{order:3;flex-basis:100%}}
 @media (prefers-reduced-motion:reduce){.stamp{animation:none}}
 @media (max-width:600px){.stamp{position:static;display:inline-block;margin-bottom:18px}.result .h1{padding-right:0}}
@@ -19842,6 +19855,8 @@ const descIdx = v => clamp(Math.floor(v/100*15),0,14);
 const ecoStrength = s => 0.6*s.econ+0.4*s.wealth;
 function classify(s){return CATS[LVL(s.civil)*9+LVL(s.econ)*3+LVL(s.pol)];}
 function income(s){const w=s.wealth;return 4000+90*w+6.5*w*w;}
+/* the same curve for Prosperity with what lies beyond 100 (growth without a ceiling: wealthW) */
+function incomeW(w){return 4000+90*w+6.5*w*w;}
 function gdp(n,now,id){return avgIncome(n,id)*popNow(n,now)*1e6;}
 function budgetSorted(n){
   const total=BUDGET.reduce((a,[k])=>a+(n.budget[k]||0),0)||1;
@@ -19849,8 +19864,11 @@ function budgetSorted(n){
 }
 function industry(n){return industries(n)[0][0];}
 function applyEffects(n,e){
+  /* Productivity and density run on with the figures as they were, before this changes them (growth without a ceiling) */
+  if(n&&!n.npc&&n.s)gcAdvance(n,Date.now());
   for(const k of Object.keys(e)){
     let v=e[k];
+    if(k==='pd'){pdBoost(n,+v||0);continue;}
     if(k==='b'){for(const bk of Object.keys(v))n.budget[bk]=clamp((n.budget[bk]||0)+v[bk],0,60);normBudget(n.budget);continue;}
     if(k==='p'){for(const pk of Object.keys(v)){if(v[pk]){n.policies[pk]=true;for(const c of conflictsOf(pk))delete n.policies[c];}else delete n.policies[pk];if(pk==='monarchy')setMonarchy(n,!!v[pk]);}continue;}
     if(k==='blk'){blkApply(n,v);continue;}if(k==='cab'){cabEffect(n,v);continue;}
@@ -19860,8 +19878,20 @@ function applyEffects(n,e){
        A rise is scaled by up to 1.3 when the figure has a long way to go; a fall is never scaled past 1, so a high
        figure no longer loses more than the edict says (a nation near the top saw rises of 0.2 and falls of 2.6 from
        the same 2 points, and its edicts did nothing or did harm). Prosperity's rises also keep at least 0.4, since
-       output grows with its square (income) */
-    if(k in n.s){if(v>0&&(k==='tax'||k==='weird'))v*=0.6;const cur=n.s[k];const room=v>0?100-cur:cur;let f=Math.min(v>0?1.3:1,room/45);if(k==='wealth'&&v>0)f=Math.max(0.4,f);n.s[k]=clamp(cur+v*f,0,100);}
+       output grows with its square (income).
+       Beyond the top (growth without a ceiling): at 100 a rise in Prosperity carries on past the bar (n.wb), and a fall
+       takes from what lies beyond first. In every good figure, the part of a move in the good direction that the easing
+       or the end of the scale swallowed goes into Productivity instead (PD_OVER a point). */
+    if(k in n.s){
+      if(v>0&&(k==='tax'||k==='weird'))v*=0.6;
+      const pl=!n.npc,want=Math.abs(v);let past=0;
+      if(pl&&k==='wealth'&&v<0&&wbOf(n)>0){const take=Math.min(wbOf(n),-v);n.wb=Math.round((wbOf(n)-take)*1000)/1000;v+=take;if(!(n.wb>0))delete n.wb;}
+      const cur=n.s[k];const room=v>0?100-cur:cur;let f=Math.min(v>0?1.3:1,room/45);if(k==='wealth'&&v>0)f=Math.max(0.4,f);
+      const raw=cur+v*f;n.s[k]=clamp(raw,0,100);
+      if(pl&&k==='wealth'&&raw>100){past=raw-100;n.wb=Math.round((wbOf(n)+past)*1000)/1000;}
+      const g=STATS[k]&&STATS[k].g;
+      if(pl&&g&&Math.sign(v)===g){const lost=want-Math.abs(n.s[k]-cur)-past;if(lost>1e-9)pdAdd(n,lost*PD_OVER);}
+    }
   }
 }
 function pickIssue(n){
@@ -21566,7 +21596,7 @@ function cityState(T){
     if(x.npc){for(const c of npcCities(x.id))all.push({id:c.id,c:c.c,nm:c.nm,cap:!!c.cap,fid:x.id,fn:x.n,npc:true,done:c.b.slice(),prog:[]});continue;}
     for(const c of cityList(x.n)){
       const done=[],prog=[];for(const b of c.b||[]){if(!BUILDINGS[b.k])continue;if(b.d<=now)done.push(b.k);else prog.push(b);}
-      const ct={id:c.id,c:c.c,nm:cityLabel(x.n,c),cap:c.c===x.cap,fid:x.id,fn:x.n,npc:false,done,prog,rec:c,ug:cxUpMap(c,now)};Object.defineProperty(ct,'tT',{value:T});cxMoodOn(ct,now);all.push(ct);
+      const ct={id:c.id,c:c.c,nm:cityLabel(x.n,c),cap:c.c===x.cap,fid:x.id,fn:x.n,npc:false,done,prog,rec:c,ug:cxUpMap(c,now),el:elMap(c,now)};Object.defineProperty(ct,'tT',{value:T});cxMoodOn(ct,now);all.push(ct);
     }
   }
   for(const ct of all){const o=T.owner[ct.c],fi=T.byId[ct.fid];ct.hi=o;ct.fi=fi;ct.active=o>=0&&(o===fi||T.occ[ct.c]===1);ct.dist=[];}
@@ -21589,11 +21619,11 @@ function cityState(T){
       if(B.prosper)a.prosper+=B.prosper*lm;if(B.army)a.army+=B.army*lm;if(B.growth)a.growth+=B.growth*lm;
       if(B.fort)a.forts.push(ct.c);if(B.wall)a.wall=true;
     }
-    nbCity(a,ct,T.list[ct.hi],yieldOf);cxCityAgg(a,ct);
+    nbCity(a,ct,T.list[ct.hi],yieldOf);cxCityAgg(a,ct);a.el=(a.el||0)+elCityAdd(ct,T.list[ct.hi]);
     ct.buildOutput=Object.fromEntries(RES.map(r=>[r,a.add[r]-beforeOutput[r]]));
   }
   mpNetworkBonuses(T,all,agg,now);
-  for(const a of agg){a.army=Math.min(a.army,0.24);a.prosper=Math.min(a.prosper,0.2)+(a.xp||0);a.growth=Math.min(a.growth,0.4);}
+  for(const a of agg){a.army=Math.min(a.army,0.24);a.pr0=a.prosper;a.prosper=Math.min(a.prosper,0.2)+(a.xp||0)+(a.el||0);a.growth=Math.min(a.growth,0.4);}
   const v={all,agg,byCell:new Map(all.filter(c=>c.active).map(c=>[c.c,c]))};
   cityMemo={T,k,v};
   return v;
@@ -22388,6 +22418,7 @@ function growthSection(n){
   return `<section class="section"><h2 class="h2">Growth</h2>
     <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${M.reached.length} of ${MILESTONES.length} milestones reached · ${esc(growthText(n))}</p>${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
       ${nx?`<div class="mile-next"><p class="lbl">Next milestone: ${fmtPopShort(nx.p)}</p><span class="bar"><i style="width:${pct.toFixed(1)}%"></i></span><p>${esc(cap1(list(mileUnlocks(nx,n))))}${nx.t?`, and the rank of ${esc(nx.t)}`:''}.</p></div>`:`<div class="mile-next"><p>Every milestone reached. ${esc(n.name)} is a ${esc(M.title)}.</p></div>`}</div>
+    ${gcLimitsCard(n)}
     ${mileList(M.pop,m=>{const done=M.pop>=m.p-1e-9;return `<li class="${done?'done':''}"><span class="ms-p">${done?'<span class="tick" aria-label="Reached">✓</span>':''}${fmtPopShort(m.p)}</span><span class="ms-u">${esc(cap1(list(mileUnlocks(m,n))))}${m.t?` <span class="chip">${esc(m.t)}</span>`:''}</span></li>`;})}${mileMore(M.pop)}
   </section>`;
 }
@@ -23461,7 +23492,7 @@ function statRows(A){
     cities:cityPops.map(([nm,v])=>[esc(nm),fmtCount(v)]),
     economy:[
       ['Economic output',money(A.g)+' a year','gdp'],['Output per person',fmt0(A.perCap)+' '+esc(cur),'gdppc'],
-      ['Economic growth',econGrowthText(A),'ecogrowth'],['Average income',fmt0(A.income0)+' '+esc(cur),'income'],
+      ['Economic growth',econGrowthText(A),'ecogrowth'],['Productivity',gcProdText(n,A.now)],...(wbOf(n)>0?[['Prosperity beyond 100','+'+fmt1(wbOf(n))]]:[]),['Average income',fmt0(A.income0)+' '+esc(cur),'income'],
       ['Poorest 10% earn',fmt0(A.income0*incBand(s,0,0.1))+' '+esc(cur)],['Richest 10% earn',fmt0(A.income0*incBand(s,0.9,1))+' '+esc(cur)],
       ['Gini coefficient',giniOf(s).toFixed(2),'gini'],['Unemployment',pctS(A.unemp),'unemp'],
       ['Inflation',pctS(A.infl),'infl'],['Public debt',pctS(A.debt)+' of output','debt'],['Credit rating',A.credit],
@@ -23551,7 +23582,9 @@ function allAlmanacs(){
 function recordHistory(n,now){
   const h=Array.isArray(n.hist)?n.hist:[];const last=h[h.length-1];
   if(last&&now-last.t<3*3600e3)return;
-  n.hist=h.concat({t:now,p:Math.round(popNow(n,now)*1000)/1000,s:STAT_KEYS.map(k=>Math.round(n.s[k]*10)/10),e:Math.round(prosperOf(n,myId())*1000)/1000}).slice(-90);
+  const hq=Math.round(prodOf(n,now)*1000)/1000,hw=Math.round(wbOf(n)*10)/10,he={t:now,p:Math.round(popNow(n,now)*1000)/1000,s:STAT_KEYS.map(k=>Math.round(n.s[k]*10)/10),e:Math.round(prosperOf(n,myId())*1000)/1000};
+  if(hq>1)he.q=hq;if(hw>0)he.w=hw;
+  n.hist=h.concat(he).slice(-90);
 }
 function hbars(rows,unit){
   const max=Math.max(...rows.map(r=>r[1]),1e-9);
@@ -23764,7 +23797,9 @@ function readReclaims(){
   RECL={sig,owner:own,time:tm};terrCache.clear();if(atlasCache)atlasCache.clear();
   return RECL;
 }
-const REC_MAX=24;
+/* REC_MAX: the most an edict's dykes and polders reclaim in all. RECW_MAX: what the nation's own engineers may add on
+   top (growth without a ceiling, below: engineered entries carry w:1). REC_KEEP: the most the record keeps. */
+const REC_MAX=24,RECW_MAX=300,REC_KEEP=REC_MAX+RECW_MAX;
 function shoreName(c){for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j>=0&&MAP.T[j]>=2&&MAP.comp[j]>=0)return landName(j);}return landName(c);}
 function reclaimCandidates(T,i,k){
   const out=[];
@@ -23774,6 +23809,49 @@ function reclaimCandidates(T,i,k){
     if(mine&&land===mine)out.push([c,mine*10+hash('rec:'+c)%10]);
   }
   return out.sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,k).map(x=>x[0]);
+}
+/* Land from the sea by the nation's own engineers (growth without a ceiling, 2026-11-15): when the free land runs out,
+   round the nation (fewer than RECW_NEAR free land hexes on its claim frontier) or in the region (less than RECW_FREE of
+   its land left unclaimed), a coastal nation may pay to reclaim shallow sea, one hex at a time, where the water touches
+   only its own land: the same reclaimed land the edicts make, the richest there is. Each hex costs RECW_COST, more
+   for every hex the engineers have already won (RECW_STEP of the price each), up to RECW_MAX hexes. */
+const RECW_COST={timber:30,iron:20,goods:20},RECW_STEP=0.1,RECW_NEAR=7,RECW_FREE=0.1;
+let recwMemo={T:null,v:0};
+function regionFreeShare(T){
+  if(recwMemo.T===T)return recwMemo.v;let land=0,free=0;
+  for(let c=0;c<MAP.N;c++){if(MAP.T[c]<2)continue;land++;if(T.owner[c]===-1&&!T.isCap[c])free++;}
+  recwMemo={T,v:land?free/land:0};return recwMemo.v;
+}
+function recwCount(n){return ((n&&n.rec)||[]).filter(e=>e&&e.w===1).length;}
+function recwCost(n){const k=recwCount(n),m=1+RECW_STEP*k,f=cabFx(n).cost,o={};for(const r in RECW_COST)o[r]=Math.max(1,Math.ceil(RECW_COST[r]*m*f));return o;}
+/* why the engineers may not start, or null: no land yet, free land still to claim, a full allowance, no shallows */
+function recwWhy(n,T){
+  T=T||territory();const i=T.byId[myId()];if(i===undefined||n!==S.nation)return 'Settle on the map first.';
+  if(recwCount(n)>=RECW_MAX)return `${n.name} has reclaimed all the sea its engineers will allow.`;
+  const near=[...claimFrontier(T)].filter(c=>MAP.T[c]>=2).length,share=regionFreeShare(T);
+  if(near>=RECW_NEAR&&share>=RECW_FREE)return `While there is free land to claim (${near} hexes on your border, ${Math.round(share*100)}% of ${REGION} unclaimed), the engineers wait. They start when fewer than ${RECW_NEAR} free hexes border your land, or less than ${Math.round(RECW_FREE*100)}% of the region is left.`;
+  if(!reclaimCandidates(T,i,1).length)return 'There is no shallow sea that touches only your coast.';
+  return null;
+}
+function recwGo(){
+  const now=Date.now(),T=territory(),i=T.byId[myId()],why=recwWhy(S.nation,T);if(why){toast(why);return;}
+  const cost=recwCost(S.nation),st=stockNow(S.nation,now),miss=lacking(cost,st);if(miss.length){toast('You need '+list(miss)+' more.');return;}
+  const c=reclaimCandidates(T,i,1)[0];if(c==null)return;
+  const n=clone(S.nation);cxPay(n,st,cost,now);n.rec=(n.rec||[]).concat({c,t:now,w:1});
+  const sh=shoreName(c);n.log.unshift({t:now,k:'rec',a:'1',fx:sh});n.log=n.log.slice(0,60);
+  commit(n);render();toast(`A hex of new land has been reclaimed from the sea off ${sh}.`);
+}
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act="recw"]');if(el)recwGo();});
+/* the Territory section's part: what the engineers can do, and for how much */
+function recwBlock(n){
+  if(n!==S.nation)return '';const T=territory(),i=T.byId[myId()];if(i===undefined)return '';
+  const why=recwWhy(n,T),done=recwCount(n),all=((n.rec)||[]).length;
+  if(why&&!all&&/shallow sea/.test(why))return '';
+  const cost=recwCost(n),miss=why?[]:lacking(cost,stockNow(n,Date.now()));
+  return `<div class="recw"><h3 class="h3">Land from the sea</h3>
+    <p>${all?`${esc(n.name)} has reclaimed ${all} ${all===1?'hex':'hexes'} from the sea${done?`, ${done} of them by its own engineers`:''}. `:''}${why?esc(why):`The engineers can turn a hex of shallow sea on your coast into reclaimed land, the richest farmland there is, for ${esc(costText(cost))}. Each hex costs a little more than the last.`}</p>
+    ${why?'':`<button class="btn ghost" data-act="recw"${miss.length?' disabled':''}>Reclaim a hex</button>${miss.length?` <span class="hint">You need ${esc(list(miss))} more.</span>`:''}`}
+  </div>`;
 }
 
 /* the land a nation holds, by type, with its coast and neighbours. Nations sit far apart, so a
@@ -23896,7 +23974,7 @@ function geoAfter(n,opt,ent,now,prior){
   const e=opt.e||{},notes=[],nb=ent&&ent.nb,nx=nb?findNation(nb):null,nbName=nx?nx.n.name:(ent&&ent.nbn)||'the neighbours',npc=!!(nx&&nx.npc);
   const T=territory(),i=T.byId[myId()];
   if(e.rec&&i!==undefined){
-    n.rec=(n.rec||[]).slice();const room=Math.max(0,REC_MAX-n.rec.length),cells=reclaimCandidates(T,i,Math.min(e.rec,room));
+    n.rec=(n.rec||[]).slice();const room=Math.max(0,REC_MAX-n.rec.filter(x=>!x.w).length),cells=reclaimCandidates(T,i,Math.min(e.rec,room));
     cells.forEach((c,j)=>n.rec.push({c,t:now+j}));
     if(cells.length){const sh=shoreName(cells[0]);n.log.unshift({t:now,k:'rec',a:String(cells.length),fx:sh});notes.push(['Land',`${cells.length===1?'A hex':cells.length+' hexes'} of new land reclaimed from the sea off ${sh}.`]);}
     else notes.push(['Land',room?'The engineers found no shallow water left to reclaim along your coast.':`${n.name} has reclaimed all the sea its engineers will allow.`]);
@@ -23936,7 +24014,7 @@ function normalizeGeo(d){
   const g=d.geo;
   if(g&&typeof g==='object'&&Array.isArray(g.b)&&Array.isArray(g.nb))n.geo={h:clamp(Math.round(num(g.h,0)),0,MAP.N),b:BIOME_KEY.slice(1).map((k,j)=>clamp(Math.round(num(g.b[j],0)),0,MAP.N)),co:clamp(Math.round(num(g.co,0)),0,MAP.N),is:g.is?1:0,nb:g.nb.filter(idOk).slice(0,6)};
   n.gw={};if(d.gw&&typeof d.gw==='object')for(const k of Object.keys(d.gw).slice(0,40))if(idOk(k))n.gw[k]=clamp(Math.round(num(d.gw[k],0)),-GW_MAX,GW_MAX);
-  n.rec=sameMap&&Array.isArray(d.rec)?d.rec.filter(e=>e&&cellOk(e.c)&&MAP_T0[e.c]===1&&typeof e.t==='number'&&isFinite(e.t)).slice(0,REC_MAX).map(e=>({c:e.c,t:e.t})):[];
+  n.rec=sameMap&&Array.isArray(d.rec)?d.rec.filter(e=>e&&cellOk(e.c)&&MAP_T0[e.c]===1&&typeof e.t==='number'&&isFinite(e.t)).slice(0,REC_KEEP).map(e=>e.w===1?{c:e.c,t:e.t,w:1}:{c:e.c,t:e.t}):[];
   n.bx=sameMap&&Array.isArray(d.bx)?d.bx.filter(e=>e&&cellOk(e.c)&&typeof e.t==='number'&&isFinite(e.t)&&idOk(e.to)&&idOk(e.fr)).slice(-200).map(e=>({c:e.c,t:e.t,to:e.to,fr:e.fr})):[];
   n.lcb=clamp(Math.round(num(d.lcb,0)),-6,whCreditCap(d));
   n.sent=Array.isArray(d.sent)?d.sent.filter(e=>e&&idOk(e.to)&&ISSUE_BY_ID[e.id]&&typeof e.t==='number'&&isFinite(e.t)).slice(-30).map(e=>({to:e.to,id:e.id,t:e.t})):[];
@@ -24754,9 +24832,63 @@ function capacityOf(id,n){
   let cities=0,blds=0;try{for(const ct of cityState(T).all){if(!ct.active||ct.hi!==i)continue;cities++;blds+=ct.done.length+bldRoom(ct,T);}}catch(e){}
   const s=n.s,tech=0.8+s.sci/250+s.health/500;
   let food=1;try{const E=economy(),j=E.T.byId[id];if(j!==undefined)food=Math.min(1,E.ratio.food[j]);}catch(e){}
-  return Math.round(Math.max(10,(k+cities*6+blds)*tech*(0.5+0.5*food))*100)/100;
+  return Math.round(Math.max(10,(k+cities*6+blds)*tech*(0.5+0.5*food)*densOf(n,Date.now()))*100)/100;
 }
-function growthSnap(n){if(!n||n.npc)return;try{const e=econOf(n);if(e)n.gm=Math.round(e.growth*1000)/1000;}catch(err){}n.pk=cellOf(n.loc)>=0?capacityOf(myId(),n):Math.max(50,n.pop*1.5);n.pr=Math.round(rateOf(n)*1e5)/1e5;n.peak=Math.max(n.peak||0,n.pop||0);}
+function growthSnap(n){if(!n||n.npc)return;gcAdvance(n,Date.now());try{const e=econOf(n);if(e)n.gm=Math.round(e.growth*1000)/1000;}catch(err){}n.pk=cellOf(n.loc)>=0?capacityOf(myId(),n):Math.max(50,n.pop*1.5);n.pr=Math.round(rateOf(n)*1e5)/1e5;n.peak=Math.max(n.peak||0,n.pop||0);}
+
+/* ───────── growth without a ceiling ───────── */
+/* Output is income per head × the prosperity multiplier × the population, and income stopped at Prosperity 100, so a
+   nation whose figures reached the top found its output no longer grew and its edicts no longer moved it (a player's
+   report, 2026-11-15). Three things now keep it climbing, and one more keeps the population from stopping:
+   - Productivity (n.pd, kept as its natural log): a multiplier on output per person with no top. It grows a little every
+     day from Education, Science and Economic Freedom (PD_DAY a day when their average is 100, nothing at PD_FROM or
+     below), slowing as it grows: d pd/dt = a/(1+PD_DAMP·pd), solved for elapsed time like the population, so how often a
+     nation saves does not matter.
+   - Edicts add to it: the part of a rise in a good figure (or a fall in Crime or Corruption) that the easing near the
+     top, or the end of the scale, swallows goes into Productivity (PD_OVER for each point lost), and a few options
+     raise it outright (an option's pd effect: +v%).
+   - Prosperity beyond 100 (n.wb): at the top a rise in Prosperity carries on past the bar, and income follows the same
+     curve beyond it (incomeW); a fall takes from what lies beyond first, and only then lowers the figure.
+   - Density (n.dn, a log): capacity creeps up with Science and Health (DN_DAY a day at 100), so a nation that has
+     filled its land still grows a little.
+   pd and dn share one clock, gcAt (GC_EPOCH for a record from before them). gcAdvance brings both up to now at the
+   figures as they stood, before anything changes those figures, so every viewer works out the same values from the
+   same record. Computer nations follow the same daily rates from GC_EPOCH at their own figures, so the Census still
+   compares like with like. jobs/fx/engine.mjs reads pd, dn, wb and the history's q and w the same way. */
+const PD_DAY=0.01,PD_FROM=40,PD_DAMP=1,PD_OVER=0.00015,DN_DAY=0.005,DN_FROM=40,DN_DAMP=2,GC_EPOCH=Date.UTC(2026,10,15);
+function gcRate(v,from,top){return top*clamp((v-from)/(100-from),0,1);}
+function pdRateOf(s){return s?gcRate(((+s.edu||0)+(+s.sci||0)+(+s.econ||0))/3,PD_FROM,PD_DAY):0;}
+function dnRateOf(s){return s?gcRate(((+s.sci||0)+(+s.health||0))/2,DN_FROM,DN_DAY):0;}
+/* x after dt days at rate a, slowing by 1/(1+b·x): x + b·x²/2 grows by a·dt */
+function gcStep(x,a,b,dt){x=Math.max(0,+x||0);if(!(a>0)||!(dt>0))return x;return (Math.sqrt((1+b*x)*(1+b*x)+2*b*a*dt)-1)/b;}
+function gcFrom(n){return n&&+n.gcAt>0?+n.gcAt:Math.max(GC_EPOCH,(n&&+n.founded)||0);}
+function gcDays(n,now){return Math.max(0,((now||Date.now())-(n&&n.npc?GC_EPOCH:gcFrom(n)))/DAY);}
+function pdNow(n,now){if(!n)return 0;return gcStep(n.npc?0:n.pd,pdRateOf(n.s),PD_DAMP,gcDays(n,now));}
+function dnNow(n,now){if(!n||n.npc)return 0;return gcStep(n.dn,dnRateOf(n.s),DN_DAMP,gcDays(n,now));}
+function prodOf(n,now){return Math.exp(pdNow(n,now));}
+function densOf(n,now){return Math.exp(dnNow(n,now));}
+function wbOf(n){return n&&!n.npc&&+n.wb>0?+n.wb:0;}
+/* Prosperity with what lies beyond 100: what income follows */
+function wealthW(n){return ((n&&n.s&&+n.s.wealth)||0)+wbOf(n);}
+function gcAdvance(n,now){
+  if(!n||n.npc||!n.s)return;now=now||Date.now();const dt=gcDays(n,now);
+  if(dt>0){n.pd=Math.round(gcStep(n.pd,pdRateOf(n.s),PD_DAMP,dt)*1e6)/1e6;n.dn=Math.round(gcStep(n.dn,dnRateOf(n.s),DN_DAMP,dt)*1e6)/1e6;}
+  if(now>=gcFrom(n))n.gcAt=now;
+}
+/* a rise in Productivity of dx log points, slowing as it grows; an option's pd effect is +v% outright (pdBoost) */
+function pdAdd(n,dx){if(!n||n.npc||!(dx>0))return;const x=Math.max(0,+n.pd||0);n.pd=Math.round((x+dx/(1+PD_DAMP*x))*1e6)/1e6;}
+function pdBoost(n,v){if(!n||n.npc||!(v>0))return;n.pd=Math.round((Math.max(0,+n.pd||0)+Math.log(1+v/100))*1e6)/1e6;}
+/* income at a history snapshot: Prosperity and what lay beyond it (w), the prosperity multiplier (e) and Productivity (q) */
+function histIncome(h,e){const s=sOfH(h);return incomeW((+s.wealth||0)+(+h.w>0?+h.w:0))*(+h.e>0?+h.e:(e||1))*(+h.q>0?+h.q:1);}
+const pdPct=n=>(prodOf(n)-1)*100;
+/* Productivity as the Statistics page shows it: the multiplier and how fast it grows a day now */
+function gcProdText(n,now){const r=pdRateOf(n&&n.s)/(1+PD_DAMP*pdNow(n,now));return fmtProd(n)+(r>=0.00005?' (+'+(r*100).toFixed(2)+'% a day)':'');}
+const fmtProd=n=>'×'+prodOf(n).toFixed(prodOf(n)<10?2:1);
+NORM_HOOKS.push((n,d)=>{
+  if(!d)return;const fin=v=>typeof v==='number'&&isFinite(v);
+  if(fin(d.pd)&&d.pd>0)n.pd=clamp(d.pd,0,40);if(fin(d.dn)&&d.dn>0)n.dn=clamp(d.dn,0,20);if(fin(d.wb)&&d.wb>0)n.wb=clamp(d.wb,0,1e4);
+  if(fin(d.gcAt)&&d.gcAt>0)n.gcAt=Math.min(d.gcAt,Date.now()+DAY);
+});
 
 /* ───────── history that lasts ───────── */
 function seenIds(n){const s=new Set();for(const no of n.iseen||[]){const is=ISSUES[no-1];if(is)s.add(is.id);}for(const a of n.answered||[])s.add(a.id);return s;}
@@ -25100,7 +25232,7 @@ function poss(name){name=String(name==null?'':name);return /s$/i.test(name)?name
 /* how much a nation's trade, buildings and cabinet lift its income (1 = no effect) */
 function prosperOf(n,id){try{const E=economy();let i=E.byDoc.get(n);if(i===undefined&&id==null&&n&&n===S.nation)id=myId();if(i===undefined&&id!=null)i=E.T.byId[id];return i===undefined?1:E.eff[i].prosper;}catch(e){return 1;}}
 /* average income in the nation's own currency: the Census, the factbook and Statistics all show this */
-function avgIncome(n,id){return income(n.s)*prosperOf(n,id);}
+function avgIncome(n,id){return incomeW(wealthW(n))*prosperOf(n,id)*prodOf(n);}
 /* an amount of people, given in millions, in the unit that suits its size */
 function popUnit(v){v=Math.abs(v);return v<0.0095?{q:1e5,f:x=>fmt0(x*1e6)}:v<0.9995?{q:1e3,f:x=>fmt0(x*1e3)+' thousand'}:v<9.995?{q:100,f:x=>x.toFixed(2)+' million'}:v<999.95?{q:10,f:x=>fmt1(x)+' million'}:v<9999.5?{q:0.1,f:x=>(x/1000).toFixed(2)+' billion'}:v<99995?{q:0.01,f:x=>(x/1000).toFixed(1)+' billion'}:v<999500?{q:0.001,f:x=>Math.round(x/1000)+' billion'}:{q:1e-4,f:x=>(x/1e6).toFixed(2)+' trillion'};}
 function popAmt(v){return popUnit(v).f(Math.abs(v));}
@@ -25124,8 +25256,8 @@ function vitalRows(A){
 function sOfH(h){return Array.isArray(h.s)?Object.fromEntries(STAT_KEYS.map((k,j)=>[k,h.s[j]])):h.s;}
 function econGrowth(A){
   const n=A.n,now=A.now,yr=YEAR_MS;let t0,g0;
-  if(n.npc){t0=Math.max(NPC_EPOCH,now-yr);if(now-t0<DAY/2)return null;const o=npcAt(A.x.id,t0)||n;g0=income(o.s)*A.eff.prosper*npcPop(n,t0);}
-  else{let b=null;for(const h of n.hist||[]){if(!h||now-h.t<DAY/2)continue;if(!b||Math.abs(now-yr-h.t)<Math.abs(now-yr-b.t))b=h;}if(!b)return null;t0=b.t;g0=income(sOfH(b))*(b.e||A.eff.prosper)*b.p;}
+  if(n.npc){t0=Math.max(NPC_EPOCH,now-yr);if(now-t0<DAY/2)return null;const o=npcAt(A.x.id,t0)||n;g0=income(o.s)*A.eff.prosper*prodOf(n,t0)*npcPop(n,t0);}
+  else{let b=null;for(const h of n.hist||[]){if(!h||now-h.t<DAY/2)continue;if(!b||Math.abs(now-yr-h.t)<Math.abs(now-yr-b.t))b=h;}if(!b)return null;t0=b.t;g0=histIncome(b,A.eff.prosper)*b.p;}
   const g1=A.g/1e6;if(!(g0>0&&g1>0))return null;
   return clamp((Math.pow(g1/g0,yr/(now-t0))-1)*100,-99,999);
 }
@@ -25182,13 +25314,13 @@ function cenRankText(k,y,all,now){return rankWords(cenRankOf(k,y,all,now),all.fi
 
 /* history for the charts: a player's snapshots, or a computer nation's record of one law a day */
 function histOf(n,A){
-  const cur={t:A.now,p:A.pop,s:STAT_KEYS.map(k=>n.s[k]),e:A.eff.prosper};
-  const H=n.npc?(n._hist||[]).filter(q=>q.t<A.now).slice(-89).map(q=>({t:q.t,p:npcPop(n,q.t),s:STAT_KEYS.map(k=>q.s[k])})):(n.hist||[]).slice();
+  const cur={t:A.now,p:A.pop,s:STAT_KEYS.map(k=>n.s[k]),e:A.eff.prosper,q:prodOf(n,A.now),w:wbOf(n)};
+  const H=n.npc?(n._hist||[]).filter(q=>q.t<A.now).slice(-89).map(q=>({t:q.t,p:npcPop(n,q.t),s:STAT_KEYS.map(k=>q.s[k]),q:prodOf(n,q.t)})):(n.hist||[]).slice();
   return H.map(q=>q.e?q:{...q,e:A.eff.prosper}).concat(cur);
 }
 const HIST_SERIES=[
   ['Population',h=>h.p,v=>fmtPop(v),{ax:v=>v?(v>=1000?axNum(v/1000)+'B':axNum(v)+'M'):'0'}],
-  ['Average income',h=>income(sOfH(h))*(h.e||1),v=>fmt0(v),{ax:v=>v>=1000?axNum(v/1000)+'K':fmt0(v)}],
+  ['Average income',h=>histIncome(h),v=>fmt0(v),{ax:v=>v>=1000?axNum(v/1000)+'K':fmt0(v)}],
   ['Happiness',h=>h.s[STAT_KEYS.indexOf('happy')],v=>fmt1(v),{fixed:[0,100]}],
   ['Crime',h=>h.s[STAT_KEYS.indexOf('crime')],v=>fmt1(v),{fixed:[0,100]}],
   ['Militarism',h=>h.s[STAT_KEYS.indexOf('mil')],v=>fmt1(v),{fixed:[0,100]}],
@@ -25217,11 +25349,13 @@ function lineChart(title,pts,fv,sc){
       <text x="${pad.l}" y="${H-4}" class="lc-t">${esc(fmtDate(x0))}</text><text x="${W-pad.r}" y="${H-4}" class="lc-t" text-anchor="end">${esc(rel(x1))}</text>
     </svg></figure>`;
 }
-/* keep the prosperity factor stored with each history snapshot */
+/* keep the prosperity factor stored with each history snapshot, with Productivity (q) and Prosperity beyond 100 (w)
+   (growth without a ceiling) */
 NORM_HOOKS.push((n,d)=>{
   if(!Array.isArray(n.hist)||!Array.isArray(d.hist))return;
-  const e=new Map();for(const h of d.hist)if(h&&typeof h.t==='number'&&typeof h.e==='number'&&isFinite(h.e))e.set(h.t,clamp(h.e,0.3,3));
-  if(e.size)n.hist=n.hist.map(h=>e.has(h.t)?{...h,e:e.get(h.t)}:h);
+  const e=new Map(),fin=v=>typeof v==='number'&&isFinite(v);
+  for(const h of d.hist)if(h&&typeof h.t==='number'){const o={};if(fin(h.e))o.e=clamp(h.e,0.3,3);if(fin(h.q)&&h.q>1)o.q=clamp(h.q,1,1e17);if(fin(h.w)&&h.w>0)o.w=clamp(h.w,0,1e4);if(Object.keys(o).length)e.set(h.t,o);}
+  if(e.size)n.hist=n.hist.map(h=>e.has(h.t)?{...h,...e.get(h.t)}:h);
 });
 /* ───────── Round 3: the map and the land ───────── */
 
@@ -25373,7 +25507,7 @@ function landHelp(n){
     <p><b>Lakes.</b> A lake, water shut in by land and joined to no sea, is claimed like land: a credit a hex, from land or lake of yours next to it. Your colour lies paler over it, so the water shows through. A lake yields nothing and holds no city or road, but it closes the gap in your borders and joins you to its far shore. Spending credits for you takes land only.</p>
     <p><b>Staying small.</b> A nation that would rather keep its borders can pause land credit gains in Settings › Land. Credits earned meanwhile are stored, and all of them can be spent once gains are back on. ${lhLink('Land settings')}</p>
     <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
-    <p><b>Reclaimed land</b> comes from decisions, not from a button or a building. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
+    <p><b>Reclaimed land</b> comes from decisions and, once free land runs short, from your own engineers. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. When fewer than ${RECW_NEAR} free hexes border your land, or less than ${Math.round(RECW_FREE*100)}% of the region is unclaimed, the Territory section on the Nation page lets you pay for more, one hex at a time, up to ${RECW_MAX}. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
     <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, your troops cross the sea without losing strength, and your harbours reach ${MP_NAVY_REACH} hexes across water instead of ${MP_SEA_REACH} to claim land. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
   </details>`;
 }
@@ -25692,13 +25826,15 @@ function helpBody(n){
       <ol class="help-ol"><li>Answer the edicts waiting on your desk.</li><li>Settle on the map, if you skipped it when founding.</li><li>Spend land credits as they arrive, to grow your borders.</li><li>Put up buildings in your capital and found more cities.</li><li>Trade spare resources, write to your neighbours and send explorers.</li></ol>`,
     issues:`<p>Each edict sets out a matter before your government (a Senate in a republic, the Crown’s council in a kingdom, and so on), and its speakers argue for several motions. Choosing one changes your census figures, and some also enact or repeal a policy, shift the budget, move a minister’s loyalty or change how a neighbour sees you. The result page shows every change, and how far a change in Prosperity moved your economic output. A veto dismisses the edict and leaves your nation as it was.</p>
       <p>A figure moves less the closer it is to the end it is heading for, so a high figure rises slowly and a low one falls slowly. A rise goes up to 30% further when the figure has a long way to go, but a fall is never made bigger than the edict says. Prosperity is gentler at the top, because economic output follows its square: a rise there keeps at least 40% of its size.</p>
+      <p><b>Beyond the top.</b> No figure is wasted at the end of its scale. At 100, a rise in Prosperity carries on beyond the bar, and income per head keeps climbing the same curve; a fall takes from what lies beyond first. And whenever a good figure cannot take all of a rise (or Crime and Corruption all of a fall) because it is near or at its end, what it could not take goes into your Productivity. Some motions raise Productivity outright. The result page shows both.</p>
+      <p><b>Productivity</b> multiplies your output per person and has no top. It grows a little every day while Education, Science and Economic Freedom average more than ${PD_FROM}, by up to ${Math.round(PD_DAY*100)}% a day when they average 100, more slowly the higher it already is. The Growth section of your Nation page shows what limits your output, and the Statistics page shows Productivity and how fast it grows.</p>
       ${issHelp()}
       <p>A new edict arrives ${pace}${n?'':' by default'}. A new nation’s fourth edict comes sooner, ${EDICT_FIRST} minutes after founding. You can change the pace in Settings, from ${FREQS[0][1].toLowerCase()} to ${FREQS[FREQS.length-1][1].toLowerCase()}. Up to ${CAP_BASE} edicts wait on your desk (${CAP_VIP} for members of the Chancery Club, while the membership is paid); while it is full, no new ones arrive, and an edict that would have arrived is not kept for later.</p>
       <p>Some stories continue: a follow-up can arrive some hours after your decision. Edicts often draw on your land, your coast and your neighbours, and players next door can raise a matter with you that lands on your desk. In Settings you can ask for more or fewer edicts on each topic.</p>
       <p><b>Crises.</b> One to three times a week, at a random hour of your day, a crisis lands on your desk, even a full one. It has a clock of twelve hours (a holiday stops it). Decide in time and it is an edict like any other; when the clock runs out, the minister it names signs the cabinet’s motion in your name, and the bell tells you what they chose. A crisis cannot be vetoed, but you can leave it to the cabinet at once. Crises start once your nation is two days old and has made ten decisions.</p>
       <p><b>Gambles.</b> Some motions show their odds, such as “Two in three: the levee holds”. Choose one and the result page rolls a number from 1 to 100: at the odds or under, it comes off and goes better than a safe motion would; above, it goes worse. Each roll is fixed when the edict arrives, so trying again later changes nothing. Settings › Display turns the sound of a decision on or off.</p>${G(go('issues','Open edicts'))}`,
     time:`<p>Everything happens in real time. A year of game time passes every ${yrDays===1?'day':yrDays+' days'}, so leaders and ministers grow a year older every ${yrDays} days, and the statistics count years the same way. Computer nations pass one law a day. Buildings, expeditions, readiness and spies all recover or finish on the clock, whether or not you are playing.</p>`,
-    pop:`<p>Your population grows along a curve towards what your land can support, its capacity. Capacity comes from the land you hold: reclaimed land and farmland support the most people, mountains the fewest. Each city adds room for about 6 million more and each building about 1 million, and the total rises with science and health and falls when food runs short.${n&&n.pk?` Right now ${esc(n.name)} can support about ${fmtPop(n.pk)}.`:''}</p>
+    pop:`<p>Your population grows along a curve towards what your land can support, its capacity. Capacity comes from the land you hold: reclaimed land and farmland support the most people, mountains the fewest. Each city adds room for about 6 million more and each building about 1 million, and the total rises with science and health and falls when food runs short. On top of that, capacity creeps up a little every day while Science and Health average more than ${DN_FROM}, by up to ${(DN_DAY*100).toFixed(1)}% a day, so a nation that has filled its land still grows. Late buildings (Vertical Farms, the Arcology, Orbital Habitats and the Orbital Elevator) add room for hundreds of millions to billions more, and when free land runs out your engineers can reclaim land from the sea.${n&&n.pk?` Right now ${esc(n.name)} can support about ${fmtPop(n.pk)}.`:''}</p>
       <p>How fast you grow depends on health, safety, happiness and wealth, on food, hospitals, housing and your Minister of Health and Education. Income tax above 50% slows growth. Size matters too: a young nation grows up to twice as fast until it reaches ${fmtPopShort(BOOM_TO)} people, and above ${fmtPopShort(DAMP_FROM)} growth gradually slows, to about half its pace near 2 billion. Above capacity, the population slowly shrinks. Migration adds or takes people on top.</p>
       <p>At set populations you reach milestones. They unlock buildings, more cities and bonus land credits, declaring war (at ${fp('war')}), founding alliances (at ${fp('alli')}) and bidding to host the Games (at ${fp('host')}). The Growth section of your Nation page lists them all.</p>`,
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
@@ -25707,7 +25843,8 @@ function helpBody(n){
       <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30, and up to 15 more as the average upgrade colour of its buildings rises to gold), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
-      <p>There is only one way to win land from the sea: some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is. A nation can reclaim up to ${REC_MAX} hexes in all.</p>${G(go('map','Open the map'))}`,
+      <p>Some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is, up to ${REC_MAX} hexes from edicts.</p>
+      <p>When the land runs out (fewer than ${RECW_NEAR} free hexes on your border, or less than ${Math.round(RECW_FREE*100)}% of the region unclaimed), your own engineers can reclaim more from the Territory section of the Nation page: one hex at a time, for ${costText(RECW_COST)} and a tenth more for every hex they have already won, up to ${RECW_MAX} hexes.</p>${G(go('map','Open the map'))}`,
     cities:`<p>Your capital is your first city. Your first building opens a second, and your first gold upgrade (a building’s fifth) opens one more. More cities unlock at population milestones and as your land grows (one at every million km² up to 9 million, then one at every 10 million up to 100 million), up to ${MAX_CITIES}. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
       <p>Cities work the land within two hexes, expanding to three at two million city residents. Overlapping production areas count each hex once. ${blkHelp()} Each city builds one thing at a time${typeof C3_QMAX==='number'?`, with up to ${num(C3_QMAX)} more waiting in its queue`:''}; buildings are paid for from your stockpile and take hours to finish, wonders a day. Cancelling a project returns half the materials.</p>
       <p>Production buildings raise output; society buildings help growth, the economy and your census figures; defence buildings strengthen your army and borders; wonders do a little of everything. Some need hills, oil, a coast or high science, and more unlock at milestones. A city works for whoever holds its hex, so a captured city serves its conqueror.</p>${G(go('cities','Open cities'))}`,
@@ -29374,7 +29511,7 @@ function fpFigDefs(D){
   const ix=k=>STAT_KEYS.indexOf(k),rng=k=>{let lo=1e9,hi=-1e9;for(const h of D.pts){const v=h.s[ix(k)];if(v<lo)lo=v;if(v>hi)hi=v;}return hi-lo;};
   const movers=STAT_KEYS.map(k=>({k,r:rng(k)})).filter(q=>q.r>=0.5).sort((a,b)=>b.r-a.r).slice(0,4).map(q=>q.k);
   for(const k of ['happy','civil','econ','pol'])if(movers.length<4&&!movers.includes(k))movers.push(k);
-  return [['Population',h=>h.p,v=>fmtPop(v),null],['Average income',h=>income(sOfH(h))*(h.e||1),v=>fmt0(v),null]].concat(movers.map(k=>[STATS[k].n,h=>h.s[ix(k)],v=>fpFmt(k,v),k]));
+  return [['Population',h=>h.p,v=>fmtPop(v),null],['Average income',h=>histIncome(h),v=>fmt0(v),null]].concat(movers.map(k=>[STATS[k].n,h=>h.s[ix(k)],v=>fpFmt(k,v),k]));
 }
 const FPW=240,FPH=58,FPP={l:2,r:2,t:6,b:6};
 function fpFig(def,j,D){
@@ -32938,10 +33075,10 @@ function dspPopAt(x,t){
   return (a||b).p;
 }
 function dspIncomeAt(x,t){
-  const n=x.n;if(x.npc){const o=npcAt(x.id,t)||n;return income(o.s);}
+  const n=x.n;if(x.npc){const o=npcAt(x.id,t)||n;return income(o.s)*prodOf(n,t);}
   const h=dspHist(n).filter(e=>e.t<=t&&Array.isArray(e.s)&&e.s.length===STAT_KEYS.length),last=h[h.length-1],e=last&&+last.e>0?+last.e:1;
-  if(!last||t>=(n.updatedAt||0))return income(n.s)*e;
-  const s={};STAT_KEYS.forEach((k,i)=>{s[k]=+last.s[i]||0;});return income(s)*e;
+  if(!last||t>=(n.updatedAt||0))return incomeW(wealthW(n))*e*prodOf(n,t);
+  return histIncome(last);
 }
 function dspFigures(all,C,st,byId){
   const T=Math.min(C.to-1,C.now),rows=[],nm=x=>dspClean(x.n.name,40),pct=g=>(g>=0?'+':'−')+(Math.abs(g)*100).toFixed(Math.abs(g)>=0.1?1:2)+'%';
@@ -45125,6 +45262,7 @@ function territorySection(id,n){
     <p>${esc(n.name)} covers <b>${fmtArea(cnt)}</b> ${placePhrase(x.cap)}${nb.length?`, bordering ${list(nb)}`:', with no neighbours on its borders yet'}.</p>
     <dl class="mp-dl"><div><dt>Hexes held</dt><dd>${cnt}</dd></div><div><dt>Capital</dt><dd>${esc(n.capital)}</dd></div></dl>
     <div style="margin-top:16px"><button class="btn ghost" data-act="map-open" data-id="${esc(id)}">Open on the world map</button></div>
+    ${recwBlock(n)}
   </div></div></section>`;
 }
 function foundLocHTML(){
@@ -45159,7 +45297,7 @@ function normCities(d){
     const id=typeof c.id==='string'&&c.id?c.id.slice(0,16):'c'+out.length;if(ids.has(id))continue;
     seen.add(c.c);ids.add(id);
     const bs=[],bk=new Set();
-    for(const b of Array.isArray(c.b)?c.b:[]){if(!b||!BUILDINGS[b.k]||bk.has(b.k))continue;bk.add(b.k);const o={k:b.k,s:nm(b.s,0),d:nm(b.d,0)};if(b.a)o.a=1;if(o.d>Date.now()){const p=paidClean(b.p,bCost(null,b.k));if(p)o.p=p;}Object.assign(o,whExtras(b),cxBldExtras(b));bs.push(o);if(bs.length>=25)break;}
+    for(const b of Array.isArray(c.b)?c.b:[]){if(!b||!BUILDINGS[b.k]||bk.has(b.k))continue;bk.add(b.k);const o={k:b.k,s:nm(b.s,0),d:nm(b.d,0)};if(b.a)o.a=1;if(o.d>Date.now()){const p=paidClean(b.p,bCost(null,b.k));if(p)o.p=p;}Object.assign(o,whExtras(b),cxBldExtras(b),elExtras(b));bs.push(o);if(bs.length>=25)break;}
     out.push(Object.assign({id,c:c.c,nm:typeof c.nm==='string'?c.nm.trim().slice(0,30):'',t:nm(c.t,0),b:bs},cxCityExtras(c)));
     if(out.length>=MAX_CITIES)break;
   }
@@ -47346,13 +47484,67 @@ function keysOpen(){
 function keysClose(){const m=KEYS.box;if(!m)return;KEYS.box=null;m.remove();const r=KEYS.ret;KEYS.ret=null;if(r&&r.isConnected&&r!==document.body)try{r.focus({preventScroll:true});}catch(e){}}
 document.addEventListener('keydown',e=>{if(!KEYS.box)return;if(e.key==='Escape'||e.key==='?'){e.preventDefault();e.stopPropagation();keysClose();return;}if(e.key==='Tab')navTrap(e,KEYS.box);},true);
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="keys-x"],[data-act="keys-open"]');if(!el)return;if(el.dataset.act==='keys-x')keysClose();else keysOpen();});
+/* "What limits your output" on the Nation page (growth without a ceiling): output is income per head × the economy
+   multiplier × Productivity × the population; for each part, where it stands and what moves it now */
+function gcRoomBld(n){
+  let has=new Set();try{const a=bldAggOf(n);if(a&&a.has)has=a.has;}catch(e){}
+  const ks=Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].room>0&&!has.has(k)).sort((a,b)=>bldUnlockAt(a)-bldUnlockAt(b)||BUILDINGS[a].room-BUILDINGS[b].room);
+  const k=ks[0];if(!k)return '';const B=BUILDINGS[k];
+  return `${B.w?'the ':''}${B.n} (room for ${fmtPopShort(B.room)} more; ${bldUnlocked(n,k)?'you can build it now':'unlocks at '+fmtPopShort(bldUnlockAt(k))})`;
+}
+function gcRoomWays(n){
+  const out=[];let T=null,i;try{T=territory();i=T.byId[myId()];}catch(e){}
+  if(T&&i!==undefined){
+    try{const c=landCredits(n);if(c>0)out.push(`claim land (${c} ${c===1?'credit':'credits'} to spend)`);}catch(e){}
+    try{if(!recwWhy(n,T))out.push('reclaim land from the sea (Territory, above)');}catch(e){}
+    try{if(cityList(n).length<maxCities(T,i))out.push('found another city (room for about 6 million)');}catch(e){}
+  }
+  const b=gcRoomBld(n);if(b)out.push('build '+b);
+  return out;
+}
+function gcLimitsCard(n){
+  if(!n||!n.s)return '';
+  const s=n.s,now=Date.now(),wb=wbOf(n),eff=econOf(n)||{prosper:1},rows=[];
+  /* income per head */
+  rows.push(['Income per head',`Prosperity ${fmt1(s.wealth)}${wb>0?` · +${fmt1(wb)} beyond 100`:''}`,
+    s.wealth<99.95?'Raise Prosperity: income per head grows with its square.':'At the top: every rise in Prosperity now carries on beyond 100, and income keeps climbing the same curve. A fall takes from what lies beyond first.']);
+  /* Productivity */
+  const avg=((+s.edu||0)+(+s.sci||0)+(+s.econ||0))/3,pr=pdRateOf(s);
+  rows.push(['Productivity',gcProdText(n,now),
+    pr<=0?`It grows each day once Education, Science and Economic Freedom average more than ${PD_FROM} (they average ${fmt1(avg)}).`
+    :avg<99.5?`Grows each day with Education (${fmt1(s.edu)}), Science (${fmt1(s.sci)}) and Economic Freedom (${fmt1(s.econ)}): raise them to speed it up. Any rise a good figure cannot hold at the top goes into Productivity as well.`
+    :'Growing at its fastest. Any rise a good figure cannot hold at the top goes into Productivity as well.']);
+  /* the economy multiplier */
+  let a=null;try{a=bldAggOf(n);}catch(e){}
+  const bits=[];
+  if(a){const raw=a.pr0||0,el=a.el||0;if(raw>=0.2-1e-9)bits.push(`Your buildings give the most the usual limit allows (+20%): economy levels on a Market Hall, a Stock Exchange or a Central Bank go past it${el>0?` (now +${Math.round(el*100)}%)`:''}.`);else bits.push(`Buildings add +${Math.round(raw*100)}% (they can add up to +20%)${el>0?`, and economy levels +${Math.round(el*100)}% on top`:''}: Market Halls, a Grand Cathedral and the Colossus raise it.`);}
+  try{const E=economy(),j=E.T.byId[myId()];if(j!==undefined){const sh=['goods','timber','oil'].filter(r=>E.ratio[r][j]<0.995);if(sh.length)bits.push(`Short of ${list(sh.map(resName))}: a full supply lifts the economy, by trade or by building.`);}}catch(e){}
+  rows.push(['Economy multiplier','×'+(eff.prosper||1).toFixed(2),bits.join(' ')]);
+  /* population */
+  if(n.pk){
+    const pop=popNow(n,now),pct=pop/n.pk*100,dr=dnRateOf(s)/(1+DN_DAMP*dnNow(n,now)),ways=gcRoomWays(n);
+    const dn=dr>=0.00005?` Capacity also creeps up ${(dr*100).toFixed(2)}% a day with Science and Health.`:` Capacity creeps up each day once Science and Health average more than ${DN_FROM}.`;
+    rows.push(['Population',`${fmtPop(pop)} of about ${fmtPop(n.pk)} (${Math.round(pct)}%)`,
+      (pct>=70?`Near what your land can support.${ways.length?' To make room: '+list(ways)+'.':''}`:'Room to grow: the population follows a curve towards what your land, cities and buildings support.')+dn+(s.tax>50?` Income tax above 50% slows growth.`:'')]);
+  }
+  return `<div class="gc-lim"><h3 class="gc-lim-h">What limits your output</h3><p class="hint">Output is income per head × the economy multiplier × Productivity × the population. Productivity, Prosperity beyond 100 and economy levels have no top.</p>
+    <dl class="gc-lim-l">${rows.map(([k,v,t])=>`<div><dt>${esc(k)}</dt><dd><b>${esc(v)}</b>${t?`<span>${esc(t)}</span>`:''}</dd></div>`).join('')}</dl></div>`;
+}
+/* the result page's rows for growth without a ceiling: Productivity and Prosperity beyond 100, when the edict moved them */
+function gcResultRows(r){
+  const g=r&&r.gc;if(!g)return '';let o='';
+  if(g.pa>0&&Math.abs(g.pb/g.pa-1)>=0.0005){const d=(g.pb/g.pa-1)*100;o+=`<li class="d-gc ${d>0?'d-up':'d-down'}"><span class="d-name">Productivity</span><span class="d-vals">×${g.pa.toFixed(3)} → ×${g.pb.toFixed(3)}</span><span class="d-chg ${d>0?'up':'down'}">${d>0?'▲':'▼'} <span data-count-to="${Math.abs(d)}">${Math.abs(d).toFixed(2)}%</span></span></li>`;}
+  if(Math.abs(g.wb-g.wa)>=0.05){const d=g.wb-g.wa;o+=`<li class="d-gc ${d>0?'d-up':'d-down'}"><span class="d-name">Prosperity beyond 100</span><span class="d-vals">+${g.wa.toFixed(1)} → +${g.wb.toFixed(1)}</span><span class="d-chg ${d>0?'up':'down'}">${d>0?'▲':'▼'} <span data-count-to="${Math.abs(d)}" data-count-fmt="1">${Math.abs(d).toFixed(1)}</span></span></li>`;}
+  return o;
+}
 function resultView(){
   const r=S.result,n=S.nation,is=ISSUE_BY_ID[r.id];
   const deltas=STAT_KEYS.map(k=>({k,a:r.before[k],b:r.after[k],d:r.after[k]-r.before[k]})).filter(x=>Math.abs(x.d)>=0.05).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
   const v=syncInbox(n,Date.now());
   const fmt=(k,x)=>k==='tax'?x.toFixed(1)+'%':x.toFixed(1);
   /* economic output a year, before and after the edict's change to Prosperity, whose square it follows (answer keeps both) */
-  const op=r.out?(r.out.b/r.out.a-1)*100:0,outRow=Math.abs(op)>=0.05?`<li class="d-out ${op>0?'d-up':'d-down'}"><span class="d-name">Output a year</span><span class="d-vals">${fmtBig(r.out.a)} → ${fmtBig(r.out.b)} ${esc(plural(n.currency))}</span><span class="d-chg ${op>0?'up':'down'}">${op>0?'▲':'▼'} <span data-count-to="${Math.abs(op)}" data-count-fmt="1%">${Math.abs(op).toFixed(1)}%</span></span></li>`:'';
+  const gcRows=gcResultRows(r);
+  const op=r.out?(r.out.b/r.out.a-1)*100:0,outRow=gcRows+(Math.abs(op)>=0.05?`<li class="d-out ${op>0?'d-up':'d-down'}"><span class="d-name">Output a year</span><span class="d-vals">${fmtBig(r.out.a)} → ${fmtBig(r.out.b)} ${esc(plural(n.currency))}</span><span class="d-chg ${op>0?'up':'down'}">${op>0?'▲':'▼'} <span data-count-to="${Math.abs(op)}" data-count-fmt="1%">${Math.abs(op).toFixed(1)}%</span></span></li>`:'');
   return `<article class="paper result edict">
     ${czStamp(n)}
     <p class="form-code">Edictum ${roman(is.no)} · ${esc(chamberOf(n).form)} · ${annoOf(n,r.t)}, ${fmtTime(r.t)}</p>
@@ -48831,6 +49023,8 @@ function answer(id,o,how){
   n.pop=popNow(n,now);n.popAt=now;
   const before={...n.s},budBefore=budgetSorted(n),leaderBefore=n.leader,polBefore={...n.policies},preBefore=n.pretitle,catBefore=classify(n.s),cabBefore=clone(cabOf(n)),rulerBefore=n.ruler;
   const fx=fill(opt.fx,n,ent),prior={id,t:now,title:fill(is.t,n,ent),fx};
+  /* Productivity and Prosperity beyond 100 before the edict (growth without a ceiling), for the result page */
+  gcAdvance(n,now);const pdB=prodOf(n,now),wbB=wbOf(n),incB=incomeW(wealthW(n))*pdB;
   applyEffects(n,opt.e);
   const geoNotes=geoAfter(n,opt,ent,now,prior);
   const cabNotes=[];if(n.leader!==leaderBefore)cabNotes.push(`your head of government is now styled ${n.leader}`);if(n.ruler!==rulerBefore)cabNotes.push(`${n.leader} ${n.ruler} now leads ${n.name}`);
@@ -48847,9 +49041,11 @@ function answer(id,o,how){
   if(catAfter!==catBefore)n.log.unshift({t:now,k:'cat',a:catBefore,b:catAfter});
   n.log=n.log.slice(0,60);
   commit(n);
-  /* only what the edict did to output, through Prosperity (income), not the population that grew meanwhile */
-  const out=outBefore&&Math.abs(n.s.wealth-before.wealth)>=0.05?{a:outBefore,b:outBefore*income(n.s)/income(before)}:null;
-  S.result={id,o,fx,t:now,before,after:{...n.s},catBefore,catAfter,out,gm:gm?{p:opt0.g.p,w:fill(opt0.g.w,n,ent),l:fill(opt0.g.l,n,ent),ok:gm.ok,roll:gm.roll,need:gm.need}:null,crs:ent.cr?{cab,by:crsSigner(n,is)}:null,
+  /* only what the edict did to output, through Prosperity (income, beyond 100 too) and Productivity, not the population
+     that grew meanwhile */
+  const pdA=prodOf(n,now),wbA=wbOf(n),incA=incomeW(wealthW(n))*pdA,out=outBefore&&incB>0&&Math.abs(incA/incB-1)>=0.0005?{a:outBefore,b:outBefore*incA/incB}:null;
+  const gc={pa:pdB,pb:pdA,wa:wbB,wb:wbA};
+  S.result={id,o,fx,t:now,before,after:{...n.s},catBefore,catAfter,out,gc,gm:gm?{p:opt0.g.p,w:fill(opt0.g.w,n,ent),l:fill(opt0.g.l,n,ent),ok:gm.ok,roll:gm.roll,need:gm.need}:null,crs:ent.cr?{cab,by:crsSigner(n,is)}:null,
     cab:cabNotes,geo:geoNotes,ctx:ent.nb?{nb:ent.nb,nbn:ent.nbn}:null,enacted:Object.keys(n.policies).filter(k=>!polBefore[k]),repealed:Object.keys(polBefore).filter(k=>!n.policies[k]),pre:preBefore!==n.pretitle,bud:budgetChanges(budBefore,budgetSorted(n))};
   S.openIssue=null;render();window.scrollTo(0,0);
 }
@@ -63109,6 +63305,14 @@ function cxBldExtras(b){
     o.uu={u:u.u,s:u.s,d:u.d};const p=paidClean(u.p,ol?cxUpList(b.k,0,b.lu.l===3?2.5:1.5):cxUpList(b.k,u.u));if(p)o.uu.p=p;}
   return o;
 }
+/* el, eu: economy levels on a Market Hall, Stock Exchange or Central Bank (growth without a ceiling); literals here too */
+function elExtras(b){
+  const o={};if(!b||typeof b!=='object'||!(b.k==='market'||b.k==='exchange'||b.k==='cbank'))return o;
+  if(Number.isInteger(b.el)&&b.el>=1)o.el=Math.min(b.el,999);
+  const u=b.eu,l=o.el||0;
+  if(u&&typeof u==='object'&&u.l===l+1&&Number.isFinite(u.s)&&Number.isFinite(u.d)&&u.d>u.s&&u.d-u.s<=5*DAY){o.eu={l:u.l,s:u.s,d:u.d};try{const p=paidClean(u.p,elList(b.k,u.l));if(p)o.eu.p=p;}catch(e){}}
+  return o;
+}
 function cxUgPut(b,e){delete b.lv;delete b.lu;delete b.ug;delete b.uu;if(e.ug)b.ug=e.ug;if(e.uu)b.uu=e.uu;}
 function cxCityExtras(c){
   const o={};if(!c||typeof c!=='object')return o;
@@ -63290,7 +63494,7 @@ function cxUgBar(g,wip){
 function cxReachLine(ct,n){const c=(n&&Array.isArray(n.cities)?n.cities:[]).find(x=>x&&x.id===ct.id);if(!c||!(c.c>=0))return '';
   const tb=reachTierBonus(c),all=cityReach(c);
   return `<p class="hint cx-reach">Claim reach: <b>${all} hexes</b> from ${esc(ct.nm||'this city')}${tb?` (${all-tb} from its buildings, +${tb} for their average upgrade colour)`:''}. Upgrading every building toward gold adds up to 15 more.</p>`;}
-function cxUgLegend(){return `<p class="hint cx-ugl">Upgrades: ${CX_UG.map(u=>`<i class="ugb-dot ugb-${u.c}" aria-hidden="true"></i>${u.c}`).join(' ')}. Each adds a little more of what the building does (+${Math.round(CX_UG[0].fx*100)}% for grey, up to +${Math.round(CX_UG[CX_UG_MAX-1].fx*100)}% for gold, so double in all) and costs more than the last. One at a time in each city.${cityGoldOpen(S.nation)?'':' Your first gold upgrade opens one more city.'}</p>`;}
+function cxUgLegend(){return `<p class="hint cx-ugl">Upgrades: ${CX_UG.map(u=>`<i class="ugb-dot ugb-${u.c}" aria-hidden="true"></i>${u.c}`).join(' ')}. Each adds a little more of what the building does (+${Math.round(CX_UG[0].fx*100)}% for grey, up to +${Math.round(CX_UG[CX_UG_MAX-1].fx*100)}% for gold, so double in all) and costs more than the last. One at a time in each city.${cityGoldOpen(S.nation)?'':' Your first gold upgrade opens one more city.'} After its gold upgrade a Market Hall or a Central Bank, and a Stock Exchange from the start, can be raised economy level after level, with no top: +${Math.round(EL_FX*100)}% economy each.</p>`;}
 function cxLvChip(ct,k){
   if(ct.npc||!ct.rec||!cxUpgradable(k))return '';
   const now=Date.now(),b=(ct.rec.b||[]).find(x=>x.k===k);if(!b||b.d>now)return '';
@@ -63490,6 +63694,63 @@ document.addEventListener('click',e=>{
   if(a==='cx-qup'){cxQueueUp(id,el.dataset.k);return;}
   if(a==='cx-cr'){cxCrestEdit(id,el.dataset.f,el.dataset.v);return;}
 });
+
+/* ───────── economy levels: a Market Hall, a Stock Exchange and a Central Bank with no top ───────── */
+/* (growth without a ceiling, 2026-11-15) A Market Hall or a Central Bank with all five upgrades, and a Stock Exchange as
+   soon as it stands, can be raised level after level, with no top: each level adds EL_FX to the economy, on top of the
+   usual limit on what buildings add (cityState caps that at +20%), and costs more and takes longer than the last (the
+   building's own cost × EL_COST, × EL_GROW_C for each level after the first; time likewise, at most EL_H_MAX hours).
+   One upgrade or level at a time in each city. On the building's record: el (levels done) and eu {l,s,d,p}, the level
+   under way and what was paid for it. */
+const EL_FX=0.02,EL_COST=1.5,EL_GROW_C=1.3,EL_H=1.2,EL_GROW_H=1.12,EL_H_MAX=96;
+const EL_BLD={market:5,exchange:0,cbank:5};
+function elOn(k){return Object.hasOwn(EL_BLD,k)&&!!BUILDINGS[k];}
+function elList(k,l){const base=bCost(null,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));return c;}
+function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));
+  return {cost:c,hours:Math.min(EL_H_MAX,Math.max(0.5,Math.round(bHours(n,k)*EL_H*Math.pow(EL_GROW_H,l-1)*cxBuildK(ct)*10)/10))};}
+function elLv(b,now){const e=elExtras(b);return e.eu&&e.eu.d<=now?e.eu.l:e.el||0;}
+function elMap(c,now){const o={};for(const b of (c&&c.b)||[])if(b&&b.d<=now&&(b.k==='market'||b.k==='exchange'||b.k==='cbank')){const l=elLv(b,now);if(l)o[b.k]=l;}return o;}
+/* the economy a city's levels add, for cityState: only from a building that works (a Stock Exchange needs its group) */
+function elCityAdd(ct,x){let v=0;if(!ct||!ct.el)return 0;for(const k in ct.el){if(!ct.done.includes(k))continue;const B=BUILDINGS[k];if(B&&B.lead&&!ldrOf(x&&x.n).includes(B.lead))continue;v+=EL_FX*ct.el[k];}return v;}
+function elBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{const e=elExtras(b);return e.eu&&e.eu.d>now;})||null;}
+function elProblem(n,ct,k,st,now){
+  if(!elOn(k))return 'This building has no economy levels.';
+  const b=ct.rec&&(ct.rec.b||[]).find(x=>x.k===k);if(!b||b.d>now)return 'Finish the building first.';
+  if(cxUps(b,now)<EL_BLD[k])return `Give it all ${CX_UG_MAX} upgrades first.`;
+  const busy=elBusy(ct.rec,now)||cxUpBusy(ct.rec,now);if(busy)return `The builders are working on the ${BUILDINGS[busy.k].n} first.`;
+  const miss=lacking(elQuote(n,ct,k,elLv(b,now)+1).cost,st);return miss.length?'You need '+list(miss)+' more.':null;
+}
+function elRaise(cid,k){
+  const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),st=stockNow(S.nation,now),p=elProblem(S.nation,ct,k,st,now);
+  if(p){S.cityMsg=p;render();return;}
+  const to=elLv(ct.rec.b.find(x=>x.k===k),now)+1,q=elQuote(S.nation,ct,k,to);
+  const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid),b=c&&c.b.find(x=>x.k===k);if(!b)return;
+  cxPay(n,st,q.cost,now);if(to>1)b.el=to-1;else delete b.el;b.eu={l:to,s:now,d:now+q.hours*3600e3,p:q.cost};
+  commit(n);S.cityMsg='';render();toast(`Work has started on economy level ${to} of the ${BUILDINGS[k].n} in ${ct.nm}. It will be ready in ${fmtDur(q.hours*3600e3)}.`);
+}
+function elCancel(cid,k){
+  const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid),b=c&&c.b.find(x=>x.k===k),e=b&&elExtras(b);
+  if(!e||!e.eu||e.eu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,e.eu.p||elQuote(S.nation,ct,k,e.eu.l).cost,now);delete b.eu;
+  commit(n);S.cityMsg='';render();toast(`Work on the ${BUILDINGS[k].n} has stopped. Half the materials were saved.`);
+}
+COMMIT_HOOKS.push((n,old,now)=>{
+  const out=[];
+  for(const c of n.cities||[])for(const b of c.b||[]){const e=elExtras(b);if(e.eu&&e.eu.d<=now){b.el=e.eu.l;delete b.eu;if(BUILDINGS[b.k])out.push(`The ${BUILDINGS[b.k].n} in ${cityLabel(n,c)} reaches economy level ${b.el}: your economy +${Math.round(b.el*EL_FX*100)}% from it.`);}}
+  return out;
+});
+function elBits(ct,k,mine,now){
+  if(!elOn(k)||!ct.rec||ct.npc)return '';const b=(ct.rec.b||[]).find(x=>x.k===k);if(!b||b.d>now)return '';
+  const e=elExtras(b),lv=elLv(b,now),pc=v=>Math.round(v*EL_FX*100);
+  if(!mine)return lv?`<span class="cx-lv el-lv">Economy level ${lv}: economy +${pc(lv)}%.</span>`:'';
+  if(e.eu&&e.eu.d>now)return `<span class="cx-lv el-lv">Raising it to economy level ${e.eu.l}: <span data-live="build" data-d="${e.eu.d}">${fmtDur(e.eu.d-now)}</span> left. <button class="linkish small" data-act="el-up-no" data-id="${esc(ct.id)}" data-k="${k}">Stop</button></span>`;
+  if(cxUps(b,now)<EL_BLD[k])return `<span class="cx-lv el-lv hint">After its gold upgrade: economy levels with no top, +${pc(1)}% economy each.</span>`;
+  const st=stockNow(S.nation,now),q=elQuote(S.nation,ct,k,lv+1),p=elProblem(S.nation,ct,k,st,now);
+  return `<span class="cx-lv el-lv"><button class="linkish small" data-act="el-up" data-id="${esc(ct.id)}" data-k="${k}"${p?' disabled':''}>Raise to economy level ${lv+1}</button> <span class="cx-lv-c">+${pc(1)}% economy · ${esc(costText(q.cost))} · ${q.hours} h${lv?` · now +${pc(lv)}%`:''}</span>${p&&!/^You need/.test(p)?` <span class="hint">${esc(p)}</span>`:''}</span>`;
+}
+cxLvBits=(f=>function(ct,k,mine,now){return f.apply(this,arguments)+elBits(ct,k,mine,now);})(cxLvBits);
+cxLvChip=(f=>function(ct,k){let lv=0;try{const now=Date.now(),b=ct.rec&&(ct.rec.b||[]).find(x=>x.k===k);lv=b&&b.d<=now&&elOn(k)?elLv(b,now):0;}catch(e){}return f.apply(this,arguments)+(lv?` <span class="chip el-chip" title="Economy level ${lv}">Lv ${lv}</span>`:'');})(cxLvChip);
+cxUpProblem=(f=>function(n,ct,k,st,now){const e=elBusy(ct&&ct.rec,now);if(e)return `The builders are raising the ${BUILDINGS[e.k].n} first.`;return f.apply(this,arguments);})(cxUpProblem);
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;if(a==='el-up')elRaise(el.dataset.id,el.dataset.k);else if(a==='el-up-no')elCancel(el.dataset.id,el.dataset.k);});
 
 /* ───────── fifty edicts for the newest systems: parliament and the mandate, cities, the passport and the rest ─────────
    Edicts about the Government page (the seats, the voting system, the Senate, the mandate, the morning briefing and the
@@ -67916,6 +68177,95 @@ const PT_ISSUES=[
  {t:'“Paint the cabinet instead,” says Minister of Culture and Sport {CUL}. “A government is a team. Mostly.”',e:{culture:1,cab:{all:5},pt:3},fx:'the whole cabinet sat for one painting, and two ministers are still arguing about who stood at the front'}
 ]}];
 for(const is of PT_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;ISSUES_RANDOM.push(is);}
+
+/* ───────── twenty edicts about productivity (growth without a ceiling, 15 November 2026) ─────────
+   Ports, patents, paper sizes, red tape, research, skills and freight: ways of getting more done per person. About
+   one option in three carries a pd effect, a lasting rise in Productivity of 1–3% (applyEffects: pdBoost), and pays
+   for it in tax, happiness, the environment or the budget. Numbered after every older edict, drawn at random. */
+const PRD_ISSUES=[
+/* productivity: ports, patents, standards, red tape, research, skills, logistics and other ways of getting more done per person */
+{id:'prd-harbour-five',c:'econ',t:'The Harbour Closes at Five',q:'The port of Skerlow, which handles a third of {N}’s trade, closes every day at five o’clock sharp, because that is when the harbourmaster cycles home and his bicycle has no lights. Ships arriving at one minute past wait at anchor until morning. On busy nights the queue stretches nine kilometres out to sea, and the crews have started a floating market.',o:[
+ {t:'“Open the port round the clock,” says shipping agent Perpetua Lorrimer-Vasey. “Floodlights, three shifts and a harbourmaster who is finally allowed to go to bed.”',e:{econ:2,wealth:1,env:-1,tax:2,pd:2},fx:'the port of Skerlow never closes, and ships unload under floodlights while the harbourmaster sleeps soundly at home'},
+ {t:'“Buy the man a bicycle lamp,” says Minister of Public Works {WRK}. “Then he can stay until seven.”',e:{econ:1,happy:1,weird:1},fx:'the harbourmaster of Skerlow has a bicycle lamp at public expense, and the port now closes at seven, when his favourite programme starts'},
+ {t:'“Leave the hours alone,” says harbourmaster Wendel Skeffling. “The sea waited ten thousand years for this harbour. It can wait until the morning.”',e:{cons:2,happy:1,econ:-2},fx:'the port of Skerlow still closes at five, and the floating market in the queue now has a fish restaurant with a sea view on every side'}]},
+{id:'prd-patent-backlog',c:'tech',t:'Pending Since 1985',q:'The {D} Patent Office has a backlog of forty-one years. Its oldest unexamined application, filed in 1985, is for “a machine that sends a picture of a letter down a telephone line”. Inventors now patent their ideas abroad first and bring them home later, like souvenirs. One examiner, who has worked through the same drawer since 1999, says she is nearly at the bottom.',o:[
+ {t:'“Hire two hundred examiners and give them a deadline,” says patent lawyer Cressida Hollingdrake-Hale. “Eighteen months, yes or no, and the drawer goes to a museum.”',e:{sci:2,econ:1,tax:2,b:{admin:1},pd:2},fx:'the {D} Patent Office answers every application within eighteen months, and the 1985 picture-telephone has been approved, for old times’ sake'},
+ {t:'“Abolish patents altogether,” says open-source campaigner Ludovic Saffery-Oke. “Let every idea be copied the morning it is born, and may the fastest copier win.”',e:{econ:2,civil:1,sci:-2,wealth:-1},fx:'{N} has no patents at all, and {D} inventors keep their best ideas in locked sheds guarded by geese'},
+ {t:'“Approve anything nobody objects to within a year,” says Finance Minister {FIN}. “Silence is consent, and silence is cheap.”',e:{econ:2,weird:2,corrupt:1,equal:-1,pd:1},fx:'{D} patents are granted automatically after a year of silence, and a man in {CAP} now holds the patent on the wheel'}]},
+{id:'prd-paper-sizes',c:'econ',t:'Nothing Fits the Envelope',q:'{N} uses three paper sizes at once: Ministry Folio, Commercial Quarto and the Long Letter, a narrow sheet beloved of solicitors. None of them fits the others’ envelopes, printers or filing cabinets, so every office keeps a guillotine for trimming. A study finds that {D} clerks spend one working day in twenty folding things.',o:[
+ {t:'“One paper size, by law, from January,” says standards officer Philippa Drummel-Okoro. “One envelope, one printer tray, one drawer. Nobody in {N} need ever fold again.”',e:{econ:1,cons:-1,happy:-1,tax:1,pd:1},fx:'{N} has one paper size, and its guillotines have been melted down into a statue of a stapler'},
+ {t:'“Put a converting machine in every office,” says Interior Minister {INT}. “It trims, it folds, and it apologises.”',e:{sci:1,weird:1,tax:2,b:{admin:1}},fx:'every {D} office has a paper-converting machine, which works beautifully until somebody feeds it a Long Letter'},
+ {t:'“Leave the Long Letter alone,” says solicitor Ambrosine Tusking. “Narrow paper is how a client knows the advice is expensive.”',e:{cons:2,culture:1,econ:-1},fx:'{D} solicitors still write on the Long Letter, and charge extra for folding it'}]},
+{id:'prd-business-register',c:'gov',t:'Eleven Thousand Blacksmiths',q:'The national register of businesses, which banks use to check borrowers and firms use to find suppliers, has not been tidied since 1961. It lists eleven thousand blacksmiths, a telegraph company and a hat shop in {CAP} that has been a nightclub for thirty years. A bakery in the north was refused a loan because the register says it is a coal merchant, and still owes for the coal.',o:[
+ {t:'“Clean it up and put it online, free, for everyone,” says data officer Theodora Hawksworth-Mallory. “Every firm and every address, updated every morning.”',e:{sci:2,econ:1,tax:1,b:{admin:1},pd:2},fx:'the {D} business register is online, free and correct, and lists exactly one blacksmith, who is delighted'},
+ {t:'“Charge every firm a small fee to stay on it,” says registrar Leofric Hambleden. “A firm that will not pay has clearly closed.”',e:{econ:1,corrupt:1,happy:-1,tax:-1},fx:'firms in {N} pay a fee each year to prove that they exist, and the nightclub pays it as a hat shop, out of nostalgia'},
+ {t:'“Leave it exactly as it is,” says business historian Gwenllian Hollowbread-Bloom. “It is the finest record of {D} commerce ever kept. Nobody tidies a museum.”',e:{culture:2,cons:1,econ:-1},fx:'the business register still lists eleven thousand blacksmiths, and historians call it the greatest novel ever written in {N}'}]},
+{id:'prd-sewer-fibre',c:'tech',t:'Fibre Down the Drain',q:'Laying fast internet cable under {CAP} would mean digging up every street in the city for six years. Telecoms engineer Isadora Quillinan-Reyes has a cheaper idea: a robot that crawls through the sewers laying fibre as it goes, so that the internet arrives through the same pipes as everything else. She has built a prototype, named it Gully, and lost it twice.',o:[
+ {t:'“Send Gully down the drains,” says Isadora Quillinan-Reyes. “Fast internet in every home in eighteen months, and nobody digs up a single road.”',e:{sci:3,weird:2,tax:2,pd:2},fx:'{CAP} has the fastest internet in the region, delivered by sewer, and Gully the robot has turned up a third time, in a hotel bath'},
+ {t:'“Dig up every street and do it properly,” says city engineer Fergus Penhaligan-Prowse. “Six years of roadworks, then the fastest network on the continent, in pipes built for the purpose.”',e:{sci:3,happy:-3,tax:3,b:{transport:1},pd:3},fx:'every street in {CAP} is dug up at once, cyclists have learned to jump trenches, and the fibre underneath is very fast indeed'},
+ {t:'“The internet is fast enough already,” says retired postmaster Crispin Mallender-Thew. “I posted a letter in 1971 and it arrived. Nobody needs to send a film down a sewer.”',e:{cons:2,happy:1,sci:-1},fx:'the internet in {CAP} stays exactly as slow as it was, and the queue at the post office has grown again'}]},
+{id:'prd-eleven-offices',c:'gov',t:'Eleven Offices, Eleven Towns',q:'To open a business in {N}, a citizen must visit eleven government offices in eleven different towns, each open on a different day, some only in the mornings. A woman opening a bakery in {CAP} has driven four thousand kilometres, worn out two sets of tyres and been told at the last office that her form was the wrong shade of blue.',o:[
+ {t:'“One office, one form, one afternoon,” says reform campaigner Henrietta Brakespear-Lyle. “Put all eleven desks in one room and lock the door until they agree.”',e:{econ:2,corrupt:-1,tax:1,b:{admin:1},pd:2},fx:'a business in {N} can be registered in one office in one afternoon, and the bakery has opened with a cake shaped like eleven desks'},
+ {t:'“Any office that has not answered in thirty days has said yes,” says the baker, Clementina Dunnage-Banks. “I have spent longer in my car than in my kitchen.”',e:{econ:3,safety:-1,health:-1,pd:1},fx:'silence means yes in {D} offices after thirty days, and the bakery has opened without anybody checking its ovens, which turn out to be fine'},
+ {t:'“Every one of those offices exists for a reason,” says Interior Minister {INT}. “Possibly several reasons. We shall print the opening hours more clearly.”',e:{cons:1,corrupt:1,econ:-1},fx:'the eleven offices now publish a joint timetable, available from a twelfth office, open on Thursdays'}]},
+{id:'prd-meeting-forum',c:'gov',t:'A Meeting About the Meeting',q:'A time study at the Ministry of Trade has found that its staff spend twenty-two hours a week in meetings, four of them in meetings to plan other meetings. The longest, the Tuesday Coordination Forum, began in March and has never formally ended. Its minutes now fill a corridor and part of a stairwell.',o:[
+ {t:'“Twenty-five minutes, standing up, with an agenda or not at all,” says management consultant Odalys Quenneville-Kane. “Chairs only encourage people.”',e:{econ:1,health:1,happy:-2,pd:2},fx:'{D} civil servants meet standing up for twenty-five minutes at most, and the Tuesday Coordination Forum has ended after nine months, to a round of applause'},
+ {t:'“If there must be meetings, let there be cake,” says ministry canteen manager Ingeborg Tallentire-Akers. “Nobody minds a long meeting with a Victoria sponge in it.”',e:{happy:3,health:-1,econ:-1},fx:'every meeting in a {D} ministry now comes with cake, and attendance at the Tuesday Coordination Forum has doubled'},
+ {t:'“Meetings are where good government happens,” says Forum chair Marmaduke Steadings-Rowe. “Let the Forum finish its business. It is very nearly at item four.”',e:{pol:1,cons:1,weird:1,econ:-2},fx:'the Tuesday Coordination Forum has entered its second year and reached item five, which is the date of the next meeting'}]},
+{id:'prd-whistling-works',c:'nature',t:'The Factory That Whistles',q:'The compressed-air pipes at the Durnford Ironworks leak so badly that the factory whistles day and night, and the night shift can play the national anthem by opening the right valves. An energy auditor has found that a third of its electricity goes on whistling. Half the factories in {N} whistle, she says, only less tunefully.',o:[
+ {t:'“Free energy audits for every factory, and cheap loans to fix what they find,” says energy auditor Saskia Rummelsburg-Tate. “Plug the leaks and the power bills fall by a third.”',e:{env:2,econ:1,tax:2,b:{env:1},pd:2},fx:'{D} factories have stopped whistling, their power bills have fallen by a third, and the Durnford night shift has had to buy a piano'},
+ {t:'“Fine every factory that wastes power,” says efficiency inspector Cornelius Swalecliffe. “A stethoscope on every pipe and a penalty for every note.”',e:{env:3,econ:-2,happy:-1},fx:'{D} inspectors listen to factory pipes with stethoscopes, and fine the owners by the note'},
+ {t:'“Keep the Durnford pipes exactly as they are,” says music teacher Oriel Pendarves-Haig. “It is the only factory in the world that can play a hymn. Put it on the tourist map.”',e:{culture:2,tour:2,weird:1,env:-2},fx:'the whistling ironworks of Durnford gives concerts on Sunday evenings, and its electricity bill is printed in the programme'}]},
+{id:'prd-garage-clause',c:'econ',t:'The Garage Clause',q:'A zoning rule from 1958 forbids running a business from a private home in {N}, “to preserve the peace of residential streets”. Inspectors have just fined a sixteen-year-old in {CAP} who builds drones in her parents’ garage, a grandmother who mends violins in her spare room and a man who runs a thriving accountancy from his shed, which he insists is “mostly a shed”.',o:[
+ {t:'“Scrap the rule,” says start-up founder Ottilie Granchester-Moyo. “Half the great firms in history began in a garage, and the other half began in a bedroom.”',e:{econ:3,happy:-1,safety:-1,pd:1},fx:'any {D} citizen may run a business from home, and one quiet street in {CAP} now holds a drone factory, a violin hospital and the busiest shed in the nation'},
+ {t:'“Allow the quiet trades and ban the noisy ones,” says town planner Bartolomeo Quaintrell. “Violins may be mended at home. Drones may not be tested over the neighbours’ washing.”',e:{econ:1,happy:1,weird:1},fx:'home businesses in {N} must pass a noise test, and the violin mender has failed it twice, on the cello'},
+ {t:'“The rule keeps our streets quiet,” says residents’ association chair Hyacinth Tumbrell-Leach. “If people want to build drones, there are industrial estates for that.”',e:{cons:2,happy:1,econ:-2},fx:'home businesses remain illegal in {N}, and the drone builder has moved into a rented lock-up behind a carpet warehouse'}]},
+{id:'prd-umbrella-institute',c:'tech',t:'An Umbrella for All Weathers',q:'The National Institute of Applied Research has spent eleven years and ninety million {Cs} perfecting an umbrella that cannot blow inside out. It is nearly ready, says the director, but it cannot be tested outdoors because it keeps raining. Meanwhile {D} firms complain that the Institute will not return their calls about anything that is not an umbrella.',o:[
+ {t:'“Double the research budget, and let the Institute choose what to study,” says Institute director Aurelio Dunsany-Crewe. “Great discoveries cannot be timetabled. The umbrella has taught us that.”',e:{sci:3,edu:1,tax:3,b:{edu:1},pd:3},fx:'the National Institute of Applied Research has twice the money and four new laboratories, one of them still working on umbrellas'},
+ {t:'“Match every {C} a firm spends on research with one from the state,” says economist Rosamund Wadlow-Achebe. “Let the people with problems choose which problems get solved.”',e:{sci:2,econ:2,tax:2,equal:-1,pd:2},fx:'{D} firms spend twice as much on research, half of it the state’s, and a bakery has invented a loaf that slices itself'},
+ {t:'“Finish the umbrella first,” says Minister of Health and Education {HEA}. “The nation has waited eleven years. It would be a shame to give up the week before it stops raining.”',e:{weird:2,happy:1,sci:-1},fx:'the Institute’s umbrella has been tested outdoors at last, in a gale, and held firm while carrying its inventor four metres into the air'}]},
+{id:'prd-poached-welders',c:'welfare',t:'Trained Here, Hired There',q:'The Mardlebury Boiler Works in {CAP} spent two years training forty young welders. The firm across the road, which trains nobody, hired thirty-eight of them the week they qualified, for slightly more money and a better kettle. Mardlebury has stopped training anybody, and so, it turns out, has almost every firm in {N}.',o:[
+ {t:'“A training levy on every firm,” says skills adviser Imogen Halsgrove-Lowe. “Everyone pays in, and the firms that train get their money back. Let the poachers pay for the eggs.”',e:{edu:2,econ:-1,tax:1,b:{edu:1},pd:2},fx:'every {D} firm pays a training levy, the Mardlebury Boiler Works gets most of it back, and young welders are being trained all over {N}'},
+ {t:'“Anyone who leaves within two years repays the cost of training,” says employers’ federation chair Augustus Treloweth-Clegg. “A qualification is a gift, not a getaway car.”',e:{econ:1,civil:-1,happy:-1,cons:1},fx:'young {D} welders who change jobs early must repay their training, and the firm across the road now pays it for them, kettle included'},
+ {t:'“That is just the market,” says Bertrand Scullion-Hay, who runs the firm across the road. “We offered more money. That is what money is for.”',e:{econ:2,equal:-1,edu:-1},fx:'{D} firms train nobody and poach everybody, and one welder in {CAP} has changed jobs eleven times without changing streets'}]},
+{id:'prd-nine-seconds',c:'tech',t:'Nine Seconds, Forty Clerks',q:'Every week, forty clerks at the Department of Pensions copy figures from one ledger into another by hand. A junior clerk, Bryony Ashdale-Mweru, has written a small program that does the whole week’s copying in nine seconds. Her department has asked for her to be moved somewhere less efficient.',o:[
+ {t:'“Run her program in every ministry, and retrain the clerks for work only people can do,” says Finance Minister {FIN}.',e:{sci:2,happy:-1,tax:1,b:{edu:1},pd:2},fx:'Bryony Ashdale-Mweru’s program runs in every {D} ministry, and the former copying clerks now answer the telephones, which have never been answered faster'},
+ {t:'“Sell it to other governments,” says trade attaché Severin Lockyear-Bamidele. “Every ministry in the world has forty clerks and two ledgers.”',e:{econ:2,wealth:1,sci:1,cons:1},fx:'{N} sells its nine-second program to governments abroad, while its own forty clerks go on copying by hand, for security reasons'},
+ {t:'“Those clerks have copied the ledgers since 1952,” says union representative Godfrey Ploughwright. “Copying is a craft. Machines make mistakes too, only faster.”',e:{happy:2,equal:1,cons:1,econ:-1},fx:'forty clerks still copy the pension ledgers by hand, and Bryony Ashdale-Mweru’s program has been printed out and filed, by hand'}]},
+{id:'prd-empty-lorries',c:'econ',t:'Driving Home Empty',q:'A survey of {D} motorways has found that four lorries in ten are driving home empty. A haulier delivering cabbages to {CAP} drives back north with nothing, passing a haulier delivering cabbages north, who drives back to {CAP} with nothing. Lately they have started waving.',o:[
+ {t:'“A national freight exchange,” says logistics consultant Leopold Mardell-Nkemelu. “Every empty lorry and every waiting load on one board, matched by the hour.”',e:{econ:1,env:2,tax:1,b:{commerce:1},pd:2},fx:'{D} lorries are matched to loads by the hour, half as many drive home empty, and the two cabbage hauliers now carry each other’s cabbages'},
+ {t:'“Charge a toll on every empty lorry,” says road economist Marcellus Dewhirst. “Nobody will drive home with nothing once nothing costs money.”',e:{env:2,econ:-2,happy:-1},fx:'empty lorries pay a toll on {D} motorways, and hauliers now carry anything rather than nothing, including, last week, a church organ'},
+ {t:'“Leave us be,” says cabbage haulier Rodrigo Selwood-Faulds. “The drive home is the only time I can hear the radio over the cabbages.”',e:{happy:1,econ:1,env:-2},fx:'{D} lorries still drive home empty, and the two cabbage hauliers have started a radio programme for each other'}]},
+{id:'prd-florist-licence',c:'rights',t:'A Licence to Arrange Flowers',q:'{N} requires a state licence for two hundred and fourteen occupations, among them florist, wallpaper hanger, auctioneer’s assistant and piano tuner. The florists’ exam includes a three-hour written paper on the history of the carnation. A {CAP} woman who arranged the flowers for her sister’s wedding has been fined for practising floristry without a licence.',o:[
+ {t:'“Licences only where a mistake could hurt somebody,” says economist Hyperion Brakeley-Stent. “Electricians, yes. Florists, no. Nobody has ever been electrocuted by a tulip.”',e:{econ:2,civil:1,safety:-1,happy:-1,pd:2},fx:'{N} has cut its list of licensed trades from two hundred and fourteen to nineteen, and weddings have never had so many flowers'},
+ {t:'“Keep the licences but make the exams practical,” says florists’ guild master Amaryllis Pennicott-Lusk. “Arrange a bouquet in an hour and pass. Forget the carnation paper.”',e:{edu:1,cons:1,happy:1},fx:'{D} florists qualify by arranging a bouquet in an hour, and the history of the carnation has become an evening class with a waiting list'},
+ {t:'“The licences protect standards,” says carnation historian Ludwig Arkenholt. “A nation that cannot tell a carnation from a pink deserves the bouquets it gets.”',e:{cons:2,culture:1,econ:-2},fx:'every {D} florist still sits three hours on the carnation, and wedding guests have been warned not to touch the centrepieces'}]},
+{id:'prd-green-lathe',c:'world',t:'One Green Lathe a Year',q:'To protect the Brannick Machine Works, {N} charges a forty percent tariff on imported machine tools. Brannick makes one lathe a year, by hand, painted green, and it is a very good lathe. Every other {D} factory must import its machinery at almost half as much again, or keep using lathes from before the war, several of them steam-powered.',o:[
+ {t:'“Scrap the tariff on machinery,” says Foreign Minister {FOR}. “Our factories deserve the best tools in the world, wherever they are made.”',e:{econ:3,happy:-2,culture:-1,pd:2},fx:'{D} factories buy the best machine tools in the world at world prices, and the Brannick Machine Works now sells its green lathe to collectors'},
+ {t:'“Keep the tariff and build Brannick a second workshop,” says works foreman Ezekiel Grummet. “Two green lathes a year. Then three. Then we shall see.”',e:{cons:1,happy:1,tax:2,b:{commerce:1}},fx:'the Brannick Machine Works has a second workshop and makes two green lathes a year, the second one slightly greener'},
+ {t:'“Every factory that imports a machine must also buy one green lathe,” says trade official Winifred Garlake-Ottley. “Everybody gets their tools, and Brannick gets a waiting list.”',e:{weird:2,cons:1,econ:-1},fx:'every {D} factory owns a green lathe it does not use, and Brannick’s waiting list now runs to the year 2190'}]},
+{id:'prd-swing-bridge',c:'econ',t:'The Bridge That Opens for One Boat',q:'The only road between the factory towns of Mudlow and Quellington crosses the river Braddle on a swing bridge, which by law must open for any vessel with a mast. The only vessel with a mast is the Obstinacy, a small yacht whose owner, retired schoolmaster Algernon Fitzpercy-Doyle, sails under it every hour, on the hour, “for the exercise”. Lorries queue for twenty minutes each time. He waves.',o:[
+ {t:'“Build a high bridge, tall enough for any mast,” says Minister of Public Works {WRK}. “It will cost a fortune, and nobody will ever wait for a yacht again.”',e:{econ:2,tax:3,env:-2,b:{transport:1},pd:3},fx:'a high bridge now carries the Mudlow road over the Braddle, and the Obstinacy sails beneath it every hour, unwatched and slightly sad'},
+ {t:'“Open it twice a day, at set times,” says bridge keeper Hortensia Blandamere-Fitt. “The yacht may sail at ten and at four, like a sensible boat.”',e:{econ:1,civil:-1,happy:-1,pd:1},fx:'the swing bridge over the Braddle opens at ten and at four, and Algernon Fitzpercy-Doyle has written to every newspaper in {N} about it'},
+ {t:'“The law is the law,” says Algernon Fitzpercy-Doyle, from the deck. “The river was here long before the lorries, and so, very nearly, was I.”',e:{cons:2,weird:2,tour:1,econ:-2},fx:'the swing bridge over the Braddle still opens every hour for the Obstinacy, and the lorry drivers have formed a choir to pass the time'}]},
+{id:'prd-missed-bus',c:'society',t:'Missed by a Minute',q:'The morning train from {CAP} reaches the factory town of Ollerby at 8.01. The bus from Ollerby station to the works leaves at 8.00, as it has every morning since 1979, when the train arrived at 7.55. Two thousand workers watch it pull away each day, and walk. The bus company says the train should hurry up, and the railway says the bus should wait.',o:[
+ {t:'“Move the bus to 8.05 and have done with it,” says bus depot manager Reinhold Sparkbrook. “Five minutes. We have been arguing about five minutes for forty years.”',e:{happy:2,cons:-1},fx:'the Ollerby bus now leaves at 8.05, and the two thousand workers who used to walk have formed a slightly slower football team'},
+ {t:'“One office should draw up every train and bus timetable in {N},” says transport planner Valentina Croxley-Abara. “Connections first, everything else second.”',e:{happy:1,econ:1,tax:2,b:{transport:1},pd:2},fx:'every train and bus in {N} runs to a single timetable, and {D} commuters have begun arriving at work before their bosses'},
+ {t:'“The walk does them good,” says bus driver Ignatius Purbright. “Ollerby has the fittest workers in the country, and the best-rested bus.”',e:{health:2,happy:-1,cons:1},fx:'the 8.00 bus still leaves Ollerby station at 8.00 sharp, and the works football team has not lost a match in three years'}]},
+{id:'prd-printer-prize',c:'tech',t:'A Prize for a Printer That Works',q:'Retired engineer Clotilde Varnley-Esse has written to the {L} with a proposal. Instead of handing out research grants, {N} should offer enormous prizes for solving particular problems. She suggests starting with a bin lorry that does not wake anybody, a supermarket trolley that steers straight and an office printer that works the first time.',o:[
+ {t:'“A million {Cs} for each, paid only on success,” says Clotilde Varnley-Esse. “The state pays nothing for failure, and nothing focuses an inventor like a deadline.”',e:{sci:2,econ:1,weird:1,tax:1,pd:1},fx:'{N} offers a million {Cs} for a printer that works first time, and has so far received nine thousand entries and one paper jam'},
+ {t:'“One prize only, for the printer,” says Minister of Culture and Sport {CUL}. “If we can mend the printers, the rest of the nation will follow.”',e:{happy:2,weird:2,tax:1},fx:'{N} has offered a single enormous prize for a printer that works, and its best engineers are now all in one room, shouting at a paper tray'},
+ {t:'“Prizes are a lottery for clever people,” says research council secretary Hilarion Tewksley. “Science needs patient money, not a game show.”',e:{edu:1,cons:1,weird:-1},fx:'research money in {N} still goes out as patient grants, and the office printers remain exactly as they were'}]},
+{id:'prd-blue-goat',c:'society',t:'Past the Blue Goat',q:'Half the homes in rural {N} have no street address. Directions are given by landmark, such as “past the blue goat, left at the burnt oak, ask for Margit”, and couriers spend more time asking than driving. Parcels for the village of Hennow Cross are left at the pub, which now holds two thousand of them and has stopped serving food to make room.',o:[
+ {t:'“A proper address and a zip code for every home,” says postal surveyor Linnea Abercorn-Haast. “Street names, house numbers and signs, even where the street is a field.”',e:{econ:1,cons:-1,tax:2,b:{admin:1},pd:1},fx:'every home in {N} has an address and a zip code, and the field outside Hennow Cross is now officially called Field Street'},
+ {t:'“Number the landmarks,” says courier Sebastiano Tennick-Okafor. “Blue Goat 1, Blue Goat 2. Everybody knows the goat already.”',e:{weird:3,happy:1,cons:1},fx:'rural {D} addresses are numbered from the nearest landmark, and the blue goat has been repainted at public expense'},
+ {t:'“The landmarks are who we are,” says Margit Tolvanen-Brisk, who is asked for most days. “If a courier cannot find the burnt oak, he is not trying.”',e:{cons:2,culture:1,econ:-1},fx:'parcels in rural {N} are still delivered by landmark, and the pub at Hennow Cross has built a second room, for parcels only'}]},
+{id:'prd-eldest-son',c:'society',t:'The Eldest Son Rule',q:'By long custom, {D} family firms pass to the eldest son, whatever his talents. A study finds that they grow at half the rate of firms run by hired managers. The nation’s largest mattress maker is now run by a jazz drummer who has never visited the factory, and its second largest by a man who believes mattresses are a passing fad.',o:[
+ {t:'“Free management courses for every family firm, heirs first,” says business school dean Evadne Clarricoates. “Six months on accounts, staff and how a factory works, and then they may inherit.”',e:{edu:2,econ:1,tax:2,b:{edu:1},pd:2},fx:'{D} heirs take a management course before they inherit, and the jazz drummer has learned what a mattress is made of and written a song about it'},
+ {t:'“Make it the eldest child, daughters included,” says equality campaigner Seraphina Ostley-Brede. “It is not a cure, but it doubles the odds.”',e:{equal:2,cons:-2,happy:1},fx:'{D} family firms now pass to the eldest child, and the mattress maker is run by the drummer’s sister, who has already visited the factory twice'},
+ {t:'“Families should run their own affairs,” says mattress heir Florian Duxbury-Thorne. “My great-grandfather made mattresses. I make music. Both help people sleep.”',e:{cons:2,happy:1,econ:-1},fx:'{D} family firms still pass to the eldest son, and the mattress factory now plays jazz to the springs'}]},
+];
+for(const is of PRD_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;ISSUES_RANDOM.push(is);}
 
 /* ───────── the browser tab: what is waiting, at a glance ─────────
    The tab's title counts what waits for the player, as "(3) Edicts · Edictum": unread edicts, unread letters,
