@@ -10754,10 +10754,15 @@ const REGION_MER={id:'meridian',name:'Meridian Reach',the:'the Meridian Reach',s
   outer:['Farhaven','the Brine Marches','Corvel','Sundermark','the Wending Isles','Halloway','Estmere','Greyhallow','the Ninefold Isles','Kestrel Point','Morrow Land','Ashby Reach','Tallowmere','the Outer Shoals','Pellam','Dunraven','Ostermoor','Wyke','the Gannet Rocks','Saltmarrow','Fennick Major','the Lees of Aire']};
 const REGIONS=[REGION_MER].concat(REGIONS_EXTRA);
 const REG_BY_ID=Object.fromEntries(REGIONS.map(r=>[r.id,r]));
-/* the region this browser's nation lives in (only its reg is read here), or the one chosen for founding */
+/* the region a newcomer who has chosen none starts in, and the first in the founding lists (the owner, 15 Nov 2026:
+   the Sunken Kingdoms rather than the crowded Meridian Reach); Meridian on local test hosts, where the browser suites
+   expect it, and wherever there is no location (the map bake) */
+const FIRST_REG=(()=>{try{if(REG_BY_ID.sunkenkingdoms&&!/^(127\.0\.0\.1|localhost)$/.test(location.hostname))return 'sunkenkingdoms';}catch(e){}return 'meridian';})();
+/* the region this browser's nation lives in (only its reg is read here; a nation saved before regions has none and
+   lives in Meridian), or the one chosen for founding, or FIRST_REG */
 const HOME_REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('statehood.nation.v1'),d=raw&&JSON.parse(raw);
   if(d&&typeof d==='object'&&d.name){if(typeof d.reg==='string'&&REG_BY_ID[d.reg])id=d.reg;}
-  else{const r=localStorage.getItem('statehood.region');if(r&&REG_BY_ID[r])id=r;}}catch(e){}return REG_BY_ID[id];})();
+  else{const r=localStorage.getItem('statehood.region');id=r&&REG_BY_ID[r]?r:FIRST_REG;}}catch(e){}return REG_BY_ID[id];})();
 /* Observer mode (admins only): this tab shows the region OBS names, read-only, as if the admin lived there. The
    key lives in this tab's sessionStorage (set by obsEnter, cleared by obsExit). While it is set the admin's own
    nation is never read, normalised, committed or saved here: S.nation is a stand-in with no land (obsNation),
@@ -29492,7 +29497,8 @@ function regMode(id){if(!regDisabled(id))return 'enabled';const s=RCTRL.states[i
 /* the regions in the order players see them: open first, then those under maintenance, then those coming soon */
 /* until 12 Nov 2026 the founding lists put open regions with the fewest active players first, to spread new nations out */
 const QUIET_FIRST_UNTIL=Date.UTC(2026,10,12);
-function regionsForFounding(){const L=regionsByAvail();if(Date.now()>=QUIET_FIRST_UNTIL||!Object.keys(RSTAT.n).length)return L;const rk=R=>({enabled:0,maintenance:1,coming_soon:2})[regMode(R.id)]+(regFull(R.id)?0.5:0);return L.map((R,i)=>[R,i]).sort((a,b)=>rk(a[0])-rk(b[0])||(rk(a[0])===0?(RSTAT.n[a[0].id]||0)-(RSTAT.n[b[0].id]||0):0)||a[1]-b[1]).map(x=>x[0]);}
+/* the founding lists: open regions first, FIRST_REG at the top while it is open */
+function regionsForFounding(){const L=regionsByAvail(),i=L.findIndex(R=>R.id===FIRST_REG);if(i>0&&regMode(FIRST_REG)==='enabled')L.unshift(L.splice(i,1)[0]);return L;}
 function regionsByAvail(){const rk=R=>({enabled:0,maintenance:1,coming_soon:2})[regMode(R.id)];return REGIONS.map((R,i)=>[R,i]).sort((a,b)=>rk(a[0])-rk(b[0])||a[1]-b[1]).map(x=>x[0]);}
 /* the room a region has for active nations: its own cap, or the usual one (tests set EDICTUM_REGION_CAP for all) */
 function regCap(id){const R=REG_BY_ID[id];return window.EDICTUM_REGION_CAP||!(R&&R.cap>0)?REGION_CAP:R.cap;}
@@ -29695,7 +29701,7 @@ function foundRegionBox(){
     <details class="fr-more"${full||regDisabled(REG.id)||S.frMore?' open':''}><summary>Choose another region (${REGIONS.length} in all)</summary><ul class="fr-list">${regionsForFounding().map(R=>{const f=R.id!==REG.id&&regFull(R.id),disabled=regDisabled(R.id);return `<li class="${disabled?'region-disabled':''}"><button type="button" class="fr-btn${R.id===REG.id?' on':''}" data-act="found-region" data-id="${R.id}"${R.id===REG.id?' aria-current="true"':''}${f||disabled?' disabled':''}><b>${esc(R.name)}${f?' <span class="chip">Full</span>':''}${disabled?` <span class="chip">${regLabel(R.id)}</span>`:''}</b><span>${esc(R.short)}</span><span class="hint">${esc(regClimate(R))} · ${(R.id==='meridian'?NPCS_MER:R.npcs).length} computer nations${pl(R)}</span></button></li>`;}).join('')}</ul></details>
     <p class="fr-maps"><button type="button" class="linkish" data-act="found-browse" aria-expanded="${!!S.frBrowse}">${S.frBrowse?'Hide the regions’ maps':'See every region on its map'}</button></p>
     ${S.frBrowse?foundRegionBrowser():''}
-    <p class="muted fr-first">Where in ${esc(REG.name)} your capital stands is your first edict: three advisors, three pins on the map, one choice.</p></div>`;
+    <p class="muted fr-first">Where in ${esc(REG.the||REG.name)} your capital stands is your first edict: three advisors, three pins on the map, one choice.</p></div>`;
 }
 
 /* ───────── Round 9 (E): dormant nations ─────────
