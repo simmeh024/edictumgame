@@ -1,4 +1,4 @@
-// Firewood, and a dearer city (2026-11-15, the owner picked ideas 1 and 8 to nerf timber "a tiny bit"): the people out on a
+// Firewood, and a dearer city (2026-11-15, the owner picked ideas 1 and 8 to nerf timber "a tiny bit", then made it 0.2): the people out on a
 // nation's land beyond its core burn TIMBER_BURN timber a hex a day, the same rule as the food they eat (FOOD_EAT), and
 // founding a city costs 35 timber instead of 30. The game's own economy(), run on a one-nation world.
 // Run with: node --test test/timber-firewood.test.mjs
@@ -36,12 +36,12 @@ function world({pop=10,land=400,timber=0.6,lakes=0,cm=1,budget,up={}}){
 /* timber banked a day before any of this: what the land grows less what the natural size uses */
 const spare=(E,i=0)=>E.sup.timber[i]-E.dem.timber[i];
 
-test('the people on every hex of land beyond the natural size burn 0.1 timber a day',()=>{
+test('the people on every hex of land beyond the natural size burn 0.2 timber a day',()=>{
   const {ctx,E}=world({pop:10,land:400});
-  assert.equal(ctx.TIMBER_BURN,0.1);
+  assert.equal(ctx.TIMBER_BURN,0.2);
   const z=ctx.budgetOf(10);assert.equal(z,21);
-  assert.ok(near(E.burn[0],0.1*(400-z)));
-  assert.ok(near(E.dem.timber[0],z*ctx.DEMAND.timber+0.1*(400-z)),'on top of what the natural size uses');
+  assert.ok(near(E.burn[0],0.2*(400-z)));
+  assert.ok(near(E.dem.timber[0],z*ctx.DEMAND.timber+0.2*(400-z)),'on top of what the natural size uses');
   assert.ok(near(E.eat[0],1.4*(400-z)),'the food the same people eat is unchanged');
   for(const r of ['iron','oil','goods'])assert.ok(near(E.dem[r][0],z*ctx.DEMAND[r]),`${r} is untouched`);
 });
@@ -55,28 +55,28 @@ test('a nation with no land beyond its natural size burns nothing',()=>{
 
 test('lakes burn no firewood',()=>{
   const {E}=world({pop:10,land:100,lakes:30});
-  assert.ok(near(E.burn[0],0.1*(100-21)));
+  assert.ok(near(E.burn[0],0.2*(100-21)));
 });
 
-test('a tiny nerf: about a seventh less banked on average land, and prosperity barely moves',()=>{
+test('a small nerf: about 29% less banked on average land, and prosperity barely moves',()=>{
   /* Eternia-sized: 561 hexes at 27M people, 0.7 timber a hex on average */
   const {ctx,E}=world({pop:27,land:561,timber:0.7}),z=ctx.budgetOf(27);
   const before=561*0.7-z*ctx.DEMAND.timber,after=spare(E),cut=1-after/before;
-  assert.ok(cut>0.1&&cut<0.18,`banked ${before.toFixed(1)} → ${after.toFixed(1)} a day (−${(cut*100).toFixed(1)}%)`);
+  assert.ok(cut>0.25&&cut<0.33,`banked ${before.toFixed(1)} → ${after.toFixed(1)} a day (−${(cut*100).toFixed(1)}%)`);
   /* prosperity's timber term (0.04 × the ratio, up to 1.5): unchanged on lowland, average and hill land; only land of
-     nothing but mountains (0.3 a hex) feels it, and by less than 1.5% of prosperity */
+     nothing but mountains (0.3 a hex) feels it, and by less than 3% of prosperity */
   for(const [pop,land] of [[1,16],[5,81],[10,400],[27,561],[1000,800]])for(const timber of [0.3,0.6,0.7,1.4]){
     const w=world({pop,land,timber}),r=w.E.ratio.timber[0],r0=w.E.sup.timber[0]/(w.E.dem.timber[0]-w.E.burn[0]);
     const q=Math.min(r,1.5),q0=Math.min(r0,1.5);
     assert.ok(q<=q0+1e-12,'never more prosperous');
     if(timber>=0.6)assert.ok(near(q,q0),`${land} hexes of ${timber}: ${r0} → ${r}`);
-    else assert.ok(0.04*(q0-q)<0.015,`all mountains, ${land} hexes: ${r0} → ${r}`);
+    else assert.ok(0.04*(q0-q)<0.03,`all mountains, ${land} hexes: ${r0} → ${r}`);
   }
 });
 
 test('building upkeep is still used on top',()=>{
   const {E}=world({pop:10,land:400,up:{timber:2}});
-  assert.ok(near(E.dem.timber[0],21*0.8+0.1*379+2));
+  assert.ok(near(E.dem.timber[0],21*0.8+0.2*379+2));
 });
 
 test('a city costs 35 timber, and a new nation can still pay for one from its starting stock',()=>{
