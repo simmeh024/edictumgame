@@ -213,6 +213,42 @@ try {
     check('every kind of hair and dress draws, engraved and in a skin colour', all);
     await page.screenshot({ path: OUT + '/portraits-skin-1280.png' });
 
+    /* a change keeps the control that made it where it was on the screen. On the owner's screen (15 Nov 2026) every
+       change slid the page down by 107 px, which could not be made to happen here; it is copied by growing the
+       section's heading, above the editor, once the change has been drawn, with the browser's own scroll anchoring off */
+    await go('customise/portraits');
+    const keep = async (sel, act) => {
+      await page.evaluate(() => { const h = document.querySelector('#cz-sec-r > h2'); if (h) h.style.marginTop = ''; });
+      await page.evaluate(s => { const e = document.querySelector(s), d = document.getElementById('cz-dock'); scrollBy(0, e.getBoundingClientRect().top - 420); const b = d ? d.getBoundingClientRect().bottom : 0; if (b > 380) scrollBy(0, -(b - 380)); }, sel);
+      await sleep(300);
+      const t0 = await page.evaluate(s => {
+        document.documentElement.style.overflowAnchor = 'none';
+        const o = new MutationObserver(() => { o.disconnect(); const h = document.querySelector('#cz-sec-r > h2'); if (h) h.style.marginTop = '107px'; });
+        o.observe(document.getElementById('app'), { childList: true, subtree: true, attributes: true });
+        return document.querySelector(s).getBoundingClientRect().top;
+      }, sel);
+      await act(sel); await sleep(700);
+      const t1 = await page.evaluate(s => { document.documentElement.style.overflowAnchor = ''; return document.querySelector(s).getBoundingClientRect().top; }, sel);
+      return { t0: Math.round(t0), t1: Math.round(t1), grew: await page.evaluate(() => (document.querySelector('#cz-sec-r > h2') || {}).style?.marginTop) };
+    };
+    const at = async s => page.evaluate(s => { const r = document.querySelector(s).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, s);
+    const h0 = await page.evaluate(() => document.getElementById('pt-h-s').value);
+    let k = await keep('#pt-h-n', async s => { const [x, y] = await at(s); await page.mouse.click(x, y); });
+    check('a stepper keeps its arrow under the pointer when the page above it grows', k.grew === '107px' && Math.abs(k.t1 - k.t0) <= 2, k);
+    check('and the step is taken', await page.evaluate(h => document.getElementById('pt-h-s').value !== h, h0));
+    k = await keep('#pt-s-5', async s => { const [x, y] = await at(s); await page.mouse.click(x, y); });
+    check('so does a skin swatch', Math.abs(k.t1 - k.t0) <= 2, k);
+    k = await keep('#pt-d-s', s => page.selectOption(s, '5'));
+    check('and a part picked from the list', Math.abs(k.t1 - k.t0) <= 2, k);
+    /* the reader's own scrolling right after a change is left alone */
+    await page.evaluate(() => { const h = document.querySelector('#cz-sec-r > h2'); if (h) h.style.marginTop = ''; });
+    await page.evaluate(() => { const e = document.querySelector('#pt-n-n'); scrollBy(0, e.getBoundingClientRect().top - 420); });
+    await sleep(300);
+    const [nx, ny] = await at('#pt-n-n');
+    await page.mouse.click(nx, ny); await page.mouse.wheel(0, 300); await sleep(700);
+    const ny1 = (await at('#pt-n-n'))[1];
+    check('scrolling away straight after a change is not undone', ny - ny1 >= 250, { before: Math.round(ny), after: Math.round(ny1) });
+
     /* the Mayan Pack's pieces: left out while the pack is not on sale, tried on while it is, saved once held, and shown on
        another nation's portrait only while the Shop says that nation holds them */
     await go('customise/portraits'); await page.click('#pt-p-lead');
