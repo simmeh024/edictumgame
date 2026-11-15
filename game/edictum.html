@@ -74339,8 +74339,24 @@ function ptRandom(n,who){
   if(r()<.45)L.e=pick('e')||0;if(r()<.5)L.w=pick('w')||0;if(r()<.35)L.x=pick('x')||0;
   for(const k of Object.keys(L))if(!L[k]&&k!=='h'&&k!=='d')delete L[k];return L;
 }
+/* a change in the editor keeps what was pressed where it was on the screen. render() holds the scroll still, yet on
+   the owner's screen (15 Nov 2026) every change slid the page down by 107 px, which no test browser repeated. So the
+   control (or the section, when the control is gone or rides in the sticky preview column, which scrolling does not
+   move) is put back where it was once the change is drawn, and again while late layout settles, until the reader
+   scrolls or types */
+function ptStay(el){
+  const pinned=e=>{for(let p=e;p&&p!==document.body;p=p.parentElement){const s=getComputedStyle(p).position;if(s==='sticky'||s==='fixed')return true;}return false;};
+  const at=[];for(const e of [el.id?el:el.closest('[id]'),document.getElementById('cz-sec-r')])if(e&&e.id&&!pinned(e))at.push([e.id,e.getBoundingClientRect().top]);
+  if(!at.length)return;
+  const tk={},EV=['wheel','touchmove','keydown'],off=()=>{if(PT.keep===tk)PT.keep=null;for(const t of EV)removeEventListener(t,off,true);};
+  PT.keep=tk;for(const t of EV)addEventListener(t,off,{capture:true,passive:true});
+  const fix=()=>{if(PT.keep!==tk)return;for(const [id,t0] of at){const e=document.getElementById(id);if(!e)continue;const d=e.getBoundingClientRect().top-t0;
+    if(Math.abs(d)>1){window.scrollBy({top:d,left:0,behavior:'instant'});if(Math.abs(e.getBoundingClientRect().top-t0-d)<1)off();}return;}};
+  queueMicrotask(fix);requestAnimationFrame(fix);setTimeout(fix,150);setTimeout(fix,400);setTimeout(()=>{fix();off();},900);
+}
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="pt-"]');if(!el||!S.nation||el.disabled)return;const a=el.dataset.act,n=S.nation,who=PT.who;
+  if(a!=='pt-edit'&&a!=='pt-shop')ptStay(el);
   if(a==='pt-edit'){PT.who=el.dataset.v||'lead';czSecSet('r');if(S.view==='customise'){render();czSecTop();}else go('customise');return;}
   if(a==='pt-who'){PT.who=el.dataset.v;render();return;}
   if(a==='pt-step'){const k=el.dataset.k,row=PT_ROW_BY[k];if(!row)return;const s=ptSitter(n,who),base=ptBase(s.seed),L=ptShown(n,who,ptCur(n,who));
@@ -74359,7 +74375,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   const el=e.target;if(!el||!el.classList||!el.classList.contains('pt-sel')||!S.nation)return;
-  ptSetPart(S.nation,PT.who,el.dataset.k,+el.value);
+  ptStay(el);ptSetPart(S.nation,PT.who,el.dataset.k,+el.value);
 });
 /* the help page's word on the Shop's portrait pieces: the packs on sale or held, and what each adds */
 function ptHelpShop(){
