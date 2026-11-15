@@ -74123,7 +74123,8 @@ function bldMenu(ct,k){
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act="cx-menu"]');
   if(el){S.cxMenu=S.cxMenu===el.dataset.id+':'+el.dataset.k?null:el.dataset.id+':'+el.dataset.k;render();
-    if(S.cxMenu)requestAnimationFrame(()=>{const i=document.querySelector('.bld-mx-p .bld-mx-i');if(i)i.focus({preventScroll:true});});return;}
+    /* render() has drawn the menu already: focus its item now, not a frame later (the click's own focus is done) */
+    if(S.cxMenu){const i=document.querySelector('.bld-mx-p .bld-mx-i');if(i)i.focus({preventScroll:true});}return;}
   if(S.cxMenu&&!(e.target.closest&&e.target.closest('.bld-mx-p'))){S.cxMenu=null;render();}
 },true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.cxMenu){const k=S.cxMenu;S.cxMenu=null;render();const [id,b]=k.split(':');const t=document.querySelector(`[data-act="cx-menu"][data-id="${CSS.escape(id)}"][data-k="${CSS.escape(b)}"]`);if(t)t.focus();}});

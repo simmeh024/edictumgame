@@ -93,7 +93,7 @@ try {
   check('the upgrade stays in view', await page.locator(`${farm} [data-act="cx-up"]`).isVisible());
   check('Demolish is no longer on the row itself', await page.locator(`${farm} [data-act="ct-demo-ask"]`).count() === 0);
   await page.click(`[data-act="cx-menu"][data-k="farm"]`);
-  check('the ⋯ menu holds Demolish, focused', await page.locator('.bld-mx-p [data-act="ct-demo-ask"][data-k="farm"]').isVisible() && await page.evaluate(() => document.activeElement?.dataset.act === 'ct-demo-ask'));
+  check('the ⋯ menu holds Demolish, focused', await page.locator('.bld-mx-p [data-act="ct-demo-ask"][data-k="farm"]').isVisible() && await until(() => page.evaluate(() => document.activeElement?.dataset.act === 'ct-demo-ask'), 2000), await page.evaluate(() => { const a = document.activeElement; return a ? a.tagName + ' ' + (a.dataset.act || a.className) : 'none'; }));
   await page.keyboard.press('Escape'); await sleep(150);
   check('Escape closes it and returns to the button', await page.locator('.bld-mx-p').count() === 0 && await page.evaluate(() => document.activeElement?.dataset.act === 'cx-menu'));
   await page.click(`[data-act="cx-menu"][data-k="farm"]`); await page.click('body', { position: { x: 5, y: 5 } }); await sleep(150);
