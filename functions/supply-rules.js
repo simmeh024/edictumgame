@@ -5,11 +5,14 @@
    taken from the sender's stockpile, with a message of up to SC_MSG characters. Up to SC_DAY caches a UTC day. Only a
    Registered Nation (a linked sign-in, not a guest) sends caches, and any nation receives them. The
    sender's nation must be SC_AGE old (a nation founded only to pass on its starting stock waits a day). A cache the
-   server has not filed within SC_OLD is refused, and its materials go back. A cache waits SC_KEEP to be opened. */
+   server has not filed within SC_OLD is refused, and its materials go back. A cache waits SC_KEEP to be opened.
+   A sponsor (the player whose recruiting link a nation came through, functions/accounts.js recruit) may send
+   SC_SPONSOR more a day while that recruit is new: until SC_SPONSOR_MS after the recruit was filed. */
 const DAY = 86400000;
 export const SC_RES = ['food', 'timber', 'iron', 'oil', 'goods'];
 export const SC_DAY = 3, SC_MAX = 300, SC_MSG = 200;
 export const SC_AGE = DAY, SC_OLD = 7 * DAY, SC_KEEP = 30 * DAY;
+export const SC_SPONSOR = 1, SC_SPONSOR_MS = 14 * DAY;
 /* a cache's id in the sender's record (scx), and its document's id (supply/{uid}_{id}) */
 export const SC_ID = /^[a-z0-9]{6,16}$/;
 export const SC_DOC = /^[\w-]{1,128}_[a-z0-9]{6,16}$/;
