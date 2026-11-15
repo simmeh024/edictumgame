@@ -135,7 +135,8 @@ check('a guest reads the world chat too', await until(async () => (await shown(P
 check('on a phone the line’s heading fits the drawer', await P.$$eval('#rgc-list .rgc-lh', l => l.every(h => h.scrollWidth <= h.clientWidth + 1)));
 /* the screenshots: the guest's recovery-code dialog put away first, and the World tab in view */
 for (let i = 0; i < 20 && !(await P.$('dialog[open] [data-ed="recovery-saved"]')); i++) await sleep(250);
-if (await P.$('dialog[open] [data-ed="recovery-saved"]')) { await P.click('dialog[open] [data-ed="recovery-saved"]'); await sleep(400); }
+/* the page's own handler may put it away first, so a click that finds no dialog is fine */
+if (await P.$('dialog[open] [data-ed="recovery-saved"]')) { await P.click('dialog[open] [data-ed="recovery-saved"]', { timeout: 3000 }).catch(() => {}); await sleep(400); }
 await P.screenshot({ path: OUT + '/world-chat-phone.png' });
 await openChat(B); await B.click('#rgc-tab-world'); await sleep(400);
 await B.screenshot({ path: OUT + '/world-chat.png' });
