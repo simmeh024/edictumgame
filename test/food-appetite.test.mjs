@@ -30,7 +30,7 @@ function world({pop=10,land=400,yieldOf=2.4,lakes=0,cm=1,budget,policies={},up={
     BFX_HAND:null,RES_POL:{farmSubsidies:{food:1.15}},atWar:()=>false,c3Frozen:()=>false,alSame:()=>false,tyOf:()=>false};
   vm.createContext(ctx);
   vm.runInContext([line('const clamp = '),line('const budgetOf='),line('const CORE_HEXES='),line('const DEMAND='),line('const FOOD_EAT='),
-    line('const foodEaten='),line('const foodGrowth='),line('let econMemo='),line('function econSize('),cut('function economy(){','  return v;\n}')]
+    line('const foodEaten='),line('const foodGrowth='),line('const TIMBER_BURN='),line('const timberBurnt='),line('let econMemo='),line('function econSize('),cut('function economy(){','  return v;\n}')]
     .join('\n').replace(/^(const|let) /gm,'var '),ctx);
   return {ctx,E:ctx.economy(),nation};
 }
@@ -44,7 +44,7 @@ test('the people on every hex of land beyond the natural size eat 1.4 food a day
   assert.equal(E.held[0],400);
   assert.ok(near(E.eat[0],1.4*(400-z)));
   assert.ok(near(E.dem.food[0],z*ctx.DEMAND.food+1.4*(400-z)),'on top of what the natural size eats');
-  for(const r of ['timber','iron','oil','goods'])assert.ok(near(E.dem[r][0],z*ctx.DEMAND[r]),`${r} is untouched`);
+  for(const r of ['iron','oil','goods'])assert.ok(near(E.dem[r][0],z*ctx.DEMAND[r]),`${r} is untouched`);
   /* 960 grown, 48 + 531 eaten: about 380 spare, where it used to be over 900 */
   assert.ok(near(E.sup.food[0]-E.dem.food[0],960-48.3-530.6,1e-3));
 });
