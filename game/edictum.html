@@ -53450,8 +53450,9 @@ function nwStat(d){
 /* ── reads ──
    A post counts as read once it has filled half the screen (or most of a short post is on it) for three
    seconds, once per player and post: the shim's newsRead writes the reader's mark with one more on
-   devnewsStat/<post>.n, which the admin portal's list shows. Admins' own reads are not counted. The browser
-   remembers what it has counted, so each post is sent once. */
+   devnewsStat/<post>.n, which the admin portal's list shows. Admins' own reads are not counted on the post, but
+   they are still the admin's own: the reader's tally below (the Bonus task, the achievements) counts them, as it
+   counts everyone's. The browser remembers what it has counted, so each post is sent once. */
 const NW_READ_MS=3000,LS_NW_READ='edictum.newsRead';
 const NW_READS_TIP='Reads counts each player once per post, after the post has been on their screen for a few seconds; admins’ reads are not counted.';
 const NWR={at:{},busy:{},wait:{},done:null};
@@ -53463,7 +53464,7 @@ function nwReadDone(){
 }
 function nwReadKeep(id){const p=nwReadDone();p.add(id);try{localStorage.setItem(LS_NW_READ,JSON.stringify({u:S.uid,p:[...p].slice(-300)}));}catch(e){}}
 function nwReadScan(){
-  if(S.view!=='devnews'||document.hidden||!S.db||!S.uid||S.isOwner||OBS||typeof S.db.newsRead!=='function'){NWR.at={};return;}
+  if(S.view!=='devnews'||document.hidden||!S.uid||OBS||!S.isOwner&&(!S.db||typeof S.db.newsRead!=='function')){NWR.at={};return;}
   const now=Date.now(),vh=window.innerHeight||0,done=nwReadDone(),on={};
   for(const el of document.querySelectorAll('article.nw-post')){
     const m=/^nw-([A-Za-z0-9]{20})$/.exec(el.id),id=m&&m[1];
@@ -53476,10 +53477,14 @@ function nwReadScan(){
   NWR.at=on;
 }
 function nwRead(id){
+  /* an admin: nothing on the post, only the reader's own tally */
+  if(S.isOwner){nwReadKeep(id);nwCountRead(id);return;}
   NWR.busy[id]=true;
   S.db.newsRead(id).then(()=>{nwReadKeep(id);const st=NW.stat[id];if(st)st.n++;nwCountRead(id);},
-    /* refused: counted already (on another device) or no longer published; otherwise tried again in a minute */
-    e=>{if(e&&e.code==='not_granted')nwReadKeep(id);else NWR.wait[id]=Date.now()+6e4;})
+    /* refused: counted already (on another device, or for this account's earlier nation) or no longer published.
+       A nation that has read nothing yet still counts what this browser has read, at once rather than at the
+       next load (nwReadBackfill); otherwise tried again in a minute */
+    e=>{if(e&&e.code==='not_granted'){nwReadKeep(id);nwReadBackfill();}else NWR.wait[id]=Date.now()+6e4;})
     .then(()=>{delete NWR.busy[id];});
 }
 setInterval(nwReadScan,1000);
@@ -53487,7 +53492,7 @@ setInterval(nwReadScan,1000);
 const nwTallyOk=()=>{const n=S.nation;return !!(n&&!n.npc&&n.name&&!OBS&&S.mode!=='readonly');};
 function nwCountRead(id){if(!nwTallyOk())return;const n=S.nation,p=nwPostOf(id),m=clone(n);m.nwr=(Number(n.nwr)||0)+1;if(p&&p.t&&Date.now()-p.t<DAY)m.nwd=1;commit(m);}
 /* posts this browser counted before the tally existed */
-function nwReadBackfill(){if(!nwTallyOk()||S.isOwner||Number(S.nation.nwr)>0||!S.uid)return;const k=nwReadDone().size;if(k){const m=clone(S.nation);m.nwr=k;commit(m);}}
+function nwReadBackfill(){if(!nwTallyOk()||Number(S.nation.nwr)>0||!S.uid)return;const k=nwReadDone().size;if(k){const m=clone(S.nation);m.nwr=k;commit(m);}}
 /* a vote: one more for the achievements (n.nwvn; n.nwv is the first), and a poll with a closing date waits in n.nwp
    for the bell to tell its results */
 function nwCountVote(pid){
