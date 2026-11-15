@@ -1228,6 +1228,30 @@ test('a region chat is read by the nations of that region and by admins, and wri
   await assertFails(as('bob').doc('rchat/meridian/chat/l3').set({ a: 'bob', nm: 'Bobland', x: 'Bobland has been founded', t: 3, sys: 'found' }));
 });
 
+test('the world chat is read by every player with a nation, of any region, and by admins, and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('rchat/world/chat/w1').set({ a: 'bob', nm: 'Bobland', x: 'Hello, every region', t: 1, rg: 'meridian' });
+    await ctx.firestore().doc('rcimg/world/chat/w1').set({ a: 'admin', d: 'data:image/png;base64,iVBORw0KGgo=', k: 'png', t: 1 });
+  });
+  // a nation of the Meridian Reach and one of the Frostmarch read it alike
+  await assertSucceeds(as('bob').collection('rchat/world/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('carol').collection('rchat/world/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('carol').doc('rchat/world/chat/w1').get());
+  await assertSucceeds(as('carol').doc('rcimg/world/chat/w1').get());
+  // not a player with no nation, nor anyone signed out
+  await assertFails(as('nobody').collection('rchat/world/chat').limit(1).get());
+  await assertFails(as('nobody').doc('rcimg/world/chat/w1').get());
+  await assertFails(anon().collection('rchat/world/chat').limit(1).get());
+  await assertSucceeds(as('admin', { admin: true }).collection('rchat/world/chat').orderBy('t', 'desc').limit(60).get());
+  // nobody writes a line, a reaction or a picture; the server does
+  await assertFails(as('bob').doc('rchat/world/chat/w2').set({ a: 'bob', nm: 'Bobland', x: 'Forged', t: 2 }));
+  await assertFails(as('carol').doc('rchat/world/chat/w1').update({ x: 'Changed' }));
+  await assertFails(as('carol').doc('rchat/world/chat/w1').update({ rv: { carol: 'hear' } }));
+  await assertFails(as('bob').doc('rchat/world/chat/w1').delete());
+  await assertFails(as('admin', { admin: true }).doc('rchat/world/chat/w1').delete());
+  await assertFails(as('bob').doc('rcimg/world/chat/w3').set({ a: 'bob', d: 'x', k: 'png', t: 3 }));
+});
+
 test('the picture an admin’s chat line carries is read as the line is, and written only by the server', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     await ctx.firestore().doc('rcimg/meridian/chat/l1').set({ a: 'admin', d: 'data:image/png;base64,iVBORw0KGgo=', k: 'png', t: 1 });
