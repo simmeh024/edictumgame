@@ -49,8 +49,8 @@ test('five blocks, grey to gold, each a little stronger and dearer than the last
 
 test('a quote scales the building’s cost and time, and rises block by block',()=>{
   const q=[1,2,3,4,5].map(to=>G.cxUpQuote({},{},'farm',to));
-  deq(q[0],{cost:{timber:4,goods:4},hours:2});
-  deq(q[4],{cost:{timber:18,goods:15},hours:9.6});
+  deq(q[0],{cost:{timber:5,goods:4},hours:2},'0.48 of a farm’s 10 timber and 8 goods, rounded up');
+  deq(q[4],{cost:{timber:22,goods:18},hours:9.6},'2.16 of them at gold');
   for(let i=1;i<5;i++)assert(q[i].cost.timber>q[i-1].cost.timber&&q[i].hours>q[i-1].hours);
 });
 
@@ -70,9 +70,9 @@ test('the old levels 2 and 3 read as four and five blocks, so nobody loses outpu
 
 test('an upgrade keeps what was paid for it, never more than the block’s list price',()=>{
   const s=NOW-1000,d=NOW+3600e3;
-  deq(G.cxBldExtras({k:'farm',ug:4,uu:{u:5,s,d,p:{timber:12,goods:999,iron:3}}}).uu.p,{timber:12,goods:15},'gold lists at 18 timber, 15 goods');
+  deq(G.cxBldExtras({k:'farm',ug:4,uu:{u:5,s,d,p:{timber:12,goods:999,iron:3}}}).uu.p,{timber:12,goods:18},'gold lists at 22 timber, 18 goods');
   deq(G.cxBldExtras({k:'farm',lu:{l:3,s,d,p:{timber:30}},lv:2}).uu.p,{timber:25},'an old level 3 raise lists at 2.5 times');
-  deq(G.cxUpList('farm',1),{timber:4,goods:4});
+  deq(G.cxUpList('farm',1),{timber:5,goods:4});
 });
 
 test('only sound fields survive: one block at a time, five at most, a week at most',()=>{

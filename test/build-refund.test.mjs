@@ -81,7 +81,7 @@ test('an upgrade being fitted and walls going up keep their price, capped at the
   const t = Date.now();
   const uu = C.cxBldExtras({ k: 'farm', ug: 2, uu: { u: 3, s: t, d: t + 3600e3, p: { timber: 5, goods: 999 } } }).uu;
   assert.equal(uu.p.timber, 5);
-  assert.equal(uu.p.goods, 8, 'goods capped at the blue block’s list price (0.9 of 8, rounded up)');
+  assert.equal(uu.p.goods, 9, 'goods capped at the blue block’s list price (1.08 of 8, rounded up)');
   assert.equal(C.cxBldExtras({ k: 'farm', uu: { u: 1, s: t, d: t + 3600e3 } }).uu.p, undefined, 'none kept, none made up');
   // a raise to the old level 2 still under way keeps its price, capped at that level's list (1.5 times the farm's)
   const old = C.cxBldExtras({ k: 'farm', lu: { l: 2, s: t, d: t + 3600e3, p: { timber: 11, goods: 999 } } }).uu;
