@@ -328,6 +328,27 @@ test('choose any two: two done finish the part on the card, and the others stay 
   assert.ok(!F.core.find(x=>x.k==='trade').ok&&!F.core.find(x=>x.k==='city2').ok,'and are not marked done');
 });
 
+test('with every task done the card stays, as What’s next: the edicts on the desk or the next one, today’s desk, and Coming up',()=>{
+  const store={},desk={d:'2026-11-15',q:[['iss',3],['claim',1],['bld',1]],p:[1,0,0],c:[3,0,0]};
+  const {X,ctx}=card(store,{deskN:l=>(l||[]).length,syncInbox:n=>n,awayOn:()=>false,awayWhen:t=>String(t),awayAdd:(n,t,d)=>t+d,FREQ_DEF:30,fmtWait:ms=>Math.round(ms/6e4)+' min',
+    ddOn:()=>true,ddDay:()=>'2026-11-15',ddLater:(a,b)=>!b||a>b,ddFresh:()=>desk,ddWeek:()=>true,ddNextAt:now=>now+36e5});
+  ctx.tutPicks=()=>[];ctx.tutOthers=()=>'';ctx.tutPhase=()=>'next';
+  let n=settled({inbox:[{id:'a'},{id:'b'}],issueClock:Date.now(),freq:30,dd:desk});ctx.S.nation=n;
+  let h=X.tutCard(n);
+  assert.match(h,/tut-c-done/);assert.match(h,/What’s next/);assert.match(h,/Next for Testoria/);assert.match(h,/Every task done/);
+  assert.match(h,/2 edicts wait on your desk/);assert.match(h,/data-v="issues" data-to="">Open edicts/);
+  assert.match(h,/1 of 3 done · clear all three for 2 land credits/);assert.match(h,/data-to="dd-h">Open the desk/);
+  assert.match(h,/Coming up/,'and what comes next');assert.match(h,/Hide this card/);
+  n=settled({inbox:[],issueClock:Date.now(),freq:30,dd:{...desk,p:[1,1,1],w:1}});ctx.S.nation=n;h=X.tutCard(n);
+  assert.match(h,/The next edict/);assert.match(h,/data-live="next"/,'its countdown ticks with the edicts page’s');
+  assert.match(h,/Today’s desk is clear/);assert.match(h,/data-live="ddnext"/);
+  ctx.ddOn=()=>{throw new Error('no desk');};h=X.tutCard(n);assert.match(h,/The next edict/,'a part that cannot be worked out is left out, the card stays');assert.doesNotMatch(h,/Today’s desk/);
+  X.tutHide(true);assert.equal(X.tutCard(n),'','hidden (its Hide button, or Settings › Display): no card');
+  X.tutHide(false);assert.notEqual(X.tutCard(n),'');
+  assert.match(source,/id="set-tasks"><h3 class="sg-ch">Nation page<\/h3>\s*<label class="tog"><input type="checkbox" data-act="sg-tut"\$\{tutHid\(n\)\?'':' checked'\}>/,'Settings › Display has the switch');
+  assert.match(source,/t\.dataset\.act!=='sg-tut'\|\|!S\.nation\)return;tutHide\(!t\.checked\)/,'and it is the card’s own key');
+});
+
 test('previously completed actions are recognised: a nation that did things before the task appeared sees them done',()=>{
   const {X,ctx}=card();ctx.DEVK='c';
   const n=settled({dec:9,claims:[{c:1}],cities:[{id:'c1',b:[{k:'farm',s:1,d:2}]}],deals:[{id:'d'}],dsp:{s:1},dm:[{t:'x'}],capital:'Estport',ruler:'Ada'});ctx.S.nation=n;
