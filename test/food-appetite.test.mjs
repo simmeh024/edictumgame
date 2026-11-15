@@ -96,7 +96,7 @@ test('building upkeep is still eaten on top',()=>{
 test('the breakdown, the slow-food hint and Help all tell the player',()=>{
   assert.match(source,/used\.push\(\[`People out on your land \(\$\{fmt0\(k\)\} hex\$\{k===1\?'':'es'\} beyond your core of \$\{fmt0\(econSize\(x\)\)\}, \$\{fmtAmt\(FOOD_EAT\)\} each\)`,-E\.eat\[i\]\]\)/);
   assert.match(source,/the people out on your land eat \$\{fmtAmt\(FOOD_EAT\)\} a hex a day, more than hills and mountains grow/);
-  assert.match(source,/Food also feeds the people out on your land: beyond a core that grows with your population \(\$\{fmt0\(Math\.max\(CORE_HEXES,budgetOf\(n\.pop\|\|0\)\)\)\} hexes for you now\), every hex of land you hold eats \$\{fmtAmt\(FOOD_EAT\)\} a day\./);
+  assert.match(source,/Food also feeds the people out on your land: beyond a core that grows with your population\$\{n\?` \(\$\{fmt0\(Math\.max\(CORE_HEXES,budgetOf\(n\.pop\|\|0\)\)\)\} hexes for you now\)`:''\}, every hex of land you hold eats \$\{fmtAmt\(FOOD_EAT\)\} a day\./);
   const brk=source.indexOf("used.push(['Your people'"),eat=source.indexOf('used.push([`People out on your land'),upk=source.indexOf("used.push(['Building upkeep'");
   assert.ok(brk>0&&eat>brk&&upk>eat,'your people, then the land, then upkeep');
 });
