@@ -301,6 +301,7 @@ const once = await reads(pid2);
 await B.evaluate(() => { localStorage.removeItem('edictum.newsRead'); G.NEWS.NWR.done = null; });
 check('reading it again from a fresh browser is refused, and the count stays', await until(async () => B.evaluate(id => !!G.NEWS.NWR.done?.p?.has(id), pid2), 15000) && await reads(pid2) === once, [once, await reads(pid2)]);
 check('an admin’s own reading is not counted', !(await readers(pid)).includes(uidA) && !(await readers(pid2)).includes(uidA));
+check('but it counts for the admin’s own tally (the Bonus task, the achievements)', await until(async () => A.evaluate(() => (G.S.nation.nwr || 0) >= 1), 15000), await A.evaluate(() => G.S.nation.nwr));
 check('the reader’s tally counts the posts read, and one read on the day it came out', await B.evaluate(() => G.S.nation.nwr >= 2 && G.S.nation.nwd === 1), await B.evaluate(() => [G.S.nation.nwr, G.S.nation.nwd]));
 
 // a poll of several answers that closes tomorrow: a ballot, then the results, and the bell tells its voter when it closes
