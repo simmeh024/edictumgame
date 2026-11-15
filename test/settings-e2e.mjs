@@ -122,8 +122,16 @@ await nav(A, 'customise'); await A.click('[data-act="cz-show-disp"]'); await sle
 check('Customise’s link to the theme opens Display', await A.evaluate(() => G.S.view) === 'settings' && await tab(A) === 'display');
 await A.click('#sg-tab-nation'); await A.click('[data-act="go"][data-cu-jump]'); await sleep(500);
 check('the currency link opens the Money tab of Customise', await A.evaluate(() => G.S.view) === 'customise' && await shown(A, '#cz-sec-c'));
+await search('whats next', 'focus:set-tasks');
+check('searching “whats next” opens Display at the What’s next switch', await tab(A) === 'display' && await shown(A, '#set-tasks'));
+const tutCard = () => A.evaluate(() => { document.querySelector('.nav [data-v="nation"]').click(); return new Promise(r => setTimeout(() => r(!!document.querySelector('.tut-c')), 500)); });
+check('What’s next is on, and on the Nation page', await A.$eval('#set-tasks input[data-act="sg-tut"]', i => i.checked) && await tutCard());
+await nav(A, 'settings'); await A.click('#sg-tab-display'); await A.click('#set-tasks input[data-act="sg-tut"]'); await sleep(300);
+check('switching it off in Display takes it off the Nation page', !(await A.$eval('#set-tasks input[data-act="sg-tut"]', i => i.checked)) && !(await tutCard()));
+await nav(A, 'settings'); await A.click('#sg-tab-display'); await A.click('#set-tasks input[data-act="sg-tut"]'); await sleep(300);
+check('and back on brings it back', await A.$eval('#set-tasks input[data-act="sg-tut"]', i => i.checked) && await tutCard());
 await nav(A, 'settings'); await A.click('#sg-tab-account');
-check('Account has sign-in, recruiting, the tutorial and dissolving', await shown(A, '[data-act="acct-open"]') && await shown(A, '#set-social') && await shown(A, '#set-tut') && await shown(A, '[data-act="dissolve-ask"]'));
+check('Account has sign-in, recruiting and dissolving', await shown(A, '[data-act="acct-open"]') && await shown(A, '#set-social') && await shown(A, '[data-act="dissolve-ask"]') && !(await A.$('#set-tut')));
 check('the danger zone is a red box headed Danger zone', /^Danger zone$/.test(await text(A, '#set-danger .dz-h')) && await A.$eval('#set-danger', s => { const b = getComputedStyle(s.querySelector('.dz-box')), h = getComputedStyle(s.querySelector('.dz-h')); return b.borderTopStyle === 'solid' && parseFloat(b.borderTopWidth) >= 1 && b.borderTopColor === h.color; }));
 check('the danger zone has Start over, Dissolve and Delete nation and account', JSON.stringify(await A.$$eval('#set-danger .dz-t', e => e.map(x => x.textContent))) === JSON.stringify(['Start over', 'Dissolve nation', 'Delete nation and account']));
 await A.click('[data-act="dissolve-ask"]');
