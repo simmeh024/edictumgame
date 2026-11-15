@@ -17,8 +17,11 @@ const functions = new Map();
   if (node.type === 'FunctionDeclaration') functions.set(node.id.name, code.slice(node.start, node.end));
   for (const [k, v] of Object.entries(node)) if (k !== 'start' && k !== 'end') { if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === 'object') walk(v); }
 })(parse(code, {ecmaVersion: 'latest'}));
-const ctx = vm.createContext({clamp: (v, a, b) => Math.min(b, Math.max(a, v))});
-vm.runInContext(functions.get('applyEffects') + '\n' + functions.get('income') + '\nthis.apply=applyEffects;this.income=income;', ctx);
+const ctx = vm.createContext({clamp: (v, a, b) => Math.min(b, Math.max(a, v)), DAY: 864e5});
+/* growth without a ceiling: applyEffects carries Prosperity past 100 (wb) and puts what a figure cannot take into Productivity */
+const gcConsts = code.slice(code.indexOf('const PD_DAY='), code.indexOf(';', code.indexOf('const PD_DAY=')) + 1);
+const statsDef = code.slice(code.indexOf('const STATS = {'), code.indexOf('};', code.indexOf('const STATS = {')) + 2);
+vm.runInContext([gcConsts, statsDef, ...['gcRate', 'pdRateOf', 'dnRateOf', 'gcStep', 'gcFrom', 'gcDays', 'gcAdvance', 'wbOf', 'pdAdd', 'pdBoost', 'applyEffects', 'income'].map(f => functions.get(f))].join('\n') + '\nthis.apply=applyEffects;this.income=income;', ctx);
 
 const after = (k, cur, v) => { const n = {s: {[k]: cur}, policies: {}, budget: {}}; ctx.apply(n, {[k]: v}); return n.s[k]; };
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-9, `${msg}: ${a} vs ${b}`);

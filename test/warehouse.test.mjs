@@ -16,7 +16,7 @@ function fixture(){
  class FixedDate extends Date{static now(){return NOW;}}
  const c=vm.createContext({Date:FixedDate,DAY,RES,MAX_CITIES:14,STOCK_CAP:400,START_STOCK:n.stock,BUILDINGS:{},POLICIES:{},NORM_HOOKS:[],COMMIT_HOOKS:[],HELP_EXT:[],document:{addEventListener(){}},
   num0:v=>typeof v==='number'&&Number.isFinite(v)?v:0,clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),cityList:n=>n.cities||[],territory:()=>world,b1Mine:x=>x.seed===n.seed,myId:()=> 'me',b1Now:()=>NOW,
-  bCost:()=>({timber:30,iron:20,goods:15}),cabFx:()=>({build:1}),cityLabel:(n,c)=>c.nm||'Capital',conflictsOf:()=>[],setMonarchy(){},stockRates:()=>Object.fromEntries(RES.map(r=>[r,400]))});
+  bCost:()=>({timber:30,iron:20,goods:15}),cabFx:()=>({build:1}),cityLabel:(n,c)=>c.nm||'Capital',conflictsOf:()=>[],setMonarchy(){},gcAdvance(){},wbOf:()=>0,pdAdd(){},pdBoost(){},STATS:{},PD_OVER:0,stockRates:()=>Object.fromEntries(RES.map(r=>[r,400]))});
  const start=source.indexOf('const WH_BONUS='),end=source.indexOf('/* ── navigation memory,',start);assert(start>0&&end>start);
  vm.runInContext(source.slice(start,end)+'\nthis.bonuses=WH_BONUS;',c);
  vm.runInContext(functions.get('stockNow')+'\n'+functions.get('applyEffects')+'\nthis.edicts=['+edictNodes.map(n=>code.slice(n.start,n.end)).join(',')+'];',c);
