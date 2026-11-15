@@ -14,8 +14,8 @@ const agg=()=>A.evaluate(()=>{const a=G.NB.agg(G.S.nation);return a&&{up:a.up,ad
 await nav(A,'cities');await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
 check('all seven appear in the city’s building plans',(await Promise.all(KEYS.map(k=>A.locator(`[data-act="ct-build"][data-id="${cid}"][data-k="${k}"]`).count()))).every(c=>c===1));
 const bathsRow=A.locator('li.opt',{has:A.locator(`[data-act="ct-build"][data-k="baths"]`)});
-check('the Public Baths wait for 6 million people',/Unlocks at 6 million people/.test(await bathsRow.innerText())&&await A.locator(`[data-act="ct-build"][data-k="baths"]`).isDisabled());
-check('the Hanging Gardens are listed with the wonders',/Hanging Gardens/.test(await A.locator('.cat-wrap').innerText()));
+check('the Public Baths wait for 6 million people',/Unlocks at 6 million people/.test(await bathsRow.textContent())&&await A.locator(`[data-act="ct-build"][data-k="baths"]`).isDisabled());
+check('the Hanging Gardens are listed, as a wonder',/Hanging Gardens/.test(await A.locator('#bk-gardens').textContent())&&/^Wonder$/.test(await A.locator('#bk-gardens .bld-tag').textContent()));
 check('none of the twenty edicts can arrive before the buildings work',await A.evaluate(()=>G.NB.issues.length===20&&G.NB.issues.every(is=>!is.req(G.S.nation))));
 check('the new edicts come after every older one, so no number shifts',await A.evaluate(()=>G.NB.ISSUE_BY_ID[G.NB.FD_ID].no===1892&&G.NB.issues.every((is,i)=>is.no===1893+i&&G.NB.ISSUE_BY_ID[is.id]===is)&&G.NB.ISSUES[1911]===G.NB.issues[19]));
 const lunar0=await A.evaluate(()=>G.NB.hours(G.S.nation,'lunar'));
@@ -52,7 +52,7 @@ await answer('bld-recycle-bins');
 a2=await agg();
 check('Kerbside Sorting raises the oil saving to 60%',Math.abs(a2.nbOil-1.2)<1e-6&&(await localNation(A)).policies.recycleSort===true);
 await nav(A,'cities');if(await A.locator(`[data-act="ct-open"][data-id="${cid}"][aria-expanded="true"]`).count()===0)await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
-check('the plans name the boost on the building',/Boosted by Court Fees: uses no goods\./.test(await A.locator('li.opt',{has:A.locator(`[data-act="ct-build"][data-k="court"]`)}).innerText()));
+check('the plans name the boost on the building',/Boosted by Court Fees: uses no goods\./.test(await A.locator('li.opt',{has:A.locator(`[data-act="ct-build"][data-k="court"]`)}).textContent()));
 check('the boosts are saved with the nation’s laws',(await nationDoc(uid)).rec.policies.courtFees===true);
 
 /* a reload keeps everything, and the map draws the new buildings */
