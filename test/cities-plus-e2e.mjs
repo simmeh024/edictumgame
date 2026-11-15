@@ -101,7 +101,7 @@ check('and its mood effect is counted',ev?((await city()).mood-m0===(ev.o[0].m||
 await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
 check('the build tab shows the plans',await A.locator(`#city-${cid} .cat-wrap`).isVisible());
 await A.click('[data-act="cx-cat"][data-k="soc"]');
-check('a category filter shows only that category',await A.locator(`#city-${cid} .cat-h`).count()===1&&/Society/.test(await text(A,`#city-${cid} .cat-h`)));
+check('a category filter shows only that category',await A.locator(`#city-${cid} .opt .bld-tag`).count()>0&&(await A.locator(`#city-${cid} .opt .bld-tag`).allTextContents()).every(t=>t==='Society'));
 await A.click('[data-act="cx-cat"][data-k="all"]');
 await A.click(`[data-act="ct-build"][data-k="sawmill"]`);await A.click(`[data-act="ct-build"][data-k="market"]`);await A.click(`[data-act="ct-build"][data-k="theatre"]`);
 await A.click(`#city-${cid} [data-act="cx-tab"][data-k="b"]`);

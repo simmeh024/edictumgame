@@ -63,7 +63,7 @@ if(!second)throw Error('No legal second-city site');await nav(A,'cities');
 await A.click(`[data-act="ct-build"][data-id="${second}"][data-k="warehouse"]`);await completeBase(second);
 check('Warehouses in separate cities stack their capacity',await cap()===8200);
 await A.evaluate(()=>{const n=G.clone(G.S.nation);n.stock=Object.fromEntries(['food','timber','iron','oil','goods'].map(r=>[r,8100]));n.stockAt=Date.now();n._stockSet=true;G.commit(n);G.render();});
-await A.click(`[data-act="ct-demo-ask"][data-id="${second}"][data-k="warehouse"]`);await A.click(`[data-act="ct-demolish"][data-id="${second}"][data-k="warehouse"]`);
+await A.click(`[data-act="cx-menu"][data-id="${second}"][data-k="warehouse"]`);await A.click(`[data-act="ct-demo-ask"][data-id="${second}"][data-k="warehouse"]`);await A.click(`[data-act="ct-demolish"][data-id="${second}"][data-k="warehouse"]`);
 check('demolishing one Warehouse removes only its own storage',await cap()===7800);
 await saved();await A.reload();await A.waitForSelector('.layout');
 check('resources already stored survive capacity loss and reload',(await localNation(A)).stock.iron>=8099&&await cap()===7800);
