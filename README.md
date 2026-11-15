@@ -174,8 +174,8 @@ has 24 charges, 10 of them free; the symbols save as each box is left.
 
 **The Settings page.** Five tabs (`SG_TABS`): Your nation (type of state, leader, particulars, culture, map
 colour), Edicts (holiday mode, pace, topics), Notifications (pop-ups and the bell on this device, letters by
-post), Display (theme, accent, text size, density, motion) and Account (sign-in, recruiting, the tutorial,
-dissolving). On a wide screen the tabs are a list down the side; below 1180px they are a row across the top
+post), Display (theme, accent, text size, density, motion, and whether What's next shows on the Nation page) and Account
+(sign-in, recruiting, dissolving). On a wide screen the tabs are a list down the side; below 1180px they are a row across the top
 that sticks under the top bar. Every pane is drawn and CSS shows the open one (`.sg[data-tab]`), so a jump
 from search, the tutorial or another page only picks the tab (`sgTabOfId`, and the `uxOpen`, `uxJump` and
 `tutGo` wrappers); the open tab is in the address as `#settings/<tab>`. Your nation is a draft (`S.settings`)
@@ -252,8 +252,29 @@ what the nation has done, wherever it did it, and pays once (`n.tut.lc`). A grou
 `n.tut.ch` (`c f m d`, the letters of the four lists before Version 26, so nothing is paid twice after the
 regrouping). Version 26 also doubled every reward: a nation paid before is given the other half of each gift once
 (the mark is `n.tut.v` reaching 26, which an older open tab keeps), and its credits count double by themselves.
-The card can be hidden on a device (`statehood.tutcard.v1`); a device that had hidden every list it had left
-before Version 26 starts with it hidden. Tests: `test/tutorial.test.mjs` and `npm run test:onboarding`.
+The card can be hidden on a device (`statehood.tutcard.v1`, also the switch in Settings › Display); a device that
+had hidden every list it had left before Version 26 starts with it hidden.
+
+*Designs through the tutorial* (Version 27, `TUT_V3`), each read from the record so a nation that had got that far
+has them at once (it is told which, once):
+- a group's bonus brings designs besides its epithet (`bonus.x`): signing the charter the **Charter** frame for the
+  flag, Build your future the **Signpost** charge and flag emblem, the region the **Temple** passport stamp shape and
+  the **Porphyry** accent;
+- Make it your own, all six done (`unl`, as the Bonus tasks): the **Ermine** pattern;
+- each section of the ledger, once full (third in `secs`): Building the **Blueprint** letter paper, Exploration the
+  **Sea chart** passport page tint, Government **Violet wax**, Diplomacy **Envoy blue** stamp ink, Identity the epithet
+  *the Illustrious*;
+- every ten tasks paid (`TUT_MILES`): **Iron gall** ink, **Copper wax**, **Primrose** tint, **Ledger ruled** paper and
+  the **Inkwell** accent.
+
+The card itself: reward chips name their resources on the recommended step (a tooltip elsewhere); each group's bonus
+is a ribbon with its chips, the epithet as it reads after the nation's name and its designs drawn small; signing the
+charter presses a wax seal in the accent colour with the nation's charge (or initial); a bar shows the whole
+tutorial's progress; a group, a ledger section or a milestone finished shows a ribbon once on each device
+(`statehood.tutfin.v1`); a task paid since the card was last drawn is shown once more, stamped Done, while its land
+tokens fly to the bar; after a task's button the thing to press on the page it opened pulses (`TUT_COACH`); and
+with every task done the card keeps a laurel, the epithets and designs earned, what waits now and what comes next.
+Tests: `test/tutorial.test.mjs` and `npm run test:onboarding`.
 
 **Dormant nations.** A player nation unsaved for 250 days (not counting a holiday) falls dormant: every other
 player's game leaves it out, and its land is open to anyone with land credits. Its owner finds the Office of

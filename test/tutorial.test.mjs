@@ -37,8 +37,8 @@ function rewards(){
     reload(n){const copy=JSON.parse(JSON.stringify(n)),t=ctx.normalize(copy.tut);if(t)copy.tut=t;else delete copy.tut;return copy;}
   };
 }
-// a nation founded with the progressive reveals; b:1, b2:1 and v:26, every back pay already given: the back-pay tests below cover them on their own
-const nation=over=>{const n={name:'Togetherland',seed:'one',glk:1,onb:{v:1,u:[]},capital:'Port Alder',leader:'President',stock:{food:60,timber:45,iron:25,oil:10,goods:40},...over};n.tut={b:1,b2:1,v:26,...(n.tut||{})};return n;};
+// a nation founded with the progressive reveals; b:1, b2:1 and v:27, every back pay (and the Version 27 note) already given: the back-pay tests below cover them on their own
+const nation=over=>{const n={name:'Togetherland',seed:'one',glk:1,onb:{v:1,u:[]},capital:'Port Alder',leader:'President',stock:{food:60,timber:45,iron:25,oil:10,goods:40},...over};n.tut={b:1,b2:1,v:27,...(n.tut||{})};return n;};
 const G=(r,k)=>r.ctx.lists.find(L=>L.k===k);
 const task=(r,k)=>r.ctx.all.find(s=>s.k===k);
 
@@ -133,7 +133,7 @@ test('the main path’s bonus waits for the charter, which opens once the four s
   assert.ok(m.some(x=>/^Step done: Sign the founding charter\. \+10 land credits and 6 goods\./.test(x)),m.join(' | '));
   assert.ok(m.some(x=>/^Main path complete: Establish your nation\. \+6 land credits and 20 food and 20 timber, and the epithet “the Founder”, under Epithet in Customise\.$/.test(x)),m.join(' | '));
   assert.equal(n.tut.ch,'c');assert.equal(n.stock.food,400,'gifts respect storage');
-  assert.deepEqual([...r.ctx.unlocks[0].earned(n)],['t-founder']);
+  assert.deepEqual([...r.ctx.unlocks[0].earned(n)],['t-founder','f-charter'],'the epithet and, since Version 27, the Charter frame');
   const st={...n.stock};n=r.reload(n);assert.deepEqual(r.save(n),[]);assert.equal(n.tut.ch,'c');assert.deepEqual(n.stock,st,'never twice, on reload');
   assert.ok(!['city','ruler','portrait','culture','flag','cust'].some(k=>n.tut.lc.includes(k)),'and no cosmetic task was needed');
 });
@@ -169,19 +169,19 @@ test('a veteran is paid the other half of every gift once, its credits count dou
   /* half of: settle 6 goods, land/build/issue 10 iron 10 oil each, build 80 timber, city 10 goods, four 6-goods tasks, charter 6, portrait 50/50/100, bonus 20 food 20 timber */
   assert.equal(n.stock.goods,40+3+5+12+3+25);assert.equal(n.stock.iron,25+15);assert.equal(n.stock.oil,10+15);assert.equal(n.stock.timber,45+40+50+10);assert.equal(n.stock.food,60+25+10);
   assert.ok(!m.some(x=>/complete/.test(x)),'the main path was the charter’s letter: its bonus is not paid again');
-  assert.equal(n.tut.v,26);
+  assert.equal(n.tut.v,27);
   for(let i=0;i<3;i++){n=r.reload(n);const st={...n.stock};assert.ok(!r.save(n).some(x=>/doubled/.test(x)),'never twice');assert.deepEqual(n.stock,st);}
   /* a tab still running the old version drops fields it does not know, but keeps v as it is */
-  assert.equal(r.reload(n).tut.v,26);
-  let fresh=nation({loc:3});delete fresh.tut.v;r.save(fresh);assert.equal(fresh.tut.v,26,'a new nation is marked at once');assert.equal(fresh.stock.goods,40+6,'and paid only its own step');
+  assert.equal(r.reload(n).tut.v,27);
+  let fresh=nation({loc:3});delete fresh.tut.v;r.save(fresh);assert.equal(fresh.tut.v,27,'a new nation is marked at once');assert.equal(fresh.stock.goods,40+6,'and paid only its own step');
 });
 
 test('a veteran with every list of Version 25 finished has every bonus counted, and none paid again',()=>{
   const r=rewards();
   const lc=Object.keys(V25).concat('charter').filter(k=>k!=='soc');
-  let n=r.reload({name:'Allland',seed:'all',glk:1,loc:3,stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{v:26,b:1,b2:1,lc,ch:'cfmd'}});
+  let n=r.reload({name:'Allland',seed:'all',glk:1,loc:3,stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{v:27,b:1,b2:1,lc,ch:'cfmd'}});
   const m=r.save(n);assert.deepEqual(m,[],'nothing to pay: every bonus is paid already');assert.equal(n.tut.ch,'cfmd');
-  assert.deepEqual([...r.ctx.unlocks[0].earned(n)].sort(),['t-founder','t-renowned','t-sovereign','t-steward']);
+  assert.deepEqual([...r.ctx.unlocks[0].earned(n)].sort(),['a-porphyry','c-signpost','e-signpost','f-charter','ps-temple','t-founder','t-renowned','t-sovereign','t-steward']);
 });
 
 test('the earlier back pays still happen once, at their own amounts, before the doubling',()=>{
@@ -197,7 +197,7 @@ test('the earlier back pays still happen once, at their own amounts, before the 
 test('a nation that finished the earlier First steps is marked once',()=>{
   const r=rewards();
   let old=nation({onb:undefined,loc:3,tut:{lc:['issue','settle','land','build','trade','exp','dm','asm']}});delete old.tut.v;old=r.reload(old);r.save(old);
-  assert.equal(old.tut.v,26);assert.equal(old.tut.p,1);old=r.reload(old);assert.equal(old.tut.p,1);
+  assert.equal(old.tut.v,27);assert.equal(old.tut.p,1);old=r.reload(old);assert.equal(old.tut.p,1);
   let fresh=nation({loc:3});delete fresh.tut.v;r.save(fresh);fresh=r.reload(fresh);assert.equal(fresh.tut.p,undefined);
 });
 
@@ -283,8 +283,8 @@ function card(store={},over={}){
     BUILDINGS:{farm:{n:'Farm',d:'Makes food. More text.'},saw:{n:'Sawmill',d:'Makes timber.'}},FFB_GIFT:12,FFB_OUT:{farm:'food'},resName:r=>r,firstSentence:t=>String(t).split('. ')[0]+'.',
     cityLabel:(n,c)=>c.nm||n.capital,wsOf:n=>n.ws||null,WS_AT:[5,10,25],wsK:()=>-1,mileOf:()=>({cities:1}),MILE_CITIES:5,MILESTONES:[{p:7,city:1}],popNow:()=>4,fmtPop:p=>p+' million',
     nextCreditPop:()=>5,esc:s=>String(s),resIco:r=>`<i data-r="${r}"></i>`,landCredits:()=>3,GL_TAG:'<span class="tut-lc">+10 land</span>',...over});
-  vm.runInContext(fn('list')+'\nconst TUT_V=25,TUT_GS="mrba";\n'+fn('tutNorm')+'\n'+LISTS+'\n'+REWARDS+'\n'+CARD+
-    '\n'+fn('cityBonusOpen')+'\n'+fn('cxBldExtras')+'\n'+fn('cityGoldKept')+'\n'+fn('cityGoldOpen')+'\n'+fn('bldUgEver')+'\nthis.X={tutCard,tutPhase,tutPicks,tutHid,tutHide,tutGroup,tutL,fdl:()=>0};',ctx);
+  vm.runInContext(fn('list')+'\nconst TUT_V=25,TUT_GS="mrba";\n'+fn('tutNorm')+'\n'+fn('tutCall')+'\n'+LISTS+'\n'+REWARDS+'\n'+CARD+
+    '\n'+fn('cityBonusOpen')+'\n'+fn('cxBldExtras')+'\n'+fn('cityGoldKept')+'\n'+fn('cityGoldOpen')+'\n'+fn('bldUgEver')+'\nthis.X={tutCard,tutPhase,tutPicks,tutHid,tutHide,tutGroup,tutL,tutFinSeen,tutComing,tutOthers,tutProg,tutBonusLine,fdl:()=>0};',ctx);
   return {ctx,X:ctx.X,store};
 }
 const settled=o=>({name:'Testoria',seed:'s1',capital:'Port Alder',leader:'President',loc:3,founded:Date.now()-36e5,onb:{v:1,u:[]},stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{b:1,b2:1,v:26},...o});
@@ -431,4 +431,55 @@ test('a page visit or a pending tally shows a bonus task done but never makes a 
   assert.match(source,/let p;TUT\.noPend=true;try\{p=tutPend\(n\);\}finally\{TUT\.noPend=false;\}/,'the background check that saves for the tutorial ignores what still waits');
   assert.match(source,/const tutViewed=\(n,v\)=>\{try\{if\(tallyOf\(n,'view:'\+v\)>0\)return true;\}catch\(e\)\{\}try\{return !TUT\.noPend&&FS_PEND\.has\(v\);/);
   assert.match(source,/const tutTly=\(n,k\)=>\{try\{if\(tallyOf\(n,k\)>0\)return true;\}catch\(e\)\{\}try\{return !TUT\.noPend&&\(ACH_PEND\.get\(k\)\|\|0\)>0;/);
+});
+
+/* ── Version 27: designs all through the tutorial, and the card's new pieces ── */
+const keysOf=(r,k,f)=>r.ctx.lists.find(L=>L.k===k).tasks.filter(s=>!s.own&&(!f||f(s))).map(s=>s.k);
+test('designs: a group’s bonus brings its own, Make it your own and the Bonus tasks theirs once every task is paid, each ledger section one, and every ten tasks one',()=>{
+  const r=rewards(),[grp,unl,sec,mile]=r.ctx.unlocks,base=nation({loc:3});
+  assert.deepEqual([...unl.earned(base)],[]);assert.deepEqual([...sec.earned(base)],[]);assert.deepEqual([...mile.earned(base)],[]);
+  const own=keysOf(r,'own');let n=nation({loc:3,tut:{lc:own.slice(0,-1)}});assert.deepEqual([...unl.earned(n)],[],'five of six: nothing yet');
+  n=nation({loc:3,tut:{lc:own}});assert.deepEqual([...unl.earned(n)],['p-ermine'],'all six: the Ermine pattern');
+  n=nation({loc:3,tut:{lc:keysOf(r,'bonus')}});assert.deepEqual([...unl.earned(n)],['c-lantern','e-lantern','t-thorough','a-lamplight'],'the Bonus tasks keep their four');
+  const b=keysOf(r,'ambitions',s=>s.sec==='b');n=nation({loc:3,tut:{lc:b}});assert.deepEqual([...sec.earned(n)],['lp-blueprint'],'Building filled: the Blueprint letter paper');
+  n=nation({loc:3,tut:{lc:b.slice(1)}});assert.deepEqual([...sec.earned(n)],[]);
+  const all=r.ctx.lists.flatMap(L=>L.tasks).filter(s=>!s.own).map(s=>s.k);assert.ok(all.length>=50,'enough tasks for every milestone: '+all.length);
+  assert.deepEqual([...mile.earned(nation({loc:3,tut:{lc:all.slice(0,9)}}))],[]);
+  assert.deepEqual([...mile.earned(nation({loc:3,tut:{lc:all.slice(0,10)}}))],['pi-irongall']);
+  assert.deepEqual([...mile.earned(nation({loc:3,tut:{lc:all.slice(0,50)}}))],['pi-irongall','ls-copper','pt-primrose','lp-ledger','a-inkwell']);
+  assert.deepEqual([...grp.earned(nation({loc:3,tut:{ch:'f'}}))],['t-steward','c-signpost','e-signpost']);
+  assert.deepEqual([...grp.earned(nation({loc:3,tut:{ch:'m'}}))],['t-renowned','ps-temple','a-porphyry']);
+  for(const s of [grp,unl,sec,mile])for(const id of ['f-charter','p-ermine','lp-blueprint','pi-irongall']){const h=s.how(id);if(h)assert.match(h,/tutorial on your Nation page/);}
+  for(const id of ['f-charter','c-signpost','e-signpost','ps-temple','a-porphyry','p-ermine','lp-blueprint','pt-chart','ls-violet','pi-envoy','t-illustrious','pi-irongall','ls-copper','pt-primrose','lp-ledger','a-inkwell'])
+    assert.equal(r.ctx.UNLOCKS[id]&&r.ctx.UNLOCKS[id].src,'tut',id);
+});
+
+test('a nation that had got that far before Version 27 is told once which designs are already its own',()=>{
+  const r=rewards(),b=keysOf(r,'ambitions',s=>s.sec==='b');
+  let n=r.reload({name:'Oldland',seed:'old',glk:1,loc:3,stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{v:26,b:1,b2:1,lc:['settle','land','build','issue','charter',...b],ch:'c'}});
+  const m=r.save(n),note=m.find(x=>x.startsWith('The tutorial now gives designs'));
+  assert.ok(note,m.join(' | '));assert.match(note,/the Charter frame for the flag/);assert.match(note,/the Blueprint letter paper/);
+  assert.equal(n.tut.v,27);n=r.reload(n);assert.ok(!r.save(n).some(x=>/now gives designs/.test(x)),'once');
+  const fresh=nation({loc:3});delete fresh.tut.v;assert.ok(!r.save(fresh).some(x=>/now gives designs/.test(x)),'a new nation is not told');
+});
+
+test('the card: bonus ribbons with their designs, rings on Other things to try, the whole tutorial’s progress, and Coming up without a second new city',()=>{
+  const {X,ctx}=card();ctx.DEVK='c';const n=settled({dec:3,claims:[{c:1}],cities:[{id:'c1',b:[{k:'farm',s:1,d:2}]}]});ctx.S.nation=n;
+  const fut=X.tutBonusLine(n,X.tutL('future'));assert.match(fut,/class="tut-bn"/);assert.match(fut,/Any two done/);assert.match(fut,/Signpost/);
+  assert.match(fut,/class="tut-ep"[^>]*><span class="tut-ep-n">Testoria<\/span> <i>the Steward<\/i>/,'the epithet as it reads after the nation’s name');
+  assert.match(X.tutBonusLine(n,X.tutL('own')),/Ermine/);
+  const oth=X.tutOthers(n,'next');assert.match(oth,/class="tut-ring"/);assert.match(oth,/aria-label="Your region · 0 of 5"/);assert.match(oth,/<span class="tut-ob-n">0\/5<\/span>/);
+  assert.match(X.tutProg(n),/\d+ of \d+ tasks · \d+ of \d+ land credits from the tutorial/);
+  ctx.MAXC=2;assert.match(X.tutComing(n),/ready to found now/);assert.doesNotMatch(X.tutComing(n,{noCity:true}),/ready to found now/,'not beside the step that founds it');
+  assert.match(X.tutComing(n),/A design: Iron gall/,'the next design for tasks done');
+});
+
+test('the card: a group finished shows a ribbon once on each device, and a task paid since the last drawing is stamped done',()=>{
+  const store={},{X,ctx}=card(store);ctx.DEVK='c';
+  let n=settled({dec:3,claims:[{c:1}],cities:[{id:'c1',b:[{k:'farm',s:1,d:2}]}],tut:{b:1,b2:1,v:27,lc:['settle','land','build','issue','charter'],ch:'c'}});ctx.S.nation=n;
+  assert.doesNotMatch(X.tutCard(n),/tut-fin"/,'the first drawing on a device shows nothing as new');
+  n={...n,tut:{...n.tut,lc:[...n.tut.lc,'trade','exp'],ch:'cf'}};ctx.S.nation=n;
+  const h=X.tutCard(n);assert.match(h,/class="tut-fin"/);assert.match(h,/Build your future: complete/);assert.match(h,/Signpost/);assert.match(h,/data-act="tut-fin-x" data-k="future"/);
+  assert.match(h,/class="tut-dn-r tut-done-now" data-done="trade"/,'the task just paid, once more, stamped');assert.match(h,/tut-dn-st/);
+  X.tutFinSeen(n,'future');assert.doesNotMatch(X.tutCard(n),/class="tut-fin"/,'Continue: gone');
 });
