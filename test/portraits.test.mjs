@@ -13,7 +13,8 @@ test('the court painter’s edict: one edict, numbered after every older one, be
   const a=source.indexOf(START),b=source.indexOf(END,a+START.length);
   assert(a>0&&a>source.indexOf('for(const is of GMB_ISSUES)'),'after the crises and gambles, so no number moves');
   assert(b<=source.indexOf('/* ───────── the browser tab'),'before the browser tab');
-  assert.equal(source.indexOf('ISSUES.push(',b),-1,'no edict is added after it');
+  const later=source.indexOf('ISSUES.push(',b),prd=source.indexOf('for(const is of PRD_ISSUES)');
+  assert(later===-1||later===prd+'for(const is of PRD_ISSUES){'.length,'only the productivity edicts (their own test, growth-ceiling) are added after it');
   const ctx=vm.createContext({ISSUES:[],ISSUE_BY_ID:{},ISSUES_RANDOM:[]});
   vm.runInContext(source.slice(a,b)+'\nthis.J=JSON.stringify(PT_ISSUES);this.R=ISSUES_RANDOM.length;this.Q=String(PT_ISSUES[0].req);',ctx);
   const [is]=JSON.parse(ctx.J);
