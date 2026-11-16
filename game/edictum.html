@@ -7231,6 +7231,37 @@ span.nw-tag{cursor:default}
 .ctg-try .ctg-try-b{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}
 .pst-opt .cz-lock{width:9px;height:11px;margin-left:5px;vertical-align:-1px}
 .pst-lockn{margin:0;flex:1 1 260px;font-size:13px}.pst-lockn .cz-lock{width:9px;height:11px;vertical-align:-1px}
+/* the map page's "Your map look" card (under Your territory), and the Shop's drawer over the map page */
+.mlk{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)}
+.mlk-h{font-size:15px;font-weight:650;margin:0 0 2px}
+.mlk-hint{margin:0 0 4px;font-size:13px}
+.mlk-r{display:flex;align-items:center;gap:10px;margin:12px 0 8px}
+.mlk-chip{width:22px;height:20px}
+.mlk-rt{margin:0;flex:1;min-width:0;display:grid;line-height:1.25}
+.mlk-l{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.mlk-r .linkish{flex:none;min-height:32px}
+.mlk-sws{display:flex;flex-wrap:wrap;gap:7px;padding:2px}
+.mlk .mlk-sws .sw{width:26px;height:26px}
+.mlk-locks{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:4px;font-size:12.5px;line-height:1.35;color:var(--ink-2)}
+.mlk-locks li{display:flex;gap:6px;align-items:baseline}
+.mlk-locks .cz-lock{flex:none;width:9px;height:11px;color:var(--ink-3);position:relative;top:1px}
+.mlk-tes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mlk-t{display:grid;justify-items:center;align-content:start;gap:3px;min-width:0;min-height:44px;padding:6px 4px 7px;border:1px solid var(--rule);border-radius:6px;background:transparent;color:var(--ink);font:inherit;text-align:center;cursor:pointer}
+.mlk-t:hover{border-color:var(--ink-3)}
+.mlk-t.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.mlk-t.lock{border-style:dashed;border-color:var(--rule-2)}
+.mlk-tv{display:block;width:100%}.mlk-tv .ctg-land{width:100%;max-width:84px;margin:0 auto}
+.mlk-tn{max-width:100%;font-size:12px;font-weight:600;line-height:1.2;overflow-wrap:break-word;hyphens:auto}
+.mlk-ts{font-size:11px;line-height:1.25;color:var(--ink-3)}
+.mlk-gh{display:flex;gap:6px;align-items:baseline;margin:12px 0 6px;font-size:12.5px;line-height:1.35;color:var(--ink-2)}.mlk-gh .cz-lock{flex:none;width:9px;height:11px;color:var(--ink-3);position:relative;top:1px}
+.mlk-t.on .mlk-ts{color:var(--ink);font-weight:600}
+.mlk-foot{margin:8px 0 0;font-size:12.5px}
+.shop-scrim.mlk-dr{z-index:3100}.shop-dr.mlk-dr{z-index:3101}
+.mlk-gal{margin:4px 0 18px;padding-bottom:4px;border-bottom:1px solid var(--rule)}
+.mlk-gal-h{font-size:18px;font-weight:650;margin:4px 0 2px}
+.mlk-gal>.hint{margin:0}
+.mlk-fig{padding:6px;border-radius:6px}.mlk-fig.on{background:var(--sheet);box-shadow:inset 0 0 0 1px var(--rule-2)}
+.mlk-fig figcaption .hint{font-size:12px}
 .shop-cb-art{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%}.shop-cb-art .cu-note{width:84px;border-radius:3px;box-shadow:0 4px 8px -5px rgba(18,41,42,.6)}.shop-cb-art .cu-coin{width:30px;height:auto}
 .shop-cb-cur{display:grid;gap:10px;justify-items:center}.shop-cb-cur .shop-cb-n1{max-width:380px}.shop-cb-row{display:flex;align-items:center;justify-content:center;gap:14px;width:100%}.shop-cb-row .shop-cb-n2{max-width:220px;flex:1 1 auto;min-width:0}.shop-cb-row .cu-coin{width:96px;flex:none;height:auto}
 .cu-seg .cu-try,.cz-seg .cu-try{border-style:dashed}.cu-try-note{margin:8px 0 0;padding:8px 10px;border:1px dashed var(--rule-2);border-radius:6px;font-size:13px;background:var(--sheet-2,var(--sheet))}
@@ -45844,7 +45875,7 @@ function worldMapView(){
     <div class="ml-map">${mapBox('main',placed?'':' pick')}</div>
     <aside class="map-panel" id="map-panel" aria-live="polite">${mapPanel()}</aside>
     <div class="ml-legend">${mapLegend(placed?migToggle():'')}</div>
-  </div>`;
+  </div>${mlkDrawer(n)}`;
 }
 function mapPanel(){
   const ctx={cell:S.mapCell!=null?S.mapCell:S.mapTarget!=null?S.mapTarget:S.mapClaim?S.mapClaim.c:S.mapInspect!=null?S.mapInspect:S.mapPick!=null?S.mapPick:null,sel:S.mapSel==null?null:S.mapSel};
@@ -45889,7 +45920,8 @@ function mapPanel0(){
     ${landBox(n)}
     ${svcBoxHTML(n)}
     ${armyBlock(T,mi)}
-    <div class="row" style="margin-top:14px"><button class="btn ghost" data-act="map-me">Centre on ${esc(n.name)}</button></div>`;
+    <div class="row" style="margin-top:14px"><button class="btn ghost" data-act="map-me">Centre on ${esc(n.name)}</button></div>
+    ${mlkCard(n)}`;
 }
 function territorySection(id,n){
   const T=territory(),i=T.byId[id];
@@ -52492,7 +52524,7 @@ function mapFsOpen(kind,id){
 }
 function mapFsClose(){if(!S.mapFs)return;S.mapFs=null;mapFsExit();render();}
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&S.mapFs){S.mapFs=null;render();}else redrawMaps();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.mapFs){e.preventDefault();e.stopPropagation();mapFsClose();}},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.mapFs&&!(SHOP.dr&&S.view==='map')){e.preventDefault();e.stopPropagation();mapFsClose();}},true);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='map-fs'){e.stopPropagation();if(mapFsOn(el.dataset.k,el.dataset.id||null))mapFsClose();else mapFsOpen(el.dataset.k,el.dataset.id||null);return;}
@@ -60708,7 +60740,7 @@ async function shopPick(id){
   try{await shopReq({step:'pick',key:id});toast({m:`${cap1(UNLOCKS[id].n)} is yours to keep. Find it in Customise.`,links:[{kind:'unlock',id}]});}catch(e){SHOP.err=shopErr(e);}finally{SHOP.busy='';render();}
 }
 function shopDrClose(){if(!SHOP.dr)return;const p=SHOP.dr;SHOP.dr='';if(SHOP.gift&&SHOP.gift.p===p)SHOP.gift=null;render();requestAnimationFrame(()=>{const b=document.querySelector(`.shop-cd-open[data-p="${p}"]`)||document.querySelector('[data-act="shop-open"][data-p="'+p+'"]');if(b)b.focus({preventScroll:true});});}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&SHOP.dr&&S.view==='shop'){e.preventDefault();shopDrClose();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&SHOP.dr&&(S.view==='shop'||S.view==='map')){e.preventDefault();shopDrClose();}});
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='shop-ho'){SHOP.ho=!!t.checked;shopLsSet('ho',SHOP.ho);render();}});
 document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='shop-small-d')SHOP.small=e.target.open;},true);
 document.addEventListener('click',e=>{
@@ -60969,7 +61001,7 @@ MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
 MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
   const g=M.g,T=M.T,s=M.s,lead=M.first!==false;if(lead)M.cv._gilt=null;
   const P=typeof Path2D==='function'?(!lead&&M.cv._gilt)||new Path2D():null;let any=false;
-  for(const [o,cells] of M.byO){const x=T.list[o];if(!x||x.npc||!cells.length)continue;let te='';try{te=cz(x.n).te;}catch(e){}if(te!=='te-gilt')continue;any=true;
+  for(const [o,cells] of M.byO){const x=T.list[o];if(!x||x.npc||!cells.length)continue;let te='';try{te=cz(x.me&&S.nation?S.nation:x.n).te;}catch(e){}if(te!=='te-gilt')continue;any=true;
     if(!M.draft&&s*HEX_W>=7){g.save();g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.4);g.clip();
       let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;for(const i of cells){x0=Math.min(x0,MAP.cx[i]);x1=Math.max(x1,MAP.cx[i]);y0=Math.min(y0,MAP.cy[i]);y1=Math.max(y1,MAP.cy[i]);}
       x0-=HEX_R;x1+=HEX_R;y0-=HEX_R;y1+=HEX_R;const sp=HEX_R*0.42,h=y1-y0;g.beginPath();for(let xx=x0-h;xx<x1;xx+=sp){g.moveTo(xx,y1);g.lineTo(xx+h,y0);}
@@ -61074,7 +61106,8 @@ function ctgTryNote(){const t=CTG.try,u=t&&czU(t.id);if(!u||S.view!=='map')retur
   return `<div class="ctg-try" role="status"><p><b>Trying on: ${esc(u.n)}.</b> Only you see it, on your own map, and nothing is saved.</p><p class="ctg-try-b"><button type="button" class="btn sm" data-act="ctg-shop">Back to the pack</button><button type="button" class="linkish small" data-act="ctg-try-off">Take it off</button></p></div>`;}
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="ctg-"]');if(!el)return;const a=el.dataset.act,n=S.nation,placed=!!n&&cellOf(n.loc)>=0;
-  if(a==='ctg-shop'){e.preventDefault();if(PST.open)pstHide();const tu=CTG.try&&czU(CTG.try.id);if(CTG.try){CTG.try=null;czVer++;}SHOP.dr=tu&&SHOP_IDS[tu.src]?tu.src:'cartopack';SHOP.drNew=true;go('shop');}
+  if(a==='ctg-shop'){e.preventDefault();if(PST.open)pstHide();const tid=CTG.try&&CTG.try.id,tu=tid&&czU(tid);if(CTG.try){CTG.try=null;czVer++;}const p=tu&&SHOP_IDS[tu.src]?tu.src:'cartopack';
+    if(S.view==='map'&&el.closest('.ctg-try')){redrawMaps();mlkShop(p,tid||'');return;}SHOP.dr=p;SHOP.drNew=true;go('shop');}
   else if(a==='ctg-try'){const id=el.dataset.id,u=czU(id),k=u&&u.k==='territory'?'te':u&&u.k==='boundary'?'tb':'';if(!k||!placed)return;
     CTG.try={k,id};czVer++;go('map');toast(`Trying on ${u.n}: only you see it, on your own map.`);}
   else if(a==='ctg-try-off'){CTG.try=null;czVer++;render();redrawMaps();}
@@ -61086,6 +61119,103 @@ czShow=(f=>function(id){const u=czU(id);
   if(u&&u.k==='mapcol'){SG.tab='nation';uxOpen('settings',null,'.mapc-row');return;}
   if(u&&u.k==='poster'){if(!S.nation||cellOf(S.nation.loc)<0)return;PST.look='blueprint';go('map');setTimeout(()=>{PST.back=null;pstShow();},80);return;}
   return f.apply(this,arguments);})(czShow);
+/* ───────── the map page's "Your map look": how the player's land looks on the world map, from the map itself ─────────
+   Under "Your territory" on the map page: the map colour, with every colour there is (the locked ones too, each saying
+   how it is had), and the hex backgrounds (the land finishes, cz te), each drawn in the player's own colour. A colour
+   the player may wear opens Settings › Nation › Map colour with it picked, ready to save; a hex background held opens
+   Customise › Finery › Land. A locked colour from the tutorial says which task earns it; a locked piece of the Shop
+   (shown while its pack is on sale) opens that pack's Shop drawer over the map page, not the Shop page. The drawer over
+   the map leads with "How it looks on <nation>": the player's own land round the capital as it is now, then in each hex
+   background of the pack (the one chosen first), each to be tried on the map itself (CTG.try). Closing it returns to
+   the map where it was, the focus on the piece it was opened from. */
+const MLK={id:''},MLK_TE=['te-hatch','te-stipple','te-wash','te-grid','te-fret','te-gilt'];
+const mlkPack=p=>(SHOP_FROM[p]||'the Shop').replace(/^the /,'');
+/* the colour the player chose for the map, by name, while they may wear it ('' while it comes from the flag) */
+function mlkMcName(n){const c=safeColor(n&&n.mapc,'');if(!c||nationColor(n)!==c)return '';return MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'';}
+/* a piece of the Shop as its lock says it: the pack and its price (the full one struck through in a sale) */
+function mlkLockTxt(p){const pr=shopPrice(p);return `${esc(mlkPack(p))}${pr?` · ${shopWas(p)}${esc(pr)}`:''}`;}
+function mlkLockSay(p){const pr=shopPrice(p);return `${mlkPack(p)} in the Shop${pr?', '+pr:''}`;}
+/* the hex backgrounds to show: held, or for sale (a pack off sale stays out, as in Settings and Customise) */
+function mlkTes(n){return MLK_TE.filter(id=>UNLOCKS[id]).map(id=>({id,p:UNLOCKS[id].src,own:czHolds(n,id,n.cz)})).filter(x=>x.own||shopSells(x.p));}
+function mlkCard(n){
+  if(!n||cellOf(n.loc)<0)return '';
+  if(S.mode==='world'&&!SHOP.cfg){const P=shopStatus();if(P)P.then(()=>{if(S.view==='map'&&SHOP.cfg)updateMapPanel();});}
+  let c={};try{c=cz(n)||{};}catch(e){}
+  const cur=MLK_TE.includes(c.te)&&UNLOCKS[c.te]?c.te:'',col=nationColor(n),mcN=mlkMcName(n),mc=mcN?safeColor(n.mapc,''):'';
+  const sw=(x,nm,how)=>`<button type="button" class="sw${mc===x?' on':''}" style="--sw:${x}" data-act="mlk-mc" data-val="${x}" aria-label="Map colour: ${esc(nm)}${how?', '+esc(how):''}${mc===x?', worn now':''}" title="${esc(nm)}${how?', '+esc(how):''}"></button>`;
+  const locks=[];
+  let sws=Object.keys(MAP_COLORS).map(x=>sw(x,MAP_COLORS[x],'')).join('');
+  for(const s of tutMapcs()){const nm=s.mapcN;
+    if(tutMapcOk(n,s.mapc)){sws+=sw(s.mapc,nm,'earned in the tutorial');continue;}
+    const how=mapcHow(n,s);locks.push(`<li>${CZ_LOCK}<span><b>${esc(nm)}</b>: ${esc(how)}</span></li>`);
+    sws+=`<button type="button" class="sw sw-lock" style="--sw:${s.mapc}" data-act="mlk-mc-lock" data-k="${esc(s.k)}" aria-label="Map colour: ${esc(nm)}, locked. ${esc(how)}" title="${esc(nm)}: ${esc(how)}">${CZ_LOCK}</button>`;}
+  const cl=[];
+  for(const x of Object.keys(CTG_MC)){const nm=CTG_MC[x][1];
+    if(ctgMcOk(n,x)){sws+=sw(x,nm,'from the Cartographer’s Pack');continue;}
+    if(!shopSells('cartopack'))continue;cl.push(nm);
+    sws+=`<button type="button" class="sw sw-lock" style="--sw:${x}" data-act="mlk-shop" data-p="cartopack" data-mc="${x}" aria-label="Map colour: ${esc(nm)}, locked. Part of the ${esc(mlkLockSay('cartopack'))}" title="${esc(nm)}: part of the ${esc(mlkPack('cartopack'))} in the Shop">${CZ_LOCK}</button>`;}
+  if(cl.length)locks.push(`<li>${CZ_LOCK}<span><b>${list(cl.map(esc))}</b>: ${mlkLockTxt('cartopack')}</span></li>`);
+  /* the hex backgrounds: Plain and those held first, then those locked, under a line for each pack and its price */
+  const tes=mlkTes(n),anyLock=tes.some(x=>!x.own);
+  const tile=(id,name,x)=>{const lock=!!x&&!x.own;return `<button type="button" class="mlk-t${lock?' lock':''}${cur===id?' on':''}" data-act="${lock?'mlk-shop':'mlk-cz'}"${id?` data-id="${id}"`:''}${lock?` data-p="${x.p}" aria-label="${esc(name)}, locked. ${esc(mlkLockSay(x.p))}: see how it looks on ${esc(n.name)}"`:''}><span class="mlk-tv" aria-hidden="true">${ctgLandSVG(n,{mini:1,te:id})}</span><span class="mlk-tn">${esc(name)}</span>${cur===id?'<span class="mlk-ts">Wearing</span>':''}</button>`;};
+  let tiles='';
+  if(tes.length){tiles=`<div class="mlk-tes" role="group" aria-label="Hex backgrounds you have">${tile('','Plain',null)}${tes.filter(x=>x.own).map(x=>tile(x.id,UNLOCKS[x.id].n,x)).join('')}</div>`;
+    for(const p of [...new Set(tes.filter(x=>!x.own).map(x=>x.p))])
+      tiles+=`<p class="mlk-gh" id="mlk-g-${p}">${CZ_LOCK}<span>${mlkLockTxt(p)}</span></p><div class="mlk-tes" role="group" aria-labelledby="mlk-g-${p}">${tes.filter(x=>!x.own&&x.p===p).map(x=>tile(x.id,UNLOCKS[x.id].n,x)).join('')}</div>`;}
+  return `<section class="mlk" aria-labelledby="mlk-h"><h3 class="mlk-h" id="mlk-h">Your map look</h3>
+    <p class="hint mlk-hint">How ${esc(n.name)} looks on the world map, to every player in your region.</p>
+    <div class="mlk-r"><span class="hexchip mlk-chip" style="--hx:${col}" aria-hidden="true"></span><p class="mlk-rt"><span class="mlk-l">Map colour</span><b>${mcN?esc(mcN):'From your flag'}</b></p><button type="button" class="linkish small" data-act="mlk-mc-set">Change in Settings</button></div>
+    <div class="mlk-sws" role="group" aria-label="Map colours: one you may wear opens Settings with it picked">${sws}</div>
+    ${locks.length?`<ul class="mlk-locks">${locks.join('')}</ul>`:''}
+    <div class="mlk-r"><p class="mlk-rt"><span class="mlk-l">Hex background</span><b>${cur?esc(UNLOCKS[cur].n):'Plain'}</b></p><button type="button" class="linkish small" data-act="mlk-cz">Change in Customise</button></div>
+    ${tiles}
+    ${anyLock?'<p class="hint mlk-foot">Choose a locked one to see it on your own land, in the Shop.</p>':''}
+  </section>`;
+}
+/* the Shop's drawer over the map page: the same drawer as on the Shop page, a step above the map (full screen too) */
+function mlkDrawer(n){
+  if(S.view!=='map'||!SHOP.dr||!n)return '';
+  if(!SHOP.cfg)shopStatus();else shopLocalPrices();
+  const t=shopNow();try{return shopDrawer(n,t,shopCards(n,t));}catch(e){SHOP.dr='';return '';}
+}
+/* "How it looks on <nation>": the player's land now, then in each hex background of the pack, the one chosen first */
+function mlkGallery(n,p){
+  if(S.view!=='map'||!n||cellOf(n.loc)<0)return '';
+  let ids=MLK_TE.filter(id=>UNLOCKS[id]&&UNLOCKS[id].src===p);if(!ids.length)return '';
+  if(ids.includes(MLK.id))ids=[MLK.id,...ids.filter(id=>id!==MLK.id)];
+  let c={};try{c=cz(n)||{};}catch(e){}
+  const cur=MLK_TE.includes(c.te)?c.te:'',tb=CTG_TB.includes(c.tb)?c.tb:'';
+  const fig=(cls,svg,cap)=>`<figure class="ctg-fig mlk-fig${cls}">${svg}<figcaption>${cap}</figcaption></figure>`;
+  let h=fig(' now',ctgLandSVG(n,{te:cur,tb}),`<b>Your land now</b><span class="hint">${cur&&UNLOCKS[cur]?esc(UNLOCKS[cur].n):'Plain'}</span>`);
+  for(const id of ids){const own=czHolds(n,id,n.cz),nm=UNLOCKS[id].n;
+    const act=cur===id?'<span class="hint">You wear it</span>':own?'<button type="button" class="linkish small" data-act="mlk-cz" data-id="'+id+'">Yours: wear it in Customise</button>':`<button type="button" class="linkish small" data-act="ctg-try" data-id="${id}">Try it on your map</button>`;
+    h+=fig(id===MLK.id?' on':'',ctgLandSVG(n,{te:id,tb}),`<b>${esc(nm)}</b>${act}`);}
+  return `<section class="mlk-gal" aria-labelledby="mlk-gal-h"><h3 class="mlk-gal-h" id="mlk-gal-h">How it looks on ${esc(n.name)}</h3>
+    <p class="hint">Your own land round ${esc(n.capital)}${ids.length>1?', in each hex background of this pack':''}, as every player in your region would see it.</p>
+    <div class="ctg-figs mlk-figs">${h}</div></section>`;
+}
+function mlkShop(p,id){
+  if(!SHOP_IDS[p]||S.view!=='map')return;
+  MLK.id=id&&UNLOCKS[id]&&UNLOCKS[id].src===p?id:'';SHOP.drNew=!SHOP.dr;SHOP.dr=p;SHOP.gift=null;
+  SHOP.rv=[p,...SHOP.rv.filter(x=>x!==p)].slice(0,6);shopLsSet('rv',SHOP.rv);
+  render();requestAnimationFrame(()=>{const d=document.querySelector('.shop-dr');if(d){d.scrollTop=0;d.focus({preventScroll:true});}});
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="mlk-"]');if(!el)return;const a=el.dataset.act,n=S.nation;if(!n)return;
+  if(a==='mlk-mc'){const c=safeColor(el.dataset.val,'');if(!c)return;
+    if(!S.settings||!settingsDirty())S.settings=settingsFrom(n);S.settings.mapc=c;SG.tab='nation';uxOpen('settings',null,'#set-mapc');
+    if(safeColor(n.mapc,'')!==c){const nm=MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour';toast(`${nm} is picked. Save changes to put it on the map.`);}}
+  else if(a==='mlk-mc-set'){SG.tab='nation';uxOpen('settings',null,'#set-mapc');}
+  else if(a==='mlk-mc-lock'){const s=TUT_BY[el.dataset.k];if(s)toast(`${s.mapcN} is not yours yet. ${mapcHow(n,s)}`);}
+  else if(a==='mlk-cz'){czTabFor('cz-sec-z');uxOpen('customise',null,'.cz-g-te');}/* only the open section of Customise is drawn in full */
+  else if(a==='mlk-shop')mlkShop(el.dataset.p,el.dataset.id||'');
+});
+/* closed over the map, the focus goes back to the piece the drawer was opened from */
+shopDrClose=(f=>function(){
+  const map=S.view==='map'&&!!SHOP.dr,id=MLK.id,p=SHOP.dr,r=f.apply(this,arguments);MLK.id='';
+  if(map)requestAnimationFrame(()=>{const b=(id&&document.querySelector(`.mlk [data-act="mlk-shop"][data-id="${id}"]`))||document.querySelector(`.mlk [data-act="mlk-shop"][data-p="${p}"]`)||document.getElementById('mlk-h');
+    if(b){if(b.id==='mlk-h')b.setAttribute('tabindex','-1');b.focus({preventScroll:true});}});
+  return r;})(shopDrClose);
 /* the pack's map colours in Settings, after the tutorial's: chosen like the others once held, locked (a way to the
    Shop) while the pack is on sale, left out otherwise */
 function ctgMcSw(n,st){
@@ -61667,7 +61797,7 @@ function shopCtgPack(n){
   return `<section class="shop-item shop-cartopack" aria-labelledby="shop-ctg-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · fifteen pieces</p><h2 class="h2" id="shop-ctg-h">Cartographer’s Pack</h2></div><p class="shop-price" id="shop-cartopack-price">${shopWas('cartopack')}${esc(shopPrice('cartopack'))}<span>once</span>${shopLocalTag('cartopack')}</p></div>
     <p>The world map is where everyone sees ${esc(n.name)}. This pack changes how your land looks there, for every player in your region: its finish, the line round it, its colour and the mark beside your capital. Wear one piece or mix them.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">${placed?`Your land round ${esc(n.capital)}, in Engraver’s Hatching with the Surveyor’s Line`:'Engraver’s Hatching with the Surveyor’s Line'}</p><div class="ctg-hero">${ctgLandSVG(n,{big:1,te:'te-hatch',tb:'tb-survey'})}</div></div>
-    <h3 class="sub-h">Four finishes for your land</h3><div class="ctg-figs">${fins.map(([id])=>fig(id,{te:id})).join('')}</div>
+    ${S.view==='map'?'':`<h3 class="sub-h">Four finishes for your land</h3><div class="ctg-figs">${fins.map(([id])=>fig(id,{te:id})).join('')}</div>`}
     <h3 class="sub-h">Three lines for your border</h3><div class="ctg-figs">${bds.map(([id])=>fig(id,{tb:id})).join('')}</div>
     <div class="shop-or-grid"><figure><span class="ctg-mcs">${mcs}</span><figcaption>Three map colours</figcaption></figure><figure>${pin}<figcaption>Wind Rose beside your capital</figcaption></figure>
       <figure>${ctgPosterMini(n)}<figcaption>The Blueprint poster${placed?' <button type="button" class="linkish small" data-act="ctg-poster">Try it</button>':''}</figcaption></figure></div>
@@ -61741,7 +61871,7 @@ function shopMayaPack(n){
     <p>After the art of the ancient Maya: jade, quetzal feathers and the jaguar. Twelve pieces for the portraits of your government, for the head of government or any minister, and three that carry the stepped fret and the old numbers onto your land, your card and your money. Every piece can be tried on before you buy.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">${esc(who)}, in the pack’s pieces</p><div class="shop-maya-pt">${meds}</div>
       <p class="row shop-row"><button type="button" class="btn ghost" id="shop-maya-try" data-act="pt-edit" data-v="lead">Try them on in Customise › Portraits</button></p></div>
-    <div class="shop-pv-box"><p class="shop-pv-l">${placed?`Your land round ${esc(n.capital)}, in the Stepped Fret`:'Land in the Stepped Fret'}</p><div class="shop-maya-land">${land}</div>${!own&&placed?'<p class="row shop-row"><button type="button" class="linkish small" data-act="ctg-try" data-id="te-fret">Try it on your map</button></p>':''}</div>
+    ${S.view==='map'&&placed?'':`<div class="shop-pv-box"><p class="shop-pv-l">${placed?`Your land round ${esc(n.capital)}, in the Stepped Fret`:'Land in the Stepped Fret'}</p><div class="shop-maya-land">${land}</div>${!own&&placed?'<p class="row shop-row"><button type="button" class="linkish small" data-act="ctg-try" data-id="te-fret">Try it on your map</button></p>':''}</div>`}
     <div class="shop-pv-box"><p class="shop-pv-l">Your card, in Limestone Stela</p>${card}</div>
     <div class="shop-pv-box"><p class="shop-pv-l">The ${esc(cu.nm)}, engraved in Dots and Bars</p><div class="shop-cb-cur">${note}</div></div>
     <ul class="shop-list">${items.map(([a,b])=>`<li><b>${esc(a)}</b>: ${esc(b)}.</li>`).join('')}</ul>
@@ -61813,10 +61943,11 @@ function shopDrawer(n,t,cards){
   const pairs=p==='bag'?cards.filter(c=>shopBagOk(c.p)&&!shopBag().includes(c.p)&&!shopBagVia(c.p)).map(c=>c.p).slice(0,4):['vip',...cards.map(c=>c.p)].filter(k=>k!==p&&!(cards.find(c=>c.p===k)||{}).own).slice(0,3);
   const rv=SHOP.rv.filter(k=>k!==p&&nameOf(k)).slice(0,4);
   const isNew=SHOP.drNew;SHOP.drNew=false;
-  return `<div class="shop-scrim${isNew?' in':''}" data-act="shop-close"></div>
-  <aside class="shop-dr${SHOP.drNew?' in':''}" role="dialog" aria-modal="true" aria-label="${esc(nameOf(p))}" tabindex="-1">
+  const ov=S.view==='map'?' mlk-dr':'';
+  return `<div class="shop-scrim${isNew?' in':''}${ov}" data-act="shop-close"></div>
+  <aside class="shop-dr${SHOP.drNew?' in':''}${ov}" role="dialog" aria-modal="true" aria-label="${esc(nameOf(p))}" tabindex="-1">
     <div class="shop-dr-top"><span class="eyebrow">Bureau of National Finery</span><button type="button" class="shop-dr-x" data-act="shop-close" aria-label="Close">×</button></div>
-    ${shopNotice(n)}${body}
+    ${shopNotice(n)}${S.view==='map'?mlkGallery(n,p):''}${body}
     ${pairs.length?`<h3 class="shop-dr-h">${p==='bag'?'More that could go in it':'Pairs well with'}</h3><ul class="shop-minis">${pairs.map(mini).join('')}</ul>`:''}
     ${rv.length?`<h3 class="shop-dr-h">Recently viewed</h3><ul class="shop-minis">${rv.map(mini).join('')}</ul>`:''}
   </aside>`;
@@ -61855,7 +61986,7 @@ render=(f=>function(){const r=f.apply(this,arguments);const a=SHOP.after;
   else if(a&&shopLinked()&&!SHOP.busy){SHOP.after=null;SHOP.err='';try{window.edictumStat&&window.edictumStat('shop_link_resume',{product:SHOP_PRODUCTS.indexOf(a.p)});}catch(e){}setTimeout(()=>{if(S.view!=='shop')go('shop');shopBuy(a.p,a.to||undefined);},0);}
   return r;})(render);
 /* the page is drawn anew on every change: the open drawer keeps where its reader was (opening another item starts at its top) */
-render=(f=>function(){const d=S.view==='shop'?document.querySelector('.shop-dr'):null,top=d?d.scrollTop:0,p=SHOP.dr;const r=f.apply(this,arguments);
+render=(f=>function(){const d=S.view==='shop'||S.view==='map'?document.querySelector('.shop-dr'):null,top=d?d.scrollTop:0,p=SHOP.dr;const r=f.apply(this,arguments);
   if(d&&top&&SHOP.dr===p){const e=document.querySelector('.shop-dr');if(e&&e!==d)e.scrollTop=top;}return r;})(render);
 go=(f=>function(v){if(v!=='shop'&&SHOP.dr){SHOP.dr='';if(SHOP.gift)SHOP.gift=null;}return f.apply(this,arguments);})(go);
 
