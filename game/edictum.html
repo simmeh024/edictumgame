@@ -7270,8 +7270,20 @@ span.nw-tag{cursor:default}
 .pst-opt .cz-lock{width:9px;height:11px;margin-left:5px;vertical-align:-1px}
 .pst-lockn{margin:0;flex:1 1 260px;font-size:13px}.pst-lockn .cz-lock{width:9px;height:11px;vertical-align:-1px}
 /* the map page's "Your map look" card (under Your territory), and the Shop's drawer over the map page */
-.mlk{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)}
-.mlk-h{font-size:15px;font-weight:650;margin:0 0 2px}
+.mlk{margin-top:14px;padding-top:6px;border-top:1px solid var(--rule)}
+.mlk-h{font-size:15px;font-weight:650;margin:0}
+.mlk-tg{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;margin:0;padding:4px 2px;border:0;background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.mlk-tg:hover .mlk-tt{text-decoration:underline;text-underline-offset:3px}
+.mlk-tx{flex:1;min-width:0;display:grid;gap:2px}
+.mlk-sum{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;line-height:1.3;color:var(--ink-2)}
+.mlk-sum .mlk-chip{flex:none;width:15px;height:14px}
+.mlk-sum-t{min-width:0;overflow-wrap:anywhere}
+.mlk.open .mlk-sum{display:none}
+.mlk-cv{flex:none;width:12px;height:12px;margin-left:auto;color:var(--ink-3);transition:transform .15s}
+.mlk.open .mlk-cv{transform:rotate(180deg)}
+@media (prefers-reduced-motion:reduce){.mlk-cv{transition:none}}
+.mlk-b{padding-top:2px}
+.mlk .mlk-flag{min-height:26px;padding:2px 10px;font-size:12px}
 .mlk-hint{margin:0 0 4px;font-size:13px}
 .mlk-r{display:flex;align-items:center;gap:10px;margin:12px 0 8px}
 .mlk-chip{width:22px;height:20px}
@@ -20683,7 +20695,7 @@ function collectConquests(at){
 }
 function readConquests(at){
   const out=[];
-  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr});};
+  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr,wr:e.wr===1});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)add(id,S.world[id]);
   if(S.mode!=='local')for(const id of Object.keys(HIDN.w))if(id!==S.uid&&!S.world[id])add(id,HIDN.w[id]);
@@ -20777,7 +20789,10 @@ function territory(extra){
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||MAP.T[e.c]<2)continue;
     const oi=byId[e.o];if(oi===undefined)continue;
     const cur=over.has(e.c)?over.get(e.c):base.owner[e.c];
-    if(e.bx){const fi=byId[e.fr];if(fi===undefined||cur!==fi||!(e.fr===e.src||(e.o===e.src&&NPC_SET.has(e.fr))))continue;over.set(e.c,oi);how.set(e.c,1);nat.set(e.c,oi);moved=true;continue;}
+    if(e.bx){const fi=byId[e.fr];if(fi===undefined||cur!==fi||!(e.fr===e.src||(e.o===e.src&&NPC_SET.has(e.fr))))continue;over.set(e.c,oi);moved=true;
+      /* a hex taken in war and handed to another nation (wr, warGive) stays land taken in war: still counted as lost by
+         the nation it was taken from, and the new holder may hand it on or give it back in its turn */
+      if(e.wr&&how.get(e.c)===2)continue;how.set(e.c,1);nat.set(e.c,oi);continue;}
     if(e.npc){const si=byId[e.src];if(si===undefined||cur!==si)continue;}
     else if(e.t>=FIX_EPOCH){
       if(cur<0||cur===oi||(list[cur].n.founded||0)>e.t)continue;
@@ -21013,7 +21028,10 @@ async function attack(){
   spendReady(n,now);
   applyEffects(n,{wealth:-0.3,happy:-0.4,mil:win?0.3:-0.2});
   n.conq=(n.conq||[]).slice();
-  if(win){const e=w?{c:cell,t,w,d:en.id}:{c:cell,t,d:en.id};if(seal)e.s=seal;if(seal2)e.s2=seal2;if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell)});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
+  if(win){const e=w?{c:cell,t,w,d:en.id}:{c:cell,t,d:en.id};if(seal)e.s=seal;if(seal2)e.s2=seal2;if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell)});
+    const gv=wgForPick(T,cell,bi);
+    if(gv){n.bx=(n.bx||[]).concat({c:cell,t:t+1,to:gv.id,fr:myId(),wr:1});n.log.unshift({t:now,k:'hand',a:gv.id,b:gv.n.name,fx:landName(cell)});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name} and handed it to ${gv.n.name}.`);}
+    else msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
   else msgs.push(`${en.n.name} held the line. Your attack was repelled.`);
   if(pe<od.p-0.005)msgs.push(`The referee put your chance at ${Math.round(pe*100)}%, not ${Math.round(od.p*100)}%: it goes by both armies as last saved.`);
   const counters=[bi];for(const id of alliesOf(en.id)){const j=T.byId[id];if(j!==undefined&&T.list[j].npc&&atWar(id,myId()))counters.push(j);}
@@ -21025,7 +21043,7 @@ async function attack(){
   }
   n.conq=dedupeConq(n.conq);n.log=n.log.slice(0,60);
   commit(n);
-  S.warMsg=msgs.join(' ');S.mapTarget=null;S.mapSel=en.id;updateMapPanel();redrawMaps();toast(msgs[0]);
+  S.wgFor=null;S.warMsg=msgs.join(' ');S.mapTarget=null;S.mapSel=en.id;updateMapPanel();redrawMaps();toast(msgs[0]);
 }
 function declareWar(id){
   if(!String(id).startsWith('npc-')&&!civicRegistered()){toast('A Registered Nation is required for offensive wars against players. Link a sign-in account in your account menu.');return;}
@@ -21133,9 +21151,9 @@ function targetPanel(T,cell,reach){
   if(od.attHelp.length)notes.push(`Allied troops from ${list(od.attHelp.map(h=>h.name))} join the assault.`);
   if(od.defHelp.length)notes.push(`${list(od.defHelp.map(h=>h.name))} ${od.defHelp.length===1?'helps':'help'} defend it.`);
   notes.push(...od.intel);
-  return `<p class="eyebrow">Attack target</p><h2 class="mp-h">${terrName(cell)} on ${esc(landName(cell))}</h2><p class="muted">Held by ${esc(x.n.name)}${T.occ[cell]?', who took it in battle':''}.</p>
+  return `<p class="eyebrow">Attack target</p><h2 class="mp-h">${terrName(cell)} on ${esc(landName(cell))}</h2><p class="muted">Held by ${esc(x.n.name)}${T.occ[cell]?', as land taken in war':''}.</p>
     <dl class="mp-dl"><div><dt>Your attacking force</dt><dd>${Math.round(od.att*10)}</dd></div><div><dt>Their defence</dt><dd>${Math.round(od.def*10)}</dd></div><div><dt>Chance of success</dt><dd>${Math.round(od.p*100)}%</dd></div></dl>
-    <p class="mp-note">${esc(notes.join(' '))}</p>
+    <p class="mp-note">${esc(notes.join(' '))}</p>${wgForField(T,cell,bi)}
     <div class="row" style="margin-top:14px"><button class="btn danger solid" data-act="attack"${rd.r<1||conqCap(S.nation)||S.attacking?' disabled':''}>Attack</button><button class="btn ghost" data-act="map-untarget">Cancel</button></div>
     <p class="hint" style="margin-top:10px">${conqCap(S.nation)?esc(conqCap(S.nation)):rd.r<1?`Your army is not ready. The next readiness point arrives in ${fmtDur(rd.next)}.`:`Uses 1 readiness point. You have ${rd.r} of ${rd.max}.`}</p>`;
 }
@@ -22173,12 +22191,12 @@ function hexPanel(T,cell){
   const back=`<button class="btn ghost" data-act="map-desel">Back to ${esc(n.name)}</button>`;
   if(ct){
     return headEl+c3Strip(n,Date.now(),{compact:true})+cpPanelCity(ct,T)+`<p class="muted">${ct.done.length?esc(list(ct.done.map(k=>BUILDINGS[k].n))):'No buildings yet.'}${ct.prog.length?` Building: ${esc(BUILDINGS[ct.prog[0].k].n)}.`:''}</p>
-      <div class="row" style="margin-top:16px"><button class="btn" data-act="ct-goto" data-id="${esc(ct.id)}">${ct.fid===myId()?'Open in Cities':'View in Cities'}</button>${back}</div>`;
+      ${warGiveHex(cell,T)}<div class="row" style="margin-top:16px"><button class="btn" data-act="ct-goto" data-id="${esc(ct.id)}">${ct.fid===myId()?'Open in Cities':'View in Cities'}</button>${back}</div>`;
   }
   const prob=cityProblem(cell,T);
   if(!S.cityName||S.citySite!==cell){S.citySite=cell;S.cityName=cityNameIdea(cell);}
   const st=stockNow(n,Date.now()),miss=lacking(CITY_COST,st);
-  return headEl+svcHexHTML(cell)+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):lake?'Nothing':'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}
+  return headEl+svcHexHTML(cell)+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):lake?'Nothing':'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}${warGiveHex(cell,T)}
     ${prob?`<p class="hint" style="margin-top:12px">${esc(prob)}</p><div class="row" style="margin-top:12px">${back}</div>`:`<form id="mc-form" novalidate style="margin-top:14px"><label class="lbl" for="mc-name">Found a city here</label><div class="name-row" style="margin-top:6px"><input class="input" id="mc-name" data-bind="ctname" value="${esc(S.cityName)}" maxlength="30" autocomplete="off"><button class="btn" type="submit"${miss.length?' disabled':''}>Found</button></div><p class="hint" style="margin-top:6px">${miss.length?'You need '+esc(list(miss))+' more.':'Costs '+costText(CITY_COST)+'.'}</p></form><div class="row" style="margin-top:12px">${back}</div>`}`;
 }
 /* map markers: drawn after national labels, before capitals */
@@ -23607,8 +23625,8 @@ function notifItems(now){
   const MY={resign:l=>`${l.b} resigned as ${l.a}. ${l.fx} takes over.`,npcwar:l=>`${l.b} declared war on ${n.name}.`,retire:l=>l.b?`${l.b} retired as ${l.a}. ${l.fx} takes over.`:`Your ${l.a} retired. ${l.fx} takes over.`,npcleft:l=>`${l.b} left ${l.fx}: its values have drifted too far from yours.`,autoland:l=>`${l.a==='1'?'A land credit was':l.a+' land credits were'} spent automatically, around ${l.fx}.`,lost:l=>`${l.b} seized a hex of ${l.fx} from you.`,games:l=>`The results of ${l.a} are in. See how your team did.`,gres:l=>`The results of ${l.a} are in. See how your team did.`,host:l=>`You hosted ${l.a}.`,hostwin:l=>`You will host ${l.a}.`,mile:l=>`${n.name} passed ${l.a} people${l.b?' and is now a '+l.b:''}. Unlocked: ${l.fx}.`,mile0:l=>`Growth milestones have arrived. ${n.name} has already passed ${l.a} of them, with bonus land credits to spend.`};
   const GO={resign:'government',npcwar:'map',retire:'government',npcleft:'diplomacy',autoland:'map',lost:'map',games:'games',gres:'games',host:'games',hostwin:'games',mile:'nation',mile0:'nation'};
   for(const l of n.log)if(MY[l.k])ev.push({t:l.t,k:l.k,txt:MY[l.k](l),go:GO[l.k]});
-  const THEY={war:(x,l)=>`${x.n.name} declared war on you.`,peace:(x,l)=>`${x.n.name} made peace with you${l.fx==='return'?' and withdrew from your land':''}.`,aljoin:(x,l)=>`${x.n.name} joined ${l.b}.`,alleave:(x,l)=>`${x.n.name} left ${l.b}.`,alremove:(x,l)=>`${x.n.name} removed you from ${l.fx}.`,tradeno:(x,l)=>`${x.n.name} declined your trade offer.`,reply:(x,l)=>`${x.n.name} answered the matter you raised${l.fx?': '+l.fx:''}.`,conq:(x,l)=>`${x.n.name} seized a hex of ${l.fx} from you.`,trade:(x,l)=>`${x.n.name} signed a trade deal with you.`,tradeend:(x,l)=>`${x.n.name} ended a trade deal with you.`,aladmit:(x,l)=>`${x.n.name} admitted you to ${l.fx||'its alliance'}.`,caught:(x,l)=>`A spy from ${x.n.name} was caught in ${n.name}.`,cede:(x,l)=>`${x.n.name} ceded a border hex on ${l.fx} to you.`,shared:(x,l)=>`${x.n.name} has raised a matter with you. It is waiting on your desk.`,incident:(x,l)=>`Explorers from ${x.n.name} went tramping across ${l.fx}, on your land.`};
-  const TGO={aljoin:'diplomacy',alleave:'diplomacy',alremove:'diplomacy',tradeno:'trade',reply:'diplomacy',war:'map',peace:'map',conq:'map',trade:'trade',tradeend:'trade',aladmit:'diplomacy',caught:'diplomacy',cede:'map',shared:'issues',incident:'explore'};
+  const THEY={war:(x,l)=>`${x.n.name} declared war on you.`,peace:(x,l)=>`${x.n.name} made peace with you${l.fx==='return'?' and withdrew from your land':''}.`,aljoin:(x,l)=>`${x.n.name} joined ${l.b}.`,alleave:(x,l)=>`${x.n.name} left ${l.b}.`,alremove:(x,l)=>`${x.n.name} removed you from ${l.fx}.`,tradeno:(x,l)=>`${x.n.name} declined your trade offer.`,reply:(x,l)=>`${x.n.name} answered the matter you raised${l.fx?': '+l.fx:''}.`,conq:(x,l)=>`${x.n.name} seized a hex of ${l.fx} from you.`,trade:(x,l)=>`${x.n.name} signed a trade deal with you.`,tradeend:(x,l)=>`${x.n.name} ended a trade deal with you.`,aladmit:(x,l)=>`${x.n.name} admitted you to ${l.fx||'its alliance'}.`,caught:(x,l)=>`A spy from ${x.n.name} was caught in ${n.name}.`,cede:(x,l)=>`${x.n.name} ceded a border hex on ${l.fx} to you.`,hand:(x,l)=>`${x.n.name} handed you a hex on ${l.fx} that it took in war.`,shared:(x,l)=>`${x.n.name} has raised a matter with you. It is waiting on your desk.`,incident:(x,l)=>`Explorers from ${x.n.name} went tramping across ${l.fx}, on your land.`};
+  const TGO={aljoin:'diplomacy',alleave:'diplomacy',alremove:'diplomacy',tradeno:'trade',reply:'diplomacy',war:'map',peace:'map',conq:'map',trade:'trade',tradeend:'trade',aladmit:'diplomacy',caught:'diplomacy',cede:'map',hand:'map',shared:'issues',incident:'explore'};
   for(const x of allNations()){if(x.npc||x.me)continue;for(const l of x.n.log||[])if(l.a===me&&THEY[l.k]&&l.t>=(n.founded||0))ev.push({t:l.t,k:l.k,txt:THEY[l.k](x,l),go:TGO[l.k]});
     /* a peace that came by itself: an offer left unanswered for PEACE_AUTO_MS (pairWar); nobody logs it, so it is told here */
     if((n.wars&&n.wars[x.id])||(x.n.wars&&x.n.wars[me])){const d=pairWar(me,x.id),hrsW=ms=>ms/3600000+' hours',cool=` Neither of you may declare war again for ${hrsW(TRUCE_MS)}.`;
@@ -23623,7 +23641,7 @@ function notifItems(now){
   return {pin,ev:ev.slice(0,40)};
 }
 function notifCount(now){const n=S.nation;if(!n)return 0;const {pin,ev}=notifItems(now),seen=n.seen||0;return pinNew(n,pin).length+ev.filter(x=>x.t>seen&&!x.read).length;}
-const NOTIF_K={land:'Land office',trade:'Board of Trade',alli:'Foreign office',war:'War office',lost:'War office',games:'Games',gres:'Games',host:'Games',hostwin:'Games',mile:'Milestone',mile0:'Milestone',peace:'War office',conq:'War office',tradeend:'Board of Trade',aladmit:'Foreign office',caught:'Intelligence',build:'Ministry of Works',msg:'Message',cede:'Foreign office',shared:'Foreign office',exp:'Society of Explorers',incident:'Foreign office',aljoin:'Foreign office',alleave:'Foreign office',aldisband:'Foreign office',alremove:'Foreign office',alwar:'War office',tradeno:'Board of Trade',reply:'Foreign office',autoland:'Land office',npcwar:'War office',retire:'Cabinet',npcleft:'Foreign office'};
+const NOTIF_K={land:'Land office',trade:'Board of Trade',alli:'Foreign office',war:'War office',lost:'War office',games:'Games',gres:'Games',host:'Games',hostwin:'Games',mile:'Milestone',mile0:'Milestone',peace:'War office',conq:'War office',tradeend:'Board of Trade',aladmit:'Foreign office',caught:'Intelligence',build:'Ministry of Works',msg:'Message',cede:'Foreign office',hand:'War office',shared:'Foreign office',exp:'Society of Explorers',incident:'Foreign office',aljoin:'Foreign office',alleave:'Foreign office',aldisband:'Foreign office',alremove:'Foreign office',alwar:'War office',tradeno:'Board of Trade',reply:'Foreign office',autoland:'Land office',npcwar:'War office',retire:'Cabinet',npcleft:'Foreign office'};
 const BELL_SVG='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.3 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .9-1.5L18 12.6V9a6 6 0 0 0-6-6Zm0 18a2.6 2.6 0 0 0 2.5-2h-5a2.6 2.6 0 0 0 2.5 2Z" fill="currentColor"/></svg>';
 function bellButton(now){const c=notifCount(now);return `<button class="bell${S.notifOpen?' on':''}" data-act="notif" aria-expanded="${!!S.notifOpen}" aria-label="Notifications${c?', '+c+' new':''}">${BELL_SVG}<span class="bell-n"${c?'':' hidden'}>${c>99?'99+':c}</span></button>`;}
 function notifPanel(now){
@@ -23877,7 +23895,7 @@ function logLine(l,n,id){
     case 'mile':return `The population passed ${l.a}${l.b?`, and ${n.name} became a ${l.b}`:''}.`;
     case 'rec':return l.a==='1'?`A hex of new land off ${l.fx} was reclaimed from the sea.`:`${l.a} hexes of new land off ${l.fx} were reclaimed from the sea.`;
     case 'disc':return `The nation’s explorers discovered ${siteName(+l.a)}.`;case 'incident':return `An expedition strayed onto ${poss(tg())} land.`;
-    case 'cede':return `A border hex on ${l.fx} was ceded to ${tg()}.`;case 'lswap':return `A hex on ${l.a} was given up for free land on ${l.fx}.`;case 'take':return `A border hex on ${l.fx} was annexed from ${tg()}.`;case 'shared':return `${n.name} raised a matter with ${tg()}.`;
+    case 'cede':return `A border hex on ${l.fx} was ceded to ${tg()}.`;case 'hand':return `A hex on ${l.fx} taken in war was handed to ${tg()}.`;case 'lswap':return `A hex on ${l.a} was given up for free land on ${l.fx}.`;case 'take':return `A border hex on ${l.fx} was annexed from ${tg()}.`;case 'shared':return `${n.name} raised a matter with ${tg()}.`;
     case 'sym':return `${n.name} can now choose ${symWhat(String(l.a||'').split(',').filter(k=>SYM_AT[k]),n)}.`;
     case 'cur':return `${n.name} renamed its national currency from the ${l.a} to the ${l.b}.`;case 'fxm':return cuMileText(id,l.a,l.b,l.fx||cuOf(n).nm,REG.name);
     default:return '';
@@ -24269,7 +24287,7 @@ function normalizeGeo(d){
   if(g&&typeof g==='object'&&Array.isArray(g.b)&&Array.isArray(g.nb))n.geo={h:clamp(Math.round(num(g.h,0)),0,MAP.N),b:BIOME_KEY.slice(1).map((k,j)=>clamp(Math.round(num(g.b[j],0)),0,MAP.N)),co:clamp(Math.round(num(g.co,0)),0,MAP.N),is:g.is?1:0,nb:g.nb.filter(idOk).slice(0,6)};
   n.gw={};if(d.gw&&typeof d.gw==='object')for(const k of Object.keys(d.gw).slice(0,40))if(idOk(k))n.gw[k]=clamp(Math.round(num(d.gw[k],0)),-GW_MAX,GW_MAX);
   n.rec=sameMap&&Array.isArray(d.rec)?d.rec.filter(e=>e&&cellOk(e.c)&&MAP_T0[e.c]===1&&typeof e.t==='number'&&isFinite(e.t)).slice(0,REC_KEEP).map(e=>e.w===1?{c:e.c,t:e.t,w:1}:{c:e.c,t:e.t}):[];
-  n.bx=sameMap&&Array.isArray(d.bx)?d.bx.filter(e=>e&&cellOk(e.c)&&typeof e.t==='number'&&isFinite(e.t)&&idOk(e.to)&&idOk(e.fr)).slice(-200).map(e=>({c:e.c,t:e.t,to:e.to,fr:e.fr})):[];
+  n.bx=sameMap&&Array.isArray(d.bx)?d.bx.filter(e=>e&&cellOk(e.c)&&typeof e.t==='number'&&isFinite(e.t)&&idOk(e.to)&&idOk(e.fr)).slice(-400).map(e=>e.wr===1?{c:e.c,t:e.t,to:e.to,fr:e.fr,wr:1}:{c:e.c,t:e.t,to:e.to,fr:e.fr}):[];
   n.lcb=clamp(Math.round(num(d.lcb,0)),-6,whCreditCap(d));
   n.sent=Array.isArray(d.sent)?d.sent.filter(e=>e&&idOk(e.to)&&ISSUE_BY_ID[e.id]&&typeof e.t==='number'&&isFinite(e.t)).slice(-30).map(e=>({to:e.to,id:e.id,t:e.t})):[];
   n.shDone=Array.isArray(d.shDone)?d.shDone.filter(k=>typeof k==='string'&&k.length<=80).slice(-60):[];
@@ -24938,7 +24956,7 @@ function atlasData(){
     const cl=new Map();for(const e of d.claims||[]){key.add(e.t);const b=Math.floor(e.t/3600e3);cl.set(b,(cl.get(b)||{t:e.t,k:0}));const o=cl.get(b);o.k++;o.t=Math.max(o.t,e.t);}
     for(const o of cl.values())ev.push({t:o.t,txt:`${N} expanded by ${o.k} ${o.k===1?'hex':'hexes'}.`});
     for(const e of d.conq||[]){key.add(e.t);ev.push({t:e.t,txt:e.n?`${nm(e.n)} took a hex on ${landName(e.c)} from ${N}.`:`${N} took a hex on ${landName(e.c)} by force.`});}
-    for(const e of d.bx||[]){key.add(e.t);ev.push({t:e.t,txt:e.fr===id?`${N} ceded a hex on ${landName(e.c)} to ${nm(e.to)}.`:`${N} annexed a hex on ${landName(e.c)} from ${nm(e.fr)}.`});}
+    for(const e of d.bx||[]){key.add(e.t);ev.push({t:e.t,txt:e.fr===id?(e.wr===1?`${N} handed ${nm(e.to)} a hex on ${landName(e.c)} taken in war.`:`${N} ceded a hex on ${landName(e.c)} to ${nm(e.to)}.`):`${N} annexed a hex on ${landName(e.c)} from ${nm(e.fr)}.`});}
     const rc=new Map();for(const e of d.rec||[]){key.add(e.t);const b=Math.floor(e.t/60000);const o=rc.get(b)||{t:e.t,k:0,c:e.c};o.k++;rc.set(b,o);}
     for(const o of rc.values())ev.push({t:o.t,txt:`${N} reclaimed ${o.k===1?'a hex':o.k+' hexes'} from the sea off ${shoreName(o.c)}.`});
     for(const c of d.cities||[])if(c.t&&c.c!==cellOf(d.loc)){key.add(c.t);ev.push({t:c.t,txt:`${N} founded the city of ${c.nm||'a new city'}.`});}
@@ -25395,6 +25413,58 @@ function succW(n){const a=leaderAge(n);return a>=SUCCESSION_AGE?4+(a-SUCCESSION_
 function hexWord(k){return k===1?'one hex':k+' hexes';}
 /* hexes nation index a took in war from nation index b and still holds */
 function occupiedFrom(T,a,b){const out=[];if(a===undefined||b===undefined)return out;for(let c=0;c<MAP.N;c++)if(T.occ[c]&&T.owner[c]===a&&T.orig[c]===b)out.push(c);return out;}
+/* ───────── handing over land taken in war ─────────
+   A hex your army took can go to another nation: as it falls (the attack panel's "If it falls") or later (the panel of
+   your own hex). It is a border change in your own record (n.bx, marked wr), like the land a peace hands back, and
+   territory() keeps it land taken in war: the nation it was taken from still counts it lost, and the new holder may hand
+   it on or give it back in its turn. It can go to a nation whose land touches it, on the map and not hidden, and open to
+   war: a nation too small for war could never be made to give it back. */
+function wgTakers(T,c,skip){
+  const mi=T.byId[myId()],seen=new Set();
+  for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb<0)continue;const o=T.owner[nb];if(o<0||o===mi||o===skip)continue;seen.add(o);}
+  return [...seen].map(i=>T.list[i]).filter(x=>x&&!x.me&&!x.hid&&!protectedNow(x.id)).sort((a,b)=>a.n.name.localeCompare(b.n.name));
+}
+/* the attack panel's choice, while the hex is still the defender's (bi) */
+function wgForField(T,c,bi){
+  const to=wgTakers(T,c,bi);if(!to.length||!S.nation)return '';
+  const cur=S.wgFor&&S.wgFor.c===c?S.wgFor.to:'';
+  return `<div class="field" style="margin-top:12px"><label class="lbl" for="wg-for">If it falls</label><select class="input" id="wg-for" data-c="${c}"><option value="">${esc(S.nation.name)} keeps it</option>${to.map(x=>`<option value="${esc(x.id)}"${x.id===cur?' selected':''}>Hand it to ${esc(x.n.name)}${x.npc?' (computer)':''}</option>`).join('')}</select></div>`;
+}
+function wgForPick(T,c,bi){const f=S.wgFor;if(!f||f.c!==c||!f.to)return null;return wgTakers(T,c,bi).find(x=>x.id===f.to)||null;}
+/* under your own hex, when your army took it (or it was handed to you after a war) */
+function warGiveHex(c,T){
+  const mi=T.byId[myId()];if(OBS||mi===undefined||!T.occ||!T.occ[c]||T.owner[c]!==mi||T.isCap[c])return '';
+  const o=T.orig[c],from=o>=0&&T.list[o]?T.list[o].n.name:'another nation',to=wgTakers(T,c);
+  if(!to.length)return `<p class="hint" style="margin-top:12px">This hex was taken from ${esc(from)} in war. No other nation’s land touches it, so there is nobody to hand it over to.</p>`;
+  const ask=S.wgAsk&&S.wgAsk.c===c?to.find(x=>x.id===S.wgAsk.to):null;
+  if(ask)return `<div class="wg-ask" role="group" aria-label="Hand this hex over" style="margin-top:14px"><p>Hand this hex to <b>${esc(ask.n.name)}</b>? It becomes theirs at once, and only they can give it back.</p><div class="row" style="margin-top:10px"><button class="btn" data-act="wg-give" data-c="${c}" data-to="${esc(ask.id)}">Hand it over</button><button class="btn ghost" data-act="wg-cancel" data-c="${c}">Cancel</button></div></div>`;
+  const sel=S.wgPick&&S.wgPick.c===c&&to.some(x=>x.id===S.wgPick.to)?S.wgPick.to:to[0].id;
+  return `<div style="margin-top:14px"><label class="lbl" for="wg-to">Hand this hex over</label><div class="name-row" style="margin-top:6px"><select class="input" id="wg-to" data-c="${c}">${to.map(x=>`<option value="${esc(x.id)}"${x.id===sel?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':''}${o>=0&&T.list[o]&&x.id===T.list[o].id?' (it was theirs)':''}</option>`).join('')}</select><button class="btn ghost" type="button" data-act="wg-ask" data-c="${c}">Hand over…</button></div><p class="hint" style="margin-top:6px">This hex was taken from ${esc(from)} in war. You can give it to a nation whose land touches it. It still counts as land taken in war.</p></div>`;
+}
+function warGive(c,to){
+  if(OBS){toast('Observing: nothing can be changed.');return;}
+  S.wgAsk=null;S.wgPick=null;
+  const T=territory(),mi=T.byId[myId()],x=wgTakers(T,c).find(y=>y.id===to);
+  if(mi===undefined||!T.occ[c]||T.owner[c]!==mi||T.isCap[c]||!x){toast('That hex can no longer be handed over.');updateMapPanel();redrawMaps();return;}
+  /* after everything that has happened to the hex, by the server's clock too: a hand-over dated before the conquest it
+     follows (a clock running slow) would find the hex not yet yours, and count for nothing */
+  const now=Date.now(),last=collectConquests(null).list.reduce((m,e)=>e.c===c&&e.t>m?e.t:m,0),n=clone(S.nation);
+  n.bx=(n.bx||[]).concat({c,t:Math.max(now,last+1),to:x.id,fr:myId(),wr:1});
+  n.log.unshift({t:now,k:'hand',a:x.id,b:x.n.name,fx:landName(c)});n.log=n.log.slice(0,60);
+  commit(n);
+  S.mapCell=null;updateMapPanel();redrawMaps();toast(`${n.name} handed a hex ${placePhrase(c)} to ${x.n.name}.`);
+}
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t||!t.dataset)return;
+  if(t.id==='wg-for'){const c=+t.dataset.c;S.wgFor=t.value&&c>=0?{c,to:t.value}:null;}
+  else if(t.id==='wg-to'){const c=+t.dataset.c;if(c>=0)S.wgPick={c,to:t.value};}
+});
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('[data-act]');if(!b||!S.nation)return;const a=b.dataset.act;
+  if(a==='wg-ask'){const s=document.getElementById('wg-to'),c=+b.dataset.c;if(!(c>=0)||!s||!s.value)return;S.wgAsk={c,to:s.value};S.wgPick={c,to:s.value};updateMapPanel();const f=document.querySelector('#map-panel [data-act="wg-give"]');if(f)f.focus();return;}
+  if(a==='wg-cancel'){S.wgAsk=null;updateMapPanel();const f=document.getElementById('wg-to');if(f)f.focus();return;}
+  if(a==='wg-give')warGive(+b.dataset.c,b.dataset.to);
+});
 function peaceButtons(x,ws,small){
   const T=territory(),me=myId(),mine=occupiedFrom(T,T.byId[me],T.byId[x.id]).length,id=esc(x.id),acc=ws.theyOffered&&!ws.iOffered;
   if(ws.iOffered)return `<button class="btn ghost" data-act="peace-withdraw" data-id="${id}">Withdraw the offer</button>`;
@@ -26126,6 +26196,8 @@ function helpBody(n){
       <p>Strength, in brigades, comes from your population, military score, defence spending, science, policies and supplies of iron and oil. Your army has ${READY_BASE} readiness points (${READY_BASE+2} with an Army Reserve), and one returns every 15 minutes (10 with Rapid Mobilisation). Each attack uses one point and costs a little wealth and happiness.</p>
       <h3 class="help-h3">Attacking</h3>
       <p>Select an enemy hex outlined in red on the map. You can strike hexes next to your land or your allies’ land, or up to 3 hexes beyond across unclaimed land or shallow sea, losing 15% of your strength for each hex crossed and 25% more by sea unless you have a Blue-Water Navy. Capitals cannot be taken. The panel shows your chance, between 5% and 95%: hills and mountains, fortresses, walls, defence policies and the hexes around the target all count, and spies can tip it. A computer nation may strike back at once.</p>
+      <h3 class="help-h3">Handing over land</h3>
+      <p>A hex you take in war can go to another nation whose land touches it. Choose who gets it under “If it falls” before you attack, or select the hex later and hand it over. A nation too small for war cannot be given land. The hex still counts as land taken in war, so its new holder can hand it on, or give it back.</p>
       <h3 class="help-h3">Alliance wars</h3>
       <p>Attack a member of an alliance and its allies are at war with you too. When someone attacks your ally, you are at war with the attacker. Allied troops join each other’s attacks and defences, at half strength and less with distance.</p>
       <h3 class="help-h3">Making peace</h3>
@@ -26321,7 +26393,7 @@ NORM_HOOKS.push((n,d)=>{if(Number.isInteger(d.mlk)&&d.mlk>=0&&d.mlk<=MILESTONES.
    At every commit the new record is compared with the one before it (S.nation) and anything new is
    counted. n.tly holds counts, n.tlf the first time each key happened, and n.tlx the lowest and highest
    value each census figure has reached. A record without a tally is counted from what it still holds. */
-const TALLY_MAX=900,TALLY_TARGET_KINDS=new Set(['war','conq','lost','peace','trade','aladmit','caught','cede','take','shared','reply','npcwar','tradeend','incident']);
+const TALLY_MAX=900,TALLY_TARGET_KINDS=new Set(['war','conq','lost','peace','trade','aladmit','caught','cede','hand','take','shared','reply','npcwar','tradeend','incident']);
 function tallyOf(n,k){return (n&&n.tly&&n.tly[k])||0;}
 function tallyFirst(n,k){return (n&&n.tlf&&n.tlf[k])||0;}
 function tallyRange(n,k){const r=n&&n.tlx&&n.tlx[k];return r?{min:r[0],max:r[1]}:{min:n&&n.s?n.s[k]:0,max:n&&n.s?n.s[k]:0};}
@@ -33258,6 +33330,7 @@ const DSP_LOG={
   cityab:{sec:'society',w:4,kick:'Cities',go:'cities',h:['{N} abandons {A1}'],b:'The last resident of {A1}, on {FX}, turned off the lights on the way out.'},
   wonder:{sec:'culture',w:7,kick:'Wonders',go:'cities',h:['{N} completes the {B}','A wonder for {N}: the {B}'],b:'The {B} in {A1} is finished at last. Visitors are asked not to touch it, lean on it or ask how much it cost.'},
   cede:{sec:'world',w:5,kick:'Borders',go:'map',h:['{N} cedes land to {X}'],b:'{N} has handed a border hex on {FX} to {X}. Both sides say it was the right thing to do, which is suspicious.'},
+  hand:{sec:'world',w:6,kick:'War',go:'map',h:['{N} hands conquered land to {X}','Spoils of war go to {X}'],b:'{N} has handed {X} a hex on {FX} that its army took in war. The new owners are still learning the street names.'},
   take:{sec:'world',w:6,kick:'Borders',go:'map',h:['{N} annexes a border hex from {X}'],b:'{N} has taken a border hex on {FX} from {X}. New signposts went up before the old ones came down.'},
   rec:{sec:'business',w:4,kick:'Land',go:'map',h:['{N} wins land from the sea','{N} reclaims {AN} off {FX}'],b:'Engineers from {N} have reclaimed {AN} from the sea off {FX}. The fish have lodged a complaint.'},
   hostwin:{sec:'sport',w:6,kick:'The Games',go:'games',h:['{N} hosts {A1}','{A1} come to {CAP}'],b:'{N} has won the right to host {A1}. Its teams score {HB} more in every event, and its hotels charge considerably more for every room.'},
@@ -33278,7 +33351,7 @@ function dspLogStories(x,C,out,byId){
     const X=nm(l.a)||dspClean(l.b,60)||'a former nation';
     const v={...V,X,A1:dspClean(l.a,60),B:dspClean(l.b,60),FX:dspClean(l.fx,120),RET:l.fx==='return'?', handing back the land it had taken':'',BB:l.b?` ${V.N} is now a ${dspClean(l.b,60)}.`:'',BC:l.b?', '+dspClean(l.b,60)+',':'',AN:l.a==='1'?'a hex':dspClean(l.a,6)+' hexes',HB:String(HOST_BONUS)};
     if(l.k==='retire'&&!l.b)v.BC='';
-    const who=[x.id];if(['war','npcwar','peace','aladmit','alremove','npcleft','trade','tradeend','caught','incident','cede','take'].includes(l.k)&&byId.has(l.a))who.push(l.a);
+    const who=[x.id];if(['war','npcwar','peace','aladmit','alremove','npcleft','trade','tradeend','caught','incident','cede','hand','take'].includes(l.k)&&byId.has(l.a))who.push(l.a);
     out.push({k:k0,t:l.t,sec:D.sec,kick:D.kick,w:D.w,h:dspT(dspPick(D.h,C.no,'h:'+k0),v),b:dspT(D.b,v),who,go:D.go,place:dspPlace(n)});
   }
   for(const g of conq.values()){
@@ -49286,6 +49359,7 @@ function regionHaps(all,now){
     if(l.k==='tradeend')return `${nm} ended a trade deal with ${tg()}.`;
     if(l.k==='shared')return `${nm} raised a matter with ${tg()}.`;
     if(l.k==='cede')return `${nm} ceded a border hex on ${esc(l.fx)} to ${tg()}.`;
+    if(l.k==='hand')return `${nm} handed ${tg()} a hex on ${esc(l.fx)} taken in war.`;
     if(l.k==='take')return `${nm} annexed a border hex on ${esc(l.fx)} from ${tg()}.`;
     if(l.k==='rec')return `${nm} reclaimed ${l.a==='1'?'a hex':esc(l.a)+' hexes'} of land from the sea off ${esc(l.fx)}.`;
     if(l.k==='incident')return `Explorers from ${nm} strayed onto ${tg()}’s land.`;
@@ -61279,8 +61353,9 @@ czShow=(f=>function(id){const u=czU(id);
   return f.apply(this,arguments);})(czShow);
 /* ───────── the map page's "Your map look": how the player's land looks on the world map, from the map itself ─────────
    Under "Your territory" on the map page: the map colour, with every colour there is (the locked ones too, each saying
-   how it is had), and the hex backgrounds (the land finishes, cz te), each drawn in the player's own colour. A colour
-   the player may wear opens Settings › Nation › Map colour with it picked, ready to save; a hex background held opens
+   how it is had), and the hex backgrounds (the land finishes, cz te), each drawn in the player's own colour. Closed
+   until opened (a line with the colour and the background), and kept as the player leaves it. A colour the player may
+   wear is worn at once, saved as Settings saves it and the map drawn again; a hex background held opens
    Customise › Finery › Land. A locked colour from the tutorial says which task earns it; a locked piece of the Shop
    (shown while its pack is on sale) opens that pack's Shop drawer over the map page, not the Shop page. The drawer over
    the map leads with "How it looks on <nation>": the player's own land round the capital as it is now, then in each hex
@@ -61295,14 +61370,36 @@ function mlkLockTxt(p){const pr=shopPrice(p);return `${esc(mlkPack(p))}${pr?` ·
 function mlkLockSay(p){const pr=shopPrice(p);return `${mlkPack(p)} in the Shop${pr?', '+pr:''}`;}
 /* the hex backgrounds to show: held, or for sale (a pack off sale stays out, as in Settings and Customise) */
 function mlkTes(n){return MLK_TE.filter(id=>UNLOCKS[id]).map(id=>({id,p:UNLOCKS[id].src,own:czHolds(n,id,n.cz)})).filter(x=>x.own||shopSells(x.p));}
+/* the card is closed until the player opens it, and stays as they leave it (on this device) */
+const MLK_OPEN='statehood.mlkopen.v1';
+function mlkIsOpen(){if(MLK.open===undefined)try{MLK.open=localStorage.getItem(MLK_OPEN)==='1';}catch(e){MLK.open=false;}return !!MLK.open;}
+function mlkToggle(){MLK.open=!mlkIsOpen();try{localStorage.setItem(MLK_OPEN,MLK.open?'1':'');}catch(e){}
+  updateMapPanel();const b=document.querySelector('#map-panel .mlk-tg');if(b)b.focus({preventScroll:true});}
+const MLK_CV='<svg class="mlk-cv" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+/* a colour chosen on the card is worn at once: saved like Settings saves it, and the map drawn again in it */
+function mlkMcSet(c){
+  const n0=S.nation;if(!n0)return;c=c?safeColor(c,''):'';
+  if(c&&!(tutMapcOk(n0,c)&&ctgMcOk(n0,c)))return;
+  if(safeColor(n0.mapc,'')===c)return;
+  const n=clone(syncInbox(n0,Date.now()));n.mapc=c;commit(n);
+  if(!S.nation||safeColor(S.nation.mapc,'')!==c)return;
+  if(S.settings)S.settings.mapc=c;/* Settings shows it too, any other change waiting there kept */
+  render();redrawMaps();
+  requestAnimationFrame(()=>{const b=document.querySelector(`#map-panel .mlk [data-act="mlk-mc"][data-val="${c}"]`);if(b)b.focus({preventScroll:true});});
+  const nm=c?MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour':'';
+  toast(c?`${nm} is your map colour now, for every player in your region.`:'Your land on the map takes its colour from your flag again.');
+}
 function mlkCard(n){
   if(!n||cellOf(n.loc)<0)return '';
-  if(S.mode==='world'&&!SHOP.cfg){const P=shopStatus();if(P)P.then(()=>{if(S.view==='map'&&SHOP.cfg)updateMapPanel();});}
   let c={};try{c=cz(n)||{};}catch(e){}
   const cur=MLK_TE.includes(c.te)&&UNLOCKS[c.te]?c.te:'',col=nationColor(n),mcN=mlkMcName(n),mc=mcN?safeColor(n.mapc,''):'';
-  const sw=(x,nm,how)=>`<button type="button" class="sw${mc===x?' on':''}" style="--sw:${x}" data-act="mlk-mc" data-val="${x}" aria-label="Map colour: ${esc(nm)}${how?', '+esc(how):''}${mc===x?', worn now':''}" title="${esc(nm)}${how?', '+esc(how):''}"></button>`;
+  const open=mlkIsOpen(),teN=cur?UNLOCKS[cur].n:'Plain';
+  const head=`<h3 class="mlk-h" id="mlk-h"><button type="button" class="mlk-tg" data-act="mlk-tg" aria-expanded="${open}" aria-controls="mlk-b"><span class="mlk-tx"><span class="mlk-tt">Your map look</span><span class="mlk-sum"><span class="hexchip mlk-chip" style="--hx:${col}" aria-hidden="true"></span><span class="mlk-sum-t">${esc(mcN||'Flag colour')} · ${esc(teN)}</span></span></span>${MLK_CV}</button></h3>`;
+  if(!open)return `<section class="mlk" aria-labelledby="mlk-h">${head}<div class="mlk-b" id="mlk-b" hidden></div></section>`;
+  if(S.mode==='world'&&!SHOP.cfg){const P=shopStatus();if(P)P.then(()=>{if(S.view==='map'&&SHOP.cfg)updateMapPanel();});}
+  const sw=(x,nm,how)=>`<button type="button" class="sw${mc===x?' on':''}" style="--sw:${x}" data-act="mlk-mc" data-val="${x}" aria-pressed="${mc===x}" aria-label="Map colour: ${esc(nm)}${how?', '+esc(how):''}" title="${esc(nm)}${how?', '+esc(how):''}"></button>`;
   const locks=[];
-  let sws=Object.keys(MAP_COLORS).map(x=>sw(x,MAP_COLORS[x],'')).join('');
+  let sws=`<button type="button" class="chip-btn mlk-flag${!mc?' on':''}" data-act="mlk-mc" data-val="" aria-pressed="${!mc}">Match my flag</button>`+Object.keys(MAP_COLORS).map(x=>sw(x,MAP_COLORS[x],'')).join('');
   for(const s of tutMapcs()){const nm=s.mapcN;
     if(tutMapcOk(n,s.mapc)){sws+=sw(s.mapc,nm,'earned in the tutorial');continue;}
     const how=mapcHow(n,s);locks.push(`<li>${CZ_LOCK}<span><b>${esc(nm)}</b>: ${esc(how)}</span></li>`);
@@ -61320,15 +61417,15 @@ function mlkCard(n){
   if(tes.length){tiles=`<div class="mlk-tes" role="group" aria-label="Hex backgrounds you have">${tile('','Plain',null)}${tes.filter(x=>x.own).map(x=>tile(x.id,UNLOCKS[x.id].n,x)).join('')}</div>`;
     for(const p of [...new Set(tes.filter(x=>!x.own).map(x=>x.p))])
       tiles+=`<p class="mlk-gh" id="mlk-g-${p}">${CZ_LOCK}<span>${mlkLockTxt(p)}</span></p><div class="mlk-tes" role="group" aria-labelledby="mlk-g-${p}">${tes.filter(x=>!x.own&&x.p===p).map(x=>tile(x.id,UNLOCKS[x.id].n,x)).join('')}</div>`;}
-  return `<section class="mlk" aria-labelledby="mlk-h"><h3 class="mlk-h" id="mlk-h">Your map look</h3>
+  return `<section class="mlk open" aria-labelledby="mlk-h">${head}<div class="mlk-b" id="mlk-b">
     <p class="hint mlk-hint">How ${esc(n.name)} looks on the world map, to every player in your region.</p>
     <div class="mlk-r"><span class="hexchip mlk-chip" style="--hx:${col}" aria-hidden="true"></span><p class="mlk-rt"><span class="mlk-l">Map colour</span><b>${mcN?esc(mcN):'From your flag'}</b></p><button type="button" class="linkish small" data-act="mlk-mc-set">Change in Settings</button></div>
-    <div class="mlk-sws" role="group" aria-label="Map colours: one you may wear opens Settings with it picked">${sws}</div>
+    <div class="mlk-sws" role="group" aria-label="Map colours: choose one to wear it on the map at once">${sws}</div>
     ${locks.length?`<ul class="mlk-locks">${locks.join('')}</ul>`:''}
-    <div class="mlk-r"><p class="mlk-rt"><span class="mlk-l">Hex background</span><b>${cur?esc(UNLOCKS[cur].n):'Plain'}</b></p><button type="button" class="linkish small" data-act="mlk-cz">Change in Customise</button></div>
+    <div class="mlk-r"><p class="mlk-rt"><span class="mlk-l">Hex background</span><b>${esc(teN)}</b></p><button type="button" class="linkish small" data-act="mlk-cz">Change in Customise</button></div>
     ${tiles}
     ${anyLock?'<p class="hint mlk-foot">Choose a locked one to see it on your own land, in the Shop.</p>':''}
-  </section>`;
+  </div></section>`;
 }
 /* the Shop's drawer over the map page: the same drawer as on the Shop page, a step above the map (full screen too) */
 function mlkDrawer(n){
@@ -61360,9 +61457,8 @@ function mlkShop(p,id){
 }
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="mlk-"]');if(!el)return;const a=el.dataset.act,n=S.nation;if(!n)return;
-  if(a==='mlk-mc'){const c=safeColor(el.dataset.val,'');if(!c)return;
-    if(!S.settings||!settingsDirty())S.settings=settingsFrom(n);S.settings.mapc=c;SG.tab='nation';uxOpen('settings',null,'#set-mapc');
-    if(safeColor(n.mapc,'')!==c){const nm=MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour';toast(`${nm} is picked. Save changes to put it on the map.`);}}
+  if(a==='mlk-tg')mlkToggle();
+  else if(a==='mlk-mc'){const v=el.dataset.val||'',c=v?safeColor(v,''):'';if(v&&!c)return;mlkMcSet(c);}
   else if(a==='mlk-mc-set'){SG.tab='nation';uxOpen('settings',null,'#set-mapc');}
   else if(a==='mlk-mc-lock'){const s=TUT_BY[el.dataset.k];if(s)toast(`${s.mapcN} is not yours yet. ${mapcHow(n,s)}`);}
   else if(a==='mlk-cz'){czTabFor('cz-sec-z');uxOpen('customise',null,'.cz-g-te');}/* only the open section of Customise is drawn in full */
@@ -61371,8 +61467,8 @@ document.addEventListener('click',e=>{
 /* closed over the map, the focus goes back to the piece the drawer was opened from */
 shopDrClose=(f=>function(){
   const map=S.view==='map'&&!!SHOP.dr,id=MLK.id,p=SHOP.dr,r=f.apply(this,arguments);MLK.id='';
-  if(map)requestAnimationFrame(()=>{const b=(id&&document.querySelector(`.mlk [data-act="mlk-shop"][data-id="${id}"]`))||document.querySelector(`.mlk [data-act="mlk-shop"][data-p="${p}"]`)||document.getElementById('mlk-h');
-    if(b){if(b.id==='mlk-h')b.setAttribute('tabindex','-1');b.focus({preventScroll:true});}});
+  if(map)requestAnimationFrame(()=>{const b=(id&&document.querySelector(`.mlk [data-act="mlk-shop"][data-id="${id}"]`))||document.querySelector(`.mlk [data-act="mlk-shop"][data-p="${p}"]`)||document.querySelector('.mlk-tg');
+    if(b)b.focus({preventScroll:true});});
   return r;})(shopDrClose);
 /* the pack's map colours in Settings, after the tutorial's: chosen like the others once held, locked (a way to the
    Shop) while the pack is on sale, left out otherwise */
@@ -62769,7 +62865,7 @@ const NTF_KEY='statehood.notif';
 const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum finds and digs',['museum','dig']],['build','Finished buildings',['build']],['city','City reminders: empty blocks, mayors, room for a city',['cxtodo']],['mile','Population milestones',['mile','mile0']],
   ['games','The Games',['games','gres','host','hostwin']],['news','The Dispatch and Flock',['dispatch','flock']],['space','Space and the belt',['space','belt']],['gift','Gifts',['gift']],
   ['wnd','The Great Statue and the Great Lighthouse',['wnd','lth']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']],['rmbre','Replies to your messages on the region board',['rmbre']],['cbre','Replies on Community Board topics you follow',['cbre']],['devnews','Results of development news polls you voted in',['nwpoll']]];
-const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
+const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','hand','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
 const NTF=(()=>{let d={};try{d=JSON.parse(localStorage.getItem(NTF_KEY)||'{}')||{};}catch(e){d={};}
   return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,nvd:d.nvd===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
 function ntfSave(){try{localStorage.setItem(NTF_KEY,JSON.stringify(NTF));}catch(e){}}
@@ -69916,13 +70012,13 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
    leave a ping (mail.ping) that the hourly mail job may turn into a letter for that player, if they asked for one. */
 const ML_KINDS=[['msg','Letters from other nations','Who wrote, never what'],['now','Each letter right away','Instead of in the hourly digest; with the kind above'],['war','War','Wars declared on you, land seized, peace made'],['dip','Diplomacy','Trade deals, alliances, matters raised'],['news','Development news','When the Edictum team posts news'],['away','A reminder when I am away','Once, after 3 days without a visit'],['fc','The flag competition','When your entry still needs you to score flags']];
-const ML_PING={war:'war',conq:'conq',peace:'peace',trade:'trade',shared:'shared',alremove:'alremove',aladmit:'aladmit',cede:'cede'};
+const ML_PING={war:'war',conq:'conq',peace:'peace',trade:'trade',shared:'shared',alremove:'alremove',aladmit:'aladmit',cede:'cede',hand:'cede'};
 const ML={st:null,busy:false,err:'',msg:'',email:'',code:'',edit:false,loading:false,tries:0,retryAt:0};
 /* the "Confirm in one click" button in the confirmation letter opens /?mailcode=<code>#settings: the code is taken
    from the address at once, and confirmed as soon as the Herald says a code is waiting for this account */

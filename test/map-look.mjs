@@ -1,9 +1,11 @@
 // "Your map look" on the World map page (2026-11-16, the owner: "on the map page, add a section that links to the map
 // color in settings, also show locked ones and show the shop page in a modal that shows what each hex background looks
 // like for the nation"; ideas 1, 3, 5, 7, 8, 10 and 13). Under "Your territory": every map colour, the locked ones saying
-// how they are had, a colour opening Settings with it picked; the hex backgrounds (land finishes) in the player's own
-// colour, a held one opening Customise, a locked one opening its pack's Shop drawer over the map page, led by "How it
-// looks on <nation>" and its try-on. Escape, the scrim, focus, the full-screen map, a phone in the dark theme.
+// how they are had; the hex backgrounds (land finishes) in the player's own colour, a held one opening Customise, a
+// locked one opening its pack's Shop drawer over the map page, led by "How it looks on <nation>" and its try-on. Escape,
+// the scrim, focus, the full-screen map, a phone in the dark theme. Then (the owner: "make it collapsed by default, and
+// make changing the color here, also directly change it on the map"): closed at first as one line, kept open once
+// opened; a colour chosen on it is worn at once, the map drawn again.
 //   python3 build.py
 //   node test/map-look.mjs
 // It serves public/ itself, so the game runs in its local mode (no emulators). Screenshots go to test/out/.
@@ -58,11 +60,17 @@ async function start(theme, viewport, opt = {}) {
 }
 const toasts = page => page.evaluate(() => (window.__toasts || []).join(' | '));
 /* the land office offers a block again each time the map is entered while the first credits wait: put it aside */
-const calm = async page => { await page.evaluate(() => { const b = [...document.querySelectorAll('#map-panel button')].find(x => /^Cancel$/.test(x.textContent.trim())); if (b) b.click(); }); await page.waitForSelector('#map-panel .mlk', { timeout: 4000 }).catch(() => {}); };
+const office = async page => { await page.evaluate(() => { const b = [...document.querySelectorAll('#map-panel button')].find(x => /^Cancel$/.test(x.textContent.trim())); if (b) b.click(); }); await page.waitForSelector('#map-panel .mlk', { timeout: 4000 }).catch(() => {}); };
+/* ...and the card opened, when it is closed */
+const calm = async page => { await office(page); await page.evaluate(() => { const b = document.querySelector('#map-panel .mlk-tg[aria-expanded="false"]'); if (b) b.click(); }); await page.waitForSelector('#map-panel .mlk-sws', { timeout: 4000 }).catch(() => {}); };
+const shut = page => page.evaluate(() => { const c = document.querySelector('#map-panel .mlk'), s = c?.querySelector('.mlk-sum'); if (!c) return null;
+  return { exp: c.querySelector('.mlk-tg')?.getAttribute('aria-expanded'), body: !!c.querySelector('.mlk-sws, .mlk-t, .mlk-hint'), hidden: !!c.querySelector('#mlk-b')?.hidden, sum: s && getComputedStyle(s).display !== 'none' ? s.textContent : '', h: Math.round(c.getBoundingClientRect().height) }; });
+/* the main map's picture, to tell whether it was drawn again */
+const mapPic = page => page.evaluate(() => { const v = document.querySelector('canvas.map-cv'); try { return v ? v.toDataURL() : ''; } catch (e) { return ''; } });
 /* the Shop as the server would have it: these three packs on sale (no Paddle prices in local mode) */
 const sells = page => page.evaluate(() => { const G = window.__game; G.SHOP.SHOP.localAsked = true; G.SHOP.SHOP.cfg = { on: true, env: 'live', token: '', prices: { cartopack: 'pri_c', mayapack: 'pri_m', founder: 'pri_f' }, now: Date.now(), until: Date.UTC(2027, 1, 2) }; G.render(); });
 const card = page => page.evaluate(() => { const c = document.querySelector('#map-panel .mlk'); if (!c) return null;
-  return { h: c.querySelector('#mlk-h')?.textContent, colour: c.querySelector('.mlk-r b')?.textContent, free: c.querySelectorAll('.mlk-sws .sw:not(.sw-lock)').length, lockSw: [...c.querySelectorAll('.mlk-sws .sw-lock')].map(b => b.dataset.act + ':' + (b.dataset.k || b.dataset.mc)),
+  return { h: c.querySelector('.mlk-tt')?.textContent, flag: c.querySelector('.mlk-flag')?.getAttribute('aria-pressed'), colour: c.querySelector('.mlk-r b')?.textContent, free: c.querySelectorAll('.mlk-sws .sw:not(.sw-lock)').length, lockSw: [...c.querySelectorAll('.mlk-sws .sw-lock')].map(b => b.dataset.act + ':' + (b.dataset.k || b.dataset.mc)),
     on: c.querySelector('.mlk-sws .sw.on')?.style.getPropertyValue('--sw'), locks: [...c.querySelectorAll('.mlk-locks li')].map(l => l.textContent.trim()),
     tiles: [...c.querySelectorAll('.mlk-t')].map(t => ({ id: t.dataset.id || '', act: t.dataset.act, lock: t.classList.contains('lock'), on: t.classList.contains('on'), n: t.querySelector('.mlk-tn').textContent, s: t.querySelector('.mlk-ts')?.textContent || '', svg: !!t.querySelector('svg.ctg-land') })),
     te: c.querySelectorAll('.mlk-r b')[1]?.textContent, groups: [...c.querySelectorAll('.mlk-gh')].map(g => g.textContent.trim()), foot: !!c.querySelector('.mlk-foot') }; });
@@ -74,9 +82,16 @@ try {
   /* ── desktop, light ── */
   {
     const t = await start('light', { width: 1280, height: 900 }), { page, edit, go, act } = t;
+    /* closed at first: one line, the colour and the hex background */
+    await office(page); let z = await shut(page);
+    check('the card is closed at first: one line with the colour and the hex background, nothing else drawn', z && z.exp === 'false' && !z.body && z.hidden && z.sum === 'Flag colour · Plain' && z.h < 70, z);
+    await page.locator('#map-panel .mlk').screenshot({ path: path.join(OUT, 'map-look-closed.png') });
+    await page.click('#map-panel .mlk-tg'); await sleep(200);
+    z = await page.evaluate(() => ({ exp: document.querySelector('#map-panel .mlk-tg')?.getAttribute('aria-expanded'), sws: !!document.querySelector('#map-panel .mlk-sws'), focus: !!document.activeElement?.classList.contains('mlk-tg'), ls: localStorage.getItem('statehood.mlkopen.v1') }));
+    check('opened, it shows the colours, the focus stays on its button, and it is remembered', z.exp === 'true' && z.sws && z.focus && z.ls === '1', z);
     await calm(page); let c = await card(page);
     check('the map panel has "Your map look" under Your territory', c && c.h === 'Your map look' && await page.evaluate(() => { const p = document.getElementById('map-panel'), m = p.querySelector('.mlk'), b = p.querySelector('[data-act="map-me"]'); return !!b && !!(b.compareDocumentPosition(m) & Node.DOCUMENT_POSITION_FOLLOWING); }), c);
-    check('the colour comes from the flag, with the twelve colours to pick from', c.colour === 'From your flag' && c.free === 12 && !c.on, c);
+    check('the colour comes from the flag (Match my flag pressed), with the twelve colours to pick from', c.colour === 'From your flag' && c.flag === 'true' && c.free === 12 && !c.on, c);
     check('the tutorial’s Orchid is shown locked, saying which task earns it', c.lockSw.length === 1 && c.lockSw[0] === 'mlk-mc-lock:rmb' && c.locks.length === 1 && /^Orchid: Earned by the tutorial task “.+”/.test(c.locks[0]), c);
     check('with nothing for sale and nothing held, no hex backgrounds are offered', c.tiles.length === 0 && c.te === 'Plain' && !c.foot, c.tiles);
 
@@ -132,21 +147,28 @@ try {
     await calm(page); await page.click('#map-panel .mlk-sws [data-act="mlk-mc-lock"]'); await sleep(300);
     check('the locked Orchid says how it is earned (after the founding toasts)', await until(async () => /Orchid is not yours yet\. Earned by the tutorial task/.test(await toasts(page)), 30000), await toasts(page));
 
-    /* a colour opens Settings with it picked, ready to save */
-    await calm(page); await page.click('#map-panel .mlk-sws .sw[data-val="#2A9D8F"]');
-    await until(() => page.evaluate(() => window.__game.S.view === 'settings'));
-    await sleep(500);
-    const st = await page.evaluate(() => { const r = document.getElementById('set-mapc')?.getBoundingClientRect();
-      return { mapc: window.__game.S.settings.mapc, tab: document.querySelector('#sg-tab-nation')?.getAttribute('aria-selected'), on: document.querySelector('#set-mapc .sw.on')?.dataset.val, seen: !!r && r.top >= 0 && r.top < innerHeight, dirty: /unsaved/.test(document.getElementById('s-dirty')?.textContent || '') }; });
-    check('Teal opens Settings › Nation › Map colour with Teal picked and the save waiting', st.mapc === '#2A9D8F' && st.tab === 'true' && st.on === '#2A9D8F' && st.seen && st.dirty, st);
-    check('a toast says to save it', await until(async () => /Teal is picked\. Save changes to put it on the map\./.test(await toasts(page)), 30000), await toasts(page));
-    await page.click('#sg-save button[type="submit"]'); await sleep(400);
-    await go('map');
-    await calm(page); c = await card(page);
-    check('saved, the card shows Teal worn', c.colour === 'Teal' && c.on === '#2A9D8F', c);
+    /* a colour chosen on the card is worn at once: saved, the map drawn again in it, still on the map page */
+    await calm(page);
+    const pic0 = await mapPic(page); await sleep(800); const pic1 = await mapPic(page);
+    await page.click('#map-panel .mlk-sws .sw[data-val="#2A9D8F"]'); await sleep(800);
+    const pic2 = await mapPic(page); c = await card(page);
+    const worn = await page.evaluate(() => ({ mapc: window.__game.S.nation.mapc, view: window.__game.S.view, hash: location.hash, focus: document.activeElement?.dataset?.val, pressed: document.querySelector('#map-panel .mlk-sws .sw[data-val="#2A9D8F"]')?.getAttribute('aria-pressed') }));
+    check('Teal on the card is worn at once: saved on the nation, still on the map, the card showing it', worn.mapc === '#2A9D8F' && worn.view === 'map' && worn.hash === '#map' && c.colour === 'Teal' && c.on === '#2A9D8F' && c.flag === 'false' && worn.pressed === 'true' && worn.focus === '#2A9D8F', { worn, c });
+    check('the map is drawn again in Teal (its picture still before, changed after)', !!pic0 && pic0 === pic1 && pic1 !== pic2, { still: pic0 === pic1, changed: pic1 !== pic2, len: pic0.length });
+    check('a toast says it is on the map', await until(async () => /Teal is your map colour now, for every player in your region\./.test(await toasts(page)), 30000), await toasts(page));
+    await page.locator('#map-panel .mlk').screenshot({ path: path.join(OUT, 'map-look-card-teal.png') });
     await calm(page); await page.click('#map-panel .mlk [data-act="mlk-mc-set"]');
     check('"Change in Settings" opens the map colour', await until(() => page.evaluate(() => window.__game.S.view === 'settings' && document.querySelector('#sg-tab-nation')?.getAttribute('aria-selected') === 'true' && !!document.getElementById('set-mapc'))));
+    await sleep(300);
+    const sg = await page.evaluate(() => ({ on: document.querySelector('#set-mapc .sw.on')?.dataset.val, dirty: /unsaved/.test(document.getElementById('s-dirty')?.textContent || '') }));
+    check('Settings has Teal saved, nothing waiting to save', sg.on === '#2A9D8F' && !sg.dirty, sg);
     await go('map');
+    await office(page); z = await shut(page);
+    check('back on the map, the card is still open', z && z.exp === 'true' && z.body && !z.hidden, z);
+    await calm(page); await page.click('#map-panel .mlk-flag'); await sleep(600); c = await card(page);
+    check('"Match my flag" takes the colour back to the flag at once', await page.evaluate(() => !window.__game.S.nation.mapc) && c.colour === 'From your flag' && c.flag === 'true' && !c.on, c);
+    await page.click('#map-panel .mlk-tg'); await sleep(200); z = await shut(page);
+    check('closed again, it stays closed', z.exp === 'false' && !z.body && await page.evaluate(() => localStorage.getItem('statehood.mlkopen.v1') === ''), z);
 
     /* held finishes: worn, held, and the way to Customise (open once the nation is past its charter) */
     await edit(n => { delete n.onb; const c = n.cz || {}; n.cz = Object.assign({}, c, { u: [...new Set([...(c.u || []), 'te-hatch', 'te-stipple', 'te-wash', 'te-grid', 'tb-survey', 'tb-pearl', 'tb-ribbon', 'hx-prussian', 'hx-carmine', 'hx-sap', 'pn-windrose', 't-surveyor', 'pl-blueprint'])], te: 'te-wash' }); });
@@ -182,6 +204,8 @@ try {
   {
     const t = await start('dark', { width: 390, height: 844 }, { phone: true }), { page } = t;
     await sells(page); await sleep(300);
+    await office(page); const z = await shut(page);
+    check('phone: the card is closed at first in the map’s sheet', z && z.exp === 'false' && !z.body && z.sum === 'Flag colour · Plain', z);
     await calm(page); const c = await card(page);
     check('phone: the card is in the map’s sheet, with its tiles', c && c.tiles.length === 7, c);
     const wide = await page.evaluate(() => { const m = document.querySelector('#map-panel .mlk'), r = m.getBoundingClientRect(), p = document.getElementById('map-panel').getBoundingClientRect(); return { over: document.documentElement.scrollWidth - innerWidth, r: Math.round(r.right), p: Math.round(p.right) }; });
