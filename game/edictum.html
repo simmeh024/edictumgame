@@ -5831,6 +5831,8 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adst-pick{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:18px 0 6px}
 .adst-pick .field{flex:0 1 280px;margin:0}
 .adst-sec{margin-top:34px}
+.cug-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px 18px;margin-top:10px}.cug-f{margin:0;min-width:0}.cug-f svg{width:100%;height:auto;display:block}.cug-f figcaption{margin-top:4px}
+.cug-toks{grid-column:1/-1;display:grid;gap:6px}.cug-tok{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.cug-tok b{min-width:90px}.cug-sw{display:inline-block;width:18px;height:18px;border-radius:4px;border:1px solid var(--rule);vertical-align:middle}
 .adst-sec>.h2{margin:0 0 4px}
 .adst-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px 28px;margin-top:14px}
 .adst-fig{margin:0;min-width:0}
@@ -6885,6 +6887,29 @@ span.nw-tag{cursor:default}
 @keyframes m50-shake{0%,80%,100%{transform:none}84%{transform:rotate(-5deg)}88%{transform:rotate(5deg)}92%{transform:rotate(-3deg)}}
 @keyframes m50-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.m50-box,.m50-cf{animation:none}.m50-lid,.m50-bow{transition:none}}
+/* the 100-nation gift (m100-): two boxes side by side on the 50-player gift's frame and box (m50-), each opened on its own */
+.m100{max-width:540px}.m100 [hidden]{display:none!important}
+/* taller than a short phone once open: it scrolls, centred while it fits */
+.m100-bg{align-items:flex-start;overflow-y:auto;overscroll-behavior:contain}.m100-bg .m100{margin:auto}
+.m100-sh svg{width:26px;height:31px}
+.m100-boxes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 2px;align-items:start}
+.m100-gift{display:flex;flex-direction:column;align-items:center;min-width:0}
+.m100 .m100-gift .m50-box{margin:14px auto 4px}
+.m100-b1 .m50-body{background:#6e4a29}.m100-b1 .m50-lid{background:#8f6236}
+.m100-b2 .m50-body{background:#4a1238}.m100-b2 .m50-lid{background:#7a1f5c}
+.m100 .m100-n{margin:0;font-weight:600;font-size:14px}
+.m100-gift.open .m50-box{animation:none;cursor:default}
+.m100-gift.open .m50-lid,.m100-gift.open .m50-bow{transform:translateY(-70px) rotate(-28deg);opacity:0}
+.m100-got{display:none;width:100%;margin-top:6px}.m100-gift.open .m100-got{display:block;animation:m50-in .5s .35s both}
+.m100 .m100-big{margin:0 0 4px;font-size:13px}.m100-big b{font-size:16px}
+.m100-list{list-style:none;margin:0;padding:8px;display:grid;gap:5px;font-size:13px;text-align:left;border:1px solid rgba(176,141,60,.45);border-radius:6px}
+.m100-list li{display:flex;align-items:center;gap:8px;min-width:0}
+.m100-list .r-ic{width:20px;height:20px;margin:0}.m100-list .r-ic svg{width:12px;height:12px}
+.m100-reg li>span:last-child{display:flex;flex-direction:column;line-height:1.2;min-width:0}.m100-reg small{opacity:.75;font-size:11px}
+.m100-pt{flex:none;width:46px}.m100-mc{width:24px;height:21px;margin:0 11px}.m100-sh{flex:none;width:46px;text-align:center}.m100-sh svg{width:22px;height:26px}
+.m100 .m100-say{margin:8px 0 0}.m100-foot{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:8px}
+.m100-foot .btn{min-width:140px}
+@media (max-width:420px){.m100{padding:18px 12px 12px}.m100-boxes{gap:8px}.m100-list{padding:6px;font-size:12px}.m100-pt{width:38px}.m100-sh{width:30px}.m100-mc{margin:0 4px}}
 /* Supply Caches: the dialog that sends one and the crate that opens one (sc-), on the 50-player gift's frame (m50-bg, m50) */
 .sc-dlg{max-width:470px;text-align:left;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto}
 .sc-dlg .h2{margin:4px 0 4px}
@@ -20500,7 +20525,14 @@ function landName(i){const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.na
 function placePhrase(i){if(isLake(i))return 'on a lake in '+lakeShore(i);const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?placeIn(i)+' '+c.name:'on a remote islet';}
 /* the Cartographer's Pack's map colours (UNLOCKS hx-…, see the pack): a nation shows one only while it holds it */
 const CTG_MC={'#2B4C7E':['hx-prussian','Prussian Blue'],'#A3243B':['hx-carmine','Carmine'],'#6B7F2A':['hx-sap','Sap Green']};
-function ctgMcOk(n,c){const m=CTG_MC[c];if(!m)return true;try{return !!czHolds(n,m[0],n&&n.cz);}catch(e){return false;}}
+/* the 100-nation gift (see that section): n.m100 holds the boxes opened as bits, 1 the supplies (M100_N of every
+   material), 2 the Triumph regalia, whose map colour is M100_MC. Kept here, ahead of everything that asks. */
+const M100_N=100,M100_MC='#7A1F5C',M100_MCN='Triumph Purple';
+const m100Bits=n=>n&&Number.isInteger(n.m100)?n.m100&3:0;
+const m100Got=n=>!!n&&!n.npc&&(m100Bits(n)&2)===2;
+const mcGiftName=c=>c===M100_MC?M100_MCN:'';
+/* may this nation wear this map colour: the pack's while held, the gift's once its box is open, any other always */
+function ctgMcOk(n,c){if(c===M100_MC)return m100Got(n);const m=CTG_MC[c];if(!m)return true;try{return !!czHolds(n,m[0],n&&n.cz);}catch(e){return false;}}
 function nationColor(n){const c=safeColor(n&&n.mapc,'');return (c&&ctgMcOk(n,c)?c:'')||mapColor(n&&n.flag);}
 function mapColor(f){
   const cs=(f&&Array.isArray(f.c))?f.c:DEF_FLAG.c;
@@ -27927,15 +27959,17 @@ document.addEventListener('click',e=>{
    u (which a forger could fake, an accepted risk). Personal display settings stay in this browser. */
 const czHas=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 const czU=id=>czHas(UNLOCKS,id)?UNLOCKS[id]:null;
-const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner',kite:'Norman kite',round:'Roundel',polish:'Polish',tudor:'Tudor',mural:'Mural',royal:'Royal crown',midnight:'Midnight Tag',scutum:'Scutum',rope:'Rope-edge',gothic:'Gothic arch',bouche:'Bouche',gable:'Stepped Gable',zimbabwe:'Great Zimbabwe'};
+const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner',kite:'Norman kite',round:'Roundel',polish:'Polish',tudor:'Tudor',mural:'Mural',royal:'Royal crown',midnight:'Midnight Tag',scutum:'Scutum',rope:'Rope-edge',gothic:'Gothic arch',bouche:'Bouche',gable:'Stepped Gable',triumph:'Triumphal arch',zimbabwe:'Great Zimbabwe'};
 /* shields sold in the Shop, each with the piece that unlocks it */
 const CZ_SH_SHOP={midnight:'sh-midnight',scutum:'sh-scutum',rope:'sh-rope',gable:'sh-gable',zimbabwe:'sh-zimbabwe'};
 /* shields that open with the nation's growth: the Mural shield, its top a town wall, with five cities (kept once chosen) */
 const CZ_SH_CITY={mural:5};
-/* the Royal crown shield came in the 50-player gift (n.m50), kept once chosen */
-const CZ_SH_GIFT={royal:1};
-const czShOk=(n,s)=>CZ_SH_SHOP[s]?(!!n&&(czMine().has(CZ_SH_SHOP[s])||!!(cz(n).a&&cz(n).a.s===s))):CZ_SH_GIFT[s]?!!n&&(n.m50===1||!!(cz(n).a&&cz(n).a.s===s)):!CZ_SH_CITY[s]||(!!n&&((n.cities||[]).length>=CZ_SH_CITY[s]||!!(cz(n).a&&cz(n).a.s===s)));
-const czShHow=s=>s==='midnight'?'Part of the Black Friday Pack in the Shop.':s==='scutum'?'Part of the Old Republic Pack in the Shop.':s==='rope'?'Part of the Age of Sail Pack in the Shop.':s==='gable'?'Part of the Tulip Mania Pack in the Shop.':s==='zimbabwe'?'Part of the African Kingdoms Pack in the Shop.':CZ_SH_GIFT[s]?`The ${CZ_SHIELDS[s]} shield was a gift to the nations that were here when Edictum reached 50 players.`:`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
+/* shields that came in a milestone's gift, kept once chosen: the Royal crown in the 50-player gift (n.m50), the
+   Triumphal arch in the 100-nation gift's regalia (n.m100, m100Got) */
+const CZ_SH_GIFT={royal:50,triumph:100};
+const czShGot=(n,s)=>CZ_SH_GIFT[s]===100?m100Got(n):n.m50===1;
+const czShOk=(n,s)=>CZ_SH_SHOP[s]?(!!n&&(czMine().has(CZ_SH_SHOP[s])||!!(cz(n).a&&cz(n).a.s===s))):CZ_SH_GIFT[s]?!!n&&(czShGot(n,s)||!!(cz(n).a&&cz(n).a.s===s)):!CZ_SH_CITY[s]||(!!n&&((n.cities||[]).length>=CZ_SH_CITY[s]||!!(cz(n).a&&cz(n).a.s===s)));
+const czShHow=s=>s==='midnight'?'Part of the Black Friday Pack in the Shop.':s==='scutum'?'Part of the Old Republic Pack in the Shop.':s==='rope'?'Part of the Age of Sail Pack in the Shop.':s==='gable'?'Part of the Tulip Mania Pack in the Shop.':s==='zimbabwe'?'Part of the African Kingdoms Pack in the Shop.':CZ_SH_GIFT[s]?`The ${CZ_SHIELDS[s]} shield was a gift to the nations that were here when Edictum reached ${CZ_SH_GIFT[s]===100?'100 nations':'50 players'}.`:`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
 const CZ_TINCT={or:['Or','#E2B13C'],argent:['Argent','#F2F1EA'],gules:['Gules','#C0282D'],azure:['Azure','#2457A6'],vert:['Vert','#23804A'],purpure:['Purpure','#743A8E'],rose:['Rose','#E07AAA'],tenne:['Tenné','#D0671F'],celeste:['Celeste','#6FA8DC'],murrey:['Murrey','#8A2846'],cendree:['Cendrée','#9EA3A8'],brunatre:['Brunâtre','#7A4A28'],carnation:['Carnation','#EDB68F'],sable:['Sable','#1E1E1E'],
   lime:['Lime','#7CC93A'],turq:['Turquoise','#1FA6A0'],nuit:['Night blue','#17224D'],gilt:['Shining gold','#E6B640']};
 /* Shining gold is a metal, painted with a glint that sweeps across it (czGiltDef) */
@@ -28265,6 +28299,8 @@ function czShieldPath(s){switch(s){
   case 'gothic':return 'M50,3Q76,8 94,24V58C94,88 74,104 50,116C26,104 6,88 6,58V24Q24,8 50,3Z';
   case 'bouche':return 'M6,6H62Q64,22 80,22Q90,22 94,14V56C94,88 74,104 50,116C26,104 6,88 6,56Z';
   case 'scutum':return 'M18,4H82Q92,4 92,14Q95,60 92,106Q92,116 82,116H18Q8,116 8,106Q5,60 8,14Q8,4 18,4Z';
+  /* the 100-nation gift: a triumphal arch's rounded attic rising from square shoulders */
+  case 'triumph':return 'M6,24H22C22,11 34,3 50,3C66,3 78,11 78,24H94V58C94,90 74,106 50,117C26,106 6,90 6,58Z';
   default:return 'M6,6H94V48C94,80 74,102 50,116C26,102 6,80 6,48Z';}}
 function czDivBody(d,b,sp){
   const R=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${b}"/>`,P=p=>`<path d="${p}" fill="${b}"/>`,K=(p,w)=>`<path d="${p}" fill="none" stroke="${b}" stroke-width="${w}"/>`;
@@ -46604,10 +46640,33 @@ const CU_SYM={dollar:'$',pound:'£',lira:'₤',mark:'₥',crown:'Cr',krona:'kr',
 const CU_SUB={pound:'penny',shilling:'penny',ruble:'kopek',rouble:'kopek',krona:'öre',krone:'øre',mark:'pfennig',lira:'centesimo',franc:'centime',peso:'centavo',real:'centavo',yen:'sen',dinar:'fils',rupee:'paisa'};
 const CU_NF={en:[',','.','1,234.56'],eu:['.',',','1.234,56'],ch:['’','.','1’234.56'],sp:['\u202f',',','1 234,56']};
 const CU_SNS=[1,10,100,1000],CU_DENOMS=[1,2,5,10,20,50,100,200,500,1000],CU_COINS=[1,2,5,10,20,50];
-const CU_PATS={guilloche:'Guilloche rosette',waves:'Engraved waves',lattice:'Lattice',laurel:'Laurel',sunburst:'Sunburst',banner:'Your banner’s pattern',moire:'Moiré',basket:'Basketweave',mosaic:'Mosaic',stars:'Constellation',filigree:'Filigree',deco:'Art Deco',acanthus:'Acanthus',tulip:'Tulips',numerals:'Dots and Bars',manuscript:'Timbuktu Manuscript',cowrie:'Cowrie Shells'};
+const CU_PATS={guilloche:'Guilloche rosette',seeded:'Your own guilloché',waves:'Engraved waves',lattice:'Lattice',laurel:'Laurel',sunburst:'Sunburst',banner:'Your banner’s pattern',moire:'Moiré',basket:'Basketweave',mosaic:'Mosaic',stars:'Constellation',filigree:'Filigree',deco:'Art Deco',acanthus:'Acanthus',tulip:'Tulips',numerals:'Dots and Bars',manuscript:'Timbuktu Manuscript',cowrie:'Cowrie Shells'};
 const CU_EMBS={arms:'Coat of arms',flag:'Flag emblem',seal:'Seal of state',none:'None'};
 const CU_POR={leader:'The leader',capital:'The capital',animal:'The national animal',arms:'The arms'};
 const CU_FLS={l:'Left',r:'Right',n:'None'};
+/* the note design system: a layout places the parts, an era sets the inks, paper and type (eras after Engraved and
+   Antique are opened by the nation's growth, see cuEraOpen); presets set several choices at once */
+const CU_LAYS={classic:'Classic',modern:'Modern',minimal:'Minimal',ornate:'Ornate'};
+const CU_ERAS={classic:'Engraved',antique:'Antique',deco:'Art Deco',polymer:'Polymer',future:'Futurist'};
+const CU_FLAV={
+  northern:{nm:'Northern',c1:'#2D3E6B',c2:'#7FA7C9',pat:'waves',lay:'minimal',era:'classic'},
+  desert:{nm:'Desert',c1:'#B5793A',c2:'#6B3A1F',pat:'sunburst',lay:'ornate',era:'antique'},
+  island:{nm:'Island',c1:'#1D7A7A',c2:'#E2A33B',pat:'seeded',lay:'modern',era:'classic'},
+  imperial:{nm:'Imperial',c1:'#5B2A6B',c2:'#C9961A',pat:'acanthus',lay:'ornate',era:'classic'},
+  republic:{nm:'Republic',c1:'#1D6A5C',c2:'#7A2E2E',pat:'guilloche',lay:'classic',era:'classic'},
+  frontier:{nm:'Frontier',c1:'#6B5B3A',c2:'#2D4A2B',pat:'lattice',lay:'classic',era:'antique'}};
+/* contrast ratio of two colours (WCAG): 1 to 21 */
+function cuContrast(a,b){const L=h=>{const c=cuHex(h)||'#808080',v=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255).map(u=>u<=0.03928?u/12.92:Math.pow((u+0.055)/1.055,2.4));return 0.2126*v[0]+0.7152*v[1]+0.0722*v[2];};const x=L(a),y=L(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);}
+/* a note's ground and the ink printed on it, so the value reads on a phone: the ink with more contrast, and the
+   ground nudged away from it until the two are at least 4.5 : 1 apart */
+function cuLegible(c1){
+  const D='#16201E',P='#F6F1E2';let g=cuHex(c1)||'#1D6A5C';const ink=cuContrast(g,D)>=cuContrast(g,P)?D:P,to=ink===D?'#FFFFFF':'#000000';
+  const mix=(a,b,t)=>{const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));const x=p(a),y=p(b);return '#'+x.map((v,i)=>Math.round(v+(y[i]-v)*t).toString(16).padStart(2,'0')).join('').toUpperCase();};
+  let k=0;while(cuContrast(g,ink)<4.5&&k<16){g=mix(g,to,.08);k++;}
+  return {c1:g,ink,dark:ink===P,moved:k>0};
+}
+/* how a value is told apart without colour: the tactile marks (shape and count) a note of den carries */
+function cuDenTier(den){const i=CU_DENOMS.indexOf(den);if(i<0)return {sh:'dot',k:1};return {sh:['dot','dot','bar','bar','tri','tri','sq','sq','dia','star'][i]||'dot',k:i%2+1};}
 const CU_METALS={gold:['Gold','#E3B341','#8A6410'],silver:['Silver','#D3DADC','#6F7B80'],copper:['Copper','#C9804F','#7A3F1D'],bi:['Bimetallic','#E3B341','#D3DADC'],
   rose:['Rose gold','#E2A98E','#7E4330'],platinum:['Platinum','#E7E8EA','#5D646B'],black:['Black nickel','#3E444A','#D8DDE2'],
   patina:['Patina','#7FAF97','#1F4236']};
@@ -46633,6 +46692,7 @@ function cuNoteClean(r){
   for(const k of ['c1','c2']){const c=cuHex(r[k]);if(c)o[k]=c;}
   if(cuHas(CU_PATS,r.pat))o.pat=r.pat;if(cuHas(CU_EMBS,r.emb))o.emb=r.emb;if(cuHas(CU_FLS,r.fl))o.fl=r.fl;if(cuHas(CU_POR,r.por))o.por=r.por;
   if(CU_DENOMS.includes(r.den))o.den=r.den;if([0,1,2,3,4].includes(r.strip))o.strip=r.strip;
+  if(cuHas(CU_LAYS,r.lay))o.lay=r.lay;if(cuHas(CU_ERAS,r.era))o.era=r.era;
   return Object.keys(o).length?o:null;
 }
 function cuCoinClean(r){
@@ -46667,7 +46727,7 @@ function cuDefault(n){
   const sy=CU_SYM[last]||cuSymClean(unit.charAt(0).toUpperCase()+unit.slice(1,2))||'¤';
   const yr=n.founded>0?new Date(n.founded).getUTCFullYear():0;
   return {nm,pl:'',cd:cuCodeOf(n.name,unit),sy,su:CU_SUB[last]||'cent',sn:100,sp:'b',nf:'en',mo:'',
-    note:{c1:cuHex(f[0])||'#1D6A5C',c2:cuHex(f[1])||'#6A3DB3',pat:'guilloche',emb:'arms',fl:'l',den:100,strip:1,por:'leader'},
+    note:{c1:cuHex(f[0])||'#1D6A5C',c2:cuHex(f[1])||'#6A3DB3',pat:'guilloche',emb:'arms',fl:'l',den:100,strip:1,por:'leader',lay:'classic',era:'classic'},
     coin:{met:'bi',shape:'round',emb:'arms',den:1,dk:'u',ins:'',yr:1},year:yr};
 }
 /* a nation's currency, whole: the suggestion with the player's choices over it */
@@ -46855,6 +46915,8 @@ function cuPattern(pat,id,ink,n){
         for(let i=0;i<bars;i++){b+=`<rect x="${bx+3}" y="${cuR2(y-1.5)}" width="10" height="1.5" rx=".6" fill="none" stroke="${ink}" stroke-width=".45"/>`;y-=2.7;}
         for(let i=0;i<dots;i++)b+=`<circle cx="${cuR2(bx+8+(i-(dots-1)/2)*2.5)}" cy="${cuR2(y-.6)}" r=".85" fill="${ink}"/>`;return b;};
       return P(40,40,blk(2,2,7)+blk(22,2,13)+blk(2,22,0)+blk(22,22,19));}
+    /* the nation's own: curves from its seed (cuGuilloche) */
+    case 'seeded':return `<g id="${id}">${cuGuilloche(String(n.seed||n.name||''),160,80,150,ink,4,.35)}</g>`;
     case 'banner':{try{const p=cz(n).p;if(p&&p!=='p-plain')return `<g id="${id}" transform="scale(.32 .5)" fill="none" stroke="${ink}" stroke-width="1.2">${czPatSVG(p,hash(n.name||'')%9973,1).replace(/<svg\b[^>]*>|<\/svg>/g,'')}</g>`;}catch(e){}}
     /* falls through: a banner with no pattern gets the rosette */
     default:{let b='';for(let i=0;i<30;i++)b+=`<ellipse cx="160" cy="80" rx="118" ry="38" transform="rotate(${i*6} 160 80)" fill="none" stroke="${ink}" stroke-width=".35"/>`;for(let i=0;i<24;i++)b+=`<ellipse cx="160" cy="80" rx="54" ry="20" transform="rotate(${i*7.5} 160 80)" fill="none" stroke="${ink}" stroke-width=".35"/>`;return `<g id="${id}">${b}</g>`;}
@@ -46914,7 +46976,7 @@ function cuBeastArt(id,animal,ink,paper,cx,cy,sz,m,flat){
   if(B){const d=cvSmooth(B.p);mask=`<path d="${d}" fill="#fff"/>`;det=`<path d="${d}" fill="none" stroke="${ink}" stroke-width=".9" stroke-opacity=".85" stroke-linejoin="round"/><path d="${B.x}" fill="none" stroke="${ink}" stroke-width="1.1" stroke-linecap="round" opacity=".8"/><circle cx="${B.e[0]}" cy="${B.e[1]}" r="${B.e[2]}" fill="${ink}"/>`;}
   /* an animal with no picture here: its initial, engraved, in a laurel wreath */
   else if(k==='beast'){const L=(String(animal||'').replace(/^the\s+/i,'').trim().charAt(0)||'A').toUpperCase();
-    mask=`<text x="50" y="66" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-weight="700" font-size="48" fill="#fff">${esc(L)}</text>`;det=cuWreath(ink);}
+    mask=`<text x="50" y="66" text-anchor="middle" font-family="${CU_F.d}" font-style="italic" font-weight="700" font-size="48" fill="#fff">${esc(L)}</text>`;det=cuWreath(ink);}
   else{mask=czCharge(k,'#fff','#fff',1);det=czCharge(k,'none',ink,1);}
   const s=sz/100,T=`<g transform="translate(${cuR2(cx)} ${cuR2(cy)}) scale(${cuR2(m*s)} ${cuR2(s)}) translate(-50 -50)">`;
   if(flat)return T+mask.replace(/#fff/g,ink)+(k==='beast'?det:'')+'</g>';
@@ -46958,18 +47020,18 @@ function cuSigs(n,o,cx,y,ink){
   const who=o.who,lead=who?(who.r||who.l||n.leader):(n.ruler||n.leader||'Leader'),title=(who?who.l:n.leader)||'Leader';
   let fin='';if(!who&&!n.npc)try{const m=cabOf(n).fin;if(m&&m.nm)fin=m.nm;}catch(e){}
   const one=(nm,t,x)=>{const s=String(nm).slice(0,30),T=String(t).toUpperCase().slice(0,32);
-    return `<text x="${x}" y="${y}" text-anchor="middle" font-family="Great Vibes,cursive" font-size="9.5" fill="${ink}" transform="rotate(-5 ${x} ${y})"${cuFit(s,9.5,.4,40)}>${esc(s)}</text><path d="M${x-19} ${y+2.6}h38" stroke="${ink}" stroke-width=".3" opacity=".6"/><text x="${x}" y="${y+6.8}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="3.1" letter-spacing=".35" fill="${ink}" opacity=".85"${cuFit(T,3.1,.82,40)}>${esc(T)}</text>`;};
+    return `<text x="${x}" y="${y}" text-anchor="middle" font-family="${CU_F.s}" font-size="9.5" fill="${ink}" transform="rotate(-5 ${x} ${y})"${cuFit(s,9.5,.4,40)}>${esc(s)}</text><path d="M${x-19} ${y+2.6}h38" stroke="${ink}" stroke-width=".3" opacity=".6"/><text x="${x}" y="${y+6.8}" text-anchor="middle" font-family="${CU_F.t}" font-size="3.1" letter-spacing=".35" fill="${ink}" opacity=".85"${cuFit(T,3.1,.82,40)}>${esc(T)}</text>`;};
   return fin?one(lead,title,cx-23)+one(fin,'Minister of Finance',cx+23):one(lead,title,cx);
 }
 /* the serial number: two letters in red, then digits that grow, as on notes that are hard to copy */
 function cuSerial(n,den,x,y,anchor,ink,red){
   const L=String.fromCharCode(65+hash(n.name+':s1')%26)+String.fromCharCode(65+hash(n.name+':s2:'+den)%26),D=String(1000000+hash(n.name+':'+den)%8999999);
-  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="IBM Plex Mono,monospace" font-weight="500" fill="${ink}"><tspan fill="${red}" font-size="5.6">${L} </tspan>${[...D].map((ch,i)=>`<tspan font-size="${cuR2(4.4+i*.5)}">${ch}</tspan>`).join('')}</text>`;
+  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="${CU_F.m}" font-weight="500" fill="${ink}"><tspan fill="${red}" font-size="5.6">${L} </tspan>${[...D].map((ch,i)=>`<tspan font-size="${cuR2(4.4+i*.5)}">${ch}</tspan>`).join('')}</text>`;
 }
 /* the inner border, written in microtext: the bank's name, over and over, too small to copy */
 function cuMicro(id,txt,ink){
   const s=Array(Math.ceil(900/(txt.length*1.7+4))).fill(txt).join(' · ');
-  return `<path id="${id}" d="M14 11H306A3 3 0 0 1 309 14V146A3 3 0 0 1 306 149H14A3 3 0 0 1 11 146V14A3 3 0 0 1 14 11Z" fill="none"/><text font-family="Cinzel,Georgia,serif" font-size="2.2" letter-spacing=".15" fill="${ink}" opacity=".7" dy=".75"><textPath href="#${id}">${esc(s)}</textPath></text>`;
+  return `<path id="${id}" d="M14 11H306A3 3 0 0 1 309 14V146A3 3 0 0 1 306 149H14A3 3 0 0 1 11 146V14A3 3 0 0 1 14 11Z" fill="none"/><text font-family="${CU_F.t}" font-size="2.2" letter-spacing=".15" fill="${ink}" opacity=".7" dy=".75"><textPath href="#${id}">${esc(s)}</textPath></text>`;
 }
 /* a guilloche rosette, the medallion that carries the emblem */
 function cuRosette(cx,cy,r,ink,k){
@@ -46982,20 +47044,79 @@ function cuFlagPatch(id,n,x,y,w,h,dk,lt,edge){
   return `<defs><filter id="${id}d" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values=".2126 .7152 .0722 0 0 .2126 .7152 .0722 0 0 .2126 .7152 .0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" ${fn(0)}/><feFuncG type="table" ${fn(1)}/><feFuncB type="table" ${fn(2)}/></feComponentTransfer></filter><clipPath id="${id}c"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.4"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="1"><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".48" stop-color="#fff" stop-opacity=".4"/><stop offset=".62" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`
     +`<g clip-path="url(#${id}c)"><g filter="url(#${id}d)">${cuNest(flagSVG(n.flag,''),x,y,w,h)}</g><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${id}s)"/></g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.4" fill="none" stroke="${edge}" stroke-width=".9"/>`;
 }
+/* ── the note design system ──
+   Every note is built from the same parts: tokens (inks, paper, type) from the era and the series, a layout that
+   places the parts, and named layers, each drawn by a piece of the kit (CU_KIT) that coins and other prints reuse. */
+const CU_TYPE={
+  classic:{t:'Cinzel,Georgia,serif',d:'Bodoni Moda,Georgia,serif',s:'Great Vibes,cursive',m:'IBM Plex Mono,monospace'},
+  antique:{t:'Bodoni Moda,Georgia,serif',d:'Bodoni Moda,Georgia,serif',s:'Great Vibes,cursive',m:'Georgia,serif'},
+  deco:{t:'Cinzel,Georgia,serif',d:'Cinzel,Georgia,serif',s:'Great Vibes,cursive',m:'IBM Plex Mono,monospace'},
+  polymer:{t:'Inter,Segoe UI,Arial,sans-serif',d:'Inter,Segoe UI,Arial,sans-serif',s:'Great Vibes,cursive',m:'IBM Plex Mono,monospace'},
+  future:{t:'IBM Plex Mono,monospace',d:'IBM Plex Mono,monospace',s:'IBM Plex Mono,monospace',m:'IBM Plex Mono,monospace'}};
+let CU_F=CU_TYPE.classic;
+const CU_LAYERS=['paper','security','frame','vignette','emblem','text'];
+/* which eras a nation has opened: Engraved and Antique from the start, Art Deco with three cities, Polymer with six
+   (or a fortnight old), Futurist once it holds the Moon */
+const CU_ERA_HOW={deco:'Found three cities.',polymer:'Found six cities, or keep the nation two weeks.',future:'Reach the Moon.'};
+function cuEraOpen(n,e){n=n||{};const nc=Array.isArray(n.cities)?n.cities.length:0;
+  if(e==='deco')return nc>=3;if(e==='polymer')return nc>=6||(n.founded>0&&Date.now()-n.founded>14*DAY);if(e==='future')return !!(n.sp&&n.sp.moon);return cuHas(CU_ERAS,e);}
+const cuEraOf=(n,e)=>cuHas(CU_ERAS,e)&&cuEraOpen(n,e)?e:'classic';
+/* the tokens of one note: its era, layout, inks and type, the ground kept legible (cuLegible) */
+function cuTok(n,c,den,base){
+  const N=c.note,era=cuEraOf(n,N.era),lay=cuHas(CU_LAYS,N.lay)?N.lay:'classic';
+  let c1=cuDenInk(cuHex(N.c1)||'#1D6A5C',den,base),c2=cuDenInk(cuHex(N.c2)||'#6A3DB3',den,base);
+  if(era==='antique'){c1=cuMix(c1,'#C8A26A',.38);c2=cuMix(c2,'#5A3A22',.35);}
+  if(era==='future'){c1=cuMix(c1,'#0A1024',.5);c2=cuMix(c2,'#39E6FF',.35);}
+  const G=cuLegible(c1);c1=G.c1;const dark=G.dark,ink=G.ink,soft=dark?'rgba(246,241,226,.55)':'rgba(22,32,30,.5)';
+  let rule=dark?cuMix(c2,'#FFFFFF',.2):cuMix(c2,'#000000',.15);if(era==='deco')rule='#C9961A';if(era==='future')rule='#39E6FF';
+  return {era,lay,c1,c2,dark,ink,soft,vc:cuMix(c1,'#FFFFFF',era==='antique'?.7:.82),pin:cuMix(c1,'#0B1312',dark?.42:.64),rule,red:dark?'#FF9C8F':'#B3261E',F:CU_TYPE[era],moved:G.moved};
+}
+/* a guilloché drawn from the nation's own seed: hypotrochoid curves, the same for the same nation and nobody else's */
+function cuGuilloche(seed,cx,cy,R,ink,k,w,sy){sy=sy||.5;
+  const r=rng(hash('cug:'+seed)),out=[];k=k||3;
+  for(let j=0;j<k;j++){const q=5+Math.floor(r()*9),p=2+Math.floor(r()*(q-3)),rr=R*p/q,d=rr*(.55+r()*.7),N=Math.min(900,q*60);let a='';
+    for(let i=0;i<=N;i++){const t=i/N*2*Math.PI*p,x=cx+(R-rr)*Math.cos(t)+d*Math.cos((R-rr)/rr*t),y=cy+((R-rr)*Math.sin(t)-d*Math.sin((R-rr)/rr*t))*sy;a+=(i?'L':'M')+cuR2(x)+' '+cuR2(y);}
+    out.push(`<path d="${a}" fill="none" stroke="${ink}" stroke-width="${w||.3}" opacity="${cuR2(.9-j*.2)}"/>`);R*=.72;}
+  return out.join('');
+}
+/* coloured fibres in the paper, seeded */
+function cuFibres(seed,cols){const r=rng(hash('cuf:'+seed));let b='';for(let i=0;i<34;i++){const x=r()*320,y=r()*160,a=r()*6.283,l=2+r()*3.5;b+=`<path d="M${cuR2(x)} ${cuR2(y)}q${cuR2(Math.cos(a)*l/2+1)} ${cuR2(Math.sin(a)*l/2-1)} ${cuR2(Math.cos(a)*l)} ${cuR2(Math.sin(a)*l)}" stroke="${cols[i%cols.length]}" stroke-width=".35" fill="none" opacity=".55"/>`;}return `<g>${b}</g>`;}
+/* raised marks a fingertip can read, by value (cuDenTier), in a column from (x, y) */
+function cuTactile(den,x,y,ink){const T=cuDenTier(den);let b='';for(let i=0;i<T.k;i++){const cy=y+i*7.5;
+  b+=T.sh==='dot'?`<circle cx="${x}" cy="${cy}" r="2"/>`:T.sh==='bar'?`<rect x="${x-3}" y="${cy-1.2}" width="6" height="2.4" rx="1"/>`:T.sh==='tri'?`<path d="M${x} ${cy-2.6}L${x+2.8} ${cy+2}H${x-2.8}Z"/>`:T.sh==='sq'?`<rect x="${x-2.2}" y="${cy-2.2}" width="4.4" height="4.4"/>`:T.sh==='dia'?`<path d="M${x} ${cy-3}L${x+3} ${cy}L${x} ${cy+3}L${x-3} ${cy}Z"/>`:`<path d="${czStarPts(x,cy,5,3.2,1.4,-90)}"/>`;}
+  return `<g fill="none" stroke="${ink}" stroke-width=".7" opacity=".7">${b}</g>`;}
+/* the see-through register: the left half of the symbol on the front, the right half on the back, whole only
+   against the light */
+function cuRegister(id,x,y,sy,ink,left){return `<g><clipPath id="${id}"><rect x="${left?x-7:x}" y="${y-7}" width="7" height="14"/></clipPath><g clip-path="url(#${id})"><circle cx="${x}" cy="${y}" r="5" fill="none" stroke="${ink}" stroke-width=".5" opacity=".8"/><text x="${x}" y="${y+2.2}" text-anchor="middle" font-family="${CU_F.d}" font-weight="700" font-size="6.4" fill="${ink}" opacity=".8">${esc(sy)}</text></g></g>`;}
+/* any picture as an engraving: its dark parts become fine lines in the ink, its pale parts paper */
+function cuEngraveAny(id,inner,ink,b,o){
+  return `<defs><filter id="${id}L" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 -.15 -.5 -.05 1 0"/></filter></defs>`
+    +cuEngrave(id,`<g filter="url(#${id}L)">${inner}</g>`,ink,b,Object.assign({ang:-32,gap:1.1,w:.42,tint:.3,lit:'r',fade:.35},o||{}));}
+/* the kit, one set of parts for every printed thing in the game */
+const CU_KIT={tok:cuTok,hatch:(...a)=>cuHatch(...a),engrave:(...a)=>cuEngrave(...a),engraveAny:cuEngraveAny,guilloche:cuGuilloche,fibres:cuFibres,tactile:cuTactile,register:cuRegister,rosette:(...a)=>cuRosette(...a),micro:(...a)=>cuMicro(...a),legible:cuLegible,tier:cuDenTier};
+/* drawn notes are kept: the same nation, design and options draw the same note. At most 80 */
+const CU_MEMO=new Map();
+function cuMemoKey(n,c,o,back){let x='';try{x=JSON.stringify([ptLead(n),cuArmsOf(n),n.npc?0:(cabOf(n).fin||{}).nm]);}catch(e){}
+  return JSON.stringify([back?1:0,n.name,n.seed,n.leader,n.ruler,n.capital,n.animal,n.motto,n.flag,n.cuF,n.lt,n.founded,Array.isArray(n.cuS)?n.cuS.length:0,Array.isArray(n.cities)?n.cities.length:0,!!(n.sp&&n.sp.moon),n.npc,c,o])+x;}
+function cuMemo(key,f){if(CU_MEMO.has(key)){const v=CU_MEMO.get(key);CU_MEMO.delete(key);CU_MEMO.set(key,v);return v;}const v=f();CU_MEMO.set(key,v);if(CU_MEMO.size>80)CU_MEMO.delete(CU_MEMO.keys().next().value);return v;}
+function cuWith(n,c,f){const was=CU_F;CU_F=CU_TYPE[cuEraOf(n,c.note.era)];try{return f();}finally{CU_F=was;}}
+function cuNoteSVG(n,c,o){o=o||{};const run=()=>cuWith(n,c,()=>cuNoteSVG0(n,c,o));return o.nocache?run():cuMemo(cuMemoKey(n,c,o,0),run);}
+function cuNoteBackSVG(n,c,o){o=o||{};const L=cuLand(n);return cuMemo(cuMemoKey(n,c,o,1)+'|'+(L?L.cells+':'+L.rings.length+':'+L.cities.length:'-'),()=>cuWith(n,c,()=>cuNoteBackSVG0(n,c,o)));}
 /* the front of a banknote: 320 × 160. o: cls and label; den, another note of the series (in its own colours);
    who, a past series' leader ({r name, l title, a and b its years}) with series, its number; lite, a small copy
    without the finest work (microtext, signatures, half the rosette); mini, a thumbnail (the designer's series),
    with plain silhouettes and no engraving, pattern or watermark, a fifth of the markup */
-function cuNoteSVG(n,c,o){
+function cuNoteSVG0(n,c,o){
   o=o||{};const id='cun'+(++cuSeq),N=c.note,base=CU_DENOMS.includes(N.den)?N.den:100,den=CU_DENOMS.includes(o.den)?o.den:base,mini=!!o.mini,lite=mini||!!o.lite;
-  const c1=cuDenInk(cuHex(N.c1)||'#1D6A5C',den,base),c2=cuDenInk(cuHex(N.c2)||'#6A3DB3',den,base);
-  const dark=cuLum(c1)<0.3,ink=dark?'#F6F1E2':'#16201E',soft=dark?'rgba(246,241,226,.55)':'rgba(22,32,30,.5)';
+  const T=cuTok(n,c,den,base),{c1,c2,dark,ink,soft,vc,pin,rule,lay,era}=T,F=T.F;
   const flR=N.fl==='r',M=x=>flR?320-x:x,MW=(x,w)=>flR?320-x-w:x,S=a=>flR?(a==='start'?'end':'start'):a;
   const denS=den.toLocaleString('en-US'),name=String(n.name||''),code=c.cd,motto=c.mo||n.motto||'';
-  const vc=cuMix(c1,'#FFFFFF',.82),pin=cuMix(c1,'#0B1312',dark?.42:.64),rule=dark?cuMix(c2,'#FFFFFF',.2):cuMix(c2,'#000000',.15);
-  const pat=mini?'':cuPattern(N.pat,id+'p',soft,n),patUse=/^<pattern/.test(pat)?`<rect width="320" height="160" fill="url(#${id}p)" opacity=".55"/>`:mini?'':`<use href="#${id}p" opacity=".6"/>`;
-  /* the vignette, facing into the note, and its ghost in the watermark window */
-  const sub=cuSubject(n,c,den,o),px=M(251),py=72,rx=33,ry=41,m=flR?1:-1,wx=M(46),wy=113;
+  /* a layer is drawn unless o.only names others (the admin design guide peels a note layer by layer) */
+  const Y=(k,b)=>!o.only||o.only.includes(k)?`<g data-layer="${k}">${b}</g>`:'';
+  const pat=mini||lay==='minimal'?'':cuPattern(N.pat,id+'p',soft,n),pOp=lay==='ornate'?.75:.55,patUse=!pat?'':/^<pattern/.test(pat)?`<rect width="320" height="160" fill="url(#${id}p)" opacity="${pOp}"/>`:`<use href="#${id}p" opacity="${pOp+.05}"/>`;
+  /* the vignette, facing into the note, and its ghost in the watermark window; Modern frames it square */
+  const sub=cuSubject(n,c,den,o),px=M(251),py=72,rx=33,ry=41,m=flR?1:-1,wx=M(46),wy=113,sq=lay==='modern';
+  const V=(dx,a)=>sq?`<rect x="${px-rx+dx}" y="${py-ry+dx}" width="${2*(rx-dx)}" height="${2*(ry-dx)}" rx="${Math.max(1,6-dx)}" ${a}/>`:`<ellipse cx="${px}" cy="${py}" rx="${rx-dx}" ry="${ry-dx}" ${a}/>`;
   let art='',ghost='';
   if(mini){const sil=sub.k==='bust'?`<g transform="translate(${px} ${py-32}) scale(${.9*m} .9) translate(-48 -21)">${ptSilhouette(sub,pin,'.85')}</g>`
       :sub.k==='beast'?cuBeastArt(id+'v',n.animal,pin,vc,px,py-4,62,m,1):sub.k==='city'?`<g transform="translate(${px-33} ${py-30}) scale(.66)"><path d="${cuSkyline(n.capital||name).d}" fill="${pin}" opacity=".85"/></g>`:'';
@@ -47005,45 +47126,60 @@ function cuNoteSVG(n,c,o){
   else if(sub.k==='city'){const sk=cuSkyline(n.capital||name);
     art=`<g transform="translate(${px-33} ${py-30}) scale(.66)">${cuEngrave(id+'v',`<path d="${sk.d}" fill="#fff"/>`,pin,[0,0,100,80],{ang:-35,gap:1.6,w:.55,lit:flR?'l':'r',tint:.22})}<path d="${sk.d}" fill="none" stroke="${pin}" stroke-width=".7"/><path d="${sk.w}" fill="${vc}" opacity=".85"/><path d="M0 78.4H100" stroke="${pin}" stroke-width="1.1"/></g>`;
     ghost=`<g transform="translate(${wx-18} ${wy-17}) scale(.36)"><path d="${sk.d}" fill="${pin}"/></g>`;}
-  else{const A=czArmsSVG(cuArmsOf(n));art=cuNest(A,px-21,py-27,42,50);ghost=cuNest(A,wx-11,wy-13,22,26);}
+  else{const A=czArmsSVG(cuArmsOf(n));
+    /* the arms print in colour on a polymer or futurist note, engraved in the note's ink on the others */
+    art=era==='polymer'||era==='future'?cuNest(A,px-21,py-27,42,50):cuEngraveAny(id+'v',cuNest(A,px-21,py-27,42,50),pin,[px-rx,py-ry,2*rx,2*ry],{lit:flR?'l':'r'});ghost=cuNest(A,wx-11,wy-13,22,26);}
   const cap=String(sub.cap||'').toUpperCase().slice(0,40);
-  const vig=`<defs><clipPath id="${id}o"><ellipse cx="${px}" cy="${py}" rx="${rx}" ry="${ry}"/></clipPath>${cuHatch(id+'g',pin,0,1.5,.22)}</defs>
-<ellipse cx="${px}" cy="${py}" rx="${rx}" ry="${ry}" fill="${vc}" opacity=".94"/><g clip-path="url(#${id}o)">${mini?'':`<rect x="${px-rx}" y="${py-ry}" width="${2*rx}" height="${2*ry}" fill="url(#${id}g)" opacity=".28"/>`}${art}</g>
-<ellipse cx="${px}" cy="${py}" rx="${rx}" ry="${ry}" fill="none" stroke="${rule}" stroke-width="1.4"/><ellipse cx="${px}" cy="${py}" rx="${rx-2.4}" ry="${ry-2.4}" fill="none" stroke="${pin}" stroke-width=".35" stroke-dasharray=".7 1.1" opacity=".75"/>
-<path d="M${px-40} 106H${px+40}L${px+36} 111.5L${px+40} 117H${px-40}L${px-36} 111.5Z" fill="${vc}" stroke="${rule}" stroke-width=".6"/><text x="${px}" y="113" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="4.2" letter-spacing=".5" fill="${pin}"${cuFit(cap,4.2,.82,66)}>${esc(cap)}</text>`;
+  const vig=`<defs><clipPath id="${id}o">${V(0,'')}</clipPath>${cuHatch(id+'g',pin,0,1.5,.22)}</defs>
+${V(0,`fill="${vc}" opacity=".94"`)}<g clip-path="url(#${id}o)">${mini||lay==='minimal'?'':`<rect x="${px-rx}" y="${py-ry}" width="${2*rx}" height="${2*ry}" fill="url(#${id}g)" opacity=".28"/>`}${art}</g>
+${V(0,`fill="none" stroke="${rule}" stroke-width="1.4"`)}${V(2.4,`fill="none" stroke="${pin}" stroke-width=".35" stroke-dasharray=".7 1.1" opacity=".75"`)}
+<path d="M${px-40} 106H${px+40}L${px+36} 111.5L${px+40} 117H${px-40}L${px-36} 111.5Z" fill="${vc}" stroke="${rule}" stroke-width=".6"/><text x="${px}" y="113" text-anchor="middle" font-family="${F.t}" font-size="4.2" letter-spacing=".5" fill="${pin}"${cuFit(cap,4.2,.82,66)}>${esc(cap)}</text>`;
   /* the middle: the bank, the currency, the motto; the rosette and its emblem; signatures; the value in words */
   const X=M(159),ey=78,arms=cuArmsOf(n),bank=('Bank of '+name).toUpperCase().slice(0,34),words=(CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).toUpperCase().slice(0,44);
   let emb='';
   if(N.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),X-8.5,ey-10.5,17,21);
   else if(N.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=`<circle cx="${X}" cy="${ey}" r="9" fill="${c2}"/>`+cuNest(flagSVG({p:'plain',c:[c2,c2,c2],e,ec:ink},''),X-11,ey-7.5,22,15);}
-  else if(N.emb==='seal')emb=`<circle cx="${X}" cy="${ey}" r="9" fill="none" stroke="${ink}" stroke-width=".7"/><circle cx="${X}" cy="${ey}" r="7" fill="none" stroke="${ink}" stroke-width=".35" stroke-dasharray=".8 .9"/><text x="${X}" y="${ey+1.8}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5" fill="${ink}">${esc(code)}</text>`;
-  else emb=`<text x="${X}" y="${ey+5.5}" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?10:den>=100?13:16}" fill="none" stroke="${ink}" stroke-width=".5">${denS}</text>`;
+  else if(N.emb==='seal')emb=`<circle cx="${X}" cy="${ey}" r="9" fill="none" stroke="${ink}" stroke-width=".7"/><circle cx="${X}" cy="${ey}" r="7" fill="none" stroke="${ink}" stroke-width=".35" stroke-dasharray=".8 .9"/><text x="${X}" y="${ey+1.8}" text-anchor="middle" font-family="${F.t}" font-size="5" fill="${ink}">${esc(code)}</text>`;
+  else emb=`<text x="${X}" y="${ey+5.5}" text-anchor="middle" font-family="${F.d}" font-weight="700" font-size="${den>=1000?10:den>=100?13:16}" fill="none" stroke="${ink}" stroke-width=".5">${denS}</text>`;
   const sNo=o.who?o.series:((Array.isArray(n.cuS)?n.cuS.length:0)+1),sAt=o.who?o.who.a:(typeof n.lt==='number'?n.lt:n.founded),series=`SERIES ${roman(sNo||1)}${sAt>0?' · '+new Date(sAt).getUTCFullYear():''}`;
   const sx=MW(98,N.strip>1?9:7),sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:c2,strip=N.strip&&N.strip!==4?`<g><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="${sf}" opacity="${N.strip>1?.92:.6}"/><rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="url(#${id}s)"/></g>`:'';
   const foil=N.strip===3?'#C9961A':N.strip===2?'#A6D8F4':N.strip===4?'#B9C6CF':rule;
-  const flag=!(N.fl==='l'||flR)?'':mini?`<rect x="${MW(20,52)}" y="46" width="52" height="34" rx="2.4" fill="${vc}" opacity=".75" stroke="${foil}" stroke-width=".9"/>`:cuFlagPatch(id+'f',n,MW(20,52),46,52,34,cuMix(c1,'#0B1312',.55),cuMix(c1,'#FFFFFF',.86),foil);
+  const flag=!(N.fl==='l'||flR)||lay==='minimal'?'':mini?`<rect x="${MW(20,52)}" y="46" width="52" height="34" rx="2.4" fill="${vc}" opacity=".75" stroke="${foil}" stroke-width=".9"/>`:cuFlagPatch(id+'f',n,MW(20,52),46,52,34,cuMix(c1,'#0B1312',.55),cuMix(c1,'#FFFFFF',.86),foil);
   const wm=mini?'':`<defs><radialGradient id="${id}w"><stop offset=".55" stop-color="${vc}" stop-opacity=".38"/><stop offset="1" stop-color="${vc}" stop-opacity="0"/></radialGradient></defs><ellipse cx="${wx}" cy="${wy}" rx="23" ry="26" fill="url(#${id}w)"/><g opacity=".16">${ghost}</g>`;
   const label=o.label||`A ${denS} ${c.nm} banknote of ${name}${sub.cap?', showing '+sub.cap:''}`;
   const win=N.strip===4,wX=MW(90,22);
-  return `<svg class="cu-note${o.cls?' '+o.cls:''}" viewBox="0 0 320 160" role="img" aria-label="${esc(label)}"><defs><linearGradient id="${id}g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${cuMix(c1,'#FFFFFF',dark?0.12:0.35)}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${cuMix(c1,'#000000',0.18)}"/></linearGradient>
+  /* security: fibres in the paper, the marks a fingertip reads, the see-through register, and on Polymer and
+     Futurist notes (or a holographic or gold strip) a value that shifts colour */
+  const shift=era==='polymer'||era==='future'||N.strip===2||N.strip===3;
+  const sec=strip+(lite?'':cuFibres(name,[c2,'#C0392B','#2E86C1',rule])+cuRegister(id+'r',M(80),146,c.sy||'¤',ink,!flR))+(mini?'':cuTactile(den,M(299),66,ink));
+  /* the frame: Ornate doubles it with corner rosettes, Minimal keeps one thin rule */
+  const corners=lay==='ornate'&&!mini?[[22,22],[298,22],[22,138],[298,138]].map(([x,y])=>cuRosette(x,y,8,rule,lite?6:12)).join(''):'';
+  const frame=lay==='minimal'?`<rect x="8" y="8" width="304" height="144" rx="4" fill="none" stroke="${rule}" stroke-width=".8"/>`
+    :`<rect x="7" y="7" width="306" height="146" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${lay==='ornate'?`<rect x="3.5" y="3.5" width="313" height="153" rx="6" fill="none" stroke="${rule}" stroke-width=".7" stroke-dasharray="2 1.2"/>`:''}${lite?`<rect x="11" y="11" width="298" height="138" rx="3" fill="none" stroke="${ink}" stroke-width=".5" stroke-dasharray="1 1.4" opacity=".6"/>`:cuMicro(id+'m',bank,ink)}${corners}`;
+  /* Modern sets the value huge and faint behind the middle */
+  const big=lay==='modern'?`<text x="${M(24)}" y="128" text-anchor="${S('start')}" font-family="${F.d}" font-weight="700" font-size="${den>=1000?50:den>=100?62:80}" fill="${ink}" opacity=".1">${denS}</text>`:'';
+  const text=`${big}<text x="${X}" y="26" text-anchor="middle" font-family="${F.t}" font-size="7.4" letter-spacing="${era==='deco'?2:1.2}" fill="${ink}"${cuFit(bank,7.4,era==='deco'?1.05:.9,90)}>${esc(bank)}</text>
+<text x="${X}" y="40" text-anchor="middle" font-family="${F.d}"${era==='classic'||era==='antique'?' font-style="italic"':''} font-size="12" fill="${ink}"${cuFit(c.nm,12,era==='future'?.62:.5,92)}>${esc(c.nm)}</text>
+${motto?`<text x="${X}" y="49.5" text-anchor="middle" font-family="${F.d}" font-style="italic" font-size="5.4" fill="${ink}" opacity=".85"${cuFit('“'+motto+'”',5.4,.45,92)}>“${esc(motto.slice(0,48))}”</text>`:''}
+<text x="${M(20)}" y="36" text-anchor="${S('start')}" font-family="${F.d}" font-weight="700" font-size="${den>=1000?16:den>=100?19:23}" fill="${ink}">${denS}</text>
+<text x="${M(304)}" y="147" text-anchor="${S('end')}" font-family="${F.d}" font-weight="700" font-size="${den>=1000?18:den>=100?22:26}" fill="${shift&&!mini?`url(#${id}cs)`:ink}">${denS}</text>
+${cuSerial(n,den,M(304),24,S('end'),ink,T.red)}
+<text x="${M(20)}" y="146" text-anchor="${S('start')}" font-family="${F.m}" font-size="5.6" fill="${ink}" opacity=".85">${esc(code)} ${denS}</text>
+${lite?'':cuSigs(n,o,X,106,ink)}
+<text x="${X}" y="128" text-anchor="middle" font-family="${F.t}" font-size="5" letter-spacing=".6" fill="${ink}"${cuFit(words,5,.8,92)}>${esc(words)}</text>
+<text x="${X}" y="136" text-anchor="middle" font-family="${F.t}" font-size="3.2" letter-spacing=".5" fill="${ink}" opacity=".8">${esc(series)}</text>`;
+  const g0a=era==='future'?cuMix(c1,'#39E6FF',.12):cuMix(c1,'#FFFFFF',dark?0.12:era==='polymer'?.2:0.35),g0b=cuMix(c1,'#000000',era==='polymer'?.08:0.18);
+  return `<svg class="cu-note${o.cls?' '+o.cls:''}" viewBox="0 0 320 160" role="img" aria-label="${esc(label)}" data-era="${era}" data-lay="${lay}"><defs><linearGradient id="${id}g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${g0a}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${g0b}"/></linearGradient>
 <pattern id="${id}s" width="7" height="8" patternUnits="userSpaceOnUse"><rect width="7" height="4" fill="${ink}" opacity=".25"/></pattern>
 <linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4a6c9"/><stop offset=".2" stop-color="#a6d8f4"/><stop offset=".4" stop-color="#b9f4c4"/><stop offset=".6" stop-color="#f4eda6"/><stop offset=".8" stop-color="#c9a6f4"/><stop offset="1" stop-color="#a6f0f4"/></linearGradient>
 <linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e3a1"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f2d27a"/></linearGradient>
+<linearGradient id="${id}cs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${cuMix(c2,ink,.3)}"/><stop offset=".5" stop-color="${era==='future'?'#39E6FF':'#C9961A'}"/><stop offset="1" stop-color="${cuMix(c2,'#2E8B57',.5)}"/></linearGradient>
 ${/^<pattern/.test(pat)?pat:''}<clipPath id="${id}c"><rect width="320" height="160" rx="7"/></clipPath>${win?cuWinMask(id,wX):''}</defs>
-<g clip-path="url(#${id}c)"${win?` mask="url(#${id}k)"`:''}><rect width="320" height="160" fill="url(#${id}g0)"/>${/^<pattern/.test(pat)?'':`<defs>${pat}</defs>`}${patUse}
-${wm}${strip}${flag}${vig}
-<circle cx="${X}" cy="${ey}" r="13" fill="${c1}" opacity=".8"/>${cuRosette(X,ey,18,ink,mini?6:lite?10:20)}${emb}
-<rect x="7" y="7" width="306" height="146" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${lite?`<rect x="11" y="11" width="298" height="138" rx="3" fill="none" stroke="${ink}" stroke-width=".5" stroke-dasharray="1 1.4" opacity=".6"/>`:cuMicro(id+'m',bank,ink)}
-<text x="${X}" y="26" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="7.4" letter-spacing="1.2" fill="${ink}"${cuFit(bank,7.4,.9,90)}>${esc(bank)}</text>
-<text x="${X}" y="40" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-size="12" fill="${ink}"${cuFit(c.nm,12,.5,92)}>${esc(c.nm)}</text>
-${motto?`<text x="${X}" y="49.5" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-style="italic" font-size="5.4" fill="${ink}" opacity=".85"${cuFit('“'+motto+'”',5.4,.45,92)}>“${esc(motto.slice(0,48))}”</text>`:''}
-<text x="${M(20)}" y="36" text-anchor="${S('start')}" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?16:den>=100?19:23}" fill="${ink}">${denS}</text>
-<text x="${M(304)}" y="147" text-anchor="${S('end')}" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?18:den>=100?22:26}" fill="${ink}">${denS}</text>
-${cuSerial(n,den,M(304),24,S('end'),ink,dark?'#FF9C8F':'#B3261E')}
-<text x="${M(20)}" y="146" text-anchor="${S('start')}" font-family="IBM Plex Mono,monospace" font-size="5.6" fill="${ink}" opacity=".85">${esc(code)} ${denS}</text>
-${lite?'':cuSigs(n,o,X,106,ink)}
-<text x="${X}" y="128" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5" letter-spacing=".6" fill="${ink}"${cuFit(words,5,.8,92)}>${esc(words)}</text>
-<text x="${X}" y="136" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="3.2" letter-spacing=".5" fill="${ink}" opacity=".8">${esc(series)}</text>
+<g clip-path="url(#${id}c)"${win?` mask="url(#${id}k)"`:''}>${Y('paper',`<rect width="320" height="160" fill="url(#${id}g0)"/>${pat&&!/^<pattern/.test(pat)?`<defs>${pat}</defs>`:''}${patUse}${wm}`)}
+${Y('security',sec)}${Y('vignette',flag+vig)}
+${Y('emblem',`<circle cx="${X}" cy="${ey}" r="13" fill="${c1}" opacity=".8"/>${cuRosette(X,ey,18,ink,mini?6:lite?10:20)}${emb}`)}
+${Y('frame',frame)}
+${Y('text',text)}
 </g>${win?cuWindow(id,wX,den,denS,mini?null:arms,rule):''}</svg>`;
 }
 /* the outline of a nation's land on the map, for the back of its notes: the edges its hexes share with no other
@@ -47069,12 +47205,11 @@ function cuLand(n){
 }
 /* the back of a banknote: the nation's land as an engraved map, the value, the bank and the national symbols. It
    mirrors the front: the strip and the watermark window are where they show through */
-function cuNoteBackSVG(n,c,o){
+function cuNoteBackSVG0(n,c,o){
   o=o||{};const id='cub'+(++cuSeq),N=c.note,base=CU_DENOMS.includes(N.den)?N.den:100,den=CU_DENOMS.includes(o.den)?o.den:base;
-  const c1=cuDenInk(cuHex(N.c1)||'#1D6A5C',den,base),c2=cuDenInk(cuHex(N.c2)||'#6A3DB3',den,base);
-  const dark=cuLum(c1)<0.3,ink=dark?'#F6F1E2':'#16201E',soft=dark?'rgba(246,241,226,.45)':'rgba(22,32,30,.4)';
+  const T=cuTok(n,c,den,base),{c1,c2,dark,ink}=T,soft=dark?'rgba(246,241,226,.45)':'rgba(22,32,30,.4)';
   const flR=N.fl==='r',M=x=>flR?320-x:x,MW=(x,w)=>flR?320-x-w:x,S=a=>flR?(a==='start'?'end':'start'):a;
-  const denS=den.toLocaleString('en-US'),name=String(n.name||''),vc=cuMix(c1,'#FFFFFF',.82),pin=cuMix(c1,'#0B1312',dark?.42:.64),rule=dark?cuMix(c2,'#FFFFFF',.2):cuMix(c2,'#000000',.15);
+  const denS=den.toLocaleString('en-US'),name=String(n.name||''),{vc,pin,rule}=T;
   const pat=cuPattern('waves',id+'p',soft,n),bank=('Bank of '+name).toUpperCase().slice(0,34),words=(CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).toUpperCase().slice(0,44);
   /* the map: the land engraved on a pale sea of fine lines, the capital a star, the cities dots */
   const fx=MW(20,184),fy=20,fw=184,fh=118,L=cuLand(n);let map='';
@@ -47099,15 +47234,15 @@ ${pat}${cuHatch(id+'q',pin,0,1.6,.2)}<radialGradient id="${id}w"><stop offset=".
 <g clip-path="url(#${id}c)"${win?` mask="url(#${id}k)"`:''}><rect width="320" height="160" fill="url(#${id}g0)"/><rect width="320" height="160" fill="url(#${id}p)" opacity=".5"/>${strip}<ellipse cx="${wx}" cy="${wy}" rx="23" ry="26" fill="url(#${id}w)"/>
 <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="${vc}" opacity=".92"/><rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="url(#${id}q)" opacity=".3"/>${map}
 <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="none" stroke="${rule}" stroke-width="1.2"/><rect x="${fx+2.2}" y="${fy+2.2}" width="${fw-4.4}" height="${fh-4.4}" rx="2" fill="none" stroke="${pin}" stroke-width=".3" stroke-dasharray=".7 1" opacity=".7"/>
-<text x="${fx+fw/2}" y="${fy+11}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="4.6" letter-spacing=".8" fill="${pin}"${cuFit(ttl,4.6,.85,fw-24)}>${esc(ttl)}</text>
-${area?`<text x="${fx+fw-6}" y="${fy+fh-5}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="4" fill="${pin}" opacity=".85">${esc(area)}</text>`:''}
+<text x="${fx+fw/2}" y="${fy+11}" text-anchor="middle" font-family="${CU_F.t}" font-size="4.6" letter-spacing=".8" fill="${pin}"${cuFit(ttl,4.6,.85,fw-24)}>${esc(ttl)}</text>
+${area?`<text x="${fx+fw-6}" y="${fy+fh-5}" text-anchor="end" font-family="${CU_F.m}" font-size="4" fill="${pin}" opacity=".85">${esc(area)}</text>`:''}
 <rect x="7" y="7" width="306" height="146" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${o.lite?'':cuMicro(id+'m',bank,ink)}
-<text x="${rx}" y="30" text-anchor="${S('end')}" font-family="Cinzel,Georgia,serif" font-size="4.8" letter-spacing=".8" fill="${ink}"${cuFit(bank,4.8,.9,74)}>${esc(bank)}</text>
-<text x="${rx}" y="66" text-anchor="${S('end')}" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?26:den>=100?32:38}" fill="${ink}">${denS}</text>
-<text x="${rx}" y="76" text-anchor="${S('end')}" font-family="Cinzel,Georgia,serif" font-size="3.8" letter-spacing=".5" fill="${ink}"${cuFit(words,3.8,.8,74)}>${esc(words)}</text>
-${facts.slice(0,4).map(([l,v],i)=>`<text x="${rx}" y="${86+i*6.4}" text-anchor="${S('end')}" font-family="Cinzel,Georgia,serif" font-size="3.3" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(l+' · '+v,3.3,.82,74)}>${esc((l+' · '+v).toUpperCase().slice(0,44))}</text>`).join('')}
-<text x="${fx+fw/2}" y="145" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="3.4" letter-spacing=".6" fill="${ink}" opacity=".85">${esc(('Legal tender in '+name).toUpperCase().slice(0,48))}</text>
-<text x="${rx}" y="146" text-anchor="${S('end')}" font-family="IBM Plex Mono,monospace" font-size="5.6" fill="${ink}" opacity=".85">${esc(c.cd)} ${denS}</text>
+<text x="${rx}" y="30" text-anchor="${S('end')}" font-family="${CU_F.t}" font-size="4.8" letter-spacing=".8" fill="${ink}"${cuFit(bank,4.8,.9,74)}>${esc(bank)}</text>
+<text x="${rx}" y="66" text-anchor="${S('end')}" font-family="${CU_F.d}" font-weight="700" font-size="${den>=1000?26:den>=100?32:38}" fill="${ink}">${denS}</text>
+<text x="${rx}" y="76" text-anchor="${S('end')}" font-family="${CU_F.t}" font-size="3.8" letter-spacing=".5" fill="${ink}"${cuFit(words,3.8,.8,74)}>${esc(words)}</text>
+${facts.slice(0,4).map(([l,v],i)=>`<text x="${rx}" y="${86+i*6.4}" text-anchor="${S('end')}" font-family="${CU_F.t}" font-size="3.3" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(l+' · '+v,3.3,.82,74)}>${esc((l+' · '+v).toUpperCase().slice(0,44))}</text>`).join('')}
+${o.lite?'':cuRegister(id+'r',M(240),146,c.sy||'¤',ink,flR)+cuTactile(den,M(228),116,ink)}<text x="${fx+fw/2}" y="145" text-anchor="middle" font-family="${CU_F.t}" font-size="3.4" letter-spacing=".6" fill="${ink}" opacity=".85">${esc(('Legal tender in '+name).toUpperCase().slice(0,48))}</text>
+<text x="${rx}" y="146" text-anchor="${S('end')}" font-family="${CU_F.m}" font-size="5.6" fill="${ink}" opacity=".85">${esc(c.cd)} ${denS}</text>
 </g>${win?cuWindow(id,wX,den,denS,null,rule):''}</svg>`;
 }
 /* the Central Bank Pack's clear window: a polymer note's see-through panel, 22 wide and 124 tall from x, cut out of
@@ -47120,7 +47255,7 @@ function cuWindow(id,x,den,denS,arms,rule){
 <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="#DDEBF2" fill-opacity=".16" stroke="${rule}" stroke-width=".9"/>
 <rect x="${x+1.8}" y="${y+1.8}" width="${w-3.6}" height="${h-3.6}" rx="2.8" fill="none" stroke="url(#${id}wf)" stroke-width=".5" stroke-dasharray="1 .9"/>
 ${arms?`<g filter="url(#${id}wg)" opacity=".85">${cuNest(czArmsSVG(arms),x+4,y+12,w-8,(w-8)*1.24)}</g>`:''}
-<text x="${cx}" y="${ty}" transform="rotate(-90 ${cx} ${ty})" text-anchor="middle" dominant-baseline="central" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${den>=1000?11:13}" fill="url(#${id}wf)" stroke="#5D6B74" stroke-width=".3">${denS}</text></g>`;
+<text x="${cx}" y="${ty}" transform="rotate(-90 ${cx} ${ty})" text-anchor="middle" dominant-baseline="central" font-family="${CU_F.d}" font-weight="700" font-size="${den>=1000?11:13}" fill="url(#${id}wf)" stroke="#5D6B74" stroke-width=".3">${denS}</text></g>`;
 }
 /* the face of a coin: 120 × 120 */
 function cuShapePath(sh){
@@ -47134,7 +47269,9 @@ function cuShapePath(sh){
   if(sh==='scallop'){let d='';const k=16;for(let i=0;i<k;i++){const a0=i*2*Math.PI/k,a1=(i+1)*2*Math.PI/k,x0=60+52*Math.cos(a0),y0=60+52*Math.sin(a0),x1=60+52*Math.cos(a1),y1=60+52*Math.sin(a1);d+=(i?'':'M'+x0.toFixed(2)+' '+y0.toFixed(2))+'A10.4 10.4 0 0 1 '+x1.toFixed(2)+' '+y1.toFixed(2);}return d+'Z';}
   return 'M60 4a56 56 0 1 1 0 112a56 56 0 1 1 0-112Z';
 }
-function cuCoinSVG(n,c,o){
+function cuCoinSVG(n,c,o){return cuWith(n,c,()=>cuCoinSVG0(n,c,o));}
+/* the coin shares the note's kit: its era's type, and the nation's own guilloché faint in the field */
+function cuCoinSVG0(n,c,o){
   o=o||{};const id='cuc'+(++cuSeq),K=c.coin,M=CU_METALS[K.met]||CU_METALS.bi,bi=K.met==='bi',outer=M[1],inner=bi?M[2]:M[1],deep=bi?'#6F6A55':M[2];
   const sub=K.dk==='s'&&c.sn>1,den=K.den||1,unit=sub?(den===1?c.su:plural(c.su)):(den===1?c.nm.split(' ').pop():c.pl.split(' ').pop());
   const ins=(K.ins||n.name||'').toUpperCase().slice(0,28),yr=K.yr&&c.year?String(c.year):'',arms=cuArmsOf(n);
@@ -47151,10 +47288,10 @@ function cuCoinSVG(n,c,o){
 <path id="${id}a" d="M24 60a36 36 0 0 1 72 0"/><path id="${id}b" d="M20 62a40 40 0 0 0 80 0"/></defs>
 <path d="${cuShapePath(K.shape)}" fill="url(#${id}o)" fill-rule="evenodd" stroke="${cuMix(outer,'#000000',.45)}" stroke-width="1.2"/>
 ${bi?`<path d="M60 22a38 38 0 1 1 0 76a38 38 0 1 1 0-76Z${K.shape==='holed'?'M60 49a11 11 0 1 0 0 22a11 11 0 1 0 0-22Z':K.shape==='sqhole'?'M50 50h20v20H50Z':''}" fill-rule="evenodd" fill="url(#${id}i)" stroke="${cuMix(inner,'#000000',.35)}" stroke-width=".8"/>`:`<circle cx="60" cy="60" r="47" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width=".7"/><circle cx="60" cy="60" r="44" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width="1.6" stroke-dasharray=".1 3.2" stroke-linecap="round"/>`}
-${emb}<text font-family="Cinzel,Georgia,serif" font-size="${ins.length>16?6.2:7.4}" letter-spacing="1" fill="${deep}"><textPath href="#${id}a" startOffset="50%" text-anchor="middle">${esc(ins)}</textPath></text>
-<text x="60" y="${hole?85:82}" text-anchor="middle" font-family="Bodoni Moda,Georgia,serif" font-weight="700" font-size="${hole?14:17}" fill="${deep}">${den}</text>
-<text x="60" y="${hole?93:91}" text-anchor="middle" font-family="Cinzel,Georgia,serif" font-size="5.6" letter-spacing=".6" fill="${deep}">${esc(String(unit).toUpperCase().slice(0,16))}</text>
-${yr?`<text font-family="IBM Plex Mono,monospace" font-size="6" fill="${deep}"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">${yr}</textPath></text>`:''}
+${o.mini?'':`<g opacity=".28">${CU_KIT.guilloche(String(n.seed||n.name||''),60,60,30,deep,2,.35,1)}</g>`}${emb}<text font-family="${CU_F.t}" font-size="${ins.length>16?6.2:7.4}" letter-spacing="1" fill="${deep}"><textPath href="#${id}a" startOffset="50%" text-anchor="middle">${esc(ins)}</textPath></text>
+<text x="60" y="${hole?85:82}" text-anchor="middle" font-family="${CU_F.d}" font-weight="700" font-size="${hole?14:17}" fill="${deep}">${den}</text>
+<text x="60" y="${hole?93:91}" text-anchor="middle" font-family="${CU_F.t}" font-size="5.6" letter-spacing=".6" fill="${deep}">${esc(String(unit).toUpperCase().slice(0,16))}</text>
+${yr?`<text font-family="${CU_F.m}" font-size="6" fill="${deep}"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">${yr}</textPath></text>`:''}
 </svg>`;
 }
 
@@ -47466,7 +47603,8 @@ function cuPrevHTML(n,d){
   /* the whole series, smallest to largest, each in its own colour: pick one to design it */
   const fan=`<div class="cu-fan" role="group" aria-label="The series: choose a note to see and design">${CU_DENOMS.map((v,i)=>`<button type="button" class="cu-fan-b${v===den?' on':''}" data-act="cu-set" data-f="note.den" data-v="${v}" aria-pressed="${v===den}" style="--s:${cuDenScale(v).toFixed(3)};--r:${((i-4.5)*1.4).toFixed(1)}deg">${cuNoteSVG(t,c,{den:v,mini:1,cls:'cu-note-xs',label:`The ${v.toLocaleString('en-US')} note`})}</button>`).join('')}</div>`;
   const fv=n.cuF?`<p class="hint cu-fv">The 50 shows ${esc(['the leader’s profile','Dr Marta Kovač, inventor of the non-drip teapot',`the ${n.animal||'national animal'}`,'the commentator famous for one shout in 1994'][n.cuF.o]||'')}, as the Face Value edict decided.</p>`:'';
-  return `<figure class="cu-prev-f">${cuFlipHTML(t,c,'cu-note-lg','prev')}${fan}${fv}${cuTryNote(c)}<div class="cu-prev-row">${cuCoinSVG(t,c,{cls:'cu-coin-lg'})}<figcaption>
+  const lg=cuHex(c.note.c1)&&cuLegible(c.note.c1).moved?`<p class="hint cu-fv">The main colour prints a little ${cuLegible(c.note.c1).dark?'darker':'lighter'} so the value stays easy to read on a phone.</p>`:'';
+  return `<figure class="cu-prev-f">${cuFlipHTML(t,c,'cu-note-lg','prev')}${fan}${fv}${lg}${cuTryNote(c)}<div class="cu-prev-row">${cuCoinSVG(t,c,{cls:'cu-coin-lg'})}<figcaption>
     <p class="cu-prev-nm">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></p>
     <p>${esc(cuAmt(1234567.89,c))} · ${esc(cuAmt(0.5,c))}</p><p class="hint">1 ${esc(c.nm)} = ${c.sn===1?'no smaller unit':c.sn+' '+esc(plural(c.su))}. Plural: ${esc(c.pl)}.</p></figcaption></div></figure>`;
 }
@@ -47494,6 +47632,9 @@ function cuCzBody(n){
     ${seg('Symbol goes','cu-l-sp',[['b','Before: '+c.sy+'10'],['a','After: 10 '+c.sy]],d.sp,'cu','sp')}
     ${seg('Separators','cu-l-nf',Object.keys(CU_NF).map(k=>[k,CU_NF[k][2]]),d.nf,'cu','nf')}
     <h3 class="sub-h">Banknote</h3>
+    ${cuPresetRow()}
+    ${seg('Layout','cu-l-lay',Object.entries(CU_LAYS),N.lay||'classic','note','lay')}
+    <div class="cz-drow"><span class="cz-dl" id="cu-l-era">Era</span><div class="seg cz-seg" role="group" aria-labelledby="cu-l-era">${Object.entries(CU_ERAS).map(([v,l])=>{const on=(N.era||'classic')===v;return cuEraOpen(n,v)?`<button type="button" id="cu-l-era-${v}" class="seg-b${on?' on':''}" data-act="cu-set" data-f="note.era" data-v="${v}" aria-pressed="${on}">${esc(l)}</button>`:`<button type="button" id="cu-l-era-${v}" class="seg-b cu-lk" aria-disabled="true" title="${esc(l+': '+CU_ERA_HOW[v])}" data-act="cu-era-locked" data-v="${v}">${CZ_LOCK}${esc(l)}</button>`;}).join('')}</div></div>
     ${col('c1','Main colour')}${col('c2','Second colour')}
     ${lseg('Engraving','cu-l-pat',Object.entries(CU_PATS),N.pat,'note','pat','pat')}
     ${seg('Vignette','cu-l-por',Object.entries(CU_POR),N.por,'note','por')}
@@ -47527,6 +47668,10 @@ function cuSave(){
   if(after.nm!==before.nm||m.currency!==n.currency){m.log.unshift({t:now,k:'cur',a:before.nm,b:after.nm});m.log=m.log.slice(0,60);}
   commit(m);CU.d=null;if(S.settings&&!settingsDirty())S.settings=null;render();toast(`The ${after.nm} is the currency of ${n.name}.`+(tried.length?` Left out until you have ${SHOP_FROM[UNLOCKS[tried[0]].src]||'it'}: ${list(tried.map(achUnlockWords))}.`:''));return true;
 }
+/* the style presets: several choices at once, one suggested for the region */
+function cuPresetRow(){const ks=Object.keys(CU_FLAV),sug=ks[hash(String((typeof REG!=='undefined'&&REG&&REG.id)||''))%ks.length];
+  return `<div class="cz-drow"><span class="cz-dl" id="cu-l-fla">Style presets</span><div class="seg cz-seg" role="group" aria-labelledby="cu-l-fla">${ks.map(k=>`<button type="button" class="seg-b" data-act="cu-preset" data-v="${k}" title="${esc(CU_FLAV[k].nm+(k===sug?': suggested for your region':''))}">${esc(CU_FLAV[k].nm)}${k===sug?' ★':''}</button>`).join('')}</div></div>`;}
+function cuPreset(k){const P=CU_FLAV[k],d=CU.d;if(!P||!d)return;d.note=d.note||{};for(const f of ['c1','c2','pat','lay'])d.note[f]=P[f];d.note.era=S.nation&&cuEraOpen(S.nation,P.era)?P.era:'classic';}
 function cuSetDraft(path,v){
   const d=CU.d;if(!d)return;const [g,k]=path.split('.');
   const num=['sn','den','strip','yr'].includes(k);
@@ -47584,6 +47729,8 @@ document.addEventListener('click',e=>{
   else if(a==='cu-set'){if(!CU.d)CU.d=cuDraft(S.nation);cuSetDraft(el.dataset.f,el.dataset.v);render();}
   else if(a==='cu-reset'){CU.d=cuDraft(Object.assign({},S.nation,{cur:undefined}));render();}
   else if(a==='cu-locked'){toast('Locked. '+unlockHow(el.dataset.u));}
+  else if(a==='cu-era-locked'){toast(`The ${CU_ERAS[el.dataset.v]||''} era opens later. ${CU_ERA_HOW[el.dataset.v]||''}`);}
+  else if(a==='cu-preset'){if(!CU.d)CU.d=cuDraft(S.nation);cuPreset(el.dataset.v);render();}
   else if(a==='cu-shop'){SHOP.dr=el.dataset.p||'';SHOP.drNew=true;go('shop');}
   else if(a==='cu-flip'){
     const box=el.closest('.cu-flip'),k=el.dataset.k;if(!box)return;const on=!box.classList.contains('on'),front=box.querySelector('.cu-face:not(.cu-back)'),back=box.querySelector('.cu-back');
@@ -49673,8 +49820,8 @@ function settingsView(){
         <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
       </fieldset>
       <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
-        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||(CTG_MC[st.mapc]||[])[1]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
-        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}</div>
+        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||(CTG_MC[st.mapc]||[])[1]||mcGiftName(st.mapc)||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
+        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}${m100McSw(n,st)}</div>
       </fieldset>
       <div class="save-bar${dirty?' is-dirty':''}${SG.leave?' sg-leaving':''}" id="sg-save">${save}</div>
     </form>`;
@@ -50337,7 +50484,7 @@ function tick(){
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
 const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
 const ADM_EXTRA=['admin-players','admin-online','admin-alliances','admin-health','admin-audit'];
-const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus','admin-edicts','admin-stats','admin-shop',ADM_EXTRA);
+const ADM_VIEWS=ADM_PAGES.concat('admin-notes','admin-help','admin-sus','admin-edicts','admin-stats','admin-shop',ADM_EXTRA);
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
    stays theirs to play); a removed nation leaves this browser too */
@@ -50702,6 +50849,7 @@ const ADM_ICONS={
   'admin-news':NAV_ICONS.devnews,
   'admin-board':NAV_ICONS.community,
   'admin-health':NAV_SVG('<path d="M12 19.5S3.5 14.8 3.5 9a4.3 4.3 0 0 1 8.5-1.6A4.3 4.3 0 0 1 20.5 9c0 5.8-8.5 10.5-8.5 10.5Z"/><path d="M7 12h2.3l1.4-2.4 2.2 4.6 1.4-2.2H17"/>'),
+  'admin-notes':NAV_SVG('<rect x="3" y="6.5" width="18" height="11" rx="1.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'),
   'admin-audit':NAV_SVG('<rect x="5" y="4.5" width="14" height="16" rx="1.5"/><path d="M9 3.5h6v3H9Z"/><path d="M8.5 10.5h7M8.5 14h7M8.5 17.5h4"/>')};
 function admShell(v,body){
   const n=ADMH.d?admhNeeds(ADMH.d):ADM.d&&ADM.d.help;setTimeout(awCount,0);
@@ -50714,7 +50862,7 @@ function admShell(v,body){
         ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-gone','Recently dissolved'))}
-        ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0))}
+        ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-notes','Banknote design guide'))}
         ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
@@ -50724,7 +50872,7 @@ function admShell(v,body){
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
 render=(f=>function(){const r=f.apply(this,arguments);if(admMenuOpen&&ADM_MOBILE.matches)admShowMenu();return r;})(render);
-shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(S.view==='admin-edicts'&&S.isOwner)return adminEdictsView();if(S.view==='admin-stats'&&S.isOwner)return adminStatsView();if(S.view==='admin-shop'&&S.isOwner)return adminShopView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
+shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(S.view==='admin-edicts'&&S.isOwner)return adminEdictsView();if(S.view==='admin-stats'&&S.isOwner)return adminStatsView();if(S.view==='admin-notes'&&S.isOwner)return admShell('admin-notes',cuGuideHTML());if(S.view==='admin-shop'&&S.isOwner)return adminShopView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
 go=(f=>function(v){if(v!==S.view){admMenuOpen=false;if(ADM_EXTRA.includes(v))ADMX.loaded[v]=false;}if(ADM_PAGES.includes(v)&&S.view!==v){if(!ADM_VIEWS.includes(S.view))ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
@@ -51026,6 +51174,28 @@ async function adminNoteSave(uid){
   try{const r=await adminRequest({op:'note',uid,text});p.staffNote=r.staffNote;ADMX.note=r.staffNote.text;ADMX.noteFor=uid;ADMX.noteMsg=r.staffNote.text?'Notes saved.':'Notes deleted.';}
   catch(e){ADMX.noteMsg='The notes were not saved: '+(e.message||e.code||'unknown error');}
   ADMX.noteBusy=false;render();
+}
+/* ── admin: the banknote design guide, every part of the note system side by side (a specimen nation that has
+   opened every era) ── */
+function cuGuideHTML(){
+  const me=S.nation||{name:'Specimen',leader:'Leader',capital:'Capital',seed:1};
+  const n=Object.assign({},me,{cities:(Array.isArray(me.cities)?me.cities:[]).concat(Array(8).fill({c:-1})),sp:Object.assign({},me.sp,{moon:(me.sp&&me.sp.moon)||{}}),founded:me.founded||Date.now()-30*DAY});
+  const base=cuOf(n),W=(note,o)=>cuNoteSVG(n,Object.assign({},base,{note:Object.assign({},base.note,note)}),Object.assign({lite:1,cls:'cu-note-g'},o||{}));
+  const fig=(svg,cap)=>`<figure class="cug-f">${svg}<figcaption class="hint">${cap}</figcaption></figure>`;
+  const sec=(h,lede,body)=>`<section class="adst-sec"><h2 class="h2">${h}</h2><p class="hint">${lede}</p><div class="cug-grid">${body}</div></section>`;
+  const tok=e=>{const T=cuTok(n,{note:Object.assign({},base.note,{era:e})},base.note.den,base.note.den);return `<div class="cug-tok"><b>${esc(CU_ERAS[e])}</b> ${['c1','c2','vc','pin','rule','ink'].map(k=>`<span class="cug-sw" style="background:${T[k]}" title="${k} ${T[k]}"></span>`).join('')}<span class="hint">${esc(T.F.t.split(',')[0])} · ${esc(T.F.d.split(',')[0])}</span></div>`;};
+  const legi=['#1D6A5C','#808080','#C9961A','#7FA7C9','#F2D27A','#2D3E6B'].map(h=>{const L=cuLegible(h);return `<tr><td><span class="cug-sw" style="background:${h}"></span> ${h}</td><td class="num">${cuContrast(h,L.ink).toFixed(1)}</td><td><span class="cug-sw" style="background:${L.c1}"></span> ${L.c1}</td><td class="num">${cuContrast(L.c1,L.ink).toFixed(1)}</td></tr>`;}).join('');
+  return `<h1 class="h1">Banknote design guide</h1><p class="lede">Every part of the banknote system, drawn for ${esc(me.name||'a specimen nation')} with every era opened. Check new art here before it ships.</p>
+  ${sec('Layers','A note is built in six named layers, each drawn by one part of the kit (CU_KIT). Each picture adds one.',CU_LAYERS.map((k,i)=>fig(W({},{only:CU_LAYERS.slice(0,i+1)}),`+ ${k}`)).join(''))}
+  ${sec('Layouts','Where the parts go.',Object.entries(CU_LAYS).map(([k,l])=>fig(W({lay:k}),l)).join(''))}
+  ${sec('Eras','Inks, paper and type. Art Deco opens with three cities, Polymer with six or after two weeks, Futurist on the Moon.',Object.entries(CU_ERAS).map(([k,l])=>fig(W({era:k}),l)).join(''))}
+  ${sec('Tokens','The colours and typefaces each era gives the same design: ground, second colour, vignette paper, engraving ink, rule and text ink.',`<div class="cug-toks">${Object.keys(CU_ERAS).map(tok).join('')}</div>`)}
+  ${sec('Denominations','Colour, size and tactile marks rise with the value.',CU_DENOMS.map(v=>{const t=cuDenTier(v);return fig(W({},{den:v,mini:1}),`${v.toLocaleString('en-US')} · ${t.k} × ${t.sh}`);}).join(''))}
+  ${sec('Engravings','Every background pattern, including the nation’s own guilloché from its seed.',Object.entries(CU_PATS).map(([k,l])=>fig(W({pat:k}),esc(l))).join(''))}
+  ${sec('Presets','Style presets as the designer applies them.',Object.entries(CU_FLAV).map(([k,P])=>fig(W({c1:P.c1,c2:P.c2,pat:P.pat,lay:P.lay,era:P.era}),esc(P.nm))).join(''))}
+  ${sec('Backs','The back of each era: the register’s other half and the tactile marks.',Object.keys(CU_ERAS).map(e=>fig(cuNoteBackSVG(n,Object.assign({},base,{note:Object.assign({},base.note,{era:e})}),{lite:1,cls:'cu-note-g'}),esc(CU_ERAS[e]))).join(''))}
+  ${sec('Legibility','The ground is nudged until the value is at least 4.5 : 1 against its ink.',`<div class="tbl-wrap" style="grid-column:1/-1"><table class="tbl"><thead><tr><th>Chosen</th><th class="num">Contrast</th><th>Printed</th><th class="num">Contrast</th></tr></thead><tbody>${legi}</tbody></table></div>`)}
+  <p class="hint">Cache: ${CU_MEMO.size} of 80 drawn notes kept.</p>`;
 }
 function adminExtraView(v){
   if(!ADMX.loaded[v]&&!ADMX.busy)setTimeout(()=>adminExtraLoad(v),0);
@@ -54083,11 +54253,11 @@ const DD_RARE={iss:[6,8],claim:[3,4],exp:[2,3],road:[2,3],build:[2,2],dm:[2,3],d
 const DD_LEG_CR=15,DD_LEG_GIFT=300,DD_LEG_MS=7*864e5,DD_LEG_MAX=STK_MAX;
 const DD_LEG={iss:[30,40],claim:[12,16],exp:[6,8],deal:[5,6],dm:[6,8],build:[5,6],road:[4,6],xu:[4,5],xpb:[3,4],fleet:[6,8],ugb:[4,5],svc:[8,10],desk:[5,5],first:[2,2],spy:[10,12],covc:[5,6]};
 const ddlcOf=n=>n&&Number.isInteger(n.ddlc)&&n.ddlc>0?Math.min(n.ddlc,DD_LEG_MAX):0;
-/* stock above the storage limit that a reward gave (the legendary task's, the fiftieth player's gift) stays: n.xs, the
+/* stock above the storage limit that a reward gave (the legendary task's, the fiftieth player's gift, the 100-nation supplies) stays: n.xs, the
    most any resource is over, kept while one is over and shrinking as it is used. Income adds nothing to a resource
    that is over (whAccrue) until some is used or a Warehouse raises the limit; the load check allows it (auditNation).
    Never more than those rewards can have given. */
-function xsMax(n){return DD_LEG_GIFT*ddlcOf(n)+(n&&n.m50===1&&typeof M50_N==='number'?M50_N:0);}
+function xsMax(n){return DD_LEG_GIFT*ddlcOf(n)+(n&&n.m50===1&&typeof M50_N==='number'?M50_N:0)+(typeof m100Bits==='function'&&m100Bits(n)&1?M100_N:0);}
 const xsOf=n=>n&&Number.isFinite(n.xs)&&n.xs>0?Math.min(n.xs,xsMax(n)):0;
 function xsOver(n,st,now){const cap=stockCap(n,now);let x=0;for(const r of RES)x=Math.max(x,num0(st[r])-cap);return Math.ceil(x);}
 function xsMark(n,st,now){const x=xsOver(n,st,now);if(x>0)n.xs=Math.max(Number.isFinite(n.xs)?n.xs:0,x);}
@@ -55840,6 +56010,123 @@ document.addEventListener('keydown',e=>{const o=document.getElementById('m50');i
 setInterval(()=>{try{const n=S.nation;
   if(m50Later||!m50Due(n)||navigator.webdriver&&!window.EDICTUM_M50||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
   m50Show();}catch(e){}},2000);
+
+/* ───────── 100-nation gift ─────────
+   When Edictum reaches 100 nations, every one of those first hundred gets a pop-up with two gift boxes, in every
+   region, each opened with a click: the first holds M100_N (100) of every material (RES, above the storage limit
+   like the legendary task's, see xsMax), the second the Triumph regalia: the Centum card pattern (p-centum), the
+   Triumph Purple map colour (M100_MC, ctgMcOk) and the Triumphal arch shield (CZ_SH_GIFT). n.m100 keeps the boxes
+   opened as bits (m100Bits: 1 supplies, 2 regalia); closed with a box still shut, it comes back on the next visit.
+   The count: summaries/ holds one public record for every player nation (NPCs have none), each with its founding time
+   f, except older ones not saved since f was added, which were all founded before. So, two counts: all nations, and
+   those founded after this one. The nation is among the first hundred when all less those after it is 100 or fewer.
+   Until the total reaches 100 it is counted again every M100_EVERY while the page is open; then once a visit. */
+const M100_EVERY=10*60e3;
+const M100={tot:null,after:null,f:0,at:0,busy:false,later:false};
+NORM_HOOKS.push((n,d)=>{const v=d&&Number.isInteger(d.m100)?d.m100&3:0;if(v)n.m100=v;else delete n.m100;});
+/* one of the first hundred: settled once a box is open, else by this visit's counts for this nation */
+function m100In(n){
+  if(m100Bits(n))return true;
+  return M100.f>0&&M100.f===Math.floor(+n.founded||0)&&M100.tot!=null&&M100.tot>=M100_N&&M100.after!=null&&M100.tot-M100.after<=M100_N;
+}
+const m100Due=n=>!!n&&!n.npc&&!!n.name&&+n.founded>0&&m100Bits(n)!==3&&m100In(n);
+function m100Count(){
+  const n=S.nation,f=Math.floor(+(n&&n.founded)||0);
+  if(!(f>0)||m100Bits(n)||M100.busy||S.mode!=='world'||!S.db||typeof S.db.count!=='function')return;
+  if(M100.f===f&&(M100.after!=null||Date.now()-M100.at<M100_EVERY))return;
+  M100.busy=true;M100.at=Date.now();
+  Promise.resolve().then(()=>S.db.count('summaries')).then(tot=>{
+    if(!(tot>=M100_N)){M100.tot=tot;M100.after=null;M100.f=f;return;}
+    return S.db.count('summaries',[['f','>',f]]).then(after=>{M100.tot=tot;M100.after=after;M100.f=f;});
+  }).catch(()=>{}).then(()=>{M100.busy=false;});
+}
+/* the Centum card pattern: a laurel wreath round a Roman C (a hundred) on the right, beside a square of a hundred dots */
+UNLOCKS['p-centum']={k:'pattern',n:'Centum',src:'m100'};
+UNLOCK_SOURCES.push({earned:n=>m100Got(n)?['p-centum']:[],
+  how:id=>id==='p-centum'?'A gift to the nations that were here when Edictum reached 100 nations.':null});
+function m100PatBody(seed){
+  const q=v=>(+v).toFixed(1),r=rng(seed||7),cx=835,cy=160,R=106;let o='';
+  const leaf=(x,y,a,len,w)=>{const c=Math.cos(a),s=Math.sin(a),tx=x+len*c,ty=y+len*s,mx=x+len/2*c,my=y+len/2*s;
+    return `<path d="M${q(x)},${q(y)}Q${q(mx-s*w)},${q(my+c*w)} ${q(tx)},${q(ty)}Q${q(mx+s*w)},${q(my-c*w)} ${q(x)},${q(y)}Z"/>`;};
+  /* the wreath: two branches from a tie at the foot up either side, leaves in pairs along each, smaller to the top */
+  for(const side of [-1,1]){
+    const a0=Math.PI/2-side*0.26,a1=Math.PI/2-side*(Math.PI-0.36),pt=a=>[cx+R*Math.cos(a),cy+R*Math.sin(a)];
+    const [x0,y0]=pt(a0),[x1,y1]=pt(a1);o+=`<path d="M${q(x0)},${q(y0)}A${R},${R} 0 0 ${side<0?1:0} ${q(x1)},${q(y1)}"/>`;
+    for(let k=0;k<=10;k++){const a=a0+(a1-a0)*k/10,[x,y]=pt(a),len=30-k*1.3;
+      /* the way the branch grows (towards the top), a leaf to either side of it, and now and then a berry inside */
+      const g=Math.atan2(-side*Math.cos(a),side*Math.sin(a));
+      o+=leaf(x,y,g-0.55,len,len*0.3)+leaf(x,y,g+0.55,len*0.92,len*0.28);if(k%3===1)o+=`<circle cx="${q(x-Math.cos(a)*10)}" cy="${q(y-Math.sin(a)*10)}" r="2.6"/>`;}}
+  /* the tie: two loops and two tails */
+  const ty=cy+R+4;o+=`<path d="M${cx},${ty}q-16,-7 -22,4q11,6 22,-4ZM${cx},${ty}q16,-7 22,4q-11,6 -22,-4ZM${cx},${ty}l-12,26M${cx},${ty}l12,26"/>`;
+  /* the Roman C, with serifs */
+  const Ro=50,Ri=37,A=0.72,P=(rr,a)=>q(cx+rr*Math.cos(a))+','+q(cy+rr*Math.sin(a));
+  o+=`<path d="M${P(Ro,-A)}A${Ro},${Ro} 0 1 0 ${P(Ro,A)}L${P(Ri,A)}A${Ri},${Ri} 0 1 1 ${P(Ri,-A)}Z" stroke-width="1.4"/>`;
+  const ca=Math.cos(A),sa=Math.sin(A),xo=cx+Ro*ca,xi=cx+Ri*ca;
+  for(const sg of [-1,1])o+=`<path d="M${q(xo)},${q(cy+sg*(Ro*sa+8))}V${q(cy+sg*Ri*sa)}H${q(xi)}" stroke-width="1.4"/>`;
+  /* a hundred dots, ten by ten */
+  for(let i=0;i<10;i++)for(let j=0;j<10;j++)o+=`<circle cx="${560+j*14}" cy="${97+i*14}" r="2.2" fill="currentColor" stroke="none"/>`;
+  /* a few sprigs further off */
+  for(let i=0;i<9;i++){const x=40+i*56+r()*20,y=40+r()*240,a=-Math.PI/2+(r()-.5)*1.2;o+=`<path d="M${q(x)},${q(y)}l${q(Math.cos(a)*28)},${q(Math.sin(a)*28)}"/>`;
+    for(let k=1;k<4;k++){const bx=x+Math.cos(a)*k*7,by=y+Math.sin(a)*k*7;o+=leaf(bx,by,a-0.7,11,3.4)+leaf(bx,by,a+0.7,11,3.4);}}
+  return o;
+}
+czPatSVG=(f=>function(p,seed,mini){
+  if(p!=='p-centum')return f.apply(this,arguments);
+  return `<svg class="czp${mini?' mini':''}" viewBox="0 0 1000 320" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1">${m100PatBody(seed)}</g></svg>`;
+})(czPatSVG);
+/* the pop-up */
+function m100Close(){const o=document.getElementById('m100');if(o)o.remove();}
+function m100Say(){
+  const b=m100Bits(S.nation),say=document.getElementById('m100-say'),ok=document.getElementById('m100-ok'),go=document.getElementById('m100-go'),lt=document.getElementById('m100-later');
+  if(say)say.textContent=b===3?'Both gifts are yours.':b?'One more box to open.':'Click a box to open it.';
+  if(ok)ok.hidden=b!==3;if(go)go.hidden=!(b&2);if(lt)lt.hidden=b===3;
+}
+function m100Show(){
+  if(document.getElementById('m100'))return;const n=S.nation,b=m100Bits(n);
+  const a=cz(n).a||czDefaultArms(n),seed=hash(String(n.seed||n.name||'m100'));
+  const box=(k,label,cls)=>`<button type="button" class="m50-box m100-b${k}" id="m100-box${k}" aria-label="Open the ${k===1?'first':'second'} gift: ${label}"><span class="m50-body"></span><span class="m50-lid"></span><span class="m50-rib"></span><span class="m50-bow"></span></button>`;
+  const o=document.createElement('div');o.id='m100';o.className='m50-bg m100-bg';
+  o.innerHTML=`<div class="m50 m100" role="dialog" aria-modal="true" aria-labelledby="m100-h" aria-describedby="m100-d"><p class="eyebrow">All regions · once only</p>
+  <h2 class="h2" id="m100-h">100 nations milestone reached!</h2><p id="m100-d">Edictum has 100 nations, and ${esc(n.name)} is one of them. Two gifts to celebrate: open both.</p>
+  <div class="m100-boxes">
+    <div class="m100-gift${b&1?' open':''}" id="m100-g1">${box(1,'supplies')}<p class="m100-n">Supplies</p>
+      <div class="m100-got"><p class="m100-big"><b>+${M100_N}</b> of every material</p><ul class="m100-list">${RES.map(r=>`<li>${resIco(r)}<span>+${M100_N} ${esc(resName(r))}</span></li>`).join('')}</ul></div></div>
+    <div class="m100-gift${b&2?' open':''}" id="m100-g2">${box(2,'Triumph regalia')}<p class="m100-n">Triumph regalia</p>
+      <div class="m100-got"><ul class="m100-list m100-reg">
+        <li><span class="cz-pt m100-pt" aria-hidden="true">${czPatSVG('p-centum',seed,1)}</span><span><b>Centum</b><small>Card pattern</small></span></li>
+        <li><span class="hexchip m100-mc" style="--hx:${M100_MC}" aria-hidden="true"></span><span><b>${esc(M100_MCN)}</b><small>Map colour</small></span></li>
+        <li><span class="m100-sh" aria-hidden="true">${czArmsSVG({...a,s:'triumph',c:''})}</span><span><b>Triumphal arch</b><small>Shield for your arms</small></span></li></ul></div></div>
+  </div>
+  <p class="hint m100-say" id="m100-say" aria-live="polite"></p>
+  <div class="m100-foot"><button type="button" class="btn" id="m100-ok" hidden>Collect</button><button type="button" class="linkish small" id="m100-go" hidden>Try the regalia on in Customise</button></div>
+  <button type="button" class="linkish small m50-later" id="m100-later">Later</button></div>`;
+  document.body.appendChild(o);m100Say();
+  const first=document.querySelector('#m100 .m100-gift:not(.open) .m50-box')||document.getElementById('m100-ok');if(first)first.focus();
+}
+function m100Open(k){
+  const n=S.nation,b=m100Bits(n);if(!m100Due(n)||(b&k))return;
+  const m=clone(n),now=Date.now();
+  if(k===1){const st=stockNow(m,now);for(const r of RES)st[r]=num0(st[r])+M100_N;m.m100=b|1;xsMark(m,st,now);m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;}
+  else m.m100=b|2;
+  commit(m);
+  const g=document.getElementById('m100-g'+k);if(!g)return;g.classList.add('open');m100Say();
+  const box=g.querySelector('.m50-box'),fr=document.querySelector('#m100 .m50');
+  if(box&&fr){const x=box.offsetLeft+box.offsetWidth/2,y=box.offsetTop+box.offsetHeight/2;
+    for(let i=0;i<20;i++){const c=document.createElement('i');c.className='m50-cf';c.style.cssText=`left:${x}px;top:${y}px;--x:${Math.round(Math.random()*240-120)}px;--y:${Math.round(-70-Math.random()*150)}px;--r:${Math.round(Math.random()*720)}deg;background:${(k===1?['#E2B13C','#8A5F36','#23804A','#2457A6','#C0282D']:['#E2B13C','#7A1F5C','#B4539B','#F6E2A8','#4A1238'])[i%5]}`;fr.appendChild(c);}}
+  setTimeout(()=>{const nx=document.querySelector('#m100 .m100-gift:not(.open) .m50-box')||document.getElementById('m100-ok');if(nx&&!nx.hidden)nx.focus();},700);
+}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#m100-box1,#m100-box2,#m100-ok,#m100-go,#m100-later');if(!t)return;
+  if(t.id==='m100-box1'||t.id==='m100-box2'){m100Open(t.id==='m100-box1'?1:2);return;}
+  if(t.id==='m100-later')M100.later=true;
+  m100Close();if(t.id==='m100-go')go('customise');else quietRender();});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!document.getElementById('m100'))return;if(m100Bits(S.nation)!==3)M100.later=true;m100Close();quietRender();});
+/* another pop-up first (the 50-player gift, the founders' gift, the recovery code…), and this one after it */
+const m100Busy=()=>[...document.querySelectorAll('[aria-modal="true"]')].some(e=>e.getClientRects().length>0);
+setInterval(()=>{try{const n=S.nation;
+  if(M100.later||!n||n.npc||navigator.webdriver&&!window.EDICTUM_M100||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
+  m100Count();
+  if(!m100Due(n)||document.getElementById('m100')||m50Due(n)&&!m50Later||m100Busy())return;
+  m100Show();}catch(e){}},2000);
 
 /* ───────── Community Board ─────────
    Under Other: a board for every region, where any Registered Nation opens topics and replies, wherever it lives.
@@ -61513,7 +61800,7 @@ czShow=(f=>function(id){const u=czU(id);
 const MLK={id:''},MLK_TE=['te-hatch','te-stipple','te-wash','te-grid','te-fret','te-gilt'];
 const mlkPack=p=>(SHOP_FROM[p]||'the Shop').replace(/^the /,'');
 /* the colour the player chose for the map, by name, while they may wear it ('' while it comes from the flag) */
-function mlkMcName(n){const c=safeColor(n&&n.mapc,'');if(!c||nationColor(n)!==c)return '';return MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'';}
+function mlkMcName(n){const c=safeColor(n&&n.mapc,'');if(!c||nationColor(n)!==c)return '';return MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||mcGiftName(c)||'';}
 /* a piece of the Shop as its lock says it: the pack and its price (the full one struck through in a sale) */
 function mlkLockTxt(p){const pr=shopPrice(p);return `${esc(mlkPack(p))}${pr?` · ${shopWas(p)}${esc(pr)}`:''}`;}
 function mlkLockSay(p){const pr=shopPrice(p);return `${mlkPack(p)} in the Shop${pr?', '+pr:''}`;}
@@ -61536,7 +61823,7 @@ function mlkMcSet(c){
   /* only the map panel and the map change: the rest of the page stays as it is, not drawn again (nor moved) */
   updateMapPanel();redrawMaps();
   requestAnimationFrame(()=>{const b=document.querySelector(`#map-panel .mlk [data-act="mlk-mc"][data-val="${c}"]`);if(b)b.focus({preventScroll:true});});
-  const nm=c?MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour':'';
+  const nm=c?MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||mcGiftName(c)||'That colour':'';
   toast(c?`${nm} is your map colour now, for every player in your region.`:'Your land on the map takes its colour from your flag again.');
 }
 function mlkCard(n){
@@ -61560,6 +61847,8 @@ function mlkCard(n){
     if(!shopSells('cartopack'))continue;cl.push(nm);
     sws+=`<button type="button" class="sw sw-lock" style="--sw:${x}" data-act="mlk-shop" data-p="cartopack" data-mc="${x}" aria-label="Map colour: ${esc(nm)}, locked. Part of the ${esc(mlkLockSay('cartopack'))}" title="${esc(nm)}: part of the ${esc(mlkPack('cartopack'))} in the Shop">${CZ_LOCK}</button>`;}
   if(cl.length)locks.push(`<li>${CZ_LOCK}<span><b>${list(cl.map(esc))}</b>: ${mlkLockTxt('cartopack')}</span></li>`);
+  /* the 100-nation gift's colour, once its box is open (never shown locked: it cannot be had any other way) */
+  if(ctgMcOk(n,M100_MC))sws+=sw(M100_MC,M100_MCN,'a gift for 100 nations');
   /* the hex backgrounds: Plain and those held first, then those locked, under a line for each pack and its price */
   const tes=mlkTes(n),anyLock=tes.some(x=>!x.own);
   const tile=(id,name,x)=>{const lock=!!x&&!x.own;return `<button type="button" class="mlk-t${lock?' lock':''}${cur===id?' on':''}" data-act="${lock?'mlk-shop':'mlk-cz'}"${id?` data-id="${id}"`:''}${lock?` data-p="${x.p}" aria-label="${esc(name)}, locked. ${esc(mlkLockSay(x.p))}: see how it looks on ${esc(n.name)}"`:''}><span class="mlk-tv" aria-hidden="true">${ctgLandSVG(n,{mini:1,te:id})}</span><span class="mlk-tn">${esc(name)}</span>${cur===id?'<span class="mlk-ts">Wearing</span>':''}</button>`;};
@@ -61627,6 +61916,11 @@ function ctgMcSw(n,st){
   return Object.keys(CTG_MC).map(c=>{const nm=CTG_MC[c][1];
     if(ctgMcOk(n,c))return `<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${nm}, from the Cartographer’s Pack" title="${nm}, from the Cartographer’s Pack"></button>`;
     return sell?`<button type="button" class="sw sw-lock" style="--sw:${c}" data-act="ctg-shop" aria-label="Map colour: ${nm}, locked. Part of the Cartographer’s Pack in the Shop." title="${nm}: part of the Cartographer’s Pack in the Shop">${CZ_LOCK}</button>`:'';}).join('');
+}
+/* the 100-nation gift's map colour in Settings, after the pack's: only once its box is open */
+function m100McSw(n,st){
+  if(!ctgMcOk(n,M100_MC))return '';
+  return `<button type="button" class="sw${st.mapc===M100_MC?' on':''}" style="--sw:${M100_MC}" data-act="mapc" data-val="${M100_MC}" aria-pressed="${st.mapc===M100_MC}" aria-label="Map colour: ${M100_MCN}, a gift for 100 nations" title="${M100_MCN}, a gift for 100 nations"></button>`;
 }
 /* land in a picture, for the Shop and Customise: the player's own hexes round their capital when the nation is on
    the map (opts.big: a wider ring), otherwise a small made-up patch (always for opts.mini); in a finish (te), with a
@@ -62507,7 +62801,7 @@ document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest
   fgfClose();});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!document.getElementById('fgf')||FGF.busy)return;if(!FGF.done){FGF.later=true;fgfSeen();}fgfClose();});
 setInterval(()=>{try{const n=S.nation;
-  if(FGF.later||!n||n.fgs===1||document.getElementById('fgf')||document.getElementById('m50')||!fgfOpen()||SHOP.open||SHOP.wait||SHOP.gr&&Date.now()-(SHOP.gr.founder||0)<3000
+  if(FGF.later||!n||n.fgs===1||document.getElementById('fgf')||document.getElementById('m50')||document.getElementById('m100')||!fgfOpen()||SHOP.open||SHOP.wait||SHOP.gr&&Date.now()-(SHOP.gr.founder||0)<3000
     ||navigator.webdriver&&!window.EDICTUM_FG||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode!=='world'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
   fgfShow();}catch(e){}},2000);
 
@@ -71024,7 +71318,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
