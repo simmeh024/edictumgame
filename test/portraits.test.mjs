@@ -28,11 +28,11 @@ test('the court painter’s edict: one edict, numbered after every older one, be
   assert(/'PT_ISSUES'/.test(readFileSync(new URL('../scripts/split-content.mjs',import.meta.url),'utf8')),'the content split carries it');
 });
 
-test('twenty-six kinds of hair, twenty-five of dress and eight skin colours, the newer ones open to all; notes print without the skin',()=>{
+test('twenty-six kinds of hair, twenty-six of dress and eight skin colours, the newer ones open to all; notes print without the skin',()=>{
   const i=source.indexOf('const PT_ROWS=['),rows=vm.runInNewContext(source.slice(i+'const PT_ROWS='.length,source.indexOf(';',i)));
   const by=Object.fromEntries(rows.map(r=>[r[0],r[2]]));
   assert.equal(rows[0][0],'s','the skin comes first');assert.equal(by.s.length,9);assert.equal(by.s[0],'Engraved','0 is the engraving in one ink');
-  assert.equal(by.h.length,26);assert.equal(by.d.length,25);assert.equal(by.w.length,25);assert.equal(by.x.length,19);assert.equal(by.e.length,10);
+  assert.equal(by.h.length,26);assert.equal(by.d.length,26);assert.equal(by.w.length,26);assert.equal(by.x.length,19);assert.equal(by.e.length,10);
   assert.deepEqual([...by.h.slice(0,10)],['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided'],'the older hair keeps its numbers');
   assert.deepEqual([...by.h.slice(10,20)],['Bald','Curly','Ponytail','Bob','Pompadour','Receding','Locs','Long waves','Cornrows','Long plait'],'and so does the hair added after it');
   assert.deepEqual([...by.d.slice(0,9)],['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office'],'the older dress keeps its numbers');
@@ -85,7 +85,7 @@ test('two portrait pieces in every other pack, at the same price: real parts, in
       assert.ok(new RegExp(`\\['${pk}',\\[[^\\n]*\\['${id}','portrait','`).test(source),id+' is registered in '+pk);
       assert.ok(C[pk].grants.includes(id),pk+' grants '+id);if(pk==='idpack')assert.ok(C.founder.grants.includes(id),'the Founder’s Package grants '+id+' too');}
     assert.equal(C[pk].grants.filter(id=>id.startsWith('rp-')).length,pk==='founder'?4:2,pk+': two portrait pieces'+(pk==='founder'?', and the card pack’s two':''));}
-  assert.equal(Object.keys(PS).length,30,'twelve in the Mayan Pack and eighteen in the others');
+  assert.equal(Object.keys(PS).length,33,'twelve in the Mayan Pack, three in the African Kingdoms Pack and eighteen in the others');
   assert.equal(vm.runInNewContext(source.match(/const PT_HAT_S=(\[[^\]]+\]);/)[1]).length,by.w.length,'every hat has its scale');
   /* on offer while its own pack sells, not the Mayan Pack's */
   assert(source.includes('const ptOffered=(n,id)=>!PT_SHOP[id]||ptHas(n,id)||ptPackSells(ptPackOf(id));'),'offered by its own pack');
@@ -110,13 +110,24 @@ test('the portraits section: its record keys, its private fields, and the wrappe
   assert(/p=ptSnapNorm\(x\.p\);if\(p\)o\.p=p;return o;/.test(source),'n.cuS keeps p');
 });
 
+test('the African Kingdoms Pack’s three portrait pieces: a gele, a beaded collar and the Benin bronze ring, sold in that pack and drawn',()=>{
+  const cat=JSON.parse(readFileSync(new URL('../functions/shop-catalogue.json',import.meta.url),'utf8')).products.afripack;
+  const PS=vm.runInNewContext('('+source.match(/const PT_SHOP=(\{[^}]+\});/)[1]+')');
+  const i=source.indexOf('const PT_ROWS=['),rows=vm.runInNewContext(source.slice(i+'const PT_ROWS='.length,source.indexOf(';',i))),by=Object.fromEntries(rows.map(r=>[r[0],r[2]]));
+  const rings=vm.runInNewContext(source.match(/const PT_RING_N=(\[[^\]]+\]);/)[1]);
+  assert.deepEqual([PS.w25,PS.d25,PS.r10],['rp-gele','rp-beadcollar','rp-plaque']);assert.deepEqual([by.w[25],by.d[25],rings[10]],['Gele','Beaded collar','Benin bronze']);
+  for(const id of ['rp-gele','rp-beadcollar','rp-plaque']){assert.ok(cat.grants.includes(id),id+' is granted');assert.ok(source.includes("['"+id+"','portrait','"),id+' is a portrait piece in the Shop');}
+  assert(source.includes('if(H===25){')&&source.includes('if(D===25){')&&/\n    10:C\(48\.7/.test(source),'each is drawn');
+  assert(source.includes("afripack:'African Kingdoms Pack'};\nconst ptPackOf"),'the pack is named in the editor');
+});
+
 test('the 25 pieces of 15 November 2026: named after every older one, open to all, and each drawn cleanly in every manner',()=>{
   const i=source.indexOf('const PT_ROWS=['),rows=vm.runInNewContext(source.slice(i+'const PT_ROWS='.length,source.indexOf(';',i))),by=Object.fromEntries(rows.map(r=>[r[0],r[2]]));
   const want={h:[22,['Afro','Side part','Chignon','Mohawk']],e:[6,['Goatee','Van Dyke','Long beard','Stubble']],w:[18,['Fez','Bowler','Fedora','Pith helmet','Fur hat','Head wrap','Tiara']],
     d:[20,['Turtleneck','Fur-collared coat','Cloak and brooch','Double-breasted coat','Gown and pearls']],x:[14,['Eyepatch','Pipe','Pocket square','Ribbon bar','Freckles']]};
   const a=source.indexOf('const PT_LOCK={'),lk=source.slice(a,source.indexOf('};',a)),PS=vm.runInNewContext('('+source.match(/const PT_SHOP=(\{[^}]+\});/)[1]+')');
   let n=0;
-  for(const [k,[from,names]] of Object.entries(want)){assert.deepEqual([...by[k].slice(from)],names,k+': the new pieces come after every older one');
+  for(const [k,[from,names]] of Object.entries(want)){assert.deepEqual([...by[k].slice(from,from+names.length)],names,k+': the new pieces come after every older one');
     names.forEach((_,j)=>{const id=k+(from+j);n++;assert(!new RegExp('\\b'+id+':').test(lk),id+' is not earned');assert(!PS[id],id+' is not sold');});}
   assert.equal(n,25);
   /* the renderer on its own: every piece engraved, with a skin, grey and facing left, and worn together */
