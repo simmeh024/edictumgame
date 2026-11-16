@@ -174,6 +174,57 @@ try {
     check(`${tag}: no page errors`, !u.errors.length, u.errors);
     await u.ctx.close();
   }
+
+  /* ── the outpost (16 Nov): the cargo beacon held on the shared Moon, one smelter or extractor at 40%, and the colony
+     opening there once the Lunar Colony is complete ── */
+  {
+    const o = await start('light', { width: 1280, height: 900 }), p = o.page;
+    await o.edit((n, now) => {
+      const H = 3600e3, past = h => ({ s: now - (h + 1) * H, d: now - h * H });
+      n.mc = { v: 1, a: { nm: 'Lampwick Space Agency', t: now - 50 * H, f: 'flt', tm: { flt: now - 50 * H, sci: now - 50 * H, eng: now - 50 * H } },
+        ms: { cam: past(48), orb: past(40), relay: past(30), polar: past(20), rover: past(10), cargo: past(2) }, c: [], x: {}, r: 0, md: {}, p: { o: 0, t: now - 60 * H } };
+      const c = n.cities[0];c.b = (c.b || []).concat(['mctrl', 'dsts', 'robo', 'spaceport'].map(k => ({ k, s: now - 60 * H, d: now - 55 * H })));
+      n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 };n.stockAt = now;n._stockSet = true;
+    });
+    await o.go('space');
+    check('outpost: after the cargo landing the agency offers to make the beacon an outpost', await p.evaluate(() => !!document.querySelector('#mc-op') && !!document.querySelector('[data-act="sp-op-place"]')));
+    const rate0 = await p.evaluate(() => { const G = window.__game; return G.GB().stockRates(G.S.nation); });
+    await p.evaluate(() => document.querySelector('[data-act="sp-op-place"]').click());
+    await until(() => p.evaluate(() => !!(window.__game.S.nation.sp && window.__game.S.nation.sp.op)));
+    const op = await p.evaluate(() => { const n = window.__game.S.nation; return n.sp && n.sp.op ? { ...n.sp.op } : null; });
+    check('outpost: set up on a tile of the Moon, with no building yet', !!op && op.c >= 0 && op.b === '', op);
+    const opts = await p.evaluate(() => [...document.querySelectorAll('[data-act="sp-op-build"]')].map(b => ({ k: b.dataset.k, on: !b.disabled })));
+    check('outpost: a smelter or an extractor to build, as the ground allows', opts.length >= 1 && opts.some(x => x.on) && opts.every(x => ['rs', 'he'].includes(x.k)), opts);
+    const k = (opts.find(x => x.on) || {}).k;
+    if (k) { await p.evaluate(k => document.querySelector(`[data-act="sp-op-build"][data-k="${k}"]`).click(), k); await until(() => p.evaluate(() => !!window.__game.S.nation.sp.op.b)); }
+    check('outpost: the building is ordered, and the outpost has room for no other', await p.evaluate(() => /^(rs|he)/.test(window.__game.S.nation.sp.op.b) && !document.querySelector('[data-act="sp-op-build"]')));
+    /* finished two days ago: it sends 40% home */
+    await o.edit((n, now) => { const op = n.sp.op;op.t = now - 3 * 864e5;op.b = op.b.slice(0, 2) + op.c.toString(36) + '.0.1'; });
+    const rate1 = await p.evaluate(() => { const G = window.__game; return G.GB().stockRates(G.S.nation); });
+    const d = { iron: Math.round((rate1.iron - rate0.iron) * 100) / 100, oil: Math.round((rate1.oil - rate0.oil) * 100) / 100 };
+    check('outpost: it sends 40% of its output home (1.6 iron or 2 oil a day)', k === 'rs' ? d.iron === 1.6 && d.oil === 0 : d.oil === 2 && d.iron === 0, { k, d });
+    await o.go('nation'); await o.go('space');
+    check('outpost: the space race lists it', await p.evaluate(() => /Outpost on the Moon/.test((document.querySelector('.sp-race') || {}).textContent || '')));
+    await o.edit(() => {});
+    let ach = await p.evaluate(() => Object.keys(window.__game.S.nation.ach || {}));
+    check('outpost: Beacon Keeper and Moonlighting', ['sp-op', 'sp-op-run'].every(id => ach.includes(id)), ach.filter(a => /^sp-/.test(a)));
+    /* the Lunar Colony complete: the colony opens at the outpost */
+    await o.edit((n, now) => { const c = n.cities[0];c.b = c.b.concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 });n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 };n.stockAt = now;n._stockSet = true; });
+    await o.go('space');
+    check('outpost: with the wonder complete, the Space page offers to open the colony there', await p.evaluate(() => !!document.querySelector('#sp-panel [data-act="sp-land-op"]') && /outpost/i.test(document.querySelector('#sp-panel').textContent)));
+    await p.evaluate(() => document.querySelector('#sp-panel [data-act="sp-land-op"]').click());
+    await until(() => p.evaluate(() => !!(window.__game.S.nation.sp && window.__game.S.nation.sp.moon)));
+    const m = await p.evaluate(() => { const n = window.__game.S.nation; return n.sp && n.sp.moon ? { t: n.sp.moon.t, c: n.sp.moon.c, b: n.sp.moon.b, ld: n.sp.moon.ld, lp: n.sp.moon.lp, op: !!n.sp.op } : null; });
+    check('outpost: the colony keeps the outpost’s tile, time and building, and notes the landing', !!m && m.c === op.c && m.b.slice(0, 2) === k && m.ld > m.t && m.lp > 0 && !m.op, m);
+    await o.edit(() => {});
+    ach = await p.evaluate(() => Object.keys(window.__game.S.nation.ach || {}));
+    check('outpost: One Small Step, Before a Billion and First on the Moon follow the landing', ['sp-moon', 'sp-moon-early', 'sp-moon-first', 'sp-moon-reg', 'sp-op'].every(id => ach.includes(id)), ach.filter(a => /^sp-/.test(a)));
+    await o.go('nation'); await o.go('space');
+    check('outpost: the panel is the colony’s own now', await p.evaluate(() => /Your colony on/.test(document.querySelector('#sp-panel').textContent)));
+    await p.screenshot({ path: path.join(OUT, 'mission-control-outpost-colony.png') });
+    check('outpost: no page errors', !o.errors.length, o.errors);
+    await o.ctx.close();
+  }
 } catch (e) { console.log('FAIL', e.stack || e); failed++; }
 await browser.close(); server.close();
 console.log(failed ? `${failed} failed` : 'all passed');
