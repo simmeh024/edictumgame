@@ -23486,7 +23486,7 @@ function messagesView(){
       ${unans>=DM_CAP-2&&!isStaff(me)?`<p class="hint dm-warn">${unans>=DM_CAP?`You have written ${DM_CAP} letters in a row. The next waits until ${esc(px.n.name)} answers.`:`You have written ${unans} letters in a row; after ${DM_CAP}, the next waits for an answer.`}</p>`:''}
       <div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / ${fmt0(DM_MAX)}</span><span class="hint dm-keys">Ctrl+Enter sends</span><span class="hint dm-fmt-h" id="dm-fmt-h">**bold**, *italic*, “- ” or “1. ” starts a list</span></div></form>`:'';
   const office=po?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${po.seal}</span><b>${esc(po.name)}</b><span class="chip">${esc(po.chip||'Office of '+REG.the)}</span>${po.go?`<button class="linkish small" data-act="go" data-v="${po.go[0]}">${esc(po.go[1])}</button>`:''}${menu}</div>${confirm}
-      <ol class="bubs">${more}${bubbles}</ol><p class="hint dm-note">${esc(po.note||'Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.')}</p>`:'';
+      <ol class="bubs" data-stick="dm:${esc(peer)}">${more}${bubbles}</ol><p class="hint dm-note">${esc(po.note||'Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.')}</p>`:'';
   const gm=grp?dmGroupMeta(peer):null;
   const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span>${dmLabelPills(peer)}<span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
     :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}${dmLabelPills(peer)}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
@@ -23503,7 +23503,7 @@ function messagesView(){
       <input type="search" class="input dm-s" id="dm-s" placeholder="Search letters…" aria-label="Search your letters" autocomplete="off" value="${esc(S.dmS||'')}">${filters}
       ${peers.length?`<ul class="conv-list">${conv}</ul>`:`<p class="hint" style="margin-top:14px">${q?'No letters match.':LF||AF?`No conversation ${LF?`labelled ${esc(dmLabelName(LF))}`:''}${LF&&AF?' and ':''}${AF?`with ${esc(DM_AF.find(o=>o[0]===AF)[1].toLowerCase())}`:''}${F!=='all'?' here':''}.${LF||AF?` <button type="button" class="linkish small" data-act="dm-fclear">Show all</button>`:''}`:F==='all'?'No conversations yet.':F==='archived'?'Nothing archived.':'None here.'}</p>`}</aside>
     <section class="thread">${office||(head?`${head}${confirm}
-      ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs">${more}${bubbles||`<li class="hint">${grp?'No letters yet. What you write here goes to every member.':'No messages yet. Say hello.'}</li>`}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(nameOf(peer))} is drafting a reply…</p></li>`:''}</ol>
+      ${pst?`<p class="staff-note">${esc(px.n.name)} is played by a member of the Edictum team, so its messages come from the game’s staff.</p>`:''}<ol class="bubs" data-stick="dm:${esc(peer)}">${more}${bubbles||`<li class="hint">${grp?'No letters yet. What you write here goes to every member.':'No messages yet. Say hello.'}</li>`}${dmPending(peer,now)?`<li class="bub typing"><p>${esc(nameOf(peer))} is drafting a reply…</p></li>`:''}</ol>
       ${dmBlocked(peer)?`<p class="hint">You have blocked ${esc(nameOf(peer))}. <button type="button" class="linkish small" data-act="dm-block" data-id="${esc(peer)}" data-off="1">Unblock</button></p>`:comp}`:`<div class="empty"><p class="empty-h">No conversation open</p><p>Pick a conversation, or choose a nation to write to.</p>${dmSuggestHTML(others)}</div>`)}
       ${po?'':'<p class="hint dm-note">Letters are private: only you, the nations you write to and the game’s team can read them. Letters are kept for a year.</p>'}</section>
   </div>`;
@@ -30697,7 +30697,7 @@ findNation=(f=>function(id){const x=f.apply(this,arguments);return x||(DORM.lett
 messagesView=(f=>function(){
   let h;DORM.letters++;try{h=f.apply(this,arguments);}finally{DORM.letters--;}
   const d=S.msgPeer&&dormFind(S.msgPeer);
-  return d&&!findNation(S.msgPeer)?h.replace('<ol class="bubs">',`<p class="hint dorm-thread">${esc(d.n.name)} has fallen silent. Your letters will wait in its archive until it wakes.</p><ol class="bubs">`):h;
+  return d&&!findNation(S.msgPeer)?h.replace('<ol class="bubs"',`<p class="hint dorm-thread">${esc(d.n.name)} has fallen silent. Your letters will wait in its archive until it wakes.</p><ol class="bubs"`):h;
 })(messagesView);
 sendDm=(f=>function(){DORM.letters++;try{return f.apply(this,arguments);}finally{DORM.letters--;}})(sendDm);
 nameOf=(f=>function(id){const r=f.apply(this,arguments),d=r==='a former nation'&&dormFind(id);return d?d.n.name:r;})(nameOf);
@@ -49815,6 +49815,57 @@ function renderPatch(app,html){
   RPATCH.n++;if(want!==null)try{RPATCH.check(want,app.innerHTML);}catch(e){}
   return true;
 }
+/* ── chats that keep to their newest line ──
+   Every chat (the drawer's Region, World and Alliance tabs, an alliance's channel, a letters thread, the admin's region
+   chats) opens on its newest line and follows each new one while the reader is at the bottom. Scrolling up (a wheel,
+   touch, keys, the scroll bar, a search in the page) lets go of the bottom; a box that changes size under it (a long
+   draft, the answer or picture bar, a phone's keyboard, a late font, a picture) never does, and scrolling back down
+   holds it again. A log drawn by render() carries data-stick="<key>": the same key keeps the reader's place when the page is
+   drawn anew, another key (another thread, another region) starts at the newest line, and a key gone from the page is
+   forgotten, so a chat opened again shows its newest lines. The drawer's chat keeps its own state (RGC.stick).
+   Declared with var: render() may run before this point of the script has. */
+var STK=null;
+function stk(){
+  if(STK)return STK;
+  STK={keys:new Map(),u:{t:0,el:null,down:null},ro:null};
+  const u=STK.u,mark=e=>{u.t=Date.now();u.el=e.target&&e.target.nodeType===1?e.target:null;},o={capture:true,passive:true};
+  for(const t of ['wheel','touchstart','touchmove','keydown'])document.addEventListener(t,mark,o);
+  document.addEventListener('pointerdown',e=>{mark(e);u.down=u.el;},o);
+  for(const t of ['pointerup','pointercancel'])document.addEventListener(t,()=>{u.t=Date.now();u.down=null;},o);
+  if(typeof ResizeObserver==='function')STK.ro=new ResizeObserver(es=>{for(const e of es){const el=e.target._stkBox||e.target;if(el._stk&&el._stk.on())stickPin(el);}});
+  try{document.fonts.addEventListener('loadingdone',()=>{for(const el of document.querySelectorAll('[data-stick],#rgc-body'))if(el._stk&&el._stk.on())stickPin(el);});}catch(e){}
+  return STK;
+}
+function stickNear(el){return el.scrollHeight-el.scrollTop-el.clientHeight<48;}
+function stickPin(el){if(!el||!el.isConnected)return;const m=el.scrollHeight-el.clientHeight;if(m>0&&el.scrollTop<m-1){el.scrollTop=m;el._stkAt=Date.now();}}
+/* the reader is scrolling this box: a wheel, touch or key in it a moment ago, or a pointer held down on it (its scroll bar) */
+function stickByHand(el){const u=stk().u;return !!(u.down&&el.contains(u.down)||Date.now()-u.t<1200&&u.el&&el.contains(u.el));}
+/* watch a scrolling box; s.on() says whether it holds its newest line, s.set(v) changes that. inner, when given, is the
+   list inside it, whose growth is watched too. A scroll away from the bottom lets go of it, unless it comes from no hand
+   just after the box was put at its bottom: the box changed size between the two (a draft grown by a key), and it goes
+   back down */
+function stickWatch(el,s,inner){
+  el._stk=s;if(el._stkOn)return;el._stkOn=true;const K=stk();
+  el.addEventListener('scroll',()=>{const s=el._stk;if(!s)return;s.y=el.scrollTop;
+    if(stickNear(el)){if(!s.on())s.set(true);}
+    else if(s.on()){if(!stickByHand(el)&&Date.now()-(el._stkAt||0)<600)stickPin(el);else s.set(false);}},{passive:true});
+  el.addEventListener('load',()=>{const s=el._stk;if(s&&s.on())stickPin(el);},true);
+  if(K.ro){K.ro.observe(el);if(inner){inner._stkBox=el;K.ro.observe(inner);}}
+  if(typeof MutationObserver==='function')new MutationObserver(()=>{const s=el._stk;if(s&&s.on())stickPin(el);}).observe(inner||el,{childList:true,subtree:true,characterData:true});
+}
+/* after each drawing: every data-stick log on the page at its newest line, or where its reader left it */
+function stickAll(){
+  const K=stk(),live=new Set();
+  for(const el of document.querySelectorAll('[data-stick]')){
+    const k=el.dataset.stick;live.add(k);let s=K.keys.get(k);
+    if(!s){s={v:true,y:0,on(){return this.v;},set(v){this.v=v;}};K.keys.set(k,s);}
+    if(el._stk!==s){stickWatch(el,s);if(s.v)stickPin(el);else el.scrollTop=s.y;}
+    else if(s.v)stickPin(el);
+  }
+  for(const k of K.keys.keys())if(!live.has(k))K.keys.delete(k);
+}
+/* the player wrote in a log: it goes to its newest line, whatever the reader had scrolled to */
+function stickDown(k){const el=document.querySelector(`[data-stick="${CSS.escape(k)}"]`),s=stk().keys.get(k);if(s)s.v=true;if(el)stickPin(el);}
 function render(){if(fxRender())return;
   let rewardJump=S.rewardFocus||null;S.rewardFocus=null;
   if(S.nation&&S.rewardHash!==location.hash){const r=rewardRoute(location.hash);S.rewardHash=location.hash;if(rewardPrepare(r))rewardJump=r;}
@@ -49847,7 +49898,7 @@ function render(){if(fxRender())return;
     else if(!sel&&el.localName==='input'&&el.value&&el.selectionStart==null){const v=el.value;el.value='';el.value=v;}}catch(e){}}}
   drawAllGuill();
   initMaps();
-  const bb=document.querySelector('.bubs');if(bb)bb.scrollTop=bb.scrollHeight;
+  try{stickAll();}catch(e){}
   if(rewardJump)rewardFocus(rewardJump);uxAfter(uxPlan,rewardJump,{id:fidFocus,tab:ae?.getAttribute?.('tabindex')});
   if(y0!=null&&document.documentElement.scrollHeight&&Math.abs(window.scrollY-y0)>1)window.scrollTo({top:y0,left:0,behavior:'instant'});
 }
@@ -64304,7 +64355,7 @@ function obsChat(A){
   const C=AL.chat;if(C.aid!==A.id)return '<p class="hint" role="status">Opening the channel…</p>';
   if(C.err)return `<p class="err">${esc(C.err)}</p>`;
   if(!C.list.length)return '<p class="hint">No messages in this channel yet.</p>';
-  return `<ol class="al-chat">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b><span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
+  return `<ol class="al-chat" data-stick="alo:${esc(A.id)}">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b><span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
 }
 alPageView=(f=>function(){const h=f.apply(this,arguments);if(!OBS)return h;const A=politics().al.get(AL.view);if(!A||!A.srv)return h;
   try{alChatConnect();}catch(e){}
@@ -72467,7 +72518,7 @@ function alChannelHTML(A){
   const C=AL.chat,me=myId(),mod=alCan(A,me,'o'),reg=civicRegistered();
   const list=C.list.map(m=>`<li class="al-msg${m.a===me?' me':''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b><span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${esc(m.x).replace(/\n/g,'<br>')}</p></li>`).join('');
   return `<p class="hint">Only members of ${esc(A.name)} can read this channel.</p>${C.err?`<p class="err">${esc(C.err)}</p>`:''}
-    <ol class="al-chat" id="al-chat" aria-live="polite">${list||'<li class="hint">No messages yet. Say hello to your allies.</li>'}</ol>
+    <ol class="al-chat" id="al-chat" data-stick="al:${esc(A.id)}" aria-live="polite">${list||'<li class="hint">No messages yet. Say hello to your allies.</li>'}</ol>
     ${reg?`<form class="al-chat-f" id="al-chat-form" novalidate><label class="sr" for="al-chat-x">Message</label><textarea class="input" id="al-chat-x" rows="2" maxlength="1000" placeholder="Write to your allies">${esc(AL.draft||'')}</textarea><button class="btn" type="submit"${alBusy('alPost')}>Send</button></form>`:`<p class="hint">${accountActionHint('alliance')||'Link a sign-in account to write in the channel.'}</p>`}`;
 }
 function alTreasuryHTML(A){
@@ -72722,8 +72773,7 @@ document.addEventListener('click',e=>{
   if(a==='al-page'){e.preventDefault();alOpenPage(el.dataset.id);return;}
   if(!a.startsWith('dp-')||!S.nation)return;const id=el.dataset.id||'';
   if(a==='dp-tab'){if(S.view!=='diplomacy'){AL.tab=el.dataset.v;go('diplomacy');}else dpSetTab(el.dataset.v,!el.closest('.dp-pane'));if(el.dataset.v==='alliance'&&el.closest('.dp-wait'))render();}
-  else if(a==='dp-sub'){AL.sub=el.dataset.v;AL.tab='alliance';if(AL.sub==='channel')alChatSeen();if(S.view!=='diplomacy')go('diplomacy');else render();
-    if(AL.sub==='channel')setTimeout(()=>{const c=document.getElementById('al-chat');if(c)c.scrollTop=c.scrollHeight;},0);}
+  else if(a==='dp-sub'){AL.sub=el.dataset.v;AL.tab='alliance';if(AL.sub==='channel')alChatSeen();if(S.view!=='diplomacy')go('diplomacy');else render();}
   else if(a==='dp-join'){const note=(AL.note||{})[id]||'';AL.ask='';joinAlliance(id,note);}
   else if(a==='dp-decline')alDecline(id);
   else if(a==='dp-cancel')alCancelRequest(id);
@@ -72767,7 +72817,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('submit',e=>{
   const id=e.target&&e.target.id;
-  if(id==='al-chat-form'){e.preventDefault();const A=alMine(),x=String(AL.draft||'').trim();if(!A||!A.srv||!x)return;alAct('alPost',{aid:A.id,x},()=>{achPend('rch');AL.draft='';setTimeout(()=>{const c=document.getElementById('al-chat');if(c)c.scrollTop=c.scrollHeight;},50);});}
+  if(id==='al-chat-form'){e.preventDefault();const A=alMine(),x=String(AL.draft||'').trim();if(!A||!A.srv||!x)return;alAct('alPost',{aid:A.id,x},()=>{achPend('rch');AL.draft='';stickDown('al:'+A.id);});}
   else if(id==='al-give'){e.preventDefault();const g=AL.give||{},k=(document.getElementById('al-give-k')||{}).value||g.k||'goods',q=Math.floor(+((document.getElementById('al-give-q')||{}).value||g.q||0));alPledge(k,q);}
   else if(id==='al-charter'){e.preventDefault();const A=alMine(),f=AL.edit;if(!A||!A.srv||!f)return;const D=A.doc,d={aid:A.id};
     if(f.name!==D.name)d.name=f.name;if(f.mo!==D.mo)d.mo=f.mo;if(f.ty!==D.ty)d.ty=f.ty;if(f.acc!==D.acc)d.acc=f.acc;if(f.col!==D.col)d.col=f.col;
@@ -74296,7 +74346,9 @@ function rgcDock(){
     <div class="rgc-foot" id="rgc-foot"></div>`;
   document.body.appendChild(d);RGC.dock=d;
   const body=d.querySelector('#rgc-body');
-  body.addEventListener('scroll',()=>{const s=body.scrollHeight-body.scrollTop-body.clientHeight<48;if(s!==RGC.stick){RGC.stick=s;const j=d.querySelector('.rgc-jump');if(j)j.hidden=s||rgcTab()==='haps';}},{passive:true});
+  /* the Region, World and Alliance tabs keep to their newest line (stickWatch): the reader's own scrolling lets go of it
+     and shows Latest lines; a draft, an answer or picture bar or a keyboard that changes the box's size does not */
+  stickWatch(body,{on:()=>RGC.stick&&rgcTab()!=='haps',set:v=>{RGC.stick=v;const j=d.querySelector('.rgc-jump');if(j)j.hidden=v||rgcTab()==='haps';}},d.querySelector('#rgc-list'));
   return d;
 }
 const rgcIn=()=>REG.the||REGION;
@@ -74448,7 +74500,7 @@ function rgcPaint(){
   list.innerHTML=h;
   if(tab==='haps'){if(turned)body.scrollTop=0;else body.scrollTop=y;}
   else if(RGC.goto){const g=list.querySelector(`.rgc-l[data-id="${CSS.escape(RGC.goto)}"]`);if(g){RGC.stick=false;g.scrollIntoView({block:'center'});}}
-  else if(RGC.stick)body.scrollTop=body.scrollHeight;else body.scrollTop=y;
+  else if(RGC.stick)stickPin(body);else body.scrollTop=y;
   const j=d.querySelector('.rgc-jump');if(j)j.hidden=RGC.stick||tab==='haps';
   if(keep&&(keep.id||keep.act)){const sel=keep.rgc?`[data-rgc="${CSS.escape(keep.rgc)}"]`:keep.act?`[data-act="${CSS.escape(keep.act)}"]`:'';
     const b=sel&&list.querySelector(sel+(keep.id?`[data-id="${CSS.escape(keep.id)}"]`:'')+(keep.k?`[data-k="${CSS.escape(keep.k)}"]`:''));
@@ -75177,8 +75229,8 @@ function acxLogHTML(){
 function acxPaint(){
   if(S.view!=='admin-chat')return;
   const l=document.getElementById('acx-log');
-  if(l){const stick=l.scrollHeight-l.scrollTop-l.clientHeight<48,y=l.scrollTop,fa=document.activeElement,keep=fa&&l.contains(fa)?{act:fa.dataset.act||'',id:fa.dataset.id||''}:null;
-    l.innerHTML=acxLogHTML();l.scrollTop=stick?l.scrollHeight:y;
+  if(l){const y=l.scrollTop,fa=document.activeElement,keep=fa&&l.contains(fa)?{act:fa.dataset.act||'',id:fa.dataset.id||''}:null;
+    l.innerHTML=acxLogHTML();l.scrollTop=y;stickAll();
     if(keep&&keep.act){const b=l.querySelector(`[data-act="${CSS.escape(keep.act)}"]${keep.id?`[data-id="${CSS.escape(keep.id)}"]`:''}`);if(b)b.focus({preventScroll:true});}}
   const r=document.getElementById('acx-regs');if(r)r.innerHTML=acxRegsHTML();
 }
@@ -75212,7 +75264,7 @@ function acxView(){
   const regs=`<section class="acx-side" aria-label="Regions"><div class="acx-sh"><h2 class="h3">Regions</h2><button type="button" class="btn ghost small" data-act="acx-reload"${ACX.lbusy?' disabled':''}>${ACX.lbusy?'Fetching…':'Fetch again'}</button></div>
     ${ACX.lerr?`<p class="err">${esc(ACX.lerr)}</p>`:''}<ul class="acx-regs" id="acx-regs">${acxRegsHTML()}</ul></section>`;
   const chat=`<section class="acx-chat" aria-labelledby="acx-ch"><h2 class="h3" id="acx-ch">${R?esc(R.name):'No region chosen'}</h2>
-    <ol class="acx-log" id="acx-log">${acxLogHTML()}</ol>${ACX.mute?acxMuteHTML():''}
+    <ol class="acx-log" id="acx-log" data-stick="acx:${esc(ACX.reg)}">${acxLogHTML()}</ol>${ACX.mute?acxMuteHTML():''}
     ${R?(()=>{const pk=rgcPicCan(),pb=pk?rgcPicBarHTML(ACX,'acx'):'';return `<form class="acx-f" id="acx-f" novalidate><label class="lbl" for="acx-x">Write to ${esc(R.the||R.name)} as the Edictum team</label><div class="rgc-picbar acx-picbar" id="acx-picbar"${pb?'':' hidden'}>${pb}</div><div class="acx-fr"><textarea class="input" id="acx-x" rows="2" maxlength="${RGC_TEXT}" placeholder="Players see it at once, signed Edictum team.${pk?' Paste or drop a picture to add one.':''}">${esc(ACX.x)}</textarea>${pk?rgcPicPicker('acx'):''}<button class="btn" type="submit" id="acx-go"${ACX.busy?' disabled':''}>${ACX.busy?'Sending…':'Send'}</button></div>${ACX.msg?`<p class="err" role="alert">${esc(ACX.msg)}</p>`:''}</form>`;})():''}</section>`;
   const M=ACX.mutes,mutes=`<h2 class="h3 acx-mh">Silenced players</h2>${ACX.merr?`<p class="err">${esc(ACX.merr)}</p>`:!M?'<p class="hint">Fetching them…</p>':!M.length?'<p class="hint">Nobody is silenced.</p>'
     :`<div class="tbl-wrap"><table class="tbl acx-mt"><thead><tr><th>Nation</th><th>Region</th><th>Until</th><th>Reason</th><th>Since</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${M.map(x=>`<tr data-uid="${esc(x.uid)}"><td>${esc(x.nm||'A nation')}</td><td>${esc(x.reg?regName(x.reg):'—')}</td><td>${x.perm?'Until lifted':esc(fmtDate(x.until)+', '+fmtTime(x.until))}</td><td>${esc(x.why||'—')}</td><td>${esc(rel(x.t))}</td><td class="acx-mb"><button type="button" class="btn ghost small" data-act="acx-lift" data-id="${esc(x.uid)}">Lift</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(x.uid)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`}`;
@@ -75268,7 +75320,7 @@ document.addEventListener('submit',async e=>{
   ACX.busy=true;ACX.msg='';render();
   try{await rgcCivic({op:'rcPost',team:true,reg:ACX.reg,x,...(P?{pic:rgcPicOut(P)}:{})});ACX.x='';if(ACX.pic===P){ACX.pic=null;ACX.picErr='';}}catch(err){ACX.msg=alErrText(err);}
   ACX.busy=false;render();
-  const f=document.getElementById('acx-x');if(f)f.focus({preventScroll:true});const l=document.getElementById('acx-log');if(l)l.scrollTop=l.scrollHeight;
+  const f=document.getElementById('acx-x');if(f)f.focus({preventScroll:true});stickDown('acx:'+ACX.reg);
 });
 ADM_VIEWS.push('admin-chat');
 shell=(f=>function(){if(S.view==='admin-chat'&&S.isOwner)return acxView();return f.apply(this,arguments);})(shell);
