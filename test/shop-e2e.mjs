@@ -8,6 +8,12 @@
 import { BASE, OUT, PROJECT, FN_HOST, check, finish, until, player, open, found, nav, czSection, sleep, register, restGet } from './lib.mjs';
 import { signature, CATALOGUE } from '../functions/shop-core.js';
 import http from 'node:http';
+/* a sale in the catalogue (CATALOGUE.sale) while the test runs: the page takes it off each price it shows, and strikes the
+   full one through beside it; mx formats pesos as the page does (shopMoney), with the sale taken off */
+const saleOff = p => { const s = CATALOGUE.sale, P = CATALOGUE.products[p], t = Date.now(); return s && P && t >= Date.parse(s.from) && t < Date.parse(s.until) && [].concat(s.kinds || []).includes(P.kind) ? s.pct : 0; };
+const cut = (p, minor) => Math.round(minor * (100 - saleOff(p)) / 100);
+const mx = minor => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'MXN' }).format(minor / 100);
+const rx = v => new RegExp(v.replace(/[.$]/g, m => '\\' + m));
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -159,11 +165,12 @@ const drops = CATALOGUE.products.vip.drops.map(d => ({ from: Date.parse(d.from),
 if (later.length) check('the Club says when new pieces join its collection', /Two new pieces join on/.test(await txt(A, '.shop-vip')));
 check('only pieces released so far are in the collection', await A.evaluate(ids => ids.every(id => !document.querySelector(`.shop-picks [data-id="${id}"]`)) && document.querySelectorAll('.shop-picks li').length >= 8, later.flatMap(d => d.ids)));
 const local = await until(() => A.evaluate(() => { const f = document.querySelector('#shop-founder-tag'), v = document.querySelector('#shop-vip-price .shop-local'); return f && v && /MX/.test(f.textContent) ? [f.textContent, v.textContent] : null; }), 8000);
-check('each price carries what it comes to in the player’s currency', !!local && local[0] === 'MX$209.39' && local[1] === 'MX$104.66 a month in your currency', JSON.stringify(local));
+check('each price carries what it comes to in the player’s currency', !!local && local[0] === (saleOff('founder') ? 'MX$209.39 ' + mx(cut('founder', 20939)) : 'MX$209.39') && local[1] === 'MX$104.66 a month in your currency', JSON.stringify(local));
 check('the Club’s button asks for the amount Paddle will charge', /MX\$104\.66 a month/.test(await txt(A, '[data-act="shop-buy"][data-p="vip"]')));
 const vipEyebrow = await txt(A, '.shop-vip .eyebrow');
 await openDr(A, 'founder');
-check('and so does the founder’s', /MX\$209\.39/.test(await txt(A, '[data-act="shop-buy"][data-p="founder"]')));
+check('and so does the founder’s', rx(mx(cut('founder', 20939))).test(await txt(A, '[data-act="shop-buy"][data-p="founder"]')));
+if (saleOff('founder')) check('during a sale the Shop says so', /% off until \d+ \w+, 23:59 UTC/.test(await txt(A, '.shop-sale')), await txt(A, '.shop-sale'));
 check('the small print says Paddle charges in the player’s own currency', /charges in your own currency/.test(await txt(A, '.shop-small')));
 check('the deadline is given in UTC and in the player’s own time', /1 February 2027, 23:59:59 UTC/.test(page) && /where you are/.test(page));
 check('permanent and recurring are told apart', /Permanent/.test(founderEyebrow) && /Recurring/.test(vipEyebrow));
@@ -400,7 +407,7 @@ check('nothing owned, included, given or joined can', await A.evaluate(() => ['f
 check('no basket bar while the basket is empty', !(await A.$('.shop-bagbar')));
 await click(A, '.shop-cd [data-act="shop-bag"][data-p="orpack"]');await click(A, '.shop-cd [data-act="shop-bag"][data-p="sailpack"]');
 const bar = await txt(A, '.shop-bagbar');
-check('the bar counts two, with their sum in the player’s currency', /2 items in your basket · MX\$125\.42/.test(bar) && /Old Republic Pack, Age of Sail Pack/.test(bar), bar);
+check('the bar counts two, with their sum in the player’s currency', rx('2 items in your basket · ' + mx(cut('orpack', 6271) + cut('sailpack', 6271))).test(bar) && /Old Republic Pack, Age of Sail Pack/.test(bar), bar);
 check('a card in the basket says so, and its button takes it out again', /Added/.test(await txt(A, '.shop-cd[data-p="orpack"] .shop-bag-b')) && !!(await A.$('.shop-cd[data-p="orpack"] [data-act="shop-bag-del"]')));
 await shot(A, '.shop-bagbar', 'shop-basket-bar.png');
 await openDr(A, 'cbpack');await click(A, '.shop-dr [data-act="shop-bag"][data-p="cbpack"]');
@@ -409,11 +416,11 @@ check('the basket is kept on this device', JSON.stringify(await A.evaluate(() =>
 await A.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));await sleep(300);
 await click(A, '.shop-bagbar [data-act="shop-open"][data-p="bag"]');await A.waitForSelector('.shop-dr .shop-bag', { timeout: 8000 });
 const bag = await txt(A, '.shop-dr .shop-bag');
-check('the basket lists each pack with its price, and the sum', (await A.evaluate(() => document.querySelectorAll('.shop-dr .shop-bag-r').length)) === 3 && /MX\$177\.67/.test(bag) && /€8\.47/.test(bag), bag.slice(0, 300));
+check('the basket lists each pack with its price, and the sum', (await A.evaluate(() => document.querySelectorAll('.shop-dr .shop-bag-r').length)) === 3 && rx(mx(cut('orpack', 6271) + cut('sailpack', 6271) + cut('cbpack', 5225))).test(bag) && /€8\.47/.test(bag), bag.slice(0, 300));
 check('while it is open, its button is the only one that pays', (await A.evaluate(() => document.querySelectorAll('[data-act="shop-buy"][data-p="bag"]').length)) === 1);
 await A.screenshot({ path: path.join(OUT, 'shop-basket.png') });
 await click(A, '.shop-dr [data-act="shop-bag-del"][data-p="cbpack"]');
-check('Remove takes one out', (await A.evaluate(() => document.querySelectorAll('.shop-dr .shop-bag-r').length)) === 2 && /MX\$125\.42/.test(await txt(A, '.shop-dr .shop-bag')));
+check('Remove takes one out', (await A.evaluate(() => document.querySelectorAll('.shop-dr .shop-bag-r').length)) === 2 && rx(mx(cut('orpack', 6271) + cut('sailpack', 6271))).test(await txt(A, '.shop-dr .shop-bag')));
 check('and the basket suggests it again', !!(await A.$('.shop-dr .shop-mini[data-p="cbpack"]')));
 await A.evaluate(() => document.querySelector('.shop-dr .shop-mini[data-p="cbpack"]').click());await sleep(300);
 await click(A, '.shop-dr [data-act="shop-bag"][data-p="cbpack"]');

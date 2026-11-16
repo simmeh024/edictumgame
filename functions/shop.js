@@ -65,7 +65,7 @@ import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
 import { nationText } from './nationtext.js';
-import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, GRANTABLE, REQUIRED, FOUNDER_CUTOFF, FOUNDER_GIFT, CLUB_IDS, SEALS, BASKET, BASKET_MAX, BASKETABLE, clubReleased, sealHeld, verifySignature, txFacts, txUnits, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
+import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, GRANTABLE, REQUIRED, FOUNDER_CUTOFF, FOUNDER_GIFT, CLUB_IDS, SEALS, BASKET, BASKET_MAX, BASKETABLE, clubReleased, sealHeld, saleKey, saleDiscount, verifySignature, txFacts, txUnits, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
 const P0until = p => { const u = CATALOGUE.products[p] && CATALOGUE.products[p].until; const t = u ? Date.parse(u) : NaN; return isFinite(t) ? t : 0; };
 /* the gifts and takings back of packs that the player's letters keep (shopGrant n, shop agl) */
@@ -350,7 +350,7 @@ async function checkout(cfg, who, d) {
   await db.runTransaction(tx => eligibility(tx, who));
   if (to) await giftCheck(uid, to, product, clock(cfg));
   const [shop, acct, open] = await Promise.all([db.doc('shop/' + uid).get(), db.doc('shopAcct/' + uid).get(), db.collection('shopCheckouts').where('uid', '==', uid).get()]);
-  const owns = shop.get('owns') || {}, vip = shop.get('vip'), now = clock(cfg);
+  const owns = shop.get('owns') || {}, vip = shop.get('vip'), now = clock(cfg), sk = saleKey([product], now);
   if (!to) {
     if (!club && owns[product]) refuse('owned', 'You already own this.');
     if (!club && includedIn(product, owns)) refuse('owned', 'Your Founder’s Package already includes it.');
@@ -360,7 +360,7 @@ async function checkout(cfg, who, d) {
     if (club && vip && vip.until > now) refuse('vip_paid', 'Your membership is paid until ' + new Date(vip.until).toUTCString() + '. You can join again once it ends.');
   }
   /* the same checkout again (for the same nation), while Paddle still holds it open */
-  const mine = open.docs.filter(s => s.get('product') === product && (s.get('to') || '') === to && s.get('env') === cfg.env && now - s.get('at') < 20 * 3600000).sort((a, b) => b.get('at') - a.get('at'))[0];
+  const mine = open.docs.filter(s => s.get('product') === product && (s.get('to') || '') === to && s.get('env') === cfg.env && (s.get('sale') || '') === sk && now - s.get('at') < 20 * 3600000).sort((a, b) => b.get('at') - a.get('at'))[0];
   if (mine) {
     const t = await asked(() => api(cfg, 'GET', '/transactions/' + mine.id));
     if (t && (t.status === 'draft' || t.status === 'ready')) {
@@ -372,10 +372,11 @@ async function checkout(cfg, who, d) {
   await pace(uid, 'n', 0, 12);
   const price = [].concat(cfg.prices[product])[0];
   const body = { items: [{ price_id: price, quantity: 1 }], custom_data: to ? { uid, product, to } : { uid, product }, collection_mode: 'automatic' };
+  const disc = saleDiscount([product], [price], now);if (disc) body.discount = disc;
   if (isId(acct.get('ctm'), 'ctm')) body.customer_id = acct.get('ctm');
   const t = await asked(() => api(cfg, 'POST', '/transactions', body));
   if (!t || !isId(t.id, 'txn')) refuse('shop_unavailable', 'The payment service did not answer. Nothing was charged. Try again in a minute.');
-  await db.doc('shopCheckouts/' + t.id).set({ uid, product, at: now, env: cfg.env, price, ...(to ? { to } : {}) });
+  await db.doc('shopCheckouts/' + t.id).set({ uid, product, at: now, env: cfg.env, price, ...(to ? { to } : {}), ...(disc ? { sale: sk } : {}) });
   /* "a checkout was opened" is for the buyer's own purchases; a gift shows as sent once paid */
   if (!to) await db.doc('shop/' + uid).set({ pend: { [product]: now } }, { merge: true });
   return { txn: t.id, env: cfg.env, token: cfg.token, gift: !!to };
@@ -409,9 +410,9 @@ async function basket(cfg, who, d) {
     if (includedIn(p, owns)) refuse('owned', `Your Founder’s Package already includes the ${name(p)}. Take it out of your basket.`);
   }
   /* "a checkout was opened", for each product in it */
-  const pend = Object.fromEntries(products.map(p => [p, now])), key = products.join(',');
+  const pend = Object.fromEntries(products.map(p => [p, now])), key = products.join(','), sk = saleKey(products, now);
   /* the same basket again, while Paddle still holds its checkout open */
-  const mine = open.docs.filter(s => s.get('product') === BASKET && [].concat(s.get('products') || []).join(',') === key && s.get('env') === cfg.env && now - s.get('at') < 20 * 3600000).sort((a, b) => b.get('at') - a.get('at'))[0];
+  const mine = open.docs.filter(s => s.get('product') === BASKET && [].concat(s.get('products') || []).join(',') === key && s.get('env') === cfg.env && (s.get('sale') || '') === sk && now - s.get('at') < 20 * 3600000).sort((a, b) => b.get('at') - a.get('at'))[0];
   if (mine) {
     const t = await asked(() => api(cfg, 'GET', '/transactions/' + mine.id));
     if (t && (t.status === 'draft' || t.status === 'ready')) {
@@ -423,10 +424,11 @@ async function basket(cfg, who, d) {
   await pace(uid, 'n', 0, 12);
   const prices = products.map(p => [].concat(cfg.prices[p])[0]);
   const body = { items: prices.map(price_id => ({ price_id, quantity: 1 })), custom_data: { uid, product: BASKET, products }, collection_mode: 'automatic' };
+  const disc = saleDiscount(products, prices, now);if (disc) body.discount = disc;
   if (isId(acct.get('ctm'), 'ctm')) body.customer_id = acct.get('ctm');
   const t = await asked(() => api(cfg, 'POST', '/transactions', body));
   if (!t || !isId(t.id, 'txn')) refuse('shop_unavailable', 'The payment service did not answer. Nothing was charged. Try again in a minute.');
-  await db.doc('shopCheckouts/' + t.id).set({ uid, product: BASKET, products, prices, at: now, env: cfg.env });
+  await db.doc('shopCheckouts/' + t.id).set({ uid, product: BASKET, products, prices, at: now, env: cfg.env, ...(disc ? { sale: sk } : {}) });
   await db.doc('shop/' + uid).set({ pend }, { merge: true });
   return { txn: t.id, env: cfg.env, token: cfg.token, products };
 }
