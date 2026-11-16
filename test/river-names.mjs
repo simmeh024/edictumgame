@@ -56,6 +56,9 @@ const txt = sel => page.evaluate(sel => { const e = document.querySelector(sel);
 /* the panel for one hex of the main map */
 const select = async c => { await page.evaluate(c => { const G = window.__game; G.S.mapCell = c; G.S.mapSel = null; G.S.mapClaim = null; G.S.mapInspect = null; G.render(); }, c); await sleep(250); };
 const river = id => page.evaluate(id => { const r = window.__game.RVN().RV.list[id]; return { name: r.name, name0: r.name0, by: r.by }; }, id);
+/* the achievements for river names (rv-*) the nation holds, and what the tally keeps for them */
+const ach = () => page.evaluate(() => { const T = window.__game.S.nation.tly || {}; return { ach: Object.keys(window.__game.S.nation.ach || {}).filter(k => k.startsWith('rv-')).sort(), tly: Object.keys(T).filter(k => /^rv[rs]:/.test(k)).sort(), re: T.rvre || 0, back: T.rvback || 0 }; });
+const achV = id => page.evaluate(id => { const G = window.__game, R = G.RK, a = R.ACH.find(a => a.id === id); return R.achVal(a, R.achCtx(G.S.nation, G.S.uid || 'me', Date.now(), true)).v; }, id);
 
 try {
   await page.goto(BASE);
@@ -139,6 +142,14 @@ try {
   check('the history has a line for it', line === (pick.name0 ? `${pick.name0[0].toUpperCase() + pick.name0.slice(1)} was renamed the Silverflow.` : 'A river was named the Silverflow.'), line);
   check('a hover over the stretch speaks of the new name', await page.evaluate(([id, c]) => window.__game.RVN().rvLabelAt(window.__game.RVN().RV.list[id], c), [pick.id, pick.sel]) === 'the Silverflow');
 
+  /* the achievements: the river counted once, by its kind, and the first for its kind earned with the same save */
+  const kindKey = (pick.cls >= 2 ? 'rvr:' : 'rvs:') + pick.reg + ':' + pick.key;
+  let A = await ach();
+  check('the tally counts the ' + what + ' named, by its kind', A.tly.join() === kindKey, JSON.stringify(A));
+  check(`naming it earns ${pick.cls >= 2 ? 'Christening the Waters' : 'Babbling Brook'} at once`, A.ach.includes(pick.cls >= 2 ? 'rv-riv1' : 'rv-str1') && !A.ach.includes(pick.cls >= 2 ? 'rv-str1' : 'rv-riv1'), JSON.stringify(A));
+  check(`Uncharted Waters ${pick.name0 ? 'not ' : ''}earned for a ${what} the old maps ${pick.name0 ? 'named' : 'left without a name'}`, A.ach.includes('rv-blank') === !pick.name0, JSON.stringify(A));
+  check('holding less than half of it, no On Every Map yet', !A.ach.includes('rv-most') && await achV('rv-most') === 0);
+
   /* downstream, outside the nation's land: the river's own name, and the new one among its other names */
   await select(pick.far);
   const far = await txt('#map-panel .rv-l b');
@@ -168,6 +179,13 @@ try {
   check('downstream too', await at(pick.far) === 'the Silverflow');
   const most = await txt('#map-panel .rvn-own');
   check('the panel says so', !!most && most.includes(`Most of this ${what} runs through your land (${N} of ${N} hexes on its banks)`), most);
+  /* the save that won the land reads the land as it stood before it (as every achievement about land does): the
+     next save records On Every Map, and the Achievements page shows it done meanwhile */
+  check('the land won, On Every Map is done', await achV('rv-most') === 1);
+  await edit(() => {});
+  A = await ach();
+  check('and recorded by the next save at the latest', A.ach.includes('rv-most'), JSON.stringify(A));
+  check(`Father of Waters ${pick.cls === 3 ? '' : 'not '}earned for a ${pick.cls === 3 ? 'main river' : what}`, A.ach.includes('rv-main') === (pick.cls === 3), JSON.stringify(A));
 
   /* the lower stretch lost again: the name is back on the upper stretch only */
   await edit((n, now, G, cells) => { n.claims = n.claims.filter(e => !cells.includes(e.c)); }, pick.low);
@@ -198,6 +216,10 @@ try {
   check('the old name is back', await at(pick.sel) === pick.name0);
   check('and the record holds no name', await page.evaluate(() => !window.__game.S.nation.rvn));
   check('a rename and its undoing leave no line in the history', await page.evaluate(() => !window.__game.S.nation.log.some(l => l.k === 'rvren' && [l.a, l.b].includes('the Silverflow'))));
+  A = await ach();
+  check(pick.name0 ? 'giving the old name back earns As It Was' : 'taking away the name of a river that had none is not giving an old name back', A.ach.includes('rv-back') === !!pick.name0 && A.back === (pick.name0 ? 1 : 0), JSON.stringify(A));
+  check('the river stays counted, and its achievements stay', A.tly.includes(kindKey) && A.ach.includes('rv-most'), JSON.stringify(A));
+  check('naming and taking back is no change of heart', A.re === 0 && !A.ach.includes('rv-again'), JSON.stringify(A));
 
   /* on a phone the panel's field fits */
   await page.setViewportSize({ width: 390, height: 844 });
@@ -288,7 +310,24 @@ try {
     check('a river shared: the nation’s name on its stretch, the map’s on the rest', both.most === big.name0 && both.parts.join('|') === 'the Goldrun|' + big.name0, JSON.stringify(both));
     check('and both names are drawn along their own stretches on the map', both.g && both.o, JSON.stringify(both));
     await sleep(300); await page.screenshot({ path: path.join(OUT, 'river-names-shared.png') });
+    A = await ach();
+    check('the map’s name given back earns As It Was', A.ach.includes('rv-back') && A.back >= 1, JSON.stringify(A));
+    check('a change of heart is not counted for naming a river afresh', A.re === 0, JSON.stringify(A));
+    await page.evaluate(k => window.__game.RVN().rvRename(k, 'the Goldwater'), big.key);
+    A = await ach();
+    check('renaming a river it had named earns A Change of Heart', A.re === 1 && A.ach.includes('rv-again'), JSON.stringify(A));
+    check('each river counted once, however often renamed', A.tly.length === 2 + (tiny ? 1 : 0) && await achV('rv-5') === A.tly.length, JSON.stringify(A));
   }
+
+  /* the Achievements page: the river names among Land & cities */
+  await go('achievements');
+  const card = await page.evaluate(async () => {
+    for (let k = 0; k < 80 && !document.getElementById('ach-rv-riv1'); k++) { scrollBy(0, 900); await new Promise(r => setTimeout(r, 60)); }
+    const el = document.getElementById('ach-rv-riv1'); if (!el) return null; el.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 300));
+    return [...document.querySelectorAll('[id^="ach-rv-"]')].map(e => e.querySelector('.ach-n').textContent);
+  });
+  check('the Achievements page shows the river names', !!card && card.includes('Christening the Waters') && card.includes('Hydrographer Royal') && card.length === 12, JSON.stringify(card));
+  await page.screenshot({ path: path.join(OUT, 'river-names-achievements.png') });
 
   check('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
