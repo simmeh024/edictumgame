@@ -55,10 +55,14 @@ test('a colour is worn at once and the map drawn again in it; a held finish open
   assert.ok(body.includes('if(c&&!(tutMapcOk(n0,c)&&ctgMcOk(n0,c)))return;'),'only a colour the player may wear, as saveSettings allows');
   assert.ok(body.includes('n.mapc=c;commit(n);'),'saved on the nation');
   assert.ok(body.includes('if(S.settings)S.settings.mapc=c;'),'Settings shows the new colour, other changes waiting there kept');
-  assert.ok(body.includes('render();redrawMaps();'),'the map is drawn again in the new colour');
+  assert.ok(body.includes('updateMapPanel();redrawMaps();')&&!body.includes('render()'),'only the panel and the map are drawn again in the new colour: the page does not move');
   has("else if(a==='mlk-mc'){const v=el.dataset.val||'',c=v?safeColor(v,''):'';if(v&&!c)return;mlkMcSet(c);}",'a swatch, or Match my flag (no value), sets it');
   has('data-act="mlk-mc" data-val="" aria-pressed="${!mc}">Match my flag</button>','the way back to the flag colour');
   has("czTabFor('cz-sec-z');uxOpen('customise',null,'.cz-g-te');",'only the open section of Customise is drawn, so Finery is chosen first');
+});
+
+test('the colour’s name never wraps, so the card keeps its height when another is chosen',()=>{
+  has('.mlk-r>b{grid-area:b;min-width:0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
 });
 
 test('the card is closed until opened, drawn as a line, and remembers being opened',()=>{

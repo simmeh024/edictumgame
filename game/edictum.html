@@ -7285,11 +7285,14 @@ span.nw-tag{cursor:default}
 .mlk-b{padding-top:2px}
 .mlk .mlk-flag{min-height:26px;padding:2px 10px;font-size:12px}
 .mlk-hint{margin:0 0 4px;font-size:13px}
-.mlk-r{display:flex;align-items:center;gap:10px;margin:12px 0 8px}
+.mlk-r{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"c l a" "c b b";column-gap:10px;align-items:center;margin:12px 0 8px}
+.mlk-r.nc{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"l a" "b b"}
+.mlk-r>.mlk-chip{grid-area:c}.mlk-r>.mlk-l{grid-area:l}
+/* the name on a line of its own, never wrapping: choosing another colour leaves the card (and the page) the same height */
+.mlk-r>b{grid-area:b;min-width:0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mlk-chip{width:22px;height:20px}
-.mlk-rt{margin:0;flex:1;min-width:0;display:grid;line-height:1.25}
 .mlk-l{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
-.mlk-r .linkish{flex:none;min-height:32px}
+.mlk-r>.linkish{grid-area:a;justify-self:end;min-height:28px}
 .mlk-sws{display:flex;flex-wrap:wrap;gap:7px;padding:2px}
 .mlk .mlk-sws .sw{width:26px;height:26px}
 .mlk-locks{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:4px;font-size:12.5px;line-height:1.35;color:var(--ink-2)}
@@ -61384,7 +61387,8 @@ function mlkMcSet(c){
   const n=clone(syncInbox(n0,Date.now()));n.mapc=c;commit(n);
   if(!S.nation||safeColor(S.nation.mapc,'')!==c)return;
   if(S.settings)S.settings.mapc=c;/* Settings shows it too, any other change waiting there kept */
-  render();redrawMaps();
+  /* only the map panel and the map change: the rest of the page stays as it is, not drawn again (nor moved) */
+  updateMapPanel();redrawMaps();
   requestAnimationFrame(()=>{const b=document.querySelector(`#map-panel .mlk [data-act="mlk-mc"][data-val="${c}"]`);if(b)b.focus({preventScroll:true});});
   const nm=c?MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour':'';
   toast(c?`${nm} is your map colour now, for every player in your region.`:'Your land on the map takes its colour from your flag again.');
@@ -61419,10 +61423,10 @@ function mlkCard(n){
       tiles+=`<p class="mlk-gh" id="mlk-g-${p}">${CZ_LOCK}<span>${mlkLockTxt(p)}</span></p><div class="mlk-tes" role="group" aria-labelledby="mlk-g-${p}">${tes.filter(x=>!x.own&&x.p===p).map(x=>tile(x.id,UNLOCKS[x.id].n,x)).join('')}</div>`;}
   return `<section class="mlk open" aria-labelledby="mlk-h">${head}<div class="mlk-b" id="mlk-b">
     <p class="hint mlk-hint">How ${esc(n.name)} looks on the world map, to every player in your region.</p>
-    <div class="mlk-r"><span class="hexchip mlk-chip" style="--hx:${col}" aria-hidden="true"></span><p class="mlk-rt"><span class="mlk-l">Map colour</span><b>${mcN?esc(mcN):'From your flag'}</b></p><button type="button" class="linkish small" data-act="mlk-mc-set">Change in Settings</button></div>
+    <div class="mlk-r"><span class="hexchip mlk-chip" style="--hx:${col}" aria-hidden="true"></span><span class="mlk-l">Map colour</span><b>${mcN?esc(mcN):'From your flag'}</b><button type="button" class="linkish small" data-act="mlk-mc-set">Change in Settings</button></div>
     <div class="mlk-sws" role="group" aria-label="Map colours: choose one to wear it on the map at once">${sws}</div>
     ${locks.length?`<ul class="mlk-locks">${locks.join('')}</ul>`:''}
-    <div class="mlk-r"><p class="mlk-rt"><span class="mlk-l">Hex background</span><b>${esc(teN)}</b></p><button type="button" class="linkish small" data-act="mlk-cz">Change in Customise</button></div>
+    <div class="mlk-r nc"><span class="mlk-l">Hex background</span><b>${esc(teN)}</b><button type="button" class="linkish small" data-act="mlk-cz">Change in Customise</button></div>
     ${tiles}
     ${anyLock?'<p class="hint mlk-foot">Choose a locked one to see it on your own land, in the Shop.</p>':''}
   </div></section>`;
