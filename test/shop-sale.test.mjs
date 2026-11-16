@@ -90,6 +90,16 @@ test('before and after the sale, the usual prices and nothing struck',()=>{
   }
 });
 
+test('what a pack is worth stays its full price: the founders’ free pack, the Card Pack in the Founder’s Package',()=>{
+  const ctx={Date,Math,Number,Object,Intl,SHOP:{local:null},shopCat:()=>CATALOGUE,shopNow:()=>DURING,esc:s=>String(s)};
+  vm.createContext(ctx);
+  vm.runInContext(['function shopSaleOff(','const shopCut=','function shopPrice(','function shopPayFull('].map(line).join('\n').replace(/^const /gm,'var '),ctx);
+  assert.equal(ctx.shopPayFull('cbpack'),'€2.49');
+  ctx.SHOP.local={cur:'MXN',p:{cbpack:'MX$52.25'},a:{cbpack:5225}};assert.equal(ctx.shopPayFull('cbpack'),'MX$52.25');
+  assert.match(game,/pieces · worth \$\{esc\(shopPayFull\(p\)\)\}/);
+  assert.match(game,/Worth '\+shopPrice\('idpack',true\)\+' on its own\./);
+});
+
 test('the basket, the banner and the headline prices use it',()=>{
   assert.match(game,/eur=shopMoney\(cur,ps\.reduce\(\(a,p\)=>a\+shopAmt\(p\),0\)\)/);
   assert.match(game,/ps\.reduce\(\(a,p\)=>a\+shopCut\(p,L\.a\[p\]\),0\)/);

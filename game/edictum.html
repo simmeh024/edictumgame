@@ -59991,6 +59991,8 @@ function shopWas(p,local){const L=SHOP.local,v=local&&L&&L.p[p]?L.p[p]:shopPrice
 /* Paddle charges in the player's own currency where it can: once Paddle has said what that comes to (tax included,
    e.g. MX$209.39), the buttons show it and each euro price carries it underneath */
 function shopPay(p){const L=SHOP.local;if(L&&L.p[p]&&shopSaleOff(p))return L.a&&Number.isFinite(L.a[p])&&shopMoney(L.cur,shopCut(p,L.a[p]))||shopPrice(p);return L&&L.p[p]||shopPrice(p);}
+/* what a product is worth, its full price (a free gift's value, what is included): never the sale price */
+function shopPayFull(p){return SHOP.local&&SHOP.local.p[p]||shopPrice(p,true);}
 function shopLocalTag(p,per){const v=SHOP.local&&SHOP.local.p[p]?shopPay(p):'';return v?`<span class="shop-local">${esc(v)}${per?' '+per:''} in your currency</span>`:'';}
 function shopLocalPrices(){
   const c=SHOP.cfg;if(SHOP.localAsked||!c||!c.on||!c.prices)return;SHOP.localAsked=true;
@@ -60884,7 +60886,7 @@ function shopFounder(n,t){
     ['Founder’s capital marker','A brass medallion beside your capital on the world map.'],['Founder’s Gilt','A brass edge, fine hatching and a quiet shimmer on your land, seen by every player in your region. Your map colour stays your own.'],
     ['Two flag designs and two flag emblems','Founder’s Dawn, Charter Bordure, the Keystone and the Founder’s Rosette, for founders’ flags only, in the flag designer.'],
     ['Keystone ring and Founder’s rosette','For the portraits of your government: an arch of dressed stones round your head of government, a keystone at the top, and a pleated ribbon rosette for any of them to wear.'],
-    ['The whole Nation Identity Card Pack','Seven card designs, two of them animated, two letter papers and two portrait pieces. Worth '+shopPrice('idpack')+' on its own.'],
+    ['The whole Nation Identity Card Pack','Seven card designs, two of them animated, two letter papers and two portrait pieces. Worth '+shopPrice('idpack',true)+' on its own.'],
     ['Your founder’s number','Engraved on your certificate and passport, shown on your badge, and on the Founders’ Wall in every museum.'],
     ['Passport inscription','“Founding Supporter · First Edition” in brass lettering on your passport.'],['A personal certificate','With your nation’s name and the date, in your museum, to print or download.']];
   return `<section class="shop-item shop-founder" aria-labelledby="shop-f-h">
@@ -61387,7 +61389,7 @@ function fgfHTML(n,o){
   const fno=SHOP.doc&&+SHOP.doc.fno||0,end=fgfEnd(o),c=shopCat();
   const pk=p=>{const own=shopOwns(p),I=FGF_INFO[p]||['',null],k=(c.products[p].grants||[]).length;let art='';try{art=I[1]?I[1](n):'';}catch(e){}
     return `<button type="button" class="fgf-pk" aria-pressed="false" data-fgf="${p}"${own?' disabled':''}><span class="fgf-tick" aria-hidden="true">✓</span><span class="fgf-art" aria-hidden="true">${art}</span>
-      <span class="fgf-tx"><b>${esc(fgfName(p))}</b><small>${esc(I[0])}</small><span class="fgf-worth">${own?'Already yours':`${k} pieces · worth ${esc(shopPay(p))}`}</span></span></button>`;};
+      <span class="fgf-tx"><b>${esc(fgfName(p))}</b><small>${esc(I[0])}</small><span class="fgf-worth">${own?'Already yours':`${k} pieces · worth ${esc(shopPayFull(p))}`}</span></span></button>`;};
   return `<div class="fgf" role="dialog" aria-modal="true" aria-labelledby="fgf-h" aria-describedby="fgf-d"><p class="eyebrow">For founders · until ${esc(end)}</p>
   <h2 class="h2" id="fgf-h">Thank you, Founder${fno?' No. '+fno:''}</h2>
   <p id="fgf-d">You backed Edictum in its first months. As our thanks, choose one pack, free, to keep for good.</p>
