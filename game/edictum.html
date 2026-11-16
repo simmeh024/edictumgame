@@ -6838,6 +6838,8 @@ span.nw-tag{cursor:default}
 .shop-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .shop-head .h2{margin:0}
 .shop-price{margin:0;font:650 30px/1 var(--f-display);white-space:nowrap;text-align:right}
+.shop-was{font-size:.6em;font-weight:500;color:var(--muted,inherit);text-decoration-thickness:2px;margin-right:4px}.shop-tag .shop-was{font-size:.85em}
+.shop-sale{border-left:4px solid var(--accent)}
 .shop-price span{display:block;margin-top:4px;font:500 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted,inherit);opacity:.75;text-align:inherit}
 .shop-plan{margin:12px 0 4px;flex-wrap:wrap}
 .shop-plan .shop-save{margin-left:6px;font-size:12px;opacity:.8}
@@ -59976,11 +59978,20 @@ NORM_HOOKS.push((n,d)=>{if(d&&d.iqv===1||Array.isArray(n.inbox)&&deskN(n.inbox)>
 function shopCat(){return SHOP_CAT||(SHOP.cfg&&SHOP.cfg.catalogue)||null;}
 function shopUntil(){const c=shopCat(),t=c?Date.parse(c.products.founder.until):NaN;return isFinite(t)?t:SHOP_UNTIL;}
 function shopNow(){return Date.now()+SHOP.skew;}
-function shopPrice(p){const c=shopCat(),a=c&&c.products[p]&&c.products[p].amount;if(!a)return '';try{return new Intl.NumberFormat('en-IE',{style:'currency',currency:c.currency||'EUR'}).format(a/100);}catch(e){return '€'+(a/100).toFixed(2);}}
+/* a sale (the catalogue's sale, which the server takes off each checkout as a Paddle discount): the share off a product
+   now, 0 if none; shopCut takes it off an amount in a currency's smallest unit. Paddle rounds after tax, country by
+   country (half of €2.99 is €1.49 or €1.50), so the page shows half, rounded, and the checkout the exact sum. */
+function shopSaleOff(p,t){const c=shopCat(),s=c&&c.sale,P=c&&c.products[p];if(!s||!P||!(s.pct>0&&s.pct<100))return 0;const now=t==null?shopNow():t;return now>=Date.parse(s.from)&&now<Date.parse(s.until)&&[].concat(s.kinds||[]).includes(P.kind)?s.pct:0;}
+function shopSaleOn(t){const c=shopCat();return !!(c&&c.products&&Object.keys(c.products).some(p=>shopSaleOff(p,t)));}
+const shopCut=(p,minor)=>{const o=shopSaleOff(p);return o?Math.round(minor*(100-o)/100):minor;};
+function shopAmt(p){const c=shopCat(),a=c&&c.products[p]&&c.products[p].amount;return a?shopCut(p,a):0;}
+function shopPrice(p,full){const c=shopCat(),a0=c&&c.products[p]&&c.products[p].amount;if(!a0)return '';const a=full?a0:shopCut(p,a0);try{return new Intl.NumberFormat('en-IE',{style:'currency',currency:c.currency||'EUR'}).format(a/100);}catch(e){return '€'+(a/100).toFixed(2);}}
+/* the full price, struck through, before a price on sale */
+function shopWas(p,local){const L=SHOP.local,v=local&&L&&L.p[p]?L.p[p]:shopPrice(p,true);return shopSaleOff(p)&&v?`<s class="shop-was">${esc(v)}</s> `:'';}
 /* Paddle charges in the player's own currency where it can: once Paddle has said what that comes to (tax included,
    e.g. MX$209.39), the buttons show it and each euro price carries it underneath */
-function shopPay(p){return SHOP.local&&SHOP.local.p[p]||shopPrice(p);}
-function shopLocalTag(p,per){const v=SHOP.local&&SHOP.local.p[p];return v?`<span class="shop-local">${esc(v)}${per?' '+per:''} in your currency</span>`:'';}
+function shopPay(p){const L=SHOP.local;if(L&&L.p[p]&&shopSaleOff(p))return L.a&&Number.isFinite(L.a[p])&&shopMoney(L.cur,shopCut(p,L.a[p]))||shopPrice(p);return L&&L.p[p]||shopPrice(p);}
+function shopLocalTag(p,per){const v=SHOP.local&&SHOP.local.p[p]?shopPay(p):'';return v?`<span class="shop-local">${esc(v)}${per?' '+per:''} in your currency</span>`:'';}
 function shopLocalPrices(){
   const c=SHOP.cfg;if(SHOP.localAsked||!c||!c.on||!c.prices)return;SHOP.localAsked=true;
   const ids=SHOP_PRODUCTS.map(p=>c.prices[p]).filter(Boolean);
@@ -60753,6 +60764,7 @@ function shopNotice(n){
   const out=[],cfg=SHOP.cfg;
   if(S.mode!=='world')out.push('<p class="notice shop-note">You are offline. What you own is shown as this device last saw it, and buying waits until you reconnect.</p>');
   else if(cfg&&!cfg.on)out.push('<p class="notice shop-note">The Bureau of National Finery is not open yet. Nothing can be bought for the moment.</p>');
+  if(shopSaleOn()){const sl=shopCat().sale,end=Date.parse(sl.until)-1000;out.push(`<p class="notice shop-note shop-sale" role="note"><b>${esc(sl.name||'A sale')}: ${sl.pct}% off</b> until ${esc(new Date(end).toLocaleDateString('en-GB',{day:'numeric',month:'long',timeZone:'UTC'}))}, 23:59 UTC. The Founder’s Package and every pack, for you or as a gift; the Chancery Club is its usual price. The checkout shows the exact sum.</p>`);}
   if(cfg&&cfg.on&&cfg.env!=='live')out.push(`<p class="notice shop-note shop-test"><b>Test mode.</b> Payments go to Paddle’s sandbox: use Paddle’s test cards, and no real money changes hands.</p>`);
   if(S.mode==='world'&&!shopLinked())out.push(`<div class="notice shop-note shop-link"><p><b>Purchases belong to your account</b>, so they need a linked sign-in: Google, Discord or an email address. Then they follow you to every device, and to any nation you found later.</p><div class="row"><button type="button" class="btn" data-act="acct-open">Link a sign-in</button>${typeof accountCompareButton==='function'?accountCompareButton():''}</div></div>`);
   if(SHOP.err)out.push(`<div class="notice shop-note shop-err" role="alert"><p>${SHOP.err==='link'?'Purchases belong to your account, so link a sign-in first (Google, Discord or email). Nothing was charged.'+(SHOP.after?' Your checkout opens by itself as soon as it is linked.':''):esc(SHOP.err)}</p><div class="row">${SHOP.err==='link'?'<button type="button" class="btn" data-act="acct-open">Link a sign-in</button>':''}<button type="button" class="linkish small" data-act="shop-dismiss">Dismiss</button></div></div>`);
@@ -60808,9 +60820,11 @@ function shopBagDel(p){
 function shopMoney(cur,minor){try{const f=new Intl.NumberFormat('en-IE',{style:'currency',currency:cur});return f.format(minor/Math.pow(10,f.resolvedOptions().maximumFractionDigits));}catch(e){return '';}}
 /* the basket's sum in euros, and in the player's own currency once Paddle has priced every item in it */
 function shopBagSum(ps){
-  const c=shopCat(),cur=c&&c.currency||'EUR',eur=shopMoney(cur,ps.reduce((a,p)=>a+((shopCatP(p)||{}).amount||0),0)),L=SHOP.local;
-  const loc=L&&L.a&&ps.every(p=>Number.isFinite(L.a[p]))?shopMoney(L.cur,ps.reduce((a,p)=>a+L.a[p],0)):'';
-  return {eur,loc,pay:loc||eur};
+  const c=shopCat(),cur=c&&c.currency||'EUR',eur=shopMoney(cur,ps.reduce((a,p)=>a+shopAmt(p),0)),L=SHOP.local;
+  const loc=L&&L.a&&ps.every(p=>Number.isFinite(L.a[p]))?shopMoney(L.cur,ps.reduce((a,p)=>a+shopCut(p,L.a[p]),0)):'';
+  /* on sale: the full sum too, struck through beside it */
+  const was=ps.some(p=>shopSaleOff(p))?shopMoney(cur,ps.reduce((a,p)=>a+((shopCatP(p)||{}).amount||0),0)):'';
+  return {eur,loc,pay:loc||eur,was};
 }
 function shopBagBtn(p,card){
   if(!shopBagOk(p))return '';
@@ -60838,7 +60852,7 @@ function shopBagSec(n,t){
   const row=p=>{const c=cards.find(x=>x.p===p),nm=(shopCatP(p)||{}).name||p;let a='';try{a=c?c.art():'';}catch(e){}
     return `<li class="shop-bag-r"><span class="shop-mini-v" aria-hidden="true">${a}</span><span class="shop-bag-n"><b>${esc(nm)}</b>${c?`<span class="hint">${esc(c.pitch)}</span>`:''}</span><span class="shop-bag-pr">${esc(shopPay(p))}</span><button type="button" class="linkish small" data-act="shop-bag-del" data-p="${p}" aria-label="Take the ${esc(nm)} out of your basket">Remove</button></li>`;};
   return `<section class="shop-item shop-bag" aria-labelledby="shop-bag-h">
-    <div class="shop-head"><div><p class="eyebrow">One checkout · one payment</p><h2 class="h2" id="shop-bag-h">Your basket</h2></div>${ps.length?`<p class="shop-price" id="shop-bag-price">${esc(sum.eur)}<span>in all</span>${sum.loc?`<span class="shop-local">${esc(sum.loc)} in your currency</span>`:''}</p>`:''}</div>
+    <div class="shop-head"><div><p class="eyebrow">One checkout · one payment</p><h2 class="h2" id="shop-bag-h">Your basket</h2></div>${ps.length?`<p class="shop-price" id="shop-bag-price">${sum.was?`<s class="shop-was">${esc(sum.was)}</s> `:''}${esc(sum.eur)}<span>in all</span>${sum.loc?`<span class="shop-local">${esc(sum.loc)} in your currency</span>`:''}</p>`:''}</div>
     ${ps.length?`<p>Everything in your basket is paid for together, in one checkout. Each piece is yours for good, and if one of them is ever refunded, the others stay yours.</p>
       <ul class="shop-bag-l">${ps.map(row).join('')}</ul>
       <div class="row shop-row">${shopBagCta(ps,ps.length===1?'Pay · '+sum.pay:'Pay for all '+ps.length+' · '+sum.pay)}<button type="button" class="linkish small" data-act="shop-bag-clear">Empty the basket</button></div>`
@@ -60874,7 +60888,7 @@ function shopFounder(n,t){
     ['Your founder’s number','Engraved on your certificate and passport, shown on your badge, and on the Founders’ Wall in every museum.'],
     ['Passport inscription','“Founding Supporter · First Edition” in brass lettering on your passport.'],['A personal certificate','With your nation’s name and the date, in your museum, to print or download.']];
   return `<section class="shop-item shop-founder" aria-labelledby="shop-f-h">
-    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment · not sold after 1 February 2027</p><h2 class="h2" id="shop-f-h">The Founder’s Package</h2></div><p class="shop-price" id="shop-founder-price">${esc(shopPrice('founder'))}<span>once</span>${shopLocalTag('founder')}</p></div>
+    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment · not sold after 1 February 2027</p><h2 class="h2" id="shop-f-h">The Founder’s Package</h2></div><p class="shop-price" id="shop-founder-price">${shopWas('founder')}${esc(shopPrice('founder'))}<span>once</span>${shopLocalTag('founder')}</p></div>
     <p>For those who were here at the start. Seven pieces of founder finery, two for your portraits and a certificate, each yours to wear or to leave in the drawer. They bring no prestige and no rank: only the satisfaction of having been early.</p>
     ${when}
     <ul class="shop-list">${items.map(([a,b])=>`<li><b>${esc(a)}</b> ${esc(b)}</li>`).join('')}</ul>
@@ -60893,7 +60907,7 @@ function shopIdPack(n){
   let pv='';try{pv=`<div class="shop-pv-hero" inert>${hero(shopPv(n,{cd:cur}))}</div>`;}catch(e){pv='';}
   const papers=lps.map(id=>`<li class="shop-lp"><span class="lp-sw ${lpClass(id)}" aria-hidden="true"><i></i><i></i><i></i></span><span><b>${esc(UNLOCKS[id].n)}</b><span class="hint">${id==='lp-i-embassy'?'Matches Embassy Vellum.':'Matches Telegram.'}</span></span></li>`).join('');
   return `<section class="shop-item shop-idpack" aria-labelledby="shop-i-h">
-    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment</p><h2 class="h2" id="shop-i-h">Nation Identity Card Pack</h2></div><p class="shop-price" id="shop-idpack-price">${esc(shopPrice('idpack'))}<span>once</span>${shopLocalTag('idpack')}</p></div>
+    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment</p><h2 class="h2" id="shop-i-h">Nation Identity Card Pack</h2></div><p class="shop-price" id="shop-idpack-price">${shopWas('idpack')}${esc(shopPrice('idpack'))}<span>once</span>${shopLocalTag('idpack')}</p></div>
     <p>Seven designs for your nation card, two of them animated, two letter papers for your Messages, and two pieces for the portraits of your government. Switch between them, or back to the classic card, in Customise whenever you like. Your rank’s border stays exactly as it is.</p>
     <div class="shop-pv"><div class="seg shop-seg" role="group" aria-label="Preview a card design">${cds.map(id=>`<button type="button" class="seg-b${cur===id?' on':''}" data-act="shop-cd" data-v="${id}" aria-pressed="${cur===id}">${esc(UNLOCKS[id].n)}${anim(id)?' <span class="shop-anim" title="Animated">✦</span>':''}</button>`).join('')}</div>
       <div class="shop-pv-box" aria-live="polite"><p class="shop-pv-l">${esc(UNLOCKS[cur].n)}: ${esc(blurb[cur]||'')}</p>${pv}</div></div>
@@ -61028,7 +61042,7 @@ function shopCards(n,t){
 }
 /* this week's pick: turns over every Monday among what the player could still buy */
 function shopPickOfWeek(cards,t){const c=cards.filter(x=>x.sell&&!x.own);if(c.length<2)return '';return c[Math.floor((t+3*DAY)/(7*DAY))%c.length].p;}
-function shopTag(p,per){const v=shopPay(p);return v?`<span class="shop-tag" id="shop-${p}-tag">${esc(v)}${per&&per!=='once'?` <i>${esc(per)}</i>`:''}</span>`:'';}
+function shopTag(p,per){const v=shopPay(p);return v?`<span class="shop-tag" id="shop-${p}-tag">${shopWas(p,true)}${esc(v)}${per&&per!=='once'?` <i>${esc(per)}</i>`:''}</span>`:'';}
 function shopWishBtn(p,name){const on=SHOP.wish.has(p);return `<button type="button" class="shop-heart" data-act="shop-wish" data-p="${p}" aria-pressed="${on}" aria-label="${on?'Remove '+esc(name)+' from':'Add '+esc(name)+' to'} your wishlist" title="Wishlist">${on?'♥':'♡'}</button>`;}
 function shopCardHTML(c,pick){
   let art='';try{art=c.art();}catch(e){art='';}
@@ -61075,7 +61089,7 @@ function shopOrPack(n){
     ['Senatus Consultum','a decision stamp with a temple front, on every edict you sign'],['Tessera mosaic','a Roman floor for your banner'],['Forum columns','a temple front beside your capital on the map'],['Senate Vellum','letter paper with a purple stripe and SPQ'],
     ['“the August”','an epithet after your nation’s name'],['Imperial Purple','the emperors’ colour for your accent'],
     ['Legionary helmet','a crested helmet with cheek and neck guards, for any portrait in your government'],['Tyrian purple','the emperors’ purple again, as the ink your head of government is engraved in']];
-  return `<section class="shop-item shop-orpack" aria-labelledby="shop-or-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces</p><h2 class="h2" id="shop-or-h">Old Republic Pack</h2></div><p class="shop-price" id="shop-orpack-price">${esc(shopPrice('orpack'))}<span>once</span>${shopLocalTag('orpack')}</p></div>
+  return `<section class="shop-item shop-orpack" aria-labelledby="shop-or-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces</p><h2 class="h2" id="shop-or-h">Old Republic Pack</h2></div><p class="shop-price" id="shop-orpack-price">${shopWas('orpack')}${esc(shopPrice('orpack'))}<span>once</span>${shopLocalTag('orpack')}</p></div>
     <p>Everything a senate needs to look the part, from the shield to the stationery. Wear all of it or a piece at a time.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">Your card, in Marble Senate with Imperial Purple, the Tessera banner and “the August”</p>${card}</div>
     <div class="shop-or-grid"><figure>${arms}<figcaption>Scutum, with the Aquila</figcaption></figure><figure>${flag}<figcaption>The Aquila on your flag</figcaption></figure><figure class="shop-or-st">${stamp}<figcaption>Senatus Consultum</figcaption></figure>
@@ -61097,7 +61111,7 @@ function shopSailPack(n){
     ['Charted','a compass-rose stamp on every edict you sign'],['Wave Crest','rolling swells for your banner'],['Lighthouse','a striped lighthouse with its beam beside your capital on the map'],['Ship’s Log','ruled log-book letter paper'],
     ['“the Navigator”','an epithet after your nation’s name'],['Navy','a deep sea blue for your accent'],
     ['Tricorne','the three-cornered hat, laced, with a cockade at the front'],['Captain’s coat','a white stock and waistcoat, gold-laced lapels and a fringed epaulette']];
-  return `<section class="shop-item shop-sailpack" aria-labelledby="shop-sail-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces</p><h2 class="h2" id="shop-sail-h">Age of Sail Pack</h2></div><p class="shop-price" id="shop-sailpack-price">${esc(shopPrice('sailpack'))}<span>once</span>${shopLocalTag('sailpack')}</p></div>
+  return `<section class="shop-item shop-sailpack" aria-labelledby="shop-sail-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces</p><h2 class="h2" id="shop-sail-h">Age of Sail Pack</h2></div><p class="shop-price" id="shop-sailpack-price">${shopWas('sailpack')}${esc(shopPrice('sailpack'))}<span>once</span>${shopLocalTag('sailpack')}</p></div>
     <p>Everything a seafaring nation needs, from the shield to the log book. Wear all of it or a piece at a time.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">Your card, in Admiralty Chart with Navy, the Wave Crest banner and “the Navigator”</p>${card}</div>
     <div class="shop-or-grid"><figure>${arms}<figcaption>Rope-edge, with the Kraken</figcaption></figure><figure>${flag}<figcaption>The Kraken on your flag</figcaption></figure><figure class="shop-or-st">${stamp}<figcaption>Charted</figcaption></figure>
@@ -61124,7 +61138,7 @@ function shopEmbPack(n){
     ['Highest Consideration','your signature under the diplomat’s closing line'],['Monogram','your nation’s initials in a ring beside your signature'],
     ['Flag Postage','a perforated stamp with your flag, cancelled with your capital’s name and the day'],['Par Avion','the airmail label, with the same postmark'],['“the Plenipotentiary”','an epithet after your nation’s name'],
     ['Embroidered court coat','a diplomat’s standing collar and coat front, embroidered with oak leaves, for any portrait in your government'],['Flag lapel pin','your own flag, pinned at the lapel']];
-  return `<section class="shop-item shop-embpack" aria-labelledby="shop-emb-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · thirteen pieces</p><h2 class="h2" id="shop-emb-h">Embassy Stationery</h2></div><p class="shop-price" id="shop-embpack-price">${esc(shopPrice('embpack'))}<span>once</span>${shopLocalTag('embpack')}</p></div>
+  return `<section class="shop-item shop-embpack" aria-labelledby="shop-emb-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · thirteen pieces</p><h2 class="h2" id="shop-emb-h">Embassy Stationery</h2></div><p class="shop-price" id="shop-embpack-price">${shopWas('embpack')}${esc(shopPrice('embpack'))}<span>once</span>${shopLocalTag('embpack')}</p></div>
     <p>Every letter ${esc(nm)} sends arrives on its own paper, sealed, signed and stamped, and the nation reading it sees all of it. Mix the pieces as you like: a cable can carry a ribbon seal.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">Your letters, as the nations you write to will see them</p><div class="emb-letters">${letters.map(([lp,ls,lg,lm,x])=>shopEmbLetter(n,lp,ls,lg,lm,x)).join('')}</div></div>
     <div class="shop-or-grid emb-grid">${fig(`<span class="emb-seals">${['ls-e-ribbon','ls-e-star','ls-e-chop'].map(id=>dmWaxN(n,id)).join('')}</span>`,'Three seals')}
@@ -61147,7 +61161,7 @@ function shopCtgPack(n){
   const pin=`<svg viewBox="44 6 40 44" class="shop-or-pin">${SHOP_PIN['pn-windrose']}</svg>`;
   const items=[...fins,...bds].map(([id,t])=>[UNLOCKS[id].n,t]).concat([['Prussian Blue, Carmine and Sap Green','three more colours for your land on the map, chosen in Settings with the others'],['Wind Rose','a compass rose beside your capital on the map'],['“the Surveyor”','an epithet after your nation’s name'],['Blueprint','a fourth look for your poster: white lines on blueprint blue, over a surveyor’s grid'],
     ['Compass ring','a compass card round your head of government’s portrait, the north point at the top'],['Pencil behind the ear','the surveyor’s pencil, for any portrait in your government']]);
-  return `<section class="shop-item shop-cartopack" aria-labelledby="shop-ctg-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · fifteen pieces</p><h2 class="h2" id="shop-ctg-h">Cartographer’s Pack</h2></div><p class="shop-price" id="shop-cartopack-price">${esc(shopPrice('cartopack'))}<span>once</span>${shopLocalTag('cartopack')}</p></div>
+  return `<section class="shop-item shop-cartopack" aria-labelledby="shop-ctg-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · fifteen pieces</p><h2 class="h2" id="shop-ctg-h">Cartographer’s Pack</h2></div><p class="shop-price" id="shop-cartopack-price">${shopWas('cartopack')}${esc(shopPrice('cartopack'))}<span>once</span>${shopLocalTag('cartopack')}</p></div>
     <p>The world map is where everyone sees ${esc(n.name)}. This pack changes how your land looks there, for every player in your region: its finish, the line round it, its colour and the mark beside your capital. Wear one piece or mix them.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">${placed?`Your land round ${esc(n.capital)}, in Engraver’s Hatching with the Surveyor’s Line`:'Engraver’s Hatching with the Surveyor’s Line'}</p><div class="ctg-hero">${ctgLandSVG(n,{big:1,te:'te-hatch',tb:'tb-survey'})}</div></div>
     <h3 class="sub-h">Four finishes for your land</h3><div class="ctg-figs">${fins.map(([id])=>fig(id,{te:id})).join('')}</div>
@@ -61173,7 +61187,7 @@ function shopTlPack(n){
     ['Tulips','a banknote engraving for your currency, rows of tulips'],['Sold for One Bulb','an auctioneer’s stamp on every edict you sign'],['Tulip Rows','a bulb field in bloom for your banner'],['Bulb Auction House','a canal house with a tulip at its door beside your capital on the map'],
     ['Bulb Futures Contract','letter paper for deals you may come to regret'],['“the Speculator”','an epithet after your nation’s name'],['Delft Blue','a glazed blue for your accent'],
     ['Burgher’s hat','the tall crown and broad brim of the old Dutch portraits, with a buckled band'],['Tulip buttonhole','a flamed tulip pinned at the lapel']];
-  return `<section class="shop-item shop-tulippack" aria-labelledby="shop-tl-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · thirteen pieces</p><h2 class="h2" id="shop-tl-h">Tulip Mania Pack</h2></div><p class="shop-price" id="shop-tulippack-price">${esc(shopPrice('tulippack'))}<span>once</span>${shopLocalTag('tulippack')}</p></div>
+  return `<section class="shop-item shop-tulippack" aria-labelledby="shop-tl-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · thirteen pieces</p><h2 class="h2" id="shop-tl-h">Tulip Mania Pack</h2></div><p class="shop-price" id="shop-tulippack-price">${shopWas('tulippack')}${esc(shopPrice('tulippack'))}<span>once</span>${shopLocalTag('tulippack')}</p></div>
     <p>They say a single bulb once sold for the price of a canal house. ${esc(n.name)} can do better. Everything a nation of speculators needs, from the shield to the futures contract. Wear all of it or a piece at a time.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">Your card, in Delftware with Delft Blue, the Tulip Rows banner and “the Speculator”</p>${card}</div>
     <div class="shop-pv-box"><p class="shop-pv-l">The ${esc(cu.nm)}, engraved in Tulips</p><div class="shop-cb-cur">${note}</div></div>
@@ -61220,7 +61234,7 @@ function shopMayaPack(n){
     ['Tied crest','hair drawn up, tied at the crown and falling forward'],['Jade-bound hair','long hair passed through jade tubes'],['Jade collar','a broad collar of round and tubular beads, with a pectoral'],['Jaguar cape','a spotted pelt over the shoulders'],['Feather mantle','a short cape of layered feathers'],
     ['Jade ear spools','a jade disc in each ear'],['Nose bead','a jade bead below the nose'],['Stepped fret ring','a frame of stepped frets round the head of government’s portrait'],['Jade ink','a green to engrave the head of government in'],
     ['Stepped Fret','your land on the map with a stepped fret in every hex, as every neighbour sees it'],['Limestone Stela','a card of carved limestone, jade and red ochre'],['Dots and Bars','a banknote engraving of numbers as the Maya wrote them']];
-  return `<section class="shop-item shop-mayapack" aria-labelledby="shop-maya-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · fifteen pieces</p><h2 class="h2" id="shop-maya-h">Mayan Pack</h2></div><p class="shop-price" id="shop-mayapack-price">${esc(shopPrice('mayapack'))}<span>once</span>${shopLocalTag('mayapack')}</p></div>
+  return `<section class="shop-item shop-mayapack" aria-labelledby="shop-maya-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · fifteen pieces</p><h2 class="h2" id="shop-maya-h">Mayan Pack</h2></div><p class="shop-price" id="shop-mayapack-price">${shopWas('mayapack')}${esc(shopPrice('mayapack'))}<span>once</span>${shopLocalTag('mayapack')}</p></div>
     <p>After the art of the ancient Maya: jade, quetzal feathers and the jaguar. Twelve pieces for the portraits of your government, for the head of government or any minister, and three that carry the stepped fret and the old numbers onto your land, your card and your money. Every piece can be tried on before you buy.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">${esc(who)}, in the pack’s pieces</p><div class="shop-maya-pt">${meds}</div>
       <p class="row shop-row"><button type="button" class="btn ghost" id="shop-maya-try" data-act="pt-edit" data-v="lead">Try them on in Customise › Portraits</button></p></div>
@@ -61248,7 +61262,7 @@ function shopCbPack(n){
     ['Patina','green-bronze coins, as if from the vaults of a much older bank'],['Square-holed','a round coin with a square hole'],['Treasury Note card','your nation card printed like a banknote'],
     ['Fully Backed','a stamp on every edict you sign'],['Bullion','three gold bars beside your capital on the map'],['Bank Draft','letter paper on green safety paper'],['“the Creditworthy”','an epithet after your nation’s name'],
     ['Acanthus ring','the scrolling leaves of a banknote’s border, round your head of government’s portrait'],['Waistcoat and watch chain','a banker’s waistcoat with a watch chain across it, for any portrait in your government']];
-  return `<section class="shop-item shop-cbpack" aria-labelledby="shop-cb-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces</p><h2 class="h2" id="shop-cb-h">Central Bank Pack</h2></div><p class="shop-price" id="shop-cbpack-price">${esc(shopPrice('cbpack'))}<span>once</span>${shopLocalTag('cbpack')}</p></div>
+  return `<section class="shop-item shop-cbpack" aria-labelledby="shop-cb-h"><div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces</p><h2 class="h2" id="shop-cb-h">Central Bank Pack</h2></div><p class="shop-price" id="shop-cbpack-price">${shopWas('cbpack')}${esc(shopPrice('cbpack'))}<span>once</span>${shopLocalTag('cbpack')}</p></div>
     <p>Finery for the ${esc(cu.nm)}: new engravings and a clear window for its notes, a new metal and shape for its coins, and the bank’s own card, stamp, marker and paper. Every visitor to ${esc(n.name)} sees its banknote. Wear all of it or a piece at a time.</p>
     <div class="shop-pv-box"><p class="shop-pv-l">The ${esc(cu.nm)} in Art Deco and Acanthus with the clear window, and a Patina coin</p><div class="shop-cb-cur">${deco}<div class="shop-cb-row">${acan}${coin}</div></div></div>
     <div class="shop-pv-box"><p class="shop-pv-l">Your card, in Treasury Note with “the Creditworthy”</p>${card}</div>
@@ -61267,7 +61281,7 @@ function shopBfArt(n,mini){let A;try{A=shopBfArts(n);}catch(e){return '';}return
 function shopBfPack(n,t){
   const until=shopBfUntil(),open=t<until,own=shopOwns('bfpack'),left=until-t,d=Math.floor(left/DAY),h=Math.floor(left%DAY/36e5);let A={arms:'',flag:''};try{A=shopBfArts(n);}catch(e){}
   return `<section class="shop-item shop-bfpack" aria-labelledby="shop-bf-h"><p class="shop-bf-band" aria-hidden="true">Black Friday</p>
-    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces · ${open?'only until 30 November':'no longer on sale'}</p><h2 class="h2" id="shop-bf-h">Black Friday Pack</h2></div><p class="shop-price" id="shop-bfpack-price">${esc(shopPrice('bfpack'))}<span>once</span>${shopLocalTag('bfpack')}</p></div>
+    <div class="shop-head"><div><p class="eyebrow">Permanent · one payment · twelve pieces · ${open?'only until 30 November':'no longer on sale'}</p><h2 class="h2" id="shop-bf-h">Black Friday Pack</h2></div><p class="shop-price" id="shop-bfpack-price">${shopWas('bfpack')}${esc(shopPrice('bfpack'))}<span>once</span>${shopLocalTag('bfpack')}</p></div>
     <p>A midnight sale at the Bureau of National Finery: twelve pieces, from a shield cut like a price tag and a night owl who stayed up for the bargains to the receipt, and a nightcap for whoever queued all night. All yours for good.</p>
     <div class="shop-pv-box shop-bf-cardpv"><p class="shop-pv-l">Your card, in Midnight Sale with Midnight Gold, the Barcode banner and “the Bargain-Hunter”</p>${shopBfCard(n)}</div>
     <div class="shop-bf-pv" aria-label="Preview on ${esc(n.name)}"><figure>${A.arms}<figcaption>Midnight Tag shield, with the Night Owl</figcaption></figure><figure>${A.flag}<figcaption>The Night Owl on your flag</figcaption></figure>
@@ -61284,7 +61298,7 @@ function shopBfPack(n,t){
 }
 function shopGiftVip(n){
   if(!SHOP.gift||SHOP.gift.p!=='giftvip')SHOP.gift={p:'giftvip',to:SHOP.gift&&SHOP.gift.to||''};
-  return `<section class="shop-item shop-giftvip" aria-labelledby="shop-g-h"><div class="shop-head"><div><p class="eyebrow">One payment · a gift only</p><h2 class="h2" id="shop-g-h">A month of the Club, as a gift</h2></div><p class="shop-price" id="shop-giftvip-price">${esc(shopPrice('giftvip'))}<span>once</span>${shopLocalTag('giftvip')}</p></div>
+  return `<section class="shop-item shop-giftvip" aria-labelledby="shop-g-h"><div class="shop-head"><div><p class="eyebrow">One payment · a gift only</p><h2 class="h2" id="shop-g-h">A month of the Club, as a gift</h2></div><p class="shop-price" id="shop-giftvip-price">${shopWas('giftvip')}${esc(shopPrice('giftvip'))}<span>once</span>${shopLocalTag('giftvip')}</p></div>
     <p>A month of the Chancery Club for another player’s nation: ten waiting edicts, a piece of the collection to keep and the wax seal while it lasts. It does not renew.</p>${shopGiftHTML('giftvip')}</section>`;
 }
 function shopDrawer(n,t,cards){

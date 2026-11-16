@@ -505,6 +505,27 @@ test('the Central Bank Pack: €2.49 and all ten of its pieces held', async () =
   await rejects(call(p, { step: 'checkout', product: 'cbpack' }), 'owned');
 });
 
+test('a sale: packs at half price as a Paddle discount on their own lines, the Club at its usual price, a checkout reused only under the same sale', async () => {
+  const S = CATALOGUE.sale, mid = (Date.parse(S.from) + Date.parse(S.until)) / 2, mine = (p, k) => P.calls.filter(x => x.m === 'POST' && x.p === '/transactions' && x.b.custom_data.uid === p.uid && x.b.custom_data.product === k);
+  await config({ skew: mid - Date.now() });
+  const p = await player();
+  const c = await call(p, { step: 'checkout', product: 'orpack' }), made = mine(p, 'orpack')[0];
+  assert.deepEqual(made.b.items, [{ price_id: PRICES.orpack, quantity: 1 }], 'the line keeps its own price');
+  assert.deepEqual({ ...made.b.discount, description: '' }, { description: '', type: 'percentage', amount: String(S.pct), restrict_to: [PRICES.orpack] });
+  assert.match(made.b.discount.description, /% off every pack until/);
+  assert.equal((await db.doc('shopCheckouts/' + c.txn).get()).get('sale'), S.pct + '@' + Date.parse(S.until), 'the checkout knows its sale');
+  assert.equal((await call(p, { step: 'checkout', product: 'orpack' })).txn, c.txn, 'two tabs, one bill, at the sale price');
+  const b = await call(p, { step: 'checkout', products: ['cbpack', 'sailpack'] }), bm = mine(p, 'basket')[0];
+  assert.match(b.txn, /^txn_/); assert.deepEqual(bm.b.discount.restrict_to, [PRICES.sailpack, PRICES.cbpack], 'a basket: every line on sale');
+  await call(p, { step: 'checkout', product: 'vip' });
+  assert.equal(mine(p, 'vip')[0].b.discount, undefined, 'the Chancery Club is not on sale');
+  /* after the sale, the sale's checkout is not reused: a new one opens at the full price */
+  await config({ skew: Date.parse(S.until) + H - Date.now() });
+  const c2 = await call(p, { step: 'checkout', product: 'orpack' });
+  assert.notEqual(c2.txn, c.txn); assert.equal(mine(p, 'orpack').at(-1).b.discount, undefined);
+  await config();
+});
+
 test('a basket: several packs in one checkout at the server’s prices, the same basket reused, each delivered, refusals named', async () => {
   const p = await player();
   const c = await call(p, { step: 'checkout', products: ['sailpack', 'orpack'], prices: [1] });
