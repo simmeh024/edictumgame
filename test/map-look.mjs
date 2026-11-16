@@ -65,6 +65,8 @@ const office = async page => { await page.evaluate(() => { const b = [...documen
 const calm = async page => { await office(page); await page.evaluate(() => { const b = document.querySelector('#map-panel .mlk-tg[aria-expanded="false"]'); if (b) b.click(); }); await page.waitForSelector('#map-panel .mlk-sws', { timeout: 4000 }).catch(() => {}); };
 const shut = page => page.evaluate(() => { const c = document.querySelector('#map-panel .mlk'), s = c?.querySelector('.mlk-sum'); if (!c) return null;
   return { exp: c.querySelector('.mlk-tg')?.getAttribute('aria-expanded'), body: !!c.querySelector('.mlk-sws, .mlk-t, .mlk-hint'), hidden: !!c.querySelector('#mlk-b')?.hidden, sum: s && getComputedStyle(s).display !== 'none' ? s.textContent : '', h: Math.round(c.getBoundingClientRect().height) }; });
+/* where a swatch sits on screen, with the page's and the map panel's scroll */
+const swAt = (page, v) => page.evaluate(v => { const b = document.querySelector(`#map-panel .mlk-sws [data-val="${v}"]`), p = document.getElementById('map-panel'); if (!b) return null; return { top: Math.round(b.getBoundingClientRect().top), y: Math.round(scrollY), p: Math.round(p.scrollTop) }; }, v);
 /* the main map's picture, to tell whether it was drawn again */
 const mapPic = page => page.evaluate(() => { const v = document.querySelector('canvas.map-cv'); try { return v ? v.toDataURL() : ''; } catch (e) { return ''; } });
 /* the Shop as the server would have it: these three packs on sale (no Paddle prices in local mode) */
@@ -149,8 +151,12 @@ try {
 
     /* a colour chosen on the card is worn at once: saved, the map drawn again in it, still on the map page */
     await calm(page);
+    await page.evaluate(() => document.querySelector('#map-panel .mlk-sws').scrollIntoView({ block: 'center' })); await sleep(300);
     const pic0 = await mapPic(page); await sleep(800); const pic1 = await mapPic(page);
+    const at0 = await swAt(page, '#2A9D8F');
     await page.click('#map-panel .mlk-sws .sw[data-val="#2A9D8F"]'); await sleep(800);
+    const at1 = await swAt(page, '#2A9D8F');
+    check('picking a colour keeps the page where it was (no jump), from the flag’s colour (two words) to Teal', at0 && at1 && Math.abs(at1.top - at0.top) <= 1 && at1.y === at0.y && at1.p === at0.p, { at0, at1 });
     const pic2 = await mapPic(page); c = await card(page);
     const worn = await page.evaluate(() => ({ mapc: window.__game.S.nation.mapc, view: window.__game.S.view, hash: location.hash, focus: document.activeElement?.dataset?.val, pressed: document.querySelector('#map-panel .mlk-sws .sw[data-val="#2A9D8F"]')?.getAttribute('aria-pressed') }));
     check('Teal on the card is worn at once: saved on the nation, still on the map, the card showing it', worn.mapc === '#2A9D8F' && worn.view === 'map' && worn.hash === '#map' && c.colour === 'Teal' && c.on === '#2A9D8F' && c.flag === 'false' && worn.pressed === 'true' && worn.focus === '#2A9D8F', { worn, c });
@@ -210,6 +216,13 @@ try {
     check('phone: the card is in the map’s sheet, with its tiles', c && c.tiles.length === 7, c);
     const wide = await page.evaluate(() => { const m = document.querySelector('#map-panel .mlk'), r = m.getBoundingClientRect(), p = document.getElementById('map-panel').getBoundingClientRect(); return { over: document.documentElement.scrollWidth - innerWidth, r: Math.round(r.right), p: Math.round(p.right) }; });
     check('phone: nothing wider than the screen', wide.over <= 0 && wide.r <= wide.p, wide);
+    /* the sheet opened (Details), the colours scrolled into its middle */
+    await page.evaluate(() => { const g = document.querySelector('#map-panel .mp-grab[aria-expanded="false"]'); if (g) g.click(); }); await sleep(400);
+    await page.evaluate(() => document.querySelector('#map-panel .mlk-sws').scrollIntoView({ block: 'center' })); await sleep(300);
+    const at0 = await swAt(page, '#2A9D8F');
+    await page.click('#map-panel .mlk-sws .sw[data-val="#2A9D8F"]'); await sleep(800);
+    const at1 = await swAt(page, '#2A9D8F');
+    check('phone: picking a colour keeps the sheet and the page where they were', at0 && at1 && Math.abs(at1.top - at0.top) <= 1 && at1.y === at0.y && at1.p === at0.p && await page.evaluate(() => window.__game.S.nation.mapc === '#2A9D8F'), { at0, at1 });
     await calm(page); await page.evaluate(() => document.querySelector('#map-panel .mlk-t[data-id="te-grid"]').click()); await sleep(500);
     const d = await drawer(page);
     check('phone: the drawer opens over the map as a sheet, led by the gallery', d && d.mlk && d.above && d.figs.length === 5 && d.figs[1].n === 'Survey Grid', d);
