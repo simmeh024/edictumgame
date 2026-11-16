@@ -5166,6 +5166,17 @@ html.u-lock{overflow:hidden}
 .prv-sw .sw{width:26px;height:26px}
 .prv-fr{margin-top:12px}
 .prv-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.prv-cities{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.prv-cities li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;border-bottom:1px dotted var(--rule);padding-bottom:4px}
+.prv-cn{display:inline-flex;align-items:center;gap:8px;min-width:0}.prv-cn .muted{font-variant-numeric:tabular-nums;font-size:13px}
+.prv-dl dd .linkish{font:inherit}
+.cx-prv{display:inline-flex;align-items:center;gap:6px;background:none;cursor:pointer;color:var(--ink-2);min-height:24px}
+.cx-prv:hover,.cx-prv:focus-visible{border-color:var(--accent);color:var(--ink)}
+.cx-prv-f{display:inline-flex;line-height:0}.cx-prv-f .prv-fl{width:18px;box-shadow:none}.cx-prv-f .prv-arms{width:12px}
+.cx-seat{margin-top:10px;padding:12px 14px;border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:4px;background:var(--sheet)}
+.cx-seat p{margin:0 0 8px}.cx-seat .row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.cx-seat-msg{margin-top:8px}
+.cx-ov-pl{font:inherit;text-align:left}
 .prv-card{display:flex;flex-direction:column;gap:10px;padding:14px 16px;background:var(--sheet);border:1px solid var(--rule);border-left:4px solid var(--pc,var(--accent));border-radius:4px;min-width:0}
 .prv-card.on{box-shadow:0 0 0 2px var(--accent)}
 .prv-card.dorm{opacity:.75;border-left-style:dashed}
@@ -43171,7 +43182,7 @@ function prvNorm(d,n){
     const id=p.id;if(!Number.isInteger(id)||id<1||id>=1e6||ids.has(id))continue;
     const q={id,nm:czText(p.nm,32)||'Unnamed',s:same&&cellOk(p.s)?p.s:-1};
     if(same&&Array.isArray(p.m)){const m=[],seen=new Set();for(const a of p.m){if(m.length>=PRV_MAXM)break;if(!Array.isArray(a)||!cellOk(a[0])||!Number.isInteger(a[1])||a[1]<1||a[1]>=1e6||seen.has(a[0]))continue;seen.add(a[0]);m.push([a[0],a[1]]);}if(m.length)q.m=m;}
-    if(Number.isInteger(p.a)&&p.a>0&&p.a<=3)q.a=p.a;
+    if(Number.isInteger(p.a)&&p.a>0&&p.a<=3){q.a=p.a;if(typeof p.at==='number'&&isFinite(p.at)&&p.at>1.7e12&&p.at<=Date.now()+DAY)q.at=Math.round(p.at);}
     const g=prvGovNorm(p.g);if(g)q.g=g;
     if(Array.isArray(p.c)){const c=[0,1,2].map(j=>prvGovNorm(p.c[j]));if(c.some(Boolean))q.c=c.map(v=>v?Object.assign(v,{tr:[]}):0);}
     const f=prvFlagNorm(p.f,n);if(f)q.f=f;
@@ -43554,7 +43565,7 @@ function prvAdd(c){
   if(ok){const p=S.nation.prov.l[S.nation.prov.l.length-1],more=prvPeak(S.nation)>pk0&&pk0>0;PRV.ui.sel=p.id;PRV.ui.msg=`${p.nm} is founded, with ${p.g.nm} as governor.${more?` ${PRV_CREDITS} land credits come with it.`:''} Rename it below.`;render();}
 }
 function prvSeat(id,c){
-  prvEdit((n,P,T,i)=>{
+  return prvEdit((n,P,T,i)=>{
     const N=prvNatWith(T,i,P),p=N.byId.get(id),q=P.l.find(v=>v.id===id);if(!p||!q)return 'Choose a division first.';
     if(prvOfCell(N,c)!==p)return `The seat must be a hex of ${p.nm}.`;
     if(MAP.T[c]<2)return 'A seat stands on land, not on a lake.';
@@ -43597,7 +43608,7 @@ function prvSetAut(id,a){
   a=clamp(Math.round(+a),0,3);
   prvEdit((n,P,T,i)=>{const q=P.l.find(v=>v.id===id);if(!q)return 'That division no longer exists.';const was=q.a||0;if(a===was)return '';
     if(q.g&&!q.g.ac){const N=prvPops(T,prvNatWith(T,i,P)),p=N.byId.get(id),now=Date.now(),v=p?prvLoy(n,p,N,now):q.g.lo;q.g.lo=clamp(Math.round(v+(a>was?5:-8)*Math.abs(a-was)),0,100);q.g.t=now;}
-    if(a)q.a=a;else delete q.a;return '';},'');
+    if(a){q.a=a;q.at=Date.now();}else{delete q.a;delete q.at;}return '';},'');
 }
 /* appoint a governor (role 'g') or a councillor (0..2) from the three candidates; replacing a governor in office costs loyalty */
 function prvAppoint(id,role,j){
@@ -43648,7 +43659,7 @@ function prvEffect(n,spec,iss){
   const k=typeof spec.loy==='number'&&isFinite(spec.loy)?clamp(Math.round(spec.loy),-30,30):0;
   if(k&&q.g&&!q.g.ac){const v=clamp(Math.round(cur+k),0,100);q.g.lo=v;q.g.t=now;PRV.notes.push([t1,`Governor ${q.g.nm} of ${q.nm}: loyalty ${Math.round(cur)} → ${v} (${prvLoyWord(v).toLowerCase()}).`]);}
   const a=spec.aut===1||spec.aut===-1?spec.aut:0;
-  if(a){const was=q.a||0,v=clamp(was+a,0,3);if(v!==was){if(v)q.a=v;else delete q.a;PRV.notes.push([t1,`${q.nm} is now ${PRV_AUT[v][0].toLowerCase()}${v>was?': more say over its own affairs':': run more closely from the capital'}.`]);}
+  if(a){const was=q.a||0,v=clamp(was+a,0,3);if(v!==was){if(v){q.a=v;q.at=now;}else{delete q.a;delete q.at;}PRV.notes.push([t1,`${q.nm} is now ${PRV_AUT[v][0].toLowerCase()}${v>was?': more say over its own affairs':': run more closely from the capital'}.`]);}
     else PRV.notes.push([t1,`${q.nm} stays ${PRV_AUT[was][0].toLowerCase()}: it can go no ${a>0?'further':'lower'}.`]);}
 }
 
@@ -43706,7 +43717,7 @@ function prvCard(n,N,p,now,own,T){
     <div class="prv-ch">${prvArt(n,p.q,(p.q.f&&p.q.f.k==='a'?'Arms of ':'Flag of ')+p.nm)}<div class="prv-ct"><p class="eyebrow">${p.cap?'Capital '+esc(prvLow(t1)):esc(t1)}${p.dorm?' · dormant':''}</p><h3 class="prv-n">${esc(p.nm)}</h3></div></div>
     ${p.dorm?`<p class="hint">Its seat was lost, with no land of yours within ${PRV_LOSTR} hexes. It wakes when you hold land there again, or merge it into another.</p>`:`
     <dl class="prv-dl"><div><dt>People</dt><dd>${esc(cpFmt(p.pop))} <span class="muted">(${prvPct(p.share)})</span></dd></div><div><dt>Area</dt><dd>${fmtArea(p.cells.length)} <span class="muted">(${prvHexes(p.cells.length)})</span></dd></div>
-      <div><dt>Cities</dt><dd>${cities.length?esc(list(cities.map(c=>c.ct.nm))):'None'}</dd></div><div><dt>Seat</dt><dd>${esc(prvSeatText(n,p))}${prvOld(p)?` <span class="muted">(and ${prvOld(p)===1?'one old seat':prvOld(p)+' old seats'})</span>`:''}</dd></div>
+      <div><dt>Cities</dt><dd>${cities.length?list(cities.map(c=>prvCityLink(c.ct))):'None'}</dd></div><div><dt>Seat</dt><dd>${esc(prvSeatText(n,p))}${prvOld(p)?` <span class="muted">(and ${prvOld(p)===1?'one old seat':prvOld(p)+' old seats'})</span>`:''}</dd></div>
       <div><dt>Council</dt><dd>${esc(prvCouncilLine(p))}</dd></div><div><dt>Autonomy</dt><dd>${PRV_AUT[p.q.a||0][0]}</dd></div></dl>
     ${prvGovHTML(n,N,p,now,own)}`}
     ${own?`<button type="button" class="btn ghost small-btn prv-manage" id="prv-m-${id}" data-act="prv-sel" data-id="${id}" aria-pressed="${sel}">${sel?'Selected':'Manage'}</button>`:''}
@@ -43731,6 +43742,7 @@ function prvSide(n,N,p,now,T){
     <h3 class="prv-h3" id="prv-aut-l">Autonomy</h3>
     <div class="seg prv-aut" role="group" aria-labelledby="prv-aut-l">${PRV_AUT.map(([l],k)=>`<button type="button" class="seg-b${aut===k?' on':''}" id="prv-a-${k}" data-act="prv-aut" data-id="${id}" data-v="${k}" aria-pressed="${aut===k}">${l}</button>`).join('')}</div>
     <p class="hint prv-auth">${esc(PRV_AUT[aut][1])} ${aut?`Here: ${esc(prvFxWords({happy:0.8*aut*p.share,civil:0.7*aut*p.share,pr:-0.01*aut*p.share,bu:0.03*aut*p.share}).join(', ')||'too small to measure')}, and governors are ${7*aut} points more loyal.`:'No local say, no extra cost. Each step up adds local happiness and civil rights but costs economy and building speed, in proportion to its share of the people.'}</p>
+    ${prvCitiesHTML(n,p)}
     ${nbs.length?`<h3 class="prv-h3"><label for="prv-mrg">Merge</label></h3><div class="prv-mrg"><select class="input" id="prv-mrg">${nbs.map(x=>`<option value="${x.id}">${esc(x.nm)}${x.dorm?' (dormant)':''}</option>`).join('')}</select><button type="button" class="btn ghost" id="prv-mrg-b" data-act="prv-merge" data-id="${id}">Merge into ${esc(p.nm)}</button></div><p class="hint">The other ${esc(low1)} and its hexes join ${esc(p.nm)}; its governor steps down.</p>`:''}
     ${old?`<h3 class="prv-h3">Old seats</h3><p class="hint">${old===1?`When another ${esc(low1)} merged into ${esc(p.nm)}, ${esc(p.nm)} kept its seat`:`When other ${esc(t2)} merged into ${esc(p.nm)}, ${esc(p.nm)} kept their seats`}, so no border moved. ${old===1?'It shows as a small dot':'They show as small dots'} while you edit borders, and a new ${esc(low1)} may not cut ${esc(p.nm)} between two of its seats. Remove ${old===1?'it':'them'} to redraw that land: ${old===1?'its':'their'} hexes go to whichever seat is nearest.</p>
     <div class="row prv-crb"><button type="button" class="btn ghost small-btn" id="prv-old" data-act="prv-old" data-id="${id}">Remove ${old===1?'the old seat':'the '+old+' old seats'}</button></div>`:''}
@@ -43817,6 +43829,62 @@ function prvCzSec(){
 function prvCzInject(h){
   if(!S.nation||S.nation.npc||!pgAvailable(S.nation,'charter'))return h;
   return h+prvCzSec();
+}
+
+
+/* ── provinces on the Cities page, and cities on the provinces page (16 November 2026) ──
+   A city's card names the division it stands in (its seat, or just in it) and links there; any city of yours can
+   become its division's seat, after a word on how many hexes would change hands. The overview gains a column. */
+function cxPrvN(){try{if(!prvOnRec(S.nation))return null;const M=prvMine();return M&&M.N?M:null;}catch(e){return null;}}
+function cxPrvOf(ct,M){M=M||cxPrvN();if(!M||!ct||!(ct.c>=0))return null;const p=prvOfCell(M.N,ct.c);return p&&!p.dorm?p:null;}
+function cxOvwCols(){return cxPrvN()?[CX_OVW_COLS[0],['prv',prvT1(S.nation)],...CX_OVW_COLS.slice(1)]:CX_OVW_COLS;}
+function cxPrvChip(ct){
+  const p=cxPrvOf(ct);if(!p)return '';const n=S.nation,seat=p.seat===ct.c;
+  return `<button type="button" class="chip cx-prv" data-act="prv-go" data-id="${p.id}" title="Open ${esc(p.nm)} on the ${esc(prvT2(n))} page"><span class="cx-prv-f" aria-hidden="true">${prvArt(n,p.q,'')}</span>${seat?'Seat of '+esc(p.nm):esc(prvT1(n))+': '+esc(p.nm)}</button>`;
+}
+/* what moving a division's seat onto a city would do: refused (why), or how many hexes change hands */
+function cxPrvSeatTrial(ct){
+  const M=cxPrvN(),p=cxPrvOf(ct,M);if(!M||!p||p.seat===ct.c)return null;const n=S.nation,P=clone(n.prov),q=P.l.find(v=>v.id===p.id);if(!q||q.s===ct.c)return null;
+  q.s=ct.c;if(q.m){q.m=q.m.filter(v=>v[0]!==ct.c);if(!q.m.length)delete q.m;}delete P.x[ct.c];
+  const why=prvCheckOld(M.T,M.i,P,'Moving the seat to '+ct.nm);let moved=0;
+  if(!why){const N1=prvNatWith(M.T,M.i,P);for(const c of M.N.cells){const a=prvOfCell(M.N,c),b=prvOfCell(N1,c);if((a?a.id:0)!==(b?b.id:0))moved++;}}
+  const at=p.seat>=0?cityState(M.T).byCell.get(p.seat):null;
+  return {p,why,moved,from:at?'in '+at.nm:'on open country, in no city'};
+}
+function cxPrvSeatBtn(ct,ok){
+  if(!ok)return '';const p=cxPrvOf(ct);if(!p||p.seat===ct.c)return '';const open=!!(S.cxSeat&&S.cxSeat.id===ct.id&&S.cxSeat.ask);
+  return `<button type="button" class="btn ghost" id="cx-seat-b" data-act="cx-seat" data-id="${esc(ct.id)}" aria-expanded="${open}" aria-controls="cx-seat">Make it the seat of ${esc(p.nm)}</button>`;
+}
+function cxPrvSeatPanel(ct,ok){
+  const s=S.cxSeat;if(!s||s.id!==ct.id)return '';
+  if(!s.ask)return s.msg?`<p class="hint cx-seat-msg" id="cx-seat-msg" role="status">${esc(s.msg)}</p>`:'';
+  const t=ok&&cxPrvSeatTrial(ct);if(!t)return '';const n=S.nation,t1=prvLow(prvT1(n)),t2=prvLow(prvT2(n));
+  const what=t.why?esc(t.why):t.moved?`Its borders follow the new seat: ${t.moved===1?'one hex changes':t.moved+' hexes change'} ${esc(t1)}. Governor, council and flag stay as they are.`:`No border moves, and governor, council and flag stay as they are.`;
+  return `<div class="cx-seat" id="cx-seat" role="group" aria-labelledby="cx-seat-h"><p class="cx-seat-h" id="cx-seat-h"><b>Move the seat of ${esc(t.p.nm)} to ${esc(ct.nm)}?</b> Its seat is now ${esc(t.from)}.</p><p class="hint">${what}</p>
+    <div class="row">${t.why?`<button type="button" class="btn" data-act="prv-go" data-id="${t.p.id}">Open ${esc(t.p.nm)}</button>`:`<button type="button" class="btn" id="cx-seat-go" data-act="cx-seat-go" data-id="${esc(ct.id)}">Move the seat</button>`}<button type="button" class="btn ghost" data-act="cx-seat-no" data-id="${esc(ct.id)}">${t.why?'Close':'Keep it where it is'}</button></div>
+    ${t.why?'':`<p class="hint">You can also move seats, hexes and borders by hand on the ${esc(t2)} page.</p>`}</div>`;
+}
+function cxCityById(id){try{const {mine,held}=myCityStates();return mine.concat(held).find(c=>c.id===id)||null;}catch(e){return null;}}
+function cxSeatGo(id){
+  const ct=cxCityById(id),t=ct&&cxPrvSeatTrial(ct);if(!t||t.why){S.cxSeat={id,ask:false,msg:t?t.why:''};render();return;}
+  const ok=prvSeat(t.p.id,ct.c),msg=ok?`${ct.nm} is now the seat of ${t.p.nm}.${t.moved?` ${t.moved===1?'One hex':t.moved+' hexes'} changed ${prvLow(prvT1(S.nation))}.`:''}`:PRV.ui.msg;
+  PRV.ui.msg='';PRV.ui.fix=null;S.cxSeat={id,ask:false,msg};render();
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act,id=el.dataset.id,focus=sel=>requestAnimationFrame(()=>{const b=document.querySelector(sel);if(b)try{b.focus({preventScroll:true});}catch(err){}});
+  if(a==='cx-seat'){const open=!!(S.cxSeat&&S.cxSeat.id===id&&S.cxSeat.ask);S.cxSeat=open?null:{id,ask:true,msg:''};render();focus(open?'#cx-seat-b':'#cx-seat-go,#cx-seat .btn');return;}
+  if(a==='cx-seat-no'){S.cxSeat=null;render();focus('#cx-seat-b');return;}
+  if(a==='cx-seat-go'){cxSeatGo(id);focus('#cx-seat-msg');return;}
+  if(a==='cx-sel'||a==='cx-go')S.cxSeat=null;
+});
+/* the provinces page: a city opens on the Cities page */
+function prvCityLink(ct){return `<button type="button" class="linkish" data-act="prv-city" data-c="${esc(ct.id)}">${esc(ct.nm)}</button>`;}
+function prvOpenCity(cid){if(!cid)return;uxOpen('cities',()=>{S.cxSel=cid;S.cityOpen=null;S.cxTab='b';S.cityMsg='';S.cxSeat=null;},'#city-'+(window.CSS&&CSS.escape?CSS.escape(cid):cid));}
+function prvCitiesHTML(n,p){
+  const cs=p.cities||[],T1=prvT1(n);
+  if(!cs.length)return `<h3 class="prv-h3">Cities</h3><p class="hint">No city stands in ${esc(p.nm)} yet. A new one founded here joins it.</p>`;
+  return `<h3 class="prv-h3">Cities</h3><ul class="prv-cities">${cs.map(({ct,pop})=>`<li><span class="prv-cn">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}${prvCityLink(ct)}<span class="muted">${esc(cpFmt(pop))}</span></span>${ct.c===p.seat?'<span class="chip">Seat</span>':`<button type="button" class="linkish small" data-act="prv-seat-c" data-id="${p.id}" data-c="${ct.c}" title="Its borders follow the hexes nearest the new seat">Make it the seat</button>`}</li>`).join('')}</ul>
+    <p class="hint">${cs.some(c=>c.ct.c===p.seat)?'':`The seat of ${esc(p.nm)} is not in a city. `}A seat moved to a city takes the hexes nearest to it, so borders may shift.</p>`;
 }
 
 /* ── the Nation page, visits and the factbook ── */
@@ -43989,7 +44057,7 @@ NAV_WORDS.provinces='provinces states counties cantons prefectures departments o
 const PRV_NAV=Object.defineProperty(['provinces','Provinces'],1,{get(){try{return prvT2(S.nation);}catch(e){return 'Provinces';}},enumerable:true});
 navGroups=(f=>function(){const g=f.apply(this,arguments);let on=false;try{on=prvOnRec(S.nation);}catch(e){}if(on)return g;for(const x of g)x.items=x.items.filter(it=>it[0]!=='provinces');return g.filter(x=>x.items.length);})(navGroups);
 extView=(f=>function(v){let h=f.apply(this,arguments);if(v==='customise')try{h=prvCzInject(h);}catch(e){}return h;})(extView);
-go=(f=>function(v){if(v!=='provinces')PRV.ui.edit=false;PRV.fd=null;PRV.ui.msg='';PRV.ui.pick='';PRV.ui.cur=-1;return f.apply(this,arguments);})(go);
+go=(f=>function(v){S.cxSeat=null;if(v!=='provinces')PRV.ui.edit=false;PRV.fd=null;PRV.ui.msg='';PRV.ui.pick='';PRV.ui.cur=-1;return f.apply(this,arguments);})(go);
 NATION_SECTIONS.push((x,now)=>prvNationSec(x,now));
 vsAdd('prv',(x,now)=>prvVisitSec(x,now));
 factbook=(f=>function(n){const h=f.apply(this,arguments);let r='';try{r=prvFactRow(n);}catch(e){}return r?h.replace(/(<div><dt>Cities<\/dt><dd>[^<]*<\/dd><\/div>)/,'$1'+r):h;})(factbook);
@@ -44029,6 +44097,8 @@ document.addEventListener('click',e=>{
   if(a==='prv-term'){prvSetTerm(el.dataset.v);return;}
   if(a==='prv-cz'){tutGo('customise','','cz-sec-v');return;}
   if(a==='prv-go'){PRV.ui.sel=id;go('provinces');return;}
+  if(a==='prv-city'){prvOpenCity(el.dataset.c);return;}
+  if(a==='prv-seat-c'){prvSeat(id,+el.dataset.c);return;}
   if(a==='prv-sel'){PRV.ui.sel=id;PRV.ui.pick='';PRV.ui.msg='';render();const h=document.getElementById('prv-side-h');if(h&&el.closest('.prv-cards,.prv-tbl')){h.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});try{h.focus({preventScroll:true});}catch(err){}}return;}
   if(a==='prv-edit'){PRV.ui.edit=!PRV.ui.edit;PRV.ui.msg=PRV.ui.edit?'Editing borders. Choose a tool, then click the map.':'';render();return;}
   if(a==='prv-tool'){PRV.ui.tool=['add','seat','isle'].includes(el.dataset.v)?el.dataset.v:'move';PRV.ui.msg='';render();return;}
@@ -62823,6 +62893,22 @@ const aParl=x=>achM(x,'parl',()=>{try{return x.npc?null:gvParl(x.n,x.now);}catch
   .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,x=>Math.max(0,prvPeak(x.n)-1)));
 achDef('land','prv-gov5','s','Governor’s Ball','Appoint five governors.',5,x=>aT(x,'log:govnew'));
 achDef('land','prv-merge','b','Two Become One','Merge two provinces into one.',1,x=>aT(x,'log:provmrg'));
+/* provinces, round two (16 November 2026): devoted governors, Home Rule kept a week, full councils, an island province, a populous one */
+const aPrvLive=x=>achM(x,'prvL',()=>{try{if(x.npc||!prvOnRec(x.n))return null;const T=territory(),i=prvIdx(T,x.n);if(i===undefined)return null;const N=prvPops(T,prvNatWith(T,i,x.n.prov));return N&&N.prov?{T,i,N,live:N.prov.filter(p=>!p.dorm&&p.cells.length)}:null;}catch(e){return null;}});
+const aPrvDevoted=x=>{const R=aPrvLive(x);return achYes(!!R&&R.live.length>=5&&R.live.every(p=>{const g=p.q.g;return !!g&&!g.ac&&prvLoy(x.n,p,R.N,x.now)>=70;}));};
+/* whole days the longest-serving Home Rule has lasted; one set before its date was kept counts as a week */
+const aPrvHome=x=>{const R=aPrvLive(x);if(!R)return 0;let d=0;for(const p of R.live){const q=p.q;if((q.a||0)<3)continue;d=Math.max(d,q.at>0?Math.floor(Math.max(0,x.now-q.at)/DAY):7);}return Math.min(d,7);};
+const aPrvCouncils=x=>{const R=aPrvLive(x);return R?R.live.filter(p=>{const c=p.q.c;return Array.isArray(c)&&!!c[0]&&!!c[1]&&!!c[2];}).length:0;};
+const aPrvIsle=x=>{const R=aPrvLive(x);if(!R||R.live.length<2)return 0;const I=seaIsles(R.T,R.i);return achYes(I.main>=0&&R.live.some(p=>p.cells.every(c=>I.id.get(c)!==I.main)));};
+const aPrvBig=x=>{const R=aPrvLive(x);return R?R.live.reduce((m,p)=>Math.max(m,p.pop||0),0):0;};
+achDef('land','prv-devoted','g','Devoted Federation','Govern five or more provinces, every one with a Devoted governor: loyalty 70 or more.',1,aPrvDevoted,{fm:'bool'});
+achDef('land','prv-home','s','Home Rule','Keep a province under Home Rule for seven days.',7,aPrvHome);
+[['prv-council1','b','A Full Bench',1,'Fill all three seats of a provincial council: Treasurer, Constable and Planner.'],['prv-council5','s','Councils Everywhere',5,'Have full councils in five provinces at once.']]
+  .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,aPrvCouncils));
+achDef('land','prv-isle','s','Island Province','Make a province of land that lies wholly off your capital’s island.',1,aPrvIsle,{fm:'bool'});
+[['prv-pop1','b','A Million Subjects',1,'Have a province of a million people.'],['prv-pop10','s','A Nation Within',10,'Have a province of ten million people.']]
+  .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,aPrvBig,{fm:'pop'}));
+/* provinces, round two: end */
 /* warehouses */
 achDef('bld','wh-1','b','Somewhere to Put It','Complete a Warehouse.',1,x=>aWh(x).length);
 achDef('bld','wh-3','s','Three Depots','Have a Warehouse in three cities.',3,x=>aWh(x).length);
@@ -64160,12 +64246,12 @@ function cityCard(ct,T,n,st,now){
   }
   return `<article class="city cx-detail" id="city-${esc(ct.id)}">${cxSkyHTML(ct)}
     <div class="city-h"><div class="cc-head">${ct.rec&&ct.fn?ccSVG(ct,'cc-h'):''}<div><p class="eyebrow">${ct.cap?'Capital':'City'} · ${esc(cap1(placePhrase(ct.c).replace(/^in the |^on /,'')))}</p><h3 class="city-n">${esc(ct.nm)}</h3>${cpCardPop(ct,T)}</div></div>
-      <div class="city-tags">${ct.rec?blkTiChip(ct.rec):''}${band?`<span class="chip cx-mood-t ${band[3]}" title="Mood ${ct.mood} of 100">${band[1]}</span>`:''}${my?`<span class="chip">Mayor ${esc(my.nm)}</span>`:''}${facts.map(f=>`<span class="chip">${esc(f)}</span>`).join('')}${!mine?`<span class="chip">From ${esc(ct.fn.name)}</span>`:''}</div></div>${cxPager(ct)}
+      <div class="city-tags">${ct.rec?blkTiChip(ct.rec):''}${band?`<span class="chip cx-mood-t ${band[3]}" title="Mood ${ct.mood} of 100">${band[1]}</span>`:''}${my?`<span class="chip">Mayor ${esc(my.nm)}</span>`:''}${cxPrvChip(ct)}${facts.map(f=>`<span class="chip">${esc(f)}</span>`).join('')}${!mine?`<span class="chip">From ${esc(ct.fn.name)}</span>`:''}</div></div>${cxPager(ct)}
     ${occupied?`<p class="err">Occupied by ${esc(holder?holder.n.name:'an enemy')}. Its buildings now work for them. Win it back to restore them.</p>`:''}
     ${!mine&&ct.active?`<p class="muted">Captured from ${esc(ct.fn.name)}. Its buildings work for you, but only its founder can build here.</p>`:''}
     ${tabs.length>1?`<div class="stabs cx-tabs" role="tablist" aria-label="${esc(ct.nm)}">${tabs.map(tabBtn).join('')}</div>`:''}
     <div class="cx-body">${body}</div>
-    <div class="row cx-foot"><button class="btn ghost" data-act="ct-map" data-c="${ct.c}">Show on the map</button>${c3Tools(ct,ok)}</div>${c3Panel(ct,ok)}
+    <div class="row cx-foot"><button class="btn ghost" data-act="ct-map" data-c="${ct.c}">Show on the map</button>${cxPrvSeatBtn(ct,ok)}${c3Tools(ct,ok)}</div>${cxPrvSeatPanel(ct,ok)}${c3Panel(ct,ok)}
   </article>`;
 }
 /* ── city crests: each city's own small coat of arms (record field cr: {s,d,t,c,ct}). Without one, a city shows its
@@ -69246,7 +69332,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -75618,24 +75704,26 @@ const CX_OVW_COLS=[['nm','City'],['pop','People'],['blk','Blocks'],['mood','Mood
 function cxOvwRow(ct,T,now){
   const b=blkOf(ct,T),u=blkUsed(ct),mine=ct.fid===myId(),occ=!ct.active||(mine&&!cxOk(ct,T)),cur=ct.prog.find(x=>x.s<=now)||ct.prog[0],band=ct.mood!=null&&ct.active?cxBand(ct.mood):null;
   const my=ct.rec&&cxCityExtras(ct.rec).my,idle=!occ&&mine&&!ct.prog.length&&u<b.n,ev=mine&&!occ&&cxEvDue(ct,now);
-  return {ct,nm:ct.nm,pop:ct.active?b.pop:0,blk:b.n?u/b.n:1,u,n:b.n,mood:band?ct.mood:-1,band,bld:occ?3:idle?0:cur?1:2,cur,idle,occ,my,ev};
+  const pv=cxPrvOf(ct);
+  return {ct,nm:ct.nm,pop:ct.active?b.pop:0,blk:b.n?u/b.n:1,u,n:b.n,mood:band?ct.mood:-1,band,bld:occ?3:idle?0:cur?1:2,cur,idle,occ,my,ev,prv:pv?pv.nm:'',pid:pv?pv.id:0,seat:!!pv&&pv.seat===ct.c};
 }
 function cxOverview(T,all,sel,now){
   if(all.length<2)return '';
-  const s=S.cxSort||{k:'',d:1},rows=all.map(ct=>cxOvwRow(ct,T,now));
-  if(s.k){const v=r=>s.k==='my'?(r.my?r.my.nm:'~'):r[s.k];rows.sort((a,b)=>{const x=v(a),y=v(b);return (typeof x==='string'?x.localeCompare(y):x-y)*s.d;});}
+  const s=S.cxSort||{k:'',d:1},rows=all.map(ct=>cxOvwRow(ct,T,now)),cols=cxOvwCols(),pc=cols.some(c=>c[0]==='prv');
+  if(s.k){const v=r=>s.k==='my'?(r.my?r.my.nm:'~'):s.k==='prv'?(r.prv||'~'):r[s.k];rows.sort((a,b)=>{const x=v(a),y=v(b);return (typeof x==='string'?x.localeCompare(y):x-y)*s.d;});}
   const th=([k,l])=>`<th scope="col"${s.k===k?` aria-sort="${s.d>0?'ascending':'descending'}"`:''} class="cx-ov-${k}"><button type="button" class="cx-sort" data-act="cx-sort" data-k="${k}">${l}<span class="cx-sort-a" aria-hidden="true">${s.k===k?(s.d>0?'▲':'▼'):''}</span></button></th>`;
   const bl=r=>{let h='';const done=r.ct.done.slice(0,r.n);for(let i=0;i<r.n;i++){const k=done[i],g=k&&r.ct.ug?r.ct.ug[k]|0:0;h+=k?`<i class="on${g?' ug ugb-'+CX_UG[g-1].c:''}"></i>`:i<r.ct.done.length+r.ct.prog.length?'<i class="wip"></i>':'<i></i>';}return h;};
-  const row=r=>`<tr class="${r.ct.id===sel?'on':''}${r.idle?' idle':''}"><th scope="row" class="cx-ov-nm"><button type="button" class="cx-ov-go" data-act="cx-sel" data-id="${esc(r.ct.id)}" aria-current="${r.ct.id===sel}">${r.ct.rec&&r.ct.fn?ccSVG(r.ct,'cc-s'):''}<b>${esc(r.nm)}</b>${r.ct.cap?' <span class="chip">Capital</span>':''}${r.ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</button></th>
+  const row=r=>`<tr class="${r.ct.id===sel?'on':''}${r.idle?' idle':''}"><th scope="row" class="cx-ov-nm"><button type="button" class="cx-ov-go" data-act="cx-sel" data-id="${esc(r.ct.id)}" aria-current="${r.ct.id===sel}">${r.ct.rec&&r.ct.fn?ccSVG(r.ct,'cc-s'):''}<b>${esc(r.nm)}</b>${r.ct.cap?' <span class="chip">Capital</span>':''}${r.ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</button></th>${pc?`
+    <td class="cx-ov-prv">${r.pid?`<button type="button" class="linkish cx-ov-pl" data-act="prv-go" data-id="${r.pid}">${esc(r.prv)}</button>${r.seat?' <span class="cx-ov-n">seat</span>':''}`:'—'}</td>`:''}
     <td class="cx-ov-pop">${r.pop?cpFmt(r.pop):'—'}</td>
     <td class="cx-ov-blk"><span class="cx-ov-b">${r.u}/${r.n}</span><span class="cx-blks" aria-hidden="true">${bl(r)}</span></td>
     <td class="cx-ov-mood">${r.band?`<span class="cx-mood-t ${r.band[3]}">${r.band[1]}</span> <span class="cx-ov-n">${r.ct.mood}</span>`:'—'}</td>
     <td class="cx-ov-bld">${r.occ?'<span class="cx-ov-occ">Occupied</span>':r.cur?`${bldIco(r.cur.k,'b-ic-xs')}${esc(BUILDINGS[r.cur.k].n)} · ${fmtDur(Math.max(0,r.cur.d-now))}`:r.idle?`<span class="cx-ov-idle">Idle · ${r.n-r.u===1?'one empty block':(r.n-r.u)+' empty blocks'}</span>`:r.ct.fid!==myId()?'Captured':'Every block in use'}</td>
     <td class="cx-ov-my">${r.my?esc(r.my.nm):r.ct.fid===myId()&&!r.occ?'<span class="cx-ov-none">None yet</span>':'—'}</td></tr>`;
-  return `<details class="cx-ovw" id="cx-ovw" open><summary>All ${all.length} cities at a glance</summary><div class="cx-ovw-w"><table class="cx-ovw-t"><thead><tr>${CX_OVW_COLS.map(th).join('')}</tr></thead><tbody>${rows.map(row).join('')}</tbody></table></div><p class="hint cx-ovw-h">Sort by any column; a city's name opens it below.</p></details>`;
+  return `<details class="cx-ovw" id="cx-ovw" open><summary>All ${all.length} cities at a glance</summary><div class="cx-ovw-w"><table class="cx-ovw-t"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${rows.map(row).join('')}</tbody></table></div><p class="hint cx-ovw-h">Sort by any column; a city's name opens it below.</p></details>`;
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="cx-sort"]');if(!el)return;const k=el.dataset.k,s=S.cxSort||{k:'',d:1};
-  S.cxSort=s.k===k?{k,d:-s.d}:{k,d:k==='nm'||k==='bld'?1:-1};render();requestAnimationFrame(()=>{const b=document.querySelector(`[data-act="cx-sort"][data-k="${k}"]`);if(b)b.focus({preventScroll:true});});});
+  S.cxSort=s.k===k?{k,d:-s.d}:{k,d:k==='nm'||k==='bld'||k==='prv'?1:-1};render();requestAnimationFrame(()=>{const b=document.querySelector(`[data-act="cx-sort"][data-k="${k}"]`);if(b)b.focus({preventScroll:true});});});
 
 /* ── the skyline over a city's card ── */
 function cxSkyHTML(ct){return `<div class="cx-sky" aria-hidden="true"><canvas class="cx-sky-cv" data-cx-sky="${esc(ct.fid+'|'+ct.id)}" width="1" height="1"></canvas></div>`;}
