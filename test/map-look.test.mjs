@@ -1,7 +1,8 @@
 // "Your map look" on the World map page (2026-11-16): the card under "Your territory" lists every map colour and every
 // hex background (land finish) there is, and a locked one opens its pack's Shop drawer over the map page. These checks
 // keep the lists whole as packs are added, and keep the drawer over the map wired to Escape, the full-screen map and the
-// gallery. The browser test (test/map-look.mjs) drives the page itself.
+// gallery. The card is closed until opened (kept as left), and a colour chosen on it is worn at once. The browser test
+// (test/map-look.mjs) drives the page itself.
 // Run with: node --test test/map-look.test.mjs
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
@@ -49,7 +50,20 @@ test('"Back to the pack" from a try-on reopens the drawer over the map; the Foun
   has("te=cz(x.me&&S.nation?S.nation:x.n).te;",'the gilt layer reads the nation as cz() sees it, try-on included');
 });
 
-test('a colour opens Settings with it picked; a held finish opens Customise at Finery',()=>{
-  has("if(!S.settings||!settingsDirty())S.settings=settingsFrom(n);S.settings.mapc=c;SG.tab='nation';uxOpen('settings',null,'#set-mapc');");
+test('a colour is worn at once and the map drawn again in it; a held finish opens Customise at Finery',()=>{
+  const i=game.indexOf('function mlkMcSet(');assert.ok(i>0);const body=game.slice(i,game.indexOf('\nfunction mlkCard(',i));
+  assert.ok(body.includes('if(c&&!(tutMapcOk(n0,c)&&ctgMcOk(n0,c)))return;'),'only a colour the player may wear, as saveSettings allows');
+  assert.ok(body.includes('n.mapc=c;commit(n);'),'saved on the nation');
+  assert.ok(body.includes('if(S.settings)S.settings.mapc=c;'),'Settings shows the new colour, other changes waiting there kept');
+  assert.ok(body.includes('render();redrawMaps();'),'the map is drawn again in the new colour');
+  has("else if(a==='mlk-mc'){const v=el.dataset.val||'',c=v?safeColor(v,''):'';if(v&&!c)return;mlkMcSet(c);}",'a swatch, or Match my flag (no value), sets it');
+  has('data-act="mlk-mc" data-val="" aria-pressed="${!mc}">Match my flag</button>','the way back to the flag colour');
   has("czTabFor('cz-sec-z');uxOpen('customise',null,'.cz-g-te');",'only the open section of Customise is drawn, so Finery is chosen first');
+});
+
+test('the card is closed until opened, drawn as a line, and remembers being opened',()=>{
+  has("function mlkIsOpen(){if(MLK.open===undefined)try{MLK.open=localStorage.getItem(MLK_OPEN)==='1';}catch(e){MLK.open=false;}return !!MLK.open;}",'closed unless opened before on this device');
+  has('if(!open)return `<section class="mlk" aria-labelledby="mlk-h">${head}<div class="mlk-b" id="mlk-b" hidden></div></section>`;','closed, nothing else is drawn (no land pictures, no Shop call)');
+  has('data-act="mlk-tg" aria-expanded="${open}" aria-controls="mlk-b"','the toggle says whether it is open');
+  has("if(a==='mlk-tg')mlkToggle();");
 });
