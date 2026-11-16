@@ -21796,12 +21796,12 @@ function startBuild(cid,key){
   const now=Date.now(),st=stockNow(S.nation,now),p=buildProblem(S.nation,ct,key,st);
   if(p){S.cityMsg=p.t;render();return;}
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
-  const cost=bCost(S.nation,key),ms=cxHours(S.nation,ct,key)*3600e3;
+  const cost=bCost(S.nation,key),quick=qbMs(S.nation,key),nth=qbNth(S.nation),ms=quick||cxHours(S.nation,ct,key)*3600e3;
   for(const r of RES)st[r]-=cost[r]||0;
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  c.b.push({k:key,s:now,d:now+ms,p:cost});
+  c.b.push({k:key,s:now,d:now+ms,p:cost});if(quick)n.qb=nth-1;
   commit(n);S.cityMsg='';render();
-  toast(`Work has started on ${B.w?'the ':'a '}${B.n} in ${ct.nm}. It will be ready in ${fmtDur(ms)}.`);
+  toast(`Work has started on ${B.w?'the ':'a '}${B.n} in ${ct.nm}. It will be ready in ${fmtDur(ms)}${quick?`, as your ${QB_ORD[nth-2]} building`:''}.`);
 }
 function cancelBuild(cid,key){
   const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
@@ -21888,7 +21888,7 @@ function bldRow(ct,b,mine,now){
 }
 function catalog(ct,n,st){
   const busy=ct.prog.length>0,full=ct.done.length+ct.prog.length>=slotsOf(ct),qfull=ct.prog.length>C3_QMAX;
-  const head=full?blkFullHtml(ct,busy):busy?c3BusyHint(ct,qfull):'';
+  const head=(full?blkFullHtml(ct,busy):busy?c3BusyHint(ct,qfull):'')+(qbMs(n)?`<p class="hint cx-sfb">Your ${QB_ORD[qbNth(n)-2]} building goes up in <b>${esc(fmtDur(qbMs(n)))}</b> instead of hours, whichever you choose (a wonder takes its usual time).</p>`:'');
   /* four groups: ready to build, short of materials, coming later (locked: what unlocks them) and built already; a
      building held up only by the city (no free block, the queue, a Warehouse upgrade) counts as ready or short */
   const G={ready:[],cost:[],later:[],have:[]};
@@ -21899,7 +21899,7 @@ function catalog(ct,n,st){
   const card=([k,p])=>{
     const B=BUILDINGS[k],blocked=full||qfull||!!p,bc=bCost(n,k);
     const cost=p?.k==='have'?esc(costText(bc)):uxCostRequirements(bc,st);
-    return `<li class="opt${p&&p.k!=='cost'?' off':''}" id="bk-${k}"><div class="opt-h">${bldIco(k)}<span class="opt-hn"><b>${esc(B.n)}</b>${bldTag(k)}</span><span class="opt-t">${cxHours(n,ct,k)} h</span></div>${bldTop(k,n)}<p class="opt-d">${esc(B.d)}</p>${(h=>h?`<p class="opt-d opt-gain">${h}</p>`:'')(bldGainHtml(ct,k,ct.tT,'In '+ct.nm))}${(q=>q?`<p class="opt-d xp-bnote">${esc(q)}</p>`:"")(xpBldNote(k))}${B.need&&!(p&&p.k==='need')?`<p class="opt-need">${esc(NEED_TXT[B.need])}</p>`:''}<div class="opt-c">${cost}</div>${uxBuildRequirements(ct,B,p||(full?{k:'room'}:null))}${p&&p.k!=='room'?`<p class="opt-why">${esc(p.t)}</p>`:''}<button class="btn${blocked?' ghost':''}" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}"${blocked?' disabled':''}>${p&&p.k==='have'?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':busy?'Queue':'Build'}</button></li>`;
+    return `<li class="opt${p&&p.k!=='cost'?' off':''}" id="bk-${k}"><div class="opt-h">${bldIco(k)}<span class="opt-hn"><b>${esc(B.n)}</b>${bldTag(k)}</span><span class="opt-t">${qbMs(n,k)?esc(fmtDur(qbMs(n,k))):cxHours(n,ct,k)+' h'}</span></div>${bldTop(k,n)}<p class="opt-d">${esc(B.d)}</p>${(h=>h?`<p class="opt-d opt-gain">${h}</p>`:'')(bldGainHtml(ct,k,ct.tT,'In '+ct.nm))}${(q=>q?`<p class="opt-d xp-bnote">${esc(q)}</p>`:"")(xpBldNote(k))}${B.need&&!(p&&p.k==='need')?`<p class="opt-need">${esc(NEED_TXT[B.need])}</p>`:''}<div class="opt-c">${cost}</div>${uxBuildRequirements(ct,B,p||(full?{k:'room'}:null))}${p&&p.k!=='room'?`<p class="opt-why">${esc(p.t)}</p>`:''}<button class="btn${blocked?' ghost':''}" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}"${blocked?' disabled':''}>${p&&p.k==='have'?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':busy?'Queue':'Build'}</button></li>`;
   };
   const line=([k,p])=>{const B=BUILDINGS[k],here=ct.done.includes(k)||ct.prog.some(b=>b.k===k),have=here||p&&p.k==='have';
     return `<li class="opt opt-line${have?' opt-have':' off'}" id="bk-${k}">${bldIco(k,'b-ic-s')}<span class="opt-ln"><b>${esc(B.n)}</b>${bldTag(k)}<span class="opt-why">${esc(here?(ct.done.includes(k)?'Built here.':'Under way or queued here.'):p?p.t:'')}</span>${bldBoostHtml(k,n)}</span>${have?'':uxBuildRequirements(ct,B,p)}<button class="btn ghost small-btn" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}" disabled>${have?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':'Not here'}</button></li>`;};
@@ -25709,10 +25709,10 @@ function c3Queue(ct,key){
   const now=Date.now(),st=stockNow(S.nation,now),p=buildProblem(S.nation,ct,key,st);
   if(p){S.cityMsg=p.t;render();return;}
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===ct.id);if(!c)return;
-  const cost=bCost(S.nation,key),ms=cxHours(S.nation,ct,key)*3600e3,s=c.b.reduce((m,b)=>Math.max(m,b.d||0),now);
+  const cost=bCost(S.nation,key),quick=qbMs(S.nation,key),nth=qbNth(S.nation),ms=quick||cxHours(S.nation,ct,key)*3600e3,s=c.b.reduce((m,b)=>Math.max(m,b.d||0),now);
   for(const r of RES)st[r]-=cost[r]||0;
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  c.b.push({k:key,s,d:s+ms,p:cost});
+  c.b.push({k:key,s,d:s+ms,p:cost});if(quick)n.qb=nth-1;
   commit(n);S.cityMsg='';render();
   toast(`${B.w?'The ':'A '}${B.n} joins the queue in ${ct.nm}. Work starts in ${fmtDur(s-now)} and takes ${fmtDur(ms)}.`);
 }
@@ -53134,7 +53134,19 @@ const DD_GIFT=3,ddGift=r=>DD_GIFT+(r==='iron'||r==='goods'?2:0),DD_CLEAR={iron:8
 const DD_WEEK=7*864e5,DD_WEEK_MAX=8;
 const ddWeek=(n,now)=>{const f=+(n&&n.founded)||0;return f>0&&now>=f&&now-f<DD_WEEK;};
 const ddwOf=n=>n&&Number.isInteger(n.ddw)&&n.ddw>0?Math.min(n.ddw,DD_WEEK_MAX):0;
-const FFB_MS=3*60000,FFB_GIFT=12,FFB_KEYS=['farm','sawmill','market'],FFB_OUT={farm:'food',sawmill:'timber',market:'goods'};
+const FFB_MS=2*60000,FFB_GIFT=12,FFB_KEYS=['farm','sawmill','market'],FFB_OUT={farm:'food',sawmill:'timber',market:'goods'};
+/* quick early buildings (2026-11-16, the owner: "Second building to build should take 5 min as well", then "Set the
+   first at 2 min, 3rd at 8 min"): the quick first building takes FFB_MS, and the next ones a nation starts, of any
+   kind but a wonder and in any city, take QB_MS (the second 5 minutes, the third 8) instead of hours; queued, they take
+   it once their turn comes. n.qb counts those used, so each comes once. qbMs: the time for the building a nation would
+   start now, or 0 for the usual hours; qbNth its place (2 for the second). */
+const QB_MS=[5*60000,8*60000],QB_ORD=['second','third'];
+function qbMs(n,key){
+  if(!n||n.npc||(key&&BUILDINGS[key]&&BUILDINGS[key].w))return 0;
+  let k=0;for(const c of n.cities||[])k+=(c.b||[]).length;
+  return k>=1&&k<=QB_MS.length&&(Number.isInteger(n.qb)?n.qb:0)<k&&tallyOf(n,'build')<=k?QB_MS[k-1]:0;
+}
+const qbNth=n=>{let k=0;for(const c of n.cities||[])k+=(c.b||[]).length;return k+1;};
 const ddOthers=()=>{try{return allNations().some(x=>!x.me);}catch(e){return false;}};
 /* the browser tests turn the desk off (test/lib.mjs) unless a suite asks for it, so its gifts never move the stock
    a test is counting on whatever three tasks the date happens to draw */
@@ -53325,6 +53337,7 @@ NORM_HOOKS.push((n,d)=>{
   if(d&&Array.isArray(d.ddk)){const v=[...new Set(d.ddk.filter(k=>typeof k==='string'&&czHas(DD_TASKS,k)))].slice(0,40);if(v.length)n.ddk=v;else delete n.ddk;}else delete n.ddk;
   if(d&&Number.isFinite(d.ddx)&&d.ddx>0&&d.ddx<=Date.now()+864e5)n.ddx=d.ddx;else delete n.ddx;
   const K=d&&d.stk;if(K&&Number.isInteger(K.n)&&K.n>0&&K.n<=STK_MAX&&typeof K.d==='string'&&DD_KEY_RX.test(K.d))n.stk={n:K.n,d:K.d};else delete n.stk;
+  if(d&&Number.isInteger(d.qb)&&d.qb>0&&d.qb<=QB_MS.length)n.qb=d.qb;else delete n.qb;
   const F=d&&d.ffb;if(F&&FFB_KEYS.includes(F.k)&&typeof F.c==='string'&&F.c.length>0&&F.c.length<=40&&Number.isFinite(F.s)&&Number.isFinite(F.d)&&F.d>=F.s){n.ffb={k:F.k,c:F.c,s:F.s,d:F.d};if(F.p===1)n.ffb.p=1;}else delete n.ffb;
 });
 

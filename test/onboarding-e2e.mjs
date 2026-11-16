@@ -70,7 +70,7 @@ await nav(A,'customise');await czSection(A,'e');check('the flag designer lives i
 await czSection(A,'s');check('the first day of presence unlocks the indigo stamp in Customise',await A.locator('#cz-st-s-indigo').count()===1);
 await nav(A,'map');check('after the first claims, a quick first building is offered',await A.locator('.ffb .ffb-go').isVisible());
 const ffbK=await A.locator('.ffb .ffb-go').getAttribute('data-k');await A.click('.ffb .ffb-go');
-check('the quick first building takes three minutes',await A.evaluate(()=>{const f=G.S.nation.ffb;return !!f&&f.d-f.s===180000;})&&await A.locator('.ffb.is-on [data-live="ffb"]').isVisible());
+check('the quick first building takes two minutes',await A.evaluate(()=>{const f=G.S.nation.ffb;return !!f&&f.d-f.s===120000;})&&await A.locator('.ffb.is-on [data-live="ffb"]').isVisible());
 const ffbR={farm:'food',sawmill:'timber',market:'goods'}[ffbK],ffbBefore=await A.evaluate(r=>G.S.nation.stock[r],ffbR);
 await A.evaluate(()=>{const n=G.clone(G.S.nation),t=Date.now()-1000;n.ffb.d=t;for(const c of n.cities)for(const b of c.b)if(b.k===n.ffb.k)b.d=t;G.commit(n);G.render();});
 check('on completion its first cart arrives',await until(()=>A.locator('.ffb.is-done .ffb-n').isVisible())&&await A.evaluate(([r,b])=>G.S.nation.stock[r]>=b+11.9,[ffbR,ffbBefore]));
