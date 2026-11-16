@@ -8058,7 +8058,7 @@ button[disabled] .gv-cost{opacity:.6}
 .nav-rail .nav .nav-btn .badge.dot{min-width:0;width:8px;height:8px;padding:0;top:4px;right:10px}
 /* the Diplomacy page in five tabs, and alliances (AL) */
 .dp-pane{display:none}
-.dp[data-tab="overview"]>#dp-p-overview,.dp[data-tab="alliance"]>#dp-p-alliance,.dp[data-tab="relations"]>#dp-p-relations,.dp[data-tab="treaties"]>#dp-p-treaties,.dp[data-tab="wars"]>#dp-p-wars,.dp[data-tab="gifts"]>#dp-p-gifts{display:block}
+.dp[data-tab="overview"]>#dp-p-overview,.dp[data-tab="alliance"]>#dp-p-alliance,.dp[data-tab="relations"]>#dp-p-relations,.dp[data-tab="treaties"]>#dp-p-treaties,.dp[data-tab="ventures"]>#dp-p-ventures,.dp[data-tab="wars"]>#dp-p-wars,.dp[data-tab="gifts"]>#dp-p-gifts{display:block}
 .dp-wait{margin:0 0 26px;padding:14px 16px;border:1px solid var(--rule);border-left:3px solid var(--stamp);border-radius:4px;background:var(--sheet)}
 .dp-wait.none{border-left-color:var(--rule-2);background:none;padding:10px 14px}
 .dp-wait-h{font:600 15px/1.3 var(--f-body);margin:0;display:flex;align-items:center;gap:8px}
@@ -8182,6 +8182,11 @@ button[disabled] .gv-cost{opacity:.6}
 .dpt-kind input{grid-row:span 2;margin-top:3px}
 .dpt-kind.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .dpt-how{margin:0 0 8px;padding-left:18px}
+.jv-cost{display:inline-flex;flex-wrap:wrap;gap:4px 10px;vertical-align:baseline}
+.jv-x{display:block;margin-top:4px}
+.jv-miss{color:var(--down)}
+.jv-site{margin:0;padding:8px 12px;border-left:3px solid var(--accent)}
+.jv-here{margin-top:10px}
 .al-rels .dp-rel-a{margin-left:0}
 .alp .vh .eyebrow .linkish{font:inherit;letter-spacing:inherit;text-transform:inherit}
 .alp-act{margin:0 0 20px}
@@ -20862,11 +20867,18 @@ const AL={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:
 const TY_RULES={kinds:['nap','trade','research'],max:{nap:8,trade:3,research:3},notice:3*86400000,record:30*86400000,reoffer:7*86400000,
   npcMin:{nap:35,trade:50,research:60},breakGw:{other:15,all:5},fx:{flow:0.1,research:0.01,researchMax:3}};
 const TY={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:'',to:'',k:'nap',brk:''};
+/* joint ventures between two neighbours: the server's rules (functions/venture-rules.js; test/ventures.test.mjs checks that
+   they match), and the region's ventures as the server keeps them (ventures/, functions/ventures.js), kept up to date by
+   jvConnect ("joint ventures", near the end). rev counts snapshots, so the cities and the economy look again */
+const JV_RULES={kinds:['road','rail','bridge'],cost:{road:{iron:120,goods:20,food:250},rail:{goods:50,iron:80,timber:400},bridge:{timber:120,iron:60}},
+  hours:{road:6,rail:12,bridge:4},max:5,answer:2*86400000,notice:3*86400000,keep:60*86400000,old:86400000,npcMin:45,leaveGw:10,path:16,
+  fx:{road:{city:0.04,flow:0.05},rail:{city:0.08,flow:0.05},bridge:{toll:{goods:8,timber:4}}}};
+const JV={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:'',to:'',k:'road',end:'',ask:{},tries:{},tick:''};
 function politics(){
   const docs=[];if(S.nation)docs.push([myId(),S.nation]);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)docs.push([id,S.world[id]]);
   const srv=S.mode==='local'?null:AL.docs;
-  const k=npcRev+'#'+(srv?AL.rev:'-')+'#'+TY.rev+'#'+docs.map(([id,d])=>id+':'+(d.updatedAt||0)).join('|');
+  const k=npcRev+'#'+(srv?AL.rev:'-')+'#'+TY.rev+'#'+JV.rev+'#'+docs.map(([id,d])=>id+':'+(d.updatedAt||0)).join('|');
   if(polMemo.k===k&&polMemo.v)return polMemo.v;
   const al=new Map(),of=new Map(),byDoc=new Map(docs),claims=[];
   for(const b of NPC_BLOCS){const A={id:b.id,name:b.name,founder:null,npc:true,members:b.members.slice(),pending:[],invited:[],inv:[]};al.set(b.id,A);for(const m of b.members)of.set(m,A);}
@@ -21500,7 +21512,7 @@ function economy(){
   for(const d of active){
     if(d.sus)continue;
     const ai=T.byId[d.a],bi=T.byId[d.b];d.fa=fac(d.ag[0],ai);d.fb=fac(d.bg[0],bi);
-    const am=alSame(d.a,d.b),fx=am?alFx(d.a):null,ta=!!tyOf(d.a,d.b,'trade'),ff=Math.min(d.fa,d.fb)*trFlow(d,T,active)*(am?1+fx.flow:1)*(ta?1+TY_RULES.fx.flow:1),qa=d.ag[1]*ff,qb=d.bg[1]*ff;
+    const am=alSame(d.a,d.b),fx=am?alFx(d.a):null,ta=!!tyOf(d.a,d.b,'trade'),ff=Math.min(d.fa,d.fb)*trFlow(d,T,active)*(am?1+fx.flow:1)*(ta?1+TY_RULES.fx.flow:1)*jvFlow(d.a,d.b,T),qa=d.ag[1]*ff,qb=d.bg[1]*ff;
     /* a trade bloc's members, and the two sides of a trade agreement, pay no import tariffs on each other's goods (impF:
        imports free of them) */
     if((am&&fx.tariffFree)||ta){impF[d.ag[0]][bi]+=qa;impF[d.bg[0]][ai]+=qb;}
@@ -49195,6 +49207,7 @@ function rgnPeekHTML(x,now){
   if(!x.me&&!OBS&&S.nation){
     if(S.mode==='world')acts.push(`<button type="button" class="btn ghost sm" data-act="dm-open" data-id="${esc(x.id)}">Send a letter</button>`);
     acts.push(`<button type="button" class="btn ghost sm" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button>`);
+    if(S.mode==='world'){try{const T=territory();if(jvNeighbours(T).some(y=>y.id===x.id))acts.push(`<button type="button" class="btn ghost sm" data-act="jv-go" data-id="${esc(x.id)}">Propose a joint venture</button>`);}catch(e){}}
     if(L){try{const a=asmA(S.nation),on=!!(a&&a.e&&a.e.some(e=>e.i===x.id&&!e.w));
       if(asmMemberAt(S.nation,now)&&L.mem)acts.push(on?`<button type="button" class="btn sm" data-act="asm-unend" data-id="${esc(x.id)}" aria-pressed="true">Endorsed · withdraw</button>`:`<button type="button" class="btn ghost sm" data-act="asm-end" data-id="${esc(x.id)}" aria-pressed="false">Endorse for Delegate</button>`);}catch(e){}}
   }
@@ -70898,7 +70911,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -72053,6 +72066,7 @@ function nvxCompute(n,now){
     add('diplomacy',w.calls,w.calls===1?'a call to arms':w.calls+' calls to arms');
     add('diplomacy',w.chat,w.chat===1?'a message in your alliance’s channel':w.chat+' messages in your alliance’s channel');
     add('diplomacy',w.tr,w.tr===1?'a treaty offered to you':w.tr+' treaties offered to you');
+    add('diplomacy',w.jv,w.jv===1?'a joint venture proposed to you':w.jv+' joint ventures proposed to you','.dp-tabs [data-v="ventures"]');
     add('diplomacy',w.pact,w.pact===1?'a pact offered to your alliance':w.pact+' pacts offered to your alliance');});
   each(()=>{const k=gfIncoming().filter(g=>!g.reply).length;add('diplomacy',k,k===1?'a gift to answer':k+' gifts to answer');});
   each(()=>{const k=economy().pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).length;add('trade',k,k===1?'a trade offer':k+' trade offers','.tr-in-h');});
@@ -72341,7 +72355,7 @@ function alWarHelp(w,e,since){
 }
 
 /* ── the Diplomacy page ── */
-const DP_TABS=[['overview','Overview'],['alliance','Alliance'],['relations','Relations'],['treaties','Treaties'],['wars','Wars'],['gifts','Gifts']];
+const DP_TABS=[['overview','Overview'],['alliance','Alliance'],['relations','Relations'],['treaties','Treaties'],['ventures','Ventures'],['wars','Wars'],['gifts','Gifts']];
 const DP_SUBS=[['members','Members'],['channel','Channel'],['treasury','Treasury'],['invite','Invite'],['charter','Charter'],['relations','Relations'],['history','History']];
 const alBusy=op=>AL.busy===op?' disabled aria-busy="true"':AL.busy?' disabled':'';
 const alFlag=x=>`<span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>`;
@@ -72366,6 +72380,7 @@ function dpWaiting(now){
   const gifts=gfIncoming().filter(g=>!g.reply);
   if(gifts.length)items.push({k:'gift',h:`<span class="al-wi-g" aria-hidden="true">✉</span><span>${gifts.length===1?`<b>${esc(gifts[0].from.n.name)}</b> sent you ${esc(fill(GF_KINDS[gifts[0].k][1],gifts[0].from.n))}.`:`${gifts.length} gifts are waiting for your thanks.`}</span>`,b:`<button type="button" class="btn sm" data-act="dp-tab" data-v="gifts">Answer</button>`});
   for(const T of tyIncoming())items.push({k:'treaty',h:`<span class="al-wi-g" aria-hidden="true">§</span><span><b>${esc(nameOf(T.a))}</b> offers you a ${esc(TY_K[T.k][0].toLowerCase())}.</span>`,b:`<button type="button" class="btn sm" data-act="dp-ty-yes" data-id="${esc(T.id)}">Accept</button><button type="button" class="btn ghost sm" data-act="dp-ty-no" data-id="${esc(T.id)}">Decline</button>`});
+  for(const V of jvIncoming(now)){const x=findNation(V.a);items.push({k:'venture',h:`${x?alFlag(x):'<span class="al-wi-g" aria-hidden="true">⇄</span>'}<span><b>${esc(nameOf(V.a))}</b> proposes ${esc(jvName(V))}, built together.</span>`,b:`<button type="button" class="btn sm" data-act="dp-tab" data-v="ventures">See the offer</button>`});}
   if(A&&A.srv&&alPactAsks(A)){const P=politics();for(const [bid,r] of Object.entries(A.doc.rel)){const B=P.al.get(bid);if(r.k!=='pact'||r.st!=='asked'||!B||!B.srv)continue;
     items.push({k:'pact',h:`${alBanner(B.doc,'sm')}<span><b>${esc(B.name)}</b> offers ${esc(A.name)} a pact.</span>`,b:`<button type="button" class="btn sm" data-act="dp-ar-yes" data-id="${esc(bid)}">Accept</button><button type="button" class="btn ghost sm" data-act="dp-ar-no" data-id="${esc(bid)}">Decline</button>`});}}
   if(A&&A.srv&&alChatUnread())items.push({k:'chat',h:`${alBanner(A.doc,'sm')}<span>${alChatUnread()===1?'A new message':alChatUnread()+' new messages'} in ${esc(A.name)}’s channel.</span>`,b:`<button type="button" class="btn ghost sm" data-act="dp-sub" data-v="channel">Read</button>`});
@@ -72415,6 +72430,7 @@ function dpRelations(){
     const acts=[`<button type="button" class="btn ghost sm" data-act="dp-gift" data-id="${id}">Gift</button>`,
       r.st!=='war'?`<button type="button" class="btn ghost sm" data-act="trade-go" data-id="${id}">Trade</button>`:'',
       r.st!=='war'?`<button type="button" class="btn ghost sm" data-act="dp-ty-go" data-id="${id}">Treaty</button>`:'',
+      r.st!=='war'&&r.border&&S.mode==='world'?`<button type="button" class="btn ghost sm" data-act="jv-go" data-id="${id}">Joint venture</button>`:'',
       canInv&&!allianceOf(r.id)&&r.st!=='war'&&!A.invited.includes(r.id)?`<button type="button" class="btn ghost sm" data-act="al-invite" data-id="${id}">Invite</button>`:'',
       `<button type="button" class="btn ghost sm" data-act="spy-go" data-id="${id}">Spy</button>`,
       `<button type="button" class="btn ghost sm" data-act="map-open" data-id="${id}">Map</button>`].join('');
@@ -72638,7 +72654,7 @@ function dpAlliance(now){
 function dpView(now){
   now=now||Date.now();const t=DP_TABS.some(x=>x[0]===AL.tab)?AL.tab:'overview',A=alMine(),me=myId();
   const badge={alliance:(()=>{let k=0;const P=politics();for(const B of P.al.values())if(B.srv&&B.invited.includes(me))k++;if(A&&A.srv&&alCan(A,me,'o'))k+=A.pending.length;k+=A&&A.srv?alChatUnread()+alPactAsks(A):0;return k;})(),
-    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length,treaties:tyIncoming().length};
+    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length,treaties:tyIncoming().length,ventures:jvIncoming(now).length};
   const tabs=`<div class="gv-tabs dp-tabs" role="tablist" aria-label="Diplomacy">${DP_TABS.map(([k,l])=>`<button type="button" role="tab" id="dp-tab-${k}" class="gv-tab dp-tab${k===t?' on':''}" data-act="dp-tab" data-v="${k}" aria-selected="${k===t}" aria-controls="dp-p-${k}" tabindex="${k===t?0:-1}">${l}${badge[k]?` <span class="gv-tab-n">${badge[k]}</span>`:''}</button>`).join('')}</div>`;
   const pane=(k,h)=>`<section class="dp-pane" id="dp-p-${k}" role="tabpanel" aria-labelledby="dp-tab-${k}" data-dp="${k}">${h}</section>`;
   const safe=f=>{try{return f();}catch(e){return `<div class="empty"><p class="empty-h">This part could not be drawn</p><p>${esc(e.message)}</p></div>`;}};
@@ -72649,6 +72665,7 @@ function dpView(now){
       ${pane('alliance',safe(()=>dpAlliance(now)))}
       ${pane('relations',safe(()=>dpRelations()))}
       ${pane('treaties',safe(()=>dpTreaties(now)))}
+      ${pane('ventures',safe(()=>jvTab(now)))}
       ${pane('wars',safe(()=>`<div class="dip-grid"><div class="dip-col">${warsSection()}</div><div class="dip-col">${dpWarRoom(now)}</div></div>`))}
       ${pane('gifts',safe(()=>dpGifts(now)))}</div>`;
 }
@@ -72743,7 +72760,7 @@ function alWaitCount(){
   const me=myId(),P=politics(),A=alMine();let inv=0,req=0;
   for(const B of P.al.values())if(B.srv&&B.invited.includes(me)&&!B.members.includes(me))inv++;
   if(A&&A.srv&&alCan(A,me,'o'))req=A.pending.length;
-  return {inv,req,chat:A&&A.srv?alChatUnread():0,calls:alCalls(Date.now()).filter(c=>!c.ans).length,tr:tyIncoming().length,pact:A&&A.srv?alPactAsks(A):0};
+  return {inv,req,chat:A&&A.srv?alChatUnread():0,calls:alCalls(Date.now()).filter(c=>!c.ans).length,tr:tyIncoming().length,jv:jvIncoming().length,pact:A&&A.srv?alPactAsks(A):0};
 }
 allianceNotice=function(){
   if(!S.nation)return '';const w=alWaitCount(),bits=[];
@@ -72751,6 +72768,7 @@ allianceNotice=function(){
   if(w.req)bits.push(w.req===1?'A nation asks to join your alliance':`${w.req} nations ask to join your alliance`);
   if(w.calls)bits.push(w.calls===1?'An ally is under attack: a call to arms':`${w.calls} calls to arms from your allies`);
   if(w.tr)bits.push(w.tr===1?'A nation offers you a treaty':`${w.tr} nations offer you treaties`);
+  if(w.jv)bits.push(w.jv===1?'A neighbour proposes a joint venture':`${w.jv} joint ventures are proposed to you`);
   if(w.pact)bits.push(w.pact===1?'An alliance offers yours a pact':`${w.pact} alliances offer yours a pact`);
   if(!bits.length)return '';
   return `<button class="notice" data-act="go" data-v="diplomacy"><span class="notice-k">Foreign office</span><span>${esc(bits.join('. '))}.</span><span class="notice-go">Open diplomacy →</span></button>`;
@@ -73020,6 +73038,385 @@ document.addEventListener('click',e=>{
   else if(a==='dp-ar-rival')alAct('alRival',{aid:A.id,to:id,on:el.dataset.on==='1'});
 });
 document.addEventListener('change',e=>{const t=e.target;if(!t)return;if(t.id==='dpt-to'){TY.to=t.value;render();}else if(t.name==='dpt-k'){TY.k=t.value;render();}});
+
+/* ───────── joint ventures: a border road, a border railway or a toll bridge built with a neighbour (16 November 2026) ─────────
+   Ventures are the server's (ventures/{uid}_{id}, functions/ventures.js; JV_RULES beside TY_RULES is its rules' copy). A
+   Registered Nation proposes one to a nation it shares a border with, from the Diplomacy page's Ventures tab (also from
+   that nation's row in Relations, its page, or one of its hexes on the map). The route is found here (jvSite): the
+   shortest road or railway between a city of each through the two lands, crossing the border once, or the bridge over a
+   river that is their border nearest the capital. Each side pays its half (JV_RULES.cost): its commit takes it and lists
+   it in n.jvp (the shared half, where the server reads it, as it reads Supply Caches): {id, w:'a', k, to, ca, cb, path,
+   t, f?, pl?} for the proposer (f once filed), {v (the venture's document id), w:'b', k, t, pl} for the side that
+   accepts. jvTick files what is still to file and settles the rest: an entry whose venture was accepted is spent (and
+   counted for the achievements: jvj, jvk:<kind>, jvpl with a player); one whose venture was declined, withdrawn,
+   lapsed or vanished is given back. A venture gives its two sides (jvCityFx, jvFlow) only while it is built, the two are
+   at peace, and its route still runs between them (jvWhole): a share more output in each end city and deals between the
+   two flowing a little more, or a bridge's tolls a day. Ending one takes notice and costs goodwill with the other. The
+   helpers the cities and the economy call are function declarations, as those run before this part of the script. */
+const JV_K={road:['Border road','Road'],rail:['Border railway','Railway'],bridge:['Toll bridge','Toll bridge']};
+const JV_ID=/^[a-z0-9]{6,16}$/,JV_DOC=/^[\w-]{1,128}_[a-z0-9]{6,16}$/,JV_GRACE=10*60e3;
+/* the server's refusals that are final: the half paid comes back */
+const JV_BACK=new Set(['registration_required','moderated','banned','jv_old','jv_bad','jv_target','jv_war','jv_max','jv_max_them','jv_exists','jv_npc','jv_gone']);
+function jvGives(k){const F=JV_RULES.fx[k];
+  if(k==='bridge')return `${list(Object.entries(F.toll).map(([r,v])=>`+${v} ${resName(r)}`))} a day for each side, from the tolls`;
+  return `+${Math.round(F.city*100)}% output in the city at each end, and deals between the two nations flow ${Math.round(F.flow*100)}% more`;}
+function jvCostHTML(k){const c=JV_RULES.cost[k];return RES.filter(r=>c[r]).map(r=>`<span class="sc-it">${resIco(r)}<b>${fmt0(c[r])}</b> ${esc(resName(r))}</span>`).join('');}
+function jvNorm(id,d){
+  const n=v=>typeof v==='number'&&isFinite(v)?v:0,s=v=>typeof v==='string'?v.slice(0,128):'',c=v=>Number.isInteger(v)&&v>=0&&v<1e7;
+  const k=JV_RULES.kinds.includes(d.k)?d.k:'',p=Array.isArray(d.p)?d.p.filter(x=>typeof x==='string').slice(0,2):[];
+  if(!k||p.length!==2||!c(d.ca)||!c(d.cb)||!Array.isArray(d.path))return null;
+  const path=d.path.filter(c).slice(0,JV_RULES.path+1);if(path.length<2)return null;
+  const f={};if(d.f&&typeof d.f==='object')for(const [u,v] of Object.entries(d.f))if(typeof v==='number'&&isFinite(v))f[u]=v;
+  return {id,k,p,a:s(d.a),b:s(d.b),ca:d.ca,cb:d.cb,path,st:['offered','active','ending','declined'].includes(d.st)?d.st:'',t:n(d.t),x:n(d.x),at:n(d.at),d:n(d.d),end:n(d.end),by:s(d.by),f,npc:!!d.npc};
+}
+function jvLive(V,now){return !!V&&(V.st==='active'||(V.st==='ending'&&now<V.end));}
+function jvWaiting(V,now){return !!V&&V.st==='offered'&&now<V.x;}
+/* a nation founded again since it joined is not bound (the server's jvVoid) */
+function jvVoid(V){for(const id of Object.keys(V.f||{})){const f=V.f[id],d=f?docOf(id):null,b=d?Number(d.founded):0;if(b>0&&b!==f)return true;}return false;}
+function jvList(id){const out=[];for(const V of JV.docs.values())if(V.p.includes(id)&&!jvVoid(V))out.push(V);return out;}
+function jvOther(V,me){return V.p[0]===me?V.p[1]:V.p[0];}
+function jvHeld(id,now){return jvList(id).filter(V=>jvLive(V,now)||jvWaiting(V,now)).length;}
+function jvAdj(a,b){for(let d=0;d<6;d++)if(MAP.nbr[a*6+d]===b)return true;return false;}
+/* the route still runs between the two: every hex one of theirs, each next to the last, from a's end to b's, and for a
+   road or railway a city of each at its ends (all: the cities as cityState is working them out, when it asks) */
+function jvWhole(V,T,all){
+  const ia=T.byId[V.a],ib=T.byId[V.b];if(ia===undefined||ib===undefined)return false;
+  const P=V.path;if(T.owner[P[0]]!==ia||T.owner[P[P.length-1]]!==ib)return false;
+  for(let i=0;i<P.length;i++){const o=T.owner[P[i]];if(o!==ia&&o!==ib)return false;if(i&&!jvAdj(P[i-1],P[i]))return false;}
+  if(V.k==='bridge')return true;
+  const L=all||cityState(T).all,city=(c,hi)=>L.some(ct=>ct.c===c&&ct.active&&ct.hi===hi);
+  return city(V.ca,ia)&&city(V.cb,ib);
+}
+/* offered, lapsed, declined, building, open, paused (at war), cut (its route broken), ended, void */
+function jvState(V,T,now,all){
+  if(jvVoid(V))return 'void';
+  if(V.st==='declined')return 'declined';
+  if(V.st==='offered')return now<V.x?'offered':'lapsed';
+  if(V.st==='ending'&&now>=V.end)return 'ended';
+  if(V.st!=='active'&&V.st!=='ending')return 'void';
+  if(now<V.d)return 'building';
+  try{if(atWar(V.a,V.b))return 'paused';}catch(e){}
+  return jvWhole(V,T,all)?'open':'cut';
+}
+/* deals between a and b flow more while a road or railway between them is open (the best one counts) */
+function jvFlow(a,b,T){
+  if(!JV.docs.size||a===b)return 1;const now=Date.now();let f=0;
+  for(const V of JV.docs.values()){if(V.k==='bridge'||!V.p.includes(a)||!V.p.includes(b))continue;try{if(jvState(V,T,now)==='open')f=Math.max(f,JV_RULES.fx[V.k].flow);}catch(e){}}
+  return 1+f;
+}
+/* each open venture's share more output in its two end cities, and a bridge's tolls, for the players' nations */
+function jvCityFx(T,all,agg,now){
+  for(const ct of all)delete ct.jv;
+  if(!JV.docs.size)return;
+  for(const V of JV.docs.values()){
+    if(jvState(V,T,now,all)!=='open')continue;
+    for(const [hi,cell] of [[T.byId[V.a],V.ca],[T.byId[V.b],V.cb]]){
+      const x=T.list[hi],a=agg[hi];if(!x||x.npc||!a)continue;
+      if(V.k==='bridge'){for(const [r,v] of Object.entries(JV_RULES.fx.bridge.toll))a.add[r]=(a.add[r]||0)+v;continue;}
+      const ct=all.find(c=>c.c===cell&&c.active&&c.hi===hi);if(!ct)continue;const k=JV_RULES.fx[V.k].city;
+      for(const res of RES){const Y=CELL_RES[res];let v=Y?ct.dist.reduce((s,c)=>s+Y[c],0):0;
+        for(const p in RES_POL)if(x.n.policies?.[p]&&RES_POL[p][res])v*=RES_POL[p][res];
+        v=Math.max(0,v+(ct.buildOutput?.[res]||0));if(v)a.add[res]=(a.add[res]||0)+v*k;}
+      ct.jv=(ct.jv||0)+k;}
+  }
+}
+mpNetworkBonuses=(f=>function(T,all,agg,now){f.apply(this,arguments);try{jvCityFx(T,all,agg,now);}catch(e){}})(mpNetworkBonuses);
+
+/* the venture's name: the two cities it joins, or the river a bridge crosses */
+function jvName(V){
+  if(V.k==='bridge'){let r='';try{if(rvData())for(let d=0;d<6;d++)if(MAP.nbr[V.ca*6+d]===V.cb){const id=RV.E6[V.ca*6+d]-1;if(id>=0)r=rvLabelAt(RV.list[id],V.ca);}}catch(e){}return r?`the toll bridge over ${r}`:'the toll bridge';}
+  let all=[];try{all=cityState(territory()).all;}catch(e){}
+  const nm=c=>{const o=all.find(x=>x.c===c);return o?o.nm:cap1(terrName(c)||'border');};
+  return `the ${nm(V.ca)}–${nm(V.cb)} ${JV_K[V.k][1]}`;
+}
+/* the best route for a kind between this nation (index i) and j: {ca, cb, path} or {why} */
+function jvSite(T,k,i,j){
+  const me=T.list[i],them=T.list[j];if(!me||!them)return {why:'Choose a neighbour.'};
+  if(k==='bridge'){
+    if(!rvData())return {why:'The rivers are still being drawn. Try again in a moment.'};
+    let best=null,bd=1e9;
+    for(let c=0;c<MAP.N;c++){if(T.owner[c]!==i||MAP.T[c]<2)continue;
+      for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb<0||T.owner[nb]!==j||MAP.T[nb]<2)continue;const id=RV.E6[c*6+d]-1;if(id<0||RV.list[id].cls<2)continue;
+        const dd=hexDist(c,me.cap);if(dd<bd){bd=dd;best={ca:c,cb:nb,path:[c,nb]};}}}
+    return best||{why:`No river runs along your border with ${them.n.name}.`};
+  }
+  const all=cityState(T).all,mine=all.filter(c=>c.active&&c.hi===i&&!c.npc&&(k!=='rail'||c.done.includes('rail')));
+  const theirs=new Set(all.filter(c=>c.active&&c.hi===j&&(k!=='rail'||c.npc||c.done.includes('rail'))).map(c=>c.c));
+  if(!mine.length)return {why:k==='rail'?'A border railway starts at one of your cities with a completed Railway Station.':'A border road starts at one of your cities.'};
+  if(!theirs.size)return {why:k==='rail'?`${them.n.name} has no city with a completed Railway Station.`:`${them.n.name} has no city on the map.`};
+  let best=null;
+  for(const ct of mine){
+    const prev=new Map([[ct.c,-1]]),q=[[ct.c,0]];
+    for(let h=0;h<q.length;h++){const [c,dist]=q[h];if(best&&dist>=best.path.length-1)break;
+      if(theirs.has(c)){const path=[];for(let x=c;x!==-1;x=prev.get(x))path.unshift(x);if(!best||path.length<best.path.length)best={ca:ct.c,cb:c,path};break;}
+      if(dist>=JV_RULES.path)continue;
+      for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb<0||prev.has(nb)||MAP.T[nb]<2)continue;const o=T.owner[nb];
+        /* through the two lands only, and across the border once */
+        if((o!==i&&o!==j)||(T.owner[c]===j&&o===i))continue;prev.set(nb,c);q.push([nb,dist+1]);}
+    }
+  }
+  return best||{why:`No city of ${them.n.name}${k==='rail'?' with a Railway Station':''} is within ${JV_RULES.path} hexes of one of yours${k==='rail'?' with a Railway Station':''}, through your two lands.`};
+}
+/* the nations this one shares a border with, not at war with it */
+function jvNeighbours(T){
+  const i=T.byId[myId()];if(i===undefined)return [];const out=[];
+  for(const j of bordersOf(T,i)){const x=T.list[j];if(!x||x.id===myId())continue;let w=false;try{w=warWith(x.id).war;}catch(e){}if(!w)out.push(x);}
+  return out.sort((a,b)=>a.n.name.localeCompare(b.n.name));
+}
+function jvEntries(n){return Array.isArray(n&&n.jvp)?n.jvp:[];}
+const jvKey=e=>e.w==='a'?myId()+'_'+e.id:e.v;
+/* why this nation cannot propose a k to id now, or '' (site: the route found) */
+function jvWhyNot(id,k,T,now,site){
+  const n=S.nation,x=id?findNation(id):null;
+  if(OBS)return 'Observing: nothing can be changed.';
+  if(S.mode!=='world')return 'Joint ventures need the online game.';
+  if(PV||tabPassive)return 'Nothing can be proposed from this tab.';
+  if(!civicRegistered())return 'Joint ventures need a Registered Nation. Link a sign-in account in your account menu.';
+  if(!n||!x||x.me)return 'Choose a neighbour.';
+  if(jvHeld(myId(),now)>=JV_RULES.max)return `You already take part in ${JV_RULES.max} joint ventures, the most a nation may. End one, or withdraw an offer, first.`;
+  if(jvList(myId()).some(V=>V.k===k&&V.p.includes(id)&&(jvLive(V,now)||jvWaiting(V,now))))return `You already have a ${JV_K[k][0].toLowerCase()} with ${x.n.name}, built or offered.`;
+  if(jvEntries(n).some(e=>e.w==='a'&&e.to===id&&e.k===k&&!e.f))return 'That proposal is on its way: it goes as soon as your nation is saved.';
+  if(site&&site.why)return site.why;
+  const miss=lacking(JV_RULES.cost[k],stockNow(n,now));if(miss.length)return 'Your half needs '+list(miss)+' more.';
+  if(x.npc){const af=affinity(x.n,n);if(af<JV_RULES.npcMin)return `${x.n.name} would decline: its affinity with you is ${af}, and a joint venture needs ${JV_RULES.npcMin}.`;}
+  return '';
+}
+
+/* commit() keeps only the stock it can account for, so halves are paid and given back inside a commit hook: m._jv an entry
+   to pack (its half taken), m._jvf ids filed, m._jvs keys spent (the venture was accepted), m._jvb a key to give back,
+   m._jvg the nation whose goodwill an ended venture costs */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||!n.name)return [];now=now||Date.now();
+  const p=n._jv,fl=n._jvf,sp=n._jvs,b=n._jvb,g=n._jvg;delete n._jv;delete n._jvf;delete n._jvs;delete n._jvb;delete n._jvg;
+  const L=()=>jvEntries(n),key=e=>e.w==='a'?'a:'+e.id:'b:'+e.v,same=k=>e=>key(e)===k||(e.w==='a'?e.id===k:e.v===k);
+  if(p&&typeof p==='object'&&JV_RULES.kinds.includes(p.k)&&(p.w==='a'||p.w==='b')&&!L().some(e=>key(e)===key(p))){
+    const cost=JV_RULES.cost[p.k],st=stockNow(n,now);
+    if(RES.every(r=>!cost[r]||num0(st[r])+1e-6>=cost[r])){for(const r of RES)if(cost[r])st[r]=num0(st[r])-cost[r];n.stock=roundStock(st);n.stockAt=now;n.jvp=L().concat({...p,t:now});}
+  }
+  if(Array.isArray(fl))n.jvp=L().map(e=>e.w==='a'&&fl.includes(e.id)?{...e,f:1}:e);
+  if(Array.isArray(sp))for(const k of sp){const e=L().find(same(k));if(!e)continue;n.jvp=L().filter(x=>x!==e);gbBump(n,'jvj',1,now);gbBump(n,'jvk:'+e.k,1,now);if(e.pl)gbBump(n,'jvpl',1,now);}
+  if(typeof b==='string'){const e=L().find(same(b));
+    if(e){const cost=JV_RULES.cost[e.k]||{},st=stockNow(n,now);for(const [r,v] of Object.entries(cost))st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;n.jvp=L().filter(x=>x!==e);}}
+  if(typeof g==='string'&&g){const gw={...(n.gw||{})};gw[g]=clamp((gw[g]||0)-JV_RULES.leaveGw,-GW_MAX,GW_MAX);n.gw=gw;}
+  if(Array.isArray(n.jvp)){n.jvp=n.jvp.filter(e=>now-e.t<JV_RULES.keep+JV_RULES.answer).slice(-12);if(!n.jvp.length)delete n.jvp;}
+  return [];
+});
+NORM_HOOKS.push((n,d)=>{
+  const cell=v=>Number.isInteger(v)&&v>=0&&v<1e7,uid=v=>typeof v==='string'&&/^[\w-]{1,128}$/.test(v),tm=v=>typeof v==='number'&&isFinite(v)&&v>0;
+  const ok=e=>e&&JV_RULES.kinds.includes(e.k)&&tm(e.t)&&(e.w==='a'?typeof e.id==='string'&&JV_ID.test(e.id)&&uid(e.to)&&cell(e.ca)&&cell(e.cb)&&Array.isArray(e.path)&&e.path.length>=2&&e.path.length<=JV_RULES.path+1&&e.path.every(cell):e.w==='b'&&typeof e.v==='string'&&JV_DOC.test(e.v));
+  const fl=e=>({...(e.f===1?{f:1}:{}),...(e.pl===1?{pl:1}:{})});
+  if(d&&Array.isArray(d.jvp)){const a=d.jvp.filter(ok).slice(-12).map(e=>e.w==='a'?{id:e.id,w:'a',k:e.k,to:e.to,ca:e.ca,cb:e.cb,path:e.path.slice(),t:e.t,...fl(e)}:{v:e.v,w:'b',k:e.k,t:e.t,...fl(e)});
+    if(a.length)n.jvp=a;else delete n.jvp;}else delete n.jvp;
+});
+/* the achievements read the tallies at the next commit (their hook runs before this section's): one at once */
+function jvRecount(){setTimeout(()=>{try{if(S.nation&&!OBS)commit(clone(S.nation));}catch(e){}},60);}
+
+/* the region's ventures, as the server keeps them */
+function jvConnect(){
+  if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;
+  const reg=REG.id;if(JV.reg===reg&&JV.unsub)return;
+  if(JV.unsub)try{JV.unsub();}catch(e){}
+  JV.reg=reg;JV.ready=false;
+  try{JV.unsub=S.db.collection('ventures').where('reg','==',reg).onSnapshot(qs=>{
+    const m=new Map();for(const d of qs.docs){try{const V=jvNorm(d.id,d.data()||{});if(V)m.set(d.id,V);}catch(e){}}
+    JV.docs=m;JV.rev++;JV.ready=true;JV.err='';polMemo.k='';cityMemo={T:null,k:'',v:null};NVX.ver++;
+    if(['diplomacy','visit'].includes(S.view)&&!alTyping())quietRender();else if(S.view==='map')redrawMaps();
+    try{jvTick();}catch(e){}
+  },e=>{JV.err=(e&&e.message)||'unavailable';JV.ready=true;});}catch(e){JV.ready=true;}
+}
+connect=(f=>async function(){const r=await f.apply(this,arguments);try{jvConnect();}catch(e){}return r;})(connect);
+async function jvAct(op,d,done){
+  if(OBS){toast('Observing: nothing can be changed.');return null;}
+  if(S.mode!=='world'){toast('Joint ventures need the online game.');return null;}
+  if(JV.busy)return null;JV.busy=op;JV.msg='';render();
+  try{const r=(await alReq(Object.assign({op},d)))||{};if(done)done(r);return r;}
+  catch(e){JV.msg=alErrText(e);toast(JV.msg);return null;}
+  finally{JV.busy='';render();}
+}
+/* filing a packed half: the proposal (jvOffer) or the acceptance (jvAnswer), once the save that took it is in. 'offered',
+   'active', 'wait' (ask again later) or 'back:<why>' (refused for good, the half given back) */
+async function jvFile(e){
+  if(remoteDirty||remoteBusy||saveFailed)return 'wait';
+  const k=jvKey(e);
+  let r;try{r=e.w==='a'?await alReq({op:'jvOffer',id:e.id}):await alReq({op:'jvAnswer',vid:e.v,yes:true});}
+  catch(err){const c=err&&err.details&&err.details.code||'';if(JV_BACK.has(c)){jvGiveBack(k);return 'back:'+((err&&err.message)||'');}return 'wait';}
+  if(!r||r.ok===false){jvGiveBack(k);return 'back:That offer is no longer there.';}
+  const n=clone(S.nation);if(r.st==='active')n._jvs=[e.w==='a'?e.id:e.v];else if(e.w==='a')n._jvf=[e.id];commit(n);jvRecount();
+  return r.st==='active'?'active':'offered';
+}
+function jvGiveBack(k){const id=k.startsWith(myId()+'_')&&jvEntries(S.nation).some(e=>e.w==='a'&&myId()+'_'+e.id===k)?k.slice(myId().length+1):k;const n=clone(S.nation);n._jvb=id;commit(n);}
+function jvToast(e,r){
+  const nm=nameOf(e.w==='a'?e.to:(JV.docs.get(e.v)||{}).a),K=JV_K[e.k][0].toLowerCase();
+  if(r==='active')toast(e.w==='a'?`${nm} agreed. Work on the ${K} has begun: it will be ready in ${fmtDur(JV_RULES.hours[e.k]*3600e3)}.`:`You accepted. Work on the ${K} with ${nm} has begun: it will be ready in ${fmtDur(JV_RULES.hours[e.k]*3600e3)}.`);
+  else if(r==='offered')toast(`A ${K} is proposed to ${nm}. They have ${JV_RULES.answer/DAY} days to answer.`);
+  else if(r.startsWith('back:'))toast(`The ${K} with ${nm} could not go ahead: ${r.slice(5)} Your half is back in your stockpile.`);
+}
+/* proposing: the half is packed, saved, then filed */
+async function jvPropose(){
+  const n=S.nation;if(!n||JV.busy||JV.tick)return;
+  const T=territory(),now=Date.now(),to=JV.to,k=JV_RULES.kinds.includes(JV.k)?JV.k:'road',i=T.byId[myId()],j=T.byId[to];
+  const site=i!==undefined&&j!==undefined?jvSite(T,k,i,j):{why:'Choose a neighbour.'},why=jvWhyNot(to,k,T,now,site);
+  if(why){JV.msg=why;render();return;}
+  const id=(Date.now().toString(36)+Math.random().toString(36).slice(2,8)).slice(-12),x=T.list[j];
+  const m=clone(n);m._jv={id,w:'a',k,to,ca:site.ca,cb:site.cb,path:site.path,...(x.npc?{}:{pl:1})};commit(m);
+  const e=jvEntries(S.nation).find(q=>q.w==='a'&&q.id===id);if(!e){JV.msg='Your half could not be taken from your stockpile.';render();return;}
+  JV.busy='jvOffer';JV.msg='';render();
+  try{try{saveSoon();await flushNow();}catch(err){}
+    const r=await jvFile(e);if(r==='wait')toast('Your proposal goes as soon as your nation is saved.');else jvToast(e,r);}
+  finally{JV.busy='';render();}
+}
+/* accepting: this side's half is packed, saved, then the answer is filed */
+async function jvAccept(vid){
+  const n=S.nation,V=JV.docs.get(vid),now=Date.now();if(!n||!V||JV.busy||JV.tick)return;
+  if(!jvWaiting(V,now)){JV.msg='That offer is no longer there.';render();return;}
+  if(!civicRegistered()){JV.msg='Joint ventures need a Registered Nation. Link a sign-in account in your account menu.';render();return;}
+  if(jvHeld(myId(),now)-1>=JV_RULES.max){JV.msg=`You already take part in ${JV_RULES.max} joint ventures, the most a nation may.`;render();return;}
+  const miss=lacking(JV_RULES.cost[V.k],stockNow(n,now));if(miss.length){JV.msg='Your half needs '+list(miss)+' more.';render();return;}
+  if(!jvEntries(n).some(e=>e.w==='b'&&e.v===vid)){const m=clone(n);m._jv={v:vid,w:'b',k:V.k,pl:1};commit(m);}
+  const e=jvEntries(S.nation).find(q=>q.w==='b'&&q.v===vid);if(!e){JV.msg='Your half could not be taken from your stockpile.';render();return;}
+  JV.busy='jvAnswer';JV.msg='';render();
+  try{try{saveSoon();await flushNow();}catch(err){}
+    const r=await jvFile(e);if(r==='wait')toast('Your answer goes as soon as your nation is saved.');else jvToast(e,r);}
+  finally{JV.busy='';render();}
+}
+/* every ten seconds: file what is still to file, mark what was accepted, give back what never went ahead, and announce
+   ventures that open */
+function jvTick(){
+  const n=S.nation;if(!n||OBS||PV||tabPassive||S.mode!=='world'||!S.db||!JV.ready||JV.tick||JV.busy)return;
+  const now=Date.now(),me=myId();
+  for(const e of jvEntries(n)){const k=jvKey(e),V=JV.docs.get(k);
+    if(V&&V.at>0){const m=clone(S.nation);m._jvs=[e.w==='a'?e.id:e.v];commit(m);jvRecount();return;}
+    if(V&&(V.st==='declined'||(V.st==='offered'&&now>V.x+JV_GRACE))){
+      const why=V.st==='declined'?(V.by===me?'you withdrew it.':`${nameOf(jvOther(V,me))} declined.`):'the offer lapsed.';
+      jvGiveBack(k);toast(`${cap1(jvName(V))} will not be built: ${why} Your half is back in your stockpile.`);return;}
+    if(!V&&(e.f||e.w==='b')){if(now-e.t>60e3){jvGiveBack(k);toast(`A joint venture you paid for is gone. Your half is back in your stockpile.`);return;}continue;}
+    if(V&&V.st==='offered'&&e.w==='a'&&!e.f){const m=clone(S.nation);m._jvf=[e.id];commit(m);return;}
+    if((!V&&e.w==='a')||(V&&V.st==='offered'&&e.w==='b')){
+      if(now<(JV.ask[k]||0))continue;const t=(JV.tries[k]||0)+1;JV.tries[k]=t;JV.ask[k]=now+Math.min(30*60e3,20000*t);
+      JV.tick=k;jvFile(e).then(r=>{if(r!=='wait')jvToast(e,r);}).catch(()=>{}).finally(()=>{JV.tick='';});return;}
+  }
+  /* a venture of this nation's that opened since it last looked, once per device */
+  let seen=[];try{seen=JSON.parse(localStorage.getItem('edictum.jv.open.'+me)||'[]');if(!Array.isArray(seen))seen=[];}catch(e){}
+  const T=territory(),fresh=jvList(me).filter(V=>V.d&&V.d<=now&&now-V.d<7*DAY&&!seen.includes(V.id)&&jvState(V,T,now)==='open');
+  if(fresh.length){const V=fresh[0];seen=seen.concat(V.id).slice(-40);try{localStorage.setItem('edictum.jv.open.'+me,JSON.stringify(seen));}catch(e){}
+    toast(`${cap1(jvName(V))}, built with ${nameOf(jvOther(V,me))}, is open: ${jvGives(V.k)}.`);}
+}
+setInterval(()=>{try{jvTick();}catch(e){}},10000);
+
+/* the Ventures tab: offers either way, those of this nation, a new one to propose, and how they work */
+const JV_ST={offered:['Offered',''],building:['Being built',''],open:['Open','ok'],paused:['Closed by war','war'],cut:['Cut','war'],ending:['Ending','']};
+function jvStatusLine(V,T,now){
+  const st=jvState(V,T,now);
+  if(st==='building')return `Being built: ready ${fmtTime(V.d)}${new Date(V.d).toDateString()!==new Date(now).toDateString()?' on '+fmtDate(V.d):''}.`;
+  if(st==='paused')return 'Closed while the two nations are at war. It opens again at peace.';
+  if(st==='cut')return V.k==='bridge'?'Cut: a bank of the bridge has changed hands.':'Cut: a hex on its route, or a city at one end, has changed hands.';
+  if(st==='open')return V.st==='ending'?`Open until ${fmtDate(V.end)}: ${jvGives(V.k)}.`:`Open: ${jvGives(V.k)}.`;
+  return '';
+}
+function jvTab(now){
+  if(S.mode!=='world')return '<p class="muted">Joint ventures belong to the online game.</p>';
+  const me=myId(),T=territory(),L=jvList(me),msg=JV.msg?`<p class="war-msg">${esc(JV.msg)}</p>`:'',busy=JV.busy||JV.tick?' disabled':'';
+  const who=id=>{const x=findNation(id);return x?`${alFlag(x)}${nationLink(id,x.n.name,false)}${x.npc?'<span class="chip">Computer</span>':''}`:esc(nameOf(id));};
+  const inc=L.filter(V=>jvWaiting(V,now)&&V.b===me),out=L.filter(V=>jvWaiting(V,now)&&V.a===me),live=L.filter(V=>jvLive(V,now));
+  const pend=jvEntries(S.nation).filter(e=>e.w==='a'&&!JV.docs.has(me+'_'+e.id)&&!e.f);
+  const row=(id,h,acts,extra)=>`<li class="dpt-i jv-i"><span class="dpt-n">${who(id)}</span><span class="dpt-k">${h}${extra?`<span class="hint jv-x">${extra}</span>`:''}</span><span class="dpt-a">${acts}</span></li>`;
+  const kind=V=>`<b>${esc(cap1(jvName(V)))}</b> <span class="chip">${esc(JV_K[V.k][0])}</span>`;
+  const st=stockNow(S.nation,now);
+  const offers=inc.length||out.length||pend.length?`<section class="section"><h2 class="h2">Offers</h2><ul class="dpt-l">${inc.map(V=>{const miss=lacking(JV_RULES.cost[V.k],st);
+      return row(V.a,kind(V),`<button type="button" class="btn sm" data-act="jv-yes" data-id="${esc(V.id)}"${busy}${miss.length?' disabled':''}>Accept and pay my half</button><button type="button" class="btn ghost sm" data-act="jv-no" data-id="${esc(V.id)}"${busy}>Decline</button>`,
+        `They have paid their half. Yours: <span class="jv-cost">${jvCostHTML(V.k)}</span>${miss.length?` <span class="jv-miss">You need ${esc(list(miss))} more.</span>`:''} Gives both: ${esc(jvGives(V.k))}. Answer by ${esc(fmtDate(V.x))}.`);}).join('')}
+    ${out.map(V=>row(V.b,kind(V),`<button type="button" class="btn ghost sm" data-act="jv-cancel" data-id="${esc(V.id)}"${busy}>Withdraw</button>`,`Waiting for their answer until ${esc(fmtDate(V.x))} ${esc(fmtTime(V.x))}. Your half is held; it comes back if they decline.`)).join('')}
+    ${pend.map(e=>row(e.to,`<b>${esc(JV_K[e.k][0])}</b>`,'','On its way: it is proposed as soon as your nation is saved.')).join('')}</ul></section>`:'';
+  const mine=`<section class="section"><h2 class="h2">Your joint ventures</h2>${live.length?`<ul class="dpt-l">${live.map(V=>{const o=jvOther(V,me),s=jvState(V,T,now),c=JV_ST[V.st==='ending'&&s==='open'?'ending':s]||['',''];
+      if(JV.end===V.id)return `<li class="dpt-i dpt-brk"><p><b>End ${esc(jvName(V))} with ${esc(nameOf(o))}?</b> It stays open for ${JV_RULES.notice/DAY} more days, then closes for good. Neither half comes back, and you lose ${JV_RULES.leaveGw} goodwill with ${esc(nameOf(o))}.</p><button type="button" class="btn danger sm" data-act="jv-end" data-id="${esc(V.id)}"${busy}>End it</button><button type="button" class="btn ghost sm" data-act="jv-end-no">Keep it</button></li>`;
+      return row(o,kind(V)+(c[0]?` <span class="chip ${c[1]}">${esc(c[0])}</span>`:''),V.st==='ending'?'':`<button type="button" class="btn ghost sm" data-act="jv-end-ask" data-id="${esc(V.id)}">End with ${JV_RULES.notice/DAY} days’ notice…</button>`,esc(jvStatusLine(V,T,now))+(V.st==='ending'?` ${esc(nameOf(V.by))} ended it: it closes on ${esc(fmtDate(V.end))}.`:''));}).join('')}</ul>`:'<p class="muted">You have no joint venture yet.</p>'}</section>`;
+  const nbs=jvNeighbours(T),to=nbs.some(x=>x.id===JV.to)?JV.to:'',k=JV_RULES.kinds.includes(JV.k)?JV.k:'road',i=T.byId[me];
+  const site=to&&i!==undefined?jvSite(T,k,i,T.byId[to]):null,why=to?jvWhyNot(to,k,T,now,site):'';
+  let where='';if(site&&!site.why){const nm=c=>{const o=cityState(T).all.find(x=>x.c===c);return o?o.nm:terrName(c);};
+    where=k==='bridge'?`Over the river ${esc(placePhrase(site.ca))}, between your bank and theirs.`:`From ${esc(nm(site.ca))} to ${esc(nm(site.cb))} in ${esc(nameOf(to))}: ${site.path.length-1} ${site.path.length===2?'hex':'hexes'}.`;}
+  const form=`<section class="section dpt-new"><h2 class="h2">Propose a joint venture</h2><div class="dpt-form">
+    <label class="field"><span class="cz-flab">With a neighbour</span><select class="input" id="jv-to"><option value="">Choose a nation you share a border with…</option>${nbs.map(x=>`<option value="${esc(x.id)}"${x.id===to?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':''}</option>`).join('')}</select></label>
+    ${nbs.length?'':'<p class="hint">You share a border with no nation at peace with you yet.</p>'}
+    <fieldset class="dpt-kinds"><legend class="cz-flab">What to build</legend>${JV_RULES.kinds.map(q=>`<label class="dpt-kind${q===k?' on':''}"><input type="radio" name="jv-k" value="${q}"${q===k?' checked':''}><b>${esc(JV_K[q][0])}</b><span class="hint">Each side pays <span class="jv-cost">${jvCostHTML(q)}</span>. Built in ${JV_RULES.hours[q]} hours. Gives both: ${esc(jvGives(q))}.${q==='rail'?' Needs a completed Railway Station in the city at each end.':q==='bridge'?' Needs a river along your border.':''}</span></label>`).join('')}</fieldset>
+    ${where?`<p class="jv-site">${where}</p>`:''}${why?`<p class="hint dpt-note">${esc(why)}</p>`:to&&findNation(to)&&!findNation(to).npc?`<p class="hint dpt-note">${esc(nameOf(to))} has ${JV_RULES.answer/DAY} days to accept. Your half is held until then, and comes back if they decline.</p>`:''}
+    <div class="row"><button type="button" class="btn" data-act="jv-offer"${!to||why||busy?' disabled':''}>Propose and pay my half</button><span class="hint">You take part in ${jvHeld(me,now)} of ${JV_RULES.max}.</span></div></div></section>`;
+  const how=`<section class="section"><h3 class="lbl-h">How joint ventures work</h3><ul class="dpt-how">${JV_RULES.kinds.map(q=>`<li><b>${esc(JV_K[q][0])}.</b> ${esc(cap1(jvGives(q)))}.</li>`).join('')}</ul>
+    <p class="hint">Both nations pay the same half. A player has ${JV_RULES.answer/DAY} days to accept; a computer nation answers at once, by its affinity with you (it needs ${JV_RULES.npcMin}). A venture closes while the two are at war and opens again at peace, and gives nothing while a hex on its route has changed hands. Either side may end one with ${JV_RULES.notice/DAY} days’ notice, at a cost of ${JV_RULES.leaveGw} goodwill. A nation takes part in at most ${JV_RULES.max}.</p></section>`;
+  return `${msg}${offers}${mine}${form}${how}`;
+}
+function jvIncoming(now){const me=myId();return jvList(me).filter(V=>jvWaiting(V,now||Date.now())&&V.b===me);}
+
+/* drawn on the map: the road or railway along its hexes with a seal where it crosses the border, or a bridge's deck with
+   its toll bar; dashed while it is built, red while it is closed or cut */
+MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
+  if(!JV.docs.size||!mapOpt('mp-networks',true))return;const {g,T,s}=M,now=Date.now();
+  for(const V of JV.docs.values()){let st;try{st=jvState(V,T,now);}catch(e){continue;}if(!['building','open','paused','cut'].includes(st))continue;
+    const P=V.path,col=st==='open'?M.col.ink:st==='building'?M.col.stamp:M.col.down,dash=st==='open'?[]:[4/s,3/s];
+    if(V.k==='bridge'){const x0=MAP.cx[P[0]],y0=MAP.cy[P[0]],x1=MAP.cx[P[1]],y1=MAP.cy[P[1]],L=Math.hypot(x1-x0,y1-y0)*0.6,W=1.5;
+      g.save();g.translate((x0+x1)/2,(y0+y1)/2);g.rotate(Math.atan2(y1-y0,x1-x0));
+      if(st==='open'){g.fillStyle=M.col.sheet;g.fillRect(-L/2,-W,L,2*W);}
+      g.strokeStyle=col;g.lineWidth=Math.max(0.6,1.3/s);g.setLineDash(dash);g.strokeRect(-L/2,-W,L,2*W);g.setLineDash([]);
+      g.beginPath();g.moveTo(0,-W-1.4);g.lineTo(0,W+1.4);g.strokeStyle=st==='open'?M.col.stamp:col;g.lineWidth=Math.max(0.8,1.8/s);g.stroke();g.restore();continue;}
+    g.beginPath();P.forEach((c,i)=>i?g.lineTo(MAP.cx[c],MAP.cy[c]):g.moveTo(MAP.cx[c],MAP.cy[c]));
+    g.strokeStyle=col;g.lineWidth=(V.k==='rail'?3.6:2.6)/s;g.setLineDash(dash);g.stroke();
+    if(st==='open'){g.strokeStyle=M.col.accent;g.lineWidth=(V.k==='rail'?1.4:1)/s;g.setLineDash(V.k==='rail'?[2/s,2/s]:[]);g.stroke();}
+    g.setLineDash([]);
+    const ia=T.byId[V.a],bi=P.findIndex(c=>T.owner[c]!==ia);
+    if(bi>0){const x=(MAP.cx[P[bi-1]]+MAP.cx[P[bi]])/2,y=(MAP.cy[P[bi-1]]+MAP.cy[P[bi]])/2;g.beginPath();g.arc(x,y,1.9,0,Math.PI*2);g.fillStyle=M.col.stamp;g.fill();g.strokeStyle=M.col.ink;g.lineWidth=0.8/s;g.stroke();}
+  }
+}});
+/* the hex panel: the ventures on this hex, and a way to propose one to the nation that holds it */
+MAP_PANEL.push(ctx=>{
+  const c=ctx.cell;if(c==null||c<0||!S.nation||S.mode!=='world')return '';const T=territory(),now=Date.now(),rows=[];
+  for(const V of JV.docs.values()){if(!V.path.includes(c))continue;const st=jvState(V,T,now);if(!['building','open','paused','cut'].includes(st))continue;
+    rows.push(`<li><b>${esc(cap1(jvName(V)))}</b>, built by ${esc(nameOf(V.a))} and ${esc(nameOf(V.b))} · <span class="hint">${esc(jvStatusLine(V,T,now))}</span></li>`);}
+  let ask='';const o=T.owner[c],x=o>=0?T.list[o]:null;
+  if(x&&x.id!==myId()&&!OBS&&jvNeighbours(T).some(y=>y.id===x.id))ask=`<p><button type="button" class="btn ghost sm" data-act="jv-go" data-id="${esc(x.id)}">Propose a joint venture with ${esc(x.n.name)}</button></p>`;
+  return rows.length||ask?`<section class="jv-here">${rows.length?`<h3 class="h2">Joint ventures</h3><ul class="cx-parts">${rows.join('')}</ul>`:''}${ask}</section>`:'';
+});
+
+/* waiting for the player, on the menu and in the bell */
+NOTIF_SOURCES.push((n,now)=>{if(!S.nation||n!==S.nation)return [];const out=[],me=myId();
+  for(const V of jvIncoming(now))out.push({t:V.t,k:'venture',kl:'Joint ventures',txt:`${nameOf(V.a)} proposes ${jvName(V)}, built together. Answer on the Ventures tab by ${fmtDate(V.x)}.`,go:'diplomacy'});
+  for(const V of jvList(me))if(V.st==='ending'&&V.by!==me&&now<V.end)out.push({t:V.end-JV_RULES.notice,k:'venture',kl:'Joint ventures',txt:`${nameOf(V.by)} is ending ${jvName(V)}. It closes on ${fmtDate(V.end)}.`,go:'diplomacy'});
+  return out.slice(0,8);});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-v="diplomacy"]');if(!el)return;const k=el.querySelector('.nt-k');if(k&&/^Joint ventures/.test(k.textContent))AL.tab='ventures';},true);
+
+/* in the region's newspaper: a venture that opened that day */
+DISPATCH_SOURCES.push(ctx=>{
+  if(!ctx||(ctx.reg&&ctx.reg!==REG.id)||!JV.docs.size)return [];const out=[];
+  for(const V of JV.docs.values()){if(!V.d||V.d<ctx.from||V.d>=ctx.to||!(V.st==='active'||V.st==='ending')||jvVoid(V))continue;
+    const A=nameOf(V.a),B=nameOf(V.b),nm=jvName(V);
+    out.push({t:V.d,sec:'business',h:`${A} and ${B} open ${nm}`,b:V.k==='bridge'?`The first carts paid their tolls at dawn. Both treasuries say the money will go on roads; both say the other side’s carts are slower.`:`Ribbons were cut at both ends, then again at the border, where a seal now marks the spot. ${V.k==='rail'?'The first train was late, in both directions.':'The first traveller asked for directions.'}`,who:[V.a,V.b],w:5,k:'jv:'+V.id});}
+  return out;
+});
+
+/* clicks: the Ventures tab (jv-…), and the way in from elsewhere (jv-go) */
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="jv-"]');if(!el||!S.nation)return;
+  const a=el.dataset.act,id=el.dataset.id||'';
+  if(a==='jv-go'){JV.to=id;JV.msg='';AL.tab='ventures';if(S.view!=='diplomacy')go('diplomacy');else render();return;}
+  if(a==='jv-offer'){jvPropose();return;}
+  if(a==='jv-yes'){jvAccept(id);return;}
+  if(a==='jv-no'){jvAct('jvAnswer',{vid:id,yes:false},()=>toast('You declined the joint venture.'));return;}
+  if(a==='jv-cancel'){jvAct('jvCancel',{vid:id},()=>{const n=clone(S.nation);n._jvb=id.startsWith(myId()+'_')?id.slice(myId().length+1):id;commit(n);toast('Withdrawn. Your half is back in your stockpile.');});return;}
+  if(a==='jv-end-ask'){JV.end=id;render();return;}
+  if(a==='jv-end-no'){JV.end='';render();return;}
+  if(a==='jv-end'){JV.end='';jvAct('jvEnd',{vid:id},r=>{if(r.other){const n=clone(S.nation);n._jvg=r.other;commit(n);}if(r.end)toast(`It closes on ${fmtDate(r.end)}.`);});return;}
+});
+document.addEventListener('change',e=>{const t=e.target;if(!t)return;if(t.id==='jv-to'){JV.to=t.value;JV.msg='';render();}else if(t.name==='jv-k'){JV.k=t.value;JV.msg='';render();}});
+
+/* the browser tests' window (EDICTUM_PROBE, JV) */
+function jvProbe(){return {cityState,hexDist,bordersOf,findNation,JV,JV_RULES,jvSite,jvWhole,jvState,jvFlow,jvName,jvNeighbours,jvEntries,jvTick,jvWhyNot,jvIncoming,jvList,jvGives};}
+achDef('dip','dip-jv1','b','Common Ground','Take part in your first joint venture with a neighbour.',1,x=>aT(x,'jvj'),{mp:1});
+achDef('dip','dip-jv5','s','Joint Stock','Take part in five joint ventures.',5,x=>aT(x,'jvj'),{mp:1});
+achDef('dip','dip-jvall','s','Roads, Rails and Tolls','Build a border road, a border railway and a toll bridge with your neighbours.',3,x=>JV_RULES.kinds.filter(k=>aT(x,'jvk:'+k)>0).length,{mp:1});
+achDef('dip','dip-jvpl','g','Neighbourly Works','Take part in three joint ventures with other players.',3,x=>aT(x,'jvpl'),{mp:1});
+
+HELP_EXT.push({k:'ventures',t:'Joint ventures',body:()=>`<p>A joint venture is something two neighbouring nations build together on their border, each paying the same half. On the Diplomacy page’s <b>Ventures</b> tab, choose a nation you share a border with and what to build; the game finds the route.</p>
+  <ul>${JV_RULES.kinds.map(k=>`<li><b>${esc(JV_K[k][0])}</b>: each side pays ${RES.filter(r=>JV_RULES.cost[k][r]).map(r=>fmt0(JV_RULES.cost[k][r])+' '+resName(r)).join(', ')}; built in ${JV_RULES.hours[k]} hours; ${esc(jvGives(k))}.</li>`).join('')}</ul>
+  <p>Your half leaves your stockpile when you propose. Another player has ${JV_RULES.answer/DAY} days to accept and pay theirs; if they decline, or do not answer, yours comes back. A computer nation answers at once, by its affinity with you (it needs ${JV_RULES.npcMin}).</p>
+  <p>A venture closes while the two nations are at war and opens again at peace. It gives nothing while a hex on its route, or a city at either end, belongs to someone else. Either side may end it with ${JV_RULES.notice/DAY} days’ notice, which costs ${JV_RULES.leaveGw} goodwill with the other; neither half comes back. A nation takes part in at most ${JV_RULES.max} at once, and builds one of each kind with the same neighbour. Joint ventures need a Registered Nation (a linked sign-in).</p>`});
 
 /* ───────── cities that need you, in the bell (CA) ─────────
    What the Cities page lists under "Needs your attention" also goes in the bell as pinned notices: a matter waiting for an
