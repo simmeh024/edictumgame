@@ -7240,8 +7240,20 @@ span.nw-tag{cursor:default}
 .pst-opt .cz-lock{width:9px;height:11px;margin-left:5px;vertical-align:-1px}
 .pst-lockn{margin:0;flex:1 1 260px;font-size:13px}.pst-lockn .cz-lock{width:9px;height:11px;vertical-align:-1px}
 /* the map page's "Your map look" card (under Your territory), and the Shop's drawer over the map page */
-.mlk{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)}
-.mlk-h{font-size:15px;font-weight:650;margin:0 0 2px}
+.mlk{margin-top:14px;padding-top:6px;border-top:1px solid var(--rule)}
+.mlk-h{font-size:15px;font-weight:650;margin:0}
+.mlk-tg{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;margin:0;padding:4px 2px;border:0;background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.mlk-tg:hover .mlk-tt{text-decoration:underline;text-underline-offset:3px}
+.mlk-tx{flex:1;min-width:0;display:grid;gap:2px}
+.mlk-sum{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;line-height:1.3;color:var(--ink-2)}
+.mlk-sum .mlk-chip{flex:none;width:15px;height:14px}
+.mlk-sum-t{min-width:0;overflow-wrap:anywhere}
+.mlk.open .mlk-sum{display:none}
+.mlk-cv{flex:none;width:12px;height:12px;margin-left:auto;color:var(--ink-3);transition:transform .15s}
+.mlk.open .mlk-cv{transform:rotate(180deg)}
+@media (prefers-reduced-motion:reduce){.mlk-cv{transition:none}}
+.mlk-b{padding-top:2px}
+.mlk .mlk-flag{min-height:26px;padding:2px 10px;font-size:12px}
 .mlk-hint{margin:0 0 4px;font-size:13px}
 .mlk-r{display:flex;align-items:center;gap:10px;margin:12px 0 8px}
 .mlk-chip{width:22px;height:20px}
@@ -61246,8 +61258,9 @@ czShow=(f=>function(id){const u=czU(id);
   return f.apply(this,arguments);})(czShow);
 /* ───────── the map page's "Your map look": how the player's land looks on the world map, from the map itself ─────────
    Under "Your territory" on the map page: the map colour, with every colour there is (the locked ones too, each saying
-   how it is had), and the hex backgrounds (the land finishes, cz te), each drawn in the player's own colour. A colour
-   the player may wear opens Settings › Nation › Map colour with it picked, ready to save; a hex background held opens
+   how it is had), and the hex backgrounds (the land finishes, cz te), each drawn in the player's own colour. Closed
+   until opened (a line with the colour and the background), and kept as the player leaves it. A colour the player may
+   wear is worn at once, saved as Settings saves it and the map drawn again; a hex background held opens
    Customise › Finery › Land. A locked colour from the tutorial says which task earns it; a locked piece of the Shop
    (shown while its pack is on sale) opens that pack's Shop drawer over the map page, not the Shop page. The drawer over
    the map leads with "How it looks on <nation>": the player's own land round the capital as it is now, then in each hex
@@ -61262,14 +61275,36 @@ function mlkLockTxt(p){const pr=shopPrice(p);return `${esc(mlkPack(p))}${pr?` ·
 function mlkLockSay(p){const pr=shopPrice(p);return `${mlkPack(p)} in the Shop${pr?', '+pr:''}`;}
 /* the hex backgrounds to show: held, or for sale (a pack off sale stays out, as in Settings and Customise) */
 function mlkTes(n){return MLK_TE.filter(id=>UNLOCKS[id]).map(id=>({id,p:UNLOCKS[id].src,own:czHolds(n,id,n.cz)})).filter(x=>x.own||shopSells(x.p));}
+/* the card is closed until the player opens it, and stays as they leave it (on this device) */
+const MLK_OPEN='statehood.mlkopen.v1';
+function mlkIsOpen(){if(MLK.open===undefined)try{MLK.open=localStorage.getItem(MLK_OPEN)==='1';}catch(e){MLK.open=false;}return !!MLK.open;}
+function mlkToggle(){MLK.open=!mlkIsOpen();try{localStorage.setItem(MLK_OPEN,MLK.open?'1':'');}catch(e){}
+  updateMapPanel();const b=document.querySelector('#map-panel .mlk-tg');if(b)b.focus({preventScroll:true});}
+const MLK_CV='<svg class="mlk-cv" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+/* a colour chosen on the card is worn at once: saved like Settings saves it, and the map drawn again in it */
+function mlkMcSet(c){
+  const n0=S.nation;if(!n0)return;c=c?safeColor(c,''):'';
+  if(c&&!(tutMapcOk(n0,c)&&ctgMcOk(n0,c)))return;
+  if(safeColor(n0.mapc,'')===c)return;
+  const n=clone(syncInbox(n0,Date.now()));n.mapc=c;commit(n);
+  if(!S.nation||safeColor(S.nation.mapc,'')!==c)return;
+  if(S.settings)S.settings.mapc=c;/* Settings shows it too, any other change waiting there kept */
+  render();redrawMaps();
+  requestAnimationFrame(()=>{const b=document.querySelector(`#map-panel .mlk [data-act="mlk-mc"][data-val="${c}"]`);if(b)b.focus({preventScroll:true});});
+  const nm=c?MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour':'';
+  toast(c?`${nm} is your map colour now, for every player in your region.`:'Your land on the map takes its colour from your flag again.');
+}
 function mlkCard(n){
   if(!n||cellOf(n.loc)<0)return '';
-  if(S.mode==='world'&&!SHOP.cfg){const P=shopStatus();if(P)P.then(()=>{if(S.view==='map'&&SHOP.cfg)updateMapPanel();});}
   let c={};try{c=cz(n)||{};}catch(e){}
   const cur=MLK_TE.includes(c.te)&&UNLOCKS[c.te]?c.te:'',col=nationColor(n),mcN=mlkMcName(n),mc=mcN?safeColor(n.mapc,''):'';
-  const sw=(x,nm,how)=>`<button type="button" class="sw${mc===x?' on':''}" style="--sw:${x}" data-act="mlk-mc" data-val="${x}" aria-label="Map colour: ${esc(nm)}${how?', '+esc(how):''}${mc===x?', worn now':''}" title="${esc(nm)}${how?', '+esc(how):''}"></button>`;
+  const open=mlkIsOpen(),teN=cur?UNLOCKS[cur].n:'Plain';
+  const head=`<h3 class="mlk-h" id="mlk-h"><button type="button" class="mlk-tg" data-act="mlk-tg" aria-expanded="${open}" aria-controls="mlk-b"><span class="mlk-tx"><span class="mlk-tt">Your map look</span><span class="mlk-sum"><span class="hexchip mlk-chip" style="--hx:${col}" aria-hidden="true"></span><span class="mlk-sum-t">${esc(mcN||'Flag colour')} · ${esc(teN)}</span></span></span>${MLK_CV}</button></h3>`;
+  if(!open)return `<section class="mlk" aria-labelledby="mlk-h">${head}<div class="mlk-b" id="mlk-b" hidden></div></section>`;
+  if(S.mode==='world'&&!SHOP.cfg){const P=shopStatus();if(P)P.then(()=>{if(S.view==='map'&&SHOP.cfg)updateMapPanel();});}
+  const sw=(x,nm,how)=>`<button type="button" class="sw${mc===x?' on':''}" style="--sw:${x}" data-act="mlk-mc" data-val="${x}" aria-pressed="${mc===x}" aria-label="Map colour: ${esc(nm)}${how?', '+esc(how):''}" title="${esc(nm)}${how?', '+esc(how):''}"></button>`;
   const locks=[];
-  let sws=Object.keys(MAP_COLORS).map(x=>sw(x,MAP_COLORS[x],'')).join('');
+  let sws=`<button type="button" class="chip-btn mlk-flag${!mc?' on':''}" data-act="mlk-mc" data-val="" aria-pressed="${!mc}">Match my flag</button>`+Object.keys(MAP_COLORS).map(x=>sw(x,MAP_COLORS[x],'')).join('');
   for(const s of tutMapcs()){const nm=s.mapcN;
     if(tutMapcOk(n,s.mapc)){sws+=sw(s.mapc,nm,'earned in the tutorial');continue;}
     const how=mapcHow(n,s);locks.push(`<li>${CZ_LOCK}<span><b>${esc(nm)}</b>: ${esc(how)}</span></li>`);
@@ -61287,15 +61322,15 @@ function mlkCard(n){
   if(tes.length){tiles=`<div class="mlk-tes" role="group" aria-label="Hex backgrounds you have">${tile('','Plain',null)}${tes.filter(x=>x.own).map(x=>tile(x.id,UNLOCKS[x.id].n,x)).join('')}</div>`;
     for(const p of [...new Set(tes.filter(x=>!x.own).map(x=>x.p))])
       tiles+=`<p class="mlk-gh" id="mlk-g-${p}">${CZ_LOCK}<span>${mlkLockTxt(p)}</span></p><div class="mlk-tes" role="group" aria-labelledby="mlk-g-${p}">${tes.filter(x=>!x.own&&x.p===p).map(x=>tile(x.id,UNLOCKS[x.id].n,x)).join('')}</div>`;}
-  return `<section class="mlk" aria-labelledby="mlk-h"><h3 class="mlk-h" id="mlk-h">Your map look</h3>
+  return `<section class="mlk open" aria-labelledby="mlk-h">${head}<div class="mlk-b" id="mlk-b">
     <p class="hint mlk-hint">How ${esc(n.name)} looks on the world map, to every player in your region.</p>
     <div class="mlk-r"><span class="hexchip mlk-chip" style="--hx:${col}" aria-hidden="true"></span><p class="mlk-rt"><span class="mlk-l">Map colour</span><b>${mcN?esc(mcN):'From your flag'}</b></p><button type="button" class="linkish small" data-act="mlk-mc-set">Change in Settings</button></div>
-    <div class="mlk-sws" role="group" aria-label="Map colours: one you may wear opens Settings with it picked">${sws}</div>
+    <div class="mlk-sws" role="group" aria-label="Map colours: choose one to wear it on the map at once">${sws}</div>
     ${locks.length?`<ul class="mlk-locks">${locks.join('')}</ul>`:''}
-    <div class="mlk-r"><p class="mlk-rt"><span class="mlk-l">Hex background</span><b>${cur?esc(UNLOCKS[cur].n):'Plain'}</b></p><button type="button" class="linkish small" data-act="mlk-cz">Change in Customise</button></div>
+    <div class="mlk-r"><p class="mlk-rt"><span class="mlk-l">Hex background</span><b>${esc(teN)}</b></p><button type="button" class="linkish small" data-act="mlk-cz">Change in Customise</button></div>
     ${tiles}
     ${anyLock?'<p class="hint mlk-foot">Choose a locked one to see it on your own land, in the Shop.</p>':''}
-  </section>`;
+  </div></section>`;
 }
 /* the Shop's drawer over the map page: the same drawer as on the Shop page, a step above the map (full screen too) */
 function mlkDrawer(n){
@@ -61327,9 +61362,8 @@ function mlkShop(p,id){
 }
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act^="mlk-"]');if(!el)return;const a=el.dataset.act,n=S.nation;if(!n)return;
-  if(a==='mlk-mc'){const c=safeColor(el.dataset.val,'');if(!c)return;
-    if(!S.settings||!settingsDirty())S.settings=settingsFrom(n);S.settings.mapc=c;SG.tab='nation';uxOpen('settings',null,'#set-mapc');
-    if(safeColor(n.mapc,'')!==c){const nm=MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour';toast(`${nm} is picked. Save changes to put it on the map.`);}}
+  if(a==='mlk-tg')mlkToggle();
+  else if(a==='mlk-mc'){const v=el.dataset.val||'',c=v?safeColor(v,''):'';if(v&&!c)return;mlkMcSet(c);}
   else if(a==='mlk-mc-set'){SG.tab='nation';uxOpen('settings',null,'#set-mapc');}
   else if(a==='mlk-mc-lock'){const s=TUT_BY[el.dataset.k];if(s)toast(`${s.mapcN} is not yours yet. ${mapcHow(n,s)}`);}
   else if(a==='mlk-cz'){czTabFor('cz-sec-z');uxOpen('customise',null,'.cz-g-te');}/* only the open section of Customise is drawn in full */
@@ -61338,8 +61372,8 @@ document.addEventListener('click',e=>{
 /* closed over the map, the focus goes back to the piece the drawer was opened from */
 shopDrClose=(f=>function(){
   const map=S.view==='map'&&!!SHOP.dr,id=MLK.id,p=SHOP.dr,r=f.apply(this,arguments);MLK.id='';
-  if(map)requestAnimationFrame(()=>{const b=(id&&document.querySelector(`.mlk [data-act="mlk-shop"][data-id="${id}"]`))||document.querySelector(`.mlk [data-act="mlk-shop"][data-p="${p}"]`)||document.getElementById('mlk-h');
-    if(b){if(b.id==='mlk-h')b.setAttribute('tabindex','-1');b.focus({preventScroll:true});}});
+  if(map)requestAnimationFrame(()=>{const b=(id&&document.querySelector(`.mlk [data-act="mlk-shop"][data-id="${id}"]`))||document.querySelector(`.mlk [data-act="mlk-shop"][data-p="${p}"]`)||document.querySelector('.mlk-tg');
+    if(b)b.focus({preventScroll:true});});
   return r;})(shopDrClose);
 /* the pack's map colours in Settings, after the tutorial's: chosen like the others once held, locked (a way to the
    Shop) while the pack is on sale, left out otherwise */
