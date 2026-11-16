@@ -38,6 +38,24 @@ export const SEALS = CAT.products.vip.seals || {};
 /* The packs an admin may give a player for free (the admin portal's player page; functions/admin.js, pack): every one-off
    pack but the Founder's Package, whose founder number and place on the Founders' Wall come only with a payment */
 export const GRANTABLE = ONCE.filter(p => p !== 'founder');
+/* A sale (the catalogue's sale; the owner, 2026-11-16: half price on every pack until 23 November): pct off every product
+   of its kinds from its from until its until (not included). The server takes it off each checkout opened in that time as a
+   Paddle discount on those lines (Paddle keeps each line's own price, so delivery is unchanged), and the page shows the
+   lower price. The Chancery Club's subscriptions and gifted months are not packs, so not in it. */
+const SALE_RAW = CAT.sale || null;
+export const SALE = SALE_RAW && Number.isFinite(Date.parse(SALE_RAW.from)) && Number.isFinite(Date.parse(SALE_RAW.until)) && SALE_RAW.pct > 0 && SALE_RAW.pct < 100
+  ? { pct: SALE_RAW.pct, from: Date.parse(SALE_RAW.from), until: Date.parse(SALE_RAW.until), kinds: [].concat(SALE_RAW.kinds || []) } : null;
+export const saleOff = (p, now) => SALE && now >= SALE.from && now < SALE.until && CAT.products[p] && SALE.kinds.includes(CAT.products[p].kind) ? SALE.pct : 0;
+/* which sale a checkout was opened under ('' for none): an open checkout is reused only under the same one, so a full-price
+   checkout from before the sale is not paid at full price during it, nor a sale one after it */
+export const saleKey = (products, now) => products.some(p => saleOff(p, now)) ? SALE.pct + '@' + SALE.until : '';
+/* the discount for a checkout of these products at these prices (in the same order), or null: one percentage off the
+   lines on sale, nothing off the others */
+export function saleDiscount(products, prices, now) {
+  const on = products.map((p, i) => saleOff(p, now) && prices[i] ? prices[i] : '').filter(Boolean);
+  if (!on.length) return null;
+  return { description: `Edictum sale: ${SALE.pct}% off every pack until ${new Date(SALE.until - 1000).toISOString().slice(0, 10)}`, type: 'percentage', amount: String(SALE.pct), restrict_to: on };
+}
 /* The founders' thank-you gift (November 2026): every holder of the Founder's Package may choose one of these packs once,
    free, until `until` (the server's clock). The choice is kept in shopFGift/{uid} and owned while the package is. */
 export const FOUNDER_GIFT = (() => {
