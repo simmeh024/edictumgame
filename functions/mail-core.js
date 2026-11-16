@@ -143,6 +143,21 @@ export function recoveryLetter(cfg, { to, code }) {
     text: `${title}\n\nRecovery code: ${shown}\n\nTo use it, open ${cfg.site}, choose Recover with a code in the account panel and enter the code. If a new key is made in the game, this code stops working.\n\nAnyone who reads this letter can take over the nation: keep it private. If you never asked for this, delete this letter.` };
 }
 
+/* a one-time sign-in link an admin made for a player who could not get back in (functions/once.js), sent to the
+   verified address on the account: it names their nation, since only the account's owner reads this address */
+export function onceLetter(cfg, { to, nation, link }) {
+  const who = nation ? `<b>${esc(nation)}</b>` : 'your nation', title = 'Your way back in';
+  const body = p(`The Edictum team made this link so you can get back into ${who}. It signs you in on the phone or computer where you open it.`)
+    + p('<b>It works once, within 24 hours.</b> After it signs you in, the game shows you how to make sure you can always get back in on your own.')
+    + p('<span style="font-size:15px;color:#5d6f6b">Open it in your usual browser (Chrome or Safari), not inside another app. If the button does not work, copy this address into your browser:</span>')
+    + `<p style="margin:0 0 16px;font:14px/1.5 ui-monospace,'SF Mono',Consolas,'Courier New',monospace;word-break:break-all;color:#12403c">${esc(link)}</p>`
+    + p('<b>Anyone who opens this link can sign in to your nation</b> until it is used: do not share it.');
+  return { to, subject: 'Your one-time sign-in link for Edictum',
+    html: page(cfg, { tone: 'seal', icon: '&#x1F511;', kicker: 'From the Edictum team', title, lead: 'A one-time sign-in link', body, cta: { href: link, label: nation ? 'Sign in to ' + nation : 'Sign in to Edictum' },
+      foot: 'Did not ask the Edictum team for help? Do not open the link, and write to us from the Help page in the game.' }),
+    text: `${title}\n\nThe Edictum team made this link so you can get back into ${nation || 'your nation'}. It works once, within 24 hours:\n\n${link}\n\nOpen it in your usual browser (Chrome or Safari), not inside another app. After it signs you in, the game shows you how to make sure you can always get back in.\n\nAnyone who opens this link can sign in to your nation until it is used: do not share it. Did not ask the Edictum team for help? Do not open the link, and write to us from the Help page in the game.` };
+}
+
 const TIPS = [
   ['&#x1F4DC;', 'Decide, then decide again.', 'Edicts arrive at the pace you choose in Settings. Every answer moves your economy, liberties and mood. There is no wrong answer, only a different nation.'],
   ['&#x1F5FA;&#xFE0F;', 'Claim your land early.', 'Land credits wait on the Map. Spend them beside your capital before a neighbour takes the hex you were eyeing.'],
