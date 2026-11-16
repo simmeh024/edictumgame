@@ -179,6 +179,32 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(OUT, 'city-page-phone.png'), fullPage: true });
 
+  /* many cities beside a long card: the list scrolls by itself, inside the window (16 November 2026) */
+  await page.setViewportSize({ width: 1280, height: 900 }); await sleep(400);
+  await edit((n, now) => { const used = new Set(n.cities.map(c => c.c)), d = 864e5;
+    const free = (n.claims || []).map(e => e.c).filter(c => !used.has(c)).slice(0, 12);
+    free.forEach((c, i) => n.cities.push({ id: 'm' + i, c, nm: 'Manyford ' + (i + 1), t: now - 2 * d, b: [] })); });
+  await sleep(500);
+  await page.click(`.cx-list [data-act="cx-sel"][data-id="${cid}"]`); await sleep(300); await tab('build');
+  /* down the long Build tab, where the list is pinned beside the card */
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('.cx-wrap').getBoundingClientRect().top + scrollY + 600)); await sleep(300);
+  const lst = () => page.evaluate(() => { const l = document.querySelector('.cx-list'), r = l.getBoundingClientRect(), last = l.lastElementChild.getBoundingClientRect();
+    return { n: l.querySelectorAll('.cx-item:not(.cx-add)').length, ov: getComputedStyle(l).overflowY, sh: l.scrollHeight, ch: l.clientHeight, top: l.scrollTop, rt: r.top, bottom: r.bottom, lastIn: last.top >= r.top - 1 && last.bottom <= r.bottom + 1, vh: innerHeight, y: scrollY,
+      squeezed: [...l.querySelectorAll('.cx-item')].filter(e => e.scrollHeight > e.clientHeight + 1).length }; });
+  const L0 = await lst();
+  check('the test nation now holds fifteen cities, more than the window shows', L0.n === 15 && L0.sh > L0.ch, JSON.stringify(L0));
+  check('the list of cities is pinned inside the window and scrolls by itself', L0.ov === 'auto' && L0.rt >= 0 && L0.rt <= 16 && L0.bottom <= L0.vh && !L0.lastIn && L0.squeezed === 0, JSON.stringify(L0));
+  const lx = await page.evaluate(() => { const r = document.querySelector('.cx-list').getBoundingClientRect(); return r.left + r.width / 2; });
+  await page.mouse.move(lx, L0.bottom - 120); for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 600); await sleep(120); } await sleep(500);
+  const L1 = await lst();
+  check('the wheel over the list brings its last city into view, the page staying put', L1.top > 0 && L1.lastIn && L1.y === L0.y, JSON.stringify(L1));
+  await page.screenshot({ path: path.join(OUT, 'city-page-list.png') });
+  /* the city just above "+ Found a city", clicked where it is (page.click would scroll it into view first) */
+  const last = await page.evaluate(() => { const b = [...document.querySelectorAll('.cx-list .cx-item:not(.cx-add)')].pop(), r = b.getBoundingClientRect(); return { id: b.dataset.id, x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await page.mouse.click(last.x, last.y); await sleep(400);
+  const L2 = await lst();
+  check('a city chosen at the bottom of the list opens, and the list stays where it was', await page.evaluate(id => window.__game.S.cxSel === id, last.id) && L2.top > 0 && Math.abs(L2.top - L1.top) < 2, JSON.stringify({ last, L1: L1.top, L2: L2.top }));
+
   check('no page errors', errors.length === 0, JSON.stringify(errors.slice(0, 3)));
 } catch (e) { console.log('FAIL', e.stack || e.message); failed++; await page.screenshot({ path: path.join(OUT, 'city-page-error.png'), fullPage: true }).catch(() => {}); }
 await browser.close(); server.close();
