@@ -1134,6 +1134,17 @@ test('treaties are read by everyone and written only by the server', async () =>
   await assertFails(as('bob').doc('treaties/nap_alice_bob').delete());
 });
 
+test('joint ventures are read by everyone and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('ventures/alice_abc123').set({ k: 'road', reg: 'meridian', p: ['alice', 'bob'], a: 'alice', b: 'bob', ca: 1, cb: 3, path: [1, 2, 3], st: 'offered', t: 1, x: 2 });
+  });
+  await assertSucceeds(anon().doc('ventures/alice_abc123').get());
+  await assertSucceeds(anon().collection('ventures').where('reg', '==', 'meridian').get());
+  await assertFails(as('bob').doc('ventures/alice_abc123').update({ st: 'active', at: 1, d: 1 }));
+  await assertFails(as('alice').doc('ventures/alice_def456').set({ k: 'rail', reg: 'meridian', p: ['alice', 'bob'], a: 'alice', b: 'bob', st: 'active', t: 1 }));
+  await assertFails(as('alice').doc('ventures/alice_abc123').delete());
+});
+
 test('the newspaper: press/ is read by everyone and written only by the server; an edition is filed once, by a player of its region, a week at most after it closed', async () => {
   const EPOCH = Date.UTC(2026, 0, 1), DAYMS = 86400000, today = Math.floor((Date.now() - EPOCH) / DAYMS) + 1;
   const paper = (no, by, extra = {}) => ({ r: 'meridian', no, by, v: 1, j: '{"v":1}', t: NOW(), ...extra });
