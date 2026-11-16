@@ -121,7 +121,11 @@ check('restricted actions open the shared mobile account comparison',await B.loc
 await nav(B,'nation');check('linking Google removes the post-charter linking suggestion',await B.locator('.account-link-card').count()===0);await nav(B,'assembly');
 await B.screenshot({path:path.join(OUT,'registered-young-assembly-mobile.png')});
 const C=await player('Former code');await open(C);await openAccount(C);await C.click('[data-ed="recover"]');await C.fill('#ed-recovery-input',secret);await C.click('[data-ed="recover-yes"]');
-check('the former Guest code cannot sign into a Registered Nation',await until(async()=>/invalid or no longer available/.test(await text(C,'.ed-msg'))));
+check('the former Guest code cannot sign into a Registered Nation',await until(async()=>/no longer works/.test(await text(C,'.ed-msg')))&&await ready(C)!==uid);
+/* it says why, and how that nation signs in now: straight to the sign-in buttons */
+check('it names the nation and its sign-in, never the address',/“Codehaven” now signs in with Google, so its guest recovery code no longer works\. Sign in that way instead, with “Continue with Google”\./.test(await text(C,'.ed-msg'))&&!/@/.test(await text(C,'.ed-msg')));
+check('and shows the sign-in buttons instead of the code field',await C.isVisible('.ed-dlg [data-ed="google"]')&&!(await C.locator('#ed-recovery-input').count()));
+await C.screenshot({path:path.join(OUT,'recovery-linked-1280.png')});
 
 // Advance only the protected server fixture, never client JSON.founded.
 const doc=await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/nations/${uid}`),raw=await doc.json();

@@ -89,6 +89,13 @@ async function recruit(db, who, by) {
   });
 }
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
+/* How a Registered Nation signs in, in the words of the game's sign-in buttons (src/shim.js, LINK_OPTIONS), for the
+   recovery code of a nation that has linked a sign-in since: the ways, never the address */
+const SIGN_INS = [['Google', u => u.providerData.some(p => p.providerId === 'google.com')], ['Discord', u => !!u.customClaims?.dc],
+  ['email', u => u.emailVerified && u.providerData.some(p => p.providerId === 'password')]];
+const orList = list => list.length > 1 ? list.slice(0, -1).join(', ') + ' or ' + list.at(-1) : list[0] || '';
+export const signInWays = u => orList(SIGN_INS.filter(([, has]) => has(u)).map(([w]) => w === 'email' ? 'your email address' : w)) || 'its linked sign-in';
+export const signInButtons = u => orList(SIGN_INS.filter(([, has]) => has(u)).map(([w]) => `“Continue with ${w}”`)) || 'its sign-in button';
 /* The address a player last played from, for the admins' Inspect (functions/admin.js). Only the latest is kept,
    in accountSeen/{uid} {ip, at, exp}, and Firestore deletes it SEEN_DAYS after it was last seen (TTL on exp,
    firestore.indexes.json; the privacy notices say so). Google's front end adds the address a request came from
@@ -121,9 +128,13 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     if (!/^EDC[A-F0-9]{40}$/.test(code) || !s.exists) fail();
     let u;
     try { u = await getAuth().getUser(s.get('uid')); } catch { fail(); }
-    if (u.disabled || registered(u) || u.metadata.creationTime !== s.get('generation')) fail();
+    if (u.disabled || u.metadata.creationTime !== s.get('generation')) fail();
     const a = await db.doc('accountIdentity/' + u.uid).get(), n = await db.doc('nations/' + u.uid).get();
     if (!a.exists || a.get('recoveryHash') !== hash || !n.exists || a.get('nationGeneration') !== n.createTime.toMillis()) fail();
+    // The nation's own, current code, but the nation has linked a sign-in since: a code never opens a Registered Nation.
+    // Saying so (and how it signs in, never the address) spares its player trying the code until the limit above; only
+    // the code's holder learns it, and a guessed code still reads as invalid.
+    if (registered(u)) refuse('recovery_linked', `${n.get('name') ? `“${String(n.get('name')).slice(0, 60)}”` : 'This nation'} now signs in with ${signInWays(u)}, so its guest recovery code no longer works. Sign in that way instead, with ${signInButtons(u)}.`);
     // A code proves access to the existing guest identity, never registration or political eligibility.
     return { token: await getAuth().createCustomToken(u.uid, { guestRecovery: true }) };
   }
