@@ -54133,7 +54133,7 @@ writeClaims=(f=>function(cells,msg,auto,plan){
    Presence (n.stk): a day counts when an edict is answered or a hex claimed. The first three such days unlock
    a stamp in indigo ink, a cartouche for the motto and a pennant over the capital; a missed day only pauses
    the count.
-   A quick first building (n.ffb): once a nation has claimed land and built nothing, it is offered a Farm,
+   A quick first building (n.ffb): once a nation has settled and built nothing (claimed land or not), it is offered a Farm,
    Sawmill or Market Hall in its capital that takes FFB_MS instead of hours. On completion its first cart
    (FFB_GIFT of what it makes) arrives, and the card counts the stock up while the player watches. */
 const DD_GIFT=3,ddGift=r=>DD_GIFT+(r==='iron'||r==='goods'?2:0),DD_CLEAR={iron:8,goods:8},RANK_GIFT={iron:15,goods:15},DD_RES=['timber','oil','iron','goods'],DD_KEY_RX=/^\d{4}-\d{2}-\d{2}$/,STK_UNLOCKS=['s-indigo','m-cartouche','pn-pennant'],STK_MAX=1e5;
@@ -54412,7 +54412,7 @@ MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
 
 /* ── the quick first building ── */
 function ffbOffer(n){
-  if(!n||n.npc||n.ffb||cellOf(n.loc)<0||lcHeld(n)<1||tallyOf(n,'build')>0||(n.cities||[]).some(c=>(c.b||[]).length))return null;
+  if(!n||n.npc||n.ffb||cellOf(n.loc)<0||tallyOf(n,'build')>0||(n.cities||[]).some(c=>(c.b||[]).length))return null;
   let ct=null;try{const cap=cellOf(n.loc);ct=myCityStates().mine.find(c=>c.c===cap);}catch(e){}if(!ct)return null;
   const st=stockNow(n,Date.now()),opts=FFB_KEYS.map(k=>({k,r:FFB_OUT[k],why:(buildProblem(n,ct,k,st)||{}).t||''}));
   /* what can be built first, a farm or sawmill before the Market Hall (its stock is what the player watches grow),

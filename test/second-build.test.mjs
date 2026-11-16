@@ -68,3 +68,11 @@ test('the count survives the save, and the Build tab shows the short time',()=>{
   assert.match(fn('catalog'),/<span class="opt-t">\$\{qbMs\(n,k\)\?esc\(fmtDur\(qbMs\(n,k\)\)\):cxHours\(n,ct,k\)\+' h'\}<\/span>/);
   assert.match(fn('catalog'),/Your \$\{QB_ORD\[qbNth\(n\)-2\]\} building goes up in <b>\$\{esc\(fmtDur\(qbMs\(n\)\)\)\}<\/b> instead of hours/);
 });
+
+// Staging playthrough (2026-11-16): a new player who went to Cities before claiming any land got no quick first
+// building and waited 2 hours; the offer must not wait for a claimed hex.
+test('the quick first building is offered before any land is claimed', () => {
+  const f = fn('ffbOffer');
+  assert.doesNotMatch(f, /lcHeld\(n\)<1/);
+  assert.match(f, /cellOf\(n\.loc\)<0/, 'it still waits for a settled capital');
+});
