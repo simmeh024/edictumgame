@@ -53,7 +53,9 @@ export async function until(fn, ms = 8000, step = 150) {
 // Every conquest needs the referee's seal (REF_EPOCH is set back to January 2026). window.G is the
 // game's probe: its state S and a few of its functions (EDICTUM_PROBE in game/edictum.html).
 export async function player(tag, opts = {}) {
-  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, deviceScaleFactor: opts.dpr || 1, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState });
+  /* opts.ua: a browser's user agent, such as a phone's (the game sends a phone to Google and back rather than a pop-up) */
+  const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, deviceScaleFactor: opts.dpr || 1, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState,
+    ...(opts.ua ? { userAgent: opts.ua, isMobile: /Mobile/.test(opts.ua), hasTouch: /Mobile/.test(opts.ua) } : {}) });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
   await ctx.addInitScript(([cap, gap, desk, crisis]) => {
