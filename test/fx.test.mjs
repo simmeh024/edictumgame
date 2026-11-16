@@ -31,7 +31,7 @@ function currencyHelpers() {
   const a = GAME.indexOf('/* ── currency: pure helpers'), b = GAME.indexOf('/* ── currency: end of pure helpers ── */');
   assert.ok(a > 0 && b > a, 'the game marks its pure currency helpers');
   const G = gameSandbox(), ctx = vm.createContext({ clamp: G.clamp, plural: G.plural });
-  vm.runInContext(GAME.slice(a, b) + '\nthis.C={CU_TIERS,cuTier,cuClean,cuDefault,cuOf,cuNum,cuFig,cuAmt,cuParseAmt,cuRate,cuCodeOf,cuDec,CU_DENOMS,CU_LOCK,cuDenInk,cuDenScale,setHolds:f=>{CU_HOLDS=f;}};', ctx);
+  vm.runInContext(GAME.slice(a, b) + '\nthis.C={CU_TIERS,cuTier,cuClean,cuDefault,cuOf,cuNum,cuFig,cuAmt,cuParseAmt,cuRate,cuCodeOf,cuDec,CU_DENOMS,CU_LOCK,cuDenInk,cuDenScale,cuContrast,cuLegible,cuDenTier,CU_FLAV,CU_PATS,CU_LAYS,CU_ERAS,setHolds:f=>{CU_HOLDS=f;}};', ctx);
   return ctx.C;
 }
 const rnd = seed => { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
@@ -478,4 +478,20 @@ test('national currency prose is stable, grounded in each nation, and escapes pl
   assert.match(pa,/independent central bank/);assert.match(pa,/Eternian Mark/);
   assert.match(pb,/People’s Bank/);assert.doesNotMatch(pb,/<script>/);
   assert.match(GAME,/return \[p1,p2,p3,cuOverview\(n\)\]/);
+});
+
+test('the note design system: legible grounds, tactile tiers, layout and era fields', () => {
+  const C = currencyHelpers();
+  assert.ok(Math.abs(C.cuContrast('#000000', '#FFFFFF') - 21) < 0.01);
+  for (const h of ['#808080', '#1D6A5C', '#C9961A', '#7FA7C9', '#F2D27A', '#4A4A4A', '#FFFFFF', '#000000']) {
+    const L = C.cuLegible(h);
+    assert.ok(C.cuContrast(L.c1, L.ink) >= 4.5, h + ' prints legibly');
+  }
+  assert.equal(C.cuLegible('#1D6A5C').c1, '#1D6A5C', 'a readable ground is left alone');
+  assert.equal(C.cuLegible('#808080').moved, true, 'mid grey is nudged');
+  const seen = new Set(C.CU_DENOMS.map(v => { const t = C.cuDenTier(v); return t.sh + t.k; }));
+  assert.equal(seen.size, C.CU_DENOMS.length, 'every value has its own tactile marks');
+  assert.deepEqual({ ...C.cuClean({ note: { lay: 'ornate', era: 'deco' } }).note }, { lay: 'ornate', era: 'deco' });
+  assert.equal(C.cuClean({ note: { lay: 'wobbly', era: 'stone' } }), null, 'unknown layouts and eras are dropped');
+  for (const P of Object.values(C.CU_FLAV)) { assert.ok(P.pat in C.CU_PATS && P.lay in C.CU_LAYS && P.era in C.CU_ERAS, P.nm); }
 });
