@@ -52417,7 +52417,8 @@ HELP_EXT.push({k:'map-development',t:'City influence, transport and island annex
 HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the flag designer in Customise, under Flag, and expand <b>Layers</b>. (Layers come once your charter is finished; the founding page has the basic designer.) Add up to eight independent emblems, stripes, borders and discs over your original design. Each has its own colour, position, size and rotation. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
 
 /* ── warehouse capacity and timed city upgrades ── */
-const WH_BONUS=[400,1200,2400,4400,7400],WH_HOURS=[4,8,16,24,36],WH_RECORD_MAX=10000000;
+/* WH_UP_K: a tier costs the Warehouse's own cost × 2, 4, 8, 16, and 20% more since building upgrades went dearer (2026-11-16) */
+const WH_BONUS=[400,1200,2400,4400,7400],WH_HOURS=[4,8,16,24,36],WH_RECORD_MAX=10000000,WH_UP_K=1.2;
 BUILDINGS.warehouse={n:'Warehouse',c:'prod',d:'Adds 400 storage for every resource. One per city, with four timed upgrades available.',cost:{timber:30,iron:20,goods:15},h:WH_HOURS[0]};
 Object.assign(POLICIES,{warehouseRacks:['Standardised Warehouse Racking','Adds 200 national storage for every resource while you hold a completed Warehouse.'],warehouseArchive:['Paper Archive Reserve','Reserves 200 storage of every resource for paper archives while you hold a completed Warehouse.']});
 function whExtras(b){
@@ -52462,7 +52463,7 @@ function whSync(n,now){
 }
 function whRecord(ct){return cityList(ct.fn).find(c=>c.id===ct.id&&c.c===ct.c)?.b?.find(b=>b.k==='warehouse');}
 function whBusy(ct,now=Date.now()){const b=whRecord(ct),u=b&&whExtras(b).wu;return u&&u.d>now?u:null;}
-function whQuote(n,to){const base=bCost(n,'warehouse');return {cost:Object.fromEntries(Object.entries(base).map(([r,v])=>[r,v*2**to])),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
+function whQuote(n,to){const base=bCost(n,'warehouse');return {cost:Object.fromEntries(Object.entries(base).map(([r,v])=>[r,Math.ceil(v*2**to*WH_UP_K-1e-9)])),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
 function whUpgradeProblem(n,ct,st,now=Date.now()){
   if(!ct||ct.fid!==myId()||!ct.active||ct.hi!==territory().byId[myId()])return 'Only the city’s founder can upgrade a warehouse it currently holds.';
   const b=whRecord(ct);if(!b||b.d>now)return 'Complete the Warehouse first.';if(whBusy(ct,now))return 'A warehouse upgrade is already under way.';
@@ -63458,13 +63459,14 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
    The Cities page shows one city at a time: a list (a row of tabs on a phone), what needs the player, a slim
    stockpile, and the city in four tabs: Buildings, Build, People, Defence & roads. */
 /* the five upgrade blocks: fx is what the block adds (a share of the building's base effect), cost and h scale the
-   building's own cost and build time */
+   building's own cost and build time. The costs were 0.4, 0.6, 0.9, 1.3 and 1.8 until 2026-11-16, when the owner made
+   building upgrades 20% dearer (the Warehouse's tiers, WH_UP_K, and the economy levels, EL_COST, with them). */
 const CX_UG=[
-  {c:'grey',r:'common',fx:0.10,cost:0.4,h:0.5},
-  {c:'green',r:'uncommon',fx:0.15,cost:0.6,h:0.8},
-  {c:'blue',r:'rare',fx:0.20,cost:0.9,h:1.2},
-  {c:'purple',r:'epic',fx:0.25,cost:1.3,h:1.7},
-  {c:'gold',r:'legendary',fx:0.30,cost:1.8,h:2.4}
+  {c:'grey',r:'common',fx:0.10,cost:0.48,h:0.5},
+  {c:'green',r:'uncommon',fx:0.15,cost:0.72,h:0.8},
+  {c:'blue',r:'rare',fx:0.20,cost:1.08,h:1.2},
+  {c:'purple',r:'epic',fx:0.25,cost:1.56,h:1.7},
+  {c:'gold',r:'legendary',fx:0.30,cost:2.16,h:2.4}
 ];
 const CX_UG_MAX=CX_UG.length,CX_LV=CX_UG.reduce((a,u)=>(a.push(Math.round((a[a.length-1]+u.fx)*100)/100),a),[1]);
 const CX_WALL=[null,{cost:{timber:20,iron:10},h:4},{cost:{timber:30,iron:25},h:8},{cost:{timber:30,iron:40,goods:20},h:12}];
@@ -63606,9 +63608,10 @@ function cxPay(n,st,cost,now){for(const r of RES)st[r]-=cost[r]||0;n.stock=round
 function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+Math.floor((cost[r]||0)/2),st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;}
 /* the list prices of an upgrade and of a wall level (no cabinet bonus): the most a kept price can be. m stands in for the
    block's share for a raise to an old level (×1.5 or ×2.5) still under way when the blocks arrived */
-function cxUpList(k,to,m){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));return c;}
+/* prices round up to whole units, less a hair of floating-point dust first (225 × 1.08 is 243.00000000000003: 243, not 244) */
+function cxUpList(k,to,m){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return c;}
 function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return c;}
-function cxUpQuote(n,ct,k,to){const U=CX_UG[to-1],base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost));return {cost:c,hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*cxBuildK(ct)*10)/10)};}
+function cxUpQuote(n,ct,k,to){const U=CX_UG[to-1],base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost-1e-9));return {cost:c,hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*cxBuildK(ct)*10)/10)};}
 function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{if(!b||!cxUpgradable(b.k))return false;const e=cxBldExtras(b);return e.uu&&e.uu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
   if(!cxUpgradable(k))return 'This building cannot be upgraded.';
@@ -63915,12 +63918,12 @@ document.addEventListener('click',e=>{
    usual limit on what buildings add (cityState caps that at +20%), and costs more and takes longer than the last (the
    building's own cost × EL_COST, × EL_GROW_C for each level after the first; time likewise, at most EL_H_MAX hours).
    One upgrade or level at a time in each city. On the building's record: el (levels done) and eu {l,s,d,p}, the level
-   under way and what was paid for it. */
-const EL_FX=0.02,EL_COST=1.5,EL_GROW_C=1.3,EL_H=1.2,EL_GROW_H=1.12,EL_H_MAX=96;
+   under way and what was paid for it. EL_COST was 1.5 until building upgrades went 20% dearer (2026-11-16). */
+const EL_FX=0.02,EL_COST=1.8,EL_GROW_C=1.3,EL_H=1.2,EL_GROW_H=1.12,EL_H_MAX=96;
 const EL_BLD={market:5,exchange:0,cbank:5};
 function elOn(k){return Object.hasOwn(EL_BLD,k)&&!!BUILDINGS[k];}
-function elList(k,l){const base=bCost(null,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));return c;}
-function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));
+function elList(k,l){const base=bCost(null,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return c;}
+function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));
   return {cost:c,hours:Math.min(EL_H_MAX,Math.max(0.5,Math.round(bHours(n,k)*EL_H*Math.pow(EL_GROW_H,l-1)*cxBuildK(ct)*10)/10))};}
 function elLv(b,now){const e=elExtras(b);return e.eu&&e.eu.d<=now?e.eu.l:e.el||0;}
 function elMap(c,now){const o={};for(const b of (c&&c.b)||[])if(b&&b.d<=now&&(b.k==='market'||b.k==='exchange'||b.k==='cbank')){const l=elLv(b,now);if(l)o[b.k]=l;}return o;}
