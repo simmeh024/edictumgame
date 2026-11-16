@@ -104,5 +104,5 @@ test('the basket, the banner and the headline prices use it',()=>{
   assert.match(game,/eur=shopMoney\(cur,ps\.reduce\(\(a,p\)=>a\+shopAmt\(p\),0\)\)/);
   assert.match(game,/ps\.reduce\(\(a,p\)=>a\+shopCut\(p,L\.a\[p\]\),0\)/);
   assert.match(game,/if\(shopSaleOn\(\)\)\{const sl=shopCat\(\)\.sale/);
-  assert.equal((game.match(/\$\{shopWas\('\w+'\)\}\$\{esc\(shopPrice\('\w+'\)\)\}/g)||[]).length,11,'every pack’s headline price');
+  assert.equal((game.match(/\$\{shopWas\('\w+'\)\}\$\{esc\(shopPrice\('\w+'\)\)\}/g)||[]).length,12,'every pack’s headline price');
 });

@@ -259,7 +259,7 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   for (const m of src.matchAll(/\['(lp-i-[a-z]+)','[^']+'\]/g)) def.set(m[1], 'paper');
   for (const id of CATALOGUE.products.idpack.grants.filter(id => id.startsWith('lp-'))) assert.ok(src.includes(`'${id}':{n:`), id + ' has its paper in LP_X');
   const block = src.slice(src.indexOf('const SHOP_NONE='), src.indexOf('/* the new places a cosmetic can go'));
-  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"], ['tulippack', "'tulippack'"], ['cartopack', "'cartopack'"], ['embpack', "'embpack'"], ['mayapack', "'mayapack'"]]) {
+  for (const [p, src2] of [['founder', "'founder'"], ['idpack', "'idpack'"], ['vip', "'vip'"], ['bfpack', "'bfpack'"], ['orpack', "'orpack'"], ['sailpack', "'sailpack'"], ['cbpack', "'cbpack'"], ['tulippack', "'tulippack'"], ['cartopack', "'cartopack'"], ['embpack', "'embpack'"], ['mayapack', "'mayapack'"], ['afripack', "'afripack'"]]) {
     const ids = p === 'vip' ? CLUB_IDS : CATALOGUE.products[p].grants;
     for (const id of ids) { assert.ok(def.has(id), id + ' is drawn in the game'); assert.ok(block.includes(`'${id}'`), id); }
     assert.ok(block.includes(src2));
@@ -302,6 +302,15 @@ test('the game sells what the server sells: every cosmetic in the catalogue is i
   assert.ok(listOf(/CTG_TE=\[([^\]]*)\]/).includes("'te-fret'") && src.includes("te==='te-fret'"), 'the Stepped Fret is a finish, drawn on the map');
   assert.ok(/pat:\{[^}]*numerals:'cn-numerals'/.test(src) && src.includes("case 'numerals':"), 'Dots and Bars is in CU_LOCK, and engraved');
   assert.ok(src.includes('.hero.cd-stela{') && src.includes('.shop-cm.cd-stela{'), 'the Limestone Stela card is drawn, full size and small');
+  /* the African Kingdoms Pack: banners, accents, a shield, a marker, an emblem, two charges, a stamp, two engravings and three portrait pieces */
+  const afr = CATALOGUE.products.afripack;
+  assert.equal(afr.amount, 299); assert.equal(afr.grants.length, 15); assert.ok(afr.giftable && afr.optional, 'giftable, and offered once its price is set');
+  assert.deepEqual(afr.grants.filter(id => /^rp-/.test(id)).map(id => def.get(id)), ['portrait', 'portrait', 'portrait'], 'three portrait pieces');
+  assert.ok(/CZ_SH_SHOP=\{[^}]*zimbabwe:'sh-zimbabwe'/.test(src) && src.includes("case 'zimbabwe':return 'M"), 'the Great Zimbabwe shield is sold in the Shop, and drawn');
+  assert.ok(/pat:\{[^}]*manuscript:'cn-manuscript',cowrie:'cn-cowrie'/.test(src) && src.includes("case 'manuscript':") && src.includes("case 'cowrie':"), 'both engravings are in CU_LOCK, and engraved');
+  assert.ok(src.includes("case 'baobab':return S(") && src.includes("case 'goldweight':return S(") && src.includes("'e-sankofa':'sankofa'") && src.includes("'e-sankofa']);"), 'the charges and the emblem are drawn, the emblem flown only while held');
+  assert.ok(src.includes("'pn-djenne':'<path") && src.includes("pin!=='pn-djenne'") && src.includes("if(s==='s-adinkra')") && src.includes("if(p==='p-kente')") && src.includes("if(p==='p-mudcloth')"), 'the marker (Shop and map), the stamp and both banners are drawn');
+  assert.ok(src.includes(':root[data-accent="ochre"]{') && src.includes(':root[data-accent="savanna"]{'), 'both accents have their colours');
 });
 
 test('a founder always wears the Founding Supporter badge, by the server’s word, but a Shop preview only when it puts it on', () => {
