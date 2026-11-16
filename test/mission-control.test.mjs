@@ -161,7 +161,7 @@ test('slots that cannot take the letter do not roll: a full desk, a holiday, a f
   n=ready(G,MC0);n.chain=[{id:'chain-b',at:now-10*3600e3}];v=G.syncInbox(Object.assign(JSON.parse(JSON.stringify(n)),{issueClock:now-60*MIN-1000}),now);
   assert.equal(v.inbox[0].id,'chain-b');assert.equal(v.mc.r||0,0,'the follow-up’s slot is not rolled');
   /* a Willow Street letter due takes the slot */
-  n=ready(G,MC0);n.ws.c=n.ws.c.slice(0,3);v=G.syncInbox(Object.assign(JSON.parse(JSON.stringify(n)),{issueClock:now-60*MIN-1000}),now);
+  n=ready(G,50);n.ws.c=n.ws.c.slice(0,3);v=G.syncInbox(Object.assign(JSON.parse(JSON.stringify(n)),{issueClock:now-60*MIN-1000}),now);
   assert.equal(v.inbox[0].id,'ws-4');assert.equal(v.mc.r||0,0,'Willow Street first');
   /* a member's bigger desk: slots up to ten roll */
   G.setRuns([[now-DAY,now+DAY]]);n=ready(G,MC0,{seed:'q'});v=after(G,n,8);assert.ok(mcOn(v).length===1||v.mc.r===8);G.setRuns([]);
@@ -354,12 +354,12 @@ test('two devices: a mission, a mandate spend, a letter or a landing is never ap
   cloud={...rbase(),updatedAt:2,sp:{moon:{t:9,c:8,e:3}},stock:{food:50,timber:50,iron:50,oil:50,goods:50}};assert.equal(g.rebase(cloud),null);
 });
 
-test('every letter also waits for its gate of enacted edicts: 50, 100, 200, 300, 450, 600, 800 … 1,600',()=>{
+test('every letter also waits for its gate of enacted edicts: 40, 70, 110, 160, 220 … 800',()=>{
   const G=game(),now=Date.now();
-  assert.deepEqual(J(G.MC_GATE),[50,100,200,300,450,600,800,1000,1200,1400,1600]);
-  assert.deepEqual(J(Array.from({length:14},(x,k)=>G.mcGate(k))),[50,100,200,300,450,600,800,1000,1200,1400,1600,1600,1600,1600],'letters XII to XIV keep the last gate');
-  /* evenly spaced: no gap between two letters more than 200 edicts (13 days at 15 a day) */
-  assert.ok(G.MC_GATE.every((g,i)=>!i||g-G.MC_GATE[i-1]<=200));
+  assert.deepEqual(J(G.MC_GATE),[40,70,110,160,220,290,370,460,560,670,800]);
+  assert.deepEqual(J(Array.from({length:14},(x,k)=>G.mcGate(k))),[40,70,110,160,220,290,370,460,560,670,800,800,800,800],'letters XII to XIV keep the last gate');
+  /* evenly spaced: no gap between two letters more than 130 edicts (about 9 days at 15 a day) */
+  assert.ok(G.MC_GATE.every((g,i)=>!i||g-G.MC_GATE[i-1]<=130));
   assert.equal(G.MC_AT,G.MC_GATE[0]);
   /* a nation far ahead: the Lunar Colony landed, so every chapter's mission is credited; only the gates hold it back */
   const ahead=(e,k)=>{const n=ready(G,e);n.cities[0].b.push({k:'lunar',s:now-50*DAY,d:now-40*DAY});n.sp={moon:{t:now-30*DAY,c:4242,k:'',b:'',p:3,pa:now,e:9}};
@@ -368,13 +368,13 @@ test('every letter also waits for its gate of enacted edicts: 50, 100, 200, 300,
     assert.ok(G.mcReady(ahead(g,k),k,now),'chapter '+(k+1)+' is otherwise ready');
     assert.equal(G.mcNext(ahead(g-1,k),now),-1,`letter ${k+1} waits at ${g-1} edicts`);
     assert.equal(G.mcNext(ahead(g,k),now),k,`letter ${k+1} may come at ${g}`);}
-  /* through the real edict clock: chapter III needs 200, so at 150 it stays away however many slots pass */
-  let n=ahead(150,2);n=after(G,n,5);assert.equal(mcOn(n).length,0,'150 edicts: no letter III');
-  n=ahead(200,2);n=after(G,n,1);assert.deepEqual(J(mcOn(n).map(x=>x.id)),['mc-3'],'200 edicts: it comes with the next slot');
+  /* through the real edict clock: chapter III needs 110, so at 100 it stays away however many slots pass */
+  let n=ahead(100,2);n=after(G,n,5);assert.equal(mcOn(n).length,0,'100 edicts: no letter III');
+  n=ahead(110,2);n=after(G,n,1);assert.deepEqual(J(mcOn(n).map(x=>x.id)),['mc-3'],'110 edicts: it comes with the next slot');
   /* the gate counts enacted edicts only: answering the letters does not open the next gate */
   n=ready(G,100,{seed:'gate'});n.mc.r=11;agency(n,'flt',{cam:DAY});G.S.nation=after(G,n,1);G.answer('mc-1',0);
   assert.equal(G.S.nation.ws.e,100,'a letter answered is not an enacted edict');G.S.nation=after(G,G.S.nation,1);assert.deepEqual(J(mcOn(G.S.nation).map(x=>x.id)),['mc-2']);
-  G.answer('mc-2',0);bld(G.S.nation,'mctrl');G.S.nation=after(G,G.S.nation,3);assert.equal(mcOn(G.S.nation).length,0,'letter III waits for 200 edicts');
+  G.answer('mc-2',0);bld(G.S.nation,'mctrl');G.S.nation=after(G,G.S.nation,3);assert.equal(mcOn(G.S.nation).length,0,'letter III waits for 110 edicts');
   clearDesk(G);assert.equal(G.S.nation.ws.e,103,'three ordinary edicts enacted');
 });
 
