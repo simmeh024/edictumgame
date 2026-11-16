@@ -50303,7 +50303,7 @@ function tick(){
    demand (one cheap count per figure), loaded when the page opens and at most once a minute after. */
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
 const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
-const ADM_EXTRA=['admin-players','admin-online','admin-health','admin-audit'];
+const ADM_EXTRA=['admin-players','admin-online','admin-alliances','admin-health','admin-audit'];
 const ADM_VIEWS=ADM_PAGES.concat('admin-help','admin-sus','admin-edicts','admin-stats','admin-shop',ADM_EXTRA);
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
@@ -50655,6 +50655,7 @@ const ADM_ICONS={
   'admin-shop':NAV_ICONS.shop,
   'admin-feed':NAV_SVG('<path d="M2.5 12h4l2.5-6.5 5 13 2.5-6.5h5"/>'),
   'admin-players':NAV_SVG('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.3 15.3 5.2 5.2"/><circle cx="10.5" cy="9" r="2"/><path d="M7.2 14.2c.7-1.5 1.9-2.3 3.3-2.3s2.6.8 3.3 2.3"/>'),
+  'admin-alliances':NAV_SVG('<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'),
   'admin-online':NAV_SVG('<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="18" cy="8" r="2.2" fill="currentColor"/>'),
   'admin-watch':NAV_SVG('<path d="M6 15.5V10.5a6 6 0 0 1 12 0v5l1.8 2.5H4.2Z"/><path d="M10 20.5h4"/>'),
   'admin-regions':NAV_ICONS.world,
@@ -50677,7 +50678,7 @@ function admShell(v,body){
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
-        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
+        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-gone','Recently dissolved'))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0))}
@@ -50726,6 +50727,7 @@ async function adminExtraLoad(v,more=false,refresh=false){
     }
     if(v==='admin-health')ADMX.health=await adminRequest({op:'health'});
     if(v==='admin-online')ADMX.online=await adminRequest({op:'online'});
+    if(v==='admin-alliances'){ADMX.alls=await adminRequest({op:'alliances'});if(ADMX.alc)ADMX.alc=await adminRequest({op:'alChat',aid:ADMX.alc.aid});}
     if(v==='admin-audit'){
       const d=await adminRequest({op:'audit',target:ADMX.target,after:more&&ADMX.audit?ADMX.audit.next:''});
       if(more&&ADMX.audit)d.events=ADMX.audit.events.concat(d.events);ADMX.audit=d;
@@ -50994,7 +50996,7 @@ async function adminNoteSave(uid){
 }
 function adminExtraView(v){
   if(!ADMX.loaded[v]&&!ADMX.busy)setTimeout(()=>adminExtraLoad(v),0);
-  const title={'admin-players':'Player search','admin-online':'Online players','admin-health':'Save health','admin-audit':'Admin audit log'}[v];
+  const title={'admin-players':'Player search','admin-online':'Online players','admin-alliances':'Alliances','admin-health':'Save health','admin-audit':'Admin audit log'}[v];
   let body='';
   if(v==='admin-players'){
     const d=ADMX.search;
@@ -51014,6 +51016,18 @@ function adminExtraView(v){
     body=`<p class="lede">Everyone with the game open in the last three minutes: the page their latest tab is on, their region and flag. Write to any of them directly; the letter arrives in their Messages from you. The list refreshes every 30 seconds while you are here.</p><button class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh now</button>
       ${d?`<p class="hint"><span class="adm-on" aria-hidden="true"></span> ${rows.length} online · checked ${esc(adminTime(d.at))}${d.limited?' · showing the latest 1,000 sessions':''}. Older game versions do not report their page.</p>${rows.length?`<div class="tbl-wrap"><table class="tbl adm-otbl"><thead><tr><th>Flag</th><th>Nation</th><th>Region</th><th>Page</th><th>Device</th><th>Actions</th></tr></thead><tbody>${rows.map(p=>`<tr><td><span class="adm-oflag">${flagSVG(p.flag,'Flag of '+p.name)}</span></td><td><b>${esc(p.name)}</b><br><span class="hint">seen ${esc(rel(p.t))}</span></td><td>${esc(regName(p.reg))}</td><td>${page(p.pg)}</td><td>${esc(p.device||'')}${p.tabs>1?`<br><span class="hint">${p.tabs} tabs</span>`:''}</td><td><div class="row"><button class="btn small" data-act="admin-online-msg" data-id="${esc(p.uid)}">Message</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.uid)}">Inspect</button></div></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">Nobody is online right now.</p>'}`:''}`;
   }
+  if(v==='admin-alliances'){
+    const d=ADMX.alls,all=d?d.alliances:[],f=ADMX.alReg||'',rows=all.filter(a=>!f||a.reg===f);
+    const regs=[...new Set(all.map(a=>a.reg))].sort((a,b)=>regName(a).localeCompare(regName(b)));
+    const by={};rows.forEach(a=>(by[a.reg]=by[a.reg]||[]).push(a));
+    const role={ld:'Leader',o:'Officer',m:''};
+    const c=ADMX.alc;
+    const chat=c?`<section class="card adm-alchat" id="adm-alchat"><div class="row" style="justify-content:space-between"><h3>Channel of ${esc(c.name)}</h3><button class="btn ghost small" data-act="admin-al-close">Close</button></div><p class="hint">${c.posts.length} ${c.posts.length===1?'message':'messages'}${c.limited?' · the latest 300':''} · your reading is kept in the audit log.</p>${c.posts.length?`<ol class="adm-alposts" style="list-style:none;padding:0;max-height:60vh;overflow:auto">${c.posts.map(p=>`<li style="padding:6px 0;border-bottom:1px solid var(--line,#ddd)"><b>${esc(p.nm||p.a)}</b> <span class="hint">${esc(new Date(p.t).toLocaleString())}</span><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.x)}</div></li>`).join('')}</ol>`:'<p class="hint">Nobody has written in this channel yet.</p>'}</section>`:'';
+    body=`<p class="lede">Every alliance in every region: its members, leader, renown, pacts and rivals. Open an alliance's channel to read what its members say to each other.</p><div class="row"><button class="btn ghost" data-act="admin-extra-refresh"${ADMX.busy?' disabled':''}>Refresh</button><label class="u-sr" for="admin-alreg">Region</label><select class="input" id="admin-alreg"><option value="">Every region (${all.length})</option>${regs.map(r=>`<option value="${esc(r)}"${r===f?' selected':''}>${esc(regName(r))} (${all.filter(a=>a.reg===r).length})</option>`).join('')}</select></div>
+      ${chat}${d?`<p class="hint">${rows.length} ${rows.length===1?'alliance':'alliances'} · checked ${esc(adminTime(d.at))}</p>`:''}
+      ${Object.keys(by).sort((a,b)=>regName(a).localeCompare(regName(b))).map(r=>`<h3>${esc(regName(r))}</h3><div class="tbl-wrap"><table class="tbl adm-altbl"><thead><tr><th>Alliance</th><th>Members</th><th class="num">Renown</th><th>Relations</th><th>Actions</th></tr></thead><tbody>${by[r].sort((a,b)=>b.mem.length-a.mem.length).map(a=>`<tr><td><b>${esc(a.name)}</b>${a.mo?`<br><span class="hint">${esc(a.mo)}</span>`:''}<br><span class="hint">${esc(a.ty||'')}${a.acc?' · '+esc(a.acc):''} · founded ${esc(a.t?new Date(a.t).toLocaleDateString():'?')}</span></td><td>${a.mem.map(m=>`${esc(m.name||m.uid)}${role[m.r]?` <span class="hint">(${role[m.r]})</span>`:''}`).join('<br>')}${a.npc?`<br><span class="hint">+ ${a.npc} computer ${a.npc===1?'nation':'nations'}</span>`:''}</td><td class="num">${fmt0(a.xp)}</td><td>${a.pacts?`${a.pacts} ${a.pacts===1?'pact':'pacts'}`:''}${a.pacts&&a.rivals?'<br>':''}${a.rivals?`${a.rivals} ${a.rivals===1?'rival':'rivals'}`:''}${!a.pacts&&!a.rivals?'<span class="hint">None</span>':''}</td><td><button class="btn small" data-act="admin-al-chat" data-id="${esc(a.aid)}"${ADMX.busy?' disabled':''}>Read channel</button></td></tr>`).join('')}</tbody></table></div>`).join('')}
+      ${d&&!rows.length?'<p class="hint">No alliances yet.</p>':''}`;
+  }
   if(v==='admin-health'){
     const d=ADMX.health,rows=d?d.sessions:[],stale=s=>Date.now()-s.t>5*60000;
     const label=s=>regDisabled(s.reg)?'Region '+regLabel(s.reg).toLowerCase():stale(s)?'Not recently seen':s.status==='offline'?'Reported error':s.pending||s.status==='saving'?'Saving':s.revision<s.serverRevision?'Behind server':'Synced';
@@ -51031,6 +51045,7 @@ function adminExtraView(v){
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='admin-q')ADMX.q=t.value;if(t.id==='admin-audit-target')ADMX.target=t.value;if(t.id==='admin-mod-reason')ADMX.modReason=t.value;if(t.id==='admin-note'){ADMX.note=t.value;ADMX.noteFor=t.dataset.id;}if(t.id==='admin-club-why')ADMX.clubWhy=t.value;if(t.id==='admin-club-days')ADMX.clubDays=Number(t.value);if(t.id==='admin-pack-why')ADMX.packWhy=t.value;if(t.id==='admin-pack-p')ADMX.packP=t.value;if(t.dataset.regionReason)ADMX.reasons[t.dataset.regionReason]=t.value;});
 document.addEventListener('change',e=>{const t=e.target;
   /* the column filters search as soon as they change; the name filter on Enter or Search */
+  if(t.id==='admin-alreg'){ADMX.alReg=t.value;render();return;}
   if(t.id==='admin-reg'||t.id==='admin-act'||t.id==='admin-onlyon'||t.id==='admin-eng'||t.id==='admin-sort'){if(t.id==='admin-eng')ADMX.eng=t.value;if(t.id==='admin-sort')ADMX.sort=t.value;if(t.id==='admin-reg')ADMX.reg=t.value;if(t.id==='admin-act')ADMX.act=t.value;if(t.id==='admin-onlyon')ADMX.act=t.checked?'online':'';if(S.isOwner&&S.view==='admin-players')adminExtraLoad('admin-players');return;}
   if(e.target.id==='admin-reg')ADMX.reg=e.target.value;if(e.target.dataset.regionMode){ADMX.modes[e.target.dataset.regionMode]=e.target.value;render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='admin-search'||e.target.id==='admin-audit-filter'){e.preventDefault();if(S.isOwner)adminExtraLoad(S.view);}});
@@ -51043,6 +51058,12 @@ document.addEventListener('click',async e=>{
   if(a==='region-enable'||a==='region-disable'){adminSetRegion(id,a==='region-enable');return;}
   if(a==='admin-filter-clear'){ADMX.q='';ADMX.reg='';ADMX.act='';ADMX.eng='';adminExtraLoad('admin-players');return;}
   if(a==='admin-extra-refresh'||a==='admin-extra-more'){adminExtraLoad(S.view,a==='admin-extra-more',a==='admin-extra-refresh');return;}
+  if(a==='admin-al-close'){ADMX.alc=null;render();return;}
+  if(a==='admin-al-chat'){
+    if(ADMX.busy)return;ADMX.busy=true;ADMX.err='';render();
+    adminRequest({op:'alChat',aid:id}).then(c=>{ADMX.alc=c;},e=>{ADMX.err=e.message||'The channel could not be read.';}).finally(()=>{ADMX.busy=false;render();setTimeout(()=>{const el=document.getElementById('adm-alchat');if(el)el.scrollIntoView({block:'start'});},0);});
+    return;
+  }
   if(a==='admin-online-msg'){
     const p=ADMX.online&&ADMX.online.players.find(q=>q.uid===id);if(!p)return;
     if(id===myId()){toast('That is you.');return;}
@@ -63356,7 +63377,7 @@ achDef('odd','odd-stk365','x','Unbroken','Keep up a presence streak of 365 days.
 
 /* ───────── first steps: easy Bronze achievements that walk a new player through the game ─────────
    Pages count the first time the player opens them (tally view:<page>, one save each, then never again). */
-const FS_SKIP=new Set(['visit','admin','admin-help','admin-stats','admin-shop','admin-online']);
+const FS_SKIP=new Set(['visit','admin','admin-help','admin-stats','admin-shop','admin-online','admin-alliances']);
 /* the first visit to a page is remembered here and written with the nation's next ordinary save (a save of its own would
    redraw the page just as it opens, and wipe what the player starts typing) */
 const FS_PEND=new Set();

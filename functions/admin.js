@@ -491,6 +491,31 @@ async function lettersOp(db, actor, data) {
   await event.create({ actor, action: 'letters_read', target: uid, with: other, reason, ...(name ? { name } : {}), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
   return { uid, with: other, name, otherName, limited: a.size === LT_THREAD || b.size === LT_THREAD, letters };
 }
+/* Alliances page: every alliance in every region, and (op alChat) one alliance's members' channel, read by an admin
+   and kept in the audit log */
+async function alliancesList(db) {
+  const qs = await db.collection('alliances').select('reg', 'name', 'mo', 'ty', 'acc', 't', 'ld', 'mem', 'npc', 'xp', 'rel').limit(2000).get();
+  const uids = [...new Set(qs.docs.flatMap(d => Object.keys(d.get('mem') || {})))].filter(u => /^[\w-]{1,128}$/.test(u));
+  const names = {};
+  for (let i = 0; i < uids.length; i += 300) for (const n of await db.getAll(...uids.slice(i, i + 300).map(u => db.doc('nations/' + u)), { fieldMask: ['name'] })) if (n.exists) names[n.id] = text(n.get('name'), 80);
+  const rows = qs.docs.map(d => {
+    const mem = d.get('mem') || {}, rel = d.get('rel') || {};
+    return { aid: d.id, reg: text(d.get('reg'), 40), name: text(d.get('name'), 80), mo: text(d.get('mo'), 120), ty: text(d.get('ty'), 24), acc: text(d.get('acc'), 24),
+      t: +d.get('t') || 0, ld: d.get('ld') || '', xp: +d.get('xp') || 0, npc: Object.keys(d.get('npc') || {}).length,
+      mem: Object.entries(mem).map(([u, m]) => ({ uid: u, name: names[u] || '', r: u === d.get('ld') ? 'ld' : m && m.r === 'o' ? 'o' : 'm', t: +(m && m.t) || 0 })),
+      pacts: Object.values(rel).filter(r => r && r.k === 'pact' && (r.st === 'active' || r.st === 'ending')).length,
+      rivals: Object.values(rel).filter(r => r && r.k === 'rival').length };
+  });
+  return { at: Date.now(), alliances: rows };
+}
+async function allianceChat(db, actor, data) {
+  const aid = id(data.aid), A = await db.doc('alliances/' + aid).get();
+  if (!A.exists) throw new HttpsError('not-found', 'That alliance no longer exists.');
+  const qs = await db.collection('alliances/' + aid + '/chat').orderBy('t', 'desc').limit(300).get();
+  const posts = qs.docs.map(d => ({ id: d.id, a: d.get('a') || '', nm: text(d.get('nm'), 80), x: text(d.get('x'), 1200), t: +d.get('t') || 0 })).reverse();
+  await db.collection('adminAudit').doc().set({ actor, action: 'alliance_chat_read', target: aid, name: text(A.get('name'), 80), outcome: 'completed', at: FieldValue.serverTimestamp() });
+  return { aid, name: text(A.get('name'), 80), limited: qs.size === 300, posts };
+}
 export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, memory: '512MiB', timeoutSeconds: 300 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   if (req.auth.token.admin !== true) throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
@@ -499,6 +524,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'player') return player(db, id(d.uid));
   if (d.op === 'health') return health(db);
   if (d.op === 'online') return onlinePlayers(db);
+  if (d.op === 'alliances') return alliancesList(db);
+  if (d.op === 'alChat') return allianceChat(db, actor, d);
   if (d.op === 'stats') return stats(db, d);
   if (d.op === 'shopStats') return shopStats(db);
   if (d.op === 'statsExport') return statsExport(db);
