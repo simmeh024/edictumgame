@@ -34391,7 +34391,7 @@ function rvReset(key){
   const m=rvMine(key);if(typeof m==='string'){S.rvnErr=m;updateMapPanel();return false;}
   const [T,r]=m,{most,mine,back}=rvMineOf(T,r,T.byId[myId()]),n=clone(S.nation),now=Date.now(),what=r.cls>=2?'river':'stream',where=most?'':' in your land';
   const left=(Array.isArray(n.rvn)?n.rvn:[]).filter(e=>!(e.r===REG.id&&e.v===key));if(left.length)n.rvn=left;else delete n.rvn;
-  rvLog(n,back,mine,now);commit(n);
+  rvLog(n,back,mine,now);if(back)achPend('rvback');commit(n);
   S.rvnEdit=null;S.rvnVal=null;S.rvnErr='';rvSync(territory());updateMapPanel();redrawMaps();
   toast(back?`${cap1(mine||back)} is ${back} again${where}.`:`The ${what} has no name again${where}.`);return true;
 }
@@ -34430,6 +34430,45 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
 });
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='rvn-name')S.rvnVal=e.target.value;});
 document.addEventListener('submit',e=>{if(!e.target||e.target.id!=='rvn-form')return;e.preventDefault();const i=document.getElementById('rvn-name');rvRename(parseInt(e.target.dataset.k,10),i?i.value:S.rvnVal||'');});
+/* ───────── achievements for river names (16 November 2026) ─────────
+   Twelve achievements for naming rivers and streams. Two things are counted in the tally, in a hook that runs before
+   the honours office looks: every river and stream a nation has named, once each and for good (rvr:<region>:<key> for
+   a river, main rivers included, rvs:<region>:<key> for a stream), and every time it changed a name it had given for
+   another (rvre). The first is written while the region's network is ready, so names given before these achievements
+   came are counted at the nation's next save. A name given back for the river's old one is counted by rvReset (rvback).
+   The rest read the names on record (n.rvn) against the land as it stands: a nation's name is used across the region
+   on a river where it holds most of the river (more than half the hexes on its banks), as rvSync has it. */
+COMMIT_HOOKS.unshift((n,old,now)=>{
+  if(!n||n.npc||!n.name||!n.tly||typeof n.tly!=='object'||!Array.isArray(n.rvn))return [];
+  const R=rvTried?RV:null,was=new Map((old&&Array.isArray(old.rvn)?old.rvn:[]).map(e=>[e.r+':'+e.v,e.n]));
+  for(const e of n.rvn){const k=e.r+':'+e.v,o=was.get(k);if(o!==undefined&&o!==e.n)gbBump(n,'rvre',1,now);
+    if(!R||!R.byKey||e.r!==REG.id)continue;const id=R.byKey.get(e.v);if(id===undefined)continue;
+    const t=(R.list[id].cls>=2?'rvr:':'rvs:')+k;if(!(t in n.tly))gbBump(n,t,1,e.t||now);}
+  return [];
+});
+/* this nation's names on record for the rivers of this region (one per river), and the land as it stands */
+const aRv=x=>achM(x,'rv',()=>{const o={L:[],T:null,i:-1};if(x.npc||!Array.isArray(x.n.rvn))return o;try{
+  const R=rvReady();if(!R||!R.byKey)return o;const T=territory(),i=T.byId[x.id],seen=new Set();o.T=T;o.i=i===undefined||T.list[i].hid?-1:i;
+  for(const e of x.n.rvn){if(!e||e.r!==REG.id)continue;const id=R.byKey.get(e.v);if(id===undefined||seen.has(id))continue;seen.add(id);o.L.push({r:R.list[id],n:e.n});}
+}catch(e){}return o;});
+/* rivers (k 'r') or streams (k 's') ever named, and all of them; the names on record count too, should the tally be full */
+const aRvN=(x,k)=>Math.max(aKeys(x,k==='r'?'rvr:':'rvs:'),aRv(x).L.filter(q=>(q.r.cls>=2)===(k==='r')).length);
+const aRvAll=x=>Math.max(aKeys(x,'rvr:')+aKeys(x,'rvs:'),aRv(x).L.length);
+/* rivers that carry this nation's name across the region: it holds most of them */
+const aRvMost=(x,f)=>{const o=aRv(x);return o.i<0?0:o.L.filter(q=>rvMost(o.T,q.r,o.i)&&(!f||f(q.r))).length;};
+achDef('land','rv-str1','b','Babbling Brook','Name a stream that runs through your land: click it on the Map.',1,x=>aRvN(x,'s'));
+achDef('land','rv-riv1','b','Christening the Waters','Name a river that runs through your land: click it on the Map.',1,x=>aRvN(x,'r'));
+achDef('land','rv-blank','b','Uncharted Waters','Give a name to a river or stream that the old maps left without one.',1,x=>aRv(x).L.filter(q=>!q.r.name0).length);
+achDef('land','rv-5','s','The Gazetteer','Name 5 different rivers and streams.',5,aRvAll);
+achDef('land','rv-15','g','Hydrographer Royal','Name 15 different rivers and streams.',15,aRvAll);
+achDef('land','rv-most','s','On Every Map','Hold most of a river or stream you have named, so every map in the region uses your name for it.',1,x=>aRvMost(x));
+achDef('land','rv-most3','g','Master of the Watershed','Have every map in the region use your names for 3 rivers or streams at once.',3,x=>aRvMost(x));
+achDef('land','rv-main','g','Father of Waters','Hold most of one of the region’s main rivers, the widest on the map, and give it a name of your own.',1,x=>aRvMost(x,r=>r.cls===3),{fm:'bool'});
+achDef('land','rv-trib','s','Confluence','Name a river or stream and another one that flows into it.',1,x=>{const L=aRv(x).L,ids=new Set(L.map(q=>q.r.id));return achYes(L.some(q=>q.r.parent>=0&&ids.has(q.r.parent)));},{fm:'bool'});
+achDef('land','rv-shared','s','By Any Other Name','Name your stretch of a river or stream that another nation calls by a name of its own.',1,x=>{const o=aRv(x);if(o.i<0)return 0;try{rvSync(o.T);}catch(e){return 0;}
+  return achYes(o.L.some(q=>(rvStretch(o.T,q.r,o.i)>0||rvMost(o.T,q.r,o.i))&&q.r.nm&&[...q.r.nm].some(([id,nm])=>id!==x.id&&nm!==q.n)));},{fm:'bool',mp:1});
+achDef('land','rv-again','b','A Change of Heart','Rename a river or stream you had already named.',1,x=>aT(x,'rvre'),{sec:'The cartographers keep a very good eraser, just for you.'});
+achDef('land','rv-back','b','As It Was','Give a river or stream back the name it had before you named it.',1,x=>aTP(x,'rvback'),{sec:'Some names are worth keeping after all.'});
 
 /* drawing: Path2Ds per class, width step and square tile of the map, in map units, built once and reused at
    every view. Only the tiles on screen are stroked; they are joined back into one path per class and width
