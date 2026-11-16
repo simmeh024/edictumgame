@@ -6885,6 +6885,29 @@ span.nw-tag{cursor:default}
 @keyframes m50-shake{0%,80%,100%{transform:none}84%{transform:rotate(-5deg)}88%{transform:rotate(5deg)}92%{transform:rotate(-3deg)}}
 @keyframes m50-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.m50-box,.m50-cf{animation:none}.m50-lid,.m50-bow{transition:none}}
+/* the 100-nation gift (m100-): two boxes side by side on the 50-player gift's frame and box (m50-), each opened on its own */
+.m100{max-width:540px}.m100 [hidden]{display:none!important}
+/* taller than a short phone once open: it scrolls, centred while it fits */
+.m100-bg{align-items:flex-start;overflow-y:auto;overscroll-behavior:contain}.m100-bg .m100{margin:auto}
+.m100-sh svg{width:26px;height:31px}
+.m100-boxes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 2px;align-items:start}
+.m100-gift{display:flex;flex-direction:column;align-items:center;min-width:0}
+.m100 .m100-gift .m50-box{margin:14px auto 4px}
+.m100-b1 .m50-body{background:#6e4a29}.m100-b1 .m50-lid{background:#8f6236}
+.m100-b2 .m50-body{background:#4a1238}.m100-b2 .m50-lid{background:#7a1f5c}
+.m100 .m100-n{margin:0;font-weight:600;font-size:14px}
+.m100-gift.open .m50-box{animation:none;cursor:default}
+.m100-gift.open .m50-lid,.m100-gift.open .m50-bow{transform:translateY(-70px) rotate(-28deg);opacity:0}
+.m100-got{display:none;width:100%;margin-top:6px}.m100-gift.open .m100-got{display:block;animation:m50-in .5s .35s both}
+.m100 .m100-big{margin:0 0 4px;font-size:13px}.m100-big b{font-size:16px}
+.m100-list{list-style:none;margin:0;padding:8px;display:grid;gap:5px;font-size:13px;text-align:left;border:1px solid rgba(176,141,60,.45);border-radius:6px}
+.m100-list li{display:flex;align-items:center;gap:8px;min-width:0}
+.m100-list .r-ic{width:20px;height:20px;margin:0}.m100-list .r-ic svg{width:12px;height:12px}
+.m100-reg li>span:last-child{display:flex;flex-direction:column;line-height:1.2;min-width:0}.m100-reg small{opacity:.75;font-size:11px}
+.m100-pt{flex:none;width:46px}.m100-mc{width:24px;height:21px;margin:0 11px}.m100-sh{flex:none;width:46px;text-align:center}.m100-sh svg{width:22px;height:26px}
+.m100 .m100-say{margin:8px 0 0}.m100-foot{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:8px}
+.m100-foot .btn{min-width:140px}
+@media (max-width:420px){.m100{padding:18px 12px 12px}.m100-boxes{gap:8px}.m100-list{padding:6px;font-size:12px}.m100-pt{width:38px}.m100-sh{width:30px}.m100-mc{margin:0 4px}}
 /* Supply Caches: the dialog that sends one and the crate that opens one (sc-), on the 50-player gift's frame (m50-bg, m50) */
 .sc-dlg{max-width:470px;text-align:left;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto}
 .sc-dlg .h2{margin:4px 0 4px}
@@ -20486,7 +20509,14 @@ function landName(i){const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.na
 function placePhrase(i){if(isLake(i))return 'on a lake in '+lakeShore(i);const k=MAP.comp[i],c=k>=0?MAP.comps[k]:null;return c&&c.name?placeIn(i)+' '+c.name:'on a remote islet';}
 /* the Cartographer's Pack's map colours (UNLOCKS hx-…, see the pack): a nation shows one only while it holds it */
 const CTG_MC={'#2B4C7E':['hx-prussian','Prussian Blue'],'#A3243B':['hx-carmine','Carmine'],'#6B7F2A':['hx-sap','Sap Green']};
-function ctgMcOk(n,c){const m=CTG_MC[c];if(!m)return true;try{return !!czHolds(n,m[0],n&&n.cz);}catch(e){return false;}}
+/* the 100-nation gift (see that section): n.m100 holds the boxes opened as bits, 1 the supplies (M100_N of every
+   material), 2 the Triumph regalia, whose map colour is M100_MC. Kept here, ahead of everything that asks. */
+const M100_N=100,M100_MC='#7A1F5C',M100_MCN='Triumph Purple';
+const m100Bits=n=>n&&Number.isInteger(n.m100)?n.m100&3:0;
+const m100Got=n=>!!n&&!n.npc&&(m100Bits(n)&2)===2;
+const mcGiftName=c=>c===M100_MC?M100_MCN:'';
+/* may this nation wear this map colour: the pack's while held, the gift's once its box is open, any other always */
+function ctgMcOk(n,c){if(c===M100_MC)return m100Got(n);const m=CTG_MC[c];if(!m)return true;try{return !!czHolds(n,m[0],n&&n.cz);}catch(e){return false;}}
 function nationColor(n){const c=safeColor(n&&n.mapc,'');return (c&&ctgMcOk(n,c)?c:'')||mapColor(n&&n.flag);}
 function mapColor(f){
   const cs=(f&&Array.isArray(f.c))?f.c:DEF_FLAG.c;
@@ -27913,15 +27943,17 @@ document.addEventListener('click',e=>{
    u (which a forger could fake, an accepted risk). Personal display settings stay in this browser. */
 const czHas=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 const czU=id=>czHas(UNLOCKS,id)?UNLOCKS[id]:null;
-const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner',kite:'Norman kite',round:'Roundel',polish:'Polish',tudor:'Tudor',mural:'Mural',royal:'Royal crown',midnight:'Midnight Tag',scutum:'Scutum',rope:'Rope-edge',gothic:'Gothic arch',bouche:'Bouche',gable:'Stepped Gable'};
+const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner',kite:'Norman kite',round:'Roundel',polish:'Polish',tudor:'Tudor',mural:'Mural',royal:'Royal crown',midnight:'Midnight Tag',scutum:'Scutum',rope:'Rope-edge',gothic:'Gothic arch',bouche:'Bouche',gable:'Stepped Gable',triumph:'Triumphal arch'};
 /* shields sold in the Shop, each with the piece that unlocks it */
 const CZ_SH_SHOP={midnight:'sh-midnight',scutum:'sh-scutum',rope:'sh-rope',gable:'sh-gable'};
 /* shields that open with the nation's growth: the Mural shield, its top a town wall, with five cities (kept once chosen) */
 const CZ_SH_CITY={mural:5};
-/* the Royal crown shield came in the 50-player gift (n.m50), kept once chosen */
-const CZ_SH_GIFT={royal:1};
-const czShOk=(n,s)=>CZ_SH_SHOP[s]?(!!n&&(czMine().has(CZ_SH_SHOP[s])||!!(cz(n).a&&cz(n).a.s===s))):CZ_SH_GIFT[s]?!!n&&(n.m50===1||!!(cz(n).a&&cz(n).a.s===s)):!CZ_SH_CITY[s]||(!!n&&((n.cities||[]).length>=CZ_SH_CITY[s]||!!(cz(n).a&&cz(n).a.s===s)));
-const czShHow=s=>s==='midnight'?'Part of the Black Friday Pack in the Shop.':s==='scutum'?'Part of the Old Republic Pack in the Shop.':s==='rope'?'Part of the Age of Sail Pack in the Shop.':s==='gable'?'Part of the Tulip Mania Pack in the Shop.':CZ_SH_GIFT[s]?`The ${CZ_SHIELDS[s]} shield was a gift to the nations that were here when Edictum reached 50 players.`:`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
+/* shields that came in a milestone's gift, kept once chosen: the Royal crown in the 50-player gift (n.m50), the
+   Triumphal arch in the 100-nation gift's regalia (n.m100, m100Got) */
+const CZ_SH_GIFT={royal:50,triumph:100};
+const czShGot=(n,s)=>CZ_SH_GIFT[s]===100?m100Got(n):n.m50===1;
+const czShOk=(n,s)=>CZ_SH_SHOP[s]?(!!n&&(czMine().has(CZ_SH_SHOP[s])||!!(cz(n).a&&cz(n).a.s===s))):CZ_SH_GIFT[s]?!!n&&(czShGot(n,s)||!!(cz(n).a&&cz(n).a.s===s)):!CZ_SH_CITY[s]||(!!n&&((n.cities||[]).length>=CZ_SH_CITY[s]||!!(cz(n).a&&cz(n).a.s===s)));
+const czShHow=s=>s==='midnight'?'Part of the Black Friday Pack in the Shop.':s==='scutum'?'Part of the Old Republic Pack in the Shop.':s==='rope'?'Part of the Age of Sail Pack in the Shop.':s==='gable'?'Part of the Tulip Mania Pack in the Shop.':CZ_SH_GIFT[s]?`The ${CZ_SHIELDS[s]} shield was a gift to the nations that were here when Edictum reached ${CZ_SH_GIFT[s]===100?'100 nations':'50 players'}.`:`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
 const CZ_TINCT={or:['Or','#E2B13C'],argent:['Argent','#F2F1EA'],gules:['Gules','#C0282D'],azure:['Azure','#2457A6'],vert:['Vert','#23804A'],purpure:['Purpure','#743A8E'],rose:['Rose','#E07AAA'],tenne:['Tenné','#D0671F'],celeste:['Celeste','#6FA8DC'],murrey:['Murrey','#8A2846'],cendree:['Cendrée','#9EA3A8'],brunatre:['Brunâtre','#7A4A28'],carnation:['Carnation','#EDB68F'],sable:['Sable','#1E1E1E'],
   lime:['Lime','#7CC93A'],turq:['Turquoise','#1FA6A0'],nuit:['Night blue','#17224D'],gilt:['Shining gold','#E6B640']};
 /* Shining gold is a metal, painted with a glint that sweeps across it (czGiltDef) */
@@ -28238,6 +28270,8 @@ function czShieldPath(s){switch(s){
   case 'gothic':return 'M50,3Q76,8 94,24V58C94,88 74,104 50,116C26,104 6,88 6,58V24Q24,8 50,3Z';
   case 'bouche':return 'M6,6H62Q64,22 80,22Q90,22 94,14V56C94,88 74,104 50,116C26,104 6,88 6,56Z';
   case 'scutum':return 'M18,4H82Q92,4 92,14Q95,60 92,106Q92,116 82,116H18Q8,116 8,106Q5,60 8,14Q8,4 18,4Z';
+  /* the 100-nation gift: a triumphal arch's rounded attic rising from square shoulders */
+  case 'triumph':return 'M6,24H22C22,11 34,3 50,3C66,3 78,11 78,24H94V58C94,90 74,106 50,117C26,106 6,90 6,58Z';
   default:return 'M6,6H94V48C94,80 74,102 50,116C26,102 6,80 6,48Z';}}
 function czDivBody(d,b,sp){
   const R=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${b}"/>`,P=p=>`<path d="${p}" fill="${b}"/>`,K=(p,w)=>`<path d="${p}" fill="none" stroke="${b}" stroke-width="${w}"/>`;
@@ -49640,8 +49674,8 @@ function settingsView(){
         <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
       </fieldset>
       <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
-        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||(CTG_MC[st.mapc]||[])[1]||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
-        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}</div>
+        <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||(CTG_MC[st.mapc]||[])[1]||mcGiftName(st.mapc)||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
+        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}${m100McSw(n,st)}</div>
       </fieldset>
       <div class="save-bar${dirty?' is-dirty':''}${SG.leave?' sg-leaving':''}" id="sg-save">${save}</div>
     </form>`;
@@ -54050,11 +54084,11 @@ const DD_RARE={iss:[6,8],claim:[3,4],exp:[2,3],road:[2,3],build:[2,2],dm:[2,3],d
 const DD_LEG_CR=15,DD_LEG_GIFT=300,DD_LEG_MS=7*864e5,DD_LEG_MAX=STK_MAX;
 const DD_LEG={iss:[30,40],claim:[12,16],exp:[6,8],deal:[5,6],dm:[6,8],build:[5,6],road:[4,6],xu:[4,5],xpb:[3,4],fleet:[6,8],ugb:[4,5],svc:[8,10],desk:[5,5],first:[2,2],spy:[10,12],covc:[5,6]};
 const ddlcOf=n=>n&&Number.isInteger(n.ddlc)&&n.ddlc>0?Math.min(n.ddlc,DD_LEG_MAX):0;
-/* stock above the storage limit that a reward gave (the legendary task's, the fiftieth player's gift) stays: n.xs, the
+/* stock above the storage limit that a reward gave (the legendary task's, the fiftieth player's gift, the 100-nation supplies) stays: n.xs, the
    most any resource is over, kept while one is over and shrinking as it is used. Income adds nothing to a resource
    that is over (whAccrue) until some is used or a Warehouse raises the limit; the load check allows it (auditNation).
    Never more than those rewards can have given. */
-function xsMax(n){return DD_LEG_GIFT*ddlcOf(n)+(n&&n.m50===1&&typeof M50_N==='number'?M50_N:0);}
+function xsMax(n){return DD_LEG_GIFT*ddlcOf(n)+(n&&n.m50===1&&typeof M50_N==='number'?M50_N:0)+(typeof m100Bits==='function'&&m100Bits(n)&1?M100_N:0);}
 const xsOf=n=>n&&Number.isFinite(n.xs)&&n.xs>0?Math.min(n.xs,xsMax(n)):0;
 function xsOver(n,st,now){const cap=stockCap(n,now);let x=0;for(const r of RES)x=Math.max(x,num0(st[r])-cap);return Math.ceil(x);}
 function xsMark(n,st,now){const x=xsOver(n,st,now);if(x>0)n.xs=Math.max(Number.isFinite(n.xs)?n.xs:0,x);}
@@ -55807,6 +55841,123 @@ document.addEventListener('keydown',e=>{const o=document.getElementById('m50');i
 setInterval(()=>{try{const n=S.nation;
   if(m50Later||!m50Due(n)||navigator.webdriver&&!window.EDICTUM_M50||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
   m50Show();}catch(e){}},2000);
+
+/* ───────── 100-nation gift ─────────
+   When Edictum reaches 100 nations, every one of those first hundred gets a pop-up with two gift boxes, in every
+   region, each opened with a click: the first holds M100_N (100) of every material (RES, above the storage limit
+   like the legendary task's, see xsMax), the second the Triumph regalia: the Centum card pattern (p-centum), the
+   Triumph Purple map colour (M100_MC, ctgMcOk) and the Triumphal arch shield (CZ_SH_GIFT). n.m100 keeps the boxes
+   opened as bits (m100Bits: 1 supplies, 2 regalia); closed with a box still shut, it comes back on the next visit.
+   The count: summaries/ holds one public record for every player nation (NPCs have none), each with its founding time
+   f, except older ones not saved since f was added, which were all founded before. So, two counts: all nations, and
+   those founded after this one. The nation is among the first hundred when all less those after it is 100 or fewer.
+   Until the total reaches 100 it is counted again every M100_EVERY while the page is open; then once a visit. */
+const M100_EVERY=10*60e3;
+const M100={tot:null,after:null,f:0,at:0,busy:false,later:false};
+NORM_HOOKS.push((n,d)=>{const v=d&&Number.isInteger(d.m100)?d.m100&3:0;if(v)n.m100=v;else delete n.m100;});
+/* one of the first hundred: settled once a box is open, else by this visit's counts for this nation */
+function m100In(n){
+  if(m100Bits(n))return true;
+  return M100.f>0&&M100.f===Math.floor(+n.founded||0)&&M100.tot!=null&&M100.tot>=M100_N&&M100.after!=null&&M100.tot-M100.after<=M100_N;
+}
+const m100Due=n=>!!n&&!n.npc&&!!n.name&&+n.founded>0&&m100Bits(n)!==3&&m100In(n);
+function m100Count(){
+  const n=S.nation,f=Math.floor(+(n&&n.founded)||0);
+  if(!(f>0)||m100Bits(n)||M100.busy||S.mode!=='world'||!S.db||typeof S.db.count!=='function')return;
+  if(M100.f===f&&(M100.after!=null||Date.now()-M100.at<M100_EVERY))return;
+  M100.busy=true;M100.at=Date.now();
+  Promise.resolve().then(()=>S.db.count('summaries')).then(tot=>{
+    if(!(tot>=M100_N)){M100.tot=tot;M100.after=null;M100.f=f;return;}
+    return S.db.count('summaries',[['f','>',f]]).then(after=>{M100.tot=tot;M100.after=after;M100.f=f;});
+  }).catch(()=>{}).then(()=>{M100.busy=false;});
+}
+/* the Centum card pattern: a laurel wreath round a Roman C (a hundred) on the right, beside a square of a hundred dots */
+UNLOCKS['p-centum']={k:'pattern',n:'Centum',src:'m100'};
+UNLOCK_SOURCES.push({earned:n=>m100Got(n)?['p-centum']:[],
+  how:id=>id==='p-centum'?'A gift to the nations that were here when Edictum reached 100 nations.':null});
+function m100PatBody(seed){
+  const q=v=>(+v).toFixed(1),r=rng(seed||7),cx=835,cy=160,R=106;let o='';
+  const leaf=(x,y,a,len,w)=>{const c=Math.cos(a),s=Math.sin(a),tx=x+len*c,ty=y+len*s,mx=x+len/2*c,my=y+len/2*s;
+    return `<path d="M${q(x)},${q(y)}Q${q(mx-s*w)},${q(my+c*w)} ${q(tx)},${q(ty)}Q${q(mx+s*w)},${q(my-c*w)} ${q(x)},${q(y)}Z"/>`;};
+  /* the wreath: two branches from a tie at the foot up either side, leaves in pairs along each, smaller to the top */
+  for(const side of [-1,1]){
+    const a0=Math.PI/2-side*0.26,a1=Math.PI/2-side*(Math.PI-0.36),pt=a=>[cx+R*Math.cos(a),cy+R*Math.sin(a)];
+    const [x0,y0]=pt(a0),[x1,y1]=pt(a1);o+=`<path d="M${q(x0)},${q(y0)}A${R},${R} 0 0 ${side<0?1:0} ${q(x1)},${q(y1)}"/>`;
+    for(let k=0;k<=10;k++){const a=a0+(a1-a0)*k/10,[x,y]=pt(a),len=30-k*1.3;
+      /* the way the branch grows (towards the top), a leaf to either side of it, and now and then a berry inside */
+      const g=Math.atan2(-side*Math.cos(a),side*Math.sin(a));
+      o+=leaf(x,y,g-0.55,len,len*0.3)+leaf(x,y,g+0.55,len*0.92,len*0.28);if(k%3===1)o+=`<circle cx="${q(x-Math.cos(a)*10)}" cy="${q(y-Math.sin(a)*10)}" r="2.6"/>`;}}
+  /* the tie: two loops and two tails */
+  const ty=cy+R+4;o+=`<path d="M${cx},${ty}q-16,-7 -22,4q11,6 22,-4ZM${cx},${ty}q16,-7 22,4q-11,6 -22,-4ZM${cx},${ty}l-12,26M${cx},${ty}l12,26"/>`;
+  /* the Roman C, with serifs */
+  const Ro=50,Ri=37,A=0.72,P=(rr,a)=>q(cx+rr*Math.cos(a))+','+q(cy+rr*Math.sin(a));
+  o+=`<path d="M${P(Ro,-A)}A${Ro},${Ro} 0 1 0 ${P(Ro,A)}L${P(Ri,A)}A${Ri},${Ri} 0 1 1 ${P(Ri,-A)}Z" stroke-width="1.4"/>`;
+  const ca=Math.cos(A),sa=Math.sin(A),xo=cx+Ro*ca,xi=cx+Ri*ca;
+  for(const sg of [-1,1])o+=`<path d="M${q(xo)},${q(cy+sg*(Ro*sa+8))}V${q(cy+sg*Ri*sa)}H${q(xi)}" stroke-width="1.4"/>`;
+  /* a hundred dots, ten by ten */
+  for(let i=0;i<10;i++)for(let j=0;j<10;j++)o+=`<circle cx="${560+j*14}" cy="${97+i*14}" r="2.2" fill="currentColor" stroke="none"/>`;
+  /* a few sprigs further off */
+  for(let i=0;i<9;i++){const x=40+i*56+r()*20,y=40+r()*240,a=-Math.PI/2+(r()-.5)*1.2;o+=`<path d="M${q(x)},${q(y)}l${q(Math.cos(a)*28)},${q(Math.sin(a)*28)}"/>`;
+    for(let k=1;k<4;k++){const bx=x+Math.cos(a)*k*7,by=y+Math.sin(a)*k*7;o+=leaf(bx,by,a-0.7,11,3.4)+leaf(bx,by,a+0.7,11,3.4);}}
+  return o;
+}
+czPatSVG=(f=>function(p,seed,mini){
+  if(p!=='p-centum')return f.apply(this,arguments);
+  return `<svg class="czp${mini?' mini':''}" viewBox="0 0 1000 320" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1">${m100PatBody(seed)}</g></svg>`;
+})(czPatSVG);
+/* the pop-up */
+function m100Close(){const o=document.getElementById('m100');if(o)o.remove();}
+function m100Say(){
+  const b=m100Bits(S.nation),say=document.getElementById('m100-say'),ok=document.getElementById('m100-ok'),go=document.getElementById('m100-go'),lt=document.getElementById('m100-later');
+  if(say)say.textContent=b===3?'Both gifts are yours.':b?'One more box to open.':'Click a box to open it.';
+  if(ok)ok.hidden=b!==3;if(go)go.hidden=!(b&2);if(lt)lt.hidden=b===3;
+}
+function m100Show(){
+  if(document.getElementById('m100'))return;const n=S.nation,b=m100Bits(n);
+  const a=cz(n).a||czDefaultArms(n),seed=hash(String(n.seed||n.name||'m100'));
+  const box=(k,label,cls)=>`<button type="button" class="m50-box m100-b${k}" id="m100-box${k}" aria-label="Open the ${k===1?'first':'second'} gift: ${label}"><span class="m50-body"></span><span class="m50-lid"></span><span class="m50-rib"></span><span class="m50-bow"></span></button>`;
+  const o=document.createElement('div');o.id='m100';o.className='m50-bg m100-bg';
+  o.innerHTML=`<div class="m50 m100" role="dialog" aria-modal="true" aria-labelledby="m100-h" aria-describedby="m100-d"><p class="eyebrow">All regions · once only</p>
+  <h2 class="h2" id="m100-h">100 nations milestone reached!</h2><p id="m100-d">Edictum has 100 nations, and ${esc(n.name)} is one of them. Two gifts to celebrate: open both.</p>
+  <div class="m100-boxes">
+    <div class="m100-gift${b&1?' open':''}" id="m100-g1">${box(1,'supplies')}<p class="m100-n">Supplies</p>
+      <div class="m100-got"><p class="m100-big"><b>+${M100_N}</b> of every material</p><ul class="m100-list">${RES.map(r=>`<li>${resIco(r)}<span>+${M100_N} ${esc(resName(r))}</span></li>`).join('')}</ul></div></div>
+    <div class="m100-gift${b&2?' open':''}" id="m100-g2">${box(2,'Triumph regalia')}<p class="m100-n">Triumph regalia</p>
+      <div class="m100-got"><ul class="m100-list m100-reg">
+        <li><span class="cz-pt m100-pt" aria-hidden="true">${czPatSVG('p-centum',seed,1)}</span><span><b>Centum</b><small>Card pattern</small></span></li>
+        <li><span class="hexchip m100-mc" style="--hx:${M100_MC}" aria-hidden="true"></span><span><b>${esc(M100_MCN)}</b><small>Map colour</small></span></li>
+        <li><span class="m100-sh" aria-hidden="true">${czArmsSVG({...a,s:'triumph',c:''})}</span><span><b>Triumphal arch</b><small>Shield for your arms</small></span></li></ul></div></div>
+  </div>
+  <p class="hint m100-say" id="m100-say" aria-live="polite"></p>
+  <div class="m100-foot"><button type="button" class="btn" id="m100-ok" hidden>Collect</button><button type="button" class="linkish small" id="m100-go" hidden>Try the regalia on in Customise</button></div>
+  <button type="button" class="linkish small m50-later" id="m100-later">Later</button></div>`;
+  document.body.appendChild(o);m100Say();
+  const first=document.querySelector('#m100 .m100-gift:not(.open) .m50-box')||document.getElementById('m100-ok');if(first)first.focus();
+}
+function m100Open(k){
+  const n=S.nation,b=m100Bits(n);if(!m100Due(n)||(b&k))return;
+  const m=clone(n),now=Date.now();
+  if(k===1){const st=stockNow(m,now);for(const r of RES)st[r]=num0(st[r])+M100_N;m.m100=b|1;xsMark(m,st,now);m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;}
+  else m.m100=b|2;
+  commit(m);
+  const g=document.getElementById('m100-g'+k);if(!g)return;g.classList.add('open');m100Say();
+  const box=g.querySelector('.m50-box'),fr=document.querySelector('#m100 .m50');
+  if(box&&fr){const x=box.offsetLeft+box.offsetWidth/2,y=box.offsetTop+box.offsetHeight/2;
+    for(let i=0;i<20;i++){const c=document.createElement('i');c.className='m50-cf';c.style.cssText=`left:${x}px;top:${y}px;--x:${Math.round(Math.random()*240-120)}px;--y:${Math.round(-70-Math.random()*150)}px;--r:${Math.round(Math.random()*720)}deg;background:${(k===1?['#E2B13C','#8A5F36','#23804A','#2457A6','#C0282D']:['#E2B13C','#7A1F5C','#B4539B','#F6E2A8','#4A1238'])[i%5]}`;fr.appendChild(c);}}
+  setTimeout(()=>{const nx=document.querySelector('#m100 .m100-gift:not(.open) .m50-box')||document.getElementById('m100-ok');if(nx&&!nx.hidden)nx.focus();},700);
+}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#m100-box1,#m100-box2,#m100-ok,#m100-go,#m100-later');if(!t)return;
+  if(t.id==='m100-box1'||t.id==='m100-box2'){m100Open(t.id==='m100-box1'?1:2);return;}
+  if(t.id==='m100-later')M100.later=true;
+  m100Close();if(t.id==='m100-go')go('customise');else quietRender();});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!document.getElementById('m100'))return;if(m100Bits(S.nation)!==3)M100.later=true;m100Close();quietRender();});
+/* another pop-up first (the 50-player gift, the founders' gift, the recovery code…), and this one after it */
+const m100Busy=()=>[...document.querySelectorAll('[aria-modal="true"]')].some(e=>e.getClientRects().length>0);
+setInterval(()=>{try{const n=S.nation;
+  if(M100.later||!n||n.npc||navigator.webdriver&&!window.EDICTUM_M100||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
+  m100Count();
+  if(!m100Due(n)||document.getElementById('m100')||m50Due(n)&&!m50Later||m100Busy())return;
+  m100Show();}catch(e){}},2000);
 
 /* ───────── Community Board ─────────
    Under Other: a board for every region, where any Registered Nation opens topics and replies, wherever it lives.
@@ -61452,7 +61603,7 @@ czShow=(f=>function(id){const u=czU(id);
 const MLK={id:''},MLK_TE=['te-hatch','te-stipple','te-wash','te-grid','te-fret','te-gilt'];
 const mlkPack=p=>(SHOP_FROM[p]||'the Shop').replace(/^the /,'');
 /* the colour the player chose for the map, by name, while they may wear it ('' while it comes from the flag) */
-function mlkMcName(n){const c=safeColor(n&&n.mapc,'');if(!c||nationColor(n)!==c)return '';return MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'';}
+function mlkMcName(n){const c=safeColor(n&&n.mapc,'');if(!c||nationColor(n)!==c)return '';return MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||mcGiftName(c)||'';}
 /* a piece of the Shop as its lock says it: the pack and its price (the full one struck through in a sale) */
 function mlkLockTxt(p){const pr=shopPrice(p);return `${esc(mlkPack(p))}${pr?` · ${shopWas(p)}${esc(pr)}`:''}`;}
 function mlkLockSay(p){const pr=shopPrice(p);return `${mlkPack(p)} in the Shop${pr?', '+pr:''}`;}
@@ -61475,7 +61626,7 @@ function mlkMcSet(c){
   /* only the map panel and the map change: the rest of the page stays as it is, not drawn again (nor moved) */
   updateMapPanel();redrawMaps();
   requestAnimationFrame(()=>{const b=document.querySelector(`#map-panel .mlk [data-act="mlk-mc"][data-val="${c}"]`);if(b)b.focus({preventScroll:true});});
-  const nm=c?MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||'That colour':'';
+  const nm=c?MAP_COLORS[c]||(tutMapcOf(c)||{}).mapcN||(CTG_MC[c]||[])[1]||mcGiftName(c)||'That colour':'';
   toast(c?`${nm} is your map colour now, for every player in your region.`:'Your land on the map takes its colour from your flag again.');
 }
 function mlkCard(n){
@@ -61499,6 +61650,8 @@ function mlkCard(n){
     if(!shopSells('cartopack'))continue;cl.push(nm);
     sws+=`<button type="button" class="sw sw-lock" style="--sw:${x}" data-act="mlk-shop" data-p="cartopack" data-mc="${x}" aria-label="Map colour: ${esc(nm)}, locked. Part of the ${esc(mlkLockSay('cartopack'))}" title="${esc(nm)}: part of the ${esc(mlkPack('cartopack'))} in the Shop">${CZ_LOCK}</button>`;}
   if(cl.length)locks.push(`<li>${CZ_LOCK}<span><b>${list(cl.map(esc))}</b>: ${mlkLockTxt('cartopack')}</span></li>`);
+  /* the 100-nation gift's colour, once its box is open (never shown locked: it cannot be had any other way) */
+  if(ctgMcOk(n,M100_MC))sws+=sw(M100_MC,M100_MCN,'a gift for 100 nations');
   /* the hex backgrounds: Plain and those held first, then those locked, under a line for each pack and its price */
   const tes=mlkTes(n),anyLock=tes.some(x=>!x.own);
   const tile=(id,name,x)=>{const lock=!!x&&!x.own;return `<button type="button" class="mlk-t${lock?' lock':''}${cur===id?' on':''}" data-act="${lock?'mlk-shop':'mlk-cz'}"${id?` data-id="${id}"`:''}${lock?` data-p="${x.p}" aria-label="${esc(name)}, locked. ${esc(mlkLockSay(x.p))}: see how it looks on ${esc(n.name)}"`:''}><span class="mlk-tv" aria-hidden="true">${ctgLandSVG(n,{mini:1,te:id})}</span><span class="mlk-tn">${esc(name)}</span>${cur===id?'<span class="mlk-ts">Wearing</span>':''}</button>`;};
@@ -61566,6 +61719,11 @@ function ctgMcSw(n,st){
   return Object.keys(CTG_MC).map(c=>{const nm=CTG_MC[c][1];
     if(ctgMcOk(n,c))return `<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${nm}, from the Cartographer’s Pack" title="${nm}, from the Cartographer’s Pack"></button>`;
     return sell?`<button type="button" class="sw sw-lock" style="--sw:${c}" data-act="ctg-shop" aria-label="Map colour: ${nm}, locked. Part of the Cartographer’s Pack in the Shop." title="${nm}: part of the Cartographer’s Pack in the Shop">${CZ_LOCK}</button>`:'';}).join('');
+}
+/* the 100-nation gift's map colour in Settings, after the pack's: only once its box is open */
+function m100McSw(n,st){
+  if(!ctgMcOk(n,M100_MC))return '';
+  return `<button type="button" class="sw${st.mapc===M100_MC?' on':''}" style="--sw:${M100_MC}" data-act="mapc" data-val="${M100_MC}" aria-pressed="${st.mapc===M100_MC}" aria-label="Map colour: ${M100_MCN}, a gift for 100 nations" title="${M100_MCN}, a gift for 100 nations"></button>`;
 }
 /* land in a picture, for the Shop and Customise: the player's own hexes round their capital when the nation is on
    the map (opts.big: a wider ring), otherwise a small made-up patch (always for opts.mini); in a finish (te), with a
@@ -62415,7 +62573,7 @@ document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest
   fgfClose();});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!document.getElementById('fgf')||FGF.busy)return;if(!FGF.done){FGF.later=true;fgfSeen();}fgfClose();});
 setInterval(()=>{try{const n=S.nation;
-  if(FGF.later||!n||n.fgs===1||document.getElementById('fgf')||document.getElementById('m50')||!fgfOpen()||SHOP.open||SHOP.wait||SHOP.gr&&Date.now()-(SHOP.gr.founder||0)<3000
+  if(FGF.later||!n||n.fgs===1||document.getElementById('fgf')||document.getElementById('m50')||document.getElementById('m100')||!fgfOpen()||SHOP.open||SHOP.wait||SHOP.gr&&Date.now()-(SHOP.gr.founder||0)<3000
     ||navigator.webdriver&&!window.EDICTUM_FG||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode!=='world'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
   fgfShow();}catch(e){}},2000);
 
@@ -70932,7 +71090,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
