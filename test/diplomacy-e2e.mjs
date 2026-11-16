@@ -35,7 +35,7 @@ check('the first nation reaches 12 million', await grow(A, ua));
 
 // the page: six tabs, the Overview first, nothing waiting, the spy die gone to Intelligence
 await nav(A, 'diplomacy'); await A.waitForSelector('#dp');
-check('Diplomacy has six tabs', JSON.stringify(await A.$$eval('.dp-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Alliance', 'Relations', 'Treaties', 'Wars', 'Gifts']));
+check('Diplomacy has seven tabs', JSON.stringify(await A.$$eval('.dp-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Alliance', 'Relations', 'Treaties', 'Ventures', 'Wars', 'Gifts']));
 check('it opens on the Overview, one pane at a time', await tab(A) === 'overview' && await shown(A, '#dp-p-overview .dp-cards') && !await shown(A, '#dp-p-relations .dp-rel-top'));
 check('the strip says nothing is waiting', /Nothing is waiting for you/.test(await text(A, '.dp-wait')));
 check('the spy die is no longer on this page', !await A.$('#dp #spy-form'));

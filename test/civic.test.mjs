@@ -783,6 +783,92 @@ test('Supply Caches: a Registered Nation’s cache its saved record holds is fil
   assert.equal((await db.collection('supply').where('to', '==', b.uid).get()).size, 0);
 });
 
+test('Joint ventures: a half the saved record holds is proposed once, accepted with the other half, declined, withdrawn, ended with notice; a computer nation answers by affinity; five at most', async () => {
+  const data = JSON.parse(fs.readFileSync(new URL('../functions/civic-data.json', import.meta.url), 'utf8'));
+  const npc = data.regions.find(r => r.id === 'meridian').npcs.find(n => !BLOCS.includes(n.id));
+  const a = await player(true, true), b = await player(true, true), g = await player(false, true), far = await player(true, true, 'frostmarch'), now = Date.now();
+  const V = async id => (await db.doc('ventures/' + id).get()).data();
+  const pay = (p, jvp) => record(p, { jvp });
+  const road = (id, to, t = now) => ({ id, w: 'a', k: 'road', to, ca: 10, cb: 12, path: [10, 11, 12], t });
+  const bridge = (id, to) => ({ id, w: 'a', k: 'bridge', to, ca: 10, cb: 11, path: [10, 11], t: now });
+  /* a guest proposes nothing; nothing unpaid is proposed */
+  await pay(g, [road('gggg0001', a.uid)]);
+  await rejects(civic(g, { op: 'jvOffer', id: 'gggg0001' }), 'registration_required');
+  await rejects(civic(a, { op: 'jvOffer', id: 'aaaa0001' }), 'jv_none');
+  await assert.rejects(civic(a, { op: 'jvOffer', id: 'BAD' }));
+  await pay(a, [road('aaaa0001', b.uid), road('aaaa0002', far.uid), { ...road('aaaa0003', b.uid), path: [10, 11, 11, 12] }, road('aaaa0004', b.uid, now - 2 * DAY), road('aaaa0011', a.uid)]);
+  let r = await civic(a, { op: 'jvOffer', id: 'aaaa0001' }), vid = a.uid + '_aaaa0001';
+  assert.equal(r.st, 'offered'); assert.equal(r.vid, vid);
+  let D = await V(vid);
+  assert.equal(D.st, 'offered'); assert.equal(D.k, 'road'); assert.equal(D.a, a.uid); assert.equal(D.b, b.uid); assert.equal(D.reg, 'meridian');
+  assert.deepEqual(D.p, [a.uid, b.uid].sort()); assert.deepEqual(D.path, [10, 11, 12]); assert.equal(D.ca, 10); assert.equal(D.cb, 12);
+  assert.ok(D.x > now + 1.9 * DAY && D.x < now + 2.1 * DAY); assert.ok(D.exp.toMillis() > D.x + 59 * DAY);
+  /* asked again (an answer lost on the way): the same document */
+  assert.equal((await civic(a, { op: 'jvOffer', id: 'aaaa0001' })).dup, true);
+  for (const id of ['aaaa0002', 'aaaa0011']) await rejects(civic(a, { op: 'jvOffer', id }), 'jv_target');
+  await rejects(civic(a, { op: 'jvOffer', id: 'aaaa0003' }), 'jv_bad');
+  await rejects(civic(a, { op: 'jvOffer', id: 'aaaa0004' }), 'jv_old');
+  /* only the nation it is for answers, once its own saved record holds its half */
+  await rejects(civic(a, { op: 'jvAnswer', vid, yes: true }), 'jv_gone');
+  await rejects(civic(b, { op: 'jvAnswer', vid, yes: true }), 'jv_none');
+  await pay(b, [{ v: vid, w: 'b', k: 'rail', t: now }]);
+  await rejects(civic(b, { op: 'jvAnswer', vid, yes: true }), 'jv_none');
+  await pay(b, [{ v: vid, w: 'b', k: 'road', t: now }]);
+  r = await civic(b, { op: 'jvAnswer', vid, yes: true });
+  assert.equal(r.st, 'active');
+  D = await V(vid);
+  assert.equal(D.st, 'active'); assert.ok(D.at >= now); assert.ok(D.d >= D.at + 5.9 * 3600000 && D.d <= D.at + 6.1 * 3600000);
+  assert.equal(D.x, undefined); assert.equal(D.exp, undefined);
+  /* one of each kind with the same nation */
+  await pay(a, [road('aaaa0005', b.uid)]);
+  await rejects(civic(a, { op: 'jvOffer', id: 'aaaa0005' }), 'jv_exists');
+  /* declined, then kept as declined for a while, so the proposer's game gives its half back */
+  await pay(a, [bridge('aaaa0006', b.uid)]);
+  await civic(a, { op: 'jvOffer', id: 'aaaa0006' });
+  await civic(b, { op: 'jvAnswer', vid: a.uid + '_aaaa0006', yes: false });
+  D = await V(a.uid + '_aaaa0006');
+  assert.equal(D.st, 'declined'); assert.equal(D.by, b.uid); assert.ok(D.exp.toMillis() > now + 59 * DAY);
+  await rejects(civic(b, { op: 'jvAnswer', vid: a.uid + '_aaaa0006', yes: true }), 'jv_gone');
+  /* withdrawn by the proposer */
+  await pay(a, [{ ...road('aaaa0007', b.uid), k: 'rail' }]);
+  await civic(a, { op: 'jvOffer', id: 'aaaa0007' });
+  await civic(b, { op: 'jvCancel', vid: a.uid + '_aaaa0007' });
+  assert.equal((await V(a.uid + '_aaaa0007')).st, 'offered', 'only the proposer withdraws');
+  await civic(a, { op: 'jvCancel', vid: a.uid + '_aaaa0007' });
+  assert.equal((await V(a.uid + '_aaaa0007')).st, 'declined');
+  /* ended with notice by either side: in force until it runs out */
+  const e = await civic(b, { op: 'jvEnd', vid });
+  assert.ok(e.end > now + 2.9 * DAY && e.end < now + 3.1 * DAY); assert.equal(e.other, a.uid);
+  D = await V(vid); assert.equal(D.st, 'ending'); assert.equal(D.by, b.uid); assert.ok(D.exp.toMillis() > e.end + 59 * DAY);
+  assert.equal((await civic(a, { op: 'jvEnd', vid })).end, e.end);
+  await rejects(civic(far, { op: 'jvEnd', vid }), 'jv_gone');
+  /* not with a nation at war with it */
+  await record(a, { wars: { [b.uid]: { t: now - 1000 } } });
+  await pay(a, [bridge('aaaa0008', b.uid)]);
+  await rejects(civic(a, { op: 'jvOffer', id: 'aaaa0008' }), 'jv_war');
+  await record(a, { wars: {} });
+  /* a computer nation: declines when values are far apart, joins at once when they are close */
+  const farS = k => ((npc.s[k] ?? 50) >= 50 ? 0 : 100);
+  await record(a, { s: { civil: farS('civil'), econ: farS('econ'), pol: farS('pol') }, gw: {} });
+  await pay(a, [road('aaaa0009', npc.id)]);
+  await rejects(civic(a, { op: 'jvOffer', id: 'aaaa0009' }), 'jv_npc');
+  await record(a, { s: { civil: npc.s.civil, econ: npc.s.econ, pol: npc.s.pol } });
+  await pay(a, [road('aaaa0010', npc.id)]);
+  r = await civic(a, { op: 'jvOffer', id: 'aaaa0010' });
+  assert.equal(r.st, 'active');
+  D = await V(a.uid + '_aaaa0010'); assert.equal(D.npc, true); assert.equal(D.b, npc.id); assert.equal(D.st, 'active'); assert.ok(D.d > now);
+  /* five at most, offers waiting either way counted: a holds the ending road and the computer nation's, then three offers */
+  const c = await player(true, true), c2 = await player(true, true), c3 = await player(true, true), c4 = await player(true, true);
+  for (const [i, p] of [c, c2, c3].entries()) { await pay(a, [road('aaab000' + i, p.uid)]); assert.equal((await civic(a, { op: 'jvOffer', id: 'aaab000' + i })).st, 'offered'); }
+  await pay(a, [road('aaab0009', c4.uid)]);
+  await rejects(civic(a, { op: 'jvOffer', id: 'aaab0009' }), 'jv_max');
+  await pay(c4, [road('cccc0001', a.uid)]);
+  await rejects(civic(c4, { op: 'jvOffer', id: 'cccc0001' }), 'jv_max_them');
+  /* a deleted account takes its ventures with it */
+  await db.doc('nations/' + b.uid).delete(); await account(b, { op: 'close' });
+  assert.equal((await db.collection('ventures').where('p', 'array-contains', b.uid).get()).size, 0);
+});
+
 test('Alliances: pacts are offered and signed by leaders, ended with notice or broken at a cost; rivals earn renown for battles won against each other', async () => {
   const L1 = await player(true, true), L2 = await player(true, true), m2 = await player(true, true), L3 = await player(true, true), now = Date.now();
   const A1 = (await civic(L1, { op: 'alFound', name: 'North ' + crypto.randomUUID().slice(0, 8), acc: 'open' })).aid;

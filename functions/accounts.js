@@ -12,6 +12,7 @@ import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
 import { scForget } from './supply.js';
+import { jvDrop } from './ventures.js';
 import { rmbForget, cbForget } from './board.js';
 import { rcForget } from './regionchat.js';
 import { fcForget } from './flagcomp.js';
@@ -187,6 +188,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await trDrop(db, uid);
     // the Supply Caches it sent and received, with their messages (functions/supply.js)
     await scForget(db, uid);
+    // the joint ventures it took part in (functions/ventures.js)
+    await jvDrop(db, uid);
     // the @mentions waiting in its bell (functions/board.js)
     await db.recursiveDelete(db.collection('mentions/' + uid + '/m'));
     // its lines in the alliance channels and the region chats (functions/regionchat.js)
