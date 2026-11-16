@@ -2063,6 +2063,17 @@ button.stk-i{padding:8px 8px 11px;border:1px solid var(--rule);border-radius:6px
 .cz-tinc .cz-tsw{width:28px;height:28px}
 .cz-tsw{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid rgba(0,0,0,.35)}
 .cz-tsw.met{background-image:linear-gradient(135deg,rgba(255,255,255,.55),rgba(255,255,255,0) 55%)}
+/* the four earned tinctures: dashed and dimmed with a lock until earned, a dot when new; Shining gold glints */
+.cz-tinc{position:relative}
+.cz-tinc.locked{border-style:dashed}
+.cz-tinc.locked .cz-tsw{opacity:.5}
+.cz-tinc>.cz-lock{position:absolute;right:-3px;bottom:-3px;width:17px;height:17px;padding:2px 3px;box-sizing:border-box;border-radius:50%;border:1px solid var(--rule-2);background:var(--sheet);color:var(--ink-2)}
+.cz-tinc>.cz-tnew{position:absolute;top:-2px;right:-2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--sheet);background:var(--accent)}
+.cz-tn-h .cz-lock{display:inline-block;vertical-align:-1px;margin-right:5px}
+.cz-tsw.gilt,.sw.gilt{position:relative;overflow:hidden;background:radial-gradient(circle at 32% 26%,#FFF3C4 0,#F0C75A 30%,#D9A535 62%,#A8771E 100%)}
+.cz-tsw.gilt::after,.sw.gilt::after{content:'';position:absolute;inset:-20%;background:linear-gradient(115deg,transparent 36%,rgba(255,250,228,.95) 50%,transparent 64%);transform:translateX(-110%);animation:cz-gilt 4s ease-in-out infinite}
+@keyframes cz-gilt{0%,40%{transform:translateX(-110%)}80%,100%{transform:translateX(110%)}}
+@media (prefers-reduced-motion:reduce){.cz-tsw.gilt::after,.sw.gilt::after{animation:none;transform:none}}:root[data-motion="reduce"] .cz-tsw.gilt::after,:root[data-motion="reduce"] .sw.gilt::after{animation:none;transform:none}
 .cz-tnm{font-weight:600;color:var(--ink)}
 .cz-tinrow{display:flex;flex-wrap:wrap;gap:4px 28px}
 .cz-tinrow .sw-l{margin-top:12px}
@@ -26374,6 +26385,8 @@ const UNLOCKS={
      same icon as a flag emblem (see the achievements' unlock source) */
   'c-spyglass':{k:'charge',n:'Spyglass',src:'ach',tw:'e-spyglass'},'c-letter':{k:'charge',n:'Sealed letter',src:'ach',tw:'e-letter'},'c-candle':{k:'charge',n:'Candle',src:'ach',tw:'e-candle'},'c-spade':{k:'charge',n:'Spade',src:'ach',tw:'e-spade'},'c-mace':{k:'charge',n:'Mace',src:'ach',tw:'e-mace'},
   'e-spyglass':{k:'emblem',n:'Spyglass',src:'ach'},'e-letter':{k:'emblem',n:'Sealed letter',src:'ach'},'e-candle':{k:'emblem',n:'Candle',src:'ach'},'e-spade':{k:'emblem',n:'Spade',src:'ach'},'e-mace':{k:'emblem',n:'Mace',src:'ach'},
+  /* four tinctures for the arms, each earned with an achievement (CZ_TN_U) */
+  'tn-lime':{k:'tinct',n:'Lime',src:'ach'},'tn-turq':{k:'tinct',n:'Turquoise',src:'ach'},'tn-nuit':{k:'tinct',n:'Night blue',src:'ach'},'tn-gilt':{k:'tinct',n:'Shining gold',src:'ach'},
   /* extra emblems for the flag designer */
   'e-crown':{k:'emblem',n:'Crown',src:'ach'},'e-eagle':{k:'emblem',n:'Eagle',src:'ach'},'e-gear':{k:'emblem',n:'Gear',src:'ach'},
   'e-anchor':{k:'emblem',n:'Anchor',src:'set'},'e-tree':{k:'emblem',n:'Tree',src:'set'},'e-wave':{k:'emblem',n:'Wave',src:'set'},
@@ -27259,6 +27272,10 @@ achDef('land','land-ore12','g','Iron Baron','Hold 12 large iron deposits at once
 achDef('bld','bld-lode','s','Mother Lode','Have an Iron Mine working a large iron deposit near its city.',1,aLode,{fm:'bool'});
 achDef('bld','bld-orepit','b','Pits and Pieces','Complete Ore Pits in a city with no hills nearby.',1,x=>achYes(aBuilt(x,'orepit')>0),{fm:'bool'});
 achDef('bld','bld-harb3','s','Port of Call','Have a Harbour standing in 3 cities.',3,x=>aStanding(x).harbour||0);
+/* the four earned tinctures for the arms (CZ_TN_U), one achievement each: a lime green, a turquoise, a night blue and a shining gold */
+achDef('bld','bld-lime','b','Lime Groves','Have Farm Estates standing in 3 cities.',3,x=>aStanding(x).farm||0,{u:'tn-lime'});
+function aCoast(x){return achM(x,'coast',()=>{try{const T=territory(),i=T.byId[x.id];if(i===undefined)return 0;let k=0;for(let c=0;c<MAP.N;c++)if(T.owner[c]===i&&MAP.T[c]>=2&&isCoastal(c))k++;return k;}catch(e){return 0;}});}
+achDef('land','land-turq','s','Turquoise Coast','Hold 25 hexes on the water’s edge at once, by the sea or a lake.',25,aCoast,{u:'tn-turq'});
 achDef('eco','eco-iron10','s','Ironworks of the Realm','Have your stockpile gain 10 iron a day.',10,x=>aRate(x,'iron'));
 achDef('eco','eco-goods25','g','Workshop of the World','Have your stockpile gain 25 goods a day.',25,x=>aRate(x,'goods'));
 achDef('eco','eco-iron300','s','Iron Reserve','Hold 300 iron in your stockpile at once.',300,x=>aHave(x,'iron'));
@@ -27392,6 +27409,7 @@ achDef('soc','soc-ws8','g','Willow Street Regular','Answer all eight letters fro
 achDef('land','land-cxlv2','b','Extension Approved','Upgrade a building: its first block, the grey one.',1,x=>aCxLv(x,1),{fm:'bool'});
 achDef('land','land-cxlv3','s','Top of the Range','Give a building all five upgrades, up to the gold block.',1,x=>aCxLv(x,5),{fm:'bool'});
 achDef('land','land-cxlv10','g','Planning Permission','Have 10 buildings with the gold block.',10,x=>aCxLv(x,5));
+achDef('land','land-gilt','g','All That Glitters','Have 15 buildings with the gold block. They catch the light from the next province.',15,x=>aCxLv(x,5),{u:'tn-gilt'});
 /* building upgrades, round two (2026-11-06): one per colour, blocks in total, a rainbow, a gilded city */
 [['bld-ug2','b','A Lick of Paint',2,'Give a building its green upgrade block, the second.'],['bld-ug3','b','Blue Ribbon',3,'Give a building its blue upgrade block, the third.'],['bld-ug4','s','Born to the Purple',4,'Give a building its purple upgrade block, the fourth.']]
   .forEach(([id,t,n,g,d])=>achDef('bld',id,t,n,d,1,x=>aCxLv(x,g),{fm:'bool'}));
@@ -27457,7 +27475,7 @@ function achEvalNew(n,id,now){
 }
 const achQ=s=>'‘'+s+'’';
 const achTierWord=t=>ACH_TIER[t].n.toLowerCase();
-function achUnlockWords(u){const U=UNLOCKS[u];if(!U)return '';const nm=U.n;if(U.k==='charge'&&achTwin(u))return `the ${nm} charge for the arms and flag emblem`;return {title:`the title ‘${nm}’`,frame:`the ${nm} flag frame`,pattern:`the ${nm} banner pattern`,charge:`the ${nm} charge for the arms`,emblem:`the ${nm} flag emblem`,accent:`the ${nm} accent colour`,stamp:`the ${nm} decision stamp`,fpat:`the ${nm} flag pattern`,border:`the ${nm.replace(/^The /,'')} card border`}[U.k]||nm;}
+function achUnlockWords(u){const U=UNLOCKS[u];if(!U)return '';const nm=U.n;if(U.k==='charge'&&achTwin(u))return `the ${nm} charge for the arms and flag emblem`;return {title:`the title ‘${nm}’`,frame:`the ${nm} flag frame`,pattern:`the ${nm} banner pattern`,charge:`the ${nm} charge for the arms`,tinct:`${nm}, a tincture for the arms`,emblem:`the ${nm} flag emblem`,accent:`the ${nm} accent colour`,stamp:`the ${nm} decision stamp`,fpat:`the ${nm} flag pattern`,border:`the ${nm.replace(/^The /,'')} card border`}[U.k]||nm;}
 
 /* ───────── earning: in commit() ───────── */
 COMMIT_HOOKS.push((n,old,now)=>{
@@ -27692,8 +27710,20 @@ const CZ_SH_CITY={mural:5};
 const CZ_SH_GIFT={royal:1};
 const czShOk=(n,s)=>CZ_SH_SHOP[s]?(!!n&&(czMine().has(CZ_SH_SHOP[s])||!!(cz(n).a&&cz(n).a.s===s))):CZ_SH_GIFT[s]?!!n&&(n.m50===1||!!(cz(n).a&&cz(n).a.s===s)):!CZ_SH_CITY[s]||(!!n&&((n.cities||[]).length>=CZ_SH_CITY[s]||!!(cz(n).a&&cz(n).a.s===s)));
 const czShHow=s=>s==='midnight'?'Part of the Black Friday Pack in the Shop.':s==='scutum'?'Part of the Old Republic Pack in the Shop.':s==='rope'?'Part of the Age of Sail Pack in the Shop.':s==='gable'?'Part of the Tulip Mania Pack in the Shop.':CZ_SH_GIFT[s]?`The ${CZ_SHIELDS[s]} shield was a gift to the nations that were here when Edictum reached 50 players.`:`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
-const CZ_TINCT={or:['Or','#E2B13C'],argent:['Argent','#F2F1EA'],gules:['Gules','#C0282D'],azure:['Azure','#2457A6'],vert:['Vert','#23804A'],purpure:['Purpure','#743A8E'],rose:['Rose','#E07AAA'],tenne:['Tenné','#D0671F'],celeste:['Celeste','#6FA8DC'],murrey:['Murrey','#8A2846'],cendree:['Cendrée','#9EA3A8'],brunatre:['Brunâtre','#7A4A28'],carnation:['Carnation','#EDB68F'],sable:['Sable','#1E1E1E']};
-const CZ_METAL={or:1,argent:1};
+const CZ_TINCT={or:['Or','#E2B13C'],argent:['Argent','#F2F1EA'],gules:['Gules','#C0282D'],azure:['Azure','#2457A6'],vert:['Vert','#23804A'],purpure:['Purpure','#743A8E'],rose:['Rose','#E07AAA'],tenne:['Tenné','#D0671F'],celeste:['Celeste','#6FA8DC'],murrey:['Murrey','#8A2846'],cendree:['Cendrée','#9EA3A8'],brunatre:['Brunâtre','#7A4A28'],carnation:['Carnation','#EDB68F'],sable:['Sable','#1E1E1E'],
+  lime:['Lime','#7CC93A'],turq:['Turquoise','#1FA6A0'],nuit:['Night blue','#17224D'],gilt:['Shining gold','#E6B640']};
+/* Shining gold is a metal, painted with a glint that sweeps across it (czGiltDef) */
+const CZ_METAL={or:1,argent:1,gilt:1};
+/* the last four are earned, each with an achievement (UNLOCKS tn-*), and kept to the colours freely held where they are not:
+   a nation that does not hold one shows its free neighbour instead */
+const CZ_TN_U={lime:'tn-lime',turq:'tn-turq',nuit:'tn-nuit',gilt:'tn-gilt'},CZ_TN_FB={lime:'vert',turq:'celeste',nuit:'azure',gilt:'or'};
+const czTnOk=t=>!CZ_TN_U[t]||czMine().has(CZ_TN_U[t]);
+const czTnKey=id=>Object.keys(CZ_TN_U).find(t=>CZ_TN_U[t]===id)||'';
+/* swap any earned tincture a nation does not hold for its free neighbour (holds: id => bool) */
+function czTnKeep(a,holds){if(!a)return a;const f=t=>CZ_TN_U[t]&&!holds(CZ_TN_U[t])?CZ_TN_FB[t]:t;a.t=[f(a.t[0]),f(a.t[1])];a.ct=f(a.ct);return a;}
+const czTnCls=t=>(CZ_METAL[t]?' met':'')+(t==='gilt'?' gilt':'');
+/* a round swatch of a tincture; Shining gold's paint and glint come from the stylesheet */
+const czTnSw=t=>`<span class="cz-tsw${czTnCls(t)}"${t==='gilt'?'':` style="background:${CZ_TINCT[t][1]}"`} aria-hidden="true"></span>`;
 const CZ_DIVS={plain:'Plain',pale:'Per pale',fess:'Per fess',bend:'Per bend',bendsin:'Per bend sinister',quarterly:'Quarterly',perchev:'Per chevron',persalt:'Per saltire',chief:'Chief',fessb:'Fess',paleb:'Pale',bendb:'Bend',cross:'Cross',saltire:'Saltire',chevron:'Chevron',bordure:'Bordure',paly:'Paly',barry:'Barry',chequy:'Chequy',gyronny:'Gyronny',pile:'Pile'};
 const CZ_ORD={chief:'a chief',fessb:'a fess',paleb:'a pale',bendb:'a bend',cross:'a cross',saltire:'a saltire',chevron:'a chevron',bordure:'a bordure',pile:'a pile'};
 const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent',fleur:'a fleur-de-lis',mount:'a trimount',sword:'a sword erect',bell:'a bell',harp:'a harp',acorn:'an acorn slipped',torch:'a torch inflamed',scales:'a pair of scales',hourglass:'an hourglass',quill:'a quill pen',helm:'a ship’s wheel',grapes:'a bunch of grapes',lighthouse:'a lighthouse',dove:'a dove volant',pine:'a pine tree',horseshoe:'a horseshoe',heart:'a heart',compass:'a compass rose',axe:'an axe erect',
@@ -27741,7 +27771,8 @@ function czCleanArms(a,u){
   if(c&&u&&UNLOCKS[c].src!=='free'&&!u.includes(c))c='';
   /* the Midnight Tag shield is the Shop's: shown only with the piece held (u: what the nation holds, vouched for) */
   let sh=czHas(CZ_SHIELDS,a.s)?a.s:'heater';if(CZ_SH_SHOP[sh]&&u&&!u.includes(CZ_SH_SHOP[sh]))sh='heater';
-  return {s:sh,d:czHas(CZ_DIVS,a.d)?a.d:'plain',t,c,ct:T(a.ct)||'or',m:a.m===1?1:0,on:a.on===1?1:0};
+  const o={s:sh,d:czHas(CZ_DIVS,a.d)?a.d:'plain',t,c,ct:T(a.ct)||'or',m:a.m===1?1:0,on:a.on===1?1:0};
+  return u?czTnKeep(o,id=>u.includes(id)):o;
 }
 function czCleanSym(s){
   if(!s||typeof s!=='object'||Array.isArray(s))return null;
@@ -27788,7 +27819,7 @@ function cz(n){
   const key=UNLOCK_SOURCES.length+':'+czVer+':'+(n===S.nation?czMine().size:'x'),m=CZ_MEMO.get(n);if(m&&m.k===key)return m.v;
   const raw=n.cz&&typeof n.cz==='object'?n.cz:{},v={};
   for(const f of Object.keys(CZ_KIND)){const id=raw[f];v[f]=czU(id)&&UNLOCKS[id].k===CZ_KIND[f]&&czHolds(n,id,raw)?id:CZ_DEF[f];}
-  v.a=czCleanArms(raw.a,null);if(v.a&&v.a.c&&!czHolds(n,v.a.c,raw))v.a.c='';
+  v.a=czTnKeep(czCleanArms(raw.a,null),id=>czHolds(n,id,raw));if(v.a&&v.a.c&&!czHolds(n,v.a.c,raw))v.a.c='';
   if(!v.a&&n.npc)v.a=czDefaultArms(n,1);
   v.sy=czCleanSym(raw.sy)||{};
   v.ds=dsMode(n);
@@ -28029,10 +28060,18 @@ function czChargePos(a){
   return {x,y,s};
 }
 function czArmsSVG(a,o){
-  o=o||{};const id='cza'+(++czSeq),sp=czShieldPath(a.s),c1=CZ_TINCT[a.t[0]][1],c2=CZ_TINCT[a.t[1]][1],mot=o.motto?czText(o.motto,80):'';
-  let ch='';if(a.c&&czU(a.c)){const p=czChargePos(a),col=CZ_TINCT[a.ct][1];ch=`<g transform="translate(${(p.x-50*p.s).toFixed(2)},${(p.y-50*p.s).toFixed(2)}) scale(${p.s})">${czCharge(a.c.slice(2),col,a.ct==='sable'?'#8d8d8d':'#151515')}</g>`;}
-  return `<svg class="cz-arms${o.cls?' '+o.cls:''}" viewBox="${mot?'-16 -3 132 164':'-3 -3 106 126'}" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs><clipPath id="${id}"><path d="${sp}"/></clipPath><radialGradient id="${id}g" cx=".3" cy=".2" r=".95"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".24"/></radialGradient></defs>
+  o=o||{};const id='cza'+(++czSeq),sp=czShieldPath(a.s),F=t=>t==='gilt'?`url(#${id}au)`:CZ_TINCT[t][1],c1=F(a.t[0]),c2=F(a.t[1]),mot=o.motto?czText(o.motto,80):'';
+  let ch='';if(a.c&&czU(a.c)){const p=czChargePos(a),col=F(a.ct);ch=`<g transform="translate(${(p.x-50*p.s).toFixed(2)},${(p.y-50*p.s).toFixed(2)}) scale(${p.s})">${czCharge(a.c.slice(2),col,a.ct==='sable'||a.ct==='nuit'?'#8d8d8d':'#151515')}</g>`;}
+  const au=a.t[0]==='gilt'||(a.d!=='plain'&&a.t[1]==='gilt')||(ch&&a.ct==='gilt')?czGiltDef(id+'au',!o.label):'';
+  return `<svg class="cz-arms${o.cls?' '+o.cls:''}" viewBox="${mot?'-16 -3 132 164':'-3 -3 106 126'}" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${au}<clipPath id="${id}"><path d="${sp}"/></clipPath><radialGradient id="${id}g" cx=".3" cy=".2" r=".95"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".24"/></radialGradient></defs>
 <g clip-path="url(#${id})"><rect x="-5" y="-5" width="110" height="130" fill="${c1}"/>${czDivBody(a.d,c2,sp)}${ch}<rect x="-5" y="-5" width="110" height="130" fill="url(#${id}g)"/></g><path d="${sp}" class="cz-ol" fill="none" stroke-width="2.6" stroke-linejoin="round"/>${mot?czScroll(mot,id):''}</svg>`;
+}
+/* Shining gold: gold shaded like metal, its highlight sweeping slowly across the shield. The gradient repeats every
+   220×260 units, so a translate of one period loops without a seam. Only the arms shown as themselves (with a label:
+   the nation page, the big preview, a province, a city) move; the small tiles and reduced motion keep it still. */
+function czGiltDef(gid,still){
+  const mv=!still&&!mfxRM();
+  return `<linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="220" y2="260" spreadMethod="repeat" gradientTransform="translate(-60 -70)"><stop offset="0" stop-color="#A8771E"/><stop offset=".36" stop-color="#E2AF38"/><stop offset=".47" stop-color="#FBE08C"/><stop offset=".5" stop-color="#FFF8DC"/><stop offset=".53" stop-color="#FBE08C"/><stop offset=".64" stop-color="#E2AF38"/><stop offset="1" stop-color="#A8771E"/>${mv?'<animateTransform attributeName="gradientTransform" type="translate" from="-280 -330" to="-60 -70" dur="5s" repeatCount="indefinite"/>':''}</linearGradient>`;
 }
 function czScroll(t,id){
   const fs=Math.max(3.6,Math.min(8.4,104/(t.length*.66+2))).toFixed(2);
@@ -28194,6 +28233,7 @@ function czPick(k,id){
 }
 function czArm(f,v){
   const n=S.nation;if(!n)return false;const a=clone(cz(n).a||czDefaultArms(n));
+  if((f==='t0'||f==='t1'||f==='ct')&&czHas(CZ_TINCT,v)&&!czTnOk(v)){toast('Locked. '+unlockHow(CZ_TN_U[v]));return false;}
   if(f==='s'&&czHas(CZ_SHIELDS,v)){if(!czShOk(n,v)){toast('Locked. '+czShHow(v));return false;}a.s=v;}else if(f==='d'&&czHas(CZ_DIVS,v))a.d=v;else if((f==='t0'||f==='t1')&&czHas(CZ_TINCT,v))a.t[+f[1]]=v;else if(f==='ct'&&czHas(CZ_TINCT,v))a.ct=v;
   else if(f==='c'){if(v){const u=czU(v);if(!u||u.k!=='charge')return false;if(czLocked(v)){toast('Locked. '+unlockHow(v));return false;}}a.c=v||'';}
   else if(f==='m')a.m=v==='1'?1:0;else if(f==='on')a.on=v==='1'?1:0;else return false;
@@ -28289,8 +28329,11 @@ VIEWS_EXT.customise=now=>{
   const sec=(k,num,title,hint,body)=>`<section class="cz-sec" id="cz-sec-${k}"><h2 class="fs-l"><span class="fs-n">${num}</span>${title}</h2>${hint?`<p class="hint fs-hint">${hint}</p>`:''}${body}</section>`;
   /* the arms designer: the shield stays in view beside its controls, tinctures are swatches, the charge's in a popover */
   const a=c.a||czDefaultArms(n),armB=(f,v,inner,label,on,isNew)=>`<button type="button" id="cz-a-${f}-${v||'none'}" class="cz-mt${on?' on':''}" data-act="cz-arm" data-f="${f}" data-v="${v}" aria-pressed="${on}"><span class="cz-mtv" aria-hidden="true">${inner}</span><span class="cz-mtn">${esc(label)}</span>${isNew?'<span class="cz-new">New</span>':''}</button>`;
-  const tinc=(f,cur,lab)=>`<div class="cz-tincs" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).map(t=>`<button type="button" id="cz-a-${f}-${t}" class="cz-tinc${cur===t?' on':''}" data-act="cz-arm" data-f="${f}" data-v="${t}" aria-pressed="${cur===t}" aria-label="${CZ_TINCT[t][0]}" title="${CZ_TINCT[t][0]}${CZ_METAL[t]?' (a metal)':' (a colour)'}"><span class="cz-tsw${CZ_METAL[t]?' met':''}" style="background:${CZ_TINCT[t][1]}" aria-hidden="true"></span></button>`).join('')}</div>`;
-  const tl=(l,t)=>`<p class="sw-l">${l} <b class="cz-tnm">${CZ_TINCT[t][0]}</b></p>`;
+  /* the four earned tinctures sit at the end, locked (with how to earn them) until their achievement is in; the field's
+     row carries data-czid, where an unlock's link lands */
+  const tinc=(f,cur,lab)=>`<div class="cz-tincs" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).map(t=>{const u=CZ_TN_U[t],lk=!!u&&!has(u),nm=CZ_TINCT[t][0],how=lk?esc(unlockHow(u)):'';
+    return `<button type="button" id="cz-a-${f}-${t}" class="cz-tinc${cur===t?' on':''}${lk?' locked':''}" data-act="cz-arm" data-f="${f}" data-v="${t}"${u&&f==='t0'?` data-czid="${u}"`:''} aria-pressed="${cur===t}" aria-label="${nm}${lk?', locked. '+how:''}" title="${nm}${lk?': '+how:CZ_METAL[t]?' (a metal)':' (a colour)'}">${czTnSw(t)}${lk?CZ_LOCK:''}${u&&fr.has(u)?'<span class="cz-tnew" aria-hidden="true"></span>':''}</button>`;}).join('')}</div>`;
+  const tl=(l,t)=>`<p class="sw-l">${l} <b class="cz-tnm">${CZ_TINCT[t][0]}</b></p>`,tnLk=Object.values(CZ_TN_U).filter(u=>!has(u));
   const tr=SHOP.tryOn&&SHOP.tryOn.k==='c'?SHOP.tryOn.id:'';
   const charges=U('charge').map(id=>has(id)?armB('c',id,czArmsSVG({...a,d:'plain',c:id,s:'heater'}),UNLOCKS[id].n,a.c===id,fr.has(id)):`<button type="button" data-ux-unlock="${esc(id)}" class="cz-mt locked${tr===id?' on':''}" data-act="cz-try" data-k="c" data-id="${esc(id)}" aria-pressed="${tr===id}" title="${esc(UNLOCKS[id].n)}: ${esc(unlockHow(id))}"><span class="cz-mtv" aria-hidden="true">${czArmsSVG({...a,d:'plain',c:id,s:'heater'})}</span><span class="cz-mtn">${CZ_LOCK}${esc(UNLOCKS[id].n)}</span><span class="cz-how">${tr===id?'<b>Trying it on.</b> ':''}${esc(unlockHow(id))}</span></button>`).join('');
   const rot=a.c&&(CZ_METAL[a.ct]?1:0)===(CZ_METAL[a.t[0]]?1:0)&&(a.d==='plain'||CZ_ORD[a.d]);
@@ -28301,8 +28344,9 @@ VIEWS_EXT.customise=now=>{
         :`<span id="cz-a-s-${s}" class="cz-mt locked" role="img" aria-label="${esc(CZ_SHIELDS[s])}, locked. ${esc(czShHow(s))}" title="${esc(CZ_SHIELDS[s])}: ${esc(czShHow(s))}"><span class="cz-mtv" aria-hidden="true">${czArmsSVG({...a,s,c:''})}</span><span class="cz-mtn">${CZ_LOCK}${esc(CZ_SHIELDS[s])}</span></span>`).join('')}</div>
       <p class="sw-l">Division</p><div class="cz-mgrid">${Object.keys(CZ_DIVS).map(d=>armB('d',d,czArmsSVG({...a,d,c:''}),CZ_DIVS[d],a.d===d)).join('')}</div>
       <div class="cz-tinrow"><div>${tl('Field',a.t[0])}${tinc('t0',a.t[0],'Field')}</div>${a.d==='plain'?'':`<div>${tl('Second tincture',a.t[1])}${tinc('t1',a.t[1],'Second tincture')}</div>`}</div>
+      ${tnLk.length?`<p class="hint cz-tn-h">${CZ_LOCK}${esc(list(tnLk.map(u=>UNLOCKS[u].n)))} ${tnLk.length===1?'is earned with an achievement: tap it':'are earned with achievements: tap one'} to see how.</p>`:''}
       <p class="sw-l">Charge</p><div class="cz-mgrid cz-charges">${armB('c','','<span class="cz-none">None</span>','No charge',!a.c)}${charges}</div>
-      ${a.c?`<details class="cz-pop" id="cz-ctpop"><summary><span class="cz-tsw${CZ_METAL[a.ct]?' met':''}" style="background:${CZ_TINCT[a.ct][1]}" aria-hidden="true"></span>Tincture of the charge: <b class="cz-tnm">${CZ_TINCT[a.ct][0]}</b></summary>${tinc('ct',a.ct,'Tincture of the charge')}</details>`:''}
+      ${a.c?`<details class="cz-pop" id="cz-ctpop"><summary>${czTnSw(a.ct)}Tincture of the charge: <b class="cz-tnm">${CZ_TINCT[a.ct][0]}</b></summary>${tinc('ct',a.ct,'Tincture of the charge')}</details>`:''}
       ${czSeg('Motto scroll','cz-l-m',[['0','None'],['1','Show the motto']],String(a.m),'cz-arm','m')}${n.motto?'':'<p class="hint">Your nation has no motto yet. Add one in Settings and it appears on the scroll.</p>'}
       ${rot?'<p class="hint cz-rule">Heraldry’s rule of tincture puts metal (or, argent) on colour and colour on metal, so the charge stands out.</p>':''}
     </div></div>`;
@@ -32850,6 +32894,7 @@ UNLOCKS['t-handler']={k:'title',n:'the Handler',src:'ach'};
 achDef('spy','cov-10','s','Case Officer','Carry out 10 covert operations.',10,x=>aT(x,'cov'));
 achDef('spy','cov-40','g','Head of Station','Carry out 40 covert operations.',40,x=>aT(x,'cov'));
 achDef('spy','ag-lv5','g','Old Hand','Train an agent to level 5.',1,x=>achYes(agRoster(x.n).some(a=>a.lv>=5)),{fm:'bool',u:'t-handler'});
+achDef('spy','ag-night','s','Night Work','Train an agent to level 3. The best work is done after dark.',1,x=>achYes(agRoster(x.n).some(a=>a.lv>=3)),{fm:'bool',u:'tn-nuit'});
 achDef('spy','ag-set','b','A Full Set','Have a forger, a burglar, a charmer and a scout in your service at once.',4,x=>new Set(agRoster(x.n).map(a=>a.sp)).size);
 achDef('spy','bu-1','b','Opening the Bureau','Finish your first upgrade at the bureau.',1,x=>achYes(buAll(x.n)>=1),{fm:'bool'});
 achDef('spy','bu-gold','g','Gold Clearance','Take one of the bureau’s departments to its gold block.',1,x=>achYes(BU_KEYS.some(k=>buLv(x.n,k)>=5)),{fm:'bool'});
@@ -43093,7 +43138,7 @@ function prvGovNorm(g){
 function prvFlagNorm(f,n){
   if(!f||typeof f!=='object'||Array.isArray(f))return null;
   const raw=n&&n.cz;
-  if(f.k==='a'){const a=czCleanArms(f,null);if(!a)return null;if(a.c&&!czHolds(n,a.c,raw))a.c='';return {k:'a',s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};}
+  if(f.k==='a'){const a=czTnKeep(czCleanArms(f,null),id=>czHolds(n,id,raw));if(!a)return null;if(a.c&&!czHolds(n,a.c,raw))a.c='';return {k:'a',s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};}
   if(f.k!=='f')return null;
   let o={p:PATTERNS[f.p]?f.p:DEF_FLAG.p,c:[0,1,2].map(i=>safeColor(f.c&&f.c[i],DEF_FLAG.c[i])),e:EMBLEMS[f.e]?f.e:'none',ec:safeColor(f.ec,'#F2C230')};
   /* the flag designer's own normaliser, when it has one, keeps any newer fields */
@@ -43615,7 +43660,7 @@ function prvFlagEdit(id,f,v){
     if(f==='k'){if(v===cur.k)return '';const d=prvDefFlag(n,q);q.f=v==='a'?(d.k==='a'?d:(()=>{const a=czDefaultArms(n);return {k:'a',s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};})()):(d.k==='f'?d:Object.assign({},(n.flag||DEF_FLAG),{k:'f'}));return '';}
     if(f==='reset'){delete q.f;return '';}
     if(cur.k==='f'){if(f==='p'&&PATTERNS[v])cur.p=v;else if(f==='e'&&EMBLEMS[v])cur.e=v;else if(f==='ec')cur.ec=safeColor(v,cur.ec);else if(/^c[0-2]$/.test(f))cur.c[+f[1]]=safeColor(v,cur.c[+f[1]]);else return '';}
-    else{if(f==='s'&&CZ_SHIELDS[v]&&(czShOk(n,v)||cur.s===v))cur.s=v;else if(f==='d'&&CZ_DIVS[v])cur.d=v;else if((f==='t0'||f==='t1')&&CZ_TINCT[v])cur.t[+f[1]]=v;else if(f==='ct'&&CZ_TINCT[v])cur.ct=v;else if(f==='c'&&(v===''||(czU(v)&&UNLOCKS[v].k==='charge')))cur.c=v;else return '';}
+    else{if(f==='s'&&CZ_SHIELDS[v]&&(czShOk(n,v)||cur.s===v))cur.s=v;else if(f==='d'&&CZ_DIVS[v])cur.d=v;else if((f==='t0'||f==='t1')&&CZ_TINCT[v]&&(czTnOk(v)||cur.t[+f[1]]===v))cur.t[+f[1]]=v;else if(f==='ct'&&CZ_TINCT[v]&&(czTnOk(v)||cur.ct===v))cur.ct=v;else if(f==='c'&&(v===''||(czU(v)&&UNLOCKS[v].k==='charge')))cur.c=v;else return '';}
     const fl=prvFlagNorm(cur,n);if(fl)q.f=fl;return '';},'');
 }
 
@@ -43687,7 +43732,7 @@ function prvFlagPicker(n,q){
   const f=prvFlagOf(n,q),id=q.id,open=PRV.ui.open==='f'+id,mine=czMine(),has=k=>{const u=czU(k);return !u||u.src==='free'||mine.has(k);};
   const B=(fl,v,inner,label,on)=>`<button type="button" class="prv-t${on?' on':''}" id="prv-f-${fl}-${esc(String(v||'none').replace(/[^\w-]/g,'_'))}" data-act="prv-flag" data-id="${id}" data-f="${fl}" data-v="${esc(v)}" aria-pressed="${on}" title="${esc(label)}"><span class="prv-tv" aria-hidden="true">${inner}</span><span class="u-sr">${esc(label)}</span></button>`;
   const SW=(fl,cur,lab)=>`<div class="prv-sw" role="group" aria-label="${esc(lab)}">${Object.keys(COLORS).map(c=>`<button type="button" class="sw${cur===c?' on':''}" style="--sw:${c}" id="prv-f-${fl}-${c.slice(1)}" data-act="prv-flag" data-id="${id}" data-f="${fl}" data-v="${c}" aria-pressed="${cur===c}" aria-label="${esc(lab)}: ${COLORS[c]}" title="${COLORS[c]}"></button>`).join('')}</div>`;
-  const TI=(fl,cur,lab)=>`<div class="prv-sw" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).map(t=>`<button type="button" class="sw${cur===t?' on':''}" style="--sw:${CZ_TINCT[t][1]}" id="prv-f-${fl}-${t}" data-act="prv-flag" data-id="${id}" data-f="${fl}" data-v="${t}" aria-pressed="${cur===t}" aria-label="${esc(lab)}: ${CZ_TINCT[t][0]}" title="${CZ_TINCT[t][0]}"></button>`).join('')}</div>`;
+  const TI=(fl,cur,lab)=>`<div class="prv-sw" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).filter(t=>t===cur||czTnOk(t)).map(t=>`<button type="button" class="sw${cur===t?' on':''}${t==='gilt'?' gilt':''}" style="--sw:${CZ_TINCT[t][1]}" id="prv-f-${fl}-${t}" data-act="prv-flag" data-id="${id}" data-f="${fl}" data-v="${t}" aria-pressed="${cur===t}" aria-label="${esc(lab)}: ${CZ_TINCT[t][0]}" title="${CZ_TINCT[t][0]}"></button>`).join('')}</div>`;
   let body='';
   if(f.k==='f'&&prvFgOn()){prvFgScope();if(!PRV.fd||PRV.fd.id!==id){const g=Object.assign({},f);delete g.k;PRV.fd={id,f:g};}body=flagDesignerHTML(PRV.fd.f,'prf');}
   else if(f.k==='f'){const g=Object.assign({},f);delete g.k;const uses=(PATTERNS[f.p]||[0,3])[1],pats=typeof fgPatKeys==='function'?fgPatKeys(f):Object.keys(PATTERNS);
@@ -61744,7 +61789,8 @@ function preApply(k){
   const n0=S.nation,p=PRE.doc&&PRE.doc[k];if(!n0||!p)return;
   const src=p.cz&&typeof p.cz==='object'?p.cz:{},left=[],m=clone(n0),o={};
   for(const f of Object.keys(CZ_KIND)){const id=src[f];if(!id){continue;}const u=czU(id);if(!u||u.k!==CZ_KIND[f])continue;if(czLocked(id)){left.push(u.n);continue;}o[f]=id;}
-  const a=czCleanArms(src.a,null);if(a){if(a.c&&czLocked(a.c)){left.push(UNLOCKS[a.c].n);a.c='';}o.a=a;}
+  const a=czCleanArms(src.a,null);if(a){if(a.c&&czLocked(a.c)){left.push(UNLOCKS[a.c].n);a.c='';}
+    for(const t of new Set([a.t[0],a.t[1],a.ct]))if(CZ_TN_U[t]&&czLocked(CZ_TN_U[t]))left.push(CZ_TINCT[t][0]);czTnKeep(a,id=>!czLocked(id));o.a=a;}
   if(src.ds==='t'||src.ds==='s')o.ds=src.ds;
   const keepU=m.cz&&Array.isArray(m.cz.u)?m.cz.u:undefined,sy=m.cz&&m.cz.sy;m.cz={...o};if(sy)m.cz.sy=sy;if(keepU)m.cz.u=keepU;
   let fl=null;try{fl=p.fj?flagNorm(JSON.parse(p.fj),m):null;}catch(e){fl=null;}
@@ -61827,8 +61873,8 @@ document.addEventListener('click',e=>{
 const CZ_TABS=[['id','Identity',['t','e','a','y','v']],['look','Presentation',['b','s','z']],['money','Money',['c']]];
 const CZ_SECS=[['t','Epithet','epithet title name'],['e','Flag','flag emblem stripes layers colours'],['a','Coat of arms','arms shield charge heraldry tincture blazon'],['y','National symbols','holiday flower tree bird instrument colours nickname symbols'],
   ['v','Provinces','provinces states counties cantons governor divisions'],['b','Banner','banner border card frame pattern motto marker pin capital'],['s','Decrees','decree stamp seal signed'],['z','Finery','finery shop badge card inscription land presets'],['c','Currency','currency money banknote coin note symbol code']];
-const CZ_SEC_OF={title:'t',emblem:'e',charge:'a',border:'b',frame:'b',pattern:'b',motto:'b',pin:'b',stamp:'s',badge:'z',card:'z',inscription:'z',territory:'z',boundary:'z',mapcol:'z',poster:'z'};
-const CZ_KW={title:'Epithet',emblem:'Flag emblem',charge:'Charge',border:'Card border',frame:'Flag frame',pattern:'Banner pattern',motto:'Motto frame',pin:'Capital marker',stamp:'Stamp',accent:'Accent colour',badge:'Badge',card:'Card design',inscription:'Passport inscription',territory:'Land',boundary:'Map border',mapcol:'Map colour',poster:'Poster look'};
+const CZ_SEC_OF={title:'t',emblem:'e',charge:'a',tinct:'a',border:'b',frame:'b',pattern:'b',motto:'b',pin:'b',stamp:'s',badge:'z',card:'z',inscription:'z',territory:'z',boundary:'z',mapcol:'z',poster:'z'};
+const CZ_KW={title:'Epithet',emblem:'Flag emblem',charge:'Charge',tinct:'Tincture',border:'Card border',frame:'Flag frame',pattern:'Banner pattern',motto:'Motto frame',pin:'Capital marker',stamp:'Stamp',accent:'Accent colour',badge:'Badge',card:'Card design',inscription:'Passport inscription',territory:'Land',boundary:'Map border',mapcol:'Map colour',poster:'Poster look'};
 const CZ_LB={t:'the epithet',f:'the flag frame',p:'the banner pattern',st:'the stamp',m:'the motto frame',pn:'the capital marker',bd:'the card border',bg:'the badge',cd:'the card design',ins:'the passport inscription',te:'the land'};
 /* a preview in the place each thing is seen; pointing at a marker or a stamp shows it where it lives */
 const CZ_CTX=[['card','Card'],['side','Sidebar'],['region','Region'],['map','Map'],['note','Banknote'],['decree','Decree']],CZ_CTX_K={pin:'map',territory:'map',boundary:'map',stamp:'decree'};
@@ -61842,9 +61888,9 @@ const czPvOn=()=>CZ.pv==null?!navNarrow():CZ.pv;
 /* the short key the tile uses for a cosmetic: f, p, st … for the page's own kinds, c for a charge */
 function czTryK(id){const u=czU(id);if(!u)return '';if(u.k==='charge')return 'c';return Object.keys(CZ_KIND).find(k=>CZ_KIND[k]===u.k)||'';}
 function czTryApply(v,t,n){if(t.k==='c')return {...v,a:{...(v.a||czDefaultArms(n)),c:t.id,on:1}};return CZ_KIND[t.k]?{...v,[t.k]:t.id}:v;}
-function czIsOn(id,n){const u=czU(id),k=czTryK(id),c=cz(n);if(!u)return false;if(u.k==='charge')return !!(c.a&&c.a.c===id);if(u.k==='accent')return CZ.disp.acc===id;if(u.k==='emblem')return !!(n.flag&&n.flag.e===id);return !!k&&c[k]===id;}
+function czIsOn(id,n){const u=czU(id),k=czTryK(id),c=cz(n);if(!u)return false;if(u.k==='charge')return !!(c.a&&c.a.c===id);if(u.k==='tinct'){const t=czTnKey(id);return !!(c.a&&(c.a.t[0]===t||(c.a.d!=='plain'&&c.a.t[1]===t)||(c.a.c&&c.a.ct===t)));}if(u.k==='accent')return CZ.disp.acc===id;if(u.k==='emblem')return !!(n.flag&&n.flag.e===id);return !!k&&c[k]===id;}
 /* what a click does: put it on, or (for a flag emblem, which lives in the designer) show where it is */
-function czEquip(id){const u=czU(id),k=czTryK(id);if(u&&u.k==='charge')return `data-act="cz-arm" data-f="c" data-v="${esc(id)}"`;if(u&&u.k==='accent')return `data-act="cz-disp" data-f="acc" data-v="${esc(id)}"`;
+function czEquip(id){const u=czU(id),k=czTryK(id);if(u&&u.k==='charge')return `data-act="cz-arm" data-f="c" data-v="${esc(id)}"`;if(u&&u.k==='tinct')return `data-act="cz-arm" data-f="t0" data-v="${esc(czTnKey(id))}"`;if(u&&u.k==='accent')return `data-act="cz-disp" data-f="acc" data-v="${esc(id)}"`;
   return k?`data-act="cz-pick" data-k="${k}" data-id="${esc(id)}"`:`data-act="cz-show" data-id="${esc(id)}"`;}
 /* any cosmetic as a small picture */
 function czArt(id,n){
@@ -61852,6 +61898,7 @@ function czArt(id,n){
   switch(u.k){
     case 'border':return idBdSwatch(ID_BD.findIndex(b=>b[0]===id),idBdCardInner(n),'cz-bdsw');
     case 'charge':return czArmsSVG({...(cz(n).a||czDefaultArms(n)),d:'plain',c:id,s:'heater'});
+    case 'tinct':{const t=czTnKey(id),a=cz(n).a||czDefaultArms(n);return czArmsSVG({...a,s:'heater',d:'plain',t:[t,t],c:''});}
     case 'emblem':return `<span class="cz-emb">${flagSVG({...(n.flag||{}),e:id},'')}</span>`;
     case 'motto':return `<span class="cz-mf mf-${esc(id.slice(2))}">${esc(n.motto||'Your motto')}</span>`;
   }
@@ -64115,7 +64162,7 @@ function ccDef(fn,c){
 function ccShopOk(fn,s){const k=CZ_SH_SHOP[s];if(!k)return true;return fn===S.nation?czMine().has(k):!!(fn&&fn.cz&&Array.isArray(fn.cz.u)&&fn.cz.u.includes(k));}
 function ccOf(fn,rec){
   const e=rec&&cxCityExtras(rec).cr;if(!e)return ccDef(fn,rec);
-  const a={s:e.s,d:e.d,t:e.t.slice(),c:e.c,ct:e.ct};
+  const a=czTnKeep({s:e.s,d:e.d,t:e.t.slice(),c:e.c,ct:e.ct},id=>czHolds(fn,id,fn&&fn.cz));
   if(a.c&&!czHolds(fn,a.c,fn&&fn.cz))a.c='';
   if(!ccShopOk(fn,a.s))a.s='heater';
   return a;
@@ -64134,7 +64181,7 @@ function cxCrest(ct,ok){
   const f=ccOf(ct.fn,ct.rec),own=ccHas(ct.rec),id=esc(ct.id),n=ct.fn,mine=n===S.nation?czMine():new Set(),has=k=>{const u=czU(k);return !!u&&(u.src==='free'||mine.has(k));};
   if(!ok)return `<section class="cx-sec cc-wrap"><figure class="cc-fig">${ccSVG(ct,'cc-big')}<figcaption class="cz-blazon">${esc(czBlazon(f))}</figcaption></figure></section>`;
   const B=(fl,v,inner,label,on)=>`<button type="button" class="prv-t${on?' on':''}" id="cc-${fl}-${esc(String(v||'none').replace(/[^\w-]/g,'_'))}" data-act="cx-cr" data-id="${id}" data-f="${fl}" data-v="${esc(v)}" aria-pressed="${on}" title="${esc(label)}"><span class="prv-tv" aria-hidden="true">${inner}</span><span class="u-sr">${esc(label)}</span></button>`;
-  const TI=(fl,cur,lab)=>`<div class="prv-sw" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).map(t=>`<button type="button" class="sw${cur===t?' on':''}" style="--sw:${CZ_TINCT[t][1]}" id="cc-${fl}-${t}" data-act="cx-cr" data-id="${id}" data-f="${fl}" data-v="${t}" aria-pressed="${cur===t}" aria-label="${esc(lab)}: ${CZ_TINCT[t][0]}" title="${CZ_TINCT[t][0]}"></button>`).join('')}</div>`;
+  const TI=(fl,cur,lab)=>`<div class="prv-sw" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).filter(t=>t===cur||czTnOk(t)).map(t=>`<button type="button" class="sw${cur===t?' on':''}${t==='gilt'?' gilt':''}" style="--sw:${CZ_TINCT[t][1]}" id="cc-${fl}-${t}" data-act="cx-cr" data-id="${id}" data-f="${fl}" data-v="${t}" aria-pressed="${cur===t}" aria-label="${esc(lab)}: ${CZ_TINCT[t][0]}" title="${CZ_TINCT[t][0]}"></button>`).join('')}</div>`;
   const ch=Object.keys(UNLOCKS).filter(k=>UNLOCKS[k].k==='charge'&&has(k));
   return `<section class="cx-sec cc-wrap"><figure class="cc-fig">${ccSVG(ct,'cc-big')}<figcaption><span class="lbl">Blazon</span> <span class="cz-blazon">${esc(czBlazon(f))}</span></figcaption>
     <div class="row cc-acts"><button type="button" class="btn ghost small-btn" id="cc-nat" data-act="cx-cr" data-id="${id}" data-f="nat" data-v="1">Copy the nation’s arms</button>${own?`<button type="button" class="btn ghost small-btn" id="cc-reset" data-act="cx-cr" data-id="${id}" data-f="reset" data-v="1">Back to the default</button>`:''}</div></figure>
@@ -64144,14 +64191,15 @@ function cxCrest(ct,ok){
       <p class="sw-l">Field</p>${TI('t0',f.t[0],'Field')}${f.d==='plain'?'':`<p class="sw-l">Second tincture</p>${TI('t1',f.t[1],'Second tincture')}`}
       <p class="sw-l">Charge</p><div class="prv-tiles prv-ta">${B('c','','<span class="cz-none">None</span>','No charge',!f.c)}${ch.map(c=>B('c',c,czArmsSVG({...f,d:'plain',c}),UNLOCKS[c].n,f.c===c)).join('')}</div>
       ${f.c?`<p class="sw-l">Tincture of the charge</p>${TI('ct',f.ct,'Tincture of the charge')}`:''}
-      <p class="hint">More shields and charges are earned in Customise › Arms.</p></div></section>`;
+      <p class="hint">More shields, charges and tinctures are earned in Customise › Arms.</p></div></section>`;
 }
 function cxCrestEdit(cid,f,v){
   const ct=cxHeld(cid);if(!ct||OBS)return;const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
   if(f==='reset'){if(!c.cr)return;delete c.cr;commit(n);render();toast(`${ct.nm} shows the default crest again.`);return;}
   const cur=f==='nat'?(()=>{const a=cz(S.nation).a||czDefaultArms(S.nation);return {s:a.s,d:a.d,t:a.t.slice(),c:a.c,ct:a.ct};})():ccOf(S.nation,c);
   if(f==='s'){if(!czHas(CZ_SHIELDS,v)||!(cur.s===v||(CZ_SH_SHOP[v]?ccShopOk(S.nation,v):czShOk(S.nation,v))))return;cur.s=v;}
-  else if(f==='d'&&czHas(CZ_DIVS,v))cur.d=v;else if((f==='t0'||f==='t1')&&czHas(CZ_TINCT,v))cur.t[+f[1]]=v;else if(f==='ct'&&czHas(CZ_TINCT,v))cur.ct=v;
+  else if(f==='d'&&czHas(CZ_DIVS,v))cur.d=v;else if((f==='t0'||f==='t1'||f==='ct')&&czHas(CZ_TINCT,v)&&!czTnOk(v)&&(f==='ct'?cur.ct:cur.t[+f[1]])!==v){toast('Locked. '+unlockHow(CZ_TN_U[v]));return;}
+  else if((f==='t0'||f==='t1')&&czHas(CZ_TINCT,v))cur.t[+f[1]]=v;else if(f==='ct'&&czHas(CZ_TINCT,v))cur.ct=v;
   else if(f==='c'){if(v&&(!czU(v)||UNLOCKS[v].k!=='charge'||czLocked(v))){toast('Locked. '+unlockHow(v));return;}cur.c=v||'';}
   else if(f!=='nat')return;
   const a=czCleanArms(cur,null);if(!a)return;c.cr={s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};
