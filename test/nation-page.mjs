@@ -75,7 +75,7 @@ try {
   /* ── desktop, light ── */
   const d = await start('light', { width: 1280, height: 900 }), { page } = d;
   const V = await S(page, () => { const L = window.__game.VL(); return { def: L.VL_DEF, cls: L.CLS.map(c => c[0]), ops: L.CLS_OPS, read: L.CLS_READ }; });
-  check('eighteen sections can move, nine topics can be classified', V.def.length === 18 && V.cls.length === 9, V);
+  check('nineteen sections can move, nine topics can be classified', V.def.length === 19 && V.cls.length === 9, V);
   check('Gather intelligence reads every topic; the other operations their own', V.ops.g.length === 9 && V.ops.b.join() === 'cit' && V.ops.w.join() === 'mil' && V.ops.m.join() === 'eco,cab' && V.ops.d.join() === 'trd' && V.ops.c.join() === 'cu', V.ops);
   check('what an agent reads stays open for 7 days', V.read === 7 * DAY);
 
@@ -83,7 +83,8 @@ try {
   await d.go('region');
   const npc = await S(page, () => document.querySelector('[data-act="visit"][data-id]').dataset.id);
   await d.act('visit', { id: npc }); await until(() => S(page, () => window.__game.S.view === 'visit' && !!document.querySelector('.vs-page')));
-  const top = await S(page, () => [...document.querySelector('.vs-page').children].slice(0, 4).map(e => e.className.split(' ')[0]));
+  /* (the Board of Trade's line, what it has to spare and is short of, sits under the buttons when there is something to say) */
+  const top = await S(page, () => [...document.querySelector('.vs-page').children].map(e => e.className.split(' ')[0]).filter(c => c !== 'hn-line').slice(0, 4));
   check('the card, its actions, the index and the overview with the factbook come first', top.join() === 'hero,row,vs-nav,nation-grid', top);
   const ni = await visitInfo(page);
   check('the sections follow in the default order', ni.secs.join() === V.def.filter(k => ni.secs.includes(k)).join() && ni.secs[0] === 'fr' && ni.secs.length >= 8, ni.secs);
@@ -103,7 +104,7 @@ try {
 
   /* arrows: Cities up one, focus stays on the arrow */
   await page.click('#vl-row-cit [data-d="-1"]'); await sleep(300);
-  check('an arrow moves a section and saves the order', (await order(page)).startsWith('fr,rel,asm,cit,ter'), await order(page));
+  check('an arrow moves a section and saves the order', (await order(page)).startsWith('fr,rel,asm,ter,cit,nb'), await order(page));
   check('the arrow keeps the focus', await S(page, () => document.activeElement && document.activeElement.matches('#vl-row-cit [data-d="-1"]')));
   /* the arrow keys on the handle */
   await page.focus('#vl-grip-gf'); await page.keyboard.press('ArrowUp'); await sleep(250); await page.keyboard.press('ArrowUp'); await sleep(250);
@@ -216,7 +217,7 @@ try {
   const kept = await S(page, () => ({ vl: window.__game.S.nation.vl, r: ((window.__game.S.nation.ifl || {}).p2 || {}).r }));
   check('after a reload the layout keeps only known sections and topics, once each', JSON.stringify(kept.vl) === JSON.stringify({ o: ['leg', 'cit'], c: ['eco'] }), kept.vl);
   const o2 = (await order(page)).split(',');
-  check('the order fills in the sections it left out, each after the one before it by default', o2.length === 18 && new Set(o2).size === 18 && o2.indexOf('leg') < o2.indexOf('cit') && o2.indexOf('prv') === o2.indexOf('cit') + 1 && o2[0] === 'fr', o2);
+  check('the order fills in the sections it left out, each after the one before it by default', o2.length === 19 && new Set(o2).size === 19 && o2.indexOf('leg') < o2.indexOf('cit') && o2.indexOf('prv') === o2.indexOf('cit') + 1 && o2[0] === 'fr', o2);
   check('the file keeps only real read times', JSON.stringify(Object.keys(kept.r || {})) === JSON.stringify(['eco']), kept.r);
   check('no script errors on the desktop', d.errors.length === 0, d.errors);
   await d.ctx.close();
