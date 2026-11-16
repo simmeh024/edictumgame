@@ -2175,7 +2175,7 @@
       linkedNow(u, 'Google account', g && g.email);
     }, function (e) {
       if (e && e.code === 'auth/credential-already-in-use') {
-        var cred = e.credential || null;
+        var cred = e.credential || googleCredOf(e);
         otherAccount({ what: 'Google account', ready: !!cred, signIn: function () { return cred ? A.auth.signInWithCredential(cred) : A.auth.signInWithPopup(provider()); } });
         return;
       }
@@ -2186,6 +2186,10 @@
   }
   /* SS_GREDIR marks a redirect under way; googleReturn() finishes it once the page is back */
   var SS_GREDIR = 'edictum.gredir';
+  /* the Google credential an auth error carries in its response (credential-already-in-use), or null */
+  function googleCredOf(e) {
+    try { var P = A.fb && A.fb.auth && A.fb.auth.GoogleAuthProvider; return P && typeof P.credentialFromError === 'function' ? P.credentialFromError(e) || null : null; } catch (x) { return null; }
+  }
   function googleRedirect(u) {
     var flush = E.flushSaves;
     Promise.resolve(typeof flush === 'function' ? flush() : null).catch(function () {}).then(function () {
@@ -2205,7 +2209,11 @@
     }, function (e) {
       open('main');
       if (e && e.code === 'auth/credential-already-in-use') {
-        var cred = e.credential || null;
+        /* a Google account that already has a nation. The compat SDK's getRedirectResult, unlike its pop-ups, leaves
+           e.credential off this error (auth-compat 0.6: no attachExtraErrorFields), so it is read from the error's own
+           response. Without it, a phone with no nation of its own asked to switch and then opened a pop-up after all,
+           and stayed a guest (a player on Android Chrome, 15 Nov 2026) */
+        var cred = e.credential || googleCredOf(e);
         otherAccount({ what: 'Google account', ready: !!cred, signIn: function () { return cred ? A.auth.signInWithCredential(cred) : A.auth.signInWithPopup(provider()); } });
         return;
       }
