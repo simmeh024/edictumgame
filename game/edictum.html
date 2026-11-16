@@ -8562,6 +8562,10 @@ button.rgc-nm{text-align:left}
 .rgc-rk{flex:none;width:9px;height:9px;border-radius:2px;transform:rotate(45deg);background:var(--bd-plate,var(--bd-2,var(--ink-3)));box-shadow:inset 0 0 0 1px var(--bd-3,transparent)}
 .rgc-al{flex:none;padding:0 5px;border-radius:3px;background:color-mix(in srgb,var(--alc) 18%,var(--sheet));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--alc) 55%,transparent);color:var(--ink);font:600 10px/16px var(--f-mono);letter-spacing:.04em}
 .rgc-lh .founder-pill{flex:none;padding:1px 7px 1px 6px;font-size:9.5px}
+/* the world chat: the region a nation writes from, beside its name */
+.rgc-from{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 6px;border-radius:999px;background:var(--sheet-2);color:var(--ink-2);font:500 10.5px/17px var(--f-body)}
+.rgc-from.home{color:var(--ink-3)}
+.acx-rg{font-size:12px}
 .rgc-l.ally .rgc-x{white-space:pre-wrap}
 .rgc-hap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start;padding:8px 6px;border-bottom:1px solid var(--rule);font-size:13.5px;line-height:1.45}
 .rgc-hpt{grid-column:1/-1;font:500 11px/1.3 var(--f-mono);color:var(--ink-3)}
@@ -21269,6 +21273,12 @@ const foodEaten=(held,z)=>FOOD_EAT*Math.max(0,held-z);
    times that); q1: supply against everything eaten, including the people on the land (×1.25 once they are all fed, ×0.5
    with nothing). The lower of the two, so a fed nation keeps the pace it had and only a hungry one slows down. */
 const foodGrowth=(q0,q1)=>Math.min(clamp(0.5+0.5*q0,0.5,1.25),clamp(0.5+0.75*Math.min(q1,1),0.5,1.25));
+/* firewood (2026-11-15, the owner: nerf timber "a tiny bit", first 0.1 and then "make it 0.2"): the same people out on
+   the land burn TIMBER_BURN timber a hex a day beyond the core. Land grows at least 0.3 timber a hex (about 0.7 on
+   average), so nations still bank most of it, about 29% less than before; a nation that holds no land beyond its core
+   burns nothing. */
+const TIMBER_BURN=0.2;
+const timberBurnt=(held,z)=>TIMBER_BURN*Math.max(0,held-z);
 const MAX_DEALS=12;
 const CELL_RES=(()=>{
   const N=MAP.N,o={food:new Float32Array(N),timber:new Float32Array(N),iron:new Float32Array(N),oil:new Float32Array(N)},Y=[null,null,[2.4,0.6,0.2],[1,1.4,0.8],[0.2,0.3,2.2]];
@@ -21320,9 +21330,9 @@ function economy(){
   const T=territory();politics();const k=polMemo.k+'|'+cityEpochKey(now);
   if(econMemo.v&&econMemo.T===T&&econMemo.k===k){econMemo.v.byDoc=new Map(T.list.map((x,i)=>[x.n,i]));Object.assign(econMemo,{at:now,ref:S.nation,w:S.world});return econMemo.v;}
   const L=T.list.length,mk=()=>Object.fromEntries(RES.map(r=>[r,new Float64Array(L)]));
-  const prod=mk(),dem=mk(),exp=mk(),imp=mk(),sup=mk(),ratio=mk(),req=mk(),impF=mk(),held=new Float64Array(L),eat=new Float64Array(L);
+  const prod=mk(),dem=mk(),exp=mk(),imp=mk(),sup=mk(),ratio=mk(),req=mk(),impF=mk(),held=new Float64Array(L),eat=new Float64Array(L),burn=new Float64Array(L);
   for(let c=0;c<MAP.N;c++){const o=T.owner[c];if(o<0)continue;if(MAP.T[c]>=2)held[o]++;prod.food[o]+=CELL_RES.food[c];prod.timber[o]+=CELL_RES.timber[c];prod.iron[o]+=CELL_RES.iron[c];prod.oil[o]+=CELL_RES.oil[c];}
-  T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.7+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];eat[i]=foodEaten(held[i],z);dem.food[i]+=eat[i];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
+  T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.7+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];eat[i]=foodEaten(held[i],z);dem.food[i]+=eat[i];burn[i]=timberBurnt(held[i],z);dem.timber[i]+=burn[i];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
   const CSt=cityState(T);T.list.forEach((x,i)=>{const a=CSt.agg[i];for(const r of RES){prod[r][i]+=a.add[r];dem[r][i]+=a.up[r];}});
   const tariff=T.list.map(x=>!!(x.n.policies||{}).importTariffs),reserve=T.list.map(x=>!!(x.n.policies||{}).strategicReserves);
   const dl=collectDeals(),active=dl.active.filter(d=>T.byId[d.a]!==undefined&&T.byId[d.b]!==undefined&&RES.includes(d.ag[0])&&RES.includes(d.bg[0]));
@@ -21350,7 +21360,7 @@ function economy(){
     prosper:(0.82+0.1*q('goods',i)+0.04*q('timber',i)+0.04*q('oil',i))*(1+a.prosper)*(1+cf.prosper),
     growth:clamp(foodGrowth(q0(i),q('food',i))*(1+a.growth)*(1+cf.growth),0.5,1.6)};});}
   finally{BFX_HAND=null;}
-  const v={T,prod,dem,exp,imp,sup,ratio,price,eff,held,eat,active,pending:dl.pending,byDoc:new Map(T.list.map((x,i)=>[x.n,i]))};
+  const v={T,prod,dem,exp,imp,sup,ratio,price,eff,held,eat,burn,active,pending:dl.pending,byDoc:new Map(T.list.map((x,i)=>[x.n,i]))};
   econMemo={T,k,at:now,ref:S.nation,w:S.world,v};
   return v;
 }
@@ -21605,7 +21615,7 @@ function tradeView(){
    cities generated from the map, so the world starts developed and conquest has prizes. */
 const CITY_DISTRICT=2,CITY_MIN_DIST=4,MILE_CITIES=14,MAX_CITIES=33,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
 const START_STOCK={food:60,timber:45,iron:25,oil:10,goods:40};
-const CITY_COST={food:30,timber:30,goods:20};
+const CITY_COST={food:30,timber:35,goods:20};
 const BLD_CATS=[['prod','Production'],['soc','Society'],['def','Defence'],['won','Wonders']];
 const BUILDINGS={
   farm:{n:'Farm Estates',c:'prod',d:'Food from the land around the city +60%, and 2 more a day.',cost:{timber:10,goods:8},h:2,res:{food:[0.6,2]}},
@@ -21873,12 +21883,12 @@ function startBuild(cid,key){
   const now=Date.now(),st=stockNow(S.nation,now),p=buildProblem(S.nation,ct,key,st);
   if(p){S.cityMsg=p.t;render();return;}
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
-  const cost=bCost(S.nation,key),ms=cxHours(S.nation,ct,key)*3600e3;
+  const cost=bCost(S.nation,key),quick=qbMs(S.nation,key),nth=qbNth(S.nation),ms=quick||cxHours(S.nation,ct,key)*3600e3;
   for(const r of RES)st[r]-=cost[r]||0;
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  c.b.push({k:key,s:now,d:now+ms,p:cost});
+  c.b.push({k:key,s:now,d:now+ms,p:cost});if(quick)n.qb=nth-1;
   commit(n);S.cityMsg='';render();
-  toast(`Work has started on ${B.w?'the ':'a '}${B.n} in ${ct.nm}. It will be ready in ${fmtDur(ms)}.`);
+  toast(`Work has started on ${B.w?'the ':'a '}${B.n} in ${ct.nm}. It will be ready in ${fmtDur(ms)}${quick?`, as your ${QB_ORD[nth-2]} building`:''}.`);
 }
 function cancelBuild(cid,key){
   const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
@@ -21965,7 +21975,7 @@ function bldRow(ct,b,mine,now){
 }
 function catalog(ct,n,st){
   const busy=ct.prog.length>0,full=ct.done.length+ct.prog.length>=slotsOf(ct),qfull=ct.prog.length>C3_QMAX;
-  const head=full?blkFullHtml(ct,busy):busy?c3BusyHint(ct,qfull):'';
+  const head=(full?blkFullHtml(ct,busy):busy?c3BusyHint(ct,qfull):'')+(qbMs(n)?`<p class="hint cx-sfb">Your ${QB_ORD[qbNth(n)-2]} building goes up in <b>${esc(fmtDur(qbMs(n)))}</b> instead of hours, whichever you choose (a wonder takes its usual time).</p>`:'');
   /* four groups: ready to build, short of materials, coming later (locked: what unlocks them) and built already; a
      building held up only by the city (no free block, the queue, a Warehouse upgrade) counts as ready or short */
   const G={ready:[],cost:[],later:[],have:[]};
@@ -21976,7 +21986,7 @@ function catalog(ct,n,st){
   const card=([k,p])=>{
     const B=BUILDINGS[k],blocked=full||qfull||!!p,bc=bCost(n,k);
     const cost=p?.k==='have'?esc(costText(bc)):uxCostRequirements(bc,st);
-    return `<li class="opt${p&&p.k!=='cost'?' off':''}" id="bk-${k}"><div class="opt-h">${bldIco(k)}<span class="opt-hn"><b>${esc(B.n)}</b>${bldTag(k)}</span><span class="opt-t">${cxHours(n,ct,k)} h</span></div>${bldTop(k,n)}<p class="opt-d">${esc(B.d)}</p>${(h=>h?`<p class="opt-d opt-gain">${h}</p>`:'')(bldGainHtml(ct,k,ct.tT,'In '+ct.nm))}${(q=>q?`<p class="opt-d xp-bnote">${esc(q)}</p>`:"")(xpBldNote(k))}${B.need&&!(p&&p.k==='need')?`<p class="opt-need">${esc(NEED_TXT[B.need])}</p>`:''}<div class="opt-c">${cost}</div>${uxBuildRequirements(ct,B,p||(full?{k:'room'}:null))}${p&&p.k!=='room'?`<p class="opt-why">${esc(p.t)}</p>`:''}<button class="btn${blocked?' ghost':''}" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}"${blocked?' disabled':''}>${p&&p.k==='have'?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':busy?'Queue':'Build'}</button></li>`;
+    return `<li class="opt${p&&p.k!=='cost'?' off':''}" id="bk-${k}"><div class="opt-h">${bldIco(k)}<span class="opt-hn"><b>${esc(B.n)}</b>${bldTag(k)}</span><span class="opt-t">${qbMs(n,k)?esc(fmtDur(qbMs(n,k))):cxHours(n,ct,k)+' h'}</span></div>${bldTop(k,n)}<p class="opt-d">${esc(B.d)}</p>${(h=>h?`<p class="opt-d opt-gain">${h}</p>`:'')(bldGainHtml(ct,k,ct.tT,'In '+ct.nm))}${(q=>q?`<p class="opt-d xp-bnote">${esc(q)}</p>`:"")(xpBldNote(k))}${B.need&&!(p&&p.k==='need')?`<p class="opt-need">${esc(NEED_TXT[B.need])}</p>`:''}<div class="opt-c">${cost}</div>${uxBuildRequirements(ct,B,p||(full?{k:'room'}:null))}${p&&p.k!=='room'?`<p class="opt-why">${esc(p.t)}</p>`:''}<button class="btn${blocked?' ghost':''}" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}"${blocked?' disabled':''}>${p&&p.k==='have'?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':busy?'Queue':'Build'}</button></li>`;
   };
   const line=([k,p])=>{const B=BUILDINGS[k],here=ct.done.includes(k)||ct.prog.some(b=>b.k===k),have=here||p&&p.k==='have';
     return `<li class="opt opt-line${have?' opt-have':' off'}" id="bk-${k}">${bldIco(k,'b-ic-s')}<span class="opt-ln"><b>${esc(B.n)}</b>${bldTag(k)}<span class="opt-why">${esc(here?(ct.done.includes(k)?'Built here.':'Under way or queued here.'):p?p.t:'')}</span>${bldBoostHtml(k,n)}</span>${have?'':uxBuildRequirements(ct,B,p)}<button class="btn ghost small-btn" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}" disabled>${have?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':'Not here'}</button></li>`;};
@@ -25786,10 +25796,10 @@ function c3Queue(ct,key){
   const now=Date.now(),st=stockNow(S.nation,now),p=buildProblem(S.nation,ct,key,st);
   if(p){S.cityMsg=p.t;render();return;}
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===ct.id);if(!c)return;
-  const cost=bCost(S.nation,key),ms=cxHours(S.nation,ct,key)*3600e3,s=c.b.reduce((m,b)=>Math.max(m,b.d||0),now);
+  const cost=bCost(S.nation,key),quick=qbMs(S.nation,key),nth=qbNth(S.nation),ms=quick||cxHours(S.nation,ct,key)*3600e3,s=c.b.reduce((m,b)=>Math.max(m,b.d||0),now);
   for(const r of RES)st[r]-=cost[r]||0;
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  c.b.push({k:key,s,d:s+ms,p:cost});
+  c.b.push({k:key,s,d:s+ms,p:cost});if(quick)n.qb=nth-1;
   commit(n);S.cityMsg='';render();
   toast(`${B.w?'The ':'A '}${B.n} joins the queue in ${ct.nm}. Work starts in ${fmtDur(s-now)} and takes ${fmtDur(ms)}.`);
 }
@@ -25955,7 +25965,7 @@ function helpBody(n){
       <p>Cities work the land within two hexes, expanding to three at two million city residents. Overlapping production areas count each hex once. ${blkHelp()} Each city builds one thing at a time${typeof C3_QMAX==='number'?`, with up to ${num(C3_QMAX)} more waiting in its queue`:''}; buildings are paid for from your stockpile and take hours to finish, wonders a day. Cancelling a project returns half the materials.</p>
       <p>Production buildings raise output; society buildings help growth, the economy and your census figures; defence buildings strengthen your army and borders; wonders do a little of everything. Some need hills, oil, a coast or high science, and more unlock at milestones. A city works for whoever holds its hex, so a captured city serves its conqueror.</p>${G(go('cities','Open cities'))}`,
     trade:`<p>There are five resources: ${list(RES.map(resName))}. Lowland yields food and a little iron, hills timber and some iron, mountains iron, and coasts add food. Oil comes from scattered deposits. Large iron deposits lie here and there across the map, worth ${IRON_DEP_YIELD} iron a day each, twice that with an Iron Mine, which a deposit lets you build without hills. Goods come from industry, which grows with your economy and science, and from harbours.</p>
-      <p>Your nation needs an amount of each that grows with its size. Food also feeds the people out on your land: beyond a core that grows with your population${n?` (${fmt0(Math.max(CORE_HEXES,budgetOf(n.pop||0)))} hexes for you now)`:''}, every hex of land you hold eats ${fmtAmt(FOOD_EAT)} a day. A lowland hex grows 2.4 (one more on the coast), hills 1 and mountains 0.2, so mountainous land can leave you short of food; a fed nation grows at full pace, and a hungry one more slowly. What is spare flows into your stockpile, up to ${stockCap(n)} of each (${spoilPct(FOOD_SPOIL)}% of the food spoils on the way: a Granary cuts that, and a gold one stops it), and pays for cities, buildings, expeditions and Games bids. Shortages hurt: too little food slows growth, too little iron or oil weakens your army, and too little goods, timber or oil drags on the economy.</p>
+      <p>Your nation needs an amount of each that grows with its size. Food also feeds the people out on your land: beyond a core that grows with your population${n?` (${fmt0(Math.max(CORE_HEXES,budgetOf(n.pop||0)))} hexes for you now)`:''}, every hex of land you hold eats ${fmtAmt(FOOD_EAT)} a day. A lowland hex grows 2.4 (one more on the coast), hills 1 and mountains 0.2, so mountainous land can leave you short of food; a fed nation grows at full pace, and a hungry one more slowly. The same people burn ${fmtAmt(TIMBER_BURN)} timber a hex a day as firewood, less than any land grows (lowland 0.6, hills 1.4, mountains 0.3). What is spare flows into your stockpile, up to ${stockCap(n)} of each (${spoilPct(FOOD_SPOIL)}% of the food spoils on the way: a Granary cuts that, and a gold one stops it), and pays for cities, buildings, expeditions and Games bids. Shortages hurt: too little food slows growth, too little iron or oil weakens your army, and too little goods, timber or oil drags on the economy.</p>
       <h3 class="help-h3">How the stockpile always grows</h3>
       <ul class="help-ul"><li><b>The state keeps a share.</b> Even when your people use everything your land makes, ${Math.round(GB.SHARE*100)}% of what you produce (less what you export) still reaches the stockpile.</li>
         <li><b>A bigger population makes more goods.</b> Goods grow by ${GB.POP_K} × the square root of your population in millions a day: roughly ${fmtAmt(GB.POP_K*Math.sqrt(5))} at 5 million, ${fmtAmt(GB.POP_K*10)} at 100 million and ${fmtAmt(GB.POP_K*Math.sqrt(1000))} at a billion.</li>
@@ -49904,7 +49914,7 @@ function adminView(v='admin'){
 function admReports(list){
   const n=list?list.length:0;
   /* every action on a ticket asks first: one stray click used to remove a post or hide a nation at once */
-  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const nm=`<b>${esc(r.name||'this nation')}</b>`,what=/^news:/.test(r.post||'')?'news comment':/^cb:/.test(r.post||'')?'Community Board message':/^ad:/.test(r.post||'')?'classified advertisement':/^flk:/.test(r.post||'')?'Flock peep':/^rc:/.test(r.post||'')?'region chat line':'post';
+  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const nm=`<b>${esc(r.name||'this nation')}</b>`,what=/^news:/.test(r.post||'')?'news comment':/^cb:/.test(r.post||'')?'Community Board message':/^ad:/.test(r.post||'')?'classified advertisement':/^flk:/.test(r.post||'')?'Flock peep':/^rc:world:/.test(r.post||'')?'world chat line':/^rc:/.test(r.post||'')?'region chat line':'post';
     const t={'adm-ban':[`Ban the player of ${nm}? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a linked account cannot.`,'Yes, ban'],
       'adm-remove':[`Remove ${nm} for good? The nation and its posts are deleted; the player may found a new one.`,'Yes, remove'],
       'adm-delpost':[`Remove this ${what} by ${nm}? It is deleted for everyone, and the ticket is closed.`,'Yes, remove the '+what.split(' ').pop()],
@@ -49917,7 +49927,7 @@ function admReports(list){
     ${ADM.act?`<p class="hint">${esc(ADM.act)}</p>`:''}
     ${list==null?'<p class="err">The reports could not be loaded.</p>':!n?'<p class="hint">No open reports. When a player reports a post or a nation, a ticket appears here. Support tickets are under Help queries.</p>':
     `<ul class="adm-reps">${list.map(r=>{const post=r.kind==='post',hid=!!(S.mod&&S.mod[r.target]&&S.mod[r.target].hidden);
-      return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post&&/^news:/.test(r.post||'')?'News comment':post&&/^cb:/.test(r.post||'')?'Community Board':post&&/^ad:/.test(r.post||'')?'Classified ad':post&&/^flk:/.test(r.post||'')?'Flock peep':post&&/^rc:/.test(r.post||'')?'Region chat':post?'Post':r.kind==='letter'?'Letter':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
+      return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post&&/^news:/.test(r.post||'')?'News comment':post&&/^cb:/.test(r.post||'')?'Community Board':post&&/^ad:/.test(r.post||'')?'Classified ad':post&&/^flk:/.test(r.post||'')?'Flock peep':post&&/^rc:world:/.test(r.post||'')?'World chat':post&&/^rc:/.test(r.post||'')?'Region chat':post?'Post':r.kind==='letter'?'Letter':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
         ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,2500))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
         <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">${/^flk:/.test(r.post||'')?'Remove the peep':/^rc:/.test(r.post||'')?'Remove the line':'Remove the post'}</button>`:''}${hid?`<span class="hint">${S.mod[r.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>${post||r.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(r.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button><button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button></div>${ask(r)}</li>`;}).join('')}</ul>`}`;
 }
@@ -52658,7 +52668,8 @@ HELP_EXT.push({k:'map-development',t:'City influence, transport and island annex
 HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the flag designer in Customise, under Flag, and expand <b>Layers</b>. (Layers come once your charter is finished; the founding page has the basic designer.) Add up to eight independent emblems, stripes, borders and discs over your original design. Each has its own colour, position, size and rotation. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
 
 /* ── warehouse capacity and timed city upgrades ── */
-const WH_BONUS=[400,1200,2400,4400,7400],WH_HOURS=[4,8,16,24,36],WH_RECORD_MAX=10000000;
+/* WH_UP_K: a tier costs the Warehouse's own cost × 2, 4, 8, 16, and 20% more since building upgrades went dearer (2026-11-16) */
+const WH_BONUS=[400,1200,2400,4400,7400],WH_HOURS=[4,8,16,24,36],WH_RECORD_MAX=10000000,WH_UP_K=1.2;
 BUILDINGS.warehouse={n:'Warehouse',c:'prod',d:'Adds 400 storage for every resource. One per city, with four timed upgrades available.',cost:{timber:30,iron:20,goods:15},h:WH_HOURS[0]};
 Object.assign(POLICIES,{warehouseRacks:['Standardised Warehouse Racking','Adds 200 national storage for every resource while you hold a completed Warehouse.'],warehouseArchive:['Paper Archive Reserve','Reserves 200 storage of every resource for paper archives while you hold a completed Warehouse.']});
 function whExtras(b){
@@ -52703,7 +52714,7 @@ function whSync(n,now){
 }
 function whRecord(ct){return cityList(ct.fn).find(c=>c.id===ct.id&&c.c===ct.c)?.b?.find(b=>b.k==='warehouse');}
 function whBusy(ct,now=Date.now()){const b=whRecord(ct),u=b&&whExtras(b).wu;return u&&u.d>now?u:null;}
-function whQuote(n,to){const base=bCost(n,'warehouse');return {cost:Object.fromEntries(Object.entries(base).map(([r,v])=>[r,v*2**to])),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
+function whQuote(n,to){const base=bCost(n,'warehouse');return {cost:Object.fromEntries(Object.entries(base).map(([r,v])=>[r,Math.ceil(v*2**to*WH_UP_K-1e-9)])),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
 function whUpgradeProblem(n,ct,st,now=Date.now()){
   if(!ct||ct.fid!==myId()||!ct.active||ct.hi!==territory().byId[myId()])return 'Only the city’s founder can upgrade a warehouse it currently holds.';
   const b=whRecord(ct);if(!b||b.d>now)return 'Complete the Warehouse first.';if(whBusy(ct,now))return 'A warehouse upgrade is already under way.';
@@ -53375,7 +53386,19 @@ const DD_GIFT=3,ddGift=r=>DD_GIFT+(r==='iron'||r==='goods'?2:0),DD_CLEAR={iron:8
 const DD_WEEK=7*864e5,DD_WEEK_MAX=8;
 const ddWeek=(n,now)=>{const f=+(n&&n.founded)||0;return f>0&&now>=f&&now-f<DD_WEEK;};
 const ddwOf=n=>n&&Number.isInteger(n.ddw)&&n.ddw>0?Math.min(n.ddw,DD_WEEK_MAX):0;
-const FFB_MS=3*60000,FFB_GIFT=12,FFB_KEYS=['farm','sawmill','market'],FFB_OUT={farm:'food',sawmill:'timber',market:'goods'};
+const FFB_MS=2*60000,FFB_GIFT=12,FFB_KEYS=['farm','sawmill','market'],FFB_OUT={farm:'food',sawmill:'timber',market:'goods'};
+/* quick early buildings (2026-11-16, the owner: "Second building to build should take 5 min as well", then "Set the
+   first at 2 min, 3rd at 8 min"): the quick first building takes FFB_MS, and the next ones a nation starts, of any
+   kind but a wonder and in any city, take QB_MS (the second 5 minutes, the third 8) instead of hours; queued, they take
+   it once their turn comes. n.qb counts those used, so each comes once. qbMs: the time for the building a nation would
+   start now, or 0 for the usual hours; qbNth its place (2 for the second). */
+const QB_MS=[5*60000,8*60000],QB_ORD=['second','third'];
+function qbMs(n,key){
+  if(!n||n.npc||(key&&BUILDINGS[key]&&BUILDINGS[key].w))return 0;
+  let k=0;for(const c of n.cities||[])k+=(c.b||[]).length;
+  return k>=1&&k<=QB_MS.length&&(Number.isInteger(n.qb)?n.qb:0)<k&&tallyOf(n,'build')<=k?QB_MS[k-1]:0;
+}
+const qbNth=n=>{let k=0;for(const c of n.cities||[])k+=(c.b||[]).length;return k+1;};
 const ddOthers=()=>{try{return allNations().some(x=>!x.me);}catch(e){return false;}};
 /* the browser tests turn the desk off (test/lib.mjs) unless a suite asks for it, so its gifts never move the stock
    a test is counting on whatever three tasks the date happens to draw */
@@ -53566,6 +53589,7 @@ NORM_HOOKS.push((n,d)=>{
   if(d&&Array.isArray(d.ddk)){const v=[...new Set(d.ddk.filter(k=>typeof k==='string'&&czHas(DD_TASKS,k)))].slice(0,40);if(v.length)n.ddk=v;else delete n.ddk;}else delete n.ddk;
   if(d&&Number.isFinite(d.ddx)&&d.ddx>0&&d.ddx<=Date.now()+864e5)n.ddx=d.ddx;else delete n.ddx;
   const K=d&&d.stk;if(K&&Number.isInteger(K.n)&&K.n>0&&K.n<=STK_MAX&&typeof K.d==='string'&&DD_KEY_RX.test(K.d))n.stk={n:K.n,d:K.d};else delete n.stk;
+  if(d&&Number.isInteger(d.qb)&&d.qb>0&&d.qb<=QB_MS.length)n.qb=d.qb;else delete n.qb;
   const F=d&&d.ffb;if(F&&FFB_KEYS.includes(F.k)&&typeof F.c==='string'&&F.c.length>0&&F.c.length<=40&&Number.isFinite(F.s)&&Number.isFinite(F.d)&&F.d>=F.s){n.ffb={k:F.k,c:F.c,s:F.s,d:F.d};if(F.p===1)n.ffb.p=1;}else delete n.ffb;
 });
 
@@ -62295,7 +62319,7 @@ function gbWhy(n,r){
   const made=E.prod[r][i],used=E.dem[r][i],st=n.stock||START_STOCK;
   if(isFinite(GB_MIN[r])&&num0(st[r])<GB_MIN[r])return `${RES_INFO[r][0]} is low, so the state tops it up by ${GB.TRICKLE} a day until you can afford the next thing that needs it.`;
   if(r==='oil'&&made<0.05)return 'There is no oil on your land: claim land with a deposit, sign a deposit edict, or buy it at the Bureau’s market.';
-  const fix={food:`Farm Estates, a Harbour, food bought in trade or more lowland help (the people out on your land eat ${fmtAmt(FOOD_EAT)} a hex a day, more than hills and mountains grow), and a Granary keeps more of it from spoiling.`,timber:'A Sawmill or forest land helps.',iron:'An Iron Mine on hills, Ore Pits elsewhere, or hilly land helps.',oil:'Oil Wells near a deposit help.',goods:'A Factory, a Harbour or a University helps; so do a stronger economy and science.'}[r];
+  const fix={food:`Farm Estates, a Harbour, food bought in trade or more lowland help (the people out on your land eat ${fmtAmt(FOOD_EAT)} a hex a day, more than hills and mountains grow), and a Granary keeps more of it from spoiling.`,timber:`A Sawmill or forest land helps (the people out on your land burn ${fmtAmt(TIMBER_BURN)} a hex a day as firewood).`,iron:'An Iron Mine on hills, Ore Pits elsewhere, or hilly land helps.',oil:'Oil Wells near a deposit help.',goods:'A Factory, a Harbour or a University helps; so do a stronger economy and science.'}[r];
   return made<=used?`Your people use all the ${resName(r)} your land makes (${fmtAmt(made)} made, ${fmtAmt(used)} used a day), so only the state’s share reaches the stockpile. ${fix}`:`${fix}`;
 }
 c3Strip=(f=>function(n,now,o){
@@ -62324,6 +62348,7 @@ function rbdParts(n,r){
   const im=E.sup[r][i]-E.prod[r][i]+E.exp[r][i];if(Math.abs(im)>=0.05)trade.push([`Imports in trade deals${(pol.importTariffs)?' (after tariffs)':''}`,im]);
   used.push(['Your people',-econSize(x)*DEMAND[r]]);
   if(r==='food'&&E.eat&&E.eat[i]>=0.05){const k=Math.round(E.eat[i]/FOOD_EAT);used.push([`People out on your land (${fmt0(k)} hex${k===1?'':'es'} beyond your core of ${fmt0(econSize(x))}, ${fmtAmt(FOOD_EAT)} each)`,-E.eat[i]]);}
+  if(r==='timber'&&E.burn&&E.burn[i]>=0.05){const k=Math.round(E.burn[i]/TIMBER_BURN);used.push([`Firewood for the people out on your land (${fmt0(k)} hex${k===1?'':'es'} beyond your core of ${fmt0(econSize(x))}, ${fmtAmt(TIMBER_BURN)} each)`,-E.burn[i]]);}
   if(a&&a.up[r]>=0.05)used.push(['Building upkeep',-a.up[r]]);
   const left=E.sup[r][i]-E.dem[r][i];let got=Math.max(0,left);
   stock.push([left>=0?'What is left over':'Nothing left over (your people use more than you have)',got]);
@@ -63685,13 +63710,14 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
    The Cities page shows one city at a time: a list (a row of tabs on a phone), what needs the player, a slim
    stockpile, and the city in four tabs: Buildings, Build, People, Defence & roads. */
 /* the five upgrade blocks: fx is what the block adds (a share of the building's base effect), cost and h scale the
-   building's own cost and build time */
+   building's own cost and build time. The costs were 0.4, 0.6, 0.9, 1.3 and 1.8 until 2026-11-16, when the owner made
+   building upgrades 20% dearer (the Warehouse's tiers, WH_UP_K, and the economy levels, EL_COST, with them). */
 const CX_UG=[
-  {c:'grey',r:'common',fx:0.10,cost:0.4,h:0.5},
-  {c:'green',r:'uncommon',fx:0.15,cost:0.6,h:0.8},
-  {c:'blue',r:'rare',fx:0.20,cost:0.9,h:1.2},
-  {c:'purple',r:'epic',fx:0.25,cost:1.3,h:1.7},
-  {c:'gold',r:'legendary',fx:0.30,cost:1.8,h:2.4}
+  {c:'grey',r:'common',fx:0.10,cost:0.48,h:0.5},
+  {c:'green',r:'uncommon',fx:0.15,cost:0.72,h:0.8},
+  {c:'blue',r:'rare',fx:0.20,cost:1.08,h:1.2},
+  {c:'purple',r:'epic',fx:0.25,cost:1.56,h:1.7},
+  {c:'gold',r:'legendary',fx:0.30,cost:2.16,h:2.4}
 ];
 const CX_UG_MAX=CX_UG.length,CX_LV=CX_UG.reduce((a,u)=>(a.push(Math.round((a[a.length-1]+u.fx)*100)/100),a),[1]);
 const CX_WALL=[null,{cost:{timber:20,iron:10},h:4},{cost:{timber:30,iron:25},h:8},{cost:{timber:30,iron:40,goods:20},h:12}];
@@ -63833,9 +63859,10 @@ function cxPay(n,st,cost,now){for(const r of RES)st[r]-=cost[r]||0;n.stock=round
 function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+Math.floor((cost[r]||0)/2),st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;}
 /* the list prices of an upgrade and of a wall level (no cabinet bonus): the most a kept price can be. m stands in for the
    block's share for a raise to an old level (×1.5 or ×2.5) still under way when the blocks arrived */
-function cxUpList(k,to,m){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));return c;}
+/* prices round up to whole units, less a hair of floating-point dust first (225 × 1.08 is 243.00000000000003: 243, not 244) */
+function cxUpList(k,to,m){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return c;}
 function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return c;}
-function cxUpQuote(n,ct,k,to){const U=CX_UG[to-1],base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost));return {cost:c,hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*cxBuildK(ct)*10)/10)};}
+function cxUpQuote(n,ct,k,to){const U=CX_UG[to-1],base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost-1e-9));return {cost:c,hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*cxBuildK(ct)*10)/10)};}
 function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{if(!b||!cxUpgradable(b.k))return false;const e=cxBldExtras(b);return e.uu&&e.uu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
   if(!cxUpgradable(k))return 'This building cannot be upgraded.';
@@ -64142,12 +64169,12 @@ document.addEventListener('click',e=>{
    usual limit on what buildings add (cityState caps that at +20%), and costs more and takes longer than the last (the
    building's own cost × EL_COST, × EL_GROW_C for each level after the first; time likewise, at most EL_H_MAX hours).
    One upgrade or level at a time in each city. On the building's record: el (levels done) and eu {l,s,d,p}, the level
-   under way and what was paid for it. */
-const EL_FX=0.02,EL_COST=1.5,EL_GROW_C=1.3,EL_H=1.2,EL_GROW_H=1.12,EL_H_MAX=96;
+   under way and what was paid for it. EL_COST was 1.5 until building upgrades went 20% dearer (2026-11-16). */
+const EL_FX=0.02,EL_COST=1.8,EL_GROW_C=1.3,EL_H=1.2,EL_GROW_H=1.12,EL_H_MAX=96;
 const EL_BLD={market:5,exchange:0,cbank:5};
 function elOn(k){return Object.hasOwn(EL_BLD,k)&&!!BUILDINGS[k];}
-function elList(k,l){const base=bCost(null,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));return c;}
-function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m));
+function elList(k,l){const base=bCost(null,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return c;}
+function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));
   return {cost:c,hours:Math.min(EL_H_MAX,Math.max(0.5,Math.round(bHours(n,k)*EL_H*Math.pow(EL_GROW_H,l-1)*cxBuildK(ct)*10)/10))};}
 function elLv(b,now){const e=elExtras(b);return e.eu&&e.eu.d<=now?e.eu.l:e.el||0;}
 function elMap(c,now){const o={};for(const b of (c&&c.b)||[])if(b&&b.d<=now&&(b.k==='market'||b.k==='exchange'||b.k==='cbank')){const l=elLv(b,now);if(l)o[b.k]=l;}return o;}
@@ -69139,7 +69166,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PT:()=>ptProbe(),LTH:()=>lthProbe(),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -72408,6 +72435,12 @@ document.addEventListener('keydown',e=>{
    the open line menu and the question it asks (ask). */
 const RGC_SHOW=60,RGC_TEXT=300,RGC_RUN=5*60000,RGC_RETRY=30000,RGC_FRESH=5*60000,RGC_GUEST=10;
 const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,open:false,busy:false,msg:'',menu:'',ask:null,pend:[],ready:false,toastAt:0,dock:null,foot:'',stick:true,draft:'',sil:null,silAt:0,gt:[],gw:0,pic:null,picErr:''};
+/* the world chat (functions/regionchat.js, RC_WORLD): one more channel, rchat/world/chat, which the nations of every
+   region read and write in, on the drawer's World tab. RGW keeps its lines as RGC keeps the region's (on: 'world' while it
+   listens), the last line read (localStorage edictum.rgc.world), where its divider stands (looked: the tab was looked at
+   since the drawer opened), its lines on their way, and its writing box's draft and answer. A line there carries what a
+   reader in another region cannot look up: the author's region, flag, rank, alliance and Founding Supporter mark. */
+const RGW={reg:'world',on:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,looked:false,ready:false,pend:[],draft:'',re:null};
 /* the Edictum team's mark, in place of a flag on the lines the team signs */
 const RGC_TEAM_SVG='<svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/></svg>';
 const RGC_SVG='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
@@ -72428,7 +72461,7 @@ function rgcGuest(){const a=accountInfo();return !OBS&&!!a&&a.kind==='guest';}
 /* the times of the guest's lines in the last hour: what the server last told, and their lines in the chat */
 function rgcGuestTimes(){
   const now=Date.now(),me=myId(),s=new Set((RGC.gt||[]).filter(t=>t>now-3600000&&t<=now));
-  for(const m of RGC.list)if(m.a===me&&!m.tm&&!m.sys&&m.t>now-3600000)s.add(m.t);
+  for(const m of RGC.list.concat(RGW.list))if(m.a===me&&!m.tm&&!m.sys&&m.t>now-3600000)s.add(m.t);
   return [...s].sort((a,b)=>a-b);
 }
 function rgcGuestNote(){
@@ -72438,6 +72471,7 @@ function rgcGuestNote(){
   return `You have sent your ${RGC_GUEST} lines for this hour. You can write again at ${fmtTime(at)}. ${link} to chat freely.`;
 }
 function rgcConnect(){
+  try{rgwConnect();}catch(e){}
   const reg=rgcOn()?REG.id:'',now=Date.now();
   if(RGC.reg===reg&&(RGC.unsub||!reg||now<RGC.retry))return;
   if(RGC.unsub)try{RGC.unsub();}catch(e){}
@@ -72455,14 +72489,20 @@ function rgcConnect(){
     RGC.err=RGC.ready?'The chat lost its connection. It tries again in a moment.':'The region chat could not be loaded yet. It tries again in a moment.';rgcPaint();});}
   catch(e){RGC.retry=now+RGC_RETRY;}
 }
+/* a line as the chat draws it; one of the world chat (w) keeps its author's region, flag, rank, alliance and Founding
+   Supporter mark as the server stamped them */
+function rgcLineOf(d,w){
+  const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
+  return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:!w&&v.sys==='found'?'found':!w&&v.sys==='all'&&v.tm===true?'all':'',
+    r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true,im:r.im===true}:null,im:rgcImOf(v.im),
+    mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null,
+    ...(w?{w:true,rg:typeof v.rg==='string'?v.rg.slice(0,40):'',fl:typeof v.fl==='string'&&v.fl.length<=4000?v.fl:'',rk:Number.isInteger(v.rk)&&v.rk>=0?v.rk:-1,
+      al:v.al&&typeof v.al==='object'&&typeof v.al.n==='string'&&v.al.n?{n:v.al.n.slice(0,40),c:typeof v.al.c==='string'?v.al.c:''}:null,fd:v.fd===true}:{})};
+}
 function rgcHear(reg,qs){
   if(RGC.reg!==reg)return;
   const me=myId(),first=!RGC.ready,top=RGC.top;
-  RGC.list=qs.docs.map(d=>{const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
-    return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':v.sys==='all'&&v.tm===true?'all':'',
-      r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true,im:r.im===true}:null,im:rgcImOf(v.im),
-      mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null};})
-    .sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
+  RGC.list=qs.docs.map(d=>rgcLineOf(d,false)).sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
   /* new lines: since the last snapshot; on the first, those of the last few minutes not yet read (the chat may have
      connected a little after the game, while a nation founded a moment ago was still being saved) */
   const last=RGC.list.length?RGC.list[RGC.list.length-1].t:0,since=first?Math.max(RGC.seen,last-RGC_FRESH):top,fresh=RGC.list.filter(m=>m.t>since&&m.a!==me&&!dmBlocked(m.a));
@@ -72474,6 +72514,46 @@ function rgcHear(reg,qs){
   if(RGC.open&&!document.hidden&&rgcTab()==='region'){rgcSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=m.sys==='found'?m.x:`${rgcName(m)}: ${m.im?'(a picture) ':''}${m.x}`;}}
   rgcBadge();rgcPaint();
 }
+/* the world chat's listener, beside the region's: on while the chat is and the player has not turned the World tab off
+   (Settings › Chat, dmx.rw 0); a refused or lost listener tries again as the region's does */
+function rgwOn(){return rgcOn()&&(OBS||!S.nation||dmx(S.nation).rw!==0);}
+function rgwConnect(){
+  const on=rgwOn()?'world':'',now=Date.now();
+  if(RGW.on===on&&(RGW.unsub||!on||now<RGW.retry))return;
+  if(RGW.unsub)try{RGW.unsub();}catch(e){}
+  RGW.unsub=null;
+  if(RGW.on!==on){
+    Object.assign(RGW,{on,list:[],top:0,err:'',retry:0,fails:0,ready:false,pend:[],mark:0,markTop:0,looked:false});
+    RGW.seen=Number(rgcLS('edictum.rgc.world'))||0;
+    if(RGC.open){RGC.menu='';RGC.ask=null;rgcPaint();}
+  }
+  if(!on){rgcBadge();return;}
+  try{RGW.unsub=S.db.collection('rchat/world/chat').orderBy('t','desc').limit(RGC_SHOW).onSnapshot(rgwHear,()=>{
+    if(RGW.on!=='world')return;RGW.unsub=null;RGW.retry=Date.now()+Math.min(RGC_RETRY,3000*2**RGW.fails++);
+    RGW.err=RGW.ready?'The chat lost its connection. It tries again in a moment.':'The world chat could not be loaded yet. It tries again in a moment.';rgcPaint();});}
+  catch(e){RGW.retry=now+RGC_RETRY;}
+}
+function rgwHear(qs){
+  if(RGW.on!=='world')return;
+  const me=myId(),first=!RGW.ready,top=RGW.top;
+  RGW.list=qs.docs.map(d=>rgcLineOf(d,true)).sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
+  const last=RGW.list.length?RGW.list[RGW.list.length-1].t:0,since=first?Math.max(RGW.seen,last-RGC_FRESH):top,fresh=RGW.list.filter(m=>m.t>since&&m.a!==me&&!dmBlocked(m.a));
+  RGW.top=Math.max(top,last);RGW.err='';RGW.ready=true;RGW.retry=0;RGW.fails=0;
+  if(RGW.pend.length){const ids=new Set(RGW.list.map(m=>m.id));RGW.pend=RGW.pend.filter(p=>p.id?!ids.has(p.id):!RGW.list.some(m=>m.a===me&&m.x===p.x&&!!m.im===!!p.im&&m.t>p.top));}
+  rgcNamed(fresh,true);
+  if(RGC.open&&!document.hidden&&rgcTab()==='world'){rgwSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=`${rgcName(m)}: ${m.im?'(a picture) ':''}${m.x}`;}}
+  rgcBadge();rgcPaint();
+}
+function rgwUnread(){if(!RGW.on)return 0;const me=myId();let k=0;for(const m of RGW.list)if(m.t>RGW.seen&&m.a!==me&&!dmBlocked(m.a))k++;return k;}
+/* the world chat's new lines that @mention the player's nation, name it or answer it: these the Chat button counts */
+function rgwNamedUnread(){if(!RGW.on||OBS)return 0;const me=myId();let k=0;for(const m of RGW.list)if(m.t>RGW.seen&&m.a!==me&&!dmBlocked(m.a)&&(m.mn&&m.mn[me]||m.r&&m.r.a===me||rgcNames(m.x)))k++;return k;}
+function rgwSeen(){const t=RGW.top;if(t>RGW.seen){RGW.seen=t;rgcLS('edictum.rgc.world',t);}}
+/* the World tab looked at: its divider stands before the first line not yet read, until the drawer closes */
+function rgwLook(){if(!RGW.looked){RGW.mark=RGW.seen;RGW.markTop=RGW.top;RGW.looked=true;}if(!document.hidden)rgwSeen();}
+/* the shown tab's chat: the world chat's on the World tab, the region's otherwise */
+const rgcCh=()=>rgcTab()==='world'?RGW:RGC;
+const rgcChOf=m=>m&&m.w?RGW:RGC;
+const rgcRegOf=m=>m&&m.w?'world':RGC.reg;
 function rgcName(m){if(m.tm)return 'Edictum team';const x=findNation(m.a);return x?x.n.name:m.nm;}
 function rgcUnread(){if(!RGC.reg)return 0;const me=myId();let k=0;for(const m of RGC.list)if(m.t>RGC.seen&&m.a!==me&&!dmBlocked(m.a))k++;return k;}
 function rgcSeen(){const t=RGC.top;if(t>RGC.seen){RGC.seen=t;try{localStorage.setItem('edictum.rgc.'+RGC.reg,String(t));}catch(e){}}}
@@ -72500,12 +72580,12 @@ function rgcHi(x){
   while((m=re.exec(x))){const s=m.index+m[1].length;out+=esc(x.slice(i,s))+'<mark>'+esc(m[2])+'</mark>';i=s+m[2].length;if(!m[0].length)re.lastIndex++;}
   return out+esc(x.slice(i));
 }
-function rgcNamed(fresh){
+function rgcNamed(fresh,w){
   if(OBS||!S.nation||dmx(S.nation).rcn===0||!fresh.length)return;
-  const me=myId(),hit=fresh.filter(m=>!m.sys&&(rgcNames(m.x)||m.mn&&m.mn[me]||m.r&&m.r.a===me));if(!hit.length||RGC.open&&!document.hidden&&rgcTab()==='region')return;
+  const me=myId(),hit=fresh.filter(m=>!m.sys&&(rgcNames(m.x)||m.mn&&m.mn[me]||m.r&&m.r.a===me));if(!hit.length||RGC.open&&!document.hidden&&rgcTab()===(w?'world':'region'))return;
   const now=Date.now();if(now-RGC.toastAt<30000)return;RGC.toastAt=now;
-  const m=hit[hit.length-1];
-  toast(m.r&&m.r.a===me&&!(m.mn&&m.mn[me])?`${rgcName(m)} answered you in the region chat.`:`${rgcName(m)} mentioned ${S.nation.name} in the region chat.`);
+  const m=hit[hit.length-1],where=w?'the world chat':'the region chat';
+  toast(m.r&&m.r.a===me&&!(m.mn&&m.mn[me])?`${rgcName(m)} answered you in ${where}.`:`${rgcName(m)} mentioned ${S.nation.name} in ${where}.`);
 }
 /* the Chat button beside the bell; between drawings rgcBadge keeps its number */
 function rgcLabel(c){return 'Region chat'+(c?`, ${c} new`:'');}
@@ -72545,9 +72625,14 @@ function rgcOnline(){
   for(const [id,t] of Object.entries(ONL.u))if(now-t<ONL_WIN)on.add(id);
   if(onlMine())on.add(myId());return on.size;
 }
+/* the World tab's line under its title: how many regions wrote there in the last day */
+function rgwSub(){const now=Date.now(),regs=new Set(RGW.list.filter(m=>m.rg&&now-m.t<DAY).map(m=>m.rg)).size;return regs>1?`${regs} regions talking today`:'The nations of every region, in one chat';}
 function rgcHead(){
   const d=RGC.dock;if(!d||d.hidden)return;
-  const h=d.querySelector('#rgc-h'),s=d.querySelector('#rgc-sub'),n=rgcOnline();
+  const h=d.querySelector('#rgc-h'),s=d.querySelector('#rgc-sub'),e=d.querySelector('.rgc-ht .eyebrow'),wd=rgcTab()==='world';
+  if(e)e.textContent=wd?'World chat':'Region chat';
+  if(wd){if(h)h.textContent='Every region';if(s)s.textContent=rgwSub();return;}
+  const n=rgcOnline();
   if(h)h.textContent=REGION;
   if(s)s.textContent=n>1?`${n} nations online now`:n===1?'Only you are online just now':`Talk with the nations of ${rgcIn()}`;
 }
@@ -72570,12 +72655,14 @@ function rgcLine(m,run,by,me,mod,memo){
   if(m.sys)return rgcSysLine(m,by,me,mod);
   /* a line the Edictum team signed (tm): the team's mark and name, never a nation's, and nothing to report or block;
      a line of the alliance channel (ally): Delete for its writer and the alliance's officers, nothing else */
-  const ally=!!m.ally,i=esc(m.id);
+  const ally=!!m.ally,i=esc(m.id),wd=!!m.w;
   const x=m.tm?null:by.get(m.a),mine=m.a===me&&!m.tm,nm=m.tm?'Edictum team':x?x.n.name:m.nm,named=!mine&&(rgcNames(m.x)||!!(m.mn&&m.mn[me])||!!(m.r&&m.r.a===me)),when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`;
+  /* the world chat: a nation of another region shows the flag and marks its line carries, and its region */
+  const wf=wd&&!x&&!m.tm&&m.fl?rgwFlag(m.fl,nm):'',from=wd&&!m.tm?rgwFrom(m.rg||(x?REG.id:'')):'';
   const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:mine?`<b class="rgc-nm">${esc(nm)}</b>`:x&&!x.npc?`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(m.a)}">${esc(nm)}</button>`:`<b class="rgc-nm">${esc(nm)}</b>`;
   const pill=m.tm?'':m.st==='mod'?'<span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'||isStaff(m.a)?STAFF_PILL:'';
-  const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):''}</span>`;
-  const head=run?'':`<p class="rgc-lh">${fl}${who}${x&&!x.npc?rgcBadges(x,memo):''}${pill}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
+  const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span>`;
+  const head=run?'':`<p class="rgc-lh">${fl}${who}${x&&!x.npc?rgcBadges(x,memo):wd&&!m.tm?rgwBadges(m):''}${pill}${from}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
   let can;
   if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
@@ -72658,19 +72745,20 @@ function rgcPaint(){
   if(tab==='haps')h=rgcHapsHTML();
   else{
     const me=myId(),mod=rgcMod(),by=new Map(allNations().map(x=>[x.id,x])),memo=new Map(),A=tab==='ally'?rgcAllyOn():null;
-    const src=tab==='ally'?rgcAllyLines():RGC.list,vis=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis.length;
+    const C=tab==='world'?RGW:RGC,src=tab==='ally'?rgcAllyLines():C.list,vis=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis.length;
     const hidTxt=hid?` <span class="rgc-hid">${hid} ${hid===1?'line from a nation you blocked is':'lines from nations you blocked are'} hidden.</span>`:'';
     h=tab==='ally'?`<li class="rgc-intro">Only the members of ${esc(A?A.name:'your alliance')} read this channel.${hidTxt}</li>`
+      :tab==='world'?`<li class="rgc-intro">The nations of every region read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.${hidTxt}</li>`
       :`<li class="rgc-intro">Everyone in ${esc(rgcIn())} can read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.${hidTxt}</li>`;
     let prev=null,day='',fresh=false;
     for(const m of vis){
       const k=rgcDay(m.t);if(k!==day){day=k;h+=`<li class="rgc-day" role="separator"><span>${esc(rgcDayWords(m.t))}</span></li>`;prev=null;}
-      if(tab==='region'&&!fresh&&RGC.mark&&m.t>RGC.mark&&m.t<=RGC.markTop&&m.a!==me){fresh=true;h+='<li class="rgc-new" role="separator"><span>New</span></li>';prev=null;}
+      if(tab!=='ally'&&!fresh&&C.mark&&m.t>C.mark&&m.t<=C.markTop&&m.a!==me){fresh=true;h+='<li class="rgc-new" role="separator"><span>New</span></li>';prev=null;}
       h+=rgcLine(m,!!prev&&prev.a===m.a&&!prev.tm===!m.tm&&!prev.sys&&!m.sys&&!m.r&&m.t-prev.t<RGC_RUN,by,me,mod,memo);prev=m;
     }
-    if(tab==='region')for(const p of RGC.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw">${p.im?`<div class="rgc-xc">${p.x?`<p class="rgc-x">${esc(p.x)}</p>`:''}${rgcPicHTML(p.im,'',S.nation?S.nation.name:'')}</div>`:`<p class="rgc-x">${esc(p.x)}</p>`}<span class="rgc-wait">Sending…</span></div></li>`;
-    const err=tab==='ally'?(AL.chat&&AL.chat.err)||'':RGC.err;
-    if(!vis.length&&(tab!=='region'||!RGC.pend.length))h+=`<li class="rgc-empty">${err?esc(err):tab==='ally'?'No messages yet. Say hello to your allies.':RGC.ready?`No lines yet. Say hello to ${esc(rgcIn())}.`:'Opening the chat…'}</li>`;
+    if(tab!=='ally')for(const p of C.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw">${p.im?`<div class="rgc-xc">${p.x?`<p class="rgc-x">${esc(p.x)}</p>`:''}${rgcPicHTML(p.im,'',S.nation?S.nation.name:'')}</div>`:`<p class="rgc-x">${esc(p.x)}</p>`}<span class="rgc-wait">Sending…</span></div></li>`;
+    const err=tab==='ally'?(AL.chat&&AL.chat.err)||'':C.err;
+    if(!vis.length&&(tab==='ally'||!C.pend.length))h+=`<li class="rgc-empty">${err?esc(err):tab==='ally'?'No messages yet. Say hello to your allies.':C.ready?`No lines yet. Say hello to ${tab==='world'?'every region':esc(rgcIn())}.`:'Opening the chat…'}</li>`;
     else if(err)h+=`<li class="rgc-empty err">${esc(err)}</li>`;
   }
   /* a control of a line that held the focus (its menu button, its nation's name, a field of its form) holds it again,
@@ -72703,16 +72791,17 @@ function rgcFoot(){
     const b=f.querySelector('#rgc-asend');if(b)b.disabled=RGC.abusy;
     return;
   }
-  const w=rgcWrite(),gq=!w&&rgcGuest(),pk=!w&&rgcPicCan(),key=(w?'r:'+w.why:'w')+'|'+REGION+'|'+(gq?'g':'')+(pk?'p':'');
+  const C=tab==='world'?RGW:RGC,to=tab==='world'?'every region':rgcIn();
+  const w=rgcWrite(),gq=!w&&rgcGuest(),pk=!w&&rgcPicCan(),key=(w?'r:'+w.why:'w')+'|'+REGION+'|'+tab+'|'+(gq?'g':'')+(pk?'p':'');
   if(RGC.foot!==key){
     RGC.foot=key;RGC.mn=null;
     if(!pk){RGC.pic=null;RGC.picErr='';}
     f.innerHTML=w?`<p class="rgc-ro">${esc(w.why)}</p>${w.link?'<div class="row"><button type="button" class="btn small" data-act="acct-open">Link a sign-in</button><button type="button" class="linkish small" data-act="account-compare">Compare account types</button></div>':''}`
-      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div>${pk?'<div class="rgc-picbar" id="rgc-picbar" hidden></div>':''}<ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(rgcIn())}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(rgcIn())}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea>${pk?rgcPicPicker('rgc'):''}<button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>${gq?'<p class="rgc-gq" id="rgc-gq"></p>':''}`;
-    const ta=f.querySelector('#rgc-x');if(ta){ta.value=RGC.draft;rgcGrow(ta);}
+      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div>${pk?'<div class="rgc-picbar" id="rgc-picbar" hidden></div>':''}<ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(to)}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(to)}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea>${pk?rgcPicPicker('rgc'):''}<button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>${gq?'<p class="rgc-gq" id="rgc-gq"></p>':''}`;
+    const ta=f.querySelector('#rgc-x');if(ta){ta.value=C.draft;rgcGrow(ta);}
   }
   const rb=f.querySelector('#rgc-rebar');
-  if(rb){const r=RGC.re;rb.hidden=!r;rb.innerHTML=r?`<span class="rgc-reb">Answering <b>${esc(r.nm)}</b>: ${esc(r.x)}</span><button type="button" class="rgc-hb" data-rgc="re-no" aria-label="Stop answering" title="Stop answering"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button>`:'';}
+  if(rb){const r=C.re;rb.hidden=!r;rb.innerHTML=r?`<span class="rgc-reb">Answering <b>${esc(r.nm)}</b>: ${esc(r.x)}</span><button type="button" class="rgc-hb" data-rgc="re-no" aria-label="Stop answering" title="Stop answering"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button>`:'';}
   rgcPicBarPaint(f.querySelector('#rgc-picbar'),RGC,'rgc');
   const msg=f.querySelector('#rgc-msg'),ta=f.querySelector('#rgc-x'),left=ta?RGC_TEXT-ta.value.length:RGC_TEXT;
   if(msg){msg.textContent=RGC.msg||(left<=60?`${left} ${left===1?'character':'characters'} left`:'');msg.classList.toggle('err',!!RGC.msg);}
@@ -72728,12 +72817,12 @@ function rgcOpen(on,quiet){
   if(on){
     /* the divider stands before the first line not yet read when the drawer opened; lines that come in while it is
        open are read as they come */
-    if(!was){RGC.mark=RGC.seen;RGC.markTop=RGC.top;RGC.stick=true;RGC.foot='';}
+    if(!was){RGC.mark=RGC.seen;RGC.markTop=RGC.top;RGC.stick=true;RGC.foot='';RGW.looked=false;if(rgcTab()==='world')rgwLook();}
     d.hidden=false;document.documentElement.classList.add('rgc-on');rgcConnect();rgcPaint();if(!document.hidden&&rgcTab()==='region')rgcSeen();rgcBadge();rgcSilLoad(!was);
     Promise.resolve().then(()=>onlRefresh()).then(rgcHead,()=>{});
     if(!quiet)requestAnimationFrame(()=>{const t=document.getElementById('rgc-x')||d.querySelector('[data-rgc="close"]');if(t)t.focus({preventScroll:true});});
   }else{
-    d.hidden=true;Object.assign(RGC,{menu:'',ask:null,mark:0,markTop:0});document.documentElement.classList.remove('rgc-on');rgcBadge();
+    d.hidden=true;Object.assign(RGC,{menu:'',ask:null,mark:0,markTop:0});Object.assign(RGW,{mark:0,markTop:0,looked:false});document.documentElement.classList.remove('rgc-on');rgcBadge();
     if(was&&!quiet){const o=RGC.opener,b=o&&o.isConnected&&o.getClientRects().length?o:[...document.querySelectorAll('.rgc-btn')].find(x=>x.getClientRects().length);if(b)b.focus({preventScroll:true});}
   }
 }
@@ -72743,26 +72832,26 @@ async function rgcCivic(d){
   const r=await api.request(d);return r&&typeof r==='object'&&r.data&&typeof r.data==='object'&&!('ok' in r)?r.data:r||{};
 }
 async function rgcSend(){
-  const ta=document.getElementById('rgc-x');if(!ta||RGC.busy||!RGC.reg)return;
+  const ta=document.getElementById('rgc-x'),C=rgcCh(),wd=C===RGW;if(!ta||RGC.busy||!(wd?RGW.on:RGC.reg))return;
   /* an admin's picture goes with the words, or alone */
   if(RGC.pic&&RGC.pic.busy){RGC.msg='The picture is still being prepared. Send it in a moment.';rgcFoot();return;}
   const P=RGC.pic&&rgcPicCan()?RGC.pic:null;
   const x=ta.value.replace(/\s+/g,' ').trim();if(!x&&!P)return;
-  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:RGC.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{})},reg=RGC.reg,reo=RGC.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
-  RGC.busy=true;RGC.msg='';RGC.pend.push(p);ta.value='';RGC.draft='';RGC.re=null;RGC.pic=null;RGC.picErr='';rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
+  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:C.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{})},reg=wd?'world':RGC.reg,reo=C.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
+  RGC.busy=true;RGC.msg='';C.pend.push(p);ta.value='';C.draft='';C.re=null;RGC.pic=null;RGC.picErr='';rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
   try{
-    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{})});
+    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{}),...(wd?{rk:rgwRank()}:{})});
     p.id=typeof r.id==='string'?r.id:'';achPend('rch');if(re)achPend('rchr');if(mn.length)achPend('mnt');
     if(r.guest===true&&Array.isArray(r.gt))RGC.gt=r.gt.map(Number).filter(t=>t>0).slice(-RGC_GUEST);
-    if(!p.id||RGC.list.some(m=>m.id===p.id))RGC.pend=RGC.pend.filter(q=>q!==p);
-    if(!OBS)tutMark('h');
+    if(!p.id||C.list.some(m=>m.id===p.id))C.pend=C.pend.filter(q=>q!==p);
+    if(!OBS&&!wd)tutMark('h');
   }catch(e){
-    RGC.pend=RGC.pend.filter(q=>q!==p);const d=e&&e.details;
+    C.pend=C.pend.filter(q=>q!==p);const d=e&&e.details;
     if(P&&!RGC.pic)RGC.pic=P;
-    if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';RGC.draft=p.x;}
+    if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';C.draft=p.x;}
     else{RGC.msg=alErrText(e);if(d&&d.code==='rc_guest'){RGC.gw=Date.now()+Math.max(0,Number(d.wait)||0);RGC.msg='';}
-      const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;RGC.draft=p.x;rgcGrow(t);}
-      if(reo&&!(d&&d.code==='rc_gone'))RGC.re=RGC.re||reo;}
+      const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;C.draft=p.x;rgcGrow(t);}
+      if(reo&&!(d&&d.code==='rc_gone'))C.re=C.re||reo;}
   }finally{
     RGC.busy=false;rgcPaint();
     const t=document.getElementById('rgc-x'),f=document.activeElement;if(t&&RGC.open&&(!f||f===document.body||RGC.dock.contains(f)))t.focus({preventScroll:true});
@@ -72778,17 +72867,19 @@ async function rgcSilLoad(force){
 /* staff silence the author of a line, from its menu (functions/regionchat.js, rcMute) */
 async function rgcMute(m){
   const q=RGC.ask;if(!q||q.k!=='mute'||q.busy)return;q.busy=true;rgcPaint();
-  try{const r=await rgcCivic({op:'rcMute',uid:m.a,reg:RGC.reg,hours:q.hours,why:q.why.trim(),wipe:q.wipe});RGC.ask=null;rgcPaint();rgcRefocus();
-    toast(`${rgcName(m)} is silenced in the region chat ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);}
+  try{const r=await rgcCivic({op:'rcMute',uid:m.a,reg:rgcRegOf(m),hours:q.hours,why:q.why.trim(),wipe:q.wipe});RGC.ask=null;rgcPaint();rgcRefocus();
+    toast(`${rgcName(m)} is silenced in ${m.w?'every chat':'the region chat'} ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);}
   catch(e){q.busy=false;rgcPaint();toast(alErrText(e));}
 }
 async function rgcDel(m){
-  try{await rgcCivic({op:'rcDelete',reg:RGC.reg,id:m.id});RGC.list=RGC.list.filter(x=>x.id!==m.id);rgcPaint();toast(m.a===myId()?'Your line was deleted.':'The line was removed from the chat.');}
+  try{await rgcCivic({op:'rcDelete',reg:rgcRegOf(m),id:m.id});const C=rgcChOf(m);C.list=C.list.filter(x=>x.id!==m.id);rgcPaint();toast(m.a===myId()?'Your line was deleted.':'The line was removed from the chat.');}
   catch(e){toast(alErrText(e));}
 }
 function rgcReport(m){
   Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('report'):null).then(r=>{
-    if(r&&typeof r.open==='function')r.open({kind:'chat',target:m.a,post:'rc:'+RGC.reg+':'+m.id,reg:RGC.reg,name:rgcName(m),x:m.im?('(a picture) '+m.x).trim():m.x});
+    /* a world chat line: rc:world:<line>, filed under its author's region */
+    const reg=m.w&&m.rg&&REG_BY_ID[m.rg]?m.rg:RGC.reg||REG.id;
+    if(r&&typeof r.open==='function')r.open({kind:'chat',target:m.a,post:'rc:'+rgcRegOf(m)+':'+m.id,reg,name:rgcName(m),x:m.im?('(a picture) '+m.x).trim():m.x});
     else toast('Reporting needs a connection to the region.');
   },()=>toast('Reporting needs a connection to the region.'));
 }
@@ -72801,7 +72892,7 @@ document.addEventListener('click',e=>{
     return;
   }
   if(el.tagName==='INPUT')return;
-  const a=el.dataset.rgc,id=el.dataset.id||'',m=RGC.list.find(x=>x.id===id);
+  const a=el.dataset.rgc,id=el.dataset.id||'',m=rgcCh().list.find(x=>x.id===id);
   if(a==='toggle')rgcOpen(!RGC.open);
   else if(a==='close')rgcOpen(false);
   else if(a==='settings'){if(navNarrow())rgcOpen(false,true);uxOpen('settings',null,'#set-chat-btn');}
@@ -72823,8 +72914,9 @@ document.addEventListener('change',e=>{
   const el=e.target;if(!el||!el.dataset||!S.nation)return;const a=el.dataset.rgc;
   if(a==='set-on'){const on=el.checked;if(!on&&RGC.open)rgcOpen(false,true);dmSet(x=>{if(on)delete x.rc;else x.rc=0;});rgcConnect();}
   else if(a==='set-named'){const on=el.checked;dmSet(x=>{if(on)delete x.rcn;else x.rcn=0;});}
+  else if(a==='set-world'){const on=el.checked;dmSet(x=>{if(on)delete x.rw;else x.rw=0;});rgcConnect();rgcBadge();}
 });
-document.addEventListener('input',e=>{const el=e.target;if(!el||el.id!=='rgc-x')return;if(/\n/.test(el.value))el.value=el.value.replace(/\n+/g,' ');RGC.draft=el.value;rgcGrow(el);if(RGC.msg&&!RGC.busy)RGC.msg='';rgcFoot();});
+document.addEventListener('input',e=>{const el=e.target;if(!el||el.id!=='rgc-x')return;if(/\n/.test(el.value))el.value=el.value.replace(/\n+/g,' ');rgcCh().draft=el.value;rgcGrow(el);if(RGC.msg&&!RGC.busy)RGC.msg='';rgcFoot();});
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='rgc-form'){e.preventDefault();rgcSend();}});
 document.addEventListener('keydown',e=>{
   if(!RGC.open)return;const t=e.target;
@@ -72834,7 +72926,7 @@ document.addEventListener('keydown',e=>{
   /* from inside the drawer, or with nothing focused (a line just blocked or deleted), or on a phone, where it covers the page */
   if(RGC.dock&&(RGC.dock.contains(t)||(!t||t===document.body)&&!document.documentElement.classList.contains('rgc-docked')||navNarrow())){e.preventDefault();rgcOpen(false);}
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&RGC.open){const t=rgcTab();if(t==='region')rgcSeen();else if(t==='ally')try{alChatSeen();}catch(e){}rgcBadge();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&RGC.open){const t=rgcTab();if(t==='region')rgcSeen();else if(t==='world')rgwSeen();else if(t==='ally')try{alChatSeen();}catch(e){}rgcBadge();}});
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{rgcConnect();}catch(e){}return r;})(connect);
 /* keeps the chat following the region as the game connects, changes region or turns the chat off, drops lines that
    never came back from the server, and keeps the drawer's count of who is online */
@@ -72843,7 +72935,7 @@ setInterval(()=>{try{
   if(RGC.open&&!rgcOn())rgcOpen(false,true);
   if(RGC.sil&&RGC.sil.until<=Date.now()){RGC.sil=null;rgcFoot();}
   if(RGC.open&&RGC.sil&&!document.hidden&&Date.now()-RGC.silAt>60000)rgcSilLoad();
-  if(RGC.pend.length){const now=Date.now(),n=RGC.pend.length;RGC.pend=RGC.pend.filter(p=>now-p.t<20000);if(RGC.pend.length!==n)rgcPaint();}
+  for(const C of [RGC,RGW])if(C.pend.length){const now=Date.now(),n=C.pend.length;C.pend=C.pend.filter(p=>now-p.t<20000);if(C.pend.length!==n)rgcPaint();}
   if(RGC.open&&!document.hidden)Promise.resolve().then(()=>onlRefresh()).then(rgcHead,()=>{});
 }catch(e){}},4000);
 /* ── the chat, round two: tabs (Region, Alliance, Happenings), answers, @mentions, reactions, badges, docking ──
@@ -72861,16 +72953,17 @@ const RGC_HAPS=40,RGC_WIDE=typeof window.matchMedia==='function'?window.matchMed
 function rgcLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,String(v));}catch(e){}return null;}
 Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:'',abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
 function rgcAllyOn(){if(OBS)return null;try{const A=alMine();return A&&A.srv?A:null;}catch(e){return null;}}
-function rgcTabs(){const t=[['region','Region']];if(rgcAllyOn())t.push(['ally','Alliance']);t.push(['haps','Happenings']);return t;}
+function rgcTabs(){const t=[['region','Region']];if(rgwOn())t.push(['world','World']);if(rgcAllyOn())t.push(['ally','Alliance']);t.push(['haps','Happenings']);return t;}
 function rgcTab(){if(!rgcTabs().some(x=>x[0]===RGC.tab))RGC.tab='region';return RGC.tab;}
 function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){return 0;}}
-function rgcCount(){return rgcUnread()+rgcAllyUnread();}
+/* the Chat button counts the Region and Alliance tabs, and the world chat's lines that name the player */
+function rgcCount(){return rgcUnread()+rgcAllyUnread()+rgwNamedUnread();}
 function rgcAllyLines(){const C=AL.chat;return (C&&C.list||[]).map(m=>({id:m.id,a:m.a,nm:m.nm,x:m.x,t:m.t,st:'',ally:true}));}
 /* the alliance channel's listener (alChatConnect) calls this with every snapshot */
 function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{alChatSeen();}catch(e){}rgcPaint();}rgcBadge();}
 function rgcTabsPaint(){
   const el=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(!el)return;const cur=rgcTab();
-  const n={region:cur==='region'?0:rgcUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};
+  const n={region:cur==='region'?0:rgcUnread(),world:cur==='world'?0:rgwUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};
   const h=rgcTabs().map(([k,l])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${l}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
   if(el.innerHTML!==h){const f=document.activeElement,had=f&&el.contains(f)?f.dataset.v:'';el.innerHTML=h;if(had){const b=document.getElementById('rgc-tab-'+had);if(b)b.focus({preventScroll:true});}}
 }
@@ -72878,6 +72971,7 @@ function rgcSetTab(v,focus){
   if(!rgcTabs().some(x=>x[0]===v))return;
   RGC.tab=v;rgcLS('edictum.rgc.tab',v);Object.assign(RGC,{menu:'',ask:null,stick:v!=='haps',goto:''});
   if(v==='region'&&!document.hidden)rgcSeen();
+  if(v==='world')rgwLook();
   if(v==='ally')try{alChatSeen();}catch(e){}
   if(v==='haps')rgcHapRead();
   rgcPaint();rgcBadge();
@@ -72923,26 +73017,46 @@ function rgcBadges(x,memo){
   try{h+=shopBadge(x.n,1);}catch(e){}
   if(memo)memo.set(x.id,h);return h;
 }
+/* beside a name in the world chat, for a nation of another region: what its line carries (rank, alliance, Founding
+   Supporter), its flag, and its region */
+function rgwBadges(m){
+  let h='';
+  if(m.rk>0)try{const i=Math.min(ID_BD.length-1,m.rk),R=ACH_RANKS[m.rk],nm=R?R[1]:'';h+=`<i class="rgc-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(nm)}" title="Rank: ${esc(nm)}"></i>`;}catch(e){}
+  if(m.al&&m.al.n)h+=`<span class="rgc-al" style="--alc:${esc(safeColor(m.al.c,'#3A8FD1'))}" title="A member of ${esc(m.al.n)}" aria-label="A member of ${esc(m.al.n)}">${esc(rgcTag(m.al.n))}</span>`;
+  if(m.fd)h+=`<span class="founder-pill sm" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}<span class="founder-sr">Founding Supporter</span></span>`;
+  return h;
+}
+function rgwFlagOf(fl){let f=NW_FLAGS.get(fl);if(f===undefined){f=null;try{const o=JSON.parse(fl);if(o&&typeof o==='object'&&!Array.isArray(o))f=o;}catch(e){}NW_FLAGS.set(fl,f);}return f;}
+function rgwFlag(fl,nm){const f=rgwFlagOf(fl);if(!f)return '';try{return flagSVG(f,'Flag of '+nm);}catch(e){return '';}}
+function rgwFrom(rg){const R=REG_BY_ID[rg];return R?`<span class="rgc-from${rg===REG.id?' home':''}" title="${esc(rg===REG.id?'Your region':'A nation of '+(R.the||R.name))}">${esc(R.name)}</span>`:'';}
+function rgwRank(){try{return Math.max(0,achRankOf(S.nation).i|0);}catch(e){return 0;}}
+/* who @ offers: the region's nations, and on the World tab the nations that wrote there lately as well */
+function rgcMnPool(){
+  const me=myId(),out=allNations().filter(x=>!x.npc&&!x.me&&x.id!==me).map(x=>({id:x.id,nm:x.n.name,fl:x.n.flag}));
+  if(rgcTab()==='world'){const have=new Set(out.map(o=>o.id));
+    for(let i=RGW.list.length-1;i>=0;i--){const m=RGW.list[i];if(m.tm||m.a===me||have.has(m.a))continue;have.add(m.a);out.push({id:m.a,nm:m.nm,fl:m.fl?rgwFlagOf(m.fl):null});}}
+  return out;
+}
 /* @mentions: the word being typed after an @ offers the region's nations; the server keeps those named after an @ */
 function rgcMnFind(ta){const v=ta.value,c=typeof ta.selectionStart==='number'?ta.selectionStart:v.length,m=/(^|\s)@([^\s@]{0,40})$/.exec(v.slice(0,c));return m?{q:m[2],start:c-m[2].length-1,end:c}:null;}
 function rgcMnShow(ta){
   const ul=document.getElementById('rgc-mn');if(!ul||!ta)return;const t=document.activeElement===ta?rgcMnFind(ta):null;
-  const q=t?t.q.toLowerCase():'',me=myId(),items=t?allNations().filter(x=>!x.npc&&!x.me&&x.id!==me&&!dmBlocked(x.id)&&x.n.name.toLowerCase().startsWith(q)).sort((a,b)=>a.n.name.localeCompare(b.n.name)).slice(0,6):[];
+  const q=t?t.q.toLowerCase():'',items=t?rgcMnPool().filter(o=>!dmBlocked(o.id)&&o.nm.toLowerCase().startsWith(q)).sort((a,b)=>a.nm.localeCompare(b.nm)).slice(0,6):[];
   if(!items.length){RGC.mn=null;ul.hidden=true;ul.innerHTML='';ta.setAttribute('aria-expanded','false');ta.removeAttribute('aria-activedescendant');return;}
   const sel=RGC.mn&&RGC.mn.q===q?Math.min(RGC.mn.sel,items.length-1):0;
-  RGC.mn={...t,q,sel,items:items.map(x=>({id:x.id,nm:x.n.name,fl:x.n.flag}))};
-  ul.innerHTML=RGC.mn.items.map((o,k)=>`<li role="option" id="rgc-mn-${k}" class="${k===sel?'on':''}" aria-selected="${k===sel}" data-k="${k}"><span class="mflag sm">${flagSVG(o.fl,'')}</span>@${esc(o.nm)}</li>`).join('');
+  RGC.mn={...t,q,sel,items};
+  ul.innerHTML=RGC.mn.items.map((o,k)=>`<li role="option" id="rgc-mn-${k}" class="${k===sel?'on':''}" aria-selected="${k===sel}" data-k="${k}"><span class="mflag sm">${o.fl?flagSVG(o.fl,''):''}</span>@${esc(o.nm)}</li>`).join('');
   ul.hidden=false;ta.setAttribute('aria-expanded','true');ta.setAttribute('aria-activedescendant','rgc-mn-'+sel);
 }
 function rgcMnPick(ta,k){
   const M=RGC.mn;if(!M||!M.items[k])return;const o=M.items[k],v=ta.value,ins='@'+o.nm+' ';
   ta.value=(v.slice(0,M.start)+ins+v.slice(M.end)).slice(0,RGC_TEXT);const c=Math.min(ta.value.length,M.start+ins.length);
-  ta.focus();try{ta.setSelectionRange(c,c);}catch(e){}RGC.draft=ta.value;RGC.mn=null;rgcGrow(ta);rgcMnShow(ta);rgcFoot();
+  ta.focus();try{ta.setSelectionRange(c,c);}catch(e){}rgcCh().draft=ta.value;RGC.mn=null;rgcGrow(ta);rgcMnShow(ta);rgcFoot();
 }
 function rgcMnIds(x){
   const low=x.toLowerCase(),me=myId(),out=[];
-  for(const n of allNations().filter(n=>!n.npc&&!n.me&&n.id!==me).sort((a,b)=>b.n.name.length-a.n.name.length)){
-    const at='@'+n.n.name.toLowerCase();let i=low.indexOf(at);
+  for(const n of rgcMnPool().sort((a,b)=>b.nm.length-a.nm.length)){
+    const at='@'+n.nm.toLowerCase();let i=low.indexOf(at);
     while(i>=0){const nx=low.charAt(i+at.length);if(!nx||!/[\p{L}\p{N}]/u.test(nx)){out.push(n.id);break;}i=low.indexOf(at,i+1);}
     if(out.length>=5)break;
   }
@@ -72952,7 +73066,7 @@ function rgcMnIds(x){
 async function rgcReact(m,k){
   if(OBS||!m)return;const me=myId(),had=m.rv&&m.rv[me]||'',rv={...(m.rv||{})};
   if(had===k)delete rv[me];else rv[me]=k;m.rv=rv;rgcPaint();
-  try{await rgcCivic({op:'rcReact',reg:RGC.reg,id:m.id,k});if(had!==k)achPend('rx');}
+  try{await rgcCivic({op:'rcReact',reg:rgcRegOf(m),id:m.id,k});if(had!==k)achPend('rx');}
   catch(e){const r={...(m.rv||{})};if(had)r[me]=had;else delete r[me];m.rv=r;rgcPaint();toast(alErrText(e));}
 }
 async function rgcAllySend(){
@@ -72972,10 +73086,11 @@ function rgcDockApply(){
 }
 if(RGC_WIDE)try{RGC_WIDE.addEventListener('change',rgcDockApply);}catch(e){}
 /* show a line of the chat (an answer's quote, a mention in the bell), flashed for a moment */
-function rgcGoto(id){
-  RGC.goto=id;if(rgcTab()!=='region'){RGC.tab='region';rgcLS('edictum.rgc.tab','region');}
+function rgcGoto(id,ch){
+  const t=(ch||(rgcTab()==='world'?'world':'region'))==='world'&&rgwOn()?'world':'region';
+  RGC.goto=id;if(rgcTab()!==t){RGC.tab=t;rgcLS('edictum.rgc.tab',t);RGC.menu='';RGC.ask=null;if(t==='world'&&RGC.open)rgwLook();}
   if(!RGC.open)rgcOpen(true,true);else rgcPaint();
-  if(RGC.open&&!RGC.list.some(m=>m.id===id))toast('That line is no longer among the newest lines of the chat.');
+  if(RGC.open&&!(t==='world'?RGW:RGC).list.some(m=>m.id===id))toast('That line is no longer among the newest lines of the chat.');
   setTimeout(()=>{if(RGC.goto===id){RGC.goto='';const li=document.querySelector(`#rgc-list .rgc-l[data-id="${CSS.escape(id)}"]`);if(li)li.classList.remove('flash');}},2400);
 }
 rgcOpen=(f=>function(on){
@@ -72984,11 +73099,11 @@ rgcOpen=(f=>function(on){
   rgcDockApply();return r;})(rgcOpen);
 document.addEventListener('click',e=>{
   const t=e.target,el=t.closest&&t.closest('[data-rgc]');if(!el||el.tagName==='INPUT')return;
-  const a=el.dataset.rgc,id=el.dataset.id||'',m=RGC.list.find(x=>x.id===id);
+  const a=el.dataset.rgc,id=el.dataset.id||'',m=rgcCh().list.find(x=>x.id===id);
   if(a==='tab')rgcSetTab(el.dataset.v,true);
   else if(a==='dock'){RGC.docked=!RGC.docked;rgcLS('edictum.rgc.dock',RGC.docked?'1':'0');rgcDockApply();}
-  else if(a==='reply'&&m){RGC.menu='';RGC.re={id:m.id,nm:rgcName(m),x:(m.im?(m.x?'📷 '+m.x:'📷 A picture'):m.x).slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
-  else if(a==='re-no'){RGC.re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
+  else if(a==='reply'&&m){RGC.menu='';rgcCh().re={id:m.id,nm:rgcName(m),x:(m.im?(m.x?'📷 '+m.x:'📷 A picture'):m.x).slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
+  else if(a==='re-no'){rgcCh().re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='react'&&m){if(RGC.menu){RGC.menu='';}rgcReact(m,el.dataset.k);const b=document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(id)}"]`);if(b&&!document.activeElement.closest('.rgc-rxs'))b.focus({preventScroll:true});}
   else if(a==='goto')rgcGoto(id);
   else if(a==='welcome'||a==='hello'){const x=findNation(id),nm=x?x.n.name:String(el.dataset.nm||'');if(a==='welcome'&&!nm)return;
@@ -72998,7 +73113,7 @@ document.addEventListener('click',e=>{
 /* what the lines in view show of their nations (name, flag, rank, alliance, badge): when another nation renames itself,
    rises a rank or joins an alliance, the drawer draws its lines again (rgcPaint keeps it in RGC.whoSig) */
 function rgcWhoSig(){
-  const src=rgcTab()==='ally'?rgcAllyLines():RGC.list,by=new Map(allNations().map(x=>[x.id,x])),seen=new Set(),out=[];
+  const src=rgcTab()==='ally'?rgcAllyLines():rgcCh().list,by=new Map(allNations().map(x=>[x.id,x])),seen=new Set(),out=[];
   for(const m of src){if(m.tm||seen.has(m.a))continue;seen.add(m.a);const x=by.get(m.a);if(!x){out.push(m.a);continue;}
     let rk=0,al='';try{rk=achRankOf(x.n).i;}catch(e){}try{const A=allianceOf(x.id);al=A&&!A.npc?A.id+A.name:'';}catch(e){}
     out.push(m.a+'|'+x.n.name+'|'+rk+'|'+al+'|'+(x.n.flag?hash(JSON.stringify(x.n.flag)):0)+'|'+shopBadge(x.n,1).length);}
@@ -73010,9 +73125,9 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   toast(S.nation&&dmx(S.nation).rc===0?'Turn the region chat on first: Settings › Chat.':'The region chat needs a connection to the region.');});
 /* a mention in the bell opens the chat at its line */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-rc]');if(!el)return;
-  const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2]);},0);},true);
+  const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2],g[1]==='world'?'world':'region');},0);},true);
 NOTIF_SOURCES.push((n,now)=>(CB.mnAll||[]).filter(m=>m.k==='chat'&&typeof m.rc==='string'&&/^[A-Za-z0-9]{20}$/.test(m.rc)&&now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:S.view||'nation',rc:m.reg+'/'+m.rc,
-  txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in the region chat: ${String(m.x||'').slice(0,120)}`})));
+  txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in the ${m.reg==='world'?'world':'region'} chat: ${String(m.x||'').slice(0,120)}`})));
 document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#rgc-mn li');if(!li)return;e.preventDefault();const ta=document.getElementById('rgc-x');if(ta)rgcMnPick(ta,Number(li.dataset.k));});
 document.addEventListener('focusout',e=>{if(e.target&&e.target.id==='rgc-x')setTimeout(()=>{const ta=document.getElementById('rgc-x');if(ta&&document.activeElement!==ta)rgcMnShow(ta);},0);});
 document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x')rgcMnShow(el);else if(el.id==='rgc-ax'){RGC.adraft=el.value;rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
@@ -73024,19 +73139,19 @@ document.addEventListener('keydown',e=>{
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();e.stopPropagation();M.sel=(M.sel+(e.key==='ArrowDown'?1:n-1))%n;rgcMnShow(t);return;}
     if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();rgcMnPick(t,M.sel);return;}
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();RGC.mn=null;const ul=document.getElementById('rgc-mn');if(ul){ul.hidden=true;ul.innerHTML='';}t.setAttribute('aria-expanded','false');return;}}
-  if(t.id==='rgc-x'&&e.key==='Escape'&&RGC.re){e.preventDefault();e.stopPropagation();RGC.re=null;rgcFoot();return;}
+  if(t.id==='rgc-x'&&e.key==='Escape'&&rgcCh().re){e.preventDefault();e.stopPropagation();rgcCh().re=null;rgcFoot();return;}
   if(t.id==='rgc-ax'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();e.stopPropagation();rgcAllySend();return;}
   if(t.dataset&&t.dataset.rgc==='tab'&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const T=rgcTabs().map(x=>x[0]),i=T.indexOf(t.dataset.v),L=T.length;
     rgcSetTab(T[e.key==='Home'?0:e.key==='End'?L-1:(i+(e.key==='ArrowRight'?1:L-1))%L],true);}
 },true);
 /* #chat (a push notification's link) opens the drawer once the game is in the region */
-uxHashView=(f=>function(h){if(h==='chat'){RGC.want=true;return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
-if(location.hash==='#chat')RGC.want=true;
+uxHashView=(f=>function(h){if(h==='chat'||h==='chat/world'){RGC.want=h==='chat'?true:'world';return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
+if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world')RGC.want='world';
 setInterval(()=>{try{
-  if(RGC.want&&rgcOn()){RGC.want=false;rgcOpen(true);}
+  if(RGC.want&&rgcOn()){const w=RGC.want;RGC.want=false;if(w==='world'&&rgwOn()){RGC.tab='world';rgcLS('edictum.rgc.tab','world');}rgcOpen(true);}
   if(RGC.open&&!document.hidden){if(rgcTab()==='haps'){if(Date.now()-RGC.hapMemo.at>30000)rgcPaint();}else if(rgcWhoSig()!==RGC.whoSig)rgcPaint();else rgcTabsPaint();}
 }catch(e){}},5000);
-dmxClean=(f=>function(x){const o=f.apply(this,arguments);if(!x||typeof x!=='object')return o;const r=o||{};if(x.rc===0)r.rc=0;if(x.rcn===0)r.rcn=0;return Object.keys(r).length?r:null;})(dmxClean);
+dmxClean=(f=>function(x){const o=f.apply(this,arguments);if(!x||typeof x!=='object')return o;const r=o||{};if(x.rc===0)r.rc=0;if(x.rcn===0)r.rcn=0;if(x.rw===0)r.rw=0;return Object.keys(r).length?r:null;})(dmxClean);
 /* ── Settings › Chat, and the floating Chat button ──
    Settings › Chat (after Letters) holds where the Chat button sits on this device, and the two switches kept with the
    nation (dmx.rc, dmx.rcn; until 14 November 2026 in Settings › Letters). The button sits beside the bell (the
@@ -73138,7 +73253,7 @@ sgTabSub=(f=>function(k,n){if(k!=='chat')return f.apply(this,arguments);const x=
   return `${{f:'Floating button',h:'Button beside the bell',b:'Two buttons'}[rgcPlace()]} · mentions ${x.rcn===0?'off':'on'}`;})(sgTabSub);
 function rgcSetPane(n){
   const x=dmx(n),off=x.rc===0,pl=rgcPlace();
-  return `${sgHead('chat','Applies at once','The region chat, where the nations of your region talk to each other from any page of the game.')}
+  return `${sgHead('chat','Applies at once','The region chat, where the nations of your region talk to each other from any page of the game, and the world chat, where every region does.')}
   <section class="sg-card" id="set-chat-btn"><h3 class="sg-ch">Chat button</h3>
     <div class="cz-disp"><div class="cz-drow"><span class="cz-dl" id="set-l-chat">Where it sits</span><div class="seg" role="group" aria-labelledby="set-l-chat">${RGC_PLACES.map(([v,l])=>`<button type="button" class="seg-b${pl===v?' on':''}" id="rgcs-p-${v}" data-rgc="place" data-v="${v}" aria-pressed="${pl===v}"${off?' disabled':''}>${l}</button>`).join('')}</div></div></div>
     <p class="hint">${off?'The chat is off, so there is no button. Turn it on below.':RGC_PLACE_HINT[pl]} This is kept on this device.</p>
@@ -73146,7 +73261,10 @@ function rgcSetPane(n){
   <section class="sg-card" id="set-chat-on"><h3 class="sg-ch">Region chat</h3>
     <label class="tog"><input type="checkbox" data-rgc="set-on"${off?'':' checked'}> Show the region chat</label>
     <label class="tog"><input type="checkbox" data-rgc="set-named"${x.rcn===0?'':' checked'}${off?' disabled':''}> Tell me when a line in the chat mentions ${esc(n.name)}</label>
-    <p class="hint">Every nation of your region can read the chat. Blocking a nation, from a line’s menu or in Messages, hides its lines as well as its letters: <button type="button" class="linkish small" data-act="sg-tab" data-v="letters">Blocked nations</button></p></section>`;
+    <p class="hint">Every nation of your region can read the chat. Blocking a nation, from a line’s menu or in Messages, hides its lines as well as its letters: <button type="button" class="linkish small" data-act="sg-tab" data-v="letters">Blocked nations</button></p></section>
+  <section class="sg-card" id="set-chat-world"><h3 class="sg-ch">World chat</h3>
+    <label class="tog"><input type="checkbox" data-rgc="set-world"${x.rw===0?'':' checked'}${off?' disabled':''}> Show the World tab, where the nations of every region talk</label>
+    <p class="hint">The World tab counts its new lines. The Chat button counts only those that mention ${esc(n.name)} or answer it.</p></section>`;
 }
 settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<div class="sg-pane" id="sg-p-display"');if(i<0||!S.nation)return h;
   return h.slice(0,i)+`<div class="sg-pane" id="sg-p-chat" data-sg="chat" role="tabpanel" aria-labelledby="sg-tab-chat">${rgcSetPane(S.nation)}</div>`+h.slice(i);})(settingsView);
@@ -73157,6 +73275,7 @@ document.addEventListener('click',e=>{
   else{try{localStorage.removeItem('edictum.rgc.fab');}catch(err){}rgcFabSnap();render();const b=document.getElementById('rgcs-p-'+rgcPlace());if(b)b.focus({preventScroll:true});toast('The chat button is back in the corner.');}
 });
 UX_SETTINGS.push({v:'focus:set-chat-on',l:'Region chat',g:'Settings',words:'chat region talk live messages mention block hide turn off',view:'settings',target:'#set-chat-on'},
+  {v:'focus:set-chat-world',l:'World chat',g:'Settings',words:'chat world global every region all regions talk tab turn off',view:'settings',target:'#set-chat-world'},
   {v:'focus:set-chat-btn',l:'Chat button',g:'Settings',words:'chat button floating float bubble move drag corner bell top bar where place',view:'settings',target:'#set-chat-btn'});
 
 /* ── the tutorial's designs (Version 27), each drawn where its kind is drawn: the frame (czFrameArt), the Signpost
@@ -73293,7 +73412,7 @@ document.addEventListener('click',e=>{
   const a=el.dataset.pic,pre=el.dataset.box||'',box=rgcPicBox(pre);
   if(a==='close'){const d=el.closest('dialog');if(d)d.close();return;}
   if(!box)return;
-  if(a==='open'){const m=(box.list||[]).find(x=>x.id===el.dataset.id);if(m)rgcPicOpen(pre==='acx'?ACX.reg:RGC.reg,m,el);}
+  if(a==='open'){const m=(pre==='rgc'?rgcCh().list:box.list||[]).find(x=>x.id===el.dataset.id);if(m)rgcPicOpen(pre==='acx'?ACX.reg:rgcRegOf(m),m,el);}
   else if(a==='pick'){const f=document.getElementById(pre+'-file');if(f){f.value='';f.click();}}
   else if(a==='no'){box.pic=null;box.picErr='';rgcPicRepaint(pre);const t=document.getElementById(pre+'-x');if(t)t.focus({preventScroll:true});}
 });
@@ -73314,17 +73433,18 @@ document.addEventListener('drop',e=>{const pre=rgcDropAt(e.target);if(!pre)retur
    silenced now (rcMute/, which admins read), each with Lift (rcUnmute). Everything here goes in the audit log.
    The chat and the region list are drawn in place as lines come in (acxPaint), so the team's draft and the silence form
    are never drawn over while being typed in. */
+const ACX_WORLD={id:'world',name:'World chat',the:'the world chat'};
 const ACX_SHOW=100,ACX_HOURS=[[1,'1 hour'],[24,'24 hours'],[168,'7 days'],[720,'30 days'],[0,'Until lifted']];
 const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:'',pic:null,picErr:'',
   cx:'',cask:false,cbusy:false,cmsg:''};
 ADM_ICONS['admin-chat']=NAV_SVG('<path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6"/>');
 const rgcHours=h=>h===1?'an hour':h===24?'24 hours':h===168?'7 days':h===720?'30 days':h+' hours';
-function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':v.sys==='all'&&v.tm===true?'all':'',im:rgcImOf(v.im)};}
+function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),rg:typeof v.rg==='string'?v.rg:'',x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,sys:v.sys==='found'?'found':v.sys==='all'&&v.tm===true?'all':'',im:rgcImOf(v.im)};}
 /* the newest line of every region: one small query a region, when the page opens and on Fetch again */
 async function acxRegsLoad(){
   if(!S.db)return;const n=++ACX.lseq;ACX.lbusy=true;ACX.lerr='';
   let last=null,err='';
-  try{const per=await Promise.all(REGIONS.map(R=>S.db.collection('rchat/'+R.id+'/chat').orderBy('t','desc').limit(1).get().then(qs=>[R.id,qs.docs[0]?acxLine(qs.docs[0]):null])));last=Object.fromEntries(per);}
+  try{const per=await Promise.all([ACX_WORLD].concat(REGIONS).map(R=>S.db.collection('rchat/'+R.id+'/chat').orderBy('t','desc').limit(1).get().then(qs=>[R.id,qs.docs[0]?acxLine(qs.docs[0]):null])));last=Object.fromEntries(per);}
   catch(e){err='The region chats could not be fetched. Try again in a moment.';}
   if(n!==ACX.lseq)return;
   if(last&&ACX.lsReg&&ACX.ready)last[ACX.lsReg]=ACX.list.length?ACX.list[ACX.list.length-1]:null;
@@ -73354,8 +73474,8 @@ function acxListen(){
 }
 function acxRegsHTML(){
   const L=ACX.last,regs=regionsByAvail().map((R,i)=>[R,i]).sort((a,b)=>(L&&L[b[0].id]?L[b[0].id].t:0)-(L&&L[a[0].id]?L[a[0].id].t:0)||a[1]-b[1]).map(x=>x[0]);
-  return regs.map(R=>{const l=L&&L[R.id],on=ACX.reg===R.id,md=regMode(R.id);
-    return `<li><button type="button" class="acx-reg${on?' on':''}" data-act="acx-reg" data-v="${R.id}"${on?' aria-current="true"':''}><span class="acx-rn">${esc(R.name)}${md!=='enabled'?` <span class="chip">${md==='coming_soon'?'Coming soon':'Maintenance'}</span>`:''}</span>${l?`<span class="acx-rt">${esc(rel(l.t))}</span>`:''}<span class="acx-rl">${!L?'…':l?`<b>${esc(l.nm)}</b>: ${l.im?'📷 ':''}${esc((l.x||(l.im?'A picture':'')).slice(0,70))}`:'No lines yet'}</span></button></li>`;}).join('');
+  return [ACX_WORLD].concat(regs).map(R=>{const l=L&&L[R.id],on=ACX.reg===R.id,md=R===ACX_WORLD?'world':regMode(R.id);
+    return `<li><button type="button" class="acx-reg${on?' on':''}" data-act="acx-reg" data-v="${R.id}"${on?' aria-current="true"':''}><span class="acx-rn">${esc(R.name)}${md!=='enabled'?` <span class="chip">${md==='world'?'Every region':md==='coming_soon'?'Coming soon':'Maintenance'}</span>`:''}</span>${l?`<span class="acx-rt">${esc(rel(l.t))}</span>`:''}<span class="acx-rl">${!L?'…':l?`<b>${esc(l.nm)}</b>: ${l.im?'📷 ':''}${esc((l.x||(l.im?'A picture':'')).slice(0,70))}`:'No lines yet'}</span></button></li>`;}).join('');
 }
 function acxLogHTML(){
   if(!ACX.reg)return '<li class="hint acx-none">Choose a region to read its chat.</li>';
@@ -73370,7 +73490,7 @@ function acxLogHTML(){
     const acts=ask&&ACX.ask.all?`<button type="button" class="btn danger small" data-act="acx-uncast-yes" data-id="${esc(m.id)}">Remove everywhere</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">${all?'Remove here':'Remove'}</button>${all?`<button type="button" class="linkish small" data-act="acx-uncast" data-id="${esc(m.id)}">Remove from every region</button>`:''}${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
-    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
+    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${m.rg&&ACX.reg==='world'?` <span class="hint acx-rg">${esc(regName(m.rg))}</span>`:''}${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
   }).join('');
 }
 /* the chat and the region list again, in place */
@@ -73387,7 +73507,7 @@ function acxMuteHTML(){
   return `<div class="adm-ask acx-mute" id="acx-mute"><p>Silence <b>${esc(q.nm)}</b> in every region’s chat? It can still read along, and sees the reason.</p>
     <div class="acx-mf"><label for="acx-mh">For</label><select class="input" id="acx-mh">${ACX_HOURS.map(([h,l])=>`<option value="${h}"${q.hours===h?' selected':''}>${l}</option>`).join('')}</select>
     <label for="acx-mw">Reason</label><input class="input" id="acx-mw" maxlength="200" value="${esc(q.why)}" placeholder="Shown to the player, e.g. spam or insults" autocomplete="off"></div>
-    <label class="acx-mx" for="acx-mx"><input type="checkbox" id="acx-mx"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours in ${esc(regName(q.reg))}</label>
+    <label class="acx-mx" for="acx-mx"><input type="checkbox" id="acx-mx"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours in ${esc(q.reg==='world'?'the world chat':regName(q.reg))}</label>
     ${q.err?`<p class="err" role="alert">${esc(q.err)}</p>`:''}
     <div class="row"><button type="button" class="btn danger small" id="acx-mute-go" data-act="acx-mute-yes"${q.busy?' disabled':''}>${q.busy?'Silencing…':'Silence'}</button><button type="button" class="btn ghost small" data-act="acx-mute-no">Cancel</button></div></div>`;
 }
@@ -73402,13 +73522,13 @@ function acxCastHTML(){
 }
 function acxView(){
   const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Region chats</h1>
-    <p class="lede">Read any region’s chat as it happens, write in it as the Edictum team or to every region at once, and silence players who break the rules. A silence holds in every region’s chat: the player can still read along, and sees the reason. Removing a line, a message to every region and silencing are kept in the audit log.</p>`;
+    <p class="lede">Read any region’s chat, or the world chat every region shares, as it happens, write in it as the Edictum team or to every region at once, and silence players who break the rules. A silence holds in every region’s chat: the player can still read along, and sees the reason. Removing a line, a message to every region and silencing are kept in the audit log.</p>`;
   if(!S.db)return admShell('admin-chat',head+'<div class="info">The chats need a connection. This page works once the game is connected.</div>');
   if(!ACX.reg)ACX.reg=REG_BY_ID[REG.id]?REG.id:REGIONS[0].id;
   if(!ACX.last&&!ACX.lbusy&&!ACX.lerr)acxRegsLoad();
   if(!ACX.mutes&&!ACX.mbusy&&!ACX.merr)acxMutesLoad();
   setTimeout(acxListen,0);
-  const R=REG_BY_ID[ACX.reg];
+  const R=ACX.reg==='world'?ACX_WORLD:REG_BY_ID[ACX.reg];
   const regs=`<section class="acx-side" aria-label="Regions"><div class="acx-sh"><h2 class="h3">Regions</h2><button type="button" class="btn ghost small" data-act="acx-reload"${ACX.lbusy?' disabled':''}>${ACX.lbusy?'Fetching…':'Fetch again'}</button></div>
     ${ACX.lerr?`<p class="err">${esc(ACX.lerr)}</p>`:''}<ul class="acx-regs" id="acx-regs">${acxRegsHTML()}</ul></section>`;
   const chat=`<section class="acx-chat" aria-labelledby="acx-ch"><h2 class="h3" id="acx-ch">${R?esc(R.name):'No region chosen'}</h2>
@@ -73443,7 +73563,7 @@ document.addEventListener('click',async e=>{
   else if(a==='acx-mute-no'){ACX.mute=null;render();}
   else if(a==='acx-mute-yes'&&ACX.mute&&!ACX.mute.busy){const q=ACX.mute;q.busy=true;q.err='';render();
     try{const r=await rgcCivic({op:'rcMute',uid:q.uid,reg:q.reg,hours:q.hours,why:q.why.trim(),wipe:q.wipe});ACX.mute=null;
-      toast(`${q.nm} is silenced in the region chat ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);acxMutesLoad();}
+      toast(`${q.nm} is silenced in ${q.reg==='world'?'every chat':'the region chat'} ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);acxMutesLoad();}
     catch(err){q.busy=false;q.err=alErrText(err);}
     render();}
   else if(a==='acx-lift'){el.disabled=true;
@@ -74254,7 +74374,7 @@ resultView=(f=>function(){
 /* ───────── portraits of state: the faces of the government, as the player wants them (13 November 2026) ─────────
    The Government page's medallions (cvMed) stay what they were: a bust in profile in one ink, cut with paper-coloured
    lines, inside a guilloche ring. A saved look only overrides what the sitter's name draws (ptBust; an empty look is
-   the same face as before): skin (engraved in the one ink, or a skin colour), hair (twenty-two kinds), nose, chin and
+   the same face as before): skin (engraved in the one ink, or a skin colour), hair (twenty-six kinds), nose, chin and
    brow, facing, grey hair, facial hair, headwear, dress and one detail. The head of government also chooses an ink, a ring and an earned nickname.
    A piece is open to all, earned in play (PT_LOCK) or sold in a Shop pack (PT_SHOP: twelve in the Mayan Pack, two in
    each other pack; tried on by anyone, saved once held, shown in the lists only while held or on sale).
@@ -74271,21 +74391,21 @@ resultView=(f=>function(){
    x detail. h and d default to what the name draws; the others to 0. */
 const PT_ROWS=[
   ['s','Skin',['Engraved','Pale','Fair','Light','Golden','Olive','Tan','Brown','Deep brown']],
-  ['h','Hair',['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided','Bald','Curly','Ponytail','Bob','Pompadour','Receding','Locs','Long waves','Cornrows','Long plait','Tied crest','Jade-bound hair']],
+  ['h','Hair',['Neat','Bun','Long','Full','Cropped','Swept','Powdered wig','Tied queue','Topknot','Braided','Bald','Curly','Ponytail','Bob','Pompadour','Receding','Locs','Long waves','Cornrows','Long plait','Tied crest','Jade-bound hair','Afro','Side part','Chignon','Mohawk']],
   ['n','Nose',['As drawn','Small','Straight','Bold','Roman']],
   ['c','Chin',['As drawn','Soft','Even','Firm']],
   ['b','Brow',['As drawn','Flat','Even','Heavy']],
   ['f','Facing',['Right','Left']],
   ['g','Grey hair',['With age','Early','Always','Never']],
-  ['e','Facial hair',['None','Full beard','Chin beard','Moustache','Waxed moustache','Mutton chops']],
-  ['w','Headwear',['None','Laurel wreath','Crown','Bicorne','Top hat','Military cap','Turban','Beret','Plumed hat','Liberty cap','Mortarboard','Quetzal headdress','Jaguar headdress','Jade headband','Nightcap','Legionary helmet','Tricorne','Burgher’s hat']],
-  ['d','Dress',['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office','Sash of state','White tie','Mandarin collar','Wrap robe','Breastplate','Jade collar','Jaguar cape','Feather mantle','Captain’s coat','Waistcoat and watch chain','Embroidered court coat']],
-  ['x','Detail',['None','Monocle','Spectacles','Earring','Scar','Order star','Medal','Jade ear spools','Nose bead','Founder’s rosette','Price tag','Tulip buttonhole','Pencil behind the ear','Flag lapel pin']]];
+  ['e','Facial hair',['None','Full beard','Chin beard','Moustache','Waxed moustache','Mutton chops','Goatee','Van Dyke','Long beard','Stubble']],
+  ['w','Headwear',['None','Laurel wreath','Crown','Bicorne','Top hat','Military cap','Turban','Beret','Plumed hat','Liberty cap','Mortarboard','Quetzal headdress','Jaguar headdress','Jade headband','Nightcap','Legionary helmet','Tricorne','Burgher’s hat','Fez','Bowler','Fedora','Pith helmet','Fur hat','Head wrap','Tiara']],
+  ['d','Dress',['Suit','High collar','Plain','Military','Ruff','Cravat','Toga','Ermine robe','Chain of office','Sash of state','White tie','Mandarin collar','Wrap robe','Breastplate','Jade collar','Jaguar cape','Feather mantle','Captain’s coat','Waistcoat and watch chain','Embroidered court coat','Turtleneck','Fur-collared coat','Cloak and brooch','Double-breasted coat','Gown and pearls']],
+  ['x','Detail',['None','Monocle','Spectacles','Earring','Scar','Order star','Medal','Jade ear spools','Nose bead','Founder’s rosette','Price tag','Tulip buttonhole','Pencil behind the ear','Flag lapel pin','Eyepatch','Pipe','Pocket square','Ribbon bar','Freckles']]];
 const PT_ROW_BY=Object.fromEntries(PT_ROWS.map(r=>[r[0],r]));
 /* skin colours: [the skin, the engraver's lines on it]. The same in both themes, as skin is */
 const PT_SKIN=[null,['#f3dccb','#a3705a'],['#eac4a4','#94603f'],['#deae88','#87543a'],['#d29b6a','#7a4824'],['#bf9a6b','#6a4f2e'],['#a77349','#5a3519'],['#87532f','#2c1406'],['#5c3722','#120602']];
 /* tall headwear shrinks the bust a little, so the hat stays inside the ring */
-const PT_HAT_S=[1,1,.92,.9,.82,.96,.92,1,.88,.92,.95,.8,.9,1,.92,.86,.92,.84];
+const PT_HAT_S=[1,1,.92,.9,.82,.96,.92,1,.88,.92,.95,.8,.9,1,.92,.86,.92,.84,.92,.96,.95,.9,.9,.9,1];
 const PT_RING_N=['Guilloche','Fine guilloche','Laurel','Beaded','Plain','Stepped fret','Keystone','Microprint','Acanthus','Compass'];
 const PT_INKS=[['gold','Gold','var(--cv-lead)'],['claret','Claret','var(--pti-claret)'],['navy','Navy','var(--pti-navy)'],['forest','Forest','var(--pti-forest)'],['violet','Violet','var(--pti-violet)'],['slate','Slate','var(--pti-slate)'],['copper','Copper','var(--pti-copper)'],['jade','Jade','var(--pti-jade)'],['tyrian','Tyrian purple','var(--pti-tyrian)'],['holo','Hologram','var(--pti-holo)'],['flag','From the flag','']];
 /* pieces sold in the Shop's packs: the piece (row key and number, r a ring, i an ink) and the Shop's own id for it, whose
@@ -74395,6 +74515,8 @@ const PT_CURLS=(()=>{const o=[];for(let r=0,y=19.4;y<56;y+=2.5,r++)for(let x=29.
 /* a braid: lobes tilted one way and the other along a curve (points from ptQ), w(t) its half-width */
 function ptBraid(Q,w){let d='';Q.forEach((p,i)=>{const t=i/(Q.length-1),ww=w(t),sd=i%2?1:-1,a=p.a+sd*38,r=a*Math.PI/180,c=Math.cos(r),sn=Math.sin(r),rx=ww*.92,ry=ww*.44;
   const x=p.x-p.ty*sd*ww*.4,y=p.y+p.tx*sd*ww*.4;d+=`M${cvF(x-rx*c)} ${cvF(y-rx*sn)}A${cvF(rx)} ${cvF(ry)} ${cvF(a)} 1 0 ${cvF(x+rx*c)} ${cvF(y+rx*sn)}A${cvF(rx)} ${cvF(ry)} ${cvF(a)} 1 0 ${cvF(x-rx*c)} ${cvF(y-rx*sn)}Z`;});return d;}
+/* whether a point is inside a polygon of [x, y] points (an afro's coils, a stubble's dots) */
+const ptInP=(P,x,y)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;};
 /* the ten newer kinds of hair (10 to 19): the crown and back of the outline, the hair's own outline, and cover: the hair
    hides the ear */
 function ptHairNew(hair,bk,nk){
@@ -74419,6 +74541,15 @@ function ptHairNew(hair,bk,nk){
     return {crown:full,back,hp:[[30.2,73.4],[29.4,64.4],[30.4,55.2],[32+bk*.6,45.4],...full,...HL.slice(0,8),[45,49.6],[43,56],[40.2,62.6],[37,69],[33.4,73.4]]};}
   if(hair===17){const crown=[[33+bk,33.4],[38.6,25],[48.5,21.4],[57.8,23.2],[62,29.4]],back=[[20.6,79.6],[27.4,77.6],[25.6,68.4],[28.8,60.6],[27.6,52.6],[31.6+bk*.6,44.6]];
     return {crown,back,cover:1,hp:[[27.4,77.6],[25.6,68.4],[28.8,60.6],[27.6,52.6],[31.6+bk*.6,44.6],...crown,[60,31.2],[57,34],[55,38.6],[54.4,44],[52.6,49.6],[50.6,55.4],[48.6,60.6],[45.2,65.6],[42.8,71.4],[38,76.2],[31.6,79]]};}
+  /* the hair of 15 November 2026: an afro (a broad round crown, the ear showing), a side part, a chignon (sleek hair to a
+     bun at the nape, which ptBust adds) and a mohawk (the bald head, the crest drawn by ptBust) */
+  if(hair===22){const c=[];for(let i=0;i<=16;i++){const a=(150+i*190/16)*Math.PI/180,r=1+(i%2?-.022:.02);c.push([45.2+18.4*r*Math.cos(a),35.4+17.8*r*Math.sin(a)]);}c.push([62.6,31.6]);
+    const back=[[24.4,75.4],[37.4+nk*.3,69.6],[39+nk*.3,62.2],[34+bk*.5,57.4],[30.4+bk*.5,50.6]];
+    return {crown:c,back,hp:[[38.6,61.4],[34+bk*.5,57.4],[30.4+bk*.5,50.6],...c,[61.8,32],[58.8,34],[56.6,37.6],[55.8,43],[53,42.6],[50.4,40.4],[47.2,40.6],[45.4,43.6],[45,49],[43.2,55],[40.6,60.2]]};}
+  if(hair===23){const crown=[[35.4+bk,34.6],[40.4,27.6],[48.4,24],[56.4,25.6],[61.2,30.6]];return {crown,back:SB,hp:[...SH,...crown,...HL]};}
+  if(hair===24)return {crown:sleek,back:SB,hp:[...SH,...sleek,...HL]};
+  if(hair===25){const crown=[[35.8+bk,35.4],[40.4,28.8],[48.2,25.6],[55.8,26.8],[60.6,31.2]];
+    return {crown,back:SB,hp:[[38.4,31.8],[42.4,27.6],[48.2,25.2],[54.6,25.8],[59.4,28.8],[58.2,30.4],[54,28.4],[48.2,28],[43.4,29.8],[39.8,33.2]]};}
   return {crown:tight,back:SB,hp:[...SH,...tight,...HL]};
 }
 /* the bust as layers in drawing order: class k ink, g silver hair, l paper lines, f paper cuts, F paper.
@@ -74444,15 +74575,19 @@ function ptBust(seed,look,old){
   const PP=[...back,...crown,...face];let d=cvSmooth(PP);
   const bun=`M${cvF(35.2+bk-5.2)} 32.4A5.2 5.2 0 1 1 ${cvF(35.2+bk+5.2)} 32.4A5.2 5.2 0 1 1 ${cvF(35.2+bk-5.2)} 32.4Z`;
   if(hair===1)d+=bun;
+  /* the chignon: a bun at the nape */
+  const chig=hair===24?(()=>{const x=32.6+bk*.8,y=51.4;return `M${cvF(x-4.6)} ${y}A4.6 4 0 1 1 ${cvF(x+4.6)} ${y}A4.6 4 0 1 1 ${cvF(x-4.6)} ${y}Z`;})():'';
+  if(chig)d+=chig;
   const hl=ch===2?[[60,31.2],[57.2,34],[55.2,38.6],[54.2,44],[53.2,50],[51,56.2],[46.6,63],[40.6,68.6],[34.6,71.2]]:[[60,31.2],[57.4,33.6],[55.4,37.6],[54.6,43.4],[52.8,42.4],[50.2,40.2],[47.2,40.4],[45.6,43.6],[45.2,49],[43.4,54.8],[40.8,59.8]];
   const hp=NH?NH.hp:ch===4?[[36.2+bk,38.6],[33.4+bk,45],[35.6+bk,55],[39,61],[40.8,57.4],[39.2,50],[38.8,43.4]]:[...(ch===2?[[30.8,72],[30.6,64.5],[31.4,55.5],[32.6+bk*.6,45.5]]:[[38.8,61],[35.6+bk,55],[33.4+bk,45]]),...crown,...hl];
-  let h=cvSmooth(hp);if(hair===1)h+=bun;
+  let h=cvSmooth(hp);if(hair===1)h+=bun;if(chig)h+=chig;
   const wig=hair===6,grey=!!old||wig,HR=grey?ptG:ptK,lay=[ptK(d)],earOn=NH?!NH.cover:ch!==2&&!wig;
   if(SK){
     /* a skin colour: the bust in the skin, outlined in the ink; the face's features in the skin's darker tone; then
        the clothes (the outline below the neckline, drawn exactly as the bust draws it) and the hair in the ink */
-    const fi=back.length+crown.length,fr=D===2||D===12?fi+13:fi+11,end=ptPt(PP[fr]);
-    const neck=D===2?`Q52 86 ${end}`:D===12?`Q46 73 62 79.6L${end}`:`Q47 72.8 ${end}`;
+    /* a turtleneck rises to the throat; a gown's neckline is low */
+    const fi=back.length+crown.length,fr=D===2||D===12||D===24?fi+13:D===20?fi+10:fi+11,end=ptPt(PP[fr]);
+    const neck=D===2?`Q52 86 ${end}`:D===12?`Q46 73 62 79.6L${end}`:D===24?`Q50 89 ${end}`:D===20?`L${cvF(38.6+nk*.3)} 63.2Q48 65.2 ${end}`:`Q47 72.8 ${end}`;
     const ink=SK[1],br=brow*.4;
     lay.push(`<path class="s" d="${d}" fill="${SK[0]}"/>`,
       ptM(`M57.8 38.9Q60.2 37.5 ${cvF(62.6+br)} 38.4`,ink,.8,.9),
@@ -74536,6 +74671,22 @@ function ptBust(seed,look,old){
       tb+=`M${C(-h,w)}L${C(h,w)}L${C(h,-w)}L${C(-h,-w)}Z`;gr+=`M${C(-h*.4,w)}L${C(-h*.4,-w)}M${C(h*.4,w)}L${C(h*.4,-w)}`;}
     lay.push(HR(pl+tuft),ptL('M'+A.join('L'),.35,.5),ptL(Q.slice(1,-1).map((p,i)=>(i?'L':'M')+cvF(p.x+.5*-p.ty)+' '+cvF(p.y+.5*p.tx)).join(''),.32,.45),`<path class="F" d="${tb}"/>`,ptN(tb,.4,.9),ptN(gr,.3,.7));
   }
+  /* the hair of 15 November 2026: an afro's coils and the light on its rim, a side part and the hair combed from it, a
+     chignon's twists, and a mohawk's crest of spikes swept back along the bald head */
+  if(hair===22){const R=rng(hash('afro')),A=NH.hp;let cu='',row=0;
+    for(let y=19.4;y<59;y+=2.1,row++)for(let x=27.6+(row%2)*1.2;x<63;x+=2.4){const jx=x+(R()-.5)*.9,jy=y+(R()-.5)*.8;
+      if(!ptInP(A,jx,jy)||!ptInP(A,jx+1.4,jy-.9)||!ptInP(A,jx+.7,jy+1))continue;cu+=R()<.5?`M${cvF(jx)} ${cvF(jy)}a.95 .95 0 1 0 1.3 -.7`:`M${cvF(jx)} ${cvF(jy)}a1 1 0 1 1 1.35 .8`;}
+    lay.push(ptL(cu,.4,.5),ptCut([[33,30.4,37,23,45.4,20.2]],.32,.35));}
+  if(hair===23)lay.push(ptL('M58.8 28.6Q50.4 26.4 41.6 29',.7,.85),ptCut([[59.4,26.8,52,23.8,43.8,25.6]],.32,.55),
+    ptCut([[57.4,31.4,48,29.6,38.8,34.8],[56.2,34.8,47.2,33.2,37.8,40.8],[55,38,47.4,37.2,38.8,47.4]],.36,.5));
+  if(hair===24){const x=32.6+bk*.8,y=51.4,P=(u,v)=>cvF(x+u)+' '+cvF(y+v);
+    lay.push(ptCut([[58.4,28.8,47,25.8,36.4,33.4],[57.4,32.4,46.6,30.4,36.8,41.6],[55.6,36.4,46.4,35.4,36.6,47]],.3,.5),
+      ptL(`M${P(-3,-1.6)}Q${P(0,-4.2)} ${P(3.4,-1)}M${P(-3.8,.8)}Q${P(-.4,-2.2)} ${P(3.9,1.2)}M${P(-2.8,2.8)}Q${P(.6,.4)} ${P(3,3)}`,.45,.75),ptL(chig,.4,.6));}
+  if(hair===25){const Q=ptQ([37.6,32.8],[47.6,21.2],[59.6,29.2],10),inn=[],cuts=[];let sp='';
+    Q.forEach((p,i)=>{const nx=p.ty,ny=-p.tx;inn.push(ptR2(p.x-nx*1.3)+' '+ptR2(p.y-ny*1.3));sp+=(i?'L':'M')+ptR2(p.x)+' '+ptR2(p.y);
+      if(i<Q.length-1){const q=Q[i+1],t=(i+.5)/(Q.length-1),mx=(p.x+q.x)/2,my=(p.y+q.y)/2,hh=1.6+4.2*Math.pow(Math.sin(Math.PI*t),.6),tx=mx+nx*hh-p.tx*1.4,ty=my+ny*hh-p.ty*1.4;
+        sp+=`L${ptR2(tx)} ${ptR2(ty)}`;cuts.push([mx-nx*.6,my-ny*.6,mx+nx*hh*.5-p.tx*.5,my+ny*hh*.5-p.ty*.5,tx,ty]);}});
+    lay.push(HR(sp+'L'+inn.slice().reverse().join('L')+'Z'),ptCut(cuts,.3,.6,PT_RT),ptL('M'+inn.join('L'),.3,.4));}
   /* facial hair: a shaped mass with a lobed edge, and tapered strands cut into it */
   const mous='M60.6 48.2C62.4 47 65.6 46.9 67.4 48.4C68.2 49.6 67.8 51.2 66.8 52.2C65.8 51 64.2 50.6 62.4 50.8C61.4 50.6 60.8 49.6 60.6 48.2Z';
   if(E===1)lay.push(HR('M52 40C53 44.4 55.6 48.4 59.4 50.2L61.4 51.2C62.8 51.8 64.2 52 65.2 52.6C66.8 53.4 67.6 55.4 67.2 57.4C67.8 59 67.4 61 66.2 62.2C66.2 64 64.6 65.8 62.6 66.4C61.2 67.8 59 68.2 57.6 67.4C56.4 66.6 55.8 65.2 55.6 63.8C53.6 62.4 52 59.6 51.4 56.4C50.8 53 50.8 49.6 51 46.4C51.2 44 51.4 42 52 40Z'),
@@ -74545,9 +74696,21 @@ function ptBust(seed,look,old){
     ptCut([[53.2,53.4,53.6,57.6,55.4,60.8],[56.4,55.4,57,60,59,63.4],[59.8,56,60.6,60.4,61.8,64],[63,55.8,64.4,58.8,64.2,62.4,.38]],.46,0,PT_RT),ptCut([[51.4,50.9,56,55.5,62.8,55.7]],.24,.55));
   if(E===5){const mc='M52 40C53 43.6 54.8 46.6 57.4 48.6C58.8 49.6 60.2 49.6 61 49C61.4 51.2 60.4 52.8 59 54C57.8 55.6 58 58.2 59.6 60.4C57.2 62 54 62.2 51.8 60.4C50.8 56 50.8 47.6 51.2 44C51.4 42.4 51.6 41.2 52 40Z';
     lay.push(HR(mc),ptCut([[52.8,43.4,52.6,50,54,56.8],[55.2,47.6,55,53.4,56.4,59.8],[57.8,50.4,57.2,54,57.6,58.2,.36]],.46,0,PT_RT),ptCut([[61,49.6,58.6,54.4,59.4,60.2]],.3,.8),ptCut([[52.2,40.8,53.6,45,57.4,48.2]],.22,.45));}
-  if(E===1||E===3||E===5)lay.push(HR(mous),ptCut([[62.2,48.2,62.9,49.4,63.4,50.4],[64.2,47.8,65,49.2,65.3,50.5],[66.1,48.2,66.9,49.5,66.7,51]],.32,0,PT_RT),ptCut([[60.8,48.1,62.4,47.3,64.3,47.5]],.2,.5));
+  /* the facial hair of 15 November 2026: a goatee (a rounded tuft on the chin, joined to the moustache), a Van Dyke (a
+     pointed beard under a waxed moustache) and stubble (dots over the jaw and the upper lip). The long beard is drawn
+     after the dress, which it falls over */
+  const cn=chin;
+  if(E===6)lay.push(HR(`M61 52.4C62.4 52.8 63.6 53 64.4 53.6C65.4 54.6 ${cvF(65.4+cn)} 56.4 ${cvF(65.2+cn)} 58.2C${cvF(65+cn)} 60.2 63.8 61.8 62 62.4C60.6 62.8 59.2 62.2 58.8 61C58.4 59.2 59.2 57.4 59.6 55.8C59.9 54.4 60.3 53.2 61 52.4ZM60.4 49.4C60 50.6 60.2 51.8 61 52.8L61.8 52.4C61.4 51.4 61.4 50.4 61.6 49.6Z`),
+    ptCut([[61.2,54,60.8,57.4,60.4,60.6],[62.6,54.2,62.6,57.6,62.2,61.4],[64,55,64.4,58,63.8,60.8,.36]],.42,0,PT_RT),ptCut([[59.6,57,60.2,59.8,61.8,61.6],[63,57.6,63.4,59.8,62.8,61.6]],.26,.75,PT_RT));
+  if(E===7)lay.push(HR(`M61 52.6C62.4 53 63.6 53.2 64.4 53.8C65.4 55 ${cvF(65.8+cn)} 57 ${cvF(65.6+cn)} 59C${cvF(65.4+cn)} 61.6 64.8 64.4 64.4 67.6C62.8 65.6 61.2 63.6 60 61.8C59.2 60.4 59.4 58.4 59.8 56.6C60.1 55 60.4 53.6 61 52.6Z`),
+    ptCut([[61,54.4,61.4,59.6,63.6,66.2],[62.6,54.4,63.2,59.6,64.1,65.8],[64.2,55.2,64.8,59.6,64.3,64.6,.36]],.42,0,PT_RT),ptCut([[60.4,57.4,61.2,60.6,63.4,64.4]],.24,.75,PT_RT));
+  if(E===9){const R=rng(hash('stubble')),SP=[[51.6,40.4],[53.4,45.2],[56.8,48.4],[60.4,48.6],[64,47.9],[66.2,48.8],[66.4,49.8],[63.6,50.6],[61.8,51.2],[62.6,53.2],[64.2,54],[65.2+cn,57.2],[63.6,60],[60.2,61.2],[56.4,60.6],[53.2,58],[51.2,53.6],[50.6,46.6]];
+    let dt='',row=0;for(let y=40.6;y<61.4;y+=1.05,row++)for(let x=50.6+(row%2)*.55;x<66.6;x+=1.1){const jx=x+(R()-.5)*.6,jy=y+(R()-.5)*.6;
+      if(!ptInP(SP,jx,jy)||!ptInP(PP,jx-.5,jy)||!ptInP(PP,jx+.5,jy)||!ptInP(PP,jx,jy+.5))continue;dt+=ptC(jx,jy,.26);}
+    lay.push(SK?`<path class="${grey?'g':'k'}" d="${dt}" fill-opacity=".7"/>`:`<path class="${grey?'g':'f'}" d="${dt}" fill-opacity=".55"/>`);}
+  if(E===1||E===3||E===5||E===6)lay.push(HR(mous),ptCut([[62.2,48.2,62.9,49.4,63.4,50.4],[64.2,47.8,65,49.2,65.3,50.5],[66.1,48.2,66.9,49.5,66.7,51]],.32,0,PT_RT),ptCut([[60.8,48.1,62.4,47.3,64.3,47.5]],.2,.5));
   if(E===1)lay.push(ptCut([[61.6,51.5,63.6,51.7,65.9,52.5]],.26,.85));
-  if(E===4)lay.push(HR('M61 48C63.4 47.5 65.6 47.9 66.4 48.9C67.8 48.5 69 47.2 69.3 45.2C70.3 47.2 69.8 49.6 67.9 50.6C66.4 51.3 64.6 50.9 63 50.5Z'),
+  if(E===4||E===7)lay.push(HR('M61 48C63.4 47.5 65.6 47.9 66.4 48.9C67.8 48.5 69 47.2 69.3 45.2C70.3 47.2 69.8 49.6 67.9 50.6C66.4 51.3 64.6 50.9 63 50.5Z'),
     ptCut([[62.4,48.3,63.4,49.3,63.9,50.3],[64.6,48.3,65.5,49.2,66.2,49.8]],.28,0,PT_RT),ptCut([[67.4,49.7,69,48.8,69.3,46.4]],.16,.8),ptCut([[61.2,48.1,63.4,47.5,65.6,47.9]],.2,.5));
   /* dress: the three collars the name draws (with the engraved contours on the shoulders), then the rest */
   const contours=ptL('M18 87Q30 78.5 44 77.6M17 92Q31 83 46 82.4M19 97Q33 88.2 49 87.6',.55,.2);
@@ -74656,6 +74819,36 @@ function ptBust(seed,look,old){
       else lv+=ptLeaf(p.x,p.y,p.a+sd*46,4,1.3);});
     lay.push(ptK(band),ptL('M38.6 63.6Q48 63.2 56.6 61.2Q58.6 61.6 58.8 63.8',.55,.9),ptL('M38.2 71.6Q48 71.6 59.2 68.6',.85,.95),ptL('M59.2 68.6Q60.4 77.4 63.4 86',.75,.9),
       `<path class="F" d="${lv}"/>`,`<path class="F" d="${ac}"/>`,ptL('M39.4 67.6Q48 67.8 58.2 65.4M59.4 69.4Q60.6 77.4 63.4 85',.3,.6),`<path class="F" d="${ptC(57.4,73.6,.6)+ptC(58.2,77.6,.6)+ptC(59.4,81.6,.6)}"/>`);}
+  /* the dress of 15 November 2026: a turtleneck (rolled up the neck, ribbed), a coat with a fur collar round the
+     shoulders, a cloak with a high back and a round brooch at the collarbone, a double-breasted coat (broad lapels, two
+     rows of buttons) and an evening gown with a string of pearls */
+  if(D===20){const a=ptQ([39.4+nk*.3,66],[48,68],[56.6,64.8],8),b=ptQ([38.4,69],[47.6,71.2],[57.6,67.8],8);
+    lay.push(ptL(`M${cvF(38.6+nk*.3)} 63.2Q48 65.2 ${cvF(56.6+nk*.3)} 61`,.75,.9),ptL(`M${cvF(39.4+nk*.3)} 66Q48 68 56.6 64.8`,.45,.7),ptL('M38.4 69Q47.6 71.2 57.6 67.8',.8,.9),
+      ptL(a.slice(1,-1).map((p,i)=>`M${cvF(p.x)} ${cvF(p.y+.5)}L${cvF(b[i+1].x)} ${cvF(b[i+1].y-.5)}`).join(''),.3,.45));}
+  if(D===21){const inn=ptQ([37.6,68.2],[47.4,73.2],[57.8,66.8],10),out=ptQ([64.6,77.6],[46,85.6],[25,77.6],24);let fd='M'+inn.map(p=>cvF(p.x)+' '+cvF(p.y)).join('L');
+    out.forEach((p,i)=>{const b=.35+.75*Math.abs(Math.sin(i*1.9)),nx=p.ty,ny=-p.tx;fd+='L'+cvF(p.x+nx*b)+' '+cvF(p.y+ny*b);});fd+='Z';
+    const R=rng(hash('fur-collar'));let tf='';
+    for(let i=0;i<46;i++){const t=R(),u=.15+R()*.75,a=inn[Math.round(t*(inn.length-1))],o=out[out.length-1-Math.round(t*(out.length-1))],x=a.x+(o.x-a.x)*u,y=a.y+(o.y-a.y)*u,l=Math.hypot(o.x-a.x,o.y-a.y)||1,dx=(o.x-a.x)/l,dy=(o.y-a.y)/l;
+      tf+=ptTp(x,y,x+dx*.9+.3,y+dy*.9,x+dx*1.8+(R()-.5)*.6,y+dy*1.8,.28);}
+    lay.push(`<path class="F" d="${fd}"/>`,`<path class="k" d="${tf}" fill-opacity=".8"/>`,ptL('M63.6 79.6Q65.4 86 66.6 96',.8,.9),`<path class="F" d="${ptC(64.6,84.4,.7)+ptC(65.6,89.4,.7)}"/>`);}
+  if(D===22){const bx=58.6,by=73.4;
+    lay.push(ptK('M38.6 71C35.4 69 33.8 65.4 34.2 61.4C36 62.2 37.6 63.4 39 64.8Z'),ptL('M38.6 71C35.4 69 33.8 65.4 34.2 61.4',.5,.85),
+      ptL('M38 69.8Q47.4 74 57.2 70.2',.85,.9),ptCut([[56.6,75.2,48,83,40.6,98],[55.6,73.6,44,79,30.4,93],[57.8,76.8,53.4,87,51,99],[54,71.8,40.4,75.6,22.4,86.4]],.75,.6),
+      ptL(`M${bx+1.4} ${by+2}Q64 84 66.4 97`,.85,.9),
+      `<path class="F" d="${ptC(bx,by,2.7)}"/>`,ptK(ptC(bx,by,1.9)),`<path class="F" d="${ptC(bx,by,.95)}"/>`,ptN(ptC(bx,by,2.7),.3,SK?.85:.5),ptN(`M${bx-3.6} ${by+1.8}L${bx+3.4} ${by-1.6}`,.45,.95));}
+  if(D===23){const shirt='M56.4 65.8L60.4 66.8L62.2 72.6L60.2 75.6Q57.6 70.8 56.4 65.8Z',tie='M57.9 66.6L59.5 66.8L60.4 70.6L59.5 74.4L58.6 70.6Z';
+    const lap='M55.4 66.8Q55.4 71.4 57.4 74.2L54.6 75.4L58.4 76.6L60.2 75.6M60.4 66.8Q63.2 70.4 63.6 73.4L66 72.4L64.4 75.4L60.2 75.6';
+    lay.push(`<path class="F" d="${shirt}"/>`,ptK(tie),`<path class="f" d="M55.4 66.8Q55.4 71.4 57.4 74.2L54.6 75.4L58.4 76.6L60.2 75.6L56.4 65.8ZM60.4 66.8Q63.2 70.4 63.6 73.4L66 72.4L64.4 75.4L60.2 75.6L62.2 72.6Z" fill-opacity=".32"/>`,
+      ptL(lap,.8,.95),ptL('M60.2 75.6Q61.6 80 62.6 86',.55,.7),`<path class="F" d="${ptC(57.2,78.6,.72)+ptC(57.8,81.8,.72)+ptC(61.8,77.8,.72)+ptC(62.3,81,.72)}"/>`);}
+  if(D===24){const P=ptQ([39.8,67.2],[46.6,80],[58.4,68.8],14);let pr='';P.forEach((p,i)=>{if(i&&i<P.length-1)pr+=ptC(p.x,p.y,.8);});
+    const drop='M58 70.2C58.9 71.2 59.2 72.4 58.6 73.2C58 73.8 57.2 73.6 57 72.8C56.8 72 57.2 71 58 70.2Z';
+    if(!SK)lay.push(ptL(`M${cvF(37.6+nk*.3)} 70.6Q50 89 72.2 77.4`,1.1,.85));
+    lay.push(`<path class="F" d="${pr+drop}"/>`,ptN(pr+drop,.28,SK?.8:.4));}
+  /* the long beard, over the dress, its moustache with it */
+  if(E===8)lay.push(HR('M52 40C53 44.4 55.6 48.4 59.4 50.2L61.4 51.2C62.8 51.8 64.2 52 65.2 52.6C66.8 53.4 67.6 55.4 67.2 57.4C67.8 59.4 67.6 61.4 67 63.6C67.6 66.8 66.8 70.2 65.4 73.2C64.6 76.6 62.8 79.8 60 82.2C58.6 79.4 57.2 76.6 55.4 74.2C53.6 71.4 52.6 68 52 64.6C51 61 50.8 57 51 53C51 48.6 51.2 44 52 40Z'),
+    ptCut([[52.7,43.4,52.3,48.8,53.6,54.6],[55,48.2,54.4,56,56.4,64],[57.8,51.2,56.8,60,58.6,70],[60.9,53.2,59.8,62,60.8,74],[63.5,54.6,63.4,63,62.6,72.6],[65.5,56.2,66.2,62,64.4,69,.36]],.46,0,PT_RT),
+    ptCut([[54.6,60,55.4,66,57.6,71.4],[57.4,66,58.4,72.4,59.6,78.6],[61.2,70.4,61.8,75,60.8,79.2],[63.8,66.4,64.4,70.4,63.4,74.8]],.3,.8,PT_RT),ptCut([[52.2,40.8,53.6,45.8,58.8,49.9]],.22,.45),
+    HR(mous),ptCut([[62.2,48.2,62.9,49.4,63.4,50.4],[64.2,47.8,65,49.2,65.3,50.5],[66.1,48.2,66.9,49.5,66.7,51]],.32,0,PT_RT),ptCut([[60.8,48.1,62.4,47.3,64.3,47.5]],.2,.5),ptCut([[61.6,51.5,63.6,51.7,65.9,52.5]],.26,.85));
   /* details */
   if(X===1){if(SK)lay.push(ptN(ptC(60.3,40.9,2.5),.75),ptN('M59.4 43.3Q55 52 57.4 62',.35,.75));else lay.push(ptL(ptC(60.3,40.9,2.5),.8,.95),ptCut([[58.5,40.4,58.7,39.1,59.8,38.7]],.32,.9),ptL('M59.4 43.3Q55 52 57.4 62',.4,.7));}
   if(X===2){if(SK)lay.push(ptN('M61.4 39.1a1.5 2.1 0 1 0 .01 0Z',.65),ptN('M60 40.6L50.6 42.2',.5));else lay.push('<path class="l" d="M61.4 39.1a1.5 2.1 0 1 0 .01 0Z" stroke-width=".7" stroke-opacity=".95"/>',ptL('M60 40.6L50.6 42.2',.55,.9));}
@@ -74694,6 +74887,20 @@ function ptBust(seed,look,old){
     if(earOn){const ear='M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2Z';lay.push(SK?`<path d="${ear}" fill="${SK[0]}"/>`+ptM('M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2',SK[1],.85,.85)+ptM('M48.7 44.4c1.1-.1 1.5.8 1.3 1.7',SK[1],.45,.6):ptK(ear)+ptL('M47.6 42.6c2.6-1 3.6 1 3.4 3.4-.2 2.2-1.6 3-3 3.2',.9));}}
   if(X===13){const pin='M52.4 70.6h5.4v3.6h-5.4Z';
     lay.push(`<path class="F" d="${pin}"/>`,ptN('M52.4 71.8h5.4M52.4 73h5.4',.28,.45),ptN(pin,.34,.95));}
+  /* the details of 15 November 2026: an eyepatch on its strap, a bent pipe with a wisp of smoke, a pocket square, a bar of
+     medal ribbons and freckles */
+  if(X===14){const pa='M59.2 39.6C60.8 38.8 62.6 39.2 63 40.8C63.4 42.6 62.4 44 60.9 44.2C59.6 44.2 58.6 43 58.6 41.6C58.6 40.8 58.8 40.1 59.2 39.6Z',st='M59.4 39.8Q53.4 36.4 46.8 36.2Q40.4 36 34.6 39.6';
+    if(SK)lay.push(ptN(st,.8,.95),ptL(st,.22,.55),ptK(pa),ptL('M59.6 40.4Q61.2 39.8 62.4 40.6',.3,.6));else lay.push(ptL(st,.65,.9),ptL(pa,.55,.95));}
+  if(X===15){const bowl='M66.8 54.2L71.6 53.6L71.4 58.4C71.2 60.6 69.8 61.6 68.4 61.4C67.2 61.2 66.6 60 66.7 58.4Z';
+    lay.push(`<path class="k" d="${ptTp(67.6,55.2,65.4,52.6,63.2,51.2,.7,PT_RT)}"/>`,ptK(bowl),ptL('M67.4 55.4L67.5 58.6',.35,.6),ptL('M66.9 54.3L71.5 53.7',.4,.8),
+      ptN('M69.4 52.6Q67.6 50.2 69.6 48Q71.4 45.8 69.8 43.2',.4,.3));}
+  if(X===16){const sq='M51.8 79.4L52.6 76.4L53.8 78.2L55.2 75.6L56.2 77.8L57.4 76.2L57.8 78.8Z';
+    lay.push(`<path class="F" d="${sq}"/>`,ptN(sq,.3,SK?.85:.45),ptL('M51.2 79.6L58.4 78.6',.7,.9));}
+  if(X===17){let rb='',st='';for(let r=0;r<2;r++)for(let c=0;c<3;c++){const x=49.8+c*2.5-r*.3,y=73.4+r*2,w=2.3,h=1.7,k=(r*3+c)%3;rb+=`M${cvF(x)} ${cvF(y)}h${w}v${h}h-${w}Z`;
+      st+=k===0?`M${cvF(x+w/2)} ${cvF(y)}v${h}`:k===1?`M${cvF(x+.6)} ${cvF(y)}v${h}M${cvF(x+w-.6)} ${cvF(y)}v${h}`:`M${cvF(x+.45)} ${cvF(y)}v${h}M${cvF(x+w/2)} ${cvF(y)}v${h}M${cvF(x+w-.45)} ${cvF(y)}v${h}`;}
+    lay.push(`<path class="F" d="${rb}"/>`,ptN(st,.42,.85),ptN(rb,.24,SK?.85:.5));}
+  if(X===18){let fk='';for(const [x,y,r] of [[57.4,44.6,.34],[58.6,45.8,.3],[59.8,44.4,.32],[60.6,46.2,.28],[57.8,46.8,.26],[59.2,47.4,.3],[61.6,45,.26],[62.6,43.4,.28],[63.4,44.6,.26],[56.6,45.6,.24],[61,47.8,.24],[58.2,43.4,.22]])fk+=ptC(x,y,r);
+    lay.push(SK?`<path d="${fk}" fill="${SK[1]}" fill-opacity=".6"/>`:`<path class="f" d="${fk}" fill-opacity=".7"/>`);}
   /* headwear, over everything */
   const hat=(sil,lines)=>lay.push(ptK(sil),...lines);
   if(H===1){
@@ -74798,6 +75005,39 @@ function ptBust(seed,look,old){
       [ptCut([[55.2,15,56.2,22,56.6,28]],.75,.4),ptCut([[42.2,15.4,41.6,21,41.8,27]],.3,.3),ptL('M39 27.6L58.5 26.2',.6,.85),ptL('M38.8 30.2L58.7 28.8',.6,.85),
         `<path class="f" d="M50.4 26.6h3.8l.1 3h-3.8Z"/>`,ptK('M51.4 27.4h1.8v1.4h-1.8Z'),ptL('M40.2 13.6Q48.6 10.8 57.2 13.2',.4,.6),
         ptL('M25.2 35.6Q30.8 36 40.2 34.6L58.2 33.4Q69 34.6 74 31.6',.85,.95),ptL('M30 33.4Q35 32 40 32.2L57.8 30.8Q66 30.2 70.6 31.6',.35,.55)]);
+  }
+  /* the headwear of 15 November 2026: a fez with its tassel, a bowler, a fedora (creased, pinched, the brim snapped down
+     in front), a pith helmet, a tall fur hat, a head wrap knotted at the front, and a tiara of pearl-tipped points */
+  if(H===18){
+    hat('M36.4 37.8L41.2 18.4Q49.6 15.6 58 16.4L61 33.6Q48.6 34.8 36.4 37.8Z',[ptL('M36.4 37.8Q48.6 34.8 61 33.6',.9,.95),ptL('M41.2 18.4Q49.6 15.6 58 16.4',.4,.55),ptCut([[56,19.4,57.4,26,58.4,31.6]],.6,.4),ptCut([[42,22,40.6,28,39.4,33.6]],.3,.3),ptL('M49.8 16.6Q44.6 16.4 41.4 18.6',.5,.9)]);
+    lay.push(ptN('M41.2 18.8Q37.6 20.4 36 24',.55,.95),`<path class="k" d="${ptCuts([[36,23.8,34.8,26.6,33.6,30],[36,23.8,35.6,26.8,35.2,30.6],[36,23.8,36.6,26.8,37,30.2]],.75,PT_RT)}"/>`,ptK(ptC(36,24,.95)),ptCut([[35.7,25.6,35.3,27.6,35.2,29.6]],.18,.6));
+  }
+  if(H===19)hat('M38.6 33.4C37.8 25.8 42.2 20 49.2 19.6C56.2 19.4 60.8 24.6 60.4 31.8ZM31.2 34.6C32.4 35.8 35 36.4 38.2 35.8L60.4 32.8C63.6 32.4 66 31.8 67.2 30.2C67.6 32.2 65.4 34.2 61 35L38.4 38C34.4 38.4 31.6 37 31.2 34.6Z',
+    [ptL('M38.5 31.4Q49 29.6 60.4 29.8',.75,.85),ptL('M38.5 33.2Q49 31.6 60.4 31.4',.3,.5),ptCut([[55.8,22.4,58.6,26.2,59,29.4]],.65,.4),ptCut([[42.4,23.4,40.2,26.6,39.6,29.6]],.3,.3),ptL('M31.2 34.6C31.6 37 34.4 38.4 38.4 38L61 35C65.4 34.2 67.6 32.2 67.2 30.2',.85,.95)]);
+  if(H===20)hat('M38.8 32.6C38.4 27 39.6 22.4 42.6 21C45 19.8 47.4 21.4 49.6 21.2C52.6 20.8 56 20.2 57.8 22.2C59.4 24 59.8 27.8 59.4 31.2ZM28.6 32.4Q33 33.4 38.4 32.6L59.4 30.8Q65.8 30.2 71.2 33.4Q66.2 35.4 59.8 34.4L38.8 35.8Q32.6 36.2 28.6 32.4Z',
+    [ptL('M38.7 29.4Q49 27.6 59.6 28',.45,.65),ptL('M38.8 31.6Q49 29.8 59.5 30.2',.3,.5),ptL('M42.6 21.4Q46.4 24 50.6 22.8',.4,.55),ptCut([[56.2,22.4,55.2,24.8,55.6,27.2]],.45,.6),ptCut([[44,22.6,41.4,25.4,40.8,28.6]],.3,.3),ptL('M28.6 32.4Q32.6 36.2 38.8 35.8L59.8 34.4Q66.2 35.4 71.2 33.4',.85,.95)]);
+  if(H===21)hat('M37.6 34C36.6 24.4 42 17.8 49.4 17.4C57 17.2 62.2 23.4 61.4 32.6ZM27.4 40.8C30.8 37.6 35.4 35.6 40 34.8Q49 33.4 58 32.4C63.2 32 68 33.4 71.4 36.2C67.8 36.6 63.2 35.4 58.4 35.8Q49 36.6 40.4 38C36 38.8 31.4 40 27.4 40.8Z'+ptC(49.4,16.4,1.5),
+    [ptL('M37.7 31.6Q49 29.6 61.5 30.2',.85,.8),ptL('M37.6 29.6Q49 27.6 61.6 28.2',.35,.6),ptL('M49.4 17.8Q54.8 21.8 56.8 28.6M49.4 17.8Q44 21.8 42.4 29.8',.32,.45),ptCut([[57.2,21.6,59.6,25.4,60,28.6]],.6,.4),ptL(ptC(49.4,16.4,1.5),.35,.8),
+      ptL('M27.4 40.8C31.4 40 36 38.8 40.4 38Q49 36.6 58.4 35.8C63.2 35.4 67.8 36.6 71.4 36.2',.85,.95)]);
+  if(H===22){const C4=[[37.4,20.2],[49,16],[60.6,17.6],[61.8,33.8],[48.6,36],[35.6,38.4]],E4=[[[37.4,20.2],[49,15.6],[60.6,17.6]],[[60.6,17.6],[61.3,25.7],[61.8,33.8]],[[61.8,33.8],[48.6,35.4],[35.6,38.4]],[[35.6,38.4],[36.4,29.3],[37.4,20.2]]];let fz='';
+    E4.forEach(([a,c,b],e)=>{ptQ(a,c,b,e%2?9:13).forEach((p,i)=>{if(e&&!i)return;const off=(e===2?.25:.45)+.55*Math.abs(Math.sin((i+e*7)*2.1)),nx=p.ty,ny=-p.tx;fz+=(fz?'L':'M')+cvF(p.x+nx*off)+' '+cvF(p.y+ny*off);});});
+    /* astrakhan: tight curls all over */
+    const R=rng(hash('fur-hat'));let cu='';for(let y=19.2,row=0;y<37;y+=1.9,row++)for(let x=37.4+(row%2)*1.1;x<61.6;x+=2.2){const jx=x+(R()-.5)*.8,jy=y+(R()-.5)*.6;
+      if(!ptInP(C4,jx,jy)||!ptInP(C4,jx+1.2,jy-.7)||!ptInP(C4,jx+.6,jy+.9))continue;cu+=R()<.5?`M${cvF(jx)} ${cvF(jy)}a.85 .85 0 1 0 1.2 -.65`:`M${cvF(jx)} ${cvF(jy)}a.9 .9 0 1 1 1.25 .7`;}
+    hat(fz+'Z',[ptL(cu,.42,.62),ptL('M35.6 38.4Q48.6 35.4 61.8 33.8',.8,.9),ptCut([[58.4,20.4,59.8,26,60,31.6]],.5,.3)]);
+  }
+  if(H===23){const lp='M56.6 20.4C55 15.8 57.8 12.8 61.2 14.6C62 17.4 60.4 19.8 58.4 21ZM59.6 21.2C63 18.6 66.6 19.4 66.8 22.6C65 24.6 62.4 24 60.2 22.6Z';
+    hat('M33.4 44.2C31.2 34.4 33.4 24.8 41.2 20.2C47.8 16.6 55.8 17.2 60.6 21.6C62.8 23.8 63.6 27.6 62.8 31.8C58.8 32.4 54.6 33.8 50.8 35.8C45.8 38.6 40.2 42 33.4 44.2Z'+lp+ptC(59.2,21.6,2.1),
+      [ptCut([[34.6,41.2,40.8,30,57,22.6],[37.8,40.6,45.4,31.6,61.6,27.6],[34,33.6,39.2,24,53,19.4]],.55,.7),ptCut([[58,24.6,47.6,27.6,36.4,37.8]],.4,.5),
+       ptL(lp,.4,.85),ptL(ptC(59.2,21.6,2.1),.45,.9),ptL('M57.6 19.8Q58.4 16.4 60.4 15.4M61 22Q63.8 20.6 65.8 22.2',.3,.6),ptL('M33.4 44.2C40.2 42 45.8 38.6 50.8 35.8C54.6 33.8 58.8 32.4 62.8 31.8',.8,.95)]);
+  }
+  /* the tiara rides on the hair: raised as far as a tall crown of hair (an afro, curls) rises above the plain one */
+  if(H===24){const c51=(()=>{for(let i=0;i<crown.length-1;i++){const [x0,y0]=crown[i],[x1,y1]=crown[i+1];if(x0<=51&&x1>=51)return y0+(y1-y0)*(51-x0)/((x1-x0)||1);}return 24.3;})(),up=Math.min(0,c51-24.3);
+    const P=ptQ([43.2,28.8+up*.6],[51.2,21.4+up],[60.6,29.4+up*.6],11),hs=[1.6,2.6,1.8,3.6,5.2,3.6,1.8,2.6,1.6];
+    const bd='M'+P.map(p=>cvF(p.x+p.ty*.55)+' '+cvF(p.y-p.tx*.55)).join('L')+'L'+P.slice().reverse().map(p=>cvF(p.x-p.ty*.55)+' '+cvF(p.y+p.tx*.55)).join('L')+'Z';
+    let pk='',pe='',gm='';P.forEach((p,i)=>{if(i&&i<P.length-1)gm+=ptC(p.x,p.y,.34);if(!i||i===P.length-1)return;const h=hs[i-1],a=Math.atan2(-p.tx,p.ty)*180/Math.PI,x=p.x+p.ty*.4,y=p.y-p.tx*.4;
+      pk+=ptLeaf(x,y,a,h,.5+h*.12);pe+=ptC(x+p.ty*h,y-p.tx*h,.42+h*.06);});
+    lay.push(ptK(pk),ptL(pk,.3,.8),ptK(bd),ptL(bd,.3,.85),`<path class="F" d="${gm+pe}"/>`);
   }
   const o={lay:lay.join(''),s:PT_HAT_S[H]||1,f:L.f===1?1:0,d,h,list:lay};
   if(PT_BUSTS.size>600)PT_BUSTS.clear();
@@ -75174,7 +75414,7 @@ function ptHelpShop(){
   const ps=Object.keys(PT_PACK_N).filter(p=>by[p]&&(ptPackSells(p)||shopOwns(p)||(p==='idpack'&&shopOwns('founder'))));if(!ps.length)return '';
   const maya=ps.includes('mayapack'),rest=ps.filter(p=>p!=='mayapack');
   return `<p>Packs in the Shop add pieces too.${maya?' The <b>Mayan Pack</b> adds three headdresses, two hairstyles, three kinds of dress, jade ear spools, a nose bead, a stepped-fret ring and a jade ink.':''}${rest.length?' '+(maya?'Each of the others adds two. ':'')+rest.map(p=>`<b>${esc(PT_PACK_N[p])}</b>: ${esc(list(by[p]))}`).join('; ')+'.':''} You can try them on here; saving needs the pack. Other players see them on your portraits once the pack is yours.</p>`;}
-HELP_EXT.push({k:'portraits',t:'Portraits of the government',body:n=>`<p>The head of government and every minister has a portrait: a bust in profile, engraved in one ink. It is drawn from their name, and you can change it in <b>Customise › Portraits</b>, or with <b>Edit portrait</b> on a cabinet card: a skin colour (or the one ink of an engraving), twenty kinds of hair, nose, chin and brow, which way they face, grey hair, a beard or moustache, a hat, fourteen kinds of dress and one detail. Pick a part with the arrows, or click its name for the whole list, and save. Banknotes stay engraved in one ink.</p>
+HELP_EXT.push({k:'portraits',t:'Portraits of the government',body:n=>`<p>The head of government and every minister has a portrait: a bust in profile, engraved in one ink. It is drawn from their name, and you can change it in <b>Customise › Portraits</b>, or with <b>Edit portrait</b> on a cabinet card: a skin colour (or the one ink of an engraving), twenty-four kinds of hair, nose, chin and brow, which way they face, grey hair, a beard, moustache or stubble, a hat, nineteen kinds of dress and one detail. Pick a part with the arrows, or click its name for the whole list, and save. Banknotes stay engraved in one ink.</p>
 <p>The head of government also has an ink, a ring and a nickname. Nicknames are earned in office, such as “the Builder” for 25 buildings finished or “the Wise” for 100 edicts decided. A new leader starts without one. A leader who is renamed keeps their face, and a minister who takes over brings theirs.</p>
 <p>The <b>cabinet dress code</b> dresses every minister at once, and new ministers arrive dressed to it. A few pieces are earned in play: the crown and the ermine robe by keeping a leader in office, the laurel wreath with a gold medal at the Meridian Games, the bicorne by taking land in a war, and more. You can try any of them on before you have them.</p>
 ${ptHelpShop()}

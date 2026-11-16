@@ -171,12 +171,18 @@ check('and then no more today', /You have sent 4 Supply Caches today/.test(await
 
 // the phone. The page's width is watched every frame, not only at the end: the Invite tab's badge (a new recruit)
 // lies past the edge of the tab row until the row scrolls to it, and its screen-reader words, absolutely placed, once
-// widened the page by 65 px for about a second, which a single look after a pause caught only on a slow machine
+// widened the page by 65 px for about a second, which a single look after a pause caught only on a slow machine (and
+// waiting for the page to settle would hide). The widest frame names what sticks out past the right edge.
 await A.setViewportSize({ width: 390, height: 844 });
-await A.evaluate(() => { window.__wide = 0; const look = () => { window.__wide = Math.max(window.__wide, document.documentElement.scrollWidth - window.innerWidth); window.__wideRaf = requestAnimationFrame(look); }; look(); });
+await A.evaluate(() => {
+  const out = () => [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.right > window.innerWidth + 1 && getComputedStyle(e).position !== 'fixed'; }).slice(0, 6).map(e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '') + ' ' + Math.round(e.getBoundingClientRect().right));
+  window.__wide = { px: 0, sw: document.documentElement.scrollWidth, w: window.innerWidth, out: [] };
+  const look = () => { const sw = document.documentElement.scrollWidth, w = window.innerWidth; if (sw - w > window.__wide.px) window.__wide = { px: sw - w, sw, w, out: out() }; window.__wideRaf = requestAnimationFrame(look); };
+  look();
+});
 await nav(A, 'region'); await A.click('#rgn-tab-invite'); await sleep(800);
 const wider = await A.evaluate(() => { cancelAnimationFrame(window.__wideRaf); return window.__wide; });
-check('on a phone the Invite tab fits without scrolling sideways', wider <= 1 && await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `at most ${wider}px wider than the screen`);
+check('on a phone the Invite tab fits without scrolling sideways', wider.px <= 1 && await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), JSON.stringify(wider));
 await A.screenshot({ path: OUT + '/recruit-invite-phone.png', fullPage: true });
 
 await finish();

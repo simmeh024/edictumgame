@@ -76,6 +76,28 @@ try {
       const d = s => (s.match(/ d="[^"]+"/g) || []).join('');return d(a) === d(b); });
     check('the medallion without a look has the same paths', medSame);
 
+    /* the 25 pieces of 15 November 2026: each draws in the medallion (engraved, with a skin, facing left, grey), on a
+       banknote and as a silhouette, changes the bust, and is open to all */
+    const p25 = await page.evaluate(() => {
+      const X = window.__game.PT(), n = window.__game.S.nation, bad = [];
+      const ids = [['h', 22, 26], ['e', 6, 10], ['w', 18, 25], ['d', 20, 25], ['x', 14, 19]].flatMap(([k, a, b]) => Array.from({ length: b - a }, (_, i) => [k, a + i]));
+      const b0 = X.ptBust('Ottoline Varga', {}, false);
+      for (const [k, v] of ids) {
+        const L = { [k]: v };
+        for (const look of [L, Object.assign({ s: 5 }, L), Object.assign({ f: 1 }, L)]) {
+          const m = X.cvMed({ seed: 'Ottoline Varga', look, old: true });
+          if (/NaN|undefined/.test(m) || !m.includes('<svg')) bad.push(k + v + ' medallion');
+        }
+        const b = X.ptBust('Ottoline Varga', L, false);
+        if (b.lay === b0.lay) bad.push(k + v + ' draws nothing');
+        if (/NaN|undefined/.test(X.ptBustArt('t' + k + v, b, '#333', 50, 20, 1, 1, false))) bad.push(k + v + ' banknote');
+        if (/NaN|undefined/.test(X.ptSilhouette({ seed: 'Ottoline Varga', look: L }, '#000'))) bad.push(k + v + ' silhouette');
+        if (!X.ptHas(n, k + v)) bad.push(k + v + ' not open');
+      }
+      return { n: ids.length, bad };
+    });
+    check('the 25 pieces of 15 November draw in the medallion, on a banknote and as a silhouette, and are open to all', p25.n === 25 && p25.bad.length === 0, p25);
+
     /* Make the nation your own: Customise your leader, with its reward, opening Portraits on the head of government */
     await go('help');
     const row = await page.evaluate(() => { const li = document.querySelector('#help-tut li[data-k="portrait"]'); return li ? { tag: ((li.querySelector('.tut-rw') || {}).textContent || '').replace(/\s+/g, ' '), btn: !!li.querySelector('[data-act="tut-go"][data-to="cz-sec-r"]') } : null; });
@@ -191,7 +213,7 @@ try {
     await page.click('#pt-p-lead');
     const open = await page.evaluate(() => ({ h: document.querySelectorAll('#pt-h-s option').length, d: document.querySelectorAll('#pt-d-s option').length, s: document.querySelectorAll('#cz-sec-r .pt-skin').length,
       shut: [...document.querySelectorAll('#pt-h-s option, #pt-d-s option')].filter(o => +o.value >= (o.parentNode.id === 'pt-h-s' ? 10 : 9) && /earned/.test(o.textContent)).length }));
-    check('twenty kinds of hair, fourteen of dress and nine skins (the engraving and eight colours), the new ones open', open.h === 20 && open.d === 14 && open.s === 9 && open.shut === 0, open);
+    check('twenty-four kinds of hair, nineteen of dress and nine skins (the engraving and eight colours), the new ones open', open.h === 24 && open.d === 19 && open.s === 9 && open.shut === 0, open);
     await page.selectOption('#pt-h-s', '11');
     check('picking from the list sets the part', await until(() => page.evaluate(() => /^Curly/.test(document.querySelector('#pt-h-s').closest('.pt-o').querySelector('output').textContent))));
     await page.click('#pt-s-3');
@@ -252,7 +274,7 @@ try {
     /* the Mayan Pack's pieces: left out while the pack is not on sale, tried on while it is, saved once held, and shown on
        another nation's portrait only while the Shop says that nation holds them */
     await go('customise/portraits'); await page.click('#pt-p-lead');
-    const hid = await page.evaluate(() => ({ h: [...document.querySelectorAll('#pt-h-s option')].some(o => +o.value >= 20), w: [...document.querySelectorAll('#pt-w-s option')].some(o => +o.value >= 11), ink: !!document.getElementById('pt-i-jade') }));
+    const hid = await page.evaluate(() => ({ h: [...document.querySelectorAll('#pt-h-s option')].some(o => [20, 21].includes(+o.value)), w: [...document.querySelectorAll('#pt-w-s option')].some(o => [11, 12, 13].includes(+o.value)), ink: !!document.getElementById('pt-i-jade') }));
     check('the Mayan Pack’s pieces stay out of the lists while the pack is not on sale', !hid.h && !hid.w && !hid.ink, hid);
     await page.evaluate(() => { window.__game.SHOP.SHOP.cfg = { on: true, env: 'live', token: '', prices: { mayapack: 'pri_x' }, now: Date.now(), until: Date.UTC(2027, 1, 2) }; window.__game.render(); });
     await sleep(300);
@@ -275,7 +297,7 @@ try {
     await page.evaluate(() => { window.__game.SHOP.SHOP.cfg = { on: true, env: 'live', token: '', prices: { orpack: 'pri_o', cartopack: 'pri_c' }, now: Date.now(), until: Date.UTC(2027, 1, 2) }; window.__game.render(); });
     await sleep(300);
     const other = await page.evaluate(() => { const o = s => [...document.querySelectorAll(s + ' option')].map(x => [+x.value, x.textContent]);
-      return { w: o('#pt-w-s').filter(([v]) => v >= 14), x: o('#pt-x-s').filter(([v]) => v >= 9), tyr: !!document.querySelector('#pt-i-tyrian.pt-ink-s'), holo: !!document.getElementById('pt-i-holo') }; });
+      return { w: o('#pt-w-s').filter(([v]) => v >= 14 && v <= 17), x: o('#pt-x-s').filter(([v]) => v >= 9 && v <= 13), tyr: !!document.querySelector('#pt-i-tyrian.pt-ink-s'), holo: !!document.getElementById('pt-i-holo') }; });
     check('on sale, the Old Republic Pack offers its helmet and Tyrian ink, the Cartographer’s Pack its pencil; packs not on sale offer nothing',
       canon(other.w) === canon([[15, 'Legionary helmet (Old Republic Pack)']]) && canon(other.x) === canon([[12, 'Pencil behind the ear (Cartographer’s Pack)']]) && other.tyr && !other.holo, other);
     const rings = []; for (let i = 0; i < 12; i++) { await page.click('#pt-r-n'); await sleep(60); rings.push(await page.textContent('#pt-l-r + .pt-step output')); }
