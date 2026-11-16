@@ -20449,7 +20449,7 @@ armyPower=(f=>function(n){const v=f.apply(this,arguments);return n&&n._armyK?Mat
    time of the save that first carried each (stamps/<reg>/<key>/<uid>, written in that save's batch by
    src/shim.js; the rules accept only the server's time). Stamps are read only for contested entries. An
    entry made since stamps began that has none counts from its record's last save. */
-const RACE={t:new Map(),want:new Set(),busy:false,rev:0};
+const RACE={t:new Map(),want:new Set(),busy:false,rev:0,f:new Map()};
 function raceT(src,key,t,n){
   if(!(t>=AC_EPOCH)||S.mode!=='world')return t;
   const k=key+':'+src,v=RACE.t.get(k);
@@ -20468,6 +20468,18 @@ function raceKnown(src,key,t,n){
   if(v===undefined){RACE.want.add(k);raceSoon();}
   return null;
 }
+/* an entry whose server time is still being read, or whose read failed and is tried again (raceFailed). A claim under
+   a capital that stands only until then (capWrong) still costs its credit meanwhile, so no credit shows that the
+   server's time takes back a moment later: Eternia saw one after each load (16 Nov 2026), its claim under Neverfall's
+   capital, whose stamp came in the last of seven batches of 40. Two claims on one hex are not held back that way:
+   their records' order is the server's nearly always, and holding back the loser's credit until the stamps were in
+   kept 19 to 32 credits from three Meridian nations for the first seconds of every visit. */
+const RACE_TRIES=4;
+function raceOpen(src,key,t){
+  if(!(t>=AC_EPOCH)||S.mode!=='world')return false;
+  const k=key+':'+src,v=RACE.t.get(k);
+  return v===undefined||v===false&&(RACE.f.get(k)||0)<RACE_TRIES;
+}
 /* ── a capital on land already claimed ──
    A game that cannot reach the server plays on its own, with no other nation on its map. On 12 Nov 2026 a new
    nation founded that way put its capital on a hex Eternia had claimed two weeks before, and its first save, once
@@ -20479,24 +20491,34 @@ const capClaimsMemo=new WeakMap();
 function capClaimsAt(ev){let m=capClaimsMemo.get(ev);if(m)return m;m=new Map();for(const e of ev.list)if(e.claim){const a=m.get(e.c);if(a)a.push(e);else m.set(e.c,[e]);}capClaimsMemo.set(ev,m);return m;}
 /* id → the entry (list item) of the nation whose earlier claim the capital stands on */
 function capWrong(list,ev){
-  const out=new Map();if(!ev||!ev.list.length)return out;
+  const out=new Map();out.pend=new Set();if(!ev||!ev.list.length)return out;
   const at=capClaimsAt(ev);let by=null;
   for(const x of list){
     if(x.npc||x.id==='draft')continue;const es=at.get(x.cap);if(!es)continue;const since=capSince(x.n);
     if(!by)by=new Map(list.map(z=>[z.id,z]));
+    const pend=[];
     for(const e of es){
       const y=by.get(e.src);if(!y||y===x||y.npc||!Array.isArray(y.n.claims)||!(e.t<since)||!inReach(y,e.c))continue;
       const t=raceKnown(e.src,'c'+e.c,e.t,y.n);
-      if(t!=null&&t<since){out.set(x.id,y);break;}
+      if(t!=null&&t<since){out.set(x.id,y);pend.length=0;break;}
+      if(t==null&&raceOpen(e.src,'c'+e.c,e.t))pend.push(e.src+':'+e.c);
     }
+    for(const k of pend)out.pend.add(k);
   }
   return out;
 }
 function raceSoon(){if(!RACE.busy&&RACE.want.size&&S.db){RACE.busy=true;setTimeout(raceFetch,60);}}
+/* a stamp that could not be read (the connection dropped, a phone woke offline) used to stay unread for the rest of the
+   visit, and with it a capital on land claimed first, and a credit for that claim. It is read again after 15, 30 and
+   60 seconds; after RACE_TRIES failures the entry keeps its record's time until the page is loaded again. */
+function raceFailed(k){
+  RACE.t.set(k,false);const f=(RACE.f.get(k)||0)+1;RACE.f.set(k,f);if(f>=RACE_TRIES)return;
+  setTimeout(()=>{if(RACE.t.get(k)!==false)return;RACE.t.delete(k);RACE.want.add(k);RACE.rev++;raceSoon();},15000*2**(f-1));
+}
 async function raceFetch(){
   const ks=[...RACE.want].slice(0,40);for(const k of ks)RACE.want.delete(k);
   await Promise.all(ks.map(k=>{const [key,src]=k.split(':');
-    return S.db.doc('stamps/'+REG.id+'/'+key+'/'+src).get().then(sn=>{const t=sn.exists?(sn.data()||{}).t:null;RACE.t.set(k,t==null?null:typeof t.toMillis==='function'?t.toMillis():Number(t));},()=>RACE.t.set(k,false));}));
+    return S.db.doc('stamps/'+REG.id+'/'+key+'/'+src).get().then(sn=>{const t=sn.exists?(sn.data()||{}).t:null;RACE.t.set(k,t==null?null:typeof t.toMillis==='function'?t.toMillis():Number(t));},()=>raceFailed(k));}));
   RACE.busy=false;RACE.rev++;
   try{redrawMaps();if(['nation','region','visit','explore','map'].includes(S.view))render();}catch(e){}
   raceSoon();
@@ -20635,7 +20657,7 @@ function territory(extra){
   const wrong=capWrong(list,ev);
   if(wrong.size)for(let i=list.length-1;i>=0;i--)if(wrong.has(list[i].id))list.splice(i,1);
   const csig=list.map(x=>x.npc||!Array.isArray(x.n.cities)?'':x.n.cities.map(c=>c.c).join('.')).join(',');
-  const key=list.map(x=>x.id+'@'+x.cap+'#'+x.budget+'~'+x.w.toFixed(2)+x.col+(x.me?'*':'')+(x.cm?'c':'')).join('|')+'|'+ev.sig+'|'+csig+(TERR_AT==null?'':'@'+TERR_AT)+(wrong.size?'|w'+[...wrong.keys()].join('.'):'');
+  const key=list.map(x=>x.id+'@'+x.cap+'#'+x.budget+'~'+x.w.toFixed(2)+x.col+(x.me?'*':'')+(x.cm?'c':'')).join('|')+'|'+ev.sig+'|'+csig+(TERR_AT==null?'':'@'+TERR_AT)+(wrong.size?'|w'+[...wrong.keys()].join('.'):'')+(wrong.pend&&wrong.pend.size?'|p'+[...wrong.pend].join('.'):'');
   const TC=TERR_AT==null?terrCache:atlasCache,hit=TC.get(key);
   if(hit){hit.list.forEach((x,i)=>{x.n=list[i].n;x.pop=list[i].pop;});return hit;}
   const N=MAP.N,L=list.length,byId=Object.fromEntries(list.map((x,i)=>[x.id,i]));
@@ -20648,6 +20670,9 @@ function territory(extra){
   const used=new Int32Array(L),how=new Map(),nat=new Map();
   for(const e of ev.list){
     if(!e.claim)continue;const oi=byId[e.o];if(oi===undefined||!list[oi].cm)continue;
+    /* a claim under a capital that stands only until the claim's server time is read (capWrong's pend) holds no land
+       yet, but keeps its credit until that time says the capital came first */
+    if(isCap[e.c]&&wrong.pend&&wrong.pend.has(e.src+':'+e.c)&&claimLand(e.c))used[oi]++;
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||!claimLand(e.c))continue;
     if(cityOver.has(e.c)){if(cityOver.get(e.c)===oi&&!how.has(e.c)){used[oi]++;how.set(e.c,1);nat.set(e.c,oi);}continue;}
     if(!inReach(list[oi],e.c)||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
