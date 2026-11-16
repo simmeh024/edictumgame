@@ -117,10 +117,23 @@ test('An initially issued hashed code recovers the original Guest UID, never reg
   await rejects(account(visitor,{op:'recover',code:code()}),'invalid_recovery');
 });
 
-test('A linked or deleted nation cannot be recovered by a former Guest code',async()=>{
+test('A linked or deleted nation cannot be recovered by a former Guest code; a linked one says how it signs in',async()=>{
   const g=await player(), visitor=await player(), secret=code();await account(g,{op:'issue',code:secret});
-  await auth.updateUser(g.uid,{email:`linked-${crypto.randomUUID()}@example.test`,emailVerified:true,password:'test-only-password'});
-  await rejects(account(visitor,{op:'recover',code:secret}),'invalid_recovery');
+  const email=`linked-${crypto.randomUUID()}@example.test`;
+  await auth.updateUser(g.uid,{email,emailVerified:true,password:'test-only-password'});
+  /* its own code, but the nation has linked a sign-in since: named, with the ways it signs in, never the address */
+  let said='';
+  await assert.rejects(account(visitor,{op:'recover',code:secret}),e=>{said=e.message;return e.code==='recovery_linked';});
+  assert.ok(said.includes(`“${g.uid}” now signs in with your email address`),said);
+  assert.ok(said.includes('with “Continue with email”'),said);
+  assert.ok(!said.includes(email)&&!said.includes('@'),said);
+  /* Google and Discord too, in the order of the game's sign-in buttons */
+  await auth.updateUser(g.uid,{providerToLink:{providerId:'google.com',uid:'g-'+g.uid,email}});await auth.setCustomUserClaims(g.uid,{dc:'1234'});
+  await assert.rejects(account(visitor,{op:'recover',code:secret}),e=>{said=e.message;return e.code==='recovery_linked';});
+  assert.ok(said.includes('now signs in with Google, Discord or your email address'),said);
+  assert.ok(said.includes('with “Continue with Google”, “Continue with Discord” or “Continue with email”'),said);
+  /* a guessed code still reads as invalid */
+  await rejects(account(visitor,{op:'recover',code:code()}),'invalid_recovery');
   const h=await player(), next=code();await account(h,{op:'issue',code:next});await db.doc('nations/'+h.uid).delete();await rejects(account(visitor,{op:'recover',code:next}),'invalid_recovery');
 });
 

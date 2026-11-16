@@ -1993,7 +1993,13 @@
       A.leaving=true;A.frozen=true;
       var session=await A.auth.signInWithCustomToken(result.token);
       leave({nation:null,uid:session.user.uid},'Your guest nation has been recovered.');
-    } catch(e) { A.leaving=false;A.frozen=false;setBusy('');setMsg(e.message,true); }
+    } catch(e) {
+      A.leaving=false;A.frozen=false;setBusy('');
+      /* the code is right, but its nation has linked a sign-in since: straight to the sign-in buttons, with the server's
+         words on which ones it uses (functions/accounts.js, recovery_linked) */
+      if(e&&e.code==='recovery_linked'){ui.view='main';draw();focusFirst();}
+      setMsg(e.message,true);
+    }
   }
 
   /* ───────── reports ───────── */
