@@ -23,7 +23,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore(), SECRET = 'pdl_ntfset_e2e', H = 36e5, DAY = 864e5;
-const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001', cartopack: 'pri_cartopack0001', embpack: 'pri_embpack000001', mayapack: 'pri_mayapack00001' };
+const PRICES = { founder: 'pri_founder0000001', idpack: 'pri_idpack00000001', vip: 'pri_vip00000000001', vipyear: 'pri_vipyear0000001', giftvip: 'pri_giftvip0000001', bfpack: 'pri_bfpack00000001', orpack: 'pri_orpack00000001', sailpack: 'pri_sailpack000001', cbpack: 'pri_cbpack00000001', tulippack: 'pri_tulippack00001', cartopack: 'pri_cartopack0001', embpack: 'pri_embpack000001', mayapack: 'pri_mayapack00001', afripack: 'pri_afripack00001' };
 const rid = p => p + '_' + crypto.randomBytes(13).toString('hex');
 
 /* ── Paddle, played by this test ── */
@@ -101,8 +101,8 @@ check('without an answer from Paddle the prices stay in euros alone', !(await G.
 const A = await player('shop founder', { vp: { width: 1280, height: 1000 }, cap: 500 });const aUid = await open(A);await found(A, 'Gildmark');await register(A);
 /* Paddle answers in the player's own currency (here Mexican pesos), as it does for a player in Mexico */
 /* (set again after a reload, before the Shop is next drawn) */
-const pesos = p => p.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66', [P.orpack]: 'MX$62.71', [P.sailpack]: 'MX$62.71', [P.cbpack]: 'MX$52.25', [P.tulippack]: 'MX$62.71', [P.cartopack]: 'MX$83.62', [P.embpack]: 'MX$52.25', [P.mayapack]: 'MX$83.62' };
-  const N = { [P.founder]: 20939, [P.idpack]: 6271, [P.vip]: 10466, [P.orpack]: 6271, [P.sailpack]: 6271, [P.cbpack]: 5225, [P.tulippack]: 6271, [P.cartopack]: 8362, [P.embpack]: 5225, [P.mayapack]: 8362 };
+const pesos = p => p.evaluate(P => { const L = { [P.founder]: 'MX$209.39', [P.idpack]: 'MX$62.71', [P.vip]: 'MX$104.66', [P.orpack]: 'MX$62.71', [P.sailpack]: 'MX$62.71', [P.cbpack]: 'MX$52.25', [P.tulippack]: 'MX$62.71', [P.cartopack]: 'MX$83.62', [P.embpack]: 'MX$52.25', [P.mayapack]: 'MX$83.62', [P.afripack]: 'MX$62.71' };
+  const N = { [P.founder]: 20939, [P.idpack]: 6271, [P.vip]: 10466, [P.orpack]: 6271, [P.sailpack]: 6271, [P.cbpack]: 5225, [P.tulippack]: 6271, [P.cartopack]: 8362, [P.embpack]: 5225, [P.mayapack]: 8362, [P.afripack]: 6271 };
   window.__edictumPrices = items => ({ cur: 'MXN', prices: Object.fromEntries(items.map(id => [id, L[id]])), amounts: Object.fromEntries(items.filter(id => N[id]).map(id => [id, N[id]])) }); }, PRICES);
 await pesos(A);
 await go(A, 'shop');
@@ -145,6 +145,10 @@ check('the Mayan Pack is on sale, fifteen pieces, in pesos', /Mayan Pack/.test(a
 await openDr(A, 'mayapack');
 check('its drawer shows the leader in four looks of the pack, the land in the Stepped Fret, the Stela card and a Dots and Bars note', (await A.evaluate(() => document.querySelectorAll('.shop-mayapack .shop-maya-pt .cv-med.cv-rg5').length)) === 4 && !!(await A.$('.shop-mayapack .shop-maya-land svg.ctg-land')) && !!(await A.$('.shop-mayapack .hero.cd-stela')) && !!(await A.$('.shop-mayapack .shop-cb-cur svg')) && (await A.evaluate(() => document.querySelectorAll('.shop-mayapack .shop-list li').length)) === 15 && /3\.99/.test(await txt(A, '#shop-mayapack-price')));
 await shot(A, '.shop-dr .shop-mayapack', 'shop-maya-drawer.png');
+check('the African Kingdoms Pack is on sale, fifteen pieces, in pesos', /African Kingdoms Pack/.test(await txt(A, '.shop-cd[data-p="afripack"]')) && /15 pieces/.test(await txt(A, '.shop-cd[data-p="afripack"]')) && /MX$62.71/.test(await txt(A, '.shop-cd[data-p="afripack"]')), await txt(A, '.shop-cd[data-p="afripack"]'));
+await openDr(A, 'afripack');
+check('its drawer shows both banners, two notes, the shield with each charge, the Sankofa flag, the stamp, the mosque and the three portrait pieces', (await A.evaluate(() => document.querySelectorAll('.shop-afripack .shop-af-pats svg.czp').length)) === 2 && (await A.evaluate(() => document.querySelectorAll('.shop-afripack .shop-cb-cur svg').length)) >= 2 && (await A.evaluate(() => document.querySelectorAll('.shop-afripack .shop-or-grid figure').length)) === 5 && (await A.evaluate(() => document.querySelectorAll('.shop-afripack .shop-pt .cv-med').length)) === 3 && (await A.evaluate(() => document.querySelectorAll('.shop-afripack .shop-list li').length)) === 15 && /2.99/.test(await txt(A, '#shop-afripack-price')));
+await shot(A, '.shop-dr .shop-afripack', 'shop-afri-drawer.png');
 /* every other pack: its two portrait pieces on the player's own head of government (the Founder's Package with the card
    pack's two), in its list too; the Microprint ring with the nation's name, the flag lapel pin with its flag */
 { const want = { bfpack: 2, orpack: 2, sailpack: 2, cbpack: 2, tulippack: 2, cartopack: 2, embpack: 2, idpack: 2, founder: 4 }, got = {};
