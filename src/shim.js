@@ -1692,7 +1692,7 @@
     });
     d.addEventListener('change', function(e) { if (e.target.id === 'ed-guest-code-saved') syncSignoutButton(); });
     d.addEventListener('cancel', function (e) { if (ui.busy) e.preventDefault(); });
-    d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; ui.support = null; setMsg(''); });
+    d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; ui.support = null; ui.fromCode = false; setMsg(''); });
     /* while the dialog is open, keys belong to it, not to the game's shortcuts behind it; Enter in a field
        with data-enter does that field's action */
     window.addEventListener('keydown', function (e) {
@@ -1747,7 +1747,8 @@
           '<input class="input" id="ed-rc-email" type="email" maxlength="200" autocomplete="email" spellcheck="false" data-enter="recovery-mail" value="' + esc(ui.rcEmail || '') + '">' +
           '<p class="ed-fine">We send it once and keep neither the code nor the address. Anyone who can read that inbox can take over your nation.</p>' +
           row('<button type="button" class="btn ghost" data-ed="recovery-mail">' + (ui.rcMailed ? 'Send it again' : 'Send the code') + '</button>') + '</div>' : '') +
-        row('<button type="button" class="btn" data-ed="recovery-saved" data-autofocus>I saved my recovery code</button>');
+        /* or no code to keep at all: the account panel's linking buttons, with a way back here (ui.fromCode) */
+        row('<button type="button" class="btn" data-ed="recovery-saved" data-autofocus>I saved my recovery code</button><button type="button" class="btn ghost" data-ed="recovery-link">Link your account instead</button>');
     } else if (ui.view === 'regenerate') {
       h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Regenerate recovery key?</h2>' +
         '<p>Generate a new recovery key for ' + nm + '.</p><p><b>Your previous key stops working immediately.</b> Devices already signed in stay signed in, and your nation keeps its progress.</p><p>Save the new key outside this browser before signing out. The old key cannot be retrieved.</p>' +
@@ -1852,6 +1853,7 @@
           (n ? '<p>' + nm + ' is a Guest Nation, tied to this browser: <b>if its data is cleared, the nation can be lost</b>. Link a sign-in to become a Registered Nation.</p>' + PERKS + '<p class="ed-fine">Assembly voting also needs a nation at least 24 hours old.</p>'
              : '<p>If your nation is linked to Google, Discord or an email address, sign in with it to carry on here. New to Edictum? Close this and found a nation on this page; you can link a sign-in whenever you like.</p>') +
           webviewNote() + row(linkingButtons(A.auth.currentUser)) + TRUST +
+          (n && ui.fromCode && pendingRecoveryCode() ? row('<button type="button" class="btn ghost" data-ed="recovery-code-back">Back to my recovery code</button>') : '') +
           (n ? row('<button type="button" class="btn ghost" data-ed="recovery-regenerate">Regenerate recovery key</button><button type="button" class="btn ghost" data-ed="signout">Sign out</button>') + '<p class="ed-fine">A saved code cannot be displayed again. Regenerating replaces it and stops the previous key from working. After linking, use your linked sign-in to recover this nation.</p>' :
             row('<button type="button" class="btn ghost" data-ed="guest-session">Login with active guest session</button>') + row('<button type="button" class="linkish" data-ed="recover">Recover with a code</button>'));
       } else if (w.kind === 'linked') {
@@ -1882,6 +1884,8 @@
     if (a === 'recover-yes') { recoverNation(); return; }
     if (a === 'guest-session') { resumeGuest(); return; }
     if (a === 'recovery-saved') { var rotation=recoveryRotation(A.uid);if(rotation&&ui.recoveryCode!==rotation.code){setMsg('Finish regenerating and save your new recovery key first.',true);return;}clearRecovery(A.uid); recoveryChecked = A.uid; ui.view = 'main'; ui.dlg.close(); return; }
+    if (a === 'recovery-link') { ui.fromCode = true; ui.view = 'main'; setMsg(''); draw(); var sb = ui.dlg.querySelector('.ed-signin'); if (sb) try { sb.focus(); } catch (e) {} return; }
+    if (a === 'recovery-code-back') { ui.view = 'recovery-code'; setMsg(''); draw(); return; }
     if (a === 'recovery-mail-open') { ui.rcMail = true; setMsg(''); draw(); var mi = ui.dlg.querySelector('#ed-rc-email'); if (mi) mi.focus(); return; }
     if (a === 'recovery-mail') { mailRecovery(); return; }
     if (a === 'recovery-copy' || a === 'recovery-download') {
